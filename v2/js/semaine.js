@@ -127,6 +127,104 @@
     });
   }
 
+  // ── Zones (ECRAN-SAISIE §7 bis.10) ──────────────────────────────────────
+  //
+  // SIX zones, pas dix-huit muscles. Mesuré sur 52 semaines : le premier muscle
+  // pèse 11 % du volume, les six premiers 52 %, les douze premiers 86 %. Il n'y
+  // a PAS de longue traîne — masquer la moitié basse cacherait 48 % du volume,
+  // pas du bruit. On regroupe, on ne tronque pas : la somme des six zones vaut
+  // exactement celle des dix-huit muscles, et un test le vérifie.
+  var ZONES = [
+    { cle: 'jambes', libelle: 'Jambes',
+      muscles: ['quadriceps', 'ischio_jambiers', 'fessiers', 'mollets', 'adducteurs', 'abducteurs'] },
+    { cle: 'dos', libelle: 'Dos',
+      muscles: ['grand_dorsal', 'haut_du_dos', 'trapezes', 'bas_du_dos'] },
+    { cle: 'bras', libelle: 'Bras', muscles: ['biceps', 'triceps', 'avant_bras'] },
+    { cle: 'epaules', libelle: 'Épaules',
+      muscles: ['deltoide_anterieur', 'deltoide_lateral', 'deltoide_posterieur'] },
+    { cle: 'poitrine', libelle: 'Poitrine', muscles: ['pectoraux'] },
+    { cle: 'tronc', libelle: 'Tronc', muscles: ['abdominaux'] }
+  ];
+
+  // Un muscle hors table ne disparaît pas et n'est rattaché à aucune zone au
+  // hasard : il tombe dans une zone À PART, visible. Le rattacher d'office
+  // fabriquerait un total faux qu'on croirait exact — c'est le même risque que
+  // les libellés, en pire, parce qu'il se cache dans une somme.
+  var ZONE_INCONNUE = { cle: 'hors-zone', libelle: 'Hors zone' };
+
+  var ZONE_DE = {};
+  ZONES.forEach(function (z) { z.muscles.forEach(function (m) { ZONE_DE[m] = z; }); });
+
+  function zoneDuMuscle(muscle) { return ZONE_DE[muscle] || null; }
+
+  // Volume par zone, à partir du volume par muscle — donc la somme est la même
+  // par construction, et le test le prouve plutôt que de le supposer.
+  function volumeParZone(series, exercices) {
+    var parMuscle = volumeParMuscle(series, exercices);
+    var paquets = {}, ordre = [];
+
+    parMuscle.forEach(function (v) {
+      var z = zoneDuMuscle(v.muscle) || ZONE_INCONNUE;
+      if (!paquets[z.cle]) {
+        paquets[z.cle] = { zone: z.cle, libelle: z.libelle, series: 0, muscles: [],
+                           horsTable: z === ZONE_INCONNUE };
+        ordre.push(paquets[z.cle]);
+      }
+      paquets[z.cle].series += v.series;
+      paquets[z.cle].muscles.push(v);
+    });
+
+    return ordre.map(function (z) {
+      // Les dixièmes se réintroduisent à l'addition : on arrondit une fois, à
+      // la fin, comme volumeParMuscle le fait pour chaque muscle.
+      z.series = Math.round(z.series * 10) / 10;
+      return z;
+    }).sort(function (a, b) {
+      return b.series - a.series || a.libelle.localeCompare(b.libelle);
+    });
+  }
+
+  // D'où vient ce 11,5 : une ligne par couple (exercice, séance), avec le
+  // nombre de séries RÉELLES et l'apport. L'écart entre les deux est ce que la
+  // fenêtre existe pour montrer — un muscle secondaire vaut un demi-point.
+  function apportsParMuscle(muscle, series, exercices, seances) {
+    var cat = {};
+    (exercices || []).forEach(function (e) { if (e && e.slug) cat[e.slug] = e; });
+    var quand = {};
+    (seances || []).forEach(function (s) { if (s && s.id) quand[s.id] = s; });
+
+    var paquets = {}, ordre = [];
+    (series || []).forEach(function (s) {
+      if (!s || s.type_serie !== 'travail') return;
+      var exo = cat[s.exercise_slug];
+      if (!exo) return;
+      var primaire = (exo.muscles_primaires || []).indexOf(muscle) >= 0;
+      var secondaire = (exo.muscles_secondaires || []).indexOf(muscle) >= 0;
+      if (!primaire && !secondaire) return;
+
+      var cle = s.exercise_slug + '|' + s.session_id;
+      if (!paquets[cle]) {
+        var seance = quand[s.session_id];
+        var d = seance && seance.debut ? new Date(seance.debut) : null;
+        paquets[cle] = {
+          slug: s.exercise_slug, nom: exo.nom || s.exercise_slug,
+          jour: d && !isNaN(d.getTime()) ? d : null,
+          seriesReelles: 0, apport: 0, secondaire: !primaire && secondaire
+        };
+        ordre.push(paquets[cle]);
+      }
+      paquets[cle].seriesReelles += 1;
+      paquets[cle].apport += primaire ? 1 : 0.5;
+    });
+
+    return ordre.map(function (a) {
+      a.apport = Math.round(a.apport * 10) / 10;
+      return a;
+    }).sort(function (a, b) {
+      return b.apport - a.apport || a.nom.localeCompare(b.nom);
+    });
+  }
+
   // Un jour sans séance ne s'affiche pas : sur une semaine à quatre séances,
   // trois lignes vides n'apportent rien et allongent le défilement. La
   // répartition se lit déjà dans les dates des jours pleins.
@@ -151,6 +249,10 @@
     JOURS: JOURS,
     LIBELLES_MUSCLE: LIBELLES_MUSCLE,
     libelleMuscle: libelleMuscle,
+    ZONES: ZONES,
+    zoneDuMuscle: zoneDuMuscle,
+    volumeParZone: volumeParZone,
+    apportsParMuscle: apportsParMuscle,
     joursAvecSeances: joursAvecSeances,
     bornesSemaine: bornesSemaine,
     decalerSemaine: decalerSemaine,

@@ -14,6 +14,9 @@
   var doc = racine.document;
   function M() { return racine.THModele; }
 
+  // Séparateur décimal français, jamais de point à l'écran.
+  function nombreFr(n) { return String(n).replace('.', ','); }
+
   function el(balise, classe, texte) {
     var n = doc.createElement(balise);
     if (classe) n.className = classe;
@@ -136,6 +139,8 @@
 
   // ── Vue hebdomadaire ────────────────────────────────────────────────────
 
+  var JOURS_COURTS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+
   var MOIS = ['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
 
   // « 7 – 13 sept. 2026 », ou « 31 août – 6 sept. 2026 » à cheval sur deux mois.
@@ -150,35 +155,183 @@
   // aucun seuil, aucune couleur d'alarme, aucun verdict. La règle de volume
   // exige trois semaines actives et deux fenêtres de persistance : rien ne peut
   // être conclu d'une semaine isolée, donc rien n'est conclu.
-  function rendreBilan(cible, bilan, volume) {
+  // ── La barre de semaine, identique dans les deux onglets ────────────────
+  //
+  // Construite en JS plutôt que dupliquée dans le balisage : une seule
+  // définition, deux emplacements, et la semaine affichée se conserve en
+  // passant d'un onglet à l'autre.
+  function rendreBarreSemaine(cible, vue) {
+    if (!cible) return;
     vider(cible);
-    var compte = el('div', 'bilan-compte');
-    compte.appendChild(el('span', 'bilan-chiffre', bilan.nbSeances));
-    compte.appendChild(el('span', 'bilan-mot', bilan.nbSeances > 1 ? 'séances' : 'séance'));
-    compte.appendChild(el('span', 'bilan-sep', '·'));
-    compte.appendChild(el('span', 'bilan-chiffre', bilan.nbSeriesTravail));
-    compte.appendChild(el('span', 'bilan-mot', bilan.nbSeriesTravail > 1 ? 'séries de travail' : 'série de travail'));
-    cible.appendChild(compte);
+    var barre = el('div', 'barre-sem');
 
-    if (!volume.length) return;
-    var liste = el('div', 'volume');
-    volume.forEach(function (v) {
-      var ligne = el('div', 'volume-ligne');
-      ligne.appendChild(el('span', 'volume-nom', v.libelle));
-      ligne.appendChild(el('span', 'volume-pointille'));
-      ligne.appendChild(el('span', 'volume-valeur', String(v.series).replace('.', ',')));
-      liste.appendChild(ligne);
+    var prec = el('button', 'barre-fl', '\u2039');
+    prec.type = 'button'; prec.setAttribute('aria-label', 'Semaine précédente');
+    prec.addEventListener('click', vue.surPrecedente);
+    barre.appendChild(prec);
+
+    var milieu = el('button', 'barre-milieu');
+    milieu.type = 'button';
+    milieu.setAttribute('aria-label', 'Choisir une semaine');
+    var date = el('span', 'barre-date', vue.libelle);
+    date.appendChild(el('span', 'barre-chevron', '\u2304'));
+    milieu.appendChild(date);
+    if (vue.sousTitre) milieu.appendChild(el('span', 'barre-totaux', vue.sousTitre));
+    milieu.addEventListener('click', vue.surDate);
+    barre.appendChild(milieu);
+
+    var suiv = el('button', 'barre-fl', '\u203a');
+    suiv.type = 'button'; suiv.setAttribute('aria-label', 'Semaine suivante');
+    suiv.addEventListener('click', vue.surSuivante);
+    barre.appendChild(suiv);
+
+    cible.appendChild(barre);
+  }
+
+  // ── La ligne de rappel (Séances) ────────────────────────────────────────
+  //
+  // Les six zones en trois colonnes sur deux rangs, ~40 px. Le relevé complet
+  // occupait ~250 px avant la première séance : sur une semaine à six séances,
+  // une seule était visible. Séances répond à « qu'ai-je fait », Progression à
+  // « comment ça se répartit ».
+  function rendreRappel(cible, zones, surChoix) {
+    if (!cible) return;
+    vider(cible);
+    // Pas de rappel quand la semaine est vide : rien à rappeler.
+    if (!zones || !zones.length) return;
+
+    var ligne = el('button', 'rappel');
+    ligne.type = 'button';
+    ligne.setAttribute('aria-label', 'Voir la répartition dans Progression');
+    var grille = el('span', 'rappel-zones');
+    zones.forEach(function (z) {
+      var item = el('span', 'rappel-zone');
+      item.appendChild(el('span', null, z.libelle + ' '));
+      item.appendChild(el('b', null, nombreFr(z.series)));
+      grille.appendChild(item);
     });
-    cible.appendChild(liste);
+    ligne.appendChild(grille);
+    ligne.appendChild(el('span', 'rappel-fl', '\u203a'));
+    ligne.addEventListener('click', surChoix);
+    cible.appendChild(ligne);
+  }
+
+  // ── Le relevé par zones (Progression) ───────────────────────────────────
+  //
+  // Trois niveaux, UN SEUL cran d'indentation : la zone déplie ses muscles en
+  // place, le muscle ouvre une fenêtre. Trois indentations écrasent les noms à
+  // 360 px — c'est l'erreur des trois premières tentatives.
+  function rendreReleveZones(cible, zones, ouverte, surZone, surMuscle) {
+    if (!cible) return;
+    vider(cible);
+    if (!zones || !zones.length) {
+      cible.appendChild(el('p', 'semaine-vide', 'Aucune séance cette semaine.'));
+      return;
+    }
+    var releve = el('div', 'releve');
+    zones.forEach(function (z) {
+      var estOuverte = z.zone === ouverte;
+      var bloc = el('div', 'zone' + (estOuverte ? ' ouvert' : '') + (z.horsTable ? ' hors-table' : ''));
+
+      var tete = el('button', 'zone-tete');
+      tete.type = 'button';
+      tete.setAttribute('aria-expanded', estOuverte ? 'true' : 'false');
+      tete.appendChild(el('span', 'zone-chevron', '\u25b6'));
+      tete.appendChild(el('span', 'zone-nom', z.libelle));
+      tete.appendChild(el('span', 'zone-pointille'));
+      tete.appendChild(el('span', 'zone-valeur', nombreFr(z.series)));
+      tete.addEventListener('click', function () { surZone(z.zone); });
+      bloc.appendChild(tete);
+
+      if (estOuverte) {
+        var liste = el('div', 'zone-muscles');
+        z.muscles.forEach(function (m) {
+          var mu = el('button', 'muscle-ligne');
+          mu.type = 'button';
+          mu.appendChild(el('span', 'muscle-nom', m.libelle));
+          mu.appendChild(el('span', 'muscle-pointille'));
+          mu.appendChild(el('span', 'muscle-valeur', nombreFr(m.series)));
+          mu.appendChild(el('span', 'muscle-fl', '\u203a'));
+          mu.addEventListener('click', function () { surMuscle(m); });
+          liste.appendChild(mu);
+        });
+        bloc.appendChild(liste);
+      }
+      releve.appendChild(bloc);
+    });
+    cible.appendChild(releve);
+  }
+
+  // ── La fenêtre d'un muscle ──────────────────────────────────────────────
+  //
+  // Elle répond à « d'où vient ce 11,5 » : chaque exercice porte son apport, le
+  // jour, et le nombre de séries RÉELLES. C'est là que se lit l'écart entre
+  // 5 séries et 2,5 points. La note l'explique UNE fois, en bas.
+  function rendreFenetreMuscle(cible, muscle, zone, apports, bornes) {
+    if (!cible) return;
+    vider(cible);
+    var haut = el('div', 'fen-haut');
+    var quoi = el('span', 'fen-quoi', muscle.libelle);
+    var situe = zone ? zone + ' \u00b7 ' : '';
+    quoi.appendChild(el('span', 'fen-zone', situe + libelleSemaine(bornes.lundi, bornes.dimanche)));
+    haut.appendChild(quoi);
+    var combien = el('span', 'fen-combien', nombreFr(muscle.series));
+    combien.appendChild(el('em', null, 'séries'));
+    haut.appendChild(combien);
+    cible.appendChild(haut);
+
+    var secondaire = false;
+    apports.forEach(function (a) {
+      if (a.secondaire) secondaire = true;
+      var ligne = el('div', 'fen-exo');
+      var nom = el('span', 'fen-nom', a.nom);
+      var ou = a.jour ? JOURS_COURTS[(a.jour.getDay() + 6) % 7] + ' ' + a.jour.getDate() + ' \u00b7 ' : '';
+      nom.appendChild(el('em', null, ou + a.seriesReelles + ' série' +
+        (a.seriesReelles > 1 ? 's' : '') + (a.secondaire ? ', muscle secondaire' : '')));
+      ligne.appendChild(nom);
+      ligne.appendChild(el('span', 'fen-valeur', nombreFr(a.apport)));
+      cible.appendChild(ligne);
+    });
+
+    if (secondaire) {
+      cible.appendChild(el('p', 'fen-note',
+        'Un muscle secondaire compte pour un demi-point par série.'));
+    }
+  }
+
+  // ── Le calendrier ───────────────────────────────────────────────────────
+  //
+  // Ce sont les LIGNES qui se sélectionnent. Chaque jour d'une ligne, y compris
+  // ceux du mois voisin, choisit la même semaine — et garde ses points.
+  function rendreCalendrier(cible, grille, lundiChoisi, surSemaine) {
+    if (!cible) return;
+    vider(cible);
+    ['L', 'M', 'M', 'J', 'V', 'S', 'D'].forEach(function (d) {
+      cible.appendChild(el('span', 'cal-entete', d));
+    });
+    var courant = lundiChoisi ? lundiChoisi.getTime() : null;
+    grille.lignes.forEach(function (ligne) {
+      var choisie = courant !== null && ligne.lundi.getTime() === courant;
+      ligne.jours.forEach(function (j) {
+        var cel = el('button', 'cal-jour' + (j.horsMois ? ' hors' : '') + (choisie ? ' choisie' : ''));
+        cel.type = 'button';
+        cel.appendChild(el('span', 'cal-num', String(j.jour)));
+        var pts = el('span', 'cal-points');
+        for (var i = 0; i < j.points; i++) pts.appendChild(el('i', null, ''));
+        cel.appendChild(pts);
+        cel.addEventListener('click', function () { surSemaine(ligne.lundi); });
+        cible.appendChild(cel);
+      });
+    });
   }
 
 
+  // Les sept jours, vides compris. Un jour sans séance s'affiche et ne se juge
+  // pas : le système ne commente jamais l'assiduité (CADRAGE-V2 §3.1 bis).
   // Les trois premiers exercices d'une séance. Le premier en clair, les deux
-  // suivants en gris : un seul pivot par carte. Jamais « et 0 autres ».
-  // UNE LIGNE PAR NOM, pas une grille. Le §7 bis.5 prévoit `nom | palier ×
-  // reps` ; tant que le palier n'est pas porté, la colonne de droite est vide
-  // et une grille à deux colonnes y fait passer un nom sur deux. La grille
-  // reviendra avec le moteur, et le palier avec elle.
+  // suivants en gris : un seul pivot par carte. UNE LIGNE PAR NOM, pas une
+  // grille : tant que le palier n'est pas porté, la colonne de droite est vide
+  // et une grille à deux colonnes y ferait passer un nom sur deux.
   function rendreApercu(carte, apercu) {
     if (!apercu || !apercu.tete.length) return;
     var liste = el('div', 'seance-apercu');
@@ -201,8 +354,6 @@
     }
   }
 
-  // Les sept jours, vides compris. Un jour sans séance s'affiche et ne se juge
-  // pas : le système ne commente jamais l'assiduité (CADRAGE-V2 §3.1 bis).
   function rendreJours(cible, jours, resumeDe, surChoix) {
     vider(cible);
 
@@ -247,6 +398,24 @@
     cible.appendChild(el('p', genre === 'erreur' ? 'erreur' : 'vide', texte));
   }
 
+  var api = {
+    rendreEtat: rendreEtat,
+    rendreOnglets: rendreOnglets,
+    rendreApercu: rendreApercu,
+    rendreBarreSemaine: rendreBarreSemaine,
+    rendreRappel: rendreRappel,
+    rendreReleveZones: rendreReleveZones,
+    rendreFenetreMuscle: rendreFenetreMuscle,
+    rendreCalendrier: rendreCalendrier,
+    libelleSemaine: libelleSemaine,
+    rendreJours: rendreJours,
+    resumeSortie: resumeSortie,
+    rendreListeSeances: rendreListeSeances,
+    rendreBloc: rendreBloc,
+    rendreDetail: rendreDetail,
+    message: message
+  };
+
   racine.THRendu = {
     el: el,
     vider: vider,
@@ -255,7 +424,11 @@
     rendreOnglets: rendreOnglets,
     rendreApercu: rendreApercu,
     libelleSemaine: libelleSemaine,
-    rendreBilan: rendreBilan,
+    rendreBarreSemaine: rendreBarreSemaine,
+    rendreRappel: rendreRappel,
+    rendreReleveZones: rendreReleveZones,
+    rendreFenetreMuscle: rendreFenetreMuscle,
+    rendreCalendrier: rendreCalendrier,
     rendreJours: rendreJours,
     resumeSortie: resumeSortie,
     rendreListeSeances: rendreListeSeances,

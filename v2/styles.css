@@ -171,44 +171,119 @@ button{font-family:inherit;cursor:pointer}
 
 /* ── Vue hebdomadaire ───────────────────────────────────────────────────── */
 
-.barre-semaine{
-  display:flex;align-items:center;justify-content:space-between;gap:8px;
-  background:var(--panneau);border-radius:10px;padding:6px 8px;margin-bottom:8px;
-}
-.semaine-libelle{font-size:13px;font-weight:600;text-align:center;flex:1;min-width:0}
-.nav-semaine{
-  width:34px;height:34px;flex:none;background:none;border:1px solid var(--trait);
-  border-radius:8px;color:var(--texte);font-size:18px;line-height:1;
-}
-.nav-semaine:active{border-color:var(--texte-2);color:var(--texte)}
-.semaine-actuelle{display:block;margin:0 auto 10px}
+/* ── Barre de semaine, identique dans les deux onglets ──────────────────── */
+.barre-sem{display:flex;align-items:center;gap:var(--e2);padding:var(--e1) 0 var(--e3)}
+.barre-fl{width:34px;height:34px;flex:0 0 34px;border-radius:var(--r-petit);
+  border:1px solid var(--trait);background:transparent;color:var(--texte-2);
+  font-size:15px;display:grid;place-items:center;line-height:1}
+.barre-fl:active{border-color:var(--texte-2);color:var(--texte)}
+.barre-milieu{flex:1;min-width:0;text-align:center;background:none;border:none;
+  color:inherit;padding:var(--e1) var(--e2);border-radius:var(--r-petit);
+  display:block;font-family:inherit}
+.barre-milieu:active{background:var(--panneau)}
+.barre-date{font-size:14px;font-weight:600;line-height:1.2;color:var(--texte);
+  display:inline-flex;align-items:center;gap:5px}
+.barre-chevron{color:var(--texte-3);font-size:15px;line-height:1}
+.barre-totaux{display:block;font-size:11px;line-height:1.4;color:var(--texte-3);margin-top:3px}
 
-/* Bilan — descriptif. Aucune couleur d'alarme : la règle de volume interdit
-   tout signalement sur une semaine isolée, donc rien n'est signalé. */
-.bilan{margin-bottom:12px}
-.bilan-compte{
-  display:flex;align-items:baseline;flex-wrap:wrap;gap:5px;
-  padding:0 2px 10px;font-size:12px;color:var(--texte-2);
-}
-.bilan-chiffre{font-size:15px;font-weight:700;color:var(--texte);font-variant-numeric:tabular-nums}
-.bilan-sep{color:var(--trait)}
+/* ── Ligne de rappel : six zones, trois colonnes, deux rangs, ~40 px ────── */
+.rappel{display:flex;align-items:center;gap:var(--e2);width:100%;
+  padding:10px var(--e3);margin-bottom:var(--e3);text-align:left;
+  background:var(--panneau);border:none;border-radius:var(--r-petit);
+  color:inherit;font-family:inherit}
+.rappel:active{background:var(--panneau-2)}
+.rappel-zones{flex:1;min-width:0;display:grid;grid-template-columns:repeat(3,1fr);
+  gap:2px var(--e2);font-size:11.5px;line-height:1.5;color:var(--texte-3)}
+.rappel-zone{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rappel-zone b{color:var(--texte-2);font-weight:600;font-variant-numeric:tabular-nums}
+.rappel-fl{color:var(--texte-3);font-size:13px;flex:none}
 
-.volume{display:flex;flex-direction:column;gap:4px}
-/* Le relevé suit la maquette validée : le nom à 13 px, pas 11. À 11 px et en
-   gris, « Abducteurs » et « Adducteurs » — deux muscles distincts, une lettre
-   d'écart, la même valeur, deux lignes voisines — se lisaient comme un
-   doublon. Le libellé était juste ; c'est la typographie qui les confondait. */
-.volume-ligne{display:flex;align-items:baseline;gap:var(--e2);padding:2px 0}
-.volume-nom{font-size:13px;line-height:1.4;color:var(--texte-2);white-space:nowrap}
-/* Relevé pointillé, PAS de barres. Une barre suggère une jauge à remplir,
-   donc un objectif — il n'y en a pas, et REGLE-VOLUME-V2 interdit de le
-   laisser croire : rien ne peut être signalé sur une semaine isolée. */
-.volume-pointille{flex:1;border-bottom:1px dotted var(--trait);
-  transform:translateY(-4px);min-width:16px}
-.volume-valeur{
-  font-size:14px;font-weight:600;line-height:1.4;color:var(--texte);
-  font-variant-numeric:tabular-nums;
-}
+/* ── Relevé par zones (Progression) ─────────────────────────────────────── */
+.releve{background:var(--panneau);border-radius:var(--r-grand);
+  padding:var(--e1) 0;margin-bottom:var(--e4)}
+.zone-tete{display:flex;align-items:baseline;gap:var(--e2);width:100%;
+  padding:11px var(--e4);background:none;border:none;color:inherit;
+  font-family:inherit;text-align:left}
+.zone + .zone .zone-tete{border-top:1px solid var(--trait)}
+.zone-chevron{flex:0 0 9px;color:var(--texte-3);font-size:8px;
+  transform:translateY(-2px);transition:transform .16s}
+.zone.ouvert .zone-chevron{transform:rotate(90deg) translate(-2px,0)}
+.zone-nom{font-size:14px;font-weight:500;line-height:1.4;color:var(--texte)}
+.zone-pointille{flex:1;border-bottom:1px dotted var(--trait);
+  transform:translateY(-4px);min-width:12px}
+.zone-valeur{font-size:15px;font-weight:600;line-height:1.4;color:var(--texte);
+  font-variant-numeric:tabular-nums}
+/* Un muscle hors table se voit : sa zone est marquée, pas fondue dans une autre. */
+.zone.hors-table .zone-nom{color:var(--texte-3);font-style:italic}
+
+/* UN SEUL cran d'indentation. Le troisième niveau est une fenêtre. */
+.zone-muscles{padding:0 var(--e4) var(--e3) 33px}
+.muscle-ligne{display:flex;align-items:baseline;gap:var(--e2);width:100%;
+  padding:6px 0;background:none;border:none;color:inherit;font-family:inherit;
+  text-align:left}
+.muscle-ligne + .muscle-ligne{border-top:1px solid var(--trait)}
+.muscle-nom{font-size:13px;line-height:1.4;color:var(--texte-2);white-space:nowrap}
+.muscle-pointille{flex:1;border-bottom:1px dotted var(--trait);
+  transform:translateY(-4px);min-width:12px}
+.muscle-valeur{font-size:13px;font-weight:500;line-height:1.4;color:var(--texte-2);
+  font-variant-numeric:tabular-nums}
+.muscle-fl{flex:0 0 9px;color:var(--texte-3);font-size:9px}
+
+/* ── Voiles : fenêtre de muscle et calendrier ───────────────────────────── */
+.voile{position:fixed;inset:0;z-index:60;background:rgba(6,7,9,.68);
+  display:grid;place-items:center;padding:var(--e4)}
+.voile[hidden]{display:none}
+.fen,.cal{width:100%;max-width:360px;max-height:100%;overflow-y:auto;
+  background:var(--panneau);border:1px solid var(--trait);border-radius:14px;
+  padding:var(--e4)}
+.fen-haut{display:flex;align-items:baseline;gap:var(--e2);
+  padding-bottom:var(--e3);border-bottom:1px solid var(--trait)}
+.fen-quoi{font-size:17px;font-weight:700;line-height:1.2;color:var(--texte)}
+.fen-zone{display:block;font-size:11px;font-weight:400;line-height:1.2;
+  color:var(--texte-3);margin-top:3px}
+.fen-combien{margin-left:auto;font-size:20px;font-weight:700;line-height:1;
+  color:var(--texte);font-variant-numeric:tabular-nums;white-space:nowrap}
+.fen-combien em{font-size:10px;font-weight:400;font-style:normal;
+  color:var(--texte-3);margin-left:3px}
+.fen-exo{display:flex;align-items:baseline;gap:var(--e2);padding:8px 0}
+.fen-exo + .fen-exo{border-top:1px solid var(--trait)}
+.fen-nom{font-size:13px;line-height:1.4;color:var(--texte);flex:1;min-width:0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fen-nom em{display:block;font-size:11px;font-style:normal;line-height:1.4;color:var(--texte-3)}
+.fen-valeur{font-size:15px;font-weight:700;line-height:1.2;color:var(--texte);
+  white-space:nowrap;font-variant-numeric:tabular-nums}
+.fen-note{font-size:11px;line-height:1.5;color:var(--texte-3);
+  margin-top:var(--e3);padding-top:var(--e3);border-top:1px solid var(--trait)}
+.fermer{width:100%;margin-top:var(--e3);padding:11px;border:1px solid var(--trait);
+  background:transparent;color:var(--texte-2);border-radius:var(--r-petit);
+  font-size:14px;font-weight:600;font-family:inherit}
+
+/* ── Calendrier : on choisit une LIGNE ──────────────────────────────────── */
+.cal{padding:var(--e3) var(--e3) var(--e4)}
+.cal-mois{display:flex;align-items:center;gap:var(--e2);padding:0 var(--e1) var(--e3)}
+.cal-mois-nom{flex:1;text-align:center;font-size:15px;font-weight:700;line-height:1.2}
+.cal-mois button{width:30px;height:30px;border-radius:var(--r-petit);
+  border:1px solid var(--trait);background:transparent;color:var(--texte-2);
+  font-size:14px;font-family:inherit}
+.cal-grille{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.cal-entete{text-align:center;font-size:10px;font-weight:600;line-height:1;
+  color:var(--texte-3);padding-bottom:var(--e2)}
+.cal-jour{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:3px;border:none;background:none;
+  border-radius:var(--r-petit);font-size:13px;font-weight:500;line-height:1;
+  color:var(--texte-2);font-family:inherit;font-variant-numeric:tabular-nums}
+.cal-jour.hors{color:var(--texte-3);opacity:.55}
+.cal-points{display:flex;gap:2px;height:4px}
+.cal-points i{width:4px;height:4px;border-radius:50%;background:var(--texte-3);display:block}
+/* La SEMAINE est sélectionnée, pas le jour. */
+.cal-jour.choisie{background:var(--panneau-2);color:var(--texte)}
+.cal-jour.choisie .cal-points i{background:var(--accent)}
+.cal-pied{display:flex;align-items:center;gap:var(--e2);
+  margin-top:var(--e4);padding-top:var(--e3);border-top:1px solid var(--trait)}
+.cal-aide{font-size:11px;line-height:1.4;color:var(--texte-3);flex:1}
+.cal-pied button{padding:9px var(--e3);border-radius:var(--r-petit);
+  border:1px solid var(--trait);background:transparent;color:var(--texte-2);
+  font-size:12px;font-weight:600;font-family:inherit}
 
 /* Un jour sans séance n'est plus rendu : sur une semaine à quatre séances,
    trois lignes vides allongeaient le défilement sans rien apprendre. */

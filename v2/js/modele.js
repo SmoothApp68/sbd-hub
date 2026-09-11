@@ -261,6 +261,14 @@
   // cataloguée. La colonne de droite attend le moteur.
   var APERCU_MAX = 3;
 
+  // « et 1 autre exercice », « et 3 autres exercices ». Les DEUX mots
+  // s'accordent — le second était resté au pluriel.
+  function libelleAutres(n) {
+    var k = Number(n) || 0;
+    if (k <= 0) return '';
+    return 'et ' + k + (k > 1 ? ' autres exercices' : ' autre exercice');
+  }
+
   function apercuExercices(series, exercices) {
     var index = indexerExercices(exercices || []);
     var vus = {}, ordre = [];
@@ -325,7 +333,8 @@
     indexerExercices: indexerExercices,
     construireBlocs: construireBlocs,
     resumerSeance: resumerSeance,
-    apercuExercices: apercuExercices
+    apercuExercices: apercuExercices,
+    libelleAutres: libelleAutres
   };
 
   // Pas de module ES6 (contrainte du dépôt) : namespace global côté navigateur,

@@ -194,20 +194,24 @@ button{font-family:inherit;cursor:pointer}
 .bilan-sep{color:var(--trait)}
 
 .volume{display:flex;flex-direction:column;gap:4px}
-.volume-ligne{display:grid;grid-template-columns:104px 1fr 30px;align-items:center;gap:7px}
-.volume-nom{font-size:11px;color:var(--texte-2);overflow-wrap:anywhere;line-height:1.2}
+/* Le relevé suit la maquette validée : le nom à 13 px, pas 11. À 11 px et en
+   gris, « Abducteurs » et « Adducteurs » — deux muscles distincts, une lettre
+   d'écart, la même valeur, deux lignes voisines — se lisaient comme un
+   doublon. Le libellé était juste ; c'est la typographie qui les confondait. */
+.volume-ligne{display:flex;align-items:baseline;gap:var(--e2);padding:2px 0}
+.volume-nom{font-size:13px;line-height:1.4;color:var(--texte-2);white-space:nowrap}
 /* Relevé pointillé, PAS de barres. Une barre suggère une jauge à remplir,
    donc un objectif — il n'y en a pas, et REGLE-VOLUME-V2 interdit de le
    laisser croire : rien ne peut être signalé sur une semaine isolée. */
 .volume-pointille{flex:1;border-bottom:1px dotted var(--trait);
   transform:translateY(-4px);min-width:16px}
 .volume-valeur{
-  font-size:11px;font-weight:600;text-align:right;
-  font-variant-numeric:tabular-nums;color:var(--texte);
+  font-size:14px;font-weight:600;line-height:1.4;color:var(--texte);
+  font-variant-numeric:tabular-nums;
 }
 
-/* Les jours vides sont visibles et discrets : ils montrent la répartition,
-   ils ne la commentent pas. */
+/* Un jour sans séance n'est plus rendu : sur une semaine à quatre séances,
+   trois lignes vides allongeaient le défilement sans rien apprendre. */
 .jour{margin-bottom:10px}
 .jour-tete{
   display:flex;align-items:baseline;gap:6px;padding:0 2px 5px;
@@ -215,19 +219,20 @@ button{font-family:inherit;cursor:pointer}
 }
 .jour-nom{font-size:11.5px;font-weight:600;color:var(--texte)}
 .jour-date{font-size:10.5px;color:var(--texte-2);font-variant-numeric:tabular-nums}
-.jour.vide{opacity:.42}
-.jour.vide .jour-tete{border-bottom-style:dashed;margin-bottom:0;padding-bottom:3px}
 
 
 /* ── Aperçu de séance : trois exercices, l'ordre porte l'intention ──────── */
-.seance-apercu{display:grid;grid-template-columns:1fr auto;
-  gap:var(--e1) var(--e2);align-items:baseline;margin-top:var(--e2)}
+/* Une ligne par nom. Pas de grille tant que la colonne de droite est vide :
+   elle y ferait passer un nom sur deux. */
+.seance-apercu{margin-top:var(--e2)}
 .apercu-exo{font-size:13px;line-height:1.45;color:var(--texte-2);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 /* Un seul pivot par carte : le premier exercice en clair, les autres en gris. */
 .apercu-exo.pivot{color:var(--texte)}
-.apercu-autres{grid-column:1/-1;font-size:12px;line-height:1.45;
-  color:var(--texte-3);margin-top:2px}
+.apercu-autres{font-size:12px;line-height:1.45;color:var(--texte-3);margin-top:2px}
+
+/* Une semaine sans séance le dit. Un constat, pas un encouragement. */
+.semaine-vide{font-size:13px;line-height:1.6;color:var(--texte-2);padding:var(--e5) var(--e1)}
 
 /* ── Barre d'onglets ────────────────────────────────────────────────────
    Pas de flèche retour : sur Android l'utilisateur attend le bouton système,

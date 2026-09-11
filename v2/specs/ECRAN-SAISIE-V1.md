@@ -423,6 +423,29 @@ vers le Haut Assis ») se tronquent. Acceptable en l'état. L'alternative — un
 exercice — coûte une colonne en base et 237 saisies ; à n'envisager que si l'usage le
 réclame.
 
+### 7 bis.5 bis Les jours vides ne sont pas affichés — décidé le 11/09/2026
+
+Décision prise **après essai sur device**. Sur une semaine à quatre séances, trois lignes
+vides n'apportent rien et allongent le défilement.
+
+> **Un jour sans séance ne s'affiche pas.** La répartition se lit déjà dans les dates des
+> jours pleins.
+
+**Exception : une semaine entièrement vide affiche une phrase sobre**, pas un écran nu —
+sinon on ne distingue pas « je ne me suis pas entraîné » de « l'app a échoué ». La phrase
+est un constat et rien d'autre : ni encouragement, ni reproche. `CADRAGE-V2.md` §3.1 bis,
+le système ne commente jamais l'assiduité.
+
+Le modèle, lui, continue de rendre les **sept** jours : il décrit la semaine, c'est la vue
+qui choisit ce qu'elle montre.
+
+**Précision sur le résumé de séance (§7 bis.5).** Tant que le palier n'est pas porté dans
+l'app, le résumé est une **liste de noms, un par ligne** — pas une grille à deux colonnes.
+Une grille dont la colonne de droite est vide y fait passer un nom sur deux. La grille
+`nom | palier × reps` revient avec le moteur, et le palier avec elle.
+
+---
+
 ### 7 bis.6 Pas de barres de progression pour le volume
 
 Le bilan par muscle est un **relevé pointillé**, pas une série de barres.

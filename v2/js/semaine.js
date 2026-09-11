@@ -19,9 +19,15 @@
 
   // Les 18 muscles réellement présents au catalogue (REGLES-DE-COMPTAGE §3).
   // `cou` existe dans la nomenclature et reste vide — c'est voulu.
+  // Les DIX-HUIT valeurs présentes en base, relevées sur les 237 exercices du
+  // catalogue — c'est la liste exhaustive, pas une sélection. `cou` y figurait
+  // et n'existe dans aucun exercice : retiré.
+  //
+  // `abducteurs` et `adducteurs` sont DEUX muscles, et leurs libellés diffèrent
+  // d'une lettre. Ne pas les fusionner, ne pas en déduire une faute de frappe.
   var LIBELLES_MUSCLE = {
     abdominaux: 'Abdominaux', abducteurs: 'Abducteurs', adducteurs: 'Adducteurs',
-    avant_bras: 'Avant-bras', bas_du_dos: 'Bas du dos', biceps: 'Biceps', cou: 'Cou',
+    avant_bras: 'Avant-bras', bas_du_dos: 'Bas du dos', biceps: 'Biceps',
     deltoide_anterieur: 'Deltoïde antérieur', deltoide_lateral: 'Deltoïde latéral',
     deltoide_posterieur: 'Deltoïde postérieur', fessiers: 'Fessiers',
     grand_dorsal: 'Grand dorsal', haut_du_dos: 'Haut du dos',
@@ -29,7 +35,15 @@
     quadriceps: 'Quadriceps', trapezes: 'Trapèzes', triceps: 'Triceps'
   };
 
-  function libelleMuscle(cle) { return LIBELLES_MUSCLE[cle] || cle; }
+  // Un muscle absent de la table se rend TEL QUEL. Il ne disparaît pas — un
+  // muscle escamoté fausse un relevé qu'on croit exact — et il ne prend le nom
+  // d'aucun autre : la clé brute en minuscules avec ses tirets bas ne peut se
+  // confondre avec aucun libellé de la table, et se voit comme ce qu'elle est,
+  // une valeur que le catalogue a gagnée et que l'app ne sait pas encore nommer.
+  function libelleMuscle(cle) {
+    if (Object.prototype.hasOwnProperty.call(LIBELLES_MUSCLE, cle)) return LIBELLES_MUSCLE[cle];
+    return String(cle == null ? '' : cle);
+  }
 
   // Lundi 00:00:00 et dimanche 23:59:59 de la semaine contenant `date`.
   // `new Date(y, m, d)` absorbe les débordements : le 3 janvier moins 6 jours
@@ -113,6 +127,16 @@
     });
   }
 
+  // Un jour sans séance ne s'affiche pas : sur une semaine à quatre séances,
+  // trois lignes vides n'apportent rien et allongent le défilement. La
+  // répartition se lit déjà dans les dates des jours pleins.
+  //
+  // `repartirParJour` continue de rendre les SEPT jours : le modèle décrit la
+  // semaine, c'est la vue qui choisit ce qu'elle montre.
+  function joursAvecSeances(jours) {
+    return (jours || []).filter(function (j) { return j && j.seances && j.seances.length > 0; });
+  }
+
   // Compte brut de la semaine. Descriptif, sans commentaire.
   function bilanSemaine(seances, series) {
     var ids = new Set((seances || []).map(function (s) { return s && s.id; }));
@@ -127,6 +151,7 @@
     JOURS: JOURS,
     LIBELLES_MUSCLE: LIBELLES_MUSCLE,
     libelleMuscle: libelleMuscle,
+    joursAvecSeances: joursAvecSeances,
     bornesSemaine: bornesSemaine,
     decalerSemaine: decalerSemaine,
     memeSemaine: memeSemaine,

@@ -217,3 +217,85 @@ describe('bilanSemaine et navigation', () => {
     expect(Semaine.memeSemaine(new Date(2026, 8, 13), new Date(2026, 8, 14))).toBe(false);
   });
 });
+
+// ── Libellés de muscles ────────────────────────────────────────────────────
+//
+// CONFIGURATION DISCRIMINANTE (CADRAGE-V2 §2 quater) : un jeu contenant À LA
+// FOIS `abducteurs` et `adducteurs`. Avec un seul des deux, une table qui les
+// fusionne — ou qui en oublie un — passe inaperçue.
+describe('libelleMuscle — les 18 muscles du catalogue', () => {
+  // Relevés en base sur les 237 exercices : liste exhaustive.
+  const MUSCLES = [
+    'abdominaux', 'abducteurs', 'adducteurs', 'avant_bras', 'bas_du_dos', 'biceps',
+    'deltoide_anterieur', 'deltoide_lateral', 'deltoide_posterieur', 'fessiers',
+    'grand_dorsal', 'haut_du_dos', 'ischio_jambiers', 'mollets', 'pectoraux',
+    'quadriceps', 'trapezes', 'triceps'
+  ];
+
+  test('les 18 donnent 18 libellés DISTINCTS', () => {
+    const libelles = MUSCLES.map(Semaine.libelleMuscle);
+    expect(libelles).toHaveLength(18);
+    expect(new Set(libelles).size).toBe(18);
+  });
+
+  test('aucun des 18 ne retombe sur sa clé brute', () => {
+    MUSCLES.forEach((m) => {
+      expect(Semaine.libelleMuscle(m)).not.toBe(m);
+      expect(Semaine.libelleMuscle(m)).toMatch(/^[A-ZÀ-Ý]/);
+    });
+  });
+
+  test('abducteurs et adducteurs sont DEUX muscles, deux libellés', () => {
+    expect(Semaine.libelleMuscle('abducteurs')).toBe('Abducteurs');
+    expect(Semaine.libelleMuscle('adducteurs')).toBe('Adducteurs');
+    expect(Semaine.libelleMuscle('abducteurs')).not.toBe(Semaine.libelleMuscle('adducteurs'));
+  });
+
+  test('un muscle inconnu ne disparaît pas et ne prend le nom d’aucun autre', () => {
+    const connus = new Set(MUSCLES.map(Semaine.libelleMuscle));
+    ['psoas', 'soleaire', 'muscle_invente'].forEach((inconnu) => {
+      const rendu = Semaine.libelleMuscle(inconnu);
+      expect(rendu).toBe(inconnu);        // rendu tel quel, reconnaissable
+      expect(rendu).toBeTruthy();         // il ne disparaît pas
+      expect(connus.has(rendu)).toBe(false);
+    });
+  });
+
+  test('une clé vide ou absente ne casse rien', () => {
+    expect(Semaine.libelleMuscle(null)).toBe('');
+    expect(Semaine.libelleMuscle(undefined)).toBe('');
+  });
+});
+
+// ── Les jours vides ne sont plus rendus ────────────────────────────────────
+describe('joursAvecSeances — seuls les jours pleins', () => {
+  const jour = (n, seances) => ({ date: new Date(2026, 7, 24 + n), nom: 'J' + n, seances });
+
+  test('une semaine à quatre séances rend quatre jours, pas sept', () => {
+    const jours = [jour(0, [{ id: 'a' }]), jour(1, []), jour(2, [{ id: 'b' }]),
+                   jour(3, []), jour(4, [{ id: 'c' }]), jour(5, []), jour(6, [{ id: 'd' }])];
+    const pleins = Semaine.joursAvecSeances(jours);
+    expect(pleins).toHaveLength(4);
+    expect(pleins.every((j) => j.seances.length > 0)).toBe(true);
+    expect(pleins.map((j) => j.nom)).toEqual(['J0', 'J2', 'J4', 'J6']);
+  });
+
+  test('une semaine entièrement vide rend une liste vide — à la vue de le dire', () => {
+    expect(Semaine.joursAvecSeances([jour(0, []), jour(1, [])])).toEqual([]);
+  });
+
+  test('l’ordre des jours est conservé', () => {
+    const jours = [jour(0, [{ id: 'a' }]), jour(1, [{ id: 'b' }]), jour(2, [{ id: 'c' }])];
+    expect(Semaine.joursAvecSeances(jours).map((j) => j.nom)).toEqual(['J0', 'J1', 'J2']);
+  });
+
+  test('rien, ou des jours mal formés, ne cassent pas', () => {
+    expect(Semaine.joursAvecSeances(null)).toEqual([]);
+    expect(Semaine.joursAvecSeances([null, {}, { seances: null }])).toEqual([]);
+  });
+
+  test('le modèle continue de rendre les SEPT jours — c’est la vue qui filtre', () => {
+    const jours = Semaine.repartirParJour([], new Date(2026, 7, 24));
+    expect(jours).toHaveLength(7);
+  });
+});

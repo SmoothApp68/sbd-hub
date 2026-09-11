@@ -42,19 +42,23 @@
     // lancement. L'ancre n'en fait pas partie : elle n'est pas une vue.
     var pile = 0;
 
-    function estAncre(e) { return !!(e && e.ancre === true); }
+    // JETON propre à ce document. Une ancre n'est reconnue comme la nôtre que
+    // si elle porte ce jeton-là. Sans lui, tout état qui RESSEMBLE à une ancre
+    // — celui d'un lancement précédent restauré par Android au redémarrage de
+    // la PWA, par exemple — passe pour une entrée de rechange qui n'existe
+    // plus, et supprime le push qui l'aurait recréée.
+    var JETON = 'ancre-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+
+    function estAncre(e) { return !!(e && e.ancre === JETON); }
     function ancreEnPlace() { return estAncre(etatHistorique()); }
 
-    function poserAncre() {
-      if (ancreEnPlace()) return false;
-      hist.pushState({ ancre: true }, '', chemin());
-      return true;
-    }
+    // Le système vient de consommer une entrée et l'app refuse ce départ : on
+    // la lui rend. INCONDITIONNEL — c'est une dette qu'on solde, pas une
+    // garantie d'existence qu'on vérifie.
+    function rendreEntree() { hist.pushState({ ancre: JETON }, '', chemin()); }
 
-    // Le système vient de consommer une entrée et on refuse ce départ : on la
-    // remplace. Inconditionnel, à la différence de poserAncre — ici il s'agit
-    // de rendre la profondeur perdue, pas de garantir qu'une ancre existe.
-    function remplacerEntreeConsommee() { hist.pushState({ ancre: true }, '', chemin()); }
+    // Garantit qu'une entrée de rechange existe, sans en empiler deux.
+    function poserAncre() { if (!ancreEnPlace()) rendreEntree(); }
 
     // L'ancre n'a de sens qu'au fond de la pile. Au-dessus, le retour a où
     // revenir, et c'est exactement ce qu'on veut qu'il fasse.
@@ -70,21 +74,23 @@
       // présente sa propre confirmation. Rien ne s'en sert encore.
       var garde = routeur.premiereGardeBloquante(gardes());
       if (garde) {
-        remplacerEntreeConsommee();
+        rendreEntree();
         if (typeof garde.afficher === 'function') garde.afficher();
         return;
       }
 
       // On atterrit SUR l'ancre : un retour depuis une vue empilée au-dessus
-      // d'elle. Elle est déjà en place sous nos pieds, il n'y a qu'à rendre.
-      if (ancreEnPlace()) { pile = 0; rendre(routeur.analyser(chemin())); return; }
+      // d'elle. L'ancre vient d'être consommée elle aussi — on rend la vue ET
+      // l'entrée. C'est la réinstallation qui manquait : sans elle, l'app se
+      // retrouvait sans entrée de rechange et l'appui SUIVANT la fermait.
+      if (ancreEnPlace()) { pile = 0; rendre(routeur.analyser(chemin())); rendreEntree(); return; }
 
       // Au-dessus du fond : le retour navigue, normalement.
       if (pile > 0) { pile -= 1; rendre(routeur.analyser(chemin())); return; }
 
-      // Fond de pile : absorbé. L'ancre est réinstallée et rien ne change à
-      // l'écran — aucun rendu, l'URL n'a pas bougé, aucune boîte ne s'affiche.
-      poserAncre();
+      // Fond de pile : absorbé. L'entrée consommée est rendue et rien ne
+      // change à l'écran — aucun rendu, l'URL n'a pas bougé.
+      rendreEntree();
     }
 
     return {

@@ -47,6 +47,36 @@ Randonnée, course et escalade sont différents : il y a bien charge et progress
 
 ---
 
+## 2 quater. Un test ne prouve rien si l'environnement rend les cas équivalents
+
+Doctrine dégagée le 10/09/2026, après **trois occurrences du même piège en deux jours**.
+
+| Occurrence | Ce que le banc rendait indistinguable |
+|---|---|
+| Fuseau horaire | Runner en UTC : `getDay()` valait `getUTCDay()`. Le test qui protégeait le rangement par jour passait sans rien prouver |
+| Pile d'historique profonde | Sur navigateur de bureau, il reste toujours des entrées sous celles de l'app : « ancre posée » et « ancre absente » donnaient le même résultat |
+| Réinstallation de l'ancre | Même cause : sur pile profonde, la deuxième absorption réussit que l'ancre soit réinstallée ou non |
+
+Dans les trois cas, les tests étaient nombreux, verts, et **vérifiés par mutation du code**.
+La mutation tombait bien. Le défaut n'était ni dans la rigueur ni dans la couverture.
+
+> **Le banc était plus permissif que l'appareil réel, et rendait deux comportements
+> équivalents.** Un test ne vaut que par la configuration dans laquelle il s'exécute.
+
+**Ce qu'il faut exiger, en plus de la mutation :**
+
+1. Identifier **la configuration où les deux comportements diffèrent** — pile vide, fuseau
+   décalé, réseau coupé, écran étroit — et y faire tourner le test.
+2. Vérifier l'**asymétrie** : une mutation doit faire tomber le test dans la configuration
+   discriminante **et le laisser passer** dans la configuration permissive. Si les deux
+   tombent, ou si aucun ne tombe, le banc n'est pas au point.
+
+Ceci ne remplace pas la règle existante — **la vérification sur device réel reste
+irremplaçable**. Elle la précise : quand un test et l'appareil se contredisent, c'est presque
+toujours que le test tourne dans un environnement plus clément.
+
+---
+
 ## 2 ter. Périmètre du moteur ≠ périmètre de l'affichage
 
 Le §2 exclut du périmètre la randonnée, le pilates, l'escalade et la course. Cette exclusion

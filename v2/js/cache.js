@@ -84,11 +84,52 @@
     }, Promise.resolve());
   }
 
+  // Vider PUIS écrire, dans UNE SEULE transaction. IndexedDB est atomique par
+  // transaction : tout passe, ou rien ne passe. L'ancienne version vidait dans
+  // une transaction et réécrivait dans 57 autres — une fermeture pendant ces
+  // quelques secondes laissait le magasin à moitié plein, définitivement.
+  // Réservé aux magasins PETITS et rafraîchis en entier : 1 221 séances,
+  // 237 exercices. Les 28 103 séries ne passent pas par ici.
   function remplacerTout(magasin, enregistrements) {
+    var liste = enregistrements || [];
     return transaction([magasin], 'readwrite').then(function (tx) {
-      tx.objectStore(magasin).clear();
+      var st = tx.objectStore(magasin);
+      st.clear();
+      liste.forEach(function (e) { st.put(e); });
       return finDe(tx);
-    }).then(function () { return ecrireLot(magasin, enregistrements); });
+    });
+  }
+
+  // Supprime des enregistrements par clé, par lots. C'est ce qui remplace le
+  // `clear()` sur les séries : on retire ce qui doit l'être, on ne fait pas
+  // table rase en espérant réécrire à temps.
+  function supprimer(magasin, cles) {
+    var liste = cles || [];
+    if (!liste.length) return Promise.resolve();
+    var tranches = [];
+    for (var i = 0; i < liste.length; i += LOT) tranches.push(liste.slice(i, i + LOT));
+    return tranches.reduce(function (chaine, tranche) {
+      return chaine.then(function () {
+        return transaction([magasin], 'readwrite').then(function (tx) {
+          var st = tx.objectStore(magasin);
+          tranche.forEach(function (c) { st.delete(c); });
+          return finDe(tx);
+        });
+      });
+    }, Promise.resolve());
+  }
+
+  // Le compte RÉELLEMENT persisté. Une variable en mémoire ne prouve rien sur
+  // ce qui a atteint le disque — et c'est exactement la différence entre
+  // constater et autoriser.
+  function compterMagasin(magasin) {
+    return transaction([magasin], 'readonly').then(function (tx) {
+      return new Promise(function (resoudre, rejeter) {
+        var req = tx.objectStore(magasin).count();
+        req.onsuccess = function () { resoudre(req.result || 0); };
+        req.onerror = function () { rejeter(req.error); };
+      });
+    });
   }
 
   function lireMeta(cle) {
@@ -122,6 +163,8 @@
     lireTout: lireTout,
     ecrireLot: ecrireLot,
     remplacerTout: remplacerTout,
+    supprimer: supprimer,
+    compterMagasin: compterMagasin,
     lireMeta: lireMeta,
     ecrireMeta: ecrireMeta,
     viderTout: viderTout

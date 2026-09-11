@@ -296,6 +296,10 @@ button{font-family:inherit;cursor:pointer}
 .jour-date{font-size:10.5px;color:var(--texte-2);font-variant-numeric:tabular-nums}
 
 
+/* Une séance dont les séries ne sont pas encore en cache le dit, sans alarme :
+   le manque est un fait, pas une faute. */
+.seance.incomplete .seance-meta{font-style:italic;color:var(--texte-3)}
+
 /* ── Aperçu de séance : trois exercices, l'ordre porte l'intention ──────── */
 /* Une ligne par nom. Pas de grille tant que la colonne de droite est vide :
    elle y ferait passer un nom sur deux. */

@@ -300,15 +300,25 @@
       if (!estExerciceSortie(index[s.exercise_slug])) sortie = false;
     });
 
+    // Une séance dont AUCUNE série n'est en cache n'est pas une séance vide :
+    // elle est incomplète. Vérifié en base — toutes les séances ont leurs
+    // séries, randonnées et natations comprises (charge `aucune`, mesure
+    // `distance_temps`). L'afficher « 0 exercice · 0 série » la ferait passer
+    // pour un fait légitime alors que c'est un manque, et le manque se dit.
+    var incomplet = listeSeries.length === 0;
+
     return {
       id: seance.id,
       titre: seance.titre || 'Séance',
+      incomplet: incomplet,
       debut: seance.debut,
       salle: seance.salle_norme || seance.salle || '',
       nbExercices: Object.keys(slugs).length,
       nbSeriesTravail: nbTravail,
       // Une sortie ne se résume pas en séries : elle se résume en durée et
       // distance. Elle reste visible, simplement plus discrète.
+      // Une séance incomplète n'est jamais classée en sortie : `sortie` part de
+      // `listeSeries.length > 0`, donc sans série il vaut déjà faux.
       estSortie: sortie,
       // Une sortie n'a pas d'aperçu d'exercices : elle se dit en durée et en
       // distance. On ne construit donc rien qu'on n'affichera pas.

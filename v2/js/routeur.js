@@ -1,7 +1,7 @@
 // v2/js/routeur.js — routage d'URL et décisions de retour.
 //
 // Module PUR : aucune dépendance au DOM, à History, au réseau. Analyser un
-// chemin, en construire un, décider ce que fait le bouton retour — tout cela se
+// chemin, en construire un, dire quelle route est affichable — tout cela se
 // teste sans navigateur, et c'est là que vivent les règles.
 //
 // SCHÉMA D'URL
@@ -80,30 +80,36 @@
     return '/';
   }
 
-  // ── Le bouton retour ─────────────────────────────────────────────────────
+  // ── Session et vues authentifiées ────────────────────────────────────────
   //
-  // Quatre issues, volontairement distinctes — un test qui les confondrait ne
-  // prouverait rien :
-  //   'garde'      une vue refuse la sortie et fournit sa propre confirmation
-  //   'historique' il y a où revenir : on laisse l'historique faire
-  //   'confirmer'  on est à la racine, on demande avant de quitter
-  //   'quitter'    rien à retenir (écran de connexion)
-  //
-  // L'ordre compte : une garde l'emporte sur tout le reste. C'est le point
-  // d'accroche que l'écran de saisie utilisera pour retenir une séance en cours.
-  function decisionRetour(route, contexte) {
-    var ctx = contexte || {};
-    var garde = premiereGardeBloquante(ctx.gardes);
-    if (garde) return { action: 'garde', garde: garde };
+  // Toutes les vues sauf la connexion montrent les données d'un compte. Sans
+  // session, elles ne sont pas rendues : on renvoie à la connexion. Ça ne
+  // protège rien — le RLS reste seul juge côté serveur — mais afficher des
+  // données à quelqu'un qui vient de se déconnecter est un défaut d'interface.
+  function exigeSession(vue) { return vue !== CONNEXION; }
 
+  // Route demandée -> route réellement affichable. `redirigeDepuis` dit d'où
+  // l'on vient, pour que l'appelant puisse corriger l'URL.
+  function routeAffichable(route, contexte) {
+    var ctx = contexte || {};
     var vue = (route && route.vue) || RACINE;
-    if (vue === CONNEXION) return { action: 'quitter' };
-    if (vue === SEANCE || vue === SEMAINE) return { action: 'historique' };
-    return { action: 'confirmer' };
+    if (exigeSession(vue) && !ctx.session) {
+      return { vue: CONNEXION, params: {}, redirigeDepuis: vue };
+    }
+    return route && route.vue ? route : { vue: RACINE, params: {} };
   }
 
+  // ── Le point d'accroche des gardes ───────────────────────────────────────
+  //
   // Une garde est une fonction qui rend un objet quand elle refuse la sortie
-  // (avec de quoi se présenter), ou rien quand elle laisse passer.
+  // (avec de quoi se présenter), ou rien quand elle laisse passer. C'est ce
+  // que l'écran de saisie utilisera pour retenir une séance en cours — avec sa
+  // propre confirmation, légitime celle-là : elle protège un travail en cours,
+  // elle ne prétend pas fermer l'application, ce qu'aucune page ne peut faire.
+  //
+  // Ce qui a disparu ici : `decisionRetour`. Le retour ne se décide plus par
+  // la vue — il est absorbé au fond de la pile et navigue au-dessus — et cette
+  // décision-là vit désormais avec l'historique, dans v2/js/sortie.js.
   function premiereGardeBloquante(gardes) {
     var liste = gardes || [];
     for (var i = 0; i < liste.length; i++) {
@@ -120,7 +126,8 @@
     depuisDate: depuisDate,
     analyser: analyser,
     construire: construire,
-    decisionRetour: decisionRetour,
+    exigeSession: exigeSession,
+    routeAffichable: routeAffichable,
     premiereGardeBloquante: premiereGardeBloquante
   };
 

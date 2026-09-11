@@ -23,6 +23,7 @@
   var lundiAffiche = null;   // le lundi de la semaine à l'écran
   var gardes = [];           // vues qui peuvent refuser la sortie (§ écran de saisie)
   var sortie = null;         // mécanisme du bouton retour (v2/js/sortie.js)
+  var sessionActive = null;  // sans elle, aucune vue authentifiée n'est rendue
 
   function $(id) { return doc.getElementById(id); }
   function montrer(nom) { Object.keys(vues).forEach(function (k) { vues[k].hidden = (k !== nom); }); }
@@ -152,6 +153,7 @@
 
   // ── Entrée ───────────────────────────────────────────────────────────────
   async function entrer(session) {
+    sessionActive = session || null;
     var userId = session && session.user && session.user.id;
     try {
       await garantirProprietaire(userId);
@@ -173,10 +175,11 @@
     if (local.seances.length) rendreRoute(routeInitiale);
     else { montrer('liste'); Rendu.message($('liste-seances'), 'Première synchronisation…'); }
 
-    // L'ancre s'installe dès l'ouverture : sur la vue racine, l'entrée de
-    // lancement est seule, et un retour qui frappe le fond de la pile ne
-    // déclenche aucun popstate — il ferme, sans laisser rien intercepter.
-    sortie.apresNavigation(routeInitiale, false);
+    // L'ancre s'installe dès l'ouverture, QUELLE QUE SOIT la vue d'entrée :
+    // au fond de la pile, un retour ne déclenche aucun popstate, il ferme.
+    // Y compris sur une ouverture directe sur /semaine/… — qui, jusqu'ici,
+    // n'avait pas d'ancre et se fermait donc sans absorption.
+    sortie.apresNavigation(false);
 
     await synchroniser();
     if (!vues.detail.hidden) return;   // l'utilisateur a ouvert une séance entre-temps
@@ -197,6 +200,9 @@
   // qui expire toute seule, en revanche, ne doit rien effacer — on revient à
   // l'écran de connexion et les données restent là pour la prochaine ouverture.
   async function deconnecter() {
+    // Avant toute chose : plus de session, donc plus aucune vue authentifiée
+    // rendue — y compris par un retour qui atterrirait sur une ancienne entrée.
+    sessionActive = null;
     try { await Cache.viderTout(); } catch (e) { /* rien à garder de toute façon */ }
     local = { seances: [], series: [], exercices: [], parSeance: null };
     try { await Auth.deconnecter(); } catch (e) { montrer('connexion'); }
@@ -227,9 +233,9 @@
       if (remplacer) racine.history.replaceState({ vue: vue }, '', chemin);
       else { racine.history.pushState({ vue: vue }, '', chemin); empilee = true; }
     }
-    // Même quand rien ne bouge : c'est une action explicite, elle ré-arme
-    // l'interception et remet l'ancre en place si la vue la réclame.
-    sortie.apresNavigation({ vue: vue, params: params || {} }, empilee);
+    // Même quand rien ne bouge : l'ancre doit rester en place tant que l'app
+    // n'a rien empilé en dessous d'elle.
+    sortie.apresNavigation(empilee);
   }
 
   // Une vue peut déclarer qu'elle refuse la sortie. C'est le point d'accroche
@@ -239,32 +245,14 @@
   function retirerGarde(fn) { gardes = gardes.filter(function (g) { return g !== fn; }); }
 
   function rendreRoute(route) {
-    if (route.vue === Routeur.CONNEXION) return montrer('connexion');
-    if (route.vue === Routeur.SEANCE) return rendreDetail(route.params.id);
-    if (route.vue === Routeur.SEMAINE) return rendreSemaine(route.params.lundi);
+    var cible = Routeur.routeAffichable(route, { session: sessionActive });
+    // Sans session, l'URL est corrigée en même temps que l'écran : laisser
+    // /semaine/… dans la barre d'adresse rejouerait le défaut au rechargement.
+    if (cible.redirigeDepuis) allerA(Routeur.CONNEXION, {}, true);
+    if (cible.vue === Routeur.CONNEXION) return montrer('connexion');
+    if (cible.vue === Routeur.SEANCE) return rendreDetail(cible.params.id);
+    if (cible.vue === Routeur.SEMAINE) return rendreSemaine(cible.params.lundi);
     return rendreSemaine(Semaine.bornesSemaine(new Date()).lundi);
-  }
-
-  // Une question, deux choix. Aucune rétention, aucun message culpabilisant :
-  // fermer l'app n'est pas un comportement à commenter (CADRAGE-V2 §3.1 bis).
-  // Ce qui suit la réponse appartient au mécanisme (v2/js/sortie.js) : ici, on
-  // ne fait qu'afficher et rapporter le choix.
-  function demanderSortie(garde, surOui, surNon) {
-    var boite = $('confirmation');
-    $('confirmation-question').textContent =
-      (garde && garde.question) || 'Quitter TrainHub ?';
-    boite.hidden = false;
-    var oui = $('btn-quitter'), non = $('btn-rester');
-
-    function fermer() {
-      boite.hidden = true;
-      oui.removeEventListener('click', clicOui);
-      non.removeEventListener('click', clicNon);
-    }
-    function clicOui() { fermer(); surOui(); }
-    function clicNon() { fermer(); surNon(); }
-    oui.addEventListener('click', clicOui);
-    non.addEventListener('click', clicNon);
   }
 
   async function demarrer() {
@@ -275,7 +263,6 @@
       chemin: function () { return racine.location.pathname; },
       etatHistorique: function () { return racine.history.state; },
       gardes: function () { return gardes; },
-      demander: demanderSortie,
       rendre: rendreRoute
     });
     $('form-connexion').addEventListener('submit', soumettreConnexion);
@@ -296,13 +283,13 @@
 
     Auth.surChangement(function (session) {
       if (session) entrer(session);
-      else { allerA(Routeur.CONNEXION, {}, true); montrer('connexion'); }
+      else { sessionActive = null; allerA(Routeur.CONNEXION, {}, true); montrer('connexion'); }
     });
 
     try {
       var session = await Auth.sessionCourante();
       if (session) await entrer(session);
-      else { allerA(Routeur.CONNEXION, {}, true); montrer('connexion'); }
+      else { sessionActive = null; allerA(Routeur.CONNEXION, {}, true); montrer('connexion'); }
     } catch (e) {
       montrer('connexion');
       $('erreur-connexion').textContent = texteErreur(e);

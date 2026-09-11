@@ -109,51 +109,64 @@ describe('construire — vue vers chemin', () => {
   });
 });
 
-// ── 3 et 4. La cible du retour ──────────────────────────────────────────────
-describe('decisionRetour — quatre issues réellement distinctes', () => {
-  const depuis = (chemin, ctx) => R.decisionRetour(R.analyser(chemin), ctx).action;
+// ── 3 et 4. La route affichable : sans session, rien d'authentifié ──────────
+describe('routeAffichable — une vue authentifiée exige une session', () => {
+  const avec = (chemin, session) => R.routeAffichable(R.analyser(chemin), { session });
+  const SESSION = { user: { id: 'u' } };
 
-  test('depuis le détail d’une séance : l’historique fait le travail', () => {
-    expect(depuis('/seance/' + UUID)).toBe('historique');
+  test.each([
+    ['/'],
+    ['/semaine/2026-09-07'],
+    ['/seance/' + UUID]
+  ])('%s sans session renvoie à la connexion, et dit d’où l’on vient', (chemin) => {
+    const r = avec(chemin, null);
+    expect(r.vue).toBe('connexion');
+    expect(r.redirigeDepuis).toBe(R.analyser(chemin).vue);
   });
 
-  test('depuis une semaine : l’historique aussi', () => {
-    expect(depuis('/semaine/2026-09-07')).toBe('historique');
+  test.each([
+    ['/', 'racine'],
+    ['/semaine/2026-09-07', 'semaine'],
+    ['/seance/' + UUID, 'seance']
+  ])('%s avec session est rendue telle quelle', (chemin, vue) => {
+    const r = avec(chemin, SESSION);
+    expect(r.vue).toBe(vue);
+    expect(r.redirigeDepuis).toBeUndefined();
   });
 
-  test('depuis la racine : on demande avant de quitter', () => {
-    expect(depuis('/')).toBe('confirmer');
+  test('la connexion n’exige pas de session — sinon elle se renverrait à elle-même', () => {
+    expect(R.exigeSession('connexion')).toBe(false);
+    const r = avec('/connexion', null);
+    expect(r.vue).toBe('connexion');
+    expect(r.redirigeDepuis).toBeUndefined();
   });
 
-  test('depuis la connexion : on quitte sans rien demander', () => {
-    expect(depuis('/connexion')).toBe('quitter');
+  test('les deux issues sont réellement distinctes sur la MÊME route', () => {
+    const sans = avec('/semaine/2026-09-07', null);
+    const avecSession = avec('/semaine/2026-09-07', SESSION);
+    expect(sans.vue).not.toBe(avecSession.vue);
+    expect(sans).not.toEqual(avecSession);
   });
 
-  test('les quatre issues sont deux à deux distinctes', () => {
-    const actions = ['/seance/' + UUID, '/', '/connexion'].map(c => depuis(c));
-    actions.push(R.decisionRetour(R.analyser('/'), { gardes: [() => ({ raison: 'test' })] }).action);
-    expect(new Set(actions).size).toBe(4);
-  });
-
-  test('une URL inconnue se comporte comme la racine — elle demande', () => {
-    expect(depuis('/nawak')).toBe('confirmer');
+  test('une session absente sous toutes ses formes renvoie à la connexion', () => {
+    [null, undefined, false, ''].forEach((s) => {
+      expect(R.routeAffichable({ vue: 'racine', params: {} }, { session: s }).vue).toBe('connexion');
+    });
+    expect(R.routeAffichable({ vue: 'racine', params: {} }).vue).toBe('connexion');
   });
 });
 
 // ── 5. Le point d’accroche : une vue peut refuser la sortie ─────────────────
 describe('gardes — une vue peut refuser la sortie', () => {
-  test('une garde bloquante l’emporte sur tout le reste', () => {
+  test('une garde bloquante rend son verdict, avec de quoi se présenter', () => {
     const garde = () => ({ raison: 'seance-en-cours', question: 'Abandonner la séance ?' });
-    // Même depuis la connexion, où l'on quitterait normalement sans rien demander.
-    const d = R.decisionRetour(R.analyser('/connexion'), { gardes: [garde] });
-    expect(d.action).toBe('garde');
-    expect(d.garde.raison).toBe('seance-en-cours');
-    expect(d.garde.question).toBe('Abandonner la séance ?');
+    const v = R.premiereGardeBloquante([garde]);
+    expect(v.raison).toBe('seance-en-cours');
+    expect(v.question).toBe('Abandonner la séance ?');
   });
 
-  test('une garde qui laisse passer ne change rien', () => {
-    const d = R.decisionRetour(R.analyser('/seance/' + UUID), { gardes: [() => null] });
-    expect(d.action).toBe('historique');
+  test('une garde qui laisse passer ne bloque rien', () => {
+    expect(R.premiereGardeBloquante([() => null])).toBeNull();
   });
 
   test('la première garde bloquante gagne, et les suivantes ne sont pas consultées', () => {
@@ -161,8 +174,7 @@ describe('gardes — une vue peut refuser la sortie', () => {
     const g1 = () => { vues.push('g1'); return null; };
     const g2 = () => { vues.push('g2'); return { raison: 'deux' }; };
     const g3 = () => { vues.push('g3'); return { raison: 'trois' }; };
-    const d = R.decisionRetour(R.analyser('/'), { gardes: [g1, g2, g3] });
-    expect(d.garde.raison).toBe('deux');
+    expect(R.premiereGardeBloquante([g1, g2, g3]).raison).toBe('deux');
     expect(vues).toEqual(['g1', 'g2']);
   });
 

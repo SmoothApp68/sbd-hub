@@ -1,16 +1,18 @@
 /** @jest-environment node */
 //
-// v2/js/sortie.js — le bouton retour et la sortie.
+// v2/js/sortie.js — le bouton retour.
 //
-// Le banc d'essai donne au mécanisme un History de PAPIER : une vraie pile
-// d'entrées, un index, et un compteur de DÉBORDEMENTS — les reculs demandés
-// au-delà de l'entrée par laquelle l'app est entrée. C'est exactement le défaut
-// corrigé (`history.go(-(profondeur + 2))`), et c'est ce compteur qui le prouve
-// absent, plutôt qu'une assertion sur du vocabulaire qui n'existe plus.
+// Décision produit : au fond de la pile, le retour ne fait RIEN. Il est absorbé
+// par l'ancre, réinstallée à chaque fois. Au-dessus du fond, il navigue.
 //
-// Deux contextes, parce qu'ils diffèrent et que c'est le piège du chantier :
-//   avant = 0 → PWA installée : rien sous l'entrée de lancement, le retour ferme.
-//   avant = 1 → onglet Chrome : une page précédente, le retour quitte le document.
+// Le banc donne au mécanisme un History de PAPIER : une vraie pile d'entrées,
+// un index, et un compteur de DÉBORDEMENTS — les reculs demandés au-delà de
+// l'entrée par laquelle l'app est entrée. C'était le défaut du chantier
+// précédent ; le test qui le surveille est conservé tel quel.
+//
+// Deux contextes, parce qu'ils diffèrent :
+//   avant = 0 → PWA installée : rien sous l'entrée de lancement.
+//   avant = 1 → onglet Chrome : une page précédente.
 
 const Routeur = require('../../v2/js/routeur.js');
 const Sortie = require('../../v2/js/sortie.js');
@@ -25,12 +27,11 @@ function creerBanc(options) {
   for (let i = 0; i < (o.avant || 0); i++) entrees.push({ etat: null, chemin: '/page-' + i });
   entrees.push({ etat: o.etat === undefined ? null : o.etat, chemin: o.chemin || '/' });
 
-  const lancement = entrees.length - 1;   // l'entrée par laquelle l'app est entrée
+  const lancement = entrees.length - 1;
   let index = lancement;
 
   const journal = [];        // tout ce que l'app demande à History
-  const questions = [];      // { garde, oui, non }
-  const rendus = [];         // vues rendues
+  const rendus = [];         // vues rendues — un retour absorbé n'en produit AUCUNE
   const evenements = [];     // 'fermeture' | 'sortie-du-document' | 'redemarrage-a-froid'
   let debordements = 0;
 
@@ -51,8 +52,6 @@ function creerBanc(options) {
       journal.push({ op: 'go', delta });
       const cible = index + delta;
       if (cible < lancement) {
-        // L'app sort de ses propres entrées : navigation de DOCUMENT, pas de
-        // popstate — la coquille se recharge. C'est le redémarrage à froid.
         debordements += 1;
         evenements.push('redemarrage-a-froid');
         index = Math.max(0, cible);
@@ -69,7 +68,6 @@ function creerBanc(options) {
     chemin: () => entrees[index].chemin,
     etatHistorique: () => hist.state,
     gardes: () => gardes,
-    demander: (garde, oui, non) => questions.push({ garde, oui, non }),
     rendre: (route) => rendus.push(route.vue)
   });
 
@@ -82,94 +80,61 @@ function creerBanc(options) {
     return 'popstate';
   }
 
-  // Miroir minimal de `allerA` (app.js) : le mécanisme ne connaît que le couple
-  // « on a empilé / on n'a pas empilé ».
+  // Miroir minimal de `allerA` (app.js).
   function naviguer(vue, params) {
     const chemin = Routeur.construire(vue, params);
     let empilee = false;
     if (chemin !== entrees[index].chemin) { hist.pushState({ vue }, '', chemin); empilee = true; }
-    sortie.apresNavigation({ vue, params: params || {} }, empilee);
+    sortie.apresNavigation(empilee);
   }
-
-  function ouvrir() { sortie.apresNavigation(Routeur.analyser(entrees[index].chemin), false); }
-  function repondre(oui) {
-    const q = questions[questions.length - 1];
-    if (oui) q.oui(); else q.non();
-  }
+  function ouvrir() { sortie.apresNavigation(false); }
   const ancres = () => journal.filter((e) => e.ancre).length;
 
   return {
-    ouvrir, naviguer, retourSysteme, repondre, ancres,
-    journal, questions, rendus, evenements,
+    ouvrir, naviguer, retourSysteme, ancres,
+    journal, rendus, evenements,
+    chemin: () => entrees[index].chemin,
     debordements: () => debordements,
     etat: () => sortie.etat()
   };
 }
 
-describe('v2/sortie — premier retour sur la vue racine', () => {
-  test('l\'ancre est posée à l\'ouverture, absorbe l\'appui, la question s\'affiche, l\'app reste', () => {
+// ── 1. Le retour au fond de la pile est absorbé ─────────────────────────────
+describe('v2/sortie — au fond de la pile, le retour ne fait rien', () => {
+  test('absorbé : ancre réinstallée, aucun rendu, rien ne bouge à l’écran', () => {
     const b = creerBanc();
     b.ouvrir();
     expect(b.journal).toEqual([{ op: 'pushState', chemin: '/', ancre: true }]);
+
+    expect(b.retourSysteme()).toBe('popstate');   // l'ancre a absorbé l'appui
+    expect(b.ancres()).toBe(2);                   // elle est RÉINSTALLÉE
     expect(b.etat().ancree).toBe(true);
-
-    expect(b.retourSysteme()).toBe('popstate');   // sans ancre, le système aurait fermé ici
-    expect(b.questions).toHaveLength(1);
-    expect(b.questions[0].garde).toBeUndefined();
-    expect(b.evenements).toEqual([]);             // ni fermeture, ni redémarrage à froid
-    expect(b.etat().ancree).toBe(true);           // l'entrée est RÉINSTALLÉE
-    expect(b.ancres()).toBe(2);
+    expect(b.rendus).toEqual([]);                 // rien n'est re-rendu
+    expect(b.chemin()).toBe('/');                 // l'URL n'a pas bougé
+    expect(b.evenements).toEqual([]);             // l'app ne se ferme pas
   });
-});
 
-describe('v2/sortie — refus', () => {
-  test('retour à l\'état initial : l\'interception est toujours active', () => {
+  test('l’app ne se ferme jamais par accident, même sur dix appuis d’affilée', () => {
     const b = creerBanc();
     b.ouvrir();
-    b.retourSysteme();
-    b.repondre(false);
-
-    expect(b.etat()).toEqual({ pile: 0, intercepte: true, ancree: true });
+    for (let i = 0; i < 10; i++) expect(b.retourSysteme()).toBe('popstate');
     expect(b.evenements).toEqual([]);
-
-    // La preuve n'est pas le drapeau : c'est que le geste suivant est repris.
-    expect(b.retourSysteme()).toBe('popstate');
-    expect(b.questions).toHaveLength(2);
-    expect(b.evenements).toEqual([]);
-  });
-});
-
-describe('v2/sortie — confirmation', () => {
-  test('l\'interception est levée : le retour suivant n\'est plus capté et le système ferme', () => {
-    const b = creerBanc();
-    b.ouvrir();
-    b.retourSysteme();
-    b.repondre(true);
-
-    expect(b.etat().intercepte).toBe(false);
-    expect(b.etat().ancree).toBe(false);          // l'ancre a été rendue au système
-    expect(b.debordements()).toBe(0);
-
-    expect(b.retourSysteme()).toBe('fermeture');  // Android ferme la PWA
-    expect(b.questions).toHaveLength(1);          // aucune nouvelle question
-    expect(b.evenements).toEqual(['fermeture']);
+    expect(b.rendus).toEqual([]);
+    expect(b.etat()).toEqual({ pile: 0, ancree: true });
   });
 
-  test('en onglet : le retour suivant quitte le document, sans redémarrage à froid', () => {
+  test('en onglet aussi : le retour n’emmène pas hors du document', () => {
     const b = creerBanc({ avant: 1 });
     b.ouvrir();
     b.retourSysteme();
-    b.repondre(true);
-
-    expect(b.retourSysteme()).toBe('sortie-du-document');
-    expect(b.evenements).not.toContain('redemarrage-a-froid');
-    expect(b.debordements()).toBe(0);
+    b.retourSysteme();
+    expect(b.evenements).toEqual([]);
+    expect(b.etat().ancree).toBe(true);
   });
 });
 
-describe('v2/sortie — aucun rembobinage au-delà des entrées de l\'app', () => {
-  // Le défaut corrigé. Parcours complet : ouverture, deux vues empilées, trois
-  // retours, confirmation, retour final.
+// ── 2. Le défaut corrigé au chantier précédent — test conservé ──────────────
+describe('v2/sortie — aucun rembobinage au-delà des entrées de l’app', () => {
   [0, 1].forEach((avant) => {
     test(`parcours complet (${avant === 0 ? 'PWA' : 'onglet'}) : aucun débordement`, () => {
       const b = creerBanc({ avant });
@@ -181,34 +146,38 @@ describe('v2/sortie — aucun rembobinage au-delà des entrées de l\'app', () =
       expect(b.rendus[b.rendus.length - 1]).toBe(Routeur.SEMAINE);
       expect(b.retourSysteme()).toBe('popstate');   // semaine -> ancre -> racine
       expect(b.rendus[b.rendus.length - 1]).toBe(Routeur.RACINE);
-      expect(b.questions).toHaveLength(0);          // aucune question en chemin
-
-      expect(b.retourSysteme()).toBe('popstate');   // racine -> question
-      expect(b.questions).toHaveLength(1);
-      b.repondre(true);
-      b.retourSysteme();
+      expect(b.retourSysteme()).toBe('popstate');   // fond de pile -> absorbé
+      expect(b.retourSysteme()).toBe('popstate');
 
       expect(b.debordements()).toBe(0);
       expect(b.evenements).not.toContain('redemarrage-a-froid');
-      expect(b.journal.filter((e) => e.op === 'go' && e.delta < -1)).toEqual([]);
+      expect(b.journal.filter((e) => e.op === 'go')).toEqual([]);
     });
   });
 });
 
-describe('v2/sortie — les autres vues n\'interceptent pas', () => {
+// ── 3. Ouverture directe sur une URL de vue ────────────────────────────────
+describe('v2/sortie — une ouverture directe pose l’ancre malgré tout', () => {
   test.each([
     ['/semaine/2026-09-07'],
     ['/seance/' + UUID],
-    ['/connexion']
-  ])('%s : aucune ancre posée à l\'ouverture', (chemin) => {
+    ['/connexion'],
+    ['/']
+  ])('%s : ancre posée, retour absorbé, app pas fermée', (chemin) => {
     const b = creerBanc({ chemin });
     b.ouvrir();
-    expect(b.journal).toEqual([]);
-    expect(b.etat().ancree).toBe(false);
-    expect(b.questions).toHaveLength(0);
-  });
+    expect(b.journal).toEqual([{ op: 'pushState', chemin, ancre: true }]);
 
-  test('un retour qui atterrit sur une semaine la rend, sans question ni ancre', () => {
+    expect(b.retourSysteme()).toBe('popstate');
+    expect(b.rendus).toEqual([]);
+    expect(b.chemin()).toBe(chemin);
+    expect(b.evenements).toEqual([]);
+  });
+});
+
+// ── 5. Au-dessus du fond, le retour navigue ────────────────────────────────
+describe('v2/sortie — au-dessus du fond, le retour navigue normalement', () => {
+  test('il rend la vue de l’entrée précédente, sans poser d’ancre', () => {
     const b = creerBanc();
     b.ouvrir();
     b.naviguer(Routeur.SEMAINE, { lundi: LUNDI });
@@ -216,62 +185,74 @@ describe('v2/sortie — les autres vues n\'interceptent pas', () => {
     const ancresAvant = b.ancres();
 
     expect(b.retourSysteme()).toBe('popstate');
-    expect(b.rendus).toContain(Routeur.SEMAINE);
-    expect(b.questions).toHaveLength(0);
-    expect(b.ancres()).toBe(ancresAvant);
+    expect(b.rendus).toEqual([Routeur.SEMAINE]);
+    expect(b.ancres()).toBe(ancresAvant);         // aucune ancre n'est posée
+    expect(b.etat().pile).toBe(1);
+  });
+
+  test('« absorbé » et « navigue » sont réellement distinguables', () => {
+    // Le MÊME geste, à deux profondeurs différentes, doit produire des effets
+    // opposés — pas seulement être conforme chacun de son côté.
+    const profond = creerBanc();
+    profond.ouvrir();
+    profond.naviguer(Routeur.SEMAINE, { lundi: LUNDI });
+    const aAvant = profond.ancres();
+    profond.retourSysteme();
+    const navigue = { rendus: profond.rendus.length, ancresPosees: profond.ancres() - aAvant };
+
+    const fond = creerBanc();
+    fond.ouvrir();
+    const bAvant = fond.ancres();
+    fond.retourSysteme();
+    const absorbe = { rendus: fond.rendus.length, ancresPosees: fond.ancres() - bAvant };
+
+    expect(navigue).toEqual({ rendus: 1, ancresPosees: 0 });
+    expect(absorbe).toEqual({ rendus: 0, ancresPosees: 1 });
+    expect(navigue).not.toEqual(absorbe);
   });
 });
 
-describe('v2/sortie — une vue peut refuser la sortie', () => {
-  test('la garde fournit sa propre question, et l\'ancre est posée pour elle', () => {
+// ── 6. Le point d'accroche des gardes ──────────────────────────────────────
+describe('v2/sortie — une vue peut toujours refuser la sortie', () => {
+  test('la garde absorbe le retour et présente sa propre confirmation', () => {
+    const presentees = [];
     const b = creerBanc({
-      gardes: [() => ({ question: 'Terminer la séance en cours ?' })]
+      gardes: [() => ({
+        question: 'Terminer la séance en cours ?',
+        afficher: () => presentees.push('confirmation de la garde')
+      })]
     });
     b.ouvrir();
     b.naviguer(Routeur.SEMAINE, { lundi: LUNDI });
     b.naviguer(Routeur.SEANCE, { id: UUID });
+    const ancresAvant = b.ancres();
 
     expect(b.retourSysteme()).toBe('popstate');
-    expect(b.questions).toHaveLength(1);
-    expect(b.questions[0].garde.question).toBe('Terminer la séance en cours ?');
-    expect(b.etat().ancree).toBe(true);
+    expect(presentees).toEqual(['confirmation de la garde']);
+    expect(b.ancres()).toBe(ancresAvant + 1);     // le retour est absorbé
+    expect(b.rendus).toEqual([]);                 // la vue gardée reste
     expect(b.evenements).toEqual([]);
-
-    b.repondre(false);
-    expect(b.etat().intercepte).toBe(true);
     expect(b.debordements()).toBe(0);
   });
-});
 
-describe('v2/sortie — « intercepte » et « n\'intercepte plus » sont distinguables', () => {
-  // Le piège des deux chantiers précédents : deux cas chacun conforme de son
-  // côté, mais que rien ne sépare. Ici le MÊME geste suit les deux réponses,
-  // et on exige que ses effets soient opposés.
-  function apresReponse(oui) {
-    const b = creerBanc();
+  test('une garde qui laisse passer ne change rien : le retour navigue', () => {
+    const b = creerBanc({ gardes: [() => null] });
     b.ouvrir();
+    b.naviguer(Routeur.SEMAINE, { lundi: LUNDI });
+    b.naviguer(Routeur.SEANCE, { id: UUID });
+
     b.retourSysteme();
-    const ancresAvant = b.ancres(), questionsAvant = b.questions.length;
-    b.repondre(oui);
-    const issue = b.retourSysteme();
-    return {
-      issue,
-      nouvellesQuestions: b.questions.length - questionsAvant,
-      nouvellesAncres: b.ancres() - ancresAvant,
-      evenements: b.evenements.slice()
-    };
-  }
+    expect(b.rendus).toEqual([Routeur.SEMAINE]);
+  });
 
-  test('le même appui sur retour produit des effets opposés', () => {
-    const refus = apresReponse(false);
-    const confirme = apresReponse(true);
+  test('une garde sans présentation ne casse rien — elle absorbe quand même', () => {
+    const b = creerBanc({ gardes: [() => ({ raison: 'seance-en-cours' })] });
+    b.ouvrir();
+    b.naviguer(Routeur.SEMAINE, { lundi: LUNDI });
+    const ancresAvant = b.ancres();
 
-    expect(refus).toEqual({
-      issue: 'popstate', nouvellesQuestions: 1, nouvellesAncres: 1, evenements: []
-    });
-    expect(confirme).toEqual({
-      issue: 'fermeture', nouvellesQuestions: 0, nouvellesAncres: 0, evenements: ['fermeture']
-    });
-    expect(refus).not.toEqual(confirme);
+    expect(() => b.retourSysteme()).not.toThrow();
+    expect(b.ancres()).toBe(ancresAvant + 1);
+    expect(b.rendus).toEqual([]);
   });
 });

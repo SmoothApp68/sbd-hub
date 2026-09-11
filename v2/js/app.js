@@ -26,7 +26,16 @@
   var sessionActive = null;  // sans elle, aucune vue authentifiée n'est rendue
 
   function $(id) { return doc.getElementById(id); }
-  function montrer(nom) { Object.keys(vues).forEach(function (k) { vues[k].hidden = (k !== nom); }); }
+
+  // Une vue visible à la fois, et la barre d'onglets suit : elle disparaît sur
+  // la connexion, où il n'y a rien à naviguer.
+  function montrer(nom, vue) {
+    Object.keys(vues).forEach(function (k) { vues[k].hidden = (k !== nom); });
+    var onglet = Routeur.ongletDe(vue || nom);
+    var barre = $('onglets');
+    if (barre) barre.hidden = !onglet;
+    Rendu.rendreOnglets(barre, onglet);
+  }
 
   function texteErreur(e) {
     if (!e) return 'Erreur inconnue.';
@@ -108,7 +117,7 @@
   function rendreSemaine(lundi) {
     if (lundi) lundiAffiche = lundi;
     if (!lundiAffiche) lundiAffiche = Semaine.bornesSemaine(new Date()).lundi;
-    montrer('liste');
+    montrer('liste', Routeur.RACINE);
     Rendu.rendreEtat($('etat-sync'), etat);
 
     var bornes = Semaine.bornesSemaine(lundiAffiche);
@@ -145,7 +154,7 @@
   }
 
   function rendreDetail(sessionId) {
-    montrer('detail');
+    montrer('detail', Routeur.SEANCE);
     var seance = local.seances.filter(function (s) { return s.id === sessionId; })[0] || null;
     var blocs = Modele.construireBlocs(seriesDe(sessionId), local.exercices);
     Rendu.rendreDetail($('detail-seance'), seance, blocs);
@@ -173,7 +182,7 @@
 
     etat = Sync.deciderEtat({ syncOk: false, aDesDonnees: local.seances.length > 0 });
     if (local.seances.length) rendreRoute(routeInitiale);
-    else { montrer('liste'); Rendu.message($('liste-seances'), 'Première synchronisation…'); }
+    else { montrer('liste', Routeur.RACINE); Rendu.message($('liste-seances'), 'Première synchronisation…'); }
 
     // L'ancre s'installe dès l'ouverture, QUELLE QUE SOIT la vue d'entrée :
     // au fond de la pile, un retour ne déclenche aucun popstate, il ferme.
@@ -205,7 +214,7 @@
     sessionActive = null;
     try { await Cache.viderTout(); } catch (e) { /* rien à garder de toute façon */ }
     local = { seances: [], series: [], exercices: [], parSeance: null };
-    try { await Auth.deconnecter(); } catch (e) { montrer('connexion'); }
+    try { await Auth.deconnecter(); } catch (e) { montrer('connexion', Routeur.CONNEXION); }
     allerA(Routeur.CONNEXION, {}, true);
   }
 
@@ -244,19 +253,30 @@
   function ajouterGarde(fn) { if (typeof fn === 'function') gardes.push(fn); }
   function retirerGarde(fn) { gardes = gardes.filter(function (g) { return g !== fn; }); }
 
+  // Un onglet sans contenu n'a rien à rendre : sa section est écrite en clair
+  // dans index.html. Montrer la vue suffit.
+  var VUES_ONGLET = {};
+  VUES_ONGLET[Routeur.SAISIE] = 'saisie';
+  VUES_ONGLET[Routeur.PROGRESSION] = 'progression';
+  VUES_ONGLET[Routeur.PROFIL] = 'profil';
+
   function rendreRoute(route) {
     var cible = Routeur.routeAffichable(route, { session: sessionActive });
     // Sans session, l'URL est corrigée en même temps que l'écran : laisser
     // /semaine/… dans la barre d'adresse rejouerait le défaut au rechargement.
     if (cible.redirigeDepuis) allerA(Routeur.CONNEXION, {}, true);
-    if (cible.vue === Routeur.CONNEXION) return montrer('connexion');
+    if (cible.vue === Routeur.CONNEXION) return montrer('connexion', Routeur.CONNEXION);
+    if (VUES_ONGLET[cible.vue]) return montrer(VUES_ONGLET[cible.vue], cible.vue);
     if (cible.vue === Routeur.SEANCE) return rendreDetail(cible.params.id);
     if (cible.vue === Routeur.SEMAINE) return rendreSemaine(cible.params.lundi);
     return rendreSemaine(Semaine.bornesSemaine(new Date()).lundi);
   }
 
   async function demarrer() {
-    vues = { connexion: $('vue-connexion'), liste: $('vue-liste'), detail: $('vue-detail') };
+    vues = {
+      connexion: $('vue-connexion'), liste: $('vue-liste'), detail: $('vue-detail'),
+      saisie: $('vue-saisie'), progression: $('vue-progression'), profil: $('vue-profil')
+    };
     sortie = Sortie.creer({
       history: racine.history,
       routeur: Routeur,
@@ -279,19 +299,31 @@
       afficherSemaine();
     });
 
+    // Chaque onglet est une VUE du routeur, avec son URL — pas un basculement
+    // d'affichage. Séances renvoie sur la semaine courante.
+    Routeur.ONGLETS.forEach(function (vue) {
+      var bouton = doc.querySelector('.onglet[data-vue="' + vue + '"]');
+      if (!bouton) return;
+      bouton.addEventListener('click', function () {
+        if (vue === Routeur.RACINE) return afficherSemaine(Semaine.bornesSemaine(new Date()).lundi);
+        allerA(vue, {});
+        rendreRoute({ vue: vue, params: {} });
+      });
+    });
+
     racine.addEventListener('popstate', function () { sortie.surRetour(); });
 
     Auth.surChangement(function (session) {
       if (session) entrer(session);
-      else { sessionActive = null; allerA(Routeur.CONNEXION, {}, true); montrer('connexion'); }
+      else { sessionActive = null; allerA(Routeur.CONNEXION, {}, true); montrer('connexion', Routeur.CONNEXION); }
     });
 
     try {
       var session = await Auth.sessionCourante();
       if (session) await entrer(session);
-      else { sessionActive = null; allerA(Routeur.CONNEXION, {}, true); montrer('connexion'); }
+      else { sessionActive = null; allerA(Routeur.CONNEXION, {}, true); montrer('connexion', Routeur.CONNEXION); }
     } catch (e) {
-      montrer('connexion');
+      montrer('connexion', Routeur.CONNEXION);
       $('erreur-connexion').textContent = texteErreur(e);
     }
     enregistrerSW();

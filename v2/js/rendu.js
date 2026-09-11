@@ -161,20 +161,42 @@
     cible.appendChild(compte);
 
     if (!volume.length) return;
-    var max = volume[0].series || 1;
     var liste = el('div', 'volume');
     volume.forEach(function (v) {
       var ligne = el('div', 'volume-ligne');
       ligne.appendChild(el('span', 'volume-nom', v.libelle));
-      var piste = el('span', 'volume-piste');
-      var barre = el('span', 'volume-barre');
-      barre.style.width = Math.round((v.series / max) * 100) + '%';
-      piste.appendChild(barre);
-      ligne.appendChild(piste);
+      ligne.appendChild(el('span', 'volume-pointille'));
       ligne.appendChild(el('span', 'volume-valeur', String(v.series).replace('.', ',')));
       liste.appendChild(ligne);
     });
     cible.appendChild(liste);
+  }
+
+
+  // Les trois premiers exercices d'une séance. Le premier en clair, les deux
+  // suivants en gris : un seul pivot par carte. Jamais « et 0 autres ».
+  function rendreApercu(carte, apercu) {
+    if (!apercu || !apercu.tete.length) return;
+    var grille = el('div', 'seance-apercu');
+    apercu.tete.forEach(function (e, i) {
+      grille.appendChild(el('span', 'apercu-exo' + (i === 0 ? ' pivot' : ''), e.nom));
+    });
+    if (apercu.autres > 0) {
+      grille.appendChild(el('span', 'apercu-autres',
+        'et ' + apercu.autres + ' autre' + (apercu.autres > 1 ? 's' : '') + ' exercices'));
+    }
+    carte.appendChild(grille);
+  }
+
+  // L'onglet actif reflète la vue courante — une seule source, la route.
+  function rendreOnglets(barre, vue) {
+    if (!barre) return;
+    var boutons = barre.querySelectorAll('.onglet');
+    for (var i = 0; i < boutons.length; i++) {
+      var actif = boutons[i].getAttribute('data-vue') === vue;
+      boutons[i].className = 'onglet' + (actif ? ' actif' : '');
+      boutons[i].setAttribute('aria-current', actif ? 'page' : 'false');
+    }
   }
 
   // Les sept jours, vides compris. Un jour sans séance s'affiche et ne se juge
@@ -199,6 +221,8 @@
           : r.nbExercices + ' exercice' + (r.nbExercices > 1 ? 's' : '') +
             ' · ' + r.nbSeriesTravail + ' série' + (r.nbSeriesTravail > 1 ? 's' : '');
         if (meta) carte.appendChild(el('div', 'seance-meta', meta));
+        // Une sortie garde sa carte évidée : durée et distance, pas d'aperçu.
+        if (!r.estSortie) rendreApercu(carte, r.apercu);
         carte.addEventListener('click', function () { surChoix(r.id); });
         bloc.appendChild(carte);
       });
@@ -216,6 +240,8 @@
     vider: vider,
     dateCourte: dateCourte,
     rendreEtat: rendreEtat,
+    rendreOnglets: rendreOnglets,
+    rendreApercu: rendreApercu,
     libelleSemaine: libelleSemaine,
     rendreBilan: rendreBilan,
     rendreJours: rendreJours,

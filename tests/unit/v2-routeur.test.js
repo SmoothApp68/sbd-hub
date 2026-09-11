@@ -109,6 +109,67 @@ describe('construire — vue vers chemin', () => {
   });
 });
 
+
+// ── Onglets ────────────────────────────────────────────────────────────────
+describe('onglets — chaque onglet est une vue avec son URL', () => {
+  test.each([
+    ['/saisie', 'saisie'],
+    ['/progression', 'progression'],
+    ['/profil', 'profil']
+  ])('%s résout vers la vue %s', (chemin, vue) => {
+    const r = R.analyser(chemin);
+    expect(r.vue).toBe(vue);
+    expect(r.repli).toBeUndefined();
+    expect(R.construire(vue, {})).toBe(chemin);
+  });
+
+  test('l’aller-retour URL ↔ vue est idempotent pour les quatre onglets', () => {
+    R.ONGLETS.forEach((vue) => {
+      expect(R.analyser(R.construire(vue, {})).vue).toBe(vue);
+    });
+  });
+
+  test('la racine est l’onglet Séances, et son chemin reste « / »', () => {
+    expect(R.construire('racine', {})).toBe('/');
+    expect(R.analyser('/').vue).toBe('racine');
+    expect(R.ONGLETS[0]).toBe('racine');
+  });
+
+  test('un onglet inconnu retombe sur la racine, sans erreur', () => {
+    expect(R.analyser('/reglages').repli).toBe('inconnu');
+    expect(R.analyser('/saisie/truc').repli).toBe('inconnu');
+  });
+
+  test('une vue authentifiée : un onglet exige une session comme le reste', () => {
+    R.ONGLETS.forEach((vue) => {
+      expect(R.routeAffichable({ vue, params: {} }, { session: null }).vue).toBe('connexion');
+    });
+  });
+});
+
+describe('ongletDe — l’onglet actif reflète la vue courante', () => {
+  test.each([
+    ['racine', 'racine'],
+    ['semaine', 'racine'],
+    ['seance', 'racine'],
+    ['saisie', 'saisie'],
+    ['progression', 'progression'],
+    ['profil', 'profil']
+  ])('la vue %s allume l’onglet %s', (vue, onglet) => {
+    expect(R.ongletDe(vue)).toBe(onglet);
+  });
+
+  test('la connexion n’allume aucun onglet — la barre n’y est pas', () => {
+    expect(R.ongletDe('connexion')).toBeNull();
+    expect(R.ongletDe('nawak')).toBeNull();
+  });
+
+  test('une semaine et un détail allument le MÊME onglet que la racine', () => {
+    // Sinon la barre changerait d'onglet en ouvrant une séance.
+    expect(new Set(['racine', 'semaine', 'seance'].map(R.ongletDe)).size).toBe(1);
+  });
+});
+
 // ── 3 et 4. La route affichable : sans session, rien d'authentifié ──────────
 describe('routeAffichable — une vue authentifiée exige une session', () => {
   const avec = (chemin, session) => R.routeAffichable(R.analyser(chemin), { session });

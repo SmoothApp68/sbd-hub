@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="fr">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TrainHub — A + résumé de séance</title>
+<style>
+:root{
+  --fond:#15171A; --panneau:#1D2025; --panneau-2:#24272D; --trait:#2E323A;
+  --texte:#E8EAED; --texte-2:#959BA5; --texte-3:#676D77;
+  --accent:#F2B705; --reussi:#5FA97A; --manque:#C4564A;
+  --e1:4px; --e2:8px; --e3:12px; --e4:16px; --e5:24px;
+  --r-petit:6px; --r-grand:12px;
+  --pile:-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0C0D0F;color:var(--texte);font-family:var(--pile);
+  -webkit-font-smoothing:antialiased;padding:24px;display:flex;gap:32px;
+  flex-wrap:wrap;justify-content:center}
+.tel{width:360px;flex:0 0 360px}
+.tel h4{font:600 12px/1.4 var(--pile);color:#6A7078;margin-bottom:8px}
+.ecran{height:760px;background:var(--fond);border-radius:20px;overflow:hidden;
+  display:flex;flex-direction:column;border:1px solid #23262B;position:relative}
+.corps{flex:1;overflow-y:auto;padding:var(--e4) var(--e4) 84px}
+.corps::-webkit-scrollbar{width:0}
+.num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+
+.semaine{display:flex;align-items:center;justify-content:space-between;
+  padding:var(--e3) 0 var(--e4)}
+.semaine .date{font:600 17px/1.2 var(--pile)}
+.semaine .date span{display:block;font:400 12px/1.5 var(--pile);color:var(--texte-3);margin-top:2px}
+.fleche{width:36px;height:36px;border-radius:var(--r-petit);border:1px solid var(--trait);
+  background:transparent;color:var(--texte-2);font-size:16px;display:grid;place-items:center}
+
+.bilan{background:var(--panneau);border-radius:var(--r-grand);padding:var(--e4);
+  margin-bottom:var(--e5)}
+.compte{display:flex;align-items:baseline;gap:var(--e2);margin-bottom:var(--e4)}
+.compte .gros{font:700 32px/1 var(--pile);letter-spacing:-.02em}
+.compte .unite{font:400 13px/1 var(--pile);color:var(--texte-2)}
+.compte .sep{color:var(--texte-3);margin:0 var(--e1)}
+.muscle{display:flex;align-items:baseline;gap:var(--e2);padding:4px 0}
+.muscle .nom{font:400 13px/1.4 var(--pile);color:var(--texte-2);white-space:nowrap}
+.muscle .pointille{flex:1;border-bottom:1px dotted #31363E;transform:translateY(-4px);min-width:16px}
+.muscle .val{font:600 14px/1.4 var(--pile);color:var(--texte);letter-spacing:-.01em}
+
+.jour{display:flex;gap:var(--e3);padding:var(--e3) 0;border-top:1px solid var(--trait)}
+.jour:first-of-type{border-top:none}
+.jour .etiquette{flex:0 0 44px;padding-top:2px;font:600 12px/1.3 var(--pile);color:var(--texte-3)}
+.jour .etiquette b{display:block;font:700 18px/1.1 var(--pile);color:var(--texte-2)}
+.jour.vide .etiquette{color:#4A4F57}
+.jour.vide .etiquette b{color:#3C4047}
+.jour .contenu{flex:1;min-width:0}
+.rien{font:400 13px/1.3 var(--pile);color:#42464D;padding-top:3px}
+
+/* ---------- Carte de séance, enrichie ---------- */
+.seance{background:var(--panneau);border-radius:var(--r-grand);padding:var(--e3);
+  margin-bottom:var(--e2)}
+.seance .haut{display:flex;align-items:baseline;gap:var(--e2);margin-bottom:var(--e3)}
+.seance .titre{font:600 15px/1.3 var(--pile);flex:1;min-width:0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.seance .nb{font:400 11px/1.3 var(--pile);color:var(--texte-3);white-space:nowrap}
+
+/* le résumé : nom à gauche, meilleure série à droite, alignée */
+.resume{display:grid;grid-template-columns:1fr auto;gap:var(--e1) var(--e2);
+  align-items:baseline}
+.resume .e{font:400 13px/1.45 var(--pile);color:var(--texte-2);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.resume .s{font:600 13px/1.45 var(--pile);color:var(--texte);white-space:nowrap}
+.resume .s i{font-style:normal;color:var(--texte-3);font-weight:400;margin:0 2px}
+.resume .autres{grid-column:1/-1;font:400 12px/1.45 var(--pile);color:var(--texte-3);
+  margin-top:2px}
+
+/* séance principale du jour : la plus lourde est mise en avant */
+.resume .e.pivot{color:var(--texte)}
+.resume .s.pivot{color:var(--texte)}
+
+.seance.sortie{background:transparent;border:1px solid var(--trait);padding:10px var(--e3)}
+.seance.sortie .titre{font-weight:400;color:var(--texte-2);font-size:14px}
+.seance.sortie .haut{margin-bottom:0}
+
+.onglets{position:absolute;left:0;right:0;bottom:0;display:grid;
+  grid-template-columns:repeat(4,1fr);background:#191C21;
+  border-top:1px solid var(--trait);padding:var(--e2) 0 12px}
+.onglet{display:flex;flex-direction:column;align-items:center;gap:3px;
+  color:var(--texte-3);text-decoration:none;font:500 11px/1.2 var(--pile);
+  min-height:48px;justify-content:center}
+.onglet svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;
+  stroke-linecap:round;stroke-linejoin:round}
+.onglet.actif{color:var(--accent)}
+
+.legende{flex:0 0 300px;color:#8A9099;font:400 13px/1.6 var(--pile)}
+.legende h3{font:700 15px/1.3 var(--pile);color:#D8DADE;margin:20px 0 6px}
+.legende h3:first-child{margin-top:0}
+.legende p{margin-bottom:8px}
+.legende code{background:#1D2025;padding:1px 5px;border-radius:4px;font-size:12px;color:#C9CDD3}
+</style>
+
+<div class="tel">
+  <h4>A + résumé — la carte dit ce qu'on a fait</h4>
+  <div class="ecran">
+    <div class="corps">
+
+      <div class="semaine">
+        <button class="fleche">‹</button>
+        <div class="date num">7 – 13 septembre<span>Cette semaine</span></div>
+        <button class="fleche">›</button>
+      </div>
+
+      <div class="bilan">
+        <div class="compte">
+          <span class="gros num">4</span><span class="unite">séances</span>
+          <span class="sep">·</span>
+          <span class="gros num">62</span><span class="unite">séries</span>
+        </div>
+        <div class="muscle"><span class="nom">Grand dorsal</span><span class="pointille"></span><span class="val num">14</span></div>
+        <div class="muscle"><span class="nom">Pectoraux</span><span class="pointille"></span><span class="val num">12</span></div>
+        <div class="muscle"><span class="nom">Quadriceps</span><span class="pointille"></span><span class="val num">9</span></div>
+        <div class="muscle"><span class="nom">Triceps</span><span class="pointille"></span><span class="val num">7</span></div>
+        <div class="muscle"><span class="nom">Ischio-jambiers</span><span class="pointille"></span><span class="val num">5</span></div>
+      </div>
+
+      <div class="jour">
+        <div class="etiquette">Lun<b class="num">7</b></div>
+        <div class="contenu">
+          <div class="seance">
+            <div class="haut">
+              <div class="titre">Pecs – Dos</div>
+              <div class="nb num">6 exos · 19 séries</div>
+            </div>
+            <div class="resume">
+              <span class="e pivot">Développé Couché (Barre)</span><span class="s pivot num">122,5<i>×</i>6</span>
+              <span class="e">Rowing Assis (Machine)</span><span class="s num">73<i>×</i>12</span>
+              <span class="e">Écarté (Machine)</span><span class="s num">100<i>×</i>15</span>
+              <span class="autres">et 3 autres exercices</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="jour vide">
+        <div class="etiquette">Mar<b class="num">8</b></div>
+        <div class="contenu"><div class="rien">—</div></div>
+      </div>
+
+      <div class="jour">
+        <div class="etiquette">Mer<b class="num">9</b></div>
+        <div class="contenu">
+          <div class="seance">
+            <div class="haut">
+              <div class="titre">Quads tous terrains</div>
+              <div class="nb num">5 exos · 17 séries</div>
+            </div>
+            <div class="resume">
+              <span class="e pivot">Squat (Barre)</span><span class="s pivot num">145<i>×</i>5</span>
+              <span class="e">Presse à Cuisses</span><span class="s num">220<i>×</i>10</span>
+              <span class="e">Curl Poignets Paumes vers le Haut Assis</span><span class="s num">20<i>×</i>20</span>
+              <span class="autres">et 2 autres exercices</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="jour">
+        <div class="etiquette">Jeu<b class="num">10</b></div>
+        <div class="contenu">
+          <div class="seance">
+            <div class="haut">
+              <div class="titre">Épaules / Bras</div>
+              <div class="nb num">7 exos · 22 séries</div>
+            </div>
+            <div class="resume">
+              <span class="e pivot">Développé Militaire (Barre)</span><span class="s pivot num">70<i>×</i>6</span>
+              <span class="e">Élévations Latérales</span><span class="s num">12<i>×</i>15</span>
+              <span class="e">Curl Barre EZ</span><span class="s num">30<i>×</i>10</span>
+              <span class="autres">et 4 autres exercices</span>
+            </div>
+          </div>
+          <div class="seance sortie">
+            <div class="haut">
+              <div class="titre">Rando vers Gueb</div>
+              <div class="nb num">1 h 48 · 8,4 km</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="jour vide">
+        <div class="etiquette">Ven<b class="num">11</b></div>
+        <div class="contenu"><div class="rien">—</div></div>
+      </div>
+
+      <div class="jour">
+        <div class="etiquette">Sam<b class="num">12</b></div>
+        <div class="contenu">
+          <div class="seance">
+            <div class="haut">
+              <div class="titre">Haut du corps de fin de semaine</div>
+              <div class="nb num">5 exos · 16 séries</div>
+            </div>
+            <div class="resume">
+              <span class="e pivot">Développé Couché (Haltère)</span><span class="s pivot num">88<i>×</i>10</span>
+              <span class="e">Rowing Assis (Machine)</span><span class="s num">73<i>×</i>12</span>
+              <span class="e">Tirage Poitrine Un Bras</span><span class="s num">64<i>×</i>10</span>
+              <span class="autres">et 2 autres exercices</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="jour vide">
+        <div class="etiquette">Dim<b class="num">13</b></div>
+        <div class="contenu"><div class="rien">—</div></div>
+      </div>
+
+    </div>
+
+    <nav class="onglets">
+      <a class="onglet actif" href="#"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>Séances</a>
+      <a class="onglet" href="#"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Saisie</a>
+      <a class="onglet" href="#"><svg viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-6M22 19H2"/></svg>Progression</a>
+      <a class="onglet" href="#"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>Profil</a>
+    </nav>
+  </div>
+</div>
+
+<div class="legende">
+  <h3>Ce que « meilleure série » veut dire</h3>
+  <p><b>Le palier, et le meilleur compte de reps atteint à ce palier.</b> C'est la charge de travail de l'exercice, pas la série la plus lourde — qui peut être une exploration à une rep, ou une rampe.</p>
+  <p>C'est aussi la façon dont on en parle : « j'ai fait 122,5 × 6 », jamais « ma série la plus lourde était 125 × 3 ».</p>
+  <p>Le moteur sait déjà le calculer : c'est le §7 de <code>MOTEUR-PROGRESSION-V2</code>, déjà implémenté et vérifié sur 93 à 98 % des séance-exercices.</p>
+
+  <h3>Trois exercices, pas plus</h3>
+  <p>Tes séances font 8,1 exercices en moyenne. Tout afficher rendrait la semaine illisible.</p>
+  <p><b>Les trois premiers dans l'ordre de la séance</b>, parce que l'ordre porte l'intention : le mouvement principal vient en premier. Puis « et 3 autres exercices ».</p>
+  <p>Le premier est en texte clair, les deux suivants en gris — un seul pivot par séance.</p>
+
+  <h3>Le point de rupture à 360 px</h3>
+  <p>« Curl Poignets Paumes vers le Haut Assis » est dans la maquette exprès : c'est un vrai nom de ton catalogue. Il se tronque proprement, et la charge reste alignée à droite.</p>
+  <p>Si la troncature te gêne à l'usage, l'alternative est d'utiliser un nom court par exercice — mais ça veut dire une colonne de plus en base, à saisir 237 fois.</p>
+
+  <h3>Ce que ça résout</h3>
+  <p>La carte disait « 6 exercices, 19 séries » — un comptage, pas un contenu. Elle dit maintenant ce que tu as fait, et tu retrouves une séance sans l'ouvrir.</p>
+</div>
+</html>

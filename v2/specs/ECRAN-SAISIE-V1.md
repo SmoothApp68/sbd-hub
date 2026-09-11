@@ -298,6 +298,87 @@ sa place d'origine dans les tours alors qu'elle a été refaite plus tard.
 
 ---
 
+## 7 bis. Navigation par onglets et direction artistique — cadré le 10/09/2026
+
+Deux chantiers d'interface distincts, souvent confondus. Ils ne se traitent ni au même
+moment ni de la même façon.
+
+### 7 bis.1 Les onglets sont structurels — à faire tôt
+
+L'app n'a aujourd'hui qu'une surface. Dès qu'il y en aura trois ou quatre, une barre de
+navigation devient nécessaire — et **elle conditionne la mise en page de tous les écrans**.
+Posée après coup, elle oblige à reprendre chacun d'eux : hauteur utile réduite, zone
+d'action en bas déjà occupée, marges à revoir.
+
+> **La barre d'onglets se pose avant l'écran de saisie, pas après.**
+
+Le routeur d'URL (chantiers 8 à 10) la rend simple à poser : chaque onglet est une vue
+existante, avec son URL.
+
+Découpage proposé, à valider : **Séances · Saisie · Statistiques · Profil**.
+
+L'**entrée par exercice** — voir §7 bis.3 — trouve sa place dans Statistiques, ou comme
+onglet à part entière si elle se révèle centrale à l'usage.
+
+### 7 bis.2 La direction artistique — fondations d'abord, finition après
+
+Elle compte : c'est une app ouverte trois à cinq fois par semaine. Mais elle se travaille
+**sur des écrans qui existent**. La faire maintenant, puis ajouter la saisie et les
+statistiques, reviendrait à la refaire deux fois.
+
+**Exception — ce qui est coûteux à changer plus tard se décide maintenant :**
+
+| À poser avec les onglets | À garder pour la fin |
+|---|---|
+| palette de couleurs | illustrations |
+| échelle typographique | animations et transitions |
+| échelle d'espacements | micro-interactions |
+| rayons, épaisseurs, élévations | finition écran par écran |
+
+Ces fondations se posent **en une fois**, avant les écrans, parce que chaque écran les
+consomme. Le reste se pose **après**, parce qu'il les suppose.
+
+**Contrainte connue : 360 px de large.** Les maquettes ont été faites à 380. C'est le point
+de rupture des noms longs du catalogue (237 entrées, ambiguïtés réelles) — en cas de
+conflit, noms sur deux lignes plutôt que troncature.
+
+### 7 bis.3 Retrouver une séance ancienne — le calendrier n'est pas la réponse
+
+Constaté à l'usage : l'historique fait **167 semaines**. Reculer semaine par semaine est
+infaisable, et une vue mensuelle en grille ne fait que diviser le problème par quatre — 36
+appuis pour remonter trois ans.
+
+> **Le besoin n'est pas de se déplacer dans le temps, mais de retrouver quelque chose.**
+> Personne ne cherche « la semaine du 12 août 2024 ». On cherche « mon meilleur couché »,
+> « à quoi ressemblait mon bloc de force », « quand j'ai arrêté le soulevé ».
+
+Trois réponses, par ordre de valeur :
+
+1. **L'entrée par exercice.** Choisir un exercice, voir toutes ses séances de la plus
+   récente à la plus ancienne, avec les charges. Trois ans en un défilement. **C'est aussi
+   la maille du moteur** — palier, format, progression, stagnation raisonnent tous par
+   couple (exercice, format). Cette vue prépare directement le terrain du coaching.
+2. **La recherche par titre.** Les séances en ont — « Pecs - Dos », « Alpes du
+   Liechtenstein ». Un mot suffit à retrouver le bon endroit, quelle que soit l'ancienneté.
+3. **Le saut direct** à un mois et une année, pour le cas rare où la date est connue.
+
+**La vue mensuelle garde un sens, mais pas celui-là : elle montre le rythme, pas le
+chemin.** Un point par jour travaillé, lisible d'un coup d'œil.
+
+> ⚠️ Si elle est faite, elle ne dit **rien** des trous : pas de couleur d'alerte, pas de
+> série de jours rouges, pas de compteur de régularité. `CADRAGE-V2.md` §3.1 bis — le
+> système ne commente jamais l'assiduité. Un point, ou rien.
+
+### 7 bis.4 Ordre recommandé
+
+1. Réinstallation de l'ancre d'historique *(en cours)*
+2. **Onglets + fondations visuelles** — même chantier
+3. Écran de saisie
+4. Entrée par exercice
+5. Direction artistique complète
+
+---
+
 ## 8. Reste ouvert
 
 - **Écran de fin de séance** : titre, note, photo, salle.

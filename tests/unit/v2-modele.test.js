@@ -317,3 +317,81 @@ describe('cas limites', () => {
     expect(blocs).toHaveLength(3);
   });
 });
+
+// ── Aperçu de séance (ECRAN-SAISIE §7 bis.5) ───────────────────────────────
+//
+// CONFIGURATION DISCRIMINANTE (CADRAGE-V2 §2 quater) : une séance à UN ou DEUX
+// exercices. Sur une séance à six, « prend les trois premiers » et « annonce le
+// reste » sont vrais quoi qu'il arrive — il reste toujours un reste à annoncer.
+// C'est en dessous de trois que « et 0 autres » et la ligne vide apparaissent.
+describe('apercuExercices — les trois premiers, dans l’ordre de la séance', () => {
+  const CATALOGUE = [
+    { slug: 'dc', nom: 'Développé Couché (Barre)' },
+    { slug: 'row', nom: 'Rowing Assis (Machine)' },
+    { slug: 'ec', nom: 'Écarté (Machine)' },
+    { slug: 'sq', nom: 'Squat (Barre)' },
+    { slug: 'curl', nom: 'Curl Poignets Paumes vers le Haut Assis' }
+  ];
+  // Les séries sont volontairement dans le désordre : c'est `rang` qui décide.
+  const seance = (slugs) => slugs.map((s, i) => ({
+    exercise_slug: s, rang: i + 1, type_serie: 'travail'
+  })).reverse();
+
+  test('six exercices : trois nommés, « et 3 autres »', () => {
+    const a = Modele.apercuExercices(seance(['dc', 'row', 'ec', 'sq', 'curl', 'dc']), CATALOGUE);
+    expect(a.tete.map((e) => e.nom)).toEqual([
+      'Développé Couché (Barre)', 'Rowing Assis (Machine)', 'Écarté (Machine)'
+    ]);
+    expect(a.autres).toBe(2);   // 5 exercices distincts - 3
+  });
+
+  test('l’ordre vient de `rang`, pas de l’ordre d’arrivée des séries', () => {
+    const a = Modele.apercuExercices(seance(['sq', 'dc', 'row']), CATALOGUE);
+    expect(a.tete.map((e) => e.slug)).toEqual(['sq', 'dc', 'row']);
+  });
+
+  test('un exercice répété ne compte qu’une fois, à sa première position', () => {
+    const a = Modele.apercuExercices(seance(['dc', 'dc', 'row', 'dc', 'ec']), CATALOGUE);
+    expect(a.tete.map((e) => e.slug)).toEqual(['dc', 'row', 'ec']);
+    expect(a.autres).toBe(0);
+  });
+
+  // ↓ la configuration discriminante
+  test.each([[1], [2], [3]])('séance à %i exercice(s) : autres vaut 0, jamais négatif', (n) => {
+    const a = Modele.apercuExercices(seance(['dc', 'row', 'ec'].slice(0, n)), CATALOGUE);
+    expect(a.tete).toHaveLength(n);
+    expect(a.autres).toBe(0);
+  });
+
+  test('une séance sans série ne produit ni tête ni reste', () => {
+    expect(Modele.apercuExercices([], CATALOGUE)).toEqual({ tete: [], autres: 0 });
+    expect(Modele.apercuExercices(null, null)).toEqual({ tete: [], autres: 0 });
+  });
+
+  test('un slug absent du catalogue ne casse rien', () => {
+    const a = Modele.apercuExercices(seance(['inconnu']), CATALOGUE);
+    expect(a.tete).toHaveLength(1);
+    expect(typeof a.tete[0].nom).toBe('string');
+  });
+});
+
+describe('resumerSeance — l’aperçu suit la carte', () => {
+  const CAT = [
+    { slug: 'dc', nom: 'Développé Couché (Barre)' },
+    { slug: 'rando', nom: 'Randonnée', charge: 'aucune', mesure: 'distance_temps' }
+  ];
+  test('une séance de musculation porte son aperçu', () => {
+    const r = Modele.resumerSeance({ id: 'x', titre: 'Pecs' },
+      [{ exercise_slug: 'dc', rang: 1, type_serie: 'travail' }], CAT);
+    expect(r.estSortie).toBe(false);
+    expect(r.apercu.tete.map((e) => e.nom)).toEqual(['Développé Couché (Barre)']);
+  });
+
+  test('une randonnée n’a AUCUN aperçu d’exercices — carte évidée', () => {
+    const r = Modele.resumerSeance({ id: 'y', titre: 'Rando' },
+      [{ exercise_slug: 'rando', rang: 1, duree_s: 6480, distance_m: 8400 }], CAT);
+    expect(r.estSortie).toBe(true);
+    expect(r.apercu).toBeNull();
+    expect(r.dureeTotale).toBe(6480);
+  });
+});

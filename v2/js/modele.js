@@ -243,6 +243,40 @@
 
   // ── Résumé d'une séance pour la liste ───────────────────────────────────
 
+  // ── L'aperçu d'une carte de séance (ECRAN-SAISIE §7 bis.5) ──────────────
+  //
+  // Les TROIS PREMIERS exercices dans l'ordre de la séance, puis « et N autres ».
+  // Trois, parce que les séances font 8,1 exercices en moyenne et que tout
+  // afficher rendrait la semaine illisible. Les trois PREMIERS, parce que
+  // l'ordre porte l'intention : le mouvement principal vient en premier.
+  //
+  // ⚠️ Le PALIER manque, et ce n'est pas un oubli. Le §7 bis.5 veut « palier ×
+  // meilleures reps au palier ». Le palier au sens du §7 du moteur exige les
+  // exclusions des §4.1 (chauffe probable), §5 (montée) et §6 — c'est-à-dire le
+  // moteur de progression, hors périmètre ici. La règle de majorité du §7.2
+  // prise seule ne reconnaît un palier que sur 63,9 % des séance-exercices,
+  // contre 93-98 % avec les exclusions : un tiers des cartes serait muet et
+  // certaines afficheraient un chiffre que le moteur contredira ensuite. Deux
+  // voix pour le même chiffre : la famille de défauts que l'audit v1 a
+  // cataloguée. La colonne de droite attend le moteur.
+  var APERCU_MAX = 3;
+
+  function apercuExercices(series, exercices) {
+    var index = indexerExercices(exercices || []);
+    var vus = {}, ordre = [];
+    trierParRang(series || []).forEach(function (s) {
+      if (!s || !s.exercise_slug || vus[s.exercise_slug]) return;
+      vus[s.exercise_slug] = true;
+      ordre.push({ slug: s.exercise_slug, nom: nommer(index, s.exercise_slug) });
+    });
+    return {
+      tete: ordre.slice(0, APERCU_MAX),
+      // Jamais « et 0 autres exercices » : une séance de trois exercices ou
+      // moins est montrée en entier, il n'y a rien à annoncer.
+      autres: Math.max(0, ordre.length - APERCU_MAX)
+    };
+  }
+
   function resumerSeance(seance, series, exercices) {
     var index = indexerExercices(exercices);
     var listeSeries = series || [];
@@ -268,6 +302,9 @@
       // Une sortie ne se résume pas en séries : elle se résume en durée et
       // distance. Elle reste visible, simplement plus discrète.
       estSortie: sortie,
+      // Une sortie n'a pas d'aperçu d'exercices : elle se dit en durée et en
+      // distance. On ne construit donc rien qu'on n'affichera pas.
+      apercu: sortie ? null : apercuExercices(listeSeries, exercices),
       dureeTotale: dureeTotale || null,
       distanceTotale: distanceTotale || null
     };
@@ -287,7 +324,8 @@
     paqueter: paqueter,
     indexerExercices: indexerExercices,
     construireBlocs: construireBlocs,
-    resumerSeance: resumerSeance
+    resumerSeance: resumerSeance,
+    apercuExercices: apercuExercices
   };
 
   // Pas de module ES6 (contrainte du dépôt) : namespace global côté navigateur,

@@ -69,7 +69,34 @@
     <div id="detail-seance"></div>
   </section>
 
+  <!-- Onglets sans contenu. Une phrase qui dit ce qui vient, au présent et à
+       l'actif. Ni excuse, ni animation. -->
+  <section id="vue-saisie" hidden>
+    <header class="entete"><h1>Saisie</h1></header>
+    <p class="a-venir">Tu noteras ici tes séries, série par série, pendant la séance.</p>
+  </section>
+
+  <section id="vue-progression" hidden>
+    <header class="entete"><h1>Progression</h1></header>
+    <p class="a-venir">Tu suivras ici l'évolution de tes charges, exercice par exercice.</p>
+  </section>
+
+  <section id="vue-profil" hidden>
+    <header class="entete"><h1>Profil</h1></header>
+    <p class="a-venir">Tu régleras ici ton compte et ta façon de travailler.</p>
+  </section>
+
 </main>
+
+<!-- Icône ET libellé : « Séances » et « Progression » ne se distinguent pas
+     par un pictogramme seul. Aucune flèche retour — le bouton système d'Android
+     s'en charge, et les conventions de plateforme ne se remplacent pas. -->
+<nav class="onglets" id="onglets" aria-label="Navigation principale">
+  <button id="onglet-seances" class="onglet" type="button" data-vue="racine"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg><span class="onglet-nom">Séances</span></button>
+  <button id="onglet-saisie" class="onglet" type="button" data-vue="saisie"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="onglet-nom">Saisie</span></button>
+  <button id="onglet-progression" class="onglet" type="button" data-vue="progression"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V9M10 19V5M16 19v-6M22 19H2"/></svg><span class="onglet-nom">Progression</span></button>
+  <button id="onglet-profil" class="onglet" type="button" data-vue="profil"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg><span class="onglet-nom">Profil</span></button>
+</nav>
 
 <script src="/vendor/supabase.js"></script>
 <script src="/js/config.js"></script>

@@ -369,7 +369,83 @@ chemin.** Un point par jour travaillé, lisible d'un coup d'œil.
 > série de jours rouges, pas de compteur de régularité. `CADRAGE-V2.md` §3.1 bis — le
 > système ne commente jamais l'assiduité. Un point, ou rien.
 
-### 7 bis.4 Ordre recommandé
+### 7 bis.4 Jetons de design — validés le 11/09/2026
+
+Maquette de référence : `maquette-A-validee.html`. **Les valeurs ci-dessous font foi** ; la
+maquette les illustre.
+
+| Rôle | Valeur | Usage |
+|---|---|---|
+| `--fond` | `#15171A` | fond d'écran. Graphite, **pas noir** — le noir pur vibre sur OLED |
+| `--panneau` | `#1D2025` | surfaces posées sur le fond |
+| `--panneau-2` | `#24272D` | surface au-dessus d'une surface |
+| `--trait` | `#2E323A` | séparations |
+| `--texte` / `--texte-2` / `--texte-3` | `#E8EAED` / `#959BA5` / `#676D77` | **trois niveaux, pas plus** |
+| `--accent` | `#F2B705` | voir la règle ci-dessous |
+| `--reussi` / `--manque` | `#5FA97A` / `#C4564A` | **sens uniquement**, jamais décoratif |
+
+**Espacements** : échelle de 4 — 4, 8, 12, 16, 24, 32.
+**Rayons** : deux valeurs hiérarchisées — 6 px dans une surface, 12 px pour une surface.
+**Type** : une seule famille, **pile système, aucun CDN**. Chiffres toujours en
+`font-variant-numeric: tabular-nums` pour que les colonnes s'alignent d'une ligne à l'autre.
+
+> **Règle de l'accent — la plus importante.** Le jaune ne sert qu'à **deux** choses :
+> l'onglet actif, et **la suggestion du moteur**. Aucun bouton jaune ailleurs. Si l'accent
+> est partout, plus rien ne ressort le jour où le moteur dit « 122,5 kg, vise 6 » — et c'est
+> la seule voix qui doit percer.
+
+**Ce qui est proscrit** : cartes arrondies identiques partout avec la même ombre · libellés
+en majuscules espacées · dégradés · animations à l'apparition de chaque élément · flèches
+dans les boutons.
+
+### 7 bis.5 Résumé de séance — la carte dit ce qu'on a fait
+
+La carte affichait « 6 exercices, 19 séries » : un comptage, pas un contenu.
+
+> **Chaque carte de séance affiche les trois premiers exercices, dans l'ordre de la séance,
+> avec leur palier et le meilleur compte de reps atteint à ce palier.** Puis « et N autres
+> exercices ».
+
+**« Meilleure série » = palier × meilleures reps au palier.** Pas la série la plus lourde,
+qui peut être une exploration à une rep ou une rampe. C'est la façon dont on en parle :
+« j'ai fait 122,5 × 6 ». Le calcul existe déjà — §7 du moteur, vérifié sur 93 à 98 % des
+séance-exercices.
+
+**Trois, pas plus** : les séances font 8,1 exercices en moyenne. **L'ordre porte
+l'intention** — le mouvement principal vient en premier. Le premier exercice est en texte
+clair, les deux suivants en gris : un seul pivot par carte.
+
+Charges **alignées à droite en chiffres tabulaires**, pour que les colonnes se superposent
+d'une séance à l'autre.
+
+**Point de rupture connu à 360 px** : les noms longs du catalogue (« Curl Poignets Paumes
+vers le Haut Assis ») se tronquent. Acceptable en l'état. L'alternative — un nom court par
+exercice — coûte une colonne en base et 237 saisies ; à n'envisager que si l'usage le
+réclame.
+
+### 7 bis.6 Pas de barres de progression pour le volume
+
+Le bilan par muscle est un **relevé pointillé**, pas une série de barres.
+
+> Une barre suggère une jauge à remplir, donc un objectif. **Il n'y en a pas.** Quelqu'un
+> qui voit sa barre de mollets à 20 % conclut qu'il devrait la remplir — c'est exactement ce
+> que `REGLE-VOLUME-V2.md` interdit de laisser croire : rien ne peut être signalé sur une
+> semaine isolée.
+
+Le relevé dit la même chose sans suggérer de seuil.
+
+### 7 bis.7 Réserve — tout ceci est jugé sur écran de bureau
+
+**Aucune de ces décisions n'a été vue à bout de bras dans une salle mal éclairée.** La
+lisibilité du gris sur graphite, la taille des chiffres, la troncature des noms : tout se
+tranche là-bas.
+
+C'est la même règle que pour les tests (`CADRAGE-V2.md` §2 quater) : l'écran de
+développement est plus clément que l'appareil réel. Ces fondations sont **assez solides pour
+être implémentées et corrigées ensuite** — ce qui est l'état attendu de fondations visuelles,
+faites pour être ajustées quand les écrans arrivent.
+
+### 7 bis.8 Ordre recommandé
 
 1. Réinstallation de l'ancre d'historique *(en cours)*
 2. **Onglets + fondations visuelles** — même chantier

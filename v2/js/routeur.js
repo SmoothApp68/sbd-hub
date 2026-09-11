@@ -5,10 +5,17 @@
 // teste sans navigateur, et c'est là que vivent les règles.
 //
 // SCHÉMA D'URL
-//   /                       la semaine courante — la racine
+//   /                       la semaine courante — la racine, onglet Séances
 //   /semaine/AAAA-MM-JJ     une semaine, désignée par son lundi
 //   /seance/<uuid>          le détail d'une séance
+//   /saisie                 onglet Saisie
+//   /progression            onglet Progression
+//   /profil                 onglet Profil
 //   /connexion              l'écran de connexion
+//
+// Les trois onglets reprennent la forme de /connexion : un segment, en clair,
+// sans paramètre. Chaque onglet est une VUE du routeur, avec son URL — pas un
+// basculement d'affichage : un rechargement direct rouvre le bon onglet.
 //
 // La semaine est désignée par la DATE de son lundi, pas par un numéro ISO :
 // « /semaine/2026-09-07 » se lit sans décoder, se partage tel quel, et évite
@@ -20,6 +27,13 @@
   'use strict';
 
   var RACINE = 'racine', SEMAINE = 'semaine', SEANCE = 'seance', CONNEXION = 'connexion';
+  var SAISIE = 'saisie', PROGRESSION = 'progression', PROFIL = 'profil';
+
+  // Vues à segment unique, sans paramètre. La racine n'y figure pas : elle est
+  // le chemin « / », et c'est l'onglet Séances.
+  var SEGMENTS = {};
+  SEGMENTS[CONNEXION] = true; SEGMENTS[SAISIE] = true;
+  SEGMENTS[PROGRESSION] = true; SEGMENTS[PROFIL] = true;
 
   var RE_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
   var RE_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -52,7 +66,7 @@
 
     if (!bouts.length) return { vue: RACINE, params: {} };
 
-    if (bouts[0] === CONNEXION && bouts.length === 1) return { vue: CONNEXION, params: {} };
+    if (bouts.length === 1 && SEGMENTS[bouts[0]]) return { vue: bouts[0], params: {} };
 
     if (bouts[0] === SEMAINE && bouts.length === 2) {
       var d = depuisDate(bouts[1]);
@@ -76,8 +90,21 @@
       return d ? '/' + SEMAINE + '/' + d : '/';
     }
     if (vue === SEANCE) return p.id && RE_UUID.test(p.id) ? '/' + SEANCE + '/' + p.id : '/';
-    if (vue === CONNEXION) return '/' + CONNEXION;
+    if (SEGMENTS[vue]) return '/' + vue;
     return '/';
+  }
+
+  // ── Onglets ─────────────────────────────────────────────────────────────
+  //
+  // Une semaine et le détail d'une séance sont des vues DE l'onglet Séances :
+  // elles l'allument, elles n'en ouvrent pas un autre. La connexion n'allume
+  // rien — la barre n'y est pas affichée.
+  var ONGLETS = [RACINE, SAISIE, PROGRESSION, PROFIL];
+
+  function ongletDe(vue) {
+    if (vue === SEMAINE || vue === SEANCE) return RACINE;
+    for (var i = 0; i < ONGLETS.length; i++) if (ONGLETS[i] === vue) return vue;
+    return null;
   }
 
   // ── Session et vues authentifiées ────────────────────────────────────────
@@ -122,10 +149,13 @@
 
   var api = {
     RACINE: RACINE, SEMAINE: SEMAINE, SEANCE: SEANCE, CONNEXION: CONNEXION,
+    SAISIE: SAISIE, PROGRESSION: PROGRESSION, PROFIL: PROFIL,
     versDate: versDate,
     depuisDate: depuisDate,
     analyser: analyser,
     construire: construire,
+    ONGLETS: ONGLETS,
+    ongletDe: ongletDe,
     exigeSession: exigeSession,
     routeAffichable: routeAffichable,
     premiereGardeBloquante: premiereGardeBloquante

@@ -14,12 +14,16 @@
   var Rendu = racine.THRendu, Modele = racine.THModele;
   var Donnees = racine.THDonnees, Auth = racine.THAuth;
   var Cache = racine.THCache, Sync = racine.THSync, Semaine = racine.THSemaine;
+  var Routeur = racine.THRouteur;
 
   var vues = {};
   var local = { seances: [], series: [], exercices: [], parSeance: null };
   var etat = { code: 'vide', libelle: '', local: false };
   var syncEnCours = false;
   var lundiAffiche = null;   // le lundi de la semaine à l'écran
+  var gardes = [];           // vues qui peuvent refuser la sortie (§ écran de saisie)
+  var sortieAutorisee = false;
+  var profondeur = 0;        // nos propres entrées d'historique, pour savoir quoi rembobiner
 
   function $(id) { return doc.getElementById(id); }
   function montrer(nom) { Object.keys(vues).forEach(function (k) { vues[k].hidden = (k !== nom); }); }
@@ -101,7 +105,7 @@
   // Toute la navigation entre semaines lit le cache. Aucun appel réseau, aucun
   // rechargement de page — et aucune entrée empilée dans l'historique, pour ne
   // pas aggraver le bouton retour d'Android, qui est un chantier à part.
-  function afficherSemaine(lundi) {
+  function rendreSemaine(lundi) {
     if (lundi) lundiAffiche = lundi;
     if (!lundiAffiche) lundiAffiche = Semaine.bornesSemaine(new Date()).lundi;
     montrer('liste');
@@ -124,11 +128,23 @@
     }, afficherDetail);
   }
 
+  // Navigation explicite : elle écrit l'URL, puis rend.
+  function afficherSemaine(lundi) {
+    var l = lundi || lundiAffiche || Semaine.bornesSemaine(new Date()).lundi;
+    allerA(Semaine.memeSemaine(l, new Date()) ? Routeur.RACINE : Routeur.SEMAINE, { lundi: l });
+    rendreSemaine(l);
+  }
+
+  function afficherDetail(sessionId) {
+    allerA(Routeur.SEANCE, { id: sessionId });
+    rendreDetail(sessionId);
+  }
+
   function naviguer(n) {
     afficherSemaine(Semaine.decalerSemaine(lundiAffiche, n).lundi);
   }
 
-  function afficherDetail(sessionId) {
+  function rendreDetail(sessionId) {
     montrer('detail');
     var seance = local.seances.filter(function (s) { return s.id === sessionId; })[0] || null;
     var blocs = Modele.construireBlocs(seriesDe(sessionId), local.exercices);
@@ -146,13 +162,21 @@
     }
 
     // Ouverture immédiate sur ce qu'on a déjà, avant toute requête réseau.
+    // On honore l'URL d'entrée : un rechargement direct sur /semaine/… ou
+    // /seance/… rouvre la bonne vue, pas systématiquement la semaine courante.
+    var routeInitiale = Routeur.analyser(racine.location.pathname);
+    if (routeInitiale.vue === Routeur.CONNEXION || routeInitiale.repli) {
+      routeInitiale = { vue: Routeur.RACINE, params: {} };
+      allerA(Routeur.RACINE, {}, true);
+    }
+
     etat = Sync.deciderEtat({ syncOk: false, aDesDonnees: local.seances.length > 0 });
-    if (local.seances.length) afficherSemaine();
+    if (local.seances.length) rendreRoute(routeInitiale);
     else { montrer('liste'); Rendu.message($('liste-seances'), 'Première synchronisation…'); }
 
     await synchroniser();
     if (!vues.detail.hidden) return;   // l'utilisateur a ouvert une séance entre-temps
-    afficherSemaine();
+    rendreRoute(Routeur.analyser(racine.location.pathname));
   }
 
   async function soumettreConnexion(e) {
@@ -172,12 +196,84 @@
     try { await Cache.viderTout(); } catch (e) { /* rien à garder de toute façon */ }
     local = { seances: [], series: [], exercices: [], parSeance: null };
     try { await Auth.deconnecter(); } catch (e) { montrer('connexion'); }
+    allerA(Routeur.CONNEXION, {}, true);
+    profondeur = 0;
   }
 
   function enregistrerSW() {
     if (!('serviceWorker' in racine.navigator)) return;
-    racine.navigator.serviceWorker.register('./service-worker.js', { scope: './' })
+    // Chemins absolus : depuis /semaine/… un chemin relatif viserait
+    // /semaine/service-worker.js, qui n'existe pas.
+    racine.navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
       .catch(function (e) { console.warn('SW non enregistré :', e && e.message); });
+  }
+
+
+  // ── Routage ──────────────────────────────────────────────────────────────
+  //
+  // Les semaines EMPILENT une entrée d'historique, contrairement au commit
+  // précédent. Sans empilement, le retour depuis une semaine ancienne n'aurait
+  // que deux issues : quitter l'app — le défaut même qu'on corrige — ou sauter
+  // sans prévenir à la semaine courante. Empiler est la seule qui ne surprenne
+  // pas, et le bouton « Cette semaine » borne le coût d'une exploration lointaine.
+
+  function allerA(vue, params, remplacer) {
+    var chemin = Routeur.construire(vue, params);
+    if (chemin === racine.location.pathname) return;
+    if (remplacer) racine.history.replaceState({ vue: vue }, '', chemin);
+    else { racine.history.pushState({ vue: vue }, '', chemin); profondeur++; }
+  }
+
+  // Une vue peut déclarer qu'elle refuse la sortie. C'est le point d'accroche
+  // de l'écran de saisie : une séance en cours fournira ici sa propre question.
+  // Rien ne l'utilise encore — seul le mécanisme existe.
+  function ajouterGarde(fn) { if (typeof fn === 'function') gardes.push(fn); }
+  function retirerGarde(fn) { gardes = gardes.filter(function (g) { return g !== fn; }); }
+
+  function rendreRoute(route) {
+    if (route.vue === Routeur.CONNEXION) return montrer('connexion');
+    if (route.vue === Routeur.SEANCE) return rendreDetail(route.params.id);
+    if (route.vue === Routeur.SEMAINE) return rendreSemaine(route.params.lundi);
+    return rendreSemaine(Semaine.bornesSemaine(new Date()).lundi);
+  }
+
+  function surRetour() {
+    if (sortieAutorisee) return;
+    var route = Routeur.analyser(racine.location.pathname);
+    var d = Routeur.decisionRetour(route, { gardes: gardes });
+
+    if (d.action === 'historique') { profondeur = Math.max(0, profondeur - 1); rendreRoute(route); return; }
+    if (d.action === 'quitter') { sortieAutorisee = true; return; }
+
+    // 'confirmer' ou 'garde' : on ré-ancre pour ne pas sortir, puis on demande.
+    racine.history.pushState({ ancre: true }, '', racine.location.pathname);
+    demanderSortie(d.garde);
+  }
+
+  // Une question, deux choix. Aucune rétention, aucun message culpabilisant :
+  // fermer l'app n'est pas un comportement à commenter (CADRAGE-V2 §3.1 bis).
+  function demanderSortie(garde) {
+    var boite = $('confirmation');
+    $('confirmation-question').textContent =
+      (garde && garde.question) || 'Quitter TrainHub ?';
+    boite.hidden = false;
+    var oui = $('btn-quitter'), non = $('btn-rester');
+
+    function fermer() {
+      boite.hidden = true;
+      oui.removeEventListener('click', surOui);
+      non.removeEventListener('click', surNon);
+    }
+    function surOui() {
+      fermer();
+      sortieAutorisee = true;
+      // On rembobine nos propres entrées : une fois notre historique épuisé,
+      // le retour d'Android ferme l'app. On ne peut pas la fermer par script.
+      racine.history.go(-(profondeur + 2));
+    }
+    function surNon() { fermer(); }
+    oui.addEventListener('click', surOui);
+    non.addEventListener('click', surNon);
   }
 
   async function demarrer() {
@@ -196,20 +292,27 @@
       afficherSemaine();
     });
 
+    racine.addEventListener('popstate', surRetour);
+
     Auth.surChangement(function (session) {
       if (session) entrer(session);
-      else montrer('connexion');
+      else { allerA(Routeur.CONNEXION, {}, true); montrer('connexion'); }
     });
 
     try {
       var session = await Auth.sessionCourante();
-      if (session) await entrer(session); else montrer('connexion');
+      if (session) await entrer(session);
+      else { allerA(Routeur.CONNEXION, {}, true); montrer('connexion'); }
     } catch (e) {
       montrer('connexion');
       $('erreur-connexion').textContent = texteErreur(e);
     }
     enregistrerSW();
   }
+
+  // Exposé pour l'écran de saisie à venir : une vue déclare ici qu'elle refuse
+  // la sortie, et fournit sa propre question. Rien ne s'en sert encore.
+  racine.THApp = { ajouterGarde: ajouterGarde, retirerGarde: retirerGarde };
 
   if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', demarrer);
   else demarrer();

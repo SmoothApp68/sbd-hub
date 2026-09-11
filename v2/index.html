@@ -14,9 +14,9 @@
   form-action 'none';
   object-src 'none'">
 <title>TrainHub v2</title>
-<link rel="manifest" href="./manifest.webmanifest">
-<link rel="icon" href="./icons/icon-192.png">
-<link rel="stylesheet" href="./styles.css">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icons/icon-192.png">
+<link rel="stylesheet" href="/styles.css">
 </head>
 <body>
 
@@ -71,16 +71,28 @@
 
 </main>
 
-<script src="./vendor/supabase.js"></script>
-<script src="./js/config.js"></script>
-<script src="./js/client.js"></script>
-<script src="./js/auth.js"></script>
-<script src="./js/donnees.js"></script>
-<script src="./js/modele.js"></script>
-<script src="./js/sync.js"></script>
-<script src="./js/semaine.js"></script>
-<script src="./js/cache.js"></script>
-<script src="./js/rendu.js"></script>
-<script src="./js/app.js"></script>
+<!-- Une question, deux choix. Aucune rétention. -->
+<div id="confirmation" class="confirmation" role="dialog" aria-modal="true" hidden>
+  <div class="confirmation-boite">
+    <p id="confirmation-question" class="confirmation-question"></p>
+    <div class="confirmation-choix">
+      <button id="btn-rester" type="button" class="discret">Rester</button>
+      <button id="btn-quitter" type="button" class="principal confirmation-quitter">Quitter</button>
+    </div>
+  </div>
+</div>
+
+<script src="/vendor/supabase.js"></script>
+<script src="/js/config.js"></script>
+<script src="/js/client.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/donnees.js"></script>
+<script src="/js/modele.js"></script>
+<script src="/js/sync.js"></script>
+<script src="/js/semaine.js"></script>
+<script src="/js/routeur.js"></script>
+<script src="/js/cache.js"></script>
+<script src="/js/rendu.js"></script>
+<script src="/js/app.js"></script>
 </body>
 </html>

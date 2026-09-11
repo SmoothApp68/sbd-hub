@@ -7,7 +7,7 @@
 // Règle du socle : AUCUNE réponse Supabase n'est mise en cache. Un service worker
 // trop zélé qui sert des données périmées coûte cher à diagnostiquer.
 
-const CACHE_V2 = 'trainhub-v2-004';
+const CACHE_V2 = 'trainhub-v2-005';
 
 const SHELL = [
   './',
@@ -24,6 +24,7 @@ const SHELL = [
   './js/modele.js',
   './js/sync.js',
   './js/semaine.js',
+  './js/routeur.js',
   './js/cache.js',
   './js/rendu.js',
   './js/app.js'
@@ -60,6 +61,21 @@ self.addEventListener('fetch', (event) => {
   // Notre propre origine uniquement. Le scope étant devenu `/`, un filtre sur un
   // segment de chemin ne servirait plus à rien — il ne matcherait même plus.
   if (url.origin !== self.location.origin) return;
+
+  // Les URL de vue (/semaine/…, /seance/…) ne sont pas des fichiers : le serveur
+  // y répond par la coquille. On la sert donc directement, et surtout on ne la
+  // met PAS en cache sous l'URL demandée — sinon chaque semaine visitée créerait
+  // une entrée, et une coquille périmée survivrait à une mise à jour.
+  if (req.mode === 'navigate') {
+    event.respondWith((async () => {
+      try { return await fetch(req); }
+      catch (e) {
+        const cache = await caches.open(CACHE_V2);
+        return (await cache.match('./index.html')) || Response.error();
+      }
+    })());
+    return;
+  }
 
   // Réseau d'abord, cache en repli : le socle doit montrer le code du jour,
   // et rester ouvrable hors réseau (pas d'écran blanc).

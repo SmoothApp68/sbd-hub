@@ -1,0 +1,7 @@
+# Cloudflare Pages — repli SPA.
+# Le routeur produit des URL comme /semaine/2026-09-07 ou /seance/<uuid> qui
+# n'existent pas comme fichiers. Sans cette règle, les recharger ou les partager
+# renvoie un 404. Le statut 200 sert la coquille SANS redirection : l'URL reste
+# celle demandée, et le routeur la lit au démarrage.
+# Les fichiers réels (index.html, js/…, icons/…) sont servis avant cette règle.
+/*    /index.html   200

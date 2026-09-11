@@ -10,15 +10,8 @@
 // l'entrée par laquelle l'app est entrée. C'était le défaut du chantier
 // précédent ; le test qui le surveille est conservé tel quel.
 //
-// LA CONFIGURATION COMPTE PLUS QUE LE NOMBRE (CADRAGE-V2 §2 quater).
-// « Réinstalle » et « ne réinstalle pas » ne donnent des résultats différents
-// que sur une pile MINIMALE : une seule entrée de lancement, rien dessous, et
-// rien que l'app ait empilé. Partout ailleurs il reste toujours quelque chose à
-// consommer, et les deux comportements sont indistinguables. Chaque test de la
-// réinstallation tourne donc sur `pileMinimale()`, et sa contrepartie permissive
-// `pileProfonde()` est là pour prouver l'ASYMÉTRIE, pas pour rassurer.
-//
-//   avant = 0 → PWA lancée depuis l'icône : rien sous l'entrée de lancement.
+// Deux contextes, parce qu'ils diffèrent :
+//   avant = 0 → PWA installée : rien sous l'entrée de lancement.
 //   avant = 1 → onglet Chrome : une page précédente.
 
 const Routeur = require('../../v2/js/routeur.js');
@@ -102,104 +95,41 @@ function creerBanc(options) {
     journal, rendus, evenements,
     chemin: () => entrees[index].chemin,
     debordements: () => debordements,
-    profondeur: () => entrees.length,        // hauteur réelle de la pile
-    position: () => index,
     etat: () => sortie.etat()
   };
 }
 
-// La configuration où les deux comportements DIFFÈRENT : une seule entrée,
-// rien dessous, rien d'empilé. C'est la PWA lancée depuis l'icône.
-function pileMinimale(options) {
-  const b = creerBanc(Object.assign({ avant: 0 }, options || {}));
-  b.ouvrir();
-  return b;
-}
-
-// La configuration PERMISSIVE : l'app a empilé ses propres entrées, donc un
-// retour trouve toujours quelque chose à consommer. Les deux comportements y
-// sont indistinguables — c'est précisément ce qu'on veut démontrer.
-function pileProfonde(n) {
-  const b = creerBanc({ avant: 0 });
-  b.ouvrir();
-  for (let i = 0; i < (n || 12); i++) {
-    b.naviguer(Routeur.SEMAINE, { lundi: new Date(2026, 8, 7 - 7 * i) });
-  }
-  return b;
-}
-
-// ── 1 et 2. La réinstallation, sur la seule pile qui la distingue ──────────
-describe('v2/sortie — pile MINIMALE : l’entrée consommée est rendue', () => {
-  test('une absorption : l’ancre est réinstallée, la profondeur revient à son état initial', () => {
-    const b = pileMinimale();
-    const profondeurAuRepos = b.profondeur();
-    const positionAuRepos = b.position();
-    expect(profondeurAuRepos).toBe(2);            // lancement + ancre, rien d'autre
-    expect(b.ancres()).toBe(1);
-
-    expect(b.retourSysteme()).toBe('popstate');
-    expect(b.ancres()).toBe(2);                   // RENDUE, pas seulement consommée
-    expect(b.profondeur()).toBe(profondeurAuRepos);
-    expect(b.position()).toBe(positionAuRepos);
-    expect(b.rendus).toEqual([]);
-    expect(b.evenements).toEqual([]);
-  });
-
-  test('dix absorptions consécutives : jamais sous l’entrée de lancement', () => {
-    const b = pileMinimale();
-    for (let i = 0; i < 10; i++) {
-      expect(b.retourSysteme()).toBe('popstate');
-      expect(b.position()).toBeGreaterThanOrEqual(1);   // jamais retombé sur le fond
-    }
-    expect(b.ancres()).toBe(11);                  // 1 au démarrage + 10 rendues
-    expect(b.evenements).toEqual([]);
-    expect(b.rendus).toEqual([]);
-    expect(b.profondeur()).toBe(2);
-  });
-
-  test('un retour qui atterrit SUR l’ancre en rend une aussi', () => {
-    // Le défaut exact : cette branche rendait la vue sans rendre l'entrée.
-    const b = pileMinimale();
-    b.naviguer(Routeur.SEMAINE, { lundi: LUNDI });
-    const ancresAvant = b.ancres();
-
-    expect(b.retourSysteme()).toBe('popstate');   // semaine -> ancre
-    expect(b.rendus).toEqual([Routeur.RACINE]);
-    expect(b.ancres()).toBe(ancresAvant + 1);
-
-    // et l'appui SUIVANT — celui qui fermait l'app — est absorbé lui aussi
-    expect(b.retourSysteme()).toBe('popstate');
-    expect(b.evenements).toEqual([]);
-  });
-
-  test('un état qui RESSEMBLE à une ancre, restauré d’un lancement précédent, n’en tient pas lieu', () => {
-    // Android peut restaurer history.state au redémarrage de la PWA. Une ancre
-    // d'hier n'est pas une entrée de rechange d'aujourd'hui.
-    const b = pileMinimale({ etat: { ancre: true } });
-    expect(b.ancres()).toBe(1);                   // une VRAIE ancre a été posée
-    expect(b.profondeur()).toBe(2);
-
-    expect(b.retourSysteme()).toBe('popstate');
-    expect(b.retourSysteme()).toBe('popstate');
-    expect(b.evenements).toEqual([]);             // l'app ne se ferme pas au 2e appui
-  });
-
-  test('en onglet aussi, pile minimale : on ne sort pas du document', () => {
-    const b = creerBanc({ avant: 1 });
+// ── 1. Le retour au fond de la pile est absorbé ─────────────────────────────
+describe('v2/sortie — au fond de la pile, le retour ne fait rien', () => {
+  test('absorbé : ancre réinstallée, aucun rendu, rien ne bouge à l’écran', () => {
+    const b = creerBanc();
     b.ouvrir();
-    for (let i = 0; i < 5; i++) expect(b.retourSysteme()).toBe('popstate');
-    expect(b.evenements).toEqual([]);
-  });
-});
+    expect(b.journal).toEqual([{ op: 'pushState', chemin: '/', ancre: true }]);
 
-// ── 3. La contrepartie PERMISSIVE — non-régression, et preuve de l'asymétrie ─
-describe('v2/sortie — pile profonde : le même scénario passe toujours', () => {
-  test('dix retours sur une pile profonde : l’app reste, et navigue normalement', () => {
-    const b = pileProfonde(12);
+    expect(b.retourSysteme()).toBe('popstate');   // l'ancre a absorbé l'appui
+    expect(b.ancres()).toBe(2);                   // elle est RÉINSTALLÉE
+    expect(b.etat().ancree).toBe(true);
+    expect(b.rendus).toEqual([]);                 // rien n'est re-rendu
+    expect(b.chemin()).toBe('/');                 // l'URL n'a pas bougé
+    expect(b.evenements).toEqual([]);             // l'app ne se ferme pas
+  });
+
+  test('l’app ne se ferme jamais par accident, même sur dix appuis d’affilée', () => {
+    const b = creerBanc();
+    b.ouvrir();
     for (let i = 0; i < 10; i++) expect(b.retourSysteme()).toBe('popstate');
     expect(b.evenements).toEqual([]);
-    expect(b.rendus).toHaveLength(10);            // ce sont des navigations, pas des absorptions
-    expect(b.debordements()).toBe(0);
+    expect(b.rendus).toEqual([]);
+    expect(b.etat()).toEqual({ pile: 0, ancree: true });
+  });
+
+  test('en onglet aussi : le retour n’emmène pas hors du document', () => {
+    const b = creerBanc({ avant: 1 });
+    b.ouvrir();
+    b.retourSysteme();
+    b.retourSysteme();
+    expect(b.evenements).toEqual([]);
+    expect(b.etat().ancree).toBe(true);
   });
 });
 
@@ -263,12 +193,9 @@ describe('v2/sortie — au-dessus du fond, le retour navigue normalement', () =>
   test('« absorbé » et « navigue » sont réellement distinguables', () => {
     // Le MÊME geste, à deux profondeurs différentes, doit produire des effets
     // opposés — pas seulement être conforme chacun de son côté.
-    // Deux entrées empilées : le retour atterrit sur une VRAIE vue, pas sur
-    // l'ancre — sinon on comparerait l'absorption à elle-même.
     const profond = creerBanc();
     profond.ouvrir();
     profond.naviguer(Routeur.SEMAINE, { lundi: LUNDI });
-    profond.naviguer(Routeur.SEANCE, { id: UUID });
     const aAvant = profond.ancres();
     profond.retourSysteme();
     const navigue = { rendus: profond.rendus.length, ancresPosees: profond.ancres() - aAvant };

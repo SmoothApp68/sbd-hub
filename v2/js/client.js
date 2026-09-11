@@ -8,6 +8,11 @@
 
   var instance = null;
 
+  // UNE SEULE définition de la clé de stockage du jeton. `auth.js` la relit pour
+  // sa sonde synchrone ; l'écrire deux fois serait se donner deux vérités sur
+  // l'endroit où vit la session.
+  var CLE_AUTH = 'th-v2-auth';
+
   function obtenir() {
     if (instance) return instance;
     if (typeof racine.supabase === 'undefined' || !racine.supabase.createClient) {
@@ -20,11 +25,11 @@
         persistSession: true,
         autoRefreshToken: true,
         // Clé de stockage propre à la v2 : aucune collision avec les clés du v1.
-        storageKey: 'th-v2-auth'
+        storageKey: CLE_AUTH
       }
     });
     return instance;
   }
 
-  racine.THClient = { obtenir: obtenir };
+  racine.THClient = { obtenir: obtenir, CLE_AUTH: CLE_AUTH };
 })(typeof self !== 'undefined' ? self : this);

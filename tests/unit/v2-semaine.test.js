@@ -435,3 +435,30 @@ describe('apportsParMuscle — d’où vient ce chiffre', () => {
     expect(Semaine.apportsParMuscle('quadriceps', null, null, null)).toEqual([]);
   });
 });
+
+// ── « Cette semaine » — chantier 18 ────────────────────────────────────────
+//
+// Le bouton n'existe que si on a quitté la semaine courante. C'est
+// `memeSemaine` qui tranche, et c'est lui qu'on vérifie ici : le rendu se
+// contente de l'absence ou de la présence de la fonction.
+describe('memeSemaine — ce qui décide de « Cette semaine »', () => {
+  const ref = new Date(2026, 8, 11);          // vendredi 11 septembre 2026
+
+  test('vrai partout dans la semaine courante, du lundi au dimanche', () => {
+    for (let j = 7; j <= 13; j++) {
+      expect(Semaine.memeSemaine(new Date(2026, 8, j), ref)).toBe(true);
+    }
+  });
+
+  test('faux dès la semaine d’avant et celle d’après — les deux sens comptent', () => {
+    expect(Semaine.memeSemaine(new Date(2026, 8, 6), ref)).toBe(false);   // dimanche précédent
+    expect(Semaine.memeSemaine(new Date(2026, 8, 14), ref)).toBe(false);  // lundi suivant
+  });
+
+  test('le lundi de la semaine courante suffit — c’est ce que la barre passe', () => {
+    const lundi = Semaine.bornesSemaine(ref).lundi;
+    expect(Semaine.memeSemaine(lundi, ref)).toBe(true);
+    expect(Semaine.memeSemaine(Semaine.decalerSemaine(lundi, -1).lundi, ref)).toBe(false);
+    expect(Semaine.memeSemaine(Semaine.decalerSemaine(lundi, -12).lundi, ref)).toBe(false);
+  });
+});

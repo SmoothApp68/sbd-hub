@@ -6,8 +6,15 @@
 //
 // Règle du socle : AUCUNE réponse Supabase n'est mise en cache. Un service worker
 // trop zélé qui sert des données périmées coûte cher à diagnostiquer.
-
-const CACHE_V2 = 'trainhub-v2-016';
+//
+// COQUILLE SERVIE DEPUIS LE CACHE D'ABORD (chantier 18). Le réseau d'abord
+// tenait tant que le réseau ÉCHOUE — hors ligne, `fetch` rejette tout de suite
+// et le repli joue. Il ne tient pas quand le réseau RÉPOND MAL : un wifi de
+// salle qui s'associe sans donner d'accès ne fait pas échouer `fetch`, il le
+// fait PENDRE, et c'est alors l'app entière qui pend. La coquille est versionnée
+// par CACHE_V2 : la servir depuis le cache est sans risque, et une nouvelle
+// version prend la main par le cycle install/activate, pas par une requête.
+const CACHE_V2 = 'trainhub-v2-017';
 
 const SHELL = [
   './',
@@ -35,11 +42,23 @@ const SHELL = [
   './js/app.js'
 ];
 
+// Les deux fichiers sans lesquels « hors ligne » ne veut rien dire : la page et
+// le script qui la fait vivre. Leur absence fait échouer l'installation, pour
+// qu'elle soit retentée, plutôt que de laisser croire à une coquille complète.
+const INDISPENSABLES = ['./index.html', './js/app.js'];
+
 self.addEventListener('install', (event) => {
   // Le socle est en cours d'amorçage : on veut toujours la version fraîche,
   // sans étape « mise à jour disponible ».
   self.skipWaiting();
-  event.waitUntil(caches.open(CACHE_V2).then((cache) => cache.addAll(SHELL)));
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE_V2);
+    // Entrée par entrée, pas `addAll` : celui-ci est tout ou rien, et un seul
+    // fichier manqué sur un réseau capricieux laissait l'app SANS AUCUN cache.
+    await Promise.all(SHELL.map((url) => cache.add(url).catch(() => null)));
+    const presents = await Promise.all(INDISPENSABLES.map((u) => cache.match(u)));
+    if (presents.some((r) => !r)) throw new Error('coquille incomplète');
+  })());
 });
 
 self.addEventListener('activate', (event) => {
@@ -68,36 +87,41 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return;
 
   // Les URL de vue (/semaine/…, /seance/…) ne sont pas des fichiers : le serveur
-  // y répond par la coquille. On la sert donc directement, et surtout on ne la
-  // met PAS en cache sous l'URL demandée — sinon chaque semaine visitée créerait
-  // une entrée, et une coquille périmée survivrait à une mise à jour.
+  // y répond par la coquille. On sert donc TOUJOURS la coquille en cache, sans
+  // même tenter le réseau — et surtout on ne la met PAS en cache sous l'URL
+  // demandée, sinon chaque semaine visitée créerait une entrée et une coquille
+  // périmée survivrait à une mise à jour.
   if (req.mode === 'navigate') {
     event.respondWith((async () => {
-      try { return await fetch(req); }
-      catch (e) {
-        const cache = await caches.open(CACHE_V2);
-        return (await cache.match('./index.html')) || Response.error();
-      }
+      const cache = await caches.open(CACHE_V2);
+      const coquille = await cache.match('./index.html');
+      if (coquille) return coquille;
+      // Pas encore de coquille (toute première visite) : le réseau, faute de mieux.
+      try { return await fetch(req); } catch (e) { return Response.error(); }
     })());
     return;
   }
 
-  // Réseau d'abord, cache en repli : le socle doit montrer le code du jour,
-  // et rester ouvrable hors réseau (pas d'écran blanc).
+  // Coquille : CACHE D'ABORD, et rafraîchissement en arrière-plan. L'app démarre
+  // à la vitesse du disque, réseau ou pas, et la copie fraîche est prête pour
+  // l'ouverture suivante.
   event.respondWith((async () => {
+    const cache = await caches.open(CACHE_V2);
+    const enCache = await cache.match(req);
+    if (enCache) {
+      // Volontairement PAS attendu : une mise à jour en arrière-plan ne doit
+      // jamais retarder une réponse qu'on a déjà.
+      fetch(req).then((r) => {
+        if (r && r.status === 200) cache.put(req, r.clone());
+      }).catch(() => {});
+      return enCache;
+    }
+    // Absent du cache : réseau, et on garde ce qu'on reçoit.
     try {
       const reponse = await fetch(req);
-      if (reponse && reponse.status === 200) {
-        const copie = reponse.clone();
-        caches.open(CACHE_V2).then((cache) => cache.put(req, copie));
-      }
+      if (reponse && reponse.status === 200) cache.put(req, reponse.clone());
       return reponse;
     } catch (e) {
-      const cache = await caches.open(CACHE_V2);
-      const cached = await cache.match(req);
-      if (cached) return cached;
-      const repli = await cache.match('./index.html');
-      if (repli && req.mode === 'navigate') return repli;
       throw e;
     }
   })());

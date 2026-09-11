@@ -269,11 +269,15 @@
     return 'et ' + k + (k > 1 ? ' autres exercices' : ' autre exercice');
   }
 
-  // La colonne de droite, laissée vide au chantier 13 faute de palier, revient :
-  // chaque exercice porte son PALIER et le MEILLEUR COMPTE DE REPS À CE PALIER
-  // (§7 bis.5). Pas la série la plus lourde — elle peut être une exploration à
-  // une rep ou une rampe. C'est la façon dont on en parle : « j'ai fait
-  // 122,5 × 6 ».
+  // La colonne de droite porte la MEILLEURE SÉRIE (§7 bis.5), pas le palier.
+  //
+  // Corrigé au chantier 18 après vérification sur device : le palier est la
+  // charge tenue sur la majorité des séries — la grandeur du MOTEUR, elle décide
+  // de la suite. Ce n'est pas ce qu'on lit dans un journal. Sur le hack squat du
+  // 24/08 (`122,6×10 ×3 + 127,6×10`), le palier vaut 122,6 et c'est juste, mais
+  // ce qu'on a fait de mieux ce jour-là, c'est 127,6 × 10.
+  //
+  // Les deux grandeurs cohabitent et ne se fusionnent pas.
   //
   // `etats` est la table de THPalier.etatsExercices, calculée une fois sur tout
   // le cache. Un exercice absent de la table reste « indéterminé » : aucune
@@ -293,10 +297,10 @@
       palier.decouperParExercice(series || []).forEach(function (se) { parExo[se.slug] = se.series; });
       tete.forEach(function (e) {
         var r = palier.analyser(parExo[e.slug] || [], (etats || {})[e.slug]);
-        // Un palier absent ne s'invente pas : la ligne n'affiche alors que le
-        // nom, comme avant ce commit.
-        e.palier = r.palier;
-        e.reps = r.reps;
+        // Une meilleure série absente ne s'invente pas : la ligne n'affiche
+        // alors que le nom.
+        e.charge = r.meilleure ? r.meilleure.charge : null;
+        e.reps = r.meilleure ? r.meilleure.reps : null;
       });
     }
 

@@ -403,13 +403,39 @@ dans les boutons.
 La carte affichait « 6 exercices, 19 séries » : un comptage, pas un contenu.
 
 > **Chaque carte de séance affiche les trois premiers exercices, dans l'ordre de la séance,
-> avec leur palier et le meilleur compte de reps atteint à ce palier.** Puis « et N autres
-> exercices ».
+> avec leur MEILLEURE SÉRIE.** Puis « et N autres exercices ».
 
-**« Meilleure série » = palier × meilleures reps au palier.** Pas la série la plus lourde,
-qui peut être une exploration à une rep ou une rampe. C'est la façon dont on en parle :
-« j'ai fait 122,5 × 6 ». Le calcul existe déjà — §7 du moteur, vérifié sur 93 à 98 % des
-séance-exercices.
+> ⚠️ **Corrigé le 11/09/2026 après vérification sur device.** Cette section disait « leur
+> palier et le meilleur compte de reps atteint à ce palier ». **C'était une mauvaise
+> traduction de la demande** — Aurélien parlait de la meilleure série depuis le début.
+>
+> Deux cas mesurés en base qui l'ont révélé :
+>
+> | Séance | Séries de travail | Palier affiché | Attendu |
+> |---|---|---|---|
+> | Hack Squat, 24/08 | 122,6×10 · 122,6×10 · 122,6×10 · **127,6×10** | 122,6 × 10 | **127,6 × 10** |
+> | Développé Couché Haltère, 29/08 | 84×10 · 84×10 · 84×10 · **88×8** | 84 × 10 | **88 × 8** |
+>
+> Le palier était **juste** dans les deux cas : c'est la charge tenue sur la majorité des
+> séries, et c'est la grandeur du moteur. **Elle ne change pas.** Mais ce n'est pas ce qu'on
+> veut lire dans un journal : une dernière série plus lourde à reps pleines est une
+> performance, pas une exploration.
+
+**Définition retenue de « meilleure série » :** la **charge la plus lourde tenue sur au moins
+la moitié des reps de la série la plus longue**.
+
+Elle retient 127,6 × 10 et 88 × 8. Elle écarte une exploration à 140 × 1 quand les séries de
+travail sont à 10 reps. Elle ne dépend d'aucune formule et se calcule sur les seules séries de
+travail retenues par le §7 du moteur.
+
+> **Le palier et la meilleure série sont deux grandeurs distinctes, et les deux sont vraies.**
+> Le palier sert au moteur — il décide de la suite. La meilleure série sert au journal — elle
+> dit ce qui a été fait. Ne pas en faire une seule.
+
+> ⚠️ **Un paragraphe de l'ancienne définition subsistait ici — retiré le 11/09/2026.** Il
+> disait « meilleure série = palier × meilleures reps au palier », ce que les deux alinéas
+> ci-dessus corrigent précisément. Laissé en place, il aurait fait revenir le défaut à la
+> prochaine lecture.
 
 **Trois, pas plus** : les séances font 8,1 exercices en moyenne. **L'ordre porte
 l'intention** — le mouvement principal vient en premier. Le premier exercice est en texte
@@ -422,31 +448,6 @@ d'une séance à l'autre.
 vers le Haut Assis ») se tronquent. Acceptable en l'état. L'alternative — un nom court par
 exercice — coûte une colonne en base et 237 saisies ; à n'envisager que si l'usage le
 réclame.
-
-### 7 bis.5 bis Les jours vides ne sont pas affichés — décidé le 11/09/2026
-
-> ⚠️ **Réintroduit une SECONDE fois le 11/09/2026.** Cette section a été consignée au
-> chantier 12, livrée et fusionnée (PR #260), puis perdue à deux régénérations successives
-> du document. Le comportement est en production et couvert par un test ; la spec le redit.
-
-Décision prise **après essai sur device**. Sur une semaine à quatre séances, trois lignes
-vides n'apportent rien et allongent le défilement.
-
-> **Un jour sans séance ne s'affiche pas.** La répartition se lit déjà dans les dates des
-> jours pleins.
-
-**Exception : une semaine entièrement vide affiche une phrase sobre**, pas un écran nu —
-sinon on ne distingue pas « je ne me suis pas entraîné » de « l'app a échoué ». La phrase
-est un constat : ni encouragement, ni reproche. `CADRAGE-V2.md` §3.1 bis.
-
-Le modèle continue de rendre les **sept** jours : il décrit la semaine, c'est la vue qui
-choisit ce qu'elle montre.
-
-**Précision sur le résumé de séance (§7 bis.5).** Tant que le palier n'est pas porté dans
-l'app, le résumé est une **liste de noms, un par ligne** — pas une grille à deux colonnes.
-Une grille dont la colonne de droite est vide y fait passer un nom sur deux.
-
----
 
 ### 7 bis.6 Pas de barres de progression pour le volume
 
@@ -531,8 +532,17 @@ touché mercredi, pourquoi toute la semaine ».
 d'un coup d'œil. Les jours du mois voisin restent visibles mais éteints, **avec leurs
 points** : une semaine à cheval se choisit quand même.
 
-« Cette semaine » vit dans le **pied du calendrier**, pas dans la barre : on ne s'en sert
-qu'après s'être éloigné.
+> ⚠️ **Corrigé le 11/09/2026 après usage.** « Cette semaine » vivait dans le **pied du
+> calendrier** depuis le chantier 13, au motif qu'« on ne s'en sert qu'après s'être éloigné ».
+> Le raisonnement était juste, la conclusion fausse : c'est justement parce qu'on s'en sert
+> après s'être éloigné qu'il doit être **là où on est**, pas derrière l'ouverture d'un
+> calendrier.
+
+> **« Cette semaine » apparaît dans la barre de semaine dès qu'on quitte la semaine courante,
+> et disparaît quand on y est.** Absent plutôt que grisé : un bouton qui ne fait rien est un
+> bouton de trop, et sa disparition dit à elle seule « tu y es ». Il reste **aussi** dans le
+> pied du calendrier ; les deux ne se gênent pas. Vaut pour **Séances et la vue Volume**, qui
+> partagent la barre.
 
 > ⚠️ **Aucune couleur d'alerte, aucun compteur de régularité, rien sur les jours vides.**
 > `CADRAGE-V2.md` §3.1 bis — le système ne commente jamais l'assiduité. Un point, ou rien.
@@ -570,14 +580,6 @@ Blocs prévus : **Volume par muscle** (fait) · **Poids de corps** (114 pesées 
 janvier 2023, rien ne les affiche) · **Par exercice**.
 
 L'écran est utile **sans rien toucher**, et chaque bloc arrive quand il est prêt.
-
-> ⚠️ **Écart assumé avec la maquette — le bloc Poids, chantier 16.** La maquette affiche
-> « −2,5 kg · sur 3 mois ». **Mesuré en base : une seule pesée tombe dans les 90 derniers
-> jours, quatre dans les 365** — 93 des 114 sont en 2024, et l'écart le plus long vaut
-> 233 jours. Une ligne « sur 3 mois » serait donc **vide** pour le seul compte qui a des
-> pesées. Le bloc affiche l'**écart avec la pesée précédente, daté** : « −1,9 kg · depuis le
-> 18 mars · 114 pesées ». Il existe dès qu'il y a deux mesures, il dit lui-même sur quelle
-> durée il porte, et il n'invente rien. **À arbitrer.**
 
 **La barre de semaine n'appartient pas au sommaire** : le volume est hebdomadaire, le poids
 et les records ne le sont pas. Elle vit dans la vue Volume.
@@ -644,18 +646,54 @@ du §7 bis.10.
 > Mesuré : août 14 séances contre 19 en juillet. **L'app ne connaît pas la raison.**
 > `CADRAGE-V2.md` §3.1 bis — deux périodes se comparent, elles ne se jugent pas.
 
-> ⚠️ **Écart assumé avec la maquette — les périodes, chantier 16.** La maquette illustre
-> « août contre juillet », donc des **mois calendaires**. Le code compare deux **fenêtres
-> glissantes** de même longueur (30 jours, ou 90). Raison : un mois calendaire oppose un
-> mois **entamé** à un mois **complet** — le 1er septembre, le radar s'effondrerait à un jour
-> de données contre trente-et-un, sans que rien n'ait changé dans l'entraînement, et l'app
-> n'aurait aucun moyen de le dire. Deux fenêtres de même longueur ne peuvent pas fabriquer
-> cet artefact. La légende dit « 30 derniers jours » / « 30 jours précédents », jamais un nom
-> de mois. **À arbitrer.**
-
 **Contre-exemple à ne pas copier :** le graphe « séries par muscle » de Hevy superpose
 **dix-huit courbes colorées** sur un écran de téléphone, illisible sans une liste de cases à
 cocher. C'est précisément pourquoi on regroupe en six zones **avant** de tracer.
+
+### 7 bis.18 Le rechargement hors ligne — diagnostic rectifié le 11/09/2026
+
+Symptôme constaté sur device : **hors réseau l'app fonctionne, mais recharger la page la
+coupe.** Attribué au service worker, qui ne servirait pas la coquille.
+
+> **Ce n'était pas le service worker.** Reproduit au banc, serveur d'origine ARRÊTÉ pour de
+> bon : la coquille est servie sur `/`, sur `/semaine/…` et sur `/progression` — scripts
+> chargés, CSS appliqué. Et **aucune section n'est affichée.**
+
+La cause est le **démarrage**. `demarrer()` attendait `getSession()` du SDK Supabase. Ce
+dernier lit bien le stockage, mais si l'access token est périmé il tente un **rafraîchissement
+réseau** avant de répondre. Hors réseau, deux issues, toutes deux mesurées au banc :
+
+| Ce que fait le SDK | Ce que voyait l'utilisateur |
+|---|---|
+| la requête **pend** (retry avec backoff) | **écran noir** — rien n'est jamais rendu |
+| la requête **échoue** et il rend `null` | **écran de connexion**, impossible à franchir |
+
+Dans les deux cas, les 28 000 séries sont sur l'appareil et inatteignables. Une heure sans
+réseau suffit à périmer le jeton : c'est le scénario d'une séance en salle.
+
+> **Le démarrage ne demande plus rien au réseau.** Une sonde **synchrone** lit le jeton en
+> localStorage et décide seule de ce qu'on affiche. Le verdict du SDK arrive après et ne
+> bloque rien.
+
+C'est la leçon du v1, réappliquée : `CLAUDE.md` §9 décrit exactement cette garde (« la
+décision d'attendre vient de la sonde SYNCHRONE, JAMAIS d'un appel réseau — un `getSession`
+qui échoue ne dé-arme pas l'attente »). Elle avait été perdue au passage en v2.
+
+**Corollaire :** une session nulle annoncée par le SDK ne déconnecte plus personne. On ne sort
+quelqu'un de ses données que si le jeton a **vraiment disparu du stockage** — ce que fait le
+bouton Quitter, et ce que fait le SDK quand le compte est réellement révoqué.
+
+**Le service worker a quand même changé**, pour une raison distincte et réelle : il servait la
+coquille **réseau d'abord**. Ça tient quand le réseau *échoue* — `fetch` rejette aussitôt et le
+repli joue. Ça ne tient pas quand le réseau *répond mal* : un wifi de salle qui s'associe sans
+donner d'accès ne fait pas échouer `fetch`, il le fait **pendre**. La coquille est désormais
+servie **depuis le cache d'abord**, avec rafraîchissement en arrière-plan. Elle est versionnée
+par `CACHE_V2`, donc c'est sans risque.
+
+L'installation ne se fait plus non plus en tout-ou-rien : un seul fichier manqué sur un réseau
+capricieux laissait l'app **sans aucun cache**.
+
+---
 
 ### 7 bis.8 Ordre recommandé
 

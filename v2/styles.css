@@ -185,6 +185,13 @@ button{font-family:inherit;cursor:pointer}
   display:inline-flex;align-items:center;gap:5px}
 .barre-chevron{color:var(--texte-3);font-size:15px;line-height:1}
 .barre-totaux{display:block;font-size:11px;line-height:1.4;color:var(--texte-3);margin-top:3px}
+/* « Cette semaine » — présent seulement quand on a quitté la semaine courante.
+   Discret : c'est un retour, pas une action principale. Pas d'accent — le jaune
+   ne sert qu'à l'onglet actif et à la suggestion du moteur (§7 bis.4). */
+.barre-retour{display:block;margin:0 auto var(--e3);padding:6px var(--e3);
+  border-radius:var(--r-petit);border:1px solid var(--trait);background:transparent;
+  color:var(--texte-2);font:600 11px/1 var(--pile)}
+.barre-retour:active{background:var(--panneau);color:var(--texte)}
 
 /* ── Ligne de rappel : six zones, trois colonnes, deux rangs, ~40 px ────── */
 .rappel{display:flex;align-items:center;gap:var(--e2);width:100%;

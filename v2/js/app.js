@@ -17,6 +17,7 @@
   var Routeur = racine.THRouteur, Sortie = racine.THSortie;
   var Calendrier = racine.THCalendrier;
   var Periode = racine.THPeriode, Poids = racine.THPoids;
+  var Palier = racine.THPalier;
 
   var vues = {};
   var local = { seances: [], series: [], exercices: [], pesees: [], parSeance: null };
@@ -31,6 +32,7 @@
   var gardeOverlay = null;   // la garde qui rend le retour d'Android fermant
   var periodeRadar = Periode.PERIODE_DEFAUT;   // fenêtre comparée du radar
   var periodePoids = Poids.PERIODE_DEFAUT;     // fenêtre de la courbe de poids
+  var etatsExercices = {};   // §5.2 : « monte » / « ne monte pas », par exercice
 
   function $(id) { return doc.getElementById(id); }
 
@@ -71,6 +73,7 @@
     local.pesees = await Cache.lireTout('pesees');
     ordonnerSeances();
     indexerParSeance();
+    recalculerEtats();
   }
 
   // INVARIANT : `local.seances` va toujours de la PLUS RÉCENTE à la plus
@@ -82,6 +85,24 @@
   // trois derniers exercices pratiqués », rendait les trois PLUS ANCIENS.
   function ordonnerSeances() {
     local.seances.sort(function (a, b) { return String(b.debut).localeCompare(String(a.debut)); });
+  }
+
+  // §5.2 — « monte en charge » est une propriété MESURÉE sur tout l'historique,
+  // pas devinée séance par séance. Elle se recalcule quand le corpus change,
+  // jamais à chaque rendu : c'est un balayage des 28 000 séries.
+  //
+  // ⚠️ Elle lit donc TOUT l'historique, y compris les séances postérieures à
+  // celle qu'on affiche. Le banc Python fait pareil, et c'est sans conséquence
+  // ici — l'état décrit une habitude de l'exercice, pas un état à une date.
+  // Ça deviendra une vraie question au chantier suivant, quand le moteur
+  // prescrira : une consigne ne doit rien lire de l'avenir.
+  function recalculerEtats() {
+    try {
+      etatsExercices = Palier.etatsExercices(Palier.seanceExercices(local.series));
+    } catch (e) {
+      etatsExercices = {};
+      console.warn('États d\u2019exercice indisponibles :', texteErreur(e));
+    }
   }
 
   // Le cache appartient à un compte et à un seul. Un cache qui survivrait à un
@@ -144,6 +165,7 @@
       local.exercices = Sync.remplacer(exercices);
       ordonnerSeances();
       indexerParSeance();
+      recalculerEtats();
 
       // Séances et exercices : petits, rafraîchis en entier, vider-puis-écrire
       // dans UNE transaction. Séries : on n'efface plus rien d'abord — `put`
@@ -252,7 +274,7 @@
       rendreVolume();
     });
     Rendu.rendreJours($('liste-seances'), Semaine.joursAvecSeances(sem.jours), function (s) {
-      return Modele.resumerSeance(s, seriesDe(s.id), local.exercices);
+      return Modele.resumerSeance(s, seriesDe(s.id), local.exercices, Palier, etatsExercices);
     }, afficherDetail);
   }
 
@@ -280,34 +302,32 @@
   // Les trois derniers exercices pratiqués, et combien d'exercices distincts le
   // compte a vus passer. Un seul balayage des séances récentes — inutile de
   // parcourir trois ans pour trois noms.
+  //
+  // Depuis le chantier 17, la valeur affichée est le PALIER et ses meilleures
+  // reps, comme sur la carte de séance. Avant, c'était la série la plus lourde
+  // — et les deux surfaces annonçaient alors deux chiffres différents pour le
+  // même exercice du même jour, ce qui est exactement la famille de défauts que
+  // l'audit v1 a cataloguée. Un exercice sans palier reconnaissable n'affiche
+  // pas de valeur : rien ne s'invente.
   function sommaireExercices() {
     var index = Modele.indexerExercices(local.exercices);
     var vus = {}, lignes = [];
     for (var i = 0; i < local.seances.length && lignes.length < 3; i++) {
       var seance = local.seances[i];
       var d = seance.debut ? new Date(seance.debut) : null;
-      seriesDe(seance.id).forEach(function (serie) {
-        if (!serie || serie.type_serie !== 'travail' || !serie.exercise_slug) return;
-        if (vus[serie.exercise_slug]) {
-          // Même exercice, même séance : on garde la série la plus lourde.
-          var deja = vus[serie.exercise_slug];
-          if (deja.ligne && deja.seance === seance.id && plusLourde(serie, deja.ligne.serie)) {
-            deja.ligne.serie = serie;
-            deja.ligne.mesure = Modele.formatMesure(serie);
-          }
-          return;
-        }
-        var ligne = null;
-        if (lignes.length < 3) {
-          ligne = {
-            nom: (index[serie.exercise_slug] && index[serie.exercise_slug].nom) || serie.exercise_slug,
-            mesure: Modele.formatMesure(serie),
-            jour: d && !isNaN(d.getTime()) ? d : null,
-            serie: serie
-          };
-          lignes.push(ligne);
-        }
-        vus[serie.exercise_slug] = { seance: seance.id, ligne: ligne };
+      var parExo = {};
+      Palier.decouperParExercice(seriesDe(seance.id)).forEach(function (se) { parExo[se.slug] = se; });
+      Palier.trier(seriesDe(seance.id)).forEach(function (serie) {
+        if (!serie.exercise_slug || vus[serie.exercise_slug]) return;
+        vus[serie.exercise_slug] = true;
+        if (lignes.length >= 3) return;
+        var r = Palier.analyser((parExo[serie.exercise_slug] || {}).series || [],
+                                etatsExercices[serie.exercise_slug]);
+        lignes.push({
+          nom: (index[serie.exercise_slug] && index[serie.exercise_slug].nom) || serie.exercise_slug,
+          mesure: r.palier === null ? '' : Modele.formatMesure({ charge_kg: r.palier, reps: r.reps }),
+          jour: d && !isNaN(d.getTime()) ? d : null
+        });
       });
     }
 
@@ -321,12 +341,6 @@
     });
 
     return { quand: n ? n + ' exercices' : '', lignes: lignes };
-  }
-
-  function plusLourde(a, b) {
-    var ca = Number(a && a.charge_kg) || 0, cb = Number(b && b.charge_kg) || 0;
-    if (ca !== cb) return ca > cb;
-    return (Number(a && a.reps) || 0) > (Number(b && b.reps) || 0);
   }
 
   // ── Vue Volume : la semaine, le relevé, puis le radar ────────────────────

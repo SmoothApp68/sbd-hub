@@ -269,7 +269,16 @@
     return 'et ' + k + (k > 1 ? ' autres exercices' : ' autre exercice');
   }
 
-  function apercuExercices(series, exercices) {
+  // La colonne de droite, laissée vide au chantier 13 faute de palier, revient :
+  // chaque exercice porte son PALIER et le MEILLEUR COMPTE DE REPS À CE PALIER
+  // (§7 bis.5). Pas la série la plus lourde — elle peut être une exploration à
+  // une rep ou une rampe. C'est la façon dont on en parle : « j'ai fait
+  // 122,5 × 6 ».
+  //
+  // `etats` est la table de THPalier.etatsExercices, calculée une fois sur tout
+  // le cache. Un exercice absent de la table reste « indéterminé » : aucune
+  // hypothèse, jamais une valeur par défaut.
+  function apercuExercices(series, exercices, palier, etats) {
     var index = indexerExercices(exercices || []);
     var vus = {}, ordre = [];
     trierParRang(series || []).forEach(function (s) {
@@ -277,15 +286,29 @@
       vus[s.exercise_slug] = true;
       ordre.push({ slug: s.exercise_slug, nom: nommer(index, s.exercise_slug) });
     });
+
+    var tete = ordre.slice(0, APERCU_MAX);
+    if (palier) {
+      var parExo = {};
+      palier.decouperParExercice(series || []).forEach(function (se) { parExo[se.slug] = se.series; });
+      tete.forEach(function (e) {
+        var r = palier.analyser(parExo[e.slug] || [], (etats || {})[e.slug]);
+        // Un palier absent ne s'invente pas : la ligne n'affiche alors que le
+        // nom, comme avant ce commit.
+        e.palier = r.palier;
+        e.reps = r.reps;
+      });
+    }
+
     return {
-      tete: ordre.slice(0, APERCU_MAX),
+      tete: tete,
       // Jamais « et 0 autres exercices » : une séance de trois exercices ou
       // moins est montrée en entier, il n'y a rien à annoncer.
       autres: Math.max(0, ordre.length - APERCU_MAX)
     };
   }
 
-  function resumerSeance(seance, series, exercices) {
+  function resumerSeance(seance, series, exercices, palier, etats) {
     var index = indexerExercices(exercices);
     var listeSeries = series || [];
     var slugs = {};
@@ -322,7 +345,7 @@
       estSortie: sortie,
       // Une sortie n'a pas d'aperçu d'exercices : elle se dit en durée et en
       // distance. On ne construit donc rien qu'on n'affichera pas.
-      apercu: sortie ? null : apercuExercices(listeSeries, exercices),
+      apercu: sortie ? null : apercuExercices(listeSeries, exercices, palier, etats),
       dureeTotale: dureeTotale || null,
       distanceTotale: distanceTotale || null
     };

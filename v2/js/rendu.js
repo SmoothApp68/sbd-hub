@@ -29,11 +29,47 @@
     return noeud;
   }
 
+  // SVG vit dans son propre espace de noms : `createElement('polygon')` rend un
+  // élément HTML inconnu, invisible et silencieux. Une seule fabrique, pour ne
+  // pas refaire l'erreur à chaque graphe.
+  var NS_SVG = 'http://www.w3.org/2000/svg';
+  function svg(balise, classe, attributs) {
+    var n = doc.createElementNS(NS_SVG, balise);
+    if (classe) n.setAttribute('class', classe);
+    if (attributs) Object.keys(attributs).forEach(function (k) {
+      n.setAttribute(k, String(attributs[k]));
+    });
+    return n;
+  }
+
+  function listePoints(points) {
+    return (points || []).map(function (p) { return p.x + ',' + p.y; }).join(' ');
+  }
+
   function dateCourte(iso) {
     if (!iso) return '';
     var d = new Date(iso);
     if (isNaN(d.getTime())) return '';
     return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+
+  // « 30 août », ou « 30 août 2024 » quand l'année n'est pas celle de la
+  // référence. Une variation « depuis le 18 mars » qui remonterait en fait à
+  // l'an dernier serait fausse sans le dire.
+  function jour(d, anneeRef) {
+    if (!(d instanceof Date) || isNaN(d.getTime())) return '';
+    var txt = d.getDate() + ' ' + MOIS[d.getMonth()];
+    var ref = typeof anneeRef === 'number' ? anneeRef : new Date().getFullYear();
+    return d.getFullYear() === ref ? txt : txt + ' ' + d.getFullYear();
+  }
+
+  // Le signe est le vrai signe moins (U+2212), pas le tiret du clavier : sur un
+  // chiffre, un trait d'union se lit comme une césure.
+  function signe(v) {
+    var n = Number(v) || 0;
+    if (n > 0) return '+' + nombreFr(n);
+    if (n < 0) return '\u2212' + nombreFr(Math.abs(n));
+    return '0';
   }
 
   // « 6 h 35 · 22,7 km » — ce qui résume une sortie, au lieu d'un compte de séries.
@@ -395,6 +431,274 @@
     });
   }
 
+
+  // ── Progression : le sommaire (ECRAN-SAISIE §7 bis.14) ──────────────────
+  //
+  // Des blocs empilés, chacun donnant sa réponse en deux lignes, chacun
+  // s'ouvrant sur une vue complète. PAS une barre de sous-onglets : elle
+  // coûterait un rang permanent et supposerait des sections de même nature —
+  // or le volume et le poids se lisent d'un coup d'œil, l'entrée par exercice
+  // est un parcours.
+  //
+  // L'écran doit être utile SANS RIEN TOUCHER : chaque bloc porte déjà sa
+  // réponse, l'ouvrir n'est qu'un approfondissement.
+  //
+  // La barre de semaine n'est pas ici : le volume est hebdomadaire, le poids ne
+  // l'est pas. Elle vit dans la vue Volume.
+  function coquilleBloc(quoi, quand, inerte) {
+    var bloc = el(inerte ? 'div' : 'button', 'bloc-som' + (inerte ? ' inerte' : ''));
+    if (!inerte) bloc.type = 'button';
+    var haut = el('div', 'bloc-haut');
+    haut.appendChild(el('span', 'bloc-quoi', quoi));
+    if (quand) haut.appendChild(el('span', 'bloc-quand', quand));
+    // La chevron dit « ça s'ouvre ». Un bloc inerte n'en porte pas : une
+    // affordance sans destination est un mensonge d'interface.
+    if (!inerte) haut.appendChild(el('span', 'bloc-fl', '\u203a'));
+    bloc.appendChild(haut);
+    return bloc;
+  }
+
+  function blocVolume(v) {
+    var bloc = coquilleBloc('Volume par muscle', v.quand, false);
+    if (v.zones && v.zones.length) {
+      var grille = el('div', 'bloc-zones');
+      v.zones.forEach(function (z) {
+        var item = el('span', 'bloc-zone');
+        item.appendChild(doc.createTextNode(z.libelle + ' '));
+        item.appendChild(el('b', null, nombreFr(z.series)));
+        grille.appendChild(item);
+      });
+      bloc.appendChild(grille);
+    } else {
+      bloc.appendChild(el('div', 'bloc-rien', 'Aucune séance cette semaine.'));
+    }
+    bloc.addEventListener('click', v.surChoix);
+    return bloc;
+  }
+
+  // Dernière valeur, sa date, l'écart avec la pesée précédente, le nombre de
+  // mesures. Strictement descriptif : pas d'objectif, pas de poids cible, pas
+  // de commentaire sur la variation — donc aucune couleur de jugement, le
+  // chiffre est du texte ordinaire, qu'il monte ou qu'il descende.
+  function blocPoids(v) {
+    var r = v.resume;
+    var bloc = coquilleBloc('Poids de corps', r ? jour(r.date) : '', false);
+    if (r) {
+      var ligne = el('div', 'bloc-pesee');
+      ligne.appendChild(el('span', 'pesee-gros', nombreFr(r.poids)));
+      ligne.appendChild(el('span', 'pesee-unite', 'kg'));
+      var droite = el('span', 'pesee-var', r.variation ? signe(r.variation.valeur) + ' kg' : '');
+      var an = r.date.getFullYear();
+      droite.appendChild(el('em', null,
+        (r.variation ? 'depuis le ' + jour(r.variation.depuis, an) + ' \u00b7 ' : '') +
+        r.nb + ' pesée' + (r.nb > 1 ? 's' : '')));
+      ligne.appendChild(droite);
+      bloc.appendChild(ligne);
+    } else {
+      bloc.appendChild(el('div', 'bloc-rien', 'Aucune pesée enregistrée.'));
+    }
+    bloc.addEventListener('click', v.surChoix);
+    return bloc;
+  }
+
+  // Bloc INERTE : il donne sa réponse — les trois derniers exercices pratiqués
+  // — et dit que la vue arrive. Il ne s'ouvre pas, donc il n'a ni chevron ni
+  // réaction au toucher.
+  function blocExercices(v) {
+    var bloc = coquilleBloc('Par exercice', v.quand, true);
+    (v.lignes || []).forEach(function (l) {
+      var ligne = el('div', 'bloc-exo');
+      ligne.appendChild(el('span', 'bloc-exo-nom', l.nom));
+      ligne.appendChild(el('span', 'bloc-exo-val', l.mesure));
+      ligne.appendChild(el('span', 'bloc-exo-jour', jour(l.jour)));
+      bloc.appendChild(ligne);
+    });
+    bloc.appendChild(el('div', 'bloc-avenir', 'La vue par exercice arrive.'));
+    return bloc;
+  }
+
+  function rendreSommaire(cible, vue) {
+    if (!cible) return;
+    vider(cible);
+    cible.appendChild(blocVolume(vue.volume));
+    cible.appendChild(blocPoids(vue.poids));
+    cible.appendChild(blocExercices(vue.exercices));
+  }
+
+  // ── Sélecteur de période, en pastilles ──────────────────────────────────
+  function rendrePeriodes(cible, periodes, choisie, surChoix) {
+    if (!cible) return;
+    vider(cible);
+    var barre = el('div', 'periodes');
+    periodes.forEach(function (p) {
+      var b = el('button', 'periode' + (p.cle === choisie ? ' actif' : ''), p.libelle);
+      b.type = 'button';
+      b.setAttribute('aria-pressed', p.cle === choisie ? 'true' : 'false');
+      b.addEventListener('click', function () { surChoix(p.cle); });
+      barre.appendChild(b);
+    });
+    cible.appendChild(barre);
+  }
+
+  // ── Le radar de répartition (ECRAN-SAISIE §7 bis.17) ────────────────────
+  //
+  // Six zones sur un hexagone, période courante contre période précédente.
+  // AUCUNE FLÈCHE VERTE OU ROUGE, aucun pourcentage de variation coloré : deux
+  // périodes se comparent, elles ne se jugent pas (CADRAGE-V2 §3.1 bis) — un
+  // mois plus court n'est pas un échec, et l'app ne connaît pas la raison.
+  // La période précédente est en gris neutre, la courante en accent.
+  var RAYON = 92;
+  var CENTRE = { x: 150, y: 112 };
+  var CADRE = { largeur: 300, hauteur: 240 };
+  // Les étiquettes, dans l'ordre géométrique de THPeriode.ORDRE.
+  var ANCRES = [
+    { x: 0, y: -100, ancre: 'middle' },      // haut
+    { x: 88, y: -48, ancre: 'start' },       // haut-droite
+    { x: 88, y: 52, ancre: 'start' },        // bas-droite
+    { x: 0, y: 108, ancre: 'middle' },       // bas
+    { x: -88, y: 52, ancre: 'end' },         // bas-gauche
+    { x: -88, y: -48, ancre: 'end' }         // haut-gauche
+  ];
+
+  function rendreRadar(cible, comparaison, periode, geometrie) {
+    if (!cible) return;
+    vider(cible);
+    if (!comparaison || comparaison.vide) {
+      cible.appendChild(el('p', 'semaine-vide', 'Aucune série de travail sur ces deux périodes.'));
+      return;
+    }
+
+    var cadre = el('div', 'radar');
+    var dessin = svg('svg', null, {
+      viewBox: '0 0 ' + CADRE.largeur + ' ' + CADRE.hauteur,
+      role: 'img',
+      'aria-label': 'Répartition du volume par zone, ' + periode.courante + ' contre ' + periode.precedente
+    });
+    var g = svg('g', null, { transform: 'translate(' + CENTRE.x + ',' + CENTRE.y + ')' });
+
+    // Grille : quatre anneaux, sans graduation chiffrée. Le radar donne une
+    // FORME, pas des valeurs — les valeurs sont dans le relevé au-dessus et
+    // dans les cartes en dessous.
+    [1, 0.75, 0.5, 0.25].forEach(function (f) {
+      g.appendChild(svg('polygon', 'radar-grille', { points: listePoints(geometrie.hexagone(RAYON * f)) }));
+    });
+    geometrie.hexagone(RAYON).forEach(function (p) {
+      g.appendChild(svg('line', 'radar-axe', { x1: 0, y1: 0, x2: p.x, y2: p.y }));
+    });
+
+    var valeursP = comparaison.zones.map(function (z) { return z.precedente; });
+    var valeursC = comparaison.zones.map(function (z) { return z.courante; });
+    // La PRÉCÉDENTE d'abord : dessinée dessous, elle ne masque pas la courante.
+    g.appendChild(svg('polygon', 'radar-prec',
+      { points: listePoints(geometrie.polygone(valeursP, comparaison.max, RAYON)) }));
+    g.appendChild(svg('polygon', 'radar-cour',
+      { points: listePoints(geometrie.polygone(valeursC, comparaison.max, RAYON)) }));
+
+    comparaison.zones.forEach(function (z, i) {
+      var a = ANCRES[i] || ANCRES[0];
+      var t = svg('text', 'radar-et', { x: a.x, y: a.y, 'text-anchor': a.ancre });
+      t.textContent = z.libelle;
+      g.appendChild(t);
+    });
+
+    dessin.appendChild(g);
+    cadre.appendChild(dessin);
+
+    var legende = el('div', 'radar-lg');
+    [['cour', periode.courante], ['prec', periode.precedente]].forEach(function (paire) {
+      var item = el('span', 'radar-lg-item');
+      item.appendChild(el('i', 'puce-' + paire[0], ''));
+      item.appendChild(doc.createTextNode(paire[1]));
+      legende.appendChild(item);
+    });
+    cadre.appendChild(legende);
+    cible.appendChild(cadre);
+  }
+
+  // Quatre cartes de contexte. La valeur précédente est écrite EN TOUTES
+  // LETTRES sous la courante — « 19 sur la période précédente » — plutôt qu'en
+  // écart : un écart demande un signe, un signe appelle une couleur, et une
+  // couleur est un verdict.
+  function rendreCartesPeriode(cible, cartes, periode) {
+    if (!cible) return;
+    vider(cible);
+    if (!cartes || !cartes.length) return;
+    var grille = el('div', 'cartes-per');
+    cartes.forEach(function (c) {
+      var carte = el('div', 'carte-per');
+      carte.appendChild(el('div', 'carte-k', c.libelle));
+      carte.appendChild(el('div', 'carte-v', nombreFr(c.courante)));
+      carte.appendChild(el('div', 'carte-d', nombreFr(c.precedente) + ' ' + periode.avant));
+      grille.appendChild(carte);
+    });
+    cible.appendChild(grille);
+  }
+
+  // ── Le poids de corps ───────────────────────────────────────────────────
+  //
+  // Une courbe descriptive : pas de ligne d'objectif, pas de zone colorée
+  // « bien / insuffisant », pas de projection. Elle décrit, elle ne juge pas.
+  function rendreCourbePoids(cible, courbe) {
+    if (!cible) return;
+    vider(cible);
+    if (!courbe || courbe.points.length < 2) {
+      cible.appendChild(el('p', 'semaine-vide', courbe && courbe.points.length === 1
+        ? 'Une seule pesée sur cette période.'
+        : 'Aucune pesée sur cette période.'));
+      return;
+    }
+
+    var cadre = el('div', 'graphe');
+    var tete = el('div', 'graphe-tete');
+    tete.appendChild(el('span', 'graphe-q', 'Poids de corps'));
+    var v = el('span', 'graphe-v', nombreFr(Math.round(courbe.points[courbe.points.length - 1].poids * 10) / 10));
+    v.appendChild(el('small', null, 'kg'));
+    tete.appendChild(v);
+    cadre.appendChild(tete);
+
+    // `preserveAspectRatio="none"` : l'étirement horizontal est voulu, c'est
+    // lui qui donne toute la largeur au temps. Les points, eux, sont déjà
+    // placés à la date (THPoids.courbe) — l'étirement ne change pas leur ordre
+    // ni leurs écarts relatifs.
+    var dessin = svg('svg', null, {
+      viewBox: '0 0 ' + courbe.largeur + ' ' + courbe.hauteur,
+      preserveAspectRatio: 'none', role: 'img',
+      'aria-label': courbe.points.length + ' pesées, de ' + nombreFr(courbe.min) +
+        ' à ' + nombreFr(courbe.max) + ' kg'
+    });
+    dessin.appendChild(svg('polyline', 'courbe-trait', { points: listePoints(courbe.points) }));
+    var dernier = courbe.points[courbe.points.length - 1];
+    dessin.appendChild(svg('circle', 'courbe-pt', { cx: dernier.x, cy: dernier.y, r: 3.5 }));
+    cadre.appendChild(dessin);
+
+    var axe = el('div', 'graphe-axe');
+    axe.appendChild(el('span', null, jour(courbe.debut, -1)));
+    axe.appendChild(el('span', 'graphe-ampl',
+      nombreFr(courbe.min) + ' \u2013 ' + nombreFr(courbe.max) + ' kg'));
+    axe.appendChild(el('span', null, jour(courbe.fin, -1)));
+    cadre.appendChild(axe);
+    cible.appendChild(cadre);
+  }
+
+  function rendreListePesees(cible, pesees, total) {
+    if (!cible) return;
+    vider(cible);
+    if (!pesees || !pesees.length) return;
+    cible.appendChild(el('div', 'section-t', 'Dernières pesées'));
+    var liste = el('div', 'pesees');
+    pesees.forEach(function (p) {
+      var ligne = el('div', 'pesee-l');
+      ligne.appendChild(el('span', 'pesee-d', jour(p.date, -1)));
+      ligne.appendChild(el('span', 'pesee-p', nombreFr(p.poids) + ' kg'));
+      ligne.appendChild(el('span', 'pesee-e', p.ecart === null ? '' : signe(p.ecart)));
+      liste.appendChild(ligne);
+    });
+    cible.appendChild(liste);
+    if (total > pesees.length) {
+      cible.appendChild(el('p', 'pesees-total', total + ' pesées en tout.'));
+    }
+  }
+
   function message(cible, texte, genre) {
     vider(cible);
     cible.appendChild(el('p', genre === 'erreur' ? 'erreur' : 'vide', texte));
@@ -410,6 +714,14 @@
     rendreFenetreMuscle: rendreFenetreMuscle,
     rendreCalendrier: rendreCalendrier,
     libelleSemaine: libelleSemaine,
+    rendreSommaire: rendreSommaire,
+    rendrePeriodes: rendrePeriodes,
+    rendreRadar: rendreRadar,
+    rendreCartesPeriode: rendreCartesPeriode,
+    rendreCourbePoids: rendreCourbePoids,
+    rendreListePesees: rendreListePesees,
+    jour: jour,
+    signe: signe,
     rendreJours: rendreJours,
     resumeSortie: resumeSortie,
     rendreListeSeances: rendreListeSeances,
@@ -431,6 +743,14 @@
     rendreReleveZones: rendreReleveZones,
     rendreFenetreMuscle: rendreFenetreMuscle,
     rendreCalendrier: rendreCalendrier,
+    rendreSommaire: rendreSommaire,
+    rendrePeriodes: rendrePeriodes,
+    rendreRadar: rendreRadar,
+    rendreCartesPeriode: rendreCartesPeriode,
+    rendreCourbePoids: rendreCourbePoids,
+    rendreListePesees: rendreListePesees,
+    jour: jour,
+    signe: signe,
     rendreJours: rendreJours,
     resumeSortie: resumeSortie,
     rendreListeSeances: rendreListeSeances,

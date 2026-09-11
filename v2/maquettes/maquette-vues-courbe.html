@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="fr">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TrainHub — vues de la courbe</title>
+<style>
+:root{
+  --fond:#15171A; --panneau:#1D2025; --panneau-2:#24272D; --trait:#2E323A;
+  --texte:#E8EAED; --texte-2:#959BA5; --texte-3:#676D77;
+  --accent:#F2B705;
+  --e1:4px; --e2:8px; --e3:12px; --e4:16px; --e5:24px;
+  --r-petit:6px; --r-grand:12px;
+  --pile:-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0C0D0F;color:var(--texte);font-family:var(--pile);
+  -webkit-font-smoothing:antialiased;padding:24px;display:flex;gap:26px;
+  flex-wrap:wrap;justify-content:center}
+.tel{width:340px;flex:0 0 340px}
+.tel h4{font:600 12px/1.4 var(--pile);color:#6A7078;margin-bottom:8px}
+.tel h4 span{color:#4A5058;font-weight:400}
+.ecran{height:640px;background:var(--fond);border-radius:18px;overflow:hidden;
+  display:flex;flex-direction:column;border:1px solid #23262B;position:relative}
+.corps{flex:1;overflow-y:auto;padding:var(--e3) var(--e4) 78px}
+.corps::-webkit-scrollbar{width:0}
+.num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+
+.retour{display:inline-flex;align-items:center;gap:5px;font:600 13px/1 var(--pile);
+  color:var(--accent);padding:var(--e2) 0 var(--e3)}
+.exo-tete{padding-bottom:var(--e3);margin-bottom:var(--e3)}
+.exo-tete .h{font:700 18px/1.25 var(--pile);letter-spacing:-.02em}
+.exo-tete .s{font:400 11px/1.4 var(--pile);color:var(--texte-3);margin-top:3px}
+
+/* ---------- Sélecteur de vue ---------- */
+.vues{display:flex;gap:var(--e1);overflow-x:auto;padding-bottom:var(--e3);
+  scrollbar-width:none}
+.vues::-webkit-scrollbar{display:none}
+.vues button{flex:0 0 auto;padding:7px var(--e3);border-radius:999px;
+  border:1px solid var(--trait);background:transparent;color:var(--texte-2);
+  font:500 12px/1 var(--pile);white-space:nowrap}
+.vues button.actif{background:var(--panneau-2);color:var(--texte);border-color:#3A4049}
+
+/* ---------- Graphe ---------- */
+.graphe{background:var(--panneau);border-radius:var(--r-grand);
+  padding:var(--e3) var(--e3) var(--e2);margin-bottom:var(--e3)}
+.g-tete{display:flex;align-items:baseline;gap:var(--e2);margin-bottom:var(--e2)}
+.g-tete .q{font:500 12px/1.3 var(--pile);color:var(--texte-3)}
+.g-tete .v{margin-left:auto;font:700 17px/1.1 var(--pile);letter-spacing:-.02em}
+.g-tete .v small{font:400 11px/1.1 var(--pile);color:var(--texte-3);margin-left:3px}
+.graphe svg{width:100%;height:104px;display:block}
+.axe{display:flex;justify-content:space-between;font:400 10px/1.3 var(--pile);
+  color:var(--texte-3);margin-top:5px}
+
+.periodes{display:flex;gap:var(--e1);margin-bottom:var(--e3)}
+.periodes button{flex:1;padding:7px 0;border-radius:var(--r-petit);
+  border:1px solid var(--trait);background:transparent;color:var(--texte-3);
+  font:600 11px/1 var(--pile)}
+.periodes button.actif{background:var(--panneau);color:var(--texte);border-color:#3A4049}
+
+.note{font:400 11px/1.5 var(--pile);color:var(--texte-3);
+  background:var(--panneau);border-radius:var(--r-petit);
+  padding:var(--e2) var(--e3);margin-bottom:var(--e3)}
+.note b{color:var(--texte-2);font-weight:600}
+
+.fiche{background:var(--panneau);border-radius:var(--r-grand);padding:var(--e2) var(--e4)}
+.li{display:flex;align-items:baseline;gap:var(--e2);padding:9px 0}
+.li + .li{border-top:1px solid #23262A}
+.li .k{font:400 12px/1.4 var(--pile);color:var(--texte-3)}
+.li .v{margin-left:auto;font:700 15px/1.2 var(--pile);letter-spacing:-.01em;white-space:nowrap}
+.li .v small{font:400 11px/1.2 var(--pile);color:var(--texte-3);margin-left:5px}
+
+.onglets{position:absolute;left:0;right:0;bottom:0;display:grid;
+  grid-template-columns:repeat(4,1fr);background:#191C21;
+  border-top:1px solid var(--trait);padding:var(--e2) 0 10px}
+.onglet{display:flex;flex-direction:column;align-items:center;gap:3px;
+  color:var(--texte-3);text-decoration:none;font:500 10px/1.2 var(--pile);
+  min-height:46px;justify-content:center}
+.onglet svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;
+  stroke-linecap:round;stroke-linejoin:round}
+.onglet.actif{color:var(--accent)}
+
+.legende{flex:0 0 300px;color:#8A9099;font:400 13px/1.6 var(--pile)}
+.legende h3{font:700 15px/1.3 var(--pile);color:#D8DADE;margin:20px 0 6px}
+.legende h3:first-child{margin-top:0}
+.legende p{margin-bottom:8px}
+.legende code{background:#1D2025;padding:1px 5px;border-radius:4px;font-size:12px;color:#C9CDD3}
+</style>
+
+<!-- ===== 1 : charge de travail ===== -->
+<div class="tel">
+  <h4>Charge de travail <span>· la vue par défaut</span></h4>
+  <div class="ecran">
+    <div class="corps">
+      <div class="retour">‹ Exercices</div>
+      <div class="exo-tete">
+        <div class="h">Développé Couché (Barre)</div>
+        <div class="s num">123 séances depuis janvier 2024</div>
+      </div>
+
+      <div class="vues">
+        <button class="actif">Charge</button>
+        <button>Meilleure série</button>
+        <button>Reps totales</button>
+        <button>Tonnage</button>
+        <button>1RM estimé</button>
+      </div>
+
+      <div class="graphe">
+        <div class="g-tete"><span class="q">Charge de travail</span>
+          <span class="v num">122,5 <small>kg</small></span></div>
+        <svg viewBox="0 0 300 104" preserveAspectRatio="none">
+          <line x1="0" y1="86" x2="300" y2="86" stroke="#2E323A"/>
+          <line x1="0" y1="46" x2="300" y2="46" stroke="#23262A"/>
+          <polyline fill="none" stroke="#7E8B9A" stroke-width="2" stroke-linejoin="round"
+            points="4,80 26,76 48,70 70,66 92,60 114,58 136,52 158,54 180,46 202,42 224,36 246,30 268,26 292,22"/>
+          <circle cx="292" cy="22" r="3.5" fill="#F2B705"/>
+        </svg>
+        <div class="axe"><span class="num">janv. 2024</span><span class="num">août 2026</span></div>
+      </div>
+
+      <div class="periodes">
+        <button>3 mois</button><button>1 an</button><button class="actif">Tout</button>
+      </div>
+
+      <div class="fiche">
+        <div class="li"><span class="k">Dernière séance</span><span class="v num">125 kg <small>× 4</small></span></div>
+        <div class="li"><span class="k">Record de charge</span><span class="v num">140 kg <small>× 1</small></span></div>
+        <div class="li"><span class="k">Meilleure série à 122,5 kg</span><span class="v num">× 6 <small>11 sept.</small></span></div>
+      </div>
+    </div>
+    <nav class="onglets">
+      <a class="onglet" href="#"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>Séances</a>
+      <a class="onglet" href="#"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Saisie</a>
+      <a class="onglet actif" href="#"><svg viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-6M22 19H2"/></svg>Progression</a>
+      <a class="onglet" href="#"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>Profil</a>
+    </nav>
+  </div>
+</div>
+
+<!-- ===== 2 : tonnage, 3 mois ===== -->
+<div class="tel">
+  <h4>Tonnage <span>· en barres, sur 3 mois</span></h4>
+  <div class="ecran">
+    <div class="corps">
+      <div class="retour">‹ Exercices</div>
+      <div class="exo-tete">
+        <div class="h">Développé Couché (Barre)</div>
+        <div class="s num">123 séances depuis janvier 2024</div>
+      </div>
+
+      <div class="vues">
+        <button>Charge</button>
+        <button>Meilleure série</button>
+        <button>Reps totales</button>
+        <button class="actif">Tonnage</button>
+        <button>1RM estimé</button>
+      </div>
+
+      <div class="graphe">
+        <div class="g-tete"><span class="q">Tonnage par séance</span>
+          <span class="v num">1 838 <small>kg</small></span></div>
+        <svg viewBox="0 0 300 104" preserveAspectRatio="none">
+          <line x1="0" y1="86" x2="300" y2="86" stroke="#2E323A"/>
+          <g fill="#4A5461">
+            <rect x="10" y="52" width="16" height="34"/><rect x="40" y="44" width="16" height="42"/>
+            <rect x="70" y="58" width="16" height="28"/><rect x="100" y="40" width="16" height="46"/>
+            <rect x="130" y="48" width="16" height="38"/><rect x="160" y="36" width="16" height="50"/>
+            <rect x="190" y="56" width="16" height="30"/><rect x="220" y="42" width="16" height="44"/>
+            <rect x="250" y="34" width="16" height="52"/>
+          </g>
+          <rect x="278" y="30" width="16" height="56" fill="#F2B705"/>
+        </svg>
+        <div class="axe"><span class="num">juin</span><span class="num">juil.</span><span class="num">août</span></div>
+      </div>
+
+      <div class="periodes">
+        <button class="actif">3 mois</button><button>1 an</button><button>Tout</button>
+      </div>
+
+      <div class="note">Le tonnage d'un exercice se compare à lui-même. <b>Il ne se compare pas d'un exercice à l'autre</b> — un squat déplace toujours plus qu'un curl, sans que l'effort soit plus grand.</div>
+    </div>
+    <nav class="onglets">
+      <a class="onglet" href="#"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>Séances</a>
+      <a class="onglet" href="#"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Saisie</a>
+      <a class="onglet actif" href="#"><svg viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-6M22 19H2"/></svg>Progression</a>
+      <a class="onglet" href="#"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>Profil</a>
+    </nav>
+  </div>
+</div>
+
+<!-- ===== 3 : 1RM estimé ===== -->
+<div class="tel">
+  <h4>1RM estimé <span>· disponible, avec sa réserve</span></h4>
+  <div class="ecran">
+    <div class="corps">
+      <div class="retour">‹ Exercices</div>
+      <div class="exo-tete">
+        <div class="h">Développé Couché (Barre)</div>
+        <div class="s num">123 séances depuis janvier 2024</div>
+      </div>
+
+      <div class="vues">
+        <button>Charge</button>
+        <button>Meilleure série</button>
+        <button>Reps totales</button>
+        <button>Tonnage</button>
+        <button class="actif">1RM estimé</button>
+      </div>
+
+      <div class="graphe">
+        <div class="g-tete"><span class="q">1RM estimé</span>
+          <span class="v num">142 <small>kg</small></span></div>
+        <svg viewBox="0 0 300 104" preserveAspectRatio="none">
+          <line x1="0" y1="86" x2="300" y2="86" stroke="#2E323A"/>
+          <line x1="0" y1="46" x2="300" y2="46" stroke="#23262A"/>
+          <polyline fill="none" stroke="#5A6472" stroke-width="1.5" stroke-dasharray="4 3"
+            points="4,78 26,72 48,68 70,60 92,56 114,62 136,48 158,58 180,44 202,50 224,34 246,44 268,28 292,24"/>
+          <circle cx="292" cy="24" r="3.5" fill="#F2B705"/>
+        </svg>
+        <div class="axe"><span class="num">janv. 2024</span><span class="num">août 2026</span></div>
+      </div>
+
+      <div class="periodes">
+        <button>3 mois</button><button>1 an</button><button class="actif">Tout</button>
+      </div>
+
+      <div class="note"><b>Estimation, pas mesure.</b> Fiable entre 3 et 10 répétitions à effort constant. Sur cet exercice, <b>38 % de tes séries sont hors de cette plage</b> — la courbe est tracée en pointillé sur ces périodes.</div>
+
+      <div class="fiche">
+        <div class="li"><span class="k">Meilleure estimation</span><span class="v num">142 kg <small>11 sept.</small></span></div>
+        <div class="li"><span class="k">Record réel soulevé</span><span class="v num">140 kg <small>12 mars</small></span></div>
+      </div>
+    </div>
+    <nav class="onglets">
+      <a class="onglet" href="#"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>Séances</a>
+      <a class="onglet" href="#"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Saisie</a>
+      <a class="onglet actif" href="#"><svg viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-6M22 19H2"/></svg>Progression</a>
+      <a class="onglet" href="#"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>Profil</a>
+    </nav>
+  </div>
+</div>
+
+<div class="legende">
+  <h3>Cinq vues, une seule par défaut</h3>
+  <p><b>Charge de travail</b> — le palier, séance après séance. C'est la vue par défaut : c'est la grandeur sur laquelle le moteur raisonne, et la seule qui ne demande aucun calcul.</p>
+  <p><b>Meilleure série</b> — charge et reps de la meilleure série de chaque séance. Répond à « est-ce que je progresse » quand la charge ne bouge pas.</p>
+  <p><b>Reps totales</b> — utile en hypertrophie, où le volume prime sur la charge.</p>
+  <p><b>Tonnage</b> — charge × reps cumulés. En barres, parce que c'est une quantité produite par séance, pas un niveau atteint.</p>
+  <p><b>1RM estimé</b> — le standard du secteur, disponible, mais pas en tête.</p>
+
+  <h3>Pourquoi le 1RM n'est pas la vue par défaut</h3>
+  <p>Il n'est fiable qu'entre <b>3 et 10 répétitions à effort constant</b>. Sur ton profil, la médiane est à 10-12 reps et 57 exercices sont travaillés dans plusieurs formats — ce que la littérature désigne comme la première cause d'estimation fausse.</p>
+  <p>Il reste utile <b>sur les mouvements lourds</b>, où tu travailles bas en reps. D'où le choix de l'offrir avec sa réserve affichée, et la courbe <b>en pointillé</b> sur les périodes hors plage.</p>
+
+  <h3>La période</h3>
+  <p>Trois choix — 3 mois, 1 an, tout. <b>3 mois</b> pour voir un bloc, <b>tout</b> pour voir le trajet.</p>
+  <p>Le tonnage est le seul où « tout » est peu lisible : 123 barres sur 340 px. Il pourrait s'agréger par semaine au-delà d'un an.</p>
+
+  <h3>Ce que chaque vue ne doit pas faire</h3>
+  <p>Aucune ligne d'objectif, aucune zone colorée « bien » ou « insuffisant », aucune projection. <b>Une courbe décrit, elle ne juge pas.</b> Le seul commentaire autorisé est factuel — la réserve sur l'estimation.</p>
+  <p>Et le tonnage porte sa propre mise en garde : il se compare à lui-même, jamais d'un exercice à l'autre. C'est la doctrine du §9 de la règle de volume, rappelée là où elle risque d'être oubliée.</p>
+</div>
+</html>

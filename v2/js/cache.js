@@ -17,8 +17,11 @@
   'use strict';
 
   var NOM = 'trainhub-v2';
-  var VERSION = 1;
-  var MAGASINS = ['seances', 'series', 'exercices', 'meta'];
+  // VERSION 2 : ajout du magasin `pesees`. La montée de version est la seule
+  // façon de créer un magasin — et elle est sans perte, les magasins existants
+  // ne sont pas touchés.
+  var VERSION = 2;
+  var MAGASINS = ['seances', 'series', 'exercices', 'pesees', 'meta'];
   var LOT = 500;
   var _db = null;
 
@@ -36,6 +39,7 @@
           db.createObjectStore('series', { keyPath: 'id' }).createIndex('session_id', 'session_id');
         }
         if (!db.objectStoreNames.contains('exercices')) db.createObjectStore('exercices', { keyPath: 'slug' });
+        if (!db.objectStoreNames.contains('pesees')) db.createObjectStore('pesees', { keyPath: 'id' });
         if (!db.objectStoreNames.contains('meta')) db.createObjectStore('meta', { keyPath: 'cle' });
       };
       req.onsuccess = function () { _db = req.result; resoudre(_db); };

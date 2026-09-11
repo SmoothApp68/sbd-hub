@@ -117,6 +117,32 @@ répétée dans chaque prompt sans exception.
 
 ---
 
+## 2 quinquies. Ordre des chantiers de coaching — arbitré le 11/09/2026
+
+Cet ordre remplace celui du §6, dépassé par l'avancement.
+
+| # | Chantier | Pourquoi là |
+|---|---|---|
+| 1 | **Le moteur parle** — palier, cible, suggestion à l'écran | Tout le reste en dépend. L'app décrit aujourd'hui, elle ne conseille rien |
+| 2 | **Écran de saisie** | La saisie produit les données prescrites, sans lesquelles le §9.1.4 du moteur ne peut pas être vérifié |
+| 3 | **Entrée par exercice** (Progression) | Même maille que le moteur ; résout aussi « retrouver une séance ancienne » |
+| 4 | **Ordre des exercices dans la séance** (§12 bis du moteur) | Raffinement de ce que le moteur lit. Sans valeur avant que le moteur parle |
+| 5 | **Construction de programmes** | Suppose 1 à 4. L'ordre des exercices en est la première question |
+| 6 | **Gamification** | Spec prête, mais demande une migration de tables |
+| 7 | **Social et défis** | Son propre document l'exige en dernier |
+| — | **Fatigue et temps de repos** | Bloqué : `validee_a` est NULL sur tout l'historique importé. S'ouvre avec les premières séances saisies |
+| — | **Nutrition et TDEE** | Reporté explicitement par Aurélien |
+
+**Fermés sans règle** : fréquence (§11.7 de la règle de volume) · état de démarrage
+(§3.1 bis) · sélection et rotation d'exercices (§13.4 du moteur).
+
+> **Le fil conducteur :** l'app sait aujourd'hui **montrer**. Le chantier 1 la fait
+> **conseiller**. Les chantiers 4 et 5 la feraient **construire**. On ne saute pas d'étape :
+> construire un programme sans savoir lire une séance produirait des recommandations sans
+> fondement — exactement ce que la v1 faisait.
+
+---
+
 ## 3. Ce que le système a le droit d'affirmer
 
 ### 3.1 Descriptif oui, prescriptif jamais (sur les données historiques)

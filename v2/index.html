@@ -77,12 +77,43 @@
     <p class="a-venir">Tu noteras ici tes séries, série par série, pendant la séance.</p>
   </section>
 
+  <!-- Progression : un SOMMAIRE, pas des sous-onglets (§7 bis.14). Trois blocs
+       empilés, chacun répondant en deux lignes — l'écran est utile sans rien
+       toucher. La barre de semaine n'est pas ici : le volume est hebdomadaire,
+       le poids ne l'est pas. Elle vit dans la vue Volume. -->
   <section id="vue-progression" hidden>
-    <header class="entete"><h1>Volume par muscle</h1></header>
+    <header class="entete"><h1>Progression</h1></header>
+    <div id="sommaire"></div>
+  </section>
+
+  <!-- Vue Volume : la semaine, le relevé par zones, puis le radar. -->
+  <section id="vue-volume" hidden>
+    <header class="entete">
+      <button id="btn-retour-volume" type="button" class="discret">← Progression</button>
+    </header>
+    <h2 class="titre-vue">Volume par muscle</h2>
     <div id="barre-progression"></div>
     <div id="releve-zones"></div>
-    <p class="a-venir">Plus tard ici : la progression par exercice, et les tendances sur
-      plusieurs semaines.</p>
+
+    <div class="section-t">Répartition</div>
+    <div id="periodes-radar"></div>
+    <div id="radar"></div>
+    <div id="cartes-radar"></div>
+    <p id="note-radar" class="note">Deux périodes se comparent, elles ne se jugent pas.
+      Aucune flèche, aucun pourcentage : une période plus courte n'est pas un échec,
+      et l'app n'en connaît pas la raison.</p>
+  </section>
+
+  <!-- Vue Poids : descriptive de bout en bout. Aucun objectif, aucun poids
+       cible, aucun commentaire sur la variation. -->
+  <section id="vue-poids" hidden>
+    <header class="entete">
+      <button id="btn-retour-poids" type="button" class="discret">← Progression</button>
+    </header>
+    <h2 class="titre-vue">Poids de corps</h2>
+    <div id="periodes-poids"></div>
+    <div id="courbe-poids"></div>
+    <div id="liste-pesees"></div>
   </section>
 
   <section id="vue-profil" hidden>
@@ -136,6 +167,8 @@
 <script src="/js/modele.js"></script>
 <script src="/js/sync.js"></script>
 <script src="/js/semaine.js"></script>
+<script src="/js/periode.js"></script>
+<script src="/js/poids.js"></script>
 <script src="/js/calendrier.js"></script>
 <script src="/js/routeur.js"></script>
 <script src="/js/sortie.js"></script>

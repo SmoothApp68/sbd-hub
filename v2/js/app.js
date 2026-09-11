@@ -16,9 +16,10 @@
   var Cache = racine.THCache, Sync = racine.THSync, Semaine = racine.THSemaine;
   var Routeur = racine.THRouteur, Sortie = racine.THSortie;
   var Calendrier = racine.THCalendrier;
+  var Periode = racine.THPeriode, Poids = racine.THPoids;
 
   var vues = {};
-  var local = { seances: [], series: [], exercices: [], parSeance: null };
+  var local = { seances: [], series: [], exercices: [], pesees: [], parSeance: null };
   var etat = { code: 'vide', libelle: '', local: false };
   var syncEnCours = false;
   var lundiAffiche = null;   // le lundi de la semaine à l'écran
@@ -28,6 +29,8 @@
   var zoneOuverte = null;    // une seule zone dépliée à la fois (§7 bis.10)
   var moisCalendrier = null; // le mois affiché par le calendrier
   var gardeOverlay = null;   // la garde qui rend le retour d'Android fermant
+  var periodeRadar = Periode.PERIODE_DEFAUT;   // fenêtre comparée du radar
+  var periodePoids = Poids.PERIODE_DEFAUT;     // fenêtre de la courbe de poids
 
   function $(id) { return doc.getElementById(id); }
 
@@ -65,8 +68,20 @@
     local.seances = await Cache.lireTout('seances');
     local.series = await Cache.lireTout('series');
     local.exercices = await Cache.lireTout('exercices');
-    local.seances.sort(function (a, b) { return String(b.debut).localeCompare(String(a.debut)); });
+    local.pesees = await Cache.lireTout('pesees');
+    ordonnerSeances();
     indexerParSeance();
+  }
+
+  // INVARIANT : `local.seances` va toujours de la PLUS RÉCENTE à la plus
+  // ancienne. La pagination rend les séances triées par `id`, donc dans un
+  // ordre qui n'a rien à voir avec le temps ; seul le chargement du cache
+  // triait, et une synchronisation réussie défaisait ce tri sans que rien ne
+  // s'en plaigne. Défaut trouvé au banc, pas en test : la vue hebdomadaire
+  // filtre par date et ne voyait donc rien, mais le sommaire, qui lit « les
+  // trois derniers exercices pratiqués », rendait les trois PLUS ANCIENS.
+  function ordonnerSeances() {
+    local.seances.sort(function (a, b) { return String(b.debut).localeCompare(String(a.debut)); });
   }
 
   // Le cache appartient à un compte et à un seul. Un cache qui survivrait à un
@@ -111,6 +126,11 @@
       var seances = await Donnees.toutesLesSeances();
       var nouvellesSeries = await Donnees.seriesDepuis(curseur);
       var exercices = await Donnees.tousLesExercices();
+      // Les pesées sont ACCESSOIRES : 116 lignes, une page, aucun curseur. Une
+      // lecture qui échoue ne doit pas emporter la synchronisation des séries —
+      // c'est le gros du travail et le cœur de l'app. `null` veut dire « on
+      // n'a rien reçu », et le cache garde ce qu'il avait.
+      var pesees = await essayer(Donnees.toutesLesPesees);
 
       // Le serveur annonce ce qu'il a. C'est ce qui autorise la purge, et c'est
       // ce qui permet de dire qu'il manque quelque chose au lieu de l'ignorer.
@@ -122,6 +142,7 @@
       var fusionnees = Sync.fusionner(local.series, nouvellesSeries);
       local.series = Sync.purgerSeriesOrphelines(fusionnees, local.seances, listeComplete);
       local.exercices = Sync.remplacer(exercices);
+      ordonnerSeances();
       indexerParSeance();
 
       // Séances et exercices : petits, rafraîchis en entier, vider-puis-écrire
@@ -129,6 +150,10 @@
       // est un upsert, et ce que la purge a retiré se supprime explicitement.
       await Cache.remplacerTout('seances', local.seances);
       await Cache.remplacerTout('exercices', local.exercices);
+      if (pesees) {
+        local.pesees = Sync.remplacer(pesees);
+        await Cache.remplacerTout('pesees', local.pesees);
+      }
       await Cache.supprimer('series', idsRetires(fusionnees, local.series));
       await Cache.ecrireLot('series', local.series);
 
@@ -173,6 +198,13 @@
     catch (e) { console.warn('Compte serveur indisponible :', texteErreur(e)); return null; }
   }
 
+  // Même forme, pour une lecture accessoire : `null` plutôt qu'une exception
+  // qui ferait tomber la synchronisation entière.
+  async function essayer(lire) {
+    try { return await lire(); }
+    catch (e) { console.warn('Lecture indisponible :', texteErreur(e)); return null; }
+  }
+
   // ── Écrans ───────────────────────────────────────────────────────────────
   // Toute la navigation entre semaines lit le cache. Aucun appel réseau, aucun
   // rechargement de page — et aucune entrée empilée dans l'historique, pour ne
@@ -213,18 +245,94 @@
     var sem = semaineCourante();
     Rendu.rendreBarreSemaine($('barre-seances'), barrePour(sem, true));
     Rendu.rendreRappel($('rappel-zones'), sem.zones, function () {
-      allerA(Routeur.PROGRESSION, {});
-      rendreProgression();
+      // Un rappel DE VOLUME ouvre le volume, pas le sommaire : passer par une
+      // table des matières pour retrouver ce qu'on vient de toucher serait un
+      // pas de plus pour rien.
+      allerA(Routeur.VOLUME, {});
+      rendreVolume();
     });
     Rendu.rendreJours($('liste-seances'), Semaine.joursAvecSeances(sem.jours), function (s) {
       return Modele.resumerSeance(s, seriesDe(s.id), local.exercices);
     }, afficherDetail);
   }
 
-  // Progression : le relevé complet, avec toute la hauteur.
-  function rendreProgression(lundi) {
-    if (lundi) lundiAffiche = lundi;
+  // ── Progression : le sommaire (§7 bis.14) ────────────────────────────────
+  //
+  // Trois blocs empilés, chacun répondant en deux lignes. L'écran est utile
+  // SANS RIEN TOUCHER : ouvrir un bloc approfondit, ça ne révèle pas la réponse.
+  function rendreProgression() {
     montrer('progression', Routeur.PROGRESSION);
+    var sem = semaineCourante();
+    Rendu.rendreSommaire($('sommaire'), {
+      volume: {
+        quand: Rendu.libelleSemaine(sem.bornes.lundi, sem.bornes.dimanche),
+        zones: sem.zones,
+        surChoix: function () { allerA(Routeur.VOLUME, {}); rendreVolume(); }
+      },
+      poids: {
+        resume: Poids.resume(local.pesees),
+        surChoix: function () { allerA(Routeur.POIDS, {}); rendrePoids(); }
+      },
+      exercices: sommaireExercices()
+    });
+  }
+
+  // Les trois derniers exercices pratiqués, et combien d'exercices distincts le
+  // compte a vus passer. Un seul balayage des séances récentes — inutile de
+  // parcourir trois ans pour trois noms.
+  function sommaireExercices() {
+    var index = Modele.indexerExercices(local.exercices);
+    var vus = {}, lignes = [];
+    for (var i = 0; i < local.seances.length && lignes.length < 3; i++) {
+      var seance = local.seances[i];
+      var d = seance.debut ? new Date(seance.debut) : null;
+      seriesDe(seance.id).forEach(function (serie) {
+        if (!serie || serie.type_serie !== 'travail' || !serie.exercise_slug) return;
+        if (vus[serie.exercise_slug]) {
+          // Même exercice, même séance : on garde la série la plus lourde.
+          var deja = vus[serie.exercise_slug];
+          if (deja.ligne && deja.seance === seance.id && plusLourde(serie, deja.ligne.serie)) {
+            deja.ligne.serie = serie;
+            deja.ligne.mesure = Modele.formatMesure(serie);
+          }
+          return;
+        }
+        var ligne = null;
+        if (lignes.length < 3) {
+          ligne = {
+            nom: (index[serie.exercise_slug] && index[serie.exercise_slug].nom) || serie.exercise_slug,
+            mesure: Modele.formatMesure(serie),
+            jour: d && !isNaN(d.getTime()) ? d : null,
+            serie: serie
+          };
+          lignes.push(ligne);
+        }
+        vus[serie.exercise_slug] = { seance: seance.id, ligne: ligne };
+      });
+    }
+
+    // Le compte d'exercices distincts porte sur TOUT l'historique : c'est ce
+    // que le bloc annonce, et il ne doit pas dépendre des trois séances lues.
+    var distincts = {}, n = 0;
+    local.series.forEach(function (serie) {
+      if (!serie || serie.type_serie !== 'travail' || !serie.exercise_slug) return;
+      if (distincts[serie.exercise_slug]) return;
+      distincts[serie.exercise_slug] = true; n++;
+    });
+
+    return { quand: n ? n + ' exercices' : '', lignes: lignes };
+  }
+
+  function plusLourde(a, b) {
+    var ca = Number(a && a.charge_kg) || 0, cb = Number(b && b.charge_kg) || 0;
+    if (ca !== cb) return ca > cb;
+    return (Number(a && a.reps) || 0) > (Number(b && b.reps) || 0);
+  }
+
+  // ── Vue Volume : la semaine, le relevé, puis le radar ────────────────────
+  function rendreVolume(lundi) {
+    if (lundi) lundiAffiche = lundi;
+    montrer('volume', Routeur.VOLUME);
 
     var sem = semaineCourante();
     Rendu.rendreBarreSemaine($('barre-progression'), barrePour(sem, false));
@@ -232,9 +340,53 @@
       function (cle) {
         // Une zone ouverte à la fois : ouvrir Dos referme Jambes.
         zoneOuverte = (zoneOuverte === cle) ? null : cle;
-        rendreProgression();
+        rendreVolume();
       },
       ouvrirFenetreMuscle);
+
+    rendreRadar();
+  }
+
+  // Le radar ne suit PAS la semaine affichée : il compare deux fenêtres
+  // glissantes ancrées sur aujourd'hui. Faire glisser la semaine du dessus ne
+  // le fait donc pas bouger — c'est voulu, ce sont deux questions différentes
+  // (« cette semaine » et « ces trente jours contre les trente d'avant »).
+  function rendreRadar() {
+    var p = Periode.periodeDe(periodeRadar);
+    var f = Periode.fenetres(p.jours, new Date());
+    var c = Periode.decouper(local.seances, local.series, f.courante);
+    var a = Periode.decouper(local.seances, local.series, f.precedente);
+
+    var comparaison = Periode.comparerZones(
+      Semaine.volumeParZone(c.series, local.exercices),
+      Semaine.volumeParZone(a.series, local.exercices),
+      Semaine.ZONES);
+
+    Rendu.rendrePeriodes($('periodes-radar'), Periode.PERIODES, periodeRadar, function (cle) {
+      periodeRadar = cle;
+      rendreRadar();
+    });
+    Rendu.rendreRadar($('radar'), comparaison, p, Periode);
+    Rendu.rendreCartesPeriode($('cartes-radar'),
+      comparaison.vide ? [] : Periode.cartes(comparaison,
+        Semaine.bilanSemaine(c.seances, c.series),
+        Semaine.bilanSemaine(a.seances, a.series)),
+      p);
+    $('note-radar').hidden = comparaison.vide;
+  }
+
+  // ── Vue Poids ────────────────────────────────────────────────────────────
+  function rendrePoids() {
+    montrer('poids', Routeur.POIDS);
+    var p = Poids.periodeDe(periodePoids);
+    var fenetre = Poids.filtrer(local.pesees, p.jours, new Date());
+
+    Rendu.rendrePeriodes($('periodes-poids'), Poids.PERIODES, periodePoids, function (cle) {
+      periodePoids = cle;
+      rendrePoids();
+    });
+    Rendu.rendreCourbePoids($('courbe-poids'), Poids.courbe(fenetre, 300, 104));
+    Rendu.rendreListePesees($('liste-pesees'), Poids.dernieres(fenetre, 12), fenetre.length);
   }
 
   // ── Fenêtre d'un muscle ──────────────────────────────────────────────────
@@ -298,7 +450,7 @@
 
   function naviguer(n) {
     var l = Semaine.decalerSemaine(lundiAffiche, n).lundi;
-    if (!vues.progression.hidden) { lundiAffiche = l; return rendreProgression(); }
+    if (!vues.volume.hidden) { lundiAffiche = l; return rendreVolume(); }
     afficherSemaine(l);
   }
 
@@ -379,7 +531,7 @@
     // rendue — y compris par un retour qui atterrirait sur une ancienne entrée.
     sessionActive = null;
     try { await Cache.viderTout(); } catch (e) { /* rien à garder de toute façon */ }
-    local = { seances: [], series: [], exercices: [], parSeance: null };
+    local = { seances: [], series: [], exercices: [], pesees: [], parSeance: null };
     try { await Auth.deconnecter(); } catch (e) { montrer('connexion', Routeur.CONNEXION); }
     allerA(Routeur.CONNEXION, {}, true);
   }
@@ -433,6 +585,8 @@
     if (cible.redirigeDepuis) allerA(Routeur.CONNEXION, {}, true);
     if (cible.vue === Routeur.CONNEXION) return montrer('connexion', Routeur.CONNEXION);
     if (cible.vue === Routeur.PROGRESSION) return rendreProgression();
+    if (cible.vue === Routeur.VOLUME) return rendreVolume();
+    if (cible.vue === Routeur.POIDS) return rendrePoids();
     if (VUES_ONGLET[cible.vue]) return montrer(VUES_ONGLET[cible.vue], cible.vue);
     if (cible.vue === Routeur.SEANCE) return rendreDetail(cible.params.id);
     if (cible.vue === Routeur.SEMAINE) return rendreSemaine(cible.params.lundi);
@@ -442,7 +596,8 @@
   async function demarrer() {
     vues = {
       connexion: $('vue-connexion'), liste: $('vue-liste'), detail: $('vue-detail'),
-      saisie: $('vue-saisie'), progression: $('vue-progression'), profil: $('vue-profil')
+      saisie: $('vue-saisie'), progression: $('vue-progression'),
+      volume: $('vue-volume'), poids: $('vue-poids'), profil: $('vue-profil')
     };
     sortie = Sortie.creer({
       history: racine.history,
@@ -455,6 +610,12 @@
     $('form-connexion').addEventListener('submit', soumettreConnexion);
     $('btn-deconnexion').addEventListener('click', deconnecter);
     $('btn-retour').addEventListener('click', function () { afficherSemaine(); });
+    ['btn-retour-volume', 'btn-retour-poids'].forEach(function (id) {
+      $(id).addEventListener('click', function () {
+        allerA(Routeur.PROGRESSION, {});
+        rendreProgression();
+      });
+    });
     $('btn-fermer-muscle').addEventListener('click', fermerVoile);
     $('btn-fermer-calendrier').addEventListener('click', fermerVoile);
     $('btn-cette-semaine').addEventListener('click', function () {

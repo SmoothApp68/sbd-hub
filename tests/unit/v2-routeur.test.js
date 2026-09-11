@@ -245,3 +245,55 @@ describe('gardes — une vue peut refuser la sortie', () => {
     expect(R.premiereGardeBloquante(['pas une fonction', null])).toBeNull();
   });
 });
+
+// ── Les vues sous Progression (chantier 16) ────────────────────────────────
+//
+// CONFIGURATION DISCRIMINANTE : on teste les DEUX sous-chemins ET un
+// sous-chemin inconnu. Avec « /progression/volume » seul, « reconnaître la
+// liste des sous-vues » et « accepter n'importe quel second segment » donnent
+// le même résultat, et le banc ne prouve rien.
+describe('Progression est un sommaire, et ses blocs ont leur propre chemin', () => {
+  test('/progression reste le SOMMAIRE, pas une des vues', () => {
+    expect(R.analyser('/progression')).toEqual({ vue: R.PROGRESSION, params: {} });
+  });
+
+  test('/progression/volume et /progression/poids ouvrent leur vue', () => {
+    expect(R.analyser('/progression/volume')).toEqual({ vue: R.VOLUME, params: {} });
+    expect(R.analyser('/progression/poids')).toEqual({ vue: R.POIDS, params: {} });
+  });
+
+  test('un sous-chemin inconnu retombe sur le SOMMAIRE, pas sur la racine', () => {
+    const r = R.analyser('/progression/exercices');
+    expect(r.vue).toBe(R.PROGRESSION);
+    expect(r.repli).toBe('sous-vue-inconnue');
+    // Un lien qui a vieilli reste dans Progression : c'est le moins surprenant.
+    expect(r.vue).not.toBe(R.RACINE);
+  });
+
+  test('l’aller-retour construire/analyser est idempotent sur les deux vues', () => {
+    [R.VOLUME, R.POIDS].forEach((v) => {
+      const chemin = R.construire(v, {});
+      expect(chemin).toBe('/progression/' + v);
+      expect(R.analyser(chemin).vue).toBe(v);
+    });
+  });
+
+  test('les deux vues allument l’onglet PROGRESSION, pas un onglet à elles', () => {
+    expect(R.ongletDe(R.VOLUME)).toBe(R.PROGRESSION);
+    expect(R.ongletDe(R.POIDS)).toBe(R.PROGRESSION);
+    // Et elles ne s'ajoutent pas à la barre : quatre onglets, pas six.
+    expect(R.ONGLETS).toHaveLength(4);
+    expect(R.ONGLETS).not.toContain(R.VOLUME);
+  });
+
+  test('elles exigent une session, comme toute vue de données', () => {
+    expect(R.routeAffichable({ vue: R.POIDS, params: {} }, { session: null }).vue)
+      .toBe(R.CONNEXION);
+    expect(R.routeAffichable({ vue: R.VOLUME, params: {} }, { session: { user: {} } }).vue)
+      .toBe(R.VOLUME);
+  });
+
+  test('un chemin à trois segments sous progression n’est pas une vue', () => {
+    expect(R.analyser('/progression/volume/2026').vue).toBe(R.RACINE);
+  });
+});

@@ -338,3 +338,124 @@ button{font-family:inherit;cursor:pointer}
    Une phrase, au présent et à l'actif. Ni excuse, ni animation. */
 .a-venir{padding:var(--e6) var(--e1);font-size:13px;line-height:1.6;
   color:var(--texte-2)}
+
+/* ══ PROGRESSION ════════════════════════════════════════════════════════════
+   Un SOMMAIRE, pas des sous-onglets (ECRAN-SAISIE §7 bis.14). Des blocs
+   empilés, chacun répondant en deux lignes, chacun s'ouvrant sur une vue
+   complète. L'écran est utile sans rien toucher.
+
+   RÈGLE DE L'ACCENT, rappel : le jaune ne sert qu'à l'onglet actif et à la
+   suggestion du moteur. Ici il n'apparaît QUE sur le polygone de la période
+   courante du radar — où il distingue deux tracés superposés, ce qu'une nuance
+   de gris ne ferait pas à 360 px. Aucun bloc jaune, aucun bouton jaune. */
+
+.titre-vue{font-size:19px;font-weight:700;line-height:1.2;letter-spacing:-.02em;
+  padding:var(--e1) 0 var(--e3)}
+.section-t{font-size:12px;font-weight:600;line-height:1.3;color:var(--texte-3);
+  margin:var(--e5) 0 var(--e2)}
+.note{font-size:11px;line-height:1.5;color:var(--texte-3);background:var(--panneau);
+  border-radius:var(--r-petit);padding:var(--e2) var(--e3);margin-top:var(--e3)}
+
+/* ── Les blocs du sommaire ────────────────────────────────────────────────── */
+.bloc-som{display:block;width:100%;text-align:left;background:var(--panneau);
+  border:none;border-radius:var(--r-grand);padding:var(--e3) var(--e4);
+  margin-bottom:var(--e3);color:var(--texte);font-family:inherit}
+.bloc-som:active{background:var(--panneau-2)}
+/* Un bloc inerte ne réagit pas au toucher : une affordance sans destination
+   est un mensonge d'interface. */
+.bloc-som.inerte:active{background:var(--panneau)}
+.bloc-haut{display:flex;align-items:baseline;gap:var(--e2);margin-bottom:var(--e2)}
+.bloc-quoi{font-size:14px;font-weight:600;line-height:1.3}
+.bloc-quand{font-size:11px;line-height:1.3;color:var(--texte-3);
+  font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bloc-fl{margin-left:auto;color:var(--texte-3);font-size:13px;flex:none}
+.bloc-rien{font-size:12.5px;line-height:1.5;color:var(--texte-3)}
+.bloc-avenir{font-size:11px;line-height:1.5;color:var(--texte-3);margin-top:var(--e2)}
+
+.bloc-zones{display:grid;grid-template-columns:repeat(3,1fr);gap:3px var(--e2);
+  font-size:11.5px;line-height:1.5;color:var(--texte-3)}
+.bloc-zone{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bloc-zone b{color:var(--texte-2);font-weight:600;font-variant-numeric:tabular-nums}
+
+/* Le poids : une valeur, sa date, un écart daté, un compte. Aucune couleur de
+   jugement — l'écart est du texte ordinaire, qu'il monte ou qu'il descende. */
+.bloc-pesee{display:flex;align-items:baseline;gap:var(--e2)}
+.pesee-gros{font-size:26px;font-weight:700;line-height:1;letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums}
+.pesee-unite{font-size:12px;line-height:1;color:var(--texte-3)}
+.pesee-var{margin-left:auto;text-align:right;font-size:12px;font-weight:500;
+  line-height:1.3;color:var(--texte-2);font-variant-numeric:tabular-nums}
+.pesee-var em{display:block;font-style:normal;font-size:10px;color:var(--texte-3);margin-top:2px}
+
+.bloc-exo{display:flex;align-items:baseline;gap:var(--e2);padding:5px 0}
+.bloc-exo + .bloc-exo{border-top:1px solid var(--trait)}
+.bloc-exo-nom{flex:1;min-width:0;font-size:13px;line-height:1.4;color:var(--texte-2);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bloc-exo-val{font-size:13px;font-weight:600;line-height:1.4;white-space:nowrap;
+  font-variant-numeric:tabular-nums}
+.bloc-exo-jour{font-size:11px;line-height:1.4;color:var(--texte-3);white-space:nowrap;
+  min-width:52px;text-align:right;font-variant-numeric:tabular-nums}
+
+/* ── Sélecteur de période, en pastilles ───────────────────────────────────── */
+.periodes{display:flex;gap:var(--e1);margin-bottom:var(--e3)}
+.periode{flex:1;padding:7px 0;border-radius:var(--r-petit);border:1px solid var(--trait);
+  background:transparent;color:var(--texte-3);font:600 11px/1 var(--pile)}
+.periode.actif{background:var(--panneau);color:var(--texte);border-color:#3A4049}
+
+/* ── Le radar ─────────────────────────────────────────────────────────────── */
+.radar{background:var(--panneau);border-radius:var(--r-grand);padding:var(--e3)}
+.radar svg{width:100%;height:238px;display:block}
+.radar-grille{fill:none;stroke:#282C33;stroke-width:1}
+.radar-axe{stroke:#22262C;stroke-width:1}
+/* La période précédente en gris neutre, la courante en accent. Pas de vert ni
+   de rouge : deux périodes se comparent, elles ne se jugent pas. */
+.radar-prec{fill:rgba(120,130,145,.12);stroke:#6E7885;stroke-width:1.5}
+.radar-cour{fill:rgba(242,183,5,.10);stroke:var(--accent);stroke-width:2}
+.radar-et{font:600 10px/1 var(--pile);fill:var(--texte-3)}
+.radar-lg{display:flex;justify-content:center;gap:var(--e4);margin-top:var(--e2);
+  font-size:11px;line-height:1;color:var(--texte-3)}
+.radar-lg-item{white-space:nowrap}
+.radar-lg i{display:inline-block;width:8px;height:8px;border-radius:50%;
+  margin-right:5px;vertical-align:-1px}
+.puce-cour{background:var(--accent)}
+.puce-prec{background:#6E7885}
+
+.cartes-per{display:grid;grid-template-columns:1fr 1fr;gap:var(--e2);margin-top:var(--e3)}
+.carte-per{background:var(--panneau);border-radius:var(--r-grand);padding:var(--e3);min-width:0}
+.carte-k{font-size:11px;line-height:1.3;color:var(--texte-3);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.carte-v{font-size:22px;font-weight:700;line-height:1.1;letter-spacing:-.02em;
+  margin:3px 0 2px;font-variant-numeric:tabular-nums}
+/* La valeur précédente en toutes lettres, pas en écart : un écart demande un
+   signe, un signe appelle une couleur, et une couleur est un verdict. */
+.carte-d{font-size:11px;font-weight:500;line-height:1.3;color:var(--texte-3);
+  font-variant-numeric:tabular-nums}
+
+/* ── La courbe de poids ───────────────────────────────────────────────────── */
+.graphe{background:var(--panneau);border-radius:var(--r-grand);
+  padding:var(--e3) var(--e3) var(--e2)}
+.graphe-tete{display:flex;align-items:baseline;gap:var(--e2);margin-bottom:var(--e2)}
+.graphe-q{font-size:12px;font-weight:500;line-height:1.3;color:var(--texte-3)}
+.graphe-v{margin-left:auto;font-size:17px;font-weight:700;line-height:1.1;
+  letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.graphe-v small{font-size:11px;font-weight:400;color:var(--texte-3);margin-left:3px;
+  letter-spacing:0}
+.graphe svg{width:100%;height:104px;display:block}
+/* Aucune ligne d'objectif, aucune zone colorée « bien / insuffisant », aucune
+   projection : une courbe décrit, elle ne juge pas. */
+.courbe-trait{fill:none;stroke:#7E8B9A;stroke-width:2;stroke-linejoin:round;
+  stroke-linecap:round;vector-effect:non-scaling-stroke}
+.courbe-pt{fill:var(--accent)}
+.graphe-axe{display:flex;justify-content:space-between;gap:var(--e2);
+  font-size:10px;line-height:1.3;color:var(--texte-3);margin-top:5px;
+  font-variant-numeric:tabular-nums}
+.graphe-ampl{color:var(--texte-3)}
+
+.pesees{background:var(--panneau);border-radius:var(--r-grand);padding:var(--e2) var(--e4)}
+.pesee-l{display:flex;align-items:baseline;gap:var(--e2);padding:8px 0;
+  font-variant-numeric:tabular-nums}
+.pesee-l + .pesee-l{border-top:1px solid var(--trait)}
+.pesee-d{flex:1;min-width:0;font-size:12px;line-height:1.4;color:var(--texte-3)}
+.pesee-p{font-size:14px;font-weight:600;line-height:1.4}
+.pesee-e{min-width:46px;text-align:right;font-size:12px;line-height:1.4;color:var(--texte-3)}
+.pesees-total{font-size:11px;line-height:1.5;color:var(--texte-3);padding:var(--e2) var(--e1) 0}

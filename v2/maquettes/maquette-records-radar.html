@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="fr">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TrainHub — records de série et radar</title>
+<style>
+:root{
+  --fond:#15171A; --panneau:#1D2025; --panneau-2:#24272D; --trait:#2E323A;
+  --texte:#E8EAED; --texte-2:#959BA5; --texte-3:#676D77;
+  --accent:#F2B705;
+  --e1:4px; --e2:8px; --e3:12px; --e4:16px; --e5:24px;
+  --r-petit:6px; --r-grand:12px;
+  --pile:-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0C0D0F;color:var(--texte);font-family:var(--pile);
+  -webkit-font-smoothing:antialiased;padding:24px;display:flex;gap:26px;
+  flex-wrap:wrap;justify-content:center}
+.tel{width:340px;flex:0 0 340px}
+.tel h4{font:600 12px/1.4 var(--pile);color:#6A7078;margin-bottom:8px}
+.tel h4 span{color:#4A5058;font-weight:400}
+.ecran{height:660px;background:var(--fond);border-radius:18px;overflow:hidden;
+  display:flex;flex-direction:column;border:1px solid #23262B;position:relative}
+.corps{flex:1;overflow-y:auto;padding:var(--e3) var(--e4) 78px}
+.corps::-webkit-scrollbar{width:0}
+.num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+
+.retour{display:inline-flex;gap:5px;font:600 13px/1 var(--pile);color:var(--accent);
+  padding:var(--e2) 0 var(--e3)}
+.exo-tete{padding-bottom:var(--e3)}
+.exo-tete .h{font:700 18px/1.25 var(--pile);letter-spacing:-.02em}
+.exo-tete .s{font:400 11px/1.4 var(--pile);color:var(--texte-3);margin-top:3px}
+.titre-vue{font:700 19px/1.2 var(--pile);letter-spacing:-.02em;padding:var(--e2) 0 var(--e3)}
+
+.sect{font:600 12px/1.3 var(--pile);color:var(--texte-3);margin:var(--e4) 0 var(--e2)}
+
+/* ---------- Records de série ---------- */
+.rs{background:var(--panneau);border-radius:var(--r-grand);padding:var(--e2) 0}
+.rs .ligne{display:flex;align-items:baseline;gap:var(--e2);padding:8px var(--e4)}
+.rs .ligne + .ligne{border-top:1px solid #23262A}
+.rs .n{flex:0 0 58px;font:600 13px/1.4 var(--pile);color:var(--texte-2)}
+.rs .n em{font-style:normal;font-weight:400;color:var(--texte-3);font-size:11px}
+.rs .jauge{flex:1;height:5px;background:var(--panneau-2);border-radius:3px;overflow:hidden}
+.rs .jauge i{display:block;height:100%;background:#4A5461;border-radius:3px}
+.rs .kg{font:700 14px/1.4 var(--pile);letter-spacing:-.01em;min-width:56px;text-align:right}
+.rs .kg small{font:400 10px/1 var(--pile);color:var(--texte-3);margin-left:3px}
+.rs .ligne.cible{background:#20242A}
+.rs .ligne.cible .n,.rs .ligne.cible .kg{color:var(--texte)}
+.rs .ligne.cible .jauge i{background:var(--accent)}
+
+.note{font:400 11px/1.5 var(--pile);color:var(--texte-3);
+  background:var(--panneau);border-radius:var(--r-petit);
+  padding:var(--e2) var(--e3);margin-top:var(--e3)}
+.note b{color:var(--texte-2);font-weight:600}
+
+/* ---------- Radar ---------- */
+.radar{background:var(--panneau);border-radius:var(--r-grand);padding:var(--e3);
+  margin-bottom:var(--e3)}
+.radar svg{width:100%;height:238px;display:block}
+.radar .lg{display:flex;justify-content:center;gap:var(--e4);margin-top:var(--e2);
+  font:400 11px/1 var(--pile);color:var(--texte-3)}
+.radar .lg i{display:inline-block;width:8px;height:8px;border-radius:50%;
+  margin-right:5px;vertical-align:-1px}
+.grille{fill:none;stroke:#282C33;stroke-width:1}
+.axe{stroke:#22262C;stroke-width:1}
+.prec{fill:rgba(120,130,145,.12);stroke:#6E7885;stroke-width:1.5}
+.cour{fill:rgba(242,183,5,.10);stroke:var(--accent);stroke-width:2}
+.et{font:600 10px/1 var(--pile);fill:var(--texte-3)}
+
+.cartes{display:grid;grid-template-columns:1fr 1fr;gap:var(--e2)}
+.carte{background:var(--panneau);border-radius:var(--r-grand);padding:var(--e3)}
+.carte .k{font:400 11px/1.3 var(--pile);color:var(--texte-3)}
+.carte .v{font:700 22px/1.1 var(--pile);letter-spacing:-.02em;margin:3px 0 2px}
+.carte .d{font:500 11px/1.3 var(--pile);color:var(--texte-3)}
+
+.onglets{position:absolute;left:0;right:0;bottom:0;display:grid;
+  grid-template-columns:repeat(4,1fr);background:#191C21;
+  border-top:1px solid var(--trait);padding:var(--e2) 0 10px}
+.onglet{display:flex;flex-direction:column;align-items:center;gap:3px;
+  color:var(--texte-3);text-decoration:none;font:500 10px/1.2 var(--pile);
+  min-height:46px;justify-content:center}
+.onglet svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;
+  stroke-linecap:round;stroke-linejoin:round}
+.onglet.actif{color:var(--accent)}
+
+.legende{flex:0 0 300px;color:#8A9099;font:400 13px/1.6 var(--pile)}
+.legende h3{font:700 15px/1.3 var(--pile);color:#D8DADE;margin:20px 0 6px}
+.legende h3:first-child{margin-top:0}
+.legende p{margin-bottom:8px}
+.legende code{background:#1D2025;padding:1px 5px;border-radius:4px;font-size:12px;color:#C9CDD3}
+</style>
+
+<!-- ===== 1 : records de série ===== -->
+<div class="tel">
+  <h4>Records de série <span>· le meilleur poids par nombre de reps</span></h4>
+  <div class="ecran">
+    <div class="corps">
+      <div class="retour">‹ Exercices</div>
+      <div class="exo-tete">
+        <div class="h">Développé Couché (Barre)</div>
+        <div class="s num">123 séances depuis janvier 2024</div>
+      </div>
+
+      <div class="sect">RECORDS DE SÉRIE</div>
+      <div class="rs">
+        <div class="ligne"><span class="n num">1 <em>rep</em></span><span class="jauge"><i style="width:100%"></i></span><span class="kg num">140 <small>kg</small></span></div>
+        <div class="ligne"><span class="n num">2 <em>reps</em></span><span class="jauge"><i style="width:89%"></i></span><span class="kg num">125 <small>kg</small></span></div>
+        <div class="ligne"><span class="n num">3 <em>reps</em></span><span class="jauge"><i style="width:89%"></i></span><span class="kg num">125 <small>kg</small></span></div>
+        <div class="ligne"><span class="n num">4 <em>reps</em></span><span class="jauge"><i style="width:89%"></i></span><span class="kg num">125 <small>kg</small></span></div>
+        <div class="ligne"><span class="n num">5 <em>reps</em></span><span class="jauge"><i style="width:87%"></i></span><span class="kg num">122,5 <small>kg</small></span></div>
+        <div class="ligne cible"><span class="n num">6 <em>reps</em></span><span class="jauge"><i style="width:82%"></i></span><span class="kg num">115 <small>kg</small></span></div>
+        <div class="ligne"><span class="n num">8 <em>reps</em></span><span class="jauge"><i style="width:79%"></i></span><span class="kg num">110 <small>kg</small></span></div>
+        <div class="ligne"><span class="n num">10 <em>reps</em></span><span class="jauge"><i style="width:71%"></i></span><span class="kg num">100 <small>kg</small></span></div>
+        <div class="ligne"><span class="n num">15 <em>reps</em></span><span class="jauge"><i style="width:57%"></i></span><span class="kg num">80 <small>kg</small></span></div>
+        <div class="ligne"><span class="n num">20 <em>reps</em></span><span class="jauge"><i style="width:43%"></i></span><span class="kg num">60 <small>kg</small></span></div>
+      </div>
+
+      <div class="note">« Au moins » ce nombre de reps. <b>Si tu as fait 122,5 × 5, ton record à 4 reps vaut au moins 122,5</b> — sinon la table paraît cassée là où tu n'as jamais travaillé.</div>
+
+      <div class="note" style="margin-top:var(--e2)">Ta cible du moment, <b>6 reps à 122,5 kg</b>, dépasserait ton record à ce nombre de reps.</div>
+    </div>
+    <nav class="onglets">
+      <a class="onglet" href="#"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>Séances</a>
+      <a class="onglet" href="#"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Saisie</a>
+      <a class="onglet actif" href="#"><svg viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-6M22 19H2"/></svg>Progression</a>
+      <a class="onglet" href="#"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>Profil</a>
+    </nav>
+  </div>
+</div>
+
+<!-- ===== 2 : radar ===== -->
+<div class="tel">
+  <h4>Répartition <span>· août contre juillet, tes vrais chiffres</span></h4>
+  <div class="ecran">
+    <div class="corps">
+      <div class="titre-vue">Répartition</div>
+
+      <div class="radar">
+        <svg viewBox="0 0 300 238">
+          <!-- hexagone : 6 zones. Jambes=192 max -->
+          <g transform="translate(150,112)">
+            <polygon class="grille" points="0,-92 80,-46 80,46 0,92 -80,46 -80,-46"/>
+            <polygon class="grille" points="0,-69 60,-34.5 60,34.5 0,69 -60,34.5 -60,-34.5"/>
+            <polygon class="grille" points="0,-46 40,-23 40,23 0,46 -40,23 -40,-23"/>
+            <polygon class="grille" points="0,-23 20,-11.5 20,11.5 0,23 -20,11.5 -20,-11.5"/>
+            <line class="axe" x1="0" y1="0" x2="0" y2="-92"/><line class="axe" x1="0" y1="0" x2="80" y2="-46"/>
+            <line class="axe" x1="0" y1="0" x2="80" y2="46"/><line class="axe" x1="0" y1="0" x2="0" y2="92"/>
+            <line class="axe" x1="0" y1="0" x2="-80" y2="46"/><line class="axe" x1="0" y1="0" x2="-80" y2="-46"/>
+
+            <!-- juillet : Jambes 192 Dos 160,5 Bras 179 Épaules 108 Poitrine 55 Tronc 18 -->
+            <polygon class="prec" points="0,-92 22.8,-13.2 44.8,25.9 0,8.6 -74.3,42.9 -66.6,-38.5"/>
+            <!-- août : Jambes 142,5 Dos 123,5 Bras 127,5 Épaules 77 Poitrine 51,5 Tronc 7,5 -->
+            <polygon class="cour" points="0,-68.3 21.4,-12.3 32.0,18.4 0,3.6 -52.9,30.5 -51.2,-29.6"/>
+
+            <text class="et" x="0" y="-100" text-anchor="middle">Jambes</text>
+            <text class="et" x="88" y="-48" text-anchor="start">Poitrine</text>
+            <text class="et" x="88" y="52" text-anchor="start">Épaules</text>
+            <text class="et" x="0" y="108" text-anchor="middle">Tronc</text>
+            <text class="et" x="-88" y="52" text-anchor="end">Bras</text>
+            <text class="et" x="-88" y="-48" text-anchor="end">Dos</text>
+          </g>
+        </svg>
+        <div class="lg">
+          <span><i style="background:var(--accent)"></i>Août</span>
+          <span><i style="background:#6E7885"></i>Juillet</span>
+        </div>
+      </div>
+
+      <div class="cartes">
+        <div class="carte"><div class="k">Séances</div><div class="v num">14</div><div class="d num">19 en juillet</div></div>
+        <div class="carte"><div class="k">Séries de travail</div><div class="v num">265</div><div class="d num">357 en juillet</div></div>
+        <div class="carte"><div class="k">Jambes</div><div class="v num">142,5</div><div class="d num">192 en juillet</div></div>
+        <div class="carte"><div class="k">Poitrine</div><div class="v num">51,5</div><div class="d num">55 en juillet</div></div>
+      </div>
+
+      <div class="note">Deux mois se comparent, ils ne se jugent pas. <b>Aucune flèche verte ou rouge</b> : un mois plus court n'est pas un échec, et l'app ne connaît pas la raison.</div>
+    </div>
+    <nav class="onglets">
+      <a class="onglet" href="#"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>Séances</a>
+      <a class="onglet" href="#"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Saisie</a>
+      <a class="onglet actif" href="#"><svg viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-6M22 19H2"/></svg>Progression</a>
+      <a class="onglet" href="#"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>Profil</a>
+    </nav>
+  </div>
+</div>
+
+<div class="legende">
+  <h3>Ce que Hevy fait mieux que moi</h3>
+  <p><b>Les records de série.</b> Le meilleur poids pour chaque nombre de reps — factuel, sans formule, et ça répond à « je vise 8, mon record c'est quoi ». Je ne l'avais pas proposé.</p>
+  <p><b>Le radar par zones.</b> Il valide au passage le regroupement en six : Hevy utilise exactement Dos, Torse, Tronc, Épaules, Bras, Jambes. Et il ajoute la <b>comparaison avec la période précédente</b>, qui donne le sens de la variation sans rien affirmer.</p>
+
+  <h3>Ce que je corrige</h3>
+  <p>Sa table de records est <b>brute</b>, donc trouée. Sur ton soulevé hex : 7 reps → 150 kg, mais 6 reps → 120 et 5 reps → 100. Elle paraît cassée — or si tu as fait 150 × 7, tu as forcément pu faire 150 × 5.</p>
+  <p>Ma version est <b>cumulée</b> : « au moins n reps ». Sur ton couché, ça corrige le trou à 14 reps (42,5 kg brut, 80 kg réel).</p>
+  <p>Et la ligne de ta cible du moment est mise en avant : tu vois tout de suite si tu es sur le point de battre quelque chose.</p>
+
+  <h3>Ce que Hevy fait mal, à ne pas copier</h3>
+  <p>Son graphe « nombre de séries par muscle » superpose <b>dix-huit courbes de couleurs</b> sur un écran de téléphone. C'est illisible, et ça demande une liste de cases à cocher pour devenir utile.</p>
+  <p>C'est exactement pourquoi on regroupe en six zones avant de tracer quoi que ce soit.</p>
+
+  <h3>Une différence que je maintiens</h3>
+  <p>Hevy affiche <b>des flèches vertes et rouges</b> sur ses variations. Nous non : un mois plus court n'est pas un échec, et l'app ne connaît pas la raison. Deux périodes se comparent, elles ne se jugent pas.</p>
+
+  <h3>Anomalie trouvée en chemin</h3>
+  <p>Ton couché contient une série à <b>0 répétition pour 140 kg</b>. Sans conséquence sur les records cumulés, mais ça fausserait un comptage de séries. À traiter à part.</p>
+</div>
+</html>

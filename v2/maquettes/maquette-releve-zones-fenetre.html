@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="fr">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TrainHub — relevé, zones et fenêtre</title>
+<style>
+:root{
+  --fond:#15171A; --panneau:#1D2025; --panneau-2:#24272D; --trait:#2E323A;
+  --texte:#E8EAED; --texte-2:#959BA5; --texte-3:#676D77;
+  --accent:#F2B705;
+  --e1:4px; --e2:8px; --e3:12px; --e4:16px; --e5:24px;
+  --r-petit:6px; --r-grand:12px;
+  --pile:-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0C0D0F;color:var(--texte);font-family:var(--pile);
+  -webkit-font-smoothing:antialiased;padding:24px;display:flex;gap:26px;
+  flex-wrap:wrap;justify-content:center}
+.tel{width:340px;flex:0 0 340px}
+.tel h4{font:600 12px/1.4 var(--pile);color:#6A7078;margin-bottom:8px}
+.tel h4 span{color:#4A5058;font-weight:400}
+.ecran{height:640px;background:var(--fond);border-radius:18px;overflow:hidden;
+  display:flex;flex-direction:column;border:1px solid #23262B;position:relative}
+.corps{flex:1;overflow-y:auto;padding:var(--e3) var(--e4) 78px}
+.corps::-webkit-scrollbar{width:0}
+.num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+
+.etat{display:flex;align-items:center;gap:5px;font:400 11px/1 var(--pile);
+  color:var(--texte-3);padding-bottom:var(--e2)}
+.etat i{width:6px;height:6px;border-radius:50%;background:#4E8E64;display:block}
+.barre-sem{display:flex;align-items:center;gap:var(--e2);padding:var(--e1) 0 var(--e3)}
+.barre-sem .fl{width:31px;height:31px;flex:0 0 31px;border-radius:var(--r-petit);
+  border:1px solid var(--trait);background:transparent;color:var(--texte-2);
+  font-size:14px;display:grid;place-items:center}
+.barre-sem .mid{flex:1;text-align:center;min-width:0}
+.barre-sem .d{font:600 14px/1.2 var(--pile)}
+.barre-sem .t{font:400 11px/1.4 var(--pile);color:var(--texte-3);margin-top:2px}
+
+/* ---------- Relevé ---------- */
+.releve{background:var(--panneau);border-radius:var(--r-grand);
+  padding:var(--e1) 0;margin-bottom:var(--e4)}
+
+.zone > .tete{display:flex;align-items:baseline;gap:var(--e2);
+  padding:11px var(--e4);cursor:pointer}
+.zone + .zone > .tete{border-top:1px solid #23262A}
+.zone.ouvert + .zone > .tete{border-top-color:var(--trait)}
+.tete .chev{flex:0 0 9px;color:var(--texte-3);font-size:8px;
+  transform:translateY(-2px);transition:transform .16s}
+.zone.ouvert .chev{transform:rotate(90deg) translate(-2px,0)}
+.tete .nom{font:500 14px/1.4 var(--pile)}
+.tete .pt{flex:1;border-bottom:1px dotted #31363E;transform:translateY(-4px);min-width:12px}
+.tete .val{font:600 15px/1.4 var(--pile);letter-spacing:-.01em}
+
+.muscles{display:none;padding:0 var(--e4) var(--e3) 33px}
+.zone.ouvert .muscles{display:block}
+.mu{display:flex;align-items:baseline;gap:var(--e2);padding:6px 0;cursor:pointer}
+.mu + .mu{border-top:1px solid #212529}
+.mu .nom{font:400 13px/1.4 var(--pile);color:var(--texte-2)}
+.mu .pt{flex:1;border-bottom:1px dotted #2A2E35;transform:translateY(-4px);min-width:12px}
+.mu .val{font:500 13px/1.4 var(--pile);color:var(--texte-2)}
+.mu .pl{flex:0 0 9px;color:#4A4F57;font-size:9px}
+
+/* ---------- Fenêtre ---------- */
+.voile{position:absolute;inset:0;background:rgba(6,7,9,.66);
+  display:grid;place-items:center;padding:var(--e5) var(--e4)}
+.fen{width:100%;background:var(--panneau);border-radius:14px;
+  border:1px solid var(--trait);box-shadow:0 12px 40px rgba(0,0,0,.5);
+  padding:var(--e4);max-height:100%}
+.fen .haut{display:flex;align-items:baseline;gap:var(--e2);
+  padding-bottom:var(--e3);border-bottom:1px solid var(--trait)}
+.fen .quoi{font:700 17px/1.2 var(--pile);letter-spacing:-.01em}
+.fen .zone-nom{font:400 11px/1.2 var(--pile);color:var(--texte-3);
+  display:block;margin-top:3px}
+.fen .combien{margin-left:auto;font:700 20px/1 var(--pile);letter-spacing:-.02em}
+.fen .combien em{font:400 10px/1 var(--pile);color:var(--texte-3);
+  font-style:normal;margin-left:3px}
+.x{display:flex;align-items:baseline;gap:var(--e2);padding:8px 0}
+.x + .x{border-top:1px solid #23262A}
+.x .n{font:400 13px/1.4 var(--pile);color:var(--texte);flex:1;min-width:0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.x .n em{display:block;font:400 11px/1.4 var(--pile);color:var(--texte-3);font-style:normal}
+.x .v{font:700 15px/1.2 var(--pile);white-space:nowrap;letter-spacing:-.01em}
+.fen .note{font:400 11px/1.5 var(--pile);color:var(--texte-3);
+  margin-top:var(--e3);padding-top:var(--e3);border-top:1px solid var(--trait)}
+.fen .fermer{width:100%;margin-top:var(--e3);padding:11px;border:1px solid var(--trait);
+  background:transparent;color:var(--texte-2);border-radius:var(--r-petit);
+  font:600 14px/1 var(--pile)}
+
+.jour{padding:var(--e3) 0;border-top:1px solid var(--trait)}
+.jour .j{font:600 12px/1.3 var(--pile);color:var(--texte-3);margin-bottom:var(--e2)}
+.jour .j b{color:var(--texte-2);font-weight:700}
+.seance{background:var(--panneau);border-radius:var(--r-grand);padding:var(--e3)}
+.seance .titre{font:600 15px/1.3 var(--pile)}
+.seance .meta{font:400 11px/1.4 var(--pile);color:var(--texte-3);margin:2px 0 var(--e2)}
+.seance .ap{font:400 13px/1.55 var(--pile);color:var(--texte-2)}
+.seance .ap b{font-weight:400;color:var(--texte);display:block}
+
+.onglets{position:absolute;left:0;right:0;bottom:0;display:grid;
+  grid-template-columns:repeat(4,1fr);background:#191C21;
+  border-top:1px solid var(--trait);padding:var(--e2) 0 10px}
+.onglet{display:flex;flex-direction:column;align-items:center;gap:3px;
+  color:var(--texte-3);text-decoration:none;font:500 10px/1.2 var(--pile);
+  min-height:46px;justify-content:center}
+.onglet svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;
+  stroke-linecap:round;stroke-linejoin:round}
+.onglet.actif{color:var(--accent)}
+
+.legende{flex:0 0 290px;color:#8A9099;font:400 13px/1.6 var(--pile)}
+.legende h3{font:700 15px/1.3 var(--pile);color:#D8DADE;margin:20px 0 6px}
+.legende h3:first-child{margin-top:0}
+.legende p{margin-bottom:8px}
+</style>
+
+<!-- ===== 1 ===== -->
+<div class="tel">
+  <h4>Replié <span>· six lignes</span></h4>
+  <div class="ecran">
+    <div class="corps">
+      <div class="etat"><i></i>À jour</div>
+      <div class="barre-sem">
+        <button class="fl">‹</button>
+        <div class="mid"><div class="d num">24 – 30 août 2026</div>
+          <div class="t num">4 séances · 59 séries de travail</div></div>
+        <button class="fl">›</button>
+      </div>
+      <div class="releve">
+        <div class="zone"><div class="tete"><span class="chev">▶</span><span class="nom">Jambes</span><span class="pt"></span><span class="val num">45</span></div></div>
+        <div class="zone"><div class="tete"><span class="chev">▶</span><span class="nom">Dos</span><span class="pt"></span><span class="val num">29,5</span></div></div>
+        <div class="zone"><div class="tete"><span class="chev">▶</span><span class="nom">Bras</span><span class="pt"></span><span class="val num">24</span></div></div>
+        <div class="zone"><div class="tete"><span class="chev">▶</span><span class="nom">Poitrine</span><span class="pt"></span><span class="val num">16</span></div></div>
+        <div class="zone"><div class="tete"><span class="chev">▶</span><span class="nom">Épaules</span><span class="pt"></span><span class="val num">15</span></div></div>
+        <div class="zone"><div class="tete"><span class="chev">▶</span><span class="nom">Tronc</span><span class="pt"></span><span class="val num">1,5</span></div></div>
+      </div>
+      <div class="jour">
+        <div class="j">Lundi <b class="num">24 août</b></div>
+        <div class="seance">
+          <div class="titre">Quads tous terrains</div>
+          <div class="meta num">5 exercices · 17 séries</div>
+          <div class="ap"><b>Hack Squat (Machine)</b>Presse à Cuisses<br>Adduction Hanche</div>
+        </div>
+      </div>
+    </div>
+    <nav class="onglets">
+      <a class="onglet actif" href="#"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>Séances</a>
+      <a class="onglet" href="#"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Saisie</a>
+      <a class="onglet" href="#"><svg viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-6M22 19H2"/></svg>Progression</a>
+      <a class="onglet" href="#"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>Profil</a>
+    </nav>
+  </div>
+</div>
+
+<!-- ===== 2 ===== -->
+<div class="tel">
+  <h4>Jambes déplié <span>· un seul cran d'indentation</span></h4>
+  <div class="ecran">
+    <div class="corps">
+      <div class="etat"><i></i>À jour</div>
+      <div class="barre-sem">
+        <button class="fl">‹</button>
+        <div class="mid"><div class="d num">24 – 30 août 2026</div>
+          <div class="t num">4 séances · 59 séries de travail</div></div>
+        <button class="fl">›</button>
+      </div>
+      <div class="releve">
+        <div class="zone ouvert">
+          <div class="tete"><span class="chev">▶</span><span class="nom">Jambes</span><span class="pt"></span><span class="val num">45</span></div>
+          <div class="muscles">
+            <div class="mu"><span class="nom">Ischio-jambiers</span><span class="pt"></span><span class="val num">12,5</span><span class="pl">›</span></div>
+            <div class="mu"><span class="nom">Quadriceps</span><span class="pt"></span><span class="val num">11,5</span><span class="pl">›</span></div>
+            <div class="mu"><span class="nom">Fessiers</span><span class="pt"></span><span class="val num">8</span><span class="pl">›</span></div>
+            <div class="mu"><span class="nom">Mollets</span><span class="pt"></span><span class="val num">7</span><span class="pl">›</span></div>
+            <div class="mu"><span class="nom">Adducteurs</span><span class="pt"></span><span class="val num">3</span><span class="pl">›</span></div>
+            <div class="mu"><span class="nom">Abducteurs</span><span class="pt"></span><span class="val num">3</span><span class="pl">›</span></div>
+          </div>
+        </div>
+        <div class="zone"><div class="tete"><span class="chev">▶</span><span class="nom">Dos</span><span class="pt"></span><span class="val num">29,5</span></div></div>
+        <div class="zone"><div class="tete"><span class="chev">▶</span><span class="nom">Bras</span><span class="pt"></span><span class="val num">24</span></div></div>
+        <div class="zone"><div class="tete"><span class="chev">▶</span><span class="nom">Poitrine</span><span class="pt"></span><span class="val num">16</span></div></div>
+        <div class="zone"><div class="tete"><span class="chev">▶</span><span class="nom">Épaules</span><span class="pt"></span><span class="val num">15</span></div></div>
+        <div class="zone"><div class="tete"><span class="chev">▶</span><span class="nom">Tronc</span><span class="pt"></span><span class="val num">1,5</span></div></div>
+      </div>
+    </div>
+    <nav class="onglets">
+      <a class="onglet actif" href="#"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>Séances</a>
+      <a class="onglet" href="#"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Saisie</a>
+      <a class="onglet" href="#"><svg viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-6M22 19H2"/></svg>Progression</a>
+      <a class="onglet" href="#"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>Profil</a>
+    </nav>
+  </div>
+</div>
+
+<!-- ===== 3 ===== -->
+<div class="tel">
+  <h4>Quadriceps touché <span>· la fenêtre</span></h4>
+  <div class="ecran">
+    <div class="corps">
+      <div class="etat"><i></i>À jour</div>
+      <div class="barre-sem">
+        <button class="fl">‹</button>
+        <div class="mid"><div class="d num">24 – 30 août 2026</div>
+          <div class="t num">4 séances · 59 séries de travail</div></div>
+        <button class="fl">›</button>
+      </div>
+      <div class="releve">
+        <div class="zone ouvert">
+          <div class="tete"><span class="chev">▶</span><span class="nom">Jambes</span><span class="pt"></span><span class="val num">45</span></div>
+          <div class="muscles">
+            <div class="mu"><span class="nom">Ischio-jambiers</span><span class="pt"></span><span class="val num">12,5</span><span class="pl">›</span></div>
+            <div class="mu"><span class="nom">Quadriceps</span><span class="pt"></span><span class="val num">11,5</span><span class="pl">›</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="voile">
+      <div class="fen">
+        <div class="haut">
+          <span class="quoi">Quadriceps<em class="zone-nom">Jambes · 24 – 30 août</em></span>
+          <span class="combien num">11,5<em>séries</em></span>
+        </div>
+        <div class="x"><span class="n">Hack Squat (Machine)<em>Lundi 24 · 5 séries</em></span><span class="v num">5</span></div>
+        <div class="x"><span class="n">Presse à Cuisses<em>Lundi 24 · 4 séries</em></span><span class="v num">4</span></div>
+        <div class="x"><span class="n">Soulevé de Terre (Barre)<em>Vendredi 28 · 5 séries, muscle secondaire</em></span><span class="v num">2,5</span></div>
+        <div class="note">Un muscle secondaire compte pour un demi-point par série : le soulevé de terre apporte 2,5 pour 5 séries.</div>
+        <button class="fermer">Fermer</button>
+      </div>
+    </div>
+
+    <nav class="onglets">
+      <a class="onglet actif" href="#"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>Séances</a>
+      <a class="onglet" href="#"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Saisie</a>
+      <a class="onglet" href="#"><svg viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-6M22 19H2"/></svg>Progression</a>
+      <a class="onglet" href="#"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>Profil</a>
+    </nav>
+  </div>
+</div>
+
+<div class="legende">
+  <h3>Un seul cran d'indentation</h3>
+  <p>C'est ce qui manquait aux versions précédentes. La zone déplie ses muscles <b>en place</b>, légèrement en retrait. Le troisième niveau n'est plus imbriqué : il s'ouvre en fenêtre.</p>
+  <p>Une zone ouverte à la fois. Ouvrir Dos referme Jambes.</p>
+
+  <h3>La fenêtre</h3>
+  <p>Elle répond à « d'où vient ce 11,5 ». Chaque exercice porte <b>son apport</b> à droite, et sa provenance en dessous : le jour et le nombre de séries réelles.</p>
+  <p>C'est là que se lit l'écart entre <b>5 séries et 2,5 points</b> — le soulevé de terre travaille les quadriceps en secondaire. La note l'explique une fois, en bas.</p>
+  <p>Elle se ferme au bouton, en touchant le voile, et <b>au bouton retour d'Android</b>.</p>
+
+  <h3>Ce que ça donne en hauteur</h3>
+  <p>Replié : six lignes. Jambes déplié : douze. C'est le pire cas, et c'est encore moins que les dix-huit de départ.</p>
+
+  <h3>À juger sur téléphone</h3>
+  <p>Les lignes de muscle font environ 30 px de haut. C'est confortable au défilement, un peu juste pour viser au pouce — si tu ouvres la mauvaise, on les espacera.</p>
+</div>
+</html>

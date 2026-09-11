@@ -51,13 +51,14 @@
         <button id="btn-deconnexion" type="button" class="discret">Quitter</button>
       </div>
     </header>
-    <div class="barre-semaine">
-      <button id="btn-semaine-prec" type="button" class="nav-semaine" aria-label="Semaine précédente">‹</button>
-      <span id="semaine-libelle" class="semaine-libelle"></span>
-      <button id="btn-semaine-suiv" type="button" class="nav-semaine" aria-label="Semaine suivante">›</button>
-    </div>
-    <button id="btn-semaine-actuelle" type="button" class="discret semaine-actuelle" hidden>Cette semaine</button>
-    <div id="bilan-semaine" class="bilan"></div>
+    <!-- La barre de semaine est construite en JS : elle est IDENTIQUE dans
+         Séances et dans Progression, calendrier compris, et passer de l'un à
+         l'autre conserve la semaine affichée. -->
+    <div id="barre-seances"></div>
+    <!-- Ligne de rappel : les six zones en trois colonnes sur deux rangs,
+         ~40 px au lieu des ~250 px du relevé complet. Absente quand la semaine
+         est vide : rien à rappeler. -->
+    <div id="rappel-zones"></div>
     <div id="liste-seances"></div>
   </section>
 
@@ -77,8 +78,11 @@
   </section>
 
   <section id="vue-progression" hidden>
-    <header class="entete"><h1>Progression</h1></header>
-    <p class="a-venir">Tu suivras ici l'évolution de tes charges, exercice par exercice.</p>
+    <header class="entete"><h1>Volume par muscle</h1></header>
+    <div id="barre-progression"></div>
+    <div id="releve-zones"></div>
+    <p class="a-venir">Plus tard ici : la progression par exercice, et les tendances sur
+      plusieurs semaines.</p>
   </section>
 
   <section id="vue-profil" hidden>
@@ -87,6 +91,32 @@
   </section>
 
 </main>
+
+<!-- Fenêtre d'un muscle : d'où vient ce 11,5. Troisième niveau NON imbriqué —
+     trois crans d'indentation écrasent les noms à 360 px. -->
+<div id="fenetre-muscle" class="voile" hidden>
+  <div class="fen" role="dialog" aria-modal="true" aria-labelledby="fen-muscle-titre">
+    <div id="fen-muscle-contenu"></div>
+    <button id="btn-fermer-muscle" type="button" class="fermer">Fermer</button>
+  </div>
+</div>
+
+<!-- Calendrier : on choisit une LIGNE, pas un jour. -->
+<div id="calendrier" class="voile" hidden>
+  <div class="cal" role="dialog" aria-modal="true" aria-label="Choisir une semaine">
+    <div class="cal-mois">
+      <button id="btn-mois-prec" type="button" aria-label="Mois précédent">‹</button>
+      <div id="cal-mois-nom" class="cal-mois-nom"></div>
+      <button id="btn-mois-suiv" type="button" aria-label="Mois suivant">›</button>
+    </div>
+    <div id="cal-grille" class="cal-grille"></div>
+    <div class="cal-pied">
+      <span class="cal-aide">Un point par séance.</span>
+      <button id="btn-cette-semaine" type="button">Cette semaine</button>
+      <button id="btn-fermer-calendrier" type="button">Fermer</button>
+    </div>
+  </div>
+</div>
 
 <!-- Icône ET libellé : « Séances » et « Progression » ne se distinguent pas
      par un pictogramme seul. Aucune flèche retour — le bouton système d'Android
@@ -106,6 +136,7 @@
 <script src="/js/modele.js"></script>
 <script src="/js/sync.js"></script>
 <script src="/js/semaine.js"></script>
+<script src="/js/calendrier.js"></script>
 <script src="/js/routeur.js"></script>
 <script src="/js/sortie.js"></script>
 <script src="/js/cache.js"></script>

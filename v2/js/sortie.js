@@ -42,6 +42,14 @@
     // lancement. L'ancre n'en fait pas partie : elle n'est pas une vue.
     var pile = 0;
 
+    // Le chemin de la dernière navigation de l'app. Quand une garde refuse un
+    // retour, l'entrée qu'on rend doit porter CE chemin, pas celui où le
+    // système vient de nous déposer : sinon la fenêtre se ferme bien, mais
+    // l'URL a glissé d'un cran et l'écran affiché ne correspond plus à
+    // l'adresse. Dérive signalée au chantier 10 ; la garde a maintenant son
+    // premier consommateur réel, donc elle se corrige ici.
+    var cheminApp = null;
+
     function estAncre(e) { return !!(e && e.ancre === true); }
     function ancreEnPlace() { return estAncre(etatHistorique()); }
 
@@ -54,7 +62,9 @@
     // Le système vient de consommer une entrée et on refuse ce départ : on la
     // remplace. Inconditionnel, à la différence de poserAncre — ici il s'agit
     // de rendre la profondeur perdue, pas de garantir qu'une ancre existe.
-    function remplacerEntreeConsommee() { hist.pushState({ ancre: true }, '', chemin()); }
+    function remplacerEntreeConsommee(vers) {
+      hist.pushState({ ancre: true }, '', vers || chemin());
+    }
 
     // L'ancre n'a de sens qu'au fond de la pile. Au-dessus, le retour a où
     // revenir, et c'est exactement ce qu'on veut qu'il fasse.
@@ -62,6 +72,7 @@
 
     function apresNavigation(empilee) {
       if (empilee) pile += 1;
+      cheminApp = chemin();
       maintenir();
     }
 
@@ -70,7 +81,7 @@
       // présente sa propre confirmation. Rien ne s'en sert encore.
       var garde = routeur.premiereGardeBloquante(gardes());
       if (garde) {
-        remplacerEntreeConsommee();
+        remplacerEntreeConsommee(cheminApp);
         if (typeof garde.afficher === 'function') garde.afficher();
         return;
       }

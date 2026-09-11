@@ -15,6 +15,7 @@
   var Donnees = racine.THDonnees, Auth = racine.THAuth;
   var Cache = racine.THCache, Sync = racine.THSync, Semaine = racine.THSemaine;
   var Routeur = racine.THRouteur, Sortie = racine.THSortie;
+  var Calendrier = racine.THCalendrier;
 
   var vues = {};
   var local = { seances: [], series: [], exercices: [], parSeance: null };
@@ -24,6 +25,9 @@
   var gardes = [];           // vues qui peuvent refuser la sortie (§ écran de saisie)
   var sortie = null;         // mécanisme du bouton retour (v2/js/sortie.js)
   var sessionActive = null;  // sans elle, aucune vue authentifiée n'est rendue
+  var zoneOuverte = null;    // une seule zone dépliée à la fois (§7 bis.10)
+  var moisCalendrier = null; // le mois affiché par le calendrier
+  var gardeOverlay = null;   // la garde qui rend le retour d'Android fermant
 
   function $(id) { return doc.getElementById(id); }
 
@@ -147,27 +151,111 @@
   // Toute la navigation entre semaines lit le cache. Aucun appel réseau, aucun
   // rechargement de page — et aucune entrée empilée dans l'historique, pour ne
   // pas aggraver le bouton retour d'Android, qui est un chantier à part.
+  // Tout ce que les deux onglets lisent de la semaine affichée. Une seule
+  // source : passer de Séances à Progression conserve la semaine.
+  function semaineCourante() {
+    if (!lundiAffiche) lundiAffiche = Semaine.bornesSemaine(new Date()).lundi;
+    var bornes = Semaine.bornesSemaine(lundiAffiche);
+    var jours = Semaine.repartirParJour(local.seances, bornes.lundi);
+    var seances = jours.reduce(function (acc, j) { return acc.concat(j.seances); }, []);
+    var series = seances.reduce(function (acc, s) { return acc.concat(seriesDe(s.id)); }, []);
+    return {
+      bornes: bornes, jours: jours, seances: seances, series: series,
+      bilan: Semaine.bilanSemaine(seances, series),
+      zones: Semaine.volumeParZone(series, local.exercices)
+    };
+  }
+
+  function barrePour(sem, avecSeances) {
+    return {
+      libelle: Rendu.libelleSemaine(sem.bornes.lundi, sem.bornes.dimanche),
+      sousTitre: (avecSeances ? sem.bilan.nbSeances + ' séance' +
+        (sem.bilan.nbSeances > 1 ? 's' : '') + ' · ' : '') +
+        sem.bilan.nbSeriesTravail + ' série' + (sem.bilan.nbSeriesTravail > 1 ? 's' : '') +
+        ' de travail',
+      surPrecedente: function () { naviguer(-1); },
+      surSuivante: function () { naviguer(1); },
+      surDate: ouvrirCalendrier
+    };
+  }
+
   function rendreSemaine(lundi) {
     if (lundi) lundiAffiche = lundi;
-    if (!lundiAffiche) lundiAffiche = Semaine.bornesSemaine(new Date()).lundi;
     montrer('liste', Routeur.RACINE);
     Rendu.rendreEtat($('etat-sync'), etat);
 
-    var bornes = Semaine.bornesSemaine(lundiAffiche);
-    $('semaine-libelle').textContent = Rendu.libelleSemaine(bornes.lundi, bornes.dimanche);
-    $('btn-semaine-actuelle').hidden = Semaine.memeSemaine(lundiAffiche, new Date());
-
-    var jours = Semaine.repartirParJour(local.seances, bornes.lundi);
-    var deLaSemaine = jours.reduce(function (acc, j) { return acc.concat(j.seances); }, []);
-    var seriesSemaine = deLaSemaine.reduce(function (acc, s) { return acc.concat(seriesDe(s.id)); }, []);
-
-    Rendu.rendreBilan($('bilan-semaine'),
-      Semaine.bilanSemaine(deLaSemaine, seriesSemaine),
-      Semaine.volumeParMuscle(seriesSemaine, local.exercices));
-
-    Rendu.rendreJours($('liste-seances'), Semaine.joursAvecSeances(jours), function (s) {
+    var sem = semaineCourante();
+    Rendu.rendreBarreSemaine($('barre-seances'), barrePour(sem, true));
+    Rendu.rendreRappel($('rappel-zones'), sem.zones, function () {
+      allerA(Routeur.PROGRESSION, {});
+      rendreProgression();
+    });
+    Rendu.rendreJours($('liste-seances'), Semaine.joursAvecSeances(sem.jours), function (s) {
       return Modele.resumerSeance(s, seriesDe(s.id), local.exercices);
     }, afficherDetail);
+  }
+
+  // Progression : le relevé complet, avec toute la hauteur.
+  function rendreProgression(lundi) {
+    if (lundi) lundiAffiche = lundi;
+    montrer('progression', Routeur.PROGRESSION);
+
+    var sem = semaineCourante();
+    Rendu.rendreBarreSemaine($('barre-progression'), barrePour(sem, false));
+    Rendu.rendreReleveZones($('releve-zones'), sem.zones, zoneOuverte,
+      function (cle) {
+        // Une zone ouverte à la fois : ouvrir Dos referme Jambes.
+        zoneOuverte = (zoneOuverte === cle) ? null : cle;
+        rendreProgression();
+      },
+      ouvrirFenetreMuscle);
+  }
+
+  // ── Fenêtre d'un muscle ──────────────────────────────────────────────────
+  function ouvrirFenetreMuscle(muscle) {
+    var sem = semaineCourante();
+    var zone = Semaine.zoneDuMuscle(muscle.muscle);
+    Rendu.rendreFenetreMuscle($('fen-muscle-contenu'), muscle,
+      zone ? zone.libelle : null,
+      Semaine.apportsParMuscle(muscle.muscle, sem.series, local.exercices, sem.seances),
+      sem.bornes);
+    ouvrirVoile($('fenetre-muscle'));
+  }
+
+  // ── Calendrier ───────────────────────────────────────────────────────────
+  function ouvrirCalendrier() {
+    var l = lundiAffiche || Semaine.bornesSemaine(new Date()).lundi;
+    moisCalendrier = { annee: l.getFullYear(), mois: l.getMonth() };
+    rendreCalendrier();
+    ouvrirVoile($('calendrier'));
+  }
+
+  function rendreCalendrier() {
+    var grille = Calendrier.grilleMois(moisCalendrier.annee, moisCalendrier.mois, local.seances);
+    $('cal-mois-nom').textContent = grille.libelle;
+    Rendu.rendreCalendrier($('cal-grille'), grille, lundiAffiche, function (lundi) {
+      fermerVoile();
+      afficherSemaine(lundi);
+    });
+  }
+
+  // ── Voiles ───────────────────────────────────────────────────────────────
+  //
+  // Un voile ouvert pose une GARDE : le retour d'Android le ferme au lieu de
+  // naviguer. C'est le point d'accroche prévu depuis le chantier 8, utilisé
+  // pour la première fois ici.
+  var voileOuvert = null;
+  function ouvrirVoile(noeud) {
+    fermerVoile();
+    voileOuvert = noeud;
+    noeud.hidden = false;
+    gardeOverlay = function () { return { raison: 'voile', afficher: fermerVoile }; };
+    ajouterGarde(gardeOverlay);
+  }
+
+  function fermerVoile() {
+    if (gardeOverlay) { retirerGarde(gardeOverlay); gardeOverlay = null; }
+    if (voileOuvert) { voileOuvert.hidden = true; voileOuvert = null; }
   }
 
   // Navigation explicite : elle écrit l'URL, puis rend.
@@ -183,7 +271,9 @@
   }
 
   function naviguer(n) {
-    afficherSemaine(Semaine.decalerSemaine(lundiAffiche, n).lundi);
+    var l = Semaine.decalerSemaine(lundiAffiche, n).lundi;
+    if (!vues.progression.hidden) { lundiAffiche = l; return rendreProgression(); }
+    afficherSemaine(l);
   }
 
   function rendreDetail(sessionId) {
@@ -316,6 +406,7 @@
     // /semaine/… dans la barre d'adresse rejouerait le défaut au rechargement.
     if (cible.redirigeDepuis) allerA(Routeur.CONNEXION, {}, true);
     if (cible.vue === Routeur.CONNEXION) return montrer('connexion', Routeur.CONNEXION);
+    if (cible.vue === Routeur.PROGRESSION) return rendreProgression();
     if (VUES_ONGLET[cible.vue]) return montrer(VUES_ONGLET[cible.vue], cible.vue);
     if (cible.vue === Routeur.SEANCE) return rendreDetail(cible.params.id);
     if (cible.vue === Routeur.SEMAINE) return rendreSemaine(cible.params.lundi);
@@ -338,10 +429,23 @@
     $('form-connexion').addEventListener('submit', soumettreConnexion);
     $('btn-deconnexion').addEventListener('click', deconnecter);
     $('btn-retour').addEventListener('click', function () { afficherSemaine(); });
-    $('btn-semaine-prec').addEventListener('click', function () { naviguer(-1); });
-    $('btn-semaine-suiv').addEventListener('click', function () { naviguer(1); });
-    $('btn-semaine-actuelle').addEventListener('click', function () {
+    $('btn-fermer-muscle').addEventListener('click', fermerVoile);
+    $('btn-fermer-calendrier').addEventListener('click', fermerVoile);
+    $('btn-cette-semaine').addEventListener('click', function () {
+      fermerVoile();
       afficherSemaine(Semaine.bornesSemaine(new Date()).lundi);
+    });
+    $('btn-mois-prec').addEventListener('click', function () {
+      moisCalendrier = Calendrier.decalerMois(moisCalendrier.annee, moisCalendrier.mois, -1);
+      rendreCalendrier();
+    });
+    $('btn-mois-suiv').addEventListener('click', function () {
+      moisCalendrier = Calendrier.decalerMois(moisCalendrier.annee, moisCalendrier.mois, 1);
+      rendreCalendrier();
+    });
+    // Toucher le voile ferme, toucher la boîte ne ferme pas.
+    ['fenetre-muscle', 'calendrier'].forEach(function (id) {
+      $(id).addEventListener('click', function (e) { if (e.target === this) fermerVoile(); });
     });
     $('btn-rafraichir').addEventListener('click', async function () {
       Rendu.rendreEtat($('etat-sync'), { code: 'sync', libelle: 'Synchronisation…', local: false });
@@ -355,6 +459,9 @@
       var bouton = doc.querySelector('.onglet[data-vue="' + vue + '"]');
       if (!bouton) return;
       bouton.addEventListener('click', function () {
+        fermerVoile();
+        // Séances revient sur la semaine courante ; Progression garde celle
+        // qu'on regardait, pour que l'aller-retour soit sans surprise.
         if (vue === Routeur.RACINE) return afficherSemaine(Semaine.bornesSemaine(new Date()).lundi);
         allerA(vue, {});
         rendreRoute({ vue: vue, params: {} });

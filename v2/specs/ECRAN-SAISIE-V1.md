@@ -425,6 +425,10 @@ réclame.
 
 ### 7 bis.5 bis Les jours vides ne sont pas affichés — décidé le 11/09/2026
 
+> ⚠️ **Réintroduit le 11/09/2026.** Cette section avait été consignée au chantier 12, livrée
+> et fusionnée (PR #260), puis perdue lors d'une régénération du document. Le comportement est
+> en production ; la spec le redit.
+
 Décision prise **après essai sur device**. Sur une semaine à quatre séances, trois lignes
 vides n'apportent rien et allongent le défilement.
 
@@ -433,16 +437,14 @@ vides n'apportent rien et allongent le défilement.
 
 **Exception : une semaine entièrement vide affiche une phrase sobre**, pas un écran nu —
 sinon on ne distingue pas « je ne me suis pas entraîné » de « l'app a échoué ». La phrase
-est un constat et rien d'autre : ni encouragement, ni reproche. `CADRAGE-V2.md` §3.1 bis,
-le système ne commente jamais l'assiduité.
+est un constat : ni encouragement, ni reproche. `CADRAGE-V2.md` §3.1 bis.
 
-Le modèle, lui, continue de rendre les **sept** jours : il décrit la semaine, c'est la vue
-qui choisit ce qu'elle montre.
+Le modèle continue de rendre les **sept** jours : il décrit la semaine, c'est la vue qui
+choisit ce qu'elle montre.
 
 **Précision sur le résumé de séance (§7 bis.5).** Tant que le palier n'est pas porté dans
 l'app, le résumé est une **liste de noms, un par ligne** — pas une grille à deux colonnes.
-Une grille dont la colonne de droite est vide y fait passer un nom sur deux. La grille
-`nom | palier × reps` revient avec le moteur, et le palier avec elle.
+Une grille dont la colonne de droite est vide y fait passer un nom sur deux.
 
 ---
 
@@ -467,6 +469,93 @@ C'est la même règle que pour les tests (`CADRAGE-V2.md` §2 quater) : l'écran
 développement est plus clément que l'appareil réel. Ces fondations sont **assez solides pour
 être implémentées et corrigées ensuite** — ce qui est l'état attendu de fondations visuelles,
 faites pour être ajustées quand les écrans arrivent.
+
+### 7 bis.9 Répartition Séances / Progression — arbitré le 11/09/2026
+
+L'onglet Séances faisait **deux métiers** : un journal (qu'ai-je fait) et une analyse
+(comment se répartit mon volume). Le relevé par muscle occupait ~250 px avant la première
+séance ; sur une semaine à six séances, une seule était visible sans défiler.
+
+> **Séances répond à « qu'est-ce que j'ai fait ». Progression répond à « comment ça se
+> répartit ».** Ces deux questions ne se posent pas au même moment : l'une en salle ou le
+> soir, l'autre le dimanche.
+
+**Dans Séances — une ligne de rappel, deux lignes de haut.** Les six zones en trois colonnes
+sur deux rangs, avec un chevron qui mène à Progression **sur la même semaine**. ~40 px au
+lieu de ~250. Quatre séances visibles au lieu d'une.
+
+Pas de ligne de rappel quand la semaine est vide : rien à rappeler.
+
+**Dans Progression — le relevé complet**, avec toute la hauteur disponible.
+
+**La barre de semaine est identique dans les deux onglets**, calendrier compris. Passer de
+l'un à l'autre conserve la semaine affichée.
+
+### 7 bis.10 Le relevé par muscle — zones, dépliage, fenêtre
+
+**Six zones, pas dix-huit muscles.** Mesuré sur 52 semaines : le premier muscle pèse 11 % du
+volume, les six premiers 52 %, les douze premiers 86 %. **Il n'y a pas de longue traîne** —
+masquer la moitié basse cacherait 48 % du volume, pas du bruit. On regroupe, on ne tronque
+pas : la somme des six zones vaut exactement celle des dix-huit muscles.
+
+| Zone | Muscles |
+|---|---|
+| Jambes | quadriceps, ischio-jambiers, fessiers, mollets, adducteurs, abducteurs |
+| Dos | grand dorsal, haut du dos, trapèzes, bas du dos |
+| Bras | biceps, triceps, avant-bras |
+| Épaules | deltoïdes antérieur, latéral, postérieur |
+| Poitrine | pectoraux |
+| Tronc | abdominaux |
+
+**Trois niveaux, un seul cran d'indentation.** La zone déplie ses muscles **en place**,
+légèrement en retrait — une zone ouverte à la fois. Le troisième niveau **n'est pas
+imbriqué** : toucher un muscle ouvre une **fenêtre**.
+
+Trois niveaux d'indentation dans une carte écrasent les noms à 360 px et font sauter la mise
+en page. C'est l'erreur des trois premières tentatives.
+
+**La fenêtre** répond à « d'où vient ce 11,5 » : chaque exercice porte son apport, le jour, et
+le nombre de séries réelles. C'est là que se lit l'écart entre 5 séries et 2,5 points — un
+muscle secondaire compte pour un demi-point. La note l'explique **une fois, en bas**, pas à
+chaque ligne. Fermeture au bouton, au voile, et au **bouton retour d'Android**.
+
+### 7 bis.11 Navigation entre semaines
+
+**Flèches conservées**, plus le **balayage horizontal**, plus la **date ouvrable**.
+
+**Le calendrier sélectionne des lignes, pas des jours.** On choisit une semaine : toucher
+n'importe quel jour du 24 au 30 sélectionne la ligne entière. Seule façon d'éviter le « j'ai
+touché mercredi, pourquoi toute la semaine ».
+
+**Un point par séance** — deux séances le même jour, deux points. Le rythme du mois se lit
+d'un coup d'œil. Les jours du mois voisin restent visibles mais éteints, **avec leurs
+points** : une semaine à cheval se choisit quand même.
+
+« Cette semaine » vit dans le **pied du calendrier**, pas dans la barre : on ne s'en sert
+qu'après s'être éloigné.
+
+> ⚠️ **Aucune couleur d'alerte, aucun compteur de régularité, rien sur les jours vides.**
+> `CADRAGE-V2.md` §3.1 bis — le système ne commente jamais l'assiduité. Un point, ou rien.
+
+⚠️ **Point technique fragile :** le balayage horizontal doit cohabiter avec le défilement
+vertical. Même famille de geste que le glissement des blocs, qui a coûté un chantier entier.
+**À tester sur device tôt, pas à la fin.**
+
+### 7 bis.12 Piste écartée — la silhouette anatomique
+
+Une silhouette face/dos teintée selon le volume a été essayée et **rejetée**. L'idée est
+bonne dans son principe — dix-huit chiffres deviennent une image, et c'est la langue du
+domaine. L'exécution ne l'est pas : une anatomie crédible ne se fabrique pas à coups de
+formes géométriques en SVG.
+
+**À ne rouvrir qu'avec un vrai dessin** — bibliothèque d'icônes anatomiques ou illustration
+commandée. Pas à main levée.
+
+### 7 bis.13 Piste écartée — le flux continu
+
+Supprimer la navigation par semaine au profit d'un défilement continu avec en-têtes collants
+a été proposé et **rejeté**. La navigation par semaine avec flèches et calendrier est
+conservée.
 
 ### 7 bis.8 Ordre recommandé
 

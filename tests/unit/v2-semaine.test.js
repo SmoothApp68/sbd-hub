@@ -299,3 +299,139 @@ describe('joursAvecSeances — seuls les jours pleins', () => {
     expect(jours).toHaveLength(7);
   });
 });
+
+// ── Zones (ECRAN-SAISIE §7 bis.10) ─────────────────────────────────────────
+describe('volumeParZone — on regroupe, on ne tronque pas', () => {
+  const CAT = [
+    { slug: 'sq', nom: 'Squat', muscles_primaires: ['quadriceps'], muscles_secondaires: ['fessiers'] },
+    { slug: 'sdt', nom: 'Soulevé', muscles_primaires: ['ischio_jambiers'], muscles_secondaires: ['bas_du_dos'] },
+    { slug: 'dc', nom: 'Couché', muscles_primaires: ['pectoraux'], muscles_secondaires: ['triceps'] },
+    { slug: 'row', nom: 'Rowing', muscles_primaires: ['grand_dorsal'], muscles_secondaires: ['biceps'] },
+    { slug: 'ohp', nom: 'Militaire', muscles_primaires: ['deltoide_anterieur'], muscles_secondaires: [] },
+    { slug: 'abs', nom: 'Gainage', muscles_primaires: ['abdominaux'], muscles_secondaires: [] },
+    { slug: 'mol', nom: 'Mollets', muscles_primaires: ['mollets'], muscles_secondaires: [] },
+    { slug: 'zz', nom: 'Inconnu', muscles_primaires: ['psoas'], muscles_secondaires: [] }
+  ];
+  const series = (paires) => {
+    const out = [];
+    paires.forEach(([slug, n]) => {
+      for (let i = 0; i < n; i++) out.push({ exercise_slug: slug, type_serie: 'travail', session_id: 'a' });
+    });
+    return out;
+  };
+  const somme = (l) => Math.round(l.reduce((t, x) => t + x.series, 0) * 10) / 10;
+
+  // L'invariant central : regrouper ne doit RIEN perdre.
+  test.each([
+    [[['sq', 4], ['sdt', 3], ['dc', 5]]],
+    [[['sq', 1], ['row', 7], ['ohp', 2], ['abs', 3], ['mol', 1]]],
+    [[['dc', 12]]],
+    [[['sq', 3], ['sdt', 3], ['dc', 3], ['row', 3], ['ohp', 3], ['abs', 3], ['mol', 3]]]
+  ])('somme des zones = somme des muscles (jeu %#)', (paires) => {
+    const s = series(paires);
+    expect(somme(Semaine.volumeParZone(s, CAT))).toBe(somme(Semaine.volumeParMuscle(s, CAT)));
+  });
+
+  test('chaque muscle se retrouve dans sa zone, une seule fois', () => {
+    const s = series([['sq', 4], ['sdt', 3], ['dc', 5], ['row', 2], ['ohp', 1], ['abs', 2], ['mol', 1]]);
+    const zones = Semaine.volumeParZone(s, CAT);
+    const muscles = Semaine.volumeParMuscle(s, CAT);
+    const dansLesZones = [].concat.apply([], zones.map((z) => z.muscles)).map((m) => m.muscle);
+    expect(dansLesZones.sort()).toEqual(muscles.map((m) => m.muscle).sort());
+    expect(new Set(dansLesZones).size).toBe(dansLesZones.length);
+  });
+
+  test('les zones sont triées par volume décroissant', () => {
+    const s = series([['sq', 6], ['dc', 2], ['abs', 1]]);
+    const zones = Semaine.volumeParZone(s, CAT);
+    for (let i = 1; i < zones.length; i++) {
+      expect(zones[i - 1].series).toBeGreaterThanOrEqual(zones[i].series);
+    }
+  });
+
+  test('un muscle HORS TABLE n’est ni perdu ni rattaché au hasard', () => {
+    const s = series([['sq', 4], ['zz', 3]]);
+    const zones = Semaine.volumeParZone(s, CAT);
+    const hors = zones.filter((z) => z.horsTable);
+    expect(hors).toHaveLength(1);
+    expect(hors[0].series).toBe(3);                        // il n'est PAS perdu
+    expect(hors[0].muscles.map((m) => m.muscle)).toEqual(['psoas']);
+    // et il n'a rejoint aucune zone connue
+    Semaine.ZONES.forEach((z) => {
+      const zone = zones.filter((x) => x.zone === z.cle)[0];
+      if (zone) expect(zone.muscles.map((m) => m.muscle)).not.toContain('psoas');
+    });
+    // la somme reste juste malgré l'intrus
+    expect(somme(zones)).toBe(somme(Semaine.volumeParMuscle(s, CAT)));
+  });
+
+  test('les 18 muscles du catalogue ont tous une zone', () => {
+    const MUSCLES = [
+      'abdominaux', 'abducteurs', 'adducteurs', 'avant_bras', 'bas_du_dos', 'biceps',
+      'deltoide_anterieur', 'deltoide_lateral', 'deltoide_posterieur', 'fessiers',
+      'grand_dorsal', 'haut_du_dos', 'ischio_jambiers', 'mollets', 'pectoraux',
+      'quadriceps', 'trapezes', 'triceps'
+    ];
+    MUSCLES.forEach((m) => expect(Semaine.zoneDuMuscle(m)).not.toBeNull());
+    expect(Semaine.zoneDuMuscle('psoas')).toBeNull();
+    // Les six zones couvrent les 18, sans doublon.
+    const couverts = [].concat.apply([], Semaine.ZONES.map((z) => z.muscles));
+    expect(couverts.sort()).toEqual(MUSCLES.slice().sort());
+  });
+
+  test('une semaine vide ne rend aucune zone', () => {
+    expect(Semaine.volumeParZone([], CAT)).toEqual([]);
+    expect(Semaine.volumeParZone(null, null)).toEqual([]);
+  });
+});
+
+describe('apportsParMuscle — d’où vient ce chiffre', () => {
+  const CAT = [
+    { slug: 'hack', nom: 'Hack Squat', muscles_primaires: ['quadriceps'], muscles_secondaires: [] },
+    { slug: 'sdt', nom: 'Soulevé', muscles_primaires: ['ischio_jambiers'], muscles_secondaires: ['quadriceps'] }
+  ];
+  const SEANCES = [
+    { id: 'a', debut: new Date(2026, 7, 24, 10).toISOString() },
+    { id: 'b', debut: new Date(2026, 7, 28, 10).toISOString() }
+  ];
+  const serie = (slug, sid) => ({ exercise_slug: slug, session_id: sid, type_serie: 'travail' });
+  const SERIES = [
+    serie('hack', 'a'), serie('hack', 'a'), serie('hack', 'a'), serie('hack', 'a'), serie('hack', 'a'),
+    serie('sdt', 'b'), serie('sdt', 'b'), serie('sdt', 'b'), serie('sdt', 'b'), serie('sdt', 'b')
+  ];
+
+  test('5 séries en primaire valent 5 ; 5 séries en secondaire valent 2,5', () => {
+    const a = Semaine.apportsParMuscle('quadriceps', SERIES, CAT, SEANCES);
+    expect(a).toHaveLength(2);
+    expect(a[0]).toMatchObject({ nom: 'Hack Squat', seriesReelles: 5, apport: 5, secondaire: false });
+    expect(a[1]).toMatchObject({ nom: 'Soulevé', seriesReelles: 5, apport: 2.5, secondaire: true });
+  });
+
+  test('la somme des apports vaut le volume du muscle', () => {
+    const total = Semaine.apportsParMuscle('quadriceps', SERIES, CAT, SEANCES)
+      .reduce((t, a) => t + a.apport, 0);
+    const muscle = Semaine.volumeParMuscle(SERIES, CAT).filter((m) => m.muscle === 'quadriceps')[0];
+    expect(total).toBe(muscle.series);
+  });
+
+  test('chaque apport porte son jour', () => {
+    const a = Semaine.apportsParMuscle('quadriceps', SERIES, CAT, SEANCES);
+    expect(a[0].jour.getDate()).toBe(24);
+    expect(a[1].jour.getDate()).toBe(28);
+  });
+
+  test('le même exercice dans deux séances fait deux lignes', () => {
+    const s = [serie('hack', 'a'), serie('hack', 'b')];
+    expect(Semaine.apportsParMuscle('quadriceps', s, CAT, SEANCES)).toHaveLength(2);
+  });
+
+  test('les séries hors travail ne comptent pas', () => {
+    const s = [{ exercise_slug: 'hack', session_id: 'a', type_serie: 'echauffement' }];
+    expect(Semaine.apportsParMuscle('quadriceps', s, CAT, SEANCES)).toEqual([]);
+  });
+
+  test('un muscle sans apport rend une liste vide, sans casser', () => {
+    expect(Semaine.apportsParMuscle('mollets', SERIES, CAT, SEANCES)).toEqual([]);
+    expect(Semaine.apportsParMuscle('quadriceps', null, null, null)).toEqual([]);
+  });
+});

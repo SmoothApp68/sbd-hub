@@ -135,3 +135,49 @@ button{font-family:inherit;cursor:pointer}
 /* ── États ────────────────────────────────────────────────────────────── */
 .vide{font-size:12.5px;color:var(--sourdine);padding:14px 4px;line-height:1.5}
 .erreur{font-size:12.5px;color:var(--rouge);padding:10px 0 0;line-height:1.5;min-height:1em}
+
+/* ── Vue hebdomadaire ───────────────────────────────────────────────────── */
+
+.barre-semaine{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  background:var(--carte);border-radius:10px;padding:6px 8px;margin-bottom:8px;
+}
+.semaine-libelle{font-size:13px;font-weight:600;text-align:center;flex:1;min-width:0}
+.nav-semaine{
+  width:34px;height:34px;flex:none;background:none;border:1px solid var(--ligne);
+  border-radius:8px;color:var(--texte);font-size:18px;line-height:1;
+}
+.nav-semaine:active{border-color:var(--jaune);color:var(--jaune)}
+.semaine-actuelle{display:block;margin:0 auto 10px}
+
+/* Bilan — descriptif. Aucune couleur d'alarme : la règle de volume interdit
+   tout signalement sur une semaine isolée, donc rien n'est signalé. */
+.bilan{margin-bottom:12px}
+.bilan-compte{
+  display:flex;align-items:baseline;flex-wrap:wrap;gap:5px;
+  padding:0 2px 10px;font-size:12px;color:var(--sourdine);
+}
+.bilan-chiffre{font-size:15px;font-weight:700;color:var(--texte);font-variant-numeric:tabular-nums}
+.bilan-sep{color:var(--ligne)}
+
+.volume{display:flex;flex-direction:column;gap:4px}
+.volume-ligne{display:grid;grid-template-columns:104px 1fr 30px;align-items:center;gap:7px}
+.volume-nom{font-size:11px;color:var(--sourdine);overflow-wrap:anywhere;line-height:1.2}
+.volume-piste{height:5px;border-radius:3px;background:var(--ligne);overflow:hidden}
+.volume-barre{display:block;height:100%;background:var(--sourdine);border-radius:3px}
+.volume-valeur{
+  font-size:11px;font-weight:600;text-align:right;
+  font-variant-numeric:tabular-nums;color:var(--texte);
+}
+
+/* Les jours vides sont visibles et discrets : ils montrent la répartition,
+   ils ne la commentent pas. */
+.jour{margin-bottom:10px}
+.jour-tete{
+  display:flex;align-items:baseline;gap:6px;padding:0 2px 5px;
+  border-bottom:1px solid var(--ligne);margin-bottom:6px;
+}
+.jour-nom{font-size:11.5px;font-weight:600;color:var(--texte)}
+.jour-date{font-size:10.5px;color:var(--sourdine);font-variant-numeric:tabular-nums}
+.jour.vide{opacity:.42}
+.jour.vide .jour-tete{border-bottom-style:dashed;margin-bottom:0;padding-bottom:3px}

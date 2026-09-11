@@ -51,6 +51,13 @@
         <button id="btn-deconnexion" type="button" class="discret">Quitter</button>
       </div>
     </header>
+    <div class="barre-semaine">
+      <button id="btn-semaine-prec" type="button" class="nav-semaine" aria-label="Semaine précédente">‹</button>
+      <span id="semaine-libelle" class="semaine-libelle"></span>
+      <button id="btn-semaine-suiv" type="button" class="nav-semaine" aria-label="Semaine suivante">›</button>
+    </div>
+    <button id="btn-semaine-actuelle" type="button" class="discret semaine-actuelle" hidden>Cette semaine</button>
+    <div id="bilan-semaine" class="bilan"></div>
     <div id="liste-seances"></div>
   </section>
 
@@ -71,6 +78,7 @@
 <script src="./js/donnees.js"></script>
 <script src="./js/modele.js"></script>
 <script src="./js/sync.js"></script>
+<script src="./js/semaine.js"></script>
 <script src="./js/cache.js"></script>
 <script src="./js/rendu.js"></script>
 <script src="./js/app.js"></script>

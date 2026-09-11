@@ -133,6 +133,79 @@
     cible.appendChild(el('span', null, etat.libelle));
   }
 
+
+  // ── Vue hebdomadaire ────────────────────────────────────────────────────
+
+  var MOIS = ['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+
+  // « 7 – 13 sept. 2026 », ou « 31 août – 6 sept. 2026 » à cheval sur deux mois.
+  function libelleSemaine(lundi, dimanche) {
+    if (!lundi || !dimanche) return '';
+    var memeMois = lundi.getMonth() === dimanche.getMonth() && lundi.getFullYear() === dimanche.getFullYear();
+    var g = lundi.getDate() + (memeMois ? '' : ' ' + MOIS[lundi.getMonth()]);
+    return g + ' – ' + dimanche.getDate() + ' ' + MOIS[dimanche.getMonth()] + ' ' + dimanche.getFullYear();
+  }
+
+  // Bilan : le compte brut, puis le volume par muscle. Strictement descriptif —
+  // aucun seuil, aucune couleur d'alarme, aucun verdict. La règle de volume
+  // exige trois semaines actives et deux fenêtres de persistance : rien ne peut
+  // être conclu d'une semaine isolée, donc rien n'est conclu.
+  function rendreBilan(cible, bilan, volume) {
+    vider(cible);
+    var compte = el('div', 'bilan-compte');
+    compte.appendChild(el('span', 'bilan-chiffre', bilan.nbSeances));
+    compte.appendChild(el('span', 'bilan-mot', bilan.nbSeances > 1 ? 'séances' : 'séance'));
+    compte.appendChild(el('span', 'bilan-sep', '·'));
+    compte.appendChild(el('span', 'bilan-chiffre', bilan.nbSeriesTravail));
+    compte.appendChild(el('span', 'bilan-mot', bilan.nbSeriesTravail > 1 ? 'séries de travail' : 'série de travail'));
+    cible.appendChild(compte);
+
+    if (!volume.length) return;
+    var max = volume[0].series || 1;
+    var liste = el('div', 'volume');
+    volume.forEach(function (v) {
+      var ligne = el('div', 'volume-ligne');
+      ligne.appendChild(el('span', 'volume-nom', v.libelle));
+      var piste = el('span', 'volume-piste');
+      var barre = el('span', 'volume-barre');
+      barre.style.width = Math.round((v.series / max) * 100) + '%';
+      piste.appendChild(barre);
+      ligne.appendChild(piste);
+      ligne.appendChild(el('span', 'volume-valeur', String(v.series).replace('.', ',')));
+      liste.appendChild(ligne);
+    });
+    cible.appendChild(liste);
+  }
+
+  // Les sept jours, vides compris. Un jour sans séance s'affiche et ne se juge
+  // pas : le système ne commente jamais l'assiduité (CADRAGE-V2 §3.1 bis).
+  function rendreJours(cible, jours, resumeDe, surChoix) {
+    vider(cible);
+    jours.forEach(function (j) {
+      var bloc = el('div', 'jour' + (j.seances.length ? '' : ' vide'));
+      var tete = el('div', 'jour-tete');
+      tete.appendChild(el('span', 'jour-nom', j.nom));
+      tete.appendChild(el('span', 'jour-date', j.date.getDate() + ' ' + MOIS[j.date.getMonth()]));
+      bloc.appendChild(tete);
+
+      j.seances.forEach(function (s) {
+        var r = resumeDe(s);
+        var carte = el('button', r.estSortie ? 'seance sortie' : 'seance');
+        carte.type = 'button';
+        var haut = el('div', 'seance-haut');
+        haut.appendChild(el('span', 'seance-titre', r.titre));
+        carte.appendChild(haut);
+        var meta = r.estSortie ? resumeSortie(r)
+          : r.nbExercices + ' exercice' + (r.nbExercices > 1 ? 's' : '') +
+            ' · ' + r.nbSeriesTravail + ' série' + (r.nbSeriesTravail > 1 ? 's' : '');
+        if (meta) carte.appendChild(el('div', 'seance-meta', meta));
+        carte.addEventListener('click', function () { surChoix(r.id); });
+        bloc.appendChild(carte);
+      });
+      cible.appendChild(bloc);
+    });
+  }
+
   function message(cible, texte, genre) {
     vider(cible);
     cible.appendChild(el('p', genre === 'erreur' ? 'erreur' : 'vide', texte));
@@ -143,6 +216,9 @@
     vider: vider,
     dateCourte: dateCourte,
     rendreEtat: rendreEtat,
+    libelleSemaine: libelleSemaine,
+    rendreBilan: rendreBilan,
+    rendreJours: rendreJours,
     resumeSortie: resumeSortie,
     rendreListeSeances: rendreListeSeances,
     rendreBloc: rendreBloc,

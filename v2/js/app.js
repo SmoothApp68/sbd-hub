@@ -13,12 +13,13 @@
   var doc = racine.document;
   var Rendu = racine.THRendu, Modele = racine.THModele;
   var Donnees = racine.THDonnees, Auth = racine.THAuth;
-  var Cache = racine.THCache, Sync = racine.THSync;
+  var Cache = racine.THCache, Sync = racine.THSync, Semaine = racine.THSemaine;
 
   var vues = {};
   var local = { seances: [], series: [], exercices: [], parSeance: null };
   var etat = { code: 'vide', libelle: '', local: false };
   var syncEnCours = false;
+  var lundiAffiche = null;   // le lundi de la semaine à l'écran
 
   function $(id) { return doc.getElementById(id); }
   function montrer(nom) { Object.keys(vues).forEach(function (k) { vues[k].hidden = (k !== nom); }); }
@@ -97,20 +98,34 @@
   }
 
   // ── Écrans ───────────────────────────────────────────────────────────────
-  function afficherListe() {
+  // Toute la navigation entre semaines lit le cache. Aucun appel réseau, aucun
+  // rechargement de page — et aucune entrée empilée dans l'historique, pour ne
+  // pas aggraver le bouton retour d'Android, qui est un chantier à part.
+  function afficherSemaine(lundi) {
+    if (lundi) lundiAffiche = lundi;
+    if (!lundiAffiche) lundiAffiche = Semaine.bornesSemaine(new Date()).lundi;
     montrer('liste');
     Rendu.rendreEtat($('etat-sync'), etat);
-    var cible = $('liste-seances');
-    if (!local.seances.length) {
-      Rendu.message(cible, etat.code === 'vide'
-        ? 'Aucune donnée locale, et le réseau ne répond pas.'
-        : 'Aucune séance sur ce compte.');
-      return;
-    }
-    var resumes = local.seances.slice(0, 50).map(function (s) {
+
+    var bornes = Semaine.bornesSemaine(lundiAffiche);
+    $('semaine-libelle').textContent = Rendu.libelleSemaine(bornes.lundi, bornes.dimanche);
+    $('btn-semaine-actuelle').hidden = Semaine.memeSemaine(lundiAffiche, new Date());
+
+    var jours = Semaine.repartirParJour(local.seances, bornes.lundi);
+    var deLaSemaine = jours.reduce(function (acc, j) { return acc.concat(j.seances); }, []);
+    var seriesSemaine = deLaSemaine.reduce(function (acc, s) { return acc.concat(seriesDe(s.id)); }, []);
+
+    Rendu.rendreBilan($('bilan-semaine'),
+      Semaine.bilanSemaine(deLaSemaine, seriesSemaine),
+      Semaine.volumeParMuscle(seriesSemaine, local.exercices));
+
+    Rendu.rendreJours($('liste-seances'), jours, function (s) {
       return Modele.resumerSeance(s, seriesDe(s.id), local.exercices);
-    });
-    Rendu.rendreListeSeances(cible, resumes, afficherDetail);
+    }, afficherDetail);
+  }
+
+  function naviguer(n) {
+    afficherSemaine(Semaine.decalerSemaine(lundiAffiche, n).lundi);
   }
 
   function afficherDetail(sessionId) {
@@ -132,12 +147,12 @@
 
     // Ouverture immédiate sur ce qu'on a déjà, avant toute requête réseau.
     etat = Sync.deciderEtat({ syncOk: false, aDesDonnees: local.seances.length > 0 });
-    if (local.seances.length) afficherListe();
+    if (local.seances.length) afficherSemaine();
     else { montrer('liste'); Rendu.message($('liste-seances'), 'Première synchronisation…'); }
 
     await synchroniser();
     if (!vues.detail.hidden) return;   // l'utilisateur a ouvert une séance entre-temps
-    afficherListe();
+    afficherSemaine();
   }
 
   async function soumettreConnexion(e) {
@@ -169,11 +184,16 @@
     vues = { connexion: $('vue-connexion'), liste: $('vue-liste'), detail: $('vue-detail') };
     $('form-connexion').addEventListener('submit', soumettreConnexion);
     $('btn-deconnexion').addEventListener('click', deconnecter);
-    $('btn-retour').addEventListener('click', afficherListe);
+    $('btn-retour').addEventListener('click', function () { afficherSemaine(); });
+    $('btn-semaine-prec').addEventListener('click', function () { naviguer(-1); });
+    $('btn-semaine-suiv').addEventListener('click', function () { naviguer(1); });
+    $('btn-semaine-actuelle').addEventListener('click', function () {
+      afficherSemaine(Semaine.bornesSemaine(new Date()).lundi);
+    });
     $('btn-rafraichir').addEventListener('click', async function () {
       Rendu.rendreEtat($('etat-sync'), { code: 'sync', libelle: 'Synchronisation…', local: false });
       await synchroniser();
-      afficherListe();
+      afficherSemaine();
     });
 
     Auth.surChangement(function (session) {

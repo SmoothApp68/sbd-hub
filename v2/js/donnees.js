@@ -58,11 +58,13 @@
     });
   }
 
-  // Catalogue partagé, 237 lignes. `mesure` et `charge` servent à reconnaître
-  // une sortie d'une séance de musculation (THModele.estExerciceSortie).
+  // Catalogue partagé, 237 lignes. `mesure` et `charge` reconnaissent une sortie
+  // (THModele.estExerciceSortie) ; les deux tableaux de muscles portent le
+  // volume hebdomadaire, pondéré 1 en primaire et 0,5 en secondaire.
   function tousLesExercices() {
     return paginer(function () {
-      return client().from('exercises').select('slug, nom, mesure, charge');
+      return client().from('exercises')
+        .select('slug, nom, mesure, charge, muscles_primaires, muscles_secondaires');
     });
   }
 

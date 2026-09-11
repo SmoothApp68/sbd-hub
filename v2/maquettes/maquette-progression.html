@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="fr">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TrainHub — Progression</title>
+<style>
+:root{
+  --fond:#15171A; --panneau:#1D2025; --panneau-2:#24272D; --trait:#2E323A;
+  --texte:#E8EAED; --texte-2:#959BA5; --texte-3:#676D77;
+  --accent:#F2B705;
+  --e1:4px; --e2:8px; --e3:12px; --e4:16px; --e5:24px;
+  --r-petit:6px; --r-grand:12px;
+  --pile:-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0C0D0F;color:var(--texte);font-family:var(--pile);
+  -webkit-font-smoothing:antialiased;padding:24px;display:flex;gap:26px;
+  flex-wrap:wrap;justify-content:center}
+.tel{width:340px;flex:0 0 340px}
+.tel h4{font:600 12px/1.4 var(--pile);color:#6A7078;margin-bottom:8px}
+.tel h4 span{color:#4A5058;font-weight:400}
+.ecran{height:680px;background:var(--fond);border-radius:18px;overflow:hidden;
+  display:flex;flex-direction:column;border:1px solid #23262B;position:relative}
+.corps{flex:1;overflow-y:auto;padding:var(--e3) var(--e4) 78px}
+.corps::-webkit-scrollbar{width:0}
+.num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+
+.titre-vue{font:700 19px/1.2 var(--pile);letter-spacing:-.02em;padding:var(--e2) 0 var(--e3)}
+
+/* ---------- Bloc de sommaire ---------- */
+.bloc{background:var(--panneau);border-radius:var(--r-grand);padding:var(--e3) var(--e4);
+  margin-bottom:var(--e3);cursor:pointer}
+.bloc .haut{display:flex;align-items:baseline;gap:var(--e2);margin-bottom:var(--e2)}
+.bloc .quoi{font:600 14px/1.3 var(--pile)}
+.bloc .quand{font:400 11px/1.3 var(--pile);color:var(--texte-3)}
+.bloc .fl{margin-left:auto;color:var(--texte-3);font-size:13px}
+
+.zs{display:grid;grid-template-columns:repeat(3,1fr);gap:3px var(--e2);
+  font:400 11.5px/1.5 var(--pile);color:var(--texte-3)}
+.zs span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.zs b{color:var(--texte-2);font-weight:600}
+
+.pds{display:flex;align-items:baseline;gap:var(--e2)}
+.pds .gros{font:700 26px/1 var(--pile);letter-spacing:-.02em}
+.pds .u{font:400 12px/1 var(--pile);color:var(--texte-3)}
+.pds .var{margin-left:auto;font:500 12px/1.3 var(--pile);color:var(--texte-2);text-align:right}
+.pds .var em{display:block;font-style:normal;font-size:10px;color:var(--texte-3);margin-top:2px}
+
+.exo-l{display:flex;align-items:baseline;gap:var(--e2);padding:5px 0}
+.exo-l + .exo-l{border-top:1px solid #23262A}
+.exo-l .n{flex:1;min-width:0;font:400 13px/1.4 var(--pile);color:var(--texte-2);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.exo-l .v{font:600 13px/1.4 var(--pile);white-space:nowrap}
+.exo-l .d{font:400 11px/1.4 var(--pile);color:var(--texte-3);white-space:nowrap;min-width:52px;text-align:right}
+
+/* ---------- Vue exercice ---------- */
+.retour{display:inline-flex;align-items:center;gap:5px;font:600 13px/1 var(--pile);
+  color:var(--accent);padding:var(--e2) 0 var(--e3)}
+.exo-tete{padding-bottom:var(--e3);border-bottom:1px solid var(--trait);margin-bottom:var(--e3)}
+.exo-tete .h{font:700 18px/1.25 var(--pile);letter-spacing:-.02em}
+.exo-tete .s{font:400 11px/1.4 var(--pile);color:var(--texte-3);margin-top:3px}
+
+.graphe{background:var(--panneau);border-radius:var(--r-grand);padding:var(--e3);
+  margin-bottom:var(--e3)}
+.graphe svg{width:100%;height:96px;display:block}
+.graphe .lg{display:flex;justify-content:space-between;font:400 10px/1.3 var(--pile);
+  color:var(--texte-3);margin-top:var(--e2)}
+
+.fiche{background:var(--panneau);border-radius:var(--r-grand);padding:var(--e2) var(--e4);
+  margin-bottom:var(--e3)}
+.li{display:flex;align-items:baseline;gap:var(--e2);padding:9px 0}
+.li + .li{border-top:1px solid #23262A}
+.li .k{font:400 12px/1.4 var(--pile);color:var(--texte-3)}
+.li .v{margin-left:auto;font:700 16px/1.2 var(--pile);letter-spacing:-.01em;white-space:nowrap}
+.li .v small{font:400 11px/1.2 var(--pile);color:var(--texte-3);margin-left:5px;letter-spacing:0}
+.avert{font:400 11px/1.5 var(--pile);color:var(--texte-3);padding:var(--e2) 0 var(--e3)}
+
+.hist-t{font:600 12px/1.3 var(--pile);color:var(--texte-3);margin:var(--e3) 0 var(--e2)}
+.hl{display:flex;align-items:baseline;gap:var(--e2);padding:7px 0}
+.hl + .hl{border-top:1px solid #212529}
+.hl .d{font:400 12px/1.4 var(--pile);color:var(--texte-3);flex:0 0 76px}
+.hl .c{font:600 14px/1.4 var(--pile)}
+.hl .r{font:400 13px/1.4 var(--pile);color:var(--texte-2)}
+.hl .tag{margin-left:auto;font:500 10px/1.4 var(--pile);color:var(--accent)}
+
+.onglets{position:absolute;left:0;right:0;bottom:0;display:grid;
+  grid-template-columns:repeat(4,1fr);background:#191C21;
+  border-top:1px solid var(--trait);padding:var(--e2) 0 10px}
+.onglet{display:flex;flex-direction:column;align-items:center;gap:3px;
+  color:var(--texte-3);text-decoration:none;font:500 10px/1.2 var(--pile);
+  min-height:46px;justify-content:center}
+.onglet svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;
+  stroke-linecap:round;stroke-linejoin:round}
+.onglet.actif{color:var(--accent)}
+
+.legende{flex:0 0 300px;color:#8A9099;font:400 13px/1.6 var(--pile)}
+.legende h3{font:700 15px/1.3 var(--pile);color:#D8DADE;margin:20px 0 6px}
+.legende h3:first-child{margin-top:0}
+.legende p{margin-bottom:8px}
+.legende code{background:#1D2025;padding:1px 5px;border-radius:4px;font-size:12px;color:#C9CDD3}
+</style>
+
+<!-- ===== 1 : le sommaire ===== -->
+<div class="tel">
+  <h4>Progression <span>· un sommaire, pas des sous-onglets</span></h4>
+  <div class="ecran">
+    <div class="corps">
+      <div class="titre-vue">Progression</div>
+
+      <div class="bloc">
+        <div class="haut"><span class="quoi">Volume par muscle</span>
+          <span class="quand num">24 – 30 août</span><span class="fl">›</span></div>
+        <div class="zs">
+          <span>Jambes <b>45</b></span><span>Dos <b>29,5</b></span><span>Bras <b>24</b></span>
+          <span>Poitrine <b>16</b></span><span>Épaules <b>15</b></span><span>Tronc <b>1,5</b></span>
+        </div>
+      </div>
+
+      <div class="bloc">
+        <div class="haut"><span class="quoi">Poids de corps</span>
+          <span class="quand num">30 août</span><span class="fl">›</span></div>
+        <div class="pds">
+          <span class="gros num">95,5</span><span class="u">kg</span>
+          <span class="var num">−2,5 kg<em>sur 3 mois · 114 pesées</em></span>
+        </div>
+      </div>
+
+      <div class="bloc">
+        <div class="haut"><span class="quoi">Par exercice</span>
+          <span class="quand num">116 exercices</span><span class="fl">›</span></div>
+        <div class="exo-l"><span class="n">Développé Couché (Barre)</span><span class="v num">125 × 4</span><span class="d num">26 août</span></div>
+        <div class="exo-l"><span class="n">Développé Couché (Haltère)</span><span class="v num">88 × 10</span><span class="d num">29 août</span></div>
+        <div class="exo-l"><span class="n">Rowing Assis (Machine)</span><span class="v num">73 × 12</span><span class="d num">29 août</span></div>
+      </div>
+    </div>
+
+    <nav class="onglets">
+      <a class="onglet" href="#"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>Séances</a>
+      <a class="onglet" href="#"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Saisie</a>
+      <a class="onglet actif" href="#"><svg viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-6M22 19H2"/></svg>Progression</a>
+      <a class="onglet" href="#"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>Profil</a>
+    </nav>
+  </div>
+</div>
+
+<!-- ===== 2 : un exercice ===== -->
+<div class="tel">
+  <h4>Un exercice <span>· trois ans en un écran</span></h4>
+  <div class="ecran">
+    <div class="corps">
+      <div class="retour">‹ Exercices</div>
+      <div class="exo-tete">
+        <div class="h">Développé Couché (Barre)</div>
+        <div class="s num">123 séances depuis janvier 2024</div>
+      </div>
+
+      <div class="graphe">
+        <svg viewBox="0 0 300 96" preserveAspectRatio="none">
+          <line x1="0" y1="78" x2="300" y2="78" stroke="#2E323A" stroke-width="1"/>
+          <line x1="0" y1="40" x2="300" y2="40" stroke="#23262A" stroke-width="1"/>
+          <polyline fill="none" stroke="#7E8B9A" stroke-width="2" stroke-linejoin="round"
+            points="4,74 22,70 40,66 58,63 76,58 94,55 112,50 130,52 148,46 166,44 184,40 202,36 220,33 238,30 256,27 274,24 292,22"/>
+          <circle cx="292" cy="22" r="3.5" fill="#F2B705"/>
+        </svg>
+        <div class="lg"><span class="num">janv. 2024</span><span class="num">charge de travail</span><span class="num">août 2026</span></div>
+      </div>
+
+      <div class="fiche">
+        <div class="li"><span class="k">Dernière séance<br><em style="font-style:normal;font-size:10px">26 août 2026</em></span>
+          <span class="v num">125 kg <small>× 4</small></span></div>
+        <div class="li"><span class="k">Record de charge<br><em style="font-style:normal;font-size:10px">12 mars 2026</em></span>
+          <span class="v num">140 kg <small>× 1</small></span></div>
+        <div class="li"><span class="k">Meilleure série à 122,5 kg<br><em style="font-style:normal;font-size:10px">11 septembre 2026</em></span>
+          <span class="v num">122,5 kg <small>× 6</small></span></div>
+      </div>
+
+      <div class="hist-t">Séances récentes</div>
+      <div class="hl"><span class="d num">11 sept.</span><span class="c num">122,5</span><span class="r num">× 6 · 5 · 5</span><span class="tag">record</span></div>
+      <div class="hl"><span class="d num">1 sept.</span><span class="c num">122,5</span><span class="r num">× 5 · 5 · 5</span></div>
+      <div class="hl"><span class="d num">26 août</span><span class="c num">125</span><span class="r num">× 2 · 3 · 4</span></div>
+      <div class="hl"><span class="d num">22 août</span><span class="c num">122,5</span><span class="r num">× 5 · 4 · 4 · 3</span></div>
+      <div class="hl"><span class="d num">12 août</span><span class="c num">122,5</span><span class="r num">× 3 · 4 · 3</span></div>
+      <div class="hl"><span class="d num">4 août</span><span class="c num">122,5</span><span class="r num">× 4 · 4 · 3 · 3</span></div>
+      <div class="hl"><span class="d num">28 juil.</span><span class="c num">120</span><span class="r num">× 5 · 5 · 5 · 5</span></div>
+    </div>
+
+    <nav class="onglets">
+      <a class="onglet" href="#"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>Séances</a>
+      <a class="onglet" href="#"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Saisie</a>
+      <a class="onglet actif" href="#"><svg viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-6M22 19H2"/></svg>Progression</a>
+      <a class="onglet" href="#"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>Profil</a>
+    </nav>
+  </div>
+</div>
+
+<!-- ===== 3 : le piège des records ===== -->
+<div class="tel">
+  <h4>Le piège du record <span>· quand le matériel a changé</span></h4>
+  <div class="ecran">
+    <div class="corps">
+      <div class="retour">‹ Exercices</div>
+      <div class="exo-tete">
+        <div class="h">Extension Triceps Poulie Haute</div>
+        <div class="s num">110 séances depuis avril 2024</div>
+      </div>
+
+      <div class="graphe">
+        <svg viewBox="0 0 300 96" preserveAspectRatio="none">
+          <line x1="0" y1="78" x2="300" y2="78" stroke="#2E323A" stroke-width="1"/>
+          <polyline fill="none" stroke="#7E8B9A" stroke-width="2" stroke-linejoin="round"
+            points="4,40 26,36 48,32 70,28 92,24 114,22 136,20 158,18"/>
+          <line x1="168" y1="8" x2="168" y2="86" stroke="#3A4049" stroke-width="1" stroke-dasharray="3 3"/>
+          <polyline fill="none" stroke="#7E8B9A" stroke-width="2" stroke-linejoin="round"
+            points="178,68 200,66 222,63 244,61 266,58 292,56"/>
+          <circle cx="292" cy="56" r="3.5" fill="#F2B705"/>
+        </svg>
+        <div class="lg"><span class="num">avr. 2024</span><span class="num">changement de salle</span><span class="num">août 2026</span></div>
+      </div>
+
+      <div class="fiche">
+        <div class="li"><span class="k">Dernière séance<br><em style="font-style:normal;font-size:10px">13 août 2026</em></span>
+          <span class="v num">31,5 kg <small>× 15</small></span></div>
+        <div class="li"><span class="k">Record depuis le changement<br><em style="font-style:normal;font-size:10px">13 août 2026</em></span>
+          <span class="v num">31,5 kg <small>× 15</small></span></div>
+        <div class="li"><span class="k">Record avant<br><em style="font-style:normal;font-size:10px">jusqu'en février 2026</em></span>
+          <span class="v num" style="color:var(--texte-3)">73 kg <small>× 12</small></span></div>
+      </div>
+
+      <div class="avert">Les charges d'avant et d'après ne se comparent pas : la poulie n'est pas la même. Les deux records sont donnés séparément.</div>
+    </div>
+
+    <nav class="onglets">
+      <a class="onglet" href="#"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>Séances</a>
+      <a class="onglet" href="#"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Saisie</a>
+      <a class="onglet actif" href="#"><svg viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-6M22 19H2"/></svg>Progression</a>
+      <a class="onglet" href="#"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>Profil</a>
+    </nav>
+  </div>
+</div>
+
+<div class="legende">
+  <h3>Un sommaire, pas des sous-onglets</h3>
+  <p>Une barre de sous-onglets coûte un rang permanent — sur un écran où on vient d'en récupérer trois. Et elle suppose des sections de même nature, qu'on parcourt. Ici c'est faux : le volume et le poids se lisent d'un coup d'œil, <b>l'entrée par exercice est un parcours</b>.</p>
+  <p>Chaque bloc donne sa réponse en deux lignes et s'ouvre sur une vue complète. L'écran est utile <b>sans rien toucher</b>. Et chaque bloc arrive quand il est prêt.</p>
+  <p>La barre de semaine n'est pas ici : le volume est hebdomadaire, le poids et les records ne le sont pas. Elle appartient à la vue Volume.</p>
+
+  <h3>Pas d'e1RM en tête, et c'est un choix</h3>
+  <p>C'est le standard du secteur — mais il n'est fiable qu'entre <b>3 et 10 reps à effort constant</b>, et changer de format d'une semaine à l'autre ruine la comparabilité.</p>
+  <p>Ta médiane est à 10-12 reps, et <b>57 de tes exercices sont travaillés dans plusieurs formats</b>. Notre propre banc d'essai l'avait déjà écarté comme prédicteur.</p>
+  <p>Donc : <b>la charge et les reps, sans formule.</b> Ce qui est vrai, plutôt que ce qui est standard.</p>
+
+  <h3>Trois repères, tous vérifiables</h3>
+  <p><b>Dernière séance</b> — où tu en es. <b>Record de charge</b> — le plus lourd, avec sa date. <b>Meilleure série au palier courant</b> — le vrai indicateur de progression, celui que le moteur utilise.</p>
+  <p>Aucun de ces trois ne demande de calcul contestable.</p>
+
+  <h3>Le piège du record — troisième écran</h3>
+  <p>Ton extension triceps affiche un record à <b>73 kg</b> et un dernier passage à <b>31,5 kg</b>. Ce n'est pas une régression : c'est une autre poulie.</p>
+  <p>Un record affiché sans ce contexte serait faux et décourageant. <b>Deux records séparés</b>, et la courbe coupée là où le matériel change.</p>
+  <p>C'est ta doctrine des trois changements invisibles — haltère, élastique, salle — appliquée à l'affichage. La détection existe déjà : <code>sessions.salle</code> et la signature d'équipement.</p>
+
+  <h3>Ce que je n'ai pas mis</h3>
+  <p>Pas de tendance de volume sur plusieurs semaines : la règle de volume interdit de signaler quoi que ce soit sur moins de trois fenêtres, et une courbe suggère un jugement qu'on n'a pas le droit de porter.</p>
+  <p>Pas de ratios entre mouvements pour l'instant — ils existent (<code>ratios_opl.json</code>) mais viennent de compétiteurs, donc suspects par défaut selon le cadrage.</p>
+</div>
+</html>

@@ -425,9 +425,9 @@ réclame.
 
 ### 7 bis.5 bis Les jours vides ne sont pas affichés — décidé le 11/09/2026
 
-> ⚠️ **Réintroduit le 11/09/2026.** Cette section avait été consignée au chantier 12, livrée
-> et fusionnée (PR #260), puis perdue lors d'une régénération du document. Le comportement est
-> en production ; la spec le redit.
+> ⚠️ **Réintroduit une SECONDE fois le 11/09/2026.** Cette section a été consignée au
+> chantier 12, livrée et fusionnée (PR #260), puis perdue à deux régénérations successives
+> du document. Le comportement est en production et couvert par un test ; la spec le redit.
 
 Décision prise **après essai sur device**. Sur une semaine à quatre séances, trois lignes
 vides n'apportent rien et allongent le défilement.
@@ -556,6 +556,106 @@ commandée. Pas à main levée.
 Supprimer la navigation par semaine au profit d'un défilement continu avec en-têtes collants
 a été proposé et **rejeté**. La navigation par semaine avec flèches et calendrier est
 conservée.
+
+### 7 bis.14 Progression — un sommaire, pas des sous-onglets
+
+Une barre de sous-onglets coûte un rang permanent, et suppose des sections de même nature.
+Faux ici : le volume et le poids se lisent d'un coup d'œil, **l'entrée par exercice est un
+parcours**.
+
+> **Progression est une page de sommaire.** Des blocs empilés, chacun donnant sa réponse en
+> deux lignes, chacun s'ouvrant sur une vue complète.
+
+Blocs prévus : **Volume par muscle** (fait) · **Poids de corps** (114 pesées en base depuis
+janvier 2023, rien ne les affiche) · **Par exercice**.
+
+L'écran est utile **sans rien toucher**, et chaque bloc arrive quand il est prêt.
+
+> ⚠️ **Écart assumé avec la maquette — le bloc Poids, chantier 16.** La maquette affiche
+> « −2,5 kg · sur 3 mois ». **Mesuré en base : une seule pesée tombe dans les 90 derniers
+> jours, quatre dans les 365** — 93 des 114 sont en 2024, et l'écart le plus long vaut
+> 233 jours. Une ligne « sur 3 mois » serait donc **vide** pour le seul compte qui a des
+> pesées. Le bloc affiche l'**écart avec la pesée précédente, daté** : « −1,9 kg · depuis le
+> 18 mars · 114 pesées ». Il existe dès qu'il y a deux mesures, il dit lui-même sur quelle
+> durée il porte, et il n'invente rien. **À arbitrer.**
+
+**La barre de semaine n'appartient pas au sommaire** : le volume est hebdomadaire, le poids
+et les records ne le sont pas. Elle vit dans la vue Volume.
+
+### 7 bis.15 La vue d'un exercice
+
+Cinq vues de courbe, sélecteur en pastilles, trois périodes (3 mois · 1 an · tout).
+
+| Vue | Forme | Note |
+|---|---|---|
+| **Charge de travail** | courbe | **par défaut** — la grandeur du moteur, aucun calcul |
+| Meilleure série | courbe | répond à « je progresse » quand la charge ne bouge pas |
+| Reps totales | courbe | utile en hypertrophie |
+| Tonnage | **barres** | quantité produite, pas niveau atteint |
+| 1RM estimé | courbe **pointillée** hors plage | voir ci-dessous |
+
+> **Le 1RM estimé n'est pas la vue par défaut, et c'est un choix mesuré.** Il n'est fiable
+> qu'entre **3 et 10 reps à effort constant** ; la médiane d'aurel_br est à 10-12 reps et
+> **57 exercices sont travaillés dans plusieurs formats** — ce que la littérature désigne
+> comme la première cause d'estimation fausse. Le banc l'avait déjà écarté comme prédicteur
+> (§9.5 du moteur). Il reste offert, avec sa réserve affichée.
+
+**Trois repères sous la courbe**, tous vérifiables sans formule : dernière séance · record de
+charge avec sa date · meilleure série au palier courant.
+
+**Mises en garde dans l'interface, pas dans une documentation.** Le tonnage rappelle qu'il se
+compare à lui-même et jamais d'un exercice à l'autre (§9 de la règle de volume). L'estimation
+dit sa plage de validité.
+
+> **Aucune vue ne porte de ligne d'objectif, de zone colorée « bien / insuffisant », ni de
+> projection. Une courbe décrit, elle ne juge pas.**
+
+### 7 bis.16 Records de série — et la correction d'un défaut de Hevy
+
+Le meilleur poids **pour chaque nombre de répétitions**. Factuel, sans formule, et répond à
+« je vise 8 reps, mon record c'est quoi ».
+
+> **Table cumulée — « au moins n reps » — jamais brute.**
+
+Hevy affiche la table brute, donc trouée. Sur le soulevé hex d'aurel_br : 7 reps → 150 kg,
+mais 6 reps → 120 et 5 reps → 100. **Elle paraît cassée** — or qui a fait 150 × 7 a
+forcément pu faire 150 × 5. Vérifié sur son couché : la table brute donne 42,5 kg à 14 reps
+alors qu'il a fait 80 × 15.
+
+**La ligne de la cible courante est mise en avant** : on voit immédiatement si on est sur le
+point de battre quelque chose.
+
+**Cas à traiter :** une série à **0 répétition** existe (140 kg au couché). Ce n'est pas une
+anomalie, c'est une **tentative manquée**. Le modèle prévoit déjà `type_serie = 'echec'`
+(126 séries en base). Une tentative ne compte pas comme record, et l'affichage doit la
+montrer comme telle — « 140 kg, tentative » — jamais une ligne muette à zéro.
+→ L'écran de saisie devra permettre de marquer un échec. Point ouvert.
+
+### 7 bis.17 Le radar de répartition
+
+Les six zones sur un hexagone, **période courante contre période précédente**. Donne le sens
+de la variation sans rien affirmer. Sous le radar, quatre cartes de contexte : séances,
+séries, et les deux zones principales.
+
+**Hevy utilise exactement les six mêmes zones** — confirmation indépendante du regroupement
+du §7 bis.10.
+
+> ⚠️ **Différence maintenue avec Hevy : pas de flèches vertes ou rouges sur les variations.**
+> Mesuré : août 14 séances contre 19 en juillet. **L'app ne connaît pas la raison.**
+> `CADRAGE-V2.md` §3.1 bis — deux périodes se comparent, elles ne se jugent pas.
+
+> ⚠️ **Écart assumé avec la maquette — les périodes, chantier 16.** La maquette illustre
+> « août contre juillet », donc des **mois calendaires**. Le code compare deux **fenêtres
+> glissantes** de même longueur (30 jours, ou 90). Raison : un mois calendaire oppose un
+> mois **entamé** à un mois **complet** — le 1er septembre, le radar s'effondrerait à un jour
+> de données contre trente-et-un, sans que rien n'ait changé dans l'entraînement, et l'app
+> n'aurait aucun moyen de le dire. Deux fenêtres de même longueur ne peuvent pas fabriquer
+> cet artefact. La légende dit « 30 derniers jours » / « 30 jours précédents », jamais un nom
+> de mois. **À arbitrer.**
+
+**Contre-exemple à ne pas copier :** le graphe « séries par muscle » de Hevy superpose
+**dix-huit courbes colorées** sur un écran de téléphone, illisible sans une liste de cases à
+cocher. C'est précisément pourquoi on regroupe en six zones **avant** de tracer.
 
 ### 7 bis.8 Ordre recommandé
 

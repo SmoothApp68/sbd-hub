@@ -9,9 +9,17 @@
 //   /semaine/AAAA-MM-JJ     une semaine, désignée par son lundi
 //   /seance/<uuid>          le détail d'une séance
 //   /saisie                 onglet Saisie
-//   /progression            onglet Progression
+//   /progression            onglet Progression — le SOMMAIRE
+//   /progression/volume     le volume par muscle d'une semaine, et le radar
+//   /progression/poids      le poids de corps
 //   /profil                 onglet Profil
 //   /connexion              l'écran de connexion
+//
+// Progression n'est pas une barre de sous-onglets mais un SOMMAIRE de blocs
+// (ECRAN-SAISIE §7 bis.14) : chaque bloc s'ouvre sur une vue complète, qui a
+// donc son propre chemin. Un sous-chemin plutôt qu'un segment à part entière —
+// « /progression/poids » dit d'où l'on vient, et le retour d'Android remonte
+// au sommaire sans qu'on ait à l'écrire.
 //
 // Les trois onglets reprennent la forme de /connexion : un segment, en clair,
 // sans paramètre. Chaque onglet est une VUE du routeur, avec son URL — pas un
@@ -28,6 +36,12 @@
 
   var RACINE = 'racine', SEMAINE = 'semaine', SEANCE = 'seance', CONNEXION = 'connexion';
   var SAISIE = 'saisie', PROGRESSION = 'progression', PROFIL = 'profil';
+  var VOLUME = 'volume', POIDS = 'poids';
+
+  // Les vues qui vivent SOUS Progression. Le chemin est « /progression/<clé> »
+  // et l'onglet allumé reste Progression.
+  var SOUS_PROGRESSION = {};
+  SOUS_PROGRESSION[VOLUME] = true; SOUS_PROGRESSION[POIDS] = true;
 
   // Vues à segment unique, sans paramètre. La racine n'y figure pas : elle est
   // le chemin « / », et c'est l'onglet Séances.
@@ -68,6 +82,14 @@
 
     if (bouts.length === 1 && SEGMENTS[bouts[0]]) return { vue: bouts[0], params: {} };
 
+    if (bouts[0] === PROGRESSION && bouts.length === 2) {
+      // Un sous-chemin inconnu retombe sur le sommaire, pas sur la racine :
+      // « /progression/nimporte » reste dans Progression, ce qui est le moins
+      // surprenant pour un lien qui a vieilli.
+      if (!SOUS_PROGRESSION[bouts[1]]) return { vue: PROGRESSION, params: {}, repli: 'sous-vue-inconnue' };
+      return { vue: bouts[1], params: {} };
+    }
+
     if (bouts[0] === SEMAINE && bouts.length === 2) {
       var d = depuisDate(bouts[1]);
       if (!d) return { vue: RACINE, params: {}, repli: 'date-invalide' };
@@ -90,6 +112,7 @@
       return d ? '/' + SEMAINE + '/' + d : '/';
     }
     if (vue === SEANCE) return p.id && RE_UUID.test(p.id) ? '/' + SEANCE + '/' + p.id : '/';
+    if (SOUS_PROGRESSION[vue]) return '/' + PROGRESSION + '/' + vue;
     if (SEGMENTS[vue]) return '/' + vue;
     return '/';
   }
@@ -103,6 +126,7 @@
 
   function ongletDe(vue) {
     if (vue === SEMAINE || vue === SEANCE) return RACINE;
+    if (SOUS_PROGRESSION[vue]) return PROGRESSION;
     for (var i = 0; i < ONGLETS.length; i++) if (ONGLETS[i] === vue) return vue;
     return null;
   }
@@ -150,6 +174,8 @@
   var api = {
     RACINE: RACINE, SEMAINE: SEMAINE, SEANCE: SEANCE, CONNEXION: CONNEXION,
     SAISIE: SAISIE, PROGRESSION: PROGRESSION, PROFIL: PROFIL,
+    VOLUME: VOLUME, POIDS: POIDS,
+    SOUS_PROGRESSION: SOUS_PROGRESSION,
     versDate: versDate,
     depuisDate: depuisDate,
     analyser: analyser,

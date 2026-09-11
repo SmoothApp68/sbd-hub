@@ -55,6 +55,7 @@ Il couvre tout ce qui lit tes séries et en tire une décision. Il ne couvre **p
 | 22 | **Seuil de stagnation à 4 séances**, constante et non percentile personnel ; le compteur déclenche un changement de méthode, pas l'action | §12.3, §12.4 |
 | 23 | **La famille est le niveau de repli** quand l'exercice seul est trop rare — rattrape jusqu'à 18 points de couverture | §13.3 |
 | 24 | **La rotation d'exercices n'a pas d'effet mesurable sur la progression** — rien à conseiller sur la sélection | §13.4 |
+| 25 | **L'ordre des exercices dans la séance** — chantier ouvert : la fatigue dépend de ce qui précède sur le même muscle. Mesure obligatoire avant toute règle | §12 bis |
 
 ---
 
@@ -793,6 +794,63 @@ Effet mesuré : le reset abaisse le taux de reprise spontanée de 4 à 5 points 
 ### 12.7 Point ouvert
 
 La mesure charge-seule montrait une remontée nette de la reprise spontanée autour de 6 séances, qui résiste au reset après coupure. Cause non identifiée — cycle de programmation, effet de vague ? Sans conséquence sur le seuil retenu, mais non expliqué.
+
+---
+
+## 12 bis. L'ordre des exercices dans la séance — chantier ouvert le 11/09/2026
+
+Le moteur lit aujourd'hui **chaque exercice isolément**. Il ne sait pas qu'un écarté suit un
+développé couché, donc il lit une charge basse comme une régression alors que c'est de la
+fatigue accumulée **sur le même muscle**.
+
+> **Deux exercices qui se suivent sur le même muscle fatiguent plus que si un autre muscle
+> s'intercale.** Le moteur doit le savoir avant de conclure quoi que ce soit sur une charge.
+
+### 12 bis.1 L'information est déjà là
+
+`sets.rang` donne l'ordre, `exercises.muscles_primaires` donne le muscle. Croiser les deux
+donne la **séquence de sollicitation** d'une séance. Rien à ajouter au schéma, rien à
+demander à l'utilisateur.
+
+### 12 bis.2 Trois usages, par ordre d'utilité
+
+**1 — Ne pas se tromper.** Une charge basse sur un exercice placé en cinquième position n'est
+pas comparable à la même charge en ouverture. C'est de la **non-contradiction**, c'est-à-dire
+le rôle que le moteur s'est donné (§11 du banc d'essai).
+
+**2 — Comparer ce qui est comparable.** Un couché en ouverture et un couché après quinze
+séries de pectoraux sont deux contextes différents. Le palier et la cible devraient en tenir
+compte.
+
+**3 — Proposer un ordre.** Le plus ambitieux, et le dernier. Suppose les deux premiers acquis.
+
+### 12 bis.3 La mesure à faire AVANT toute règle
+
+> **Hypothèse à vérifier sur les cinq profils : la charge tenue baisse-t-elle réellement
+> selon la position dans la séance et la proximité musculaire de ce qui précède ?**
+
+C'est exactement le type d'hypothèse qui paraît évidente et que la mesure contredit — comme
+l'e1RM-PR (§9.5) ou la règle 2-pour-2. **Aucune règle ne s'écrit avant ce chiffre.**
+
+Ventilation attendue : position dans la séance · nombre de séries déjà faites sur le même
+muscle primaire · présence d'un exercice intercalé sur un autre muscle.
+
+### 12 bis.4 La limite doctrinale
+
+> **Décrire, pas réordonner.** « Cette charge est basse parce que le muscle était déjà
+> fatigué » décrit. « Réorganise ta séance » impose une organisation — donc la vie de la
+> personne, ce que `CADRAGE-V2.md` interdit.
+
+L'usage 3 ne pourra être qu'une **proposition de routine**, jamais un reproche sur une séance
+passée.
+
+### 12 bis.5 Place dans l'ordre des chantiers
+
+**Après** le moteur de base et son écran, **avant** la construction de programmes.
+
+C'est un raffinement de ce que le moteur lit, pas une fonctionnalité séparée : il n'a de sens
+qu'une fois que le moteur parle, et il conditionne tout ce qui touchera à la construction
+d'un programme — dont l'ordre des exercices est la première question.
 
 ---
 

@@ -93,6 +93,21 @@
   function compterSeances() { return compter('sessions'); }
   function compterSeries() { return compter('sets'); }
 
+  // Pesées : 116 lignes en tout, une page, aucun incrémental à inventer. On
+  // rafraîchit en entier comme le catalogue — et comme `sessions`, c'est le
+  // seul moyen de voir une pesée corrigée ou supprimée.
+  //
+  // Colonnes relevées AU SCHÉMA (information_schema.columns), pas supposées :
+  // id uuid · user_id uuid · date date · poids_kg numeric · source text ·
+  // created_at timestamptz · masse_grasse_pct numeric. On n'en lit que quatre —
+  // `masse_grasse_pct` existe et n'a pas encore d'écran, `user_id` ne se filtre
+  // pas côté client (c'est le travail du RLS).
+  function toutesLesPesees() {
+    return paginerParCle(trancheur(function () {
+      return client().from('body_weight_log').select('id, date, poids_kg, source');
+    }, 'id'), 'id');
+  }
+
   // INCRÉMENTAL : 15 Mo, qu'on ne retélécharge pas. Une ligne neuve porte
   // `created_at`, une ligne retouchée porte `modifie_a` — il faut les deux.
   function seriesDepuis(curseur) {
@@ -119,6 +134,7 @@
     toutesLesSeances: toutesLesSeances,
     seriesDepuis: seriesDepuis,
     tousLesExercices: tousLesExercices,
+    toutesLesPesees: toutesLesPesees,
     compterSeances: compterSeances,
     compterSeries: compterSeries,
     // Exposée pour les tests : c'est la logique de pagination qu'il faut

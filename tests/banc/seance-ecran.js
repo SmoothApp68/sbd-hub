@@ -39,7 +39,13 @@ const ok = (nom, cond, detail) => {
 const CATALOGUE = [
   { slug: 'squat-barre', nom: 'Squat (Barre)', mesure: 'charge_reps', charge: 'externe', muscles_primaires: ['quadriceps'], muscles_secondaires: [] },
   { slug: 'dc-barre', nom: 'Développé Couché (Barre)', mesure: 'charge_reps', charge: 'externe', muscles_primaires: ['pectoraux'], muscles_secondaires: [] },
-  { slug: 'curl', nom: 'Curl Biceps Haltères', mesure: 'charge_reps', charge: 'externe', muscles_primaires: ['biceps'], muscles_secondaires: [] }
+  { slug: 'curl', nom: 'Curl Biceps Haltères', mesure: 'charge_reps', charge: 'externe', muscles_primaires: ['biceps'], muscles_secondaires: [] },
+  // ⚠️ Les trois autres mesures du catalogue (chantier 24). Sans elles, le banc
+  // ne teste qu'un quart de la grille — et c'est exactement l'angle mort qui a
+  // laissé passer le défaut pendant trois chantiers de saisie.
+  { slug: 'tractions', nom: 'Tractions', mesure: 'reps', charge: 'aucune', muscles_primaires: ['dorsaux'], muscles_secondaires: [] },
+  { slug: 'planche', nom: 'Planche', mesure: 'temps', charge: 'aucune', muscles_primaires: ['abdominaux'], muscles_secondaires: [] },
+  { slug: 'marche', nom: 'Marche', mesure: 'distance_temps', charge: 'aucune', muscles_primaires: [], muscles_secondaires: [] }
 ];
 
 const ROUTINE = {
@@ -48,6 +54,20 @@ const ROUTINE = {
   routine_exercises: [
     { id: 're1', routine_id: 'r-banc', exercise_slug: 'squat-barre', rang: 0, series: 3, reps_visees: 5, repos_cible_s: 180, groupe_superset: null },
     { id: 're2', routine_id: 'r-banc', exercise_slug: 'dc-barre', rang: 1, series: 2, reps_visees: 8, repos_cible_s: null, groupe_superset: null }
+  ]
+};
+
+// ⚠️ CONFIGURATION DISCRIMINANTE DU CHANTIER 24 — les QUATRE mesures dans la
+// MÊME séance. Sur une séance qui n'en contient qu'une, « la grille s'adapte »
+// et « la grille est fixe » donnent exactement le même écran.
+const ROUTINE_MESURES = {
+  id: 'r-mesures', nom: 'Les quatre mesures', note: null, archivee_a: null,
+  created_at: '2026-09-02T08:00:00Z', modifiee_a: '2026-09-02T08:00:00Z',
+  routine_exercises: [
+    { id: 'rm1', routine_id: 'r-mesures', exercise_slug: 'dc-barre', rang: 0, series: 1, reps_visees: 8, repos_cible_s: 120, groupe_superset: null },
+    { id: 'rm2', routine_id: 'r-mesures', exercise_slug: 'tractions', rang: 1, series: 1, reps_visees: 12, repos_cible_s: null, groupe_superset: null },
+    { id: 'rm3', routine_id: 'r-mesures', exercise_slug: 'planche', rang: 2, series: 1, reps_visees: null, repos_cible_s: null, groupe_superset: null },
+    { id: 'rm4', routine_id: 'r-mesures', exercise_slug: 'marche', rang: 3, series: 1, reps_visees: null, repos_cible_s: null, groupe_superset: null }
   ]
 };
 
@@ -194,7 +214,7 @@ const SETS_PASSES = [1, 2].map((n) => ({
 
     if (req.method() === 'GET') {
       if (table === 'exercises') return json(CATALOGUE);
-      if (table === 'routines') return json([ROUTINE]);
+      if (table === 'routines') return json([ROUTINE, ROUTINE_MESURES]);
       if (table === 'sessions') {
         const st = (url.searchParams.get('statut') || '').replace('eq.', '');
         return json(st ? base.sessions.filter((s) => s.statut === st) : base.sessions);
@@ -290,12 +310,22 @@ const SETS_PASSES = [1, 2].map((n) => ({
   };
   const lire = async (i, sel) => (await ligne(i)).$eval(sel, (b) => b.textContent);
 
+  // La bibliothèque porte plusieurs routines, triées par nom : on démarre CELLE
+  // qu'on vise, pas la première venue.
+  const demarrerRoutine = async (nom) => {
+    await page.evaluate((n) => {
+      const rangees = Array.from(document.querySelectorAll('.routine-rangee'));
+      const r = rangees.filter((x) => x.querySelector('.routine-nom').textContent === n)[0];
+      r.querySelector('.demarrer').click();
+    }, nom);
+    await attendre(900);
+  };
+
   console.log('\n══ 1. DÉMARRER DEPUIS UNE ROUTINE ══');
   await aller('/saisie');
   ok('la bibliothèque montre la routine', /Push/.test(await texte('#liste-routines')),
     (await texte('#liste-routines')).slice(0, 60));
-  await page.click('.demarrer');
-  await attendre(800);
+  await demarrerRoutine('Push');
   ok('la séance s’ouvre', JSON.stringify(await visible()) === '["vue-seance"]', JSON.stringify(await visible()));
   ok('la structure de la routine est reprise : 2 blocs, 5 lignes',
     (await compter('.bloc-seance')) === 2 && (await compter('.ligne-serie')) === 5,
@@ -674,8 +704,7 @@ const SETS_PASSES = [1, 2].map((n) => ({
     JSON.stringify(await visible()) === '["vue-saisie"]', JSON.stringify(await visible()));
 
   console.log('\n══ 7. ABANDONNER ══');
-  await page.click('.demarrer');
-  await attendre(900);
+  await demarrerRoutine('Push');
   await saisirSerie(0, 90, 6);
   await attendre(800);
   const idAbandon = base.sessions.filter((s) => s.statut === 'en_cours').map((s) => s.id)[0];
@@ -692,6 +721,151 @@ const SETS_PASSES = [1, 2].map((n) => ({
   await aller('/saisie');
   ok('et aucune fantôme au lancement suivant',
     JSON.stringify(await visible()) === '["vue-saisie"]', JSON.stringify(await visible()));
+
+  console.log('\n══ 7 bis. LES QUATRE MESURES ══');
+  // ⚠️ CONFIGURATION DISCRIMINANTE (CADRAGE-V2 §2 quater) : les QUATRE mesures
+  // dans la MÊME séance. Sur une séance d'une seule mesure, « la grille
+  // s'adapte » et « la grille est fixe » rendent le même écran — c'est
+  // exactement pourquoi le défaut a survécu à trois chantiers de saisie. Les
+  // assertions comparent donc les lignes ENTRE ELLES.
+  await aller('/saisie');
+  await demarrerRoutine('Les quatre mesures');
+  // L'identifiant de CETTE séance : `sessions()[0]` désigne la plus ancienne,
+  // qui est la séance Push déjà terminée plus haut.
+  const idMesures = (base.sessions.filter((x) => x.statut === 'en_cours')[0] || {}).id;
+  ok('la séance des quatre mesures s’ouvre',
+    JSON.stringify(await visible()) === '["vue-seance"]' && (await compter('.bloc-seance')) === 4,
+    JSON.stringify(await visible()) + ' · ' + (await compter('.bloc-seance')) + ' bloc(s)');
+
+  const gabarits = () => page.evaluate(() =>
+    Array.from(document.querySelectorAll('.bloc-seance')).map((b) => ({
+      nom: b.querySelector('.exo-seance').textContent,
+      type: b.querySelector('.type-mesure') ? b.querySelector('.type-mesure').textContent : null,
+      grille: Array.from(b.querySelector('.serie').classList).filter((c) => c.indexOf('g-') === 0)[0],
+      colonnes: getComputedStyle(b.querySelector('.serie')).gridTemplateColumns,
+      entetes: Array.from(b.querySelectorAll('.cols-seance span')).map((x) => x.textContent).filter(Boolean),
+      champs: Array.from(b.querySelectorAll('.serie .ch-serie, .serie .rp-serie')).map((c) =>
+        (c.querySelector('u') ? c.querySelector('u').textContent : '')),
+      effort: b.querySelectorAll('.serie .eff-serie').length
+    })));
+
+  const g4 = await gabarits();
+  ok('quatre grilles DIFFÉRENTES, une par mesure',
+    JSON.stringify(g4.map((x) => x.grille)) ===
+      '["g-charge_reps","g-reps","g-temps","g-distance_temps"]',
+    JSON.stringify(g4.map((x) => x.grille)));
+  ok('et elles ne rendent pas les mêmes colonnes à l’écran',
+    new Set(g4.map((x) => x.colonnes)).size === 4,
+    JSON.stringify(g4.map((x) => x.colonnes)));
+  ok('les en-têtes suivent la mesure',
+    JSON.stringify(g4.map((x) => x.entetes)) ===
+      JSON.stringify([['PRÉC.', 'KG', 'REPS', 'EFFORT'], ['PRÉC.', 'REPS', 'EFFORT'],
+                      ['PRÉC.', 'DURÉE'], ['PRÉC.', 'DURÉE', 'DISTANCE']]),
+    JSON.stringify(g4.map((x) => x.entetes)));
+  ok('chaque champ porte son unité', JSON.stringify(g4.map((x) => x.champs)) ===
+    JSON.stringify([['kg', ''], [''], ['s'], ['min', 'km']]),
+    JSON.stringify(g4.map((x) => x.champs)));
+  ok('le type de mesure est rappelé sous le nom',
+    JSON.stringify(g4.map((x) => x.type)) ===
+      '["CHARGE × REPS","REPS SEULES","DURÉE","DISTANCE ET DURÉE"]',
+    JSON.stringify(g4.map((x) => x.type)));
+
+  // §3 — la colonne d'effort n'existe que là où il y a des répétitions.
+  ok('aucune colonne d’effort sur `temps` ni sur `distance_temps`',
+    JSON.stringify(g4.map((x) => x.effort)) === '[1,1,0,0]',
+    JSON.stringify(g4.map((x) => x.effort)));
+
+  // ⚠️ Et la LARGEUR, qui est tout l'enjeu : chaque gabarit doit être plus
+  // confortable que le précédent, à 360 px. Le champ principal est en `1fr` —
+  // on mesure ce que le navigateur lui donne VRAIMENT.
+  const largeurs = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('.bloc-seance')).map((b) =>
+      Math.round(b.querySelector('.serie .ch-serie').getBoundingClientRect().width)));
+  ok('le champ principal gagne en largeur à chaque colonne retirée',
+    largeurs[0] < largeurs[1] && largeurs[1] < largeurs[2] && largeurs[0] >= 70,
+    'kg=' + largeurs[0] + ' reps=' + largeurs[1] + ' durée=' + largeurs[2] +
+    ' durée(sortie)=' + largeurs[3] + ' px');
+
+  console.log('\n══ 7 ter. SAISIR DANS LES QUATRE MESURES ══');
+  const saisirChamps = async (iBloc, valeurs) => {
+    const bloc = (await page.$$('.bloc-seance'))[iBloc];
+    const champs = await bloc.$$('.serie input');
+    for (let i = 0; i < valeurs.length; i++) await champs[i].fill(String(valeurs[i]));
+    await bloc.$eval('.serie .ok-serie', (b) => b.click());
+    await attendre(500);
+  };
+  // ⚠️ 6 reps là où la routine en VISE 8 : c'est ce qui sépare « le fantôme
+  // complète un champ vide » de « le fantôme écrase ce qu'on a tapé ». Saisir
+  // 8 ne prouverait rien, les deux comportements donneraient 8.
+  await saisirChamps(0, [80, 6]);
+  await saisirChamps(1, [12]);
+  await saisirChamps(2, [50]);
+  await saisirChamps(3, [130, '8,4']);
+  await attendre(1800);
+
+  const montees4 = base.sets.filter((x) => x.session_id === idMesures);
+  const parExo = {};
+  montees4.forEach((x) => { parExo[x.exercise_slug] = x; });
+  ok('les quatre séries sont montées', montees4.length === 4, montees4.length + ' série(s)');
+  ok('le développé porte charge ET reps, rien d’autre — et la valeur TAPÉE, pas la visée',
+    parExo['dc-barre'] && parExo['dc-barre'].charge_kg === 80 && parExo['dc-barre'].reps === 6 &&
+    parExo['dc-barre'].duree_s === null && parExo['dc-barre'].distance_m === null,
+    JSON.stringify(parExo['dc-barre'] && { c: parExo['dc-barre'].charge_kg, r: parExo['dc-barre'].reps, d: parExo['dc-barre'].duree_s }));
+  ok('les tractions portent des reps et AUCUNE charge',
+    parExo.tractions && parExo.tractions.reps === 12 && parExo.tractions.charge_kg === null &&
+    parExo.tractions.duree_s === null,
+    JSON.stringify(parExo.tractions && { c: parExo.tractions.charge_kg, r: parExo.tractions.reps }));
+  ok('la planche porte une DURÉE, pas un poids',
+    parExo.planche && parExo.planche.duree_s === 50 && parExo.planche.charge_kg === null &&
+    parExo.planche.reps === null,
+    JSON.stringify(parExo.planche && { d: parExo.planche.duree_s, c: parExo.planche.charge_kg, r: parExo.planche.reps }));
+  // Saisie en minutes et en kilomètres, base en secondes et en mètres.
+  ok('la marche porte durée ET distance, converties en secondes et en mètres',
+    parExo.marche && parExo.marche.duree_s === 7800 && parExo.marche.distance_m === 8400,
+    JSON.stringify(parExo.marche && { d: parExo.marche.duree_s, m: parExo.marche.distance_m }));
+  ok('et RIEN n’est écrit dans `rpe` ni dans `ressenti` sur les deux mesures sans effort',
+    [parExo.planche, parExo.marche].every((x) => x && (x.rpe === null || x.rpe === undefined) &&
+      (x.ressenti === null || x.ressenti === undefined)),
+    JSON.stringify([parExo.planche, parExo.marche].map((x) => x && { rpe: x.rpe, r: x.ressenti })));
+
+  // L'effort reste accessible là où il a un sens, et l'affichage rend la forme
+  // saisie — pas une traduction.
+  // Les handles se périment au moindre re-rendu : on adresse dans la page.
+  const effortTractions = () => page.evaluate(() =>
+    document.querySelectorAll('.bloc-seance')[1].querySelector('.serie .eff-serie').textContent);
+  await page.evaluate(() =>
+    document.querySelectorAll('.bloc-seance')[1].querySelector('.serie .eff-serie').click());
+  await attendre(600);
+  // La bascule RPE/ressenti se RETIENT (§3 bis.2) : le §3 l'a laissée sur RPE.
+  // On revient au ressenti, sinon la feuille rend l'autre grille.
+  if ((await compter('#feuille-contenu .grille-rpe')) > 0) {
+    await page.click('#feuille-contenu .bascule button');
+    await attendre(400);
+  }
+  await page.click('#feuille-contenu .grille-rir button:nth-child(3)');
+  await attendre(1600);
+  const tractionsEnBase = base.sets.filter((x) => x.exercise_slug === 'tractions' &&
+    x.session_id === idMesures)[0];
+  ok('l’effort reste saisissable sur `reps`, et s’affiche en reps restantes',
+    (await effortTractions()) === '−1' && tractionsEnBase &&
+    tractionsEnBase.ressenti === 'reste_1',
+    (await effortTractions()) + ' · base=' + JSON.stringify(tractionsEnBase && tractionsEnBase.ressenti));
+
+  console.log('\n══ 7 quater. LA CARTE DE SÉANCE DIT LA BONNE GRANDEUR ══');
+  await page.click('#bandeau-seance .discret');
+  await attendre(500);
+  await page.click('#feuille-contenu .principal');
+  await attendre(2400);
+  await aller('/');
+  const carte = await page.evaluate(() => {
+    const cartes = Array.from(document.querySelectorAll('.jour .seance'));
+    const c = cartes.filter((x) => /quatre mesures/i.test(x.textContent))[0] ||
+              cartes[cartes.length - 1];
+    return Array.from(c.querySelectorAll('.apercu-exo')).map((l) => l.textContent);
+  });
+  ok('la carte donne la grandeur de chaque mesure, pas un blanc',
+    carte.length === 3 && /80/.test(carte[0]) && /12/.test(carte[1]) && /50\s*s/.test(carte[2]),
+    JSON.stringify(carte));
 
   console.log('\n══ 8. NON-RÉGRESSION ══');
   for (const [chemin, attendu] of [['/', 'vue-liste'], ['/progression', 'vue-progression'],

@@ -563,9 +563,26 @@ button{font-family:inherit;cursor:pointer}
 .tete-seance{padding:var(--e3) var(--e3) var(--e2)}
 .exo-seance{font-size:14px;font-weight:600;line-height:1.3}
 .repos-cible{font-size:11.5px;color:var(--texte-3);margin-top:3px}
+/* Le type de mesure, rappelé sous le nom. Sans lui, une ligne à deux colonnes
+   au milieu de lignes à trois désoriente. */
+.type-mesure{font-size:9px;font-weight:600;color:#525862;
+  letter-spacing:.04em;margin-top:4px}
 
+/* ── LES QUATRE GABARITS DE LIGNE (§3 ter.1) ───────────────────────────────
+   Le catalogue définit quatre mesures ; la grille en avait une. Chaque gabarit
+   est plus confortable que le précédent — une colonne de moins à chaque fois,
+   et tous sont vérifiés à 360 px.
+
+   ⚠️ Le gabarit est porté par une CLASSE, pas par la balise : c'est ce qui
+   rend `.serie` du détail de séance (`.entetes,.serie`, deux colonnes) de
+   nouveau indépendant de la grille de saisie. Les deux se disputaient le même
+   sélecteur, et la saisie gagnait parce qu'elle est écrite plus bas. */
 .cols-seance,
-.serie{display:grid;grid-template-columns:30px 62px 1fr 44px 40px 40px;gap:5px}
+.serie.grille{display:grid;gap:5px}
+.g-charge_reps{grid-template-columns:30px 62px 1fr 44px 40px 40px}  /* 79 px pour les kg */
+.g-reps{grid-template-columns:30px 62px 1fr 40px 40px}              /* 128 px */
+.g-temps{grid-template-columns:30px 62px 1fr 40px}                  /* 173 px, pas d'effort */
+.g-distance_temps{grid-template-columns:30px 66px 1fr 1fr 40px}     /* 82 px chacune */
 .cols-seance{padding:var(--e2) var(--e3) 3px;font-size:9px;font-weight:600;
   color:#525862;letter-spacing:.02em}
 .cols-seance .centre{text-align:center}
@@ -576,7 +593,7 @@ button{font-family:inherit;cursor:pointer}
 .glisse-fond{position:absolute;inset:0;background:#3A2422;display:flex;
   align-items:center;justify-content:flex-end;padding-right:var(--e3);
   color:var(--manque);font-size:12px;font-weight:700;z-index:0}
-.serie{position:relative;z-index:1;align-items:center;
+.serie.grille{position:relative;z-index:1;align-items:center;
   padding:5px var(--e3);border-top:1px solid var(--trait);background:var(--panneau)}
 
 .no-serie{width:30px;height:38px;border-radius:var(--r-petit);

@@ -99,7 +99,134 @@ prédire, l'historique le montre.
 **Bénéfice de mise en page** — supprimer la colonne suggérée libère 54 px de
 largeur, redistribués sur les champs kg et reps. Décisif à 380 px.
 
+### 3 ter — Les quatre mesures, et pourquoi la grille ne peut pas être unique
+
+⚠️ **Défaut trouvé le 11/09/2026, après vérification sur device.** Toute la grille avait été
+dessinée pour `charge × reps`. **Le catalogue définit quatre mesures**, et 15 % de l'historique
+n'entre pas dans la première.
+
+| `exercises.mesure` | Exercices | Séries de travail | Ce qu'une série enregistre |
+|---|---|---|---|
+| `charge_reps` | 173 | 22 056 | charge et répétitions |
+| `reps` | 45 | **2 300** | répétitions seules — pompes, tractions, dips |
+| `temps` | 12 | **1 275** | une durée — planche, gainage |
+| `distance_temps` | 7 | 501 | durée et distance — rando, course, natation, tapis |
+
+**4 076 séries de travail ne s'enregistrent pas en charge × reps.** Une planche à
+« 0 kg × 45 » est absurde, et c'est ce que la grille unique produisait.
+
+**Les données sont propres** : chaque mesure ne remplit que ses colonnes. Les pompes n'ont
+jamais de charge, le tapis roulant jamais de répétitions. Rien à nettoyer, seulement à
+afficher.
+
+#### 3 ter.1 Quatre gabarits, tous vérifiés à 360 px
+
+| Mesure | Colonnes | Place restante |
+|---|---|---|
+| `charge_reps` | № · préc. · **kg** · reps · effort · ✓ | 79 px pour les kg |
+| `reps` | № · préc. · **reps** · effort · ✓ | 128 px |
+| `temps` | № · préc. · **durée** · ✓ | **173 px** — pas d'effort |
+| `distance_temps` | № · préc. · **durée** · **distance** · ✓ | 82 px chacune |
+
+Chaque gabarit est plus confortable que le précédent : une colonne de moins à chaque fois.
+
+**Le type de mesure est rappelé sous le nom de l'exercice**, en petit. Sans ça, une ligne à
+deux colonnes au milieu de lignes à trois désoriente.
+
+#### 3 ter.2 L'effort suit la mesure — RIR ou RPE
+
+> **La colonne d'effort n'existe que là où il y a des répétitions** — `charge_reps` et
+> `reps`. Sur `temps` et `distance_temps`, **aucune colonne, aucune question**.
+
+**Pourquoi, et c'est une décision, pas un oubli.** La piste d'un RPE sur les exercices
+chronométrés a été explorée et **écartée** : elle produisait deux notations différentes dans
+la même colonne, sur deux lignes voisines de la même séance — `−1` sur un développé, `9` sur
+une planche. Illisible.
+
+Et transposer la question ne marchait pas davantage : sur un gainage on s'arrête souvent parce
+qu'on a décidé de s'arrêter, pas parce qu'on ne tient plus. La proximité de l'échec y a moins
+de sens qu'ailleurs.
+
+> **On ne demande pas une donnée qu'on ne sait pas formuler correctement.** À rouvrir si
+> l'usage montre que ça manque — avec une vraie question, pas une transposition.
+
+**L'affichage suit ce que l'utilisateur saisit.** RPE saisi → RPE affiché. Ressenti saisi →
+ressenti affiché. Si les deux coexistent, chacun dans sa forme. Aucune traduction, aucune
+règle de plus : **on montre ce qui est stocké.**
+
+**Conséquence sur le moteur :** il ne recevra jamais d'effort sur `temps` et
+`distance_temps`. Sans gêne — la double progression sur une durée regarde les secondes, pas
+la proximité de l'échec.
+
+#### 3 ter.3 Ce que ça change ailleurs
+
+**La page d'exercice.** La table par nombre de répétitions n'a aucun sens pour une durée. Sur
+`temps`, c'est une table **par nombre de séries** : la plus longue en une série, en deux, en
+trois — la fatigue accumulée y joue le rôle des répétitions.
+
+**Le moteur.** `distance_temps` est **hors périmètre** (`CADRAGE-V2` §2 ter) : l'app les
+affiche, le moteur ne les lit pas — aucune suggestion. Sur `reps` et `temps`, la double
+progression garde tout son sens : on ajoute des répétitions ou des secondes.
+
+> ✅ **Vérifié au chantier 24, avant d'écrire l'affichage : ce n'est PAS un troisième
+> défaut.** `palier.analyser` rend une **absence propre** sur les trois mesures sans charge —
+> `palier: null`, `reps: null`, `meilleure: null`, `erreur: 'aucune-serie-de-travail'`, zéro
+> série retenue. Pas un zéro traité comme une valeur, pas un plantage.
+>
+> La raison est dans le code et elle est délibérée : `utilisable()` écarte toute série sans
+> charge **ni** reps, et le commentaire le dit déjà — « les exercices mesurés en durée ou en
+> distance n'ont donc aucun palier, et c'est correct, ils n'en ont pas ».
+>
+> **Une nuance à retenir pour la suite :** le code d'erreur rendu est le MÊME que celui d'une
+> séance qui n'aurait contenu que des échauffements. Le moteur ne distingue pas « cet exercice
+> n'a pas de palier par nature » de « cette séance n'en avait pas ce jour-là ». L'affichage ne
+> doit donc jamais déduire la mesure d'un code d'erreur : il la lit dans `exercises.mesure`.
+
+#### 3 ter.5 Tranché à l'implémentation — chantier 24
+
+**L'unité de saisie suit la mesure, et elle est écrite dans le champ.** Un gainage se saisit en
+**secondes** (« 50 »), une sortie en **minutes** et en **kilomètres** (« 130 », « 8,4 »). La
+même colonne `duree_s` se tape donc dans deux unités selon l'exercice — non par laxisme, mais
+parce que c'est ce qu'on a en tête au moment de taper : personne ne saisit 7 800 pour une rando
+de deux heures, ni 0,83 pour une planche de 50 secondes. La base ne voit que des secondes et
+des mètres ; un seul facteur sépare les deux, dans une seule table (`THModele.CHAMPS_MESURE`).
+
+> ⚠️ **À confirmer sur device** : c'est le seul point de ce chantier qu'un écran de bureau ne
+> tranche pas. Si taper « 130 » pour 2 h 10 se révèle contre-intuitif en salle, la réponse est
+> un analyseur tolérant (`2h10`, `1h30`, `90min`), pas un changement d'unité.
+
+**Le libellé de type est TU quand la mesure est inconnue.** Catalogue pas encore synchronisé,
+exercice ajouté côté serveur : la grille retombe sur `charge_reps` — de loin la plus courante,
+donc la plus utile — mais n'affiche **aucun** libellé. Écrire « CHARGE × REPS » sur un exercice
+qu'on ne connaît pas serait mentir avec aplomb.
+
+**Le résumé de séance dit la grandeur de chaque mesure.** La carte lisait `meilleure` du
+moteur, qui n'existe pas sans charge : elle restait muette sur trois mesures. Elle lit
+maintenant la meilleure série **directement**, dans la grandeur de la mesure — « 12 » pour des
+tractions, « 50 s » pour une planche, « 2 h 10 · 8,4 km » pour une marche. Aucune formule,
+aucune comparaison. Le **détail** de séance, lui, était déjà juste depuis le chantier 12
+(`formatMesure` couvre les quatre).
+
+#### 3 ter.4 Deux points ouverts venus du catalogue
+
+**L'assistance compte à l'envers** — le poids soulage au lieu de charger. Elle casse le seuil
+des 75 % du §4.1 du moteur, **signalé au chantier 17 et non corrigé**. 128 séries, 10
+exercices.
+
+**Le tonnage suspendu** : le catalogue dit qu'un exercice suspendu compte 100 % du poids de
+corps daté. Or tractions, dips barres et muscle-up sont en `reps` — **sans charge saisie, mais
+avec un tonnage réel**.
+
+**Une séance de gainage seul est classée « sortie »** *(trouvé au chantier 24, non corrigé)*.
+`estExerciceSortie` retient `charge = 'aucune'` **et** `mesure ∈ {temps, distance_temps}` : une
+séance qui ne contiendrait que des planches est donc résumée en durée, comme une randonnée, et
+perd son aperçu d'exercices. Le cas est rare et le correctif toucherait aussi Pilates et
+Escalade, qui sont bien des sorties — à trancher avec la page d'exercice, pas ici.
+
 ### 3 bis — La grille de saisie, arrêtée le 11/09/2026
+
+> ⚠️ **Ce qui suit décrit le gabarit `charge_reps`.** Les trois autres mesures ont leur propre
+> grille — voir le §3 ter, qui prime.
 
 **Six colonnes, vérifiées à 360 px** (et non 380, la largeur réelle de l'appareil) :
 
@@ -118,7 +245,9 @@ le pire cas étant `122,5`. Ça ne tient que parce que la suggestion n'est **pas
 plus**. Dans un superset, la chauffe de A s'appelle `Ac` et se place avant `A1` (§2.5).
 
 **3 bis.2 — La colonne EFFORT accepte deux formes.** Un RPE chiffré, ou un ressenti en
-répétitions restantes affiché `−1`, `−2`, `−0`.
+répétitions restantes affiché `−1`, `−2`, `−0`. **L'affichage suit ce qui a été saisi**, sans
+traduction.
+⚠️ **Elle n'existe que sur `charge_reps` et `reps`** — voir §3 ter.2.
 
 > **Pourquoi pas le RPE seul :** aurel_br l'a saisi sur **136 séries en trois ans, soit 1 %**.
 > Une colonne permanente pour une case presque toujours vide gaspille un dixième de la
@@ -533,9 +662,9 @@ travail retenues par le §7 du moteur.
 > ci-dessus corrigent précisément. Laissé en place, il aurait fait revenir le défaut à la
 > prochaine lecture.
 >
-> **Réapparu dans la version du 12/09, retiré de nouveau. Puis une TROISIÈME fois au
-> chantier 23, et rétabli depuis le dépôt** (`CADRAGE-V2.md` §2 sexies). Le paragraphe est
-> plus tenace que la correction. `v2/js/palier.js` (`meilleureSerie`) implémente la définition
+> **Retiré de nouveau le 12/09, puis au chantier 23, puis au chantier 24 — QUATRE fois, et
+> rétabli chaque fois depuis le dépôt** (`CADRAGE-V2.md` §2 sexies). Le paragraphe est plus
+> tenace que la correction. `v2/js/palier.js` (`meilleureSerie`) implémente la définition
 > ci-dessus depuis le chantier 18 — la charge la plus lourde tenue sur au moins la moitié des
 > reps de la série la plus longue.
 
@@ -951,6 +1080,10 @@ d'avoir quitté.
 
 **C'est elle qui dit le niveau réel** — « mon record c'est 140 » ne veut rien dire sans le
 nombre de répétitions.
+
+> ⚠️ **Ne vaut que pour `charge_reps` et `reps`.** Sur `temps`, la table est **par nombre de
+> séries** — la plus longue en une série, en deux, en trois. Sur `distance_temps`, il n'y a
+> pas de table : ces exercices sont hors du périmètre du moteur (§3 ter.3).
 
 > **Affichage brut, lignes déduites grisées.** On voit ce qu'on a réellement fait, et ce qu'on
 > pourrait revendiquer, visuellement distingué.

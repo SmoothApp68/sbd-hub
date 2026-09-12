@@ -76,6 +76,123 @@
     return bouts.length ? bouts.join(bouts.length > 1 && !aCharge ? ' · ' : ' ') : '—';
   }
 
+  // ══ LES QUATRE MESURES ═══════════════════════════════════════════════════
+  //
+  // `exercises.mesure` définit QUATRE façons d'enregistrer une série, et toute
+  // la grille de saisie avait été dessinée pour la première. Mesuré en base :
+  //
+  //   charge_reps     173 exos   22 056 séries de travail
+  //   reps             45 exos    2 300   — pompes, tractions, dips
+  //   temps            12 exos    1 275   — planche, gainage
+  //   distance_temps    7 exos      501   — rando, course, natation, tapis
+  //
+  // 4 076 séries — 15 % de l'historique — ne s'enregistrent pas en charge ×
+  // reps. Une planche à « 0 kg × 45 » est absurde, et c'est ce que la grille
+  // unique produisait.
+  //
+  // Les données sont propres : chaque mesure ne remplit que ses colonnes, sans
+  // une exception sur 28 103 séries. Rien à nettoyer, seulement à afficher.
+
+  // ── L'UNITÉ DE SAISIE SUIT LA MESURE, ET C'EST DÉLIBÉRÉ ──────────────────
+  //
+  // Un gainage se dit en SECONDES (« 50 »), une sortie en MINUTES (« 130 »).
+  // La même colonne `duree_s` se saisit donc dans deux unités différentes
+  // selon l'exercice — non par laxisme, mais parce que c'est ce qu'on a dans
+  // la tête au moment de taper : personne ne saisit 7 800 pour une rando de
+  // deux heures, ni 0,83 pour une planche de 50 secondes.
+  //
+  // L'unité est ÉCRITE DANS LE CHAMP, donc rien n'est deviné. Et `facteur`
+  // est la seule chose qui sépare l'unité de saisie de l'unité de la colonne :
+  // la base ne voit que des secondes et des mètres.
+  var CHAMPS_MESURE = {
+    charge_kg:   { cle: 'charge_kg',  entete: 'KG',       unite: 'kg',  facteur: 1,    entier: false },
+    reps:        { cle: 'reps',       entete: 'REPS',     unite: null,  facteur: 1,    entier: true },
+    duree_s:     { cle: 'duree_s',    entete: 'DURÉE',    unite: 's',   facteur: 1,    entier: true },
+    duree_min:   { cle: 'duree_s',    entete: 'DURÉE',    unite: 'min', facteur: 60,   entier: true },
+    distance_km: { cle: 'distance_m', entete: 'DISTANCE', unite: 'km',  facteur: 1000, entier: true }
+  };
+
+  // Le libellé est rappelé sous le nom de l'exercice : sans lui, une ligne à
+  // deux colonnes au milieu de lignes à trois désoriente.
+  //
+  // `effort` : la colonne n'existe QUE là où il y a des répétitions. Sur
+  // `temps` et `distance_temps`, aucune colonne, aucune question, rien en base.
+  // C'est une décision, pas un oubli — un RPE sur un gainage produisait deux
+  // notations dans la même colonne, sur deux lignes voisines (`−1` sur un
+  // développé, `9` sur une planche). On ne demande pas une donnée qu'on ne
+  // sait pas formuler correctement.
+  var GABARITS = {
+    charge_reps:    { mesure: 'charge_reps',    champs: ['charge_kg', 'reps'],
+                      effort: true,  libelle: 'CHARGE × REPS' },
+    reps:           { mesure: 'reps',           champs: ['reps'],
+                      effort: true,  libelle: 'REPS SEULES' },
+    temps:          { mesure: 'temps',          champs: ['duree_s'],
+                      effort: false, libelle: 'DURÉE' },
+    distance_temps: { mesure: 'distance_temps', champs: ['duree_min', 'distance_km'],
+                      effort: false, libelle: 'DISTANCE ET DURÉE' }
+  };
+
+  var MESURES = Object.keys(GABARITS);
+
+  // Une mesure inconnue — catalogue pas encore synchronisé, exercice ajouté
+  // côté serveur — ne doit ni planter ni rendre une grille vide. On retombe sur
+  // `charge_reps`, de loin la plus courante, et on TAIT le libellé : affirmer
+  // « CHARGE × REPS » sur un exercice qu'on ne connaît pas serait mentir avec
+  // aplomb. `inconnue` le dit à la vue.
+  function gabaritDe(exo) {
+    var m = exo && exo.mesure;
+    var g = Object.prototype.hasOwnProperty.call(GABARITS, m) ? GABARITS[m] : null;
+    if (g) return g;
+    return { mesure: 'charge_reps', champs: GABARITS.charge_reps.champs,
+             effort: true, libelle: null, inconnue: true };
+  }
+
+  function champDeMesure(nom) {
+    return Object.prototype.hasOwnProperty.call(CHAMPS_MESURE, nom)
+      ? CHAMPS_MESURE[nom] : null;
+  }
+
+  // La colonne « précédent » : 62 px. `formatMesure` y déborderait — on donne
+  // la grandeur qui porte l'information, et elle seule.
+  //   charge_reps → « 122,5×5 » · reps → « 12 » · temps → « 45 s »
+  //   distance_temps → « 6 h 35 » (la distance ne tient pas, la durée gagne)
+  function formatPrecedent(serie, mesure) {
+    if (!serie) return '—';
+    if (mesure === 'reps') {
+      return serie.reps === null || serie.reps === undefined ? '—' : String(serie.reps);
+    }
+    if (mesure === 'temps' || mesure === 'distance_temps') {
+      return formatDuree(serie.duree_s) || '—';
+    }
+    if (serie.charge_kg === null || serie.charge_kg === undefined) return '—';
+    return nombre(serie.charge_kg) +
+      (serie.reps === null || serie.reps === undefined ? '' : '\u00d7' + serie.reps);
+  }
+
+  // ⚠️ `Number(null)` vaut ZÉRO, et `isFinite(0)` vaut vrai.
+  //
+  // Sans cette garde, une série dont le champ est vide remontait « 0 » comme
+  // s'il avait été mesuré — la « planche à 0 » que ce chantier supprime,
+  // réintroduite par la porte de derrière. Le test l'a attrapée avant l'écran.
+  function valeurNumerique(s, champ) {
+    var v = s && s[champ];
+    if (v === null || v === undefined || v === '') return null;
+    var n = Number(v);
+    return isFinite(n) ? n : null;
+  }
+
+  // Le maximum d'un champ sur un lot de séries, rendu en texte. `null` si
+  // aucune série ne le porte — on n'affiche pas un zéro faute de mieux.
+  function texteMax(series, champ, format) {
+    var max = null;
+    (series || []).forEach(function (s) {
+      var v = valeurNumerique(s, champ);
+      if (v === null) return;
+      if (max === null || v > max) max = v;
+    });
+    return max === null ? null : format(max);
+  }
+
   // ── Catalogue ───────────────────────────────────────────────────────────
 
   function indexerExercices(exercices) {
@@ -304,6 +421,44 @@
       });
     }
 
+    // ⚠️ LES TROIS AUTRES MESURES N'ONT PAS DE PALIER, ET C'EST CORRECT.
+    //
+    // `palier.analyser` écarte toute série sans charge NI reps : sur `reps`,
+    // `temps` et `distance_temps` il rend une absence propre — `palier: null`,
+    // `meilleure: null`, `erreur: 'aucune-serie-de-travail'`. Pas un zéro, pas
+    // un plantage. Le journal restait donc muet là où il y avait quelque chose
+    // à dire : « 12 » pour des tractions, « 50 s » pour une planche.
+    //
+    // On ne demande pas au moteur ce qu'il ne sait pas : on lit la meilleure
+    // série DIRECTEMENT, dans la grandeur de la mesure. Aucune formule, aucune
+    // comparaison — le maximum de ce qui a été fait.
+    tete.forEach(function (e) {
+      var g = gabaritDe(index[e.slug]);
+      if (g.mesure === 'charge_reps') return;
+      var siennes = (series || []).filter(function (s) {
+        return s && s.exercise_slug === e.slug && estTravail(s);
+      });
+      if (!siennes.length) return;
+      if (g.mesure === 'reps') {
+        // Pas de clé du tout quand il n'y a rien à dire : « rien » et « zéro »
+        // ne doivent pas se ressembler, même en interne.
+        var t = texteMax(siennes, 'reps', String);
+        if (t !== null) e.valeur = t;
+        return;
+      }
+      var longue = null, plusLongue = null;
+      siennes.forEach(function (s) {
+        var d = valeurNumerique(s, 'duree_s');
+        if (d === null) return;
+        if (longue === null || d > plusLongue) { longue = s; plusLongue = d; }
+      });
+      if (longue === null) return;
+      e.valeur = formatDuree(longue.duree_s);
+      if (g.mesure === 'distance_temps' && longue.distance_m) {
+        e.complement = '\u00b7 ' + formatDistance(longue.distance_m);
+      }
+    });
+
     return {
       tete: tete,
       // Jamais « et 0 autres exercices » : une séance de trois exercices ou
@@ -358,6 +513,12 @@
   var api = {
     LETTRES: LETTRES,
     TYPES_CONNUS: TYPES_CONNUS,
+    MESURES: MESURES,
+    GABARITS: GABARITS,
+    CHAMPS_MESURE: CHAMPS_MESURE,
+    gabaritDe: gabaritDe,
+    champDeMesure: champDeMesure,
+    formatPrecedent: formatPrecedent,
     estTravail: estTravail,
     nombre: nombre,
     formatDuree: formatDuree,

@@ -414,6 +414,13 @@
           val.appendChild(el('em', null, '\u00d7 ' + e.reps));
         }
         ligne.appendChild(val);
+      } else if (e.valeur) {
+        // Les mesures sans charge portent leur propre grandeur — « 12 »,
+        // « 50 s », « 2 h 10 · 8,4 km ». Le modèle a déjà formaté : la vue
+        // n'a rien à convertir.
+        var autre = el('span', 'apercu-val', e.valeur);
+        if (e.complement) autre.appendChild(el('em', null, ' ' + e.complement));
+        ligne.appendChild(autre);
       }
       liste.appendChild(ligne);
     });
@@ -801,6 +808,16 @@
     return enveloppe;
   }
 
+  // De la colonne à ce qu'on tape. `null` reste `null` : un champ vide n'est
+  // pas un zéro.
+  function enUniteDeSaisie(valeur, facteur) {
+    if (valeur === null || valeur === undefined) return null;
+    var n = Number(valeur);
+    if (!isFinite(n)) return null;
+    var f = Number(facteur) || 1;
+    return f === 1 ? n : Math.round((n / f) * 100) / 100;
+  }
+
   function texteEffort(serie) {
     if (serie.rpe !== null && serie.rpe !== undefined) return nombreFr(serie.rpe);
     if (serie.ressenti) return '−' + serie.ressenti.replace('reste_', '').replace('3_plus', '3+');
@@ -866,9 +883,23 @@
     }
 
     seance.exercices.forEach(function (exo, iExo) {
+      // ⚠️ LA GRILLE SUIT LA MESURE DE L'EXERCICE (§3 ter).
+      //
+      // Quatre gabarits, pas un : `charge_reps` (six colonnes), `reps` (cinq),
+      // `temps` (quatre, sans effort), `distance_temps` (cinq, sans effort).
+      // Chacun est plus confortable que le précédent — une colonne de moins à
+      // chaque fois. La table des gabarits vit dans `THModele`, module pur ;
+      // ici on la lit, on ne la redécide pas.
+      var g = M().gabaritDe(vue.exercice(exo.exercise_slug));
+      var champs = g.champs.map(function (n) { return M().champDeMesure(n); });
+
       var bloc = el('div', 'bloc-seance');
       var tete = el('div', 'tete-seance');
       tete.appendChild(el('div', 'exo-seance', vue.nommer(exo.exercise_slug)));
+      // Le type de mesure est rappelé sous le nom : sans lui, une ligne à deux
+      // colonnes au milieu de lignes à trois désoriente. Tu par prudence quand
+      // la mesure est inconnue — on ne nomme pas ce qu'on ne sait pas.
+      if (g.libelle) tete.appendChild(el('div', 'type-mesure', g.libelle));
       // Pas de suggestion : le moteur ne parle pas encore, et inventer un chiffre
       // serait pire que de n'en montrer aucun (§3.3).
       if (exo.repos_cible_s) {
@@ -876,10 +907,13 @@
       }
       bloc.appendChild(tete);
 
-      var entetes = el('div', 'cols-seance');
-      ['', 'PRÉC.', 'KG', 'REPS', 'EFFORT', ''].forEach(function (t, i) {
-        entetes.appendChild(el('span', i >= 2 ? 'centre' : (i === 1 ? 'droite' : ''), t));
-      });
+      var classeGrille = ' grille g-' + g.mesure;
+      var entetes = el('div', 'cols-seance' + classeGrille);
+      entetes.appendChild(el('span', '', ''));
+      entetes.appendChild(el('span', 'droite', 'PRÉC.'));
+      champs.forEach(function (c) { entetes.appendChild(el('span', 'centre', c.entete)); });
+      if (g.effort) entetes.appendChild(el('span', 'centre', 'EFFORT'));
+      entetes.appendChild(el('span', 'centre', ''));
       bloc.appendChild(entetes);
 
       var prec = vue.precedent(exo.exercise_slug);
@@ -892,7 +926,7 @@
 
         var ligne = el('div', 'ligne-serie');
         var fond = el('div', 'glisse-fond', 'Supprimer');
-        var rangee = el('div', 'serie' + (serie.validee_a ? ' faite' : ''));
+        var rangee = el('div', 'serie' + classeGrille + (serie.validee_a ? ' faite' : ''));
 
         var no = el('button', 'no-serie ' + eti.classe, eti.texte);
         no.type = 'button';
@@ -900,18 +934,26 @@
         rangee.appendChild(no);
 
         var ligneP = prec && prec.series ? prec.series[iSerie] : null;
-        rangee.appendChild(el('div', 'prec num', ligneP
-          ? nombreFr(ligneP.charge_kg) + '×' + ligneP.reps : '—'));
+        rangee.appendChild(el('div', 'prec num', M().formatPrecedent(ligneP, g.mesure)));
 
-        rangee.appendChild(champSerie('ch-serie num', serie.charge_kg, f.charge_kg, 'kg',
-          function (v) { vue.surChamp(iExo, iSerie, 'charge_kg', v); }));
-        rangee.appendChild(champSerie('rp-serie num', serie.reps, f.reps, null,
-          function (v) { vue.surChamp(iExo, iSerie, 'reps', v); }));
+        // Une seule boucle pour les quatre gabarits : le champ porte sa colonne,
+        // son unité et son facteur de conversion. La vue ne sait rien de la
+        // différence entre une seconde et un kilomètre.
+        champs.forEach(function (c, iChamp) {
+          rangee.appendChild(champSerie(
+            (iChamp === 0 ? 'ch-serie' : 'rp-serie') + ' num',
+            enUniteDeSaisie(serie[c.cle], c.facteur),
+            enUniteDeSaisie(f[c.cle], c.facteur),
+            c.unite,
+            function (v) { vue.surChamp(iExo, iSerie, g.champs[iChamp], v); }));
+        });
 
-        var eff = el('button', 'eff-serie num' + (texteEffort(serie) ? ' plein' : ''), texteEffort(serie));
-        eff.type = 'button';
-        eff.addEventListener('click', function () { vue.surEffort(iExo, iSerie); });
-        rangee.appendChild(eff);
+        if (g.effort) {
+          var eff = el('button', 'eff-serie num' + (texteEffort(serie) ? ' plein' : ''), texteEffort(serie));
+          eff.type = 'button';
+          eff.addEventListener('click', function () { vue.surEffort(iExo, iSerie); });
+          rangee.appendChild(eff);
+        }
 
         var ok = el('button', 'ok-serie');
         ok.type = 'button';

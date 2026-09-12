@@ -85,8 +85,10 @@
   var seance = null;
   var attente = [];
   var vidangeEnCours = false;
-  var chrono = null;         // { depuis, cible } — le repos en cours
+  var chrono = null;         // { depuis, cible, sonne } — le repos en cours
   var minuteur = null;       // l'intervalle d'affichage du chronomètre
+  var sourdine = false;      // le son du repos, coupé et retenu (§3 bis.8)
+  var audio = null;          // le contexte Web Audio, né au premier geste
   var modeRPE = false;       // la bascule effort, retenue d'une fois sur l'autre
   var feuille = null;        // la feuille ouverte : { quoi, iExo, iSerie }
 
@@ -153,20 +155,32 @@
     local.series = await Cache.lireTout('series');
     local.exercices = await Cache.lireTout('exercices');
     local.pesees = await Cache.lireTout('pesees');
-    ordonnerSeances();
+    rangerSeances();
     indexerParSeance();
     recalculerEtats();
   }
 
-  // INVARIANT : `local.seances` va toujours de la PLUS RÉCENTE à la plus
-  // ancienne. La pagination rend les séances triées par `id`, donc dans un
-  // ordre qui n'a rien à voir avec le temps ; seul le chargement du cache
-  // triait, et une synchronisation réussie défaisait ce tri sans que rien ne
-  // s'en plaigne. Défaut trouvé au banc, pas en test : la vue hebdomadaire
-  // filtre par date et ne voyait donc rien, mais le sommaire, qui lit « les
-  // trois derniers exercices pratiqués », rendait les trois PLUS ANCIENS.
-  function ordonnerSeances() {
-    local.seances.sort(function (a, b) { return String(b.debut).localeCompare(String(a.debut)); });
+  // INVARIANT : `local.seances` ne contient QUE des séances terminées, de la
+  // plus récente à la plus ancienne.
+  //
+  // ⚠️ LE FILTRE EST ICI, ET NULLE PART AILLEURS DANS LA LECTURE.
+  //
+  // Cette fonction est appelée aux TROIS seuls endroits où `local.seances`
+  // change — le cache, la synchronisation, l'adoption d'une séance terminée.
+  // C'est donc un goulot : une séance en cours ne PEUT PAS entrer dans
+  // `local.seances`, quel que soit le chemin, y compris un chemin qu'on
+  // ajouterait demain sans y penser.
+  //
+  // L'alternative — filtrer à chaque point de lecture — demandait de traiter
+  // les SEPT lectures qui dérivent de `local.seances` (semaine, sommaire de
+  // progression, période, relevé par muscle, calendrier, détail d'une séance,
+  // colonne « précédent ») et d'y penser à la huitième. C'est exactement ainsi
+  // que le défaut est né.
+  //
+  // La règle elle-même vit dans `sync.js`, module pur : c'est là qu'elle se
+  // teste. Ici il ne reste que le goulot.
+  function rangerSeances() {
+    local.seances = Sync.ranger(local.seances);
   }
 
   // §5.2 — « monte en charge » est une propriété MESURÉE sur tout l'historique,
@@ -260,9 +274,20 @@
       // comptées côté serveur, et les inclure ferait croire à un surplus.
       var listeComplete = Sync.verifierCompletude(seances.length, compteSeances).complet;
       var fusionnees = Sync.fusionner(local.series, nouvellesSeries);
+      // ⚠️ LA PURGE PASSE AVANT LE RANGEMENT, ET L'ORDRE COMPTE.
+      //
+      // Elle répond à « cette séance existe-t-elle encore ? », pas à « est-elle
+      // terminée ? ». Rangée d'abord, la liste ne contiendrait plus la séance
+      // en cours, et la purge effacerait ses séries montées — que
+      // `compterSeries` compte toujours côté serveur. Le curseur cesserait
+      // d'avancer, « N séries manquantes » s'afficherait, et 15 Mo
+      // redescendraient à chaque synchronisation, pendant toute la séance.
       local.series = Sync.purgerSeriesOrphelines(fusionnees, local.seances, listeComplete);
       local.exercices = Sync.remplacer(exercices);
-      ordonnerSeances();
+      // Et MAINTENANT le corpus de lecture : la séance en cours sort ici, une
+      // ligne avant que le cache ne soit écrit — donc elle n'y entre pas non
+      // plus.
+      rangerSeances();
       indexerParSeance();
       recalculerEtats();
 
@@ -609,7 +634,7 @@
     var ligne = Seance.ligneSession(finie);
     local.seances = Sync.fusionner(local.seances, [ligne]);
     local.series = Sync.fusionner(local.series, Seance.lignes(finie));
-    ordonnerSeances();
+    rangerSeances();
     indexerParSeance();
     recalculerEtats();
     Cache.remplacerTout('seances', local.seances).catch(function () {});
@@ -638,7 +663,11 @@
   // Il INFORME, il ne commande pas : pas d'alarme au dépassement, pas de
   // blocage, aucun décompte qui presse.
   function demarrerChrono(cible) {
-    chrono = { depuis: Date.now(), cible: cible || null };
+    chrono = { depuis: Date.now(), cible: cible || null, sonne: false };
+    // Le contexte audio doit NAÎTRE dans le geste utilisateur : une politique
+    // d'autoplay refuse un contexte créé une minute plus tard, dans un
+    // `setInterval`. On le réveille donc à la validation, pas à l'échéance.
+    reveillerAudio();
     arreterMinuteur();
     minuteur = racine.setInterval(rendreChrono, 1000);
     rendreChrono();
@@ -648,16 +677,105 @@
     if (minuteur) { racine.clearInterval(minuteur); minuteur = null; }
   }
 
+  function secondesDeRepos() {
+    return Math.max(0, Math.round((Date.now() - chrono.depuis) / 1000));
+  }
+
   function rendreChrono() {
     var noeud = $('repos');
     if (!noeud) return;
     if (!chrono) { noeud.hidden = true; return; }
     noeud.hidden = false;
+    var secondes = secondesDeRepos();
+    // UNE SEULE FOIS : `echeanceAtteinte` retourne faux dès que `sonne` est
+    // posé, et rien ne le repose tant que la cible n'est pas repoussée.
+    if (Seance.echeanceAtteinte(chrono.cible, secondes, chrono.sonne)) {
+      chrono.sonne = true;
+      signalerEcheance();
+    }
     Rendu.rendreRepos(noeud, {
-      secondes: Math.max(0, Math.round((Date.now() - chrono.depuis) / 1000)),
+      secondes: secondes,
       cible: chrono.cible,
+      sourdine: sourdine,
+      pas: Seance.PAS_REPOS,
+      surAjuster: function (delta) { ajusterRepos(delta); },
+      surSourdine: function () { basculerSourdine(); },
       surPasser: function () { chrono = null; arreterMinuteur(); rendreChrono(); }
     });
+  }
+
+  // Une cible mal réglée est le cas courant : on la corrige par pas de 15 s,
+  // en séance, sans rien enregistrer — le réglage vaut pour le repos en cours,
+  // pas pour la routine.
+  //
+  // Repousser la cible au-delà du temps écoulé RÉARME l'échéance : c'est une
+  // nouvelle échéance, posée à la main, pas une répétition de la précédente.
+  function ajusterRepos(delta) {
+    if (!chrono) return;
+    chrono.cible = Seance.ajusterCible(chrono.cible, delta);
+    if (chrono.cible > secondesDeRepos()) chrono.sonne = false;
+    rendreChrono();
+  }
+
+  function basculerSourdine() {
+    sourdine = !sourdine;
+    try { racine.localStorage.setItem('th-v2-sourdine', sourdine ? '1' : '0'); }
+    catch (e) { /* stockage refusé : le choix vaut pour la session, pas au-delà */ }
+    rendreChrono();
+  }
+
+  function lireSourdine() {
+    try { sourdine = racine.localStorage.getItem('th-v2-sourdine') === '1'; }
+    catch (e) { sourdine = false; }
+  }
+
+  // À l'échéance : un son court et unique, et une vibration unique (§3 bis.8).
+  //
+  // La SOURDINE coupe le son, pas la vibration. C'est délibéré : on met son
+  // téléphone en silencieux dans une salle, on ne renonce pas pour autant à
+  // savoir que le repos est fini. Couper les deux reviendrait à retirer le
+  // chronomètre.
+  function signalerEcheance() {
+    if (!sourdine) biper();
+    vibrer(VIBRATION_ECHEANCE);
+  }
+
+  function contexteAudio() {
+    if (audio) return audio;
+    var C = racine.AudioContext || racine.webkitAudioContext;
+    if (!C) return null;
+    try { audio = new C(); } catch (e) { audio = null; }
+    return audio;
+  }
+
+  function reveillerAudio() {
+    if (sourdine) return;
+    var a = contexteAudio();
+    if (a && a.state === 'suspended' && typeof a.resume === 'function') {
+      try { a.resume(); } catch (e) { /* rien à faire */ }
+    }
+  }
+
+  // Le son est SYNTHÉTISÉ, pas chargé : pas de fichier binaire au dépôt, pas
+  // de CDN, rien à précacher. Une sinusoïde de 880 Hz sur 200 ms, avec une
+  // rampe d'attaque et d'extinction — un créneau coupé net claque.
+  function biper() {
+    var a = contexteAudio();
+    if (!a || typeof a.createOscillator !== 'function') return;
+    try {
+      var t = a.currentTime;
+      var osc = a.createOscillator();
+      var gain = a.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(0.25, t + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.19);
+      osc.connect(gain);
+      gain.connect(a.destination);
+      osc.start(t);
+      osc.stop(t + 0.2);
+    } catch (e) { /* le son est un confort, pas une garantie */ }
   }
 
   // ── Les gestes de saisie ────────────────────────────────────────────────
@@ -685,10 +803,23 @@
   }
 
   // Le retour haptique : aucun pixel, et il confirme la validation même avec
-  // les mains moites. `vibrate` n'existe pas partout et peut être refusé.
-  function vibrer() {
-    try { if (racine.navigator && racine.navigator.vibrate) racine.navigator.vibrate(18); }
-    catch (e) { /* rien à faire : c'est un confort, pas une garantie */ }
+  // les mains moites (§3 bis.4). `vibrate` n'existe pas partout et peut être
+  // refusé.
+  //
+  // ⚠️ 18 ms — la valeur d'avant — est SOUS le seuil utile : le moteur à masse
+  // excentrée d'un téléphone met une vingtaine de millisecondes rien qu'à
+  // démarrer, si bien que l'appel réussissait sans que rien ne se sente. C'est
+  // l'explication la plus probable du « spécifié mais absent » relevé sur
+  // device le 11/09 ; la vérification au banc est dans le rapport.
+  var VIBRATION_VALIDATION = 35;
+  var VIBRATION_ECHEANCE = 120;   // à travers une poche, il faut plus long
+
+  function vibrer(duree) {
+    try {
+      if (racine.navigator && typeof racine.navigator.vibrate === 'function') {
+        racine.navigator.vibrate(duree || VIBRATION_VALIDATION);
+      }
+    } catch (e) { /* rien à faire : c'est un confort, pas une garantie */ }
   }
 
   function precedentDe(slug) {
@@ -1211,6 +1342,7 @@
     // C'est ce qui fait qu'une app tuée en pleine séance rouvre sur la séance,
     // hors ligne comme en ligne.
     lireModeRPE();
+    lireSourdine();
     await chargerSeanceLocale();
 
     // Ouverture immédiate sur ce qu'on a déjà, avant toute requête réseau.

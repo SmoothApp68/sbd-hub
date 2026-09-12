@@ -86,6 +86,27 @@
   // Rafraîchissement COMPLET : 545 Ko, et `sessions` n'a aucune colonne de
   // modification. C'est le seul moyen de voir un titre changé ou une séance
   // supprimée.
+  //
+  // ⚠️ PAS DE FILTRE SUR `statut` ICI, ET C'EST DÉLIBÉRÉ.
+  //
+  // Le premier jet du chantier 23 filtrait `statut = 'terminee'` au serveur,
+  // pour « ne pas transporter ce qui sera jeté ». C'était faux, et de peu :
+  // cette liste ne sert pas qu'à l'affichage. Elle sert AUSSI à répondre à
+  // « quelles séances EXISTENT ? » — c'est elle qui autorise
+  // `purgerSeriesOrphelines` à effacer les séries d'une séance supprimée, et
+  // c'est `compterSeances` qui atteste qu'elle est complète.
+  //
+  // Filtrée, elle répondait « quelles séances sont TERMINÉES ? » à une question
+  // qui n'était pas celle-là. Conséquence, pendant toute la durée d'une séance :
+  // ses séries montées étaient purgées du cache alors que `compterSeries` les
+  // comptait encore côté serveur, donc `decisionDeCommit` refusait d'avancer le
+  // curseur, donc « N séries manquantes » s'affichait et 15 Mo se
+  // retéléchargeaient à chaque synchronisation. Pendant qu'on s'entraîne.
+  //
+  // Le filtre d'affichage vit donc à UN seul endroit — `rangerSeances`
+  // (app.js), là où la liste du serveur devient le corpus qu'on lit et ce qu'on
+  // écrit au cache. Une ligne de plus transportée par séance ouverte est un
+  // prix nul ; la cohérence entre la purge et son compte ne l'est pas.
   function toutesLesSeances() {
     return paginerParCle(trancheur(function () {
       return client().from('sessions').select(COLONNES_SEANCE);

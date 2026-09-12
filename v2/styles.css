@@ -612,8 +612,15 @@ button{font-family:inherit;cursor:pointer}
   background:transparent;color:var(--texte-3);display:grid;place-items:center}
 .ok-serie svg{width:17px;height:17px;stroke:currentColor;fill:none;
   stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+/* §3 bis.7 — TOUTE la ligne validée passe en vert. La coche seule est trop
+   discrète à bout de bras, entre deux séries : on doit voir où l'on en est
+   sans lire. Vert de SENS (--reussi dilué dans le panneau), jamais l'accent —
+   le jaune reste réservé à l'onglet actif et à la suggestion du moteur. */
+.serie.faite{background:#1E2A25}
 .serie.faite .ch-serie,.serie.faite .rp-serie{background:transparent;border-color:transparent}
-.serie.faite .ok-serie{background:#22312A;border-color:#2F4A3A;color:var(--reussi)}
+/* La coche reste l'élément le plus clair de la ligne : le fond vert monte
+   sous elle, elle monte avec lui. */
+.serie.faite .ok-serie{background:#27392F;border-color:#3A5A46;color:var(--reussi)}
 
 .ajout-serie{padding:var(--e2) var(--e3) var(--e3)}
 .ajout-serie button{width:100%;height:36px;border-radius:var(--r-petit);
@@ -627,10 +634,15 @@ button{font-family:inherit;cursor:pointer}
   border-top:1px solid var(--trait);padding:var(--e3) var(--e4) var(--e3);
   max-width:520px;margin:0 auto;z-index:50}
 .repos[hidden]{display:none}
-.repos-h{display:flex;align-items:baseline;gap:var(--e2);margin-bottom:var(--e2)}
+.repos-h{display:flex;align-items:center;gap:var(--e2);margin-bottom:var(--e2)}
 .repos-g{font-size:26px;font-weight:700;letter-spacing:-.02em;line-height:1}
-.repos-c{font-size:11px;color:var(--texte-3)}
-.repos-h .discret{margin-left:auto}
+.repos-c{font-size:11px;color:var(--texte-3);white-space:nowrap}
+/* −15 / +15 / son : des commandes, pas des boutons d'action. Discrètes, mais
+   la cible de tap fait 30 px de haut — on les vise entre deux séries. */
+.repos-b{min-width:34px;height:30px;padding:0 6px;border-radius:var(--r-petit);
+  border:1px solid var(--trait);background:transparent;color:var(--texte-2);
+  font:600 11px/1 inherit;font-family:inherit;flex:0 0 auto}
+.repos-b.coupe{color:var(--texte-3);border-style:dashed}
 .piste{height:3px;background:var(--panneau-2);border-radius:2px;overflow:hidden}
 .piste i{display:block;height:100%;background:var(--texte-3)}
 

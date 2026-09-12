@@ -136,6 +136,33 @@ ou le moteur propose. On valide sans rien taper quand c'est juste.
 
 **3 bis.4 — Le retour haptique.** Une vibration à la validation confirme « même avec les mains
 moites ». **L'optimisation la moins chère qui soit : aucun pixel.**
+⚠️ **Spécifié mais absent** — vérifié sur device le 11/09, aucune vibration à la validation.
+**Diagnostic du chantier 23 :** l'appel était bien fait, mais sur **18 ms** — une durée où un
+moteur à masse excentrée a seulement fini de démarrer. Porté à **35 ms** à la validation et
+**120 ms** à l'échéance du repos, qui doit se sentir à travers une poche. L'API elle-même est
+présente et appelée, vérifié au banc en navigateur réel.
+
+**3 bis.7 — La ligne validée passe en vert.** La coche seule est trop discrète à bout de bras,
+entre deux séries. **Toute la ligne** change de fond : on voit d'un coup d'œil où l'on en est,
+sans lire.
+
+**3 bis.8 — Le chronomètre de repos.** À l'échéance, **un son court et unique, accompagné
+d'une vibration unique**. Pas de décompte qui presse, pas d'alarme au dépassement, rien qui se
+répète — le §7 ter.3 tient : il informe, il ne commande pas.
+
+**Deux commandes** : **−15 s / +15 s**, parce qu'une cible mal réglée est le cas courant, et
+une **sourdine** qui se retient d'une séance à l'autre.
+
+Arbitré au chantier 23 : le réglage vaut pour **le repos en cours**, jamais pour la routine —
+corriger la routine depuis la salle serait une décision prise en trois secondes et gardée pour
+toujours. Une cible à **zéro ne sonne jamais** : zéro veut dire « pas de cible », pas « tout de
+suite ». Repousser la cible au-delà du temps écoulé **réarme** l'échéance — c'est une échéance
+nouvelle, posée à la main, pas une répétition. Et la **sourdine coupe le son, pas la
+vibration** : on met son téléphone en silencieux dans une salle, on ne renonce pas pour autant
+à savoir que le repos est fini.
+
+Le son est **synthétisé** (880 Hz, 200 ms, Web Audio) : pas de fichier binaire au dépôt, pas de
+CDN, rien à précacher.
 
 **3 bis.5 — Glissement latéral pour supprimer une série.** Geste horizontal sur une ligne,
 comme partout ailleurs. Il n'entre pas en conflit avec le défilement vertical.
@@ -506,10 +533,11 @@ travail retenues par le §7 du moteur.
 > ci-dessus corrigent précisément. Laissé en place, il aurait fait revenir le défaut à la
 > prochaine lecture.
 >
-> **Réapparu dans la version du 12/09, retiré de nouveau.** C'est la deuxième fois : le
-> paragraphe est plus tenace que la correction. `v2/js/palier.js` (`meilleureSerie`) implémente
-> la définition ci-dessus depuis le chantier 18 — la charge la plus lourde tenue sur au moins
-> la moitié des reps de la série la plus longue.
+> **Réapparu dans la version du 12/09, retiré de nouveau. Puis une TROISIÈME fois au
+> chantier 23, et rétabli depuis le dépôt** (`CADRAGE-V2.md` §2 sexies). Le paragraphe est
+> plus tenace que la correction. `v2/js/palier.js` (`meilleureSerie`) implémente la définition
+> ci-dessus depuis le chantier 18 — la charge la plus lourde tenue sur au moins la moitié des
+> reps de la série la plus longue.
 
 **Trois, pas plus** : les séances font 8,1 exercices en moyenne. **L'ordre porte
 l'intention** — le mouvement principal vient en premier. Le premier exercice est en texte
@@ -606,21 +634,12 @@ touché mercredi, pourquoi toute la semaine ».
 d'un coup d'œil. Les jours du mois voisin restent visibles mais éteints, **avec leurs
 points** : une semaine à cheval se choisit quand même.
 
-> ⚠️ **Corrigé le 11/09/2026 après usage.** « Cette semaine » vivait dans le **pied du
-> calendrier** depuis le chantier 13, au motif qu'« on ne s'en sert qu'après s'être éloigné ».
-> Le raisonnement était juste, la conclusion fausse : c'est justement parce qu'on s'en sert
-> après s'être éloigné qu'il doit être **là où on est**, pas derrière l'ouverture d'un
-> calendrier.
+« Cette semaine » est dans **la barre de semaine**, où il apparaît dès qu'on quitte la
+semaine courante et disparaît quand on y revient. Il est **aussi** dans le pied du calendrier.
 
-> **« Cette semaine » apparaît dans la barre de semaine dès qu'on quitte la semaine courante,
-> et disparaît quand on y est.** Absent plutôt que grisé : un bouton qui ne fait rien est un
-> bouton de trop, et sa disparition dit à elle seule « tu y es ». Il reste **aussi** dans le
-> pied du calendrier ; les deux ne se gênent pas. Vaut pour **Séances et la vue Volume**, qui
-> partagent la barre.
-
-*(Rétabli le 12/09 : la version reçue était revenue au pied du calendrier seul. C'est en place
-dans `app.js` — `barrePour` ne fournit `surCetteSemaine` que hors semaine courante, et c'est
-l'absence de la fonction qui fait l'absence du bouton.)*
+> ⚠️ **Corrigé le 11/09/2026 et implémenté.** Cette section a dit qu'il vivait au pied du
+> calendrier **seul** — mauvaise décision : dès qu'on recule de deux ou trois semaines on veut
+> revenir, et ouvrir le calendrier pour ça est un détour.
 
 > ⚠️ **Aucune couleur d'alerte, aucun compteur de régularité, rien sur les jours vides.**
 > `CADRAGE-V2.md` §3.1 bis — le système ne commente jamais l'assiduité. Un point, ou rien.
@@ -728,61 +747,38 @@ du §7 bis.10.
 **dix-huit courbes colorées** sur un écran de téléphone, illisible sans une liste de cases à
 cocher. C'est précisément pourquoi on regroupe en six zones **avant** de tracer.
 
-### 7 bis.18 Le rechargement hors ligne — diagnostic rectifié le 11/09/2026
+### 7 bis.18 Le démarrage ne doit rien attendre du réseau
 
-Symptôme constaté sur device : **hors réseau l'app fonctionne, mais recharger la page la
-coupe.** Attribué au service worker, qui ne servirait pas la coquille.
+Consigné après le diagnostic du chantier 18, complété par celui des chantiers 19-20.
 
-> **Ce n'était pas le service worker.** Reproduit au banc, serveur d'origine ARRÊTÉ pour de
-> bon : la coquille est servie sur `/`, sur `/semaine/…` et sur `/progression` — scripts
-> chargés, CSS appliqué. Et **aucune section n'est affichée.**
+**Symptôme mesuré sur device** : hors réseau, l'app affichait un écran noir, ou un écran de
+connexion infranchissable. **Une heure sans réseau suffit — c'est-à-dire une séance en salle.**
 
-La cause est le **démarrage**. `demarrer()` attendait `getSession()` du SDK Supabase. Ce
-dernier lit bien le stockage, mais si l'access token est périmé il tente un **rafraîchissement
-réseau** avant de répondre. Hors réseau, deux issues, toutes deux mesurées au banc :
+**Cause :** le service worker servait bien la coquille. C'est le **démarrage qui attendait
+`getSession()`**, lequel part en rafraîchissement réseau dès que le jeton est périmé. Hors
+réseau, deux issues, les deux reproduites : la requête **pend** → écran noir ; elle **échoue**
+→ écran de connexion.
 
-| Ce que fait le SDK | Ce que voyait l'utilisateur |
-|---|---|
-| la requête **pend** (retry avec backoff) | **écran noir** — rien n'est jamais rendu |
-| la requête **échoue** et il rend `null` | **écran de connexion**, impossible à franchir |
+> **Une sonde synchrone sur le jeton stocké décide seule de ce qu'on affiche.** Le SDK répond
+> après et ne bloque rien. C'est la garde que le v1 avait et que la v2 avait perdue.
 
-Dans les deux cas, les 28 000 séries sont sur l'appareil et inatteignables. Une heure sans
-réseau suffit à périmer le jeton : c'est le scénario d'une séance en salle.
+**Suite — le cache d'abord a ensuite cassé l'app EN LIGNE.** Passer la coquille en
+cache-d'abord tenait quand le réseau *pend*, mais Cloudflare Pages canonicalise `/index.html`
+en **308 vers `/`** : la réponse mise en cache porte `redirected: true`, et **une réponse
+redirigée ne peut pas satisfaire une navigation** — `ERR_FAILED`, réseau présent.
 
-> **Le démarrage ne demande plus rien au réseau.** Une sonde **synchrone** lit le jeton en
-> localStorage et décide seule de ce qu'on affiche. Le verdict du SDK arrive après et ne
-> bloque rien.
+Corrigé au chantier 20 : garde `utilisable()` avec le test sur `redirected`, réseau en porte
+de sortie, réempaquetage à l'entrée du cache, et trappe `/__sw-off`.
 
-C'est la leçon du v1, réappliquée : `CLAUDE.md` §9 décrit exactement cette garde (« la
-décision d'attendre vient de la sonde SYNCHRONE, JAMAIS d'un appel réseau — un `getSession`
-qui échoue ne dé-arme pas l'attente »). Elle avait été perdue au passage en v2.
-
-**Corollaire :** une session nulle annoncée par le SDK ne déconnecte plus personne. On ne sort
-quelqu'un de ses données que si le jeton a **vraiment disparu du stockage** — ce que fait le
-bouton Quitter, et ce que fait le SDK quand le compte est réellement révoqué.
-
-**Le service worker a quand même changé**, pour une raison distincte et réelle : il servait la
-coquille **réseau d'abord**. Ça tient quand le réseau *échoue* — `fetch` rejette aussitôt et le
-repli joue. Ça ne tient pas quand le réseau *répond mal* : un wifi de salle qui s'associe sans
-donner d'accès ne fait pas échouer `fetch`, il le fait **pendre**. La coquille est désormais
-servie **depuis le cache d'abord**, avec rafraîchissement en arrière-plan. Elle est versionnée
-par `CACHE_V2`, donc c'est sans risque.
-
-L'installation ne se fait plus non plus en tout-ou-rien : un seul fichier manqué sur un réseau
-capricieux laissait l'app **sans aucun cache**.
-
-> **Suite, 11-12/09/2026 : le cache d'abord a eu un coût, et il est corrigé.** Servir la
-> coquille depuis le cache sans VÉRIFIER l'entrée a rendu l'app inaccessible **en ligne**
-> (`ERR_FAILED` sur toutes les navigations) : Cloudflare Pages canonicalise `/index.html` en
-> 308 vers `/`, `fetch` suit, et la réponse mise en cache porte `redirected: true` — ce qu'une
-> requête de navigation interdit. Diagnostic au chantier 19, correction au 20. **Les quatre
-> vérifications d'avant-fusion d'un service worker vivent désormais dans `CLAUDE.md` §4 bis**,
-> avec la configuration discriminante : serveur qui redirige · service worker installé ·
-> serveur allumé.
-
----
+> ⚠️ **La réponse empoisonnée est 200, `ok`, `basic`. Seul `redirected` la distingue** — un
+> test sur le statut passe à côté. Et **aucun `await` sans issue dans le gestionnaire
+> `fetch`** : un service worker qui pend est le seul cas irrécupérable.
 
 ### 7 bis.8 Ordre recommandé — mis à jour le 11/09/2026
+
+> ⚠️ **Avant d'envoyer ce document à Claude Code : comparer avec la version du dépôt**
+> (`CADRAGE-V2.md` §2 sexies). Trois corrections datées du 11/09 ont déjà été perdues une fois
+> par une régénération locale, dont deux qui décrivaient du code en production.
 
 **Fait** — ancre d'historique · onglets et fondations visuelles · vue hebdomadaire et
 calendrier · Progression (sommaire, volume, poids, radar) · palier en JS · bibliothèque de
@@ -864,6 +860,64 @@ prise. La matière existe à moitié : `exercises.famille` groupe les mouvements
 le §13 du moteur s'en sert déjà comme niveau de repli.
 
 Chantier à part, pas un champ de plus sur la routine.
+
+---
+
+## 7 quinquies. Une séance `en_cours` n'est pas une séance — constaté le 11/09/2026
+
+Vérifié sur device : pendant qu'une séance est en cours, elle apparaît **partout comme une
+séance terminée**.
+
+| Endroit | Constat |
+|---|---|
+| Liste de l'onglet Séances | elle s'affiche, cochée comme validée |
+| Carte de séance | elle porte son résumé d'exercices et son compte de séries |
+| Totaux de la semaine | ses séries y sont comptées |
+| Relevé par muscle | ses séries y sont comptées |
+| Onglet Saisie | elle est bien signalée « en cours » — seul endroit correct |
+
+L'écriture est juste : `statut = 'en_cours'` est bien posé, et l'abandon supprime la séance.
+**C'est la lecture qui ignore le statut.**
+
+> **Toute lecture de `sessions` doit filtrer sur `statut = 'terminee'`**, sauf la reprise de
+> séance, qui est le seul endroit à vouloir l'inverse.
+
+**Pourquoi ce n'est pas cosmétique.** Une séance en cours comptée dans les totaux fausse le
+relevé par muscle, donc la règle de volume, donc — quand il parlera — le moteur. Et elle le
+fait **pendant** qu'on s'entraîne, c'est-à-dire au moment où l'on regarde ces chiffres.
+
+C'est précisément ce que le statut explicite devait empêcher (`SCHEMA-REEL.md`, piège n° 2) :
+la valeur est écrite, personne ne s'en sert.
+
+### 7 quinquies.1 Corrigé au chantier 23 — et où le filtre se pose exactement
+
+> ⚠️ **« Toute lecture » veut dire la LECTURE, pas le TRANSPORT.** La distinction n'est pas
+> une nuance : appliquée à la requête, la règle casse la synchronisation.
+
+`toutesLesSeances()` ne sert pas qu'à l'affichage. C'est elle qui répond à « quelles séances
+**existent** ? », et c'est à cette liste que `purgerSeriesOrphelines` se fie pour effacer les
+séries d'une séance supprimée, sous l'autorité du compte `compterSeances`.
+
+Filtrée sur `terminee` au serveur, elle répondait à une autre question. Deux conséquences, les
+deux mesurées au banc :
+
+| Ce qu'on filtre | Ce qui casse |
+|---|---|
+| la requête **et** le compte | les séries montées de la séance en cours sont purgées du cache alors que le serveur les compte encore → curseur bloqué, « N séries manquantes », 15 Mo retéléchargés **à chaque synchronisation, pendant la séance** |
+| la requête **seule** | la liste devient plus courte que le compte → `verifierCompletude` la déclare incomplète → **la purge s'éteint** et les séries d'une séance supprimée restent en cache indéfiniment |
+
+> **Le filtre vit donc à UN seul endroit : `rangerSeances()` (app.js)**, là où la liste du
+> serveur devient le corpus qu'on lit — et, une ligne avant l'écriture du cache, ce qu'on
+> persiste. C'est un goulot : les trois seuls chemins qui modifient `local.seances` y passent,
+> et les sept lectures qui en dérivent (semaine, sommaire, période, relevé par muscle,
+> calendrier, détail, colonne « précédent ») sont filtrées par construction. Filtrer à chaque
+> point de lecture aurait demandé d'y penser au huitième — c'est ainsi que le défaut est né.
+
+L'ordre compte aussi : **la purge passe avant le rangement.** Elle répond à « cette séance
+existe-t-elle encore ? », pas à « est-elle terminée ? ».
+
+Seule exception, inchangée : `seancesEnCours()`, qui interroge `statut = 'en_cours'` pour la
+reprise.
 
 ---
 

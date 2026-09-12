@@ -140,6 +140,48 @@
     return liste;
   }
 
+  // ══ UNE SÉANCE `en_cours` N'EST PAS UNE SÉANCE ═══════════════════════════
+  //
+  // Vérifié sur device au chantier 22 : pendant qu'une séance était en cours,
+  // elle apparaissait PARTOUT comme une séance terminée — dans la liste, sur sa
+  // carte, dans les totaux de la semaine, dans le relevé par muscle.
+  //
+  // Ce n'est pas cosmétique. Une séance en cours comptée dans les totaux fausse
+  // le relevé par muscle, donc la règle de volume, donc — quand il parlera — le
+  // moteur. Et elle le fausse PENDANT qu'on s'entraîne, c'est-à-dire au moment
+  // exact où l'on regarde ces chiffres.
+  //
+  // L'écriture était juste : `statut = 'en_cours'` était bien posé. C'est la
+  // LECTURE qui l'ignorait. C'est le piège n° 2 de `SCHEMA-REEL.md` : la valeur
+  // est écrite, personne ne s'en sert.
+  //
+  // ⚠️ Le seul endroit qui veut l'inverse est la REPRISE de séance, et elle ne
+  // passe pas par ici : elle lit le brouillon local, et `Donnees.seancesEnCours`
+  // si un jour elle interroge le serveur.
+  function terminees(seances) {
+    return (seances || []).filter(function (s) {
+      // Une séance sans statut vient d'un import : elle est terminée par
+      // définition — les 1 221 séances importées portent toutes 'terminee'.
+      return !s || !s.statut || s.statut === 'terminee';
+    });
+  }
+
+  // Le corpus de lecture, dans son seul état valide : QUE des séances
+  // terminées, de la plus récente à la plus ancienne.
+  //
+  // L'ordre était déjà une dette silencieuse : la pagination rend les séances
+  // triées par `id`, un ordre qui n'a rien à voir avec le temps. Une
+  // synchronisation réussie défaisait donc le tri du cache sans que rien ne
+  // s'en plaigne.
+  //
+  // Filtre ET tri au même endroit, exprès : ce sont les deux moitiés d'un seul
+  // invariant, et les séparer inviterait à n'en appeler qu'une.
+  function ranger(seances) {
+    return terminees(seances).sort(function (a, b) {
+      return String(b && b.debut).localeCompare(String(a && a.debut));
+    });
+  }
+
   // Curseur de synchronisation : l'instant le plus récent qu'on ait vu passer.
   // On regarde plusieurs champs parce qu'une ligne modifiée porte `modifie_a`
   // alors qu'une ligne neuve ne porte que `created_at`.
@@ -205,6 +247,8 @@
     cacheAppartientA: cacheAppartientA,
     fusionner: fusionner,
     remplacer: remplacer,
+    terminees: terminees,
+    ranger: ranger,
     curseurDe: curseurDe,
     purgerSeriesOrphelines: purgerSeriesOrphelines,
     deciderEtat: deciderEtat

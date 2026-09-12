@@ -941,22 +941,54 @@
 
   // Le chronomètre INFORME, il ne commande pas : pas d'alarme au dépassement,
   // pas de blocage, aucun décompte qui presse. La piste se remplit et continue.
+  //
+  // Trois commandes, et pas une de plus (§3 bis.8) : −15 s, +15 s, et la
+  // sourdine. Les deux premières parce qu'une cible mal réglée est le cas
+  // courant ; la troisième parce qu'on ne veut pas toujours du son.
   function rendreRepos(cible, vue) {
     vider(cible);
+    var pas = vue.pas || 15;
+
     var h = el('div', 'repos-h');
     h.appendChild(el('span', 'repos-g num', mmss(vue.secondes)));
-    if (vue.cible) h.appendChild(el('span', 'repos-c num', 'cible ' + mmss(vue.cible)));
+
+    h.appendChild(boutonRepos('−' + pas, 'Réduire la cible de ' + pas + ' secondes',
+      function () { if (vue.surAjuster) vue.surAjuster(-pas); }));
+    // Une cible absente se dit, elle ne se devine pas : le tiret cadratin
+    // signale qu'il n'y en a pas, et +15 en pose une.
+    h.appendChild(el('span', 'repos-c num',
+      'cible ' + (vue.cible ? mmss(vue.cible) : '—')));
+    h.appendChild(boutonRepos('+' + pas, 'Allonger la cible de ' + pas + ' secondes',
+      function () { if (vue.surAjuster) vue.surAjuster(pas); }));
+
+    var son = boutonRepos(vue.sourdine ? 'Son ✕' : 'Son',
+      vue.sourdine ? 'Rétablir le son du repos' : 'Couper le son du repos',
+      function () { if (vue.surSourdine) vue.surSourdine(); });
+    if (vue.sourdine) son.classList.add('coupe');
+    son.style.marginLeft = 'auto';
+    h.appendChild(son);
+
     var p = el('button', 'discret', 'Passer');
     p.type = 'button';
     p.addEventListener('click', vue.surPasser);
     h.appendChild(p);
     cible.appendChild(h);
+
     var piste = el('div', 'piste');
     var barre = el('i', '');
     barre.style.width = vue.cible
       ? Math.min(100, Math.round((vue.secondes / vue.cible) * 100)) + '%' : '0%';
     piste.appendChild(barre);
     cible.appendChild(piste);
+  }
+
+  function boutonRepos(texte, titre, surClic) {
+    var b = el('button', 'repos-b', texte);
+    b.type = 'button';
+    b.setAttribute('aria-label', titre);
+    b.title = titre;
+    b.addEventListener('click', surClic);
+    return b;
   }
 
   // ── Les feuilles ────────────────────────────────────────────────────────

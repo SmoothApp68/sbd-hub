@@ -351,8 +351,39 @@
     return { charge_kg: charge, reps: reps === undefined ? null : reps };
   }
 
+  // ── Le repos : la cible et son échéance ─────────────────────────────────
+  //
+  // La cible vient de la routine (`repos_cible_s`), et une cible mal réglée est
+  // le cas courant : on l'ajuste par pas de 15 s, en séance, sans rien
+  // enregistrer. Le réglage vaut pour le repos en cours, pas pour la routine —
+  // corriger la routine depuis la salle serait une décision prise en trois
+  // secondes et gardée pour toujours.
+  var PAS_REPOS = 15;
+
+  function ajusterCible(cible, delta) {
+    var base = Number(cible) || 0;
+    var n = base + (Number(delta) || 0);
+    if (n < 0) n = 0;
+    if (n > REPOS_MAX) n = REPOS_MAX;
+    return n;
+  }
+
+  // À l'échéance : UNE SEULE FOIS. Pas de décompte qui presse, pas d'alarme au
+  // dépassement, rien qui se répète — le chronomètre informe, il ne commande
+  // pas (§7 ter.3). Une cible à zéro ne sonne jamais : zéro veut dire
+  // « pas de cible », pas « tout de suite ».
+  function echeanceAtteinte(cible, secondes, dejaSonne) {
+    if (dejaSonne) return false;
+    var c = Number(cible) || 0;
+    if (c <= 0) return false;
+    return (Number(secondes) || 0) >= c;
+  }
+
   var api = {
     TYPES: TYPES, RESSENTIS: RESSENTIS, CHAMPS_SERIE: CHAMPS_SERIE,
+    PAS_REPOS: PAS_REPOS,
+    ajusterCible: ajusterCible,
+    echeanceAtteinte: echeanceAtteinte,
     EN_COURS: EN_COURS, TERMINEE: TERMINEE, REPOS_MAX: REPOS_MAX,
     creer: creer,
     serieVide: serieVide,

@@ -70,6 +70,25 @@ const ROUTINE = {
   ]
 };
 
+// ⚠️ CONFIGURATION DISCRIMINANTE DU CHANTIER 27 — UN SUPERSET À SÉRIES
+// INÉGALES, ET UN EXERCICE SEUL DANS LA MÊME SÉANCE.
+//
+// Sur un superset régulier validé de haut en bas, « l'éclairage porte sur le
+// tour » et « l'éclairage porte sur la ligne » donnent le même écran : chaque
+// validation ferme son tour dans la foulée. Il faut la branche plus courte (C
+// n'a que deux séries) pour que le tour 3 se ferme sans `C3`, et l'exercice
+// seul pour prouver que les lettres ne débordent pas sur lui.
+const ROUTINE_SUPERSET = {
+  id: 'r-super', nom: 'Superset', note: null, archivee_a: null,
+  created_at: '2026-09-03T08:00:00Z', modifiee_a: '2026-09-03T08:00:00Z',
+  routine_exercises: [
+    { id: 'rs1', routine_id: 'r-super', exercise_slug: 'dc-barre', rang: 0, series: 3, reps_visees: 8, repos_cible_s: 90, groupe_superset: 1, note: null },
+    { id: 'rs2', routine_id: 'r-super', exercise_slug: 'curl', rang: 1, series: 3, reps_visees: 12, repos_cible_s: null, groupe_superset: 1, note: null },
+    { id: 'rs3', routine_id: 'r-super', exercise_slug: 'planche', rang: 2, series: 2, reps_visees: null, repos_cible_s: null, groupe_superset: 1, note: null },
+    { id: 'rs4', routine_id: 'r-super', exercise_slug: 'squat-barre', rang: 3, series: 2, reps_visees: 5, repos_cible_s: 180, groupe_superset: null, note: null }
+  ]
+};
+
 // ⚠️ CONFIGURATION DISCRIMINANTE DU CHANTIER 24 — les QUATRE mesures dans la
 // MÊME séance. Sur une séance qui n'en contient qu'une, « la grille s'adapte »
 // et « la grille est fixe » donnent exactement le même écran.
@@ -227,7 +246,7 @@ const SETS_PASSES = [1, 2].map((n) => ({
 
     if (req.method() === 'GET') {
       if (table === 'exercises') return json(CATALOGUE);
-      if (table === 'routines') return json([ROUTINE, ROUTINE_MESURES]);
+      if (table === 'routines') return json([ROUTINE, ROUTINE_MESURES, ROUTINE_SUPERSET]);
       if (table === 'sessions') {
         const st = (url.searchParams.get('statut') || '').replace('eq.', '');
         return json(st ? base.sessions.filter((s) => s.statut === st) : base.sessions);
@@ -372,8 +391,8 @@ const SETS_PASSES = [1, 2].map((n) => ({
 
   console.log('\n══ 2. SAISIR, VALIDER, CHRONOMÈTRE ══');
   await saisirSerie(0, 100, 5);
-  ok('la première série est validée', (await compter('.serie.faite')) === 1,
-    (await compter('.serie.faite')) + ' validée(s)');
+  ok('la première série est validée', (await compter('.ok-serie.cochee')) === 1,
+    (await compter('.ok-serie.cochee')) + ' validée(s)');
   ok('elle est montée avec `validee_a` et rang ≥ 1',
     sets().length === 1 && !!sets()[0].validee_a && sets()[0].rang >= 1,
     JSON.stringify(sets().map((s) => ({ rang: s.rang, v: !!s.validee_a }))));
@@ -470,8 +489,8 @@ const SETS_PASSES = [1, 2].map((n) => ({
   await aller('/saisie');
   ok('et la séance en cours, elle, est toujours reprise intacte',
     JSON.stringify(await visible()) === '["vue-seance"]' &&
-    (await compter('.serie.faite')) === 2,
-    JSON.stringify(await visible()) + ' · ' + (await compter('.serie.faite')) + ' validée(s)');
+    (await compter('.ok-serie.cochee')) === 2,
+    JSON.stringify(await visible()) + ' · ' + (await compter('.ok-serie.cochee')) + ' validée(s)');
 
   console.log('\n══ 3. LE TYPE ET L’EFFORT ══');
   await toucher(0, '.no-serie');
@@ -511,8 +530,8 @@ const SETS_PASSES = [1, 2].map((n) => ({
   await attendre(200);
   await saisirSerie(2, 110, 4);
   const montees = sets().length;
-  ok('la saisie continue sans réseau', (await compter('.serie.faite')) === 3,
-    (await compter('.serie.faite')) + ' validée(s) à l’écran');
+  ok('la saisie continue sans réseau', (await compter('.ok-serie.cochee')) === 3,
+    (await compter('.ok-serie.cochee')) + ' validée(s) à l’écran');
   ok('et rien n’est monté — c’est attendu', sets().length === montees, montees + ' en base');
   const etatHL = await texte('#etat-sync');
   ok('l’utilisateur voit ce qui reste à envoyer, sans alarme',
@@ -543,7 +562,7 @@ const SETS_PASSES = [1, 2].map((n) => ({
   ok('à la réouverture, on retombe DANS la séance',
     JSON.stringify(await visible()) === '["vue-seance"]', JSON.stringify(await visible()));
   ok('les trois séries validées sont là, intactes',
-    (await compter('.serie.faite')) === 3, (await compter('.serie.faite')) + ' validée(s)');
+    (await compter('.ok-serie.cochee')) === 3, (await compter('.ok-serie.cochee')) + ' validée(s)');
   const valeurs = await page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie'))
     .map((l) => Array.from(l.querySelectorAll('input')).map((i) => i.value).join('×')));
   ok('avec leurs charges et leurs reps',
@@ -1385,6 +1404,198 @@ const SETS_PASSES = [1, 2].map((n) => ({
     ROUTINE.routine_exercises[0].repos_cible_s === 120,
     patchsRoutine().length + ' PATCH (avant ' + patchsAvantGarder +
     ') · routine à ' + ROUTINE.routine_exercises[0].repos_cible_s);
+
+  console.log('\n══ 7 octies. LES SUPERSETS ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE (CADRAGE-V2 §2 quater) : un superset à
+  // SÉRIES INÉGALES, validé DANS LE DÉSORDRE. Sur un superset régulier validé
+  // de haut en bas, « éclairage par tour » et « éclairage par ligne » rendent
+  // exactement le même écran.
+  await aller('/saisie');
+  await demarrerRoutine('Superset');
+
+  const etiquettes = (iBloc) => page.evaluate((k) =>
+    Array.from(document.querySelectorAll('.bloc-seance')[k].querySelectorAll('.no-serie'))
+      .map((n) => n.textContent), iBloc);
+  const allumees = (iBloc) => page.evaluate((k) =>
+    Array.from(document.querySelectorAll('.bloc-seance')[k].querySelectorAll('.serie'))
+      .map((r) => r.classList.contains('faite')), iBloc);
+  // Une rangée est adressée par son INDICE D'AFFICHAGE dans le bloc — c'est
+  // l'ordre entrelacé, donc exactement ce qu'un pouce touche.
+  const validerRangee = async (iBloc, iRangee) => {
+    await page.evaluate(([k, r]) => {
+      document.querySelectorAll('.bloc-seance')[k]
+        .querySelectorAll('.ligne-serie')[r].querySelector('.ok-serie').click();
+    }, [iBloc, iRangee]);
+    await attendre(500);
+  };
+  const superT = () => texte('.bloc-seance.superset .superset-t');
+
+  ok('le superset fait UN bloc, l’exercice seul en fait un autre',
+    (await compter('.bloc-seance')) === 2 &&
+    (await compter('.bloc-seance.superset')) === 1,
+    (await compter('.bloc-seance')) + ' bloc(s), dont ' +
+    (await compter('.bloc-seance.superset')) + ' superset');
+
+  // Le liseré du détail de séance, repris tel quel : la même chose se reconnaît
+  // au même signe d'un écran à l'autre. Couleur calculée, pas classe posée.
+  const lisere = await page.evaluate(() => {
+    const b = document.querySelectorAll('.bloc-seance');
+    return [getComputedStyle(b[0]).borderLeftWidth, getComputedStyle(b[1]).borderLeftWidth];
+  });
+  ok('le superset porte le liseré, l’exercice seul n’en a pas',
+    lisere[0] === '3px' && lisere[1] === '0px', JSON.stringify(lisere));
+
+  ok('les séries s’affichent ENTRELACÉES, et le tour 3 n’attend aucun C3',
+    JSON.stringify(await etiquettes(0)) ===
+    JSON.stringify(['A1', 'B1', 'C1', 'A2', 'B2', 'C2', 'A3', 'B3']),
+    JSON.stringify(await etiquettes(0)));
+
+  ok('l’exercice seul numérote 1, 2 — aucune lettre',
+    JSON.stringify(await etiquettes(1)) === JSON.stringify(['1', '2']),
+    JSON.stringify(await etiquettes(1)));
+
+  const legende = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('.bloc-seance')[0].querySelectorAll('.exo-seance'))
+      .map((n) => n.textContent));
+  ok('le nom de chaque exercice n’apparaît QU’UNE FOIS, dans la légende',
+    legende.length === 3 && /^ADéveloppé/.test(legende[0]) && /^BCurl/.test(legende[1]),
+    JSON.stringify(legende));
+
+  // ⚠️ 360 px — LA LARGEUR RÉELLE DE L'APPAREIL. La légende existe pour tenir
+  // le nom une seule fois ; si elle le coupe, elle ne sert plus à rien. Et
+  // « A1 » dans 30 px de numéro débordait : la colonne passe à 36.
+  const geom = await page.evaluate(() => {
+    const bloc = document.querySelectorAll('.bloc-seance')[0];
+    const noms = Array.from(bloc.querySelectorAll('.exo-seance'));
+    const rangees = Array.from(bloc.querySelectorAll('.serie'));
+    return {
+      largeur: document.documentElement.clientWidth,
+      debordePage: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+      nomsCoupes: noms.filter((n) => n.scrollWidth > n.clientWidth + 1).length,
+      // ⚠️ ON MESURE LE TEXTE, PAS LA BOÎTE. `.no-serie` est une grille à
+      // contenu centré, `overflow` visible : « A1 » dans 12 px déborde sur les
+      // colonnes voisines SANS changer d'un pixel son `scrollWidth`. Une
+      // mutation qui rétrécissait la colonne passait donc au travers. Un
+      // `Range` sur le contenu donne la largeur réellement peinte.
+      numerosCoupes: Array.from(bloc.querySelectorAll('.no-serie')).filter((n) => {
+        const r = document.createRange();
+        r.selectNodeContents(n);
+        return r.getBoundingClientRect().width > n.getBoundingClientRect().width + 1;
+      }).length,
+      rangeesDebordantes: rangees.filter((r) => r.scrollWidth > r.clientWidth + 1).length
+    };
+  });
+  ok('à 360 px : aucun nom coupé, aucun numéro coupé, rien qui déborde',
+    geom.largeur <= 360 && !geom.debordePage && geom.nomsCoupes === 0 &&
+    geom.numerosCoupes === 0 && geom.rangeesDebordantes === 0,
+    JSON.stringify(geom));
+
+  // §3 ter — un superset peut mélanger les mesures. Chaque ligne garde la
+  // sienne ; l'en-tête se tait plutôt que de mentir sur la moitié des rangées.
+  const grilles = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('.bloc-seance')[0].querySelectorAll('.serie'))
+      .map((r) => Array.from(r.classList).filter((c) => c.startsWith('g-'))[0]));
+  ok('chaque ligne garde le gabarit de SON exercice, même mélangés',
+    JSON.stringify(grilles) === JSON.stringify([
+      'g-charge_reps', 'g-charge_reps', 'g-temps',
+      'g-charge_reps', 'g-charge_reps', 'g-temps',
+      'g-charge_reps', 'g-charge_reps']),
+    JSON.stringify(grilles));
+  ok('et l’en-tête de colonnes se tait sur un bloc à mesures mélangées',
+    (await page.evaluate(() =>
+      document.querySelectorAll('.bloc-seance')[0].querySelectorAll('.cols-seance').length)) === 0 &&
+    (await page.evaluate(() =>
+      document.querySelectorAll('.bloc-seance')[1].querySelectorAll('.cols-seance').length)) === 1,
+    'superset mélangé : aucun · exercice seul : un');
+
+  // ── L'éclairage porte sur le TOUR, et le tour ne recule pas ─────────────
+  ok('au départ, le tour annoncé est le premier', /tour 1\/3/.test(await superT()),
+    (await superT()).trim());
+
+  // Rangée 0 = A1. Validée seule, elle n'allume rien : le tour n'est pas fait.
+  await validerRangee(0, 0);
+  ok('valider A1 seul n’allume RIEN — l’éclairage porte sur le tour',
+    (await allumees(0)).every((x) => x === false) && /tour 1\/3/.test(await superT()),
+    JSON.stringify(await allumees(0)) + ' · ' + (await superT()).trim());
+  // ⚠️ ET ELLE SE VOIT POUR DE VRAI — couleur calculée, pas classe posée.
+  // Le style de la coche était accroché à `.serie.faite` ; le fond vert disant
+  // désormais « le tour est fait », la coche d'une ligne validée dans un tour
+  // incomplet se serait éteinte exactement là où elle sert le plus.
+  const coche = await page.evaluate(() => {
+    const bloc = document.querySelectorAll('.bloc-seance')[0];
+    const cochees = bloc.querySelectorAll('.ok-serie.cochee');
+    const eteinte = bloc.querySelectorAll('.ok-serie:not(.cochee)')[0];
+    return {
+      n: cochees.length,
+      fond: cochees[0] ? getComputedStyle(cochees[0]).backgroundColor : '',
+      fondEteinte: eteinte ? getComputedStyle(eteinte).backgroundColor : '',
+      rangeeAllumee: cochees[0] ? cochees[0].closest('.serie').classList.contains('faite') : null
+    };
+  });
+  ok('mais sa coche, elle, se voit — même dans un tour non allumé',
+    coche.n === 1 && coche.rangeeAllumee === false &&
+    coche.fond !== coche.fondEteinte && /^rgb/.test(coche.fond),
+    JSON.stringify(coche));
+
+  // ⚠️ DANS LE DÉSORDRE : C1 avant B1.
+  await validerRangee(0, 2);          // C1
+  await validerRangee(0, 1);          // B1
+  ok('le tour se ferme dans le désordre, et s’allume d’un coup',
+    JSON.stringify(await allumees(0)) ===
+    JSON.stringify([true, true, true, false, false, false, false, false]),
+    JSON.stringify(await allumees(0)));
+  ok('et le tour annoncé avance', /tour 2\/3/.test(await superT()), (await superT()).trim());
+
+  // ⚠️ DÉVALIDER NE FAIT PAS RECULER LE TOUR — asymétrie assumée (§2.7).
+  await validerRangee(0, 0);          // dévalide A1
+  ok('dévalider ne fait PAS reculer le tour', /tour 2\/3/.test(await superT()),
+    (await superT()).trim());
+  ok('mais l’éclairage, lui, dit la vérité du moment',
+    (await allumees(0)).slice(0, 3).every((x) => x === false),
+    JSON.stringify((await allumees(0)).slice(0, 3)));
+  await validerRangee(0, 0);          // revalide A1
+
+  // ── Le tour 3, sans C3 ─────────────────────────────────────────────────
+  for (const r of [3, 4, 5, 6, 7]) await validerRangee(0, r);
+  ok('le tour 3 se ferme sans C3 : tout le bloc est allumé',
+    (await allumees(0)).every((x) => x === true) && /tour 3\/3/.test(await superT()),
+    JSON.stringify(await allumees(0)) + ' · ' + (await superT()).trim());
+
+  // ── Le superset SURVIT à l'enregistrement ──────────────────────────────
+  //
+  // L'exercice seul est validé lui aussi : sans ses lignes, la comparaison
+  // avec le détail ne porterait que sur le superset et laisserait justement
+  // passer un débordement des lettres sur le bloc d'à côté.
+  await validerRangee(1, 0);
+  await validerRangee(1, 1);
+  const enBase = sets().filter((s) => s.session_id === seanceCourante());
+  ok('`groupe_superset` part en base — sinon le superset disparaîtrait au détail',
+    enBase.length === 10 &&
+    enBase.filter((s) => s.groupe_superset === 1).length === 8 &&
+    enBase.filter((s) => s.groupe_superset === null).length === 2,
+    JSON.stringify(enBase.map((s) => s.exercise_slug + '@' + s.groupe_superset)));
+
+  const idSuper = seanceCourante();
+  await page.click('#bandeau-seance .discret');
+  await attendre(600);
+  await page.click('#feuille-contenu .principal');
+  await attendre(2600);
+
+  // ⚠️ LA COMPARAISON QUI COMPTE : le détail de séance rend déjà
+  // l'entrelacement en lecture (chantier 12). Les deux écrans doivent dire la
+  // même chose de la même séance — sinon l'un des deux est faux.
+  await aller('/seance/' + idSuper);
+  const auDetail = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('#vue-detail .bloc')).map((b) =>
+      Array.from(b.querySelectorAll('.serie .tag')).map((t) => t.textContent)));
+  ok('le détail rend les MÊMES étiquettes que la saisie',
+    JSON.stringify(auDetail) ===
+    JSON.stringify([['A1', 'B1', 'C1', 'A2', 'B2', 'C2', 'A3', 'B3'], ['1', '2']]),
+    JSON.stringify(auDetail));
+  ok('et il reconnaît le superset, liseré compris',
+    (await compter('#vue-detail .bloc.superset')) === 1,
+    (await compter('#vue-detail .bloc.superset')) + ' bloc(s) superset');
 
   console.log('\n══ 8. NON-RÉGRESSION ══');
   for (const [chemin, attendu] of [['/', 'vue-liste'], ['/progression', 'vue-progression'],

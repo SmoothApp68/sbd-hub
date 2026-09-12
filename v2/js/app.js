@@ -929,6 +929,11 @@
     if (Object.keys(champs).length) seance = Seance.modifierSerie(seance, iExo, iSerie, champs);
 
     seance = Seance.valider(seance, iExo, iSerie, new Date());
+    // §2.7 — le tour avance ICI, au geste, et jamais au rendu : une marque qui
+    // se recalculerait à l'affichage reculerait à la première dévalidation,
+    // et c'est précisément ce que l'asymétrie assumée interdit.
+    seance = Seance.avancerTours(seance,
+      Modele.toursFaitsParGroupe(Modele.blocsDeSeance(seance, local.exercices)));
     vibrer();
     demarrerChrono(exo.repos_cible_s);
     return apresGeste();
@@ -975,7 +980,12 @@
       surTerminer: function () { confirmerFin(); }
     });
     Rendu.rendreBlocsSeance($('blocs-seance'), seance, {
-      nommer: function (slug) { return Modele.nommer(index, slug); },
+      // ⚠️ LES BLOCS VIENNENT DE LA MÊME FONCTION QUE LE DÉTAIL DE SÉANCE
+      // (§2.1) : un exercice seul est un bloc d'un seul, un superset un bloc
+      // de 2 à 6, et l'entrelacement A1/B1/A2/B2 en sort tout fait.
+      blocs: Modele.blocsDeSeance(seance, local.exercices),
+      // §2.7 — le tour atteint, marque MONOTONE portée par la séance.
+      tourAtteint: function (groupe) { return Seance.tourAtteint(seance, groupe); },
       // La fiche du catalogue, d'où la vue tire la MESURE — donc le gabarit de
       // ligne. `undefined` si le catalogue n'est pas encore là : `gabaritDe`
       // retombe alors sur `charge_reps` sans rien affirmer.

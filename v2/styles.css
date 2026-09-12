@@ -572,7 +572,7 @@ button{font-family:inherit;cursor:pointer}
 .bloc-seance{background:var(--panneau);border-radius:var(--r-grand);
   margin-bottom:var(--e2);overflow:hidden}
 .tete-seance{padding:var(--e3) var(--e3) var(--e2)}
-.exo-seance{font-size:14px;font-weight:600;line-height:1.3}
+.exo-seance{font-size:14px;font-weight:600;line-height:1.3;overflow-wrap:anywhere}
 /* Le type de mesure, rappelé sous le nom. Sans lui, une ligne à deux colonnes
    au milieu de lignes à trois désoriente. */
 .type-mesure{font-size:9px;font-weight:600;color:#525862;
@@ -664,14 +664,39 @@ button{font-family:inherit;cursor:pointer}
    le jaune reste réservé à l'onglet actif et à la suggestion du moteur. */
 .serie.faite{background:#1E2A25}
 .serie.faite .ch-serie,.serie.faite .rp-serie{background:transparent;border-color:transparent}
-/* La coche reste l'élément le plus clair de la ligne : le fond vert monte
-   sous elle, elle monte avec lui. */
-.serie.faite .ok-serie{background:#27392F;border-color:#3A5A46;color:var(--reussi)}
+/* ⚠️ LA COCHE PORTE SON PROPRE ÉTAT DEPUIS LE CHANTIER 27, et il le fallait :
+   le fond vert dit désormais « le TOUR est fait » (§2.6), pas « cette ligne est
+   validée ». Dans un superset, A2 validé pendant que B2 ne l'est pas reste sur
+   fond neutre — sa coche, elle, doit se voir. Accrocher le style de la coche à
+   `.serie.faite` l'aurait éteinte exactement là où elle sert le plus. */
+.ok-serie.cochee{background:#27392F;border-color:#3A5A46;color:var(--reussi)}
 
-.ajout-serie{padding:var(--e2) var(--e3) var(--e3)}
-.ajout-serie button{width:100%;height:36px;border-radius:var(--r-petit);
+.ajout-serie{padding:var(--e2) var(--e3) var(--e3);display:flex;flex-wrap:wrap;gap:6px}
+.ajout-serie button{flex:1 1 120px;height:36px;border-radius:var(--r-petit);
   border:1px dashed var(--trait);background:transparent;color:var(--texte-3);
   font:600 12px/1 inherit;font-family:inherit}
+
+/* ── LE SUPERSET (§2.3) ────────────────────────────────────────────────────
+   Le liseré est celui du détail de séance, repris tel quel : la même chose se
+   reconnaît au même signe d'un écran à l'autre. */
+.bloc-seance.superset{border-left:3px solid var(--texte-3)}
+.superset-t{font-size:9px;font-weight:700;color:#525862;letter-spacing:.06em;
+  text-transform:uppercase;padding-bottom:var(--e2)}
+/* La légende : le nom n'apparaît QU'UNE FOIS par exercice (§2.3), et c'est ce
+   qui règle la largeur à 360 px. Les entrées se séparent par un filet plutôt
+   que par un écart — l'écart les ferait passer pour des blocs distincts. */
+.legende-exo + .legende-exo{margin-top:var(--e2);padding-top:var(--e2);
+  border-top:1px solid var(--trait)}
+.exo-seance{display:flex;align-items:baseline;gap:7px}
+.lettre-exo{flex:0 0 auto;font-size:11px;font-weight:700;color:var(--texte-3);
+  border:1px solid var(--trait);border-radius:var(--r-petit);
+  padding:1px 5px;line-height:1.4}
+/* ⚠️ AUCUNE COLONNE ÉLARGIE POUR LE SUPERSET, ET C'EST MESURÉ. Le premier jet
+   passait le numéro de 30 à 36 px « parce que A1 ne tiendrait pas ». La
+   campagne de mutations a remis les 30 px sans faire tomber la vérification de
+   géométrie à 360 px : « A1 » y tient, et les six pixels étaient pris au champ
+   de saisie pour rien. Les quatre gabarits restent donc les mêmes dans un
+   superset et hors d'un superset — une grille de moins à tenir. */
 
 /* ── Le repos ─────────────────────────────────────────────────────────────
    Il informe, il ne commande pas. La piste se remplit et CONTINUE au-delà de

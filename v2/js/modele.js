@@ -377,7 +377,8 @@
    * }
    * série = { …ligne brute, estTravail, tour, etiquette }
    */
-  function construireBlocs(series, exercices) {
+  function construireBlocs(series, exercices, options) {
+    var o = options || {};
     var index = indexerExercices(exercices);
     var blocs = [];
     var courant = null;
@@ -386,8 +387,9 @@
     // 1. Découpage en blocs et en exercices, dans l'ordre de rang.
     trierParRang(series).forEach(function (brute) {
       if (!courant || !memeBloc(precedente, brute)) {
-        courant = { superset: false, exercices: [], series: [], nbTravail: 0,
+        courant = { superset: false, groupe: null, exercices: [], series: [], nbTravail: 0,
                     nbTours: 0, chronologie: false, resume: '' };
+        courant.groupe = brute.groupe_superset === undefined ? null : brute.groupe_superset;
         blocs.push(courant);
       }
       var slug = brute.exercise_slug;
@@ -440,7 +442,16 @@
         return e.series.some(function (s) { return !!s.validee_a; });
       });
 
-      if (bloc.superset && bloc.chronologie) {
+      // ⚠️ `entrelacer` FORCE l'entrelacement, et c'est l'écran de SAISIE qui
+      // le demande (chantier 27). La garde `chronologie` ci-dessus existe pour
+      // le CORPUS IMPORTÉ : Hevy a aplati les tours, et entrelacer des séries
+      // qui n'ont jamais été faites en alternance inventerait un ordre. Une
+      // séance EN COURS n'a pas ce problème — la routine prescrit
+      // l'enchaînement, et c'est justement ce qu'il faut montrer. Les deux
+      // lectures se rejoignent dès la première validation, `chronologie`
+      // devenant vraie : une séance saisie dans l'app s'affiche pareil à la
+      // saisie et au détail.
+      if (bloc.superset && (bloc.chronologie || o.entrelacer)) {
         var paquets = bloc.exercices.map(function (e) { return paqueter(e.series); });
         var profondeur = paquets.reduce(function (m, p) { return Math.max(m, p.length); }, 0);
         for (var t = 0; t < profondeur; t++) {
@@ -460,6 +471,146 @@
     });
 
     return blocs;
+  }
+
+  // ── Les blocs de la SÉANCE EN COURS (chantier 27) ───────────────────────
+  //
+  // ⚠️ MÊME FONCTION QUE LE DÉTAIL, PAS UNE SECONDE IMPLÉMENTATION.
+  //
+  // L'écran de saisie porte une structure imbriquée (`seance.exercices[].series[]`)
+  // là où le détail lit des lignes plates de `sets`. On APLATIT donc la séance
+  // et on appelle `construireBlocs` — celui-là même qui rend le détail. Écrire
+  // un second entrelaceur, c'était garantir que les deux divergent un jour :
+  // ici, ils ne peuvent pas.
+  //
+  // `_iExo` / `_iSerie` voyagent sur la ligne aplatie et ressortent intacts —
+  // `construireBlocs` recopie la ligne entière (`Object.assign`). Ce sont eux
+  // qui rebranchent chaque rangée affichée sur sa série réelle, l'affichage
+  // étant entrelacé alors que le modèle reste rangé par exercice.
+  function blocsDeSeance(seance, exercices) {
+    var rang = 0;
+    var plat = [];
+    ((seance && seance.exercices) || []).forEach(function (exo, iExo) {
+      (exo.series || []).forEach(function (serie, iSerie) {
+        rang++;
+        plat.push(Object.assign({}, serie, {
+          exercise_slug: exo.exercise_slug,
+          groupe_superset: exo.groupe_superset === undefined ? null : exo.groupe_superset,
+          rang: rang,
+          _iExo: iExo, _iSerie: iSerie
+        }));
+      });
+    });
+    var blocs = construireBlocs(plat, exercices, { entrelacer: true });
+    // L'indice de l'exercice remonte sur la légende, avec ses deux réglages :
+    // c'est la légende qui porte la note, le repos cible et le « + Série » de
+    // chaque branche du superset — un réglage par exercice, jamais par bloc.
+    blocs.forEach(function (b) {
+      b.exercices.forEach(function (e) {
+        var i = e.series.length ? e.series[0]._iExo : null;
+        garnir(e, i, seance);
+      });
+    });
+    return blocs.concat(exercicesSansSerie(seance, exercices, blocs))
+      .sort(function (x, y) { return positionDe(x) - positionDe(y); });
+  }
+
+  function garnir(e, i, seance) {
+    var src = i === null ? null : ((seance && seance.exercices) || [])[i];
+    e._iExo = i;
+    e.repos_cible_s = (src && src.repos_cible_s !== undefined) ? src.repos_cible_s : null;
+    e.note = (src && src.note !== undefined) ? src.note : null;
+    return e;
+  }
+
+  function positionDe(bloc) {
+    return bloc.exercices.reduce(function (m, e) {
+      return e._iExo === null || e._iExo === undefined ? m : Math.min(m, e._iExo);
+    }, Infinity);
+  }
+
+  // ⚠️ UN EXERCICE VIDÉ DE SES SÉRIES RESTE À L'ÉCRAN.
+  //
+  // `construireBlocs` travaille sur des LIGNES : un exercice qui n'en produit
+  // aucune n'existe pas pour lui. Or supprimer la dernière série d'un exercice
+  // est un geste possible — et le bloc disparaîtrait alors entièrement, avec sa
+  // note, son repos cible et son « + Série ». Plus aucun chemin pour y revenir :
+  // la séance perdrait l'exercice sans que personne ne l'ait demandé.
+  //
+  // On regreffe donc un bloc vide à sa place. Il n'a pas de série, donc pas de
+  // tour, donc rien à éclairer — juste sa tête et son bouton.
+  function exercicesSansSerie(seance, exercices, blocs) {
+    var index = indexerExercices(exercices);
+    var vus = {};
+    blocs.forEach(function (b) {
+      b.exercices.forEach(function (e) { if (e._iExo !== null) vus[e._iExo] = true; });
+    });
+    var orphelins = [];
+    ((seance && seance.exercices) || []).forEach(function (exo, iExo) {
+      if (vus[iExo] || (exo.series || []).length) return;
+      orphelins.push({
+        superset: false, groupe: null, series: [], nbTravail: 0, nbTours: 0,
+        chronologie: false, resume: '0 série de travail',
+        exercices: [garnir({
+          slug: exo.exercise_slug, nom: nommer(index, exo.exercise_slug),
+          lettre: '', series: [], nbTravail: 0
+        }, iExo, seance)]
+      });
+    });
+    return orphelins;
+  }
+
+  // ── Le tour, et son éclairage (§2.6 et §2.7) ────────────────────────────
+  //
+  // Un TOUR du bloc, c'est la n-ième série de travail de chaque exercice qui le
+  // compose. Il est COMPLET quand toutes ces séries sont validées — dans
+  // n'importe quel ordre, et sans attendre un `C3` qui n'existe pas : un
+  // exercice à deux séries ne produit rien au troisième tour, donc ne bloque
+  // rien.
+  //
+  // Rien n'est stocké (§2.4) : tout se déduit de « cette série appartient à cet
+  // exercice, à cette position ».
+  //
+  // ⚠️ UNE SEULE CONDITION, ET C'EST LA CAMPAGNE DE MUTATIONS QUI L'A DIT.
+  // Le premier jet écrivait `if (!s.estTravail || !s.tour) return;` — deux
+  // façons de dire la même chose, puisque `construireBlocs` ne donne un `tour`
+  // QU'AUX séries de travail (`tour: travail ? tour : null`).
+  //
+  // Ce qui reste n'est pas non plus tuable par mutation, et c'est assumé : ce
+  // n'est pas une garde mais un FILTRE D'ENTRÉE, dont la précondition est déjà
+  // garantie en amont — la retirer ne ferait qu'ajouter une clé `null` que
+  // personne ne lit. On la garde parce qu'elle dit la règle (« un tour est fait
+  // de séries de travail »), pas parce qu'elle protège de quelque chose.
+  function toursComplets(bloc) {
+    var parTour = {};
+    ((bloc && bloc.series) || []).forEach(function (s) {
+      if (!s.tour) return;
+      if (parTour[s.tour] === undefined) parTour[s.tour] = true;
+      if (!s.validee_a) parTour[s.tour] = false;
+    });
+    return parTour;
+  }
+
+  // Le TOUR ATTEINT : combien de tours complets se suivent depuis le premier.
+  // On s'arrête au premier trou — valider le tour 3 en sautant le 2 ne fait pas
+  // avancer de deux crans.
+  function toursFaits(bloc) {
+    var complets = toursComplets(bloc);
+    var n = 0;
+    while (complets[n + 1] === true) n++;
+    return n;
+  }
+
+  // Ce que l'appelant pose sur la séance : un compte par groupe de superset.
+  // Les blocs d'un seul exercice n'y figurent pas — ils n'ont pas de tour à
+  // annoncer, leur éclairage suffit.
+  function toursFaitsParGroupe(blocs) {
+    var faits = {};
+    (blocs || []).forEach(function (b) {
+      if (!b.superset || b.groupe === null || b.groupe === undefined) return;
+      faits[String(b.groupe)] = toursFaits(b);
+    });
+    return faits;
   }
 
   // ── Résumé d'une séance pour la liste ───────────────────────────────────
@@ -642,6 +793,10 @@
     indexerExercices: indexerExercices,
     nommer: nommer,
     construireBlocs: construireBlocs,
+    blocsDeSeance: blocsDeSeance,
+    toursComplets: toursComplets,
+    toursFaits: toursFaits,
+    toursFaitsParGroupe: toursFaitsParGroupe,
     resumerSeance: resumerSeance,
     apercuExercices: apercuExercices,
     libelleAutres: libelleAutres

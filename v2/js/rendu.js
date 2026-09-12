@@ -1008,143 +1008,233 @@
     ligne.addEventListener('pointercancel', function () { actif = false; remettre(); });
   }
 
+  // ══ L'UNITÉ DE L'ÉCRAN EST LE BLOC, PAS L'EXERCICE (§2.1) ════════════════
+  //
+  // Un exercice normal est un bloc d'un seul ; un superset est un bloc de 2 à 6.
+  // Même carte, même code, pas de « mode superset » — c'est ce qui évite d'avoir
+  // deux rendus à tenir d'accord.
+  //
+  // Les blocs arrivent déjà construits (`THModele.blocsDeSeance`), donc par la
+  // MÊME fonction que le détail de séance. Ici on ne fait que poser dans le DOM.
   function rendreBlocsSeance(cible, seance, vue) {
     vider(cible);
-    if (!seance.exercices.length) {
+    var blocs = vue.blocs || [];
+    if (!blocs.length) {
       cible.appendChild(el('p', 'vide', 'Aucun exercice. Ajoute le premier ci-dessous.'));
       return;
     }
+    blocs.forEach(function (bloc) { cible.appendChild(rendreBlocSaisie(bloc, vue)); });
+  }
 
-    seance.exercices.forEach(function (exo, iExo) {
-      // ⚠️ LA GRILLE SUIT LA MESURE DE L'EXERCICE (§3 ter).
-      //
-      // Quatre gabarits, pas un : `charge_reps` (six colonnes), `reps` (cinq),
-      // `temps` (quatre, sans effort), `distance_temps` (cinq, sans effort).
-      // Chacun est plus confortable que le précédent — une colonne de moins à
-      // chaque fois. La table des gabarits vit dans `THModele`, module pur ;
-      // ici on la lit, on ne la redécide pas.
-      var g = M().gabaritDe(vue.exercice(exo.exercise_slug));
-      var champs = g.champs.map(function (n) { return M().champDeMesure(n); });
+  // Le gabarit d'un exercice du bloc. ⚠️ Un superset peut MÉLANGER les mesures
+  // (un exercice en `charge_reps`, un en `temps`) : chaque ligne garde le sien.
+  function gabaritDe(vue, slug) {
+    return M().gabaritDe(vue.exercice(slug));
+  }
 
-      var nom = vue.nommer(exo.exercise_slug);
-      var bloc = el('div', 'bloc-seance');
-      var tete = el('div', 'tete-seance');
-      tete.appendChild(el('div', 'exo-seance', nom));
+  function rendreBlocSaisie(bloc, vue) {
+    var noeud = el('div', 'bloc-seance' + (bloc.superset ? ' superset' : ''));
+    var gabarits = bloc.exercices.map(function (x) { return gabaritDe(vue, x.slug); });
+
+    noeud.appendChild(teteDeBloc(bloc, gabarits, vue));
+
+    // ⚠️ L'EN-TÊTE DE COLONNES NE S'AFFICHE QUE S'IL DIT VRAI. Dans un superset
+    // à mesures mélangées, une seule ligne d'en-têtes mentirait sur la moitié
+    // des rangées. On la tait plutôt que de nommer KG au-dessus d'une durée ; le
+    // type de mesure reste écrit sous chaque nom, dans la légende.
+    var memeGabarit = gabarits.every(function (g) { return g.mesure === gabarits[0].mesure; });
+    if (memeGabarit) noeud.appendChild(enTetesColonnes(gabarits[0]));
+
+    // §2.6 — l'éclairage porte sur le TOUR entier, pas sur une ligne isolée.
+    // Dans un bloc d'un seul exercice, le tour n'a qu'une série : la règle
+    // dégénère exactement en l'ancien comportement, sans cas particulier.
+    var complets = M().toursComplets(bloc);
+
+    bloc.series.forEach(function (s) {
+      noeud.appendChild(rangeeDeSerie(bloc, s, complets, vue));
+    });
+
+    noeud.appendChild(boutonsAjoutSerie(bloc, vue));
+    return noeud;
+  }
+
+  function teteDeBloc(bloc, gabarits, vue) {
+    var tete = el('div', 'tete-seance');
+
+    // §2.7 — le tour ATTEINT, et il ne recule pas. C'est le seul endroit où il
+    // se voit ; sans lui, « le tour avance » ne serait qu'une idée.
+    if (bloc.superset) {
+      var n = Math.min(vue.tourAtteint(bloc.groupe) + 1, bloc.nbTours);
+      tete.appendChild(el('div', 'superset-t',
+        'Superset' + (bloc.nbTours ? ' · tour ' + n + '/' + bloc.nbTours : '')));
+    }
+
+    bloc.exercices.forEach(function (x, i) {
+      var g = gabarits[i];
+      var entree = el('div', 'legende-exo');
+
+      var nom = el('div', 'exo-seance');
+      // La lettre n'existe QUE dans un superset (§2.3) : un bloc d'un seul
+      // n'a rien à alterner, et l'étiqueter « A » était le défaut de la
+      // première maquette.
+      if (x.lettre) nom.appendChild(el('span', 'lettre-exo', x.lettre));
+      nom.appendChild(el('span', '', x.nom));
+      entree.appendChild(nom);
+
       // Le type de mesure est rappelé sous le nom : sans lui, une ligne à deux
       // colonnes au milieu de lignes à trois désoriente. Tu par prudence quand
       // la mesure est inconnue — on ne nomme pas ce qu'on ne sait pas.
-      if (g.libelle) tete.appendChild(el('div', 'type-mesure', g.libelle));
+      if (g.libelle) entree.appendChild(el('div', 'type-mesure', g.libelle));
+      entree.appendChild(reglagesExo(x, vue));
 
-      // ⚠️ LES DEUX RÉGLAGES DE L'EXERCICE, SOUS SON NOM (§7 septies.1 et .2).
-      //
-      // Pas de suggestion de charge : le moteur ne parle pas encore, et inventer
-      // un chiffre serait pire que de n'en montrer aucun (§3.3). Ces deux-là ne
-      // suggèrent rien, ils portent ce que l'utilisateur a déclaré.
-      //
-      // Le repos s'affiche MÊME ABSENT, en tiret cadratin : sans ça, il n'y
-      // aurait rien à toucher pour en poser un, et le seul chemin serait
-      // l'éditeur de routine — c'est-à-dire pas pendant la séance.
-      var reglages = el('div', 'reglages-exo');
-
-      var bRepos = el('button', 'repos-cible num',
-        'repos ' + (exo.repos_cible_s ? mmss(exo.repos_cible_s) : '—'));
-      bRepos.type = 'button';
-      bRepos.setAttribute('aria-label', 'Repos cible de ' + nom);
-      bRepos.addEventListener('click', function () { vue.surRepos(iExo); });
-      reglages.appendChild(bRepos);
-
-      var bNote = el('button', 'note-exo' + (exo.note ? ' pleine' : ''),
-        exo.note || '+ Note');
-      bNote.type = 'button';
-      bNote.setAttribute('aria-label',
-        (exo.note ? 'Modifier la note de ' : 'Ajouter une note à ') + nom);
-      bNote.addEventListener('click', function () { vue.surNote(iExo); });
-      reglages.appendChild(bNote);
-
-      tete.appendChild(reglages);
-      bloc.appendChild(tete);
-
-      var classeGrille = ' grille g-' + g.mesure;
-      var entetes = el('div', 'cols-seance' + classeGrille);
-      entetes.appendChild(el('span', '', ''));
-      entetes.appendChild(el('span', 'droite', 'PRÉC.'));
-      champs.forEach(function (c) { entetes.appendChild(el('span', 'centre', c.entete)); });
-      if (g.effort) entetes.appendChild(el('span', 'centre', 'EFFORT'));
-      entetes.appendChild(el('span', 'centre', ''));
-      bloc.appendChild(entetes);
-
-      var prec = vue.precedent(exo.exercise_slug);
-      var nTravail = 0;
-
-      exo.series.forEach(function (serie, iSerie) {
-        if ((serie.type_serie || 'travail') === 'travail') nTravail++;
-        var eti = etiquetteSerie(serie.type_serie, nTravail);
-        var f = vue.fantome(iExo, iSerie);
-
-        var ligne = el('div', 'ligne-serie');
-        var fond = el('div', 'glisse-fond', 'Supprimer');
-        var rangee = el('div', 'serie' + classeGrille + (serie.validee_a ? ' faite' : ''));
-
-        // Une note propre à CETTE série se signale sur son numéro — sinon elle
-        // serait invisible, et une donnée qu'on ne voit pas est une donnée dont
-        // on ne se souvient pas.
-        var no = el('button', 'no-serie ' + eti.classe + (serie.note ? ' a-note' : ''), eti.texte);
-        no.type = 'button';
-        no.addEventListener('click', function () { vue.surNumero(iExo, iSerie); });
-        rangee.appendChild(no);
-
-        var ligneP = prec && prec.series ? prec.series[iSerie] : null;
-        rangee.appendChild(el('div', 'prec num', M().formatPrecedent(ligneP, g.mesure)));
-
-        // Une seule boucle pour les quatre gabarits : le champ porte sa colonne,
-        // son unité et son facteur de conversion. La vue ne sait rien de la
-        // différence entre une seconde et un kilomètre.
-        champs.forEach(function (c, iChamp) {
-          var classe = (iChamp === 0 ? 'ch-serie' : 'rp-serie') + ' num';
-          var nom = g.champs[iChamp];
-          if (c.saisie === 'chrono') {
-            rangee.appendChild(champChrono(classe, serie[c.cle], f[c.cle],
-              function (v) { vue.surChamp(iExo, iSerie, nom, v); }));
-            return;
-          }
-          rangee.appendChild(champSerie(classe,
-            enUniteDeSaisie(serie[c.cle], c.facteur),
-            enUniteDeSaisie(f[c.cle], c.facteur),
-            c.unite,
-            function (v) { vue.surChamp(iExo, iSerie, nom, v); }));
-        });
-
-        if (g.effort) {
-          var eff = el('button', 'eff-serie num' + (texteEffort(serie) ? ' plein' : ''), texteEffort(serie));
-          eff.type = 'button';
-          eff.addEventListener('click', function () { vue.surEffort(iExo, iSerie); });
-          rangee.appendChild(eff);
-        }
-
-        var ok = el('button', 'ok-serie');
-        ok.type = 'button';
-        ok.setAttribute('aria-label', serie.validee_a ? 'Dévalider' : 'Valider');
-        var v = svg('svg', null, { viewBox: '0 0 24 24' });
-        v.appendChild(svg('path', null, { d: 'M5 13l4 4L19 7' }));
-        ok.appendChild(v);
-        ok.addEventListener('click', function () { vue.surValider(iExo, iSerie); });
-        rangee.appendChild(ok);
-
-        ligne.appendChild(rangee);
-        ligne.appendChild(fond);
-        brancherGlissement(ligne, function () { vue.surSupprimerSerie(iExo, iSerie); });
-        bloc.appendChild(ligne);
-      });
-
-      var ajout = el('div', 'ajout-serie');
-      var b = el('button', '', '+ Série');
-      b.type = 'button';
-      b.addEventListener('click', function () { vue.surAjoutSerie(iExo); });
-      ajout.appendChild(b);
-      bloc.appendChild(ajout);
-
-      cible.appendChild(bloc);
+      tete.appendChild(entree);
     });
+    return tete;
+  }
+
+  // ⚠️ LES DEUX RÉGLAGES DE L'EXERCICE, SOUS SON NOM (§7 septies.1 et .2).
+  //
+  // Pas de suggestion de charge : le moteur ne parle pas encore, et inventer un
+  // chiffre serait pire que de n'en montrer aucun (§3.3). Ces deux-là ne
+  // suggèrent rien, ils portent ce que l'utilisateur a déclaré.
+  //
+  // Dans un superset, ils sont PAR BRANCHE : chaque exercice a son repos et sa
+  // note. Les mettre en tête de bloc aurait mélangé deux exercices sous un seul
+  // réglage.
+  function reglagesExo(x, vue) {
+    var reglages = el('div', 'reglages-exo');
+
+    // Le repos s'affiche MÊME ABSENT, en tiret cadratin : sans ça, il n'y aurait
+    // rien à toucher pour en poser un, et le seul chemin serait l'éditeur de
+    // routine — c'est-à-dire pas pendant la séance.
+    var bRepos = el('button', 'repos-cible num',
+      'repos ' + (x.repos_cible_s ? mmss(x.repos_cible_s) : '—'));
+    bRepos.type = 'button';
+    bRepos.setAttribute('aria-label', 'Repos cible de ' + x.nom);
+    bRepos.addEventListener('click', function () { vue.surRepos(x._iExo); });
+    reglages.appendChild(bRepos);
+
+    var bNote = el('button', 'note-exo' + (x.note ? ' pleine' : ''),
+      x.note || '+ Note');
+    bNote.type = 'button';
+    bNote.setAttribute('aria-label',
+      (x.note ? 'Modifier la note de ' : 'Ajouter une note à ') + x.nom);
+    bNote.addEventListener('click', function () { vue.surNote(x._iExo); });
+    reglages.appendChild(bNote);
+
+    return reglages;
+  }
+
+  function enTetesColonnes(g) {
+    var champs = g.champs.map(function (n) { return M().champDeMesure(n); });
+    var entetes = el('div', 'cols-seance grille g-' + g.mesure);
+    entetes.appendChild(el('span', '', ''));
+    entetes.appendChild(el('span', 'droite', 'PRÉC.'));
+    champs.forEach(function (c) { entetes.appendChild(el('span', 'centre', c.entete)); });
+    if (g.effort) entetes.appendChild(el('span', 'centre', 'EFFORT'));
+    entetes.appendChild(el('span', 'centre', ''));
+    return entetes;
+  }
+
+  // Une rangée de saisie. `s` vient de `blocsDeSeance` : c'est une COPIE de la
+  // série, qui porte en plus son étiquette, son tour, et les indices `_iExo` /
+  // `_iSerie` qui la rebranchent sur le modèle. L'affichage est entrelacé, le
+  // modèle reste rangé par exercice — les indices sont le pont entre les deux.
+  function rangeeDeSerie(bloc, s, complets, vue) {
+    var iExo = s._iExo, iSerie = s._iSerie;
+    var g = gabaritDe(vue, s.exercise_slug);
+    var champs = g.champs.map(function (n) { return M().champDeMesure(n); });
+    var classeGrille = ' grille g-' + g.mesure;
+
+    // §2.6 — l'éclairage porte sur le TOUR, jamais sur la ligne.
+    //
+    // §2.5 — « les échauffements ne sont jamais surlignés » tombe de lui-même :
+    // `construireBlocs` ne donne un `tour` qu'aux séries de travail, donc une
+    // chauffe interroge `complets[null]` et n'est jamais allumée. Le premier
+    // jet doublait la règle d'un `s.estTravail &&` qu'aucune mutation ne
+    // pouvait tuer — la campagne l'a montré, il est parti.
+    var allumee = complets[s.tour] === true;
+
+    var ligne = el('div', 'ligne-serie');
+    var fond = el('div', 'glisse-fond', 'Supprimer');
+    var rangee = el('div', 'serie' + classeGrille + (allumee ? ' faite' : ''));
+
+    var eti = etiquetteDeSerie(bloc, s);
+    // Une note propre à CETTE série se signale sur son numéro — sinon elle
+    // serait invisible, et une donnée qu'on ne voit pas est une donnée dont on
+    // ne se souvient pas.
+    var no = el('button', 'no-serie ' + eti.classe + (s.note ? ' a-note' : ''), eti.texte);
+    no.type = 'button';
+    no.addEventListener('click', function () { vue.surNumero(iExo, iSerie); });
+    rangee.appendChild(no);
+
+    var prec = vue.precedent(s.exercise_slug);
+    var ligneP = prec && prec.series ? prec.series[iSerie] : null;
+    rangee.appendChild(el('div', 'prec num', M().formatPrecedent(ligneP, g.mesure)));
+
+    var f = vue.fantome(iExo, iSerie);
+    // Une seule boucle pour les quatre gabarits : le champ porte sa colonne, son
+    // unité et son facteur de conversion. La vue ne sait rien de la différence
+    // entre une seconde et un kilomètre.
+    champs.forEach(function (c, iChamp) {
+      var classe = (iChamp === 0 ? 'ch-serie' : 'rp-serie') + ' num';
+      var nom = g.champs[iChamp];
+      if (c.saisie === 'chrono') {
+        rangee.appendChild(champChrono(classe, s[c.cle], f[c.cle],
+          function (v) { vue.surChamp(iExo, iSerie, nom, v); }));
+        return;
+      }
+      rangee.appendChild(champSerie(classe,
+        enUniteDeSaisie(s[c.cle], c.facteur),
+        enUniteDeSaisie(f[c.cle], c.facteur),
+        c.unite,
+        function (v) { vue.surChamp(iExo, iSerie, nom, v); }));
+    });
+
+    if (g.effort) {
+      var eff = el('button', 'eff-serie num' + (texteEffort(s) ? ' plein' : ''), texteEffort(s));
+      eff.type = 'button';
+      eff.addEventListener('click', function () { vue.surEffort(iExo, iSerie); });
+      rangee.appendChild(eff);
+    }
+
+    var ok = el('button', 'ok-serie' + (s.validee_a ? ' cochee' : ''));
+    ok.type = 'button';
+    ok.setAttribute('aria-label', s.validee_a ? 'Dévalider' : 'Valider');
+    var v = svg('svg', null, { viewBox: '0 0 24 24' });
+    v.appendChild(svg('path', null, { d: 'M5 13l4 4L19 7' }));
+    ok.appendChild(v);
+    ok.addEventListener('click', function () { vue.surValider(iExo, iSerie); });
+    rangee.appendChild(ok);
+
+    ligne.appendChild(rangee);
+    ligne.appendChild(fond);
+    brancherGlissement(ligne, function () { vue.surSupprimerSerie(iExo, iSerie); });
+    return ligne;
+  }
+
+  // §2.3 — dans un superset, le numéro porte la LETTRE de l'exercice et le TOUR.
+  // Le type ne s'y écrit plus en toutes lettres : il reste dans la couleur,
+  // exactement comme au détail de séance. Hors superset, rien ne change — `C`,
+  // `D`, `✕`, ou le numéro de la série de travail.
+  function etiquetteDeSerie(bloc, s) {
+    if (!bloc.superset) return etiquetteSerie(s.type_serie, s.tour);
+    var e = ETIQUETTE_TYPE[s.type_serie];
+    return { texte: s.etiquette, classe: e ? e.classe : '' };
+  }
+
+  // Un « + Série » PAR BRANCHE dans un superset : ajouter une série à A n'a rien
+  // à voir avec en ajouter une à B, et un bouton unique ne saurait pas laquelle.
+  function boutonsAjoutSerie(bloc, vue) {
+    var ajout = el('div', 'ajout-serie');
+    bloc.exercices.forEach(function (x) {
+      var b = el('button', '', '+ Série' + (x.lettre ? ' ' + x.lettre : ''));
+      b.type = 'button';
+      b.setAttribute('aria-label', 'Ajouter une série à ' + x.nom);
+      b.addEventListener('click', function () { vue.surAjoutSerie(x._iExo); });
+      ajout.appendChild(b);
+    });
+    return ajout;
   }
 
   // Le chronomètre INFORME, il ne commande pas : pas d'alarme au dépassement,

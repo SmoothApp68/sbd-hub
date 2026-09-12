@@ -75,7 +75,8 @@ function monter(slugs, options) {
   const recus = [];
   const cible = document.createElement('div');
   Rendu().rendreBlocsSeance(cible, seance, {
-    nommer: (s) => Modele.nommer(INDEX, s),
+    blocs: Modele.blocsDeSeance(seance, CATALOGUE),
+    tourAtteint: (g) => Seance.tourAtteint(seance, g),
     exercice: (s) => INDEX[s],
     precedent: o.precedent || (() => null),
     fantome: (i, j) => Seance.fantome(seance, i, j,
@@ -315,7 +316,9 @@ describe('5 — `duree_s` en secondes, quelle que soit la forme saisie', () => {
     s = Seance.modifierSerie(s, 0, 0, { duree: 23700 });
     const cible = document.createElement('div');
     Rendu().rendreBlocsSeance(cible, s, {
-      nommer: (x) => Modele.nommer(INDEX, x), exercice: (x) => INDEX[x],
+      blocs: Modele.blocsDeSeance(s, CATALOGUE),
+      tourAtteint: (g) => Seance.tourAtteint(s, g),
+      exercice: (x) => INDEX[x],
       precedent: () => null,
       fantome: (i, j) => Seance.fantome(s, i, j, null),
       surChamp: () => {}, surValider: () => {}, surNumero: () => {},

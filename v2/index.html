@@ -70,11 +70,41 @@
     <div id="detail-seance"></div>
   </section>
 
-  <!-- Onglets sans contenu. Une phrase qui dit ce qui vient, au présent et à
-       l'actif. Ni excuse, ni animation. -->
+  <!-- Saisie : la bibliothèque de routines. L'état vide est le cas NORMAL au
+       premier lancement — les tables sont vides. Une phrase qui dit quoi faire,
+       et le moyen de le faire ; ni excuse, ni illustration. -->
   <section id="vue-saisie" hidden>
-    <header class="entete"><h1>Saisie</h1></header>
-    <p class="a-venir">Tu noteras ici tes séries, série par série, pendant la séance.</p>
+    <header class="entete">
+      <div class="entete-titre"><h1>Saisie</h1></div>
+      <div class="actions">
+        <button id="btn-nouvelle-routine" type="button" class="discret">Nouvelle routine</button>
+      </div>
+    </header>
+    <div id="liste-routines"></div>
+  </section>
+
+  <!-- L'éditeur. Une VUE avec son URL (/routine/<uuid>), pas un basculement :
+       un rechargement direct la rouvre, et le retour d'Android remonte à la
+       bibliothèque. AUCUN champ de charge nulle part — la routine porte la
+       structure, le moteur décide du poids (ECRAN-SAISIE-V1 §1.1). -->
+  <section id="vue-routine" hidden>
+    <header class="entete">
+      <button id="btn-retour-routine" type="button" class="discret">← Routines</button>
+      <div class="actions">
+        <button id="btn-archiver-routine" type="button" class="discret" hidden>Archiver</button>
+      </div>
+    </header>
+    <div class="carte">
+      <label for="champ-nom-routine">Nom</label>
+      <input id="champ-nom-routine" type="text" maxlength="60" autocomplete="off"
+             enterkeyhint="done" placeholder="Push, Jambes, Haut du corps…">
+    </div>
+    <div id="exos-routine"></div>
+    <button id="btn-ajouter-exo" type="button" class="discret bloc-large">Ajouter un exercice</button>
+    <p id="note-routine" class="note">Les reps visées sont indicatives : le moteur
+      recalcule la cible séance après séance. Le repos est facultatif.</p>
+    <p id="erreur-routine" class="erreur" role="alert" aria-live="polite"></p>
+    <button id="btn-enregistrer-routine" type="button" class="principal">Enregistrer</button>
   </section>
 
   <!-- Progression : un SOMMAIRE, pas des sous-onglets (§7 bis.14). Trois blocs
@@ -132,6 +162,17 @@
   </div>
 </div>
 
+<!-- Le catalogue : 237 entrées, donc une recherche, pas une liste. Un voile,
+     comme le calendrier — le retour d'Android le ferme au lieu de naviguer. -->
+<div id="catalogue" class="voile" hidden>
+  <div class="fen" role="dialog" aria-modal="true" aria-label="Choisir un exercice">
+    <input id="champ-recherche-exo" type="search" autocomplete="off"
+           placeholder="Chercher un exercice" aria-label="Chercher un exercice">
+    <div id="resultats-exo" class="resultats"></div>
+    <button id="btn-fermer-catalogue" type="button" class="fermer">Fermer</button>
+  </div>
+</div>
+
 <!-- Calendrier : on choisit une LIGNE, pas un jour. -->
 <div id="calendrier" class="voile" hidden>
   <div class="cal" role="dialog" aria-modal="true" aria-label="Choisir une semaine">
@@ -168,6 +209,7 @@
 <script src="/js/sync.js"></script>
 <script src="/js/semaine.js"></script>
 <script src="/js/palier.js"></script>
+<script src="/js/routines.js"></script>
 <script src="/js/periode.js"></script>
 <script src="/js/poids.js"></script>
 <script src="/js/calendrier.js"></script>

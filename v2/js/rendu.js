@@ -747,6 +747,138 @@
     cible.appendChild(el('p', genre === 'erreur' ? 'erreur' : 'vide', texte));
   }
 
+  // ── La bibliothèque de routines (chantier 21) ───────────────────────────
+
+  function R() { return racine.THRoutines; }
+
+  // Le rendu reçoit des routines DÉJÀ NORMALISÉES par app.js : { id, nom,
+  // archivee_a, exercices[] }. Il ne connaît pas la forme imbriquée que rend
+  // PostgREST — un seul endroit traduit, et ce n'est pas ici.
+  //
+  // L'état vide est le cas NORMAL au premier lancement : les tables sont vides
+  // en base. Une phrase qui dit quoi faire, et rien d'autre — pas d'excuse, pas
+  // d'illustration, pas de « oups ».
+  function rendreListeRoutines(cible, routines, vue) {
+    vider(cible);
+    var v = vue || {};
+    var liste = R().visibles(routines);
+
+    if (!liste.length) {
+      var vide = el('div', 'vide-routines');
+      vide.appendChild(el('p', 'vide', 'Aucune routine pour l\u2019instant.'));
+      vide.appendChild(el('p', 'vide-aide',
+        'Une routine, ce sont des exercices dans un ordre : ce que tu fais, pas ce que tu soulèves. Les charges, c\u2019est le moteur qui les décide.'));
+      var b = el('button', 'principal', 'Créer une routine');
+      b.type = 'button';
+      b.addEventListener('click', function () { if (v.surNouvelle) v.surNouvelle(); });
+      vide.appendChild(b);
+      cible.appendChild(vide);
+      return;
+    }
+
+    liste.forEach(function (r) {
+      var carte = el('button', 'routine');
+      carte.type = 'button';
+      carte.appendChild(el('div', 'routine-nom', r.nom));
+      var a = R().apercu(r.exercices);
+      carte.appendChild(el('div', 'routine-meta',
+        a.nbExercices + ' exercice' + (a.nbExercices > 1 ? 's' : '') +
+        ' \u00b7 ' + a.nbSeries + ' série' + (a.nbSeries > 1 ? 's' : '')));
+      carte.addEventListener('click', function () { if (v.surChoix) v.surChoix(r.id); });
+      cible.appendChild(carte);
+    });
+  }
+
+  // Un champ numérique de l'éditeur. `surSaisie` MUTE le brouillon et ne
+  // redessine rien : re-rendre à chaque frappe arracherait le focus, et le
+  // clavier d'Android avec lui. Seuls les gestes de structure — monter,
+  // descendre, retirer — redessinent.
+  function champNombre(etiquette, valeur, attributs, surSaisie) {
+    var enveloppe = el('label', 'champ-num');
+    enveloppe.appendChild(el('span', 'champ-lib', etiquette));
+    var input = doc.createElement('input');
+    input.type = 'number';
+    input.inputMode = 'numeric';
+    input.value = (valeur === null || valeur === undefined) ? '' : String(valeur);
+    Object.keys(attributs || {}).forEach(function (k) { input.setAttribute(k, String(attributs[k])); });
+    input.addEventListener('input', function () { surSaisie(input.value); });
+    enveloppe.appendChild(input);
+    return enveloppe;
+  }
+
+  function geste(texte, titre, desactive, surClic) {
+    var b = el('button', 'geste', texte);
+    b.type = 'button';
+    b.setAttribute('aria-label', titre);
+    b.title = titre;
+    b.disabled = !!desactive;
+    if (!desactive) b.addEventListener('click', surClic);
+    return b;
+  }
+
+  // La liste des exercices de l'éditeur. Boutons monter/descendre, PAS de
+  // glissement tactile : le geste le plus fragile du projet appartient au
+  // commit « déviation », et il a déjà coûté trois chantiers sur le retour.
+  //
+  // ⚠️ AUCUN CHAMP DE CHARGE. Trois champs, et trois seulement : séries, reps
+  // visées, repos cible. La routine porte la structure, le moteur décide du
+  // poids (ECRAN-SAISIE-V1 §1.1).
+  function rendreExosRoutine(cible, exercices, nommer, vue) {
+    vider(cible);
+    var v = vue || {};
+    var liste = exercices || [];
+
+    if (!liste.length) {
+      cible.appendChild(el('p', 'vide', 'Aucun exercice. Ajoute le premier ci-dessous.'));
+      return;
+    }
+
+    liste.forEach(function (e, i) {
+      var carte = el('div', 'exo-routine');
+
+      var haut = el('div', 'exo-routine-haut');
+      haut.appendChild(el('span', 'exo-routine-nom', nommer(e.exercise_slug)));
+      var gestes = el('div', 'exo-routine-gestes');
+      gestes.appendChild(geste('\u2191', 'Monter', i === 0, function () { v.surMonter(i); }));
+      gestes.appendChild(geste('\u2193', 'Descendre', i === liste.length - 1, function () { v.surDescendre(i); }));
+      gestes.appendChild(geste('\u2715', 'Retirer', false, function () { v.surRetirer(i); }));
+      haut.appendChild(gestes);
+      carte.appendChild(haut);
+
+      var champs = el('div', 'exo-routine-champs');
+      champs.appendChild(champNombre('Séries', e.series,
+        { min: R().SERIES_MIN, max: R().SERIES_MAX },
+        function (val) { v.surChamp(i, 'series', val); }));
+      champs.appendChild(champNombre('Reps visées', e.reps_visees,
+        { min: R().REPS_MIN, max: R().REPS_MAX, placeholder: '\u2014' },
+        function (val) { v.surChamp(i, 'reps_visees', val); }));
+      champs.appendChild(champNombre('Repos (s)', e.repos_cible_s,
+        { min: R().REPOS_MIN, max: R().REPOS_MAX, placeholder: '\u2014' },
+        function (val) { v.surChamp(i, 'repos_cible_s', val); }));
+      carte.appendChild(champs);
+
+      cible.appendChild(carte);
+    });
+  }
+
+  // Les résultats du catalogue. 237 entrées, des noms qui vont jusqu'à
+  // « Curl Poignets Paumes vers le Haut Assis » : le nom passe sur deux lignes
+  // plutôt que d'être tronqué (ECRAN-SAISIE §7 bis.2).
+  function rendreResultatsExo(cible, exercices, surChoix) {
+    vider(cible);
+    var liste = exercices || [];
+    if (!liste.length) {
+      cible.appendChild(el('p', 'vide', 'Aucun exercice ne correspond.'));
+      return;
+    }
+    liste.forEach(function (e) {
+      var b = el('button', 'resultat', e.nom || e.slug);
+      b.type = 'button';
+      b.addEventListener('click', function () { surChoix(e); });
+      cible.appendChild(b);
+    });
+  }
+
   var api = {
     rendreEtat: rendreEtat,
     rendreOnglets: rendreOnglets,
@@ -774,6 +906,9 @@
   };
 
   racine.THRendu = {
+    rendreListeRoutines: rendreListeRoutines,
+    rendreExosRoutine: rendreExosRoutine,
+    rendreResultatsExo: rendreResultatsExo,
     el: el,
     vider: vider,
     dateCourte: dateCourte,

@@ -8,7 +8,9 @@
 //   /                       la semaine courante — la racine, onglet Séances
 //   /semaine/AAAA-MM-JJ     une semaine, désignée par son lundi
 //   /seance/<uuid>          le détail d'une séance
-//   /saisie                 onglet Saisie
+//   /saisie                 onglet Saisie — la bibliothèque de routines
+//   /routine/nouvelle       créer une routine
+//   /routine/<uuid>         modifier une routine
 //   /progression            onglet Progression — le SOMMAIRE
 //   /progression/volume     le volume par muscle d'une semaine, et le radar
 //   /progression/poids      le poids de corps
@@ -37,6 +39,13 @@
   var RACINE = 'racine', SEMAINE = 'semaine', SEANCE = 'seance', CONNEXION = 'connexion';
   var SAISIE = 'saisie', PROGRESSION = 'progression', PROFIL = 'profil';
   var VOLUME = 'volume', POIDS = 'poids';
+  // L'éditeur de routine est une VUE, avec son URL, sur le modèle de
+  // `/seance/<uuid>` : un rechargement direct la rouvre, et le retour d'Android
+  // remonte à la bibliothèque sans qu'on ait à l'écrire. `nouvelle` est le
+  // même écran sans routine derrière — un mot réservé plutôt qu'un segment de
+  // plus, parce que c'est le même formulaire et le même code.
+  var ROUTINE = 'routine';
+  var ROUTINE_NEUVE = 'nouvelle';
 
   // Les vues qui vivent SOUS Progression. Le chemin est « /progression/<clé> »
   // et l'onglet allumé reste Progression.
@@ -96,6 +105,12 @@
       return { vue: SEMAINE, params: { lundi: d } };
     }
 
+    if (bouts[0] === ROUTINE && bouts.length === 2) {
+      if (bouts[1] === ROUTINE_NEUVE) return { vue: ROUTINE, params: { neuve: true } };
+      if (!RE_UUID.test(bouts[1])) return { vue: SAISIE, params: {}, repli: 'id-invalide' };
+      return { vue: ROUTINE, params: { id: bouts[1] } };
+    }
+
     if (bouts[0] === SEANCE && bouts.length === 2) {
       if (!RE_UUID.test(bouts[1])) return { vue: RACINE, params: {}, repli: 'id-invalide' };
       return { vue: SEANCE, params: { id: bouts[1] } };
@@ -112,6 +127,10 @@
       return d ? '/' + SEMAINE + '/' + d : '/';
     }
     if (vue === SEANCE) return p.id && RE_UUID.test(p.id) ? '/' + SEANCE + '/' + p.id : '/';
+    if (vue === ROUTINE) {
+      if (p.neuve) return '/' + ROUTINE + '/' + ROUTINE_NEUVE;
+      return p.id && RE_UUID.test(p.id) ? '/' + ROUTINE + '/' + p.id : '/' + SAISIE;
+    }
     if (SOUS_PROGRESSION[vue]) return '/' + PROGRESSION + '/' + vue;
     if (SEGMENTS[vue]) return '/' + vue;
     return '/';
@@ -126,6 +145,7 @@
 
   function ongletDe(vue) {
     if (vue === SEMAINE || vue === SEANCE) return RACINE;
+    if (vue === ROUTINE) return SAISIE;
     if (SOUS_PROGRESSION[vue]) return PROGRESSION;
     for (var i = 0; i < ONGLETS.length; i++) if (ONGLETS[i] === vue) return vue;
     return null;
@@ -174,6 +194,7 @@
   var api = {
     RACINE: RACINE, SEMAINE: SEMAINE, SEANCE: SEANCE, CONNEXION: CONNEXION,
     SAISIE: SAISIE, PROGRESSION: PROGRESSION, PROFIL: PROFIL,
+    ROUTINE: ROUTINE, ROUTINE_NEUVE: ROUTINE_NEUVE,
     VOLUME: VOLUME, POIDS: POIDS,
     SOUS_PROGRESSION: SOUS_PROGRESSION,
     versDate: versDate,

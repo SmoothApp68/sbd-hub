@@ -1,11 +1,14 @@
 # Schéma réel — état au 10 septembre 2026
 
 **Régénéré depuis la base**, projet Supabase `swwygywahfdenyzotrce` (eu-west-1).
-Dernière migration appliquée : **`v2_039_validee_a_sans_defaut`**.
+Dernière migration appliquée : **`v2_040_temps_de_repos`**.
 
 > ⚠️ **Ce document remplace `SCHEMA-V2_2.md`**, qui décrivait un état antérieur aux
 > routines et n'a plus valeur de référence. En cas de doute, la base fait foi — pas ce
 > fichier. Il est régénéré, pas rédigé.
+
+> **Mis à jour le 11/09/2026.** Dernière migration : **`v2_040_temps_de_repos`**.
+> Prochain numéro libre : **`v2_041`**.
 
 **Volumétrie :** 1 221 séances · 28 103 séries · 237 exercices · 255 alias · 116 pesées ·
 6 profils dont 5 avec des séances · routines vides.
@@ -33,6 +36,23 @@ traits d'union et apostrophes.
 
 **`sets.groupe_superset`** porte le regroupement en blocs : 9 376 séries de travail y sont
 rattachées. Anomalie connue à ne pas corriger : 13 blocs ne contiennent qu'un seul exercice.
+
+**`sets_validee_si_saisie` interdit d'insérer une série non validée** quand `source = 'app'`.
+Pré-créer les lignes vides d'une routine au démarrage d'une séance est donc **mécaniquement
+impossible** — la base garantit ce qu'une convention ne pouvait que demander.
+
+**`sessions.statut` vaut `'terminee'` PAR DÉFAUT**, et accepte `'en_cours'`. Une séance créée
+au démarrage sans statut explicite serait donc immédiatement réputée terminée, et polluerait
+l'historique et le moteur. **Écrire `en_cours` explicitement.**
+
+**`sets.ressenti`** accepte `reste_3_plus`, `reste_2`, `reste_1`, `reste_0` — du RIR, plus
+simple à donner qu'un RPE chiffré. **Aucun écran ne l'utilise encore**, alors que `sets.rpe`
+n'est renseigné que sur 136 séries (0,5 %), toutes d'un seul utilisateur.
+
+**Les identifiants sont des `uuid` avec `gen_random_uuid()` en défaut.** L'app peut donc les
+**fabriquer côté client**, ce qui rend la synchronisation **idempotente** : la même ligne
+envoyée deux fois écrase la même ligne. C'est ce qui rend l'écriture hors ligne faisable sans
+résolution de conflit.
 
 **Les étiquettes A1/B1/C1 ne sont jamais stockées** — elles se recalculent à l'affichage.
 Même chose pour la dégressive, le rest-pause, le numéro de tour et la période
@@ -80,6 +100,7 @@ d'entraînement. Doctrine : une étiquette qui se déduit ne se stocke jamais.
 | `elastique` | text | |
 | `elastique_norme` | text | **GÉNÉRÉE** |
 | `tempo_descente`, `tempo_pause`, `tempo_montee` | smallint | |
+| `repos_s` | integer | **`v2_040`** — repos RÉEL avant cette série, 0 à 3600 s. Mesuré par le chronomètre **à partir de la validation** de la série précédente, donc le temps d'exécution n'y entre pas. **NULL sur les 28 103 importées** : l'export Hevy ne porte pas le repos |
 
 ## `exercises` — 237 lignes
 
@@ -106,7 +127,8 @@ d'entraînement. Doctrine : une étiquette qui se déduit ne se stocke jamais.
 
 `routine_exercises` : `routine_id`, `exercise_slug`, `rang` (unique par routine), `series`
 (1–20, défaut 3), `reps_visees` (1–100, **indicatif** — le moteur recalcule la cible),
-`groupe_superset` (même mécanisme que `sets`).
+`groupe_superset` (même mécanisme que `sets`), **`repos_cible_s`** (`v2_040` — repos
+**prescrit**, 5 à 1800 s, NULL = non prescrit).
 
 ## Autres tables
 
@@ -138,4 +160,4 @@ routine d'autrui.
 vérifiés. **Écriture, migration et RLS : jamais.**
 
 Toujours `list_migrations` avant de nommer une migration : la numérotation a historiquement
-déraillé. Prochain numéro libre au 10/09/2026 : **`v2_040`**.
+déraillé. Prochain numéro libre au 11/09/2026 : **`v2_041`**.

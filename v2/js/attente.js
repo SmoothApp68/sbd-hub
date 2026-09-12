@@ -96,9 +96,14 @@
       // Compression : la dernière intention gagne, la POSITION reste celle de
       // la première. Sans ça, modifier la séance après avoir validé des séries
       // ferait passer la séance APRÈS ses séries, et la clé étrangère casserait.
+      //
+      // ⚠️ `version` MONTE À CHAQUE POSE. C'est ce qui distingue « l'entrée que
+      // je viens d'envoyer » de « l'entrée telle qu'elle est maintenant » —
+      // voir `retirer`.
       liste[i] = Object.assign({}, liste[i], {
         op: op.op, donnees: op.donnees,
         creation: liste[i].creation || !!op.creation,
+        version: (liste[i].version || 1) + 1,
         bloquee: null, essais: 0
       });
       return liste;
@@ -111,7 +116,7 @@
       cle: cle, seq: seq, table: op.table, op: op.op, id: op.id,
       donnees: op.donnees === undefined ? null : op.donnees,
       creation: !!op.creation, posee_a: op.posee_a || null,
-      essais: 0, bloquee: null
+      version: 1, essais: 0, bloquee: null
     };
   }
 
@@ -138,8 +143,34 @@
     return liste.length ? (liste[0].bloquee ? null : liste[0]) : null;
   }
 
-  function retirer(file, cle) {
-    return (file || []).filter(function (e) { return e.cle !== cle; });
+  // ⚠️ ON NE RETIRE QUE CE QU'ON A VRAIMENT ENVOYÉ — PERTE SILENCIEUSE.
+  //
+  // Défaut trouvé au chantier 25, au banc d'écran, en tapant une durée chiffre
+  // par chiffre. Le scénario, en quatre temps :
+  //
+  //   1. la vidange prend une COPIE de l'entrée (trois séries) et part sur le
+  //      réseau ;
+  //   2. pendant l'aller-retour, un geste pose la MÊME clé avec une intention
+  //      plus récente (quatre séries) — la compression remplace le contenu ;
+  //   3. la requête revient, réussie ;
+  //   4. `retirer(cle)` jetait l'entrée ENTIÈRE, donc la quatrième série avec.
+  //
+  // Elle n'était pas perdue sur l'appareil — le brouillon la garde — mais elle
+  // ne montait plus JAMAIS, et `#etat-sync` affichait « À jour ». Une perte
+  // silencieuse, c'est-à-dire exactement ce que la file existe pour empêcher.
+  //
+  // Le défaut est antérieur à ce chantier : chaque frappe d'un champ pose une
+  // intention, donc « 122,5 » ouvrait déjà la fenêtre cinq fois. Le banc ne le
+  // voyait pas parce qu'il saisissait par `fill()`, qui pose la valeur d'un
+  // bloc et n'émet qu'UN événement — personne ne tape comme ça.
+  //
+  // La garde : on ne retire que si l'entrée est restée CELLE QU'ON A ENVOYÉE.
+  // Sinon on la laisse, et le tour suivant de la boucle l'envoie à son tour.
+  function retirer(file, cle, version) {
+    return (file || []).filter(function (e) {
+      if (e.cle !== cle) return true;
+      return version !== undefined && version !== null && (e.version || 1) !== version;
+    });
   }
 
   // Marque l'échec SUR l'entrée, sans la retirer. Rien ne quitte la file sans

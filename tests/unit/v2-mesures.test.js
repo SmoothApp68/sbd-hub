@@ -110,12 +110,15 @@ describe('1 — chaque mesure rend ses colonnes, et SEULEMENT les siennes', () =
     expect(blocs().map((b) => b.champs.length)).toEqual([2, 1, 1, 2]);
   });
 
+  // ⚠️ Depuis le chantier 25, la DURÉE ne porte plus d’unité : elle se saisit
+  // par décalage, en `HH:MM:SS`, et c’est la forme qui dit l’unité. Seuls les
+  // kilos et les kilomètres en gardent une.
   test('chaque champ porte son unité, écrite dans le champ', () => {
     expect(blocs().map((b) => b.champs.map((c) => c.unite))).toEqual([
       ['kg', null],        // la colonne reps n’a pas d’unité à écrire
       [null],
-      ['s'],               // un gainage se dit en secondes
-      ['min', 'km']        // une sortie se dit en minutes et en kilomètres
+      [null],              // une durée se lit 00:50, pas « 50 s »
+      [null, 'km']
     ]);
   });
 
@@ -152,7 +155,7 @@ describe('2 — `reps` n’a pas de colonne de charge, et n’en envoie aucune',
 describe('3 — `temps` saisit une durée, et rien d’autre', () => {
   test('`duree_s` est renseigné, `charge_kg` et `reps` restent nuls', () => {
     let s = seanceQuatre();
-    s = Seance.modifierSerie(s, 2, 0, { duree_s: '50' });
+    s = Seance.modifierSerie(s, 2, 0, { duree: 50 });
     s = Seance.valider(s, 2, 0, new Date('2026-09-12T10:00:00Z'));
     const l = Seance.lignes(s)[0];
     expect(l.exercise_slug).toBe('pl');
@@ -162,39 +165,44 @@ describe('3 — `temps` saisit une durée, et rien d’autre', () => {
     expect(l.distance_m).toBeNull();
   });
 
-  test('la colonne « précédent » formate la durée, elle ne l’affiche pas brute', () => {
+  // ⚠️ EN HORLOGE depuis le chantier 25, comme le champ qu'elle jouxte. Dire
+  // « 45 s » à trois millimètres d'un champ qui dit « 00:45 » serait deux
+  // écritures du même chiffre sur la même ligne.
+  test('la colonne « précédent » parle la même langue que le champ', () => {
     const prec = () => ({ seance: {}, series: [{ charge_kg: null, reps: null,
                                                  duree_s: 45, distance_m: null }] });
     const blocs = lire(rendre(seanceQuatre(), { precedent: prec }));
-    expect(blocs[2].precedent).toBe('45 s');
+    expect(blocs[2].precedent).toBe('00:45');
   });
 
-  test('une sortie se saisit en MINUTES et en KILOMÈTRES, la base garde s et m', () => {
+  // La durée arrive DÉJÀ en secondes depuis le pavé ; la distance garde son
+  // facteur. Une seule unité de durée, plus de `duree_min`.
+  test('une sortie enregistre des secondes et des mètres', () => {
     let s = seanceQuatre();
-    s = Seance.modifierSerie(s, 3, 0, { duree_min: '130', distance_km: '8,4' });
+    s = Seance.modifierSerie(s, 3, 0, { duree: 7800, distance_km: '8,4' });
     s = Seance.valider(s, 3, 0, new Date('2026-09-12T10:00:00Z'));
     const l = Seance.lignes(s)[0];
     expect(l.duree_s).toBe(7800);
     expect(l.distance_m).toBe(8400);
   });
 
-  test('et l’écran les REMONTE dans l’unité de saisie, pas en secondes', () => {
+  test('et l’écran remonte la durée en horloge, la distance en kilomètres', () => {
     let s = seanceQuatre();
-    s = Seance.modifierSerie(s, 3, 0, { duree_min: '130', distance_km: '8,4' });
+    s = Seance.modifierSerie(s, 3, 0, { duree: 7800, distance_km: '8,4' });
     const ma = lire(rendre(s))[3];
-    expect(ma.champs.map((c) => c.valeur)).toEqual(['130', '8,4']);
+    expect(ma.champs.map((c) => c.valeur)).toEqual(['02:10:00', '8,4']);
   });
 
   test('la colonne « précédent » d’une sortie donne la durée, pas la distance', () => {
     const prec = () => ({ seance: {}, series: [{ charge_kg: null, reps: null,
                                                  duree_s: 23700, distance_m: 22660 }] });
     const blocs = lire(rendre(seanceQuatre(), { precedent: prec }));
-    expect(blocs[3].precedent).toBe('6 h 35');
+    expect(blocs[3].precedent).toBe('06:35:00');
   });
 
   test('ni durée ni distance négative — on rejette plutôt que de stocker', () => {
     let s = seanceQuatre();
-    s = Seance.modifierSerie(s, 2, 0, { duree_s: '-30' });
+    s = Seance.modifierSerie(s, 2, 0, { duree: '-30' });
     expect(s.exercices[2].series[0].duree_s).toBeNull();
     s = Seance.modifierSerie(s, 3, 0, { distance_km: '-1' });
     expect(s.exercices[3].series[0].distance_m).toBeNull();
@@ -216,8 +224,8 @@ describe('4 — pas de colonne d’effort là où il n’y a pas de répétition
 
   test('et rien n’est écrit dans `rpe` ni dans `ressenti`', () => {
     let s = seanceQuatre();
-    s = Seance.modifierSerie(s, 2, 0, { duree_s: '50' });
-    s = Seance.modifierSerie(s, 3, 0, { duree_min: '130', distance_km: '8,4' });
+    s = Seance.modifierSerie(s, 2, 0, { duree: 50 });
+    s = Seance.modifierSerie(s, 3, 0, { duree: 7800, distance_km: '8,4' });
     s = Seance.valider(s, 2, 0, new Date('2026-09-12T10:00:00Z'));
     s = Seance.valider(s, 3, 0, new Date('2026-09-12T10:10:00Z'));
     Seance.lignes(s).forEach((l) => {
@@ -400,7 +408,7 @@ describe('8 bis — `precedent` recopie ce que la mesure demande', () => {
 
   test('et la colonne les affiche, formatées, chacune dans sa mesure', () => {
     const blocs = lire(rendre(seanceQuatre(), { precedent: prec }));
-    expect(blocs.map((b) => b.precedent)).toEqual(['122,5×5', '11', '45 s', '6 h 35']);
+    expect(blocs.map((b) => b.precedent)).toEqual(['122,5×5', '11', '00:45', '06:35:00']);
   });
 
   // Un exercice jamais fait n'a pas de précédent : un tiret, pas un zéro.
@@ -411,10 +419,10 @@ describe('8 bis — `precedent` recopie ce que la mesure demande', () => {
   });
 
   // Le fantôme suit la même route : la dernière durée devient la valeur grise.
-  test('le fantôme d’une planche est la durée précédente, pas une charge', () => {
+  test('le fantôme d’une planche est la durée précédente, en horloge', () => {
     const blocs = lire(rendre(seanceQuatre(), { precedent: prec }));
-    expect(blocs[2].champs[0].fantome).toBe('45');
-    expect(blocs[3].champs.map((c) => c.fantome)).toEqual(['395', '22,66']);
+    expect(blocs[2].champs[0].fantome).toBe('00:45');
+    expect(blocs[3].champs.map((c) => c.fantome)).toEqual(['06:35:00', '22,66']);
   });
 });
 

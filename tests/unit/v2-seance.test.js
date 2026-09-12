@@ -736,6 +736,81 @@ describe('la file d’attente', () => {
     expect(f[0].op).toBe('supprimer');
   });
 
+  // ══ LA PERTE SILENCIEUSE DE LA FILE (trouvée au chantier 25) ═════════════
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : un geste posé PENDANT qu'un envoi est en
+  // vol, sur la MÊME clé. Si l'on pose avant l'envoi ou après le retrait, la
+  // file se comporte pareil qu'elle garde ou non la version — seule la
+  // superposition les sépare.
+  //
+  // C'est pour ça que le banc ne l'a jamais vue : il saisissait par `fill()`,
+  // qui pose une valeur d'un bloc et n'émet qu'UN événement. Personne ne tape
+  // comme ça — un humain émet un événement par caractère, donc une intention
+  // par caractère, donc il ouvre la fenêtre à chaque frappe.
+  test('une intention posée PENDANT l’envoi n’est pas emportée par le succès', () => {
+    // 1. trois séries en file
+    let f = Attente.poser([], { table: 'sets', op: 'remplacer', id: 'S', donnees: ['a', 'b', 'c'] });
+    // 2. la vidange en prend une copie et part sur le réseau
+    const envoyee = Attente.prochaine(f);
+    expect(envoyee.donnees).toEqual(['a', 'b', 'c']);
+    // 3. pendant l'aller-retour, un geste pose une quatrième série
+    f = Attente.poser(f, { table: 'sets', op: 'remplacer', id: 'S', donnees: ['a', 'b', 'c', 'd'] });
+    // 4. la requête revient, réussie : on retire CE QU'ON A ENVOYÉ
+    f = Attente.retirer(f, envoyee.cle, envoyee.version);
+
+    // L'entrée reste, avec l'intention récente — et le tour suivant l'enverra.
+    expect(f.length).toBe(1);
+    expect(f[0].donnees).toEqual(['a', 'b', 'c', 'd']);
+    expect(Attente.prochaine(f).donnees).toEqual(['a', 'b', 'c', 'd']);
+  });
+
+  test('et sans geste concurrent, elle part bien de la file', () => {
+    let f = Attente.poser([], { table: 'sets', op: 'remplacer', id: 'S', donnees: ['a'] });
+    const envoyee = Attente.prochaine(f);
+    f = Attente.retirer(f, envoyee.cle, envoyee.version);
+    expect(f).toEqual([]);
+  });
+
+  // La preuve d'ASYMÉTRIE : sans la version, le succès emporte l'intention
+  // récente — c'est exactement le défaut, reproduit ici pour qu'on voie qu'il
+  // n'est pas théorique.
+  test('c’est bien la VERSION qui discrimine, pas autre chose', () => {
+    let f = Attente.poser([], { table: 'sets', op: 'remplacer', id: 'S', donnees: ['a', 'b', 'c'] });
+    const envoyee = Attente.prochaine(f);
+    f = Attente.poser(f, { table: 'sets', op: 'remplacer', id: 'S', donnees: ['a', 'b', 'c', 'd'] });
+    expect(envoyee.version).toBe(1);
+    expect(f[0].version).toBe(2);
+    // Retirer en citant la version ENVOYÉE : l'entrée reste.
+    expect(Attente.retirer(f, envoyee.cle, 1).length).toBe(1);
+    // Retirer en citant la version COURANTE : elle part.
+    expect(Attente.retirer(f, envoyee.cle, 2)).toEqual([]);
+  });
+
+  // ⚠️ Sans version citée du tout, on retire SANS CONDITION — et c'est voulu :
+  // c'est l'appel de l'abandon de séance, qui purge les écritures de séries
+  // d'une séance qui n'existera plus. `vidanger`, lui, cite toujours une
+  // version (`op.version || 1`), y compris pour une entrée écrite par un build
+  // antérieur qui n'en portait pas.
+  test('sans version citée, le retrait est inconditionnel — c’est la purge', () => {
+    let f = Attente.poser([], { table: 'sets', op: 'remplacer', id: 'S', donnees: ['a'] });
+    f = Attente.poser(f, { table: 'sets', op: 'remplacer', id: 'S', donnees: ['a', 'b'] });
+    expect(Attente.retirer(f, 'sets:S')).toEqual([]);
+  });
+
+  test('une entrée d’un build antérieur, sans `version`, se comporte comme avant', () => {
+    // Écrite par le build précédent : aucun champ `version`.
+    const ancienne = { cle: 'sets:S', seq: 1, table: 'sets', op: 'remplacer',
+                       id: 'S', donnees: ['a'], creation: false, essais: 0, bloquee: null };
+    // `vidanger` cite `op.version || 1` : elle part, comme avant le chantier.
+    expect(Attente.retirer([ancienne], 'sets:S', 1)).toEqual([]);
+    // Et si un geste l'a remplacée entre-temps, elle reste : la garde vaut
+    // aussi pour ce qui traînait dans la file au moment de la mise à jour.
+    const remplacee = Attente.poser([ancienne],
+      { table: 'sets', op: 'remplacer', id: 'S', donnees: ['a', 'b'] });
+    expect(remplacee[0].version).toBe(2);
+    expect(Attente.retirer(remplacee, 'sets:S', 1).length).toBe(1);
+  });
+
   test('les erreurs temporaires ne bloquent pas, les définitives si', () => {
     expect(Attente.estDefinitive(new TypeError('Failed to fetch'))).toBe(false);
     expect(Attente.estDefinitive({ code: '503' })).toBe(false);

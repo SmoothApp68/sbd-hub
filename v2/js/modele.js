@@ -93,24 +93,122 @@
   // Les données sont propres : chaque mesure ne remplit que ses colonnes, sans
   // une exception sur 28 103 séries. Rien à nettoyer, seulement à afficher.
 
-  // ── L'UNITÉ DE SAISIE SUIT LA MESURE, ET C'EST DÉLIBÉRÉ ──────────────────
+  // ══ LA DURÉE SE SAISIT PAR DÉCALAGE, COMME UN PAVÉ DE CHRONOMÉTRAGE ══════
   //
-  // Un gainage se dit en SECONDES (« 50 »), une sortie en MINUTES (« 130 »).
-  // La même colonne `duree_s` se saisit donc dans deux unités différentes
-  // selon l'exercice — non par laxisme, mais parce que c'est ce qu'on a dans
-  // la tête au moment de taper : personne ne saisit 7 800 pour une rando de
-  // deux heures, ni 0,83 pour une planche de 50 secondes.
+  // Le chantier 24 avait tranché « l'unité suit la mesure » : secondes pour un
+  // gainage, minutes pour une sortie. Vérifié sur device, c'était encore une
+  // règle à apprendre, et elle ne couvrait pas l'écart réel entre exercices —
+  // mesuré sur les séries : L-Sit 5 à 10 s, planche 10 s à 2 min, escaliers
+  // 30 s à 8 min, pilates 15 min à 1 h, escalade 1 h 30 à 2 h, randonnée
+  // jusqu'à 6 h 35. Un facteur MILLE entre les deux bouts.
   //
-  // L'unité est ÉCRITE DANS LE CHAMP, donc rien n'est deviné. Et `facteur`
-  // est la seule chose qui sépare l'unité de saisie de l'unité de la colonne :
-  // la base ne voit que des secondes et des mètres.
+  // Les chiffres entrent PAR LA DROITE et poussent les autres vers la gauche :
+  //
+  //   `5` `0`           -> 00:50
+  //   `1` `3` `0` `0`   -> 13:00
+  //   `2` `0` `0` `0` `0` -> 02:00:00
+  //
+  // Aucune règle à deviner, aucune conversion, aucun choix d'unité : le même
+  // geste vaut pour dix secondes et pour six heures. Et il n'y a plus deux
+  // unités pour une seule colonne — `duree_min` a disparu avec son facteur 60.
+  //
+  // `saisie` dit au rendu quel champ construire ; `facteur` ne sépare plus que
+  // les kilomètres des mètres.
   var CHAMPS_MESURE = {
-    charge_kg:   { cle: 'charge_kg',  entete: 'KG',       unite: 'kg',  facteur: 1,    entier: false },
-    reps:        { cle: 'reps',       entete: 'REPS',     unite: null,  facteur: 1,    entier: true },
-    duree_s:     { cle: 'duree_s',    entete: 'DURÉE',    unite: 's',   facteur: 1,    entier: true },
-    duree_min:   { cle: 'duree_s',    entete: 'DURÉE',    unite: 'min', facteur: 60,   entier: true },
-    distance_km: { cle: 'distance_m', entete: 'DISTANCE', unite: 'km',  facteur: 1000, entier: true }
+    charge_kg:   { cle: 'charge_kg',  entete: 'KG',       unite: 'kg',  facteur: 1,    saisie: 'nombre' },
+    reps:        { cle: 'reps',       entete: 'REPS',     unite: null,  facteur: 1,    saisie: 'nombre' },
+    duree:       { cle: 'duree_s',    entete: 'DURÉE',    unite: null,  facteur: 1,    saisie: 'chrono' },
+    // La DISTANCE ne change pas : une seule base de dix, une seule unité utile.
+    // Taper `8,76` en kilomètres est aussi rapide que `8760` en mètres et plus
+    // lisible. Le décalage n'apporte rien là où il n'y a ni trois groupes ni
+    // base de soixante.
+    distance_km: { cle: 'distance_m', entete: 'DISTANCE', unite: 'km',  facteur: 1000, saisie: 'nombre' }
   };
+
+  // ── Le pavé de chronométrage, en fonctions pures ────────────────────────
+  //
+  // ⚠️ LE TAMPON DE CHIFFRES EST UN ÉTAT, et il ne peut pas se déduire de la
+  // valeur. `6·3·5·0·0` passe par « 6350 » (63 min 50 s = 3 830 s) ; la forme
+  // canonique de 3 830 s est « 10350 » (1 h 03 min 50), et repartir de celle-là
+  // au chiffre suivant donnerait 1:03:50 au lieu de 6:35:00. Le tampon vit donc
+  // dans le champ tant qu'on tape, et se recompose depuis la valeur au rendu
+  // suivant — sans perte, puisque la valeur, elle, est exacte à la seconde.
+  var MAX_DUREE_S = 9 * 3600 + 59 * 60 + 59;   // 9:59:59 — 35 999 s, LA borne
+  var MAX_CHIFFRES_DUREE = 5;                  // sa conséquence, pas une règle
+
+  function deux(n) { return (n < 10 ? '0' : '') + n; }
+
+  function sansZerosDeTete(s) { return String(s).replace(/^0+(?=\d)/, ''); }
+
+  // Un chiffre de plus, par la droite. UNE SEULE borne, et c'est la VALEUR :
+  // au-delà de **9:59:59**, le chiffre n'entre pas.
+  //
+  // ⚠️ Elle existe parce que le pavé ne doit JAMAIS produire une durée qu'il ne
+  // sait pas reprendre. Les groupes bruts acceptent 99 minutes et 99 secondes :
+  // « 99999 » vaudrait 10 h 40 min 39 s, dont la forme canonique est
+  // « 104039 » — SIX chiffres. En rouvrant la série, le champ afficherait la
+  // bonne heure et refuserait ensuite tout nouveau chiffre. Un pavé qui écrit
+  // ce qu'il ne peut plus relire est un piège, et il ne se voit qu'à la
+  // réédition, sur device, jamais en CI.
+  //
+  // Un compteur de chiffres serait REDONDANT, et le banc de mutation l'a
+  // prouvé : au-dessus de cinq chiffres, le premier groupe vaut au moins dix
+  // heures, donc la borne de valeur a déjà refusé. Le remplacer par 99 ne
+  // faisait tomber aucun test — un garde-fou qu'aucune mutation ne tue est un
+  // garde-fou mort (leçon de `palier.js`). `MAX_CHIFFRES_DUREE` reste comme ce
+  // qu'il est vraiment : la CONSÉQUENCE de la borne, que les tests vérifient.
+  //
+  // Aucun groupe n'est tronqué au passage : le chiffre de trop n'entre pas,
+  // rien n'est silencieusement perdu.
+  function poserChiffreDuree(chiffres, chiffre) {
+    var courant = String(chiffres === null || chiffres === undefined ? '' : chiffres);
+    var c = String(chiffre).replace(/\D/g, '');
+    if (c.length !== 1) return courant;
+    var suite = sansZerosDeTete(courant + c);
+    return dureeDeChiffres(suite) > MAX_DUREE_S ? courant : suite;
+  }
+
+  // Effacer retire le dernier chiffre, par la droite — geste inverse exact.
+  function retirerChiffreDuree(chiffres) {
+    return String(chiffres === null || chiffres === undefined ? '' : chiffres).slice(0, -1);
+  }
+
+  // Les groupes se lisent DEUX PAR DEUX depuis la droite, et aucun n'est
+  // tronqué : « 6350 » vaut 63 minutes 50 secondes, ce qui est une durée, pas
+  // une erreur. La valeur est donc toujours exactement ce que les chiffres
+  // disent — et c'est `formatChrono` qui la rend sous forme d'horloge, où les
+  // minutes et les secondes sont par construction sous 60.
+  function dureeDeChiffres(chiffres) {
+    var s = String(chiffres === null || chiffres === undefined ? '' : chiffres).replace(/\D/g, '');
+    if (!s) return null;
+    var ss = Number(s.slice(-2) || 0);
+    var mm = Number(s.slice(-4, -2) || 0);
+    var hh = Number(s.slice(0, -4) || 0);
+    return hh * 3600 + mm * 60 + ss;
+  }
+
+  // L'inverse : la forme canonique d'une durée déjà enregistrée, pour que le
+  // champ reparte de ce qu'il affiche.
+  function chiffresDeDuree(secondes) {
+    if (secondes === null || secondes === undefined || secondes === '') return '';
+    var n = Number(secondes);
+    if (!isFinite(n)) return '';
+    n = Math.max(0, Math.round(n));
+    var hh = Math.floor(n / 3600), mm = Math.floor((n % 3600) / 60), ss = n % 60;
+    return sansZerosDeTete((hh ? String(hh) + deux(mm) : String(mm)) + deux(ss));
+  }
+
+  // « 00:50 » · « 13:00 » · « 02:00:00 ». Les heures ne s'affichent QUE si
+  // elles existent : cinq caractères inutiles sur un gainage de dix secondes,
+  // c'est cinq de trop.
+  function formatChrono(secondes) {
+    if (secondes === null || secondes === undefined || secondes === '') return '';
+    var n = Number(secondes);
+    if (!isFinite(n)) return '';
+    n = Math.max(0, Math.round(n));
+    var hh = Math.floor(n / 3600), mm = Math.floor((n % 3600) / 60), ss = n % 60;
+    return (hh ? deux(hh) + ':' : '') + deux(mm) + ':' + deux(ss);
+  }
 
   // Le libellé est rappelé sous le nom de l'exercice : sans lui, une ligne à
   // deux colonnes au milieu de lignes à trois désoriente.
@@ -126,9 +224,9 @@
                       effort: true,  libelle: 'CHARGE × REPS' },
     reps:           { mesure: 'reps',           champs: ['reps'],
                       effort: true,  libelle: 'REPS SEULES' },
-    temps:          { mesure: 'temps',          champs: ['duree_s'],
+    temps:          { mesure: 'temps',          champs: ['duree'],
                       effort: false, libelle: 'DURÉE' },
-    distance_temps: { mesure: 'distance_temps', champs: ['duree_min', 'distance_km'],
+    distance_temps: { mesure: 'distance_temps', champs: ['duree', 'distance_km'],
                       effort: false, libelle: 'DISTANCE ET DURÉE' }
   };
 
@@ -161,8 +259,14 @@
     if (mesure === 'reps') {
       return serie.reps === null || serie.reps === undefined ? '—' : String(serie.reps);
     }
+    // ⚠️ EN HORLOGE, comme le champ juste à côté. `formatDuree` dirait « 45 s »
+    // à trois millimètres d'un champ qui dit « 00:45 » : deux écritures du même
+    // chiffre sur la même ligne, et c'est la famille de défauts que l'audit v1
+    // a cataloguée. La grille de saisie est une horloge ; le journal — cartes,
+    // détail, résumés — reste en prose et garde `formatDuree`. Les deux ne se
+    // rencontrent jamais.
     if (mesure === 'temps' || mesure === 'distance_temps') {
-      return formatDuree(serie.duree_s) || '—';
+      return formatChrono(serie.duree_s) || '—';
     }
     if (serie.charge_kg === null || serie.charge_kg === undefined) return '—';
     return nombre(serie.charge_kg) +
@@ -518,6 +622,13 @@
     CHAMPS_MESURE: CHAMPS_MESURE,
     gabaritDe: gabaritDe,
     champDeMesure: champDeMesure,
+    MAX_CHIFFRES_DUREE: MAX_CHIFFRES_DUREE,
+    MAX_DUREE_S: MAX_DUREE_S,
+    poserChiffreDuree: poserChiffreDuree,
+    retirerChiffreDuree: retirerChiffreDuree,
+    dureeDeChiffres: dureeDeChiffres,
+    chiffresDeDuree: chiffresDeDuree,
+    formatChrono: formatChrono,
     formatPrecedent: formatPrecedent,
     estTravail: estTravail,
     nombre: nombre,

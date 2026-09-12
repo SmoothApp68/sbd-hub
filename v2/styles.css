@@ -350,8 +350,15 @@ button{font-family:inherit;cursor:pointer}
 /* L'un des deux seuls usages de l'accent. L'autre est la suggestion du moteur. */
 .onglet.actif{color:var(--accent)}
 
-/* La barre est posée par-dessus : le contenu se termine au-dessus d'elle. */
-.tel{padding-bottom:88px}
+/* ⚠️ LA RÉSERVE DU BAS EST MESURÉE, PAS DEVINÉE (chantier 25).
+   Deux barres se posent par-dessus le contenu : les onglets, et la barre de
+   repos quand un repos court. `88px` couvrait mal la première (qui fait ~68 px
+   PLUS l'encoche) et ignorait complètement la seconde — « + Série » et
+   « Ajouter un exercice » finissaient dessous, inatteignables pendant les deux
+   minutes où l'on a justement le temps de s'en servir.
+   `--h-onglets` et `--h-repos` sont posées par `mesurerBarres()` (app.js). Les
+   valeurs de repli ne servent qu'avant la première mesure. */
+.tel{padding-bottom:calc(var(--h-onglets, 68px) + var(--e6) + var(--h-repos, 0px))}
 
 /* ── Onglets encore sans contenu ────────────────────────────────────────
    Une phrase, au présent et à l'actif. Ni excuse, ni animation. */
@@ -647,7 +654,9 @@ button{font-family:inherit;cursor:pointer}
 /* ── Le repos ─────────────────────────────────────────────────────────────
    Il informe, il ne commande pas. La piste se remplit et CONTINUE au-delà de
    la cible : aucune alarme, aucun décompte qui presse. */
-.repos{position:fixed;left:0;right:0;bottom:56px;background:#191C21;
+/* Posée SUR la barre d'onglets, jamais par-dessus : `56px` en dur mordait ses
+   12 px hauts, et le z-index 50 contre 10 la masquait pour de bon. */
+.repos{position:fixed;left:0;right:0;bottom:var(--h-onglets, 68px);background:#191C21;
   border-top:1px solid var(--trait);padding:var(--e3) var(--e4) var(--e3);
   max-width:520px;margin:0 auto;z-index:50}
 .repos[hidden]{display:none}

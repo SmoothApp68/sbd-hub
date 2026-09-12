@@ -792,6 +792,113 @@
   // chaque frappe arracherait le focus et le clavier d'Android avec lui.
   // La valeur fantôme s'affiche en gris quand rien n'est saisi — on valide sans
   // rien taper quand c'est juste (§3 bis.3).
+  // ⚠️ LE PAVÉ DE CHRONOMÉTRAGE (§3 ter.2 bis).
+  //
+  // Les chiffres entrent par la DROITE et poussent les autres vers la gauche.
+  // Le champ n'accepte donc RIEN d'autre qu'un chiffre et l'effacement : tout
+  // le reste — collage, sélection, point, virgule — est refusé à la source, par
+  // `beforeinput`. C'est ce qui rend l'état sûr : la valeur affichée est
+  // toujours exactement `formatChrono(dureeDeChiffres(tampon))`.
+  //
+  // Le tampon vit sur le nœud (`dataset.chiffres`) et NON dans l'état de la
+  // séance : il ne sert qu'à la frappe en cours, et il se recompose depuis la
+  // valeur au rendu suivant. Le détail qui l'impose est dans `modele.js` —
+  // « 6350 » et « 10350 » valent la même durée mais ne se poursuivent pas
+  // pareil au chiffre suivant.
+  function champChrono(classe, secondes, fantomeVal, surSaisie) {
+    var vide = secondes === null || secondes === undefined;
+    var enveloppe = el('div', classe + ' chrono' + (vide && fantomeVal !== null &&
+      fantomeVal !== undefined ? ' fantome' : ''));
+    var input = doc.createElement('input');
+    input.type = 'text';
+    // `numeric` et non `decimal` : il n'y a ni virgule ni point à taper ici, et
+    // un clavier qui les propose invite à une saisie que le champ refusera.
+    input.inputMode = 'numeric';
+    input.setAttribute('aria-label', 'Durée, en heures, minutes et secondes');
+    input.dataset.chiffres = M().chiffresDeDuree(vide ? null : secondes);
+    input.value = vide ? '' : M().formatChrono(secondes);
+    if (vide && fantomeVal !== null && fantomeVal !== undefined) {
+      input.placeholder = M().formatChrono(fantomeVal);
+    }
+
+    function rendre() {
+      var v = M().dureeDeChiffres(input.dataset.chiffres);
+      input.value = v === null ? '' : M().formatChrono(v);
+      surSaisie(v);
+    }
+
+    input.addEventListener('beforeinput', function (e) {
+      // Tout passe par ici, et rien ne passe autrement : `preventDefault` est
+      // inconditionnel. Un `inputType` inconnu (collage, dictée, correction
+      // automatique) ne fait donc rien plutôt que d'écrire n'importe quoi.
+      e.preventDefault();
+      // ⚠️ UNE SÉLECTION VEUT DIRE « REMPLACE ÇA ».
+      //
+      // Le pavé n'a pas de curseur : les chiffres entrent toujours par la
+      // droite. Ignorer la sélection donnait donc une valeur silencieusement
+      // fausse — tout sélectionner puis taper `9` AJOUTAIT le 9 à la durée
+      // existante au lieu de la remplacer. Le pavé n'ayant pas de notion de
+      // sélection partielle, toute sélection vaut « on recommence ».
+      var selection = input.selectionStart !== input.selectionEnd;
+      if (e.inputType === 'deleteContentBackward' || e.inputType === 'deleteContentForward' ||
+          e.inputType === 'deleteWordBackward' || e.inputType === 'deleteByCut') {
+        var apresEffacement = selection ? '' : M().retirerChiffreDuree(input.dataset.chiffres);
+        // Effacer un champ DÉJÀ vide ne change rien : le dire quand même
+        // coûterait une écriture disque et un envoi réseau par appui.
+        if (apresEffacement === input.dataset.chiffres) return;
+        input.dataset.chiffres = apresEffacement;
+        return rendre();
+      }
+      // ⚠️ `insertText` ET RIEN D'AUTRE — surtout pas `insertCompositionText`.
+      //
+      // Un clavier qui compose (Samsung, dictée, suggestion au glissé) livre la
+      // composition ENTIÈRE à chaque événement, pas le caractère ajouté : taper
+      // `5` puis `0` émet « 5 » puis « 50 », et poser les deux reviendrait à
+      // saisir « 5 5 0 ». Pire, `preventDefault()` ne retient pas une
+      // composition. Reproduit en navigateur réel à la revue de ce chantier.
+      //
+      // On ne traite donc que la frappe franche. Sur un clavier qui compose,
+      // rien n'entre — ce qui est sûr — et l'écouteur `input` ci-dessous remet
+      // l'affichage sur le tampon. `inputMode="numeric"` rend le cas très
+      // improbable : un pavé numérique ne compose pas.
+      if (e.inputType !== 'insertText') return;
+      var texte = String(e.data === null || e.data === undefined ? '' : e.data);
+      // ⚠️ ON NE REMPLACE QUE SI QUELQUE CHOSE REMPLACE.
+      //
+      // La sélection part d'un tampon vide — « remplace ça » — mais vider
+      // d'abord et poser ensuite effaçait la durée quand le caractère était
+      // REFUSÉ : tout sélectionner puis taper une virgule perdait « 13:00 ».
+      // On construit donc à côté, et on ne commet que si au moins un chiffre
+      // est entré.
+      var base = selection ? '' : input.dataset.chiffres;
+      var suite = base, pose = false;
+      // Un clavier peut livrer plusieurs caractères d'un coup : on les pose un
+      // par un, dans l'ordre, exactement comme s'ils étaient tapés.
+      for (var i = 0; i < texte.length; i++) {
+        var apres = M().poserChiffreDuree(suite, texte[i]);
+        if (apres !== suite) pose = true;
+        suite = apres;
+      }
+      if (!pose) return;
+      input.dataset.chiffres = suite;
+      rendre();
+    });
+
+    // Ceinture et bretelles : si `beforeinput` n'était pas annulable — certains
+    // claviers, certaines dictées — le navigateur insérerait quand même son
+    // caractère PAR-DESSUS ce qu'on vient d'écrire. On réaffirme donc
+    // l'invariant après coup : ce qui s'affiche est toujours le tampon, jamais
+    // ce que le navigateur a cru bon d'ajouter.
+    input.addEventListener('input', function () {
+      var v = M().dureeDeChiffres(input.dataset.chiffres);
+      var attendu = v === null ? '' : M().formatChrono(v);
+      if (input.value !== attendu) input.value = attendu;
+    });
+
+    enveloppe.appendChild(input);
+    return enveloppe;
+  }
+
   function champSerie(classe, valeur, fantomeVal, suffixe, surSaisie) {
     var vide = valeur === null || valeur === undefined;
     var enveloppe = el('div', classe + (vide && fantomeVal !== null ? ' fantome' : ''));
@@ -940,12 +1047,18 @@
         // son unité et son facteur de conversion. La vue ne sait rien de la
         // différence entre une seconde et un kilomètre.
         champs.forEach(function (c, iChamp) {
-          rangee.appendChild(champSerie(
-            (iChamp === 0 ? 'ch-serie' : 'rp-serie') + ' num',
+          var classe = (iChamp === 0 ? 'ch-serie' : 'rp-serie') + ' num';
+          var nom = g.champs[iChamp];
+          if (c.saisie === 'chrono') {
+            rangee.appendChild(champChrono(classe, serie[c.cle], f[c.cle],
+              function (v) { vue.surChamp(iExo, iSerie, nom, v); }));
+            return;
+          }
+          rangee.appendChild(champSerie(classe,
             enUniteDeSaisie(serie[c.cle], c.facteur),
             enUniteDeSaisie(f[c.cle], c.facteur),
             c.unite,
-            function (v) { vue.surChamp(iExo, iSerie, g.champs[iChamp], v); }));
+            function (v) { vue.surChamp(iExo, iSerie, nom, v); }));
         });
 
         if (g.effort) {

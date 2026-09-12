@@ -128,6 +128,11 @@
     // perte comme une autre. Un point, pas une alarme.
     var saisie = doc.querySelector('.onglet[data-vue="' + Routeur.SAISIE + '"]');
     if (saisie) saisie.classList.toggle('en-cours', !!seance);
+    // La barre d'onglets vient d'apparaître ou de disparaître : sa hauteur est
+    // ce sur quoi toute la réserve du bas se règle. On mesure ici plutôt qu'au
+    // seul démarrage — au démarrage elle est encore cachée, et la mesure
+    // vaudrait zéro.
+    mesurerBarres();
   }
 
   function texteErreur(e) {
@@ -543,8 +548,15 @@
           console.warn('Envoi différé (' + op.cle + ') :', texteErreur(e));
           break;
         }
-        // Retirée APRÈS confirmation, jamais avant.
-        attente = Attente.retirer(attente, op.cle);
+        // Retirée APRÈS confirmation, jamais avant — et seulement si elle est
+        // restée CELLE QU'ON A ENVOYÉE. Un geste survenu pendant l'aller-retour
+        // a pu la remplacer par une intention plus récente : la jeter perdrait
+        // cette intention sans que rien ne le dise (voir `attente.js`).
+        // `|| 1` : une entrée écrite par un build antérieur n'a pas de `version`.
+        // Sans ce défaut elle serait retirée sans condition — donc la perte
+        // silencieuse rouvrirait, une seule fois, pour ce qui traînait dans la
+        // file au moment de la mise à jour.
+        attente = Attente.retirer(attente, op.cle, op.version || 1);
         await Cache.ecrireAttente(attente).catch(function () {});
       }
     } finally {
@@ -623,6 +635,9 @@
     // ligne, elle serait sinon invisible entre « terminée » et « montée ».
     adopterLocalement(finie);
     seance = null; chrono = null; arreterMinuteur();
+    // La barre s'efface AVEC la séance : la laisser affichée lui ferait
+    // traverser la fin, et la réserve du bas la suivrait.
+    rendreChrono();
     await Cache.ecrireBrouillon('seance', null);
     rendreSaisie();
   }
@@ -649,6 +664,7 @@
     // sinon la vidange essaierait d'écrire des séries d'une séance supprimée.
     attente = Attente.retirer(attente, Attente.cleDe(Attente.SETS, id));
     seance = null; chrono = null; arreterMinuteur();
+    rendreChrono();
     await Cache.ecrireBrouillon('seance', null);
     await poser({ table: Attente.SESSIONS, op: Attente.SUPPRIMER, id: id });
     rendreSaisie();
@@ -681,10 +697,50 @@
     return Math.max(0, Math.round((Date.now() - chrono.depuis) / 1000));
   }
 
+  // ══ RIEN D'INTERACTIF NE DOIT RESTER SOUS UNE BARRE FIXE ════════════════
+  //
+  // Constaté sur device au chantier 24 : la barre de repos RECOUVRAIT
+  // « + Série » et « Ajouter un exercice ». On ne pouvait plus rien ajouter
+  // pendant un repos — c'est-à-dire pendant les deux minutes où l'on a
+  // justement le temps de le faire. Le chronomètre INFORME, il ne commande
+  // pas (§7 ter.3) : masquer une commande, c'est commander.
+  //
+  // Deux hauteurs étaient écrites en dur et toutes deux fausses :
+  //   · `.tel` réservait 88 px, alors que la barre d'onglets fait ~68 px PLUS
+  //     l'encoche du bas, et que la barre de repos en ajoute ~65 de plus ;
+  //   · `.repos` se posait à `bottom: 56px`, donc PAR-DESSUS les 12 px hauts
+  //     de la barre d'onglets — qu'elle masquait aussi, z-index 50 contre 10.
+  //
+  // On MESURE les deux barres et on réserve exactement ce qu'elles occupent.
+  // Une hauteur mesurée suit tout : l'encoche, le repli des commandes à 360 px,
+  // une barre qu'on rendrait plus haute demain.
+  var barresMesurees = { onglets: null, repos: null };
+
+  function mesurerBarres() {
+    var style = doc.documentElement.style;
+    var onglets = doc.querySelector('.onglets');
+    var repos = $('repos');
+    // Une barre cachée — par elle-même ou par sa vue — rend un rectangle nul :
+    // c'est le bon zéro, il n'y a rien à réserver pour ce qu'on ne voit pas.
+    var hOnglets = onglets ? Math.ceil(onglets.getBoundingClientRect().height) : 0;
+    var hRepos = (repos && !repos.hidden) ? Math.ceil(repos.getBoundingClientRect().height) : 0;
+    // On n'écrit QUE ce qui change. `rendreChrono` passe ici chaque seconde ;
+    // réécrire la même valeur salirait le style pour rien, et une mesure suivie
+    // d'une écriture qui change la mise en page est le début d'une boucle.
+    if (hOnglets && hOnglets !== barresMesurees.onglets) {
+      barresMesurees.onglets = hOnglets;
+      style.setProperty('--h-onglets', hOnglets + 'px');
+    }
+    if (hRepos !== barresMesurees.repos) {
+      barresMesurees.repos = hRepos;
+      style.setProperty('--h-repos', hRepos + 'px');
+    }
+  }
+
   function rendreChrono() {
     var noeud = $('repos');
     if (!noeud) return;
-    if (!chrono) { noeud.hidden = true; return; }
+    if (!chrono) { noeud.hidden = true; mesurerBarres(); return; }
     noeud.hidden = false;
     var secondes = secondesDeRepos();
     // UNE SEULE FOIS : `echeanceAtteinte` retourne faux dès que `sonne` est
@@ -702,6 +758,8 @@
       surSourdine: function () { basculerSourdine(); },
       surPasser: function () { chrono = null; arreterMinuteur(); rendreChrono(); }
     });
+    // APRÈS le rendu : la barre vient de prendre sa hauteur définitive.
+    mesurerBarres();
   }
 
   // Une cible mal réglée est le cas courant : on la corrige par pas de 15 s,
@@ -1531,6 +1589,12 @@
 
     // Le réseau revient : on vide la file sans rien demander à personne.
     racine.addEventListener('online', function () { vidanger(); });
+    // Rotation, clavier logiciel, changement de taille : les barres changent de
+    // hauteur, la réserve les suit. Mesuré une première fois au démarrage pour
+    // que `--h-onglets` existe avant le premier rendu de séance.
+    racine.addEventListener('resize', mesurerBarres);
+    racine.addEventListener('orientationchange', mesurerBarres);
+    mesurerBarres();
     $('btn-retour-routine').addEventListener('click', function () {
       allerA(Routeur.SAISIE, {});
       rendreSaisie();

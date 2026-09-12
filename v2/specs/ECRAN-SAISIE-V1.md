@@ -158,6 +158,79 @@ règle de plus : **on montre ce qui est stocké.**
 `distance_temps`. Sans gêne — la double progression sur une durée regarde les secondes, pas
 la proximité de l'échec.
 
+#### 3 ter.2 bis La saisie d'une durée — par décalage
+
+**Le problème, mesuré sur les vraies séries :** l'unité utile varie d'un facteur mille selon
+l'exercice.
+
+| Exercice | Durées réelles |
+|---|---|
+| L-Sit Hold | 5 à 10 s |
+| Planche | 10 s à 2 min |
+| Escaliers | 30 s à 8 min |
+| Pilates | 15 min à 1 h |
+| **Escalade** | **1 h 30 à 2 h** |
+| Randonnée | jusqu'à **6 h 35** |
+
+Un champ unique en secondes ferait taper `7200` pour deux heures d'escalade et `10` pour un
+L-sit. Un choix d'unité ferait basculer à chaque exercice.
+
+> **Saisie par décalage, comme un pavé de chronométrage.** Les chiffres entrent par la droite
+> et poussent les autres vers la gauche. `5` puis `0` → `00:50`. `2·0·0·0·0` → `02:00:00`.
+
+**Aucune règle à deviner, aucune conversion, aucun choix d'unité.** Le même geste vaut pour
+dix secondes et pour six heures, et rien ne peut se tromper d'échelle.
+
+**Les heures ne s'affichent que si elles existent** : `00:50` pour une planche, `02:00:00`
+pour une escalade. Cinq caractères inutiles sur un gainage de dix secondes, c'est cinq de
+trop.
+
+**La distance garde un champ simple avec son unité.** Elle n'a qu'une base de dix et une
+seule unité utile : taper `8,76` en kilomètres est aussi rapide que `8760` en mètres, et plus
+lisible. Le décalage n'apporte rien là où il n'y a pas trois groupes et une base de soixante.
+
+Affichage : mètres sous 1 000, kilomètres au-delà — déjà en place depuis le chantier 12.
+
+> ⚠️ **Anomalie relevée, non traitée :** le tapis roulant porte une distance maximale de
+> **650 000 m**, soit 650 km. Saisie erronée, probablement des kilomètres tapés en mètres.
+> À vérifier, sans urgence.
+>
+> Relevé au chantier 25 : **la distance n'a aucune borne** — ni pavé, ni compteur de chiffres,
+> ni contrainte en base ; seul le négatif est rejeté. C'est par ce chemin qu'une valeur
+> aberrante entre, et un plafond de durée seul ne le ferme pas.
+
+#### 3 ter.2 ter Tranché à l'implémentation — chantier 25
+
+**Une seule borne, et c'est la valeur : 9:59:59.** Au-delà, le chiffre n'entre pas.
+
+> **Le pavé ne doit jamais produire une durée qu'il ne sait pas reprendre.** Les groupes bruts
+> accepteraient 99 minutes et 99 secondes : « 99999 » vaudrait 10 h 40 min 39 s, dont la forme
+> canonique fait **six** chiffres. En rouvrant la série, le champ afficherait la bonne heure et
+> refuserait ensuite tout nouveau chiffre. Invisible en CI, visible sur device à la réédition.
+
+Un compteur de chiffres serait **redondant** — au-dessus de cinq chiffres, le premier groupe
+vaut au moins dix heures, donc la borne de valeur a déjà refusé. Le banc de mutation l'a
+prouvé : le remplacer par 99 ne faisait tomber aucun test. Un garde-fou qu'aucune mutation ne
+tue est un garde-fou mort (leçon de `palier.js`).
+
+**L'affichage est toujours une horloge valide**, à chaque frappe. Le tampon garde les chiffres
+tapés ; la valeur vaut exactement ce qu'ils disent (`HH×3600 + MM×60 + SS`, sans troncature) ;
+et l'écran la rend en horloge, donc minutes et secondes y sont sous 60 par construction.
+Taper `6` puis `3` affiche `01:03` — 63 secondes, dites en horloge.
+
+**Le tampon est un ÉTAT, il ne se déduit pas de la valeur.** « 6350 » et « 10350 » valent la
+même durée mais ne se poursuivent pas pareil : `6·3·5·0·0` donne 6 h 35, alors que repartir de
+la forme canonique donnerait 1 h 03 min 50. Le tampon vit donc dans le champ tant qu'on tape,
+et se recompose depuis la valeur au rendu suivant — sans perte, la valeur étant exacte.
+
+**La colonne « précédent » passe aussi en horloge.** Dire « 45 s » à trois millimètres d'un
+champ qui dit « 00:45 » serait deux écritures du même chiffre sur la même ligne. La grille de
+saisie est une horloge ; le journal — cartes, détail, résumés — reste en prose et garde
+`formatDuree`. Les deux ne se rencontrent jamais.
+
+**Il n'y a plus qu'une unité de durée.** Le `duree_min` du chantier 24 et son facteur 60 ont
+disparu avec la règle « l'unité suit la mesure » qu'ils servaient.
+
 #### 3 ter.3 Ce que ça change ailleurs
 
 **La page d'exercice.** La table par nombre de répétitions n'a aucun sens pour une durée. Sur
@@ -177,35 +250,10 @@ progression garde tout son sens : on ajoute des répétitions ou des secondes.
 > charge **ni** reps, et le commentaire le dit déjà — « les exercices mesurés en durée ou en
 > distance n'ont donc aucun palier, et c'est correct, ils n'en ont pas ».
 >
-> **Une nuance à retenir pour la suite :** le code d'erreur rendu est le MÊME que celui d'une
-> séance qui n'aurait contenu que des échauffements. Le moteur ne distingue pas « cet exercice
-> n'a pas de palier par nature » de « cette séance n'en avait pas ce jour-là ». L'affichage ne
-> doit donc jamais déduire la mesure d'un code d'erreur : il la lit dans `exercises.mesure`.
-
-#### 3 ter.5 Tranché à l'implémentation — chantier 24
-
-**L'unité de saisie suit la mesure, et elle est écrite dans le champ.** Un gainage se saisit en
-**secondes** (« 50 »), une sortie en **minutes** et en **kilomètres** (« 130 », « 8,4 »). La
-même colonne `duree_s` se tape donc dans deux unités selon l'exercice — non par laxisme, mais
-parce que c'est ce qu'on a en tête au moment de taper : personne ne saisit 7 800 pour une rando
-de deux heures, ni 0,83 pour une planche de 50 secondes. La base ne voit que des secondes et
-des mètres ; un seul facteur sépare les deux, dans une seule table (`THModele.CHAMPS_MESURE`).
-
-> ⚠️ **À confirmer sur device** : c'est le seul point de ce chantier qu'un écran de bureau ne
-> tranche pas. Si taper « 130 » pour 2 h 10 se révèle contre-intuitif en salle, la réponse est
-> un analyseur tolérant (`2h10`, `1h30`, `90min`), pas un changement d'unité.
-
-**Le libellé de type est TU quand la mesure est inconnue.** Catalogue pas encore synchronisé,
-exercice ajouté côté serveur : la grille retombe sur `charge_reps` — de loin la plus courante,
-donc la plus utile — mais n'affiche **aucun** libellé. Écrire « CHARGE × REPS » sur un exercice
-qu'on ne connaît pas serait mentir avec aplomb.
-
-**Le résumé de séance dit la grandeur de chaque mesure.** La carte lisait `meilleure` du
-moteur, qui n'existe pas sans charge : elle restait muette sur trois mesures. Elle lit
-maintenant la meilleure série **directement**, dans la grandeur de la mesure — « 12 » pour des
-tractions, « 50 s » pour une planche, « 2 h 10 · 8,4 km » pour une marche. Aucune formule,
-aucune comparaison. Le **détail** de séance, lui, était déjà juste depuis le chantier 12
-(`formatMesure` couvre les quatre).
+> **Une nuance à retenir :** le code d'erreur est le MÊME que celui d'une séance qui n'aurait
+> contenu que des échauffements. Le moteur ne distingue pas « cet exercice n'a pas de palier
+> par nature » de « cette séance n'en avait pas ce jour-là ». L'affichage ne déduit donc jamais
+> la mesure d'un code d'erreur : il la lit dans `exercises.mesure`.
 
 #### 3 ter.4 Deux points ouverts venus du catalogue
 
@@ -219,9 +267,14 @@ avec un tonnage réel**.
 
 **Une séance de gainage seul est classée « sortie »** *(trouvé au chantier 24, non corrigé)*.
 `estExerciceSortie` retient `charge = 'aucune'` **et** `mesure ∈ {temps, distance_temps}` : une
-séance qui ne contiendrait que des planches est donc résumée en durée, comme une randonnée, et
-perd son aperçu d'exercices. Le cas est rare et le correctif toucherait aussi Pilates et
-Escalade, qui sont bien des sorties — à trancher avec la page d'exercice, pas ici.
+séance qui ne contiendrait que des planches est résumée en durée, comme une randonnée, et perd
+son aperçu d'exercices. Le correctif toucherait aussi Pilates et Escalade, qui sont bien des
+sorties — à trancher avec la page d'exercice, pas ici.
+
+**Une durée de zéro seconde disparaît de l'affichage** *(trouvé au chantier 25, non corrigé)*.
+`formatMesure` et `resumerSeance` testent `if (serie.duree_s)` — un test de vérité, pas de
+nullité. Une série à 0 s existe en base et devient muette au détail. Même famille que « 0 comme
+null », à traiter d'un coup pour les quatre mesures.
 
 ### 3 bis — La grille de saisie, arrêtée le 11/09/2026
 
@@ -293,11 +346,35 @@ vibration** : on met son téléphone en silencieux dans une salle, on ne renonce
 Le son est **synthétisé** (880 Hz, 200 ms, Web Audio) : pas de fichier binaire au dépôt, pas de
 CDN, rien à précacher.
 
+> ⚠️ **Et la barre de repos ne doit RIEN recouvrir — corrigé au chantier 25, voir §3 bis.9.**
+
 **3 bis.5 — Glissement latéral pour supprimer une série.** Geste horizontal sur une ligne,
 comme partout ailleurs. Il n'entre pas en conflit avec le défilement vertical.
 ⚠️ À tester tôt sur device : c'est la famille de geste qui a coûté trois chantiers.
 
 **3 bis.6 — Pas d'indicateur de position.** Les cases cochées disent déjà où l'on en est.
+
+**3 bis.9 — Rien d'interactif ne reste sous une barre fixe.** Constaté sur device au chantier
+24 : la barre de repos recouvrait « + Série » et « Ajouter un exercice ». On ne pouvait plus
+rien ajouter pendant un repos — c'est-à-dire pendant les deux minutes où l'on a justement le
+temps de le faire.
+
+> **Le chronomètre informe, il ne commande pas (§7 ter.3). Masquer une commande, c'est
+> commander.**
+
+Deux hauteurs étaient écrites en dur et toutes deux fausses : la réserve du bas valait 88 px
+alors que la barre d'onglets fait **69 px plus l'encoche**, et la barre de repos se posait à
+`bottom: 56px`, donc **par-dessus** les 13 px hauts des onglets qu'elle masquait (z-index 50
+contre 10). Elle emportait aussi, entièrement, le seul message d'erreur de la séance.
+
+**Les deux hauteurs sont MESURÉES** et exposées en `--h-onglets` et `--h-repos`. Une hauteur
+mesurée suit tout : l'encoche, le repli des commandes à 360 px, une barre qu'on rendrait plus
+haute demain. C'est la première mesure DOM de la v2 — assumée, pour ne pas remplacer une
+constante fausse par une autre.
+
+> ⚠️ **Le banc ne voit que la moitié du défaut** : `env(safe-area-inset-bottom)` vaut zéro
+> dans un Chromium de bureau. La part qui dépend de l'encoche ne se constate que sur appareil,
+> en PWA installée. Même schéma qu'au chantier 18 (`CLAUDE.md` §4 bis).
 
 **3.5** — **La destination s'affiche, jamais le délai.** L'en-tête de bloc peut
 nommer le palier suivant — « prochain palier : 125 kg × 5 » — parce que ce
@@ -662,11 +739,11 @@ travail retenues par le §7 du moteur.
 > ci-dessus corrigent précisément. Laissé en place, il aurait fait revenir le défaut à la
 > prochaine lecture.
 >
-> **Retiré de nouveau le 12/09, puis au chantier 23, puis au chantier 24 — QUATRE fois, et
-> rétabli chaque fois depuis le dépôt** (`CADRAGE-V2.md` §2 sexies). Le paragraphe est plus
-> tenace que la correction. `v2/js/palier.js` (`meilleureSerie`) implémente la définition
-> ci-dessus depuis le chantier 18 — la charge la plus lourde tenue sur au moins la moitié des
-> reps de la série la plus longue.
+> **Retiré de nouveau le 12/09, puis aux chantiers 23, 24 et 25 — CINQ fois, et rétabli
+> chaque fois depuis le dépôt** (`CADRAGE-V2.md` §2 sexies). Le paragraphe est plus tenace que
+> la correction. `v2/js/palier.js` (`meilleureSerie`) implémente la définition ci-dessus depuis
+> le chantier 18 — la charge la plus lourde tenue sur au moins la moitié des reps de la série
+> la plus longue.
 
 **Trois, pas plus** : les séances font 8,1 exercices en moyenne. **L'ordre porte
 l'intention** — le mouvement principal vient en premier. Le premier exercice est en texte
@@ -1047,6 +1124,35 @@ existe-t-elle encore ? », pas à « est-elle terminée ? ».
 
 Seule exception, inchangée : `seancesEnCours()`, qui interroge `statut = 'en_cours'` pour la
 reprise.
+
+---
+
+## 7 sexies. La file d'attente ne perd rien en silence — corrigé au chantier 25
+
+Défaut trouvé au banc d'écran en tapant une durée **chiffre par chiffre**. Chaque frappe pose
+une intention d'écriture et déclenche une vidange ; l'une d'elles part sur le réseau pendant
+qu'une autre se pose. La suite, en quatre temps :
+
+1. la vidange prend une **copie** de l'entrée (trois séries) et part ;
+2. pendant l'aller-retour, un geste pose la **même clé** avec une intention plus récente
+   (quatre séries) — la compression remplace le contenu de l'entrée ;
+3. la requête revient, **réussie** ;
+4. `retirer(clé)` jetait l'entrée **entière**, donc la quatrième série avec.
+
+> **La série n'était pas perdue sur l'appareil — le brouillon la gardait — mais elle ne montait
+> plus JAMAIS, et l'état de synchronisation affichait « À jour ».** Une perte silencieuse,
+> c'est-à-dire exactement ce que la file existe pour empêcher.
+
+**Le défaut est antérieur au chantier 25** : chaque caractère d'un champ pose déjà une
+intention, donc « 122,5 » ouvrait la fenêtre cinq fois depuis le chantier 22.
+
+> ⚠️ **Pourquoi aucun banc ne l'avait vu : il saisissait par `fill()`**, qui pose la valeur
+> d'un bloc et n'émet qu'UN événement. **Personne ne tape comme ça.** Un humain émet un
+> événement par caractère. Le banc tape maintenant pour de vrai.
+
+**La garde :** chaque pose incrémente une `version` sur l'entrée, et on ne retire que si
+l'entrée est restée **celle qu'on a envoyée**. Sinon elle reste en file, et le tour suivant
+l'envoie.
 
 ---
 

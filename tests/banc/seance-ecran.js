@@ -30,6 +30,19 @@ const CHROME = process.env.CHROME_BIN || '/opt/pw-browsers/chromium-1194/chrome-
 const PORT = Number(process.env.BANC_PORT || 8874), BASE = 'http://127.0.0.1:' + PORT;
 const attendre = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// Attendre une CONDITION plutôt qu'une durée. Le pavé de chronométrage pose une
+// écriture par chiffre : taper « 21000 » enchaîne cinq vidanges de file, et la
+// dernière montée arrive après un délai qui dépend de la machine. Un `sleep`
+// calibré sur un portable devient une intermittence sur un runner chargé.
+const jusqua = async (cond, ms) => {
+  const fin = Date.now() + (ms || 6000);
+  while (Date.now() < fin) {
+    if (await cond()) return true;
+    await attendre(120);
+  }
+  return false;
+};
+
 let echecs = 0;
 const ok = (nom, cond, detail) => {
   if (!cond) echecs++;
@@ -762,8 +775,10 @@ const SETS_PASSES = [1, 2].map((n) => ({
       JSON.stringify([['PRÉC.', 'KG', 'REPS', 'EFFORT'], ['PRÉC.', 'REPS', 'EFFORT'],
                       ['PRÉC.', 'DURÉE'], ['PRÉC.', 'DURÉE', 'DISTANCE']]),
     JSON.stringify(g4.map((x) => x.entetes)));
+  // Depuis le chantier 25, la DURÉE ne porte plus d'unité écrite : c'est la
+  // forme `HH:MM:SS` qui la dit. Seuls les kilos et les kilomètres en gardent.
   ok('chaque champ porte son unité', JSON.stringify(g4.map((x) => x.champs)) ===
-    JSON.stringify([['kg', ''], [''], ['s'], ['min', 'km']]),
+    JSON.stringify([['kg', ''], [''], [''], ['', 'km']]),
     JSON.stringify(g4.map((x) => x.champs)));
   ok('le type de mesure est rappelé sous le nom',
     JSON.stringify(g4.map((x) => x.type)) ===
@@ -787,10 +802,26 @@ const SETS_PASSES = [1, 2].map((n) => ({
     ' durée(sortie)=' + largeurs[3] + ' px');
 
   console.log('\n══ 7 ter. SAISIR DANS LES QUATRE MESURES ══');
+  // ⚠️ UN CHAMP DE DURÉE NE SE REMPLIT PAS, IL SE TAPE.
+  //
+  // Depuis le chantier 25 la durée est un pavé de chronométrage : il n'écoute
+  // QUE `beforeinput`, chiffre par chiffre. `fill()` de Playwright pose la
+  // valeur d'un bloc et n'émet pas ces événements — il ne saisirait rien, et
+  // le banc verrait un champ vide sans savoir pourquoi. On tape pour de vrai.
+  const estChrono = (bloc, i) => bloc.$$eval('.serie .ch-serie, .serie .rp-serie',
+    (envs, k) => envs[k] ? envs[k].classList.contains('chrono') : false, i);
+
   const saisirChamps = async (iBloc, valeurs) => {
     const bloc = (await page.$$('.bloc-seance'))[iBloc];
     const champs = await bloc.$$('.serie input');
-    for (let i = 0; i < valeurs.length; i++) await champs[i].fill(String(valeurs[i]));
+    for (let i = 0; i < valeurs.length; i++) {
+      if (await estChrono(bloc, i)) {
+        await champs[i].click();
+        await champs[i].type(String(valeurs[i]), { delay: 30 });
+      } else {
+        await champs[i].fill(String(valeurs[i]));
+      }
+    }
     await bloc.$eval('.serie .ok-serie', (b) => b.click());
     await attendre(500);
   };
@@ -799,9 +830,12 @@ const SETS_PASSES = [1, 2].map((n) => ({
   // 8 ne prouverait rien, les deux comportements donneraient 8.
   await saisirChamps(0, [80, 6]);
   await saisirChamps(1, [12]);
-  await saisirChamps(2, [50]);
-  await saisirChamps(3, [130, '8,4']);
-  await attendre(1800);
+  // La planche : `5` `0` -> 00:50. Deux appuis, pas « 50 s ».
+  await saisirChamps(2, ['50']);
+  // ⚠️ CONFIGURATION DISCRIMINANTE : 2 h 10 en CINQ appuis. Sous une heure, un
+  // pavé à deux groupes et un pavé à trois rendent la même chose.
+  await saisirChamps(3, ['21000', '8,4']);
+  await jusqua(() => base.sets.filter((x) => x.session_id === idMesures).length === 4, 8000);
 
   const montees4 = base.sets.filter((x) => x.session_id === idMesures);
   const parExo = {};
@@ -850,6 +884,162 @@ const SETS_PASSES = [1, 2].map((n) => ({
     (await effortTractions()) === '−1' && tractionsEnBase &&
     tractionsEnBase.ressenti === 'reste_1',
     (await effortTractions()) + ' · base=' + JSON.stringify(tractionsEnBase && tractionsEnBase.ressenti));
+
+  console.log('\n══ 7 quinquies. LE PAVÉ DE CHRONOMÉTRAGE ══');
+  // ⚠️ CONFIGURATION DISCRIMINANTE : une durée qui DÉPASSE UNE HEURE. Sous une
+  // heure, un pavé à deux groupes et un pavé à trois rendent le même écran —
+  // et toutes les durées d'essai évidentes (planche, gainage) sont sous la
+  // minute. La marche ci-dessus a été saisie `2·1·0·0·0`.
+  const champDuree = async () => page.evaluate(() => {
+    const i = document.querySelectorAll('.bloc-seance')[3].querySelector('.serie input');
+    return { valeur: i.value, tampon: i.dataset.chiffres, mode: i.inputMode };
+  });
+  const frapper = async (suite) => {
+    const i = (await page.$$('.bloc-seance'))[3];
+    const champ = (await i.$$('.serie input'))[0];
+    await champ.click();
+    await champ.type(String(suite), { delay: 30 });
+    await attendre(250);
+  };
+
+  let d = await champDuree();
+  ok('la durée reste affichée en horloge après validation', d.valeur === '02:10:00',
+    JSON.stringify(d));
+  ok('et le champ repart du tampon canonique, pas d’une chaîne à reformer',
+    d.tampon === '21000' && d.mode === 'numeric', JSON.stringify(d));
+
+  // Effacer : le geste inverse exact, par la droite.
+  await page.evaluate(() => {
+    document.querySelectorAll('.bloc-seance')[3].querySelector('.serie input').focus();
+  });
+  await page.keyboard.press('Backspace');
+  await attendre(250);
+  d = await champDuree();
+  // « 21000 » moins son dernier chiffre = « 2100 » = 21 min 00 s. Les heures
+  // disparaissent DÈS ce premier effacement : c'est le décalage, pas un
+  // décompte — le chiffre des heures redevient celui des minutes.
+  ok('effacer retire le dernier chiffre et l’affichage se resserre',
+    d.valeur === '21:00' && d.tampon === '2100', JSON.stringify(d));
+
+  await page.keyboard.press('Backspace');
+  await page.keyboard.press('Backspace');
+  await attendre(250);
+  d = await champDuree();
+  ok('les heures disparaissent avec leur chiffre', d.valeur === '00:21' && d.tampon === '21',
+    JSON.stringify(d));
+
+  // Rien qui ne soit un chiffre n'entre — virgule, lettre, collage.
+  await page.keyboard.type(',a');
+  await page.evaluate(() => {
+    const i = document.querySelectorAll('.bloc-seance')[3].querySelector('.serie input');
+    i.dispatchEvent(new InputEvent('beforeinput',
+      { inputType: 'insertFromPaste', data: '999', cancelable: true, bubbles: true }));
+  });
+  await attendre(250);
+  d = await champDuree();
+  ok('ni virgule, ni lettre, ni collage', d.valeur === '00:21', JSON.stringify(d));
+
+  // La borne : cinq chiffres, et 9:59:59 — rien qu'on ne sache reprendre.
+  await frapper('999999');
+  d = await champDuree();
+  ok('le pavé est borné, et ce qu’il produit reste une horloge',
+    d.tampon.length <= 5 && /^\d\d:\d\d(:\d\d)?$/.test(d.valeur) &&
+    Number(d.valeur.split(':').slice(-1)[0]) < 60, JSON.stringify(d));
+
+  // ⚠️ UNE VALEUR DIFFÉRENTE DE CELLE DÉJÀ EN BASE. Retaper `21000` et
+  // revérifier 7 800 serait satisfait aussi bien par « la valeur retapée est
+  // remontée » que par « rien n'a bougé » : l'assertion ne pourrait pas
+  // échouer. On retape donc 2 h 13, qui n'a jamais été écrit.
+  await page.evaluate(() => {
+    const i = document.querySelectorAll('.bloc-seance')[3].querySelector('.serie input');
+    i.focus();
+  });
+  for (let k = 0; k < 6; k++) await page.keyboard.press('Backspace');
+  await frapper('21300');
+  const remontee = await jusqua(async () => {
+    const m = base.sets.filter((x) => x.session_id === idMesures && x.exercise_slug === 'marche')[0];
+    return m && m.duree_s === 7980;
+  }, 8000);
+  ok('une valeur RETAPÉE après validation remonte bien en base', remontee,
+    'duree_s = ' + JSON.stringify((base.sets.filter((x) => x.session_id === idMesures &&
+      x.exercise_slug === 'marche')[0] || {}).duree_s) + ' (attendu 7980)');
+
+  // Et on la remet à sa valeur d'origine pour la carte de séance qui suit.
+  await page.evaluate(() => {
+    document.querySelectorAll('.bloc-seance')[3].querySelector('.serie input').focus();
+  });
+  for (let k = 0; k < 6; k++) await page.keyboard.press('Backspace');
+  await frapper('21000');
+  await jusqua(async () => {
+    const m = base.sets.filter((x) => x.session_id === idMesures && x.exercise_slug === 'marche')[0];
+    return m && m.duree_s === 7800;
+  }, 8000);
+
+  console.log('\n══ 7 sexies. RIEN D’INTERACTIF SOUS LA BARRE DE REPOS ══');
+  // ⚠️ CONFIGURATION DISCRIMINANTE : barre de repos OUVERTE **et** défilement
+  // au MAXIMUM. La barre est `position: fixed` : elle n'ajoute aucune course de
+  // défilement, donc le contenu qu'elle recouvre n'est récupérable que si la
+  // réserve du bas en tient compte. Tester sans faire défiler ne montre rien.
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  await attendre(600);
+
+  const jetons = await page.evaluate(() => {
+    const s = getComputedStyle(document.documentElement);
+    return { onglets: s.getPropertyValue('--h-onglets').trim(),
+             repos: s.getPropertyValue('--h-repos').trim() };
+  });
+  ok('les deux hauteurs sont MESURÉES, pas devinées',
+    /^\d+px$/.test(jetons.onglets) && /^\d+px$/.test(jetons.repos) &&
+    parseInt(jetons.repos, 10) > 0, JSON.stringify(jetons));
+
+  const geometrie = await page.evaluate(() => {
+    const repos = document.querySelector('#repos');
+    const onglets = document.querySelector('.onglets');
+    if (!repos || repos.hidden) return { ouvert: false };
+    const rb = repos.getBoundingClientRect(), ro = onglets.getBoundingClientRect();
+    const chevauche = (a, b) => a.left < b.right && b.left < a.right &&
+                                a.top < b.bottom && b.top < a.bottom;
+    // Tout ce qui se tape, hors des deux barres elles-mêmes.
+    const cibles = Array.from(document.querySelectorAll(
+      '#vue-seance button, #vue-seance input, #vue-seance a, #vue-seance [role="button"]'))
+      .filter((n) => !repos.contains(n) && !onglets.contains(n))
+      .filter((n) => n.offsetParent !== null);
+    const dessous = cibles.filter((n) => chevauche(n.getBoundingClientRect(), rb))
+      .map((n) => (n.className || n.tagName) + '');
+    const erreur = document.querySelector('#erreur-seance');
+    return {
+      ouvert: true,
+      nCibles: cibles.length,
+      dessous: dessous,
+      barresSeChevauchent: chevauche(rb, ro),
+      hautRepos: Math.round(rb.top), basRepos: Math.round(rb.bottom),
+      hautOnglets: Math.round(ro.top),
+      erreurDessous: chevauche(erreur.getBoundingClientRect(), rb),
+      // Le dernier bouton du flux : « Ajouter un exercice ».
+      basDuDernier: Math.round(document.querySelector('#btn-ajouter-exo-seance')
+        .getBoundingClientRect().bottom)
+    };
+  });
+
+  ok('la barre de repos est bien ouverte pour ce test', geometrie.ouvert === true,
+    JSON.stringify(geometrie.ouvert));
+  ok('le banc a de quoi mesurer : plusieurs commandes dans la séance',
+    geometrie.nCibles >= 8, geometrie.nCibles + ' cible(s) tapable(s)');
+  // C'EST LE DÉFAUT CONSTATÉ SUR DEVICE.
+  ok('AUCUNE commande ne reste sous la barre de repos', geometrie.dessous.length === 0,
+    geometrie.dessous.length ? geometrie.dessous.join(' · ') : 'aucune');
+  ok('« Ajouter un exercice » finit AU-DESSUS de la barre',
+    geometrie.basDuDernier <= geometrie.hautRepos,
+    'bas du bouton ' + geometrie.basDuDernier + ' · haut de la barre ' + geometrie.hautRepos);
+  // Trouvé à la cartographie : le seul message d'erreur de la séance
+  // (« Sauvegarde impossible sur cet appareil ») vivait entièrement dessous.
+  ok('le message d’erreur de séance n’est plus masqué', geometrie.erreurDessous === false,
+    'sous la barre : ' + geometrie.erreurDessous);
+  // La barre de repos se posait à `bottom:56px` alors que les onglets font
+  // ~69 px : elle mordait leurs 13 px hauts, et son z-index les recouvrait.
+  ok('la barre de repos ne mord plus sur la barre d’onglets',
+    geometrie.barresSeChevauchent === false,
+    'bas du repos ' + geometrie.basRepos + ' · haut des onglets ' + geometrie.hautOnglets);
 
   console.log('\n══ 7 quater. LA CARTE DE SÉANCE DIT LA BONNE GRANDEUR ══');
   await page.click('#bandeau-seance .discret');

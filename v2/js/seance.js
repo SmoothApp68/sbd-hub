@@ -163,10 +163,15 @@
     return e < 0 ? null : e;
   }
 
-  // Les clés d'entrée nomment l'UNITÉ DE SAISIE, pas la colonne : `duree_min`
-  // et `distance_km` arrivent de la grille `distance_temps`, `duree_s` de la
-  // grille `temps`. Une seule table les relie (`THModele.CHAMPS_MESURE`) ; ici
-  // on applique, on ne redécide pas.
+  // Les clés d'entrée nomment le CHAMP DE SAISIE, pas la colonne : `distance_km`
+  // arrive de la grille `distance_temps`, `duree` des grilles `temps` et
+  // `distance_temps`. Une seule table les relie (`THModele.CHAMPS_MESURE`) ;
+  // ici on applique, on ne redécide pas.
+  //
+  // `duree` arrive DÉJÀ EN SECONDES : le pavé de chronométrage (chantier 25)
+  // fait la conversion, et il n'y a plus qu'une seule unité de durée. Le
+  // `duree_min` du chantier 24, avec son facteur 60, a disparu avec la règle
+  // « l'unité suit la mesure » qu'il servait.
   function modifierSerie(seance, iExo, iSerie, champs) {
     var c = {};
     if ('charge_kg' in champs) c.charge_kg = nombreOuNul(champs.charge_kg);
@@ -174,8 +179,8 @@
       var r = nombreOuNul(champs.reps);
       c.reps = r === null ? null : Math.round(r);
     }
+    if ('duree' in champs) c.duree_s = entierOuNul(champs.duree, 1);
     if ('duree_s' in champs) c.duree_s = entierOuNul(champs.duree_s, 1);
-    if ('duree_min' in champs) c.duree_s = entierOuNul(champs.duree_min, 60);
     if ('distance_m' in champs) c.distance_m = entierOuNul(champs.distance_m, 1);
     if ('distance_km' in champs) c.distance_m = entierOuNul(champs.distance_km, 1000);
     return avecSerie(seance, iExo, iSerie, c);

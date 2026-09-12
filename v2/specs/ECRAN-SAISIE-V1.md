@@ -42,9 +42,14 @@ autres, 90 à 96 % à deux exercices. **Le layout gère N exercices, pas des pai
 
 ### Affichage par tours
 
-**2.3** — Les séries s'affichent entrelacées : A1, B1, C1, A2, B2, C2. Le nom de
-l'exercice n'apparaît qu'une fois, dans une légende A/B/C en tête de bloc — ce
-qui règle le problème de largeur sur téléphone.
+**2.3** — **Dans un superset**, les séries s'affichent entrelacées : A1, B1, C1,
+A2, B2, C2. Le nom de l'exercice n'apparaît qu'une fois, dans une légende A/B/C en
+tête de bloc — ce qui règle le problème de largeur sur téléphone.
+
+> ⚠️ **Précisé le 11/09/2026 : l'entrelacement et les lettres ne valent QUE pour
+> les supersets.** Un bloc d'un seul exercice numérote ses séries `1, 2, 3`, sans
+> lettre — il n'y a rien à alterner. La première maquette avait étendu les lettres
+> à tous les blocs ; c'était faux et illisible.
 
 **2.4** — Les étiquettes A1/B1/C1 **ne sont jamais stockées**. Elles se
 recalculent à l'affichage. La base ne contient que « cette série appartient à cet
@@ -93,6 +98,50 @@ prédire, l'historique le montre.
 
 **Bénéfice de mise en page** — supprimer la colonne suggérée libère 54 px de
 largeur, redistribués sur les champs kg et reps. Décisif à 380 px.
+
+### 3 bis — La grille de saisie, arrêtée le 11/09/2026
+
+**Six colonnes, vérifiées à 360 px** (et non 380, la largeur réelle de l'appareil) :
+
+```
+30px   62px        1fr          44px    40px     40px
+ №    PRÉCÉDENT     KG          REPS   EFFORT     ✓
+```
+
+Colonnes fixes 216 px + gouttières 25 + marges 24 = 265. **Il reste 79 px pour les kilos**,
+le pire cas étant `122,5`. Ça ne tient que parce que la suggestion n'est **pas** une colonne
+(§3.1) — les 54 px libérés sont ceux-là.
+
+**3 bis.1 — Le numéro porte le type de la série.** Un appui ouvre un menu court : travail,
+échauffement, dégressive, tentative manquée, supprimer. Le numéro change d'apparence —
+`C`, `D`, `✕`. Les quatre valeurs de `sets.type_serie` sont couvertes **sans un champ de
+plus**. Dans un superset, la chauffe de A s'appelle `Ac` et se place avant `A1` (§2.5).
+
+**3 bis.2 — La colonne EFFORT accepte deux formes.** Un RPE chiffré, ou un ressenti en
+répétitions restantes affiché `−1`, `−2`, `−0`.
+
+> **Pourquoi pas le RPE seul :** aurel_br l'a saisi sur **136 séries en trois ans, soit 1 %**.
+> Une colonne permanente pour une case presque toujours vide gaspille un dixième de la
+> largeur. « Il m'en restait une » se répond sans apprentissage, un 8,5 s'apprend.
+
+`sets.rpe` et `sets.ressenti` sont **deux colonnes distinctes en base**, toutes deux prévues.
+`sets_ressenti_ok` attend exactement `reste_3_plus`, `reste_2`, `reste_1`, `reste_0`.
+
+La feuille pose la question en langage courant par défaut, avec une **bascule vers le RPE**
+qui se retient. Le RPE est une **grille de huit boutons, jamais un curseur** : viser 8,5 sur
+un curseur à 360 px avec les mains moites est perdu d'avance.
+
+**3 bis.3 — Les valeurs fantômes.** Les champs non saisis affichent en gris ce que la routine
+ou le moteur propose. On valide sans rien taper quand c'est juste.
+
+**3 bis.4 — Le retour haptique.** Une vibration à la validation confirme « même avec les mains
+moites ». **L'optimisation la moins chère qui soit : aucun pixel.**
+
+**3 bis.5 — Glissement latéral pour supprimer une série.** Geste horizontal sur une ligne,
+comme partout ailleurs. Il n'entre pas en conflit avec le défilement vertical.
+⚠️ À tester tôt sur device : c'est la famille de geste qui a coûté trois chantiers.
+
+**3 bis.6 — Pas d'indicateur de position.** Les cases cochées disent déjà où l'on en est.
 
 **3.5** — **La destination s'affiche, jamais le délai.** L'en-tête de bloc peut
 nommer le palier suivant — « prochain palier : 125 kg × 5 » — parce que ce
@@ -196,10 +245,30 @@ ne sait même pas qu'il y a eu déviation.
 - **Transformer une série** (dégressive, rest-pause) relève des modificateurs, pas
   de cet écran.
 
+### 5 bis — Le menu de bloc est accessible EN SÉANCE
+
+Corrigé le 11/09/2026. Le §5.3 faisait du mode Modifier le passage obligé pour tout geste de
+déviation.
+
+> **Remplacer un exercice arrive en pleine séance, quand la machine est prise.** Basculer en
+> mode édition puis revenir, c'est trois gestes pour un.
+
+Le **menu trois points du bloc** porte donc les gestes des §5.5 et §5.6 — remplacer, ajouter
+après, déplacer, grouper en superset, supprimer le bloc — **sans quitter la saisie**. Plus
+« voir la progression », qui réalise le §2.8.
+
+**Le mode Modifier reste** pour ce qu'il fait mieux : le **réordonnancement multiple**, et la
+vue d'ensemble repliée qui manque pendant qu'on s'entraîne.
+
 ### Mode édition
 
 **5.3** — Un bouton **Modifier** replie tous les blocs sur leur légende A/B/C. Les
 séries disparaissent, une ligne d'avancement remplace le palier.
+
+> ⚠️ **Corrigé au §5 bis :** le mode Modifier n'est **plus le passage obligé**. Les
+> gestes de déviation sont accessibles depuis le menu trois points du bloc, en
+> pleine séance. Le mode Modifier sert au réordonnancement multiple et à la vue
+> d'ensemble.
 
 Raison : deux poignées de glissement simultanées à 380 px, l'une déplaçant six
 lignes et l'autre une seule, se confondent au pouce. En repliant, la cible mesure
@@ -436,6 +505,11 @@ travail retenues par le §7 du moteur.
 > disait « meilleure série = palier × meilleures reps au palier », ce que les deux alinéas
 > ci-dessus corrigent précisément. Laissé en place, il aurait fait revenir le défaut à la
 > prochaine lecture.
+>
+> **Réapparu dans la version du 12/09, retiré de nouveau.** C'est la deuxième fois : le
+> paragraphe est plus tenace que la correction. `v2/js/palier.js` (`meilleureSerie`) implémente
+> la définition ci-dessus depuis le chantier 18 — la charge la plus lourde tenue sur au moins
+> la moitié des reps de la série la plus longue.
 
 **Trois, pas plus** : les séances font 8,1 exercices en moyenne. **L'ordre porte
 l'intention** — le mouvement principal vient en premier. Le premier exercice est en texte
@@ -543,6 +617,10 @@ points** : une semaine à cheval se choisit quand même.
 > bouton de trop, et sa disparition dit à elle seule « tu y es ». Il reste **aussi** dans le
 > pied du calendrier ; les deux ne se gênent pas. Vaut pour **Séances et la vue Volume**, qui
 > partagent la barre.
+
+*(Rétabli le 12/09 : la version reçue était revenue au pied du calendrier seul. C'est en place
+dans `app.js` — `barrePour` ne fournit `surCetteSemaine` que hors semaine courante, et c'est
+l'absence de la fonction qui fait l'absence du bouton.)*
 
 > ⚠️ **Aucune couleur d'alerte, aucun compteur de régularité, rien sur les jours vides.**
 > `CADRAGE-V2.md` §3.1 bis — le système ne commente jamais l'assiduité. Un point, ou rien.
@@ -693,15 +771,159 @@ par `CACHE_V2`, donc c'est sans risque.
 L'installation ne se fait plus non plus en tout-ou-rien : un seul fichier manqué sur un réseau
 capricieux laissait l'app **sans aucun cache**.
 
+> **Suite, 11-12/09/2026 : le cache d'abord a eu un coût, et il est corrigé.** Servir la
+> coquille depuis le cache sans VÉRIFIER l'entrée a rendu l'app inaccessible **en ligne**
+> (`ERR_FAILED` sur toutes les navigations) : Cloudflare Pages canonicalise `/index.html` en
+> 308 vers `/`, `fetch` suit, et la réponse mise en cache porte `redirected: true` — ce qu'une
+> requête de navigation interdit. Diagnostic au chantier 19, correction au 20. **Les quatre
+> vérifications d'avant-fusion d'un service worker vivent désormais dans `CLAUDE.md` §4 bis**,
+> avec la configuration discriminante : serveur qui redirige · service worker installé ·
+> serveur allumé.
+
 ---
 
-### 7 bis.8 Ordre recommandé
+### 7 bis.8 Ordre recommandé — mis à jour le 11/09/2026
 
-1. Réinstallation de l'ancre d'historique *(en cours)*
-2. **Onglets + fondations visuelles** — même chantier
-3. Écran de saisie
-4. Entrée par exercice
-5. Direction artistique complète
+**Fait** — ancre d'historique · onglets et fondations visuelles · vue hebdomadaire et
+calendrier · Progression (sommaire, volume, poids, radar) · palier en JS · bibliothèque de
+routines.
+
+**Reste, dans cet ordre :**
+
+| # | Chantier | Note |
+|---|---|---|
+| 1 | **Séance en cours** | le plus risqué : l'écriture hors ligne s'y pose entière |
+| 2 | **Blocs et supersets à l'écran** | entrelacement, tours, légende A/B/C |
+| 3 | **Déviation** | menu de bloc en séance, puis mode Modifier et glissement |
+| 4 | **Page d'exercice** (§7 quater) | atteinte depuis la séance et depuis Progression |
+| 5 | **Le moteur qui parle** | cible, suggestion, stagnation |
+| 6 | Direction artistique complète | après que les écrans existent |
+
+> **Le chantier 1 est le plus risqué du projet.** Une séance se fait en salle, souvent sans
+> réseau, et **perdre une séance en cours serait le pire défaut possible**.
+>
+> Ce qui le rend faisable : `sessions.id` et `sets.id` sont des **`uuid`**. L'app peut donc
+> les fabriquer elle-même, ce qui fait de la synchronisation une **réécriture idempotente** —
+> la même série envoyée deux fois écrase la même ligne. Pas de conflit à résoudre, pas
+> d'identité provisoire à réconcilier.
+>
+> Et la base verrouille déjà le piège principal : `sets_validee_si_saisie` **interdit
+> d'insérer une série non validée** quand `source = 'app'`. Pré-créer les lignes vides d'une
+> routine est mécaniquement impossible.
+
+---
+
+## 7 ter. Le temps de repos — chronomètre automatique
+
+Décision du 11/09/2026, après vérification de ce que font les autres outils : **le temps de
+repos figure dans toutes les structures de routine**, sans exception — nom et ordre de
+l'exercice, séries, reps, **et intervalle de repos**.
+
+Et ce n'est pas une donnée théorique : **Aurélien l'a saisie pendant trois ans dans Hevy.**
+Elle est perdue à l'import, l'export CSV ne la porte pas.
+
+### 7 ter.1 Pourquoi on ne le déduit pas
+
+L'écart entre deux validations contient le repos **plus le temps d'exécution**. Une série de 5
+au squat et une de 20 aux mollets n'ont pas la même durée. Et les supersets brouillent le
+calcul sur **48,7 %** des séries de travail d'aurel_br.
+
+> **Le chronomètre part à la VALIDATION d'une série** et mesure jusqu'à la validation
+> suivante. Le temps d'exécution n'entre pas dans la valeur : elle est juste **par
+> construction**.
+
+### 7 ter.2 Deux valeurs distinctes
+
+| Où | Colonne | Sens |
+|---|---|---|
+| Routine | `repos_cible_s` | le repos **prescrit** pour cet exercice — 5 à 1800 s, NULL = non prescrit |
+| Série | `repos_s` | le repos **réel** avant cette série — 0 à 3600 s |
+
+Migration **`v2_040`**, appliquée et vérifiée.
+
+`sets.repos_s` est **NULL sur les 28 103 séries importées** — ne construire aucune règle qui
+le suppose renseigné, même raisonnement que pour `validee_a`.
+
+### 7 ter.3 Le comportement à l'écran
+
+Le chronomètre **démarre seul** à la validation d'une série et s'affiche pendant le repos.
+C'est ce que font toutes les apps sérieuses, et c'est ce qui rend la mesure fiable sans rien
+demander.
+
+La valeur enregistrée est **corrigeable à la main** — pour les cas où on s'est interrompu, où
+on a discuté, où on a attendu une machine.
+
+> **Le chronomètre informe, il ne commande pas.** Pas d'alarme si le repos dépasse la cible,
+> pas de blocage de la série suivante, aucun décompte qui presse. Un modificateur sert à se
+> taire au bon moment.
+
+### 7 ter.4 Point ouvert — les alternatives d'exercice
+
+Toutes les structures de routine consultées prévoient un **remplacement** quand la machine est
+prise. La matière existe à moitié : `exercises.famille` groupe les mouvements équivalents, et
+le §13 du moteur s'en sert déjà comme niveau de repli.
+
+Chantier à part, pas un champ de plus sur la routine.
+
+---
+
+## 7 quater. La page d'exercice — une seule, atteinte de partout
+
+Décision du 11/09/2026. Le §2.8 dit qu'un tap sur le nom d'un exercice donne son historique.
+Cette page est maintenant définie.
+
+> **Une seule page d'exercice, atteinte depuis la séance, depuis Progression, depuis une carte
+> de séance.** Une implémentation, un comportement, et le bouton retour ramène d'où l'on vient
+> — le routeur le fait déjà.
+
+### 7 quater.1 Le bandeau de séance
+
+Quand on y arrive **depuis une séance en cours**, un bandeau la garde visible en haut :
+« Pecs – Dos · en cours » et un bouton **Reprendre**. On consulte sans avoir l'impression
+d'avoir quitté.
+
+### 7 quater.2 Deux sous-onglets, pas quatre
+
+| Onglet | État |
+|---|---|
+| **Résumé** | courbe et ses cinq vues · records · table par nombre de répétitions |
+| **Historique** | les 20 dernières séances, puis « voir plus » |
+| ~~Instructions~~ | **pas de matière** : `exercises` porte nom, famille, muscles, équipement — aucun texte, aucune image. 237 fiches à écrire, images à licencier |
+| ~~Classement~~ | c'est le social, explicitement en dernier (`CADRAGE-V2` §2 quinquies) |
+
+> **Ajouter un onglet plus tard ne coûte rien ; un onglet vide coûte la confiance.**
+
+### 7 quater.3 La table par nombre de répétitions
+
+**C'est elle qui dit le niveau réel** — « mon record c'est 140 » ne veut rien dire sans le
+nombre de répétitions.
+
+> **Affichage brut, lignes déduites grisées.** On voit ce qu'on a réellement fait, et ce qu'on
+> pourrait revendiquer, visuellement distingué.
+
+Une ligne est **déduite** quand un meilleur résultat existe à plus de répétitions : qui a fait
+80 × 15 a forcément pu faire 80 × 14. Grisée, en italique, marquée « déduit ».
+
+Mesuré sur le développé couché d'aurel_br : **une seule ligne déduite sur quinze**, celle des
+14 reps. Le brut y donnerait 42,5 kg de février 2024 alors qu'il a fait 80 × 15 en juillet
+2025.
+
+**La date de chaque record est affichée, et elle change la lecture** : le record à 8 reps
+(110 kg) date de novembre 2025, celui à 6 reps d'hier. Sans la date, on ne sait pas lequel est
+à jour.
+
+La ligne de la **cible courante** est mise en avant.
+
+### 7 quater.4 L'historique
+
+Les **20 dernières séances**, puis « voir plus ». Chacune avec **toutes ses séries** : chauffe
+en retrait, tentative marquée `✕`, effort en RPE **ou** en répétitions restantes selon ce qui
+a été saisi.
+
+Plus le **repos moyen**, la **note de séance** s'il y en a une, et le **titre de la séance**,
+qui mène au détail complet pour qui veut le contexte des autres exercices.
+
+**Un record atteint ce jour-là est signalé** — c'est ce qui donne envie de défiler.
 
 ---
 

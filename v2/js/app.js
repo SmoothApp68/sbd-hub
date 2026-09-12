@@ -43,10 +43,18 @@
   // avec tout l'appareillage que ça demande : curseur incrémental, compte de
   // contrôle, cliquet de complétude. Il répond à une seule question — « ai-je
   // tout reçu ». Y verser une table qu'on écrit y ajouterait la question
-  // inverse — « ai-je tout envoyé » — pour laquelle il n'a aucune réponse : ni
-  // identité locale, ni file d'attente, ni résolution de conflit. À moitié
-  // fait, on obtiendrait le pire : une bibliothèque locale qui diverge en
-  // silence de ce qui est en base.
+  // inverse — « ai-je tout envoyé » — pour laquelle il n'a AUCUNE FILE
+  // D'ATTENTE ni aucun suivi de ce qui reste à pousser. À moitié fait, on
+  // obtiendrait le pire : une bibliothèque locale qui diverge en silence de ce
+  // qui est en base.
+  //
+  // ⚠️ Corrigé le 12/09 : ce commentaire ajoutait « ni identité locale, ni
+  // résolution de conflit ». C'est FAUX, et `SCHEMA-REEL.md` le dit —
+  // `sessions.id` et `sets.id` ont `gen_random_uuid()` en défaut, donc l'app
+  // peut fabriquer les identifiants elle-même et la synchronisation devient une
+  // réécriture IDEMPOTENTE : la même ligne envoyée deux fois écrase la même
+  // ligne. L'identité et le conflit sont donc réglés d'avance. Ce qui manque
+  // vraiment, c'est la file d'attente — et c'est elle le chantier suivant.
   //
   // Une routine se crée au calme, avec du réseau ; une SÉANCE se saisit à la
   // salle, où le réseau tombe. L'écriture hors ligne est le vrai problème, et

@@ -38,9 +38,14 @@
   // figure pas ne part pas : tempo, élastique, note et superset appartiennent à
   // d'autres chantiers, et `elastique_norme`/`salle_norme` sont GÉNÉRÉES —
   // les écrire ferait échouer la requête.
-  var CHAMPS_SERIE = ['id', 'session_id', 'user_id', 'exercise_slug', 'source',
-                      'type_serie', 'charge_kg', 'reps', 'rpe', 'ressenti',
-                      'validee_a', 'rang', 'repos_s'];
+  // ⚠️ `CHAMPS_SERIE` a été SUPPRIMÉE ici au chantier 24. Posée au chantier 22
+  // comme « liste blanche des colonnes envoyées », elle était exportée et
+  // **lue par personne** — `lignes()` construit sa ligne à la main. Le banc de
+  // mutation l'a établi : la retirer ne faisait tomber aucun test, ni unitaire
+  // ni d'écran. Une liste blanche que rien n'applique n'est pas une garantie,
+  // c'est une garantie APPARENTE — exactement le piège n° 2 de
+  // `SCHEMA-REEL.md`, la valeur écrite dont personne ne se sert. La seule
+  // source des colonnes envoyées est `lignes()`, plus bas.
 
   function copie(o) { return Object.assign({}, o); }
 
@@ -97,7 +102,8 @@
     return {
       id: typeof idSerie === 'function' ? idSerie() : null,
       type_serie: 'travail',
-      charge_kg: null, reps: null, rpe: null, ressenti: null,
+      charge_kg: null, reps: null, duree_s: null, distance_m: null,
+      rpe: null, ressenti: null,
       validee_a: null, repos_s: null
     };
   }
@@ -144,6 +150,23 @@
     return isFinite(n) ? n : null;
   }
 
+  // Un entier positif ou rien, après conversion depuis l'unité de SAISIE.
+  //
+  // `facteur` est ce qui sépare ce qu'on tape de ce que porte la colonne : on
+  // saisit une rando en minutes et en kilomètres, la base stocke des secondes
+  // et des mètres. Une valeur négative n'existe pas — une durée ni une distance
+  // ne se comptent à rebours — et on la rejette plutôt que de la stocker.
+  function entierOuNul(v, facteur) {
+    var n = nombreOuNul(v);
+    if (n === null) return null;
+    var e = Math.round(n * (facteur || 1));
+    return e < 0 ? null : e;
+  }
+
+  // Les clés d'entrée nomment l'UNITÉ DE SAISIE, pas la colonne : `duree_min`
+  // et `distance_km` arrivent de la grille `distance_temps`, `duree_s` de la
+  // grille `temps`. Une seule table les relie (`THModele.CHAMPS_MESURE`) ; ici
+  // on applique, on ne redécide pas.
   function modifierSerie(seance, iExo, iSerie, champs) {
     var c = {};
     if ('charge_kg' in champs) c.charge_kg = nombreOuNul(champs.charge_kg);
@@ -151,6 +174,10 @@
       var r = nombreOuNul(champs.reps);
       c.reps = r === null ? null : Math.round(r);
     }
+    if ('duree_s' in champs) c.duree_s = entierOuNul(champs.duree_s, 1);
+    if ('duree_min' in champs) c.duree_s = entierOuNul(champs.duree_min, 60);
+    if ('distance_m' in champs) c.distance_m = entierOuNul(champs.distance_m, 1);
+    if ('distance_km' in champs) c.distance_m = entierOuNul(champs.distance_km, 1000);
     return avecSerie(seance, iExo, iSerie, c);
   }
 
@@ -277,6 +304,11 @@
           type_serie: p.serie.type_serie || 'travail',
           charge_kg: p.serie.charge_kg,
           reps: p.serie.reps,
+          // Toujours envoyées, y compris à null : la mesure décide de ce qui
+          // est REMPLI, pas de ce qui est ENVOYÉ. Omettre la colonne laisserait
+          // une valeur périmée en base après un changement d'exercice.
+          duree_s: p.serie.duree_s === undefined ? null : p.serie.duree_s,
+          distance_m: p.serie.distance_m === undefined ? null : p.serie.distance_m,
           rpe: p.serie.rpe,
           ressenti: p.serie.ressenti,
           validee_a: p.serie.validee_a,
@@ -319,7 +351,9 @@
         return {
           seance: s,
           series: series.map(function (x) {
-            return { charge_kg: x.charge_kg, reps: x.reps, type_serie: x.type_serie };
+            return { charge_kg: x.charge_kg, reps: x.reps,
+                     duree_s: x.duree_s, distance_m: x.distance_m,
+                     type_serie: x.type_serie };
           })
         };
       }
@@ -336,19 +370,41 @@
   //
   // Les reps visées de la routine servent de fantôme de reps — c'est une
   // intention déclarée, pas un calcul.
+  // Remonte la dernière valeur saisie pour CE champ, sur CET exercice, dans
+  // CETTE séance.
+  function derniereSaisie(exo, iSerie, champ) {
+    for (var k = iSerie - 1; k >= 0; k--) {
+      var v = exo.series[k][champ];
+      if (v !== null && v !== undefined) return v;
+    }
+    return null;
+  }
+
   function fantome(seance, iExo, iSerie, prec) {
     var exo = seance.exercices[iExo];
-    var charge = null;
-    for (var k = iSerie - 1; k >= 0; k--) {
-      if (exo.series[k].charge_kg !== null && exo.series[k].charge_kg !== undefined) {
-        charge = exo.series[k].charge_kg; break;
-      }
-    }
     var ligne = prec && prec.series ? prec.series[iSerie] : null;
+
+    var charge = derniereSaisie(exo, iSerie, 'charge_kg');
     if (charge === null && ligne) charge = ligne.charge_kg;
+
     var reps = exo.reps_visees;
     if ((reps === null || reps === undefined) && ligne) reps = ligne.reps;
-    return { charge_kg: charge, reps: reps === undefined ? null : reps };
+
+    // La durée et la distance suivent la MÊME règle que la charge : ce qu'on
+    // vient de faire dans la séance, à défaut ce qu'on a fait au même rang la
+    // dernière fois. Aucune intention déclarée n'existe pour elles — la routine
+    // ne porte que `reps_visees`, jamais une durée visée.
+    var duree = derniereSaisie(exo, iSerie, 'duree_s');
+    if (duree === null && ligne) duree = ligne.duree_s;
+    var distance = derniereSaisie(exo, iSerie, 'distance_m');
+    if (distance === null && ligne) distance = ligne.distance_m;
+
+    return {
+      charge_kg: charge,
+      reps: reps === undefined ? null : reps,
+      duree_s: duree === undefined ? null : duree,
+      distance_m: distance === undefined ? null : distance
+    };
   }
 
   // ── Le repos : la cible et son échéance ─────────────────────────────────
@@ -380,7 +436,7 @@
   }
 
   var api = {
-    TYPES: TYPES, RESSENTIS: RESSENTIS, CHAMPS_SERIE: CHAMPS_SERIE,
+    TYPES: TYPES, RESSENTIS: RESSENTIS,
     PAS_REPOS: PAS_REPOS,
     ajusterCible: ajusterCible,
     echeanceAtteinte: echeanceAtteinte,

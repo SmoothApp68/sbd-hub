@@ -790,10 +790,26 @@
     }
     // Ce qui est affiché en gris devient réel à la validation : on valide sans
     // rien taper quand c'est juste (§3 bis.3).
+    //
+    // ⚠️ SEULEMENT LES CHAMPS DU GABARIT. Recopier aveuglément les quatre
+    // écrirait une charge sur une planche et une durée sur un développé — la
+    // « planche à 0 kg × 45 » que ce chantier supprime, réintroduite par la
+    // porte de derrière.
+    var g = Modele.gabaritDe((local.exercices || []).filter(function (e) {
+      return e && e.slug === exo.exercise_slug;
+    })[0]);
     var f = Seance.fantome(seance, iExo, iSerie, precedentDe(exo.exercise_slug));
     var champs = {};
-    if (serie.charge_kg === null && f.charge_kg !== null) champs.charge_kg = f.charge_kg;
-    if (serie.reps === null && f.reps !== null) champs.reps = f.reps;
+    //
+    // La seule condition qui compte est « le champ est VIDE » : ce qui a été
+    // tapé n'est jamais écrasé. Un fantôme absent se normalise en `null` dans
+    // `modifierSerie`, donc le tester ici ne changerait rien — un garde-fou
+    // qu'aucune mutation ne peut tuer est un garde-fou mort (leçon de
+    // `palier.js`, chantier 17).
+    g.champs.forEach(function (nom) {
+      var c = Modele.champDeMesure(nom);
+      if (c && serie[c.cle] === null) champs[c.cle] = f[c.cle];
+    });
     if (Object.keys(champs).length) seance = Seance.modifierSerie(seance, iExo, iSerie, champs);
 
     seance = Seance.valider(seance, iExo, iSerie, new Date());
@@ -839,6 +855,10 @@
     });
     Rendu.rendreBlocsSeance($('blocs-seance'), seance, {
       nommer: function (slug) { return Modele.nommer(index, slug); },
+      // La fiche du catalogue, d'où la vue tire la MESURE — donc le gabarit de
+      // ligne. `undefined` si le catalogue n'est pas encore là : `gabaritDe`
+      // retombe alors sur `charge_reps` sans rien affirmer.
+      exercice: function (slug) { return index[slug]; },
       precedent: precedentDe,
       fantome: function (i, j) { return Seance.fantome(seance, i, j, precedentDe(seance.exercices[i].exercise_slug)); },
       surChamp: function (i, j, champ, valeur) {

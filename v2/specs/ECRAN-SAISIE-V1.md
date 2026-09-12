@@ -1127,6 +1127,72 @@ reprise.
 
 ---
 
+## 7 septies. Notes, repos en séance, et fin de séance — arrêté le 12/09/2026
+
+### 7 septies.1 La note d'exercice existe déjà — elle se duplique
+
+**Vérifié en base, et c'est ce qui tranche le modèle.** Sur **196 couples séance-exercice**
+portant une note, **185 ont exactement la même note sur toutes leurs séries**, et 188 l'ont
+sur toutes sans exception.
+
+> **La note de Hevy est une note d'exercice, dupliquée sur chaque série à l'export.** Elle est
+> déjà en base, simplement stockée de façon redondante.
+
+**Aucune table intermédiaire n'est nécessaire.** Une note posée sous le nom d'un exercice
+s'écrit **sur toutes les séries de cet exercice dans cette séance** — cohérent avec les 185
+couples importés.
+
+**Les notes de série restent possibles** : 11 couples (5 %) portent des notes réellement
+différentes d'une série à l'autre. Le cas existe, il ne se supprime pas.
+
+**La note suit l'exercice quand on le réutilise** : réutiliser une routine ou copier une
+séance recopie la note. `routine_exercises.note` existe déjà et n'a jamais servi.
+
+**Emplacement** : sous le nom de l'exercice, au voisinage du repos cible.
+
+### 7 septies.2 Le repos se modifie en séance
+
+Le repos cible d'un exercice se change **pendant la séance**, d'un appui sur la valeur affichée
+sous le nom.
+
+> **La question « met-on à jour la routine ? » se pose à la fin**, comme pour les écarts de
+> structure (§6) — pas au moment du geste.
+
+Le repos reste par ailleurs modifiable **dans la routine elle-même**.
+
+### 7 septies.3 Le chronomètre s'arrête à l'échéance
+
+> **Il s'arrête**, y compris après un raccourcissement par le −15 s. Il ne continue pas à
+> compter au-delà.
+
+**La vibration d'échéance est un défaut à corriger** : vérifiée sur device **écran allumé**,
+elle ne se déclenche pas. Ce n'est donc pas la limite Chrome sur écran éteint.
+
+### 7 septies.4 L'écran de fin de séance
+
+Il n'existe pas. Quatre champs, tous déjà en base :
+
+| Champ | État |
+|---|---|
+| `sessions.titre` | renseigné à l'import |
+| `sessions.note` | **421 séances sur 1 222** |
+| `sessions.salle` | **vide sur les 1 222** — colonne créée par `v2_036`, jamais renseignée |
+| partenaire de séance | **n'existe pas** |
+
+**Le partenaire, en version simple d'abord.** Un nom saisi sur la séance, rien de plus.
+
+> Ça rend lisible une variance aujourd'hui inexplicable : le banc d'essai notait qu'une séance
+> peut être écourtée parce qu'on s'entraîne avec quelqu'un.
+
+**La version partagée — une séance vivant sur deux comptes — est un autre sujet** : à qui elle
+appartient, dans quel historique elle compte, qui possède les séries. C'est du social, et
+`SOCIAL-ET-DEFIS-NOTES` exige de le traiter **en dernier**, après la règle d'accès.
+
+C'est aussi ici que se pose la question du §6 : une déviation de structure ou de repos
+met-elle à jour la routine ?
+
+---
+
 ## 7 sexies. La file d'attente ne perd rien en silence — corrigé au chantier 25
 
 Défaut trouvé au banc d'écran en tapant une durée **chiffre par chiffre**. Chaque frappe pose

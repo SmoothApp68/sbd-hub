@@ -65,8 +65,8 @@ const ROUTINE = {
   id: 'r-banc', nom: 'Push', note: null, archivee_a: null,
   created_at: '2026-09-01T08:00:00Z', modifiee_a: '2026-09-01T08:00:00Z',
   routine_exercises: [
-    { id: 're1', routine_id: 'r-banc', exercise_slug: 'squat-barre', rang: 0, series: 3, reps_visees: 5, repos_cible_s: 180, groupe_superset: null },
-    { id: 're2', routine_id: 'r-banc', exercise_slug: 'dc-barre', rang: 1, series: 2, reps_visees: 8, repos_cible_s: null, groupe_superset: null }
+    { id: 're1', routine_id: 'r-banc', exercise_slug: 'squat-barre', rang: 0, series: 3, reps_visees: 5, repos_cible_s: 180, groupe_superset: null, note: null },
+    { id: 're2', routine_id: 'r-banc', exercise_slug: 'dc-barre', rang: 1, series: 2, reps_visees: 8, repos_cible_s: null, groupe_superset: null, note: null }
   ]
 };
 
@@ -77,10 +77,10 @@ const ROUTINE_MESURES = {
   id: 'r-mesures', nom: 'Les quatre mesures', note: null, archivee_a: null,
   created_at: '2026-09-02T08:00:00Z', modifiee_a: '2026-09-02T08:00:00Z',
   routine_exercises: [
-    { id: 'rm1', routine_id: 'r-mesures', exercise_slug: 'dc-barre', rang: 0, series: 1, reps_visees: 8, repos_cible_s: 120, groupe_superset: null },
-    { id: 'rm2', routine_id: 'r-mesures', exercise_slug: 'tractions', rang: 1, series: 1, reps_visees: 12, repos_cible_s: null, groupe_superset: null },
-    { id: 'rm3', routine_id: 'r-mesures', exercise_slug: 'planche', rang: 2, series: 1, reps_visees: null, repos_cible_s: null, groupe_superset: null },
-    { id: 'rm4', routine_id: 'r-mesures', exercise_slug: 'marche', rang: 3, series: 1, reps_visees: null, repos_cible_s: null, groupe_superset: null }
+    { id: 'rm1', routine_id: 'r-mesures', exercise_slug: 'dc-barre', rang: 0, series: 1, reps_visees: 8, repos_cible_s: 120, groupe_superset: null, note: null },
+    { id: 'rm2', routine_id: 'r-mesures', exercise_slug: 'tractions', rang: 1, series: 1, reps_visees: 12, repos_cible_s: null, groupe_superset: null, note: null },
+    { id: 'rm3', routine_id: 'r-mesures', exercise_slug: 'planche', rang: 2, series: 1, reps_visees: null, repos_cible_s: null, groupe_superset: null, note: null },
+    { id: 'rm4', routine_id: 'r-mesures', exercise_slug: 'marche', rang: 3, series: 1, reps_visees: null, repos_cible_s: null, groupe_superset: null, note: null }
   ]
 };
 
@@ -117,7 +117,7 @@ const SETS_PASSES = [1, 2].map((n) => ({
   const base = {
     sessions: [Object.assign({}, PASSEE)],
     sets: SETS_PASSES.map((s) => Object.assign({}, s)),
-    journal: [], reseau: true
+    journal: [], patchs: [], reseau: true
   };
 
   // Le décor ne doit pas fausser les comptes des sections qui parlent de LA
@@ -239,11 +239,33 @@ const SETS_PASSES = [1, 2].map((n) => ({
       return json([]);
     }
 
+    // ⚠️ LA MISE À JOUR D'UNE LIGNE DE ROUTINE (chantier 26). Sans ce
+    // gestionnaire, un PATCH tombait dans le `json([])` final : la requête
+    // « réussissait » sans rien écrire, et « la routine n'est pas touchée »
+    // aurait été vrai de toute implémentation — y compris d'une qui écrit à
+    // chaque geste. C'est exactement le banc plus permissif que l'appareil.
+    if (req.method() === 'PATCH' && table === 'routine_exercises') {
+      const id = (url.searchParams.get('id') || '').replace('eq.', '');
+      const champs = Array.isArray(corps) ? corps[0] : corps;
+      base.patchs.push({ id: id, champs: Object.assign({}, champs) });
+      for (const r of [ROUTINE, ROUTINE_MESURES]) {
+        const i = r.routine_exercises.findIndex((e) => e.id === id);
+        if (i >= 0) r.routine_exercises[i] = Object.assign({}, r.routine_exercises[i], champs);
+      }
+      return json([]);
+    }
+
     if (req.method() === 'POST' && table === 'sessions') {
       const l = Array.isArray(corps) ? corps[0] : corps;
       base.journal.push({ op: 'session', id: l.id, statut: l.statut });
       if (['en_cours', 'terminee'].indexOf(l.statut) < 0) return json(refus('23514', 'sessions_statut_ok'), 400);
       if (!l.user_id) return json(refus('23502', 'user_id'), 400);
+      // GÉNÉRÉE : Postgres refuse toute valeur, même la bonne, même NULL.
+      if ('salle_norme' in l) return json(refus('428C9', 'salle_norme est générée'), 400);
+      if (l.salle !== null && l.salle !== undefined &&
+          !(String(l.salle).length >= 1 && String(l.salle).length <= 60)) {
+        return json(refus('23514', 'sessions_salle_non_vide'), 400);
+      }
       const i = base.sessions.findIndex((s) => s.id === l.id);
       if (i >= 0) base.sessions[i] = Object.assign({}, base.sessions[i], l);
       else base.sessions.push(Object.assign({}, l));
@@ -656,8 +678,15 @@ const SETS_PASSES = [1, 2].map((n) => ({
     apresDepassement.bips === aEcheance.bips &&
     apresDepassement.vibrations === aEcheance.vibrations,
     'bips ' + apresDepassement.bips + ' · vibrations ' + apresDepassement.vibrations);
-  ok('et la piste continue de se remplir au-delà de la cible, sans alarme',
-    /0:2[0-9]|0:3[0-9]/.test(await texte('#repos')),
+  // ⚠️ ASSERTION RETOURNÉE AU CHANTIER 26 (§7 septies.3). Elle exigeait que le
+  // chronomètre CONTINUE de compter au-delà de la cible — c'était le
+  // comportement d'alors, et c'est précisément celui qu'Aurélien a demandé de
+  // corriger : « il s'arrête à l'échéance, il ne continue pas à compter
+  // au-delà ». Dix secondes après une cible de 0:15, l'affichage doit donc
+  // encore dire 0:15. Le reste de l'invariante ne bouge pas : rien ne se
+  // répète, aucune alarme ne monte — c'est l'assertion juste au-dessus.
+  ok('et il reste ARRÊTÉ sur la cible, sans alarme ni décompte qui presse',
+    /0:15/.test(await texte('#repos')) && !/0:2[0-9]/.test(await texte('#repos')),
     (await texte('#repos')).replace(/\s+/g, ' ').slice(0, 40));
 
   console.log('\n══ 5 quater. LA SOURDINE SE RETIENT D’UNE SÉANCE À L’AUTRE ══');
@@ -1056,6 +1085,306 @@ const SETS_PASSES = [1, 2].map((n) => ({
   ok('la carte donne la grandeur de chaque mesure, pas un blanc',
     carte.length === 3 && /80/.test(carte[0]) && /12/.test(carte[1]) && /50\s*s/.test(carte[2]),
     JSON.stringify(carte));
+
+  console.log('\n══ 7 septies. NOTES, REPOS EN SÉANCE, FIN DE SÉANCE ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE (CADRAGE-V2 §2 quater) :
+  //   UN EXERCICE À AU MOINS TROIS SÉRIES, DONT UNE AJOUTÉE *APRÈS* LA NOTE.
+  //
+  // Sur une série unique, « duplique sur toutes » et « écrit sur celle-là »
+  // produisent exactement la même ligne en base. Il faut plusieurs séries pour
+  // distinguer la duplication, et une ajoutée ENSUITE pour distinguer « on
+  // recopie au geste » de « on projette à l'écriture ».
+  await aller('/saisie');
+  await demarrerRoutine('Push');
+
+  const patchsRoutine = () => base.patchs.slice();
+  // ⚠️ SCOPÉ À LA SÉANCE EN COURS. `squat-barre` a déjà servi dans les sections
+  // précédentes : lire toute la table mélangerait des séries d'autres séances,
+  // et la note « manquerait » sur des lignes qui n'ont jamais été concernées.
+  const seanceCourante = () => (base.sessions.filter((s) => s.statut === 'en_cours')[0] || {}).id;
+  const notesEnBase = (slug) => {
+    const sid = seanceCourante();
+    return base.sets.filter((s) => s.session_id === sid && s.exercise_slug === slug)
+      .sort((a, b) => a.rang - b.rang)
+      .map((s) => s.note);
+  };
+  const lireBloc = (iBloc, sel) => page.evaluate(([k, s]) =>
+    (document.querySelectorAll('.bloc-seance')[k].querySelector(s) || {}).textContent || '',
+    [iBloc, sel]);
+  const ouvrirFeuilleBloc = async (iBloc, sel) => {
+    await page.evaluate(([k, s]) => {
+      document.querySelectorAll('.bloc-seance')[k].querySelector(s).click();
+    }, [iBloc, sel]);
+    await attendre(400);
+  };
+  const taperFeuille = async (sel, texte) => {
+    await page.fill('#feuille-contenu ' + sel, texte);
+    await attendre(500);
+  };
+  const fermerFeuille = async () => { await page.click('#btn-fermer-feuille'); await attendre(600); };
+
+  // §7 septies.2 — le repos s'affiche MÊME ABSENT : sans tiret, il n'y aurait
+  // rien à toucher pour en poser un, et le seul chemin serait l'éditeur.
+  ok('chaque exercice porte ses deux réglages sous son nom',
+    (await compter('.reglages-exo')) === 2 &&
+    (await compter('.reglages-exo .repos-cible')) === 2 &&
+    (await compter('.reglages-exo .note-exo')) === 2,
+    (await compter('.reglages-exo')) + ' tête(s)');
+  const reglages = await page.evaluate(() => Array.from(document.querySelectorAll('.bloc-seance'))
+    .map((b) => b.querySelector('.repos-cible').textContent.trim()));
+  ok('le repos prescrit s’affiche, et son ABSENCE aussi — pas zéro, pas deviné',
+    reglages[0] === 'repos 3:00' && reglages[1] === 'repos —', JSON.stringify(reglages));
+
+  // ── La note d'exercice ──────────────────────────────────────────────────
+  await ouvrirFeuilleBloc(0, '.note-exo');
+  ok('un appui sur « + Note » ouvre la feuille de note',
+    /Note de l’exercice/.test(await texte('#feuille-contenu')),
+    (await texte('#feuille-contenu')).replace(/\s+/g, ' ').slice(0, 60));
+  await taperFeuille('textarea', 'Barre basse, ceinture');
+  await fermerFeuille();
+  ok('la note s’affiche sous le nom, à la place du « + Note »',
+    /Barre basse, ceinture/.test(await lireBloc(0, '.note-exo')), await lireBloc(0, '.note-exo'));
+
+  await saisirSerie(0, 100, 5);
+  await saisirSerie(1, 100, 5);
+  await saisirSerie(2, 100, 5);
+  ok('TOUTES les séries de cet exercice portent la note en base',
+    notesEnBase('squat-barre').length === 3 &&
+    notesEnBase('squat-barre').every((n) => n === 'Barre basse, ceinture'),
+    JSON.stringify(notesEnBase('squat-barre')));
+
+  // ⚠️ LA SÉRIE AJOUTÉE APRÈS. C'est elle qui sépare les deux implémentations.
+  await page.evaluate(() => document.querySelectorAll('.ajout-serie button')[0].click());
+  await attendre(600);
+  await saisirSerie(3, 105, 5);
+  ok('une série ajoutée APRÈS la note la reçoit aussi',
+    notesEnBase('squat-barre').length === 4 &&
+    notesEnBase('squat-barre').every((n) => n === 'Barre basse, ceinture'),
+    JSON.stringify(notesEnBase('squat-barre')));
+
+  // ── La note modifiée : toutes suivent ───────────────────────────────────
+  await ouvrirFeuilleBloc(0, '.note-exo');
+  await taperFeuille('textarea', 'Ceinture + genouillères');
+  await fermerFeuille();
+  ok('modifiée, toutes les séries suivent — aucune ne reste en arrière',
+    notesEnBase('squat-barre').length === 4 &&
+    notesEnBase('squat-barre').every((n) => n === 'Ceinture + genouillères'),
+    JSON.stringify(notesEnBase('squat-barre')));
+
+  // ── La note de série : minoritaire, mais elle existe ────────────────────
+  await toucher(1, '.no-serie');
+  ok('le menu de la série porte un champ de note propre',
+    /Note de cette série/.test(await texte('#feuille-contenu')),
+    (await texte('#feuille-contenu')).replace(/\s+/g, ' ').slice(0, 80));
+  await taperFeuille('textarea', 'Celle-ci sur bloc');
+  await fermerFeuille();
+  ok('une note de série est DISTINCTE de celle de l’exercice, et ne déteint pas',
+    JSON.stringify(notesEnBase('squat-barre')) === JSON.stringify([
+      'Ceinture + genouillères', 'Celle-ci sur bloc',
+      'Ceinture + genouillères', 'Ceinture + genouillères']),
+    JSON.stringify(notesEnBase('squat-barre')));
+  ok('et son numéro le signale — sinon la note serait invisible',
+    (await compter('.no-serie.a-note')) === 1,
+    (await compter('.no-serie.a-note')) + ' série(s) marquée(s)');
+
+  // ── Le repos se modifie en séance, sans rien écrire dans la routine ─────
+  const patchsAvantRepos = patchsRoutine().length;
+  await ouvrirFeuilleBloc(0, '.repos-cible');
+  ok('un appui sur le repos ouvre la grille de valeurs',
+    /Repos cible/.test(await texte('#feuille-contenu')) &&
+    (await compter('#feuille-contenu .grille-rpe button')) === 8,
+    (await compter('#feuille-contenu .grille-rpe button')) + ' valeur(s)');
+  await page.evaluate(() => {
+    const b = Array.from(document.querySelectorAll('#feuille-contenu .grille-rpe button'))
+      .filter((x) => x.textContent.trim() === '2:00')[0];
+    b.click();
+  });
+  await attendre(900);
+  ok('le repos cible change à l’écran, tout de suite',
+    /repos 2:00/.test(await lireBloc(0, '.repos-cible')), await lireBloc(0, '.repos-cible'));
+  ok('et RIEN n’est écrit dans la routine au moment du geste (§7 septies.2)',
+    patchsRoutine().length === patchsAvantRepos &&
+    ROUTINE.routine_exercises[0].repos_cible_s === 180,
+    patchsRoutine().length + ' PATCH · routine à ' + ROUTINE.routine_exercises[0].repos_cible_s);
+
+  // ── Le chronomètre s'arrête à l'échéance ───────────────────────────────
+  //
+  // On travaille sur le SECOND bloc : sa routine ne prescrit pas de repos, donc
+  // la cible se pose entièrement à la main et on la maîtrise à la seconde.
+  console.log('   … 30 s de chronomètre réel');
+  await saisirSerie(4, 60, 8);
+  const cliqueRepos2 = async (i, n) => {
+    for (let k = 0; k < (n || 1); k++) {
+      await page.evaluate((j) => {
+        const b = document.querySelectorAll('#repos .repos-b')[j];
+        if (b) b.click();
+      }, i);
+      await attendre(260);
+    }
+  };
+  const chrono = async () => (await texte('#repos .repos-g')).trim();
+  const figeQ = () => page.evaluate(() =>
+    !!document.querySelector('#repos .repos-g.fige'));
+
+  await cliqueRepos2(1, 4);                 // +15 ×4 → cible 1:00
+  ok('la cible posée à la main vaut 1:00', /cible 1:00/.test(await texte('#repos')),
+    (await texte('#repos')).replace(/\s+/g, ' ').slice(0, 50));
+  const t1 = await chrono();
+  await attendre(20000);                    // écoulé ≈ 21 s, bien sous la cible
+  const t2 = await chrono();
+  ok('sous la cible, il compte', t1 !== t2 && (await figeQ()) === false, t1 + ' → ' + t2);
+
+  // ⚠️ LE CAS SIGNALÉ : trois −15 font passer la cible (1:00 → 0:15) DERRIÈRE
+  // le temps écoulé (≈ 22 s). Le chronomètre doit s'arrêter là, alors qu'il n'a
+  // jamais franchi d'échéance en montant.
+  await cliqueRepos2(0, 3);
+  const apresMoins = await chrono();
+  await attendre(4000);
+  const encore = await chrono();
+  ok('un −15 qui FRANCHIT la cible arrête le chronomètre', apresMoins === '0:15',
+    'affiché ' + apresMoins);
+  ok('et il ne repart pas tout seul quatre secondes plus tard',
+    encore === apresMoins && (await figeQ()) === true, apresMoins + ' → ' + encore);
+
+  // ⚠️ S'ARRÊTER, C'EST AUSSI ARRÊTER DE TRAVAILLER.
+  //
+  // `rendreRepos` VIDE et reconstruit la barre à chaque passage. Un minuteur
+  // qu'on laisse tourner derrière un affichage figé rebâtit donc le DOM une
+  // fois par seconde pour rien, pendant trois minutes de repos — et la valeur
+  // affichée serait la même, donc rien d'autre ne le verrait. On observe le
+  // DOM lui-même, sinon « arrêté » ne veut dire que « arrêté à l'écran ».
+  const remuements = await page.evaluate(() => new Promise((res) => {
+    const cible = document.getElementById('repos');
+    let n = 0;
+    const obs = new MutationObserver((l) => { n += l.length; });
+    obs.observe(cible, { childList: true, subtree: true });
+    setTimeout(function () { obs.disconnect(); res(n); }, 3200);
+  }));
+  ok('figé, la barre cesse AUSSI de se redessiner chaque seconde',
+    remuements === 0, remuements + ' remaniement(s) du DOM en 3,2 s');
+
+  // Le +15 le remet en marche : un arrêt qui ne sait pas repartir figerait le
+  // repos suivant pour toujours.
+  await cliqueRepos2(1, 3);                 // cible 1:00, au-delà de l'écoulé
+  await attendre(2500);
+  const reparti = await chrono();
+  ok('un +15 qui repousse la cible le remet en marche',
+    reparti !== apresMoins && (await figeQ()) === false, apresMoins + ' → ' + reparti);
+  // ⚠️ DEUX LECTURES, PAS UNE. `ajusterRepos` redessine lui-même une fois : une
+  // seule mesure après le +15 verrait une valeur neuve même avec un minuteur
+  // mort, et le chronomètre resterait figé sur elle pour toujours.
+  await attendre(3200);
+  const reparti2 = await chrono();
+  ok('et il CONTINUE d’avancer ensuite, minuteur bien relancé',
+    reparti2 !== reparti, reparti + ' → ' + reparti2);
+
+  // ── L'écran de fin ─────────────────────────────────────────────────────
+  await page.click('#bandeau-seance .discret');
+  await attendre(600);
+  ok('l’écran de fin porte les trois champs déclarés',
+    (await compter('#feuille-contenu .champs-fin .champ-texte')) === 3,
+    (await compter('#feuille-contenu .champs-fin .champ-texte')) + ' champ(s)');
+  ok('et la question sur la routine, puisque la séance a dévié (§6.2)',
+    (await compter('#feuille-contenu .question-routine')) === 1 &&
+    /repos 3:00 → 2:00/.test(await texte('#feuille-contenu .ecarts')),
+    (await texte('#feuille-contenu .ecarts')).replace(/\s+/g, ' ').slice(0, 90));
+
+  await page.fill('#feuille-contenu .champs-fin input[type="text"]', 'Jambes du jeudi');
+  await attendre(300);
+  await page.evaluate(() => {
+    const c = document.querySelectorAll('#feuille-contenu .champs-fin .champ-texte');
+    const salle = c[1].querySelector('input');
+    salle.value = 'Basic-Fit Mulhouse';
+    salle.dispatchEvent(new Event('input', { bubbles: true }));
+    const note = c[2].querySelector('textarea');
+    note.value = 'Dos fatigué, charges tenues';
+    note.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await attendre(500);
+  await page.evaluate(() => {
+    const b = Array.from(document.querySelectorAll('#feuille-contenu .choix-routine button'))
+      .filter((x) => /Reporter/.test(x.textContent))[0];
+    b.click();
+  });
+  await attendre(400);
+  await page.click('#feuille-contenu .principal');
+  await attendre(2600);
+
+  const finie = base.sessions.filter((s) => s.titre === 'Jambes du jeudi')[0];
+  ok('titre, salle et note de séance sont enregistrés', !!finie &&
+    finie.salle === 'Basic-Fit Mulhouse' && /Dos fatigué/.test(finie.note || ''),
+    JSON.stringify({ t: finie && finie.titre, s: finie && finie.salle, n: finie && finie.note }));
+  // La base de papier REFUSE `salle_norme` (428C9) : si l'app l'envoyait, la
+  // séance ne serait jamais montée et le test précédent tomberait déjà. On
+  // vérifie en plus que rien n'est resté coincé dans la file.
+  ok('`salle_norme` n’est jamais envoyée — la séance monte',
+    finie.statut === 'terminee' && !/à envoyer|refusé/.test(await texte('#etat-sync')),
+    (await texte('#etat-sync')).trim() || '(vide)');
+
+  const patch = patchsRoutine().filter((p) => p.id === 're1').pop();
+  ok('« Reporter » écrit les écarts sur la routine, et RIEN d’autre',
+    !!patch && JSON.stringify(Object.keys(patch.champs).sort()) === '["note","repos_cible_s"]' &&
+    patch.champs.repos_cible_s === 120 && /Ceinture/.test(patch.champs.note || ''),
+    JSON.stringify(patch && patch.champs));
+
+  await aller('/');
+  await page.evaluate(() => {
+    const c = Array.from(document.querySelectorAll('.jour .seance'))
+      .filter((x) => /Jambes du jeudi/.test(x.textContent))[0];
+    c.click();
+  });
+  await attendre(1200);
+  ok('la note de séance se relit sur le détail',
+    /Dos fatigué/.test(await texte('#vue-detail')),
+    (await texte('#vue-detail')).replace(/\s+/g, ' ').slice(0, 100));
+
+  // ── Aucune déviation → aucune question (§6.2) ──────────────────────────
+  //
+  // La routine porte maintenant 2:00 et la note : une séance qui n'y touche pas
+  // est CONFORME. C'est l'autre moitié du test — prouver qu'on demande ne vaut
+  // que si l'on prouve aussi qu'on se tait.
+  await aller('/saisie');
+  await demarrerRoutine('Push');
+  ok('la note de la routine suit dans la nouvelle séance',
+    /Ceinture/.test(await lireBloc(0, '.note-exo')), await lireBloc(0, '.note-exo'));
+  await saisirSerie(0, 100, 5);
+  await page.click('#bandeau-seance .discret');
+  await attendre(600);
+  ok('sans déviation, AUCUNE question sur la routine ne se pose',
+    (await compter('#feuille-contenu .question-routine')) === 0,
+    (await compter('#feuille-contenu .question-routine')) + ' question(s)');
+  await fermerFeuille();
+
+  // ⚠️ L'AUTRE MOITIÉ : « GARDER », qui est le DÉFAUT.
+  //
+  // Prouver que « Reporter » écrit ne vaut que si l'on prouve aussi que ne rien
+  // demander n'écrit pas. Sans ce test, une implémentation qui reporte TOUJOURS
+  // passerait le banc — et corrigerait les routines d'Aurélien dans son dos.
+  await ouvrirFeuilleBloc(0, '.repos-cible');
+  await page.evaluate(() => {
+    const b = Array.from(document.querySelectorAll('#feuille-contenu .grille-rpe button'))
+      .filter((x) => x.textContent.trim() === '3:00')[0];
+    b.click();
+  });
+  await attendre(900);
+  const patchsAvantGarder = patchsRoutine().length;
+  await page.click('#bandeau-seance .discret');
+  await attendre(600);
+  ok('une déviation ROUVRE la question', (await compter('#feuille-contenu .question-routine')) === 1,
+    (await texte('#feuille-contenu .ecarts')).replace(/\s+/g, ' ').slice(0, 60));
+  ok('et « Garder la routine » est sélectionné par défaut',
+    await page.evaluate(() => {
+      const s = document.querySelector('#feuille-contenu .choix-routine button.sel');
+      return !!s && /Garder/.test(s.textContent);
+    }), 'défaut = garder');
+  await page.click('#feuille-contenu .principal');
+  await attendre(2600);
+  ok('terminer en gardant n’écrit RIEN dans la routine',
+    patchsRoutine().length === patchsAvantGarder &&
+    ROUTINE.routine_exercises[0].repos_cible_s === 120,
+    patchsRoutine().length + ' PATCH (avant ' + patchsAvantGarder +
+    ') · routine à ' + ROUTINE.routine_exercises[0].repos_cible_s);
 
   console.log('\n══ 8. NON-RÉGRESSION ══');
   for (const [chemin, attendu] of [['/', 'vue-liste'], ['/progression', 'vue-progression'],

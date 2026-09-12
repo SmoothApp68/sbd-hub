@@ -159,6 +159,10 @@
       .filter(Boolean).join(' · ');
     if (sousTitre) tete.appendChild(el('span', 'detail-meta', sousTitre));
     cible.appendChild(tete);
+    // La note déclarée à la fin (§7 septies.4). Sans ce point de lecture, la
+    // colonne serait une valeur écrite dont personne ne se sert — le piège n° 2
+    // de `SCHEMA-REEL.md`, celui qu'on passe son temps à réparer ailleurs.
+    if (seance && seance.note) cible.appendChild(el('p', 'detail-note', seance.note));
 
     if (!blocs.length) {
       cible.appendChild(el('p', 'vide', 'Aucune série sur cette séance.'));
@@ -899,6 +903,28 @@
     return enveloppe;
   }
 
+  // Un champ de texte libre — note d'exercice, note de série, titre, salle.
+  // Il MUTE l'état sans redessiner, pour la même raison que les champs
+  // numériques : re-rendre à chaque frappe arracherait le focus, et le clavier
+  // d'Android avec lui.
+  //
+  // `max` n'est pas décoratif là où il est posé : `sessions.salle` porte un
+  // CHECK de 1 à 60 caractères, et un dépassement remonterait en 23514 — que la
+  // file classe DÉFINITIVE. Le champ empêche donc ce que le modèle tronque.
+  function champTexte(etiquette, valeur, options, surSaisie) {
+    var o = options || {};
+    var env = el('label', 'champ-texte');
+    env.appendChild(el('span', '', etiquette));
+    var n = doc.createElement(o.lignes ? 'textarea' : 'input');
+    if (o.lignes) n.rows = o.lignes; else n.type = 'text';
+    if (o.max) n.maxLength = o.max;
+    if (o.placeholder) n.placeholder = o.placeholder;
+    n.value = (valeur === null || valeur === undefined) ? '' : String(valeur);
+    n.addEventListener('input', function () { surSaisie(n.value); });
+    env.appendChild(n);
+    return env;
+  }
+
   function champSerie(classe, valeur, fantomeVal, suffixe, surSaisie) {
     var vide = valeur === null || valeur === undefined;
     var enveloppe = el('div', classe + (vide && fantomeVal !== null ? ' fantome' : ''));
@@ -1000,18 +1026,42 @@
       var g = M().gabaritDe(vue.exercice(exo.exercise_slug));
       var champs = g.champs.map(function (n) { return M().champDeMesure(n); });
 
+      var nom = vue.nommer(exo.exercise_slug);
       var bloc = el('div', 'bloc-seance');
       var tete = el('div', 'tete-seance');
-      tete.appendChild(el('div', 'exo-seance', vue.nommer(exo.exercise_slug)));
+      tete.appendChild(el('div', 'exo-seance', nom));
       // Le type de mesure est rappelé sous le nom : sans lui, une ligne à deux
       // colonnes au milieu de lignes à trois désoriente. Tu par prudence quand
       // la mesure est inconnue — on ne nomme pas ce qu'on ne sait pas.
       if (g.libelle) tete.appendChild(el('div', 'type-mesure', g.libelle));
-      // Pas de suggestion : le moteur ne parle pas encore, et inventer un chiffre
-      // serait pire que de n'en montrer aucun (§3.3).
-      if (exo.repos_cible_s) {
-        tete.appendChild(el('div', 'repos-cible num', 'repos ' + mmss(exo.repos_cible_s)));
-      }
+
+      // ⚠️ LES DEUX RÉGLAGES DE L'EXERCICE, SOUS SON NOM (§7 septies.1 et .2).
+      //
+      // Pas de suggestion de charge : le moteur ne parle pas encore, et inventer
+      // un chiffre serait pire que de n'en montrer aucun (§3.3). Ces deux-là ne
+      // suggèrent rien, ils portent ce que l'utilisateur a déclaré.
+      //
+      // Le repos s'affiche MÊME ABSENT, en tiret cadratin : sans ça, il n'y
+      // aurait rien à toucher pour en poser un, et le seul chemin serait
+      // l'éditeur de routine — c'est-à-dire pas pendant la séance.
+      var reglages = el('div', 'reglages-exo');
+
+      var bRepos = el('button', 'repos-cible num',
+        'repos ' + (exo.repos_cible_s ? mmss(exo.repos_cible_s) : '—'));
+      bRepos.type = 'button';
+      bRepos.setAttribute('aria-label', 'Repos cible de ' + nom);
+      bRepos.addEventListener('click', function () { vue.surRepos(iExo); });
+      reglages.appendChild(bRepos);
+
+      var bNote = el('button', 'note-exo' + (exo.note ? ' pleine' : ''),
+        exo.note || '+ Note');
+      bNote.type = 'button';
+      bNote.setAttribute('aria-label',
+        (exo.note ? 'Modifier la note de ' : 'Ajouter une note à ') + nom);
+      bNote.addEventListener('click', function () { vue.surNote(iExo); });
+      reglages.appendChild(bNote);
+
+      tete.appendChild(reglages);
       bloc.appendChild(tete);
 
       var classeGrille = ' grille g-' + g.mesure;
@@ -1035,7 +1085,10 @@
         var fond = el('div', 'glisse-fond', 'Supprimer');
         var rangee = el('div', 'serie' + classeGrille + (serie.validee_a ? ' faite' : ''));
 
-        var no = el('button', 'no-serie ' + eti.classe, eti.texte);
+        // Une note propre à CETTE série se signale sur son numéro — sinon elle
+        // serait invisible, et une donnée qu'on ne voit pas est une donnée dont
+        // on ne se souvient pas.
+        var no = el('button', 'no-serie ' + eti.classe + (serie.note ? ' a-note' : ''), eti.texte);
         no.type = 'button';
         no.addEventListener('click', function () { vue.surNumero(iExo, iSerie); });
         rangee.appendChild(no);
@@ -1105,7 +1158,9 @@
     var pas = vue.pas || 15;
 
     var h = el('div', 'repos-h');
-    h.appendChild(el('span', 'repos-g num', mmss(vue.secondes)));
+    // Figé à l'échéance (§7 septies.3) : il ne compte pas au-delà. L'état se
+    // voit, sinon un chronomètre arrêté se lit comme un chronomètre planté.
+    h.appendChild(el('span', 'repos-g num' + (vue.fige ? ' fige' : ''), mmss(vue.secondes)));
 
     h.appendChild(boutonRepos('−' + pas, 'Réduire la cible de ' + pas + ' secondes',
       function () { if (vue.surAjuster) vue.surAjuster(-pas); }));
@@ -1178,11 +1233,25 @@
         b.addEventListener('click', function () { vue.surType(t[0]); });
         menu.appendChild(b);
       });
+      cible.appendChild(menu);
+
+      // ⚠️ LA NOTE DE SÉRIE EXISTE, ET ELLE RESTE (§7 septies.1).
+      //
+      // 11 couples séance-exercice sur 196 portent des notes réellement
+      // différentes d'une série à l'autre. Le cas est minoritaire — d'où sa
+      // place, dans le menu de la série et pas sur la ligne — mais il est réel,
+      // et il ne se supprime pas. Renseignée, elle GAGNE sur celle de
+      // l'exercice pour cette série-là.
+      cible.appendChild(champTexte('Note de cette série', vue.serie.note,
+        { lignes: 2, placeholder: vue.noteExercice || 'Ce qui ne vaut que pour celle-ci' },
+        function (v) { vue.surNoteSerie(v); }));
+
+      var menuSup = el('div', 'feuille-menu');
       var sup = el('button', 'danger', 'Supprimer la série');
       sup.type = 'button';
       sup.addEventListener('click', vue.surSupprimer);
-      menu.appendChild(sup);
-      cible.appendChild(menu);
+      menuSup.appendChild(sup);
+      cible.appendChild(menuSup);
       return;
     }
 
@@ -1225,6 +1294,62 @@
     cible.appendChild(bascule);
   }
 
+  // La note de l'EXERCICE (§7 septies.1). Une feuille plutôt qu'un champ sur la
+  // tête de bloc : à 380 px, un champ de texte au milieu de la grille pousse
+  // tout le reste et se fait taper par accident entre deux séries.
+  function rendreFeuilleNote(cible, vue) {
+    vider(cible);
+    var t = el('div', 'feuille-t', 'Note');
+    t.appendChild(el('em', '', vue.exercice));
+    cible.appendChild(t);
+    cible.appendChild(el('p', 'feuille-aide',
+      'Elle s’écrit sur toutes les séries de cet exercice — y compris celles ajoutées ensuite.'));
+    cible.appendChild(champTexte('Note de l’exercice', vue.note,
+      { lignes: 3, placeholder: 'Réglage du siège, sensation, rappel…' },
+      function (v) { vue.surNote(v); }));
+    var f = el('button', 'principal', 'Terminé');
+    f.type = 'button';
+    f.addEventListener('click', vue.surFermer);
+    cible.appendChild(f);
+  }
+
+  // Le repos cible, EN SÉANCE (§7 septies.2). Une grille de valeurs, jamais un
+  // champ à taper : même raison que le RPE (§3 bis.6) — viser un chiffre au
+  // clavier avec les mains moites, entre deux séries, est perdu d'avance. Les
+  // valeurs couvrent ce qui se pratique ; l'éditeur de routine garde le champ
+  // libre pour les cas particuliers.
+  var REPOS_CIBLES = [null, 45, 60, 90, 120, 150, 180, 240];
+
+  function rendreFeuilleRepos(cible, vue) {
+    vider(cible);
+    var t = el('div', 'feuille-t', 'Repos cible');
+    t.appendChild(el('em', '', vue.exercice));
+    cible.appendChild(t);
+    cible.appendChild(el('p', 'feuille-aide',
+      'Pour cette séance. La routine n’est pas touchée : la question se pose à la fin.'));
+    var g = el('div', 'grille-rpe');
+    var courant = vue.repos === undefined ? null : vue.repos;
+    REPOS_CIBLES.forEach(function (v) {
+      var b = el('button', courant === v ? 'sel num' : 'num', v === null ? '—' : mmss(v));
+      b.type = 'button';
+      b.setAttribute('aria-label', v === null ? 'Aucun repos cible' : 'Repos de ' + mmss(v));
+      b.addEventListener('click', function () { vue.surRepos(v); });
+      g.appendChild(b);
+    });
+    cible.appendChild(g);
+  }
+
+  // Une ligne d'écart, en français : ce qui change, pas un nom de colonne.
+  function libelleEcart(e) {
+    var bouts = [];
+    if (e.repos_change) {
+      bouts.push('repos ' + (e.repos_avant ? mmss(e.repos_avant) : '—') +
+        ' → ' + (e.repos_apres ? mmss(e.repos_apres) : '—'));
+    }
+    if (e.note_change) bouts.push(e.note_apres ? 'note' : 'note retirée');
+    return e.nom + ' — ' + bouts.join(', ');
+  }
+
   function rendreFeuilleFin(cible, vue) {
     vider(cible);
     var t = el('div', 'feuille-t', 'Terminer la séance');
@@ -1232,6 +1357,43 @@
       (vue.compte.validees > 1 ? 's' : '') + ' enregistrée' +
       (vue.compte.validees > 1 ? 's' : '')));
     cible.appendChild(t);
+
+    // §7 septies.4 — trois champs déclarés, pas déduits. La salle surtout :
+    // elle se déclare, on ne la devine ni du réseau ni d'une position.
+    var champs = el('div', 'champs-fin');
+    champs.appendChild(champTexte('Titre', vue.titre,
+      { placeholder: 'Séance' }, vue.surTitre));
+    champs.appendChild(champTexte('Salle', vue.salle,
+      { max: vue.salleMax, placeholder: 'Où t’es-tu entraîné ?' }, vue.surSalle));
+    champs.appendChild(champTexte('Note de séance', vue.note,
+      { lignes: 3, placeholder: 'Comment ça s’est passé ?' }, vue.surNoteSeance));
+    cible.appendChild(champs);
+
+    // ⚠️ UNE SEULE QUESTION, ET SEULEMENT S'IL Y A UN ÉCART (§6.2).
+    //
+    // « Une séance conforme n'ouvre aucune question, sinon la question devient
+    // un bruit qu'on tape sans lire. » Le défaut par défaut est de NE PAS
+    // toucher la routine : c'est le geste qui a le moins de conséquences, et il
+    // est réversible d'un aller dans l'éditeur.
+    if (vue.ecarts && vue.ecarts.length) {
+      var q = el('div', 'question-routine');
+      q.appendChild(el('p', 'question-t',
+        'Cette séance s’écarte de « ' + vue.routine + ' ».'));
+      var liste = el('ul', 'ecarts');
+      vue.ecarts.forEach(function (e) { liste.appendChild(el('li', null, libelleEcart(e))); });
+      q.appendChild(liste);
+
+      var choix = el('div', 'choix-routine');
+      [[false, 'Garder la routine'], [true, 'Reporter sur la routine']].forEach(function (c) {
+        var b = el('button', !!vue.majRoutine === c[0] ? 'sel' : '', c[1]);
+        b.type = 'button';
+        b.setAttribute('aria-pressed', !!vue.majRoutine === c[0] ? 'true' : 'false');
+        b.addEventListener('click', function () { vue.surMajRoutine(c[0]); });
+        choix.appendChild(b);
+      });
+      q.appendChild(choix);
+      cible.appendChild(q);
+    }
 
     var b = el('button', 'principal', 'Terminer');
     b.type = 'button';
@@ -1438,6 +1600,8 @@
     rendreBlocsSeance: rendreBlocsSeance,
     rendreRepos: rendreRepos,
     rendreFeuilleSerie: rendreFeuilleSerie,
+    rendreFeuilleNote: rendreFeuilleNote,
+    rendreFeuilleRepos: rendreFeuilleRepos,
     rendreFeuilleFin: rendreFeuilleFin,
     mmss: mmss,
     etiquetteSerie: etiquetteSerie,

@@ -86,6 +86,7 @@ cas d'échec, pour qu'une campagne de mutation puisse s'en servir :
 |---|---|
 | `sw-navigation.js` | le service worker : 7 scénarios, dont la sortie de l'état cassé du chantier 19 |
 | `routines-ecran.js` | la bibliothèque de routines : l'app réelle, session truquée, **Supabase de papier** |
+| `seance-ecran.js` | la séance en cours, **l'app tuée en pleine séance sans réseau** |
 
 **`routines-ecran.js` applique les deux index uniques de la vraie base** —
 `routine_exos_rang_uniq (routine_id, rang)` et
@@ -96,3 +97,15 @@ deviendrait indistinguable de « écrire n'importe comment ».
 Il a trouvé trois défauts que les tests purs ne voyaient pas — dont la
 bibliothèque qui annonçait « aucune routine » hors ligne, c'est-à-dire
 « je ne sais pas » présenté comme « il n'y en a pas ».
+
+**`seance-ecran.js` ferme la page pour de vrai** (`page.close()`) : le JS s'arrête,
+la mémoire part, IndexedDB reste. C'est la seule façon d'éprouver ce qui compte —
+une séance se perd quand l'app meurt au milieu, pas quand elle se termine bien.
+Son Supabase de papier applique `sets_validee_si_saisie`, `sets_rang_positif`,
+`sessions_statut_ok` et `sets_rang_unique` **différée**, et il sait couper le
+réseau à mi-parcours.
+
+Il échantillonne aussi l'écran **pendant** la réouverture, pas seulement à la
+fin : voir la liste des séances à la place de sa séance, même une seconde, c'est
+croire qu'on l'a perdue. C'est ce contrôle-là qui a trouvé le défaut central du
+chantier 22.

@@ -214,6 +214,97 @@
     if (r.error) throw r.error;
   }
 
+  // ══ SÉANCES ET SÉRIES — l'écriture de l'écran de saisie ══════════════════
+  //
+  // Tout passe par des `upsert` sur l'`id` fabriqué côté client. C'est ce qui
+  // rend l'envoi IDEMPOTENT : rejouer la file après une coupure ne crée pas de
+  // doublon, elle écrase la même ligne. Aucune de ces fonctions n'est appelée
+  // depuis la saisie — seule la VIDANGE de la file les appelle, et seulement
+  // quand le réseau répond.
+  //
+  // `user_id` est écrit sur les deux tables : leur policy RLS est
+  // `user_id = auth.uid()` en USING **et** en WITH CHECK. Sans lui, la ligne
+  // est refusée — ce qui est exactement ce qu'on veut d'une valeur obligatoire.
+
+  async function enregistrerSeance(ligne) {
+    var r = await client().from('sessions').upsert(ligne, { onConflict: 'id' });
+    if (r.error) throw r.error;
+  }
+
+  // La séance part avec ses séries : `sets_session_id_fkey` est ON DELETE
+  // CASCADE. Un abandon ne laisse donc aucune orpheline.
+  async function supprimerSeance(id) {
+    var r = await client().from('sessions').delete().eq('id', id);
+    if (r.error) throw r.error;
+  }
+
+  // Met la base À L'IMAGE de ce que l'app a en local pour cette séance.
+  //
+  // ⚠️ L'UPSERT EST EN UN SEUL LOT, et ce n'est pas une optimisation :
+  // `sets_rang_unique` est UNIQUE (session_id, rang) **DEFERRABLE INITIALLY
+  // DEFERRED**. Différée, elle n'est vérifiée qu'à la fin de la transaction —
+  // donc un lot peut permuter des rangs sans heurt. Envoyées une par une,
+  // chacune dans sa transaction, les mêmes lignes échoueraient sur la première.
+  //
+  // On lit ce qui existe AVANT d'écrire, plutôt que de deviner : c'est ce qui
+  // permet de supprimer ce qui a été dévalidé sans se fier à une mémoire locale
+  // qui pourrait avoir tort.
+  async function remplacerSeries(sessionId, lignes) {
+    var liste = lignes || [];
+
+    var existantes = await client().from('sets').select('id').eq('session_id', sessionId);
+    if (existantes.error) throw existantes.error;
+
+    var gardes = {};
+    liste.forEach(function (l) { gardes[l.id] = true; });
+    var aRetirer = (existantes.data || [])
+      .map(function (e) { return e.id; })
+      .filter(function (id) { return !gardes[id]; });
+
+    // ⚠️ SUPPRIMER D'ABORD, UPSERTER ENSUITE. L'ordre inverse est cassé, et il
+    // l'était : retirer une série du MILIEU décale les suivantes vers le bas,
+    // donc l'upsert écrirait le rang 2 sur une ligne alors que l'ancienne
+    // ligne de rang 2 est encore là. `sets_rang_unique` n'est différée qu'À
+    // L'INTÉRIEUR d'une transaction — et la suppression, faite après, est une
+    // transaction séparée. Collision garantie.
+    //
+    // Défaut trouvé au banc d'écran, en retirant une série du milieu d'une
+    // séance déjà montée. Retirer la dernière ne l'aurait jamais montré : aucun
+    // rang ne bouge.
+    //
+    // Si l'upsert échoue après la suppression, rien n'est perdu : tout est en
+    // local, l'intention reste dans la file, et le prochain passage rejoue.
+    if (aRetirer.length) {
+      var d = await client().from('sets').delete().in('id', aRetirer);
+      if (d.error) throw d.error;
+    }
+
+    if (liste.length) {
+      var r = await client().from('sets').upsert(liste, { onConflict: 'id' });
+      if (r.error) throw r.error;
+    }
+    return { envoyees: liste.length, retirees: aRetirer.length };
+  }
+
+  // Les séances encore ouvertes. Sert au démarrage : une seule séance en cours
+  // à la fois, et si une existe on la reprend au lieu d'en créer une seconde.
+  // Pas de filtre sur `user_id` — c'est le travail du RLS.
+  async function seancesEnCours() {
+    var r = await client().from('sessions')
+      .select(COLONNES_SEANCE + ', routine_id').eq('statut', 'en_cours');
+    if (r.error) throw r.error;
+    return r.data || [];
+  }
+
+  // Les séries d'une séance, pour reprendre une séance ouverte sur un autre
+  // appareil — ou après une réinstallation.
+  async function seriesDeSeance(sessionId) {
+    var r = await client().from('sets').select(COLONNES_SERIE + ', ressenti, repos_s, source')
+      .eq('session_id', sessionId).order('rang', { ascending: true });
+    if (r.error) throw r.error;
+    return r.data || [];
+  }
+
   var api = {
     toutesLesSeances: toutesLesSeances,
     seriesDepuis: seriesDepuis,
@@ -227,6 +318,11 @@
     insererExercices: insererExercices,
     majExercice: majExercice,
     supprimerExercices: supprimerExercices,
+    enregistrerSeance: enregistrerSeance,
+    supprimerSeance: supprimerSeance,
+    remplacerSeries: remplacerSeries,
+    seancesEnCours: seancesEnCours,
+    seriesDeSeance: seriesDeSeance,
     compterSeances: compterSeances,
     compterSeries: compterSeries,
     // Exposée pour les tests : c'est la logique de pagination qu'il faut

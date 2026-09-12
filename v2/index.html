@@ -107,6 +107,19 @@
     <button id="btn-enregistrer-routine" type="button" class="principal">Enregistrer</button>
   </section>
 
+  <!-- La séance en cours. Elle vit DANS l'onglet Saisie : s'il y en a une, c'est
+       elle qu'on ouvre — rechargement, retour d'arrière-plan, app tuée puis
+       rouverte. Rien à chercher, jamais. -->
+  <section id="vue-seance" hidden>
+    <header class="entete bandeau-seance" id="bandeau-seance"></header>
+    <div id="blocs-seance"></div>
+    <button id="btn-ajouter-exo-seance" type="button" class="discret bloc-large">Ajouter un exercice</button>
+    <p id="erreur-seance" class="erreur" role="alert" aria-live="polite"></p>
+    <!-- Le chronomètre de repos. Il informe, il ne commande pas : aucune alarme
+         au dépassement, aucun blocage de la série suivante. -->
+    <div id="repos" class="repos" hidden></div>
+  </section>
+
   <!-- Progression : un SOMMAIRE, pas des sous-onglets (§7 bis.14). Trois blocs
        empilés, chacun répondant en deux lignes — l'écran est utile sans rien
        toucher. La barre de semaine n'est pas ici : le volume est hebdomadaire,
@@ -162,6 +175,15 @@
   </div>
 </div>
 
+<!-- La feuille de série : type, effort, ou fin de séance. Un voile, donc le
+     retour d'Android la ferme au lieu de naviguer. -->
+<div id="feuille-seance" class="voile" hidden>
+  <div class="fen feuille" role="dialog" aria-modal="true" aria-label="Série">
+    <div id="feuille-contenu"></div>
+    <button id="btn-fermer-feuille" type="button" class="fermer">Fermer</button>
+  </div>
+</div>
+
 <!-- Le catalogue : 237 entrées, donc une recherche, pas une liste. Un voile,
      comme le calendrier — le retour d'Android le ferme au lieu de naviguer. -->
 <div id="catalogue" class="voile" hidden>
@@ -210,6 +232,8 @@
 <script src="/js/semaine.js"></script>
 <script src="/js/palier.js"></script>
 <script src="/js/routines.js"></script>
+<script src="/js/attente.js"></script>
+<script src="/js/seance.js"></script>
 <script src="/js/periode.js"></script>
 <script src="/js/poids.js"></script>
 <script src="/js/calendrier.js"></script>

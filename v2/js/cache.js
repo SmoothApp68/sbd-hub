@@ -17,11 +17,13 @@
   'use strict';
 
   var NOM = 'trainhub-v2';
-  // VERSION 2 : ajout du magasin `pesees`. La montée de version est la seule
-  // façon de créer un magasin — et elle est sans perte, les magasins existants
-  // ne sont pas touchés.
-  var VERSION = 2;
-  var MAGASINS = ['seances', 'series', 'exercices', 'pesees', 'meta'];
+  // VERSION 2 : ajout du magasin `pesees`.
+  // VERSION 3 : ajout de `brouillon` (la séance en cours) et `attente` (la file
+  //   d'écriture). La montée de version est la seule façon de créer un magasin —
+  //   et elle est sans perte, les magasins existants ne sont pas touchés.
+  var VERSION = 3;
+  var MAGASINS = ['seances', 'series', 'exercices', 'pesees', 'meta',
+                  'brouillon', 'attente'];
   var LOT = 500;
   var _db = null;
 
@@ -41,6 +43,15 @@
         if (!db.objectStoreNames.contains('exercices')) db.createObjectStore('exercices', { keyPath: 'slug' });
         if (!db.objectStoreNames.contains('pesees')) db.createObjectStore('pesees', { keyPath: 'id' });
         if (!db.objectStoreNames.contains('meta')) db.createObjectStore('meta', { keyPath: 'cle' });
+        // La séance en cours. UN seul enregistrement, réécrit en entier à chaque
+        // geste : une séance pèse quelques kilo-octets, et une écriture complète
+        // dans une transaction unique ne peut pas laisser un état à moitié écrit.
+        // C'est ce qui la fait survivre à une app tuée en pleine saisie.
+        if (!db.objectStoreNames.contains('brouillon')) db.createObjectStore('brouillon', { keyPath: 'cle' });
+        // La file d'écriture. Elle vit ICI et pas en mémoire : une séance saisie
+        // hors ligne doit retrouver sa file au redémarrage, sinon elle ne
+        // monterait jamais.
+        if (!db.objectStoreNames.contains('attente')) db.createObjectStore('attente', { keyPath: 'cle' });
       };
       req.onsuccess = function () { _db = req.result; resoudre(_db); };
       req.onerror = function () { rejeter(req.error); };
@@ -162,8 +173,41 @@
     });
   }
 
+  // ── Le brouillon et la file ─────────────────────────────────────────────
+  //
+  // Deux raccourcis sur les primitives ci-dessus, pour que l'appelant n'ait pas
+  // à connaître la forme des enregistrements. `null` efface.
+  function lireBrouillon(cle) {
+    return transaction(['brouillon'], 'readonly').then(function (tx) {
+      return new Promise(function (resoudre, rejeter) {
+        var req = tx.objectStore('brouillon').get(cle);
+        req.onsuccess = function () { resoudre(req.result ? req.result.valeur : null); };
+        req.onerror = function () { rejeter(req.error); };
+      });
+    });
+  }
+
+  function ecrireBrouillon(cle, valeur) {
+    return transaction(['brouillon'], 'readwrite').then(function (tx) {
+      var st = tx.objectStore('brouillon');
+      if (valeur === null || valeur === undefined) st.delete(cle);
+      else st.put({ cle: cle, valeur: valeur });
+      return finDe(tx);
+    });
+  }
+
+  // La file entière, remplacée dans UNE transaction. Elle est minuscule
+  // (quelques entrées), et l'atomicité vaut mieux qu'un diff : une file à
+  // moitié écrite enverrait deux fois ou pas du tout.
+  function lireAttente() { return lireTout('attente'); }
+  function ecrireAttente(file) { return remplacerTout('attente', file || []); }
+
   racine.THCache = {
     ouvrir: ouvrir,
+    lireBrouillon: lireBrouillon,
+    ecrireBrouillon: ecrireBrouillon,
+    lireAttente: lireAttente,
+    ecrireAttente: ecrireAttente,
     lireTout: lireTout,
     ecrireLot: ecrireLot,
     remplacerTout: remplacerTout,

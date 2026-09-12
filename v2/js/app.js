@@ -19,6 +19,7 @@
   var Calendrier = racine.THCalendrier;
   var Periode = racine.THPeriode, Poids = racine.THPoids;
   var Palier = racine.THPalier, Routines = racine.THRoutines;
+  var Seance = racine.THSeance, Attente = racine.THAttente;
 
   var vues = {};
   var local = { seances: [], series: [], exercices: [], pesees: [], parSeance: null };
@@ -68,6 +69,48 @@
   var brouillon = null;      // la routine en cours d'édition, en mémoire
   var enregistrementEnCours = false;
 
+  // ── LA SÉANCE EN COURS ───────────────────────────────────────────────────
+  //
+  // Trois états, et il faut les distinguer :
+  //
+  //   `seance`   la séance en cours, en MÉMOIRE. Réécrite sur disque après
+  //              chaque geste — c'est ce qui la fait survivre à une app tuée.
+  //   `attente`  la file d'écriture, sur disque elle aussi. Elle survit au
+  //              redémarrage, sinon une séance saisie hors ligne ne monterait
+  //              jamais.
+  //   `vidange`  un verrou. Deux vidanges simultanées enverraient deux fois.
+  //
+  // La règle qui commande tout : ÉCRITURE LOCALE D'ABORD, TOUJOURS. Aucun geste
+  // de saisie n'attend le réseau, aucun n'échoue parce qu'il est absent.
+  var seance = null;
+  var attente = [];
+  var vidangeEnCours = false;
+  var chrono = null;         // { depuis, cible } — le repos en cours
+  var minuteur = null;       // l'intervalle d'affichage du chronomètre
+  var modeRPE = false;       // la bascule effort, retenue d'une fois sur l'autre
+  var feuille = null;        // la feuille ouverte : { quoi, iExo, iSerie }
+
+  // L'identifiant est fabriqué ICI, côté client. C'est lui qui rend l'envoi
+  // idempotent : la même ligne envoyée deux fois écrase la même ligne, donc
+  // rejouer la file après une coupure ne crée pas de doublon.
+  // `crypto.randomUUID` n'existe pas partout ; le repli tire les mêmes 122 bits
+  // d'aléa de `getRandomValues`, et `Math.random` ne sert que si rien d'autre
+  // n'existe — cas où l'app a d'autres soucis.
+  function uuid() {
+    var c = racine.crypto;
+    if (c && typeof c.randomUUID === 'function') return c.randomUUID();
+    var o = new Uint8Array(16);
+    if (c && c.getRandomValues) c.getRandomValues(o);
+    else for (var i = 0; i < 16; i++) o[i] = Math.floor(Math.random() * 256);
+    o[6] = (o[6] & 0x0f) | 0x40;
+    o[8] = (o[8] & 0x3f) | 0x80;
+    var h = Array.prototype.map.call(o, function (b) {
+      return ('0' + b.toString(16)).slice(-2);
+    }).join('');
+    return h.slice(0, 8) + '-' + h.slice(8, 12) + '-' + h.slice(12, 16) + '-' +
+           h.slice(16, 20) + '-' + h.slice(20);
+  }
+
   function $(id) { return doc.getElementById(id); }
 
   // Une vue visible à la fois, et la barre d'onglets suit : elle disparaît sur
@@ -78,6 +121,11 @@
     var barre = $('onglets');
     if (barre) barre.hidden = !onglet;
     Rendu.rendreOnglets(barre, onglet);
+    // Une séance en cours se voit depuis N'IMPORTE QUEL écran. Une PWA qui
+    // rouvre sur `/` la cacherait sinon, et « je ne la retrouve pas » est une
+    // perte comme une autre. Un point, pas une alarme.
+    var saisie = doc.querySelector('.onglet[data-vue="' + Routeur.SAISIE + '"]');
+    if (saisie) saisie.classList.toggle('en-cours', !!seance);
   }
 
   function texteErreur(e) {
@@ -149,6 +197,10 @@
     // compte précédent : les laisser en mémoire montrerait la bibliothèque de
     // quelqu'un d'autre le temps d'une requête.
     routines = []; brouillon = null; etatRoutines = { code: 'jamais', message: '' };
+    // La séance en cours et la file appartiennent au compte précédent. Le
+    // `viderTout` ci-dessus a effacé leurs magasins ; on remet la mémoire
+    // d'accord avec le disque.
+    seance = null; attente = []; chrono = null;
     await Cache.ecrireMeta('proprietaire', { userId: userId });
   }
 
@@ -196,8 +248,17 @@
       var compteSeances = await compteSur(Donnees.compterSeances);
       var compteSeries = await compteSur(Donnees.compterSeries);
 
-      local.seances = Sync.remplacer(seances);
-      var listeComplete = Sync.verifierCompletude(local.seances.length, compteSeances).complet;
+      // ⚠️ La liste du serveur ne contient PAS ce qui n'y est pas encore monté.
+      // Sans cette garde, la première synchronisation réussie effacerait une
+      // séance saisie hors ligne — au moment précis où le réseau revient.
+      local.seances = Sync.remplacer(seances, {
+        conserver: Attente.seancesEnAttente(attente),
+        existants: local.seances
+      });
+      // Le compte de contrôle porte sur ce que le SERVEUR a envoyé, pas sur la
+      // liste augmentée des séances locales : celles-ci ne sont pas encore
+      // comptées côté serveur, et les inclure ferait croire à un surplus.
+      var listeComplete = Sync.verifierCompletude(seances.length, compteSeances).complet;
       var fusionnees = Sync.fusionner(local.series, nouvellesSeries);
       local.series = Sync.purgerSeriesOrphelines(fusionnees, local.seances, listeComplete);
       local.exercices = Sync.remplacer(exercices);
@@ -391,6 +452,346 @@
     return { quand: n ? n + ' exercices' : '', lignes: lignes };
   }
 
+  // ══ LA SÉANCE EN COURS ═══════════════════════════════════════════════════
+  //
+  // Le contrat, dans l'ordre où il compte :
+  //
+  //   1. tout geste écrit d'abord EN LOCAL, et rend la main ;
+  //   2. l'intention d'envoi est POSÉE dans la file, sur disque ;
+  //   3. la vidange tente le réseau — et son échec ne remonte jamais à l'écran
+  //      de saisie, parce qu'il n'y a rien à y faire.
+  //
+  // Une séance perdue est le pire défaut possible. Tout ce qui suit est écrit
+  // pour que ça n'arrive pas, y compris si l'app est tuée entre deux lignes.
+
+  // Écrit la séance sur disque, ENTIÈRE, dans une transaction. Appelé après
+  // chaque geste. Une séance pèse quelques kilo-octets : le coût est nul devant
+  // la garantie qu'aucun état à moitié écrit ne puisse exister.
+  async function sauverSeance() {
+    try {
+      await Cache.ecrireBrouillon('seance', seance);
+    } catch (e) {
+      // Le disque local est la dernière ligne. S'il refuse, l'utilisateur doit
+      // le savoir tout de suite — c'est le seul cas où la saisie doit crier.
+      console.error('Séance non sauvegardée :', texteErreur(e));
+      Rendu.message($('erreur-seance'), 'Sauvegarde impossible sur cet appareil. Ne ferme pas l\u2019app.', 'erreur');
+    }
+  }
+
+  // Pose une intention dans la file ET l'écrit sur disque. La file EST la
+  // promesse d'envoi : tant qu'une entrée y est, rien n'est perdu.
+  async function poser(operation) {
+    attente = Attente.poser(attente, operation);
+    try { await Cache.ecrireAttente(attente); }
+    catch (e) { console.warn('File non persistée :', texteErreur(e)); }
+    rendreEtatSync();
+    vidanger();   // volontairement PAS attendu : la saisie ne dépend pas du réseau
+  }
+
+  // L'état affiché combine lecture et écriture. Tant qu'il reste quelque chose
+  // à envoyer, « à jour » serait faux.
+  function rendreEtatSync() {
+    var noeud = $('etat-sync');
+    if (noeud) Rendu.rendreEtat(noeud, Attente.deciderEtat(etat, attente));
+  }
+
+  // ── La vidange ──────────────────────────────────────────────────────────
+  //
+  // Une opération ne quitte la file QUE sur confirmation du serveur. C'est la
+  // règle du chantier 15 appliquée à l'écriture : le compte AUTORISE, il ne
+  // constate pas. En cas d'échec, l'entrée reste, marquée — et la file s'arrête
+  // là plutôt que de sauter l'entrée suivante, dont la clé étrangère dépend
+  // peut-être de celle qui vient d'échouer.
+  async function vidanger() {
+    if (vidangeEnCours || !sessionActive) return;
+    vidangeEnCours = true;
+    try {
+      var garde = 200;   // une file qui ne rétrécit pas ne doit pas tourner sans fin
+      while (garde-- > 0) {
+        var op = Attente.prochaine(attente);
+        if (!op) break;
+        try {
+          await executer(op);
+        } catch (e) {
+          attente = Attente.marquerEchec(attente, op.cle, e);
+          await Cache.ecrireAttente(attente).catch(function () {});
+          console.warn('Envoi différé (' + op.cle + ') :', texteErreur(e));
+          break;
+        }
+        // Retirée APRÈS confirmation, jamais avant.
+        attente = Attente.retirer(attente, op.cle);
+        await Cache.ecrireAttente(attente).catch(function () {});
+      }
+    } finally {
+      vidangeEnCours = false;
+      rendreEtatSync();
+    }
+  }
+
+  function executer(op) {
+    if (op.table === Attente.SESSIONS && op.op === Attente.SUPPRIMER) {
+      return Donnees.supprimerSeance(op.id);
+    }
+    if (op.table === Attente.SESSIONS) return Donnees.enregistrerSeance(op.donnees);
+    if (op.table === Attente.SETS) return Donnees.remplacerSeries(op.id, op.donnees || []);
+    return Promise.resolve();
+  }
+
+  // Après chaque geste : on sauve, on pose l'état des séries, on redessine.
+  // Un seul chemin, pour qu'aucun geste ne puisse oublier l'un des trois.
+  async function apresGeste(options) {
+    var o = options || {};
+    await sauverSeance();
+    if (o.structure !== false) await poserSeries();
+    if (o.rendre !== false) rendreSeance();
+  }
+
+  function poserSeries() {
+    return poser({
+      table: Attente.SETS, op: Attente.REMPLACER, id: seance.id,
+      donnees: Seance.lignes(seance)
+    });
+  }
+
+  function poserSeance(creation) {
+    return poser({
+      table: Attente.SESSIONS, op: Attente.UPSERT, id: seance.id,
+      donnees: Seance.ligneSession(seance), creation: !!creation
+    });
+  }
+
+  // ── Démarrer, reprendre, terminer ───────────────────────────────────────
+  async function demarrerSeance(routine) {
+    seance = Seance.creer({
+      id: uuid(),
+      userId: sessionActive && sessionActive.user && sessionActive.user.id,
+      titre: routine ? routine.nom : null,
+      routine: routine,
+      idSerie: uuid
+    });
+    chrono = null;
+    await sauverSeance();
+    await poserSeance(true);
+    allerA(Routeur.SAISIE, {}, true);
+    rendreSeance();
+  }
+
+  // Une seule séance en cours à la fois. Au lancement, si un brouillon existe,
+  // on le REPREND — on n'en crée pas une seconde.
+  async function chargerSeanceLocale() {
+    try {
+      seance = await Cache.lireBrouillon('seance');
+      attente = await Cache.lireAttente();
+    } catch (e) {
+      console.warn('Séance locale illisible :', texteErreur(e));
+      seance = null; attente = [];
+    }
+  }
+
+  async function terminerSeance() {
+    seance = Seance.terminer(seance, new Date());
+    await sauverSeance();
+    await poserSeries();
+    await poserSeance(false);
+    var finie = seance;
+    // La séance rejoint la liste TOUT DE SUITE, sans attendre le réseau : hors
+    // ligne, elle serait sinon invisible entre « terminée » et « montée ».
+    adopterLocalement(finie);
+    seance = null; chrono = null; arreterMinuteur();
+    await Cache.ecrireBrouillon('seance', null);
+    rendreSaisie();
+  }
+
+  // Verse la séance terminée dans le cache de lecture, pour qu'elle s'affiche
+  // comme n'importe quelle autre. `Sync.remplacer` ne l'effacera pas tant
+  // qu'elle est dans la file — c'est la garde de `sync.js`.
+  function adopterLocalement(finie) {
+    var ligne = Seance.ligneSession(finie);
+    local.seances = Sync.fusionner(local.seances, [ligne]);
+    local.series = Sync.fusionner(local.series, Seance.lignes(finie));
+    ordonnerSeances();
+    indexerParSeance();
+    recalculerEtats();
+    Cache.remplacerTout('seances', local.seances).catch(function () {});
+    Cache.ecrireLot('series', Seance.lignes(finie)).catch(function () {});
+  }
+
+  // Abandonner SUPPRIME la séance. Sans ça, une séance `en_cours` fantôme
+  // resterait en base et se rouvrirait au prochain lancement.
+  async function abandonnerSeance() {
+    var id = seance.id;
+    // L'ordre compte : on retire d'abord les intentions d'écriture des séries,
+    // sinon la vidange essaierait d'écrire des séries d'une séance supprimée.
+    attente = Attente.retirer(attente, Attente.cleDe(Attente.SETS, id));
+    seance = null; chrono = null; arreterMinuteur();
+    await Cache.ecrireBrouillon('seance', null);
+    await poser({ table: Attente.SESSIONS, op: Attente.SUPPRIMER, id: id });
+    rendreSaisie();
+  }
+
+  // ── Le chronomètre (§7 ter) ─────────────────────────────────────────────
+  //
+  // Il part à la VALIDATION d'une série et court jusqu'à la suivante. Le temps
+  // d'exécution n'entre donc pas dans la mesure — elle est juste par
+  // construction, là où un écart entre deux validations contiendrait les deux.
+  //
+  // Il INFORME, il ne commande pas : pas d'alarme au dépassement, pas de
+  // blocage, aucun décompte qui presse.
+  function demarrerChrono(cible) {
+    chrono = { depuis: Date.now(), cible: cible || null };
+    arreterMinuteur();
+    minuteur = racine.setInterval(rendreChrono, 1000);
+    rendreChrono();
+  }
+
+  function arreterMinuteur() {
+    if (minuteur) { racine.clearInterval(minuteur); minuteur = null; }
+  }
+
+  function rendreChrono() {
+    var noeud = $('repos');
+    if (!noeud) return;
+    if (!chrono) { noeud.hidden = true; return; }
+    noeud.hidden = false;
+    Rendu.rendreRepos(noeud, {
+      secondes: Math.max(0, Math.round((Date.now() - chrono.depuis) / 1000)),
+      cible: chrono.cible,
+      surPasser: function () { chrono = null; arreterMinuteur(); rendreChrono(); }
+    });
+  }
+
+  // ── Les gestes de saisie ────────────────────────────────────────────────
+  async function validerSerie(iExo, iSerie) {
+    var exo = seance.exercices[iExo];
+    var serie = exo.series[iSerie];
+    if (serie.validee_a) {
+      // Dévalider RETIRE la ligne : une série non validée ne peut pas exister
+      // en base (`sets_validee_si_saisie`).
+      seance = Seance.devalider(seance, iExo, iSerie);
+      return apresGeste();
+    }
+    // Ce qui est affiché en gris devient réel à la validation : on valide sans
+    // rien taper quand c'est juste (§3 bis.3).
+    var f = Seance.fantome(seance, iExo, iSerie, precedentDe(exo.exercise_slug));
+    var champs = {};
+    if (serie.charge_kg === null && f.charge_kg !== null) champs.charge_kg = f.charge_kg;
+    if (serie.reps === null && f.reps !== null) champs.reps = f.reps;
+    if (Object.keys(champs).length) seance = Seance.modifierSerie(seance, iExo, iSerie, champs);
+
+    seance = Seance.valider(seance, iExo, iSerie, new Date());
+    vibrer();
+    demarrerChrono(exo.repos_cible_s);
+    return apresGeste();
+  }
+
+  // Le retour haptique : aucun pixel, et il confirme la validation même avec
+  // les mains moites. `vibrate` n'existe pas partout et peut être refusé.
+  function vibrer() {
+    try { if (racine.navigator && racine.navigator.vibrate) racine.navigator.vibrate(18); }
+    catch (e) { /* rien à faire : c'est un confort, pas une garantie */ }
+  }
+
+  function precedentDe(slug) {
+    return Seance.precedent(slug, local.seances, seriesDe, seance ? seance.id : null);
+  }
+
+  // ── L'écran ─────────────────────────────────────────────────────────────
+  function rendreSeance() {
+    montrer('seance', Routeur.SAISIE);
+    var index = Modele.indexerExercices(local.exercices);
+    var c = Seance.compter(seance);
+    Rendu.rendreBandeauSeance($('bandeau-seance'), {
+      titre: seance.titre || 'Séance',
+      debut: seance.debut,
+      compte: c,
+      surTerminer: function () { confirmerFin(); }
+    });
+    Rendu.rendreBlocsSeance($('blocs-seance'), seance, {
+      nommer: function (slug) { return Modele.nommer(index, slug); },
+      precedent: precedentDe,
+      fantome: function (i, j) { return Seance.fantome(seance, i, j, precedentDe(seance.exercices[i].exercise_slug)); },
+      surChamp: function (i, j, champ, valeur) {
+        seance = Seance.modifierSerie(seance, i, j, defObjet(champ, valeur));
+        apresGeste({ rendre: false });
+      },
+      surValider: validerSerie,
+      surNumero: function (i, j) { ouvrirFeuille('type', i, j); },
+      surEffort: function (i, j) { ouvrirFeuille('effort', i, j); },
+      surAjoutSerie: async function (i) {
+        seance = Seance.ajouterSerie(seance, i, uuid());
+        await apresGeste({ structure: false });
+      },
+      surSupprimerSerie: async function (i, j) {
+        seance = Seance.retirerSerie(seance, i, j);
+        await apresGeste();
+      }
+    });
+    rendreChrono();
+    rendreEtatSync();
+  }
+
+  function defObjet(cle, valeur) { var o = {}; o[cle] = valeur; return o; }
+
+  // ── Les feuilles ────────────────────────────────────────────────────────
+  function ouvrirFeuille(quoi, iExo, iSerie) {
+    feuille = { quoi: quoi, iExo: iExo, iSerie: iSerie };
+    rendreFeuille();
+    ouvrirVoile($('feuille-seance'));
+  }
+
+  function rendreFeuille() {
+    if (!feuille) return;
+    var exo = seance.exercices[feuille.iExo];
+    var serie = exo.series[feuille.iSerie];
+    var index = Modele.indexerExercices(local.exercices);
+    Rendu.rendreFeuilleSerie($('feuille-contenu'), {
+      quoi: feuille.quoi,
+      modeRPE: modeRPE,
+      exercice: Modele.nommer(index, exo.exercise_slug),
+      numero: feuille.iSerie + 1,
+      serie: serie,
+      surType: async function (type) {
+        seance = Seance.changerType(seance, feuille.iExo, feuille.iSerie, type);
+        fermerVoile();
+        await apresGeste();
+      },
+      surSupprimer: async function () {
+        var i = feuille.iExo, j = feuille.iSerie;
+        fermerVoile();
+        seance = Seance.retirerSerie(seance, i, j);
+        await apresGeste();
+      },
+      surEffort: async function (effort) {
+        seance = Seance.definirEffort(seance, feuille.iExo, feuille.iSerie, effort);
+        fermerVoile();
+        await apresGeste();
+      },
+      surBascule: function () { modeRPE = !modeRPE; memoriserModeRPE(); rendreFeuille(); }
+    });
+  }
+
+  // La bascule se retient : quelqu'un qui pratique le RPE ne veut pas le
+  // rechoisir à chaque série.
+  function memoriserModeRPE() {
+    try { racine.localStorage.setItem('th-v2-effort', modeRPE ? 'rpe' : 'ressenti'); }
+    catch (e) { /* stockage refusé : le choix vaut pour la session, pas au-delà */ }
+  }
+
+  function lireModeRPE() {
+    try { modeRPE = racine.localStorage.getItem('th-v2-effort') === 'rpe'; }
+    catch (e) { modeRPE = false; }
+  }
+
+  function confirmerFin() {
+    Rendu.rendreFeuilleFin($('feuille-contenu'), {
+      compte: Seance.compter(seance),
+      surTerminer: async function () { fermerVoile(); await terminerSeance(); },
+      surAbandonner: async function () { fermerVoile(); await abandonnerSeance(); }
+    });
+    feuille = { quoi: 'fin' };
+    ouvrirVoile($('feuille-seance'));
+  }
+
   // ── Saisie : la bibliothèque de routines ─────────────────────────────────
 
   // PostgREST rend les exercices imbriqués sous le nom de la table. On traduit
@@ -422,6 +823,10 @@
   }
 
   function rendreSaisie() {
+    // L'onglet Saisie EST la saisie : s'il y a une séance en cours, c'est elle
+    // qu'on ouvre. Un rechargement, un retour d'arrière-plan, une app tuée et
+    // rouverte — on retombe toujours dedans, sans rien chercher.
+    if (seance) return rendreSeance();
     montrer('saisie', Routeur.SAISIE);
     var cible = $('liste-routines');
     // ⚠️ « Je ne sais pas encore » n'est PAS « il n'y en a pas ». Tant qu'un
@@ -445,7 +850,11 @@
     }
     Rendu.rendreListeRoutines(cible, routines, {
       surChoix: ouvrirRoutine,
-      surNouvelle: function () { ouvrirRoutine(null); }
+      surNouvelle: function () { ouvrirRoutine(null); },
+      surDemarrer: function (id) {
+        demarrerSeance(routines.filter(function (r) { return r.id === id; })[0] || null);
+      },
+      surSeanceVide: function () { demarrerSeance(null); }
     });
   }
 
@@ -616,10 +1025,17 @@
     if (!local.exercices.length) {
       return Rendu.message($('resultats-exo'), 'Le catalogue arrive… Il est enregistré sur l\u2019appareil à la première synchronisation.');
     }
+    // Le même catalogue sert deux écrans : l'éditeur de routine et la séance en
+    // cours. C'est la séance qui gagne quand elle est ouverte — on y est.
+    var pourSeance = !!seance && !vues.seance.hidden;
     Rendu.rendreResultatsExo($('resultats-exo'),
       Routines.chercher(local.exercices, $('champ-recherche-exo').value),
       function (exo) {
         fermerVoile();
+        if (pourSeance) {
+          seance = Seance.ajouterExercice(seance, exo.slug, uuid());
+          return apresGeste({ structure: false });
+        }
         brouillon.exercices.push({
           id: null, exercise_slug: exo.slug,
           series: Routines.SERIES_DEFAUT,
@@ -791,6 +1207,12 @@
       console.warn('Cache local indisponible :', texteErreur(e));
     }
 
+    // La séance en cours et la file, AVANT tout rendu et AVANT tout réseau.
+    // C'est ce qui fait qu'une app tuée en pleine séance rouvre sur la séance,
+    // hors ligne comme en ligne.
+    lireModeRPE();
+    await chargerSeanceLocale();
+
     // Ouverture immédiate sur ce qu'on a déjà, avant toute requête réseau.
     // On honore l'URL d'entrée : un rechargement direct sur /semaine/… ou
     // /seance/… rouvre la bonne vue, pas systématiquement la semaine courante.
@@ -801,7 +1223,19 @@
     }
 
     etat = Sync.deciderEtat({ syncOk: false, aDesDonnees: local.seances.length > 0 });
-    if (local.seances.length) rendreRoute(routeInitiale);
+
+    // ⚠️ UNE SÉANCE EN COURS S'AFFICHE TOUT DE SUITE, quoi qu'il y ait en cache.
+    //
+    // Le repli « Première synchronisation… » ne valait que pour un cache vide en
+    // LECTURE. Il n'a rien à faire ici : quelqu'un qui rouvre l'app en salle,
+    // hors réseau, après un appel entrant, doit retrouver sa séance
+    // immédiatement — pas après que le SDK ait fini de renoncer, ce qui prend
+    // plusieurs secondes. Pendant ces secondes, il croit l'avoir perdue.
+    //
+    // Défaut trouvé au banc d'écran, pas en test : la mesure unitaire relit le
+    // disque et conclut « tout est là », alors que l'écran, lui, montrait autre
+    // chose.
+    if (seance || local.seances.length) rendreRoute(routeInitiale);
     else { montrer('liste', Routeur.RACINE); Rendu.message($('liste-seances'), 'Première synchronisation…'); }
 
     // L'ancre s'installe dès l'ouverture, QUELLE QUE SOIT la vue d'entrée :
@@ -811,10 +1245,11 @@
     sortie.apresNavigation(false);
 
     await synchroniser();
+    vidanger();   // le réseau vient de répondre : c'est le moment d'envoyer
     // L'utilisateur est parti ailleurs pendant la synchro. Re-rendre écraserait
     // son écran — et, sur l'éditeur de routine, le brouillon qu'il est en train
     // de remplir. Une synchronisation de fond ne reprend jamais la main.
-    if (!vues.detail.hidden || !vues.routine.hidden) return;
+    if (!vues.detail.hidden || !vues.routine.hidden || !vues.seance.hidden) return;
     rendreRoute(Routeur.analyser(racine.location.pathname));
   }
 
@@ -840,6 +1275,7 @@
     // Les routines vivent en mémoire, pas dans le cache — mais elles
     // appartiennent quand même au compte qui part.
     routines = []; brouillon = null; etatRoutines = { code: 'jamais', message: '' };
+    seance = null; attente = []; chrono = null; arreterMinuteur();
     try { await Auth.deconnecter(); } catch (e) { montrer('connexion', Routeur.CONNEXION); }
     allerA(Routeur.CONNEXION, {}, true);
   }
@@ -915,7 +1351,7 @@
   async function demarrer() {
     vues = {
       connexion: $('vue-connexion'), liste: $('vue-liste'), detail: $('vue-detail'),
-      saisie: $('vue-saisie'), routine: $('vue-routine'),
+      saisie: $('vue-saisie'), routine: $('vue-routine'), seance: $('vue-seance'),
       progression: $('vue-progression'),
       volume: $('vue-volume'), poids: $('vue-poids'), profil: $('vue-profil')
     };
@@ -937,6 +1373,12 @@
       });
     });
     $('btn-nouvelle-routine').addEventListener('click', function () { ouvrirRoutine(null); });
+    $('btn-ajouter-exo-seance').addEventListener('click', ouvrirCatalogue);
+    $('btn-fermer-feuille').addEventListener('click', fermerVoile);
+    $('feuille-seance').addEventListener('click', function (e) { if (e.target === this) fermerVoile(); });
+
+    // Le réseau revient : on vide la file sans rien demander à personne.
+    racine.addEventListener('online', function () { vidanger(); });
     $('btn-retour-routine').addEventListener('click', function () {
       allerA(Routeur.SAISIE, {});
       rendreSaisie();

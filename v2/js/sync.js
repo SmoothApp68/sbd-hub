@@ -110,8 +110,34 @@
 
   // Remplace intégralement une collection : ce qui n'est plus dans le lot a été
   // supprimé côté serveur. Réservé aux tables tirées en entier (sessions).
-  function remplacer(nouveautes) {
-    return (nouveautes || []).slice();
+  //
+  // ⚠️ SAUF CE QUI N'EST PAS ENCORE MONTÉ. C'est la garde qui empêche la perte
+  // la plus grave du projet.
+  //
+  // Une séance saisie hors ligne n'est pas sur le serveur — par définition. Sans
+  // cette garde, la PREMIÈRE synchronisation réussie la remplacerait par la
+  // liste du serveur, où elle ne figure pas, et la séance disparaîtrait de
+  // l'écran alors qu'elle attend sagement dans la file. L'utilisateur verrait
+  // son travail s'effacer au moment précis où le réseau revient.
+  //
+  // `conserver` est l'ensemble des identifiants encore en attente d'envoi. Ils
+  // sont réinjectés depuis `existants` quand le serveur ne les connaît pas
+  // encore. Un identifiant que le serveur RENVOIE n'est pas réinjecté : sa
+  // version serveur fait foi, elle vient d'être écrite par nous.
+  function remplacer(nouveautes, options) {
+    var o = options || {};
+    var liste = (nouveautes || []).slice();
+    var conserver = o.conserver;
+    if (!conserver) return liste;
+
+    var vus = new Set(liste.map(function (e) { return e && e.id; }));
+    (o.existants || []).forEach(function (e) {
+      if (!e || !e.id) return;
+      if (vus.has(e.id)) return;
+      if (!conserver[e.id]) return;
+      liste.push(e);
+    });
+    return liste;
   }
 
   // Curseur de synchronisation : l'instant le plus récent qu'on ait vu passer.
@@ -140,6 +166,10 @@
   // avec du surplus — qui se corrige à la synchronisation suivante — qu'un
   // cache amputé, qui ne se répare jamais : l'incrémental ne revient pas
   // chercher des séries qu'il croit déjà passées.
+  // Idem pour les séries : celles d'une séance encore en attente ne sont pas
+  // orphelines, elles sont juste inconnues du serveur. La réinjection de la
+  // séance ci-dessus suffit à les protéger — `vivantes` la contient alors — et
+  // ce commentaire est là pour qu'on ne « simplifie » pas l'un sans l'autre.
   function purgerSeriesOrphelines(series, seances, listeComplete) {
     if (listeComplete !== true) return (series || []).slice();
     var vivantes = new Set((seances || []).map(function (s) { return s && s.id; }));
@@ -182,4 +212,10 @@
 
   racine.THSync = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
-})(typeof self !== 'undefined' ? self : this);
+// `globalThis` plutôt que `this` : en module CommonJS et en mode strict, `this`
+// vaut `undefined` au niveau du fichier, et le module ne s'exportait donc pas
+// sous Jest en environnement node. Le motif est signalé fragile depuis le
+// chantier 8 ; il est corrigé ICI parce que le chantier 22 doit tester la garde
+// anti-effacement de `remplacer`. Les autres modules qui portent encore `this`
+// sont signalés, pas touchés.
+})(typeof self !== 'undefined' ? self : globalThis);

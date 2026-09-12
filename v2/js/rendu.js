@@ -742,6 +742,322 @@
     }
   }
 
+  // ══ LA SÉANCE EN COURS (chantier 22) ═════════════════════════════════════
+
+  function S() { return racine.THSeance; }
+
+  function mmss(secondes) {
+    var s = Math.max(0, Math.round(secondes || 0));
+    return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2);
+  }
+
+  function rendreBandeauSeance(cible, vue) {
+    vider(cible);
+    var t = el('div', 'bandeau-t');
+    t.appendChild(el('div', 'bandeau-nom', vue.titre));
+    var debut = vue.debut ? new Date(vue.debut) : null;
+    var minutes = debut && !isNaN(debut.getTime())
+      ? Math.max(0, Math.round((Date.now() - debut.getTime()) / 60000)) : 0;
+    t.appendChild(el('div', 'bandeau-ch num',
+      minutes + ' min · ' + vue.compte.validees + ' série' + (vue.compte.validees > 1 ? 's' : '')));
+    cible.appendChild(t);
+    var b = el('button', 'discret', 'Terminer');
+    b.type = 'button';
+    b.addEventListener('click', vue.surTerminer);
+    cible.appendChild(b);
+  }
+
+  // Le numéro porte le TYPE de la série (§3 bis.1) : les quatre valeurs de
+  // `sets.type_serie` sont couvertes sans un champ de plus. Le compte de travail
+  // n'avance que sur les séries de travail — une chauffe ne prend pas un numéro.
+  var ETIQUETTE_TYPE = {
+    echauffement: { texte: 'C', classe: 'c' },
+    degressive: { texte: 'D', classe: 'd' },
+    echec: { texte: '✕', classe: 'x' }
+  };
+
+  function etiquetteSerie(type, nTravail) {
+    var e = ETIQUETTE_TYPE[type];
+    return e || { texte: String(nTravail), classe: '' };
+  }
+
+  // Un champ de saisie numérique. Il MUTE l'état sans redessiner : re-rendre à
+  // chaque frappe arracherait le focus et le clavier d'Android avec lui.
+  // La valeur fantôme s'affiche en gris quand rien n'est saisi — on valide sans
+  // rien taper quand c'est juste (§3 bis.3).
+  function champSerie(classe, valeur, fantomeVal, suffixe, surSaisie) {
+    var vide = valeur === null || valeur === undefined;
+    var enveloppe = el('div', classe + (vide && fantomeVal !== null ? ' fantome' : ''));
+    var input = doc.createElement('input');
+    input.type = 'text';
+    input.inputMode = 'decimal';
+    input.value = vide ? '' : nombreFr(valeur);
+    if (vide && fantomeVal !== null && fantomeVal !== undefined) {
+      input.placeholder = nombreFr(fantomeVal);
+    }
+    input.addEventListener('input', function () { surSaisie(input.value); });
+    enveloppe.appendChild(input);
+    if (suffixe) enveloppe.appendChild(el('u', '', suffixe));
+    return enveloppe;
+  }
+
+  function texteEffort(serie) {
+    if (serie.rpe !== null && serie.rpe !== undefined) return nombreFr(serie.rpe);
+    if (serie.ressenti) return '−' + serie.ressenti.replace('reste_', '').replace('3_plus', '3+');
+    return '';
+  }
+
+  // ⚠️ LE GLISSEMENT LATÉRAL — la famille de geste qui a coûté trois chantiers.
+  //
+  // La règle qui le rend sûr : LA DIRECTION SE DÉCIDE UNE FOIS, au premier
+  // mouvement qui dépasse le seuil, et ne change plus. Tant qu'elle n'est pas
+  // décidée on ne préempte rien, donc le défilement vertical part normalement ;
+  // une fois décidée horizontale, on appelle `preventDefault` et la page ne
+  // bouge plus. C'est l'indécision qui fait les gestes qui se battent.
+  //
+  // Et il n'est JAMAIS le seul chemin : le menu du numéro porte « Supprimer ».
+  // Un geste qui rate ne doit pas enfermer.
+  var SEUIL = 12;      // px avant de décider de la direction
+  var OUVERTURE = 84;  // px de découvert quand la ligne est ouverte
+
+  function brancherGlissement(ligne, surSupprimer) {
+    var x0 = 0, y0 = 0, sens = null, actif = false;
+
+    ligne.addEventListener('pointerdown', function (e) {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      x0 = e.clientX; y0 = e.clientY; sens = null; actif = true;
+    });
+
+    ligne.addEventListener('pointermove', function (e) {
+      if (!actif) return;
+      var dx = e.clientX - x0, dy = e.clientY - y0;
+      if (sens === null) {
+        if (Math.abs(dx) < SEUIL && Math.abs(dy) < SEUIL) return;
+        // Décidé une fois pour toutes. Vertical → on ne touche plus à rien.
+        sens = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v';
+        if (sens === 'v') { actif = false; return; }
+        ligne.setPointerCapture(e.pointerId);
+      }
+      if (sens !== 'h') return;
+      e.preventDefault();
+      var d = Math.max(-OUVERTURE, Math.min(0, dx));
+      ligne.firstChild.style.transform = 'translateX(' + d + 'px)';
+    });
+
+    function fin(e) {
+      if (!actif) { remettre(); return; }
+      actif = false;
+      if (sens !== 'h') { remettre(); return; }
+      var dx = e.clientX - x0;
+      if (dx <= -OUVERTURE * 0.6) surSupprimer();
+      else remettre();
+    }
+    function remettre() { ligne.firstChild.style.transform = ''; }
+
+    ligne.addEventListener('pointerup', fin);
+    ligne.addEventListener('pointercancel', function () { actif = false; remettre(); });
+  }
+
+  function rendreBlocsSeance(cible, seance, vue) {
+    vider(cible);
+    if (!seance.exercices.length) {
+      cible.appendChild(el('p', 'vide', 'Aucun exercice. Ajoute le premier ci-dessous.'));
+      return;
+    }
+
+    seance.exercices.forEach(function (exo, iExo) {
+      var bloc = el('div', 'bloc-seance');
+      var tete = el('div', 'tete-seance');
+      tete.appendChild(el('div', 'exo-seance', vue.nommer(exo.exercise_slug)));
+      // Pas de suggestion : le moteur ne parle pas encore, et inventer un chiffre
+      // serait pire que de n'en montrer aucun (§3.3).
+      if (exo.repos_cible_s) {
+        tete.appendChild(el('div', 'repos-cible num', 'repos ' + mmss(exo.repos_cible_s)));
+      }
+      bloc.appendChild(tete);
+
+      var entetes = el('div', 'cols-seance');
+      ['', 'PRÉC.', 'KG', 'REPS', 'EFFORT', ''].forEach(function (t, i) {
+        entetes.appendChild(el('span', i >= 2 ? 'centre' : (i === 1 ? 'droite' : ''), t));
+      });
+      bloc.appendChild(entetes);
+
+      var prec = vue.precedent(exo.exercise_slug);
+      var nTravail = 0;
+
+      exo.series.forEach(function (serie, iSerie) {
+        if ((serie.type_serie || 'travail') === 'travail') nTravail++;
+        var eti = etiquetteSerie(serie.type_serie, nTravail);
+        var f = vue.fantome(iExo, iSerie);
+
+        var ligne = el('div', 'ligne-serie');
+        var fond = el('div', 'glisse-fond', 'Supprimer');
+        var rangee = el('div', 'serie' + (serie.validee_a ? ' faite' : ''));
+
+        var no = el('button', 'no-serie ' + eti.classe, eti.texte);
+        no.type = 'button';
+        no.addEventListener('click', function () { vue.surNumero(iExo, iSerie); });
+        rangee.appendChild(no);
+
+        var ligneP = prec && prec.series ? prec.series[iSerie] : null;
+        rangee.appendChild(el('div', 'prec num', ligneP
+          ? nombreFr(ligneP.charge_kg) + '×' + ligneP.reps : '—'));
+
+        rangee.appendChild(champSerie('ch-serie num', serie.charge_kg, f.charge_kg, 'kg',
+          function (v) { vue.surChamp(iExo, iSerie, 'charge_kg', v); }));
+        rangee.appendChild(champSerie('rp-serie num', serie.reps, f.reps, null,
+          function (v) { vue.surChamp(iExo, iSerie, 'reps', v); }));
+
+        var eff = el('button', 'eff-serie num' + (texteEffort(serie) ? ' plein' : ''), texteEffort(serie));
+        eff.type = 'button';
+        eff.addEventListener('click', function () { vue.surEffort(iExo, iSerie); });
+        rangee.appendChild(eff);
+
+        var ok = el('button', 'ok-serie');
+        ok.type = 'button';
+        ok.setAttribute('aria-label', serie.validee_a ? 'Dévalider' : 'Valider');
+        var v = svg('svg', null, { viewBox: '0 0 24 24' });
+        v.appendChild(svg('path', null, { d: 'M5 13l4 4L19 7' }));
+        ok.appendChild(v);
+        ok.addEventListener('click', function () { vue.surValider(iExo, iSerie); });
+        rangee.appendChild(ok);
+
+        ligne.appendChild(rangee);
+        ligne.appendChild(fond);
+        brancherGlissement(ligne, function () { vue.surSupprimerSerie(iExo, iSerie); });
+        bloc.appendChild(ligne);
+      });
+
+      var ajout = el('div', 'ajout-serie');
+      var b = el('button', '', '+ Série');
+      b.type = 'button';
+      b.addEventListener('click', function () { vue.surAjoutSerie(iExo); });
+      ajout.appendChild(b);
+      bloc.appendChild(ajout);
+
+      cible.appendChild(bloc);
+    });
+  }
+
+  // Le chronomètre INFORME, il ne commande pas : pas d'alarme au dépassement,
+  // pas de blocage, aucun décompte qui presse. La piste se remplit et continue.
+  function rendreRepos(cible, vue) {
+    vider(cible);
+    var h = el('div', 'repos-h');
+    h.appendChild(el('span', 'repos-g num', mmss(vue.secondes)));
+    if (vue.cible) h.appendChild(el('span', 'repos-c num', 'cible ' + mmss(vue.cible)));
+    var p = el('button', 'discret', 'Passer');
+    p.type = 'button';
+    p.addEventListener('click', vue.surPasser);
+    h.appendChild(p);
+    cible.appendChild(h);
+    var piste = el('div', 'piste');
+    var barre = el('i', '');
+    barre.style.width = vue.cible
+      ? Math.min(100, Math.round((vue.secondes / vue.cible) * 100)) + '%' : '0%';
+    piste.appendChild(barre);
+    cible.appendChild(piste);
+  }
+
+  // ── Les feuilles ────────────────────────────────────────────────────────
+  var LIBELLE_TYPE = [
+    ['travail', 'Série de travail'],
+    ['echauffement', 'Échauffement'],
+    ['degressive', 'Dégressive'],
+    ['echec', 'Tentative manquée']
+  ];
+
+  var LIBELLE_RESSENTI = [
+    ['reste_3_plus', '3+', 'facile'],
+    ['reste_2', '2', ''],
+    ['reste_1', '1', ''],
+    ['reste_0', '0', 'à l’échec']
+  ];
+
+  var VALEURS_RPE = [6, 7, 7.5, 8, 8.5, 9, 9.5, 10];
+
+  function rendreFeuilleSerie(cible, vue) {
+    vider(cible);
+    var titre = el('div', 'feuille-t',
+      vue.quoi === 'type' ? 'Série ' + vue.numero : 'Série ' + vue.numero + ' — combien te restait-il ?');
+    titre.appendChild(el('em', '', vue.exercice));
+    cible.appendChild(titre);
+
+    if (vue.quoi === 'type') {
+      var menu = el('div', 'feuille-menu');
+      LIBELLE_TYPE.forEach(function (t) {
+        var b = el('button', (vue.serie.type_serie || 'travail') === t[0] ? 'sel' : '', t[1]);
+        b.type = 'button';
+        b.addEventListener('click', function () { vue.surType(t[0]); });
+        menu.appendChild(b);
+      });
+      var sup = el('button', 'danger', 'Supprimer la série');
+      sup.type = 'button';
+      sup.addEventListener('click', vue.surSupprimer);
+      menu.appendChild(sup);
+      cible.appendChild(menu);
+      return;
+    }
+
+    // Le RPE est une GRILLE de huit valeurs, jamais un curseur : viser 8,5 sur
+    // un curseur à 360 px avec les mains moites est perdu d'avance.
+    if (vue.modeRPE) {
+      var grille = el('div', 'grille-rpe');
+      VALEURS_RPE.forEach(function (v) {
+        var b = el('button', vue.serie.rpe === v ? 'sel num' : 'num', nombreFr(v));
+        b.type = 'button';
+        b.addEventListener('click', function () { vue.surEffort({ rpe: v }); });
+        grille.appendChild(b);
+      });
+      cible.appendChild(grille);
+    } else {
+      var q = el('div', 'grille-rir');
+      LIBELLE_RESSENTI.forEach(function (r) {
+        var b = el('button', vue.serie.ressenti === r[0] ? 'sel' : '');
+        b.type = 'button';
+        b.appendChild(el('span', 'rir-n', r[1]));
+        if (r[2]) b.appendChild(el('em', '', r[2]));
+        b.addEventListener('click', function () { vue.surEffort({ ressenti: r[0] }); });
+        q.appendChild(b);
+      });
+      cible.appendChild(q);
+    }
+
+    var efface = el('button', 'discret bloc-large', 'Effacer');
+    efface.type = 'button';
+    efface.addEventListener('click', function () { vue.surEffort({}); });
+    cible.appendChild(efface);
+
+    var bascule = el('div', 'bascule');
+    bascule.appendChild(el('span', '', vue.modeRPE
+      ? 'Revenir aux quatre choix ?' : 'Tu préfères le RPE chiffré ?'));
+    var bb = el('button', 'discret', vue.modeRPE ? 'Ressenti' : 'RPE');
+    bb.type = 'button';
+    bb.addEventListener('click', vue.surBascule);
+    bascule.appendChild(bb);
+    cible.appendChild(bascule);
+  }
+
+  function rendreFeuilleFin(cible, vue) {
+    vider(cible);
+    var t = el('div', 'feuille-t', 'Terminer la séance');
+    t.appendChild(el('em', '', vue.compte.validees + ' série' +
+      (vue.compte.validees > 1 ? 's' : '') + ' enregistrée' +
+      (vue.compte.validees > 1 ? 's' : '')));
+    cible.appendChild(t);
+
+    var b = el('button', 'principal', 'Terminer');
+    b.type = 'button';
+    b.addEventListener('click', vue.surTerminer);
+    cible.appendChild(b);
+
+    // Abandonner SUPPRIME la séance — et le dit, parce que c'est irréversible.
+    var a = el('button', 'discret bloc-large danger', 'Abandonner et tout effacer');
+    a.type = 'button';
+    a.addEventListener('click', vue.surAbandonner);
+    cible.appendChild(a);
+  }
+
   function message(cible, texte, genre) {
     vider(cible);
     cible.appendChild(el('p', genre === 'erreur' ? 'erreur' : 'vide', texte));
@@ -772,6 +1088,12 @@
       b.type = 'button';
       b.addEventListener('click', function () { if (v.surNouvelle) v.surNouvelle(); });
       vide.appendChild(b);
+      if (v.surSeanceVide) {
+        var sv = el('button', 'discret bloc-large', 'Ou commencer une séance vide');
+        sv.type = 'button';
+        sv.addEventListener('click', v.surSeanceVide);
+        vide.appendChild(sv);
+      }
       cible.appendChild(vide);
       return;
     }
@@ -785,8 +1107,27 @@
         a.nbExercices + ' exercice' + (a.nbExercices > 1 ? 's' : '') +
         ' \u00b7 ' + a.nbSeries + ' série' + (a.nbSeries > 1 ? 's' : '')));
       carte.addEventListener('click', function () { if (v.surChoix) v.surChoix(r.id); });
-      cible.appendChild(carte);
+
+      var rangee = el('div', 'routine-rangee');
+      rangee.appendChild(carte);
+      // Démarrer est l'action principale d'une routine ; la modifier est
+      // secondaire. Deux cibles distinctes plutôt qu'un menu : on part
+      // s'entraîner plus souvent qu'on ne remanie.
+      var go = el('button', 'demarrer', 'Démarrer');
+      go.type = 'button';
+      go.addEventListener('click', function () { if (v.surDemarrer) v.surDemarrer(r.id); });
+      rangee.appendChild(go);
+      cible.appendChild(rangee);
     });
+
+    // On entre par où on veut (ECRAN-SAISIE §1) : une séance vide se note
+    // exercice par exercice.
+    if (v.surSeanceVide) {
+      var vide2 = el('button', 'discret bloc-large', 'Séance vide');
+      vide2.type = 'button';
+      vide2.addEventListener('click', v.surSeanceVide);
+      cible.appendChild(vide2);
+    }
   }
 
   // Un champ numérique de l'éditeur. `surSaisie` MUTE le brouillon et ne
@@ -906,6 +1247,14 @@
   };
 
   racine.THRendu = {
+    rendreBandeauSeance: rendreBandeauSeance,
+    rendreBlocsSeance: rendreBlocsSeance,
+    rendreRepos: rendreRepos,
+    rendreFeuilleSerie: rendreFeuilleSerie,
+    rendreFeuilleFin: rendreFeuilleFin,
+    mmss: mmss,
+    etiquetteSerie: etiquetteSerie,
+    texteEffort: texteEffort,
     rendreListeRoutines: rendreListeRoutines,
     rendreExosRoutine: rendreExosRoutine,
     rendreResultatsExo: rendreResultatsExo,

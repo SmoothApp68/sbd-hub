@@ -811,6 +811,24 @@ describe('la file d’attente', () => {
     expect(Attente.retirer(remplacee, 'sets:S', 1).length).toBe(1);
   });
 
+  // ⚠️ LA GARDE VAUT POUR LES DEUX BRANCHES DE `poser`, pas seulement pour la
+  // compression d'un upsert. Trouvé en revue : les premiers tests n'exerçaient
+  // que `remplacer`, et la branche `supprimer` ne montait pas la version — donc
+  // une suppression posée pendant un envoi en vol était emportée par son
+  // succès, et la séance restait en base POUR TOUJOURS.
+  test('une SUPPRESSION posée pendant l’envoi n’est pas emportée non plus', () => {
+    let f = Attente.poser([], { table: 'sessions', op: 'upsert', id: 'S', donnees: { a: 1 } });
+    const envoyee = Attente.prochaine(f);
+    // L'upsert part ; pendant l'aller-retour, l'utilisateur abandonne.
+    f = Attente.poser(f, { table: 'sessions', op: 'supprimer', id: 'S' });
+    expect(f[0].op).toBe('supprimer');
+    expect(f[0].version).toBe(2);
+    f = Attente.retirer(f, envoyee.cle, envoyee.version);
+    // L'intention de suppression survit au succès de l'upsert.
+    expect(f.length).toBe(1);
+    expect(Attente.prochaine(f).op).toBe('supprimer');
+  });
+
   test('les erreurs temporaires ne bloquent pas, les définitives si', () => {
     expect(Attente.estDefinitive(new TypeError('Failed to fetch'))).toBe(false);
     expect(Attente.estDefinitive({ code: '503' })).toBe(false);

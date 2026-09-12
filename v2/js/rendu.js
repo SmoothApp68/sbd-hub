@@ -842,7 +842,11 @@
       var selection = input.selectionStart !== input.selectionEnd;
       if (e.inputType === 'deleteContentBackward' || e.inputType === 'deleteContentForward' ||
           e.inputType === 'deleteWordBackward' || e.inputType === 'deleteByCut') {
-        input.dataset.chiffres = selection ? '' : M().retirerChiffreDuree(input.dataset.chiffres);
+        var apresEffacement = selection ? '' : M().retirerChiffreDuree(input.dataset.chiffres);
+        // Effacer un champ DÉJÀ vide ne change rien : le dire quand même
+        // coûterait une écriture disque et un envoi réseau par appui.
+        if (apresEffacement === input.dataset.chiffres) return;
+        input.dataset.chiffres = apresEffacement;
         return rendre();
       }
       // ⚠️ `insertText` ET RIEN D'AUTRE — surtout pas `insertCompositionText`.
@@ -859,14 +863,25 @@
       // improbable : un pavé numérique ne compose pas.
       if (e.inputType !== 'insertText') return;
       var texte = String(e.data === null || e.data === undefined ? '' : e.data);
-      var avant = input.dataset.chiffres;
-      if (selection) input.dataset.chiffres = '';
+      // ⚠️ ON NE REMPLACE QUE SI QUELQUE CHOSE REMPLACE.
+      //
+      // La sélection part d'un tampon vide — « remplace ça » — mais vider
+      // d'abord et poser ensuite effaçait la durée quand le caractère était
+      // REFUSÉ : tout sélectionner puis taper une virgule perdait « 13:00 ».
+      // On construit donc à côté, et on ne commet que si au moins un chiffre
+      // est entré.
+      var base = selection ? '' : input.dataset.chiffres;
+      var suite = base, pose = false;
       // Un clavier peut livrer plusieurs caractères d'un coup : on les pose un
       // par un, dans l'ordre, exactement comme s'ils étaient tapés.
       for (var i = 0; i < texte.length; i++) {
-        input.dataset.chiffres = M().poserChiffreDuree(input.dataset.chiffres, texte[i]);
+        var apres = M().poserChiffreDuree(suite, texte[i]);
+        if (apres !== suite) pose = true;
+        suite = apres;
       }
-      if (input.dataset.chiffres !== avant) rendre();
+      if (!pose) return;
+      input.dataset.chiffres = suite;
+      rendre();
     });
 
     // Ceinture et bretelles : si `beforeinput` n'était pas annulable — certains

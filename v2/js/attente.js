@@ -84,8 +84,16 @@
         return liste;
       }
       if (i >= 0) {
+        // ⚠️ `version` MONTE ICI AUSSI. Une suppression posée pendant qu'un
+        // upsert de la même clé est en vol est exactement le cas de la perte
+        // silencieuse décrite plus bas : sans l'incrément, le succès de
+        // l'upsert emporterait l'intention de suppression, et la séance
+        // resterait en base pour toujours. Une garde qui ne couvre qu'une
+        // branche sur deux ne garde rien.
         liste[i] = Object.assign({}, liste[i], {
-          op: SUPPRIMER, donnees: null, bloquee: null, essais: 0
+          op: SUPPRIMER, donnees: null,
+          version: (liste[i].version || 1) + 1,
+          bloquee: null, essais: 0
         });
         return liste;
       }

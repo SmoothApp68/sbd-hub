@@ -946,10 +946,27 @@ const SETS_PASSES = [1, 2].map((n) => ({
     d.tampon.length <= 5 && /^\d\d:\d\d(:\d\d)?$/.test(d.valeur) &&
     Number(d.valeur.split(':').slice(-1)[0]) < 60, JSON.stringify(d));
 
-  // On remet la marche à sa valeur, pour la carte de séance qui suit.
+  // ⚠️ UNE VALEUR DIFFÉRENTE DE CELLE DÉJÀ EN BASE. Retaper `21000` et
+  // revérifier 7 800 serait satisfait aussi bien par « la valeur retapée est
+  // remontée » que par « rien n'a bougé » : l'assertion ne pourrait pas
+  // échouer. On retape donc 2 h 13, qui n'a jamais été écrit.
   await page.evaluate(() => {
     const i = document.querySelectorAll('.bloc-seance')[3].querySelector('.serie input');
     i.focus();
+  });
+  for (let k = 0; k < 6; k++) await page.keyboard.press('Backspace');
+  await frapper('21300');
+  const remontee = await jusqua(async () => {
+    const m = base.sets.filter((x) => x.session_id === idMesures && x.exercise_slug === 'marche')[0];
+    return m && m.duree_s === 7980;
+  }, 8000);
+  ok('une valeur RETAPÉE après validation remonte bien en base', remontee,
+    'duree_s = ' + JSON.stringify((base.sets.filter((x) => x.session_id === idMesures &&
+      x.exercise_slug === 'marche')[0] || {}).duree_s) + ' (attendu 7980)');
+
+  // Et on la remet à sa valeur d'origine pour la carte de séance qui suit.
+  await page.evaluate(() => {
+    document.querySelectorAll('.bloc-seance')[3].querySelector('.serie input').focus();
   });
   for (let k = 0; k < 6; k++) await page.keyboard.press('Backspace');
   await frapper('21000');
@@ -957,10 +974,6 @@ const SETS_PASSES = [1, 2].map((n) => ({
     const m = base.sets.filter((x) => x.session_id === idMesures && x.exercise_slug === 'marche')[0];
     return m && m.duree_s === 7800;
   }, 8000);
-  ok('et la valeur retapée remonte bien en base',
-    (base.sets.filter((x) => x.session_id === idMesures &&
-      x.exercise_slug === 'marche')[0] || {}).duree_s === 7800,
-    JSON.stringify((base.sets.filter((x) => x.exercise_slug === 'marche')[0] || {}).duree_s));
 
   console.log('\n══ 7 sexies. RIEN D’INTERACTIF SOUS LA BARRE DE REPOS ══');
   // ⚠️ CONFIGURATION DISCRIMINANTE : barre de repos OUVERTE **et** défilement

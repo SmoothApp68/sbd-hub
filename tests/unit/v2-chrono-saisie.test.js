@@ -33,6 +33,12 @@ function taper(input, suite) {
   }
 }
 
+// Toute la suite dans UN seul `insertText` — ce que fait une autocomplétion.
+function taper2(input, suite) {
+  input.dispatchEvent(new InputEvent('beforeinput',
+    { inputType: 'insertText', data: String(suite), cancelable: true, bubbles: true }));
+}
+
 function effacer(input, n) {
   for (let i = 0; i < (n || 1); i++) {
     input.dispatchEvent(new InputEvent('beforeinput',
@@ -232,17 +238,23 @@ describe('4 — le pavé est borné, et il n’invente pas d’horloge impossibl
     });
   });
 
-  // La borne du pavé ne se voit pas seulement dans la valeur : l'horloge
-  // affichée doit rester une horloge. C'est `formatChrono` qui le garantit,
-  // pour TOUT tampon, y compris ceux dont les groupes bruts dépassent 60.
-  test('les minutes et les secondes affichées restent sous 60, quoi qu’on tape', () => {
-    ['999999', '9999', '99', '6350', '5959', '0099'].forEach((frappe) => {
-      const texte = Modele.formatChrono(Modele.dureeDeChiffres(suite(frappe)));
-      const groupes = texte.split(':').map(Number);
-      const [mm, ss] = groupes.slice(-2);
-      expect(ss).toBeLessThan(60);
-      expect(mm).toBeLessThan(60);
-    });
+  // ⚠️ « mm < 60 et ss < 60 » SEUL serait tautologique : `formatChrono` les
+  // calcule modulo, c'est vrai de tout entier. Ce qui peut réellement tomber,
+  // c'est que l'écran montre les GROUPES BRUTS du tampon au lieu de l'horloge.
+  // On le vérifie donc par l'écart : « 9999 » ne doit PAS s'afficher « 99:99 ».
+  test('l’écran montre l’horloge, jamais les groupes bruts du tampon', () => {
+    const brut = (t) => t.length <= 2 ? '00:' + t.padStart(2, '0')
+      : t.slice(0, -2).padStart(2, '0') + ':' + t.slice(-2);
+    [['9999', '01:40:39'], ['99', '01:39'], ['6350', '01:03:50'], ['0099', '01:39']]
+      .forEach(([frappe, attendu]) => {
+        const tampon = suite(frappe);
+        const texte = Modele.formatChrono(Modele.dureeDeChiffres(tampon));
+        expect(texte).toBe(attendu);
+        expect(texte).not.toBe(brut(tampon));       // ← ce qui peut tomber
+        const [mm, ss] = texte.split(':').map(Number).slice(-2);
+        expect(mm).toBeLessThan(60);
+        expect(ss).toBeLessThan(60);
+      });
   });
 
   test('aucune durée négative ne peut naître du pavé', () => {
@@ -453,6 +465,70 @@ describe('8 — l’affichage ne peut pas diverger du tampon', () => {
     expect(i.dataset.chiffres).toBe('9');
     expect(i.value).toBe('00:09');
     expect(e.seance().exercices[0].series[0].duree_s).toBe(9);
+  });
+
+  // ⚠️ Régression introduite PAR la correction de la sélection, trouvée en
+  // revue : vider d'abord et poser ensuite effaçait la durée quand le caractère
+  // était refusé. On ne remplace que si quelque chose remplace.
+  test('un caractère REFUSÉ sur une sélection totale ne détruit rien', () => {
+    const e = monter(['pl']);
+    const i = e.input(0);
+    taper(i, '1300');
+    i.setSelectionRange(0, i.value.length);
+    taper(i, ',');
+    expect(i.dataset.chiffres).toBe('1300');
+    expect(i.value).toBe('13:00');
+    expect(e.seance().exercices[0].series[0].duree_s).toBe(780);
+  });
+
+  // Un appui qui ne change rien ne doit rien écrire : chaque `surChamp` coûte
+  // une écriture disque et un envoi réseau.
+  test('un appui qui ne change rien ne déclenche aucune écriture', () => {
+    const e = monter(['pl']);
+    const i = e.input(0);
+    taper(i, '50');
+    const apresSaisie = e.recus.length;
+    effacer(i, 1);                 // « 50 » -> « 5 » : ça change
+    effacer(i, 1);                 // « 5 »  -> « »  : ça change
+    const apresVidage = e.recus.length;
+    expect(apresVidage).toBe(apresSaisie + 2);
+    effacer(i, 3);                 // déjà vide : rien ne doit partir
+    expect(e.recus.length).toBe(apresVidage);
+    taper(i, 'abc');               // aucun chiffre : rien non plus
+    expect(e.recus.length).toBe(apresVidage);
+  });
+
+  // Les quatre `inputType` d'effacement, pas seulement le retour arrière : sur
+  // l'appareil, « supprimer le mot » et « couper » passent par les autres.
+  test('les quatre formes d’effacement retirent bien un chiffre', () => {
+    ['deleteContentBackward', 'deleteContentForward',
+     'deleteWordBackward', 'deleteByCut'].forEach((type) => {
+      const e = monter(['pl']);
+      const i = e.input(0);
+      taper(i, '635');
+      i.dispatchEvent(new InputEvent('beforeinput',
+        { inputType: type, cancelable: true, bubbles: true }));
+      expect(i.dataset.chiffres).toBe('63');
+    });
+  });
+
+  // Un clavier peut livrer plusieurs caractères dans un seul `insertText`
+  // (autocomplétion, saisie rapide). Ils se posent un par un, dans l'ordre.
+  test('plusieurs caractères d’un coup se posent dans l’ordre', () => {
+    const e = monter(['pl']);
+    const i = e.input(0);
+    taper2(i, '21000');
+    expect(i.dataset.chiffres).toBe('21000');
+    expect(i.value).toBe('02:10:00');
+    expect(e.seance().exercices[0].series[0].duree_s).toBe(7800);
+  });
+
+  test('et les non-chiffres y sont écartés un par un, sans casser les autres', () => {
+    const e = monter(['pl']);
+    const i = e.input(0);
+    taper2(i, '5a0');
+    expect(i.dataset.chiffres).toBe('50');
+    expect(i.value).toBe('00:50');
   });
 
   test('et effacer une sélection vide tout, pas un chiffre', () => {

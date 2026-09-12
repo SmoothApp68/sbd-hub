@@ -77,6 +77,45 @@ toujours que le test tourne dans un environnement plus clément.
 
 ---
 
+## 2 sexies. Les specs ne s'envoient plus, elles se lisent — arrêté le 12/09/2026
+
+Les specs vivent dans `v2/specs/`. **Un prompt Claude Code n'en joint plus le corps** : il
+donne le **delta daté** de la section qui change, et Claude Code va lire le reste dans le
+dépôt.
+
+> Le §7 bis.5 de `ECRAN-SAISIE-V1.md` a été **perdu cinq fois** par des envois en bloc.
+> Rejouer une spec entière à chaque prompt, c'est réintroduire la version qu'on avait
+> corrigée entre-temps.
+
+Conséquences, dans les deux sens :
+
+- **Le prompt** ne porte que ce qui est nouveau, daté, et dit où l'insérer.
+- **Claude Code** commence par lire la spec dans `v2/specs/`, y intègre le delta, et
+  **signale tout écart** entre ce que le prompt suppose et ce que le dépôt contient. Une
+  section citée qui n'existe pas est un écart à rapporter, pas un détail à contourner.
+
+---
+
+## 2 septies. L'effort de vérification se calibre sur le risque — arrêté le 12/09/2026
+
+Le §2 quater dit **comment** prouver : la configuration discriminante, et la mutation qui
+tombe d'un côté et passe de l'autre. Il ne dit pas **combien**.
+
+> **Le risque d'un chantier se mesure à ce qu'il touche.** Un chantier qui écrit en base —
+> nouvelle colonne envoyée, nouvelle table écrite, file d'attente modifiée — mérite une
+> reconnaissance longue et une revue adversariale. Un chantier d'affichage n'en a pas besoin.
+
+**Et la campagne de mutations porte sur les lignes que le commit touche**, pas sur toute la
+suite. Les autres ont déjà été prouvées à leur chantier ; les remuter à chaque fois coûte des
+heures et n'apprend rien.
+
+**Corollaire de forme : on ne rapporte qu'une fois tous les travaux terminés.** Au chantier
+25, deux passages de revue tournaient encore quand la PR a été annoncée livrée — et ils ont
+trouvé cinq défauts de plus, dont une garde qui ne couvrait qu'une branche sur deux de
+`poser`. Une PR annoncée pendant qu'une vérification tourne est une PR annoncée trop tôt.
+
+---
+
 ## 2 ter. Périmètre du moteur ≠ périmètre de l'affichage
 
 Le §2 exclut du périmètre la randonnée, le pilates, l'escalade et la course. Cette exclusion

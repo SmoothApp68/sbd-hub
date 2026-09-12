@@ -253,6 +253,43 @@ const CATALOGUE = [
     JSON.stringify(apres2.map((e) => e.rang)) === '[0,1]',
     JSON.stringify(apres2.map((e) => e.exercise_slug + '@' + e.rang)));
 
+  console.log('\n══ 5 bis. LE REPOS RESTE MODIFIABLE DANS LA ROUTINE ══');
+  //
+  // Vérification demandée au chantier 26 : le repos se change EN SÉANCE
+  // (§7 septies.2) sans que la routine cesse d'être l'endroit où il se
+  // prescrit. Les deux chemins doivent coexister.
+  await page.click('#liste-routines .routine');
+  await attendre(700);
+  const champRepos = '.exo-routine:nth-child(1) .exo-routine-champs .champ-num:nth-child(3) input';
+  ok('le champ « Repos (s) » est là, dans l’éditeur',
+    (await page.$(champRepos)) !== null, champRepos);
+  await page.fill(champRepos, '210');
+  await attendre(250);
+  await page.click('#btn-enregistrer-routine');
+  await attendre(900);
+  const premierExo = base.exos.slice().sort((a, b) => a.rang - b.rang)[0];
+  ok('la valeur saisie part bien en base', premierExo.repos_cible_s === 210,
+    'repos_cible_s = ' + premierExo.repos_cible_s);
+
+  // ⚠️ LA NOTE DE ROUTINE SURVIT À UNE RÉÉCRITURE DE L'ÉDITEUR.
+  //
+  // `routine_exercises.note` est posée par la FIN DE SÉANCE, jamais par
+  // l'éditeur — c'est pour ça qu'elle est hors de `CHAMPS_EXERCICE`
+  // (routines.js). Si elle y entrait, chaque réordonnancement l'écraserait avec
+  // le `null` du brouillon, et la note « qui suit l'exercice » disparaîtrait au
+  // premier passage dans l'éditeur.
+  premierExo.note = 'Ceinture, barre basse';
+  await aller('/saisie');
+  await page.click('#liste-routines .routine');
+  await attendre(700);
+  await page.fill(champRepos, '200');
+  await page.click('#btn-enregistrer-routine');
+  await attendre(900);
+  const apresEditeur = base.exos.filter((e) => e.id === premierExo.id)[0];
+  ok('la note de la ligne de routine n’est PAS écrasée par l’éditeur',
+    apresEditeur.note === 'Ceinture, barre basse' && apresEditeur.repos_cible_s === 200,
+    JSON.stringify({ note: apresEditeur.note, repos: apresEditeur.repos_cible_s }));
+
   console.log('\n══ 6. NOM EN DOUBLON, PUIS ARCHIVAGE ══');
   await page.click('#btn-nouvelle-routine');
   await attendre(400);

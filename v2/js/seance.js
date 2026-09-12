@@ -33,11 +33,17 @@
   var RESSENTIS = ['reste_3_plus', 'reste_2', 'reste_1', 'reste_0'];
   var EN_COURS = 'en_cours', TERMINEE = 'terminee';
   var REPOS_MAX = 3600;
+  // Bornes relevées sur les CHECK de la base, pas supposées :
+  //   routine_exos_repos_borne   repos_cible_s NULL ou 5 à 1800
+  //   sessions_salle_non_vide    salle NULL ou 1 à 60 caractères
+  var REPOS_CIBLE_MIN = 5, REPOS_CIBLE_MAX = 1800;
+  var SALLE_MAX = 60;
 
   // ⚠️ LISTE BLANCHE des colonnes de `sets` que cet écran écrit. Ce qui n'y
-  // figure pas ne part pas : tempo, élastique, note et superset appartiennent à
+  // figure pas ne part pas : tempo, élastique et superset appartiennent à
   // d'autres chantiers, et `elastique_norme`/`salle_norme` sont GÉNÉRÉES —
-  // les écrire ferait échouer la requête.
+  // les écrire ferait échouer la requête. `note` en fait partie depuis le
+  // chantier 26 (§7 septies.1) ; elle est projetée par `noteDeSerie`.
   // ⚠️ `CHAMPS_SERIE` a été SUPPRIMÉE ici au chantier 24. Posée au chantier 22
   // comme « liste blanche des colonnes envoyées », elle était exportée et
   // **lue par personne** — `lignes()` construit sa ligne à la main. Le banc de
@@ -86,14 +92,24 @@
     };
   }
 
+  // ⚠️ `routine_exercise_id` est la SEULE jointure fiable vers la ligne de
+  // routine dont cet exercice est issu. Le slug ne suffit pas : rien n'interdit
+  // le même exercice deux fois dans une routine, et la question de fin (§6)
+  // écrirait alors sur la mauvaise ligne. Un exercice ajouté en séance n'en a
+  // pas — c'est une déviation de structure, hors périmètre de ce chantier.
+  //
+  // `note` vient de `routine_exercises.note` : c'est ce qui fait qu'une note
+  // SUIT l'exercice quand on réutilise la routine (§7 septies.1).
   function exerciceDepuisRoutine(e, idSerie) {
     var n = Math.max(1, Math.min(20, Number(e.series) || 1));
     var series = [];
     for (var i = 0; i < n; i++) series.push(serieVide(idSerie));
     return {
       exercise_slug: e.exercise_slug,
+      routine_exercise_id: e.id === undefined ? null : e.id,
       reps_visees: e.reps_visees === undefined ? null : e.reps_visees,
       repos_cible_s: e.repos_cible_s === undefined ? null : e.repos_cible_s,
+      note: texteOuNul(e.note),
       series: series
     };
   }
@@ -103,9 +119,23 @@
       id: typeof idSerie === 'function' ? idSerie() : null,
       type_serie: 'travail',
       charge_kg: null, reps: null, duree_s: null, distance_m: null,
-      rpe: null, ressenti: null,
+      rpe: null, ressenti: null, note: null,
       validee_a: null, repos_s: null
     };
+  }
+
+  // Un texte saisi, ou rien. `''` n'est PAS une valeur : une note vide est une
+  // absence de note, et `sessions_salle_non_vide` (CHECK, 1 à 60 caractères)
+  // refuserait la chaîne vide — la séance ne monterait alors plus jamais.
+  function texteOuNul(v, max) {
+    if (v === null || v === undefined) return null;
+    var t = String(v).trim();
+    if (!t) return null;
+    // ⚠️ ON TRONQUE PLUTÔT QUE DE REFUSER. Un dépassement de borne remonte en
+    // 23514, que la file classe DÉFINITIVE : la séance serait perdue pour une
+    // salle trop longue. Perdre trois caractères vaut mieux que perdre la
+    // séance — et le champ porte déjà un `maxlength` qui rend le cas théorique.
+    return (max && t.length > max) ? t.slice(0, max) : t;
   }
 
   // ── Structure ───────────────────────────────────────────────────────────
@@ -113,8 +143,10 @@
     var o = options || {};
     var exos = seance.exercices.concat([{
       exercise_slug: slug,
+      routine_exercise_id: null,
       reps_visees: o.reps_visees === undefined ? null : o.reps_visees,
       repos_cible_s: o.repos_cible_s === undefined ? null : o.repos_cible_s,
+      note: texteOuNul(o.note),
       series: [serieVide(idSerie)]
     }]);
     return avecExercices(seance, exos);
@@ -212,6 +244,105 @@
       return avecSerie(seance, iExo, iSerie, { ressenti: e.ressenti, rpe: null });
     }
     return avecSerie(seance, iExo, iSerie, { rpe: null, ressenti: null });
+  }
+
+  // ── La note, et le repos cible ──────────────────────────────────────────
+  //
+  // ══ LA NOTE EST UNE NOTE D'EXERCICE (§7 septies.1) ═══════════════════════
+  //
+  // Relevé en base : sur 196 couples séance-exercice portant une note, 185
+  // portent EXACTEMENT la même sur toutes leurs séries. La note de Hevy est une
+  // note d'exercice, dupliquée sur chaque série à l'export.
+  //
+  // On garde ce modèle SANS table nouvelle : la note vit UNE FOIS sur
+  // l'exercice, et `lignes()` la projette sur chaque série au moment d'écrire.
+  // Une série ajoutée après coup la reçoit donc sans rien recopier — c'est la
+  // conséquence directe de n'avoir qu'une source.
+  //
+  // Les 11 couples (5 %) qui portent des notes réellement différentes d'une
+  // série à l'autre restent possibles : `serie.note`, quand elle existe, GAGNE
+  // sur celle de l'exercice. Le cas existe en base, il ne se supprime pas.
+  function avecExercice(seance, iExo, champs) {
+    var exos = seance.exercices.slice();
+    exos[iExo] = Object.assign({}, exos[iExo], champs);
+    return avecExercices(seance, exos);
+  }
+
+  function definirNoteExercice(seance, iExo, texte) {
+    return avecExercice(seance, iExo, { note: texteOuNul(texte) });
+  }
+
+  function definirNoteSerie(seance, iExo, iSerie, texte) {
+    return avecSerie(seance, iExo, iSerie, { note: texteOuNul(texte) });
+  }
+
+  // Le repos cible se change EN SÉANCE (§7 septies.2), et rien n'est écrit dans
+  // la routine à ce moment-là — la question se pose à la fin (§6).
+  //
+  // Bornes de `routine_exos_repos_borne` : 5 à 1800, ou NULL. On les applique
+  // ICI, alors que la séance n'a aucune contrainte là-dessus, parce que cette
+  // valeur est exactement celle qui PEUT partir dans la routine à la fin. Une
+  // valeur que la routine refuserait n'a pas à exister en séance.
+  function definirReposCible(seance, iExo, secondes) {
+    var n = nombreOuNul(secondes);
+    if (n !== null) {
+      n = Math.round(n);
+      if (n < REPOS_CIBLE_MIN || n > REPOS_CIBLE_MAX) return seance;
+    }
+    return avecExercice(seance, iExo, { repos_cible_s: n });
+  }
+
+  // ── Ce que l'écran de fin déclare (§7 septies.4) ────────────────────────
+  //
+  // ⚠️ `salle_norme` est GÉNÉRÉE : elle n'apparaît nulle part ici, et l'écrire
+  // ferait échouer la requête entière. La salle se DÉCLARE, elle ne se déduit
+  // pas — c'est la doctrine posée quand la colonne a été créée.
+  function decrire(seance, champs) {
+    var c = champs || {};
+    var maj = {};
+    if ('titre' in c) maj.titre = texteOuNul(c.titre);
+    if ('note' in c) maj.note = texteOuNul(c.note);
+    if ('salle' in c) maj.salle = texteOuNul(c.salle, SALLE_MAX);
+    return Object.assign({}, seance, maj);
+  }
+
+  // ── Les écarts avec la routine (§6) ─────────────────────────────────────
+  //
+  // UNE SEULE QUESTION, À LA FIN, et seulement s'il y a vraiment un écart :
+  // « une séance conforme n'ouvre aucune question, sinon la question devient un
+  // bruit qu'on tape sans lire » (§6.2).
+  //
+  // Ce chantier ne connaît que deux écarts — le repos cible et la note. La
+  // déviation de STRUCTURE (exercice remplacé, ajouté, réordonné) est hors
+  // périmètre : un exercice sans `routine_exercise_id` n'est donc pas comparé,
+  // il est ignoré.
+  function ecartsRoutine(seance, routine) {
+    if (!seance || !routine || !routine.id) return [];
+    if (seance.routine_id !== routine.id) return [];
+    var parId = {};
+    (routine.exercices || []).forEach(function (e) { if (e && e.id) parId[e.id] = e; });
+
+    var ecarts = [];
+    (seance.exercices || []).forEach(function (exo) {
+      var ligne = exo && exo.routine_exercise_id && parId[exo.routine_exercise_id];
+      if (!ligne) return;
+      var champs = {};
+      var reposRoutine = ligne.repos_cible_s === undefined ? null : ligne.repos_cible_s;
+      var noteRoutine = texteOuNul(ligne.note);
+      var reposSeance = exo.repos_cible_s === undefined ? null : exo.repos_cible_s;
+      var noteSeance = texteOuNul(exo.note);
+      if (reposSeance !== reposRoutine) champs.repos_cible_s = reposSeance;
+      if (noteSeance !== noteRoutine) champs.note = noteSeance;
+      if (!Object.keys(champs).length) return;
+      ecarts.push({
+        id: ligne.id,
+        exercise_slug: exo.exercise_slug,
+        champs: champs,
+        repos_avant: reposRoutine,
+        note_avant: noteRoutine
+      });
+    });
+    return ecarts;
   }
 
   // ── Valider ─────────────────────────────────────────────────────────────
@@ -316,11 +447,24 @@
           distance_m: p.serie.distance_m === undefined ? null : p.serie.distance_m,
           rpe: p.serie.rpe,
           ressenti: p.serie.ressenti,
+          // La note de l'EXERCICE, projetée sur chaque série — c'est la forme
+          // que la base porte déjà (185 couples sur 196). Une note propre à la
+          // série la remplace quand elle existe : les 11 couples restants.
+          // Toujours envoyée, y compris à null, pour la même raison que la
+          // durée et la distance — omettre la colonne laisserait une valeur
+          // périmée en base après une note effacée.
+          note: noteDeSerie(p.exo, p.serie),
           validee_a: p.serie.validee_a,
           rang: p.rang,
           repos_s: p.serie.repos_s
         };
       });
+  }
+
+  function noteDeSerie(exo, serie) {
+    var propre = texteOuNul(serie && serie.note);
+    if (propre !== null) return propre;
+    return texteOuNul(exo && exo.note);
   }
 
   function ligneSession(seance) {
@@ -329,7 +473,11 @@
       user_id: seance.user_id,
       debut: seance.debut,
       fin: seance.fin,
-      titre: seance.titre,
+      titre: texteOuNul(seance.titre),
+      // §7 septies.4 — déclarées à l'écran de fin. `salle_norme` est GÉNÉRÉE et
+      // n'apparaît PAS ici : l'envoyer ferait échouer la requête.
+      note: texteOuNul(seance.note),
+      salle: texteOuNul(seance.salle, SALLE_MAX),
       routine_id: seance.routine_id,
       source: 'app',
       // Toujours explicite : le défaut de la colonne est 'terminee'.
@@ -440,12 +588,41 @@
     return (Number(secondes) || 0) >= c;
   }
 
+  // ══ LE CHRONOMÈTRE S'ARRÊTE À L'ÉCHÉANCE (§7 septies.3) ══════════════════
+  //
+  // Il ne compte pas au-delà. Un compteur qui continue de monter après la cible
+  // est un décompte qui presse, et le chronomètre informe — il ne commande pas
+  // (§7 ter.3).
+  //
+  // ⚠️ CE QUI EST FIGÉ EST L'AFFICHAGE, JAMAIS LA MESURE. `repos_s` se calcule
+  // à la validation suivante, depuis l'écart entre deux `validee_a` (`valider`
+  // ci-dessus) : il porte le repos RÉEL, même s'il a duré trois fois la cible.
+  // Geler l'un n'a aucun effet sur l'autre, et c'est le point — on arrête de
+  // montrer, on n'arrête pas d'observer.
+  //
+  // Sans cible, rien ne fige : zéro veut dire « pas de cible », et un
+  // chronomètre libre compte tant qu'on le regarde.
+  function reposFige(cible, secondes) {
+    var c = Number(cible) || 0;
+    if (c <= 0) return false;
+    return (Number(secondes) || 0) >= c;
+  }
+
+  function secondesAffichees(cible, secondes) {
+    var s = Number(secondes) || 0;
+    return reposFige(cible, s) ? (Number(cible) || 0) : s;
+  }
+
   var api = {
     TYPES: TYPES, RESSENTIS: RESSENTIS,
     PAS_REPOS: PAS_REPOS,
     ajusterCible: ajusterCible,
     echeanceAtteinte: echeanceAtteinte,
+    reposFige: reposFige,
+    secondesAffichees: secondesAffichees,
     EN_COURS: EN_COURS, TERMINEE: TERMINEE, REPOS_MAX: REPOS_MAX,
+    REPOS_CIBLE_MIN: REPOS_CIBLE_MIN, REPOS_CIBLE_MAX: REPOS_CIBLE_MAX,
+    SALLE_MAX: SALLE_MAX,
     creer: creer,
     serieVide: serieVide,
     ajouterExercice: ajouterExercice,
@@ -455,6 +632,11 @@
     modifierSerie: modifierSerie,
     changerType: changerType,
     definirEffort: definirEffort,
+    definirNoteExercice: definirNoteExercice,
+    definirNoteSerie: definirNoteSerie,
+    definirReposCible: definirReposCible,
+    decrire: decrire,
+    ecartsRoutine: ecartsRoutine,
     valider: valider,
     devalider: devalider,
     derniereValidation: derniereValidation,

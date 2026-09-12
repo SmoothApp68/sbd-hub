@@ -78,7 +78,7 @@
     return typeof r.count === 'number' ? r.count : null;
   }
 
-  var COLONNES_SEANCE = 'id, titre, debut, fin, statut, salle, salle_norme, created_at';
+  var COLONNES_SEANCE = 'id, titre, note, debut, fin, statut, salle, salle_norme, created_at';
   var COLONNES_SERIE =
     'id, session_id, exercise_slug, charge_kg, reps, duree_s, distance_m, ' +
     'type_serie, rang, groupe_superset, validee_a, rpe, note, created_at, modifie_a';
@@ -172,8 +172,12 @@
   // 28 103 séries, pas par principe.
 
   var COLONNES_ROUTINE = 'id, nom, note, archivee_a, created_at, modifiee_a';
+  // `note` est LUE et jamais écrite par l'éditeur de routine — c'est la fin de
+  // séance qui la pose (§7 septies.1, « la note suit l'exercice quand on le
+  // réutilise »). La tenir hors de `CHAMPS_EXERCICE` (routines.js) est ce qui
+  // garantit qu'un réordonnancement ne l'efface pas.
   var COLONNES_ROUTINE_EXO =
-    'id, routine_id, exercise_slug, rang, series, reps_visees, repos_cible_s, groupe_superset';
+    'id, routine_id, exercise_slug, rang, series, reps_visees, repos_cible_s, note, groupe_superset';
 
   // Les routines AVEC leurs exercices, en une requête. L'imbrication PostgREST
   // suit la clé étrangère `routine_exercises.routine_id`.

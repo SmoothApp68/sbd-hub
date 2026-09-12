@@ -571,6 +571,10 @@
     }
     if (op.table === Attente.SESSIONS) return Donnees.enregistrerSeance(op.donnees);
     if (op.table === Attente.SETS) return Donnees.remplacerSeries(op.id, op.donnees || []);
+    // La ligne de routine existe déjà : on ne touche QUE les champs qui ont
+    // dévié (§6.3), jamais la ligne entière — un upsert y écraserait le rang et
+    // le nombre de séries avec l'état de la séance.
+    if (op.table === Attente.ROUTINE_EXOS) return Donnees.majExercice(op.id, op.donnees || {});
     return Promise.resolve();
   }
 
@@ -625,11 +629,15 @@
     }
   }
 
-  async function terminerSeance() {
+  async function terminerSeance(ecarts) {
     seance = Seance.terminer(seance, new Date());
     await sauverSeance();
     await poserSeries();
     await poserSeance(false);
+    // §6 — le report sur la routine, seulement s'il a été demandé, et APRÈS la
+    // séance : la séance ne dépend pas de lui, et l'ordre de la file le dit.
+    if (majRoutineVoulue) await reporterSurRoutine(ecarts);
+    majRoutineVoulue = false;
     var finie = seance;
     // La séance rejoint la liste TOUT DE SUITE, sans attendre le réseau : hors
     // ligne, elle serait sinon invisible entre « terminée » et « montée ».
@@ -684,13 +692,26 @@
     // d'autoplay refuse un contexte créé une minute plus tard, dans un
     // `setInterval`. On le réveille donc à la validation, pas à l'échéance.
     reveillerAudio();
+    // C'est `rendreChrono` qui décide si le minuteur tourne — ici on repart
+    // juste de zéro. Deux endroits qui lancent des `setInterval` finissent
+    // toujours par en laisser un derrière.
     arreterMinuteur();
-    minuteur = racine.setInterval(rendreChrono, 1000);
     rendreChrono();
   }
 
   function arreterMinuteur() {
     if (minuteur) { racine.clearInterval(minuteur); minuteur = null; }
+  }
+
+  // ⚠️ UNE SEULE RÈGLE DÉCIDE SI LE MINUTEUR TOURNE, ET ELLE VIT DANS
+  // `rendreChrono` : il tourne tant qu'il reste quelque chose à compter.
+  //
+  // Sans ce point de reprise, le +15 qui repousse une cible déjà franchie
+  // n'aurait relancé personne : le chronomètre serait resté figé pour toujours,
+  // et le repos suivant n'aurait plus jamais avancé. C'est le coût habituel
+  // d'un arrêt — il faut aussi savoir repartir.
+  function assurerMinuteur() {
+    if (!minuteur) minuteur = racine.setInterval(rendreChrono, 1000);
   }
 
   function secondesDeRepos() {
@@ -749,8 +770,20 @@
       chrono.sonne = true;
       signalerEcheance();
     }
+    // ⚠️ LE CHRONOMÈTRE S'ARRÊTE À L'ÉCHÉANCE (§7 septies.3), et l'arrêt est
+    // décidé ICI, d'après la valeur — pas d'après `sonne`. Les deux se
+    // séparent : le −15 qui FRANCHIT la cible fige un chronomètre qui avait
+    // déjà sonné, et le +15 qui la repousse relance celui qui était figé. Se
+    // fier à « a-t-il sonné ? » aurait laissé courir le premier cas, qui est
+    // exactement celui qu'Aurélien a signalé.
+    var fige = Seance.reposFige(chrono.cible, secondes);
+    if (fige) arreterMinuteur(); else assurerMinuteur();
     Rendu.rendreRepos(noeud, {
-      secondes: secondes,
+      // Ce qui est figé est l'AFFICHAGE. `repos_s` se mesure à la validation
+      // suivante, depuis l'écart entre deux `validee_a` : il porte le repos
+      // réel, même s'il a duré trois fois la cible.
+      secondes: Seance.secondesAffichees(chrono.cible, secondes),
+      fige: fige,
       cible: chrono.cible,
       sourdine: sourdine,
       pas: Seance.PAS_REPOS,
@@ -768,10 +801,15 @@
   //
   // Repousser la cible au-delà du temps écoulé RÉARME l'échéance : c'est une
   // nouvelle échéance, posée à la main, pas une répétition de la précédente.
+  // Le réglage vaut pour le REPOS EN COURS, jamais pour la routine — le repos
+  // cible d'un exercice se change sous son nom (§7 septies.2), et la routine ne
+  // bouge qu'à la fin, sur question (§6).
   function ajusterRepos(delta) {
     if (!chrono) return;
     chrono.cible = Seance.ajusterCible(chrono.cible, delta);
     if (chrono.cible > secondesDeRepos()) chrono.sonne = false;
+    // `rendreChrono` relance ou arrête le minuteur selon la nouvelle cible :
+    // un −15 qui franchit l'échéance fige, un +15 qui la repousse repart.
     rendreChrono();
   }
 
@@ -793,9 +831,29 @@
   // téléphone en silencieux dans une salle, on ne renonce pas pour autant à
   // savoir que le repos est fini. Couper les deux reviendrait à retirer le
   // chronomètre.
+  //
+  // ⚠️ LA VIBRATION D'ÉCHÉANCE — CE QUI EST MESURÉ, ET CE QUI NE L'EST PAS.
+  //
+  // Signalé sur device, écran ALLUMÉ : le son part, la vibration non — ce n'est
+  // donc pas la limite de Chrome sur écran éteint. Ce qui EST mesuré (banc
+  // d'écran § 5 ter, navigateur réel) : l'app émet exactement UN
+  // `navigator.vibrate(120)` à l'échéance, et rien ne le supprime ni ne le
+  // double. Le défaut n'est pas dans l'émission.
+  //
+  // Ce que le banc ne peut PAS mesurer, et c'est le §2 quater à la lettre :
+  // Chromium de bureau n'a pas de vibreur. `vibrate()` y rend `true` quoi qu'il
+  // arrive — avec geste, sans geste, depuis un minuteur — et n'écrit rien en
+  // console. « Accepté » et « refusé » y sont INDISTINGUABLES.
+  //
+  // On ne devine donc pas la suite : on rend la réponse de la plateforme
+  // LISIBLE, pour que la mesure qui compte — sur l'appareil — tranche. Aucun
+  // correctif spéculatif ici ; la proposition est dans le rapport du chantier.
   function signalerEcheance() {
     if (!sourdine) biper();
-    vibrer(VIBRATION_ECHEANCE);
+    if (vibrer(VIBRATION_ECHEANCE) === false) {
+      console.warn('Vibration d’échéance refusée par la plateforme ' +
+        '(activation utilisateur, visibilité, ou réglage système).');
+    }
   }
 
   function contexteAudio() {
@@ -888,12 +946,17 @@
   var VIBRATION_VALIDATION = 35;
   var VIBRATION_ECHEANCE = 120;   // à travers une poche, il faut plus long
 
+  // Rend CE QUE LA PLATEFORME A RÉPONDU — `false` quand elle refuse, `null`
+  // quand l'API n'existe pas. Ignorer ce booléen, c'était se priver du seul
+  // signal qui distingue « l'app n'a pas demandé » de « le téléphone a dit
+  // non » : les deux se ressemblent exactement au poignet.
   function vibrer(duree) {
     try {
       if (racine.navigator && typeof racine.navigator.vibrate === 'function') {
-        racine.navigator.vibrate(duree || VIBRATION_VALIDATION);
+        return racine.navigator.vibrate(duree || VIBRATION_VALIDATION);
       }
     } catch (e) { /* rien à faire : c'est un confort, pas une garantie */ }
+    return null;
   }
 
   function precedentDe(slug) {
@@ -926,6 +989,9 @@
       surValider: validerSerie,
       surNumero: function (i, j) { ouvrirFeuille('type', i, j); },
       surEffort: function (i, j) { ouvrirFeuille('effort', i, j); },
+      // Les deux réglages de l'exercice, sous son nom (§7 septies.1 et .2).
+      surNote: function (i) { ouvrirFeuille('note', i, null); },
+      surRepos: function (i) { ouvrirFeuille('repos', i, null); },
       surAjoutSerie: async function (i) {
         seance = Seance.ajouterSerie(seance, i, uuid());
         await apresGeste({ structure: false });
@@ -942,23 +1008,74 @@
   function defObjet(cle, valeur) { var o = {}; o[cle] = valeur; return o; }
 
   // ── Les feuilles ────────────────────────────────────────────────────────
+  //
+  // La fermeture REDESSINE la séance : la note et le repos vivent sur la tête
+  // du bloc, et une feuille se ferme aussi par la croix, par le fond, ou par le
+  // retour d'Android — trois chemins qui ne passent par aucun de ses boutons.
   function ouvrirFeuille(quoi, iExo, iSerie) {
     feuille = { quoi: quoi, iExo: iExo, iSerie: iSerie };
     rendreFeuille();
-    ouvrirVoile($('feuille-seance'));
+    ouvrirVoile($('feuille-seance'), function () {
+      feuille = null;
+      if (seance) rendreSeance();
+    });
   }
 
   function rendreFeuille() {
-    if (!feuille) return;
-    var exo = seance.exercices[feuille.iExo];
-    var serie = exo.series[feuille.iSerie];
+    if (!feuille || !seance) return;
+    var cible = $('feuille-contenu');
     var index = Modele.indexerExercices(local.exercices);
-    Rendu.rendreFeuilleSerie($('feuille-contenu'), {
+    if (feuille.quoi === 'fin') return rendreFeuilleFin(cible, index);
+
+    var exo = seance.exercices[feuille.iExo];
+    if (!exo) return;
+    var nom = Modele.nommer(index, exo.exercise_slug);
+
+    // La note d'EXERCICE (§7 septies.1). Elle ne touche pas à la structure mais
+    // elle change ce que `lignes()` produit — toutes les séries de cet exercice
+    // la portent — donc elle repose bien les séries.
+    if (feuille.quoi === 'note') {
+      return Rendu.rendreFeuilleNote(cible, {
+        exercice: nom,
+        note: exo.note,
+        surNote: function (v) {
+          seance = Seance.definirNoteExercice(seance, feuille.iExo, v);
+          apresGeste({ rendre: false });
+        },
+        surFermer: fermerVoile
+      });
+    }
+
+    // Le repos cible (§7 septies.2). ⚠️ `structure: false` : il ne vit sur
+    // AUCUNE colonne de `sets`, donc il n'y a rien à reposer — et surtout,
+    // RIEN NE PART DANS LA ROUTINE ICI. La question se pose à la fin (§6).
+    if (feuille.quoi === 'repos') {
+      return Rendu.rendreFeuilleRepos(cible, {
+        exercice: nom,
+        repos: exo.repos_cible_s,
+        surRepos: function (v) {
+          seance = Seance.definirReposCible(seance, feuille.iExo, v);
+          apresGeste({ structure: false, rendre: false });
+          fermerVoile();
+        }
+      });
+    }
+
+    var serie = exo.series[feuille.iSerie];
+    if (!serie) return;
+    Rendu.rendreFeuilleSerie(cible, {
       quoi: feuille.quoi,
       modeRPE: modeRPE,
-      exercice: Modele.nommer(index, exo.exercise_slug),
+      exercice: nom,
       numero: feuille.iSerie + 1,
       serie: serie,
+      // Ce que porterait la série faute de note propre : le placeholder dit
+      // donc ce qui s'écrira si on ne tape rien.
+      noteExercice: exo.note,
+      surNoteSerie: function (v) {
+        seance = Seance.definirNoteSerie(seance, feuille.iExo, feuille.iSerie, v);
+        apresGeste({ rendre: false });
+      },
       surType: async function (type) {
         seance = Seance.changerType(seance, feuille.iExo, feuille.iSerie, type);
         fermerVoile();
@@ -991,14 +1108,78 @@
     catch (e) { modeRPE = false; }
   }
 
+  // ── L'écran de fin de séance (§7 septies.4) ─────────────────────────────
+  //
+  // `majRoutineVoulue` est remis à FAUX à chaque ouverture, et c'est le défaut :
+  // ne pas toucher à la routine est le geste qui a le moins de conséquences.
+  var majRoutineVoulue = false;
+
+  function routineDeLaSeance() {
+    if (!seance || !seance.routine_id) return null;
+    return routines.filter(function (r) { return r.id === seance.routine_id; })[0] || null;
+  }
+
   function confirmerFin() {
-    Rendu.rendreFeuilleFin($('feuille-contenu'), {
+    majRoutineVoulue = false;
+    ouvrirFeuille('fin', null, null);
+  }
+
+  function rendreFeuilleFin(cible, index) {
+    var routine = routineDeLaSeance();
+    // §6.2 — on ne demande QUE si la séance a réellement dévié. Une séance
+    // conforme n'ouvre aucune question, sinon la question devient un bruit
+    // qu'on tape sans lire.
+    var ecarts = Seance.ecartsRoutine(seance, routine);
+    Rendu.rendreFeuilleFin(cible, {
       compte: Seance.compter(seance),
-      surTerminer: async function () { fermerVoile(); await terminerSeance(); },
+      titre: seance.titre,
+      note: seance.note,
+      salle: seance.salle,
+      salleMax: Seance.SALLE_MAX,
+      routine: routine ? routine.nom : '',
+      ecarts: ecarts.map(function (e) {
+        return {
+          nom: Modele.nommer(index, e.exercise_slug),
+          repos_change: 'repos_cible_s' in e.champs,
+          repos_avant: e.repos_avant,
+          repos_apres: e.champs.repos_cible_s,
+          note_change: 'note' in e.champs,
+          note_apres: e.champs.note
+        };
+      }),
+      majRoutine: majRoutineVoulue,
+      surMajRoutine: function (v) { majRoutineVoulue = v; rendreFeuille(); },
+      // Les trois champs déclarés n'écrivent que le brouillon : la ligne de
+      // séance part entière au moment de terminer. Poser la file à chaque
+      // frappe d'un titre n'apporterait rien — la séance est déjà montée.
+      surTitre: function (v) { seance = Seance.decrire(seance, { titre: v }); sauverSeance(); },
+      surSalle: function (v) { seance = Seance.decrire(seance, { salle: v }); sauverSeance(); },
+      surNoteSeance: function (v) { seance = Seance.decrire(seance, { note: v }); sauverSeance(); },
+      surTerminer: async function () { fermerVoile(); await terminerSeance(ecarts); },
       surAbandonner: async function () { fermerVoile(); await abandonnerSeance(); }
     });
-    feuille = { quoi: 'fin' };
-    ouvrirVoile($('feuille-seance'));
+  }
+
+  // §6.3 — on ne reporte que les ÉCARTS constatés, jamais les charges, et
+  // jamais le nombre de séries fait ce jour-là. Par la FILE : la question se
+  // pose en salle, là où le réseau n'est pas, et une réponse perdue parce que
+  // la requête a échoué serait la perte silencieuse qu'on s'interdit.
+  async function reporterSurRoutine(ecarts) {
+    var liste = ecarts || [];
+    var routine = routineDeLaSeance();
+    for (var i = 0; i < liste.length; i++) {
+      await poser({
+        table: Attente.ROUTINE_EXOS, op: Attente.MAJ,
+        id: liste[i].id, donnees: liste[i].champs
+      });
+    }
+    // La bibliothèque en mémoire suit tout de suite : rouvrir la routine juste
+    // après ne doit pas montrer la valeur d'avant.
+    if (!routine) return;
+    routine.exercices = routine.exercices.map(function (e) {
+      var m = liste.filter(function (x) { return x.id === e.id; })[0];
+      return m ? Object.assign({}, e, m.champs) : e;
+    });
   }
 
   // ── Saisie : la bibliothèque de routines ─────────────────────────────────
@@ -1350,17 +1531,28 @@
   // naviguer. C'est le point d'accroche prévu depuis le chantier 8, utilisé
   // pour la première fois ici.
   var voileOuvert = null;
-  function ouvrirVoile(noeud) {
+  var apresVoile = null;
+  // `apres` court à la FERMETURE, quel qu'en soit le chemin : la croix, le
+  // fond, le retour d'Android, ou un bouton de la feuille. Une feuille qui
+  // laisse l'écran derrière elle périmé est un écran faux affiché une seconde —
+  // et la leçon du chantier 21 est qu'on mesure aussi les états transitoires.
+  function ouvrirVoile(noeud, apres) {
     fermerVoile();
     voileOuvert = noeud;
+    apresVoile = apres || null;
     noeud.hidden = false;
     gardeOverlay = function () { return { raison: 'voile', afficher: fermerVoile }; };
     ajouterGarde(gardeOverlay);
   }
 
   function fermerVoile() {
+    // Pris AVANT de fermer, et remis à zéro tout de suite : `apres` peut
+    // rouvrir une feuille, et il ne doit pas se rappeler lui-même.
+    var apres = apresVoile;
+    apresVoile = null;
     if (gardeOverlay) { retirerGarde(gardeOverlay); gardeOverlay = null; }
     if (voileOuvert) { voileOuvert.hidden = true; voileOuvert = null; }
+    if (apres) apres();
   }
 
   // Navigation explicite : elle écrit l'URL, puis rend.

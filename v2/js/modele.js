@@ -717,7 +717,11 @@
       var parExo = {};
       palier.decouperParExercice(series || []).forEach(function (se) { parExo[se.slug] = se.series; });
       tete.forEach(function (e) {
-        var r = palier.analyser(parExo[e.slug] || [], (etats || {})[e.slug]);
+        // ⚠️ LA MESURE EST DONNÉE AU MOTEUR, pas devinée par lui. Sans elle, il
+        // ne distingue pas une planche — qui n'aura jamais de palier — d'un
+        // développé couché dont les kilos n'ont pas été saisis ce jour-là.
+        var r = palier.analyser(parExo[e.slug] || [], (etats || {})[e.slug],
+                                { mesure: gabaritDe(index[e.slug]).mesure });
         // Une meilleure série absente ne s'invente pas : la ligne n'affiche
         // alors que le nom.
         e.charge = r.meilleure ? r.meilleure.charge : null;

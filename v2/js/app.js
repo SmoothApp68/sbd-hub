@@ -464,8 +464,11 @@
         if (!serie.exercise_slug || vus[serie.exercise_slug]) return;
         vus[serie.exercise_slug] = true;
         if (lignes.length >= 3) return;
+        // La mesure vient du catalogue : le moteur ne devine pas la nature
+        // d'un exercice (cf. `THPalier.analyser`).
         var r = Palier.analyser((parExo[serie.exercise_slug] || {}).series || [],
-                                etatsExercices[serie.exercise_slug]);
+                                etatsExercices[serie.exercise_slug],
+                                { mesure: (index[serie.exercise_slug] || {}).mesure });
         lignes.push({
           nom: (index[serie.exercise_slug] && index[serie.exercise_slug].nom) || serie.exercise_slug,
           mesure: r.meilleure === null ? ''

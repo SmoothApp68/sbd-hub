@@ -518,7 +518,22 @@ button{font-family:inherit;cursor:pointer}
 .exo-routine-haut{display:flex;align-items:flex-start;gap:var(--e2)}
 /* Noms sur DEUX LIGNES plutôt que tronqués : 237 entrées au catalogue, et des
    ambiguïtés réelles entre variantes (ECRAN-SAISIE §7 bis.2). */
-.exo-routine-nom{flex:1;font-size:14px;font-weight:600;line-height:1.35}
+.exo-routine-nom{flex:1;font-size:14px;font-weight:600;line-height:1.35;
+  display:flex;align-items:baseline;gap:7px;min-width:0;overflow-wrap:anywhere}
+
+/* ── LE LIEN DE SUPERSET DANS L'ÉDITEUR (chantier 28) ──────────────────────
+   Il est dessiné ENTRE les deux cartes, parce que c'est là qu'il se passe.
+   Actif, il devient un trait plein qui rattache les deux — la même chose se
+   reconnaît au même signe qu'en séance : un liseré à gauche du bloc. */
+.exo-routine.groupe{border-left:3px solid var(--texte-3)}
+.lien-superset{display:flex;justify-content:center;padding:2px 0}
+.lien-superset button{border:none;background:transparent;color:var(--texte-3);
+  font:600 10.5px/1 inherit;font-family:inherit;letter-spacing:.03em;
+  padding:7px 10px;border-radius:var(--r-petit)}
+.lien-superset.actif button{color:var(--texte-2)}
+.lien-superset.actif{position:relative}
+.lien-superset.actif::before{content:'';position:absolute;left:0;top:0;bottom:0;
+  width:3px;background:var(--texte-3)}
 .exo-routine-gestes{display:flex;gap:var(--e1);flex:0 0 auto}
 .geste{width:32px;height:32px;border-radius:var(--r-petit);
   border:1px solid var(--trait);background:transparent;color:var(--texte-2);
@@ -676,6 +691,34 @@ button{font-family:inherit;cursor:pointer}
   border:1px dashed var(--trait);background:transparent;color:var(--texte-3);
   font:600 12px/1 inherit;font-family:inherit}
 
+/* ── LES MENUS DE DÉVIATION (§5 bis) ───────────────────────────────────────
+   Le « ⋯ » du bloc, et celui de chaque branche d'un superset. Cible de 34 px :
+   c'est un bouton qu'on vise une barre à la main, pas un ornement. */
+.tete-haut{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--e2)}
+.tete-haut .superset-t{padding-bottom:0;flex:1;min-width:0}
+.legende-haut{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--e2)}
+.legende-haut .exo-seance{flex:1;min-width:0}
+.menu-pts{flex:0 0 auto;width:34px;height:26px;margin:-4px -6px 0 0;
+  border:none;background:transparent;color:var(--texte-3);
+  font:700 16px/1 inherit;font-family:inherit;border-radius:var(--r-petit)}
+
+/* Le mode SÉLECTION du §5.7 : les autres blocs s'allument et deviennent
+   tapables. La source reste visible, en retrait — on doit savoir d'où l'on
+   part autant que vers quoi l'on va. */
+.bloc-seance.cible-groupe{outline:2px dashed var(--accent);outline-offset:-2px}
+.bloc-seance.source-groupe{opacity:.55}
+
+/* ── LE MODE MODIFIER (§5.3) ───────────────────────────────────────────────
+   Une ligne par bloc : la cible mesure pareil qu'un bloc superset ou qu'un
+   exercice seul, ce qui est tout l'argument du mode. */
+.bloc-seance.replie{padding:var(--e3)}
+.replie-haut{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--e2)}
+.replie-noms{flex:1;min-width:0}
+.replie-nom{display:flex;align-items:baseline;gap:7px;font-size:13.5px;
+  font-weight:600;line-height:1.35;overflow-wrap:anywhere}
+.replie-gestes{display:flex;gap:4px;flex:0 0 auto}
+.replie-avancement{font-size:11.5px;color:var(--texte-3);margin-top:6px}
+
 /* ── LE SUPERSET (§2.3) ────────────────────────────────────────────────────
    Le liseré est celui du détail de séance, repris tel quel : la même chose se
    reconnaît au même signe d'un écran à l'autre. */
@@ -732,6 +775,11 @@ button{font-family:inherit;cursor:pointer}
   color:var(--texte);font:500 14px/1 inherit;font-family:inherit}
 .feuille-menu button.sel{color:var(--texte);font-weight:700}
 .feuille-menu button.danger,.danger{color:var(--manque)}
+/* Une entrée de menu INERTE se voit comme telle : « Voir la progression »
+   attend la page d'exercice (§7 quater), et un bouton qui ne répond pas sans le
+   dire vaut moins qu'un bouton absent. */
+.feuille-menu button.inerte{opacity:.38}
+.discret.sel{border-color:var(--texte-2);color:var(--texte);background:var(--panneau-2)}
 
 .feuille-aide{font-size:11px;line-height:1.4;color:var(--texte-3);
   padding-bottom:var(--e2)}

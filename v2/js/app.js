@@ -571,10 +571,18 @@
     }
     if (op.table === Attente.SESSIONS) return Donnees.enregistrerSeance(op.donnees);
     if (op.table === Attente.SETS) return Donnees.remplacerSeries(op.id, op.donnees || []);
-    // La ligne de routine existe déjà : on ne touche QUE les champs qui ont
-    // dévié (§6.3), jamais la ligne entière — un upsert y écraserait le rang et
-    // le nombre de séries avec l'état de la séance.
-    if (op.table === Attente.ROUTINE_EXOS) return Donnees.majExercice(op.id, op.donnees || {});
+    // §6 — l'intention porte l'ÉTAT VOULU de la routine, pas un chemin pour y
+    // aller : le plan d'écritures se calcule à la vidange, contre ce que la
+    // routine est devenue entre-temps. C'est de là que vient l'idempotence.
+    if (op.table === Attente.ROUTINE_EXOS && op.op === Attente.PLAN) {
+      return appliquerReportRoutine(op.id, op.donnees);
+    }
+    // ⚠️ UNE RÉPONSE DU CHANTIER 26 ENCORE EN FILE. Son intention visait UNE
+    // ligne et portait des champs ; la nouvelle vise la routine et porte un
+    // état. Sans cette porte, une file écrite avant la mise à jour serait
+    // vidée sans rien écrire — exactement la perte silencieuse que la file
+    // existe pour empêcher.
+    if (op.table === Attente.ROUTINE_EXOS) return Donnees.majExercice(op.id, op.donnees);
     return Promise.resolve();
   }
 
@@ -629,14 +637,14 @@
     }
   }
 
-  async function terminerSeance(ecarts) {
+  async function terminerSeance(verdict) {
     seance = Seance.terminer(seance, new Date());
     await sauverSeance();
     await poserSeries();
     await poserSeance(false);
     // §6 — le report sur la routine, seulement s'il a été demandé, et APRÈS la
     // séance : la séance ne dépend pas de lui, et l'ordre de la file le dit.
-    if (majRoutineVoulue) await reporterSurRoutine(ecarts);
+    if (majRoutineVoulue) await reporterSurRoutine(verdict);
     majRoutineVoulue = false;
     var finie = seance;
     // La séance rejoint la liste TOUT DE SUITE, sans attendre le réseau : hors
@@ -977,13 +985,26 @@
       titre: seance.titre || 'Séance',
       debut: seance.debut,
       compte: c,
+      modifier: modeModifier,
+      selection: selectionGroupe,
+      surModifier: function () { modeModifier = !modeModifier; rendreSeance(); },
+      surAnnulerSelection: function () { selectionGroupe = null; rendreSeance(); },
       surTerminer: function () { confirmerFin(); }
     });
+    var blocs = Modele.blocsDeSeance(seance, local.exercices);
     Rendu.rendreBlocsSeance($('blocs-seance'), seance, {
       // ⚠️ LES BLOCS VIENNENT DE LA MÊME FONCTION QUE LE DÉTAIL DE SÉANCE
       // (§2.1) : un exercice seul est un bloc d'un seul, un superset un bloc
       // de 2 à 6, et l'entrelacement A1/B1/A2/B2 en sort tout fait.
-      blocs: Modele.blocsDeSeance(seance, local.exercices),
+      blocs: blocs,
+      // §5.3 — le mode Modifier replie tout sur une ligne par bloc.
+      modifier: modeModifier,
+      // §5.7 — le bloc en attente d'un partenaire de superset, s'il y en a un.
+      selection: selectionGroupe,
+      surGrouper: function (a, b) { grouperBlocs(blocs, a, b); },
+      surDeplacerBloc: function (i, d) { deplacerBloc(blocs, i, d); },
+      surMenuBloc: function (i) { ouvrirFeuilleBloc('bloc', i, null); },
+      surMenuExercice: function (i, iExo) { ouvrirFeuilleBloc('exercice', i, iExo); },
       // §2.7 — le tour atteint, marque MONOTONE portée par la séance.
       tourAtteint: function (groupe) { return Seance.tourAtteint(seance, groupe); },
       // La fiche du catalogue, d'où la vue tire la MESURE — donc le gabarit de
@@ -1017,6 +1038,146 @@
 
   function defObjet(cle, valeur) { var o = {}; o[cle] = valeur; return o; }
 
+  // ══ LA DÉVIATION (§5) ════════════════════════════════════════════════════
+  //
+  // Tout se décide dans `THSeance`, module pur ; ici on ne fait que traduire
+  // « ce bloc » en indices d'exercices, et reposer la séance après coup.
+  //
+  // ⚠️ CHAQUE GESTE DE STRUCTURE RENUMÉROTE LES GROUPES, ce qui efface les
+  // marques de tour (`normaliserGroupes`). On les re-sème aussitôt depuis l'état
+  // courant : le repère se reconstruit sans que l'écran clignote.
+  var modeModifier = false;
+  var selectionGroupe = null;
+
+  function indicesDe(bloc) {
+    return (bloc.exercices || []).map(function (x) { return x._iExo; })
+      .filter(function (i) { return i !== null && i !== undefined; });
+  }
+
+  function apresStructure() {
+    seance = Seance.avancerTours(seance,
+      Modele.toursFaitsParGroupe(Modele.blocsDeSeance(seance, local.exercices)));
+    return apresGeste();
+  }
+
+  // §5.5 — Déplacer agit sur le BLOC entier. Sans glissement tactile : deux
+  // poignées à 360 px se confondent au pouce (§5.3), et le geste de glissement
+  // est déjà pris par la suppression d'une série.
+  function deplacerBloc(blocs, iBloc, delta) {
+    var cible = iBloc + delta;
+    if (cible < 0 || cible >= blocs.length) return;
+    var indices = indicesDe(blocs[iBloc]);
+    var voisins = indicesDe(blocs[cible]);
+    // Vers le bas : on se pose APRÈS le voisin. Vers le haut : AVANT lui.
+    var ou = delta > 0 ? voisins[voisins.length - 1] + 1 : voisins[0];
+    seance = Seance.deplacerVers(seance, indices, ou);
+    apresStructure();
+  }
+
+  function grouperBlocs(blocs, iA, iB) {
+    selectionGroupe = null;
+    if (!blocs[iA] || !blocs[iB]) return rendreSeance();
+    seance = Seance.grouperBlocs(seance, indicesDe(blocs[iA]), indicesDe(blocs[iB]));
+    apresStructure();
+  }
+
+  // ── Les feuilles de déviation (§5.5, §5.6) ──────────────────────────────
+  //
+  // Le menu du BLOC agit sur le bloc ; celui d'un EXERCICE sur l'exercice. Les
+  // deux passent ici, parce que les deux finissent par le même travail : une
+  // liste d'indices, un geste de `THSeance`, et la séance reposée.
+  function rendreFeuilleDeviation(cible, index) {
+    var blocs = Modele.blocsDeSeance(seance, local.exercices);
+    // ⚠️ TOUT CE QUI VIENT DE `feuille` EST PRIS MAINTENANT. `fermerVoile()`
+    // rappelle le `apres` de la feuille, qui remet `feuille` à null : un
+    // gestionnaire qui lirait `feuille.iBloc` APRÈS avoir fermé lirait null.
+    // Le geste ne partait pas, et la feuille se fermait quand même — rien à
+    // l'écran ne disait que rien ne s'était passé. Trouvé au banc d'écran.
+    var iBloc = feuille.iBloc, cibleExo = feuille.cibleExo, validees = feuille.validees;
+    var quoiFeuille = feuille.quoi;
+    var bloc = blocs[iBloc];
+    if (!bloc) return fermerVoile();
+    var noms = bloc.exercices.map(function (x) { return x.nom; }).join(' · ');
+
+    if (quoiFeuille === 'supprimer') {
+      return Rendu.rendreFeuilleSupprimer(cible, {
+        quoi: cibleExo === null ? (bloc.superset ? 'le bloc' : 'l’exercice') : 'l’exercice',
+        noms: cibleExo === null ? noms
+          : Modele.nommer(index, seance.exercices[cibleExo].exercise_slug),
+        validees: validees,
+        surConfirmer: function () {
+          var quoi = cibleExo === null ? indicesDe(bloc) : [cibleExo];
+          fermerVoile();
+          seance = Seance.retirerExercices(seance, quoi);
+          apresStructure();
+        },
+        surAnnuler: fermerVoile
+      });
+    }
+
+    if (quoiFeuille === 'exercice') {
+      return Rendu.rendreFeuilleExercice(cible, {
+        nom: Modele.nommer(index, seance.exercices[cibleExo].exercise_slug),
+        surRemplacer: function () { demanderRemplacement(cibleExo); },
+        surDegrouper: function () {
+          var indices = indicesDe(bloc);
+          fermerVoile();
+          seance = Seance.degrouperExercice(seance, cibleExo, indices);
+          apresStructure();
+        },
+        surSupprimer: function () { demanderSuppression(iBloc, cibleExo); }
+      });
+    }
+
+    return Rendu.rendreFeuilleBloc(cible, {
+      superset: bloc.superset,
+      noms: noms,
+      peutGrouper: blocs.length > 1,
+      peutMonter: iBloc > 0,
+      peutDescendre: iBloc < blocs.length - 1,
+      surRemplacer: function () { demanderRemplacement(indicesDe(bloc)[0]); },
+      surGrouper: function () {
+        // §5.7 — on passe en SÉLECTION : les autres blocs s'allument et
+        // deviennent tapables. Un tap de plus, aucune ambiguïté, et ça marche
+        // à n'importe quelle distance dans la liste.
+        selectionGroupe = iBloc;
+        fermerVoile();
+      },
+      surAjouterApres: function () {
+        var apres = indicesDe(bloc);
+        fermerVoile();
+        ouvrirCatalogue(apres[apres.length - 1] + 1);
+      },
+      surMonter: function () { fermerVoile(); deplacerBloc(blocs, iBloc, -1); },
+      surDescendre: function () { fermerVoile(); deplacerBloc(blocs, iBloc, 1); },
+      surSupprimer: function () { demanderSuppression(iBloc, null); }
+    });
+  }
+
+  // ⚠️ RIEN DE DESTRUCTIF EN SILENCE, ET RIEN DE BAVARD NON PLUS. On confirme
+  // quand il y a du travail à perdre — des séries VALIDÉES — et seulement
+  // alors : une question posée sur un bloc vide serait le bruit qu'on tape sans
+  // lire (§6.2).
+  function demanderSuppression(iBloc, cibleExo) {
+    var blocs = Modele.blocsDeSeance(seance, local.exercices);
+    var bloc = blocs[iBloc];
+    if (!bloc) return fermerVoile();
+    var quoi = cibleExo === null ? indicesDe(bloc) : [cibleExo];
+    var validees = Seance.compterValidees(seance, quoi);
+    if (!validees) {
+      fermerVoile();
+      seance = Seance.retirerExercices(seance, quoi);
+      return apresStructure();
+    }
+    feuille = { quoi: 'supprimer', iBloc: iBloc, cibleExo: cibleExo, validees: validees };
+    rendreFeuille();
+  }
+
+  function demanderRemplacement(iExo) {
+    fermerVoile();
+    ouvrirCatalogue(null, iExo);
+  }
+
   // ── Les feuilles ────────────────────────────────────────────────────────
   //
   // La fermeture REDESSINE la séance : la note et le repos vivent sur la tête
@@ -1031,11 +1192,25 @@
     });
   }
 
+  // Les menus de déviation visent un BLOC, et parfois une de ses branches. Ils
+  // ne parlent donc pas le même langage d'indices que les feuilles de série —
+  // d'où une porte à part, plutôt qu'un troisième sens donné à `iExo`.
+  function ouvrirFeuilleBloc(quoi, iBloc, cibleExo) {
+    feuille = { quoi: quoi, iBloc: iBloc, cibleExo: cibleExo === undefined ? null : cibleExo };
+    rendreFeuille();
+    ouvrirVoile($('feuille-seance'), function () {
+      feuille = null;
+      if (seance) rendreSeance();
+    });
+  }
+
   function rendreFeuille() {
     if (!feuille || !seance) return;
     var cible = $('feuille-contenu');
     var index = Modele.indexerExercices(local.exercices);
     if (feuille.quoi === 'fin') return rendreFeuilleFin(cible, index);
+    if (feuille.quoi === 'bloc' || feuille.quoi === 'exercice' ||
+        feuille.quoi === 'supprimer') return rendreFeuilleDeviation(cible, index);
 
     var exo = seance.exercices[feuille.iExo];
     if (!exo) return;
@@ -1139,7 +1314,7 @@
     // §6.2 — on ne demande QUE si la séance a réellement dévié. Une séance
     // conforme n'ouvre aucune question, sinon la question devient un bruit
     // qu'on tape sans lire.
-    var ecarts = Seance.ecartsRoutine(seance, routine);
+    var verdict = Seance.ecartsRoutine(seance, routine);
     Rendu.rendreFeuilleFin(cible, {
       compte: Seance.compter(seance),
       titre: seance.titre,
@@ -1147,15 +1322,10 @@
       salle: seance.salle,
       salleMax: Seance.SALLE_MAX,
       routine: routine ? routine.nom : '',
-      ecarts: ecarts.map(function (e) {
-        return {
-          nom: Modele.nommer(index, e.exercise_slug),
-          repos_change: 'repos_cible_s' in e.champs,
-          repos_avant: e.repos_avant,
-          repos_apres: e.champs.repos_cible_s,
-          note_change: 'note' in e.champs,
-          note_apres: e.champs.note
-        };
+      ecarts: verdict.ecarts.map(function (e) {
+        return Object.assign({}, e, {
+          nom: e.exercise_slug ? Modele.nommer(index, e.exercise_slug) : ''
+        });
       }),
       majRoutine: majRoutineVoulue,
       surMajRoutine: function (v) { majRoutineVoulue = v; rendreFeuille(); },
@@ -1165,7 +1335,7 @@
       surTitre: function (v) { seance = Seance.decrire(seance, { titre: v }); sauverSeance(); },
       surSalle: function (v) { seance = Seance.decrire(seance, { salle: v }); sauverSeance(); },
       surNoteSeance: function (v) { seance = Seance.decrire(seance, { note: v }); sauverSeance(); },
-      surTerminer: async function () { fermerVoile(); await terminerSeance(ecarts); },
+      surTerminer: async function () { fermerVoile(); await terminerSeance(verdict); },
       surAbandonner: async function () { fermerVoile(); await abandonnerSeance(); }
     });
   }
@@ -1174,22 +1344,46 @@
   // jamais le nombre de séries fait ce jour-là. Par la FILE : la question se
   // pose en salle, là où le réseau n'est pas, et une réponse perdue parce que
   // la requête a échoué serait la perte silencieuse qu'on s'interdit.
-  async function reporterSurRoutine(ecarts) {
-    var liste = ecarts || [];
+  async function reporterSurRoutine(verdict) {
     var routine = routineDeLaSeance();
-    for (var i = 0; i < liste.length; i++) {
-      await poser({
-        table: Attente.ROUTINE_EXOS, op: Attente.MAJ,
-        id: liste[i].id, donnees: liste[i].champs
-      });
-    }
-    // La bibliothèque en mémoire suit tout de suite : rouvrir la routine juste
-    // après ne doit pas montrer la valeur d'avant.
-    if (!routine) return;
-    routine.exercices = routine.exercices.map(function (e) {
-      var m = liste.filter(function (x) { return x.id === e.id; })[0];
-      return m ? Object.assign({}, e, m.champs) : e;
+    if (!routine || !verdict || !verdict.voulues.length) return;
+
+    // ⚠️ CHAQUE LIGNE NEUVE PART AVEC SON IDENTIFIANT, FABRIQUÉ ICI.
+    // `routine_exercises.id` a `gen_random_uuid()` en défaut : l'app peut donc
+    // choisir le sien, et c'est ce qui rend le report IDEMPOTENT. Sans ça, une
+    // vidange rejouée — réseau qui lâche, app relancée — réinsérerait une
+    // seconde fois chaque exercice ajouté.
+    var voulues = verdict.voulues.map(function (v) {
+      return v.id ? v : Object.assign({}, v, { id: uuid() });
     });
+
+    await poser({
+      table: Attente.ROUTINE_EXOS, op: Attente.PLAN,
+      id: routine.id, donnees: { voulues: voulues }
+    });
+
+    // La bibliothèque en mémoire suit tout de suite : rouvrir la routine juste
+    // après ne doit pas montrer la structure d'avant.
+    routine.exercices = voulues.map(function (v, rang) {
+      return Object.assign({}, v, { routine_id: routine.id, rang: rang });
+    });
+  }
+
+  // ⚠️ LE PLAN SE CALCULE À LA VIDANGE, PAS À LA POSE. L'intention dit l'ÉTAT
+  // VOULU ; le chemin pour y arriver dépend de ce que la routine est devenue
+  // entre-temps — modifiée sur un autre appareil, ou déjà à jour parce que
+  // cette même vidange a déjà tourné. Recalculé sur place, il est vide au
+  // second passage : c'est là qu'est l'idempotence.
+  async function appliquerReportRoutine(routineId, donnees) {
+    var brutes = await Donnees.mesRoutines();
+    var r = brutes.filter(function (x) { return x.id === routineId; })[0];
+    // Routine archivée ou supprimée entre-temps : il n'y a plus rien à mettre à
+    // jour, et l'intention a fait son temps. On ne la rejoue pas indéfiniment.
+    if (!r) return;
+    var existantes = (r.routine_exercises || []).slice()
+      .sort(function (a, b) { return (a.rang || 0) - (b.rang || 0); });
+    var plan = Routines.planEcritures(existantes, (donnees && donnees.voulues) || [], routineId);
+    await Routines.appliquerPlan(plan, Donnees);
   }
 
   // ── Saisie : la bibliothèque de routines ─────────────────────────────────
@@ -1282,10 +1476,17 @@
       // Copie : on édite le brouillon, jamais la routine chargée. Sans ça, un
       // enregistrement raté laisserait la liste montrant des valeurs qui ne
       // sont pas en base.
+      // ⚠️ LE BROUILLON TRANSPORTE TOUT CE QUE LA LISTE BLANCHE ÉCRIT.
+      // `groupe_superset` et `note` sont entrés dans `CHAMPS_EXERCICE` au
+      // chantier 28 : les oublier ici les ferait partir à `null` au premier
+      // enregistrement, c'est-à-dire effacer le superset et la note en voulant
+      // seulement renommer la routine.
       exercices: routine.exercices.map(function (e) {
         return {
           id: e.id, exercise_slug: e.exercise_slug, series: e.series,
-          reps_visees: e.reps_visees, repos_cible_s: e.repos_cible_s
+          reps_visees: e.reps_visees, repos_cible_s: e.repos_cible_s,
+          groupe_superset: e.groupe_superset === undefined ? null : e.groupe_superset,
+          note: e.note === undefined ? null : e.note
         };
       }),
       existantes: routine.exercices.slice()
@@ -1330,15 +1531,33 @@
         },
         surMonter: function (i) { echanger(i, i - 1); },
         surDescendre: function (i) { echanger(i, i + 1); },
-        surRetirer: function (i) { brouillon.exercices.splice(i, 1); rendreEditeur(); }
+        surRetirer: function (i) {
+          brouillon.exercices.splice(i, 1);
+          renumeroterBrouillon();
+        },
+        // Le lien avec le voisin du dessous : c'est lui, et lui seul, qui fait
+        // un superset dans une liste (§2.3 — un bloc est une suite contiguë).
+        surLien: function (i) {
+          brouillon.exercices = Routines.basculerLien(brouillon.exercices, i);
+          rendreEditeur();
+        }
       });
+  }
+
+  // ⚠️ DÉPLACER RELIT LES LIENS DE LA NOUVELLE ADJACENCE. Sortir un exercice
+  // d'un superset le dégroupe ; en glisser un au milieu le coupe en deux. Les
+  // deux se voient tout de suite — le lien est dessiné entre les cartes, à
+  // l'endroit exact où il vient de céder.
+  function renumeroterBrouillon() {
+    brouillon.exercices = Routines.renumeroter(brouillon.exercices);
+    rendreEditeur();
   }
 
   function echanger(i, j) {
     var liste = brouillon.exercices;
     if (i < 0 || j < 0 || i >= liste.length || j >= liste.length) return;
     var tmp = liste[i]; liste[i] = liste[j]; liste[j] = tmp;
-    rendreEditeur();
+    renumeroterBrouillon();
   }
 
   async function enregistrerBrouillon() {
@@ -1411,7 +1630,16 @@
   // Il vit dans le cache local (237 entrées, synchronisées avec le reste) :
   // chercher un exercice marche donc HORS LIGNE, contrairement à
   // l'enregistrement. C'est la moitié du problème que le cache résout déjà.
-  function ouvrirCatalogue() {
+  // Le catalogue sert trois intentions, et c'est lui qui les distingue :
+  // ajouter en fin de séance (rien), insérer APRÈS un bloc (`apres`), ou
+  // REMPLACER un exercice (`remplace`).
+  var intentionCatalogue = { apres: null, remplace: null };
+
+  function ouvrirCatalogue(apres, remplace) {
+    intentionCatalogue = {
+      apres: apres === undefined ? null : apres,
+      remplace: remplace === undefined ? null : remplace
+    };
     $('champ-recherche-exo').value = '';
     rendreCatalogue();
     ouvrirVoile($('catalogue'));
@@ -1433,6 +1661,16 @@
       function (exo) {
         fermerVoile();
         if (pourSeance) {
+          if (intentionCatalogue.remplace !== null) {
+            // §5.2 — remplacer, c'est ajouter puis sauter en gardant la place.
+            seance = Seance.remplacerExercice(seance, intentionCatalogue.remplace,
+              exo.slug, uuid);
+            return apresStructure();
+          }
+          if (intentionCatalogue.apres !== null) {
+            seance = Seance.insererExercice(seance, intentionCatalogue.apres, exo.slug, uuid);
+            return apresStructure();
+          }
           seance = Seance.ajouterExercice(seance, exo.slug, uuid());
           return apresGeste({ structure: false });
         }
@@ -1441,7 +1679,8 @@
           series: Routines.SERIES_DEFAUT,
           // Ni reps ni repos par défaut : une valeur inventée se lirait comme
           // une prescription, et serait pire qu'une absence.
-          reps_visees: null, repos_cible_s: null
+          reps_visees: null, repos_cible_s: null,
+          groupe_superset: null, note: null
         });
         rendreEditeur();
       });

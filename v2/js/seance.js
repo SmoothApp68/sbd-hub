@@ -77,7 +77,12 @@
   // idempotent : la même séance envoyée deux fois écrase la même ligne.
   function creer(options) {
     var o = options || {};
-    return {
+    // ⚠️ NORMALISÉE À LA CRÉATION (§7 decies). Une routine peut porter un
+    // `groupe_superset` à UN seul exercice — 13 blocs dans cet état ont été
+    // trouvés en base et nettoyés par `v2_041`. Sans ce passage, la séance le
+    // recopierait, puis `lignes()` le réécrirait dans `sets` : l'état interdit
+    // se recréerait tout seul, depuis une routine ancienne.
+    return normaliserGroupes({
       id: o.id,
       user_id: o.userId || null,
       debut: o.debut || new Date().toISOString(),
@@ -89,7 +94,7 @@
       exercices: ((o.routine && o.routine.exercices) || []).map(function (e) {
         return exerciceDepuisRoutine(e, o.idSerie);
       })
-    };
+    });
   }
 
   // ⚠️ `routine_exercise_id` est la SEULE jointure fiable vers la ligne de
@@ -115,6 +120,113 @@
       groupe_superset: e.groupe_superset === undefined ? null : e.groupe_superset,
       series: series
     };
+  }
+
+  // ══ LES GESTES SUR UNE SÉANCE TERMINÉE (§7 octies) ═══════════════════════
+  //
+  // ⚠️ LES DEUX PARTENT DES *BLOCS*, PAS DES LIGNES BRUTES. Recomposer des
+  // exercices depuis `sets` demande de savoir où un bloc commence et quelles
+  // lignes appartiennent à quelle branche — c'est exactement le travail de
+  // `THModele.construireBlocs`, qui rend déjà le détail. En écrire une seconde
+  // version ici, c'est deux découpages à tenir d'accord : l'appelant passe les
+  // blocs, comme il passe déjà les tours faits à `avancerTours`.
+
+  function exercicesDepuisBlocs(blocs, options) {
+    var o = options || {};
+    return (blocs || []).reduce(function (acc, bloc) {
+      bloc.exercices.forEach(function (exo) {
+        // La note d'exercice est PROJETÉE sur chaque série à l'écriture
+        // (`noteDeSerie`). Au retour, une note partagée par toutes les lignes
+        // est donc la note de l'exercice ; sinon elle appartient aux lignes.
+        var notes = exo.series.map(function (s) { return texteOuNul(s.note); });
+        var commune = notes.length && notes.every(function (n) { return n === notes[0]; })
+          ? notes[0] : null;
+        acc.push({
+          exercise_slug: exo.slug,
+          // `sets` ne porte pas la ligne de routine : une séance reprise ou
+          // refaite n'en dépend plus, et c'est juste — elle a pu diverger.
+          routine_exercise_id: null,
+          reps_visees: null,
+          repos_cible_s: null,
+          note: commune,
+          // §7 decies — le numéro est recopié tel quel, et c'est
+          // `normaliserGroupes` (en sortie des deux fonctions ci-dessous) qui
+          // dissout les groupes à un seul exercice. ⚠️ Un `bloc.superset ? … :
+          // null` a été écrit ici puis RETIRÉ : la campagne de mutation l'a
+          // montré strictement équivalent — une seconde garde devant celle qui
+          // fait le travail ne protège de rien et laisse croire l'inverse.
+          groupe_superset: bloc.groupe === undefined ? null : bloc.groupe,
+          series: exo.series.map(function (ligne) {
+            // Refaire reprend la STRUCTURE et les notes, jamais les charges :
+            // le moteur décide des charges (§1, §7 septies.1).
+            if (o.vider) {
+              var vide = serieVide(o.idSerie);
+              vide.type_serie = ligne.type_serie || 'travail';
+              return vide;
+            }
+            return {
+              id: ligne.id,
+              type_serie: ligne.type_serie || 'travail',
+              charge_kg: ligne.charge_kg === undefined ? null : ligne.charge_kg,
+              reps: ligne.reps === undefined ? null : ligne.reps,
+              duree_s: ligne.duree_s === undefined ? null : ligne.duree_s,
+              distance_m: ligne.distance_m === undefined ? null : ligne.distance_m,
+              rpe: ligne.rpe === undefined ? null : ligne.rpe,
+              ressenti: ligne.ressenti === undefined ? null : ligne.ressenti,
+              note: commune === null ? texteOuNul(ligne.note) : null,
+              validee_a: ligne.validee_a || null,
+              repos_s: ligne.repos_s === undefined ? null : ligne.repos_s
+            };
+          })
+        });
+      });
+      return acc;
+    }, []);
+  }
+
+  // ROUVRIR une séance terminée pour la corriger (§7 octies.2).
+  //
+  // ⚠️ ELLE RESTE `terminee`, ET SA FIN NE BOUGE PAS. La repasser `en_cours`
+  // la ferait sortir des totaux et du relevé pendant l'édition (§7 quinquies,
+  // filtre du chantier 23) : les chiffres de la semaine changeraient sous les
+  // yeux, et une app tuée au milieu laisserait la séance invisible dans
+  // l'historique jusqu'à ce qu'on pense à la rouvrir. Corriger une séance ne
+  // doit pas la faire disparaître.
+  function reprendre(session, blocs) {
+    if (!session) return null;
+    return normaliserGroupes({
+      id: session.id,
+      user_id: session.user_id || null,
+      debut: session.debut,
+      fin: session.fin || null,
+      titre: session.titre || null,
+      routine_id: session.routine_id || null,
+      salle: session.salle || null,
+      note: session.note || null,
+      statut: session.statut || TERMINEE,
+      exercices: exercicesDepuisBlocs(blocs)
+    });
+  }
+
+  // REFAIRE une séance (§7 octies.3) — ce n'est pas une copie dans l'historique,
+  // c'est un DÉMARRAGE : une troisième entrée vers la saisie, à côté de la
+  // routine et de la séance vide. La structure et les notes reviennent, aucune
+  // charge ne revient.
+  function refaire(options) {
+    var o = options || {};
+    return normaliserGroupes({
+      id: o.id,
+      user_id: o.userId || null,
+      debut: o.debut || new Date().toISOString(),
+      fin: null,
+      titre: o.titre || null,
+      // La routine d'origine n'est PAS reprise : refaire une séance, ce n'est
+      // pas dérouler la routine, et la question de fin (§6) n'aurait rien de
+      // sensé à comparer.
+      routine_id: null,
+      statut: EN_COURS,
+      exercices: exercicesDepuisBlocs(o.blocs, { vider: true, idSerie: o.idSerie })
+    });
   }
 
   function serieVide(idSerie) {
@@ -955,6 +1067,8 @@
     avancerTours: avancerTours,
     tourAtteint: tourAtteint,
     normaliserGroupes: normaliserGroupes,
+    reprendre: reprendre,
+    refaire: refaire,
     deplacerVers: deplacerVers,
     grouperBlocs: grouperBlocs,
     degrouperExercice: degrouperExercice,

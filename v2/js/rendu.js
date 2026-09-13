@@ -150,7 +150,7 @@
     return section;
   }
 
-  function rendreDetail(cible, seance, blocs) {
+  function rendreDetail(cible, seance, blocs, vue) {
     vider(cible);
     var tete = el('div', 'detail-tete');
     tete.appendChild(el('h2', null, (seance && seance.titre) || 'Séance'));
@@ -166,9 +166,48 @@
 
     if (!blocs.length) {
       cible.appendChild(el('p', 'vide', 'Aucune série sur cette séance.'));
-      return;
+    } else {
+      blocs.forEach(function (b) { cible.appendChild(rendreBloc(b)); });
     }
-    blocs.forEach(function (b) { cible.appendChild(rendreBloc(b)); });
+
+    // §7 octies — les gestes sur une séance. Aucun n'existait : deux séances
+    // ont dû être supprimées directement en base le 13/09 faute de bouton.
+    // « Partager » n'est pas là : c'est du social, et il vient en dernier.
+    if (vue && vue.surSupprimer) {
+      var gestes = el('div', 'detail-gestes');
+      var refaire = el('button', 'discret', 'Refaire cette séance');
+      refaire.type = 'button';
+      refaire.addEventListener('click', vue.surRefaire);
+      gestes.appendChild(refaire);
+
+      var modifier = el('button', 'discret', 'Modifier');
+      modifier.type = 'button';
+      modifier.addEventListener('click', vue.surModifier);
+      gestes.appendChild(modifier);
+
+      var sup = el('button', 'discret danger', 'Supprimer');
+      sup.type = 'button';
+      sup.addEventListener('click', vue.surSupprimer);
+      gestes.appendChild(sup);
+      cible.appendChild(gestes);
+    }
+  }
+
+  // ⚠️ UNE CONFIRMATION GÉNÉRIQUE, pour ce qui ne se rattrape pas. Celle des
+  // blocs (`rendreFeuilleSupprimer`) parle d'exercices et compte des séries ;
+  // celle-ci ne suppose rien de ce qu'elle efface.
+  function rendreFeuilleConfirmer(cible, vue) {
+    vider(cible);
+    var t = el('div', 'feuille-t', vue.titre);
+    if (vue.sujet) t.appendChild(el('em', '', vue.sujet));
+    cible.appendChild(t);
+    if (vue.aide) cible.appendChild(el('p', 'feuille-aide', vue.aide));
+    var menu = el('div', 'feuille-menu');
+    entreeMenu(menu, vue.libelle || 'Confirmer',
+      { classe: vue.danger ? 'danger' : '', surClic: vue.surConfirmer });
+    entreeMenu(menu, 'Annuler', { surClic: vue.surAnnuler });
+    cible.appendChild(menu);
+    return cible;
   }
 
   // Indicateur discret : il dit d'où viennent les données, il n'alarme pas et
@@ -786,8 +825,11 @@
     var debut = vue.debut ? new Date(vue.debut) : null;
     var minutes = debut && !isNaN(debut.getTime())
       ? Math.max(0, Math.round((Date.now() - debut.getTime()) / 60000)) : 0;
-    t.appendChild(el('div', 'bandeau-ch num',
-      minutes + ' min · ' + vue.compte.validees + ' série' + (vue.compte.validees > 1 ? 's' : '')));
+    // §7 octies.2 — en modification, le temps écoulé n'a plus de sens : la
+    // séance date d'avant-hier, et « 3 240 min » ne dirait rien à personne.
+    t.appendChild(el('div', 'bandeau-ch num', vue.edition
+      ? 'Modification · ' + vue.compte.validees + ' série' + (vue.compte.validees > 1 ? 's' : '')
+      : minutes + ' min · ' + vue.compte.validees + ' série' + (vue.compte.validees > 1 ? 's' : '')));
     cible.appendChild(t);
 
     // §5.3 — Modifier replie la séance sur une ligne par bloc. Il ne remplace
@@ -800,7 +842,7 @@
     m.addEventListener('click', vue.surModifier);
     cible.appendChild(m);
 
-    var b = el('button', 'discret bandeau-fin', 'Terminer');
+    var b = el('button', 'discret bandeau-fin', vue.edition ? 'Enregistrer' : 'Terminer');
     b.type = 'button';
     b.addEventListener('click', vue.surTerminer);
     cible.appendChild(b);
@@ -1953,6 +1995,7 @@
     rendreFeuilleSerie: rendreFeuilleSerie,
     rendreFeuilleNote: rendreFeuilleNote,
     rendreFeuilleRepos: rendreFeuilleRepos,
+    rendreFeuilleConfirmer: rendreFeuilleConfirmer,
     rendreFeuilleBloc: rendreFeuilleBloc,
     rendreFeuilleExercice: rendreFeuilleExercice,
     rendreFeuilleSupprimer: rendreFeuilleSupprimer,

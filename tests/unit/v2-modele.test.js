@@ -115,8 +115,13 @@ describe('tours incomplets — rien de fantôme', () => {
 });
 
 // ── 4. Échauffement ─────────────────────────────────────────────────────────
-describe('échauffement — lettre de son exercice, placé avant sa 1re série de travail', () => {
-  test('§2.5 — la chauffe de C se pose entre B1 et C1', () => {
+describe('échauffement — lettre de son exercice, tour de chauffe avant le travail', () => {
+  // ⚠️ TEST RETOURNÉ LE 13/09 — §2.5 CORRIGÉ APRÈS ESSAI SUR DEVICE.
+  //
+  // « La chauffe de C se pose entre B1 et C1 » avait été écrit en pensant à un
+  // exercice isolé. Dans un superset, cette règle DISPERSE les chauffes et fait
+  // quitter une machine pour y revenir. Elles forment leurs propres tours.
+  test('§2.5 — dans un superset, la chauffe de C ouvre le bloc, pas le tour 1', () => {
     const blocs = Modele.construireBlocs([
       saisie({ rang: 1, exercise_slug: 'el', groupe_superset: 1 }),
       saisie({ rang: 2, exercise_slug: 'el', groupe_superset: 1 }),
@@ -128,7 +133,57 @@ describe('échauffement — lettre de son exercice, placé avant sa 1re série d
     ], CATALOGUE);
 
     expect(etiquettes(blocs[0]))
-      .toEqual(['A1', 'B1', 'C', 'C1', 'A2', 'B2', 'C2']);
+      .toEqual(['C', 'A1', 'B1', 'C1', 'A2', 'B2', 'C2']);
+  });
+
+  // ══ CONFIGURATION DISCRIMINANTE (CADRAGE-V2 §2 quater) ════════════════════
+  //
+  //   UN SUPERSET DONT LES EXERCICES ONT UN NOMBRE INÉGAL DE CHAUFFES.
+  //
+  // Avec une chauffe chacun, « les chauffes forment leurs propres tours » et
+  // « chaque chauffe est collée à son exercice » donnent EXACTEMENT le même
+  // écran : A B C D A1 B1 C1 D1 dans les deux cas. Il faut que A et B en aient
+  // deux et C et D une seule pour que la différence existe — le second tour de
+  // chauffe ne doit alors contenir que A et B.
+  test('chauffes inégales : le 2e tour de chauffe ne contient que ceux qui en ont deux', () => {
+    const lignes = [];
+    let rang = 0;
+    // A : 2 chauffes + 2 travail · B : 2 chauffes + 2 travail
+    // C : 1 chauffe  + 2 travail · D : 1 chauffe  + 2 travail
+    [['el', 2], ['ec', 2], ['dc', 1], ['pd', 1]].forEach(([slug, nChauffes]) => {
+      for (let i = 0; i < nChauffes; i++) {
+        lignes.push(saisie({ rang: ++rang, exercise_slug: slug, groupe_superset: 1,
+                             type_serie: 'echauffement' }));
+      }
+      for (let i = 0; i < 2; i++) {
+        lignes.push(saisie({ rang: ++rang, exercise_slug: slug, groupe_superset: 1 }));
+      }
+    });
+
+    const blocs = Modele.construireBlocs(lignes, CATALOGUE);
+    expect(etiquettes(blocs[0])).toEqual([
+      'A', 'B', 'C', 'D',              // tour de chauffe 1 — les quatre
+      'A', 'B',                        // tour de chauffe 2 — eux seuls
+      'A1', 'B1', 'C1', 'D1',          // tour de travail 1
+      'A2', 'B2', 'C2', 'D2'           // tour de travail 2
+    ]);
+    // Les chauffes n'entrent pas dans le compteur : deux tours, pas quatre.
+    expect(blocs[0].nbTours).toBe(2);
+    expect(blocs[0].nbTravail).toBe(8);
+  });
+
+  test('hors superset, rien ne change : la chauffe reste en tête de son exercice', () => {
+    const blocs = Modele.construireBlocs([
+      saisie({ rang: 1, exercise_slug: 'el', type_serie: 'echauffement' }),
+      saisie({ rang: 2, exercise_slug: 'el' }),
+      saisie({ rang: 3, exercise_slug: 'el' }),
+      saisie({ rang: 4, exercise_slug: 'ec', type_serie: 'echauffement' }),
+      saisie({ rang: 5, exercise_slug: 'ec' })
+    ], CATALOGUE);
+    expect(blocs).toHaveLength(2);
+    expect(blocs[0].superset).toBe(false);
+    expect(etiquettes(blocs[0])).toEqual(['', '1', '2']);
+    expect(etiquettes(blocs[1])).toEqual(['', '1']);
   });
 
   test('la chauffe ne consomme pas de numéro de tour et n’est pas du travail', () => {

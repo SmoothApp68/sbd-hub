@@ -69,6 +69,38 @@ C1. Les échauffements ne sont **jamais** surlignés.
 > comme une série normale** : une chauffe faite doit se voir comme faite. La règle a été
 > appliquée trop largement au chantier 27, sur les blocs simples comme sur les supersets.
 
+> ⚠️ **CORRIGÉ le 13/09/2026 — dans un superset, les chauffes s'entrelacent aussi.**
+>
+> « Juste avant la première série de travail de son exercice » a été écrit en pensant à un
+> exercice isolé, où cela veut dire « en tête ». Dans un superset, cette règle disperse les
+> chauffes et produit, constaté sur device :
+>
+> ```
+> A  A  A1  B  B  B1  C  C1  D1        ← ce que ça donne : faux
+> ```
+>
+> Elle fait quitter une machine puis y revenir — exactement ce qu'un superset cherche à éviter.
+>
+> **Les chauffes forment leurs propres tours, comme le travail :**
+>
+> ```
+> A  B  C  D          ← tour de chauffe 1, les quatre exercices
+> A  B                ← tour de chauffe 2, ceux qui ont deux chauffes
+> A1 B1 C1 D1         ← tour de travail 1
+> A2 B2 C2 D2         ← tour de travail 2
+> ```
+>
+> C'est le geste réel : un premier passage léger sur toutes les machines, puis un second plus
+> lourd sur celles qui en ont besoin.
+>
+> Même mécanique que les tours de travail à séries inégales — un tour de chauffe ne contient
+> que les exercices qui ont une chauffe à ce rang. Rien de nouveau à implémenter.
+>
+> **Les chauffes n'entrent pas dans le compteur de tours.** Le « 2/3 » compte les tours de
+> travail : faire ses quatre chauffes ne met pas à « 1/3 ».
+>
+> **Hors superset, rien ne change** : la règle d'origine donne déjà le bon résultat.
+
 **2.6** — L'éclairage porte sur le tour entier, pas sur une ligne isolée. Dans un
 enchaînement, on ne valide pas A1 avant d'attaquer B1.
 
@@ -1334,6 +1366,32 @@ un rang permanent tant qu'une séance est ouverte). Le second existe déjà dans
 la page d'exercice et ne gênait pas.
 
 Une **pastille sur l'onglet Saisie** l'accompagne dans les deux cas.
+
+---
+
+## 7 decies. Un groupe de superset a toujours au moins deux exercices
+
+> **Règle invariante, posée le 13/09/2026.**
+>
+> Un `groupe_superset` portant un seul exercice est un état **invalide**. Il ne décrit aucune
+> alternance. Il ne doit être **ni créable, ni atteignable par aucun chemin**.
+
+À faire respecter partout : groupement en séance, groupement dans l'éditeur de routine,
+dégroupement, suppression d'un exercice d'un bloc, remplacement.
+
+Le dégroupement **dissout le bloc à deux**. Sortir A d'un superset `A + B` laisserait B seul
+dans son groupe — état interdit. Les deux redeviennent des blocs simples.
+
+Le §5.6 dit « dégrouper agit sur un exercice, jamais sur le bloc » : cela vaut **à partir de
+trois** exercices. À deux, sortir l'un dissout l'autre par nécessité.
+
+Ce n'est pas théorique. **13 blocs dans cet état ont été trouvés en base** et nettoyés par
+`v2_041` — 49 séries, 12 séances, 3 comptes. La règle existe pour ne pas les recréer.
+
+> **Résolu le 13/09 (chantier 29)** : l'éditeur de routine permettait de grouper mais pas de
+> dégrouper. Le lien entre deux cartes est une bascule — il se pose et se retire —, et la
+> liste lue depuis la base est **normalisée à l'ouverture** : un groupe à un seul exercice
+> hérité d'une routine ancienne ne peut plus être réenregistré tel quel.
 
 ---
 

@@ -343,19 +343,23 @@
     });
   }
 
-  // Découpe les séries d'UN exercice (ordre de rang) en paquets : un paquet sort
-  // à un tour. Les deux familles de séries non-travail ne s'accrochent pas du
-  // même côté, et c'est ce qui les place correctement dans un enchaînement :
-  //   · l'échauffement PRÉPARE la série qui suit — il ouvre le paquet suivant,
-  //     donc la chauffe de C se pose entre B1 et C1 (§2.5) ;
-  //   · une dégressive ou un échec PROLONGE la série qui précède — on descend la
-  //     charge sans repos — donc ils restent dans le paquet de cette série, et
-  //     l'on obtient A1, A↓, B1 plutôt que A1, B1, A↓.
+  function estChauffe(s) { return s && s.type_serie === 'echauffement'; }
+
+  // Découpe les séries de travail d'UN exercice (ordre de rang) en paquets : un
+  // paquet sort à un tour.
+  //
+  // Une dégressive ou un échec PROLONGE la série qui précède — on descend la
+  // charge sans repos — donc ils restent dans le paquet de cette série, et l'on
+  // obtient A1, A↓, B1 plutôt que A1, B1, A↓.
+  //
+  // ⚠️ LES CHAUFFES N'ARRIVENT PLUS JUSQU'ICI : elles sont retirées en amont et
+  // forment leurs propres tours (§2.5, corrigé le 13/09). Elles ouvraient
+  // autrefois le paquet suivant, ce qui les dispersait dans un superset.
   function paqueter(seriesExo) {
     var paquets = [];
     var courant = [];
     (seriesExo || []).forEach(function (s) {
-      if (!estTravail(s) && s.type_serie !== 'echauffement' && paquets.length) {
+      if (!estTravail(s) && paquets.length) {
         paquets[paquets.length - 1].push(s);
         return;
       }
@@ -364,6 +368,21 @@
     });
     if (courant.length) paquets.push(courant);   // queue sans série de travail
     return paquets;
+  }
+
+  // Entrelace des tours : `parExo[e][t]` est ce que l'exercice `e` produit au
+  // tour `t`, ou rien. Un exercice qui n'a pas de t-ième tour ne produit rien —
+  // pas d'étiquette fantôme (§2.4). C'est la mécanique des séries inégales du
+  // chantier 27, et les chauffes s'en servent à l'identique.
+  function entrelacerTours(parExo) {
+    var out = [];
+    var profondeur = parExo.reduce(function (m, p) { return Math.max(m, p.length); }, 0);
+    for (var t = 0; t < profondeur; t++) {
+      for (var e = 0; e < parExo.length; e++) {
+        if (parExo[e][t]) out = out.concat(parExo[e][t]);
+      }
+    }
+    return out;
   }
 
   /**
@@ -452,15 +471,31 @@
       // devenant vraie : une séance saisie dans l'app s'affiche pareil à la
       // saisie et au détail.
       if (bloc.superset && (bloc.chronologie || o.entrelacer)) {
-        var paquets = bloc.exercices.map(function (e) { return paqueter(e.series); });
-        var profondeur = paquets.reduce(function (m, p) { return Math.max(m, p.length); }, 0);
-        for (var t = 0; t < profondeur; t++) {
-          for (var e = 0; e < paquets.length; e++) {
-            // Tour incomplet : l'exercice qui n'a pas de t-ième paquet ne
-            // produit rien. Pas d'étiquette fantôme (§2.4).
-            if (paquets[e][t]) bloc.series = bloc.series.concat(paquets[e][t]);
-          }
-        }
+        // ⚠️ §2.5 CORRIGÉ LE 13/09 — LES CHAUFFES S'ENTRELACENT AUSSI.
+        //
+        // « Juste avant la première série de travail de son exercice » avait été
+        // écrit en pensant à un exercice isolé, où cela veut dire « en tête ».
+        // Dans un superset, la règle dispersait les chauffes :
+        //
+        //   A A A1 B B B1 C C1 D1      ← ce que ça donnait, constaté sur device
+        //
+        // — il fallait quitter une machine puis y revenir, exactement ce qu'un
+        // superset cherche à éviter. Les chauffes forment donc leurs PROPRES
+        // tours, tous avant le travail :
+        //
+        //   A B C D · A B · A1 B1 C1 D1 · A2 B2 C2 D2
+        //
+        // C'est le geste réel : un premier passage léger sur toutes les
+        // machines, un second sur celles qui en ont besoin, puis le travail.
+        // Les chauffes ne comptent toujours pas dans le compteur de tours —
+        // `tour` reste `null` sur elles, plus haut.
+        var chauffes = bloc.exercices.map(function (e) {
+          return e.series.filter(estChauffe).map(function (s) { return [s]; });
+        });
+        var travail = bloc.exercices.map(function (e) {
+          return paqueter(e.series.filter(function (s) { return !estChauffe(s); }));
+        });
+        bloc.series = entrelacerTours(chauffes).concat(entrelacerTours(travail));
       } else {
         bloc.series = trierParRang(
           bloc.exercices.reduce(function (acc, e) { return acc.concat(e.series); }, []));

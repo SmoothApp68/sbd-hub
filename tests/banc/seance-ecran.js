@@ -2065,6 +2065,194 @@ const SETS_PASSES = [1, 2].map((n) => ({
     JSON.stringify(ROUTINE.routine_exercises.slice().sort((a, b) => a.rang - b.rang)
       .map((e) => e.exercise_slug + '@' + e.rang)));
 
+  console.log('\n══ 7 undecies. LES CHAUFFES EN SUPERSET, ET LES GESTES SUR UNE SÉANCE ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE (CADRAGE-V2 §2 quater) : UN SUPERSET DONT
+  // LES EXERCICES ONT UN NOMBRE INÉGAL DE CHAUFFES.
+  //
+  // Avec une chauffe chacun, « les chauffes forment leurs propres tours » et
+  // « chaque chauffe est collée à son exercice » rendent exactement le même
+  // écran. Il faut que A en ait deux et B une seule pour que le second tour de
+  // chauffe existe — et ne contienne que A.
+  await aller('/saisie');
+  await demarrerRoutine('Superset');
+
+  // La i-ième rangée d'un bloc : on lui change son TYPE par la feuille.
+  const passerEnChauffe = async (iBloc, iRangee) => {
+    await page.evaluate(([k, r]) => {
+      document.querySelectorAll('.bloc-seance')[k]
+        .querySelectorAll('.ligne-serie')[r].querySelector('.no-serie').click();
+    }, [iBloc, iRangee]);
+    await attendre(500);
+    await page.click('#feuille-contenu .feuille-menu button:nth-child(2)');   // Échauffement
+    await attendre(700);   // la feuille de type se referme d'elle-même
+  };
+
+  // Le bloc 0 est le superset : A = Développé Couché (3), B = Curl (3),
+  // C = Planche (2). On donne DEUX chauffes à A et UNE à B — C n'en a pas.
+  // Les rangées se renumérotent à chaque changement : on reprend toujours la
+  // première ligne encore en travail de l'exercice visé.
+  await passerEnChauffe(0, 0);   // A1 → chauffe
+  ok('une chauffe seule ouvre le bloc : elle ne reste pas collée à son tour',
+    JSON.stringify(await etiquettes(0)) ===
+    JSON.stringify(['A', 'A1', 'B1', 'C1', 'A2', 'B2', 'C2', 'B3']),
+    JSON.stringify(await etiquettes(0)));
+
+  await passerEnChauffe(0, 2);   // B1 → chauffe  (l'ordre a bougé : A, A1, B1, …)
+  await passerEnChauffe(0, 2);   // la 2e ligne de A → chauffe (A, B, A1, …)
+  ok('chauffes INÉGALES : le 2e tour de chauffe ne contient que celui qui en a deux',
+    JSON.stringify(await etiquettes(0)) ===
+    JSON.stringify(['A', 'B', 'A', 'A1', 'B1', 'C1', 'B2', 'C2']),
+    JSON.stringify(await etiquettes(0)));
+  ok('et le compteur de tours ignore les chauffes',
+    /tour 1\/2/.test(await superT()), (await superT()).trim());
+
+  // Hors superset — non-régression : la chauffe reste en tête de SON exercice.
+  await passerEnChauffe(1, 0);
+  // Hors superset le numéro porte le TYPE (« C »), pas la lettre : il n'y a
+  // pas d'alternance à nommer. C'est la règle du §3 bis.1, inchangée.
+  ok('hors superset, la chauffe reste en tête de son exercice',
+    JSON.stringify(await etiquettes(1)) === JSON.stringify(['C', '1']),
+    JSON.stringify(await etiquettes(1)));
+
+  // ── §7 decies — un groupe ne descend jamais à un seul exercice ──────────
+  await menuExo(0, 2);                       // la Planche, 3e branche
+  await entree('Supprimer l’exercice');
+  ok('un superset à trois qui perd une branche en garde deux, groupées',
+    (await compter('.bloc-seance.superset')) === 1 &&
+    JSON.stringify((await formeEcran())[0]) ===
+    JSON.stringify(['Développé Couché (Barre)', 'Curl Biceps Haltères']),
+    JSON.stringify(await formeEcran()));
+  await menuExo(0, 1);                       // le Curl
+  await entree('Supprimer l’exercice');
+  ok('tombé à un, le bloc n’est PLUS un superset — et rien n’en porte le numéro',
+    (await compter('.bloc-seance.superset')) === 0 &&
+    (await compter('.lettre-exo')) === 0,
+    JSON.stringify(await formeEcran()));
+
+  // On termine la séance pour avoir de quoi exercer les gestes du §7 octies.
+  await validerRangee(0, 0);
+  await validerRangee(0, 1);
+  const idGestes = seanceCourante();
+  await page.click('#bandeau-seance .bandeau-fin');
+  await attendre(600);
+  await page.click('#feuille-contenu .principal');
+  await attendre(2600);
+
+  // ── §7 octies.3 — REFAIRE ───────────────────────────────────────────────
+  await aller('/seance/' + idGestes);
+  ok('la séance terminée porte enfin ses trois gestes',
+    (await compter('#vue-detail .detail-gestes button')) === 3 &&
+    /Refaire cette séance/.test(await texte('#vue-detail .detail-gestes')) &&
+    !/Partager/.test(await texte('#vue-detail .detail-gestes')),
+    (await texte('#vue-detail .detail-gestes')).replace(/\s+/g, ' '));
+
+  const seancesAvant = sessions().length;
+  await page.evaluate(() => {
+    Array.from(document.querySelectorAll('#vue-detail .detail-gestes button'))
+      .filter((b) => /Refaire/.test(b.textContent))[0].click();
+  });
+  await attendre(1600);
+  ok('« Refaire » DÉMARRE une séance neuve — il ne copie rien dans l’historique',
+    JSON.stringify(await visible()) === '["vue-seance"]' &&
+    sessions().length === seancesAvant + 1 &&
+    seanceCourante() !== idGestes,
+    sessions().length + ' séance(s), en cours = ' + String(seanceCourante()).slice(0, 8));
+  // ⚠️ LE POINT DU §7 octies.3 : aucune charge pré-remplie. Le moteur décide
+  // des charges — même règle qu'un démarrage depuis une routine.
+  const champsRefaits = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('.ligne-serie input')).map((i) => i.value));
+  ok('aucune charge, aucune rep pré-remplie',
+    champsRefaits.length > 0 && champsRefaits.every((v) => v === ''),
+    JSON.stringify(champsRefaits));
+  ok('et rien n’est monté en base pour cette séance neuve',
+    setsSeance().length === 0, setsSeance().length + ' série(s)');
+
+  // Une séance en cours interdit d'en rouvrir une autre : l'écran n'en tient
+  // qu'une, et écraser un brouillon perdrait du travail réellement commencé.
+  await aller('/seance/' + idGestes);
+  await page.evaluate(() => {
+    Array.from(document.querySelectorAll('#vue-detail .detail-gestes button'))
+      .filter((b) => /Modifier/.test(b.textContent))[0].click();
+  });
+  await attendre(700);
+  ok('avec une séance en cours, « Modifier » refuse et le DIT',
+    /séance est en cours/i.test(await texte('#feuille-contenu')),
+    (await texte('#feuille-contenu')).replace(/\s+/g, ' ').slice(0, 80));
+  await fermerFeuille();
+
+  // On abandonne la séance refaite pour libérer l'écran.
+  await aller('/saisie');
+  await page.click('#bandeau-seance .bandeau-fin');
+  await attendre(600);
+  await page.click('#feuille-contenu .danger');
+  await attendre(1600);
+
+  // ── §7 octies.2 — MODIFIER ──────────────────────────────────────────────
+  await aller('/seance/' + idGestes);
+  const avantModif = base.sessions.filter((s) => s.id === idGestes)[0];
+  await page.evaluate(() => {
+    Array.from(document.querySelectorAll('#vue-detail .detail-gestes button'))
+      .filter((b) => /Modifier/.test(b.textContent))[0].click();
+  });
+  await attendre(1200);
+  ok('« Modifier » rouvre la séance dans la saisie, avec ses valeurs',
+    JSON.stringify(await visible()) === '["vue-seance"]' &&
+    (await compter('.ok-serie.cochee')) === 2,
+    JSON.stringify(await visible()) + ' · ' + (await compter('.ok-serie.cochee')) + ' validée(s)');
+  // ⚠️ CE QUI EST TRANCHÉ : elle RESTE `terminee`. La repasser `en_cours` la
+  // ferait sortir des totaux et du relevé pendant l'édition (§7 quinquies).
+  ok('elle reste TERMINÉE pendant la correction — elle ne quitte pas l’historique',
+    base.sessions.filter((s) => s.id === idGestes)[0].statut === 'terminee',
+    JSON.stringify(base.sessions.map((s) => s.statut)));
+  ok('et le bandeau le dit : on enregistre, on ne termine pas',
+    /Enregistrer/.test(await texte('#bandeau-seance .bandeau-fin')) &&
+    /Modification/.test(await texte('#bandeau-seance')),
+    (await texte('#bandeau-seance')).replace(/\s+/g, ' ').slice(0, 60));
+
+  // ⚠️ PAS `setsSeance()` ICI : il vise la séance `en_cours`, et le propre de
+  // la correction est qu'il n'y en a pas — la séance reste terminée.
+  const lignesGestes = () => base.sets.filter((s) => s.session_id === idGestes);
+  const chargeAvant = lignesGestes().slice().sort((a, b) => a.rang - b.rang)[0].charge_kg;
+  await page.evaluate(() => {
+    const i = document.querySelectorAll('.ligne-serie')[0].querySelector('input');
+    i.value = '137';
+    i.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await attendre(400);
+  await page.click('#bandeau-seance .bandeau-fin');
+  await attendre(2600);
+  ok('« Enregistrer » referme sur le détail, correction écrite',
+    JSON.stringify(await visible()) === '["vue-detail"]' &&
+    lignesGestes().some((s) => s.charge_kg === 137),
+    'avant ' + chargeAvant + ' → ' + JSON.stringify(lignesGestes().map((s) => s.charge_kg)));
+  ok('la fin et le début n’ont pas bougé',
+    base.sessions.filter((s) => s.id === idGestes)[0].fin === avantModif.fin &&
+    base.sessions.filter((s) => s.id === idGestes)[0].debut === avantModif.debut,
+    'fin inchangée');
+
+  // ── §7 octies.1 — SUPPRIMER ─────────────────────────────────────────────
+  const nSeriesAvant = lignesGestes().length;
+  const autresAvant = base.sets.filter((s) => s.session_id !== idGestes).length;
+  await page.evaluate(() => {
+    Array.from(document.querySelectorAll('#vue-detail .detail-gestes button'))
+      .filter((b) => /Supprimer/.test(b.textContent))[0].click();
+  });
+  await attendre(700);
+  ok('supprimer une séance DEMANDE d’abord, en comptant ce qui part',
+    /Supprimer cette séance/.test(await texte('#feuille-contenu')) &&
+    new RegExp(nSeriesAvant + ' série').test(await texte('#feuille-contenu')),
+    (await texte('#feuille-contenu')).replace(/\s+/g, ' ').slice(0, 110));
+  await page.click('#feuille-contenu .feuille-menu .danger');
+  await attendre(2600);
+  ok('confirmé : la séance part, ses séries avec, et rien d’autre n’est touché',
+    base.sessions.filter((s) => s.id === idGestes).length === 0 &&
+    lignesGestes().length === 0 &&
+    base.sets.filter((s) => s.session_id !== idGestes).length === autresAvant,
+    nSeriesAvant + ' série(s) parties · ' + autresAvant + ' intactes');
+  ok('et on revient sur la semaine, pas sur un détail vide',
+    JSON.stringify(await visible()) === '["vue-liste"]', JSON.stringify(await visible()));
+
   console.log('\n══ 8. NON-RÉGRESSION ══');
   for (const [chemin, attendu] of [['/', 'vue-liste'], ['/progression', 'vue-progression'],
                                    ['/profil', 'vue-profil'], ['/routine/nouvelle', 'vue-routine']]) {

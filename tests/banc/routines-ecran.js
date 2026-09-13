@@ -414,12 +414,31 @@ const CATALOGUE = [
     JSON.stringify(base.exos.slice().sort((a, b) => a.rang - b.rang)
       .map((e) => e.exercise_slug + '@' + e.rang + '#' + e.groupe_superset)));
 
+  // ⚠️ §7 decies — UN GROUPE À UN SEUL EXERCICE, TEL QU'IL EXISTE EN BASE.
+  //
+  // 13 blocs dans cet état ont été trouvés et nettoyés par `v2_041` (49 séries,
+  // 12 séances, 3 comptes). Une routine ancienne peut donc encore en porter un :
+  // l'éditeur doit le DISSOUDRE à l'ouverture, sinon le premier enregistrement
+  // le réécrit et l'état interdit revient par la porte de l'app.
+  base.exos.slice().sort((a, b) => a.rang - b.rang).forEach((e, i) => {
+    e.groupe_superset = i === 0 ? 9 : null;      // le premier, seul dans le groupe 9
+  });
+  await aller('/saisie');
+  await page.click('#liste-routines .routine');
+  await attendre(700);
+  ok('un groupe à UN seul exercice ne s’affiche pas comme un superset',
+    JSON.stringify(await liensEditeur()) === '[false,false]' &&
+    JSON.stringify(await lettresEditeur()) === '["","",""]',
+    JSON.stringify(await lettresEditeur()));
+  await page.click('#btn-enregistrer-routine');
+  await attendre(900);
+  ok('et il est DISSOUS en base au premier enregistrement, pas réécrit',
+    JSON.stringify(enBase()) === '[null,null,null]', JSON.stringify(enBase()));
+
   // On rend la routine à l'état où la suite du banc l'attend : deux exercices,
   // sans superset. Le §6 compte les lignes, pas les groupes.
   await page.click('#liste-routines .routine');
   await attendre(700);
-  await cliquerLien(0);
-  await cliquerLien(1);
   await carteEditeur(2, '.geste[aria-label="Retirer"]');
   await page.click('#btn-enregistrer-routine');
   await attendre(900);

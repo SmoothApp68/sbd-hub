@@ -156,14 +156,19 @@ describe('le bloc d’un seul exercice (§2.1)', () => {
 // ══ 4. LA CHAUFFE ══════════════════════════════════════════════════════════
 
 describe('l’échauffement (§2.5)', () => {
-  // La chauffe de C se pose entre B1 et C1, pas en tête de bloc.
-  test('il porte la lettre de son exercice, juste avant sa première série de travail', () => {
+  // ⚠️ TEST RETOURNÉ AU CHANTIER 29 — §2.5 CORRIGÉ APRÈS ESSAI SUR DEVICE.
+  //
+  // « Juste avant la première série de travail de son exercice » dispersait les
+  // chauffes dans un superset : A A A1 B B B1 C C1 D1, constaté sur device. Il
+  // fallait quitter une machine pour y revenir. Les chauffes forment leurs
+  // propres tours, tous avant le travail.
+  test('dans un superset, les chauffes forment leurs propres tours, en tête', () => {
     let s = seanceDe([['dc', 2, 1], ['ec', 2, 1], ['pd', 3, 1]]);
     // La première série de C devient un échauffement.
     s = Seance.changerType(s, 2, 0, 'echauffement');
     const c = rendre(s);
     expect(etiquettes(c, 0)).toEqual(
-      ['A1', 'B1', 'C', 'C1', 'A2', 'B2', 'C2']);
+      ['C', 'A1', 'B1', 'C1', 'A2', 'B2', 'C2']);
   });
 
   // ⚠️ TEST RETOURNÉ AU CHANTIER 28, APRÈS ESSAI SUR DEVICE (§2.5 précisé).

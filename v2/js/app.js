@@ -91,6 +91,11 @@
   var audio = null;          // le contexte Web Audio, né au premier geste
   var modeRPE = false;       // la bascule effort, retenue d'une fois sur l'autre
   var feuille = null;        // la feuille ouverte : { quoi, iExo, iSerie }
+  // §7 octies.2 — la saisie sert à CORRIGER quand son brouillon porte une
+  // séance DÉJÀ terminée. L'état se LIT sur la séance, il ne se retient pas à
+  // côté : une app tuée au milieu d'une correction la rouvre en correction, et
+  // il n'y a pas de drapeau à désynchroniser.
+  function enEdition() { return !!seance && seance.statut === Seance.TERMINEE; }
 
   // L'identifiant est fabriqué ICI, côté client. C'est lui qui rend l'envoi
   // idempotent : la même ligne envoyée deux fois écrase la même ligne, donc
@@ -936,14 +941,22 @@
     });
     if (Object.keys(champs).length) seance = Seance.modifierSerie(seance, iExo, iSerie, champs);
 
-    seance = Seance.valider(seance, iExo, iSerie, new Date());
+    // ⚠️ EN CORRECTION, ON HORODATE LA SÉANCE, PAS L'INSTANT. Une ligne
+    // ajoutée en rouvrant une séance d'avant-hier porterait sinon la date
+    // d'aujourd'hui : un fait faux en base, dans la colonne même qui dit
+    // quand la série a été faite.
+    seance = Seance.valider(seance, iExo, iSerie,
+      enEdition() ? new Date(seance.fin || seance.debut) : new Date());
     // §2.7 — le tour avance ICI, au geste, et jamais au rendu : une marque qui
     // se recalculerait à l'affichage reculerait à la première dévalidation,
     // et c'est précisément ce que l'asymétrie assumée interdit.
     seance = Seance.avancerTours(seance,
       Modele.toursFaitsParGroupe(Modele.blocsDeSeance(seance, local.exercices)));
     vibrer();
-    demarrerChrono(exo.repos_cible_s);
+    // ⚠️ PAS DE REPOS EN CORRECTION. Le chronomètre mesure le temps entre deux
+    // séries RÉELLES ; en rouvrant une séance d'avant-hier, il compterait un
+    // repos qui n'a pas eu lieu et l'écrirait dans `repos_s`.
+    if (!enEdition()) demarrerChrono(exo.repos_cible_s);
     return apresGeste();
   }
 
@@ -987,9 +1000,12 @@
       compte: c,
       modifier: modeModifier,
       selection: selectionGroupe,
+      // §7 octies.2 — en correction d'une séance passée, « Terminer » n'a pas
+      // de sens : elle est déjà terminée, et le rester est tout l'intérêt.
+      edition: enEdition(),
       surModifier: function () { modeModifier = !modeModifier; rendreSeance(); },
       surAnnulerSelection: function () { selectionGroupe = null; rendreSeance(); },
-      surTerminer: function () { confirmerFin(); }
+      surTerminer: function () { if (enEdition()) return enregistrerEdition(); confirmerFin(); }
     });
     var blocs = Modele.blocsDeSeance(seance, local.exercices);
     Rendu.rendreBlocsSeance($('blocs-seance'), seance, {
@@ -1481,14 +1497,19 @@
       // chantier 28 : les oublier ici les ferait partir à `null` au premier
       // enregistrement, c'est-à-dire effacer le superset et la note en voulant
       // seulement renommer la routine.
-      exercices: routine.exercices.map(function (e) {
+      //
+      // ⚠️ ET IL LES NORMALISE (§7 decies). Une routine ancienne peut porter un
+      // groupe à UN seul exercice — l'état que `v2_041` a nettoyé en base.
+      // Le relire tel quel, puis enregistrer, le réécrirait : l'éditeur serait
+      // un chemin par lequel l'état interdit revient.
+      exercices: Routines.renumeroter(routine.exercices.map(function (e) {
         return {
           id: e.id, exercise_slug: e.exercise_slug, series: e.series,
           reps_visees: e.reps_visees, repos_cible_s: e.repos_cible_s,
           groupe_superset: e.groupe_superset === undefined ? null : e.groupe_superset,
           note: e.note === undefined ? null : e.note
         };
-      }),
+      })),
       existantes: routine.exercices.slice()
     };
   }
@@ -1824,9 +1845,112 @@
 
   function rendreDetail(sessionId) {
     montrer('detail', Routeur.SEANCE);
-    var seance = local.seances.filter(function (s) { return s.id === sessionId; })[0] || null;
+    var ligne = local.seances.filter(function (s) { return s.id === sessionId; })[0] || null;
     var blocs = Modele.construireBlocs(seriesDe(sessionId), local.exercices);
-    Rendu.rendreDetail($('detail-seance'), seance, blocs);
+    Rendu.rendreDetail($('detail-seance'), ligne, blocs, ligne ? {
+      surSupprimer: function () { demanderSuppressionSeance(ligne); },
+      surModifier: function () { modifierSeance(ligne, blocs); },
+      surRefaire: function () { refaireSeance(ligne, blocs); }
+    } : null);
+  }
+
+  // ══ LES GESTES SUR UNE SÉANCE TERMINÉE (§7 octies) ═══════════════════════
+  //
+  // Aucun n'existait : deux séances ont dû être supprimées directement en base
+  // le 13/09 parce que l'app ne savait pas le faire.
+  //
+  // ⚠️ MODIFIER ET REFAIRE OUVRENT LA SAISIE, qui ne tient qu'UNE séance à la
+  // fois. Écraser un brouillon en cours perdrait une séance réellement
+  // commencée : on refuse, et on le dit.
+  function seanceEnCoursBloque() {
+    if (!seance) return false;
+    Rendu.rendreFeuilleConfirmer($('feuille-contenu'), {
+      titre: 'Une séance est en cours',
+      aide: 'Termine-la ou abandonne-la d’abord : l’écran de saisie n’en tient qu’une.',
+      libelle: 'Aller à la séance en cours',
+      surConfirmer: function () { fermerVoile(); rendreSaisie(); },
+      surAnnuler: fermerVoile
+    });
+    ouvrirVoile($('feuille-seance'));
+    return true;
+  }
+
+  // §7 octies.1 — rien de silencieux. Les séries partent avec la séance : la
+  // cascade `sets_session_id_fkey ON DELETE CASCADE` s'en charge en base, et on
+  // fait le même ménage en local pour que l'écran suive tout de suite.
+  function demanderSuppressionSeance(ligne) {
+    var n = seriesDe(ligne.id).length;
+    Rendu.rendreFeuilleConfirmer($('feuille-contenu'), {
+      titre: 'Supprimer cette séance ?',
+      sujet: ligne.titre || 'Séance',
+      danger: true,
+      libelle: 'Supprimer',
+      aide: n + ' série' + (n > 1 ? 's' : '') + ' ser' + (n > 1 ? 'ont' : 'a') +
+        ' effacée' + (n > 1 ? 's' : '') + ' avec elle. Rien ne la remet en place.',
+      surConfirmer: async function () { fermerVoile(); await supprimerSeance(ligne.id); },
+      surAnnuler: fermerVoile
+    });
+    ouvrirVoile($('feuille-seance'));
+  }
+
+  async function supprimerSeance(id) {
+    // L'ordre compte, comme à l'abandon : on retire d'abord l'intention
+    // d'écrire ses séries, sinon la vidange écrirait les séries d'une séance
+    // supprimée — et les recréerait par la clé étrangère.
+    attente = Attente.retirer(attente, Attente.cleDe(Attente.SETS, id));
+    local.seances = local.seances.filter(function (s) { return s.id !== id; });
+    local.series = local.series.filter(function (s) { return s.session_id !== id; });
+    rangerSeances();
+    recalculerEtats();
+    await Cache.remplacerTout('seances', local.seances).catch(function () {});
+    await Cache.remplacerTout('series', local.series).catch(function () {});
+    await poser({ table: Attente.SESSIONS, op: Attente.SUPPRIMER, id: id });
+    afficherSemaine(lundiAffiche);
+  }
+
+  // §7 octies.2 — rouvrir pour corriger. Voir `THSeance.reprendre` : la séance
+  // RESTE `terminee` pendant l'édition.
+  function modifierSeance(ligne, blocs) {
+    if (seanceEnCoursBloque()) return;
+    seance = Seance.reprendre(ligne, blocs);
+    chrono = null;
+    sauverSeance();
+    allerA(Routeur.SAISIE, {}, false);
+    rendreSeance();
+  }
+
+  // Enregistrer une modification : les mêmes écritures qu'une fin de séance,
+  // sans la fin. Pas de question de routine — une séance passée a pu diverger
+  // depuis longtemps, et la routine d'aujourd'hui n'est plus celle du jour-là.
+  async function enregistrerEdition() {
+    var id = seance.id;
+    await poserSeries();
+    await poserSeance(false);
+    adopterLocalement(seance);
+    seance = null; chrono = null;
+    arreterMinuteur();
+    rendreChrono();
+    await Cache.ecrireBrouillon('seance', null);
+    allerA(Routeur.SEANCE, { id: id }, false);
+    rendreDetail(id);
+  }
+
+  // §7 octies.3 — « Refaire » ne copie pas dans l'historique : il DÉMARRE une
+  // séance neuve avec la même structure et les mêmes notes. Aucune charge.
+  async function refaireSeance(ligne, blocs) {
+    if (seanceEnCoursBloque()) return;
+    seance = Seance.refaire({
+      id: uuid(),
+      userId: sessionActive && sessionActive.user && sessionActive.user.id,
+      titre: ligne.titre || null,
+      blocs: blocs,
+      idSerie: uuid
+    });
+    chrono = null;
+    await sauverSeance();
+    await poserSeance(true);
+    allerA(Routeur.SAISIE, {}, true);
+    rendreSeance();
   }
 
   // ── Entrée ───────────────────────────────────────────────────────────────

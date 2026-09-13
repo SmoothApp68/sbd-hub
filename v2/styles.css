@@ -142,6 +142,15 @@ button{font-family:inherit;cursor:pointer}
   padding:var(--e3);margin-bottom:var(--e2);overflow-wrap:anywhere;
   white-space:pre-wrap}
 
+/* ── LES GESTES SUR UNE SÉANCE (§7 octies) ─────────────────────────────────
+   En BAS de la séance, pas en tête : on lit ce qu'on a fait, et les gestes
+   attendent au bout. « Supprimer » est en dernier et se distingue — c'est le
+   seul qui ne se rattrape pas. */
+.detail-gestes{display:flex;flex-wrap:wrap;gap:var(--e2);
+  padding:var(--e3) 0 var(--e2);margin-top:var(--e2);
+  border-top:1px solid var(--trait)}
+.detail-gestes button{flex:1 1 auto;min-width:110px}
+
 .bloc{background:var(--panneau);border-radius:10px;margin-bottom:12px;overflow:hidden}
 .bloc.superset{border-left:3px solid var(--texte-3)}
 

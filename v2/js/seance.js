@@ -110,6 +110,9 @@
       reps_visees: e.reps_visees === undefined ? null : e.reps_visees,
       repos_cible_s: e.repos_cible_s === undefined ? null : e.repos_cible_s,
       note: texteOuNul(e.note),
+      // Le superset VIENT de la routine, il ne se crée pas en séance (§5 du
+      // chantier 27 : grouper appartient au chantier de la déviation).
+      groupe_superset: e.groupe_superset === undefined ? null : e.groupe_superset,
       series: series
     };
   }
@@ -147,6 +150,9 @@
       reps_visees: o.reps_visees === undefined ? null : o.reps_visees,
       repos_cible_s: o.repos_cible_s === undefined ? null : o.repos_cible_s,
       note: texteOuNul(o.note),
+      // Un exercice ajouté en séance est un bloc d'un seul : on ne groupe pas
+      // ici (§5 du chantier 27).
+      groupe_superset: null,
       series: [serieVide(idSerie)]
     }]);
     return avecExercices(seance, exos);
@@ -398,6 +404,39 @@
     return Object.assign({}, seance, { statut: TERMINEE, fin: t.toISOString() });
   }
 
+  // ── Le tour atteint d'un superset (§2.7) ────────────────────────────────
+  //
+  // ⚠️ MONOTONE, ET C'EST TOUTE LA RAISON DE SON EXISTENCE.
+  //
+  // « Le tour avance quand toutes ses séries de travail sont validées, dans
+  // n'importe quel ordre. **Dévalider ne fait pas reculer le tour** — asymétrie
+  // assumée. » Une valeur qui se recalcule entièrement à chaque rendu
+  // reculerait ; il faut donc une marque, et une marque qui ne descend jamais.
+  //
+  // Elle vit sur la séance — donc dans le brouillon, donc elle survit à l'app
+  // tuée — et **nulle part ailleurs** : ni dans `lignes()`, ni dans
+  // `ligneSession()`. Ce n'est pas une donnée de la séance, c'est où l'on en
+  // est. Les étiquettes A1/B1, elles, ne sont stockées nulle part (§2.4) : elles
+  // se recalculent à l'affichage.
+  //
+  // `faits` arrive déjà calculé (`THModele.toursFaitsParGroupe`) : ce module
+  // reste pur et ignore tout des blocs.
+  function avancerTours(seance, faits) {
+    var f = faits || {};
+    var tours = Object.assign({}, seance.tours || {});
+    var change = false;
+    Object.keys(f).forEach(function (cle) {
+      var n = Number(f[cle]) || 0;
+      if (n > (tours[cle] || 0)) { tours[cle] = n; change = true; }
+    });
+    return change ? Object.assign({}, seance, { tours: tours }) : seance;
+  }
+
+  function tourAtteint(seance, groupe) {
+    if (groupe === null || groupe === undefined) return 0;
+    return ((seance && seance.tours) || {})[String(groupe)] || 0;
+  }
+
   // ── Lecture à plat ──────────────────────────────────────────────────────
   //
   // L'ordre d'affichage : exercice par exercice, série par série. C'est lui qui
@@ -454,6 +493,12 @@
           // durée et la distance — omettre la colonne laisserait une valeur
           // périmée en base après une note effacée.
           note: noteDeSerie(p.exo, p.serie),
+          // ⚠️ SANS ELLE, LE SUPERSET DISPARAÎT À L'ENREGISTREMENT. La séance
+          // s'afficherait entrelacée pendant qu'on la fait, puis en exercices
+          // séparés au détail — deux lectures contradictoires de la même
+          // séance. `groupe_superset` n'est pas écrit par un geste : il vient
+          // de la routine et il la suit jusqu'en base.
+          groupe_superset: p.exo.groupe_superset === undefined ? null : p.exo.groupe_superset,
           validee_a: p.serie.validee_a,
           rang: p.rang,
           repos_s: p.serie.repos_s
@@ -637,6 +682,8 @@
     definirReposCible: definirReposCible,
     decrire: decrire,
     ecartsRoutine: ecartsRoutine,
+    avancerTours: avancerTours,
+    tourAtteint: tourAtteint,
     valider: valider,
     devalider: devalider,
     derniereValidation: derniereValidation,

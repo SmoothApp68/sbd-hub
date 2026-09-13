@@ -56,7 +56,8 @@ function rendre(seance, options) {
   const o = options || {};
   const cible = document.createElement('div');
   Rendu().rendreBlocsSeance(cible, seance, {
-    nommer: (slug) => Modele.nommer(INDEX, slug),
+    blocs: Modele.blocsDeSeance(seance, o.catalogue === null ? [] : CATALOGUE),
+    tourAtteint: (g) => Seance.tourAtteint(seance, g),
     exercice: (slug) => (o.catalogue === null ? undefined : INDEX[slug]),
     precedent: o.precedent || (() => null),
     fantome: (i, j) => Seance.fantome(seance, i, j,

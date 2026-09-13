@@ -81,12 +81,23 @@ def charger(fichier):
 
 # --- §7.2 -------------------------------------------------------------
 def calcule_palier(series):
-    """Charge la plus lourde tenue sur k >= min(3, ceil(n/2)) séries."""
+    """Charge la plus lourde tenue sur k >= min(3, ceil(n/2)) séries.
+
+    ZÉRO N'EST PAS UNE CHARGE ET NE VOTE PAS (chantier 31). `max(0, 0, 0)` vaut
+    0, la majorité trouve trois séries « à cette charge », et le palier sortait
+    valide à zéro kilo — un plateau sur rien. L'export Hevy écrit `0` là où la
+    base écrit `NULL` : `charger()` ci-dessus écarte la cellule VIDE (`not ""`
+    est vrai) mais garde la cellule `"0"` (`not "0"` est faux). Le garde est
+    donc ici, pas à la lecture.
+
+    Une charge NÉGATIVE vote : −20 kg d'assistance est une charge, plus lourde
+    que −10. Le portage JavaScript applique la même règle (`v2/js/palier.js`).
+    """
     if not series:
         return None
     n = len(series)
     requis = min(3, -(-n // 2))
-    compte = Counter(s["kg"] for s in series)
+    compte = Counter(s["kg"] for s in series if s["kg"] != 0)
     candidates = [kg for kg, k in compte.items() if k >= requis]
     return max(candidates) if candidates else None
 

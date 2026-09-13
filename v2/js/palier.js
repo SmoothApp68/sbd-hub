@@ -55,6 +55,29 @@
   var ETAT_NE_MONTE_PAS = 'ne_monte_pas';
   var ETAT_INDETERMINE = 'indetermine';
 
+  // ── LES RAISONS D'UNE ABSENCE DE PALIER ──────────────────────────────────
+  //
+  // ⚠️ « PAS DE PALIER PAR NATURE » ET « PAS DE PALIER CETTE FOIS » NE SONT PAS
+  // LA MÊME CHOSE, et le moteur doit pouvoir les distinguer — c'est la réserve
+  // notée au chantier 24, levée ici.
+  //
+  //   · `sans-charge`   — l'exercice n'a pas de charge PAR NATURE (`reps`,
+  //                       `temps`). Une planche n'aura jamais de palier en kg,
+  //                       et il n'y a rien à réessayer demain.
+  //   · `hors-moteur`   — `distance_temps` est exclu du moteur (CADRAGE §2 ter) :
+  //                       aucun palier, aucune cible, aucune suggestion, jamais.
+  //   · les deux autres — l'absence est CIRCONSTANCIELLE : ce jour-là, rien n'a
+  //                       été retenu. Demain, peut-être.
+  var SANS_CHARGE = 'sans-charge';
+  var HORS_MOTEUR = 'hors-moteur';
+  var AUCUNE_SERIE = 'aucune-serie-de-travail';
+  var TOUT_CHAUFFE = 'tout-ecarte-par-la-chauffe';
+
+  // Les mesures du catalogue qui ne portent PAS de charge. `charge_reps` est la
+  // seule que le moteur sait juger ; une mesure inconnue n'est pas supposée
+  // sans charge — on ne devine pas, on laisse l'enchaînement décider.
+  var MESURES_SANS_CHARGE = { reps: true, temps: true };
+
   // ── Lecture des séries ───────────────────────────────────────────────────
 
   function nombre(v) {
@@ -113,6 +136,16 @@
   //
   // Sans le plancher, la charge la plus lourde d'une séance à deux séries
   // ferait palier ; sans la majorité, une exploration à une rep le ferait.
+  //
+  // ⚠️ ZÉRO N'EST PAS UNE CHARGE, ET IL NE VOTE PAS. `max(0, 0, 0)` vaut 0, la
+  // règle de majorité trouve trois séries « à cette charge », et le palier
+  // sortait VALIDE À ZÉRO KILO — un plateau sur rien. Aucune ligne de la base
+  // ne déclenche ce chemin aujourd'hui (`charge_kg = 0` : zéro ligne sur les
+  // 26 132 séries de travail, toutes mesures), mais un import peut en produire
+  // à tout moment : un export Hevy écrit `0` là où la base écrit `NULL`.
+  //
+  // Une charge NÉGATIVE, elle, vote : −20 kg d'assistance est une charge, et
+  // elle est plus lourde que −10. 124 séries en base, toutes en `charge_reps`.
   function calculerPalier(series) {
     var liste = series || [];
     if (!liste.length) return null;
@@ -122,6 +155,7 @@
     var compte = new Map();
     liste.forEach(function (s) {
       var kg = nombre(s.charge_kg);
+      if (kg === 0) return;
       compte.set(kg, (compte.get(kg) || 0) + 1);
     });
 
@@ -207,9 +241,18 @@
   // Rend une DESCRIPTION, jamais une mutation : les séries reçues ne sont pas
   // touchées. Chaque série sort avec son rôle, et le palier avec les meilleures
   // reps qui y ont été tenues.
-  function analyser(seriesBrutes, etatExercice) {
+  function analyser(seriesBrutes, etatExercice, options) {
     var series = trier(seriesBrutes);
     var roles = new Map();
+    var mesure = (options && options.mesure) || null;
+
+    // ⚠️ LA MESURE TRANCHE AVANT TOUT LE RESTE, et elle doit donc être DONNÉE.
+    // La déduire des séries — « aucune ne porte de charge » — confondrait une
+    // planche avec un développé couché dont personne n'a saisi les kilos
+    // (84 séries en base sont dans ce cas). L'appelant a le catalogue ; le
+    // moteur ne devine pas la nature d'un exercice à partir d'un jour.
+    if (mesure === 'distance_temps') return sortie(series, roles, null, HORS_MOTEUR, []);
+    if (MESURES_SANS_CHARGE[mesure]) return sortie(series, roles, null, SANS_CHARGE, []);
 
     // §4 — le tag prime. Une chauffe taguée est une chauffe, point.
     var travail = [];
@@ -218,7 +261,7 @@
       if (tag) roles.set(s, tag); else travail.push(s);
     });
 
-    if (!travail.length) return sortie(series, roles, null, 'aucune-serie-de-travail', []);
+    if (!travail.length) return sortie(series, roles, null, AUCUNE_SERIE, []);
 
     var plusLourde = Math.max.apply(null, travail.map(function (s) { return nombre(s.charge_kg); }));
 
@@ -242,7 +285,7 @@
     });
 
     var retenues = travail.filter(function (s) { return !roles.has(s); });
-    if (!retenues.length) return sortie(series, roles, null, 'tout-ecarte-par-la-chauffe', []);
+    if (!retenues.length) return sortie(series, roles, null, TOUT_CHAUFFE, []);
 
     // ── §5.2 / §5.4 — la rampe ne vote pas si l'exercice « monte » ─────────
     // Elle reste une série de travail entière (volume, tonnage, historique) :
@@ -438,6 +481,13 @@
     ETAT_MONTE: ETAT_MONTE,
     ETAT_NE_MONTE_PAS: ETAT_NE_MONTE_PAS,
     ETAT_INDETERMINE: ETAT_INDETERMINE,
+    // Les raisons d'une absence, nommées : un appelant qui veut distinguer
+    // « par nature » de « cette fois » compare à une constante, pas à un texte.
+    SANS_CHARGE: SANS_CHARGE,
+    HORS_MOTEUR: HORS_MOTEUR,
+    AUCUNE_SERIE: AUCUNE_SERIE,
+    TOUT_CHAUFFE: TOUT_CHAUFFE,
+    MESURES_SANS_CHARGE: MESURES_SANS_CHARGE,
     CHAUFFE: CHAUFFE, DEGRESSIVE: DEGRESSIVE, ECHEC: ECHEC,
     ROLE_DU_TAG: ROLE_DU_TAG,
     roleDuTag: roleDuTag,

@@ -550,8 +550,10 @@ const SETS_PASSES = [1, 2].map((n) => ({
   await toucher(0, '.no-serie');
   await page.click('#feuille-contenu .feuille-menu button:nth-child(2)');   // Échauffement
   await attendre(700);
+  // §7 undecies.1 — hors superset, le badge porte `W` : il n'y a pas de lettre
+  // d'exercice à porter, et « C » se confondait avec la charge.
   ok('le numéro porte le type : la série devient une chauffe',
-    (await lire(0, '.no-serie')) === 'C' &&
+    (await lire(0, '.no-serie')) === 'W' &&
     sets().filter((s) => s.type_serie === 'echauffement').length === 1,
     'écran=' + (await lire(0, '.no-serie')) +
     ' base=' + JSON.stringify(sets().map((s) => s.type_serie)));
@@ -1564,13 +1566,14 @@ const SETS_PASSES = [1, 2].map((n) => ({
     'superset mélangé : aucun · exercice seul : un');
 
   // ── L'éclairage porte sur le TOUR, et le tour ne recule pas ─────────────
-  ok('au départ, le tour annoncé est le premier', /tour 1\/3/.test(await superT()),
+  // §7 undecies.3 — le compteur affiche les tours FAITS : rien de fait, 0/3.
+  ok('au départ, aucun tour n’est fait : 0/3', /tour 0\/3/.test(await superT()),
     (await superT()).trim());
 
   // Rangée 0 = A1. Validée seule, elle n'allume rien : le tour n'est pas fait.
   await validerRangee(0, 0);
   ok('valider A1 seul n’allume RIEN — l’éclairage porte sur le tour',
-    (await allumees(0)).every((x) => x === false) && /tour 1\/3/.test(await superT()),
+    (await allumees(0)).every((x) => x === false) && /tour 0\/3/.test(await superT()),
     JSON.stringify(await allumees(0)) + ' · ' + (await superT()).trim());
   // ⚠️ ET ELLE SE VOIT POUR DE VRAI — couleur calculée, pas classe posée.
   // Le style de la coche était accroché à `.serie.faite` ; le fond vert disant
@@ -1599,11 +1602,11 @@ const SETS_PASSES = [1, 2].map((n) => ({
     JSON.stringify(await allumees(0)) ===
     JSON.stringify([true, true, true, false, false, false, false, false]),
     JSON.stringify(await allumees(0)));
-  ok('et le tour annoncé avance', /tour 2\/3/.test(await superT()), (await superT()).trim());
+  ok('et le tour annoncé avance', /tour 1\/3/.test(await superT()), (await superT()).trim());
 
   // ⚠️ DÉVALIDER NE FAIT PAS RECULER LE TOUR — asymétrie assumée (§2.7).
   await validerRangee(0, 0);          // dévalide A1
-  ok('dévalider ne fait PAS reculer le tour', /tour 2\/3/.test(await superT()),
+  ok('dévalider ne fait PAS reculer le tour', /tour 1\/3/.test(await superT()),
     (await superT()).trim());
   ok('mais l’éclairage, lui, dit la vérité du moment',
     (await allumees(0)).slice(0, 3).every((x) => x === false),
@@ -1750,7 +1753,7 @@ const SETS_PASSES = [1, 2].map((n) => ({
   await validerRangee(0, 1);      // B1 — Curl
   await validerRangee(0, 2);      // C1 — Planche
   ok('le premier tour est bouclé avant qu’on touche à la structure',
-    setsSeance().length === 3 && /tour 2\/3/.test(await superT()),
+    setsSeance().length === 3 && /tour 1\/3/.test(await superT()),
     JSON.stringify(rangsBase()) + ' · ' + (await superT()).trim());
 
   await menuExo(0, 1);            // le CURL, au milieu du superset à trois
@@ -1776,7 +1779,7 @@ const SETS_PASSES = [1, 2].map((n) => ({
   // re-sème aussitôt depuis l'état courant ; sans ça, le tour reculerait à 1 à
   // chaque déviation, ce que le §2.7 interdit explicitement.
   ok('et le tour atteint ne recule pas d’un geste de structure',
-    /tour 2\/3/.test(await superT()), (await superT()).trim());
+    /tour 1\/3/.test(await superT()), (await superT()).trim());
 
   // « Ce qui est déjà saisi ne se perd pas » (§5 du chantier).
   ok('la série validée du sortant est TOUJOURS là, à l’écran et en base',
@@ -2105,14 +2108,14 @@ const SETS_PASSES = [1, 2].map((n) => ({
     JSON.stringify(['A', 'B', 'A', 'A1', 'B1', 'C1', 'B2', 'C2']),
     JSON.stringify(await etiquettes(0)));
   ok('et le compteur de tours ignore les chauffes',
-    /tour 1\/2/.test(await superT()), (await superT()).trim());
+    /tour 0\/2/.test(await superT()), (await superT()).trim());
 
   // Hors superset — non-régression : la chauffe reste en tête de SON exercice.
   await passerEnChauffe(1, 0);
   // Hors superset le numéro porte le TYPE (« C »), pas la lettre : il n'y a
   // pas d'alternance à nommer. C'est la règle du §3 bis.1, inchangée.
   ok('hors superset, la chauffe reste en tête de son exercice',
-    JSON.stringify(await etiquettes(1)) === JSON.stringify(['C', '1']),
+    JSON.stringify(await etiquettes(1)) === JSON.stringify(['W', '1']),
     JSON.stringify(await etiquettes(1)));
 
   // ── §7 decies — un groupe ne descend jamais à un seul exercice ──────────
@@ -2252,6 +2255,140 @@ const SETS_PASSES = [1, 2].map((n) => ({
     nSeriesAvant + ' série(s) parties · ' + autresAvant + ' intactes');
   ok('et on revient sur la semaine, pas sur un détail vide',
     JSON.stringify(await visible()) === '["vue-liste"]', JSON.stringify(await visible()));
+
+  console.log('\n══ 7 duodecies. BADGE DE CHAUFFE, ESPACE DE TOUR, COMPTEUR, MENU DE CARTE ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE (CADRAGE-V2 §2 quater) : UN SUPERSET AVEC DES
+  // CHAUFFES. Sans chauffe, « le compteur compte les tours de travail » et « il
+  // compte tous les tours » sont indistinguables — il n'y a que des tours de
+  // travail. C'est exactement ce qui a laissé passer le défaut du compteur.
+  await aller('/saisie');
+  await demarrerRoutine('Superset');
+
+  const badges = (iBloc) => page.evaluate((k) =>
+    Array.from(document.querySelectorAll('.bloc-seance')[k].querySelectorAll('.no-serie'))
+      .map((n) => n.textContent), iBloc);
+  const marques = (iBloc) => page.evaluate((k) =>
+    Array.from(document.querySelectorAll('.bloc-seance')[k].querySelectorAll('.ligne-serie'))
+      .map((l) => l.classList.contains('debut-tour')), iBloc);
+
+  // A = Développé Couché (3), B = Curl (3), C = Planche (2). Une chauffe sur A
+  // et une sur B — C n'en a pas : les tours de chauffe sont donc INÉGAUX.
+  await passerEnChauffe(0, 0);
+  await passerEnChauffe(0, 2);
+  ok('le compteur démarre à 0, et une chauffe ne le fait pas bouger',
+    /tour 0\/2/.test(await superT()), (await superT()).trim());
+
+  // ⚠️ LA COULEUR EST CALCULÉE, PAS DÉDUITE D'UNE CLASSE. Une classe posée ne
+  // prouve rien si la règle CSS ne s'applique pas — c'est la leçon de la M22 du
+  // chantier 27, où un liseré « présent » ne peignait rien.
+  const teintes = await page.evaluate(() => {
+    const b = document.querySelectorAll('.bloc-seance')[0].querySelectorAll('.no-serie');
+    const lu = (n) => {
+      const s = getComputedStyle(n);
+      return { t: n.textContent, couleur: s.color, fond: s.backgroundColor,
+               bord: s.borderTopColor, l: s.width, h: s.height };
+    };
+    return [lu(b[0]), lu(b[2])];     // une chauffe, une série de travail
+  });
+  ok('la chauffe porte la LETTRE de son exercice, pas « Ac »',
+    teintes[0].t === 'A' && teintes[1].t === 'A1',
+    JSON.stringify(await badges(0)));
+  ok('elle se distingue par la TEINTE — couleur, fond et bordure diffèrent',
+    teintes[0].couleur !== teintes[1].couleur &&
+    teintes[0].fond !== teintes[1].fond &&
+    teintes[0].bord !== teintes[1].bord &&
+    teintes[0].couleur === 'rgb(91, 138, 196)',
+    JSON.stringify(teintes[0]) + ' vs ' + JSON.stringify(teintes[1]));
+  ok('et la colonne garde son rythme : même boîte, au pixel près',
+    teintes[0].l === teintes[1].l && teintes[0].h === teintes[1].h,
+    teintes[0].l + '×' + teintes[0].h + ' vs ' + teintes[1].l + '×' + teintes[1].h);
+
+  // ── §7 undecies.2 — l'espace entre les tours ────────────────────────────
+  ok('chaque tour ouvre sur une rangée marquée, jamais la première du bloc',
+    JSON.stringify(await badges(0)) ===
+      JSON.stringify(['A', 'B', 'A1', 'B1', 'C1', 'A2', 'B2', 'C2']) &&
+    JSON.stringify(await marques(0)) ===
+      JSON.stringify([false, false, true, false, false, true, false, false]),
+    JSON.stringify(await badges(0)) + ' · ' + JSON.stringify(await marques(0)));
+  // ⚠️ MESURÉ, PAS DÉDUIT D'UNE CLASSE : l'espace doit exister à l'écran.
+  const ecarts = await page.evaluate(() => {
+    const l = Array.from(document.querySelectorAll('.bloc-seance')[0]
+      .querySelectorAll('.ligne-serie'));
+    const trou = (i) => Math.round(l[i].getBoundingClientRect().top -
+      l[i - 1].getBoundingClientRect().bottom);
+    return { entreTours: trou(2), dansUnTour: trou(1) };
+  });
+  ok('l’espace est RÉEL : une dizaine de pixels entre les tours, zéro dedans',
+    ecarts.entreTours >= 9 && ecarts.entreTours <= 13 && ecarts.dansUnTour === 0,
+    JSON.stringify(ecarts));
+  ok('et aucun texte n’a été ajouté entre les lignes',
+    !/Tour\s*\d/i.test(await page.evaluate(() =>
+      Array.from(document.querySelectorAll('.bloc-seance')[0]
+        .querySelectorAll('.ligne-serie')).map((r) => r.textContent).join(' '))),
+    'aucun libellé de tour');
+
+  // Hors superset — non-régression : rien à séparer, rien de marqué, et un `W`.
+  await passerEnChauffe(1, 0);
+  ok('hors superset : un « W », et aucune rangée marquée',
+    JSON.stringify(await badges(1)) === JSON.stringify(['W', '1']) &&
+    JSON.stringify(await marques(1)) === JSON.stringify([false, false]),
+    JSON.stringify(await badges(1)) + ' · ' + JSON.stringify(await marques(1)));
+
+  // ── §7 undecies.3 — le compteur, sur la configuration discriminante ─────
+  await validerRangee(0, 0);          // la chauffe de A
+  await validerRangee(0, 1);          // la chauffe de B
+  ok('les deux chauffes validées : le compteur n’a toujours pas bougé',
+    /tour 0\/2/.test(await superT()), (await superT()).trim());
+  await validerRangee(0, 2);          // A1
+  ok('un tour entamé mais pas bouclé ne compte pas',
+    /tour 0\/2/.test(await superT()), (await superT()).trim());
+  await validerRangee(0, 3);          // B1
+  await validerRangee(0, 4);          // C1 — le tour 1 est complet
+  ok('le premier tour de travail bouclé : 1/2',
+    /tour 1\/2/.test(await superT()), (await superT()).trim());
+
+  // ── §7 octies — LE MENU SUR LA CARTE DE SÉANCE ──────────────────────────
+  const idCarte = seanceCourante();
+  await page.click('#bandeau-seance .bandeau-fin');
+  await attendre(600);
+  await page.click('#feuille-contenu .principal');
+  await attendre(2600);
+
+  await aller('/');
+  ok('la carte de séance porte un menu, sans qu’on l’ouvre',
+    (await compter('.seance-enveloppe .menu-pts')) > 0,
+    (await compter('.seance-enveloppe .menu-pts')) + ' menu(s) sur ' +
+    (await compter('.seance')) + ' carte(s)');
+
+  const ouvrirMenuCarte = async () => {
+    await page.evaluate((id) => {
+      const env = Array.from(document.querySelectorAll('.seance-enveloppe'))
+        .filter((e) => e.querySelector('.seance').textContent.indexOf(id) >= 0)[0] ||
+        document.querySelectorAll('.seance-enveloppe')[0];
+      env.querySelector('.menu-pts').click();
+    }, '');
+    await attendre(700);
+  };
+  await ouvrirMenuCarte();
+  ok('il propose les TROIS gestes du détail, et pas « Partager »',
+    JSON.stringify(await entreesFeuille()) ===
+    JSON.stringify(['Refaire cette séance', 'Modifier', 'Supprimer']),
+    JSON.stringify(await entreesFeuille()));
+  ok('et on n’a pas quitté la liste pour autant',
+    JSON.stringify(await visible()) === '["vue-liste"]', JSON.stringify(await visible()));
+
+  const avantSup = base.sessions.length;
+  await entree('Supprimer');
+  ok('« Supprimer » demande d’abord, depuis la liste comme depuis le détail',
+    /Supprimer cette séance/.test(await texte('#feuille-contenu')),
+    (await texte('#feuille-contenu')).replace(/\s+/g, ' ').slice(0, 90));
+  await page.click('#feuille-contenu .feuille-menu .danger');
+  await attendre(2600);
+  ok('confirmé : la séance part, sans jamais avoir été ouverte',
+    base.sessions.length === avantSup - 1 &&
+    JSON.stringify(await visible()) === '["vue-liste"]',
+    avantSup + ' → ' + base.sessions.length + ' séance(s)');
 
   console.log('\n══ 8. NON-RÉGRESSION ══');
   for (const [chemin, attendu] of [['/', 'vue-liste'], ['/progression', 'vue-progression'],

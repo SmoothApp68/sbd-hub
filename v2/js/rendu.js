@@ -117,6 +117,26 @@
     });
   }
 
+  // Le menu d'une séance de la liste. Les mêmes trois gestes que le détail, au
+  // même endroit du même ordre — on ne réapprend pas un menu d'un écran à
+  // l'autre. « Partager » n'y est pas : c'est du social, et il vient en dernier.
+  function rendreFeuilleSeance(cible, vue) {
+    vider(cible);
+    var t = el('div', 'feuille-t', 'Séance');
+    t.appendChild(el('em', '', vue.titre || 'Séance'));
+    cible.appendChild(t);
+
+    var menu = el('div', 'feuille-menu');
+    entreeMenu(menu, 'Refaire cette séance', { surClic: vue.surRefaire });
+    entreeMenu(menu, 'Modifier', { surClic: vue.surModifier });
+    cible.appendChild(menu);
+
+    var sup = el('div', 'feuille-menu');
+    entreeMenu(sup, 'Supprimer', { classe: 'danger', surClic: vue.surSupprimer });
+    cible.appendChild(sup);
+    return cible;
+  }
+
   function rendreBloc(bloc) {
     var section = el('section', 'bloc' + (bloc.superset ? ' superset' : ''));
 
@@ -141,8 +161,14 @@
       // §2.5 : les séries qui ne sont pas du travail ne sont jamais surlignées.
       // Elles portent la lettre de leur exercice, jamais un libellé de type :
       // la distinction se fait par le style.
-      var ligne = el('div', 'serie' + (s.estTravail ? '' : ' hors-travail'));
-      ligne.appendChild(el('span', 'tag', s.etiquette));
+      var ligne = el('div', 'serie' + (s.estTravail ? '' : ' hors-travail') +
+        (s.debutTour ? ' debut-tour' : ''));
+      var t = ETIQUETTE_TYPE[s.type_serie];
+      // Hors superset, `etiquette` est vide sur une série qui n'est pas du
+      // travail : elle n'a pas de lettre à porter. On retombe alors sur le
+      // libellé de type — `W` pour une chauffe — plutôt que sur un badge nu.
+      ligne.appendChild(el('span', 'tag' + (t ? ' ' + t.classe : ''),
+        s.etiquette || (t ? t.texte : '')));
       ligne.appendChild(el('span', 'mesure', M().formatMesure(s)));
       section.appendChild(ligne);
     });
@@ -483,7 +509,10 @@
     }
   }
 
-  function rendreJours(cible, jours, resumeDe, surChoix) {
+  // ⚠️ `surMenu` EST FACULTATIF : sans lui, la carte reste exactement ce qu'elle
+  // était. C'est ce qui permet d'ajouter le menu sans toucher aux appelants qui
+  // n'en veulent pas.
+  function rendreJours(cible, jours, resumeDe, surChoix, surMenu) {
     vider(cible);
 
     // Une semaine entièrement vide dit qu'elle est vide, plutôt que de rendre
@@ -518,7 +547,21 @@
         // Une sortie garde sa carte évidée : durée et distance, pas d'aperçu.
         if (!r.estSortie) rendreApercu(carte, r.apercu);
         carte.addEventListener('click', function () { surChoix(r.id); });
-        bloc.appendChild(carte);
+
+        // §7 octies — LE MENU SUR LA CARTE. Supprimer une séance demandait de
+        // l'ouvrir : un détour pour un geste courant. Les trois gestes datent du
+        // chantier 29 — c'est un point d'entrée, pas une fonction de plus.
+        //
+        // ⚠️ LE « ⋯ » EST À CÔTÉ DE LA CARTE, PAS DEDANS. La carte EST un
+        // bouton : en imbriquer un second donnerait un balisage invalide, et le
+        // tap ouvrirait la séance en même temps que le menu. Une sortie n'en a
+        // pas — elle ne se refait pas et ne se modifie pas ici.
+        if (!surMenu || r.estSortie || r.incomplet) { bloc.appendChild(carte); return; }
+        var enveloppe = el('div', 'seance-enveloppe');
+        enveloppe.appendChild(carte);
+        enveloppe.appendChild(menuTroisPoints('Actions sur ' + (r.titre || 'la séance'),
+          function () { surMenu(r.id); }));
+        bloc.appendChild(enveloppe);
       });
       cible.appendChild(bloc);
     });
@@ -851,8 +894,13 @@
   // Le numéro porte le TYPE de la série (§3 bis.1) : les quatre valeurs de
   // `sets.type_serie` sont couvertes sans un champ de plus. Le compte de travail
   // n'avance que sur les séries de travail — une chauffe ne prend pas un numéro.
+  // ⚠️ §7 undecies.1 — LA CHAUFFE SE LIT EN UNE DEMI-SECONDE. Même forme carrée
+  // que les séries de travail, distinguée par la TEINTE : la colonne garde son
+  // rythme, ce qui compte sur une colonne qu'on parcourt verticalement. Dans un
+  // superset le badge porte la LETTRE de son exercice (voir `etiquetteDeSerie`) ;
+  // hors superset, un `W` — il n'y a pas de lettre à porter.
   var ETIQUETTE_TYPE = {
-    echauffement: { texte: 'C', classe: 'c' },
+    echauffement: { texte: 'W', classe: 'c' },
     degressive: { texte: 'D', classe: 'd' },
     echec: { texte: '✕', classe: 'x' }
   };
@@ -1199,7 +1247,13 @@
     var haut = el('div', 'tete-haut');
     // §2.7 — le tour ATTEINT, et il ne recule pas. C'est le seul endroit où il
     // se voit ; sans lui, « le tour avance » ne serait qu'une idée.
-    var n = bloc.superset ? Math.min(vue.tourAtteint(bloc.groupe) + 1, bloc.nbTours) : 0;
+    //
+    // ⚠️ CE SONT LES TOURS FAITS, PAS LE TOUR EN COURS (§7 undecies.3). Un `+1`
+    // affichait « tour 1/3 » avant d'avoir rien fait, et « 2/3 » une fois le
+    // premier tour bouclé : lu sur l'appareil, ça donnait l'impression qu'une
+    // chauffe faisait avancer le compteur. Elle ne l'a jamais fait — 22 272
+    // configurations éprouvées — c'est ce décalage d'un cran qu'on voyait.
+    var n = bloc.superset ? Math.min(vue.tourAtteint(bloc.groupe), bloc.nbTours) : 0;
     haut.appendChild(el('div', 'superset-t', bloc.superset
       ? 'Superset' + (bloc.nbTours ? ' · tour ' + n + '/' + bloc.nbTours : '') : ''));
     // ⚠️ LE MENU DE BLOC EST ACCESSIBLE EN PLEINE SÉANCE (§5 bis). Remplacer un
@@ -1327,7 +1381,14 @@
     // dès qu'elle est validée, pour elle seule.
     var allumee = s.tour ? complets[s.tour] === true : !!s.validee_a;
 
-    var ligne = el('div', 'ligne-serie');
+    // §7 undecies.2 — un espace et un filet plus clair entre les tours. Aucun
+    // texte : `A1`, `B1`, `C1` disent déjà « tour 1 », et un libellé coûtait
+    // cinq rangs sur un bloc à deux tours de chauffe et trois de travail.
+    //
+    // ⚠️ LA MARQUE VA SUR LA LIGNE, PAS SUR LA RANGÉE. C'est la ligne qui porte
+    // le fond de glissement ; une marge posée sur la rangée laisserait le fond
+    // rouge dépasser dans l'espace, au-dessus du vide.
+    var ligne = el('div', 'ligne-serie' + (s.debutTour ? ' debut-tour' : ''));
     var fond = el('div', 'glisse-fond', 'Supprimer');
     var rangee = el('div', 'serie' + classeGrille + (allumee ? ' faite' : ''));
 
@@ -1996,6 +2057,7 @@
     rendreFeuilleNote: rendreFeuilleNote,
     rendreFeuilleRepos: rendreFeuilleRepos,
     rendreFeuilleConfirmer: rendreFeuilleConfirmer,
+    rendreFeuilleSeance: rendreFeuilleSeance,
     rendreFeuilleBloc: rendreFeuilleBloc,
     rendreFeuilleExercice: rendreFeuilleExercice,
     rendreFeuilleSupprimer: rendreFeuilleSupprimer,

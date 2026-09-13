@@ -1369,6 +1369,75 @@ Une **pastille sur l'onglet Saisie** l'accompagne dans les deux cas.
 
 ---
 
+## 7 undecies. Distinguer les chauffes et séparer les tours — arrêté le 13/09/2026
+
+Constaté sur device : dans un superset, `Ac` et `A1` se ressemblent trop. **La chauffe doit se
+lire en une demi-seconde, sans être déchiffrée.**
+
+### 7 undecies.1 Le badge de chauffe
+
+> **Même forme carrée que les séries de travail**, distingué par la **teinte** : bordure et
+> texte bleus, fond légèrement plus clair.
+
+La colonne garde son rythme — aucune ligne ne dépasse, ce qui compte sur une colonne qu'on
+parcourt verticalement.
+
+**Dans un superset**, le badge porte **la lettre de son exercice** : `A`, `B`, `C`, `D`. On
+sait de quel exercice il s'agit sans perdre la distinction de type. **Hors superset**, un `W`.
+
+C'est le motif de LiftTrack, qui marque ses chauffes d'un badge distinct là où les séries de
+travail portent leur numéro.
+
+Teintes retenues : `#5B8AC4` sur fond `#1B2129`, bordure `#3A4A5E`.
+
+### 7 undecies.2 Les tours se séparent par un espace, pas par un libellé
+
+**Piste explorée puis écartée :** nommer chaque section — « Échauffement », « Tour 1 »,
+« Tour 2 ».
+
+> **Un libellé de tour répète ce que le numéro dit déjà.** `A1`, `B1`, `C1` disent tous
+> « tour 1 ». Et il coûtait **cinq rangs** sur un bloc à deux tours de chauffe et trois de
+> travail.
+
+La chauffe était un cas différent — le libellé y apportait ce que le numéro ne portait pas.
+C'est pourquoi elle garde son badge et les tours non.
+
+> **Retenu : un espace d'environ 11 px et un filet plus clair entre les tours.** Aucun texte
+> ajouté. Le blanc sépare aussi bien qu'un mot.
+
+**Ne vaut que pour les supersets.** Dans un exercice seul, les lignes ne s'entrelacent pas :
+rien à séparer.
+
+Variante écartée : un compteur seul (`1 / 3`) aligné à droite, sans mot. Il gardait
+l'information de progression mais coûtait un rang par tour — et la progression se lit aux
+lignes restantes.
+
+### 7 undecies.3 Le compteur de tours — ~~défaut ouvert~~ **résolu le 13/09**
+
+Constaté sur device : le compteur affichait **`1/x` avant toute validation**, et semblait
+**passer à `2/x` quand on validait une chauffe**.
+
+> ✅ **Diagnostiqué avant correction, et les deux lectures étaient vraies à moitié.**
+>
+> Une chauffe **n'a jamais** fait avancer le compteur : elle ne porte pas de tour
+> (`tour: null`), donc `toursComplets` l'ignore. Vérifié par balayage exhaustif — **22 272
+> configurations** de 0 à 2 chauffes et 0 à 3 séries de travail par exercice, sur des
+> supersets de 2 à 4 : aucune ne fait avancer le compteur en validant une chauffe.
+>
+> Le défaut était **unique et ailleurs** : l'affichage montrait le tour **EN COURS**
+> (`tourAtteint + 1`), pas les tours **FAITS**. D'où `1/3` avant d'avoir rien fait — et `2/3`
+> une fois le premier tour bouclé, ce qui, enchaîné à une chauffe validée, se lisait comme
+> « la chauffe l'a fait avancer ».
+>
+> **Le compteur affiche désormais les tours faits : `0/3` avant de commencer.**
+
+### 7 undecies.4 Écarté — le défilement automatique
+
+Hevy fait descendre l'écran sur l'exercice suivant du superset après chaque validation.
+**Écarté** : un écran qui bouge seul désoriente plus qu'il n'aide.
+
+---
+
 ## 7 decies. Un groupe de superset a toujours au moins deux exercices
 
 > **Règle invariante, posée le 13/09/2026.**

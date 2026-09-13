@@ -25,6 +25,7 @@
   --accent:#F2B705;      /* onglet actif + suggestion du moteur, rien d'autre */
   --reussi:#5FA97A;      /* sens uniquement, jamais décoratif */
   --manque:#C4564A;
+  --chauffe:#5B8AC4;     /* §7 undecies.1 — la chauffe, et rien d'autre */
 
   /* Espacements : échelle de 4. */
   --e1:4px; --e2:8px; --e3:12px; --e4:16px; --e5:24px; --e6:32px;
@@ -124,6 +125,12 @@ button{font-family:inherit;cursor:pointer}
   padding:12px;margin-bottom:10px;color:var(--texte);
 }
 .seance:active{box-shadow:0 0 0 1.5px var(--texte-3) inset}
+/* §7 octies — le « ⋯ » vit À CÔTÉ de la carte, jamais dedans : la carte EST un
+   bouton. Il se superpose en haut à droite, là où il ne recouvre aucun texte —
+   le titre s'arrête avant. */
+.seance-enveloppe{position:relative}
+.seance-enveloppe .seance{padding-right:40px}
+.seance-enveloppe .menu-pts{position:absolute;top:6px;right:4px;margin:0}
 .seance.sortie{padding:9px 12px;background:transparent;border:1px solid var(--trait)}
 .seance.sortie .seance-titre{font-size:12.5px;font-weight:500;color:var(--texte-2)}
 .seance.sortie .seance-meta{margin-top:2px;font-size:11px}
@@ -176,6 +183,11 @@ button{font-family:inherit;cursor:pointer}
 .tag{font-size:11px;font-weight:700;color:var(--texte-2);font-variant-numeric:tabular-nums}
 /* §2.5 : une série qui n'est pas du travail n'est jamais surlignée. */
 .serie.hors-travail .tag{font-weight:500;color:#5c6068}
+/* §7 undecies — le détail reconnaît la chauffe au MÊME signe que la saisie, et
+   sépare les tours au même endroit : deux écrans, une seule lecture. */
+.serie.hors-travail .tag.c{color:var(--chauffe);font-weight:700}
+.bloc .serie.debut-tour{margin-top:9px;border-top-color:transparent;
+  box-shadow:inset 0 1px 0 #3A4048}
 .mesure{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
 
 /* ── États ────────────────────────────────────────────────────────────── */
@@ -643,11 +655,24 @@ button{font-family:inherit;cursor:pointer}
   color:var(--manque);font-size:12px;font-weight:700;z-index:0}
 .serie.grille{position:relative;z-index:1;align-items:center;
   padding:5px var(--e3);border-top:1px solid var(--trait);background:var(--panneau)}
+/* §7 undecies.2 — les tours se séparent par un ESPACE, pas par un libellé.
+   `A1`, `B1`, `C1` disent déjà « tour 1 » : un titre au-dessus redirait, et
+   coûtait cinq rangs sur un bloc à deux tours de chauffe et trois de travail.
+   Onze pixels et un filet plus clair suffisent — le blanc sépare aussi bien
+   qu'un mot. Le trait passe en `box-shadow` : un `border-top` serait mangé par
+   la marge et laisserait le filet contre la ligne d'au-dessus. */
+.ligne-serie.debut-tour{margin-top:11px}
+.ligne-serie.debut-tour .serie.grille{border-top-color:transparent;
+  box-shadow:inset 0 1px 0 #3A4048}
 
 .no-serie{width:30px;height:38px;border-radius:var(--r-petit);
   border:1px solid var(--trait);background:transparent;color:var(--texte-2);
   font:700 12px/1 inherit;font-family:inherit;display:grid;place-items:center}
-.no-serie.c{border-color:#343A43;color:var(--texte-3);font-weight:500}
+/* ⚠️ §7 undecies.1 — LA CHAUFFE SE LIT EN UNE DEMI-SECONDE. Même carré, même
+   place, même hauteur : c'est la TEINTE qui distingue, pas la forme. Sur une
+   colonne qu'on parcourt verticalement, une ligne qui dépasse casse le rythme
+   et coûte plus qu'elle ne rapporte. */
+.no-serie.c{border-color:#3A4A5E;color:var(--chauffe);background:#1B2129;font-weight:700}
 .no-serie.d{border-color:#4A4033;color:#B08F3C}
 .no-serie.x{border-color:#4A3330;color:var(--manque)}
 /* Une note propre à CETTE série (§7 septies.1) : un point, pas un libellé —

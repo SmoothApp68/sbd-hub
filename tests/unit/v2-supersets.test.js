@@ -195,7 +195,9 @@ describe('l’échauffement (§2.5)', () => {
     s = Seance.changerType(s, 0, 0, 'echauffement');
     s = valider(s, 0, 0);
     const c = rendre(s);
-    expect(etiquettes(c, 0)).toEqual(['C', '1']);
+    // §7 undecies.1 — hors superset le badge porte `W` : il n'y a pas de lettre
+    // d'exercice à porter, et la chauffe doit rester lisible sans déchiffrage.
+    expect(etiquettes(c, 0)).toEqual(['W', '1']);
     expect(allumees(c, 0)).toEqual([true, false]);
   });
 
@@ -279,11 +281,15 @@ describe('l’éclairage porte sur le tour (§2.6 et §2.7)', () => {
     expect(allumees(rendre(s), 0)).toEqual([false, true, false]);
   });
 
-  test('le tour atteint s’affiche, et il est plafonné au nombre de tours', () => {
+  // ⚠️ TEST RETOURNÉ AU CHANTIER 30 (§7 undecies.3). Il affirmait « tour 1/2 »
+  // AVANT d'avoir rien fait : le compteur affichait le tour EN COURS, pas les
+  // tours FAITS. Sur l'appareil, ce décalage d'un cran se lisait comme « une
+  // chauffe fait avancer le compteur » — elle ne l'a jamais fait.
+  test('le compteur affiche les tours FAITS, et il est plafonné', () => {
     let s = seanceDe([['dc', 2, 1], ['ec', 2, 1]]);
-    expect(rendre(s).querySelector('.superset-t').textContent).toBe('Superset · tour 1/2');
+    expect(rendre(s).querySelector('.superset-t').textContent).toBe('Superset · tour 0/2');
     s = valider(s, 0, 0); s = valider(s, 1, 0);
-    expect(rendre(s).querySelector('.superset-t').textContent).toBe('Superset · tour 2/2');
+    expect(rendre(s).querySelector('.superset-t').textContent).toBe('Superset · tour 1/2');
     s = valider(s, 0, 1); s = valider(s, 1, 1);
     expect(rendre(s).querySelector('.superset-t').textContent).toBe('Superset · tour 2/2');
   });

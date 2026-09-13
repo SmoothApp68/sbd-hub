@@ -419,7 +419,7 @@
     });
     Rendu.rendreJours($('liste-seances'), Semaine.joursAvecSeances(sem.jours), function (s) {
       return Modele.resumerSeance(s, seriesDe(s.id), local.exercices, Palier, etatsExercices);
-    }, afficherDetail);
+    }, afficherDetail, ouvrirMenuSeance);
   }
 
   // ── Progression : le sommaire (§7 bis.14) ────────────────────────────────
@@ -1852,6 +1852,22 @@
       surModifier: function () { modifierSeance(ligne, blocs); },
       surRefaire: function () { refaireSeance(ligne, blocs); }
     } : null);
+  }
+
+  // §7 octies — LE MÊME MENU, DEPUIS LA LISTE. Supprimer une séance demandait de
+  // l'ouvrir : un détour pour un geste courant. Les trois gestes sont ceux du
+  // détail, appelés tels quels — refus compris quand une séance est en cours.
+  function ouvrirMenuSeance(id) {
+    var ligne = local.seances.filter(function (s) { return s.id === id; })[0];
+    if (!ligne) return;
+    var blocs = Modele.construireBlocs(seriesDe(id), local.exercices);
+    Rendu.rendreFeuilleSeance($('feuille-contenu'), {
+      titre: ligne.titre,
+      surRefaire: function () { fermerVoile(); refaireSeance(ligne, blocs); },
+      surModifier: function () { fermerVoile(); modifierSeance(ligne, blocs); },
+      surSupprimer: function () { fermerVoile(); demanderSuppressionSeance(ligne); }
+    });
+    ouvrirVoile($('feuille-seance'));
   }
 
   // ══ LES GESTES SUR UNE SÉANCE TERMINÉE (§7 octies) ═══════════════════════

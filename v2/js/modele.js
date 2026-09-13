@@ -374,13 +374,25 @@
   // tour `t`, ou rien. Un exercice qui n'a pas de t-ième tour ne produit rien —
   // pas d'étiquette fantôme (§2.4). C'est la mécanique des séries inégales du
   // chantier 27, et les chauffes s'en servent à l'identique.
-  function entrelacerTours(parExo) {
+  //
+  // ⚠️ ELLE MARQUE LA PREMIÈRE LIGNE DE CHAQUE TOUR (§7 undecies.2). C'est ici,
+  // et nulle part ailleurs, qu'on sait où un tour commence : le rendu ne doit
+  // pas le re-deviner en comparant des numéros — un tour de chauffe n'en a pas.
+  // La toute première ligne du bloc n'est pas marquée : on ne sépare pas d'un
+  // vide un tour de rien.
+  function entrelacerTours(parExo, dejaEmis) {
     var out = [];
+    var emis = !!dejaEmis;
     var profondeur = parExo.reduce(function (m, p) { return Math.max(m, p.length); }, 0);
     for (var t = 0; t < profondeur; t++) {
+      var tour = [];
       for (var e = 0; e < parExo.length; e++) {
-        if (parExo[e][t]) out = out.concat(parExo[e][t]);
+        if (parExo[e][t]) tour = tour.concat(parExo[e][t]);
       }
+      if (!tour.length) continue;
+      if (emis) tour[0] = Object.assign({}, tour[0], { debutTour: true });
+      emis = true;
+      out = out.concat(tour);
     }
     return out;
   }
@@ -495,7 +507,9 @@
         var travail = bloc.exercices.map(function (e) {
           return paqueter(e.series.filter(function (s) { return !estChauffe(s); }));
         });
-        bloc.series = entrelacerTours(chauffes).concat(entrelacerTours(travail));
+        var lignesChauffe = entrelacerTours(chauffes);
+        bloc.series = lignesChauffe.concat(
+          entrelacerTours(travail, lignesChauffe.length > 0));
       } else {
         bloc.series = trierParRang(
           bloc.exercices.reduce(function (acc, e) { return acc.concat(e.series); }, []));

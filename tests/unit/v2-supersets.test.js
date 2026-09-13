@@ -166,26 +166,43 @@ describe('l’échauffement (§2.5)', () => {
       ['A1', 'B1', 'C', 'C1', 'A2', 'B2', 'C2']);
   });
 
-  test('il n’est JAMAIS surligné, même validé', () => {
+  // ⚠️ TEST RETOURNÉ AU CHANTIER 28, APRÈS ESSAI SUR DEVICE (§2.5 précisé).
+  //
+  // Le chantier 27 lisait « jamais surlignés » comme « jamais verts ». C'est
+  // l'ÉCLAIRAGE DU TOUR que la règle vise : une chauffe faite doit se voir
+  // comme faite. Ce qui reste vrai — et que ce test garde — c'est qu'elle
+  // n'entre pas dans le tour : elle s'allume seule, sans rien allumer d'autre.
+  test('validé, il passe au vert — mais pour lui seul, sans ouvrir le tour', () => {
     let s = seanceDe([['dc', 2, 1], ['ec', 2, 1]]);
     s = Seance.changerType(s, 0, 0, 'echauffement');
     s = valider(s, 0, 0);                       // la chauffe de A, validée
     const c = rendre(s);
     expect(etiquettes(c, 0)).toEqual(['A', 'A1', 'B1', 'B2']);
-    expect(allumees(c, 0)).toEqual([false, false, false, false]);
-    // Elle porte quand même sa coche : validée n'est pas surlignée.
+    // La chauffe est verte ; A1 et B1, eux, attendent leur tour complet.
+    expect(allumees(c, 0)).toEqual([true, false, false, false]);
     const coches = Array.from(c.querySelectorAll('.bloc-seance')[0]
       .querySelectorAll('.ok-serie')).map((b) => b.classList.contains('cochee'));
     expect(coches).toEqual([true, false, false, false]);
   });
 
-  test('hors superset non plus, un échauffement validé ne s’allume pas', () => {
+  test('hors superset aussi : la chauffe validée est verte, comme une série normale', () => {
     let s = seanceDe([['cu', 2, null]]);
     s = Seance.changerType(s, 0, 0, 'echauffement');
     s = valider(s, 0, 0);
     const c = rendre(s);
     expect(etiquettes(c, 0)).toEqual(['C', '1']);
-    expect(allumees(c, 0)).toEqual([false, false]);
+    expect(allumees(c, 0)).toEqual([true, false]);
+  });
+
+  // Et l'inverse tient toujours : une chauffe NON validée reste éteinte même
+  // quand le tour autour d'elle est complet. Elle n'appartient à aucun tour.
+  test('non validé, il reste éteint même si le tour est fait', () => {
+    let s = seanceDe([['dc', 2, 1], ['ec', 2, 1]]);
+    s = Seance.changerType(s, 0, 0, 'echauffement');
+    s = valider(s, 0, 1); s = valider(s, 1, 0);   // le tour 1 : A1 et B1
+    const c = rendre(s);
+    expect(etiquettes(c, 0)).toEqual(['A', 'A1', 'B1', 'B2']);
+    expect(allumees(c, 0)).toEqual([false, true, true, false]);
   });
 });
 

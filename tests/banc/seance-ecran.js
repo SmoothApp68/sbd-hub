@@ -146,6 +146,28 @@ const SETS_PASSES = [1, 2].map((n) => ({
 
   const refus = (code, msg) => ({ code: code, message: msg, details: msg });
 
+  // Les routines du banc, et l'index unique (routine_id, rang) de la vraie
+  // base. Un instantané permet de REFUSER une écriture en la défaisant, comme
+  // le ferait Postgres — sans lui, le banc laisserait passer un plan qui
+  // collisionne et le device seul dirait non.
+  const ROUTINES = [ROUTINE, ROUTINE_MESURES, ROUTINE_SUPERSET];
+  const instantaneRoutines = () =>
+    ROUTINES.map((r) => r.routine_exercises.map((e) => Object.assign({}, e)));
+  const rendreRoutines = (instantane) => {
+    ROUTINES.forEach((r, i) => { r.routine_exercises = instantane[i]; });
+  };
+  const collisionRangRoutine = () => {
+    const vus = new Set();
+    for (const r of ROUTINES) {
+      for (const e of r.routine_exercises) {
+        const c = r.id + '#' + e.rang;
+        if (vus.has(c)) return true;
+        vus.add(c);
+      }
+    }
+    return false;
+  };
+
   function verifierSet(l) {
     if (l.source === 'app' && !l.validee_a) return refus('23514', 'sets_validee_si_saisie');
     if (!(l.rang >= 1)) return refus('23514', 'sets_rang_positif');
@@ -267,9 +289,41 @@ const SETS_PASSES = [1, 2].map((n) => ({
       const id = (url.searchParams.get('id') || '').replace('eq.', '');
       const champs = Array.isArray(corps) ? corps[0] : corps;
       base.patchs.push({ id: id, champs: Object.assign({}, champs) });
-      for (const r of [ROUTINE, ROUTINE_MESURES]) {
+      const avant = instantaneRoutines();
+      for (const r of ROUTINES) {
         const i = r.routine_exercises.findIndex((e) => e.id === id);
         if (i >= 0) r.routine_exercises[i] = Object.assign({}, r.routine_exercises[i], champs);
+      }
+      // ⚠️ `routine_exos_rang_uniq` N'EST PAS DIFFÉRÉE, elle. Contrairement à
+      // `sets_rang_unique`, elle se vérifie À CHAQUE ÉNONCÉ : un plan qui passe
+      // par un état intermédiaire en collision est refusé au milieu, la routine
+      // à moitié écrite. C'est la contrainte qui fait tout l'intérêt du plan.
+      if (collisionRangRoutine()) { rendreRoutines(avant);
+        return json(refus('23505', 'routine_exos_rang_uniq'), 409); }
+      return json([]);
+    }
+
+    if (req.method() === 'POST' && table === 'routine_exercises') {
+      const lignes = (Array.isArray(corps) ? corps : [corps]).map((l) => Object.assign({}, l));
+      base.patchs.push({ op: 'insert', lignes: lignes });
+      const avant = instantaneRoutines();
+      for (const l of lignes) {
+        const r = ROUTINES.filter((x) => x.id === l.routine_id)[0];
+        if (r) r.routine_exercises.push(l);
+      }
+      if (collisionRangRoutine()) { rendreRoutines(avant);
+        return json(refus('23505', 'routine_exos_rang_uniq'), 409); }
+      return json(lignes, 201);
+    }
+
+    if (req.method() === 'DELETE' && table === 'routine_exercises') {
+      const brut = url.searchParams.get('id') || '';
+      const ids = brut.startsWith('in.')
+        ? brut.slice(4, -1).split(',').map((x) => x.replace(/"/g, ''))
+        : [brut.replace('eq.', '')];
+      base.patchs.push({ op: 'delete', ids: ids });
+      for (const r of ROUTINES) {
+        r.routine_exercises = r.routine_exercises.filter((e) => ids.indexOf(e.id) < 0);
       }
       return json([]);
     }
@@ -740,7 +794,7 @@ const SETS_PASSES = [1, 2].map((n) => ({
   await cliqueRepos(SON);   // on rétablit, pour ne pas laisser l'état au suivant
 
   console.log('\n══ 6. TERMINER ══');
-  await page.click('#bandeau-seance .discret');
+  await page.click('#bandeau-seance .bandeau-fin');
   await attendre(500);
   await page.click('#feuille-contenu .principal');
   await attendre(2200);
@@ -770,7 +824,7 @@ const SETS_PASSES = [1, 2].map((n) => ({
   await attendre(800);
   const idAbandon = base.sessions.filter((s) => s.statut === 'en_cours').map((s) => s.id)[0];
   ok('une deuxième séance est bien ouverte', !!idAbandon, idAbandon || '(aucune)');
-  await page.click('#bandeau-seance .discret');
+  await page.click('#bandeau-seance .bandeau-fin');
   await attendre(500);
   await page.click('#feuille-contenu .danger');
   await attendre(2200);
@@ -1090,7 +1144,7 @@ const SETS_PASSES = [1, 2].map((n) => ({
     'bas du repos ' + geometrie.basRepos + ' · haut des onglets ' + geometrie.hautOnglets);
 
   console.log('\n══ 7 quater. LA CARTE DE SÉANCE DIT LA BONNE GRANDEUR ══');
-  await page.click('#bandeau-seance .discret');
+  await page.click('#bandeau-seance .bandeau-fin');
   await attendre(500);
   await page.click('#feuille-contenu .principal');
   await attendre(2400);
@@ -1299,7 +1353,7 @@ const SETS_PASSES = [1, 2].map((n) => ({
     reparti2 !== reparti, reparti + ' → ' + reparti2);
 
   // ── L'écran de fin ─────────────────────────────────────────────────────
-  await page.click('#bandeau-seance .discret');
+  await page.click('#bandeau-seance .bandeau-fin');
   await attendre(600);
   ok('l’écran de fin porte les trois champs déclarés',
     (await compter('#feuille-contenu .champs-fin .champ-texte')) === 3,
@@ -1368,7 +1422,7 @@ const SETS_PASSES = [1, 2].map((n) => ({
   ok('la note de la routine suit dans la nouvelle séance',
     /Ceinture/.test(await lireBloc(0, '.note-exo')), await lireBloc(0, '.note-exo'));
   await saisirSerie(0, 100, 5);
-  await page.click('#bandeau-seance .discret');
+  await page.click('#bandeau-seance .bandeau-fin');
   await attendre(600);
   ok('sans déviation, AUCUNE question sur la routine ne se pose',
     (await compter('#feuille-contenu .question-routine')) === 0,
@@ -1388,7 +1442,7 @@ const SETS_PASSES = [1, 2].map((n) => ({
   });
   await attendre(900);
   const patchsAvantGarder = patchsRoutine().length;
-  await page.click('#bandeau-seance .discret');
+  await page.click('#bandeau-seance .bandeau-fin');
   await attendre(600);
   ok('une déviation ROUVRE la question', (await compter('#feuille-contenu .question-routine')) === 1,
     (await texte('#feuille-contenu .ecarts')).replace(/\s+/g, ' ').slice(0, 60));
@@ -1577,7 +1631,7 @@ const SETS_PASSES = [1, 2].map((n) => ({
     JSON.stringify(enBase.map((s) => s.exercise_slug + '@' + s.groupe_superset)));
 
   const idSuper = seanceCourante();
-  await page.click('#bandeau-seance .discret');
+  await page.click('#bandeau-seance .bandeau-fin');
   await attendre(600);
   await page.click('#feuille-contenu .principal');
   await attendre(2600);
@@ -1596,6 +1650,420 @@ const SETS_PASSES = [1, 2].map((n) => ({
   ok('et il reconnaît le superset, liseré compris',
     (await compter('#vue-detail .bloc.superset')) === 1,
     (await compter('#vue-detail .bloc.superset')) + ' bloc(s) superset');
+
+  console.log('\n══ 7 nonies. LA DÉVIATION — MENU DE BLOC, MODIFIER, REPORT ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE (CADRAGE-V2 §2 quater) : UN SUPERSET À TROIS
+  // EXERCICES, ET UN DÉPLACEMENT AU MILIEU DE LA LISTE.
+  //
+  // Sur un superset à DEUX, « sortir un exercice » et « dissoudre le bloc »
+  // donnent exactement le même écran : il reste deux blocs d'un seul dans les
+  // deux cas. Il faut un troisième pour que la différence existe — l'un sort,
+  // les deux autres restent groupés. Et en déplaçant le DERNIER bloc,
+  // « renuméroter les rangs » et « ne rien faire » sont indistinguables : rien
+  // ne bouge derrière lui. Le déplacement se fait donc AU MILIEU, là où les
+  // rangs de tout ce qui suit doivent suivre sans se heurter à
+  // `sets_rang_unique`.
+  await aller('/saisie');
+  await demarrerRoutine('Superset');
+
+  const menuBloc = async (i) => {
+    await page.evaluate((k) => {
+      document.querySelectorAll('.bloc-seance')[k].querySelector('.tete-haut .menu-pts').click();
+    }, i);
+    await attendre(500);
+  };
+  const menuExo = async (i, k) => {
+    await page.evaluate(([b, x]) => {
+      document.querySelectorAll('.bloc-seance')[b]
+        .querySelectorAll('.legende-haut .menu-pts')[x].click();
+    }, [i, k]);
+    await attendre(500);
+  };
+  const entreesFeuille = () => page.evaluate(() =>
+    Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
+      .map((b) => b.textContent + (b.disabled ? ' (inerte)' : '')));
+  const entree = async (motif) => {
+    await page.evaluate((m) => {
+      const b = Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
+        .filter((x) => new RegExp(m).test(x.textContent))[0];
+      b.click();
+    }, motif);
+    await attendre(700);
+  };
+  const choisirCatalogue = async (q) => {
+    await page.fill('#champ-recherche-exo', q);
+    await attendre(350);
+    await page.click('#resultats-exo .resultat');
+    await attendre(800);
+  };
+  // La forme de la séance : un tableau de blocs, chacun la liste de ses noms.
+  // ⚠️ LE DERNIER `span`, pas le texte entier : le nom est précédé de sa lettre
+  // dans un superset (`A`, `B`, `C`), et replié il vit dans `.replie-nom`. Le
+  // même appel doit lire les deux vues, sinon le mode Modifier ne se mesure pas.
+  const formeEcran = () => page.evaluate(() =>
+    Array.from(document.querySelectorAll('.bloc-seance')).map((b) =>
+      Array.from(b.querySelectorAll('.exo-seance, .replie-nom'))
+        .map((n) => n.querySelector('span:last-child').textContent)));
+  // ⚠️ LES SÉRIES DE **CETTE** SÉANCE. `sets()` écarte le décor, pas les séances
+  // des sections précédentes : à la septième, elles sont une vingtaine, et
+  // « 2 séries validées » serait faux de toute implémentation.
+  const setsSeance = () => base.sets.filter((s) => s.session_id === seanceCourante());
+  const rangsBase = () => setsSeance().slice().sort((a, b) => a.rang - b.rang)
+    .map((s) => s.exercise_slug + '@' + s.rang);
+
+  // ── §5 bis — le menu est là PENDANT qu'on saisit ────────────────────────
+  ok('le menu de bloc est accessible sans passer par Modifier',
+    (await compter('.tete-haut .menu-pts')) === 2 &&
+    (await compter('.legende-haut .menu-pts')) === 3 &&
+    (await compter('.bloc-seance.replie')) === 0,
+    (await compter('.tete-haut .menu-pts')) + ' menu(s) de bloc · ' +
+    (await compter('.legende-haut .menu-pts')) + ' menu(s) d’exercice');
+
+  await menuBloc(1);
+  ok('sur un bloc d’UN SEUL, le menu porte aussi les gestes de l’exercice',
+    (await entreesFeuille()).join(' | ').indexOf('Remplacer') >= 0 &&
+    (await entreesFeuille()).join(' | ').indexOf('Supprimer l’exercice') >= 0,
+    (await entreesFeuille()).join(' | '));
+  // §2.8 — « voir la progression » est là et NE FAIT RIEN : la page d'exercice
+  // n'existe pas, et la câbler sur du vide serait pire que l'annoncer indisponible.
+  ok('« Voir la progression » est présent et INERTE',
+    (await entreesFeuille()).some((t) => /Voir la progression \(inerte\)/.test(t)),
+    (await entreesFeuille()).join(' | '));
+  await fermerFeuille();
+
+  // §5.6 — sur un SUPERSET, « Remplacer » n'a pas de sens au niveau du bloc :
+  // il faut dire LEQUEL des trois. Le geste vit sur la branche, et le menu du
+  // bloc ne le propose pas — masqué, pas grisé.
+  await menuBloc(0);
+  ok('sur un SUPERSET, le menu du bloc ne propose PAS « Remplacer »',
+    !(await entreesFeuille()).some((t) => /Remplacer/.test(t)) &&
+    (await entreesFeuille()).some((t) => /Supprimer le bloc/.test(t)),
+    (await entreesFeuille()).join(' | '));
+  await fermerFeuille();
+
+  // ── §5.8 — SORTIR UN EXERCICE, celui du MILIEU ──────────────────────────
+  // ⚠️ UN TOUR ENTIER, PAS DEUX LIGNES. Une marque de tour ne se voit reculer
+  // que si elle a d'abord avancé : avec un tour incomplet, « les marques sont
+  // re-semées après un geste » et « elles sont perdues » donnent le même écran.
+  await validerRangee(0, 0);      // A1 — Développé Couché
+  await validerRangee(0, 1);      // B1 — Curl
+  await validerRangee(0, 2);      // C1 — Planche
+  ok('le premier tour est bouclé avant qu’on touche à la structure',
+    setsSeance().length === 3 && /tour 2\/3/.test(await superT()),
+    JSON.stringify(rangsBase()) + ' · ' + (await superT()).trim());
+
+  await menuExo(0, 1);            // le CURL, au milieu du superset à trois
+  ok('le menu d’un exercice de superset propose de l’en sortir',
+    (await entreesFeuille()).some((t) => /Sortir du superset/.test(t)),
+    (await entreesFeuille()).join(' | '));
+  await entree('Sortir du superset');
+
+  ok('il sort SEUL : les deux autres restent groupés',
+    JSON.stringify(await formeEcran()) ===
+    JSON.stringify([['Développé Couché (Barre)', 'Planche'], ['Curl Biceps Haltères'], ['Squat (Barre)']]),
+    JSON.stringify(await formeEcran()));
+  ok('et il se pose JUSTE APRÈS son bloc, pas en fin de séance',
+    (await compter('.bloc-seance')) === 3 && (await compter('.bloc-seance.superset')) === 1,
+    (await compter('.bloc-seance')) + ' bloc(s), dont ' +
+    (await compter('.bloc-seance.superset')) + ' superset');
+  ok('les étiquettes suivent la nouvelle forme',
+    JSON.stringify(await etiquettes(0)) === JSON.stringify(['A1', 'B1', 'A2', 'B2', 'A3']) &&
+    JSON.stringify(await etiquettes(1)) === JSON.stringify(['1', '2', '3']),
+    JSON.stringify(await etiquettes(0)) + ' · ' + JSON.stringify(await etiquettes(1)));
+  // ⚠️ LA MARQUE DE TOUR SURVIT AU GESTE. `normaliserGroupes` renumérote les
+  // groupes, donc jette `seance.tours` — indexé par numéro de groupe. L'app la
+  // re-sème aussitôt depuis l'état courant ; sans ça, le tour reculerait à 1 à
+  // chaque déviation, ce que le §2.7 interdit explicitement.
+  ok('et le tour atteint ne recule pas d’un geste de structure',
+    /tour 2\/3/.test(await superT()), (await superT()).trim());
+
+  // « Ce qui est déjà saisi ne se perd pas » (§5 du chantier).
+  ok('la série validée du sortant est TOUJOURS là, à l’écran et en base',
+    (await page.evaluate(() => document.querySelectorAll('.bloc-seance')[1]
+      .querySelectorAll('.ok-serie.cochee').length)) === 1 &&
+    setsSeance().filter((s) => s.exercise_slug === 'curl').length === 1,
+    JSON.stringify(rangsBase()));
+
+  // ── §5.5 — DÉPLACER UN BLOC, AU MILIEU DE LA LISTE ──────────────────────
+  await menuBloc(2);              // Squat, en dernier
+  await entree('Monter le bloc');
+  ok('le bloc déplacé se pose au milieu, et le superset ne bouge pas',
+    JSON.stringify(await formeEcran()) ===
+    JSON.stringify([['Développé Couché (Barre)', 'Planche'], ['Squat (Barre)'], ['Curl Biceps Haltères']]),
+    JSON.stringify(await formeEcran()));
+  // ⚠️ LA CONTRAINTE RÉELLE : tout ce qui suit a changé de rang. Sur une séance
+  // DÉJÀ MONTÉE, écrire ces rangs sans se heurter à `sets_rang_unique` est
+  // exactement le travail de `remplacerSeries` — déplacer le DERNIER bloc ne
+  // l'aurait jamais montré.
+  ok('les rangs suivent en base, sans collision',
+    JSON.stringify(rangsBase()) ===
+      JSON.stringify(['dc-barre@1', 'planche@4', 'curl@8']) &&
+    new Set(setsSeance().map((s) => s.rang)).size === setsSeance().length,
+    JSON.stringify(rangsBase()));
+
+  // ── §5.7 — GROUPER DEUX BLOCS PAR SÉLECTION ─────────────────────────────
+  await menuBloc(1);              // Squat
+  await entree('Grouper en superset');
+  ok('l’écran passe en SÉLECTION : la consigne prend le bandeau',
+    /Grouper avec/.test(await texte('#bandeau-seance')) &&
+    (await compter('.bloc-seance.source-groupe')) === 1 &&
+    (await compter('.bloc-seance.cible-groupe')) === 2,
+    (await texte('#bandeau-seance')).replace(/\s+/g, ' ').slice(0, 50));
+  // ⚠️ « Terminer » disparaît pendant la sélection : le laisser sous la main à
+  // ce moment-là, c'est proposer de finir sa séance par erreur.
+  ok('et « Terminer » n’est plus sous la main', (await compter('#bandeau-seance .bandeau-fin')) === 0,
+    (await compter('#bandeau-seance .bandeau-fin')) + ' bouton Terminer');
+  // ⚠️ NI LES « ⋯ ». La carte entière est la cible du tap : un bouton au milieu
+  // d'elle qui ferait autre chose est un piège, et le bloc SOURCE ne se propose
+  // pas à lui-même — se grouper avec soi-même rendrait le geste muet.
+  ok('aucun menu « ⋯ » ne reste tapable pendant la sélection',
+    (await compter('.menu-pts')) === 0, (await compter('.menu-pts')) + ' menu(s)');
+  ok('et le bloc qui a lancé le geste n’est pas sa propre cible',
+    (await compter('.bloc-seance.source-groupe')) === 1 &&
+    (await compter('.bloc-seance.cible-groupe')) === 2 &&
+    (await compter('.bloc-seance.source-groupe.cible-groupe')) === 0,
+    (await compter('.bloc-seance.source-groupe')) + ' source · ' +
+    (await compter('.bloc-seance.cible-groupe')) + ' cible(s)');
+  // §5.7 — la source se réduit à sa tête comme les cibles : on choisit un bloc,
+  // on ne saisit pas. Les laisser déployées ferait défiler pour choisir.
+  ok('et plus aucune ligne de saisie ne reste sous la main',
+    (await compter('.ligne-serie')) === 0, (await compter('.ligne-serie')) + ' ligne(s)');
+
+  await page.evaluate(() => document.querySelectorAll('.bloc-seance')[2].click());
+  await attendre(800);
+  ok('le bloc touché rejoint le sélectionné : deux supersets',
+    (await compter('.bloc-seance')) === 2 && (await compter('.bloc-seance.superset')) === 2,
+    JSON.stringify(await formeEcran()));
+  ok('et les étiquettes du nouveau bloc s’entrelacent',
+    JSON.stringify(await etiquettes(1)) === JSON.stringify(['A1', 'B1', 'A2', 'B2', 'B3']),
+    JSON.stringify(await etiquettes(1)));
+
+  // ── §5.2 — REMPLACER, sur un exercice QUI PORTE DU TRAVAIL FAIT ─────────
+  //
+  // La règle tranchée : les séries validées RESTENT, sous l'ancien nom, et le
+  // nouveau démarre vide juste après. On ne récrit pas du travail réellement
+  // fait sous un autre exercice — ce serait une donnée fausse, pas un raccourci.
+  await menuExo(0, 0);            // Développé Couché — 1 série validée sur 3
+  await entree('Remplacer');
+  await choisirCatalogue('tractions');
+  // ⚠️ LE NOUVEAU HÉRITE DU SLOT, DONC DU NOMBRE DE LIGNES — trois, comme le
+  // Développé Couché en avait trois. L'ancien, lui, ne garde que sa ligne
+  // FAITE. Le bloc passe donc de 3+2 à 1+3+2 lignes, et l'entrelacement le dit :
+  // A n'a plus qu'un tour, B en a trois.
+  ok('l’ancien garde SES séries validées, le nouveau démarre vide à sa suite',
+    JSON.stringify((await formeEcran())[0]) ===
+    JSON.stringify(['Développé Couché (Barre)', 'Tractions', 'Planche']) &&
+    JSON.stringify(await etiquettes(0)) ===
+    JSON.stringify(['A1', 'B1', 'C1', 'B2', 'C2', 'B3']),
+    JSON.stringify((await formeEcran())[0]) + ' · ' + JSON.stringify(await etiquettes(0)));
+  ok('la série faite est intacte en base — aucune n’a changé d’exercice',
+    setsSeance().filter((s) => s.exercise_slug === 'dc-barre').length === 1 &&
+    setsSeance().filter((s) => s.exercise_slug === 'tractions').length === 0,
+    JSON.stringify(rangsBase()));
+  ok('et le remplaçant hérite du SLOT : il est dans le superset, pas à côté',
+    (await compter('.bloc-seance')) === 2 &&
+    (await page.evaluate(() => document.querySelectorAll('.bloc-seance')[0]
+      .querySelectorAll('.lettre-exo').length)) === 3,
+    JSON.stringify(await formeEcran()));
+
+  // ── §5 bis — AJOUTER UN EXERCICE APRÈS UN BLOC ──────────────────────────
+  await menuBloc(0);
+  await entree('Ajouter un exercice après');
+  await choisirCatalogue('marche');
+  ok('le nouvel exercice se pose APRÈS le bloc, seul, sans rejoindre le superset',
+    JSON.stringify(await formeEcran()) === JSON.stringify([
+      ['Développé Couché (Barre)', 'Tractions', 'Planche'], ['Marche'],
+      ['Squat (Barre)', 'Curl Biceps Haltères']]),
+    JSON.stringify(await formeEcran()));
+
+  // ── §5.3 — LE MODE MODIFIER ─────────────────────────────────────────────
+  await page.click('#bandeau-seance .bandeau-modifier');
+  await attendre(600);
+  ok('Modifier replie TOUT sur une ligne par bloc',
+    (await compter('.bloc-seance.replie')) === 3 &&
+    (await compter('.ligne-serie')) === 0 &&
+    (await compter('.replie-avancement')) === 3,
+    (await compter('.bloc-seance.replie')) + ' replié(s), ' +
+    (await compter('.ligne-serie')) + ' ligne(s) de saisie');
+  const bornes = await page.evaluate(() => {
+    const b = Array.from(document.querySelectorAll('.bloc-seance'));
+    const g = (n, s) => n.querySelector('.geste[aria-label="' + s + '"]').disabled;
+    return [g(b[0], 'Monter le bloc'), g(b[b.length - 1], 'Descendre le bloc')];
+  });
+  ok('les bornes sont grisées : le premier ne monte pas, le dernier ne descend pas',
+    JSON.stringify(bornes) === '[true,true]', JSON.stringify(bornes));
+  ok('l’avancement remplace le palier : des faits, aucune prescription',
+    /2 \/ 6 séries/.test(await texte('.bloc-seance .replie-avancement')),
+    (await texte('.bloc-seance .replie-avancement')).trim());
+
+  // ⚠️ DÉPLACER UN SUPERSET ENTIER. C'est le bloc qui bouge, pas ses branches :
+  // les trois exercices restent collés, dans leur ordre, et restent un superset.
+  await page.evaluate(() => {
+    document.querySelectorAll('.bloc-seance')[0]
+      .querySelector('.geste[aria-label="Descendre le bloc"]').click();
+  });
+  await attendre(800);
+  ok('un superset se déplace ENTIER, sans se défaire',
+    JSON.stringify(await formeEcran()) === JSON.stringify([
+      ['Marche'], ['Développé Couché (Barre)', 'Tractions', 'Planche'],
+      ['Squat (Barre)', 'Curl Biceps Haltères']]),
+    JSON.stringify(await formeEcran()));
+  await page.click('#bandeau-seance .bandeau-modifier');
+  await attendre(600);
+  ok('« Terminé » rend la saisie',
+    (await compter('.bloc-seance.replie')) === 0 && (await compter('.ligne-serie')) > 0 &&
+    (await compter('.bloc-seance.superset')) === 2,
+    (await compter('.ligne-serie')) + ' ligne(s) de saisie');
+
+  // ── RIEN DE DESTRUCTIF EN SILENCE ───────────────────────────────────────
+  await menuBloc(2);              // Squat + Curl : le Curl porte 1 série validée
+  await entree('Supprimer le bloc');
+  ok('supprimer un bloc qui porte du travail fait DEMANDE d’abord',
+    /1 série déjà validée/.test(await texte('#feuille-contenu')),
+    (await texte('#feuille-contenu')).replace(/\s+/g, ' ').slice(0, 90));
+  await entree('Supprimer quand même');
+  ok('confirmé : le bloc part de l’écran ET de la base',
+    (await compter('.bloc-seance')) === 2 &&
+    setsSeance().filter((s) => s.exercise_slug === 'curl').length === 0 &&
+    setsSeance().length === 2,
+    JSON.stringify(rangsBase()));
+
+  await menuBloc(0);              // Marche : rien de validé
+  await entree('Supprimer l’exercice');
+  ok('sans travail à perdre, aucune question : il part tout de suite',
+    (await compter('.bloc-seance')) === 1 &&
+    JSON.stringify(await formeEcran()) ===
+    JSON.stringify([['Développé Couché (Barre)', 'Tractions', 'Planche']]),
+    JSON.stringify(await formeEcran()));
+
+  // ── §6 — UNE SEULE QUESTION, ET LE DÉFAUT NE TOUCHE À RIEN ──────────────
+  const avantFin = JSON.stringify(ROUTINE_SUPERSET.routine_exercises);
+  const patchsAvant = base.patchs.length;
+  await page.click('#bandeau-seance .bandeau-fin');
+  await attendre(700);
+  const question = await texte('#feuille-contenu');
+  ok('la question de fin dit ce qui a dévié, en toutes lettres',
+    /s’écarte de/.test(question) && /Tractions — ajouté/.test(question) &&
+    /Curl Biceps Haltères — retiré/.test(question) && /Squat \(Barre\) — retiré/.test(question),
+    question.replace(/\s+/g, ' ').slice(0, 180));
+  ok('aucune charge, aucun poids dans la question',
+    !/charge|poids|kg/i.test(question), 'aucun mot de charge');
+  const defaut = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('.choix-routine button'))
+      .map((b) => b.textContent + ':' + b.getAttribute('aria-pressed')));
+  ok('le défaut est de NE PAS toucher la routine',
+    JSON.stringify(defaut) === '["Garder la routine:true","Reporter sur la routine:false"]',
+    JSON.stringify(defaut));
+
+  await page.click('#feuille-contenu .principal');
+  await attendre(2600);
+  ok('« Garder » tenu parole : la routine est exactement celle d’avant',
+    JSON.stringify(ROUTINE_SUPERSET.routine_exercises) === avantFin &&
+    base.patchs.length === patchsAvant,
+    (base.patchs.length - patchsAvant) + ' écriture(s) de routine');
+
+  // ── §6 — LE REPORT, SUR UNE DÉVIATION DE STRUCTURE PURE ─────────────────
+  //
+  // ⚠️ COMPOSITION IDENTIQUE, ORDRE ET GROUPEMENT CHANGÉS. C'est la
+  // configuration où le report est le plus exposé : les deux lignes ÉCHANGENT
+  // leur rang, et `routine_exos_rang_uniq` N'EST PAS DIFFÉRÉE. Un plan naïf
+  // écrirait le rang 0 sur la seconde alors que la première l'occupe encore.
+  await aller('/saisie');
+  await demarrerRoutine('Push');
+  const seriesRoutineAvant = ROUTINE.routine_exercises.slice()
+    .sort((a, b) => a.rang - b.rang).map((e) => e.series);
+
+  await menuBloc(1);
+  await entree('Monter le bloc');
+  await menuBloc(0);
+  await entree('Grouper en superset');
+  await page.evaluate(() => document.querySelectorAll('.bloc-seance')[1].click());
+  await attendre(800);
+  // Une série de plus : elle ne doit RIEN reporter (§6.3 — le nombre de séries
+  // du jour n'est pas une prescription).
+  await page.evaluate(() => document.querySelector('.ajout-serie button').click());
+  await attendre(600);
+  ok('la séance est un seul superset, dans l’ordre inverse de la routine',
+    JSON.stringify(await formeEcran()) ===
+    JSON.stringify([['Développé Couché (Barre)', 'Squat (Barre)']]),
+    JSON.stringify(await formeEcran()));
+
+  await page.click('#bandeau-seance .bandeau-fin');
+  await attendre(700);
+  const q2 = await texte('#feuille-contenu');
+  ok('ordre ET groupement se rapportent, dans la MÊME question',
+    /L’ordre des exercices a changé/.test(q2) &&
+    /Le groupement en superset a changé/.test(q2) &&
+    (q2.match(/s’écarte de/g) || []).length === 1,
+    q2.replace(/\s+/g, ' ').slice(0, 160));
+  ok('et la série ajoutée n’y figure pas — le nombre de séries ne se prescrit pas ici',
+    !/série/.test(q2.split('s’écarte de')[1] || ''),
+    (q2.split('s’écarte de')[1] || '').replace(/\s+/g, ' ').slice(0, 120));
+
+  await page.evaluate(() => {
+    Array.from(document.querySelectorAll('.choix-routine button'))
+      .filter((b) => /Reporter/.test(b.textContent))[0].click();
+  });
+  await attendre(400);
+  await page.click('#feuille-contenu .principal');
+  await attendre(3000);
+
+  const routineApres = ROUTINE.routine_exercises.slice().sort((a, b) => a.rang - b.rang);
+  ok('la routine a suivi : ordre échangé, superset posé, rangs 0/1 sans collision',
+    JSON.stringify(routineApres.map((e) => e.exercise_slug + '@' + e.rang + '#' + e.groupe_superset)) ===
+    JSON.stringify(['dc-barre@0#1', 'squat-barre@1#1']),
+    JSON.stringify(routineApres.map((e) => e.exercise_slug + '@' + e.rang + '#' + e.groupe_superset)));
+  ok('le nombre de séries de la routine n’a PAS bougé (§6.3)',
+    JSON.stringify(routineApres.map((e) => e.series).sort()) ===
+    JSON.stringify(seriesRoutineAvant.slice().sort()),
+    JSON.stringify(routineApres.map((e) => e.series)) + ' vs ' + JSON.stringify(seriesRoutineAvant));
+  const champsRoutine = base.patchs.slice(patchsAvant)
+    .flatMap((p) => p.champs ? Object.keys(p.champs)
+      : (p.lignes || []).flatMap((l) => Object.keys(l)));
+  ok('aucune charge n’est partie dans la routine',
+    champsRoutine.length > 0 && !champsRoutine.some((k) => /charge|poids|kg|weight/i.test(k)),
+    Array.from(new Set(champsRoutine)).join(', '));
+
+  // ── §6 — UNE LIGNE AJOUTÉE PART AVEC SON IDENTIFIANT ───────────────────
+  //
+  // ⚠️ C'EST CE QUI REND LE REPORT IDEMPOTENT. `routine_exercises.id` a
+  // `gen_random_uuid()` en défaut : laisser la base le choisir marcherait UNE
+  // fois, puis une vidange rejouée — réseau qui lâche, app relancée —
+  // réinsérerait une seconde fois chaque exercice ajouté. L'app fabrique donc
+  // le sien, et la ligne se retrouve au lieu de se dédoubler.
+  await aller('/saisie');
+  await demarrerRoutine('Push');
+  const insertsAvant = base.patchs.filter((p) => p.op === 'insert').length;
+  await menuBloc(0);
+  await entree('Ajouter un exercice après');
+  await choisirCatalogue('planche');
+
+  await page.click('#bandeau-seance .bandeau-fin');
+  await attendre(700);
+  ok('un exercice ajouté en séance se rapporte comme ajouté',
+    /Planche — ajouté/.test(await texte('#feuille-contenu')),
+    (await texte('#feuille-contenu')).replace(/\s+/g, ' ').slice(0, 140));
+  await page.evaluate(() => {
+    Array.from(document.querySelectorAll('.choix-routine button'))
+      .filter((b) => /Reporter/.test(b.textContent))[0].click();
+  });
+  await attendre(400);
+  await page.click('#feuille-contenu .principal');
+  await attendre(3000);
+
+  const inserts = base.patchs.filter((p) => p.op === 'insert').slice(insertsAvant);
+  const lignesInserees = inserts.flatMap((p) => p.lignes);
+  ok('la ligne neuve part avec un identifiant fabriqué par l’app',
+    lignesInserees.length === 1 && typeof lignesInserees[0].id === 'string' &&
+    lignesInserees[0].id.length >= 8 && lignesInserees[0].exercise_slug === 'planche',
+    JSON.stringify(lignesInserees.map((l) => l.exercise_slug + '#' + String(l.id).slice(0, 8))));
+  ok('et la routine porte bien trois lignes, rangs 0/1/2',
+    JSON.stringify(ROUTINE.routine_exercises.slice().sort((a, b) => a.rang - b.rang)
+      .map((e) => e.exercise_slug + '@' + e.rang)) ===
+    JSON.stringify(['dc-barre@0', 'squat-barre@1', 'planche@2']),
+    JSON.stringify(ROUTINE.routine_exercises.slice().sort((a, b) => a.rang - b.rang)
+      .map((e) => e.exercise_slug + '@' + e.rang)));
 
   console.log('\n══ 8. NON-RÉGRESSION ══');
   for (const [chemin, attendu] of [['/', 'vue-liste'], ['/progression', 'vue-progression'],

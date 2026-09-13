@@ -29,14 +29,18 @@
 //
 //   { table: 'sessions',          op: 'upsert' | 'supprimer', id }
 //   { table: 'sets',              op: 'remplacer',            id: <id de séance> }
-//   { table: 'routine_exercises', op: 'maj',                  id: <id de ligne> }
+//   { table: 'routine_exercises', op: 'plan',                 id: <id de routine> }
 //
 // La troisième est arrivée au chantier 26, et pour une raison précise : la
 // question de fin « met-on à jour la routine ? » (§6) se pose EN SALLE, là où
 // le réseau n'est pas. Répondre « oui » et perdre la réponse parce que la
-// requête directe a échoué serait la perte silencieuse qu'on interdit. Elle ne
-// crée ni ne supprime : la ligne de routine existe déjà, on ne touche que les
-// champs qui ont dévié — donc `maj` et pas `upsert`.
+// requête directe a échoué serait la perte silencieuse qu'on interdit.
+//
+// ⚠️ ELLE PORTE LA LISTE VOULUE, PAS DES CHAMPS À MODIFIER (chantier 28). Une
+// déviation de structure ajoute, retire et réordonne des lignes : ce n'est plus
+// une mise à jour, c'est un ÉTAT CIBLE. Le plan d'écritures se recalcule à la
+// VIDANGE, contre la routine telle qu'elle est alors — et c'est ce qui rend
+// l'opération idempotente : rejouée, elle ne trouve plus rien à faire.
 //
 // `sets` porte TOUTES les séries validées de la séance, pas une série. Ce n'est
 // pas un raccourci : `sets_rang_unique` est UNIQUE (session_id, rang)
@@ -50,7 +54,7 @@
 
   var SESSIONS = 'sessions', SETS = 'sets', ROUTINE_EXOS = 'routine_exercises';
   var UPSERT = 'upsert', SUPPRIMER = 'supprimer', REMPLACER = 'remplacer';
-  var MAJ = 'maj';
+  var PLAN = 'plan';
 
   function cleDe(table, id) { return String(table) + ':' + String(id); }
 
@@ -262,7 +266,7 @@
 
   var api = {
     SESSIONS: SESSIONS, SETS: SETS, ROUTINE_EXOS: ROUTINE_EXOS,
-    UPSERT: UPSERT, SUPPRIMER: SUPPRIMER, REMPLACER: REMPLACER, MAJ: MAJ,
+    UPSERT: UPSERT, SUPPRIMER: SUPPRIMER, REMPLACER: REMPLACER, PLAN: PLAN,
     CODES_DEFINITIFS: CODES_DEFINITIFS,
     cleDe: cleDe,
     estDefinitive: estDefinitive,

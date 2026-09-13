@@ -764,6 +764,23 @@
 
   function rendreBandeauSeance(cible, vue) {
     vider(cible);
+
+    // ⚠️ LE MODE SÉLECTION PREND LE BANDEAU (§5.7). Pendant qu'on choisit avec
+    // qui grouper, l'écran ne sert qu'à ça : la consigne remplace le titre, et
+    // « Annuler » est la seule autre sortie. Laisser « Terminer » sous la main
+    // à ce moment-là, c'est proposer de finir sa séance par erreur.
+    if (vue.selection !== null && vue.selection !== undefined) {
+      var c = el('div', 'bandeau-t');
+      c.appendChild(el('div', 'bandeau-nom', 'Grouper avec…'));
+      c.appendChild(el('div', 'bandeau-ch', 'Touche le bloc à joindre'));
+      cible.appendChild(c);
+      var an = el('button', 'discret', 'Annuler');
+      an.type = 'button';
+      an.addEventListener('click', vue.surAnnulerSelection);
+      cible.appendChild(an);
+      return;
+    }
+
     var t = el('div', 'bandeau-t');
     t.appendChild(el('div', 'bandeau-nom', vue.titre));
     var debut = vue.debut ? new Date(vue.debut) : null;
@@ -772,7 +789,18 @@
     t.appendChild(el('div', 'bandeau-ch num',
       minutes + ' min · ' + vue.compte.validees + ' série' + (vue.compte.validees > 1 ? 's' : '')));
     cible.appendChild(t);
-    var b = el('button', 'discret', 'Terminer');
+
+    // §5.3 — Modifier replie la séance sur une ligne par bloc. Il ne remplace
+    // pas les menus (§5 bis) : il sert au réordonnancement multiple et à la vue
+    // d'ensemble qui manque pendant qu'on s'entraîne.
+    var m = el('button', 'discret bandeau-modifier' + (vue.modifier ? ' sel' : ''),
+      vue.modifier ? 'Terminé' : 'Modifier');
+    m.type = 'button';
+    m.setAttribute('aria-pressed', vue.modifier ? 'true' : 'false');
+    m.addEventListener('click', vue.surModifier);
+    cible.appendChild(m);
+
+    var b = el('button', 'discret bandeau-fin', 'Terminer');
     b.type = 'button';
     b.addEventListener('click', vue.surTerminer);
     cible.appendChild(b);
@@ -1023,7 +1051,65 @@
       cible.appendChild(el('p', 'vide', 'Aucun exercice. Ajoute le premier ci-dessous.'));
       return;
     }
-    blocs.forEach(function (bloc) { cible.appendChild(rendreBlocSaisie(bloc, vue)); });
+    blocs.forEach(function (bloc, iBloc) {
+      // §5.3 — le mode Modifier replie TOUT sur une ligne par bloc. Deux
+      // poignées à 360 px, l'une déplaçant six lignes et l'autre une seule, se
+      // confondent au pouce ; repliées, elles mesurent pareil.
+      cible.appendChild(vue.modifier
+        ? blocReplie(bloc, iBloc, blocs.length, vue)
+        : rendreBlocSaisie(bloc, iBloc, vue));
+    });
+  }
+
+  // ⚠️ LE MODE SÉLECTION DU §5.7. Grouper est une opération sur une PAIRE :
+  // le menu passe en sélection, les AUTRES blocs s'allument et deviennent
+  // tapables, on tape celui à joindre. Un tap de plus, aucune ambiguïté, et ça
+  // marche à n'importe quelle distance dans la liste — ce qu'un glissement ne
+  // sait pas faire.
+  function enCoursDeSelection(vue) {
+    return vue.selection !== null && vue.selection !== undefined;
+  }
+
+  // La SOURCE n'est pas une cible : se grouper avec soi-même n'a pas de sens, et
+  // l'autoriser rendrait le geste muet. Elle reste affichée, en retrait — on
+  // doit savoir d'où l'on part autant que vers quoi l'on va.
+  function marquerSelection(noeud, vue, iBloc) {
+    if (vue.selection === iBloc) { noeud.classList.add('source-groupe'); return noeud; }
+    noeud.classList.add('cible-groupe');
+    noeud.setAttribute('role', 'button');
+    noeud.addEventListener('click', function () { vue.surGrouper(vue.selection, iBloc); });
+    return noeud;
+  }
+
+  // La carte repliée : la légende, l'avancement, et deux flèches. Rien d'autre —
+  // c'est la vue d'ensemble qui manque pendant qu'on s'entraîne (§5.3).
+  function blocReplie(bloc, iBloc, total, vue) {
+    var noeud = el('div', 'bloc-seance replie' + (bloc.superset ? ' superset' : ''));
+    var haut = el('div', 'replie-haut');
+
+    var noms = el('div', 'replie-noms');
+    bloc.exercices.forEach(function (x) {
+      var l = el('div', 'replie-nom');
+      if (x.lettre) l.appendChild(el('span', 'lettre-exo', x.lettre));
+      l.appendChild(el('span', '', x.nom));
+      noms.appendChild(l);
+    });
+    haut.appendChild(noms);
+
+    var gestes = el('div', 'replie-gestes');
+    gestes.appendChild(geste('↑', 'Monter le bloc', iBloc === 0,
+      function () { vue.surDeplacerBloc(iBloc, -1); }));
+    gestes.appendChild(geste('↓', 'Descendre le bloc', iBloc === total - 1,
+      function () { vue.surDeplacerBloc(iBloc, 1); }));
+    haut.appendChild(gestes);
+    noeud.appendChild(haut);
+
+    // L'avancement remplace le palier (§5.3) : combien de séries de travail
+    // sont faites sur combien. Un fait, aucune prescription.
+    var faites = bloc.series.filter(function (s) { return s.estTravail && s.validee_a; }).length;
+    noeud.appendChild(el('div', 'replie-avancement num',
+      faites + ' / ' + bloc.nbTravail + ' série' + (bloc.nbTravail > 1 ? 's' : '')));
+    return noeud;
   }
 
   // Le gabarit d'un exercice du bloc. ⚠️ Un superset peut MÉLANGER les mesures
@@ -1032,11 +1118,18 @@
     return M().gabaritDe(vue.exercice(slug));
   }
 
-  function rendreBlocSaisie(bloc, vue) {
+  function rendreBlocSaisie(bloc, iBloc, vue) {
     var noeud = el('div', 'bloc-seance' + (bloc.superset ? ' superset' : ''));
     var gabarits = bloc.exercices.map(function (x) { return gabaritDe(vue, x.slug); });
 
-    noeud.appendChild(teteDeBloc(bloc, gabarits, vue));
+    noeud.appendChild(teteDeBloc(bloc, iBloc, gabarits, vue));
+
+    // ⚠️ EN SÉLECTION, TOUT LE MONDE SE RÉDUIT À SA TÊTE — la source comme les
+    // cibles. On choisit un bloc, on ne lit pas des séries : la liste tient
+    // alors à l'écran, et c'est ce qui fait marcher le geste « à n'importe
+    // quelle distance » (§5.7). Réduire les cibles en laissant la source
+    // déployée n'aurait été qu'une asymétrie sans raison.
+    if (enCoursDeSelection(vue)) { marquerSelection(noeud, vue, iBloc); return noeud; }
 
     // ⚠️ L'EN-TÊTE DE COLONNES NE S'AFFICHE QUE S'IL DIT VRAI. Dans un superset
     // à mesures mélangées, une seule ligne d'en-têtes mentirait sur la moitié
@@ -1058,28 +1151,48 @@
     return noeud;
   }
 
-  function teteDeBloc(bloc, gabarits, vue) {
+  function teteDeBloc(bloc, iBloc, gabarits, vue) {
     var tete = el('div', 'tete-seance');
 
+    var haut = el('div', 'tete-haut');
     // §2.7 — le tour ATTEINT, et il ne recule pas. C'est le seul endroit où il
     // se voit ; sans lui, « le tour avance » ne serait qu'une idée.
-    if (bloc.superset) {
-      var n = Math.min(vue.tourAtteint(bloc.groupe) + 1, bloc.nbTours);
-      tete.appendChild(el('div', 'superset-t',
-        'Superset' + (bloc.nbTours ? ' · tour ' + n + '/' + bloc.nbTours : '')));
+    var n = bloc.superset ? Math.min(vue.tourAtteint(bloc.groupe) + 1, bloc.nbTours) : 0;
+    haut.appendChild(el('div', 'superset-t', bloc.superset
+      ? 'Superset' + (bloc.nbTours ? ' · tour ' + n + '/' + bloc.nbTours : '') : ''));
+    // ⚠️ LE MENU DE BLOC EST ACCESSIBLE EN PLEINE SÉANCE (§5 bis). Remplacer un
+    // exercice arrive quand la machine est prise : basculer en mode Modifier
+    // pour ça, puis revenir, c'est trois gestes pour un.
+    //
+    // Sauf PENDANT la sélection (§5.7) : là, la carte entière est la cible du
+    // tap, et un bouton au milieu d'elle qui ferait autre chose est un piège.
+    // « L'écran ne sert qu'à ça » vaut aussi pour ses boutons.
+    if (!enCoursDeSelection(vue)) {
+      haut.appendChild(menuTroisPoints('Actions du bloc',
+        function () { vue.surMenuBloc(iBloc); }));
     }
+    tete.appendChild(haut);
 
     bloc.exercices.forEach(function (x, i) {
       var g = gabarits[i];
       var entree = el('div', 'legende-exo');
 
+      var ligne = el('div', 'legende-haut');
       var nom = el('div', 'exo-seance');
       // La lettre n'existe QUE dans un superset (§2.3) : un bloc d'un seul
       // n'a rien à alterner, et l'étiqueter « A » était le défaut de la
       // première maquette.
       if (x.lettre) nom.appendChild(el('span', 'lettre-exo', x.lettre));
       nom.appendChild(el('span', '', x.nom));
-      entree.appendChild(nom);
+      ligne.appendChild(nom);
+      // §5.6 — le menu d'un EXERCICE n'existe que dans un bloc à plusieurs. Sur
+      // un bloc d'un seul, le menu du bloc porte déjà ses gestes : deux boutons
+      // pour le même objet dérouteraient.
+      if (bloc.superset && !enCoursDeSelection(vue)) {
+        ligne.appendChild(menuTroisPoints('Actions sur ' + x.nom,
+          function () { vue.surMenuExercice(iBloc, x._iExo); }));
+      }
+      entree.appendChild(ligne);
 
       // Le type de mesure est rappelé sous le nom : sans lui, une ligne à deux
       // colonnes au milieu de lignes à trois désoriente. Tu par prudence quand
@@ -1090,6 +1203,19 @@
       tete.appendChild(entree);
     });
     return tete;
+  }
+
+  // ⚠️ PAS DE `stopPropagation` ICI. Le seul parent qui écoute le clic est un
+  // bloc EN SÉLECTION — et dans ce mode le menu n'est pas rendu du tout. Une
+  // garde contre un cas qui n'existe pas est une garde qu'aucune mutation ne
+  // peut tuer : elle a l'air de protéger, elle ne protège rien.
+  function menuTroisPoints(titre, surClic) {
+    var b = el('button', 'menu-pts', '\u22ef');
+    b.type = 'button';
+    b.setAttribute('aria-label', titre);
+    b.title = titre;
+    b.addEventListener('click', function () { surClic(); });
+    return b;
   }
 
   // ⚠️ LES DEUX RÉGLAGES DE L'EXERCICE, SOUS SON NOM (§7 septies.1 et .2).
@@ -1146,14 +1272,18 @@
     var champs = g.champs.map(function (n) { return M().champDeMesure(n); });
     var classeGrille = ' grille g-' + g.mesure;
 
-    // §2.6 — l'éclairage porte sur le TOUR, jamais sur la ligne.
+    // §2.6 — l'éclairage porte sur le TOUR, jamais sur la ligne isolée.
     //
-    // §2.5 — « les échauffements ne sont jamais surlignés » tombe de lui-même :
-    // `construireBlocs` ne donne un `tour` qu'aux séries de travail, donc une
-    // chauffe interroge `complets[null]` et n'est jamais allumée. Le premier
-    // jet doublait la règle d'un `s.estTravail &&` qu'aucune mutation ne
-    // pouvait tuer — la campagne l'a montré, il est parti.
-    var allumee = complets[s.tour] === true;
+    // ⚠️ §2.5 PRÉCISÉ LE 13/09 APRÈS ESSAI SUR DEVICE. « Les échauffements ne
+    // sont jamais surlignés » portait sur l'ÉCLAIRAGE DU TOUR, pas sur la
+    // validation : une chauffe faite doit se voir comme faite. Le chantier 27
+    // avait appliqué la règle trop largement — une chauffe validée restait
+    // grise, sur les blocs simples comme dans les supersets.
+    //
+    // Une série qui appartient à un tour s'allume donc AVEC SON TOUR ; une
+    // série qui n'en a pas — chauffe, dégressive, tentative manquée — s'allume
+    // dès qu'elle est validée, pour elle seule.
+    var allumee = s.tour ? complets[s.tour] === true : !!s.validee_a;
 
     var ligne = el('div', 'ligne-serie');
     var fond = el('div', 'glisse-fond', 'Supprimer');
@@ -1384,6 +1514,94 @@
     cible.appendChild(bascule);
   }
 
+  // ══ LES MENUS DE DÉVIATION (§5.5, §5.6, §5 bis) ══════════════════════════
+  //
+  // Une entrée par geste, en toutes lettres. Pas d'icône seule : ces gestes
+  // changent la séance, et « ce que fait ce bouton » ne doit jamais être une
+  // question qu'on se pose avec une barre en main.
+  //
+  // ⚠️ « Voir la progression » est là et NE FAIT RIEN, exprès. Le §2.8 le
+  // demande, mais la page d'exercice (§7 quater) n'existe pas : le câbler sur
+  // du vide serait pire que l'annoncer indisponible. Il arrivera avec elle.
+  function entreeMenu(menu, texte, options) {
+    var o = options || {};
+    var b = el('button', o.classe || '', texte);
+    b.type = 'button';
+    if (o.desactive) { b.disabled = true; b.classList.add('inerte'); }
+    else b.addEventListener('click', o.surClic);
+    menu.appendChild(b);
+    return b;
+  }
+
+  function rendreFeuilleBloc(cible, vue) {
+    vider(cible);
+    var t = el('div', 'feuille-t', vue.superset ? 'Superset' : 'Exercice');
+    t.appendChild(el('em', '', vue.noms));
+    cible.appendChild(t);
+
+    var menu = el('div', 'feuille-menu');
+    // Sur un bloc d'un seul, le menu du BLOC porte aussi les gestes de
+    // l'exercice : il n'y a qu'un objet, et deux menus pour lui seraient un de
+    // trop (§5.6 — « Sortir » est masqué, pas grisé, sur un bloc d'un seul).
+    if (!vue.superset) {
+      entreeMenu(menu, 'Remplacer l’exercice', { surClic: vue.surRemplacer });
+    }
+    entreeMenu(menu, 'Grouper en superset…', {
+      surClic: vue.surGrouper, desactive: !vue.peutGrouper });
+    entreeMenu(menu, 'Ajouter un exercice après', { surClic: vue.surAjouterApres });
+    entreeMenu(menu, 'Monter le bloc', { surClic: vue.surMonter, desactive: !vue.peutMonter });
+    entreeMenu(menu, 'Descendre le bloc', { surClic: vue.surDescendre, desactive: !vue.peutDescendre });
+    entreeMenu(menu, 'Voir la progression', { desactive: true });
+    cible.appendChild(menu);
+
+    var sup = el('div', 'feuille-menu');
+    entreeMenu(sup, vue.superset ? 'Supprimer le bloc' : 'Supprimer l’exercice',
+      { classe: 'danger', surClic: vue.surSupprimer });
+    cible.appendChild(sup);
+    return cible;
+  }
+
+  function rendreFeuilleExercice(cible, vue) {
+    vider(cible);
+    var t = el('div', 'feuille-t', 'Exercice');
+    t.appendChild(el('em', '', vue.nom));
+    cible.appendChild(t);
+
+    var menu = el('div', 'feuille-menu');
+    entreeMenu(menu, 'Remplacer l’exercice', { surClic: vue.surRemplacer });
+    // §5.8 — sortir agit sur UN exercice, jamais sur le bloc entier, et il se
+    // pose JUSTE APRÈS son bloc d'origine : il ne remonte pas en fin de séance.
+    entreeMenu(menu, 'Sortir du superset', { surClic: vue.surDegrouper });
+    entreeMenu(menu, 'Voir la progression', { desactive: true });
+    cible.appendChild(menu);
+
+    var sup = el('div', 'feuille-menu');
+    entreeMenu(sup, 'Supprimer l’exercice', { classe: 'danger', surClic: vue.surSupprimer });
+    cible.appendChild(sup);
+    return cible;
+  }
+
+  // ⚠️ RIEN DE DESTRUCTIF EN SILENCE. Supprimer un bloc qui porte des séries
+  // VALIDÉES efface du travail réellement fait : on le dit, on le compte, et on
+  // demande. Sans série validée, il n'y a rien à perdre — la question serait un
+  // bruit qu'on tape sans lire, exactement ce que le §6.2 reproche.
+  function rendreFeuilleSupprimer(cible, vue) {
+    vider(cible);
+    var t = el('div', 'feuille-t', 'Supprimer ' + vue.quoi + ' ?');
+    t.appendChild(el('em', '', vue.noms));
+    cible.appendChild(t);
+    cible.appendChild(el('p', 'feuille-aide',
+      vue.validees + ' série' + (vue.validees > 1 ? 's' : '') +
+      ' déjà validée' + (vue.validees > 1 ? 's' : '') +
+      ' ser' + (vue.validees > 1 ? 'ont' : 'a') + ' effacée' + (vue.validees > 1 ? 's' : '') +
+      '. Rien ne le remet en place.'));
+    var menu = el('div', 'feuille-menu');
+    entreeMenu(menu, 'Supprimer quand même', { classe: 'danger', surClic: vue.surConfirmer });
+    entreeMenu(menu, 'Annuler', { surClic: vue.surAnnuler });
+    cible.appendChild(menu);
+    return cible;
+  }
+
   // La note de l'EXERCICE (§7 septies.1). Une feuille plutôt qu'un champ sur la
   // tête de bloc : à 380 px, un champ de texte au milieu de la grille pousse
   // tout le reste et se fait taper par accident entre deux séries.
@@ -1430,14 +1648,19 @@
   }
 
   // Une ligne d'écart, en français : ce qui change, pas un nom de colonne.
+  // Les écarts de STRUCTURE (§6.2) parlent de la séance entière — ils n'ont pas
+  // de nom d'exercice à porter, et en inventer un serait faux.
   function libelleEcart(e) {
-    var bouts = [];
-    if (e.repos_change) {
-      bouts.push('repos ' + (e.repos_avant ? mmss(e.repos_avant) : '—') +
-        ' → ' + (e.repos_apres ? mmss(e.repos_apres) : '—'));
+    if (e.type === 'repos') {
+      return e.nom + ' — repos ' + (e.avant ? mmss(e.avant) : '—') +
+        ' → ' + (e.apres ? mmss(e.apres) : '—');
     }
-    if (e.note_change) bouts.push(e.note_apres ? 'note' : 'note retirée');
-    return e.nom + ' — ' + bouts.join(', ');
+    if (e.type === 'note') return e.nom + (e.apres ? ' — note' : ' — note retirée');
+    if (e.type === 'ajoute') return e.nom + ' — ajouté';
+    if (e.type === 'retire') return e.nom + ' — retiré';
+    if (e.type === 'ordre') return 'L’ordre des exercices a changé';
+    if (e.type === 'groupement') return 'Le groupement en superset a changé';
+    return e.nom || '';
   }
 
   function rendreFeuilleFin(cible, vue) {
@@ -1613,11 +1836,24 @@
       return;
     }
 
+    // ⚠️ LE GROUPEMENT SE LIT SUR LES LIENS ENTRE VOISINS (chantier 28).
+    //
+    // Un superset est une suite CONTIGUË : dans une liste, la seule chose qui le
+    // définit est « untel est collé au suivant ». On affiche donc le LIEN, pas
+    // un numéro de groupe — et il se pose d'un appui, sans mode sélection. Le
+    // §5.7 (sélection à distance) vaut pour la SÉANCE, où les blocs sont loin
+    // les uns des autres et où l'on ne veut pas réordonner pour grouper.
+    var lies = R().liens(liste);
+    var lettres = lettresDeLiens(lies);
+
     liste.forEach(function (e, i) {
-      var carte = el('div', 'exo-routine');
+      var carte = el('div', 'exo-routine' + (lettres[i] ? ' groupe' : ''));
 
       var haut = el('div', 'exo-routine-haut');
-      haut.appendChild(el('span', 'exo-routine-nom', nommer(e.exercise_slug)));
+      var nom = el('span', 'exo-routine-nom');
+      if (lettres[i]) nom.appendChild(el('span', 'lettre-exo', lettres[i]));
+      nom.appendChild(el('span', '', nommer(e.exercise_slug)));
+      haut.appendChild(nom);
       var gestes = el('div', 'exo-routine-gestes');
       gestes.appendChild(geste('\u2191', 'Monter', i === 0, function () { v.surMonter(i); }));
       gestes.appendChild(geste('\u2193', 'Descendre', i === liste.length - 1, function () { v.surDescendre(i); }));
@@ -1638,7 +1874,32 @@
       carte.appendChild(champs);
 
       cible.appendChild(carte);
+
+      // Le lien vers le suivant, entre les deux cartes : c'est l'endroit où il
+      // se passe, donc l'endroit où il se touche.
+      if (i < liste.length - 1) {
+        var lien = el('div', 'lien-superset' + (lies[i] ? ' actif' : ''));
+        var b = el('button', '', lies[i] ? '\u26d3 Superset \u2014 s\u00e9parer' : '+ Grouper avec le suivant');
+        b.type = 'button';
+        b.setAttribute('aria-pressed', lies[i] ? 'true' : 'false');
+        b.addEventListener('click', function () { v.surLien(i); });
+        lien.appendChild(b);
+        cible.appendChild(lien);
+      }
     });
+  }
+
+  // Les lettres A/B/C de l'éditeur, calculées comme celles de la séance : par
+  // suite de liens. Un exercice seul n'en porte pas (§2.3).
+  function lettresDeLiens(lies) {
+    var lettres = [], i = 0, n = (lies || []).length + 1;
+    while (i < n) {
+      var j = i;
+      while (j < lies.length && lies[j]) j++;
+      for (var k = i; k <= j; k++) lettres.push(j > i ? (M().LETTRES[k - i] || '?') : '');
+      i = j + 1;
+    }
+    return lettres;
   }
 
   // Les résultats du catalogue. 237 entrées, des noms qui vont jusqu'à
@@ -1692,6 +1953,9 @@
     rendreFeuilleSerie: rendreFeuilleSerie,
     rendreFeuilleNote: rendreFeuilleNote,
     rendreFeuilleRepos: rendreFeuilleRepos,
+    rendreFeuilleBloc: rendreFeuilleBloc,
+    rendreFeuilleExercice: rendreFeuilleExercice,
+    rendreFeuilleSupprimer: rendreFeuilleSupprimer,
     rendreFeuilleFin: rendreFeuilleFin,
     mmss: mmss,
     etiquetteSerie: etiquetteSerie,

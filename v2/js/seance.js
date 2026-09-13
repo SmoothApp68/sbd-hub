@@ -181,6 +181,202 @@
     return avecExercices(seance, exos);
   }
 
+  // ══ LA DÉVIATION — ÉDITION DE LISTE, PAS CALCUL (§5.1) ═══════════════════
+  //
+  // « Le moteur ne sait même pas qu'il y a eu déviation. » Tout ce qui suit
+  // déplace, groupe et remplace des entrées d'un tableau ; rien n'y calcule,
+  // rien n'y suppose, et aucune de ces fonctions ne connaît la notion de bloc.
+  // Les indices de bloc arrivent de l'appelant (`THModele.blocsDeSeance`) —
+  // même règle que `avancerTours`, et c'est ce qui garde ce module pur.
+  //
+  // ⚠️ UN SUPERSET EST UNE SUITE CONTIGUË. `THModele.memeBloc` compare des
+  // lignes VOISINES : deux exercices du même groupe séparés par un troisième
+  // ne forment plus un bloc. Chaque geste ci-dessous préserve donc la
+  // contiguïté, et `normaliserGroupes` la rétablit quoi qu'il arrive.
+
+  // Renumérote les groupes d'après la SEULE chose qui compte : qui est collé à
+  // qui. Une suite d'au moins deux exercices de même groupe devient un bloc
+  // numéroté ; un exercice isolé perd son groupe (§5.9 — « un superset tombé à
+  // un seul exercice cesse d'être un superset »).
+  //
+  // ⚠️ LES MARQUES DE TOUR PARTENT AVEC. `seance.tours` est indexé par numéro de
+  // groupe : renuméroter sans les jeter ferait pointer la marque d'un bloc sur
+  // un autre. On les efface, et l'appelant les re-sème depuis l'état courant
+  // (`avancerTours`) — le repère se reconstruit tout seul, à un cran près : une
+  // dévalidation suivie d'un regroupement perd le point haut. C'est un
+  // indicateur, pas une donnée ; le prix est juste.
+  function normaliserGroupes(seance) {
+    var exos = (seance.exercices || []).slice();
+    var n = 0, i = 0;
+    while (i < exos.length) {
+      var j = i;
+      var g = exos[i].groupe_superset;
+      while (j + 1 < exos.length && g !== null && g !== undefined &&
+             exos[j + 1].groupe_superset === g) j++;
+      var neuf = (j > i) ? ++n : null;
+      for (var k = i; k <= j; k++) {
+        if (exos[k].groupe_superset !== neuf) {
+          exos[k] = Object.assign({}, exos[k], { groupe_superset: neuf });
+        }
+      }
+      i = j + 1;
+    }
+    var s = avecExercices(seance, exos);
+    if (s.tours) { s = Object.assign({}, s); delete s.tours; }
+    return s;
+  }
+
+  // Extrait une tranche d'exercices et la réinsère ailleurs. Toutes les
+  // structures du chantier se ramènent à ça.
+  function bouger(exos, indices, ou) {
+    var pris = indices.map(function (i) { return exos[i]; });
+    var reste = exos.filter(function (_, i) { return indices.indexOf(i) < 0; });
+    // `ou` est compté dans le tableau D'ORIGINE : on le corrige du nombre
+    // d'entrées retirées AVANT lui, sinon un déplacement vers le bas atterrit
+    // toujours un cran trop haut.
+    var decalage = indices.filter(function (i) { return i < ou; }).length;
+    var cible = Math.max(0, Math.min(reste.length, ou - decalage));
+    return reste.slice(0, cible).concat(pris, reste.slice(cible));
+  }
+
+  // §5.5 — Déplacer agit sur le BLOC entier, jamais sur une de ses branches :
+  // sortir un exercice d'un superset est un autre geste (§5.8). L'appelant sait
+  // où vont les blocs ; ce module ne fait que réaliser le mouvement. `ou` est
+  // l'indice, dans le tableau D'ORIGINE, devant lequel la tranche vient se
+  // placer.
+  function deplacerVers(seance, indices, ou) {
+    var idx = (indices || []).slice().sort(function (a, b) { return a - b; });
+    if (!idx.length) return seance;
+    return normaliserGroupes(avecExercices(seance, bouger(seance.exercices, idx, ou)));
+  }
+
+  // §5.7 — Grouper est une opération sur une PAIRE de blocs. Le second vient se
+  // coller au premier et les deux prennent le même groupe.
+  //
+  // ⚠️ CE QUI EST DÉJÀ SAISI NE SE PERD PAS. On ne touche qu'à l'ordre et au
+  // numéro de groupe : les séries, leurs validations, leurs notes et le repos
+  // cible voyagent avec leur exercice, intacts.
+  function grouperBlocs(seance, indicesA, indicesB) {
+    var a = (indicesA || []).slice().sort(function (x, y) { return x - y; });
+    var b = (indicesB || []).slice().sort(function (x, y) { return x - y; });
+    if (!a.length || !b.length) return seance;
+    if (a.some(function (i) { return b.indexOf(i) >= 0; })) return seance;
+
+    // Un numéro provisoire, unique : `normaliserGroupes` renumérotera derrière.
+    var g = 0;
+    (seance.exercices || []).forEach(function (e) {
+      var v = Number(e.groupe_superset);
+      if (isFinite(v) && v > g) g = v;
+    });
+    g++;
+
+    var exos = seance.exercices.map(function (e, i) {
+      if (a.indexOf(i) < 0 && b.indexOf(i) < 0) return e;
+      return Object.assign({}, e, { groupe_superset: g });
+    });
+    // B se pose juste APRÈS A, dans l'ordre où on les a tapés.
+    var apres = a[a.length - 1] + 1;
+    return normaliserGroupes(avecExercices(seance, bouger(exos, b, apres)));
+  }
+
+  // §5.8 — Dégrouper agit sur UN exercice, jamais sur le bloc entier. Il sort et
+  // se place JUSTE APRÈS son bloc d'origine : il ne remonte pas en fin de séance.
+  function degrouperExercice(seance, iExo, indicesBloc) {
+    var bloc = (indicesBloc || []).slice().sort(function (a, b) { return a - b; });
+    if (bloc.indexOf(iExo) < 0 || bloc.length < 2) return seance;
+    var exos = seance.exercices.map(function (e, i) {
+      return i === iExo ? Object.assign({}, e, { groupe_superset: null }) : e;
+    });
+    // Il ne se dépose derrière son bloc QUE s'il reste un bloc derrière lui.
+    // À deux, le superset se dissout en entier (§5.9) : plus rien ne retient
+    // l'ordre, et faire passer le sortant derrière l'autre réordonnerait la
+    // séance sans que personne l'ait demandé.
+    if (bloc.length > 2) exos = bouger(exos, [iExo], bloc[bloc.length - 1] + 1);
+    return normaliserGroupes(avecExercices(seance, exos));
+  }
+
+  // ── Remplacer (§5.2) ────────────────────────────────────────────────────
+  //
+  // « Remplacer est un ajouter suivi d'un sauter, en gardant la position. »
+  // Et « sauter » n'existe pas : un exercice sans série validée n'est pas dans
+  // la séance enregistrée.
+  //
+  // D'où la règle, qui tombe du §5.2 sans rien inventer :
+  //
+  //   · l'ancien N'A RIEN de validé → il n'a jamais eu lieu : il disparaît ;
+  //   · l'ancien A des séries validées → elles RESTENT, sous son nom, et ses
+  //     lignes vides partent. On ne récrit pas du travail réellement fait sous
+  //     un autre exercice : ce serait une donnée fausse, pas un raccourci.
+  //
+  // Le nouveau hérite du SLOT — repos cible, groupe de superset, nombre de
+  // lignes — et de rien d'autre. Pas la note (« barre basse » ne veut rien dire
+  // sur une presse), pas les reps visées (la routine les prescrivait pour
+  // l'ancien mouvement), pas `routine_exercise_id` : ce n'est plus cette ligne
+  // de routine.
+  function remplacerExercice(seance, iExo, slug, idSerie) {
+    var ancien = (seance.exercices || [])[iExo];
+    if (!ancien || !slug) return seance;
+    var faites = (ancien.series || []).filter(function (s) { return !!s.validee_a; });
+    var n = Math.max(1, (ancien.series || []).length);
+    var neuf = {
+      exercise_slug: slug,
+      routine_exercise_id: null,
+      reps_visees: null,
+      repos_cible_s: ancien.repos_cible_s === undefined ? null : ancien.repos_cible_s,
+      note: null,
+      groupe_superset: ancien.groupe_superset === undefined ? null : ancien.groupe_superset,
+      series: []
+    };
+    for (var i = 0; i < n; i++) neuf.series.push(serieVide(idSerie));
+
+    var exos = seance.exercices.slice();
+    if (faites.length) {
+      exos[iExo] = Object.assign({}, ancien, { series: faites });
+      exos.splice(iExo + 1, 0, neuf);
+    } else {
+      exos[iExo] = neuf;
+    }
+    return normaliserGroupes(avecExercices(seance, exos));
+  }
+
+  // Ajouter un exercice APRÈS un bloc (§5 bis). L'ajout en fin de séance reste
+  // `ajouterExercice` — c'est le même geste, sans position.
+  function insererExercice(seance, apres, slug, idSerie, options) {
+    var o = options || {};
+    var exos = seance.exercices.slice();
+    exos.splice(Math.max(0, Math.min(exos.length, apres)), 0, {
+      exercise_slug: slug,
+      routine_exercise_id: null,
+      reps_visees: o.reps_visees === undefined ? null : o.reps_visees,
+      repos_cible_s: o.repos_cible_s === undefined ? null : o.repos_cible_s,
+      note: texteOuNul(o.note),
+      groupe_superset: null,
+      series: [serieVide(idSerie)]
+    });
+    return normaliserGroupes(avecExercices(seance, exos));
+  }
+
+  // Supprimer un bloc entier, ou une seule de ses branches. Les deux passent
+  // par la même porte : une liste d'indices.
+  function retirerExercices(seance, indices) {
+    var idx = (indices || []).slice();
+    var exos = (seance.exercices || []).filter(function (_, i) { return idx.indexOf(i) < 0; });
+    return normaliserGroupes(avecExercices(seance, exos));
+  }
+
+  // Combien de séries validées dans une tranche — ce que la confirmation de
+  // suppression doit annoncer, parce qu'une suppression silencieuse de travail
+  // fait est exactement ce qu'on s'interdit.
+  function compterValidees(seance, indices) {
+    var idx = (indices || []).slice();
+    var n = 0;
+    (seance.exercices || []).forEach(function (e, i) {
+      if (idx.indexOf(i) < 0) return;
+      (e.series || []).forEach(function (s) { if (s.validee_a) n++; });
+    });
+    return n;
+  }
+
   // ── Saisie ──────────────────────────────────────────────────────────────
   function nombreOuNul(v) {
     if (v === null || v === undefined || v === '') return null;
@@ -322,33 +518,107 @@
   // déviation de STRUCTURE (exercice remplacé, ajouté, réordonné) est hors
   // périmètre : un exercice sans `routine_exercise_id` n'est donc pas comparé,
   // il est ignoré.
+  // Rend :
+  //
+  //   { ecarts: [ {type, ...} ],     ce qu'on montre, en français
+  //     voulues: [ ligne de routine ] }   ce qu'on écrit si on reporte
+  //
+  // `voulues` est la routine TELLE QUE LA SÉANCE VIENT DE SE FAIRE. Elle est
+  // toujours calculée, même sans écart — c'est `ecarts` qui décide si la
+  // question se pose, et lui seul (§6.2 : une séance conforme n'ouvre aucune
+  // question).
+  //
+  // ⚠️ LE NOMBRE DE SÉRIES NE SE REPORTE PAS (§6.3). Une ligne qui existe déjà
+  // garde CELUI DE LA ROUTINE : « une séance écourtée par manque de temps
+  // amputerait la routine pour toujours ». Un exercice ajouté n'a pas de valeur
+  // de référence — on prend son nombre de lignes, qui est ce qu'on a prévu de
+  // faire, pas ce qu'on a eu le temps de faire.
   function ecartsRoutine(seance, routine) {
-    if (!seance || !routine || !routine.id) return [];
-    if (seance.routine_id !== routine.id) return [];
+    var vide = { ecarts: [], voulues: [] };
+    if (!seance || !routine || !routine.id) return vide;
+    if (seance.routine_id !== routine.id) return vide;
+
+    var lignes = (routine.exercices || []).slice()
+      .sort(function (a, b) { return (a.rang || 0) - (b.rang || 0); });
     var parId = {};
-    (routine.exercices || []).forEach(function (e) { if (e && e.id) parId[e.id] = e; });
+    lignes.forEach(function (e) { if (e && e.id) parId[e.id] = e; });
+
+    var voulues = (seance.exercices || []).map(function (exo) {
+      var ligne = (exo.routine_exercise_id && parId[exo.routine_exercise_id]) || null;
+      return {
+        id: ligne ? ligne.id : (exo.routine_exercise_id || null),
+        exercise_slug: exo.exercise_slug,
+        series: ligne ? ligne.series : (exo.series || []).length,
+        reps_visees: ligne ? ligne.reps_visees : (exo.reps_visees === undefined ? null : exo.reps_visees),
+        repos_cible_s: exo.repos_cible_s === undefined ? null : exo.repos_cible_s,
+        note: texteOuNul(exo.note),
+        groupe_superset: exo.groupe_superset === undefined ? null : exo.groupe_superset
+      };
+    });
 
     var ecarts = [];
-    (seance.exercices || []).forEach(function (exo) {
-      var ligne = exo && exo.routine_exercise_id && parId[exo.routine_exercise_id];
+
+    // ── Les écarts de RÉGLAGE, ligne à ligne (repos et note) ──────────────
+    voulues.forEach(function (v) {
+      var ligne = v.id ? parId[v.id] : null;
       if (!ligne) return;
-      var champs = {};
-      var reposRoutine = ligne.repos_cible_s === undefined ? null : ligne.repos_cible_s;
-      var noteRoutine = texteOuNul(ligne.note);
-      var reposSeance = exo.repos_cible_s === undefined ? null : exo.repos_cible_s;
-      var noteSeance = texteOuNul(exo.note);
-      if (reposSeance !== reposRoutine) champs.repos_cible_s = reposSeance;
-      if (noteSeance !== noteRoutine) champs.note = noteSeance;
-      if (!Object.keys(champs).length) return;
-      ecarts.push({
-        id: ligne.id,
-        exercise_slug: exo.exercise_slug,
-        champs: champs,
-        repos_avant: reposRoutine,
-        note_avant: noteRoutine
-      });
+      var reposAvant = ligne.repos_cible_s === undefined ? null : ligne.repos_cible_s;
+      var noteAvant = texteOuNul(ligne.note);
+      if (v.repos_cible_s !== reposAvant) {
+        ecarts.push({ type: 'repos', exercise_slug: v.exercise_slug,
+                      avant: reposAvant, apres: v.repos_cible_s });
+      }
+      if (v.note !== noteAvant) {
+        ecarts.push({ type: 'note', exercise_slug: v.exercise_slug, apres: v.note });
+      }
     });
-    return ecarts;
+
+    // ── Les écarts de STRUCTURE (§6.2) ───────────────────────────────────
+    //
+    // Retirés, ajoutés, puis — seulement si la composition est restée la même —
+    // l'ordre. Annoncer « déplacé » en plus de « retiré » sur la même séance
+    // dirait deux fois la même chose : quand la composition change, l'ordre n'a
+    // plus de sens à comparer.
+    var idsAvant = lignes.map(function (e) { return e.id; });
+    var idsApres = voulues.map(function (v) { return v.id; }).filter(Boolean);
+
+    lignes.forEach(function (e) {
+      if (idsApres.indexOf(e.id) < 0) {
+        ecarts.push({ type: 'retire', exercise_slug: e.exercise_slug });
+      }
+    });
+    voulues.forEach(function (v) {
+      if (!v.id || idsAvant.indexOf(v.id) < 0) {
+        ecarts.push({ type: 'ajoute', exercise_slug: v.exercise_slug });
+      }
+    });
+
+    var memeComposition = idsApres.length === voulues.length &&
+      idsApres.length === idsAvant.length &&
+      idsApres.every(function (id) { return idsAvant.indexOf(id) >= 0; });
+    if (memeComposition) {
+      if (idsApres.join('|') !== idsAvant.join('|')) ecarts.push({ type: 'ordre' });
+      // Le GROUPEMENT se compare par la FORME, pas par les numéros : un
+      // superset renuméroté d'un cran n'est pas une déviation. Et il ne se
+      // compare qu'à composition égale — ajouter un exercice change forcément
+      // la forme, et le dire deux fois n'apprend rien.
+      if (formeDesGroupes(lignes) !== formeDesGroupes(voulues)) {
+        ecarts.push({ type: 'groupement' });
+      }
+    }
+
+    return { ecarts: ecarts, voulues: voulues };
+  }
+
+  // « A A B · · C C » — les positions groupées ensemble, sans leurs numéros.
+  function formeDesGroupes(liste) {
+    var vus = {}, n = 0;
+    return (liste || []).map(function (e) {
+      var g = e.groupe_superset;
+      if (g === null || g === undefined) return '.';
+      if (vus[g] === undefined) vus[g] = ++n;
+      return String(vus[g]);
+    }).join('|');
   }
 
   // ── Valider ─────────────────────────────────────────────────────────────
@@ -684,6 +954,14 @@
     ecartsRoutine: ecartsRoutine,
     avancerTours: avancerTours,
     tourAtteint: tourAtteint,
+    normaliserGroupes: normaliserGroupes,
+    deplacerVers: deplacerVers,
+    grouperBlocs: grouperBlocs,
+    degrouperExercice: degrouperExercice,
+    remplacerExercice: remplacerExercice,
+    insererExercice: insererExercice,
+    retirerExercices: retirerExercices,
+    compterValidees: compterValidees,
     valider: valider,
     devalider: devalider,
     derniereValidation: derniereValidation,

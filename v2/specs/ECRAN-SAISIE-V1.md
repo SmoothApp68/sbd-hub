@@ -64,6 +64,11 @@ exercices, tours incomplets, chauffe avant l'enchaînement. Il n'y a pas de gril
 la première série de travail de cet exercice. La chauffe de C se pose entre B1 et
 C1. Les échauffements ne sont **jamais** surlignés.
 
+> ⚠️ **Précisé le 13/09/2026 après essai sur device.** « Jamais surlignés » porte sur
+> **l'éclairage du tour**, pas sur la validation. **Un échauffement validé passe au vert
+> comme une série normale** : une chauffe faite doit se voir comme faite. La règle a été
+> appliquée trop largement au chantier 27, sur les blocs simples comme sur les supersets.
+
 **2.6** — L'éclairage porte sur le tour entier, pas sur une ligne isolée. Dans un
 enchaînement, on ne valide pas A1 avant d'attaquer B1.
 
@@ -1283,6 +1288,52 @@ Plus le **repos moyen**, la **note de séance** s'il y en a une, et le **titre d
 qui mène au détail complet pour qui veut le contexte des autres exercices.
 
 **Un record atteint ce jour-là est signalé** — c'est ce qui donne envie de défiler.
+
+---
+
+## 7 octies. Gestes sur une séance — manquants, constaté le 13/09/2026
+
+**Aucun des quatre gestes que toute application de suivi propose n'existe.**
+
+| Geste | État | Note |
+|---|---|---|
+| **Supprimer** | absent | **le plus urgent** — deux séances ont dû être supprimées en base le 13/09 parce que l'app ne sait pas le faire |
+| **Modifier** | absent | corriger une séance passée |
+| **Refaire** | absent | voir ci-dessous |
+| **Partager** | absent | social, donc en dernier |
+
+> **« Refaire » ne copie pas dans l'historique : il démarre une nouvelle séance** avec la même
+> structure. C'est une **troisième entrée vers la saisie**, à côté de la routine et de la
+> séance vide (§1).
+>
+> Le mot « copier » induit en erreur — il laisse croire qu'une séance est dupliquée dans le
+> journal. **« Refaire cette séance »** dit ce que ça fait.
+
+Conséquence utile : comme c'est un **démarrage**, il reprend la structure et **les notes**,
+jamais les charges. Même règle qu'une routine — le moteur décide des charges (§1, §7 septies.1).
+
+---
+
+## 7 nonies. Le bandeau de séance en cours — décidé, non implémenté
+
+Une séance en cours survit à tout (chantier 22) et se reprend au lancement. Mais **c'est
+l'utilisateur qui va la chercher** dans l'onglet Saisie.
+
+> **Un bandeau la signale : titre, durée écoulée, séries validées. Deux actions — reprendre,
+> ou terminer.**
+
+**Pourquoi un bandeau plutôt qu'une ouverture forcée sur la séance :** ouvrir de force suppose
+qu'on sait ce que veut l'utilisateur. Un bandeau montre et laisse choisir.
+
+Et il **règle le problème du seuil sans en fixer un** : une séance ouverte depuis trois jours
+affiche « depuis 3 jours », ce qui se lit tout seul comme un oubli.
+
+**Emplacement — non tranché.** En tête de l'onglet Séances (on peut le rater en ouvrant
+Progression), ou au-dessus de la barre d'onglets sur tous les écrans (toujours visible, mais
+un rang permanent tant qu'une séance est ouverte). Le second existe déjà dans la maquette de
+la page d'exercice et ne gênait pas.
+
+Une **pastille sur l'onglet Saisie** l'accompagne dans les deux cas.
 
 ---
 

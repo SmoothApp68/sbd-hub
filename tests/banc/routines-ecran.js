@@ -203,6 +203,13 @@ const CATALOGUE = [
     await attendre(250);
   }
   const noms = () => page.evaluate(() => Array.from(document.querySelectorAll('.exo-routine-nom')).map((n) => n.textContent));
+  // La i-ième CARTE de l'éditeur, et un clic dedans.
+  const carteEditeur = async (i, sel) => {
+    await page.evaluate(([k, s]) => {
+      document.querySelectorAll('.exo-routine')[k].querySelector(s).click();
+    }, [i, sel]);
+    await attendre(250);
+  };
   ok('trois exercices dans l’ordre d’ajout', JSON.stringify(await noms()) ===
     JSON.stringify(['Squat (Barre)', 'Développé Couché (Barre)', 'Soulevé de Terre (Barre)']), JSON.stringify(await noms()));
 
@@ -230,7 +237,10 @@ const CATALOGUE = [
   console.log('\n══ 5. RÉORDONNER ET RETIRER AU MILIEU ══');
   await page.click('#liste-routines .routine');
   await attendre(700);
-  await page.click('.exo-routine:nth-child(3) .geste[aria-label="Monter"]');
+  // ⚠️ ADRESSÉ PAR INDICE DE CARTE, PAS PAR POSITION DANS LE DOM. Le chantier
+  // 28 intercale un lien de superset entre deux cartes : `nth-child(3)` ne
+  // désigne plus la troisième carte mais le deuxième lien.
+  await carteEditeur(2, '.geste[aria-label="Monter"]');
   await attendre(250);
   ok('à l’écran : le 3e est remonté', JSON.stringify(await noms()) ===
     JSON.stringify(['Squat (Barre)', 'Soulevé de Terre (Barre)', 'Développé Couché (Barre)']), JSON.stringify(await noms()));
@@ -244,7 +254,7 @@ const CATALOGUE = [
 
   await page.click('#liste-routines .routine');
   await attendre(700);
-  await page.click('.exo-routine:nth-child(2) .geste[aria-label="Retirer"]');
+  await carteEditeur(1, '.geste[aria-label="Retirer"]');
   await attendre(250);
   await page.click('#btn-enregistrer-routine');
   await attendre(900);
@@ -260,11 +270,24 @@ const CATALOGUE = [
   // prescrit. Les deux chemins doivent coexister.
   await page.click('#liste-routines .routine');
   await attendre(700);
-  const champRepos = '.exo-routine:nth-child(1) .exo-routine-champs .champ-num:nth-child(3) input';
-  ok('le champ « Repos (s) » est là, dans l’éditeur',
-    (await page.$(champRepos)) !== null, champRepos);
-  await page.fill(champRepos, '210');
-  await attendre(250);
+  // Le 3e champ de la 1re carte : séries · reps visées · REPOS. Adressé par
+  // indice, pour la même raison que les cartes — un lien de superset s'intercale
+  // désormais entre deux d'entre elles.
+  const remplirRepos = async (v) => {
+    await page.evaluate((val) => {
+      const i = document.querySelectorAll('.exo-routine')[0]
+        .querySelectorAll('.exo-routine-champs .champ-num input')[2];
+      i.value = val;
+      i.dispatchEvent(new Event('input', { bubbles: true }));
+    }, v);
+    await attendre(250);
+  };
+  const aChampRepos = await page.evaluate(() =>
+    document.querySelectorAll('.exo-routine')[0]
+      .querySelectorAll('.exo-routine-champs .champ-num input').length);
+  ok('le champ « Repos (s) » est là, dans l’éditeur', aChampRepos === 3,
+    aChampRepos + ' champ(s) numériques');
+  await remplirRepos('210');
   await page.click('#btn-enregistrer-routine');
   await attendre(900);
   const premierExo = base.exos.slice().sort((a, b) => a.rang - b.rang)[0];
@@ -274,21 +297,135 @@ const CATALOGUE = [
   // ⚠️ LA NOTE DE ROUTINE SURVIT À UNE RÉÉCRITURE DE L'ÉDITEUR.
   //
   // `routine_exercises.note` est posée par la FIN DE SÉANCE, jamais par
-  // l'éditeur — c'est pour ça qu'elle est hors de `CHAMPS_EXERCICE`
-  // (routines.js). Si elle y entrait, chaque réordonnancement l'écraserait avec
-  // le `null` du brouillon, et la note « qui suit l'exercice » disparaîtrait au
-  // premier passage dans l'éditeur.
+  // l'éditeur. Jusqu'au chantier 27 elle était protégée par OMISSION — hors de
+  // `CHAMPS_EXERCICE`, donc jamais écrite. Depuis le chantier 28 elle y est
+  // (l'éditeur doit écrire `groupe_superset`, et les deux vont ensemble) : la
+  // protection est maintenant que le BROUILLON la transporte. Ce test garde la
+  // même garantie, sur un mécanisme différent — c'est lui qui dirait qu'on l'a
+  // perdue.
   premierExo.note = 'Ceinture, barre basse';
   await aller('/saisie');
   await page.click('#liste-routines .routine');
   await attendre(700);
-  await page.fill(champRepos, '200');
+  await remplirRepos('200');
   await page.click('#btn-enregistrer-routine');
   await attendre(900);
   const apresEditeur = base.exos.filter((e) => e.id === premierExo.id)[0];
   ok('la note de la ligne de routine n’est PAS écrasée par l’éditeur',
     apresEditeur.note === 'Ceinture, barre basse' && apresEditeur.repos_cible_s === 200,
     JSON.stringify({ note: apresEditeur.note, repos: apresEditeur.repos_cible_s }));
+
+  console.log('\n══ 5 ter. LE SUPERSET SE FABRIQUE DANS L’ÉDITEUR ══');
+  //
+  // §1.3 du chantier 28 : constaté sur device, « l'éditeur de routine ignore
+  // les supersets ». Il n'existait AUCUN chemin dans l'app pour en fabriquer
+  // un — les routines de test avaient été groupées directement en base. C'est
+  // ce chemin-là que cette section parcourt du premier lien à la relecture.
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE (CADRAGE-V2 §2 quater) : TROIS exercices, et
+  // le lien posé AU MILIEU. Sur deux exercices, « le lien groupe la paire » et
+  // « le bouton groupe toute la liste » rendent exactement le même écran : il
+  // faut un troisième, laissé DEHORS, pour que la différence existe. Et c'est
+  // le lien du MILIEU qu'on pose : poser celui du bord ne distinguerait pas
+  // « le lien relie deux voisins » de « le lien relie le premier au reste ».
+  await page.click('#liste-routines .routine');
+  await attendre(700);
+  await page.click('#btn-ajouter-exo');
+  await attendre(250);
+  await page.fill('#champ-recherche-exo', 'curl');
+  await attendre(250);
+  await page.click('#resultats-exo .resultat');
+  await attendre(300);
+
+  const lettresEditeur = () => page.evaluate(() =>
+    Array.from(document.querySelectorAll('.exo-routine')).map((c) => {
+      const l = c.querySelector('.lettre-exo');
+      return l ? l.textContent : '';
+    }));
+  const liensEditeur = () => page.evaluate(() =>
+    Array.from(document.querySelectorAll('.lien-superset'))
+      .map((d) => d.classList.contains('actif')));
+  const cliquerLien = async (i) => {
+    await page.evaluate((k) => {
+      document.querySelectorAll('.lien-superset')[k].querySelector('button').click();
+    }, i);
+    await attendre(250);
+  };
+  const enBase = () => base.exos.slice().sort((a, b) => a.rang - b.rang)
+    .map((e) => e.groupe_superset);
+
+  ok('trois exercices, deux liens entre eux, aucun actif',
+    JSON.stringify(await liensEditeur()) === '[false,false]' &&
+    JSON.stringify(await lettresEditeur()) === '["","",""]',
+    JSON.stringify(await liensEditeur()) + ' · ' + JSON.stringify(await lettresEditeur()));
+
+  // Le lien du MILIEU : les deux DERNIERS se groupent, le premier reste dehors.
+  await cliquerLien(1);
+  ok('le lien du milieu groupe les deux derniers, et EUX SEULS',
+    JSON.stringify(await liensEditeur()) === '[false,true]' &&
+    JSON.stringify(await lettresEditeur()) === '["","A","B"]',
+    JSON.stringify(await lettresEditeur()));
+  ok('et le bouton dit comment le défaire',
+    /séparer/i.test(await page.evaluate(() =>
+      document.querySelectorAll('.lien-superset')[1].querySelector('button').textContent)),
+    await page.evaluate(() => document.querySelectorAll('.lien-superset')[1].querySelector('button').textContent));
+
+  await page.click('#btn-enregistrer-routine');
+  await attendre(900);
+  ok('`groupe_superset` part en base — un numéro pour la paire, rien pour l’autre',
+    JSON.stringify(enBase()) === '[null,1,1]', JSON.stringify(enBase()));
+
+  // ⚠️ LA RELECTURE. Écrire le groupe et le RELIRE sont deux choses : jusqu'au
+  // chantier 28 l'éditeur ne transportait pas `groupe_superset`, et un simple
+  // aller-retour l'effaçait sans rien dire.
+  await page.click('#liste-routines .routine');
+  await attendre(700);
+  ok('rouvert, l’éditeur RETROUVE le superset',
+    JSON.stringify(await liensEditeur()) === '[false,true]' &&
+    JSON.stringify(await lettresEditeur()) === '["","A","B"]',
+    JSON.stringify(await lettresEditeur()));
+
+  // ⚠️ L'ADJACENCE EST LA SEULE DÉFINITION (§2.3). Descendre le premier le pose
+  // ENTRE les deux autres : la suite contiguë est rompue, donc le superset
+  // n'existe plus. Ça se voit à l'endroit exact où le lien vient de céder.
+  await carteEditeur(0, '.geste[aria-label="Descendre"]');
+  ok('glisser un exercice AU MILIEU d’un superset le défait',
+    JSON.stringify(await liensEditeur()) === '[false,false]' &&
+    JSON.stringify(await lettresEditeur()) === '["","",""]',
+    JSON.stringify(await lettresEditeur()));
+  // Et il ne revient pas tout seul : le numéro est perdu, pas mis de côté.
+  await carteEditeur(1, '.geste[aria-label="Monter"]');
+  ok('et il ne se recolle pas de lui-même au retour',
+    JSON.stringify(await liensEditeur()) === '[false,false]',
+    JSON.stringify(await liensEditeur()));
+
+  // Les trois d'un coup, puis l'écriture : un superset à TROIS, le cas que le
+  // chantier 27 avait validé sur device et que l'éditeur ne savait pas produire.
+  await cliquerLien(0);
+  await cliquerLien(1);
+  ok('les deux liens posés : un seul bloc de trois, A/B/C',
+    JSON.stringify(await lettresEditeur()) === '["A","B","C"]',
+    JSON.stringify(await lettresEditeur()));
+  await page.click('#btn-enregistrer-routine');
+  await attendre(900);
+  ok('en base : UN numéro pour les trois, et les rangs tiennent',
+    JSON.stringify(enBase()) === '[1,1,1]' &&
+    JSON.stringify(base.exos.slice().sort((a, b) => a.rang - b.rang).map((e) => e.rang)) === '[0,1,2]',
+    JSON.stringify(base.exos.slice().sort((a, b) => a.rang - b.rang)
+      .map((e) => e.exercise_slug + '@' + e.rang + '#' + e.groupe_superset)));
+
+  // On rend la routine à l'état où la suite du banc l'attend : deux exercices,
+  // sans superset. Le §6 compte les lignes, pas les groupes.
+  await page.click('#liste-routines .routine');
+  await attendre(700);
+  await cliquerLien(0);
+  await cliquerLien(1);
+  await carteEditeur(2, '.geste[aria-label="Retirer"]');
+  await page.click('#btn-enregistrer-routine');
+  await attendre(900);
+  ok('remis à plat : deux exercices, aucun groupe',
+    base.exos.length === 2 && JSON.stringify(enBase()) === '[null,null]',
+    base.exos.length + ' exercice(s) · ' + JSON.stringify(enBase()));
 
   console.log('\n══ 6. NOM EN DOUBLON, PUIS ARCHIVAGE ══');
   await page.click('#btn-nouvelle-routine');

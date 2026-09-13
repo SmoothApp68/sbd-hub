@@ -376,8 +376,11 @@ describe('7. la routine ne porte AUCUNE charge', () => {
     });
 
     // La liste blanche est la garde, et elle est explicite.
+    // `groupe_superset` et `note` entrés au chantier 28 : la routine porte
+    // désormais son groupement et sa note, toujours AUCUNE charge.
     expect(Routines.CHAMPS_EXERCICE).toEqual(
-      ['routine_id', 'exercise_slug', 'rang', 'series', 'reps_visees', 'repos_cible_s']);
+      ['routine_id', 'exercise_slug', 'rang', 'series', 'reps_visees',
+       'repos_cible_s', 'groupe_superset', 'note']);
     const hors = Array.from(cles).filter(function (k) {
       return Routines.CHAMPS_EXERCICE.indexOf(k) < 0 &&
              ['user_id', 'nom', 'modifiee_a', 'archivee_a'].indexOf(k) < 0;

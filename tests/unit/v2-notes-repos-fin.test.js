@@ -329,53 +329,58 @@ describe('la question de fin sur la routine (§6)', () => {
   test('aucune déviation → aucun écart, donc aucune question', () => {
     let s = seanceDeRoutine();
     s = toutValider(s, 0);
-    expect(Seance.ecartsRoutine(s, ROUTINE)).toEqual([]);
+    expect(Seance.ecartsRoutine(s, ROUTINE).ecarts).toEqual([]);
   });
 
   test('un repos changé en séance fait UN écart, sur la bonne ligne de routine', () => {
     let s = seanceDeRoutine();
     s = Seance.definirReposCible(s, 0, 120);
-    const ecarts = Seance.ecartsRoutine(s, ROUTINE);
-    expect(ecarts).toHaveLength(1);
-    expect(ecarts[0].id).toBe('re1');
-    expect(ecarts[0].champs).toEqual({ repos_cible_s: 120 });
-    expect(ecarts[0].repos_avant).toBe(180);
+    const { ecarts, voulues } = Seance.ecartsRoutine(s, ROUTINE);
+    expect(ecarts).toEqual([
+      { type: 'repos', exercise_slug: 'squat', avant: 180, apres: 120 }]);
+    // Ce qui partirait dans la routine : la ligne visée, et elle seule.
+    expect(voulues[0]).toMatchObject({ id: 're1', repos_cible_s: 120 });
+    expect(voulues[1]).toMatchObject({ id: 're2', repos_cible_s: null });
   });
 
   test('une note posée en séance fait un écart, et ne reporte QUE la note', () => {
     let s = seanceDeRoutine();
     s = Seance.definirNoteExercice(s, 1, 'Prise large');
-    const ecarts = Seance.ecartsRoutine(s, ROUTINE);
-    expect(ecarts).toHaveLength(1);
-    expect(ecarts[0].id).toBe('re2');
-    expect(ecarts[0].champs).toEqual({ note: 'Prise large' });
+    const { ecarts, voulues } = Seance.ecartsRoutine(s, ROUTINE);
+    expect(ecarts).toEqual([
+      { type: 'note', exercise_slug: 'dc', apres: 'Prise large' }]);
+    expect(voulues[1]).toMatchObject({ id: 're2', note: 'Prise large' });
   });
 
   test('les deux à la fois se reportent ensemble, sur la même ligne', () => {
     let s = seanceDeRoutine();
     s = Seance.definirReposCible(s, 0, 90);
     s = Seance.definirNoteExercice(s, 0, 'Ceinture');
-    const ecarts = Seance.ecartsRoutine(s, ROUTINE);
-    expect(ecarts).toHaveLength(1);
-    expect(ecarts[0].champs).toEqual({ repos_cible_s: 90, note: 'Ceinture' });
+    const { ecarts, voulues } = Seance.ecartsRoutine(s, ROUTINE);
+    expect(ecarts.map((e) => e.type)).toEqual(['repos', 'note']);
+    expect(voulues[0]).toMatchObject({ id: 're1', repos_cible_s: 90, note: 'Ceinture' });
   });
 
-  // ⚠️ Hors périmètre de ce chantier : la déviation de STRUCTURE. Un exercice
-  // ajouté en séance n'a pas de `routine_exercise_id` — il n'est pas comparé,
-  // et surtout il ne s'invente pas une ligne de routine à écraser.
-  test('un exercice ajouté en séance n’ouvre AUCUN écart', () => {
+  // ⚠️ RETOURNÉ AU CHANTIER 28. Jusque-là, un exercice ajouté n'ouvrait AUCUN
+  // écart : la déviation de structure était hors périmètre. Elle est désormais
+  // dedans (§6.2), et l'ajout se rapporte comme tel — sans ligne de routine à
+  // écraser pour autant, `id` restant nul jusqu'à l'écriture.
+  test('un exercice ajouté en séance ouvre un écart de STRUCTURE', () => {
     let s = seanceDeRoutine();
     s = Seance.ajouterExercice(s, 'curl', uuid, { repos_cible_s: 60 });
     s = Seance.definirNoteExercice(s, 2, 'Ajouté à la volée');
-    expect(Seance.ecartsRoutine(s, ROUTINE)).toEqual([]);
+    const { ecarts, voulues } = Seance.ecartsRoutine(s, ROUTINE);
+    expect(ecarts).toEqual([{ type: 'ajoute', exercise_slug: 'curl' }]);
+    expect(voulues).toHaveLength(3);
+    expect(voulues[2]).toMatchObject({ id: null, exercise_slug: 'curl', repos_cible_s: 60 });
   });
 
   test('une séance vide — sans routine — n’ouvre aucune question', () => {
     let s = Seance.creer({ id: 'sess-3', userId: USER, idSerie: uuid });
     s = Seance.ajouterExercice(s, 'squat', uuid);
     s = Seance.definirNoteExercice(s, 0, 'Note libre');
-    expect(Seance.ecartsRoutine(s, ROUTINE)).toEqual([]);
-    expect(Seance.ecartsRoutine(s, null)).toEqual([]);
+    expect(Seance.ecartsRoutine(s, ROUTINE).ecarts).toEqual([]);
+    expect(Seance.ecartsRoutine(s, null).ecarts).toEqual([]);
   });
 
   // ⚠️ CONFIGURATION DISCRIMINANTE DE LA JOINTURE — LE MÊME EXERCICE DEUX FOIS.
@@ -398,11 +403,12 @@ describe('la question de fin sur la routine (§6)', () => {
     let s = Seance.creer({ id: 'sess-d', userId: USER, routine: doublon, idSerie: uuid });
     // On change le repos du SECOND squat — celui de fin de séance.
     s = Seance.definirReposCible(s, 2, 45);
-    const ecarts = Seance.ecartsRoutine(s, doublon);
-    expect(ecarts).toHaveLength(1);
-    expect(ecarts[0].id).toBe('rd3');
-    expect(ecarts[0].repos_avant).toBe(60);
-    expect(ecarts[0].champs).toEqual({ repos_cible_s: 45 });
+    const { ecarts, voulues } = Seance.ecartsRoutine(s, doublon);
+    expect(ecarts).toEqual([
+      { type: 'repos', exercise_slug: 'squat', avant: 60, apres: 45 }]);
+    // Par slug, c'est `rd1` qui aurait changé. C'est `rd3`, et lui seul.
+    expect(voulues.map((v) => [v.id, v.repos_cible_s]))
+      .toEqual([['rd1', 180], ['rd2', 90], ['rd3', 45]]);
   });
 
   test('et la note du second squat ne déteint pas sur le premier', () => {
@@ -416,10 +422,11 @@ describe('la question de fin sur la routine (§6)', () => {
     let s = Seance.creer({ id: 'sess-d2', userId: USER, routine: doublon, idSerie: uuid });
     expect(s.exercices.map((e) => e.note)).toEqual(['Lourd', 'Léger']);
     s = Seance.definirNoteExercice(s, 1, 'Léger, en série longue');
-    const ecarts = Seance.ecartsRoutine(s, doublon);
-    expect(ecarts).toHaveLength(1);
-    expect(ecarts[0].id).toBe('rd3');
-    expect(ecarts[0].champs).toEqual({ note: 'Léger, en série longue' });
+    const { ecarts, voulues } = Seance.ecartsRoutine(s, doublon);
+    expect(ecarts).toEqual([
+      { type: 'note', exercise_slug: 'squat', apres: 'Léger, en série longue' }]);
+    expect(voulues.map((v) => [v.id, v.note]))
+      .toEqual([['rd1', 'Lourd'], ['rd3', 'Léger, en série longue']]);
 
     // Et à l'écriture, chaque bloc porte SA note : le doublon ne les mélange pas.
     s = Seance.valider(s, 0, 0, new Date('2026-09-12T10:00:00Z'));
@@ -431,7 +438,7 @@ describe('la question de fin sur la routine (§6)', () => {
     let s = seanceDeRoutine();
     s = Seance.definirReposCible(s, 0, 60);
     const autre = Object.assign({}, ROUTINE, { id: 'r-2' });
-    expect(Seance.ecartsRoutine(s, autre)).toEqual([]);
+    expect(Seance.ecartsRoutine(s, autre)).toEqual({ ecarts: [], voulues: [] });
   });
 });
 
@@ -441,16 +448,16 @@ describe('le report sur la routine passe par la file d’attente', () => {
   test('une intention `maj` se pose, se compresse, et ne touche que les champs déviés', () => {
     let f = [];
     f = Attente.poser(f, {
-      table: Attente.ROUTINE_EXOS, op: Attente.MAJ, id: 're1', donnees: { repos_cible_s: 120 }
+      table: Attente.ROUTINE_EXOS, op: Attente.PLAN, id: 're1', donnees: { voulues: [{ id: 're1', repos_cible_s: 120 }] }
     });
     expect(f).toHaveLength(1);
-    expect(f[0]).toMatchObject({ table: 'routine_exercises', op: 'maj', id: 're1', version: 1 });
+    expect(f[0]).toMatchObject({ table: 'routine_exercises', op: 'plan', id: 're1', version: 1 });
 
     f = Attente.poser(f, {
-      table: Attente.ROUTINE_EXOS, op: Attente.MAJ, id: 're1', donnees: { repos_cible_s: 90 }
+      table: Attente.ROUTINE_EXOS, op: Attente.PLAN, id: 're1', donnees: { voulues: [{ id: 're1', repos_cible_s: 90 }] }
     });
     expect(f).toHaveLength(1);
-    expect(f[0].donnees).toEqual({ repos_cible_s: 90 });
+    expect(f[0].donnees).toEqual({ voulues: [{ id: 're1', repos_cible_s: 90 }] });
     // La garde du chantier 25 vaut ici aussi : la version monte, donc un retrait
     // qui porte l'ancienne ne jette pas l'intention plus récente.
     expect(f[0].version).toBe(2);
@@ -463,7 +470,7 @@ describe('le report sur la routine passe par la file d’attente', () => {
   // pas — et `Sync.remplacer` garderait un fantôme indéfiniment.
   test('elle n’est comptée ni comme une séance en attente ni comme une séance protégée', () => {
     let f = Attente.poser([], {
-      table: Attente.ROUTINE_EXOS, op: Attente.MAJ, id: 're1', donnees: { note: 'x' }
+      table: Attente.ROUTINE_EXOS, op: Attente.PLAN, id: 'r-1', donnees: { voulues: [] }
     });
     expect(Attente.seancesEnAttente(f)).toEqual({});
     expect(Attente.protegees(f, Attente.SESSIONS)).toEqual({});
@@ -472,7 +479,7 @@ describe('le report sur la routine passe par la file d’attente', () => {
 
   test('mais elle compte dans ce qui reste à envoyer : « à jour » serait faux', () => {
     const f = Attente.poser([], {
-      table: Attente.ROUTINE_EXOS, op: Attente.MAJ, id: 're1', donnees: { note: 'x' }
+      table: Attente.ROUTINE_EXOS, op: Attente.PLAN, id: 'r-1', donnees: { voulues: [] }
     });
     expect(Attente.resume(f).enAttente).toBe(1);
     expect(Attente.deciderEtat({ code: 'ok', libelle: 'À jour' }, f).code).toBe('a-envoyer');

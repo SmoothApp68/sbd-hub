@@ -406,7 +406,13 @@
   function rendreSemaine(lundi) {
     if (lundi) lundiAffiche = lundi;
     montrer('liste', Routeur.RACINE);
-    Rendu.rendreEtat($('etat-sync'), etat);
+    // ⚠️ L'ÉTAT COMBINÉ, JAMAIS L'ÉTAT DE LECTURE SEUL (chantier 33). Peindre
+    // `etat` ici court-circuitait `Attente.deciderEtat` : l'écran Séances —
+    // celui sur lequel on retombe après chaque relance — affichait « À jour »
+    // pendant qu'une entrée était bloquée en file. Une file bloquée qui se dit
+    // à jour EST la perte silencieuse que tout ce mécanisme existe pour
+    // empêcher, et c'est ce qui a laissé le défaut du chantier 32 invisible.
+    rendreEtatSync();
 
     var sem = semaineCourante();
     Rendu.rendreBarreSemaine($('barre-seances'), barrePour(sem, true));
@@ -505,7 +511,22 @@
   // Écrit la séance sur disque, ENTIÈRE, dans une transaction. Appelé après
   // chaque geste. Une séance pèse quelques kilo-octets : le coût est nul devant
   // la garantie qu'aucun état à moitié écrit ne puisse exister.
+  // ⚠️ LES DEUX PORTES PAR OÙ LA SÉANCE SORT (chantier 33) : le DISQUE
+  // (`sauverSeance`) et le FIL (`poserSeries`). On sème aux deux, pas à une
+  // seule — tous les gestes ne passent pas par `apresGeste` : `enregistrerEdition`
+  // pose et adopte sans jamais sauver de brouillon. Couvrir l'entonnoir des
+  // gestes aurait donc laissé la correction d'une séance passée à découvert.
+  //
+  // Une série sans identifiant ne doit exister ni sur le disque ni sur le fil :
+  // `sets.id` est uuid NOT NULL, et le refus du serveur bloquerait la file
+  // entière (voir la garde de sortie dans `Seance.lignes`).
+  //
+  // Sans effet et sans recopie quand rien ne manque : le chemin normal ne paie
+  // rien, et l'appel est sûr à répéter.
+  function semerSeance() { seance = Seance.semerIdentifiants(seance, uuid); }
+
   async function sauverSeance() {
+    semerSeance();
     try {
       await Cache.ecrireBrouillon('seance', seance);
     } catch (e) {
@@ -604,6 +625,7 @@
   }
 
   function poserSeries() {
+    semerSeance();
     return poser({
       table: Attente.SETS, op: Attente.REMPLACER, id: seance.id,
       donnees: Seance.lignes(seance)
@@ -631,6 +653,43 @@
     await poserSeance(true);
     allerA(Routeur.SAISIE, {}, true);
     rendreSeance();
+  }
+
+  // ⚠️ RÉPARATION AU DÉMARRAGE (chantier 33). L'APPAREIL NE SE RÉPARE PAS TOUT
+  // SEUL : un téléphone mis à jour porte peut-être déjà un brouillon dont des
+  // séries n'ont pas d'identifiant, et une entrée de file que le serveur a
+  // refusée en 23502 et que la file a donc bloquée DÉFINITIVEMENT. Le correctif
+  // du contrat ne suffit pas — sans ce passage, ces séances ne remonteraient
+  // JAMAIS, même après la mise à jour.
+  //
+  // L'ordre compte. Le MODÈLE d'abord : son entrée de file se reconstruit
+  // ensuite depuis lui, donc les deux portent les MÊMES identifiants. Semer des
+  // deux côtés séparément les ferait diverger — la ligne monterait sous une
+  // identité, puis serait remplacée sous une autre au geste suivant.
+  async function reparerIdentifiantsManquants() {
+    var avant = seance;
+    if (seance) {
+      // `sauverSeance` sème et écrit le brouillon réparé.
+      await sauverSeance();
+      // Et si cette séance attendait déjà, son intention se repose depuis le
+      // modèle : `poser` compresse sur la même clé, remonte la version et
+      // remet `bloquee` à null — le déblocage et la réparation sont le même
+      // geste, et l'intention reste un REMPLACEMENT COMPLET.
+      var cle = Attente.cleDe(Attente.SETS, seance.id);
+      if (seance !== avant && (attente || []).some(function (e) { return e.cle === cle; })) {
+        await poserSeries();
+      }
+    }
+    // Le reste de la file : les séances DÉJÀ TERMINÉES, dont plus aucun geste
+    // ne repassera jamais. C'est le cas que le correctif du contrat n'atteint
+    // pas, et c'est celui qui laisse une séance fantôme en base.
+    var r = Attente.reparerIdentifiants(attente, uuid);
+    if (!r.entrees) return;
+    attente = r.file;
+    try { await Cache.ecrireAttente(attente); }
+    catch (e) { console.warn('File réparée non persistée :', texteErreur(e)); }
+    console.warn('File réparée : ' + r.lignes + ' série(s) sans identifiant dans ' +
+      r.entrees + ' envoi(s) — ' + 'déblocage et renvoi complet.');
   }
 
   // Une seule séance en cours à la fois. Au lancement, si un brouillon existe,
@@ -1659,11 +1718,21 @@
   // REMPLACER un exercice (`remplace`).
   var intentionCatalogue = { apres: null, remplace: null };
 
+  // ⚠️ DEUX INDICES, ET RIEN D'AUTRE (chantier 33). Les deux boutons généraux
+  // étaient câblés `addEventListener('click', ouvrirCatalogue)` : le gestionnaire
+  // recevait donc le MouseEvent comme `apres`, qui n'est pas `undefined` et
+  // passait la garde. `Math.min(n, MouseEvent)` vaut `NaN`, `splice(NaN, …)`
+  // insère à l'index 0 — et tout exercice ajouté en séance se posait EN TÊTE.
+  // Effet de bord : `ajouterExercice` en devenait inatteignable, ce qui masquait
+  // la moitié du défaut d'identifiant du chantier 32.
+  //
+  // Comme pour `serieVide`, on corrige le CONTRAT : ce qui n'est pas un indice
+  // n'est pas un indice. Le câblage est explicite en face, mais c'est cette
+  // garde qui survit au prochain appelant.
+  function indiceOuNul(v) { return typeof v === 'number' && isFinite(v) ? v : null; }
+
   function ouvrirCatalogue(apres, remplace) {
-    intentionCatalogue = {
-      apres: apres === undefined ? null : apres,
-      remplace: remplace === undefined ? null : remplace
-    };
+    intentionCatalogue = { apres: indiceOuNul(apres), remplace: indiceOuNul(remplace) };
     $('champ-recherche-exo').value = '';
     rendreCatalogue();
     ouvrirVoile($('catalogue'));
@@ -2006,6 +2075,10 @@
     lireModeRPE();
     lireSourdine();
     await chargerSeanceLocale();
+    // AVANT tout rendu et AVANT tout réseau, comme la lecture qui précède : une
+    // file bloquée par le défaut du chantier 32 se répare ici, sinon elle
+    // resterait bloquée pour toujours (voir `reparerIdentifiantsManquants`).
+    await reparerIdentifiantsManquants();
 
     // Ouverture immédiate sur ce qu'on a déjà, avant toute requête réseau.
     // On honore l'URL d'entrée : un rechargement direct sur /semaine/… ou
@@ -2167,7 +2240,9 @@
       });
     });
     $('btn-nouvelle-routine').addEventListener('click', function () { ouvrirRoutine(null); });
-    $('btn-ajouter-exo-seance').addEventListener('click', ouvrirCatalogue);
+    // Sans argument : l'exercice se pose À LA FIN. Insérer après un bloc précis
+    // reste le fait du menu de bloc, qui passe un vrai indice.
+    $('btn-ajouter-exo-seance').addEventListener('click', function () { ouvrirCatalogue(); });
     $('btn-fermer-feuille').addEventListener('click', fermerVoile);
     $('feuille-seance').addEventListener('click', function (e) { if (e.target === this) fermerVoile(); });
 
@@ -2183,7 +2258,7 @@
       allerA(Routeur.SAISIE, {});
       rendreSaisie();
     });
-    $('btn-ajouter-exo').addEventListener('click', ouvrirCatalogue);
+    $('btn-ajouter-exo').addEventListener('click', function () { ouvrirCatalogue(); });
     $('btn-enregistrer-routine').addEventListener('click', enregistrerBrouillon);
     $('btn-archiver-routine').addEventListener('click', archiverCourante);
     $('btn-fermer-catalogue').addEventListener('click', fermerVoile);

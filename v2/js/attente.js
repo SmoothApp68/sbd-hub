@@ -209,6 +209,48 @@
     });
   }
 
+  // ⚠️ RÉPARER UNE FILE ÉCRITE PAR UNE VERSION FAUTIVE (chantier 33).
+  //
+  // L'APPAREIL NE SE RÉPARE PAS TOUT SEUL. Une file posée avant le correctif
+  // porte des lignes sans identifiant ; le serveur les a refusées en 23502 —
+  // code DÉFINITIF — donc l'entrée est `bloquee`, et `prochaine` s'arrêtant sur
+  // une tête bloquée, TOUT ce qui attend derrière est arrêté avec elle : les
+  // séries, et l'upsert `terminee` de la séance. Corriger le modèle n'y change
+  // rien, ces entrées sont déjà sur le disque et rien ne les reposerait.
+  //
+  // On sème l'identifiant manquant et on lève le blocage — mais SEULEMENT sur
+  // les entrées qu'on a vraiment réparées. Une entrée bloquée pour une autre
+  // raison (RLS, colonne inconnue) le reste : la débloquer en masse masquerait
+  // un défaut réel derrière une tentative qui échouerait à l'identique.
+  //
+  // L'intention reste un REMPLACEMENT COMPLET, et c'est ce qui la rend sûre :
+  // rejouée, elle supprime en base ce qui n'est plus dans la liste. Un
+  // identifiant semé ici ne peut donc pas laisser une ligne orpheline si la
+  // même série était déjà montée sous un autre identifiant. Un upsert seul
+  // n'aurait pas cette propriété — il ajouterait au lieu de remplacer.
+  //
+  // `version` MONTE, comme à chaque pose : une requête partie avec l'ancienne
+  // ne doit pas pouvoir retirer l'entrée réparée (voir `retirer`).
+  function reparerIdentifiants(file, fabriquer) {
+    var entrees = 0, lignesReparees = 0;
+    var neuve = (file || []).map(function (e) {
+      if (!e || e.table !== SETS || !Array.isArray(e.donnees)) return e;
+      if (!e.donnees.some(function (l) { return !l || !l.id; })) return e;
+      entrees++;
+      var donnees = e.donnees.map(function (l) {
+        if (l && l.id) return l;
+        lignesReparees++;
+        return Object.assign({}, l, { id: fabriquer() });
+      });
+      return Object.assign({}, e, {
+        donnees: donnees,
+        version: (e.version || 1) + 1,
+        bloquee: null, essais: 0
+      });
+    });
+    return { file: neuve, entrees: entrees, lignes: lignesReparees };
+  }
+
   // Tout ce qui attend encore, par table. La synchronisation s'en sert pour
   // NE PAS EFFACER ce qu'elle ne connaît pas encore : `Sync.remplacer` remplace
   // la liste des séances par celle du serveur, et une séance saisie hors ligne
@@ -275,6 +317,7 @@
     prochaine: prochaine,
     retirer: retirer,
     marquerEchec: marquerEchec,
+    reparerIdentifiants: reparerIdentifiants,
     protegees: protegees,
     seancesEnAttente: seancesEnAttente,
     resume: resume,

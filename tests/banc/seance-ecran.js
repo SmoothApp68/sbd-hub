@@ -144,7 +144,13 @@ const SETS_PASSES = [1, 2].map((n) => ({
   const sessions = () => base.sessions.filter((s) => s.id !== PASSEE.id);
   const sets = () => base.sets.filter((s) => s.session_id !== PASSEE.id);
 
-  const refus = (code, msg) => ({ code: code, message: msg, details: msg });
+  // ⚠️ TOUT REFUS EST JOURNALISÉ (chantier 33). Un banc qui ne note pas ce que
+  // le serveur a refusé ne peut pas affirmer qu'il n'a rien refusé — et c'est
+  // exactement ce qu'un test de perte de données doit pouvoir prouver.
+  const refus = (code, msg) => {
+    base.journal.push({ op: 'refus', refus: code, message: msg });
+    return { code: code, message: msg, details: msg };
+  };
 
   // Les routines du banc, et l'index unique (routine_id, rang) de la vraie
   // base. Un instantané permet de REFUSER une écriture en la défaisant, comme
@@ -169,6 +175,13 @@ const SETS_PASSES = [1, 2].map((n) => ({
   };
 
   function verifierSet(l) {
+    // ⚠️ `sets.id` EST uuid NOT NULL (chantier 33). Ce banc ne le vérifiait pas :
+    // il acceptait `id: null`, et son upsert par `findIndex` écrasait alors
+    // toutes les lignes nulles les unes sur les autres — six séries devenaient
+    // deux, SANS ERREUR. C'est par ce trou précis que le défaut du chantier 22
+    // a traversé un banc, des tests et onze chantiers. Un banc plus permissif
+    // que la base ne teste pas la base.
+    if (l.id === null || l.id === undefined) return refus('23502', 'sets.id NOT NULL');
     if (l.source === 'app' && !l.validee_a) return refus('23514', 'sets_validee_si_saisie');
     if (!(l.rang >= 1)) return refus('23514', 'sets_rang_positif');
     if (['echauffement', 'travail', 'degressive', 'echec'].indexOf(l.type_serie) < 0) return refus('23514', 'sets_type_serie_ok');
@@ -2389,6 +2402,117 @@ const SETS_PASSES = [1, 2].map((n) => ({
     base.sessions.length === avantSup - 1 &&
     JSON.stringify(await visible()) === '["vue-liste"]',
     avantSup + ' → ' + base.sessions.length + ' séance(s)');
+
+  console.log('\n══ 7 terdecies. L’IDENTIFIANT MANQUANT, ET LA FILE BLOQUÉE ══');
+  //
+  // CONFIGURATION DISCRIMINANTE (CADRAGE-V2 §2 quater) : AU MOINS UNE SÉRIE
+  // AJOUTÉE À LA MAIN, et un serveur qui applique le `NOT NULL` de `sets.id`
+  // (`verifierSet`, ajouté par ce chantier). Sans la première, tous les
+  // identifiants viennent de `creer({idSerie: uuid})` et sont réels. Sans le
+  // second, les lignes nulles s'écrasent les unes sur les autres et le banc
+  // applaudit une séance amputée. Il faut les deux — c'est ce qui a laissé le
+  // défaut traverser onze chantiers.
+
+  const seanceVide = async () => {
+    await aller('/saisie');
+    await page.evaluate(() => {
+      const b = Array.from(document.querySelectorAll('button'))
+        .filter((x) => /séance vide/i.test(x.textContent))[0];
+      b.click();
+    });
+    await attendre(900);
+  };
+  const ajouterExoSeance = async (q) => {
+    await page.click('#btn-ajouter-exo-seance');
+    await attendre(300);
+    await choisirCatalogue(q);
+  };
+  const plusSerie = async (iBloc) => {
+    await page.evaluate((k) => {
+      document.querySelectorAll('.ajout-serie')[k].querySelector('button').click();
+    }, iBloc);
+    await attendre(300);
+  };
+  const validerToutes = async () => {
+    const n = await compter('.ligne-serie');
+    for (let i = 0; i < n; i++) {
+      const l = (await page.$$('.ligne-serie'))[i];
+      await l.$eval('.ok-serie', (b) => b.click());
+      await attendre(200);   // rapprochées, comme un pouce sur l'appareil
+    }
+    await attendre(2600);
+    return n;
+  };
+  const seriesDe = (id) => base.sets.filter((x) => x.session_id === id).length;
+  const enCoursId = () => (sessions().filter((x) => x.statut === 'en_cours')[0] || {}).id;
+  const terminer = async () => {
+    await page.click('#bandeau-seance .bandeau-fin');
+    await attendre(600);
+    await page.click('#feuille-contenu .principal');
+    await attendre(2600);
+  };
+
+  // ── 8. L'ajout d'exercice se pose à la FIN, pas en tête ────────────────
+  await seanceVide();
+  ok('une séance vide s’ouvre, sans aucun exercice',
+    JSON.stringify(await visible()) === '["vue-seance"]' && (await compter('.ligne-serie')) === 0,
+    JSON.stringify(await visible()) + ' · ' + (await compter('.ligne-serie')) + ' ligne(s)');
+
+  await ajouterExoSeance('Tractions');
+  await ajouterExoSeance('Planche');
+  // ⚠️ LE DÉFAUT : `addEventListener('click', ouvrirCatalogue)` passait le
+  // MouseEvent comme `apres`, `Math.min(n, MouseEvent)` valait `NaN`, et
+  // `splice(NaN, …)` insérait à l'index 0 — l'ordre s'inversait.
+  ok('les exercices se posent dans l’ordre d’ajout, le second APRÈS le premier',
+    JSON.stringify(await formeEcran()) === '[["Tractions"],["Planche"]]',
+    JSON.stringify(await formeEcran()));
+
+  // ── 4. Séance vide, six séries ajoutées à la main → les six arrivent ───
+  await plusSerie(0); await plusSerie(0);
+  await plusSerie(1); await plusSerie(1);
+  const idVide = enCoursId();
+  const nVide = await validerToutes();
+  ok('six séries à l’écran, dont quatre ajoutées à la main', nVide === 6, nVide + ' ligne(s)');
+  ok('AUCUNE ligne ne part sans identifiant : le serveur n’a rien refusé',
+    !base.journal.some((j) => j.refus === '23502'), JSON.stringify(base.journal.slice(-3)));
+  ok('les SIX arrivent en base — c’est le cas qui en perdait quatre',
+    seriesDe(idVide) === 6 && seriesDe(idVide) === nVide,
+    seriesDe(idVide) + '/' + nVide + ' série(s)');
+
+  // ── 7. Fin de séance : plus de fantôme ─────────────────────────────────
+  await terminer();
+  ok('la séance passe bien `terminee` — aucune séance fantôme `en_cours`',
+    sessions().filter((x) => x.statut === 'en_cours').length === 0 &&
+    (sessions().filter((x) => x.id === idVide)[0] || {}).statut === 'terminee',
+    JSON.stringify(sessions().map((x) => x.statut)));
+  ok('et ses six séries sont toujours là après la fin',
+    seriesDe(idVide) === 6, seriesDe(idVide) + '/6 série(s)');
+
+  // ── 9. L'état de synchronisation ne ment pas ───────────────────────────
+  await aller('/');
+  ok('file vidée : l’écran Séances peut dire « à jour »',
+    !/refusé/.test(await texte('#etat-sync')), await texte('#etat-sync'));
+
+  // ── 5. Routine + UNE seule série ajoutée → tout arrive ─────────────────
+  //      C'est le cas qui montait 3 séries sur 7.
+  await aller('/saisie');
+  await demarrerRoutine('Push');
+  await plusSerie(0);
+  const idRoutine = enCoursId();
+  const nRoutine = await validerToutes();
+  // ⚠️ ON COMPARE À L'ÉCRAN, PAS À UN NOMBRE EN DUR. La routine « Push » a été
+  // remaniée par les sections précédentes (report de déviation) : figer « 6 »
+  // ici ferait échouer le banc pour une raison étrangère au défaut testé. Ce
+  // qui compte est l'ÉGALITÉ — autant de séries en base qu'à l'écran.
+  ok('une routine plus une série ajoutée à la main : au moins deux blocs',
+    nRoutine >= 2, nRoutine + ' ligne(s)');
+  ok('TOUTES arrivent — la série ajoutée ne bloque plus les autres',
+    seriesDe(idRoutine) === nRoutine,
+    seriesDe(idRoutine) + '/' + nRoutine + ' série(s)');
+  await terminer();
+  ok('et cette séance-là se termine aussi',
+    (sessions().filter((x) => x.id === idRoutine)[0] || {}).statut === 'terminee',
+    JSON.stringify(sessions().map((x) => x.statut)));
 
   console.log('\n══ 8. NON-RÉGRESSION ══');
   for (const [chemin, attendu] of [['/', 'vue-liste'], ['/progression', 'vue-progression'],

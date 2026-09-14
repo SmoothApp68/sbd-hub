@@ -33,7 +33,7 @@
 // Parce que servir la coquille en cache sans la vérifier a rendu l'app
 // INACCESSIBLE EN LIGNE (chantier 19). Voir `utilisable` et `desempoisonner`.
 
-const CACHE_V2 = 'trainhub-v2-031';
+const CACHE_V2 = 'trainhub-v2-032';
 
 // Le chemin de la trappe de sortie. Tapé à la main dans la barre d'adresse
 // quand tout le reste est cassé : il doit rester court et mémorisable.
@@ -134,16 +134,34 @@ async function desempoisonner(reponse) {
 // Elle est une SECONDE LIGNE, pas la première : mesuré au chantier 19, un
 // commit de correction atteint bien un appareil cassé, au deuxième
 // rechargement, même avec un cache HTTP d'un an sur le script.
-const PAGE_SORTIE = (detail) =>
+//
+// ⚠️ ELLE EFFACE TOUT, ET ELLE LE DIT (chantier 35, D4). Elle ne vidait que les
+// caches : la base IndexedDB — séances, séries, brouillon de séance en cours et
+// FILE D'ÉCRITURE — survivait intacte. Or c'est précisément là que se loge ce
+// qui empêche l'app de s'ouvrir : un brouillon illisible, une file bloquée. Une
+// trappe qui laisse en place la moitié qui casse n'est pas une sortie.
+//
+// Et parce qu'elle efface pour de bon, elle RÉPOND CE QU'ELLE A EFFACÉ : le
+// nombre de caches, les bases, et l'avertissement qui compte — ce qui n'était
+// pas encore monté est perdu.
+const LIGNE = (t) => '<li>' + t + '</li>';
+const PAGE_SORTIE = (items, avertir) =>
   '<!doctype html><html lang="fr"><meta charset="utf-8">' +
   '<meta name="viewport" content="width=device-width,initial-scale=1">' +
-  '<title>TrainHub — service worker retiré</title>' +
+  '<title>TrainHub — données effacées</title>' +
   '<style>body{background:#15171A;color:#E8EAED;font:16px/1.6 system-ui,sans-serif;' +
   'margin:0;padding:32px 20px}h1{font-size:19px;margin:0 0 12px}' +
   'p{color:#959BA5;margin:0 0 12px}code{color:#E8EAED}' +
+  'ul{color:#E8EAED;margin:0 0 16px;padding-left:20px}li{margin:0 0 4px}' +
+  '.avert{color:#F2B705}' +
   'a{display:inline-block;margin-top:8px;color:#F2B705;font-weight:600}</style>' +
-  '<h1>Service worker retiré</h1>' +
-  '<p>' + detail + '</p>' +
+  '<h1>Données effacées</h1>' +
+  '<p>Ce qui a été retiré de cet appareil :</p>' +
+  '<ul>' + items.map(LIGNE).join('') + '</ul>' +
+  (avertir
+    ? '<p class="avert">Ce qui n’était pas encore monté sur le serveur est perdu. ' +
+      'Le reste redescendra à la prochaine connexion.</p>'
+    : '') +
   '<p>Recharge l’application. Elle réinstallera une version propre.</p>' +
   '<a href="/">Ouvrir TrainHub</a></html>';
 
@@ -156,20 +174,109 @@ const PAGE_SORTIE = (detail) =>
 // cache, et RECRÉAIT le cache qu'on venait d'effacer.
 let retire = false;
 
+// Les bases connues, quand le navigateur refuse d'en donner la liste.
+// `indexedDB.databases()` n'existe pas partout ; la trappe doit marcher quand
+// même, et elle ne sert à rien si elle n'efface pas CELLE-CI.
+const BASES_CONNUES = ['trainhub-v2'];
+
+// ⚠️ `deleteDatabase` EST LE SEUL APPEL DE CE FICHIER QUI PEUT NE JAMAIS
+// RENDRE LA MAIN, et c'est exactement ce que la règle en tête de fichier
+// interdit. Une page de l'app encore ouverte tient une connexion : la demande
+// part alors en `blocked` et RESTE EN ATTENTE, sans succès ni erreur, jusqu'à
+// la fermeture de l'autre onglet. Un `await` dessus ferait pendre la trappe —
+// c'est-à-dire la seule sortie qui reste à un appareil cassé.
+//
+// D'où les QUATRE issues, dont une qui ne dépend de personne : succès, erreur,
+// `blocked`, et un délai. Elle rend donc toujours, et toujours sous DELAI_IDB.
+const DELAI_IDB = 3000;
+
+function supprimerBase(nom) {
+  return new Promise((resoudre) => {
+    let rendu = false;
+    // Le minuteur s'ÉTEINT dès qu'une autre issue a rendu : un service worker
+    // qu'on réveille pour une requête ne doit pas traîner un timer par base
+    // effacée, et un test qui en laisserait un ouvert ne rendrait pas la main.
+    let minuteur = null;
+    const finir = (etat) => {
+      if (rendu) return;
+      rendu = true;
+      if (minuteur !== null) clearTimeout(minuteur);
+      resoudre({ nom, etat });
+    };
+    minuteur = setTimeout(() => finir('bloquee'), DELAI_IDB);
+    let demande;
+    try { demande = indexedDB.deleteDatabase(nom); }
+    catch (e) { return finir('erreur'); }
+    demande.onsuccess = () => finir('effacee');
+    demande.onerror = () => finir('erreur');
+    demande.onblocked = () => finir('bloquee');
+  });
+}
+
+async function nomsDesBases() {
+  if (typeof indexedDB === 'undefined' || !indexedDB) return [];
+  // ⚠️ PAS DE GARDE SUR `typeof databases === 'function'` : le `catch` la
+  // couvre déjà — appeler ce qui n'existe pas lève, et on retombe sur les bases
+  // connues. La campagne de mutations a montré la garde INTUABLE, donc morte
+  // (leçon de `palier.js`, chantier 17 : elle protégeait de rien et laissait
+  // croire l'inverse).
+  try {
+    const liste = await indexedDB.databases();
+    const noms = (liste || []).map((d) => d && d.name).filter(Boolean);
+    // La liste peut être vide sans que ce soit vrai (navigation privée, sandbox) :
+    // on retombe sur ce qu'on sait exister plutôt que de n'effacer rien.
+    return noms.length ? noms : BASES_CONNUES.slice();
+  } catch (e) {
+    return BASES_CONNUES.slice();
+  }
+}
+
 async function seDesinstaller() {
-  let detail;
+  const items = [];
+  let avertir = false;
   retire = true;
+
   try {
     const noms = await caches.keys();
     await Promise.all(noms.map((nom) => caches.delete(nom)));
-    await self.registration.unregister();
-    detail = noms.length + ' cache(s) effacé(s), service worker désinscrit.';
+    items.push(noms.length + ' cache(s) de l’application');
   } catch (e) {
-    // Même en échec, on répond : une trappe qui lève laisserait l'utilisateur
-    // devant la même erreur réseau que celle qu'il essaie de fuir.
-    detail = 'Effacement partiel : ' + ((e && e.message) || 'erreur inconnue') + '.';
+    items.push('caches : effacement partiel (' + ((e && e.message) || 'erreur inconnue') + ')');
   }
-  return new Response(PAGE_SORTIE(detail), {
+
+  try {
+    const bases = await nomsDesBases();
+    const etats = await Promise.all(bases.map(supprimerBase));
+    const effacees = etats.filter((r) => r.etat === 'effacee').map((r) => r.nom);
+    const restantes = etats.filter((r) => r.etat !== 'effacee').map((r) => r.nom);
+    if (effacees.length) {
+      items.push('données locales : ' + effacees.join(', ') +
+        ' (séances, séries, séance en cours, file d’envoi)');
+      avertir = true;
+    }
+    // ⚠️ ON LE DIT. Une base encore ouverte par un autre onglet n'est PAS
+    // effacée, et laisser croire le contraire renverrait l'utilisateur sur le
+    // même mur en pensant avoir tout nettoyé.
+    if (restantes.length) {
+      items.push('données locales NON effacées (' + restantes.join(', ') +
+        ') : ferme les autres onglets de TrainHub et recharge cette page');
+    }
+  } catch (e) {
+    items.push('données locales : effacement partiel (' +
+      ((e && e.message) || 'erreur inconnue') + ')');
+  }
+
+  try {
+    await self.registration.unregister();
+    items.push('service worker désinscrit');
+  } catch (e) {
+    items.push('service worker : désinscription refusée (' +
+      ((e && e.message) || 'erreur inconnue') + ')');
+  }
+
+  // Même en échec, on répond : une trappe qui lève laisserait l'utilisateur
+  // devant la même erreur réseau que celle qu'il essaie de fuir.
+  return new Response(PAGE_SORTIE(items, avertir), {
     status: 200,
     headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }
   });
@@ -309,6 +416,12 @@ if (typeof module !== 'undefined' && module.exports) {
     CACHE_V2: CACHE_V2, CHEMIN_SORTIE: CHEMIN_SORTIE, SHELL: SHELL,
     INDISPENSABLES: INDISPENSABLES,
     utilisable: utilisable, desempoisonner: desempoisonner, PAGE_SORTIE: PAGE_SORTIE,
-    installer: installer, servirCoquille: servirCoquille, servirRessource: servirRessource
+    installer: installer, servirCoquille: servirCoquille, servirRessource: servirRessource,
+    // La trappe est testable en CI : elle ne lit que `caches`, `indexedDB` et
+    // `self.registration` dans la portée globale — tous trois remplaçables par
+    // du papier. C'est la seule façon de PROUVER qu'elle rend toujours la main,
+    // y compris quand `deleteDatabase` reste bloquée pour toujours.
+    seDesinstaller: seDesinstaller, supprimerBase: supprimerBase,
+    nomsDesBases: nomsDesBases, DELAI_IDB: DELAI_IDB, BASES_CONNUES: BASES_CONNUES
   };
 }

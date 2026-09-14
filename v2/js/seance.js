@@ -441,6 +441,35 @@
     return reste.slice(0, cible).concat(pris, reste.slice(cible));
   }
 
+  // ⚠️ DÉPLACER EXPLICITEMENT EFFACE LA MÉMOIRE DES RANGS LUS (chantier 35, D2).
+  //
+  // Le chantier 34 garde les rangs d'origine tant qu'ils sont TOUS connus et
+  // TOUS distincts — pour qu'une séance importée qu'on n'a fait que rouvrir ne
+  // soit pas renumérotée, ce qui aplatirait les 53 supersets entrelacés de la
+  // base. Cette garde couvrait trop large : après un déplacement, les rangs
+  // d'origine sont toujours tous connus et tous distincts. Ils décrivaient
+  // simplement l'ANCIEN ordre — et c'est lui qui repartait en base, intact.
+  // Mesuré au banc : « Monter le bloc » bougeait le bloc à l'écran, et la base
+  // ne bougeait pas d'un rang.
+  //
+  // La distinction n'est pas dans les nombres, elle est dans le GESTE :
+  // enregistrer sans rien changer ne renumérote rien ; déplacer explicitement
+  // s'écrit. Un geste qui change l'ORDRE ou le GROUPEMENT oublie donc les rangs
+  // lus — ils ne décrivent plus cette séance — et `rangsDeSortie` renumérote
+  // depuis la position, ce qu'il sait déjà faire.
+  function oublierRangsOrigine(seance) {
+    if (!seance || !seance.exercices) return seance;
+    return Object.assign({}, seance, {
+      exercices: seance.exercices.map(function (e) {
+        return Object.assign({}, e, {
+          series: (e.series || []).map(function (s) {
+            return Object.assign({}, s, { rang_origine: null });
+          })
+        });
+      })
+    });
+  }
+
   // §5.5 — Déplacer agit sur le BLOC entier, jamais sur une de ses branches :
   // sortir un exercice d'un superset est un autre geste (§5.8). L'appelant sait
   // où vont les blocs ; ce module ne fait que réaliser le mouvement. `ou` est
@@ -449,7 +478,8 @@
   function deplacerVers(seance, indices, ou) {
     var idx = (indices || []).slice().sort(function (a, b) { return a - b; });
     if (!idx.length) return seance;
-    return normaliserGroupes(avecExercices(seance, bouger(seance.exercices, idx, ou)));
+    return oublierRangsOrigine(
+      normaliserGroupes(avecExercices(seance, bouger(seance.exercices, idx, ou))));
   }
 
   // §5.7 — Grouper est une opération sur une PAIRE de blocs. Le second vient se
@@ -478,7 +508,8 @@
     });
     // B se pose juste APRÈS A, dans l'ordre où on les a tapés.
     var apres = a[a.length - 1] + 1;
-    return normaliserGroupes(avecExercices(seance, bouger(exos, b, apres)));
+    return oublierRangsOrigine(
+      normaliserGroupes(avecExercices(seance, bouger(exos, b, apres))));
   }
 
   // §5.8 — Dégrouper agit sur UN exercice, jamais sur le bloc entier. Il sort et
@@ -493,8 +524,16 @@
     // À deux, le superset se dissout en entier (§5.9) : plus rien ne retient
     // l'ordre, et faire passer le sortant derrière l'autre réordonnerait la
     // séance sans que personne l'ait demandé.
-    if (bloc.length > 2) exos = bouger(exos, [iExo], bloc[bloc.length - 1] + 1);
-    return normaliserGroupes(avecExercices(seance, exos));
+    // ⚠️ ET LES RANGS NE S'OUBLIENT QUE S'IL BOUGE VRAIMENT (chantier 35).
+    // À deux, le superset se dissout sans que rien ne change de place : la
+    // séance n'a pas été réordonnée, donc les rangs lus la décrivent toujours,
+    // et les jeter renumérterait une séance que personne n'a déplacée. La
+    // campagne de mutations l'a montré — retirer l'oubli ici ne cassait rien,
+    // parce que le seul cas testé passait par `grouperBlocs`, qui avait déjà
+    // oublié les rangs.
+    if (bloc.length <= 2) return normaliserGroupes(avecExercices(seance, exos));
+    exos = bouger(exos, [iExo], bloc[bloc.length - 1] + 1);
+    return oublierRangsOrigine(normaliserGroupes(avecExercices(seance, exos)));
   }
 
   // ── Remplacer (§5.2) ────────────────────────────────────────────────────
@@ -566,15 +605,22 @@
     return normaliserGroupes(avecExercices(seance, exos));
   }
 
-  // Combien de séries validées dans une tranche — ce que la confirmation de
+  // Combien de séries FAITES dans une tranche — ce que la confirmation de
   // suppression doit annoncer, parce qu'une suppression silencieuse de travail
   // fait est exactement ce qu'on s'interdit.
+  //
+  // ⚠️ `validee_a` NE SUFFIT PAS, ET C'EST UNE SUPPRESSION SILENCIEUSE (ch. 35,
+  // D3). Les 28 103 séries importées l'ont à NULL : sur une séance rouverte en
+  // correction, ce compte rendait 0, donc la question n'était JAMAIS posée, donc
+  // trois semaines de travail partaient sur un seul tap. `partEnBase` dit la
+  // vraie chose — « cette série existe, elle a été faite » — qu'elle porte une
+  // date de validation ou qu'elle vienne de la base.
   function compterValidees(seance, indices) {
     var idx = (indices || []).slice();
     var n = 0;
     (seance.exercices || []).forEach(function (e, i) {
       if (idx.indexOf(i) < 0) return;
-      (e.series || []).forEach(function (s) { if (s.validee_a) n++; });
+      (e.series || []).forEach(function (s) { if (partEnBase(s)) n++; });
     });
     return n;
   }
@@ -853,8 +899,19 @@
   // Dévalider RETIRE la ligne de la base (§2.3 du prompt) : une série non
   // validée ne peut pas y exister. `repos_s` part avec elle — il décrivait un
   // intervalle qui n'a plus de fin.
+  //
+  // ⚠️ `source` PART AUSSI, SINON LE GESTE NE FAIT RIEN (chantier 35, D3).
+  // `partEnBase` garde en base ce qui VIENT de la base — c'est la protection du
+  // chantier 34, et elle est juste. Mais depuis que ces séries s'affichent comme
+  // faites, l'utilisateur peut les dévalider : sans retirer `source`, la ligne
+  // resterait « venue de la base », donc en base, et la case se recocherait à la
+  // réouverture. Un geste qui ne fait rien est pire qu'un geste absent.
+  //
+  // `source: null` dit exactement ce qui vient de se passer : cette ligne ne
+  // vient plus de la base. Revalidée, elle repart comme une ligne de l'app
+  // (`lignes()` écrit `source || 'app'`) — ce qu'elle est devenue.
   function devalider(seance, iExo, iSerie) {
-    return avecSerie(seance, iExo, iSerie, { validee_a: null, repos_s: null });
+    return avecSerie(seance, iExo, iSerie, { validee_a: null, repos_s: null, source: null });
   }
 
   // Dévalider puis revalider RÉÉCRIT `validee_a` (§7.5) : la série a été refaite
@@ -985,6 +1042,27 @@
     // celles qui la suivent ne bougent pas. Renuméroter sur la liste filtrée
     // ferait bouger le rang d'une série que personne n'a touchée.
     return (tous && distincts) ? portes : plat.map(function (p) { return p.rang; });
+  }
+
+  // ⚠️ CE QUE LE CACHE DE LECTURE DOIT OUBLIER (chantier 35, D1).
+  //
+  // Le pendant local de `Donnees.remplacerSeries` : celui-là met la BASE à
+  // l'image de la séance, celui-ci dit ce que le CACHE doit en retirer. Sans
+  // lui, une série supprimée restait dans le cache pour toujours — `sets` se
+  // synchronise à l'INCRÉMENT (`created_at`/`modifie_a`) et une ligne effacée ne
+  // revient par définition jamais dire qu'elle n'est plus là. L'écran la
+  // remontrait, et la correction suivante la RÉÉCRIRAIT en base.
+  //
+  // ⚠️ LE PÉRIMÈTRE EST LA SÉANCE, ET RIEN QU'ELLE. Une série d'une AUTRE
+  // séance n'est jamais candidate : elle n'est pas dans `lignes(seance)` par
+  // construction, et la confondre viderait le cache de tout le reste.
+  function idsRetires(seriesEnCache, seance) {
+    if (!seance) return [];
+    var gardes = {};
+    lignes(seance).forEach(function (l) { gardes[l.id] = true; });
+    return (seriesEnCache || []).filter(function (s) {
+      return s && s.session_id === seance.id && !gardes[s.id];
+    }).map(function (s) { return s.id; });
   }
 
   function lignes(seance) {
@@ -1300,6 +1378,8 @@
     ecartDeColonnes: ecartDeColonnes,
     provenanceIncomplete: provenanceIncomplete,
     partEnBase: partEnBase,
+    oublierRangsOrigine: oublierRangsOrigine,
+    idsRetires: idsRetires,
     semerIdentifiants: semerIdentifiants,
     toutesLesSeries: toutesLesSeries,
     compter: compter,

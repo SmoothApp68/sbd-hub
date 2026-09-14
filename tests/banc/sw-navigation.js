@@ -240,11 +240,30 @@ const SCENARIOS = [
     }, { racine: dossier });
   }},
 
-{ n: 6, titre: 'trappe /__sw-off : caches vidés, désinscription, réponse servie',
+{ n: 6, titre: 'trappe /__sw-off : TOUT est effacé, désinscription, réponse servie',
   run: () => session(async (page) => {
     await installerSW(page);
     const avant = await etatCache(page);
     verifier('un cache existe avant', avant.entrees > 0, avant.entrees + ' entrées');
+
+    // ⚠️ LA BASE, PAS SEULEMENT LES CACHES (chantier 35, D4). La trappe ne
+    // vidait que les caches ; `trainhub-v2` — séances, séries, brouillon de
+    // séance en cours et FILE D'ÉCRITURE — survivait. Or c'est là que se loge ce
+    // qui empêche l'app de s'ouvrir. On ferme la connexion avant de tirer la
+    // trappe : une base tenue ouverte part en `blocked`, et c'est le scénario
+    // que couvre `tests/unit/v2-service-worker.test.js`.
+    const bases = await page.evaluate(() => new Promise((res) => {
+      const r = indexedDB.open('trainhub-v2', 3);
+      r.onupgradeneeded = () => {
+        const db = r.result;
+        if (!db.objectStoreNames.contains('seances')) db.createObjectStore('seances', { keyPath: 'id' });
+      };
+      r.onsuccess = () => { r.result.close(); res('ouverte'); };
+      r.onerror = () => res('erreur');
+      setTimeout(() => res('delai'), 4000);
+    }));
+    verifier('une base locale existe avant', bases === 'ouverte', String(bases));
+
     const trappe = await ouvrir(page, '/__sw-off');
     const texte = await page.evaluate(() => document.body ? document.body.innerText : '').catch(() => '');
     verifier('la trappe répond', !trappe.erreur, trappe.erreur || 'servie');
@@ -261,6 +280,15 @@ const SCENARIOS = [
       apres.caches + ' restant(s) ' + JSON.stringify(apres.detail) +
       ' · contrôlé=' + apres.controle);
     verifier('service worker désinscrit', apres.sw === 0, apres.sw + ' restant(s)');
+    const restantes = await page.evaluate(async () => {
+      if (typeof indexedDB.databases !== 'function') return 'indisponible';
+      return (await indexedDB.databases()).map((d) => d.name).join(',') || 'aucune';
+    }).catch((e) => String(e).slice(0, 60));
+    verifier('base locale effacée', restantes === 'aucune' || restantes === 'indisponible',
+      'bases restantes : ' + restantes);
+    verifier('et la page dit ce qui est parti',
+      /Données effacées/.test(texte) && /cache/.test(texte) && /trainhub-v2/.test(texte),
+      texte.replace(/\s+/g, ' ').slice(0, 130));
     const retour = await ouvrir(page, '/');
     verifier('et l’app se relance derrière', !retour.erreur && retour.sections > 0,
       retour.erreur || retour.sections + ' sections');

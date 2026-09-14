@@ -728,15 +728,45 @@
   // Verse la séance terminée dans le cache de lecture, pour qu'elle s'affiche
   // comme n'importe quelle autre. `Sync.remplacer` ne l'effacera pas tant
   // qu'elle est dans la file — c'est la garde de `sync.js`.
+  // ⚠️ LE CACHE DE LECTURE DOIT APPRENDRE LES SUPPRESSIONS (chantier 35, D1).
+  //
+  // `Sync.fusionner` FUSIONNE : même identifiant → la nouveauté remplace. Rien
+  // n'en sort jamais. Et `sets` se synchronise à l'INCRÉMENT, sur `created_at`
+  // et `modifie_a` : une ligne effacée en base ne revient, par définition,
+  // jamais dire qu'elle n'est plus là. Une série supprimée restait donc dans le
+  // cache pour toujours.
+  //
+  // C'est la BOUCLE DE RÉSURRECTION, mesurée au banc d'écran :
+  //   1. on supprime le curl, on enregistre → la base passe bien à 4 séries ;
+  //   2. on recharge → l'écran relit le cache et remontre les 6 ;
+  //   3. la correction suivante repose ces 6 → `remplacerSeries` les UPSERTE →
+  //      la base repasse à 6.
+  // Vu de l'utilisateur : « la suppression ne s'écrit pas ». Vu de la base :
+  // elle s'écrivait, puis l'app la défaisait elle-même.
+  //
+  // La symétrie manquante : `Donnees.remplacerSeries` met la BASE à l'image de
+  // la séance ; ici on met le CACHE à l'image de la même séance. Le périmètre
+  // est la séance et rien qu'elle — on ne retire jamais une série d'une autre.
   function adopterLocalement(finie) {
     var ligne = Seance.ligneSession(finie);
+    var restantes = Seance.lignes(finie);
+    var retirees = Seance.idsRetires(local.series, finie);
+    var partantes = {};
+    retirees.forEach(function (id) { partantes[id] = true; });
+
     local.seances = Sync.fusionner(local.seances, [ligne]);
-    local.series = Sync.fusionner(local.series, Seance.lignes(finie));
+    local.series = Sync.fusionner(
+      (local.series || []).filter(function (s) { return !s || !partantes[s.id]; }),
+      restantes);
     rangerSeances();
     indexerParSeance();
     recalculerEtats();
     Cache.remplacerTout('seances', local.seances).catch(function () {});
-    Cache.ecrireLot('series', Seance.lignes(finie)).catch(function () {});
+    Cache.ecrireLot('series', restantes).catch(function () {});
+    // Le disque APRÈS la mémoire, et seulement s'il y a quelque chose à retirer :
+    // `Cache.supprimer` ouvre une transaction par lot, et une liste vide en
+    // ouvrirait une pour rien.
+    if (retirees.length) Cache.supprimer('series', retirees).catch(function () {});
   }
 
   // Abandonner SUPPRIME la séance. Sans ça, une séance `en_cours` fantôme
@@ -973,7 +1003,12 @@
   async function validerSerie(iExo, iSerie) {
     var exo = seance.exercices[iExo];
     var serie = exo.series[iSerie];
-    if (serie.validee_a) {
+    // ⚠️ `partEnBase`, PAS `validee_a` (chantier 35, D3). La case affichée cochée
+    // et l'action du tap doivent dire la MÊME chose : une série importée
+    // s'affiche cochée (elle a été faite) alors que son `validee_a` est NULL.
+    // Tester `validee_a` ici ferait VALIDER une case déjà cochée — un tap qui
+    // fait l'inverse de ce que l'écran annonce.
+    if (Seance.partEnBase(serie)) {
       // Dévalider RETIRE la ligne : une série non validée ne peut pas exister
       // en base (`sets_validee_si_saisie`).
       seance = Seance.devalider(seance, iExo, iSerie);

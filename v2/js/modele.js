@@ -408,6 +408,32 @@
    * }
    * série = { …ligne brute, estTravail, tour, etiquette }
    */
+  // ⚠️ « FAITE » N'EST PAS « `validee_a` » (chantier 35, D3).
+  //
+  // Les 28 103 séries importées ont `validee_a` à NULL — la contrainte
+  // `sets_validee_si_saisie` ne l'exige que pour `source = 'app'`. Une séance
+  // d'il y a trois semaines s'affichait donc entièrement vierge : aucune case
+  // cochée, rien de vert, comme si elle n'avait jamais eu lieu. Le NULL ne dit
+  // pas « pas faite », il dit « on ne sait pas QUAND ».
+  //
+  // ⚠️ ET ON NE RÉPARE PAS ÇA EN ÉCRIVANT `validee_a` : ce champ est aussi ce
+  // qui décide `bloc.chronologie` ci-dessous, et une chronologie inventée
+  // ENTRELACERAIT les séances importées — Hevy a aplati leurs tours (1 031
+  // blocs groupés contre 53 entrelacés), et les entrelacer inventerait un ordre
+  // que personne n'a fait. `faite` est donc une vérité D'AFFICHAGE : elle ne
+  // s'écrit nulle part, et `chronologie` continue de lire `validee_a` seul.
+  //
+  // ⚠️ MIROIR DE `THSeance.partEnBase` — la même question, posée de l'autre
+  // côté : « cette série existe-t-elle ? » et « a-t-elle été faite ? » ont la
+  // même réponse. Recopiée plutôt qu'appelée parce que `modele.js` se charge
+  // AVANT `seance.js` et que deux suites de tests chargent l'un sans l'autre.
+  // `tests/unit/v2-gestes-corriges.test.js` prouve qu’elles ne divergent pas.
+  function faiteEnBase(serie) {
+    if (!serie) return false;
+    if (serie.validee_a) return true;
+    return !!serie.source && serie.source !== 'app';
+  }
+
   function construireBlocs(series, exercices, options) {
     var o = options || {};
     var index = indexerExercices(exercices);
@@ -450,6 +476,8 @@
           if (travail) tour++;
           return Object.assign({}, brute, {
             estTravail: travail,
+            // Ce que l'écran doit montrer comme fait — coché, vert, compté.
+            faite: faiteEnBase(brute),
             // Le tour d'une série de travail est son rang parmi les séries de
             // travail de SON exercice. Une série non-travail n'a pas de tour.
             tour: travail ? tour : null,
@@ -635,7 +663,9 @@
     ((bloc && bloc.series) || []).forEach(function (s) {
       if (!s.tour) return;
       if (parTour[s.tour] === undefined) parTour[s.tour] = true;
-      if (!s.validee_a) parTour[s.tour] = false;
+      // `faite`, pas `validee_a` (chantier 35, D3) : sinon un tour entièrement
+      // fait, mais importé, resterait éteint sur la séance rouverte.
+      if (!s.faite) parTour[s.tour] = false;
     });
     return parTour;
   }
@@ -846,6 +876,7 @@
     indexerExercices: indexerExercices,
     nommer: nommer,
     construireBlocs: construireBlocs,
+    faiteEnBase: faiteEnBase,
     blocsDeSeance: blocsDeSeance,
     toursComplets: toursComplets,
     toursFaits: toursFaits,

@@ -1196,7 +1196,9 @@
 
     // L'avancement remplace le palier (§5.3) : combien de séries de travail
     // sont faites sur combien. Un fait, aucune prescription.
-    var faites = bloc.series.filter(function (s) { return s.estTravail && s.validee_a; }).length;
+    // `faite`, pas `validee_a` (chantier 35, D3) — voir `Modele.faiteEnBase` :
+    // une séance importée n'a aucun `validee_a`, et affichait « 0 / 4 ».
+    var faites = bloc.series.filter(function (s) { return s.estTravail && s.faite; }).length;
     noeud.appendChild(el('div', 'replie-avancement num',
       faites + ' / ' + bloc.nbTravail + ' série' + (bloc.nbTravail > 1 ? 's' : '')));
     return noeud;
@@ -1379,7 +1381,7 @@
     // Une série qui appartient à un tour s'allume donc AVEC SON TOUR ; une
     // série qui n'en a pas — chauffe, dégressive, tentative manquée — s'allume
     // dès qu'elle est validée, pour elle seule.
-    var allumee = s.tour ? complets[s.tour] === true : !!s.validee_a;
+    var allumee = s.tour ? complets[s.tour] === true : !!s.faite;
 
     // §7 undecies.2 — un espace et un filet plus clair entre les tours. Aucun
     // texte : `A1`, `B1`, `C1` disent déjà « tour 1 », et un libellé coûtait
@@ -1431,9 +1433,9 @@
       rangee.appendChild(eff);
     }
 
-    var ok = el('button', 'ok-serie' + (s.validee_a ? ' cochee' : ''));
+    var ok = el('button', 'ok-serie' + (s.faite ? ' cochee' : ''));
     ok.type = 'button';
-    ok.setAttribute('aria-label', s.validee_a ? 'Dévalider' : 'Valider');
+    ok.setAttribute('aria-label', s.faite ? 'Dévalider' : 'Valider');
     var v = svg('svg', null, { viewBox: '0 0 24 24' });
     v.appendChild(svg('path', null, { d: 'M5 13l4 4L19 7' }));
     ok.appendChild(v);

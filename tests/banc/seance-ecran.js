@@ -157,16 +157,24 @@ const IMPORTEE = {
   created_at: new Date(LUNDI.getTime() + 2 * 86400000).toISOString()
 };
 
+// ⚠️ DEUX BLOCS, PAS UN — ET C'EST LE CHANTIER 35 QUI L'EXIGE (§6).
+// Les quatre premières lignes forment un SUPERSET entrelacé ; les deux
+// dernières un exercice seul, posé après. Sans ce second bloc, « Monter le
+// bloc » est inerte et le déplacement ne peut pas se mesurer — or c'est
+// exactement la forme de la séance du 24/08 qui a montré les défauts : un
+// superset, puis un accessoire à la fin.
 const SETS_IMPORTES = [
-  { slug: 'squat-barre', rang: 1, kg: 100 },
-  { slug: 'dc-barre',    rang: 2, kg: 60 },
-  { slug: 'squat-barre', rang: 3, kg: 105 },
-  { slug: 'dc-barre',    rang: 4, kg: 62.5 }
+  { slug: 'squat-barre', rang: 1, kg: 100,  groupe: 1 },
+  { slug: 'dc-barre',    rang: 2, kg: 60,   groupe: 1 },
+  { slug: 'squat-barre', rang: 3, kg: 105,  groupe: 1 },
+  { slug: 'dc-barre',    rang: 4, kg: 62.5, groupe: 1 },
+  { slug: 'curl',        rang: 5, kg: 12,   groupe: null },
+  { slug: 'curl',        rang: 6, kg: 12,   groupe: null }
 ].map((d) => ({
   id: 'set-imp-' + d.rang, session_id: IMPORTEE.id, user_id: 'u-banc',
   exercise_slug: d.slug, charge_kg: d.kg, reps: 5,
   duree_s: null, distance_m: null, type_serie: 'travail',
-  rang: d.rang, groupe_superset: 1,
+  rang: d.rang, groupe_superset: d.groupe,
   validee_a: null,                       // ← LE POINT : NULL, comme les 28 103
   rpe: null, ressenti: 'reste_2', repos_s: 120, note: null,
   source: 'hevy',
@@ -676,7 +684,7 @@ const SETS_IMPORTES = [
   // toutes deux TERMINÉES et dans la semaine affichée. Ce qui est éprouvé ici
   // reste intact : la séance EN COURS, elle, n'y entre pas.
   ok('les totaux de la semaine ne comptent QUE les séances terminées',
-    /^2 séances · 6 séries de travail$/.test(totaux), totaux);
+    /^2 séances · 8 séries de travail$/.test(totaux), totaux);
   ok('la liste ne montre que les deux cartes du décor', (await compter('.jour .seance')) === 2,
     (await compter('.jour .seance')) + ' carte(s)');
   ok('et c’est la séance terminée, pas celle en cours',
@@ -2695,8 +2703,8 @@ const SETS_IMPORTES = [
   };
 
   const avantCorrection = sesSeries(IMPORTEE.id).length;
-  ok('la séance importée porte bien ses 4 séries, sans `validee_a`',
-    avantCorrection === 4 && sesSeries(IMPORTEE.id).every((x) => x.validee_a === null),
+  ok('la séance importée porte bien ses 6 séries, sans `validee_a`',
+    avantCorrection === 6 && sesSeries(IMPORTEE.id).every((x) => x.validee_a === null),
     avantCorrection + ' série(s), validee_a : ' +
     JSON.stringify(sesSeries(IMPORTEE.id).map((x) => x.validee_a)));
 
@@ -2704,7 +2712,7 @@ const SETS_IMPORTES = [
   await entree('Modifier');
   ok('elle s’ouvre en correction',
     JSON.stringify(await visible()) === '["vue-seance"]', JSON.stringify(await visible()));
-  ok('et ses quatre séries sont à l’écran', (await compter('.ligne-serie')) === 4,
+  ok('et ses six séries sont à l’écran', (await compter('.ligne-serie')) === 6,
     (await compter('.ligne-serie')) + ' ligne(s)');
 
   // ── Enregistrer SANS RIEN CHANGER ─────────────────────────────────────
@@ -2715,29 +2723,181 @@ const SETS_IMPORTES = [
   await attendre(2600);
 
   ok('enregistrée sans rien changer : AUCUNE série n’est effacée',
-    sesSeries(IMPORTEE.id).length === 4,
-    sesSeries(IMPORTEE.id).length + '/4 série(s) — c’est LE défaut du chantier 34');
+    sesSeries(IMPORTEE.id).length === 6,
+    sesSeries(IMPORTEE.id).length + '/6 série(s) — c’est LE défaut du chantier 34');
   ok('aucune écriture n’a été refusée par le serveur',
     !base.journal.some((j) => j.op === 'refus'),
     JSON.stringify(base.journal.filter((j) => j.op === 'refus').slice(0, 3)));
   ok('`user_id` est intact sur les séries',
-    sesSeries(IMPORTEE.id).length === 4 &&
+    sesSeries(IMPORTEE.id).length === 6 &&
     sesSeries(IMPORTEE.id).every((x) => x.user_id === 'u-banc'),
     JSON.stringify(sesSeries(IMPORTEE.id).map((x) => x.user_id)));
   ok('`ressenti` et `repos_s` ont survécu',
-    sesSeries(IMPORTEE.id).length === 4 &&
+    sesSeries(IMPORTEE.id).length === 6 &&
     sesSeries(IMPORTEE.id).every((x) => x.ressenti === 'reste_2' && x.repos_s === 120),
     JSON.stringify(sesSeries(IMPORTEE.id).map((x) => [x.ressenti, x.repos_s])));
   ok('les rangs entrelacés sont préservés',
     JSON.stringify(sesSeries(IMPORTEE.id).sort((a, b) => a.rang - b.rang)
       .map((x) => x.exercise_slug.slice(0, 5) + '@' + x.rang)) ===
-    JSON.stringify(['squat@1', 'dc-ba@2', 'squat@3', 'dc-ba@4']),
+    JSON.stringify(['squat@1', 'dc-ba@2', 'squat@3', 'dc-ba@4', 'curl@5', 'curl@6']),
     JSON.stringify(sesSeries(IMPORTEE.id).sort((a, b) => a.rang - b.rang)
       .map((x) => x.exercise_slug.slice(0, 5) + '@' + x.rang)));
   ok('`source` n’a pas été réécrit en `app`',
-    sesSeries(IMPORTEE.id).length === 4 &&
+    sesSeries(IMPORTEE.id).length === 6 &&
     sesSeries(IMPORTEE.id).every((x) => x.source === 'hevy'),
     JSON.stringify(sesSeries(IMPORTEE.id).map((x) => x.source)));
+
+  console.log('\n══ 7 quindecies. SUPPRIMER ET DÉPLACER UNE SÉANCE IMPORTÉE ══');
+  //
+  // CONFIGURATION DISCRIMINANTE (chantier 35, §6) — une séance IMPORTÉE sur
+  // laquelle on SUPPRIME et on DÉPLACE, puis qu'on RECHARGE complètement.
+  // Sans rechargement, l'écran relit son propre modèle en mémoire et montre le
+  // geste qu'on vient de faire, quoi qu'il soit arrivé en base.
+
+  const rangsImportee = () => sesSeries(IMPORTEE.id).slice()
+    .sort((a, b) => a.rang - b.rang).map((s) => s.exercise_slug + '@' + s.rang);
+  const ouvrirCorrection = async () => {
+    await aller('/');
+    await ouvrirMenuDe('Séance importée');
+    await entree('Modifier');
+  };
+  const enregistrer = async () => {
+    await page.click('#bandeau-seance .bandeau-fin');
+    await attendre(2600);
+  };
+
+  // ── D2 : DÉPLACER ─────────────────────────────────────────────────────
+  await ouvrirCorrection();
+  ok('[D2] la séance importée s’ouvre sur deux blocs : un superset, puis le curl',
+    JSON.stringify(await formeEcran()) === JSON.stringify([
+      ['Squat (Barre)', 'Développé Couché (Barre)'], ['Curl Biceps Haltères']]),
+    JSON.stringify(await formeEcran()));
+  // ⚠️ [D3] L'ÉCRAN, PAS SEULEMENT LE MODÈLE. Une séance rouverte s'affichait
+  // entièrement vierge — aucune case cochée — parce que les 28 103 séries
+  // importées portent `validee_a` à NULL. On lit la classe que `rendu.js` pose
+  // sur le bouton de validation, `cochee` : c'est elle qui fait le vert.
+  const cochees = () => page.evaluate(() =>
+    document.querySelectorAll('.ligne-serie .ok-serie.cochee').length);
+  ok('[D3] les six séries s’affichent COCHÉES — la séance a bien eu lieu',
+    (await cochees()) === 6, (await cochees()) + '/6 cochée(s)');
+
+  // ⚠️ LE VERT, PAS SEULEMENT LA COCHE (survivantes M14/M18 de la campagne de
+  // mutations). La rangée porte `.faite` — c'est elle qui fait la couleur — et
+  // elle passe par `toursComplets`, un chemin que la coche n'emprunte pas. Deux
+  // lectures différentes de « c'est fait » : les deux doivent être vraies.
+  const vertes = () => page.evaluate(() =>
+    document.querySelectorAll('.serie.faite').length);
+  ok('[D3] et elles sont VERTES — le tour entier est reconnu comme fait',
+    (await vertes()) === 6, (await vertes()) + '/6 verte(s)');
+
+  // ⚠️ ET LE COMPTEUR DU BLOC REPLIÉ (survivante M17). « Modifier » replie les
+  // blocs et affiche « x / y séries » : c'est le troisième endroit qui dit ce
+  // qui a été fait, et il affichait « 0 / 4 » sur une séance entièrement faite.
+  await page.click('#bandeau-seance .bandeau-modifier');
+  await attendre(600);
+  const avancements = () => page.evaluate(() =>
+    Array.from(document.querySelectorAll('.replie-avancement')).map((n) => n.textContent.trim()));
+  ok('[D3] replié, le compteur du bloc compte ce qui est fait, pas « 0 / n »',
+    (await avancements()).join(' · ') === '4 / 4 séries · 2 / 2 séries',
+    JSON.stringify(await avancements()));
+  await page.click('#bandeau-seance .bandeau-modifier');
+  await attendre(600);
+
+  const avantDeplacement = JSON.stringify(rangsImportee());
+  await menuBloc(1);
+  await entree('Monter le bloc');
+  ok('[D2] à l’écran, le curl est passé devant',
+    JSON.stringify((await formeEcran())[0]) === JSON.stringify(['Curl Biceps Haltères']),
+    JSON.stringify(await formeEcran()));
+  await enregistrer();
+  ok('[D2] LE DÉPLACEMENT S’ÉCRIT EN BASE',
+    rangsImportee()[0].indexOf('curl@') === 0 && rangsImportee()[1].indexOf('curl@') === 0,
+    'avant ' + avantDeplacement + ' · après ' + JSON.stringify(rangsImportee()));
+  ok('[D2] et rien n’a été perdu au passage',
+    sesSeries(IMPORTEE.id).length === 6,
+    sesSeries(IMPORTEE.id).length + '/6 série(s)');
+
+  // Rechargement COMPLET : le modèle en mémoire disparaît, l'écran se
+  // reconstruit depuis ce qui a été LU. C'est la seule façon de voir ce qui a
+  // vraiment été écrit.
+  await ouvrirCorrection();
+  ok('[D2] après rechargement complet, l’ordre déplacé tient',
+    JSON.stringify((await formeEcran())[0]) === JSON.stringify(['Curl Biceps Haltères']),
+    JSON.stringify(await formeEcran()));
+
+  // ── D1 : SUPPRIMER ────────────────────────────────────────────────────
+  // ⚠️ LE BLOC SE CHERCHE PAR SON NOM, PAS PAR SON INDEX. Tant que D2 n'est
+  // pas corrigé, le curl reste en seconde position ; une fois corrigé, il est
+  // en première. Un index en dur ferait échouer D1 pour la raison de D2.
+  const indexBloc = async (nom) => page.evaluate((n) =>
+    Array.from(document.querySelectorAll('.bloc-seance'))
+      .findIndex((b) => b.textContent.indexOf(n) >= 0), nom);
+  await menuBloc(await indexBloc('Curl'));
+  await entree('Supprimer l’exercice');
+  // ⚠️ [D3] LA QUESTION EST POSÉE, et c'est le point : avant ce chantier,
+  // `compterValidees` comptait 0 sur une séance importée (tous les `validee_a`
+  // à NULL) et les deux séries partaient SANS RIEN DEMANDER.
+  ok('[D3] supprimer du travail importé DEMANDE d’abord, et le compte',
+    /2 séries déjà validées/.test(await texte('#feuille-contenu')),
+    (await texte('#feuille-contenu')).replace(/\s+/g, ' ').slice(0, 100));
+  await entree('Supprimer quand même');
+  ok('[D1] à l’écran, le curl est parti',
+    (await compter('.bloc-seance')) === 1 && (await compter('.ligne-serie')) === 4,
+    (await compter('.bloc-seance')) + ' bloc(s), ' +
+    (await compter('.ligne-serie')) + ' ligne(s)');
+  await enregistrer();
+  ok('[D1] LA SUPPRESSION S’ÉCRIT EN BASE',
+    sesSeries(IMPORTEE.id).length === 4,
+    sesSeries(IMPORTEE.id).length + '/4 série(s) restantes — ' +
+    JSON.stringify(rangsImportee()));
+  ok('[D1] et c’est bien le curl qui est parti',
+    sesSeries(IMPORTEE.id).every((x) => x.exercise_slug !== 'curl'),
+    JSON.stringify(sesSeries(IMPORTEE.id).map((x) => x.exercise_slug)));
+  // ⚠️ L'ÉCRAN DE DÉTAIL, TOUT DE SUITE — sans recharger. `enregistrerEdition`
+  // y revient, et il lit le CACHE EN MÉMOIRE, pas le modèle. Une correction qui
+  // ne purgerait que le disque montrerait encore le curl ici, une seconde après
+  // l'avoir supprimé.
+  ok('[D1] le détail affiché juste après ne montre plus le curl',
+    !/Curl/.test(await texte('#detail-seance')),
+    (await texte('#detail-seance')).replace(/\s+/g, ' ').slice(0, 90));
+
+  await ouvrirCorrection();
+  ok('[D1] après rechargement complet, la suppression tient',
+    (await compter('.ligne-serie')) === 4,
+    (await compter('.ligne-serie')) + ' ligne(s)');
+
+  // ⚠️ LA BOUCLE DE RÉSURRECTION — c'est ELLE, le défaut D1 tel qu'il se voit.
+  // La suppression PART bien en base. Mais le cache de lecture ne l'apprend
+  // jamais : `sets` se synchronise à l'INCRÉMENT (`created_at`/`modifie_a`), et
+  // une ligne effacée ne revient par définition jamais dire qu'elle n'est plus
+  // là. L'écran la remontre ; la correction suivante la RÉÉCRIT en base. Vu de
+  // l'utilisateur, la suppression « ne s'est pas écrite ».
+  // ⚠️ [D3] LE TAP DIT CE QUE LA CASE ANNONCE. Une case cochée se dévalide ;
+  // tester `validee_a` au lieu de « part en base » ferait VALIDER une case déjà
+  // cochée — le tap ferait l'inverse de ce que l'écran montre. Et sur une série
+  // importée, dévalider doit la faire VRAIMENT sortir de la base.
+  ok('[D3] la case annonce « Dévalider », pas « Valider »',
+    (await page.evaluate(() =>
+      document.querySelector('.ligne-serie .ok-serie').getAttribute('aria-label'))) === 'Dévalider',
+    await page.evaluate(() =>
+      document.querySelector('.ligne-serie .ok-serie').getAttribute('aria-label')));
+  await page.evaluate(() => document.querySelectorAll('.ligne-serie .ok-serie')[0].click());
+  await attendre(900);
+  ok('[D3] tapée, elle se DÉCOCHE',
+    (await cochees()) === 3, (await cochees()) + '/3 cochée(s)');
+  await enregistrer();
+  ok('[D3] et elle est VRAIMENT sortie de la base',
+    sesSeries(IMPORTEE.id).length === 3,
+    sesSeries(IMPORTEE.id).length + '/3 série(s) — ' + JSON.stringify(rangsImportee()));
+
+  await ouvrirCorrection();
+  ok('[D3] elle ne revient pas à la réouverture',
+    (await compter('.ligne-serie')) === 3 && (await cochees()) === 3,
+    (await compter('.ligne-serie')) + ' ligne(s), ' + (await cochees()) + ' cochée(s)');
+  await enregistrer();
+  ok('[D1] et une correction de plus ne ressuscite rien',
+    sesSeries(IMPORTEE.id).length === 3,
+    sesSeries(IMPORTEE.id).length + '/3 série(s) — ' + JSON.stringify(rangsImportee()));
 
   console.log('\n══ 8. NON-RÉGRESSION ══');
   for (const [chemin, attendu] of [['/', 'vue-liste'], ['/progression', 'vue-progression'],

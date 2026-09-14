@@ -129,11 +129,132 @@ describe('la coquille mise en cache à l’installation', () => {
   });
 
   test('la page de sortie est construite en mémoire, sans rien fetcher', () => {
-    const page = SW.PAGE_SORTIE('3 cache(s) effacé(s), service worker désinscrit.');
-    expect(page).toContain('Service worker retiré');
-    expect(page).toContain('3 cache(s) effacé(s)');
+    const page = SW.PAGE_SORTIE(['3 cache(s) de l’application', 'service worker désinscrit'], false);
+    expect(page).toContain('Données effacées');
+    expect(page).toContain('3 cache(s) de l’application');
+    expect(page).toContain('service worker désinscrit');
     // Aucune ressource externe : la page doit s'afficher quand tout est cassé.
     expect(page).not.toMatch(/<script|<link[^>]+href|src=/i);
+  });
+
+  test('elle AVERTIT quand des données locales sont parties, et se tait sinon', () => {
+    expect(SW.PAGE_SORTIE(['1 cache(s)'], true)).toContain('pas encore monté');
+    expect(SW.PAGE_SORTIE(['1 cache(s)'], false)).not.toContain('pas encore monté');
+  });
+});
+
+// ── LA TRAPPE EFFACE TOUT, ET ELLE REND TOUJOURS LA MAIN (chantier 35, D4) ──
+//
+// CONFIGURATION DISCRIMINANTE : **une base IndexedDB qui reste BLOQUÉE**. Une
+// page de l'app encore ouverte tient une connexion ; `deleteDatabase` part alors
+// en `blocked` et n'appelle NI `onsuccess` NI `onerror` — jamais. Un `await`
+// dessus ferait pendre la trappe, c'est-à-dire la seule sortie d'un appareil
+// cassé (règle en tête de `service-worker.js`).
+//
+// Avec une base qui répond, la version avec délai et la version sans sont
+// INDISTINGUABLES. Le seul banc qui les sépare est celui-ci.
+describe('la trappe /__sw-off', () => {
+  const vraiCaches = global.caches;
+  const vraiIDB = global.indexedDB;
+  const vraiSelf = global.self;
+  let efface;
+
+  const papierCaches = (noms) => ({
+    keys: async () => noms.slice(),
+    delete: async (n) => { efface.caches.push(n); return true; }
+  });
+  // `mode` : 'ok' répond, 'bloquee' ne répond JAMAIS, 'erreur' échoue.
+  const papierIDB = (bases, mode) => ({
+    databases: bases === null ? undefined : async () => bases.map((n) => ({ name: n })),
+    deleteDatabase: (nom) => {
+      const d = {};
+      // 'muette' : le navigateur ne rappelle JAMAIS — le pire cas, celui que
+      // seul le délai peut dénouer. 'bloquee' : il appelle `onblocked`, et la
+      // trappe doit rendre TOUT DE SUITE sans attendre le délai.
+      if (mode !== 'muette') {
+        setTimeout(() => {
+          if (mode === 'bloquee') { if (d.onblocked) d.onblocked(); return; }
+          efface.bases.push(nom);
+          if (mode === 'erreur') { if (d.onerror) d.onerror(); }
+          else if (d.onsuccess) d.onsuccess();
+        }, 0);
+      }
+      return d;
+    }
+  });
+
+  beforeEach(() => {
+    efface = { caches: [], bases: [], desinscrit: 0 };
+    global.self = { registration: { unregister: async () => { efface.desinscrit++; return true; } } };
+  });
+  afterEach(() => {
+    global.caches = vraiCaches; global.indexedDB = vraiIDB; global.self = vraiSelf;
+  });
+
+  test('elle efface les caches ET les bases, se désinscrit, et le dit', async () => {
+    global.caches = papierCaches(['trainhub-v2-030', 'trainhub-v2-032']);
+    global.indexedDB = papierIDB(['trainhub-v2'], 'ok');
+    const page = await (await SW.seDesinstaller()).text();
+    expect(efface.caches).toEqual(['trainhub-v2-030', 'trainhub-v2-032']);
+    expect(efface.bases).toEqual(['trainhub-v2']);
+    expect(efface.desinscrit).toBe(1);
+    expect(page).toContain('2 cache(s)');
+    expect(page).toContain('trainhub-v2');
+    expect(page).toContain('file d’envoi');
+    expect(page).toContain('pas encore monté');
+  });
+
+  test('⚠️ UNE BASE MUETTE POUR TOUJOURS NE FAIT PAS PENDRE LA TRAPPE', async () => {
+    global.caches = papierCaches(['trainhub-v2-032']);
+    global.indexedDB = papierIDB(['trainhub-v2'], 'muette');
+    const debut = Date.now();
+    const page = await (await SW.seDesinstaller()).text();
+    // Elle rend, et elle rend en QUELQUES SECONDES — pas « un jour ». Le
+    // plafond est absolu : mesuré contre `DELAI_IDB`, il suivrait un délai
+    // porté à une heure et ne prouverait plus rien.
+    expect(Date.now() - debut).toBeLessThan(8000);
+    expect(SW.DELAI_IDB).toBeLessThanOrEqual(5000);
+    expect(efface.desinscrit).toBe(1);
+    // Et elle ne ment pas : la base est nommée comme NON effacée.
+    expect(page).toContain('NON effacées');
+    expect(page).toContain('ferme les autres onglets');
+    expect(page).not.toContain('pas encore monté');
+  }, 15000);
+
+  // ⚠️ `onblocked` EST LE CAS RÉEL — un autre onglet de TrainHub tient la base.
+  // Le navigateur le SIGNALE : la trappe doit rendre tout de suite, sans faire
+  // patienter l'utilisateur le temps du délai devant un écran vide.
+  test('une base signalée `blocked` rend TOUT DE SUITE, sans attendre le délai', async () => {
+    global.caches = papierCaches([]);
+    global.indexedDB = papierIDB(['trainhub-v2'], 'bloquee');
+    const debut = Date.now();
+    const page = await (await SW.seDesinstaller()).text();
+    expect(Date.now() - debut).toBeLessThan(SW.DELAI_IDB);
+    expect(efface.bases).toEqual([]);
+    expect(page).toContain('NON effacées');
+  }, 15000);
+
+  test('sans `indexedDB.databases()`, elle efface quand même la base connue', async () => {
+    global.caches = papierCaches([]);
+    global.indexedDB = papierIDB(null, 'ok');
+    await SW.seDesinstaller();
+    expect(efface.bases).toEqual(SW.BASES_CONNUES);
+  });
+
+  test('une liste de bases VIDE retombe sur la base connue, jamais sur rien', async () => {
+    global.caches = papierCaches([]);
+    global.indexedDB = papierIDB([], 'ok');
+    await SW.seDesinstaller();
+    expect(efface.bases).toEqual(SW.BASES_CONNUES);
+  });
+
+  test('caches en échec : elle répond quand même, et efface le reste', async () => {
+    global.caches = { keys: async () => { throw new Error('quota'); }, delete: async () => true };
+    global.indexedDB = papierIDB(['trainhub-v2'], 'ok');
+    const page = await (await SW.seDesinstaller()).text();
+    expect(page).toContain('effacement partiel');
+    expect(efface.bases).toEqual(['trainhub-v2']);
+    expect(efface.desinscrit).toBe(1);
   });
 });
 

@@ -229,14 +229,48 @@
     });
   }
 
+  // ⚠️ UNE CHAÎNE EST UN IDENTIFIANT VALIDE (chantier 33). Ce contrat
+  // n'acceptait qu'une FONCTION et rendait `null` pour tout le reste :
+  // `ajouterSerie` et `ajouterExercice` lui passaient `uuid()`, donc une
+  // chaîne, donc toute série ajoutée À LA MAIN naissait sans identité. Elle
+  // partait ensuite en base où `sets.id` est uuid NOT NULL — 23502, que la
+  // file classe DÉFINITIF — et l'entrée se bloquait avec toute la file
+  // derrière elle. Corriger les deux appelants aurait laissé la mine armée
+  // pour le prochain : c'est le contrat qui était faux.
   function serieVide(idSerie) {
     return {
-      id: typeof idSerie === 'function' ? idSerie() : null,
+      id: typeof idSerie === 'function' ? idSerie() : (idSerie || null),
       type_serie: 'travail',
       charge_kg: null, reps: null, duree_s: null, distance_m: null,
       rpe: null, ressenti: null, note: null,
       validee_a: null, repos_s: null
     };
+  }
+
+  function sansIdentifiant(serie) { return !serie || !serie.id; }
+
+  // ⚠️ AUCUNE SÉRIE NE DOIT EXISTER SANS IDENTIFIANT (chantier 33).
+  //
+  // On SÈME plutôt que de refuser : la série est déjà faite, et du travail fait
+  // est irrécupérable. Refuser ici perdrait ce qu'on essaie de sauver.
+  //
+  // Rend la séance INCHANGÉE, à l'identité près, quand rien ne manque : l'appel
+  // est donc gratuit sur le chemin normal, et sûr à répéter. C'est ce qui
+  // permet de l'appeler depuis la sauvegarde, par où passe chaque geste.
+  function semerIdentifiants(seance, idSerie) {
+    if (!seance || !seance.exercices) return seance;
+    var change = false;
+    var exos = seance.exercices.map(function (exo) {
+      if (!exo || !exo.series || !exo.series.some(sansIdentifiant)) return exo;
+      change = true;
+      var neuf = copie(exo);
+      neuf.series = exo.series.map(function (serie) {
+        if (!sansIdentifiant(serie)) return serie;
+        return Object.assign({}, serie, { id: serieVide(idSerie).id });
+      });
+      return neuf;
+    });
+    return change ? avecExercices(seance, exos) : seance;
   }
 
   // Un texte saisi, ou rien. `''` n'est PAS une valeur : une note vide est une
@@ -852,6 +886,21 @@
     return toutesLesSeries(seance)
       .filter(function (p) { return !!p.serie.validee_a; })
       .map(function (p) {
+        // ⚠️ LA GARDE DE SORTIE (chantier 33). Une ligne sans identifiant ne
+        // doit JAMAIS atteindre le réseau : `sets.id` est uuid NOT NULL, le
+        // serveur refuse en 23502, la file classe ce code DÉFINITIF, et TOUT
+        // ce qui attend derrière est perdu — la séance elle-même comprise, qui
+        // reste alors `en_cours` en base, sans titre et sans séries.
+        //
+        // `semerIdentifiants`, appelé à la sauvegarde, fait que ça n'arrive
+        // pas. Cette garde est là pour le jour où un appelant contournera cette
+        // porte : elle est la dernière avant le fil, et c'est la seule qui
+        // survive à du code pas encore écrit. On veut l'apprendre ICI, fort, et
+        // pas six séries plus tard sur une carte de séance qui en annonce deux.
+        if (sansIdentifiant(p.serie)) {
+          throw new Error('Série sans identifiant (' + p.exo.exercise_slug +
+            ', rang ' + p.rang + ') : elle ne peut pas être envoyée.');
+        }
         return {
           id: p.serie.id,
           session_id: seance.id,
@@ -1080,6 +1129,7 @@
     devalider: devalider,
     derniereValidation: derniereValidation,
     terminer: terminer,
+    semerIdentifiants: semerIdentifiants,
     toutesLesSeries: toutesLesSeries,
     compter: compter,
     lignes: lignes,

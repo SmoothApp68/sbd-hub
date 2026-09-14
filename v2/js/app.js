@@ -1998,8 +1998,35 @@
 
   // §7 octies.2 — rouvrir pour corriger. Voir `THSeance.reprendre` : la séance
   // RESTE `terminee` pendant l'édition.
+  // ⚠️ LA FENÊTRE DU CACHE PÉRIMÉ (chantier 34).
+  //
+  // `VERSION_SYNC` force une passe complète après la mise à jour, mais l'app
+  // s'ouvre AVANT que cette passe soit finie : entre les deux, le cache porte
+  // encore des lignes écrites par la version d'avant — sans `source`. Or c'est
+  // `source` qui dit à `Seance.partEnBase` qu'une série importée doit rester
+  // en base. Sans lui, elle est réputée absente, et « Enregistrer » l'efface :
+  // le défaut qu'on vient de corriger, rejoué depuis le disque.
+  //
+  // On refuse donc de rouvrir une séance dont les séries ne portent pas encore
+  // leur provenance. Aucune requête réseau ici — le geste doit rester possible
+  // hors ligne dès que le cache est complet, et une lecture qui échoue ne doit
+  // pas décider à la place de l'utilisateur.
+  function seriesIncompletes(id) { return Seance.provenanceIncomplete(seriesDe(id)); }
+
   function modifierSeance(ligne, blocs) {
     if (seanceEnCoursBloque()) return;
+    if (seriesIncompletes(ligne.id)) {
+      Rendu.rendreFeuilleConfirmer($('feuille-contenu'), {
+        titre: 'Séance pas encore complète',
+        aide: 'Ses séries finissent d\u2019arriver. Réessaie dans un instant — ' +
+          'la corriger maintenant risquerait d\u2019en perdre.',
+        libelle: 'Compris',
+        surConfirmer: fermerVoile,
+        surAnnuler: fermerVoile
+      });
+      ouvrirVoile($('feuille-seance'));
+      return;
+    }
     seance = Seance.reprendre(ligne, blocs);
     chrono = null;
     sauverSeance();
@@ -2074,6 +2101,10 @@
     // hors ligne comme en ligne.
     lireModeRPE();
     lireSourdine();
+    // ⚠️ AVANT LA MOINDRE ÉCRITURE (chantier 34). Si ce qui s'écrit et ce qui
+    // se relit divergeaient, la première correction de séance perdrait des
+    // colonnes en silence. On l'apprend ici, au démarrage, et bruyamment.
+    Seance.verifierColonnes();
     await chargerSeanceLocale();
     // AVANT tout rendu et AVANT tout réseau, comme la lecture qui précède : une
     // file bloquée par le défaut du chantier 32 se répare ici, sinon elle

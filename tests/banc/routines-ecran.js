@@ -98,6 +98,45 @@ const CATALOGUE = [
     const req = route.request();
     const url = new URL(req.url());
     const table = url.pathname.split('/').pop();
+    // ⚠️ PROJETER LES COLONNES, COMME POSTGREST (chantier 34). Ce banc
+    // renvoyait la ligne entière en ignorant `select=` : une colonne écrite
+    // mais absente de la liste de lecture revenait quand même ici, et jamais
+    // sur l'appareil. Les routines sont la seule requête du projet à porter une
+    // RESSOURCE IMBRIQUÉE — `routine_exercises(...)` — donc c'est aussi le seul
+    // endroit où la projection doit descendre d'un niveau.
+    const decouperSelect = (texte) => {
+      const bouts = []; let profondeur = 0, courant = '';
+      for (const c of texte) {
+        if (c === '(') profondeur++;
+        if (c === ')') profondeur--;
+        if (c === ',' && profondeur === 0) { bouts.push(courant); courant = ''; continue; }
+        courant += c;
+      }
+      if (courant.trim()) bouts.push(courant);
+      return bouts.map((b) => b.trim()).filter(Boolean);
+    };
+    const projeterUne = (ligne, champs) => {
+      if (champs.indexOf('*') >= 0) return Object.assign({}, ligne);
+      const sortie = {};
+      for (const champ of champs) {
+        const m = /^([A-Za-z_][\w]*)\s*\((.*)\)$/.exec(champ);
+        if (m) {
+          const imbrique = ligne[m[1]];
+          sortie[m[1]] = Array.isArray(imbrique)
+            ? imbrique.map((x) => projeterUne(x, decouperSelect(m[2])))
+            : imbrique;
+          continue;
+        }
+        if (Object.prototype.hasOwnProperty.call(ligne, champ)) sortie[champ] = ligne[champ];
+      }
+      return sortie;
+    };
+    const projeter = (data, u) => {
+      const select = u.searchParams.get('select');
+      if (!select || !Array.isArray(data)) return data;
+      const champs = decouperSelect(select);
+      return data.map((l) => projeterUne(l, champs));
+    };
     const corps = req.postData() ? JSON.parse(req.postData()) : null;
     // `.single()` envoie `Accept: application/vnd.pgrst.object+json` et
     // PostgREST répond alors par UN OBJET, pas un tableau. Un banc qui rendrait
@@ -110,19 +149,58 @@ const CATALOGUE = [
 
     if (url.pathname.startsWith('/auth/')) return json({ error: 'x' }, 400);
     if (req.method() === 'GET') {
-      if (table === 'exercises') return json(CATALOGUE);
-      if (table === 'routines') return json(base.routines.filter((r) => !r.archivee_a).map((r) =>
-        Object.assign({}, r, { routine_exercises: base.exos.filter((e) => e.routine_id === r.id) })));
+      if (table === 'exercises') return json(projeter(CATALOGUE, url));
+      if (table === 'routines') return json(projeter(base.routines.filter((r) => !r.archivee_a).map((r) =>
+        Object.assign({}, r, { routine_exercises: base.exos.filter((e) => e.routine_id === r.id) })), url));
       return json([]);
     }
+    // ⚠️ LES SIX CHECK DE `routine_exercises`, ET LE NOM DE ROUTINE (ch. 34).
+    //
+    // Aucun des deux bancs ne les appliquait. Conséquence mesurée à l'audit :
+    // supprimer `reposValide` de `routines.js` ne faisait tomber AUCUNE
+    // assertion — un repos à 3 s montait vert ici et rendait 23514, code
+    // DÉFINITIF, sur l'appareil. Les bornes sont relevées sur les CHECK réels,
+    // pas supposées (`routines.js:35-40`).
+    const bornes = (l) => {
+      if (l.series !== undefined && !(l.series >= 1 && l.series <= 20)) return 'routine_exos_series_bornees';
+      if (l.reps_visees !== undefined && l.reps_visees !== null &&
+          !(l.reps_visees >= 1 && l.reps_visees <= 100)) return 'routine_exos_reps_bornees';
+      if (l.repos_cible_s !== undefined && l.repos_cible_s !== null &&
+          !(l.repos_cible_s >= 5 && l.repos_cible_s <= 1800)) return 'routine_exos_repos_borne';
+      if (l.groupe_superset !== undefined && l.groupe_superset !== null &&
+          !(l.groupe_superset >= 0)) return 'routine_exos_superset_positif';
+      if (l.rang !== undefined && !(l.rang >= 0)) return 'routine_exos_rang_positif';
+      if (l.exercise_slug !== undefined && !l.exercise_slug) return 'routine_exercises.exercise_slug NOT NULL';
+      if (l.exercise_slug !== undefined && !CATALOGUE.some((e) => e.slug === l.exercise_slug)) {
+        return 'routine_exercises_exercise_slug_fkey';
+      }
+      return null;
+    };
+    const nomBorne = (l) => {
+      if (l.nom === undefined) return null;
+      const t = String(l.nom === null ? '' : l.nom).trim();
+      if (!t.length || t.length > 60) return 'routines_nom_court';
+      return null;
+    };
+    const refuserSi = (l, quoi) => quoi
+      ? json({ code: quoi.indexOf('fkey') >= 0 ? '23503' : (quoi.indexOf('NOT NULL') >= 0 ? '23502' : '23514'),
+               message: quoi }, 400)
+      : null;
+
     base.envois.push({ methode: req.method(), table, corps: corps });
     if (req.method() === 'POST' && table === 'routines') {
+      const mauvais = nomBorne(Array.isArray(corps) ? corps[0] : corps);
+      if (mauvais) return refuserSi(corps, mauvais);
       const l = Object.assign({ id: 'r' + (++base.graine), archivee_a: null, note: null }, corps);
       base.routines.push(l);
       if (collisionNom()) { base.routines.pop(); return json({ code: '23505', message: 'duplicate key value violates unique constraint "routines_user_nom_actif_uniq"' }, 409); }
       return json([l], 201);
     }
     if (req.method() === 'POST' && table === 'routine_exercises') {
+      for (const c of (Array.isArray(corps) ? corps : [corps])) {
+        const mauvais = bornes(c);
+        if (mauvais) return refuserSi(c, mauvais);
+      }
       const ajout = (Array.isArray(corps) ? corps : [corps]).map((c) => Object.assign({ id: 'e' + (++base.graine) }, c));
       base.exos = base.exos.concat(ajout);
       if (collisionRang()) { base.exos = base.exos.slice(0, -ajout.length);
@@ -130,6 +208,8 @@ const CATALOGUE = [
       return json(ajout, 201);
     }
     if (req.method() === 'PATCH') {
+      const mauvais = table === 'routines' ? nomBorne(corps) : bornes(corps);
+      if (mauvais) return refuserSi(corps, mauvais);
       const id = (url.searchParams.get('id') || '').replace('eq.', '');
       const tab = table === 'routines' ? base.routines : base.exos;
       const l = tab.find((x) => x.id === id);

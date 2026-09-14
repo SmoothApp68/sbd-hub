@@ -53,6 +53,44 @@
   // `SCHEMA-REEL.md`, la valeur écrite dont personne ne se sert. La seule
   // source des colonnes envoyées est `lignes()`, plus bas.
 
+  // ══ LES COLONNES, DÉCLARÉES UNE SEULE FOIS ═══════════════════════════════
+  //
+  // ⚠️ CE QUI S'ÉCRIT DOIT SE RELIRE. C'est la cause du chantier 34, et elle
+  // n'était pas dans les trois colonnes oubliées : elle était dans le fait que
+  // DEUX listes existaient, l'une dans ce fichier (ce que `lignes()` envoie),
+  // l'autre dans `donnees.js` (ce que le `select` demande), et que rien ne les
+  // reliait. La seconde était plus COURTE de trois colonnes — `user_id`,
+  // `ressenti`, `repos_s` — et un écart de cette forme ne peut produire qu'une
+  // chose : la valeur part en base, ne revient pas, et la correction suivante
+  // la réécrit à null. Trois pertes de données pour une liste mal recopiée.
+  //
+  // `donnees.js` CONSTRUIT désormais ses `select` à partir d'ici. La liste lue
+  // est donc un SUR-ENSEMBLE de la liste écrite par construction : l'écart
+  // n'est plus corrigé, il est devenu impossible. Et `verifierColonnes()`
+  // (plus bas) compare ce que `lignes()` émet RÉELLEMENT à cette déclaration,
+  // au démarrage — parce qu'une déclaration que le code contourne serait
+  // exactement la garantie apparente que ce dépôt traque.
+  //
+  // Ce qui n'y figure pas ne part PAS : `elastique_norme` et `salle_norme` sont
+  // GÉNÉRÉES (les écrire fait échouer la requête), `poids_corps_kg`,
+  // `elastique` et les `tempo_*` appartiennent à d'autres chantiers. Le SDK
+  // pose `?columns=` avec l'union des clés envoyées, donc une colonne absente
+  // de la charge utile n'est NI insérée NI mise à jour : elle garde sa valeur.
+  var COLONNES_SET = [
+    'id', 'session_id', 'user_id', 'exercise_slug', 'source', 'type_serie',
+    'charge_kg', 'reps', 'duree_s', 'distance_m', 'rpe', 'ressenti', 'note',
+    'groupe_superset', 'validee_a', 'rang', 'repos_s'
+  ];
+  // Lues, jamais écrites : le serveur les pose lui-même.
+  var COLONNES_SET_EN_PLUS = ['created_at', 'modifie_a'];
+
+  var COLONNES_SESSION = [
+    'id', 'user_id', 'debut', 'fin', 'titre', 'note', 'salle', 'routine_id',
+    'source', 'statut'
+  ];
+  // `salle_norme` est GÉNÉRÉE : lue pour l'affichage, jamais envoyée.
+  var COLONNES_SESSION_EN_PLUS = ['created_at', 'salle_norme'];
+
   function copie(o) { return Object.assign({}, o); }
 
   // Recopie la séance en ne clonant QUE la branche touchée. Une séance fait
@@ -166,6 +204,14 @@
             }
             return {
               id: ligne.id,
+              // ⚠️ DEUX CHAMPS QUI NE S'AFFICHENT PAS ET QUI COMPTENT (ch. 34).
+              // `source` dit d'où vient la ligne — c'est lui qui décide si elle
+              // doit EXISTER en base (voir `partEnBase`) ; `rang_origine` porte
+              // le rang lu en base, pour ne pas renuméroter une séance qu'on
+              // n'a fait que rouvrir. Ni l'un ni l'autre n'est une colonne du
+              // modèle affiché : `lignes()` les traduit, `rendu.js` les ignore.
+              source: ligne.source === undefined ? null : ligne.source,
+              rang_origine: typeof ligne.rang === 'number' ? ligne.rang : null,
               type_serie: ligne.type_serie || 'travail',
               charge_kg: ligne.charge_kg === undefined ? null : ligne.charge_kg,
               reps: ligne.reps === undefined ? null : ligne.reps,
@@ -248,6 +294,16 @@
   }
 
   function sansIdentifiant(serie) { return !serie || !serie.id; }
+
+  // ⚠️ UN CACHE ÉCRIT PAR LA VERSION D'AVANT NE PORTE PAS `source` (ch. 34).
+  // Rouvrir une telle séance en correction la ferait passer pour absente de la
+  // base — c'est le défaut qu'on vient de corriger, rejoué depuis le disque.
+  // Pur et exporté : c'est `app.js` qui décide quoi en faire, mais c'est ici
+  // que la règle est éprouvable.
+  function provenanceIncomplete(series) {
+    var liste = series || [];
+    return liste.length > 0 && liste.some(function (s) { return !s || s.source === undefined; });
+  }
 
   // ⚠️ AUCUNE SÉRIE NE DOIT EXISTER SANS IDENTIFIANT (chantier 33).
   //
@@ -880,33 +936,94 @@
 
   // ── Ce qui part en base ─────────────────────────────────────────────────
   //
-  // Les séries VALIDÉES seulement. Les autres n'ont pas le droit d'exister en
-  // base, et elles n'ont rien à y faire : une case vide n'est pas une donnée.
+  // ⚠️ « VALIDÉE » N'EST PAS LE BON CRITÈRE, ET ÇA A COÛTÉ LE CORPUS ENTIER.
+  //
+  // Ce filtre ne retenait que `validee_a`. Or les 28 103 séries importées ont
+  // `validee_a` À NULL — la contrainte `sets_validee_si_saisie` ne l'exige que
+  // pour `source = 'app'`. Pour une séance importée, `lignes()` rendait donc
+  // une liste VIDE ; `remplacerSeries` lit « absente de la liste » comme
+  // « supprimée » ; et le geste « Modifier » effaçait les 23 séries de la
+  // séance, en silence, avec un 201 et un « À jour » à l'écran.
+  //
+  // La question n'est pas « cette série a-t-elle été validée ? » mais
+  // « cette série doit-elle EXISTER en base ? ». Deux raisons, et deux
+  // seulement : elle a été validée dans l'app, ou elle VIENT de la base.
+  // Une série importée a été faite ; `validee_a` dit seulement qu'on ne sait
+  // pas quand.
+  //
+  // Une case vide jamais validée reste dehors — c'était vrai et ça le reste :
+  // elle n'a pas de `source`, elle ne vient de nulle part.
+  function partEnBase(serie) {
+    if (!serie) return false;
+    if (serie.validee_a) return true;
+    // `source` ne vaut quelque chose que si la ligne a été LUE en base.
+    return !!serie.source && serie.source !== 'app';
+  }
+
+  // ⚠️ LES RANGS D'ORIGINE, QUAND ILS SONT TOUS LÀ ET TOUS DISTINCTS.
+  //
+  // `toutesLesSeries` numérote par POSITION DANS LE MODÈLE. Or le modèle d'une
+  // séance importée est reconstruit par `construireBlocs`, qui GROUPE par
+  // exercice tant qu'aucune chronologie n'existe — mesuré : 53 blocs de la base
+  // sont entrelacés (A1 B1 A2 B2) contre 1 031 groupés. Renuméroter par
+  // position aplatirait ces 53 blocs, sur 47 séances : une altération
+  // silencieuse de l'ordre enregistré, à l'occasion d'une simple correction.
+  //
+  // On garde donc les rangs lus en base quand la séance est intacte, et on
+  // renumérote dès qu'elle ne l'est plus (une série ajoutée n'a pas de rang
+  // d'origine, une série retirée en laisse un absent). La règle est la même
+  // dans les deux cas : les rangs doivent être TOUS connus et TOUS distincts,
+  // sinon on repart de 1 — `sets_rang_positif` et `sets_rang_unique` ne
+  // tolèrent rien d'autre.
+  function rangsDeSortie(plat) {
+    var portes = plat.map(function (p) { return p.serie.rang_origine; });
+    var tous = portes.every(function (r) { return typeof r === 'number' && r >= 1; });
+    var distincts = new Set(portes).size === portes.length;
+    // ⚠️ LE REPLI EST LA POSITION DANS L'ÉNUMÉRATION COMPLÈTE, PAS DANS LA
+    // LISTE FILTRÉE. Dévalider une série ne RESSERRE pas les rangs (§7.5) :
+    // la ligne dévalidée quitte la base mais garde sa place dans la séance, et
+    // celles qui la suivent ne bougent pas. Renuméroter sur la liste filtrée
+    // ferait bouger le rang d'une série que personne n'a touchée.
+    return (tous && distincts) ? portes : plat.map(function (p) { return p.rang; });
+  }
+
   function lignes(seance) {
-    return toutesLesSeries(seance)
-      .filter(function (p) { return !!p.serie.validee_a; })
-      .map(function (p) {
-        // ⚠️ LA GARDE DE SORTIE (chantier 33). Une ligne sans identifiant ne
-        // doit JAMAIS atteindre le réseau : `sets.id` est uuid NOT NULL, le
-        // serveur refuse en 23502, la file classe ce code DÉFINITIF, et TOUT
-        // ce qui attend derrière est perdu — la séance elle-même comprise, qui
-        // reste alors `en_cours` en base, sans titre et sans séries.
-        //
-        // `semerIdentifiants`, appelé à la sauvegarde, fait que ça n'arrive
-        // pas. Cette garde est là pour le jour où un appelant contournera cette
-        // porte : elle est la dernière avant le fil, et c'est la seule qui
-        // survive à du code pas encore écrit. On veut l'apprendre ICI, fort, et
-        // pas six séries plus tard sur une carte de séance qui en annonce deux.
-        if (sansIdentifiant(p.serie)) {
-          throw new Error('Série sans identifiant (' + p.exo.exercise_slug +
-            ', rang ' + p.rang + ') : elle ne peut pas être envoyée.');
-        }
+    var plat = toutesLesSeries(seance).filter(function (p) { return partEnBase(p.serie); });
+    var rangs = rangsDeSortie(plat);
+    // ⚠️ L'UNICITÉ, PAS SEULEMENT LA PRÉSENCE (chantier 34, défaut D4).
+    //
+    // La garde du chantier 33 vérifiait qu'un identifiant existe. Elle ne
+    // vérifiait pas qu'il soit UNIQUE — et depuis que `serieVide` accepte une
+    // chaîne, une boucle qui lui passe la même chaîne produit N séries portant
+    // la MÊME clé primaire. `sets_pkey` répond 23505, code DÉFINITIF, donc la
+    // file se bloque et la séance est perdue. Sauvé jusqu'ici par la seule
+    // discipline des sites d'appel : c'est la définition d'une garantie
+    // apparente, et c'est la dernière porte avant le fil.
+    var vus = {};
+    plat.forEach(function (p) {
+      if (sansIdentifiant(p.serie)) {
+        throw new Error('Série sans identifiant (' + p.exo.exercise_slug +
+          ', rang ' + p.rang + ') : elle ne peut pas être envoyée.');
+      }
+      if (vus[p.serie.id]) {
+        throw new Error('Deux séries portent le même identifiant (' + p.serie.id +
+          ', ' + p.exo.exercise_slug + ') : elles ne peuvent pas être envoyées.');
+      }
+      vus[p.serie.id] = true;
+    });
+    return plat
+      .map(function (p, i) {
         return {
           id: p.serie.id,
           session_id: seance.id,
           user_id: seance.user_id,
           exercise_slug: p.exo.exercise_slug,
-          source: 'app',
+          // ⚠️ LA PROVENANCE NE SE RÉÉCRIT PAS. Corriger une charge ne rend pas
+          // la série « saisie dans l'app » : elle reste ce qu'elle est. Et la
+          // repasser en `'app'` exigerait un `validee_a`
+          // (`sets_validee_si_saisie`), qu'une ligne importée n'a pas — 23514,
+          // définitif, file bloquée.
+          source: p.serie.source || 'app',
           type_serie: p.serie.type_serie || 'travail',
           charge_kg: p.serie.charge_kg,
           reps: p.serie.reps,
@@ -931,10 +1048,56 @@
           // de la routine et il la suit jusqu'en base.
           groupe_superset: p.exo.groupe_superset === undefined ? null : p.exo.groupe_superset,
           validee_a: p.serie.validee_a,
-          rang: p.rang,
+          rang: rangs[i],
           repos_s: p.serie.repos_s
         };
       });
+  }
+
+  // ⚠️ LA DÉCLARATION NE DOIT PAS POUVOIR ÊTRE CONTOURNÉE (chantier 34).
+  //
+  // `donnees.js` construit ses `select` depuis `COLONNES_SET`/`COLONNES_SESSION`,
+  // donc la liste LUE est un sur-ensemble de la liste DÉCLARÉE par construction.
+  // Reste l'autre moitié de l'écart : `lignes()` et `ligneSession()` construisent
+  // leur objet à la main, et rien n'obligerait une colonne ajoutée là à entrer
+  // aussi dans la déclaration. C'est exactement par là que `ressenti` et
+  // `repos_s` sont entrés en écriture sans entrer en lecture.
+  //
+  // On compare donc ce qui est ÉMIS à ce qui est DÉCLARÉ, sur une séance-sonde,
+  // et on lève. Au démarrage, avant la moindre écriture — un écart découvert au
+  // premier enregistrement se paierait en données.
+  // Sorti de `verifierColonnes` pour être éprouvé sur de VRAIS écarts : une
+  // vérification qu'on ne peut tester que sur du code juste ne prouve pas
+  // qu'elle sait dire non.
+  function ecartDeColonnes(quoi, emises, declarees) {
+    var ecarts = [];
+    emises.forEach(function (c) {
+      if (declarees.indexOf(c) < 0) ecarts.push(quoi + ' : « ' + c + ' » est ÉCRITE et non déclarée');
+    });
+    declarees.forEach(function (c) {
+      if (emises.indexOf(c) < 0) ecarts.push(quoi + ' : « ' + c + ' » est déclarée et jamais écrite');
+    });
+    return ecarts;
+  }
+
+  function verifierColonnes() {
+    var sonde = {
+      id: 's', user_id: 'u', debut: 'd', fin: null, titre: null, note: null,
+      salle: null, routine_id: null, statut: EN_COURS,
+      exercices: [{
+        exercise_slug: 'x', groupe_superset: null, note: null,
+        series: [Object.assign(serieVide('sonde'), {
+          validee_a: 'v', source: 'app', rang_origine: 1
+        })]
+      }]
+    };
+    var ecarts = ecartDeColonnes('sets', Object.keys(lignes(sonde)[0] || {}), COLONNES_SET)
+      .concat(ecartDeColonnes('sessions', Object.keys(ligneSession(sonde)), COLONNES_SESSION));
+    if (ecarts.length) {
+      throw new Error('Colonnes désaccordées — ce qui s\'écrit ne se relira pas : ' +
+        ecarts.join(' · '));
+    }
+    return true;
   }
 
   function noteDeSerie(exo, serie) {
@@ -1129,6 +1292,14 @@
     devalider: devalider,
     derniereValidation: derniereValidation,
     terminer: terminer,
+    COLONNES_SET: COLONNES_SET,
+    COLONNES_SET_EN_PLUS: COLONNES_SET_EN_PLUS,
+    COLONNES_SESSION: COLONNES_SESSION,
+    COLONNES_SESSION_EN_PLUS: COLONNES_SESSION_EN_PLUS,
+    verifierColonnes: verifierColonnes,
+    ecartDeColonnes: ecartDeColonnes,
+    provenanceIncomplete: provenanceIncomplete,
+    partEnBase: partEnBase,
     semerIdentifiants: semerIdentifiants,
     toutesLesSeries: toutesLesSeries,
     compter: compter,

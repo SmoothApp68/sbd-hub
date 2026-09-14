@@ -124,25 +124,71 @@ const PASSEE = {
 };
 
 const SETS_PASSES = [1, 2].map((n) => ({
-  id: 'set-passe-' + n, session_id: PASSEE.id, exercise_slug: 'squat-barre',
+  id: 'set-passe-' + n, session_id: PASSEE.id, user_id: 'u-banc',
+  exercise_slug: 'squat-barre',
   charge_kg: 120, reps: 5, duree_s: null, distance_m: null, type_serie: 'travail',
   rang: n, groupe_superset: null, validee_a: LUNDI.toISOString(), rpe: null,
   ressenti: null, repos_s: null, note: null, source: 'import',
   created_at: LUNDI.toISOString(), modifie_a: null
 }));
 
+// ⚠️ LA SÉANCE IMPORTÉE, TELLE QUE LA BASE LA PORTE VRAIMENT (chantier 34).
+//
+// `SETS_PASSES` ci-dessus est une fixture IDÉALISÉE : elle porte `source` d'un
+// import ET un `validee_a`. Les 28 103 lignes réelles n'ont PAS de `validee_a`
+// — c'est ce que dit `SCHEMA-REEL.md`, et c'est ce que `sets_validee_si_saisie`
+// autorise (la contrainte n'exige `validee_a` que pour `source = 'app'`).
+//
+// C'est exactement cet écart qui a caché la perte : avec un `validee_a`, la
+// séance passait par le chemin normal ; sans lui, `lignes()` la rendait VIDE
+// et `remplacerSeries` effaçait tout. La configuration discriminante est donc
+// `validee_a` NULL **et** `source <> 'app'`, et rien d'autre.
+//
+// Deux exercices ENTRELACÉS (rangs 1,2,3,4 en A,B,A,B) : 53 blocs de la base
+// réelle sont dans cet état, et c'est la forme qui éprouve la préservation des
+// rangs à la réécriture. `ressenti` et `repos_s` sont renseignés : ce sont les
+// deux colonnes que la liste de lecture oubliait.
+const IMPORTEE = {
+  id: 'sess-importee', user_id: 'u-banc', titre: 'Séance importée',
+  debut: new Date(LUNDI.getTime() + 2 * 86400000).toISOString(),
+  fin: new Date(LUNDI.getTime() + 2 * 86400000 + 3600000).toISOString(),
+  statut: 'terminee', note: null, salle: null, salle_norme: null,
+  routine_id: null, source: 'hevy',
+  created_at: new Date(LUNDI.getTime() + 2 * 86400000).toISOString()
+};
+
+const SETS_IMPORTES = [
+  { slug: 'squat-barre', rang: 1, kg: 100 },
+  { slug: 'dc-barre',    rang: 2, kg: 60 },
+  { slug: 'squat-barre', rang: 3, kg: 105 },
+  { slug: 'dc-barre',    rang: 4, kg: 62.5 }
+].map((d) => ({
+  id: 'set-imp-' + d.rang, session_id: IMPORTEE.id, user_id: 'u-banc',
+  exercise_slug: d.slug, charge_kg: d.kg, reps: 5,
+  duree_s: null, distance_m: null, type_serie: 'travail',
+  rang: d.rang, groupe_superset: 1,
+  validee_a: null,                       // ← LE POINT : NULL, comme les 28 103
+  rpe: null, ressenti: 'reste_2', repos_s: 120, note: null,
+  source: 'hevy',
+  created_at: IMPORTEE.debut, modifie_a: null
+}));
+
 (async () => {
   // ── Le Supabase de papier, avec les contraintes de la vraie base ────────
   const base = {
-    sessions: [Object.assign({}, PASSEE)],
-    sets: SETS_PASSES.map((s) => Object.assign({}, s)),
+    sessions: [Object.assign({}, PASSEE), Object.assign({}, IMPORTEE)],
+    sets: SETS_PASSES.concat(SETS_IMPORTES).map((s) => Object.assign({}, s)),
     journal: [], patchs: [], reseau: true
   };
 
   // Le décor ne doit pas fausser les comptes des sections qui parlent de LA
   // séance en cours : on le met de côté une fois pour toutes.
-  const sessions = () => base.sessions.filter((s) => s.id !== PASSEE.id);
-  const sets = () => base.sets.filter((s) => s.session_id !== PASSEE.id);
+  // ⚠️ DEUX DÉCORS, PAS UN. `IMPORTEE` (chantier 34) est du décor au même titre
+  // que `PASSEE` : les compteurs du banc portent sur ce que la SÉANCE EN COURS
+  // écrit, pas sur ce que la base contenait déjà.
+  const DECORS = [PASSEE.id, IMPORTEE.id];
+  const sessions = () => base.sessions.filter((s) => DECORS.indexOf(s.id) < 0);
+  const sets = () => base.sets.filter((s) => DECORS.indexOf(s.session_id) < 0);
 
   // ⚠️ TOUT REFUS EST JOURNALISÉ (chantier 33). Un banc qui ne note pas ce que
   // le serveur a refusé ne peut pas affirmer qu'il n'a rien refusé — et c'est
@@ -174,7 +220,33 @@ const SETS_PASSES = [1, 2].map((n) => ({
     return false;
   };
 
+  // ⚠️ L'UTILISATEUR DE LA SESSION DU BANC. Le RLS réel est
+  // `USING (user_id = auth.uid())` avec le même `WITH CHECK` : une écriture
+  // dont le `user_id` n'est pas celui du jeton est refusée par le serveur,
+  // pas par le client. On imite le WITH CHECK — voir la note au-dessus de
+  // `verifierSet`.
+  const MOI = 'u-banc';
+
   function verifierSet(l) {
+    // ⚠️ CE QUE CETTE IMITATION PROUVE, ET CE QU'ELLE NE PROUVE PAS.
+    //
+    // Elle prouve que l'APP envoie un `user_id` cohérent — c'est-à-dire
+    // exactement le défaut D2 du chantier 34, où `COLONNES_SEANCE` ne relisait
+    // pas la colonne et l'app renvoyait `null` après une synchro.
+    //
+    // Elle NE prouve PAS que la politique RLS est correcte : la vraie policy
+    // vit en base, elle peut être absente, mal écrite ou désactivée sans que
+    // ce banc s'en aperçoive. Un faux serveur ne teste jamais le RLS ; il teste
+    // ce que le client lui donne à avaler. Confondre les deux donnerait une
+    // fausse assurance, et c'est le seul endroit de ce fichier où la tentation
+    // existe.
+    if (l.user_id === null || l.user_id === undefined) return refus('23502', 'sets.user_id NOT NULL');
+    if (l.user_id !== MOI) return refus('42501', 'new row violates row-level security policy for table "sets"');
+    if (!l.exercise_slug) return refus('23502', 'sets.exercise_slug NOT NULL');
+    if (!CATALOGUE.some((e) => e.slug === l.exercise_slug)) return refus('23503', 'sets_exercise_slug_fkey');
+    if (['app', 'hevy', 'import', 'collage'].indexOf(l.source) < 0) return refus('23514', 'sets_source_ok');
+    // GÉNÉRÉE : Postgres refuse toute valeur, même NULL — comme `salle_norme`.
+    if ('elastique_norme' in l) return refus('428C9', 'elastique_norme est générée');
     // ⚠️ `sets.id` EST uuid NOT NULL (chantier 33). Ce banc ne le vérifiait pas :
     // il acceptait `id: null`, et son upsert par `findIndex` écrasait alors
     // toutes les lignes nulles les unes sur les autres — six séries devenaient
@@ -239,6 +311,56 @@ const SETS_PASSES = [1, 2].map((n) => ({
     }
   });
 
+  // ⚠️ LE FAUX SERVEUR PROJETTE LES COLONNES, COMME POSTGREST (chantier 34).
+  //
+  // Il renvoyait la LIGNE ENTIÈRE en ignorant `select=`. Le vrai PostgREST ne
+  // renvoie que les colonnes demandées — et c'est CE seul écart qui rendait
+  // invisibles les trois pertes du chantier 34 : une colonne écrite mais
+  // absente de la liste de lecture revenait quand même au banc, jamais sur
+  // l'appareil. Un banc plus permissif que la base ne teste pas la base.
+  //
+  // La syntaxe couverte est celle que `donnees.js` emploie réellement : une
+  // liste séparée par des virgules, et UNE ressource imbriquée
+  // (`routine_exercises(...)`). Les alias et les filtres imbriqués de
+  // PostgREST ne sont pas couverts — l'app ne s'en sert pas, et imiter ce
+  // qu'on n'utilise pas donnerait une assurance sur du code qui n'existe pas.
+  const decouperSelect = (texte) => {
+    const bouts = []; let profondeur = 0, courant = '';
+    for (const c of texte) {
+      if (c === '(') profondeur++;
+      if (c === ')') profondeur--;
+      if (c === ',' && profondeur === 0) { bouts.push(courant); courant = ''; continue; }
+      courant += c;
+    }
+    if (courant.trim()) bouts.push(courant);
+    return bouts.map((b) => b.trim()).filter(Boolean);
+  };
+  const projeterUne = (ligne, champs) => {
+    if (champs.indexOf('*') >= 0) return Object.assign({}, ligne);
+    const sortie = {};
+    for (const champ of champs) {
+      const m = /^([A-Za-z_][\w]*)\s*\((.*)\)$/.exec(champ);
+      if (m) {
+        const imbrique = ligne[m[1]];
+        sortie[m[1]] = Array.isArray(imbrique)
+          ? imbrique.map((x) => projeterUne(x, decouperSelect(m[2])))
+          : imbrique;
+        continue;
+      }
+      // ⚠️ LA COLONNE ABSENTE DE `select=` EST ABSENTE DE LA RÉPONSE — pas
+      // `null`. C'est la différence qui compte : `undefined` traverse
+      // `Object.assign` sans écraser, `null` écrase.
+      if (Object.prototype.hasOwnProperty.call(ligne, champ)) sortie[champ] = ligne[champ];
+    }
+    return sortie;
+  };
+  const projeter = (data, url) => {
+    const select = url.searchParams.get('select');
+    if (!select || !Array.isArray(data)) return data;
+    const champs = decouperSelect(select);
+    return data.map((l) => projeterUne(l, champs));
+  };
+
   await ctx.route(/supabase\.co/, async (route) => {
     const req = route.request();
     const url = new URL(req.url());
@@ -280,15 +402,15 @@ const SETS_PASSES = [1, 2].map((n) => ({
     }
 
     if (req.method() === 'GET') {
-      if (table === 'exercises') return json(CATALOGUE);
-      if (table === 'routines') return json([ROUTINE, ROUTINE_MESURES, ROUTINE_SUPERSET]);
+      if (table === 'exercises') return json(projeter(CATALOGUE, url));
+      if (table === 'routines') return json(projeter([ROUTINE, ROUTINE_MESURES, ROUTINE_SUPERSET], url));
       if (table === 'sessions') {
         const st = (url.searchParams.get('statut') || '').replace('eq.', '');
-        return json(st ? base.sessions.filter((s) => s.statut === st) : base.sessions);
+        return json(projeter(st ? base.sessions.filter((s) => s.statut === st) : base.sessions, url));
       }
       if (table === 'sets') {
         const sid = (url.searchParams.get('session_id') || '').replace('eq.', '');
-        return json(sid ? base.sets.filter((s) => s.session_id === sid) : base.sets);
+        return json(projeter(sid ? base.sets.filter((s) => s.session_id === sid) : base.sets, url));
       }
       return json([]);
     }
@@ -344,8 +466,26 @@ const SETS_PASSES = [1, 2].map((n) => ({
     if (req.method() === 'POST' && table === 'sessions') {
       const l = Array.isArray(corps) ? corps[0] : corps;
       base.journal.push({ op: 'session', id: l.id, statut: l.statut });
+      // ⚠️ LE DÉFAUT DE LA COLONNE, PAS UN REFUS (chantier 34). `sessions.statut`
+      // vaut `'terminee'` PAR DÉFAUT en base : une omission est ACCEPTÉE et
+      // rend la séance immédiatement réputée finie. Refuser l'omission, comme
+      // ce banc le faisait, produisait un symptôme bruyant là où la production
+      // produit une corruption muette — le contraire d'un banc utile.
+      if (!('statut' in l)) l.statut = 'terminee';
       if (['en_cours', 'terminee'].indexOf(l.statut) < 0) return json(refus('23514', 'sessions_statut_ok'), 400);
-      if (!l.user_id) return json(refus('23502', 'user_id'), 400);
+      if (l.user_id === null || l.user_id === undefined) return json(refus('23502', 'sessions.user_id NOT NULL'), 400);
+      if (l.user_id !== MOI) return json(refus('42501', 'new row violates row-level security policy for table "sessions"'), 400);
+      if (!l.debut) return json(refus('23502', 'sessions.debut NOT NULL'), 400);
+      if (l.source === null || l.source === undefined) return json(refus('23502', 'sessions.source NOT NULL'), 400);
+      // ⚠️ `sessions_une_seule_en_cours` — INDEX UNIQUE, NON DIFFÉRABLE, sur
+      // (user_id) WHERE statut = 'en_cours'. Il n'est ni dans `SCHEMA-REEL.md`
+      // ni dans aucun banc, et c'est lui qui fait qu'une séance restée ouverte
+      // en base empêche DÉFINITIVEMENT d'en démarrer une autre : 23505 est un
+      // code définitif, donc la file se bloque derrière.
+      if (l.statut === 'en_cours' && base.sessions.some(
+            (x) => x.id !== l.id && x.user_id === l.user_id && x.statut === 'en_cours')) {
+        return json(refus('23505', 'sessions_une_seule_en_cours'), 409);
+      }
       // GÉNÉRÉE : Postgres refuse toute valeur, même la bonne, même NULL.
       if ('salle_norme' in l) return json(refus('428C9', 'salle_norme est générée'), 400);
       if (l.salle !== null && l.salle !== undefined &&
@@ -362,6 +502,15 @@ const SETS_PASSES = [1, 2].map((n) => ({
       const lignes = Array.isArray(corps) ? corps : [corps];
       base.journal.push({ op: 'sets', n: lignes.length });
       const avant = base.sets.slice();
+      // ⚠️ `sets_pkey` — deux lignes d'un même lot ne peuvent pas partager un
+      // identifiant (chantier 34, défaut D4). Le banc les écrasait l'une sur
+      // l'autre en silence : six séries en devenaient deux, et le banc
+      // applaudissait. C'est la forme exacte du défaut du chantier 33, une
+      // contrainte plus loin.
+      const idsDuLot = lignes.map((l) => l && l.id);
+      if (new Set(idsDuLot).size !== idsDuLot.length) {
+        return json(refus('23505', 'duplicate key value violates unique constraint "sets_pkey"'), 409);
+      }
       for (const l of lignes) {
         const e = verifierSet(l);
         if (e) { base.sets = avant; return json(e, 400); }
@@ -523,9 +672,12 @@ const SETS_PASSES = [1, 2].map((n) => ({
 
   await aller('/');
   const totaux = (await texte('.barre-totaux')).replace(/\s+/g, ' ').trim();
-  ok('les totaux de la semaine ne comptent QUE la séance terminée',
-    /^1 séance · 2 séries de travail$/.test(totaux), totaux);
-  ok('la liste ne montre qu’une carte de séance', (await compter('.jour .seance')) === 1,
+  // ⚠️ DEUX séances de décor depuis le chantier 34 (`PASSEE` et `IMPORTEE`),
+  // toutes deux TERMINÉES et dans la semaine affichée. Ce qui est éprouvé ici
+  // reste intact : la séance EN COURS, elle, n'y entre pas.
+  ok('les totaux de la semaine ne comptent QUE les séances terminées',
+    /^2 séances · 6 séries de travail$/.test(totaux), totaux);
+  ok('la liste ne montre que les deux cartes du décor', (await compter('.jour .seance')) === 2,
     (await compter('.jour .seance')) + ' carte(s)');
   ok('et c’est la séance terminée, pas celle en cours',
     /Séance de lundi/.test(await texte('#liste-seances')) &&
@@ -824,8 +976,8 @@ const SETS_PASSES = [1, 2].map((n) => ({
   await aller('/');
   const totauxFin = (await texte('.barre-totaux')).replace(/\s+/g, ' ').trim();
   ok('terminée, elle entre dans les totaux de la semaine',
-    /^2 séances · \d+ séries de travail$/.test(totauxFin), totauxFin);
-  ok('et elle prend sa carte dans la liste', (await compter('.jour .seance')) === 2,
+    /^3 séances · \d+ séries de travail$/.test(totauxFin), totauxFin);
+  ok('et elle prend sa carte dans la liste', (await compter('.jour .seance')) === 3,
     (await compter('.jour .seance')) + ' carte(s)');
 
   await page.close(); page = await ctx.newPage(); brancher(page);
@@ -2453,6 +2605,7 @@ const SETS_PASSES = [1, 2].map((n) => ({
   };
 
   // ── 8. L'ajout d'exercice se pose à la FIN, pas en tête ────────────────
+  const repereVide = base.journal.length;
   await seanceVide();
   ok('une séance vide s’ouvre, sans aucun exercice',
     JSON.stringify(await visible()) === '["vue-seance"]' && (await compter('.ligne-serie')) === 0,
@@ -2473,8 +2626,12 @@ const SETS_PASSES = [1, 2].map((n) => ({
   const idVide = enCoursId();
   const nVide = await validerToutes();
   ok('six séries à l’écran, dont quatre ajoutées à la main', nVide === 6, nVide + ' ligne(s)');
+  // ⚠️ DEPUIS UN REPÈRE, pas depuis le début. Le journal est global et porte
+  // les refus de toutes les sections précédentes : sans repère, cette ligne
+  // parlerait d'un défaut qui n'est pas le sien.
   ok('AUCUNE ligne ne part sans identifiant : le serveur n’a rien refusé',
-    !base.journal.some((j) => j.refus === '23502'), JSON.stringify(base.journal.slice(-3)));
+    !base.journal.slice(repereVide).some((j) => j.refus === '23502'),
+    JSON.stringify(base.journal.slice(repereVide).filter((j) => j.op === 'refus').slice(0, 3)));
   ok('les SIX arrivent en base — c’est le cas qui en perdait quatre',
     seriesDe(idVide) === 6 && seriesDe(idVide) === nVide,
     seriesDe(idVide) + '/' + nVide + ' série(s)');
@@ -2513,6 +2670,74 @@ const SETS_PASSES = [1, 2].map((n) => ({
   ok('et cette séance-là se termine aussi',
     (sessions().filter((x) => x.id === idRoutine)[0] || {}).statut === 'terminee',
     JSON.stringify(sessions().map((x) => x.statut)));
+
+  console.log('\n══ 7 quaterdecies. CORRIGER UNE SÉANCE IMPORTÉE ══');
+  //
+  // CONFIGURATION DISCRIMINANTE (CADRAGE-V2 §2 quater) — les TROIS conditions,
+  // et il faut les trois :
+  //   1. une séance IMPORTÉE : `validee_a` NULL et `source <> 'app'` ;
+  //   2. un serveur qui HONORE `select=` (sinon les colonnes manquantes de la
+  //      liste de lecture reviennent quand même, et rien ne se voit) ;
+  //   3. le geste « Modifier », puis « Enregistrer ».
+  // Avec un `validee_a` renseigné (la fixture `SETS_PASSES`), ou avec le
+  // serveur permissif d'avant ce chantier, les quatre vérifications ci-dessous
+  // passent quel que soit le code.
+
+  const sesSeries = (id) => base.sets.filter((x) => x.session_id === id);
+  const ouvrirMenuDe = async (titre) => {
+    await aller('/');
+    await page.evaluate((t) => {
+      const env = Array.from(document.querySelectorAll('.seance-enveloppe'))
+        .filter((e) => e.querySelector('.seance').textContent.indexOf(t) >= 0)[0];
+      env.querySelector('.menu-pts').click();
+    }, titre);
+    await attendre(700);
+  };
+
+  const avantCorrection = sesSeries(IMPORTEE.id).length;
+  ok('la séance importée porte bien ses 4 séries, sans `validee_a`',
+    avantCorrection === 4 && sesSeries(IMPORTEE.id).every((x) => x.validee_a === null),
+    avantCorrection + ' série(s), validee_a : ' +
+    JSON.stringify(sesSeries(IMPORTEE.id).map((x) => x.validee_a)));
+
+  await ouvrirMenuDe('Séance importée');
+  await entree('Modifier');
+  ok('elle s’ouvre en correction',
+    JSON.stringify(await visible()) === '["vue-seance"]', JSON.stringify(await visible()));
+  ok('et ses quatre séries sont à l’écran', (await compter('.ligne-serie')) === 4,
+    (await compter('.ligne-serie')) + ' ligne(s)');
+
+  // ── Enregistrer SANS RIEN CHANGER ─────────────────────────────────────
+  // ⚠️ EN CORRECTION, « Enregistrer » n'ouvre aucune feuille : `surTerminer`
+  // route directement sur `enregistrerEdition` (app.js). Attendre une
+  // confirmation ici ferait expirer le banc sur un écran qui n'existe pas.
+  await page.click('#bandeau-seance .bandeau-fin');
+  await attendre(2600);
+
+  ok('enregistrée sans rien changer : AUCUNE série n’est effacée',
+    sesSeries(IMPORTEE.id).length === 4,
+    sesSeries(IMPORTEE.id).length + '/4 série(s) — c’est LE défaut du chantier 34');
+  ok('aucune écriture n’a été refusée par le serveur',
+    !base.journal.some((j) => j.op === 'refus'),
+    JSON.stringify(base.journal.filter((j) => j.op === 'refus').slice(0, 3)));
+  ok('`user_id` est intact sur les séries',
+    sesSeries(IMPORTEE.id).length === 4 &&
+    sesSeries(IMPORTEE.id).every((x) => x.user_id === 'u-banc'),
+    JSON.stringify(sesSeries(IMPORTEE.id).map((x) => x.user_id)));
+  ok('`ressenti` et `repos_s` ont survécu',
+    sesSeries(IMPORTEE.id).length === 4 &&
+    sesSeries(IMPORTEE.id).every((x) => x.ressenti === 'reste_2' && x.repos_s === 120),
+    JSON.stringify(sesSeries(IMPORTEE.id).map((x) => [x.ressenti, x.repos_s])));
+  ok('les rangs entrelacés sont préservés',
+    JSON.stringify(sesSeries(IMPORTEE.id).sort((a, b) => a.rang - b.rang)
+      .map((x) => x.exercise_slug.slice(0, 5) + '@' + x.rang)) ===
+    JSON.stringify(['squat@1', 'dc-ba@2', 'squat@3', 'dc-ba@4']),
+    JSON.stringify(sesSeries(IMPORTEE.id).sort((a, b) => a.rang - b.rang)
+      .map((x) => x.exercise_slug.slice(0, 5) + '@' + x.rang)));
+  ok('`source` n’a pas été réécrit en `app`',
+    sesSeries(IMPORTEE.id).length === 4 &&
+    sesSeries(IMPORTEE.id).every((x) => x.source === 'hevy'),
+    JSON.stringify(sesSeries(IMPORTEE.id).map((x) => x.source)));
 
   console.log('\n══ 8. NON-RÉGRESSION ══');
   for (const [chemin, attendu] of [['/', 'vue-liste'], ['/progression', 'vue-progression'],

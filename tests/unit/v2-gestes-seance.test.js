@@ -216,19 +216,37 @@ describe('rouvrir une séance terminée (§7 octies.2)', () => {
     expect(s.exercices[0].series.map((x) => x.note)).toEqual([null, 'ceinture', 'ceinture']);
   });
 
-  // ⚠️ ALLER-RETOUR : AUCUNE LIGNE PERDUE, AUCUN IDENTIFIANT INVENTÉ.
+  // ⚠️ TEST INVERSÉ AU CHANTIER 34 — et la décision d'avant est expliquée ici,
+  // parce qu'elle était délibérée.
   //
-  // Le `rang`, lui, se range PAR EXERCICE — c'est ce que `lignes()` produit
-  // pour toute séance saisie dans l'app, et l'entrelacement A1/B1/A2/B2 se
-  // recalcule à l'affichage (§2.3). Une séance dont les rangs étaient
-  // entrelacés en base (un import, par exemple) en ressort donc rangée ;
-  // l'écran ne bouge pas d'un pixel, c'est le stockage qui se normalise.
-  test('aller-retour : les mêmes lignes, les mêmes identifiants, rangs rangés', () => {
+  // Il exigeait des rangs RANGÉS : `[1,2,3,4,5,6]`. Le raisonnement était
+  // « l'écran ne bouge pas d'un pixel, c'est le stockage qui se normalise ».
+  // Il est retourné, pour une raison que le chantier 34 rend décisive : une
+  // correction qui ne change RIEN doit écrire exactement ce qui est déjà en
+  // base. Sans ça, rouvrir puis enregistrer une séance importée en renumérote
+  // les rangs — mesuré : 53 blocs entrelacés sur 47 séances de la base réelle.
+  // Une altération silencieuse de l'ordre enregistré, à l'occasion d'un geste
+  // qui prétend ne rien faire.
+  //
+  // Avec la préservation, « ouvrir puis enregistrer sans rien changer » est un
+  // VRAI no-op sur les données, et c'est ce qui permet de le certifier sans
+  // risque. Les rangs ne se renumérotent que lorsque la séance a réellement
+  // changé — une série ajoutée n'a pas de rang d'origine, une série retirée en
+  // laisse un absent, et la règle repart alors de 1.
+  //
+  // L'ÉCRAN, LUI, NE CHANGE PAS : l'assertion de la fin le prouve — mêmes
+  // étiquettes après l'aller-retour. C'est le stockage qui cesse de bouger.
+  test('aller-retour : mêmes lignes, mêmes identifiants, rangs D’ORIGINE préservés', () => {
     const s = Seance.reprendre(SESSION, blocsDe(LIGNES));
     const relues = Seance.lignes(s);
     expect(relues).toHaveLength(LIGNES.length);
     expect(relues.map((l) => l.id).sort()).toEqual(['l1', 'l2', 'l3', 'l4', 'l5', 'l6']);
-    expect(relues.map((l) => l.rang)).toEqual([1, 2, 3, 4, 5, 6]);
+    // Les rangs de la base : 1,2,4 pour squat et 3,5 pour dc — ENTRELACÉS.
+    expect(relues.map((l) => l.rang)).toEqual([1, 2, 4, 3, 5, 6]);
+    // Chaque ligne retrouve SON rang, pas une place dans une nouvelle suite.
+    relues.forEach((l) => {
+      expect(l.rang).toBe(LIGNES.filter((o) => o.id === l.id)[0].rang);
+    });
     expect(relues.map((l) => l.exercise_slug))
       .toEqual(['squat', 'squat', 'squat', 'dc', 'dc', 'pl']);
     expect(relues.map((l) => l.groupe_superset)).toEqual([1, 1, 1, 1, 1, null]);

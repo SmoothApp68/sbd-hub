@@ -78,10 +78,30 @@
     return typeof r.count === 'number' ? r.count : null;
   }
 
-  var COLONNES_SEANCE = 'id, titre, note, debut, fin, statut, salle, salle_norme, created_at';
-  var COLONNES_SERIE =
-    'id, session_id, exercise_slug, charge_kg, reps, duree_s, distance_m, ' +
-    'type_serie, rang, groupe_superset, validee_a, rpe, note, created_at, modifie_a';
+  // ⚠️ LES LISTES NE SONT PLUS RECOPIÉES ICI (chantier 34).
+  //
+  // Elles l'étaient, et elles étaient plus COURTES que ce que `seance.js`
+  // écrit : `user_id`, `ressenti` et `repos_s` partaient en base et n'en
+  // revenaient jamais. Une correction de séance les réécrivait alors à null —
+  // et `user_id` étant NOT NULL, la requête partait en 23502, code que la file
+  // classe DÉFINITIF : toute la file se bloquait derrière.
+  //
+  // Elles se CONSTRUISENT donc depuis `THSeance`, seul endroit qui sait ce qui
+  // s'écrit. La liste lue est un sur-ensemble de la liste écrite par
+  // construction ; l'écart n'est plus une chose à surveiller, c'en est une
+  // qu'on ne peut plus créer.
+  //
+  // ⚠️ ACCÈS PARESSEUX, PAS AU CHARGEMENT. `donnees.js` est chargé AVANT
+  // `seance.js` (index.html, lignes 229 et 236) : `THSeance` n'existe pas
+  // encore quand ce fichier s'évalue. Toutes les fonctions ci-dessous, elles,
+  // s'appellent bien après le démarrage.
+  function S() { return racine.THSeance; }
+  function colonnesSeance() {
+    return S().COLONNES_SESSION.concat(S().COLONNES_SESSION_EN_PLUS).join(', ');
+  }
+  function colonnesSerie() {
+    return S().COLONNES_SET.concat(S().COLONNES_SET_EN_PLUS).join(', ');
+  }
 
   // Rafraîchissement COMPLET : 545 Ko, et `sessions` n'a aucune colonne de
   // modification. C'est le seul moyen de voir un titre changé ou une séance
@@ -109,7 +129,7 @@
   // prix nul ; la cohérence entre la purge et son compte ne l'est pas.
   function toutesLesSeances() {
     return paginerParCle(trancheur(function () {
-      return client().from('sessions').select(COLONNES_SEANCE);
+      return client().from('sessions').select(colonnesSeance());
     }, 'id'), 'id');
   }
 
@@ -135,7 +155,7 @@
   // `created_at`, une ligne retouchée porte `modifie_a` — il faut les deux.
   function seriesDepuis(curseur) {
     return paginerParCle(trancheur(function () {
-      var q = client().from('sets').select(COLONNES_SERIE);
+      var q = client().from('sets').select(colonnesSerie());
       // Le filtre incrémental et le curseur de clé se combinent : PostgREST
       // conjugue les filtres de premier niveau — (neuve OU retouchée) ET id > x.
       if (curseur) q = q.or('created_at.gt.' + curseur + ',modifie_a.gt.' + curseur);
@@ -316,7 +336,7 @@
   // Pas de filtre sur `user_id` — c'est le travail du RLS.
   async function seancesEnCours() {
     var r = await client().from('sessions')
-      .select(COLONNES_SEANCE + ', routine_id').eq('statut', 'en_cours');
+      .select(colonnesSeance()).eq('statut', 'en_cours');
     if (r.error) throw r.error;
     return r.data || [];
   }
@@ -324,7 +344,7 @@
   // Les séries d'une séance, pour reprendre une séance ouverte sur un autre
   // appareil — ou après une réinstallation.
   async function seriesDeSeance(sessionId) {
-    var r = await client().from('sets').select(COLONNES_SERIE + ', ressenti, repos_s, source')
+    var r = await client().from('sets').select(colonnesSerie())
       .eq('session_id', sessionId).order('rang', { ascending: true });
     if (r.error) throw r.error;
     return r.data || [];

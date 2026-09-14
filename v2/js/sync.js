@@ -35,7 +35,14 @@
   //     synchro suivante passait en incrémental et réécrivait le partiel.
   //     Incrémenter REPARE les appareils existants sans qu'ils aient rien à
   //     faire : leur marque vaut 2, ils reprennent une passe complète.
-  var VERSION_SYNC = 3;
+  // 4 — la liste des colonnes LUES s'est élargie (chantier 34) : `user_id`,
+  //     `source`, `ressenti` et `repos_s` manquaient. Un cache existant porte
+  //     des lignes SANS ces colonnes, et le curseur incrémental est déjà au
+  //     maximum : sans cet incrément, elles ne redescendraient JAMAIS, et la
+  //     première correction de séance les écrirait à null — c'est-à-dire le
+  //     défaut qu'on vient de corriger, rejoué depuis le cache. Incrémenter
+  //     REPARE les appareils existants sans qu'ils aient rien à faire.
+  var VERSION_SYNC = 4;
 
   // Un marqueur de version plutôt qu'un drapeau à usage unique : il est
   // idempotent, il survit aux rechargements, et le prochain défaut de ce genre

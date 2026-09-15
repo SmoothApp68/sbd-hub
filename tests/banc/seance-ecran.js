@@ -3168,6 +3168,93 @@ const SETS_IMPORTES = [
   ok('[D7] toujours aucun refus', refusDepuis(repereD7b).length === 0,
     JSON.stringify(refusDepuis(repereD7b).slice(0, 3)));
 
+  console.log('\n══ 7 septdecies. RÉPARER UNE FILE DÉJÀ BLOQUÉE ══');
+  //
+  // L'APPAREIL NE SE RÉPARE PAS TOUT SEUL. Borner à la saisie (chantier 36)
+  // n'a aucun effet sur ce qui est DÉJÀ sur le disque, marqué définitif.
+  //
+  // CONFIGURATION DISCRIMINANTE : DEUX entrées bloquées, dont UNE SEULE
+  // réparable. Avec une entrée unique, « réparer ce qui est réparable » et
+  // « tout débloquer » donnent exactement le même écran.
+
+  const SESS_BLOQ = {
+    id: 'sess-bloquee', user_id: 'u-banc', titre: 'Bloquée depuis des jours',
+    debut: new Date(LUNDI.getTime() + 5 * 86400000).toISOString(),
+    fin: new Date(LUNDI.getTime() + 5 * 86400000 + 3600000).toISOString(),
+    statut: 'terminee', note: null, salle: null, salle_norme: null,
+    routine_id: null, source: 'app',
+    created_at: new Date(LUNDI.getTime() + 5 * 86400000).toISOString()
+  };
+  base.sessions.push(Object.assign({}, SESS_BLOQ));
+
+  // On écrit la file bloquée SUR LE DISQUE, telle qu'une version d'avant le
+  // chantier 36 l'aurait laissée — puis on recharge. C'est le seul banc fidèle :
+  // une file posée en mémoire serait reposée par le geste, pas relue.
+  const repereRep = base.journal.length;
+  await page.evaluate(async ([sid, debut]) => {
+    await window.THCache.ecrireAttente([
+      { cle: 'sets:' + sid, seq: 1, table: 'sets', op: 'remplacer', id: sid,
+        donnees: [{
+          id: 'set-bloq-1', session_id: sid, user_id: 'u-banc',
+          exercise_slug: 'squat-barre', charge_kg: 100, reps: 99999999999,
+          duree_s: null, distance_m: null, type_serie: 'travail', rang: 1,
+          groupe_superset: null, validee_a: debut, rpe: null, ressenti: null,
+          repos_s: null, note: null, source: 'app'
+        }],
+        version: 1, essais: 1, creation: false, posee_a: null,
+        bloquee: { code: '22003', message: 'reps hors int4' } },
+      { cle: 'sets:sess-rls', seq: 2, table: 'sets', op: 'remplacer', id: 'sess-rls',
+        donnees: [{ id: 'set-rls-1', session_id: 'sess-rls', reps: 5 }],
+        version: 1, essais: 1, creation: false, posee_a: null,
+        bloquee: { code: '42501', message: 'row-level security' } }
+    ]);
+  }, [SESS_BLOQ.id, SESS_BLOQ.debut]);
+
+  const enFile = () => page.evaluate(async () => {
+    const f = await window.THCache.lireAttente();
+    return f.map((e) => e.cle + (e.bloquee ? ':bloquée' : ':libre'));
+  });
+  ok('[R] la file est bien bloquée sur le disque avant le rechargement',
+    JSON.stringify(await enFile()) ===
+      JSON.stringify(['sets:sess-bloquee:bloquée', 'sets:sess-rls:bloquée']),
+    JSON.stringify(await enFile()));
+
+  await aller('/');
+  await attendre(2000);
+
+  ok('[R] LA SÉANCE BLOQUÉE DEPUIS DES JOURS REMONTE ENFIN',
+    base.sets.filter((x) => x.session_id === SESS_BLOQ.id).length === 1,
+    base.sets.filter((x) => x.session_id === SESS_BLOQ.id).length + ' série(s) montée(s)');
+  const monteeRep = base.sets.filter((x) => x.session_id === SESS_BLOQ.id)[0];
+  ok('[R] et ce qui monte est BORNÉ — la charge utile a été réparée, pas rejouée',
+    !!monteeRep && monteeRep.reps > 0 && monteeRep.reps <= 2147483647,
+    monteeRep ? 'reps=' + monteeRep.reps : 'rien');
+  ok('[R] aucun refus du serveur : la réparation a produit une ligne acceptable',
+    base.journal.filter((j, i) => i >= repereRep && j.op === 'refus').length === 0,
+    JSON.stringify(base.journal.filter((j, i) => i >= repereRep && j.op === 'refus').slice(0, 3)));
+
+  // ⚠️ ET L'IRRÉPARABLE RESTE BLOQUÉE, SANS CONDAMNER LA FILE. Pas de
+  // déblocage en masse : une entrée RLS le resterait, et la débloquer masquerait
+  // un défaut réel derrière une tentative qui échouerait à l'identique.
+  ok('[R] l’entrée irréparable reste en file ET marquée — elle n’est pas jetée',
+    (await enFile()).indexOf('sets:sess-rls:bloquée') >= 0,
+    JSON.stringify(await enFile()));
+  ok('[R] mais elle n’a plus empêché la réparable de partir',
+    (await enFile()).indexOf('sets:sess-bloquee:bloquée') < 0,
+    JSON.stringify(await enFile()));
+  ok('[R] et l’état ne dit pas « À jour » — il reste une entrée refusée',
+    !/À jour/.test(await texte('#etat-sync')) && /refusé/.test(await texte('#etat-sync')),
+    (await texte('#etat-sync')) || '(vide)');
+
+  // On rend la file propre : la section suivante parle d'autre chose.
+  await page.evaluate(async () => { await window.THCache.ecrireAttente([]); });
+  await aller('/');
+  await attendre(1200);
+  ok('[R] file vidée, l’app redémarre sans rien réparer ni rien casser',
+    JSON.stringify(await visible()) === '["vue-liste"]' &&
+    JSON.stringify(await enFile()) === '[]',
+    JSON.stringify(await visible()) + ' · ' + JSON.stringify(await enFile()));
+
   console.log('\n══ 8. NON-RÉGRESSION ══');
   for (const [chemin, attendu] of [['/', 'vue-liste'], ['/progression', 'vue-progression'],
                                    ['/profil', 'vue-profil'], ['/routine/nouvelle', 'vue-routine']]) {

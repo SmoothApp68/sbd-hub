@@ -156,12 +156,31 @@
     return (file || []).slice().sort(function (a, b) { return a.seq - b.seq; });
   }
 
-  // La prochaine à envoyer. Une entrée BLOQUÉE arrête la file : la sauter
-  // casserait l'ordre des dépendances, et la masquer serait une perte
-  // silencieuse. On s'arrête, et `deciderEtat` le dit.
+  // ⚠️ UNE ENTRÉE BLOQUÉE N'ARRÊTE QUE CE QUI DÉPEND D'ELLE (chantier 37).
+  //
+  // Elle arrêtait TOUT : `prochaine` rendait null dès que la tête était bloquée,
+  // au motif — juste — que sauter casserait l'ordre des dépendances. Mais la
+  // dépendance est PAR ENTITÉ, pas globale : `sets:X` a besoin de `sessions:X`
+  // par sa clé étrangère, et ne doit rien à `sessions:Y`.
+  //
+  // Conséquence mesurée : une entrée irréparable — RLS, colonne inconnue —
+  // condamnait toutes les séances suivantes, POUR TOUJOURS. Et la seule sortie
+  // connue, `/__sw-off`, efface la file : elle emportait avec elle les entrées
+  // parfaitement saines coincées derrière.
+  //
+  // Elle est donc DÉPASSÉE, jamais jetée : elle reste en file, elle reste
+  // marquée, et `deciderEtat` continue de dire « refusé ». Ce qui partage son
+  // `id` reste retenu avec elle — à l'intérieur d'une entité, l'ordre compte.
   function prochaine(file) {
     var liste = ordonnee(file);
-    return liste.length ? (liste[0].bloquee ? null : liste[0]) : null;
+    var retenues = {};
+    for (var i = 0; i < liste.length; i++) {
+      var e = liste[i];
+      if (e.bloquee) { retenues[e.id] = true; continue; }
+      if (retenues[e.id]) continue;
+      return e;
+    }
+    return null;
   }
 
   // ⚠️ ON NE RETIRE QUE CE QU'ON A VRAIMENT ENVOYÉ — PERTE SILENCIEUSE.
@@ -246,6 +265,61 @@
         donnees: donnees,
         version: (e.version || 1) + 1,
         bloquee: null, essais: 0
+      });
+    });
+    return { file: neuve, entrees: entrees, lignes: lignesReparees };
+  }
+
+  // ⚠️ RÉPARER LES FILES QUE LE CHANTIER 36 NE PEUT PLUS CRÉER (chantier 37).
+  //
+  // Même raison qu'au chantier 33, et la même règle : L'APPAREIL NE SE RÉPARE
+  // PAS TOUT SEUL. Borner à la saisie empêche de NOUVELLES entrées hors bornes ;
+  // ça ne rouvre pas celles qui sont déjà sur le disque, marquées définitives.
+  //
+  // ── LES DEUX TABLES NE SE RÉPARENT PAS PAREIL, ET C'EST LE POINT ────────
+  //
+  // `routine_exos` porte une INTENTION (`{voulues}`) : le plan d'écritures se
+  // calcule à la vidange, et `Routines.normaliserExercice` borne alors les CINQ
+  // colonnes contraintes — `series`, `reps_visees`, `repos_cible_s`,
+  // `groupe_superset`, `rang`. Rejouée telle quelle, l'entrée passe. Lever le
+  // blocage SUFFIT, et c'est sûr quelle que soit la contrainte qui l'avait
+  // refusée.
+  //
+  // `sets` porte des LIGNES DÉJÀ CALCULÉES, figées au moment du geste, donc
+  // d'avant le correctif. Les rejouer échouerait à l'identique : il faut borner
+  // la charge utile stockée, et ne lever le blocage QUE si ça a changé quelque
+  // chose. Sinon le `23514` venait d'ailleurs, et débloquer masquerait le vrai
+  // défaut derrière une tentative qui échouerait pareil (règle du chantier 33).
+  //
+  // Tout le reste — RLS, colonne inconnue, clé étrangère, un `22003` sur une
+  // table qu'on ne sait pas borner — reste bloqué. `prochaine` le dépasse
+  // désormais, donc il ne condamne plus la file.
+  var CODES_BORNES = ['23514', '22003', '22P02'];
+
+  function reparerBornes(file, bornerLigne) {
+    var entrees = 0, lignesReparees = 0;
+    var neuve = (file || []).map(function (e) {
+      if (!e || !e.bloquee) return e;
+      if (CODES_BORNES.indexOf(String(e.bloquee.code || '')) < 0) return e;
+
+      if (e.table === ROUTINE_EXOS && e.op === PLAN) {
+        entrees++;
+        return Object.assign({}, e, {
+          version: (e.version || 1) + 1, bloquee: null, essais: 0
+        });
+      }
+
+      if (e.table !== SETS || !Array.isArray(e.donnees)) return e;
+      var change = false;
+      var donnees = e.donnees.map(function (l) {
+        var r = bornerLigne(l);
+        if (r && r.change) { change = true; lignesReparees++; return r.ligne; }
+        return l;
+      });
+      if (!change) return e;        // rien à réparer → rien à débloquer
+      entrees++;
+      return Object.assign({}, e, {
+        donnees: donnees, version: (e.version || 1) + 1, bloquee: null, essais: 0
       });
     });
     return { file: neuve, entrees: entrees, lignes: lignesReparees };
@@ -339,6 +413,8 @@
     retirer: retirer,
     marquerEchec: marquerEchec,
     reparerIdentifiants: reparerIdentifiants,
+    reparerBornes: reparerBornes,
+    CODES_BORNES: CODES_BORNES,
     protegees: protegees,
     seancesEnAttente: seancesEnAttente,
     resume: resume,

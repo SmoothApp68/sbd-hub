@@ -692,6 +692,29 @@
       r.entrees + ' envoi(s) — ' + 'déblocage et renvoi complet.');
   }
 
+  // ⚠️ ET CELLES QUE LE CHANTIER 36 NE PEUT PLUS CRÉER (chantier 37).
+  //
+  // Même raison, même règle : borner à la saisie n'a aucun effet sur ce qui est
+  // DÉJÀ sur le disque, marqué définitif. Une file posée avant le correctif porte
+  // peut-être un report de déviation refusé en `23514`, ou des reps hors `int4`
+  // refusées en `22003` — et elle bloquait tout ce qui suivait.
+  //
+  // Ça compte maintenant : l'app s'ouvre à d'autres utilisateurs, un appareil
+  // qui arrive avec une file bloquée n'a aucune issue, et `/__sw-off` — la seule
+  // sortie connue — efface la file d'écriture avec les données non montées.
+  //
+  // Le bornage est celui de `THSeance`, pas un second jeu de règles : la
+  // réparation et la saisie passent par la MÊME expression par colonne.
+  async function reparerFileHorsBornes() {
+    var r = Attente.reparerBornes(attente, Seance.bornerLigne);
+    if (!r.entrees) return;
+    attente = r.file;
+    try { await Cache.ecrireAttente(attente); }
+    catch (e) { console.warn('File réparée non persistée :', texteErreur(e)); }
+    console.warn('File réparée : ' + r.entrees + ' envoi(s) hors bornes débloqué(s)' +
+      (r.lignes ? ', ' + r.lignes + ' série(s) bornée(s)' : '') + '.');
+  }
+
   // ══ LA SÉANCE `en_cours` RESTÉE EN BASE (chantier 36, D7) ════════════════
   //
   // `sessions_une_seule_en_cours` est un index UNIQUE sur `user_id` WHERE
@@ -2242,6 +2265,7 @@
     // file bloquée par le défaut du chantier 32 se répare ici, sinon elle
     // resterait bloquée pour toujours (voir `reparerIdentifiantsManquants`).
     await reparerIdentifiantsManquants();
+    await reparerFileHorsBornes();
 
     // Ouverture immédiate sur ce qu'on a déjà, avant toute requête réseau.
     // On honore l'URL d'entrée : un rechargement direct sur /semaine/… ou

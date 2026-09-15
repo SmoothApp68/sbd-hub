@@ -626,10 +626,37 @@
   }
 
   // ── Saisie ──────────────────────────────────────────────────────────────
+  // ⚠️ LES COLONNES `integer` DE `sets`, ET CE QU'ELLES REFUSENT (ch. 36, D6).
+  //
+  // `sets.reps` et `sets.duree_s` sont `integer` et ne portent AUCUN CHECK :
+  // rien ne les bornait, ni en base, ni dans l'app, et le champ de saisie est
+  // un `type="text"` sans `max`. Onze chiffres dépassent `int4` → `22003` ;
+  // au-delà de 1e21, le nombre part en notation exponentielle dans le JSON →
+  // `22P02`, code DÉFINITIF, file morte.
+  //
+  // `distance_m` et `charge_kg` sont `numeric` — sans précision déclarée, donc
+  // sans dépassement possible. C'est la différence qui compte, et elle se lit
+  // dans le schéma, pas dans l'intuition : « c'est un nombre » ne dit pas si la
+  // base l'acceptera.
+  //
+  // Les plafonds sont GÉNÉREUX, pas justes : ils écartent l'absurde sans
+  // prétendre dire ce qui est physiologiquement plausible. 104 reps existent en
+  // base sur une vraie série, et une randonnée dépasse l'heure — borner à
+  // `REPS_MAX` de routine (100) ou à `sets_repos_borne` (3600) effacerait des
+  // données réelles. On borne pour que la base accepte, rien de plus.
+  var REPS_MAX_SERIE = 9999;
+  var DUREE_MAX_S = 86400;          // 24 h
+
   function nombreOuNul(v) {
     if (v === null || v === undefined || v === '') return null;
     var n = Number(String(v).replace(',', '.'));
     return isFinite(n) ? n : null;
+  }
+
+  // Ramène dans [0, max]. `null` traverse — « non renseigné » n'est pas zéro.
+  function plafonne(n, max) {
+    if (n === null) return null;
+    return Math.min(max, Math.max(0, n));
   }
 
   // Un entier positif ou rien, après conversion depuis l'unité de SAISIE.
@@ -638,11 +665,12 @@
   // saisit une rando en minutes et en kilomètres, la base stocke des secondes
   // et des mètres. Une valeur négative n'existe pas — une durée ni une distance
   // ne se comptent à rebours — et on la rejette plutôt que de la stocker.
-  function entierOuNul(v, facteur) {
+  function entierOuNul(v, facteur, max) {
     var n = nombreOuNul(v);
     if (n === null) return null;
     var e = Math.round(n * (facteur || 1));
-    return e < 0 ? null : e;
+    if (e < 0) return null;
+    return max === undefined ? e : Math.min(max, e);
   }
 
   // Les clés d'entrée nomment le CHAMP DE SAISIE, pas la colonne : `distance_km`
@@ -659,10 +687,10 @@
     if ('charge_kg' in champs) c.charge_kg = nombreOuNul(champs.charge_kg);
     if ('reps' in champs) {
       var r = nombreOuNul(champs.reps);
-      c.reps = r === null ? null : Math.round(r);
+      c.reps = r === null ? null : plafonne(Math.round(r), REPS_MAX_SERIE);
     }
-    if ('duree' in champs) c.duree_s = entierOuNul(champs.duree, 1);
-    if ('duree_s' in champs) c.duree_s = entierOuNul(champs.duree_s, 1);
+    if ('duree' in champs) c.duree_s = entierOuNul(champs.duree, 1, DUREE_MAX_S);
+    if ('duree_s' in champs) c.duree_s = entierOuNul(champs.duree_s, 1, DUREE_MAX_S);
     if ('distance_m' in champs) c.distance_m = entierOuNul(champs.distance_m, 1);
     if ('distance_km' in champs) c.distance_m = entierOuNul(champs.distance_km, 1000);
     return avecSerie(seance, iExo, iSerie, c);
@@ -1378,6 +1406,9 @@
     ecartDeColonnes: ecartDeColonnes,
     provenanceIncomplete: provenanceIncomplete,
     partEnBase: partEnBase,
+    REPS_MAX_SERIE: REPS_MAX_SERIE,
+    DUREE_MAX_S: DUREE_MAX_S,
+    plafonne: plafonne,
     oublierRangsOrigine: oublierRangsOrigine,
     idsRetires: idsRetires,
     semerIdentifiants: semerIdentifiants,

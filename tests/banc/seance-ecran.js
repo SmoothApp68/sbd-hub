@@ -268,6 +268,17 @@ const SETS_IMPORTES = [
     if (l.ressenti && ['reste_3_plus', 'reste_2', 'reste_1', 'reste_0'].indexOf(l.ressenti) < 0) return refus('23514', 'sets_ressenti_ok');
     if (l.rpe !== null && l.rpe !== undefined && !(l.rpe > 0 && l.rpe <= 10)) return refus('23514', 'sets_rpe_ok');
     if (l.repos_s !== null && l.repos_s !== undefined && !(l.repos_s >= 0 && l.repos_s <= 3600)) return refus('23514', 'sets_repos_borne');
+    // ⚠️ `reps` ET `duree_s` SONT `integer` (chantier 36, D6). Aucun CHECK ne
+    // les borne : ce qui les refuse est le TYPE. Au-delà d'`int4` Postgres
+    // répond `22003` ; au-delà de 1e21 le nombre part en notation exponentielle
+    // dans le JSON et devient `22P02`, code DÉFINITIF. Un banc qui accepte
+    // n'importe quel entier ne peut pas voir ce défaut-là.
+    for (const col of ['reps', 'duree_s']) {
+      const v = l[col];
+      if (v === null || v === undefined) continue;
+      if (typeof v !== 'number' || !isFinite(v)) return refus('22P02', col + ' : entier invalide');
+      if (Math.abs(v) > 2147483647) return refus('22003', col + ' hors int4');
+    }
     if (!base.sessions.some((s) => s.id === l.session_id)) return refus('23503', 'sets_session_id_fkey');
     return null;
   }
@@ -296,6 +307,32 @@ const SETS_IMPORTES = [
   // soit. En remplaçant `navigator.vibrate` par un bouchon, on ne testerait
   // plus que son propre bouchon — et la question posée est justement « l'API
   // est-elle là ? ». On enveloppe donc la vraie fonction, on ne la remplace pas.
+  // ⚠️ MOUCHARD SUR `THCache.remplacerTout` (chantier 36). `cache.js` le réserve
+  // aux magasins PETITS et rafraîchis en entier, et écrit noir sur blanc que
+  // « les 28 103 séries ne passent pas par ici » : il VIDE le magasin puis le
+  // réécrit, et une fermeture d'app au milieu le laisse à moitié plein,
+  // définitivement. Supprimer UNE séance l'appelait sur `series`.
+  //
+  // On ENVELOPPE, on ne remplace pas : sinon on ne testerait plus que son propre
+  // bouchon.
+  await ctx.addInitScript(() => {
+    window.__magasinsRemplaces = [];
+    const poser = () => {
+      if (!window.THCache || window.THCache.__espionne) return false;
+      const vrai = window.THCache.remplacerTout;
+      window.THCache.remplacerTout = function (magasin, enr) {
+        window.__magasinsRemplaces.push(magasin);
+        return vrai.call(this, magasin, enr);
+      };
+      window.THCache.__espionne = true;
+      return true;
+    };
+    if (!poser()) {
+      const t = setInterval(() => { if (poser()) clearInterval(t); }, 20);
+      setTimeout(() => clearInterval(t), 8000);
+    }
+  });
+
   await ctx.addInitScript(() => {
     window.__vibrateNatif = typeof navigator.vibrate === 'function';
     window.__vibrations = [];
@@ -428,10 +465,31 @@ const SETS_IMPORTES = [
     // « réussissait » sans rien écrire, et « la routine n'est pas touchée »
     // aurait été vrai de toute implémentation — y compris d'une qui écrit à
     // chaque geste. C'est exactement le banc plus permissif que l'appareil.
+    // ⚠️ LES CHECK DE `routine_exercises` MANQUAIENT À CE BANC (chantier 36).
+    //
+    // Le banc des routines les applique depuis le chantier 34 ; celui-ci, non.
+    // Or c'est ICI que passe le REPORT DE FIN DE SÉANCE — le seul chemin qui
+    // n'appelle pas `Routines.valider()`. Le défaut D5 était donc structurellement
+    // invisible : le banc qui voit le geste ne vérifiait pas la contrainte, et le
+    // banc qui vérifie la contrainte ne voit pas le geste.
+    const checkRoutineExo = (l) => {
+      if (l.series !== undefined && !(l.series >= 1 && l.series <= 20)) return 'routine_exos_series_bornees';
+      if (l.reps_visees !== null && l.reps_visees !== undefined &&
+          !(l.reps_visees >= 1 && l.reps_visees <= 100)) return 'routine_exos_reps_bornees';
+      if (l.repos_cible_s !== null && l.repos_cible_s !== undefined &&
+          !(l.repos_cible_s >= 5 && l.repos_cible_s <= 1800)) return 'routine_exos_repos_borne';
+      if (l.groupe_superset !== null && l.groupe_superset !== undefined &&
+          !(l.groupe_superset >= 0)) return 'routine_exos_superset_positif';
+      if (l.rang !== undefined && !(l.rang >= 0)) return 'routine_exos_rang_positif';
+      return null;
+    };
+
     if (req.method() === 'PATCH' && table === 'routine_exercises') {
       const id = (url.searchParams.get('id') || '').replace('eq.', '');
       const champs = Array.isArray(corps) ? corps[0] : corps;
       base.patchs.push({ id: id, champs: Object.assign({}, champs) });
+      const malPatch = checkRoutineExo(champs);
+      if (malPatch) return json(refus('23514', malPatch), 400);
       const avant = instantaneRoutines();
       for (const r of ROUTINES) {
         const i = r.routine_exercises.findIndex((e) => e.id === id);
@@ -449,6 +507,10 @@ const SETS_IMPORTES = [
     if (req.method() === 'POST' && table === 'routine_exercises') {
       const lignes = (Array.isArray(corps) ? corps : [corps]).map((l) => Object.assign({}, l));
       base.patchs.push({ op: 'insert', lignes: lignes });
+      for (const l of lignes) {
+        const mal = checkRoutineExo(l);
+        if (mal) return json(refus('23514', mal), 400);
+      }
       const avant = instantaneRoutines();
       for (const l of lignes) {
         const r = ROUTINES.filter((x) => x.id === l.routine_id)[0];
@@ -533,6 +595,34 @@ const SETS_IMPORTES = [
         vus.add(c);
       }
       return json(lignes, 201);
+    }
+
+    // ⚠️ LE PATCH SUR `sessions` MANQUAIT (chantier 36, D7), et c'est le même
+    // piège qu'au chantier 26 : sans gestionnaire, il tombait dans le `json([])`
+    // final. La requête « réussissait » sans rien écrire — donc « la séance
+    // restée ouverte est refermée » aurait été vrai de toute implémentation, y
+    // compris d'une qui ne fait rien.
+    if (req.method() === 'PATCH' && table === 'sessions') {
+      const id = (url.searchParams.get('id') || '').replace('eq.', '');
+      const champs = Array.isArray(corps) ? corps[0] : corps;
+      base.journal.push({ op: 'patch-session', id: id, champs: Object.assign({}, champs) });
+      // GÉNÉRÉE : Postgres refuse toute écriture sur `salle_norme`, même NULL.
+      if ('salle_norme' in champs) return json(refus('428C9', 'salle_norme est générée'), 400);
+      if (champs.statut !== undefined &&
+          ['en_cours', 'terminee'].indexOf(champs.statut) < 0) {
+        return json(refus('23514', 'sessions_statut_ok'), 400);
+      }
+      const i = base.sessions.findIndex((x) => x.id === id);
+      if (i < 0) return json([]);
+      const apres = Object.assign({}, base.sessions[i], champs);
+      // Et l'index unique se vérifie ICI aussi : repasser une séance `en_cours`
+      // alors qu'une autre l'est déjà est exactement ce qu'il interdit.
+      if (apres.statut === 'en_cours' && base.sessions.some(
+            (x) => x.id !== id && x.user_id === apres.user_id && x.statut === 'en_cours')) {
+        return json(refus('23505', 'sessions_une_seule_en_cours'), 409);
+      }
+      base.sessions[i] = apres;
+      return json([]);
     }
 
     if (req.method() === 'DELETE') {
@@ -2426,6 +2516,14 @@ const SETS_IMPORTES = [
     lignesGestes().length === 0 &&
     base.sets.filter((s) => s.session_id !== idGestes).length === autresAvant,
     nSeriesAvant + ' série(s) parties · ' + autresAvant + ' intactes');
+  // ⚠️ ET SANS FAIRE TABLE RASE DU MAGASIN DES SÉRIES (chantier 36).
+  // Le résultat visible est le même dans les deux cas — c'est bien pour ça que
+  // la mutation survivait. Ce qui diffère est la MANIÈRE, et elle seule décide
+  // si une fermeture d'app au mauvais moment coûte tout l'historique.
+  const magasins = await page.evaluate(() => window.__magasinsRemplaces || []);
+  ok('et SANS réécrire tout le magasin des séries — `cache.js` l’interdit',
+    magasins.indexOf('series') < 0 && magasins.indexOf('seances') >= 0,
+    'remplacerTout appelé sur : ' + JSON.stringify(magasins));
   ok('et on revient sur la semaine, pas sur un détail vide',
     JSON.stringify(await visible()) === '["vue-liste"]', JSON.stringify(await visible()));
 
@@ -2898,6 +2996,177 @@ const SETS_IMPORTES = [
   ok('[D1] et une correction de plus ne ressuscite rien',
     sesSeries(IMPORTEE.id).length === 3,
     sesSeries(IMPORTEE.id).length + '/3 série(s) — ' + JSON.stringify(rangsImportee()));
+
+  console.log('\n══ 7 sexdecies. TROIS CHEMINS VERS UNE FILE BLOQUÉE ══');
+  //
+  // Le point commun des trois : une valeur que la base refuse avec un code
+  // DÉFINITIF. L'entrée devient la tête de file, `prochaine()` s'arrête dessus,
+  // et tout ce qui suit ne monte plus JAMAIS.
+  //
+  // ⚠️ CE BANC NE POUVAIT PAS LES VOIR AVANT CE CHANTIER. Il ne vérifiait
+  // aucun CHECK de `routine_exercises` — alors que c'est ICI que passe le
+  // report de fin de séance — ni la plage `int4` de `reps` et `duree_s`. Les
+  // deux manques ont été comblés dans le serveur de papier, plus haut.
+
+  const refusDepuis = (n) => base.journal.filter((j, i) => i >= n && j.op === 'refus');
+  const glisserPourSupprimer = async (i) => {
+    const l = await ligne(i);
+    await l.scrollIntoViewIfNeeded();
+    await attendre(200);
+    const b = await l.boundingBox();
+    await page.mouse.move(b.x + b.width - 40, b.y + b.height / 2);
+    await page.mouse.down();
+    for (let d = 0; d <= 110; d += 14) {
+      await page.mouse.move(b.x + b.width - 40 - d, b.y + b.height / 2);
+      await attendre(30);
+    }
+    await page.mouse.up();
+    await attendre(700);
+  };
+
+  // ── D5 — LA CONFIGURATION DISCRIMINANTE ────────────────────────────────
+  //
+  // Une DÉVIATION QUI VIDE UN EXERCICE AJOUTÉ. C'est le seul geste qui produit
+  // `series: 0`, et il passe par le REPORT, qui n'appelle jamais
+  // `Routines.valider()`. Un report avec des valeurs normales ne distingue pas
+  // « borné » de « non borné ».
+  const repereD5 = base.journal.length;
+  await aller('/saisie');
+  await demarrerRoutine('Push');
+  await saisirSerie(0, 100, 5);
+  const avantAjout = await compter('.ligne-serie');
+  await ajouterExoSeance('Tractions');
+  const avantVidage = await compter('.ligne-serie');
+  ok('[D5] l’exercice ajouté arrive avec UNE série de plus',
+    avantVidage === avantAjout + 1 && /Tractions/.test(await texte('#vue-seance')),
+    avantAjout + ' → ' + avantVidage + ' ligne(s)');
+
+  // ⚠️ PAR LE MENU DU NUMÉRO, pas par le glissement. `rendu.js` le dit :
+  // « il n'est JAMAIS le seul chemin : le menu du numéro porte Supprimer ».
+  // Au banc, le glissement synthétique est le geste le plus fragile du projet ;
+  // ce qu'on éprouve ici est la BORNE du report, pas la reconnaissance du geste.
+  await page.evaluate(() => {
+    const nos = document.querySelectorAll('.ligne-serie .no-serie');
+    nos[nos.length - 1].click();
+  });
+  await attendre(600);
+  await page.click('#feuille-contenu .feuille-menu button.danger');
+  await attendre(900);
+  ok('[D5] sa dernière série est supprimée — l’exercice reste, VIDE',
+    (await compter('.ligne-serie')) === avantVidage - 1 &&
+    /Tractions/.test(await texte('#vue-seance')),
+    (await compter('.ligne-serie')) + ' ligne(s), Tractions présent : ' +
+    /Tractions/.test(await texte('#vue-seance')));
+
+  // Terminer EN REPORTANT sur la routine : c'est le report qui pose l'entrée.
+  await page.click('#bandeau-seance .bandeau-fin');
+  await attendre(700);
+  ok('[D5] la déviation est annoncée, donc la question est posée',
+    /s’écarte/.test(await texte('#feuille-contenu')),
+    (await texte('#feuille-contenu')).replace(/\s+/g, ' ').slice(0, 80));
+  await page.evaluate(() => {
+    const b = Array.from(document.querySelectorAll('#feuille-contenu .choix-routine button'))
+      .filter((x) => /Reporter/.test(x.textContent))[0];
+    b.click();
+  });
+  await attendre(400);
+  await page.click('#feuille-contenu .principal');
+  await attendre(2600);
+
+  ok('[D5] AUCUNE écriture n’est refusée — c’était `23514`, définitif',
+    refusDepuis(repereD5).length === 0,
+    JSON.stringify(refusDepuis(repereD5).slice(0, 3)));
+  const ligneTractions = ROUTINE.routine_exercises.filter((e) => e.exercise_slug === 'tractions')[0];
+  ok('[D5] la routine reçoit la ligne, bornée dans 1..20',
+    !!ligneTractions && ligneTractions.series >= 1 && ligneTractions.series <= 20,
+    ligneTractions ? 'series=' + ligneTractions.series : 'ligne absente');
+  ok('[D5] et la file n’est pas bloquée : l’état ne dit ni « refusé » ni « échec »',
+    !/refusé|échec/i.test(await texte('#etat-sync')),
+    (await texte('#etat-sync')) || '(vide)');
+
+  // ── D6 — UN NOMBRE HORS `int4` ─────────────────────────────────────────
+  const repereD6 = base.journal.length;
+  await seanceVide();
+  await ajouterExoSeance('Tractions');
+  // ⚠️ « Tractions » se mesure en REPS : sa grille n'a qu'UN champ. `saisirSerie`
+  // en attend deux — ici on tape dans le seul qui existe.
+  await page.evaluate(async (v) => {
+    const l = document.querySelector('.ligne-serie');
+    const i = l.querySelector('input');
+    i.value = v;
+    i.dispatchEvent(new Event('input', { bubbles: true }));
+    i.dispatchEvent(new Event('change', { bubbles: true }));
+  }, '99999999999');
+  await attendre(300);
+  await page.evaluate(() => document.querySelector('.ligne-serie .ok-serie').click());
+  await attendre(1800);
+  ok('[D6] AUCUN refus — c’était `22003`, puis `22P02` au-delà de 1e21',
+    refusDepuis(repereD6).length === 0,
+    JSON.stringify(refusDepuis(repereD6).slice(0, 3)));
+  const repsMontees = base.sets.filter((x) => x.session_id === enCoursId()).map((x) => x.reps);
+  ok('[D6] et ce qui monte tient dans `int4`',
+    repsMontees.length > 0 && repsMontees.every((r) => r === null || Math.abs(r) <= 2147483647),
+    JSON.stringify(repsMontees));
+  await terminer();
+
+  // ── D7 — LA SÉANCE `en_cours` RESTÉE EN BASE ───────────────────────────
+  //
+  // `sessions_une_seule_en_cours` est UNIQUE sur (user_id) WHERE
+  // statut='en_cours', et NON différable : démarrer la suivante répondait
+  // `23505`, code définitif.
+  const FANTOME = {
+    id: 'sess-fantome', user_id: 'u-banc', titre: 'Restée ouverte',
+    debut: new Date(LUNDI.getTime() + 4 * 86400000).toISOString(), fin: null,
+    statut: 'en_cours', note: null, salle: null, salle_norme: null,
+    routine_id: null, source: 'app',
+    created_at: new Date(LUNDI.getTime() + 4 * 86400000).toISOString()
+  };
+  base.sessions.push(Object.assign({}, FANTOME));
+  base.sets.push({
+    id: 'set-fantome-1', session_id: FANTOME.id, user_id: 'u-banc',
+    exercise_slug: 'squat-barre', charge_kg: 90, reps: 5, duree_s: null,
+    distance_m: null, type_serie: 'travail', rang: 1, groupe_superset: null,
+    validee_a: FANTOME.debut, rpe: null, ressenti: null, repos_s: null,
+    note: null, source: 'app', created_at: FANTOME.debut, modifie_a: null
+  });
+
+  // ⚠️ SANS BROUILLON LOCAL → ON LA REPREND. Elle peut porter des séries
+  // validées ; les jeter serait la perte que tout ce projet s'interdit.
+  const repereD7 = base.journal.length;
+  await aller('/');
+  await attendre(1500);
+  ok('[D7] la séance restée ouverte est REPRISE, avec sa série',
+    (base.sessions.filter((x) => x.id === FANTOME.id)[0] || {}).statut === 'en_cours' &&
+    (await page.evaluate(() => !document.getElementById('vue-seance').hidden ||
+      !!document.querySelector('#bandeau-seance'))),
+    'statut=' + (base.sessions.filter((x) => x.id === FANTOME.id)[0] || {}).statut);
+  await aller('/saisie');
+  ok('[D7] et l’app ne propose pas d’en démarrer une seconde en silence',
+    base.sessions.filter((x) => x.statut === 'en_cours').length === 1,
+    base.sessions.filter((x) => x.statut === 'en_cours').length + ' séance(s) en_cours');
+  ok('[D7] aucun `23505` : rien n’a été refusé',
+    refusDepuis(repereD7).length === 0,
+    JSON.stringify(refusDepuis(repereD7).slice(0, 3)));
+
+  // ⚠️ AVEC UN BROUILLON LOCAL → ON REFERME LA DISTANTE. Les deux ne peuvent
+  // pas coexister, et c'est le brouillon local que l'utilisateur a sous les yeux.
+  const SECONDE = Object.assign({}, FANTOME, { id: 'sess-fantome-2', titre: 'Autre appareil' });
+  base.sessions.push(SECONDE);
+  const repereD7b = base.journal.length;
+  await aller('/');
+  await attendre(1800);
+  ok('[D7] une seconde séance ouverte côté serveur est REFERMÉE, pas supprimée',
+    (base.sessions.filter((x) => x.id === SECONDE.id)[0] || {}).statut === 'terminee' &&
+    base.sessions.some((x) => x.id === SECONDE.id),
+    'statut=' + (base.sessions.filter((x) => x.id === SECONDE.id)[0] || {}).statut);
+  ok('[D7] le brouillon local, lui, reste en cours',
+    (base.sessions.filter((x) => x.id === FANTOME.id)[0] || {}).statut === 'en_cours',
+    'statut=' + (base.sessions.filter((x) => x.id === FANTOME.id)[0] || {}).statut);
+  ok('[D7] et sa série n’a pas bougé',
+    base.sets.filter((x) => x.session_id === FANTOME.id).length === 1,
+    base.sets.filter((x) => x.session_id === FANTOME.id).length + ' série(s)');
+  ok('[D7] toujours aucun refus', refusDepuis(repereD7b).length === 0,
+    JSON.stringify(refusDepuis(repereD7b).slice(0, 3)));
 
   console.log('\n══ 8. NON-RÉGRESSION ══');
   for (const [chemin, attendu] of [['/', 'vue-liste'], ['/progression', 'vue-progression'],

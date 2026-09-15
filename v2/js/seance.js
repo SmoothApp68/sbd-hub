@@ -1314,9 +1314,59 @@
     return null;
   }
 
+  // ⚠️ LE FANTÔME S'ALIGNE PAR TYPE, JAMAIS PAR POSITION (chantier 38, D9).
+  //
+  // Il lisait `prec.series[iSerie]` — la série de MÊME INDICE la fois
+  // précédente, chauffes comprises. Séance d'avant `40(W) · 70(W) · 120 · 120 ·
+  // 120`, séance d'aujourd'hui sans chauffe : le fantôme de la PREMIÈRE SÉRIE
+  // DE TRAVAIL valait 40 kg. Et comme le §3 bis.3 vend explicitement « valider
+  // sans rien taper quand c'est juste », l'utilisateur faisait exactement ce que
+  // l'app lui proposait — et écrivait une charge d'échauffement comme charge de
+  // travail, qui nourrit ensuite le palier et le volume.
+  //
+  // Mesuré en base le 15/09 sur 7 458 enchaînements d'un même exercice d'une
+  // séance à la suivante : 197 ont MOINS d'échauffements que la fois d'avant,
+  // dont 128 aucun du tout. 2,6 % — pas un cas de bord : ça arrive chaque fois
+  // qu'on s'échauffe moins parce qu'on a déjà travaillé le même muscle avant.
+  //
+  // ⚠️ AVEC LE MÊME NOMBRE DE CHAUFFES DES DEUX CÔTÉS, aligner par indice et
+  // aligner par type donnent EXACTEMENT le même fantôme. C'est le seul cas
+  // qu'on teste spontanément, et c'est ce qui a laissé passer le défaut.
+  //
+  // La règle : la Nᵉ série d'un type s'aligne sur la Nᵉ série du MÊME type. Elle
+  // vaut pour les quatre — une dégressive ne propose pas une charge de travail,
+  // et une série d'échec ne propose pas une dégressive.
+  function typeDe(serie) { return (serie && serie.type_serie) || 'travail'; }
+
+  function correspondant(exo, iSerie, prec) {
+    if (!prec || !prec.series) return null;
+    var type = typeDe(exo.series[iSerie]);
+
+    // Le rang de cette série DANS SON TYPE, aujourd'hui.
+    var rang = 0;
+    for (var k = 0; k < iSerie; k++) {
+      if (typeDe(exo.series[k]) === type) rang++;
+    }
+
+    // La série de même rang, dans le même type, la fois précédente.
+    var vus = 0;
+    for (var j = 0; j < prec.series.length; j++) {
+      if (typeDe(prec.series[j]) !== type) continue;
+      if (vus === rang) return prec.series[j];
+      vus++;
+    }
+    // ⚠️ PAS DE CORRESPONDANT, PAS DE FANTÔME. Les trois cas — plus de séries
+    // qu'avant, aucune série de ce type la fois d'avant, première fois sur
+    // l'exercice — se répondent d'une seule règle. Reporter la dernière valeur
+    // connue serait une PRÉDICTION, et c'est exactement ce qui a créé ce défaut :
+    // une valeur qu'on n'a pas mesurée, proposée comme si on l'avait mesurée.
+    // Rien n'est prédit ici ; le moteur parlera au chantier 5.
+    return null;
+  }
+
   function fantome(seance, iExo, iSerie, prec) {
     var exo = seance.exercices[iExo];
-    var ligne = prec && prec.series ? prec.series[iSerie] : null;
+    var ligne = correspondant(exo, iSerie, prec);
 
     var charge = derniereSaisie(exo, iSerie, 'charge_kg');
     if (charge === null && ligne) charge = ligne.charge_kg;
@@ -1456,6 +1506,7 @@
     lignes: lignes,
     ligneSession: ligneSession,
     precedent: precedent,
+    correspondant: correspondant,
     fantome: fantome
   };
 

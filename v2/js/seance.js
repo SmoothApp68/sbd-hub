@@ -682,15 +682,51 @@
   // fait la conversion, et il n'y a plus qu'une seule unité de durée. Le
   // `duree_min` du chantier 24, avec son facteur 60, a disparu avec la règle
   // « l'unité suit la mesure » qu'il servait.
+  // ⚠️ UNE SEULE EXPRESSION PAR COLONNE, ET DEUX APPELANTS (chantier 37).
+  //
+  // La saisie passe par `modifierSerie` ; la RÉPARATION d'une file déjà bloquée
+  // passe par `bornerLigne`. Les deux doivent borner à l'identique, sinon une
+  // entrée réparée repartirait avec une valeur que la saisie n'aurait jamais
+  // produite — et on aurait trois jeux de règles pour deux colonnes.
+  function repsBornees(v) {
+    var r = nombreOuNul(v);
+    return r === null ? null : plafonne(Math.round(r), REPS_MAX_SERIE);
+  }
+  function dureeBornee(v) { return entierOuNul(v, 1, DUREE_MAX_S); }
+
+  // ⚠️ BORNER UNE LIGNE DÉJÀ CALCULÉE, ET DIRE SI ÇA A CHANGÉ QUELQUE CHOSE.
+  //
+  // Une entrée `sets` de la file porte des lignes figées au moment du geste,
+  // donc calculées AVANT le correctif du chantier 36 : les rejouer telles quelles
+  // échouerait à l'identique. C'est la différence avec une intention
+  // `routine_exos`, dont les bornes s'appliquent à la VIDANGE.
+  //
+  // Le drapeau `change` n'est pas cosmétique : il décide si on a le droit de
+  // lever le blocage. Une entrée refusée en `23514` pour une raison qu'aucune
+  // borne ne touche — un `type_serie` inconnu, un `rpe` hors plage — ne doit PAS
+  // être débloquée : elle échouerait à l'identique, et le déblocage masquerait
+  // le vrai défaut derrière une nouvelle tentative.
+  function bornerLigne(ligne) {
+    if (!ligne || typeof ligne !== 'object') return { ligne: ligne, change: false };
+    var c = {}, change = false;
+    if ('reps' in ligne) {
+      c.reps = repsBornees(ligne.reps);
+      if (c.reps !== ligne.reps) change = true;
+    }
+    if ('duree_s' in ligne) {
+      c.duree_s = dureeBornee(ligne.duree_s);
+      if (c.duree_s !== ligne.duree_s) change = true;
+    }
+    return change ? { ligne: Object.assign({}, ligne, c), change: true }
+                  : { ligne: ligne, change: false };
+  }
+
   function modifierSerie(seance, iExo, iSerie, champs) {
     var c = {};
     if ('charge_kg' in champs) c.charge_kg = nombreOuNul(champs.charge_kg);
-    if ('reps' in champs) {
-      var r = nombreOuNul(champs.reps);
-      c.reps = r === null ? null : plafonne(Math.round(r), REPS_MAX_SERIE);
-    }
-    if ('duree' in champs) c.duree_s = entierOuNul(champs.duree, 1, DUREE_MAX_S);
-    if ('duree_s' in champs) c.duree_s = entierOuNul(champs.duree_s, 1, DUREE_MAX_S);
+    if ('reps' in champs) c.reps = repsBornees(champs.reps);
+    if ('duree' in champs) c.duree_s = dureeBornee(champs.duree);
+    if ('duree_s' in champs) c.duree_s = dureeBornee(champs.duree_s);
     if ('distance_m' in champs) c.distance_m = entierOuNul(champs.distance_m, 1);
     if ('distance_km' in champs) c.distance_m = entierOuNul(champs.distance_km, 1000);
     return avecSerie(seance, iExo, iSerie, c);
@@ -1409,6 +1445,9 @@
     REPS_MAX_SERIE: REPS_MAX_SERIE,
     DUREE_MAX_S: DUREE_MAX_S,
     plafonne: plafonne,
+    repsBornees: repsBornees,
+    dureeBornee: dureeBornee,
+    bornerLigne: bornerLigne,
     oublierRangsOrigine: oublierRangsOrigine,
     idsRetires: idsRetires,
     semerIdentifiants: semerIdentifiants,

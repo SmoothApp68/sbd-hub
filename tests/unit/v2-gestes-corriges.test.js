@@ -240,9 +240,9 @@ describe('D3 — une séance rouverte n’est pas une séance vierge', () => {
   // partaient sur un seul tap.
   test('supprimer du travail importé est COMPTÉ, donc la question est posée', () => {
     const s = rouvrir();
-    expect(Seance.compterValidees(s, [iDe(s, 'curl')])).toBe(2);
-    expect(Seance.compterValidees(s, [iDe(s, 'squat'), iDe(s, 'dc')])).toBe(4);
-    expect(Seance.compterValidees(s, [])).toBe(0);
+    expect(Seance.compterAEffacer(s, [iDe(s, 'curl')]).lignes).toBe(2);
+    expect(Seance.compterAEffacer(s, [iDe(s, 'squat'), iDe(s, 'dc')]).lignes).toBe(4);
+    expect(Seance.compterAEffacer(s, []).lignes).toBe(0);
   });
 
   test('une série jamais validée ne compte pas — rien à perdre, aucune question', () => {
@@ -252,7 +252,7 @@ describe('D3 — une séance rouverte n’est pas une séance vierge', () => {
         series: e.series.map((x) => Object.assign({}, x, { validee_a: null, source: null }))
       }))
     });
-    expect(Seance.compterValidees(vierge, [0, 1, 2])).toBe(0);
+    expect(Seance.compterAEffacer(vierge, [0, 1, 2]).lignes).toBe(0);
   });
 
   // Un geste qui ne fait rien est pire qu'un geste absent.

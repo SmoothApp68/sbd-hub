@@ -2191,7 +2191,7 @@ const SETS_IMPORTES = [
   await menuBloc(2);              // Squat + Curl : le Curl porte 1 série validée
   await entree('Supprimer le bloc');
   ok('supprimer un bloc qui porte du travail fait DEMANDE d’abord',
-    /1 série déjà validée/.test(await texte('#feuille-contenu')),
+    /1 série sera effacée/.test(await texte('#feuille-contenu')),
     (await texte('#feuille-contenu')).replace(/\s+/g, ' ').slice(0, 90));
   await entree('Supprimer quand même');
   ok('confirmé : le bloc part de l’écran ET de la base',
@@ -2941,7 +2941,7 @@ const SETS_IMPORTES = [
   // `compterValidees` comptait 0 sur une séance importée (tous les `validee_a`
   // à NULL) et les deux séries partaient SANS RIEN DEMANDER.
   ok('[D3] supprimer du travail importé DEMANDE d’abord, et le compte',
-    /2 séries déjà validées/.test(await texte('#feuille-contenu')),
+    /2 séries seront effacées/.test(await texte('#feuille-contenu')),
     (await texte('#feuille-contenu')).replace(/\s+/g, ' ').slice(0, 100));
   await entree('Supprimer quand même');
   ok('[D1] à l’écran, le curl est parti',
@@ -3291,6 +3291,19 @@ const SETS_IMPORTES = [
       note: null, source: 'app', created_at: AVANT_ROWING.debut, modifie_a: null
     });
   });
+  // ⚠️ ET UN ANTÉCÉDENT POUR LES TRACTIONS, dans la MÊME séance (chantier 39).
+  // Sans lui, la seconde branche du superset n'a rien à afficher en colonne, et
+  // « chaque ligne lit les séries de SON exercice » ne se mesure pas : prendre le
+  // premier exercice du bloc donnerait le même écran.
+  [[6, 12, 'travail'], [7, 10, 'travail']].forEach(([rang, reps]) => {
+    base.sets.push({
+      id: 'set-trac-' + rang, session_id: AVANT_ROWING.id, user_id: 'u-banc',
+      exercise_slug: 'tractions', charge_kg: null, reps: reps, duree_s: null,
+      distance_m: null, type_serie: 'travail', rang: rang, groupe_superset: null,
+      validee_a: AVANT_ROWING.debut, rpe: null, ressenti: null, repos_s: null,
+      note: null, source: 'app', created_at: AVANT_ROWING.debut, modifie_a: null
+    });
+  });
 
   const repereF = base.journal.length;
   await aller('/');           // l'app synchronise la séance d'avant
@@ -3315,6 +3328,17 @@ const SETS_IMPORTES = [
   ok('[F] LE FANTÔME AFFICHÉ EST LA CHARGE DE TRAVAIL, PAS CELLE DE LA CHAUFFE',
     (await fantomeAffiche()) === '120',
     'placeholder = « ' + (await fantomeAffiche()) + ' » (40 = la chauffe, le défaut)');
+
+  // ⚠️ ET LA COLONNE, ICI ET PAS AILLEURS (chantier 39). C'est LA configuration
+  // discriminante : la séance d'avant a deux chauffes, celle-ci aucune. Par
+  // indice la colonne montrerait 40 ; par type elle montre 120 — comme le
+  // fantôme, qu'elle contredisait sur device après la PR #282.
+  const colonneAffichee = () => page.evaluate(() =>
+    (document.querySelector('.ligne-serie .prec') || {}).textContent || '');
+  ok('[F] LA COLONNE « PRÉCÉDENT » AUSSI — elle ne contredit plus le fantôme',
+    /120/.test(await colonneAffichee()) && !/\b40\b/.test(await colonneAffichee()),
+    'colonne = « ' + (await colonneAffichee()) + ' » · fantôme « ' +
+    (await fantomeAffiche()) + ' »');
 
   // ⚠️ LE GESTE QUE LE §3 bis.3 VEND : valider sans rien taper.
   await page.evaluate(() => document.querySelector('.ligne-serie .ok-serie').click());
@@ -3383,12 +3407,156 @@ const SETS_IMPORTES = [
     const i = d.querySelector('.ch-serie input');
     return i ? (i.value ? '(saisie ' + i.value + ')' : i.placeholder) : '(pas de champ)';
   });
+  // ⚠️ CHAQUE BRANCHE LIT LES SÉRIES DE SON EXERCICE — MESURÉ SUR LA SECONDE
+  // SÉRIE DE B. Sur la première, le rang vaut 0 et le type « travail » des deux
+  // côtés : prendre la liste de A ou celle de B donne la même réponse, et
+  // l'assertion ne prouverait rien. En seconde position, A porte une CHAUFFE au
+  // même indice — la mauvaise liste chercherait donc une chauffe de tractions,
+  // qui n'existe pas, et la colonne resterait vide.
+  await page.evaluate(() => {
+    Array.from(document.querySelectorAll('.ajout-serie button'))
+      .filter((b) => /Série B/.test(b.textContent))[0].click();
+  });
+  await attendre(600);
+  const colonnesDeB = () => page.evaluate(() =>
+    Array.from(document.querySelectorAll('.ligne-serie'))
+      .filter((x) => /^B/.test(x.querySelector('.no-serie').textContent))
+      .map((x) => x.querySelector('.prec').textContent.trim()));
+  ok('[F] dans un superset, la colonne de B lit les séries de B, pas celles de A',
+    JSON.stringify(await colonnesDeB()) === JSON.stringify(['12', '10']),
+    'colonnes B = ' + JSON.stringify(await colonnesDeB()));
+
   ok('[F] dans un superset, la chauffe prend la CHAUFFE précédente (40), pas `prec[1]` (70)',
     (await fantomeChauffeA()) === '40',
     'placeholder = « ' + (await fantomeChauffeA()) + ' » · badges ' +
     JSON.stringify(await badgesF()));
 
   await terminer();
+
+  console.log('\n══ 7 novodecies. UN SEUL COMPTE, ET UNE COLONNE QUI NE MENT PLUS ══');
+  //
+  // CONFIGURATION DISCRIMINANTE : une séance AVEC des chauffes. Sans elles,
+  // « compter les séries de travail » et « compter toutes les lignes » rendent
+  // le même nombre, et les cinq écrans se ressemblent.
+
+  await aller('/saisie');
+  if (JSON.stringify(await visible()) === '["vue-seance"]') await terminer();
+  await seanceVide();
+  await ajouterExoSeance('Rowing');
+  await plusSerie(0); await plusSerie(0); await plusSerie(0);
+  await attendre(400);
+  // Les DEUX premières en échauffement : 2 chauffes + 2 séries de travail.
+  for (const k of [0, 1]) {
+    await page.evaluate((i) => {
+      document.querySelectorAll('.ligne-serie .no-serie')[i].click();
+    }, k);
+    await attendre(500);
+    await page.evaluate(() => {
+      Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
+        .filter((x) => /chauffement/i.test(x.textContent))[0].click();
+    });
+    await attendre(700);
+  }
+  ok('[C] 2 chauffes + 2 séries de travail',
+    (await page.evaluate(() =>
+      Array.from(document.querySelectorAll('.ligne-serie .no-serie')).map((n) => n.textContent)
+    )).filter((b) => b === 'W').length === 2,
+    JSON.stringify(await page.evaluate(() =>
+      Array.from(document.querySelectorAll('.ligne-serie .no-serie')).map((n) => n.textContent))));
+
+  // ⚠️ LA COLONNE, SUR LA PREMIÈRE LIGNE DE TRAVAIL. L'antécédent est la séance
+  // `40(W) · 70(W) · 120 · 120 · 120` du chantier 38 : par indice la colonne
+  // montrerait 40, par type elle montre 120 — comme le fantôme.
+  const colonneEtFantome = () => page.evaluate(() => {
+    const l = Array.from(document.querySelectorAll('.ligne-serie'))
+      .filter((x) => x.querySelector('.no-serie').textContent !== 'W');
+    const d = l[0];
+    return d ? { colonne: d.querySelector('.prec').textContent.trim(),
+                 fantome: d.querySelector('.ch-serie input').placeholder } : null;
+  });
+  const cf = await colonneEtFantome();
+  ok('[C] la colonne « précédent » montre la charge de TRAVAIL, pas la chauffe',
+    !!cf && /120/.test(cf.colonne),
+    'colonne = « ' + (cf && cf.colonne) + ' »');
+  ok('[C] et elle ne contredit plus le fantôme',
+    !!cf && cf.colonne.indexOf(cf.fantome) >= 0,
+    'colonne « ' + (cf && cf.colonne) + ' » · fantôme « ' + (cf && cf.fantome) + ' »');
+
+  // La colonne d'une CHAUFFE montre une chauffe.
+  const colonneChauffe = () => page.evaluate(() => {
+    const d = Array.from(document.querySelectorAll('.ligne-serie'))
+      .filter((x) => x.querySelector('.no-serie').textContent === 'W')[0];
+    return d ? d.querySelector('.prec').textContent.trim() : '';
+  });
+  ok('[C] sur une chauffe, elle montre une chauffe',
+    /40/.test(await colonneChauffe()),
+    'colonne = « ' + (await colonneChauffe()) + ' »');
+
+  // ── LE MÊME COMPTE SUR TOUS LES ÉCRANS ────────────────────────────────
+  await validerToutes();
+  await attendre(1000);
+  // L'identifiant se prend MAINTENANT : après « Terminer », la séance n'est plus
+  // `en_cours` et son titre vaut null — la retrouver par le libellé affiché
+  // chercherait une valeur que la base ne porte pas.
+  const idC = enCoursId();
+  const bandeau = () => texte('#bandeau-seance .bandeau-ch');
+  ok('[C] le BANDEAU compte les séries de travail, pas les lignes',
+    /2 séries de travail/.test(await bandeau()),
+    (await bandeau()).replace(/\s+/g, ' '));
+
+  await page.click('#bandeau-seance .bandeau-fin');
+  await attendre(800);
+  ok('[C] l’ÉCRAN DE FIN dit le même nombre',
+    /2 séries de travail/.test(await texte('#feuille-contenu')),
+    (await texte('#feuille-contenu')).replace(/\s+/g, ' ').slice(0, 60));
+  await page.click('#feuille-contenu .principal');
+  await attendre(2600);
+
+  // ⚠️ QUATRE LIGNES POUR DEUX SÉRIES DE TRAVAIL. C'est l'écart que les cinq
+  // écrans confondaient — et c'est lui que l'avertissement de suppression, seul,
+  // doit continuer d'annoncer.
+  ok('[C] et la base porte bien 4 lignes pour 2 séries de travail',
+    base.sets.filter((x) => x.session_id === idC).length === 4 &&
+    base.sets.filter((x) => x.session_id === idC && x.type_serie === 'travail').length === 2,
+    base.sets.filter((x) => x.session_id === idC).length + ' ligne(s), ' +
+    base.sets.filter((x) => x.session_id === idC && x.type_serie === 'travail').length +
+    ' de travail');
+
+  await aller('/');
+  await attendre(800);
+  const carteC = () => page.evaluate(() =>
+    Array.from(document.querySelectorAll('.seance-meta')).map((n) => n.textContent));
+  ok('[C] la CARTE porte le qualificatif « de travail » qu’elle avait perdu',
+    (await carteC()).some((t) => /série(s)? de travail/.test(t)),
+    JSON.stringify(await carteC()));
+
+  // ── UNE SORTIE N'A PAS DE SÉRIES DE TRAVAIL ───────────────────────────
+  const avantSortie = (await texte('.barre-totaux')).replace(/\s+/g, ' ').trim();
+  const SORTIE = {
+    id: 'sess-sortie', user_id: 'u-banc', titre: 'Marche du soir',
+    debut: new Date(LUNDI.getTime() + 3 * 86400000 + 3600000).toISOString(),
+    fin: new Date(LUNDI.getTime() + 3 * 86400000 + 7200000).toISOString(),
+    statut: 'terminee', note: null, salle: null, salle_norme: null,
+    routine_id: null, source: 'app',
+    created_at: new Date(LUNDI.getTime() + 3 * 86400000).toISOString()
+  };
+  base.sessions.push(Object.assign({}, SORTIE));
+  [1, 2].forEach((rang) => base.sets.push({
+    id: 'set-sortie-' + rang, session_id: SORTIE.id, user_id: 'u-banc',
+    exercise_slug: 'marche', charge_kg: null, reps: null, duree_s: 1800,
+    distance_m: 3000, type_serie: 'travail', rang: rang, groupe_superset: null,
+    validee_a: SORTIE.debut, rpe: null, ressenti: null, repos_s: null,
+    note: null, source: 'app', created_at: SORTIE.debut, modifie_a: null
+  }));
+  await aller('/');
+  await attendre(1500);
+  const apresSortie = (await texte('.barre-totaux')).replace(/\s+/g, ' ').trim();
+  ok('[C] UNE SORTIE N’AJOUTE AUCUNE SÉRIE DE TRAVAIL À LA SEMAINE',
+    apresSortie.replace(/^\d+ séances/, '') === avantSortie.replace(/^\d+ séances/, ''),
+    'avant « ' + avantSortie +' » · après « ' + apresSortie + ' »');
+  ok('[C] mais elle est bien là — c’est le compte de séries qui l’ignore, pas la liste',
+    /Marche du soir/.test(await texte('#liste-seances')),
+    (await texte('#liste-seances')).replace(/\s+/g, ' ').slice(0, 70));
 
   console.log('\n══ 8. NON-RÉGRESSION ══');
   for (const [chemin, attendu] of [['/', 'vue-liste'], ['/progression', 'vue-progression'],

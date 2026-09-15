@@ -375,7 +375,7 @@
     var series = seances.reduce(function (acc, s) { return acc.concat(seriesDe(s.id)); }, []);
     return {
       bornes: bornes, jours: jours, seances: seances, series: series,
-      bilan: Semaine.bilanSemaine(seances, series),
+      bilan: Semaine.bilanSemaine(seances, series, local.exercices),
       zones: Semaine.volumeParZone(series, local.exercices)
     };
   }
@@ -1313,7 +1313,8 @@
     // gestionnaire qui lirait `feuille.iBloc` APRÈS avoir fermé lirait null.
     // Le geste ne partait pas, et la feuille se fermait quand même — rien à
     // l'écran ne disait que rien ne s'était passé. Trouvé au banc d'écran.
-    var iBloc = feuille.iBloc, cibleExo = feuille.cibleExo, validees = feuille.validees;
+    var iBloc = feuille.iBloc, cibleExo = feuille.cibleExo;
+    var lignesF = feuille.lignes, chauffesF = feuille.chauffes;
     var quoiFeuille = feuille.quoi;
     var bloc = blocs[iBloc];
     if (!bloc) return fermerVoile();
@@ -1324,7 +1325,7 @@
         quoi: cibleExo === null ? (bloc.superset ? 'le bloc' : 'l’exercice') : 'l’exercice',
         noms: cibleExo === null ? noms
           : Modele.nommer(index, seance.exercices[cibleExo].exercise_slug),
-        validees: validees,
+        lignes: lignesF, chauffes: chauffesF,
         surConfirmer: function () {
           var quoi = cibleExo === null ? indicesDe(bloc) : [cibleExo];
           fermerVoile();
@@ -1383,13 +1384,14 @@
     var bloc = blocs[iBloc];
     if (!bloc) return fermerVoile();
     var quoi = cibleExo === null ? indicesDe(bloc) : [cibleExo];
-    var validees = Seance.compterValidees(seance, quoi);
-    if (!validees) {
+    var aEffacer = Seance.compterAEffacer(seance, quoi);
+    if (!aEffacer.lignes) {
       fermerVoile();
       seance = Seance.retirerExercices(seance, quoi);
       return apresStructure();
     }
-    feuille = { quoi: 'supprimer', iBloc: iBloc, cibleExo: cibleExo, validees: validees };
+    feuille = { quoi: 'supprimer', iBloc: iBloc, cibleExo: cibleExo,
+                lignes: aEffacer.lignes, chauffes: aEffacer.chauffes };
     rendreFeuille();
   }
 
@@ -1961,8 +1963,8 @@
     Rendu.rendreRadar($('radar'), comparaison, p, Periode);
     Rendu.rendreCartesPeriode($('cartes-radar'),
       comparaison.vide ? [] : Periode.cartes(comparaison,
-        Semaine.bilanSemaine(c.seances, c.series),
-        Semaine.bilanSemaine(a.seances, a.series)),
+        Semaine.bilanSemaine(c.seances, c.series, local.exercices),
+        Semaine.bilanSemaine(a.seances, a.series, local.exercices)),
       p);
     $('note-radar').hidden = comparaison.vide;
   }
@@ -2109,14 +2111,16 @@
   // cascade `sets_session_id_fkey ON DELETE CASCADE` s'en charge en base, et on
   // fait le même ménage en local pour que l'écran suive tout de suite.
   function demanderSuppressionSeance(ligne) {
-    var n = seriesDe(ligne.id).length;
+    // Des LIGNES, chauffes comprises : c'est ce qui part vraiment (C1).
+    var toutes = seriesDe(ligne.id);
+    var n = toutes.length;
+    var nW = toutes.filter(function (x) { return x && x.type_serie === 'echauffement'; }).length;
     Rendu.rendreFeuilleConfirmer($('feuille-contenu'), {
       titre: 'Supprimer cette séance ?',
       sujet: ligne.titre || 'Séance',
       danger: true,
       libelle: 'Supprimer',
-      aide: n + ' série' + (n > 1 ? 's' : '') + ' ser' + (n > 1 ? 'ont' : 'a') +
-        ' effacée' + (n > 1 ? 's' : '') + ' avec elle. Rien ne la remet en place.',
+      aide: Rendu.phraseEffacement(n, nW) + ' avec elle. Rien ne la remet en place.',
       surConfirmer: async function () { fermerVoile(); await supprimerSeance(ligne.id); },
       surAnnuler: fermerVoile
     });

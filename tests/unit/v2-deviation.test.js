@@ -296,10 +296,10 @@ describe('déplacer un bloc (§5.5)', () => {
 describe('supprimer un bloc ou une branche', () => {
   test('on compte ce qui serait perdu — la confirmation en dépend', () => {
     let { seance: s } = seanceDe([['squat', 3, 1], ['dc', 3, 1]]);
-    expect(Seance.compterValidees(s, [0, 1])).toBe(0);
+    expect(Seance.compterAEffacer(s, [0, 1]).lignes).toBe(0);
     s = valider(s, 0, 0); s = valider(s, 1, 0); s = valider(s, 0, 1);
-    expect(Seance.compterValidees(s, [0, 1])).toBe(3);
-    expect(Seance.compterValidees(s, [1])).toBe(1);
+    expect(Seance.compterAEffacer(s, [0, 1]).lignes).toBe(3);
+    expect(Seance.compterAEffacer(s, [1]).lignes).toBe(1);
   });
 
   test('supprimer un bloc entier retire toutes ses branches', () => {

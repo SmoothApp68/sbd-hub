@@ -58,7 +58,12 @@ const CATALOGUE = [
   // laissé passer le défaut pendant trois chantiers de saisie.
   { slug: 'tractions', nom: 'Tractions', mesure: 'reps', charge: 'aucune', muscles_primaires: ['dorsaux'], muscles_secondaires: [] },
   { slug: 'planche', nom: 'Planche', mesure: 'temps', charge: 'aucune', muscles_primaires: ['abdominaux'], muscles_secondaires: [] },
-  { slug: 'marche', nom: 'Marche', mesure: 'distance_temps', charge: 'aucune', muscles_primaires: [], muscles_secondaires: [] }
+  { slug: 'marche', nom: 'Marche', mesure: 'distance_temps', charge: 'aucune', muscles_primaires: [], muscles_secondaires: [] },
+  // ⚠️ RÉSERVÉ AU CHANTIER 38. `Seance.precedent` rend la séance la PLUS
+  // RÉCENTE portant l'exercice : un slug déjà utilisé par les sections
+  // précédentes ferait pointer l'antécédent sur une séance du banc, et le test
+  // ne mesurerait plus rien de déterministe.
+  { slug: 'rowing-barre', nom: 'Rowing Barre', mesure: 'charge_reps', charge: 'externe', muscles_primaires: ['dorsaux'], muscles_secondaires: [] }
 ];
 
 const ROUTINE = {
@@ -3254,6 +3259,136 @@ const SETS_IMPORTES = [
     JSON.stringify(await visible()) === '["vue-liste"]' &&
     JSON.stringify(await enFile()) === '[]',
     JSON.stringify(await visible()) + ' · ' + JSON.stringify(await enFile()));
+
+  console.log('\n══ 7 octodecies. LE FANTÔME S’ALIGNE PAR TYPE ══');
+  //
+  // CONFIGURATION DISCRIMINANTE : une séance précédente AVEC des chauffes, et
+  // une séance d'aujourd'hui qui en a MOINS. Avec le même nombre des deux
+  // côtés, aligner par indice et aligner par type donnent le même fantôme.
+  //
+  // Ce que seul ce banc peut prouver : `validerSerie` COMMET la valeur du
+  // fantôme (§3 bis.3 — « on valide sans rien taper quand c'est juste »). Le
+  // test unitaire montre le bon fantôme ; celui-ci montre la bonne ligne EN BASE.
+
+  const AVANT_ROWING = {
+    id: 'sess-rowing', user_id: 'u-banc', titre: 'Dos — la fois d’avant',
+    debut: new Date(LUNDI.getTime() + 6 * 86400000).toISOString(),
+    fin: new Date(LUNDI.getTime() + 6 * 86400000 + 3600000).toISOString(),
+    statut: 'terminee', note: null, salle: null, salle_norme: null,
+    routine_id: null, source: 'app',
+    created_at: new Date(LUNDI.getTime() + 6 * 86400000).toISOString()
+  };
+  base.sessions.push(Object.assign({}, AVANT_ROWING));
+  // `40(W) · 70(W) · 120 · 120 · 120` — exactement le cas de l'audit.
+  [[1, 40, 10, 'echauffement'], [2, 70, 5, 'echauffement'],
+   [3, 120, 5, 'travail'], [4, 120, 5, 'travail'], [5, 120, 4, 'travail']
+  ].forEach(([rang, kg, reps, type]) => {
+    base.sets.push({
+      id: 'set-row-' + rang, session_id: AVANT_ROWING.id, user_id: 'u-banc',
+      exercise_slug: 'rowing-barre', charge_kg: kg, reps: reps, duree_s: null,
+      distance_m: null, type_serie: type, rang: rang, groupe_superset: null,
+      validee_a: AVANT_ROWING.debut, rpe: null, ressenti: null, repos_s: null,
+      note: null, source: 'app', created_at: AVANT_ROWING.debut, modifie_a: null
+    });
+  });
+
+  const repereF = base.journal.length;
+  await aller('/');           // l'app synchronise la séance d'avant
+  await attendre(1200);
+
+  // ⚠️ LA SECTION D7 A LAISSÉ UNE SÉANCE EN COURS (elle en reprend une restée
+  // ouverte en base, c'est tout son objet). L'écran de saisie n'en tient qu'UNE :
+  // sans la refermer, « séance vide » n'existe pas et ce banc échouerait pour une
+  // raison étrangère au défaut testé.
+  await aller('/saisie');
+  if (JSON.stringify(await visible()) === '["vue-seance"]') await terminer();
+
+  await seanceVide();
+  await ajouterExoSeance('Rowing');
+  ok('[F] l’exercice est ajouté, avec UNE série de travail, aucune chauffe',
+    (await compter('.ligne-serie')) === 1,
+    (await compter('.ligne-serie')) + ' ligne(s)');
+
+  // Le fantôme s'affiche en `placeholder` du champ de charge.
+  const fantomeAffiche = () => page.evaluate(() =>
+    (document.querySelector('.ligne-serie .ch-serie input') || {}).placeholder || '');
+  ok('[F] LE FANTÔME AFFICHÉ EST LA CHARGE DE TRAVAIL, PAS CELLE DE LA CHAUFFE',
+    (await fantomeAffiche()) === '120',
+    'placeholder = « ' + (await fantomeAffiche()) + ' » (40 = la chauffe, le défaut)');
+
+  // ⚠️ LE GESTE QUE LE §3 bis.3 VEND : valider sans rien taper.
+  await page.evaluate(() => document.querySelector('.ligne-serie .ok-serie').click());
+  await attendre(1800);
+  const idRow = (base.sessions.filter((x) => x.statut === 'en_cours')[0] || {}).id;
+  const monteeF = base.sets.filter((x) => x.session_id === idRow)[0];
+  ok('[F] et VALIDER SANS RIEN TAPER écrit 120 en base, pas 40',
+    !!monteeF && Number(monteeF.charge_kg) === 120,
+    monteeF ? 'charge_kg = ' + monteeF.charge_kg : 'aucune série montée');
+  ok('[F] les reps aussi viennent de la série de travail',
+    !!monteeF && Number(monteeF.reps) === 5,
+    monteeF ? 'reps = ' + monteeF.reps : '—');
+  ok('[F] aucun refus du serveur',
+    base.journal.filter((j, i) => i >= repereF && j.op === 'refus').length === 0,
+    JSON.stringify(base.journal.filter((j, i) => i >= repereF && j.op === 'refus').slice(0, 3)));
+
+  await terminer();
+
+  // ── L'ALIGNEMENT TIENT DANS UN SUPERSET (§2.5) ────────────────────────
+  //
+  // ⚠️ SUR UNE SÉANCE VIERGE, et c'est obligatoire : `derniereSaisie` — « ce que
+  // tu viens de taper sur cet exercice » — PRIME sur l'historique, et c'est
+  // juste. Sur la séance précédente, la charge validée à 120 masquait le
+  // fantôme historique : le banc mesurait la bonne règle au mauvais endroit.
+  //
+  // ⚠️ ET LA CHAUFFE EST EN SECONDE POSITION DANS LE MODÈLE. Première, les deux
+  // alignements donneraient 40 et ne prouveraient rien. En position 2 : par
+  // indice elle prendrait `prec[1]` = 70, par type elle est la PREMIÈRE chauffe
+  // et prend 40.
+  await seanceVide();
+  await ajouterExoSeance('Rowing');
+  await plusSerie(0);
+  await attendre(400);
+  await page.evaluate(() => {
+    const nos = document.querySelectorAll('.ligne-serie .no-serie');
+    nos[nos.length - 1].click();
+  });
+  await attendre(600);
+  await page.evaluate(() => {
+    Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
+      .filter((x) => /chauffement/i.test(x.textContent))[0].click();
+  });
+  await attendre(800);
+  await ajouterExoSeance('Tractions');
+  await menuBloc(0);
+  await entree('Grouper en superset');
+  await attendre(400);
+  await page.evaluate(() => {
+    const b = Array.from(document.querySelectorAll('.bloc-seance'))[1];
+    if (b) b.click();
+  });
+  await attendre(800);
+
+  const badgesF = () => page.evaluate(() =>
+    Array.from(document.querySelectorAll('.ligne-serie .no-serie')).map((n) => n.textContent));
+  ok('[F] le superset est formé, la chauffe porte la LETTRE SEULE (§2.5)',
+    (await compter('.bloc-seance.superset')) === 1 &&
+    (await badgesF()).indexOf('A') >= 0,
+    (await compter('.bloc-seance.superset')) + ' superset · badges ' +
+    JSON.stringify(await badgesF()));
+
+  const fantomeChauffeA = () => page.evaluate(() => {
+    const d = Array.from(document.querySelectorAll('.ligne-serie'))
+      .filter((x) => x.querySelector('.no-serie').textContent === 'A')[0];
+    if (!d) return '(aucune chauffe A)';
+    const i = d.querySelector('.ch-serie input');
+    return i ? (i.value ? '(saisie ' + i.value + ')' : i.placeholder) : '(pas de champ)';
+  });
+  ok('[F] dans un superset, la chauffe prend la CHAUFFE précédente (40), pas `prec[1]` (70)',
+    (await fantomeChauffeA()) === '40',
+    'placeholder = « ' + (await fantomeChauffeA()) + ' » · badges ' +
+    JSON.stringify(await badgesF()));
+
+  await terminer();
 
   console.log('\n══ 8. NON-RÉGRESSION ══');
   for (const [chemin, attendu] of [['/', 'vue-liste'], ['/progression', 'vue-progression'],

@@ -341,6 +341,21 @@
     return r.data || [];
   }
 
+  // Referme une séance restée `en_cours` en base (chantier 36, D7).
+  //
+  // UPDATE CIBLÉ, jamais un upsert de la ligne entière : `sessions` porte des
+  // colonnes GÉNÉRÉES (`salle_norme`) que Postgres refuse en écriture, et on
+  // n'a aucune raison de réécrire des colonnes qu'on n'a pas lues.
+  //
+  // `fin` n'est PAS renseignée, et c'est délibéré : on sait que la séance est
+  // terminée, on ne sait pas QUAND. Inventer une fin — maintenant, ou l'heure
+  // du début — écrirait un fait faux dans la colonne qui dit précisément
+  // combien de temps elle a duré. `sessions.fin` accepte NULL.
+  async function refermerSeance(id) {
+    var r = await client().from('sessions').update({ statut: 'terminee' }).eq('id', id);
+    if (r.error) throw r.error;
+  }
+
   // Les séries d'une séance, pour reprendre une séance ouverte sur un autre
   // appareil — ou après une réinstallation.
   async function seriesDeSeance(sessionId) {
@@ -367,6 +382,7 @@
     supprimerSeance: supprimerSeance,
     remplacerSeries: remplacerSeries,
     seancesEnCours: seancesEnCours,
+    refermerSeance: refermerSeance,
     seriesDeSeance: seriesDeSeance,
     compterSeances: compterSeances,
     compterSeries: compterSeries,

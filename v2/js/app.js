@@ -692,6 +692,90 @@
       r.entrees + ' envoi(s) — ' + 'déblocage et renvoi complet.');
   }
 
+  // ══ LA SÉANCE `en_cours` RESTÉE EN BASE (chantier 36, D7) ════════════════
+  //
+  // `sessions_une_seule_en_cours` est un index UNIQUE sur `user_id` WHERE
+  // `statut = 'en_cours'`, et il n'est PAS différable. Une séance restée ouverte
+  // en base — autre appareil, réinstallation, ou un fantôme — fait donc échouer
+  // la CRÉATION de la suivante en `23505` : code définitif, la file meurt, et
+  // avec elle tout ce qui suit. `Donnees.seancesEnCours` avait été écrite
+  // exactement pour ça, et n'était appelée que par un test.
+  //
+  // ── CE QU'ON EN FAIT, ET POURQUOI ──────────────────────────────────────
+  //
+  // Pas de brouillon local → on la REPREND. Elle peut porter des séries
+  // validées ; les jeter serait la perte que tout ce projet s'interdit, et
+  // `Donnees.seriesDeSeance` existe pour la rapatrier.
+  //
+  // Un brouillon local → on la REFERME (`statut = 'terminee'`). Les deux ne
+  // peuvent pas coexister — l'index l'interdit — et c'est le brouillon local que
+  // l'utilisateur a sous les yeux. Refermer ne perd RIEN : la séance distante
+  // garde ses séries et rejoint l'historique.
+  //
+  // On ne DEMANDE pas. La question se poserait au démarrage, avant que
+  // l'utilisateur ait rien fait, sur un cas qui est presque toujours un
+  // fantôme — et les deux issues étant non destructives, il n'y a aucune
+  // décision à lui déléguer. Une modale au boot est précisément ce que
+  // l'ordonnanceur d'entrée a appris à ne plus faire.
+  //
+  // ⚠️ ET ÇA SE PASSE AU DÉMARRAGE, JAMAIS AU GESTE. « Démarrer une séance »
+  // doit marcher hors ligne : y glisser une requête réseau ferait dépendre le
+  // geste du réseau, ce que le contrat de la file interdit. Si la lecture
+  // échoue, on ne bloque rien et on retentera au prochain démarrage.
+  async function resoudreSeanceEnCoursDistante() {
+    if (!sessionActive) return;
+    var ouvertes;
+    try { ouvertes = await Donnees.seancesEnCours(); }
+    catch (e) {
+      // Le réseau ne décide de rien : sans réponse, on ne touche à rien.
+      console.warn('Séances en cours illisibles :', texteErreur(e));
+      return;
+    }
+    // ⚠️ TOUTES CELLES QUI NE SONT PAS LA NÔTRE, pas « la première ». L'index
+    // n'en autorise qu'une à la fois, mais il a pu être créé APRÈS que
+    // plusieurs se soient installées — et surtout, si la première rendue est la
+    // nôtre, s'arrêter là laisserait les autres bloquer la file pour toujours.
+    var etrangeres = (ouvertes || []).filter(function (x) {
+      return x && x.id && !(seance && seance.id === x.id);
+    });
+    if (!etrangeres.length) return;
+
+    // Un brouillon local existe : les autres ne peuvent pas coexister avec lui,
+    // on les referme. Aucune n'est supprimée — elles gardent leurs séries et
+    // rejoignent l'historique.
+    if (seance) {
+      for (var i = 0; i < etrangeres.length; i++) {
+        try {
+          await Donnees.refermerSeance(etrangeres[i].id);
+          console.warn('Séance restée ouverte en base refermée : ' + etrangeres[i].id);
+        } catch (e) { console.warn('Séance distante non refermée :', texteErreur(e)); }
+      }
+      return;
+    }
+
+    // Aucun brouillon : on REPREND la plus récente, et on referme les autres.
+    var triees = etrangeres.slice().sort(function (a, b) {
+      return String(b.debut).localeCompare(String(a.debut));
+    });
+    var distante = triees[0];
+    for (var j = 1; j < triees.length; j++) {
+      try { await Donnees.refermerSeance(triees[j].id); }
+      catch (e) { console.warn('Séance distante non refermée :', texteErreur(e)); }
+    }
+
+    try {
+      var series = await Donnees.seriesDeSeance(distante.id);
+      seance = Seance.reprendre(distante, Modele.construireBlocs(series, local.exercices));
+      // Les tours se recalculent depuis ce qu'on vient de lire : `sessions` ne
+      // les porte pas, et sans ça un superset repris repartirait au tour 0.
+      seance = Seance.avancerTours(seance,
+        Modele.toursFaitsParGroupe(Modele.blocsDeSeance(seance, local.exercices)));
+      chrono = null;
+      await sauverSeance();
+      rendreChrono();
+    } catch (e) { console.warn('Séance distante non reprise :', texteErreur(e)); }
+  }
+
   // Une seule séance en cours à la fois. Au lancement, si un brouillon existe,
   // on le REPREND — on n'en crée pas une seconde.
   async function chargerSeanceLocale() {
@@ -2021,12 +2105,25 @@
     // d'écrire ses séries, sinon la vidange écrirait les séries d'une séance
     // supprimée — et les recréerait par la clé étrangère.
     attente = Attente.retirer(attente, Attente.cleDe(Attente.SETS, id));
+    // ⚠️ ON RETIRE, ON NE FAIT PAS TABLE RASE (chantier 36).
+    // `Cache.remplacerTout` VIDE le magasin puis le réécrit — `cache.js` le
+    // réserve explicitement aux magasins petits et rafraîchis en entier, et dit
+    // que « les 28 103 séries ne passent pas par ici ». Supprimer UNE séance
+    // réécrivait donc les 28 103 lignes, et une fermeture d'app au mauvais
+    // moment laissait le magasin à moitié plein, définitivement.
+    var partantes = (local.series || [])
+      .filter(function (s) { return s && s.session_id === id; })
+      .map(function (s) { return s.id; });
     local.seances = local.seances.filter(function (s) { return s.id !== id; });
     local.series = local.series.filter(function (s) { return s.session_id !== id; });
     rangerSeances();
+    // ⚠️ ET L'INDEX AUSSI. `local.parSeance` est construit une fois et n'était
+    // pas refait ici : il gardait les séries d'une séance supprimée, donc
+    // `seriesDe(id)` continuait de les rendre. Même famille que le reste.
+    indexerParSeance();
     recalculerEtats();
     await Cache.remplacerTout('seances', local.seances).catch(function () {});
-    await Cache.remplacerTout('series', local.series).catch(function () {});
+    if (partantes.length) await Cache.supprimer('series', partantes).catch(function () {});
     await poser({ table: Attente.SESSIONS, op: Attente.SUPPRIMER, id: id });
     afficherSemaine(lundiAffiche);
   }
@@ -2178,6 +2275,10 @@
     sortie.apresNavigation(false);
 
     await synchroniser();
+    // ⚠️ AVANT LA VIDANGE, et seulement une fois le réseau confirmé (ch. 36, D7).
+    // Une séance `en_cours` restée en base ferait échouer l'upsert de la nôtre
+    // en `23505` — code définitif, file morte. On la résout d'abord.
+    await resoudreSeanceEnCoursDistante();
     vidanger();   // le réseau vient de répondre : c'est le moment d'envoyer
     // L'utilisateur est parti ailleurs pendant la synchro. Re-rendre écraserait
     // son écran — et, sur l'éditeur de routine, le brouillon qu'il est en train

@@ -122,6 +122,37 @@
   function repsValides(v) { return borne(v, REPS_MIN, REPS_MAX); }
   function reposValide(v) { return borne(v, REPOS_MIN, REPOS_MAX); }
 
+  // ⚠️ NORMALISER, C'EST BORNER — PAS SEULEMENT CONVERTIR (chantier 36, D5).
+  //
+  // `seriesValides` et `borne` rendent `{ok, valeur}` : `valeur` est la valeur
+  // LUE, hors bornes comprise. `valider()` regarde `ok` — mais `valider()` n'est
+  // appelée QUE par l'éditeur. Le report de fin de séance, lui, passe droit :
+  // il prenait `valeur` et l'envoyait telle quelle.
+  //
+  // Deux gestes réels produisaient une valeur refusée par la base : supprimer
+  // la dernière série d'un exercice ajouté en séance (`series: 0`) ou en
+  // ajouter vingt et une. `routine_exos_series_bornees` répond alors `23514`,
+  // code DÉFINITIF : l'entrée devient la tête de file et bloque tout ce qui
+  // suit, pour toujours. Et comme elle est posée APRÈS la séance, rien n'est
+  // perdu sur le coup — le blocage ne se voit que les jours suivants.
+  //
+  // LA RÈGLE : on BORNE ce qui doit exister, on ANNULE ce qui peut être absent.
+  // `series` est NOT NULL et contrainte 1..20 : la seule issue est de la ramener
+  // dans la plage. `reps_visees` et `repos_cible_s` acceptent NULL, et NULL veut
+  // dire « non renseigné » — plus honnête qu'une valeur inventée par un cap.
+  function serieBornee(v) {
+    var r = seriesValides(v);
+    if (r.ok) return r.valeur;
+    // ⚠️ PAS DE GARDE `isFinite` ICI : `seriesValides` rend TOUJOURS un nombre —
+    // `SERIES_DEFAUT` quand l'entrée n'est ni vide ni entière, la valeur lue
+    // sinon. La campagne de mutations l'a montrée INTUABLE, donc morte (leçon de
+    // `palier.js`, chantier 17 : elle ne protégeait de rien et laissait croire
+    // l'inverse).
+    return Math.min(SERIES_MAX, Math.max(SERIES_MIN, Math.round(Number(r.valeur))));
+  }
+
+  function nulSiHorsBornes(r) { return r && r.ok ? r.valeur : null; }
+
   // Valide une routine complète avant écriture. Rend la liste des problèmes,
   // pas un booléen : l'écran doit pouvoir dire LEQUEL est en cause.
   function valider(brouillon, routines) {
@@ -266,9 +297,9 @@
     var o = {
       exercise_slug: (e && e.exercise_slug) || null,
       rang: rang,
-      series: seriesValides(e && e.series).valeur,
-      reps_visees: repsValides(e && e.reps_visees).valeur,
-      repos_cible_s: reposValide(e && e.repos_cible_s).valeur,
+      series: serieBornee(e && e.series),
+      reps_visees: nulSiHorsBornes(repsValides(e && e.reps_visees)),
+      repos_cible_s: nulSiHorsBornes(reposValide(e && e.repos_cible_s)),
       groupe_superset: groupeValide(e && e.groupe_superset),
       note: texteOuNul(e && e.note)
     };
@@ -533,6 +564,8 @@
     nomValide: nomValide,
     nomEnConflit: nomEnConflit,
     seriesValides: seriesValides,
+    serieBornee: serieBornee,
+    nulSiHorsBornes: nulSiHorsBornes,
     repsValides: repsValides,
     reposValide: reposValide,
     valider: valider,

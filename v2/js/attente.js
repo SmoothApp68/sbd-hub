@@ -277,20 +277,40 @@
 
   // Ce que l'utilisateur voit. Un fait, un chiffre, aucune alarme — la même
   // règle que l'état de synchronisation en lecture.
+  // ⚠️ « N À ENVOYER » QUAND RIEN NE PEUT MONTER EST UNE PERTE SILENCIEUSE
+  // (chantier 36, D6, second symptôme).
+  //
+  // `marquerEchec` ne pose `bloquee` que sur un code DÉFINITIF. Une erreur
+  // temporaire — `22003`, un 500, une coupure — laisse `bloquee` à null et
+  // incrémente `essais` ; mais `vidanger` s'arrête quand même sur cette entrée,
+  // parce que sauter la tête casserait l'ordre des dépendances. L'état affichait
+  // alors « 3 à envoyer », c'est-à-dire exactement ce qu'il affiche quand tout
+  // va bien et que le réseau manque — alors que la file ne peut plus avancer.
+  //
+  // TROIS ÉTATS, PAS DEUX : en attente (rien n'a encore été tenté), en échec
+  // (tenté, refusé, on réessaiera), refusé définitivement (on ne réessaiera
+  // pas). Le deuxième était invisible, et c'est celui qui trompe.
   function resume(file) {
     var liste = file || [];
-    if (!liste.length) return { enAttente: 0, bloquees: 0, libelle: '' };
+    if (!liste.length) return { enAttente: 0, bloquees: 0, enEchec: 0, libelle: '' };
     var bloquees = liste.filter(function (e) { return !!e.bloquee; }).length;
+    var enEchec = liste.filter(function (e) { return !e.bloquee && (e.essais || 0) > 0; }).length;
     var n = liste.length;
     if (bloquees) {
       return {
-        enAttente: n, bloquees: bloquees,
+        enAttente: n, bloquees: bloquees, enEchec: enEchec,
         libelle: bloquees + ' envoi' + (bloquees > 1 ? 's' : '') + ' refusé' +
                  (bloquees > 1 ? 's' : '') + ' — rien n’est perdu'
       };
     }
+    if (enEchec) {
+      return {
+        enAttente: n, bloquees: 0, enEchec: enEchec,
+        libelle: 'Envoi en échec — ' + n + ' en attente, nouvelle tentative'
+      };
+    }
     return {
-      enAttente: n, bloquees: 0,
+      enAttente: n, bloquees: 0, enEchec: 0,
       libelle: n + ' à envoyer'
     };
   }
@@ -303,6 +323,7 @@
     var r = resume(file);
     if (!r.enAttente) return etatLecture;
     if (r.bloquees) return { code: 'bloque', libelle: r.libelle, local: true };
+    if (r.enEchec) return { code: 'echec', libelle: r.libelle, local: true };
     return { code: 'a-envoyer', libelle: r.libelle, local: true };
   }
 

@@ -165,6 +165,7 @@ describe('3 — la reprise lit `en_cours`, et elle seule', () => {
             return chainable;
           },
           eq(colonne, valeur) { q.filtres.push([colonne, valeur]); return chainable; },
+          update(champs) { q.op = 'update'; q.champs = champs; return chainable; },
           gt() { return chainable; },
           order() { return chainable; },
           limit() { return chainable; },
@@ -189,6 +190,37 @@ describe('3 — la reprise lit `en_cours`, et elle seule', () => {
     const r = await Donnees.seancesEnCours();
     expect(r.map((s) => s.id)).toEqual(['C']);
     expect(requetes[0].filtres).toEqual([['statut', 'en_cours']]);
+  });
+
+  // ── `refermerSeance` (chantier 36, D7) ──────────────────────────────────
+  //
+  // ⚠️ UN UPDATE CIBLÉ, JAMAIS UN UPSERT DE LA LIGNE ENTIÈRE. `sessions` porte
+  // `salle_norme`, qui est GÉNÉRÉE : Postgres refuse toute écriture dessus, même
+  // NULL. Réécrire la ligne entière échouerait donc — et échouerait en `428C9`,
+  // c'est-à-dire sur le chemin même qu'on répare.
+  test('`refermerSeance` n’écrit QUE `statut`, sur la seule séance visée', async () => {
+    const Donnees = charger({ data: null, error: null });
+    await Donnees.refermerSeance('C');
+    const q = requetes[0];
+    expect(q.table).toBe('sessions');
+    expect(q.op).toBe('update');
+    expect(Object.keys(q.champs)).toEqual(['statut']);
+    expect(q.champs.statut).toBe('terminee');
+    expect(q.filtres).toEqual([['id', 'C']]);
+  });
+
+  // ⚠️ `fin` N'EST PAS RENSEIGNÉE, et c'est délibéré : on sait que la séance est
+  // terminée, on ne sait pas QUAND. Inventer une fin écrirait un fait faux dans
+  // la colonne qui dit précisément combien de temps elle a duré.
+  test('et elle n’invente pas de `fin`', async () => {
+    const Donnees = charger({ data: null, error: null });
+    await Donnees.refermerSeance('C');
+    expect('fin' in requetes[0].champs).toBe(false);
+  });
+
+  test('une erreur du serveur remonte — la réparation ne se croit pas faite', async () => {
+    const Donnees = charger({ data: null, error: { code: '42501', message: 'rls' } });
+    await expect(Donnees.refermerSeance('C')).rejects.toBeTruthy();
   });
 
   // ⚠️ ET LE TRANSPORT, LUI, NE FILTRE PAS — c'est le piège de ce chantier.

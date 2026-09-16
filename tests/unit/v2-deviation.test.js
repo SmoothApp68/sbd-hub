@@ -606,6 +606,24 @@ describe('les écarts de structure (§6.2)', () => {
                 { type_serie: 'travail', reps: null }]);
   });
 
+  // ⚠️ TROUVÉ PAR LA CAMPAGNE DE MUTATIONS (M23), pas par une relecture.
+  //
+  // Le test ci-dessus ne portait que sur des séries de TRAVAIL : « chaque ligne
+  // garde son type » et « tout est du travail » y donnaient le même tableau. Une
+  // chauffe faite sur un exercice ajouté se serait donc programmée comme une
+  // série de travail, sans qu'aucune assertion ne bouge — et la routine aurait
+  // prescrit une série de plus à chaque réutilisation.
+  test('…ET SES TYPES : une chauffe faite se programme comme une chauffe', () => {
+    let { seance: s, routine } = seanceDe([['squat', 2, null]]);
+    s = Seance.insererExercice(s, 1, 'curl', uuid);
+    s = Seance.ajouterSerie(s, 1, uuid);
+    s = Seance.ajouterSerie(s, 1, uuid);
+    s = Seance.changerType(s, 1, 0, 'echauffement');
+    s = Seance.changerType(s, 1, 2, 'degressive');
+    expect(Seance.ecartsRoutine(s, routine).voulues[1].series.map((x) => x.type_serie))
+      .toEqual(['echauffement', 'travail', 'degressive']);
+  });
+
   test('structure et repos se rapportent ENSEMBLE, dans la même question', () => {
     let { seance: s, routine } = seanceDe([['squat', 1, null], ['dc', 1, null]]);
     s = Seance.definirReposCible(s, 0, 90);

@@ -177,7 +177,14 @@ const CATALOGUE = [
         Object.assign({}, r, {
           routine_exercises: base.exos.filter((e) => e.routine_id === r.id).map((e) =>
             Object.assign({}, e, {
-              routine_sets: base.series.filter((x) => x.routine_exercise_id === e.id)
+              // ⚠️ DANS LE DÉSORDRE, EXPRÈS. PostgREST ne garantit AUCUN ordre
+              // sur une ressource imbriquée sans `order=` — et la requête n'en
+              // pose pas. Un banc qui les rendrait triées testerait un serveur
+              // qui n'existe pas, et « l'app trie » passerait pour vrai de
+              // toute implémentation, y compris d'une qui ne trie rien.
+              routine_sets: base.series
+                .filter((x) => x.routine_exercise_id === e.id)
+                .slice().reverse()
             }))
         })), url));
       return json([]);
@@ -649,17 +656,31 @@ const CATALOGUE = [
   // banc qui taperait encore dans un champ ne le mesurerait pas.
   ok('[43] un exercice neuf naît avec UNE ligne, pas trois',
     (await lignes(0)).length === 1, JSON.stringify(await lignes(0)));
+
+  // ⚠️ ON REMPLIT AVANT D'AJOUTER, et c'est la mutation M26 qui l'a imposé.
+  //
+  // « + Série » RECOPIE la ligne précédente : c'est ce qui fait que programmer
+  // « 5, 5, 5 » coûte trois taps et non trois saisies. Sur des lignes VIDES,
+  // « recopie la précédente » et « pose une ligne vide » donnent exactement le
+  // même écran — le banc comptait les lignes et se déclarait satisfait, et la
+  // recopie pouvait disparaître sans qu'une seule assertion bouge.
+  await saisirLigne(0, 0, 'reps', '12');
+  await saisirLigne(0, 0, 'kg', '60');
   await ajouterSerie(0);
+  ok('[43] « + Série » RECOPIE la précédente — trois taps pour trois séries',
+    JSON.stringify(await lignes(0)) ===
+      JSON.stringify([{ badge: '1', kg: '60', reps: '12' },
+                      { badge: '2', kg: '60', reps: '12' }]),
+    JSON.stringify(await lignes(0)));
   await ajouterSerie(0);
-  ok('[43] « + Série » en ajoute une, et recopie la précédente',
+  ok('[43] et une troisième suit, toujours par recopie',
     (await lignes(0)).length === 3, JSON.stringify(await lignes(0)));
 
   // ⚠️ DES REPS DISTINCTES — LA CONFIGURATION DISCRIMINANTE. Trois lignes à 8
   // rendent « lire chaque ligne » et « répéter la première » indistinguables.
-  await saisirLigne(0, 0, 'reps', '12');
   await saisirLigne(0, 1, 'reps', '10');
   await saisirLigne(0, 2, 'reps', '8');
-  await saisirLigne(0, 1, 'kg', '60');
+  await saisirLigne(0, 2, 'kg', '');
   await page.click('#btn-enregistrer-routine');
   await attendre(900);
   const exo0 = () => base.exos.slice().sort((a, b) => a.rang - b.rang)[0];
@@ -671,9 +692,27 @@ const CATALOGUE = [
   ok('[43] chaque ligne porte SES reps, pas celles de la première',
     JSON.stringify(series0().map((x) => x.reps_visees)) === '[12,10,8]',
     JSON.stringify(series0().map((x) => x.reps_visees)));
-  ok('[43] la charge CIBLE se programme par ligne, et reste vide ailleurs',
-    JSON.stringify(series0().map((x) => x.charge_cible_kg)) === '[null,60,null]',
+  // ⚠️ 60 · 60 · VIDE : les deux premières par RECOPIE, la troisième EFFACÉE à
+  // la main. Le trou compte autant que les valeurs — c'est lui qui prouve que
+  // la charge se programme LIGNE PAR LIGNE, et qu'un champ vidé part bien à
+  // NULL plutôt que de garder la valeur recopiée.
+  ok('[43] la charge CIBLE se programme par ligne, et un champ vidé part à NULL',
+    JSON.stringify(series0().map((x) => x.charge_cible_kg)) === '[60,60,null]',
     JSON.stringify(series0().map((x) => x.charge_cible_kg)));
+
+  // ⚠️ ET ELLES SE RELISENT DANS L'ORDRE DES RANGS, pas dans celui du serveur.
+  // Le banc les rend à l'envers exprès (voir le GET) : sans tri côté app, la
+  // rampe s'afficherait 8-10-12 et la routine dirait le contraire de ce qu'elle
+  // fait. C'est le genre d'écart qu'on ne voit qu'au rechargement.
+  await aller('/saisie');
+  await page.click('#liste-routines .routine');
+  await attendre(700);
+  ok('[43] rouvertes, les lignes sont dans l’ordre des RANGS, pas du serveur',
+    JSON.stringify((await lignes(0)).map((l) => l.reps)) === '["12","10","8"]',
+    JSON.stringify((await lignes(0)).map((l) => l.reps)));
+  ok('[43] et la charge cible suit la même ligne qu’avant',
+    JSON.stringify((await lignes(0)).map((l) => l.kg)) === '["60","60",""]',
+    JSON.stringify((await lignes(0)).map((l) => l.kg)));
   ok('[43] et `routine_exercises` n’a reçu ni `series` ni `reps_visees`',
     exo0().series === undefined && exo0().reps_visees === undefined,
     JSON.stringify(Object.keys(exo0())));
@@ -681,8 +720,9 @@ const CATALOGUE = [
   // ⚠️ LE PAVÉ, EN TROIS APPUIS, ET AU-DESSUS DE LA MINUTE. Sous 60 secondes,
   // « décalage sur deux groupes » et « champ numérique simple » rendent la même
   // valeur — c'est ce qui a laissé passer la régression.
-  await page.click('#liste-routines .routine');
-  await attendre(700);
+  //
+  // On est DÉJÀ dans l'éditeur (la relecture ci-dessus y est entrée) : y
+  // re-rentrer par la carte échouerait, la bibliothèque n'étant plus à l'écran.
   await ouvrirRepos(0);
   await viderRepos();
   await taperRepos('130');

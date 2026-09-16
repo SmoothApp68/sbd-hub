@@ -450,6 +450,35 @@ describe('⚠️ `routine_exercises.series` et `reps_visees` sont hors circuit',
     }] }]);
   });
 
+  // ⚠️ TROUVÉ PAR LA CAMPAGNE DE MUTATIONS (M6), pas par une relecture.
+  //
+  // Supprimer la dernière ligne d'un exercice est un geste possible : la liste
+  // se vide, et `routine_sets` n'impose AUCUN minimum de lignes — la base
+  // l'accepterait sans broncher. C'est l'app qui doit refuser, sinon la routine
+  // démarre une séance où cet exercice n'a rien à faire, et l'utilisateur ne
+  // s'en aperçoit que la barre en main.
+  //
+  // L'ancien modèle l'interdisait par construction (`series` bornée à 1) ; en
+  // perdant la borne, on a failli perdre la règle avec elle. Les trois
+  // assertions se tiennent : sans la deuxième, « refuse le vide » et « refuse
+  // tout » se ressemblent ; sans la troisième, l'écran n'aurait rien à dire.
+  test('un exercice SANS AUCUNE ligne est refusé à l’enregistrement', () => {
+    const vide = { nom: 'Push', exercices: [{ exercise_slug: 'dc', series: [] }] };
+    const v = Routines.valider(vide, []);
+    expect(v.valide).toBe(false);
+    expect(v.soucis).toContainEqual({ champ: 'series', rang: 0, raison: 'aucune-serie' });
+    // Une seule ligne suffit : on refuse le vide, pas la maigreur.
+    expect(Routines.valider(
+      { nom: 'Push', exercices: [{ exercise_slug: 'dc', series: [L({})] }] }, []).valide)
+      .toBe(true);
+    // ⚠️ ET UNE FORME ANCIENNE N'EST PAS UN VIDE : `series: 3` posé en file avant
+    // le chantier 43 n'est pas une liste qu'on connaît, c'est une liste qu'on ne
+    // lit pas. `seriesEcrites` n'y touche pas ; `valider` ne la juge pas non plus.
+    expect(Routines.valider(
+      { nom: 'Push', exercices: [{ exercise_slug: 'dc', series: 3 }] }, []).valide)
+      .toBe(true);
+  });
+
   // ⚠️ UNE DÉPENDANCE MANQUANTE CASSE BRUYAMMENT (même doctrine qu'au ch. 40).
   //
   // Les séries programmées visent leur exercice par clé étrangère : un exercice

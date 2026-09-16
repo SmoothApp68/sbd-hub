@@ -1771,6 +1771,21 @@ const SETS_IMPORTES = [
     patch.champs.repos_cible_s === 120 && /Ceinture/.test(patch.champs.note || ''),
     JSON.stringify(patch && patch.champs));
 
+  // ⚠️ « RIEN D'AUTRE » VAUT AUSSI POUR LES SÉRIES (mutation M30, chantier 43).
+  //
+  // `planEcritures` REMPLACE les lignes d'un exercice — supprime puis réinsère.
+  // Appliqué sans condition, le report réécrivait donc la structure de TOUS les
+  // exercices à chaque passage, changés ou non : six suppressions et six
+  // insertions pour n'avoir rien changé. L'assertion d'au-dessus ne le voyait
+  // pas (aucune de ces colonnes ne ressemble à une charge), et c'est exactement
+  // ce qu'une mutation a montré. Ici la déviation ne touche que le repos et la
+  // note : AUCUNE ligne ne doit bouger.
+  const ecrituresSeries = patchsRoutine()
+    .filter((p) => p.op === 'insert-series' || p.op === 'delete-series');
+  ok('[43] …et aucune ligne programmée n’est réécrite quand elle n’a pas changé',
+    ecrituresSeries.length === 0,
+    ecrituresSeries.length + ' écriture(s) de `routine_sets`');
+
   await aller('/');
   await page.evaluate(() => {
     const c = Array.from(document.querySelectorAll('.jour .seance'))
@@ -3207,16 +3222,30 @@ const SETS_IMPORTES = [
   // plus écrite, et `routine_sets` n'impose aucun minimum de lignes : un
   // exercice vidé s'écrit pour ce qu'il est, zéro ligne.
   const ligneTractions = ROUTINE.routine_exercises.filter((e) => e.exercise_slug === 'tractions')[0];
-  // ⚠️ `length > 0` D'ABORD : sur une liste vide, « tous les rangs sont >= 1 »
-  // est vrai sans rien prouver. C'est la forme d'assertion qui passe alors que
-  // l'écriture n'a jamais eu lieu.
+  // ⚠️ ZÉRO LIGNE, ET C'EST LE RÉSULTAT ATTENDU — pas un défaut d'écriture.
+  //
+  // Le scénario VIDE l'exercice ajouté : c'est tout son objet. Ce que la base
+  // reçoit est donc une ligne de `routine_exercises` sans aucune série
+  // programmée, ce que `routine_sets` accepte (aucune borne de nombre de
+  // lignes). Avant le chantier 43, le même geste envoyait `series: 0` et
+  // récoltait un 23514 DÉFINITIF qui bloquait la file pour toujours.
+  //
+  // ⚠️ UNE PREMIÈRE RÉDACTION DE CE TEST EXIGEAIT `length > 0` : elle est
+  // tombée ici, et elle avait tort. La leçon vaut dans l'autre sens aussi —
+  // « tous les rangs sont >= 1 » est VRAI SUR UNE LISTE VIDE, donc ne prouve
+  // rien tout seul. On énonce donc le compte attendu, explicitement.
   const setsTractions = (ligneTractions && ligneTractions.routine_sets) || [];
-  ok('[D5] la routine reçoit la ligne, et ses séries programmées à rang >= 1',
+  ok('[D5] la ligne arrive, VIDÉE — zéro série programmée, et la base l’accepte',
     !!ligneTractions && ligneTractions.series === undefined &&
-    setsTractions.length > 0 && setsTractions.every((x) => x.rang >= 1) &&
-    setsTractions.every((x) => x.user_id),
-    ligneTractions ? setsTractions.length + ' ligne(s), rangs ' +
-      JSON.stringify(setsTractions.map((x) => x.rang)) : 'ligne absente');
+    setsTractions.length === 0,
+    ligneTractions ? setsTractions.length + ' ligne(s) programmée(s)' : 'ligne absente');
+  // Et l'écriture des séries, elle, se mesure sur un exercice NON vidé : celui
+  // de la routine, qui garde exactement ce qu'il avait.
+  const setsSquat = (ROUTINE.routine_exercises
+    .filter((e) => e.exercise_slug === 'squat-barre')[0] || {}).routine_sets || [];
+  ok('[43] et l’exercice non vidé garde ses lignes, rangs >= 1 et user_id posé',
+    setsSquat.length > 0 && setsSquat.every((x) => x.rang >= 1),
+    setsSquat.length + ' ligne(s), rangs ' + JSON.stringify(setsSquat.map((x) => x.rang)));
   ok('[D5] et la file n’est pas bloquée : l’état ne dit ni « refusé » ni « échec »',
     !/refusé|échec/i.test(await texte('#etat-sync')),
     (await texte('#etat-sync')) || '(vide)');

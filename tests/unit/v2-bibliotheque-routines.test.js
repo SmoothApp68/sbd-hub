@@ -335,3 +335,23 @@ describe('⚠️ le mode Modifier de la séance garde ses deux flèches', () => 
     expect(fleches.map((b) => b.disabled)).toEqual([true, false, false, true]);
   });
 });
+
+// ⚠️ TROUVÉ PAR LA CAMPAGNE DE MUTATIONS, pas par une relecture.
+//
+// La carte lisait `seriesValides(…).valeur`, qui rend la valeur LUE — hors
+// bornes comprise. Une routine qui porte `series: 0` (le report de fin de
+// séance savait en produire, chantier 36) affichait donc « 0 série » alors que
+// `serieBornee` en enverra 1. Deux voix pour un seul nombre.
+describe('⚠️ la carte affiche ce qui PARTIRA, pas ce qui traîne dans la ligne', () => {
+  test.each([[0, '1 série'], [21, '20 séries'], [3, '3 séries']])(
+    'series à %s s’affiche « %s » — le même entonnoir que l’écriture',
+    (series, attendu) => {
+      const cible = document.createElement('div');
+      Rendu().rendreExosRoutine(cible, [Object.assign(exo('a'), { series })],
+        nommer, { surMenu: () => {} });
+      expect(cible.querySelector('.exo-routine-dit').textContent)
+        .toBe(attendu + ' × 8 reps · repos 1:30');
+      // Et c'est bien la valeur que la ligne enverra.
+      expect(Routines.serieBornee(series)).toBe(parseInt(attendu, 10));
+    });
+});

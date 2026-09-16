@@ -2319,7 +2319,12 @@
   // « 3 séries × 8 reps · repos 1:30 ». Les reps visées et le repos sont
   // facultatifs : ce qui n'est pas renseigné ne s'invente pas.
   function texteReglages(e) {
-    var n = R().seriesValides(e && e.series).valeur;
+    // ⚠️ LE MÊME ENTONNOIR QUE L'ÉCRITURE, PAS UNE LECTURE À CÔTÉ. `serieBornee`
+    // est ce qui PART en base (chantier 36) : une routine qui porte `series: 0`
+    // — le report de fin de séance savait en produire — s'enverra à 1. Lire
+    // `series` brut ici afficherait « 0 série » pour une ligne qui en écrira 1,
+    // c'est-à-dire deux voix pour un seul nombre.
+    var n = R().serieBornee(e && e.series);
     return n + ' série' + (n > 1 ? 's' : '') +
       ' × ' + (e && e.reps_visees ? e.reps_visees + ' reps' : '—') +
       ' · repos ' + (e && e.repos_cible_s ? mmss(e.repos_cible_s) : '—');

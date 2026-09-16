@@ -546,30 +546,23 @@ button.bloc-exo:active{background:var(--panneau-2)}
 .exo-routine-nom{flex:1;font-size:14px;font-weight:600;line-height:1.35;
   display:flex;align-items:baseline;gap:7px;min-width:0;overflow-wrap:anywhere}
 
-/* ── LE LIEN DE SUPERSET DANS L'ÉDITEUR (chantier 28) ──────────────────────
-   Il est dessiné ENTRE les deux cartes, parce que c'est là qu'il se passe.
-   Actif, il devient un trait plein qui rattache les deux — la même chose se
-   reconnaît au même signe qu'en séance : un liseré à gauche du bloc. */
+/* ── LE SUPERSET DANS L'ÉDITEUR ────────────────────────────────────────────
+   Le lien se posait par un bouton PERMANENT entre chaque paire de cartes : un
+   bouton toujours là pour un geste occasionnel (§7 duodecies.2). Il est passé
+   au menu à trois points, comme en séance. Ce qui reste est le SIGNE, pas la
+   commande — la même chose se reconnaît au même signe qu'en séance : un liseré
+   à gauche, et les lettres A/B/C. */
 .exo-routine.groupe{border-left:3px solid var(--texte-3)}
-.lien-superset{display:flex;justify-content:center;padding:2px 0}
-.lien-superset button{border:none;background:transparent;color:var(--texte-3);
-  font:600 10.5px/1 inherit;font-family:inherit;letter-spacing:.03em;
-  padding:7px 10px;border-radius:var(--r-petit)}
-.lien-superset.actif button{color:var(--texte-2)}
-.lien-superset.actif{position:relative}
-.lien-superset.actif::before{content:'';position:absolute;left:0;top:0;bottom:0;
-  width:3px;background:var(--texte-3)}
-.exo-routine-gestes{display:flex;gap:var(--e1);flex:0 0 auto}
-.geste{width:32px;height:32px;border-radius:var(--r-petit);
-  border:1px solid var(--trait);background:transparent;color:var(--texte-2);
-  font-size:14px;font-family:inherit;line-height:1}
-.geste:disabled{opacity:.35}
-.geste:active:not(:disabled){border-color:var(--texte-2);color:var(--texte)}
 
-/* Trois champs, en trois colonnes. Il n'y en a pas un quatrième : la routine
-   ne porte AUCUNE charge. */
-.exo-routine-champs{display:grid;grid-template-columns:1fr 1fr 1fr;
-  gap:var(--e2);margin-top:var(--e3)}
+/* Ce que la routine PRESCRIT, en clair, à la place des trois champs de saisie :
+   « 3 séries × 8 reps · repos 1:30 ». C'est la place que le bouton occupait. */
+.exo-routine-dit{font-size:12px;line-height:1.4;color:var(--texte-2);
+  margin-top:6px;font-variant-numeric:tabular-nums}
+
+/* Les trois réglages, dans une feuille. Il n'y en a pas un quatrième : la
+   routine ne porte AUCUNE charge. */
+.feuille-champs{display:grid;grid-template-columns:1fr 1fr 1fr;
+  gap:var(--e2);margin-bottom:var(--e3)}
 .champ-num{display:block}
 .champ-lib{display:block;font-size:10.5px;color:var(--texte-3);
   margin-bottom:var(--e1);font-weight:600}
@@ -755,6 +748,14 @@ button.bloc-exo:active{background:var(--panneau-2)}
 .replie-nom{display:flex;align-items:baseline;gap:7px;font-size:13.5px;
   font-weight:600;line-height:1.35;overflow-wrap:anywhere}
 .replie-gestes{display:flex;gap:4px;flex:0 0 auto}
+/* Les deux flèches du mode Modifier. Elles étaient partagées avec l'éditeur de
+   routine jusqu'au chantier 41, où ses gestes sont passés au menu — replier un
+   bloc, lui, DOIT garder ses flèches sous le pouce (§5.3). */
+.geste{width:32px;height:32px;border-radius:var(--r-petit);
+  border:1px solid var(--trait);background:transparent;color:var(--texte-2);
+  font-size:14px;font-family:inherit;line-height:1}
+.geste:disabled{opacity:.35}
+.geste:active:not(:disabled){border-color:var(--texte-2);color:var(--texte)}
 .replie-avancement{font-size:11.5px;color:var(--texte-3);margin-top:6px}
 
 /* ── LE SUPERSET (§2.3) ────────────────────────────────────────────────────

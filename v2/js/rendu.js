@@ -1439,6 +1439,21 @@
     return noeud;
   }
 
+  // ⚠️ IL N'A PLUS QU'UN APPELANT : le mode Modifier de la séance. L'éditeur de
+  // routine s'en servait aussi jusqu'au chantier 41, où ses gestes sont passés
+  // au menu à trois points (§7 duodecies.2). Il reste ici parce que replier un
+  // bloc DOIT garder ses deux flèches sous le pouce — c'est tout l'intérêt du
+  // mode (§5.3), et un menu de plus y serait un geste de plus.
+  function geste(texte, titre, desactive, surClic) {
+    var b = el('button', 'geste', texte);
+    b.type = 'button';
+    b.setAttribute('aria-label', titre);
+    b.title = titre;
+    b.disabled = !!desactive;
+    if (!desactive) b.addEventListener('click', surClic);
+    return b;
+  }
+
   // La carte repliée : la légende, l'avancement, et deux flèches. Rien d'autre —
   // c'est la vue d'ensemble qui manque pendant qu'on s'entraîne (§5.3).
   function blocReplie(bloc, iBloc, total, vue) {
@@ -2247,23 +2262,22 @@
     return enveloppe;
   }
 
-  function geste(texte, titre, desactive, surClic) {
-    var b = el('button', 'geste', texte);
-    b.type = 'button';
-    b.setAttribute('aria-label', titre);
-    b.title = titre;
-    b.disabled = !!desactive;
-    if (!desactive) b.addEventListener('click', surClic);
-    return b;
-  }
-
-  // La liste des exercices de l'éditeur. Boutons monter/descendre, PAS de
-  // glissement tactile : le geste le plus fragile du projet appartient au
-  // commit « déviation », et il a déjà coûté trois chantiers sur le retour.
+  // La liste des exercices de l'éditeur.
   //
-  // ⚠️ AUCUN CHAMP DE CHARGE. Trois champs, et trois seulement : séries, reps
+  // ⚠️ AUCUN CHAMP DE CHARGE. Trois réglages, et trois seulement : séries, reps
   // visées, repos cible. La routine porte la structure, le moteur décide du
   // poids (ECRAN-SAISIE-V1 §1.1).
+  //
+  // ⚠️ LES GESTES VIVENT DERRIÈRE LE MENU À TROIS POINTS (§7 duodecies.2).
+  // La carte portait quatre boutons permanents — monter, descendre, retirer, et
+  // « grouper avec le suivant » entre chaque paire — pour des gestes
+  // occasionnels. C'est la MÊME grammaire que la séance : deux écrans qui font
+  // la même chose doivent se piloter pareil, sinon il faut l'apprendre deux
+  // fois.
+  //
+  // La place ainsi libérée sert à ce qui compte : ce que la routine PRESCRIT.
+  // Les trois réglages se lisent sur la carte et se modifient dans une feuille
+  // — un champ numérique sous le pouce, pas trois sur une carte à 360 px.
   function rendreExosRoutine(cible, exercices, nommer, vue) {
     vider(cible);
     var v = vue || {};
@@ -2277,10 +2291,9 @@
     // ⚠️ LE GROUPEMENT SE LIT SUR LES LIENS ENTRE VOISINS (chantier 28).
     //
     // Un superset est une suite CONTIGUË : dans une liste, la seule chose qui le
-    // définit est « untel est collé au suivant ». On affiche donc le LIEN, pas
-    // un numéro de groupe — et il se pose d'un appui, sans mode sélection. Le
-    // §5.7 (sélection à distance) vaut pour la SÉANCE, où les blocs sont loin
-    // les uns des autres et où l'on ne veut pas réordonner pour grouper.
+    // définit est « untel est collé au suivant ». Les lettres A/B/C et le liseré
+    // le disent, exactement comme au détail de séance — et c'est le menu qui
+    // pose et défait le lien.
     var lies = R().liens(liste);
     var lettres = lettresDeLiens(lies);
 
@@ -2292,39 +2305,80 @@
       if (lettres[i]) nom.appendChild(el('span', 'lettre-exo', lettres[i]));
       nom.appendChild(el('span', '', nommer(e.exercise_slug)));
       haut.appendChild(nom);
-      var gestes = el('div', 'exo-routine-gestes');
-      gestes.appendChild(geste('\u2191', 'Monter', i === 0, function () { v.surMonter(i); }));
-      gestes.appendChild(geste('\u2193', 'Descendre', i === liste.length - 1, function () { v.surDescendre(i); }));
-      gestes.appendChild(geste('\u2715', 'Retirer', false, function () { v.surRetirer(i); }));
-      haut.appendChild(gestes);
+      haut.appendChild(menuTroisPoints('Actions sur ' + nommer(e.exercise_slug),
+        function () { v.surMenu(i); }));
       carte.appendChild(haut);
 
-      var champs = el('div', 'exo-routine-champs');
-      champs.appendChild(champNombre('Séries', e.series,
-        { min: R().SERIES_MIN, max: R().SERIES_MAX },
-        function (val) { v.surChamp(i, 'series', val); }));
-      champs.appendChild(champNombre('Reps visées', e.reps_visees,
-        { min: R().REPS_MIN, max: R().REPS_MAX, placeholder: '\u2014' },
-        function (val) { v.surChamp(i, 'reps_visees', val); }));
-      champs.appendChild(champNombre('Repos (s)', e.repos_cible_s,
-        { min: R().REPOS_MIN, max: R().REPOS_MAX, placeholder: '\u2014' },
-        function (val) { v.surChamp(i, 'repos_cible_s', val); }));
-      carte.appendChild(champs);
-
+      // Ce que la routine prescrit, en clair. Ce qui n'est pas renseigné
+      // s'écrit en tiret cadratin, comme en séance : ce n'est pas un zéro.
+      carte.appendChild(el('div', 'exo-routine-dit', texteReglages(e)));
       cible.appendChild(carte);
-
-      // Le lien vers le suivant, entre les deux cartes : c'est l'endroit où il
-      // se passe, donc l'endroit où il se touche.
-      if (i < liste.length - 1) {
-        var lien = el('div', 'lien-superset' + (lies[i] ? ' actif' : ''));
-        var b = el('button', '', lies[i] ? '\u26d3 Superset \u2014 s\u00e9parer' : '+ Grouper avec le suivant');
-        b.type = 'button';
-        b.setAttribute('aria-pressed', lies[i] ? 'true' : 'false');
-        b.addEventListener('click', function () { v.surLien(i); });
-        lien.appendChild(b);
-        cible.appendChild(lien);
-      }
     });
+  }
+
+  // « 3 séries × 8 reps · repos 1:30 ». Les reps visées et le repos sont
+  // facultatifs : ce qui n'est pas renseigné ne s'invente pas.
+  function texteReglages(e) {
+    var n = R().seriesValides(e && e.series).valeur;
+    return n + ' série' + (n > 1 ? 's' : '') +
+      ' × ' + (e && e.reps_visees ? e.reps_visees + ' reps' : '—') +
+      ' · repos ' + (e && e.repos_cible_s ? mmss(e.repos_cible_s) : '—');
+  }
+
+  // ⚠️ LE MENU D'UN EXERCICE DE ROUTINE — les six gestes du §7 duodecies.2, et
+  // rien d'autre. Il passe par `entreeMenu`, comme les menus de la séance : une
+  // entrée par geste, en toutes lettres, et ce qui n'a pas de sens ici est
+  // GRISÉ plutôt qu'absent — « Monter » sur le premier reste à sa place, sinon
+  // les entrées bougent d'une carte à l'autre.
+  function rendreFeuilleExoRoutine(cible, vue) {
+    vider(cible);
+    var t = el('div', 'feuille-t', 'Exercice');
+    t.appendChild(el('em', '', vue.nom));
+    cible.appendChild(t);
+
+    var menu = el('div', 'feuille-menu');
+    entreeMenu(menu, 'Grouper avec le suivant',
+      { surClic: vue.surGrouper, desactive: !vue.peutGrouper });
+    entreeMenu(menu, 'Dégrouper',
+      { surClic: vue.surDegrouper, desactive: !vue.estGroupe });
+    entreeMenu(menu, 'Monter', { surClic: vue.surMonter, desactive: !vue.peutMonter });
+    entreeMenu(menu, 'Descendre', { surClic: vue.surDescendre, desactive: !vue.peutDescendre });
+    entreeMenu(menu, 'Modifier les paramètres', { surClic: vue.surParametres });
+    cible.appendChild(menu);
+
+    var sup = el('div', 'feuille-menu');
+    entreeMenu(sup, 'Supprimer l’exercice',
+      { classe: 'danger', surClic: vue.surSupprimer });
+    cible.appendChild(sup);
+    return cible;
+  }
+
+  // Les trois réglages, dans une feuille. `champNombre` MUTE le brouillon sans
+  // redessiner — re-rendre à chaque frappe arracherait le focus, et le clavier
+  // d'Android avec lui. C'est « Terminé » qui referme et redessine la carte.
+  function rendreFeuilleParametresExo(cible, vue) {
+    vider(cible);
+    var t = el('div', 'feuille-t', 'Paramètres');
+    t.appendChild(el('em', '', vue.nom));
+    cible.appendChild(t);
+
+    var champs = el('div', 'feuille-champs');
+    champs.appendChild(champNombre('Séries', vue.exercice.series,
+      { min: R().SERIES_MIN, max: R().SERIES_MAX },
+      function (val) { vue.surChamp('series', val); }));
+    champs.appendChild(champNombre('Reps visées', vue.exercice.reps_visees,
+      { min: R().REPS_MIN, max: R().REPS_MAX, placeholder: '—' },
+      function (val) { vue.surChamp('reps_visees', val); }));
+    champs.appendChild(champNombre('Repos (s)', vue.exercice.repos_cible_s,
+      { min: R().REPOS_MIN, max: R().REPOS_MAX, placeholder: '—' },
+      function (val) { vue.surChamp('repos_cible_s', val); }));
+    cible.appendChild(champs);
+
+    var b = el('button', 'principal', 'Terminé');
+    b.type = 'button';
+    b.addEventListener('click', vue.surFermer);
+    cible.appendChild(b);
+    return cible;
   }
 
   // Les lettres A/B/C de l'éditeur, calculées comme celles de la séance : par
@@ -2404,6 +2458,8 @@
     texteEffort: texteEffort,
     rendreListeRoutines: rendreListeRoutines,
     rendreExosRoutine: rendreExosRoutine,
+    rendreFeuilleExoRoutine: rendreFeuilleExoRoutine,
+    rendreFeuilleParametresExo: rendreFeuilleParametresExo,
     rendreResultatsExo: rendreResultatsExo,
     el: el,
     vider: vider,

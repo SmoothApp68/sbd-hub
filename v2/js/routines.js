@@ -373,6 +373,33 @@
     return appliquerLiens(exercices, l);
   }
 
+  // ⚠️ DÉGROUPER S'ÉCRIT AVEC LES LIENS, PAS À CÔTÉ D'EUX. Sortir l'exercice
+  // `i` de son groupe, c'est couper les DEUX liens qui l'y tenaient — celui de
+  // gauche et celui de droite. Rien d'autre à faire : `appliquerLiens`
+  // renumérote, et un groupe qui tombe à un seul exercice se dissout de
+  // lui-même (§7 decies — il n'existe pas de superset à un).
+  //
+  // C'est le pendant de `THSeance.degrouperExercice` côté routine, et il n'en
+  // recopie pas la logique : ici un groupe EST une suite de liens.
+  function degrouper(exercices, i) {
+    var l = liens(exercices);
+    if (i > 0) l[i - 1] = false;
+    if (i < l.length) l[i] = false;
+    return appliquerLiens(exercices, l);
+  }
+
+  // Ce que le menu a le droit de proposer, lu sur les mêmes liens. Sans ça,
+  // l'écran redéciderait tout seul ce qu'est un groupe.
+  function estGroupe(exercices, i) {
+    var l = liens(exercices);
+    return (i > 0 && l[i - 1] === true) || (i < l.length && l[i] === true);
+  }
+
+  function peutGrouper(exercices, i) {
+    var l = liens(exercices);
+    return i < l.length && l[i] !== true;
+  }
+
   // Remet les numéros d'aplomb après un déplacement ou un retrait : les liens se
   // relisent de la NOUVELLE adjacence. Déplacer un exercice au milieu d'un
   // superset le coupe donc en deux, et le sortir le dégroupe — ce qui est
@@ -418,12 +445,24 @@
     return { nbExercices: liste.length, nbSeries: series };
   }
 
-  // Les routines visibles : non archivées, dans un ordre stable. Le tri est par
-  // nom replié — c'est la seule clé que l'utilisateur voit et contrôle ; trier
-  // par date de création ferait bouger la liste sans raison lisible.
+  // Les routines de la bibliothèque, dans un ordre stable. Le tri est par nom
+  // replié — c'est la seule clé que l'utilisateur voit et contrôle ; trier par
+  // date de création ferait bouger la liste sans raison lisible.
+  //
+  // ⚠️ `archivee_a` NE CACHE PLUS RIEN (§7 duodecies.1). L'archivage est
+  // supprimé : plus rien n'écrit la colonne, et une routine archivée par erreur
+  // n'avait AUCUN chemin de retour depuis l'app — il a fallu une écriture en
+  // base le 13/09. Les deux routines qui la portent encore reviennent donc dans
+  // la liste, où elles peuvent enfin être supprimées.
+  //
+  // ⚠️ MAIS `nomEnConflit` CONTINUE DE L'HONORER, et ce n'est pas une seconde
+  // lecture de la même règle : `routines_user_nom_actif_uniq` est un index
+  // PARTIEL (`WHERE archivee_a IS NULL`). Une archivée ne réserve réellement
+  // pas son nom, et refuser localement ce que la base accepte bloquerait un
+  // enregistrement pour rien. Deux questions, deux réponses, une seule colonne.
   function visibles(routines) {
     return (routines || [])
-      .filter(function (r) { return r && !r.archivee_a; })
+      .filter(function (r) { return !!r; })
       .sort(function (a, b) { return normaliserNom(a.nom).localeCompare(normaliserNom(b.nom), 'fr'); });
   }
 
@@ -575,6 +614,9 @@
     liens: liens,
     appliquerLiens: appliquerLiens,
     basculerLien: basculerLien,
+    degrouper: degrouper,
+    estGroupe: estGroupe,
+    peutGrouper: peutGrouper,
     renumeroter: renumeroter,
     apercu: apercu,
     enregistrer: enregistrer,

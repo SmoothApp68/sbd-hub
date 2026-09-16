@@ -495,13 +495,35 @@ describe('la liste et le catalogue', () => {
     expect(Routines.apercu([])).toEqual({ nbExercices: 0, nbSeries: 0 });
   });
 
-  test('les archivées ne sont pas dans la liste, et l’ordre est stable', () => {
+  // ⚠️ INVERSÉ AU CHANTIER 41 (§7 duodecies.1). `archivee_a` cachait une routine
+  // pour toujours : l'archivage était irréversible DEPUIS L'APP, et il a fallu
+  // une écriture en base le 13/09 pour récupérer une routine archivée par
+  // erreur. L'archivage est supprimé, plus rien n'écrit la colonne, et les
+  // routines qui la portent encore reviennent — où elles peuvent être
+  // supprimées.
+  test('une archivée est dans la liste comme les autres, et l’ordre est stable', () => {
     const liste = Routines.visibles([
       { id: '1', nom: 'Pull', archivee_a: null },
       { id: '2', nom: 'Ancienne', archivee_a: '2026-01-01' },
       { id: '3', nom: 'Jambes', archivee_a: null }
     ]);
-    expect(liste.map((r) => r.nom)).toEqual(['Jambes', 'Pull']);
+    expect(liste.map((r) => r.nom)).toEqual(['Ancienne', 'Jambes', 'Pull']);
+  });
+
+  // ⚠️ MAIS LE NOM, LUI, RESTE LIBRE. `routines_user_nom_actif_uniq` est un
+  // index PARTIEL (`WHERE archivee_a IS NULL`) : la base ACCEPTE une seconde
+  // « Push » tant que la première est archivée. Refuser localement ce que la
+  // base accepte bloquerait un enregistrement pour rien. Deux questions
+  // différentes sur la même colonne, ce n'est pas la même règle écrite deux
+  // fois.
+  test('une archivée est visible mais ne réserve toujours pas son nom', () => {
+    const liste = [
+      { id: '1', nom: 'Push', archivee_a: '2026-01-01' },
+      { id: '2', nom: 'Pull', archivee_a: null }
+    ];
+    expect(Routines.visibles(liste).map((r) => r.nom)).toEqual(['Pull', 'Push']);
+    expect(Routines.nomEnConflit('Push', liste, null)).toBe(false);
+    expect(Routines.nomEnConflit('Pull', liste, null)).toBe(true);
   });
 
   test('la recherche replie les accents — « developpe » trouve « Développé »', () => {

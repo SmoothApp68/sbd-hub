@@ -1760,33 +1760,73 @@
     }
     brouillon = brouillonDe(routine);
     $('champ-nom-routine').value = brouillon.nom;
-    $('btn-archiver-routine').hidden = !brouillon.id;
+    $('btn-supprimer-routine').hidden = !brouillon.id;
     $('erreur-routine').textContent = '';
     rendreEditeur();
+  }
+
+  function nomExoBrouillon(i) {
+    var e = brouillon.exercices[i];
+    return e ? Modele.nommer(Modele.indexerExercices(local.exercices), e.exercise_slug) : '';
   }
 
   function rendreEditeur() {
     var index = Modele.indexerExercices(local.exercices);
     Rendu.rendreExosRoutine($('exos-routine'), brouillon.exercices,
-      function (slug) { return Modele.nommer(index, slug); }, {
-        // Les champs MUTENT le brouillon sans redessiner : redessiner à chaque
-        // frappe arracherait le focus et le clavier d'Android avec lui.
-        surChamp: function (i, champ, valeur) {
-          if (brouillon.exercices[i]) brouillon.exercices[i][champ] = valeur;
-        },
-        surMonter: function (i) { echanger(i, i - 1); },
-        surDescendre: function (i) { echanger(i, i + 1); },
-        surRetirer: function (i) {
-          brouillon.exercices.splice(i, 1);
-          renumeroterBrouillon();
-        },
-        // Le lien avec le voisin du dessous : c'est lui, et lui seul, qui fait
-        // un superset dans une liste (§2.3 — un bloc est une suite contiguë).
-        surLien: function (i) {
-          brouillon.exercices = Routines.basculerLien(brouillon.exercices, i);
-          rendreEditeur();
-        }
-      });
+      function (slug) { return Modele.nommer(index, slug); },
+      { surMenu: ouvrirFeuilleExoRoutine });
+  }
+
+  // ⚠️ LES SIX GESTES DU §7 duodecies.2, ET AUCUN CALCUL ICI. Ce qui a du sens
+  // — grouper, dégrouper — se lit sur les liens, par `THRoutines`. L'écran ne
+  // redécide pas tout seul ce qu'est un groupe.
+  function ouvrirFeuilleExoRoutine(i) {
+    if (!brouillon.exercices[i]) return;
+    Rendu.rendreFeuilleExoRoutine($('feuille-contenu'), {
+      nom: nomExoBrouillon(i),
+      peutGrouper: Routines.peutGrouper(brouillon.exercices, i),
+      estGroupe: Routines.estGroupe(brouillon.exercices, i),
+      peutMonter: i > 0,
+      peutDescendre: i < brouillon.exercices.length - 1,
+      // Le lien avec le voisin du dessous : c'est lui, et lui seul, qui fait un
+      // superset dans une liste (§2.3 — un bloc est une suite contiguë).
+      surGrouper: function () {
+        brouillon.exercices = Routines.basculerLien(brouillon.exercices, i);
+        fermerVoile(); rendreEditeur();
+      },
+      // Sortir l'exercice de son groupe. Un superset à deux se DISSOUT : il
+      // n'existe pas de groupe à un (§7 decies), et `appliquerLiens` le sait.
+      surDegrouper: function () {
+        brouillon.exercices = Routines.degrouper(brouillon.exercices, i);
+        fermerVoile(); rendreEditeur();
+      },
+      surMonter: function () { fermerVoile(); echanger(i, i - 1); },
+      surDescendre: function () { fermerVoile(); echanger(i, i + 1); },
+      surParametres: function () { ouvrirParametresExo(i); },
+      // Rien n'est écrit tant qu'on n'a pas enregistré : retirer une ligne du
+      // brouillon ne perd rien, et une question ici serait le bruit qu'on tape
+      // sans lire (§6.2).
+      surSupprimer: function () {
+        fermerVoile();
+        brouillon.exercices.splice(i, 1);
+        renumeroterBrouillon();
+      }
+    });
+    ouvrirVoile($('feuille-seance'));
+  }
+
+  function ouvrirParametresExo(i) {
+    Rendu.rendreFeuilleParametresExo($('feuille-contenu'), {
+      nom: nomExoBrouillon(i),
+      exercice: brouillon.exercices[i],
+      // Les champs MUTENT le brouillon sans redessiner : redessiner à chaque
+      // frappe arracherait le focus et le clavier d'Android avec lui.
+      surChamp: function (champ, valeur) {
+        if (brouillon.exercices[i]) brouillon.exercices[i][champ] = valeur;
+      },
+      surFermer: function () { fermerVoile(); rendreEditeur(); }
+    });
+    ouvrirVoile($('feuille-seance'));
   }
 
   // ⚠️ DÉPLACER RELIT LES LIENS DE LA NOUVELLE ADJACENCE. Sortir un exercice
@@ -1854,14 +1894,40 @@
     return 'Il manque un exercice sur une ligne.';
   }
 
-  // Archiver, pas supprimer : les séances qui référencent la routine gardent
-  // leur lien, et le nom redevient libre.
-  async function archiverCourante() {
+  // ══ SUPPRIMER UNE ROUTINE (§7 duodecies.1) ═══════════════════════════════
+  //
+  // ⚠️ L'ARCHIVAGE EST PARTI, ET C'EST LE POINT. Archiver était irréversible
+  // DEPUIS L'APP : une routine archivée par erreur n'avait aucun chemin de
+  // retour, et il a fallu une écriture en base le 13/09. Un geste franc, avec
+  // confirmation, vaut mieux qu'un geste doux dont on ne revient pas.
+  //
+  // ⚠️ ET LA CONFIRMATION NE PARLE PAS DE « LIEN ». Une séance passée n'est pas
+  // liée à sa routine, elle en est ISSUE : `sessions_routine_fk` est
+  // ON DELETE SET NULL, donc rien de ce qui a été fait ne bouge. C'est la
+  // crainte légitime de quelqu'un qui supprime, et la phrase doit y répondre.
+  function demanderSuppressionRoutine() {
+    if (!brouillon || !brouillon.id) return;
+    Rendu.rendreFeuilleConfirmer($('feuille-contenu'), {
+      titre: 'Supprimer cette routine ?',
+      sujet: Routines.nomPropre(brouillon.nom) || 'Routine',
+      danger: true,
+      libelle: 'Supprimer',
+      aide: 'Les séances que tu as déjà faites avec elle restent intactes, ' +
+            'avec toutes leurs séries. Seule la routine part, et rien ne la remet en place.',
+      surConfirmer: async function () { fermerVoile(); await supprimerCourante(); },
+      surAnnuler: fermerVoile
+    });
+    ouvrirVoile($('feuille-seance'));
+  }
+
+  async function supprimerCourante() {
     if (!brouillon || !brouillon.id) return;
     var erreur = $('erreur-routine');
     erreur.textContent = '';
     try {
-      await Donnees.archiverRoutine(brouillon.id);
+      // `routine_exercises_routine_id_fkey` est ON DELETE CASCADE : les
+      // exercices partent avec la routine, sans second appel.
+      await Donnees.supprimerRoutine(brouillon.id);
       await chargerRoutines();
       allerA(Routeur.SAISIE, {}, true);
       rendreSaisie();
@@ -2657,7 +2723,7 @@
     });
     $('btn-ajouter-exo').addEventListener('click', function () { ouvrirCatalogue(); });
     $('btn-enregistrer-routine').addEventListener('click', enregistrerBrouillon);
-    $('btn-archiver-routine').addEventListener('click', archiverCourante);
+    $('btn-supprimer-routine').addEventListener('click', demanderSuppressionRoutine);
     $('btn-fermer-catalogue').addEventListener('click', fermerVoile);
     $('champ-recherche-exo').addEventListener('input', rendreCatalogue);
     $('btn-fermer-muscle').addEventListener('click', fermerVoile);

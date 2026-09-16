@@ -52,7 +52,16 @@ const CATALOGUE = [
 
 (async () => {
   // ── Le Supabase de papier, avec les DEUX index uniques de la vraie base ──
-  const base = { routines: [], exos: [], graine: 0, envois: [] };
+  // ⚠️ `sessions` ET `sets` SONT ICI POUR UNE SEULE RAISON : sans eux, « les
+  // séances passées survivent à la suppression de leur routine » n'est pas
+  // mesurable, et le §7 duodecies.1 repose entièrement là-dessus.
+  //
+  // Ils ne sont PAS servis en lecture, volontairement : ce banc est celui des
+  // routines, il ne déroule pas la synchronisation des séances, et une ligne de
+  // séance à moitié formée serait moins fidèle que pas de ligne du tout. Le
+  // banc d'écran séance est l'endroit où `sessions` est complète. Ici, ce qu'on
+  // mesure est ce que la SUPPRESSION leur fait — donc l'état du magasin.
+  const base = { routines: [], exos: [], sessions: [], sets: [], graine: 0, envois: [] };
   const replie = (n) => String(n || '').trim().toLowerCase();
   const collisionRang = () => {
     const vus = new Set();
@@ -150,7 +159,12 @@ const CATALOGUE = [
     if (url.pathname.startsWith('/auth/')) return json({ error: 'x' }, 400);
     if (req.method() === 'GET') {
       if (table === 'exercises') return json(projeter(CATALOGUE, url));
-      if (table === 'routines') return json(projeter(base.routines.filter((r) => !r.archivee_a).map((r) =>
+      // ⚠️ AUCUN FILTRE SUR `archivee_a` ICI. `Donnees.mesRoutines` n'en pose
+      // pas non plus : le banc le faisait, et rendait donc les archivées
+      // invisibles CÔTÉ SERVEUR — la règle d'affichage du client n'était
+      // jamais exercée. Depuis le §7 duodecies.1 elle a changé, et c'est ce
+      // filtre-là qui l'aurait masqué.
+      if (table === 'routines') return json(projeter(base.routines.map((r) =>
         Object.assign({}, r, { routine_exercises: base.exos.filter((e) => e.routine_id === r.id) })), url));
       return json([]);
     }
@@ -221,10 +235,25 @@ const CATALOGUE = [
           (table === 'routines' ? 'routines_user_nom_actif_uniq' : 'routine_exos_rang_uniq') + '"' }, 409); }
       return json([l]);
     }
+    // ⚠️ LES DEUX CLÉS ÉTRANGÈRES DE `routines`, ET ELLES NE FONT PAS LA MÊME
+    // CHOSE (§7 duodecies.1) :
+    //   `routine_exercises_routine_id_fkey`  ON DELETE CASCADE  → les exercices
+    //      partent avec la routine, par `routine_id` ;
+    //   `sessions_routine_fk`                ON DELETE SET NULL → les séances
+    //      RESTENT, elles perdent seulement la référence.
+    // Le banc supprimait `base.exos` par l'id de l'EXERCICE — c'est-à-dire
+    // jamais, puisqu'on lui passe un id de routine — et ne connaissait pas
+    // `sessions`. Les deux promesses sur lesquelles repose la confirmation de
+    // suppression n'étaient donc vérifiées nulle part.
     if (req.method() === 'DELETE') {
       const brut = url.searchParams.get('id') || '';
       const ids = brut.startsWith('in.') ? brut.slice(4, -1).split(',').map((x) => x.replace(/"/g, '')) : [brut.replace('eq.', '')];
-      base.routines = base.routines.filter((r) => ids.indexOf(r.id) < 0);
+      if (table === 'routines') {
+        base.routines = base.routines.filter((r) => ids.indexOf(r.id) < 0);
+        base.exos = base.exos.filter((e) => ids.indexOf(e.routine_id) < 0);
+        base.sessions.forEach((x) => { if (ids.indexOf(x.routine_id) >= 0) x.routine_id = null; });
+        return json([]);
+      }
       base.exos = base.exos.filter((e) => ids.indexOf(e.id) < 0);
       return json([]);
     }
@@ -283,13 +312,30 @@ const CATALOGUE = [
     await attendre(250);
   }
   const noms = () => page.evaluate(() => Array.from(document.querySelectorAll('.exo-routine-nom')).map((n) => n.textContent));
-  // La i-ième CARTE de l'éditeur, et un clic dedans.
-  const carteEditeur = async (i, sel) => {
-    await page.evaluate(([k, s]) => {
-      document.querySelectorAll('.exo-routine')[k].querySelector(s).click();
-    }, [i, sel]);
-    await attendre(250);
+
+  // ⚠️ TOUS LES GESTES PASSENT PAR LE MENU DE LA CARTE (§7 duodecies.2). Les
+  // boutons permanents — monter, descendre, retirer, et le lien « grouper avec
+  // le suivant » entre chaque paire — ont disparu : c'est la même grammaire
+  // qu'en séance, et le banc doit la parcourir pareil.
+  const menuCarte = async (i) => {
+    await page.evaluate((k) => {
+      document.querySelectorAll('.exo-routine')[k].querySelector('.menu-pts').click();
+    }, i);
+    await attendre(300);
   };
+  const entreesMenu = () => page.evaluate(() =>
+    Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
+      .map((b) => b.textContent + (b.disabled ? ' (inerte)' : '')));
+  const entree = async (motif) => {
+    await page.evaluate((m) => {
+      const b = Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
+        .filter((x) => new RegExp(m).test(x.textContent))[0];
+      b.click();
+    }, motif);
+    await attendre(350);
+  };
+  // Un geste = ouvrir le menu de la carte i, puis toucher son entrée.
+  const gesteCarte = async (i, motif) => { await menuCarte(i); await entree(motif); };
   ok('trois exercices dans l’ordre d’ajout', JSON.stringify(await noms()) ===
     JSON.stringify(['Squat (Barre)', 'Développé Couché (Barre)', 'Soulevé de Terre (Barre)']), JSON.stringify(await noms()));
 
@@ -320,7 +366,7 @@ const CATALOGUE = [
   // ⚠️ ADRESSÉ PAR INDICE DE CARTE, PAS PAR POSITION DANS LE DOM. Le chantier
   // 28 intercale un lien de superset entre deux cartes : `nth-child(3)` ne
   // désigne plus la troisième carte mais le deuxième lien.
-  await carteEditeur(2, '.geste[aria-label="Monter"]');
+  await gesteCarte(2, '^Monter$');
   await attendre(250);
   ok('à l’écran : le 3e est remonté', JSON.stringify(await noms()) ===
     JSON.stringify(['Squat (Barre)', 'Soulevé de Terre (Barre)', 'Développé Couché (Barre)']), JSON.stringify(await noms()));
@@ -334,7 +380,7 @@ const CATALOGUE = [
 
   await page.click('#liste-routines .routine');
   await attendre(700);
-  await carteEditeur(1, '.geste[aria-label="Retirer"]');
+  await gesteCarte(1, 'Supprimer l');
   await attendre(250);
   await page.click('#btn-enregistrer-routine');
   await attendre(900);
@@ -353,20 +399,33 @@ const CATALOGUE = [
   // Le 3e champ de la 1re carte : séries · reps visées · REPOS. Adressé par
   // indice, pour la même raison que les cartes — un lien de superset s'intercale
   // désormais entre deux d'entre elles.
+  // Le 3e champ de la feuille de la 1re carte : séries · reps visées · REPOS.
+  // Les trois réglages ne sont plus sur la carte — elle les AFFICHE, la feuille
+  // les modifie (§7 duodecies.2).
   const remplirRepos = async (v) => {
+    await gesteCarte(0, 'Modifier les param');
     await page.evaluate((val) => {
-      const i = document.querySelectorAll('.exo-routine')[0]
-        .querySelectorAll('.exo-routine-champs .champ-num input')[2];
+      const i = document.querySelectorAll('#feuille-contenu .champ-num input')[2];
       i.value = val;
       i.dispatchEvent(new Event('input', { bubbles: true }));
     }, v);
-    await attendre(250);
+    await attendre(200);
+    await page.click('#feuille-contenu .principal');
+    await attendre(350);
   };
+  await menuCarte(0);
+  await entree('Modifier les param');
   const aChampRepos = await page.evaluate(() =>
-    document.querySelectorAll('.exo-routine')[0]
-      .querySelectorAll('.exo-routine-champs .champ-num input').length);
-  ok('le champ « Repos (s) » est là, dans l’éditeur', aChampRepos === 3,
-    aChampRepos + ' champ(s) numériques');
+    document.querySelectorAll('#feuille-contenu .champ-num input').length);
+  const libRepos = await page.evaluate(() => {
+    const l = document.querySelectorAll('#feuille-contenu .champ-lib')[2];
+    return l ? l.textContent : '';
+  });
+  ok('le champ « Repos (s) » est là, dans la feuille des paramètres',
+    aChampRepos === 3 && libRepos === 'Repos (s)',
+    aChampRepos + ' champ(s) numériques · 3e = « ' + libRepos + ' »');
+  await page.click('#feuille-contenu .principal');
+  await attendre(350);
   await remplirRepos('210');
   await page.click('#btn-enregistrer-routine');
   await attendre(900);
@@ -422,33 +481,53 @@ const CATALOGUE = [
       const l = c.querySelector('.lettre-exo');
       return l ? l.textContent : '';
     }));
-  const liensEditeur = () => page.evaluate(() =>
-    Array.from(document.querySelectorAll('.lien-superset'))
-      .map((d) => d.classList.contains('actif')));
-  const cliquerLien = async (i) => {
-    await page.evaluate((k) => {
-      document.querySelectorAll('.lien-superset')[k].querySelector('button').click();
-    }, i);
-    await attendre(250);
-  };
+  // ⚠️ LE LIEN N'A PLUS DE BOUTON À LUI (§7 duodecies.2) : il se lit sur le
+  // LISERÉ de la carte, exactement comme au détail de séance, et il se pose par
+  // le menu. On mesure donc ce qui reste visible — le groupement — et non plus
+  // la commande qui le produisait.
+  const groupesEditeur = () => page.evaluate(() =>
+    Array.from(document.querySelectorAll('.exo-routine')).map((c) => c.classList.contains('groupe')));
+  const cliquerLien = async (i) => { await gesteCarte(i, 'Grouper avec le suivant'); };
+  const degrouperCarte = async (i) => { await gesteCarte(i, '^Dégrouper$'); };
   const enBase = () => base.exos.slice().sort((a, b) => a.rang - b.rang)
     .map((e) => e.groupe_superset);
 
-  ok('trois exercices, deux liens entre eux, aucun actif',
-    JSON.stringify(await liensEditeur()) === '[false,false]' &&
+  ok('trois exercices, aucun groupé',
+    JSON.stringify(await groupesEditeur()) === '[false,false,false]' &&
     JSON.stringify(await lettresEditeur()) === '["","",""]',
-    JSON.stringify(await liensEditeur()) + ' · ' + JSON.stringify(await lettresEditeur()));
+    JSON.stringify(await groupesEditeur()) + ' · ' + JSON.stringify(await lettresEditeur()));
+
+  // ⚠️ LES SIX GESTES, ET L'ASYMÉTRIE QUI LES MESURE. Sur le PREMIER exercice
+  // d'une liste de trois, « Monter » et « Dégrouper » n'ont pas de sens et sont
+  // GRISÉS ; les quatre autres sont actifs. Un menu où tout serait actif, ou
+  // tout grisé, ne prouverait rien.
+  await menuCarte(0);
+  ok('[41] le menu de carte porte les six gestes du §7 duodecies.2',
+    (await entreesMenu()).length === 6 &&
+    /Grouper avec le suivant/.test((await entreesMenu())[0]) &&
+    /Modifier les param/.test((await entreesMenu())[4]),
+    (await entreesMenu()).join(' | '));
+  ok('[41] et il grise ce qui n’a pas de sens sur le premier : Monter, Dégrouper',
+    (await entreesMenu())[1] === 'Dégrouper (inerte)' &&
+    (await entreesMenu())[2] === 'Monter (inerte)' &&
+    (await entreesMenu())[3] === 'Descendre',
+    (await entreesMenu()).join(' | '));
+  await page.click('#btn-fermer-feuille');
+  await attendre(300);
 
   // Le lien du MILIEU : les deux DERNIERS se groupent, le premier reste dehors.
   await cliquerLien(1);
   ok('le lien du milieu groupe les deux derniers, et EUX SEULS',
-    JSON.stringify(await liensEditeur()) === '[false,true]' &&
+    JSON.stringify(await groupesEditeur()) === '[false,true,true]' &&
     JSON.stringify(await lettresEditeur()) === '["","A","B"]',
     JSON.stringify(await lettresEditeur()));
-  ok('et le bouton dit comment le défaire',
-    /séparer/i.test(await page.evaluate(() =>
-      document.querySelectorAll('.lien-superset')[1].querySelector('button').textContent)),
-    await page.evaluate(() => document.querySelectorAll('.lien-superset')[1].querySelector('button').textContent));
+  await menuCarte(1);
+  ok('[41] une fois groupé, « Grouper » se grise et « Dégrouper » s’ouvre',
+    (await entreesMenu())[0] === 'Grouper avec le suivant (inerte)' &&
+    (await entreesMenu())[1] === 'Dégrouper',
+    (await entreesMenu()).join(' | '));
+  await page.click('#btn-fermer-feuille');
+  await attendre(300);
 
   await page.click('#btn-enregistrer-routine');
   await attendre(900);
@@ -461,23 +540,34 @@ const CATALOGUE = [
   await page.click('#liste-routines .routine');
   await attendre(700);
   ok('rouvert, l’éditeur RETROUVE le superset',
-    JSON.stringify(await liensEditeur()) === '[false,true]' &&
+    JSON.stringify(await groupesEditeur()) === '[false,true,true]' &&
     JSON.stringify(await lettresEditeur()) === '["","A","B"]',
     JSON.stringify(await lettresEditeur()));
+
+  // ⚠️ §7 decies — UN SUPERSET À DEUX SE DISSOUT QUAND ON EN SORT UN. Il
+  // n'existe pas de groupe à un : sortir B doit laisser B ET C seuls, pas C
+  // tout seul dans un groupe. C'est la configuration discriminante — sur un
+  // superset à trois, le reste formerait encore un groupe.
+  await degrouperCarte(1);
+  ok('[41] dégrouper un superset à DEUX le dissout entièrement',
+    JSON.stringify(await groupesEditeur()) === '[false,false,false]' &&
+    JSON.stringify(await lettresEditeur()) === '["","",""]',
+    JSON.stringify(await groupesEditeur()) + ' · ' + JSON.stringify(await lettresEditeur()));
+  await cliquerLien(1);   // on le repose, la suite l'attend groupé
 
   // ⚠️ L'ADJACENCE EST LA SEULE DÉFINITION (§2.3). Descendre le premier le pose
   // ENTRE les deux autres : la suite contiguë est rompue, donc le superset
   // n'existe plus. Ça se voit à l'endroit exact où le lien vient de céder.
-  await carteEditeur(0, '.geste[aria-label="Descendre"]');
+  await gesteCarte(0, '^Descendre$');
   ok('glisser un exercice AU MILIEU d’un superset le défait',
-    JSON.stringify(await liensEditeur()) === '[false,false]' &&
+    JSON.stringify(await groupesEditeur()) === '[false,false,false]' &&
     JSON.stringify(await lettresEditeur()) === '["","",""]',
     JSON.stringify(await lettresEditeur()));
   // Et il ne revient pas tout seul : le numéro est perdu, pas mis de côté.
-  await carteEditeur(1, '.geste[aria-label="Monter"]');
+  await gesteCarte(1, '^Monter$');
   ok('et il ne se recolle pas de lui-même au retour',
-    JSON.stringify(await liensEditeur()) === '[false,false]',
-    JSON.stringify(await liensEditeur()));
+    JSON.stringify(await groupesEditeur()) === '[false,false,false]',
+    JSON.stringify(await groupesEditeur()));
 
   // Les trois d'un coup, puis l'écriture : un superset à TROIS, le cas que le
   // chantier 27 avait validé sur device et que l'éditeur ne savait pas produire.
@@ -507,7 +597,7 @@ const CATALOGUE = [
   await page.click('#liste-routines .routine');
   await attendre(700);
   ok('un groupe à UN seul exercice ne s’affiche pas comme un superset',
-    JSON.stringify(await liensEditeur()) === '[false,false]' &&
+    JSON.stringify(await groupesEditeur()) === '[false,false,false]' &&
     JSON.stringify(await lettresEditeur()) === '["","",""]',
     JSON.stringify(await lettresEditeur()));
   await page.click('#btn-enregistrer-routine');
@@ -519,14 +609,14 @@ const CATALOGUE = [
   // sans superset. Le §6 compte les lignes, pas les groupes.
   await page.click('#liste-routines .routine');
   await attendre(700);
-  await carteEditeur(2, '.geste[aria-label="Retirer"]');
+  await gesteCarte(2, 'Supprimer l');
   await page.click('#btn-enregistrer-routine');
   await attendre(900);
   ok('remis à plat : deux exercices, aucun groupe',
     base.exos.length === 2 && JSON.stringify(enBase()) === '[null,null]',
     base.exos.length + ' exercice(s) · ' + JSON.stringify(enBase()));
 
-  console.log('\n══ 6. NOM EN DOUBLON, PUIS ARCHIVAGE ══');
+  console.log('\n══ 6. NOM EN DOUBLON, PUIS SUPPRESSION ══');
   await page.click('#btn-nouvelle-routine');
   await attendre(400);
   await page.fill('#champ-nom-routine', 'push  ');
@@ -535,14 +625,81 @@ const CATALOGUE = [
   ok('le doublon est refusé avec un message clair', /déjà une routine de ce nom/.test(await texte('#erreur-routine')), await texte('#erreur-routine'));
   ok('et on est resté sur l’éditeur, rien n’est perdu', page.url().includes('/routine/'), page.url().replace(BASE, ''));
 
+  // ⚠️ LE NOM EST BORNÉ À LA SAISIE, PAS PAR LE SERVEUR. `routines_nom_court`
+  // refuse au-delà de 60 caractères avec un 23514, code DÉFINITIF. Un champ qui
+  // laisse taper 61 caractères fait donc bloquer l'entrée au lieu de la
+  // corriger — c'est la même maladie que le chantier 36.
+  const trop = 'x'.repeat(61);
+  await page.fill('#champ-nom-routine', trop);
+  const saisi = await page.evaluate(() => document.getElementById('champ-nom-routine').value);
+  ok('[41] un nom de 61 caractères est refusé À LA SAISIE, pas par la base',
+    saisi.length === 60, saisi.length + ' caractère(s) retenus sur 61');
+
+  console.log('\n══ 6 bis. SUPPRIMER UNE ROUTINE QUI A DÉJÀ SERVI ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE (§2 quater) : une routine QUI A SERVI — une
+  // séance terminée qui en est issue, avec ses séries. Sur une routine jamais
+  // utilisée, « les séances survivent » et « il n'y avait rien à casser » sont
+  // indistinguables, et le test ne prouverait rien.
   await aller('/saisie');
+  const routineQuiAServi = base.routines[0];
+  base.sessions.push({
+    id: 'sess-issue', user_id: 'u-banc', titre: 'Push du mardi',
+    debut: '2026-09-10T10:00:00Z', fin: '2026-09-10T11:00:00Z', statut: 'terminee',
+    note: null, salle: null, salle_norme: null, routine_id: routineQuiAServi.id,
+    source: 'app', created_at: '2026-09-10T10:00:00Z'
+  });
+  base.sets.push({ id: 'set-issue', session_id: 'sess-issue', exercise_slug: 'squat-barre',
+    charge_kg: 100, reps: 5, type_serie: 'travail', rang: 1 });
+  const exosAvant = base.exos.filter((e) => e.routine_id === routineQuiAServi.id).length;
+  ok('[41] la routine a bien servi : une séance terminée en est issue',
+    exosAvant > 0 && base.sessions.filter((x) => x.routine_id === routineQuiAServi.id).length === 1,
+    exosAvant + ' exercice(s) · ' + base.sessions.length + ' séance(s)');
+
   await page.click('#liste-routines .routine');
   await attendre(700);
-  await page.click('#btn-archiver-routine');
+  ok('[41] le bouton dit « Supprimer », plus « Archiver »',
+    (await texte('#btn-supprimer-routine')).trim() === 'Supprimer' &&
+    (await page.evaluate(() => !!document.getElementById('btn-archiver-routine'))) === false,
+    '« ' + (await texte('#btn-supprimer-routine')).trim() + ' »');
+
+  await page.click('#btn-supprimer-routine');
+  await attendre(500);
+  const conf = (await texte('#feuille-contenu')).replace(/\s+/g, ' ');
+  ok('[41] il DEMANDE avant, et dit que les séances passées restent intactes',
+    /Supprimer cette routine/.test(conf) && /restent intactes/.test(conf),
+    conf.slice(0, 120));
+  // ⚠️ « LIEN » EST LE MOT À NE PAS DIRE : une séance passée n'est pas liée à sa
+  // routine, elle en est issue.
+  ok('[41] et elle ne parle jamais de « lien »', !/lien|liée/i.test(conf), conf.slice(0, 90));
+
+  // Annuler d'abord : une confirmation qui ne protège de rien n'en est pas une.
+  await entree('Annuler');
+  ok('[41] annuler ne supprime RIEN',
+    base.routines.filter((r) => r.id === routineQuiAServi.id).length === 1,
+    base.routines.length + ' routine(s)');
+
+  await page.click('#btn-supprimer-routine');
+  await attendre(500);
+  await entree('^Supprimer$');
   await attendre(900);
-  ok('archivée : elle quitte la liste', /Aucune routine/.test(await texte('#liste-routines')), (await texte('#liste-routines')).replace(/\n+/g, ' | ').slice(0, 80));
-  ok('et elle reste en base — les séances gardent leur lien',
-    base.routines.length === 1 && !!base.routines[0].archivee_a, JSON.stringify(base.routines.map((r) => r.nom + (r.archivee_a ? ' (archivée)' : ''))));
+  ok('[41] confirmée, la routine quitte la base — pas d’archivage',
+    base.routines.filter((r) => r.id === routineQuiAServi.id).length === 0,
+    JSON.stringify(base.routines.map((r) => r.nom)));
+  // §5 test 5 — la CASCADE.
+  ok('[41] ses exercices partent avec elle, aucun orphelin',
+    base.exos.filter((e) => e.routine_id === routineQuiAServi.id).length === 0,
+    exosAvant + ' avant · ' + base.exos.length + ' ligne(s) restante(s) au total');
+  // §5 test 4 — le SET NULL. C'est la promesse de la confirmation.
+  const seance = base.sessions.filter((x) => x.id === 'sess-issue')[0];
+  ok('[41] LA SÉANCE PASSÉE SURVIT, avec ses séries — elle perd juste l’origine',
+    !!seance && seance.routine_id === null && seance.titre === 'Push du mardi' &&
+    base.sets.filter((x) => x.session_id === 'sess-issue').length === 1,
+    JSON.stringify({ seance: !!seance, routine_id: seance && seance.routine_id,
+                     series: base.sets.filter((x) => x.session_id === 'sess-issue').length }));
+  ok('[41] et elle quitte la liste tout de suite',
+    !new RegExp(routineQuiAServi.nom).test(await texte('#liste-routines')),
+    (await texte('#liste-routines')).replace(/\n+/g, ' | ').slice(0, 80));
 
   console.log('\n══ 7. LE NOM REDEVIENT LIBRE ══');
   await page.click('#liste-routines .principal');
@@ -556,7 +713,40 @@ const CATALOGUE = [
   await attendre(250);
   await page.click('#btn-enregistrer-routine');
   await attendre(900);
-  ok('« Push » est réutilisable après archivage', /Push/.test(await texte('#liste-routines')) && base.routines.filter((r) => !r.archivee_a).length === 1,
+  ok('« Push » est réutilisable après suppression',
+    /Push/.test(await texte('#liste-routines')) && base.routines.length === 1,
+    JSON.stringify(base.routines.map((r) => r.nom)));
+
+  console.log('\n══ 7 bis. UNE ROUTINE ARCHIVÉE EN BASE ══');
+  //
+  // ⚠️ DEUX ROUTINES PORTENT ENCORE `archivee_a`, et plus rien ne l'écrira.
+  // Archiver était irréversible depuis l'app : la colonne cessait d'être une
+  // information et devenait une disparition. Décision du chantier 41 — elle ne
+  // cache plus rien, et la routine redevient supprimable.
+  base.routines.push({ id: 'r-vieille', user_id: 'u-banc', nom: 'Ancienne',
+    note: null, archivee_a: '2026-01-01T00:00:00Z' });
+  await aller('/saisie');
+  ok('[41] une routine archivée en base REVIENT dans la bibliothèque',
+    /Ancienne/.test(await texte('#liste-routines')),
+    (await texte('#liste-routines')).replace(/\n+/g, ' | ').slice(0, 90));
+  // ⚠️ MAIS ELLE NE RÉSERVE TOUJOURS PAS SON NOM : `routines_user_nom_actif_uniq`
+  // est un index PARTIEL. Refuser localement ce que la base accepte bloquerait
+  // un enregistrement pour rien.
+  await page.click('#btn-nouvelle-routine');
+  await attendre(400);
+  await page.fill('#champ-nom-routine', 'Ancienne');
+  await page.click('#btn-ajouter-exo');
+  await attendre(250);
+  await page.fill('#champ-recherche-exo', 'curl');
+  await attendre(250);
+  await page.click('#resultats-exo .resultat');
+  await attendre(250);
+  await page.click('#btn-enregistrer-routine');
+  await attendre(900);
+  ok('[41] et son nom reste libre — l’index d’unicité est PARTIEL',
+    !(await texte('#erreur-routine')).trim() &&
+    base.routines.filter((r) => replie(r.nom) === 'ancienne').length === 2,
+    '« ' + (await texte('#erreur-routine')).trim() + ' » · ' +
     JSON.stringify(base.routines.map((r) => r.nom + (r.archivee_a ? '*' : ''))));
 
   console.log('\n══ 8. NON-RÉGRESSION ══');

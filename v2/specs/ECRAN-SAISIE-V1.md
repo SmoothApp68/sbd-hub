@@ -1460,6 +1460,86 @@ Hevy fait descendre l'écran sur l'exercice suivant du superset après chaque va
 
 ---
 
+## 7 duodecies. Bibliothèque de routines — suppression, menu, dossiers
+
+Arrêté le 13/09/2026. **Livré au chantier 41 (16/09/2026), sauf .3.**
+
+### 7 duodecies.1 On supprime, on n'archive plus
+
+**Archiver est aujourd'hui irréversible depuis l'app.** Une routine archivée par erreur ne se
+récupère que par une écriture en base — c'est arrivé le 13/09.
+
+> **Décision : la suppression remplace l'archivage.** Un geste franc, avec confirmation. Pas
+> de corbeille, pas de désarchivage.
+
+**Le schéma protège déjà les données**, vérifié :
+
+| Contrainte | Effet |
+|---|---|
+| `sessions_routine_fk` | `ON DELETE SET NULL` — **les séances restent intactes**, elles perdent la référence |
+| `routine_exercises_routine_id_fkey` | `ON DELETE CASCADE` — les exercices de la routine partent avec elle |
+
+**Ne pas parler de « lien » à l'utilisateur** : une séance passée n'est pas liée à sa routine,
+elle en est issue. Supprimer la routine ne touche à rien de ce qui a été fait.
+
+`routines.archivee_a` reste en base — aucune migration, la colonne cesse simplement d'être
+écrite.
+
+> **CE QUE L'APP EN FAIT À LA LECTURE — tranché au chantier 41.**
+>
+> **`archivee_a` ne cache plus rien.** Les routines qui la portent encore reviennent dans la
+> bibliothèque, où elles peuvent enfin être supprimées : c'est la seule façon de refermer
+> l'incident du 13/09 sans migration. Le sens de la colonne était devenu « disparue », pas
+> « rangée ».
+>
+> **Mais `nomEnConflit` continue de l'honorer**, et ce n'est pas la même règle écrite deux
+> fois : `routines_user_nom_actif_uniq` est un index **partiel** (`WHERE archivee_a IS NULL`).
+> Une archivée ne réserve réellement pas son nom, et refuser localement ce que la base accepte
+> bloquerait un enregistrement pour rien. Deux questions différentes, une seule colonne.
+
+### 7 duodecies.2 Les gestes passent par le menu de la carte
+
+**Constaté sur device.** L'éditeur affiche un bouton « grouper avec le suivant » à même la
+carte : un bouton permanent pour un geste occasionnel.
+
+> **Même grammaire que la séance** : tous les gestes de bloc vivent derrière le menu trois
+> points. Deux endroits qui font la même chose doivent se piloter pareil, sinon il faut
+> l'apprendre deux fois.
+
+Le menu porte : **grouper avec le suivant · dégrouper · monter · descendre · modifier les
+paramètres · supprimer**.
+
+**Bénéfice secondaire** : la carte libérée peut montrer ce qui compte — séries, reps visées,
+repos cible.
+
+> **Livré au chantier 41.** Les quatre boutons permanents — monter, descendre, retirer, et le
+> lien entre chaque paire — ont disparu. La carte affiche
+> « 3 séries × 8 reps · repos 1:30 » ; les trois réglages se modifient dans une feuille, un
+> champ sous le pouce plutôt que trois sur une carte à 360 px. Ce qui n'a pas de sens sur une
+> carte donnée est **grisé**, pas absent : les entrées ne bougent pas d'une carte à l'autre.
+
+### 7 duodecies.3 Les dossiers — une étiquette, pas une structure
+
+Une bibliothèque plate devient illisible dès qu'un programme complet y entre : six à huit
+routines qui vont ensemble, mélangées au reste.
+
+> **Retenu pour maintenant : un simple dossier — « Programme force », « Prise de masse ».**
+> Un champ sur la routine, rien de plus. Ça résout le rangement sans rien fermer.
+
+**Écarté pour plus tard, explicitement :** un programme qui porte un **ordre et des cycles** —
+« semaine 1 : lundi, mercredi, vendredi », avec une progression d'un bloc à l'autre.
+
+> Ce n'est pas un dossier, c'est une structure — et **elle touche au moteur** : un programme
+> qui progresse suppose que quelque chose décide de la progression d'un cycle au suivant.
+> **À rouvrir quand le moteur parlera**, pas avant. Voir `CADRAGE-V2.md` §2 quinquies,
+> chantier 5 « construction de programmes ».
+
+> ⚠️ **NON LIVRÉ, et reporté explicitement** (chantier 41, §4 du prompt) : cinq routines
+> tiennent dans une liste, et un dossier demande une migration. Les dossiers viendront avec
+> les cycles.
+
+---
+
 ## 7 decies. Un groupe de superset a toujours au moins deux exercices
 
 > **Règle invariante, posée le 13/09/2026.**

@@ -227,12 +227,6 @@
     return r.data;
   }
 
-  // Archiver, pas supprimer : les séances qui référencent la routine
-  // (`sessions.routine_id`) gardent leur lien.
-  function archiverRoutine(id) {
-    return majRoutine(id, { archivee_a: new Date().toISOString() });
-  }
-
   async function insererExercices(lignes) {
     if (!lignes || !lignes.length) return [];
     var r = await client().from('routine_exercises').insert(lignes).select(COLONNES_ROUTINE_EXO);
@@ -251,9 +245,17 @@
     if (r.error) throw r.error;
   }
 
-  // Supprimer une routine entière. Utilisé UNIQUEMENT pour défaire une création
-  // dont les exercices ont échoué : sans ça, un réseau qui lâche au mauvais
-  // moment laisserait une routine vide et un nom pris pour rien.
+  // Supprimer une routine entière. Deux appelants : défaire une création dont
+  // les exercices ont échoué — sans ça, un réseau qui lâche au mauvais moment
+  // laisserait une routine vide et un nom pris pour rien — et le geste
+  // « Supprimer » de l'éditeur (§7 duodecies.1), qui remplace l'archivage.
+  //
+  // ⚠️ CE QUI PART, ET CE QUI RESTE — relevé sur les contraintes, pas supposé :
+  //   `routine_exercises_routine_id_fkey`  ON DELETE CASCADE  → les exercices
+  //      de la routine partent avec elle ;
+  //   `sessions_routine_fk`                ON DELETE SET NULL → les séances
+  //      DÉJÀ FAITES restent intactes, avec toutes leurs séries.
+  // Rien de ce qui a été fait ne dépend de la routine dont c'est issu.
   async function supprimerRoutine(id) {
     var r = await client().from('routines').delete().eq('id', id);
     if (r.error) throw r.error;
@@ -373,7 +375,6 @@
     mesRoutines: mesRoutines,
     creerRoutine: creerRoutine,
     majRoutine: majRoutine,
-    archiverRoutine: archiverRoutine,
     supprimerRoutine: supprimerRoutine,
     insererExercices: insererExercices,
     majExercice: majExercice,

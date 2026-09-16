@@ -4,6 +4,9 @@
 //   la LETTRE identifie l'exercice dans le bloc, le CHIFFRE identifie le TOUR.
 // Un bloc d'un seul exercice n'a pas de lettre du tout.
 
+// `resumerSeance` lit le compte de séries de travail dans `THSemaine` : une
+// seule règle pour la carte et pour la barre (chantier 40).
+require('../../v2/js/semaine.js');
 const Modele = require('../../v2/js/modele.js');
 
 // Fabrique une ligne `sets` conforme au schéma réel.
@@ -28,12 +31,22 @@ function saisie(o) {
 }
 
 const CATALOGUE = [
-  { slug: 'dc', nom: 'Développé couché barre', charge: 'absolue', mesure: 'charge_reps' },
-  { slug: 'el', nom: 'Élévation latérale haltère', charge: 'absolue', mesure: 'charge_reps' },
-  { slug: 'ec', nom: 'Écarté haltère', charge: 'absolue', mesure: 'charge_reps' },
-  { slug: 'rando', nom: 'Randonnée', charge: 'aucune', mesure: 'distance_temps' },
-  { slug: 'pilates', nom: 'Pilates', charge: 'aucune', mesure: 'temps' },
-  { slug: 'planche', nom: 'Planche', charge: 'aucune', mesure: 'temps' }
+  { slug: 'dc', nom: 'Développé couché barre', charge: 'absolue', mesure: 'charge_reps',
+    muscles_primaires: ['pectoraux'], muscles_secondaires: ['triceps'] },
+  { slug: 'el', nom: 'Élévation latérale haltère', charge: 'absolue', mesure: 'charge_reps',
+    muscles_primaires: ['deltoide_lateral'], muscles_secondaires: [] },
+  { slug: 'ec', nom: 'Écarté haltère', charge: 'absolue', mesure: 'charge_reps',
+    muscles_primaires: ['pectoraux'], muscles_secondaires: [] },
+  // ⚠️ SANS MUSCLE PRIMAIRE, comme en base : ce sont les sorties, et c'est ce
+  // qui les écarte du compte de séries de travail (chantier 39/40).
+  { slug: 'rando', nom: 'Randonnée', charge: 'aucune', mesure: 'distance_temps',
+    muscles_primaires: [], muscles_secondaires: [] },
+  { slug: 'pilates', nom: 'Pilates', charge: 'aucune', mesure: 'temps',
+    muscles_primaires: [], muscles_secondaires: [] },
+  // La planche est « sortie » au sens de `estExerciceSortie` mais travaille un
+  // muscle : elle compte. Mesuré en base — six exercices sont dans ce cas.
+  { slug: 'planche', nom: 'Planche', charge: 'aucune', mesure: 'temps',
+    muscles_primaires: ['abdominaux'], muscles_secondaires: [] }
 ];
 
 const etiquettes = (bloc) => bloc.series.map(s => s.etiquette);

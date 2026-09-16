@@ -18,6 +18,7 @@
 
 const Seance = require('../../v2/js/seance.js');
 const Semaine = require('../../v2/js/semaine.js');
+const Modele = require('../../v2/js/modele.js');
 require('../../v2/js/rendu.js');
 const Rendu = () => window.THRendu;
 
@@ -221,5 +222,64 @@ describe('C2 — les sorties', () => {
   test('`porteDuVolume` ne lève pas sur l’absence', () => {
     expect(Semaine.porteDuVolume(null)).toBe(false);
     expect(Semaine.porteDuVolume({})).toBe(false);
+  });
+});
+
+// ── LE MÊME COMPTE POUR TOUS LES LECTEURS (chantier 40, §1) ───────────────
+//
+// CONFIGURATION DISCRIMINANTE : une séance MIXTE — musculation ET tapis. Sans
+// sortie dedans, « filtre appliqué » et « filtre absent » donnent le même
+// nombre, et c'est ce qui a laissé la carte diverger de la barre après le
+// chantier 39.
+describe('⚠️ la carte et la barre ne peuvent plus diverger', () => {
+  const EXOS = [
+    { slug: 'dc-barre', muscles_primaires: ['pectoraux'], muscles_secondaires: [] },
+    { slug: 'tapis_roulant', charge: 'aucune', mesure: 'distance_temps',
+      muscles_primaires: [], muscles_secondaires: [] },
+    { slug: 'planche', charge: 'aucune', mesure: 'temps',
+      muscles_primaires: ['abdominaux'], muscles_secondaires: [] }
+  ];
+  const t = (slug, rang) => ({
+    id: 's' + rang, session_id: 'x', exercise_slug: slug, type_serie: 'travail',
+    rang: rang, charge_kg: 60, reps: 8, duree_s: null, distance_m: null
+  });
+  const MIXTE = [t('dc-barre', 1), t('dc-barre', 2), t('dc-barre', 3),
+                 t('tapis_roulant', 4), t('tapis_roulant', 5)];
+
+  const carte = (series) =>
+    Modele.resumerSeance({ id: 'x', titre: 'Quads tous terrains' }, series, EXOS).nbSeriesTravail;
+  const barre = (series) =>
+    Semaine.bilanSemaine([{ id: 'x' }], series, EXOS).nbSeriesTravail;
+
+  test('sur une séance MIXTE, les deux disent le même nombre', () => {
+    expect(carte(MIXTE)).toBe(3);
+    expect(barre(MIXTE)).toBe(3);
+    expect(carte(MIXTE)).toBe(barre(MIXTE));
+  });
+
+  test('le tapis est exclu des DEUX, pas d’un seul', () => {
+    const sansTapis = MIXTE.filter((s) => s.exercise_slug !== 'tapis_roulant');
+    expect(carte(MIXTE)).toBe(carte(sansTapis));
+    expect(barre(MIXTE)).toBe(barre(sansTapis));
+  });
+
+  test('une planche COMPTE dans les deux — elle porte un muscle', () => {
+    const avecPlanche = MIXTE.concat([t('planche', 6), t('planche', 7)]);
+    expect(carte(avecPlanche)).toBe(5);
+    expect(barre(avecPlanche)).toBe(5);
+  });
+
+  test('les chauffes sortent des deux', () => {
+    const avecChauffe = MIXTE.concat([
+      Object.assign(t('dc-barre', 8), { type_serie: 'echauffement' })]);
+    expect(carte(avecChauffe)).toBe(3);
+    expect(barre(avecChauffe)).toBe(3);
+  });
+
+  // Le témoin : sans sortie, les deux implémentations coïncident — d'où le piège.
+  test('sans sortie dedans, filtrer ou non donne le même nombre', () => {
+    const pure = [t('dc-barre', 1), t('dc-barre', 2)];
+    expect(carte(pure)).toBe(2);
+    expect(barre(pure)).toBe(2);
   });
 });

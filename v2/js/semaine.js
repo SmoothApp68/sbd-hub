@@ -263,13 +263,22 @@
     return !!exo && !!(exo.muscles_primaires || []).length;
   }
 
-  function bilanSemaine(seances, series, exercices) {
-    var ids = new Set((seances || []).map(function (s) { return s && s.id; }));
+  // ⚠️ COMBIEN DE SÉRIES DE TRAVAIL, ET UN SEUL ENDROIT QUI LE SAIT.
+  //
+  // Le chantier 39 a posé la règle sur la BARRE et l'a laissée hors de la CARTE :
+  // la séance du 14/09 affichait 23 en haut et 25 sur sa carte, pour les mêmes
+  // séries. Deux lecteurs, deux calculs, deux nombres — c'est très exactement la
+  // maladie que `CADRAGE-V2 §2 undecies` nomme.
+  //
+  // Elle vit donc ici, une fois, et `THModele.resumerSeance` l'appelle pour la
+  // carte. Si la carte et la barre pouvaient encore différer, c'est qu'elles
+  // calculeraient au lieu de lire.
+  function compteSeriesTravail(series, exercices) {
     var cat = {};
     (exercices || []).forEach(function (e) { if (e && e.slug) cat[e.slug] = e; });
-    var travail = 0;
+    var n = 0;
     (series || []).forEach(function (s) {
-      if (!s || s.type_serie !== 'travail' || !ids.has(s.session_id)) return;
+      if (!s || s.type_serie !== 'travail') return;
       // ⚠️ ON NE RETRANCHE QUE CE QU'ON CONNAÎT. Un exercice absent du catalogue
       // — cache pas encore chargé, slug inconnu — n'est pas un exercice sans
       // muscle : c'est un exercice dont on ne sait rien. L'écarter ferait
@@ -277,9 +286,20 @@
       // d'une autre manière.
       var exo = cat[s.exercise_slug];
       if (exo && !porteDuVolume(exo)) return;
-      travail++;
+      n++;
     });
-    return { nbSeances: (seances || []).length, nbSeriesTravail: travail };
+    return n;
+  }
+
+  function bilanSemaine(seances, series, exercices) {
+    var ids = new Set((seances || []).map(function (s) { return s && s.id; }));
+    var dansLaSemaine = (series || []).filter(function (s) {
+      return s && ids.has(s.session_id);
+    });
+    return {
+      nbSeances: (seances || []).length,
+      nbSeriesTravail: compteSeriesTravail(dansLaSemaine, exercices)
+    };
   }
 
   var api = {
@@ -297,6 +317,7 @@
     repartirParJour: repartirParJour,
     volumeParMuscle: volumeParMuscle,
     porteDuVolume: porteDuVolume,
+    compteSeriesTravail: compteSeriesTravail,
     bilanSemaine: bilanSemaine
   };
 

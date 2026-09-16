@@ -445,7 +445,7 @@
         resume: Poids.resume(local.pesees),
         surChoix: function () { allerA(Routeur.POIDS, {}); rendrePoids(); }
       },
-      exercices: sommaireExercices()
+      exercices: sommaireExercices(function (slug) { afficherExercice(slug); })
     });
   }
 
@@ -458,7 +458,7 @@
   // même jour — deux voix pour un seul chiffre est la famille de défauts que
   // l'audit v1 a cataloguée. Un exercice sans meilleure série n'affiche pas de
   // valeur : rien ne s'invente.
-  function sommaireExercices() {
+  function sommaireExercices(surExercice) {
     var index = Modele.indexerExercices(local.exercices);
     var vus = {}, lignes = [];
     for (var i = 0; i < local.seances.length && lignes.length < 3; i++) {
@@ -476,6 +476,9 @@
                                 etatsExercices[serie.exercise_slug],
                                 { mesure: (index[serie.exercise_slug] || {}).mesure });
         lignes.push({
+          // Le slug voyage avec la ligne : c'est lui qui ouvre la page
+          // d'exercice (§7 quater), et le nom ne sert qu'à l'affichage.
+          slug: serie.exercise_slug,
           nom: (index[serie.exercise_slug] && index[serie.exercise_slug].nom) || serie.exercise_slug,
           mesure: r.meilleure === null ? ''
             : Modele.formatMesure({ charge_kg: r.meilleure.charge, reps: r.meilleure.reps }),
@@ -493,7 +496,7 @@
       distincts[serie.exercise_slug] = true; n++;
     });
 
-    return { quand: n ? n + ' exercices' : '', lignes: lignes };
+    return { quand: n ? n + ' exercices' : '', lignes: lignes, surExercice: surExercice };
   }
 
   // ══ LA SÉANCE EN COURS ═══════════════════════════════════════════════════
@@ -1225,6 +1228,10 @@
       surDeplacerBloc: function (i, d) { deplacerBloc(blocs, i, d); },
       surMenuBloc: function (i) { ouvrirFeuilleBloc('bloc', i, null); },
       surMenuExercice: function (i, iExo) { ouvrirFeuilleBloc('exercice', i, iExo); },
+      // §2.8 — un tap sur le nom d'un exercice donne sa page (§7 quater). La
+      // séance n'est pas quittée : elle reste visible en bandeau là-bas, avec
+      // « Reprendre ».
+      surExercice: function (slug) { afficherExercice(slug); },
       // §2.7 — le tour atteint, marque MONOTONE portée par la séance.
       tourAtteint: function (groupe) { return Seance.tourAtteint(seance, groupe); },
       // La fiche du catalogue, d'où la vue tire la MESURE — donc le gabarit de
@@ -1346,6 +1353,10 @@
           seance = Seance.degrouperExercice(seance, cibleExo, indices);
           apresStructure();
         },
+        surProgression: function () {
+          fermerVoile();
+          afficherExercice(seance.exercices[cibleExo].exercise_slug);
+        },
         surSupprimer: function () { demanderSuppression(iBloc, cibleExo); }
       });
     }
@@ -1371,6 +1382,13 @@
       },
       surMonter: function () { fermerVoile(); deplacerBloc(blocs, iBloc, -1); },
       surDescendre: function () { fermerVoile(); deplacerBloc(blocs, iBloc, 1); },
+      // Sur un bloc à plusieurs, « la progression » de QUEL exercice ? Le menu
+      // du bloc ne tranche pas : dans un superset, c'est le menu de l'exercice
+      // qui porte le geste, et ici il reste grisé.
+      surProgression: bloc.superset ? null : function () {
+        fermerVoile();
+        afficherExercice(bloc.exercices[0].slug);
+      },
       surSupprimer: function () { demanderSuppression(iBloc, null); }
     });
   }
@@ -2063,11 +2081,185 @@
     montrer('detail', Routeur.SEANCE);
     var ligne = local.seances.filter(function (s) { return s.id === sessionId; })[0] || null;
     var blocs = Modele.construireBlocs(seriesDe(sessionId), local.exercices);
-    Rendu.rendreDetail($('detail-seance'), ligne, blocs, ligne ? {
-      surSupprimer: function () { demanderSuppressionSeance(ligne); },
-      surModifier: function () { modifierSeance(ligne, blocs); },
-      surRefaire: function () { refaireSeance(ligne, blocs); }
-    } : null);
+    // §2.8 — un tap sur le nom d'un exercice donne sa page. C'est la porte
+    // d'entrée la plus naturelle, et elle était inerte depuis le chantier 27.
+    Rendu.rendreDetail($('detail-seance'), ligne, blocs, {
+      surExercice: function (slug) { afficherExercice(slug); },
+      surSupprimer: ligne ? function () { demanderSuppressionSeance(ligne); } : null,
+      surModifier: ligne ? function () { modifierSeance(ligne, blocs); } : null,
+      surRefaire: ligne ? function () { refaireSeance(ligne, blocs); } : null
+    });
+  }
+
+  // ══ LA PAGE D'EXERCICE (§7 quater) ═══════════════════════════════════════
+  //
+  // ⚠️ ELLE NE CALCULE RIEN QUI EXISTE DÉJÀ (`CADRAGE-V2` §2 undecies). Cette
+  // fonction n'est qu'un CÂBLAGE : elle rassemble les séries, appelle les
+  // mêmes fonctions que la carte de séance et que la barre de semaine, et passe
+  // le résultat au rendu.
+  //
+  //   meilleure série  → `Modele.meilleureSerieDeTout`, qui rappelle le chemin
+  //                      de la carte séance par séance ;
+  //   palier           → `Palier.analyser` sur la DERNIÈRE séance, comme le
+  //                      sommaire de Progression ;
+  //   séries de travail→ `Semaine.compteSeriesTravail`, la règle unique du §1 ;
+  //   historique       → `Modele.construireBlocs`, qui rend déjà le détail.
+  var PAS_HISTORIQUE = 20;     // §7 quater.4 — 20 séances, puis « voir plus »
+  // ⚠️ RIEN D'AUTRE QUE CE QUI SE LIT. Cet état ne retient QUE combien de
+  // séances l'historique déplie, et pour quel exercice. L'onglet courant, lui,
+  // vient de l'URL à chaque rendu : le garder ici en ferait une seconde source
+  // — un champ écrit que personne ne lit, exactement le défaut C1 du chantier 39.
+  var exoAffiche = null;       // { slug, combien }
+
+  // Les séances qui portent cet exercice, de la plus récente à la plus
+  // ancienne : `local.seances` est déjà rangée ainsi (invariant de
+  // `rangerSeances`), on ne retrie pas ce qui est trié.
+  function seancesDeLExercice(slug) {
+    return local.seances.map(function (s) {
+      var siennes = seriesDe(s.id).filter(function (x) {
+        return x && x.exercise_slug === slug;
+      });
+      return siennes.length ? { seance: s, series: siennes } : null;
+    }).filter(Boolean);
+  }
+
+  // `repos_s` est NULL sur les 28 103 séries importées : l'export Hevy ne porte
+  // pas le repos. On ne moyenne donc que ce qui existe, et on ne rend rien
+  // plutôt qu'un zéro — une séance sans repos mesuré n'est pas une séance sans
+  // repos.
+  function reposMoyenDe(series) {
+    var somme = 0, n = 0;
+    series.forEach(function (s) {
+      var v = s && s.repos_s;
+      if (v === null || v === undefined) return;
+      somme += Number(v) || 0; n++;
+    });
+    return n ? Math.round(somme / n) : null;
+  }
+
+  function rendreExercice(slug, onglet) {
+    montrer('exercice', Routeur.EXERCICE);
+    var vueOnglet = onglet === Routeur.EXO_HISTORIQUE ? Routeur.EXO_HISTORIQUE : 'resume';
+    // Le « voir plus » ne survit pas à un changement d'exercice : on repart des
+    // 20 dernières, sinon une page ouverte sur 60 séances en afficherait 60
+    // pour l'exercice suivant sans que personne ne l'ait demandé.
+    if (!exoAffiche || exoAffiche.slug !== slug) {
+      exoAffiche = { slug: slug, combien: PAS_HISTORIQUE };
+    }
+
+    var index = Modele.indexerExercices(local.exercices);
+    var exo = index[slug] || null;
+    var mesure = exo ? exo.mesure : null;
+    var groupes = seancesDeLExercice(slug);
+    var toutes = [].concat.apply([], groupes.map(function (g) { return g.series; }));
+
+    // Le palier du JOUR le plus récent. Il ne se calcule pas sur trois ans :
+    // « chauffe probable » se juge à ≤ 75 % de la plus lourde DU JOUR (§4.1).
+    var palier = groupes.length
+      ? Palier.analyser(groupes[0].series, etatsExercices[slug], { mesure: mesure })
+      : { palier: null, reps: null, erreur: null };
+
+    // La date d'un record est celle de la SÉANCE, pas `validee_a` : les séries
+    // importées ont `validee_a` à NULL (chantier 35, D3).
+    var debutDe = {};
+    groupes.forEach(function (g) {
+      g.series.forEach(function (x) { debutDe[x.id] = g.seance.debut; });
+    });
+    var table = Modele.tableParReps(toutes, mesure, function (x) { return debutDe[x.id] || null; });
+    // Un jour de record se DÉDUIT de la table, il ne se recalcule pas : ce sont
+    // exactement les dates de ses lignes non déduites. On garde le plus grand
+    // nombre de reps du jour — « record à 6 reps » dit de quoi il s'agit.
+    var joursRecord = {};
+    table.forEach(function (l) {
+      if (l.deduit || !l.date) return;
+      if (!joursRecord[l.date] || l.reps > joursRecord[l.date]) joursRecord[l.date] = l.reps;
+    });
+
+    // La dernière séance porte le PALIER sur `charge_reps` — la grandeur du
+    // moteur. Sur les autres mesures il n'y en a pas : on lit alors la meilleure
+    // série du jour, par le chemin de la carte.
+    var derniere = null;
+    if (groupes.length) {
+      derniere = mesure === 'charge_reps'
+        ? { charge: palier.palier, reps: palier.reps }
+        : Modele.meilleureSerieDe(slug, groupes[0].series, local.exercices, Palier, etatsExercices);
+      derniere.date = groupes[0].seance.debut;
+    }
+
+    var record = Modele.meilleureSerieDeTout(slug, groupes.map(function (g) {
+      return { cle: g.seance.debut, series: g.series };
+    }), local.exercices, Palier, etatsExercices);
+    record.date = record.cle || null;
+
+    var visibles = groupes.slice(0, exoAffiche.combien);
+    Rendu.rendrePageExercice($('page-exercice'), {
+      nom: exo ? exo.nom : slug,
+      mesure: mesure,
+      onglet: vueOnglet,
+      sousTitre: sousTitreExercice(groupes),
+      surOnglet: function (o) { afficherExercice(slug, o); },
+      // §7 quater.1 — la séance en cours reste visible, et « Reprendre » y
+      // ramène : on consulte sans avoir l'impression d'avoir quitté.
+      seanceEnCours: seance ? {
+        titre: seance.titre || 'Séance',
+        surReprendre: function () { afficherSaisie(); }
+      } : null,
+      derniere: derniere,
+      record: record,
+      volume: {
+        nbSeries: Semaine.compteSeriesTravail(toutes, local.exercices),
+        nbSeances: groupes.length
+      },
+      table: table,
+      // Pas de moteur de cible à ce jour (`CADRAGE-V2` §2 ter) : la ligne mise
+      // en avant est celle des reps du palier courant — celle sur laquelle on
+      // travaille réellement aujourd'hui.
+      cibleReps: palier.reps,
+      historique: visibles.map(function (g) {
+        return {
+          id: g.seance.id,
+          titre: g.seance.titre,
+          debut: g.seance.debut,
+          note: g.seance.note || '',
+          reposMoyen: reposMoyenDe(g.series),
+          record: (g.seance.debut && joursRecord[g.seance.debut]) || 0,
+          blocs: Modele.construireBlocs(g.series, local.exercices)
+        };
+      }),
+      surSeance: function (id) { afficherDetail(id); },
+      reste: Math.max(0, groupes.length - visibles.length),
+      surVoirPlus: function () {
+        exoAffiche.combien += PAS_HISTORIQUE;
+        rendreExercice(slug, vueOnglet);
+      }
+    });
+  }
+
+  // « 123 séances depuis janvier 2024 · dernière le 11 sept. » — trois faits
+  // lus sur la liste déjà rangée, aucun jugement. Rien du tout quand il n'y a
+  // rien : un exercice jamais fait n'a pas d'histoire à résumer.
+  function sousTitreExercice(groupes) {
+    if (!groupes.length) return '';
+    var n = groupes.length;
+    var depuis = new Date(groupes[n - 1].seance.debut);
+    var derniere = new Date(groupes[0].seance.debut);
+    var bouts = [n + ' séance' + (n > 1 ? 's' : '')];
+    if (!isNaN(depuis.getTime())) {
+      bouts[0] += ' depuis ' + depuis.toLocaleDateString('fr-FR',
+        { month: 'long', year: 'numeric' });
+    }
+    if (!isNaN(derniere.getTime())) {
+      bouts.push('dernière le ' + derniere.toLocaleDateString('fr-FR',
+        { day: 'numeric', month: 'short' }));
+    }
+    return bouts.join(' \u00b7 ');
+  }
+
+  function afficherExercice(slug, onglet) {
+    var params = { slug: slug };
+    if (onglet === Routeur.EXO_HISTORIQUE) params.onglet = Routeur.EXO_HISTORIQUE;
+    allerA(Routeur.EXERCICE, params);
+    rendreExercice(slug, onglet);
   }
 
   // §7 octies — LE MÊME MENU, DEPUIS LA LISTE. Supprimer une séance demandait de
@@ -2397,6 +2589,9 @@
     if (cible.vue === Routeur.VOLUME) return rendreVolume();
     if (cible.vue === Routeur.POIDS) return rendrePoids();
     if (VUES_ONGLET[cible.vue]) return montrer(VUES_ONGLET[cible.vue], cible.vue);
+    if (cible.vue === Routeur.EXERCICE) {
+      return rendreExercice(cible.params.slug, cible.params.onglet);
+    }
     if (cible.vue === Routeur.SEANCE) return rendreDetail(cible.params.id);
     if (cible.vue === Routeur.SEMAINE) return rendreSemaine(cible.params.lundi);
     return rendreSemaine(Semaine.bornesSemaine(new Date()).lundi);
@@ -2414,7 +2609,7 @@
     vues = {
       connexion: $('vue-connexion'), liste: $('vue-liste'), detail: $('vue-detail'),
       saisie: $('vue-saisie'), routine: $('vue-routine'), seance: $('vue-seance'),
-      progression: $('vue-progression'),
+      progression: $('vue-progression'), exercice: $('vue-exercice'),
       volume: $('vue-volume'), poids: $('vue-poids'), profil: $('vue-profil')
     };
     sortie = Sortie.creer({
@@ -2428,6 +2623,13 @@
     $('form-connexion').addEventListener('submit', soumettreConnexion);
     $('btn-deconnexion').addEventListener('click', deconnecter);
     $('btn-retour').addEventListener('click', function () { afficherSemaine(); });
+    // ⚠️ LE RETOUR DE LA PAGE D'EXERCICE REMONTE L'HISTORIQUE, il ne choisit pas
+    // une destination. Elle s'atteint depuis trois écrans : décider pour elle
+    // en enverrait deux sur trois au mauvais endroit. `popstate` repasse par
+    // `Sortie`, donc le bouton fait exactement ce que fait celui d'Android.
+    $('btn-retour-exercice').addEventListener('click', function () {
+      racine.history.back();
+    });
     ['btn-retour-volume', 'btn-retour-poids'].forEach(function (id) {
       $(id).addEventListener('click', function () {
         allerA(Routeur.PROGRESSION, {});

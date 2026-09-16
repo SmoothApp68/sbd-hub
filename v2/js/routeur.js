@@ -45,6 +45,10 @@
   // même écran sans routine derrière — un mot réservé plutôt qu'un segment de
   // plus, parce que c'est le même formulaire et le même code.
   var ROUTINE = 'routine';
+  // §7 quater — une seule page d'exercice, atteinte de partout, et chacun de ses
+  // deux sous-onglets est adressable : la règle du routeur vaut pour elle aussi.
+  var EXERCICE = 'exercice', EXO_HISTORIQUE = 'historique';
+  var RE_SLUG = /^[a-z0-9][a-z0-9_-]{0,63}$/i;
   var ROUTINE_NEUVE = 'nouvelle';
 
   // Les vues qui vivent SOUS Progression. Le chemin est « /progression/<clé> »
@@ -111,6 +115,17 @@
       return { vue: ROUTINE, params: { id: bouts[1] } };
     }
 
+    if (bouts[0] === EXERCICE && (bouts.length === 2 || bouts.length === 3)) {
+      if (!RE_SLUG.test(bouts[1])) return { vue: RACINE, params: {}, repli: 'slug-invalide' };
+      // Un sous-onglet inconnu retombe sur le Résumé, pas sur la racine : un lien
+      // qui a vieilli reste dans la page qu'il visait (même règle que Progression).
+      if (bouts.length === 3 && bouts[2] !== EXO_HISTORIQUE) {
+        return { vue: EXERCICE, params: { slug: bouts[1] }, repli: 'sous-vue-inconnue' };
+      }
+      return { vue: EXERCICE, params: bouts.length === 3
+        ? { slug: bouts[1], onglet: EXO_HISTORIQUE } : { slug: bouts[1] } };
+    }
+
     if (bouts[0] === SEANCE && bouts.length === 2) {
       if (!RE_UUID.test(bouts[1])) return { vue: RACINE, params: {}, repli: 'id-invalide' };
       return { vue: SEANCE, params: { id: bouts[1] } };
@@ -127,6 +142,11 @@
       return d ? '/' + SEMAINE + '/' + d : '/';
     }
     if (vue === SEANCE) return p.id && RE_UUID.test(p.id) ? '/' + SEANCE + '/' + p.id : '/';
+    if (vue === EXERCICE) {
+      if (!p.slug || !RE_SLUG.test(p.slug)) return '/';
+      return '/' + EXERCICE + '/' + p.slug +
+        (p.onglet === EXO_HISTORIQUE ? '/' + EXO_HISTORIQUE : '');
+    }
     if (vue === ROUTINE) {
       if (p.neuve) return '/' + ROUTINE + '/' + ROUTINE_NEUVE;
       return p.id && RE_UUID.test(p.id) ? '/' + ROUTINE + '/' + p.id : '/' + SAISIE;
@@ -144,7 +164,7 @@
   var ONGLETS = [RACINE, SAISIE, PROGRESSION, PROFIL];
 
   function ongletDe(vue) {
-    if (vue === SEMAINE || vue === SEANCE) return RACINE;
+    if (vue === SEMAINE || vue === SEANCE || vue === EXERCICE) return RACINE;
     if (vue === ROUTINE) return SAISIE;
     if (SOUS_PROGRESSION[vue]) return PROGRESSION;
     for (var i = 0; i < ONGLETS.length; i++) if (ONGLETS[i] === vue) return vue;
@@ -194,7 +214,9 @@
   var api = {
     RACINE: RACINE, SEMAINE: SEMAINE, SEANCE: SEANCE, CONNEXION: CONNEXION,
     SAISIE: SAISIE, PROGRESSION: PROGRESSION, PROFIL: PROFIL,
-    ROUTINE: ROUTINE, ROUTINE_NEUVE: ROUTINE_NEUVE,
+    ROUTINE: ROUTINE,
+    EXERCICE: EXERCICE,
+    EXO_HISTORIQUE: EXO_HISTORIQUE, ROUTINE_NEUVE: ROUTINE_NEUVE,
     VOLUME: VOLUME, POIDS: POIDS,
     SOUS_PROGRESSION: SOUS_PROGRESSION,
     versDate: versDate,

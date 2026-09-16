@@ -70,6 +70,19 @@
     <div id="detail-seance"></div>
   </section>
 
+  <!-- LA PAGE D'EXERCICE (§7 quater) — une seule, atteinte de partout : depuis
+       une séance en cours, depuis le détail d'une séance passée, depuis
+       Progression. Deux sous-onglets, chacun avec son URL, et le bouton retour
+       ramène d'où l'on vient — le routeur le fait déjà.
+       Ni Instructions ni Classement : « ajouter un onglet plus tard ne coûte
+       rien ; un onglet vide coûte la confiance ». -->
+  <section id="vue-exercice" hidden>
+    <header class="entete">
+      <button id="btn-retour-exercice" type="button" class="discret">← Retour</button>
+    </header>
+    <div id="page-exercice"></div>
+  </section>
+
   <!-- Saisie : la bibliothèque de routines. L'état vide est le cas NORMAL au
        premier lancement — les tables sont vides. Une phrase qui dit quoi faire,
        et le moyen de le faire ; ni excuse, ni illustration. -->

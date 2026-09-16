@@ -421,7 +421,6 @@ button{font-family:inherit;cursor:pointer}
   font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bloc-fl{margin-left:auto;color:var(--texte-3);font-size:13px;flex:none}
 .bloc-rien{font-size:12.5px;line-height:1.5;color:var(--texte-3)}
-.bloc-avenir{font-size:11px;line-height:1.5;color:var(--texte-3);margin-top:var(--e2)}
 
 .bloc-zones{display:grid;grid-template-columns:repeat(3,1fr);gap:3px var(--e2);
   font-size:11.5px;line-height:1.5;color:var(--texte-3)}
@@ -438,8 +437,13 @@ button{font-family:inherit;cursor:pointer}
   line-height:1.3;color:var(--texte-2);font-variant-numeric:tabular-nums}
 .pesee-var em{display:block;font-style:normal;font-size:10px;color:var(--texte-3);margin-top:2px}
 
-.bloc-exo{display:flex;align-items:baseline;gap:var(--e2);padding:5px 0}
+/* La ligne mène à la page d'exercice : c'est un bouton, et il ne doit rien
+   ressembler d'autre que la ligne qu'il était. */
+.bloc-exo{display:flex;align-items:baseline;gap:var(--e2);padding:5px 0;
+  width:100%;text-align:left;border:none;background:transparent;
+  color:inherit;font-family:inherit}
 .bloc-exo + .bloc-exo{border-top:1px solid var(--trait)}
+button.bloc-exo:active{background:var(--panneau-2)}
 .bloc-exo-nom{flex:1;min-width:0;font-size:13px;line-height:1.4;color:var(--texte-2);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bloc-exo-val{font-size:13px;font-weight:600;line-height:1.4;white-space:nowrap;
@@ -875,3 +879,102 @@ button{font-family:inherit;cursor:pointer}
 .onglet.en-cours{position:relative}
 .onglet.en-cours::after{content:"";position:absolute;top:6px;left:50%;
   margin-left:7px;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+
+/* ══ LA PAGE D'EXERCICE (§7 quater) ═══════════════════════════════════════
+   Une seule page, atteinte de partout. Deux sous-onglets, pas quatre : ajouter
+   un onglet plus tard ne coûte rien, un onglet vide coûte la confiance.
+   Transcription de maquette-page-exercice.html, validée le 12/09/2026. */
+
+/* §7 quater.1 — la séance en cours reste visible pendant qu'on consulte. Un
+   point et un mot, pas une alarme : elle n'est pas en train d'échouer. C'est
+   le même point que sur l'onglet Saisie, pour la même raison. */
+.exo-bandeau{display:flex;align-items:center;gap:var(--e2);
+  background:var(--panneau-2);border-radius:var(--r-grand);
+  padding:9px var(--e3);margin-bottom:var(--e3)}
+.exo-point{width:6px;height:6px;flex:none;border-radius:50%;background:var(--accent)}
+.exo-bandeau-t{flex:1;min-width:0;font:600 12px/1.3 inherit;color:var(--texte-2);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.exo-bandeau-t em{font-style:normal;font-weight:400;color:var(--texte-3)}
+/* Le seul accent de la page avec l'onglet actif et la cible : il ramène à la
+   séance, et rien d'autre ici n'a ce poids. */
+.exo-reprendre{flex:none;border:none;background:transparent;color:var(--accent);
+  font:600 12px/1 inherit;font-family:inherit;padding:0}
+
+.exo-tete{padding:var(--e1) 0 var(--e2)}
+.exo-tete h2{font-size:17px;font-weight:700;line-height:1.25;letter-spacing:-.01em;
+  overflow-wrap:anywhere}
+.exo-meta{font-size:11px;line-height:1.45;color:var(--texte-3);margin-top:5px}
+
+.sous-onglets{display:flex;gap:var(--e4);
+  border-bottom:1px solid var(--trait);margin-bottom:var(--e2)}
+.sous-onglet{border:none;background:transparent;color:var(--texte-3);
+  font:600 13px/1 inherit;font-family:inherit;
+  padding:11px 0;margin-bottom:-1px;border-bottom:2px solid transparent}
+/* L'accent ne sert qu'à l'onglet actif et à la suggestion du moteur. */
+.sous-onglet.actif{color:var(--texte);border-bottom-color:var(--accent)}
+
+/* ── Résumé : la fiche des records ───────────────────────────────────────── */
+.exo-fiche{background:var(--panneau);border-radius:var(--r-grand);padding:var(--e1) var(--e4)}
+.exo-li{display:flex;align-items:baseline;gap:var(--e2);padding:9px 0}
+.exo-li + .exo-li{border-top:1px solid var(--trait)}
+.exo-li-k{font-size:12px;line-height:1.4;color:var(--texte-3);min-width:0}
+.exo-li-k em{display:block;font-style:normal;font-size:10px;color:var(--texte-3);
+  opacity:.8;margin-top:1px}
+.exo-li-v{margin-left:auto;font-size:15px;font-weight:700;line-height:1.2;
+  letter-spacing:-.01em;white-space:nowrap}
+/* La phrase qui dit pourquoi il n'y a pas de palier, et celle qui explique les
+   lignes grisées : du texte, pas un code de moteur. */
+.exo-note{font-size:11px;line-height:1.5;color:var(--texte-3);padding:var(--e2) var(--e1) 0}
+
+/* ── §7 quater.3 — la table par nombre de répétitions ────────────────────── */
+.table-reps{background:var(--panneau);border-radius:var(--r-grand);padding:var(--e1) 0}
+.tr-ligne{display:grid;grid-template-columns:52px 1fr 66px 58px;gap:var(--e2);
+  align-items:center;padding:7px var(--e3);font-variant-numeric:tabular-nums}
+/* Sans charge, ni jauge ni colonne de kilos : il n'y a rien à comparer. */
+.table-reps.sans-charge .tr-ligne{grid-template-columns:52px 1fr auto}
+.tr-ligne + .tr-ligne{border-top:1px solid var(--trait)}
+.tr-reps{font-size:12px;font-weight:600;line-height:1.4;color:var(--texte-2)}
+.tr-jauge{height:5px;background:var(--panneau-2);border-radius:3px;overflow:hidden}
+.tr-jauge i{display:block;height:100%;background:#4A5461;border-radius:3px}
+.tr-charge{font-size:14px;font-weight:700;line-height:1.4;text-align:right}
+.tr-quand{font-size:10px;line-height:1.4;color:var(--texte-3);text-align:right}
+/* Déduit : grisé, en italique, et « déduit » à la place de la date — la date du
+   brut désignerait une performance qui n'est pas celle affichée. */
+.tr-ligne.deduit{opacity:.42}
+.tr-ligne.deduit .tr-jauge i{background:#343A43}
+.tr-ligne.deduit .tr-quand{font-style:italic}
+/* La cible du moment est mise en avant : un fond, et la jauge à l'accent. */
+.tr-ligne.cible{background:var(--panneau-2)}
+.tr-ligne.cible .tr-reps,.tr-ligne.cible .tr-charge{color:var(--texte)}
+.tr-ligne.cible .tr-jauge i{background:var(--accent)}
+
+/* ── Historique : un jour, une carte ─────────────────────────────────────── */
+.exo-jour{background:var(--panneau);border-radius:var(--r-grand);
+  padding:var(--e3);margin-bottom:var(--e2)}
+.exo-jour-tete{display:flex;align-items:baseline;gap:var(--e2);margin-bottom:var(--e2)}
+.exo-jour-d{font-size:13px;font-weight:600;line-height:1.3;
+  font-variant-numeric:tabular-nums}
+/* Le titre mène au détail complet, pour qui veut le contexte des autres
+   exercices (§7 quater.4). */
+.exo-jour-s{flex:1;min-width:0;border:none;background:transparent;padding:0;
+  text-align:left;font:400 11px/1.3 inherit;font-family:inherit;color:var(--texte-3);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.exo-jour-s b{color:var(--accent);font-weight:500}
+/* Les blocs de l'historique sont ceux du détail de séance : posés DANS la carte
+   du jour, ils n'ont pas à porter une seconde surface. */
+.exo-jour .bloc{background:transparent;margin-bottom:0}
+.exo-jour .exos{padding:0 0 6px}
+.exo-jour .resume{padding:0 0 6px}
+.exo-jour .entetes,.exo-jour .serie{padding:0}
+.exo-jour-note{font-size:11px;line-height:1.45;color:var(--texte-3);
+  margin-top:var(--e2);padding-top:var(--e2);border-top:1px solid var(--trait);
+  overflow-wrap:anywhere;white-space:pre-wrap}
+
+/* Le nom d'un exercice mène à sa page (§2.8). Discret : c'est une destination,
+   pas une action. */
+.nom.lien,.nom-exo.lien{border:none;background:transparent;color:inherit;
+  font:inherit;font-family:inherit;text-align:left;padding:0;
+  min-width:0;overflow-wrap:anywhere;text-decoration:underline;
+  text-decoration-color:var(--trait);text-underline-offset:3px}
+.nom.lien{font-weight:600;font-size:13.5px;line-height:1.25}
+.nom-exo.lien{font-weight:inherit;font-size:inherit;line-height:inherit}

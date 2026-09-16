@@ -199,6 +199,9 @@ describe('calculerPalier : zéro ne vote jamais', () => {
 //
 // Ce qu'on exige : ni plantage, ni valeur inventée. Aucun « 0 kg » nulle part.
 
+// `resumerSeance` lit le compte de séries de travail dans `THSemaine` : une
+// seule règle pour la carte et pour la barre (chantier 40).
+require('../../v2/js/semaine.js');
 const Modele = require('../../v2/js/modele.js');
 
 describe('les consommateurs traitent l’absence sans rien inventer', () => {

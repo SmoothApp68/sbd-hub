@@ -63,7 +63,12 @@ const CATALOGUE = [
   // RÉCENTE portant l'exercice : un slug déjà utilisé par les sections
   // précédentes ferait pointer l'antécédent sur une séance du banc, et le test
   // ne mesurerait plus rien de déterministe.
-  { slug: 'rowing-barre', nom: 'Rowing Barre', mesure: 'charge_reps', charge: 'externe', muscles_primaires: ['dorsaux'], muscles_secondaires: [] }
+  { slug: 'rowing-barre', nom: 'Rowing Barre', mesure: 'charge_reps', charge: 'externe', muscles_primaires: ['dorsaux'], muscles_secondaires: [] },
+  // ⚠️ RÉSERVÉ AU CHANTIER 40, et à lui seul : « un exercice jamais fait ». Tout
+  // slug que le banc utilise ailleurs finit par porter des séries, et la page
+  // vide ne serait alors jamais mesurée. Son nom ne répond à aucune des
+  // recherches du catalogue faites plus haut.
+  { slug: 'souleve-terre', nom: 'Soulevé de Terre (Barre)', mesure: 'charge_reps', charge: 'externe', muscles_primaires: ['ischios'], muscles_secondaires: [] }
 ];
 
 const ROUTINE = {
@@ -1969,13 +1974,17 @@ const SETS_IMPORTES = [
     await attendre(800);
   };
   // La forme de la séance : un tableau de blocs, chacun la liste de ses noms.
-  // ⚠️ LE DERNIER `span`, pas le texte entier : le nom est précédé de sa lettre
-  // dans un superset (`A`, `B`, `C`), et replié il vit dans `.replie-nom`. Le
-  // même appel doit lire les deux vues, sinon le mode Modifier ne se mesure pas.
+  // ⚠️ PAS LE TEXTE ENTIER : le nom est précédé de sa lettre dans un superset
+  // (`A`, `B`, `C`), et replié il vit dans `.replie-nom`. Le même appel doit
+  // lire les deux vues, sinon le mode Modifier ne se mesure pas.
+  // ⚠️ ET PAS `span:last-child` : depuis le chantier 40, le nom en séance est un
+  // BOUTON qui mène à la page d'exercice (§2.8). On lit `.nom-exo`, qui est
+  // porté par les deux formes, et on retombe sur le dernier `span` pour la vue
+  // repliée.
   const formeEcran = () => page.evaluate(() =>
     Array.from(document.querySelectorAll('.bloc-seance')).map((b) =>
       Array.from(b.querySelectorAll('.exo-seance, .replie-nom'))
-        .map((n) => n.querySelector('span:last-child').textContent)));
+        .map((n) => (n.querySelector('.nom-exo') || n.querySelector('span:last-child')).textContent)));
   // ⚠️ LES SÉRIES DE **CETTE** SÉANCE. `sets()` écarte le décor, pas les séances
   // des sections précédentes : à la septième, elles sont une vingtaine, et
   // « 2 séries validées » serait faux de toute implémentation.
@@ -1996,10 +2005,10 @@ const SETS_IMPORTES = [
     (await entreesFeuille()).join(' | ').indexOf('Remplacer') >= 0 &&
     (await entreesFeuille()).join(' | ').indexOf('Supprimer l’exercice') >= 0,
     (await entreesFeuille()).join(' | '));
-  // §2.8 — « voir la progression » est là et NE FAIT RIEN : la page d'exercice
-  // n'existe pas, et la câbler sur du vide serait pire que l'annoncer indisponible.
-  ok('« Voir la progression » est présent et INERTE',
-    (await entreesFeuille()).some((t) => /Voir la progression \(inerte\)/.test(t)),
+  // §2.8 — « voir la progression » a été inerte du chantier 27 au 40 : la page
+  // d'exercice (§7 quater) n'existait pas. Elle existe.
+  ok('[40] « Voir la progression » est CÂBLÉ sur un bloc d’un seul',
+    (await entreesFeuille()).some((t) => /^Voir la progression$/.test(t)),
     (await entreesFeuille()).join(' | '));
   await fermerFeuille();
 
@@ -2010,6 +2019,13 @@ const SETS_IMPORTES = [
   ok('sur un SUPERSET, le menu du bloc ne propose PAS « Remplacer »',
     !(await entreesFeuille()).some((t) => /Remplacer/.test(t)) &&
     (await entreesFeuille()).some((t) => /Supprimer le bloc/.test(t)),
+    (await entreesFeuille()).join(' | '));
+  // ⚠️ L'ASYMÉTRIE EST LA MESURE. Sur un bloc d'un seul il est actif, sur un
+  // superset il est grisé — « la progression de QUEL exercice ? » n'a pas de
+  // réponse au niveau du bloc. Sans les deux côtés, « câblé » et « inerte »
+  // rendraient le même écran.
+  ok('[40] mais « Voir la progression » y reste GRISÉ — le bloc ne tranche pas',
+    (await entreesFeuille()).some((t) => /Voir la progression \(inerte\)/.test(t)),
     (await entreesFeuille()).join(' | '));
   await fermerFeuille();
 
@@ -3557,6 +3573,213 @@ const SETS_IMPORTES = [
   ok('[C] mais elle est bien là — c’est le compte de séries qui l’ignore, pas la liste',
     /Marche du soir/.test(await texte('#liste-seances')),
     (await texte('#liste-seances')).replace(/\s+/g, ' ').slice(0, 70));
+
+  console.log('\n══ 7 vicies. LA PAGE D’EXERCICE, ET LE COMPTE QUI DIVERGEAIT ══');
+  //
+  // CONFIGURATION DISCRIMINANTE (§2 quater), et il en faut trois :
+  //
+  //   · §1 — une séance MIXTE, musculation ET tapis, SEULE dans sa semaine.
+  //     Sans sortie dedans, « filtre appliqué » et « filtre absent » donnent le
+  //     même nombre ; sans l'isoler dans sa semaine, la barre additionne les
+  //     vingt autres séances du banc et la comparaison ne mesure plus rien.
+  //   · table par reps — un jeu où UNE ligne au moins est dominée par une autre
+  //     à PLUS de reps, et une autre non.
+  //   · mesures sans charge — un exercice en `temps` et un en `reps` : deux
+  //     chemins différents dans `palier.js`.
+
+  // ⚠️ DES IDENTIFIANTS EN UUID. Le routeur refuse tout le reste (`repli`), et
+  // une ouverture directe sur `/seance/sess-mixte` retomberait sur la semaine —
+  // le test mesurerait alors le repli, pas le détail.
+  const ID_MIXTE = '40000000-0000-4000-8000-000000000014';
+
+  // Une semaine à elle toute seule, loin de celle du banc.
+  const L_EXO = new Date(LUNDI.getTime() - 56 * 86400000);
+  const isoL = (d) => d.getFullYear() + '-' +
+    String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  const jourExo = (n) => new Date(L_EXO.getTime() + n * 86400000 + 10 * 3600000).toISOString();
+
+  let nExo = 0;
+  const poserSeance = (id, titre, quand, lignes, note) => {
+    base.sessions.push({
+      id: id, user_id: 'u-banc', titre: titre, debut: quand, fin: quand,
+      statut: 'terminee', note: note || null, salle: null, salle_norme: null,
+      routine_id: null, source: 'app', created_at: quand
+    });
+    lignes.forEach((l, k) => base.sets.push(Object.assign({
+      id: 'set-exo-' + (++nExo), session_id: id, user_id: 'u-banc',
+      charge_kg: null, reps: null, duree_s: null, distance_m: null,
+      type_serie: 'travail', rang: k + 1, groupe_superset: null,
+      validee_a: quand, rpe: null, ressenti: null, repos_s: null,
+      note: null, source: 'app', created_at: quand, modifie_a: null
+    }, l)));
+  };
+
+  // ── §1 — LA SÉANCE MIXTE : 3 séries de musculation, 2 de tapis ──────────
+  const kg = (charge, reps) => ({ exercise_slug: 'dc-barre', charge_kg: charge, reps: reps });
+  poserSeance(ID_MIXTE, 'Quads tous terrains', jourExo(2), [
+    { exercise_slug: 'dc-barre', charge_kg: 60, reps: 10, type_serie: 'echauffement' },
+    kg(120, 6), kg(110, 8), kg(42.5, 14),
+    { exercise_slug: 'marche', duree_s: 900, distance_m: 2000 },
+    { exercise_slug: 'marche', duree_s: 900, distance_m: 2000 }
+  ]);
+
+  await aller('/semaine/' + isoL(L_EXO));
+  const barreExo = (await texte('.barre-totaux')).replace(/\s+/g, ' ').trim();
+  const carteExo = (await texte('#liste-seances .seance-meta')).replace(/\s+/g, ' ').trim();
+  const nBarre = (barreExo.match(/(\d+) séries? de travail/) || [])[1];
+  const nCarte = (carteExo.match(/(\d+) séries? de travail/) || [])[1];
+  ok('[40 §1] LA CARTE ET LA BARRE DISENT LE MÊME NOMBRE SUR UNE SÉANCE MIXTE',
+    nBarre !== undefined && nBarre === nCarte,
+    'barre « ' + barreExo + ' » · carte « ' + carteExo + ' »');
+  ok('[40 §1] et ce nombre EXCLUT le tapis — 3, pas 5',
+    nCarte === '3', 'carte « ' + carteExo + ' »');
+
+  // ── LE RESTE DE L'HISTORIQUE DU COUCHÉ, pour la table par reps ──────────
+  // 80 × 15 en dernier : c'est lui qui domine le 42,5 × 14 de la séance mixte.
+  poserSeance('40000000-0000-4000-8000-000000000015', 'Pecs – Dos', jourExo(4), [kg(80, 15)], 'Dur de se réveiller');
+  // Une planche et des tractions, pour les deux chemins sans charge.
+  poserSeance('40000000-0000-4000-8000-000000000016', 'Gainage', jourExo(5), [
+    { exercise_slug: 'planche', duree_s: 90 },
+    { exercise_slug: 'tractions', reps: 12 }
+  ]);
+
+  // ── 3. LE TAP SUR UN NOM D'EXERCICE, DEPUIS LE DÉTAIL D'UNE SÉANCE ──────
+  await aller('/seance/' + ID_MIXTE);
+  ok('[40] le détail de la séance mixte s’ouvre', (await visible())[0] === 'vue-detail',
+    JSON.stringify(await visible()));
+  const nomsDetail = () => page.evaluate(() =>
+    Array.from(document.querySelectorAll('.exos .nom')).map((n) => n.tagName + ':' + n.textContent));
+  ok('[40] les noms d’exercices y sont des BOUTONS — inertes depuis le chantier 27',
+    (await nomsDetail()).every((t) => t.indexOf('BUTTON:') === 0),
+    JSON.stringify(await nomsDetail()));
+  await page.evaluate(() => {
+    Array.from(document.querySelectorAll('.exos .nom'))
+      .filter((n) => /Couché/.test(n.textContent))[0].click();
+  });
+  await attendre(900);
+  const url = () => page.evaluate(() => location.pathname);
+  ok('[40] taper le nom ouvre la page d’exercice, et l’URL la porte',
+    (await visible())[0] === 'vue-exercice' && (await url()) === '/exercice/dc-barre',
+    JSON.stringify(await visible()) + ' · ' + (await url()));
+
+  // ── 7. LA TABLE PAR REPS : brut, lignes déduites grisées ────────────────
+  const tableExo = () => page.evaluate(() =>
+    Array.from(document.querySelectorAll('.tr-ligne')).map((l) =>
+      (l.querySelector('.tr-reps') || {}).textContent + '=' +
+      (l.querySelector('.tr-charge') || {}).textContent +
+      (l.classList.contains('deduit') ? '(déduit)' : '') +
+      (l.classList.contains('cible') ? '(cible)' : '')));
+  ok('[40] la table par reps est triée par nombre de répétitions croissant',
+    (await tableExo()).length >= 4 &&
+    (await tableExo()).map((t) => parseInt(t, 10))
+      .every((n, i, a) => i === 0 || a[i - 1] < n),
+    JSON.stringify(await tableExo()));
+  // ⚠️ L'ASYMÉTRIE EST LA MESURE. Le 14 reps est dominé par le 80 × 15 : il est
+  // grisé ET il montre le 80 qu'on pourrait revendiquer, pas le 42,5 fait ce
+  // jour-là. Le 6 reps, lui, ne l'est pas. Une table où tout serait déduit — ou
+  // rien — ne prouverait rien.
+  ok('[40] la ligne dominée est grisée et montre le 80 qu’on pourrait revendiquer',
+    (await tableExo()).some((t) => t === '14=80(déduit)'),
+    JSON.stringify(await tableExo()));
+  ok('[40] et celle qui ne l’est pas garde sa charge brute et sa DATE',
+    (await tableExo()).some((t) => t === '6=120') &&
+    (await page.evaluate(() => Array.from(document.querySelectorAll('.tr-ligne'))
+      .filter((l) => !l.classList.contains('deduit'))
+      .map((l) => l.querySelector('.tr-quand').textContent))).every((t) => /\d{4}/.test(t)),
+    JSON.stringify(await tableExo()) + ' · ' + JSON.stringify(await page.evaluate(() =>
+      Array.from(document.querySelectorAll('.tr-ligne')).map((l) => l.querySelector('.tr-quand').textContent))));
+
+  // ── 4. LES DEUX SOUS-ONGLETS ONT LEUR URL ───────────────────────────────
+  await page.evaluate(() => {
+    Array.from(document.querySelectorAll('.sous-onglet'))
+      .filter((b) => /Historique/.test(b.textContent))[0].click();
+  });
+  await attendre(900);
+  ok('[40] l’Historique a SON URL',
+    (await url()) === '/exercice/dc-barre/historique' &&
+    (await compter('.exo-jour')) >= 2,
+    (await url()) + ' · ' + (await compter('.exo-jour')) + ' jour(s)');
+  ok('[40] et il montre les séries de chaque jour, chauffe comprise',
+    (await compter('.exo-jour .serie')) >= 4 &&
+    (await compter('.exo-jour .serie.hors-travail')) >= 1,
+    (await compter('.exo-jour .serie')) + ' ligne(s), dont ' +
+    (await compter('.exo-jour .serie.hors-travail')) + ' hors travail');
+  ok('[40] la note de séance y est rendue',
+    /Dur de se réveiller/.test(await texte('#page-exercice')),
+    (await texte('#page-exercice')).replace(/\s+/g, ' ').slice(0, 80));
+
+  // ⚠️ LE RECHARGEMENT DIRECT — c'est lui qui distingue une URL d'un onglet.
+  await aller('/exercice/dc-barre/historique');
+  ok('[40] LE RECHARGEMENT DIRECT ROUVRE L’HISTORIQUE, pas le Résumé',
+    (await visible())[0] === 'vue-exercice' &&
+    /Historique/.test(await texte('.sous-onglet.actif')),
+    JSON.stringify(await visible()) + ' · onglet « ' + (await texte('.sous-onglet.actif')) + ' »');
+  await aller('/exercice/dc-barre');
+  ok('[40] et celui du Résumé rouvre le Résumé',
+    /Résumé/.test(await texte('.sous-onglet.actif')),
+    'onglet « ' + (await texte('.sous-onglet.actif')) + ' »');
+
+  // ── 5. UN EXERCICE SANS CHARGE N'AFFICHE JAMAIS 0 kg ────────────────────
+  for (const [slug, mot] of [['planche', 'durée'], ['tractions', 'répétitions']]) {
+    await aller('/exercice/' + slug);
+    const p = (await texte('#page-exercice')).replace(/\s+/g, ' ');
+    ok('[40] ' + slug + ' : pas de « 0 kg », et la phrase lit la MESURE',
+      (await visible())[0] === 'vue-exercice' && !/0 kg/.test(p) &&
+      p.indexOf(mot) >= 0 && !/sans-charge|hors-moteur/.test(p),
+      p.slice(0, 110));
+  }
+
+  // ── 6. UN EXERCICE JAMAIS FAIT : page vide propre, pas de plantage ──────
+  const avantVide = erreurs.length;
+  await aller('/exercice/souleve-terre');
+  const pVide = (await texte('#page-exercice')).replace(/\s+/g, ' ');
+  ok('[40] un exercice jamais fait rend une page, sans erreur de script',
+    (await visible())[0] === 'vue-exercice' && erreurs.length === avantVide &&
+    /Soulevé de Terre/.test(pVide), pVide.slice(0, 90));
+  ok('[40] et il montre des tirets, pas des zéros',
+    (await page.evaluate(() =>
+      Array.from(document.querySelectorAll('.exo-li-v')).map((n) => n.textContent)))
+      .join('|') === '—|—|—',
+    JSON.stringify(await page.evaluate(() =>
+      Array.from(document.querySelectorAll('.exo-li-v')).map((n) => n.textContent))));
+
+  // ── §7 quater.1 — LE BANDEAU DE SÉANCE, ET « REPRENDRE » ────────────────
+  await aller('/saisie');
+  if (JSON.stringify(await visible()) === '["vue-seance"]') await terminer();
+  await seanceVide();
+  await ajouterExoSeance('Développé Couché');
+  ok('[40] une séance est en cours', JSON.stringify(await visible()) === '["vue-seance"]',
+    JSON.stringify(await visible()));
+  const sansBandeau = await compter('.exo-bandeau');
+  await page.evaluate(() => { document.querySelector('.exo-seance .nom-exo').click(); });
+  await attendre(900);
+  ok('[40] taper le nom EN SÉANCE ouvre la page — §2.8, inerte depuis le chantier 27',
+    (await visible())[0] === 'vue-exercice' && (await url()) === '/exercice/dc-barre',
+    JSON.stringify(await visible()) + ' · ' + (await url()));
+  ok('[40] la séance reste visible en bandeau : on n’a pas l’impression de l’avoir quittée',
+    sansBandeau === 0 && (await compter('.exo-bandeau')) === 1 &&
+    /en cours/.test(await texte('.exo-bandeau')),
+    'avant ' + sansBandeau + ' · ici ' + (await compter('.exo-bandeau')) +
+    ' · « ' + (await texte('.exo-bandeau')).replace(/\s+/g, ' ') + ' »');
+  await page.click('.exo-reprendre');
+  await attendre(900);
+  ok('[40] « Reprendre » y ramène', JSON.stringify(await visible()) === '["vue-seance"]',
+    JSON.stringify(await visible()));
+
+  // Le retour REMONTE l'historique : la page s'atteint depuis trois écrans,
+  // décider d'une destination en enverrait deux sur trois au mauvais endroit.
+  await aller('/seance/' + ID_MIXTE);
+  await page.evaluate(() => {
+    Array.from(document.querySelectorAll('.exos .nom'))
+      .filter((n) => /Couché/.test(n.textContent))[0].click();
+  });
+  await attendre(900);
+  await page.click('#btn-retour-exercice');
+  await attendre(900);
+  ok('[40] le bouton retour de la page ramène D’OÙ L’ON VIENT',
+    (await visible())[0] === 'vue-detail' && (await url()) === '/seance/' + ID_MIXTE,
+    JSON.stringify(await visible()) + ' · ' + (await url()));
+  await terminer().catch(() => {});
 
   console.log('\n══ 8. NON-RÉGRESSION ══');
   for (const [chemin, attendu] of [['/', 'vue-liste'], ['/progression', 'vue-progression'],

@@ -60,6 +60,20 @@
     return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
+  // « Jeudi 11 septembre » — l'historique d'un exercice se lit par JOUR, et le
+  // jour de la semaine en fait partie : « jeudi » situe la séance dans le
+  // rythme, ce que « 11/09 » ne fait pas. L'année n'apparaît que si ce n'est
+  // pas l'année courante — sinon elle allonge chaque en-tête pour rien.
+  function dateLongue(iso) {
+    if (!iso) return '';
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    var opts = { weekday: 'long', day: 'numeric', month: 'long' };
+    if (d.getFullYear() !== new Date().getFullYear()) opts.year = 'numeric';
+    var t = d.toLocaleDateString('fr-FR', opts);
+    return t.charAt(0).toUpperCase() + t.slice(1);
+  }
+
   // « 30 août », ou « 30 août 2024 » quand l'année n'est pas celle de la
   // référence. Une variation « depuis le 18 mars » qui remonterait en fait à
   // l'an dernier serait fausse sans le dire.
@@ -137,16 +151,29 @@
     return cible;
   }
 
-  function rendreBloc(bloc) {
+  // ⚠️ `surExercice` EST FACULTATIF. Sans lui le bloc est exactement ce qu'il
+  // était — et c'est ce qui permet à la page d'exercice de réutiliser
+  // `rendreBloc` pour son historique sans s'y rappeler elle-même.
+  function rendreBloc(bloc, surExercice) {
     var section = el('section', 'bloc' + (bloc.superset ? ' superset' : ''));
 
     // Légende A/B/C en tête de bloc : le nom de l'exercice n'apparaît qu'une
     // fois (§2.3), ce qui règle le problème de largeur à 380 px.
+    //
+    // §2.8 — un tap sur le NOM donne sa page. Le reste de la ligne ne réagit
+    // pas : la carte entière est déjà le chemin vers le détail de la séance.
     var exos = el('div', 'exos');
     bloc.exercices.forEach(function (x) {
       var ligne = el('div', 'exo');
       if (x.lettre) ligne.appendChild(el('span', 'lettre', x.lettre));
-      ligne.appendChild(el('span', 'nom', x.nom));
+      if (surExercice && x.slug) {
+        var nom = el('button', 'nom lien', x.nom);
+        nom.type = 'button';
+        nom.addEventListener('click', function () { surExercice(x.slug); });
+        ligne.appendChild(nom);
+      } else {
+        ligne.appendChild(el('span', 'nom', x.nom));
+      }
       exos.appendChild(ligne);
     });
     section.appendChild(exos);
@@ -193,7 +220,9 @@
     if (!blocs.length) {
       cible.appendChild(el('p', 'vide', 'Aucune série sur cette séance.'));
     } else {
-      blocs.forEach(function (b) { cible.appendChild(rendreBloc(b)); });
+      blocs.forEach(function (b) {
+        cible.appendChild(rendreBloc(b, vue && vue.surExercice));
+      });
     }
 
     // §7 octies — les gestes sur une séance. Aucun n'existait : deux séances
@@ -217,6 +246,228 @@
       gestes.appendChild(sup);
       cible.appendChild(gestes);
     }
+  }
+
+  // ══ LA PAGE D'EXERCICE (§7 quater) ═══════════════════════════════════════
+  //
+  // Une seule page, atteinte depuis la séance en cours, depuis le détail d'une
+  // séance passée, depuis Progression. Deux sous-onglets, chacun avec son URL.
+  //
+  // ⚠️ ELLE LIT, ELLE NE RECALCULE RIEN (`CADRAGE-V2` §2 undecies). Tout ce
+  // qu'elle affiche est calculé ailleurs et lui est PASSÉ :
+  //   · meilleure série → `Modele.meilleureSerieDeTout`, qui rappelle le chemin
+  //                       de la carte de séance, séance par séance ;
+  //   · palier          → `THPalier.analyser` ;
+  //   · séries de travail → `THSemaine.compteSeriesTravail`, la règle unique ;
+  //   · historique      → `Modele.construireBlocs`, qui rend déjà le détail ;
+  //   · table par reps  → `Modele.tableParReps`.
+  // Écrire ici un second calcul de meilleure série ou de palier serait
+  // exactement la maladie que ce chantier soigne.
+  var SOUS_ONGLETS = [['resume', 'Résumé'], ['historique', 'Historique']];
+
+  // ⚠️ CE QU'ON DIT D'UN EXERCICE SANS PALIER SE LIT SUR SA MESURE, JAMAIS SUR
+  // UN CODE D'ERREUR (nuance posée au chantier 24, moteur au chantier 31). Une
+  // planche n'a pas « échoué » à produire un palier : elle n'en aura jamais, et
+  // `sans-charge` est un mot de moteur, pas une phrase pour quelqu'un.
+  var PHRASE_SANS_PALIER = {
+    reps: 'Cet exercice se compte en répétitions : il n’a pas de charge, donc pas de palier en kilos.',
+    temps: 'Cet exercice se mesure en durée : il n’a pas de charge, donc pas de palier en kilos.',
+    distance_temps: 'Cet exercice se mesure en distance et en durée : il est hors du moteur.'
+  };
+
+  function texteMeilleure(m) {
+    if (!m) return '';
+    // Les mêmes clés que la carte de séance, dans le même ordre : `charge` et
+    // `reps` d'abord, les autres grandeurs ensuite.
+    if (m.charge !== null && m.charge !== undefined) {
+      return M().formatMesure({ charge_kg: m.charge, reps: m.reps });
+    }
+    if (!m.valeur) return '';
+    return m.valeur + (m.complement ? ' ' + m.complement : '');
+  }
+
+  function ligneFiche(fiche, libelle, sous, valeur) {
+    var li = el('div', 'exo-li');
+    var k = el('span', 'exo-li-k', libelle);
+    if (sous) k.appendChild(el('em', null, sous));
+    li.appendChild(k);
+    li.appendChild(el('span', 'exo-li-v num', valeur || '—'));
+    fiche.appendChild(li);
+  }
+
+  function sousOngletsExo(vue) {
+    var barre = el('div', 'sous-onglets');
+    SOUS_ONGLETS.forEach(function (o) {
+      var actif = vue.onglet === o[0];
+      var b = el('button', 'sous-onglet' + (actif ? ' actif' : ''), o[1]);
+      b.type = 'button';
+      b.setAttribute('aria-current', actif ? 'page' : 'false');
+      b.addEventListener('click', function () { vue.surOnglet(o[0]); });
+      barre.appendChild(b);
+    });
+    return barre;
+  }
+
+  // §7 quater.1 — le bandeau de séance. On arrive ici DEPUIS une séance en
+  // cours : elle reste visible en haut, et « Reprendre » y ramène. On consulte
+  // sans avoir l'impression d'avoir quitté.
+  function bandeauExoSeance(vue) {
+    var bandeau = el('div', 'exo-bandeau');
+    bandeau.appendChild(el('span', 'exo-point'));
+    var t = el('span', 'exo-bandeau-t', vue.seanceEnCours.titre || 'Séance');
+    t.appendChild(el('em', null, ' · en cours'));
+    bandeau.appendChild(t);
+    var b = el('button', 'exo-reprendre', 'Reprendre');
+    b.type = 'button';
+    b.addEventListener('click', vue.seanceEnCours.surReprendre);
+    bandeau.appendChild(b);
+    return bandeau;
+  }
+
+  // §7 quater.3 — LA TABLE PAR NOMBRE DE RÉPÉTITIONS. « C'est elle qui dit le
+  // niveau réel » : « mon record c'est 140 » ne veut rien dire sans les reps.
+  //
+  // ⚠️ UNE LIGNE DÉDUITE MONTRE CE QU'ON POURRAIT REVENDIQUER, PAS LE BRUT —
+  // et elle le dit. Sur le couché d'aurel_br, le brut du 14 reps donnerait
+  // 42,5 kg de février 2024 alors qu'il a fait 80 × 15 en juillet 2025 : la
+  // ligne porte donc 80, grisée, en italique, marquée « déduit » à la place de
+  // la date. Le brut n'est pas perdu — `tableParReps` le garde dans `charge`.
+  function rendreTableReps(cible, vue) {
+    cible.appendChild(el('div', 'section-t', 'PAR NOMBRE DE RÉPÉTITIONS'));
+    if (!vue.table || !vue.table.length) {
+      // Deux absences distinctes, et on ne les confond pas : l'exercice n'a pas
+      // de table par nature, ou il n'a rien encore à y mettre.
+      cible.appendChild(el('p', 'vide', PHRASE_SANS_PALIER[vue.mesure]
+        ? 'Pas de table par répétitions pour cet exercice.'
+        : 'Aucune série de travail enregistrée.'));
+      return;
+    }
+    var avecCharge = vue.mesure === 'charge_reps';
+    var table = el('div', 'table-reps' + (avecCharge ? '' : ' sans-charge'));
+    var plafond = 0, deduites = 0;
+    vue.table.forEach(function (l) {
+      var kg = l.deduit && l.chargeDeduite !== undefined ? l.chargeDeduite : l.charge;
+      if (kg > plafond) plafond = kg;
+    });
+
+    vue.table.forEach(function (l) {
+      if (l.deduit) deduites++;
+      var ligne = el('div', 'tr-ligne' + (l.deduit ? ' deduit' : '') +
+        (vue.cibleReps === l.reps ? ' cible' : ''));
+      ligne.appendChild(el('span', 'tr-reps', l.reps === 1 ? '1 rep' : String(l.reps)));
+      if (avecCharge) {
+        var kg = l.deduit && l.chargeDeduite !== undefined ? l.chargeDeduite : l.charge;
+        // La jauge est une LECTURE de la colonne d'à côté, pas une donnée de
+        // plus : elle rend la progression lisible d'un coup d'œil à 380 px.
+        var jauge = el('span', 'tr-jauge');
+        var barre = el('i');
+        barre.style.width = (plafond > 0 ? Math.round((kg / plafond) * 100) : 0) + '%';
+        jauge.appendChild(barre);
+        ligne.appendChild(jauge);
+        ligne.appendChild(el('span', 'tr-charge num', nombreFr(kg)));
+      }
+      ligne.appendChild(el('span', 'tr-quand' + (l.deduit ? '' : ' num'),
+        l.deduit ? 'déduit' : dateCourte(l.date)));
+      table.appendChild(ligne);
+    });
+    cible.appendChild(table);
+    if (deduites) {
+      cible.appendChild(el('p', 'exo-note', 'Les lignes grisées ne sont pas des ' +
+        'performances réelles : elles se déduisent d’un meilleur résultat à plus ' +
+        'de répétitions.'));
+    }
+  }
+
+  function rendreResumeExo(cible, vue) {
+    cible.appendChild(el('div', 'section-t', 'RECORDS'));
+    var fiche = el('div', 'exo-fiche');
+
+    // La dernière séance porte le PALIER — la grandeur du moteur — et non la
+    // meilleure série du jour : ce sont deux choses, et `palier.js` les sépare
+    // exprès (`palier`/`reps` d'un côté, `meilleure` de l'autre).
+    var d = vue.derniere;
+    ligneFiche(fiche, 'Dernière séance', d ? dateCourte(d.date) : null,
+      d ? texteMeilleure(d) : '');
+    var r = vue.record;
+    ligneFiche(fiche, vue.mesure === 'charge_reps' ? 'Record de charge' : 'Record',
+      r && r.date ? dateCourte(r.date) : null, r ? texteMeilleure(r) : '');
+    var v = vue.volume || {};
+    ligneFiche(fiche, 'Séries de travail',
+      v.nbSeances ? 'sur ' + v.nbSeances + ' séance' + (v.nbSeances > 1 ? 's' : '') : null,
+      v.nbSeries ? String(v.nbSeries) : '');
+    cible.appendChild(fiche);
+
+    // ⚠️ L'AFFICHAGE LIT LA MESURE, PAS LE CODE D'ERREUR DU MOTEUR.
+    var sansPalier = PHRASE_SANS_PALIER[vue.mesure];
+    if (sansPalier) cible.appendChild(el('p', 'exo-note', sansPalier));
+
+    rendreTableReps(cible, vue);
+  }
+
+  // §7 quater.4 — l'historique. Chaque séance avec TOUTES ses séries : chauffe
+  // en retrait, tentative marquée, effort selon ce qui a été saisi — c'est
+  // `rendreBloc` qui sait déjà tout ça, et `construireBlocs` qui le prépare.
+  // Le titre mène au détail complet, pour qui veut le contexte des autres
+  // exercices.
+  function rendreHistoriqueExo(cible, vue) {
+    var liste = vue.historique || [];
+    if (!liste.length) {
+      cible.appendChild(el('p', 'vide', 'Aucune séance avec cet exercice.'));
+      return;
+    }
+    liste.forEach(function (s) {
+      var carte = el('section', 'exo-jour');
+
+      var tete = el('div', 'exo-jour-tete');
+      tete.appendChild(el('span', 'exo-jour-d', dateLongue(s.debut)));
+      var sous = el('button', 'exo-jour-s', s.titre || 'Séance');
+      sous.type = 'button';
+      // Un record atteint ce jour-là est signalé : c'est ce qui donne envie de
+      // défiler. Il porte SON nombre de reps — « record » nu ne dirait pas de
+      // quoi.
+      if (s.record) {
+        sous.appendChild(el('b', null, ' · record à ' + s.record +
+          ' rep' + (s.record > 1 ? 's' : '')));
+      }
+      sous.addEventListener('click', function () { vue.surSeance(s.id); });
+      tete.appendChild(sous);
+      carte.appendChild(tete);
+
+      (s.blocs || []).forEach(function (b) { carte.appendChild(rendreBloc(b)); });
+
+      // `repos_s` est NULL sur les 28 103 séries importées : quand il n'y a rien
+      // à dire, on ne dit rien — un « repos moyen 0 » serait un mensonge.
+      var pied = [s.reposMoyen ? 'Repos moyen ' + mmss(s.reposMoyen) : '', s.note]
+        .filter(Boolean);
+      pied.forEach(function (t) { carte.appendChild(el('div', 'exo-jour-note', t)); });
+      cible.appendChild(carte);
+    });
+
+    // « Voir plus » : 20 séances d'abord, le reste sur demande. Absent quand il
+    // n'y a rien de plus — un bouton qui ne révèle rien est un mensonge.
+    if (vue.reste) {
+      var plus = el('button', 'discret bloc-large',
+        'Voir plus — ' + vue.reste + ' séance' + (vue.reste > 1 ? 's' : '') + ' avant');
+      plus.type = 'button';
+      plus.addEventListener('click', vue.surVoirPlus);
+      cible.appendChild(plus);
+    }
+  }
+
+  function rendrePageExercice(cible, vue) {
+    vider(cible);
+    if (vue.seanceEnCours) cible.appendChild(bandeauExoSeance(vue));
+
+    var tete = el('div', 'exo-tete');
+    tete.appendChild(el('h2', null, vue.nom));
+    if (vue.sousTitre) tete.appendChild(el('div', 'exo-meta num', vue.sousTitre));
+    cible.appendChild(tete);
+
+    cible.appendChild(sousOngletsExo(vue));
+
+    if (vue.onglet === 'historique') rendreHistoriqueExo(cible, vue);
+    else rendreResumeExo(cible, vue);
+    return cible;
   }
 
   // ⚠️ UNE CONFIRMATION GÉNÉRIQUE, pour ce qui ne se rattrape pas. Celle des
@@ -643,16 +894,24 @@
   // Bloc INERTE : il donne sa réponse — les trois derniers exercices pratiqués
   // — et dit que la vue arrive. Il ne s'ouvre pas, donc il n'a ni chevron ni
   // réaction au toucher.
+  // ⚠️ LES LIGNES MÈNENT À LA PAGE D'EXERCICE (§7 quater). C'est la troisième
+  // porte vers UNE seule page — les deux autres sont le détail d'une séance et
+  // le menu de bloc en séance. « La vue par exercice arrive » a disparu : elle
+  // est arrivée.
   function blocExercices(v) {
     var bloc = coquilleBloc('Par exercice', v.quand, true);
     (v.lignes || []).forEach(function (l) {
-      var ligne = el('div', 'bloc-exo');
+      var cliquable = !!(v.surExercice && l.slug);
+      var ligne = el(cliquable ? 'button' : 'div', 'bloc-exo');
+      if (cliquable) {
+        ligne.type = 'button';
+        ligne.addEventListener('click', function () { v.surExercice(l.slug); });
+      }
       ligne.appendChild(el('span', 'bloc-exo-nom', l.nom));
       ligne.appendChild(el('span', 'bloc-exo-val', l.mesure));
       ligne.appendChild(el('span', 'bloc-exo-jour', jour(l.jour)));
       bloc.appendChild(ligne);
     });
-    bloc.appendChild(el('div', 'bloc-avenir', 'La vue par exercice arrive.'));
     return bloc;
   }
 
@@ -1290,7 +1549,20 @@
       // n'a rien à alterner, et l'étiqueter « A » était le défaut de la
       // première maquette.
       if (x.lettre) nom.appendChild(el('span', 'lettre-exo', x.lettre));
-      nom.appendChild(el('span', '', x.nom));
+      // §2.8 — UN TAP SUR LE NOM DONNE SA PAGE (§7 quater). Inerte depuis le
+      // chantier 27 faute de page ; elle existe.
+      //
+      // Jamais PENDANT la sélection : là, la carte entière est la cible du tap,
+      // et un bouton au milieu d'elle qui ferait autre chose est un piège —
+      // exactement la raison pour laquelle le menu à trois points disparaît.
+      if (vue.surExercice && x.slug && !enCoursDeSelection(vue)) {
+        var lien = el('button', 'nom-exo lien', x.nom);
+        lien.type = 'button';
+        lien.addEventListener('click', function () { vue.surExercice(x.slug); });
+        nom.appendChild(lien);
+      } else {
+        nom.appendChild(el('span', 'nom-exo', x.nom));
+      }
       ligne.appendChild(nom);
       // §5.6 — le menu d'un EXERCICE n'existe que dans un bloc à plusieurs. Sur
       // un bloc d'un seul, le menu du bloc porte déjà ses gestes : deux boutons
@@ -1666,9 +1938,10 @@
   // changent la séance, et « ce que fait ce bouton » ne doit jamais être une
   // question qu'on se pose avec une barre en main.
   //
-  // ⚠️ « Voir la progression » est là et NE FAIT RIEN, exprès. Le §2.8 le
-  // demande, mais la page d'exercice (§7 quater) n'existe pas : le câbler sur
-  // du vide serait pire que l'annoncer indisponible. Il arrivera avec elle.
+  // « Voir la progression » a été inerte du chantier 27 au chantier 40 : le
+  // §2.8 le demandait, mais la page d'exercice (§7 quater) n'existait pas, et
+  // câbler sur du vide aurait été pire que de l'annoncer indisponible. Elle
+  // existe — il est câblé, et il reste grisé quand l'appelant n'en veut pas.
   function entreeMenu(menu, texte, options) {
     var o = options || {};
     var b = el('button', o.classe || '', texte);
@@ -1697,7 +1970,8 @@
     entreeMenu(menu, 'Ajouter un exercice après', { surClic: vue.surAjouterApres });
     entreeMenu(menu, 'Monter le bloc', { surClic: vue.surMonter, desactive: !vue.peutMonter });
     entreeMenu(menu, 'Descendre le bloc', { surClic: vue.surDescendre, desactive: !vue.peutDescendre });
-    entreeMenu(menu, 'Voir la progression', { desactive: true });
+    entreeMenu(menu, 'Voir la progression',
+      { surClic: vue.surProgression, desactive: !vue.surProgression });
     cible.appendChild(menu);
 
     var sup = el('div', 'feuille-menu');
@@ -1718,7 +1992,8 @@
     // §5.8 — sortir agit sur UN exercice, jamais sur le bloc entier, et il se
     // pose JUSTE APRÈS son bloc d'origine : il ne remonte pas en fin de séance.
     entreeMenu(menu, 'Sortir du superset', { surClic: vue.surDegrouper });
-    entreeMenu(menu, 'Voir la progression', { desactive: true });
+    entreeMenu(menu, 'Voir la progression',
+      { surClic: vue.surProgression, desactive: !vue.surProgression });
     cible.appendChild(menu);
 
     var sup = el('div', 'feuille-menu');
@@ -2106,6 +2381,7 @@
     rendreListeSeances: rendreListeSeances,
     rendreBloc: rendreBloc,
     rendreDetail: rendreDetail,
+    rendrePageExercice: rendrePageExercice,
     message: message
   };
 
@@ -2132,6 +2408,7 @@
     el: el,
     vider: vider,
     dateCourte: dateCourte,
+    dateLongue: dateLongue,
     rendreEtat: rendreEtat,
     rendreOnglets: rendreOnglets,
     rendreApercu: rendreApercu,
@@ -2154,6 +2431,7 @@
     rendreListeSeances: rendreListeSeances,
     rendreBloc: rendreBloc,
     rendreDetail: rendreDetail,
+    rendrePageExercice: rendrePageExercice,
     message: message
   };
 })(typeof self !== 'undefined' ? self : this);

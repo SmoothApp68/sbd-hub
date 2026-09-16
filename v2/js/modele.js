@@ -733,6 +733,192 @@
   // `etats` est la table de THPalier.etatsExercices, calculée une fois sur tout
   // le cache. Un exercice absent de la table reste « indéterminé » : aucune
   // hypothèse, jamais une valeur par défaut.
+  //
+  // ⚠️ LA MEILLEURE SÉRIE D'UN EXERCICE — UN SEUL CALCUL, DEUX LECTEURS.
+  //
+  // La carte de séance l'affichait déjà ; la page d'exercice (§7 quater) en a
+  // besoin aussi. Extraite ici plutôt que réécrite là-bas : deux versions de
+  // « ce qu'on a fait de mieux » finiraient par se contredire, comme la carte et
+  // la barre du §1 de ce chantier (`CADRAGE-V2 §2 undecies`).
+  //
+  // Elle rend les mêmes clés qu'avant : `charge`/`reps` sur `charge_reps`,
+  // `valeur` (+ `complement`) sur les trois autres mesures. Une absence reste
+  // une absence — aucune clé plutôt qu'un zéro.
+  function meilleureSerieDe(slug, series, exercices, palier, etats) {
+    var index = indexerExercices(exercices || []);
+    var g = gabaritDe(index[slug]);
+    var e = {};
+
+    // ⚠️ L'ORDRE ET LES CLÉS SONT CEUX D'AVANT L'EXTRACTION. `charge` et `reps`
+    // sont posées — à `null` s'il n'y a rien — pour TOUTES les mesures dès qu'un
+    // moteur est fourni : « absent » s'écrit `null`, jamais `undefined`, et un
+    // consommateur qui distingue les deux verrait une régression là où il n'y a
+    // qu'un déplacement de code.
+    if (palier) {
+      var parExo = {};
+      palier.decouperParExercice(series || []).forEach(function (se) { parExo[se.slug] = se.series; });
+      // ⚠️ LA MESURE EST DONNÉE AU MOTEUR, pas devinée par lui. Sans elle, il ne
+      // distingue pas une planche — qui n'aura jamais de palier — d'un développé
+      // couché dont les kilos n'ont pas été saisis ce jour-là.
+      var r = palier.analyser(parExo[slug] || [], (etats || {})[slug], { mesure: g.mesure });
+      // Une meilleure série absente ne s'invente pas.
+      e.charge = r.meilleure ? r.meilleure.charge : null;
+      e.reps = r.meilleure ? r.meilleure.reps : null;
+    }
+    if (g.mesure === 'charge_reps') return e;
+
+    // ⚠️ LES TROIS AUTRES MESURES N'ONT PAS DE PALIER, ET C'EST CORRECT.
+    // `palier.analyser` écarte toute série sans charge NI reps : sur `reps`,
+    // `temps` et `distance_temps` il rend une absence propre. On lit donc la
+    // meilleure série DIRECTEMENT, dans la grandeur de la mesure — aucune
+    // formule, aucune comparaison, le maximum de ce qui a été fait.
+    var siennes = (series || []).filter(function (x) {
+      return x && x.exercise_slug === slug && estTravail(x);
+    });
+    if (!siennes.length) return e;
+
+    if (g.mesure === 'reps') {
+      // Pas de clé du tout quand il n'y a rien à dire : « rien » et « zéro » ne
+      // doivent pas se ressembler, même en interne.
+      var t = texteMax(siennes, 'reps', String);
+      if (t !== null) e.valeur = t;
+      return e;
+    }
+
+    var longue = null, plusLongue = null;
+    siennes.forEach(function (x) {
+      var d = valeurNumerique(x, 'duree_s');
+      if (d === null) return;
+      if (longue === null || d > plusLongue) { longue = x; plusLongue = d; }
+    });
+    if (longue === null) return e;
+    e.valeur = formatDuree(longue.duree_s);
+    if (g.mesure === 'distance_temps' && longue.distance_m) {
+      e.complement = '\u00b7 ' + formatDistance(longue.distance_m);
+    }
+    return e;
+  }
+
+  // ── LA MEILLEURE SÉRIE DE TOUT L'HISTORIQUE (§7 quater) ──────────────────
+  //
+  // ⚠️ AUCUN SECOND CALCUL ICI — on RAPPELLE le chemin de la carte. La page
+  // d'exercice montre un record, la carte montre le meilleur du jour : c'est la
+  // même question posée sur un périmètre plus large, et deux calculs finiraient
+  // par se contredire (`CADRAGE-V2` §2 undecies).
+  //
+  // ⚠️ ET ON NE LUI DONNE PAS L'UNION DE TROIS ANS. Le palier est une notion de
+  // SÉANCE : « chauffe probable » se juge à ≤ 75 % de la plus lourde DU JOUR, et
+  // `rang` n'ordonne que l'intérieur d'une séance. Sur l'union, une série de
+  // travail de 2024 passerait pour l'échauffement d'un record de 2026.
+  //
+  // Les mesures SANS charge échappent à ce piège : leur meilleure série est un
+  // maximum (reps, durée), et un maximum ne dépend pas du découpage en séances.
+  // Un seul appel sur tout l'historique y donne exactement le même résultat que
+  // le meilleur des appels séance par séance — on ne fait donc pas les autres.
+  //
+  // `parSeance` est une liste de `{ cle, series }` : la clé est ce que
+  // l'appelant veut retrouver — la date du jour du record. Elle ressort sur la
+  // meilleure série SEULEMENT quand on a comparé séance par séance, c'est-à-dire
+  // sur `charge_reps`. Ailleurs, un maximum n'a pas de séance gagnante à
+  // désigner sans la rechercher, et on ne prétend pas la connaître.
+  function meilleureSerieDeTout(slug, parSeance, exercices, palier, etats) {
+    var groupes = parSeance || [];
+    var g = gabaritDe(indexerExercices(exercices || [])[slug]);
+    if (g.mesure !== 'charge_reps') {
+      var toutes = [];
+      groupes.forEach(function (gr) { toutes = toutes.concat((gr && gr.series) || []); });
+      return meilleureSerieDe(slug, toutes, exercices, palier, etats);
+    }
+
+    // Même contrat que la carte : sans moteur, il n'y a rien à dire, et rien se
+    // dit avec aucune clé — pas avec un `null`.
+    if (!palier) return {};
+
+    var best = null;
+    groupes.forEach(function (gr) {
+      var m = meilleureSerieDe(slug, (gr && gr.series) || [], exercices, palier, etats);
+      if (m.charge === null || m.charge === undefined) return;
+      // La plus lourde ; à charge égale, les meilleures reps — l'arbitrage de
+      // `THPalier.meilleureSerie`, appliqué d'une séance à l'autre.
+      if (!best || m.charge > best.charge ||
+          (m.charge === best.charge && m.reps > best.reps)) {
+        m.cle = gr ? gr.cle : null;
+        best = m;
+      }
+    });
+    // « Absent » s'écrit `null`, jamais `undefined` : c'est ce que la carte
+    // rend, et un consommateur qui distingue les deux verrait une régression.
+    return best || { charge: null, reps: null };
+  }
+
+  // ── LA TABLE PAR NOMBRE DE RÉPÉTITIONS (§7 quater.3) ─────────────────────
+  //
+  // « C'est elle qui dit le niveau réel » — « mon record c'est 140 » ne veut
+  // rien dire sans le nombre de répétitions.
+  //
+  // ⚠️ ELLE NE VAUT QUE POUR `charge_reps` ET `reps`. Sur `distance_temps`, il
+  // n'y a pas de table : ces exercices sont hors du périmètre du moteur
+  // (§3 ter.3). Sur `temps`, la spec veut une table par nombre de SÉRIES — « la
+  // plus longue en une série, en deux, en trois » — qui est un AUTRE calcul, et
+  // la phrase se lit de deux façons. On ne l'invente pas : on rend une liste
+  // vide, et la page affiche la meilleure série. Écart signalé, pas comblé.
+  //
+  // ⚠️ BRUT, AVEC LES LIGNES DÉDUITES SIGNALÉES. Une ligne est DÉDUITE quand un
+  // meilleur résultat existe à PLUS de répétitions : qui a fait 80 × 15 a
+  // forcément pu faire 80 × 14. On n'écrase pas le brut — on le garde et on dit
+  // qu'il est dépassé, parce que « ce que j'ai fait » et « ce que je pourrais
+  // revendiquer » sont deux lectures différentes.
+  //
+  // Mesuré sur le développé couché d'aurel_br : une seule ligne déduite sur
+  // quinze, celle des 14 reps — le brut y donnait 42,5 kg de février 2024 alors
+  // qu'il a fait 80 × 15 en juillet 2025.
+  //
+  // La DATE est portée par chaque ligne, et elle change la lecture : un record à
+  // 8 reps de novembre et un à 6 reps d'hier ne se lisent pas pareil.
+  function tableParReps(series, mesure, dateDe) {
+    if (mesure !== 'charge_reps' && mesure !== 'reps') return [];
+    var quand = dateDe || function (s) { return s && s.validee_a; };
+
+    // Le meilleur par nombre de reps. « Meilleur » veut dire la charge la plus
+    // lourde sur `charge_reps` ; sur `reps`, il n'y a pas de charge à comparer,
+    // et c'est la règle du déduit ci-dessous qui s'en charge.
+    var parReps = {};
+    (series || []).forEach(function (s) {
+      if (!estTravail(s)) return;
+      var r = valeurNumerique(s, 'reps');
+      if (r === null || r <= 0) return;
+      var c = mesure === 'charge_reps' ? valeurNumerique(s, 'charge_kg') : 0;
+      if (mesure === 'charge_reps' && c === null) return;
+      var actuel = parReps[r];
+      if (!actuel || c > actuel.charge) parReps[r] = { reps: r, charge: c, date: quand(s) };
+    });
+
+    var lignes = Object.keys(parReps)
+      .map(function (k) { return parReps[k]; })
+      .sort(function (a, b) { return a.reps - b.reps; });
+
+    // Déduite : un meilleur résultat existe à PLUS de répétitions. On balaie de
+    // la droite vers la gauche en gardant le maximum vu — une seule passe.
+    //
+    // ⚠️ LA GRANDEUR COMPARÉE N'EST PAS LA MÊME SELON LA MESURE. Sur
+    // `charge_reps`, c'est la CHARGE qui tranche : 42,5 × 14 est déduit par
+    // 80 × 15. Sur `reps`, il n'y a pas de charge — `charge` vaut 0 partout, et
+    // une comparaison de charges ne déduirait JAMAIS rien alors que tout est
+    // déduit : on ne fait pas 15 répétitions sans pouvoir en faire 14. La table
+    // d'un exercice en `reps` a donc une seule ligne pleine, la plus haute.
+    var maxADroite = null;
+    for (var i = lignes.length - 1; i >= 0; i--) {
+      lignes[i].deduit = mesure === 'reps'
+        ? i < lignes.length - 1
+        : (maxADroite !== null && maxADroite > lignes[i].charge);
+      // Ce qu'on pourrait revendiquer ne s'écrit que s'il y a quelque chose à
+      // revendiquer : sur `reps`, la charge déduite serait un zéro trompeur.
+      if (lignes[i].deduit && mesure === 'charge_reps') lignes[i].chargeDeduite = maxADroite;
+      if (maxADroite === null || lignes[i].charge > maxADroite) maxADroite = lignes[i].charge;
+    }
+    return lignes;
+  }
+
   function apercuExercices(series, exercices, palier, etats) {
     var index = indexerExercices(exercices || []);
     var vus = {}, ordre = [];
@@ -743,58 +929,10 @@
     });
 
     var tete = ordre.slice(0, APERCU_MAX);
-    if (palier) {
-      var parExo = {};
-      palier.decouperParExercice(series || []).forEach(function (se) { parExo[se.slug] = se.series; });
-      tete.forEach(function (e) {
-        // ⚠️ LA MESURE EST DONNÉE AU MOTEUR, pas devinée par lui. Sans elle, il
-        // ne distingue pas une planche — qui n'aura jamais de palier — d'un
-        // développé couché dont les kilos n'ont pas été saisis ce jour-là.
-        var r = palier.analyser(parExo[e.slug] || [], (etats || {})[e.slug],
-                                { mesure: gabaritDe(index[e.slug]).mesure });
-        // Une meilleure série absente ne s'invente pas : la ligne n'affiche
-        // alors que le nom.
-        e.charge = r.meilleure ? r.meilleure.charge : null;
-        e.reps = r.meilleure ? r.meilleure.reps : null;
-      });
-    }
-
-    // ⚠️ LES TROIS AUTRES MESURES N'ONT PAS DE PALIER, ET C'EST CORRECT.
-    //
-    // `palier.analyser` écarte toute série sans charge NI reps : sur `reps`,
-    // `temps` et `distance_temps` il rend une absence propre — `palier: null`,
-    // `meilleure: null`, `erreur: 'aucune-serie-de-travail'`. Pas un zéro, pas
-    // un plantage. Le journal restait donc muet là où il y avait quelque chose
-    // à dire : « 12 » pour des tractions, « 50 s » pour une planche.
-    //
-    // On ne demande pas au moteur ce qu'il ne sait pas : on lit la meilleure
-    // série DIRECTEMENT, dans la grandeur de la mesure. Aucune formule, aucune
-    // comparaison — le maximum de ce qui a été fait.
+    // Un seul calcul, partagé avec la page d'exercice : voir `meilleureSerieDe`.
     tete.forEach(function (e) {
-      var g = gabaritDe(index[e.slug]);
-      if (g.mesure === 'charge_reps') return;
-      var siennes = (series || []).filter(function (s) {
-        return s && s.exercise_slug === e.slug && estTravail(s);
-      });
-      if (!siennes.length) return;
-      if (g.mesure === 'reps') {
-        // Pas de clé du tout quand il n'y a rien à dire : « rien » et « zéro »
-        // ne doivent pas se ressembler, même en interne.
-        var t = texteMax(siennes, 'reps', String);
-        if (t !== null) e.valeur = t;
-        return;
-      }
-      var longue = null, plusLongue = null;
-      siennes.forEach(function (s) {
-        var d = valeurNumerique(s, 'duree_s');
-        if (d === null) return;
-        if (longue === null || d > plusLongue) { longue = s; plusLongue = d; }
-      });
-      if (longue === null) return;
-      e.valeur = formatDuree(longue.duree_s);
-      if (g.mesure === 'distance_temps' && longue.distance_m) {
-        e.complement = '\u00b7 ' + formatDistance(longue.distance_m);
-      }
+      var m = meilleureSerieDe(e.slug, series, exercices, palier, etats);
+      Object.keys(m).forEach(function (k) { e[k] = m[k]; });
     });
 
     return {
@@ -809,12 +947,23 @@
     var index = indexerExercices(exercices);
     var listeSeries = series || [];
     var slugs = {};
-    var nbTravail = 0, dureeTotale = 0, distanceTotale = 0;
+    // ⚠️ LA CARTE LIT LE MÊME COMPTE QUE LA BARRE (chantier 40).
+    //
+    // Elle comptait `estTravail` seul, sans la règle du volume : la séance du
+    // 14/09 affichait 23 dans la barre et 25 sur sa carte, pour les MÊMES séries
+    // — les deux du tapis. Le chantier 39 avait posé la règle à un endroit sur
+    // deux, ce que `CADRAGE-V2 §2 undecies` appelle la maladie de la semaine.
+    //
+    // ⚠️ ON APPELLE, ON NE RECOPIE PAS. Trois lignes recopiées ici divergeraient
+    // le jour où la règle bouge — et elle a déjà bougé deux fois. `THSemaine` se
+    // charge APRÈS `THModele` mais AVANT tout appel : la lecture est donc tardive,
+    // et sans repli, pour qu'une dépendance manquante casse bruyamment plutôt que
+    // de rendre un compte faux en silence.
+    var dureeTotale = 0, distanceTotale = 0;
     var sortie = listeSeries.length > 0;
 
     listeSeries.forEach(function (s) {
       slugs[s.exercise_slug] = true;
-      if (estTravail(s)) nbTravail++;
       if (s.duree_s) dureeTotale += Number(s.duree_s) || 0;
       if (s.distance_m) distanceTotale += Number(s.distance_m) || 0;
       if (!estExerciceSortie(index[s.exercise_slug])) sortie = false;
@@ -826,6 +975,7 @@
     // `distance_temps`). L'afficher « 0 exercice · 0 série » la ferait passer
     // pour un fait légitime alors que c'est un manque, et le manque se dit.
     var incomplet = listeSeries.length === 0;
+    var nbTravail = racine.THSemaine.compteSeriesTravail(listeSeries, exercices);
 
     return {
       id: seance.id,
@@ -883,6 +1033,9 @@
     toursFaitsParGroupe: toursFaitsParGroupe,
     resumerSeance: resumerSeance,
     apercuExercices: apercuExercices,
+    meilleureSerieDe: meilleureSerieDe,
+    meilleureSerieDeTout: meilleureSerieDeTout,
+    tableParReps: tableParReps,
     libelleAutres: libelleAutres
   };
 

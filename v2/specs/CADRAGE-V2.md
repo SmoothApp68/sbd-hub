@@ -116,6 +116,48 @@ trouvé cinq défauts de plus, dont une garde qui ne couvrait qu'une branche sur
 
 ---
 
+## 2 undecies. Câbler, jamais dupliquer — doctrine posée le 15/09/2026
+
+> **Le principal, pour un correctif comme pour une fonctionnalité : ne pas créer du neuf à
+> chaque fois, mais câbler ce qui existe et trouver les liens logiques — pour ne dupliquer ni
+> une information, ni une règle.**
+
+**Ce n'est pas une préférence de style. C'est la cause commune de tous les défauts sérieux de
+la semaine du 9 au 15 septembre.**
+
+| Défaut | La règle écrite deux fois |
+|---|---|
+| D2, D3 (ch. 34) | une liste de colonnes **écrites**, une autre **lues** — `user_id`, `ressenti`, `repos_s` effacés à la première correction |
+| C1 (ch. 39) | `Seance.compter().travail` écrit au ch. 22, **lu par personne** — trois chiffres pour une même séance sur cinq écrans |
+| ch. 38 → 39 | le fantôme corrigé, **la colonne à côté non** — les deux se contredisaient à l'écran |
+| C2 (15/09) | « porte du volume » appliqué à la barre, **pas à la carte** — 25 contre 23 sur la même séance |
+| D9 (ch. 38) | l'alignement par indice, présent à **deux** endroits de rendu |
+
+**Et à l'inverse, ce qui a tenu est ce qui n'existait qu'une fois :**
+
+- **`construireBlocs`** — l'écran de saisie appelle la fonction qui rend déjà le détail
+  (ch. 27). *« Écrire un second entrelaceur, c'était garantir qu'ils divergent un jour ; là,
+  ils ne peuvent pas. »*
+- **La liste lue dérivée de la liste écrite** par construction (ch. 34), plus
+  `verifierColonnes()` qui lève au démarrage si l'écart réapparaît.
+- **Les deux entonnoirs de bornes** (ch. 36) — `nombreOuNul`/`entierOuNul` et
+  `borne`/`seriesValides`, plutôt qu'un registre qui recopierait les CHECK de la base et
+  dériverait le jour où une contrainte bouge.
+
+### Les trois questions à se poser avant d'écrire
+
+1. **Cette règle existe-t-elle déjà quelque part ?** Si oui, l'appeler — jamais la réécrire.
+2. **Si je la corrige ici, y a-t-il un second endroit qui dit la même chose ?** C'est la
+   question que les chantiers 38 et 39 ont ratée, deux fois de suite.
+3. **Puis-je faire dériver plutôt que recopier ?** Une liste construite depuis une autre ne
+   peut pas diverger ; deux listes maintenues à la main divergeront.
+
+> **Corollaire, déjà appliqué** : une garde qui double une garde qui fait déjà le travail ne
+> protège de rien et laisse croire l'inverse. Retirée à chaque fois qu'une mutation l'a
+> désignée (ch. 27, 28, 30, 34, 36).
+
+---
+
 ## 2 ter. Périmètre du moteur ≠ périmètre de l'affichage
 
 Le §2 exclut du périmètre la randonnée, le pilates, l'escalade et la course. Cette exclusion

@@ -1261,6 +1261,28 @@ l'envoie.
 
 ## 7 quater. La page d'exercice — une seule, atteinte de partout
 
+> **ÉTAT AU CHANTIER 40 (16/09/2026) — livrée, avec trois manques nommés.**
+>
+> Sont en place : la page unique et ses trois portes d'entrée (nom d'exercice en séance, nom
+> d'exercice au détail, ligne de Progression), le bandeau de séance et « Reprendre », les deux
+> sous-onglets et leurs URL, la fiche des records, la table par nombre de répétitions avec ses
+> lignes déduites, et l'historique par jour.
+>
+> **Ne sont PAS en place, et ce n'est pas un oubli :**
+>
+> 1. **La courbe et ses cinq vues** (Charge · Meilleure série · Reps totales · Tonnage · 1RM
+>    estimé), avec son sélecteur de période. Ce sont **cinq grandeurs neuves**, dont une —
+>    « 1RM estimé » — qui est du moteur, et le moteur est hors périmètre (`CADRAGE-V2` §2 ter).
+>    Le chantier 40 ne demandait que quatre lectures, toutes existantes.
+> 2. **La table par nombre de SÉRIES sur `temps`** (« la plus longue en une série, en deux, en
+>    trois »). La phrase se lit de deux façons — le plus long maintien cumulé sur N séries, ou
+>    le plus long N-ième maintien — et on n'invente pas une spec. Sur `temps`, la page montre
+>    la meilleure série et pas de table.
+> 3. **La colonne d'effort dans l'historique** (RPE ou reps restantes, par série). L'historique
+>    **réutilise `rendreBloc`**, le rendu du détail de séance, comme le chantier 40 le
+>    demandait ; ce rendu n'a pas de colonne d'effort. L'y ajouter changerait aussi le détail
+>    de séance — un autre chantier, pas celui-ci.
+
 Décision du 11/09/2026. Le §2.8 dit qu'un tap sur le nom d'un exercice donne son historique.
 Cette page est maintenant définie.
 

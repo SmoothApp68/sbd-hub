@@ -541,8 +541,11 @@
         carte.appendChild(haut);
         var meta = r.incomplet ? 'séries pas encore reçues'
           : r.estSortie ? resumeSortie(r)
+          // `de travail` — le qualificatif que le jumeau `rendreListeSeances`
+          // porte encore et que celui-ci avait perdu (audit, C1).
           : r.nbExercices + ' exercice' + (r.nbExercices > 1 ? 's' : '') +
-            ' · ' + r.nbSeriesTravail + ' série' + (r.nbSeriesTravail > 1 ? 's' : '');
+            ' · ' + r.nbSeriesTravail + ' série' + (r.nbSeriesTravail > 1 ? 's' : '') +
+            ' de travail';
         if (meta) carte.appendChild(el('div', 'seance-meta', meta));
         // Une sortie garde sa carte évidée : durée et distance, pas d'aperçu.
         if (!r.estSortie) rendreApercu(carte, r.apercu);
@@ -870,9 +873,15 @@
       ? Math.max(0, Math.round((Date.now() - debut.getTime()) / 60000)) : 0;
     // §7 octies.2 — en modification, le temps écoulé n'a plus de sens : la
     // séance date d'avant-hier, et « 3 240 min » ne dirait rien à personne.
-    t.appendChild(el('div', 'bandeau-ch num', vue.edition
-      ? 'Modification · ' + vue.compte.validees + ' série' + (vue.compte.validees > 1 ? 's' : '')
-      : minutes + ' min · ' + vue.compte.validees + ' série' + (vue.compte.validees > 1 ? 's' : '')));
+    // ⚠️ `travail`, PAS `validees` (chantier 39, C1). Le même mot portait trois
+    // comptes sur cinq écrans : 4 chauffes + 2 séries de travail s'affichaient
+    // « 6 » ici et sur l'écran de fin, « 2 » sur la carte et la barre. Les
+    // chauffes ne sont pas des séries de travail — et `Seance.compter().travail`
+    // existe depuis le chantier 22 sans que personne le lise.
+    var nT = vue.compte.travail;
+    t.appendChild(el('div', 'bandeau-ch num', (vue.edition
+      ? 'Modification · ' : minutes + ' min · ') +
+      nT + ' série' + (nT > 1 ? 's' : '') + ' de travail'));
     cible.appendChild(t);
 
     // §5.3 — Modifier replie la séance sur une ligne par bloc. Il ne remplace
@@ -1364,6 +1373,23 @@
   // série, qui porte en plus son étiquette, son tour, et les indices `_iExo` /
   // `_iSerie` qui la rebranchent sur le modèle. L'affichage est entrelacé, le
   // modèle reste rangé par exercice — les indices sont le pont entre les deux.
+  // Les séries de l'exercice auquel CETTE ligne appartient, dans l'ordre du
+  // modèle. L'affichage d'un superset est entrelacé — la ligne voisine n'est pas
+  // du même exercice — mais `construireBlocs` garde les séries d'un exercice
+  // triées par rang, et `_iSerie` indexe cette liste-là.
+  //
+  // ⚠️ ON IDENTIFIE PAR `_iExo`, PAS PAR LE SLUG : le même exercice peut occuper
+  // deux entrées distinctes de la séance, et les confondre mélangerait leurs
+  // antécédents.
+  function seriesDeSonExercice(bloc, s) {
+    var liste = (bloc && bloc.exercices) || [];
+    for (var i = 0; i < liste.length; i++) {
+      var ser = liste[i].series || [];
+      if (ser.length && ser[0]._iExo === s._iExo) return ser;
+    }
+    return null;
+  }
+
   function rangeeDeSerie(bloc, s, complets, vue) {
     var iExo = s._iExo, iSerie = s._iSerie;
     var g = gabaritDe(vue, s.exercise_slug);
@@ -1403,8 +1429,23 @@
     no.addEventListener('click', function () { vue.surNumero(iExo, iSerie); });
     rangee.appendChild(no);
 
+    // ⚠️ LE SECOND POINT DE RENDU (chantier 39). Le chantier 38 a corrigé le
+    // FANTÔME ; la colonne, elle, alignait toujours par indice brut — et les deux
+    // se contredisaient à l'écran, sur la même ligne :
+    //
+    //   ligne de travail n° 1 : fantôme 120 kg ✅ · « précédent » 40 kg ❌
+    //
+    // C'est la colonne qu'on lit pour savoir quoi charger. Même règle, même
+    // fonction : la Nᵉ série d'un type montre la Nᵉ série du MÊME type, et sans
+    // correspondant elle ne montre rien.
+    //
+    // ⚠️ ET ELLE VIENT DE LA SÉANCE PASSÉE UNIQUEMENT, jamais de la saisie en
+    // cours — c'est ce qui la distingue du fantôme, et ça restera vrai quand le
+    // moteur parlera : le fantôme dira CE QU'IL FAUT FAIRE, la colonne CE QUI A
+    // ÉTÉ FAIT. `Seance.correspondant` ne lit que `prec`, donc la distinction
+    // tient par construction.
     var prec = vue.precedent(s.exercise_slug);
-    var ligneP = prec && prec.series ? prec.series[iSerie] : null;
+    var ligneP = S().correspondant(seriesDeSonExercice(bloc, s), iSerie, prec);
     rangee.appendChild(el('div', 'prec num', M().formatPrecedent(ligneP, g.mesure)));
 
     var f = vue.fantome(iExo, iSerie);
@@ -1690,16 +1731,32 @@
   // VALIDÉES efface du travail réellement fait : on le dit, on le compte, et on
   // demande. Sans série validée, il n'y a rien à perdre — la question serait un
   // bruit qu'on tape sans lire, exactement ce que le §6.2 reproche.
+  // ⚠️ UNE SUPPRESSION ANNONCE DES LIGNES (chantier 39, C1).
+  //
+  // Partout ailleurs « série » veut dire série de TRAVAIL. Ici non : six lignes
+  // partent, on en annonce six — sinon l'avertissement ment sur ce qu'il fait.
+  // Et parce que le compte ne suit pas la même règle que les autres, il DIT
+  // pourquoi : « 6 séries, dont 4 d'échauffement » vaut mieux qu'un nombre nu
+  // qui se lirait comme celui du bandeau.
+  //
+  // Une seule phrase, deux appelants : la feuille d'exercice ou de bloc, et la
+  // suppression de séance entière (`app.js`).
+  function phraseEffacement(lignes, chauffes) {
+    var n = lignes || 0;
+    var w = chauffes || 0;
+    var detail = w > 0
+      ? ', dont ' + w + ' d\u2019échauffement' : '';
+    return n + ' série' + (n > 1 ? 's' : '') + detail +
+      ' ser' + (n > 1 ? 'ont' : 'a') + ' effacée' + (n > 1 ? 's' : '');
+  }
+
   function rendreFeuilleSupprimer(cible, vue) {
     vider(cible);
     var t = el('div', 'feuille-t', 'Supprimer ' + vue.quoi + ' ?');
     t.appendChild(el('em', '', vue.noms));
     cible.appendChild(t);
     cible.appendChild(el('p', 'feuille-aide',
-      vue.validees + ' série' + (vue.validees > 1 ? 's' : '') +
-      ' déjà validée' + (vue.validees > 1 ? 's' : '') +
-      ' ser' + (vue.validees > 1 ? 'ont' : 'a') + ' effacée' + (vue.validees > 1 ? 's' : '') +
-      '. Rien ne le remet en place.'));
+      phraseEffacement(vue.lignes, vue.chauffes) + '. Rien ne le remet en place.'));
     var menu = el('div', 'feuille-menu');
     entreeMenu(menu, 'Supprimer quand même', { classe: 'danger', surClic: vue.surConfirmer });
     entreeMenu(menu, 'Annuler', { surClic: vue.surAnnuler });
@@ -1771,9 +1828,10 @@
   function rendreFeuilleFin(cible, vue) {
     vider(cible);
     var t = el('div', 'feuille-t', 'Terminer la séance');
-    t.appendChild(el('em', '', vue.compte.validees + ' série' +
-      (vue.compte.validees > 1 ? 's' : '') + ' enregistrée' +
-      (vue.compte.validees > 1 ? 's' : '')));
+    // `travail`, pas `validees` — même règle que le bandeau (chantier 39, C1).
+    var nF = vue.compte.travail;
+    t.appendChild(el('em', '', nF + ' série' + (nF > 1 ? 's' : '') +
+      ' de travail enregistrée' + (nF > 1 ? 's' : '')));
     cible.appendChild(t);
 
     // §7 septies.4 — trois champs déclarés, pas déduits. La salle surtout :
@@ -2063,6 +2121,7 @@
     rendreFeuilleBloc: rendreFeuilleBloc,
     rendreFeuilleExercice: rendreFeuilleExercice,
     rendreFeuilleSupprimer: rendreFeuilleSupprimer,
+    phraseEffacement: phraseEffacement,
     rendreFeuilleFin: rendreFeuilleFin,
     mmss: mmss,
     etiquetteSerie: etiquetteSerie,

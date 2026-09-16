@@ -236,11 +236,48 @@
   }
 
   // Compte brut de la semaine. Descriptif, sans commentaire.
-  function bilanSemaine(seances, series) {
+  // ⚠️ UNE SORTIE N'A PAS DE SÉRIES DE TRAVAIL (chantier 39, C2).
+  //
+  // `bilanSemaine` ne filtrait que `type_serie`, jamais la NATURE de l'exercice.
+  // Mesuré : 552 séries sur 467 séances — 38 % du corpus — sur 13 exercices sans
+  // muscle primaire : tapis, marche, randonnée, natation, vélo. Et
+  // l'incohérence était visible à l'œil nu : la carte d'une sortie REFUSE
+  // d'afficher un compte de séries, et la barre juste au-dessus les additionnait.
+  // `CADRAGE-V2 §2 ter` l'interdit — les sorties sont hors du périmètre du
+  // moteur.
+  //
+  // ⚠️ LE CRITÈRE EST « PORTE DU VOLUME », PAS `estExerciceSortie`.
+  //
+  // `THModele.estExerciceSortie` (charge `aucune` ET mesure temporelle) couvre
+  // 19 exercices du catalogue ; SIX d'entre eux portent un muscle primaire —
+  // poirier, gainage, l-sit, et les trois planches. Les exclure ferait afficher
+  // « 0 série de travail » sur une séance de gainage, qui en est pourtant une.
+  // Le critère juste est celui que `volumeParMuscle` applique déjà sans le dire :
+  // un exercice compte s'il porte du volume, c'est-à-dire s'il a au moins un
+  // muscle primaire. Mesuré sur le catalogue : exactement les 13 de l'audit, et
+  // aucun exercice sans muscle primaire n'échappe à `estExerciceSortie`.
+  //
+  // Ce n'est donc pas une seconde définition de « sortie » — c'est la règle du
+  // volume, rendue explicite là où elle manquait.
+  function porteDuVolume(exo) {
+    return !!exo && !!(exo.muscles_primaires || []).length;
+  }
+
+  function bilanSemaine(seances, series, exercices) {
     var ids = new Set((seances || []).map(function (s) { return s && s.id; }));
+    var cat = {};
+    (exercices || []).forEach(function (e) { if (e && e.slug) cat[e.slug] = e; });
     var travail = 0;
     (series || []).forEach(function (s) {
-      if (s && s.type_serie === 'travail' && ids.has(s.session_id)) travail++;
+      if (!s || s.type_serie !== 'travail' || !ids.has(s.session_id)) return;
+      // ⚠️ ON NE RETRANCHE QUE CE QU'ON CONNAÎT. Un exercice absent du catalogue
+      // — cache pas encore chargé, slug inconnu — n'est pas un exercice sans
+      // muscle : c'est un exercice dont on ne sait rien. L'écarter ferait
+      // afficher « 0 série de travail » au premier démarrage, ce qui serait faux
+      // d'une autre manière.
+      var exo = cat[s.exercise_slug];
+      if (exo && !porteDuVolume(exo)) return;
+      travail++;
     });
     return { nbSeances: (seances || []).length, nbSeriesTravail: travail };
   }
@@ -259,6 +296,7 @@
     memeSemaine: memeSemaine,
     repartirParJour: repartirParJour,
     volumeParMuscle: volumeParMuscle,
+    porteDuVolume: porteDuVolume,
     bilanSemaine: bilanSemaine
   };
 

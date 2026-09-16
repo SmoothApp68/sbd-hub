@@ -615,14 +615,25 @@
   // trois semaines de travail partaient sur un seul tap. `partEnBase` dit la
   // vraie chose — « cette série existe, elle a été faite » — qu'elle porte une
   // date de validation ou qu'elle vienne de la base.
-  function compterValidees(seance, indices) {
+  // ⚠️ ET IL COMPTE DES LIGNES, PAS DES SÉRIES DE TRAVAIL (chantier 39, C1).
+  //
+  // Partout ailleurs, « série » veut dire série de TRAVAIL — les chauffes n'en
+  // sont pas. Mais un écran qui annonce une suppression dit ce qu'il va
+  // VRAIMENT effacer : six lignes partent, il annonce six lignes. Le compte
+  // n'est donc pas le même, et c'est voulu — d'où le détail, qui évite qu'un
+  // nombre nu se lise comme les autres.
+  function compterAEffacer(seance, indices) {
     var idx = (indices || []).slice();
-    var n = 0;
-    (seance.exercices || []).forEach(function (e, i) {
+    var lignes = 0, chauffes = 0;
+    ((seance && seance.exercices) || []).forEach(function (e, i) {
       if (idx.indexOf(i) < 0) return;
-      (e.series || []).forEach(function (s) { if (partEnBase(s)) n++; });
+      (e.series || []).forEach(function (s) {
+        if (!partEnBase(s)) return;
+        lignes++;
+        if (typeDe(s) === 'echauffement') chauffes++;
+      });
     });
-    return n;
+    return { lignes: lignes, chauffes: chauffes };
   }
 
   // ── Saisie ──────────────────────────────────────────────────────────────
@@ -1338,14 +1349,19 @@
   // et une série d'échec ne propose pas une dégressive.
   function typeDe(serie) { return (serie && serie.type_serie) || 'travail'; }
 
-  function correspondant(exo, iSerie, prec) {
+  // ⚠️ ELLE PREND LA LISTE DES SÉRIES, PAS L'EXERCICE (chantier 39). Deux
+  // appelants la partagent désormais : `fantome`, qui a le modèle, et la colonne
+  // « précédent » de `rendu.js`, qui n'a que le bloc d'affichage. Une seule règle,
+  // un seul code — c'est ce qui garantit que les deux ne se contrediront plus.
+  function correspondant(series, iSerie, prec) {
     if (!prec || !prec.series) return null;
-    var type = typeDe(exo.series[iSerie]);
+    var liste = series || [];
+    var type = typeDe(liste[iSerie]);
 
     // Le rang de cette série DANS SON TYPE, aujourd'hui.
     var rang = 0;
     for (var k = 0; k < iSerie; k++) {
-      if (typeDe(exo.series[k]) === type) rang++;
+      if (typeDe(liste[k]) === type) rang++;
     }
 
     // La série de même rang, dans le même type, la fois précédente.
@@ -1366,7 +1382,7 @@
 
   function fantome(seance, iExo, iSerie, prec) {
     var exo = seance.exercices[iExo];
-    var ligne = correspondant(exo, iSerie, prec);
+    var ligne = correspondant(exo.series, iSerie, prec);
 
     var charge = derniereSaisie(exo, iSerie, 'charge_kg');
     if (charge === null && ligne) charge = ligne.charge_kg;
@@ -1479,7 +1495,7 @@
     remplacerExercice: remplacerExercice,
     insererExercice: insererExercice,
     retirerExercices: retirerExercices,
-    compterValidees: compterValidees,
+    compterAEffacer: compterAEffacer,
     valider: valider,
     devalider: devalider,
     derniereValidation: derniereValidation,

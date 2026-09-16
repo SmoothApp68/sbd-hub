@@ -2502,6 +2502,7 @@
     rendreExosRoutine: rendreExosRoutine,
     rendreFeuilleExoRoutine: rendreFeuilleExoRoutine,
     rendreFeuilleParametresExo: rendreFeuilleParametresExo,
+    champChrono: champChrono,
     rendreResultatsExo: rendreResultatsExo,
     el: el,
     vider: vider,

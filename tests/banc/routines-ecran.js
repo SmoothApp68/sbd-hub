@@ -568,6 +568,29 @@ const CATALOGUE = [
     /^0?1:30$/.test(vuRelu), '« ' + vuRelu + ' »');
   await page.click('#feuille-contenu .principal');
   await attendre(350);
+  // ⚠️ LA BORNE BASSE NE PEUT PAS SE REFUSER À LA FRAPPE : pour écrire 0:45 il
+  // faut passer par 0:04. Elle se refuse donc à L'ENREGISTREMENT — et le
+  // message parle en mm:ss, pas en secondes : annoncer « de 5 à 1800 secondes »
+  // obligerait à convertir de tête ce qu'on vient de taper.
+  await gesteCarte(0, 'Modifier les param');
+  await viderRepos();
+  await taperRepos('4');
+  await page.click('#feuille-contenu .principal');
+  await attendre(350);
+  await page.click('#btn-enregistrer-routine');
+  await attendre(700);
+  const msgBorne = (await texte('#erreur-routine')).trim();
+  ok('[42] 0:04 est refusé à l’enregistrement, en mm:ss',
+    /0:05/.test(msgBorne) && /30:00/.test(msgBorne) && !/seconde/.test(msgBorne),
+    '« ' + msgBorne + ' »');
+  await gesteCarte(0, 'Modifier les param');
+  await viderRepos();
+  await taperRepos('130');
+  await page.click('#feuille-contenu .principal');
+  await attendre(350);
+  await page.click('#btn-enregistrer-routine');
+  await attendre(900);
+
   // On rend l'écran à la bibliothèque : la section suivante y entre par la carte.
   await aller('/saisie');
 

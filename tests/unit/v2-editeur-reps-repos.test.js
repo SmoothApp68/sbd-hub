@@ -114,6 +114,18 @@ describe('⚠️ le repos se saisit au pavé de décalage (§7 quaterdecies.2)',
     expect(padRepos(c)).not.toBeNull();
     expect(padRepos(c).type).toBe('text');
     expect(padRepos(c).inputMode).toBe('numeric');
+    // ⚠️ ET IL DIT CE QU'IL EST. Le pavé de séance annonce « en heures,
+    // minutes et secondes » ; ici la borne haute est à 30 minutes, et une
+    // lecture d'écran qui parle d'heures décrirait un champ qui n'existe pas.
+    expect(padRepos(c).getAttribute('aria-label'))
+      .toBe('Repos cible, en minutes et secondes');
+  });
+
+  test('le pavé de SÉANCE, lui, garde son libellé — rien ne change pour lui', () => {
+    const cible = document.createElement('div');
+    cible.appendChild(Rendu().champChrono('', 90, null, () => {}));
+    expect(cible.querySelector('input').getAttribute('aria-label'))
+      .toBe('Durée, en heures, minutes et secondes');
   });
 
   // 4. CONFIGURATION DISCRIMINANTE : 1:30 franchit la minute. `1` `3` `0` lu

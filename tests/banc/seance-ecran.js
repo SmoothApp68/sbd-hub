@@ -1628,18 +1628,39 @@ const SETS_IMPORTES = [
     (await compter('.no-serie.a-note')) + ' série(s) marquée(s)');
 
   // ── Le repos se modifie en séance, sans rien écrire dans la routine ─────
+  //
+  // ⚠️ LA MOLETTE, LA MÊME QU'À L'ÉDITEUR (§7 sexdecies). La grille de huit
+  // valeurs est partie au chantier 44 : elle et le pavé de l'éditeur disaient
+  // la même chose, pour la même question. Il n'en reste qu'un écran — et ce
+  // banc et celui des routines parcourent maintenant le MÊME composant.
+  const reglerRepos = async (secondes) => {
+    await page.evaluate((v) => {
+      const p = document.querySelector('#feuille-contenu .molette .piste');
+      const opts = Array.from(p.querySelectorAll('.opt'));
+      const i = opts.findIndex((o) => Number(o.dataset.v) === v);
+      p.scrollTop = i * 48;
+      p.dispatchEvent(new Event('scroll'));
+    }, secondes);
+    await attendre(250);
+  };
+  const sortieRepos = async (classe) => {
+    await page.click('#feuille-contenu .feuille-pied .' + classe);
+    await attendre(900);
+  };
   const patchsAvantRepos = patchsRoutine().length;
   await ouvrirFeuilleBloc(0, '.repos-cible');
-  ok('un appui sur le repos ouvre la grille de valeurs',
-    /Repos cible/.test(await texte('#feuille-contenu')) &&
-    (await compter('#feuille-contenu .grille-rpe button')) === 8,
-    (await compter('#feuille-contenu .grille-rpe button')) + ' valeur(s)');
-  await page.evaluate(() => {
-    const b = Array.from(document.querySelectorAll('#feuille-contenu .grille-rpe button'))
-      .filter((x) => x.textContent.trim() === '2:00')[0];
-    b.click();
-  });
-  await attendre(900);
+  ok('[44] un appui sur le repos ouvre la MOLETTE — 36 valeurs, pas 8',
+    /Temps de repos/.test(await texte('#feuille-contenu')) &&
+    (await compter('#feuille-contenu .molette .opt')) === 36 &&
+    (await compter('#feuille-contenu .grille-rpe button')) === 0,
+    (await compter('#feuille-contenu .molette .opt')) + ' valeur(s)');
+  // ⚠️ ET ELLE DIT QUE LA ROUTINE N'EST PAS TOUCHÉE. C'est la seule chose qui
+  // diffère entre les deux écrans : la phrase, pas le composant.
+  ok('[44] …et elle rappelle que la routine n’est pas touchée',
+    /La routine n’est pas touchée/.test(await texte('#feuille-contenu')),
+    (await texte('#feuille-contenu')).replace(/\s+/g, ' ').slice(0, 90));
+  await reglerRepos(120);
+  await sortieRepos('pri');
   ok('le repos cible change à l’écran, tout de suite',
     /repos 2:00/.test(await lireBloc(0, '.repos-cible')), await lireBloc(0, '.repos-cible'));
   ok('et RIEN n’est écrit dans la routine au moment du geste (§7 septies.2)',
@@ -1820,12 +1841,8 @@ const SETS_IMPORTES = [
   // demander n'écrit pas. Sans ce test, une implémentation qui reporte TOUJOURS
   // passerait le banc — et corrigerait les routines d'Aurélien dans son dos.
   await ouvrirFeuilleBloc(0, '.repos-cible');
-  await page.evaluate(() => {
-    const b = Array.from(document.querySelectorAll('#feuille-contenu .grille-rpe button'))
-      .filter((x) => x.textContent.trim() === '3:00')[0];
-    b.click();
-  });
-  await attendre(900);
+  await reglerRepos(180);
+  await sortieRepos('pri');
   const patchsAvantGarder = patchsRoutine().length;
   await page.click('#bandeau-seance .bandeau-fin');
   await attendre(600);

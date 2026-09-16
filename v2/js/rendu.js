@@ -1761,18 +1761,29 @@
     // moteur parlera : le fantôme dira CE QU'IL FAUT FAIRE, la colonne CE QUI A
     // ÉTÉ FAIT. `Seance.correspondant` ne lit que `prec`, donc la distinction
     // tient par construction.
+    // ⚠️ MÊME LECTURE DE L'ANTÉCÉDENT DANS LES DEUX MODES, et c'est le point :
+    // `correspondant` porte la règle du chantier 38 — la Nᵉ série d'un TYPE
+    // regarde la Nᵉ série du MÊME type, jamais l'indice brut. L'éditeur s'en
+    // sert aussi depuis le chantier 44, donc il n'y a pas de seconde lecture
+    // d'historique à écrire, ni à faire diverger.
+    var ligneP = S().correspondant(seriesDeSonExercice(bloc, s), iSerie,
+      vue.precedent(s.exercise_slug));
     if (!vue.programme) {
-      var prec = vue.precedent(s.exercise_slug);
-      var ligneP = S().correspondant(seriesDeSonExercice(bloc, s), iSerie, prec);
       rangee.appendChild(el('div', 'prec num', M().formatPrecedent(ligneP, g.mesure)));
     }
 
-    // ⚠️ AUCUN FANTÔME EN MODE PROGRAMME, ET C'EST LA MÊME RAISON QUE `PRÉC.`.
-    // Le fantôme propose ce qui a été fait la fois d'avant pour qu'on valide
-    // sans rien taper. Dans l'éditeur, ce qu'on tape EST la prescription : une
-    // valeur grise venue d'une séance passée s'y lirait comme une valeur déjà
-    // programmée, et « champ vide » ne se distinguerait plus de « 125 kg ».
-    var f = vue.programme ? {} : vue.fantome(iExo, iSerie);
+    // ⚠️ EN MODE PROGRAMME, LE GRIS EST CE QU'ON A RÉELLEMENT SOULEVÉ
+    // (§7 septendecies.2). Le chantier 43 n'affichait rien, de peur qu'une
+    // valeur grise se lise comme une valeur déjà programmée. Arbitré le 15/09 :
+    // **ce n'est pas une valeur à arbitrer, c'est du contexte** — la routine
+    // dit la structure, et montre où l'on en est. Non modifiable, non
+    // enregistrée : elle n'est que le placeholder d'un champ vide.
+    //
+    // La CHARGE seulement. Les reps, elles, SONT la prescription : un gris
+    // dessous rendrait « champ vide » et « 8 reps programmées » indiscernables.
+    var f = vue.programme
+      ? { charge_kg: ligneP ? ligneP.charge_kg : null }
+      : vue.fantome(iExo, iSerie);
     // Une seule boucle pour les quatre gabarits : le champ porte sa colonne, son
     // unité et son facteur de conversion. La vue ne sait rien de la différence
     // entre une seconde et un kilomètre.
@@ -2117,30 +2128,135 @@
     cible.appendChild(f);
   }
 
-  // Le repos cible, EN SÉANCE (§7 septies.2). Une grille de valeurs, jamais un
-  // champ à taper : même raison que le RPE (§3 bis.6) — viser un chiffre au
-  // clavier avec les mains moites, entre deux séries, est perdu d'avance. Les
-  // valeurs couvrent ce qui se pratique ; l'éditeur de routine garde le champ
-  // libre pour les cas particuliers.
-  var REPOS_CIBLES = [null, 45, 60, 90, 120, 150, 180, 240];
+  // ══ LA MOLETTE DE REPOS (§7 sexdecies) ═══════════════════════════════════
+  //
+  // ⚠️ UN SEUL COMPOSANT, AUX DEUX ENDROITS — éditeur de routine ET séance.
+  // Il y en avait deux : une grille de huit valeurs en séance, un pavé de
+  // décalage dans l'éditeur. Deux systèmes pour la même question, c'est
+  // exactement ce que `CADRAGE-V2` §2 undecies interdit.
+  //
+  // **La molette pour le repos, le pavé de décalage pour les durées
+  // d'exercice.** Un temps de repos prend un petit nombre de valeurs sensées ;
+  // une durée — planche, rando, gainage — est arbitraire. Chacun là où il a du
+  // sens, et `champChrono` reste le pavé des durées.
+  //
+  // 36 valeurs : de 5 en 5 jusqu'à 2:00 (24), puis de 15 en 15 jusqu'à 5:00
+  // (12). Resserré là où la précision compte — 90 et 120 secondes ne sont pas
+  // la même chose — large au-delà, où le quart de minute suffit.
+  var PAS_FIN = 5, FIN_MAX = 120, PAS_LARGE = 15, LARGE_MAX = 300;
+  var VALEURS_REPOS = (function () {
+    var v = [], s;
+    for (s = PAS_FIN; s <= FIN_MAX; s += PAS_FIN) v.push(s);
+    for (s = FIN_MAX + PAS_LARGE; s <= LARGE_MAX; s += PAS_LARGE) v.push(s);
+    return v;
+  }());
 
+  // La hauteur d'une entrée, en pixels. Elle est dans le CSS ET ici, et c'est
+  // assumé : le défilement se mesure en pixels, la sélection se calcule en
+  // rangs. Les deux doivent s'accorder, donc la valeur est nommée une fois de
+  // chaque côté — `.molette .opt{height:48px}` dans `styles.css`.
+  var HAUTEUR_OPT = 48;
+
+  // ⚠️ PAR ARITHMÉTIQUE DE RANG, PAS PAR `offsetTop`. Avec `scroll-snap`, le
+  // défilement s'arrête toujours sur un multiple de la hauteur : l'index EST le
+  // quotient. Mesurer la position de chaque nœud donnerait le même résultat en
+  // plus fragile — et ne se testerait pas hors navigateur, où toute géométrie
+  // vaut zéro.
+  function indexCentre(defilement) {
+    var i = Math.round((Number(defilement) || 0) / HAUTEUR_OPT);
+    return Math.max(0, Math.min(VALEURS_REPOS.length - 1, i));
+  }
+
+  // Le rang de départ. Une valeur qui n'est pas dans la liste — 3:20 tapé au
+  // pavé avant ce chantier, ou une valeur hors bornes — se centre sur la plus
+  // PROCHE : la molette montre alors ce que « Valider » écrirait, ce qui est la
+  // leçon de la mutation M7 (chantier 41) appliquée à un autre écran.
+  //
+  // Sans repos programmé, on se centre sur 1:30 : il faut bien se poser
+  // quelque part, et c'est le repos le plus courant. Rien n'est écrit tant
+  // qu'on n'a pas tapé « Valider » — le défaut est visible, pas silencieux.
+  var REPOS_DEFAUT = 90;
+  function rangDeRepos(secondes) {
+    var v = (secondes === null || secondes === undefined || !isFinite(secondes))
+      ? REPOS_DEFAUT : Number(secondes);
+    var meilleur = 0, ecart = Infinity;
+    VALEURS_REPOS.forEach(function (x, i) {
+      var d = Math.abs(x - v);
+      if (d < ecart) { ecart = d; meilleur = i; }
+    });
+    return meilleur;
+  }
+
+  // « 45 s » sous la minute, « 1:30 » au-dessus. Sous la minute, `0:45` se lit
+  // moins vite qu'un nombre de secondes ; au-dessus, l'horloge gagne.
+  function libelleRepos(s) { return s < 60 ? s + ' s' : mmss(s); }
+
+  // ⚠️ ELLE VIT DANS UNE FEUILLE, JAMAIS EN LIGNE DANS LA LISTE (§7 sexdecies.4).
+  // La molette est glissante, et le glissement vertical a déjà coûté trois
+  // chantiers (§7 terdecies bis). Par-dessus l'écran, rien ne défile derrière —
+  // c'est ce qui la rend sûre, et ce n'est pas un détail de présentation.
+  //
+  // Trois sorties, et elles ne disent pas la même chose :
+  //   Valider     → la valeur CENTRÉE ;
+  //   Annuler     → rien ne change ;
+  //   Désactiver  → `NULL`, jamais zéro (`routine_exos_repos_borne` commence à
+  //                 5 s, et « 0:00 de repos » serait une prescription).
   function rendreFeuilleRepos(cible, vue) {
     vider(cible);
-    var t = el('div', 'feuille-t', 'Repos cible');
+    var t = el('div', 'feuille-t', 'Temps de repos');
     t.appendChild(el('em', '', vue.exercice));
     cible.appendChild(t);
-    cible.appendChild(el('p', 'feuille-aide',
-      'Pour cette séance. La routine n’est pas touchée : la question se pose à la fin.'));
-    var g = el('div', 'grille-rpe');
-    var courant = vue.repos === undefined ? null : vue.repos;
-    REPOS_CIBLES.forEach(function (v) {
-      var b = el('button', courant === v ? 'sel num' : 'num', v === null ? '—' : mmss(v));
-      b.type = 'button';
-      b.setAttribute('aria-label', v === null ? 'Aucun repos cible' : 'Repos de ' + mmss(v));
-      b.addEventListener('click', function () { vue.surRepos(v); });
-      g.appendChild(b);
+    if (vue.aide) cible.appendChild(el('p', 'feuille-aide', vue.aide));
+
+    var molette = el('div', 'molette');
+    molette.appendChild(el('div', 'selection'));
+    var piste = el('div', 'piste');
+    piste.setAttribute('role', 'listbox');
+    piste.setAttribute('aria-label', 'Temps de repos');
+
+    var rang = rangDeRepos(vue.repos);
+    var options = VALEURS_REPOS.map(function (v) {
+      var o = el('div', 'opt', libelleRepos(v));
+      o.dataset.v = String(v);
+      o.setAttribute('role', 'option');
+      o.setAttribute('aria-label', libelleRepos(v));
+      piste.appendChild(o);
+      return o;
     });
-    cible.appendChild(g);
+
+    function marquer(i) {
+      piste.dataset.rang = String(i);
+      options.forEach(function (o, k) {
+        var d = Math.abs(k - i);
+        o.className = 'opt' + (d === 0 ? ' sel' : d === 1 ? ' pres' : ' eteint');
+        o.setAttribute('aria-selected', d === 0 ? 'true' : 'false');
+      });
+    }
+    marquer(rang);
+    piste.addEventListener('scroll', function () { marquer(indexCentre(piste.scrollTop)); });
+    molette.appendChild(piste);
+    cible.appendChild(molette);
+    // Le positionnement initial est une conséquence de l'état, pas un geste :
+    // on le pose après l'insertion, sinon le nœud n'a pas encore de hauteur.
+    piste.scrollTop = rang * HAUTEUR_OPT;
+
+    var pied = el('div', 'feuille-pied');
+    var des = el('button', 'des', 'Désactiver');
+    des.type = 'button';
+    des.addEventListener('click', function () { vue.surDesactiver(); });
+    pied.appendChild(des);
+    var ann = el('button', 'sec', 'Annuler');
+    ann.type = 'button';
+    ann.addEventListener('click', function () { vue.surAnnuler(); });
+    pied.appendChild(ann);
+    var val = el('button', 'pri', 'Valider');
+    val.type = 'button';
+    val.addEventListener('click', function () {
+      vue.surValider(VALEURS_REPOS[Number(piste.dataset.rang) || 0]);
+    });
+    pied.appendChild(val);
+    cible.appendChild(pied);
+    return cible;
   }
 
   // Une ligne d'écart, en français : ce qui change, pas un nom de colonne.
@@ -2261,26 +2377,20 @@
       var carte = el('button', 'routine');
       carte.type = 'button';
       carte.appendChild(el('div', 'routine-nom', r.nom));
-      // ⚠️ « 3 × 8 » A DISPARU, ET IL FALLAIT QUE LA CARTE TRANCHE (ch. 43).
-      // Depuis `v2_042_routine_sets`, les lignes d'un exercice ne sont plus
-      // identiques : une routine porte des chauffes, des dégressives et des
-      // reps qui varient. Ce qui reste comparable d'une routine à l'autre,
-      // c'est le VOLUME DE TRAVAIL — et les chauffes, dites à part, parce
-      // qu'elles ne coûtent pas la même chose et qu'en les fondant dans le
-      // total on ferait passer une routine de 21 séries pour une de 26.
+      // ⚠️ « 3 × 8 » A DISPARU AU CHANTIER 43, LES CHAUFFES AU 44
+      // (§7 septendecies.1). Depuis `v2_042_routine_sets` les lignes d'un
+      // exercice ne sont plus identiques, donc « 3 séries × 8 reps » ne veut
+      // plus rien dire. Le chantier 43 avait ajouté « + 5 de chauffe » pour
+      // lever une ambiguïté de compte : **le détail est inutile dans un
+      // résumé**, il se voit en ouvrant la routine.
+      //
+      // Reste ce qui se compare d'une routine à l'autre : les séries de
+      // TRAVAIL, comme partout ailleurs (`compteSeriesTravail`, règle du
+      // volume comprise).
       var a = R().apercu(r.exercices, v.catalogue);
-      var meta = a.nbExercices + ' exercice' + (a.nbExercices > 1 ? 's' : '') +
-        ' \u00b7 ' + a.nbSeries + ' série' + (a.nbSeries > 1 ? 's' : '');
-      // ⚠️ « + 5 », PAS « DONT 5 » — ET C'EST UNE TRANCHE, PAS UN DÉTAIL.
-      // « 26 séries dont 5 de chauffe » dit que les 5 sont DANS les 26. Or le
-      // nombre annoncé est celui des séries de TRAVAIL (`compteSeriesTravail`,
-      // règle du volume comprise), et les chauffes n'y sont pas — « dont »
-      // serait faux, et les additionner mélangerait deux comptes qui ne se
-      // filtrent pas pareil. Elles s'ajoutent donc, visiblement.
-      if (a.nbChauffes) {
-        meta += ' + ' + a.nbChauffes + ' de chauffe';
-      }
-      carte.appendChild(el('div', 'routine-meta', meta));
+      carte.appendChild(el('div', 'routine-meta',
+        a.nbExercices + ' exercice' + (a.nbExercices > 1 ? 's' : '') +
+        ' \u00b7 ' + a.nbSeries + ' série' + (a.nbSeries > 1 ? 's' : '')));
       carte.addEventListener('click', function () { if (v.surChoix) v.surChoix(r.id); });
 
       var rangee = el('div', 'routine-rangee');
@@ -2333,58 +2443,6 @@
     entreeMenu(sup, 'Supprimer l’exercice',
       { classe: 'danger', surClic: vue.surSupprimer });
     cible.appendChild(sup);
-    return cible;
-  }
-
-  // ══ LE REPOS CIBLE D'UNE ROUTINE (§7 quindecies.4) ═══════════════════════
-  //
-  // ⚠️ CE QUI RESTE DE LA FEUILLE DES PARAMÈTRES, ET SEULEMENT ÇA. Séries et
-  // reps visées s'y saisissaient ; elles se tapent maintenant SUR LA LIGNE,
-  // comme en séance. Le repos, lui, n'a pas de colonne — il vaut pour tout
-  // l'exercice — donc il lui faut un endroit, et c'est celui-ci.
-  //
-  // Ce n'est PAS `rendreFeuilleRepos` : celle de la séance est une grille de
-  // huit valeurs, parce qu'on la touche entre deux séries avec les mains
-  // moites. Ici on programme au calme, et les cas particuliers (3:20, 4:45)
-  // méritent d'être atteignables. Le pavé est le MÊME (`champChrono`,
-  // chantier 25) — c'est la garniture autour qui diffère.
-  //
-  // ⚠️ ET LE REPOS SE DÉSACTIVE, PAR EXERCICE (§7 quindecies.4). À NULL, pas à
-  // zéro : `routine_exos_repos_borne` refuse 0, et « 0:00 de repos » voudrait
-  // dire « enchaîne sans souffler », ce qui est une prescription. NULL dit
-  // « je n'en programme pas », ce qui est l'absence de prescription. Les deux
-  // ne sont pas la même chose, et c'est la seconde qu'on veut.
-  function rendreFeuilleReposRoutine(cible, vue) {
-    vider(cible);
-    var t = el('div', 'feuille-t', 'Repos cible');
-    t.appendChild(el('em', '', vue.nom));
-    cible.appendChild(t);
-
-    var repos = el('label', 'champ-num champ-repos');
-    repos.appendChild(el('span', 'champ-lib', 'Entre les séries'));
-    repos.appendChild(champChrono('', R().reposEcrit(vue.repos), null,
-      function (val) { vue.surRepos(val); },
-      { max: R().REPOS_MAX, libelle: 'Repos cible, en minutes et secondes' }));
-    cible.appendChild(repos);
-    cible.appendChild(el('p', 'feuille-aide',
-      'De 0:05 à 30:00. Les chiffres entrent par la droite : 1 3 0 donne 1:30.'));
-
-    // ⚠️ DÉSACTIVER EST UN GESTE À PART, PAS « LE PAVÉ RENDU VIDE ».
-    //
-    // Défaut trouvé AU BANC, pas en test : le bouton appelait `surRepos(null)`,
-    // et l'appelant refermait sur `null` — donc vider le pavé pour retaper une
-    // valeur fermait la feuille au premier effacement. Les deux intentions ne
-    // se distinguent PAS par la valeur : « je n'en veux pas » et « j'efface
-    // pour retaper » rendent le même `null`. Elles se distinguent par le
-    // GESTE, et c'est le geste qu'on transmet.
-    var menu = el('div', 'feuille-menu');
-    entreeMenu(menu, 'Désactiver le repos', { surClic: vue.surDesactiver });
-    cible.appendChild(menu);
-
-    var b = el('button', 'principal', 'Terminé');
-    b.type = 'button';
-    b.addEventListener('click', vue.surFermer);
-    cible.appendChild(b);
     return cible;
   }
 
@@ -2453,6 +2511,7 @@
     rendreFeuilleSerie: rendreFeuilleSerie,
     rendreFeuilleNote: rendreFeuilleNote,
     rendreFeuilleRepos: rendreFeuilleRepos,
+    VALEURS_REPOS: VALEURS_REPOS,
     rendreFeuilleConfirmer: rendreFeuilleConfirmer,
     rendreFeuilleSeance: rendreFeuilleSeance,
     rendreFeuilleBloc: rendreFeuilleBloc,
@@ -2465,7 +2524,6 @@
     texteEffort: texteEffort,
     rendreListeRoutines: rendreListeRoutines,
     rendreFeuilleExoRoutine: rendreFeuilleExoRoutine,
-    rendreFeuilleReposRoutine: rendreFeuilleReposRoutine,
     champChrono: champChrono,
     rendreResultatsExo: rendreResultatsExo,
     el: el,

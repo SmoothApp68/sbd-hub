@@ -1418,6 +1418,13 @@ Borne inchangée : `routine_exos_reps_bornees` — NULL, ou entre 1 et 100.
 
 ### 7 quaterdecies.2 Le repos se saisit en mm:ss, pas en secondes
 
+> 🗄️ **DÉPASSÉ PAR LE §7 sexdecies (chantier 44).** Le repos se choisit
+> maintenant à la **molette**, aux deux écrans. Ce qui suit reste vrai du **pavé de
+> décalage** — il n'a pas disparu, il a changé d'objet : il sert désormais aux **durées
+> d'exercice** (planche, rando, gainage), où la valeur est arbitraire. La borne basse décrite
+> plus bas ne se refuse plus à l'enregistrement pour le repos : elle n'est simplement pas dans
+> la liste.
+
 **C'est une régression de notre fait**, et l'exemple type de la doctrine du câblage
 (`CADRAGE-V2` §2 undecies) :
 
@@ -1455,6 +1462,117 @@ demanderait une migration : `reps_visees` est un entier simple.
 
 **Ne pas reproposer.** Si le besoin revient, il se traitera avec le moteur (chantier 1), pas
 dans l'éditeur.
+
+---
+
+## 7 sexdecies. Choisir un repos — une molette, pas un pavé
+
+Arrêté le 15/09/2026 après essai sur device.
+
+### 7 sexdecies.1 Une duplication trouvée
+
+**Deux systèmes disaient la même chose** : le pavé de décalage dans l'éditeur de routine, et
+une liste de choix en séance. Le §2 undecies l'interdit.
+
+> **La molette pour le repos. Le pavé de décalage pour les durées d'exercice.**
+>
+> Un temps de repos prend un **petit nombre de valeurs sensées**. Une durée d'exercice —
+> planche, rando, gainage — est arbitraire. Chacun là où il a du sens.
+
+**Le même composant aux deux endroits** : éditeur de routine et séance. C'est la même question,
+donc le même écran.
+
+### 7 sexdecies.2 La progression — 36 valeurs
+
+| Plage | Pas | Valeurs |
+|---|---|---|
+| 5 s → 2:00 | **5 s** | 24 |
+| 2:15 → 5:00 | **15 s** | 12 |
+
+**Resserré où la précision compte** — 90 et 120 secondes ne sont pas la même chose. **Large
+au-delà**, où le quart de minute suffit.
+
+### 7 sexdecies.3 Trois sorties
+
+**Valider** pose la valeur centrée · **Annuler** ne touche à rien · **Désactiver** écrit
+`NULL`.
+
+> ⚠️ **Désactivé vaut `NULL`, jamais zéro** — `routine_exos_repos_borne` commence à 5 s. Un
+> repos désactivé n'arme aucun chronomètre.
+
+### 7 sexdecies.4 Deux points à surveiller
+
+**La molette est glissante**, et le glissement vertical a déjà coûté trois chantiers
+(§7 terdecies bis). Elle vit dans une **feuille par-dessus l'écran** : rien ne défile derrière.
+C'est ce qui la rend sûre — ne pas la poser en ligne dans la liste.
+
+**Au-delà de 5:00** : la base accepte jusqu'à 30 minutes. Rare. Une dernière entrée pourrait
+ouvrir le pavé pour ces cas — **non tranché**, à rouvrir si le besoin se présente.
+
+### 7 sexdecies.5 Ce que l'implémentation a précisé — 16/09/2026
+
+**La borne est dans la liste, plus dans un refus.** Le pavé laissait taper 0:04 et le refusait à
+l'enregistrement, avec un message ; la molette ne propose pas 0:04. Il n'y a plus rien à
+refuser, et le message de borne du §7 quaterdecies.2 n'a plus d'objet pour le repos.
+
+**Une valeur stockée hors liste se centre sur la plus proche** — 3:20, tapé au pavé avant ce
+chantier, ouvre la molette sur 3:15. C'est la leçon de la mutation M7 (chantier 41) appliquée
+ici : **la valeur affichée est celle qui sera écrite**. Rien ne se garde en douce.
+
+**Sans repos programmé, la molette se pose sur 1:30.** Il faut bien se poser quelque part, et
+c'est le repos le plus courant. Le défaut est **visible**, et rien n'est écrit tant que
+« Valider » n'a pas été touché.
+
+---
+
+## 7 septendecies. Deux ajustements du 15/09/2026
+
+### 7 septendecies.1 La carte de routine ne mentionne plus les chauffes
+
+Le chantier 43 affichait « 21 séries + 5 de chauffe ». **Le détail est inutile dans un
+résumé** : il se voit en ouvrant la routine.
+
+> **« 7 exercices · 21 séries »** — les séries de travail, comme partout (§C1).
+
+`apercu().nbChauffes` est parti avec son seul lecteur, plutôt que de rester un calcul que
+personne ne lit — c'est la leçon de C1 (chantier 39), dans l'autre sens.
+
+### 7 septendecies.2 L'éditeur montre ce qu'on soulève réellement
+
+Aujourd'hui l'éditeur n'affiche **aucune charge** — ni programmée, ni réelle. Alors que la
+séance propose ce qui a été fait la dernière fois.
+
+> **En gris sur chaque ligne : la charge réellement soulevée**, celle de la dernière séance,
+> même type et même rang (règle du chantier 38).
+
+Ce n'est pas une valeur à arbitrer, c'est une **information de contexte**. La routine dit la
+structure, et montre où l'on en est.
+
+> ⚠️ **La charge seulement.** Les reps, elles, SONT la prescription : un gris dessous rendrait
+> « champ vide » et « 8 reps programmées » indiscernables. C'est la raison qui tenait le
+> chantier 43, et elle vaut toujours pour cette colonne-là.
+>
+> ⚠️ **Et c'est `Seance.precedent` qui la lit**, la même fonction qu'en séance, alignée par
+> `correspondant`. Une seconde lecture d'historique aurait divergé de la première.
+
+### 7 septendecies.3 Où se place `charge_cible_kg` — tranché
+
+Question laissée ouverte au chantier 43 : la charge programmée descend-elle dans le fantôme ?
+
+> **Oui, et en dernier. Le fantôme est une cascade, pas un arbitrage :**
+>
+> 1. ce qui vient d'être tapé dans la séance (`derniereSaisie`) ;
+> 2. la dernière séance sur cet exercice, même type et même rang (chantier 38) ;
+> 3. **`charge_cible_kg`**, faute de mieux.
+
+Elle ne s'affiche donc que sur un **exercice jamais fait**, ou repris après des mois. Aucune
+concurrence avec la colonne `précédent`, qui montre le passé et non une proposition.
+
+**Quand le moteur parlera, il se placera au-dessus d'elle** — rang 2 bis — pas à côté.
+
+> ⚠️ **Elle est LUE, jamais écrite.** La ligne de séance la porte pour que le fantôme y accède ;
+> `sets` n'a pas cette colonne et `COLONNES_SET` ne la laisse pas partir. Une intention n'est
+> pas une observation.
 
 ---
 
@@ -1501,6 +1619,11 @@ qu'on valide sans rien taper (§3 bis.3). Dans l'éditeur, ce qu'on tape EST la 
 une valeur grise s'y lirait comme une valeur déjà programmée, et « champ vide » ne se
 distinguerait plus de « 125 kg ».
 
+> 🗄️ **Rouvert et nuancé au chantier 44** (§7 septendecies.2) : la **charge** revient en gris —
+> celle qu'on a réellement soulevée, pas une prescription. Les **reps**, elles, restent sans
+> gris, exactement pour la raison ci-dessus. La règle ne s'est pas inversée, elle s'est
+> précisée : elle ne valait que pour la colonne qui porte la prescription.
+
 Les 142 px libérés vont aux champs qu'on remplit : sur `charge_reps`, la case des kg passe de
 79 à ~160 px.
 
@@ -1527,13 +1650,16 @@ qui ne prime JAMAIS sur le moteur.** L'invariant « la routine ne porte aucune c
 précise, il ne se relâche pas : ce qui reste interdit, c'est une charge **observée**
 (`charge_kg`, un poids, un RM) — une valeur périmée dès qu'on progresse.
 
-> ⚠️ **Elle ne descend pas encore dans la séance, et c'est délibéré.** `Seance.creer` lit le
-> TYPE et les REPS VISÉES de chaque ligne ; la charge, non. Brancher une charge programmée sur
-> le fantôme la met en concurrence avec le moteur et avec la colonne `précédent` : c'est une
-> décision de coaching, elle passe par Gemini puis par Aurélien (CLAUDE.md §3), pas par un
-> chantier d'écran. **Question ouverte, la seule de ce chantier.**
+> 🗄️ **TRANCHÉ AU CHANTIER 44** (§7 septendecies.3) : elle descend, et **en dernier**. Le
+> fantôme est une cascade à trois niveaux — ce qu'on vient de taper, la dernière séance, puis
+> la charge cible faute de mieux. Ce n'était donc pas un arbitrage entre deux voix, et la
+> concurrence redoutée n'existe pas : elle ne s'affiche que sur un exercice jamais fait.
 
 ### 7 quindecies.4 Les deux détails repris de Hevy
+
+> 🗄️ **La FEUILLE décrite ici a été remplacée au chantier 44** (§7 sexdecies) : le pavé de
+> décalage a cédé la place à la molette, la même qu'en séance. **La règle, elle, n'a pas
+> bougé** — et elle s'est confirmée.
 
 **Le repos se désactive**, exercice par exercice. À **NULL, jamais à zéro** :
 `routine_exos_repos_borne` refuse 0, et « 0:00 de repos » voudrait dire « enchaîne sans
@@ -1560,6 +1686,10 @@ carte annonce donc **le volume de travail, et les chauffes à part** :
 (`THSemaine.compteSeriesTravail`, règle du volume comprise) ; les chauffes n'y sont pas, et
 « 26 séries dont 5 de chauffe » serait faux. Les additionner mélangerait deux comptes qui ne se
 filtrent pas pareil. Sans chauffe, la mention disparaît — on n'écrit pas « + 0 ».
+
+> 🗄️ **La mention est partie au chantier 44** (§7 septendecies.1). L'ambiguïté de compte était
+> réelle et la levée était juste ; **le détail reste inutile dans un résumé**. La carte dit
+> « 7 exercices · 21 séries », et rien de plus.
 
 Une dégressive ne compte pas comme une série de travail : elle prolonge la précédente, elle
 n'en ouvre pas une nouvelle. C'est déjà la règle du badge (`nbTravail`), et la carte ne s'en

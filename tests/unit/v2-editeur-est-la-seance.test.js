@@ -444,6 +444,25 @@ describe('⚠️ la molette de repos, un seul composant pour les deux écrans', 
     expect(vus).toEqual([300]);
   });
 
+  // ⚠️ TROUVÉ PAR LA MUTATION M11, et c'est le genre de défaut qu'une assertion
+  // de CLASSE ne voit pas. `marquer(rang)` pose bien `.sel` sur la bonne
+  // entrée ; si la PISTE, elle, reste en haut, la molette montre le premier
+  // rang sous sa fenêtre pendant que la surbrillance est trente rangs plus
+  // bas — et « Valider » écrit une valeur qui n'était sous aucune fenêtre.
+  //
+  // La position se lit donc pour elle-même, en rangs : c'est la seule chose
+  // qui relie la surbrillance à ce qu'on voit.
+  test('la PISTE est réellement positionnée sur la valeur, pas seulement marquée', () => {
+    expect(piste(feuille(90)).scrollTop).toBe(Rendu().VALEURS_REPOS.indexOf(90) * 48);
+    expect(piste(feuille(5)).scrollTop).toBe(0);
+    expect(piste(feuille(300)).scrollTop).toBe(35 * 48);
+    // Et la surbrillance est au MÊME rang que la position — sans quoi les deux
+    // pourraient se contredire sans qu'aucune des deux assertions ne bouge.
+    const c = feuille(300);
+    expect(opts(c).findIndex((o) => o.classList.contains('sel')))
+      .toBe(piste(c).scrollTop / 48);
+  });
+
   test('la valeur stockée se centre à l’ouverture, et une valeur hors liste s’en approche', () => {
     const centre = (r) => opts(feuille(r)).filter((o) => o.classList.contains('sel'))[0].textContent;
     expect(centre(210)).toBe('3:30');
@@ -459,6 +478,77 @@ describe('⚠️ la molette de repos, un seul composant pour les deux écrans', 
     // écrit tant qu'on n'a pas tapé Valider.
     expect(centre(null)).toBe('1:30');
     expect(centre(undefined)).toBe('1:30');
+  });
+
+  // ⚠️ TROUVÉS PAR LA CAMPAGNE DE MUTATIONS (M3, M4, M5, M6), pas par une
+  // relecture. Les quatre portaient sur l'arithmétique de la molette, et les
+  // quatre survivaient parce que les tests ne la sollicitaient qu'aux endroits
+  // les plus confortables : des positions exactes, dans les bornes, et des
+  // valeurs stockées qui tombaient toujours du même côté.
+
+  // M3 — un pouce ne s'arrête pas sur un multiple exact. Entre deux rangs,
+  // c'est le PLUS PROCHE qui se centre (`Math.round`), pas celui du dessus
+  // (`Math.floor`) : autrement la fenêtre montrerait une valeur et « Valider »
+  // en écrirait une autre.
+  test('entre deux rangs, c’est le plus PROCHE qui se centre', () => {
+    const vus = [];
+    const c = feuille(null, { surValider: (v) => vus.push(v) });
+    const p = piste(c);
+    // 4,6 rangs : on est plus près du rang 5 (30 s) que du rang 4 (25 s).
+    p.scrollTop = 4.6 * 48;
+    p.dispatchEvent(new window.Event('scroll'));
+    expect(opts(c).filter((o) => o.classList.contains('sel'))[0].textContent).toBe('30 s');
+    bouton(c, 'Valider').click();
+    // 4,4 rangs : on redescend sur le rang 4. ⚠️ C'est CETTE paire qui
+    // discrimine : avec `Math.floor`, les deux positions donneraient 25 s.
+    p.scrollTop = 4.4 * 48;
+    p.dispatchEvent(new window.Event('scroll'));
+    expect(opts(c).filter((o) => o.classList.contains('sel'))[0].textContent).toBe('25 s');
+    bouton(c, 'Valider').click();
+    expect(vus).toEqual([30, 25]);
+  });
+
+  // M4 — le rebond de défilement va AU-DELÀ des bornes, et c'est le cas
+  // courant sur Android : un `scrollTop` négatif ou supérieur au maximum
+  // donnerait `VALEURS_REPOS[-1]`, c'est-à-dire `undefined`, et « Valider »
+  // écrirait `undefined` en base.
+  test('le rebond de défilement ne sort jamais de la liste', () => {
+    const vus = [];
+    const c = feuille(null, { surValider: (v) => vus.push(v) });
+    const p = piste(c);
+    p.scrollTop = -400;
+    p.dispatchEvent(new window.Event('scroll'));
+    expect(opts(c).filter((o) => o.classList.contains('sel'))[0].textContent).toBe('5 s');
+    bouton(c, 'Valider').click();
+    p.scrollTop = 99999;
+    p.dispatchEvent(new window.Event('scroll'));
+    expect(opts(c).filter((o) => o.classList.contains('sel'))[0].textContent).toBe('5:00');
+    bouton(c, 'Valider').click();
+    expect(vus).toEqual([5, 300]);
+    vus.forEach((v) => expect(Number.isFinite(v)).toBe(true));
+  });
+
+  // M5 — « la plus proche » va DANS LES DEUX SENS. 3:20 descend sur 3:15, mais
+  // 3:25 monte sur 3:30 : avec une seule des deux directions, la règle passe
+  // pour bonne sur la moitié des valeurs.
+  test('la valeur la plus proche, au-dessus comme en dessous', () => {
+    const centre = (r) => opts(feuille(r)).filter((o) => o.classList.contains('sel'))[0].textContent;
+    expect(centre(200)).toBe('3:15');   // 195 est à 5, 210 à 10 → on descend
+    expect(centre(205)).toBe('3:30');   // 195 est à 10, 210 à 5 → on monte
+    expect(centre(58)).toBe('1:00');    // 55 est à 3, 60 à 2 → on monte
+  });
+
+  // M6 — un zéro n'est pas une absence. La base le refuse
+  // (`routine_exos_repos_borne` commence à 5 s), donc il ne peut venir que
+  // d'un défaut ; on le traite comme n'importe quelle valeur hors liste — la
+  // plus proche — plutôt que d'en faire un second cas d'absence. Une seule
+  // règle : seule l'ABSENCE retombe sur 1:30.
+  test('un zéro se centre sur la valeur la plus proche, pas sur le défaut', () => {
+    const centre = (r) => opts(feuille(r)).filter((o) => o.classList.contains('sel'))[0].textContent;
+    expect(centre(0)).toBe('5 s');
+    expect(centre(1)).toBe('5 s');
+    // Et c'est bien un cas DIFFÉRENT de l'absence, qui se pose à 1:30.
+    expect(centre(null)).toBe('1:30');
   });
 
   // 3. Annuler ne change rien.

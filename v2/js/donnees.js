@@ -196,14 +196,26 @@
   // séance qui la pose (§7 septies.1, « la note suit l'exercice quand on le
   // réutilise »). La tenir hors de `CHAMPS_EXERCICE` (routines.js) est ce qui
   // garantit qu'un réordonnancement ne l'efface pas.
+  // ⚠️ `series` ET `reps_visees` NE SONT PLUS LUES (chantier 43). Depuis
+  // `v2_042_routine_sets`, la structure d'un exercice de routine est une LIGNE
+  // PAR SÉRIE, comme en séance. Garder les deux entiers à côté, c'était deux
+  // sources pour la même information — ce que `CADRAGE-V2` §2 undecies
+  // interdit. Les colonnes restent en base le temps de la conversion ; ce code
+  // ne les lit plus et ne les écrit plus.
   var COLONNES_ROUTINE_EXO =
-    'id, routine_id, exercise_slug, rang, series, reps_visees, repos_cible_s, note, groupe_superset';
+    'id, routine_id, exercise_slug, rang, repos_cible_s, note, groupe_superset';
+
+  // Le miroir de `sets` pour les routines. Même forme, donc même rendu.
+  var COLONNES_ROUTINE_SET =
+    'id, routine_exercise_id, rang, type_serie, reps_visees, charge_cible_kg, ' +
+    'duree_cible_s, distance_cible_m';
 
   // Les routines AVEC leurs exercices, en une requête. L'imbrication PostgREST
   // suit la clé étrangère `routine_exercises.routine_id`.
   async function mesRoutines() {
     var r = await client().from('routines')
-      .select(COLONNES_ROUTINE + ', routine_exercises(' + COLONNES_ROUTINE_EXO + ')')
+      .select(COLONNES_ROUTINE + ', routine_exercises(' + COLONNES_ROUTINE_EXO +
+              ', routine_sets(' + COLONNES_ROUTINE_SET + '))')
       .order('nom', { ascending: true });
     if (r.error) throw r.error;
     return r.data || [];
@@ -243,6 +255,27 @@
     if (!ids || !ids.length) return;
     var r = await client().from('routine_exercises').delete().in('id', ids);
     if (r.error) throw r.error;
+  }
+
+  // ══ LES SÉRIES PROGRAMMÉES (`v2_042_routine_sets`) ══════════════════
+  //
+  // ⚠️ ON REMPLACE LES LIGNES D'UN EXERCICE, ON NE LES PERMUTE PAS.
+  // `routine_exos_rang_uniq` est NON différable : c'est pour ça que
+  // `planEcritures` danse. `routine_sets_rang_unique` est DIFFÉRABLE, et rien
+  // ne référence l'identifiant d'une série programmée — une séance en copie la
+  // structure, jamais les identifiants. Supprimer puis réinsérer est donc
+  // exact, idempotent, et ne demande aucun plan.
+  //
+  // `user_id` est OBLIGATOIRE sur `routine_sets`, contrairement à
+  // `routine_exercises` dont la propriété s'hérite par un EXISTS. Sans lui, le
+  // WITH CHECK de la policy refuse la ligne.
+  async function remplacerSeriesRoutine(routineExerciceId, lignes) {
+    var r = await client().from('routine_sets').delete().eq('routine_exercise_id', routineExerciceId);
+    if (r.error) throw r.error;
+    if (!lignes || !lignes.length) return [];
+    var i = await client().from('routine_sets').insert(lignes).select(COLONNES_ROUTINE_SET);
+    if (i.error) throw i.error;
+    return i.data || [];
   }
 
   // Supprimer une routine entière. Deux appelants : défaire une création dont
@@ -379,6 +412,7 @@
     insererExercices: insererExercices,
     majExercice: majExercice,
     supprimerExercices: supprimerExercices,
+    remplacerSeriesRoutine: remplacerSeriesRoutine,
     enregistrerSeance: enregistrerSeance,
     supprimerSeance: supprimerSeance,
     remplacerSeries: remplacerSeries,

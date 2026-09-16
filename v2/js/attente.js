@@ -279,11 +279,17 @@
   // ── LES DEUX TABLES NE SE RÉPARENT PAS PAREIL, ET C'EST LE POINT ────────
   //
   // `routine_exos` porte une INTENTION (`{voulues}`) : le plan d'écritures se
-  // calcule à la vidange, et `Routines.normaliserExercice` borne alors les CINQ
-  // colonnes contraintes — `series`, `reps_visees`, `repos_cible_s`,
-  // `groupe_superset`, `rang`. Rejouée telle quelle, l'entrée passe. Lever le
-  // blocage SUFFIT, et c'est sûr quelle que soit la contrainte qui l'avait
-  // refusée.
+  // calcule à la vidange, et `Routines.normaliserExercice` borne alors les
+  // colonnes contraintes — `repos_cible_s`, `groupe_superset`, `rang` —
+  // pendant que `normaliserSerie` borne celles des lignes programmées.
+  // Rejouée telle quelle, l'entrée passe. Lever le blocage SUFFIT, et c'est sûr
+  // quelle que soit la contrainte qui l'avait refusée.
+  //
+  // ⚠️ `series` ET `reps_visees` N'EN SONT PLUS (chantier 43) : ces deux
+  // colonnes de `routine_exercises` ne sont plus écrites du tout, et la
+  // structure vit dans `routine_sets`. Une entrée POSÉE AVANT ce chantier porte
+  // encore l'ancien entier — `seriesEcrites` rend alors `null` et ne touche pas
+  // aux lignes programmées, ce qui reste sûr à rejouer.
   //
   // `sets` porte des LIGNES DÉJÀ CALCULÉES, figées au moment du geste, donc
   // d'avant le correctif. Les rejouer échouerait à l'identique : il faut borner

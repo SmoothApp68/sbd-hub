@@ -1620,9 +1620,17 @@
     // Routine archivée ou supprimée entre-temps : il n'y a plus rien à mettre à
     // jour, et l'intention a fait son temps. On ne la rejoue pas indéfiniment.
     if (!r) return;
+    // ⚠️ AU VOCABULAIRE DE LA SAISIE, comme partout ailleurs. `planEcritures`
+    // compare les séries d'avant à celles d'après pour n'écrire que ce qui
+    // change : lui passer des lignes brutes (`routine_sets`, noms de la cible)
+    // lui ferait conclure « différent » à chaque vidange, et réécrire pour rien.
     var existantes = (r.routine_exercises || []).slice()
-      .sort(function (a, b) { return (a.rang || 0) - (b.rang || 0); });
-    var plan = Routines.planEcritures(existantes, (donnees && donnees.voulues) || [], routineId);
+      .sort(function (a, b) { return (a.rang || 0) - (b.rang || 0); })
+      .map(function (e) { return Object.assign({}, e, { series: seriesProgrammees(e) }); });
+    // `routine_sets.user_id` est NOT NULL et sans défaut — contrairement à
+    // `routine_exercises`, qui n'a pas la colonne. Le plan en a donc besoin.
+    var plan = Routines.planEcritures(existantes, (donnees && donnees.voulues) || [], routineId,
+      sessionActive && sessionActive.user && sessionActive.user.id);
     await Routines.appliquerPlan(plan, Donnees);
   }
 
@@ -1631,12 +1639,26 @@
   // PostgREST rend les exercices imbriqués sous le nom de la table. On traduit
   // ICI, une fois : le rendu et le module pur ne connaissent que `exercices`,
   // triés par rang. Un seul endroit sait à quoi ressemble une réponse.
+  // ⚠️ ET LA TRADUCTION VA JUSQU'AUX SÉRIES (chantier 43). `routine_sets`
+  // arrive imbriquée, dans un ordre que PostgREST ne garantit pas, et au
+  // vocabulaire de la CIBLE. On la trie par rang et on la passe au vocabulaire
+  // de la SAISIE ici, une fois : l'éditeur de routine est l'écran de séance et
+  // rend ces lignes telles quelles, `Seance.creer` les lit pareil.
+  function seriesProgrammees(brut) {
+    return ((brut && brut.routine_sets) || []).slice()
+      .sort(function (a, b) { return (a.rang || 0) - (b.rang || 0); })
+      .map(Routines.enSaisie);
+  }
+
   function normaliserRoutine(brute) {
     var exos = (brute && brute.routine_exercises) || [];
     return {
       id: brute.id, nom: brute.nom, note: brute.note,
       archivee_a: brute.archivee_a,
       exercices: exos.slice().sort(function (a, b) { return a.rang - b.rang; })
+        .map(function (e) {
+          return Object.assign({}, e, { series: seriesProgrammees(e) });
+        })
     };
   }
 
@@ -1683,6 +1705,9 @@
       return;
     }
     Rendu.rendreListeRoutines(cible, routines, {
+      // `apercu` compte les séries de TRAVAIL par `THSemaine.compteSeriesTravail`,
+      // dont la règle du volume a besoin des muscles du catalogue.
+      catalogue: local.exercices,
       surChoix: ouvrirRoutine,
       surNouvelle: function () { ouvrirRoutine(null); },
       surDemarrer: function (id) {
@@ -1726,10 +1751,17 @@
       // groupe à UN seul exercice — l'état que `v2_041` a nettoyé en base.
       // Le relire tel quel, puis enregistrer, le réécrirait : l'éditeur serait
       // un chemin par lequel l'état interdit revient.
+      //
+      // ⚠️ ET LES SÉRIES SE RECOPIENT LIGNE À LIGNE (chantier 43). `series` est
+      // maintenant un TABLEAU d'objets : le partager avec la routine chargée
+      // ferait muter la liste à chaque frappe dans l'éditeur, et un
+      // enregistrement raté laisserait la bibliothèque montrant des valeurs
+      // qui ne sont pas en base — exactement ce que la copie ci-dessus évite.
       exercices: Routines.renumeroter(routine.exercices.map(function (e) {
         return {
-          id: e.id, exercise_slug: e.exercise_slug, series: e.series,
-          reps_visees: e.reps_visees, repos_cible_s: e.repos_cible_s,
+          id: e.id, exercise_slug: e.exercise_slug,
+          series: (e.series || []).map(function (l) { return Object.assign({}, l); }),
+          repos_cible_s: e.repos_cible_s,
           groupe_superset: e.groupe_superset === undefined ? null : e.groupe_superset,
           note: e.note === undefined ? null : e.note
         };
@@ -1770,24 +1802,147 @@
     return e ? Modele.nommer(Modele.indexerExercices(local.exercices), e.exercise_slug) : '';
   }
 
-  function rendreEditeur() {
-    var index = Modele.indexerExercices(local.exercices);
-    Rendu.rendreExosRoutine($('exos-routine'), brouillon.exercices,
-      function (slug) { return Modele.nommer(index, slug); }, {
-        surMenu: ouvrirFeuilleExoRoutine,
-        // §7 quaterdecies.1 — séries et reps visées se saisissent SUR la carte.
-        // Les champs MUTENT le brouillon sans redessiner : redessiner à chaque
-        // frappe arracherait le focus et le clavier d'Android avec lui.
-        surChamp: function (i, champ, valeur) {
-          if (brouillon.exercices[i]) brouillon.exercices[i][champ] = valeur;
-        },
-        // Le repos se LIT sur la carte et se règle dans la feuille — un appui
-        // sur sa valeur y mène directement, sans passer par le menu.
-        surParametres: ouvrirParametresExo
-      });
+  // ══ L'ÉDITEUR EST L'ÉCRAN DE SÉANCE (§7 quindecies) ══════════════════════
+  //
+  // ⚠️ AUCUN RENDU PROPRE. Pas de seconde `construireBlocs`, pas de second
+  // rendu de ligne, pas de second pavé de chronométrage, pas de second badge de
+  // chauffe : l'éditeur appelle `Rendu.rendreBlocsSeance` avec `programme:
+  // true`, et le reste suit. C'est ce qui garantit qu'une routine se lit
+  // exactement comme la séance qu'elle produira — deux rendus se seraient
+  // contredits un jour, et le jour où ils se contrediraient serait celui où on
+  // découvre que la routine ne dit pas ce qu'elle fait.
+  //
+  // Le brouillon a donc la FORME d'une séance : `exercices[].series[]`, aux
+  // noms de la saisie. `Modele.blocsDeSeance` l'entrelace, groupe les supersets
+  // et compte les tours sans savoir qu'il s'agit d'une routine.
+  function brouillonCommeSeance() {
+    return { exercices: brouillon.exercices };
   }
 
-  // ⚠️ LES SIX GESTES DU §7 duodecies.2, ET AUCUN CALCUL ICI. Ce qui a du sens
+  function exoBrouillon(i) { return brouillon.exercices[i] || null; }
+
+  function ligneBrouillon(i, j) {
+    var e = exoBrouillon(i);
+    return (e && e.series && e.series[j]) || null;
+  }
+
+  function rendreEditeur() {
+    var index = Modele.indexerExercices(local.exercices);
+    var blocs = Modele.blocsDeSeance(brouillonCommeSeance(), local.exercices);
+    Rendu.rendreBlocsSeance($('exos-routine'), null, {
+      programme: true,
+      blocs: blocs,
+      exercice: function (slug) { return index[slug]; },
+      // ⚠️ PAS DE `surExercice` ICI, ET C'EST UN ÉCART ASSUMÉ AU §7 quindecies.1.
+      //
+      // En séance, un tap sur le nom ouvre la page de l'exercice (§2.8) et la
+      // séance survit — elle est persistée. Le brouillon d'une routine, lui, ne
+      // l'est pas : quitter l'éditeur et revenir passe par `prepererEditeur`,
+      // qui le refabrique depuis la routine chargée. Le tap coûterait donc une
+      // routine en cours d'édition, sans un mot. Le nom reste du texte tant que
+      // le brouillon n'est pas tenu au travers d'une navigation — ce qui est un
+      // chantier, pas une ligne.
+      // ⚠️ LES CHAMPS MUTENT SANS REDESSINER. Re-rendre à chaque frappe
+      // arracherait le focus, et le clavier d'Android avec lui — c'est la même
+      // règle qu'en séance, pour la même raison.
+      surChamp: function (i, j, champ, valeur) {
+        var l = ligneBrouillon(i, j);
+        if (l) l[champ] = valeur;
+      },
+      surNumero: ouvrirTypeSerieRoutine,
+      surNote: ouvrirNoteExoRoutine,
+      surRepos: ouvrirReposExoRoutine,
+      surAjoutSerie: function (i) {
+        var e = exoBrouillon(i);
+        if (!e) return;
+        // La nouvelle ligne REPREND LA PRÉCÉDENTE de son exercice : programmer
+        // « 5, 5, 5 » se fait alors en trois taps au lieu de trois saisies. Le
+        // type suit aussi — trois chauffes d'affilée sont le cas courant d'une
+        // rampe. Rien n'est repris quand il n'y a pas de précédente.
+        var derniere = e.series[e.series.length - 1];
+        e.series.push(derniere
+          ? Object.assign({}, derniere, { id: null })
+          : Routines.enSaisie(null));
+        rendreEditeur();
+      },
+      surSupprimerSerie: function (i, j) {
+        var e = exoBrouillon(i);
+        if (!e || !e.series[j]) return;
+        e.series.splice(j, 1);
+        rendreEditeur();
+      },
+      // Sur un bloc d'un seul, bloc et exercice sont le même objet : le menu du
+      // bloc EST celui de l'exercice. Sur un superset, `teteDeBloc` ne rend pas
+      // de menu de bloc en mode programme — les cinq gestes portent tous sur une
+      // branche, et c'est le menu d'exercice qui les donne.
+      surMenuBloc: function (iBloc) {
+        var b = blocs[iBloc];
+        var x = b && b.exercices[0];
+        if (x && x._iExo !== null && x._iExo !== undefined) ouvrirFeuilleExoRoutine(x._iExo);
+      },
+      surMenuExercice: function (iBloc, iExo) { ouvrirFeuilleExoRoutine(iExo); }
+    });
+  }
+
+  // Le type d'une série programmée — chauffe, travail, dégressive, échec. C'est
+  // la MÊME feuille qu'en séance, `programme: true` en moins de la note de
+  // série : `routine_sets` n'a pas de colonne où la mettre.
+  function ouvrirTypeSerieRoutine(i, j) {
+    var l = ligneBrouillon(i, j);
+    if (!l) return;
+    Rendu.rendreFeuilleSerie($('feuille-contenu'), {
+      quoi: 'type',
+      programme: true,
+      numero: j + 1,
+      exercice: nomExoBrouillon(i),
+      serie: l,
+      surType: function (t) { l.type_serie = t; fermerVoile(); rendreEditeur(); },
+      surSupprimer: function () {
+        fermerVoile();
+        var e = exoBrouillon(i);
+        if (e) e.series.splice(j, 1);
+        rendreEditeur();
+      }
+    });
+    ouvrirVoile($('feuille-seance'));
+  }
+
+  // ⚠️ LA NOTE DE LA ROUTINE, PAS CELLE DE LA SÉANCE (§7 quindecies.4). Ce
+  // qu'on écrit ici REVIENT à chaque réutilisation — c'est un rappel de
+  // technique. Celle qu'on prendra en séance restera sur la séance : ce sont
+  // deux colonnes, sur deux tables, et la question de fin (§6) les distingue.
+  function ouvrirNoteExoRoutine(i) {
+    var e = exoBrouillon(i);
+    if (!e) return;
+    Rendu.rendreFeuilleNote($('feuille-contenu'), {
+      exercice: nomExoBrouillon(i),
+      note: e.note,
+      surNote: function (v) { e.note = v; },
+      surFermer: function () { fermerVoile(); rendreEditeur(); }
+    });
+    ouvrirVoile($('feuille-seance'));
+  }
+
+  function ouvrirReposExoRoutine(i) {
+    var e = exoBrouillon(i);
+    if (!e) return;
+    Rendu.rendreFeuilleReposRoutine($('feuille-contenu'), {
+      nom: nomExoBrouillon(i),
+      repos: e.repos_cible_s,
+      // Le pavé MUTE sans refermer — vider pour retaper est le geste courant,
+      // et il passe par `null`. Seul « Désactiver » referme : c'est une
+      // décision, pas une frappe intermédiaire.
+      surRepos: function (v) { e.repos_cible_s = v; },
+      surDesactiver: function () {
+        e.repos_cible_s = null;
+        fermerVoile(); rendreEditeur();
+      },
+      surFermer: function () { fermerVoile(); rendreEditeur(); }
+    });
+    ouvrirVoile($('feuille-seance'));
+  }
+
+  // ⚠️ LES CINQ GESTES DU §7 duodecies.2, ET AUCUN CALCUL ICI. Ce qui a du sens
   // — grouper, dégrouper — se lit sur les liens, par `THRoutines`. L'écran ne
   // redécide pas tout seul ce qu'est un groupe.
   function ouvrirFeuilleExoRoutine(i) {
@@ -1812,7 +1967,6 @@
       },
       surMonter: function () { fermerVoile(); echanger(i, i - 1); },
       surDescendre: function () { fermerVoile(); echanger(i, i + 1); },
-      surParametres: function () { ouvrirParametresExo(i); },
       // Rien n'est écrit tant qu'on n'a pas enregistré : retirer une ligne du
       // brouillon ne perd rien, et une question ici serait le bruit qu'on tape
       // sans lire (§6.2).
@@ -1821,20 +1975,6 @@
         brouillon.exercices.splice(i, 1);
         renumeroterBrouillon();
       }
-    });
-    ouvrirVoile($('feuille-seance'));
-  }
-
-  function ouvrirParametresExo(i) {
-    Rendu.rendreFeuilleParametresExo($('feuille-contenu'), {
-      nom: nomExoBrouillon(i),
-      exercice: brouillon.exercices[i],
-      // Les champs MUTENT le brouillon sans redessiner : redessiner à chaque
-      // frappe arracherait le focus et le clavier d'Android avec lui.
-      surChamp: function (champ, valeur) {
-        if (brouillon.exercices[i]) brouillon.exercices[i][champ] = valeur;
-      },
-      surFermer: function () { fermerVoile(); rendreEditeur(); }
     });
     ouvrirVoile($('feuille-seance'));
   }
@@ -1873,7 +2013,11 @@
     bouton.disabled = true; bouton.textContent = 'Enregistrement…';
     try {
       var r = await Routines.enregistrer(brouillon, Donnees, {
-        userId: sessionActive && sessionActive.user && sessionActive.user.id
+        userId: sessionActive && sessionActive.user && sessionActive.user.id,
+        // Les séries programmées visent leur exercice par clé étrangère : un
+        // exercice neuf doit donc porter son identifiant AVANT d'être écrit,
+        // sinon sa structure ne peut pas partir dans le même passage.
+        uuid: uuid
       });
       if (!r.ok) {
         // Le brouillon reste À L'ÉCRAN, intact. Rien n'est vidé, rien n'est
@@ -1898,7 +2042,11 @@
     if (s.champ === 'nom' && s.raison === 'vide') return 'Donne un nom à ta routine.';
     if (s.champ === 'nom' && s.raison === 'trop-long') return 'Le nom fait plus de ' + Routines.NOM_MAX + ' caractères.';
     if (s.champ === 'nom' && s.raison === 'doublon') return Routines.MESSAGES.doublon;
-    if (s.champ === 'series') return 'Les séries vont de ' + Routines.SERIES_MIN + ' à ' + Routines.SERIES_MAX + '.';
+    // ⚠️ IL N'Y A PLUS DE BORNE SUR LE NOMBRE DE SÉRIES (chantier 43) : une
+    // ligne par série, et `routine_sets` n'impose aucun minimum de lignes. Le
+    // seul refus qui reste est l'exercice VIDE — qui démarrerait une séance
+    // sans rien à y faire.
+    if (s.champ === 'series') return 'Un exercice n\u2019a aucune série. Ajoute-lui une ligne, ou retire-le.';
     if (s.champ === 'reps_visees') return 'Les reps visées vont de ' + Routines.REPS_MIN + ' à ' + Routines.REPS_MAX + ', ou restent vides.';
     // ⚠️ LE MESSAGE PARLE LA LANGUE DU CHAMP (chantier 42). Le repos se saisit
     // en mm:ss depuis le §7 quaterdecies.2 : annoncer une borne « en secondes »
@@ -2009,13 +2157,19 @@
           seance = Seance.ajouterExercice(seance, exo.slug, uuid());
           return apresGeste({ structure: false });
         }
+        // ⚠️ UNE SEULE LIGNE, VIDE (chantier 43). L'ancien modèle posait
+        // `series: 3` — un défaut hérité de la colonne, qui prescrivait trois
+        // séries à la place de l'utilisateur. Avec une ligne par série, en
+        // poser trois serait le même geste en pire : trois lignes à effacer.
+        // On en pose UNE, parce qu'un exercice à zéro série ne se saisit pas,
+        // et « + Série » recopie la précédente — trois taps pour trois séries.
+        //
+        // Ni reps ni repos par défaut : une valeur inventée se lirait comme une
+        // prescription, et serait pire qu'une absence.
         brouillon.exercices.push({
           id: null, exercise_slug: exo.slug,
-          series: Routines.SERIES_DEFAUT,
-          // Ni reps ni repos par défaut : une valeur inventée se lirait comme
-          // une prescription, et serait pire qu'une absence.
-          reps_visees: null, repos_cible_s: null,
-          groupe_superset: null, note: null
+          series: [Routines.enSaisie(null)],
+          repos_cible_s: null, groupe_superset: null, note: null
         });
         rendreEditeur();
       });

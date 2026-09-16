@@ -30,22 +30,29 @@
 (function (racine) {
   'use strict';
 
-  // Bornes relevées sur les CHECK de la base, pas supposées :
+  // Bornes relevées sur les CHECK de la base, pas supposées.
+  //
+  // `routine_exercises` :
   //   routines_nom_court         char_length(nom) entre 1 et 60
-  //   routine_exos_series_bornees        series entre 1 et 20
-  //   routine_exos_reps_bornees     reps_visees NULL ou 1 à 100
   //   routine_exos_repos_borne    repos_cible_s NULL ou 5 à 1800
   //   routine_exos_superset_positif  groupe_superset NULL ou >= 0
   //   routine_exos_rang_positif                 rang >= 0
+  //
+  // `routine_sets` (`v2_042_routine_sets`) — ⚠️ SES BORNES NE SONT PAS CELLES
+  // DE LA TABLE PARENTE, et les confondre donne un 23514 à chaque première
+  // série : le rang y commence à **1**, là où celui d'un exercice accepte 0.
+  //   routine_sets_rang_positif                 rang >= 1
+  //   type_serie          'travail'|'echauffement'|'degressive'|'echec'
+  //   reps_visees                          NULL ou 1 à 100
+  //   duree_cible_s                        NULL ou 1 à 35999
+  //   distance_cible_m                     NULL ou 0 à 100000
+  //
+  // ⚠️ `routine_exos_series_bornees` (series 1..20) EXISTE ENCORE EN BASE mais
+  // ne contraint plus rien ici : la colonne n'est plus écrite depuis le
+  // chantier 43 (§7 quindecies), et son défaut vaut pour les lignes anciennes.
   var NOM_MAX = 60;
-  var SERIES_MIN = 1, SERIES_MAX = 20;
   var REPS_MIN = 1, REPS_MAX = 100;
   var REPOS_MIN = 5, REPOS_MAX = 1800;
-
-  // Le défaut de la colonne `series` en base. On le reprend tel quel plutôt que
-  // d'en choisir un : ce n'est pas une valeur inventée ici, c'est celle qui
-  // s'appliquerait si on n'envoyait rien.
-  var SERIES_DEFAUT = 3;
 
   // ⚠️ LISTE BLANCHE. Ce qui n'y figure pas ne part pas en base. Elle ne
   // contient aucun champ de charge, et c'est le point : la routine porte la
@@ -57,8 +64,22 @@
   // omission. Elle ne tient plus dès que l'éditeur doit ÉCRIRE le groupement :
   // la protection est maintenant que le brouillon les TRANSPORTE (`brouillonDe`,
   // app.js). Omettre l'un des deux aurait remplacé une garde par un effacement.
-  var CHAMPS_EXERCICE = ['routine_id', 'exercise_slug', 'rang', 'series',
-                         'reps_visees', 'repos_cible_s', 'groupe_superset', 'note'];
+  // ⚠️ `series` ET `reps_visees` EN SONT SORTIES (chantier 43). Depuis
+  // `v2_042_routine_sets`, la structure est une LIGNE PAR SÉRIE : les deux
+  // entiers disaient la même chose sous une forme plus pauvre, et deux sources
+  // pour une même information sont ce que `CADRAGE-V2` §2 undecies interdit.
+  // Les colonnes restent en base le temps de la conversion — ce code ne les
+  // touche plus, ni en lecture ni en écriture.
+  var CHAMPS_EXERCICE = ['routine_id', 'exercise_slug', 'rang',
+                         'repos_cible_s', 'groupe_superset', 'note'];
+
+  // Le miroir de `sets`. Mêmes quatre types, et `rang` commence à 1 — pas à 0
+  // comme celui de `routine_exercises`. Relevé sur les CHECK, pas supposé.
+  var CHAMPS_SERIE = ['routine_exercise_id', 'user_id', 'rang', 'type_serie',
+                      'reps_visees', 'charge_cible_kg', 'duree_cible_s', 'distance_cible_m'];
+  var TYPES_SERIE = ['travail', 'echauffement', 'degressive', 'echec'];
+  var DUREE_MIN = 1, DUREE_MAX = 35999;
+  var DISTANCE_MIN = 0, DISTANCE_MAX = 100000;
 
   // ── Le nom ──────────────────────────────────────────────────────────────
   //
@@ -113,45 +134,130 @@
     return { ok: n >= min && n <= max, valeur: n };
   }
 
-  function seriesValides(v) {
-    var n = entierOuNul(v);
-    if (n === undefined || n === null) return { ok: false, valeur: SERIES_DEFAUT };
-    return { ok: n >= SERIES_MIN && n <= SERIES_MAX, valeur: n };
-  }
-
   function repsValides(v) { return borne(v, REPS_MIN, REPS_MAX); }
   function reposValide(v) { return borne(v, REPOS_MIN, REPOS_MAX); }
 
   // ⚠️ NORMALISER, C'EST BORNER — PAS SEULEMENT CONVERTIR (chantier 36, D5).
   //
-  // `seriesValides` et `borne` rendent `{ok, valeur}` : `valeur` est la valeur
-  // LUE, hors bornes comprise. `valider()` regarde `ok` — mais `valider()` n'est
-  // appelée QUE par l'éditeur. Le report de fin de séance, lui, passe droit :
-  // il prenait `valeur` et l'envoyait telle quelle.
+  // `borne` rend `{ok, valeur}` : `valeur` est la valeur LUE, hors bornes
+  // comprise. `valider()` regarde `ok` — mais `valider()` n'est appelée QUE par
+  // l'éditeur. Le report de fin de séance, lui, passe droit : il prenait
+  // `valeur` et l'envoyait telle quelle, et la base répondait `23514`, code
+  // DÉFINITIF — l'entrée devenait la tête de file et bloquait tout ce qui suit,
+  // pour toujours. Posée APRÈS la séance, rien n'était perdu sur le coup : le
+  // blocage ne se voyait que les jours suivants.
   //
-  // Deux gestes réels produisaient une valeur refusée par la base : supprimer
-  // la dernière série d'un exercice ajouté en séance (`series: 0`) ou en
-  // ajouter vingt et une. `routine_exos_series_bornees` répond alors `23514`,
-  // code DÉFINITIF : l'entrée devient la tête de file et bloque tout ce qui
-  // suit, pour toujours. Et comme elle est posée APRÈS la séance, rien n'est
-  // perdu sur le coup — le blocage ne se voit que les jours suivants.
+  // LA RÈGLE : on ANNULE ce qui peut être absent. `reps_visees`, `repos_cible_s`
+  // et les trois autres cibles acceptent NULL, et NULL veut dire « non
+  // renseigné » — plus honnête qu'une valeur inventée par un cap.
   //
-  // LA RÈGLE : on BORNE ce qui doit exister, on ANNULE ce qui peut être absent.
-  // `series` est NOT NULL et contrainte 1..20 : la seule issue est de la ramener
-  // dans la plage. `reps_visees` et `repos_cible_s` acceptent NULL, et NULL veut
-  // dire « non renseigné » — plus honnête qu'une valeur inventée par un cap.
-  function serieBornee(v) {
-    var r = seriesValides(v);
-    if (r.ok) return r.valeur;
-    // ⚠️ PAS DE GARDE `isFinite` ICI : `seriesValides` rend TOUJOURS un nombre —
-    // `SERIES_DEFAUT` quand l'entrée n'est ni vide ni entière, la valeur lue
-    // sinon. La campagne de mutations l'a montrée INTUABLE, donc morte (leçon de
-    // `palier.js`, chantier 17 : elle ne protégeait de rien et laissait croire
-    // l'inverse).
-    return Math.min(SERIES_MAX, Math.max(SERIES_MIN, Math.round(Number(r.valeur))));
+  // ⚠️ IL N'Y A PLUS DE CAS « BORNER PLUTÔT QU'ANNULER » (chantier 43).
+  // C'était `series`, NOT NULL, dont la seule issue était de revenir dans la
+  // plage. La colonne n'est plus écrite : `serieBornee` et `seriesValides` sont
+  // parties avec elle, plutôt que de rester en entonnoir que plus rien ne
+  // traverse (leçon de `palier.js`, chantier 17).
+  function nulSiHorsBornes(r) { return r && r.ok ? r.valeur : null; }
+
+  // Un nombre facultatif, borné, qui accepte les décimales : `charge_cible_kg`
+  // et `distance_cible_m` sont `numeric`, pas des entiers.
+  function decimalOuNul(v, min, max) {
+    if (v === null || v === undefined || v === '') return null;
+    var n = Number(v);
+    if (!isFinite(n) || n < min || n > max) return null;
+    return n;
   }
 
-  function nulSiHorsBornes(r) { return r && r.ok ? r.valeur : null; }
+  // ══ UNE SÉRIE PROGRAMMÉE — LES DEUX VOCABULAIRES D'UNE MÊME LIGNE ═════
+  //
+  // ⚠️ UNE SEULE TABLE, ET ELLE SERT DANS LES DEUX SENS.
+  //
+  // L'éditeur de routine EST l'écran de séance (§7 quindecies) : ses lignes
+  // portent donc les noms de la SAISIE — `reps`, `charge_kg`, `duree_s`,
+  // `distance_m` — ceux que `Modele.champDeMesure` nomme et que
+  // `rangeeDeSerie` lit. `routine_sets`, elle, porte les noms de la CIBLE.
+  //
+  // Deux vocabulaires pour la même ligne, et deux traversées : la base vers
+  // l'écran (`enSaisie`) et l'écran vers la base (`normaliserSerie`). Les
+  // écrire séparément, c'était garantir qu'un jour l'une gagne une colonne que
+  // l'autre n'a pas — et qu'une valeur saisie disparaisse à l'enregistrement
+  // sans que rien ne le signale. Ici elles ne peuvent pas diverger.
+  //
+  // `borner` dit AUSSI comment chaque colonne se borne, parce que c'est la
+  // même connaissance : `reps_visees` est entière et 1..100, `charge_cible_kg`
+  // décimale et 0..1000. Une colonne de plus s'ajoute à un seul endroit.
+  var CIBLES = [
+    { saisie: 'reps', cible: 'reps_visees',
+      borner: function (v) { return repsEcrites(v); } },
+    { saisie: 'charge_kg', cible: 'charge_cible_kg',
+      borner: function (v) { return decimalOuNul(v, 0, 1000); } },
+    { saisie: 'duree_s', cible: 'duree_cible_s',
+      borner: function (v) { return nulSiHorsBornes(borne(v, DUREE_MIN, DUREE_MAX)); } },
+    { saisie: 'distance_m', cible: 'distance_cible_m',
+      borner: function (v) { return decimalOuNul(v, DISTANCE_MIN, DISTANCE_MAX); } }
+  ];
+
+  function typePropre(t) { return TYPES_SERIE.indexOf(t) >= 0 ? t : 'travail'; }
+
+  // La base vers l'écran. La ligne rendue est une ligne de SAISIE : c'est
+  // `rangeeDeSerie` qui la lira, et elle ne connaît que ces noms-là.
+  //
+  // `note`, `rpe`, `ressenti`, `validee_a` n'existent pas dans `routine_sets` —
+  // une routine ne porte aucune trace d'exécution. On les pose à `null` plutôt
+  // que de les omettre : la rangée les lit, et une propriété absente et une
+  // propriété nulle ne se comportent pas pareil au rendu.
+  function enSaisie(set) {
+    var ligne = {
+      id: (set && set.id) || null,
+      type_serie: typePropre(set && set.type_serie),
+      note: null, rpe: null, ressenti: null, validee_a: null
+    };
+    CIBLES.forEach(function (c) {
+      var v = set ? set[c.cible] : null;
+      ligne[c.saisie] = (v === undefined) ? null : v;
+    });
+    return ligne;
+  }
+
+  // ⚠️ `rang` COMMENCE À 1. `routine_sets_rang_unique` porte `rang >= 1`, là où
+  // `routine_exercises.rang` accepte 0 : les deux tables ne comptent pas pareil,
+  // et les confondre donnerait un 23514 à chaque première série.
+  //
+  // ⚠️ LA CHARGE CIBLE EST FACULTATIVE ET NE PRIME JAMAIS (§7 quindecies.3).
+  // La routine dit la structure, le moteur dit les charges. On l'écrit si elle
+  // est là, on ne l'invente jamais.
+  function normaliserSerie(s, routineExerciceId, rang, userId) {
+    var l = {
+      routine_exercise_id: routineExerciceId,
+      user_id: userId || null,
+      rang: rang,
+      type_serie: typePropre(s && s.type_serie)
+    };
+    CIBLES.forEach(function (c) { l[c.cible] = c.borner(s ? s[c.saisie] : null); });
+    return l;
+  }
+
+  // Les lignes à écrire pour UN exercice, dans l'ordre de la liste. Le rang est
+  // la POSITION, comme pour les exercices : il ne se saisit pas.
+  //
+  // ⚠️ UNE ENTRÉE DE FILE POSÉE AVANT LE CHANTIER 43 PORTE UN ENTIER.
+  //
+  // Le report de fin de séance pose son intention SUR DISQUE, et elle peut y
+  // dormir des jours — une mise à jour de l'app la retrouve telle quelle. Avant
+  // ce chantier, `voulues[].series` était le NOMBRE de séries ; depuis, c'est la
+  // liste. Sur une forme ancienne, on rend `null` : l'appelant ne touche alors
+  // PAS aux séries programmées de cet exercice.
+  //
+  // C'est le choix conservateur, et c'est le bon : traiter l'entier comme une
+  // liste vide effacerait la structure d'une routine à la première vidange, et
+  // lever bloquerait la file définitivement — les deux pires issues possibles
+  // pour une entrée qu'on ne peut plus corriger.
+  function seriesEcrites(exo, routineExerciceId, userId) {
+    var liste = exo && exo.series;
+    if (!Array.isArray(liste)) return null;
+    return liste.map(function (s, i) {
+      return normaliserSerie(s, routineExerciceId, i + 1, userId);
+    });
+  }
 
   // ⚠️ CE QUI SERA ÉCRIT, NOMMÉ UNE FOIS. `normaliserExercice` composait ces
   // deux expressions et l'écran en composait d'autres : la carte pouvait donc
@@ -178,9 +284,26 @@
     }
     (b.exercices || []).forEach(function (e, i) {
       if (!e || !e.exercise_slug) soucis.push({ champ: 'exercice', rang: i, raison: 'sans-exercice' });
-      if (!seriesValides(e && e.series).ok) soucis.push({ champ: 'series', rang: i, raison: 'hors-bornes' });
-      if (!repsValides(e && e.reps_visees).ok) soucis.push({ champ: 'reps_visees', rang: i, raison: 'hors-bornes' });
       if (!reposValide(e && e.repos_cible_s).ok) soucis.push({ champ: 'repos_cible_s', rang: i, raison: 'hors-bornes' });
+      // ⚠️ UN EXERCICE SANS AUCUNE SÉRIE N'EST PAS UNE STRUCTURE (chantier 43).
+      // L'ancien modèle l'interdisait par construction — `series` était bornée à
+      // 1 minimum. Avec une ligne par série, la liste peut se vider : on le
+      // refuse ici, sinon la routine démarrerait une séance sans rien à faire.
+      //
+      // ⚠️ ET ON NE JUGE QUE CE QU'ON VOIT. Une forme ANCIENNE — `series` entier,
+      // posée en file avant ce chantier — n'est pas une liste vide : c'est une
+      // liste qu'on ne connaît pas. `seriesEcrites` ne touche alors à rien, et
+      // refuser ici prétendrait savoir qu'il n'y a aucune série. Les deux
+      // fonctions tiennent le même raisonnement, sur le même test.
+      var lignes = (e && e.series);
+      if (Array.isArray(lignes)) {
+        if (!lignes.length) soucis.push({ champ: 'series', rang: i, raison: 'aucune-serie' });
+        lignes.forEach(function (ligne, j) {
+          if (!repsValides(ligne && ligne.reps).ok) {
+            soucis.push({ champ: 'reps_visees', rang: i, serie: j, raison: 'hors-bornes' });
+          }
+        });
+      }
     });
     return { valide: soucis.length === 0, soucis: soucis };
   }
@@ -197,7 +320,20 @@
   // L'ordre d'exécution est imposé : suppressions, puis majs, puis insertions.
   // Les suppressions libèrent des rangs dont les majs ont besoin ; les majs
   // libèrent ceux que les insertions occupent.
-  function planEcritures(existantes, voulues, routineId) {
+  // ⚠️ LE PLAN PORTE AUSSI LES SÉRIES PROGRAMMÉES, ET ELLES NE DANSENT PAS.
+  //
+  // `routine_exos_rang_uniq` est NON différable : c'est toute la raison d'être
+  // d'`ordonnerDeplacements` ci-dessous. `routine_sets_rang_unique` est
+  // DIFFÉRABLE, et rien ne référence l'identifiant d'une série programmée — une
+  // séance en copie la structure, jamais les identifiants. On remplace donc les
+  // lignes d'un exercice en bloc, ce qui est exact et idempotent, plutôt que
+  // d'écrire une seconde permutation pour une contrainte qui n'en demande pas.
+  //
+  // ⚠️ ET L'EXERCICE PORTE SON IDENTIFIANT AVANT L'ÉCRITURE. `routine_exercises.id`
+  // a `gen_random_uuid()` en défaut : l'app peut donc fabriquer le sien, ce que
+  // le report de fin de séance fait déjà. Sans ça, les séries d'un exercice
+  // NEUF n'auraient pas de parent à viser tant que l'insertion n'a pas répondu.
+  function planEcritures(existantes, voulues, routineId, userId) {
     var avant = existantes || [];
     var apres = voulues || [];
 
@@ -231,7 +367,7 @@
 
       var vieux = parId[v.id];
       var change = {};
-      ['series', 'reps_visees', 'repos_cible_s', 'exercise_slug',
+      ['repos_cible_s', 'exercise_slug',
        'groupe_superset', 'note'].forEach(function (c) {
         // `vieux` vient de la base, où une colonne vide vaut NULL ; `champs` est
         // normalisé pareil. On compare donc deux formes identiques, et non
@@ -243,10 +379,36 @@
       if (vieux.rang !== cible) aDeplacer.push({ id: v.id, cible: cible });
     });
 
+    // Les séries de CHAQUE exercice conservé ou créé, dans l'ordre de la liste.
+    // Celles d'un exercice supprimé partent par la cascade de sa clé étrangère.
+    // ⚠️ ON N'ÉCRIT QUE CE QUI CHANGE, ICI AUSSI.
+    //
+    // `majsChamps` ne porte déjà que les colonnes modifiées : un exercice
+    // intact ne produit aucune écriture. Les séries doivent suivre la même
+    // règle, sinon le report de fin de séance REMPLACE les lignes de TOUS les
+    // exercices à chaque fois — six suppressions et six insertions pour n'avoir
+    // rien changé, et « Reporter écrit les écarts, et RIEN d'autre » cesse
+    // d'être vrai. Défaut vu au banc de séance, pas en test.
+    //
+    // La comparaison porte sur la forme NORMALISÉE des deux côtés : même
+    // fonction, même ordre de clés, donc `JSON.stringify` suffit et ne peut pas
+    // se tromper sur un `undefined` contre un `null`. Faute d'existantes
+    // lisibles (`series` absente de la ligne d'avant), on réécrit — c'est le
+    // choix sûr, jamais le silencieux.
+    var series = apres.filter(Boolean).map(function (v) {
+      var id = v.id || null;
+      var lignes = seriesEcrites(v, id, userId);
+      if (!id || lignes === null) return null;
+      var avant = seriesEcrites(parId[v.id], id, userId);
+      if (avant !== null && JSON.stringify(avant) === JSON.stringify(lignes)) return null;
+      return { id: id, lignes: lignes };
+    }).filter(Boolean);
+
     return {
       suppressions: suppressions,
       majs: majsChamps.concat(ordonnerDeplacements(aDeplacer, occupe, maxRang)),
-      insertions: insertions
+      insertions: insertions,
+      series: series
     };
   }
 
@@ -310,8 +472,6 @@
     var o = {
       exercise_slug: (e && e.exercise_slug) || null,
       rang: rang,
-      series: serieBornee(e && e.series),
-      reps_visees: repsEcrites(e && e.reps_visees),
       repos_cible_s: reposEcrit(e && e.repos_cible_s),
       groupe_superset: groupeValide(e && e.groupe_superset),
       note: texteOuNul(e && e.note)
@@ -320,8 +480,12 @@
     // ⚠️ L'IDENTIFIANT, QUAND L'APPELANT EN FOURNIT UN. `routine_exercises.id`
     // a `gen_random_uuid()` en défaut : l'app peut donc fabriquer le sien, et
     // c'est ce qui rend le report de fin de séance IDEMPOTENT — rejoué, il
-    // retrouve la ligne au lieu d'en insérer une seconde. L'éditeur, lui, n'en
-    // fournit pas : ses insertions restent au défaut de la base.
+    // retrouve la ligne au lieu d'en insérer une seconde.
+    //
+    // ⚠️ L'ÉDITEUR EN FOURNIT UN DEPUIS LE CHANTIER 43, et il le DOIT : les
+    // séries programmées visent leur exercice par clé étrangère, donc un
+    // exercice créé sans identifiant connu d'avance ne pourrait pas emporter sa
+    // structure dans le même passage.
     if (e && e.id) o.id = e.id;
     return o;
   }
@@ -442,20 +606,51 @@
       marquer();
     }
     if (plan.insertions.length) { await ecrivain.insererExercices(plan.insertions); marquer(); }
+    // ⚠️ LES SÉRIES EN DERNIER, et pas par goût de l'ordre : leur clé étrangère
+    // vise `routine_exercises`, qui doit donc exister. Un plan ancien n'en porte
+    // pas — une entrée de file posée avant le chantier 43 se rejoue alors sans
+    // rien casser, ce qui est exactement ce qu'on veut d'une file qui survit à
+    // une mise à jour de l'app.
+    var series = plan.series || [];
+    for (var k = 0; k < series.length; k++) {
+      await ecrivain.remplacerSeriesRoutine(series[k].id, series[k].lignes);
+      marquer();
+    }
     return ecrit;
   }
 
   // ── L'aperçu de la liste ────────────────────────────────────────────────
   //
-  // « 4 exercices · 13 séries ». Le total de séries est la somme des `series`,
-  // pas le nombre de lignes : c'est ce que la séance durera, et c'est ce que la
-  // routine PRESCRIT — pas un comptage de lignes.
-  function apercu(exercices) {
+  // « 6 exercices · 21 séries dont 5 de chauffe ».
+  //
+  // ⚠️ « 3 SÉRIES × 8 REPS » N'A PLUS DE SENS (chantier 43) : depuis
+  // `v2_042_routine_sets`, les lignes ne sont plus identiques — une routine
+  // porte des chauffes, des dégressives et des reps qui varient d'une ligne à
+  // l'autre. On annonce donc ce qui se compte : les séries de TRAVAIL, et les
+  // chauffes à part parce qu'elles ne coûtent pas la même chose.
+  //
+  // ⚠️ ET C'EST LE MÊME COMPTE QUE PARTOUT AILLEURS. `THSemaine.compteSeriesTravail`
+  // (chantier 39) répond déjà à « combien de séries de travail », la règle du
+  // volume comprise — un tapis programmé ne compte pas plus qu'un tapis fait.
+  // En écrire un second pour les routines, c'est la maladie du §2 undecies.
+  //
+  // Les séries programmées ne portent pas leur slug — il vit sur l'exercice
+  // parent. On le leur prête ici, le temps du comptage.
+  function apercu(exercices, catalogue) {
     var liste = exercices || [];
-    var series = liste.reduce(function (n, e) {
-      return n + (seriesValides(e && e.series).valeur || 0);
-    }, 0);
-    return { nbExercices: liste.length, nbSeries: series };
+    var plat = [];
+    liste.forEach(function (e) {
+      ((e && e.series) || []).forEach(function (s) {
+        plat.push({ type_serie: (s && s.type_serie) || 'travail',
+                    exercise_slug: e && e.exercise_slug });
+      });
+    });
+    var chauffes = plat.filter(function (s) { return s.type_serie === 'echauffement'; }).length;
+    return {
+      nbExercices: liste.length,
+      nbSeries: racine.THSemaine.compteSeriesTravail(plat, catalogue),
+      nbChauffes: chauffes
+    };
   }
 
   // Les routines de la bibliothèque, dans un ordre stable. Le tri est par nom
@@ -548,7 +743,25 @@
       return { ok: false, erreur: 'inconnue', etape: 'routine', partiel: creation };
     }
 
-    var plan = planEcritures(b.existantes, b.exercices, routine.id);
+    // ⚠️ UN EXERCICE NEUF PORTE SON IDENTIFIANT AVANT D'ÊTRE ÉCRIT.
+    // `routine_exercises.id` a `gen_random_uuid()` en défaut, donc l'app peut
+    // fabriquer le sien — et elle DOIT, parce que les séries programmées visent
+    // leur parent par clé étrangère : sans identifiant connu d'avance, la
+    // structure d'un exercice créé ne pourrait pas être écrite dans le même
+    // passage.
+    //
+    // Sans fabricant, on lÈVE plutôt que d'écrire un exercice sans ses séries :
+    // une dépendance manquante doit casser bruyamment, pas rendre une routine
+    // à moitié enregistrée (même doctrine qu'au chantier 40).
+    var voulues = (b.exercices || []).map(function (e) {
+      if (e && e.id) return e;
+      if (typeof ctx.uuid !== 'function') {
+        throw new Error('THRoutines.enregistrer : `uuid` est requis pour un exercice neuf.');
+      }
+      return Object.assign({}, e, { id: ctx.uuid() });
+    });
+
+    var plan = planEcritures(b.existantes, voulues, routine.id, ctx.userId);
 
     try {
       await appliquerPlan(plan, ecrivain, function () { ecrit = true; });
@@ -607,7 +820,6 @@
 
   var api = {
     NOM_MAX: NOM_MAX,
-    SERIES_MIN: SERIES_MIN, SERIES_MAX: SERIES_MAX, SERIES_DEFAUT: SERIES_DEFAUT,
     REPS_MIN: REPS_MIN, REPS_MAX: REPS_MAX,
     REPOS_MIN: REPOS_MIN, REPOS_MAX: REPOS_MAX,
     CHAMPS_EXERCICE: CHAMPS_EXERCICE,
@@ -615,8 +827,6 @@
     nomPropre: nomPropre,
     nomValide: nomValide,
     nomEnConflit: nomEnConflit,
-    seriesValides: seriesValides,
-    serieBornee: serieBornee,
     nulSiHorsBornes: nulSiHorsBornes,
     repsEcrites: repsEcrites,
     reposEcrit: reposEcrit,
@@ -626,6 +836,11 @@
     planEcritures: planEcritures,
     appliquerPlan: appliquerPlan,
     normaliserExercice: normaliserExercice,
+    normaliserSerie: normaliserSerie,
+    enSaisie: enSaisie,
+    seriesEcrites: seriesEcrites,
+    TYPES_SERIE: TYPES_SERIE,
+    CHAMPS_SERIE: CHAMPS_SERIE,
     liens: liens,
     appliquerLiens: appliquerLiens,
     basculerLien: basculerLien,

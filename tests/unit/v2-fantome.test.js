@@ -170,6 +170,9 @@ describe('la saisie de la séance en cours prime toujours', () => {
     expect(charges(s, AVEC_CHAUFFES())).toEqual([120, 125, 125, 125]);
   });
 
+  // ⚠️ L'INTENTION EST SUR LA LIGNE depuis le chantier 43 : `ajouterExercice`
+  // la pose sur la série qu'il crée, pas sur l'exercice. Le fantôme lit celle
+  // de SA ligne — une rampe programmée a une intention par ligne.
   test('les reps visées de la routine priment sur l’historique', () => {
     let s = Seance.creer({ id: 's1', userId: 'u1', idSerie: uuid });
     s = Seance.ajouterExercice(s, 'squat-barre', uuid, { reps_visees: 8 });

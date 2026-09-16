@@ -270,11 +270,23 @@ la semaine du 9 au 15 septembre.**
 - **`construireBlocs`** — l'écran de saisie appelle la fonction qui rend déjà le détail
   (ch. 27). *« Écrire un second entrelaceur, c'était garantir qu'ils divergent un jour ; là,
   ils ne peuvent pas. »*
+- **L'éditeur de routine EST l'écran de séance** (ch. 43) — l'application la plus littérale de
+  cette doctrine à ce jour : un écran entier câblé sur un autre, `rendreBlocsSeance` avec un
+  drapeau `programme`. Pas de seconde `construireBlocs`, pas de second rendu de ligne, pas de
+  second pavé de chronométrage, pas de second badge de chauffe. Une routine se lit donc
+  exactement comme la séance qu'elle produira — et le jour où deux rendus se contrediraient
+  serait celui où l'on découvre que la routine ne dit pas ce qu'elle fait.
+- **`CIBLES`** (ch. 43) — une SEULE table pour les deux traversées d'une même ligne, la base
+  vers l'écran (`enSaisie`) et l'écran vers la base (`normaliserSerie`), bornes comprises. Les
+  écrire séparément, c'était garantir qu'un jour l'une gagne une colonne que l'autre n'a pas —
+  et qu'une valeur saisie disparaisse à l'enregistrement sans que rien ne le signale.
 - **La liste lue dérivée de la liste écrite** par construction (ch. 34), plus
   `verifierColonnes()` qui lève au démarrage si l'écart réapparaît.
-- **Les deux entonnoirs de bornes** (ch. 36) — `nombreOuNul`/`entierOuNul` et
-  `borne`/`seriesValides`, plutôt qu'un registre qui recopierait les CHECK de la base et
-  dériverait le jour où une contrainte bouge.
+- **Les deux entonnoirs de bornes** (ch. 36) — `nombreOuNul`/`entierOuNul` et `borne`,
+  plutôt qu'un registre qui recopierait les CHECK de la base et dériverait le jour où une
+  contrainte bouge. *(`seriesValides` en faisait partie ; elle est partie avec sa colonne au
+  ch. 43 — un entonnoir que plus rien ne traverse est un entonnoir mort, leçon de `palier.js`
+  au ch. 17.)*
 
 ### Les trois questions à se poser avant d'écrire
 

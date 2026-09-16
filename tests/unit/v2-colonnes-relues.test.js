@@ -15,6 +15,7 @@
 
 const Seance = require('../../v2/js/seance.js');
 const Modele = require('../../v2/js/modele.js');
+const { progTravail } = require('./aide-routine-programmee.js');
 
 let n = 0;
 const uuid = () => 'id-' + (++n);
@@ -200,7 +201,7 @@ describe('5. l’écart entre les deux listes est détecté, pas silencieux', ()
 
 describe('6. trois séries créées avec une chaîne', () => {
   const routine = { id: 'r', nom: 'R', exercices: [
-    { id: 're', exercise_slug: 'squat', series: 3, reps_visees: 5,
+    { id: 're', exercise_slug: 'squat', series: progTravail(3, 5),
       repos_cible_s: null, groupe_superset: null, note: null }] };
   const idsDe = (s) => s.exercices.reduce((a, e) => a.concat(e.series.map((x) => x.id)), []);
 

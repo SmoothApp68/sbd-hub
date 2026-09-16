@@ -1515,7 +1515,7 @@
     // des rangées. On la tait plutôt que de nommer KG au-dessus d'une durée ; le
     // type de mesure reste écrit sous chaque nom, dans la légende.
     var memeGabarit = gabarits.every(function (g) { return g.mesure === gabarits[0].mesure; });
-    if (memeGabarit) noeud.appendChild(enTetesColonnes(gabarits[0]));
+    if (memeGabarit) noeud.appendChild(enTetesColonnes(gabarits[0], vue.programme));
 
     // §2.6 — l'éclairage porte sur le TOUR entier, pas sur une ligne isolée.
     // Dans un bloc d'un seul exercice, le tour n'a qu'une série : la règle
@@ -1542,9 +1542,18 @@
     // premier tour bouclé : lu sur l'appareil, ça donnait l'impression qu'une
     // chauffe faisait avancer le compteur. Elle ne l'a jamais fait — 22 272
     // configurations éprouvées — c'est ce décalage d'un cran qu'on voyait.
-    var n = bloc.superset ? Math.min(vue.tourAtteint(bloc.groupe), bloc.nbTours) : 0;
+    // ⚠️ EN MODE PROGRAMME (§7 quindecies), IL N'Y A PAS DE TOUR ATTEINT.
+    // Une routine ne s'exécute pas : « tour 0/3 » y annoncerait un retard sur
+    // un entraînement qui n'a pas commencé. La structure, elle, se dit — c'est
+    // le nombre de tours que le bloc PRESCRIT.
+    var n = bloc.superset && !vue.programme
+      ? Math.min(vue.tourAtteint(bloc.groupe), bloc.nbTours) : 0;
     haut.appendChild(el('div', 'superset-t', bloc.superset
-      ? 'Superset' + (bloc.nbTours ? ' · tour ' + n + '/' + bloc.nbTours : '') : ''));
+      ? 'Superset' + (bloc.nbTours
+          ? (vue.programme
+              ? ' · ' + bloc.nbTours + ' tour' + (bloc.nbTours > 1 ? 's' : '')
+              : ' · tour ' + n + '/' + bloc.nbTours)
+          : '') : ''));
     // ⚠️ LE MENU DE BLOC EST ACCESSIBLE EN PLEINE SÉANCE (§5 bis). Remplacer un
     // exercice arrive quand la machine est prise : basculer en mode Modifier
     // pour ça, puis revenir, c'est trois gestes pour un.
@@ -1552,7 +1561,17 @@
     // Sauf PENDANT la sélection (§5.7) : là, la carte entière est la cible du
     // tap, et un bouton au milieu d'elle qui ferait autre chose est un piège.
     // « L'écran ne sert qu'à ça » vaut aussi pour ses boutons.
-    if (!enCoursDeSelection(vue)) {
+    //
+    // ⚠️ ET EN MODE PROGRAMME, PAS DE MENU DE BLOC SUR UN SUPERSET. Les cinq
+    // gestes de l'éditeur (§7 duodecies.2) portent tous sur un EXERCICE —
+    // grouper, dégrouper, monter, descendre, supprimer. Sur un bloc d'un seul,
+    // bloc et exercice sont le même objet et le menu est sans ambiguïté ; sur
+    // un superset, il y aurait deux menus pour une même branche et aucun pour
+    // le bloc. C'est le pendant exact de la règle d'en dessous, qui ne donne
+    // un menu d'exercice QUE dans un bloc à plusieurs : les deux se complètent
+    // sans jamais se recouvrir.
+    if (!enCoursDeSelection(vue) &&
+        !(vue.programme && bloc.exercices.length > 1)) {
       haut.appendChild(menuTroisPoints('Actions du bloc',
         function () { vue.surMenuBloc(iBloc); }));
     }
@@ -1649,13 +1668,19 @@
     return reglages;
   }
 
-  function enTetesColonnes(g) {
+  // ⚠️ LES DEUX COLONNES QUI TOMBENT EN MODE PROGRAMME (§7 quindecies.2) :
+  // `PRÉC.` et la coche. La première dit ce qui a été fait la fois d'avant,
+  // la seconde ce qui vient d'être fait — deux observations, et une routine
+  // n'observe rien. `EFFORT` tombe avec elles pour la même raison, et parce
+  // que `routine_sets` n'a pas de colonne où le mettre.
+  function enTetesColonnes(g, programme) {
     var champs = g.champs.map(function (n) { return M().champDeMesure(n); });
-    var entetes = el('div', 'cols-seance grille g-' + g.mesure);
+    var entetes = el('div', 'cols-seance grille g-' + g.mesure +
+      (programme ? ' programme' : ''));
     entetes.appendChild(el('span', '', ''));
-    entetes.appendChild(el('span', 'droite', 'PRÉC.'));
+    if (!programme) entetes.appendChild(el('span', 'droite', 'PRÉC.'));
     champs.forEach(function (c) { entetes.appendChild(el('span', 'centre', c.entete)); });
-    if (g.effort) entetes.appendChild(el('span', 'centre', 'EFFORT'));
+    if (g.effort && !programme) entetes.appendChild(el('span', 'centre', 'EFFORT'));
     entetes.appendChild(el('span', 'centre', ''));
     return entetes;
   }
@@ -1685,7 +1710,7 @@
     var iExo = s._iExo, iSerie = s._iSerie;
     var g = gabaritDe(vue, s.exercise_slug);
     var champs = g.champs.map(function (n) { return M().champDeMesure(n); });
-    var classeGrille = ' grille g-' + g.mesure;
+    var classeGrille = ' grille g-' + g.mesure + (vue.programme ? ' programme' : '');
 
     // §2.6 — l'éclairage porte sur le TOUR, jamais sur la ligne isolée.
     //
@@ -1698,7 +1723,8 @@
     // Une série qui appartient à un tour s'allume donc AVEC SON TOUR ; une
     // série qui n'en a pas — chauffe, dégressive, tentative manquée — s'allume
     // dès qu'elle est validée, pour elle seule.
-    var allumee = s.tour ? complets[s.tour] === true : !!s.faite;
+    // En mode programme, rien n'est fait : aucune ligne ne s'allume, jamais.
+    var allumee = vue.programme ? false : (s.tour ? complets[s.tour] === true : !!s.faite);
 
     // §7 undecies.2 — un espace et un filet plus clair entre les tours. Aucun
     // texte : `A1`, `B1`, `C1` disent déjà « tour 1 », et un libellé coûtait
@@ -1735,11 +1761,18 @@
     // moteur parlera : le fantôme dira CE QU'IL FAUT FAIRE, la colonne CE QUI A
     // ÉTÉ FAIT. `Seance.correspondant` ne lit que `prec`, donc la distinction
     // tient par construction.
-    var prec = vue.precedent(s.exercise_slug);
-    var ligneP = S().correspondant(seriesDeSonExercice(bloc, s), iSerie, prec);
-    rangee.appendChild(el('div', 'prec num', M().formatPrecedent(ligneP, g.mesure)));
+    if (!vue.programme) {
+      var prec = vue.precedent(s.exercise_slug);
+      var ligneP = S().correspondant(seriesDeSonExercice(bloc, s), iSerie, prec);
+      rangee.appendChild(el('div', 'prec num', M().formatPrecedent(ligneP, g.mesure)));
+    }
 
-    var f = vue.fantome(iExo, iSerie);
+    // ⚠️ AUCUN FANTÔME EN MODE PROGRAMME, ET C'EST LA MÊME RAISON QUE `PRÉC.`.
+    // Le fantôme propose ce qui a été fait la fois d'avant pour qu'on valide
+    // sans rien taper. Dans l'éditeur, ce qu'on tape EST la prescription : une
+    // valeur grise venue d'une séance passée s'y lirait comme une valeur déjà
+    // programmée, et « champ vide » ne se distinguerait plus de « 125 kg ».
+    var f = vue.programme ? {} : vue.fantome(iExo, iSerie);
     // Une seule boucle pour les quatre gabarits : le champ porte sa colonne, son
     // unité et son facteur de conversion. La vue ne sait rien de la différence
     // entre une seconde et un kilomètre.
@@ -1758,21 +1791,23 @@
         function (v) { vue.surChamp(iExo, iSerie, nom, v); }));
     });
 
-    if (g.effort) {
+    if (g.effort && !vue.programme) {
       var eff = el('button', 'eff-serie num' + (texteEffort(s) ? ' plein' : ''), texteEffort(s));
       eff.type = 'button';
       eff.addEventListener('click', function () { vue.surEffort(iExo, iSerie); });
       rangee.appendChild(eff);
     }
 
-    var ok = el('button', 'ok-serie' + (s.faite ? ' cochee' : ''));
-    ok.type = 'button';
-    ok.setAttribute('aria-label', s.faite ? 'Dévalider' : 'Valider');
-    var v = svg('svg', null, { viewBox: '0 0 24 24' });
-    v.appendChild(svg('path', null, { d: 'M5 13l4 4L19 7' }));
-    ok.appendChild(v);
-    ok.addEventListener('click', function () { vue.surValider(iExo, iSerie); });
-    rangee.appendChild(ok);
+    if (!vue.programme) {
+      var ok = el('button', 'ok-serie' + (s.faite ? ' cochee' : ''));
+      ok.type = 'button';
+      ok.setAttribute('aria-label', s.faite ? 'Dévalider' : 'Valider');
+      var v = svg('svg', null, { viewBox: '0 0 24 24' });
+      v.appendChild(svg('path', null, { d: 'M5 13l4 4L19 7' }));
+      ok.appendChild(v);
+      ok.addEventListener('click', function () { vue.surValider(iExo, iSerie); });
+      rangee.appendChild(ok);
+    }
 
     ligne.appendChild(rangee);
     ligne.appendChild(fond);
@@ -1899,9 +1934,14 @@
       // place, dans le menu de la série et pas sur la ligne — mais il est réel,
       // et il ne se supprime pas. Renseignée, elle GAGNE sur celle de
       // l'exercice pour cette série-là.
-      cible.appendChild(champTexte('Note de cette série', vue.serie.note,
-        { lignes: 2, placeholder: vue.noteExercice || 'Ce qui ne vaut que pour celle-ci' },
-        function (v) { vue.surNoteSerie(v); }));
+      // ⚠️ PAS DE NOTE DE SÉRIE EN MODE PROGRAMME. `routine_sets` n'a aucune
+      // colonne où la mettre : le champ serait un champ qu'on remplit et que
+      // l'enregistrement jette. Mieux vaut qu'il n'existe pas.
+      if (!vue.programme) {
+        cible.appendChild(champTexte('Note de cette série', vue.serie.note,
+          { lignes: 2, placeholder: vue.noteExercice || 'Ce qui ne vaut que pour celle-ci' },
+          function (v) { vue.surNoteSerie(v); }));
+      }
 
       var menuSup = el('div', 'feuille-menu');
       var sup = el('button', 'danger', 'Supprimer la série');
@@ -2221,10 +2261,26 @@
       var carte = el('button', 'routine');
       carte.type = 'button';
       carte.appendChild(el('div', 'routine-nom', r.nom));
-      var a = R().apercu(r.exercices);
-      carte.appendChild(el('div', 'routine-meta',
-        a.nbExercices + ' exercice' + (a.nbExercices > 1 ? 's' : '') +
-        ' \u00b7 ' + a.nbSeries + ' série' + (a.nbSeries > 1 ? 's' : '')));
+      // ⚠️ « 3 × 8 » A DISPARU, ET IL FALLAIT QUE LA CARTE TRANCHE (ch. 43).
+      // Depuis `v2_042_routine_sets`, les lignes d'un exercice ne sont plus
+      // identiques : une routine porte des chauffes, des dégressives et des
+      // reps qui varient. Ce qui reste comparable d'une routine à l'autre,
+      // c'est le VOLUME DE TRAVAIL — et les chauffes, dites à part, parce
+      // qu'elles ne coûtent pas la même chose et qu'en les fondant dans le
+      // total on ferait passer une routine de 21 séries pour une de 26.
+      var a = R().apercu(r.exercices, v.catalogue);
+      var meta = a.nbExercices + ' exercice' + (a.nbExercices > 1 ? 's' : '') +
+        ' \u00b7 ' + a.nbSeries + ' série' + (a.nbSeries > 1 ? 's' : '');
+      // ⚠️ « + 5 », PAS « DONT 5 » — ET C'EST UNE TRANCHE, PAS UN DÉTAIL.
+      // « 26 séries dont 5 de chauffe » dit que les 5 sont DANS les 26. Or le
+      // nombre annoncé est celui des séries de TRAVAIL (`compteSeriesTravail`,
+      // règle du volume comprise), et les chauffes n'y sont pas — « dont »
+      // serait faux, et les additionner mélangerait deux comptes qui ne se
+      // filtrent pas pareil. Elles s'ajoutent donc, visiblement.
+      if (a.nbChauffes) {
+        meta += ' + ' + a.nbChauffes + ' de chauffe';
+      }
+      carte.appendChild(el('div', 'routine-meta', meta));
       carte.addEventListener('click', function () { if (v.surChoix) v.surChoix(r.id); });
 
       var rangee = el('div', 'routine-rangee');
@@ -2249,111 +2305,7 @@
     }
   }
 
-  // Un champ numérique de l'éditeur. `surSaisie` MUTE le brouillon et ne
-  // redessine rien : re-rendre à chaque frappe arracherait le focus, et le
-  // clavier d'Android avec lui. Seuls les gestes de structure — monter,
-  // descendre, retirer — redessinent.
-  function champNombre(etiquette, valeur, attributs, surSaisie) {
-    var enveloppe = el('label', 'champ-num');
-    enveloppe.appendChild(el('span', 'champ-lib', etiquette));
-    var input = doc.createElement('input');
-    input.type = 'number';
-    input.inputMode = 'numeric';
-    input.value = (valeur === null || valeur === undefined) ? '' : String(valeur);
-    Object.keys(attributs || {}).forEach(function (k) { input.setAttribute(k, String(attributs[k])); });
-    input.addEventListener('input', function () { surSaisie(input.value); });
-    enveloppe.appendChild(input);
-    return enveloppe;
-  }
-
-  // La liste des exercices de l'éditeur.
-  //
-  // ⚠️ AUCUN CHAMP DE CHARGE. Trois réglages, et trois seulement : séries, reps
-  // visées, repos cible. La routine porte la structure, le moteur décide du
-  // poids (ECRAN-SAISIE-V1 §1.1).
-  //
-  // ⚠️ LES GESTES VIVENT DERRIÈRE LE MENU À TROIS POINTS (§7 duodecies.2).
-  // La carte portait quatre boutons permanents — monter, descendre, retirer, et
-  // « grouper avec le suivant » entre chaque paire — pour des gestes
-  // occasionnels. C'est la MÊME grammaire que la séance : deux écrans qui font
-  // la même chose doivent se piloter pareil, sinon il faut l'apprendre deux
-  // fois.
-  //
-  // La place ainsi libérée sert à ce qui compte : ce que la routine PRESCRIT.
-  // Les trois réglages se lisent sur la carte et se modifient dans une feuille
-  // — un champ numérique sous le pouce, pas trois sur une carte à 360 px.
-  function rendreExosRoutine(cible, exercices, nommer, vue) {
-    vider(cible);
-    var v = vue || {};
-    var liste = exercices || [];
-
-    if (!liste.length) {
-      cible.appendChild(el('p', 'vide', 'Aucun exercice. Ajoute le premier ci-dessous.'));
-      return;
-    }
-
-    // ⚠️ LE GROUPEMENT SE LIT SUR LES LIENS ENTRE VOISINS (chantier 28).
-    //
-    // Un superset est une suite CONTIGUË : dans une liste, la seule chose qui le
-    // définit est « untel est collé au suivant ». Les lettres A/B/C et le liseré
-    // le disent, exactement comme au détail de séance — et c'est le menu qui
-    // pose et défait le lien.
-    var lies = R().liens(liste);
-    var lettres = lettresDeLiens(lies);
-
-    liste.forEach(function (e, i) {
-      var carte = el('div', 'exo-routine' + (lettres[i] ? ' groupe' : ''));
-
-      var haut = el('div', 'exo-routine-haut');
-      var nom = el('span', 'exo-routine-nom');
-      if (lettres[i]) nom.appendChild(el('span', 'lettre-exo', lettres[i]));
-      nom.appendChild(el('span', '', nommer(e.exercise_slug)));
-      haut.appendChild(nom);
-      haut.appendChild(menuTroisPoints('Actions sur ' + nommer(e.exercise_slug),
-        function () { v.surMenu(i); }));
-      carte.appendChild(haut);
-
-      // ⚠️ SÉRIES ET REPS VISÉES SE SAISISSENT ICI (§7 quaterdecies.1). Ce sont
-      // les deux champs qu'on remplit TOUJOURS : les envoyer dans une feuille
-      // ajoutait un geste au geste le plus fréquent de l'écran. La feuille
-      // garde ce qui est occasionnel.
-      var champs = el('div', 'exo-routine-champs');
-      champs.appendChild(champNombre('Séries', valeurEcrite(e, 'series'),
-        { min: R().SERIES_MIN, max: R().SERIES_MAX },
-        function (val) { v.surChamp(i, 'series', val); }));
-      champs.appendChild(champNombre('Reps visées', valeurEcrite(e, 'reps_visees'),
-        { min: R().REPS_MIN, max: R().REPS_MAX, placeholder: '—' },
-        function (val) { v.surChamp(i, 'reps_visees', val); }));
-      // Le repos est occasionnel : il se LIT ici et se règle dans la feuille.
-      // Même bouton, même libellé et même tiret qu'en séance (`reglagesExo`) —
-      // la même chose se touche au même endroit sur les deux écrans.
-      var repos = valeurEcrite(e, 'repos_cible_s');
-      var bRepos = el('button', 'repos-cible num',
-        'repos ' + (repos ? mmss(repos) : '—'));
-      bRepos.type = 'button';
-      bRepos.setAttribute('aria-label', 'Repos cible de ' + nommer(e.exercise_slug));
-      bRepos.addEventListener('click', function () { v.surParametres(i); });
-      champs.appendChild(bRepos);
-      carte.appendChild(champs);
-      cible.appendChild(carte);
-    });
-  }
-
-  // ⚠️ CE QUI SERA ÉCRIT, JAMAIS LA VALEUR BRUTE. C'est la leçon de la mutation
-  // M7 du chantier 41, généralisée aux trois réglages : afficher un nombre que
-  // la base ne recevra pas, c'est deux voix pour un seul chiffre.
-  //
-  // `series` est NOT NULL, donc ramenée dans la plage ; `reps_visees` et
-  // `repos_cible_s` sont NULLABLES, donc une valeur hors bornes s'affiche VIDE —
-  // pas ramenée au plafond. Un plafond serait un nombre que personne n'a saisi
-  // et que la base ne verra jamais.
-  function valeurEcrite(e, champ) {
-    if (champ === 'series') return R().serieBornee(e && e.series);
-    if (champ === 'reps_visees') return R().repsEcrites(e && e.reps_visees);
-    return R().reposEcrit(e && e.repos_cible_s);
-  }
-
-  // ⚠️ LE MENU D'UN EXERCICE DE ROUTINE — les six gestes du §7 duodecies.2, et
+  // ⚠️ LE MENU D'UN EXERCICE DE ROUTINE — les cinq gestes du §7 duodecies.2, et
   // rien d'autre. Il passe par `entreeMenu`, comme les menus de la séance : une
   // entrée par geste, en toutes lettres, et ce qui n'a pas de sens ici est
   // GRISÉ plutôt qu'absent — « Monter » sur le premier reste à sa place, sinon
@@ -2371,7 +2323,10 @@
       { surClic: vue.surDegrouper, desactive: !vue.estGroupe });
     entreeMenu(menu, 'Monter', { surClic: vue.surMonter, desactive: !vue.peutMonter });
     entreeMenu(menu, 'Descendre', { surClic: vue.surDescendre, desactive: !vue.peutDescendre });
-    entreeMenu(menu, 'Modifier les paramètres', { surClic: vue.surParametres });
+    // ⚠️ « MODIFIER LES PARAMÈTRES » EST PARTI AVEC SA FEUILLE (ch. 43). Séries
+    // et reps se tapent sur la ligne ; le repos a son propre bouton sous le nom,
+    // le même qu'en séance. Une entrée qui ouvrirait la feuille du repos ferait
+    // deux chemins vers le même réglage, dont un plus long.
     cible.appendChild(menu);
 
     var sup = el('div', 'feuille-menu');
@@ -2381,40 +2336,50 @@
     return cible;
   }
 
-  // Les trois réglages, dans une feuille. `champNombre` MUTE le brouillon sans
-  // redessiner — re-rendre à chaque frappe arracherait le focus, et le clavier
-  // d'Android avec lui. C'est « Terminé » qui referme et redessine la carte.
-  function rendreFeuilleParametresExo(cible, vue) {
+  // ══ LE REPOS CIBLE D'UNE ROUTINE (§7 quindecies.4) ═══════════════════════
+  //
+  // ⚠️ CE QUI RESTE DE LA FEUILLE DES PARAMÈTRES, ET SEULEMENT ÇA. Séries et
+  // reps visées s'y saisissaient ; elles se tapent maintenant SUR LA LIGNE,
+  // comme en séance. Le repos, lui, n'a pas de colonne — il vaut pour tout
+  // l'exercice — donc il lui faut un endroit, et c'est celui-ci.
+  //
+  // Ce n'est PAS `rendreFeuilleRepos` : celle de la séance est une grille de
+  // huit valeurs, parce qu'on la touche entre deux séries avec les mains
+  // moites. Ici on programme au calme, et les cas particuliers (3:20, 4:45)
+  // méritent d'être atteignables. Le pavé est le MÊME (`champChrono`,
+  // chantier 25) — c'est la garniture autour qui diffère.
+  //
+  // ⚠️ ET LE REPOS SE DÉSACTIVE, PAR EXERCICE (§7 quindecies.4). À NULL, pas à
+  // zéro : `routine_exos_repos_borne` refuse 0, et « 0:00 de repos » voudrait
+  // dire « enchaîne sans souffler », ce qui est une prescription. NULL dit
+  // « je n'en programme pas », ce qui est l'absence de prescription. Les deux
+  // ne sont pas la même chose, et c'est la seconde qu'on veut.
+  function rendreFeuilleReposRoutine(cible, vue) {
     vider(cible);
-    var t = el('div', 'feuille-t', 'Paramètres');
+    var t = el('div', 'feuille-t', 'Repos cible');
     t.appendChild(el('em', '', vue.nom));
     cible.appendChild(t);
 
-    var champs = el('div', 'feuille-champs');
-    champs.appendChild(champNombre('Séries', valeurEcrite(vue.exercice, 'series'),
-      { min: R().SERIES_MIN, max: R().SERIES_MAX },
-      function (val) { vue.surChamp('series', val); }));
-    champs.appendChild(champNombre('Reps visées', valeurEcrite(vue.exercice, 'reps_visees'),
-      { min: R().REPS_MIN, max: R().REPS_MAX, placeholder: '—' },
-      function (val) { vue.surChamp('reps_visees', val); }));
-    cible.appendChild(champs);
-
-    // ⚠️ LE PAVÉ DE DÉCALAGE, PAS UN CHAMP DE SECONDES (§7 quaterdecies.2).
-    // `1` `3` `0` donne `1:30`. Il existe depuis le chantier 25 (§3 ter.2 bis) ;
-    // l'éditeur de routine ne l'appelait pas et demandait des secondes brutes —
-    // personne ne pense « 90 secondes ». Le stockage, lui, ne change pas : la
-    // colonne reste en secondes, le décalage est une interface.
-    //
-    // Sa borne est celle de la base — 1 800 s — donc les heures n'apparaissent
-    // jamais ici : `formatChrono` ne les écrit qu'au-delà de l'heure.
     var repos = el('label', 'champ-num champ-repos');
-    repos.appendChild(el('span', 'champ-lib', 'Repos cible'));
-    repos.appendChild(champChrono('', valeurEcrite(vue.exercice, 'repos_cible_s'), null,
-      function (val) { vue.surChamp('repos_cible_s', val); },
+    repos.appendChild(el('span', 'champ-lib', 'Entre les séries'));
+    repos.appendChild(champChrono('', R().reposEcrit(vue.repos), null,
+      function (val) { vue.surRepos(val); },
       { max: R().REPOS_MAX, libelle: 'Repos cible, en minutes et secondes' }));
     cible.appendChild(repos);
     cible.appendChild(el('p', 'feuille-aide',
-      'De 0:05 à 30:00, ou vide. Les chiffres entrent par la droite : 1 3 0 donne 1:30.'));
+      'De 0:05 à 30:00. Les chiffres entrent par la droite : 1 3 0 donne 1:30.'));
+
+    // ⚠️ DÉSACTIVER EST UN GESTE À PART, PAS « LE PAVÉ RENDU VIDE ».
+    //
+    // Défaut trouvé AU BANC, pas en test : le bouton appelait `surRepos(null)`,
+    // et l'appelant refermait sur `null` — donc vider le pavé pour retaper une
+    // valeur fermait la feuille au premier effacement. Les deux intentions ne
+    // se distinguent PAS par la valeur : « je n'en veux pas » et « j'efface
+    // pour retaper » rendent le même `null`. Elles se distinguent par le
+    // GESTE, et c'est le geste qu'on transmet.
+    var menu = el('div', 'feuille-menu');
+    entreeMenu(menu, 'Désactiver le repos', { surClic: vue.surDesactiver });
+    cible.appendChild(menu);
 
     var b = el('button', 'principal', 'Terminé');
     b.type = 'button';
@@ -2499,9 +2464,8 @@
     etiquetteSerie: etiquetteSerie,
     texteEffort: texteEffort,
     rendreListeRoutines: rendreListeRoutines,
-    rendreExosRoutine: rendreExosRoutine,
     rendreFeuilleExoRoutine: rendreFeuilleExoRoutine,
-    rendreFeuilleParametresExo: rendreFeuilleParametresExo,
+    rendreFeuilleReposRoutine: rendreFeuilleReposRoutine,
     champChrono: champChrono,
     rendreResultatsExo: rendreResultatsExo,
     el: el,

@@ -17,6 +17,7 @@
 
 const Seance = require('../../v2/js/seance.js');
 const Attente = require('../../v2/js/attente.js');
+const { progTravail } = require('./aide-routine-programmee.js');
 
 let n = 0;
 const uuid = () => 'id-' + (++n);
@@ -24,7 +25,7 @@ beforeEach(() => { n = 0; });
 
 const routine = (nb) => ({
   id: 'r1', nom: 'R',
-  exercices: [{ id: 're1', exercise_slug: 'tractions', series: nb, reps_visees: 10,
+  exercices: [{ id: 're1', exercise_slug: 'tractions', series: progTravail(nb, 10),
                 repos_cible_s: null, groupe_superset: null, note: null }]
 });
 const creer = (nb) => Seance.creer({ id: 's1', userId: 'u1', titre: 'T',

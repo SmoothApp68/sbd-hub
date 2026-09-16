@@ -20,6 +20,7 @@ require('../../v2/js/rendu.js');
 const Modele = require('../../v2/js/modele.js');
 const Seance = require('../../v2/js/seance.js');
 const Palier = require('../../v2/js/palier.js');
+const { progTravail } = require('./aide-routine-programmee.js');
 
 const Rendu = () => window.THRendu;
 
@@ -44,10 +45,10 @@ function seanceQuatre() {
   return Seance.creer({
     id: 'S', userId: 'u', idSerie: uuid,
     routine: { id: 'r', exercices: [
-      { exercise_slug: 'dc', series: 1, reps_visees: 5, repos_cible_s: 180 },
-      { exercise_slug: 'tr', series: 1, reps_visees: 12, repos_cible_s: null },
-      { exercise_slug: 'pl', series: 1, reps_visees: null, repos_cible_s: null },
-      { exercise_slug: 'ma', series: 1, reps_visees: null, repos_cible_s: null }
+      { exercise_slug: 'dc', series: progTravail(1, 5), repos_cible_s: 180 },
+      { exercise_slug: 'tr', series: progTravail(1, 12), repos_cible_s: null },
+      { exercise_slug: 'pl', series: progTravail(1, null), repos_cible_s: null },
+      { exercise_slug: 'ma', series: progTravail(1, null), repos_cible_s: null }
     ] }
   });
 }

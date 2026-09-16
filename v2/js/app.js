@@ -1773,8 +1773,18 @@
   function rendreEditeur() {
     var index = Modele.indexerExercices(local.exercices);
     Rendu.rendreExosRoutine($('exos-routine'), brouillon.exercices,
-      function (slug) { return Modele.nommer(index, slug); },
-      { surMenu: ouvrirFeuilleExoRoutine });
+      function (slug) { return Modele.nommer(index, slug); }, {
+        surMenu: ouvrirFeuilleExoRoutine,
+        // §7 quaterdecies.1 — séries et reps visées se saisissent SUR la carte.
+        // Les champs MUTENT le brouillon sans redessiner : redessiner à chaque
+        // frappe arracherait le focus et le clavier d'Android avec lui.
+        surChamp: function (i, champ, valeur) {
+          if (brouillon.exercices[i]) brouillon.exercices[i][champ] = valeur;
+        },
+        // Le repos se LIT sur la carte et se règle dans la feuille — un appui
+        // sur sa valeur y mène directement, sans passer par le menu.
+        surParametres: ouvrirParametresExo
+      });
   }
 
   // ⚠️ LES SIX GESTES DU §7 duodecies.2, ET AUCUN CALCUL ICI. Ce qui a du sens
@@ -1890,7 +1900,11 @@
     if (s.champ === 'nom' && s.raison === 'doublon') return Routines.MESSAGES.doublon;
     if (s.champ === 'series') return 'Les séries vont de ' + Routines.SERIES_MIN + ' à ' + Routines.SERIES_MAX + '.';
     if (s.champ === 'reps_visees') return 'Les reps visées vont de ' + Routines.REPS_MIN + ' à ' + Routines.REPS_MAX + ', ou restent vides.';
-    if (s.champ === 'repos_cible_s') return 'Le repos va de ' + Routines.REPOS_MIN + ' à ' + Routines.REPOS_MAX + ' secondes, ou reste vide.';
+    // ⚠️ LE MESSAGE PARLE LA LANGUE DU CHAMP (chantier 42). Le repos se saisit
+    // en mm:ss depuis le §7 quaterdecies.2 : annoncer une borne « en secondes »
+    // obligerait à convertir de tête pour comprendre ce qu'on vient de taper.
+    if (s.champ === 'repos_cible_s') return 'Le repos va de ' + Rendu.mmss(Routines.REPOS_MIN) +
+      ' à ' + Rendu.mmss(Routines.REPOS_MAX) + ', ou reste vide.';
     return 'Il manque un exercice sur une ligne.';
   }
 

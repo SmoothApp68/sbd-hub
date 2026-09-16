@@ -396,41 +396,64 @@ const CATALOGUE = [
   // prescrit. Les deux chemins doivent coexister.
   await page.click('#liste-routines .routine');
   await attendre(700);
-  // Le 3e champ de la 1re carte : séries · reps visées · REPOS. Adressé par
-  // indice, pour la même raison que les cartes — un lien de superset s'intercale
-  // désormais entre deux d'entre elles.
-  // Le 3e champ de la feuille de la 1re carte : séries · reps visées · REPOS.
-  // Les trois réglages ne sont plus sur la carte — elle les AFFICHE, la feuille
-  // les modifie (§7 duodecies.2).
-  const remplirRepos = async (v) => {
-    await gesteCarte(0, 'Modifier les param');
-    await page.evaluate((val) => {
-      const i = document.querySelectorAll('#feuille-contenu .champ-num input')[2];
-      i.value = val;
-      i.dispatchEvent(new Event('input', { bubbles: true }));
-    }, v);
+  // ⚠️ LE REPOS SE TAPE AU PAVÉ DE DÉCALAGE (§7 quaterdecies.2), plus dans un
+  // champ de secondes. Les chiffres entrent par la DROITE, un `beforeinput` par
+  // appui — poser `.value` directement ne passerait pas par le pavé et ne
+  // mesurerait donc rien de ce que fait un pouce.
+  const taperRepos = async (suite) => {
+    await page.evaluate((chiffres) => {
+      const i = document.querySelector('#feuille-contenu .chrono input');
+      chiffres.split('').forEach((c) => {
+        i.dispatchEvent(new InputEvent('beforeinput',
+          { inputType: 'insertText', data: c, cancelable: true }));
+      });
+    }, suite);
     await attendre(200);
+  };
+  const lireRepos = () => page.evaluate(() =>
+    (document.querySelector('#feuille-contenu .chrono input') || {}).value || '');
+  // ⚠️ VIDER AVANT DE TAPER, et c'est le pavé qui l'impose : les chiffres
+  // s'AJOUTENT par la droite. Taper « 130 » sur un champ qui porte déjà 3:30
+  // ne donne pas 1:30 — ça donne trois refus, parce que 33:01 dépasse la borne.
+  // Le banc tapait dans un champ vide par accident ; il le fait maintenant
+  // exprès.
+  const viderRepos = async () => {
+    await page.evaluate(() => {
+      const i = document.querySelector('#feuille-contenu .chrono input');
+      for (let k = 0; k < 8; k++) {
+        i.dispatchEvent(new InputEvent('beforeinput',
+          { inputType: 'deleteContentBackward', cancelable: true }));
+      }
+    });
+    await attendre(200);
+  };
+  const remplirRepos = async (suite) => {
+    await gesteCarte(0, 'Modifier les param');
+    await viderRepos();
+    await taperRepos(suite);
     await page.click('#feuille-contenu .principal');
     await attendre(350);
   };
   await menuCarte(0);
   await entree('Modifier les param');
-  const aChampRepos = await page.evaluate(() =>
-    document.querySelectorAll('#feuille-contenu .champ-num input').length);
-  const libRepos = await page.evaluate(() => {
-    const l = document.querySelectorAll('#feuille-contenu .champ-lib')[2];
-    return l ? l.textContent : '';
-  });
-  ok('le champ « Repos (s) » est là, dans la feuille des paramètres',
-    aChampRepos === 3 && libRepos === 'Repos (s)',
-    aChampRepos + ' champ(s) numériques · 3e = « ' + libRepos + ' »');
+  const libsFeuille = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('#feuille-contenu .champ-lib')).map((l) => l.textContent));
+  const typeRepos = await page.evaluate(() =>
+    (document.querySelector('#feuille-contenu .chrono input') || {}).type || 'absent');
+  ok('[42] la feuille porte un PAVÉ de repos, plus un champ de secondes',
+    JSON.stringify(libsFeuille) === '["S\u00e9ries","Reps vis\u00e9es","Repos cible"]' &&
+    typeRepos === 'text',
+    JSON.stringify(libsFeuille) + ' · pavé = ' + typeRepos);
   await page.click('#feuille-contenu .principal');
   await attendre(350);
-  await remplirRepos('210');
+  // CONFIGURATION DISCRIMINANTE : 3:30 franchit la minute. Un champ numérique
+  // simple stockerait 330, le pavé stocke 210.
+  await remplirRepos('330');
   await page.click('#btn-enregistrer-routine');
   await attendre(900);
   const premierExo = base.exos.slice().sort((a, b) => a.rang - b.rang)[0];
-  ok('la valeur saisie part bien en base', premierExo.repos_cible_s === 210,
+  ok('[42] « 3 3 0 » part en base à 210 secondes, pas à 330',
+    premierExo.repos_cible_s === 210,
     'repos_cible_s = ' + premierExo.repos_cible_s);
 
   // ⚠️ LA NOTE DE ROUTINE SURVIT À UNE RÉÉCRITURE DE L'ÉDITEUR.
@@ -446,13 +469,107 @@ const CATALOGUE = [
   await aller('/saisie');
   await page.click('#liste-routines .routine');
   await attendre(700);
-  await remplirRepos('200');
+  await remplirRepos('320');      // 3:20 = 200 s
   await page.click('#btn-enregistrer-routine');
   await attendre(900);
   const apresEditeur = base.exos.filter((e) => e.id === premierExo.id)[0];
   ok('la note de la ligne de routine n’est PAS écrasée par l’éditeur',
     apresEditeur.note === 'Ceinture, barre basse' && apresEditeur.repos_cible_s === 200,
     JSON.stringify({ note: apresEditeur.note, repos: apresEditeur.repos_cible_s }));
+
+  console.log('\n══ 5 quater. REPS SUR LA CARTE, REPOS EN mm:ss ══');
+  //
+  // §7 quaterdecies — constaté sur device après le chantier 41 : « c'est moins
+  // intuitif qu'avant de faire une routine ». Il fallait ouvrir la feuille pour
+  // remplir un champ qu'on remplit toujours, et le repos se demandait en
+  // secondes brutes alors que le pavé de décalage existe depuis le chantier 25.
+
+  await page.click('#liste-routines .routine');
+  await attendre(700);
+  const champsCarte = (i) => page.evaluate((k) => {
+    const c = document.querySelectorAll('.exo-routine')[k];
+    return Array.from(c.querySelectorAll('.exo-routine-champs .champ-num')).map((l) => ({
+      lib: l.querySelector('.champ-lib').textContent,
+      val: l.querySelector('input').value
+    }));
+  }, i);
+  ok('[42] la carte porte SÉRIES et REPS VISÉES, saisissables sans feuille',
+    JSON.stringify((await champsCarte(0)).map((c) => c.lib)) === '["Séries","Reps visées"]',
+    JSON.stringify(await champsCarte(0)));
+  const reposCarte = (i) => page.evaluate((k) =>
+    (document.querySelectorAll('.exo-routine')[k].querySelector('.repos-cible') || {}).textContent || '',
+    i);
+  ok('[42] et le repos s’y LIT, en mm:ss, au même bouton qu’en séance',
+    /^repos \d+:\d\d$/.test(await reposCarte(0)), '« ' + (await reposCarte(0)) + ' »');
+
+  // ⚠️ SANS JAMAIS OUVRIR LA FEUILLE. C'est tout l'objet du §7 quaterdecies.1 :
+  // le geste le plus fréquent de l'écran ne doit pas coûter un geste de plus.
+  const saisirCarte = async (i, k, valeur) => {
+    await page.evaluate(([c, j, v]) => {
+      const champ = document.querySelectorAll('.exo-routine')[c]
+        .querySelectorAll('.exo-routine-champs input')[j];
+      champ.value = v;
+      champ.dispatchEvent(new Event('input', { bubbles: true }));
+    }, [i, k, valeur]);
+    await attendre(200);
+  };
+  await saisirCarte(0, 0, '4');     // séries
+  await saisirCarte(0, 1, '12');    // reps visées
+  await page.click('#btn-enregistrer-routine');
+  await attendre(900);
+  const exo0 = () => base.exos.slice().sort((a, b) => a.rang - b.rang)[0];
+  ok('[42] les deux partent en base, sans qu’aucune feuille se soit ouverte',
+    exo0().series === 4 && exo0().reps_visees === 12,
+    JSON.stringify({ series: exo0().series, reps: exo0().reps_visees }));
+
+  // ⚠️ LE PAVÉ, EN TROIS APPUIS, ET AU-DESSUS DE LA MINUTE. Sous 60 secondes,
+  // « décalage sur deux groupes » et « champ numérique simple » rendent la même
+  // valeur — c'est ce qui a laissé passer la régression.
+  await page.click('#liste-routines .routine');
+  await attendre(700);
+  await gesteCarte(0, 'Modifier les param');
+  await viderRepos();
+  await taperRepos('130');
+  const vu130 = await lireRepos();
+  ok('[42] « 1 » « 3 » « 0 » affiche 1:30 — trois appuis, pas une conversion',
+    /^0?1:30$/.test(vu130), '« ' + vu130 + ' »');
+  // La borne HAUTE se refuse à la frappe : on n'a jamais besoin de passer
+  // au-dessus de 30:00 pour y arriver.
+  await taperRepos('0');            // « 1300 » = 13:00, encore admissible
+  await taperRepos('0');            // « 13000 » vaudrait 1:30:00 — refusé
+  const vuBorne = await lireRepos();
+  ok('[42] la borne haute refuse le chiffre de trop, sans rien perdre',
+    vuBorne === '13:00', '« ' + vuBorne + ' »');
+  // Effacement par la droite, comme au chantier 25.
+  await page.evaluate(() => {
+    document.querySelector('#feuille-contenu .chrono input').dispatchEvent(
+      new InputEvent('beforeinput', { inputType: 'deleteContentBackward', cancelable: true }));
+  });
+  await attendre(200);
+  const vuEfface = await lireRepos();
+  ok('[42] effacer retire le DERNIER chiffre, par la droite',
+    vuEfface === '01:30', '« ' + vuEfface + ' »');
+  await page.click('#feuille-contenu .principal');
+  await attendre(350);
+  ok('[42] et la carte suit tout de suite', (await reposCarte(0)) === 'repos 1:30',
+    '« ' + (await reposCarte(0)) + ' »');
+  await page.click('#btn-enregistrer-routine');
+  await attendre(900);
+  ok('[42] 90 secondes en base, pas 130', exo0().repos_cible_s === 90,
+    'repos_cible_s = ' + exo0().repos_cible_s);
+
+  // Rechargement : ce qui est stocké se réaffiche en mm:ss.
+  await aller('/saisie');
+  await page.click('#liste-routines .routine');
+  await attendre(700);
+  await gesteCarte(0, 'Modifier les param');
+  const vuRelu = await lireRepos();
+  ok('[42] rouvert, le pavé repart de 1:30 — jamais de « 90 »',
+    /^0?1:30$/.test(vuRelu), '« ' + vuRelu + ' »');
+  await page.click('#feuille-contenu .principal');
+  await attendre(350);
+  // On rend l'écran à la bibliothèque : la section suivante y entre par la carte.
+  await aller('/saisie');
 
   console.log('\n══ 5 ter. LE SUPERSET SE FABRIQUE DANS L’ÉDITEUR ══');
   //

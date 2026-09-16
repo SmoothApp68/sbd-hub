@@ -116,6 +116,138 @@ trouvé cinq défauts de plus, dont une garde qui ne couvrait qu'une branche sur
 
 ---
 
+## 2 decies. Le positionnement, révisé le 15/09/2026
+
+**Ce qui a changé sous nos pieds.** Le cadrage disait « on concurrence sur le coaching
+algorithmique, que personne ne sort correctement ». **Ce n'est plus vrai.**
+
+- **Hevy Trainer**, lancé le 18/02/2026 : programmation adaptative algorithmique incluse dans
+  Hevy Pro (~36 €/an). Génère un programme, ajuste les charges sur la performance, signale la
+  stagnation, montre la répartition du volume par groupe musculaire.
+- **Epilog**, carnet français lancé le **13/09/2026** (FIT-MASS FORMATIONS, Lyon) : tempo,
+  supersets, chauffe, dégressive, échec, notes sous l'exercice, réorganisation en un geste,
+  volume par muscle au choix (séries dures / tonnage), 1RM estimé, circuit training
+  HIIT/AMRAP, 800 exercices animés, mesures et photos. **24,99 €/an** en tarif fondateur,
+  39,99 € ensuite. **Une seule note à date** — c'est un lancement, pas un acteur installé.
+
+> **La liste de fonctions d'Epilog est, ligne pour ligne, ce que les chantiers 21 à 35 ont
+> construit.** Le carnet n'est plus un différenciateur.
+
+**Le paysage :**
+
+| | Journal | Coach |
+|---|---|---|
+| International | Hevy, Strong, StrengthLog | Hevy Trainer, Arvo, FitnessAI, Dr Muscle |
+| **Français** | **Epilog** | **personne** |
+
+**La case vide est la nôtre**, et elle est vide parce que faire un coach honnête est beaucoup
+plus dur qu'un journal.
+
+### Les trois atouts réels
+
+**1. Le moteur qui s'explique.** L'IA de Hevy est algorithmique : on ne peut pas lui demander
+pourquoi, contester, ou faire expliquer une substitution. Le corpus de specs de TrainHub est
+entièrement fait de « pourquoi ».
+
+**2. La calibration sur le pratiquant assidu.** Les critiques du secteur pointent toutes que
+la calibration se dégrade après quelques semaines et que les recommandations ne correspondent
+pas au niveau réel. **C'est exactement la méta-règle du praticien assidu** — et personne
+d'autre n'en fait une contrainte de conception.
+
+**3. L'historique complet.** Le gratuit d'Epilog est limité à **21 jours d'historique**.
+Toute la valeur de TrainHub est dans les trois ans de données.
+
+### Ce qu'ils ont et que TrainHub n'a pas
+
+Tempo · mesures corporelles et photos · synchronisation santé · animations d'exercices · app
+iOS native. Le circuit training HIIT/AMRAP aussi, mais il est **hors cible**.
+
+> **Ne pas courir après Epilog sur le carnet — le niveau y est déjà.** Le chantier 1, « le
+> moteur parle », est ce qui met dans une case où personne n'est. **Tout ce qui le retarde
+> retarde la seule vraie différence.**
+
+---
+
+## 2 nonies. Ouvrir l'app à d'autres — plan arrêté le 15/09/2026
+
+Le cadrage disait « personne n'utilise l'app pendant les travaux ». **Cette phase se termine.**
+
+### Pourquoi ouvrir
+
+**Tous les défauts sérieux de la semaine ont été trouvés sur device, pas par les tests** — six
+séries perdues, la suppression qui se défaisait, le déplacement bloqué. Aucun banc ne les
+avait vus. D'autres utilisateurs réels trouveront en deux semaines ce qui prendrait deux mois.
+
+Et ça débloque le chantier **fatigue / repos**, qui attend des séances avec un vrai
+`validee_a` — c'est-à-dire saisies dans l'app, pas importées.
+
+> ⚠️ **C'est une porte à sens unique.** Dès qu'un tiers saisit une séance, on ne peut plus
+> casser librement : les migrations demandent des précautions, et le droit de tout reprendre
+> disparaît. C'est le prix, il est réel.
+
+### Ce qui doit être fini AVANT
+
+| | Pourquoi |
+|---|---|
+| **Chantier 36** — D5, D6, D7 | Trois chemins vers une file **définitivement bloquée**. L'utilisateur perd sa séance et tout ce qui suit, sans comprendre pourquoi |
+| **D9** — charge de chauffe écrite comme travail | Chez soi c'est réparable ; chez un tiers, personne ne s'en aperçoit et la donnée fausse nourrit le palier |
+| **Une sauvegarde** | ⚠️ **Le point le plus important.** L'export Hevy du projet est un filet pour les séances **importées** uniquement — il a servi le 15/09 à restaurer la séance du 21/08. **Il ne couvrira jamais une séance saisie dans l'app.** Sans export ou sauvegarde, une erreur devient définitive |
+
+### L'ordre d'ouverture
+
+**1. Alexis d'abord, seul.** Sur Android comme aurel_br — la variable iPhone est éliminée du
+premier tour. Compte vérifié le 15/09 : authentification en place, e-mail confirmé, dernière
+connexion le 09/05, 138 séances et 3 045 séries importées.
+
+> ⚠️ **Alexis a 0 routine.** Son premier écran sera donc la **création de routine** — celui
+> qui a le plus de points ouverts (menu trois points, dossiers, suppression vs archivage).
+> À traiter avant, ou à accompagner.
+
+**2. Puis Jordan** (Android également).
+
+**3. Léa et Mélodie ensuite — iPhone.** ⚠️ **Tester l'installation PWA sur iOS soi-même
+avant d'envoyer le lien** : l'installation diffère et le service worker ne se comporte pas
+pareil. Mélodie ne s'est jamais connectée.
+
+### Ce qu'il faut leur dire
+
+> **« C'est un carnet, pas encore un coach. »**
+>
+> S'ils attendent le coaching et trouvent un journal, ils compareront à Hevy et l'app perdra.
+> S'ils attendent un carnet français rapide, ils l'ont déjà.
+
+**Les politiques d'accès ont été vérifiées le 15/09** : strictement propriétaires sur toutes
+les tables (`user_id = auth.uid()`), catalogue d'exercices partagé quand `proprietaire IS
+NULL`. Chacun ne voit que ses données. **Jamais éprouvé à deux utilisateurs simultanés** en v2.
+
+---
+
+## 2 octies. L'audit du 14/09/2026 est la liste à dépiler
+
+Un audit exhaustif en lecture seule a confronté le dépôt aux specs pendant la nuit du 13 au 14
+septembre : 8 specs, 19 fichiers, 25 suites, 3 bancs, 4 bancs Python, la base en agrégat.
+
+> **`AUDIT-2026-09-14.md` est le document de référence des défauts connus.** Chaque entrée
+> porte son état. **Un défaut corrigé se barre, il ne disparaît pas** — sa trace explique
+> pourquoi le code est comme il est.
+
+**Ce que l'audit a établi et qui vaut plus que la liste :**
+
+- **un fil rouge** — le code écrivait plus de colonnes qu'il n'en relisait, et les faux
+  serveurs ignoraient la liste `select`, ce qui rendait toute cette famille **structurellement
+  invisible aux bancs**. Refermé au chantier 34 ;
+- **une régression du chantier 33** dénoncée par son propre auteur, dans le même rapport ;
+- **deux affirmations d'agents vérifiées fausses** et écartées plutôt que reprises.
+
+> **Le §2 sexies protège contre une correction annulée qui revient. Le risque symétrique est
+> une spec qui n'est pas rebasculée quand le code avance** — l'audit a trouvé quatre sections
+> dans cet état, corrigées le 14/09.
+
+**Deux limites à garder en tête** : rien n'a été vérifié sur appareil, et les CSV Hevy ne sont
+pas au dépôt — la parité JS/Python du palier est établie sur des cas **synthétiques**.
+
+---
+
 ## 2 undecies. Câbler, jamais dupliquer — doctrine posée le 15/09/2026
 
 > **Le principal, pour un correctif comme pour une fonctionnalité : ne pas créer du neuf à

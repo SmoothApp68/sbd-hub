@@ -160,12 +160,25 @@
   //
   // Aucun groupe n'est tronqué au passage : le chiffre de trop n'entre pas,
   // rien n'est silencieusement perdu.
-  function poserChiffreDuree(chiffres, chiffre) {
+  //
+  // ⚠️ `max` EST LA BORNE DE L'APPELANT, ET IL N'Y EN A TOUJOURS QU'UNE. Le
+  // repos cible d'une routine est contraint à 1 800 s par `routine_exos_repos_borne`
+  // (chantier 42) : lui laisser 9:59:59 lui ferait produire une valeur que la
+  // base refuse, c'est-à-dire exactement le piège que ce commentaire décrit, un
+  // cran plus loin. Absent, on retombe sur la borne du chronomètre de séance —
+  // aucun appelant existant ne change de comportement.
+  //
+  // La borne du BAS ne se pose PAS ici, et ce n'est pas un oubli : pour écrire
+  // 0:45 il faut passer par 0:04, qui est sous le minimum. Un pavé qui refuse
+  // ses états de passage est un pavé où l'on ne peut rien taper. Le minimum est
+  // donc affaire de `valider()`, au moment de l'enregistrement.
+  function poserChiffreDuree(chiffres, chiffre, max) {
     var courant = String(chiffres === null || chiffres === undefined ? '' : chiffres);
     var c = String(chiffre).replace(/\D/g, '');
     if (c.length !== 1) return courant;
+    var plafond = (max === null || max === undefined) ? MAX_DUREE_S : max;
     var suite = sansZerosDeTete(courant + c);
-    return dureeDeChiffres(suite) > MAX_DUREE_S ? courant : suite;
+    return dureeDeChiffres(suite) > plafond ? courant : suite;
   }
 
   // Effacer retire le dernier chiffre, par la droite — geste inverse exact.

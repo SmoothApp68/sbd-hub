@@ -1391,6 +1391,90 @@ Une **pastille sur l'onglet Saisie** l'accompagne dans les deux cas.
 
 ---
 
+## 7 quaterdecies. L'éditeur de routine — reps et repos sur la carte
+
+Constaté sur device le 15/09/2026, après le chantier 41. **Livré au chantier 42 (16/09/2026).**
+
+> **« C'est moins intuitif qu'avant de faire une routine. »**
+
+### 7 quaterdecies.1 Les reps visées se saisissent sur la carte
+
+Aujourd'hui il faut **ouvrir la feuille des paramètres** pour remplir un champ qu'on remplit
+toujours. C'est un geste de trop sur le geste le plus fréquent de l'écran.
+
+> **Le champ des reps visées vit sur la carte, à côté des séries.** La feuille garde ce qui est
+> occasionnel.
+
+Borne inchangée : `routine_exos_reps_bornees` — NULL, ou entre 1 et 100.
+
+> **CE QUE LA CARTE AFFICHE EST CE QUE LA BASE RECEVRA** — la leçon de la mutation M7 du
+> chantier 41, généralisée aux trois réglages.
+>
+> `series` est **NOT NULL** : une valeur hors bornes s'affiche **ramenée dans la plage**
+> (21 → 20), parce que `serieBornee` n'a pas d'autre issue. `reps_visees` et `repos_cible_s`
+> sont **NULLABLES** : une valeur hors bornes s'affiche **vide**, parce que c'est `null` que
+> `normaliserExercice` écrirait. Afficher le plafond montrerait un nombre que personne n'a
+> saisi et que la base ne verra jamais.
+
+### 7 quaterdecies.2 Le repos se saisit en mm:ss, pas en secondes
+
+**C'est une régression de notre fait**, et l'exemple type de la doctrine du câblage
+(`CADRAGE-V2` §2 undecies) :
+
+> **Le pavé de décalage existe depuis le chantier 25** (§3 ter.2 bis). `1` `3` `0` → `1:30`.
+> L'éditeur de routine ne l'appelle pas et demande des **secondes brutes**.
+
+Personne ne pense « 90 secondes », tout le monde pense « une minute trente ». La règle existe,
+elle n'a simplement pas été branchée.
+
+Borne inchangée : `routine_exos_repos_borne`, 5 à 1800 s.
+
+> **LA BORNE S'APPLIQUE À DEUX ENDROITS, ET CE N'EST PAS UNE DUPLICATION.**
+>
+> Le **haut** se refuse à la frappe : `poserChiffreDuree` reçoit 1 800 s comme plafond, donc le
+> chiffre qui ferait dépasser 30:00 n'entre pas. On n'a jamais besoin de passer par 40:00 pour
+> écrire 30:00.
+>
+> Le **bas** ne le peut pas : pour taper `0:45` il faut passer par `0:04`, qui est sous le
+> minimum. Un pavé qui refuse ses états de passage est un pavé où l'on ne peut rien taper. Le
+> minimum est donc affaire de `valider()`, à l'enregistrement — et son message parle en mm:ss.
+
+Les heures ne s'affichent jamais ici : `formatChrono` n'écrit le groupe des heures qu'au-delà
+de l'heure, et la borne haute est à 30 minutes.
+
+### 7 quaterdecies.3 Écarté — la fourchette de reps
+
+Piste proposée puis abandonnée le 15/09 : saisir « 8 à 12 » plutôt qu'un nombre.
+
+> **Une fourchette est une prescription, et la cible de reps appartient au moteur.** Deux
+> sources pour la même décision — si la routine dit 8-12 et que le moteur calcule autre chose,
+> aucune règle ne dit lequel gagne.
+
+C'est la doctrine du câblage appliquée à une fonctionnalité plutôt qu'à du code. Et ça
+demanderait une migration : `reps_visees` est un entier simple.
+
+**Ne pas reproposer.** Si le besoin revient, il se traitera avec le moteur (chantier 1), pas
+dans l'éditeur.
+
+---
+
+## 7 terdecies bis. Le glissement tactile — son propre chantier
+
+Demandé le 15/09 : **« il faut pouvoir gérer les déplacements au doigt, pas qu'ici, mais en
+général »**. Légitime — monter et descendre par boutons est plus lent qu'un glissement.
+
+> **À traiter seul, jamais glissé dans un lot.**
+>
+> C'est la famille de geste qui a coûté **trois chantiers** sur le bouton retour. Et le §5.3 le
+> mesure : à 360 px, deux poignées de glissement — l'une déplaçant six lignes, l'autre une
+> seule — **se confondent au pouce**. Le glissement latéral de suppression est déjà en place et
+> entre en conflit potentiel avec le défilement vertical.
+
+Périmètre le jour venu : l'éditeur de routine **et** le mode Modifier de la séance — les deux
+replient leurs blocs et posent le même problème.
+
+---
+
 ## 7 undecies. Distinguer les chauffes et séparer les tours — arrêté le 13/09/2026
 
 Constaté sur device : dans un superset, `Ac` et `A1` se ressemblent trop. **La chauffe doit se

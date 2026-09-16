@@ -90,7 +90,8 @@ const nommer = (slug) => ({ a: 'Squat (Barre)', b: 'Curl', c: 'Planche' }[slug] 
 
 const rendreListe = (liste, vue) => {
   const cible = document.createElement('div');
-  Rendu().rendreExosRoutine(cible, liste, nommer, Object.assign({ surMenu: () => {} }, vue));
+  Rendu().rendreExosRoutine(cible, liste, nommer, Object.assign(
+    { surMenu: () => {}, surChamp: () => {}, surParametres: () => {} }, vue));
   return cible;
 };
 
@@ -105,8 +106,6 @@ describe('⚠️ la carte de l’éditeur : un menu, et ce que la routine prescr
     // « grouper avec le suivant » entre chaque paire.
     expect(c.querySelectorAll('.geste').length).toBe(0);
     expect(c.querySelectorAll('.lien-superset').length).toBe(0);
-    // Et plus aucun champ de saisie sur la carte : ils sont dans la feuille.
-    expect(c.querySelectorAll('input').length).toBe(0);
   });
 
   test('le menu s’ouvre sur l’exercice qu’on a touché, pas sur un autre', () => {
@@ -116,18 +115,45 @@ describe('⚠️ la carte de l’éditeur : un menu, et ce que la routine prescr
     expect(vus).toEqual([0, 1, 2]);
   });
 
-  // 8. La carte montre séries, reps et repos.
-  test('la carte dit ce que la routine PRESCRIT', () => {
+  // §7 quaterdecies.1 — LES DEUX CHAMPS QU'ON REMPLIT TOUJOURS SONT SUR LA CARTE.
+  test('la carte porte séries et reps visées, saisissables sans ouvrir la feuille', () => {
     const c = rendreListe([exo('a')]);
-    expect(c.querySelector('.exo-routine-dit').textContent)
-      .toBe('3 séries × 8 reps · repos 1:30');
+    expect([...c.querySelectorAll('.exo-routine-champs .champ-lib')].map((x) => x.textContent))
+      .toEqual(['Séries', 'Reps visées']);
+    expect([...c.querySelectorAll('.exo-routine-champs input')].map((i) => i.value))
+      .toEqual(['3', '8']);
   });
 
-  test('une série unique s’accorde, et ce qui n’est pas renseigné est un tiret', () => {
+  test('le repos se LIT sur la carte, au même bouton qu’en séance', () => {
+    const c = rendreListe([exo('a')]);
+    expect(c.querySelector('.repos-cible').textContent).toBe('repos 1:30');
+    const sans = rendreListe([Object.assign(exo('a'), { repos_cible_s: null })]);
+    expect(sans.querySelector('.repos-cible').textContent).toBe('repos —');
+  });
+
+  test('un appui sur le repos ouvre la feuille, sans passer par le menu', () => {
+    const vus = [];
+    const c = rendreListe([exo('a'), exo('b')], { surParametres: (i) => vus.push(i) });
+    [...c.querySelectorAll('.repos-cible')].forEach((b) => b.click());
+    expect(vus).toEqual([0, 1]);
+  });
+
+  test('ce qui n’est pas renseigné reste vide, avec un tiret en fantôme', () => {
     const c = rendreListe([Object.assign(exo('a'),
       { series: 1, reps_visees: null, repos_cible_s: null })]);
-    expect(c.querySelector('.exo-routine-dit').textContent)
-      .toBe('1 série × — · repos —');
+    const champs = [...c.querySelectorAll('.exo-routine-champs input')];
+    expect(champs.map((i) => i.value)).toEqual(['1', '']);
+    expect(champs[1].getAttribute('placeholder')).toBe('—');
+  });
+
+  test('la saisie sur la carte MUTE sans redessiner', () => {
+    const vus = [];
+    const c = rendreListe([exo('a')], { surChamp: (i, champ, val) => vus.push(i + ':' + champ + '=' + val) });
+    const champs = [...c.querySelectorAll('.exo-routine-champs input')];
+    champs[1].value = '12';
+    champs[1].dispatchEvent(new window.Event('input'));
+    expect(vus).toEqual(['0:reps_visees=12']);
+    expect([...c.querySelectorAll('.exo-routine-champs input')][1]).toBe(champs[1]);
   });
 
   test('le superset garde son signe : lettres et liseré, comme en séance', () => {
@@ -210,14 +236,14 @@ describe('⚠️ les paramètres, dans une feuille — trois champs, jamais quat
   test('séries, reps visées, repos — et AUCUN champ de charge', () => {
     const c = feuille();
     expect([...c.querySelectorAll('.champ-lib')].map((x) => x.textContent))
-      .toEqual(['Séries', 'Reps visées', 'Repos (s)']);
+      .toEqual(['Séries', 'Reps visées', 'Repos cible']);
     expect(c.textContent).not.toMatch(/charge|kg|poids/i);
   });
 
-  test('les champs portent les bornes de la base, pas des bornes inventées', () => {
-    const inputs = [...feuille().querySelectorAll('input')];
+  test('les deux champs numériques portent les bornes de la base', () => {
+    const inputs = [...feuille().querySelectorAll('input[type="number"]')];
     expect(inputs.map((i) => i.getAttribute('min') + '-' + i.getAttribute('max')))
-      .toEqual(['1-20', '1-100', '5-1800']);
+      .toEqual(['1-20', '1-100']);
   });
 
   test('une valeur absente reste vide, avec un tiret en fantôme', () => {
@@ -343,15 +369,12 @@ describe('⚠️ le mode Modifier de la séance garde ses deux flèches', () => 
 // séance savait en produire, chantier 36) affichait donc « 0 série » alors que
 // `serieBornee` en enverra 1. Deux voix pour un seul nombre.
 describe('⚠️ la carte affiche ce qui PARTIRA, pas ce qui traîne dans la ligne', () => {
-  test.each([[0, '1 série'], [21, '20 séries'], [3, '3 séries']])(
+  test.each([[0, '1'], [21, '20'], [3, '3']])(
     'series à %s s’affiche « %s » — le même entonnoir que l’écriture',
     (series, attendu) => {
-      const cible = document.createElement('div');
-      Rendu().rendreExosRoutine(cible, [Object.assign(exo('a'), { series })],
-        nommer, { surMenu: () => {} });
-      expect(cible.querySelector('.exo-routine-dit').textContent)
-        .toBe(attendu + ' × 8 reps · repos 1:30');
+      const c = rendreListe([Object.assign(exo('a'), { series })]);
+      expect(c.querySelectorAll('.exo-routine-champs input')[0].value).toBe(attendu);
       // Et c'est bien la valeur que la ligne enverra.
-      expect(Routines.serieBornee(series)).toBe(parseInt(attendu, 10));
+      expect(Routines.serieBornee(series)).toBe(Number(attendu));
     });
 });

@@ -1195,7 +1195,11 @@
   // valeur au rendu suivant. Le détail qui l'impose est dans `modele.js` —
   // « 6350 » et « 10350 » valent la même durée mais ne se poursuivent pas
   // pareil au chiffre suivant.
-  function champChrono(classe, secondes, fantomeVal, surSaisie) {
+  // ⚠️ `options.max` ET `options.libelle` SONT FACULTATIFS. Sans eux, le pavé
+  // est exactement celui du chantier 25 — c'est ce qui permet à l'éditeur de
+  // routine de l'appeler au lieu d'en écrire un second (§7 quaterdecies.2).
+  function champChrono(classe, secondes, fantomeVal, surSaisie, options) {
+    var o = options || {};
     var vide = secondes === null || secondes === undefined;
     var enveloppe = el('div', classe + ' chrono' + (vide && fantomeVal !== null &&
       fantomeVal !== undefined ? ' fantome' : ''));
@@ -1204,7 +1208,7 @@
     // `numeric` et non `decimal` : il n'y a ni virgule ni point à taper ici, et
     // un clavier qui les propose invite à une saisie que le champ refusera.
     input.inputMode = 'numeric';
-    input.setAttribute('aria-label', 'Durée, en heures, minutes et secondes');
+    input.setAttribute('aria-label', o.libelle || 'Durée, en heures, minutes et secondes');
     input.dataset.chiffres = M().chiffresDeDuree(vide ? null : secondes);
     input.value = vide ? '' : M().formatChrono(secondes);
     if (vide && fantomeVal !== null && fantomeVal !== undefined) {
@@ -1265,7 +1269,7 @@
       // Un clavier peut livrer plusieurs caractères d'un coup : on les pose un
       // par un, dans l'ordre, exactement comme s'ils étaient tapés.
       for (var i = 0; i < texte.length; i++) {
-        var apres = M().poserChiffreDuree(suite, texte[i]);
+        var apres = M().poserChiffreDuree(suite, texte[i], o.max);
         if (apres !== suite) pose = true;
         suite = apres;
       }
@@ -2309,25 +2313,44 @@
         function () { v.surMenu(i); }));
       carte.appendChild(haut);
 
-      // Ce que la routine prescrit, en clair. Ce qui n'est pas renseigné
-      // s'écrit en tiret cadratin, comme en séance : ce n'est pas un zéro.
-      carte.appendChild(el('div', 'exo-routine-dit', texteReglages(e)));
+      // ⚠️ SÉRIES ET REPS VISÉES SE SAISISSENT ICI (§7 quaterdecies.1). Ce sont
+      // les deux champs qu'on remplit TOUJOURS : les envoyer dans une feuille
+      // ajoutait un geste au geste le plus fréquent de l'écran. La feuille
+      // garde ce qui est occasionnel.
+      var champs = el('div', 'exo-routine-champs');
+      champs.appendChild(champNombre('Séries', valeurEcrite(e, 'series'),
+        { min: R().SERIES_MIN, max: R().SERIES_MAX },
+        function (val) { v.surChamp(i, 'series', val); }));
+      champs.appendChild(champNombre('Reps visées', valeurEcrite(e, 'reps_visees'),
+        { min: R().REPS_MIN, max: R().REPS_MAX, placeholder: '—' },
+        function (val) { v.surChamp(i, 'reps_visees', val); }));
+      // Le repos est occasionnel : il se LIT ici et se règle dans la feuille.
+      // Même bouton, même libellé et même tiret qu'en séance (`reglagesExo`) —
+      // la même chose se touche au même endroit sur les deux écrans.
+      var repos = valeurEcrite(e, 'repos_cible_s');
+      var bRepos = el('button', 'repos-cible num',
+        'repos ' + (repos ? mmss(repos) : '—'));
+      bRepos.type = 'button';
+      bRepos.setAttribute('aria-label', 'Repos cible de ' + nommer(e.exercise_slug));
+      bRepos.addEventListener('click', function () { v.surParametres(i); });
+      champs.appendChild(bRepos);
+      carte.appendChild(champs);
       cible.appendChild(carte);
     });
   }
 
-  // « 3 séries × 8 reps · repos 1:30 ». Les reps visées et le repos sont
-  // facultatifs : ce qui n'est pas renseigné ne s'invente pas.
-  function texteReglages(e) {
-    // ⚠️ LE MÊME ENTONNOIR QUE L'ÉCRITURE, PAS UNE LECTURE À CÔTÉ. `serieBornee`
-    // est ce qui PART en base (chantier 36) : une routine qui porte `series: 0`
-    // — le report de fin de séance savait en produire — s'enverra à 1. Lire
-    // `series` brut ici afficherait « 0 série » pour une ligne qui en écrira 1,
-    // c'est-à-dire deux voix pour un seul nombre.
-    var n = R().serieBornee(e && e.series);
-    return n + ' série' + (n > 1 ? 's' : '') +
-      ' × ' + (e && e.reps_visees ? e.reps_visees + ' reps' : '—') +
-      ' · repos ' + (e && e.repos_cible_s ? mmss(e.repos_cible_s) : '—');
+  // ⚠️ CE QUI SERA ÉCRIT, JAMAIS LA VALEUR BRUTE. C'est la leçon de la mutation
+  // M7 du chantier 41, généralisée aux trois réglages : afficher un nombre que
+  // la base ne recevra pas, c'est deux voix pour un seul chiffre.
+  //
+  // `series` est NOT NULL, donc ramenée dans la plage ; `reps_visees` et
+  // `repos_cible_s` sont NULLABLES, donc une valeur hors bornes s'affiche VIDE —
+  // pas ramenée au plafond. Un plafond serait un nombre que personne n'a saisi
+  // et que la base ne verra jamais.
+  function valeurEcrite(e, champ) {
+    if (champ === 'series') return R().serieBornee(e && e.series);
+    if (champ === 'reps_visees') return R().repsEcrites(e && e.reps_visees);
+    return R().reposEcrit(e && e.repos_cible_s);
   }
 
   // ⚠️ LE MENU D'UN EXERCICE DE ROUTINE — les six gestes du §7 duodecies.2, et
@@ -2368,16 +2391,30 @@
     cible.appendChild(t);
 
     var champs = el('div', 'feuille-champs');
-    champs.appendChild(champNombre('Séries', vue.exercice.series,
+    champs.appendChild(champNombre('Séries', valeurEcrite(vue.exercice, 'series'),
       { min: R().SERIES_MIN, max: R().SERIES_MAX },
       function (val) { vue.surChamp('series', val); }));
-    champs.appendChild(champNombre('Reps visées', vue.exercice.reps_visees,
+    champs.appendChild(champNombre('Reps visées', valeurEcrite(vue.exercice, 'reps_visees'),
       { min: R().REPS_MIN, max: R().REPS_MAX, placeholder: '—' },
       function (val) { vue.surChamp('reps_visees', val); }));
-    champs.appendChild(champNombre('Repos (s)', vue.exercice.repos_cible_s,
-      { min: R().REPOS_MIN, max: R().REPOS_MAX, placeholder: '—' },
-      function (val) { vue.surChamp('repos_cible_s', val); }));
     cible.appendChild(champs);
+
+    // ⚠️ LE PAVÉ DE DÉCALAGE, PAS UN CHAMP DE SECONDES (§7 quaterdecies.2).
+    // `1` `3` `0` donne `1:30`. Il existe depuis le chantier 25 (§3 ter.2 bis) ;
+    // l'éditeur de routine ne l'appelait pas et demandait des secondes brutes —
+    // personne ne pense « 90 secondes ». Le stockage, lui, ne change pas : la
+    // colonne reste en secondes, le décalage est une interface.
+    //
+    // Sa borne est celle de la base — 1 800 s — donc les heures n'apparaissent
+    // jamais ici : `formatChrono` ne les écrit qu'au-delà de l'heure.
+    var repos = el('label', 'champ-num champ-repos');
+    repos.appendChild(el('span', 'champ-lib', 'Repos cible'));
+    repos.appendChild(champChrono('', valeurEcrite(vue.exercice, 'repos_cible_s'), null,
+      function (val) { vue.surChamp('repos_cible_s', val); },
+      { max: R().REPOS_MAX, libelle: 'Repos cible, en minutes et secondes' }));
+    cible.appendChild(repos);
+    cible.appendChild(el('p', 'feuille-aide',
+      'De 0:05 à 30:00, ou vide. Les chiffres entrent par la droite : 1 3 0 donne 1:30.'));
 
     var b = el('button', 'principal', 'Terminé');
     b.type = 'button';

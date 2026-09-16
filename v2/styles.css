@@ -554,15 +554,24 @@ button.bloc-exo:active{background:var(--panneau-2)}
    à gauche, et les lettres A/B/C. */
 .exo-routine.groupe{border-left:3px solid var(--texte-3)}
 
-/* Ce que la routine PRESCRIT, en clair, à la place des trois champs de saisie :
-   « 3 séries × 8 reps · repos 1:30 ». C'est la place que le bouton occupait. */
-.exo-routine-dit{font-size:12px;line-height:1.4;color:var(--texte-2);
-  margin-top:6px;font-variant-numeric:tabular-nums}
+/* ── §7 quaterdecies.1 — CE QU'ON REMPLIT TOUJOURS EST SUR LA CARTE ────────
+   Séries et reps visées se saisissent ici ; le repos, occasionnel, s'y LIT et
+   se règle dans la feuille. Le bouton de repos est celui de la séance, au même
+   libellé — la même chose se touche au même endroit sur les deux écrans. */
+.exo-routine-champs{display:flex;align-items:flex-end;gap:var(--e2);margin-top:var(--e2)}
+.exo-routine-champs .champ-num{flex:1 1 0;min-width:0}
+.exo-routine-champs .repos-cible{height:38px;padding:0 var(--e3);
+  border:1px solid var(--trait);border-radius:var(--r-petit);
+  background:transparent;color:var(--texte-2);font:500 12px/1 inherit;
+  font-family:inherit}
+.exo-routine-champs .repos-cible:active{border-color:var(--texte-2);color:var(--texte)}
 
-/* Les trois réglages, dans une feuille. Il n'y en a pas un quatrième : la
-   routine ne porte AUCUNE charge. */
-.feuille-champs{display:grid;grid-template-columns:1fr 1fr 1fr;
+/* Les réglages de la feuille. Il n'y a pas de quatrième champ : la routine ne
+   porte AUCUNE charge. Le repos est en dessous, en pleine largeur — le pavé de
+   décalage se tape, il ne se partage pas une colonne sur trois. */
+.feuille-champs{display:grid;grid-template-columns:1fr 1fr;
   gap:var(--e2);margin-bottom:var(--e3)}
+.champ-repos{display:block;margin-bottom:var(--e2)}
 .champ-num{display:block}
 .champ-lib{display:block;font-size:10.5px;color:var(--texte-3);
   margin-bottom:var(--e1);font-weight:600}

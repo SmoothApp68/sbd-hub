@@ -153,6 +153,19 @@
 
   function nulSiHorsBornes(r) { return r && r.ok ? r.valeur : null; }
 
+  // ⚠️ CE QUI SERA ÉCRIT, NOMMÉ UNE FOIS. `normaliserExercice` composait ces
+  // deux expressions et l'écran en composait d'autres : la carte pouvait donc
+  // afficher un nombre que la base ne recevrait jamais. C'est le défaut trouvé
+  // par la mutation M7 au chantier 41, sur les séries ; les deux colonnes
+  // NULLABLES tombent dans le même piège, et pour la même raison.
+  //
+  // Une valeur hors bornes rend `null` — PAS le plafond : `reps_visees` et
+  // `repos_cible_s` acceptent NULL, et « non renseigné » est plus honnête
+  // qu'un nombre que personne n'a saisi. `series`, elle, est NOT NULL : c'est
+  // pour ça, et seulement pour ça, que `serieBornee` ramène dans la plage.
+  function repsEcrites(v) { return nulSiHorsBornes(repsValides(v)); }
+  function reposEcrit(v) { return nulSiHorsBornes(reposValide(v)); }
+
   // Valide une routine complète avant écriture. Rend la liste des problèmes,
   // pas un booléen : l'écran doit pouvoir dire LEQUEL est en cause.
   function valider(brouillon, routines) {
@@ -298,8 +311,8 @@
       exercise_slug: (e && e.exercise_slug) || null,
       rang: rang,
       series: serieBornee(e && e.series),
-      reps_visees: nulSiHorsBornes(repsValides(e && e.reps_visees)),
-      repos_cible_s: nulSiHorsBornes(reposValide(e && e.repos_cible_s)),
+      reps_visees: repsEcrites(e && e.reps_visees),
+      repos_cible_s: reposEcrit(e && e.repos_cible_s),
       groupe_superset: groupeValide(e && e.groupe_superset),
       note: texteOuNul(e && e.note)
     };
@@ -605,6 +618,8 @@
     seriesValides: seriesValides,
     serieBornee: serieBornee,
     nulSiHorsBornes: nulSiHorsBornes,
+    repsEcrites: repsEcrites,
+    reposEcrit: reposEcrit,
     repsValides: repsValides,
     reposValide: reposValide,
     valider: valider,

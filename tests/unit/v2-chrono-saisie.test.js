@@ -21,6 +21,7 @@ require('../../v2/js/modele.js');
 require('../../v2/js/rendu.js');
 const Modele = require('../../v2/js/modele.js');
 const Seance = require('../../v2/js/seance.js');
+const { progTravail } = require('./aide-routine-programmee.js');
 
 const Rendu = () => window.THRendu;
 
@@ -64,7 +65,7 @@ function seanceDe(slugs) {
   return Seance.creer({
     id: 'S', userId: 'u', idSerie: uuid,
     routine: { id: 'r', exercices: slugs.map((slug) => (
-      { exercise_slug: slug, series: 1, reps_visees: null, repos_cible_s: null })) }
+      { exercise_slug: slug, series: progTravail(1, null), repos_cible_s: null })) }
   });
 }
 

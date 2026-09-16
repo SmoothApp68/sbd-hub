@@ -1458,6 +1458,122 @@ dans l'éditeur.
 
 ---
 
+## 7 quindecies. L'éditeur de routine EST l'écran de séance
+
+> ⚠️ **Section écrite par Claude Code au chantier 43, d'après l'énoncé du chantier et la
+> maquette `93deb7e1`.** Si la formulation d'Aurélien diffère, c'est la sienne qui fait foi —
+> celle-ci en est la transcription fidèle, pas un deuxième avis.
+
+### 7 quindecies.1 La règle
+
+> **L'éditeur de routine est l'écran de séance, moins deux colonnes : `précédent` et la coche.
+> Rien d'autre ne change.**
+
+Même bloc, même note sous le nom, même bouton de repos, même badge de chauffe, même
+entrelacement en superset, même menu ⋮, même « + Série ».
+
+Conséquence de code, et elle n'est pas négociable : **l'éditeur APPELLE le rendu de la séance,
+il n'en écrit pas un second.** `Rendu.rendreBlocsSeance`, avec `vue.programme = true`. S'il
+existe une seconde `construireBlocs`, un second rendu de ligne, un second pavé de
+chronométrage ou un second badge de chauffe, le chantier est raté — c'est le §2 undecies du
+CADRAGE appliqué à un écran entier.
+
+Ce que ça **supprime** :
+
+| Parti | Pourquoi |
+|---|---|
+| Le champ « nombre de séries » | On n'écrit plus « 3 », on ajoute trois lignes — comme en séance. |
+| La feuille des paramètres | Tout se tape sur la ligne. C'est la réponse à « c'est moins intuitif qu'avant ». |
+| L'entrée de menu « Modifier les paramètres » | Elle n'ouvrirait plus qu'un réglage qui a déjà son bouton sous le nom. |
+
+Ce que ça **permet**, et qu'on ne pouvait pas : une charge cible par série · des reps
+différentes par série (5, 5, puis 3) · **des échauffements programmés** (20, 60, 100), qui
+n'existaient tout simplement pas dans une routine.
+
+### 7 quindecies.2 Les trois colonnes qui tombent
+
+`PRÉC.` dit ce qui a été fait la fois d'avant ; la coche dit ce qui vient d'être fait. Deux
+observations — et **une routine n'observe rien**. `EFFORT` tombe avec elles, pour la même
+raison et parce que `routine_sets` n'a pas de colonne où le mettre.
+
+**Le fantôme tombe aussi.** En séance il propose la valeur de la fois d'avant, en gris, pour
+qu'on valide sans rien taper (§3 bis.3). Dans l'éditeur, ce qu'on tape EST la prescription :
+une valeur grise s'y lirait comme une valeur déjà programmée, et « champ vide » ne se
+distinguerait plus de « 125 kg ».
+
+Les 142 px libérés vont aux champs qu'on remplit : sur `charge_reps`, la case des kg passe de
+79 à ~160 px.
+
+**Et le menu ⋮ reste unique par exercice.** Les cinq gestes de l'éditeur portent tous sur un
+EXERCICE. Sur un bloc d'un seul, bloc et exercice sont le même objet : le menu du bloc suffit.
+Sur un superset, il n'y a **pas** de menu de bloc — sinon la branche A en aurait deux, et le
+bloc aucun. C'est le pendant exact de la règle de la séance, qui ne donne un menu d'exercice
+QUE dans un bloc à plusieurs : les deux se complètent sans jamais se recouvrir.
+
+**Le tour ne s'affiche pas non plus.** Un superset annonce sa structure — « Superset · 2
+tours » — jamais « tour 0/2 », qui annoncerait un retard sur un entraînement qui n'a pas
+commencé.
+
+> ⚠️ **Et le nom de l'exercice n'est pas tapable — écart assumé.** En séance, un tap ouvre la
+> page de l'exercice (§2.8) et la séance survit : elle est persistée. Le brouillon d'une
+> routine ne l'est pas — quitter l'éditeur et revenir le refabrique depuis la routine chargée,
+> donc le tap coûterait une routine en cours d'édition, sans un mot. Le nom reste du texte tant
+> que le brouillon n'est pas tenu au travers d'une navigation. C'est un chantier, pas une ligne.
+
+### 7 quindecies.3 La charge cible — ce qu'elle est, et ce qu'elle n'est pas
+
+`routine_sets.charge_cible_kg` existe, et l'éditeur la saisit. **C'est une CIBLE, facultative,
+qui ne prime JAMAIS sur le moteur.** L'invariant « la routine ne porte aucune charge » se
+précise, il ne se relâche pas : ce qui reste interdit, c'est une charge **observée**
+(`charge_kg`, un poids, un RM) — une valeur périmée dès qu'on progresse.
+
+> ⚠️ **Elle ne descend pas encore dans la séance, et c'est délibéré.** `Seance.creer` lit le
+> TYPE et les REPS VISÉES de chaque ligne ; la charge, non. Brancher une charge programmée sur
+> le fantôme la met en concurrence avec le moteur et avec la colonne `précédent` : c'est une
+> décision de coaching, elle passe par Gemini puis par Aurélien (CLAUDE.md §3), pas par un
+> chantier d'écran. **Question ouverte, la seule de ce chantier.**
+
+### 7 quindecies.4 Les deux détails repris de Hevy
+
+**Le repos se désactive**, exercice par exercice. À **NULL, jamais à zéro** :
+`routine_exos_repos_borne` refuse 0, et « 0:00 de repos » voudrait dire « enchaîne sans
+souffler » — une prescription. NULL dit « je n'en programme pas », ce qui est l'absence de
+prescription.
+
+> ⚠️ **Désactiver est un GESTE, pas une valeur.** « Je n'en veux pas » et « j'efface pour
+> retaper » rendent le même `null` au pavé. Seul le geste les sépare, donc c'est le geste qu'on
+> transmet — sans quoi vider le pavé pour corriger referme la feuille au premier effacement.
+> *(Défaut trouvé au banc, pas en test, le 16/09.)*
+
+**La note de routine et la note de séance sont deux choses.** Celle de la routine
+(`routine_exercises.note`) revient à chaque réutilisation — c'est un rappel de technique. Celle
+de la séance reste sur la séance. L'éditeur n'édite que la première.
+
+### 7 quindecies.5 La carte de la bibliothèque
+
+« 3 séries × 8 reps » n'a plus de sens : les lignes d'un exercice ne sont plus identiques. La
+carte annonce donc **le volume de travail, et les chauffes à part** :
+
+> **6 exercices · 21 séries + 5 de chauffe**
+
+**« + », pas « dont ».** Le nombre annoncé est celui des séries de TRAVAIL
+(`THSemaine.compteSeriesTravail`, règle du volume comprise) ; les chauffes n'y sont pas, et
+« 26 séries dont 5 de chauffe » serait faux. Les additionner mélangerait deux comptes qui ne se
+filtrent pas pareil. Sans chauffe, la mention disparaît — on n'écrit pas « + 0 ».
+
+Une dégressive ne compte pas comme une série de travail : elle prolonge la précédente, elle
+n'en ouvre pas une nouvelle. C'est déjà la règle du badge (`nbTravail`), et la carte ne s'en
+invente pas une seconde.
+
+### 7 quindecies.6 Écarté
+
+**La fourchette de reps** (« 6 à 8 »), pour la raison du §7 quaterdecies.3 — c'est une
+prescription, et la cible de reps appartient au moteur. **Le glissement tactile**, pour celle du
+§7 terdecies bis — il a son propre chantier. **L'échauffement calculé**, les dossiers, le
+profil, la gamification : hors périmètre.
+
+---
+
 ## 7 terdecies bis. Le glissement tactile — son propre chantier
 
 Demandé le 15/09 : **« il faut pouvoir gérer les déplacements au doigt, pas qu'ici, mais en
@@ -1590,17 +1706,17 @@ carte : un bouton permanent pour un geste occasionnel.
 > points. Deux endroits qui font la même chose doivent se piloter pareil, sinon il faut
 > l'apprendre deux fois.
 
-Le menu porte : **grouper avec le suivant · dégrouper · monter · descendre · modifier les
-paramètres · supprimer**.
-
-**Bénéfice secondaire** : la carte libérée peut montrer ce qui compte — séries, reps visées,
-repos cible.
+Le menu porte : **grouper avec le suivant · dégrouper · monter · descendre · supprimer**.
 
 > **Livré au chantier 41.** Les quatre boutons permanents — monter, descendre, retirer, et le
-> lien entre chaque paire — ont disparu. La carte affiche
-> « 3 séries × 8 reps · repos 1:30 » ; les trois réglages se modifient dans une feuille, un
-> champ sous le pouce plutôt que trois sur une carte à 360 px. Ce qui n'a pas de sens sur une
-> carte donnée est **grisé**, pas absent : les entrées ne bougent pas d'une carte à l'autre.
+> lien entre chaque paire — ont disparu. Ce qui n'a pas de sens sur une carte donnée est
+> **grisé**, pas absent : les entrées ne bougent pas d'une carte à l'autre.
+>
+> ⚠️ **Le chantier 43 en a retiré une sixième.** « Modifier les paramètres » ouvrait une
+> feuille de trois champs ; séries et reps se tapent maintenant sur la LIGNE, et le repos a
+> son propre bouton sous le nom — le même qu'en séance. L'entrée aurait été un second chemin,
+> plus long, vers le même réglage. Et la « carte » elle-même a disparu : l'éditeur rend les
+> blocs de la séance (§7 quindecies).
 
 ### 7 duodecies.3 Les dossiers — une étiquette, pas une structure
 

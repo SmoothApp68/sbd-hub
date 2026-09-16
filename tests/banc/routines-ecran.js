@@ -61,7 +61,13 @@ const CATALOGUE = [
   // séance à moitié formée serait moins fidèle que pas de ligne du tout. Le
   // banc d'écran séance est l'endroit où `sessions` est complète. Ici, ce qu'on
   // mesure est ce que la SUPPRESSION leur fait — donc l'état du magasin.
-  const base = { routines: [], exos: [], sessions: [], sets: [], graine: 0, envois: [] };
+  //
+  // ⚠️ `routine_sets` EST ENTRÉE AU CHANTIER 43, et le banc DOIT la porter :
+  // sans elle, l'éditeur ne rend plus une seule ligne — il lit la structure
+  // là, pas dans `routine_exercises`. Un banc qui l'ignorerait mesurerait un
+  // écran vide et le trouverait conforme.
+  const base = { routines: [], exos: [], series: [], sessions: [], sets: [],
+                 graine: 0, envois: [] };
   const replie = (n) => String(n || '').trim().toLowerCase();
   const collisionRang = () => {
     const vus = new Set();
@@ -164,8 +170,16 @@ const CATALOGUE = [
       // invisibles CÔTÉ SERVEUR — la règle d'affichage du client n'était
       // jamais exercée. Depuis le §7 duodecies.1 elle a changé, et c'est ce
       // filtre-là qui l'aurait masqué.
+      // ⚠️ DEUX NIVEAUX D'IMBRICATION DEPUIS LE CHANTIER 43 :
+      // `routines → routine_exercises → routine_sets`. `projeterUne` descend
+      // déjà récursivement ; il fallait seulement que la donnée soit là.
       if (table === 'routines') return json(projeter(base.routines.map((r) =>
-        Object.assign({}, r, { routine_exercises: base.exos.filter((e) => e.routine_id === r.id) })), url));
+        Object.assign({}, r, {
+          routine_exercises: base.exos.filter((e) => e.routine_id === r.id).map((e) =>
+            Object.assign({}, e, {
+              routine_sets: base.series.filter((x) => x.routine_exercise_id === e.id)
+            }))
+        })), url));
       return json([]);
     }
     // ⚠️ LES SIX CHECK DE `routine_exercises`, ET LE NOM DE ROUTINE (ch. 34).
@@ -187,6 +201,28 @@ const CATALOGUE = [
       if (l.exercise_slug !== undefined && !l.exercise_slug) return 'routine_exercises.exercise_slug NOT NULL';
       if (l.exercise_slug !== undefined && !CATALOGUE.some((e) => e.slug === l.exercise_slug)) {
         return 'routine_exercises_exercise_slug_fkey';
+      }
+      return null;
+    };
+    // ⚠️ LES BORNES DE `routine_sets` NE SONT PAS CELLES DE LA TABLE PARENTE.
+    // Le rang y commence à **1**, là où celui d'un exercice accepte 0 — les
+    // confondre donne un 23514 à chaque première série, et c'est exactement le
+    // genre de refus DÉFINITIF qui bloque une file pour toujours (chantier 36).
+    const bornesSerie = (l) => {
+      if (!(l.rang >= 1)) return 'routine_sets_rang_positif';
+      if (['travail', 'echauffement', 'degressive', 'echec'].indexOf(l.type_serie) < 0) {
+        return 'routine_sets_type_serie';
+      }
+      if (l.reps_visees !== null && l.reps_visees !== undefined &&
+          !(l.reps_visees >= 1 && l.reps_visees <= 100)) return 'routine_sets_reps_bornees';
+      if (l.duree_cible_s !== null && l.duree_cible_s !== undefined &&
+          !(l.duree_cible_s >= 1 && l.duree_cible_s <= 35999)) return 'routine_sets_duree_bornee';
+      if (l.distance_cible_m !== null && l.distance_cible_m !== undefined &&
+          !(l.distance_cible_m >= 0 && l.distance_cible_m <= 100000)) return 'routine_sets_distance_bornee';
+      if (!l.routine_exercise_id) return 'routine_sets.routine_exercise_id NOT NULL';
+      if (!l.user_id) return 'routine_sets.user_id NOT NULL';
+      if (!base.exos.some((e) => e.id === l.routine_exercise_id)) {
+        return 'routine_sets_routine_exercise_id_fkey';
       }
       return null;
     };
@@ -221,6 +257,28 @@ const CATALOGUE = [
         return json({ code: '23505', message: 'duplicate key value violates unique constraint "routine_exos_rang_uniq"' }, 409); }
       return json(ajout, 201);
     }
+    if (req.method() === 'POST' && table === 'routine_sets') {
+      for (const c of (Array.isArray(corps) ? corps : [corps])) {
+        const mauvais = bornesSerie(c);
+        if (mauvais) return refuserSi(c, mauvais);
+      }
+      const ajout = (Array.isArray(corps) ? corps : [corps])
+        .map((c) => Object.assign({ id: 'rs' + (++base.graine) }, c));
+      base.series = base.series.concat(ajout);
+      // `routine_sets_rang_unique` est DIFFÉRABLE : l'état intermédiaire d'un
+      // remplacement est légal, seule la fin de transaction compte. Comme le
+      // client supprime puis insère en deux requêtes, on vérifie APRÈS.
+      const vus = new Set();
+      for (const x of base.series) {
+        const c = x.routine_exercise_id + '#' + x.rang;
+        if (vus.has(c)) {
+          base.series = base.series.slice(0, -ajout.length);
+          return json({ code: '23505', message: 'duplicate key value violates unique constraint "routine_sets_rang_unique"' }, 409);
+        }
+        vus.add(c);
+      }
+      return json(ajout, 201);
+    }
     if (req.method() === 'PATCH') {
       const mauvais = table === 'routines' ? nomBorne(corps) : bornes(corps);
       if (mauvais) return refuserSi(corps, mauvais);
@@ -250,11 +308,23 @@ const CATALOGUE = [
       const ids = brut.startsWith('in.') ? brut.slice(4, -1).split(',').map((x) => x.replace(/"/g, '')) : [brut.replace('eq.', '')];
       if (table === 'routines') {
         base.routines = base.routines.filter((r) => ids.indexOf(r.id) < 0);
+        const partis = base.exos.filter((e) => ids.indexOf(e.routine_id) >= 0).map((e) => e.id);
         base.exos = base.exos.filter((e) => ids.indexOf(e.routine_id) < 0);
+        // `routine_sets_routine_exercise_id_fkey` est ON DELETE CASCADE : la
+        // cascade est à DEUX étages, et l'oublier laisserait des séries
+        // orphelines que la vraie base n'a jamais.
+        base.series = base.series.filter((x) => partis.indexOf(x.routine_exercise_id) < 0);
         base.sessions.forEach((x) => { if (ids.indexOf(x.routine_id) >= 0) x.routine_id = null; });
         return json([]);
       }
+      if (table === 'routine_sets') {
+        // Le remplacement en bloc filtre par `routine_exercise_id`, pas par id.
+        const parent = (url.searchParams.get('routine_exercise_id') || '').replace('eq.', '');
+        base.series = base.series.filter((x) => x.routine_exercise_id !== parent);
+        return json([]);
+      }
       base.exos = base.exos.filter((e) => ids.indexOf(e.id) < 0);
+      base.series = base.series.filter((x) => ids.indexOf(x.routine_exercise_id) < 0);
       return json([]);
     }
     return json([]);
@@ -311,16 +381,35 @@ const CATALOGUE = [
     await page.click('#resultats-exo .resultat');
     await attendre(250);
   }
-  const noms = () => page.evaluate(() => Array.from(document.querySelectorAll('.exo-routine-nom')).map((n) => n.textContent));
+  // ══ L'ÉDITEUR EST L'ÉCRAN DE SÉANCE (§7 quindecies) ══════════════════════
+  //
+  // ⚠️ IL N'Y A PLUS DE `.exo-routine`. Le banc parcourt les mêmes nœuds que
+  // l'écran de séance : un `.bloc-seance` par bloc, une `.legende-exo` par
+  // exercice, une `.ligne-serie` par série. Un accesseur unique les lit tous —
+  // en écrire quatre, c'était s'exposer à ce qu'ils divergent.
+  //
+  // L'ORDRE DES `.legende-exo` EST L'ORDRE DES EXERCICES, y compris en
+  // superset : l'entrelacement porte sur les LIGNES, pas sur les légendes.
+  const exos = () => page.evaluate(() =>
+    Array.from(document.querySelectorAll('.legende-exo')).map((x) => ({
+      nom: ((x.querySelector('.nom-exo') || {}).textContent || ''),
+      lettre: ((x.querySelector('.lettre-exo') || {}).textContent || ''),
+      groupe: x.closest('.bloc-seance').classList.contains('superset'),
+      repos: ((x.querySelector('.repos-cible') || {}).textContent || '')
+    })));
+  const noms = async () => (await exos()).map((x) => x.nom);
 
   // ⚠️ TOUS LES GESTES PASSENT PAR LE MENU DE LA CARTE (§7 duodecies.2). Les
   // boutons permanents — monter, descendre, retirer, et le lien « grouper avec
   // le suivant » entre chaque paire — ont disparu : c'est la même grammaire
   // qu'en séance, et le banc doit la parcourir pareil.
+  // ⚠️ LE i-ᵉ `.menu-pts` EST LE MENU DU i-ᵉ EXERCICE, et ce n'est pas un
+  // hasard : sur un bloc d'un seul, le menu est celui du bloc (tête) ; sur un
+  // superset, la tête n'en porte aucun et chaque branche a le sien. Les deux
+  // règles sont complémentaires, donc l'ordre du DOM suit l'ordre des
+  // exercices — exactement ce que le banc a besoin d'adresser.
   const menuCarte = async (i) => {
-    await page.evaluate((k) => {
-      document.querySelectorAll('.exo-routine')[k].querySelector('.menu-pts').click();
-    }, i);
+    await page.evaluate((k) => { document.querySelectorAll('.menu-pts')[k].click(); }, i);
     await attendre(300);
   };
   const entreesMenu = () => page.evaluate(() =>
@@ -339,12 +428,24 @@ const CATALOGUE = [
   ok('trois exercices dans l’ordre d’ajout', JSON.stringify(await noms()) ===
     JSON.stringify(['Squat (Barre)', 'Développé Couché (Barre)', 'Soulevé de Terre (Barre)']), JSON.stringify(await noms()));
 
-  console.log('\n══ 3. AUCUN CHAMP DE CHARGE DANS LE FORMULAIRE ══');
-  const champs = await page.evaluate(() => Array.from(document.querySelectorAll('#vue-routine input'))
-    .map((i) => ({ id: i.id, lib: (i.closest('label') || {}).innerText || '', type: i.type })));
-  ok('les seuls champs sont nom, séries, reps, repos',
-    !champs.some((c) => /charge|poids|kg|weight/i.test(c.lib + c.id)),
-    champs.map((c) => (c.lib || c.id).replace(/\n/g, ' ')).join(' · '));
+  console.log('\n══ 3. UNE CHARGE CIBLE, JAMAIS UNE CHARGE OBSERVÉE ══');
+  //
+  // ⚠️ L'INVARIANT S'EST PRÉCISÉ AU CHANTIER 43, IL NE S'EST PAS RELÂCHÉ.
+  // L'éditeur porte désormais une colonne KG : `routine_sets.charge_cible_kg`
+  // existe, et le §7 quindecies.3 l'autorise — une CIBLE, facultative, qui ne
+  // prime jamais sur le moteur. Ce qui reste interdit, c'est une charge
+  // OBSERVÉE (`charge_kg`, un poids, un RM) dans `routine_exercises`.
+  //
+  // ⚠️ ET LA COLONNE EST VIDE À LA CRÉATION : on ne préremplit rien. Une valeur
+  // inventée se lirait comme une prescription, et elle serait fausse.
+  const colsCreation = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('.bloc-seance')[0].querySelectorAll('.cols-seance span'))
+      .map((x) => x.textContent));
+  const kgVides = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('.ch-serie input')).every((i) => i.value === ''));
+  ok('la colonne KG est là, et vide — la routine ne prescrit aucune charge',
+    JSON.stringify(colsCreation) === '["","KG","REPS",""]' && kgVides,
+    JSON.stringify(colsCreation) + ' · toutes vides = ' + kgVides);
 
   console.log('\n══ 4. ENREGISTRER ══');
   await page.click('#btn-enregistrer-routine');
@@ -357,8 +458,16 @@ const CATALOGUE = [
     (await texte('#liste-routines')).replace(/\n+/g, ' | '));
   const envoyees = base.envois.flatMap((e) => Array.isArray(e.corps) ? e.corps : [e.corps])
     .flatMap((c) => Object.keys(c || {}));
-  ok('rien qui ressemble à une charge n’est parti', !envoyees.some((k) => /charge|poids|kg|weight/i.test(k)),
+  // ⚠️ `charge_cible_kg` EST LA SEULE EXCEPTION, ET ELLE EST NOMMÉE. Tout autre
+  // nom qui ressemble à une charge est une charge observée, et n'a rien à faire
+  // dans une routine (§7 quindecies.3).
+  ok('rien qui ressemble à une charge OBSERVÉE n’est parti',
+    !envoyees.filter((k) => k !== 'charge_cible_kg').some((k) => /charge|poids|kg|weight|rm\b/i.test(k)),
     Array.from(new Set(envoyees)).join(', '));
+  ok('et les trois exercices ont chacun UNE ligne programmée, vide',
+    base.series.length === 3 && base.series.every((x) => x.rang === 1 &&
+      x.type_serie === 'travail' && x.reps_visees === null && x.charge_cible_kg === null),
+    JSON.stringify(base.series.map((x) => x.rang + ':' + x.type_serie)));
 
   console.log('\n══ 5. RÉORDONNER ET RETIRER AU MILIEU ══');
   await page.click('#liste-routines .routine');
@@ -427,22 +536,28 @@ const CATALOGUE = [
     });
     await attendre(200);
   };
+  // ⚠️ LE REPOS S'OUVRE PAR SON BOUTON, PLUS PAR LE MENU (chantier 43). C'est
+  // celui de la séance, sous le nom de l'exercice : la même chose se touche au
+  // même endroit sur les deux écrans, et « Modifier les paramètres » aurait
+  // été un second chemin, plus long, vers le même réglage.
+  const ouvrirRepos = async (i) => {
+    await page.evaluate((k) => { document.querySelectorAll('.repos-cible')[k].click(); }, i);
+    await attendre(300);
+  };
   const remplirRepos = async (suite) => {
-    await gesteCarte(0, 'Modifier les param');
+    await ouvrirRepos(0);
     await viderRepos();
     await taperRepos(suite);
     await page.click('#feuille-contenu .principal');
     await attendre(350);
   };
-  await menuCarte(0);
-  await entree('Modifier les param');
+  await ouvrirRepos(0);
   const libsFeuille = await page.evaluate(() =>
     Array.from(document.querySelectorAll('#feuille-contenu .champ-lib')).map((l) => l.textContent));
   const typeRepos = await page.evaluate(() =>
     (document.querySelector('#feuille-contenu .chrono input') || {}).type || 'absent');
-  ok('[42] la feuille porte un PAVÉ de repos, plus un champ de secondes',
-    JSON.stringify(libsFeuille) === '["S\u00e9ries","Reps vis\u00e9es","Repos cible"]' &&
-    typeRepos === 'text',
+  ok('[43] la feuille du repos porte le PAVÉ, et PLUS RIEN d’autre',
+    JSON.stringify(libsFeuille) === '["Entre les s\u00e9ries"]' && typeRepos === 'text',
     JSON.stringify(libsFeuille) + ' · pavé = ' + typeRepos);
   await page.click('#feuille-contenu .principal');
   await attendre(350);
@@ -486,48 +601,89 @@ const CATALOGUE = [
 
   await page.click('#liste-routines .routine');
   await attendre(700);
-  const champsCarte = (i) => page.evaluate((k) => {
-    const c = document.querySelectorAll('.exo-routine')[k];
-    return Array.from(c.querySelectorAll('.exo-routine-champs .champ-num')).map((l) => ({
-      lib: l.querySelector('.champ-lib').textContent,
-      val: l.querySelector('input').value
-    }));
-  }, i);
-  ok('[42] la carte porte SÉRIES et REPS VISÉES, saisissables sans feuille',
-    JSON.stringify((await champsCarte(0)).map((c) => c.lib)) === '["Séries","Reps visées"]',
-    JSON.stringify(await champsCarte(0)));
-  const reposCarte = (i) => page.evaluate((k) =>
-    (document.querySelectorAll('.exo-routine')[k].querySelector('.repos-cible') || {}).textContent || '',
-    i);
-  ok('[42] et le repos s’y LIT, en mm:ss, au même bouton qu’en séance',
+  // ⚠️ LES COLONNES DE L'ÉCRAN DE SÉANCE, MOINS DEUX (§7 quindecies.2).
+  const colonnes = () => page.evaluate(() =>
+    Array.from(document.querySelectorAll('.bloc-seance')[0].querySelectorAll('.cols-seance span'))
+      .map((x) => x.textContent));
+  ok('[43] la ligne porte KG et REPS — sans `PRÉC.`, sans coche, sans effort',
+    JSON.stringify(await colonnes()) === '["","KG","REPS",""]' &&
+    (await page.evaluate(() => document.querySelectorAll('.prec, .ok-serie, .eff-serie').length)) === 0,
+    JSON.stringify(await colonnes()));
+  const reposCarte = async (i) => (await exos())[i].repos;
+  ok('[43] et le repos se LIT sous le nom, en mm:ss, au même bouton qu’en séance',
     /^repos \d+:\d\d$/.test(await reposCarte(0)), '« ' + (await reposCarte(0)) + ' »');
 
-  // ⚠️ SANS JAMAIS OUVRIR LA FEUILLE. C'est tout l'objet du §7 quaterdecies.1 :
-  // le geste le plus fréquent de l'écran ne doit pas coûter un geste de plus.
-  const saisirCarte = async (i, k, valeur) => {
-    await page.evaluate(([c, j, v]) => {
-      const champ = document.querySelectorAll('.exo-routine')[c]
-        .querySelectorAll('.exo-routine-champs input')[j];
+  // ⚠️ TOUT SE TAPE SUR LA LIGNE, SANS OUVRIR AUCUNE FEUILLE. C'était le
+  // reproche du chantier 42 (« c'est moins intuitif qu'avant »), et le §7
+  // quindecies le règle en supprimant la feuille, pas en la raccourcissant.
+  //
+  // ⚠️ ADRESSÉ PAR BLOC, PAS PAR EXERCICE : dans un superset, les lignes sont
+  // ENTRELACÉES, et « la 2ᵉ ligne du bloc » n'est pas « la 2ᵉ série de A ».
+  // Cette section ne travaille que sur des blocs d'un seul, où les deux
+  // coïncident ; la section superset, elle, lit les étiquettes.
+  const lignes = (b) => page.evaluate((k) =>
+    Array.from(document.querySelectorAll('.bloc-seance')[k].querySelectorAll('.ligne-serie'))
+      .map((l) => ({
+        badge: l.querySelector('.no-serie').textContent,
+        kg: (l.querySelector('.ch-serie input') || {}).value,
+        reps: (l.querySelector('.rp-serie input') || {}).value
+      })), b);
+  const saisirLigne = async (b, j, champ, valeur) => {
+    await page.evaluate(([k, r, c, v]) => {
+      const l = document.querySelectorAll('.bloc-seance')[k].querySelectorAll('.ligne-serie')[r];
+      const champ = l.querySelector(c === 'kg' ? '.ch-serie input' : '.rp-serie input');
       champ.value = v;
       champ.dispatchEvent(new Event('input', { bubbles: true }));
-    }, [i, k, valeur]);
+    }, [b, j, champ, valeur]);
     await attendre(200);
   };
-  await saisirCarte(0, 0, '4');     // séries
-  await saisirCarte(0, 1, '12');    // reps visées
+  const ajouterSerie = async (b) => {
+    await page.evaluate((k) => {
+      document.querySelectorAll('.bloc-seance')[k].querySelector('.ajout-serie button').click();
+    }, b);
+    await attendre(300);
+  };
+
+  // ⚠️ IL N'Y A PLUS DE CHAMP « NOMBRE DE SÉRIES ». On n'écrit plus « 3 », on
+  // ajoute trois lignes — comme en séance. C'est le cœur du chantier, et un
+  // banc qui taperait encore dans un champ ne le mesurerait pas.
+  ok('[43] un exercice neuf naît avec UNE ligne, pas trois',
+    (await lignes(0)).length === 1, JSON.stringify(await lignes(0)));
+  await ajouterSerie(0);
+  await ajouterSerie(0);
+  ok('[43] « + Série » en ajoute une, et recopie la précédente',
+    (await lignes(0)).length === 3, JSON.stringify(await lignes(0)));
+
+  // ⚠️ DES REPS DISTINCTES — LA CONFIGURATION DISCRIMINANTE. Trois lignes à 8
+  // rendent « lire chaque ligne » et « répéter la première » indistinguables.
+  await saisirLigne(0, 0, 'reps', '12');
+  await saisirLigne(0, 1, 'reps', '10');
+  await saisirLigne(0, 2, 'reps', '8');
+  await saisirLigne(0, 1, 'kg', '60');
   await page.click('#btn-enregistrer-routine');
   await attendre(900);
   const exo0 = () => base.exos.slice().sort((a, b) => a.rang - b.rang)[0];
-  ok('[42] les deux partent en base, sans qu’aucune feuille se soit ouverte',
-    exo0().series === 4 && exo0().reps_visees === 12,
-    JSON.stringify({ series: exo0().series, reps: exo0().reps_visees }));
+  const series0 = () => base.series.filter((x) => x.routine_exercise_id === exo0().id)
+    .slice().sort((a, b) => a.rang - b.rang);
+  ok('[43] trois lignes partent en base, rangs 1/2/3 — et le rang commence à 1',
+    series0().length === 3 && JSON.stringify(series0().map((x) => x.rang)) === '[1,2,3]',
+    JSON.stringify(series0().map((x) => x.rang)));
+  ok('[43] chaque ligne porte SES reps, pas celles de la première',
+    JSON.stringify(series0().map((x) => x.reps_visees)) === '[12,10,8]',
+    JSON.stringify(series0().map((x) => x.reps_visees)));
+  ok('[43] la charge CIBLE se programme par ligne, et reste vide ailleurs',
+    JSON.stringify(series0().map((x) => x.charge_cible_kg)) === '[null,60,null]',
+    JSON.stringify(series0().map((x) => x.charge_cible_kg)));
+  ok('[43] et `routine_exercises` n’a reçu ni `series` ni `reps_visees`',
+    exo0().series === undefined && exo0().reps_visees === undefined,
+    JSON.stringify(Object.keys(exo0())));
 
   // ⚠️ LE PAVÉ, EN TROIS APPUIS, ET AU-DESSUS DE LA MINUTE. Sous 60 secondes,
   // « décalage sur deux groupes » et « champ numérique simple » rendent la même
   // valeur — c'est ce qui a laissé passer la régression.
   await page.click('#liste-routines .routine');
   await attendre(700);
-  await gesteCarte(0, 'Modifier les param');
+  await ouvrirRepos(0);
   await viderRepos();
   await taperRepos('130');
   const vu130 = await lireRepos();
@@ -562,7 +718,7 @@ const CATALOGUE = [
   await aller('/saisie');
   await page.click('#liste-routines .routine');
   await attendre(700);
-  await gesteCarte(0, 'Modifier les param');
+  await ouvrirRepos(0);
   const vuRelu = await lireRepos();
   ok('[42] rouvert, le pavé repart de 1:30 — jamais de « 90 »',
     /^0?1:30$/.test(vuRelu), '« ' + vuRelu + ' »');
@@ -572,7 +728,7 @@ const CATALOGUE = [
   // faut passer par 0:04. Elle se refuse donc à L'ENREGISTREMENT — et le
   // message parle en mm:ss, pas en secondes : annoncer « de 5 à 1800 secondes »
   // obligerait à convertir de tête ce qu'on vient de taper.
-  await gesteCarte(0, 'Modifier les param');
+  await ouvrirRepos(0);
   await viderRepos();
   await taperRepos('4');
   await page.click('#feuille-contenu .principal');
@@ -583,7 +739,7 @@ const CATALOGUE = [
   ok('[42] 0:04 est refusé à l’enregistrement, en mm:ss',
     /0:05/.test(msgBorne) && /30:00/.test(msgBorne) && !/seconde/.test(msgBorne),
     '« ' + msgBorne + ' »');
-  await gesteCarte(0, 'Modifier les param');
+  await ouvrirRepos(0);
   await viderRepos();
   await taperRepos('130');
   await page.click('#feuille-contenu .principal');
@@ -616,17 +772,12 @@ const CATALOGUE = [
   await page.click('#resultats-exo .resultat');
   await attendre(300);
 
-  const lettresEditeur = () => page.evaluate(() =>
-    Array.from(document.querySelectorAll('.exo-routine')).map((c) => {
-      const l = c.querySelector('.lettre-exo');
-      return l ? l.textContent : '';
-    }));
+  const lettresEditeur = async () => (await exos()).map((x) => x.lettre);
   // ⚠️ LE LIEN N'A PLUS DE BOUTON À LUI (§7 duodecies.2) : il se lit sur le
   // LISERÉ de la carte, exactement comme au détail de séance, et il se pose par
   // le menu. On mesure donc ce qui reste visible — le groupement — et non plus
   // la commande qui le produisait.
-  const groupesEditeur = () => page.evaluate(() =>
-    Array.from(document.querySelectorAll('.exo-routine')).map((c) => c.classList.contains('groupe')));
+  const groupesEditeur = async () => (await exos()).map((x) => x.groupe);
   const cliquerLien = async (i) => { await gesteCarte(i, 'Grouper avec le suivant'); };
   const degrouperCarte = async (i) => { await gesteCarte(i, '^Dégrouper$'); };
   const enBase = () => base.exos.slice().sort((a, b) => a.rang - b.rang)
@@ -637,15 +788,16 @@ const CATALOGUE = [
     JSON.stringify(await lettresEditeur()) === '["","",""]',
     JSON.stringify(await groupesEditeur()) + ' · ' + JSON.stringify(await lettresEditeur()));
 
-  // ⚠️ LES SIX GESTES, ET L'ASYMÉTRIE QUI LES MESURE. Sur le PREMIER exercice
+  // ⚠️ LES CINQ GESTES, ET L'ASYMÉTRIE QUI LES MESURE. Sur le PREMIER exercice
   // d'une liste de trois, « Monter » et « Dégrouper » n'ont pas de sens et sont
-  // GRISÉS ; les quatre autres sont actifs. Un menu où tout serait actif, ou
+  // GRISÉS ; les trois autres sont actifs. Un menu où tout serait actif, ou
   // tout grisé, ne prouverait rien.
   await menuCarte(0);
-  ok('[41] le menu de carte porte les six gestes du §7 duodecies.2',
-    (await entreesMenu()).length === 6 &&
+  ok('[43] le menu porte les CINQ gestes — « Modifier les paramètres » est parti',
+    (await entreesMenu()).length === 5 &&
     /Grouper avec le suivant/.test((await entreesMenu())[0]) &&
-    /Modifier les param/.test((await entreesMenu())[4]),
+    /Supprimer l/.test((await entreesMenu())[4]) &&
+    !(await entreesMenu()).some((e) => /param/i.test(e)),
     (await entreesMenu()).join(' | '));
   ok('[41] et il grise ce qui n’a pas de sens sur le premier : Monter, Dégrouper',
     (await entreesMenu())[1] === 'Dégrouper (inerte)' &&
@@ -826,10 +978,16 @@ const CATALOGUE = [
   ok('[41] confirmée, la routine quitte la base — pas d’archivage',
     base.routines.filter((r) => r.id === routineQuiAServi.id).length === 0,
     JSON.stringify(base.routines.map((r) => r.nom)));
-  // §5 test 5 — la CASCADE.
+  // §5 test 5 — la CASCADE, et elle a DEUX ÉTAGES depuis le chantier 43 :
+  // `routine_exercises` part avec la routine, `routine_sets` part avec
+  // l'exercice. Une série orpheline n'existe pas en base ; elle ne doit pas
+  // exister ici non plus, sinon le banc validerait un état impossible.
   ok('[41] ses exercices partent avec elle, aucun orphelin',
     base.exos.filter((e) => e.routine_id === routineQuiAServi.id).length === 0,
     exosAvant + ' avant · ' + base.exos.length + ' ligne(s) restante(s) au total');
+  ok('[43] et leurs séries programmées avec eux — cascade à deux étages',
+    base.series.every((x) => base.exos.some((e) => e.id === x.routine_exercise_id)),
+    base.series.length + ' série(s) restante(s), toutes rattachées');
   // §5 test 4 — le SET NULL. C'est la promesse de la confirmation.
   const seance = base.sessions.filter((x) => x.id === 'sess-issue')[0];
   ok('[41] LA SÉANCE PASSÉE SURVIT, avec ses séries — elle perd juste l’origine',

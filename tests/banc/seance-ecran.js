@@ -71,12 +71,33 @@ const CATALOGUE = [
   { slug: 'souleve-terre', nom: 'Soulevé de Terre (Barre)', mesure: 'charge_reps', charge: 'externe', muscles_primaires: ['ischios'], muscles_secondaires: [] }
 ];
 
+// ⚠️ UNE ROUTINE PORTE MAINTENANT SES LIGNES (chantier 43). `routine_sets`
+// remplace les deux entiers `series` / `reps_visees` : c'est de là que
+// `Seance.creer` tire la structure d'une séance démarrée depuis une routine.
+// Une fixture restée aux entiers démarrerait une séance à UNE série vide, et
+// la moitié du banc mesurerait un écran que personne n'aura jamais.
+//
+// `progr(n, reps)` fabrique n lignes de TRAVAIL identiques — exactement ce que
+// l'entier voulait dire, et rien de plus. La rampe d'échauffement, elle,
+// s'écrit à la main : c'est la configuration discriminante du chantier, et la
+// cacher derrière une aide la rendrait invisible.
+let grainePr = 0;
+const progr = (n, reps) => {
+  const lignes = [];
+  for (let i = 0; i < n; i++) {
+    lignes.push({ id: 'pr' + (++grainePr), rang: i + 1, type_serie: 'travail',
+      reps_visees: reps === undefined ? null : reps,
+      charge_cible_kg: null, duree_cible_s: null, distance_cible_m: null });
+  }
+  return lignes;
+};
+
 const ROUTINE = {
   id: 'r-banc', nom: 'Push', note: null, archivee_a: null,
   created_at: '2026-09-01T08:00:00Z', modifiee_a: '2026-09-01T08:00:00Z',
   routine_exercises: [
-    { id: 're1', routine_id: 'r-banc', exercise_slug: 'squat-barre', rang: 0, series: 3, reps_visees: 5, repos_cible_s: 180, groupe_superset: null, note: null },
-    { id: 're2', routine_id: 'r-banc', exercise_slug: 'dc-barre', rang: 1, series: 2, reps_visees: 8, repos_cible_s: null, groupe_superset: null, note: null }
+    { id: 're1', routine_id: 'r-banc', exercise_slug: 'squat-barre', rang: 0, routine_sets: progr(3, 5), repos_cible_s: 180, groupe_superset: null, note: null },
+    { id: 're2', routine_id: 'r-banc', exercise_slug: 'dc-barre', rang: 1, routine_sets: progr(2, 8), repos_cible_s: null, groupe_superset: null, note: null }
   ]
 };
 
@@ -92,10 +113,10 @@ const ROUTINE_SUPERSET = {
   id: 'r-super', nom: 'Superset', note: null, archivee_a: null,
   created_at: '2026-09-03T08:00:00Z', modifiee_a: '2026-09-03T08:00:00Z',
   routine_exercises: [
-    { id: 'rs1', routine_id: 'r-super', exercise_slug: 'dc-barre', rang: 0, series: 3, reps_visees: 8, repos_cible_s: 90, groupe_superset: 1, note: null },
-    { id: 'rs2', routine_id: 'r-super', exercise_slug: 'curl', rang: 1, series: 3, reps_visees: 12, repos_cible_s: null, groupe_superset: 1, note: null },
-    { id: 'rs3', routine_id: 'r-super', exercise_slug: 'planche', rang: 2, series: 2, reps_visees: null, repos_cible_s: null, groupe_superset: 1, note: null },
-    { id: 'rs4', routine_id: 'r-super', exercise_slug: 'squat-barre', rang: 3, series: 2, reps_visees: 5, repos_cible_s: 180, groupe_superset: null, note: null }
+    { id: 'rs1', routine_id: 'r-super', exercise_slug: 'dc-barre', rang: 0, routine_sets: progr(3, 8), repos_cible_s: 90, groupe_superset: 1, note: null },
+    { id: 'rs2', routine_id: 'r-super', exercise_slug: 'curl', rang: 1, routine_sets: progr(3, 12), repos_cible_s: null, groupe_superset: 1, note: null },
+    { id: 'rs3', routine_id: 'r-super', exercise_slug: 'planche', rang: 2, routine_sets: progr(2, null), repos_cible_s: null, groupe_superset: 1, note: null },
+    { id: 'rs4', routine_id: 'r-super', exercise_slug: 'squat-barre', rang: 3, routine_sets: progr(2, 5), repos_cible_s: 180, groupe_superset: null, note: null }
   ]
 };
 
@@ -106,10 +127,10 @@ const ROUTINE_MESURES = {
   id: 'r-mesures', nom: 'Les quatre mesures', note: null, archivee_a: null,
   created_at: '2026-09-02T08:00:00Z', modifiee_a: '2026-09-02T08:00:00Z',
   routine_exercises: [
-    { id: 'rm1', routine_id: 'r-mesures', exercise_slug: 'dc-barre', rang: 0, series: 1, reps_visees: 8, repos_cible_s: 120, groupe_superset: null, note: null },
-    { id: 'rm2', routine_id: 'r-mesures', exercise_slug: 'tractions', rang: 1, series: 1, reps_visees: 12, repos_cible_s: null, groupe_superset: null, note: null },
-    { id: 'rm3', routine_id: 'r-mesures', exercise_slug: 'planche', rang: 2, series: 1, reps_visees: null, repos_cible_s: null, groupe_superset: null, note: null },
-    { id: 'rm4', routine_id: 'r-mesures', exercise_slug: 'marche', rang: 3, series: 1, reps_visees: null, repos_cible_s: null, groupe_superset: null, note: null }
+    { id: 'rm1', routine_id: 'r-mesures', exercise_slug: 'dc-barre', rang: 0, routine_sets: progr(1, 8), repos_cible_s: 120, groupe_superset: null, note: null },
+    { id: 'rm2', routine_id: 'r-mesures', exercise_slug: 'tractions', rang: 1, routine_sets: progr(1, 12), repos_cible_s: null, groupe_superset: null, note: null },
+    { id: 'rm3', routine_id: 'r-mesures', exercise_slug: 'planche', rang: 2, routine_sets: progr(1, null), repos_cible_s: null, groupe_superset: null, note: null },
+    { id: 'rm4', routine_id: 'r-mesures', exercise_slug: 'marche', rang: 3, routine_sets: progr(1, null), repos_cible_s: null, groupe_superset: null, note: null }
   ]
 };
 
@@ -221,8 +242,14 @@ const SETS_IMPORTES = [
   // le ferait Postgres — sans lui, le banc laisserait passer un plan qui
   // collisionne et le device seul dirait non.
   const ROUTINES = [ROUTINE, ROUTINE_MESURES, ROUTINE_SUPERSET];
+  // ⚠️ L'INSTANTANÉ COPIE AUSSI LES LIGNES PROGRAMMÉES. Sans ça, défaire une
+  // écriture refusée rendrait les rangs d'avant et les séries d'après — un
+  // état que la vraie base n'atteint jamais, et sur lequel la suite du banc
+  // mesurerait n'importe quoi.
   const instantaneRoutines = () =>
-    ROUTINES.map((r) => r.routine_exercises.map((e) => Object.assign({}, e)));
+    ROUTINES.map((r) => r.routine_exercises.map((e) => Object.assign({}, e, {
+      routine_sets: (e.routine_sets || []).map((x) => Object.assign({}, x))
+    })));
   const rendreRoutines = (instantane) => {
     ROUTINES.forEach((r, i) => { r.routine_exercises = instantane[i]; });
   };
@@ -482,8 +509,34 @@ const SETS_IMPORTES = [
     // n'appelle pas `Routines.valider()`. Le défaut D5 était donc structurellement
     // invisible : le banc qui voit le geste ne vérifiait pas la contrainte, et le
     // banc qui vérifie la contrainte ne voit pas le geste.
+    // ⚠️ ET CELLES DE `routine_sets` (chantier 43), qui ne sont PAS les mêmes :
+    // le rang y commence à 1, là où celui d'un exercice accepte 0. C'est ici
+    // que passe le report de fin de séance — le seul chemin qui n'appelle pas
+    // `Routines.valider()` — donc c'est ici qu'un 23514 définitif naîtrait.
+    const checkRoutineSet = (l) => {
+      if (!(l.rang >= 1)) return 'routine_sets_rang_positif';
+      if (['travail', 'echauffement', 'degressive', 'echec'].indexOf(l.type_serie) < 0) {
+        return 'routine_sets_type_serie';
+      }
+      if (l.reps_visees !== null && l.reps_visees !== undefined &&
+          !(l.reps_visees >= 1 && l.reps_visees <= 100)) return 'routine_sets_reps_bornees';
+      if (l.duree_cible_s !== null && l.duree_cible_s !== undefined &&
+          !(l.duree_cible_s >= 1 && l.duree_cible_s <= 35999)) return 'routine_sets_duree_bornee';
+      if (l.distance_cible_m !== null && l.distance_cible_m !== undefined &&
+          !(l.distance_cible_m >= 0 && l.distance_cible_m <= 100000)) return 'routine_sets_distance_bornee';
+      if (!l.routine_exercise_id) return 'routine_sets.routine_exercise_id NOT NULL';
+      if (!l.user_id) return 'routine_sets.user_id NOT NULL';
+      return null;
+    };
+    const exoDeSerie = (id) => {
+      for (const r of ROUTINES) {
+        const e = r.routine_exercises.filter((x) => x.id === id)[0];
+        if (e) return e;
+      }
+      return null;
+    };
+
     const checkRoutineExo = (l) => {
-      if (l.series !== undefined && !(l.series >= 1 && l.series <= 20)) return 'routine_exos_series_bornees';
       if (l.reps_visees !== null && l.reps_visees !== undefined &&
           !(l.reps_visees >= 1 && l.reps_visees <= 100)) return 'routine_exos_reps_bornees';
       if (l.repos_cible_s !== null && l.repos_cible_s !== undefined &&
@@ -528,6 +581,44 @@ const SETS_IMPORTES = [
       }
       if (collisionRangRoutine()) { rendreRoutines(avant);
         return json(refus('23505', 'routine_exos_rang_uniq'), 409); }
+      return json(lignes, 201);
+    }
+
+    // Le remplacement en bloc des lignes d'un exercice : DELETE par parent,
+    // puis INSERT. `routine_sets_rang_unique` est DIFFÉRABLE, donc l'état
+    // intermédiaire est légal et seule la fin compte.
+    if (req.method() === 'DELETE' && table === 'routine_sets') {
+      const parent = (url.searchParams.get('routine_exercise_id') || '').replace('eq.', '');
+      base.patchs.push({ op: 'delete-series', id: parent });
+      const e = exoDeSerie(parent);
+      if (e) e.routine_sets = [];
+      return json([]);
+    }
+
+    if (req.method() === 'POST' && table === 'routine_sets') {
+      const lignes = (Array.isArray(corps) ? corps : [corps]).map((l) => Object.assign({}, l));
+      base.patchs.push({ op: 'insert-series', lignes: lignes });
+      for (const l of lignes) {
+        const mal = checkRoutineSet(l);
+        if (mal) return json(refus('23514', mal), 400);
+      }
+      const avant = instantaneRoutines();
+      for (const l of lignes) {
+        const e = exoDeSerie(l.routine_exercise_id);
+        if (!e) { rendreRoutines(avant);
+          return json(refus('23503', 'routine_sets_routine_exercise_id_fkey'), 400); }
+        e.routine_sets = (e.routine_sets || []).concat([Object.assign({ id: 'pr' + (++grainePr) }, l)]);
+      }
+      for (const r of ROUTINES) {
+        for (const e of r.routine_exercises) {
+          const vus = new Set();
+          for (const x of (e.routine_sets || [])) {
+            if (vus.has(x.rang)) { rendreRoutines(avant);
+              return json(refus('23505', 'routine_sets_rang_unique'), 409); }
+            vus.add(x.rang);
+          }
+        }
+      }
       return json(lignes, 201);
     }
 
@@ -1670,7 +1761,11 @@ const SETS_IMPORTES = [
     finie.statut === 'terminee' && !/à envoyer|refusé/.test(await texte('#etat-sync')),
     (await texte('#etat-sync')).trim() || '(vide)');
 
-  const patch = patchsRoutine().filter((p) => p.id === 're1').pop();
+  // ⚠️ `p.champs` : `base.patchs` porte aussi les écritures de `routine_sets`
+  // depuis le chantier 43, et une entrée `delete-series` porte le MÊME `id` —
+  // celui de l'exercice parent. Sans ce filtre, `.pop()` rend la suppression
+  // des séries, qui n'a pas de `champs`.
+  const patch = patchsRoutine().filter((p) => p.id === 're1' && p.champs).pop();
   ok('« Reporter » écrit les écarts sur la routine, et RIEN d’autre',
     !!patch && JSON.stringify(Object.keys(patch.champs).sort()) === '["note","repos_cible_s"]' &&
     patch.champs.repos_cible_s === 120 && /Ceinture/.test(patch.champs.note || ''),
@@ -2258,8 +2353,13 @@ const SETS_IMPORTES = [
   // écrirait le rang 0 sur la seconde alors que la première l'occupe encore.
   await aller('/saisie');
   await demarrerRoutine('Push');
-  const seriesRoutineAvant = ROUTINE.routine_exercises.slice()
-    .sort((a, b) => a.rang - b.rang).map((e) => e.series);
+  // ⚠️ LE NOMBRE DE SÉRIES EST UN NOMBRE DE LIGNES depuis le chantier 43.
+  // `routine_exercises.series` n'existe plus dans le circuit : ce qui ne doit
+  // pas bouger, c'est la STRUCTURE programmée, ligne pour ligne.
+  const structureAvant = () => ROUTINE.routine_exercises.slice()
+    .sort((a, b) => a.rang - b.rang)
+    .map((e) => (e.routine_sets || []).length + '×' + e.exercise_slug);
+  const seriesRoutineAvant = structureAvant();
 
   await menuBloc(1);
   await entree('Monter le bloc');
@@ -2301,15 +2401,19 @@ const SETS_IMPORTES = [
     JSON.stringify(routineApres.map((e) => e.exercise_slug + '@' + e.rang + '#' + e.groupe_superset)) ===
     JSON.stringify(['dc-barre@0#1', 'squat-barre@1#1']),
     JSON.stringify(routineApres.map((e) => e.exercise_slug + '@' + e.rang + '#' + e.groupe_superset)));
-  ok('le nombre de séries de la routine n’a PAS bougé (§6.3)',
-    JSON.stringify(routineApres.map((e) => e.series).sort()) ===
+  ok('[43] le nombre de LIGNES programmées n’a PAS bougé (§6.3)',
+    JSON.stringify(structureAvant().slice().sort()) ===
     JSON.stringify(seriesRoutineAvant.slice().sort()),
-    JSON.stringify(routineApres.map((e) => e.series)) + ' vs ' + JSON.stringify(seriesRoutineAvant));
+    JSON.stringify(structureAvant()) + ' vs ' + JSON.stringify(seriesRoutineAvant));
   const champsRoutine = base.patchs.slice(patchsAvant)
     .flatMap((p) => p.champs ? Object.keys(p.champs)
       : (p.lignes || []).flatMap((l) => Object.keys(l)));
-  ok('aucune charge n’est partie dans la routine',
-    champsRoutine.length > 0 && !champsRoutine.some((k) => /charge|poids|kg|weight/i.test(k)),
+  // ⚠️ `charge_cible_kg` EST LA SEULE EXCEPTION, ET ELLE EST NOMMÉE (§7
+  // quindecies.3) : une CIBLE facultative, qui ne prime jamais sur le moteur.
+  // Ce qui reste interdit, c'est une charge OBSERVÉE.
+  ok('aucune charge OBSERVÉE n’est partie dans la routine',
+    champsRoutine.length > 0 && !champsRoutine.filter((k) => k !== 'charge_cible_kg')
+      .some((k) => /charge|poids|kg|weight|rm\b/i.test(k)),
     Array.from(new Set(champsRoutine)).join(', '));
 
   // ── §6 — UNE LIGNE AJOUTÉE PART AVEC SON IDENTIFIANT ───────────────────
@@ -3097,10 +3201,22 @@ const SETS_IMPORTES = [
   ok('[D5] AUCUNE écriture n’est refusée — c’était `23514`, définitif',
     refusDepuis(repereD5).length === 0,
     JSON.stringify(refusDepuis(repereD5).slice(0, 3)));
+  // ⚠️ LE DÉFAUT D5 A DISPARU PAR CONSTRUCTION AU CHANTIER 43, et le banc le
+  // VÉRIFIE plutôt que de le supposer. Il portait sur `series: 0`, refusé par
+  // `routine_exos_series_bornees` avec un 23514 DÉFINITIF. La colonne n'est
+  // plus écrite, et `routine_sets` n'impose aucun minimum de lignes : un
+  // exercice vidé s'écrit pour ce qu'il est, zéro ligne.
   const ligneTractions = ROUTINE.routine_exercises.filter((e) => e.exercise_slug === 'tractions')[0];
-  ok('[D5] la routine reçoit la ligne, bornée dans 1..20',
-    !!ligneTractions && ligneTractions.series >= 1 && ligneTractions.series <= 20,
-    ligneTractions ? 'series=' + ligneTractions.series : 'ligne absente');
+  // ⚠️ `length > 0` D'ABORD : sur une liste vide, « tous les rangs sont >= 1 »
+  // est vrai sans rien prouver. C'est la forme d'assertion qui passe alors que
+  // l'écriture n'a jamais eu lieu.
+  const setsTractions = (ligneTractions && ligneTractions.routine_sets) || [];
+  ok('[D5] la routine reçoit la ligne, et ses séries programmées à rang >= 1',
+    !!ligneTractions && ligneTractions.series === undefined &&
+    setsTractions.length > 0 && setsTractions.every((x) => x.rang >= 1) &&
+    setsTractions.every((x) => x.user_id),
+    ligneTractions ? setsTractions.length + ' ligne(s), rangs ' +
+      JSON.stringify(setsTractions.map((x) => x.rang)) : 'ligne absente');
   ok('[D5] et la file n’est pas bloquée : l’état ne dit ni « refusé » ni « échec »',
     !/refusé|échec/i.test(await texte('#etat-sync')),
     (await texte('#etat-sync')) || '(vide)');

@@ -143,14 +143,39 @@
   //
   // `note` vient de `routine_exercises.note` : c'est ce qui fait qu'une note
   // SUIT l'exercice quand on réutilise la routine (§7 septies.1).
+  // ⚠️ LA SÉANCE REPRODUIT CHAQUE LIGNE PROGRAMMÉE, AVEC SON TYPE (ch. 43).
+  //
+  // Avant `v2_042_routine_sets`, la routine ne portait qu'un ENTIER : démarrer
+  // fabriquait N séries de travail identiques, et une rampe d'échauffement
+  // 15-10-5-1 était tout simplement impossible à programmer. Une séance démarrée
+  // depuis une routine arrive maintenant avec ses chauffes et ses dégressives
+  // déjà en place.
+  //
+  // ⚠️ LE TYPE ET LES REPS VISÉES, JAMAIS LA CHARGE (§7 quindecies.3). La
+  // routine dit la structure, le moteur dit les charges : `charge_cible_kg`
+  // existe en base mais ne descend pas ici — le fantôme propose déjà mieux, à
+  // partir de ce qui a réellement été fait la fois d'avant (chantier 38).
+  //
+  // Une routine sans aucune ligne programmée donne une série vide plutôt qu'un
+  // exercice sans rien : un exercice à zéro série ne se saisit pas.
   function exerciceDepuisRoutine(e, idSerie) {
-    var n = Math.max(1, Math.min(20, Number(e.series) || 1));
-    var series = [];
-    for (var i = 0; i < n; i++) series.push(serieVide(idSerie));
+    var programmees = (e && e.series) || [];
+    var series = programmees.map(function (p) {
+      var ligne = serieVide(idSerie);
+      ligne.type_serie = (p && p.type_serie) || 'travail';
+      // ⚠️ `p.reps`, PAS `p.reps_visees` — ET LES DEUX NOMS SONT JUSTES.
+      // La ligne de routine arrive au vocabulaire de la SAISIE
+      // (`THRoutines.enSaisie`), parce que l'éditeur de routine est l'écran de
+      // séance et l'édite telle quelle. En séance, la même valeur change de
+      // rôle : ce qui était la case qu'on remplit devient la cible qu'on vise,
+      // donc elle passe dans `reps_visees` et la case part vide.
+      ligne.reps_visees = (!p || p.reps === undefined) ? null : p.reps;
+      return ligne;
+    });
+    if (!series.length) series.push(serieVide(idSerie));
     return {
       exercise_slug: e.exercise_slug,
       routine_exercise_id: e.id === undefined ? null : e.id,
-      reps_visees: e.reps_visees === undefined ? null : e.reps_visees,
       repos_cible_s: e.repos_cible_s === undefined ? null : e.repos_cible_s,
       note: texteOuNul(e.note),
       // Le superset VIENT de la routine, il ne se crée pas en séance (§5 du
@@ -184,7 +209,6 @@
           // `sets` ne porte pas la ligne de routine : une séance reprise ou
           // refaite n'en dépend plus, et c'est juste — elle a pu diverger.
           routine_exercise_id: null,
-          reps_visees: null,
           repos_cible_s: null,
           note: commune,
           // §7 decies — le numéro est recopié tel quel, et c'est
@@ -283,13 +307,17 @@
   // file classe DÉFINITIF — et l'entrée se bloquait avec toute la file
   // derrière elle. Corriger les deux appelants aurait laissé la mine armée
   // pour le prochain : c'est le contrat qui était faux.
+  // ⚠️ `reps_visees` EST UNE INTENTION, PAS UNE OBSERVATION (chantier 43).
+  // Elle vient de `routine_sets` et sert au FANTÔME ; elle n'a pas de colonne
+  // dans `sets` et `COLONNES_SET` ne la laisse donc pas partir. Elle est LUE —
+  // c'est l'inverse exact du champ écrit que personne ne relit.
   function serieVide(idSerie) {
     return {
       id: typeof idSerie === 'function' ? idSerie() : (idSerie || null),
       type_serie: 'travail',
       charge_kg: null, reps: null, duree_s: null, distance_m: null,
       rpe: null, ressenti: null, note: null,
-      validee_a: null, repos_s: null
+      validee_a: null, repos_s: null, reps_visees: null
     };
   }
 
@@ -344,18 +372,22 @@
   }
 
   // ── Structure ───────────────────────────────────────────────────────────
+  // ⚠️ L'INTENTION VA SUR LA LIGNE, PLUS SUR L'EXERCICE (chantier 43). Le
+  // fantôme lit `reps_visees` de SA série : la poser sur l'exercice la
+  // rendrait invisible, c'est-à-dire un champ écrit que personne ne relit.
   function ajouterExercice(seance, slug, idSerie, options) {
     var o = options || {};
+    var premiere = serieVide(idSerie);
+    if (o.reps_visees !== undefined) premiere.reps_visees = o.reps_visees;
     var exos = seance.exercices.concat([{
       exercise_slug: slug,
       routine_exercise_id: null,
-      reps_visees: o.reps_visees === undefined ? null : o.reps_visees,
       repos_cible_s: o.repos_cible_s === undefined ? null : o.repos_cible_s,
       note: texteOuNul(o.note),
       // Un exercice ajouté en séance est un bloc d'un seul : on ne groupe pas
       // ici (§5 du chantier 27).
       groupe_superset: null,
-      series: [serieVide(idSerie)]
+      series: [premiere]
     }]);
     return avecExercices(seance, exos);
   }
@@ -562,7 +594,6 @@
     var neuf = {
       exercise_slug: slug,
       routine_exercise_id: null,
-      reps_visees: null,
       repos_cible_s: ancien.repos_cible_s === undefined ? null : ancien.repos_cible_s,
       note: null,
       groupe_superset: ancien.groupe_superset === undefined ? null : ancien.groupe_superset,
@@ -585,14 +616,15 @@
   function insererExercice(seance, apres, slug, idSerie, options) {
     var o = options || {};
     var exos = seance.exercices.slice();
+    var premiere = serieVide(idSerie);
+    if (o.reps_visees !== undefined) premiere.reps_visees = o.reps_visees;
     exos.splice(Math.max(0, Math.min(exos.length, apres)), 0, {
       exercise_slug: slug,
       routine_exercise_id: null,
-      reps_visees: o.reps_visees === undefined ? null : o.reps_visees,
       repos_cible_s: o.repos_cible_s === undefined ? null : o.repos_cible_s,
       note: texteOuNul(o.note),
       groupe_superset: null,
-      series: [serieVide(idSerie)]
+      series: [premiere]
     });
     return normaliserGroupes(avecExercices(seance, exos));
   }
@@ -871,8 +903,16 @@
       return {
         id: ligne ? ligne.id : (exo.routine_exercise_id || null),
         exercise_slug: exo.exercise_slug,
-        series: ligne ? ligne.series : (exo.series || []).length,
-        reps_visees: ligne ? ligne.reps_visees : (exo.reps_visees === undefined ? null : exo.reps_visees),
+        // ⚠️ LES SÉRIES PROGRAMMÉES PASSENT, ELLES NE S'EFFACENT PAS (ch. 43).
+        // `planEcritures` REMPLACE les lignes de chaque exercice : envoyer une
+        // liste vide ici viderait `routine_sets` d'une routine à chaque report
+        // de fin de séance. On rend donc ce que la routine porte déjà — et,
+        // pour un exercice AJOUTÉ en séance qui n'a pas de ligne de routine, on
+        // le déduit de ce qui a été fait, types compris. Même forme qu'avant,
+        // où l'entier était repris de la routine ou compté sur la séance.
+        series: ligne ? (ligne.series || []) : (exo.series || []).map(function (x) {
+          return { type_serie: (x && x.type_serie) || 'travail', reps: null };
+        }),
         repos_cible_s: exo.repos_cible_s === undefined ? null : exo.repos_cible_s,
         note: texteOuNul(exo.note),
         groupe_superset: exo.groupe_superset === undefined ? null : exo.groupe_superset
@@ -1387,7 +1427,13 @@
     var charge = derniereSaisie(exo, iSerie, 'charge_kg');
     if (charge === null && ligne) charge = ligne.charge_kg;
 
-    var reps = exo.reps_visees;
+    // ⚠️ L'INTENTION DE **CETTE** LIGNE, PAS CELLE DE L'EXERCICE (ch. 43).
+    // Une rampe 15-10-5-1 a quatre intentions différentes ; un entier au niveau
+    // de l'exercice n'en portait qu'une, et la posait sur les quatre. Sans
+    // intention, on retombe sur la règle du chantier 38 : la Nᵉ série du MÊME
+    // type, la fois d'avant.
+    var propre = exo.series[iSerie];
+    var reps = propre ? propre.reps_visees : null;
     if ((reps === null || reps === undefined) && ligne) reps = ligne.reps;
 
     // La durée et la distance suivent la MÊME règle que la charge : ce qu'on

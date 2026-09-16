@@ -538,39 +538,9 @@ button.bloc-exo:active{background:var(--panneau-2)}
 /* ── L'éditeur ──────────────────────────────────────────────────────────── */
 .bloc-large{display:block;width:100%;margin:var(--e2) 0 0;padding:11px}
 
-.exo-routine{background:var(--panneau);border-radius:10px;
-  padding:var(--e3);margin-top:var(--e2)}
-.exo-routine-haut{display:flex;align-items:flex-start;gap:var(--e2)}
-/* Noms sur DEUX LIGNES plutôt que tronqués : 237 entrées au catalogue, et des
-   ambiguïtés réelles entre variantes (ECRAN-SAISIE §7 bis.2). */
-.exo-routine-nom{flex:1;font-size:14px;font-weight:600;line-height:1.35;
-  display:flex;align-items:baseline;gap:7px;min-width:0;overflow-wrap:anywhere}
-
-/* ── LE SUPERSET DANS L'ÉDITEUR ────────────────────────────────────────────
-   Le lien se posait par un bouton PERMANENT entre chaque paire de cartes : un
-   bouton toujours là pour un geste occasionnel (§7 duodecies.2). Il est passé
-   au menu à trois points, comme en séance. Ce qui reste est le SIGNE, pas la
-   commande — la même chose se reconnaît au même signe qu'en séance : un liseré
-   à gauche, et les lettres A/B/C. */
-.exo-routine.groupe{border-left:3px solid var(--texte-3)}
-
-/* ── §7 quaterdecies.1 — CE QU'ON REMPLIT TOUJOURS EST SUR LA CARTE ────────
-   Séries et reps visées se saisissent ici ; le repos, occasionnel, s'y LIT et
-   se règle dans la feuille. Le bouton de repos est celui de la séance, au même
-   libellé — la même chose se touche au même endroit sur les deux écrans. */
-.exo-routine-champs{display:flex;align-items:flex-end;gap:var(--e2);margin-top:var(--e2)}
-.exo-routine-champs .champ-num{flex:1 1 0;min-width:0}
-.exo-routine-champs .repos-cible{height:38px;padding:0 var(--e3);
-  border:1px solid var(--trait);border-radius:var(--r-petit);
-  background:transparent;color:var(--texte-2);font:500 12px/1 inherit;
-  font-family:inherit}
-.exo-routine-champs .repos-cible:active{border-color:var(--texte-2);color:var(--texte)}
-
-/* Les réglages de la feuille. Il n'y a pas de quatrième champ : la routine ne
-   porte AUCUNE charge. Le repos est en dessous, en pleine largeur — le pavé de
-   décalage se tape, il ne se partage pas une colonne sur trois. */
-.feuille-champs{display:grid;grid-template-columns:1fr 1fr;
-  gap:var(--e2);margin-bottom:var(--e3)}
+/* Le repos cible d'une routine, en pleine largeur — le pavé de décalage se
+   tape, il ne se partage pas une colonne sur trois. C'est tout ce qui reste de
+   la feuille des paramètres : séries et reps se saisissent sur la ligne. */
 .champ-repos{display:block;margin-bottom:var(--e2)}
 .champ-num{display:block}
 .champ-lib{display:block;font-size:10.5px;color:var(--texte-3);
@@ -649,6 +619,21 @@ button.bloc-exo:active{background:var(--panneau-2)}
 .g-reps{grid-template-columns:30px 62px 1fr 40px 40px}              /* 128 px */
 .g-temps{grid-template-columns:30px 62px 1fr 40px}                  /* 173 px, pas d'effort */
 .g-distance_temps{grid-template-columns:30px 66px 1fr 1fr 40px}     /* 82 px chacune */
+
+/* ── LE MÊME GABARIT, MOINS DEUX COLONNES (§7 quindecies.2) ────────────────
+   L'éditeur de routine EST l'écran de séance : il rend les MÊMES rangées, par
+   la même fonction. Deux colonnes n'y ont pas d'objet — `PRÉC.` (62 px) et la
+   coche (40 px) disent ce qui a été fait, et une routine n'a rien fait. Pour
+   `charge_reps`, `EFFORT` tombe avec elles, faute de colonne en base.
+
+   Les 142 px libérés vont aux champs qu'on remplit : sur `charge_reps`, la
+   case des kg passe de 79 à ~160 px et celle des reps de 44 à 90. C'est là
+   qu'était le reproche « moins intuitif qu'avant » — on tapait un nombre de
+   séries dans un coin, on tape maintenant des valeurs en pleine largeur. */
+.grille.programme.g-charge_reps{grid-template-columns:30px 1fr 90px 12px}
+.grille.programme.g-reps{grid-template-columns:30px 1fr 12px}
+.grille.programme.g-temps{grid-template-columns:30px 1fr 12px}
+.grille.programme.g-distance_temps{grid-template-columns:30px 1fr 1fr 12px}
 .cols-seance{padding:var(--e2) var(--e3) 3px;font-size:9px;font-weight:600;
   color:#525862;letter-spacing:.02em}
 .cols-seance .centre{text-align:center}

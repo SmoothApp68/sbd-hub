@@ -24,6 +24,7 @@
 
 const Seance = require('../../v2/js/seance.js');
 const Attente = require('../../v2/js/attente.js');
+const { progTravail } = require('./aide-routine-programmee.js');
 
 const USER = 'u-1';
 let graine = 0;
@@ -81,8 +82,8 @@ function creerBase() {
 const ROUTINE = {
   id: 'r-1', nom: 'Push',
   exercices: [
-    { id: 're1', exercise_slug: 'squat', rang: 0, series: 3, reps_visees: 5, repos_cible_s: 180, note: null },
-    { id: 're2', exercise_slug: 'dc', rang: 1, series: 1, reps_visees: 8, repos_cible_s: null, note: null }
+    { id: 're1', exercise_slug: 'squat', rang: 0, series: progTravail(3, 5), repos_cible_s: 180, note: null },
+    { id: 're2', exercise_slug: 'dc', rang: 1, series: progTravail(1, 8), repos_cible_s: null, note: null }
   ]
 };
 
@@ -395,9 +396,9 @@ describe('la question de fin sur la routine (§6)', () => {
     const doublon = {
       id: 'r-d', nom: 'Doublon',
       exercices: [
-        { id: 'rd1', exercise_slug: 'squat', rang: 0, series: 1, reps_visees: 5, repos_cible_s: 180, note: null },
-        { id: 'rd2', exercise_slug: 'dc', rang: 1, series: 1, reps_visees: 8, repos_cible_s: 90, note: null },
-        { id: 'rd3', exercise_slug: 'squat', rang: 2, series: 1, reps_visees: 12, repos_cible_s: 60, note: null }
+        { id: 'rd1', exercise_slug: 'squat', rang: 0, series: progTravail(1, 5), repos_cible_s: 180, note: null },
+        { id: 'rd2', exercise_slug: 'dc', rang: 1, series: progTravail(1, 8), repos_cible_s: 90, note: null },
+        { id: 'rd3', exercise_slug: 'squat', rang: 2, series: progTravail(1, 12), repos_cible_s: 60, note: null }
       ]
     };
     let s = Seance.creer({ id: 'sess-d', userId: USER, routine: doublon, idSerie: uuid });
@@ -415,8 +416,8 @@ describe('la question de fin sur la routine (§6)', () => {
     const doublon = {
       id: 'r-d', nom: 'Doublon',
       exercices: [
-        { id: 'rd1', exercise_slug: 'squat', rang: 0, series: 2, reps_visees: 5, repos_cible_s: 180, note: 'Lourd' },
-        { id: 'rd3', exercise_slug: 'squat', rang: 1, series: 2, reps_visees: 12, repos_cible_s: 60, note: 'Léger' }
+        { id: 'rd1', exercise_slug: 'squat', rang: 0, series: progTravail(2, 5), repos_cible_s: 180, note: 'Lourd' },
+        { id: 'rd3', exercise_slug: 'squat', rang: 1, series: progTravail(2, 12), repos_cible_s: 60, note: 'Léger' }
       ]
     };
     let s = Seance.creer({ id: 'sess-d2', userId: USER, routine: doublon, idSerie: uuid });

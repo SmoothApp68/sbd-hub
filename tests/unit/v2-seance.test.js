@@ -23,6 +23,7 @@
 const Seance = require('../../v2/js/seance.js');
 const Attente = require('../../v2/js/attente.js');
 const Sync = require('../../v2/js/sync.js');
+const { progTravail } = require('./aide-routine-programmee.js');
 
 const USER = 'u-1';
 let graine = 0;
@@ -224,8 +225,8 @@ function creerAppareil(base) {
 const ROUTINE = {
   id: 'r-1', nom: 'Push',
   exercices: [
-    { exercise_slug: 'squat', series: 3, reps_visees: 5, repos_cible_s: 180 },
-    { exercise_slug: 'banc', series: 2, reps_visees: 8, repos_cible_s: null }
+    { exercise_slug: 'squat', series: progTravail(3, 5), repos_cible_s: 180 },
+    { exercise_slug: 'banc', series: progTravail(2, 8), repos_cible_s: null }
   ]
 };
 
@@ -267,8 +268,10 @@ describe('1-2. démarrer', () => {
       expect(x.reps).toBeNull();
     }));
     // Les reps VISÉES, elles, viennent de la routine : c'est une intention
-    // déclarée, pas un calcul.
-    expect(s.exercices[0].reps_visees).toBe(5);
+    // déclarée, pas un calcul. ⚠️ Et elle est sur la LIGNE depuis le chantier
+    // 43 — une rampe 15-10-5-1 a quatre intentions, pas une.
+    expect(s.exercices[0].series[0].reps_visees).toBe(5);
+    expect(s.exercices[0].reps_visees).toBeUndefined();
   });
 
   test('à vide : une séance sans exercice, on ajoute', async () => {

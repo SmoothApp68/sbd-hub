@@ -125,10 +125,34 @@ d'entraînement. Doctrine : une étiquette qui se déduit ne se stocke jamais.
 `routines` : `user_id`, `nom` (1–60 car., unique par utilisateur parmi les non archivées),
 `note`, `archivee_a` (archivage, pas suppression).
 
-`routine_exercises` : `routine_id`, `exercise_slug`, `rang` (unique par routine), `series`
-(1–20, défaut 3), `reps_visees` (1–100, **indicatif** — le moteur recalcule la cible),
-`groupe_superset` (même mécanisme que `sets`), **`repos_cible_s`** (`v2_040` — repos
-**prescrit**, 5 à 1800 s, NULL = non prescrit).
+`routine_exercises` : `routine_id`, `exercise_slug`, `rang` (unique par routine, ≥ 0),
+`groupe_superset` (même mécanisme que `sets`), `note`, **`repos_cible_s`** (`v2_040` — repos
+**prescrit**, 5 à 1800 s, NULL = non prescrit, et NULL = « désactivé »).
+
+> ⚠️ **`series` et `reps_visees` existent encore sur cette table et NE SONT PLUS NI LUES NI
+> ÉCRITES** (chantier 43, `v2_042_routine_sets`). Deux entiers ne savaient dire qu'« il y a N
+> séries identiques » : ni une rampe d'échauffement, ni des reps qui varient, ni une charge
+> cible par série. Elles restent en base, avec leur `CHECK` et leur défaut, pour les lignes
+> anciennes — le code les ignore. **Ne pas les relire.**
+
+`routine_sets` (`v2_042_routine_sets`) — **une ligne par série programmée.** C'est là que vit
+la structure d'une routine depuis le chantier 43 : 6 routines · 38 exercices · 143 séries à la
+migration, dont 18 échauffements et 9 dégressives.
+
+| colonne | contrainte |
+|---|---|
+| `routine_exercise_id` | NOT NULL → `routine_exercises`, **ON DELETE CASCADE** |
+| `user_id` | **NOT NULL → `profiles(id)`** — ⚠️ contrairement à `routine_exercises`, qui n'en a pas |
+| `rang` | NOT NULL, **≥ 1** — ⚠️ pas ≥ 0 comme `routine_exercises.rang` |
+| `type_serie` | défaut `'travail'` · `travail` \| `echauffement` \| `degressive` \| `echec` |
+| `reps_visees` | NULL ou 1–100 |
+| `charge_cible_kg` | `numeric` NULL — **une CIBLE, jamais une charge observée** (ECRAN-SAISIE §7 quindecies.3) |
+| `duree_cible_s` | NULL ou 1–35999 |
+| `distance_cible_m` | NULL ou 0–100000 |
+
+`routine_sets_rang_unique` (`routine_exercise_id`, `rang`) est **DIFFÉRABLE** — contrairement à
+`routine_exos_rang_uniq`. C'est ce qui permet de remplacer les lignes d'un exercice en bloc
+(DELETE puis INSERT) plutôt que de les renuméroter en place.
 
 ## Autres tables
 
@@ -146,7 +170,9 @@ d'entraînement. Doctrine : une étiquette qui se déduit ne se stocke jamais.
 
 `routine_exercises` n'a pas de `user_id` : sa propriété est héritée de `routines` via un
 `EXISTS`, avec le même `WITH CHECK` — c'est lui qui empêche de rattacher une ligne à la
-routine d'autrui.
+routine d'autrui. `routine_sets`, elle, **porte son `user_id`** : le client doit donc le
+renseigner à l'écriture (il n'a pas de défaut), là où une ligne de `routine_exercises` n'a
+rien à dire de son propriétaire.
 
 > **Le cloisonnement est le travail du RLS, pas du client.** Ne filtre pas sur `user_id`
 > côté application : ça masquerait un RLS défaillant au lieu de le révéler.

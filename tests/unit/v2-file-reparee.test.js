@@ -15,6 +15,7 @@
 const Attente = require('../../v2/js/attente.js');
 const Seance = require('../../v2/js/seance.js');
 const Routines = require('../../v2/js/routines.js');
+const { progTravail } = require('./aide-routine-programmee.js');
 
 const entree = (o) => Object.assign({
   seq: 1, version: 1, essais: 1, creation: false, posee_a: null, bloquee: null
@@ -24,7 +25,7 @@ const entree = (o) => Object.assign({
 // `23514` par `routine_exos_series_bornees` (chantier 36, D5).
 const REPORT = () => entree({
   cle: 'routine_exos:r1', seq: 1, table: Attente.ROUTINE_EXOS, op: Attente.PLAN, id: 'r1',
-  donnees: { voulues: [{ id: 'e1', exercise_slug: 'curl', series: 0 }] },
+  donnees: { voulues: [{ id: 'e1', exercise_slug: 'curl', series: progTravail(0) }] },
   bloquee: { code: '23514', message: 'routine_exos_series_bornees' }
 });
 
@@ -67,16 +68,27 @@ describe('réparer', () => {
     expect(r.lignes).toBe(0);                       // aucune donnée n'a bougé
     expect(par(r.file, 'routine_exos:r1').bloquee).toBeNull();
     expect(par(r.file, 'routine_exos:r1').donnees)
-      .toEqual({ voulues: [{ id: 'e1', exercise_slug: 'curl', series: 0 }] });
+      .toEqual({ voulues: [{ id: 'e1', exercise_slug: 'curl', series: progTravail(0) }] });
   });
 
-  // ⚠️ LA PREUVE QUE LEVER SUFFIT : rejouée telle quelle, l'intention passe,
-  // parce que `normaliserExercice` borne au moment du plan.
+  // ⚠️ LA PREUVE QUE LEVER SUFFIT — ET ELLE A CHANGÉ DE NATURE AU CHANTIER 43.
+  //
+  // Le refus d'origine était `routine_exos_series_bornees` sur `series: 0`, et
+  // la preuve était que `normaliserExercice` ramenait le 0 dans la plage. Cette
+  // colonne n'est plus écrite : la structure vit dans `routine_sets`, une ligne
+  // par série, et AUCUNE contrainte n'y impose un minimum de lignes. Un
+  // exercice vidé s'écrit donc pour ce qu'il est — zéro ligne — au lieu d'un
+  // entier que la base refuse.
+  //
+  // Le défaut du chantier 36 a disparu PAR CONSTRUCTION. Ce test le VÉRIFIE
+  // plutôt que de le supposer : rejouée telle quelle, l'entrée ne produit plus
+  // rien qui ressemble à la valeur refusée, et ce qu'elle produit est légal.
   test('et rejouée telle quelle, elle produit une valeur que la base accepte', () => {
     const voulues = par(reparer([REPORT()]).file, 'routine_exos:r1').donnees.voulues;
-    const plan = Routines.planEcritures([], voulues, 'r1');
-    expect(plan.insertions[0].series).toBeGreaterThanOrEqual(1);
-    expect(plan.insertions[0].series).toBeLessThanOrEqual(20);
+    const plan = Routines.planEcritures([], voulues, 'r1', 'u1');
+    expect(Object.keys(plan.insertions[0])).not.toContain('series');
+    // L'exercice vidé : zéro ligne programmée, ce que `routine_sets` accepte.
+    expect(plan.series).toEqual([{ id: 'e1', lignes: [] }]);
   });
 
   test('`sets` : la charge utile stockée est BORNÉE, puis débloquée', () => {

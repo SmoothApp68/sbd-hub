@@ -20,6 +20,7 @@ require('../../v2/js/modele.js');
 require('../../v2/js/rendu.js');
 const Modele = require('../../v2/js/modele.js');
 const Seance = require('../../v2/js/seance.js');
+const { progTravail } = require('./aide-routine-programmee.js');
 
 const Rendu = () => window.THRendu;
 
@@ -47,7 +48,7 @@ function seanceDe(lignes) {
     routine: {
       id: 'r',
       exercices: lignes.map(([slug, series, groupe], i) => ({
-        id: 're' + i, exercise_slug: slug, series: series,
+        id: 're' + i, exercise_slug: slug, series: progTravail(series),
         reps_visees: null, repos_cible_s: null,
         groupe_superset: groupe === undefined ? null : groupe
       }))

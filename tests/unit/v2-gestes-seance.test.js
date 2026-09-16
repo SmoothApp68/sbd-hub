@@ -18,6 +18,7 @@
 const Seance = require('../../v2/js/seance.js');
 const Modele = require('../../v2/js/modele.js');
 const Routines = require('../../v2/js/routines.js');
+const { progTravail } = require('./aide-routine-programmee.js');
 
 let graine = 0;
 const uuid = () => 'set-' + (++graine);
@@ -35,7 +36,7 @@ function routineDe(lignes) {
     id: 'r-1', nom: 'Test',
     exercices: lignes.map(([slug, series, groupe], i) => ({
       id: 're' + i, routine_id: 'r-1', exercise_slug: slug, rang: i,
-      series: series, reps_visees: null, repos_cible_s: null,
+      series: progTravail(series), repos_cible_s: null,
       groupe_superset: groupe === undefined ? null : groupe, note: null
     }))
   };

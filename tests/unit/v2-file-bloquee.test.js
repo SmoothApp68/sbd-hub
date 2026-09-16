@@ -21,6 +21,7 @@
 const Routines = require('../../v2/js/routines.js');
 const Seance = require('../../v2/js/seance.js');
 const Attente = require('../../v2/js/attente.js');
+const { progTravail } = require('./aide-routine-programmee.js');
 
 let n = 0;
 const uuid = () => 'id-' + (++n);
@@ -29,8 +30,8 @@ beforeEach(() => { n = 0; });
 const ROUTINE = {
   id: 'r1', nom: 'Push',
   exercices: [{
-    id: 're1', exercise_slug: 'dc-barre', rang: 0, series: 3,
-    reps_visees: 8, repos_cible_s: 120, groupe_superset: null, note: null
+    id: 're1', exercise_slug: 'dc-barre', rang: 0, series: progTravail(3, 8),
+    repos_cible_s: 120, groupe_superset: null, note: null
   }]
 };
 
@@ -46,69 +47,79 @@ describe('D5 — le report de fin de séance', () => {
     return Seance.retirerSerie(s, i, 0);
   };
 
-  test('⚠️ vider un exercice ajouté produit bien `series: 0` — le geste existe', () => {
+  // ⚠️ LE DÉFAUT D5 A DISPARU PAR CONSTRUCTION (chantier 43).
+  //
+  // Il tenait à `routine_exercises.series`, un entier contraint à 1..20 que le
+  // report pouvait mettre à 0. Depuis `v2_042_routine_sets`, la structure est
+  // une LIGNE PAR SÉRIE : la colonne n'est plus écrite, et `routine_sets` n'a
+  // aucune borne de NOMBRE de lignes. Vider un exercice ne produit donc plus
+  // une valeur refusée — il produit zéro ligne, ce que la base accepte.
+  //
+  // On garde le GESTE sous surveillance, parce que c'est lui qui avait trouvé
+  // le défaut, et on vérifie qu'il ne produit plus rien d'inacceptable.
+  test('⚠️ vider un exercice ajouté produit désormais zéro LIGNE, plus `series: 0`', () => {
     const v = Seance.ecartsRoutine(seanceAvecExoVide(), ROUTINE);
     const curl = v.voulues.filter((x) => x.exercise_slug === 'curl')[0];
     expect(curl).toBeDefined();
-    expect(curl.series).toBe(0);
+    expect(curl.series).toEqual([]);           // une liste vide, pas un 0 refusé
+    expect(curl.series.length).toBe(0);
   });
 
-  test('et ce qui PART est borné : plus rien ne viole `routine_exos_series_bornees`', () => {
+  test('et ce qui PART ne viole plus aucune borne — `series` n’est plus écrite', () => {
     const v = Seance.ecartsRoutine(seanceAvecExoVide(), ROUTINE);
     const voulues = v.voulues.map((x) => (x.id ? x : Object.assign({}, x, { id: uuid() })));
-    const plan = Routines.planEcritures(ROUTINE.exercices, voulues, 'r1');
+    const plan = Routines.planEcritures(ROUTINE.exercices, voulues, 'r1', 'u1');
     const lignes = [].concat(plan.insertions || [], (plan.majs || []).map((m) => m.champs || m));
     expect(lignes.length).toBeGreaterThan(0);
-    lignes.forEach((l) => {
-      if (l.series === undefined) return;
-      expect(l.series).toBeGreaterThanOrEqual(1);
-      expect(l.series).toBeLessThanOrEqual(20);
-    });
+    // La colonne a disparu de tout ce qui part.
+    lignes.forEach((l) => { expect(l.series).toBeUndefined(); });
+    expect(Routines.CHAMPS_EXERCICE).not.toContain('series');
+    expect(Routines.CHAMPS_EXERCICE).not.toContain('reps_visees');
   });
 
-  test('21 séries sont ramenées à 20, 0 à 1 — on borne, on ne jette pas la ligne', () => {
-    expect(Routines.normaliserExercice({ exercise_slug: 'x', series: 21 }, 'r1', 0).series).toBe(20);
-    expect(Routines.normaliserExercice({ exercise_slug: 'x', series: 0 }, 'r1', 0).series).toBe(1);
-    expect(Routines.normaliserExercice({ exercise_slug: 'x', series: -3 }, 'r1', 0).series).toBe(1);
-    expect(Routines.normaliserExercice({ exercise_slug: 'x', series: 999 }, 'r1', 0).series).toBe(20);
+  // ⚠️ LA MÊME FAMILLE DE DÉFAUT VIT MAINTENANT SUR LES LIGNES. `routine_sets`
+  // porte `reps_visees` avec la même borne 1..100, et le report passe toujours
+  // droit — `valider()` n'est pas appelée sur ce chemin. C'est là qu'il faut
+  // regarder désormais.
+  test('une reps visée hors bornes sur une LIGNE devient NULL, pas un cap', () => {
+    const lignes = Routines.seriesEcrites(
+      { series: [{ type_serie: 'travail', reps: 150 },
+                 { type_serie: 'travail', reps: 0 },
+                 { type_serie: 'travail', reps: 8 }] }, 're1', 'u1');
+    expect(lignes.map((l) => l.reps_visees)).toEqual([null, null, 8]);
   });
 
-  test('une valeur normale traverse intacte — borner n’est pas déformer', () => {
-    expect(Routines.normaliserExercice({ exercise_slug: 'x', series: 4 }, 'r1', 0).series).toBe(4);
-    expect(Routines.serieBornee(1)).toBe(1);
-    expect(Routines.serieBornee(20)).toBe(20);
+  test('un type inconnu retombe sur `travail`, jamais sur une valeur refusée', () => {
+    const lignes = Routines.seriesEcrites(
+      { series: [{ type_serie: 'nawak' }, { type_serie: 'degressive' }] }, 're1', 'u1');
+    expect(lignes.map((l) => l.type_serie)).toEqual(['travail', 'degressive']);
+    // `routine_sets_type_serie_check` n'accepte que ces quatre-là.
+    expect(Routines.TYPES_SERIE).toEqual(['travail', 'echauffement', 'degressive', 'echec']);
   });
 
-  test('`series` absente retombe sur le défaut, jamais sur une valeur refusée', () => {
-    expect(Routines.serieBornee(null)).toBe(Routines.SERIES_DEFAUT);
-    expect(Routines.serieBornee(undefined)).toBe(Routines.SERIES_DEFAUT);
-    expect(Routines.serieBornee('bonjour')).toBe(Routines.SERIES_DEFAUT);
+  test('le rang des lignes commence à 1 — `routine_sets` l’exige, contrairement aux exercices', () => {
+    const lignes = Routines.seriesEcrites({ series: [{}, {}, {}] }, 're1', 'u1');
+    expect(lignes.map((l) => l.rang)).toEqual([1, 2, 3]);
+    expect(Routines.normaliserExercice({ exercise_slug: 'x' }, 'r1', 0).rang).toBe(0);
   });
 
-  // ⚠️ ON BORNE CE QUI DOIT EXISTER, ON ANNULE CE QUI PEUT ÊTRE ABSENT.
-  // `reps_visees` et `repos_cible_s` acceptent NULL, et NULL veut dire « non
-  // renseigné » — plus honnête qu'une valeur inventée par un cap.
-  test('`reps_visees` et `repos_cible_s` hors bornes deviennent NULL, pas un cap', () => {
+  test('`repos_cible_s` hors bornes devient NULL, pas un cap', () => {
     const o = Routines.normaliserExercice(
-      { exercise_slug: 'x', series: 3, reps_visees: 150, repos_cible_s: 9000 }, 'r1', 0);
-    expect(o.reps_visees).toBeNull();
+      { exercise_slug: 'x', repos_cible_s: 9000 }, 'r1', 0);
     expect(o.repos_cible_s).toBeNull();
+    expect(Routines.normaliserExercice({ exercise_slug: 'x', repos_cible_s: 120 }, 'r1', 0)
+      .repos_cible_s).toBe(120);
   });
 
-  test('et dans les bornes, elles passent telles quelles', () => {
-    const o = Routines.normaliserExercice(
-      { exercise_slug: 'x', series: 3, reps_visees: 8, repos_cible_s: 120 }, 'r1', 0);
-    expect(o.reps_visees).toBe(8);
-    expect(o.repos_cible_s).toBe(120);
-  });
-
-  // La borne est sur le chemin du REPORT, pas seulement dans l'éditeur (test 3).
-  test('⚠️ la borne vit dans `normaliserExercice`, que `valider()` soit appelée ou NON', () => {
-    const brouillon = { nom: 'R', exercices: [{ exercise_slug: 'x', series: 0 }] };
-    // L'éditeur refuse, et c'est son rôle.
-    expect(Routines.valider(brouillon, []).valide).toBe(false);
-    // Le report n'appelle pas `valider` — et il est borné quand même.
-    expect(Routines.normaliserExercice(brouillon.exercices[0], 'r1', 0).series).toBe(1);
+  // ⚠️ UNE ENTRÉE DE FILE POSÉE AVANT LE CHANTIER 43 PORTE UN ENTIER, et elle
+  // peut dormir des jours sur le disque. Ni l'effacer, ni bloquer la file : on
+  // ne touche pas aux séries programmées de cet exercice.
+  test('une intention ANCIENNE (`series: 3`) ne vide pas la structure et ne l’écrit pas', () => {
+    expect(Routines.seriesEcrites({ series: 3 }, 're1', 'u1')).toBeNull();
+    const plan = Routines.planEcritures(
+      [{ id: 're1', exercise_slug: 'x', rang: 0 }],
+      [{ id: 're1', exercise_slug: 'x', series: 3 }], 'r1', 'u1');
+    expect(plan.series).toEqual([]);          // aucune écriture sur `routine_sets`
   });
 });
 

@@ -18,6 +18,7 @@
 const Seance = require('../../v2/js/seance.js');
 const Modele = require('../../v2/js/modele.js');
 const Routines = require('../../v2/js/routines.js');
+const { progTravail } = require('./aide-routine-programmee.js');
 
 const USER = 'u-1';
 let graine = 0;
@@ -37,7 +38,7 @@ function routineDe(lignes) {
     id: 'r-1', nom: 'Test',
     exercices: lignes.map(([slug, series, groupe], i) => ({
       id: 're' + i, routine_id: 'r-1', exercise_slug: slug, rang: i,
-      series: series, reps_visees: null, repos_cible_s: null,
+      series: progTravail(series), repos_cible_s: null,
       note: null, groupe_superset: groupe === undefined ? null : groupe
     }))
   };
@@ -216,7 +217,10 @@ describe('remplacer un exercice (§5.2)', () => {
     // La note et les reps visées décrivaient l'ANCIEN mouvement. « Barre basse »
     // ne veut rien dire sur un curl.
     expect(neuf.note).toBe(null);
-    expect(neuf.reps_visees).toBe(null);
+    // ⚠️ L'intention vit sur la LIGNE depuis le chantier 43, plus sur
+    // l'exercice : il n'y a donc plus rien à hériter ici.
+    expect(neuf.reps_visees).toBeUndefined();
+    expect(neuf.series[0].reps_visees).toBeNull();
     // Et ce n'est plus la ligne de routine : ce serait mentir sur la séance.
     expect(neuf.routine_exercise_id).toBe(null);
     expect(routine.exercices[0].exercise_slug).toBe('squat');
@@ -380,7 +384,7 @@ describe('normaliserGroupes tient la contiguïté (§2.3)', () => {
 
 describe('le groupement dans l’éditeur (§1.3 du chantier)', () => {
   const liste = (groupes) => groupes.map((g, i) => ({
-    id: 'e' + i, exercise_slug: 's' + i, series: 3,
+    id: 'e' + i, exercise_slug: 's' + i, series: progTravail(3),
     reps_visees: null, repos_cible_s: null, note: null, groupe_superset: g
   }));
 
@@ -432,11 +436,13 @@ describe('le groupement dans l’éditeur (§1.3 du chantier)', () => {
 
   test('la note et le groupe partent en base ; aucune charge ne suit', () => {
     const ligne = Routines.normaliserExercice(
-      { exercise_slug: 'squat', series: 3, groupe_superset: 2, note: '  Ceinture  ',
+      { exercise_slug: 'squat', series: progTravail(3), groupe_superset: 2, note: '  Ceinture  ',
         charge_kg: 120, poids: 99 }, 'r-1', 0);
+    // ⚠️ `series` ET `reps_visees` N'EN SONT PLUS (chantier 43) : la structure
+    // est une ligne par série dans `routine_sets`.
     expect(ligne).toEqual({
-      routine_id: 'r-1', exercise_slug: 'squat', rang: 0, series: 3,
-      reps_visees: null, repos_cible_s: null, groupe_superset: 2, note: 'Ceinture'
+      routine_id: 'r-1', exercise_slug: 'squat', rang: 0,
+      repos_cible_s: null, groupe_superset: 2, note: 'Ceinture'
     });
     expect(Object.keys(ligne).some((k) => /charge|poids|kg/i.test(k))).toBe(false);
   });
@@ -513,7 +519,7 @@ describe('les écarts de structure (§6.2)', () => {
     const { seance: s, routine } = seanceDe([['squat', 3, null], ['dc', 2, 1], ['curl', 2, 1]]);
     const v = Seance.ecartsRoutine(s, routine);
     expect(v.ecarts).toEqual([]);
-    expect(v.voulues.map((x) => [x.id, x.exercise_slug, x.series, x.groupe_superset]))
+    expect(v.voulues.map((x) => [x.id, x.exercise_slug, x.series.length, x.groupe_superset]))
       .toEqual([['re0', 'squat', 3, null], ['re1', 'dc', 2, 1], ['re2', 'curl', 2, 1]]);
   });
 
@@ -583,14 +589,21 @@ describe('les écarts de structure (§6.2)', () => {
     expect(s.exercices[0].series).toHaveLength(2);
     const v = Seance.ecartsRoutine(s, routine);
     expect(v.ecarts).toEqual([]);               // écourter n'est pas dévier
-    expect(v.voulues[0].series).toBe(4);        // la routine garde ses 4
+    // ⚠️ LA STRUCTURE PROGRAMMÉE PASSE INTACTE (chantier 43). `planEcritures`
+    // REMPLACE les lignes de chaque exercice : rendre ce que la séance a fait
+    // viderait `routine_sets` à chaque report. La routine garde ses 4 lignes.
+    expect(v.voulues[0].series.map((x) => x.rang)).toEqual([1, 2, 3, 4]);
   });
 
   test('un exercice AJOUTÉ prend son nombre de lignes, faute de référence', () => {
     let { seance: s, routine } = seanceDe([['squat', 2, null]]);
     s = Seance.insererExercice(s, 1, 'curl', uuid);
     s = Seance.ajouterSerie(s, 1, uuid);
-    expect(Seance.ecartsRoutine(s, routine).voulues[1].series).toBe(2);
+    // Un exercice AJOUTÉ en séance n'a pas de ligne de routine : sa structure se
+    // déduit de ce qui a été fait, types compris.
+    expect(Seance.ecartsRoutine(s, routine).voulues[1].series)
+      .toEqual([{ type_serie: 'travail', reps: null },
+                { type_serie: 'travail', reps: null }]);
   });
 
   test('structure et repos se rapportent ENSEMBLE, dans la même question', () => {
@@ -637,6 +650,32 @@ describe('les écarts de structure (§6.2)', () => {
     const apres = voulues.map((v, rang) =>
       Object.assign({}, v, { routine_id: 'r-1', rang: rang }));
     const second = Routines.planEcritures(apres, voulues, 'r-1');
-    expect(second).toEqual({ suppressions: [], majs: [], insertions: [] });
+    expect(second.suppressions).toEqual([]);
+    expect(second.majs).toEqual([]);
+    expect(second.insertions).toEqual([]);
+    // ⚠️ ET LES SÉRIES NON PLUS NE BOUGENT PAS. Elles le faisaient : le plan
+    // remplaçait les lignes de TOUS les exercices à chaque passage, changées ou
+    // non — six suppressions et six insertions pour n'avoir rien changé. Vu au
+    // banc de séance, pas ici : « Reporter écrit les écarts, et RIEN d'autre »
+    // n'était plus vrai. `majsChamps` ne porte que les colonnes modifiées ; les
+    // séries suivent maintenant la même règle.
+    expect(premier.series).toEqual([]);      // le groupement a changé, pas les lignes
+    expect(second.series).toEqual([]);
+  });
+
+  // ⚠️ L'ASYMÉTRIE : quand les lignes CHANGENT vraiment, elles partent. Sans ce
+  // second cas, « on n'écrit que ce qui change » et « on n'écrit jamais rien »
+  // donnent le même plan vide.
+  test('mais des lignes réellement différentes, elles, partent', () => {
+    const { routine } = seanceDe([['squat', 1, null]]);
+    const exo = routine.exercices[0];
+    const voulues = [Object.assign({}, exo, {
+      series: (exo.series || []).concat([{ type_serie: 'echauffement', reps: 12 }])
+    })];
+    const plan = Routines.planEcritures(routine.exercices, voulues, 'r-1', 'u1');
+    expect(plan.series.length).toBe(1);
+    expect(plan.series[0].lignes.map((l) => l.type_serie))
+      .toEqual(['travail', 'echauffement']);
+    expect(plan.series[0].lignes.map((l) => l.rang)).toEqual([1, 2]);
   });
 });

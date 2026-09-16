@@ -21,7 +21,9 @@
 // d'au moins TROIS exercices avec un retrait AU MILIEU : sur deux exercices, ou
 // en retirant le dernier, renuméroter et ne rien faire donnent le même résultat.
 
+require('../../v2/js/semaine.js');
 const Routines = require('../../v2/js/routines.js');
+const { progTravail } = require('./aide-routine-programmee.js');
 
 // ── La base de papier ──────────────────────────────────────────────────────
 
@@ -37,6 +39,7 @@ function creerBase(options) {
   const base = {
     routines: [],
     exos: [],
+    series: [],
     journal: [],
     pannes: o.pannes || {},   // { majExercice: 2 } = tombe au 2e appel de majExercice
     appels: {},
@@ -127,6 +130,29 @@ function creerBase(options) {
       base.journal.push({ op: 'supprimerExercices', ids: ids });
       peutTomber('supprimerExercices');
       base.exos = base.exos.filter((e) => ids.indexOf(e.id) < 0);
+      // CASCADE : `routine_sets_routine_exercise_id_fkey`.
+      base.series = base.series.filter((s) => ids.indexOf(s.routine_exercise_id) < 0);
+    },
+    // ⚠️ `routine_sets_rang_unique` est DIFFÉRABLE, contrairement à celui des
+    // exercices : remplacer les lignes d'un exercice en bloc ne passe donc
+    // jamais par une collision. La base de papier le reflète — elle refuserait
+    // un doublon APRÈS l'opération, pas pendant.
+    async remplacerSeriesRoutine(idExo, lignes) {
+      base.journal.push({ op: 'remplacerSeriesRoutine', id: idExo, lignes: lignes });
+      peutTomber('remplacerSeriesRoutine');
+      base.series = base.series.filter((s) => s.routine_exercise_id !== idExo);
+      const ajoutees = (lignes || []).map((l) => Object.assign({ id: id('rs') }, l));
+      base.series = base.series.concat(ajoutees);
+      const vus = new Set();
+      for (const s of base.series) {
+        const cle = s.routine_exercise_id + '#' + s.rang;
+        if (vus.has(cle)) {
+          throw erreurPG('23505',
+            'duplicate key value violates unique constraint "routine_sets_rang_unique"');
+        }
+        vus.add(cle);
+      }
+      return ajoutees;
     }
   };
 
@@ -134,12 +160,21 @@ function creerBase(options) {
   base.exosDe = (idRoutine) => base.exos
     .filter((e) => e.routine_id === idRoutine)
     .sort((a, b) => a.rang - b.rang);
+  base.seriesDe = (idExo) => base.series
+    .filter((s) => s.routine_exercise_id === idExo)
+    .sort((a, b) => a.rang - b.rang);
   return base;
 }
 
 const USER = 'u-1';
+// ⚠️ `uuid` EST UNE DÉPENDANCE DE L'ÉCRITURE depuis le chantier 43 : un exercice
+// neuf porte son identifiant AVANT d'être écrit, parce que ses séries
+// programmées le visent par clé étrangère. Sans fabricant, `enregistrer` lève.
+let graineId = 0;
+const uuid = () => 'ex-' + (++graineId);
+const CTX = { userId: USER, uuid: uuid };
 const exo = (slug, extra) => Object.assign(
-  { id: null, exercise_slug: slug, series: 3, reps_visees: null, repos_cible_s: null }, extra);
+  { id: null, exercise_slug: slug, series: progTravail(3, null), repos_cible_s: null }, extra);
 
 // Recharge une routine depuis la base de papier, sous la forme d'un brouillon
 // prêt à être ré-enregistré — exactement ce que fait `brouillonDe` dans app.js.
@@ -148,11 +183,19 @@ function relire(base, idRoutine) {
   const r = base.routines.find((x) => x.id === idRoutine);
   return {
     id: idRoutine, nom: r.nom, nomChange: false,
+    // ⚠️ AU VOCABULAIRE DE LA SAISIE, COMME `app.js`. `normaliserRoutine` fait
+    // passer chaque `routine_sets` par `Routines.enSaisie` avant que quiconque
+    // la voie ; relire ici les noms de la CIBLE donnerait un brouillon que
+    // l'app ne produit jamais, et le test mesurerait un chemin qui n'existe pas.
     exercices: lignes.map((l) => ({
-      id: l.id, exercise_slug: l.exercise_slug, series: l.series,
-      reps_visees: l.reps_visees, repos_cible_s: l.repos_cible_s
+      id: l.id, exercise_slug: l.exercise_slug, repos_cible_s: l.repos_cible_s,
+      // La structure se relit depuis `routine_sets`, plus depuis deux entiers.
+      series: base.seriesDe(l.id).map(Routines.enSaisie)
     })),
-    existantes: lignes
+    // Les existantes aussi : `planEcritures` compare les séries d'avant à
+    // celles d'après pour n'écrire que ce qui change.
+    existantes: lignes.map((l) => Object.assign({}, l,
+      { series: base.seriesDe(l.id).map(Routines.enSaisie) }))
   };
 }
 
@@ -161,7 +204,7 @@ async function creerTrois(base, nom) {
     id: null, nom: nom || 'Push',
     exercices: [exo('squat'), exo('banc'), exo('souleve')],
     existantes: []
-  }, base.ecrivain, { userId: USER });
+  }, base.ecrivain, CTX);
   expect(r.ok).toBe(true);
   return r.routine.id;
 }
@@ -177,7 +220,15 @@ describe('1. création', () => {
     expect(lignes.map((l) => l.rang)).toEqual([0, 1, 2]);
     expect(lignes.map((l) => l.exercise_slug)).toEqual(['squat', 'banc', 'souleve']);
     expect(lignes.every((l) => l.routine_id === id)).toBe(true);
-    expect(lignes.map((l) => l.series)).toEqual([3, 3, 3]);
+    // ⚠️ `series` N'EST PLUS UNE COLONNE (chantier 43) : la structure est une
+    // ligne par série dans `routine_sets`. L'entier n'est plus ni lu ni écrit.
+    expect(lignes.every((l) => l.series === undefined)).toBe(true);
+    lignes.forEach((l) => {
+      const prog = base.seriesDe(l.id);
+      expect(prog.map((x) => x.rang)).toEqual([1, 2, 3]);          // rang >= 1
+      expect(prog.every((x) => x.type_serie === 'travail')).toBe(true);
+      expect(prog.every((x) => x.user_id === USER)).toBe(true);    // NOT NULL
+    });
     expect(base.routines[0].user_id).toBe(USER);   // sans lui, le WITH CHECK refuse
   });
 });
@@ -199,7 +250,7 @@ describe('2-3. l’unicité du nom', () => {
     // temps, aucune vérification locale ne couvre ça.
     const r = await Routines.enregistrer(
       { id: null, nom: 'PUSH', exercices: [exo('curl')], existantes: [] },
-      base.ecrivain, { userId: USER });
+      base.ecrivain, CTX);
     expect(r.ok).toBe(false);
     expect(r.erreur).toBe('doublon');
     expect(Routines.messageErreur(r)).toMatch(/déjà une routine de ce nom/);
@@ -215,7 +266,7 @@ describe('2-3. l’unicité du nom', () => {
 
     const r = await Routines.enregistrer(
       { id: null, nom: 'Push', exercices: [exo('curl')], existantes: [] },
-      base.ecrivain, { userId: USER });
+      base.ecrivain, CTX);
     expect(r.ok).toBe(true);
 
     // L'archivée est toujours là : les séances qui la référencent gardent leur lien.
@@ -241,7 +292,7 @@ describe('4. réordonnancement', () => {
     const b = relire(base, id);
     const tmp = b.exercices[1]; b.exercices[1] = b.exercices[2]; b.exercices[2] = tmp;
 
-    const r = await Routines.enregistrer(b, base.ecrivain, { userId: USER });
+    const r = await Routines.enregistrer(b, base.ecrivain, CTX);
     expect(r.ok).toBe(true);   // ← tombe si une écriture heurte routine_exos_rang_uniq
 
     const lignes = base.exosDe(id);
@@ -251,9 +302,9 @@ describe('4. réordonnancement', () => {
 
   test('un échange est un CYCLE : il passe forcément par un rang tampon', () => {
     const avant = [
-      { id: 'A', exercise_slug: 'squat', rang: 0, series: 3, reps_visees: null, repos_cible_s: null },
-      { id: 'B', exercise_slug: 'banc', rang: 1, series: 3, reps_visees: null, repos_cible_s: null },
-      { id: 'C', exercise_slug: 'souleve', rang: 2, series: 3, reps_visees: null, repos_cible_s: null }
+      { id: 'A', exercise_slug: 'squat', rang: 0, series: progTravail(3, null), repos_cible_s: null },
+      { id: 'B', exercise_slug: 'banc', rang: 1, series: progTravail(3, null), repos_cible_s: null },
+      { id: 'C', exercise_slug: 'souleve', rang: 2, series: progTravail(3, null), repos_cible_s: null }
     ];
     const plan = Routines.planEcritures(avant, [avant[0], avant[2], avant[1]], 'R');
     // Écrire « B prend 2 » alors que C l'occupe encore échouerait : la première
@@ -267,12 +318,12 @@ describe('4. réordonnancement', () => {
     const r0 = await Routines.enregistrer({
       id: null, nom: 'Full', existantes: [],
       exercices: [exo('a'), exo('b'), exo('c'), exo('d')]
-    }, base.ecrivain, { userId: USER });
+    }, base.ecrivain, CTX);
     const id = r0.routine.id;
 
     const b = relire(base, id);
     b.exercices.reverse();
-    const r = await Routines.enregistrer(b, base.ecrivain, { userId: USER });
+    const r = await Routines.enregistrer(b, base.ecrivain, CTX);
     expect(r.ok).toBe(true);
 
     expect(base.exosDe(id).map((l) => l.exercise_slug)).toEqual(['d', 'c', 'b', 'a']);
@@ -289,7 +340,7 @@ describe('5. suppression d’un exercice au milieu', () => {
 
     const b = relire(base, id);
     b.exercices.splice(1, 1);                    // AU MILIEU : c'est ce qui discrimine
-    const r = await Routines.enregistrer(b, base.ecrivain, { userId: USER });
+    const r = await Routines.enregistrer(b, base.ecrivain, CTX);
     expect(r.ok).toBe(true);
 
     const lignes = base.exosDe(id);
@@ -299,9 +350,9 @@ describe('5. suppression d’un exercice au milieu', () => {
 
   test('retirer le DERNIER ne demande aucune renumérotation — le cas permissif', () => {
     const avant = [
-      { id: 'A', exercise_slug: 'a', rang: 0, series: 3, reps_visees: null, repos_cible_s: null },
-      { id: 'B', exercise_slug: 'b', rang: 1, series: 3, reps_visees: null, repos_cible_s: null },
-      { id: 'C', exercise_slug: 'c', rang: 2, series: 3, reps_visees: null, repos_cible_s: null }
+      { id: 'A', exercise_slug: 'a', rang: 0, series: progTravail(3, null), repos_cible_s: null },
+      { id: 'B', exercise_slug: 'b', rang: 1, series: progTravail(3, null), repos_cible_s: null },
+      { id: 'C', exercise_slug: 'c', rang: 2, series: progTravail(3, null), repos_cible_s: null }
     ];
     // C'est l'ASYMÉTRIE du §2 quater : ici « renuméroter » et « ne rien faire »
     // donnent le même résultat. Un banc qui ne testerait que ça ne prouverait rien.
@@ -336,12 +387,19 @@ describe('6. repos cible', () => {
     expect(v.soucis[0].champ).toBe('repos_cible_s');
   });
 
-  test('les mêmes bornes pour les séries et les reps, relevées sur les CHECK', () => {
-    expect(Routines.seriesValides(0).ok).toBe(false);
-    expect(Routines.seriesValides(21).ok).toBe(false);
-    expect(Routines.seriesValides(null).ok).toBe(false);  // séries obligatoires
+  // ⚠️ `seriesValides` ET `serieBornee` SONT PARTIES AVEC LEUR COLONNE (ch. 43).
+  // `routine_exercises.series` n'est plus écrite ; une structure est une liste
+  // de lignes, et `routine_sets` n'impose aucun minimum. Garder les bornes
+  // « au cas où » aurait laissé un entonnoir que plus rien ne traverse — la
+  // leçon de `palier.js` au chantier 17.
+  test('les reps se bornent, et elles restent facultatives', () => {
+    expect(Routines.repsValides(0).ok).toBe(false);
     expect(Routines.repsValides(101).ok).toBe(false);
+    expect(Routines.repsValides(100).ok).toBe(true);
     expect(Routines.repsValides(null).ok).toBe(true);     // reps facultatives
+    expect(Routines.seriesValides).toBeUndefined();
+    expect(Routines.serieBornee).toBeUndefined();
+    expect(Routines.SERIES_MAX).toBeUndefined();
   });
 });
 
@@ -355,8 +413,8 @@ describe('7. la routine ne porte AUCUNE charge', () => {
     // Un brouillon SALE : on y glisse exprès ce qui ne doit jamais passer.
     await Routines.enregistrer({
       id: null, nom: 'Push', existantes: [],
-      exercices: [exo('squat', { charge_kg: 120, poids: 120, series: 4, repos_cible_s: 120 })]
-    }, base.ecrivain, { userId: USER });
+      exercices: [exo('squat', { charge_kg: 120, poids: 120, repos_cible_s: 120 })]
+    }, base.ecrivain, CTX);
 
     const envoyees = [];
     base.journal.forEach(function (j) {
@@ -368,22 +426,47 @@ describe('7. la routine ne porte AUCUNE charge', () => {
     const cles = new Set();
     envoyees.forEach(function (l) { Object.keys(l).forEach(function (k) { cles.add(k); }); });
 
-    // Aucune clé ne ressemble à une charge…
-    Array.from(cles).forEach(function (k) { expect(k).not.toMatch(INTERDITS); });
-    // …et rien n'a atteint la base non plus.
+    // ⚠️ L'INVARIANT S'EST PRÉCISÉ AU CHANTIER 43, IL NE S'EST PAS RELÂCHÉ.
+    //
+    // `routine_sets.charge_cible_kg` existe désormais — la spec l'autorise
+    // explicitement (§7 quindecies.3) : une CIBLE, facultative, qui ne prime
+    // jamais sur le moteur. Ce qui reste interdit, c'est une charge OBSERVÉE :
+    // `charge_kg`, un poids, un RM. La routine dit la structure, le moteur dit
+    // les charges.
+    const CIBLE = 'charge_cible_kg';
+    Array.from(cles).filter((k) => k !== CIBLE)
+      .forEach(function (k) { expect(k).not.toMatch(INTERDITS); });
     base.exos.forEach(function (l) {
       Object.keys(l).forEach(function (k) { expect(k).not.toMatch(INTERDITS); });
+    });
+    // Et la cible n'est JAMAIS inventée : le brouillon sale portait `charge_kg`,
+    // pas de cible — elle part donc à NULL.
+    expect(base.series.length).toBeGreaterThan(0);
+    base.series.forEach(function (l) {
+      expect(l.charge_cible_kg).toBeNull();
+      Object.keys(l).filter((k) => k !== CIBLE)
+        .forEach(function (k) { expect(k).not.toMatch(INTERDITS); });
     });
 
     // La liste blanche est la garde, et elle est explicite.
     // `groupe_superset` et `note` entrés au chantier 28 : la routine porte
     // désormais son groupement et sa note, toujours AUCUNE charge.
     expect(Routines.CHAMPS_EXERCICE).toEqual(
-      ['routine_id', 'exercise_slug', 'rang', 'series', 'reps_visees',
+      ['routine_id', 'exercise_slug', 'rang',
        'repos_cible_s', 'groupe_superset', 'note']);
+    // Et celle des séries programmées, tout aussi explicite.
+    expect(Routines.CHAMPS_SERIE).toEqual(
+      ['routine_exercise_id', 'user_id', 'rang', 'type_serie', 'reps_visees',
+       'charge_cible_kg', 'duree_cible_s', 'distance_cible_m']);
+    // Deux listes blanches, parce qu'il y a deux tables. Aucune clé envoyée
+    // n'est hors de leur union — et l'union reste énumérée, pas devinée.
     const hors = Array.from(cles).filter(function (k) {
       return Routines.CHAMPS_EXERCICE.indexOf(k) < 0 &&
-             ['user_id', 'nom', 'modifiee_a', 'archivee_a'].indexOf(k) < 0;
+             Routines.CHAMPS_SERIE.indexOf(k) < 0 &&
+             // `id` est fabriqué par l'app depuis le chantier 43 : les séries
+             // programmées visent leur exercice par clé étrangère, donc un
+             // exercice neuf le porte AVANT d'être écrit.
+             ['id', 'user_id', 'nom', 'modifiee_a', 'archivee_a'].indexOf(k) < 0;
     });
     expect(hors).toEqual([]);
   });
@@ -405,7 +488,7 @@ describe('8. l’écriture échoue', () => {
     };
     const copie = JSON.parse(JSON.stringify(brouillon));
 
-    const r = await Routines.enregistrer(brouillon, base.ecrivain, { userId: USER });
+    const r = await Routines.enregistrer(brouillon, base.ecrivain, CTX);
 
     expect(r.ok).toBe(false);
     expect(r.erreur).toBe('reseau');
@@ -421,7 +504,7 @@ describe('8. l’écriture échoue', () => {
     const base = creerBase({ pannes: { insererExercices: 1 } });
     const r = await Routines.enregistrer(
       { id: null, nom: 'Push', exercices: [exo('squat')], existantes: [] },
-      base.ecrivain, { userId: USER });
+      base.ecrivain, CTX);
 
     expect(r.ok).toBe(false);
     expect(r.partiel).toBe(false);
@@ -432,7 +515,7 @@ describe('8. l’écriture échoue', () => {
     const base2 = creerBase();
     const ok = await Routines.enregistrer(
       { id: null, nom: 'Push', exercices: [exo('squat')], existantes: [] },
-      base2.ecrivain, { userId: USER });
+      base2.ecrivain, CTX);
     expect(ok.ok).toBe(true);
   });
 
@@ -443,7 +526,7 @@ describe('8. l’écriture échoue', () => {
 
     const b = relire(base, id);
     b.exercices.reverse();
-    const r = await Routines.enregistrer(b, base.ecrivain, { userId: USER });
+    const r = await Routines.enregistrer(b, base.ecrivain, CTX);
 
     expect(r.ok).toBe(false);
     expect(r.partiel).toBe(false);   // rien n'avait encore été écrit
@@ -460,7 +543,7 @@ describe('8. l’écriture échoue', () => {
 
     const b = relire(base, id);
     b.exercices.reverse();
-    const r = await Routines.enregistrer(b, base.ecrivain, { userId: USER });
+    const r = await Routines.enregistrer(b, base.ecrivain, CTX);
 
     expect(r.ok).toBe(false);
     expect(r.partiel).toBe(true);
@@ -489,10 +572,31 @@ describe('8. l’écriture échoue', () => {
 // ── L'aperçu et la recherche ───────────────────────────────────────────────
 
 describe('la liste et le catalogue', () => {
-  test('l’aperçu compte les SÉRIES prescrites, pas les lignes', () => {
-    expect(Routines.apercu([exo('a', { series: 4 }), exo('b', { series: 5 })]))
-      .toEqual({ nbExercices: 2, nbSeries: 9 });
-    expect(Routines.apercu([])).toEqual({ nbExercices: 0, nbSeries: 0 });
+  // ⚠️ L'APERÇU COMPTE LES SÉRIES DE TRAVAIL, ET LES CHAUFFES À PART (ch. 43).
+  // « 3 séries × 8 reps » n'a plus de sens : les lignes ne sont plus
+  // identiques. Et c'est le MÊME compte que la barre de semaine et la carte de
+  // séance — `THSemaine.compteSeriesTravail`, la règle du volume comprise.
+  test('l’aperçu compte les séries de TRAVAIL, chauffes mentionnées à part', () => {
+    const CAT = [{ slug: 'a', muscles_primaires: ['pectoraux'] },
+                 { slug: 'b', muscles_primaires: ['dos'] }];
+    const avecChauffes = exo('a', { series: [
+      { rang: 1, type_serie: 'echauffement', reps_visees: 15 },
+      { rang: 2, type_serie: 'echauffement', reps_visees: 10 },
+      { rang: 3, type_serie: 'travail', reps_visees: 5 },
+      { rang: 4, type_serie: 'travail', reps_visees: 5 }
+    ] });
+    expect(Routines.apercu([avecChauffes, exo('b', { series: progTravail(5) })], CAT))
+      .toEqual({ nbExercices: 2, nbSeries: 7, nbChauffes: 2 });
+    expect(Routines.apercu([], CAT)).toEqual({ nbExercices: 0, nbSeries: 0, nbChauffes: 0 });
+  });
+
+  // ⚠️ ET LA RÈGLE DU VOLUME S'APPLIQUE AUSSI À UNE ROUTINE. Un tapis programmé
+  // ne compte pas plus qu'un tapis fait : `porteDuVolume` l'écarte des deux.
+  test('un exercice qui ne porte pas de volume ne compte pas non plus ici', () => {
+    const CAT = [{ slug: 'a', muscles_primaires: ['pectoraux'] },
+                 { slug: 'tapis', muscles_primaires: [] }];
+    expect(Routines.apercu([exo('a', { series: progTravail(3) }),
+                            exo('tapis', { series: progTravail(2) })], CAT).nbSeries).toBe(3);
   });
 
   // ⚠️ INVERSÉ AU CHANTIER 41 (§7 duodecies.1). `archivee_a` cachait une routine

@@ -901,16 +901,28 @@
   //
   // Il INFORME, il ne commande pas : pas d'alarme au dépassement, pas de
   // blocage, aucun décompte qui presse.
+  // ⚠️ UN REPOS DÉSACTIVÉ N'ARME RIEN (§7 sexdecies.3, défaut du §7 novodecies).
+  //
+  // La décision est dans `Seance.cibleArmable`, pas dans une condition écrite
+  // ici : au point d'appel, elle ne se teste qu'en pilotant tout l'écran, et
+  // c'est exactement pour ça que le défaut a vécu — le test du chantier 44
+  // annonçait l'armement dans son nom et ne vérifiait que le stockage.
+  //
+  // ⚠️ ET VALIDER ARRÊTE TOUJOURS LE REPOS PRÉCÉDENT. Sans cible, on ne laisse
+  // pas courir celui d'avant : commencer une série met fin au repos, qu'il y
+  // ait quelque chose à compter ensuite ou non.
   function demarrerChrono(cible) {
-    chrono = { depuis: Date.now(), cible: cible || null, sonne: false };
-    // Le contexte audio doit NAÎTRE dans le geste utilisateur : une politique
-    // d'autoplay refuse un contexte créé une minute plus tard, dans un
-    // `setInterval`. On le réveille donc à la validation, pas à l'échéance.
-    reveillerAudio();
+    var c = Seance.cibleArmable(cible);
     // C'est `rendreChrono` qui décide si le minuteur tourne — ici on repart
     // juste de zéro. Deux endroits qui lancent des `setInterval` finissent
     // toujours par en laisser un derrière.
     arreterMinuteur();
+    chrono = c === null ? null : { depuis: Date.now(), cible: c, sonne: false };
+    // Le contexte audio doit NAÎTRE dans le geste utilisateur : une politique
+    // d'autoplay refuse un contexte créé une minute plus tard, dans un
+    // `setInterval`. On le réveille donc à la validation, pas à l'échéance —
+    // et seulement s'il y a une échéance à annoncer.
+    if (chrono) reveillerAudio();
     rendreChrono();
   }
 
@@ -1714,6 +1726,7 @@
       cible.appendChild(reessayer);
       return;
     }
+    rendreBandeauBrouillon();
     Rendu.rendreListeRoutines(cible, routines, {
       // `apercu` compte les séries de TRAVAIL par `THSemaine.compteSeriesTravail`,
       // dont la règle du volume a besoin des muscles du catalogue.
@@ -1725,6 +1738,48 @@
       },
       surSeanceVide: function () { demarrerSeance(null); }
     });
+  }
+
+  // ⚠️ IL NE DISPARAÎT PAS ET NE S'ENREGISTRE PAS TOUT SEUL (§7 octodecies.3).
+  // Un brouillon oublié se SIGNALE : c'est le seul comportement qui ne décide
+  // rien à la place de l'utilisateur. Et l'ancienneté règle le seuil sans
+  // qu'on en fixe un — « depuis 3 jours » se lit tout seul comme un oubli.
+  //
+  // ⚠️ ABANDONNER DEMANDE D'ABORD. Un brouillon de trois jours ne s'efface pas
+  // au premier tap d'un bandeau : c'est `showConfirm` du §6.2, ici
+  // `rendreFeuilleConfirmer`, la même que la suppression d'une routine.
+  function rendreBandeauBrouillon() {
+    var noeud = $('bandeau-reprise');
+    if (!noeud) return;
+    var b = Routines.brouillonASignaler(brouillonLocal);
+    if (!b) { Rendu.rendreBandeauReprise(noeud, null); return; }
+    Rendu.rendreBandeauReprise(noeud, {
+      quoi: 'Routine en cours d\u2019édition',
+      sujet: b.nom || 'Sans nom',
+      depuis: Modele.anciennete(b.modifie_a, new Date()),
+      libelleQuitter: 'Abandonner',
+      libelleReprendre: 'Reprendre',
+      surReprendre: function () { ouvrirRoutine(b.id); },
+      surQuitter: function () { demanderAbandonBrouillon(b); }
+    });
+  }
+
+  function demanderAbandonBrouillon(b) {
+    Rendu.rendreFeuilleConfirmer($('feuille-contenu'), {
+      titre: 'Abandonner ce brouillon ?',
+      sujet: b.nom || 'Sans nom',
+      danger: true,
+      libelle: 'Abandonner',
+      aide: 'Rien n\u2019a été enregistré : ce brouillon n\u2019existe que sur cet appareil. ' +
+            'Les routines déjà enregistrées ne bougent pas.',
+      surConfirmer: async function () {
+        fermerVoile();
+        await oublierBrouillon();
+        rendreSaisie();
+      },
+      surAnnuler: fermerVoile
+    });
+    ouvrirVoile($('feuille-seance'));
   }
 
   async function afficherSaisie() {
@@ -1780,6 +1835,59 @@
     };
   }
 
+  // ══ LE BROUILLON VIT SUR L'APPAREIL (§7 octodecies.2) ════════════════════
+  //
+  // ⚠️ LE MÊME MÉCANISME QUE LA SÉANCE EN COURS (chantier 22), pas un second.
+  // `Cache.ecrireBrouillon` porte déjà une séance sous la clé `'seance'` ; la
+  // routine en cours d'édition prend la clé `'routine'`, et c'est tout. Le
+  // problème est le même — quitter l'écran ne doit rien perdre — et il a déjà
+  // été résolu une fois.
+  //
+  // ⚠️ LOCAL, JAMAIS EN BASE. Une routine en cours d'édition n'a rien à faire
+  // sur le serveur, et `routines_nom_court` ou les bornes de `routine_sets`
+  // refuseraient un état transitoire — un nom vide le temps de le taper, un
+  // exercice sans ligne le temps d'en ajouter une. L'enregistrement reste
+  // EXPLICITE : le brouillon protège du départ accidentel, la routine n'existe
+  // que quand l'utilisateur le dit.
+  var CLE_BROUILLON = 'routine';
+  var brouillonLocal = null;   // ce que le disque porte, relu au démarrage
+
+  // ⚠️ ON N'ÉCRIT QU'À LA MODIFICATION, JAMAIS À L'OUVERTURE. Sans cette règle,
+  // ouvrir une routine pour la REGARDER effacerait le brouillon d'une autre —
+  // et le bandeau qu'on vient d'ignorer aurait menti.
+  async function sauverBrouillon() {
+    if (!brouillon) return;
+    brouillonLocal = {
+      modifie_a: new Date().toISOString(),
+      nom: $('champ-nom-routine') ? $('champ-nom-routine').value : brouillon.nom,
+      brouillon: brouillon
+    };
+    brouillon.nom = brouillonLocal.nom;
+    try {
+      await Cache.ecrireBrouillon(CLE_BROUILLON, brouillonLocal);
+    } catch (e) {
+      // Même règle que la séance : le disque local est la dernière ligne, et
+      // s'il refuse, l'utilisateur doit le savoir avant de partir.
+      console.error('Brouillon non sauvegardé :', texteErreur(e));
+      Rendu.message($('erreur-routine'),
+        'Sauvegarde impossible sur cet appareil. N\u2019oublie pas d\u2019enregistrer.', 'erreur');
+    }
+  }
+
+  async function oublierBrouillon() {
+    brouillonLocal = null;
+    try { await Cache.ecrireBrouillon(CLE_BROUILLON, null); }
+    catch (e) { console.warn('Brouillon non effacé :', texteErreur(e)); }
+  }
+
+  async function chargerBrouillonLocal() {
+    try { brouillonLocal = await Cache.lireBrouillon(CLE_BROUILLON); }
+    catch (e) {
+      console.warn('Brouillon local illisible :', texteErreur(e));
+      brouillonLocal = null;
+    }
+  }
+
   async function ouvrirRoutine(id) {
     allerA(Routeur.ROUTINE, id ? { id: id } : { neuve: true });
     await prepererEditeur(id);
@@ -1800,7 +1908,12 @@
       allerA(Routeur.SAISIE, {}, true);
       return rendreSaisie();
     }
-    brouillon = brouillonDe(routine);
+    // ⚠️ LE BROUILLON REPREND LA MAIN, MAIS SEULEMENT SUR SA PROPRE ROUTINE.
+    // Un brouillon de la routine Y ne doit pas se déverser dans l'éditeur de X
+    // — ni être effacé par le seul fait d'ouvrir X. Il attend son tour ;
+    // c'est le bandeau qui y ramène (§7 octodecies.3).
+    var reprise = Routines.brouillonReprenable(brouillonLocal, id || null);
+    brouillon = reprise || brouillonDe(routine);
     $('champ-nom-routine').value = brouillon.nom;
     $('btn-supprimer-routine').hidden = !brouillon.id;
     $('erreur-routine').textContent = '';
@@ -1829,6 +1942,21 @@
     return { exercices: brouillon.exercices };
   }
 
+  // ⚠️ UN SEUL ENTONNOIR APRÈS UNE MODIFICATION, comme `apresGeste` en séance.
+  // Le brouillon part sur disque à CHAQUE modification (§7 octodecies.2) ;
+  // N points d'appel qui écriraient chacun le leur finiraient par en oublier
+  // un, et l'oubli ne se verrait qu'en perdant une routine.
+  //
+  // `rendre: false` pour la saisie de ligne : re-rendre à chaque frappe
+  // arracherait le focus et le clavier d'Android avec lui. L'écriture sur
+  // disque, elle, a lieu dans les deux cas.
+  function apresEditeur(options) {
+    var o = options || {};
+    var p = sauverBrouillon();
+    if (o.rendre !== false) rendreEditeur();
+    return p;
+  }
+
   function exoBrouillon(i) { return brouillon.exercices[i] || null; }
 
   function ligneBrouillon(i, j) {
@@ -1848,21 +1976,25 @@
       // (`Seance.precedent`), donc pas de seconde lecture d'historique ; c'est
       // `rangeeDeSerie` qui l'aligne par type et par rang (chantier 38).
       precedent: precedentDe,
-      // ⚠️ PAS DE `surExercice` ICI, ET C'EST UN ÉCART ASSUMÉ AU §7 quindecies.1.
+      // ⚠️ LE TAP EST REBRANCHÉ (§7 octodecies.4). Il avait été retiré au
+      // chantier 43 parce que le brouillon n'était pas persisté : partir de
+      // l'écran coûtait la routine en cours d'édition. Le raisonnement était
+      // juste, la conclusion non — il traitait la conséquence comme une
+      // fatalité. **La réponse était de persister le brouillon, pas de retirer
+      // le geste** (§7 octodecies.1), et c'est fait au §2 de ce chantier.
       //
-      // En séance, un tap sur le nom ouvre la page de l'exercice (§2.8) et la
-      // séance survit — elle est persistée. Le brouillon d'une routine, lui, ne
-      // l'est pas : quitter l'éditeur et revenir passe par `prepererEditeur`,
-      // qui le refabrique depuis la routine chargée. Le tap coûterait donc une
-      // routine en cours d'édition, sans un mot. Le nom reste du texte tant que
-      // le brouillon n'est pas tenu au travers d'une navigation — ce qui est un
-      // chantier, pas une ligne.
+      // Et c'est précisément là qu'on en a besoin : consulter l'historique d'un
+      // exercice pendant qu'on construit une routine est le moment où l'on
+      // décide combien de séries y mettre.
+      surExercice: function (slug) { afficherExercice(slug); },
       // ⚠️ LES CHAMPS MUTENT SANS REDESSINER. Re-rendre à chaque frappe
       // arracherait le focus, et le clavier d'Android avec lui — c'est la même
       // règle qu'en séance, pour la même raison.
       surChamp: function (i, j, champ, valeur) {
         var l = ligneBrouillon(i, j);
-        if (l) l[champ] = valeur;
+        if (!l) return;
+        l[champ] = valeur;
+        apresEditeur({ rendre: false });
       },
       surNumero: ouvrirTypeSerieRoutine,
       surNote: ouvrirNoteExoRoutine,
@@ -1878,13 +2010,13 @@
         e.series.push(derniere
           ? Object.assign({}, derniere, { id: null })
           : Routines.enSaisie(null));
-        rendreEditeur();
+        apresEditeur();
       },
       surSupprimerSerie: function (i, j) {
         var e = exoBrouillon(i);
         if (!e || !e.series[j]) return;
         e.series.splice(j, 1);
-        rendreEditeur();
+        apresEditeur();
       },
       // Sur un bloc d'un seul, bloc et exercice sont le même objet : le menu du
       // bloc EST celui de l'exercice. Sur un superset, `teteDeBloc` ne rend pas
@@ -1911,12 +2043,12 @@
       numero: j + 1,
       exercice: nomExoBrouillon(i),
       serie: l,
-      surType: function (t) { l.type_serie = t; fermerVoile(); rendreEditeur(); },
+      surType: function (t) { l.type_serie = t; fermerVoile(); apresEditeur(); },
       surSupprimer: function () {
         fermerVoile();
         var e = exoBrouillon(i);
         if (e) e.series.splice(j, 1);
-        rendreEditeur();
+        apresEditeur();
       }
     });
     ouvrirVoile($('feuille-seance'));
@@ -1933,7 +2065,7 @@
       exercice: nomExoBrouillon(i),
       note: e.note,
       surNote: function (v) { e.note = v; },
-      surFermer: function () { fermerVoile(); rendreEditeur(); }
+      surFermer: function () { fermerVoile(); apresEditeur(); }
     });
     ouvrirVoile($('feuille-seance'));
   }
@@ -1948,7 +2080,7 @@
   function ouvrirReposExoRoutine(i) {
     var e = exoBrouillon(i);
     if (!e) return;
-    var poser = function (v) { e.repos_cible_s = v; fermerVoile(); rendreEditeur(); };
+    var poser = function (v) { e.repos_cible_s = v; fermerVoile(); apresEditeur(); };
     Rendu.rendreFeuilleRepos($('feuille-contenu'), {
       exercice: nomExoBrouillon(i),
       repos: e.repos_cible_s,
@@ -1974,13 +2106,13 @@
       // superset dans une liste (§2.3 — un bloc est une suite contiguë).
       surGrouper: function () {
         brouillon.exercices = Routines.basculerLien(brouillon.exercices, i);
-        fermerVoile(); rendreEditeur();
+        fermerVoile(); apresEditeur();
       },
       // Sortir l'exercice de son groupe. Un superset à deux se DISSOUT : il
       // n'existe pas de groupe à un (§7 decies), et `appliquerLiens` le sait.
       surDegrouper: function () {
         brouillon.exercices = Routines.degrouper(brouillon.exercices, i);
-        fermerVoile(); rendreEditeur();
+        fermerVoile(); apresEditeur();
       },
       surMonter: function () { fermerVoile(); echanger(i, i - 1); },
       surDescendre: function () { fermerVoile(); echanger(i, i + 1); },
@@ -2002,7 +2134,7 @@
   // l'endroit exact où il vient de céder.
   function renumeroterBrouillon() {
     brouillon.exercices = Routines.renumeroter(brouillon.exercices);
-    rendreEditeur();
+    return apresEditeur();
   }
 
   function echanger(i, j) {
@@ -2043,6 +2175,11 @@
         erreur.textContent = Routines.messageErreur(r);
         return;
       }
+      // ⚠️ LE BROUILLON EST CONSOMMÉ, PAS LAISSÉ DERRIÈRE. Il n'existait que
+      // pour protéger du départ accidentel ; la routine est en base, donc il
+      // n'a plus rien à protéger — et un bandeau qui proposerait de « reprendre »
+      // ce qui vient d'être enregistré ferait douter de l'enregistrement.
+      await oublierBrouillon();
       await chargerRoutines();
       allerA(Routeur.SAISIE, {}, true);
       rendreSaisie();
@@ -2107,6 +2244,9 @@
       // `routine_exercises_routine_id_fkey` est ON DELETE CASCADE : les
       // exercices partent avec la routine, sans second appel.
       await Donnees.supprimerRoutine(brouillon.id);
+      // La routine n'existe plus : son brouillon non plus. Le garder ferait
+      // proposer la reprise d'une routine supprimée.
+      await oublierBrouillon();
       await chargerRoutines();
       allerA(Routeur.SAISIE, {}, true);
       rendreSaisie();
@@ -2188,7 +2328,7 @@
           series: [Routines.enSaisie(null)],
           repos_cible_s: null, groupe_superset: null, note: null
         });
-        rendreEditeur();
+        apresEditeur();
       });
   }
 
@@ -2708,6 +2848,7 @@
     // colonnes en silence. On l'apprend ici, au démarrage, et bruyamment.
     Seance.verifierColonnes();
     await chargerSeanceLocale();
+    await chargerBrouillonLocal();
     // AVANT tout rendu et AVANT tout réseau, comme la lecture qui précède : une
     // file bloquée par le défaut du chantier 32 se répare ici, sinon elle
     // resterait bloquée pour toujours (voir `reparerIdentifiantsManquants`).
@@ -2905,6 +3046,13 @@
     $('btn-retour-routine').addEventListener('click', function () {
       allerA(Routeur.SAISIE, {});
       rendreSaisie();
+    });
+    // ⚠️ LE NOM EST UNE MODIFICATION COMME UNE AUTRE. Il vit dans le DOM et pas
+    // dans le brouillon jusqu'à l'enregistrement : sans ce branchement, taper
+    // un nom puis quitter l'écran le perdrait — et c'est le tout premier geste
+    // d'une routine neuve.
+    $('champ-nom-routine').addEventListener('input', function () {
+      apresEditeur({ rendre: false });
     });
     $('btn-ajouter-exo').addEventListener('click', function () { ouvrirCatalogue(); });
     $('btn-enregistrer-routine').addEventListener('click', enregistrerBrouillon);

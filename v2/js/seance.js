@@ -1497,6 +1497,31 @@
   // dépassement, rien qui se répète — le chronomètre informe, il ne commande
   // pas (§7 ter.3). Une cible à zéro ne sonne jamais : zéro veut dire
   // « pas de cible », pas « tout de suite ».
+  // ══ CE QUI ARME LE CHRONOMÈTRE (§7 novodecies) ═══════════════════════════
+  //
+  // ⚠️ DÉFAUT CONSTATÉ SUR DEVICE LE 17/09, APRÈS LE CHANTIER 44 : un repos
+  // désactivé faisait quand même partir le chronomètre, qui comptait sans but.
+  //
+  // La cause n'était PAS la confusion `NULL`/zéro soupçonnée — le branchement
+  // lisait bien `null`, et l'affichait (« cible — »). Il armait quand même :
+  // l'armement n'était conditionné par RIEN. `chrono` devenait un objet non
+  // nul, donc la barre s'affichait ; et comme `reposFige(null, s)` est faux
+  // pour tout `s`, l'intervalle d'une seconde ne s'arrêtait jamais.
+  //
+  // La décision vit donc ICI, en une fonction pure, plutôt que dans une
+  // condition au point d'appel : c'est la seule forme qu'une mutation peut
+  // tuer, et le test du chantier 44 n'en tuait aucune — il vérifiait le
+  // STOCKAGE de `null` et prétendait dans son nom vérifier l'armement.
+  //
+  // Zéro n'arme pas non plus : `routine_exos_repos_borne` commence à 5 s, donc
+  // un zéro ne peut venir que d'un défaut — et « 0:00 de repos » serait une
+  // prescription, pas une absence.
+  function cibleArmable(cible) {
+    var n = nombreOuNul(cible);
+    if (n === null || !(n > 0)) return null;
+    return n;
+  }
+
   function echeanceAtteinte(cible, secondes, dejaSonne) {
     if (dejaSonne) return false;
     var c = Number(cible) || 0;
@@ -1533,6 +1558,7 @@
     TYPES: TYPES, RESSENTIS: RESSENTIS,
     PAS_REPOS: PAS_REPOS,
     ajusterCible: ajusterCible,
+    cibleArmable: cibleArmable,
     echeanceAtteinte: echeanceAtteinte,
     reposFige: reposFige,
     secondesAffichees: secondesAffichees,

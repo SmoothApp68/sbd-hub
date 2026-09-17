@@ -656,6 +656,44 @@
     };
   }
 
+  // ══ LE BROUILLON LOCAL (§7 octodecies) ══════════════════════════════════
+  //
+  // ⚠️ DEUX QUESTIONS DIFFÉRENTES, DEUX FONCTIONS. « Y a-t-il un brouillon à
+  // signaler ? » n'est pas « ce brouillon est-il celui de CETTE routine ? » —
+  // la bibliothèque pose la première, l'éditeur la seconde, et les confondre
+  // ferait soit disparaître le bandeau, soit déverser le brouillon de Y dans
+  // l'éditeur de X.
+  //
+  // Un enregistrement local vaut `{ modifie_a, nom, brouillon }`. On ne fait
+  // confiance à rien : il vient du disque, il a pu être écrit par une version
+  // précédente de l'app, et une forme inattendue ne doit pas casser l'écran.
+  function brouillonValide(local) {
+    return !!(local && local.brouillon && Array.isArray(local.brouillon.exercices));
+  }
+
+  // Ce que la bibliothèque signale. `null` quand il n'y a rien à dire.
+  function brouillonASignaler(local) {
+    if (!brouillonValide(local)) return null;
+    return {
+      id: local.brouillon.id || null,
+      nom: nomPropre(local.nom) || nomPropre(local.brouillon.nom) || '',
+      modifie_a: local.modifie_a || null,
+      nbExercices: local.brouillon.exercices.length
+    };
+  }
+
+  // ⚠️ `id` DOIT CORRESPONDRE, `null` COMPRIS. Une routine neuve porte `null`,
+  // et deux routines neuves ne se distinguent pas — c'est voulu : il n'y a
+  // qu'un brouillon à la fois, et c'est celui d'une création si son `id` est
+  // nul. `undefined` et `null` sont ramenés l'un sur l'autre, sinon un appelant
+  // qui passe l'un ne retrouverait jamais ce que l'autre a écrit.
+  function brouillonReprenable(local, id) {
+    if (!brouillonValide(local)) return null;
+    var voulu = (id === undefined || id === '') ? null : id;
+    var sien = local.brouillon.id === undefined ? null : local.brouillon.id;
+    return sien === voulu ? local.brouillon : null;
+  }
+
   // Les routines de la bibliothèque, dans un ordre stable. Le tri est par nom
   // replié — c'est la seule clé que l'utilisateur voit et contrôle ; trier par
   // date de création ferait bouger la liste sans raison lisible.
@@ -856,6 +894,8 @@
     classerErreur: classerErreur,
     messageErreur: messageErreur,
     MESSAGES: MESSAGES,
+    brouillonASignaler: brouillonASignaler,
+    brouillonReprenable: brouillonReprenable,
     visibles: visibles,
     replier: replier,
     chercher: chercher

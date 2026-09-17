@@ -2342,6 +2342,54 @@
 
   function R() { return racine.THRoutines; }
 
+  // ══ LE BANDEAU DE REPRISE (§7 nonies, §7 octodecies.3) ═══════════════════
+  //
+  // ⚠️ UN SEUL COMPOSANT POUR DEUX SUJETS. La séance en cours (§7 nonies) et le
+  // brouillon de routine (§7 octodecies.3) posent la MÊME question : « il reste
+  // quelque chose d'ouvert, veux-tu le reprendre ou en finir ? ». Deux
+  // bandeaux, c'était la duplication du §2 undecies avant même de l'avoir
+  // écrite — celle du repos a coûté un chantier entier.
+  //
+  // Ce qui varie est donné par l'appelant : le QUOI (« Routine en cours
+  // d'édition »), le sujet (son nom), et le libellé de la seconde action —
+  // « Abandonner » pour un brouillon, « Terminer » pour une séance. Le
+  // mécanisme, lui, ne varie pas.
+  //
+  // ⚠️ L'ANCIENNETÉ VIENT DE L'APPELANT, elle ne se calcule pas ici : `rendu.js`
+  // ne lit pas l'horloge. `Modele.anciennete` la formate, et se teste sans
+  // attendre.
+  //
+  // ⚠️ RIEN N'EST DESTRUCTIF AU TAP. « Abandonner » ne fait qu'APPELER son
+  // gestionnaire ; c'est l'appelant qui demande confirmation. Un bandeau qui
+  // efface un brouillon de trois jours au premier tap serait le pire endroit
+  // pour un geste irréversible.
+  function rendreBandeauReprise(cible, vue) {
+    vider(cible);
+    if (!vue || !vue.quoi) { cible.hidden = true; return cible; }
+    cible.hidden = false;
+    var b = el('div', 'bandeau-reprise');
+
+    var t = el('div', 'reprise-t');
+    t.appendChild(el('span', 'reprise-quoi', vue.quoi));
+    if (vue.sujet) t.appendChild(el('em', 'reprise-sujet', vue.sujet));
+    b.appendChild(t);
+    if (vue.depuis) b.appendChild(el('div', 'reprise-depuis', vue.depuis));
+
+    var actions = el('div', 'reprise-actions');
+    var quitter = el('button', 'discret', vue.libelleQuitter || 'Abandonner');
+    quitter.type = 'button';
+    quitter.addEventListener('click', function () { vue.surQuitter(); });
+    actions.appendChild(quitter);
+    var reprendre = el('button', 'principal', vue.libelleReprendre || 'Reprendre');
+    reprendre.type = 'button';
+    reprendre.addEventListener('click', function () { vue.surReprendre(); });
+    actions.appendChild(reprendre);
+    b.appendChild(actions);
+
+    cible.appendChild(b);
+    return cible;
+  }
+
   // Le rendu reçoit des routines DÉJÀ NORMALISÉES par app.js : { id, nom,
   // archivee_a, exercices[] }. Il ne connaît pas la forme imbriquée que rend
   // PostgREST — un seul endroit traduit, et ce n'est pas ici.
@@ -2522,6 +2570,7 @@
     mmss: mmss,
     etiquetteSerie: etiquetteSerie,
     texteEffort: texteEffort,
+    rendreBandeauReprise: rendreBandeauReprise,
     rendreListeRoutines: rendreListeRoutines,
     rendreFeuilleExoRoutine: rendreFeuilleExoRoutine,
     champChrono: champChrono,

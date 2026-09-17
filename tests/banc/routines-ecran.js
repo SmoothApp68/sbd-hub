@@ -1086,6 +1086,181 @@ const CATALOGUE = [
     '« ' + (await texte('#erreur-routine')).trim() + ' » · ' +
     JSON.stringify(base.routines.map((r) => r.nom + (r.archivee_a ? '*' : ''))));
 
+  console.log('\n══ 7 ter. LE BROUILLON VIT SUR L’APPAREIL (§7 octodecies) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE (§2 quater) : un brouillon MODIFIÉ PUIS
+  // QUITTÉ SANS ENREGISTRER, l'app rechargée entre les deux. Sur un brouillon
+  // enregistré, « persisté » et « en mémoire » sont indistinguables — c'est
+  // tout le sujet. `aller()` fait un `goto` complet : c'est bien l'app tuée et
+  // rouverte, IndexedDB survivant au rechargement.
+  //
+  // ⚠️ ET C'EST LE SEUL BANC QUI PEUT LE MESURER. Un test unitaire voit les
+  // règles pures (`brouillonReprenable`, `anciennete`) ; il ne voit pas
+  // IndexedDB, ni le rechargement, ni le fait qu'AUCUNE requête ne part.
+  const bandeau = (sel) => page.evaluate((x) =>
+    (document.querySelector('#bandeau-reprise ' + x) || {}).textContent || '', sel);
+  const bandeauVisible = () => page.evaluate(() => {
+    const n = document.getElementById('bandeau-reprise');
+    return !!n && !n.hidden && !!n.querySelector('.bandeau-reprise');
+  });
+  const brouillonEnBase = () => page.evaluate(() => new Promise((resoudre) => {
+    const r = indexedDB.open('trainhub-v2');
+    r.onsuccess = () => {
+      const db = r.result;
+      if (!db.objectStoreNames.contains('brouillon')) { db.close(); return resoudre(null); }
+      const q = db.transaction(['brouillon'], 'readonly').objectStore('brouillon').get('routine');
+      q.onsuccess = () => { db.close(); resoudre(q.result ? q.result.valeur : null); };
+      q.onerror = () => { db.close(); resoudre('ERREUR'); };
+    };
+    r.onerror = () => resoudre('ERREUR');
+  }));
+
+  await aller('/saisie');
+  ok('[45] au départ, aucun brouillon et aucun bandeau',
+    (await brouillonEnBase()) === null && (await bandeauVisible()) === false,
+    'brouillon = ' + JSON.stringify(await brouillonEnBase()));
+
+  // ── On commence une routine NEUVE et on la quitte sans enregistrer ──────
+  await page.click('#btn-nouvelle-routine');
+  await attendre(400);
+  await page.fill('#champ-nom-routine', 'Brouillon du mardi');
+  await page.evaluate(() => {
+    document.getElementById('champ-nom-routine')
+      .dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await attendre(300);
+  await page.click('#btn-ajouter-exo');
+  await attendre(250);
+  await page.fill('#champ-recherche-exo', 'curl');
+  await attendre(250);
+  await page.click('#resultats-exo .resultat');
+  await attendre(400);
+  const envoisAvant = base.envois.length;
+
+  // 5. ⚠️ RIEN N'EST PARTI EN BASE. Une routine en cours d'édition n'a rien à
+  // faire sur le serveur, et `routines_nom_court` refuserait un nom vide le
+  // temps de le taper.
+  ok('[45] modifier un brouillon n’envoie RIEN au serveur',
+    base.envois.length === envoisAvant,
+    (base.envois.length - envoisAvant) + ' envoi(s) depuis la modification');
+  const surDisque = await brouillonEnBase();
+  ok('[45] mais il est sur le DISQUE, avec son nom et son exercice',
+    !!surDisque && surDisque.nom === 'Brouillon du mardi' &&
+    surDisque.brouillon.exercices.length === 1 && !!surDisque.modifie_a,
+    JSON.stringify(surDisque && { nom: surDisque.nom,
+      exos: surDisque.brouillon.exercices.length, quand: !!surDisque.modifie_a }));
+
+  // 4. ⚠️ L'APP TUÉE ET ROUVERTE. C'est la configuration discriminante.
+  await aller('/saisie');
+  ok('[45] rouverte, l’app SIGNALE le brouillon — elle ne l’a ni perdu ni enregistré',
+    (await bandeauVisible()) === true &&
+    /Routine en cours/.test(await bandeau('.reprise-quoi')) &&
+    (await bandeau('.reprise-sujet')) === 'Brouillon du mardi',
+    (await texte('#bandeau-reprise')).replace(/\s+/g, ' '));
+  // 8. L'ancienneté est là, et elle est juste : on vient de le modifier.
+  ok('[45] et il dit depuis quand', /instant|min/.test(await bandeau('.reprise-depuis')),
+    '« ' + (await bandeau('.reprise-depuis')) + ' »');
+  ok('[45] la routine n’est PAS dans la bibliothèque — rien n’a été enregistré',
+    !/Brouillon du mardi/.test(await texte('#liste-routines')),
+    (await texte('#liste-routines')).replace(/\n+/g, ' | ').slice(0, 80));
+
+  // ── « Reprendre » restitue tout ────────────────────────────────────────
+  await page.evaluate(() => {
+    Array.from(document.querySelectorAll('#bandeau-reprise button'))
+      .filter((b) => /Reprendre/.test(b.textContent))[0].click();
+  });
+  await attendre(800);
+  const repris = await page.evaluate(() => ({
+    vue: Array.from(document.querySelectorAll('main > section')).filter((s) => !s.hidden).map((s) => s.id),
+    nom: document.getElementById('champ-nom-routine').value,
+    exos: document.querySelectorAll('.legende-exo').length
+  }));
+  ok('[45] « Reprendre » rouvre l’éditeur avec le nom ET l’exercice',
+    JSON.stringify(repris.vue) === '["vue-routine"]' &&
+    repris.nom === 'Brouillon du mardi' && repris.exos === 1,
+    JSON.stringify(repris));
+
+  // 9. ⚠️ LE TAP SUR UN NOM EST REBRANCHÉ (§7 octodecies.4), et le retour
+  // restitue le brouillon. C'est LE geste que le chantier 43 avait retiré
+  // faute de persistance : consulter l'historique d'un exercice pendant qu'on
+  // construit une routine est le moment où l'on décide combien de séries y
+  // mettre.
+  await page.evaluate(() => { document.querySelector('.legende-exo .nom-exo').click(); });
+  await attendre(900);
+  ok('[45] taper le nom d’un exercice ouvre SA page',
+    JSON.stringify(await visible()) === '["vue-exercice"]' && /exercice\//.test(page.url()),
+    JSON.stringify(await visible()) + ' · ' + page.url().replace(BASE, ''));
+  await page.goBack({ waitUntil: 'networkidle' }).catch(() => {});
+  await attendre(1200);
+  const apresRetour = await page.evaluate(() => ({
+    vue: Array.from(document.querySelectorAll('main > section')).filter((s) => !s.hidden).map((s) => s.id),
+    nom: (document.getElementById('champ-nom-routine') || {}).value,
+    exos: document.querySelectorAll('.legende-exo').length
+  }));
+  ok('[45] et le retour restitue l’éditeur, brouillon INTACT',
+    JSON.stringify(apresRetour.vue) === '["vue-routine"]' &&
+    apresRetour.nom === 'Brouillon du mardi' && apresRetour.exos === 1,
+    JSON.stringify(apresRetour));
+
+  // 6. ⚠️ ENREGISTRER CONSOMME LE BROUILLON. Un bandeau qui proposerait de
+  // « reprendre » ce qui vient d'être enregistré ferait douter de
+  // l'enregistrement lui-même.
+  await page.click('#btn-enregistrer-routine');
+  await attendre(1200);
+  ok('[45] enregistrer CONSOMME le brouillon — plus rien sur le disque',
+    (await brouillonEnBase()) === null, JSON.stringify(await brouillonEnBase()));
+  ok('[45] …et plus de bandeau, la routine est dans la bibliothèque',
+    (await bandeauVisible()) === false &&
+    /Brouillon du mardi/.test(await texte('#liste-routines')),
+    'bandeau = ' + (await bandeauVisible()));
+
+  // 7. ── ABANDONNER : le brouillon part, rien n'est écrit ────────────────
+  // ⚠️ PAR SON NOM, PAS PAR SA POSITION. La bibliothèque est triée par nom
+  // replié : « Ancienne » passe devant, et elle n'a aucun exercice — donc
+  // aucun bouton de repos à toucher.
+  await page.evaluate(() => {
+    Array.from(document.querySelectorAll('#liste-routines .routine'))
+      .filter((c) => /Brouillon du mardi/.test(c.textContent))[0].click();
+  });
+  await attendre(800);
+  await page.evaluate(() => {
+    document.querySelectorAll('.repos-cible')[0].click();
+  });
+  await attendre(400);
+  await page.click('#feuille-contenu .feuille-pied .pri');
+  await attendre(500);
+  await aller('/saisie');
+  // ⚠️ LE REPÈRE SE POSE APRÈS LE RECHARGEMENT, PAS AVANT. Un `goto` relance
+  // l'app, et la vidange de file au démarrage peut légitimement envoyer ce qui
+  // attendait d'une section précédente. Ce qu'on mesure ici est l'ABANDON :
+  // mêler les deux ferait échouer le test pour une raison qui n'est pas la
+  // sienne — et on ne saurait pas laquelle.
+  const envoisAvantAbandon = base.envois.length;
+  ok('[45] une modification sur une routine EXISTANTE se signale aussi',
+    (await bandeauVisible()) === true, (await texte('#bandeau-reprise')).replace(/\s+/g, ' '));
+  await page.evaluate(() => {
+    Array.from(document.querySelectorAll('#bandeau-reprise button'))
+      .filter((b) => /Abandonner/.test(b.textContent))[0].click();
+  });
+  await attendre(500);
+  // ⚠️ IL DEMANDE D'ABORD. Un brouillon de trois jours ne s'efface pas au
+  // premier tap : c'est la même confirmation que la suppression d'une routine.
+  const confAbandon = (await texte('#feuille-contenu')).replace(/\s+/g, ' ');
+  ok('[45] « Abandonner » DEMANDE avant, et dit que rien n’a été enregistré',
+    /Abandonner ce brouillon/.test(confAbandon) && /n’a été enregistré/.test(confAbandon),
+    confAbandon.slice(0, 110));
+  await entree('^Abandonner$');
+  await attendre(800);
+  ok('[45] confirmé, le brouillon part — et RIEN n’est parti au serveur',
+    (await brouillonEnBase()) === null && (await bandeauVisible()) === false &&
+    base.envois.length === envoisAvantAbandon,
+    'brouillon = ' + JSON.stringify(await brouillonEnBase()) +
+    ' · ' + (base.envois.length - envoisAvantAbandon) + ' envoi(s)');
+  // La routine en base n'a pas bougé : l'abandon ne touche que le disque local.
+  ok('[45] et la routine enregistrée est intacte',
+    /Brouillon du mardi/.test(await texte('#liste-routines')),
+    (await texte('#liste-routines')).replace(/\n+/g, ' | ').slice(0, 70));
+
   console.log('\n══ 8. NON-RÉGRESSION ══');
   for (const [chemin, attendu] of [['/', 'vue-liste'], ['/progression', 'vue-progression'], ['/profil', 'vue-profil']]) {
     await aller(chemin);

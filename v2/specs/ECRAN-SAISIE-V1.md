@@ -1368,7 +1368,14 @@ jamais les charges. Même règle qu'une routine — le moteur décide des charge
 
 ---
 
-## 7 nonies. Le bandeau de séance en cours — décidé, non implémenté
+## 7 nonies. Le bandeau de séance en cours — décidé, COMPOSANT ÉCRIT, non branché
+
+> 🔧 **Mise à jour du 17/09/2026 (chantier 45).** Le composant existe :
+> `Rendu.rendreBandeauReprise`, écrit pour le brouillon de routine (§7 octodecies.3) et
+> **conçu pour servir aux deux**. Ce qui varie est donné par l'appelant — le quoi, le sujet,
+> l'ancienneté, le libellé de la seconde action. Il reste à la séance : décider l'emplacement
+> (ci-dessous, toujours non tranché), calculer le sujet et l'ancienneté depuis `seance.debut`,
+> câbler « Reprendre » et « Terminer », et poser la pastille sur l'onglet Saisie.
 
 Une séance en cours survit à tout (chantier 22) et se reprend au lancement. Mais **c'est
 l'utilisateur qui va la chercher** dans l'onglet Saisie.
@@ -1462,6 +1469,140 @@ demanderait une migration : `reps_visees` est un entier simple.
 
 **Ne pas reproposer.** Si le besoin revient, il se traitera avec le moteur (chantier 1), pas
 dans l'éditeur.
+
+---
+
+## 7 octodecies. Le brouillon de routine — persisté, et le tap rebranché
+
+Arrêté le 17/09/2026 après essai du chantier 44.
+
+### 7 octodecies.1 Le constat
+
+Dans l'éditeur de routine, **taper le nom d'un exercice ne fait rien**. Désactivé volontairement
+au chantier 43, avec cet argument :
+
+> *« En séance, le tap ouvre la page de l'exercice et la séance survit — elle est persistée. Le
+> brouillon d'une routine ne l'est pas : le tap coûterait une routine en cours d'édition, sans
+> un mot. »*
+
+**Le raisonnement est juste, la conclusion non.** Il traite la conséquence comme une fatalité.
+
+> **La réponse est de persister le brouillon, pas de retirer le geste.**
+
+Et c'est précisément là qu'on en a besoin : **consulter l'historique d'un exercice pendant
+qu'on construit une routine** est le moment où l'on décide combien de séries y mettre.
+
+### 7 octodecies.2 Le brouillon vit sur l'appareil
+
+Aujourd'hui l'éditeur travaille **en mémoire**. Quitter l'écran perd tout ce qui n'est pas
+enregistré.
+
+> **Le brouillon s'écrit sur l'appareil à chaque modification**, comme la séance en cours
+> depuis le chantier 22.
+
+Partir voir une page d'exercice, tuer l'app, revenir : le brouillon attend.
+
+**L'enregistrement reste explicite.** Le brouillon protège du départ accidentel ; la routine
+n'existe que quand l'utilisateur le dit.
+
+> ⚠️ **Local, jamais en base.** Une routine en cours d'édition n'a rien à faire sur le serveur,
+> et `routines_nom_court` ou les bornes de `routine_sets` refuseraient un état transitoire — un
+> nom vide le temps de le taper, un exercice sans ligne le temps d'en ajouter une.
+
+### 7 octodecies.3 Un brouillon abandonné se signale
+
+**Il ne disparaît pas et ne s'enregistre pas tout seul.** Au retour dans la bibliothèque, un
+bandeau : *« Routine en cours d'édition — reprendre ou abandonner ? »*, avec l'ancienneté.
+
+> **C'est le bandeau du §7 nonies, celui de la séance en cours.** Deux endroits, le même
+> mécanisme, donc **le même composant**.
+
+Et il règle le problème du seuil sans qu'on en fixe un : un brouillon de trois jours affiche
+« depuis 3 jours », ce qui se lit tout seul comme un oubli.
+
+### 7 octodecies.4 Le tap rebranché
+
+Une fois le brouillon persisté, partir de l'écran est sans danger. **Rien ne justifie plus de
+garder le geste inerte.**
+
+Même destination qu'en séance : la page d'exercice (§7 quater), avec retour là où l'on était.
+
+### 7 octodecies.5 Ce que l'implémentation a précisé — 17/09/2026
+
+**Il n'y a qu'UN brouillon à la fois**, et il ne se déverse que dans sa propre routine : ouvrir
+la routine X pendant qu'un brouillon de Y attend ne le montre pas, et ne l'efface pas non plus —
+le brouillon ne s'écrit **qu'à la modification**, jamais à l'ouverture. ⚠️ **Mais modifier X
+remplace alors le brouillon de Y**, sans le dire — et **supprimer X efface aussi le brouillon
+de Y**, pour la même raison : il n'y a qu'une case. Le bandeau est le seul rappel ; c'est
+acceptable pour un brouillon à la fois, et à rouvrir le jour où il en faudra plusieurs.
+
+**« Abandonner » demande confirmation.** Un brouillon de trois jours ne s'efface pas au premier
+tap d'un bandeau — c'est le pire endroit pour un geste irréversible (§6.2).
+
+**Le nom compte comme une modification.** Il vit dans le DOM et non dans le brouillon jusqu'à
+l'enregistrement : sans branchement propre, taper un nom puis quitter le perdrait — et c'est le
+tout premier geste d'une routine neuve.
+
+---
+
+## 7 novodecies. Le chronomètre s'arme sur un repos désactivé — DÉFAUT
+
+Constaté sur device le 17/09/2026, après le chantier 44.
+
+```
+repos désactivé (NULL)  →  valider une série  →  le chronomètre PART
+```
+
+**Il compte sans but.** Un repos à `NULL` ne doit rien armer — c'est écrit au §7 sexdecies.3,
+et les tests du chantier 44 le vérifiaient.
+
+> **Donc soit le test ne mord pas, soit le branchement en séance ne lit pas la bonne valeur.**
+> À diagnostiquer avant de corriger.
+
+Piste : la distinction `NULL` / zéro. Le chantier 44 a noté que « désactiver est un **geste**,
+pas une valeur » — la même confusion pourrait vivre en aval.
+
+### 7 novodecies.1 La cause, mesurée — 17/09/2026
+
+**Ni l'une ni l'autre des deux hypothèses, et la piste était fausse.**
+
+| Question | Mesure | Réponse |
+|---|---|---|
+| Le test mordait-il ? | `chrono.cible` forcée à 1 s dans `app.js` → **1 916 tests verts** | **Non.** Aucun test n'observait l'armement. |
+| Le branchement lisait-il la bonne valeur ? | Le banc affichait « cible — », donc `null` | **Oui.** Il la lisait — et armait quand même. |
+
+**L'armement n'était conditionné par rien.** `demarrerChrono(null)` posait un objet non nul,
+donc la barre s'affichait ; et comme `reposFige(null, s)` est faux pour tout `s`, l'intervalle
+d'une seconde ne s'arrêtait jamais.
+
+Le test du chantier 44 s'appelait *« un repos désactivé vaut NULL en séance, et n'arme aucune
+cible »* et ne vérifiait que le **stockage**. Son nom promettait ce que son corps ne faisait
+pas.
+
+> **La décision d'armement vit désormais dans une fonction PURE** (`Seance.cibleArmable`), et
+> non dans une condition au point d'appel : c'est la seule forme qu'une mutation peut tuer.
+
+**Et la campagne l'a confirmé par l'autre bout.** Remplacer, au point d'appel, `cibleArmable(cible)`
+par `cible` brute donne un mutant qui **survit** — et c'est correct : sur le domaine que ce point
+d'appel peut réellement recevoir, les deux fonctions sont la même. `repos_cible_s` est normalisé
+en amont (`null` quand il est absent, dans `creer`, `ajouterExercice` et la relecture du cache) et
+borné par `definirReposCible` à `null` ou 5-1800. **Zéro, le négatif et le non-numérique n'y
+arrivent jamais** — c'est exactement pourquoi la décision se teste là où elle est *énoncée*, et
+pas là où elle est *câblée*.
+
+**Et valider arrête toujours le repos précédent.** Sans cible, on ne laisse pas courir celui
+d'avant : commencer une série met fin au repos, qu'il y ait quelque chose à compter ensuite ou
+non.
+
+### 7 novodecies.2 Ce que ça change pour un exercice sans repos prescrit
+
+`NULL` veut dire « désactivé » **et** « jamais prescrit » — une seule valeur pour les deux. La
+barre de repos ne s'ouvre donc plus du tout sur un exercice sans repos, et ses commandes
+(−15 / +15) ne servent plus à en poser un depuis rien.
+
+> **Ce n'est pas une capacité perdue** : la molette, sous le nom de l'exercice, pose un repos en
+> deux taps (§7 sexdecies). Les commandes de la barre gardent leur objet — ajuster une cible
+> mal réglée pendant qu'elle court, ce qui est le cas courant.
 
 ---
 

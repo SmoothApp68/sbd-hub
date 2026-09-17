@@ -289,6 +289,12 @@ la semaine du 9 au 15 septembre.**
   gris, lue par la fonction de la séance et alignée par `correspondant`. Une seconde lecture
   d'historique aurait divergé de la première ; c'est littéralement le défaut du chantier 38 →
   39, qu'on s'est épargné cette fois.
+- **Le brouillon de routine sur `Cache.ecrireBrouillon`** (ch. 45) — la séance en cours y vit
+  depuis le chantier 22 sous la clé `'seance'` ; la routine en cours d'édition prend la clé
+  `'routine'`, et c'est tout. Même problème, résolu une fois.
+- **`rendreBandeauReprise`** (ch. 45) — un seul bandeau pour la séance en cours (§7 nonies) et
+  le brouillon de routine (§7 octodecies.3). Écrit pour les deux **avant** que le second
+  n'existe : c'est la duplication évitée avant d'avoir été écrite, plutôt qu'après.
 - **La liste lue dérivée de la liste écrite** par construction (ch. 34), plus
   `verifierColonnes()` qui lève au démarrage si l'écart réapparaît.
 - **Les deux entonnoirs de bornes** (ch. 36) — `nombreOuNul`/`entierOuNul` et `borne`,
@@ -308,6 +314,36 @@ la semaine du 9 au 15 septembre.**
 > **Corollaire, déjà appliqué** : une garde qui double une garde qui fait déjà le travail ne
 > protège de rien et laisse croire l'inverse. Retirée à chaque fois qu'une mutation l'a
 > désignée (ch. 27, 28, 30, 34, 36).
+
+---
+
+## 2 duodecies. Commiter AVANT toute campagne de mutations — 17/09/2026
+
+> **Une campagne de mutations restaure par `git checkout -- v2/`. Lancée sur du travail non
+> commité, elle efface tout `v2/`.**
+
+Ce n'est pas une bonne pratique, c'est une **règle**. Le chantier 43 l'avait appliquée ; le
+chantier 44 l'a oubliée et y a perdu 30 à 40 minutes — tout le code du chantier effacé, à
+rejouer.
+
+L'ordre est donc : `node -c` · tests verts · bancs verts · **commit** · campagne de mutations ·
+ce qu'elle trouve · second commit.
+
+**Et le verdict d'un mutant se lit avec méfiance.** Un banc qui ne démarre pas — port occupé par
+un passage précédent — « tue » tous les mutants sans rien mesurer. La campagne doit distinguer
+« l'assertion est tombée » de « rien n'a tourné ».
+
+> 🔧 **Et la faute symétrique existe aussi — mesurée le 17/09/2026.** La campagne du chantier 45
+> a rendu **deux verdicts « SURVIVANTE » faux** (M15 et M23), dans le lot lancé juste après un
+> redémarrage du conteneur. Les deux mutants ont été **tués** à la re-mesure, deux fois : une
+> fois à la main, une fois par le harnais lui-même.
+>
+> Un faux « tuée » fait croire qu'un test existe. Un faux « survivante » fait chercher un trou
+> qui n'est pas là — ou pire, fait écrire un test pour rien.
+>
+> **La règle qui en sort : le harnais journalise le code de retour ET la taille de la sortie du
+> banc, et toute « survivante » est re-mesurée avant d'être rapportée.** Une sortie vide n'est
+> pas un verdict ; 408 lignes et un code 0, si.
 
 ---
 

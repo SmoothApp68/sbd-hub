@@ -1582,6 +1582,14 @@ pas.
 > **La décision d'armement vit désormais dans une fonction PURE** (`Seance.cibleArmable`), et
 > non dans une condition au point d'appel : c'est la seule forme qu'une mutation peut tuer.
 
+**Et la campagne l'a confirmé par l'autre bout.** Remplacer, au point d'appel, `cibleArmable(cible)`
+par `cible` brute donne un mutant qui **survit** — et c'est correct : sur le domaine que ce point
+d'appel peut réellement recevoir, les deux fonctions sont la même. `repos_cible_s` est normalisé
+en amont (`null` quand il est absent, dans `creer`, `ajouterExercice` et la relecture du cache) et
+borné par `definirReposCible` à `null` ou 5-1800. **Zéro, le négatif et le non-numérique n'y
+arrivent jamais** — c'est exactement pourquoi la décision se teste là où elle est *énoncée*, et
+pas là où elle est *câblée*.
+
 **Et valider arrête toujours le repos précédent.** Sans cible, on ne laisse pas courir celui
 d'avant : commencer une série met fin au repos, qu'il y ait quelque chose à compter ensuite ou
 non.

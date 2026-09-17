@@ -333,6 +333,18 @@ ce qu'elle trouve · second commit.
 un passage précédent — « tue » tous les mutants sans rien mesurer. La campagne doit distinguer
 « l'assertion est tombée » de « rien n'a tourné ».
 
+> 🔧 **Et la faute symétrique existe aussi — mesurée le 17/09/2026.** La campagne du chantier 45
+> a rendu **deux verdicts « SURVIVANTE » faux** (M15 et M23), dans le lot lancé juste après un
+> redémarrage du conteneur. Les deux mutants ont été **tués** à la re-mesure, deux fois : une
+> fois à la main, une fois par le harnais lui-même.
+>
+> Un faux « tuée » fait croire qu'un test existe. Un faux « survivante » fait chercher un trou
+> qui n'est pas là — ou pire, fait écrire un test pour rien.
+>
+> **La règle qui en sort : le harnais journalise le code de retour ET la taille de la sortie du
+> banc, et toute « survivante » est re-mesurée avant d'être rapportée.** Une sortie vide n'est
+> pas un verdict ; 408 lignes et un code 0, si.
+
 ---
 
 ## 2 ter. Périmètre du moteur ≠ périmètre de l'affichage

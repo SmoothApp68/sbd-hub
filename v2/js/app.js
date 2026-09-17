@@ -1475,14 +1475,24 @@
     // AUCUNE colonne de `sets`, donc il n'y a rien à reposer — et surtout,
     // RIEN NE PART DANS LA ROUTINE ICI. La question se pose à la fin (§6).
     if (feuille.quoi === 'repos') {
+      // ⚠️ LA MOLETTE, LA MÊME QU'À L'ÉDITEUR (§7 sexdecies). C'est la même
+      // question posée deux fois : elle n'a qu'un écran. Ce qui diffère est la
+      // PHRASE — ici le réglage vaut pour la séance, pas pour la routine.
+      var poserRepos = function (v) {
+        seance = Seance.definirReposCible(seance, feuille.iExo, v);
+        apresGeste({ structure: false, rendre: false });
+        fermerVoile();
+      };
       return Rendu.rendreFeuilleRepos(cible, {
         exercice: nom,
         repos: exo.repos_cible_s,
-        surRepos: function (v) {
-          seance = Seance.definirReposCible(seance, feuille.iExo, v);
-          apresGeste({ structure: false, rendre: false });
-          fermerVoile();
-        }
+        aide: 'Pour cette séance. La routine n\u2019est pas touchée : la question se pose à la fin.',
+        surValider: poserRepos,
+        // ⚠️ `null`, JAMAIS ZÉRO. `definirReposCible` refuse tout ce qui sort
+        // de ses bornes — un zéro serait donc ignoré en silence, et le repos
+        // resterait celui d'avant sans que personne ne le voie.
+        surDesactiver: function () { poserRepos(null); },
+        surAnnuler: fermerVoile
       });
     }
 
@@ -1833,6 +1843,11 @@
       programme: true,
       blocs: blocs,
       exercice: function (slug) { return index[slug]; },
+      // §7 septendecies.2 — la charge RÉELLEMENT soulevée à la dernière séance
+      // s'affiche en gris sur chaque ligne. Même fonction qu'en séance
+      // (`Seance.precedent`), donc pas de seconde lecture d'historique ; c'est
+      // `rangeeDeSerie` qui l'aligne par type et par rang (chantier 38).
+      precedent: precedentDe,
       // ⚠️ PAS DE `surExercice` ICI, ET C'EST UN ÉCART ASSUMÉ AU §7 quindecies.1.
       //
       // En séance, un tap sur le nom ouvre la page de l'exercice (§2.8) et la
@@ -1923,21 +1938,23 @@
     ouvrirVoile($('feuille-seance'));
   }
 
+  // ⚠️ LA MÊME MOLETTE QU'EN SÉANCE (§7 sexdecies), et c'est tout l'objet du
+  // chantier 44 : le pavé de décalage vivait ici et une grille de huit valeurs
+  // vivait là-bas, pour la même question. Il n'en reste qu'un écran.
+  //
+  // Trois sorties, et elles diffèrent : « Valider » pose la valeur centrée,
+  // « Annuler » ne touche à rien — le brouillon reste exactement ce qu'il
+  // était — et « Désactiver » écrit `null`, jamais zéro.
   function ouvrirReposExoRoutine(i) {
     var e = exoBrouillon(i);
     if (!e) return;
-    Rendu.rendreFeuilleReposRoutine($('feuille-contenu'), {
-      nom: nomExoBrouillon(i),
+    var poser = function (v) { e.repos_cible_s = v; fermerVoile(); rendreEditeur(); };
+    Rendu.rendreFeuilleRepos($('feuille-contenu'), {
+      exercice: nomExoBrouillon(i),
       repos: e.repos_cible_s,
-      // Le pavé MUTE sans refermer — vider pour retaper est le geste courant,
-      // et il passe par `null`. Seul « Désactiver » referme : c'est une
-      // décision, pas une frappe intermédiaire.
-      surRepos: function (v) { e.repos_cible_s = v; },
-      surDesactiver: function () {
-        e.repos_cible_s = null;
-        fermerVoile(); rendreEditeur();
-      },
-      surFermer: function () { fermerVoile(); rendreEditeur(); }
+      surValider: poser,
+      surDesactiver: function () { poser(null); },
+      surAnnuler: fermerVoile
     });
     ouvrirVoile($('feuille-seance'));
   }

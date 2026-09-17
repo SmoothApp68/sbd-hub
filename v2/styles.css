@@ -538,20 +538,48 @@ button.bloc-exo:active{background:var(--panneau-2)}
 /* ── L'éditeur ──────────────────────────────────────────────────────────── */
 .bloc-large{display:block;width:100%;margin:var(--e2) 0 0;padding:11px}
 
-/* Le repos cible d'une routine, en pleine largeur — le pavé de décalage se
-   tape, il ne se partage pas une colonne sur trois. C'est tout ce qui reste de
-   la feuille des paramètres : séries et reps se saisissent sur la ligne. */
-.champ-repos{display:block;margin-bottom:var(--e2)}
-.champ-num{display:block}
-.champ-lib{display:block;font-size:10.5px;color:var(--texte-3);
-  margin-bottom:var(--e1);font-weight:600}
-.champ-num input{
-  width:100%;height:38px;padding:0 var(--e2);
-  background:#141619;border:1px solid var(--trait);border-radius:var(--r-petit);
-  color:var(--texte);font-family:inherit;font-size:15px;
-  font-variant-numeric:tabular-nums;
-}
-.champ-num input:focus{outline:none;border-color:var(--texte-2)}
+/* ── LA MOLETTE DE REPOS (§7 sexdecies) ─────────────────────────────────────
+   Le pavé de décalage de la feuille des paramètres est parti avec elle : le
+   repos se choisit maintenant à la molette, aux DEUX écrans. Le pavé, lui,
+   reste sur les lignes de durée — planche, rando, gainage — où la valeur est
+   arbitraire.
+
+   ⚠️ `height:48px` est aussi dans `rendu.js` (`HAUTEUR_OPT`), et c'est assumé :
+   le défilement se mesure en pixels, la sélection se calcule en rangs. Les deux
+   doivent s'accorder — la valeur est donc nommée une fois de chaque côté. */
+.molette{position:relative;height:216px;margin:0 var(--e4)}
+/* Les deux dégradés mangent le haut et le bas : ce qui sort de la fenêtre
+   s'efface au lieu d'être coupé net. */
+.molette::before,.molette::after{content:"";position:absolute;left:0;right:0;
+  height:84px;pointer-events:none;z-index:2}
+.molette::before{top:0;
+  background:linear-gradient(180deg,var(--panneau) 18%,rgba(29,32,37,0))}
+.molette::after{bottom:0;
+  background:linear-gradient(0deg,var(--panneau) 18%,rgba(29,32,37,0))}
+/* La fenêtre de sélection ne se touche pas : c'est un repère, pas un bouton. */
+.molette .selection{position:absolute;left:0;right:0;top:84px;height:48px;
+  border-radius:var(--r-petit);background:var(--panneau-2);border:1px solid #363B44;
+  pointer-events:none;z-index:1}
+.molette .piste{height:100%;overflow-y:auto;scroll-snap-type:y mandatory;
+  padding:84px 0;position:relative;z-index:3;
+  -ms-overflow-style:none;scrollbar-width:none;overscroll-behavior:contain}
+.molette .piste::-webkit-scrollbar{width:0}
+.molette .opt{height:48px;display:flex;align-items:center;justify-content:center;
+  scroll-snap-align:center;font:600 19px/1 inherit;font-family:inherit;
+  color:#4E545C;font-variant-numeric:tabular-nums;transition:color .12s}
+.molette .opt.sel{color:var(--texte);font-size:22px;font-weight:700}
+.molette .opt.pres{color:var(--texte-3)}
+.molette .opt.eteint{color:#4E545C;font-size:16px;font-weight:600}
+
+/* Trois sorties, et « Désactiver » ne prend pas la place des deux autres :
+   c'est le geste rare, il garde la largeur de son texte. */
+.feuille-pied{display:flex;gap:var(--e2);padding:var(--e3) 0 0}
+.feuille-pied button{flex:1;height:46px;border-radius:var(--r-petit);border:none;
+  font:700 13px/1 inherit;font-family:inherit}
+.feuille-pied .sec{background:transparent;border:1px solid var(--trait);color:var(--texte-2)}
+.feuille-pied .pri{background:var(--accent);color:#15171A}
+.feuille-pied .des{flex:0 0 auto;padding:0 var(--e3);background:transparent;
+  border:1px solid #4A3330;color:#C4564A;font-weight:600}
 
 /* ── Le catalogue ───────────────────────────────────────────────────────── */
 #champ-recherche-exo{

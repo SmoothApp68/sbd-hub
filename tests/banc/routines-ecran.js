@@ -512,36 +512,33 @@ const CATALOGUE = [
   // prescrit. Les deux chemins doivent coexister.
   await page.click('#liste-routines .routine');
   await attendre(700);
-  // ⚠️ LE REPOS SE TAPE AU PAVÉ DE DÉCALAGE (§7 quaterdecies.2), plus dans un
-  // champ de secondes. Les chiffres entrent par la DROITE, un `beforeinput` par
-  // appui — poser `.value` directement ne passerait pas par le pavé et ne
-  // mesurerait donc rien de ce que fait un pouce.
-  const taperRepos = async (suite) => {
-    await page.evaluate((chiffres) => {
-      const i = document.querySelector('#feuille-contenu .chrono input');
-      chiffres.split('').forEach((c) => {
-        i.dispatchEvent(new InputEvent('beforeinput',
-          { inputType: 'insertText', data: c, cancelable: true }));
-      });
-    }, suite);
-    await attendre(200);
+  // ⚠️ LE REPOS SE CHOISIT À LA MOLETTE (§7 sexdecies), plus au pavé.
+  //
+  // Le chantier 44 a retiré la duplication que le 42 avait laissée : un pavé de
+  // décalage ici, une grille de huit valeurs en séance, pour la même question.
+  // Il n'en reste qu'un écran — et le pavé reste sur les lignes de DURÉE, où la
+  // valeur est arbitraire (non-régression, section 11).
+  //
+  // On amène la molette sur une valeur comme un pouce le ferait : en la faisant
+  // défiler. `scroll-snap` arrête toujours la piste sur un multiple de la
+  // hauteur d'une entrée, donc le rang EST le quotient.
+  const reglerRepos = async (secondes) => {
+    await page.evaluate((v) => {
+      const p = document.querySelector('#feuille-contenu .molette .piste');
+      const opts = Array.from(p.querySelectorAll('.opt'));
+      const i = opts.findIndex((o) => Number(o.dataset.v) === v);
+      p.scrollTop = i * 48;
+      p.dispatchEvent(new Event('scroll'));
+    }, secondes);
+    await attendre(250);
   };
-  const lireRepos = () => page.evaluate(() =>
-    (document.querySelector('#feuille-contenu .chrono input') || {}).value || '');
-  // ⚠️ VIDER AVANT DE TAPER, et c'est le pavé qui l'impose : les chiffres
-  // s'AJOUTENT par la droite. Taper « 130 » sur un champ qui porte déjà 3:30
-  // ne donne pas 1:30 — ça donne trois refus, parce que 33:01 dépasse la borne.
-  // Le banc tapait dans un champ vide par accident ; il le fait maintenant
-  // exprès.
-  const viderRepos = async () => {
-    await page.evaluate(() => {
-      const i = document.querySelector('#feuille-contenu .chrono input');
-      for (let k = 0; k < 8; k++) {
-        i.dispatchEvent(new InputEvent('beforeinput',
-          { inputType: 'deleteContentBackward', cancelable: true }));
-      }
-    });
-    await attendre(200);
+  const lireCentre = () => page.evaluate(() =>
+    (document.querySelector('#feuille-contenu .molette .opt.sel') || {}).textContent || '');
+  const molette = (sel) => page.evaluate((s) =>
+    document.querySelectorAll('#feuille-contenu .molette ' + s).length, sel);
+  const sortie = async (classe) => {
+    await page.click('#feuille-contenu .feuille-pied .' + classe);
+    await attendre(350);
   };
   // ⚠️ LE REPOS S'OUVRE PAR SON BOUTON, PLUS PAR LE MENU (chantier 43). C'est
   // celui de la séance, sous le nom de l'exercice : la même chose se touche au
@@ -551,26 +548,40 @@ const CATALOGUE = [
     await page.evaluate((k) => { document.querySelectorAll('.repos-cible')[k].click(); }, i);
     await attendre(300);
   };
-  const remplirRepos = async (suite) => {
+  const remplirRepos = async (secondes) => {
     await ouvrirRepos(0);
-    await viderRepos();
-    await taperRepos(suite);
-    await page.click('#feuille-contenu .principal');
-    await attendre(350);
+    await reglerRepos(secondes);
+    await sortie('pri');
   };
   await ouvrirRepos(0);
-  const libsFeuille = await page.evaluate(() =>
-    Array.from(document.querySelectorAll('#feuille-contenu .champ-lib')).map((l) => l.textContent));
-  const typeRepos = await page.evaluate(() =>
-    (document.querySelector('#feuille-contenu .chrono input') || {}).type || 'absent');
-  ok('[43] la feuille du repos porte le PAVÉ, et PLUS RIEN d’autre',
-    JSON.stringify(libsFeuille) === '["Entre les s\u00e9ries"]' && typeRepos === 'text',
-    JSON.stringify(libsFeuille) + ' · pavé = ' + typeRepos);
-  await page.click('#feuille-contenu .principal');
-  await attendre(350);
-  // CONFIGURATION DISCRIMINANTE : 3:30 franchit la minute. Un champ numérique
-  // simple stockerait 330, le pavé stocke 210.
-  await remplirRepos('330');
+  const bornes = await page.evaluate(() => {
+    const o = Array.from(document.querySelectorAll('#feuille-contenu .molette .opt'));
+    return { n: o.length, premier: o[0].textContent, dernier: o[o.length - 1].textContent };
+  });
+  ok('[44] la feuille du repos porte la MOLETTE — 36 valeurs, de 5 s à 5:00',
+    bornes.n === 36 && bornes.premier === '5 s' && bornes.dernier === '5:00',
+    JSON.stringify(bornes));
+  // ⚠️ ET PLUS AUCUN PAVÉ ICI. C'est la duplication qui disparaît : il y avait
+  // deux systèmes pour la même question.
+  ok('[44] et aucun pavé de décalage ne subsiste dans cette feuille',
+    (await page.evaluate(() =>
+      document.querySelectorAll('#feuille-contenu .chrono input').length)) === 0,
+    'pavés = ' + (await page.evaluate(() =>
+      document.querySelectorAll('#feuille-contenu .chrono input').length)));
+  // ⚠️ LA BORNE EST DANS LA LISTE, PLUS DANS UN REFUS. La molette ne peut pas
+  // produire une valeur hors bornes : 0:04 et 30:01 ne s'y trouvent tout
+  // simplement pas. C'est plus fort qu'un message d'erreur — il n'y a rien à
+  // refuser à l'enregistrement.
+  ok('[44] zéro n’est pas dans la liste : « désactivé » ne peut pas se confondre',
+    (await page.evaluate(() => Array.from(
+      document.querySelectorAll('#feuille-contenu .molette .opt'))
+      .some((o) => Number(o.dataset.v) <= 0))) === false,
+    'aucune valeur <= 0');
+  await sortie('sec');
+  // CONFIGURATION DISCRIMINANTE : 3:30 franchit la minute — « 3:30 » et « 330 »
+  // ne sont pas la même chose, et c'est ce qui a laissé passer la régression du
+  // chantier 42.
+  await remplirRepos(210);
   await page.click('#btn-enregistrer-routine');
   await attendre(900);
   const premierExo = base.exos.slice().sort((a, b) => a.rang - b.rang)[0];
@@ -591,12 +602,12 @@ const CATALOGUE = [
   await aller('/saisie');
   await page.click('#liste-routines .routine');
   await attendre(700);
-  await remplirRepos('320');      // 3:20 = 200 s
+  await remplirRepos(195);        // 3:15
   await page.click('#btn-enregistrer-routine');
   await attendre(900);
   const apresEditeur = base.exos.filter((e) => e.id === premierExo.id)[0];
   ok('la note de la ligne de routine n’est PAS écrasée par l’éditeur',
-    apresEditeur.note === 'Ceinture, barre basse' && apresEditeur.repos_cible_s === 200,
+    apresEditeur.note === 'Ceinture, barre basse' && apresEditeur.repos_cible_s === 195,
     JSON.stringify({ note: apresEditeur.note, repos: apresEditeur.repos_cible_s }));
 
   console.log('\n══ 5 quater. REPS SUR LA CARTE, REPOS EN mm:ss ══');
@@ -717,73 +728,61 @@ const CATALOGUE = [
     exo0().series === undefined && exo0().reps_visees === undefined,
     JSON.stringify(Object.keys(exo0())));
 
-  // ⚠️ LE PAVÉ, EN TROIS APPUIS, ET AU-DESSUS DE LA MINUTE. Sous 60 secondes,
-  // « décalage sur deux groupes » et « champ numérique simple » rendent la même
-  // valeur — c'est ce qui a laissé passer la régression.
+  // ⚠️ LES TROIS SORTIES DE LA MOLETTE (§7 sexdecies.3), et elles ne disent pas
+  // la même chose. C'est tout l'intérêt de les avoir séparées : « Valider »,
+  // « Annuler » et « Désactiver » produisent trois états différents, et deux
+  // d'entre eux passent par la même valeur nulle côté pavé.
   //
   // On est DÉJÀ dans l'éditeur (la relecture ci-dessus y est entrée) : y
   // re-rentrer par la carte échouerait, la bibliothèque n'étant plus à l'écran.
   await ouvrirRepos(0);
-  await viderRepos();
-  await taperRepos('130');
-  const vu130 = await lireRepos();
-  ok('[42] « 1 » « 3 » « 0 » affiche 1:30 — trois appuis, pas une conversion',
-    /^0?1:30$/.test(vu130), '« ' + vu130 + ' »');
-  // La borne HAUTE se refuse à la frappe : on n'a jamais besoin de passer
-  // au-dessus de 30:00 pour y arriver.
-  await taperRepos('0');            // « 1300 » = 13:00, encore admissible
-  await taperRepos('0');            // « 13000 » vaudrait 1:30:00 — refusé
-  const vuBorne = await lireRepos();
-  ok('[42] la borne haute refuse le chiffre de trop, sans rien perdre',
-    vuBorne === '13:00', '« ' + vuBorne + ' »');
-  // Effacement par la droite, comme au chantier 25.
-  await page.evaluate(() => {
-    document.querySelector('#feuille-contenu .chrono input').dispatchEvent(
-      new InputEvent('beforeinput', { inputType: 'deleteContentBackward', cancelable: true }));
-  });
-  await attendre(200);
-  const vuEfface = await lireRepos();
-  ok('[42] effacer retire le DERNIER chiffre, par la droite',
-    vuEfface === '01:30', '« ' + vuEfface + ' »');
-  await page.click('#feuille-contenu .principal');
-  await attendre(350);
-  ok('[42] et la carte suit tout de suite', (await reposCarte(0)) === 'repos 1:30',
-    '« ' + (await reposCarte(0)) + ' »');
+  await reglerRepos(90);
+  ok('[44] la molette se centre sur la valeur qu’on amène', (await lireCentre()) === '1:30',
+    '« ' + (await lireCentre()) + ' »');
+  // ── ANNULER : rien ne bouge, pas même à l'écran ────────────────────────
+  const reposAvant = await reposCarte(0);
+  await sortie('sec');
+  ok('[44] Annuler ne change RIEN — ni la carte, ni le brouillon',
+    (await reposCarte(0)) === reposAvant, '« ' + reposAvant + ' » → « ' + (await reposCarte(0)) + ' »');
+  // ── VALIDER : la valeur centrée, et elle suit tout de suite ────────────
+  await ouvrirRepos(0);
+  await reglerRepos(90);
+  await sortie('pri');
+  ok('[44] Valider pose la valeur centrée, et la carte suit',
+    (await reposCarte(0)) === 'repos 1:30', '« ' + (await reposCarte(0)) + ' »');
   await page.click('#btn-enregistrer-routine');
   await attendre(900);
-  ok('[42] 90 secondes en base, pas 130', exo0().repos_cible_s === 90,
+  ok('[44] 90 secondes en base', exo0().repos_cible_s === 90,
     'repos_cible_s = ' + exo0().repos_cible_s);
 
-  // Rechargement : ce qui est stocké se réaffiche en mm:ss.
+  // Rechargement : ce qui est stocké se recentre sous la fenêtre.
   await aller('/saisie');
   await page.click('#liste-routines .routine');
   await attendre(700);
   await ouvrirRepos(0);
-  const vuRelu = await lireRepos();
-  ok('[42] rouvert, le pavé repart de 1:30 — jamais de « 90 »',
-    /^0?1:30$/.test(vuRelu), '« ' + vuRelu + ' »');
-  await page.click('#feuille-contenu .principal');
-  await attendre(350);
-  // ⚠️ LA BORNE BASSE NE PEUT PAS SE REFUSER À LA FRAPPE : pour écrire 0:45 il
-  // faut passer par 0:04. Elle se refuse donc à L'ENREGISTREMENT — et le
-  // message parle en mm:ss, pas en secondes : annoncer « de 5 à 1800 secondes »
-  // obligerait à convertir de tête ce qu'on vient de taper.
-  await ouvrirRepos(0);
-  await viderRepos();
-  await taperRepos('4');
-  await page.click('#feuille-contenu .principal');
-  await attendre(350);
+  ok('[44] rouverte, la molette repart de 1:30 — jamais d’un « 90 » brut',
+    (await lireCentre()) === '1:30', '« ' + (await lireCentre()) + ' »');
+
+  // ── DÉSACTIVER : `NULL`, jamais zéro ──────────────────────────────────
+  await sortie('des');
+  ok('[44] Désactiver met la carte au tiret, tout de suite',
+    (await reposCarte(0)) === 'repos —', '« ' + (await reposCarte(0)) + ' »');
   await page.click('#btn-enregistrer-routine');
+  await attendre(900);
+  ok('[44] et la base reçoit NULL, pas zéro',
+    exo0().repos_cible_s === null, 'repos_cible_s = ' + JSON.stringify(exo0().repos_cible_s));
+
+  // Sans repos programmé, la molette se pose sur 1:30 — visiblement, et rien
+  // n'est écrit tant qu'on n'a pas validé.
+  await page.click('#liste-routines .routine');
   await attendre(700);
-  const msgBorne = (await texte('#erreur-routine')).trim();
-  ok('[42] 0:04 est refusé à l’enregistrement, en mm:ss',
-    /0:05/.test(msgBorne) && /30:00/.test(msgBorne) && !/seconde/.test(msgBorne),
-    '« ' + msgBorne + ' »');
   await ouvrirRepos(0);
-  await viderRepos();
-  await taperRepos('130');
-  await page.click('#feuille-contenu .principal');
-  await attendre(350);
+  ok('[44] sans repos, elle se pose sur 1:30 et n’écrit rien avant Valider',
+    (await lireCentre()) === '1:30', '« ' + (await lireCentre()) + ' »');
+  await sortie('sec');
+  ok('[44] …et Annuler la laisse désactivée', (await reposCarte(0)) === 'repos —',
+    '« ' + (await reposCarte(0)) + ' »');
+  await remplirRepos(90);
   await page.click('#btn-enregistrer-routine');
   await attendre(900);
 

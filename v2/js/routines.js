@@ -621,13 +621,18 @@
 
   // ── L'aperçu de la liste ────────────────────────────────────────────────
   //
-  // « 6 exercices · 21 séries dont 5 de chauffe ».
+  // « 6 exercices · 21 séries ».
   //
   // ⚠️ « 3 SÉRIES × 8 REPS » N'A PLUS DE SENS (chantier 43) : depuis
   // `v2_042_routine_sets`, les lignes ne sont plus identiques — une routine
   // porte des chauffes, des dégressives et des reps qui varient d'une ligne à
-  // l'autre. On annonce donc ce qui se compte : les séries de TRAVAIL, et les
-  // chauffes à part parce qu'elles ne coûtent pas la même chose.
+  // l'autre. On annonce donc ce qui se compte : les séries de TRAVAIL.
+  //
+  // ⚠️ ET PLUS LES CHAUFFES (§7 septendecies.1, chantier 44). Le chantier 43
+  // les disait à part — « + 5 de chauffe » — pour lever une ambiguïté de
+  // compte. Le détail est inutile dans un résumé : il se voit en ouvrant la
+  // routine. `nbChauffes` est parti avec son seul lecteur, plutôt que de rester
+  // un champ calculé que personne ne lit (leçon de C1, chantier 39).
   //
   // ⚠️ ET C'EST LE MÊME COMPTE QUE PARTOUT AILLEURS. `THSemaine.compteSeriesTravail`
   // (chantier 39) répond déjà à « combien de séries de travail », la règle du
@@ -645,11 +650,9 @@
                     exercise_slug: e && e.exercise_slug });
       });
     });
-    var chauffes = plat.filter(function (s) { return s.type_serie === 'echauffement'; }).length;
     return {
       nbExercices: liste.length,
-      nbSeries: racine.THSemaine.compteSeriesTravail(plat, catalogue),
-      nbChauffes: chauffes
+      nbSeries: racine.THSemaine.compteSeriesTravail(plat, catalogue)
     };
   }
 

@@ -170,6 +170,13 @@
       // rôle : ce qui était la case qu'on remplit devient la cible qu'on vise,
       // donc elle passe dans `reps_visees` et la case part vide.
       ligne.reps_visees = (!p || p.reps === undefined) ? null : p.reps;
+      // ⚠️ LA CHARGE CIBLE DESCEND, MAIS EN DERNIER (§7 septendecies.3).
+      // Question laissée ouverte au chantier 43, tranchée le 15/09 : le fantôme
+      // est une CASCADE, pas un arbitrage — ce qu'on vient de taper, puis la
+      // dernière séance, puis la cible programmée faute de mieux. Elle ne
+      // s'affiche donc que sur un exercice jamais fait, ou repris après des
+      // mois, et n'entre en concurrence avec rien.
+      ligne.charge_cible_kg = (!p || p.charge_kg === undefined) ? null : p.charge_kg;
       return ligne;
     });
     if (!series.length) series.push(serieVide(idSerie));
@@ -307,17 +314,18 @@
   // file classe DÉFINITIF — et l'entrée se bloquait avec toute la file
   // derrière elle. Corriger les deux appelants aurait laissé la mine armée
   // pour le prochain : c'est le contrat qui était faux.
-  // ⚠️ `reps_visees` EST UNE INTENTION, PAS UNE OBSERVATION (chantier 43).
-  // Elle vient de `routine_sets` et sert au FANTÔME ; elle n'a pas de colonne
-  // dans `sets` et `COLONNES_SET` ne la laisse donc pas partir. Elle est LUE —
-  // c'est l'inverse exact du champ écrit que personne ne relit.
+  // ⚠️ `reps_visees` ET `charge_cible_kg` SONT DES INTENTIONS, PAS DES
+  // OBSERVATIONS (chantiers 43 et 44). Elles viennent de `routine_sets` et
+  // servent au FANTÔME ; elles n'ont aucune colonne dans `sets` et
+  // `COLONNES_SET` ne les laisse donc pas partir. Elles sont LUES — c'est
+  // l'inverse exact du champ écrit que personne ne relit.
   function serieVide(idSerie) {
     return {
       id: typeof idSerie === 'function' ? idSerie() : (idSerie || null),
       type_serie: 'travail',
       charge_kg: null, reps: null, duree_s: null, distance_m: null,
       rpe: null, ressenti: null, note: null,
-      validee_a: null, repos_s: null, reps_visees: null
+      validee_a: null, repos_s: null, reps_visees: null, charge_cible_kg: null
     };
   }
 
@@ -1424,15 +1432,30 @@
     var exo = seance.exercices[iExo];
     var ligne = correspondant(exo.series, iSerie, prec);
 
+    var propre = exo.series[iSerie];
+
+    // ⚠️ LE FANTÔME EST UNE CASCADE À TROIS NIVEAUX (§7 septendecies.3), et
+    // l'ordre est la décision :
+    //
+    //   1. ce qu'on vient de taper dans la séance   (`derniereSaisie`)
+    //   2. la dernière séance, même type, même rang (chantier 38)
+    //   3. `charge_cible_kg`, faute de mieux
+    //
+    // Le rang 3 ne s'affiche donc que sur un exercice JAMAIS FAIT, ou repris
+    // après des mois. Aucune concurrence avec la colonne `précédent`, qui
+    // montre le passé et non une proposition — et quand le moteur parlera, il
+    // se placera AU-DESSUS d'elle, rang 2 bis, pas à côté.
     var charge = derniereSaisie(exo, iSerie, 'charge_kg');
     if (charge === null && ligne) charge = ligne.charge_kg;
+    if ((charge === null || charge === undefined) && propre) {
+      charge = propre.charge_cible_kg;
+    }
 
     // ⚠️ L'INTENTION DE **CETTE** LIGNE, PAS CELLE DE L'EXERCICE (ch. 43).
     // Une rampe 15-10-5-1 a quatre intentions différentes ; un entier au niveau
     // de l'exercice n'en portait qu'une, et la posait sur les quatre. Sans
     // intention, on retombe sur la règle du chantier 38 : la Nᵉ série du MÊME
     // type, la fois d'avant.
-    var propre = exo.series[iSerie];
     var reps = propre ? propre.reps_visees : null;
     if ((reps === null || reps === undefined) && ligne) reps = ligne.reps;
 
@@ -1446,7 +1469,7 @@
     if (distance === null && ligne) distance = ligne.distance_m;
 
     return {
-      charge_kg: charge,
+      charge_kg: charge === undefined ? null : charge,
       reps: reps === undefined ? null : reps,
       duree_s: duree === undefined ? null : duree,
       distance_m: distance === undefined ? null : distance

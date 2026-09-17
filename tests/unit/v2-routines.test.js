@@ -572,11 +572,11 @@ describe('8. l’écriture échoue', () => {
 // ── L'aperçu et la recherche ───────────────────────────────────────────────
 
 describe('la liste et le catalogue', () => {
-  // ⚠️ L'APERÇU COMPTE LES SÉRIES DE TRAVAIL, ET LES CHAUFFES À PART (ch. 43).
+  // ⚠️ L'APERÇU COMPTE LES SÉRIES DE TRAVAIL, ET ELLES SEULES (ch. 43 puis 44).
   // « 3 séries × 8 reps » n'a plus de sens : les lignes ne sont plus
   // identiques. Et c'est le MÊME compte que la barre de semaine et la carte de
   // séance — `THSemaine.compteSeriesTravail`, la règle du volume comprise.
-  test('l’aperçu compte les séries de TRAVAIL, chauffes mentionnées à part', () => {
+  test('l’aperçu compte les séries de TRAVAIL, et rien d’autre', () => {
     const CAT = [{ slug: 'a', muscles_primaires: ['pectoraux'] },
                  { slug: 'b', muscles_primaires: ['dos'] }];
     const avecChauffes = exo('a', { series: [
@@ -585,9 +585,14 @@ describe('la liste et le catalogue', () => {
       { rang: 3, type_serie: 'travail', reps_visees: 5 },
       { rang: 4, type_serie: 'travail', reps_visees: 5 }
     ] });
+    // ⚠️ LES CHAUFFES NE SONT PLUS COMPTÉES À PART (§7 septendecies.1, ch. 44).
+    // Le chantier 43 rendait `nbChauffes` pour la carte ; le détail est inutile
+    // dans un résumé, et le champ est parti avec son seul lecteur plutôt que de
+    // rester un calcul que personne ne lit (leçon de C1, chantier 39).
+    // Elles restent EXCLUES du compte : deux chauffes ici, et sept séries.
     expect(Routines.apercu([avecChauffes, exo('b', { series: progTravail(5) })], CAT))
-      .toEqual({ nbExercices: 2, nbSeries: 7, nbChauffes: 2 });
-    expect(Routines.apercu([], CAT)).toEqual({ nbExercices: 0, nbSeries: 0, nbChauffes: 0 });
+      .toEqual({ nbExercices: 2, nbSeries: 7 });
+    expect(Routines.apercu([], CAT)).toEqual({ nbExercices: 0, nbSeries: 0 });
   });
 
   // ⚠️ ET LA RÈGLE DU VOLUME S'APPLIQUE AUSSI À UNE ROUTINE. Un tapis programmé

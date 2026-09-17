@@ -263,6 +263,7 @@ la semaine du 9 au 15 septembre.**
 | C1 (ch. 39) | `Seance.compter().travail` écrit au ch. 22, **lu par personne** — trois chiffres pour une même séance sur cinq écrans |
 | ch. 38 → 39 | le fantôme corrigé, **la colonne à côté non** — les deux se contredisaient à l'écran |
 | C2 (15/09) | « porte du volume » appliqué à la barre, **pas à la carte** — 25 contre 23 sur la même séance |
+| repos (ch. 44) | **deux systèmes de saisie** pour la même question — un pavé dans l'éditeur, une grille en séance. Trouvé sur device, pas en relecture |
 | D9 (ch. 38) | l'alignement par indice, présent à **deux** endroits de rendu |
 
 **Et à l'inverse, ce qui a tenu est ce qui n'existait qu'une fois :**
@@ -280,6 +281,14 @@ la semaine du 9 au 15 septembre.**
   vers l'écran (`enSaisie`) et l'écran vers la base (`normaliserSerie`), bornes comprises. Les
   écrire séparément, c'était garantir qu'un jour l'une gagne une colonne que l'autre n'a pas —
   et qu'une valeur saisie disparaisse à l'enregistrement sans que rien ne le signale.
+- **La molette de repos** (ch. 44) — un seul composant pour l'éditeur ET la séance. C'est la
+  doctrine appliquée en SUPPRIMANT, pas en ajoutant : il y avait un pavé de décalage d'un côté
+  et une grille de huit valeurs de l'autre, pour la même question. Ce qui diffère entre les
+  deux écrans est une PHRASE, pas un rendu.
+- **`Seance.precedent` dans l'éditeur** (ch. 44) — la charge réellement soulevée s'y affiche en
+  gris, lue par la fonction de la séance et alignée par `correspondant`. Une seconde lecture
+  d'historique aurait divergé de la première ; c'est littéralement le défaut du chantier 38 →
+  39, qu'on s'est épargné cette fois.
 - **La liste lue dérivée de la liste écrite** par construction (ch. 34), plus
   `verifierColonnes()` qui lève au démarrage si l'écart réapparaît.
 - **Les deux entonnoirs de bornes** (ch. 36) — `nombreOuNul`/`entierOuNul` et `borne`,

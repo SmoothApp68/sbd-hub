@@ -532,6 +532,26 @@ button.bloc-exo:active{background:var(--panneau-2)}
 /* L'état vide. C'est le cas NORMAL au premier lancement — il est soigné, pas
    excusé : ce que c'est, et le moyen de commencer. */
 .vide-routines{padding:var(--e5) 0 0}
+
+/* ── LE BANDEAU DE REPRISE (§7 nonies, §7 octodecies.3) ────────────────────
+   Un seul composant pour deux sujets : la séance en cours et le brouillon de
+   routine. Il MONTRE et laisse choisir — ouvrir de force supposerait qu'on
+   sait ce que veut l'utilisateur.
+
+   Le liseré d'accent le distingue d'une carte de routine sans crier : ce n'est
+   pas une alerte, c'est un rappel. */
+.bandeau-reprise{background:var(--panneau);border-radius:var(--r-grand);
+  border-left:3px solid var(--accent);padding:var(--e3);margin-bottom:var(--e3)}
+.reprise-t{font-size:13.5px;font-weight:600;line-height:1.35}
+.reprise-quoi{color:var(--texte)}
+.reprise-sujet{display:block;font-style:normal;font-weight:400;
+  color:var(--texte-2);overflow-wrap:anywhere}
+/* L'ancienneté règle le seuil sans qu'on en fixe un : « depuis 3 jours » se lit
+   tout seul comme un oubli. Elle est discrète — c'est un fait, pas un reproche. */
+.reprise-depuis{font-size:11.5px;color:var(--texte-3);margin-top:3px;
+  font-variant-numeric:tabular-nums}
+.reprise-actions{display:flex;gap:var(--e2);margin-top:var(--e3)}
+.reprise-actions button{flex:1;margin:0}
 .vide-aide{font-size:12.5px;color:var(--texte-3);line-height:1.55;
   padding:0 4px var(--e4)}
 

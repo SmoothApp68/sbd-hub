@@ -1011,6 +1011,36 @@
     };
   }
 
+  // ══ L'ANCIENNETÉ, EN CLAIR (§7 nonies, §7 octodecies.3) ══════════════════
+  //
+  // ⚠️ ELLE RÈGLE LE PROBLÈME DU SEUIL SANS QU'ON EN FIXE UN. On n'a jamais su
+  // dire à partir de combien de temps une séance ouverte — ou un brouillon —
+  // devient un oubli. On ne le dit pas : on affiche « depuis 3 jours », et ça
+  // se lit tout seul comme un oubli. C'est le raisonnement du §7 nonies, et il
+  // vaut pour les deux bandeaux.
+  //
+  // ⚠️ `maintenant` EST UN PARAMÈTRE, pas un `Date.now()` caché. Une fonction
+  // qui lit l'horloge ne se teste qu'en attendant, et un bandeau qui se teste
+  // en attendant ne se teste pas.
+  //
+  // Le futur — une horloge d'appareil en avance, un fuseau mal posé — retombe
+  // sur « à l'instant » plutôt que sur un « depuis -2 h » qui n'existe pas.
+  var MINUTE = 60, HEURE = 3600, JOUR = 86400;
+  function anciennete(depuis, maintenant) {
+    var t = Date.parse(depuis);
+    var n = maintenant instanceof Date ? maintenant.getTime() : Number(maintenant);
+    if (!isFinite(t) || !isFinite(n)) return '';
+    var s = Math.floor((n - t) / 1000);
+    if (s < MINUTE) return 'à l\u2019instant';
+    if (s < HEURE) return 'depuis ' + Math.floor(s / MINUTE) + ' min';
+    if (s < JOUR) {
+      var h = Math.floor(s / HEURE);
+      return 'depuis ' + h + ' h';
+    }
+    var j = Math.floor(s / JOUR);
+    return 'depuis ' + j + ' jour' + (j > 1 ? 's' : '');
+  }
+
   var api = {
     LETTRES: LETTRES,
     TYPES_CONNUS: TYPES_CONNUS,
@@ -1029,6 +1059,7 @@
     formatPrecedent: formatPrecedent,
     estTravail: estTravail,
     nombre: nombre,
+    anciennete: anciennete,
     formatDuree: formatDuree,
     formatDistance: formatDistance,
     formatMesure: formatMesure,

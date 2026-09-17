@@ -1081,19 +1081,89 @@ const SETS_IMPORTES = [
     bips: window.__bips, vibrations: window.__vibrations.length
   }));
 
-  // On travaille sur le DEUXIÈME bloc : sa routine ne prescrit PAS de repos
-  // (`repos_cible_s` null). C'est le cas le plus exigeant — la cible n'existe
-  // pas, et les commandes doivent quand même en poser une.
+  // ══ §7 novodecies — UN REPOS DÉSACTIVÉ N'ARME AUCUN CHRONOMÈTRE ═════════
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE (§2 quater) : le deuxième bloc ne prescrit
+  // PAS de repos (`repos_cible_s` null), le premier en prescrit 180. Si tous
+  // les repos étaient désactivés, « lit la valeur » et « n'arme jamais »
+  // rendraient le même écran — et une implémentation qui n'arme plus rien du
+  // tout passerait pour correcte.
+  //
+  // ⚠️ CE BANC BÉNISSAIT LE DÉFAUT. Jusqu'au chantier 45 il validait une série
+  // sur l'exercice SANS repos et vérifiait que « la cible s'affiche absente » —
+  // c'est-à-dire que la barre était LÀ, à compter sans but. Il travaillait
+  // exprès sur cet exercice, « le cas le plus exigeant ». C'était le cas
+  // INTERDIT, et personne ne l'a vu parce que la mesure regardait le texte de
+  // la barre au lieu de son existence.
+  const barreVisible = () => page.evaluate(() => {
+    const n = document.getElementById('repos');
+    return !!n && !n.hidden;
+  });
+  // ⚠️ DÉFINIS ICI, PAS PLUS BAS. Les mêmes accesseurs existent à la section
+  // 7 septies, mais `const` ne se hisse pas : les appeler d'ici serait une
+  // erreur de zone morte. Trois lignes recopiées valent mieux qu'un
+  // déplacement qui décalerait tout le reste du banc.
+  const toucherBloc = async (iBloc, sel) => {
+    await page.evaluate(([k, x]) => {
+      document.querySelectorAll('.bloc-seance')[k].querySelector(x).click();
+    }, [iBloc, sel]);
+    await attendre(400);
+  };
+  const lireDansBloc = (iBloc, sel) => page.evaluate(([k, x]) =>
+    (document.querySelectorAll('.bloc-seance')[k].querySelector(x) || {}).textContent || '',
+    [iBloc, sel]);
+  const lignesDuBloc = (iBloc) => page.evaluate((k) =>
+    document.querySelectorAll('.bloc-seance')[k].querySelectorAll('.ligne-serie').length, iBloc);
+  const molette = async (secondes) => {
+    await page.evaluate((v) => {
+      const p = document.querySelector('#feuille-contenu .molette .piste');
+      const opts = Array.from(p.querySelectorAll('.opt'));
+      p.scrollTop = opts.findIndex((o) => Number(o.dataset.v) === v) * 48;
+      p.dispatchEvent(new Event('scroll'));
+    }, secondes);
+    await attendre(250);
+    await page.click('#feuille-contenu .feuille-pied .pri');
+    await attendre(700);
+  };
+
   await page.evaluate(() => document.querySelectorAll('.ajout-serie button')[1].click());
   await attendre(600);
   const derniere = (await compter('.ligne-serie')) - 1;
   await saisirSerie(derniere, 80, 10);
-  ok('sans repos prescrit, la cible s’affiche absente — pas zéro, pas deviné',
-    /cible —/.test(await texte('#repos')), (await texte('#repos')).replace(/\s+/g, ' ').slice(0, 50));
+  ok('[45] repos DÉSACTIVÉ : valider n’arme AUCUN chronomètre',
+    (await barreVisible()) === false,
+    'barre visible = ' + (await barreVisible()) +
+    ' · « ' + (await texte('#repos')).replace(/\s+/g, ' ').slice(0, 40) + ' »');
 
-  await cliqueRepos(PLUS);
-  ok('+15 pose une cible de 15 s', /cible 0:15/.test(await texte('#repos')),
+  // L'autre moitié, sur le bloc d'à côté : un repos prescrit arme, lui.
+  // ⚠️ SUR UNE LIGNE NEUVE, jamais sur la ligne 0. À ce stade de la séance les
+  // premières lignes sont DÉJÀ validées : `saisirSerie` retape la coche, donc
+  // les DÉvaliderait — et une barre absente passerait alors pour la preuve que
+  // rien n'arme, alors qu'on vient juste de tout défaire.
+  await page.evaluate(() => document.querySelectorAll('.ajout-serie button')[0].click());
+  await attendre(600);
+  const neuveA = (await lignesDuBloc(0)) - 1;   // le bloc 0 ouvre la liste : index global = index local
+  await saisirSerie(neuveA, 100, 5);
+  ok('[45] …et l’exercice d’à côté, lui, arme bien sur sa cible',
+    (await barreVisible()) === true && /cible 3:00/.test(await texte('#repos')),
     (await texte('#repos')).replace(/\s+/g, ' ').slice(0, 50));
+
+  // ⚠️ ET LE CHEMIN POUR EN POSER UN RESTE OUVERT : la molette, sous le nom de
+  // l'exercice (§7 sexdecies). Ce n'est donc pas une capacité perdue — c'est la
+  // barre qui cesse d'être la porte d'entrée d'un repos qui n'existe pas.
+  await toucherBloc(1, '.repos-cible');
+  await molette(15);
+  ok('[45] la molette pose un repos sur l’exercice qui n’en avait pas',
+    /repos 0:15/.test(await lireDansBloc(1, '.repos-cible')),
+    await lireDansBloc(1, '.repos-cible'));
+  await page.evaluate(() => document.querySelectorAll('.ajout-serie button')[1].click());
+  await attendre(600);
+  const derniereB = (await compter('.ligne-serie')) - 1;
+  await saisirSerie(derniereB, 80, 10);
+  ok('[45] et LÀ, valider arme — sur la cible qu’on vient de poser',
+    (await barreVisible()) === true && /cible 0:15/.test(await texte('#repos')),
+    (await texte('#repos')).replace(/\s+/g, ' ').slice(0, 50));
+
   await cliqueRepos(MOINS);
   await cliqueRepos(MOINS);
   ok('−15 ne descend JAMAIS sous zéro', /cible —/.test(await texte('#repos')),
@@ -1146,7 +1216,12 @@ const SETS_IMPORTES = [
   ok('la sourdine est TOUJOURS coupée après fermeture complète',
     /Son ✕/.test(await texte('#repos')), (await texte('#repos')).replace(/\s+/g, ' ').slice(0, 60));
 
-  await cliqueRepos(PLUS);
+  // ⚠️ PAS DE « +15 » ICI. Depuis le chantier 45 cet exercice porte un repos de
+  // 0:15 — posé à la molette plus haut — et la validation arme donc déjà sur
+  // 0:15. L'ajouter porterait la cible à 0:30, que les 17 s d'attente
+  // n'atteindraient jamais : le banc conclurait « pas de vibration » sur un
+  // chronomètre qui n'a simplement pas fini. Avant le chantier 45, la barre
+  // s'ouvrait ici SANS cible, et le « +15 » était le seul moyen d'en poser une.
   const avantMuet = await compteurs();
   await attendre(17000);
   const apresMuet = await compteurs();
@@ -1448,6 +1523,18 @@ const SETS_IMPORTES = [
   // au MAXIMUM. La barre est `position: fixed` : elle n'ajoute aucune course de
   // défilement, donc le contenu qu'elle recouvre n'est récupérable que si la
   // réserve du bas en tient compte. Tester sans faire défiler ne montre rien.
+  //
+  // ⚠️ ET IL FAUT L'ARMER EXPRÈS (chantier 45). Cette séance-là finit sur
+  // `marche`, qui ne prescrit AUCUN repos : depuis que le chronomètre ne s'arme
+  // plus sans cible, la barre est fermée en arrivant ici et il n'y aurait plus
+  // rien à mesurer. On valide donc une série neuve sur le développé, seul
+  // exercice des quatre mesures à porter un repos (120 s). Avant le chantier
+  // 45, la barre traînait ouverte « cible — » et le banc s'en contentait.
+  await page.evaluate(() => document.querySelectorAll('.ajout-serie button')[0].click());
+  await attendre(600);
+  const neuveMesures = await page.evaluate(() =>
+    document.querySelectorAll('.bloc-seance')[0].querySelectorAll('.ligne-serie').length - 1);
+  await saisirSerie(neuveMesures, 80, 6);
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
   await attendre(600);
 
@@ -1670,10 +1757,21 @@ const SETS_IMPORTES = [
 
   // ── Le chronomètre s'arrête à l'échéance ───────────────────────────────
   //
-  // On travaille sur le SECOND bloc : sa routine ne prescrit pas de repos, donc
-  // la cible se pose entièrement à la main et on la maîtrise à la seconde.
+  // ⚠️ SUR LE PREMIER BLOC, DEPUIS LE CHANTIER 45. Cette section travaillait sur
+  // le SECOND — celui dont la routine ne prescrit AUCUN repos — et posait la
+  // cible « entièrement à la main » avec quatre +15. Ce chemin n'existe plus :
+  // un repos désactivé n'arme aucun chronomètre, donc il n'y a plus de barre à
+  // laquelle parler. On part maintenant du premier bloc, dont le repos vient
+  // d'être porté à 2:00 juste au-dessus, et on DESCEND à 1:00 avec quatre −15.
+  // Les nombres qui suivent sont inchangés, et le sujet du test non plus : ce
+  // qu'il mesure, c'est l'arrêt à l'échéance et la relance, pas l'armement.
+  //
+  // ⚠️ ET SUR UNE LIGNE NEUVE : les quatre premières sont déjà validées, les
+  // retaper les DÉvaliderait (et ne relancerait aucun chronomètre).
   console.log('   … 30 s de chronomètre réel');
-  await saisirSerie(4, 60, 8);
+  await page.evaluate(() => document.querySelectorAll('.ajout-serie button')[0].click());
+  await attendre(600);
+  await saisirSerie(4, 60, 8);   // 5ᵉ ligne du bloc 0 : l'index global vaut encore 4
   const cliqueRepos2 = async (i, n) => {
     for (let k = 0; k < (n || 1); k++) {
       await page.evaluate((j) => {
@@ -1687,8 +1785,8 @@ const SETS_IMPORTES = [
   const figeQ = () => page.evaluate(() =>
     !!document.querySelector('#repos .repos-g.fige'));
 
-  await cliqueRepos2(1, 4);                 // +15 ×4 → cible 1:00
-  ok('la cible posée à la main vaut 1:00', /cible 1:00/.test(await texte('#repos')),
+  await cliqueRepos2(0, 4);                 // −15 ×4 : 2:00 → cible 1:00
+  ok('la cible réglée à la main vaut 1:00', /cible 1:00/.test(await texte('#repos')),
     (await texte('#repos')).replace(/\s+/g, ' ').slice(0, 50));
   const t1 = await chrono();
   await attendre(20000);                    // écoulé ≈ 21 s, bien sous la cible

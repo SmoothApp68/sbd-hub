@@ -233,13 +233,32 @@ describe('le repos cible, en séance (§7 septies.2)', () => {
 // ══ 6. LE CHRONOMÈTRE S'ARRÊTE À L'ÉCHÉANCE ════════════════════════════════
 
 describe('le chronomètre s’arrête à l’échéance (§7 septies.3)', () => {
-  test('il compte jusqu’à la cible, et pas au-delà', () => {
-    expect(Seance.secondesAffichees(180, 100)).toBe(100);
-    expect(Seance.secondesAffichees(180, 179)).toBe(179);
-    expect(Seance.secondesAffichees(180, 180)).toBe(180);
-    expect(Seance.secondesAffichees(180, 400)).toBe(180);
+  // ⚠️ ASSERTIONS RETOURNÉES AU CHANTIER 50 : c'est un COMPTE À REBOURS. Le
+  // grand nombre ne monte plus vers la cible, il descend vers zéro. La règle
+  // du §7 septies.3 ne bouge pas — il ne va pas AU-DELÀ — seule sa direction
+  // change : « figé sur la cible » devient « arrêté à 0:00 », et JAMAIS un
+  // négatif qui grossit.
+  test('il descend jusqu’à zéro, et pas en dessous', () => {
+    expect(Seance.secondesRestantes(180, 0)).toBe(180);     // à l'armement : la cible entière
+    expect(Seance.secondesRestantes(180, 100)).toBe(80);
+    expect(Seance.secondesRestantes(180, 179)).toBe(1);
+    expect(Seance.secondesRestantes(180, 180)).toBe(0);
+    expect(Seance.secondesRestantes(180, 400)).toBe(0);     // pas de « −3:40 »
     expect(Seance.reposFige(180, 179)).toBe(false);
     expect(Seance.reposFige(180, 180)).toBe(true);
+  });
+
+  // L'accord des deux, épinglé : le minuteur s'arrête EXACTEMENT quand le
+  // décompte atteint zéro. `reposFige` décide de l'arrêt, `secondesRestantes` de
+  // l'affichage — deux fonctions séparées (§7 tervicies.1), et un écart entre
+  // elles donnerait soit un 0:00 qui continue de battre, soit un décompte
+  // arrêté sur un nombre non nul.
+  test('l’arrêt du minuteur et le zéro affiché tombent au même instant', () => {
+    [5, 15, 50, 90, 180, 1800].forEach((cible) => {
+      for (let s = 0; s <= cible + 3; s++) {
+        expect(Seance.reposFige(cible, s)).toBe(Seance.secondesRestantes(cible, s) === 0);
+      }
+    });
   });
 
   // Le cas signalé : on est à 100 s, la cible est à 105, deux −15 la font
@@ -248,15 +267,16 @@ describe('le chronomètre s’arrête à l’échéance (§7 septies.3)', () => 
   test('un −15 qui FRANCHIT la cible fige aussi', () => {
     let cible = 105;
     const ecoule = 100;
-    // À 100 s sous une cible de 105, ça tourne encore.
+    // À 100 s sous une cible de 105, ça tourne encore : il reste 5 secondes.
     expect(Seance.reposFige(cible, ecoule)).toBe(false);
-    expect(Seance.secondesAffichees(cible, ecoule)).toBe(100);
+    expect(Seance.secondesRestantes(cible, ecoule)).toBe(5);
     // Le −15 fait passer la cible DERRIÈRE le temps écoulé : figé, sans avoir
-    // jamais franchi d'échéance en montant.
+    // jamais franchi d'échéance en descendant. Le décompte tombe à zéro d'un
+    // coup — il ne passe pas par −10.
     cible = Seance.ajusterCible(cible, -15);
     expect(cible).toBe(90);
     expect(Seance.reposFige(cible, ecoule)).toBe(true);
-    expect(Seance.secondesAffichees(cible, ecoule)).toBe(90);
+    expect(Seance.secondesRestantes(cible, ecoule)).toBe(0);
   });
 
   test('un +15 qui repousse la cible au-delà de l’écoulé remet en marche', () => {
@@ -264,13 +284,19 @@ describe('le chronomètre s’arrête à l’échéance (§7 septies.3)', () => 
     expect(Seance.reposFige(90, ecoule)).toBe(true);
     const repoussee = Seance.ajusterCible(90, 15);          // 105
     expect(Seance.reposFige(repoussee, ecoule)).toBe(false);
-    expect(Seance.secondesAffichees(repoussee, ecoule)).toBe(100);
+    // Et le décompte REPART d'un zéro vers les 5 secondes rendues.
+    expect(Seance.secondesRestantes(repoussee, ecoule)).toBe(5);
   });
 
-  test('sans cible, rien ne fige — un chronomètre libre compte', () => {
+  // Sans cible, `reposFige` garde sa réponse — c'est elle qui décide de l'arrêt
+  // du minuteur — mais il n'y a RIEN à décompter : zéro, jamais le temps écoulé.
+  // Le cas ne s'arme plus depuis le chantier 45 ; la fonction reste totale.
+  test('sans cible, il ne reste rien à décompter', () => {
     expect(Seance.reposFige(null, 5000)).toBe(false);
     expect(Seance.reposFige(0, 5000)).toBe(false);
-    expect(Seance.secondesAffichees(null, 5000)).toBe(5000);
+    expect(Seance.secondesRestantes(null, 5000)).toBe(0);
+    expect(Seance.secondesRestantes(0, 5000)).toBe(0);
+    expect(Seance.secondesRestantes(undefined, 5000)).toBe(0);
   });
 });
 

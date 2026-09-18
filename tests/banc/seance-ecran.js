@@ -818,6 +818,19 @@ const SETS_IMPORTES = [
   ok('le chronomètre part SEUL à la validation', repos.visible, repos.texte.replace(/\s+/g, ' ').slice(0, 40));
   ok('il affiche la cible de la routine sans l’imposer', /cible 3:00/.test(repos.texte), repos.texte.replace(/\s+/g, ' ').slice(0, 40));
 
+  // ⚠️ [50] C'EST UN COMPTE À REBOURS (§7 quatervicies). À l'armement, le grand
+  // nombre vaut la CIBLE ENTIÈRE — un chronomètre montant afficherait 0:00 ou
+  // 0:01. Les deux lectures se séparent ici, à la seconde près.
+  const barreRebours = () => page.evaluate(() => ({
+    grand: ((document.querySelector('#repos .repos-g') || {}).textContent || '').trim(),
+    largeur: parseInt(((document.querySelector('#repos .piste i') || {}).style || {}).width, 10)
+  }));
+  const rebours0 = await barreRebours();
+  ok('[50] à l’armement, le rebours affiche la cible entière — pas 0:00',
+    /^(3:00|2:5[0-9])$/.test(rebours0.grand), 'affiché ' + rebours0.grand);
+  ok('[50] …et la piste part PLEINE, pour se vider ensuite',
+    rebours0.largeur >= 95, 'piste à ' + rebours0.largeur + '%');
+
   await attendre(1200);
   await saisirSerie(1, 100, 5);
   ok('la deuxième porte un `repos_s` mesuré, pas déduit',
@@ -1232,9 +1245,14 @@ const SETS_IMPORTES = [
   // au-delà ». Dix secondes après une cible de 0:15, l'affichage doit donc
   // encore dire 0:15. Le reste de l'invariante ne bouge pas : rien ne se
   // répète, aucune alarme ne monte — c'est l'assertion juste au-dessus.
-  ok('et il reste ARRÊTÉ sur la cible, sans alarme ni décompte qui presse',
-    /0:15/.test(await texte('#repos')) && !/0:2[0-9]/.test(await texte('#repos')),
-    (await texte('#repos')).replace(/\s+/g, ' ').slice(0, 40));
+  // ⚠️ [50] ON LIT LE GRAND NOMBRE, PAS TOUT LE BANDEAU. Avec le rebours il
+  // affiche 0:00 — mais l'étiquette à côté dit toujours « cible 0:15 », si
+  // bien qu'un `/0:15/` sur `#repos` entier passerait quoi qu'il arrive. C'est
+  // le même piège que le « cible — » du §7 novodecies : mesurer le texte
+  // autour plutôt que la valeur.
+  const finRebours = (await texte('#repos .repos-g')).trim();
+  ok('et il reste ARRÊTÉ à 0:00, sans alarme ni négatif qui grossit',
+    finRebours === '0:00', 'affiché ' + finRebours);
 
   console.log('\n══ 5 quater. LA SOURDINE SE RETIENT D’UNE SÉANCE À L’AUTRE ══');
   await cliqueRepos(SON);
@@ -1826,10 +1844,18 @@ const SETS_IMPORTES = [
   await cliqueRepos2(0, 4);                 // −15 ×4 : 2:00 → cible 1:00
   ok('la cible réglée à la main vaut 1:00', /cible 1:00/.test(await texte('#repos')),
     (await texte('#repos')).replace(/\s+/g, ' ').slice(0, 50));
+  // ⚠️ [50] IL DÉCOMPTE, il ne compte pas. « t1 ≠ t2 » passait dans les deux
+  // sens et ne distinguait donc pas un rebours d'un chronomètre montant : on
+  // compare les secondes, et on exige que ça DIMINUE.
+  const enSecondes = (t) => {
+    const m = /^(\d+):(\d\d)$/.exec(t);
+    return m ? Number(m[1]) * 60 + Number(m[2]) : NaN;
+  };
   const t1 = await chrono();
   await attendre(20000);                    // écoulé ≈ 21 s, bien sous la cible
   const t2 = await chrono();
-  ok('sous la cible, il compte', t1 !== t2 && (await figeQ()) === false, t1 + ' → ' + t2);
+  ok('sous la cible, il DÉCOMPTE', enSecondes(t2) < enSecondes(t1) && (await figeQ()) === false,
+    t1 + ' → ' + t2);
 
   // ⚠️ LE CAS SIGNALÉ : trois −15 font passer la cible (1:00 → 0:15) DERRIÈRE
   // le temps écoulé (≈ 22 s). Le chronomètre doit s'arrêter là, alors qu'il n'a
@@ -1838,7 +1864,10 @@ const SETS_IMPORTES = [
   const apresMoins = await chrono();
   await attendre(4000);
   const encore = await chrono();
-  ok('un −15 qui FRANCHIT la cible arrête le chronomètre', apresMoins === '0:15',
+  // ⚠️ [50] 0:00, ET PLUS 0:15. La cible passe DERRIÈRE l'écoulé : il ne reste
+  // rien à décompter. L'ancienne valeur était la cible elle-même, parce que le
+  // grand nombre montait vers elle et s'y figeait.
+  ok('un −15 qui FRANCHIT la cible arrête le chronomètre à 0:00', apresMoins === '0:00',
     'affiché ' + apresMoins);
   ok('et il ne repart pas tout seul quatre secondes plus tard',
     encore === apresMoins && (await figeQ()) === true, apresMoins + ' → ' + encore);
@@ -1866,14 +1895,15 @@ const SETS_IMPORTES = [
   await attendre(2500);
   const reparti = await chrono();
   ok('un +15 qui repousse la cible le remet en marche',
-    reparti !== apresMoins && (await figeQ()) === false, apresMoins + ' → ' + reparti);
+    enSecondes(reparti) > 0 && reparti !== apresMoins && (await figeQ()) === false,
+    apresMoins + ' → ' + reparti);
   // ⚠️ DEUX LECTURES, PAS UNE. `ajusterRepos` redessine lui-même une fois : une
   // seule mesure après le +15 verrait une valeur neuve même avec un minuteur
   // mort, et le chronomètre resterait figé sur elle pour toujours.
   await attendre(3200);
   const reparti2 = await chrono();
-  ok('et il CONTINUE d’avancer ensuite, minuteur bien relancé',
-    reparti2 !== reparti, reparti + ' → ' + reparti2);
+  ok('et il CONTINUE de descendre ensuite, minuteur bien relancé',
+    enSecondes(reparti2) < enSecondes(reparti), reparti + ' → ' + reparti2);
 
   // ── L'écran de fin ─────────────────────────────────────────────────────
   await page.click('#bandeau-seance .bandeau-fin');

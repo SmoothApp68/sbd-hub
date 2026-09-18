@@ -2436,6 +2436,63 @@ désormais une **page neuve** — c'est la configuration discriminante du §2 qu
 l'historique.
 
 
+## 7 quatervicies. Le chronomètre, revu le 18/09/2026 — chantier 50
+
+Deux constats d'Aurélien sur appareil, le même jour, sur le même objet.
+
+### 7 quatervicies.1 Un compte à rebours, pas un chronomètre
+
+Le grand nombre de la barre était le temps **écoulé** : il montait de `0:00` vers la cible,
+écrite en petit à côté. Il **descend** désormais de la cible vers `0:00`.
+
+```
+AVANT — il monte                            APRÈS — il descend
+┌─────────────────────────────────┐      ┌─────────────────────────────────┐
+│ 0:47  −15  cible 3:00  +15  Son ⏭ │      │ 2:13  −15  cible 3:00  +15  Son ⏭ │
+│ ███████░░░░░░░░░░░░░░░░░░░░░░░░░ │      │ ███████████████████████░░░░░░░░░ │
+└─────────────────────────────────┘      └─────────────────────────────────┘
+  la piste se REMPLIT                        la piste se VIDE
+```
+
+**Pourquoi.** Entre deux séries, personne ne se demande depuis combien de temps il souffle —
+il se demande **combien il lui reste**. Le montant faisait faire la soustraction de tête, avec
+un des deux nombres écrit en petit.
+
+**Et ça rend le §7 tervicies lisible** : « −15 » fait maintenant **descendre** le grand nombre,
+et la barre s'en va quand il atteint zéro. Avant, le même appui faisait *monter* le nombre vers
+une cible qui, elle, descendait — deux mouvements opposés pour un seul geste.
+
+**La piste suit.** Elle part pleine et se vide. Un remplissage sous un nombre qui descend
+raconte deux histoires sur le même écran.
+
+#### Ce qui ne change pas
+
+| | |
+|---|---|
+| **la mesure** | `repos_s` se calcule toujours à la validation suivante, depuis l'écart entre deux `validee_a`. Il porte le repos RÉEL. **On change ce qu'on montre, jamais ce qu'on observe.** |
+| **l'étiquette « cible 3:00 »** | elle reste, et elle en gagne : le grand nombre ne dit plus *quelle* est la cible une fois lancé. C'est elle que `−15`/`+15` règlent. |
+| **l'arrêt à l'échéance** (§7 septies.3) | même règle, direction inversée : « figé sur la cible » devient « arrêté à `0:00` ». |
+
+> ⚠️ **Jamais de négatif.** Un « −0:38 » qui grossit est un reproche, et le chronomètre
+> informe — il ne commande pas (§7 ter.3). Il s'arrête à zéro et y reste.
+
+#### Deux prédicats, séparés — comme au §7 tervicies.1
+
+`reposFige` décide de l'**arrêt du minuteur** ; `secondesRestantes` décide de l'**affichage**.
+Ils s'accordent tant que la cible est positive, et un test épingle cet accord seconde par
+seconde — un écart donnerait soit un `0:00` qui continue de battre, soit un décompte arrêté sur
+un nombre non nul.
+
+Sans cible, il ne reste rien à décompter : **zéro**, jamais le temps écoulé. Le cas ne s'arme
+plus depuis le chantier 45, mais la fonction reste **totale**.
+
+⚠️ **Le piège de mesure, troisième occurrence.** L'assertion du banc sur le dépassement lisait
+`/0:15/` sur `#repos` **entier** — or l'étiquette à côté dit toujours « cible 0:15 » : elle
+serait passée quoi qu'affiche le grand nombre. Même famille que le « cible — » du
+§7 novodecies : **mesurer le texte autour plutôt que la valeur.** Les assertions lisent
+désormais `#repos .repos-g`.
+
+
 ## 8. Reste ouvert
 
 - **Écran de fin de séance** : titre, note, photo, salle.

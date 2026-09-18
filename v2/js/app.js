@@ -1054,7 +1054,12 @@
       // Ce qui est figé est l'AFFICHAGE. `repos_s` se mesure à la validation
       // suivante, depuis l'écart entre deux `validee_a` : il porte le repos
       // réel, même s'il a duré trois fois la cible.
-      secondes: Seance.secondesAffichees(chrono.cible, secondes),
+      //
+      // ⚠️ CE QU'ON PASSE AU RENDU EST LE TEMPS QUI RESTE (§7 quatervicies), pas
+      // le temps écoulé. `secondes` reste la mesure interne — elle sert à
+      // `echeanceAtteinte` et à `reposFige` juste au-dessus — et ne sort plus
+      // d'ici : l'écran ne montre que le décompte.
+      restant: Seance.secondesRestantes(chrono.cible, secondes),
       fige: fige,
       cible: chrono.cible,
       sourdine: sourdine,

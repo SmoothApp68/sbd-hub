@@ -58,7 +58,13 @@ function bacChrono(cible) {
     rendreChrono: () => { journal.rendus++; }
   };
   vm.createContext(ctx);
+  // ⚠️ `appliquerCible` S'EST AJOUTÉE AU CHANTIER 50, et ce bac est tombé avec
+  // un `ReferenceError` dès qu'`ajusterRepos` a délégué sa règle. C'est ce que
+  // l'en-tête annonçait : le texte extrait est la VRAIE source, donc une
+  // voisine renommée ou déplacée fait tomber le test bruyamment. Une garde
+  // qu'on ne peut plus construire n'est plus une garde.
   vm.runInContext(extraire('eteindreChrono'), ctx);
+  vm.runInContext(extraire('appliquerCible'), ctx);
   vm.runInContext(extraire('ajusterRepos'), ctx);
   return {
     journal,

@@ -2492,6 +2492,46 @@ serait passée quoi qu'affiche le grand nombre. Même famille que le « cible �
 §7 novodecies : **mesurer le texte autour plutôt que la valeur.** Les assertions lisent
 désormais `#repos .repos-g`.
 
+### 7 quatervicies.2 La molette retarge le décompte en cours
+
+Constaté sur appareil : **régler le repos d'un exercice pendant qu'on se repose ne changeait
+rien à la barre.** Le chronomètre avait copié sa cible à l'armement, et plus personne ne la
+relisait — `repos_cible_s` n'était lu que par `demarrerChrono`, à la validation **suivante**.
+
+> **Le §7 tervicies n'est pas contredit, il est ORIENTÉ.** Il sépare deux objets pour
+> empêcher un « −15 » de désactiver une **consigne** ; il ne dit pas qu'un geste doit
+> rester sans effet. Le fil ne va donc que dans un sens.
+
+| geste | repos **prescrit** | repos **en cours** |
+|---|---|---|
+| `−15` / `+15` sur la barre | **intact** | raccourci / rallongé |
+| molette sous l'exercice | écrit | **suit — s'il est à lui** |
+
+Désactiver le repos pendant qu'il court, c'est dire « pas de repos ici » : la barre s'en va,
+exactement comme le `−15` arrivé à zéro.
+
+#### La garde, qui est la moitié risquée
+
+Le chronomètre retient désormais **qui l'a armé**. Sans ça, régler le repos de l'exercice B
+retargerait le décompte lancé par A — pire que le trou qu'on bouche.
+
+L'identité est le **couple (indice, slug)**, et pas l'un des deux : la séance n'a **aucun
+identifiant par exercice**, l'indice bouge à la réorganisation, et le slug ne distingue pas
+deux fois le même exercice. Les deux ensemble échouent **fermé** : dès qu'ils divergent —
+après un « Ranger », par exemple — on ne retarge **rien** plutôt que de retarger au hasard.
+
+#### Une seule règle, `appliquerCible`
+
+Deux gestes changent la cible d'un repos qui court ; ils en tirent les **mêmes** conséquences
+(extinction à zéro, réarmement de la sonnerie si la cible repasse devant l'écoulé, relance ou
+arrêt du minuteur). Deux copies de ces quatre lignes, c'est la garantie qu'un chantier futur en
+corrigera une sur deux.
+
+⚠️ **On relit la valeur POSÉE, jamais celle demandée.** `definirReposCible` refuse ce qui sort
+de `[5, 1800]` et rend la séance **inchangée** : retarger sur la valeur demandée ferait bouger
+la barre pendant que la consigne, elle, n'aurait pas bougé — les deux se remettraient à dire
+deux choses différentes, ce qui est exactement le défaut qu'on répare.
+
 
 ## 8. Reste ouvert
 

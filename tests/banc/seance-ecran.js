@@ -1254,6 +1254,45 @@ const SETS_IMPORTES = [
   ok('et il reste ARRÊTÉ à 0:00, sans alarme ni négatif qui grossit',
     finRebours === '0:00', 'affiché ' + finRebours);
 
+  // ══ [50] LA MOLETTE RETARGE LE DÉCOMPTE EN COURS (§7 quatervicies.2) ════
+  //
+  // Constaté sur device : régler le repos d'un exercice pendant qu'on se repose
+  // ne changeait RIEN à la barre. Le chronomètre avait copié sa cible à
+  // l'armement, et plus personne ne la relisait.
+  //
+  // ⚠️ L'ÉTAT ICI, ET IL EST LA CONFIGURATION DISCRIMINANTE : le décompte en
+  // cours a été armé par le bloc 1 (cible 0:15, déjà figé à 0:00). Le bloc 0
+  // porte 3:00 et n'a rien armé. Avec un seul exercice, « il retarge le bon »
+  // et « il retarge n'importe lequel » rendraient le même écran.
+  await toucherBloc(0, '.repos-cible');
+  await molette(120);
+  ok('[50] régler l’exercice d’À CÔTÉ ne touche pas le repos en cours',
+    (await texte('#repos .repos-g')).trim() === '0:00' && (await barreVisible()) === true,
+    'barre à ' + (await texte('#repos .repos-g')).trim() +
+    ' · bloc 0 : ' + (await lireDansBloc(0, '.repos-cible')).trim());
+
+  // Et LE fil : le même geste, sur l'exercice qui a armé. Le décompte repart —
+  // ce qui prouve du même coup que la cible a été repoussée AU-DELÀ de
+  // l'écoulé et que le minuteur s'est relancé.
+  await toucherBloc(1, '.repos-cible');
+  await molette(120);
+  const retarge = (await texte('#repos .repos-g')).trim();
+  ok('[50] régler l’exercice QUI A ARMÉ fait bouger le décompte',
+    retarge !== '0:00' && /cible 2:00/.test(await texte('#repos')),
+    '0:00 → ' + retarge + ' · ' + (await texte('#repos')).replace(/\s+/g, ' ').slice(0, 30));
+
+  // ⚠️ ON REMET 0:15, ET CE N'EST PAS QUE DU MÉNAGE : §5 quater réarme sur ce
+  // repos-là et attend la sonnerie à 17 s. C'est aussi l'autre sens du retarge —
+  // une cible ramenée DERRIÈRE l'écoulé retombe à 0:00 tout de suite.
+  // (La sonnerie repart une fois ici, avant que la sourdine ne soit posée ; les
+  // compteurs du §5 quater sont relevés après, donc rien n'en dépend.)
+  await toucherBloc(1, '.repos-cible');
+  await molette(15);
+  ok('[50] …et ramenée derrière l’écoulé, elle retombe à 0:00',
+    (await texte('#repos .repos-g')).trim() === '0:00' &&
+    /repos 0:15/.test(await lireDansBloc(1, '.repos-cible')),
+    (await texte('#repos .repos-g')).trim() + ' · ' + (await lireDansBloc(1, '.repos-cible')).trim());
+
   console.log('\n══ 5 quater. LA SOURDINE SE RETIENT D’UNE SÉANCE À L’AUTRE ══');
   await cliqueRepos(SON);
   ok('la sourdine s’affiche coupée', /Son ✕/.test(await texte('#repos')),

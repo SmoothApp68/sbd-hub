@@ -1061,7 +1061,7 @@
       pas: Seance.PAS_REPOS,
       surAjuster: function (delta) { ajusterRepos(delta); },
       surSourdine: function () { basculerSourdine(); },
-      surPasser: function () { chrono = null; arreterMinuteur(); rendreChrono(); }
+      surPasser: function () { eteindreChrono(); }
     });
     // APRÈS le rendu : la barre vient de prendre sa hauteur définitive.
     mesurerBarres();
@@ -1078,10 +1078,34 @@
   // bouge qu'à la fin, sur question (§6).
   function ajusterRepos(delta) {
     if (!chrono) return;
-    chrono.cible = Seance.ajusterCible(chrono.cible, delta);
+    var cible = Seance.ajusterCible(chrono.cible, delta);
+    // ⚠️ À ZÉRO, LE REPOS EST FINI — ET LA BARRE S'EN VA (§7 tervicies, ch. 49).
+    //
+    // Le chantier 47 refusait de descendre sous la borne basse. La règle était
+    // bonne, l'objet ne l'était pas : elle protège le repos PRESCRIT, une
+    // consigne qu'on ne désactive que d'un geste explicite (§7 sexdecies.3).
+    // Ici court un DÉCOMPTE, et quatre appuis sur « −15 » pendant un repos de
+    // 50 s veulent dire « arrête-toi maintenant ». On ne fige donc pas à zéro :
+    // on éteint, exactement comme « Passer » — même sortie, même fonction.
+    //
+    // Et c'est `reposEcoule` qui le dit, PAS `cibleArmable` : l'armement et
+    // l'extinction ne se déduisent pas l'un de l'autre (§7 tervicies). Un repos
+    // jamais prescrit (`null`) n'arme rien — défaut fermé au chantier 45 — et
+    // c'est une autre question que « celui-ci est-il fini ? ».
+    if (Seance.reposEcoule(cible)) { eteindreChrono(); return; }
+    chrono.cible = cible;
     if (chrono.cible > secondesDeRepos()) chrono.sonne = false;
     // `rendreChrono` relance ou arrête le minuteur selon la nouvelle cible :
     // un −15 qui franchit l'échéance fige, un +15 qui la repousse repart.
+    rendreChrono();
+  }
+
+  // Le repos n'existe plus : ni objet, ni minuteur, ni barre. Les trois vont
+  // ENSEMBLE — oublier `arreterMinuteur` laisse un `setInterval` qui rend un
+  // chronomètre absent une fois par seconde, pour toujours.
+  function eteindreChrono() {
+    chrono = null;
+    arreterMinuteur();
     rendreChrono();
   }
 
@@ -2810,9 +2834,16 @@
   }
 
   // Navigation explicite : elle écrit l'URL, puis rend.
-  function afficherSemaine(lundi) {
+  //
+  // `remplacer` sert au bouton « ← Séances » (voir son branchement) : il ne veut
+  // pas EMPILER la liste par-dessus le détail qu'il quitte, il veut la METTRE
+  // À SA PLACE. Le détail disparaît de l'historique au lieu de dormir dessous,
+  // et aucun retour d'Android ne peut le rouvrir — ce que le chantier 40
+  // reprochait à la navigation explicite tient donc à l'empilement, pas à
+  // l'explicite.
+  function afficherSemaine(lundi, remplacer) {
     var l = lundi || lundiAffiche || Semaine.bornesSemaine(new Date()).lundi;
-    allerA(Semaine.memeSemaine(l, new Date()) ? Routeur.RACINE : Routeur.SEMAINE, { lundi: l });
+    allerA(Semaine.memeSemaine(l, new Date()) ? Routeur.RACINE : Routeur.SEMAINE, { lundi: l }, remplacer === true);
     rendreSemaine(l);
   }
 
@@ -4134,12 +4165,26 @@
       rendreProfilEcran();
     });
     $('champ-recherche-mes-exos').addEventListener('input', rendreMesExercices);
-    // Les deux « ← » remontent l'historique, par la MÊME porte (voir `remonter`).
-    // La page d'exercice s'atteint depuis trois écrans : décider pour elle en
-    // enverrait deux sur trois au mauvais endroit. Le détail d'une séance se
-    // trouvait dans le même cas — on y arrive depuis la semaine, depuis le
-    // calendrier, depuis une fin de séance — et il choisissait quand même.
-    $('btn-retour').addEventListener('click', function () { remonter(afficherSemaine); });
+    // ⚠️ UN BOUTON QUI NOMME SA DESTINATION Y VA ; UN BOUTON QUI N'EN NOMME
+    // AUCUNE REMONTE L'HISTORIQUE (ch. 49). Les deux « ← » ne sont PAS le même
+    // bouton, et le chantier 47 les avait confondus.
+    //
+    //   · « ← Séances » NOMME la liste. Une promesse écrite ne peut pas dépendre
+    //     du chemin parcouru : `history.back()` rend l'entrée précédente, et
+    //     l'entrée précédente n'est la liste que si l'on vient d'y passer. Sur
+    //     device, après un aller-retour par la saisie, ce bouton a ramené
+    //     Aurélien ailleurs que là où son libellé l'annonçait. Il navigue donc,
+    //     et en REMPLAÇANT — le détail quitté ne reste pas dessous, ce qui était
+    //     le vrai grief du chantier 40 (« l'un des retours ROUVRAIT le détail »).
+    //   · « ← Retour » ne nomme RIEN, et la page d'exercice s'atteint depuis
+    //     trois écrans : décider pour elle en enverrait deux sur trois au mauvais
+    //     endroit. Elle garde `remonter`, qui est la bonne réponse à « je ne sais
+    //     pas d'où tu viens ».
+    //
+    // Coût assumé et mesuré : l'entrée remplacée reste comptée dans `pile`, donc
+    // un retour d'Android depuis la liste ne fait rien de visible avant que le
+    // suivant n'atteigne l'ancre. Un appui invisible, contre une promesse tenue.
+    $('btn-retour').addEventListener('click', function () { afficherSemaine(null, true); });
     $('btn-retour-exercice').addEventListener('click', function () { remonter(afficherSemaine); });
     ['btn-retour-volume', 'btn-retour-poids'].forEach(function (id) {
       $(id).addEventListener('click', function () {

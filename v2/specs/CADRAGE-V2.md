@@ -56,8 +56,10 @@ Doctrine dégagée le 10/09/2026, après **trois occurrences du même piège en 
 | Fuseau horaire | Runner en UTC : `getDay()` valait `getUTCDay()`. Le test qui protégeait le rangement par jour passait sans rien prouver |
 | Pile d'historique profonde | Sur navigateur de bureau, il reste toujours des entrées sous celles de l'app : « ancre posée » et « ancre absente » donnaient le même résultat |
 | Réinstallation de l'ancre | Même cause : sur pile profonde, la deuxième absorption réussit que l'ancre soit réinstallée ou non |
+| **Plafond de `history.length`** *(18/09/2026, ch. 49)* | Chrome PLAFONNE l'historique à **50 entrées**. Le banc de séance réutilise une seule page, qui sature bien avant la fin : « l'édition a empilé une entrée » et « elle n'en a empilé aucune » y donnent le même 50. L'assertion de profondeur du chantier 47 était vraie **par saturation** — elle n'a jamais rien prouvé. **Configuration discriminante : une page NEUVE**, où la profondeur repart à deux ou trois |
 
-Dans les trois cas, les tests étaient nombreux, verts, et **vérifiés par mutation du code**.
+Dans tous ces cas, les tests étaient nombreux et verts — et les trois premiers étaient même
+**vérifiés par mutation du code**.
 La mutation tombait bien. Le défaut n'était ni dans la rigueur ni dans la couverture.
 
 > **Le banc était plus permissif que l'appareil réel, et rendait deux comportements

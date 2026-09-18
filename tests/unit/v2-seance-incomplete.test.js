@@ -225,23 +225,42 @@ describe('test 2 — ce qu’une séance rouverte vide ferait partir', () => {
 // à 0 rend `reposFige` faux pour TOUTE seconde, donc `rendreChrono` relançait
 // l'intervalle à chaque passage : le chronomètre comptait jusqu'à la fin de la
 // séance. On vérifie donc les deux moitiés — la valeur ET le gel.
+//
+// ⚠️ INVERSÉ AU CHANTIER 49 (§7 tervicies). Le 47 avait fermé ces limbes en
+// REFUSANT de descendre sous la borne ; le 49 les ferme par l'autre bout, qui
+// est le bon : zéro est atteignable et signifie FINI — `ajusterRepos` éteint
+// le chronomètre avant que `rendreChrono` ne voie jamais une cible nulle. Les
+// limbes restent donc impossibles, et l'utilisateur récupère son « arrête-toi
+// maintenant ». Ce qui suit vérifie les DEUX sorties : la valeur bornée, et le
+// gel sur tout ce qui reste au-dessus de zéro.
 
-describe('test 5 — après un ajustement, le chronomètre se fige toujours', () => {
-  // ⚠️ LA BOUCLE, PAS UN SEUL APPUI. Depuis 60 s il faut QUATRE −15 pour
-  // atteindre la borne ; un test à un seul appui passe avec le défaut en place.
-  test('quatre −15 depuis 60 s laissent une cible qui FIGE encore', () => {
-    let c = 60;
+describe('test 5 — après un ajustement, le chronomètre se fige ou s\'éteint', () => {
+  // ⚠️ CONFIGURATION DISCRIMINANTE : 50 s, PAS 60. À 60, quatre −15 tombent
+  // pile sur zéro et la borne du 49 comme le refus du 47 rendent le même
+  // nombre. À 50, le quatrième passerait sous zéro : le refus rendrait 5, la
+  // borne rend 0. C'est la seule cible qui distingue les deux règles.
+  test('quatre −15 depuis 50 s tombent À zéro — et zéro veut dire fini', () => {
+    let c = 50;
     for (let i = 0; i < 4; i++) c = Seance.ajusterCible(c, -15);
-    expect(c).toBe(15);
-    // La preuve : à 30 s écoulées, on est figé. Avec l'ancienne borne (c = 0),
-    // `reposFige(0, 30)` rendait faux et l'intervalle repartait.
-    expect(Seance.reposFige(c, 30)).toBe(true);
-    expect(Seance.secondesAffichees(c, 30)).toBe(15);
+    expect(c).toBe(0);
+    expect(Seance.reposEcoule(c)).toBe(true);
   });
 
-  test('et un cinquième −15 ne change plus rien', () => {
-    expect(Seance.ajusterCible(15, -15)).toBe(15);
-    expect(Seance.reposFige(Seance.ajusterCible(15, -15), 30)).toBe(true);
+  // Tant qu'il RESTE quelque chose à compter, l'ancien contrat tient : la cible
+  // fige, elle ne s'éteint pas. C'est la moitié que l'inversion ne doit pas
+  // emporter avec elle.
+  test('trois −15 depuis 50 s laissent 5 s, qui FIGENT encore', () => {
+    let c = 50;
+    for (let i = 0; i < 3; i++) c = Seance.ajusterCible(c, -15);
+    expect(c).toBe(5);
+    expect(Seance.reposEcoule(c)).toBe(false);
+    expect(Seance.reposFige(c, 30)).toBe(true);
+    expect(Seance.secondesAffichees(c, 30)).toBe(5);
+  });
+
+  test('et un cinquième −15 ne descend pas sous zéro', () => {
+    expect(Seance.ajusterCible(0, -15)).toBe(0);
+    expect(Seance.reposEcoule(Seance.ajusterCible(0, -15))).toBe(true);
   });
 
   // L'autre sens : le +15 qui repousse la cible AU-DELÀ de l'écoulé remet en
@@ -255,15 +274,23 @@ describe('test 5 — après un ajustement, le chronomètre se fige toujours', ()
     expect(Seance.reposFige(Seance.ajusterCible(repoussee, 15), 30)).toBe(false);
   });
 
-  // ⚠️ L'INVARIANTE QUI RÉSUME TOUT : quelle que soit la suite d'ajustements,
-  // la cible reste ARMABLE. C'est ce qui garantit qu'un `reposFige` finira par
-  // rendre vrai, donc qu'un chronomètre finira par s'arrêter.
-  test('aucune suite d’ajustements ne produit une cible non armable', () => {
-    [5, 15, 20, 60, 90, 1800, 3600].forEach((depart) => {
+  // ⚠️ L'INVARIANTE QUI RÉSUME TOUT, RÉÉCRITE AU 49 : quelle que soit la suite
+  // d'ajustements, un chronomètre FINIT toujours par s'arrêter — soit il se
+  // fige à son échéance, soit il est écoulé et la barre s'en va. Ce qui est
+  // interdit, c'est le TROISIÈME état : une cible qui ne fige jamais et qu'on
+  // continue pourtant d'afficher. Le 47 l'excluait en gardant tout armable ;
+  // le 49 l'exclut en éteignant à zéro.
+  test('aucune suite d’ajustements ne produit un chronomètre qui court sans fin', () => {
+    [5, 15, 20, 50, 60, 90, 1800, 3600].forEach((depart) => {
       let c = depart;
       [-15, -15, 15, -15, -15, -15, -15, 15].forEach((d) => {
         c = Seance.ajusterCible(c, d);
-        expect(Seance.cibleArmable(c)).not.toBe(null);
+        expect(c).toBeGreaterThanOrEqual(0);
+        expect(c).toBeLessThanOrEqual(Seance.REPOS_MAX);
+        // Écoulé → la barre disparaît ; sinon → il existe une seconde à
+        // laquelle `reposFige` rend vrai, et c'est la cible elle-même.
+        if (Seance.reposEcoule(c)) expect(Seance.cibleArmable(c)).toBe(null);
+        else expect(Seance.reposFige(c, c)).toBe(true);
       });
     });
   });

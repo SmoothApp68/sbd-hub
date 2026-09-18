@@ -1164,21 +1164,48 @@ const SETS_IMPORTES = [
     (await barreVisible()) === true && /cible 0:15/.test(await texte('#repos')),
     (await texte('#repos')).replace(/\s+/g, ' ').slice(0, 50));
 
-  // ⚠️ ASSERTION RETOURNÉE AU CHANTIER 47, ET C'EST ELLE QUI FAISAIT VIVRE LE
-  // DÉFAUT. Elle exigeait « cible — », c'est-à-dire EXACTEMENT l'état que le
-  // §7 novodecies interdit : une cible ni armée ni désactivée, sur laquelle
-  // `reposFige` rend faux pour toute seconde — donc un chronomètre qui compte
-  // sans jamais se figer, jusqu'à la fin de la séance. Le banc ne constatait
-  // pas le défaut : il le VERROUILLAIT, et il l'a fait deux chantiers durant.
+  // ⚠️ ASSERTION RETOURNÉE DEUX FOIS — 47 PUIS 49 — ET VOICI POURQUOI.
   //
-  // Ce que la spec dit de ces deux boutons (§7 novodecies.2) : « les commandes
-  // de la barre gardent leur objet — ajuster une cible mal réglée pendant
-  // qu'elle court ». AJUSTER. Désactiver est un geste explicite, et il se fait
-  // à la molette.
+  //   · avant le 47, elle exigeait « cible — » après les −15 : l'état que le
+  //     §7 novodecies interdit, une cible ni armée ni désactivée sur laquelle
+  //     `reposFige` rend faux pour toute seconde — un chronomètre qui compte
+  //     sans jamais se figer. Le banc ne constatait pas le défaut, il le
+  //     VERROUILLAIT, deux chantiers durant ;
+  //   · au 47, elle exigeait 0:15 : le −15 REFUSAIT de descendre. Bonne règle,
+  //     mauvais objet — elle protège le repos PRESCRIT, pas le décompte ;
+  //   · au 49 (§7 tervicies), à zéro le repos est FINI : la barre S'EN VA.
+  //
+  // C'est ce que fait n'importe quel minuteur, et c'est ce que le §7 novodecies.2
+  // disait déjà de ces boutons : « ajuster une cible pendant qu'elle court ».
+  // Une cible qui court peut arriver à son terme.
+  //
+  // ⚠️ LA MESURE EST L'EXISTENCE DE LA BARRE, pas son texte. C'est la leçon du
+  // §7 novodecies, répétée ici : lire « cible — », c'était décrire un état
+  // qui n'aurait jamais dû s'afficher. Les bornes de l'arithmétique (50 s, la
+  // cible non multiple de 15 du §2 quater) se prouvent en unitaire, où elles
+  // coûtent une milliseconde — ici on prouve l'OBSERVABLE.
   await cliqueRepos(MOINS);
-  await cliqueRepos(MOINS);
-  ok('[47] sous la borne, −15 REFUSE de descendre — il ne désactive pas',
-    /cible 0:15/.test(await texte('#repos')) && !/cible —/.test(await texte('#repos')),
+  ok('[49] −15 depuis 0:15 → le repos est FINI, et la barre s’en va',
+    (await barreVisible()) === false,
+    'barre ' + ((await barreVisible()) ? 'encore là' : 'partie'));
+
+  // ⚠️ ET LE REPOS PRESCRIT N'A PAS BOUGÉ (§5.4 du prompt). C'est l'autre moitié
+  // du §7 tervicies : deux objets distincts portent le même nom, et raccourcir
+  // le décompte ne touche pas la consigne. Si le réglage de la barre écrivait
+  // sur l'exercice, la molette afficherait « repos — » ici.
+  ok('[49] …et le repos PRESCRIT de l’exercice est intact',
+    /repos 0:15/.test(await lireDansBloc(1, '.repos-cible')),
+    await lireDansBloc(1, '.repos-cible'));
+
+  // On réarme pour la suite : valider une série repart de la cible prescrite,
+  // qui vaut toujours 15 s. Sans ça, tout ce qui suit mesurerait une barre
+  // absente — et l'échéance, le dépassement et la sourdine passeraient à vide.
+  await page.evaluate(() => document.querySelectorAll('.ajout-serie button')[1].click());
+  await attendre(600);
+  const rearmee = (await compter('.ligne-serie')) - 1;
+  await saisirSerie(rearmee, 80, 10);
+  ok('[49] valider une série réarme sur la cible prescrite, inchangée',
+    (await barreVisible()) === true && /cible 0:15/.test(await texte('#repos')),
     (await texte('#repos')).replace(/\s+/g, ' ').slice(0, 50));
 
   const avantEcheance = await compteurs();
@@ -4396,6 +4423,104 @@ const SETS_IMPORTES = [
     enEdition47 === '["vue-seance"]' && apresEdition === '["vue-detail"]' &&
     JSON.stringify(await visible()) === '["vue-liste"]',
     enEdition47 + ' → ' + apresEdition + ' → ' + JSON.stringify(await visible()));
+
+  console.log('\n══ 49. LE CHEMIN COMPLET DU RETOUR, SUR UNE PAGE NEUVE ══');
+  //
+  // ⚠️ UNE PAGE NEUVE, ET C'EST LA CONFIGURATION DISCRIMINANTE (§2 quater).
+  // Chrome PLAFONNE `history.length` à 50. La page unique de ce banc sature
+  // bien avant d'arriver ici : toute mesure de profondeur y est vraie par
+  // saturation, jamais par correction — c'est ce qui a rendu VIDE l'assertion
+  // « longueurApres === longueurDetail » du chantier 47, mesurée à 50 = 50. Une
+  // page neuve repart à une profondeur de deux ou trois, où une entrée de trop
+  // se voit.
+  //
+  // ⚠️ ET LE CHEMIN ENTIER, PAS LE DERNIER SAUT (§5.7). C'est la troisième fois
+  // que le bouton retour coûte un chantier, et à chaque fois pour la même
+  // raison : on mesurait UN retour. Un seul ne montre pas qu'une pile est
+  // fausse — il montre seulement que l'écran d'après est le bon. On en fait
+  // donc DEUX de suite, et on regarde ce que le premier a laissé.
+  await page.close(); page = await ctx.newPage(); brancher(page);
+  await aller('/semaine/' + isoL(L_EXO));
+  const h49Liste = await page.evaluate(() => history.length);
+  const vue49Liste = JSON.stringify(await visible());
+
+  await page.evaluate(() => {
+    const c = Array.from(document.querySelectorAll('.seance'))
+      .filter((n) => /Quads tous terrains/.test(n.textContent))[0];
+    if (c) c.click();
+  });
+  await attendre(900);
+  const h49Detail = await page.evaluate(() => history.length);
+  const libelle49 = (await texte('#btn-retour')).trim();
+
+  await page.evaluate(() => {
+    Array.from(document.querySelectorAll('#vue-detail .detail-gestes button'))
+      .filter((b) => /^Modifier$/.test(b.textContent))[0].click();
+  });
+  await attendre(1200);
+  const vue49Saisie = JSON.stringify(await visible());
+  await page.click('#bandeau-seance .bandeau-fin').catch(() => {});
+  await attendre(2000);
+  const vue49Retour = JSON.stringify(await visible());
+  const h49Apres = await page.evaluate(() => history.length);
+
+  // ⚠️ LE LIBELLÉ EST LA MOITIÉ DU DÉFAUT, ET C'EST ELLE QUI CAUSE L'AUTRE.
+  // Un bouton qui NOMME sa destination fait une promesse écrite ; `history.back()`
+  // rend l'entrée précédente, qui n'est cette destination que si l'on vient d'y
+  // passer. On vérifie donc le mot AVANT le saut — et qu'il n'a pas changé après
+  // l'aller-retour par la saisie, là où Aurélien a lu autre chose sur device.
+  ok('[49] le détail annonce « ← Séances », avant comme après l’édition',
+    libelle49 === '← Séances' && (await texte('#btn-retour')).trim() === '← Séances',
+    libelle49 + ' → ' + (await texte('#btn-retour')).trim());
+
+  ok('[49] …et l’édition n’a ajouté aucune entrée d’historique',
+    vue49Liste === '["vue-liste"]' && vue49Saisie === '["vue-seance"]' &&
+    vue49Retour === '["vue-detail"]' && h49Apres === h49Detail && h49Detail <= h49Liste + 1,
+    'liste ' + h49Liste + ' → détail ' + h49Detail + ' → après édition ' + h49Apres);
+
+  // §5.6 — le bouton tient sa promesse : la LISTE, pas autre chose.
+  await page.click('#btn-retour').catch(() => {});
+  await attendre(900);
+  const vue49R1 = JSON.stringify(await visible());
+  const h49R1 = await page.evaluate(() => history.length);
+  ok('[49] « ← Séances » ramène à la liste — et sans empiler',
+    vue49R1 === '["vue-liste"]' && h49R1 === h49Apres,
+    vue49R1 + ' · profondeur ' + h49Apres + ' → ' + h49R1);
+
+  // §5.7 — DEUX retours d'Android de suite. Le premier ne doit pas rouvrir le
+  // détail qu'on vient de quitter (c'est le grief du chantier 40) ; le second ne
+  // doit pas remonter PLUS LOIN que la liste — ni la saisie, ni un écran d'avant.
+  // C'est ce saut-là qu'Aurélien a signalé, et un seul retour ne l'aurait pas vu.
+  await page.goBack().catch(() => {});
+  await attendre(900);
+  const vue49B1 = JSON.stringify(await visible());
+  await page.goBack().catch(() => {});
+  await attendre(900);
+  const vue49B2 = JSON.stringify(await visible());
+  ok('[49] deux retours d’Android de suite : ni le détail, ni la saisie',
+    vue49B1 === '["vue-liste"]' && vue49B2 === '["vue-liste"]',
+    vue49B1 + ' → ' + vue49B2);
+
+  // Le repli reste vivant : sur une page neuve ouverte DIRECTEMENT sur le
+  // détail, aucune de nos entrées n'a été empilée. Le bouton doit naviguer,
+  // pas rester inerte — c'est le trou que le chantier 47 avait fermé, et qui
+  // se refermerait tout seul ici puisque la navigation est désormais explicite.
+  await page.close(); page = await ctx.newPage(); brancher(page);
+  await aller('/seance/' + ID_MIXTE);
+  await page.click('#btn-retour').catch(() => {});
+  await attendre(900);
+  ok('[49] ouvert directement sur le détail, « ← Séances » n’est pas MORT',
+    JSON.stringify(await visible()) === '["vue-liste"]', JSON.stringify(await visible()));
+
+  // ⚠️ ET L'AUTRE « ← » NE CHANGE PAS. « ← Retour » ne nomme aucune
+  // destination, et la page d'exercice s'atteint depuis trois écrans : elle
+  // garde `remonter`. Sans cette mesure, « corriger les deux pareil » serait la
+  // régression suivante — c'est exactement ce que le chantier 47 a fait en sens
+  // inverse.
+  ok('[49] « ← Retour », lui, ne nomme aucune destination',
+    (await page.evaluate(() => (document.getElementById('btn-retour-exercice') || {}).textContent || '')).trim()
+      === '← Retour',
+    await page.evaluate(() => (document.getElementById('btn-retour-exercice') || {}).textContent || ''));
 
   console.log('\n══ 8. NON-RÉGRESSION ══');
   for (const [chemin, attendu] of [['/', 'vue-liste'], ['/progression', 'vue-progression'],

@@ -1607,34 +1607,26 @@
   // secondes et gardée pour toujours.
   var PAS_REPOS = 15;
 
-  // ⚠️ LA BORNE BASSE N'EST PLUS ZÉRO, ET C'ÉTAIT TOUT LE DÉFAUT (chantier 47).
+  // ⚠️ LA BORNE BASSE EST ZÉRO, ET ELLE VEUT DIRE « FINI » (§7 tervicies, ch. 49).
   //
-  // Bornée à 0, la cible tombait dans un TROISIÈME état : ni armée, ni
-  // désactivée. `reposFige(0, s)` rend faux pour toute seconde — c'est correct
-  // pour ce qu'il dit, « sans cible, rien ne fige » — donc `rendreChrono`
-  // rappelait `assurerMinuteur()` à chaque passage et le chronomètre comptait
-  // SANS JAMAIS SE FIGER. Quatre appuis sur « −15 » depuis 60 s suffisaient.
+  // Le chantier 47 refusait de descendre sous la borne. C'était la bonne règle
+  // sur le MAUVAIS OBJET : elle protège le repos PRESCRIT — une consigne, qui
+  // ne se règle qu'à la molette et dont la désactivation est un geste explicite
+  // (§7 sexdecies.3) — et elle avait été posée sur le repos EN COURS, qui est
+  // un décompte. Quatre appuis sur « −15 » pendant un repos de 60 s veulent
+  // dire « arrête-toi maintenant », pas « refuse-moi ». C'est ce que fait
+  // n'importe quel minuteur.
   //
-  // C'est le « chronomètre armé sans but » que le §7 novodecies interdit,
-  // rentré par la porte de l'AJUSTEMENT après qu'on eut fermé celle de
-  // l'ARMEMENT au chantier 45. `cibleArmable` existait déjà, pure, écrite pour
-  // cette décision — elle n'avait qu'un seul appelant, `demarrerChrono`.
-  //
-  // ⚠️ ON REFUSE DE DESCENDRE, ON NE DÉSACTIVE PAS. Désactiver est un geste
-  // EXPLICITE (§7 sexdecies.3 : le bouton « Désactiver » de la molette, qui
-  // écrit `null`). Un réglage par pas de 15 s ne doit pas se transformer en
-  // suppression parce qu'on a appuyé une fois de trop — et l'utilisateur qui
-  // voulait 15 s ne voulait pas « plus de repos du tout ».
-  //
-  // Une cible absente reste réglable vers le HAUT (`null` + 15 → 15) : c'est le
-  // cas d'une routine sans repos prescrit, et il n'a pas changé.
+  // Cette fonction redevient donc de l'ARITHMÉTIQUE BORNÉE, et rien d'autre :
+  // elle rend une valeur dans [0, REPOS_MAX]. C'est `reposEcoule` qui dit ce
+  // que zéro signifie, et c'est `ajusterRepos` qui en tire la conséquence —
+  // parce qu'une cible à zéro n'a de sens QUE pour un repos qui court.
   function ajusterCible(cible, delta) {
     var base = Number(cible) || 0;
     var n = base + (Number(delta) || 0);
+    if (n < 0) n = 0;
     if (n > REPOS_MAX) n = REPOS_MAX;
-    // `cibleArmable` est déclarée plus bas — les déclarations de fonction sont
-    // hissées, et la garder près de `reposFige` la laisse là où on la cherche.
-    return cibleArmable(n) === null ? base : n;
+    return n;
   }
 
   // À l'échéance : UNE SEULE FOIS. Pas de décompte qui presse, pas d'alarme au
@@ -1660,6 +1652,22 @@
   // Zéro n'arme pas non plus : `routine_exos_repos_borne` commence à 5 s, donc
   // un zéro ne peut venir que d'un défaut — et « 0:00 de repos » serait une
   // prescription, pas une absence.
+  // ⚠️ L'EXTINCTION N'EST PAS L'ARMEMENT, ET LES DEUX NE SE DÉDUISENT PAS
+  // L'UNE DE L'AUTRE (§7 tervicies).
+  //
+  //   · `cibleArmable` répond « ce repos doit-il COMMENCER ? » — un repos JAMAIS
+  //     PRESCRIT (`null`) n'arme rien, et c'est le défaut que le chantier 45 a
+  //     fermé ;
+  //   · celle-ci répond « ce repos est-il FINI ? » — et un repos qu'on vient de
+  //     raccourcir jusqu'à zéro est fini : il a existé, il est arrivé à son
+  //     terme. Ce n'est pas la même chose qu'un repos qui n'a jamais existé.
+  //
+  // Les deux posent aujourd'hui le même test sur le nombre, et elles restent
+  // SÉPARÉES exprès : le jour où l'armement exigerait un plancher — cinq
+  // secondes, disons — une extinction qui en dériverait déclarerait fini un
+  // repos de trois secondes encore en train de courir.
+  function reposEcoule(cible) { return !(Number(cible) > 0); }
+
   function cibleArmable(cible) {
     var n = nombreOuNul(cible);
     if (n === null || !(n > 0)) return null;
@@ -1703,6 +1711,7 @@
     PAS_REPOS: PAS_REPOS,
     ajusterCible: ajusterCible,
     cibleArmable: cibleArmable,
+    reposEcoule: reposEcoule,
     echeanceAtteinte: echeanceAtteinte,
     reposFige: reposFige,
     secondesAffichees: secondesAffichees,

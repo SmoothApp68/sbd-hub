@@ -2347,6 +2347,95 @@ parcours, c'est le même endroit dans un autre mode.**
 > aller-retour Progression ↔ Poids ajoute deux entrées. Même défaut, même correction
 > (`remonter`) — hors du périmètre demandé.
 
+## 7 tervicies. Le repos prescrit et le repos en cours — deux objets, 18/09/2026
+
+> *Numérotée `tervicies` et non `unvicies` comme le portait le delta : `7 unvicies` était déjà
+> pris par « Le niveau 1 de la cascade ». Les renvois du code disent `§7 tervicies`.*
+
+Précision après essai du chantier 47, qui avait appliqué la bonne règle au mauvais objet.
+
+| | Ce que c'est | Ce que `−15` y fait |
+|---|---|---|
+| **le repos PRESCRIT** | `routine_exercises.repos_cible_s`, une **consigne** | rien. Il ne se règle qu'à la molette (§7 sexdecies), et le **désactiver est un geste explicite** |
+| **le repos EN COURS** | le décompte qui tourne après une validation | **il le raccourcit. À zéro, la barre disparaît.** |
+
+> **C'est ce que fait n'importe quel minuteur.** Quatre appuis sur `−15` pendant un repos de
+> 60 s veulent dire « arrête-toi maintenant », pas « refuse-moi ».
+
+**Et le §7 novodecies le disait déjà** : ces boutons servent à *« ajuster une cible pendant
+qu'elle court »*. Une cible qui court peut arriver à son terme.
+
+### Ce que ça ne remet pas en cause
+
+**Le défaut du chantier 45 reste corrigé** : un repos **jamais prescrit** (`NULL`) n'arme aucun
+chronomètre.
+
+> `cibleArmable` décide de l'**armement**, jamais de l'**extinction**. Un repos arrivé à son
+> terme n'est pas un repos qui n'a jamais existé.
+
+⚠️ **Le banc verrouillait le défaut deux chantiers durant** : son assertion exigeait
+« cible — » après quatre `−15`, l'état même que le §7 novodecies interdit. Il ne le constatait
+pas, il le **défendait**. Troisième occurrence du motif — voir aussi le test du chantier 44 qui
+promettait dans son nom ce que son corps ne faisait pas.
+
+### 7 tervicies.1 Ce que le code fait, au chantier 49
+
+`ajusterCible` redevient de l'**arithmétique bornée** — elle rend une valeur dans `[0, REPOS_MAX]`
+et ne dit rien de ce que zéro signifie. Le sens est ailleurs, dans un prédicat qui lui est
+**délibérément séparé** de `cibleArmable` :
+
+| prédicat | question | appelé par |
+|---|---|---|
+| `cibleArmable(cible)` | « ce repos doit-il **commencer** ? » | `demarrerChrono` |
+| `reposEcoule(cible)` | « ce repos est-il **fini** ? » | `ajusterRepos` |
+
+Les deux posent aujourd'hui le même test sur le nombre, et restent deux fonctions exprès : le
+jour où l'armement exigerait un plancher — cinq secondes, disons — une extinction qui en
+dériverait déclarerait **fini** un repos de trois secondes encore en train de courir.
+
+À zéro, `ajusterRepos` éteint par la **même porte que « Passer »** (`eteindreChrono`) : objet,
+minuteur et barre s'en vont ensemble. Le repos PRESCRIT de la routine, lui, n'a pas bougé — le
+réglage en séance ne s'écrit nulle part (§7 septies.2).
+
+### 7 tervicies.2 Le bouton qui NOMME sa destination y va — 18/09/2026
+
+Même chantier, second défaut, même famille : **une surface qui annonce autre chose que ce
+qu'elle fait.**
+
+Le §7 duovicies avait retiré l'empilement de « Modifier » et « Enregistrer », et laissé
+`← Séances` sur `history.back()`. Or `history.back()` rend **l'entrée précédente**, qui n'est la
+liste des séances que si l'on vient d'y passer. Un libellé est une promesse écrite ; elle ne
+peut pas dépendre du chemin parcouru.
+
+> **La règle, désormais :** un « ← » qui **nomme** sa destination y **navigue**, en remplaçant ;
+> un « ← » qui n'en nomme **aucune** remonte l'historique.
+
+| bouton | libellé | comportement |
+|---|---|---|
+| `btn-retour` (détail) | « ← Séances » — **nomme** | navigue vers la liste, `remplacer: true` |
+| `btn-retour-exercice` | « ← Retour » — ne nomme rien | `remonter` (la page s'atteint depuis trois écrans) |
+
+Le grief du §7 duovicies contre la navigation explicite portait sur l'**empilement** (« l'un des
+retours ROUVRAIT le détail »), pas sur l'explicite : en remplaçant, le détail quitté disparaît
+de l'historique au lieu d'y dormir. **Coût assumé** : l'entrée remplacée reste comptée dans
+`pile`, donc un retour d'Android depuis la liste ne fait rien de visible avant que le suivant
+n'atteigne l'ancre — un appui invisible, contre une promesse tenue.
+
+⚠️ **Le défaut signalé sur device ne s'est PAS reproduit au banc** sur le dépôt d'après le
+chantier 47 : chemin complet sur une page neuve, `← Séances` ramène bien à la liste, et **aucun
+bouton libellé « Saisie » n'existe** dans `v2/` (le mot y est un `<h1>`, en haut à gauche de
+l'écran Saisie — c'est ce qu'on voit une fois arrivé là). L'explication la plus probable est une
+**coquille antérieure au 47**, où `history.back()` atterrissait précisément sur `/saisie`. La
+correction ci-dessus ne dépend d'aucune de ces deux lectures : elle rend la destination
+**indépendante de l'historique**.
+
+⚠️ **Et une mesure du chantier 47 était vide** : le banc de séance réutilise une seule page, dont
+`history.length` sature à **50** (plafond de Chrome). L'assertion « la profondeur n'a pas
+augmenté » y était vraie par saturation, pas par correction. Toute mesure de profondeur exige
+désormais une **page neuve** — c'est la configuration discriminante du §2 quater pour
+l'historique.
+
+
 ## 8. Reste ouvert
 
 - **Écran de fin de séance** : titre, note, photo, salle.

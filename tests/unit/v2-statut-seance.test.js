@@ -398,34 +398,64 @@ describe('8 — le réglage de la cible ne sort jamais des bornes', () => {
     expect(Seance.ajusterCible(90, -15)).toBe(75);
   });
 
-  // ⚠️ TEST INVERSÉ AU CHANTIER 47, et l'ancienne attente était le défaut.
+  // ⚠️ INVERSÉ UNE SECONDE FOIS, AU CHANTIER 49 — et cette fois c'est l'OBJET
+  // qui était faux, pas la règle (§7 tervicies).
   //
-  // Elle exigeait `c === 0` — c'est-à-dire précisément l'état que le §7
-  // novodecies interdit : une cible ni armée ni désactivée, sur laquelle
-  // `reposFige` rend faux pour toute seconde, donc un chronomètre qui compte
-  // sans jamais se figer. Le test verrouillait le bug.
+  // Historique complet, parce qu'il explique pourquoi la même ligne a changé
+  // trois fois :
+  //   · avant le 47 : `c === 0` était attendu SANS que personne n'éteigne — une
+  //     cible ni armée ni désactivée, sur laquelle `reposFige` rend faux pour
+  //     toute seconde. Un chronomètre qui compte sans jamais se figer ;
+  //   · au 47 : le refus de descendre. La bonne règle sur le mauvais objet —
+  //     elle protège le repos PRESCRIT, pas le décompte en cours ;
+  //   · au 49 : `ajusterCible` redevient de l'ARITHMÉTIQUE BORNÉE, et c'est
+  //     `ajusterRepos` (app.js) qui éteint à zéro. Plus de limbes possibles :
+  //     zéro n'atteint jamais `rendreChrono`.
   //
-  // ⚠️ CONFIGURATION DISCRIMINANTE : la BOUCLE, pas un seul appui. Depuis 20 s,
-  // le premier −15 donne 5 et ne prouve rien ; c'est le SECOND qui franchit la
-  // borne. Un test à un seul appui passe avec le défaut en place.
-  test('sous la borne, le −15 REFUSE de descendre — il ne désactive pas', () => {
-    let c = 20;
-    for (let i = 0; i < 10; i++) c = Seance.ajusterCible(c, -15);
-    expect(c).toBe(5);                                  // 20 → 5, puis refusé
-    expect(Seance.cibleArmable(c)).not.toBe(null);      // et toujours armable
-    // Le cas d'un seul appui qui franchit : 15 − 15 = 0, refusé net.
-    expect(Seance.ajusterCible(15, -15)).toBe(15);
-    expect(Seance.ajusterCible(5, -15)).toBe(5);
+  // ⚠️ CONFIGURATION DISCRIMINANTE (§2 quater) : une cible qui n'est PAS un
+  // multiple de 15. À 60 s, quatre −15 tombent pile sur zéro et « s'arrêter à
+  // zéro » ne se distingue pas de « refuser de descendre » — les deux règles
+  // rendent 0. À 50 s, le quatrième passerait sous zéro : le refus rendrait 5,
+  // la borne rend 0. C'est là, et seulement là, que les deux se séparent.
+  test('le −15 descend JUSQU\'À zéro depuis une cible non multiple de 15', () => {
+    let c = 50;
+    c = Seance.ajusterCible(c, -15); expect(c).toBe(35);
+    c = Seance.ajusterCible(c, -15); expect(c).toBe(20);
+    c = Seance.ajusterCible(c, -15); expect(c).toBe(5);
+    // LE quatrième : 5 − 15 = −10. La borne rend 0 ; le refus du 47 rendait 5.
+    c = Seance.ajusterCible(c, -15); expect(c).toBe(0);
+    // Et ça ne descend pas plus bas : borné, pas signé.
+    expect(Seance.ajusterCible(c, -15)).toBe(0);
+    expect(Seance.ajusterCible(15, -15)).toBe(0);
   });
 
-  // Désactiver reste un geste EXPLICITE (§7 sexdecies.3) : c'est la molette qui
-  // écrit `null`, jamais un pas de réglage. Une cible déjà absente le reste.
-  test('un ajustement ne désactive jamais un repos', () => {
+  // « Fini » et « jamais prescrit » ne se déduisent pas l'un de l'autre : deux
+  // prédicats, deux questions (§7 tervicies.1). Ce test les tient SÉPARÉS — si
+  // quelqu'un remplace un jour `reposEcoule` par `!cibleArmable`, il passera
+  // encore, et c'est voulu : ce qu'on épingle ici est le CONTRAT de chacun, la
+  // séparation étant documentée dans le code.
+  test('à zéro le repos est FINI ; ailleurs il court', () => {
+    expect(Seance.reposEcoule(0)).toBe(true);
+    expect(Seance.reposEcoule(5)).toBe(false);
+    expect(Seance.reposEcoule(50)).toBe(false);
+  });
+
+  // NON-RÉGRESSION DU CHANTIER 45, et c'est l'autre moitié du §7 tervicies : un
+  // repos JAMAIS PRESCRIT n'arme aucun chronomètre. Ce que le 49 change est
+  // l'extinction, jamais l'armement.
+  test('un repos jamais prescrit (NULL) n\'arme toujours rien', () => {
+    expect(Seance.cibleArmable(null)).toBe(null);
+    expect(Seance.cibleArmable(undefined)).toBe(null);
+    expect(Seance.cibleArmable(0)).toBe(null);
+    expect(Seance.cibleArmable(50)).toBe(50);
+  });
+
+  // Une cible déjà absente reste à zéro : la molette écrit `null`, un pas de
+  // réglage ne fabrique pas de repos là où il n'y en avait pas — en descendant.
+  test('−15 sur une cible absente ne fabrique rien', () => {
     expect(Seance.ajusterCible(0, -15)).toBe(0);
     expect(Seance.ajusterCible(null, -15)).toBe(0);
-    [20, 15, 5, 60, 1800].forEach((c) => {
-      expect(Seance.cibleArmable(Seance.ajusterCible(c, -15))).not.toBe(null);
-    });
+    expect(Seance.ajusterCible(undefined, -15)).toBe(0);
   });
 
   test('jamais au-delà de la borne haute de `sets_repos_borne`', () => {

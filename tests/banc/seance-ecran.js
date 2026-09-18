@@ -1267,7 +1267,7 @@ const SETS_IMPORTES = [
   await attendre(600);
   const rearmee51 = (await compter('.ligne-serie')) - 1;
   await saisirSerie(rearmee51, 80, 10);
-  ok('[51] …et valider une série en rarme un neuf, entier',
+  ok('[51] …et valider une série en réarme un neuf, entier',
     (await barreVisible()) === true && /cible 0:15/.test(await texte('#repos')),
     (await texte('#repos')).replace(/\s+/g, ' ').slice(0, 40));
 
@@ -1966,13 +1966,19 @@ const SETS_IMPORTES = [
 
   // Ce qui relance un repos, c'est une série validée — et rien d'autre. Un arrêt
   // qui ne saurait pas repartir condamnerait tous les repos suivants.
+  // ⚠️ L'INDEX EST CELUI DU BLOC 0, PAS LE DERNIER DE LA LISTE. « + Série » du
+  // bloc 0 ajoute une ligne À LA FIN DU BLOC 0 ; la dernière ligne de l'écran
+  // appartient au bloc 1, qui ne prescrit AUCUN repos. La valider n'armait donc
+  // rien, et la mesure lisait un affichage périmé : « 0:08 → 0:08 », comme un
+  // chronomètre mort. Les lignes du bloc 0 venant en premier, son dernier indice
+  // LOCAL vaut encore son indice global.
   await page.evaluate(() => document.querySelectorAll('.ajout-serie button')[0].click());
   await attendre(600);
-  await saisirSerie((await compter('.ligne-serie')) - 1, 60, 8);
+  await saisirSerie((await lignesDuBloc(0)) - 1, 60, 8);
   const reparti = await chrono();
   await attendre(3200);
   const reparti2 = await chrono();
-  ok('valider une série rarme un décompte neuf, qui descend',
+  ok('valider une série réarme un décompte neuf, qui descend',
     (await barreVisible()) === true && enSecondes(reparti2) < enSecondes(reparti),
     reparti + ' → ' + reparti2);
 

@@ -230,7 +230,7 @@ describe('avant zéro, rien ne change', () => {
   //
   // C'est la sortie de l'extinction, et une extinction dont on ne revient pas
   // est pire que le défaut qu'on répare.
-  test('après une extinction, valider rarme une barre VISIBLE', () => {
+  test('après une extinction, valider réarme une barre VISIBLE', () => {
     const b = bac(20);
     b.tic(20);
     expect(b.barre()).toBe(false);

@@ -1717,6 +1717,73 @@ concurrence avec la colonne `précédent`, qui montre le passé et non une propo
 
 ---
 
+## 7 unvicies. Le niveau 1 de la cascade — par type, et seulement s'il dévie
+
+Constaté sur device le 17/09/2026, après le chantier 45. **Corrigé au chantier 46.**
+
+```
+valider une CHAUFFE à 20 kg
+   → 20 kg se propage en fantôme sur TOUTES les séries suivantes,
+     séries de travail comprises, qui étaient déjà pré-remplies
+```
+
+### 7 unvicies.1 Troisième occurrence de la même règle manquante
+
+`derniereSaisie` — le **niveau 1** de la cascade du §7 septendecies.3 — remontait la dernière
+valeur saisie **quel que soit son type**.
+
+> **C'est exactement ce que le chantier 38 a corrigé pour le niveau 2. Le niveau 1 ne l'a
+> jamais reçu.**
+
+Le fantôme (38), la colonne « précédent » (39), et maintenant `derniereSaisie` (46) : trois fois
+la même règle, appliquée à un endroit sur deux. C'est le §2 undecies du CADRAGE, dans sa forme
+la plus coûteuse — non pas du code dupliqué, mais une **règle** dupliquée, dont une copie
+dérive.
+
+> **`derniereSaisie` s'applique par type.** Ce qui est tapé sur une chauffe propage aux
+> chauffes. Ce qui est tapé sur une série de travail propage aux séries de travail.
+
+Les niveaux 1 et 2 partagent désormais `correspondant`, la même fonction d'alignement — c'est
+ce qui garantit qu'ils ne divergeront plus.
+
+### 7 unvicies.2 Et une seconde règle, mesurée
+
+**54 % des séance-exercices d'aurel_br portent une charge qui varie entre les séries**
+(2 021 sur 3 730) — typiquement `122,5 · 122,5 · 125`.
+
+Valider la première série écrasait donc la mémoire par rang **plus d'une fois sur deux** : la
+3ᵉ ligne proposait 122,5 au lieu de 125, et l'utilisateur qui « valide sans rien taper quand
+c'est juste » (§3 bis.3) perdait sa montée.
+
+> **`derniereSaisie` ne prime que lorsqu'elle DIFFÈRE de ce que la séance précédente portait au
+> même rang.** Retaper ce qui était déjà proposé n'est pas une déviation : il n'y a rien à
+> propager.
+
+**Sans séance précédente, tout dévie** — il n'y a rien à quoi être égal. Le premier jour sur un
+exercice, la propagation est donc pleine : c'est le seul fait dont on dispose.
+
+> ⚠️ **Écarté : décaler toute la rampe de l'écart constaté** (130 → 130 → 132,5). Reporter un
+> écart sur des séries qu'on n'a pas faites est une **prescription**, donc le territoire du
+> moteur. Ici tout reste factuel : 130 tapé propage 130, à plat.
+
+### 7 unvicies.3 Les deux règles se masquent l'une l'autre
+
+Établi en rejouant chaque défaut séparément, au chantier 46.
+
+Une chauffe tapée **à la valeur proposée** ne propage rien **même sans le filtre par type** : la
+règle de déviation l'arrête déjà. Le premier jet des tests s'est fait prendre — son test vedette
+passait avec le défaut remis en place.
+
+> **Chaque règle se teste là où l'autre est neutre :** le filtre par type sur une chauffe qui
+> **dévie** (25 au lieu de 20) · la règle de déviation sur une série de travail **conforme** au
+> rang. Cinq tests tombent pour chaque défaut, et les deux ensembles sont **disjoints**.
+
+C'est la quatrième fois que le piège de la configuration non discriminante revient sur ce
+sujet (§2 quater) — après « autant de chauffes des deux côtés » (38), « charges constantes »
+(38 bis) et « une seule série » (43).
+
+---
+
 ## 7 quindecies. L'éditeur de routine EST l'écran de séance
 
 > ⚠️ **Section écrite par Claude Code au chantier 43, d'après l'énoncé du chantier et la

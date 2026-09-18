@@ -1363,12 +1363,66 @@
   //
   // Les reps visées de la routine servent de fantôme de reps — c'est une
   // intention déclarée, pas un calcul.
+  // ══ CE QU'ON VIENT DE TAPER — PAR TYPE, ET SEULEMENT SI ÇA DÉVIE ═════════
+  //
+  // ⚠️ DÉFAUT CONSTATÉ SUR DEVICE LE 17/09, APRÈS LE CHANTIER 45 : valider une
+  // CHAUFFE à 20 kg propageait 20 kg en fantôme sur toutes les séries
+  // suivantes, séries de travail comprises — qui étaient pourtant déjà
+  // pré-remplies avec la bonne charge.
+  //
+  // ⚠️ TROISIÈME FOIS QUE LE MÊME DÉFAUT REVIENT. Le chantier 38 a posé la
+  // règle « par type » sur le niveau 2 de la cascade (`correspondant`), le
+  // chantier 39 l'a étendue à la colonne « précédent » de `rendu.js`. Le
+  // niveau 1 ne l'avait JAMAIS reçue : il remontait la dernière valeur saisie
+  // quel que soit son type. Une règle appliquée à un endroit sur deux finit
+  // toujours par se rappeler à nous — c'est le §2 undecies.
+  //
+  //   Ce qui est tapé sur une chauffe propage aux CHAUFFES.
+  //   Ce qui est tapé sur une série de travail propage au TRAVAIL.
+  //
+  // ── ET UNE SECONDE RÈGLE, MESURÉE ───────────────────────────────────────
+  //
+  // 54 % des séance-exercices d'aurel_br portent une charge qui VARIE entre
+  // les séries (2 021 sur 3 730) — typiquement `122,5 · 122,5 · 125`. Valider
+  // la première série écrasait donc la mémoire par rang plus d'une fois sur
+  // deux : la 3ᵉ ligne proposait 122,5 au lieu de 125, et l'utilisateur qui
+  // « valide sans rien taper quand c'est juste » (§3 bis.3) perdait sa montée.
+  //
+  //   `derniereSaisie` ne prime que lorsqu'elle DIFFÈRE de ce que la séance
+  //   précédente portait au MÊME RANG. Retaper ce qui était déjà proposé n'est
+  //   pas une déviation : il n'y a rien à propager.
+  //
+  // ⚠️ ON NE DÉCALE PAS LA RAMPE de l'écart constaté (130 → 130 → 132,5) :
+  // écarté explicitement au chantier 46. Reporter un écart sur des séries
+  // qu'on n'a pas faites est une PRESCRIPTION, donc le territoire du moteur.
+  // Ici, tout reste factuel — 130 tapé propage 130, à plat.
+  //
+  // ⚠️ SANS SÉANCE PRÉCÉDENTE, tout ce qu'on tape dévie : il n'y a rien à quoi
+  // être égal. Le premier jour sur un exercice, la propagation est donc pleine
+  // — c'est le seul fait dont on dispose.
+  function memeValeur(a, b) {
+    if (a === null || a === undefined || b === null || b === undefined) return false;
+    var na = Number(a), nb = Number(b);
+    if (isFinite(na) && isFinite(nb)) return na === nb;
+    return a === b;
+  }
+
   // Remonte la dernière valeur saisie pour CE champ, sur CET exercice, dans
-  // CETTE séance.
-  function derniereSaisie(exo, iSerie, champ) {
+  // CETTE séance — sur une série du MÊME TYPE, et seulement si elle dévie.
+  function derniereSaisie(exo, iSerie, champ, prec) {
+    var liste = (exo && exo.series) || [];
+    var type = typeDe(liste[iSerie]);
     for (var k = iSerie - 1; k >= 0; k--) {
-      var v = exo.series[k][champ];
-      if (v !== null && v !== undefined) return v;
+      if (!liste[k] || typeDe(liste[k]) !== type) continue;
+      var v = liste[k][champ];
+      if (v === null || v === undefined) continue;
+      // ⚠️ LA COMPARAISON SE FAIT AU RANG DE LA SÉRIE SOURCE, pas à celui de
+      // la série qu'on remplit : la question est « ce qui a été tapé là
+      // dévie-t-il ? », et `correspondant` répond déjà, par type, pour n'importe
+      // quel rang. Une seule règle d'alignement dans tout le fichier.
+      var ref = correspondant(liste, k, prec);
+      if (ref && memeValeur(ref[champ], v)) return null;
+      return v;
     }
     return null;
   }
@@ -1437,15 +1491,19 @@
     // ⚠️ LE FANTÔME EST UNE CASCADE À TROIS NIVEAUX (§7 septendecies.3), et
     // l'ordre est la décision :
     //
-    //   1. ce qu'on vient de taper dans la séance   (`derniereSaisie`)
+    //   1. ce qu'on vient de taper dans la séance — MÊME TYPE, et seulement
+    //      si ça DÉVIE du rang correspondant (chantier 46)
     //   2. la dernière séance, même type, même rang (chantier 38)
     //   3. `charge_cible_kg`, faute de mieux
+    //
+    // Les niveaux 1 et 2 s'alignent donc par la MÊME règle, `correspondant` —
+    // le niveau 1 l'a reçue au chantier 46, huit chantiers après le niveau 2.
     //
     // Le rang 3 ne s'affiche donc que sur un exercice JAMAIS FAIT, ou repris
     // après des mois. Aucune concurrence avec la colonne `précédent`, qui
     // montre le passé et non une proposition — et quand le moteur parlera, il
     // se placera AU-DESSUS d'elle, rang 2 bis, pas à côté.
-    var charge = derniereSaisie(exo, iSerie, 'charge_kg');
+    var charge = derniereSaisie(exo, iSerie, 'charge_kg', prec);
     if (charge === null && ligne) charge = ligne.charge_kg;
     if ((charge === null || charge === undefined) && propre) {
       charge = propre.charge_cible_kg;
@@ -1463,9 +1521,9 @@
     // vient de faire dans la séance, à défaut ce qu'on a fait au même rang la
     // dernière fois. Aucune intention déclarée n'existe pour elles — la routine
     // ne porte que `reps_visees`, jamais une durée visée.
-    var duree = derniereSaisie(exo, iSerie, 'duree_s');
+    var duree = derniereSaisie(exo, iSerie, 'duree_s', prec);
     if (duree === null && ligne) duree = ligne.duree_s;
-    var distance = derniereSaisie(exo, iSerie, 'distance_m');
+    var distance = derniereSaisie(exo, iSerie, 'distance_m', prec);
     if (distance === null && ligne) distance = ligne.distance_m;
 
     return {
@@ -1618,6 +1676,7 @@
     ligneSession: ligneSession,
     precedent: precedent,
     correspondant: correspondant,
+    derniereSaisie: derniereSaisie,
     fantome: fantome
   };
 

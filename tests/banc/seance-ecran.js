@@ -3709,6 +3709,99 @@ const SETS_IMPORTES = [
 
   await terminer();
 
+  console.log('\n══ 7 unvicies. LE NIVEAU 1 DE LA CASCADE — PAR TYPE, ET S’IL DÉVIE ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE (§2 quater), et elle demande DEUX choses à
+  // la fois — c'est la quatrième fois que ce piège revient sur ce sujet :
+  //
+  //   · des CHAUFFES, sinon la moitié « par type » du défaut ne se voit pas ;
+  //   · des charges de travail qui VARIENT (`120 · 120 · 125`), sinon la
+  //     règle de déviation ne se mesure pas — tout est égal à tout.
+  //
+  // La fixture `AVANT_ROWING` ci-dessus ne convient pas : ses trois séries de
+  // travail valent 120 · 120 · 120. On en pose donc une seconde, sur un autre
+  // exercice, plutôt que de toucher à celle des chantiers 38 et 39.
+  //
+  // ⚠️ DES ENTIERS, PAS `122,5`. Le placeholder passe par `nombreFr`, qui rend
+  // une VIRGULE, quand `fill()` écrirait un point : comparer les deux ferait
+  // échouer le banc sur l'écriture du nombre et non sur la règle. `120 · 120 ·
+  // 125` varie tout autant — c'est la VARIATION qui discrimine, pas la décimale.
+  //
+  // Ce que seul ce banc prouve : le fantôme AFFICHÉ à l'écran, après une vraie
+  // validation au pouce. Le test unitaire montre la règle ; celui-ci montre que
+  // le rendu la lit.
+  const AVANT_DC = {
+    id: 'sess-dc-rampe', user_id: 'u-banc', titre: 'Pecs — la fois d’avant',
+    debut: new Date(LUNDI.getTime() + 5 * 86400000).toISOString(),
+    fin: new Date(LUNDI.getTime() + 5 * 86400000 + 3600000).toISOString(),
+    statut: 'terminee', note: null, salle: null, salle_norme: null,
+    routine_id: null, source: 'app',
+    created_at: new Date(LUNDI.getTime() + 5 * 86400000).toISOString()
+  };
+  base.sessions.push(Object.assign({}, AVANT_DC));
+  [[1, 20, 12, 'echauffement'], [2, 60, 8, 'echauffement'],
+   [3, 120, 5, 'travail'], [4, 120, 5, 'travail'], [5, 125, 4, 'travail']
+  ].forEach(([rang, kg, reps, type]) => {
+    base.sets.push({
+      id: 'set-dc-' + rang, session_id: AVANT_DC.id, user_id: 'u-banc',
+      exercise_slug: 'dc-barre', charge_kg: kg, reps: reps, duree_s: null,
+      distance_m: null, type_serie: type, rang: rang, groupe_superset: null,
+      validee_a: AVANT_DC.debut, rpe: null, ressenti: null, repos_s: null,
+      note: null, source: 'app', created_at: AVANT_DC.debut, modifie_a: null
+    });
+  });
+  await aller('/');
+  await attendre(1200);
+  await aller('/saisie');
+  if (JSON.stringify(await visible()) === '["vue-seance"]') await terminer();
+
+  await seanceVide();
+  await ajouterExoSeance('Couch');
+  await plusSerie(0); await plusSerie(0); await plusSerie(0); await plusSerie(0);
+  await attendre(500);
+  // Les deux premières en chauffe : on reproduit la forme de la fois d'avant.
+  for (const k of [0, 1]) {
+    await page.evaluate((i) => {
+      document.querySelectorAll('.ligne-serie .no-serie')[i].click();
+    }, k);
+    await attendre(500);
+    await page.evaluate(() => {
+      Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
+        .filter((x) => /chauffement/i.test(x.textContent))[0].click();
+    });
+    await attendre(700);
+  }
+  const fantomes = () => page.evaluate(() =>
+    Array.from(document.querySelectorAll('.ligne-serie')).map((l) => {
+      const i = l.querySelector('.ch-serie input');
+      return i ? (i.value || i.placeholder || '') : '';
+    }));
+  ok('[G] la rampe de la fois d’avant s’affiche, chauffes comprises',
+    JSON.stringify(await fantomes()) === JSON.stringify(['20', '60', '120', '120', '125']),
+    JSON.stringify(await fantomes()));
+
+  // ① LE DÉFAUT DU DEVICE : taper une chauffe qui DÉVIE (25 au lieu de 20).
+  // Sans le filtre par type, les trois séries de travail passeraient à 25.
+  await saisirSerie(0, 25, 12);
+  ok('[G] une chauffe qui dévie ne touche PAS à la rampe de travail',
+    JSON.stringify((await fantomes()).slice(2)) === JSON.stringify(['120', '120', '125']),
+    JSON.stringify(await fantomes()));
+  ok('[G] …mais elle propage bien à la chauffe suivante',
+    (await fantomes())[1] === '25', JSON.stringify(await fantomes()));
+
+  // ② LA RÈGLE DE DÉVIATION : valider la 1ʳᵉ série de travail À CE QUI ÉTAIT
+  // PROPOSÉ (120) ne doit rien écraser — la 3ᵉ garde son 125.
+  await saisirSerie(2, 120, 5);
+  ok('[G] valider 120 sur la 1ʳᵉ laisse le 125 de la 3ᵉ',
+    (await fantomes())[4] === '125', JSON.stringify(await fantomes()));
+
+  // ③ ET UNE VRAIE DÉVIATION SE PROPAGE — à plat, jamais en décalant la rampe.
+  await saisirSerie(3, 130, 5);
+  ok('[G] 130 se propage à plat sur la suivante, pas 135',
+    (await fantomes())[4] === '130', JSON.stringify(await fantomes()));
+
+  await terminer();
+
   console.log('\n══ 7 novodecies. UN SEUL COMPTE, ET UNE COLONNE QUI NE MENT PLUS ══');
   //
   // CONFIGURATION DISCRIMINANTE : une séance AVEC des chauffes. Sans elles,

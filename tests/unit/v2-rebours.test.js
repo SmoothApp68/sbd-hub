@@ -32,7 +32,6 @@ function barre(cible, restant, extra) {
   const n = document.createElement('div');
   const vue = Object.assign({
     restant: restant,
-    fige: Seance.reposFige(cible, cible - restant),
     cible: cible,
     sourdine: false,
     pas: Seance.PAS_REPOS,
@@ -44,8 +43,7 @@ function barre(cible, restant, extra) {
   return {
     grand: n.querySelector('.repos-g').textContent,
     etiquette: n.querySelector('.repos-c').textContent,
-    largeur: n.querySelector('.piste i').style.width,
-    fige: n.querySelector('.repos-g').classList.contains('fige')
+    largeur: n.querySelector('.piste i').style.width
   };
 }
 
@@ -64,18 +62,20 @@ describe('§1 — le grand nombre descend', () => {
     expect(barre(180, Seance.secondesRestantes(180, 0)).grand).toBe('3:00');
   });
 
-  test('à l’échéance il affiche 0:00, et le dit figé', () => {
-    const b = barre(180, Seance.secondesRestantes(180, 180));
-    expect(b.grand).toBe('0:00');
-    expect(b.fige).toBe(true);
+  // ⚠️ LA DERNIÈRE IMAGE DESSINÉE EST 0:01, ET C'EST LE CHANTIER 51. Le 0:00
+  // n'est plus une image : `rendreChrono` éteint la barre avant de la dessiner
+  // (voir plus bas). Ce qu'on épingle ici est donc l'AVANT-DERNIÈRE seconde,
+  // seule fin de course que l'écran voie encore.
+  test('la dernière image dessinée est 0:01', () => {
+    expect(barre(180, Seance.secondesRestantes(180, 179)).grand).toBe('0:01');
   });
 
   // §7 ter.3 — il informe, il ne commande pas. Un « −3:40 » qui grossit est un
-  // reproche, et c'est exactement ce qu'un rebours naïf produirait.
-  test('trois minutes après l’échéance, toujours 0:00 — jamais de négatif', () => {
-    const b = barre(180, Seance.secondesRestantes(180, 360));
-    expect(b.grand).toBe('0:00');
-    expect(b.grand).not.toMatch(/-|−/);
+  // reproche, et c'est exactement ce qu'un rebours naïf produirait. La fonction
+  // ne le produit pas, même si plus personne ne lui demande de dessiner ce cas.
+  test('trois minutes après l’échéance, il ne reste toujours rien', () => {
+    expect(Seance.secondesRestantes(180, 360)).toBe(0);
+    expect(Seance.secondesRestantes(180, 100000)).toBe(0);
   });
 
   // L'étiquette garde son sens, et elle en gagne : le grand nombre ne dit plus
@@ -125,6 +125,7 @@ describe('§1 — `rendreChrono` passe le RESTANT au rendu, pas l’écoulé', (
     const m = APP.match(re);
     if (!m) throw new Error('`rendreChrono` introuvable dans v2/js/app.js');
     let vue = null;
+    const eteintes = [];
     const ctx = {
       Seance: Seance,
       Rendu: { rendreRepos: (n, v) => { vue = v; } },
@@ -138,34 +139,43 @@ describe('§1 — `rendreChrono` passe le RESTANT au rendu, pas l’écoulé', (
       mesurerBarres: () => {},
       ajusterRepos: () => {},
       basculerSourdine: () => {},
-      eteindreChrono: () => {}
+      eteindreChrono: () => { eteintes.push(true); }
     };
     vm.createContext(ctx);
     vm.runInContext(m[0], ctx);
     vm.runInContext('rendreChrono()', ctx);
-    return vue;
+    return { vue: vue, eteint: eteintes.length > 0 };
   }
 
   // À 0:40 sous une cible de 3:00 : le restant vaut 140, l'écoulé 40. Un
   // chronomètre montant passerait 40.
   test('il passe 140 — pas 40', () => {
-    expect(vueRendue(180, 40).restant).toBe(140);
+    expect(vueRendue(180, 40).vue.restant).toBe(140);
   });
 
   test('à l’armement il passe la cible entière', () => {
-    expect(vueRendue(180, 0).restant).toBe(180);
+    expect(vueRendue(180, 0).vue.restant).toBe(180);
   });
 
-  test('au dépassement il passe zéro, et se dit figé', () => {
-    const v = vueRendue(180, 400);
-    expect(v.restant).toBe(0);
-    expect(v.fige).toBe(true);
+  // ⚠️ LE CHANTIER 51, VU D'ICI : à l'échéance il ne DESSINE plus rien, il
+  // éteint. Le 0:00 n'est jamais une image, et c'est pour ça que la barre s'en va
+  // toute seule sans qu'on ait touché à quoi que ce soit.
+  test('à l’échéance il n’envoie rien au rendu — il éteint', () => {
+    const r = vueRendue(180, 180);
+    expect(r.eteint).toBe(true);
+    expect(r.vue).toBe(null);
+  });
+
+  test('et une seconde avant, il dessine encore', () => {
+    const r = vueRendue(180, 179);
+    expect(r.eteint).toBe(false);
+    expect(r.vue.restant).toBe(1);
   });
 
   // La cible part à côté du restant : c'est elle que − 15/+15 règlent, et le
   // grand nombre ne la dit plus.
   test('et la cible continue de partir à côté', () => {
-    expect(vueRendue(180, 40).cible).toBe(180);
+    expect(vueRendue(180, 40).vue.cible).toBe(180);
   });
 });
 
@@ -173,22 +183,18 @@ describe('§1 — la piste se vide', () => {
   // ⚠️ LE SENS, PAS SEULEMENT LA VALEUR. Une piste qui se remplit sous un
   // nombre qui descend raconte deux histoires sur le même écran. On mesure
   // donc que la largeur DÉCROÎT quand le temps passe.
-  test('pleine à l’armement, vide à l’échéance', () => {
+  test('pleine à l’armement, presque vide à la dernière image', () => {
     expect(barre(180, Seance.secondesRestantes(180, 0)).largeur).toBe('100%');
-    expect(barre(180, Seance.secondesRestantes(180, 180)).largeur).toBe('0%');
+    expect(barre(180, Seance.secondesRestantes(180, 179)).largeur).toBe('1%');
   });
 
   test('et elle décroît, elle ne croît pas', () => {
-    const largeurs = [0, 45, 90, 135, 180]
+    const largeurs = [0, 45, 90, 135, 179]
       .map((s) => parseInt(barre(180, Seance.secondesRestantes(180, s)).largeur, 10));
-    expect(largeurs).toEqual([100, 75, 50, 25, 0]);
+    expect(largeurs).toEqual([100, 75, 50, 25, 1]);
     for (let i = 1; i < largeurs.length; i++) {
       expect(largeurs[i]).toBeLessThan(largeurs[i - 1]);
     }
-  });
-
-  test('au dépassement elle reste à zéro, jamais négative', () => {
-    expect(barre(180, Seance.secondesRestantes(180, 600)).largeur).toBe('0%');
   });
 });
 

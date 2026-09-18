@@ -50,30 +50,46 @@ const SEANCE = () => ({
 
 function bac(options) {
   const o = options || {};
-  const journal = { arrets: 0, rendus: 0, audio: 0 };
+  // ÉCOULÉ PILOTABLE : à l'armement il vaut zéro — sinon `rendreChrono` conclurait
+  // « déjà fini » dès la première image — puis on le déplace à la main pour
+  // placer la scène. C'est plus fidèle que l'ancien stub constant, qui décrivait
+  // un chronomètre né vieux de vingt secondes.
+  const journal = { arrets: 0, rendus: 0, audio: 0, ecoule: 0 };
   const ctx = {
     Seance: Seance,
     Date: Date,
     seance: o.seance || SEANCE(),
     chrono: null,
-    secondesDeRepos: () => o.ecoule || 0,
+    secondesDeRepos: () => journal.ecoule,
     arreterMinuteur: () => { journal.arrets++; },
-    rendreChrono: () => { journal.rendus++; },
+    assurerMinuteur: () => {},
+    signalerEcheance: () => {},
+    mesurerBarres: () => {},
+    basculerSourdine: () => {},
+    sourdine: false,
+    $: () => ({ hidden: false }),
+    Rendu: { rendreRepos: () => { journal.rendus++; } },
     reveillerAudio: () => { journal.audio++; }
   };
   vm.createContext(ctx);
-  ['eteindreChrono', 'appliquerCible', 'chronoDeCetExo', 'retargeterChrono',
-   'ajusterRepos', 'demarrerChrono'].forEach((n) => vm.runInContext(extraire(n), ctx));
+  // ⚠️ LE VRAI `rendreChrono`, depuis le chantier 51 : c'est LUI qui conclut
+  // « le décompte est à zéro, la barre s'en va », pour tous les chemins. Le
+  // stubber ferait passer une molette qui désactive un repos sans éteindre.
+  ['eteindreChrono', 'rendreChrono', 'appliquerCible', 'chronoDeCetExo',
+   'retargeterChrono', 'ajusterRepos', 'demarrerChrono']
+    .forEach((n) => vm.runInContext(extraire(n), ctx));
   return {
     journal,
     ctx,
     // Armer comme le fait `validerSerie` : la cible de l'exercice, son indice,
     // son slug.
     armer: (i) => {
+      journal.ecoule = 0;
       ctx.__i = i;
       vm.runInContext(
         'demarrerChrono(seance.exercices[__i].repos_cible_s, __i, seance.exercices[__i].exercise_slug)',
         ctx);
+      journal.ecoule = o.ecoule || 0;
     },
     // Poser un repos comme le fait la feuille : on écrit, puis on relit.
     molette: (i, v) => {
@@ -102,12 +118,17 @@ describe('§A — régler le repos change le décompte qui court', () => {
 
   // Raccourcir marche dans l'autre sens, et la conséquence du §7 tervicies
   // suit : si la nouvelle cible est DERRIÈRE l'écoulé, le décompte est à zéro.
-  test('3:00 → 0:05 alors qu’on est à 20 s : il ne reste rien', () => {
+  // ⚠️ RÉÉCRIT AU CHANTIER 51. La cible ramenée DERRIÈRE le temps écoulé ne
+  // laisse plus un chronomètre figé à 0:00 : il ne reste rien à décompter, donc
+  // la barre s'en va. C'est la même règle que pour le décompte arrivé à zéro
+  // tout seul, et c'est bien le but — il n'y a plus qu'une phrase.
+  test('3:00 → 0:05 alors qu’on est à 20 s : la barre s’en va', () => {
     const b = bac({ ecoule: 20 });
     b.armer(1);
+    expect(b.chrono()).not.toBe(null);
     b.molette(1, 5);
-    expect(b.chrono().cible).toBe(5);
-    expect(Seance.secondesRestantes(b.chrono().cible, 20)).toBe(0);
+    expect(b.chrono()).toBe(null);
+    expect(b.exo(1).repos_cible_s).toBe(5);      // la consigne, elle, est bien posée
   });
 
   // Repousser la cible AU-DELÀ de l'écoulé réarme l'échéance — la même règle

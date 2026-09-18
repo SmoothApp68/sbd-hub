@@ -1618,9 +1618,9 @@
   // n'importe quel minuteur.
   //
   // Cette fonction redevient donc de l'ARITHMÉTIQUE BORNÉE, et rien d'autre :
-  // elle rend une valeur dans [0, REPOS_MAX]. C'est `reposEcoule` qui dit ce
-  // que zéro signifie, et c'est `ajusterRepos` qui en tire la conséquence —
-  // parce qu'une cible à zéro n'a de sens QUE pour un repos qui court.
+  // elle rend une valeur dans [0, REPOS_MAX]. C'est `reposTermine` qui dit ce
+  // que zéro signifie, et `rendreChrono` qui en tire la conséquence — au même
+  // endroit, exactement, que pour un décompte arrivé à zéro tout seul.
   function ajusterCible(cible, delta) {
     var base = Number(cible) || 0;
     var n = base + (Number(delta) || 0);
@@ -1641,8 +1641,9 @@
   // La cause n'était PAS la confusion `NULL`/zéro soupçonnée — le branchement
   // lisait bien `null`, et l'affichait (« cible — »). Il armait quand même :
   // l'armement n'était conditionné par RIEN. `chrono` devenait un objet non
-  // nul, donc la barre s'affichait ; et comme `reposFige(null, s)` est faux
-  // pour tout `s`, l'intervalle d'une seconde ne s'arrêtait jamais.
+  // nul, donc la barre s'affichait ; et comme le prédicat d'arrêt d'alors
+  // (`reposFige`, fondue depuis dans `reposTermine`) rendait faux sans cible,
+  // l'intervalle d'une seconde ne s'arrêtait jamais.
   //
   // La décision vit donc ICI, en une fonction pure, plutôt que dans une
   // condition au point d'appel : c'est la seule forme qu'une mutation peut
@@ -1652,21 +1653,19 @@
   // Zéro n'arme pas non plus : `routine_exos_repos_borne` commence à 5 s, donc
   // un zéro ne peut venir que d'un défaut — et « 0:00 de repos » serait une
   // prescription, pas une absence.
-  // ⚠️ L'EXTINCTION N'EST PAS L'ARMEMENT, ET LES DEUX NE SE DÉDUISENT PAS
-  // L'UNE DE L'AUTRE (§7 tervicies).
+  // ⚠️ L'EXTINCTION N'EST PAS L'ARMEMENT (§7 tervicies, toujours vrai) — mais
+  // l'extinction, elle, n'a qu'UNE forme : voir `reposTermine` plus bas.
   //
   //   · `cibleArmable` répond « ce repos doit-il COMMENCER ? » — un repos JAMAIS
   //     PRESCRIT (`null`) n'arme rien, et c'est le défaut que le chantier 45 a
   //     fermé ;
-  //   · celle-ci répond « ce repos est-il FINI ? » — et un repos qu'on vient de
-  //     raccourcir jusqu'à zéro est fini : il a existé, il est arrivé à son
-  //     terme. Ce n'est pas la même chose qu'un repos qui n'a jamais existé.
+  //   · `reposTermine` répond « ce repos est-il FINI ? », et elle couvre les DEUX
+  //     façons d'y arriver — le décompte arrivé à zéro tout seul comme le
+  //     « −15 » qui l'y pousse.
   //
-  // Les deux posent aujourd'hui le même test sur le nombre, et elles restent
-  // SÉPARÉES exprès : le jour où l'armement exigerait un plancher — cinq
-  // secondes, disons — une extinction qui en dériverait déclarerait fini un
-  // repos de trois secondes encore en train de courir.
-  function reposEcoule(cible) { return !(Number(cible) > 0); }
+  // ⚠️ `reposEcoule(cible)` A DISPARU AU CHANTIER 51. Elle ne regardait que la
+  // cible, donc elle ne voyait qu'UN des deux chemins vers zéro — celui du
+  // geste. C'est exactement le défaut que ce chantier ferme.
 
   function cibleArmable(cible) {
     var n = nombreOuNul(cible);
@@ -1681,29 +1680,31 @@
     return (Number(secondes) || 0) >= c;
   }
 
-  // ══ LE CHRONOMÈTRE S'ARRÊTE À L'ÉCHÉANCE (§7 septies.3) ══════════════════
+  // ══ LE REPOS FINI — UNE RÈGLE, UN ENDROIT (§7 quinvicies, ch. 51) ════════
   //
-  // Il ne va pas au-delà : depuis le chantier 50 il s'arrête à 0:00 au lieu de se
-  // figer sur la cible, et il ne repart JAMAIS en négatif. Un « −0:38 » qui
-  // grossit est un reproche, et le chronomètre informe — il ne commande pas
-  // (§7 ter.3).
+  // ⚠️ DÉFAUT CONSTATÉ SUR DEVICE APRÈS LA PR #290 : « −15 » jusqu'à zéro faisait
+  // disparaître la barre, mais un décompte qui arrivait à zéro TOUT SEUL la
+  // laissait figée. Deux chemins vers le même état, un seul l'éteignait —
+  // parce que l'extinction était branchée sur le GESTE (`ajusterRepos`) et non
+  // sur l'ÉTAT. Même maladie que le fantôme au 39, le volume au 40,
+  // `derniereSaisie` au 46 et `cibleArmable` au 47 : une règle appliquée à un
+  // endroit sur deux (CADRAGE-V2 §2 undecies).
   //
-  // ⚠️ CE QUI EST FIGÉ EST L'AFFICHAGE, JAMAIS LA MESURE. `repos_s` se calcule
-  // à la validation suivante, depuis l'écart entre deux `validee_a` (`valider`
+  // La règle juste est UNE : LE DÉCOMPTE À ZÉRO ÉTEINT LA BARRE, QUELLE QUE SOIT
+  // LA FAÇON D'Y ARRIVER. Un « −15 » n'est qu'un moyen d'y arriver plus vite ;
+  // ce n'est pas un second comportement.
+  //
+  // Elle se LIT donc du restant, et de rien d'autre — `secondesRestantes` couvre
+  // déjà les deux chemins : `s >= c` (arrivé seul) comme `c <= 0` (raccourci à
+  // zéro, ou repos désactivé en cours de route). Deux prédicats se sont fondus
+  // ici, et chacun ne voyait qu'un chemin.
+  //
+  // ⚠️ CE QUI FINIT EST L'AFFICHAGE, JAMAIS LA MESURE. `repos_s` se calcule à la
+  // validation suivante, depuis l'écart entre deux `validee_a` (`valider`
   // ci-dessus) : il porte le repos RÉEL, même s'il a duré trois fois la cible.
-  // Geler l'un n'a aucun effet sur l'autre, et c'est le point — on arrête de
-  // montrer, on n'arrête pas d'observer.
-  //
-  // Sans cible, rien ne fige : zéro veut dire « pas de cible ». Depuis le
-  // chantier 45 aucun chronomètre ne s'arme dans cet état ; `reposFige` garde
-  // néanmoins sa réponse, parce que c'est elle qui décide de l'ARRÊT DU
-  // MINUTEUR — `secondesRestantes` ne décide, elle, que de l'affichage. Les deux
-  // s'accordent tant que la cible est positive, et elles restent séparées pour
-  // la même raison que `cibleArmable` et `reposEcoule` (§7 tervicies.1).
-  function reposFige(cible, secondes) {
-    var c = Number(cible) || 0;
-    if (c <= 0) return false;
-    return (Number(secondes) || 0) >= c;
+  // La barre s'en va, l'observation continue.
+  function reposTermine(cible, secondes) {
+    return secondesRestantes(cible, secondes) === 0;
   }
 
   // ══ UN COMPTE À REBOURS, PAS UN CHRONOMÈTRE (§7 quatervicies, ch. 50) ═══
@@ -1739,9 +1740,8 @@
     PAS_REPOS: PAS_REPOS,
     ajusterCible: ajusterCible,
     cibleArmable: cibleArmable,
-    reposEcoule: reposEcoule,
     echeanceAtteinte: echeanceAtteinte,
-    reposFige: reposFige,
+    reposTermine: reposTermine,
     secondesRestantes: secondesRestantes,
     EN_COURS: EN_COURS, TERMINEE: TERMINEE, REPOS_MAX: REPOS_MAX,
     REPOS_CIBLE_MIN: REPOS_CIBLE_MIN, REPOS_CIBLE_MAX: REPOS_CIBLE_MAX,

@@ -874,7 +874,6 @@ button.bloc-exo:active{background:var(--panneau-2)}
 .repos-h{display:flex;align-items:center;gap:var(--e2);margin-bottom:var(--e2)}
 .repos-g{font-size:26px;font-weight:700;letter-spacing:-.02em;line-height:1}
 /* Arrêté à l'échéance, pas planté (§7 septies.3). */
-.repos-g.fige{color:var(--texte-3)}
 .repos-c{font-size:11px;color:var(--texte-3);white-space:nowrap}
 /* −15 / +15 / son : des commandes, pas des boutons d'action. Discrètes, mais
    la cible de tap fait 30 px de haut — on les vise entre deux séries. */

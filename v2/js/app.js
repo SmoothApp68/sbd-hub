@@ -1037,37 +1037,54 @@
     }
   }
 
+  // ══ LA RÈGLE DU REPOS FINI VIT ICI, ET NULLE PART AILLEURS (§7 quinvicies) ═
+  //
+  // ⚠️ DÉFAUT CONSTATÉ SUR DEVICE : « −15 » jusqu'à zéro faisait disparaître la
+  // barre, mais un décompte qui arrivait à zéro TOUT SEUL la laissait figée.
+  // L'extinction était branchée sur le GESTE, dans `ajusterRepos`, et pas sur
+  // l'ÉTAT — deux chemins vers le même zéro, un seul l'éteignait.
+  //
+  // Elle est donc remontée ICI, au SEUL endroit qui voit l'état à chaque
+  // seconde. `appliquerCible` n'en sait plus rien : elle pose la cible et
+  // redessine, et c'est ce passage-ci qui conclut. Un « −15 » n'est plus qu'un
+  // moyen d'arriver à zéro plus vite.
   function rendreChrono() {
     var noeud = $('repos');
     if (!noeud) return;
     if (!chrono) { noeud.hidden = true; mesurerBarres(); return; }
-    noeud.hidden = false;
     var secondes = secondesDeRepos();
     // UNE SEULE FOIS : `echeanceAtteinte` retourne faux dès que `sonne` est
     // posé, et rien ne le repose tant que la cible n'est pas repoussée.
+    //
+    // ⚠️ AVANT L'EXTINCTION, ET C'EST L'ORDRE QUI COMPTE : le repos qui se
+    // termine s'ANNONCE, puis la barre s'en va. Éteindre d'abord avalerait le
+    // bip du dernier passage — celui, justement, qui dit que c'est fini. Une
+    // cible tombée à zéro par un « −15 » ne sonne pas, elle : `echeanceAtteinte`
+    // répond faux sous une cible nulle, et quelqu'un qui coupe son repos n'a pas
+    // besoin qu'on le lui annonce.
     if (Seance.echeanceAtteinte(chrono.cible, secondes, chrono.sonne)) {
       chrono.sonne = true;
       signalerEcheance();
     }
-    // ⚠️ LE CHRONOMÈTRE S'ARRÊTE À L'ÉCHÉANCE (§7 septies.3), et l'arrêt est
-    // décidé ICI, d'après la valeur — pas d'après `sonne`. Les deux se
-    // séparent : le −15 qui FRANCHIT la cible fige un chronomètre qui avait
-    // déjà sonné, et le +15 qui la repousse relance celui qui était figé. Se
-    // fier à « a-t-il sonné ? » aurait laissé courir le premier cas, qui est
-    // exactement celui qu'Aurélien a signalé.
-    var fige = Seance.reposFige(chrono.cible, secondes);
-    if (fige) arreterMinuteur(); else assurerMinuteur();
+    // ⚠️ LA RÈGLE, ET ELLE EST SEULE. `eteindreChrono` rappelle cette fonction :
+    // la récursion est bornée à UN niveau, parce que `chrono` y devient nul et
+    // que le passage suivant sort sur la garde du dessus.
+    if (Seance.reposTermine(chrono.cible, secondes)) { eteindreChrono(); return; }
+    noeud.hidden = false;
+    // Tant qu'il reste quelque chose à décompter, le minuteur tourne. Il n'y a
+    // plus de troisième état à gérer : une barre affichée est une barre qui
+    // compte, et une barre qui ne compte plus n'est plus affichée.
+    assurerMinuteur();
     Rendu.rendreRepos(noeud, {
-      // Ce qui est figé est l'AFFICHAGE. `repos_s` se mesure à la validation
-      // suivante, depuis l'écart entre deux `validee_a` : il porte le repos
-      // réel, même s'il a duré trois fois la cible.
-      //
       // ⚠️ CE QU'ON PASSE AU RENDU EST LE TEMPS QUI RESTE (§7 quatervicies), pas
       // le temps écoulé. `secondes` reste la mesure interne — elle sert à
-      // `echeanceAtteinte` et à `reposFige` juste au-dessus — et ne sort plus
+      // `echeanceAtteinte` et à `reposTermine` juste au-dessus — et ne sort plus
       // d'ici : l'écran ne montre que le décompte.
+      //
+      // Et `repos_s`, lui, se mesure à la validation suivante depuis l'écart
+      // entre deux `validee_a` : il porte le repos RÉEL, même s'il a duré trois
+      // fois la cible. La barre s'en va, l'observation continue.
       restant: Seance.secondesRestantes(chrono.cible, secondes),
-      fige: fige,
       cible: chrono.cible,
       sourdine: sourdine,
       pas: Seance.PAS_REPOS,
@@ -1090,21 +1107,17 @@
   // bouge qu'à la fin, sur question (§6).
   function ajusterRepos(delta) {
     if (!chrono) return;
-    var cible = Seance.ajusterCible(chrono.cible, delta);
-    // ⚠️ À ZÉRO, LE REPOS EST FINI — ET LA BARRE S'EN VA (§7 tervicies, ch. 49).
+    // ⚠️ UN « −15 » N'EST QU'UN MOYEN D'ARRIVER À ZÉRO PLUS VITE (§7 quinvicies).
     //
-    // Le chantier 47 refusait de descendre sous la borne basse. La règle était
-    // bonne, l'objet ne l'était pas : elle protège le repos PRESCRIT, une
-    // consigne qu'on ne désactive que d'un geste explicite (§7 sexdecies.3).
-    // Ici court un DÉCOMPTE, et quatre appuis sur « −15 » pendant un repos de
-    // 50 s veulent dire « arrête-toi maintenant ». On ne fige donc pas à zéro :
-    // on éteint, exactement comme « Passer » — même sortie, même fonction.
+    // Cette fonction portait la conclusion — « si la cible tombe à zéro, éteins »
+    // — et c'est précisément pour ça que le décompte qui arrivait à zéro TOUT
+    // SEUL restait affiché : personne ne concluait sur ce chemin-là. Elle ne
+    // fait donc plus que de l'arithmétique bornée, et `rendreChrono` conclut.
     //
-    // Et c'est `reposEcoule` qui le dit, PAS `cibleArmable` : l'armement et
-    // l'extinction ne se déduisent pas l'un de l'autre (§7 tervicies). Un repos
-    // jamais prescrit (`null`) n'arme rien — défaut fermé au chantier 45 — et
-    // c'est une autre question que « celui-ci est-il fini ? ».
-    appliquerCible(cible);
+    // Ce qui ne change pas : le réglage vaut pour le REPOS EN COURS, jamais pour
+    // la routine — le repos cible d'un exercice se change sous son nom
+    // (§7 septies.2), et la routine ne bouge qu'à la fin, sur question (§6).
+    appliquerCible(Seance.ajusterCible(chrono.cible, delta));
   }
 
   // La règle est ICI, et elle est UNE (§7 quatervicies.2) : deux gestes changent
@@ -1115,13 +1128,15 @@
   // soigner.
   function appliquerCible(cible) {
     if (!chrono) return;
-    if (Seance.reposEcoule(cible)) { eteindreChrono(); return; }
     chrono.cible = cible;
     // Une cible repoussée AU-DELÀ de l'écoulé réarme l'échéance : c'est une
     // échéance neuve, posée à la main, pas une répétition de la précédente.
     if (chrono.cible > secondesDeRepos()) chrono.sonne = false;
-    // `rendreChrono` relance ou arrête le minuteur selon la nouvelle cible :
-    // un −15 qui franchit l'échéance fige, un +15 qui la repousse repart.
+    // ⚠️ ELLE NE DÉCIDE PLUS DE L'EXTINCTION (ch. 51). Elle posait ici son
+    // propre `if (reposEcoule(cible)) eteindreChrono()`, et c'était la moitié
+    // du défaut : la même conclusion vivait à deux endroits, et seul celui-ci
+    // était atteint par un geste. `rendreChrono` conclut désormais pour tout le
+    // monde — y compris pour la cible à zéro qu'on vient peut-être de poser.
     rendreChrono();
   }
 
@@ -1156,12 +1171,12 @@
     // extinction.
     //
     // ⚠️ LE `|| 0` EST REDONDANT AUJOURD'HUI, ET IL RESTE EXPRÈS. Sa mutation
-    // survit : `reposEcoule` répond déjà « fini » sur `NaN` comme sur zéro, donc
-    // `Number(cible)` seul éteindrait pareil. Ce n'est vrai QUE grâce à ce
-    // contrat, qui est épinglé par un test (`v2-statut-seance`, §8) : le jour où
-    // il changerait, cette normalisation serait la seule chose empêchant
-    // `chrono.cible = NaN` — une barre qui ne fige jamais, le troisième état que
-    // le §7 novodecies interdit.
+    // survit : `reposTermine` répond déjà « fini » sur `NaN` comme sur zéro
+    // (via `secondesRestantes`, qui normalise), donc `Number(cible)` seul
+    // éteindrait pareil. Ce n'est vrai QUE grâce à ce contrat, qui est épinglé
+    // par un test (`v2-statut-seance`, §8) : le jour où il changerait, cette
+    // normalisation serait la seule chose empêchant `chrono.cible = NaN` — une
+    // barre qui ne finit jamais, le troisième état que le §7 novodecies interdit.
     appliquerCible(Number(cible) || 0);
   }
 

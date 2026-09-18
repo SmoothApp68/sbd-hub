@@ -243,7 +243,7 @@ describe('test 5 — après un ajustement, le chronomètre se fige ou s\'éteint
     let c = 50;
     for (let i = 0; i < 4; i++) c = Seance.ajusterCible(c, -15);
     expect(c).toBe(0);
-    expect(Seance.reposEcoule(c)).toBe(true);
+    expect(Seance.reposTermine(c, 0)).toBe(true);
   });
 
   // Tant qu'il RESTE quelque chose à compter, l'ancien contrat tient : la cible
@@ -253,25 +253,25 @@ describe('test 5 — après un ajustement, le chronomètre se fige ou s\'éteint
     let c = 50;
     for (let i = 0; i < 3; i++) c = Seance.ajusterCible(c, -15);
     expect(c).toBe(5);
-    expect(Seance.reposEcoule(c)).toBe(false);
-    expect(Seance.reposFige(c, 30)).toBe(true);
+    expect(Seance.reposTermine(c, 0)).toBe(false);
+    expect(Seance.reposTermine(c, 30)).toBe(true);
     expect(Seance.secondesRestantes(c, 30)).toBe(0);   // figé : il ne reste rien
   });
 
   test('et un cinquième −15 ne descend pas sous zéro', () => {
     expect(Seance.ajusterCible(0, -15)).toBe(0);
-    expect(Seance.reposEcoule(Seance.ajusterCible(0, -15))).toBe(true);
+    expect(Seance.reposTermine(Seance.ajusterCible(0, -15), 0)).toBe(true);
   });
 
   // L'autre sens : le +15 qui repousse la cible AU-DELÀ de l'écoulé remet en
   // marche. Un arrêt qui ne sait pas repartir figerait le repos suivant pour
   // toujours — c'est la moitié qu'on oublie quand on ne teste qu'une direction.
   test('un +15 qui repousse la cible au-delà de l’écoulé dégèle', () => {
-    expect(Seance.reposFige(15, 30)).toBe(true);
+    expect(Seance.reposTermine(15, 30)).toBe(true);
     const repoussee = Seance.ajusterCible(15, 15);
     expect(repoussee).toBe(30);
-    expect(Seance.reposFige(repoussee, 30)).toBe(true);     // pile à l'échéance
-    expect(Seance.reposFige(Seance.ajusterCible(repoussee, 15), 30)).toBe(false);
+    expect(Seance.reposTermine(repoussee, 30)).toBe(true);  // pile à l'échéance
+    expect(Seance.reposTermine(Seance.ajusterCible(repoussee, 15), 30)).toBe(false);
   });
 
   // ⚠️ L'INVARIANTE QUI RÉSUME TOUT, RÉÉCRITE AU 49 : quelle que soit la suite
@@ -289,8 +289,8 @@ describe('test 5 — après un ajustement, le chronomètre se fige ou s\'éteint
         expect(c).toBeLessThanOrEqual(Seance.REPOS_MAX);
         // Écoulé → la barre disparaît ; sinon → il existe une seconde à
         // laquelle `reposFige` rend vrai, et c'est la cible elle-même.
-        if (Seance.reposEcoule(c)) expect(Seance.cibleArmable(c)).toBe(null);
-        else expect(Seance.reposFige(c, c)).toBe(true);
+        if (Seance.reposTermine(c, 0)) expect(Seance.cibleArmable(c)).toBe(null);
+        else expect(Seance.reposTermine(c, c)).toBe(true);
       });
     });
   });

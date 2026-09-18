@@ -2533,6 +2533,73 @@ la barre pendant que la consigne, elle, n'aurait pas bougé — les deux se reme
 deux choses différentes, ce qui est exactement le défaut qu'on répare.
 
 
+## 7 quinvicies. Le repos fini — une règle, un endroit, 18/09/2026 (chantier 51)
+
+Constaté sur appareil après la PR #290 :
+
+```
+−15 −15 −15 jusqu'à zéro   →  la barre DISPARAÎT        ✅
+le décompte y arrive seul  →  la barre RESTE, figée     ❌
+```
+
+**Deux chemins arrivent au même état, un seul l'éteignait.** L'extinction était branchée sur le
+**geste** d'ajustement (`ajusterRepos`), pas sur l'**état** « le décompte est à zéro ». Même
+maladie que le fantôme au 39, le volume au 40, `derniereSaisie` au 46 et `cibleArmable` au 47 :
+une règle appliquée à un endroit sur deux (`CADRAGE-V2` §2 undecies).
+
+> **LE DÉCOMPTE À ZÉRO ÉTEINT LA BARRE, QUELLE QUE SOIT LA FAÇON D'Y ARRIVER.**
+> Un `−15` n'est qu'un moyen d'y arriver plus vite. Ce n'est pas un second comportement.
+
+Ça **simplifie** : il n'y a pas deux cas à coder, il y en a un, lu au bon endroit.
+
+### 7 quinvicies.1 Où vit la décision
+
+| | avant | après |
+|---|---|---|
+| **la règle** | `appliquerCible`, atteinte par un geste | `rendreChrono`, atteint à chaque seconde |
+| **le prédicat** | `reposEcoule(cible)` — voyait le chemin du geste · `reposFige(cible, s)` — voyait le chemin du temps | **`reposTermine(cible, secondes)`**, qui est `secondesRestantes(…) === 0` |
+
+`rendreChrono` est le seul endroit qui voie l'état à chaque seconde ; c'est donc le seul qui
+puisse conclure pour tout le monde. `appliquerCible` pose la cible et redessine, et n'en sait
+plus rien.
+
+**L'ordre compte** : le repos qui se termine **s'annonce**, puis la barre s'en va. Éteindre
+d'abord avalerait le bip du dernier passage — celui, justement, qui dit que c'est fini. Une
+cible tombée à zéro par un `−15` ne sonne pas : quelqu'un qui coupe son repos n'a pas besoin
+qu'on le lui annonce.
+
+### 7 quinvicies.2 Ce qui disparaît avec l'état figé
+
+Il n'y a plus de troisième état. **Une barre affichée est une barre qui compte ; une barre qui
+ne compte plus n'est plus affichée.** En conséquence :
+
+- la classe `.repos-g.fige` et son drapeau `vue.fige` sont **supprimés** — ils marquaient un
+  chronomètre arrêté sur sa cible, état qui n'existe plus ;
+- `assurerMinuteur()` est inconditionnel ; l'arrêt ne vit plus que dans `eteindreChrono` ;
+- **`0:00` n'est jamais dessiné** : la dernière image est `0:01`.
+
+### Ce que ça ne remet pas en cause
+
+Un repos **jamais prescrit** (`NULL`) n'arme aucun chronomètre — chantier 45, et la distinction
+du §7 unvicies : `cibleArmable` décide de l'**armement**, jamais de l'extinction. **Un repos
+arrivé à son terme n'est pas un repos qui n'a jamais existé.**
+
+Et la mesure ne bouge pas : `repos_s` se calcule toujours à la validation suivante, depuis
+l'écart entre deux `validee_a`. **La barre s'en va, l'observation continue.**
+
+### 7 quinvicies.3 La configuration discriminante
+
+⚠️ **Les deux chemins dans le MÊME test.** Sur le chemin du `−15` seul, « éteint sur l'état »
+et « éteint sur le geste » donnent exactement le même écran — c'est précisément ce qui a
+laissé passer le défaut, et ce qu'un test par chemin ne montrerait toujours pas. Appariés :
+une seule règle les passe tous les deux, une règle branchée sur le geste fait tomber le
+premier, aucune règle les fait tomber tous les deux.
+
+⚠️ **Et on mesure l'EXISTENCE de la barre, pas son contenu.** Lire `#repos` entier ne prouve
+rien : l'étiquette « cible 0:15 » y reste affichée quoi qu'il arrive — piège trouvé au
+chantier 49, et devenu franchement trompeur ici puisqu'il n'y a plus de grand nombre à lire.
+
+
 ## 8. Reste ouvert
 
 - **Écran de fin de séance** : titre, note, photo, salle.

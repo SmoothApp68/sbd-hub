@@ -1569,6 +1569,15 @@ le chantier 28 — les deux écrans disaient donc deux choses différentes du m�
 l'éditeur qui avait tort. Couper un superset reste possible par « Dégrouper » : **un geste qui
 le dit**, au lieu d'un effet de bord du déplacement.
 
+**Le pied s'EMPILE sur la barre de repos, il ne la recouvre pas.** Les deux étaient posés au
+même `bottom` et le code jurait qu'ils ne coexistaient jamais — « on ne range pas pendant un
+repos ». C'est faux : valider une série arme le chronomètre, et remettre de l'ordre juste après
+est le geste le plus ordinaire du monde. Le pied se pose donc à
+`calc(--h-onglets + --h-repos)`, et la réserve du bas vaut leur **somme** — la leçon du
+§7 sexies : ce qui est `position: fixed` n'ajoute aucune course de défilement, donc ce qu'il
+couvre est perdu si la réserve ne le compte pas. *(Trouvé par l'état des lieux du 18/09, pas
+par le raisonnement.)*
+
 > ⚠️ **Ce que le banc ne peut pas dire.** Il pilote le geste à la SOURIS (`page.mouse`), dans un
 > contexte sans `hasTouch` : `touch-action` n'y est **jamais exercé**. Le banc prouve qu'un
 > glissement hors poignée ne déplace rien, et que la liste déborde vraiment de l'écran

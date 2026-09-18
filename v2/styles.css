@@ -383,7 +383,7 @@ button{font-family:inherit;cursor:pointer}
    minutes où l'on a justement le temps de s'en servir.
    `--h-onglets` et `--h-repos` sont posées par `mesurerBarres()` (app.js). Les
    valeurs de repli ne servent qu'avant la première mesure. */
-.tel{padding-bottom:calc(var(--h-onglets, 68px) + var(--e6) + var(--h-repos, 0px))}
+.tel{padding-bottom:calc(var(--h-onglets, 68px) + var(--e6) + var(--h-repos, 0px) + var(--h-pied, 0px))}
 
 /* ── Onglets encore sans contenu ────────────────────────────────────────
    Une phrase, au présent et à l'actif. Ni excuse, ni animation. */
@@ -825,9 +825,15 @@ button.bloc-exo:active{background:var(--panneau-2)}
 
 /* Le pied : FIXE au-dessus des onglets, comme la barre de repos — trois écrans,
    un seul pied. */
-#pied-reorg{position:fixed;left:0;right:0;bottom:var(--h-onglets, 68px);
-  background:#191C21;border-top:1px solid var(--trait);z-index:11;
-  padding:var(--e2) var(--e3) var(--e3)}
+/* ⚠️ IL S'EMPILE AU-DESSUS DE LA BARRE DE REPOS, IL NE LA RECOUVRE PAS.
+   Les deux étaient posés au même `bottom` : un repos qui court pendant qu'on
+   range — c'est le cas le plus normal du monde, on valide une série puis on
+   remet de l'ordre — les superposait au pixel près. Le commentaire du code
+   jurait qu'ils ne coexistaient jamais ; le relevé du 18/09 a montré que si. */
+#pied-reorg{position:fixed;left:0;right:0;
+  bottom:calc(var(--h-onglets, 68px) + var(--h-repos, 0px));
+  background:#191C21;border-top:1px solid var(--trait);z-index:51;
+  max-width:520px;margin:0 auto;padding:var(--e2) var(--e3) var(--e3)}
 #pied-reorg[hidden]{display:none}
 .reorg-aide{font-size:11.5px;color:var(--texte-3);text-align:center;
   margin:0 0 var(--e2)}

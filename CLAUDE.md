@@ -120,7 +120,7 @@ npx jest tests/unit/v2-service-worker.test.js
   scénario 5 l'installe pour de vrai avant de déployer la correction. **Ne le
   répare pas.**
 - Bump `CACHE_V2` (`v2/service-worker.js`) à chaque commit qui touche la
-  coquille. Actuel : **`trainhub-v2-044`**.
+  coquille. Actuel : **`trainhub-v2-045`**.
 
 **Et la règle du fichier lui-même : AUCUN `await` SANS ISSUE DANS LE
 GESTIONNAIRE `fetch`.** Un service worker cassé se remplace au rechargement

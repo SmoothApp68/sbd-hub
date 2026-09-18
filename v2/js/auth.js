@@ -1,5 +1,12 @@
-// v2/js/auth.js — connexion e-mail / mot de passe sur les comptes existants.
-// Hors périmètre : inscription, mot de passe oublié, comptes anonymes.
+// v2/js/auth.js — connexion, inscription, mot de passe.
+//
+// Trois champs à l'inscription — pseudo, e-mail, mot de passe — et rien d'autre
+// (ECRAN-PROFIL-V1 §3.1). Le profil se remplit APRÈS, à son rythme : « chaque
+// question posée avant la première séance est un obstacle ».
+//
+// Hors périmètre, et écarté avec ses raisons (§3.3) : Google, Apple, magic link
+// — cinq utilisateurs connus, tous avec un mot de passe, donc une dépendance
+// pour zéro besoin. Comptes anonymes : toujours hors périmètre.
 
 (function (racine) {
   'use strict';
@@ -47,6 +54,38 @@
     return (r && r.data && r.data.session) || null;
   }
 
+  // ── L'inscription ────────────────────────────────────────────────────────
+  //
+  // ⚠️ CE QUI REVIENT DÉPEND D'UN RÉGLAGE DE PROJET, PAS DU CODE. Si la
+  // confirmation d'e-mail est exigée, `signUp` rend un `user` SANS session et
+  // il faut passer par la boîte mail ; sinon il rend les deux et on entre tout
+  // de suite. On rend donc les deux et l'appelant décide — plutôt que de parier
+  // sur un réglage qu'on ne contrôle pas d'ici.
+  //
+  // La spec tranche par ailleurs que la confirmation NE DOIT PAS BLOQUER la
+  // première séance (§3.3) : si ce réglage est un jour activé, c'est là qu'il
+  // faudra revenir, pas dans l'écran.
+  async function inscrire(email, motDePasse) {
+    var r = await client().auth.signUp({ email: email, password: motDePasse });
+    if (r.error) throw r.error;
+    return { session: (r.data && r.data.session) || null, user: (r.data && r.data.user) || null };
+  }
+
+  // Le lien de réinitialisation ramène sur l'app avec une session de
+  // récupération ouverte : c'est le profil, et sa ligne « Mot de passe », qui
+  // terminent le geste. Pas d'écran de plus pour une étape qu'un écran existant
+  // sait déjà faire.
+  async function reinitialiser(email, retour) {
+    var r = await client().auth.resetPasswordForEmail(email, retour ? { redirectTo: retour } : undefined);
+    if (r && r.error) throw r.error;
+  }
+
+  // Promis à l'inscription : « Tu le changeras depuis ton profil. »
+  async function changerMotDePasse(motDePasse) {
+    var r = await client().auth.updateUser({ password: motDePasse });
+    if (r.error) throw r.error;
+  }
+
   async function connecter(email, motDePasse) {
     var r = await client().auth.signInWithPassword({ email: email, password: motDePasse });
     if (r.error) throw r.error;
@@ -68,6 +107,9 @@
     sessionPersistee: sessionPersistee,
     sessionCourante: sessionCourante,
     connecter: connecter,
+    inscrire: inscrire,
+    reinitialiser: reinitialiser,
+    changerMotDePasse: changerMotDePasse,
     deconnecter: deconnecter,
     surChangement: surChangement
   };

@@ -2755,6 +2755,293 @@
     });
   }
 
+  // ══ LE PROFIL (chantier 46 §2) ═══════════════════════════════════════════
+  //
+  // Six blocs, un critère : chaque champ est là parce que quelque chose le lit,
+  // ou le lira au chantier 1 (ECRAN-PROFIL-V1). Le rendu, lui, ne connaît aucun
+  // de ces champs — il reçoit des SECTIONS et des LIGNES, et les dessine. C'est
+  // ce qui permet d'ajouter un champ sans toucher au rendu, et de tester les
+  // règles sans navigateur.
+  //
+  // ⚠️ « à renseigner » N'EST PAS UNE ERREUR, C'EST UN ÉTAT (§4). Rien n'est
+  // rouge, rien ne bloque, rien ne compte les fautes : un profil vide est un
+  // profil neuf, et le moteur travaille avec ce qu'il a.
+
+  function ligneProfil(l) {
+    var cliquable = typeof l.surChoix === 'function';
+    var n = el(cliquable ? 'button' : 'div', 'p-ligne');
+    if (cliquable) { n.type = 'button'; n.addEventListener('click', l.surChoix); }
+    var lib = el('span', 'p-lib', l.libelle);
+    if (l.sous) lib.appendChild(el('small', '', l.sous));
+    n.appendChild(lib);
+    var estVide = l.valeur === null || l.valeur === undefined || l.valeur === '';
+    if (!l.sansValeur) {
+      n.appendChild(el('span', 'p-val' + (estVide ? ' vide' : ''),
+        estVide ? 'à renseigner' : l.valeur));
+    }
+    if (cliquable) n.appendChild(el('span', 'p-fl', '›'));
+    return n;
+  }
+
+  // Deux crans, jamais plus : c'est une INTENTION, pas un réglage de finesse.
+  function segmentProfil(seg) {
+    var barre = el('div', 'p-seg');
+    (seg.options || []).forEach(function (o) {
+      var b = el('button', o.cle === seg.valeur ? 'on' : '', o.libelle);
+      b.type = 'button';
+      b.dataset.cle = o.cle;
+      b.setAttribute('aria-pressed', o.cle === seg.valeur ? 'true' : 'false');
+      b.addEventListener('click', function () { seg.surChoix(o.cle); });
+      barre.appendChild(b);
+    });
+    return barre;
+  }
+
+  function rendreProfil(cible, vue) {
+    if (!cible) return;
+    vider(cible);
+
+    // Le bandeau d'accueil d'un compte neuf. Il dit ce qui reste et OFFRE LA
+    // SORTIE — « contournable, obligatoirement » (§4) : un utilisateur avec 138
+    // séances d'historique n'a aucune raison de répondre à cinq questions avant
+    // de voir ce qu'il a fait.
+    if (vue.accueil) {
+      var acc = el('div', 'p-accueil');
+      acc.appendChild(el('div', 'p-accueil-t', 'Bienvenue.'));
+      acc.appendChild(el('p', '',
+        'Ces réglages affinent ce que le moteur te proposera. ' +
+        'Rien n’est obligatoire, et tu peux y revenir quand tu veux.'));
+      var plus = el('button', 'p-plus-tard', 'Plus tard — voir mes séances');
+      plus.type = 'button';
+      plus.addEventListener('click', vue.accueil.surPlusTard);
+      acc.appendChild(plus);
+      cible.appendChild(acc);
+    }
+
+    var chiffres = el('div', 'p-chiffres');
+    (vue.kpis || []).forEach(function (k) {
+      var c = el('div', 'p-kpi');
+      c.appendChild(el('b', '', k.valeur));
+      c.appendChild(el('span', '', k.libelle));
+      chiffres.appendChild(c);
+    });
+    cible.appendChild(chiffres);
+
+    (vue.sections || []).forEach(function (sec) {
+      cible.appendChild(el('div', 'p-sect', sec.titre));
+      var g = el('div', 'p-groupe');
+      if (sec.segment) g.appendChild(segmentProfil(sec.segment));
+      (sec.lignes || []).forEach(function (l) { g.appendChild(ligneProfil(l)); });
+      if (sec.note) {
+        var note = el('div', 'p-note');
+        note.appendChild(el('b', '', sec.note.fort));
+        note.appendChild(doc.createTextNode(' ' + sec.note.reste));
+        g.appendChild(note);
+      }
+      cible.appendChild(g);
+    });
+
+    // ⚠️ « QUITTER » PUIS « SUPPRIMER », DANS CET ORDRE ET PAS L'INVERSE.
+    // Ce sont les deux gestes qu'on ne veut pas confondre — la v1 les avait
+    // confondus, et c'est un fix RGPD entier (CLAUDE.md v351-v362). Quitter est
+    // bordé et net ; supprimer est discret, dessous, et sa confirmation dit ce
+    // qui part.
+    var q = el('button', 'p-quitter', 'Quitter');
+    q.type = 'button';
+    q.id = 'btn-deconnexion';
+    q.addEventListener('click', vue.surQuitter);
+    cible.appendChild(q);
+
+    var sup = el('button', 'p-supprimer', 'Supprimer mon compte');
+    sup.type = 'button';
+    sup.id = 'btn-supprimer-compte';
+    sup.addEventListener('click', vue.surSupprimer);
+    cible.appendChild(sup);
+    return cible;
+  }
+
+  // ── Les feuilles du profil ───────────────────────────────────────────────
+  //
+  // ⚠️ TROIS FEUILLES POUR QUINZE CHAMPS, et c'est délibéré : un choix dans une
+  // liste fermée, une saisie libre, une semaine. Une feuille par champ aurait
+  // été quinze fois la même chose — « câbler, jamais dupliquer »
+  // (CADRAGE-V2 §2 undecies). Elles vivent dans le MÊME voile que les feuilles
+  // de séance, donc le retour d'Android les ferme sans qu'on l'écrive.
+
+  function piedFeuille(cible, boutons) {
+    var pied = el('div', 'feuille-pied');
+    boutons.forEach(function (b) {
+      if (!b) return;
+      var n = el('button', b.classe, b.texte);
+      n.type = 'button';
+      n.addEventListener('click', b.surClic);
+      pied.appendChild(n);
+    });
+    cible.appendChild(pied);
+    return pied;
+  }
+
+  function teteFeuille(cible, titre, sujet, aide) {
+    var t = el('div', 'feuille-t', titre);
+    if (sujet) t.appendChild(el('em', '', sujet));
+    cible.appendChild(t);
+    if (aide) cible.appendChild(el('p', 'feuille-aide', aide));
+  }
+
+  // Une liste fermée : discipline, matériel, ancienneté, niveau, sexe, unités,
+  // séances par semaine, durée. Le choix VALIDE ET FERME — une liste fermée n'a
+  // pas de « Valider » à part, le doigt a déjà dit ce qu'il voulait.
+  function rendreFeuilleChoix(cible, vue) {
+    vider(cible);
+    teteFeuille(cible, vue.titre, null, vue.aide);
+    var menu = el('div', 'feuille-menu choix');
+    (vue.options || []).forEach(function (o) {
+      var b = el('button', o.cle === vue.valeur ? 'choisi' : '', '');
+      b.type = 'button';
+      b.dataset.cle = String(o.cle);
+      var t = el('span', 'choix-t', o.libelle);
+      if (o.sous) t.appendChild(el('small', '', o.sous));
+      b.appendChild(t);
+      // La coche dit ce qui est en vigueur. Sans elle, une liste de huit durées
+      // ne dit pas laquelle est la sienne.
+      if (o.cle === vue.valeur) b.appendChild(el('span', 'choix-coche', '✓'));
+      b.addEventListener('click', function () { vue.surChoix(o.cle); });
+      menu.appendChild(b);
+    });
+    cible.appendChild(menu);
+    piedFeuille(cible, [
+      vue.surEffacer ? { classe: 'des', texte: 'Effacer', surClic: vue.surEffacer } : null,
+      { classe: 'sec', texte: 'Annuler', surClic: vue.surAnnuler }
+    ]);
+    return cible;
+  }
+
+  // Une saisie libre : taille, date de naissance, bio, pseudo, mot de passe.
+  // `type` est celui de l'input — `date` et `number` ouvrent le bon clavier sur
+  // Android, ce qu'aucun `text` ne fait.
+  function rendreFeuilleSaisie(cible, vue) {
+    vider(cible);
+    teteFeuille(cible, vue.titre, null, vue.aide);
+    var env = el('label', 'champ-texte');
+    env.appendChild(el('span', '', vue.etiquette || vue.titre));
+    var n = doc.createElement(vue.lignes ? 'textarea' : 'input');
+    if (vue.lignes) n.rows = vue.lignes;
+    else n.type = vue.type || 'text';
+    if (vue.max) n.maxLength = vue.max;
+    if (vue.inputMode) n.inputMode = vue.inputMode;
+    if (vue.placeholder) n.placeholder = vue.placeholder;
+    if (vue.autocomplete) n.autocomplete = vue.autocomplete;
+    n.value = (vue.valeur === null || vue.valeur === undefined) ? '' : String(vue.valeur);
+    env.appendChild(n);
+    cible.appendChild(env);
+    var err = el('p', 'feuille-err', '');
+    cible.appendChild(err);
+    piedFeuille(cible, [
+      vue.surEffacer ? { classe: 'des', texte: 'Effacer', surClic: vue.surEffacer } : null,
+      { classe: 'sec', texte: 'Annuler', surClic: vue.surAnnuler },
+      { classe: 'pri', texte: 'Valider', surClic: function () {
+        // ⚠️ LE REFUS RESTE DANS LA FEUILLE. Fermer sur une valeur invalide
+        // perdrait la saisie sans rien dire — et la borne qu'on double ici est
+        // un CHECK de la base, dont le refus part en 23514, code DÉFINITIF dans
+        // la file. Mieux vaut une phrase tout de suite qu'une ligne morte.
+        var verdict = vue.surValider(n.value);
+        if (verdict) { err.textContent = verdict; n.focus(); }
+      } }
+    ]);
+    return cible;
+  }
+
+  // La semaine visée. Multi-choix, donc ni validation implicite ni fermeture au
+  // premier doigt : on coche, puis on valide.
+  function rendreFeuilleJours(cible, vue) {
+    vider(cible);
+    teteFeuille(cible, 'Jours visés', null, vue.aide);
+    var choisis = {};
+    (vue.valeur || []).forEach(function (j) { choisis[j] = true; });
+    var grille = el('div', 'p-jours');
+    (vue.jours || []).forEach(function (j) {
+      var b = el('button', choisis[j.cle] ? 'on' : '', j.court);
+      b.type = 'button';
+      b.dataset.cle = j.cle;
+      b.setAttribute('aria-label', j.libelle);
+      b.setAttribute('aria-pressed', choisis[j.cle] ? 'true' : 'false');
+      b.addEventListener('click', function () {
+        choisis[j.cle] = !choisis[j.cle];
+        b.className = choisis[j.cle] ? 'on' : '';
+        b.setAttribute('aria-pressed', choisis[j.cle] ? 'true' : 'false');
+      });
+      grille.appendChild(b);
+    });
+    cible.appendChild(grille);
+    piedFeuille(cible, [
+      { classe: 'sec', texte: 'Annuler', surClic: vue.surAnnuler },
+      { classe: 'pri', texte: 'Valider', surClic: function () {
+        vue.surValider(Object.keys(choisis).filter(function (k) { return choisis[k]; }));
+      } }
+    ]);
+    return cible;
+  }
+
+  // ── Tous mes exercices (§2.4 bis) ────────────────────────────────────────
+  //
+  // Tri par dernière utilisation, recherche par nom, et un tap ouvre la page de
+  // l'exercice. Ce que Hevy met dans son profil, et qui nous manquait : chez
+  // nous la page d'exercice ne s'atteignait que depuis une séance EN COURS et
+  // depuis Progression — donc pour voir l'historique de son couché, il fallait
+  // démarrer une séance.
+  function rendreMesExercices(cible, vue) {
+    if (!cible) return;
+    vider(cible);
+    var liste = vue.exercices || [];
+    if (!liste.length) {
+      return message(cible, vue.recherche ? 'Aucun exercice à ce nom.' : 'Aucun exercice.', 'rien');
+    }
+    liste.forEach(function (x) {
+      var b = el('button', 'exo-ligne' + (x.jamais ? ' jamais' : ''));
+      b.type = 'button';
+      b.addEventListener('click', function () { vue.surChoix(x.slug); });
+      var g = el('span', 'exo-g');
+      g.appendChild(el('span', 'exo-nom', x.nom));
+      if (x.detail) g.appendChild(el('small', '', x.detail));
+      b.appendChild(g);
+      b.appendChild(el('span', 'exo-quand', x.quand || ''));
+      b.appendChild(el('span', 'p-fl', '›'));
+      cible.appendChild(b);
+    });
+    return cible;
+  }
+
+  // ── L'écran d'entrée : connexion ET inscription ──────────────────────────
+  //
+  // ⚠️ UN SEUL ÉCRAN, DEUX MODES. Le formulaire, les champs et le code sont les
+  // mêmes ; ce qui change est la phrase d'accueil, la présence du pseudo, le
+  // libellé du bouton et ce que fait la soumission. Deux sections auraient été
+  // deux formulaires à tenir d'accord — et l'inscription, c'est la connexion
+  // plus un champ.
+  function rendreEntree(vue) {
+    var inscription = vue.mode === 'inscription';
+    if (vue.phrase) {
+      vue.phrase.textContent = inscription
+        ? 'Ton profil se remplit après, à ton rythme.'
+        : 'Le carnet qui ne raconte pas d’histoires.';
+    }
+    if (vue.pseudo) vue.pseudo.hidden = !inscription;
+    if (vue.oubli) vue.oubli.hidden = inscription;
+    if (vue.aideMdp) vue.aideMdp.hidden = !inscription;
+    if (vue.bouton) vue.bouton.textContent = inscription ? 'Créer mon compte' : 'Se connecter';
+    if (vue.bascule) vue.bascule.textContent = inscription ? 'Se connecter' : 'Créer un compte';
+    if (vue.basculeAvant) {
+      vue.basculeAvant.textContent = inscription ? 'Déjà un compte ? ' : 'Pas encore de compte ? ';
+    }
+    // Les attributs d'auto-remplissage changent AVEC le mode : en connexion
+    // l'identifiant est l'e-mail, à l'inscription c'est le pseudo, et un
+    // gestionnaire de mots de passe qui reçoit `current-password` sur une
+    // création propose le mauvais mot de passe.
+    if (vue.champEmail) vue.champEmail.autocomplete = inscription ? 'email' : 'username';
+    if (vue.champMdp) vue.champMdp.autocomplete = inscription ? 'new-password' : 'current-password';
+  }
+
+
   var api = {
     rendreEtat: rendreEtat,
     rendreOnglets: rendreOnglets,
@@ -2834,6 +3121,12 @@
     rendreBloc: rendreBloc,
     rendreDetail: rendreDetail,
     rendrePageExercice: rendrePageExercice,
+    rendreProfil: rendreProfil,
+    rendreFeuilleChoix: rendreFeuilleChoix,
+    rendreFeuilleSaisie: rendreFeuilleSaisie,
+    rendreFeuilleJours: rendreFeuilleJours,
+    rendreMesExercices: rendreMesExercices,
+    rendreEntree: rendreEntree,
     message: message
   };
 })(typeof self !== 'undefined' ? self : this);

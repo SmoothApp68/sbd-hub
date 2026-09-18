@@ -22,21 +22,47 @@
 
 <main class="tel">
 
-  <!-- Connexion -->
+  <!-- Entrée : connexion ET inscription. UN SEUL formulaire, deux modes — ce qui
+       change est la phrase, le champ pseudo, le libellé du bouton et ce que fait
+       la soumission (ECRAN-PROFIL-V1 §3). Le jalon « v2 · socle » a disparu :
+       c'était le premier mot que lisait un bêta-testeur, et il ne lui disait rien. -->
   <section id="vue-connexion" hidden>
-    <header class="entete">
-      <h1>TrainHub</h1>
-      <span class="jalon">v2 · socle</span>
-    </header>
-    <form id="form-connexion" class="carte" autocomplete="on">
-      <label for="champ-email">E-mail</label>
-      <input id="champ-email" type="email" name="email" autocomplete="username"
-             inputmode="email" required>
-      <label for="champ-mdp">Mot de passe</label>
-      <input id="champ-mdp" type="password" name="password" autocomplete="current-password" required>
-      <button id="btn-connexion" type="submit" class="principal">Se connecter</button>
-      <p id="erreur-connexion" class="erreur" role="alert" aria-live="polite"></p>
-    </form>
+    <div class="entree">
+      <div class="entree-logo">
+        <div class="entree-marque">Train<b>Hub</b></div>
+        <div id="entree-phrase" class="entree-phrase"></div>
+      </div>
+      <form id="form-connexion" class="entree-form" autocomplete="on">
+        <label class="entree-champ" id="env-pseudo" hidden>
+          <span>PSEUDO</span>
+          <input id="champ-pseudo" type="text" name="username" autocomplete="username"
+                 autocapitalize="none" spellcheck="false" placeholder="jordan_c">
+          <em id="aide-pseudo" class="entree-err" aria-live="polite"></em>
+        </label>
+        <label class="entree-champ">
+          <span>E-MAIL</span>
+          <input id="champ-email" type="email" name="email" autocomplete="username"
+                 inputmode="email" placeholder="toi@exemple.fr" required>
+        </label>
+        <label class="entree-champ">
+          <span>MOT DE PASSE</span>
+          <input id="champ-mdp" type="password" name="password"
+                 autocomplete="current-password" required>
+          <em id="aide-mdp" class="entree-aide" hidden>Tu le changeras depuis ton profil.</em>
+        </label>
+        <button id="btn-oubli" type="button" class="entree-oubli">Mot de passe oublié ?</button>
+        <button id="btn-connexion" type="submit" class="principal">Se connecter</button>
+        <p id="erreur-connexion" class="erreur" role="alert" aria-live="polite"></p>
+      </form>
+      <!-- Le bandeau RASSURE, il ne bloque pas : la connexion demande le réseau,
+           mais une session déjà ouverte n'en demande aucun (chantier 22). -->
+      <div class="entree-hors">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4 4L19 7"/></svg>
+        Hors ligne, l'app s'ouvre sur ta dernière session.
+      </div>
+      <p class="entree-bas"><span id="entree-bascule-avant"></span><button
+        id="btn-bascule-entree" type="button"></button></p>
+    </div>
   </section>
 
   <!-- Liste des séances -->
@@ -48,7 +74,6 @@
       </div>
       <div class="actions">
         <button id="btn-rafraichir" type="button" class="discret">Rafraîchir</button>
-        <button id="btn-deconnexion" type="button" class="discret">Quitter</button>
       </div>
     </header>
     <!-- La barre de semaine est construite en JS : elle est IDENTIQUE dans
@@ -188,9 +213,34 @@
     <div id="liste-pesees"></div>
   </section>
 
+  <!-- Le profil. Le bandeau est en clair — il ne change qu'en contenu — et le
+       corps est construit en JS : quinze champs déclarés une fois dans app.js,
+       dessinés par `rendreProfil`. Un champ de plus ne touche pas ce fichier. -->
   <section id="vue-profil" hidden>
-    <header class="entete"><h1>Profil</h1></header>
-    <p class="a-venir">Tu régleras ici ton compte et ta façon de travailler.</p>
+    <div class="p-bandeau">
+      <div id="profil-rond" class="p-rond"></div>
+      <div class="p-ident">
+        <div id="profil-nom" class="p-nom"></div>
+        <div id="profil-sous" class="p-sous"></div>
+      </div>
+    </div>
+    <div id="profil-corps" class="p-corps"></div>
+  </section>
+
+  <!-- §2.4 bis — tous mes exercices, triés par dernière utilisation. La page
+       d'exercice ne s'atteignait que depuis une séance EN COURS et depuis
+       Progression : pour voir l'historique de son couché, il fallait démarrer
+       une séance. -->
+  <section id="vue-exercices" hidden>
+    <header class="entete">
+      <button id="btn-retour-mes-exos" type="button" class="discret">← Profil</button>
+    </header>
+    <h2 class="titre-vue">Tous mes exercices</h2>
+    <input id="champ-recherche-mes-exos" type="search" autocomplete="off"
+           class="recherche-plein" placeholder="Chercher un exercice"
+           aria-label="Chercher un exercice">
+    <div id="compte-mes-exos" class="p-compte"></div>
+    <div id="liste-mes-exos" class="exo-liste"></div>
   </section>
 
 </main>
@@ -266,6 +316,7 @@
 <script src="/js/periode.js"></script>
 <script src="/js/poids.js"></script>
 <script src="/js/calendrier.js"></script>
+<script src="/js/profil.js"></script>
 <script src="/js/routeur.js"></script>
 <script src="/js/sortie.js"></script>
 <script src="/js/cache.js"></script>

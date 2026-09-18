@@ -20,6 +20,7 @@
   var Periode = racine.THPeriode, Poids = racine.THPoids;
   var Palier = racine.THPalier, Routines = racine.THRoutines;
   var Seance = racine.THSeance, Attente = racine.THAttente;
+  var Profil = racine.THProfil;
 
   var vues = {};
   var local = { seances: [], series: [], exercices: [], pesees: [], parSeance: null };
@@ -132,6 +133,13 @@
     // un défaut plus ancien : le mode ne se refermait JAMAIS, pas même en
     // terminant une séance.
     if (ecranCourant !== nom) fermerReorganisation();
+    // ⚠️ MÊME PORTE, MÊME RAISON (§2, ch. 46). Quitter le profil vaut « vu » :
+    // sans ça, quelqu'un qui remplit tout puis touche un onglet retrouverait le
+    // bandeau de bienvenue à chaque ouverture. Les sous-vues du profil n'en
+    // sortent pas — la liste d'exercices est encore le profil.
+    if (ecranCourant === 'profil' && nom !== 'profil' && nom !== 'exercices') {
+      marquerProfilVu();
+    }
     ecranCourant = nom;
     Object.keys(vues).forEach(function (k) { vues[k].hidden = (k !== nom); });
     var onglet = Routeur.ongletDe(vue || nom);
@@ -213,6 +221,10 @@
   // Ça deviendra une vraie question au chantier suivant, quand le moteur
   // prescrira : une consigne ne doit rien lire de l'avenir.
   function recalculerEtats() {
+    // Le corpus a changé, donc les dernières dates par exercice aussi. Elles se
+    // recalculent à la prochaine ouverture de la liste, pas ici : cet écran
+    // n'est presque jamais celui qu'on regarde pendant une synchronisation.
+    datesExercices = null;
     try {
       etatsExercices = Palier.etatsExercices(Palier.seanceExercices(local.series));
     } catch (e) {
@@ -3198,10 +3210,22 @@
     // Ouverture immédiate sur ce qu'on a déjà, avant toute requête réseau.
     // On honore l'URL d'entrée : un rechargement direct sur /semaine/… ou
     // /seance/… rouvre la bonne vue, pas systématiquement la semaine courante.
+    await chargerProfilLocal();
+
     var routeInitiale = Routeur.analyser(racine.location.pathname);
-    if (routeInitiale.vue === Routeur.CONNEXION || routeInitiale.repli) {
+    if (Routeur.interditAvecSession(routeInitiale.vue) || routeInitiale.repli) {
       routeInitiale = { vue: Routeur.RACINE, params: {} };
       allerA(Routeur.RACINE, {}, true);
+    }
+
+    // ⚠️ L'ONBOARDING EST UNE RÈGLE DE ROUTAGE, PAS UN ÉCRAN (§4). Un profil
+    // jamais vu ouvre sur le profil ; tout le reste ouvre où l'URL dit. La
+    // décision se prend sur ce qu'on a EN LOCAL, donc sans attendre le réseau —
+    // et un profil inconnu (cache vide, premier démarrage hors ligne) ne
+    // déclenche rien : on n'ouvre pas un formulaire sur une supposition.
+    if (profil && profil.onboarding_completed === false) {
+      routeInitiale = { vue: Routeur.PROFIL, params: {} };
+      allerA(Routeur.PROFIL, {}, true);
     }
 
     etat = Sync.deciderEtat({ syncOk: false, aDesDonnees: local.seances.length > 0 });
@@ -3227,6 +3251,10 @@
     sortie.apresNavigation(false);
 
     await synchroniser();
+    // Le profil vient APRÈS le corpus : l'écran s'ouvre sur les séances, et une
+    // ligne de 300 octets n'a aucune raison de retarder ça. Sa version locale,
+    // elle, est déjà là.
+    await chargerProfil();
     // ⚠️ AVANT LA VIDANGE, et seulement une fois le réseau confirmé (ch. 36, D7).
     // Une séance `en_cours` restée en base ferait échouer l'upsert de la nôtre
     // en `23505` — code définitif, file morte. On la résout d'abord.
@@ -3237,16 +3265,6 @@
     // de remplir. Une synchronisation de fond ne reprend jamais la main.
     if (!vues.detail.hidden || !vues.routine.hidden || !vues.seance.hidden) return;
     rendreRoute(Routeur.analyser(racine.location.pathname));
-  }
-
-  async function soumettreConnexion(e) {
-    e.preventDefault();
-    var bouton = $('btn-connexion'), erreur = $('erreur-connexion');
-    erreur.textContent = '';
-    bouton.disabled = true; bouton.textContent = 'Connexion…';
-    try { await Auth.connecter($('champ-email').value.trim(), $('champ-mdp').value); }
-    catch (err) { erreur.textContent = texteErreur(err); }
-    finally { bouton.disabled = false; bouton.textContent = 'Se connecter'; }
   }
 
   // Déconnexion EXPLICITE : le cache de ce compte part avec elle. Une session
@@ -3262,8 +3280,14 @@
     // appartiennent quand même au compte qui part.
     routines = []; brouillon = null; etatRoutines = { code: 'jamais', message: '' };
     seance = null; attente = []; chrono = null; arreterMinuteur();
-    try { await Auth.deconnecter(); } catch (e) { montrer('connexion', Routeur.CONNEXION); }
+    // Le profil appartient au compte qui part, et son envoi en attente avec lui :
+    // rejouer une modification de profil sur le compte suivant serait pire que
+    // de la perdre.
+    profil = null; profilAEnvoyer = false; pseudoAInscrire = null;
+    datesExercices = null;
+    try { await Auth.deconnecter(); } catch (e) { /* le jeton part quand même */ }
     allerA(Routeur.CONNEXION, {}, true);
+    rendreEntree('connexion');
   }
 
   function enregistrerSW() {
@@ -3274,6 +3298,675 @@
       .catch(function (e) { console.warn('SW non enregistré :', e && e.message); });
   }
 
+
+  // ══ LE PROFIL (chantier 46 §2) ═══════════════════════════════════════════
+  //
+  // ⚠️ L'ONBOARDING, C'EST LE PROFIL (ECRAN-PROFIL-V1 §4). Pas de formulaire
+  // séparé : un compte neuf arrive sur le profil aux champs vides, marqués
+  // « à renseigner ». Même écran, même code — et c'est une RÈGLE DE ROUTAGE,
+  // pas un écran de plus.
+  //
+  // Le v1 avait un ordonnanceur d'entrée de plusieurs centaines de lignes
+  // (CLAUDE.md §9, chantier 7) pour tenir un tunnel de première visite. Ici il
+  // n'y a pas de tunnel : il y a un écran, qu'on ouvre d'abord une fois, et
+  // dont on peut sortir tout de suite.
+
+  var profil = null;            // la ligne `profiles`, telle qu'on la connaît
+  var profilAEnvoyer = false;   // une modification faite hors réseau attend
+  var pseudoAInscrire = null;   // le pseudo saisi à l'inscription, pas encore posé
+  var CLE_PROFIL = 'profil';
+  var CLE_PROFIL_ENVOI = 'profil-a-envoyer';
+
+  // ⚠️ LE CACHE D'ABORD, LE RÉSEAU ENSUITE, ET JAMAIS D'ATTENTE. Le profil
+  // s'affiche hors ligne comme le reste : il tient dans le magasin `meta`, qui
+  // existe depuis la version 1 du cache — aucune montée de version ici.
+  async function chargerProfilLocal() {
+    try {
+      var v = await Cache.lireMeta(CLE_PROFIL);
+      if (v) profil = v;
+      profilAEnvoyer = !!(await Cache.lireMeta(CLE_PROFIL_ENVOI));
+    } catch (e) { /* cache indisponible : on repartira du réseau */ }
+  }
+
+  async function sauverProfilLocal() {
+    try {
+      await Cache.ecrireMeta(CLE_PROFIL, profil);
+      await Cache.ecrireMeta(CLE_PROFIL_ENVOI, profilAEnvoyer);
+    } catch (e) { /* rien à faire : la copie réseau reste la référence */ }
+  }
+
+  function userId() {
+    return (sessionActive && sessionActive.user && sessionActive.user.id) || null;
+  }
+
+  // Le profil distant. S'il n'existe pas, ON LE CRÉE — relevé sur `pg_trigger` :
+  // AUCUN trigger ne pose la ligne à la création du compte, donc un compte tout
+  // neuf n'a pas de profil et personne ne le posera à notre place.
+  async function chargerProfil() {
+    var id = userId();
+    if (!id) return;
+    var distant = null;
+    try { distant = await Donnees.monProfil(id); }
+    catch (e) { return; }   // hors réseau : ce qu'on a en cache fait l'affaire
+
+    if (!distant) {
+      try {
+        distant = await Donnees.enregistrerProfil(id, Profil.champsEcrits({
+          username: pseudoAInscrire || null,
+          onboarding_completed: false
+        }));
+      } catch (e) { return; }
+    }
+    pseudoAInscrire = null;
+    // Une modification locale non envoyée PRIME sur ce que le serveur rend :
+    // sinon un aller-retour hors réseau la perdrait en silence, et c'est la
+    // famille de défauts que le chantier 32 a coûté.
+    if (profilAEnvoyer) { await envoyerProfil(); return; }
+    profil = distant;
+    await sauverProfilLocal();
+    if (!vues.profil.hidden) rendreProfilEcran();
+  }
+
+  async function envoyerProfil() {
+    var id = userId();
+    if (!id || !profil) return;
+    try {
+      var rendu = await Donnees.enregistrerProfil(id, Profil.champsEcrits(profil));
+      profil = rendu;
+      profilAEnvoyer = false;
+      await sauverProfilLocal();
+      if (!vues.profil.hidden) rendreProfilEcran();
+    } catch (e) {
+      // Elle repartira : à la prochaine synchronisation, au prochain démarrage,
+      // ou au retour du réseau. Rien n'est perdu — la valeur est en local et
+      // l'intention est sur disque.
+      profilAEnvoyer = true;
+      await sauverProfilLocal();
+    }
+  }
+
+  // Le seul chemin d'écriture. Local d'abord — l'écran dit la vérité tout de
+  // suite et hors ligne — puis le réseau.
+  async function ecrireProfil(champs) {
+    profil = Object.assign({}, profil || {}, Profil.champsEcrits(champs));
+    profilAEnvoyer = true;
+    await sauverProfilLocal();
+    rendreProfilEcran();
+    await envoyerProfil();
+  }
+
+  // ── La déclaration des quinze champs ─────────────────────────────────────
+  //
+  // ⚠️ UNE TABLE, PAS QUINZE FONCTIONS. Chaque entrée dit sa colonne, sa
+  // feuille et comment se lit sa valeur ; `rendreProfil` ne connaît aucune de
+  // ces colonnes et les feuilles n'en connaissent qu'une à la fois. Ajouter un
+  // champ, c'est une ligne ici — pas une ligne dans le rendu, une dans le
+  // routeur et une dans le HTML.
+  function listeDe(cle) {
+    if (cle === 'mode_entrainement') return Profil.DISCIPLINES;
+    if (cle === 'materiel') return Profil.MATERIELS;
+    if (cle === 'anciennete') return Profil.ANCIENNETES;
+    if (cle === 'niveau_declare') return Profil.NIVEAUX;
+    if (cle === 'sexe') return Profil.SEXES;
+    if (cle === 'unites') return Profil.UNITES;
+    return [];
+  }
+
+  function valeurProfil(cle) { return profil ? profil[cle] : null; }
+
+  // Les listes fermées. `effacable` dit si la colonne accepte NULL : `sexe`,
+  // `mode_entrainement` et `unites` sont NOT NULL en base — leur proposer
+  // « Effacer » serait promettre une écriture que Postgres refuserait en 23502.
+  var CHOIX = {
+    mode_entrainement: { titre: 'Discipline', effacable: false,
+      aide: 'Elle décide de ce que le moteur cherchera à faire progresser.' },
+    materiel: { titre: 'Matériel', effacable: true,
+      aide: 'Il décide quels exercices peuvent être proposés.' },
+    anciennete: { titre: 'Entraînement régulier', effacable: true,
+      aide: 'Depuis quand tu t’entraînes RÉGULIÈREMENT — pas depuis ta première séance. On peut s’entraîner depuis cinq ans et rester débutant.' },
+    niveau_declare: { titre: 'Niveau déclaré', effacable: true,
+      aide: 'Ce que tu en dis. Rien ne le vérifie et rien ne le contredit.' },
+    sexe: { titre: 'Sexe', effacable: false,
+      aide: 'Entrée du référentiel de force. « Non précisé » est une réponse, pas un trou.' },
+    unites: { titre: 'Unités', effacable: false, aide: null }
+  };
+
+  function ouvrirChoixProfil(cle) {
+    var def = CHOIX[cle];
+    feuilleProfil = function (cible) {
+      Rendu.rendreFeuilleChoix(cible, {
+        titre: def.titre,
+        aide: def.aide,
+        options: listeDe(cle),
+        valeur: valeurProfil(cle),
+        surChoix: function (v) { fermerVoile(); ecrireProfil(defObjet(cle, v)); },
+        surEffacer: def.effacable
+          ? function () { fermerVoile(); ecrireProfil(defObjet(cle, null)); } : null,
+        surAnnuler: fermerVoile
+      });
+    };
+    ouvrirFeuilleProfil();
+  }
+
+  // Les nombres à liste fermée : séances par semaine (1 à 14, `profiles_rythme_borne`)
+  // et durée visée. Une molette serait plus jolie ; une liste est plus honnête —
+  // on voit les huit valeurs d'un coup et on sait ce qu'on choisit.
+  function optionsNombre(valeurs, suffixe) {
+    return valeurs.map(function (v) { return { cle: v, libelle: v + suffixe }; });
+  }
+
+  function ouvrirRythmeProfil(cle) {
+    var seances = cle === 'seances_par_semaine';
+    var valeurs = [];
+    if (seances) {
+      for (var i = Profil.SEANCES_MIN; i <= Profil.SEANCES_MAX; i++) valeurs.push(i);
+    } else valeurs = Profil.DUREES;
+    feuilleProfil = function (cible) {
+      Rendu.rendreFeuilleChoix(cible, {
+        titre: seances ? 'Séances par semaine' : 'Durée d’une séance',
+        aide: seances
+          ? 'Ce que tu VISES, pas ce que tu fais — le compte réel, lui, se lit dans tes séances.'
+          : 'Une durée visée, pour un générateur de programme qui arrive au chantier 5.',
+        options: optionsNombre(valeurs, seances ? '' : ' min'),
+        valeur: valeurProfil(cle),
+        surChoix: function (v) { fermerVoile(); ecrireProfil(defObjet(cle, v)); },
+        surEffacer: function () { fermerVoile(); ecrireProfil(defObjet(cle, null)); },
+        surAnnuler: fermerVoile
+      });
+    };
+    ouvrirFeuilleProfil();
+  }
+
+  function ouvrirJoursProfil() {
+    feuilleProfil = function (cible) {
+      Rendu.rendreFeuilleJours(cible, {
+        jours: Profil.JOURS,
+        valeur: Profil.joursValides(valeurProfil('jours_vises')),
+        aide: 'Les jours où tu comptes t’entraîner. Aucune alarme si tu t’en écartes.',
+        surValider: function (liste) {
+          fermerVoile();
+          var propres = Profil.joursValides(liste);
+          ecrireProfil({ jours_vises: propres.length ? propres : null });
+        },
+        surAnnuler: fermerVoile
+      });
+    };
+    ouvrirFeuilleProfil();
+  }
+
+  // Les saisies libres. Chacune rend une PHRASE quand elle refuse — jamais un
+  // silence, jamais une fermeture. La borne doublée ici est un CHECK de la base.
+  var SAISIES = {
+    taille_cm: {
+      titre: 'Taille', type: 'text', inputMode: 'numeric', etiquette: 'En centimètres',
+      aide: 'Entrée du référentiel de force, avec l’âge, le sexe et le poids.',
+      lire: function (p) { return p.taille_cm; },
+      valider: function (v) {
+        if (!String(v).trim()) return { champs: { taille_cm: null } };
+        var n = Profil.tailleValide(String(v).replace(',', '.'));
+        if (n === null) {
+          return { erreur: 'Une taille entre ' + Profil.TAILLE_MIN + ' et ' +
+                           Profil.TAILLE_MAX + ' cm.' };
+        }
+        return { champs: { taille_cm: n } };
+      }
+    },
+    date_naissance: {
+      titre: 'Date de naissance', type: 'date', etiquette: 'Jour de naissance',
+      aide: 'L’âge change les bornes du référentiel. Il n’est jamais affiché à personne d’autre.',
+      lire: function (p) { return p.date_naissance; },
+      valider: function (v) {
+        if (!String(v).trim()) return { champs: { date_naissance: null } };
+        var d = Profil.naissanceValide(String(v).trim(), new Date());
+        if (!d) return { erreur: 'Une date de naissance plausible.' };
+        return { champs: { date_naissance: d } };
+      }
+    },
+    bio: {
+      titre: 'Bio', lignes: 3, max: 280, etiquette: 'Deux lignes sur toi',
+      placeholder: 'Powerbuilding, 3 ans',
+      aide: 'Elle ne sera visible que le jour où le social existera, et seulement si tu l’ouvres.',
+      lire: function (p) { return p.bio; },
+      valider: function (v) { return { champs: { bio: String(v).trim() } }; }
+    },
+    username: {
+      titre: 'Pseudo', type: 'text', etiquette: 'Ton pseudo',
+      aide: 'Il sert d’identifiant lisible partout. Ton e-mail, lui, reste privé.',
+      lire: function (p) { return p.username; },
+      valider: function (v) {
+        var verdict = Profil.verdictPseudo(v, null, {});
+        if (verdict.code === 'vide') return { erreur: 'Un pseudo, même court.' };
+        if (verdict.message) return { erreur: verdict.message };
+        return { champs: { username: verdict.pseudo } };
+      }
+    }
+  };
+
+  function ouvrirSaisieProfil(cle) {
+    var def = SAISIES[cle];
+    feuilleProfil = function (cible) {
+      Rendu.rendreFeuilleSaisie(cible, {
+        titre: def.titre, aide: def.aide, etiquette: def.etiquette,
+        type: def.type, inputMode: def.inputMode, lignes: def.lignes,
+        max: def.max, placeholder: def.placeholder,
+        valeur: def.lire(profil || {}),
+        surValider: function (v) {
+          var r = def.valider(v);
+          if (r.erreur) return r.erreur;
+          fermerVoile();
+          ecrireProfil(r.champs);
+          return null;
+        },
+        surAnnuler: fermerVoile
+      });
+    };
+    ouvrirFeuilleProfil();
+  }
+
+  // Promis à l'inscription : « Tu le changeras depuis ton profil. » C'est aussi
+  // là qu'atterrit un lien « mot de passe oublié » — la session de récupération
+  // est ouverte, il ne reste qu'à poser le nouveau mot de passe.
+  function ouvrirMotDePasseProfil() {
+    feuilleProfil = function (cible) {
+      Rendu.rendreFeuilleSaisie(cible, {
+        titre: 'Mot de passe', etiquette: 'Nouveau mot de passe',
+        type: 'password', autocomplete: 'new-password',
+        aide: Profil.MDP_MIN + ' caractères minimum.',
+        valeur: '',
+        surValider: function (v) {
+          if (!Profil.mdpValide(v)) return Profil.MDP_MIN + ' caractères minimum.';
+          fermerVoile();
+          Auth.changerMotDePasse(v).then(function () {
+            Rendu.message($('profil-corps'), '', 'rien');
+            rendreProfilEcran();
+          }).catch(function (e) {
+            rendreProfilEcran();
+            var err = Rendu.el('p', 'feuille-err', texteErreur(e));
+            $('profil-corps').insertBefore(err, $('profil-corps').firstChild);
+          });
+          return null;
+        },
+        surAnnuler: fermerVoile
+      });
+    };
+    ouvrirFeuilleProfil();
+  }
+
+  // ⚠️ LA MÊME FEUILLE, LE MÊME VOILE que la séance. Le retour d'Android la
+  // ferme sans qu'on l'écrive, et le mode Réorganiser ne la traverse pas.
+  var feuilleProfil = null;
+
+  function ouvrirFeuilleProfil() {
+    if (!feuilleProfil) return;
+    feuilleProfil($('feuille-contenu'));
+    ouvrirVoile($('feuille-seance'), function () { feuilleProfil = null; });
+  }
+
+  // ── L'écran ──────────────────────────────────────────────────────────────
+
+  function nombreGroupe(n) {
+    // Espace INSÉCABLE FIN comme séparateur de milliers : c'est la typographie
+    // française, et un espace ordinaire casserait « 28 404 » en bout de ligne.
+    return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  }
+
+  function ligneChoix(cle, libelle, sous) {
+    return { libelle: libelle, sous: sous,
+      valeur: Profil.libelleDe(cle === 'mode_entrainement'
+        ? Profil.DISCIPLINES_CONNUES : listeDe(cle), valeurProfil(cle)),
+      surChoix: function () { ouvrirChoixProfil(cle); } };
+  }
+
+  function rendreProfilEcran() {
+    montrer('profil', Routeur.PROFIL);
+    var p = profil || {};
+    var resumePoids = Poids.resume(local.pesees);
+    var stats = Profil.statsDe(local.seances, local.series, new Date());
+
+    $('profil-rond').textContent = Profil.initiale(p.username);
+    $('profil-nom').textContent = p.username || 'Ton profil';
+    $('profil-sous').textContent =
+      Profil.sousTitre(p, resumePoids ? resumePoids.poids : null, new Date());
+
+    var exos = compterExercices();
+
+    Rendu.rendreProfil($('profil-corps'), {
+      // « Contournable, obligatoirement » : le bandeau ne s'affiche QUE tant que
+      // le profil n'a pas été vu une première fois, et il porte sa propre sortie.
+      accueil: p.onboarding_completed === false
+        ? { surPlusTard: function () { marquerProfilVu(); afficherSaisie(); } } : null,
+      kpis: [
+        { valeur: nombreGroupe(stats.seances), libelle: 'séances' },
+        { valeur: nombreGroupe(stats.series), libelle: 'séries' },
+        { valeur: Profil.libelleAnciennete(stats.annees), libelle: 'd’historique' }
+      ],
+      sections: [
+        { titre: 'CE QUE JE FAIS', lignes: [
+          ligneChoix('mode_entrainement', 'Discipline'),
+          ligneChoix('materiel', 'Matériel', 'Décide des exercices proposés')
+        ] },
+        { titre: 'POURQUOI',
+          segment: {
+            options: Profil.INTENTIONS,
+            valeur: p.intention || 'progresser',
+            surChoix: function (v) { ecrireProfil({ intention: v }); }
+          },
+          note: { fort: 'Le moteur propose des charges',
+                  reste: 'en mode Progresser. En Entretenir, il se tait sur la ' +
+                         'charge et garde le repos et la structure.' } },
+        { titre: 'DEPUIS QUAND', lignes: [
+          ligneChoix('anciennete', 'Entraînement régulier'),
+          ligneChoix('niveau_declare', 'Niveau déclaré')
+        ] },
+        { titre: 'MES EXERCICES', lignes: [
+          { libelle: 'Tous mes exercices', sansValeur: true,
+            sous: exos.total + ' au catalogue · ' + exos.faits + ' déjà faits',
+            surChoix: function () { allerA(Routeur.EXERCICES, {}); rendreMesExercices(); } }
+        ] },
+        { titre: 'MON CORPS', lignes: [
+          // Le poids n'est pas un champ du profil : il a 116 pesées derrière lui
+          // et son propre écran. La ligne MÈNE, elle ne saisit pas.
+          { libelle: 'Poids',
+            sous: resumePoids ? resumePoids.nb + ' pesée' + (resumePoids.nb > 1 ? 's' : '') : null,
+            valeur: resumePoids ? String(resumePoids.poids).replace('.', ',') + ' kg' : null,
+            surChoix: function () { allerA(Routeur.POIDS, {}); rendrePoids(); } },
+          { libelle: 'Taille', valeur: p.taille_cm ? p.taille_cm + ' cm' : null,
+            surChoix: function () { ouvrirSaisieProfil('taille_cm'); } },
+          { libelle: 'Date de naissance',
+            valeur: p.date_naissance ? Rendu.dateCourte(p.date_naissance) : null,
+            surChoix: function () { ouvrirSaisieProfil('date_naissance'); } },
+          ligneChoix('sexe', 'Sexe')
+        ] },
+        { titre: 'RYTHME VISÉ', lignes: [
+          { libelle: 'Séances par semaine', valeur: p.seances_par_semaine || null,
+            surChoix: function () { ouvrirRythmeProfil('seances_par_semaine'); } },
+          { libelle: 'Jours', valeur: Profil.libelleJours(p.jours_vises),
+            surChoix: ouvrirJoursProfil },
+          { libelle: 'Durée d’une séance',
+            valeur: p.duree_seance_min ? p.duree_seance_min + ' min' : null,
+            surChoix: function () { ouvrirRythmeProfil('duree_seance_min'); } }
+        ] },
+        { titre: 'L’APP', lignes: [
+          ligneChoix('unites', 'Unités'),
+          { libelle: 'Pseudo', valeur: p.username || null,
+            surChoix: function () { ouvrirSaisieProfil('username'); } },
+          { libelle: 'Bio', valeur: p.bio || null,
+            surChoix: function () { ouvrirSaisieProfil('bio'); } },
+          // L'e-mail se LIT, il ne se change pas d'ici : le changer demande une
+          // confirmation sur les deux adresses, et c'est un geste à part entière.
+          { libelle: 'E-mail de connexion',
+            valeur: (sessionActive && sessionActive.user && sessionActive.user.email) || null },
+          { libelle: 'Mot de passe', valeur: '••••••••', surChoix: ouvrirMotDePasseProfil }
+        ] }
+      ],
+      surQuitter: demanderDeconnexion,
+      surSupprimer: demanderSuppressionCompte
+    });
+  }
+
+  // Le profil a été VU : le bandeau d'accueil ne revient plus. C'est le seul
+  // effet de « première connexion » — pas un drapeau qui gouvernerait un tunnel.
+  function marquerProfilVu() {
+    if (!profil || profil.onboarding_completed !== false) return;
+    ecrireProfil({ onboarding_completed: true });
+  }
+
+  // ── Quitter, et supprimer ────────────────────────────────────────────────
+
+  function demanderDeconnexion() {
+    feuilleProfil = function (cible) {
+      Rendu.rendreFeuilleConfirmer(cible, {
+        titre: 'Quitter',
+        aide: 'Tes données restent en ligne. Elles reviendront à la prochaine ' +
+              'connexion — mais cet appareil les oublie, donc il te faudra du réseau.',
+        libelle: 'Quitter',
+        surConfirmer: function () { fermerVoile(); deconnecter(); },
+        surAnnuler: fermerVoile
+      });
+    };
+    ouvrirFeuilleProfil();
+  }
+
+  // ⚠️ LA CONFIRMATION DIT CE QUI PART, en chiffres réels. « Es-tu sûr ? » ne
+  // dit rien ; « 1 221 séances et 28 103 séries » se comprend sans réfléchir.
+  function demanderSuppressionCompte() {
+    var stats = Profil.statsDe(local.seances, local.series, new Date());
+    feuilleProfil = function (cible) {
+      Rendu.rendreFeuilleConfirmer(cible, {
+        titre: 'Supprimer mon compte',
+        aide: 'Partent définitivement : ton profil, tes ' +
+              nombreGroupe(stats.seances) + ' séances et leurs ' +
+              nombreGroupe(stats.series) + ' séries, tes ' +
+              (local.pesees || []).length + ' pesées, tes routines. ' +
+              'Rien n’est conservé et rien ne se récupère.',
+        libelle: 'Supprimer définitivement',
+        danger: true,
+        surConfirmer: function () { fermerVoile(); supprimerCompte(); },
+        surAnnuler: fermerVoile
+      });
+    };
+    ouvrirFeuilleProfil();
+  }
+
+  async function supprimerCompte() {
+    var id = userId();
+    if (!id) return;
+    Rendu.message($('profil-corps'), 'Suppression en cours…', 'rien');
+    try {
+      // La fonction de base sait ce qui part — on ne réécrit pas une suppression
+      // en plusieurs DELETE côté client : c'est ainsi qu'on en oublie un.
+      await Donnees.supprimerCompte(id);
+    } catch (e) {
+      rendreProfilEcran();
+      $('profil-corps').insertBefore(
+        Rendu.el('p', 'feuille-err', 'Suppression impossible : ' + texteErreur(e)),
+        $('profil-corps').firstChild);
+      return;
+    }
+    // Le local part avec le distant. `deconnecter` vide déjà tout le cache,
+    // magasin `meta` compris — donc le profil, la file et le brouillon.
+    profil = null; profilAEnvoyer = false;
+    await deconnecter();
+  }
+
+  // ── Tous mes exercices (§2.4 bis) ────────────────────────────────────────
+  //
+  // Le tri se fait sur la DERNIÈRE séance où l'exercice apparaît. Un balayage
+  // des 28 000 séries, fait UNE FOIS à l'ouverture de l'écran et gardé : le
+  // refaire à chaque frappe de la recherche rendrait le champ poussif.
+  var datesExercices = null;
+
+  function calculerDatesExercices() {
+    var parSeance = {};
+    (local.seances || []).forEach(function (s) {
+      if (s && s.id && s.debut) parSeance[s.id] = s.debut;
+    });
+    var dates = {};
+    (local.series || []).forEach(function (serie) {
+      if (!serie || !serie.exercise_slug) return;
+      var d = parSeance[serie.session_id];
+      if (!d) return;
+      if (!dates[serie.exercise_slug] || d > dates[serie.exercise_slug]) {
+        dates[serie.exercise_slug] = d;
+      }
+    });
+    datesExercices = dates;
+    return dates;
+  }
+
+  function compterExercices() {
+    var dates = datesExercices || calculerDatesExercices();
+    return { total: (local.exercices || []).length, faits: Object.keys(dates).length };
+  }
+
+  function rendreMesExercices() {
+    montrer('exercices', Routeur.EXERCICES);
+    var dates = calculerDatesExercices();
+    var recherche = ($('champ-recherche-mes-exos').value || '').trim();
+
+    // ⚠️ LA RECHERCHE DU CATALOGUE, PAS UNE SECONDE. `Routines.chercher` replie
+    // déjà les accents des deux côtés et exige tous les mots — « couche halt »
+    // trouve « Développé Couché Haltères ». En réécrire une ici, c'était deux
+    // recherches à tenir d'accord (CADRAGE-V2 §2 undecies).
+    //
+    // Sa limite par défaut est de 30, et son tri est alphabétique : les deux
+    // sont bons pour un champ de saisie qui cherche UN exercice, faux pour une
+    // liste qui les montre TOUS. On lui demande donc tout, et on trie ici.
+    var SANS_LIMITE = 100000;
+    var lignes = Routines.chercher(local.exercices, recherche, SANS_LIMITE)
+      .map(function (x) {
+        return { slug: x.slug, nom: x.nom || x.slug, quandISO: dates[x.slug] || null };
+      });
+
+    // Les exercices FAITS d'abord, du plus récent au plus ancien ; les autres
+    // ensuite, par ordre alphabétique. Un catalogue de 237 entrées trié
+    // alphabétiquement répondrait à « quels exercices existent » — la question
+    // ici est « qu'est-ce que je fais ».
+    lignes.sort(function (a, b) {
+      if (a.quandISO && b.quandISO) return a.quandISO < b.quandISO ? 1 : -1;
+      if (a.quandISO) return -1;
+      if (b.quandISO) return 1;
+      return a.nom.localeCompare(b.nom, 'fr');
+    });
+
+    var faits = 0;
+    lignes.forEach(function (l) { if (l.quandISO) faits++; });
+    $('compte-mes-exos').textContent = lignes.length + ' exercice' +
+      (lignes.length > 1 ? 's' : '') + ' · ' + faits + ' déjà fait' +
+      (faits > 1 ? 's' : '');
+
+    Rendu.rendreMesExercices($('liste-mes-exos'), {
+      recherche: recherche,
+      exercices: lignes.map(function (l) {
+        return { slug: l.slug, nom: l.nom, jamais: !l.quandISO,
+          quand: l.quandISO ? Rendu.jour(new Date(l.quandISO)) : 'jamais fait' };
+      }),
+      surChoix: function (slug) { afficherExercice(slug); }
+    });
+  }
+
+  // ══ L'ENTRÉE : CONNEXION ET INSCRIPTION (§2 ter) ═════════════════════════
+
+  var modeEntree = 'connexion';
+  var sondePseudo = null;       // le minuteur de la vérification à la frappe
+  var pseudoPris = null;        // true / false / null — null = « on ne sait pas »
+
+  function champsEntree() {
+    return {
+      phrase: $('entree-phrase'), pseudo: $('env-pseudo'), oubli: $('btn-oubli'),
+      aideMdp: $('aide-mdp'), bouton: $('btn-connexion'),
+      bascule: $('btn-bascule-entree'), basculeAvant: $('entree-bascule-avant'),
+      champEmail: $('champ-email'), champMdp: $('champ-mdp')
+    };
+  }
+
+  // ⚠️ REMISE À ZÉRO À CHAQUE OUVERTURE. Sans elle, l'ancienne erreur et
+  // l'ancien mot de passe restaient dans le formulaire après un « Quitter » —
+  // défaut relevé à l'état des lieux du 18/09.
+  function rendreEntree(mode) {
+    modeEntree = mode || 'connexion';
+    montrer('connexion', modeEntree === 'inscription'
+      ? Routeur.INSCRIPTION : Routeur.CONNEXION);
+    $('erreur-connexion').textContent = '';
+    $('aide-pseudo').textContent = '';
+    $('champ-mdp').value = '';
+    pseudoPris = null;
+    if (sondePseudo) { racine.clearTimeout(sondePseudo); sondePseudo = null; }
+    var c = champsEntree();
+    c.mode = modeEntree;
+    Rendu.rendreEntree(c);
+    majBoutonEntree();
+  }
+
+  function etatEntree() {
+    return {
+      pseudo: $('champ-pseudo').value,
+      email: $('champ-email').value.trim(),
+      mdp: $('champ-mdp').value,
+      pseudoPris: pseudoPris
+    };
+  }
+
+  function majBoutonEntree() {
+    var b = $('btn-connexion');
+    if (modeEntree !== 'inscription') { b.disabled = false; return; }
+    b.disabled = !Profil.inscriptionPrete(etatEntree());
+  }
+
+  // Vérifié À LA FRAPPE, et le refus PROPOSE DEUX ALTERNATIVES (§3.1) — sinon
+  // on tâtonne. Les alternatives se dérivent de l'e-mail déjà saisi : « mel »
+  // avec melodie.dupont@… donne « melodie » et « mel_d ».
+  function surFrappePseudo() {
+    var e = etatEntree();
+    pseudoPris = null;
+    var verdict = Profil.verdictPseudo(e.pseudo, null, e);
+    $('aide-pseudo').textContent = verdict.message || '';
+    $('aide-pseudo').className = 'entree-err';
+    majBoutonEntree();
+    if (sondePseudo) racine.clearTimeout(sondePseudo);
+    if (verdict.code !== 'inconnu' && verdict.code !== 'libre') return;
+    // 400 ms : assez pour ne pas interroger à chaque lettre, assez peu pour que
+    // la réponse arrive avant le champ suivant.
+    sondePseudo = racine.setTimeout(function () { sonderPseudo(verdict.pseudo); }, 400);
+  }
+
+  async function sonderPseudo(nom) {
+    var reponse = await Donnees.pseudoPris(nom);
+    // La frappe a continué pendant la requête : sa réponse ne parle plus du
+    // champ. On la jette plutôt que d'afficher un verdict périmé.
+    if (Profil.normaliserPseudo($('champ-pseudo').value) !== nom) return;
+    pseudoPris = reponse;
+    var verdict = Profil.verdictPseudo(nom, reponse, etatEntree());
+    $('aide-pseudo').textContent = verdict.message || '';
+    majBoutonEntree();
+  }
+
+  async function soumettreEntree(e) {
+    e.preventDefault();
+    var bouton = $('btn-connexion'), erreur = $('erreur-connexion');
+    var inscription = modeEntree === 'inscription';
+    erreur.textContent = '';
+    erreur.className = 'erreur';
+    bouton.disabled = true;
+    bouton.textContent = inscription ? 'Création…' : 'Connexion…';
+    try {
+      if (inscription) {
+        var etat = etatEntree();
+        // ⚠️ RETENU AVANT L'APPEL. `onAuthStateChange` peut partir AVANT que
+        // `signUp` ne rende la main : si le pseudo n'était posé qu'après, le
+        // chargement du profil créerait la ligne sans lui.
+        pseudoAInscrire = Profil.normaliserPseudo(etat.pseudo);
+        var r = await Auth.inscrire(etat.email, etat.mdp);
+        if (!r.session) {
+          erreur.className = 'erreur ok';
+          erreur.textContent = 'Compte créé. Confirme ton e-mail, puis connecte-toi.';
+        }
+      } else {
+        await Auth.connecter($('champ-email').value.trim(), $('champ-mdp').value);
+      }
+    } catch (err) {
+      pseudoAInscrire = null;
+      erreur.textContent = texteErreur(err);
+    } finally {
+      bouton.textContent = inscription ? 'Créer mon compte' : 'Se connecter';
+      majBoutonEntree();
+    }
+  }
+
+  async function demanderReinitialisation() {
+    var email = $('champ-email').value.trim(), erreur = $('erreur-connexion');
+    if (!email) {
+      erreur.className = 'erreur';
+      erreur.textContent = 'Saisis d’abord ton e-mail.';
+      return;
+    }
+    try { await Auth.reinitialiser(email, racine.location.origin + '/profil'); }
+    catch (err) { erreur.className = 'erreur'; erreur.textContent = texteErreur(err); return; }
+    // La même phrase que l'adresse existe ou non : dire « ce compte n'existe
+    // pas » révélerait qui est inscrit à qui demande.
+    erreur.className = 'erreur ok';
+    erreur.textContent = 'Si un compte existe pour cette adresse, le lien vient de partir.';
+  }
 
   // ── Routage ──────────────────────────────────────────────────────────────
   //
@@ -3303,10 +3996,10 @@
 
   // Un onglet sans contenu n'a rien à rendre : sa section est écrite en clair
   // dans index.html. Montrer la vue suffit.
-  // Saisie n'y figure plus : elle a un contenu depuis le chantier 21, et donc
-  // un rendu. Profil est le dernier onglet encore écrit en clair dans le HTML.
+  // Il n'en reste AUCUN : Saisie a un contenu depuis le chantier 21, Profil
+  // depuis le chantier 46. La table survit pour Progression, qui rend son
+  // sommaire mais dont la coquille est bien en clair.
   var VUES_ONGLET = {};
-  VUES_ONGLET[Routeur.PROFIL] = 'profil';
   VUES_ONGLET[Routeur.PROGRESSION] = 'progression';
 
   function rendreRoute(route) {
@@ -3314,7 +4007,10 @@
     // Sans session, l'URL est corrigée en même temps que l'écran : laisser
     // /semaine/… dans la barre d'adresse rejouerait le défaut au rechargement.
     if (cible.redirigeDepuis) allerA(Routeur.CONNEXION, {}, true);
-    if (cible.vue === Routeur.CONNEXION) return montrer('connexion', Routeur.CONNEXION);
+    if (cible.vue === Routeur.CONNEXION) return rendreEntree('connexion');
+    if (cible.vue === Routeur.INSCRIPTION) return rendreEntree('inscription');
+    if (cible.vue === Routeur.PROFIL) return rendreProfilEcran();
+    if (cible.vue === Routeur.EXERCICES) return rendreMesExercices();
     if (cible.vue === Routeur.SAISIE) { rendreSaisie(); return chargerSiBesoin(); }
     if (cible.vue === Routeur.ROUTINE) return prepererEditeur(cible.params.id || null);
     if (cible.vue === Routeur.PROGRESSION) return rendreProgression();
@@ -3342,7 +4038,8 @@
       connexion: $('vue-connexion'), liste: $('vue-liste'), detail: $('vue-detail'),
       saisie: $('vue-saisie'), routine: $('vue-routine'), seance: $('vue-seance'),
       progression: $('vue-progression'), exercice: $('vue-exercice'),
-      volume: $('vue-volume'), poids: $('vue-poids'), profil: $('vue-profil')
+      volume: $('vue-volume'), poids: $('vue-poids'), profil: $('vue-profil'),
+      exercices: $('vue-exercices')
     };
     sortie = Sortie.creer({
       history: racine.history,
@@ -3352,8 +4049,25 @@
       gardes: function () { return gardes; },
       rendre: rendreRoute
     });
-    $('form-connexion').addEventListener('submit', soumettreConnexion);
-    $('btn-deconnexion').addEventListener('click', deconnecter);
+    $('form-connexion').addEventListener('submit', soumettreEntree);
+    // « Quitter » a quitté l'en-tête des séances : sa place est le profil, avec
+    // « Supprimer mon compte » dessous (§2.5). Les deux boutons sont posés par
+    // `rendreProfil`, avec leur propre confirmation.
+    $('btn-bascule-entree').addEventListener('click', function () {
+      var vers = modeEntree === 'inscription' ? Routeur.CONNEXION : Routeur.INSCRIPTION;
+      allerA(vers, {});
+      rendreEntree(vers);
+    });
+    $('btn-oubli').addEventListener('click', demanderReinitialisation);
+    $('champ-pseudo').addEventListener('input', surFrappePseudo);
+    ['champ-email', 'champ-mdp'].forEach(function (id) {
+      $(id).addEventListener('input', majBoutonEntree);
+    });
+    $('btn-retour-mes-exos').addEventListener('click', function () {
+      allerA(Routeur.PROFIL, {});
+      rendreProfilEcran();
+    });
+    $('champ-recherche-mes-exos').addEventListener('input', rendreMesExercices);
     $('btn-retour').addEventListener('click', function () { afficherSemaine(); });
     // ⚠️ LE RETOUR DE LA PAGE D'EXERCICE REMONTE L'HISTORIQUE, il ne choisit pas
     // une destination. Elle s'atteint depuis trois écrans : décider pour elle
@@ -3379,8 +4093,9 @@
     $('btn-fermer-feuille').addEventListener('click', fermerVoile);
     $('feuille-seance').addEventListener('click', function (e) { if (e.target === this) fermerVoile(); });
 
-    // Le réseau revient : on vide la file sans rien demander à personne.
-    racine.addEventListener('online', function () { vidanger(); });
+    // Le réseau revient : on vide la file sans rien demander à personne — et le
+    // profil modifié hors ligne repart avec elle.
+    racine.addEventListener('online', function () { vidanger(); envoyerProfil(); });
     // Rotation, clavier logiciel, changement de taille : les barres changent de
     // hauteur, la réserve les suit. Mesuré une première fois au démarrage pour
     // que `--h-onglets` existe avant le premier rendu de séance.
@@ -3424,6 +4139,7 @@
     $('btn-rafraichir').addEventListener('click', async function () {
       Rendu.rendreEtat($('etat-sync'), { code: 'sync', libelle: 'Synchronisation…', local: false });
       await synchroniser();
+      await chargerProfil();
       afficherSemaine();
     });
 
@@ -3454,8 +4170,9 @@
       if (session) { entrer(session); return; }
       if (Auth.sessionPersistee()) return;
       sessionActive = null;
+      profil = null; datesExercices = null;
       allerA(Routeur.CONNEXION, {}, true);
-      montrer('connexion', Routeur.CONNEXION);
+      rendreEntree('connexion');
     });
 
     // ── DÉMARRAGE SANS RÉSEAU ────────────────────────────────────────────
@@ -3468,8 +4185,10 @@
     if (persistee) {
       await entrer(persistee);
     } else {
-      allerA(Routeur.CONNEXION, {}, true);
-      montrer('connexion', Routeur.CONNEXION);
+      var entree = Routeur.analyser(racine.location.pathname);
+      var mode = entree.vue === Routeur.INSCRIPTION ? 'inscription' : 'connexion';
+      allerA(mode === 'inscription' ? Routeur.INSCRIPTION : Routeur.CONNEXION, {}, true);
+      rendreEntree(mode);
     }
     enregistrerSW();
 

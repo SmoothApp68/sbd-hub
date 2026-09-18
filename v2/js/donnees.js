@@ -404,6 +404,85 @@
     return r.data || [];
   }
 
+  // ══ LE PROFIL (chantier 46 §2) ═══════════════════════════════════════════
+  //
+  // Une ligne, la sienne. `profiles_select_own` est `auth.uid() = id` : ce
+  // `.eq('id', …)` ne cloisonne rien — le RLS s'en charge — il désigne
+  // simplement la ligne qu'on veut, parce que `maybeSingle` sur une table qui
+  // en rendrait deux serait une erreur qu'on ne veut pas courir.
+  //
+  // `maybeSingle` et pas `single` : AUCUN TRIGGER NE CRÉE LA LIGNE. Relevé sur
+  // `pg_trigger` — il n'y a rien sur `auth.users`. Un compte tout neuf n'a donc
+  // pas de profil, et `single` ferait remonter une erreur là où la bonne réponse
+  // est « pas encore ».
+  var COLONNES_PROFIL =
+    'id, username, bio, sexe, taille_cm, date_naissance, mode_entrainement, ' +
+    'unites, anciennete, intention, materiel, niveau_declare, ' +
+    'seances_par_semaine, jours_vises, duree_seance_min, onboarding_completed';
+
+  async function monProfil(id) {
+    var r = await client().from('profiles').select(COLONNES_PROFIL).eq('id', id).maybeSingle();
+    if (r.error) throw r.error;
+    return r.data || null;
+  }
+
+  // `upsert` plutôt qu'`insert` puis `update` : c'est la même écriture dans les
+  // deux cas, et le profil d'un compte neuf n'existe pas encore. `id` est la
+  // clé primaire, donc le conflit est exactement celui qu'on veut écraser.
+  //
+  // ⚠️ `champs` EST DÉJÀ FILTRÉ PAR `THProfil.champsEcrits` chez l'appelant —
+  // `is_admin`, `tier` et les visibilités ne traversent pas cette fonction.
+  async function enregistrerProfil(id, champs) {
+    var ligne = Object.assign({ id: id }, champs, { updated_at: new Date().toISOString() });
+    var r = await client().from('profiles').upsert(ligne, { onConflict: 'id' })
+      .select(COLONNES_PROFIL).single();
+    if (r.error) throw r.error;
+    return r.data;
+  }
+
+  // ── « Ce pseudo est-il pris ? » ──────────────────────────────────────────
+  //
+  // ⚠️ CETTE QUESTION NE PEUT PAS SE POSER EN SELECT, ET C'EST VÉRIFIÉ.
+  //   · `profiles_select_own` restreint le SELECT à `auth.uid() = id` — la ligne
+  //     de quelqu'un d'autre ne remonte JAMAIS ;
+  //   · la vue `public_profiles` est en `security_invoker=on`, donc soumise au
+  //     même RLS, et `anon` n'a aucun GRANT dessus ;
+  //   · à l'inscription il n'y a pas encore de session du tout.
+  // Un `select … where username = …` rendrait donc « zéro ligne » pour un pseudo
+  // PRIS. Répondre « libre » là-dessus serait affirmer le contraire de la
+  // vérité : on ne le fait pas.
+  //
+  // La seule réponse juste vient du serveur, par une fonction SECURITY DEFINER.
+  // Tant qu'elle n'existe pas, PostgREST répond PGRST202 et on rend `null` —
+  // « on ne sait pas » — ce que `THProfil.verdictPseudo` traduit par un silence.
+  // Le disjoncteur évite de reposer la question à chaque frappe une fois la
+  // réponse connue comme indisponible.
+  var pseudoSansReponse = false;
+
+  async function pseudoPris(nom) {
+    if (pseudoSansReponse || !nom) return null;
+    var r = await client().rpc('pseudo_libre', { nom: nom });
+    if (r.error) {
+      // 404 de fonction, ou refus de droit : la question n'a pas de réponse, et
+      // elle n'en aura pas de la session. Tout autre échec (réseau) reste
+      // ponctuel et sera reposé à la frappe suivante.
+      if (r.error.code === 'PGRST202' || r.error.code === '42883' ||
+          r.error.code === '42501') pseudoSansReponse = true;
+      return null;
+    }
+    if (typeof r.data !== 'boolean') return null;
+    return !r.data;
+  }
+
+  // Droit à l'oubli. La fonction existe en base depuis la v1
+  // (`delete_user_complete_data(target_user_id uuid)`), et c'est ELLE qui sait
+  // ce qui part — pas ce fichier. On ne réécrit pas une suppression en
+  // plusieurs DELETE côté client : c'est exactement ainsi qu'on en oublie un.
+  async function supprimerCompte(id) {
+    var r = await client().rpc('delete_user_complete_data', { target_user_id: id });
+    if (r.error) throw r.error;
+  }
+
   var api = {
     toutesLesSeances: toutesLesSeances,
     seriesDepuis: seriesDepuis,
@@ -425,6 +504,10 @@
     seriesDeSeance: seriesDeSeance,
     compterSeances: compterSeances,
     compterSeries: compterSeries,
+    monProfil: monProfil,
+    enregistrerProfil: enregistrerProfil,
+    pseudoPris: pseudoPris,
+    supprimerCompte: supprimerCompte,
     // Exposée pour les tests : c'est la logique de pagination qu'il faut
     // pouvoir exercer sans réseau, pas les requêtes qui l'utilisent.
     paginerParCle: paginerParCle,

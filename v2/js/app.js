@@ -3251,10 +3251,13 @@
     sortie.apresNavigation(false);
 
     await synchroniser();
-    // Le profil vient APRÈS le corpus : l'écran s'ouvre sur les séances, et une
-    // ligne de 300 octets n'a aucune raison de retarder ça. Sa version locale,
-    // elle, est déjà là.
-    await chargerProfil();
+    // ⚠️ VOLONTAIREMENT PAS ATTENDU, comme `vidanger()` plus bas. Une ligne de
+    // 300 octets n'a aucune raison de retarder le rendu final — et hors réseau,
+    // où chaque tentative dure des secondes, l'attendre retarde le moment où
+    // l'écran DIT qu'il n'y a pas de réseau. Trouvé au banc, pas en test : la
+    // mesure unitaire ne voit pas une seconde de plus, l'écran si.
+    // Le profil sait se rendre tout seul quand il arrive.
+    chargerProfil();
     // ⚠️ AVANT LA VIDANGE, et seulement une fois le réseau confirmé (ch. 36, D7).
     // Une séance `en_cours` restée en base ferait échouer l'upsert de la nôtre
     // en `23505` — code définitif, file morte. On la résout d'abord.
@@ -3364,7 +3367,7 @@
     if (profilAEnvoyer) { await envoyerProfil(); return; }
     profil = distant;
     await sauverProfilLocal();
-    if (!vues.profil.hidden) rendreProfilEcran();
+    if (ecranCourant === 'profil') rendreProfilEcran();
   }
 
   async function envoyerProfil() {
@@ -3375,7 +3378,7 @@
       profil = rendu;
       profilAEnvoyer = false;
       await sauverProfilLocal();
-      if (!vues.profil.hidden) rendreProfilEcran();
+      if (ecranCourant === 'profil') rendreProfilEcran();
     } catch (e) {
       // Elle repartira : à la prochaine synchronisation, au prochain démarrage,
       // ou au retour du réseau. Rien n'est perdu — la valeur est en local et
@@ -3387,12 +3390,23 @@
 
   // Le seul chemin d'écriture. Local d'abord — l'écran dit la vérité tout de
   // suite et hors ligne — puis le réseau.
-  async function ecrireProfil(champs) {
+  //
+  // ⚠️ POSER ET RENDRE SONT SÉPARÉS, et ce n'est pas du zèle. `marquerProfilVu`
+  // écrit depuis `montrer`, AU MOMENT OÙ L'ON QUITTE LE PROFIL : s'il passait
+  // par `rendreProfilEcran`, il rappellerait `montrer('profil')` et ramènerait
+  // l'écran qu'on vient de quitter. Un écran qui se rouvre tout seul quand on
+  // en sort est exactement le genre de défaut qu'aucun test unitaire ne voit.
+  async function poserProfil(champs) {
     profil = Object.assign({}, profil || {}, Profil.champsEcrits(champs));
     profilAEnvoyer = true;
     await sauverProfilLocal();
-    rendreProfilEcran();
     await envoyerProfil();
+  }
+
+  function ecrireProfil(champs) {
+    var promesse = poserProfil(champs);   // `profil` est à jour avant le 1er await
+    rendreProfilEcran();
+    return promesse;
   }
 
   // ── La déclaration des quinze champs ─────────────────────────────────────
@@ -3708,7 +3722,7 @@
   // effet de « première connexion » — pas un drapeau qui gouvernerait un tunnel.
   function marquerProfilVu() {
     if (!profil || profil.onboarding_completed !== false) return;
-    ecrireProfil({ onboarding_completed: true });
+    poserProfil({ onboarding_completed: true });
   }
 
   // ── Quitter, et supprimer ────────────────────────────────────────────────

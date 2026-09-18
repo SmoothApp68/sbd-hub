@@ -344,3 +344,68 @@ describe('l’éditeur de routine a son propre chemin', () => {
     expect(R.analyser('/routine/' + UUID + '/extra').vue).toBe(R.RACINE);
   });
 });
+
+// ════════════════════════════════════════════════════════════════════════════
+// CHANTIER 46 §2 — /inscription et /profil/exercices
+// ════════════════════════════════════════════════════════════════════════════
+
+describe('l’inscription est une VUE, pas un repli de la connexion', () => {
+  test('elle a son chemin, et l’aller-retour est idempotent', () => {
+    expect(R.analyser('/inscription').vue).toBe(R.INSCRIPTION);
+    expect(R.construire(R.INSCRIPTION, {})).toBe('/inscription');
+  });
+
+  // ⚠️ SANS ÇA, C'EST UNE BOUCLE. L'inscription est l'écran où l'on n'a, par
+  // définition, pas encore de compte : la renvoyer à la connexion faute de
+  // session la rendrait inatteignable.
+  test('elle n’exige PAS de session — sinon on ne pourrait jamais s’inscrire', () => {
+    expect(R.exigeSession(R.INSCRIPTION)).toBe(false);
+    expect(R.routeAffichable({ vue: R.INSCRIPTION, params: {} }, { session: null }).vue)
+      .toBe(R.INSCRIPTION);
+  });
+
+  // L'envers : les deux écrans d'entrée n'ont plus de sens une fois la session
+  // ouverte. Un rechargement sur /connexion avec un jeton valide doit rendre
+  // l'app, pas un formulaire.
+  test('les deux écrans d’entrée sont interdits AVEC une session', () => {
+    expect(R.interditAvecSession(R.CONNEXION)).toBe(true);
+    expect(R.interditAvecSession(R.INSCRIPTION)).toBe(true);
+    expect(R.interditAvecSession(R.PROFIL)).toBe(false);
+    expect(R.interditAvecSession(R.RACINE)).toBe(false);
+  });
+
+  test('elle n’allume aucun onglet — la barre n’est pas affichée', () => {
+    expect(R.ongletDe(R.INSCRIPTION)).toBe(null);
+    expect(R.ONGLETS).not.toContain(R.INSCRIPTION);
+  });
+});
+
+describe('« Tous mes exercices » vit SOUS le profil', () => {
+  test('son chemin dit d’où l’on vient, et l’onglet reste Profil', () => {
+    expect(R.analyser('/profil/exercices').vue).toBe(R.EXERCICES);
+    expect(R.construire(R.EXERCICES, {})).toBe('/profil/exercices');
+    expect(R.ongletDe(R.EXERCICES)).toBe(R.PROFIL);
+  });
+
+  // Même règle que Progression : un lien qui a vieilli reste dans l'écran qu'il
+  // visait. Retomber sur la racine enverrait ailleurs pour rien.
+  test('un sous-chemin inconnu reste DANS le profil', () => {
+    const r = R.analyser('/profil/nimporte');
+    expect(r.vue).toBe(R.PROFIL);
+    expect(r.repli).toBe('sous-vue-inconnue');
+  });
+
+  test('elle exige une session : c’est l’historique d’un compte', () => {
+    expect(R.routeAffichable({ vue: R.EXERCICES, params: {} }, { session: null }).vue)
+      .toBe(R.CONNEXION);
+  });
+
+  // ⚠️ « exercices » (la liste, sous /profil) ET « exercice » (la page, à la
+  // racine) sont DEUX vues, et leurs motifs ne doivent pas se manger.
+  test('« exercices » ne mange pas « exercice » : les deux motifs cohabitent', () => {
+    expect(R.analyser('/exercice/squat-barre').vue).toBe(R.EXERCICE);
+    expect(R.analyser('/exercice/squat-barre').params.slug).toBe('squat-barre');
+    expect(R.analyser('/profil/exercices').vue).toBe(R.EXERCICES);
+    expect(R.analyser('/exercices').vue).toBe(R.RACINE);
+  });
+});

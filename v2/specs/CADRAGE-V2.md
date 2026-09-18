@@ -304,6 +304,19 @@ la semaine du 9 au 15 septembre.**
   partagent enfin la même règle d'alignement. Le §2 undecies dans sa forme la plus coûteuse :
   non pas du code dupliqué, mais une **règle** appliquée à un endroit sur deux, dont une copie
   dérive. Trois chantiers pour la poser partout (38, 39, 46).
+- **`Routines.chercher` dans « Tous mes exercices »** (ch. 46 §2) — la recherche du
+  catalogue replie déjà les accents des deux côtés et exige tous les mots ; en réécrire une
+  pour la liste du profil, c'étaient deux recherches à tenir d'accord. Ce qui diffère est la
+  LIMITE et le TRI, passés en paramètres, pas un second filtre.
+- **Trois feuilles pour quinze champs de profil** (ch. 46 §2) — un choix dans une liste
+  fermée, une saisie libre, une semaine. Une feuille par champ aurait été quinze fois la
+  même chose. L'écran lui-même est déclaré dans une TABLE : ajouter un champ est une ligne,
+  pas une ligne dans le rendu plus une dans le routeur plus une dans le HTML.
+- **L'onboarding EST le profil** (ch. 46 §2) — « même écran, même code ». Le v1 avait un
+  ordonnanceur d'entrée de plusieurs centaines de lignes pour tenir un tunnel de première
+  visite ; ici il n'y a pas de tunnel, il y a une **règle de routage** de quatre lignes et un
+  bandeau qui porte sa propre sortie. Et l'écran d'entrée est UN écran à deux modes, pas deux
+  formulaires à tenir d'accord.
 - **La liste lue dérivée de la liste écrite** par construction (ch. 34), plus
   `verifierColonnes()` qui lève au démarrage si l'écart réapparaît.
 - **Les deux entonnoirs de bornes** (ch. 36) — `nombreOuNul`/`entierOuNul` et `borne`,

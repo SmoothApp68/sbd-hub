@@ -67,7 +67,68 @@ const CATALOGUE = [
   // là, pas dans `routine_exercises`. Un banc qui l'ignorerait mesurerait un
   // écran vide et le trouverait conforme.
   const base = { routines: [], exos: [], series: [], sessions: [], sets: [],
-                 graine: 0, envois: [] };
+                 // Ce que le SERVEUR rend en lecture, distinct de ce que les
+                 // sections écrivent : voir le commentaire de la route `sessions`.
+                 corpusSeances: [], corpusSeries: [],
+                 graine: 0, envois: [],
+                 // ⚠️ UN COMPTE QUI A DÉJÀ VU SON PROFIL — c'est le cas de 4
+                 // des 5 comptes réels, et c'est celui que testent les sections
+                 // 1 à 10. Sans ça, la règle d'onboarding du §2 s'appliquerait à
+                 // toutes : un profil jamais vu ouvre sur le PROFIL, donc le banc
+                 // mesurerait cet écran-là au lieu de celui qu'il vise.
+                 //
+                 // La section 11, elle, remet `profil` à null : un compte neuf
+                 // n'a PAS de ligne `profiles` — relevé sur `pg_trigger`, il n'y
+                 // a AUCUN trigger sur `auth.users`. Un banc qui poserait la
+                 // ligne d'office testerait un serveur qui n'existe pas, et
+                 // « l'app crée son profil » passerait pour vrai de n'importe
+                 // quelle implémentation, y compris d'une qui ne le crée jamais.
+                 profil: { id: 'u-banc', username: 'banc', bio: '',
+                   sexe: 'non_precise', taille_cm: null, date_naissance: null,
+                   mode_entrainement: 'musculation', unites: 'kg', anciennete: null,
+                   intention: 'progresser', materiel: null, niveau_declare: null,
+                   seances_par_semaine: null, jours_vises: null,
+                   duree_seance_min: null, onboarding_completed: true } };
+  // Les CHECK de `profiles`, relevés sur `pg_constraint` le 18/09/2026. Sans
+  // eux le banc serait plus permissif que Postgres, et écrire « Entretenir » au
+  // lieu de « entretien » monterait vert ici pour rendre 23514 sur l'appareil.
+  const CHECKS_PROFIL = {
+    sexe: ['homme', 'femme', 'non_precise'],
+    mode_entrainement: ['bien_etre', 'musculation', 'powerbuilding', 'powerlifting', 'calisthenics'],
+    unites: ['kg', 'lb'],
+    intention: ['progresser', 'entretien'],
+    materiel: ['salle_complete', 'salle_basique', 'maison_equipee', 'maison_minimal', 'poids_du_corps'],
+    anciennete: ['moins_1_an', '1_a_3_ans', '3_a_5_ans', 'plus_5_ans'],
+    niveau_declare: ['debutant', 'intermediaire', 'avance', 'expert']
+  };
+  const bornesProfil = (l) => {
+    for (const col of Object.keys(CHECKS_PROFIL)) {
+      const v = l[col];
+      if (v === undefined) continue;
+      if (v === null) {
+        // Les quatre NOT NULL refusent le null ; les trois autres l'acceptent.
+        if (['sexe', 'mode_entrainement', 'unites', 'intention'].indexOf(col) >= 0) {
+          return 'profiles.' + col + ' NOT NULL';
+        }
+        continue;
+      }
+      if (CHECKS_PROFIL[col].indexOf(v) < 0) return 'profiles_' + col + '_ok';
+    }
+    if (l.taille_cm !== undefined && l.taille_cm !== null &&
+        !(l.taille_cm >= 100 && l.taille_cm <= 250)) return 'profiles_taille_ok';
+    if (l.seances_par_semaine !== undefined && l.seances_par_semaine !== null &&
+        !(l.seances_par_semaine >= 1 && l.seances_par_semaine <= 14)) return 'profiles_rythme_borne';
+    if (l.duree_seance_min !== undefined && l.duree_seance_min !== null &&
+        !(l.duree_seance_min >= 10 && l.duree_seance_min <= 300)) return 'profiles_rythme_borne';
+    // ⚠️ LE TRIGGER `protect_privileged_profile_columns`. Il ne REFUSE pas ces
+    // colonnes, il les remet en place — donc un client qui les enverrait ne
+    // verrait rien. Le banc, lui, le DIT : c'est la seule façon de savoir que la
+    // liste blanche de `THProfil.champsEcrits` tient.
+    for (const col of ['is_admin', 'tier', 'tier_awarded_at', 'xp_high_water_mark']) {
+      if (l[col] !== undefined) return 'colonne privilégiée envoyée : ' + col;
+    }
+    return null;
+  };
   const replie = (n) => String(n || '').trim().toLowerCase();
   const collisionRang = () => {
     const vus = new Set();
@@ -125,7 +186,7 @@ const CATALOGUE = [
   const erreurs = [];
   page.on('pageerror', (e) => erreurs.push(String(e).slice(0, 140)));
 
-  await ctx.route(/supabase\.co/, async (route) => {
+  const gererSupabase = async (route) => {
     const req = route.request();
     const url = new URL(req.url());
     const table = url.pathname.split('/').pop();
@@ -168,6 +229,14 @@ const CATALOGUE = [
       const champs = decouperSelect(select);
       return data.map((l) => projeterUne(l, champs));
     };
+    const filtrer = (lignes, u) => lignes.filter((l) => {
+      for (const [cle, val] of u.searchParams) {
+        if (['select', 'order', 'limit', 'offset', 'or'].indexOf(cle) >= 0) continue;
+        if (val.startsWith('eq.') && String(l[cle]) !== val.slice(3)) return false;
+        if (val.startsWith('gt.') && !(String(l[cle]) > val.slice(3))) return false;
+      }
+      return true;
+    });
     const corps = req.postData() ? JSON.parse(req.postData()) : null;
     // `.single()` envoie `Accept: application/vnd.pgrst.object+json` et
     // PostgREST répond alors par UN OBJET, pas un tableau. Un banc qui rendrait
@@ -181,6 +250,20 @@ const CATALOGUE = [
     if (url.pathname.startsWith('/auth/')) return json({ error: 'x' }, 400);
     if (req.method() === 'GET') {
       if (table === 'exercises') return json(projeter(CATALOGUE, url));
+      // `maybeSingle` sur zéro ligne : PostgREST rend un TABLEAU VIDE, et c'est
+      // supabase-js qui en fait `data: null`. Rendre `null` directement ferait
+      // croire à une ligne nulle là où il n'y a pas de ligne du tout.
+      if (table === 'profiles') {
+        return json(projeter(base.profil ? [base.profil] : [], url));
+      }
+      // ⚠️ POSTGREST APPLIQUE LES FILTRES, ET LE BANC DOIT LE FAIRE AUSSI.
+      // `seancesEnCours` demande `statut=eq.en_cours` : un banc qui ignore le
+      // filtre rend des séances TERMINÉES à cette question, l'app croit qu'une
+      // séance est restée ouverte, et elle tente de la refermer. C'est la même
+      // famille que la projection des colonnes du chantier 34 — un banc plus
+      // permissif que la base ne prouve rien.
+      if (table === 'sessions') return json(projeter(filtrer(base.corpusSeances, url), url));
+      if (table === 'sets') return json(projeter(filtrer(base.corpusSeries, url), url));
       // ⚠️ AUCUN FILTRE SUR `archivee_a` ICI. `Donnees.mesRoutines` n'en pose
       // pas non plus : le banc le faisait, et rendait donc les archivées
       // invisibles CÔTÉ SERVEUR — la règle d'affichage du client n'était
@@ -261,6 +344,34 @@ const CATALOGUE = [
       : null;
 
     base.envois.push({ methode: req.method(), table, corps: corps });
+    // ⚠️ LA FONCTION DE VÉRIFICATION DU PSEUDO N'EXISTE PAS EN BASE, et le banc
+    // le dit en PGRST202 — pas en rendant « libre ». C'est la configuration
+    // discriminante du troisième état : un banc qui répondrait « libre » ne
+    // distinguerait pas « on sait que c'est libre » de « on ne sait pas ».
+    if (req.method() === 'POST' && table === 'pseudo_libre') {
+      return json({ code: 'PGRST202', message:
+        'Could not find the function public.pseudo_libre(nom) in the schema cache' }, 404);
+    }
+    if (req.method() === 'POST' && table === 'delete_user_complete_data') {
+      base.profil = null; base.routines = []; base.exos = [];
+      base.series = []; base.sessions = []; base.sets = [];
+      base.corpusSeances = []; base.corpusSeries = [];
+      base.compteSupprime = true;
+      return json(null);
+    }
+    if (req.method() === 'POST' && table === 'profiles') {
+      const l = Array.isArray(corps) ? corps[0] : corps;
+      const mauvais = bornesProfil(l);
+      if (mauvais) return refuserSi(l, mauvais);
+      // `upsert` sur la clé primaire : on fusionne, comme Postgres.
+      const defauts = { username: null, bio: '', sexe: 'non_precise', taille_cm: null,
+        date_naissance: null, mode_entrainement: 'musculation', unites: 'kg',
+        anciennete: null, intention: 'progresser', materiel: null,
+        niveau_declare: null, seances_par_semaine: null, jours_vises: null,
+        duree_seance_min: null, onboarding_completed: false };
+      base.profil = Object.assign({}, defauts, base.profil || {}, l);
+      return json(projeter([base.profil], url), 201);
+    }
     if (req.method() === 'POST' && table === 'routines') {
       const mauvais = nomBorne(Array.isArray(corps) ? corps[0] : corps);
       if (mauvais) return refuserSi(corps, mauvais);
@@ -307,8 +418,12 @@ const CATALOGUE = [
       const mauvais = table === 'routines' ? nomBorne(corps) : bornes(corps);
       if (mauvais) return refuserSi(corps, mauvais);
       const id = (url.searchParams.get('id') || '').replace('eq.', '');
-      const tab = table === 'routines' ? base.routines : base.exos;
-      const l = tab.find((x) => x.id === id);
+      // Une table qu'on ne connaît pas, ou une ligne absente : PostgREST rend un
+      // tableau vide, il ne plante pas. Le banc non plus.
+      const tab = table === 'routines' ? base.routines
+        : (table === 'routine_exercises' ? base.exos : null);
+      const l = tab && tab.find((x) => x.id === id);
+      if (!l) return json([]);
       const avant = Object.assign({}, l);
       Object.assign(l, corps);
       var index = null;
@@ -356,7 +471,8 @@ const CATALOGUE = [
       return json([]);
     }
     return json([]);
-  });
+  };
+  await ctx.route(/supabase\.co/, gererSupabase);
 
   // Le boot affiche ce qu'il a AVANT de synchroniser, puis honore l'URL quand
   // la synchro rend la main. Sur un cache vide — le cas du banc — il faut donc
@@ -1663,6 +1779,311 @@ const CATALOGUE = [
   ok('il dit que le catalogue arrive, pas que la recherche n’a rien trouvé',
     /catalogue/i.test(msgCat) && !/correspond/i.test(msgCat), msgCat.slice(0, 90) || '(vide)');
   await ctx2.close();
+
+  // ══ 11. LE PROFIL, L'ONBOARDING ET L'ENTRÉE (chantier 46 §2) ═════════════
+  //
+  // ⚠️ CONTEXTE NEUF, ET C'EST LA CONFIGURATION DISCRIMINANTE. Ce qu'on teste
+  // ici est ce que voit un compte QUI N'A JAMAIS RIEN RÉGLÉ : cache vide, pas
+  // de ligne `profiles`, `onboarding_completed` à faux. Le contexte précédent a
+  // trois ans de gestes derrière lui — et la section 9 y a coupé le réseau.
+  console.log('\n══ 11. LE PROFIL — L’ONBOARDING EST LE PROFIL (ch. 46 §2) ══');
+  base.profil = null;
+  base.compteSupprime = false;
+  base.corpusSeances = [
+    { id: 's1', user_id: 'u-banc', debut: '2024-01-15T18:00:00Z', fin: '2024-01-15T19:30:00Z',
+      titre: 'Push', note: null, salle: null, routine_id: null, source: 'app',
+      statut: 'terminee', created_at: '2024-01-15T18:00:00Z', salle_norme: null },
+    { id: 's2', user_id: 'u-banc', debut: '2026-09-10T18:00:00Z', fin: '2026-09-10T19:20:00Z',
+      titre: 'Pull', note: null, salle: null, routine_id: null, source: 'app',
+      statut: 'terminee', created_at: '2026-09-10T18:00:00Z', salle_norme: null }
+  ];
+  // TROIS séries pour DEUX séances : deux nombres différents, pour qu'une
+  // phrase de confirmation qui recopierait le mauvais compte se voie.
+  base.corpusSeries = [
+    { id: 'x1', session_id: 's1', user_id: 'u-banc', exercise_slug: 'squat-barre',
+      source: 'app', type_serie: 'travail', charge_kg: 100, reps: 5, duree_s: null,
+      distance_m: null, rpe: null, ressenti: null, note: null, groupe_superset: null,
+      validee_a: null, rang: 1, repos_s: null, created_at: '2024-01-15T18:10:00Z', modifie_a: null },
+    { id: 'x2', session_id: 's2', user_id: 'u-banc', exercise_slug: 'dc-barre',
+      source: 'app', type_serie: 'travail', charge_kg: 80, reps: 5, duree_s: null,
+      distance_m: null, rpe: null, ressenti: null, note: null, groupe_superset: null,
+      validee_a: null, rang: 1, repos_s: null, created_at: '2026-09-10T18:10:00Z', modifie_a: null },
+    { id: 'x3', session_id: 's2', user_id: 'u-banc', exercise_slug: 'dc-barre',
+      source: 'app', type_serie: 'travail', charge_kg: 82.5, reps: 5, duree_s: null,
+      distance_m: null, rpe: null, ressenti: null, note: null, groupe_superset: null,
+      validee_a: null, rang: 2, repos_s: null, created_at: '2026-09-10T18:12:00Z', modifie_a: null }
+  ];
+
+  const ctx3 = await nav.newContext({ viewport: { width: 360, height: 760 } });
+  await ctx3.addInitScript(SCRIPT_JETON);
+  await ctx3.route(/supabase\.co/, gererSupabase);
+  const page3 = await ctx3.newPage();
+  const erreurs3 = [];
+  page3.on('pageerror', (e) => erreurs3.push(String(e).slice(0, 140)));
+  const vue3 = () => page3.evaluate(() =>
+    Array.from(document.querySelectorAll('main > section')).filter((s) => !s.hidden).map((s) => s.id));
+  const txt3 = (sel) => page3.evaluate((x) => (document.querySelector(x) || {}).textContent || '', sel);
+
+  // ── L'ONBOARDING EST UNE RÈGLE DE ROUTAGE ────────────────────────────────
+  // On demande « / » — la racine, l'onglet Séances. Un compte jamais réglé doit
+  // atterrir sur le PROFIL quand même. Demander « /profil » ne prouverait rien.
+  await page3.goto(BASE + '/', { waitUntil: 'networkidle' }).catch(() => {});
+  await attendre(3500);
+  // La première ouverture n'a pas encore le profil en cache : c'est le SECOND
+  // démarrage qui exerce la règle, exactement comme sur l'appareil.
+  await page3.goto(BASE + '/', { waitUntil: 'networkidle' }).catch(() => {});
+  await attendre(3500);
+  ok('[46 §2] un compte jamais réglé ouvre sur le profil, même en demandant « / »',
+    JSON.stringify(await vue3()) === '["vue-profil"]', JSON.stringify(await vue3()));
+  ok('[46 §2] …et l’URL suit, pour qu’un rechargement ne reparte pas ailleurs',
+    (await page3.evaluate(() => location.pathname)) === '/profil',
+    await page3.evaluate(() => location.pathname));
+
+  // ── TEST 6 — tous les champs « à renseigner » ────────────────────────────
+  const videsProfil = await page3.evaluate(() =>
+    Array.from(document.querySelectorAll('#profil-corps .p-val.vide')).map((n) => n.textContent));
+  ok('[46 §2 · test 6] un profil vide le dit champ par champ, en toutes lettres',
+    videsProfil.length >= 7 && videsProfil.every((t) => t === 'à renseigner'),
+    videsProfil.length + ' champ(s) · ' + JSON.stringify(Array.from(new Set(videsProfil))));
+  ok('[46 §2 · test 6] …et rien n’est une alarme : aucune erreur, aucun blocage',
+    await page3.evaluate(() => document.querySelectorAll('#profil-corps .erreur, #profil-corps .manque').length === 0 &&
+      !Array.from(document.querySelectorAll('#profil-corps button')).some((b) => b.disabled)),
+    'aucune alarme');
+  // Les trois chiffres viennent du corpus, pas du profil : ils sont justes même
+  // sur un profil vide, et c'est tout l'intérêt.
+  const kpisProfil = await page3.evaluate(() =>
+    Array.from(document.querySelectorAll('#profil-corps .p-kpi')).map((n) => n.textContent));
+  ok('[46 §2] les trois chiffres disent le corpus, pas le profil',
+    /^2séances/.test(kpisProfil[0] || '') && /^3séries/.test(kpisProfil[1] || ''), JSON.stringify(kpisProfil));
+
+  // ── TEST 7 — « plus tard » envoie vers la saisie ─────────────────────────
+  const bandeauAccueil = await txt3('#profil-corps .p-accueil');
+  ok('[46 §2 · test 7] le bandeau de bienvenue dit que rien n’est obligatoire',
+    /Rien n’est obligatoire/.test(bandeauAccueil), bandeauAccueil.replace(/\s+/g, ' ').slice(0, 80));
+  await page3.click('#profil-corps .p-plus-tard');
+  await attendre(1200);
+  ok('[46 §2 · test 7] « Plus tard » envoie vers la saisie — contournable, obligatoirement',
+    JSON.stringify(await vue3()) === '["vue-saisie"]', JSON.stringify(await vue3()));
+  // ⚠️ ET IL NE REVIENT PAS. Un bandeau qui se rouvrirait à chaque démarrage
+  // recréerait l'obstacle qu'on vient d'enlever.
+  await page3.goto(BASE + '/', { waitUntil: 'networkidle' }).catch(() => {});
+  await attendre(3500);
+  ok('[46 §2 · test 7] …et l’app rouvre sur les séances, plus sur le profil',
+    JSON.stringify(await vue3()) === '["vue-liste"]', JSON.stringify(await vue3()));
+
+  // ── TEST 9 — l’intention, et la CLÉ qui part en base ─────────────────────
+  await page3.goto(BASE + '/profil', { waitUntil: 'networkidle' }).catch(() => {});
+  await attendre(3000);
+  ok('[46 §2] le profil rouvre sans bandeau une fois vu',
+    await page3.evaluate(() => !document.querySelector('#profil-corps .p-accueil')), 'plus de bandeau');
+  await page3.evaluate(() =>
+    Array.from(document.querySelectorAll('#profil-corps .p-seg button'))
+      .find((b) => b.textContent === 'Entretenir').click());
+  await attendre(1500);
+  ok('[46 §2 · test 9] « Entretenir » est enregistré — et c’est la CLÉ de la base',
+    base.profil && base.profil.intention === 'entretien',
+    'base.intention = ' + (base.profil && base.profil.intention));
+  ok('[46 §2 · test 9] …et l’écran le marque tout de suite',
+    await page3.evaluate(() => {
+      const b = Array.from(document.querySelectorAll('#profil-corps .p-seg button'));
+      return b[1].className === 'on' && b[0].className === '';
+    }), 'Entretenir marqué');
+
+  // ── Une feuille de choix, bout en bout ───────────────────────────────────
+  await page3.evaluate(() =>
+    Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
+      .find((l) => /^Matériel/.test(l.textContent)).click());
+  await attendre(500);
+  ok('[46 §2] la feuille de choix montre les cinq matériels, et son aide',
+    await page3.evaluate(() =>
+      document.querySelectorAll('#feuille-contenu .feuille-menu button').length === 5),
+    await txt3('#feuille-contenu .feuille-t'));
+  await page3.evaluate(() =>
+    document.querySelector('#feuille-contenu .feuille-menu button[data-cle="salle_complete"]').click());
+  await attendre(1500);
+  ok('[46 §2] le choix part en base sous sa clé, et la ligne n’est plus vide',
+    base.profil && base.profil.materiel === 'salle_complete' &&
+    await page3.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
+      .find((l) => /^Matériel/.test(l.textContent)).querySelector('.p-val').textContent === 'Salle complète'),
+    'base.materiel = ' + (base.profil && base.profil.materiel));
+
+  // ⚠️ UNE BORNE REFUSÉE RESTE DANS LA FEUILLE. Le CHECK `profiles_taille_ok`
+  // refuse hors 100–250 en 23514 — code DÉFINITIF. On refuse AVANT, avec une
+  // phrase, plutôt qu'après, avec une file morte.
+  await page3.evaluate(() =>
+    Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
+      .find((l) => /^Taille/.test(l.textContent)).click());
+  await attendre(500);
+  await page3.fill('#feuille-contenu .champ-texte input', '3');
+  await page3.click('#feuille-contenu .feuille-pied .pri');
+  await attendre(500);
+  ok('[46 §2] une taille impossible est refusée DANS la feuille, avec une phrase',
+    /entre 100 et 250/.test(await txt3('#feuille-contenu .feuille-err')) &&
+    await page3.evaluate(() => !document.querySelector('#feuille-seance').hidden),
+    await txt3('#feuille-contenu .feuille-err'));
+  await page3.fill('#feuille-contenu .champ-texte input', '182');
+  await page3.click('#feuille-contenu .feuille-pied .pri');
+  await attendre(1500);
+  ok('[46 §2] …et une taille valide ferme la feuille et remonte au bandeau',
+    base.profil && base.profil.taille_cm === 182 &&
+    /182 cm/.test(await txt3('#profil-sous')),
+    'base.taille_cm = ' + (base.profil && base.profil.taille_cm) + ' · « ' + (await txt3('#profil-sous')) + ' »');
+
+  // ⚠️ LA LISTE BLANCHE. Le trigger `protect_privileged_profile_columns`
+  // REMETTRAIT `is_admin` et `tier` en place sans rien dire — le banc, lui,
+  // refuse, donc une écriture qui les enverrait se verrait ici.
+  const envoisProfil = base.envois.filter((e) => e.table === 'profiles');
+  ok('[46 §2] aucune écriture de profil n’a jamais porté de colonne privilégiée',
+    envoisProfil.length > 0 && envoisProfil.every((e) => {
+      const l = Array.isArray(e.corps) ? e.corps[0] : e.corps;
+      return l && l.is_admin === undefined && l.tier === undefined &&
+             l.xp_high_water_mark === undefined && l.friend_code === undefined;
+    }), envoisProfil.length + ' écriture(s)');
+
+  // ── §2.4 bis — TOUS MES EXERCICES ────────────────────────────────────────
+  await page3.evaluate(() =>
+    Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
+      .find((l) => /^Tous mes exercices/.test(l.textContent)).click());
+  await attendre(1200);
+  ok('[46 §2.4 bis] « Tous mes exercices » s’ouvre, et c’est une vue avec son URL',
+    JSON.stringify(await vue3()) === '["vue-exercices"]' &&
+    (await page3.evaluate(() => location.pathname)) === '/profil/exercices',
+    JSON.stringify(await vue3()) + ' ' + await page3.evaluate(() => location.pathname));
+  // ⚠️ LES EXERCICES FAITS D'ABORD, DU PLUS RÉCENT AU PLUS ANCIEN. Un tri
+  // alphabétique répondrait à « quels exercices existent » ; la question ici est
+  // « qu'est-ce que je fais ». `dc-barre` (10/09/2026) doit passer devant
+  // `squat-barre` (15/01/2024), et les deux devant tout ce qui n'a jamais été fait.
+  const ordreExos = await page3.evaluate(() =>
+    Array.from(document.querySelectorAll('#liste-mes-exos .exo-ligne')).slice(0, 3)
+      .map((n) => n.querySelector('.exo-nom').textContent));
+  ok('[46 §2.4 bis] les exercices FAITS passent devant, du plus récent au plus ancien',
+    ordreExos[0] === 'Développé Couché (Barre)' && ordreExos[1] === 'Squat (Barre)',
+    JSON.stringify(ordreExos));
+  ok('[46 §2.4 bis] …et ceux jamais faits le disent, sans disparaître',
+    await page3.evaluate(() => {
+      const j = document.querySelectorAll('#liste-mes-exos .exo-ligne.jamais');
+      return j.length > 0 && /jamais fait/.test(j[0].textContent);
+    }), await txt3('#compte-mes-exos'));
+  // La recherche est celle du catalogue : elle replie les accents des deux côtés.
+  await page3.fill('#champ-recherche-mes-exos', 'developpe');
+  await attendre(500);
+  ok('[46 §2.4 bis] la recherche replie les accents — « developpe » trouve « Développé »',
+    await page3.evaluate(() =>
+      Array.from(document.querySelectorAll('#liste-mes-exos .exo-nom'))
+        .every((n) => /Développé/.test(n.textContent)) &&
+      document.querySelectorAll('#liste-mes-exos .exo-nom').length > 0),
+    await txt3('#compte-mes-exos'));
+  // ⚠️ LE VRAI MANQUE QUE CE BLOC COMBLE : la page d'exercice ne s'atteignait
+  // que depuis une séance EN COURS et depuis Progression.
+  await page3.click('#liste-mes-exos .exo-ligne');
+  await attendre(1200);
+  ok('[46 §2.4 bis] un tap ouvre la page de l’exercice — sans démarrer de séance',
+    JSON.stringify(await vue3()) === '["vue-exercice"]', JSON.stringify(await vue3()));
+
+  // ── TEST 11 — supprimer son compte ───────────────────────────────────────
+  await page3.goto(BASE + '/profil', { waitUntil: 'networkidle' }).catch(() => {});
+  await attendre(3000);
+  ok('[46 §2] « Quitter » et « Supprimer » sont là, dans cet ordre',
+    await page3.evaluate(() => {
+      const q = document.querySelector('#btn-deconnexion'), s = document.querySelector('#btn-supprimer-compte');
+      return !!q && !!s && !!(q.compareDocumentPosition(s) & Node.DOCUMENT_POSITION_FOLLOWING);
+    }), 'Quitter puis Supprimer');
+  await page3.click('#btn-supprimer-compte');
+  await attendre(600);
+  const phraseSuppr = await txt3('#feuille-contenu .feuille-aide');
+  ok('[46 §2 · test 11] la confirmation DIT CE QUI PART, en chiffres réels',
+    /2 séances/.test(phraseSuppr) && /3 séries/.test(phraseSuppr) && /rien ne se récupère/.test(phraseSuppr),
+    phraseSuppr.replace(/\s+/g, ' ').slice(0, 130));
+  // « Annuler » ne supprime rien : c'est la moitié du geste qu'on ne teste
+  // jamais, et c'est celle qui compte le jour où le doigt dérape.
+  await page3.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
+    .find((b) => b.textContent === 'Annuler').click());
+  await attendre(800);
+  ok('[46 §2 · test 11] « Annuler » ne supprime rien',
+    base.compteSupprime === false && base.corpusSeances.length === 2, 'rien n’est parti');
+
+  const avantSuppression = base.envois.length;
+  await page3.click('#btn-supprimer-compte');
+  await attendre(600);
+  await page3.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
+    .find((b) => b.textContent === 'Supprimer définitivement').click());
+  await attendre(2500);
+  // ⚠️ UN SEUL APPEL, ET AUCUN DELETE. La fonction de base sait ce qui part ;
+  // réécrire la suppression en plusieurs DELETE côté client, c'est ainsi qu'on
+  // en oublie un — et c'est le défaut RGPD que la v1 a payé (CLAUDE.md §11).
+  const depuis = base.envois.slice(avantSuppression);
+  ok('[46 §2 · test 11] confirmé, la FONCTION DE BASE est appelée — et AUCUN DELETE client',
+    base.compteSupprime === true &&
+    depuis.filter((e) => e.table === 'delete_user_complete_data').length === 1 &&
+    depuis.filter((e) => e.methode === 'DELETE').length === 0,
+    depuis.map((e) => e.methode + ' ' + e.table).join(', ') || '(aucun envoi)');
+
+  // ── L'ÉCRAN D'ENTRÉE ─────────────────────────────────────────────────────
+  //
+  // Le jeton du banc est verrouillé (SCRIPT_JETON) : la déconnexion ne peut pas
+  // l'effacer, donc on repart d'un contexte SANS jeton pour voir l'entrée.
+  const ctx4 = await nav.newContext({ viewport: { width: 360, height: 760 } });
+  await ctx4.route(/supabase\.co/, gererSupabase);
+  const page4 = await ctx4.newPage();
+  page4.on('pageerror', (e) => erreurs3.push(String(e).slice(0, 140)));
+  await page4.goto(BASE + '/', { waitUntil: 'networkidle' }).catch(() => {});
+  await attendre(2500);
+  ok('[46 §2 ter] sans jeton, l’app ouvre sur la connexion',
+    JSON.stringify(await page4.evaluate(() =>
+      Array.from(document.querySelectorAll('main > section')).filter((s) => !s.hidden).map((s) => s.id)))
+      === '["vue-connexion"]',
+    await page4.evaluate(() => location.pathname));
+  ok('[46 §2 ter] la phrase d’accueil, et plus aucun « v2 · socle »',
+    /ne raconte pas d’histoires/.test(await page4.evaluate(() =>
+      (document.querySelector('#entree-phrase') || {}).textContent || '')) &&
+    await page4.evaluate(() => !document.querySelector('.jalon')),
+    await page4.evaluate(() => (document.querySelector('#entree-phrase') || {}).textContent || ''));
+  ok('[46 §2 ter] en connexion, pas de pseudo — et « mot de passe oublié » est là',
+    await page4.evaluate(() => document.querySelector('#env-pseudo').hidden &&
+      !document.querySelector('#btn-oubli').hidden), 'deux champs');
+
+  await page4.click('#btn-bascule-entree');
+  await attendre(600);
+  ok('[46 §2 ter] « Créer un compte » bascule le MÊME écran — trois champs, pas un de plus',
+    await page4.evaluate(() => !document.querySelector('#env-pseudo').hidden &&
+      document.querySelector('#btn-oubli').hidden &&
+      document.querySelector('#btn-connexion').textContent === 'Créer mon compte' &&
+      document.querySelectorAll('#form-connexion input').length === 3) &&
+    (await page4.evaluate(() => location.pathname)) === '/inscription',
+    await page4.evaluate(() => location.pathname));
+  ok('[46 §2 ter] le bouton est éteint tant que les trois champs ne tiennent pas',
+    await page4.evaluate(() => document.querySelector('#btn-connexion').disabled), 'éteint');
+
+  // ⚠️ LE TROISIÈME ÉTAT, BOUT EN BOUT. La fonction `pseudo_libre` n'existe pas
+  // en base (le banc répond PGRST202) : l'écran doit se TAIRE sur la
+  // disponibilité, et surtout ne pas retenir l'inscription.
+  await page4.fill('#champ-pseudo', 'melodie');
+  await page4.fill('#champ-email', 'melodie.dupont@exemple.fr');
+  await page4.fill('#champ-mdp', 'motdepasse1');
+  await attendre(1500);
+  ok('[46 §2 ter] sans réponse de la base, l’écran ne dit RIEN sur la disponibilité',
+    (await page4.evaluate(() =>
+      (document.querySelector('#aide-pseudo') || {}).textContent || '')) === '',
+    '« ' + await page4.evaluate(() => (document.querySelector('#aide-pseudo') || {}).textContent || '') + ' »');
+  ok('[46 §2 ter] …et elle ne retient personne : le bouton s’allume',
+    await page4.evaluate(() => !document.querySelector('#btn-connexion').disabled), 'allumé');
+  await page4.fill('#champ-pseudo', 'me');
+  await attendre(700);
+  ok('[46 §2 ter] un pseudo trop court, lui, est refusé tout de suite — et localement',
+    /3 caractères/.test(await page4.evaluate(() =>
+      (document.querySelector('#aide-pseudo') || {}).textContent || '')) &&
+    await page4.evaluate(() => document.querySelector('#btn-connexion').disabled),
+    await page4.evaluate(() => (document.querySelector('#aide-pseudo') || {}).textContent || ''));
+
+  await page4.click('#btn-bascule-entree');
+  await attendre(600);
+  ok('[46 §2 ter] revenir à la connexion remet le formulaire à zéro',
+    await page4.evaluate(() => document.querySelector('#champ-mdp').value === '' &&
+      (document.querySelector('#erreur-connexion').textContent || '') === '' &&
+      document.querySelector('#env-pseudo').hidden), 'remis à zéro');
+  await ctx3.close();
+  await ctx4.close();
+  if (erreurs3.length) { console.log('erreurs de page (profil) : ' + erreurs3.join(' | ')); echecs++; }
 
   console.log('\nerreurs de page : ' + (erreurs.length ? erreurs.join(' | ') : 'aucune'));
   if (erreurs.length) echecs++;

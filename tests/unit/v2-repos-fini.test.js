@@ -82,6 +82,13 @@ function bac(cible) {
     plus: (n) => {
       for (let k = 0; k < (n || 1); k++) vm.runInContext('ajusterRepos(Seance.PAS_REPOS)', ctx);
     },
+    // Valider une série : c'est le seul geste qui arme. L'écoulé repart de zéro,
+    // comme le `depuis: Date.now()` de `demarrerChrono`.
+    armer: (c) => {
+      journal.ecoule = 0;
+      ctx.__c2 = c;
+      vm.runInContext('demarrerChrono(__c2, 0, "squat-barre")', ctx);
+    },
     // « La barre est-elle à l'écran ? » — la seule question du chantier.
     barre: () => ctx.chrono !== null && noeud.hidden === false
   };
@@ -211,5 +218,29 @@ describe('avant zéro, rien ne change', () => {
     expect(b.ctx.chrono).not.toBe(null);
     expect(b.barre()).toBe(true);
     expect(b.journal.derniere.restant).toBe(90);
+  });
+
+  // ⚠️ TROUVÉ PAR LA CAMPAGNE DE MUTATIONS, ET C'ÉTAIT LE SEUL SURVIVANT.
+  //
+  // Éteindre CACHE le nœud ; plus rien ne le remontre si `rendreChrono` ne le
+  // révèle pas à chaque passage vivant. Retirer `noeud.hidden = false` donne donc
+  // une app où le PREMIER repos s'affiche normalement, s'éteint normalement — et
+  // où plus JAMAIS aucune barre ne revient de la séance. Invisible sur un seul
+  // repos, ce qui est exactement pourquoi il fallait en enchaîner deux.
+  //
+  // C'est la sortie de l'extinction, et une extinction dont on ne revient pas
+  // est pire que le défaut qu'on répare.
+  test('après une extinction, valider rarme une barre VISIBLE', () => {
+    const b = bac(20);
+    b.tic(20);
+    expect(b.barre()).toBe(false);
+    expect(b.noeud.hidden).toBe(true);
+    b.armer(60);                             // la série suivante
+    expect(b.barre()).toBe(true);
+    expect(b.noeud.hidden).toBe(false);
+    expect(b.journal.derniere.restant).toBe(60);
+    // Et le repos suivant se comporte comme le premier : il descend, puis part.
+    b.tic(60);
+    expect(b.barre()).toBe(false);
   });
 });

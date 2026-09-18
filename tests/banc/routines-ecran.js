@@ -1787,6 +1787,17 @@ const CATALOGUE = [
   // de ligne `profiles`, `onboarding_completed` à faux. Le contexte précédent a
   // trois ans de gestes derrière lui — et la section 9 y a coupé le réseau.
   console.log('\n══ 11. LE PROFIL — L’ONBOARDING EST LE PROFIL (ch. 46 §2) ══');
+  // ⚠️ UN CATALOGUE QUI DÉPASSE 30, ET C'EST LA CONFIGURATION DISCRIMINANTE.
+  // `Routines.chercher` plafonne à 30 par défaut — c'est bon pour un champ qui
+  // cherche UN exercice, faux pour une liste qui les montre TOUS. Avec les
+  // quatre exercices des sections précédentes, une troncature à 30 ne se voit
+  // pas : les deux implémentations rendent la même liste. La vraie base en
+  // compte 237. Mutant M25 : il survivait exactement à cause de ça.
+  for (let i = 1; i <= 34; i++) {
+    CATALOGUE.push({ slug: 'garniture-' + i, nom: 'Garniture ' + (i < 10 ? '0' : '') + i,
+      mesure: 'charge_reps', charge: 'externe',
+      muscles_primaires: ['quadriceps'], muscles_secondaires: [] });
+  }
   base.profil = null;
   base.compteSupprime = false;
   base.corpusSeances = [
@@ -1982,6 +1993,16 @@ const CATALOGUE = [
       const j = document.querySelectorAll('#liste-mes-exos .exo-ligne.jamais');
       return j.length > 0 && /jamais fait/.test(j[0].textContent);
     }), await txt3('#compte-mes-exos'));
+  // ⚠️ TOUS, PAS LES TRENTE PREMIERS. La liste répond « qu'est-ce que je
+  // fais » sur l'historique ENTIER ; en tronquer la queue ferait disparaître
+  // sans un mot les exercices les plus anciens, c'est-à-dire précisément ceux
+  // qu'on vient chercher ici.
+  ok('[46 §2.4 bis] la liste montre TOUT le catalogue, pas les 30 premiers',
+    await page3.evaluate((n) =>
+      document.querySelectorAll('#liste-mes-exos .exo-ligne').length === n,
+      CATALOGUE.length),
+    await page3.evaluate(() => document.querySelectorAll('#liste-mes-exos .exo-ligne').length) +
+      ' rendu(s) pour ' + CATALOGUE.length + ' au catalogue');
   // La recherche est celle du catalogue : elle replie les accents des deux côtés.
   await page3.fill('#champ-recherche-mes-exos', 'developpe');
   await attendre(500);

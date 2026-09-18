@@ -247,6 +247,11 @@
     // `viderTout` ci-dessus a effacé leurs magasins ; on remet la mémoire
     // d'accord avec le disque.
     seance = null; attente = []; chrono = null;
+    // Le profil aussi appartient au compte précédent — et son envoi en attente
+    // avec lui. Le rejouer sur le compte suivant écrirait la taille de
+    // quelqu'un d'autre dans sa ligne `profiles`.
+    profil = null; profilAEnvoyer = false; pseudoAInscrire = null;
+    datesExercices = null;
     await Cache.ecrireMeta('proprietaire', { userId: userId });
   }
 

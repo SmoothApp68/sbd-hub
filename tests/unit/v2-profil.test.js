@@ -120,6 +120,17 @@ describe('test 10 — pseudo déjà pris → deux alternatives', () => {
     expect(v.alternatives).toEqual([]);
   });
 
+  // ⚠️ `=== true` ET `=== false`, PAS « truthy ». La sonde rend aujourd'hui
+  // trois valeurs ; le jour où elle rendrait un COMPTE — `0` pour libre, `1`
+  // pour pris — une comparaison lâche lirait « libre » sur un zéro et
+  // « pris » sur un un, c'est-à-dire juste par accident. Tout ce qui n'est ni
+  // `true` ni `false` est « on ne sait pas », et l'écran se tait.
+  test('tout ce qui n’est ni vrai ni faux est « on ne sait pas »', () => {
+    [1, 0, 'oui', '', {}, undefined].forEach((v) => {
+      expect(Profil.verdictPseudo('melodie', v, {}).code).toBe('inconnu');
+    });
+  });
+
   test('libre ne dit rien non plus : c’est l’état normal', () => {
     const v = Profil.verdictPseudo('melodie', false, {});
     expect(v.code).toBe('libre');

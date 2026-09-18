@@ -274,6 +274,34 @@ describe('les trois chiffres', () => {
   });
 });
 
+// ── TEST 7 (sa moitié pure) — quand le profil s'ouvre d'office ────────────
+describe('test 7 — l’onboarding est une règle de routage', () => {
+  test('un profil que la base dit jamais vu ouvre le profil', () => {
+    expect(Profil.doitOuvrirProfil({ onboarding_completed: false })).toBe(true);
+  });
+
+  test('un profil déjà vu n’ouvre rien : l’URL demandée gagne', () => {
+    expect(Profil.doitOuvrirProfil({ onboarding_completed: true })).toBe(false);
+  });
+
+  // ⚠️ LE TROISIÈME CAS, ET C'EST LUI QUI COMPTE. « Absent » n'est pas « faux ».
+  // Un profil pas encore chargé, un cache vide, un premier démarrage hors ligne,
+  // une ligne partielle écrite sans réseau : dans tous ces cas la colonne
+  // manque. Une lecture lâche (`!p.onboarding_completed`) les confondrait avec
+  // « jamais vu » — et un compte qui a trois ans d'historique rouvrirait sur son
+  // profil à chaque démarrage hors ligne.
+  test('« on ne sait pas » n’ouvre RIEN — on ne suppose pas', () => {
+    expect(Profil.doitOuvrirProfil(null)).toBe(false);
+    expect(Profil.doitOuvrirProfil(undefined)).toBe(false);
+    expect(Profil.doitOuvrirProfil({})).toBe(false);
+    expect(Profil.doitOuvrirProfil({ onboarding_completed: undefined })).toBe(false);
+    expect(Profil.doitOuvrirProfil({ onboarding_completed: null })).toBe(false);
+    // Une ligne partielle, telle que `poserProfil` la fabrique sur un profil
+    // encore inconnu : elle porte le champ modifié et rien d'autre.
+    expect(Profil.doitOuvrirProfil({ intention: 'entretien' })).toBe(false);
+  });
+});
+
 describe('les bornes doublées de la base', () => {
   test('la taille refuse ce que `profiles_taille_ok` refuserait', () => {
     expect(Profil.tailleValide('182')).toBe(182);

@@ -198,6 +198,23 @@
     return Array.isArray(v) && v.length === 0;
   }
 
+  // ── L'onboarding est une règle de ROUTAGE (§4) ───────────────────────────
+  //
+  // ⚠️ `=== false`, PAS « pas vrai ». Trois valeurs, pas deux :
+  //   `false`     → la base dit que ce profil n'a jamais été vu → on l'ouvre ;
+  //   `true`      → il a été vu → on ouvre ce que l'URL demande ;
+  //   ABSENT      → on ne sait pas — profil pas encore chargé, cache vide,
+  //                 premier démarrage hors ligne, ou ligne partielle écrite
+  //                 sans réseau. **On n'ouvre pas un formulaire de bienvenue
+  //                 sur une supposition.**
+  //
+  // Une lecture lâche (`!profil.onboarding_completed`) confondrait le troisième
+  // cas avec le premier, et un compte qui a trois ans d'historique rouvrirait
+  // sur son profil à chaque démarrage hors ligne.
+  function doitOuvrirProfil(profil) {
+    return !!profil && profil.onboarding_completed === false;
+  }
+
   function manquants(profil) {
     var p = profil || {};
     return A_RENSEIGNER.filter(function (c) { return vide(p[c]); });
@@ -410,6 +427,7 @@
     statsDe: statsDe,
     libelleAnciennete: libelleAnciennete,
     manquants: manquants,
+    doitOuvrirProfil: doitOuvrirProfil,
     champsEcrits: champsEcrits,
     tailleValide: tailleValide,
     naissanceValide: naissanceValide,

@@ -133,16 +133,18 @@
     // un défaut plus ancien : le mode ne se refermait JAMAIS, pas même en
     // terminant une séance.
     if (ecranCourant !== nom) fermerReorganisation();
+    var onglet = Routeur.ongletDe(vue || nom);
     // ⚠️ MÊME PORTE, MÊME RAISON (§2, ch. 46). Quitter le profil vaut « vu » :
     // sans ça, quelqu'un qui remplit tout puis touche un onglet retrouverait le
-    // bandeau de bienvenue à chaque ouverture. Les sous-vues du profil n'en
-    // sortent pas — la liste d'exercices est encore le profil.
-    if (ecranCourant === 'profil' && nom !== 'profil' && nom !== 'exercices') {
-      marquerProfilVu();
-    }
+    // bandeau de bienvenue à chaque ouverture.
+    //
+    // ⚠️ ET ON DEMANDE AU ROUTEUR, ON NE LISTE PAS LES ÉCRANS. « Tous mes
+    // exercices » est une sous-vue DU profil : en sortir n'est pas quitter le
+    // profil. Lister les exceptions à la main, c'était garantir qu'une sous-vue
+    // de plus soit oubliée le jour où on l'ajoute — `ongletDe` le sait déjà.
+    if (ecranCourant === 'profil' && onglet !== Routeur.PROFIL) marquerProfilVu();
     ecranCourant = nom;
     Object.keys(vues).forEach(function (k) { vues[k].hidden = (k !== nom); });
-    var onglet = Routeur.ongletDe(vue || nom);
     var barre = $('onglets');
     if (barre) barre.hidden = !onglet;
     Rendu.rendreOnglets(barre, onglet);
@@ -3228,7 +3230,7 @@
     // décision se prend sur ce qu'on a EN LOCAL, donc sans attendre le réseau —
     // et un profil inconnu (cache vide, premier démarrage hors ligne) ne
     // déclenche rien : on n'ouvre pas un formulaire sur une supposition.
-    if (profil && profil.onboarding_completed === false) {
+    if (Profil.doitOuvrirProfil(profil)) {
       routeInitiale = { vue: Routeur.PROFIL, params: {} };
       allerA(Routeur.PROFIL, {}, true);
     }

@@ -1860,6 +1860,24 @@ const CATALOGUE = [
   const bandeauAccueil = await txt3('#profil-corps .p-accueil');
   ok('[46 §2 · test 7] le bandeau de bienvenue dit que rien n’est obligatoire',
     /Rien n’est obligatoire/.test(bandeauAccueil), bandeauAccueil.replace(/\s+/g, ' ').slice(0, 80));
+  // ⚠️ UNE SOUS-VUE DU PROFIL N'EST PAS UNE SORTIE DU PROFIL. Ouvrir « Tous mes
+  // exercices » depuis un profil encore jamais réglé, puis revenir, doit
+  // retrouver le bandeau : « vu » veut dire « quitté », pas « exploré ». C'est
+  // le SEUL moment où le bandeau existe encore — après « Plus tard », il ne
+  // revient plus, et la vérification ne prouverait plus rien.
+  await page3.evaluate(() =>
+    Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
+      .find((l) => /^Tous mes exercices/.test(l.textContent)).click());
+  await attendre(1200);
+  const passeParExos = JSON.stringify(await vue3());
+  await page3.evaluate(() => document.querySelector('#btn-retour-mes-exos').click());
+  await attendre(1200);
+  ok('[46 §2 · test 7] une sous-vue du profil n’est pas une sortie : le bandeau reste',
+    passeParExos === '["vue-exercices"]' &&
+    await page3.evaluate(() => !!document.querySelector('#profil-corps .p-accueil')) &&
+    JSON.stringify(await vue3()) === '["vue-profil"]',
+    passeParExos + ' → ' + JSON.stringify(await vue3()));
+
   await page3.click('#profil-corps .p-plus-tard');
   await attendre(1200);
   ok('[46 §2 · test 7] « Plus tard » envoie vers la saisie — contournable, obligatoirement',

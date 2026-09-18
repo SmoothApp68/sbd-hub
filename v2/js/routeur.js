@@ -15,7 +15,9 @@
 //   /progression/volume     le volume par muscle d'une semaine, et le radar
 //   /progression/poids      le poids de corps
 //   /profil                 onglet Profil
+//   /profil/exercices       tous mes exercices, et leur dernière séance
 //   /connexion              l'écran de connexion
+//   /inscription            créer un compte
 //
 // Progression n'est pas une barre de sous-onglets mais un SOMMAIRE de blocs
 // (ECRAN-SAISIE §7 bis.14) : chaque bloc s'ouvre sur une vue complète, qui a
@@ -39,6 +41,15 @@
   var RACINE = 'racine', SEMAINE = 'semaine', SEANCE = 'seance', CONNEXION = 'connexion';
   var SAISIE = 'saisie', PROGRESSION = 'progression', PROFIL = 'profil';
   var VOLUME = 'volume', POIDS = 'poids';
+  // L'inscription est une VUE, pas un repli de la connexion : un rechargement
+  // direct la rouvre, et le retour d'Android ramène à la connexion sans qu'on
+  // ait à l'écrire. Même règle que partout ailleurs — un écran, une URL.
+  var INSCRIPTION = 'inscription';
+  // §2.4 bis — la liste de TOUS les exercices vit sous le profil, comme le
+  // volume et le poids vivent sous Progression. Chez nous la page d'exercice ne
+  // s'atteignait que depuis une séance en cours et depuis Progression : pour
+  // voir l'historique de son couché, il fallait démarrer une séance.
+  var EXERCICES = 'exercices';
   // L'éditeur de routine est une VUE, avec son URL, sur le modèle de
   // `/seance/<uuid>` : un rechargement direct la rouvre, et le retour d'Android
   // remonte à la bibliothèque sans qu'on ait à l'écrire. `nouvelle` est le
@@ -56,11 +67,17 @@
   var SOUS_PROGRESSION = {};
   SOUS_PROGRESSION[VOLUME] = true; SOUS_PROGRESSION[POIDS] = true;
 
+  // Et celles qui vivent SOUS Profil. Le chemin est « /profil/<clé> » et
+  // l'onglet allumé reste Profil.
+  var SOUS_PROFIL = {};
+  SOUS_PROFIL[EXERCICES] = true;
+
   // Vues à segment unique, sans paramètre. La racine n'y figure pas : elle est
   // le chemin « / », et c'est l'onglet Séances.
   var SEGMENTS = {};
   SEGMENTS[CONNEXION] = true; SEGMENTS[SAISIE] = true;
   SEGMENTS[PROGRESSION] = true; SEGMENTS[PROFIL] = true;
+  SEGMENTS[INSCRIPTION] = true;
 
   var RE_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
   var RE_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -100,6 +117,13 @@
       // « /progression/nimporte » reste dans Progression, ce qui est le moins
       // surprenant pour un lien qui a vieilli.
       if (!SOUS_PROGRESSION[bouts[1]]) return { vue: PROGRESSION, params: {}, repli: 'sous-vue-inconnue' };
+      return { vue: bouts[1], params: {} };
+    }
+
+    if (bouts[0] === PROFIL && bouts.length === 2) {
+      // Même règle que Progression : un sous-chemin inconnu reste DANS le
+      // profil. Un lien qui a vieilli ne renvoie pas à la racine.
+      if (!SOUS_PROFIL[bouts[1]]) return { vue: PROFIL, params: {}, repli: 'sous-vue-inconnue' };
       return { vue: bouts[1], params: {} };
     }
 
@@ -152,6 +176,7 @@
       return p.id && RE_UUID.test(p.id) ? '/' + ROUTINE + '/' + p.id : '/' + SAISIE;
     }
     if (SOUS_PROGRESSION[vue]) return '/' + PROGRESSION + '/' + vue;
+    if (SOUS_PROFIL[vue]) return '/' + PROFIL + '/' + vue;
     if (SEGMENTS[vue]) return '/' + vue;
     return '/';
   }
@@ -167,6 +192,7 @@
     if (vue === SEMAINE || vue === SEANCE || vue === EXERCICE) return RACINE;
     if (vue === ROUTINE) return SAISIE;
     if (SOUS_PROGRESSION[vue]) return PROGRESSION;
+    if (SOUS_PROFIL[vue]) return PROFIL;
     for (var i = 0; i < ONGLETS.length; i++) if (ONGLETS[i] === vue) return vue;
     return null;
   }
@@ -177,7 +203,15 @@
   // session, elles ne sont pas rendues : on renvoie à la connexion. Ça ne
   // protège rien — le RLS reste seul juge côté serveur — mais afficher des
   // données à quelqu'un qui vient de se déconnecter est un défaut d'interface.
-  function exigeSession(vue) { return vue !== CONNEXION; }
+  // L'inscription non plus : c'est l'écran où l'on n'a, par définition, pas
+  // encore de compte. La renvoyer à la connexion faute de session serait une
+  // boucle — et c'est exactement le défaut qu'une liste blanche évite.
+  function exigeSession(vue) { return vue !== CONNEXION && vue !== INSCRIPTION; }
+
+  // L'envers de la précédente : les deux écrans d'entrée n'ont plus de sens une
+  // fois la session ouverte. Un rechargement sur /connexion avec un jeton valide
+  // doit rendre l'app, pas un formulaire de connexion.
+  function interditAvecSession(vue) { return vue === CONNEXION || vue === INSCRIPTION; }
 
   // Route demandée -> route réellement affichable. `redirigeDepuis` dit d'où
   // l'on vient, pour que l'appelant puisse corriger l'URL.
@@ -214,11 +248,13 @@
   var api = {
     RACINE: RACINE, SEMAINE: SEMAINE, SEANCE: SEANCE, CONNEXION: CONNEXION,
     SAISIE: SAISIE, PROGRESSION: PROGRESSION, PROFIL: PROFIL,
+    INSCRIPTION: INSCRIPTION, EXERCICES: EXERCICES,
     ROUTINE: ROUTINE,
     EXERCICE: EXERCICE,
     EXO_HISTORIQUE: EXO_HISTORIQUE, ROUTINE_NEUVE: ROUTINE_NEUVE,
     VOLUME: VOLUME, POIDS: POIDS,
     SOUS_PROGRESSION: SOUS_PROGRESSION,
+    SOUS_PROFIL: SOUS_PROFIL,
     versDate: versDate,
     depuisDate: depuisDate,
     analyser: analyser,
@@ -226,6 +262,7 @@
     ONGLETS: ONGLETS,
     ongletDe: ongletDe,
     exigeSession: exigeSession,
+    interditAvecSession: interditAvecSession,
     routeAffichable: routeAffichable,
     premiereGardeBloquante: premiereGardeBloquante
   };

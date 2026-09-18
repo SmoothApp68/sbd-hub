@@ -26,6 +26,7 @@ Les autres fixent les bornes chiffrées.
 | `REGLES-DE-COMPTAGE-V1.md` | Ce qu'un nombre veut dire : séries dures, muscles, poids de corps |
 | `MODIFICATEURS-SERIE-V1.md` | Tempo et élastique. Liste fermée |
 | `ECRAN-SAISIE-V1.md` | Blocs, tours, routines, grille de saisie, déviation, page d'exercice |
+| `ECRAN-PROFIL-V1.md` | Profil, connexion, inscription, et pourquoi l'onboarding EST le profil |
 | `BANC-ESSAI-V1.md` | Méthode de validation et **pistes rejetées** |
 
 ## Trois choses à savoir avant de s'en servir

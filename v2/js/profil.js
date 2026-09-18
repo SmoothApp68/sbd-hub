@@ -1,0 +1,445 @@
+// v2/js/profil.js — les règles du profil, de l'inscription et du pseudo.
+//
+// Module PUR : aucune dépendance au DOM, au réseau, à Supabase. Les référentiels
+// (discipline, matériel, ancienneté…), la phrase du bandeau, le verdict d'un
+// pseudo et la liste des champs qu'on a le droit d'écrire vivent ici, et se
+// testent sans navigateur.
+//
+// ⚠️ LES LISTES SONT CELLES DE LA BASE, RELEVÉES SUR LES CONTRAINTES — pas
+// supposées. `profiles_mode_ok`, `profiles_materiel_ok`, `profiles_anciennete_ok`,
+// `profiles_niveau_ok`, `profiles_sexe_ok`, `profiles_unites_ok`,
+// `profiles_intention_ok` : une valeur hors liste est refusée par Postgres, donc
+// une faute de frappe ici devient un 23514 à l'écriture, pas un défaut visible.
+//
+// UN SEUL CRITÈRE GOUVERNE CHAQUE CHAMP (ECRAN-PROFIL-V1) : quelque chose le
+// lit, ou le lira au chantier 1. Rien n'est demandé « au cas où ». C'est
+// pourquoi on ne trouvera ici ni score articulaire, ni objectif de barre, ni
+// style de coaching — la v1 les collectait, et personne ne sait ce qu'ils valent.
+
+(function (racine) {
+  'use strict';
+
+  // ── Référentiels ─────────────────────────────────────────────────────────
+
+  // ⚠️ `bien_etre` EST ACCEPTÉ PAR LA BASE ET N'EST PAS PROPOSÉ (§2.3).
+  // « Bien-être n'est pas une discipline » : quelqu'un qui s'entraîne pour se
+  // maintenir fait la même musculation, il ne veut simplement pas qu'on le
+  // pousse — et c'est l'INTENTION qui le dit. On garde quand même son libellé :
+  // une ligne qui le porte déjà doit s'afficher, pas se vider.
+  var DISCIPLINES = [
+    { cle: 'musculation', libelle: 'Musculation' },
+    { cle: 'powerbuilding', libelle: 'Powerbuilding' },
+    { cle: 'powerlifting', libelle: 'Powerlifting' },
+    { cle: 'calisthenics', libelle: 'Calisthénie' }
+  ];
+  var DISCIPLINES_CONNUES = DISCIPLINES.concat([
+    { cle: 'bien_etre', libelle: 'Bien-être' }
+  ]);
+
+  var MATERIELS = [
+    { cle: 'salle_complete', libelle: 'Salle complète', sous: 'Barres, machines, poulies' },
+    { cle: 'salle_basique', libelle: 'Salle basique', sous: 'Barres et haltères, peu de machines' },
+    { cle: 'maison_equipee', libelle: 'Maison équipée', sous: 'Barre, rack, haltères' },
+    { cle: 'maison_minimal', libelle: 'Maison, minimum', sous: 'Haltères ou élastiques' },
+    { cle: 'poids_du_corps', libelle: 'Poids du corps', sous: 'Rien d’autre' }
+  ];
+
+  // EN FOURCHETTE, PAS UNE DATE (§2.2). « Depuis quand régulièrement » — on peut
+  // s'entraîner depuis cinq ans et rester débutant, et une date exacte
+  // demanderait une précision que personne n'a.
+  var ANCIENNETES = [
+    { cle: 'moins_1_an', libelle: 'Moins d’un an' },
+    { cle: '1_a_3_ans', libelle: '1 à 3 ans' },
+    { cle: '3_a_5_ans', libelle: '3 à 5 ans' },
+    { cle: 'plus_5_ans', libelle: 'Plus de 5 ans' }
+  ];
+
+  var NIVEAUX = [
+    { cle: 'debutant', libelle: 'Débutant' },
+    { cle: 'intermediaire', libelle: 'Intermédiaire' },
+    { cle: 'avance', libelle: 'Avancé' },
+    { cle: 'expert', libelle: 'Expert' }
+  ];
+
+  var SEXES = [
+    { cle: 'homme', libelle: 'Homme' },
+    { cle: 'femme', libelle: 'Femme' },
+    { cle: 'non_precise', libelle: 'Non précisé' }
+  ];
+
+  var UNITES = [
+    { cle: 'kg', libelle: 'Kilogrammes' },
+    { cle: 'lb', libelle: 'Livres' }
+  ];
+
+  // DEUX CRANS, ET C'EST UNE INTENTION (§2.3). En Entretenir, la double
+  // progression n'a rien à dire : le moteur se tait sur la charge et garde le
+  // repos, la structure, le suivi.
+  var INTENTIONS = [
+    { cle: 'progresser', libelle: 'Progresser' },
+    { cle: 'entretien', libelle: 'Entretenir' }
+  ];
+
+  // Lundi en tête : la semaine de l'app commence le lundi (THSemaine), et les
+  // deux listes doivent se lire dans le même ordre.
+  var JOURS = [
+    { cle: 'lun', libelle: 'Lundi', court: 'Lu' },
+    { cle: 'mar', libelle: 'Mardi', court: 'Ma' },
+    { cle: 'mer', libelle: 'Mercredi', court: 'Me' },
+    { cle: 'jeu', libelle: 'Jeudi', court: 'Je' },
+    { cle: 'ven', libelle: 'Vendredi', court: 'Ve' },
+    { cle: 'sam', libelle: 'Samedi', court: 'Sa' },
+    { cle: 'dim', libelle: 'Dimanche', court: 'Di' }
+  ];
+
+  // `profiles_rythme_borne` : 1 à 14 séances, 10 à 300 minutes. Les durées
+  // proposées sont un sous-ensemble sensé de l'intervalle — une durée VISÉE ne
+  // se règle pas à la minute.
+  var SEANCES_MIN = 1, SEANCES_MAX = 14;
+  var DUREES = [30, 45, 60, 75, 90, 105, 120, 150, 180];
+  var TAILLE_MIN = 100, TAILLE_MAX = 250;
+
+  function libelleDe(liste, cle) {
+    if (cle === null || cle === undefined || cle === '') return null;
+    for (var i = 0; i < liste.length; i++) if (liste[i].cle === cle) return liste[i].libelle;
+    return null;
+  }
+
+  // ── L'identité affichée ──────────────────────────────────────────────────
+
+  function initiale(pseudo) {
+    var s = String(pseudo === null || pseudo === undefined ? '' : pseudo).trim();
+    return s ? s.charAt(0).toUpperCase() : '?';
+  }
+
+  // L'âge en années révolues. `aujourdhui` est passé, jamais lu d'une horloge
+  // interne : un module pur ne connaît pas l'heure, et c'est ce qui le rend
+  // testable.
+  function age(dateNaissance, aujourdhui) {
+    if (!dateNaissance) return null;
+    var d = dateNaissance instanceof Date ? dateNaissance : new Date(String(dateNaissance) + 'T00:00:00');
+    if (isNaN(d.getTime())) return null;
+    var ref = aujourdhui instanceof Date ? aujourdhui : new Date(aujourdhui);
+    if (isNaN(ref.getTime())) return null;
+    var n = ref.getFullYear() - d.getFullYear();
+    var m = ref.getMonth() - d.getMonth();
+    if (m < 0 || (m === 0 && ref.getDate() < d.getDate())) n--;
+    return n >= 0 && n < 130 ? n : null;
+  }
+
+  // « 98 kg · 182 cm · 28 ans » — et ce qui manque ne laisse pas de trou.
+  // Un profil neuf rend une chaîne VIDE plutôt qu'une suite de tirets : un champ
+  // vide est un état, pas une erreur, et le bandeau n'a pas à l'annoncer trois
+  // fois de suite.
+  function sousTitre(profil, poidsKg, aujourdhui) {
+    var p = profil || {};
+    var bouts = [];
+    if (poidsKg !== null && poidsKg !== undefined && isFinite(poidsKg)) {
+      bouts.push(String(poidsKg).replace('.', ',') + ' kg');
+    }
+    if (p.taille_cm) bouts.push(p.taille_cm + ' cm');
+    var a = age(p.date_naissance, aujourdhui);
+    if (a !== null) bouts.push(a + ' ans');
+    return bouts.join(' · ');
+  }
+
+  // ── Les trois chiffres du bandeau ────────────────────────────────────────
+  //
+  // Séances, séries, années d'historique. Comptés sur ce qu'on a en local, donc
+  // exacts hors ligne — et « années » se compte de la PREMIÈRE séance à
+  // aujourd'hui, pas sur le calendrier : quelqu'un qui a commencé en décembre
+  // 2023 n'a pas « 3 ans » en janvier 2026.
+  function statsDe(seances, series, aujourdhui) {
+    var liste = seances || [];
+    var plusAncienne = null;
+    liste.forEach(function (s) {
+      if (!s || !s.debut) return;
+      var d = new Date(s.debut);
+      if (isNaN(d.getTime())) return;
+      if (!plusAncienne || d < plusAncienne) plusAncienne = d;
+    });
+    var annees = null;
+    if (plusAncienne) {
+      var ref = aujourdhui instanceof Date ? aujourdhui : new Date(aujourdhui);
+      if (!isNaN(ref.getTime())) {
+        var jours = (ref - plusAncienne) / 86400000;
+        annees = jours > 0 ? jours / 365.25 : 0;
+      }
+    }
+    return { seances: liste.length, series: (series || []).length, annees: annees, depuis: plusAncienne };
+  }
+
+  // « 3 ans », « 8 mois », « 1 mois ». Sous l'année, les mois disent quelque
+  // chose ; au-delà, ils n'ajoutent rien.
+  function libelleAnciennete(annees) {
+    if (annees === null || annees === undefined || !isFinite(annees)) return '—';
+    if (annees < 1) {
+      var mois = Math.max(0, Math.round(annees * 12));
+      return mois <= 1 ? '1 mois' : mois + ' mois';
+    }
+    var n = Math.floor(annees);
+    return n + ' an' + (n > 1 ? 's' : '');
+  }
+
+  // ── Ce qui reste à renseigner ────────────────────────────────────────────
+  //
+  // ⚠️ CE N'EST PAS UNE VALIDATION. Aucun de ces champs n'est obligatoire, et
+  // aucun écran ne se bloque dessus : « un profil incomplet n'est pas une
+  // erreur, c'est un état » (§4). La liste sert à DIRE combien il en reste,
+  // une fois, sur l'écran d'accueil d'un compte neuf.
+  //
+  // `sexe`, `mode_entrainement`, `unites` et `intention` sont NOT NULL avec un
+  // défaut en base : ils ne peuvent pas manquer, donc ils n'y figurent pas.
+  var A_RENSEIGNER = ['materiel', 'anciennete', 'niveau_declare', 'taille_cm',
+                      'date_naissance', 'seances_par_semaine', 'duree_seance_min'];
+
+  function vide(v) {
+    if (v === null || v === undefined || v === '') return true;
+    return Array.isArray(v) && v.length === 0;
+  }
+
+  // ── L'onboarding est une règle de ROUTAGE (§4) ───────────────────────────
+  //
+  // ⚠️ `=== false`, PAS « pas vrai ». Trois valeurs, pas deux :
+  //   `false`     → la base dit que ce profil n'a jamais été vu → on l'ouvre ;
+  //   `true`      → il a été vu → on ouvre ce que l'URL demande ;
+  //   ABSENT      → on ne sait pas — profil pas encore chargé, cache vide,
+  //                 premier démarrage hors ligne, ou ligne partielle écrite
+  //                 sans réseau. **On n'ouvre pas un formulaire de bienvenue
+  //                 sur une supposition.**
+  //
+  // Une lecture lâche (`!profil.onboarding_completed`) confondrait le troisième
+  // cas avec le premier, et un compte qui a trois ans d'historique rouvrirait
+  // sur son profil à chaque démarrage hors ligne.
+  function doitOuvrirProfil(profil) {
+    return !!profil && profil.onboarding_completed === false;
+  }
+
+  function manquants(profil) {
+    var p = profil || {};
+    return A_RENSEIGNER.filter(function (c) { return vide(p[c]); });
+  }
+
+  // ── Ce qu'on a le DROIT d'écrire ─────────────────────────────────────────
+  //
+  // ⚠️ LISTE BLANCHE, PAS LISTE NOIRE. `profiles` porte `is_admin`, `tier` et
+  // `tier_awarded_at`, qu'un trigger SECURITY DEFINER
+  // (`protect_privileged_profile_columns`) remet à leur valeur d'avant pour un
+  // non-admin. Les envoyer ne casserait rien — elles seraient silencieusement
+  // ignorées — mais envoyer une colonne qu'on sait refusée est une écriture qui
+  // ment sur son effet. Elle porte aussi `xp_high_water_mark`, `friend_code` et
+  // les six réglages de visibilité : c'est du social, et rien ici ne les touche.
+  var CHAMPS_ECRITS = ['username', 'bio', 'sexe', 'taille_cm', 'date_naissance',
+                       'mode_entrainement', 'unites', 'anciennete', 'intention',
+                       'materiel', 'niveau_declare', 'seances_par_semaine',
+                       'jours_vises', 'duree_seance_min', 'onboarding_completed'];
+
+  function champsEcrits(champs) {
+    var src = champs || {}, sortie = {};
+    CHAMPS_ECRITS.forEach(function (c) {
+      if (Object.prototype.hasOwnProperty.call(src, c)) sortie[c] = src[c];
+    });
+    return sortie;
+  }
+
+  // ── Bornes de saisie ─────────────────────────────────────────────────────
+  //
+  // Elles DOUBLENT les CHECK de la base, et ce n'est pas une duplication de
+  // règle : un refus côté serveur arrive en 23514, un code que la file classe
+  // DÉFINITIF (attente.js) — la ligne partirait et ne reviendrait jamais. On
+  // refuse donc AVANT, avec une phrase, plutôt qu'après, avec un blocage.
+  function tailleValide(v) {
+    var n = Number(v);
+    return isFinite(n) && n >= TAILLE_MIN && n <= TAILLE_MAX ? Math.round(n) : null;
+  }
+
+  // Une date de naissance dans le futur, ou d'il y a 200 ans, n'en est pas une.
+  function naissanceValide(txt, aujourdhui) {
+    if (!txt) return null;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(txt))) return null;
+    var a = age(txt, aujourdhui);
+    return a !== null && a >= 10 && a <= 120 ? String(txt) : null;
+  }
+
+  function joursValides(liste) {
+    var vus = {}, sortie = [];
+    (liste || []).forEach(function (j) {
+      if (vus[j]) return;
+      for (var i = 0; i < JOURS.length; i++) {
+        if (JOURS[i].cle === j) { vus[j] = true; sortie.push(j); return; }
+      }
+    });
+    // Rendus dans l'ordre de la semaine, quel que soit l'ordre des clics :
+    // « Lu · Ma · Je » se lit, « Je · Lu · Ma » ne se lit pas.
+    return JOURS.map(function (j) { return j.cle; }).filter(function (c) { return vus[c]; });
+  }
+
+  function libelleJours(liste) {
+    var choisis = joursValides(liste);
+    if (!choisis.length) return null;
+    return JOURS.filter(function (j) { return choisis.indexOf(j.cle) >= 0; })
+      .map(function (j) { return j.court; }).join(' · ');
+  }
+
+  // ══ LE PSEUDO ════════════════════════════════════════════════════════════
+
+  var PSEUDO_MIN = 3, PSEUDO_MAX = 20;
+
+  // Les accents partent, les espaces deviennent des tirets bas, le reste tombe.
+  // Un pseudo sert d'identifiant lisible PARTOUT (§3.1) — dans une URL, dans un
+  // code ami, dans une notification — donc il vit dans un alphabet qui traverse
+  // tout sans se faire réécrire en chemin.
+  var ACCENTS = 'àáâãäåçèéêëìíîïñòóôõöùúûüýÿ';
+  var SANS = 'aaaaaaceeeeiiiinooooouuuuyy';
+
+  function sansAccent(s) {
+    var sortie = '';
+    for (var i = 0; i < s.length; i++) {
+      var k = ACCENTS.indexOf(s.charAt(i));
+      sortie += k >= 0 ? SANS.charAt(k) : s.charAt(i);
+    }
+    return sortie;
+  }
+
+  function normaliserPseudo(brut) {
+    var s = sansAccent(String(brut === null || brut === undefined ? '' : brut).trim().toLowerCase());
+    s = s.replace(/[^a-z0-9_]+/g, '_').replace(/_{2,}/g, '_').replace(/^_+/, '');
+    return s.slice(0, PSEUDO_MAX).replace(/_+$/, '');
+  }
+
+  // ── Les deux alternatives (§3.1) ─────────────────────────────────────────
+  //
+  // « Le refus PROPOSE DEUX ALTERNATIVES — sinon on tâtonne. »
+  //
+  // ⚠️ LA MAQUETTE MONTRE « melodie » ET « mel_d » POUR « mel », et ces deux-là
+  // ne se devinent pas d'un pseudo seul : « melodie » est une EXPANSION. Elles
+  // se dérivent en revanche exactement de l'ADRESSE E-MAIL, qui est saisie sur
+  // le même écran — `melodie.dupont@…` donne « melodie » par sa première partie
+  // et « mel_d » par l'initiale de la seconde. C'est donc l'e-mail qu'on lit, et
+  // les suffixes numériques ne servent que de repli.
+  //
+  // Rien n'est proposé qui soit invalide, déjà pris, ou égal à ce qui vient
+  // d'être refusé.
+  function alternatives(brut, contexte) {
+    var ctx = contexte || {};
+    var base = normaliserPseudo(brut);
+    var pris = {};
+    (ctx.pris || []).forEach(function (n) { pris[normaliserPseudo(n)] = true; });
+
+    var bouts = [];
+    var local = String(ctx.email || '').split('@')[0];
+    if (local) {
+      bouts = normaliserPseudo(local).split('_').filter(Boolean);
+    }
+
+    var candidats = [], i;
+    // 1. La PREMIÈRE partie de l'e-mail : « melodie.dupont@… » donne « melodie ».
+    if (bouts.length) candidats.push(bouts[0]);
+    // 2. Ce qui a été tapé, plus l'initiale de la partie suivante : « mel_d ».
+    if (base && bouts.length > 1) {
+      for (i = 1; i < bouts.length; i++) candidats.push(base + '_' + bouts[i].charAt(0));
+    }
+    // 3. L'e-mail EN ENTIER, en dernier recours seulement. « melodie_dupont »
+    //    est un identifiant lisible PARTOUT — donc un nom de famille exposé à
+    //    tout le monde. On ne le propose pas d'emblée, on le garde pour le cas
+    //    où les deux formes courtes sont prises.
+    if (bouts.length > 1) candidats.push(bouts.join('_'));
+    // 4. Repli pur : des suffixes. Sans e-mail exploitable, c'est tout ce qu'on
+    //    a — et deux suggestions valent mieux qu'un refus sec.
+    if (base) {
+      for (i = 2; i <= 9; i++) candidats.push(base + i);
+      for (i = 1; i <= 9; i++) candidats.push(base + '_' + i);
+    }
+
+    var sortie = [], vus = {};
+    vus[base] = true;
+    candidats.forEach(function (c) {
+      if (sortie.length >= 2) return;
+      var p = normaliserPseudo(c);
+      if (!p || vus[p] || pris[p]) return;
+      if (p.length < PSEUDO_MIN || p.length > PSEUDO_MAX) return;
+      vus[p] = true;
+      sortie.push(p);
+    });
+    return sortie;
+  }
+
+  // ── Le verdict ───────────────────────────────────────────────────────────
+  //
+  // ⚠️ TROIS ÉTATS, PAS DEUX. `pris` vaut `true`, `false`, ou `null` quand la
+  // question n'a pas pu être posée — hors réseau, ou parce que la base ne sait
+  // pas répondre. `null` rend « inconnu », et l'écran se TAIT : annoncer
+  // « libre » sur une question sans réponse serait une affirmation fausse, et
+  // c'est précisément le genre de chiffre inventé que ce projet refuse.
+  function verdictPseudo(brut, pris, contexte) {
+    var p = normaliserPseudo(brut);
+    if (!p) return { code: 'vide', pseudo: '', message: null, alternatives: [] };
+    if (p.length < PSEUDO_MIN) {
+      return { code: 'court', pseudo: p, alternatives: [],
+               message: PSEUDO_MIN + ' caractères minimum.' };
+    }
+    if (!/^[a-z]/.test(p)) {
+      return { code: 'invalide', pseudo: p, alternatives: [],
+               message: 'Commence par une lettre.' };
+    }
+    if (pris === true) {
+      var alts = alternatives(p, contexte);
+      var msg = 'Déjà pris';
+      if (alts.length === 2) msg += ' — essaie « ' + alts[0] + ' » ou « ' + alts[1] + ' ».';
+      else if (alts.length === 1) msg += ' — essaie « ' + alts[0] + ' ».';
+      else msg += '.';
+      return { code: 'pris', pseudo: p, alternatives: alts, message: msg };
+    }
+    if (pris === false) return { code: 'libre', pseudo: p, alternatives: [], message: null };
+    return { code: 'inconnu', pseudo: p, alternatives: [], message: null };
+  }
+
+  // Un mot de passe trop court part en 422 côté Supabase, qui répond en
+  // anglais. On refuse avant, en français, sur la même borne.
+  var MDP_MIN = 8;
+  function mdpValide(v) { return String(v || '').length >= MDP_MIN; }
+
+  // ── L'inscription peut-elle partir ? ─────────────────────────────────────
+  //
+  // Le bouton est ÉTEINT tant que les trois champs ne tiennent pas — c'est ce
+  // que montre la maquette (`.pri.off`). Un pseudo dont on ne sait pas s'il est
+  // pris ne bloque PAS : on ne retient personne sur une question sans réponse.
+  function inscriptionPrete(etat) {
+    var e = etat || {};
+    var v = verdictPseudo(e.pseudo, e.pseudoPris, e);
+    if (v.code !== 'libre' && v.code !== 'inconnu') return false;
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(e.email || '').trim())) return false;
+    return mdpValide(e.mdp);
+  }
+
+  var api = {
+    DISCIPLINES: DISCIPLINES, DISCIPLINES_CONNUES: DISCIPLINES_CONNUES,
+    MATERIELS: MATERIELS, ANCIENNETES: ANCIENNETES, NIVEAUX: NIVEAUX,
+    SEXES: SEXES, UNITES: UNITES, INTENTIONS: INTENTIONS, JOURS: JOURS,
+    DUREES: DUREES, SEANCES_MIN: SEANCES_MIN, SEANCES_MAX: SEANCES_MAX,
+    TAILLE_MIN: TAILLE_MIN, TAILLE_MAX: TAILLE_MAX,
+    PSEUDO_MIN: PSEUDO_MIN, PSEUDO_MAX: PSEUDO_MAX, MDP_MIN: MDP_MIN,
+    CHAMPS_ECRITS: CHAMPS_ECRITS, A_RENSEIGNER: A_RENSEIGNER,
+    libelleDe: libelleDe,
+    initiale: initiale,
+    age: age,
+    sousTitre: sousTitre,
+    statsDe: statsDe,
+    libelleAnciennete: libelleAnciennete,
+    manquants: manquants,
+    doitOuvrirProfil: doitOuvrirProfil,
+    champsEcrits: champsEcrits,
+    tailleValide: tailleValide,
+    naissanceValide: naissanceValide,
+    joursValides: joursValides,
+    libelleJours: libelleJours,
+    normaliserPseudo: normaliserPseudo,
+    alternatives: alternatives,
+    verdictPseudo: verdictPseudo,
+    mdpValide: mdpValide,
+    inscriptionPrete: inscriptionPrete
+  };
+
+  racine.THProfil = api;
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+})(typeof self !== 'undefined' ? self : globalThis);

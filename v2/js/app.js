@@ -972,7 +972,7 @@
   // On MESURE les deux barres et on réserve exactement ce qu'elles occupent.
   // Une hauteur mesurée suit tout : l'encoche, le repli des commandes à 360 px,
   // une barre qu'on rendrait plus haute demain.
-  var barresMesurees = { onglets: null, repos: null };
+  var barresMesurees = { onglets: null, repos: null, pied: null };
 
   function mesurerBarres() {
     var style = doc.documentElement.style;
@@ -982,13 +982,18 @@
     // Une barre cachée — par elle-même ou par sa vue — rend un rectangle nul :
     // c'est le bon zéro, il n'y a rien à réserver pour ce qu'on ne voit pas.
     var hOnglets = onglets ? Math.ceil(onglets.getBoundingClientRect().height) : 0;
-    // ⚠️ LE PIED DU MODE RÉORGANISER PASSE PAR LA MÊME RÉSERVE (ch. 46). Les
-    // deux ne coexistent jamais — on ne range pas pendant un repos, le mode
-    // replie la séance — donc une seule variable suffit, et la dernière rangée
-    // ne finit pas sous le pied. La leçon est celle du §7 sexies : ce qui est
-    // `position: fixed` n'ajoute aucune course de défilement.
+    // ⚠️ LES DEUX S'EMPILENT, ILS NE SE REMPLACENT PAS (corrigé le 18/09).
+    // Le premier jet posait « les deux ne coexistent jamais — on ne range pas
+    // pendant un repos » : c'est faux. Valider une série arme le chronomètre,
+    // et remettre de l'ordre juste après est le geste le plus normal du monde.
+    // Les deux barres étaient alors au même `bottom`, superposées au pixel près.
+    //
+    // La réserve du bas vaut donc leur SOMME, et le pied se pose au-dessus du
+    // repos (`bottom: calc(--h-onglets + --h-repos)`, styles.css). La leçon est
+    // celle du §7 sexies : ce qui est `position: fixed` n'ajoute aucune course
+    // de défilement — ce qu'il couvre est perdu si la réserve ne le compte pas.
     var hRepos = (repos && !repos.hidden) ? Math.ceil(repos.getBoundingClientRect().height) : 0;
-    if (pied && !pied.hidden) hRepos = Math.max(hRepos, Math.ceil(pied.getBoundingClientRect().height));
+    var hPied = (pied && !pied.hidden) ? Math.ceil(pied.getBoundingClientRect().height) : 0;
     // On n'écrit QUE ce qui change. `rendreChrono` passe ici chaque seconde ;
     // réécrire la même valeur salirait le style pour rien, et une mesure suivie
     // d'une écriture qui change la mise en page est le début d'une boucle.
@@ -999,6 +1004,10 @@
     if (hRepos !== barresMesurees.repos) {
       barresMesurees.repos = hRepos;
       style.setProperty('--h-repos', hRepos + 'px');
+    }
+    if (hPied !== barresMesurees.pied) {
+      barresMesurees.pied = hPied;
+      style.setProperty('--h-pied', hPied + 'px');
     }
   }
 

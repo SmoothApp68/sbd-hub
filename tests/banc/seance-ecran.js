@@ -2405,8 +2405,58 @@ const SETS_IMPORTES = [
     JSON.stringify(await formeEcran()));
 
   // ── §5.3 — LE MODE MODIFIER ─────────────────────────────────────────────
+  //
+  // ⚠️ AVEC UN REPOS QUI COURT, et c'est la configuration discriminante du
+  // défaut relevé le 18/09 : le pied du mode et la barre de repos étaient posés
+  // au MÊME `bottom`, donc superposés au pixel près. Le commentaire du code
+  // jurait qu'ils ne coexistaient jamais. Ils coexistent au contraire dans le
+  // cas le plus ordinaire : on valide une série, puis on remet de l'ordre.
+  // Sans chronomètre armé, les deux barres ne se rencontrent pas et le banc
+  // applaudirait un écran que personne n'a vu.
+  const iArmee = await page.evaluate(() => {
+    const toutes = Array.from(document.querySelectorAll('.ligne-serie'));
+    const l = toutes.filter((x) => !x.querySelector('.ok-serie.cochee'))[0];
+    if (!l) return -1;
+    l.querySelector('.ok-serie').click();
+    return toutes.indexOf(l);
+  });
+  await attendre(900);
   await page.click('#bandeau-seance .bandeau-modifier');
-  await attendre(600);
+  await attendre(700);
+  const deuxBarres = await page.evaluate(() => {
+    const r = document.getElementById('repos');
+    const p = document.getElementById('pied-reorg');
+    if (!r || r.hidden || !p || p.hidden) return { ensemble: false };
+    const a = r.getBoundingClientRect(), b = p.getBoundingClientRect();
+    return { ensemble: true,
+             chevauche: a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.top + a.height,
+             basPied: Math.round(b.bottom), hautRepos: Math.round(a.top) };
+  });
+  ok('[46] le pied du mode et la barre de repos s’affichent ENSEMBLE',
+    deuxBarres.ensemble === true, JSON.stringify(deuxBarres));
+  ok('[46] …et ils s’EMPILENT, ils ne se superposent pas',
+    deuxBarres.ensemble === true && deuxBarres.chevauche === false &&
+    deuxBarres.basPied <= deuxBarres.hautRepos,
+    JSON.stringify(deuxBarres));
+  // On rend la barre de repos ET la série : la suite de la section compte les
+  // séries faites, et une de plus la ferait échouer pour une raison qui n'est
+  // pas la sienne. Dévalider repose exactement l'état d'avant.
+  await page.evaluate(() => {
+    const b = Array.from(document.querySelectorAll('#repos button'))
+      .filter((x) => /Passer/.test(x.textContent))[0];
+    if (b) b.click();
+  });
+  await attendre(400);
+  await page.click('#bandeau-seance .bandeau-modifier');   // on ressort du mode
+  await attendre(700);
+  await page.evaluate((k) => {
+    if (k < 0) return;
+    const l = document.querySelectorAll('.ligne-serie')[k];
+    if (l) l.querySelector('.ok-serie').click();
+  }, iArmee);
+  await attendre(1200);
+  await page.click('#bandeau-seance .bandeau-modifier');   // et on y rentre
+  await attendre(700);
   ok('Modifier replie TOUT sur une ligne par bloc',
     (await compter('.bloc-seance.replie')) === 3 &&
     (await compter('.ligne-serie')) === 0 &&

@@ -1508,7 +1508,62 @@ const CATALOGUE = [
     JSON.stringify(await nomsBiblio()) === JSON.stringify(voulu),
     JSON.stringify(await nomsBiblio()));
 
-  // ⑨ L'ÉDITEUR DE ROUTINE — LA DEUXIÈME SURFACE, LE MÊME MODE.
+  // ⑨ LE GESTE RAPIDE — UN SEUL ÉVÉNEMENT POUR DEUX CRANS.
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE (§2 quater), trouvée par une MUTATION. Les
+  // glissements ci-dessus avancent par pas de 8 px : chaque événement ne
+  // franchit qu'un cran, donc une implémentation qui ne permute qu'UNE fois par
+  // événement passe. C'est exactement le mutant qui a survécu au premier
+  // passage.
+  //
+  // Un vrai pouce ne glisse pas par pas de 8 px : il LANCE. Et un
+  // `pointermove` avalé par une image perdue produit le même saut. Ici on
+  // envoie DEUX crans en UN SEUL mouvement — la rangée doit suivre le doigt,
+  // pas traîner d'un cran derrière.
+  await page.click('#btn-ranger-routines');
+  await attendre(600);
+  const avantLance = await nomsBiblio();
+  const bLance = await page.evaluate(() => {
+    const p = document.querySelectorAll('#liste-routines .poignee')[2];
+    const r = p.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  });
+  await page.mouse.move(bLance.x, bLance.y);
+  await page.mouse.down();
+  await page.mouse.move(bLance.x, bLance.y + deuxCrans);   // UN seul mouvement
+  await attendre(120);
+  await page.mouse.up();
+  await attendre(400);
+  ok('[46] un geste RAPIDE franchit ses deux crans d’un coup',
+    (await nomsBiblio()).indexOf(avantLance[2]) === 4,
+    JSON.stringify(avantLance) + ' → ' + JSON.stringify(await nomsBiblio()));
+
+  // ⑩ CHANGER D'ÉCRAN REFERME LE MODE, ET JETTE CE QUI N'EST PAS ENREGISTRÉ.
+  //
+  // ⚠️ PAR LES ONGLETS, PAS PAR UN RECHARGEMENT. Un `goto` relance l'app et
+  // remettrait tout à zéro de toute façon : il ne mesurerait rien. C'est la
+  // navigation INTERNE qui compte — c'est elle qui, jusqu'au chantier 46,
+  // laissait le mode ouvert d'un écran à l'autre.
+  const ordreAvantOnglet = rangsEnBase();
+  await page.evaluate(() => {
+    document.getElementById("onglet-seances").click();
+  });
+  await attendre(900);
+  await page.evaluate(() => {
+    document.getElementById("onglet-saisie").click();
+  });
+  await attendre(900);
+  ok('[46] changer d’onglet referme le mode — il ne traverse pas les écrans',
+    (await modeOuvert()) === false &&
+    (await compter('#liste-routines .poignee')) === 0,
+    'pied : ' + (await modeOuvert()) + ' · ' +
+    (await compter('#liste-routines .poignee')) + ' poignée(s)');
+  ok('[46] …et le déplacement non enregistré est jeté, pas écrit en douce',
+    JSON.stringify(rangsEnBase()) === JSON.stringify(ordreAvantOnglet) &&
+    JSON.stringify(await nomsBiblio()) === JSON.stringify(ordreAvantOnglet),
+    'base : ' + JSON.stringify(rangsEnBase()) + ' · écran : ' + JSON.stringify(await nomsBiblio()));
+
+  // ⑪ L'ÉDITEUR DE ROUTINE — LA DEUXIÈME SURFACE, LE MÊME MODE.
   base.exos.push(
     { id: 'e-ed-1', routine_id: 'r-ord-0', exercise_slug: 'dc-barre', rang: 1,
       repos_cible_s: null, groupe_superset: null, note: null },

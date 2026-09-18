@@ -738,8 +738,13 @@
       });
   }
 
+  // ⚠️ UNE CHAÎNE VIDE N'EST PAS LE RANG ZÉRO. `Number('')` et `Number('  ')`
+  // valent 0 : sans ce filtre, une routine au rang vide passerait DEVANT tout le
+  // monde et réclamerait un 0 peut-être déjà pris — donc un 23505 sur
+  // `routines_user_rang_uniq`. Le vide veut dire « pas de rang », rien d'autre.
   function rangOuNul(v) {
-    if (v === null || v === undefined || v === '') return null;
+    if (v === null || v === undefined) return null;
+    if (typeof v === 'string' && v.trim() === '') return null;
     var n = Number(v);
     return isFinite(n) ? n : null;
   }

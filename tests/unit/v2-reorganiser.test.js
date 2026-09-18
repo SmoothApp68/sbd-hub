@@ -62,6 +62,18 @@ describe('⚠️ la bibliothèque se range par `rang`, le nom ne départage plus
     expect(Routines.visibles(liste).map((r) => r.nom)).toEqual(['Un', 'Deux']);
   });
 
+  // ⚠️ UNE CHAÎNE VIDE N'EST PAS LE RANG ZÉRO. `Number('')` vaut 0 : sans le
+  // test explicite, une routine au rang vide passerait DEVANT tout le monde, et
+  // pourrait heurter `routines_user_rang_uniq` en réclamant un 0 déjà pris.
+  test('une chaîne vide vaut « pas de rang », jamais zéro', () => {
+    expect(Routines.rangOuNul('')).toBeNull();
+    expect(Routines.rangOuNul('   ')).toBeNull();
+    expect(Routines.rangOuNul(0)).toBe(0);
+    expect(Routines.rangOuNul('nawak')).toBeNull();
+    const liste = [R('a', 'Vide', ''), R('b', 'Zero', 0)];
+    expect(Routines.visibles(liste).map((r) => r.nom)).toEqual(['Zero', 'Vide']);
+  });
+
   test('`visibles` ne modifie pas le tableau reçu', () => {
     const liste = [R('a', 'Zzz', 1), R('b', 'Aaa', 0)];
     const avant = liste.slice();

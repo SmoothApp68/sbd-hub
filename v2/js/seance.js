@@ -1683,8 +1683,9 @@
 
   // ══ LE CHRONOMÈTRE S'ARRÊTE À L'ÉCHÉANCE (§7 septies.3) ══════════════════
   //
-  // Il ne compte pas au-delà. Un compteur qui continue de monter après la cible
-  // est un décompte qui presse, et le chronomètre informe — il ne commande pas
+  // Il ne va pas au-delà : depuis le chantier 50 il s'arrête à 0:00 au lieu de se
+  // figer sur la cible, et il ne repart JAMAIS en négatif. Un « −0:38 » qui
+  // grossit est un reproche, et le chronomètre informe — il ne commande pas
   // (§7 ter.3).
   //
   // ⚠️ CE QUI EST FIGÉ EST L'AFFICHAGE, JAMAIS LA MESURE. `repos_s` se calcule
@@ -1693,17 +1694,44 @@
   // Geler l'un n'a aucun effet sur l'autre, et c'est le point — on arrête de
   // montrer, on n'arrête pas d'observer.
   //
-  // Sans cible, rien ne fige : zéro veut dire « pas de cible », et un
-  // chronomètre libre compte tant qu'on le regarde.
+  // Sans cible, rien ne fige : zéro veut dire « pas de cible ». Depuis le
+  // chantier 45 aucun chronomètre ne s'arme dans cet état ; `reposFige` garde
+  // néanmoins sa réponse, parce que c'est elle qui décide de l'ARRÊT DU
+  // MINUTEUR — `secondesRestantes` ne décide, elle, que de l'affichage. Les deux
+  // s'accordent tant que la cible est positive, et elles restent séparées pour
+  // la même raison que `cibleArmable` et `reposEcoule` (§7 tervicies.1).
   function reposFige(cible, secondes) {
     var c = Number(cible) || 0;
     if (c <= 0) return false;
     return (Number(secondes) || 0) >= c;
   }
 
-  function secondesAffichees(cible, secondes) {
+  // ══ UN COMPTE À REBOURS, PAS UN CHRONOMÈTRE (§7 quatervicies, ch. 50) ═══
+  //
+  // Le grand nombre de la barre était le temps ÉCOULÉ : il montait de 0:00 vers
+  // la cible, écrite en petit à côté. Entre deux séries, personne ne se demande
+  // depuis combien de temps il souffle — il se demande COMBIEN IL LUI RESTE. Le
+  // montant faisait faire la soustraction de tête.
+  //
+  // ⚠️ ET ÇA REND LE §7 TERVICIES LISIBLE : « −15 » fait maintenant DESCENDRE le
+  // grand nombre, et la barre s'en va quand il atteint zéro. Avant, le même
+  // geste faisait MONTER le nombre vers une cible qui, elle, descendait — deux
+  // mouvements opposés pour un seul appui.
+  //
+  // ⚠️ LA MESURE N'EST PAS TOUCHÉE, ET C'EST LE POINT. `repos_s` se calcule à la
+  // validation suivante, depuis l'écart entre deux `validee_a` (`valider`) : il
+  // porte le repos RÉEL, même s'il a duré trois fois la cible. On change ce
+  // qu'on MONTRE, jamais ce qu'on observe.
+  //
+  // Sans cible, il ne reste rien à décompter : zéro. Le cas ne se produit plus
+  // depuis le chantier 45 — `demarrerChrono` passe par `cibleArmable`, donc tout
+  // chronomètre vivant a une cible > 0 — mais la fonction reste TOTALE : elle
+  // répond pour toute entrée plutôt que de rendre un nombre qui n'a pas de sens.
+  function secondesRestantes(cible, secondes) {
+    var c = Number(cible) || 0;
+    if (c <= 0) return 0;
     var s = Number(secondes) || 0;
-    return reposFige(cible, s) ? (Number(cible) || 0) : s;
+    return s >= c ? 0 : c - s;
   }
 
   var api = {
@@ -1714,7 +1742,7 @@
     reposEcoule: reposEcoule,
     echeanceAtteinte: echeanceAtteinte,
     reposFige: reposFige,
-    secondesAffichees: secondesAffichees,
+    secondesRestantes: secondesRestantes,
     EN_COURS: EN_COURS, TERMINEE: TERMINEE, REPOS_MAX: REPOS_MAX,
     REPOS_CIBLE_MIN: REPOS_CIBLE_MIN, REPOS_CIBLE_MAX: REPOS_CIBLE_MAX,
     SALLE_MAX: SALLE_MAX,

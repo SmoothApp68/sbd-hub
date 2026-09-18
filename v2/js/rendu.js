@@ -2056,7 +2056,14 @@
   }
 
   // Le chronomètre INFORME, il ne commande pas : pas d'alarme au dépassement,
-  // pas de blocage, aucun décompte qui presse. La piste se remplit et continue.
+  // pas de blocage, aucun décompte qui presse.
+  //
+  // ⚠️ C'EST UN COMPTE À REBOURS (§7 quatervicies, ch. 50), ET LES DEUX SIGNAUX
+  // VONT DANS LE MÊME SENS. Le grand nombre descend de la cible vers 0:00 — la
+  // question entre deux séries est « combien me reste-t-il », pas « depuis
+  // combien de temps je souffle » — et la piste SE VIDE avec lui. Elle se
+  // remplissait pendant que le nombre montait ; garder le remplissage sous un
+  // nombre qui descend, c'est raconter deux histoires sur le même écran.
   //
   // Trois commandes, et pas une de plus (§3 bis.8) : −15 s, +15 s, et la
   // sourdine. Les deux premières parce qu'une cible mal réglée est le cas
@@ -2068,7 +2075,7 @@
     var h = el('div', 'repos-h');
     // Figé à l'échéance (§7 septies.3) : il ne compte pas au-delà. L'état se
     // voit, sinon un chronomètre arrêté se lit comme un chronomètre planté.
-    h.appendChild(el('span', 'repos-g num' + (vue.fige ? ' fige' : ''), mmss(vue.secondes)));
+    h.appendChild(el('span', 'repos-g num' + (vue.fige ? ' fige' : ''), mmss(vue.restant)));
 
     h.appendChild(boutonRepos('−' + pas, 'Réduire la cible de ' + pas + ' secondes',
       function () { if (vue.surAjuster) vue.surAjuster(-pas); }));
@@ -2094,8 +2101,9 @@
 
     var piste = el('div', 'piste');
     var barre = el('i', '');
+    // Ce qui RESTE, pas ce qui est passé : la piste part pleine et se vide.
     barre.style.width = vue.cible
-      ? Math.min(100, Math.round((vue.secondes / vue.cible) * 100)) + '%' : '0%';
+      ? Math.max(0, Math.min(100, Math.round((vue.restant / vue.cible) * 100))) + '%' : '0%';
     piste.appendChild(barre);
     cible.appendChild(piste);
   }

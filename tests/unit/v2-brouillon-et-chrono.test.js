@@ -123,11 +123,11 @@ describe('⚠️ un repos désactivé n’arme aucun chronomètre', () => {
     [0, 60, 3600, 86400].forEach((sec) => {
       expect(Seance.reposFige(null, sec)).toBe(false);
       expect(Seance.echeanceAtteinte(null, sec, false)).toBe(false);
-      expect(Seance.secondesAffichees(null, sec)).toBe(sec);
+      expect(Seance.secondesRestantes(null, sec)).toBe(0);
     });
     // Avec une cible, il fige — et c'est ce contraste qui rend le défaut lisible.
     expect(Seance.reposFige(120, 120)).toBe(true);
-    expect(Seance.secondesAffichees(120, 300)).toBe(120);
+    expect(Seance.secondesRestantes(120, 300)).toBe(0);
   });
 });
 

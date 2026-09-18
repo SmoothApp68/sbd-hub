@@ -440,6 +440,23 @@ describe('8 — le réglage de la cible ne sort jamais des bornes', () => {
     expect(Seance.reposEcoule(50)).toBe(false);
   });
 
+  // ⚠️ ET TOUT CE QUI N'EST PAS UN NOMBRE POSITIF EST « FINI ». Contrat épinglé
+  // au chantier 50, et voici pourquoi : `retargeterChrono` normalise sa cible
+  // (`Number(cible) || 0`) avant de la passer à `appliquerCible`, et cette
+  // normalisation est REDONDANTE tant que cette ligne-ci tient — sa mutation
+  // survit, elle est équivalente. Elle ne l'est QUE grâce à ce contrat. Le jour
+  // où `reposEcoule` cesserait de répondre « fini » sur `NaN`, un repos
+  // désactivé poserait `chrono.cible = NaN` — une barre qui ne fige jamais, le
+  // troisième état que le §7 novodecies interdit. Ce test est donc la
+  // justification écrite de la ligne d'à côté.
+  test('ni `null`, ni `undefined`, ni `NaN` ne font courir un repos', () => {
+    expect(Seance.reposEcoule(null)).toBe(true);
+    expect(Seance.reposEcoule(undefined)).toBe(true);
+    expect(Seance.reposEcoule(NaN)).toBe(true);
+    expect(Seance.reposEcoule('abc')).toBe(true);
+    expect(Seance.reposEcoule(-30)).toBe(true);
+  });
+
   // NON-RÉGRESSION DU CHANTIER 45, et c'est l'autre moitié du §7 tervicies : un
   // repos JAMAIS PRESCRIT n'arme aucun chronomètre. Ce que le 49 change est
   // l'extinction, jamais l'armement.

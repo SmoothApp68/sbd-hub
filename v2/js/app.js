@@ -86,7 +86,7 @@
   var seance = null;
   var attente = [];
   var vidangeEnCours = false;
-  var chrono = null;         // { depuis, cible, sonne } — le repos en cours
+  var chrono = null;         // { depuis, cible, sonne, exo } — le repos en cours
   var minuteur = null;       // l'intervalle d'affichage du chronomètre
   var sourdine = false;      // le son du repos, coupé et retenu (§3 bis.8)
   var audio = null;          // le contexte Web Audio, né au premier geste
@@ -940,13 +940,20 @@
   // ⚠️ ET VALIDER ARRÊTE TOUJOURS LE REPOS PRÉCÉDENT. Sans cible, on ne laisse
   // pas courir celui d'avant : commencer une série met fin au repos, qu'il y
   // ait quelque chose à compter ensuite ou non.
-  function demarrerChrono(cible) {
+  // ⚠️ IL RETIENT QUI L'A ARMÉ (§7 quatervicies.2). Sans ça, régler le repos de
+  // l'exercice B retargerait le décompte lancé par A — pire que le trou qu'on
+  // bouche. L'identité est le COUPLE (indice, slug), et pas l'un des deux :
+  // la séance n'a pas d'identifiant par exercice, l'indice bouge à la
+  // réorganisation, et le slug ne distingue pas deux fois le même exercice.
+  // Les deux ensemble échouent FERMÉ : dès qu'ils divergent, on ne retarge rien.
+  function demarrerChrono(cible, iExo, slug) {
     var c = Seance.cibleArmable(cible);
     // C'est `rendreChrono` qui décide si le minuteur tourne — ici on repart
     // juste de zéro. Deux endroits qui lancent des `setInterval` finissent
     // toujours par en laisser un derrière.
     arreterMinuteur();
-    chrono = c === null ? null : { depuis: Date.now(), cible: c, sonne: false };
+    chrono = c === null ? null
+      : { depuis: Date.now(), cible: c, sonne: false, exo: { i: iExo, slug: slug } };
     // Le contexte audio doit NAÎTRE dans le geste utilisateur : une politique
     // d'autoplay refuse un contexte créé une minute plus tard, dans un
     // `setInterval`. On le réveille donc à la validation, pas à l'échéance —
@@ -1054,7 +1061,12 @@
       // Ce qui est figé est l'AFFICHAGE. `repos_s` se mesure à la validation
       // suivante, depuis l'écart entre deux `validee_a` : il porte le repos
       // réel, même s'il a duré trois fois la cible.
-      secondes: Seance.secondesAffichees(chrono.cible, secondes),
+      //
+      // ⚠️ CE QU'ON PASSE AU RENDU EST LE TEMPS QUI RESTE (§7 quatervicies), pas
+      // le temps écoulé. `secondes` reste la mesure interne — elle sert à
+      // `echeanceAtteinte` et à `reposFige` juste au-dessus — et ne sort plus
+      // d'ici : l'écran ne montre que le décompte.
+      restant: Seance.secondesRestantes(chrono.cible, secondes),
       fige: fige,
       cible: chrono.cible,
       sourdine: sourdine,
@@ -1092,12 +1104,65 @@
     // l'extinction ne se déduisent pas l'un de l'autre (§7 tervicies). Un repos
     // jamais prescrit (`null`) n'arme rien — défaut fermé au chantier 45 — et
     // c'est une autre question que « celui-ci est-il fini ? ».
+    appliquerCible(cible);
+  }
+
+  // La règle est ICI, et elle est UNE (§7 quatervicies.2) : deux gestes changent
+  // la cible d'un repos qui court — les « −15/+15 » de la barre et la molette
+  // sous le nom de l'exercice — et ils doivent en tirer les MÊMES conséquences.
+  // Deux copies de ces quatre lignes, c'est la garantie qu'un chantier futur en
+  // corrigera une sur deux ; c'est la maladie que ce dépôt passe son temps à
+  // soigner.
+  function appliquerCible(cible) {
+    if (!chrono) return;
     if (Seance.reposEcoule(cible)) { eteindreChrono(); return; }
     chrono.cible = cible;
+    // Une cible repoussée AU-DELÀ de l'écoulé réarme l'échéance : c'est une
+    // échéance neuve, posée à la main, pas une répétition de la précédente.
     if (chrono.cible > secondesDeRepos()) chrono.sonne = false;
     // `rendreChrono` relance ou arrête le minuteur selon la nouvelle cible :
     // un −15 qui franchit l'échéance fige, un +15 qui la repousse repart.
     rendreChrono();
+  }
+
+  // ══ LA MOLETTE RETARGE LE DÉCOMPTE EN COURS (§7 quatervicies.2) ═════════
+  //
+  // Constaté sur device : régler le repos d'un exercice pendant qu'on se repose
+  // ne changeait RIEN à la barre. Le chronomètre avait copié sa cible à
+  // l'armement, et plus personne ne la relisait — `repos_cible_s` n'était lu que
+  // par `demarrerChrono`, à la validation SUIVANTE.
+  //
+  // ⚠️ LE §7 TERVICIES N'EST PAS CONTREDIT, IL EST ORIENTÉ. Il sépare deux objets
+  // pour empêcher un « −15 » de désactiver une CONSIGNE ; il ne dit pas qu'un
+  // geste doit rester sans effet. Le fil ne va donc que dans un sens :
+  //
+  //     −15 / +15 sur la barre  →  le décompte seul. La consigne ne bouge pas.
+  //     molette sous l'exercice  →  la consigne ET le décompte, s'il est à lui.
+  //
+  // Et désactiver le repos pendant qu'il court, c'est dire « pas de repos ici » :
+  // `appliquerCible(0)` éteint, exactement comme le −15 arrivé à zéro.
+  function chronoDeCetExo(iExo) {
+    if (!chrono || !chrono.exo) return false;
+    var exo = seance && seance.exercices ? seance.exercices[iExo] : null;
+    if (!exo) return false;
+    return chrono.exo.i === iExo && chrono.exo.slug === exo.exercise_slug;
+  }
+
+  function retargeterChrono(iExo, cible) {
+    if (!chronoDeCetExo(iExo)) return;
+    // `cible` est relue depuis la séance APRÈS écriture : elle a donc déjà passé
+    // les bornes de `definirReposCible`, ou elle vaut ce qu'elle valait si la
+    // valeur a été refusée. `null` — repos désactivé — devient zéro, donc une
+    // extinction.
+    //
+    // ⚠️ LE `|| 0` EST REDONDANT AUJOURD'HUI, ET IL RESTE EXPRÈS. Sa mutation
+    // survit : `reposEcoule` répond déjà « fini » sur `NaN` comme sur zéro, donc
+    // `Number(cible)` seul éteindrait pareil. Ce n'est vrai QUE grâce à ce
+    // contrat, qui est épinglé par un test (`v2-statut-seance`, §8) : le jour où
+    // il changerait, cette normalisation serait la seule chose empêchant
+    // `chrono.cible = NaN` — une barre qui ne fige jamais, le troisième état que
+    // le §7 novodecies interdit.
+    appliquerCible(Number(cible) || 0);
   }
 
   // Le repos n'existe plus : ni objet, ni minuteur, ni barre. Les trois vont
@@ -1244,7 +1309,7 @@
     // ⚠️ PAS DE REPOS EN CORRECTION. Le chronomètre mesure le temps entre deux
     // séries RÉELLES ; en rouvrant une séance d'avant-hier, il compterait un
     // repos qui n'a pas eu lieu et l'écrirait dans `repos_s`.
-    if (!enEdition()) demarrerChrono(exo.repos_cible_s);
+    if (!enEdition()) demarrerChrono(exo.repos_cible_s, iExo, exo.exercise_slug);
     return apresGeste();
   }
 
@@ -1823,6 +1888,12 @@
       // PHRASE — ici le réglage vaut pour la séance, pas pour la routine.
       var poserRepos = function (v) {
         seance = Seance.definirReposCible(seance, feuille.iExo, v);
+        // ⚠️ ON RELIT LA VALEUR EFFECTIVEMENT POSÉE, on ne retarge pas sur `v`.
+        // `definirReposCible` REFUSE ce qui sort de ses bornes et rend la
+        // séance inchangée : retarger sur `v` ferait bouger la barre pendant que
+        // la consigne, elle, n'aurait pas bougé — les deux se remettraient à
+        // dire deux choses différentes, ce qui est tout le défaut qu'on répare.
+        retargeterChrono(feuille.iExo, seance.exercices[feuille.iExo].repos_cible_s);
         apresGeste({ structure: false, rendre: false });
         fermerVoile();
       };

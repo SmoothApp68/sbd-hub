@@ -255,7 +255,7 @@ describe('test 5 — après un ajustement, le chronomètre se fige ou s\'éteint
     expect(c).toBe(5);
     expect(Seance.reposEcoule(c)).toBe(false);
     expect(Seance.reposFige(c, 30)).toBe(true);
-    expect(Seance.secondesAffichees(c, 30)).toBe(5);
+    expect(Seance.secondesRestantes(c, 30)).toBe(0);   // figé : il ne reste rien
   });
 
   test('et un cinquième −15 ne descend pas sous zéro', () => {

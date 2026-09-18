@@ -58,7 +58,13 @@ function bacChrono(cible) {
     rendreChrono: () => { journal.rendus++; }
   };
   vm.createContext(ctx);
+  // ⚠️ `appliquerCible` S'EST AJOUTÉE AU CHANTIER 50, et ce bac est tombé avec
+  // un `ReferenceError` dès qu'`ajusterRepos` a délégué sa règle. C'est ce que
+  // l'en-tête annonçait : le texte extrait est la VRAIE source, donc une
+  // voisine renommée ou déplacée fait tomber le test bruyamment. Une garde
+  // qu'on ne peut plus construire n'est plus une garde.
   vm.runInContext(extraire('eteindreChrono'), ctx);
+  vm.runInContext(extraire('appliquerCible'), ctx);
   vm.runInContext(extraire('ajusterRepos'), ctx);
   return {
     journal,
@@ -180,6 +186,54 @@ describe('§2 — la liste des séances se rejoint en remplaçant', () => {
     vm.runInContext('afficherSemaine(__l, false)', b.ctx);
     expect(b.journal[0].remplacer).toBe(false);
     expect(b.journal[1].remplacer).toBe(false);
+  });
+
+  // ⚠️ ET LE BRANCHEMENT LUI-MÊME, EXÉCUTÉ. Le mécanisme ci-dessus ne dit pas
+  // QUEL bouton l'emprunte, et c'est précisément là que le chantier 47 s'est
+  // trompé : il a donné à un bouton à destination nommée le comportement d'un
+  // bouton qui n'en nomme aucune. On extrait donc les DEUX lignes de
+  // `brancher()` et on les EXÉCUTE : `$` rend un faux nœud qui retient le
+  // gestionnaire, et on le déclenche.
+  //
+  // Ce n'est pas un grep : on ne cherche pas un motif dans du texte, on APPELLE
+  // le gestionnaire réel et on regarde qui il appelle. Un renommage innocent
+  // passe ; une inversion des deux boutons tombe. Le banc le prouve aussi, mais
+  // il coûte dix-huit minutes par mutant — ici c'est une milliseconde.
+  function bacBranchement() {
+    const ligne = (id) => {
+      const re = new RegExp("^ *\\$\\('" + id + "'\\)\\.addEventListener\\(.*$", 'm');
+      const m = APP.match(re);
+      if (!m) throw new Error('branchement introuvable : ' + id);
+      return m[0];
+    };
+    const appels = [];
+    const poses = {};
+    const ctx = {
+      $: (id) => ({ addEventListener: (ev, fn) => { poses[id] = { ev, fn }; } }),
+      afficherSemaine: (lundi, remplacer) => appels.push({ quoi: 'afficherSemaine', lundi, remplacer }),
+      remonter: (repli) => appels.push({ quoi: 'remonter', repli: typeof repli })
+    };
+    vm.createContext(ctx);
+    vm.runInContext(ligne('btn-retour'), ctx);
+    vm.runInContext(ligne('btn-retour-exercice'), ctx);
+    return { appels, poses };
+  }
+
+  test('« ← Séances » NAVIGUE vers la liste, en remplaçant', () => {
+    const b = bacBranchement();
+    expect(b.poses['btn-retour'].ev).toBe('click');
+    b.poses['btn-retour'].fn();
+    expect(b.appels).toHaveLength(1);
+    expect(b.appels[0].quoi).toBe('afficherSemaine');
+    expect(b.appels[0].remplacer).toBe(true);
+  });
+
+  test('« ← Retour », lui, REMONTE l’historique — il ne choisit pas', () => {
+    const b = bacBranchement();
+    b.poses['btn-retour-exercice'].fn();
+    expect(b.appels).toHaveLength(1);
+    expect(b.appels[0].quoi).toBe('remonter');
+    expect(b.appels[0].repli).toBe('function');
   });
 
   // ⚠️ `remonter` PASSE `afficherSemaine` COMME REPLI, sans argument. Si le

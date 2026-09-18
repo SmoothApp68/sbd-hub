@@ -2075,7 +2075,11 @@
     var h = el('div', 'repos-h');
     // Figé à l'échéance (§7 septies.3) : il ne compte pas au-delà. L'état se
     // voit, sinon un chronomètre arrêté se lit comme un chronomètre planté.
-    h.appendChild(el('span', 'repos-g num' + (vue.fige ? ' fige' : ''), mmss(vue.restant)));
+    // ⚠️ PLUS DE CLASSE `fige` (ch. 51). Elle marquait un chronomètre arrêté sur
+    // sa cible — un état qui n'existe plus : un décompte arrivé à zéro éteint la
+    // barre au lieu de la figer (§7 quinvicies). Une barre affichée est une
+    // barre qui compte, et il n'y a plus qu'un état à dessiner.
+    h.appendChild(el('span', 'repos-g num', mmss(vue.restant)));
 
     h.appendChild(boutonRepos('−' + pas, 'Réduire la cible de ' + pas + ' secondes',
       function () { if (vue.surAjuster) vue.surAjuster(-pas); }));

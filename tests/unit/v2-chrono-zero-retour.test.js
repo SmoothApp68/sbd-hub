@@ -49,26 +49,42 @@ function extraire(nom) {
 
 function bacChrono(cible) {
   const journal = { arrets: 0, rendus: 0, ecoule: 0 };
+  const noeud = { hidden: false };
   const ctx = {
     Seance: Seance,
     chrono: cible === null ? null : { depuis: 0, cible: cible, sonne: false },
     // Le temps écoulé est FIXE : ce qui est testé est la décision, pas l'horloge.
     secondesDeRepos: () => journal.ecoule,
     arreterMinuteur: () => { journal.arrets++; },
-    rendreChrono: () => { journal.rendus++; }
+    assurerMinuteur: () => {},
+    signalerEcheance: () => {},
+    mesurerBarres: () => {},
+    basculerSourdine: () => {},
+    sourdine: false,
+    // Le MÊME nœud à chaque passage : c'est son `hidden` qui dit si la barre est
+    // à l'écran, et c'est la seule mesure qui compte pour ce chantier.
+    $: () => noeud,
+    Rendu: { rendreRepos: () => { journal.rendus++; } }
   };
   vm.createContext(ctx);
-  // ⚠️ `appliquerCible` S'EST AJOUTÉE AU CHANTIER 50, et ce bac est tombé avec
-  // un `ReferenceError` dès qu'`ajusterRepos` a délégué sa règle. C'est ce que
-  // l'en-tête annonçait : le texte extrait est la VRAIE source, donc une
-  // voisine renommée ou déplacée fait tomber le test bruyamment. Une garde
-  // qu'on ne peut plus construire n'est plus une garde.
+  // ⚠️ CE BAC EST TOMBÉ DEUX FOIS, ET C'EST CE QUE L'EN-TÊTE ANNONÇAIT : le
+  // texte extrait est la VRAIE source, donc une voisine renommée ou déplacée le
+  // fait tomber bruyamment. Une garde qu'on ne peut plus construire n'est plus
+  // une garde.
+  //   · au chantier 50, `appliquerCible` s'est interposée ;
+  //   · au chantier 51, la décision d'éteindre a QUITTÉ `ajusterRepos` pour
+  //     `rendreChrono` — qui était ici un simple compteur. Il fallait donc
+  //     exécuter le vrai, sinon ce bac testait une extinction qui n'existe plus
+  //     là où il la cherchait. C'est exactement la démonstration du chantier :
+  //     la règle n'a plus qu'UN endroit.
   vm.runInContext(extraire('eteindreChrono'), ctx);
+  vm.runInContext(extraire('rendreChrono'), ctx);
   vm.runInContext(extraire('appliquerCible'), ctx);
   vm.runInContext(extraire('ajusterRepos'), ctx);
   return {
     journal,
     ctx,
+    noeud,
     moins: () => vm.runInContext('ajusterRepos(-Seance.PAS_REPOS)', ctx),
     plus: () => vm.runInContext('ajusterRepos(Seance.PAS_REPOS)', ctx),
     chrono: () => ctx.chrono
@@ -95,13 +111,18 @@ describe('§1 — quatre « −15 » pendant un repos veulent dire « arrête-to
   // arrêté, sinon `setInterval` rend un chronomètre absent une fois par
   // seconde, pour toujours. Et l'écran doit être re-rendu, sinon la barre
   // reste à l'image.
-  test('et l’extinction arrête le minuteur ET redessine', () => {
+  // ⚠️ L'EXTINCTION SE MESURE SUR LA BARRE, PAS SUR UN COMPTEUR D'APPELS.
+  // Depuis le chantier 51, `rendreChrono` CACHE le nœud et sort sans rien
+  // dessiner : compter les rendus dirait « zéro » aussi bien pour une extinction
+  // réussie que pour une fonction qui ne fait rien. C'est le nœud qu'on regarde.
+  test('et l’extinction arrête le minuteur ET retire la barre de l’écran', () => {
     const b = bacChrono(15);
     const avant = b.journal.arrets;
+    expect(b.noeud.hidden).toBe(false);
     b.moins();
     expect(b.chrono()).toBe(null);
     expect(b.journal.arrets).toBe(avant + 1);
-    expect(b.journal.rendus).toBeGreaterThan(0);
+    expect(b.noeud.hidden).toBe(true);
   });
 
   // Tant qu'il reste quelque chose à compter, on ne touche à rien d'autre que
@@ -117,16 +138,27 @@ describe('§1 — quatre « −15 » pendant un repos veulent dire « arrête-to
   // L'autre sens (§5.3) : repousser la cible AU-DELÀ de l'écoulé réarme
   // l'échéance. Sans ça, un repos raccourci puis rallongé resterait sonné et
   // ne préviendrait plus.
-  test('un +15 près de zéro fait repartir le décompte, et réarme la sonnerie', () => {
+  test('un +15 fait repartir le décompte, et réarme la sonnerie', () => {
     const b = bacChrono(20);
     b.journal.ecoule = 18;
     b.ctx.chrono.sonne = true;
-    b.moins();                                  // 20 → 5, sous l'écoulé
-    expect(b.chrono().cible).toBe(5);
-    expect(b.chrono().sonne).toBe(true);        // 5 < 18 : toujours dépassé
-    b.plus(); b.plus();                         // 5 → 35, au-delà de 18
+    b.plus();                                   // 20 → 35, au-delà de l'écoulé
     expect(b.chrono().cible).toBe(35);
     expect(b.chrono().sonne).toBe(false);       // échéance neuve, posée à la main
+    expect(b.noeud.hidden).toBe(false);
+  });
+
+  // ⚠️ RÉÉCRIT AU CHANTIER 51, ET C'EST UNE CONSÉQUENCE DE LA RÈGLE UNIQUE.
+  // Ce test attendait avant que la cible ramenée DERRIÈRE l'écoulé laisse un
+  // chronomètre vivant, figé à 0:00. Il n'y a plus d'état figé : « il ne reste
+  // rien à décompter » est « fini », que la cible soit tombée à zéro ou
+  // simplement derrière le temps écoulé — c'est la même phrase.
+  test('et un −15 qui ramène la cible derrière l’écoulé éteint aussi', () => {
+    const b = bacChrono(20);
+    b.journal.ecoule = 18;
+    b.moins();                                  // 20 → 5, derrière les 18 écoulées
+    expect(b.chrono()).toBe(null);
+    expect(b.noeud.hidden).toBe(true);
   });
 
   // NON-RÉGRESSION DU CHANTIER 45 (§5.2) : rien à ajuster quand rien ne court.

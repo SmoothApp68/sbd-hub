@@ -1090,6 +1090,12 @@ const SETS_IMPORTES = [
     await attendre(260);
   };
   const MOINS = 0, PLUS = 1, SON = 2;
+  // « 2:00 » → 120. Le grand nombre est une horloge ; le comparer comme texte ne
+  // dirait pas s'il a monté ou descendu.
+  const enSecondes51 = (t) => {
+    const m = /^(\d+):(\d\d)$/.exec(String(t).trim());
+    return m ? Number(m[1]) * 60 + Number(m[2]) : NaN;
+  };
   const compteurs = () => page.evaluate(() => ({
     bips: window.__bips, vibrations: window.__vibrations.length
   }));
@@ -1238,21 +1244,32 @@ const SETS_IMPORTES = [
     apresDepassement.bips === aEcheance.bips &&
     apresDepassement.vibrations === aEcheance.vibrations,
     'bips ' + apresDepassement.bips + ' · vibrations ' + apresDepassement.vibrations);
-  // ⚠️ ASSERTION RETOURNÉE AU CHANTIER 26 (§7 septies.3). Elle exigeait que le
-  // chronomètre CONTINUE de compter au-delà de la cible — c'était le
-  // comportement d'alors, et c'est précisément celui qu'Aurélien a demandé de
-  // corriger : « il s'arrête à l'échéance, il ne continue pas à compter
-  // au-delà ». Dix secondes après une cible de 0:15, l'affichage doit donc
-  // encore dire 0:15. Le reste de l'invariante ne bouge pas : rien ne se
-  // répète, aucune alarme ne monte — c'est l'assertion juste au-dessus.
-  // ⚠️ [50] ON LIT LE GRAND NOMBRE, PAS TOUT LE BANDEAU. Avec le rebours il
-  // affiche 0:00 — mais l'étiquette à côté dit toujours « cible 0:15 », si
-  // bien qu'un `/0:15/` sur `#repos` entier passerait quoi qu'il arrive. C'est
-  // le même piège que le « cible — » du §7 novodecies : mesurer le texte
-  // autour plutôt que la valeur.
-  const finRebours = (await texte('#repos .repos-g')).trim();
-  ok('et il reste ARRÊTÉ à 0:00, sans alarme ni négatif qui grossit',
-    finRebours === '0:00', 'affiché ' + finRebours);
+  // ⚠️ ASSERTION RETOURNÉE TROIS FOIS, ET VOICI LA DERNIÈRE MARCHE.
+  //   · au 26, elle exigeait que le chronomètre CONTINUE de compter au-delà de
+  //     la cible — corrigé : « il s'arrête à l'échéance » ;
+  //   · au 50, elle lisait le grand nombre plutôt que tout le bandeau, parce que
+  //     l'étiquette « cible 0:15 » y reste affichée et faisait passer un
+  //     `/0:15/` quoi qu'il arrive ;
+  //   · au 51, il n'y a PLUS de grand nombre à lire : à zéro la barre s'en va.
+  //
+  // ⚠️ C'EST LE DÉFAUT DU CHANTIER 51, ET C'EST ICI QU'IL SE VOYAIT : « −15 »
+  // jusqu'à zéro faisait disparaître la barre (assertion [49] plus haut), mais le
+  // décompte qui y arrivait TOUT SEUL la laissait figée. Deux chemins, un seul
+  // éteignait. On mesure donc l'EXISTENCE de la barre — pas son contenu, qui
+  // n'existe plus.
+  ok('[51] arrivé à zéro TOUT SEUL, le décompte éteint la barre',
+    (await barreVisible()) === false,
+    'barre ' + ((await barreVisible()) ? 'encore là' : 'partie'));
+
+  // On réarme pour la suite — la barre vient de s'en aller, et tout ce qui suit
+  // lui parle.
+  await page.evaluate(() => document.querySelectorAll('.ajout-serie button')[1].click());
+  await attendre(600);
+  const rearmee51 = (await compter('.ligne-serie')) - 1;
+  await saisirSerie(rearmee51, 80, 10);
+  ok('[51] …et valider une série en réarme un neuf, entier',
+    (await barreVisible()) === true && /cible 0:15/.test(await texte('#repos')),
+    (await texte('#repos')).replace(/\s+/g, ' ').slice(0, 40));
 
   // ══ [50] LA MOLETTE RETARGE LE DÉCOMPTE EN COURS (§7 quatervicies.2) ════
   //
@@ -1261,37 +1278,54 @@ const SETS_IMPORTES = [
   // l'armement, et plus personne ne la relisait.
   //
   // ⚠️ L'ÉTAT ICI, ET IL EST LA CONFIGURATION DISCRIMINANTE : le décompte en
-  // cours a été armé par le bloc 1 (cible 0:15, déjà figé à 0:00). Le bloc 0
-  // porte 3:00 et n'a rien armé. Avec un seul exercice, « il retarge le bon »
-  // et « il retarge n'importe lequel » rendraient le même écran.
+  // cours vient d'être armé par le bloc 1, sur 0:15. Le bloc 0 porte 3:00 et n'a
+  // rien armé. Avec un seul exercice, « il retarge le bon » et « il retarge
+  // n'importe lequel » rendraient le même écran.
+  //
+  // ⚠️ ET ON MESURE LA CIBLE, PAS LE GRAND NOMBRE : le décompte tourne pendant
+  // qu'on manipule la molette, donc le grand nombre bouge de toute façon. Ce qui
+  // dit si le retarge a eu lieu, c'est l'étiquette.
   await toucherBloc(0, '.repos-cible');
   await molette(120);
   ok('[50] régler l’exercice d’À CÔTÉ ne touche pas le repos en cours',
-    (await texte('#repos .repos-g')).trim() === '0:00' && (await barreVisible()) === true,
-    'barre à ' + (await texte('#repos .repos-g')).trim() +
+    (await barreVisible()) === true && /cible 0:15/.test(await texte('#repos')) &&
+    /repos 2:00/.test(await lireDansBloc(0, '.repos-cible')),
+    (await texte('#repos')).replace(/\s+/g, ' ').slice(0, 30) +
     ' · bloc 0 : ' + (await lireDansBloc(0, '.repos-cible')).trim());
 
-  // Et LE fil : le même geste, sur l'exercice qui a armé. Le décompte repart —
-  // ce qui prouve du même coup que la cible a été repoussée AU-DELÀ de
-  // l'écoulé et que le minuteur s'est relancé.
+  // Et LE fil : le même geste, sur l'exercice QUI A ARMÉ.
   await toucherBloc(1, '.repos-cible');
   await molette(120);
   const retarge = (await texte('#repos .repos-g')).trim();
   ok('[50] régler l’exercice QUI A ARMÉ fait bouger le décompte',
-    retarge !== '0:00' && /cible 2:00/.test(await texte('#repos')),
-    '0:00 → ' + retarge + ' · ' + (await texte('#repos')).replace(/\s+/g, ' ').slice(0, 30));
+    (await barreVisible()) === true && /cible 2:00/.test(await texte('#repos')) &&
+    enSecondes51(retarge) > 60,
+    'grand nombre ' + retarge + ' · ' +
+    (await texte('#repos')).replace(/\s+/g, ' ').slice(0, 30));
 
-  // ⚠️ ON REMET 0:15, ET CE N'EST PAS QUE DU MÉNAGE : §5 quater réarme sur ce
-  // repos-là et attend la sonnerie à 17 s. C'est aussi l'autre sens du retarge —
-  // une cible ramenée DERRIÈRE l'écoulé retombe à 0:00 tout de suite.
-  // (La sonnerie repart une fois ici, avant que la sourdine ne soit posée ; les
-  // compteurs du §5 quater sont relevés après, donc rien n'en dépend.)
+  // ⚠️ ET RAMENÉE DERRIÈRE L'ÉCOULÉ, ELLE ÉTEINT (ch. 51). C'est la même règle
+  // que partout : il ne reste rien à décompter, donc il n'y a rien à montrer. Au
+  // chantier 50 elle retombait à 0:00 et restait à l'écran.
+  //
+  // Les six secondes d'attente sont la CONFIGURATION : la plus petite valeur de
+  // la molette vaut 5 s, il faut donc que l'écoulé la dépasse pour que le cas
+  // soit réel. Sans elles, on testerait un repos qu'on vient de rallonger.
+  await attendre(6000);
+  await toucherBloc(1, '.repos-cible');
+  await molette(5);
+  ok('[51] …et ramenée derrière l’écoulé, la molette éteint la barre',
+    (await barreVisible()) === false && /repos 0:05/.test(await lireDansBloc(1, '.repos-cible')),
+    'barre ' + ((await barreVisible()) ? 'encore là' : 'partie') +
+    ' · ' + (await lireDansBloc(1, '.repos-cible')).trim());
+
+  // On remet 0:15 sur l'exercice — §5 quater réarme dessus et attend la sonnerie
+  // à 17 s — puis on réarme, la barre venant de s'éteindre.
   await toucherBloc(1, '.repos-cible');
   await molette(15);
-  ok('[50] …et ramenée derrière l’écoulé, elle retombe à 0:00',
-    (await texte('#repos .repos-g')).trim() === '0:00' &&
-    /repos 0:15/.test(await lireDansBloc(1, '.repos-cible')),
-    (await texte('#repos .repos-g')).trim() + ' · ' + (await lireDansBloc(1, '.repos-cible')).trim());
+  await page.evaluate(() => document.querySelectorAll('.ajout-serie button')[1].click());
+  await attendre(600);
+  const rearmee51b = (await compter('.ligne-serie')) - 1;
+  await saisirSerie(rearmee51b, 80, 10);
 
   console.log('\n══ 5 quater. LA SOURDINE SE RETIENT D’UNE SÉANCE À L’AUTRE ══');
   await cliqueRepos(SON);
@@ -1877,8 +1911,6 @@ const SETS_IMPORTES = [
     }
   };
   const chrono = async () => (await texte('#repos .repos-g')).trim();
-  const figeQ = () => page.evaluate(() =>
-    !!document.querySelector('#repos .repos-g.fige'));
 
   await cliqueRepos2(0, 4);                 // −15 ×4 : 2:00 → cible 1:00
   ok('la cible réglée à la main vaut 1:00', /cible 1:00/.test(await texte('#repos')),
@@ -1893,31 +1925,26 @@ const SETS_IMPORTES = [
   const t1 = await chrono();
   await attendre(20000);                    // écoulé ≈ 21 s, bien sous la cible
   const t2 = await chrono();
-  ok('sous la cible, il DÉCOMPTE', enSecondes(t2) < enSecondes(t1) && (await figeQ()) === false,
+  ok('sous la cible, il DÉCOMPTE', enSecondes(t2) < enSecondes(t1) && (await barreVisible()) === true,
     t1 + ' → ' + t2);
 
   // ⚠️ LE CAS SIGNALÉ : trois −15 font passer la cible (1:00 → 0:15) DERRIÈRE
-  // le temps écoulé (≈ 22 s). Le chronomètre doit s'arrêter là, alors qu'il n'a
-  // jamais franchi d'échéance en montant.
+  // le temps écoulé (≈ 22 s). Il ne reste alors rien à décompter — et depuis le
+  // chantier 51 « rien à décompter » veut dire « plus de barre », par ce chemin
+  // comme par les autres. Jusqu'au 50, elle restait là, figée sur 0:00.
+  const avantFranchi = await chrono();
   await cliqueRepos2(0, 3);
-  const apresMoins = await chrono();
-  await attendre(4000);
-  const encore = await chrono();
-  // ⚠️ [50] 0:00, ET PLUS 0:15. La cible passe DERRIÈRE l'écoulé : il ne reste
-  // rien à décompter. L'ancienne valeur était la cible elle-même, parce que le
-  // grand nombre montait vers elle et s'y figeait.
-  ok('un −15 qui FRANCHIT la cible arrête le chronomètre à 0:00', apresMoins === '0:00',
-    'affiché ' + apresMoins);
-  ok('et il ne repart pas tout seul quatre secondes plus tard',
-    encore === apresMoins && (await figeQ()) === true, apresMoins + ' → ' + encore);
+  ok('[51] un −15 qui FRANCHIT la cible éteint la barre',
+    (await barreVisible()) === false,
+    avantFranchi + ' → barre ' + ((await barreVisible()) ? 'encore là' : 'partie'));
 
-  // ⚠️ S'ARRÊTER, C'EST AUSSI ARRÊTER DE TRAVAILLER.
+  // ⚠️ S'ÉTEINDRE, C'EST AUSSI ARRÊTER DE TRAVAILLER.
   //
   // `rendreRepos` VIDE et reconstruit la barre à chaque passage. Un minuteur
-  // qu'on laisse tourner derrière un affichage figé rebâtit donc le DOM une
-  // fois par seconde pour rien, pendant trois minutes de repos — et la valeur
-  // affichée serait la même, donc rien d'autre ne le verrait. On observe le
-  // DOM lui-même, sinon « arrêté » ne veut dire que « arrêté à l'écran ».
+  // qu'on laisse tourner derrière une barre éteinte rebâtit le DOM une fois par
+  // seconde pour rien, et personne ne le verrait — l'écran est déjà vide. On
+  // observe donc le DOM lui-même, sinon « éteint » ne veut dire que « éteint à
+  // l'écran ». C'est la même mesure qu'au chantier 26, sur l'état d'après.
   const remuements = await page.evaluate(() => new Promise((res) => {
     const cible = document.getElementById('repos');
     let n = 0;
@@ -1925,24 +1952,35 @@ const SETS_IMPORTES = [
     obs.observe(cible, { childList: true, subtree: true });
     setTimeout(function () { obs.disconnect(); res(n); }, 3200);
   }));
-  ok('figé, la barre cesse AUSSI de se redessiner chaque seconde',
+  ok('éteinte, la barre cesse AUSSI de se redessiner chaque seconde',
     remuements === 0, remuements + ' remaniement(s) du DOM en 3,2 s');
 
-  // Le +15 le remet en marche : un arrêt qui ne sait pas repartir figerait le
-  // repos suivant pour toujours.
-  await cliqueRepos2(1, 3);                 // cible 1:00, au-delà de l'écoulé
-  await attendre(2500);
+  // ⚠️ ET LES COMMANDES D'UNE BARRE ÉTEINTE NE RÉVEILLENT RIEN. Les boutons
+  // restent dans le DOM, cachés avec elle : un « +15 » qui les atteindrait ne
+  // doit pas ressusciter un chronomètre éteint. C'est `ajusterRepos` qui le
+  // garantit (`if (!chrono) return`), et c'est la seule façon de le voir.
+  await cliqueRepos2(1, 3);
+  await attendre(1200);
+  ok('[51] …et un +15 sur une barre éteinte ne la fait pas revenir',
+    (await barreVisible()) === false, 'barre ' + ((await barreVisible()) ? 'revenue' : 'toujours partie'));
+
+  // Ce qui relance un repos, c'est une série validée — et rien d'autre. Un arrêt
+  // qui ne saurait pas repartir condamnerait tous les repos suivants.
+  // ⚠️ L'INDEX EST CELUI DU BLOC 0, PAS LE DERNIER DE LA LISTE. « + Série » du
+  // bloc 0 ajoute une ligne À LA FIN DU BLOC 0 ; la dernière ligne de l'écran
+  // appartient au bloc 1, qui ne prescrit AUCUN repos. La valider n'armait donc
+  // rien, et la mesure lisait un affichage périmé : « 0:08 → 0:08 », comme un
+  // chronomètre mort. Les lignes du bloc 0 venant en premier, son dernier indice
+  // LOCAL vaut encore son indice global.
+  await page.evaluate(() => document.querySelectorAll('.ajout-serie button')[0].click());
+  await attendre(600);
+  await saisirSerie((await lignesDuBloc(0)) - 1, 60, 8);
   const reparti = await chrono();
-  ok('un +15 qui repousse la cible le remet en marche',
-    enSecondes(reparti) > 0 && reparti !== apresMoins && (await figeQ()) === false,
-    apresMoins + ' → ' + reparti);
-  // ⚠️ DEUX LECTURES, PAS UNE. `ajusterRepos` redessine lui-même une fois : une
-  // seule mesure après le +15 verrait une valeur neuve même avec un minuteur
-  // mort, et le chronomètre resterait figé sur elle pour toujours.
   await attendre(3200);
   const reparti2 = await chrono();
-  ok('et il CONTINUE de descendre ensuite, minuteur bien relancé',
-    enSecondes(reparti2) < enSecondes(reparti), reparti + ' → ' + reparti2);
+  ok('valider une série réarme un décompte neuf, qui descend',
+    (await barreVisible()) === true && enSecondes(reparti2) < enSecondes(reparti),
+    reparti + ' → ' + reparti2);
 
   // ── L'écran de fin ─────────────────────────────────────────────────────
   await page.click('#bandeau-seance .bandeau-fin');

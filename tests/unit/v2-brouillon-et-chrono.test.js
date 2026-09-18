@@ -119,14 +119,21 @@ describe('⚠️ un repos désactivé n’arme aucun chronomètre', () => {
   // `reposFige` est faux pour TOUT `s` — l'intervalle d'une seconde ne
   // s'arrêtait donc jamais, et le compteur montait sans but. C'est la moitié
   // du défaut qui rendait l'autre visible.
-  test('avec une cible nulle, rien ne fige jamais — d’où le compteur sans but', () => {
+  // ⚠️ RÉÉCRIT AU CHANTIER 51. Le défaut décrit ci-dessus tenait à ce que
+  // `reposFige(null, s)` répondait FAUX : l'intervalle ne s'arrêtait jamais, et
+  // le compteur montait sans but. `reposTermine` répond VRAI — il n'y a rien à
+  // décompter — si bien que ce chemin ne produit plus de barre du tout. Les deux
+  // gardes tiennent désormais : l'armement (`cibleArmable`) et la fin.
+  test('avec une cible nulle, il n’y a RIEN à décompter — donc rien à montrer', () => {
     [0, 60, 3600, 86400].forEach((sec) => {
-      expect(Seance.reposFige(null, sec)).toBe(false);
+      expect(Seance.reposTermine(null, sec)).toBe(true);
       expect(Seance.echeanceAtteinte(null, sec, false)).toBe(false);
       expect(Seance.secondesRestantes(null, sec)).toBe(0);
     });
-    // Avec une cible, il fige — et c'est ce contraste qui rend le défaut lisible.
-    expect(Seance.reposFige(120, 120)).toBe(true);
+    // Avec une cible, il court tant qu'il reste du temps — et c'est ce contraste
+    // qui rend le défaut lisible.
+    expect(Seance.reposTermine(120, 60)).toBe(false);
+    expect(Seance.reposTermine(120, 120)).toBe(true);
     expect(Seance.secondesRestantes(120, 300)).toBe(0);
   });
 });

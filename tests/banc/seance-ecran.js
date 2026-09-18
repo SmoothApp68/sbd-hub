@@ -4362,6 +4362,19 @@ const SETS_IMPORTES = [
     JSON.stringify(await visible()) !== '["vue-detail"]',
     JSON.stringify(await visible()));
 
+  // ⚠️ ET LE REPLI, QUI EST LA MOITIÉ QU'ON N'AURAIT PAS TESTÉE. Après un
+  // rechargement DIRECT, aucune de nos entrées n'a été empilée : `history.back()`
+  // est alors absorbé par l'ancre de `THSortie` et le bouton ne fait RIEN. Ce
+  // trou existait sur le « ← » de la page d'exercice depuis le chantier 40 — le
+  // banc ne l'avait jamais vu parce qu'il empile toujours une entrée avant de
+  // cliquer. C'est exactement la configuration discriminante : un `aller()`,
+  // qui est un goto, et rien d'autre avant le clic.
+  await aller('/seance/' + ID_MIXTE);
+  await page.click('#btn-retour');
+  await attendre(900);
+  ok('[47] après un rechargement direct, « ← Séances » n’est pas un bouton MORT',
+    JSON.stringify(await visible()) === '["vue-liste"]', JSON.stringify(await visible()));
+
   // Le chemin d'édition ne doit pas non plus laisser d'entrées derrière lui :
   // « Modifier » puis « Enregistrer » revenaient en empilant deux fois, et
   // « ← Séances » remontait alors sur /saisie — le bouton mentait sur sa

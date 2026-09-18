@@ -202,6 +202,8 @@ describe('calculerPalier : zéro ne vote jamais', () => {
 // `resumerSeance` lit le compte de séries de travail dans `THSemaine` : une
 // seule règle pour la carte et pour la barre (chantier 40).
 require('../../v2/js/semaine.js');
+// Voir v2-modele.test.js : `resumerSeance` consulte `THSeance` (chantier 47).
+require('../../v2/js/seance.js');
 const Modele = require('../../v2/js/modele.js');
 
 describe('les consommateurs traitent l’absence sans rien inventer', () => {

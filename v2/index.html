@@ -148,8 +148,16 @@
     </div>
     <div id="exos-routine"></div>
     <button id="btn-ajouter-exo" type="button" class="discret bloc-large">Ajouter un exercice</button>
+    <!-- ⚠️ CE TEXTE NE PROMET AUCUN MOTEUR (chantier 47). Il annonçait « le
+         moteur recalcule la cible séance après séance » quand `seance.js` écrit
+         en toutes lettres « Rien n'est prédit ici ; le moteur parlera au
+         chantier 5 ». Une surface qui promet un comportement que le code
+         déclare absent est un mensonge d'interface — et c'est celui-là qu'on
+         passe son temps à réparer ailleurs. Le moteur viendra ; la phrase
+         attendra. -->
     <p id="note-routine" class="note">Une ligne par série, comme en séance. Les reps
-      visées sont indicatives : le moteur recalcule la cible séance après séance.
+      visées sont un point de départ : rien ne les recalcule, et la séance ne te
+      proposera que ce que tu as déjà fait.
       La charge est une cible facultative, jamais une prescription.</p>
     <p id="erreur-routine" class="erreur" role="alert" aria-live="polite"></p>
     <button id="btn-enregistrer-routine" type="button" class="principal">Enregistrer</button>

@@ -2830,10 +2830,18 @@
   function rendreDetail(sessionId) {
     montrer('detail', Routeur.SEANCE);
     var ligne = local.seances.filter(function (s) { return s.id === sessionId; })[0] || null;
-    var blocs = Modele.construireBlocs(seriesDe(sessionId), local.exercices);
+    var series = seriesDe(sessionId);
+    var blocs = Modele.construireBlocs(series, local.exercices);
+    // ⚠️ LA MÊME RÈGLE QUE LA CARTE (chantier 47). Sans elle, cet écran offrait
+    // « Modifier » sur une séance dont les séries n'étaient pas arrivées — et
+    // l'enregistrement les effaçait en base. Une séance INCONNUE (`ligne` nulle)
+    // n'est pas incomplète : elle n'existe pas, et aucun geste ne lui est offert
+    // de toute façon.
+    var incomplet = !!ligne && Seance.seriesIncompletes(series);
     // §2.8 — un tap sur le nom d'un exercice donne sa page. C'est la porte
     // d'entrée la plus naturelle, et elle était inerte depuis le chantier 27.
     Rendu.rendreDetail($('detail-seance'), ligne, blocs, {
+      incomplet: incomplet,
       surExercice: function (slug) { afficherExercice(slug); },
       surSupprimer: ligne ? function () { demanderSuppressionSeance(ligne); } : null,
       surModifier: ligne ? function () { modifierSeance(ligne, blocs); } : null,
@@ -3112,7 +3120,15 @@
   // leur provenance. Aucune requête réseau ici — le geste doit rester possible
   // hors ligne dès que le cache est complet, et une lecture qui échoue ne doit
   // pas décider à la place de l'utilisateur.
-  function seriesIncompletes(id) { return Seance.provenanceIncomplete(seriesDe(id)); }
+  //
+  // ⚠️ ET PAS DAVANTAGE UNE SÉANCE DONT AUCUNE SÉRIE N'EST ARRIVÉE (chantier 47).
+  // `provenanceIncomplete` parle de la provenance de séries qui EXISTENT : elle
+  // rend faux sur une liste vide, et c'est juste pour ce qu'elle dit. La
+  // question posée ici est plus large, et c'est `Seance.seriesIncompletes` qui
+  // la porte désormais — la même que la carte et que le détail consultent.
+  // Cette garde reste : c'est la dernière avant l'écriture, et une troisième
+  // surface qui oublierait de demander ne doit pas pouvoir effacer.
+  function seriesIncompletes(id) { return Seance.seriesIncompletes(seriesDe(id)); }
 
   function modifierSeance(ligne, blocs) {
     if (seanceEnCoursBloque()) return;
@@ -3131,7 +3147,14 @@
     seance = Seance.reprendre(ligne, blocs);
     chrono = null;
     sauverSeance();
-    allerA(Routeur.SAISIE, {}, false);
+    // ⚠️ REMPLACER, PAS EMPILER (chantier 47) — comme `refaireSeance` juste en
+    // dessous, et comme les CINQ autres entrées dans l'onglet Saisie. Ces deux
+    // lignes-ci étaient les seules à empiler, et c'est ce qui rendait le retour
+    // faux : un aller-retour « Modifier → Enregistrer » laissait deux entrées
+    // de plus, si bien que « ← Séances » remontait sur /saisie au lieu des
+    // séances. Un écran qu'on rouvre pour corriger n'est pas un cran de plus
+    // dans le parcours — c'est le même endroit, dans un autre mode.
+    allerA(Routeur.SAISIE, {}, true);
     rendreSeance();
   }
 
@@ -3147,7 +3170,9 @@
     arreterMinuteur();
     rendreChrono();
     await Cache.ecrireBrouillon('seance', null);
-    allerA(Routeur.SEANCE, { id: id }, false);
+    // Enregistrer une correction est un RETOUR, pas une navigation : on revient
+    // d'où l'on vient, on n'empile pas une seconde fois le détail.
+    allerA(Routeur.SEANCE, { id: id }, true);
     rendreDetail(id);
   }
 
@@ -4009,6 +4034,26 @@
     sortie.apresNavigation(empilee);
   }
 
+  // ⚠️ UN BOUTON « ← » REMONTE L'HISTORIQUE, IL NE CHOISIT PAS UNE DESTINATION
+  // (règle du chantier 40, généralisée au 47).
+  //
+  // Naviguer explicitement EMPILE une entrée de plus au lieu de retirer celle
+  // qu'on quitte. Depuis le détail d'une séance, « ← Séances » appelait
+  // `afficherSemaine()` : il fallait ensuite TROIS retours d'Android pour
+  // sortir de l'app, et l'un d'eux ROUVRAIT le détail qu'on venait de quitter.
+  // Le bouton de la page d'exercice avait déjà été corrigé pour cette raison
+  // exacte ; les deux faisaient depuis le même geste de deux façons.
+  //
+  // ⚠️ ET LE REPLI N'EST PAS DU ZÈLE. Au fond de notre pile, `history.back()`
+  // est ABSORBÉ par `Sortie` (l'ancre) : le bouton ne ferait alors RIEN — le
+  // cas d'un rechargement direct sur /seance/<uuid> ou /exercice/<slug>, où
+  // aucune de nos entrées n'a jamais été empilée. On demande donc à `Sortie`
+  // s'il reste quelque chose à nous de retirer, et sinon on navigue.
+  function remonter(repli) {
+    if (sortie.etat().pile > 0) racine.history.back();
+    else repli();
+  }
+
   // Une vue peut déclarer qu'elle refuse la sortie. C'est le point d'accroche
   // de l'écran de saisie : une séance en cours fournira ici sa propre question.
   // Rien ne l'utilise encore — seul le mécanisme existe.
@@ -4089,14 +4134,13 @@
       rendreProfilEcran();
     });
     $('champ-recherche-mes-exos').addEventListener('input', rendreMesExercices);
-    $('btn-retour').addEventListener('click', function () { afficherSemaine(); });
-    // ⚠️ LE RETOUR DE LA PAGE D'EXERCICE REMONTE L'HISTORIQUE, il ne choisit pas
-    // une destination. Elle s'atteint depuis trois écrans : décider pour elle
-    // en enverrait deux sur trois au mauvais endroit. `popstate` repasse par
-    // `Sortie`, donc le bouton fait exactement ce que fait celui d'Android.
-    $('btn-retour-exercice').addEventListener('click', function () {
-      racine.history.back();
-    });
+    // Les deux « ← » remontent l'historique, par la MÊME porte (voir `remonter`).
+    // La page d'exercice s'atteint depuis trois écrans : décider pour elle en
+    // enverrait deux sur trois au mauvais endroit. Le détail d'une séance se
+    // trouvait dans le même cas — on y arrive depuis la semaine, depuis le
+    // calendrier, depuis une fin de séance — et il choisissait quand même.
+    $('btn-retour').addEventListener('click', function () { remonter(afficherSemaine); });
+    $('btn-retour-exercice').addEventListener('click', function () { remonter(afficherSemaine); });
     ['btn-retour-volume', 'btn-retour-poids'].forEach(function (id) {
       $(id).addEventListener('click', function () {
         allerA(Routeur.PROGRESSION, {});

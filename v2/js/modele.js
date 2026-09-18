@@ -987,7 +987,16 @@
     // séries, randonnées et natations comprises (charge `aucune`, mesure
     // `distance_temps`). L'afficher « 0 exercice · 0 série » la ferait passer
     // pour un fait légitime alors que c'est un manque, et le manque se dit.
-    var incomplet = listeSeries.length === 0;
+    //
+    // ⚠️ ON DEMANDE, ON NE RECOMPTE PAS (chantier 47). La règle vit dans
+    // `THSeance.seriesIncompletes` et couvre DEUX manques — aucune série, ou
+    // des séries sans provenance. La recopier ici (`listeSeries.length === 0`,
+    // ce qu'elle disait) laissait la carte plus permissive que la garde de la
+    // réouverture, et c'est par cet écart qu'une séance se faisait effacer.
+    // Lecture TARDIVE, comme `THSemaine` juste en dessous : `seance.js` se
+    // charge après `modele.js`, et sans repli pour qu'une dépendance manquante
+    // casse bruyamment plutôt que de rendre un verdict faux en silence.
+    var incomplet = racine.THSeance.seriesIncompletes(listeSeries);
     var nbTravail = racine.THSemaine.compteSeriesTravail(listeSeries, exercices);
 
     return {

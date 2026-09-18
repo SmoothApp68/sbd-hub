@@ -218,7 +218,14 @@
     if (seance && seance.note) cible.appendChild(el('p', 'detail-note', seance.note));
 
     if (!blocs.length) {
-      cible.appendChild(el('p', 'vide', 'Aucune série sur cette séance.'));
+      // ⚠️ « AUCUNE SÉRIE » ET « PAS ENCORE REÇUES » NE SE DISENT PAS PAREIL
+      // (chantier 47). La carte de la liste distingue les deux depuis le
+      // chantier 40 ; le détail, lui, affirmait « Aucune série sur cette
+      // séance » pendant la synchronisation initiale — un MANQUE présenté
+      // comme un fait, sur l'écran d'où part le geste qui efface.
+      cible.appendChild(el('p', 'vide', vue && vue.incomplet
+        ? 'Ses séries finissent d\u2019arriver. Rouvre cette séance dans un instant.'
+        : 'Aucune série sur cette séance.'));
     } else {
       blocs.forEach(function (b) {
         cible.appendChild(rendreBloc(b, vue && vue.surExercice));
@@ -228,7 +235,15 @@
     // §7 octies — les gestes sur une séance. Aucun n'existait : deux séances
     // ont dû être supprimées directement en base le 13/09 faute de bouton.
     // « Partager » n'est pas là : c'est du social, et il vient en dernier.
-    if (vue && vue.surSupprimer) {
+    //
+    // ⚠️ LA MÊME RÈGLE QUE LA LISTE LES REFUSE (chantier 47). Le « ⋯ » de la
+    // carte est refusé sur une séance incomplète depuis le chantier 40
+    // (`r.incomplet`, plus haut dans ce fichier) ; le détail offrait les trois
+    // gestes pour la MÊME séance, au même instant. « Modifier » rouvrait alors
+    // une séance vide, et « Enregistrer » effaçait en base les séries qu'on
+    // n'avait pas encore reçues. Une incohérence de surface était le symptôme ;
+    // la perte de données était la maladie.
+    if (vue && vue.surSupprimer && !vue.incomplet) {
       var gestes = el('div', 'detail-gestes');
       var refaire = el('button', 'discret', 'Refaire cette séance');
       refaire.type = 'button';
@@ -2620,7 +2635,7 @@
       var vide = el('div', 'vide-routines');
       vide.appendChild(el('p', 'vide', 'Aucune routine pour l\u2019instant.'));
       vide.appendChild(el('p', 'vide-aide',
-        'Une routine, ce sont des exercices dans un ordre : ce que tu fais, pas ce que tu soulèves. Les charges, c\u2019est le moteur qui les décide.'));
+        'Une routine, ce sont des exercices dans un ordre : ce que tu fais, pas ce que tu soulèves. Les charges, c\u2019est le moteur qui les décidera.'));
       var b = el('button', 'principal', 'Créer une routine');
       b.type = 'button';
       b.addEventListener('click', function () { if (v.surNouvelle) v.surNouvelle(); });

@@ -398,11 +398,34 @@ describe('8 — le réglage de la cible ne sort jamais des bornes', () => {
     expect(Seance.ajusterCible(90, -15)).toBe(75);
   });
 
-  test('jamais de durée négative, quel que soit le nombre de −15', () => {
+  // ⚠️ TEST INVERSÉ AU CHANTIER 47, et l'ancienne attente était le défaut.
+  //
+  // Elle exigeait `c === 0` — c'est-à-dire précisément l'état que le §7
+  // novodecies interdit : une cible ni armée ni désactivée, sur laquelle
+  // `reposFige` rend faux pour toute seconde, donc un chronomètre qui compte
+  // sans jamais se figer. Le test verrouillait le bug.
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : la BOUCLE, pas un seul appui. Depuis 20 s,
+  // le premier −15 donne 5 et ne prouve rien ; c'est le SECOND qui franchit la
+  // borne. Un test à un seul appui passe avec le défaut en place.
+  test('sous la borne, le −15 REFUSE de descendre — il ne désactive pas', () => {
     let c = 20;
     for (let i = 0; i < 10; i++) c = Seance.ajusterCible(c, -15);
-    expect(c).toBe(0);
+    expect(c).toBe(5);                                  // 20 → 5, puis refusé
+    expect(Seance.cibleArmable(c)).not.toBe(null);      // et toujours armable
+    // Le cas d'un seul appui qui franchit : 15 − 15 = 0, refusé net.
+    expect(Seance.ajusterCible(15, -15)).toBe(15);
+    expect(Seance.ajusterCible(5, -15)).toBe(5);
+  });
+
+  // Désactiver reste un geste EXPLICITE (§7 sexdecies.3) : c'est la molette qui
+  // écrit `null`, jamais un pas de réglage. Une cible déjà absente le reste.
+  test('un ajustement ne désactive jamais un repos', () => {
     expect(Seance.ajusterCible(0, -15)).toBe(0);
+    expect(Seance.ajusterCible(null, -15)).toBe(0);
+    [20, 15, 5, 60, 1800].forEach((c) => {
+      expect(Seance.cibleArmable(Seance.ajusterCible(c, -15))).not.toBe(null);
+    });
   });
 
   test('jamais au-delà de la borne haute de `sets_repos_borne`', () => {

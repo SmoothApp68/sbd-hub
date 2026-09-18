@@ -2217,6 +2217,136 @@ Ce n'est pas théorique. **13 blocs dans cet état ont été trouvés en base** 
 
 ---
 
+---
+
+## 7 duovicies. Ce que l'état des lieux du 18/09 a trouvé — chantier 47
+
+Trois défauts, tous du même genre : **une règle déjà écrite, appliquée à un endroit sur
+deux**. Aucune règle nouvelle n'a été écrite pour les corriger.
+
+### 7 duovicies.1 « Modifier » effaçait les séries qu'on n'avait pas encore reçues
+
+> **Le plus grave du lot, et il perdait des données en silence.**
+
+La chaîne, vérifiée de bout en bout :
+
+```
+cache : la séance est là, ses séries ne le sont pas
+  carte   → « séries pas encore reçues », menu ⋯ REFUSÉ
+  détail  → « Aucune série sur cette séance. », trois gestes OFFERTS
+  Modifier → rouvre une séance VIDE
+  Enregistrer → remplacerSeries(id, [])
+             → donnees.js lit ce qui existe EN BASE et supprime
+                tout ce qui n'est pas dans la liste
+             → les N séries de la séance partent. 201, « À jour » à l'écran.
+```
+
+**Deux règles répondaient à la même question, et c'est la plus permissive qui gardait
+l'écriture :**
+
+| Surface | Règle consultée | Verdict sur « 0 série en cache » |
+|---|---|---|
+| la carte | `THModele.resumerSeance` → `incomplet` (ch. 40) | **incomplète** — menu refusé |
+| la garde de la réouverture | `THSeance.provenanceIncomplete` (ch. 34) | **complète** — laisse passer |
+
+`provenanceIncomplete` n'a pas tort : elle parle de la **provenance de séries qui
+existent**, et elle rend donc faux sur une liste vide. La question à poser était plus
+large, et personne ne la posait.
+
+> **Une seule porte, désormais : `THSeance.seriesIncompletes(series)`.** Elle répond à
+> « ai-je vraiment les séries de cette séance ? », et elle couvre les **deux** manques —
+> aucune série en cache, ou des séries sans provenance. La carte, le détail et la garde
+> la franchissent tous les trois.
+
+**Ce n'est pas un état d'une fraction de seconde.** `synchroniser` écrit les SÉANCES au
+cache avant les SÉRIES : une app fermée entre les deux, ou un commit refusé, laisse
+l'écart **sur disque**, et le démarrage suivant le relit tel quel. C'est aussi, et
+surtout, l'état de tout compte neuf pendant sa première synchronisation — donc celui du
+premier utilisateur qu'on ouvrira (`CADRAGE-V2` §2 nonies).
+
+**Le détail ne ment plus sur la raison non plus.** « Aucune série sur cette séance »
+présentait un *manque* comme un *fait*, sur l'écran d'où partait le geste qui efface.
+Il dit maintenant que les séries finissent d'arriver.
+
+**Ce qu'on assume** : une séance terminée sans aucune série validée — 0 cas sur 1 235 en
+base — se verrait refuser « Modifier » pour toujours. Refuser à tort un geste correctif
+coûte un tap ; l'accepter à tort coûte les séries de la séance.
+
+### 7 duovicies.2 « −15 » sous la borne fabriquait une cible que rien ne fige
+
+Le §7 novodecies a fermé la porte de l'**armement**. Celle de l'**ajustement** est restée
+ouverte :
+
+```
+cible 60 s, quatre fois −15 → ajusterCible borne à 0
+  reposFige(0, s) rend faux pour TOUTE seconde  (et c'est juste : sans cible, rien ne fige)
+  rendreChrono rappelle alors assurerMinuteur() à chaque passage
+  → le chronomètre compte jusqu'à la fin de la séance, sans jamais se figer
+```
+
+Zéro n'est ni « armé » ni « désactivé » : c'est un **troisième état**, et il n'a pas de
+sens. `cibleArmable` — la fonction pure écrite au chantier 45 précisément pour cette
+décision — n'avait qu'**un seul appelant**, `demarrerChrono`. Elle gouverne maintenant
+l'ajustement aussi.
+
+> **Tranché : `−15` sous la borne REFUSE de descendre. Il ne désactive pas.**
+>
+> Désactiver est un geste **explicite** (§7 sexdecies.3 : le bouton « Désactiver » de la
+> molette, qui écrit `null`). Un réglage par pas de 15 s ne doit pas se transformer en
+> suppression parce qu'on a appuyé une fois de trop — et quelqu'un qui voulait 15 s ne
+> voulait pas « plus de repos du tout ». C'est aussi ce que le §7 novodecies.2 dit déjà de
+> ces deux boutons : ils servent à *ajuster une cible mal réglée pendant qu'elle court*.
+
+⚠️ **Et le banc ASSERTAIT l'état défectueux.** `« −15 ne descend JAMAIS sous zéro »`
+exigeait l'affichage « cible — », c'est-à-dire exactement ce que le §7 novodecies
+interdit. Le banc ne constatait pas le défaut : il le **verrouillait**, et il l'a fait
+vivre deux chantiers. L'assertion est retournée.
+
+### 7 duovicies.3 Deux surfaces promettaient un moteur qui n'existe pas
+
+`index.html` annonçait « le moteur recalcule la cible séance après séance » quand
+`seance.js` écrit en toutes lettres « Rien n'est prédit ici ; le moteur parlera au
+chantier 5 ». L'état vide de la bibliothèque disait « les charges, c'est le moteur qui
+les **décide** ».
+
+**Le moteur viendra ; les phrases attendront.** Corriger l'une des deux aurait été la
+maladie que ce chantier soigne par ailleurs.
+
+> **Reste au présent, et non corrigé :** la note « POURQUOI » du profil — « Le moteur
+> propose des charges en mode Progresser » — est une **copie de spec validée**
+> (`ECRAN-PROFIL-V1` §2.3) qui définit le sens d'un réglage. Elle se retouche avec sa
+> spec, pas dans un chantier de défauts.
+
+### 7 duovicies.4 « ← Séances » empilait au lieu de remonter
+
+Le bouton appelait `afficherSemaine()`, qui **empile** une entrée au lieu de retirer
+celle qu'on quitte. Conséquence mesurée : depuis le détail, il fallait **trois** retours
+d'Android pour sortir de l'app, et l'un d'eux **rouvrait le détail** qu'on venait de
+quitter. Celui de la page d'exercice avait été corrigé au chantier 40 pour cette raison
+exacte ; les deux faisaient depuis le même geste de deux façons.
+
+> **Une seule porte : `remonter(repli)`.** `history.back()` quand il reste une de nos
+> entrées à retirer, le repli sinon.
+
+**Le repli n'est pas du zèle.** Au fond de notre pile, `history.back()` est **absorbé**
+par `THSortie` (l'ancre) : sans repli, le bouton serait **mort** après un rechargement
+direct sur `/seance/<uuid>` ou `/exercice/<slug>`. Ce trou existait sur le bouton de la
+page d'exercice depuis le chantier 40 — le banc ne l'avait jamais vu parce qu'il empile
+toujours une entrée avant de cliquer.
+
+⚠️ **Et il a fallu corriger ce qui rendait le retour faux.** `modifierSeance` et
+`enregistrerEdition` étaient les **deux seules** navigations vers l'onglet Saisie à
+empiler ; les cinq autres remplacent déjà. Un aller-retour « Modifier → Enregistrer »
+laissait donc deux entrées de plus, et `history.back()` remontait alors sur `/saisie` —
+le bouton mentait sur sa destination. Les deux remplacent désormais, comme leurs
+voisines : **rouvrir un écran pour le corriger n'est pas un cran de plus dans le
+parcours, c'est le même endroit dans un autre mode.**
+
+> **Famille non traitée, signalée** : `btn-retour-routine`, `btn-retour-volume`,
+> `btn-retour-poids` et `btn-retour-mes-exos` empilent tous de la même façon. Chaque
+> aller-retour Progression ↔ Poids ajoute deux entrées. Même défaut, même correction
+> (`remonter`) — hors du périmètre demandé.
+
 ## 8. Reste ouvert
 
 - **Écran de fin de séance** : titre, note, photo, salle.

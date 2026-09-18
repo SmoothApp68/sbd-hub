@@ -7,6 +7,11 @@
 // `resumerSeance` lit le compte de séries de travail dans `THSemaine` : une
 // seule règle pour la carte et pour la barre (chantier 40).
 require('../../v2/js/semaine.js');
+// ⚠️ `resumerSeance` demande « ai-je les séries ? » à `THSeance.seriesIncompletes`
+// depuis le chantier 47 : la dépendance est réelle, elle se déclare ici comme
+// `semaine.js` au-dessus. Sans elle, le module casse bruyamment — ce qui est
+// exactement ce qu'on veut d'une dépendance manquante.
+require('../../v2/js/seance.js');
 const Modele = require('../../v2/js/modele.js');
 
 // Fabrique une ligne `sets` conforme au schéma réel.
@@ -502,6 +507,17 @@ describe('libelleAutres — le compte et le pluriel', () => {
 });
 
 // ── Une séance sans série en cache est incomplète, pas vide ────────────────
+//
+// ⚠️ LES FIXTURES PORTENT `source`, ET C'EST OBLIGATOIRE DEPUIS LE CHANTIER 47.
+//
+// `resumerSeance` demande maintenant « ai-je les séries ? » à
+// `THSeance.seriesIncompletes`, qui couvre DEUX manques : aucune série, ou des
+// séries sans PROVENANCE (chantier 34 — un cache écrit par une version d'avant,
+// où `source` manquait, et où « Enregistrer » effaçait ce qu'il ne reconnaissait
+// pas). `donnees.js` lit `source` dans `COLONNES_SET` : une série venue de la
+// base en porte TOUJOURS une. Une fixture qui l'omettait décrivait donc un état
+// que la vraie requête ne produit jamais — et elle aurait fait passer pour un
+// faux positif la règle qui protège des vraies pertes.
 describe('resumerSeance — le manque se dit, il ne se déguise pas', () => {
   const CAT = [
     { slug: 'dc', nom: 'Développé Couché' },
@@ -519,14 +535,32 @@ describe('resumerSeance — le manque se dit, il ne se déguise pas', () => {
 
   test('une séance avec ses séries n’est pas incomplète', () => {
     const r = Modele.resumerSeance({ id: 'y', titre: 'Pecs' },
-      [{ exercise_slug: 'dc', rang: 1, type_serie: 'travail' }], CAT);
+      [{ exercise_slug: 'dc', rang: 1, type_serie: 'travail', source: 'app' }], CAT);
     expect(r.incomplet).toBe(false);
   });
 
   test('une randonnée complète reste une sortie', () => {
     const r = Modele.resumerSeance({ id: 'z', titre: 'Rando' },
-      [{ exercise_slug: 'rando', rang: 1, duree_s: 6480, distance_m: 8400 }], CAT);
+      [{ exercise_slug: 'rando', rang: 1, duree_s: 6480, distance_m: 8400, source: 'import' }], CAT);
     expect(r.incomplet).toBe(false);
     expect(r.estSortie).toBe(true);
+  });
+
+  // ⚠️ LE CAS DU CHANTIER 34, QUE LA CARTE NE VOYAIT PAS. Des séries en cache
+  // mais sans provenance : la garde de la réouverture les refusait déjà, la
+  // carte les affichait comme complètes et offrait son menu. Les deux surfaces
+  // parlent maintenant de la même chose.
+  test('des séries SANS provenance sont incomplètes elles aussi', () => {
+    const r = Modele.resumerSeance({ id: 'w', titre: 'Pecs' },
+      [{ exercise_slug: 'dc', rang: 1, type_serie: 'travail' }], CAT);
+    expect(r.incomplet).toBe(true);
+  });
+
+  // `source: null` est une provenance CONNUE et vide — une série saisie avant
+  // que la colonne n'existe. Elle ne manque pas : elle dit qu'elle ne sait pas.
+  test('`source: null` n’est pas une provenance manquante', () => {
+    const r = Modele.resumerSeance({ id: 'v', titre: 'Pecs' },
+      [{ exercise_slug: 'dc', rang: 1, type_serie: 'travail', source: null }], CAT);
+    expect(r.incomplet).toBe(false);
   });
 });

@@ -317,6 +317,19 @@ la semaine du 9 au 15 septembre.**
   visite ; ici il n'y a pas de tunnel, il y a une **règle de routage** de quatre lignes et un
   bandeau qui porte sa propre sortie. Et l'écran d'entrée est UN écran à deux modes, pas deux
   formulaires à tenir d'accord.
+- **`THSeance.seriesIncompletes`** (ch. 47) — « ai-je vraiment les séries de cette séance ? »
+  posée UNE fois, franchie par trois surfaces : la carte, le détail, et la garde de la
+  réouverture. Elles répondaient avant par deux règles différentes — `incomplet` (ch. 40, sur
+  le compte) et `provenanceIncomplete` (ch. 34, sur la provenance) — et c'est la plus
+  permissive qui gardait l'ÉCRITURE. Le §2 undecies dans sa forme la plus chère : il ne
+  coûtait pas de la duplication, il coûtait des séries effacées.
+- **`Seance.cibleArmable` gouverne l'ajustement, plus seulement l'armement** (ch. 47) — la
+  même décision, aux deux endroits où une cible de repos se fabrique. Une fonction pure
+  écrite exprès pour une décision, et consultée à un seul de ses deux sites, est une règle à
+  un endroit sur deux : la forme exacte que ce paragraphe décrit.
+- **`remonter(repli)`** (ch. 47) — un seul comportement de retour pour les boutons « ← », au
+  lieu d'un qui empile et d'un qui remonte. Et `sortie.etat()` existait déjà sans aucun
+  appelant : la question « reste-t-il une de nos entrées ? » était répondue, jamais posée.
 - **La liste lue dérivée de la liste écrite** par construction (ch. 34), plus
   `verifierColonnes()` qui lève au démarrage si l'écart réapparaît.
 - **Les deux entonnoirs de bornes** (ch. 36) — `nombreOuNul`/`entierOuNul` et `borne`,

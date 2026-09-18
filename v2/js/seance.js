@@ -341,6 +341,36 @@
     return liste.length > 0 && liste.some(function (s) { return !s || s.source === undefined; });
   }
 
+  // ⚠️ DEUX MANQUES, UNE SEULE QUESTION : « ai-je vraiment les séries de cette
+  // séance ? » (chantier 47)
+  //
+  //   · AUCUNE série en cache — la synchronisation initiale ne les a pas encore
+  //     apportées. Mesuré en base le 18/09 : 0 séance vide sur 1 235, sorties
+  //     comprises. Une séance sans série n'est donc pas un fait, c'est un
+  //     MANQUE — et c'est la règle que `THModele.resumerSeance` appelle
+  //     `incomplet` depuis le chantier 40 ;
+  //   · des séries SANS PROVENANCE — un cache écrit par une version d'avant,
+  //     où `source` manque (chantier 34, D1).
+  //
+  // Les deux rendent une modification DESTRUCTRICE : la séance rouverte est
+  // vide, et « Enregistrer » pose `remplacerSeries(id, [])`, ce qui efface en
+  // base les séries qu'on n'avait pas encore reçues.
+  //
+  // ⚠️ ET ELLES SE POSAIENT À UN ENDROIT SUR DEUX. La carte de la liste refusait
+  // son menu sur la première (`rendu.js`, `r.incomplet`) ; la garde de
+  // `modifierSeance` ne voyait que la seconde — et `provenanceIncomplete([])`
+  // rend FAUX, parce qu'elle parle de la provenance de séries qui existent.
+  // Une séance dont RIEN n'était arrivé passait donc entre les deux gardes.
+  // C'est `CADRAGE-V2` §2 undecies dans sa forme la plus coûteuse : pas du code
+  // dupliqué, une règle appliquée à un endroit sur deux.
+  //
+  // Une seule porte, désormais, et les trois surfaces la franchissent : la
+  // carte, le détail, et la garde de la réouverture.
+  function seriesIncompletes(series) {
+    var liste = series || [];
+    return liste.length === 0 || provenanceIncomplete(liste);
+  }
+
   // ⚠️ AUCUNE SÉRIE NE DOIT EXISTER SANS IDENTIFIANT (chantier 33).
   //
   // On SÈME plutôt que de refuser : la série est déjà faite, et du travail fait
@@ -1577,12 +1607,34 @@
   // secondes et gardée pour toujours.
   var PAS_REPOS = 15;
 
+  // ⚠️ LA BORNE BASSE N'EST PLUS ZÉRO, ET C'ÉTAIT TOUT LE DÉFAUT (chantier 47).
+  //
+  // Bornée à 0, la cible tombait dans un TROISIÈME état : ni armée, ni
+  // désactivée. `reposFige(0, s)` rend faux pour toute seconde — c'est correct
+  // pour ce qu'il dit, « sans cible, rien ne fige » — donc `rendreChrono`
+  // rappelait `assurerMinuteur()` à chaque passage et le chronomètre comptait
+  // SANS JAMAIS SE FIGER. Quatre appuis sur « −15 » depuis 60 s suffisaient.
+  //
+  // C'est le « chronomètre armé sans but » que le §7 novodecies interdit,
+  // rentré par la porte de l'AJUSTEMENT après qu'on eut fermé celle de
+  // l'ARMEMENT au chantier 45. `cibleArmable` existait déjà, pure, écrite pour
+  // cette décision — elle n'avait qu'un seul appelant, `demarrerChrono`.
+  //
+  // ⚠️ ON REFUSE DE DESCENDRE, ON NE DÉSACTIVE PAS. Désactiver est un geste
+  // EXPLICITE (§7 sexdecies.3 : le bouton « Désactiver » de la molette, qui
+  // écrit `null`). Un réglage par pas de 15 s ne doit pas se transformer en
+  // suppression parce qu'on a appuyé une fois de trop — et l'utilisateur qui
+  // voulait 15 s ne voulait pas « plus de repos du tout ».
+  //
+  // Une cible absente reste réglable vers le HAUT (`null` + 15 → 15) : c'est le
+  // cas d'une routine sans repos prescrit, et il n'a pas changé.
   function ajusterCible(cible, delta) {
     var base = Number(cible) || 0;
     var n = base + (Number(delta) || 0);
-    if (n < 0) n = 0;
     if (n > REPOS_MAX) n = REPOS_MAX;
-    return n;
+    // `cibleArmable` est déclarée plus bas — les déclarations de fonction sont
+    // hissées, et la garder près de `reposFige` la laisse là où on la cherche.
+    return cibleArmable(n) === null ? base : n;
   }
 
   // À l'échéance : UNE SEULE FOIS. Pas de décompte qui presse, pas d'alarme au
@@ -1695,6 +1747,7 @@
     verifierColonnes: verifierColonnes,
     ecartDeColonnes: ecartDeColonnes,
     provenanceIncomplete: provenanceIncomplete,
+    seriesIncompletes: seriesIncompletes,
     partEnBase: partEnBase,
     REPS_MAX_SERIE: REPS_MAX_SERIE,
     DUREE_MAX_S: DUREE_MAX_S,

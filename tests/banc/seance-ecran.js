@@ -1164,11 +1164,22 @@ const SETS_IMPORTES = [
     (await barreVisible()) === true && /cible 0:15/.test(await texte('#repos')),
     (await texte('#repos')).replace(/\s+/g, ' ').slice(0, 50));
 
+  // ⚠️ ASSERTION RETOURNÉE AU CHANTIER 47, ET C'EST ELLE QUI FAISAIT VIVRE LE
+  // DÉFAUT. Elle exigeait « cible — », c'est-à-dire EXACTEMENT l'état que le
+  // §7 novodecies interdit : une cible ni armée ni désactivée, sur laquelle
+  // `reposFige` rend faux pour toute seconde — donc un chronomètre qui compte
+  // sans jamais se figer, jusqu'à la fin de la séance. Le banc ne constatait
+  // pas le défaut : il le VERROUILLAIT, et il l'a fait deux chantiers durant.
+  //
+  // Ce que la spec dit de ces deux boutons (§7 novodecies.2) : « les commandes
+  // de la barre gardent leur objet — ajuster une cible mal réglée pendant
+  // qu'elle court ». AJUSTER. Désactiver est un geste explicite, et il se fait
+  // à la molette.
   await cliqueRepos(MOINS);
   await cliqueRepos(MOINS);
-  ok('−15 ne descend JAMAIS sous zéro', /cible —/.test(await texte('#repos')),
+  ok('[47] sous la borne, −15 REFUSE de descendre — il ne désactive pas',
+    /cible 0:15/.test(await texte('#repos')) && !/cible —/.test(await texte('#repos')),
     (await texte('#repos')).replace(/\s+/g, ' ').slice(0, 50));
-  await cliqueRepos(PLUS);
 
   const avantEcheance = await compteurs();
   await attendre(17000);
@@ -4243,6 +4254,148 @@ const SETS_IMPORTES = [
     (await visible())[0] === 'vue-detail' && (await url()) === '/seance/' + ID_MIXTE,
     JSON.stringify(await visible()) + ' · ' + (await url()));
   await terminer().catch(() => {});
+
+  // ══ 47. LES DÉFAUTS DE L'ÉTAT DES LIEUX DU 18/09 ═════════════════════════
+
+  console.log('\n══ 47. « MODIFIER » SUR UNE SÉANCE DONT LES SÉRIES NE SONT PAS ARRIVÉES ══');
+  //
+  // ⚠️ LA CONFIGURATION DISCRIMINANTE, ET ELLE EST TOUT LE SUJET : une séance
+  // que le cache CONNAÎT et dont il n'a AUCUNE série. Sur une séance complète,
+  // « la règle est consultée » et « elle ne l'est pas » rendent exactement le
+  // même écran — c'est précisément ce qui a laissé le défaut vivre.
+  //
+  // En vrai, cet état dure : `synchroniser` écrit les SÉANCES au cache avant
+  // les SÉRIES. Une app fermée entre les deux, ou un commit refusé, laisse
+  // l'écart SUR DISQUE, et le démarrage suivant le relit tel quel.
+  // ⚠️ ON REPART D'UN ÉTAT PROPRE, ET C'EST NÉCESSAIRE. Le `terminer()` de la
+  // section précédente est appelé depuis le DÉTAIL d'une séance, où
+  // `#bandeau-seance` n'existe pas : son `.catch(() => {})` avale l'échec et la
+  // séance reste EN COURS. `modifierSeance` refuse alors net
+  // (`seanceEnCoursBloque`) — et la mesure dirait « le bouton ne marche pas »
+  // alors qu'elle n'aurait mesuré que l'état laissé par la section d'avant.
+  await aller('/saisie');
+  if ((await visible())[0] === 'vue-seance') await terminer().catch(() => {});
+
+  const ID_VIDE = '40000000-0000-4000-8000-0000000000e1';
+  poserSeance(ID_VIDE, 'Séries pas arrivées', jourExo(6), []);
+  // ⚠️ ON MESURE AVANT, ON COMPARE APRÈS. Un compte écrit en dur dans
+  // l'assertion ne dit rien du défaut — il dit ce que la fixture contenait le
+  // jour où on l'a écrit, et il se périme au premier ajout. L'invariante, elle,
+  // est « rien n'a bougé », et elle vaut quelle que soit la fixture.
+  const setsAvant47 = base.sets.length;
+  await aller('/semaine/' + isoL(L_EXO));
+
+  const carteVide = () => page.evaluate((id) => {
+    const cartes = Array.from(document.querySelectorAll('.seance'));
+    const c = cartes.filter((n) => /Séries pas arrivées/.test(n.textContent))[0];
+    if (!c) return null;
+    return {
+      texte: c.textContent,
+      incomplete: c.classList.contains('incomplete'),
+      // Le « ⋯ » vit À CÔTÉ de la carte, dans son enveloppe.
+      menu: !!(c.parentElement && c.parentElement.querySelector('.menu-pts'))
+    };
+  }, ID_VIDE);
+
+  const vue47 = await carteVide();
+  ok('[47] la CARTE dit que les séries ne sont pas arrivées, et refuse son menu',
+    !!vue47 && /séries pas encore reçues/.test(vue47.texte) && vue47.menu === false,
+    vue47 ? (vue47.texte.replace(/\s+/g, ' ').slice(0, 60) + ' · menu ' + vue47.menu) : '(carte absente)');
+
+  // ⚠️ ET LE DÉTAIL DE LA MÊME SÉANCE, AU MÊME INSTANT. C'était l'incohérence :
+  // la carte refusait, le détail offrait — et « Modifier » y rouvrait une séance
+  // vide dont l'enregistrement posait `remplacerSeries(id, [])`.
+  await aller('/seance/' + ID_VIDE);
+  ok('[47] le DÉTAIL refuse les mêmes gestes — plus aucun bouton',
+    JSON.stringify(await visible()) === '["vue-detail"]' &&
+    (await compter('#vue-detail .detail-gestes button')) === 0,
+    JSON.stringify(await visible()) + ' · ' +
+    (await compter('#vue-detail .detail-gestes button')) + ' geste(s)');
+  ok('[47] …et il dit POURQUOI, au lieu d’affirmer qu’il n’y a rien',
+    /finissent d.arriver/.test(await texte('#vue-detail')) &&
+    !/Aucune série sur cette séance/.test(await texte('#vue-detail')),
+    (await texte('#vue-detail .vide')).replace(/\s+/g, ' ').slice(0, 70));
+
+  // ⚠️ ET RIEN N'EST PARTI. C'est la mesure qui compte : le défaut ne se voyait
+  // pas à l'écran, il se voyait en base. Aucune séance du banc ne doit avoir
+  // perdu de séries pendant tout ce qui précède.
+  ok('[47] et aucune série n’a été effacée en base',
+    base.sets.length === setsAvant47,
+    setsAvant47 + ' → ' + base.sets.length + ' série(s) en base');
+
+  // NON-RÉGRESSION DU CHANTIER 29 : une séance COMPLÈTE garde ses trois gestes.
+  await aller('/seance/' + ID_MIXTE);
+  ok('[47] une séance complète, elle, garde ses trois gestes',
+    (await compter('#vue-detail .detail-gestes button')) === 3,
+    (await compter('#vue-detail .detail-gestes button')) + ' geste(s)');
+
+  console.log('\n══ 47 bis. « ← SÉANCES » REMONTE, IL N’EMPILE PAS ══');
+  //
+  // ⚠️ ON MESURE `history.length`, PAS L'ÉCRAN. Les deux implémentations
+  // arrivent sur la liste : celle qui EMPILE y arrive en ajoutant une entrée,
+  // et c'est l'entrée de trop qui obligeait à trois retours pour sortir — dont
+  // un qui ROUVRAIT le détail qu'on venait de quitter.
+  await aller('/semaine/' + isoL(L_EXO));
+  const longueurAvant = await page.evaluate(() => history.length);
+  await page.evaluate(() => {
+    const c = Array.from(document.querySelectorAll('.seance'))
+      .filter((n) => /Quads tous terrains/.test(n.textContent))[0];
+    if (c) c.click();
+  });
+  await attendre(900);
+  const surDetail = JSON.stringify(await visible());
+  const longueurDetail = await page.evaluate(() => history.length);
+  await page.click('#btn-retour');
+  await attendre(900);
+  const longueurApres = await page.evaluate(() => history.length);
+  ok('[47] « ← Séances » ramène aux séances SANS empiler une entrée de plus',
+    surDetail === '["vue-detail"]' && JSON.stringify(await visible()) === '["vue-liste"]' &&
+    longueurApres === longueurDetail,
+    surDetail + ' · ' + longueurAvant + ' → ' + longueurDetail + ' → ' + longueurApres);
+
+  // ⚠️ LA MOITIÉ QUI COMPTE VRAIMENT : le retour d'Android, juste après. Avec
+  // une entrée empilée, il ROUVRAIT le détail. C'est le « trois retours pour
+  // sortir » du relevé, et c'est ce qu'aucune mesure d'écran seule ne montre.
+  await page.goBack().catch(() => {});
+  await attendre(900);
+  ok('[47] …et le retour d’Android ne ROUVRE PAS le détail qu’on vient de quitter',
+    JSON.stringify(await visible()) !== '["vue-detail"]',
+    JSON.stringify(await visible()));
+
+  // ⚠️ ET LE REPLI, QUI EST LA MOITIÉ QU'ON N'AURAIT PAS TESTÉE. Après un
+  // rechargement DIRECT, aucune de nos entrées n'a été empilée : `history.back()`
+  // est alors absorbé par l'ancre de `THSortie` et le bouton ne fait RIEN. Ce
+  // trou existait sur le « ← » de la page d'exercice depuis le chantier 40 — le
+  // banc ne l'avait jamais vu parce qu'il empile toujours une entrée avant de
+  // cliquer. C'est exactement la configuration discriminante : un `aller()`,
+  // qui est un goto, et rien d'autre avant le clic.
+  await aller('/seance/' + ID_MIXTE);
+  await page.click('#btn-retour');
+  await attendre(900);
+  ok('[47] après un rechargement direct, « ← Séances » n’est pas un bouton MORT',
+    JSON.stringify(await visible()) === '["vue-liste"]', JSON.stringify(await visible()));
+
+  // Le chemin d'édition ne doit pas non plus laisser d'entrées derrière lui :
+  // « Modifier » puis « Enregistrer » revenaient en empilant deux fois, et
+  // « ← Séances » remontait alors sur /saisie — le bouton mentait sur sa
+  // destination. Les deux REMPLACENT désormais, comme les cinq autres entrées
+  // dans l'onglet Saisie.
+  await aller('/seance/' + ID_MIXTE);
+  await page.evaluate(() => {
+    Array.from(document.querySelectorAll('#vue-detail .detail-gestes button'))
+      .filter((b) => /^Modifier$/.test(b.textContent))[0].click();
+  });
+  await attendre(1200);
+  const enEdition47 = JSON.stringify(await visible());
+  await page.click('#bandeau-seance .bandeau-fin').catch(() => {});
+  await attendre(2000);
+  const apresEdition = JSON.stringify(await visible());
+  await page.click('#btn-retour').catch(() => {});
+  await attendre(900);
+  ok('[47] après « Modifier → Enregistrer », « ← Séances » va bien aux SÉANCES',
+    enEdition47 === '["vue-seance"]' && apresEdition === '["vue-detail"]' &&
+    JSON.stringify(await visible()) === '["vue-liste"]',
+    enEdition47 + ' → ' + apresEdition + ' → ' + JSON.stringify(await visible()));
 
   console.log('\n══ 8. NON-RÉGRESSION ══');
   for (const [chemin, attendu] of [['/', 'vue-liste'], ['/progression', 'vue-progression'],

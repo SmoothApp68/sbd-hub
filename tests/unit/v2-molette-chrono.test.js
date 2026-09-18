@@ -197,6 +197,30 @@ describe('§B — il ne retarge que le repos qu’il a lui-même lancé', () => 
     expect(b.chrono().cible).toBe(90);              // pas touché
   });
 
+  // ⚠️ LE MÊME EXERCICE DEUX FOIS — ET C'EST LA SEULE CONFIGURATION OÙ L'INDICE
+  // COMPTE. Trouvé par la campagne de mutations : retirer le test d'indice
+  // laissait passer tous les autres cas, parce qu'ils permutent des exercices
+  // DIFFÉRENTS et que le slug suffisait alors à trancher. Un squat au début de
+  // séance et un squat à la fin — un back-off, une série de rattrapage — est
+  // pourtant banal, et là le slug ne distingue rien.
+  test('deux fois le même exercice : c’est l’INDICE qui tranche', () => {
+    const b = bac({
+      ecoule: 20,
+      seance: { exercices: [
+        { exercise_slug: 'squat-barre', repos_cible_s: 90, series: [] },
+        { exercise_slug: 'developpe-couche', repos_cible_s: 180, series: [] },
+        { exercise_slug: 'squat-barre', repos_cible_s: 60, series: [] }
+      ] }
+    });
+    b.armer(0);                                     // le repos du PREMIER squat
+    b.molette(2, 300);                              // on règle le SECOND
+    expect(b.chrono().cible).toBe(90);              // intact
+    expect(b.exo(2).repos_cible_s).toBe(300);
+    // Et sur le bon, il suit.
+    b.molette(0, 300);
+    expect(b.chrono().cible).toBe(300);
+  });
+
   test('`chronoDeCetExo` répond non sur un indice qui n’existe plus', () => {
     const b = bac({ ecoule: 20 });
     b.armer(0);
@@ -210,6 +234,28 @@ describe('§B — il ne retarge que le repos qu’il a lui-même lancé', () => 
 // ════════════════════════════════════════════════════════════════════════════
 // §C — LE SENS EST UNIQUE (non-régression du §7 tervicies)
 // ════════════════════════════════════════════════════════════════════════════
+
+// ⚠️ LA GARDE DE `appliquerCible` EST INATTEIGNABLE PAR L'ÉCRAN, ET ELLE RESTE
+// — même cas que celle de `modifierSeance` au chantier 49 (§2 undecies). Les deux
+// appelants filtrent déjà : `ajusterRepos` teste `chrono`, et `retargeterChrono`
+// passe par `chronoDeCetExo`, qui répond non quand il n'y a pas de chronomètre.
+// La campagne de mutations l'a confirmé : son mutant survivait à tout.
+//
+// Elle protège pourtant la LIGNE SUIVANTE, `chrono.cible = cible`, qui lèverait
+// sur `null`. Un troisième geste qui voudrait changer la cible — il en viendra
+// un — ne doit pas faire tomber l'écran de séance. On l'épingle donc par un
+// appel DIRECT, sinon elle disparaîtra au premier nettoyage.
+
+describe('§B bis — `appliquerCible` sans chronomètre ne lève pas', () => {
+  test('elle ne fait rien, et surtout elle ne jette pas', () => {
+    const b = bac();
+    expect(b.chrono()).toBe(null);
+    b.ctx.__c = 120;
+    expect(() => vm.runInContext('appliquerCible(__c)', b.ctx)).not.toThrow();
+    expect(b.chrono()).toBe(null);
+    expect(b.journal.rendus).toBe(0);
+  });
+});
 
 describe('§C — « −15 » ne touche toujours pas la consigne', () => {
   test('la barre raccourcit le décompte, la routine ne bouge pas', () => {
@@ -276,5 +322,43 @@ describe('§D — la feuille relit la valeur posée, pas celle demandée', () =>
   test('désactiver → elle retarge avec `null`', () => {
     const b = bacFeuille(null);
     expect(b.vus).toEqual([{ i: 0, cible: null }]);
+  });
+});
+
+// ══ §E — L'ARMEMENT PASSE BIEN L'IDENTITÉ DE L'EXERCICE ════════════════
+//
+// Tout le §B suppose que `chrono.exo` est REMPLI — et il l'est à UN endroit, la
+// ligne d'armement de `validerSerie`. La campagne l'a montré : lui retirer ses
+// deux derniers arguments laissait passer tous les tests ci-dessus, parce qu'ils
+// arment eux-mêmes en les fournissant. La garde devenait alors muette et le
+// défaut d'origine revenait, sans qu'aucun test ne bronche.
+//
+// On extrait donc la ligne et on l'EXÉCUTE.
+
+describe('§E — valider une série arme AVEC l’exercice', () => {
+  function bacArmement(enEdition) {
+    const re = /^    if \(!enEdition\(\)\) demarrerChrono\(.*$/m;
+    const m = APP.match(re);
+    if (!m) throw new Error("ligne d'armement introuvable dans v2/js/app.js");
+    const vus = [];
+    const ctx = {
+      enEdition: () => !!enEdition,
+      demarrerChrono: function () { vus.push(Array.prototype.slice.call(arguments)); },
+      exo: { exercise_slug: 'developpe-couche', repos_cible_s: 180 },
+      iExo: 3
+    };
+    vm.createContext(ctx);
+    vm.runInContext(m[0], ctx);
+    return vus;
+  }
+
+  test('elle passe la cible, l’indice ET le slug — les trois', () => {
+    expect(bacArmement(false)).toEqual([[180, 3, 'developpe-couche']]);
+  });
+
+  // ⚠️ PAS DE REPOS EN CORRECTION : en rouvrant une séance d'avant-hier, le
+  // chronomètre compterait un repos qui n'a pas eu lieu.
+  test('et en correction, elle n’arme rien du tout', () => {
+    expect(bacArmement(true)).toEqual([]);
   });
 });

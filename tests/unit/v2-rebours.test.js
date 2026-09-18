@@ -85,6 +85,90 @@ describe('§1 — le grand nombre descend', () => {
   });
 });
 
+// ══ CE QUE LA CAMPAGNE DE MUTATIONS A TROUVÉ (N1, N8) ═════════════════
+//
+// Deux lignes du chantier survivaient à leur mutant : la garde « sans cible » de
+// `secondesRestantes`, et le FIL entre la fonction et l'écran. La première ne se
+// distingue que sur un écoulé NÉGATIF ; le second ne se voyait qu'au banc.
+
+describe('§1 — `secondesRestantes` répond pour toute entrée', () => {
+  // ⚠️ LA CONFIGURATION QUI SÉPARE : un écoulé NÉGATIF sur une cible absente.
+  // Partout ailleurs, `s >= c ? 0 : c - s` rend déjà zéro quand la cible est
+  // nulle — la garde paraît donc redondante, et un nettoyage l'emporterait.
+  // Ici elle est seule à empêcher `0 − (−5) = 5` : un chronomètre SANS cible
+  // afficherait un nombre qui monte, ce que le chantier 45 a fermé.
+  test('sans cible, même un écoulé négatif ne fabrique pas de temps', () => {
+    expect(Seance.secondesRestantes(0, -5)).toBe(0);
+    expect(Seance.secondesRestantes(null, -1)).toBe(0);
+    expect(Seance.secondesRestantes(undefined, -3600)).toBe(0);
+  });
+
+  test('et une entrée illisible ne rend jamais NaN', () => {
+    expect(Seance.secondesRestantes('abc', 10)).toBe(0);
+    expect(Seance.secondesRestantes(180, 'abc')).toBe(180);
+  });
+});
+
+// ⚠️ LE FIL ENTRE LA FONCTION ET L'ÉCRAN, EXÉCUTÉ. `secondesRestantes` juste et
+// une barre qui affiche autre chose, c'est le défaut même qu'on répare — et
+// `restant: secondes` (le chronomètre montant, remis en place) passait TOUS les
+// tests ci-dessus. On extrait donc `rendreChrono` de la source réelle et on
+// regarde ce qu'il passe à `Rendu.rendreRepos`.
+describe('§1 — `rendreChrono` passe le RESTANT au rendu, pas l’écoulé', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const vm = require('vm');
+  const APP = fs.readFileSync(path.join(__dirname, '../../v2/js/app.js'), 'utf8');
+
+  function vueRendue(cible, ecoule) {
+    const re = /^  function rendreChrono\(\)[\s\S]*?^  }/m;
+    const m = APP.match(re);
+    if (!m) throw new Error('`rendreChrono` introuvable dans v2/js/app.js');
+    let vue = null;
+    const ctx = {
+      Seance: Seance,
+      Rendu: { rendreRepos: (n, v) => { vue = v; } },
+      $: () => ({ hidden: false }),
+      chrono: { depuis: 0, cible: cible, sonne: false, exo: { i: 0, slug: 'squat-barre' } },
+      sourdine: false,
+      secondesDeRepos: () => ecoule,
+      signalerEcheance: () => {},
+      arreterMinuteur: () => {},
+      assurerMinuteur: () => {},
+      mesurerBarres: () => {},
+      ajusterRepos: () => {},
+      basculerSourdine: () => {},
+      eteindreChrono: () => {}
+    };
+    vm.createContext(ctx);
+    vm.runInContext(m[0], ctx);
+    vm.runInContext('rendreChrono()', ctx);
+    return vue;
+  }
+
+  // À 0:40 sous une cible de 3:00 : le restant vaut 140, l'écoulé 40. Un
+  // chronomètre montant passerait 40.
+  test('il passe 140 — pas 40', () => {
+    expect(vueRendue(180, 40).restant).toBe(140);
+  });
+
+  test('à l’armement il passe la cible entière', () => {
+    expect(vueRendue(180, 0).restant).toBe(180);
+  });
+
+  test('au dépassement il passe zéro, et se dit figé', () => {
+    const v = vueRendue(180, 400);
+    expect(v.restant).toBe(0);
+    expect(v.fige).toBe(true);
+  });
+
+  // La cible part à côté du restant : c'est elle que − 15/+15 règlent, et le
+  // grand nombre ne la dit plus.
+  test('et la cible continue de partir à côté', () => {
+    expect(vueRendue(180, 40).cible).toBe(180);
+  });
+});
+
 describe('§1 — la piste se vide', () => {
   // ⚠️ LE SENS, PAS SEULEMENT LA VALEUR. Une piste qui se remplit sous un
   // nombre qui descend raconte deux histoires sur le même écran. On mesure

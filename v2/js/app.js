@@ -1154,6 +1154,14 @@
     // les bornes de `definirReposCible`, ou elle vaut ce qu'elle valait si la
     // valeur a été refusée. `null` — repos désactivé — devient zéro, donc une
     // extinction.
+    //
+    // ⚠️ LE `|| 0` EST REDONDANT AUJOURD'HUI, ET IL RESTE EXPRÈS. Sa mutation
+    // survit : `reposEcoule` répond déjà « fini » sur `NaN` comme sur zéro, donc
+    // `Number(cible)` seul éteindrait pareil. Ce n'est vrai QUE grâce à ce
+    // contrat, qui est épinglé par un test (`v2-statut-seance`, §8) : le jour où
+    // il changerait, cette normalisation serait la seule chose empêchant
+    // `chrono.cible = NaN` — une barre qui ne fige jamais, le troisième état que
+    // le §7 novodecies interdit.
     appliquerCible(Number(cible) || 0);
   }
 

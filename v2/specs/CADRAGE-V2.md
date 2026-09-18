@@ -295,6 +295,15 @@ la semaine du 9 au 15 septembre.**
 - **`rendreBandeauReprise`** (ch. 45) — un seul bandeau pour la séance en cours (§7 nonies) et
   le brouillon de routine (§7 octodecies.3). Écrit pour les deux **avant** que le second
   n'existe : c'est la duplication évitée avant d'avoir été écrite, plutôt qu'après.
+- **`brancherReorganisation` et `ordonnerDeplacements`** (ch. 46) — UN glissement pour trois
+  surfaces (séance, éditeur, bibliothèque), et le plan de rangs du chantier 28 réutilisé tel
+  quel pour un SECOND index non différable. Le mode Modifier du §5.3 s'étend au lieu d'un
+  second mode. Trois glissements auraient divergé le jour où l'un se corrige — et le
+  glissement est précisément l'endroit où une divergence ne se voit qu'au pouce.
+- **`derniereSaisie` et `correspondant`** (ch. 46) — les deux niveaux de la cascade du fantôme
+  partagent enfin la même règle d'alignement. Le §2 undecies dans sa forme la plus coûteuse :
+  non pas du code dupliqué, mais une **règle** appliquée à un endroit sur deux, dont une copie
+  dérive. Trois chantiers pour la poser partout (38, 39, 46).
 - **La liste lue dérivée de la liste écrite** par construction (ch. 34), plus
   `verifierColonnes()` qui lève au démarrage si l'écart réapparaît.
 - **Les deux entonnoirs de bornes** (ch. 36) — `nombreOuNul`/`entierOuNul` et `borne`,

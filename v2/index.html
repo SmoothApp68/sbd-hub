@@ -90,6 +90,9 @@
     <header class="entete">
       <div class="entete-titre"><h1>Saisie</h1></div>
       <div class="actions">
+        <!-- §7 vicies.1 — la seconde entrée du mode ; l'appui long est l'autre.
+             Deux entrées parce qu'un appui long ne se découvre pas tout seul. -->
+        <button id="btn-ranger-routines" type="button" class="discret" hidden>Ranger</button>
         <button id="btn-nouvelle-routine" type="button" class="discret">Nouvelle routine</button>
       </div>
     </header>
@@ -108,6 +111,8 @@
     <header class="entete">
       <button id="btn-retour-routine" type="button" class="discret">← Routines</button>
       <div class="actions">
+        <!-- §7 vicies.1 — même entrée que la bibliothèque, même mode. -->
+        <button id="btn-ranger-routine" type="button" class="discret" hidden>Ranger</button>
         <button id="btn-supprimer-routine" type="button" class="discret danger" hidden>Supprimer</button>
       </div>
     </header>
@@ -137,6 +142,12 @@
          au dépassement, aucun blocage de la série suivante. -->
     <div id="repos" class="repos" hidden></div>
   </section>
+
+  <!-- Le pied du mode Réorganiser (§7 vicies.1). FIXE et HORS des vues, comme la
+       barre de repos : il sert aux TROIS surfaces (séance, éditeur,
+       bibliothèque) et aucune ne doit en porter un à elle. « Plusieurs
+       déplacements, puis on enregistre » — et annulable jusque-là. -->
+  <div id="pied-reorg" hidden></div>
 
   <!-- Progression : un SOMMAIRE, pas des sous-onglets (§7 bis.14). Trois blocs
        empilés, chacun répondant en deux lignes — l'écran est utile sans rien

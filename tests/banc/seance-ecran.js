@@ -2174,6 +2174,22 @@ const SETS_IMPORTES = [
     }, i);
     await attendre(500);
   };
+  // ⚠️ « MONTER LE BLOC » A QUITTÉ LE MENU AU CHANTIER 46 (§7 vicies.1) : le
+  // menu porte désormais « Réorganiser… », qui ouvre le mode. Les deux flèches
+  // vivent sur le bloc REPLIÉ, où elles restent le chemin accessible au clavier.
+  // Le banc passe donc par le mode — et sa sortie « Terminé », qui ENREGISTRE.
+  const deplacerBlocParMode = async (i, sens) => {
+    await page.click('#bandeau-seance .bandeau-modifier');
+    await attendre(600);
+    await page.evaluate(([k, d]) => {
+      document.querySelectorAll('.bloc-seance.replie')[k]
+        .querySelector('.geste[aria-label="' + (d === 'haut' ? 'Monter' : 'Descendre') + ' le bloc"]')
+        .click();
+    }, [i, sens]);
+    await attendre(700);
+    await page.click('#bandeau-seance .bandeau-modifier');
+    await attendre(900);
+  };
   const menuExo = async (i, k) => {
     await page.evaluate(([b, x]) => {
       document.querySelectorAll('.bloc-seance')[b]
@@ -2298,8 +2314,7 @@ const SETS_IMPORTES = [
     JSON.stringify(rangsBase()));
 
   // ── §5.5 — DÉPLACER UN BLOC, AU MILIEU DE LA LISTE ──────────────────────
-  await menuBloc(2);              // Squat, en dernier
-  await entree('Monter le bloc');
+  await deplacerBlocParMode(2, 'haut');   // Squat, en dernier
   ok('le bloc déplacé se pose au milieu, et le superset ne bouge pas',
     JSON.stringify(await formeEcran()) ===
     JSON.stringify([['Développé Couché (Barre)', 'Planche'], ['Squat (Barre)'], ['Curl Biceps Haltères']]),
@@ -2421,8 +2436,55 @@ const SETS_IMPORTES = [
       ['Marche'], ['Développé Couché (Barre)', 'Tractions', 'Planche'],
       ['Squat (Barre)', 'Curl Biceps Haltères']]),
     JSON.stringify(await formeEcran()));
+  // ⚠️ ET LA POIGNÉE, TROISIÈME SURFACE DU §7 vicies (ch. 46). Le même
+  // composant qu'à la bibliothèque et à l'éditeur ; ce qu'on mesure ici est
+  // qu'il est BRANCHÉ sur la séance, et qu'un superset y voyage entier.
+  ok('[46] les blocs repliés portent une poignée, et un pied apparaît',
+    (await compter('.bloc-seance.replie .poignee')) === 3 &&
+    (await page.evaluate(() => {
+      const p = document.getElementById('pied-reorg');
+      return !!p && !p.hidden;
+    })) === true,
+    (await compter('.bloc-seance.replie .poignee')) + ' poignée(s)');
+  const formeAvantGlisse = await formeEcran();
+  // ⚠️ LA COURSE SE CALCULE, ELLE NE SE DEVINE PAS. Les blocs repliés n'ont
+  // PAS la même hauteur : un superset à trois branches porte trois noms, un bloc
+  // seul un seul. Glisser « d'une hauteur de bloc » suffit quand on descend vers
+  // un bloc plus court et rate quand on remonte vers un plus haut — mesuré : le
+  // premier jet ne déplaçait rien. On vise donc le MILIEU du bloc d'au-dessus,
+  // plus une marge : c'est exactement le seuil que le composant compare.
+  const pgS = await page.evaluate(() => {
+    const b = document.querySelectorAll('.bloc-seance.replie');
+    const p = b[2].querySelector('.poignee');
+    const r = p.getBoundingClientRect();
+    const mi = (n) => { const x = n.getBoundingClientRect(); return x.top + x.height / 2; };
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2,
+             h: Math.ceil(mi(b[2]) - mi(b[1])) + 12 };
+  });
+  await page.mouse.move(pgS.x, pgS.y);
+  await page.mouse.down();
+  for (let d = 0; d <= pgS.h + 10; d += 8) {
+    await page.mouse.move(pgS.x, pgS.y - d);
+    await attendre(18);
+  }
+  await page.mouse.up();
+  await attendre(500);
+  ok('[46] glisser par la poignée remonte le bloc, en séance aussi',
+    JSON.stringify(await formeEcran()) !== JSON.stringify(formeAvantGlisse) &&
+    JSON.stringify((await formeEcran())[1]) === JSON.stringify(formeAvantGlisse[2]),
+    JSON.stringify(formeAvantGlisse) + ' → ' + JSON.stringify(await formeEcran()));
+  // On le remet où il était : la suite de ce banc attend cet ordre-là.
+  await page.evaluate(() => {
+    document.querySelectorAll('.bloc-seance')[1]
+      .querySelector('.geste[aria-label="Descendre le bloc"]').click();
+  });
+  await attendre(700);
+  ok('[46] …et les flèches le remettent — elles n’ont pas disparu avec le geste',
+    JSON.stringify(await formeEcran()) === JSON.stringify(formeAvantGlisse),
+    JSON.stringify(await formeEcran()));
+
   await page.click('#bandeau-seance .bandeau-modifier');
-  await attendre(600);
+  await attendre(900);
   ok('« Terminé » rend la saisie',
     (await compter('.bloc-seance.replie')) === 0 && (await compter('.ligne-serie')) > 0 &&
     (await compter('.bloc-seance.superset')) === 2,
@@ -2491,8 +2553,7 @@ const SETS_IMPORTES = [
     .map((e) => (e.routine_sets || []).length + '×' + e.exercise_slug);
   const seriesRoutineAvant = structureAvant();
 
-  await menuBloc(1);
-  await entree('Monter le bloc');
+  await deplacerBlocParMode(1, 'haut');
   await menuBloc(0);
   await entree('Grouper en superset');
   await page.evaluate(() => document.querySelectorAll('.bloc-seance')[1].click());
@@ -3157,8 +3218,7 @@ const SETS_IMPORTES = [
   await attendre(600);
 
   const avantDeplacement = JSON.stringify(rangsImportee());
-  await menuBloc(1);
-  await entree('Monter le bloc');
+  await deplacerBlocParMode(1, 'haut');
   ok('[D2] à l’écran, le curl est passé devant',
     JSON.stringify((await formeEcran())[0]) === JSON.stringify(['Curl Biceps Haltères']),
     JSON.stringify(await formeEcran()));

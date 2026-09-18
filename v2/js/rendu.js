@@ -1398,6 +1398,179 @@
     ligne.addEventListener('pointercancel', function () { actif = false; remettre(); });
   }
 
+  // ══ RÉORGANISER — UN GLISSEMENT À LA POIGNÉE (§7 vicies) ═════════════════
+  //
+  // ⚠️ UN SEUL COMPOSANT POUR TROIS SURFACES : la séance, l'éditeur de routine
+  // et la bibliothèque. Ce qui varie est le CONTENU des rangées ; le geste, non.
+  // Trois glissements auraient divergé le jour où l'un se corrige — c'est le
+  // §2 undecies, et le glissement est précisément l'endroit où une divergence
+  // ne se voit qu'au pouce.
+  //
+  // ⚠️ LA POIGNÉE ISOLE LE GESTE, ET C'EST TOUT LE DISPOSITIF DE SÛRETÉ. Le
+  // glissement vertical a coûté trois chantiers sur le bouton retour, et le
+  // §5.3 mesure qu'à 360 px deux poignées se confondent au pouce. Ici :
+  //
+  //   · `touch-action: none` sur la POIGNÉE SEULE (styles.css) — le navigateur
+  //     ne lui vole plus le geste vertical ;
+  //   · le reste de la rangée garde `pan-y` — donc le doigt posé ailleurs
+  //     DÉFILE, et c'est la non-régression à vérifier explicitement ;
+  //   · aucun seuil directionnel, aucune indécision : partir de la poignée EST
+  //     la décision. `brancherGlissement` doit trancher une direction parce que
+  //     sa surface de départ est toute la ligne ; ici la surface répond déjà.
+  //
+  // ⚠️ ON DÉPLACE LE NŒUD, ON NE REPEINT PAS. Repeindre à chaque permutation
+  // perdrait la capture du pointeur — le doigt lâcherait le bloc en cours de
+  // route. `insertBefore` garde le même élément, donc la même capture.
+  var BORD_AUTO = 64;    // px depuis le bord où le défilement s'entraîne
+  var PAS_AUTO = 10;     // px par battement
+
+  function brancherReorganisation(conteneur, vue) {
+    var pris = null, depart = 0, decal = 0, minuteur = null, dernierY = 0;
+
+    function rangees() {
+      return Array.prototype.filter.call(conteneur.children, function (n) {
+        return n.getAttribute && n.getAttribute('data-cle') !== null;
+      });
+    }
+    function ordre() {
+      return rangees().map(function (n) { return n.getAttribute('data-cle'); });
+    }
+    // Le haut de la rangée SANS la translation en cours : c'est la seule
+    // grandeur stable pendant qu'on la déplace.
+    function hautPropre() {
+      return pris.getBoundingClientRect().top - decal;
+    }
+    function poser() {
+      pris.style.transform = decal ? 'translateY(' + decal + 'px)' : '';
+    }
+
+    // Une permutation à la fois : on compare le MILIEU de la rangée prise au
+    // milieu de son voisin. Comparer les hauts ferait sauter deux crans sur des
+    // rangées de hauteurs différentes — et un superset est plus haut.
+    function permuter() {
+      var r = pris.getBoundingClientRect();
+      var milieu = r.top + r.height / 2;
+      var avant = pris.previousElementSibling;
+      var apres = pris.nextElementSibling;
+      var cible = null, devant = null;
+      if (avant && avant.getAttribute && avant.getAttribute('data-cle') !== null) {
+        var ra = avant.getBoundingClientRect();
+        if (milieu < ra.top + ra.height / 2) { cible = avant; devant = avant; }
+      }
+      if (!cible && apres && apres.getAttribute && apres.getAttribute('data-cle') !== null) {
+        var rb = apres.getBoundingClientRect();
+        if (milieu > rb.top + rb.height / 2) { cible = apres; devant = apres.nextSibling; }
+      }
+      if (!cible) return false;
+      var avantTop = hautPropre();
+      conteneur.insertBefore(pris, devant);
+      // La rangée a changé de place dans le flux : on corrige l'origine pour
+      // qu'elle reste EXACTEMENT sous le doigt. Sans ça elle saute d'une hauteur
+      // à chaque permutation, et le geste devient impilotable.
+      depart += hautPropre() - avantTop;
+      decal = dernierY - depart;
+      poser();
+      return true;
+    }
+
+    // ⚠️ AUTANT DE PERMUTATIONS QUE LE DOIGT EN A FRANCHI. `permuter` n'en fait
+    // qu'UNE : un pointeur qui saute deux rangées en un seul événement — un
+    // glissement rapide, ou un `pointermove` avalé par une image perdue — n'en
+    // déclencherait alors qu'une, et la rangée traînerait derrière le doigt.
+    // Mesuré au banc : un glissement de deux crans n'en faisait qu'un.
+    function rattraper() {
+      var filet = 32;                       // un filet, pas une limite attendue
+      while (filet-- > 0 && permuter()) { /* on recommence tant qu'on franchit */ }
+    }
+
+    function battre() {
+      if (pris === null) return;
+      var h = (doc.documentElement && doc.documentElement.clientHeight) || 0;
+      var d = 0;
+      if (dernierY < BORD_AUTO) d = -PAS_AUTO;
+      else if (dernierY > h - BORD_AUTO) d = PAS_AUTO;
+      if (!d) return;
+      var avant = racine.scrollY || 0;
+      racine.scrollBy(0, d);
+      var fait = (racine.scrollY || 0) - avant;
+      if (!fait) return;
+      // La page a glissé sous le doigt : la rangée doit suivre le DOIGT, pas la
+      // page. On rattrape l'écart sur l'origine, puis on re-teste les voisins.
+      depart -= fait;
+      decal = dernierY - depart;
+      poser();
+      rattraper();
+    }
+
+    function relacher() {
+      if (pris === null) return;
+      if (minuteur) { clearInterval(minuteur); minuteur = null; }
+      pris.classList.remove('pris');
+      pris.style.transform = '';
+      pris = null; decal = 0;
+      if (vue && vue.surOrdre) vue.surOrdre(ordre());
+    }
+
+    conteneur.addEventListener('pointerdown', function (e) {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      var p = e.target.closest && e.target.closest('.poignee');
+      if (!p || !conteneur.contains(p)) return;
+      var r = p.closest('[data-cle]');
+      if (!r || r.parentNode !== conteneur) return;
+      pris = r; depart = e.clientY; dernierY = e.clientY; decal = 0;
+      pris.classList.add('pris');
+      try { pris.setPointerCapture(e.pointerId); } catch (x) { /* souris de banc */ }
+      e.preventDefault();
+      minuteur = setInterval(battre, 16);
+    });
+
+    conteneur.addEventListener('pointermove', function (e) {
+      if (pris === null) return;
+      e.preventDefault();
+      dernierY = e.clientY;
+      decal = e.clientY - depart;
+      poser();
+      rattraper();
+    });
+
+    conteneur.addEventListener('pointerup', relacher);
+    conteneur.addEventListener('pointercancel', relacher);
+    return { ordre: ordre };
+  }
+
+  // La poignée. ⚠️ Elle porte `aria-hidden` : le glissement n'est pas accessible
+  // au clavier, et les flèches ↑/↓ restent le chemin qui l'est. Un geste qui
+  // rate ne doit pas enfermer — c'est la doctrine du glissement latéral, et elle
+  // vaut deux fois ici.
+  function poignee() {
+    var p = el('div', 'poignee');
+    p.setAttribute('aria-hidden', 'true');
+    p.appendChild(el('span', '', '\u2261'));
+    return p;
+  }
+
+  // Le pied du mode : plusieurs déplacements, UN enregistrement (§7 vicies.1).
+  function rendrePiedReorganisation(cible, vue) {
+    vider(cible);
+    if (!vue) { cible.hidden = true; return cible; }
+    cible.hidden = false;
+    var pied = el('div', 'pied-reorg');
+    pied.appendChild(el('p', 'reorg-aide', vue.aide || 'Maintiens la poignée et fais glisser.'));
+    var rangee = el('div', 'reorg-actions');
+    var annuler = el('button', 'discret', 'Annuler');
+    annuler.type = 'button';
+    annuler.addEventListener('click', function () { vue.surAnnuler(); });
+    rangee.appendChild(annuler);
+    var ok = el('button', 'principal', 'Enregistrer');
+    ok.type = 'button';
+    ok.disabled = !!vue.enCours;
+    ok.addEventListener('click', function () { vue.surEnregistrer(); });
+    rangee.appendChild(ok);
+    pied.appendChild(rangee);
+    cible.appendChild(pied);
+    return cible;
+  }
+
   // ══ L'UNITÉ DE L'ÉCRAN EST LE BLOC, PAS L'EXERCICE (§2.1) ════════════════
   //
   // Un exercice normal est un bloc d'un seul ; un superset est un bloc de 2 à 6.
@@ -1462,7 +1635,14 @@
   // c'est la vue d'ensemble qui manque pendant qu'on s'entraîne (§5.3).
   function blocReplie(bloc, iBloc, total, vue) {
     var noeud = el('div', 'bloc-seance replie' + (bloc.superset ? ' superset' : ''));
+    // ⚠️ LA CLÉ EST L'INDICE DU BLOC, PAS UN IDENTIFIANT. Un bloc de séance n'a
+    // pas d'id propre — c'est une TRANCHE d'exercices (§2.1). L'appelant relit
+    // donc l'ordre des indices et reconstruit la tranche ; c'est aussi ce qui
+    // fait qu'un superset se déplace d'un tenant sans rien de spécial ici.
+    noeud.setAttribute('data-cle', String(iBloc));
     var haut = el('div', 'replie-haut');
+    // Le glissement (§7 vicies.2) s'ajoute aux flèches, il ne les remplace pas.
+    if (vue.reorganiser) haut.appendChild(poignee());
 
     var noms = el('div', 'replie-noms');
     bloc.exercices.forEach(function (x) {
@@ -1485,9 +1665,19 @@
     // sont faites sur combien. Un fait, aucune prescription.
     // `faite`, pas `validee_a` (chantier 35, D3) — voir `Modele.faiteEnBase` :
     // une séance importée n'a aucun `validee_a`, et affichait « 0 / 4 ».
+    // ⚠️ DANS L'ÉDITEUR, RIEN N'EST « FAIT » (ch. 46). Le même bloc replié sert
+    // maintenant à la routine, où « 0 / 4 séries » serait faux ET décourageant :
+    // une routine ne se fait pas, elle se programme. Même composant, un compte
+    // qui dit ce qu'il y a à dire de chaque côté.
+    var pluriel = bloc.nbTravail > 1 ? 's' : '';
+    if (vue.programme) {
+      noeud.appendChild(el('div', 'replie-avancement num',
+        bloc.nbTravail + ' série' + pluriel));
+      return noeud;
+    }
     var faites = bloc.series.filter(function (s) { return s.estTravail && s.faite; }).length;
     noeud.appendChild(el('div', 'replie-avancement num',
-      faites + ' / ' + bloc.nbTravail + ' série' + (bloc.nbTravail > 1 ? 's' : '')));
+      faites + ' / ' + bloc.nbTravail + ' série' + pluriel));
     return noeud;
   }
 
@@ -2038,8 +2228,17 @@
     entreeMenu(menu, 'Grouper en superset…', {
       surClic: vue.surGrouper, desactive: !vue.peutGrouper });
     entreeMenu(menu, 'Ajouter un exercice après', { surClic: vue.surAjouterApres });
-    entreeMenu(menu, 'Monter le bloc', { surClic: vue.surMonter, desactive: !vue.peutMonter });
-    entreeMenu(menu, 'Descendre le bloc', { surClic: vue.surDescendre, desactive: !vue.peutDescendre });
+    // ⚠️ « MONTER » ET « DESCENDRE » SONT PARTIS (§7 vicies.1, ch. 46). Deux
+    // entrées qui bougeaient d'un cran chacune, quand réordonner n'est presque
+    // jamais un geste isolé : quand on touche à l'ordre, on bouge plusieurs
+    // choses. Une seule entrée ouvre le mode, où tout se déplace au glissement
+    // et où l'on enregistre à la fin.
+    //
+    // Les flèches ↑/↓ du bloc REPLIÉ, elles, restent : elles sont le chemin
+    // accessible au clavier et le filet si le glissement rate. « Un geste qui
+    // rate ne doit pas enfermer » — la doctrine du glissement latéral.
+    entreeMenu(menu, 'Réorganiser…', { surClic: vue.surReorganiser,
+      desactive: !vue.surReorganiser });
     entreeMenu(menu, 'Voir la progression',
       { surClic: vue.surProgression, desactive: !vue.surProgression });
     cible.appendChild(menu);
@@ -2401,6 +2600,21 @@
     vider(cible);
     var v = vue || {};
     var liste = R().visibles(routines);
+    // ⚠️ PENDANT QU'ON RANGE, L'ORDRE VIENT DE L'ÉCRAN, PAS DE `rang` (ch. 46).
+    // Rien n'est écrit tant qu'on n'a pas enregistré : re-rendre pendant le mode
+    // remettrait la liste dans l'ordre de la BASE et effacerait les
+    // déplacements — « annulable tant qu'on n'a pas validé » suppose que ce
+    // qu'on voit survive à un rendu.
+    if (v.ordre && v.ordre.length) {
+      var rang = {};
+      v.ordre.forEach(function (id, i) { rang[id] = i; });
+      liste = liste.slice().sort(function (a, b) {
+        var ra = rang[a.id], rb = rang[b.id];
+        if (ra === undefined) return rb === undefined ? 0 : 1;
+        if (rb === undefined) return -1;
+        return ra - rb;
+      });
+    }
 
     if (!liste.length) {
       var vide = el('div', 'vide-routines');
@@ -2439,23 +2653,36 @@
       carte.appendChild(el('div', 'routine-meta',
         a.nbExercices + ' exercice' + (a.nbExercices > 1 ? 's' : '') +
         ' \u00b7 ' + a.nbSeries + ' série' + (a.nbSeries > 1 ? 's' : '')));
-      carte.addEventListener('click', function () { if (v.surChoix) v.surChoix(r.id); });
+      carte.disabled = !!v.reorganiser;
+      carte.addEventListener('click', function () { if (!v.reorganiser && v.surChoix) v.surChoix(r.id); });
 
-      var rangee = el('div', 'routine-rangee');
+      var rangee = el('div', 'routine-rangee' + (v.reorganiser ? ' reorg' : ''));
+      // ⚠️ L'IDENTIFIANT ENTRE DANS LE DOM (ch. 46). Il ne vivait que dans la
+      // fermeture du gestionnaire de clic ; un réordonnancement doit pouvoir
+      // relire l'ordre AFFICHÉ, donc les rangées portent leur clé.
+      rangee.setAttribute('data-cle', r.id);
+      if (v.reorganiser) rangee.appendChild(poignee());
       rangee.appendChild(carte);
       // Démarrer est l'action principale d'une routine ; la modifier est
       // secondaire. Deux cibles distinctes plutôt qu'un menu : on part
       // s'entraîner plus souvent qu'on ne remanie.
-      var go = el('button', 'demarrer', 'Démarrer');
-      go.type = 'button';
-      go.addEventListener('click', function () { if (v.surDemarrer) v.surDemarrer(r.id); });
-      rangee.appendChild(go);
+      //
+      // ⚠️ MAIS PAS PENDANT QU'ON RANGE. En mode réorganisation, « Démarrer »
+      // est une sortie d'écran à un pouce de la poignée : le garder ferait
+      // partir une séance sur un geste raté. La carte, elle, cesse aussi
+      // d'ouvrir l'éditeur — pour la même raison.
+      if (!v.reorganiser) {
+        var go = el('button', 'demarrer', 'Démarrer');
+        go.type = 'button';
+        go.addEventListener('click', function () { if (v.surDemarrer) v.surDemarrer(r.id); });
+        rangee.appendChild(go);
+      }
       cible.appendChild(rangee);
     });
 
     // On entre par où on veut (ECRAN-SAISIE §1) : une séance vide se note
     // exercice par exercice.
-    if (v.surSeanceVide) {
+    if (!v.reorganiser && v.surSeanceVide) {
       var vide2 = el('button', 'discret bloc-large', 'Séance vide');
       vide2.type = 'button';
       vide2.addEventListener('click', v.surSeanceVide);
@@ -2479,8 +2706,11 @@
       { surClic: vue.surGrouper, desactive: !vue.peutGrouper });
     entreeMenu(menu, 'Dégrouper',
       { surClic: vue.surDegrouper, desactive: !vue.estGroupe });
-    entreeMenu(menu, 'Monter', { surClic: vue.surMonter, desactive: !vue.peutMonter });
-    entreeMenu(menu, 'Descendre', { surClic: vue.surDescendre, desactive: !vue.peutDescendre });
+    // ⚠️ IDEM ICI (§7 vicies.1) : une entrée au lieu de deux, et le mode fait
+    // le reste. L'éditeur gagne au passage le repli et le glissement, qu'il
+    // n'avait pas — le même `blocReplie` que la séance, simplement demandé.
+    entreeMenu(menu, 'Réorganiser…', { surClic: vue.surReorganiser,
+      desactive: !vue.surReorganiser });
     // ⚠️ « MODIFIER LES PARAMÈTRES » EST PARTI AVEC SA FEUILLE (ch. 43). Séries
     // et reps se tapent sur la ligne ; le repos a son propre bouton sous le nom,
     // le même qu'en séance. Une entrée qui ouvrirait la feuille du repos ferait
@@ -2571,6 +2801,8 @@
     etiquetteSerie: etiquetteSerie,
     texteEffort: texteEffort,
     rendreBandeauReprise: rendreBandeauReprise,
+    brancherReorganisation: brancherReorganisation,
+    rendrePiedReorganisation: rendrePiedReorganisation,
     rendreListeRoutines: rendreListeRoutines,
     rendreFeuilleExoRoutine: rendreFeuilleExoRoutine,
     champChrono: champChrono,

@@ -800,6 +800,40 @@ button.bloc-exo:active{background:var(--panneau-2)}
 .geste:active:not(:disabled){border-color:var(--texte-2);color:var(--texte)}
 .replie-avancement{font-size:11.5px;color:var(--texte-3);margin-top:6px}
 
+/* ── RÉORGANISER : LA POIGNÉE ET SON PIED (§7 vicies) ──────────────────────
+   ⚠️ `touch-action:none` SUR LA POIGNÉE SEULE, et c'est tout le dispositif de
+   sûreté du geste. Le glissement vertical a coûté trois chantiers sur le bouton
+   retour ; ici le navigateur ne cède le geste QUE sur 38 px de large. Partout
+   ailleurs la rangée garde son défilement — le doigt posé sur le nom fait
+   défiler la liste, exactement comme avant le mode.
+
+   Et la poignée est à DROITE : c'est le côté du pouce sur un téléphone tenu
+   d'une main, et c'est là qu'étaient déjà les deux flèches. */
+.poignee{width:38px;height:38px;flex:0 0 38px;display:grid;place-items:center;
+  color:var(--texte-3);font-size:17px;line-height:1;cursor:grab;
+  touch-action:none;-webkit-user-select:none;user-select:none}
+.poignee:active{color:var(--texte-2);cursor:grabbing}
+/* La rangée prise : elle sort du flux visuel sans sortir du DOM. */
+.bloc-seance.pris,.routine-rangee.pris{position:relative;z-index:9;
+  box-shadow:0 10px 24px rgba(0,0,0,.5)}
+.bloc-seance.pris{border:1px solid var(--accent)}
+.routine-rangee.pris .routine{border:1px solid var(--accent)}
+/* En mode réorganisation, la poignée passe devant la carte : on range par la
+   gauche du pouce, la carte n'étant plus tapable. */
+.routine-rangee.reorg{align-items:center}
+.routine-rangee.reorg .routine{opacity:.9}
+
+/* Le pied : FIXE au-dessus des onglets, comme la barre de repos — trois écrans,
+   un seul pied. */
+#pied-reorg{position:fixed;left:0;right:0;bottom:var(--h-onglets, 68px);
+  background:#191C21;border-top:1px solid var(--trait);z-index:11;
+  padding:var(--e2) var(--e3) var(--e3)}
+#pied-reorg[hidden]{display:none}
+.reorg-aide{font-size:11.5px;color:var(--texte-3);text-align:center;
+  margin:0 0 var(--e2)}
+.reorg-actions{display:flex;gap:var(--e2)}
+.reorg-actions button{flex:1;margin:0}
+
 /* ── LE SUPERSET (§2.3) ────────────────────────────────────────────────────
    Le liseré est celui du détail de séance, repris tel quel : la même chose se
    reconnaît au même signe d'un écran à l'autre. */

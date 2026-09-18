@@ -74,6 +74,22 @@ const CATALOGUE = [
     for (const e of base.exos) { const c = e.routine_id + '#' + e.rang; if (vus.has(c)) return true; vus.add(c); }
     return false;
   };
+  // ⚠️ `routines_user_rang_uniq` (v2_043) — UNIQUE (user_id, rang) WHERE
+  // archivee_a IS NULL, et NON DIFFÉRABLE. Sans ce refus, le banc serait plus
+  // permissif que Postgres et le plan d'écritures du §7 vicies.3 ne prouverait
+  // rien : une boucle naïve passerait. C'est la même leçon que `collisionRang`
+  // au chantier 28.
+  const collisionRangRoutines = () => {
+    const vus = new Set();
+    for (const r of base.routines) {
+      if (r.archivee_a) continue;
+      if (r.rang === null || r.rang === undefined) continue;
+      const c = r.user_id + '#' + r.rang;
+      if (vus.has(c)) return true;
+      vus.add(c);
+    }
+    return false;
+  };
   const collisionNom = () => {
     const vus = new Set();
     for (const r of base.routines) {
@@ -248,9 +264,10 @@ const CATALOGUE = [
     if (req.method() === 'POST' && table === 'routines') {
       const mauvais = nomBorne(Array.isArray(corps) ? corps[0] : corps);
       if (mauvais) return refuserSi(corps, mauvais);
-      const l = Object.assign({ id: 'r' + (++base.graine), archivee_a: null, note: null }, corps);
+      const l = Object.assign({ id: 'r' + (++base.graine), archivee_a: null, note: null, rang: null }, corps);
       base.routines.push(l);
       if (collisionNom()) { base.routines.pop(); return json({ code: '23505', message: 'duplicate key value violates unique constraint "routines_user_nom_actif_uniq"' }, 409); }
+      if (collisionRangRoutines()) { base.routines.pop(); return json({ code: '23505', message: 'duplicate key value violates unique constraint "routines_user_rang_uniq"' }, 409); }
       return json([l], 201);
     }
     if (req.method() === 'POST' && table === 'routine_exercises') {
@@ -294,10 +311,14 @@ const CATALOGUE = [
       const l = tab.find((x) => x.id === id);
       const avant = Object.assign({}, l);
       Object.assign(l, corps);
-      const cassé = table === 'routines' ? collisionNom() : collisionRang();
-      if (cassé) { Object.assign(l, avant);
-        return json({ code: '23505', message: 'duplicate key value violates unique constraint "' +
-          (table === 'routines' ? 'routines_user_nom_actif_uniq' : 'routine_exos_rang_uniq') + '"' }, 409); }
+      var index = null;
+      if (table === 'routines') {
+        if (collisionNom()) index = 'routines_user_nom_actif_uniq';
+        else if (collisionRangRoutines()) index = 'routines_user_rang_uniq';
+      } else if (collisionRang()) index = 'routine_exos_rang_uniq';
+      if (index) { Object.assign(l, avant);
+        return json({ code: '23505', message:
+          'duplicate key value violates unique constraint "' + index + '"' }, 409); }
       return json([l]);
     }
     // ⚠️ LES DEUX CLÉS ÉTRANGÈRES DE `routines`, ET ELLES NE FONT PAS LA MÊME
@@ -432,6 +453,28 @@ const CATALOGUE = [
   };
   // Un geste = ouvrir le menu de la carte i, puis toucher son entrée.
   const gesteCarte = async (i, motif) => { await menuCarte(i); await entree(motif); };
+  // ⚠️ « MONTER » ET « DESCENDRE » ONT QUITTÉ LE MENU AU CHANTIER 46 (§7 vicies.1) :
+  // c'est le mode Réorganiser qui porte l'ordre, et le bloc REPLIÉ garde ses
+  // deux flèches. Le banc passe donc par le mode — et exerce au passage le
+  // repli de l'éditeur, qui n'existait pas avant.
+  //
+  // Les flèches plutôt que le glissement, ICI : ce qu'on mesure dans ces
+  // sections-là est l'ORDRE et les rangs en base, pas le geste. Le glissement a
+  // sa propre section, où il est le sujet.
+  const deplacerCarte = async (i, sens) => {
+    await page.click('#btn-ranger-routine');
+    await attendre(500);
+    await page.evaluate(([k, d]) => {
+      const b = document.querySelectorAll('#exos-routine .bloc-seance.replie')[k];
+      b.querySelectorAll('.replie-gestes .geste')[d === 'haut' ? 0 : 1].click();
+    }, [i, sens]);
+    await attendre(400);
+    await page.evaluate(() => {
+      Array.from(document.querySelectorAll('#pied-reorg button'))
+        .filter((b) => /Enregistrer/.test(b.textContent))[0].click();
+    });
+    await attendre(500);
+  };
   ok('trois exercices dans l’ordre d’ajout', JSON.stringify(await noms()) ===
     JSON.stringify(['Squat (Barre)', 'Développé Couché (Barre)', 'Soulevé de Terre (Barre)']), JSON.stringify(await noms()));
 
@@ -482,7 +525,7 @@ const CATALOGUE = [
   // ⚠️ ADRESSÉ PAR INDICE DE CARTE, PAS PAR POSITION DANS LE DOM. Le chantier
   // 28 intercale un lien de superset entre deux cartes : `nth-child(3)` ne
   // désigne plus la troisième carte mais le deuxième lien.
-  await gesteCarte(2, '^Monter$');
+  await deplacerCarte(2, 'haut');
   await attendre(250);
   ok('à l’écran : le 3e est remonté', JSON.stringify(await noms()) ===
     JSON.stringify(['Squat (Barre)', 'Soulevé de Terre (Barre)', 'Développé Couché (Barre)']), JSON.stringify(await noms()));
@@ -832,16 +875,20 @@ const CATALOGUE = [
   // GRISÉS ; les trois autres sont actifs. Un menu où tout serait actif, ou
   // tout grisé, ne prouverait rien.
   await menuCarte(0);
-  ok('[43] le menu porte les CINQ gestes — « Modifier les paramètres » est parti',
-    (await entreesMenu()).length === 5 &&
+  // ⚠️ QUATRE DEPUIS LE CHANTIER 46 : « Monter » et « Descendre » ont fusionné
+  // en « Réorganiser… » (§7 vicies.1). Réordonner n'est presque jamais un geste
+  // isolé ; deux entrées qui bougeaient d'un cran chacune ne le disaient pas.
+  ok('[46] le menu porte QUATRE gestes — Monter/Descendre ont fusionné',
+    (await entreesMenu()).length === 4 &&
     /Grouper avec le suivant/.test((await entreesMenu())[0]) &&
-    /Supprimer l/.test((await entreesMenu())[4]) &&
-    !(await entreesMenu()).some((e) => /param/i.test(e)),
+    /Réorganiser/.test((await entreesMenu())[2]) &&
+    /Supprimer l/.test((await entreesMenu())[3]) &&
+    !(await entreesMenu()).some((e) => /param/i.test(e)) &&
+    !(await entreesMenu()).some((e) => /^Monter|^Descendre/.test(e)),
     (await entreesMenu()).join(' | '));
-  ok('[41] et il grise ce qui n’a pas de sens sur le premier : Monter, Dégrouper',
+  ok('[41] et il grise ce qui n’a pas de sens sur le premier : Dégrouper',
     (await entreesMenu())[1] === 'Dégrouper (inerte)' &&
-    (await entreesMenu())[2] === 'Monter (inerte)' &&
-    (await entreesMenu())[3] === 'Descendre',
+    (await entreesMenu())[2] === 'Réorganiser…',
     (await entreesMenu()).join(' | '));
   await page.click('#btn-fermer-feuille');
   await attendre(300);
@@ -886,24 +933,34 @@ const CATALOGUE = [
     JSON.stringify(await groupesEditeur()) + ' · ' + JSON.stringify(await lettresEditeur()));
   await cliquerLien(1);   // on le repose, la suite l'attend groupé
 
-  // ⚠️ L'ADJACENCE EST LA SEULE DÉFINITION (§2.3). Descendre le premier le pose
-  // ENTRE les deux autres : la suite contiguë est rompue, donc le superset
-  // n'existe plus. Ça se voit à l'endroit exact où le lien vient de céder.
-  await gesteCarte(0, '^Descendre$');
-  ok('glisser un exercice AU MILIEU d’un superset le défait',
-    JSON.stringify(await groupesEditeur()) === '[false,false,false]' &&
-    JSON.stringify(await lettresEditeur()) === '["","",""]',
+  // ⚠️ ASSERTION RETOURNÉE AU CHANTIER 46, ET C'EST UN GAIN.
+  //
+  // Elle exigeait qu'un déplacement COUPE le superset : l'éditeur échangeait
+  // deux EXERCICES voisins (`echanger`), donc descendre le premier le posait
+  // ENTRE les deux branches et rompait l'adjacence. La séance, elle, déplace le
+  // BLOC entier depuis le chantier 28 — les deux écrans disaient donc deux
+  // choses différentes du même geste, et c'est l'éditeur qui avait tort.
+  //
+  // Depuis le §7 vicies, les deux partagent le mode, le repli et la règle :
+  // **un superset se déplace d'un tenant**. Le couper reste possible, par
+  // « Dégrouper » — un geste qui le DIT, au lieu d'un effet de bord du
+  // déplacement.
+  await deplacerCarte(0, 'bas');
+  ok('[46] déplacer un bloc ne coupe plus le superset — il voyage entier',
+    JSON.stringify(await groupesEditeur()) === '[true,true,false]' &&
+    JSON.stringify(await lettresEditeur()) === '["A","B",""]',
     JSON.stringify(await lettresEditeur()));
-  // Et il ne revient pas tout seul : le numéro est perdu, pas mis de côté.
-  await gesteCarte(1, '^Monter$');
-  ok('et il ne se recolle pas de lui-même au retour',
-    JSON.stringify(await groupesEditeur()) === '[false,false,false]',
-    JSON.stringify(await groupesEditeur()));
+  await deplacerCarte(1, 'haut');
+  ok('[46] …et le retour le laisse intact, à sa place d’origine',
+    JSON.stringify(await groupesEditeur()) === '[false,true,true]' &&
+    JSON.stringify(await lettresEditeur()) === '["","A","B"]',
+    JSON.stringify(await lettresEditeur()));
 
   // Les trois d'un coup, puis l'écriture : un superset à TROIS, le cas que le
   // chantier 27 avait validé sur device et que l'éditeur ne savait pas produire.
+  // Le lien 1 est déjà posé — il a survécu aux deux déplacements ci-dessus —,
+  // il ne reste donc que le premier à poser.
   await cliquerLien(0);
-  await cliquerLien(1);
   ok('les deux liens posés : un seul bloc de trois, A/B/C',
     JSON.stringify(await lettresEditeur()) === '["A","B","C"]',
     JSON.stringify(await lettresEditeur()));
@@ -1260,6 +1317,255 @@ const CATALOGUE = [
   ok('[45] et la routine enregistrée est intacte',
     /Brouillon du mardi/.test(await texte('#liste-routines')),
     (await texte('#liste-routines')).replace(/\n+/g, ' | ').slice(0, 70));
+
+  console.log('\n══ 7 quater. RÉORGANISER — LE MODE, LA POIGNÉE, LE DÉFILEMENT ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE (§2 quater) : une liste PLUS LONGUE QUE
+  // L'ÉCRAN. Sur une liste courte, « le défilement est préservé » ne se mesure
+  // pas — il n'y a rien à défiler, et une implémentation qui bloque tout
+  // passerait. Le viewport du banc fait 760 px de haut ; on pose donc assez de
+  // routines pour déborder largement.
+  //
+  // ⚠️ ET UN DÉPLACEMENT AU MILIEU, jamais en bout : en bout, « renuméroter »
+  // et « ne rien faire » rendent le même tableau.
+  base.routines = [];
+  base.exos = [];
+  base.series = [];
+  ['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo', 'Foxtrot', 'Golf', 'Hotel']
+    .forEach((nom, i) => {
+      base.routines.push({ id: 'r-ord-' + i, user_id: 'u-banc', nom: nom,
+        note: null, archivee_a: null, rang: i });
+      base.exos.push({ id: 'e-ord-' + i, routine_id: 'r-ord-' + i,
+        exercise_slug: 'squat-barre', rang: 0, repos_cible_s: null,
+        groupe_superset: null, note: null });
+      base.series.push({ id: 'rs-ord-' + i, routine_exercise_id: 'e-ord-' + i,
+        user_id: 'u-banc', rang: 1, type_serie: 'travail', reps_visees: null,
+        charge_cible_kg: null, duree_cible_s: null, distance_cible_m: null });
+    });
+  await aller('/saisie');
+
+  const nomsBiblio = () => page.evaluate(() =>
+    Array.from(document.querySelectorAll('#liste-routines .routine-nom')).map((n) => n.textContent));
+  const rangsEnBase = () => base.routines.slice()
+    .sort((a, b) => (a.rang === null ? 99 : a.rang) - (b.rang === null ? 99 : b.rang))
+    .map((r) => r.nom);
+  const compter = (sel) => page.evaluate((x) => document.querySelectorAll(x).length, sel);
+  const modeOuvert = () => page.evaluate(() => {
+    const p = document.getElementById('pied-reorg');
+    return !!p && !p.hidden && !!p.querySelector('.reorg-actions');
+  });
+
+  ok('[46] la bibliothèque est rangée par `rang`, pas par l’alphabet',
+    JSON.stringify(await nomsBiblio()) === JSON.stringify(
+      ['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo', 'Foxtrot', 'Golf', 'Hotel']),
+    JSON.stringify(await nomsBiblio()));
+
+  // Le rang l'emporte VRAIMENT : on inverse deux rangs en base, l'ordre suit.
+  base.routines.find((r) => r.nom === 'Alpha').rang = 7;
+  base.routines.find((r) => r.nom === 'Hotel').rang = 0;
+  await aller('/saisie');
+  ok('[46] …et c’est bien le rang qui commande — Hotel passe devant Alpha',
+    (await nomsBiblio())[0] === 'Hotel' && (await nomsBiblio())[7] === 'Alpha',
+    JSON.stringify(await nomsBiblio()));
+  base.routines.find((r) => r.nom === 'Alpha').rang = 0;
+  base.routines.find((r) => r.nom === 'Hotel').rang = 7;
+  await aller('/saisie');
+
+  // ① LE DÉFILEMENT, AVANT D'OUVRIR LE MODE — le témoin.
+  const hauteurPage = () => page.evaluate(() => document.body.scrollHeight);
+  const defilement = () => page.evaluate(() => window.scrollY);
+  ok('[46] la liste déborde de l’écran — sinon rien de ce qui suit ne se mesure',
+    (await hauteurPage()) > 760, (await hauteurPage()) + ' px de page pour 760 d’écran');
+
+  // ② ON OUVRE LE MODE PAR LE BOUTON. L'appui long est l'autre entrée ; elle
+  // se vérifie à l'appareil, un appui long synthétique ne prouvant que le
+  // minuteur.
+  ok('[46] le bouton « Ranger » est là quand il y a de quoi ranger',
+    await page.evaluate(() => {
+      const b = document.getElementById('btn-ranger-routines');
+      return !!b && !b.hidden;
+    }), 'bouton présent');
+  await page.click('#btn-ranger-routines');
+  await attendre(600);
+  ok('[46] le mode s’ouvre : un pied Annuler / Enregistrer',
+    (await modeOuvert()) === true &&
+    /Annuler/.test(await contenu('#pied-reorg')) &&
+    /Enregistrer/.test(await contenu('#pied-reorg')),
+    (await contenu('#pied-reorg')).replace(/\s+/g, ' ').slice(0, 60));
+  ok('[46] chaque rangée porte une poignée, et « Démarrer » a disparu',
+    (await compter('#liste-routines .poignee')) === 8 &&
+    (await compter('#liste-routines .demarrer')) === 0,
+    (await compter('#liste-routines .poignee')) + ' poignée(s) · ' +
+    (await compter('#liste-routines .demarrer')) + ' « Démarrer »');
+
+  // ③ LA NON-RÉGRESSION DU DÉFILEMENT, MODE OUVERT. Un glissement vertical
+  // POSÉ SUR LA CARTE ne doit rien déplacer — il défile. C'est ce que
+  // `touch-action: pan-y` hors poignée garantit, et c'est la chose que trois
+  // chantiers sur le bouton retour ont appris à vérifier.
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await attendre(200);
+  const ordreAvantDefil = await nomsBiblio();
+  const boiteCarte = await page.evaluate(() => {
+    const c = document.querySelectorAll('#liste-routines .routine')[3];
+    const r = c.getBoundingClientRect();
+    return { x: r.left + 30, y: r.top + r.height / 2 };
+  });
+  await page.mouse.move(boiteCarte.x, boiteCarte.y);
+  await page.mouse.down();
+  for (let d = 0; d <= 160; d += 20) {
+    await page.mouse.move(boiteCarte.x, boiteCarte.y - d);
+    await attendre(25);
+  }
+  await page.mouse.up();
+  await attendre(400);
+  ok('[46] un glissement vertical HORS poignée ne déplace RIEN',
+    JSON.stringify(await nomsBiblio()) === JSON.stringify(ordreAvantDefil),
+    JSON.stringify(await nomsBiblio()));
+
+  // ④ LE GLISSEMENT À LA POIGNÉE, AU MILIEU.
+  const glisserPoignee = async (i, dy) => {
+    const b = await page.evaluate((k) => {
+      const p = document.querySelectorAll('#liste-routines .poignee')[k];
+      const r = p.getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    }, i);
+    await page.mouse.move(b.x, b.y);
+    await page.mouse.down();
+    const pas = dy > 0 ? 8 : -8;
+    for (let d = 0; Math.abs(d) < Math.abs(dy); d += pas) {
+      await page.mouse.move(b.x, b.y + d);
+      await attendre(18);
+    }
+    await page.mouse.move(b.x, b.y + dy);
+    await attendre(60);
+    await page.mouse.up();
+    await attendre(300);
+  };
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await attendre(200);
+  // ⚠️ LE PAS EST EXACTEMENT LA HAUTEUR + LA MARGE, ET LA COMPARAISON EST
+  // STRICTE : à deux pas PILE, la seconde permutation ne se déclenche pas —
+  // le milieu de la rangée arrive sur celui du voisin, pas au-delà. Un vrai
+  // doigt ne s'arrête jamais au pixel près ; le banc, si. On ajoute donc une
+  // marge, sinon il mesurerait « un cran » et appellerait ça un défaut.
+  const hRangee = await page.evaluate(() =>
+    document.querySelectorAll('#liste-routines .routine-rangee')[0].getBoundingClientRect().height + 10);
+  const deuxCrans = 2 * hRangee + 8;
+  await glisserPoignee(3, -deuxCrans);      // Delta remonte de deux crans
+  ok('[46] glisser par la poignée déplace la rangée, au milieu de la liste',
+    (await nomsBiblio()).indexOf('Delta') === 1, JSON.stringify(await nomsBiblio()));
+
+  // ⑤ PLUSIEURS DÉPLACEMENTS, ET RIEN N'EST ÉCRIT AVANT D'ENREGISTRER.
+  await glisserPoignee(5, deuxCrans);       // puis un second, vers le bas
+  const ordreVoulu = await nomsBiblio();
+  ok('[46] deux déplacements à l’écran, et RIEN n’est encore parti en base',
+    JSON.stringify(rangsEnBase()) === JSON.stringify(
+      ['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo', 'Foxtrot', 'Golf', 'Hotel']),
+    'base : ' + JSON.stringify(rangsEnBase()) + ' · écran : ' + JSON.stringify(ordreVoulu));
+
+  // ⑥ ANNULER REMET TOUT EN PLACE.
+  await page.evaluate(() => {
+    Array.from(document.querySelectorAll('#pied-reorg button'))
+      .filter((b) => /Annuler/.test(b.textContent))[0].click();
+  });
+  await attendre(700);
+  ok('[46] « Annuler » referme le mode et rend l’ordre d’avant',
+    (await modeOuvert()) === false &&
+    JSON.stringify(await nomsBiblio()) === JSON.stringify(
+      ['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo', 'Foxtrot', 'Golf', 'Hotel']),
+    JSON.stringify(await nomsBiblio()));
+  ok('[46] …et « Démarrer » est revenu',
+    (await compter('#liste-routines .demarrer')) === 8,
+    (await compter('#liste-routines .demarrer')) + ' bouton(s)');
+
+  // ⑦ ET ENREGISTRER ÉCRIT — SANS JAMAIS HEURTER `routines_user_rang_uniq`.
+  await page.click('#btn-ranger-routines');
+  await attendre(600);
+  const envoisAvantRang = base.envois.length;
+  await glisserPoignee(3, -deuxCrans);
+  await glisserPoignee(5, deuxCrans);
+  const voulu = await nomsBiblio();
+  await page.evaluate(() => {
+    Array.from(document.querySelectorAll('#pied-reorg button'))
+      .filter((b) => /Enregistrer/.test(b.textContent))[0].click();
+  });
+  await attendre(2000);
+  ok('[46] enregistré : la base porte l’ordre de l’écran, rangs sans collision',
+    JSON.stringify(rangsEnBase()) === JSON.stringify(voulu),
+    'base : ' + JSON.stringify(rangsEnBase()) + ' · voulu : ' + JSON.stringify(voulu));
+  const refuses = base.envois.slice(envoisAvantRang)
+    .filter((e) => e.methode === 'PATCH').length;
+  ok('[46] …et le mode s’est refermé tout seul',
+    (await modeOuvert()) === false, 'pied : ' + (await modeOuvert()));
+  // ⚠️ LE PLAN PASSE PAR UN TAMPON : plus d'écritures que de rangées déplacées.
+  // Un plan naïf en ferait moins — et se ferait refuser par l'index.
+  ok('[46] le plan a fait un détour par un rang tampon',
+    refuses >= 3, refuses + ' PATCH pour deux déplacements');
+
+  // ⑧ APRÈS RECHARGEMENT, L'ORDRE TIENT.
+  await aller('/saisie');
+  ok('[46] rechargeee, la bibliothèque retrouve l’ordre enregistré',
+    JSON.stringify(await nomsBiblio()) === JSON.stringify(voulu),
+    JSON.stringify(await nomsBiblio()));
+
+  // ⑨ L'ÉDITEUR DE ROUTINE — LA DEUXIÈME SURFACE, LE MÊME MODE.
+  base.exos.push(
+    { id: 'e-ed-1', routine_id: 'r-ord-0', exercise_slug: 'dc-barre', rang: 1,
+      repos_cible_s: null, groupe_superset: null, note: null },
+    { id: 'e-ed-2', routine_id: 'r-ord-0', exercise_slug: 'curl', rang: 2,
+      repos_cible_s: null, groupe_superset: null, note: null });
+  base.series.push(
+    { id: 'rs-ed-1', routine_exercise_id: 'e-ed-1', user_id: 'u-banc', rang: 1,
+      type_serie: 'travail', reps_visees: null, charge_cible_kg: null,
+      duree_cible_s: null, distance_cible_m: null },
+    { id: 'rs-ed-2', routine_exercise_id: 'e-ed-2', user_id: 'u-banc', rang: 1,
+      type_serie: 'travail', reps_visees: null, charge_cible_kg: null,
+      duree_cible_s: null, distance_cible_m: null });
+  await aller('/saisie');
+  await page.evaluate(() => {
+    Array.from(document.querySelectorAll('#liste-routines .routine'))
+      .filter((c) => /Alpha/.test(c.textContent))[0].click();
+  });
+  await attendre(900);
+  const exosEcran = () => page.evaluate(() =>
+    Array.from(document.querySelectorAll('#exos-routine .nom-exo, #exos-routine .replie-nom'))
+      .map((n) => n.textContent.trim()));
+  ok('[46] l’éditeur montre ses trois exercices',
+    (await exosEcran()).length === 3, JSON.stringify(await exosEcran()));
+  await page.click('#btn-ranger-routine');
+  await attendre(600);
+  ok('[46] l’éditeur REPLIE ses blocs — le même `blocReplie` que la séance',
+    (await compter('#exos-routine .bloc-seance.replie')) === 3 &&
+    (await compter('#exos-routine .poignee')) === 3,
+    (await compter('#exos-routine .bloc-seance.replie')) + ' replié(s) · ' +
+    (await compter('#exos-routine .poignee')) + ' poignée(s)');
+  // ⚠️ ET IL COMPTE LES SÉRIES SANS PARLER DE « FAITES » : une routine ne se
+  // fait pas, elle se programme. « 0 / 1 série » serait faux des deux côtés.
+  ok('[46] …et le repli dit « 1 série », jamais « 0 / 1 »',
+    !/0\s*\/\s*1/.test(await contenu('#exos-routine')) &&
+    /1 série/.test(await contenu('#exos-routine')),
+    (await contenu('#exos-routine')).replace(/\s+/g, ' ').slice(0, 80));
+  const avantEdit = await exosEcran();
+  const hBloc = await page.evaluate(() =>
+    document.querySelectorAll('#exos-routine .bloc-seance')[0].getBoundingClientRect().height + 8) + 8;
+  await page.evaluate(() => {
+    const p = document.querySelectorAll('#exos-routine .poignee')[2];
+    const r = p.getBoundingClientRect();
+    window.__pg = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  });
+  const pg = await page.evaluate(() => window.__pg);
+  await page.mouse.move(pg.x, pg.y);
+  await page.mouse.down();
+  for (let d = 0; d <= 2 * hBloc; d += 10) {
+    await page.mouse.move(pg.x, pg.y - d);
+    await attendre(18);
+  }
+  await page.mouse.up();
+  await attendre(400);
+  ok('[46] dans l’éditeur aussi, la poignée déplace le bloc',
+    JSON.stringify(await exosEcran()) !== JSON.stringify(avantEdit) &&
+    (await exosEcran())[0] === avantEdit[2],
+    'avant ' + JSON.stringify(avantEdit) + ' → ' + JSON.stringify(await exosEcran()));
 
   console.log('\n══ 8. NON-RÉGRESSION ══');
   for (const [chemin, attendu] of [['/', 'vue-liste'], ['/progression', 'vue-progression'], ['/profil', 'vue-profil']]) {

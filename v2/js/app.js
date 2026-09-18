@@ -120,9 +120,19 @@
 
   function $(id) { return doc.getElementById(id); }
 
+  var ecranCourant = null;
+
   // Une vue visible à la fois, et la barre d'onglets suit : elle disparaît sur
   // la connexion, où il n'y a rien à naviguer.
   function montrer(nom, vue) {
+    // ⚠️ LE MODE RÉORGANISER NE TRAVERSE PAS LES ÉCRANS (§7 vicies, ch. 46).
+    // Il porte un ordre NON ENREGISTRÉ : le laisser ouvert emporterait des
+    // déplacements en attente sur un écran qui ne sait pas les enregistrer.
+    // Une seule porte, donc une seule remise à zéro — et elle règle au passage
+    // un défaut plus ancien : le mode ne se refermait JAMAIS, pas même en
+    // terminant une séance.
+    if (ecranCourant !== nom) fermerReorganisation();
+    ecranCourant = nom;
     Object.keys(vues).forEach(function (k) { vues[k].hidden = (k !== nom); });
     var onglet = Routeur.ongletDe(vue || nom);
     var barre = $('onglets');
@@ -968,10 +978,17 @@
     var style = doc.documentElement.style;
     var onglets = doc.querySelector('.onglets');
     var repos = $('repos');
+    var pied = $('pied-reorg');
     // Une barre cachée — par elle-même ou par sa vue — rend un rectangle nul :
     // c'est le bon zéro, il n'y a rien à réserver pour ce qu'on ne voit pas.
     var hOnglets = onglets ? Math.ceil(onglets.getBoundingClientRect().height) : 0;
+    // ⚠️ LE PIED DU MODE RÉORGANISER PASSE PAR LA MÊME RÉSERVE (ch. 46). Les
+    // deux ne coexistent jamais — on ne range pas pendant un repos, le mode
+    // replie la séance — donc une seule variable suffit, et la dernière rangée
+    // ne finit pas sous le pied. La leçon est celle du §7 sexies : ce qui est
+    // `position: fixed` n'ajoute aucune course de défilement.
     var hRepos = (repos && !repos.hidden) ? Math.ceil(repos.getBoundingClientRect().height) : 0;
+    if (pied && !pied.hidden) hRepos = Math.max(hRepos, Math.ceil(pied.getBoundingClientRect().height));
     // On n'écrit QUE ce qui change. `rendreChrono` passe ici chaque seconde ;
     // réécrire la même valeur salirait le style pour rien, et une mesure suivie
     // d'une écriture qui change la mise en page est le début d'une boucle.
@@ -1222,7 +1239,16 @@
       // §7 octies.2 — en correction d'une séance passée, « Terminer » n'a pas
       // de sens : elle est déjà terminée, et le rester est tout l'intérêt.
       edition: enEdition(),
-      surModifier: function () { modeModifier = !modeModifier; rendreSeance(); },
+      // ⚠️ « TERMINÉ » ENREGISTRE, IL N'ANNULE PAS. Le bouton du bandeau dit
+      // « Terminé » : un bouton qui porte ce mot et jetterait des déplacements
+      // serait un piège à perte de données. Il y a DEUX sorties, et chacune
+      // dit ce qu'elle fait — « Terminé » (ou « Enregistrer ») garde, « Annuler »
+      // jette. C'est le pied du mode qui porte le geste destructif, jamais le
+      // bandeau.
+      surModifier: function () {
+        if (modeModifier) return enregistrerReorganisation();
+        ouvrirReorganisation();
+      },
       surAnnulerSelection: function () { selectionGroupe = null; rendreSeance(); },
       surTerminer: function () { if (enEdition()) return enregistrerEdition(); confirmerFin(); }
     });
@@ -1234,6 +1260,8 @@
       blocs: blocs,
       // §5.3 — le mode Modifier replie tout sur une ligne par bloc.
       modifier: modeModifier,
+      // §7 vicies.2 — et, replié, chaque bloc porte une poignée de glissement.
+      reorganiser: modeModifier,
       // §5.7 — le bloc en attente d'un partenaire de superset, s'il y en a un.
       selection: selectionGroupe,
       surGrouper: function (a, b) { grouperBlocs(blocs, a, b); },
@@ -1273,6 +1301,9 @@
     });
     rendreChrono();
     rendreEtatSync();
+    brancherReorg('blocs-seance');
+    brancherAppuiLong('blocs-seance');
+    rendrePiedReorg();
   }
 
   function defObjet(cle, valeur) { var o = {}; o[cle] = valeur; return o; }
@@ -1287,6 +1318,254 @@
   // courant : le repère se reconstruit sans que l'écran clignote.
   var modeModifier = false;
   var selectionGroupe = null;
+
+  // ══ RÉORGANISER — LE MODE MODIFIER, ÉTENDU (§7 vicies, chantier 46) ══════
+  //
+  // ⚠️ PAS UN SECOND MODE. `modeModifier` existait déjà pour la séance ; il
+  // vaut maintenant pour les TROIS surfaces — la séance, l'éditeur de routine
+  // et la bibliothèque. Un second booléen aurait fini par contredire le premier
+  // le jour où l'on quitte un écran sans le refermer.
+  //
+  // ⚠️ ET IL SE REFERME EN CHANGEANT D'ÉCRAN. Il ne se refermait JAMAIS
+  // jusqu'ici : ni en terminant une séance, ni en démarrant la suivante. On
+  // pouvait donc démarrer une séance déjà repliée sans l'avoir demandé.
+  // Maintenant qu'il porte un ordre NON ENREGISTRÉ, le laisser ouvert d'un
+  // écran à l'autre ferait pire : il emporterait des déplacements en attente.
+  //
+  // `reorgOrdre` est l'ordre AFFICHÉ tant qu'on n'a pas enregistré ; `reorgDepart`
+  // est ce qu'il faut restituer sur « Annuler ».
+  var reorgOrdre = null;
+  var reorgDepart = null;
+
+  function enReorganisation() { return modeModifier; }
+
+  // Les trois surfaces, et ce qui change entre elles : d'où vient l'ordre, et
+  // ce qu'« enregistrer » veut dire. Le geste, le pied et le repli, non.
+  function surfaceReorg() {
+    if (ecranCourant === 'seance') return 'seance';
+    if (ecranCourant === 'routine') return 'routine';
+    if (ecranCourant === 'saisie') return 'bibliotheque';
+    return null;
+  }
+
+  function rendreSurfaceCourante() {
+    if (ecranCourant === 'seance') return rendreSeance();
+    if (ecranCourant === 'routine') return rendreEditeur();
+    return rendreSaisie();
+  }
+
+  // ⚠️ L'INSTANTANÉ EST CE QUI REND « ANNULER » VRAI. Sans lui, « annulable
+  // tant qu'on n'a pas validé » serait une promesse que l'écran ne tient pas :
+  // les déplacements s'appliquent en mémoire au fur et à mesure, parce que
+  // c'est ce qu'on voit bouger.
+  function ouvrirReorganisation() {
+    modeModifier = true;
+    reorgOrdre = null;
+    var q = surfaceReorg();
+    if (q === 'seance') reorgDepart = seance;
+    else if (q === 'routine') reorgDepart = brouillon ? brouillon.exercices.slice() : null;
+    else reorgDepart = Routines.reordonnables(routines).map(function (r) { return r.id; });
+    rendreSurfaceCourante();
+  }
+
+  function annulerReorganisation() {
+    var q = surfaceReorg();
+    if (q === 'seance' && reorgDepart) seance = reorgDepart;
+    else if (q === 'routine' && reorgDepart && brouillon) brouillon.exercices = reorgDepart;
+    fermerReorganisation();
+    rendreSurfaceCourante();
+  }
+
+  // Ce que le glissement rend : les clés des rangées, dans leur nouvel ordre à
+  // l'écran. Rien n'est ÉCRIT — l'ordre va en mémoire, et l'écriture attend
+  // « Enregistrer ».
+  //
+  // ⚠️ MAIS ON REDESSINE, ET C'EST OBLIGATOIRE. Le glissement bouge des nœuds
+  // du DOM sans passer par le rendu : la liste de blocs que les FLÈCHES du bloc
+  // replié tiennent dans leur fermeture reste alors celle d'avant. Mesuré au
+  // banc : après un glissement, « Descendre le bloc » déplaçait le voisin.
+  //
+  // Le rendu est sûr ICI et nulle part ailleurs : `surOrdre` est appelé au
+  // RELÂCHEMENT, quand plus aucun doigt ne tient de rangée. Redessiner pendant
+  // le geste l'arracherait de sous le pouce.
+  function surOrdreReorg(cles) {
+    appliquerOrdreReorg(cles);
+    rendreSurfaceCourante();
+  }
+
+  function appliquerOrdreReorg(cles) {
+    var q = surfaceReorg();
+    if (q === 'seance') {
+      var blocs = Modele.blocsDeSeance(seance, local.exercices);
+      var tranches = cles.map(function (k) { return indicesDe(blocs[Number(k)]) || []; });
+      seance = Seance.reordonnerBlocs(seance, tranches);
+      seance = Seance.avancerTours(seance,
+        Modele.toursFaitsParGroupe(Modele.blocsDeSeance(seance, local.exercices)));
+    } else if (q === 'routine') {
+      // ⚠️ DES INDICES DE BLOC ICI AUSSI, jamais d'exercice : `blocReplie` pose
+      // `data-cle` = l'indice du BLOC, et un superset est un bloc de plusieurs.
+      // Traiter les clés comme des exercices couperait un superset en deux au
+      // premier glissement — et le §7 vicies.3 dit exactement le contraire.
+      if (!brouillon) return;
+      reordonnerBrouillonParBlocs(cles);
+    } else {
+      reorgOrdre = cles.slice();
+    }
+  }
+
+  // ⚠️ TROIS ENREGISTREMENTS DIFFÉRENTS, ET C'EST NORMAL : ce sont trois
+  // tables. La séance passe par la file (elle vit hors ligne), l'éditeur écrit
+  // à l'« Enregistrer » de l'éditeur, la bibliothèque écrit tout de suite —
+  // `routines` ne passe ni par le cache ni par la file (app.js, en-tête).
+  async function enregistrerReorganisation() {
+    var q = surfaceReorg();
+    if (q === 'seance') {
+      fermerReorganisation();
+      rendreSurfaceCourante();
+      return apresGeste();
+    }
+    if (q === 'routine') {
+      // Le brouillon est déjà à jour en mémoire ET sur le disque : l'ordre
+      // définitif part avec l'« Enregistrer » de l'éditeur, comme tout le reste.
+      fermerReorganisation();
+      return apresEditeur();
+    }
+    return enregistrerOrdreBibliotheque();
+  }
+
+  // ⚠️ `routines_user_rang_uniq` EST NON DIFFÉRABLE (§7 vicies.3). Les PATCH
+  // partent un par un, chacun dans sa transaction : écrire les rangs dans
+  // l'ordre naïf heurterait l'index à la première écriture. `planRangs` rend
+  // donc une suite ORDONNÉE, avec un rang tampon pour casser les cycles — c'est
+  // `ordonnerDeplacements` du chantier 28, réutilisé tel quel.
+  async function enregistrerOrdreBibliotheque() {
+    var voulus = reorgOrdre || [];
+    var plan = Routines.planRangs(routines, voulus);
+    var noeud = $('pied-reorg');
+    if (!plan.length) { fermerReorganisation(); return rendreSaisie(); }
+    reorgEnCours = true;
+    rendrePiedReorg();
+    try {
+      for (var i = 0; i < plan.length; i++) {
+        await Donnees.majRoutine(plan[i].id, plan[i].champs);
+      }
+      fermerReorganisation();
+      await chargerRoutines();
+      rendreSaisie();
+    } catch (e) {
+      // ⚠️ ON NE PERD PAS L'ORDRE À L'ÉCRAN. Une écriture refusée laisse la base
+      // à mi-chemin ; relire la remettrait dans un ordre que personne n'a voulu.
+      // On garde le mode ouvert, l'ordre affiché, et on dit quoi faire.
+      console.error('Ordre de bibliothèque non enregistré :', texteErreur(e));
+      Rendu.message($('liste-routines'),
+        'Ordre non enregistré. Vérifie ta connexion et réessaie.', 'erreur');
+    } finally {
+      reorgEnCours = false;
+      rendrePiedReorg();
+    }
+  }
+
+  var reorgEnCours = false;
+
+  function rendrePiedReorg() {
+    var noeud = $('pied-reorg');
+    if (!noeud) return;
+    if (!modeModifier) {
+      Rendu.rendrePiedReorganisation(noeud, null);
+      return mesurerBarres();
+    }
+    Rendu.rendrePiedReorganisation(noeud, {
+      aide: 'Maintiens la poignée et fais glisser.',
+      enCours: reorgEnCours,
+      surAnnuler: annulerReorganisation,
+      surEnregistrer: enregistrerReorganisation
+    });
+    // APRÈS le rendu : le pied vient de prendre sa hauteur définitive.
+    mesurerBarres();
+  }
+
+  // ⚠️ UNE SEULE LIAISON PAR CONTENEUR, ET ELLE SURVIT AUX RENDUS. Les
+  // écouteurs vivent sur le CONTENEUR, pas sur les rangées : un rendu remplace
+  // les rangées, jamais le conteneur. Rebrancher à chaque rendu empilerait les
+  // écouteurs, et le bloc sauterait de deux crans au lieu d'un.
+  // ══ L'APPUI LONG, SECONDE ENTRÉE DU MODE (§7 vicies.1) ═══════════════════
+  //
+  // ⚠️ IL S'ANNULE AU MOINDRE MOUVEMENT. Sans ça, commencer un défilement en
+  // posant le doigt une demi-seconde ouvrirait le mode — et l'utilisateur
+  // regarderait sa liste se replier sans avoir rien demandé. Le seuil est le
+  // MÊME que celui du glissement latéral (12 px), et c'est voulu : deux seuils
+  // différents pour « ai-je bougé ? » finiraient par diverger.
+  //
+  // ⚠️ ET IL NE FAIT RIEN SI LE MODE EST DÉJÀ OUVERT : dedans, le doigt sert à
+  // glisser.
+  var DUREE_APPUI = 500;   // ms
+  var SEUIL_APPUI = 12;    // px
+  var appuiBranches = {};
+
+  function brancherAppuiLong(id) {
+    if (appuiBranches[id]) return;
+    var noeud = $(id);
+    if (!noeud) return;
+    appuiBranches[id] = true;
+    var minuteur = null, x0 = 0, y0 = 0;
+    function annuler() {
+      if (minuteur) { clearTimeout(minuteur); minuteur = null; }
+    }
+    noeud.addEventListener('pointerdown', function (e) {
+      if (modeModifier) return;
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      // Pas sur un champ : un appui long dans un champ de saisie, c'est la
+      // sélection de texte du système, et on ne la lui prend pas.
+      if (e.target.closest && e.target.closest('input, textarea, select')) return;
+      x0 = e.clientX; y0 = e.clientY;
+      annuler();
+      minuteur = setTimeout(function () {
+        minuteur = null;
+        if (modeModifier) return;
+        if (surfaceReorg() === 'bibliotheque' &&
+            Routines.reordonnables(routines).length < 2) return;
+        ouvrirReorganisation();
+      }, DUREE_APPUI);
+    });
+    noeud.addEventListener('pointermove', function (e) {
+      if (minuteur === null) return;
+      if (Math.abs(e.clientX - x0) > SEUIL_APPUI ||
+          Math.abs(e.clientY - y0) > SEUIL_APPUI) annuler();
+    });
+    noeud.addEventListener('pointerup', annuler);
+    noeud.addEventListener('pointercancel', annuler);
+    noeud.addEventListener('scroll', annuler, true);
+  }
+
+  var reorgBranches = {};
+  function brancherReorg(id) {
+    if (reorgBranches[id]) return;
+    var noeud = $(id);
+    if (!noeud) return;
+    reorgBranches[id] = Rendu.brancherReorganisation(noeud, {
+      surOrdre: function (cles) { if (modeModifier) surOrdreReorg(cles); }
+    });
+  }
+
+  // Toute sortie d'écran referme le mode et jette ce qui n'a pas été enregistré.
+  // C'est explicite : « Annulable tant qu'on n'a pas validé » (§7 vicies.1), et
+  // quitter l'écran est une façon de ne pas valider.
+  function fermerReorganisation() {
+    modeModifier = false;
+    reorgOrdre = null;
+    reorgDepart = null;
+  }
+
+  // Le rang libre suivant, sur TOUTES les routines de l'utilisateur :
+  // `routines_user_rang_uniq` porte sur (user_id, rang), pas sur une sous-liste.
+  function rangSuivantBibliotheque() {
+    var max = -1;
+    (routines || []).forEach(function (r) {
+      var rg = Routines.rangOuNul(r && r.rang);
+      if (rg !== null && rg > max) max = rg;
+    });
+    return max + 1;
+  }
 
   function indicesDe(bloc) {
     return (bloc.exercices || []).map(function (x) { return x._iExo; })
@@ -1377,8 +1656,6 @@
       superset: bloc.superset,
       noms: noms,
       peutGrouper: blocs.length > 1,
-      peutMonter: iBloc > 0,
-      peutDescendre: iBloc < blocs.length - 1,
       surRemplacer: function () { demanderRemplacement(indicesDe(bloc)[0]); },
       surGrouper: function () {
         // §5.7 — on passe en SÉLECTION : les autres blocs s'allument et
@@ -1392,8 +1669,10 @@
         fermerVoile();
         ouvrirCatalogue(apres[apres.length - 1] + 1);
       },
-      surMonter: function () { fermerVoile(); deplacerBloc(blocs, iBloc, -1); },
-      surDescendre: function () { fermerVoile(); deplacerBloc(blocs, iBloc, 1); },
+      // §7 vicies.1 — une entrée au lieu de deux : le mode, pas le cran.
+      surReorganiser: blocs.length > 1
+        ? function () { fermerVoile(); ouvrirReorganisation(); }
+        : null,
       // Sur un bloc à plusieurs, « la progression » de QUEL exercice ? Le menu
       // du bloc ne tranche pas : dans un superset, c'est le menu de l'exercice
       // qui porte le geste, et ici il reste grisé.
@@ -1677,6 +1956,8 @@
     return {
       id: brute.id, nom: brute.nom, note: brute.note,
       archivee_a: brute.archivee_a,
+      // `rang` porte l'ordre de la bibliothèque depuis v2_043 (§7 vicies.4).
+      rang: brute.rang === undefined ? null : brute.rang,
       exercices: exos.slice().sort(function (a, b) { return a.rang - b.rang; })
         .map(function (e) {
           return Object.assign({}, e, { series: seriesProgrammees(e) });
@@ -1727,7 +2008,13 @@
       return;
     }
     rendreBandeauBrouillon();
+    var ranger = $('btn-ranger-routines');
+    // Une seule routine ne se range pas : le bouton n'a rien à proposer.
+    if (ranger) ranger.hidden = Routines.reordonnables(routines).length < 2;
     Rendu.rendreListeRoutines(cible, routines, {
+      // §7 vicies — le mode Réorganiser, la bibliothèque étant la 3ᵉ surface.
+      reorganiser: modeModifier && ecranCourant === 'saisie',
+      ordre: reorgOrdre,
       // `apercu` compte les séries de TRAVAIL par `THSemaine.compteSeriesTravail`,
       // dont la règle du volume a besoin des muscles du catalogue.
       catalogue: local.exercices,
@@ -1738,6 +2025,9 @@
       },
       surSeanceVide: function () { demarrerSeance(null); }
     });
+    brancherReorg('liste-routines');
+    brancherAppuiLong('liste-routines');
+    rendrePiedReorg();
   }
 
   // ⚠️ IL NE DISPARAÎT PAS ET NE S'ENREGISTRE PAS TOUT SEUL (§7 octodecies.3).
@@ -1967,9 +2257,19 @@
   function rendreEditeur() {
     var index = Modele.indexerExercices(local.exercices);
     var blocs = Modele.blocsDeSeance(brouillonCommeSeance(), local.exercices);
+    var ranger = $('btn-ranger-routine');
+    if (ranger) ranger.hidden = blocs.length < 2;
     Rendu.rendreBlocsSeance($('exos-routine'), null, {
       programme: true,
       blocs: blocs,
+      // §7 vicies — l'éditeur est la 2ᵉ surface du mode. Le repli vient du MÊME
+      // `blocReplie` que la séance : l'éditeur ne l'avait simplement jamais
+      // demandé (`modifier` n'était pas passé). Rien de neuf, un branchement.
+      modifier: modeModifier && ecranCourant === 'routine',
+      reorganiser: modeModifier && ecranCourant === 'routine',
+      // Les deux flèches du bloc replié — le chemin accessible au clavier, et
+      // le filet quand le glissement rate. Même geste qu'en séance.
+      surDeplacerBloc: function (i, d) { deplacerBlocRoutine(blocs, i, d); },
       exercice: function (slug) { return index[slug]; },
       // §7 septendecies.2 — la charge RÉELLEMENT soulevée à la dernière séance
       // s'affiche en gris sur chaque ligne. Même fonction qu'en séance
@@ -2029,6 +2329,9 @@
       },
       surMenuExercice: function (iBloc, iExo) { ouvrirFeuilleExoRoutine(iExo); }
     });
+    brancherReorg('exos-routine');
+    brancherAppuiLong('exos-routine');
+    rendrePiedReorg();
   }
 
   // Le type d'une série programmée — chauffe, travail, dégressive, échec. C'est
@@ -2100,8 +2403,6 @@
       nom: nomExoBrouillon(i),
       peutGrouper: Routines.peutGrouper(brouillon.exercices, i),
       estGroupe: Routines.estGroupe(brouillon.exercices, i),
-      peutMonter: i > 0,
-      peutDescendre: i < brouillon.exercices.length - 1,
       // Le lien avec le voisin du dessous : c'est lui, et lui seul, qui fait un
       // superset dans une liste (§2.3 — un bloc est une suite contiguë).
       surGrouper: function () {
@@ -2114,8 +2415,9 @@
         brouillon.exercices = Routines.degrouper(brouillon.exercices, i);
         fermerVoile(); apresEditeur();
       },
-      surMonter: function () { fermerVoile(); echanger(i, i - 1); },
-      surDescendre: function () { fermerVoile(); echanger(i, i + 1); },
+      surReorganiser: brouillon.exercices.length > 1
+        ? function () { fermerVoile(); ouvrirReorganisation(); }
+        : null,
       // Rien n'est écrit tant qu'on n'a pas enregistré : retirer une ligne du
       // brouillon ne perd rien, et une question ici serait le bruit qu'on tape
       // sans lire (§6.2).
@@ -2137,11 +2439,36 @@
     return apresEditeur();
   }
 
-  function echanger(i, j) {
-    var liste = brouillon.exercices;
-    if (i < 0 || j < 0 || i >= liste.length || j >= liste.length) return;
-    var tmp = liste[i]; liste[i] = liste[j]; liste[j] = tmp;
+  // ⚠️ L'ÉDITEUR DÉPLACE DÉSORMAIS DES BLOCS, PLUS DES VOISINS (ch. 46).
+  // `echanger(i, i±1)` échangeait deux EXERCICES : sur un superset, ça sortait
+  // une branche de son groupe. En séance, `deplacerBloc` déplace le bloc entier
+  // depuis le chantier 28 — les deux écrans disaient donc deux choses
+  // différentes du même geste. Maintenant qu'ils partagent le repli, le
+  // glissement et le mode, ils partagent aussi la règle.
+  function ordreBlocsCourant(blocs) {
+    return blocs.map(function (_, i) { return String(i); });
+  }
+
+  function reordonnerBrouillonParBlocs(cles) {
+    var blocs = Modele.blocsDeSeance(brouillonCommeSeance(), local.exercices);
+    var neufs = [];
+    cles.forEach(function (k) {
+      (indicesDe(blocs[Number(k)]) || []).forEach(function (i) {
+        if (brouillon.exercices[i]) neufs.push(brouillon.exercices[i]);
+      });
+    });
+    if (neufs.length !== brouillon.exercices.length) return;
+    brouillon.exercices = neufs;
     renumeroterBrouillon();
+  }
+
+  function deplacerBlocRoutine(blocs, iBloc, delta) {
+    var cible = iBloc + delta;
+    if (cible < 0 || cible >= blocs.length) return;
+    var cles = ordreBlocsCourant(blocs);
+    var pris = cles.splice(iBloc, 1)[0];
+    cles.splice(cible, 0, pris);
+    reordonnerBrouillonParBlocs(cles);
   }
 
   async function enregistrerBrouillon() {
@@ -2166,7 +2493,11 @@
         // Les séries programmées visent leur exercice par clé étrangère : un
         // exercice neuf doit donc porter son identifiant AVANT d'être écrit,
         // sinon sa structure ne peut pas partir dans le même passage.
-        uuid: uuid
+        uuid: uuid,
+        // ⚠️ LE RANG D'UNE ROUTINE NEUVE SE CALCULE ICI, parce que c'est ici
+        // qu'on a la liste complète — `routines_user_rang_uniq` porte sur
+        // (user_id, rang), donc le prochain libre se lit sur TOUT l'utilisateur.
+        rangSuivant: rangSuivantBibliotheque()
       });
       if (!r.ok) {
         // Le brouillon reste À L'ÉCRAN, intact. Rien n'est vidé, rien n'est
@@ -3029,6 +3360,10 @@
       });
     });
     $('btn-nouvelle-routine').addEventListener('click', function () { ouvrirRoutine(null); });
+    // §7 vicies.1 — les deux boutons « Ranger », l'appui long étant l'autre
+    // entrée. Un seul mode derrière : `ouvrirReorganisation` lit l'écran.
+    $('btn-ranger-routines').addEventListener('click', ouvrirReorganisation);
+    $('btn-ranger-routine').addEventListener('click', ouvrirReorganisation);
     // Sans argument : l'exercice se pose À LA FIN. Insérer après un bloc précis
     // reste le fait du menu de bloc, qui passe un vrai indice.
     $('btn-ajouter-exo-seance').addEventListener('click', function () { ouvrirCatalogue(); });

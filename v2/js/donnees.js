@@ -191,7 +191,10 @@
   // pas en dizaines de milliers. La pagination par curseur existe pour les
   // 28 103 séries, pas par principe.
 
-  var COLONNES_ROUTINE = 'id, nom, note, archivee_a, created_at, modifiee_a';
+  // ⚠️ `rang` DEPUIS v2_043 (ch. 46). Sans elle dans cette liste, PostgREST ne
+  // renvoie jamais la colonne — la bibliothèque trierait sur un champ absent et
+  // retomberait silencieusement sur le nom.
+  var COLONNES_ROUTINE = 'id, nom, note, archivee_a, rang, created_at, modifiee_a';
   // `note` est LUE et jamais écrite par l'éditeur de routine — c'est la fin de
   // séance qui la pose (§7 septies.1, « la note suit l'exercice quand on le
   // réutilise »). La tenir hors de `CHAMPS_EXERCICE` (routines.js) est ce qui
@@ -216,6 +219,7 @@
     var r = await client().from('routines')
       .select(COLONNES_ROUTINE + ', routine_exercises(' + COLONNES_ROUTINE_EXO +
               ', routine_sets(' + COLONNES_ROUTINE_SET + '))')
+      .order('rang', { ascending: true, nullsFirst: false })
       .order('nom', { ascending: true });
     if (r.error) throw r.error;
     return r.data || [];

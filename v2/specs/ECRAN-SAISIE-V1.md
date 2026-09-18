@@ -1472,6 +1472,110 @@ dans l'éditeur.
 
 ---
 
+## 7 vicies. Réorganiser — un mode, un glissement à la poignée
+
+Arrêté le 17/09/2026 après essai d'une maquette interactive (`maquette-reorganiser.html`).
+**Livré au chantier 46 (18/09/2026).**
+
+### 7 vicies.1 Le mode, pas le geste
+
+**Deux entrées** : le menu ⋮, ou un **appui long** sur un bloc. Les deux ouvrent le même mode.
+
+> **Dans ce mode, TOUS les blocs deviennent déplaçables** — pas seulement celui par lequel on
+> est entré. On en bouge plusieurs, puis **on enregistre**. Annulable tant qu'on n'a pas validé.
+
+**Réorganiser est rarement un geste isolé** : quand on touche à l'ordre, on bouge plusieurs
+choses.
+
+> **C'est le mode Modifier du §5.3, étendu** — il replie déjà les blocs et sert au
+> réordonnancement multiple. **Pas un second mode.**
+
+**Trois surfaces** : la séance · l'éditeur de routine · **la bibliothèque** (les routines
+elles-mêmes). **Monter / descendre disparaissent**, remplacés par ce mode.
+
+### 7 vicies.2 Le geste — glissement à la poignée
+
+Deux variantes éprouvées au pouce sur maquette :
+
+| | |
+|---|---|
+| **A — glisser par la poignée** | ✅ **retenu.** Un seul geste continu, on voit le bloc bouger |
+| B — taper puis choisir sa place | deux appuis quelle que soit la distance, aucun glissement. Écarté : moins direct |
+
+### 7 vicies.3 Ce qui le rend risqué
+
+> ⚠️ **Le glissement vertical a coûté trois chantiers** sur le bouton retour, et le §5.3 mesure
+> qu'à 360 px deux poignées se confondent au pouce.
+
+**La poignée isole le geste** — on ne peut glisser que par elle, donc pas de conflit avec le
+défilement. **À vérifier explicitement, sur une liste plus longue que l'écran.**
+
+**Un superset se déplace d'un tenant** (chantier 28).
+
+⚠️ `routines_user_rang_uniq` est un index **unique non différable** : un réordonnancement
+passe par des positions en collision. Même piège que `routine_exos_rang_uniq`.
+
+### 7 vicies.4 Migration `v2_043` — appliquée le 17/09/2026
+
+`routines.rang`, avec `routines_user_rang_uniq` sur les non-archivées. **Initialisé sur
+l'ordre alphabétique actuel** pour que rien ne bouge au premier rendu.
+
+La bibliothèque n'avait aucun ordre — tri par nom ou par date.
+
+### 7 vicies.5 Ce que l'implémentation a précisé — 18/09/2026
+
+**L'index, relevé en base :**
+
+```
+CREATE UNIQUE INDEX routines_user_rang_uniq
+  ON routines (user_id, rang) WHERE archivee_a IS NULL
+```
+
+`rang` est **NULLABLE et sans valeur par défaut**, borné par `routines_rang_positif`
+(`rang IS NULL OR rang >= 0`). Trois conséquences, et chacune est une règle :
+
+- **Sans rang, on passe derrière.** Une routine rangée à la main l'a été exprès ; elle ne se
+  fait pas doubler par une inconnue. Le nom ne départage plus que les ex æquo.
+- **Une routine neuve prend le rang suivant.** Sans ça, `rang` serait écrit par le
+  réordonnancement et par personne d'autre : la bibliothèque trierait une moitié par rang et
+  l'autre par nom, ce qui n'est pas un ordre.
+- **Les archivées ne se rangent pas.** L'index est PARTIEL : elles sont dehors, deux d'entre
+  elles peuvent partager un rang, et leur en écrire un pourrait heurter une active.
+
+**Le rang tampon change d'espace de noms, et c'est la seule vraie difficulté.**
+`routine_exos_rang_uniq` porte sur `(routine_id, rang)` : le tampon n'a besoin d'être libre que
+dans UNE routine. Ici l'index porte sur `(user_id, rang)` : il doit être libre dans **toutes**
+les routines de l'utilisateur. `ordonnerDeplacements` (chantier 28) se réutilise tel quel —
+c'est une fonction pure — **à condition que `maxRang` soit calculé sur l'ensemble complet**,
+archivées comprises. Réordonner une page d'une liste paginée casserait cette garantie.
+
+**Les flèches ↑/↓ du bloc replié RESTENT.** Ce sont « Monter » et « Descendre » du **menu**
+qui fusionnent en « Réorganiser… ». Les flèches sont le chemin accessible au clavier et le
+filet quand le glissement rate — c'est la doctrine du glissement latéral, et elle vaut deux
+fois ici.
+
+**Deux sorties, et chacune dit ce qu'elle fait.** « Terminé » (bandeau) et « Enregistrer »
+(pied) gardent ; « Annuler » jette. Un bouton qui porte le mot « Terminé » et jetterait des
+déplacements serait un piège à perte de données.
+
+**Le mode ne traverse pas les écrans.** Il portait déjà un défaut plus ancien — il ne se
+refermait JAMAIS, pas même en terminant une séance. Maintenant qu'il porte un ordre **non
+enregistré**, le laisser ouvert emporterait des déplacements en attente sur un écran qui ne
+sait pas les écrire.
+
+**L'éditeur déplace désormais des BLOCS, plus des voisins.** `echanger(i, i±1)` échangeait deux
+exercices : sur un superset, ça en sortait une branche. La séance déplace le bloc entier depuis
+le chantier 28 — les deux écrans disaient donc deux choses différentes du même geste, et c'est
+l'éditeur qui avait tort. Couper un superset reste possible par « Dégrouper » : **un geste qui
+le dit**, au lieu d'un effet de bord du déplacement.
+
+> ⚠️ **Ce que le banc ne peut pas dire.** Il pilote le geste à la SOURIS (`page.mouse`), dans un
+> contexte sans `hasTouch` : `touch-action` n'y est **jamais exercé**. Le banc prouve qu'un
+> glissement hors poignée ne déplace rien, et que la liste déborde vraiment de l'écran
+> (765 px pour 760). Que le doigt défile au lieu de déplacer, **seul l'appareil le dira**.
+
+---
+
 ## 7 octodecies. Le brouillon de routine — persisté, et le tap rebranché
 
 Arrêté le 17/09/2026 après essai du chantier 44.

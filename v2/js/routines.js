@@ -709,10 +709,105 @@
   // PARTIEL (`WHERE archivee_a IS NULL`). Une archivée ne réserve réellement
   // pas son nom, et refuser localement ce que la base accepte bloquerait un
   // enregistrement pour rien. Deux questions, deux réponses, une seule colonne.
+  //
+  // ⚠️ L'ORDRE EST DÉSORMAIS CELUI DE L'UTILISATEUR (§7 vicies.4, chantier 46).
+  // `routines.rang` existe depuis la migration v2_043, initialisée sur l'ordre
+  // alphabétique d'alors — donc rien n'a bougé au premier rendu. Le nom ne
+  // reste qu'un DÉPARTAGEUR, pour deux cas réels :
+  //
+  //   · une routine créée par une version qui n'écrivait pas `rang` (la colonne
+  //     est NULLABLE en base, sans valeur par défaut) ;
+  //   · une routine ARCHIVÉE — l'index `routines_user_rang_uniq` est PARTIEL
+  //     (`WHERE archivee_a IS NULL`), donc deux archivées peuvent partager un
+  //     rang, et `visibles` les affiche quand même depuis le chantier 41.
+  //
+  // Sans rang, on passe DERRIÈRE celles qui en ont un : une routine rangée à la
+  // main a été rangée exprès, elle ne se fait pas doubler par une inconnue.
   function visibles(routines) {
     return (routines || [])
       .filter(function (r) { return !!r; })
-      .sort(function (a, b) { return normaliserNom(a.nom).localeCompare(normaliserNom(b.nom), 'fr'); });
+      .slice()
+      .sort(function (a, b) {
+        var ra = rangOuNul(a.rang), rb = rangOuNul(b.rang);
+        if (ra !== rb) {
+          if (ra === null) return 1;
+          if (rb === null) return -1;
+          return ra - rb;
+        }
+        return normaliserNom(a.nom).localeCompare(normaliserNom(b.nom), 'fr');
+      });
+  }
+
+  function rangOuNul(v) {
+    if (v === null || v === undefined || v === '') return null;
+    var n = Number(v);
+    return isFinite(n) ? n : null;
+  }
+
+  // ══ RÉORDONNER LA BIBLIOTHÈQUE (§7 vicies, chantier 46) ══════════════════
+  //
+  // ⚠️ MÊME PIÈGE QUE `routine_exos_rang_uniq`, MÊME REMÈDE.
+  //
+  //   CREATE UNIQUE INDEX routines_user_rang_uniq
+  //     ON routines (user_id, rang) WHERE archivee_a IS NULL
+  //
+  // Relevé EN BASE le 18/09, et **non différable** lui non plus. Échanger deux
+  // routines voisines en écrivant « A prend le rang de B » puis l'inverse échoue
+  // à la première écriture. On réutilise donc `ordonnerDeplacements` — la
+  // permutation en place avec rang TAMPON du chantier 28 — plutôt que d'en
+  // écrire une seconde (§2 undecies).
+  //
+  // ⚠️ MAIS L'ESPACE DE NOMS N'EST PAS LE MÊME, et c'est la seule chose qui
+  // demande de l'attention. `routine_exos_rang_uniq` porte sur `(routine_id,
+  // rang)` : le tampon n'a besoin d'être libre que dans UNE routine. Ici l'index
+  // porte sur `(user_id, rang)` : le tampon doit être libre dans TOUTES les
+  // routines de l'utilisateur. C'est vrai ici, et seulement parce que la
+  // bibliothèque montre l'ensemble complet — `maxRang` est donc calculé sur
+  // TOUTES les routines reçues, archivées comprises, jamais sur une sous-liste.
+  // Réordonner une page d'une liste paginée casserait cette garantie.
+  //
+  // ⚠️ LES ARCHIVÉES NE BOUGENT PAS. Elles sont hors de l'index partiel : leur
+  // écrire un rang ne servirait à rien et pourrait heurter une active. Elles
+  // gardent le leur, et le tri les range derrière par le nom.
+  function planRangs(routines, idsVoulus) {
+    var liste = (routines || []).filter(function (r) { return !!r && r.id; });
+    var parId = {};
+    liste.forEach(function (r) { parId[r.id] = r; });
+
+    var voulus = (idsVoulus || []).filter(function (id) { return !!parId[id]; });
+    var vues = {};
+    voulus = voulus.filter(function (id) {
+      if (vues[id]) return false;
+      vues[id] = true;
+      return true;
+    });
+
+    // `occupe` : rang -> id, pour tout ce qui porte un rang aujourd'hui. Une
+    // ligne sans rang n'occupe rien (NULL ne heurte personne dans un index
+    // unique), mais elle a bien une cible à recevoir.
+    var occupe = {};
+    var maxRang = -1;
+    liste.forEach(function (r) {
+      var rg = rangOuNul(r.rang);
+      if (rg === null) return;
+      occupe[rg] = r.id;
+      if (rg > maxRang) maxRang = rg;
+    });
+
+    var aDeplacer = [];
+    voulus.forEach(function (id, cible) {
+      if (cible > maxRang) maxRang = cible;
+      var actuel = rangOuNul(parId[id].rang);
+      if (actuel !== cible) aDeplacer.push({ id: id, cible: cible });
+    });
+
+    return ordonnerDeplacements(aDeplacer, occupe, maxRang);
+  }
+
+  // Ce que la bibliothèque propose au réordonnancement : les non archivées,
+  // dans l'ordre affiché. Une archivée reste à sa place et ne prend pas de rang.
+  function reordonnables(routines) {
+    return visibles(routines).filter(function (r) { return !r.archivee_a; });
   }
 
   // Recherche dans le catalogue : 237 entrées, des noms longs, des accents.
@@ -767,7 +862,17 @@
       if (creation) {
         // `user_id` est obligatoire et sans défaut : sans lui, le WITH CHECK
         // de la policy refuse la ligne.
-        routine = await ecrivain.creerRoutine({ user_id: ctx.userId, nom: nom });
+        // ⚠️ UNE ROUTINE NEUVE PREND UN RANG (ch. 46). Sans ça, `rang` serait
+        // écrit par le réordonnancement et par personne d'autre : la bibliothèque
+        // trierait une moitié par rang et l'autre par nom, ce qui n'est pas un
+        // ordre. `ctx.rangSuivant` vient de l'appelant, qui a la liste complète ;
+        // absent, on laisse `null` et le tri range derrière — jamais de valeur
+        // inventée qui pourrait heurter `routines_user_rang_uniq`.
+        var neuve = { user_id: ctx.userId, nom: nom };
+        if (typeof ctx.rangSuivant === 'number' && isFinite(ctx.rangSuivant)) {
+          neuve.rang = ctx.rangSuivant;
+        }
+        routine = await ecrivain.creerRoutine(neuve);
         ecrit = true;
       } else {
         routine = { id: b.id, nom: nom };
@@ -833,6 +938,11 @@
     var texte = String(e.message || '') + ' ' + String(e.details || '');
     if (code === '23505') {
       if (/routine_exos_rang_uniq/.test(texte)) return 'collision-rang';
+      // ⚠️ LE SECOND INDEX DE RANG (ch. 46). Sans cette ligne, une collision de
+      // rang de BIBLIOTHÈQUE retomberait sur 'doublon' et afficherait « Tu as
+      // déjà une routine de ce nom » — exactement le message rassurant et faux
+      // que le commentaire de ce fichier dit vouloir éviter.
+      if (/routines_user_rang_uniq/.test(texte)) return 'collision-rang';
       return 'doublon';
     }
     if (code === '42501' || /row-level security/i.test(texte)) return 'refuse';
@@ -897,6 +1007,9 @@
     brouillonASignaler: brouillonASignaler,
     brouillonReprenable: brouillonReprenable,
     visibles: visibles,
+    rangOuNul: rangOuNul,
+    planRangs: planRangs,
+    reordonnables: reordonnables,
     replier: replier,
     chercher: chercher
   };

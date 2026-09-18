@@ -102,37 +102,52 @@ describe('⚠️ ce que le menu a le droit de proposer se lit sur les liens', ()
 // reps se tapent maintenant SUR LA LIGNE, et le repos a son propre bouton sous
 // le nom — le même qu'en séance. L'entrée aurait été un second chemin vers le
 // même réglage, plus long que le premier.
-describe('⚠️ le menu porte les cinq gestes, et grise ce qui n’a pas de sens', () => {
+//
+// ⚠️ ET QUATRE DEPUIS LE CHANTIER 46 : « Monter » et « Descendre » ont fusionné
+// en « Réorganiser… » (§7 vicies.1). Deux entrées qui bougeaient d'un cran
+// chacune, quand réordonner n'est presque jamais un geste isolé. Les flèches
+// ↑/↓ ne disparaissent pas pour autant : elles vivent sur le bloc REPLIÉ, où
+// elles restent le chemin accessible au clavier.
+describe('⚠️ le menu porte ses gestes, et grise ce qui n’a pas de sens', () => {
   const feuille = (vue) => {
     const cible = document.createElement('div');
     Rendu().rendreFeuilleExoRoutine(cible, Object.assign({
       nom: 'Curl', peutGrouper: true, estGroupe: true,
-      peutMonter: true, peutDescendre: true,
-      surGrouper: () => {}, surDegrouper: () => {}, surMonter: () => {},
-      surDescendre: () => {}, surSupprimer: () => {}
+      surGrouper: () => {}, surDegrouper: () => {},
+      surReorganiser: () => {}, surSupprimer: () => {}
     }, vue));
     return cible;
   };
   const entrees = (c) => [...c.querySelectorAll('.feuille-menu button')]
     .map((b) => b.textContent + (b.disabled ? ' (inerte)' : ''));
 
-  test('les cinq gestes du §7 duodecies.2, dans l’ordre, et rien d’autre', () => {
+  test('[46] quatre gestes, et « Réorganiser… » à la place des deux flèches', () => {
     expect(entrees(feuille())).toEqual([
-      'Grouper avec le suivant', 'Dégrouper', 'Monter', 'Descendre',
+      'Grouper avec le suivant', 'Dégrouper', 'Réorganiser…',
       'Supprimer l’exercice'
     ]);
     expect(feuille().textContent).not.toContain('paramètres');
+    expect(feuille().textContent).not.toContain('Monter');
+    expect(feuille().textContent).not.toContain('Descendre');
   });
 
-  // ⚠️ L'ASYMÉTRIE EST LA MESURE : sur un exercice seul en fin de liste, trois
-  // des cinq sont grisés. Sans le cas opposé ci-dessus, « grisé » et « actif »
-  // rendraient le même menu.
-  test('le dernier exercice, seul : ni grouper, ni dégrouper, ni descendre', () => {
-    expect(entrees(feuille({ peutGrouper: false, estGroupe: false, peutDescendre: false })))
+  // ⚠️ L'ASYMÉTRIE EST LA MESURE : sur un exercice seul, deux des quatre sont
+  // grisés. Sans le cas opposé ci-dessus, « grisé » et « actif » rendraient le
+  // même menu.
+  test('l’exercice seul : ni grouper, ni dégrouper', () => {
+    expect(entrees(feuille({ peutGrouper: false, estGroupe: false })))
       .toEqual([
-        'Grouper avec le suivant (inerte)', 'Dégrouper (inerte)', 'Monter',
-        'Descendre (inerte)', 'Supprimer l’exercice'
+        'Grouper avec le suivant (inerte)', 'Dégrouper (inerte)',
+        'Réorganiser…', 'Supprimer l’exercice'
       ]);
+  });
+
+  // ⚠️ ET SUR UNE ROUTINE D'UN SEUL EXERCICE, « Réorganiser » N'A PAS DE SENS.
+  // L'appelant ne fournit alors pas le geste, et l'entrée se grise — grisée
+  // plutôt qu'absente, pour que les entrées ne bougent pas d'une carte à l'autre.
+  test('[46] un seul exercice : « Réorganiser » est inerte', () => {
+    expect(entrees(feuille({ surReorganiser: null })))
+      .toContain('Réorganiser… (inerte)');
   });
 
   test('« Supprimer » est à part, et porte le rouge', () => {
@@ -146,11 +161,11 @@ describe('⚠️ le menu porte les cinq gestes, et grise ce qui n’a pas de sen
     const vus = [];
     const c = feuille({
       surGrouper: () => vus.push('grouper'), surDegrouper: () => vus.push('degrouper'),
-      surMonter: () => vus.push('monter'), surDescendre: () => vus.push('descendre'),
+      surReorganiser: () => vus.push('reorganiser'),
       surSupprimer: () => vus.push('supprimer')
     });
     [...c.querySelectorAll('.feuille-menu button')].forEach((b) => b.click());
-    expect(vus).toEqual(['grouper', 'degrouper', 'monter', 'descendre', 'supprimer']);
+    expect(vus).toEqual(['grouper', 'degrouper', 'reorganiser', 'supprimer']);
   });
 });
 

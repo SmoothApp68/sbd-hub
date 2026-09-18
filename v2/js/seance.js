@@ -522,6 +522,40 @@
       normaliserGroupes(avecExercices(seance, bouger(seance.exercices, idx, ou))));
   }
 
+  // ⚠️ RÉORDONNER EN UNE FOIS (§7 vicies, chantier 46). Le mode Réorganiser
+  // bouge PLUSIEURS blocs avant d'enregistrer : rejouer une suite de
+  // `deplacerVers` reviendrait à recalculer des indices qui ont bougé entre
+  // deux, et c'est exactement le genre de décalage d'un cran qui a coûté le
+  // commentaire de `bouger`. On pose donc l'ordre voulu d'un seul coup.
+  //
+  // `tranches` est une liste de TRANCHES d'indices — un bloc par tranche, dans
+  // l'ordre voulu. Un superset est une tranche de plusieurs : il se déplace
+  // d'un tenant sans que cette fonction ait à le savoir (chantier 28).
+  //
+  // ⚠️ MÊME SORTIE QUE `deplacerVers` : groupes renumérotés depuis la nouvelle
+  // adjacence, rangs d'origine OUBLIÉS (chantier 35, D2). Sans l'oubli, l'ordre
+  // affiché changerait et la base garderait l'ancien — le défaut exact que D2 a
+  // corrigé.
+  //
+  // Une tranche inconnue, un indice répété ou un oubli rendent la séance
+  // INCHANGÉE : on ne devine pas un ordre partiel, on refuse.
+  function reordonnerBlocs(seance, tranches) {
+    var exos = (seance && seance.exercices) || [];
+    var plat = [];
+    (tranches || []).forEach(function (t) {
+      (t || []).forEach(function (i) { plat.push(i); });
+    });
+    if (plat.length !== exos.length) return seance;
+    var vus = {};
+    for (var k = 0; k < plat.length; k++) {
+      var i = plat[k];
+      if (typeof i !== 'number' || i < 0 || i >= exos.length || vus[i]) return seance;
+      vus[i] = true;
+    }
+    var neufs = plat.map(function (i) { return exos[i]; });
+    return oublierRangsOrigine(normaliserGroupes(avecExercices(seance, neufs)));
+  }
+
   // §5.7 — Grouper est une opération sur une PAIRE de blocs. Le second vient se
   // coller au premier et les deux prennent le même groupe.
   //
@@ -1643,6 +1677,7 @@
     reprendre: reprendre,
     refaire: refaire,
     deplacerVers: deplacerVers,
+    reordonnerBlocs: reordonnerBlocs,
     grouperBlocs: grouperBlocs,
     degrouperExercice: degrouperExercice,
     remplacerExercice: remplacerExercice,

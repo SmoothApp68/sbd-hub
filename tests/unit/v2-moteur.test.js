@@ -103,27 +103,76 @@ describe('§9.2 — le niveau validé', () => {
   });
 });
 
-// ── §8.2 — LE FORMAT ───────────────────────────────────────────────────────
-describe('§8.2 — le format d’une séance-exercice', () => {
-  test('les bandes, et la médiane entre deux entiers qui se range AU-DESSUS', () => {
-    expect(M.formatDe([s(5), s(6)])).toBe('force');          // médiane 5,5 -> 6
-    expect(M.formatDe([s(6), s(7)])).toBe('mixte');          // médiane 6,5 -> 7
-    expect(M.formatDe([s(8), s(8)])).toBe('mixte');          // médiane 8
-    expect(M.formatDe([s(8), s(9)])).toBe('hypertrophie');   // médiane 8,5 -> 9
+// ── §8.2 — LE FORMAT, LU SUR LE NIVEAU VALIDÉ (48b-5a) ─────────────────────
+//
+// ⚠️ LES CAS DE 48b-2 SONT REMPLACÉS, PAS COMPLÉTÉS. Ils lisaient une médiane
+// des séries retenues ; le format se lit désormais sur le NIVEAU VALIDÉ des
+// séries AU PALIER (§9.2). Deux d'entre eux changeaient de verdict et sont
+// partis avec la règle qu'ils servaient : `6, 7` valait « mixte » par la
+// médiane (6,5 -> 7), il vaut « force » par le niveau (6).
+//
+// CONFIGURATION DISCRIMINANTE (`CADRAGE-V2` §2 quater) : `8, 5`. Sur des séries
+// égales, médiane et niveau validé rendent le même nombre et le banc ne
+// prouverait rien. Il faut une PREMIÈRE SÉRIE EN FORME — exactement le cas réel
+// qui a fait basculer le couché en « mixte » pendant la simulation.
+describe('§8.2 — le format se lit sur le niveau validé, pas sur une médiane', () => {
+  test('DISCRIMINANT — une première série en forme ne fait plus basculer la séance', () => {
+    // Niveau validé de `8, 5` : 5, donc force. Par la médiane : 6,5 -> 7,
+    // donc « mixte » — et la zone se tirait alors de vieilles séances à 100 kg.
+    expect(M.formatDe([s(8), s(5)])).toBe('force');
+    expect(M.formatDe([s(5), s(5), s(4), s(4)])).toBe('force');
   });
 
-  test('DISCRIMINANT — l’arrondi en dessous ferait basculer deux de ces quatre', () => {
-    // 5,5 arrondi en dessous vaut 5 : encore 'force', le cas ne prouve rien.
-    // 6,5 en dessous vaut 6 -> 'force' au lieu de 'mixte' ;
-    // 8,5 en dessous vaut 8 -> 'mixte' au lieu de 'hypertrophie'.
-    expect(M.formatDe([s(6), s(7)])).not.toBe('force');
-    expect(M.formatDe([s(8), s(9)])).not.toBe('mixte');
+  test('les bornes, des deux côtés — 6 · 7 · 8 · 9', () => {
+    expect(M.formatDe([s(6), s(6)])).toBe('force');          // seuil abaissé à 5 -> mixte
+    expect(M.formatDe([s(7), s(7)])).toBe('mixte');          // seuil relevé à 7 -> force
+    expect(M.formatDe([s(8), s(8)])).toBe('mixte');          // seuil abaissé à 7 -> hypertrophie
+    expect(M.formatDe([s(9), s(9)])).toBe('hypertrophie');   // seuil relevé à 9 -> mixte
+    expect(M.formatDe([s(12), s(12), s(11)])).toBe('hypertrophie');
   });
 
-  test('aucune série : pas de format', () => {
+  test('une seule série au palier : son propre compte décide', () => {
+    expect(M.formatDe([s(7)])).toBe('mixte');
+  });
+
+  test('DISCRIMINANT — il compte en reps COMPTÉES (§17.4)', () => {
+    // `7, 7` dont la seconde va à l'échec : elle compte 6, le niveau vaut 6,
+    // donc force. Sur les reps brutes, ce serait 7, donc mixte.
+    expect(M.formatDe([s(7), s(7, 'reste_0')])).toBe('force');
+    // Contre-épreuve : sans l'échec, les mêmes séries donnent mixte.
+    expect(M.formatDe([s(7), s(7)])).toBe('mixte');
+  });
+
+  test('aucune série au palier : pas de format', () => {
     expect(M.formatDe([])).toBeNull();
     expect(M.formatDe(null)).toBeNull();
+    // Une série dont les reps ne se comptent pas ne se juge pas : `niveauValide`
+    // le dit déjà, et le format en hérite.
     expect(M.formatDe([s(null)])).toBeNull();
+    expect(M.formatDe([s(5), s(null)])).toBeNull();
+  });
+});
+
+// ── §9.1.2 — LE COUPLE, À LA MAJORITÉ DE 2 SUR 3 (48b-5a) ──────────────────
+describe('§9.1.2 — `coupleDe` : deux formats sur trois, la plus récente tranche', () => {
+  test('deux sur trois l’emportent, où qu’ils soient', () => {
+    expect(M.coupleDe(['mixte', 'mixte', 'force'])).toBe('mixte');
+    expect(M.coupleDe(['force', 'force', 'hypertrophie'])).toBe('force');
+    expect(M.coupleDe(['mixte', 'force', 'force'])).toBe('force');
+    expect(M.coupleDe(['force', 'mixte', 'force'])).toBe('force');
+  });
+
+  test('DISCRIMINANT — trois formats différents : la PLUS RÉCENTE tranche', () => {
+    // La plus récente est en dernier. « La plus ancienne » rendrait 'force'.
+    expect(M.coupleDe(['force', 'mixte', 'hypertrophie'])).toBe('hypertrophie');
+    expect(M.coupleDe(['hypertrophie', 'mixte', 'force'])).toBe('force');
+  });
+
+  test('moins de trois séances : la majorité si elle existe, sinon la plus récente', () => {
+    expect(M.coupleDe(['force', 'force'])).toBe('force');
+    expect(M.coupleDe(['force', 'mixte'])).toBe('mixte');
+    expect(M.coupleDe(['mixte'])).toBe('mixte');
+    expect(M.coupleDe([])).toBeNull();
   });
 });
 
@@ -280,13 +329,17 @@ describe('§9.1.2 — l’habitude, et ce que chaque variante fautive rendrait',
     expect(M.zoneDe(M.habitudeDe(F4, AVANT)).cle).toBe('volume');
   });
 
-  test('F4 + 15/09 en force — le couple est désigné par la DERNIÈRE séance', () => {
-    // La dernière séance repasse en force : l'habitude se recalcule sur les
-    // séances de force, et tombe à 4. Pris sur la PREMIÈRE séance, le couple
-    // serait hypertrophie et l'habitude 12.
+  // ⚠️ CE TEST EST INVERSÉ DEPUIS 48b-5a. Il affirmait qu'une séance de force
+  // ajoutée à la fin faisait basculer le couple, et l'habitude de 12 à 4 : la
+  // dernière séance désignait le couple à elle seule. C'était le défaut —
+  // mesuré sur les vraies séances, une décharge isolée suffisait à faire
+  // basculer la zone d'un bloc entier. Sur 2 des 3 dernières séances
+  // (hypertrophie, hypertrophie, force), l'hypertrophie l'emporte et
+  // l'habitude reste 12.
+  test('F5 — une séance de force isolée ne fait PLUS basculer le couple', () => {
     const avec = F4.concat([se('2026-09-15', 60, 5, 5, 5)]);
-    expect(M.habitudeDe(avec, AVANT)).toBe(4);
-    expect(M.zoneDe(M.habitudeDe(avec, AVANT)).cle).toBe('lourd');
+    expect(M.habitudeDe(avec, AVANT)).toBe(12);
+    expect(M.zoneDe(M.habitudeDe(avec, AVANT)).cle).toBe('volume');
   });
 
   test('une seule séance (10, 11) — l’ARRONDI AU-DESSUS', () => {
@@ -312,8 +365,83 @@ describe('§9.1.2 — l’habitude, et ce que chaque variante fautive rendrait',
       se('2026-07-15', 50, 10, 10), se('2026-07-22', 50, 12, 12)
     ];
     // Toutes du même couple : c'est bien la fenêtre qu'on mesure, pas le filtre.
-    expect(new Set(F5.map((x) => M.formatDe(x.retenues))).size).toBe(1);
+    expect(new Set(F5.map((x) => M.formatDe(M.seriesAuPalier(x)))).size).toBe(1);
     expect(M.habitudeDe(F5, AVANT)).toBe(11);
+  });
+
+  // ── LE COUPLE SUR 3 SÉANCES — LES CAS DE LA SIMULATION (48b-5a) ─────────
+  //
+  // Ces cinq jeux viennent de `banc_consigne48.py`, qui a rejoué la consigne
+  // séance après séance sur les vraies séances d'Aurélien. Ils opposent les
+  // deux défauts que la règle de 2 sur 3 soigne ensemble : la dernière séance
+  // seule est trop nerveuse, la majorité des 8 trop lente.
+
+  test('DISCRIMINANT — un nouveau bloc est suivi dès sa 2ᵉ séance', () => {
+    // Cinq séances de squat à 7 reps, puis le bloc change le 31/08 : 5 reps,
+    // confirmées le 07/09. Deux séances sur trois sont en force -> habitude 5.
+    // La majorité des 8 dernières rendrait 7 : le nouveau bloc resterait
+    // ignoré cinq séances. Une fenêtre de couple de 5 rendrait 7 aussi.
+    const bloc = [
+      se('2026-06-01', 110, 7, 7, 7), se('2026-06-08', 110, 7, 7, 7),
+      se('2026-06-15', 110, 7, 7, 7), se('2026-07-06', 110, 7, 7, 7),
+      se('2026-07-13', 110, 7, 7, 7),
+      se('2026-08-31', 120, 5, 5), se('2026-09-07', 125, 5, 5)
+    ];
+    expect(M.habitudeDe(bloc, AVANT)).toBe(5);
+    expect(M.zoneDe(M.habitudeDe(bloc, AVANT)).cle).toBe('lourd');
+
+    // ⚠️ ET L'AUTRE MOITIÉ DE LA RÈGLE : à la PREMIÈRE séance du nouveau bloc,
+    // le couple ne bascule pas encore. Une seule séance ne décide jamais.
+    // « La dernière séance » rendrait 5 dès le 31/08.
+    const premiere = bloc.slice(0, 6);
+    expect(M.habitudeDe(premiere, AVANT)).toBe(7);
+    expect(M.zoneDe(M.habitudeDe(premiere, AVANT)).cle).toBe('mix');
+  });
+
+  test('DISCRIMINANT — une décharge isolée ne fait pas basculer la zone', () => {
+    // Quatre séances de force, puis une décharge à 10 reps. « La dernière
+    // séance » rendrait 10, soit la zone Volume sur un bloc de force ; une
+    // fenêtre de couple de 2 aussi, faute de majorité.
+    const decharge = [
+      se('2026-08-03', 120, 5, 5, 5), se('2026-08-10', 120, 5, 5, 5),
+      se('2026-08-17', 120, 5, 5, 5), se('2026-08-24', 120, 5, 5, 5),
+      se('2026-08-31', 90, 10, 10, 10)
+    ];
+    expect(M.habitudeDe(decharge, AVANT)).toBe(5);
+    expect(M.zoneDe(M.habitudeDe(decharge, AVANT)).cle).toBe('lourd');
+  });
+
+  test('DISCRIMINANT — la fenêtre du couple est de 3 séances, pas de 4', () => {
+    // force, mixte, mixte, force : sur les TROIS dernières, le mixte l'emporte
+    // -> habitude 7. Sur quatre, force et mixte sont à deux chacun, et la plus
+    // récente tranche en force -> 5.
+    const alterne = [
+      se('2026-09-01', 100, 5, 5), se('2026-09-04', 100, 7, 7),
+      se('2026-09-08', 100, 7, 7), se('2026-09-12', 100, 5, 5)
+    ];
+    expect(M.habitudeDe(alterne, AVANT)).toBe(7);
+  });
+
+  test('DISCRIMINANT — trois formats différents : la plus récente tranche', () => {
+    // Aucune majorité : force, mixte, hypertrophie. La plus récente gagne, donc
+    // hypertrophie -> 10. « La plus ancienne des trois » rendrait 5.
+    const trois = [
+      se('2026-09-01', 120, 5, 5), se('2026-09-05', 110, 7, 7),
+      se('2026-09-09', 90, 10, 10)
+    ];
+    expect(M.habitudeDe(trois, AVANT)).toBe(10);
+  });
+
+  test('DISCRIMINANT — le couché en forme reste une séance de FORCE', () => {
+    // Le F1 réel, dont la dernière séance fait `8, 5` au lieu de `4, 5` : une
+    // première série en forme. Par le NIVEAU VALIDÉ elle vaut 5, donc force, et
+    // l'habitude monte à 5. Par la MÉDIANE elle valait 6,5 -> « mixte » : la
+    // séance sortait du couple, l'habitude retombait à 4, et le moteur oubliait
+    // le test en cours. C'est le défaut que la simulation a trouvé.
+    const enForme = F1.slice(0, 9).concat([se('2026-09-15', 125, 8, 5)]);
+    expect(M.habitudeDe(enForme, AVANT)).toBe(5);
+    // Contre-épreuve : le F1 d'origine, dont la même séance fait `4, 5`.
+    expect(M.habitudeDe(F1, AVANT)).toBe(4);
   });
 
   test('DISCRIMINANT — l’ordre d’arrivée n’est pas supposé : on trie', () => {
@@ -334,6 +462,33 @@ describe('§9.1.2 — l’habitude, et ce que chaque variante fautive rendrait',
     expect(M.habitudeDe(F1, null)).toBeNull();
     expect(M.habitudeDe(F1, undefined)).toBeNull();
     expect(M.habitudeDe(F1, '')).toBeNull();
+  });
+
+  // ⚠️ AJOUTÉ APRÈS LE BANC DE MUTATION. Le test juste en dessous n'était PAS
+  // discriminant : sur F1, dix séances de force, une pyramide ajoutée à la fin
+  // ne gagne jamais le couple — les deux autres séances des trois dernières
+  // suffisent à faire majorité, et le filtre l'écarte ensuite de toute façon.
+  // Le même résultat sortait avec et sans la garde.
+  //
+  // Il faut que la séance muette puisse EMPORTER le couple : trois séances,
+  // trois formats — force, mixte, et rien. Sans majorité, c'est la plus récente
+  // qui tranche ; si la pyramide y entre, le couple vaut `null`, le filtre ne
+  // garde qu'elle, et l'habitude disparaît alors qu'on a deux séances lisibles.
+  test('DISCRIMINANT — une séance qui ne dit pas ce qui a été tenu n’emporte pas le couple', () => {
+    const pyramide = { debut: '2026-09-09', palier: null,
+      retenues: [{ charge_kg: 41, reps: 12 }, { charge_kg: 46, reps: 10 }] };
+    const jeu = [se('2026-09-01', 120, 5, 5), se('2026-09-05', 110, 7, 7), pyramide];
+    // Écartée AVANT le couple : il reste force et mixte, la plus récente gagne.
+    expect(M.habitudeDe(jeu, AVANT)).toBe(7);
+    // Sans la garde, le couple vaudrait `null` et l'habitude aussi.
+    expect(M.habitudeDe(jeu, AVANT)).not.toBeNull();
+    // Contre-épreuve : un palier ANNONCÉ mais qu'aucune série n'a tenu compte
+    // pour la même chose — c'est « au moins une série au palier » qui décide,
+    // pas la seule présence d'un nombre dans `palier`.
+    const palierSansSerie = { debut: '2026-09-09', palier: 50,
+      retenues: [{ charge_kg: 41, reps: 12 }, { charge_kg: 46, reps: 10 }] };
+    expect(M.habitudeDe([se('2026-09-01', 120, 5, 5), se('2026-09-05', 110, 7, 7),
+                         palierSansSerie], AVANT)).toBe(7);
   });
 
   test('une séance sans palier ne prend pas un créneau de la fenêtre', () => {
@@ -388,7 +543,7 @@ describe('`seriesAuPalier` — de la séance décrite aux séries qui ont tenu',
     expect(auPalier).toHaveLength(3);
     // §17.3 : 9,5 est au cran « dur », donc les reps comptent pleines.
     expect(M.niveauValide(auPalier)).toBe(4);
-    expect(M.formatDe(r.retenues)).toBe('force');
+    expect(M.formatDe(auPalier)).toBe('force');
   });
 
   test('sans palier, aucune série n’a tenu', () => {

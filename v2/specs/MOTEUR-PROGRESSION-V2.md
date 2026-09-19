@@ -772,11 +772,15 @@ Ceci vaut pour la déduction de la cible. Le modèle charge/reps du §15 conserv
 | **Sous le bas** de la zone | Test raté : noté, palier inchangé. Le palier reprend la double progression ; au haut de la zone, le moteur reteste **d'un seul cran** |
 | **Au bas** | La charge testée est **gardée** sur la dernière série ; on gratte des reps |
 | **Dedans** | Elle est **étendue d'une série** |
-| **Au haut** | Normal : étendue. Franc : tout passe. Prudent : on refait le test pour confirmer (§9.8) |
+| **Au haut** | Normal : étendue. Franc : tout passe, sauf en zone Lourd. Prudent : c'est là, et seulement là, que la série précédente la rejoint (§9.8) |
 
 Le palier bascule de lui-même quand la charge testée tient la majorité des séries (§7.2).
 
+**L'échelle — décidée le 19/09/2026.** La nouvelle charge entre par la dernière série et gagne les séries **de la dernière vers la première**, une par séance. Après la bascule, les séries restées à l'ancien palier continuent de monter une par séance jusqu'à toutes ; les rampes plus légères que l'ancien palier et les chauffes ne bougent pas. **Les reps d'un test se comptent comme celles du palier** (§17.4) : une série à RPE 10 ou « reste 0 » compte une rep de moins. Pourquoi la dernière série : l'ordre des séries lourdes ne change pas les gains (pyramides montantes et descendantes font jeu égal) ; c'est la pratique d'Aurélien, celle de l'APRE et de la méthode DeLorme, et l'écran garde un seul langage.
+
 **Un test raté se reprend d'un seul cran — validé le 19/09/2026**, même si le test raté valait deux crans (couché : 130 raté → le moteur proposera 127,5). **Si même un cran échoue**, parce que la salle ne fait pas plus petit, la zone **s'étire** : le palier gratte des reps au-delà du haut, et le moteur reteste quand il a regagné les reps perdues au test. Curl marteau : `32 × 8` raté en zone Volume 10-12 — au-delà d'une paire de 20 kg, les haltères vont de 4 en 4 (2 kg par main), le cran ne peut pas être plus petit → on reteste 32 quand le palier fait 28 × 16 (12 + 4 perdues). Jamais au-delà de 30 reps (§9.1.2).
+
+**Pendant l'étirement, la zone reste celle du premier test raté** — décidé le 19/09/2026 après simulation : sinon les reps étirées entrent dans l'habitude et font glisser l'exercice vers une zone plus haute (le curl marteau passait de Volume en Séries longues), et le retest se jugerait contre la mauvaise zone. Les reps perdues se comptent contre le niveau validé du jour du test. L'épisode se clôt au retest réussi ou au changement de palier.
 
 **Garde-fou — en zone Lourd, au plus une série de plus par séance**, même en Franc. Remarque d'Aurélien : plus c'est lourd, plus c'est dur d'enchaîner les séries. Ses données ne le confirment pas (14 cas lourds seulement, banc M5) : c'est un garde-fou, pas une règle centrale.
 
@@ -787,7 +791,7 @@ Le palier bascule de lui-même quand la charge testée tient la majorité des s�
 | Exercice | Dernière séance | Consigne |
 |---|---|---|
 | Couché barre | 125×4, 125×5, **130×3** (au bas de Lourd) | 125 kg, vise 5 — puis 130 kg en dernière série, vise 4 |
-| Squat barre | 120×5, 125×5, 125×5, **130×5** (au haut de Lourd) | 130 kg sur 2 séries, vise 5 — et 125 kg sur la première, vise 5 |
+| Squat barre | 120×5, 125×5, 125×5, **130×5** à RPE 10 (compté 4 : dans Lourd) | 130 kg sur les 2 dernières séries, vise 4 — et 125 kg sur la deuxième, vise 5 ; la première, une rampe, ne bouge pas |
 | Rowing poulie en V | 93×10, 93×10, **100×10** (au bas de Volume) | 93 kg, vise 11 — puis 100 kg en dernière série, vise 11 |
 | Couché haltères | 88×10 ×3, **92×6** (sous Volume) | 88 kg, vise 11 |
 | Curl barre EZ | 30×12 ×3 (haut de Volume) | 30 kg, vise 12 — puis 32,5 kg en dernière série, vise 10 (repli de la barre, §10.2) |
@@ -801,11 +805,11 @@ Le palier bascule de lui-même quand la charge testée tient la majorité des s�
 | Réglage | La charge monte quand | De combien | Après un test réussi |
 |---|---|---|---|
 | **Entretenir** | Jamais : aucune proposition de charge, le fantôme reprend la dernière séance | — | Noté, sans suite |
-| **Prudent** | Toutes les séries au haut de la zone, deux séances de suite (repère NSCA « 2-pour-2 ») | 1 cran | Gardé sur la dernière série ; au haut de la zone, on refait le test |
+| **Prudent** | Toutes les séries au haut de la zone, deux séances de suite (repère NSCA « 2-pour-2 ») | 1 cran | Gardé sur la dernière série jusqu'à y toucher le haut de la zone ; alors la série précédente la rejoint |
 | **Normal** (défaut) | Niveau validé au haut de la zone (§9.2), sans séance de confirmation | 1 cran | Étendu d'une série s'il dépasse le bas, gardé s'il y est |
-| **Franc** | Chaque série pour son compte (double progression dynamique) | **2 crans** si le haut est dépassé de 3 reps, ou si l'effort dit « facile » (logique APRE) | Étendu d'une série, ou tout passe s'il touche le haut |
+| **Franc** | **Dès qu'une série** touche le haut de la zone (le déclencheur de la double progression dynamique) | **2 crans** si le haut est dépassé de 3 reps, ou si l'effort dit « facile » (logique APRE), **et** si deux crans restent sous 10 % de la charge | Comme Normal ; tout passe d'un coup s'il touche le haut, sauf en zone Lourd |
 
-**Garde-fous du réglage Franc** : jamais plus de 2 crans en une fois ; le double saut exige une preuve (haut dépassé de 3 reps, ou effort « facile », §17.3) ; **un cran au maximum sur les grosses barres**, dont le cran vaut environ 2 % — deux crans sortiraient de la fourchette de l'ACSM (+2 à 10 %) ; en zone Lourd, une série de plus au maximum par séance (§9.7).
+**Garde-fous du réglage Franc** : jamais plus de 2 crans en une fois ; le double saut exige une preuve (haut dépassé de 3 reps, ou effort « facile », §17.3) ; **deux crans seulement s'ils restent sous 10 % de la charge** — corrigé le 19/09/2026 : l'ancienne limite « un cran sur les grosses barres » était à l'envers. L'ACSM prévoit des hausses plus faibles pour les exercices à petite masse musculaire et plus fortes pour ceux à grande masse ; l'APRE de Mann a été éprouvée au couché et au squat, avec des hausses de 2,5 à 10 kg. Au couché à 125 kg, deux crans font 4 % : permis ; au curl EZ à 30 kg, 17 % : un seul cran. Un cran reste toujours permis, même au-delà de 10 % : c'est le plus petit saut de la salle. En zone Lourd, une série de plus au maximum par séance (§9.7).
 
 **Mesuré (banc M11, critère BANC §12.4, cinq profils).** Combien de fois sur 100 séances le réglage propose de monter, et combien de montées suivies tiennent :
 
@@ -875,6 +879,14 @@ Deux raisons. Une séance corrigée après coup (mode Édition) ne doit pas chan
 **Exception : l'état de l'exercice** (§5.2), qui décrit une habitude sur tout l'historique. Depuis la correction de la rampe (48a), il ne change presque plus jamais le palier : un sur 6 531 séance-exercices mesurées.
 
 **Les dates se comparent comme des instants, pas comme des textes** (précisé le 19/09/2026, 48b-3) : une même heure peut s'écrire « …Z » ou « …+00:00 », et deux écritures d'un même instant ne se classent pas pareil en texte — assez pour compter la séance qu'on prescrit parmi ses propres antécédents.
+
+### 9.13 La consigne telle que le moteur la rend — décidé le 19/09/2026
+
+`consignePour` rend `{ etat, zone, palier, niveau, n, ligne, haut }`. La consigne couvre les **`n` dernières séries de travail** de la séance ; les séries d'avant (rampes plus légères, séries hors de l'échelle) gardent leur fantôme. Les `n − k` premières reçoivent `ligne` (charge, vise), les `k` dernières reçoivent `haut` (charge, vise, k). Une charge `null` se dit « le cran au-dessus » (ou « en dessous »), sans chiffre.
+
+États : `progression` · `test_propose` · `garde` · `etend` · `rejoint` · `attend` · `tout_passe` · `retest_un_cran` · `etirement` · `retest` · `reprise_courte` · `reprise_longue` · `bord` · `silence` (première fois, pas de palier). L'appelant ajoute les silences d'Entretenir et des mesures sans charge. Ordre de décision : la reprise, puis l'absence de zone (règle de bord), puis une échelle en cours avant la bascule, puis après la bascule, puis un étirement en cours, enfin le déclencheur du réglage.
+
+Validé sur tout l'historique des cinq profils (`banc_consigne48.py`) : 6 109 consignes par réglage, aucune anomalie ; tests proposés sur 100 séances : Prudent 7, Normal 17, Franc 21.
 
 ---
 

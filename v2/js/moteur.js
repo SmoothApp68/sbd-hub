@@ -150,6 +150,10 @@
   // dessous de tout incrément réel ; il ne fusionne que ce qui est déjà égal.
   function auCentieme(v) { return Math.round(v * 100) / 100; }
 
+  // Le dixième, pour un pas APPROCHÉ seulement (§10.2) : il ne sert pas à
+  // proposer une charge, seulement à dire l'ordre de grandeur du cran.
+  function auDixieme(v) { return Math.round(v * 10) / 10; }
+
   // §10.2 — un pas n'est EXACT que s'il est un multiple de 0,5 kg. En dessous,
   // c'est une conversion des livres, et l'arithmétique dessus est fausse.
   function estMultipleDeDemi(v) { return Math.round(v * 100) % 50 === 0; }
@@ -333,8 +337,8 @@
   // qu'une habitude qui lit tout. La coupure est STRICTE : une séance du jour
   // même ne vote pas pour la consigne de ce jour-là.
   //
-  // ⚠️ LE COUPLE EST DÉSIGNÉ PAR LA DERNIÈRE SÉANCE, pas par la première ni par
-  // un vote : c'est le format dans lequel on travaille EN CE MOMENT. Un exercice
+  // ⚠️ LE COUPLE EST DÉSIGNÉ PAR 2 DES 3 DERNIÈRES SÉANCES (48b-5a-1), pas par
+  // la première : c'est le format dans lequel on travaille EN CE MOMENT. Un exercice
   // repassé en hypertrophie après un bloc de force doit être rangé sur ses
   // séances d'hypertrophie, pas sur un mélange des deux — c'est tout l'objet du
   // §8.1, où vingt kilos séparent les deux formats du même mouvement.
@@ -342,7 +346,12 @@
   // Une séance SANS PALIER ne dit pas ce qui a été tenu : elle est écartée
   // AVANT la fenêtre, sinon elle occuperait un des huit créneaux sans rien y
   // apporter — la fenêtre annoncée serait de 8, la fenêtre réelle de 7.
-  function habitudeDe(seances, avant) {
+  //
+  // ⚠️ LA LECTURE EST SÉPARÉE DE LA MÉDIANE depuis 48b-5a-2, et c'est le
+  // §2 undecies : `consignePour` a besoin des MÊMES séances du couple — pour
+  // l'avant-dernière, pour remonter un étirement, pour geler la zone. Les
+  // recalculer ailleurs ferait deux couples possibles pour un seul exercice.
+  function lectureDuCouple(seances, avant) {
     var coupure = instant(avant);
     if (coupure === null) return null;
 
@@ -357,7 +366,7 @@
       if (d === null || d >= coupure) return;
       var auPalier = seriesAuPalier(se);
       if (!auPalier.length) return;
-      lus.push({ instant: d, auPalier: auPalier, format: formatDe(auPalier) });
+      lus.push({ instant: d, seance: se, auPalier: auPalier, format: formatDe(auPalier) });
     });
     if (!lus.length) return null;
 
@@ -368,13 +377,27 @@
     // une décharge isolée faisait basculer la zone d'un bloc entier.
     var couple = coupleDe(lus.slice(-FENETRE_COUPLE).map(function (x) { return x.format; }));
 
-    var reps = [];
-    lus.filter(function (x) { return x.format === couple; })
-       .slice(-FENETRE_HABITUDE)
-       .forEach(function (x) { reps = reps.concat(repsDe(x.auPalier)); });
+    return {
+      couple: couple,
+      duCouple: lus.filter(function (x) { return x.format === couple; })
+    };
+  }
 
+  // La médiane des reps au palier sur les 8 dernières séances DÉJÀ RÉDUITES au
+  // couple, arrondie au-dessus. Prise à part parce que le gel de la zone
+  // pendant un étirement (§9.7) la rejoue sur un PRÉFIXE de ces séances.
+  function habitudeSur(duCouple) {
+    var reps = [];
+    (duCouple || []).slice(-FENETRE_HABITUDE).forEach(function (x) {
+      reps = reps.concat(repsDe(x.auPalier));
+    });
     var m = mediane(reps);
     return m === null ? null : Math.ceil(m);
+  }
+
+  function habitudeDe(seances, avant) {
+    var lecture = lectureDuCouple(seances, avant);
+    return lecture === null ? null : habitudeSur(lecture.duCouple);
   }
 
   // ── §10.2 — LE REPLI DU MATÉRIEL ─────────────────────────────────────────
@@ -473,10 +496,12 @@
     var distinctes = Object.keys(lourdes).map(Number).sort(function (a, b) { return a - b; });
     if (distinctes.length < 2) return null;
 
+    var ecarts = [];
     var compte = new Map();
     for (var i = 1; i < distinctes.length; i++) {
       var e = auCentieme(distinctes[i] - distinctes[i - 1]);
       if (e <= 0) continue;
+      ecarts.push(e);
       compte.set(e, (compte.get(e) || 0) + 1);
     }
 
@@ -484,8 +509,25 @@
     compte.forEach(function (n, e) {
       if (n >= RECURRENCE_PAS && (pas === null || e < pas)) pas = e;
     });
-    if (pas === null) return null;
-    return { pas: pas, nature: estMultipleDeDemi(pas) ? 'exact' : 'approche' };
+    if (pas !== null && estMultipleDeDemi(pas)) return { pas: pas, nature: 'exact' };
+
+    // ⚠️ SINON LE PAS EST APPROCHÉ, ET IL VAUT L'ÉCART MÉDIAN — aligné sur le
+    // §10.2 le 19/09/2026. Le code rendait le plus petit écart récurrent, ou
+    // rien du tout quand aucun ne revenait trois fois ; la spec dit « l'écart
+    // médian » depuis 48b-5a-1. Deux phrases pour un seul calcul, c'est le
+    // §2 undecies à l'envers, et c'est la spec qui tranche.
+    //
+    // Le plus petit convenait à un pas EXACT — les autres en sont des multiples
+    // — mais pas à un pas approché : sur des charges converties des livres, le
+    // plus petit écart est du bruit d'arrondi, la médiane décrit la salle.
+    // Arrondi au dixième : un pas approché ne prétend pas au centième.
+    //
+    // ⚠️ SANS EFFET SUR LES CHARGES PROPOSÉES : `chargeVoisine` ne lit le pas
+    // QUE s'il est exact (rang 1). Ce que ce pas décrit, c'est l'ordre de
+    // grandeur du cran de la salle, pour qui saura le lire.
+    var m = mediane(ecarts);
+    if (m === null) return null;
+    return { pas: auDixieme(m), nature: 'approche' };
   }
 
   // ── §10.2 — QUELLE CHARGE PROPOSER, DANS L'ORDRE ─────────────────────────
@@ -582,6 +624,340 @@
     return depuis <= SEUIL_REPRISE_LONGUE ? REPRISE_COURTE : REPRISE_LONGUE;
   }
 
+  // ── §9.13 — LA CONSIGNE, EN CALCUL PUR ───────────────────────────────────
+  //
+  // « 125 kg, vise 5 — puis 130 kg en dernière série, vise 4. » Cette fonction
+  // ne rend pas une phrase : elle rend les nombres dont une phrase a besoin.
+  // 48b-5b écrira la phrase, et c'est lui qui traduira le vocabulaire des rôles
+  // d'`analyser` vers celui du contrat ci-dessous.
+  //
+  // ⚠️ LE MODÈLE DE L'ÉCHELLE, décidé avec Aurélien le 19/09/2026 (§9.7) : la
+  // nouvelle charge entre par la DERNIÈRE série — le test — et gagne les séries
+  // de la dernière vers la première, une par séance. Après la bascule du palier
+  // (§7.2), les séries restées à l'ancien palier continuent de monter une par
+  // séance. Les rampes plus légères que l'ancien palier et les chauffes ne
+  // bougent pas. Prudent, Normal et Franc sont TROIS VITESSES DE LA MÊME
+  // ÉCHELLE, pas trois algorithmes.
+  //
+  // ENTRÉE. `seances` : les séance-exercices d'UN exercice, chacune
+  // `{ debut, palier, series }`, chaque série `{ charge_kg, reps, rpe, ressenti,
+  // role }` où `role` vaut `palier` · `travail` · `exploration` · `rampe` ·
+  // `autre`. `avant` : le début de la séance prescrite — seules les séances
+  // STRICTEMENT antérieures comptent (§9.12). `reglage` : `prudent` · `normal`
+  // · `franc`. `equipement` : celui de `exercises.equipement`.
+  // `correction` : une clé de zone, qui l'emporte sur tout (§9.1.1).
+  //
+  // SORTIE. `{ etat, zone, palier, niveau, n, ligne, haut, raison }`. La
+  // consigne couvre les `n` DERNIÈRES séries de travail : les `n − k` premières
+  // reçoivent `ligne`, les `k` dernières reçoivent `haut`. Les séries d'avant
+  // gardent leur fantôme. Une charge `null` se dit « le cran au-dessus » (ou
+  // « en dessous »), sans chiffre. `raison` n'existe qu'en silence.
+  //
+  // ⚠️ `ligne` ET `haut` SONT DES OBJETS, PAS DES TABLEAUX — un seul choix, et
+  // c'est celui-là. `{ charge, vise }` et `{ charge, vise, k }` se lisent au
+  // point d'appel ; `[130, 4, 2]` demande d'aller relire cette page. Le fichier
+  // de cas les écrit en tableaux : c'est le test qui convertit, une fois.
+
+  // Le vocabulaire des rôles du CONTRAT, et la traduction vers les deux
+  // ensembles que le reste de `moteur.js` connaît déjà (§7) : `retenues` = le
+  // travail, `votantes` = le travail ET les explorations.
+  var ROLES_RETENUS    = { palier: true, travail: true };
+  var ROLES_VOTANTS    = { palier: true, travail: true, exploration: true };
+  var ROLES_EXPLORE    = { exploration: true };
+  var ROLES_RAMPE      = { rampe: true };
+  var ROLES_RESTE      = { travail: true, rampe: true };
+
+  // §9.1.2 — jamais au-delà de 30 reps, quelle que soit la route qui y mène.
+  var PLAFOND_CIBLE = 30;
+  // §9.8 — le double saut de Franc ne dépasse pas 10 % de la charge.
+  var MARGE_DOUBLE_SAUT = 0.10;
+  // §9.8 — « le haut dépassé de 3 reps » : l'une des deux preuves.
+  var PREUVE_DEPASSEMENT = 3;
+
+  function cible(v) { return Math.min(v, PLAFOND_CIBLE); }
+
+  // `hasOwnProperty` et non une lecture directe : `role` vient de la base, et
+  // `constructor` ou `__proto__` y rendraient une valeur non nulle. Même garde
+  // que `zoneParCle` et `repliDe`.
+  function estRole(s, table) {
+    return !!s && Object.prototype.hasOwnProperty.call(table, s.role) && table[s.role] === true;
+  }
+
+  function parRole(series, table) {
+    return (series || []).filter(function (s) { return estRole(s, table); });
+  }
+
+  // La séance du contrat, vue comme `THPalier.analyser` la rendrait : c'est
+  // cette vue, et elle seule, que les fonctions existantes reçoivent.
+  function vueDeSeance(se) {
+    var series = (se && se.series) || [];
+    return {
+      debut: se && se.debut,
+      palier: se && se.palier,
+      series: series,
+      retenues: parRole(series, ROLES_RETENUS),
+      votantes: parRole(series, ROLES_VOTANTS)
+    };
+  }
+
+  // Le test d'une séance : la plus lourde exploration, ses séries, leur niveau.
+  // `niveauValide` et non les reps brutes — une exploration à RPE 10 compte une
+  // rep de moins, comme au palier (§17.4).
+  function testDe(vue) {
+    var explorations = parRole(vue && vue.series, ROLES_EXPLORE);
+    if (!explorations.length) return null;
+    var T = null;
+    explorations.forEach(function (s) {
+      var kg = nombre(s.charge_kg);
+      if (kg !== null && (T === null || kg > T)) T = kg;
+    });
+    if (T === null) return null;
+    var aT = explorations.filter(function (s) { return nombre(s.charge_kg) === T; });
+    return { charge: T, k: aT.length, niveau: niveauValide(aT) };
+  }
+
+  // ── §9.7 — L'ÉPISODE D'ÉTIREMENT ─────────────────────────────────────────
+  //
+  // Un test raté dont le cran ne pouvait pas être RÉDUIT n'a qu'une sortie :
+  // gagner des reps au palier jusqu'à mériter le même test. C'est l'étirement,
+  // et il ouvre un ÉPISODE, qui se clôt au retest réussi ou au changement de
+  // palier.
+  //
+  // ⚠️ PENDANT L'ÉPISODE, LA ZONE RESTE CELLE DU PREMIER TEST RATÉ. Décidé le
+  // 19/09/2026 après simulation : sinon les reps étirées entrent dans
+  // l'habitude et font glisser l'exercice vers une zone plus haute — le curl
+  // marteau passait de Volume en Séries longues — et le retest se jugerait
+  // contre la mauvaise zone, donc ne viendrait jamais.
+  //
+  // On remonte les séances du couple au même palier. Une séance sans
+  // exploration ne dit rien et se traverse ; la remontée s'arrête à un test
+  // réussi, à un changement de palier, ou dès que le cran pouvait être réduit.
+  // Rendu du plus RÉCENT au plus ANCIEN : le premier sert au §9.7, le dernier
+  // au gel de la zone.
+  function episodeEtirement(duCouple, P, vues, avant, equipement, correction) {
+    var rates = [];
+    for (var i = duCouple.length - 1; i >= 0; i--) {
+      var x = duCouple[i];
+      if (nombre(x.seance.palier) !== P) break;
+      var t = testDe(x.seance);
+      if (t === null) continue;
+      // « sa zone d'alors » : l'habitude arrêtée à cette séance-là, jamais la
+      // zone d'aujourd'hui — elle est justement ce qu'on cherche à figer.
+      var z = zoneRetenue(correction, habitudeSur(duCouple.slice(0, i + 1)));
+      if (z === null || t.niveau === null || t.niveau >= z.bas) break;
+      var c1 = chargeVoisine(vues, avant, P, equipement, 1);
+      if (c1 !== null && c1 < t.charge) break;
+      rates.push({ rang: i, test: t, auPalier: x.auPalier });
+    }
+    return rates;
+  }
+
+  function consignePour(seances, avant, options) {
+    var opt = options || {};
+    var reglage = opt.reglage || 'normal';
+    var equipement = opt.equipement;
+    var correction = opt.correction;
+
+    var vues = (seances || []).map(vueDeSeance);
+    var ant = anterieures(vues, avant);
+    // 1. Les silences. Une première fois n'a rien à dire, et le dire serait
+    // inventer ; une séance sans palier n'a rien TENU (§7.2).
+    if (!ant.length) return { etat: 'silence', raison: 'premiere_fois' };
+
+    var L = ant[ant.length - 1];
+    var P = nombre(L.palier);
+    var A = seriesAuPalier(L);
+    var niv = A.length ? niveauValide(A) : null;
+    if (P === null || !A.length || niv === null) {
+      return { etat: 'silence', raison: 'pas_de_palier' };
+    }
+
+    // 2. La zone. La correction l'emporte (§9.1.1) ; sinon l'habitude du couple
+    // — gelée au premier test raté si un épisode d'étirement court.
+    var lecture = lectureDuCouple(vues, avant);
+    var duCouple = lecture === null ? [] : lecture.duCouple;
+    var rates = episodeEtirement(duCouple, P, vues, avant, equipement, correction);
+    var habitude = habitudeSur(
+      rates.length ? duCouple.slice(0, rates[rates.length - 1].rang + 1) : duCouple
+    );
+    var zone = zoneRetenue(correction, habitude);
+
+    // Le palier de l'avant-dernière séance du couple : il sert à reconnaître
+    // les séries RESTÉES à l'ancien palier après une bascule (§7.2), et le
+    // déclencheur « deux séances de suite » du réglage Prudent.
+    var precedente = duCouple.length >= 2 ? duCouple[duCouple.length - 2] : null;
+    var Pv = precedente === null ? null : nombre(precedente.seance.palier);
+    var apresBascule = Pv !== null && Pv < P;
+    var restes = apresBascule
+      ? L.series.filter(function (s) {
+          return estRole(s, ROLES_RESTE) && nombre(s.charge_kg) === Pv;
+        })
+      : [];
+
+    // 5. `n` — les séries que la consigne couvre. Les votantes de `L` (palier,
+    // travail, exploration) plus ses rampes restées à l'ancien palier : une
+    // rampe qui attend sa montée fait partie de l'échelle ; une rampe plus
+    // légère que l'ancien palier n'y est pas.
+    var n = L.votantes.length + restes.filter(function (s) {
+      return estRole(s, ROLES_RAMPE);
+    }).length;
+
+    function rendre(etat, ligne, haut) {
+      return {
+        etat: etat, zone: zone === null ? null : zone.cle, palier: P, niveau: niv,
+        n: n, ligne: ligne, haut: haut
+      };
+    }
+    function ligneDe(charge, vise) { return { charge: charge, vise: vise }; }
+    function hautDe(charge, vise, k) { return { charge: charge, vise: vise, k: k }; }
+    function voisine(depuis, sens) {
+      return chargeVoisine(vues, avant, depuis, equipement, sens);
+    }
+    function comptees(s) {
+      var r = Palier().repsComptees(s);
+      return r === null ? null : r;
+    }
+    function auMoins(series, seuil) {
+      return series.some(function (s) { var r = comptees(s); return r !== null && r >= seuil; });
+    }
+    function toutesAuMoins(series, seuil) {
+      return series.length > 0 && series.every(function (s) {
+        var r = comptees(s); return r !== null && r >= seuil;
+      });
+    }
+
+    // 3. La reprise prime sur tout le reste : après une coupure, le moteur ne
+    // demande pas de rep de plus (§9.9), et au-delà de 12 semaines il repart un
+    // cran dessous. Rien ici ne dit la durée de l'absence (CADRAGE §3.1 bis).
+    var reprise = repriseDe(vues, avant);
+    if (reprise === REPRISE_COURTE) return rendre('reprise_courte', ligneDe(P, niv), null);
+    if (reprise === REPRISE_LONGUE) return rendre('reprise_longue', ligneDe(voisine(P, -1), niv), null);
+
+    // 4. La règle de bord : sous 3 reps d'habitude, il n'y a plus de zone. On
+    // monte la charge AUX MÊMES REPS — la variabilité journalière des maximaux
+    // dépasse l'écart entre une rep et deux (§9.1.2).
+    if (zone === null) return rendre('bord', ligneDe(voisine(P, 1), niv), null);
+
+    var lo = zone.bas;
+    var hi = zone.haut;
+    var vise = cible(Math.min(niv + 1, hi));
+
+    // 6. Un test dans `L` : l'échelle AVANT la bascule.
+    var t = testDe(L);
+    if (t !== null && t.niveau !== null) {
+      var T = t.charge;
+      var k = t.k;
+      var lvl = t.niveau;
+
+      if (lvl >= lo) {
+        // Franc : le test au HAUT de sa zone emporte tout d'un coup — sauf en
+        // zone Lourd, où le §9.7 n'accorde qu'une série de plus par séance.
+        if (reglage === 'franc' && lvl >= hi && zone.cle !== 'lourd') {
+          return rendre('tout_passe', null, hautDe(T, cible(Math.min(lvl, hi)), n));
+        }
+        if (reglage === 'prudent') {
+          // Prudent garde la charge sur sa série jusqu'à y toucher le haut ;
+          // alors, et alors seulement, la précédente la rejoint (§9.8).
+          if (lvl >= hi) {
+            return rendre('etend', ligneDe(P, vise),
+              hautDe(T, cible(Math.min(lvl, hi)), Math.min(k + 1, n)));
+          }
+          return rendre('garde', ligneDe(P, vise), hautDe(T, cible(Math.min(lvl + 1, hi)), k));
+        }
+        // Normal et Franc : au BAS de la zone le test est gardé — il a passé,
+        // mais tout juste ; au-dessus du bas, il gagne une série de plus.
+        if (lvl === lo) return rendre('garde', ligneDe(P, vise), hautDe(T, cible(lvl + 1), k));
+        return rendre('etend', ligneDe(P, vise),
+          hautDe(T, cible(Math.min(lvl, hi)), Math.min(k + 1, n)));
+      }
+
+      // Test RATÉ. D'abord réduire le cran : un test à deux crans qui tombe se
+      // refait à UN cran, pas à la même charge.
+      if (k === 1 && niv >= hi) {
+        var c1Rate = voisine(P, 1);
+        if (c1Rate !== null && c1Rate < T) {
+          return rendre('retest_un_cran', ligneDe(P, cible(hi)), hautDe(c1Rate, lo, 1));
+        }
+        // Le cran est irréductible : la zone s'étire. ⚠️ LA CIBLE COMPTE LES
+        // REPS PERDUES — `hi + niv − lvl` — sinon on redemanderait le même test
+        // sans avoir rien gagné.
+        var cibleEtirement = cible(hi + niv - lvl);
+        if (niv >= cibleEtirement) return rendre('retest', ligneDe(P, niv), hautDe(T, lo, 1));
+        return rendre('etirement', ligneDe(P, cible(Math.min(niv + 1, cibleEtirement))), null);
+      }
+      return rendre('progression', ligneDe(P, vise), null);
+    }
+
+    // 7. APRÈS LA BASCULE : la charge a pris la majorité, des séries sont
+    // restées dessous. Elles montent une par séance.
+    if (restes.length) {
+      var ka = A.length;
+      var nivRestes = niveauValide(restes);
+      if (reglage === 'franc' && niv >= hi && zone.cle !== 'lourd') {
+        return rendre('tout_passe', null,
+          hautDe(P, cible(Math.min(niv, hi)), ka + restes.length));
+      }
+      // Prudent attend le HAUT de la zone ; Normal et Franc se contentent d'un
+      // cran au-dessus du bas.
+      var permis = reglage === 'prudent' ? niv >= hi : niv > lo;
+      if (permis) {
+        return rendre('rejoint',
+          restes.length > 1 ? ligneDe(Pv, nivRestes) : null,
+          hautDe(P, cible(Math.min(niv, hi)), ka + 1));
+      }
+      return rendre('attend', ligneDe(Pv, nivRestes), hautDe(P, vise, ka));
+    }
+
+    // 8. UN ÉTIREMENT EN COURS, sans test dans `L` : on gagne des reps jusqu'à
+    // la cible, puis on refait le même test. La zone est celle d'alors (§9.7).
+    if (rates.length) {
+      var episode = rates[0];
+      var nivAlors = niveauValide(episode.auPalier);
+      if (nivAlors !== null) {
+        var cibleEnCours = cible(hi + nivAlors - episode.test.niveau);
+        if (niv >= cibleEnCours) {
+          return rendre('retest', ligneDe(P, niv), hautDe(episode.test.charge, lo, 1));
+        }
+        return rendre('etirement', ligneDe(P, cible(Math.min(niv + 1, cibleEnCours))), null);
+      }
+    }
+
+    // 9. LE DÉCLENCHEUR DU RÉGLAGE (§9.8) — les trois vitesses.
+    var declenche;
+    if (reglage === 'franc') {
+      // Dès qu'UNE série touche le haut : c'est la double progression dynamique.
+      declenche = auMoins(A, hi);
+    } else if (reglage === 'prudent') {
+      // Le repère NSCA « 2-pour-2 » : toutes les séries au haut, deux séances
+      // de suite, AU MÊME PALIER — un palier qui change rouvre le compteur.
+      declenche = toutesAuMoins(A, hi) && precedente !== null &&
+        nombre(precedente.seance.palier) === P && toutesAuMoins(precedente.auPalier, hi);
+    } else {
+      declenche = niv >= hi;
+    }
+    if (!declenche) return rendre('progression', ligneDe(P, vise), null);
+
+    var c1 = voisine(P, 1);
+    var saut = c1;
+    if (reglage === 'franc' && c1 !== null) {
+      // La preuve du double saut : le haut dépassé de 3 reps, ou un effort dit
+      // « facile » (§17.3, logique APRE).
+      var preuve = auMoins(A, hi + PREUVE_DEPASSEMENT) || A.some(function (s) {
+        return Palier().cranDeSerie(s) === 'facile';
+      });
+      if (preuve) {
+        // ⚠️ DEUX CRANS SEULEMENT S'ILS RESTENT SOUS 10 % DE LA CHARGE —
+        // corrigé le 19/09/2026 : l'ancienne limite « un cran au plus sur les
+        // grosses barres » était à l'envers. Au couché à 125 kg, deux crans
+        // font 4 % : permis ; au curl EZ à 30 kg, 17 % : un seul.
+        var c2 = voisine(c1, 1);
+        if (c2 !== null && auCentieme(c2 - P) <= auCentieme(P * MARGE_DOUBLE_SAUT)) saut = c2;
+      }
+    }
+    return rendre('test_propose', ligneDe(P, vise), hautDe(saut, lo, 1));
+  }
+
+
   var api = {
     FENETRE_HABITUDE: FENETRE_HABITUDE,
     FENETRE_COUPLE: FENETRE_COUPLE,
@@ -611,7 +987,8 @@
     pasDeSalle: pasDeSalle,
     chargeVoisine: chargeVoisine,
     ecartHabituel: ecartHabituel,
-    repriseDe: repriseDe
+    repriseDe: repriseDe,
+    consignePour: consignePour
   };
 
   racine.THMoteur = api;

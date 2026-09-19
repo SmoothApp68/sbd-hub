@@ -101,8 +101,8 @@
     { cle: 'normal', libelle: 'Normal',
       phrase: 'Monte quand tes deux premières séries touchent le haut de ta zone.' },
     { cle: 'franc', libelle: 'Franc',
-      phrase: 'Chaque série monte pour son compte, et deux crans d\u2019un coup ' +
-              'quand tu dépasses nettement.' }
+      phrase: 'Dès qu\u2019une série touche le haut de ta zone, la charge monte, ' +
+              'et deux crans d\u2019un coup quand tu dépasses nettement.' }
   ];
 
   // Le défaut de la colonne en base, répété ici parce que l'écran doit pouvoir

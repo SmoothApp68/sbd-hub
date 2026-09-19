@@ -545,7 +545,7 @@ describe('48b-4 — le réglage de rythme, dans Profil', () => {
     R().rendreProfil(c, vueProfil(avec({ rythme_progression: 'franc' })));
     const g = groupeRythme(c);
     expect(actif(g)).toBe('Franc');
-    expect(note(g)).toContain('Chaque série monte pour son compte, et deux crans d\u2019un coup quand tu dépasses nettement.');
+    expect(note(g)).toContain('Dès qu\u2019une série touche le haut de ta zone, la charge monte, et deux crans d\u2019un coup quand tu dépasses nettement.');
     expect(note(g)).not.toContain('deux premières séries');
     expect(note(g)).not.toContain('deux séances de suite');
   });

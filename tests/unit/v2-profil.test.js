@@ -390,7 +390,7 @@ describe('le réglage de rythme — une seule table, et la garde d’écriture',
   test('DISCRIMINANT — `phraseRythme` rend la phrase de la clé demandée', () => {
     expect(Profil.phraseRythme('prudent')).toContain('deux séances de suite');
     expect(Profil.phraseRythme('normal')).toContain('deux premières séries');
-    expect(Profil.phraseRythme('franc')).toContain('pour son compte');
+    expect(Profil.phraseRythme('franc')).toContain('Dès qu\u2019une série touche le haut');
     // Deux phrases permutées feraient tomber deux de ces trois lignes.
     expect(Profil.phraseRythme('prudent')).not.toBe(Profil.phraseRythme('normal'));
   });

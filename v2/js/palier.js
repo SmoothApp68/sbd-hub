@@ -290,13 +290,38 @@
     // ── §5.2 / §5.4 — la rampe ne vote pas si l'exercice « monte » ─────────
     // Elle reste une série de travail entière (volume, tonnage, historique) :
     // la seule chose qu'elle ne fait pas, c'est juger le palier du jour.
+    //
+    // ⚠️ ELLE SE JUGE CONTRE LE PALIER PROVISOIRE, JAMAIS CONTRE LA PLUS LOURDE
+    // DES SÉRIES SUIVANTES (§5.2, corrigé le 19/09/2026). La plus lourde peut
+    // être une EXPLORATION (§7.5) — une charge tentée une fois, précisément ce
+    // que le palier refuse de valider. La prendre pour repère écartait une série
+    // tenue AU palier. Couché du 15/09/2026, constaté sur appareil :
+    // `125×4, 125×5, 130×3` -> la première était écartée parce que plus légère
+    // que 130 ; il ne restait que deux séries, et le §7.2 gardait la plus lourde.
+    // « Palier 130 », le jour où 130 n'avait été tenu qu'une fois. C'est 125.
+    //
+    // PAS DE PALIER PROVISOIRE, PAS DE RAMPE. Sans charge tenue sur la majorité,
+    // il n'existe aucun repère contre lequel juger la première série, et on n'en
+    // invente pas un. Ce sont les pyramides : le moteur s'y tait, et c'est voulu
+    // (§7.3 — le taux de reconnaissance mesuré passe de 93-98 % à 90-92 %, parce
+    // que l'ancien chiffre comptait ces faux paliers).
+    //
+    // UN SEUL CALCUL, DEUX USAGES (`CADRAGE-V2` §2 undecies) : `palierProvisoire`
+    // vient de situer la frontière de chauffe du §4.1 juste au-dessus. Le
+    // recalculer ici donnerait deux voix au même verdict.
+    //
+    // ⚠️ `retenues.length >= 2` a été RETIRÉ, pas oublié : la garde est désormais
+    // impliquée. `travail[indexPalier]` porte exactement `palierProvisoire` et
+    // n'est jamais marqué chauffe probable (celle-ci ne marque que `k <
+    // indexPalier`) — il est donc toujours dans `retenues`. Si `retenues` n'avait
+    // qu'un élément, ce serait lui, et `< palierProvisoire` serait faux. Une
+    // garde qui ne peut pas tomber est morte, et ce fichier en a déjà enterré une
+    // (cf. `meilleureSerie`).
     var etat = (etatExercice && etatExercice.etat) || ETAT_INDETERMINE;
-    if (etat === ETAT_MONTE && retenues.length >= 2) {
-      var apres = retenues.slice(1).map(function (s) { return nombre(s.charge_kg); });
-      if (nombre(retenues[0].charge_kg) < Math.max.apply(null, apres)) {
-        roles.set(retenues[0], 'rampe');
-        retenues = retenues.slice(1);
-      }
+    if (etat === ETAT_MONTE && palierProvisoire !== null &&
+        nombre(retenues[0].charge_kg) < palierProvisoire) {
+      roles.set(retenues[0], 'rampe');
+      retenues = retenues.slice(1);
     }
 
     // ── §6.3 / §6.5 — descente de fin NON TAGUÉE ──────────────────────────

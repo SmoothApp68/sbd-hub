@@ -1047,4 +1047,128 @@ describe('§9.13 — la consigne, en calcul pur', () => {
       { reglage: 'normal', equipement: 'barre' }))
       .toEqual({ etat: 'silence', raison: 'pas_de_palier' });
   });
+
+  // ── CE QUE LES 29 CAS NE TOUCHENT PAS ────────────────────────────────────
+  //
+  // ⚠️ SIX RÈGLES DU §9.7/§9.8 SURVIVAIENT AU BANC DE MUTATION, et c'est le
+  // fichier de cas qui ne les atteint pas : il sort de l'historique réel, où
+  // personne ne fait 30 reps, ne pose deux explorations dans la même séance, ni
+  // ne revient à un ancien palier. Les règles existent quand même, et un code
+  // qui les perd doit tomber. Chaque cas ci-dessous a été MESURÉ : la valeur
+  // fautive en commentaire vient de l'exécution de la variante.
+  const serie = (kg, reps, role, effort) => Object.assign(
+    { charge_kg: kg, reps: reps, rpe: null, ressenti: null, role: role },
+    typeof effort === 'number' ? { rpe: effort } : {});
+  const seance = (debut, palier, ...series) => ({ debut: debut, palier: palier, series: series });
+  const auPalier = (kg, reps, n) => Array.from({ length: n }, () => serie(kg, reps, 'palier'));
+  const PRESCRITE = '2026-09-20T10:00:00+00:00';
+  const pour = (seances, reglage, equipement) => M.consignePour(seances, PRESCRITE,
+    { reglage: reglage, equipement: equipement, correction: null });
+
+  test('DISCRIMINANT — aucune cible ne dépasse 30 reps (§9.1.2)', () => {
+    // Zone Séries longues (15-20), niveau 30, test raté à 5 : la cible de
+    // l'étirement vaudrait `20 + 30 − 5` = 45. Plafonnée à 30, le niveau
+    // l'atteint DÉJÀ — donc on reteste. Sans plafond : 30 < 45, la zone
+    // continuerait de s'étirer, `etirement` et « vise 31 ».
+    const s = [
+      seance('2026-08-30T18:00:00+00:00', 20, ...auPalier(20, 30, 3)),
+      seance('2026-09-06T18:00:00+00:00', 20, ...auPalier(20, 30, 3)),
+      seance('2026-09-13T18:00:00+00:00', 20, ...auPalier(20, 30, 3),
+             serie(40, 5, 'exploration'))
+    ];
+    const r = pour(s, 'normal', 'machine');
+    expect(r.zone).toBe('series_longues');
+    expect(r.etat).toBe('retest');
+    expect(r.ligne).toEqual({ charge: 20, vise: 30 });
+    expect(r.haut).toEqual({ charge: 40, vise: 15, k: 1 });
+  });
+
+  test('DISCRIMINANT — Prudent exige les deux séances AU MÊME palier', () => {
+    // Le repère « 2-pour-2 » compte deux séances de suite au haut, au MÊME
+    // palier : un palier qui change rouvre le compteur, sinon la montée de la
+    // veille vaudrait preuve pour la montée du jour. Sans le test du palier :
+    // `test_propose`, haut { 127,5 · 3 · 1 }.
+    const s = [
+      seance('2026-07-19T18:00:00+00:00', 115, ...auPalier(115, 5, 3)),
+      seance('2026-07-26T18:00:00+00:00', 117.5, ...auPalier(117.5, 5, 3)),
+      seance('2026-08-02T18:00:00+00:00', 120, ...auPalier(120, 5, 3)),
+      seance('2026-09-06T18:00:00+00:00', 122.5, ...auPalier(122.5, 5, 3)),
+      seance('2026-09-13T18:00:00+00:00', 125, ...auPalier(125, 5, 3))
+    ];
+    expect(pour(s, 'prudent', 'barre')).toMatchObject({
+      etat: 'progression', zone: 'lourd', ligne: { charge: 125, vise: 5 }, haut: null
+    });
+    // Contre-épreuve : les deux dernières au même palier, et le test part.
+    const memePalier = s.slice(0, 3).concat([
+      seance('2026-09-06T18:00:00+00:00', 125, ...auPalier(125, 5, 3)),
+      seance('2026-09-13T18:00:00+00:00', 125, ...auPalier(125, 5, 3))
+    ]);
+    expect(pour(memePalier, 'prudent', 'barre').etat).toBe('test_propose');
+  });
+
+  test('DISCRIMINANT — l’épisode d’étirement s’arrête à un changement de palier', () => {
+    // Un test raté à 100 kg, PUIS une séance à 110, PUIS un retour à 100 : le
+    // vieil épisode est clos par le changement de palier. Si la remontée le
+    // traversait, le moteur croirait l'étirement en cours et rendrait
+    // `etirement`, « vise 14 », au lieu de proposer le test.
+    const s = [
+      seance('2026-08-16T18:00:00+00:00', 100, ...auPalier(100, 12, 3)),
+      seance('2026-08-23T18:00:00+00:00', 100, ...auPalier(100, 12, 2),
+             serie(110, 4, 'exploration')),
+      seance('2026-08-30T18:00:00+00:00', 110, ...auPalier(110, 12, 3)),
+      seance('2026-09-13T18:00:00+00:00', 100, ...auPalier(100, 13, 3))
+    ];
+    expect(pour(s, 'normal', 'machine')).toMatchObject({
+      etat: 'test_propose', zone: 'volume',
+      ligne: { charge: 100, vise: 12 }, haut: { charge: 110, vise: 10, k: 1 }
+    });
+  });
+
+  test('DISCRIMINANT — c’est la plus LOURDE exploration qui fait le test', () => {
+    // Deux explorations le même jour : 130 × 4 (dans la zone) et 135 × 2 (sous
+    // le bas). C'est la plus lourde qui juge — le test a été poussé jusque-là.
+    // Sur la plus légère, le moteur lirait un test réussi et rendrait `etend`,
+    // haut { 130 · 4 · 2 }, au lieu de réduire le cran.
+    const s = [
+      seance('2026-07-19T18:00:00+00:00', 115, ...auPalier(115, 5, 3)),
+      seance('2026-07-26T18:00:00+00:00', 117.5, ...auPalier(117.5, 5, 3)),
+      seance('2026-08-02T18:00:00+00:00', 120, ...auPalier(120, 5, 3)),
+      seance('2026-08-09T18:00:00+00:00', 122.5, ...auPalier(122.5, 5, 3)),
+      seance('2026-09-13T18:00:00+00:00', 125, ...auPalier(125, 5, 2),
+             serie(130, 4, 'exploration'), serie(135, 2, 'exploration'))
+    ];
+    expect(pour(s, 'normal', 'barre')).toMatchObject({
+      etat: 'retest_un_cran', n: 4,
+      ligne: { charge: 125, vise: 5 }, haut: { charge: 127.5, vise: 3, k: 1 }
+    });
+  });
+
+  test('DISCRIMINANT — après la bascule, « tout passe » couvre AUSSI les restes', () => {
+    // Franc, zone Volume, la charge a basculé et une série est restée à 90 :
+    // au haut de la zone, tout passe d'un coup — les trois séries, la restée
+    // comprise. Sur les seules séries au palier : k = 2, et la série de 90 ne
+    // recevrait jamais sa consigne.
+    const s = [
+      seance('2026-07-19T18:00:00+00:00', 80, ...auPalier(80, 10, 3)),
+      seance('2026-07-26T18:00:00+00:00', 82.5, ...auPalier(82.5, 10, 3)),
+      seance('2026-08-02T18:00:00+00:00', 85, ...auPalier(85, 10, 3)),
+      seance('2026-09-06T18:00:00+00:00', 90, ...auPalier(90, 10, 2),
+             serie(92.5, 12, 'exploration')),
+      seance('2026-09-13T18:00:00+00:00', 92.5, serie(90, 10, 'rampe'),
+             ...auPalier(92.5, 12, 2))
+    ];
+    expect(pour(s, 'franc', 'barre')).toMatchObject({
+      etat: 'tout_passe', zone: 'volume', n: 3,
+      ligne: null, haut: { charge: 92.5, vise: 12, k: 3 }
+    });
+  });
+
+  test('DISCRIMINANT — un niveau illisible fait taire le moteur, il ne l’invente pas', () => {
+    // Une série au palier sans reps : `niveauValide` ne conclut pas (§9.2), et
+    // tout ce qui suit se calculerait sur `null`. Sans la garde, le moteur
+    // rendrait `progression` et « vise 1 » — une consigne inventée.
+    const s = [seance('2026-09-13T18:00:00+00:00', 100,
+      serie(100, null, 'palier'), serie(100, 5, 'palier'))];
+    expect(pour(s, 'normal', 'barre')).toEqual({ etat: 'silence', raison: 'pas_de_palier' });
+  });
 });

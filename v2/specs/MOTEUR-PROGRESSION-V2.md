@@ -465,9 +465,9 @@ Vingt kilos d'écart. Un compteur de stagnation qui mélange les deux verra une 
 
 ### 8.2 Règle
 
-> **Le palier, le compteur de stagnation et le modèle charge/reps travaillent par exercice ET par format. Le format se déduit des reps médianes de la séance ; il ne se stocke pas comme un champ de configuration.**
+> **Le palier, le compteur de stagnation et le modèle charge/reps travaillent par exercice ET par format. Le format se déduit du niveau validé de la séance (§9.2) ; il ne se stocke pas comme un champ de configuration.**
 
-| Format | Reps médianes de la séance-exercice |
+| Format | Niveau validé de la séance-exercice (§9.2) |
 |---|---|
 | Force | ≤ 6 |
 | Mixte | 7 – 8 |
@@ -475,7 +475,7 @@ Vingt kilos d'écart. Un compteur de stagnation qui mélange les deux verra une 
 
 Une séance-exercice se compare aux séances **du même format** sur le même exercice. Les autres sont ignorées, pas traitées comme des régressions.
 
-**Précisé le 19/09/2026 (48b-2).** Les reps médianes sont celles des **séries retenues** de la séance-exercice (§7 : hors chauffes, rampe, descente, explorations, dégressives et séries ratées). Une médiane qui tombe entre deux entiers se range **au-dessus** : 6,5 → Mixte, 8,5 → Hypertrophie.
+**Précisé le 19/09/2026 (48b-5a), remplace la précision de 48b-2.** Le format se lit sur le **niveau validé** (§9.2), en reps comptées ; sans série au palier, pas de format. Pourquoi : la médiane des séries retenues se laissait emporter par une seule série — 125 × 8 puis 125 × 5 donnaient 6,5, « mixte », pour une séance de force, et la zone se tirait alors de vieilles séances à 100 kg. Le niveau validé se fie aux deux premières séries et ignore une série isolée.
 
 ### 8.3 Pourquoi le format ne se stocke pas
 
@@ -614,7 +614,9 @@ En format force, **un progrès sur trois seulement passe par la charge** — moi
 
 **La zone est une intention, et la double progression se fait à l'intérieur.** C'est la correction d'un défaut de la cloche : elle plaçait l'habitude au bas de la fourchette et faisait monter les reps au-dessus. Au squat, elle demandait `125 × 6`, donc des séries de 6 à 7 reps sur un mouvement lourd, alors que ce paragraphe cite lui-même Schoenfeld 2021 pour la force à 1-5 reps.
 
-**Déduite, jamais demandée (§1.1).** L'**habitude** est la médiane des reps de **toutes les séries au palier** sur les **8 dernières séances** du couple exercice-format — le format de la dernière séance désigne le couple (§8.2) —, **arrondie à l'entier supérieur**, et calculée sur les seules séances antérieures à celle qu'on prescrit (§9.12). Pourquoi 8 séances : sur tout l'historique, 7 des 23 exercices actifs d'Aurélien étaient mal rangés (banc M12) ; la science pondère le récent (Williams et al. 2017), et les coachs changent de reps au rythme de cycles de 3 à 6 semaines.
+**Déduite, jamais demandée (§1.1).** L'**habitude** est la médiane des reps de **toutes les séries au palier** sur les **8 dernières séances** du couple exercice-format — le couple est désigné par le format de **2 des 3 dernières séances** (à égalité entre trois formats, celui de la plus récente ; §8.2) —, **arrondie à l'entier supérieur**, et calculée sur les seules séances antérieures à celle qu'on prescrit (§9.12). Pourquoi 8 séances : sur tout l'historique, 7 des 23 exercices actifs d'Aurélien étaient mal rangés (banc M12) ; la science pondère le récent (Williams et al. 2017), et les coachs changent de reps au rythme de cycles de 3 à 6 semaines.
+
+**Pourquoi 2 séances sur 3 — décidé le 19/09/2026 après simulation** (`banc_consigne48.py`). Avec la dernière séance seule, une séance isolée — une décharge à 10 reps — faisait basculer la zone. Avec la majorité des 8 dernières, un nouveau bloc — le squat passé de 7 reps à 5 le 31/08 — restait ignoré cinq séances. Deux sur trois : une séance isolée ne fait jamais basculer, un nouveau bloc est suivi dès sa 2ᵉ séance.
 
 **La table de rangement — précisée le 19/09/2026, et c'est la seule règle** (celle du banc, qui a servi à toutes les mesures) :
 
@@ -898,7 +900,7 @@ Les charges d'haltères sont enregistrées en **total des deux** (92 kg = 2 × 4
 
 Sur les poulies et machines, les charges viennent d'une conversion livres → kilos et produisent des écarts non ronds (0,2 / 0,4 / 1,7 kg). Le plus petit écart récurrent y est faux.
 
-**Détection :** si le pas déduit n'est pas un multiple de 0,5 kg, basculer sur l'écart **médian** et marquer le pas comme approximatif.
+*Le pas qui n'est pas un multiple de 0,5 kg : voir la précision du 19/09/2026, plus bas.*
 
 **Quelle charge proposer — ordre tranché le 19/09/2026.** Le moteur ne propose que des charges que la salle fait :
 
@@ -909,7 +911,7 @@ Sur les poulies et machines, les charges viennent d'une conversion livres → ki
 
 **Précisé le 19/09/2026 (48b-3) :**
 
-- Le pas se mesure sur **la plus lourde série de chaque séance**, explorations comprises (hors chauffes, dégressives et séries ratées), sur les séances des **24 mois** qui précèdent celle qu'on prescrit (§9.12). Un écart est récurrent s'il revient **au moins 3 fois** ; on retient **le plus petit** écart récurrent, et il n'est exact que s'il est un multiple de 0,5 kg.
+- Le pas se mesure sur **la plus lourde série de chaque séance**, explorations comprises (hors chauffes, dégressives et séries ratées), sur les séances des **24 mois** qui précèdent celle qu'on prescrit (§9.12). Un écart est récurrent s'il revient **au moins 3 fois** ; on retient **le plus petit** écart récurrent, et il n'est exact que s'il est un multiple de 0,5 kg. Sinon, le pas est **approché** : il vaut l'écart médian, et la charge se choisit au rang 2 (la charge déjà utilisée).
 - Les « charges déjà utilisées » du rang 2 sont toutes les charges de travail et d'exploration des séances antérieures, sans limite de date.
 - **Vers le bas, même ordre** (reprise après plus de 12 semaines, §9.9) : le palier moins le pas exact ; sinon la charge déjà utilisée juste en dessous ; sinon le repli du matériel (barre et Smith −2,5 kg ; haltères −2 kg jusqu'à une paire de 20 kg incluse, −4 kg au-delà) ; sinon « un cran en dessous », sans chiffre.
 

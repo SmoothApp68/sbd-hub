@@ -42,6 +42,17 @@
   // les coachs changent de reps par cycles de 3 à 6 semaines.
   var FENETRE_HABITUDE = 8;
 
+  // §9.1.2 — LE COUPLE SE DÉSIGNE SUR 3 SÉANCES, À LA MAJORITÉ DE 2.
+  //
+  // Décidé le 19/09/2026 après simulation sur les vraies séances (`banc_consigne48.py`).
+  // Avec la DERNIÈRE séance seule, une décharge isolée à 10 reps faisait
+  // basculer la zone d'un bloc de force. Avec la MAJORITÉ DES 8 dernières, le
+  // squat passé de 7 reps à 5 le 31/08 restait ignoré cinq séances. Deux sur
+  // trois tient les deux bouts : une séance isolée ne fait jamais basculer, un
+  // nouveau bloc est suivi dès sa 2ᵉ séance.
+  var FENETRE_COUPLE = 3;
+  var MAJORITE_COUPLE = 2;
+
   // §10.2 — le pas se mesure sur 24 mois. Une salle change de matériel, on
   // déménage : un pas d'il y a trois ans ne dit rien de celui d'aujourd'hui.
   var FENETRE_PAS_MOIS = 24;
@@ -242,24 +253,54 @@
 
   // ── §8.2 — LE FORMAT D'UNE SÉANCE-EXERCICE ───────────────────────────────
   //
-  // Médiane des reps des séries RETENUES — celles que le §7 a gardées, donc
-  // hors chauffes, rampe, descente de fin, explorations, dégressives et échecs.
-  // Une exploration à une rep tirerait la médiane vers le bas et ferait passer
-  // une séance d'hypertrophie pour une séance de force.
+  // ⚠️ IL SE LIT SUR LE NIVEAU VALIDÉ, PLUS SUR UNE MÉDIANE (corrigé le
+  // 19/09/2026, 48b-5a). Et il prend les séries AU PALIER, pas les retenues.
   //
-  // Les bornes : ≤ 6 force · ≤ 8 mixte · au-delà hypertrophie. Une médiane
-  // entre deux entiers se range AU-DESSUS (6,5 -> mixte, 8,5 -> hypertrophie),
-  // d'où l'arrondi supérieur avant les bandes plutôt que des bandes à demi.
+  // La médiane se laissait emporter par UNE SEULE série. Couché à `125 × 8`
+  // puis `125 × 5` : médiane 6,5, arrondie à 7, donc « mixte » — pour une
+  // séance de force. Le couple de l'habitude basculait avec elle, la zone se
+  // tirait alors de dix-huit vieilles séances de couché « mixte » à 100 kg, et
+  // le moteur oubliait le test en cours à 130 kg. Trouvé en simulant la
+  // consigne séance après séance, invisible en test unitaire.
+  //
+  // Le niveau validé (§9.2) ne se laisse pas emporter : il se fie aux DEUX
+  // PREMIÈRES séries et tolère les suivantes à −1. Sur `8, 5` il vaut 5, donc
+  // force — la première série en forme ne décide plus de la séance.
+  //
+  // Les bornes, sur le niveau et non sur une médiane : ≤ 6 force · 7 ou 8 mixte
+  // · 9 et plus hypertrophie. Plus d'arrondi : un niveau validé est entier.
+  //
+  // Sans série au palier, PAS DE FORMAT — et c'est `niveauValide` qui le dit
+  // déjà, y compris quand une série n'a pas de reps comptables.
   //
   // Le format NE SE STOCKE PAS (§8.3) : le stocker imposerait de le demander,
   // et il changerait sans que personne ne le mette à jour.
-  function formatDe(retenues) {
-    var m = mediane(repsDe(retenues));
-    if (m === null) return null;
-    var n = Math.ceil(m);
+  function formatDe(seriesAuPalier) {
+    var n = niveauValide(seriesAuPalier);
+    if (n === null) return null;
     if (n <= 6) return 'force';
     if (n <= 8) return 'mixte';
     return 'hypertrophie';
+  }
+
+  // ── §9.1.2 — LE COUPLE, À LA MAJORITÉ DE 2 SUR 3 ─────────────────────────
+  //
+  // `formats` : ceux des trois dernières séances, de la plus ancienne à la plus
+  // récente. On cherche en partant de la PLUS RÉCENTE, et c'est ce qui tranche
+  // les égalités : le premier format qui revient au moins deux fois gagne, et à
+  // défaut c'est celui de la plus récente.
+  //
+  // Trois formats différents — force, mixte, hypertrophie — ne donnent aucune
+  // majorité : la plus récente l'emporte, parce qu'elle est la seule
+  // information fraîche dont on dispose.
+  function coupleDe(formats) {
+    if (!formats.length) return null;
+    for (var i = formats.length - 1; i >= 0; i--) {
+      var n = 0;
+      for (var j = 0; j < formats.length; j++) if (formats[j] === formats[i]) n++;
+      if (n >= MAJORITE_COUPLE) return formats[i];
+    }
+    return formats[formats.length - 1];
   }
 
   // Les séries qui ont TENU le palier — pas toutes les retenues. Une séance
@@ -305,24 +346,32 @@
     var coupure = instant(avant);
     if (coupure === null) return null;
 
-    var utiles = (seances || []).filter(function (se) {
-      if (!se || nombre(se.palier) === null) return false;
-      var d = instant(se.debut);
-      return d !== null && d < coupure;
+    // Une séance n'entre que si elle DIT quelque chose : une date lisible,
+    // strictement avant la coupure, et au moins une série qui a tenu le palier.
+    // `seriesAuPalier` rend déjà [] quand il n'y a pas de palier du tout, donc
+    // une pyramide est écartée par la même condition — et AVANT la fenêtre,
+    // sinon elle occuperait un des huit créneaux sans rien y apporter.
+    var lus = [];
+    (seances || []).forEach(function (se) {
+      var d = instant(se && se.debut);
+      if (d === null || d >= coupure) return;
+      var auPalier = seriesAuPalier(se);
+      if (!auPalier.length) return;
+      lus.push({ instant: d, auPalier: auPalier, format: formatDe(auPalier) });
     });
-    if (!utiles.length) return null;
+    if (!lus.length) return null;
 
-    utiles.sort(function (a, b) { return instant(a.debut) - instant(b.debut); });
+    lus.sort(function (a, b) { return a.instant - b.instant; });
 
-    var couple = formatDe(utiles[utiles.length - 1].retenues);
-    var duCouple = utiles.filter(function (se) {
-      return formatDe(se.retenues) === couple;
-    });
+    // ⚠️ LE COUPLE SE DÉSIGNE SUR TROIS SÉANCES, PAS SUR LA DERNIÈRE (corrigé
+    // le 19/09/2026, 48b-5a). La dernière séance seule était trop nerveuse :
+    // une décharge isolée faisait basculer la zone d'un bloc entier.
+    var couple = coupleDe(lus.slice(-FENETRE_COUPLE).map(function (x) { return x.format; }));
 
     var reps = [];
-    duCouple.slice(-FENETRE_HABITUDE).forEach(function (se) {
-      reps = reps.concat(repsDe(seriesAuPalier(se)));
-    });
+    lus.filter(function (x) { return x.format === couple; })
+       .slice(-FENETRE_HABITUDE)
+       .forEach(function (x) { reps = reps.concat(repsDe(x.auPalier)); });
 
     var m = mediane(reps);
     return m === null ? null : Math.ceil(m);
@@ -535,6 +584,8 @@
 
   var api = {
     FENETRE_HABITUDE: FENETRE_HABITUDE,
+    FENETRE_COUPLE: FENETRE_COUPLE,
+    MAJORITE_COUPLE: MAJORITE_COUPLE,
     FENETRE_PAS_MOIS: FENETRE_PAS_MOIS,
     RECURRENCE_PAS: RECURRENCE_PAS,
     FACTEUR_COUPURE: FACTEUR_COUPURE,
@@ -551,6 +602,7 @@
     zoneRetenue: zoneRetenue,
     niveauValide: niveauValide,
     formatDe: formatDe,
+    coupleDe: coupleDe,
     // Le pont entre `THPalier.analyser` et `niveauValide` : l'un rend une
     // séance décrite, l'autre attend les seules séries au palier.
     seriesAuPalier: seriesAuPalier,

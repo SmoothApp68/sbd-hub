@@ -469,12 +469,79 @@
     return 'max';
   }
 
+  // §17.3 — LE RESSENTI, LU SUR LES MÊMES TROIS CRANS (19/09/2026).
+  //
+  // La saisie v2 pose un ressenti en reps restantes, EXCLUSIF du RPE : une
+  // série porte l'un ou l'autre, jamais les deux (`definirEffort`, seance.js).
+  // C'est la voie NORMALE, pas un cas de bord — sur 28 768 séries, 288
+  // seulement portent un RPE. Un moteur qui ne lit que le RPE lit donc 99 % des
+  // séries comme si personne n'y avait mis d'effort.
+  //
+  // La frontière est la même que celle des bandes du RPE : trois reps en
+  // réserve ou plus, c'est un RPE de 7 ou moins, donc `facile` ; « reste 0 » ne
+  // laisse plus rien, comme un RPE de 10, donc `max`. Entre les deux, `dur` —
+  // et `reste_2` comme `reste_1` y tombent, ce que le RPE distinguerait.
+  //
+  // ⚠️ LES QUATRE VALEURS SONT NOMMÉES ICI, ET C'EST UNE SECONDE LISTE APRÈS
+  // `THSeance.RESSENTIS`. Assumé, et voici pourquoi le §2 undecies ne s'y
+  // oppose pas :
+  //   · `palier.js` charge AVANT `seance.js` (index.html, 328 puis 331) : il ne
+  //     pourrait lire `RESSENTIS` qu'en différé, à l'appel ;
+  //   · c'est le SEUL module de la v2 sans aucune dépendance — une seule touche
+  //     à `racine`, l'export tout en bas — et c'est ce qui le rend testable
+  //     seul. Faire dépendre le moteur du modèle de l'écran de SAISIE
+  //     inverserait la flèche : l'écran lit le moteur, pas l'inverse.
+  //
+  // Ce que le §2 undecies interdit vraiment, ce n'est pas que deux listes
+  // existent, c'est qu'elles DÉRIVENT en silence. Un test l'en empêche : chaque
+  // valeur de `THSeance.RESSENTIS` doit trouver un cran ici, sinon il tombe.
+  var CRAN_DU_RESSENTI = {
+    reste_3_plus: 'facile',
+    reste_2: 'dur',
+    reste_1: 'dur',
+    reste_0: 'max'
+  };
+
+  // ── LE POINT UNIQUE : une SÉRIE donne un cran ────────────────────────────
+  //
+  // Tout ce qui a besoin du cran passe par ici — `repsComptees` juste en
+  // dessous, et demain le niveau validé (§9.2) et la preuve « effort facile »
+  // du réglage Franc (§9.8). Deux lectures de l'effort finiraient par se
+  // contredire sur la même série, et c'est exactement la famille de défauts que
+  // l'audit v1 a cataloguée.
+  //
+  // ⚠️ LE RPE L'EMPORTE quand une série porte les deux. Ça ne DOIT pas arriver
+  // — `definirEffort` met l'autre à `null` — mais une ligne importée ou une
+  // écriture concurrente peut le produire, et le silence serait pire que
+  // l'arbitrage. Le RPE gagne parce qu'il est plus précis : il sépare 8 de 9,5
+  // là où « reste 2 » et « reste 1 » tombent dans le même cran.
+  function cranDeSerie(serie) {
+    if (!serie) return null;
+    var parRPE = cranEffort(serie.rpe);
+    if (parRPE !== null) return parRPE;
+    // `hasOwnProperty` et pas une lecture directe : `ressenti` vient de la base,
+    // et `constructor` ou `__proto__` y rendraient une valeur qui n'est pas un
+    // cran. Même garde que `roleDuTag` et `gabaritDe`.
+    return Object.prototype.hasOwnProperty.call(CRAN_DU_RESSENTI, serie.ressenti)
+      ? CRAN_DU_RESSENTI[serie.ressenti] : null;
+  }
+
   // §17.4 — une série marquée `max` compte −1 rep POUR LA VALIDATION SEULEMENT.
   // Le nombre réel reste celui du volume, du tonnage et de l'estimation du max.
-  function repsComptees(reps, rpe) {
-    var r = nombre(reps);
+  // `max` se lit par le RPE ou par `reste_0`, sans distinction : c'est la même
+  // chose dite deux fois, « plus rien en réserve ».
+  //
+  // ⚠️ ELLE PREND LA SÉRIE, ET PLUS `(reps, rpe)` — changé le 19/09/2026. Le
+  // cran se lit sur DEUX champs qui s'excluent, et l'arbitrage entre eux (le
+  // RPE l'emporte) ne peut se faire qu'en les voyant tous les deux. Deux
+  // paramètres positionnels ne le permettaient pas sans en ajouter un
+  // troisième — qu'on finirait par passer dans le mauvais ordre, en silence,
+  // puisque `nombre()` rend `null` sur tout ce qu'il ne comprend pas. Un objet,
+  // une forme, et l'appel ne peut plus se tromper.
+  function repsComptees(serie) {
+    var r = nombre(serie && serie.reps);
     if (r === null) return null;
-    return cranEffort(rpe) === 'max' ? r - 1 : r;
+    return cranDeSerie(serie) === 'max' ? r - 1 : r;
   }
 
   // §9.2 — les deux premières séries atteignent la cible, les suivantes sont
@@ -482,14 +549,15 @@
   // représentatives de la maîtrise ; au-delà c'est une courbe de fatigue
   // normale, pas un défaut de maîtrise.
   //
-  // `series` : [{ reps, rpe }], DÉJÀ réduites aux séries au palier (le rang se
-  // compte au palier, pas sur l'exercice — §9.2).
+  // `series` : [{ reps, rpe }] ou [{ reps, ressenti }], DÉJÀ réduites aux
+  // séries au palier (le rang se compte au palier, pas sur l'exercice — §9.2).
+  // La règle ne change pas : elle hérite du point unique par `repsComptees`.
   function palierTenu(series, cible) {
     var liste = series || [];
     if (liste.length < 2) return { tenu: false, raison: 'moins de deux séries au palier' };
     var c = nombre(cible);
     for (var i = 0; i < liste.length; i++) {
-      var r = repsComptees(liste[i].reps, liste[i].rpe);
+      var r = repsComptees(liste[i]);
       var seuil = i < 2 ? c : c - 1;
       if (r === null || r < seuil) {
         return { tenu: false, raison: 'série ' + (i + 1) + ' : ' + r + ' comptée(s) < ' + seuil + ' requise(s)' };
@@ -526,6 +594,7 @@
     analyser: analyser,
     meilleureSerie: meilleureSerie,
     cranEffort: cranEffort,
+    cranDeSerie: cranDeSerie,
     repsComptees: repsComptees,
     palierTenu: palierTenu
   };

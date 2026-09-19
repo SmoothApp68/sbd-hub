@@ -9,6 +9,11 @@
 // prouverait rien. Le cas qui sépare est le TOP SET SUIVI DE BACK-OFFS.
 
 const P = require('../../v2/js/palier.js');
+// ⚠️ LE MODULE, LUI, NE DÉPEND DE RIEN — c'est SON TEST qui va chercher
+// `RESSENTIS` chez l'écran de saisie, pour vérifier que la table de crans de
+// `palier.js` ne dérive pas de la liste qui fait foi (§2 undecies). La flèche
+// de dépendance reste à l'endroit dans le code livré.
+const Seance = require('../../v2/js/seance.js');
 
 // Fabrique de séries, dans l'ordre où elles ont été faites.
 const s = (kg, reps, type, rpe) => ({ type_serie: type || 'travail', charge_kg: kg, reps: reps, rpe: rpe === undefined ? null : rpe });
@@ -497,11 +502,11 @@ describe('RECETTE §6.1 — le squat du 2 février 2026', () => {
 
   test('les trois séries sont au cran « dur », donc comptées pleines', () => {
     expect(SQUAT.map((x) => P.cranEffort(x.rpe))).toEqual(['dur', 'dur', 'dur']);
-    expect(SQUAT.map((x) => P.repsComptees(x.reps, x.rpe))).toEqual([4, 4, 4]);
+    expect(SQUAT.map((x) => P.repsComptees(x))).toEqual([4, 4, 4]);
   });
 
   test('TROIS séries sur trois atteignent la cible, et le palier est TENU', () => {
-    const comptees = SQUAT.filter((x) => P.repsComptees(x.reps, x.rpe) >= CIBLE).length;
+    const comptees = SQUAT.filter((x) => P.repsComptees(x) >= CIBLE).length;
     expect(comptees).toBe(3);
     expect(P.palierTenu(SQUAT, CIBLE).tenu).toBe(true);
   });
@@ -542,14 +547,114 @@ describe('RECETTE §6.1 — le squat du 2 février 2026', () => {
     expect(P.cranEffort(10)).toBe('max');
     expect(P.cranEffort(null)).toBeNull();
     // §17.4 : seul le cran « max » retire une rep, et seulement pour valider.
-    expect(P.repsComptees(4, 10)).toBe(3);
-    expect(P.repsComptees(4, 9.5)).toBe(4);
-    expect(P.repsComptees(4, null)).toBe(4);
+    // ⚠️ SIGNATURE CHANGÉE LE 19/09/2026 : `repsComptees` prend la SÉRIE.
+    // Les valeurs asserties ci-dessous sont EXACTEMENT celles d'avant.
+    expect(P.repsComptees({ reps: 4, rpe: 10 })).toBe(3);
+    expect(P.repsComptees({ reps: 4, rpe: 9.5 })).toBe(4);
+    expect(P.repsComptees({ reps: 4, rpe: null })).toBe(4);
   });
 
   test('moins de deux séries au palier : pas de verdict', () => {
     expect(P.palierTenu([{ reps: 5, rpe: null }], 5).tenu).toBe(false);
     expect(P.palierTenu([], 5).tenu).toBe(false);
+  });
+});
+
+// ── §17.3 — LE CRAN SE LIT AUSSI SUR UN RESSENTI (48b-1) ───────────────────
+//
+// CONFIGURATION DISCRIMINANTE (`CADRAGE-V2` §2 quater) : une série qui porte un
+// RESSENTI et pas de RPE. Sur une série à RPE, l'ancienne lecture et la nouvelle
+// donnent le même cran et le banc ne prouverait rien — c'est d'ailleurs ce que
+// vérifie la non-régression du squat du 2 février, plus bas.
+//
+// Ce que l'ancien code faisait, mesuré avant d'écrire la correction :
+//   cranEffort('reste_0')                  -> null   (et non 'max')
+//   repsComptees(5, 'reste_0')             -> 5      (et non 4)
+//   palierTenu([5 reste_1, 5 reste_0], 5)  -> TENU   (et non « pas encore »)
+// La dernière est la seule qui compte vraiment : l'app affirmait qu'un palier
+// était tenu le jour où la dernière série était allée à l'échec.
+describe('§17.3 — le cran d’effort lit le ressenti autant que le RPE', () => {
+  test('les quatre ressentis tombent sur leurs crans', () => {
+    expect(P.cranDeSerie({ ressenti: 'reste_3_plus' })).toBe('facile');
+    expect(P.cranDeSerie({ ressenti: 'reste_2' })).toBe('dur');
+    expect(P.cranDeSerie({ ressenti: 'reste_1' })).toBe('dur');
+    expect(P.cranDeSerie({ ressenti: 'reste_0' })).toBe('max');
+  });
+
+  test('NON-RÉGRESSION — les bandes du RPE ne bougent pas d’un cran', () => {
+    expect(P.cranDeSerie({ rpe: 7 })).toBe('facile');
+    expect(P.cranDeSerie({ rpe: 7.5 })).toBe('facile');
+    expect(P.cranDeSerie({ rpe: 8 })).toBe('dur');
+    expect(P.cranDeSerie({ rpe: 9.5 })).toBe('dur');
+    expect(P.cranDeSerie({ rpe: 10 })).toBe('max');
+  });
+
+  test('sans effort saisi, ou avec un ressenti inconnu : aucun cran, jamais une hypothèse', () => {
+    expect(P.cranDeSerie({ reps: 5 })).toBeNull();
+    expect(P.cranDeSerie({ rpe: null, ressenti: null })).toBeNull();
+    expect(P.cranDeSerie({ ressenti: 'reste_4' })).toBeNull();
+    expect(P.cranDeSerie(null)).toBeNull();
+    // La table est interrogée par `hasOwnProperty` : ce qui vient de la base ne
+    // doit jamais atteindre la chaîne de prototypes. Sans cette garde, ces deux
+    // clés rendent un objet — qui n'est pas un cran, et que le `=== 'max'` de
+    // `repsComptees` laisserait passer pour « pas max » sans rien signaler.
+    expect(P.cranDeSerie({ ressenti: 'constructor' })).toBeNull();
+    expect(P.cranDeSerie({ ressenti: '__proto__' })).toBeNull();
+  });
+
+  test('DISCRIMINANT — une série qui porte les deux : le RPE l’emporte', () => {
+    // Ne doit pas arriver (`definirEffort` met l'autre à `null`), mais une
+    // ligne importée peut le produire, et le RPE est le plus précis des deux.
+    expect(P.cranDeSerie({ rpe: 10, ressenti: 'reste_3_plus' })).toBe('max');
+    // Et dans l'autre sens, pour que le test ne passe pas par accident : sans
+    // le RPE, la même série rendrait 'facile'.
+    expect(P.cranDeSerie({ rpe: null, ressenti: 'reste_3_plus' })).toBe('facile');
+  });
+
+  test('§17.4 — « reste 0 » retire une rep, exactement comme un RPE de 10', () => {
+    expect(P.repsComptees({ reps: 5, ressenti: 'reste_0' })).toBe(4);
+    expect(P.repsComptees({ reps: 5, ressenti: 'reste_1' })).toBe(5);
+    expect(P.repsComptees({ reps: 5, rpe: 10 })).toBe(4);
+    // Sans reps, rien à compter — et surtout pas un zéro inventé.
+    expect(P.repsComptees({ ressenti: 'reste_0' })).toBeNull();
+    expect(P.repsComptees(null)).toBeNull();
+  });
+
+  test('DISCRIMINANT — le palier n’est PAS tenu quand la dernière série va à l’échec', () => {
+    // Cible 5, deux séries de 5 : la seconde est allée à l'échec, elle compte 4.
+    // L'ancien code rendait `tenu: true` — il affirmait qu'on avait tenu le
+    // palier le jour où l'on s'était vidé dessus.
+    const r = P.palierTenu([{ reps: 5, ressenti: 'reste_1' },
+                            { reps: 5, ressenti: 'reste_0' }], 5);
+    expect(r.tenu).toBe(false);
+    expect(r.raison).toContain('série 2');
+    // Contre-épreuve : la même paire sans l'échec est tenue. Sans elle, le test
+    // ci-dessus passerait aussi si `palierTenu` refusait tout.
+    expect(P.palierTenu([{ reps: 5, ressenti: 'reste_1' },
+                         { reps: 5, ressenti: 'reste_1' }], 5).tenu).toBe(true);
+  });
+
+  test('NON-RÉGRESSION — le squat du 2 février reste TENU (§17.3)', () => {
+    const SQUAT = [{ reps: 4, rpe: 8.5 }, { reps: 4, rpe: 9.5 }, { reps: 4, rpe: 9.5 }];
+    expect(SQUAT.map((x) => P.cranDeSerie(x))).toEqual(['dur', 'dur', 'dur']);
+    expect(P.palierTenu(SQUAT, 4).tenu).toBe(true);
+  });
+
+  // ⚠️ LE TEST QUI EMPÊCHE LES DEUX LISTES DE DÉRIVER (§2 undecies).
+  //
+  // `palier.js` nomme les quatre ressentis une seconde fois, parce qu'il charge
+  // AVANT `seance.js` et qu'il est le seul module sans dépendance. Le prix de ce
+  // choix est ici : ajouter une valeur à `THSeance.RESSENTIS` sans lui donner de
+  // cran fait tomber ce test, au lieu de rendre `null` en silence sur une série
+  // que le moteur lirait alors comme sans effort.
+  test('chaque valeur de THSeance.RESSENTIS a un cran dans palier.js', () => {
+    expect(Seance.RESSENTIS.length).toBeGreaterThan(0);
+    const sansCran = Seance.RESSENTIS.filter((r) => P.cranDeSerie({ ressenti: r }) === null);
+    expect(sansCran).toEqual([]);
+    // Et l'inverse : aucun cran rendu qui ne soit l'un des trois.
+    Seance.RESSENTIS.forEach((r) => {
+      expect(['facile', 'dur', 'max']).toContain(P.cranDeSerie({ ressenti: r }));
+    });
   });
 });
 

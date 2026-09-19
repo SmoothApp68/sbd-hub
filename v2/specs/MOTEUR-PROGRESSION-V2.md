@@ -1281,6 +1281,18 @@ Deux raisons de placer 9,5 dans `dur` :
 
 Rien n'est perdu pour autant : la valeur exacte reste stockée à côté du cran. Le cran pilote l'algorithme, la valeur brute permettra de vérifier plus tard — via la table de prédictions — si la pénalité aurait mieux fait.
 
+#### Le ressenti, lu en crans — 19/09/2026
+
+L'écran de saisie propose aussi un **ressenti** en reps restantes, exclusif du RPE : une série porte l'un ou l'autre, jamais les deux. C'est la voie normale de la saisie v2 — sur 28 768 séries, 288 seulement portent un RPE. Il se lit sur les mêmes trois crans :
+
+| Ressenti | Cran |
+|---|---|
+| reste 3 ou plus (`reste_3_plus`) | `facile` |
+| reste 2 (`reste_2`), reste 1 (`reste_1`) | `dur` |
+| reste 0 (`reste_0`) | `max` — une rep de moins pour le niveau validé (§9.2, §17.4) |
+
+Même frontière que les bandes du RPE : trois reps en réserve ou plus, c'est un RPE de 7 ou moins ; « reste 0 » ne laisse plus rien, comme un RPE de 10. **Un seul endroit du code traduit une série en cran**, qu'elle porte un RPE ou un ressenti ; tout ce qui a besoin du cran (le niveau validé, la preuve « effort facile » du réglage Franc, §9.8) passe par lui.
+
 ### 17.4 Mécanique
 
 Le champ se met en surbrillance **30 secondes après la validation de la série**, pendant le repos — l'utilisateur est lucide et n'est plus sous la barre. Tapable avant s'il veut. Un tap. Aucun blocage si ignoré : l'app **ne suppose rien** et applique la validation normale sur les reps brutes.

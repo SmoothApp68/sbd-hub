@@ -182,6 +182,7 @@ table.dico{border-collapse:collapse;width:100%;min-width:760px;font-size:14px}
 .aparte{font-size:12px;color:var(--texte-3);padding:10px 12px 0}
 .etats-puce{display:flex;gap:12px;align-items:center;margin:6px 0 14px;flex-wrap:wrap}
 .nouveau{display:inline-block;font-size:11px;font-weight:650;color:var(--texte);border:1px solid var(--texte-3);border-radius:4px;padding:0 6px;margin-left:6px;vertical-align:1px}
+.dico .sous.gris{color:var(--texte-3);font-style:normal}
 </style>
 </head>
 <body>
@@ -469,6 +470,47 @@ table.dico{border-collapse:collapse;width:100%;min-width:760px;font-size:14px}
     <tr><td class="moment">menu</td><td>zone de travail</td><td class="phrase">« D'après tes 8 dernières séances : 4 reps d'habitude. »<span class="sous">« La consigne se recalcule dès que tu changes de zone. »</span></td></tr>
     <tr><td class="moment">profil</td><td>rythme</td><td class="phrase">Prudent : « Monte quand toutes tes séries touchent le haut de ta zone, deux séances de suite. »<span class="sous">Normal : « Monte quand tes deux premières séries touchent le haut de ta zone. » Franc : « Dès qu'une série touche le haut de ta zone, la charge monte, et deux crans d'un coup quand tu dépasses nettement. »</span></td></tr>
     <tr class="jamais"><td class="moment">jamais</td><td>durée d'absence, délai, rouge, échec, assiduité, « ça a marché pour toi »</td><td class="phrase">—</td></tr>
+  </tbody>
+</table>
+</div>
+
+
+<h2>L'en-tête, état par état — pour 48b-5b</h2>
+<p class="intro">Chaque état que rend <code>consignePour</code>, avec ce que l'en-tête affiche en jaune et sa phrase grise. Les phrases marquées « validé le 19/09 » sont nées de l'échelle, validées comme première version — on les réécrira à l'usage ; les autres viennent des vignettes et du dictionnaire ci-dessus.
+<b>Ordre des deux lignes</b> : quand une seule série porte la nouvelle charge, le palier vient d'abord (« puis … en dernière série ») ; quand elle en porte plusieurs, la ligne majoritaire passe devant (« et … sur la première », « sur les 2 premières »). <b>Une phrase grise au plus</b> ; la note de la série à fond ne remplace que « une de plus ». Dans « rejoindra … quand tu y feras 4 », le chiffre vaut le bas + 1 en Normal et en Franc, le haut en Prudent. « On le retestera au haut de ta zone » ne se dit que si le test raté valait un seul cran.</p>
+<div class="defile">
+<table class="dico">
+  <thead><tr><th>État</th><th>Situation</th><th>L'en-tête dit (jaune, puis gris)</th></tr></thead>
+  <tbody>
+    <tr><td class="moment">progression</td><td>pas encore au haut de la zone</td><td class="phrase">« 125 kg, vise 5 »<span class="sous gris">« 4-4-4 le 15 sept. : une de plus. »</span></td></tr>
+    <tr><td class="moment">progression</td><td>une série à fond la dernière fois</td><td class="phrase">« 150 kg, vise 8 »<span class="sous gris">« Ta 2ᵉ série, 150 × 8, était à RPE 10 : elle compte pour 7. »</span></td></tr>
+    <tr><td class="moment">progression</td><td>test raté, niveau sous le haut</td><td class="phrase">« 88 kg, vise 11 »<span class="sous gris">« 92 × 6 le 12 sept. : pas encore dans ta zone. On le retestera au haut de ta zone. »</span></td></tr>
+    <tr><td class="moment">test_propose</td><td>niveau au haut : test d'un cran</td><td class="phrase">« 30 kg, vise 12 »<span class="sous">« puis 32,5 kg en dernière série, vise 10 »</span><span class="sous gris">« 12-12-12 le 10 sept., le haut de ta zone : on teste le cran du dessus. »</span></td></tr>
+    <tr><td class="moment">test_propose</td><td>Franc, avec preuve : deux crans <span class="nouveau">validé le 19/09</span></td><td class="phrase">« 125 kg, vise 5 »<span class="sous">« puis 130 kg en dernière série, vise 3 »</span><span class="sous gris">« 8-5-5 le 15 sept., le haut dépassé de 3 : on teste deux crans au-dessus. »</span></td></tr>
+    <tr><td class="moment">test_propose</td><td>le pas de la salle est inconnu <span class="nouveau">validé le 19/09</span></td><td class="phrase">« 40 kg, vise 12 »<span class="sous">« puis le cran au-dessus en dernière série, vise 10 »</span><span class="sous gris">« 12-12-12 le 10 sept., le haut de ta zone : on teste le cran du dessus. »</span></td></tr>
+    <tr><td class="moment">garde</td><td>test tombé au bas de la zone</td><td class="phrase">« 125 kg, vise 5 »<span class="sous">« puis 130 kg en dernière série, vise 4 »</span><span class="sous gris">« Ton test à 130 du 15 sept. est tombé au bas de ta zone : on le garde sur la dernière série. »</span></td></tr>
+    <tr><td class="moment">etend</td><td>test entré dans la zone <span class="nouveau">validé le 19/09</span></td><td class="phrase">« 130 kg sur 2 séries, vise 4 »<span class="sous">« et 125 kg sur la première, vise 5 »</span><span class="sous gris">« Ton test à 130 du 15 sept. est entré dans ta zone : il gagne une série. »</span></td></tr>
+    <tr><td class="moment">rejoint</td><td>après la bascule, la dernière série restée rejoint <span class="nouveau">validé le 19/09</span></td><td class="phrase">« 130 kg, vise 4 »<span class="sous gris">« Ta première série rejoint 130. »</span></td></tr>
+    <tr><td class="moment">attend</td><td>après la bascule, la série restée attend <span class="nouveau">validé le 19/09</span></td><td class="phrase">« 130 kg sur 2 séries, vise 4 »<span class="sous">« et 125 kg sur la première, vise 5 »</span><span class="sous gris">« Ta première série rejoindra 130 quand tu y feras 4. »</span></td></tr>
+    <tr><td class="moment">tout_passe</td><td>Franc : le test a touché le haut <span class="nouveau">validé le 19/09</span></td><td class="phrase">« 92,5 kg, vise 12 »<span class="sous gris">« Ton test à 92,5 du 15 sept. a touché le haut de ta zone : tout passe. »</span></td></tr>
+    <tr><td class="moment">retest_un_cran</td><td>test raté à deux crans <span class="nouveau">validé le 19/09</span></td><td class="phrase">« 125 kg, vise 5 »<span class="sous">« puis 127,5 kg en dernière série, vise 3 »</span><span class="sous gris">« 130 × 2 le 15 sept. : pas encore dans ta zone. On reteste d'un seul cran. »</span></td></tr>
+    <tr><td class="moment">etirement</td><td>test raté, cran impossible à réduire</td><td class="phrase">« 28 kg, vise 13 »<span class="sous gris">« Ton cran ne peut pas être plus petit : ta zone s'étire. On retestera 32 quand tu feras 16 à 28. »</span></td></tr>
+    <tr><td class="moment">retest</td><td>les reps perdues sont regagnées <span class="nouveau">validé le 19/09</span></td><td class="phrase">« 28 kg, vise 16 »<span class="sous">« puis 32 kg en dernière série, vise 10 »</span><span class="sous gris">« 16 à 28 : on retente 32. »</span></td></tr>
+    <tr><td class="moment">reprise_courte</td><td>coupure de plus de 3 fois l'écart habituel</td><td class="phrase">« 125 kg, vise 5 »<span class="sous gris">« On reprend à ton dernier palier, sans rep de plus. »</span></td></tr>
+    <tr><td class="moment">reprise_longue</td><td>coupure de plus de 12 semaines</td><td class="phrase">« 122,5 kg, vise 5 »<span class="sous gris">« On reprend un cran sous ton dernier palier, 125 kg. Le test te ramènera à 125. »</span></td></tr>
+    <tr><td class="moment">bord</td><td>sous 3 reps d'habitude <span class="nouveau">validé le 19/09</span></td><td class="phrase">« 152,5 kg, vise 2 »<span class="sous gris">« Sous 3 reps, pas une de plus : le cran au-dessus, aux mêmes reps. »</span></td></tr>
+    <tr><td class="moment">silence</td><td>exercice jamais fait</td><td class="phrase">—<span class="sous gris">« Première fois ici. Ce que tu notes aujourd'hui servira de départ. »</span></td></tr>
+    <tr><td class="moment">silence</td><td>pas de palier la dernière fois</td><td class="phrase">—<span class="sous gris">« Pas de palier le 14 sept. : 54,3, 59 puis 61,3 kg, aucune charge répétée. Rien à proposer. »</span></td></tr>
+    <tr><td class="moment">garde</td><td>Prudent : test dans la zone, pas encore au haut <span class="nouveau">variante, 19/09</span></td><td class="phrase">« 125 kg, vise 5 »<span class="sous">« puis 130 kg en dernière série, vise 5 »</span><span class="sous gris">« Ton test à 130 du 13 sept. est entré dans ta zone : on le garde sur la dernière série jusqu'à 5. »</span></td></tr>
+    <tr><td class="moment">etend</td><td>test au haut (Prudent, ou Franc en zone Lourd) <span class="nouveau">variante, 19/09</span></td><td class="phrase">« 130 kg sur 2 séries, vise 5 »<span class="sous">« et 125 kg sur la première, vise 5 »</span><span class="sous gris">« Ton test à 130 du 13 sept. a touché le haut de ta zone : il gagne une série. »</span></td></tr>
+    <tr><td class="moment">etend</td><td>plus de deux séries sous la nouvelle charge <span class="nouveau">variante, 19/09</span></td><td class="phrase">« 130 kg sur 2 séries, vise 4 »<span class="sous">« et 125 kg sur les 3 premières, vise 5 »</span><span class="sous gris">« Ton test à 130 du 13 sept. est entré dans ta zone : il gagne une série. »</span></td></tr>
+    <tr><td class="moment">rejoint</td><td>il reste d'autres séries à l'ancien palier <span class="nouveau">variante, 19/09</span></td><td class="phrase">« 130 kg sur 3 séries, vise 4 »<span class="sous">« et 125 kg sur la première, vise 5 »</span><span class="sous gris">« Une série de plus rejoint 130. »</span></td></tr>
+    <tr><td class="moment">attend</td><td>plusieurs séries restées <span class="nouveau">variante, 19/09</span></td><td class="phrase">« 130 kg sur 2 séries, vise 4 »<span class="sous">« et 125 kg sur les 2 premières, vise 5 »</span><span class="sous gris">« Tes premières séries rejoindront 130 une à une, quand tu y feras 4. »</span></td></tr>
+    <tr><td class="moment">tout_passe</td><td>Franc, après la bascule : pas de test dans la dernière séance <span class="nouveau">variante, 19/09</span></td><td class="phrase">« 92,5 kg, vise 12 »<span class="sous gris">« 12-12 le 13 sept., le haut de ta zone : tout passe à 92,5. »</span></td></tr>
+    <tr><td class="moment">test_propose</td><td>Franc, preuve par l'effort facile <span class="nouveau">variante, 19/09</span></td><td class="phrase">« 125 kg, vise 5 »<span class="sous">« puis 130 kg en dernière série, vise 3 »</span><span class="sous gris">« 5-5-5 le 13 sept., avec de la marge : on teste deux crans au-dessus. »</span></td></tr>
+    <tr><td class="moment">progression</td><td>une série à fond, notée « reste 0 » sans RPE <span class="nouveau">variante, 19/09</span></td><td class="phrase">« 125 kg, vise 5 »<span class="sous gris">« Ta 2ᵉ série, 125 × 5, était à fond : elle compte pour 4. »</span></td></tr>
+    <tr><td class="moment">progression</td><td>test raté de deux crans : pas d'annonce de retest <span class="nouveau">variante, 19/09</span></td><td class="phrase">« 125 kg, vise 5 »<span class="sous gris">« 130 × 2 le 13 sept. : pas encore dans ta zone. »</span></td></tr>
+    <tr class="jamais"><td class="moment">rien</td><td>Entretenir, reps seules, temps, distance</td><td class="phrase">—</td></tr>
   </tbody>
 </table>
 </div>

@@ -12,6 +12,11 @@
 // mesurées en exécutant les variantes sur les mêmes données.
 
 require('../../v2/js/palier.js');          // `moteur.js` lit `THPalier`
+// `moteur.js` lit AUSSI `THModele` (la virgule décimale des phrases, §3.12).
+// Le `require` suffit depuis que `modele.js` retombe sur `globalThis` — avant
+// ce commit il retombait sur `this`, `undefined` en mode strict sous Jest, et
+// le module était inchargeable ici. L'ordre reproduit celui d'`index.html`.
+require('../../v2/js/modele.js');
 const M = require('../../v2/js/moteur.js');
 const P = require('../../v2/js/palier.js');
 
@@ -1031,7 +1036,7 @@ describe('§9.13 — la consigne, en calcul pur', () => {
     ['pas une date', null, ''].forEach((coupure) => {
       expect(M.consignePour(n1.seances, coupure,
         { reglage: 'normal', equipement: 'barre' }))
-        .toEqual({ etat: 'silence', raison: 'premiere_fois' });
+        .toEqual({ etat: 'silence', raison: 'premiere_fois', fondement: {} });
     });
   });
 
@@ -1043,9 +1048,12 @@ describe('§9.13 — la consigne, en calcul pur', () => {
       series: [{ charge_kg: 100, reps: 5, rpe: null, role: 'constructor' },
                { charge_kg: 100, reps: 5, rpe: null, role: '__proto__' }]
     };
+    // ⚠️ LE FONDEMENT LE PROUVE MIEUX QUE L'ÉTAT : `charges` est VIDE, donc
+    // ni `constructor` ni `__proto__` n'est entré dans les votantes.
     expect(M.consignePour([seance], '2026-09-20T10:00:00+00:00',
       { reglage: 'normal', equipement: 'barre' }))
-      .toEqual({ etat: 'silence', raison: 'pas_de_palier' });
+      .toEqual({ etat: 'silence', raison: 'pas_de_palier',
+                 fondement: { date: '2026-09-13T18:00:00+00:00', charges: [] } });
   });
 
   // ── CE QUE LES 29 CAS NE TOUCHENT PAS ────────────────────────────────────
@@ -1169,6 +1177,140 @@ describe('§9.13 — la consigne, en calcul pur', () => {
     // rendrait `progression` et « vise 1 » — une consigne inventée.
     const s = [seance('2026-09-13T18:00:00+00:00', 100,
       serie(100, null, 'palier'), serie(100, 5, 'palier'))];
-    expect(pour(s, 'normal', 'barre')).toEqual({ etat: 'silence', raison: 'pas_de_palier' });
+    expect(pour(s, 'normal', 'barre')).toEqual({
+      etat: 'silence', raison: 'pas_de_palier',
+      fondement: { date: '2026-09-13T18:00:00+00:00', charges: [100] }
+    });
+    // Et la phrase le dit sans inventer de reps : « 100 kg, aucune charge répétée ».
+    expect(M.libellesConsigne(pour(s, 'normal', 'barre')))
+      .toEqual({ jaune: [],
+                 gris: 'Pas de palier le 13\u00a0sept.\u00a0: 100\u00a0kg, aucune charge répétée. Rien à proposer.' });
+  });
+});
+
+// ── ECRAN-SAISIE §3.12 — LE FONDEMENT ET LES PHRASES ───────────────────────
+//
+// ⚠️ C'EST LE FICHIER QUI FAIT FOI, comme pour 48b-5a-2. `consigne-48b5b1.json`
+// reprend les 29 cas de la référence et en ajoute dix, chacun apportant la
+// SECONDE BRANCHE d'une règle de rédaction — sans quoi une mutation qui
+// retourne la règle survivrait. Le test rejoue, il ne redit pas la règle.
+//
+// Deux vérifications par cas, et elles sont distinctes :
+//   · le FONDEMENT, clé pour clé — y compris les clés ABSENTES. « Une clé n'y
+//     figure que lorsqu'elle a un sens » (§9.13) : un fondement qui porterait
+//     toujours `palierPrecedent`, parfois nul, passerait un `toEqual` indulgent
+//     et obligerait chaque lecteur à retrancher les cas.
+//   · les PHRASES, octet pour octet. Les espaces insécables en font partie.
+describe('§9.13 / ECRAN-SAISIE §3.12 — le fondement et les phrases', () => {
+  const CAS = require('./fixtures/consigne-48b5b1.json');
+  const NB = ' ';
+  const pour = (c) => M.consignePour(c.seances, c.avant,
+    { reglage: c.reglage, equipement: c.equipement, correction: null });
+
+  // Les deux branches de chaque règle de rédaction (prompt 48b-5b-1 §3.4).
+  // Si le fichier perd un de ces cas, la mutation correspondante redevient
+  // inkillable — et ce test tombe avant elle.
+  const BRANCHES = [
+    ['ordre des lignes',                    ['N3'],        ['N4', 'X3']],
+    ['« la première » ou « les m premières »', ['N4'],     ['X3', 'X4']],
+    ['annonce du retest à un seul cran',    ['X7'],        ['X8']],
+    ['garde au bas ou dans la zone',        ['N3'],        ['P3']],
+    ['étend depuis la zone ou depuis le haut', ['N4'],     ['P4', 'F6']],
+    ['seuil de l’attente selon le réglage', ['N6'],        ['P5']],
+    ['une ou plusieurs séries restées',     ['N5', 'N6'],  ['X9', 'X4']],
+    ['tout passe avec ou sans test',        ['F5'],        ['X5']],
+    ['preuve par le haut ou par l’effort',  ['F2'],        ['F4b']],
+    ['série à fond : RPE ou ressenti, 1re ou 2\u1d49', ['X1'], ['X6', 'X10']],
+    ['charge connue ou « le cran au-dessus »', ['N2'],     ['X2']]
+  ];
+
+  test('le fichier porte les DEUX branches de chaque règle de rédaction', () => {
+    const ids = new Set(CAS.map((c) => c.id));
+    BRANCHES.forEach(([regle, oui, non]) => {
+      oui.concat(non).forEach((id) => {
+        expect([regle, id, ids.has(id)]).toEqual([regle, id, true]);
+      });
+    });
+    // Tous les états du §9.13 sont représentés : un état sans cas est un état
+    // dont la phrase n'a jamais été jouée.
+    const etats = new Set(CAS.map((c) => c.attendu.etat));
+    ['progression', 'test_propose', 'garde', 'etend', 'rejoint', 'attend', 'tout_passe',
+     'retest_un_cran', 'etirement', 'retest', 'reprise_courte', 'reprise_longue',
+     'bord', 'silence'].forEach((e) => expect([e, etats.has(e)]).toEqual([e, true]));
+  });
+
+  CAS.forEach((c) => {
+    test(`${c.id} — ${c.titre} (${c.reglage})`, () => {
+      const rendu = pour(c);
+      // Les clés d'abord : c'est l'ABSENCE qui porte le sens.
+      expect(Object.keys(rendu.fondement).sort()).toEqual(Object.keys(c.fondement).sort());
+      expect(rendu.fondement).toEqual(c.fondement);
+      expect(M.libellesConsigne(rendu)).toEqual(c.phrases);
+    });
+  });
+
+  // ── Ce que le fichier ne couvre pas ──────────────────────────────────────
+
+  test('DISCRIMINANT — les mois abrégés suivent `Calendrier.MOIS`, un pour un', () => {
+    // Seconde liste assumée (l'abréviation ne se dérive pas : « mars » n'a pas
+    // de point, « févr. » en a un). Ce qui est interdit, c'est qu'elles
+    // DÉRIVENT : même longueur, même ordre, chaque abrégé préfixe son mois.
+    const Calendrier = require('../../v2/js/calendrier.js');
+    expect(M.MOIS_COURTS).toHaveLength(Calendrier.MOIS.length);
+    M.MOIS_COURTS.forEach((court, i) => {
+      const entier = Calendrier.MOIS[i];
+      expect([i, entier.startsWith(court.replace('.', ''))]).toEqual([i, true]);
+    });
+    expect(M.MOIS_COURTS[8]).toBe('sept.');
+  });
+
+  test('DISCRIMINANT — une charge inconnue se dit « en dessous » à la reprise longue', () => {
+    // Le rang 4 du §10.2 : le moteur sait qu'il faut descendre d'un cran, pas
+    // de combien. Une machine sans historique au-dessous ne donne rien — et la
+    // phrase le dit plutôt que d'inventer. « au-dessus » ici serait un contresens.
+    const s = (d, kg, reps) => ({ debut: d, palier: kg,
+      series: [1, 2, 3].map(() => ({ charge_kg: kg, reps: reps, rpe: null, role: 'palier' })) });
+    const loin = [s('2026-01-05T18:00:00+00:00', 100, 5),
+                  s('2026-01-12T18:00:00+00:00', 100, 5),
+                  s('2026-01-19T18:00:00+00:00', 100, 5)];
+    const r = M.consignePour(loin, '2026-09-20T10:00:00+00:00',
+      { reglage: 'normal', equipement: 'machine', correction: null });
+    expect(r.etat).toBe('reprise_longue');
+    expect(r.ligne).toEqual({ charge: null, vise: 5 });
+    expect(M.libellesConsigne(r).jaune).toEqual(['Le cran en dessous, vise 5']);
+  });
+
+  test('DISCRIMINANT — et « Le cran au-dessus » en tête de ligne à la règle de bord', () => {
+    const s = (d, kg) => ({ debut: d, palier: kg,
+      series: [1, 2, 3].map(() => ({ charge_kg: kg, reps: 2, rpe: null, role: 'palier' })) });
+    const maximaux = [s('2026-08-30T18:00:00+00:00', 100), s('2026-09-06T18:00:00+00:00', 100),
+                      s('2026-09-13T18:00:00+00:00', 100)];
+    const r = M.consignePour(maximaux, '2026-09-20T10:00:00+00:00',
+      { reglage: 'normal', equipement: 'machine', correction: null });
+    expect(r.etat).toBe('bord');
+    expect(r.ligne).toEqual({ charge: null, vise: 2 });
+    expect(M.libellesConsigne(r).jaune).toEqual(['Le cran au-dessus, vise 2']);
+    expect(M.libellesConsigne(r).gris)
+      .toBe('Sous 3 reps, pas une de plus' + NB + ': le cran au-dessus, aux mêmes reps.');
+  });
+
+  test('DISCRIMINANT — les espaces insécables sont bien U+00A0, pas des espaces ordinaires', () => {
+    // Un espace ordinaire entre « 127,5 » et « kg » coupe la charge en deux en
+    // bout de ligne à 360 px. Le test le voit ; l'œil, sur une maquette, non.
+    const n2 = CAS.find((c) => c.id === 'N2');
+    const p = M.libellesConsigne(pour(n2));
+    expect(p.jaune[0]).toBe('125' + NB + 'kg, vise 5');
+    expect(p.jaune[1]).toBe('puis 127,5' + NB + 'kg en dernière série, vise 3');
+    expect(p.gris).toContain('le 13' + NB + 'sept.,');
+    expect(p.gris).toContain('ta zone' + NB + ': on teste');
+    // Contre-épreuve : aucune de ces chaînes ne porte l'espace ORDINAIRE au
+    // même endroit.
+    expect(p.jaune[0]).not.toContain('125 kg');
+    const n7 = CAS.find((c) => c.id === 'N7');
+    expect(M.libellesConsigne(pour(n7)).gris).toContain('130' + NB + '×' + NB + '2');
+  });
+
+  test('sans consigne, la fonction rend des libellés vides plutôt que de casser', () => {
+    expect(M.libellesConsigne(null)).toEqual({ jaune: [], gris: '' });
   });
 });

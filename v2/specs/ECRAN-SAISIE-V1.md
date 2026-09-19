@@ -494,6 +494,8 @@ date de la dernière séance reste lisible dans la feuille « Pourquoi ».
 `maquette-moteur-parle-v2.html`, qui remplace la v1 et reprend celles de ses phrases
 qui tiennent toujours. Toute nouvelle phrase s'y ajoute avant d'entrer dans le code.
 
+**Précisé le 19/09/2026 (48b-5b-1).** Le tableau « L'en-tête, état par état » de la maquette donne, pour chaque état que rend `consignePour`, ce que l'en-tête affiche en jaune et sa phrase grise, avec leurs variantes. Trois règles de rédaction : **une seule phrase grise** par en-tête ; **la ligne jaune qui porte le plus de séries vient d'abord** (« 130 kg sur 2 séries, vise 4 », puis « et 125 kg sur la première, vise 5 »), sauf quand une seule série porte la nouvelle charge (« 125 kg, vise 5 », puis « puis 130 kg en dernière série, vise 4 ») ; « On le retestera au haut de ta zone » **ne se dit que si le test raté valait un seul cran**. Les phrases se fabriquent à partir du fondement de la consigne (MOTEUR §9.13), jamais en recalculant une règle du moteur.
+
 ---
 
 ## 4. Profil de travail déclaré

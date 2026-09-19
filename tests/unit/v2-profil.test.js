@@ -356,3 +356,90 @@ describe('test 6 — un profil vide est un ÉTAT, pas une erreur', () => {
     expect(Profil.manquants({ niveau_declare: null })).toContain('niveau_declare');
   });
 });
+
+
+// ── MOTEUR §9.8 — LE RÉGLAGE DE RYTHME (48b-4) ─────────────────────────────
+describe('le réglage de rythme — une seule table, et la garde d’écriture', () => {
+  test('la garde blanche laisse passer `rythme_progression`', () => {
+    // Sans elle, le choix ne partirait jamais en base : `champsEcrits` est une
+    // liste BLANCHE, donc tout ce qui n'y figure pas est silencieusement jeté.
+    expect(Profil.champsEcrits({ rythme_progression: 'franc' }))
+      .toEqual({ rythme_progression: 'franc' });
+    // Et elle ne laisse toujours pas passer ce qui n'est pas à nous.
+    expect(Profil.champsEcrits({ rythme_progression: 'franc', is_admin: true, tier: 'premium' }))
+      .toEqual({ rythme_progression: 'franc' });
+  });
+
+  test('les trois clés, et rien d’autre — ce sont celles de `v2_046`', () => {
+    expect(Profil.RYTHMES.map((r) => r.cle)).toEqual(['prudent', 'normal', 'franc']);
+    expect(Profil.RYTHME_DEFAUT).toBe('normal');
+    // Le défaut est l'une des trois : un défaut hors liste afficherait un
+    // sélecteur sans bouton actif.
+    expect(Profil.RYTHMES.map((r) => r.cle)).toContain(Profil.RYTHME_DEFAUT);
+  });
+
+  test('chaque rythme a SA phrase, et les trois sont distinctes', () => {
+    const phrases = Profil.RYTHMES.map((r) => r.phrase);
+    phrases.forEach((ph) => {
+      expect(typeof ph).toBe('string');
+      expect(ph.length).toBeGreaterThan(20);
+    });
+    expect(new Set(phrases).size).toBe(3);
+  });
+
+  test('DISCRIMINANT — `phraseRythme` rend la phrase de la clé demandée', () => {
+    expect(Profil.phraseRythme('prudent')).toContain('deux séances de suite');
+    expect(Profil.phraseRythme('normal')).toContain('deux premières séries');
+    expect(Profil.phraseRythme('franc')).toContain('pour son compte');
+    // Deux phrases permutées feraient tomber deux de ces trois lignes.
+    expect(Profil.phraseRythme('prudent')).not.toBe(Profil.phraseRythme('normal'));
+  });
+
+  test('une clé inconnue, ou absente, rend la phrase du défaut', () => {
+    expect(Profil.phraseRythme('turbo')).toBe(Profil.phraseRythme('normal'));
+    expect(Profil.phraseRythme(null)).toBe(Profil.phraseRythme('normal'));
+    expect(Profil.phraseRythme(undefined)).toBe(Profil.phraseRythme('normal'));
+  });
+
+  test('DISCRIMINANT — `sectionRythme` n’existe pas en Entretenir', () => {
+    // La règle vit ici, et c'est ce qui la rend vérifiable : dans `app.js`,
+    // aucune mutation de cette condition ne faisait tomber un test.
+    expect(Profil.sectionRythme({ intention: 'entretien' }, () => {})).toBeNull();
+    expect(Profil.sectionRythme({ intention: 'entretien', rythme_progression: 'franc' }, () => {}))
+      .toBeNull();
+    // Et elle existe partout ailleurs, y compris sans intention du tout.
+    expect(Profil.sectionRythme({ intention: 'progresser' }, () => {}).titre).toBe('TON RYTHME');
+    expect(Profil.sectionRythme({}, () => {}).titre).toBe('TON RYTHME');
+    expect(Profil.sectionRythme(null, () => {}).titre).toBe('TON RYTHME');
+  });
+
+  test('DISCRIMINANT — la section écrit `rythme_progression`, et cette clé-là', () => {
+    const ecrits = [];
+    const sec = Profil.sectionRythme({ rythme_progression: 'normal' }, (c) => ecrits.push(c));
+    sec.segment.surChoix('franc');
+    expect(ecrits).toEqual([{ rythme_progression: 'franc' }]);
+  });
+
+  test('la section porte le bouton actif du PROFIL et la phrase qui va avec', () => {
+    const sec = Profil.sectionRythme({ rythme_progression: 'prudent' }, () => {});
+    expect(sec.segment.options).toBe(Profil.RYTHMES);
+    expect(sec.segment.valeur).toBe('prudent');
+    expect(sec.note.fort).toBe(Profil.phraseRythme('prudent'));
+    expect(sec.note.reste).toBe('La prochaine consigne en tient compte.');
+    // Sans valeur en base : Normal, et la phrase de Normal.
+    const neuf = Profil.sectionRythme({}, () => {});
+    expect(neuf.segment.valeur).toBe('normal');
+    expect(neuf.note.fort).toBe(Profil.phraseRythme('normal'));
+  });
+
+  test('`rythmeDe` lit le profil, et retombe sur le défaut', () => {
+    expect(Profil.rythmeDe({ rythme_progression: 'franc' })).toBe('franc');
+    expect(Profil.rythmeDe({ rythme_progression: 'prudent' })).toBe('prudent');
+    // Un profil créé avant `v2_046`, ou relu d'un cache d'alors.
+    expect(Profil.rythmeDe({})).toBe('normal');
+    expect(Profil.rythmeDe(null)).toBe('normal');
+    // Une valeur que la base ne pourrait pas contenir ne fait pas taire l'écran.
+    expect(Profil.rythmeDe({ rythme_progression: 'turbo' })).toBe('normal');
+    expect(Profil.rythmeDe({ rythme_progression: '' })).toBe('normal');
+  });
+});

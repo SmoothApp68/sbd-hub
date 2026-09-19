@@ -80,6 +80,94 @@
     { cle: 'entretien', libelle: 'Entretenir' }
   ];
 
+  // ── MOTEUR §9.8 — LE RÉGLAGE DE RYTHME ───────────────────────────────────
+  //
+  // Clés, libellés et PHRASES au même endroit : l'écran n'en écrit aucune, il
+  // lit cette table. Une phrase recopiée dans `app.js` finirait par dire autre
+  // chose que la spec, et personne ne verrait laquelle des deux a raison.
+  //
+  // Les CLÉS sont celles de la contrainte de `profiles.rythme_progression`
+  // (`v2_046`) : une valeur hors liste est refusée par Postgres.
+  //
+  // ⚠️ LES PHRASES NE DISENT JAMAIS QU'UN RÉGLAGE EST MEILLEUR. Mesuré au banc
+  // M11 : les montées tiennent 79 à 81 fois sur 100 quel que soit le réglage —
+  // « Prudent est plus lent, pas plus sûr » est un fait pour qui conçoit le
+  // moteur, jamais un argument à l'écran (CADRAGE §2 terdecies). Chaque phrase
+  // dit CE QUE FAIT le réglage, et rien d'autre.
+  var RYTHMES = [
+    { cle: 'prudent', libelle: 'Prudent',
+      phrase: 'Monte quand toutes tes séries touchent le haut de ta zone, ' +
+              'deux séances de suite.' },
+    { cle: 'normal', libelle: 'Normal',
+      phrase: 'Monte quand tes deux premières séries touchent le haut de ta zone.' },
+    { cle: 'franc', libelle: 'Franc',
+      phrase: 'Chaque série monte pour son compte, et deux crans d\u2019un coup ' +
+              'quand tu dépasses nettement.' }
+  ];
+
+  // Le défaut de la colonne en base, répété ici parce que l'écran doit pouvoir
+  // afficher un choix AVANT toute écriture : un profil créé avant `v2_046`, ou
+  // relu d'un cache d'alors, n'a pas la valeur.
+  var RYTHME_DEFAUT = 'normal';
+
+  // Le rythme EFFECTIF : celui du profil, ou le défaut. Un seul endroit décide,
+  // parce que l'écran s'en sert DEUX fois — pour marquer le bouton actif et
+  // pour choisir la phrase — et que deux lectures divergentes afficheraient
+  // « Normal » sous un bouton « Franc ».
+  function rythmeDe(profil) {
+    var cle = profil && profil.rythme_progression;
+    for (var i = 0; i < RYTHMES.length; i++) if (RYTHMES[i].cle === cle) return cle;
+    return RYTHME_DEFAUT;
+  }
+
+  // La phrase du rythme affiché. Une clé inconnue retombe sur celle du défaut :
+  // l'écran ne reste jamais muet sous son propre sélecteur.
+  function phraseRythme(cle) {
+    for (var i = 0; i < RYTHMES.length; i++) if (RYTHMES[i].cle === cle) return RYTHMES[i].phrase;
+    return phraseRythme(RYTHME_DEFAUT);
+  }
+
+  // ── LA SECTION « TON RYTHME », EN ENTIER ET AU MÊME ENDROIT ──────────────
+  //
+  // ⚠️ ELLE VIT ICI, PAS DANS `app.js`, ET LE BANC DE MUTATION L'A IMPOSÉ.
+  //
+  // Le test de l'écran ne rend pas `rendreProfilEcran` — il ne peut pas : cette
+  // fonction referme sur la moitié d'`app.js`. Il REPRODUIT la déclaration des
+  // sections, et son en-tête le dit depuis le chantier 46. Tant que la
+  // déclaration ne portait que des libellés, la copie coûtait peu. Le rythme y
+  // met une RÈGLE — la section n'existe pas en Entretenir — et une COLONNE
+  // écrite : mutées dans `app.js`, ni l'une ni l'autre ne faisait tomber un
+  // test, parce qu'aucun test ne lisait `app.js`.
+  //
+  // Déplacée ici, la règle est exercée par les tests ET par l'écran, qui
+  // appellent la même fonction. `app.js` ne garde que le branchement.
+  //
+  // ⚠️ EN ENTRETENIR, LA SECTION N'EXISTE PAS — elle ne se grise pas. Le moteur
+  // s'y tait sur la charge : un réglage de vitesse de montée n'y a rien à
+  // régler, et l'afficher inerte promettrait un effet qu'il n'aurait pas.
+  // Zones et consignes disparaissent pour la même raison (ECRAN-PROFIL §2.3).
+  //
+  // ⚠️ L'ABSENCE D'INTENTION VAUT « progresser », comme partout ailleurs sur cet
+  // écran : un compte neuf voit son rythme, il n'a pas à choisir d'abord.
+  //
+  // `ecrire` reçoit l'objet COMPLET — c'est ici que le nom de la colonne est
+  // connu, avec les clés et le défaut, et nulle part ailleurs.
+  function sectionRythme(profil, ecrire) {
+    var intention = (profil && profil.intention) || 'progresser';
+    if (intention === 'entretien') return null;
+    var cle = rythmeDe(profil);
+    return {
+      titre: 'TON RYTHME',
+      segment: {
+        options: RYTHMES,
+        valeur: cle,
+        surChoix: function (v) { ecrire({ rythme_progression: v }); }
+      },
+      note: { fort: phraseRythme(cle),
+              reste: 'La prochaine consigne en tient compte.' }
+    };
+  }
+
   // Lundi en tête : la semaine de l'app commence le lundi (THSemaine), et les
   // deux listes doivent se lire dans le même ordre.
   var JOURS = [
@@ -231,8 +319,9 @@
   // les six réglages de visibilité : c'est du social, et rien ici ne les touche.
   var CHAMPS_ECRITS = ['username', 'bio', 'sexe', 'taille_cm', 'date_naissance',
                        'mode_entrainement', 'unites', 'anciennete', 'intention',
-                       'materiel', 'niveau_declare', 'seances_par_semaine',
-                       'jours_vises', 'duree_seance_min', 'onboarding_completed'];
+                       'rythme_progression', 'materiel', 'niveau_declare',
+                       'seances_par_semaine', 'jours_vises', 'duree_seance_min',
+                       'onboarding_completed'];
 
   function champsEcrits(champs) {
     var src = champs || {}, sortie = {};
@@ -416,6 +505,8 @@
     DISCIPLINES: DISCIPLINES, DISCIPLINES_CONNUES: DISCIPLINES_CONNUES,
     MATERIELS: MATERIELS, ANCIENNETES: ANCIENNETES, NIVEAUX: NIVEAUX,
     SEXES: SEXES, UNITES: UNITES, INTENTIONS: INTENTIONS, JOURS: JOURS,
+    RYTHMES: RYTHMES, RYTHME_DEFAUT: RYTHME_DEFAUT,
+    rythmeDe: rythmeDe, phraseRythme: phraseRythme, sectionRythme: sectionRythme,
     DUREES: DUREES, SEANCES_MIN: SEANCES_MIN, SEANCES_MAX: SEANCES_MAX,
     TAILLE_MIN: TAILLE_MIN, TAILLE_MAX: TAILLE_MAX,
     PSEUDO_MIN: PSEUDO_MIN, PSEUDO_MAX: PSEUDO_MAX, MDP_MIN: MDP_MIN,

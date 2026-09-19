@@ -1084,7 +1084,11 @@
   // autour du « × », avant les deux-points et dans une date. Sans lui, « 127,5 »
   // et « kg » se séparent en bout de ligne à 360 px, et la charge devient
   // illisible une ligne sur deux.
-  var INSECABLE = ' ';
+  // ⚠️ ÉCRITS EN ÉCHAPPEMENT, jamais en clair : une espace insécable est
+  // INVISIBLE dans l'éditeur, et la prochaine main qui passe la remplacerait par
+  // une espace ordinaire sans le voir. Même raison qu'au moins U+2212 de
+  // `rendu.js`.
+  var INSECABLE = '\u00a0';
   var DEUX_POINTS = INSECABLE + ': ';
 
   // ⚠️ SECONDE LISTE APRÈS `Calendrier.MOIS`, et assumée. L'abréviation ne se
@@ -1102,7 +1106,7 @@
 
   // « 2ᵉ » avec la lettre modificative (U+1D49), pas un exposant typographique :
   // elle se copie et se lit à la synthèse vocale.
-  var EXPOSANT_E = 'ᵉ';
+  var EXPOSANT_E = '\u1d49';
 
   // ⚠️ LU TARDIVEMENT, SANS REPLI, comme `THPalier`. `modele.js` charge avant
   // `moteur.js` (index.html 325 puis 329), mais un repli « si THModele manque,
@@ -1113,7 +1117,7 @@
   // La virgule décimale, et pas de zéro inutile : 125 · 127,5 · 24,8.
   function nombreFr(v) { return Modele().nombre(v); }
   function enKg(v) { return nombreFr(v) + INSECABLE + 'kg'; }
-  function croix(a, b) { return nombreFr(a) + INSECABLE + '×' + INSECABLE + nombreFr(b); }
+  function croix(a, b) { return nombreFr(a) + INSECABLE + '\u00d7' + INSECABLE + nombreFr(b); }
 
   // « 13 sept. » — le JOUR LOCAL de la séance, comme partout ailleurs à
   // l'écran (`Rendu.dateCourte`). Une séance de 23 h se lit au jour où la

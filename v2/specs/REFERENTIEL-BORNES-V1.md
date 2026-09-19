@@ -253,7 +253,7 @@ Point de méthode : la pente %1RM→reps de Nuzzo sert à **extrapoler** la tabl
 | Zones de reps | Lourd 3-5, Mix 6-8, Hypertrophie 8-10, Volume 10-12, Séries longues 15-20 | NSCA ; Schoenfeld 2017, 2021 ; 97 habitudes sur 100 (5 profils) | choix produit appuyé |
 | Plafond d'une zone étirée | 30 reps | banc M15 | choix produit |
 | Fenêtre de l'habitude | 8 dernières séances du couple exercice-format | Williams et al. 2017 ; mésocycles de 3 à 6 semaines | choix produit appuyé |
-| Saut par montée | 1 cran ; 2 en Franc avec preuve ; 1 au plus sur les grosses barres | ACSM 2009 : +2 à 10 % | convention publiée |
+| Saut par montée | 1 cran ; 2 en Franc avec preuve, si deux crans restent sous 10 % de la charge | ACSM 2009 : +2 à 10 %, plus faible pour les petits groupes musculaires ; APRE (Mann 2010) | convention publiée |
 | Reprise après coupure | jusqu'à 12 semaines : même charge, sans rep de plus ; au-delà : un cran dessous | Izquierdo et al. 2007 ; Mujika & Padilla 2000 ; banc M14 | choix produit appuyé |
 
 **Statut** au sens du §0 : la science ne fixe pas ces valeurs exactes (`INDÉCIDABLE`) ; ce sont des choix assumés et loggés comme tels, sauf la fourchette de saut, qui suit une convention publiée. **Méta-règle du praticien assidu appliquée** : chaque borne a été jouée sur le profil d'Aurélien (20 séances sur 28 jours) avant d'être retenue (MOTEUR §9.7 à §9.9, BANC §14).

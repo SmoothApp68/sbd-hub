@@ -599,8 +599,10 @@ describe('§10.2 — le pas de la salle, et quelle charge proposer', () => {
   test('P3 — sans écart récurrent, la charge DÉJÀ UTILISÉE juste au-delà', () => {
     // Élévation latérale poulie réelle : 4,6 · 6,8 · 9 · 11,5 · 13,6.
     // Écarts 2,2 · 2,2 · 2,5 · 2,1 : aucun ne revient trois fois.
+    // Écarts 2,1 · 2,2 · 2,2 · 2,5 : la médiane vaut 2,2 — APPROCHÉ, donc le
+    // rang 1 se tait quand même et c'est la charge attestée qui répond.
     const P3 = jeu(4.6, 6.8, 9, 11.5, 13.6);
-    expect(M.pasDeSalle(P3, COUPURE)).toBeNull();
+    expect(M.pasDeSalle(P3, COUPURE)).toEqual({ pas: 2.2, nature: 'approche' });
     expect(dessus(P3, 'poulie', 9)).toBe(11.5);
     expect(dessous(P3, 'poulie', 9)).toBe(6.8);
   });
@@ -655,6 +657,26 @@ describe('§10.2 — le pas de la salle, et quelle charge proposer', () => {
     expect(dessus(P8, 'poulie', 16.6)).toBeNull();
   });
 
+  // ⚠️ AJOUTÉ EN 48b-5a-2, quand le code a rejoint la spec. Le §10.2 dit
+  // depuis 48b-5a-1 qu'un pas approché « vaut l'écart MÉDIAN » ; `pasDeSalle`
+  // rendait le plus petit écart récurrent, et rien du tout quand aucun écart ne
+  // revenait trois fois. P8 ne séparait pas les deux lectures : à écarts tous
+  // égaux, médiane et plus petit valent la même chose. Il faut des écarts
+  // FRANCHEMENT différents, et aucun récurrent.
+  test('P8b — DISCRIMINANT : un pas approché vaut l’écart MÉDIAN, pas le plus petit', () => {
+    // Écarts 2 · 5 · 10 : aucun ne revient trois fois. La médiane vaut 5.
+    // « Le plus petit » rendrait 2 ; l'ancien code, qui exigeait la récurrence,
+    // ne rendait rien du tout.
+    const P8b = jeu(10, 12, 17, 27);
+    expect(M.pasDeSalle(P8b, COUPURE)).toEqual({ pas: 5, nature: 'approche' });
+    // ⚠️ ET SANS EFFET SUR LES CHARGES : approché, donc le rang 1 se tait. Il
+    // n'y a rien au-dessus de 27, et une poulie n'a pas de repli.
+    expect(dessus(P8b, 'poulie', 27)).toBeNull();
+    // Contre-épreuve du rang 2 : depuis 12, la charge attestée au-dessus est 17,
+    // pas 12 + 5.
+    expect(dessus(P8b, 'poulie', 12)).toBe(17);
+  });
+
   test('P9 — la fenêtre du pas est de 24 MOIS, pas de 12', () => {
     // Trois séances il y a ~18 mois, deux récentes. Les cinq charges donnent
     // un pas de 2,5. Sur 12 mois, il ne resterait que 47,5 et 50 : pas de pas,
@@ -671,7 +693,9 @@ describe('§10.2 — le pas de la salle, et quelle charge proposer', () => {
     // aucune charge au-dessus de 45.
     const P9b = [une(20, 930), une(22.5, 920), une(25, 910), une(27.5, 900),
                  une(40, 20), une(45, 10)];
-    expect(M.pasDeSalle(P9b, COUPURE)).toBeNull();
+    // Dans la fenêtre il ne reste que 40 et 45 : un seul écart, donc aucun
+    // récurrent — le pas est APPROCHÉ à 5, et le rang 1 ne le lit pas.
+    expect(M.pasDeSalle(P9b, COUPURE)).toEqual({ pas: 5, nature: 'approche' });
     expect(dessus(P9b, 'machine', 45)).toBeNull();
     // Contre-épreuve du rang 2 : il n'a PAS de limite de date, et depuis 22 il
     // retrouve bien la charge de 22,5 faite il y a deux ans et demi.
@@ -731,8 +755,9 @@ describe('§10.2 — le pas de la salle, et quelle charge proposer', () => {
         retenues: [{ charge_kg: 110, reps: 5 }],
         votantes: [{ charge_kg: 110, reps: 5 }, { charge_kg: 115, reps: 2 }] }
     ];
-    // Plus lourdes : 105, 110, 115 -> écarts 5 · 5, deux fois seulement.
-    expect(M.pasDeSalle(avecExplorations, COUPURE)).toBeNull();
+    // Plus lourdes : 105, 110, 115 -> écarts 5 · 5, deux fois seulement : pas
+    // de récurrence, donc un pas APPROCHÉ de 5 que le rang 1 ne lit pas.
+    expect(M.pasDeSalle(avecExplorations, COUPURE)).toEqual({ pas: 5, nature: 'approche' });
     // Mais le rang 2 les connaît : depuis 110, la charge juste au-dessus est 115.
     expect(dessus(avecExplorations, 'machine', 110)).toBe(115);
   });
@@ -902,5 +927,124 @@ describe('§9.12 — deux écritures d’un même instant se classent pareil', (
     // Depuis 100, rien n'est attesté au-dessus, donc c'est le repli qui rend
     // 102,5 — exactement ce que la coupure illisible doit empêcher.
     expect(M.chargeVoisine(uneSeance, COUPURE_Z, 100, 'barre', 1)).toBe(102.5);
+  });
+});
+
+// ── §9.13 — LA CONSIGNE, PILOTÉE PAR LE FICHIER DE CAS ─────────────────────
+//
+// ⚠️ C'EST LE FICHIER QUI FAIT FOI, PAS CE TEST. `consigne-48b5a2.json` sort de
+// la référence que Claude.ai a rejouée sur tout l'historique des cinq profils —
+// 6 109 consignes par réglage, aucune anomalie. Le test ne redit pas la règle :
+// il rejoue les 29 cas et compare. Écrire les attendus à la main ici, c'est se
+// donner deux sources pour un seul verdict (`CADRAGE-V2` §2 undecies).
+//
+// Chaque cas porte `tue` : l'erreur qu'il doit tuer, et ce que rendrait le code
+// fautif. Les valeurs y sont MESURÉES, pas supposées — c'est la configuration
+// discriminante du §2 quater, apportée par le fichier lui-même.
+//
+// La SEULE conversion que ce test s'autorise : le fichier écrit `ligne` et
+// `haut` en tableaux `[charge, vise]` / `[charge, vise, k]`, `consignePour`
+// rend des objets `{ charge, vise }` / `{ charge, vise, k }`. Un seul choix,
+// documenté des deux côtés ; la conversion vit ici, en un seul endroit.
+describe('§9.13 — la consigne, en calcul pur', () => {
+  const CAS = require('./fixtures/consigne-48b5a2.json');
+  const CHAMPS = ['etat', 'zone', 'n', 'ligne', 'haut', 'raison'];
+
+  const enObjet = (t, avecK) => {
+    if (t === null || t === undefined) return t;
+    return avecK ? { charge: t[0], vise: t[1], k: t[2] } : { charge: t[0], vise: t[1] };
+  };
+  // Les champs que le fichier ne nomme PAS doivent être absents du rendu : un
+  // silence n'a ni zone ni `n`, une consigne n'a pas de `raison`. On compare
+  // donc deux objets réduits aux mêmes clés — `toEqual` fait le reste.
+  const lire = (o) => {
+    const vu = {};
+    CHAMPS.forEach((c) => { if (o[c] !== undefined) vu[c] = o[c]; });
+    return vu;
+  };
+  const attendu = (a) => {
+    const att = {};
+    CHAMPS.forEach((c) => {
+      if (!(c in a)) return;
+      att[c] = c === 'ligne' ? enObjet(a[c], false) : c === 'haut' ? enObjet(a[c], true) : a[c];
+    });
+    return att;
+  };
+
+  test('le fichier de cas est complet et nomme ses erreurs', () => {
+    expect(CAS).toHaveLength(29);
+    const erreurs = new Set();
+    CAS.forEach((c) => {
+      expect(typeof c.id).toBe('string');
+      expect(typeof c.titre).toBe('string');
+      expect(['prudent', 'normal', 'franc']).toContain(c.reglage);
+      expect(c.attendu).toBeTruthy();
+      (c.tue || []).forEach((t) => erreurs.add(t.erreur));
+    });
+    // 24 erreurs nommées : c'est le tableau du prompt, et c'est ce que la
+    // campagne de mutation doit tuer une à une.
+    expect(erreurs.size).toBe(24);
+  });
+
+  CAS.forEach((c) => {
+    test(`${c.id} — ${c.titre} (${c.reglage})`, () => {
+      const rendu = M.consignePour(c.seances, c.avant, {
+        reglage: c.reglage, equipement: c.equipement, correction: null
+      });
+      expect(lire(rendu)).toEqual(attendu(c.attendu));
+    });
+  });
+
+  // ⚠️ CE QUE LE FICHIER NE COUVRE PAS : `correction` y vaut toujours `null`
+  // (elle est lue au commit 7). Le contrat dit pourtant qu'elle L'EMPORTE SUR
+  // TOUT — sans ce cas, un `zoneRetenue` court-circuité passerait inaperçu.
+  test('DISCRIMINANT — la correction de zone l’emporte sur l’habitude', () => {
+    const n2 = CAS.find((c) => c.id === 'N2');
+    const sans = M.consignePour(n2.seances, n2.avant,
+      { reglage: 'normal', equipement: 'barre', correction: null });
+    const avec = M.consignePour(n2.seances, n2.avant,
+      { reglage: 'normal', equipement: 'barre', correction: 'volume' });
+    // Sans correction : habitude 5 -> Lourd, le niveau touche le haut, test.
+    expect(sans.zone).toBe('lourd');
+    expect(sans.etat).toBe('test_propose');
+    // Avec « Volume » (10-12), le même niveau de 5 est loin du haut : on
+    // progresse d'une rep, et plus aucun test n'est proposé.
+    expect(avec.zone).toBe('volume');
+    expect(avec.etat).toBe('progression');
+    expect(avec.ligne).toEqual({ charge: 125, vise: 6 });
+  });
+
+  // Le contrat rend AUSSI `palier` et `niveau`, que le fichier ne vérifie pas :
+  // 48b-5b en a besoin pour écrire la phrase.
+  test('le rendu porte le palier et le niveau validé de la dernière séance', () => {
+    const n1 = CAS.find((c) => c.id === 'N1');
+    const rendu = M.consignePour(n1.seances, n1.avant,
+      { reglage: 'normal', equipement: 'barre', correction: null });
+    expect(rendu.palier).toBe(125);
+    expect(rendu.niveau).toBe(4);
+  });
+
+  // §9.12 — sans coupure lisible, pas de consigne : la garde vaut ici comme
+  // partout ailleurs dans `moteur.js`.
+  test('DISCRIMINANT — sans coupure lisible, le moteur se tait', () => {
+    const n1 = CAS.find((c) => c.id === 'N1');
+    ['pas une date', null, ''].forEach((coupure) => {
+      expect(M.consignePour(n1.seances, coupure,
+        { reglage: 'normal', equipement: 'barre' }))
+        .toEqual({ etat: 'silence', raison: 'premiere_fois' });
+    });
+  });
+
+  // Un rôle venu de la base ne doit pas atteindre la chaîne de prototypes :
+  // `constructor` et `__proto__` ne sont ni du travail, ni une exploration.
+  test('un rôle venu de la base n’atteint jamais la chaîne de prototypes', () => {
+    const seance = {
+      debut: '2026-09-13T18:00:00+00:00', palier: 100,
+      series: [{ charge_kg: 100, reps: 5, rpe: null, role: 'constructor' },
+               { charge_kg: 100, reps: 5, rpe: null, role: '__proto__' }]
+    };
+    expect(M.consignePour([seance], '2026-09-20T10:00:00+00:00',
+      { reglage: 'normal', equipement: 'barre' }))
+      .toEqual({ etat: 'silence', raison: 'pas_de_palier' });
   });
 });

@@ -713,7 +713,10 @@
     });
     if (T === null) return null;
     var aT = explorations.filter(function (s) { return nombre(s.charge_kg) === T; });
-    return { charge: T, k: aT.length, niveau: niveauValide(aT) };
+    // `reps` est la SAISIE de la première série à cette charge, `niveau` son
+    // compte (§17.4). Les deux, parce que la phrase dit « 130 × 5 » — ce que la
+    // personne a fait — pendant que le moteur juge sur 4.
+    return { charge: T, k: aT.length, reps: nombre(aT[0].reps), niveau: niveauValide(aT) };
   }
 
   // ── §9.7 — L'ÉPISODE D'ÉTIREMENT ─────────────────────────────────────────
@@ -747,9 +750,57 @@
       if (z === null || t.niveau === null || t.niveau >= z.bas) break;
       var c1 = chargeVoisine(vues, avant, P, equipement, 1);
       if (c1 !== null && c1 < t.charge) break;
-      rates.push({ rang: i, test: t, auPalier: x.auPalier });
+      rates.push({ rang: i, test: t, auPalier: x.auPalier, debut: x.seance.debut });
     }
     return rates;
+  }
+
+  // Les états où l'ÉCHELLE bouge : ceux-là, et eux seuls, ont besoin de
+  // l'ancien palier pour se raconter.
+  var ETATS_ECHELLE = { rejoint: true, attend: true, tout_passe: true };
+
+  // Les reps SAISIES, dans l'ordre — « 4-4-4 ». Jamais les comptées : la phrase
+  // rappelle ce qui a été fait, la note de la série à fond dit le reste.
+  function repsSaisies(series) {
+    return (series || []).map(function (s) { return nombre(s.reps); });
+  }
+
+  // Les charges de travail DISTINCTES d'une séance, dans l'ordre d'apparition —
+  // « 100, 110 puis 120 kg, aucune charge répétée ». C'est exactement ce que le
+  // §7.2 a refusé de valider, dit à l'endroit.
+  function chargesDistinctes(vue) {
+    var vues = {}, sortie = [];
+    chargesDe(vue).forEach(function (c) {
+      if (vues[c] === true) return;
+      vues[c] = true;
+      sortie.push(c);
+    });
+    return sortie;
+  }
+
+  function faitDuTest(t, debut) {
+    return { charge: t.charge, reps: t.reps, niveau: t.niveau, date: debut };
+  }
+
+  // §17.4 — LA PREMIÈRE série au palier qui compte une rep de moins. La
+  // première : la phrase en nomme une, et le rang se lit sur les séries AU
+  // PALIER, pas sur la séance — c'est le rang que l'écran affichera.
+  //
+  // `cause` dit d'où vient le cran, parce que la phrase change : un RPE de 10
+  // se cite tel quel (« était à RPE 10 »), un « reste 0 » se dit en français
+  // (« était à fond »). Le RPE l'emporte, comme dans `cranDeSerie`.
+  function serieAFondDe(series) {
+    for (var i = 0; i < (series || []).length; i++) {
+      var s = series[i];
+      var brut = nombre(s && s.reps);
+      var comptees = Palier().repsComptees(s);
+      if (brut === null || comptees === null || comptees >= brut) continue;
+      return {
+        rang: i + 1, charge: nombre(s.charge_kg), reps: brut, comptees: comptees,
+        cause: Palier().cranEffort(s.rpe) !== null ? 'rpe' : 'ressenti'
+      };
+    }
+    return null;
   }
 
   function consignePour(seances, avant, options) {
@@ -762,14 +813,19 @@
     var ant = anterieures(vues, avant);
     // 1. Les silences. Une première fois n'a rien à dire, et le dire serait
     // inventer ; une séance sans palier n'a rien TENU (§7.2).
-    if (!ant.length) return { etat: 'silence', raison: 'premiere_fois' };
+    // Le fondement d'un silence de première fois est VIDE, et pas absent : la
+    // phrase n'a besoin d'aucun fait, mais l'appelant lit toujours la même forme.
+    if (!ant.length) return { etat: 'silence', raison: 'premiere_fois', fondement: {} };
 
     var L = ant[ant.length - 1];
     var P = nombre(L.palier);
     var A = seriesAuPalier(L);
     var niv = A.length ? niveauValide(A) : null;
     if (P === null || !A.length || niv === null) {
-      return { etat: 'silence', raison: 'pas_de_palier' };
+      // Les CHARGES, et elles seules : « 100, 110 puis 120 kg, aucune charge
+      // répétée ». Sans palier il n'y a ni reps au palier ni test à raconter.
+      return { etat: 'silence', raison: 'pas_de_palier',
+               fondement: { date: L.debut, charges: chargesDistinctes(L) } };
     }
 
     // 2. La zone. La correction l'emporte (§9.1.1) ; sinon l'habitude du couple
@@ -802,10 +858,39 @@
       return estRole(s, ROLES_RAMPE);
     }).length;
 
-    function rendre(etat, ligne, haut) {
+    // ── §9.13 — LE FONDEMENT ─────────────────────────────────────────────
+    //
+    // Les faits sur lesquels la consigne repose, pour que l'en-tête, la feuille
+    // « Pourquoi » et `predictions` n'aient JAMAIS à recalculer une règle du
+    // moteur. C'est le §2 undecies appliqué à la frontière : le moteur décide
+    // ET fournit de quoi le dire.
+    //
+    // ⚠️ UNE CLÉ N'Y FIGURE QUE SI ELLE A UN SENS. `test` sans test, `seuil`
+    // sans série qui attend : une clé toujours présente et parfois nulle
+    // obligerait chaque lecteur à retrancher les cas — et un oubli passerait
+    // en silence. L'absence est le signal.
+    var aFond = serieAFondDe(A);
+    var testDeL = testDe(L);
+    function rendre(etat, ligne, haut, plus) {
+      var f = { date: L.debut, reps: repsSaisies(A) };
+      if (aFond !== null) f.serieAFond = aFond;
+      // ⚠️ `testUnCran` NE SE POSE QUE SUR LE TEST DE LA DERNIÈRE SÉANCE. Le
+      // test d'un épisode d'étirement (§9.7) arrive par `plus`, sans lui : on
+      // ne juge plus la taille d'un cran qu'on a déjà renoncé à réduire.
+      if (testDeL !== null) {
+        f.test = faitDuTest(testDeL, L.debut);
+        f.testUnCran = voisine(P, 1) === testDeL.charge;
+      }
+      // L'ancien palier n'intéresse que les états où l'échelle BOUGE.
+      if (apresBascule && ETATS_ECHELLE[etat] === true) f.palierPrecedent = Pv;
+      if (plus) {
+        for (var k in plus) {
+          if (Object.prototype.hasOwnProperty.call(plus, k)) f[k] = plus[k];
+        }
+      }
       return {
         etat: etat, zone: zone === null ? null : zone.cle, palier: P, niveau: niv,
-        n: n, ligne: ligne, haut: haut
+        n: n, ligne: ligne, haut: haut, fondement: f
       };
     }
     function ligneDe(charge, vise) { return { charge: charge, vise: vise }; }
@@ -882,8 +967,11 @@
         // REPS PERDUES — `hi + niv − lvl` — sinon on redemanderait le même test
         // sans avoir rien gagné.
         var cibleEtirement = cible(hi + niv - lvl);
-        if (niv >= cibleEtirement) return rendre('retest', ligneDe(P, niv), hautDe(T, lo, 1));
-        return rendre('etirement', ligneDe(P, cible(Math.min(niv + 1, cibleEtirement))), null);
+        if (niv >= cibleEtirement) {
+          return rendre('retest', ligneDe(P, niv), hautDe(T, lo, 1), { cible: cibleEtirement });
+        }
+        return rendre('etirement', ligneDe(P, cible(Math.min(niv + 1, cibleEtirement))), null,
+          { cible: cibleEtirement });
       }
       return rendre('progression', ligneDe(P, vise), null);
     }
@@ -905,7 +993,12 @@
           restes.length > 1 ? ligneDe(Pv, nivRestes) : null,
           hautDe(P, cible(Math.min(niv, hi)), ka + 1));
       }
-      return rendre('attend', ligneDe(Pv, nivRestes), hautDe(P, vise, ka));
+      // ⚠️ `seuil` EST LA CONDITION `permis`, DITE EN CHIFFRE. Un seul calcul
+      // (§2 undecies) : « rejoindra quand tu y feras 4 » est exactement
+      // `niv > lo`, et « 5 » en Prudent exactement `niv >= hi`. La phrase ne
+      // redécide rien, elle lit.
+      return rendre('attend', ligneDe(Pv, nivRestes), hautDe(P, vise, ka),
+        { seuil: reglage === 'prudent' ? hi : lo + 1 });
     }
 
     // 8. UN ÉTIREMENT EN COURS, sans test dans `L` : on gagne des reps jusqu'à
@@ -915,10 +1008,12 @@
       var nivAlors = niveauValide(episode.auPalier);
       if (nivAlors !== null) {
         var cibleEnCours = cible(hi + nivAlors - episode.test.niveau);
+        var faitEpisode = { test: faitDuTest(episode.test, episode.debut), cible: cibleEnCours };
         if (niv >= cibleEnCours) {
-          return rendre('retest', ligneDe(P, niv), hautDe(episode.test.charge, lo, 1));
+          return rendre('retest', ligneDe(P, niv), hautDe(episode.test.charge, lo, 1), faitEpisode);
         }
-        return rendre('etirement', ligneDe(P, cible(Math.min(niv + 1, cibleEnCours))), null);
+        return rendre('etirement', ligneDe(P, cible(Math.min(niv + 1, cibleEnCours))), null,
+          faitEpisode);
       }
     }
 
@@ -939,6 +1034,10 @@
 
     var c1 = voisine(P, 1);
     var saut = c1;
+    // ⚠️ `preuve` NE SE NOTE QUE SI LE DOUBLE SAUT A ÉTÉ PRIS. Une preuve
+    // trouvée puis refusée par la borne des 10 % (F3) ne se dit pas : la
+    // phrase annoncerait « on teste deux crans » sur une consigne d'un cran.
+    var preuveRetenue = null;
     if (reglage === 'franc' && c1 !== null) {
       // La preuve du double saut : le haut dépassé de 3 reps, ou un effort dit
       // « facile » (§17.3, logique APRE).
@@ -951,12 +1050,240 @@
         // grosses barres » était à l'envers. Au couché à 125 kg, deux crans
         // font 4 % : permis ; au curl EZ à 30 kg, 17 % : un seul.
         var c2 = voisine(c1, 1);
-        if (c2 !== null && auCentieme(c2 - P) <= auCentieme(P * MARGE_DOUBLE_SAUT)) saut = c2;
+        if (c2 !== null && auCentieme(c2 - P) <= auCentieme(P * MARGE_DOUBLE_SAUT)) {
+          saut = c2;
+          preuveRetenue = auMoins(A, hi + PREUVE_DEPASSEMENT) ? 'haut' : 'facile';
+        }
       }
     }
-    return rendre('test_propose', ligneDe(P, vise), hautDe(saut, lo, 1));
+    return rendre('test_propose', ligneDe(P, vise), hautDe(saut, lo, 1),
+      preuveRetenue === null ? null : { preuve: preuveRetenue });
   }
 
+
+  // ── ECRAN-SAISIE §3.12 — LES PHRASES DE L'EN-TÊTE ────────────────────────
+  //
+  // La voix du moteur, et c'est pour ça qu'elle vit ICI. Les phrases sont
+  // arrêtées dans `maquette-moteur-parle-v2.html`, tableau « L'en-tête, état
+  // par état », validé par Aurélien le 19/09/2026.
+  //
+  // ⚠️ ELLE NE LIT QUE LA CONSIGNE ET SON FONDEMENT, plus la table des zones
+  // pour les bornes. Aucune règle du moteur ne se rejoue ici : « rejoindra
+  // quand tu y feras 4 » lit `fondement.seuil`, il ne recompare pas un niveau à
+  // un bas de zone. C'est le §2 undecies à la frontière de l'écran — et c'est
+  // la raison d'être du fondement (§9.13).
+  //
+  // Trois règles de rédaction (ECRAN-SAISIE §3.12) :
+  //   · UNE SEULE phrase grise par en-tête ;
+  //   · la ligne jaune qui porte LE PLUS DE SÉRIES vient d'abord, sauf quand
+  //     une seule série porte la nouvelle charge ;
+  //   · « On le retestera au haut de ta zone » ne se dit QUE si le test raté
+  //     valait un seul cran.
+
+  // §10.2 / ECRAN-SAISIE — L'ESPACE INSÉCABLE entre un nombre et son unité,
+  // autour du « × », avant les deux-points et dans une date. Sans lui, « 127,5 »
+  // et « kg » se séparent en bout de ligne à 360 px, et la charge devient
+  // illisible une ligne sur deux.
+  // ⚠️ ÉCRITS EN ÉCHAPPEMENT, jamais en clair : une espace insécable est
+  // INVISIBLE dans l'éditeur, et la prochaine main qui passe la remplacerait par
+  // une espace ordinaire sans le voir. Même raison qu'au moins U+2212 de
+  // `rendu.js`.
+  var INSECABLE = '\u00a0';
+  var DEUX_POINTS = INSECABLE + ': ';
+
+  // ⚠️ SECONDE LISTE APRÈS `Calendrier.MOIS`, et assumée. L'abréviation ne se
+  // dérive pas du nom entier : « février » donne « févr. », « mars » reste
+  // « mars » SANS point, « juillet » donne « juil. ». Une règle mécanique se
+  // tromperait sur la moitié des mois. Un test vérifie que les deux tables ont
+  // douze entrées dans le même ordre — la même garde que `CRAN_DU_RESSENTI`
+  // face à `THSeance.RESSENTIS`.
+  //
+  // Et pas `toLocaleDateString` : il rend un espace ORDINAIRE entre le jour et
+  // le mois, et son résultat dépend de l'ICU de l'appareil. Un module pur ne
+  // peut pas dépendre de ça.
+  var MOIS_COURTS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin',
+                     'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+
+  // « 2ᵉ » avec la lettre modificative (U+1D49), pas un exposant typographique :
+  // elle se copie et se lit à la synthèse vocale.
+  var EXPOSANT_E = '\u1d49';
+
+  // ⚠️ LU TARDIVEMENT, SANS REPLI, comme `THPalier`. `modele.js` charge avant
+  // `moteur.js` (index.html 325 puis 329), mais un repli « si THModele manque,
+  // écris le point décimal » afficherait « 127.5 » à un utilisateur français
+  // sans que rien ne le signale.
+  function Modele() { return racine.THModele; }
+
+  // La virgule décimale, et pas de zéro inutile : 125 · 127,5 · 24,8.
+  function nombreFr(v) { return Modele().nombre(v); }
+  function enKg(v) { return nombreFr(v) + INSECABLE + 'kg'; }
+  function croix(a, b) { return nombreFr(a) + INSECABLE + '\u00d7' + INSECABLE + nombreFr(b); }
+
+  // « 13 sept. » — le JOUR LOCAL de la séance, comme partout ailleurs à
+  // l'écran (`Rendu.dateCourte`). Une séance de 23 h se lit au jour où la
+  // personne l'a faite, pas au jour UTC.
+  function leJour(iso) {
+    var t = instant(iso);
+    if (t === null) return '';
+    var d = new Date(t);
+    return d.getDate() + INSECABLE + MOIS_COURTS[d.getMonth()];
+  }
+
+  function rangFr(n) { return n === 1 ? '1re' : String(n) + EXPOSANT_E; }
+
+  // « 100, 110 puis 120 » — la dernière se détache, parce que c'est elle qui
+  // dit que la série de charges s'arrête là.
+  function suiteFr(valeurs) {
+    var l = (valeurs || []).map(nombreFr);
+    if (l.length <= 1) return l.join('');
+    return l.slice(0, -1).join(', ') + ' puis ' + l[l.length - 1];
+  }
+
+  // Une charge inconnue se dit, elle ne se tait pas : « le cran au-dessus ».
+  // C'est le rang 4 du §10.2 rendu visible — le moteur sait qu'il faut monter,
+  // il ne sait pas de combien, et il le dit plutôt que d'inventer un chiffre.
+  function fragmentCharge(charge, tete, dessous) {
+    if (charge !== null && charge !== undefined) return enKg(charge);
+    var mot = 'le cran ' + (dessous ? 'en dessous' : 'au-dessus');
+    return tete ? mot.charAt(0).toUpperCase() + mot.slice(1) : mot;
+  }
+
+  // ⚠️ L'ORDRE DES DEUX LIGNES EST UNE RÈGLE, pas un goût. La ligne majoritaire
+  // passe devant : à trois séries dont deux à 130, on lit « 130 kg sur 2
+  // séries » d'abord. Quand une SEULE série porte la nouvelle charge, le palier
+  // reprend la tête et le test se dit « puis … en dernière série ». Sinon
+  // l'œil lit la charge du test comme celle de toute la séance.
+  function lignesJaunes(c) {
+    if (c.etat === 'silence') return [];
+    var dessous = c.etat === 'reprise_longue';
+    var ligne = c.ligne, haut = c.haut;
+    if (!haut) return [fragmentCharge(ligne.charge, true, dessous) + ', vise ' + ligne.vise];
+    if (!ligne) return [fragmentCharge(haut.charge, true, false) + ', vise ' + haut.vise];
+    if (haut.k === 1) {
+      return [
+        fragmentCharge(ligne.charge, true, dessous) + ', vise ' + ligne.vise,
+        'puis ' + fragmentCharge(haut.charge, false, false) +
+          ' en dernière série, vise ' + haut.vise
+      ];
+    }
+    var restantes = c.n - haut.k;
+    return [
+      fragmentCharge(haut.charge, true, false) + ' sur ' + haut.k + ' séries, vise ' + haut.vise,
+      'et ' + fragmentCharge(ligne.charge, false, dessous) +
+        (restantes === 1 ? ' sur la première' : ' sur les ' + restantes + ' premières') +
+        ', vise ' + ligne.vise
+    ];
+  }
+
+  function phraseGrise(c) {
+    var f = c.fondement || {};
+    var z = zoneParCle(c.zone);
+    var lo = z === null ? null : z.bas;
+    var hi = z === null ? null : z.haut;
+    var jour = f.date ? leJour(f.date) : '';
+    var auPalier = (f.reps || []).join('-');
+    var t = f.test || null;
+    var duTest = t === null ? '' : 'Ton test à ' + nombreFr(t.charge) + ' du ' + leJour(t.date);
+    var rate = t === null ? '' :
+      croix(t.charge, t.reps) + ' le ' + leJour(t.date) + DEUX_POINTS + 'pas encore dans ta zone.';
+
+    switch (c.etat) {
+      case 'silence':
+        if (c.raison === 'premiere_fois') {
+          return 'Première fois ici. Ce que tu notes aujourd\'hui servira de départ.';
+        }
+        return 'Pas de palier le ' + jour + DEUX_POINTS + suiteFr(f.charges) + INSECABLE +
+               'kg, aucune charge répétée. Rien à proposer.';
+
+      case 'progression':
+        // ⚠️ L'ANNONCE DU RETEST NE SE DIT QU'À UN SEUL CRAN. À deux crans, le
+        // moteur ne sait pas encore ce qu'il retestera : promettre « on le
+        // retestera » serait promettre une charge qu'il va réduire.
+        if (t !== null) return rate + (f.testUnCran ? ' On le retestera au haut de ta zone.' : '');
+        // La note de la série à fond REMPLACE « une de plus », elle ne s'y
+        // ajoute pas : une seule phrase grise par en-tête.
+        if (f.serieAFond) {
+          var a = f.serieAFond;
+          return 'Ta ' + rangFr(a.rang) + ' série, ' + croix(a.charge, a.reps) + ', était à ' +
+                 (a.cause === 'rpe' ? 'RPE 10' : 'fond') + DEUX_POINTS +
+                 'elle compte pour ' + a.comptees + '.';
+        }
+        return auPalier + ' le ' + jour + DEUX_POINTS + 'une de plus.';
+
+      case 'test_propose':
+        return auPalier + ' le ' + jour + ', ' +
+               (f.preuve === 'haut' ? 'le haut dépassé de ' + PREUVE_DEPASSEMENT
+                : f.preuve === 'facile' ? 'avec de la marge'
+                : 'le haut de ta zone') + DEUX_POINTS +
+               (f.preuve ? 'on teste deux crans au-dessus' : 'on teste le cran du dessus') + '.';
+
+      case 'garde':
+        if (t.niveau === lo) {
+          return duTest + ' est tombé au bas de ta zone' + DEUX_POINTS +
+                 'on le garde sur la dernière série.';
+        }
+        return duTest + ' est entré dans ta zone' + DEUX_POINTS +
+               'on le garde sur la dernière série jusqu\'à ' + hi + '.';
+
+      case 'etend':
+        return duTest + (t.niveau >= hi ? ' a touché le haut de ta zone' : ' est entré dans ta zone') +
+               DEUX_POINTS + 'il gagne une série.';
+
+      case 'rejoint':
+        return (c.ligne ? 'Une série de plus rejoint ' : 'Ta première série rejoint ') +
+               nombreFr(c.haut.charge) + '.';
+
+      case 'attend':
+        return c.n - c.haut.k === 1
+          ? 'Ta première série rejoindra ' + nombreFr(c.haut.charge) +
+            ' quand tu y feras ' + f.seuil + '.'
+          : 'Tes premières séries rejoindront ' + nombreFr(c.haut.charge) +
+            ' une à une, quand tu y feras ' + f.seuil + '.';
+
+      case 'tout_passe':
+        if (t !== null) {
+          return duTest + ' a touché le haut de ta zone' + DEUX_POINTS + 'tout passe.';
+        }
+        return auPalier + ' le ' + jour + ', le haut de ta zone' + DEUX_POINTS +
+               'tout passe à ' + nombreFr(c.haut.charge) + '.';
+
+      case 'retest_un_cran':
+        return rate + ' On reteste d\'un seul cran.';
+
+      case 'etirement':
+        return 'Ton cran ne peut pas être plus petit' + DEUX_POINTS + 'ta zone s\'étire. ' +
+               'On retestera ' + nombreFr(t.charge) + ' quand tu feras ' + f.cible +
+               ' à ' + nombreFr(c.ligne.charge) + '.';
+
+      case 'retest':
+        return f.cible + ' à ' + nombreFr(c.ligne.charge) + DEUX_POINTS +
+               'on retente ' + nombreFr(t.charge) + '.';
+
+      case 'reprise_courte':
+        return 'On reprend à ton dernier palier, sans rep de plus.';
+
+      // ⚠️ LA CHARGE CITÉE EST LE PALIER, pas celle de la consigne. « On reprend
+      // un cran sous ton dernier palier, 125 kg » : 125 est le palier d'où l'on
+      // descend, la consigne dit 122,5. Et RIEN sur la durée de l'absence
+      // (CADRAGE §3.1 bis).
+      case 'reprise_longue':
+        return 'On reprend un cran sous ton dernier palier, ' + enKg(c.palier) +
+               '. Le test te ramènera à ' + nombreFr(c.palier) + '.';
+
+      // Le « 3 » se lit sur la table du rangement, il ne se recopie pas : sous
+      // la première borne, il n'y a plus de zone (§9.1.2).
+      case 'bord':
+        return 'Sous ' + (RANGEMENT[0].jusqua + 1) + ' reps, pas une de plus' + DEUX_POINTS +
+               'le cran au-dessus, aux mêmes reps.';
+    }
+    return '';
+  }
+
+  // `{ jaune, gris }` : zéro, une ou deux lignes jaunes, et UNE phrase grise.
+  function libellesConsigne(consigne) {
+    if (!consigne) return { jaune: [], gris: '' };
+    return { jaune: lignesJaunes(consigne), gris: phraseGrise(consigne) };
+  }
 
   var api = {
     FENETRE_HABITUDE: FENETRE_HABITUDE,
@@ -988,7 +1315,10 @@
     chargeVoisine: chargeVoisine,
     ecartHabituel: ecartHabituel,
     repriseDe: repriseDe,
-    consignePour: consignePour
+    consignePour: consignePour,
+    libellesConsigne: libellesConsigne,
+    MOIS_COURTS: MOIS_COURTS,
+    INSECABLE: INSECABLE
   };
 
   racine.THMoteur = api;

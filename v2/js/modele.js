@@ -1096,4 +1096,12 @@
   // module.exports côté Jest.
   racine.THModele = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
-})(typeof self !== 'undefined' ? self : this);
+  // ⚠️ `globalThis` ET NON `this` — corrigé le 19/09/2026 (48b-5b-1). Sous Jest,
+  // le code est transformé en mode STRICT, où `this` vaut `undefined` à la
+  // racine d'un module : `racine.THModele = api` levait un TypeError et le
+  // module devenait INCHARGEABLE dans un test `@jest-environment node`. Dans le
+  // navigateur `self` gagne toujours, donc rien ne change à l'écran ; en node
+  // nu, `this` valait `module.exports` et le global restait vide — le module se
+  // chargeait mais ne se câblait pas. `palier.js`, `moteur.js` et onze autres
+  // modules v2 emploient déjà `globalThis`.
+})(typeof self !== 'undefined' ? self : globalThis);

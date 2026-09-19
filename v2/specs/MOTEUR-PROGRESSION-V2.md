@@ -888,6 +888,8 @@ Deux raisons. Une séance corrigée après coup (mode Édition) ne doit pas chan
 
 Validé sur tout l'historique des cinq profils (`banc_consigne48.py`) : 6 109 consignes par réglage, aucune anomalie ; tests proposés sur 100 séances : Prudent 7, Normal 17, Franc 21.
 
+**Le fondement — ajouté le 19/09/2026 (48b-5b-1).** `consignePour` rend aussi `fondement`, les faits sur lesquels la consigne repose : la date de la dernière séance ; les reps saisies de ses séries au palier ; le test (charge, reps saisies de sa première série, niveau compté, date) et s'il valait un seul cran ; la cible d'un étirement ; la preuve d'un double saut (`haut` ou `facile`) ; le seuil d'une série qui attend ; le palier précédent, après la bascule ; la série à fond (rang parmi les séries au palier, charge, reps saisies, reps comptées, cause `rpe` ou `ressenti`) ; en silence, les charges de la dernière séance. Les phrases de l'en-tête (ECRAN-SAISIE §3.12), la feuille « Pourquoi » (ECRAN-SAISIE §3.10) et la table `predictions` (§9.11) le lisent : **aucune ne recalcule une règle du moteur**.
+
 ---
 
 ## 10. L'incrément

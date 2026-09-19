@@ -396,3 +396,356 @@ describe('`seriesAuPalier` — de la séance décrite aux séries qui ont tenu',
     expect(M.seriesAuPalier(null)).toEqual([]);
   });
 });
+
+// ── §10.2 / §12.6 / §9.9 — LE PAS, L'ÉCART, LA COUPURE, LA REPRISE (48b-3) ──
+//
+// CONVENTION DES CAS `P` : la coupure est le 20/09/2026 à 10 h UTC, et chaque
+// séance est datée d'un nombre de jours AVANT elle, à la même heure. Sauf
+// mention, les séances sont espacées de 7 jours et la dernière tombe 7 jours
+// avant la coupure. Chaque séance ne porte QU'UNE charge : elle est donc à la
+// fois sa plus lourde série et sa charge utilisée, ce qui isole le calcul du
+// pas de tout le reste.
+//
+// Chaque cas tue une erreur précise, et la valeur fautive est en commentaire :
+// elle a été MESURÉE en rejouant la variante sur les mêmes données.
+describe('§10.2 — le pas de la salle, et quelle charge proposer', () => {
+  const COUPURE = '2026-09-20T10:00:00+00:00';
+  const JOUR = 86400000;
+  const ilYA = (j) => new Date(Date.parse(COUPURE) - j * JOUR).toISOString();
+
+  // Une séance-exercice à une seule charge, telle que `analyser` la décrit.
+  const une = (kg, jours) => ({
+    debut: ilYA(jours), palier: kg,
+    retenues: [{ charge_kg: kg, reps: 5 }],
+    votantes: [{ charge_kg: kg, reps: 5 }]
+  });
+  // n séances espacées de 7 jours, la dernière 7 jours avant la coupure.
+  const jeu = (...charges) =>
+    charges.map((kg, i) => une(kg, 7 * (charges.length - i)));
+  const dessus = (ses, eq, palier) => M.chargeVoisine(ses, COUPURE, palier, eq, 1);
+  const dessous = (ses, eq, palier) => M.chargeVoisine(ses, COUPURE, palier, eq, -1);
+
+  test('P1 — un pas exact de 2,5 kg, dans les deux sens', () => {
+    const P1 = jeu(115, 117.5, 120, 122.5, 125, 130);
+    expect(M.pasDeSalle(P1, COUPURE)).toEqual({ pas: 2.5, nature: 'exact' });
+    expect(dessus(P1, 'barre', 125)).toBe(127.5);
+    expect(dessous(P1, 'barre', 125)).toBe(122.5);
+  });
+
+  test('P2 — DISCRIMINANT : un écart est récurrent à partir de TROIS fois', () => {
+    // Écarts : 2,5 · 2,5 · 5 · 5 · 5. Seul le 5 revient trois fois.
+    // À deux fois, 2,5 deviendrait récurrent -> 122,5.
+    // À quatre fois, plus rien ne l'est -> repli de la barre -> 122,5 aussi.
+    const P2 = jeu(100, 102.5, 105, 110, 115, 120);
+    expect(M.pasDeSalle(P2, COUPURE)).toEqual({ pas: 5, nature: 'exact' });
+    expect(dessus(P2, 'barre', 120)).toBe(125);
+  });
+
+  test('P3 — sans écart récurrent, la charge DÉJÀ UTILISÉE juste au-delà', () => {
+    // Élévation latérale poulie réelle : 4,6 · 6,8 · 9 · 11,5 · 13,6.
+    // Écarts 2,2 · 2,2 · 2,5 · 2,1 : aucun ne revient trois fois.
+    const P3 = jeu(4.6, 6.8, 9, 11.5, 13.6);
+    expect(M.pasDeSalle(P3, COUPURE)).toBeNull();
+    expect(dessus(P3, 'poulie', 9)).toBe(11.5);
+    expect(dessous(P3, 'poulie', 9)).toBe(6.8);
+  });
+
+  test('P4 — DISCRIMINANT : la charge utilisée passe AVANT le repli', () => {
+    // 60 · 65 · 70, un seul écart de 5 : pas de pas. La charge 70 est attestée.
+    // Si le repli de la barre passait d'abord : 67,5 — jamais soulevé.
+    const P4 = jeu(60, 65, 70);
+    expect(dessus(P4, 'barre', 65)).toBe(70);
+  });
+
+  test('P5 — DISCRIMINANT : le repli de la barre vaut 2,5 kg, pas 5', () => {
+    // Curl barre EZ : 25 · 30, rien au-dessus. Le repli parle.
+    // À 5 kg, le moteur proposerait 35 — un saut de 17 % sur une barre légère.
+    const P5 = jeu(25, 30);
+    expect(dessus(P5, 'barre', 30)).toBe(32.5);
+    expect(dessus(P5, 'machine_smith', 30)).toBe(32.5);
+  });
+
+  test('P6 — le pas des haltères se déduit comme les autres', () => {
+    const P6 = jeu(18, 20, 24, 28, 32);
+    expect(M.pasDeSalle(P6, COUPURE)).toEqual({ pas: 4, nature: 'exact' });
+    expect(dessus(P6, 'haltere', 28)).toBe(32);
+  });
+
+  test('P7 — deux écarts récurrents : c’est le plus petit qui est le cran', () => {
+    // Écarts 1 · 1 · 1 · 2 · 2 · 2 : les deux reviennent trois fois, et le
+    // cran de la salle est le plus petit — les autres en sont des multiples.
+    const P7 = jeu(10, 11, 12, 13, 15, 17, 19);
+    expect(M.pasDeSalle(P7, COUPURE)).toEqual({ pas: 1, nature: 'exact' });
+    expect(dessus(P7, 'barre', 13)).toBe(14);
+  });
+
+  // ⚠️ AJOUTÉ APRÈS LE BANC DE MUTATION. P7 ne départageait PAS « le plus
+  // petit » de « le plus fréquent » : à trois occurrences chacun, les deux
+  // lectures tombent sur le même écart selon l'ordre de parcours. Il faut une
+  // majorité franche pour que les deux règles divergent.
+  test('DISCRIMINANT — le plus PETIT récurrent, même quand un autre est plus fréquent', () => {
+    // Écarts 1 · 1 · 1 · 2 · 2 · 2 · 2 · 2 : le 2 revient cinq fois, le 1 trois.
+    // « Le plus fréquent » rendrait 2, donc 15 depuis un palier de 13.
+    const P7b = jeu(10, 11, 12, 13, 15, 17, 19, 21, 23);
+    expect(M.pasDeSalle(P7b, COUPURE)).toEqual({ pas: 1, nature: 'exact' });
+    expect(dessus(P7b, 'barre', 13)).toBe(14);
+  });
+
+  test('P8 — DISCRIMINANT : un pas non multiple de 0,5 est APPROCHÉ, donc inutilisable', () => {
+    // Poulie convertie des livres : écarts de 2,2 kg, récurrents trois fois.
+    // Sans le test du 0,5, le moteur proposerait 18,8 — une charge que la
+    // machine ne fait pas. Rien au-dessus, pas de repli pour une poulie : rien.
+    const P8 = jeu(10, 12.2, 14.4, 16.6);
+    expect(M.pasDeSalle(P8, COUPURE)).toEqual({ pas: 2.2, nature: 'approche' });
+    expect(dessus(P8, 'poulie', 16.6)).toBeNull();
+  });
+
+  test('P9 — la fenêtre du pas est de 24 MOIS, pas de 12', () => {
+    // Trois séances il y a ~18 mois, deux récentes. Les cinq charges donnent
+    // un pas de 2,5. Sur 12 mois, il ne resterait que 47,5 et 50 : pas de pas,
+    // rien au-dessus, pas de repli pour une machine -> `null`.
+    const P9 = [une(40, 540), une(42.5, 530), une(45, 520), une(47.5, 20), une(50, 10)];
+    expect(M.pasDeSalle(P9, COUPURE)).toEqual({ pas: 2.5, nature: 'exact' });
+    expect(dessus(P9, 'machine', 50)).toBe(52.5);
+  });
+
+  test('P9b — DISCRIMINANT : au-delà de 24 mois, les charges ne comptent plus', () => {
+    // Quatre séances il y a ~2,5 ans, deux récentes. Le pas de 2,5 kg d'alors
+    // ne dit plus rien de la salle d'aujourd'hui. Sans fenêtre : 47,5.
+    // ⚠️ Mais le rang 2 n'a PAS de limite de date — il ne trouve simplement
+    // aucune charge au-dessus de 45.
+    const P9b = [une(20, 930), une(22.5, 920), une(25, 910), une(27.5, 900),
+                 une(40, 20), une(45, 10)];
+    expect(M.pasDeSalle(P9b, COUPURE)).toBeNull();
+    expect(dessus(P9b, 'machine', 45)).toBeNull();
+    // Contre-épreuve du rang 2 : il n'a PAS de limite de date, et depuis 22 il
+    // retrouve bien la charge de 22,5 faite il y a deux ans et demi.
+    expect(dessus(P9b, 'machine', 22)).toBe(22.5);
+  });
+
+  test('P10 — DISCRIMINANT : les haltères basculent À 20 kg, la paire incluse', () => {
+    // Sous une paire de 20 : +2 (1 kg par main). À partir de 20 : +4.
+    // Si 20 restait dans la bande légère, le moteur proposerait 22 — une paire
+    // d'haltères de 11 kg, que les salles ne font pas.
+    expect(dessus(jeu(14, 18), 'haltere', 18)).toBe(20);
+    expect(dessus(jeu(16, 20), 'haltere', 20)).toBe(24);
+  });
+
+  test('P11 — DISCRIMINANT : en descendant, 20 reste dans la bande légère', () => {
+    // L'asymétrie est voulue : on SORT de la bande en montant depuis 20
+    // (20 -> 24), on y RESTE en descendant (20 -> 18). Les deux sens décrivent
+    // le même plan de charges — 18, 20, 24, 28.
+    expect(dessous(jeu(24, 28), 'haltere', 24)).toBe(20);
+    expect(dessous(jeu(20, 24), 'haltere', 20)).toBe(18);
+  });
+
+  test('P12 — sans repli connu, le moteur se tait plutôt que d’inventer', () => {
+    // Une machine : ses charges viennent d'un plan qu'on ne devine pas.
+    // L'écran dira « le cran au-dessus », sans chiffre.
+    expect(dessus(jeu(40, 45), 'machine', 45)).toBeNull();
+    expect(dessus(jeu(40, 45), 'poulie', 45)).toBeNull();
+    expect(dessus(jeu(40, 45), 'kettlebell', 45)).toBeNull();
+  });
+
+  test('un matériel venu de la base n’atteint jamais la chaîne de prototypes', () => {
+    expect(dessus(jeu(40, 45), 'constructor', 45)).toBeNull();
+    expect(dessus(jeu(40, 45), '__proto__', 45)).toBeNull();
+  });
+
+  test('sans palier, sans coupure, ou sans séance : rien', () => {
+    expect(dessus(jeu(40, 45), 'barre', null)).toBeNull();
+    expect(M.chargeVoisine(jeu(40, 45), null, 45, 'barre', 1)).toBeNull();
+    expect(M.pasDeSalle(jeu(40, 45), null)).toBeNull();
+    expect(M.pasDeSalle([], COUPURE)).toBeNull();
+    // Une seule charge distincte : aucun écart à mesurer.
+    expect(M.pasDeSalle(jeu(50, 50, 50), COUPURE)).toBeNull();
+  });
+
+  test('DISCRIMINANT — le pas se lit sur la PLUS LOURDE série, explorations comprises', () => {
+    // Une séance `100, 100, 105` : c'est 105 qui décrit le plan de charges,
+    // même si le palier vaut 100. Sur le palier seul, les charges seraient
+    // 100, 105, 110 -> écarts de 5 ; sur la plus lourde, 105, 110, 115.
+    const avecExplorations = [
+      { debut: ilYA(21), palier: 100,
+        retenues: [{ charge_kg: 100, reps: 5 }],
+        votantes: [{ charge_kg: 100, reps: 5 }, { charge_kg: 105, reps: 2 }] },
+      { debut: ilYA(14), palier: 105,
+        retenues: [{ charge_kg: 105, reps: 5 }],
+        votantes: [{ charge_kg: 105, reps: 5 }, { charge_kg: 110, reps: 2 }] },
+      { debut: ilYA(7), palier: 110,
+        retenues: [{ charge_kg: 110, reps: 5 }],
+        votantes: [{ charge_kg: 110, reps: 5 }, { charge_kg: 115, reps: 2 }] }
+    ];
+    // Plus lourdes : 105, 110, 115 -> écarts 5 · 5, deux fois seulement.
+    expect(M.pasDeSalle(avecExplorations, COUPURE)).toBeNull();
+    // Mais le rang 2 les connaît : depuis 110, la charge juste au-dessus est 115.
+    expect(dessus(avecExplorations, 'machine', 110)).toBe(115);
+  });
+
+  // ⚠️ AJOUTÉ APRÈS LE BANC DE MUTATION. Le cas ci-dessus ne séparait PAS « la
+  // plus lourde » de « la plus légère » : ses deux suites donnent des écarts de
+  // 5, donc le même verdict. Il faut que les séries de travail et les
+  // explorations progressent à des pas DIFFÉRENTS.
+  test('DISCRIMINANT — c’est la plus LOURDE série de chaque séance qui décrit le plan', () => {
+    // Travail : 100 · 101 · 102 · 103 (écarts de 1). Explorations :
+    // 110 · 112,5 · 115 · 117,5 (écarts de 2,5). Lue sur la plus légère, la
+    // salle aurait un cran de 1 kg — et le moteur proposerait 116 depuis 115.
+    const deuxPentes = [
+      { debut: ilYA(28), palier: 100, retenues: [{ charge_kg: 100, reps: 5 }],
+        votantes: [{ charge_kg: 100, reps: 5 }, { charge_kg: 110, reps: 2 }] },
+      { debut: ilYA(21), palier: 101, retenues: [{ charge_kg: 101, reps: 5 }],
+        votantes: [{ charge_kg: 101, reps: 5 }, { charge_kg: 112.5, reps: 2 }] },
+      { debut: ilYA(14), palier: 102, retenues: [{ charge_kg: 102, reps: 5 }],
+        votantes: [{ charge_kg: 102, reps: 5 }, { charge_kg: 115, reps: 2 }] },
+      { debut: ilYA(7), palier: 103, retenues: [{ charge_kg: 103, reps: 5 }],
+        votantes: [{ charge_kg: 103, reps: 5 }, { charge_kg: 117.5, reps: 2 }] }
+    ];
+    expect(M.pasDeSalle(deuxPentes, COUPURE)).toEqual({ pas: 2.5, nature: 'exact' });
+    expect(dessus(deuxPentes, 'machine', 115)).toBe(117.5);
+  });
+
+  test('les chauffes, dégressives et séries ratées ne décrivent aucun plan de charges', () => {
+    // `votantes` les exclut déjà (§7) : une chauffe à 20 kg ne dit rien du cran.
+    const s1 = { debut: ilYA(14), palier: 100,
+      retenues: [{ charge_kg: 100, reps: 5 }], votantes: [{ charge_kg: 100, reps: 5 }] };
+    const s2 = { debut: ilYA(7), palier: 105,
+      retenues: [{ charge_kg: 105, reps: 5 }], votantes: [{ charge_kg: 105, reps: 5 }] };
+    // Rien en dessous de 100 : la chauffe de la vraie séance n'y est pas.
+    expect(dessous([s1, s2], 'machine', 100)).toBeNull();
+  });
+});
+
+// ── §12.6 / §9.9 — L'ÉCART HABITUEL ET LA REPRISE ──────────────────────────
+describe('§9.9 — la coupure et les deux reprises', () => {
+  const COUPURE = '2026-09-20T10:00:00+00:00';
+  const JOUR = 86400000;
+  const ilYA = (j) => new Date(Date.parse(COUPURE) - j * JOUR).toISOString();
+  const une = (jours) => ({
+    debut: ilYA(jours), palier: 100,
+    retenues: [{ charge_kg: 100, reps: 5 }], votantes: [{ charge_kg: 100, reps: 5 }]
+  });
+  // Cinq séances espacées de 7 jours, la dernière N jours avant la coupure.
+  const cinq = (n) => [une(n + 28), une(n + 21), une(n + 14), une(n + 7), une(n)];
+
+  test('l’écart habituel est la médiane des écarts, en jours', () => {
+    expect(M.ecartHabituel(cinq(7), COUPURE)).toBe(7);
+    // Une médiane, pas une moyenne : une seule longue coupure ne doit pas
+    // rendre la règle muette pour toujours. 7 · 7 · 90 · 7 -> 7, pas 27,75.
+    const irregulier = [une(118), une(111), une(21), une(14), une(7)];
+    expect(M.ecartHabituel(irregulier, COUPURE)).toBe(7);
+  });
+
+  test('moins de deux séances : pas d’écart, donc pas de coupure', () => {
+    expect(M.ecartHabituel([une(100)], COUPURE)).toBeNull();
+    expect(M.repriseDe([une(100)], COUPURE)).toBe('aucune');
+    expect(M.ecartHabituel([], COUPURE)).toBeNull();
+    expect(M.repriseDe([], COUPURE)).toBe('aucune');
+  });
+
+  test('DISCRIMINANT — la coupure est STRICTE, et le facteur est 3', () => {
+    // Écart habituel 7, donc le seuil est 21 jours.
+    expect(M.repriseDe(cinq(22), COUPURE)).toBe('courte');
+    // À 21 pile, il n'y a PAS de coupure. Avec `>=`, ce serait « courte ».
+    expect(M.repriseDe(cinq(21), COUPURE)).toBe('aucune');
+    // À 15 jours non plus. Avec un facteur 2 (seuil 14), ce serait « courte ».
+    expect(M.repriseDe(cinq(15), COUPURE)).toBe('aucune');
+  });
+
+  test('DISCRIMINANT — 84 jours INCLUS restent une reprise courte', () => {
+    // Douze semaines pile : la borne mesurée au banc M14. Exclue, ce serait
+    // « longue », et le moteur retirerait un cran sans raison.
+    expect(M.repriseDe(cinq(84), COUPURE)).toBe('courte');
+    expect(M.repriseDe(cinq(90), COUPURE)).toBe('longue');
+  });
+
+  test('sans coupure de date, aucune reprise — le §9.12 vaut ici aussi', () => {
+    expect(M.repriseDe(cinq(22), null)).toBe('aucune');
+    expect(M.ecartHabituel(cinq(22), null)).toBeNull();
+  });
+});
+
+// ── §9.12 — LES DATES SONT DES INSTANTS, PAS DES TEXTES ────────────────────
+//
+// ⚠️ LE DÉFAUT QUE CE COMMIT CORRIGE, ET IL ÉTAIT INVISIBLE.
+//
+// Un même instant s'écrit de deux façons dans ce projet : l'app écrit
+// `new Date().toISOString()` — « …T10:00:00.000Z » —, tandis que `sessions.debut`
+// est un `timestamptz` et revient du serveur en « …T10:00:00+00:00 ». En TEXTE,
+// « + » (0x2B) précède « . » (0x2E) : la seconde écriture se classe AVANT la
+// première, à instant égal.
+//
+// Aucun test ne le voyait parce que tout le corpus du dépôt s'écrit avec « Z ».
+describe('§9.12 — deux écritures d’un même instant se classent pareil', () => {
+  const JOUR = 86400000;
+  // La coupure écrite par l'app, la séance écrite par le serveur.
+  const COUPURE_Z = '2026-09-20T10:00:00.000Z';
+  const DU_JOUR = '2026-09-20T10:00:00+00:00';
+  const ilYA = (j) => new Date(Date.parse(COUPURE_Z) - j * JOUR).toISOString();
+
+  test('le même instant, écrit des deux façons, ne se classe pas pareil en TEXTE', () => {
+    // Le constat qui justifie tout ce qui suit.
+    expect(Date.parse(DU_JOUR)).toBe(Date.parse(COUPURE_Z));
+    expect(DU_JOUR < COUPURE_Z).toBe(true);        // …et pourtant
+  });
+
+  test('DISCRIMINANT — la séance du jour ne compte pas parmi ses antécédents', () => {
+    const une = (jours) => ({
+      debut: ilYA(jours), palier: 100,
+      retenues: [{ charge_kg: 100, reps: 5 }], votantes: [{ charge_kg: 100, reps: 5 }]
+    });
+    const cinq = [une(50), une(43), une(36), une(29), une(22)];
+    const duJour = { debut: DU_JOUR, palier: 100,
+      retenues: [{ charge_kg: 100, reps: 5 }], votantes: [{ charge_kg: 100, reps: 5 }] };
+    // En texte, la séance du jour passait pour antérieure : la dernière séance
+    // devenait « aujourd'hui », donc plus aucune coupure.
+    expect(M.repriseDe(cinq.concat([duJour]), COUPURE_Z)).toBe('courte');
+    expect(M.anterieures(cinq.concat([duJour]), COUPURE_Z)).toHaveLength(5);
+  });
+
+  test('DISCRIMINANT — `habitudeDe` en hérite : le triceps corde reste à 13', () => {
+    // Le jeu F2 de 48b-2, plus une séance du jour même à 20 reps. Comptée, elle
+    // ferait basculer l'habitude de 13 à 15, donc la zone ne changerait pas —
+    // mais la consigne, si.
+    const F2 = [
+      se('2026-04-16', 22.5, 12, 12, 12), se('2026-04-24', 22.5, 12, 12),
+      se('2026-05-12', 20.3, 12, 12, 12), se('2026-05-29', 20.3, 13, 13),
+      se('2026-06-25', 20.3, 15, 15, 12), se('2026-07-02', 20.3, 15, 15, 12),
+      se('2026-07-09', 20.3, 15, 15, 12), se('2026-08-22', 22.5, 12, 12),
+      se('2026-09-03', 24.8, 12, 15), se('2026-09-10', 24.8, 15, 15, 15)
+    ];
+    const avec = F2.concat([se(DU_JOUR, 24.8, 20, 20, 20)]);
+    expect(M.habitudeDe(avec, COUPURE_Z)).toBe(13);
+    // Contre-épreuve : datée de la veille, elle compte bien.
+    const laVeille = F2.concat([se('2026-09-19T10:00:00+00:00', 24.8, 20, 20, 20)]);
+    expect(M.habitudeDe(laVeille, COUPURE_Z)).toBe(15);
+  });
+
+  test('une date illisible ne se compare pas de travers : elle ne compte pas', () => {
+    const bancal = { debut: 'pas une date', palier: 100,
+      retenues: [{ charge_kg: 100, reps: 5 }], votantes: [{ charge_kg: 100, reps: 5 }] };
+    expect(M.anterieures([bancal], COUPURE_Z)).toEqual([]);
+    expect(M.repriseDe([bancal], COUPURE_Z)).toBe('aucune');
+  });
+
+  // ⚠️ AJOUTÉ APRÈS LE BANC DE MUTATION, et c'est le cas qui manquait le plus.
+  // Une COUPURE illisible ne rend pas `null` par elle-même : `Date.parse` rend
+  // `NaN`, et toute comparaison avec `NaN` est fausse. Les rangs 1 et 2 se
+  // taisent donc d'eux-mêmes — mais le rang 3, le repli du matériel, ne lit
+  // AUCUNE séance : sans la garde, il proposerait une charge alors qu'on ne
+  // sait pas ce qu'est « l'avenir ». C'est `isFinite` qui ferme la porte.
+  test('DISCRIMINANT — une COUPURE illisible ne laisse pas parler le repli', () => {
+    const uneSeance = [{ debut: '2026-09-13T10:00:00+00:00', palier: 100,
+      retenues: [{ charge_kg: 100, reps: 5 }], votantes: [{ charge_kg: 100, reps: 5 }] }];
+    ['pas une date', 'NaN', '2026-13-45'].forEach((coupure) => {
+      expect(M.chargeVoisine(uneSeance, coupure, 45, 'barre', 1)).toBeNull();
+      expect(M.pasDeSalle(uneSeance, coupure)).toBeNull();
+      expect(M.ecartHabituel(uneSeance, coupure)).toBeNull();
+      expect(M.repriseDe(uneSeance, coupure)).toBe('aucune');
+      expect(M.habitudeDe(uneSeance, coupure)).toBeNull();
+    });
+    // Contre-épreuve : la même demande avec une coupure lisible parle bien.
+    // Depuis 100, rien n'est attesté au-dessus, donc c'est le repli qui rend
+    // 102,5 — exactement ce que la coupure illisible doit empêcher.
+    expect(M.chargeVoisine(uneSeance, COUPURE_Z, 100, 'barre', 1)).toBe(102.5);
+  });
+});

@@ -166,10 +166,17 @@
   // Catalogue partagé, 237 lignes. `mesure` et `charge` reconnaissent une sortie
   // (THModele.estExerciceSortie) ; les deux tableaux de muscles portent le
   // volume hebdomadaire, pondéré 1 en primaire et 0,5 en secondaire.
+  //
+  // ⚠️ `equipement` DEPUIS 48b-3, et sans elle le moteur se tait. Elle porte le
+  // matériel de l'exercice — barre, haltere, poulie, machine, machine_smith,
+  // elastique, kettlebell, disque, aucun — et c'est d'elle que vient le repli
+  // du MOTEUR §10.2, quand l'historique ne donne pas le pas de la salle.
+  // PostgREST ne renvoie QUE ce qu'on nomme : omise, elle vaudrait `undefined`
+  // sur les 237 exercices et le repli ne parlerait jamais, sans une erreur.
   function tousLesExercices() {
     return paginerParCle(trancheur(function () {
       return client().from('exercises')
-        .select('slug, nom, mesure, charge, muscles_primaires, muscles_secondaires');
+        .select('slug, nom, mesure, charge, equipement, muscles_primaires, muscles_secondaires');
     }, 'slug'), 'slug');
   }
 

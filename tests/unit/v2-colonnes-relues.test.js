@@ -356,4 +356,20 @@ describe('12. la liste de lecture est DÉRIVÉE, jamais recopiée', () => {
     ['user_id', 'ressenti', 'repos_s', 'source'].forEach((c) =>
       expect(requetes[0].colonnes).toContain(c));
   });
+
+  // ⚠️ `equipement` — LA COLONNE QUE LE MOTEUR ALLAIT LIRE SANS L'AVOIR DEMANDÉE
+  // (48b-3). Elle existe en base et elle est renseignée pour les 237 exercices,
+  // mais PostgREST ne renvoie QUE ce qu'on nomme : sans elle dans ce `select`,
+  // le repli du §10.2 lisait `undefined` sur chaque exercice et se taisait
+  // partout, en silence, sans une erreur. Même piège que `routines.rang` au
+  // chantier 46 — d'où ce test, écrit AVANT la colonne.
+  test('le `select` du catalogue demande `equipement` — le repli du §10.2 en dépend', async () => {
+    const Donnees = charger();
+    await Donnees.tousLesExercices();
+    const demandees = requetes[0].colonnes.split(',').map((c) => c.trim());
+    expect(demandees).toContain('equipement');
+    // Et les colonnes déjà lues n'ont pas bougé au passage.
+    ['slug', 'nom', 'mesure', 'charge', 'muscles_primaires', 'muscles_secondaires']
+      .forEach((c) => expect(demandees).toContain(c));
+  });
 });

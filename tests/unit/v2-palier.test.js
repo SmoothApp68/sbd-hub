@@ -235,13 +235,20 @@ describe('§5 — la rampe ne vote que si l’exercice « monte »', () => {
     expect(r.palier).toBe(100);   // n = 3, requis = 2, k = 2
   });
 
-  test('l’état change le palier quand il change le dénominateur', () => {
-    // Trois séries montantes, aucune répétée. En « monte », la rampe part,
-    // n = 2, requis = 1 -> palier 110. Sinon n = 3, requis = 2 -> aucun palier.
+  // ⚠️ TEST INVERSÉ LE 19/09/2026 (§5.2, §7.3). Il affirmait qu'en « monte » la
+  // rampe partait — n = 2, requis = 1 — et que le palier valait 110. C'était le
+  // défaut, écrit en test : trois séries montantes dont aucune n'est répétée,
+  // c'est une PYRAMIDE, et 110 n'y a été tenu qu'une fois. Il n'y a pas de palier
+  // provisoire, donc pas de rampe, donc pas de palier — dans les trois états.
+  // Le dénominateur, lui, continue de bouger : les deux tests ci-dessus le
+  // montrent sur une séance où une rampe est vraiment prononcée (n = 2 / n = 3).
+  test('une pyramide ne rend aucun palier, quel que soit l’état', () => {
     const montante = seance(s(90, 10), s(100, 10), s(110, 10));
-    expect(P.analyser(montante, etat('monte')).palier).toBe(110);
+    expect(P.analyser(montante, etat('monte')).palier).toBeNull();
     expect(P.analyser(montante, etat('ne_monte_pas')).palier).toBeNull();
     expect(P.analyser(montante, etat('indetermine')).palier).toBeNull();
+    // Et la rampe n'est plus prononcée : les trois séries restent du travail.
+    expect(roles(P.analyser(montante, etat('monte')))).toEqual(['travail', 'travail', 'travail']);
   });
 
   test('aucun état fourni -> « indéterminé », jamais une hypothèse', () => {
@@ -268,6 +275,113 @@ describe('§5 — la rampe ne vote que si l’exercice « monte »', () => {
     // Une séance de moins de trois séries ne compte pas du tout.
     const courtes = [{ slug: 'exo', series: seance(s(90, 10), s(100, 10)) }];
     expect(P.etatsExercices(courtes).exo).toBeUndefined();
+  });
+});
+
+// ── 5 bis — CONTRE QUOI SE JUGE LA RAMPE (§5.2, corrigé le 19/09/2026) ─────
+//
+// CONFIGURATION DISCRIMINANTE (`CADRAGE-V2` §2 quater) : la plus lourde des
+// séries suivantes doit être une EXPLORATION, c'est-à-dire plus lourde que le
+// palier provisoire. Sur une séance qui finit au palier — le squat du 2 février,
+// le soulevé hexagonal du 21 août — les deux repères coïncident et le banc ne
+// prouverait rien. Le cas qui sépare est celui qui MONTE À LA FIN.
+//
+// Les cinq premiers cas ÉCHOUENT avec l'ancienne comparaison (vérifié : elle
+// rend respectivement 130 × 3, 295,7 × 12, 84 × 8, 46,1 × 10 et 210 × 1). Les
+// deux recettes passent avant comme après : elles gardent ce qui marchait.
+//
+// Toutes ces séances sont RÉELLES, lues en base. `echauffement` et `degressive`
+// sont les tags portés par les séries ; l'état « monte » est celui que
+// `etatsExercices` mesure sur ces exercices.
+describe('§5.2 — la rampe se juge contre le palier provisoire, pas contre la plus lourde', () => {
+  // ✱ Le cas constaté sur appareil : la page Développé Couché annonçait
+  // « Dernière séance : 130 × 3 » alors que 130 n'a été tenu qu'UNE fois et que
+  // 125 l'a été deux fois. La série de 125 × 4 était écartée comme rampe parce
+  // qu'elle est plus légère que le 130 — qui est une exploration.
+  test('✱ couché barre du 15/09/2026 : palier 125 × 5, et non 130 × 3', () => {
+    const r = P.analyser(seance(
+      s(20, 15, 'echauffement'), s(60, 10, 'echauffement'), s(100, 5, 'echauffement'),
+      s(115, 1, 'echauffement'), s(125, 4), s(125, 5), s(130, 3)), etat('monte'));
+    expect(r.palier).toBe(125);
+    expect(r.reps).toBe(5);
+    // La première série de travail n'est PAS une rampe : elle est au palier.
+    expect(roles(r).slice(4)).toEqual(['travail', 'travail', 'exploration']);
+  });
+
+  // ✱ Deux séries tenues à 275,7 et une montée à 295,7. L'ancienne règle
+  // écartait la première des deux, n tombait à 2, et le §7.2 gardait 295,7 —
+  // une charge tenue une seule fois.
+  test('✱ presse à cuisses du 14/09/2026 : palier 275,7 × 12, et non 295,7 × 12', () => {
+    const r = P.analyser(seance(
+      s(195.7, 12, 'echauffement'), s(275.7, 12), s(275.7, 12), s(295.7, 12)), etat('monte'));
+    expect(r.palier).toBe(275.7);
+    expect(r.reps).toBe(12);
+    expect(roles(r)).toEqual(['chauffe', 'travail', 'travail', 'exploration']);
+  });
+
+  // ✱ Trois séries seulement, et la plus courte séance où le défaut se voit :
+  // deux à 80, une montée à 84.
+  test('✱ couché incliné haltères du 15/09/2026 : palier 80 × 10, et non 84 × 8', () => {
+    const r = P.analyser(seance(s(80, 10), s(80, 10), s(84, 8)), etat('monte'));
+    expect(r.palier).toBe(80);
+    expect(r.reps).toBe(10);
+    expect(roles(r)).toEqual(['travail', 'travail', 'exploration']);
+  });
+
+  // ✱ PAS DE PALIER PROVISOIRE, PAS DE RAMPE — et donc pas de palier du tout.
+  // Une pyramide : aucune charge n'est tenue deux fois. L'ancienne règle
+  // écartait la première série, ramenait n à 2 (requis 1) et annonçait
+  // « palier 46,1 » — une charge tenue UNE fois, sur une séance où rien n'a
+  // été tenu. Le moteur se tait, et c'est le comportement voulu (§7.3).
+  test('✱ leg curl allongé du 21/08/2026 : une pyramide ne rend AUCUN palier', () => {
+    const r = P.analyser(seance(
+      s(41, 12), s(42.1, 12), s(46.1, 10), s(32, 10, 'degressive')), etat('monte'));
+    expect(r.palier).toBeNull();
+    expect(r.reps).toBeNull();
+    // Absence CIRCONSTANCIELLE : les séries restent du travail entier, et
+    // aucune n'est une rampe.
+    expect(roles(r)).toEqual(['travail', 'travail', 'travail', 'degressive']);
+    // Ce que la séance a eu de mieux reste lisible : le journal, lui, parle.
+    expect(r.meilleure).toEqual({ charge: 46.1, reps: 10 });
+  });
+
+  // ✱ Le profil de Jordan, qui pyramide beaucoup. Ici le palier provisoire est
+  // nul ET la chauffe probable joue : quatre séries sous 75 % de 210 partent,
+  // il reste 180×5, 200×1, 210×1, 200×1. L'ancienne règle écartait le 180 comme
+  // rampe, ce qui laissait 200, 210, 200 — et la descente de fin y lisait un
+  // choix, d'où « palier 210 » sur une charge tenue une fois.
+  test('✱ soulevé de terre de Jordan, 01/03/2026 : palier 200 × 1, et non 210 × 1', () => {
+    const r = P.analyser(seance(
+      s(20, 20), s(60, 10), s(100, 8), s(140, 6),
+      s(180, 5), s(200, 1), s(210, 1), s(200, 1)), etat('monte'));
+    expect(r.palier).toBe(200);
+    expect(r.reps).toBe(1);
+    expect(roles(r).slice(4)).toEqual(['travail', 'travail', 'exploration', 'travail']);
+  });
+
+  // RECETTE — inchangée. La séance finit AU palier : les deux repères
+  // coïncident, il n'y a pas de rampe ni avant ni après.
+  test('recette : le squat du 02/02/2026 rend toujours 125 × 4', () => {
+    const r = P.analyser(seance(
+      s(60, 8, 'echauffement'), s(80, 6, 'echauffement'), s(100, 4, 'echauffement'),
+      s(115, 2, 'echauffement'), s(122.5, 1, 'echauffement'),
+      s(125, 4), s(125, 4), s(125, 4)), etat('monte'));
+    expect(r.palier).toBe(125);
+    expect(r.reps).toBe(4);
+    expect(r.retenues).toHaveLength(3);
+  });
+
+  // RECETTE — inchangée, et c'est celle qui compte : une VRAIE rampe reste une
+  // rampe. Le 120 est plus léger que le palier provisoire (130, tenu trois
+  // fois), donc il ne vote pas — exactement le §7.4.
+  test('recette : le soulevé hexagonal du 21/08/2026 garde sa rampe à 120', () => {
+    const r = P.analyser(seance(
+      s(60, 10, 'echauffement'), s(100, 5, 'echauffement'),
+      s(120, 10), s(130, 10), s(130, 10), s(130, 10)), etat('monte'));
+    expect(r.palier).toBe(130);
+    expect(r.reps).toBe(10);
+    expect(roles(r)).toEqual(['chauffe', 'chauffe', 'rampe', 'travail', 'travail', 'travail']);
+    expect(r.retenues).toHaveLength(3);   // §7.4 — n = 3, k = 3
   });
 });
 

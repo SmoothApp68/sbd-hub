@@ -508,10 +508,36 @@ Tentative de répondre à « aurait-on progressé plus vite ». La double progre
 
 ## 13. Reste ouvert
 
-- ~~Trancher la réserve du §9.1.4~~ — **fait : la double progression redevient principale sous prescription**, le dépassement reste pour la transition
-- **Seuil de bascule** entre dépassement et ancienneté de palier — dernier paramètre non calibré
+- ~~Trancher la réserve du §9.1.4~~ — **fait : la double progression redevient principale sous prescription** ; le dépassement, gardé un temps pour la transition, est **supprimé le 19/09/2026** (§14, M13)
+- ~~**Seuil de bascule** entre dépassement et ancienneté de palier~~ — **sans objet depuis le 19/09/2026** : transition supprimée, garde-fou 2 sans objet sous consigne (MOTEUR §9.1.3)
 - ~~Seuil de déclenchement de la stagnation~~ — **tranché : 4 séances** (§12.4 du moteur), après correction de la définition du progrès
 - Cause de la remontée de reprise spontanée à 6 séances (§12.7 du moteur)
 - Rouvrir le délai d'atteinte (§12.1) et la comparaison de vitesses (§12.5) une fois les données prescrites
 
 **Hors périmètre du moteur de charge, et de taille comparable :** volume par muscle et progression en séries, rotation des exercices, deload, fréquence et gestion de la fatigue.
+
+---
+
+## 14. Le banc du chantier 48 — 19/09/2026
+
+Script : `banc_moteur48.py` (`python3 banc_moteur48.py <dossier des exports>` ; option `suite` pour M10 à M16). Données : les cinq exports Hevy du projet. Critère des réglages : **la montée tient-elle** (§12.4).
+
+| Mesure | Question | Résultat | Décision |
+|---|---|---|---|
+| M1 | La rampe est-elle mal jugée ? | 14 à 25 % des séance-exercices selon le profil ; les paliers perdus sont tenus sur une seule série dans plus de 94 cas sur 100 | Rampe jugée contre le palier provisoire (MOTEUR §5.2) |
+| M2 | Recettes | Couché 15/09 = 125 ; squat 2 févr. = 125 ; hex 21/08 = 130 | Validées |
+| M3 | Les explorations à reps pleines tiennent-elles ? | 79 fois sur 100 (149), contre 74 pour le moteur (61) : pas de signal net | Tranché par la doctrine : règle du test |
+| M4 | Stagnation à l'ouverture | 8 exercices d'Aurélien au-dessus du seuil sur l'historique libre | Compteur sur séances prescrites (MOTEUR §12.8) |
+| M5 | Que devient un test réussi ? | Sur 100 : gardé 35, abandonné 30, tout passe 22, étendu 12 (515 tests) | Règle du test (MOTEUR §9.7) |
+| M7 | Les zones couvrent-elles les habitudes ? | 97 habitudes sur 100 | Cinq zones (MOTEUR §9.1.2) |
+| M8 | Cloche contre zones | Consignes réelles (MOTEUR §9.7) | Zones |
+| M11 | Réglages | Propose de monter / tiennent sur 100 : Prudent 12,4 / 80 ; Normal 27,6 / 79 ; Franc 33,2 / 81 ; spontané 80 | Quatre réglages (MOTEUR §9.8) |
+| M12 | Fenêtre de l'habitude | Tout l'historique range mal 7 exercices actifs sur 23 | 8 dernières séances |
+| M13 | La transition au premier jour | N'ajoute presque rien aux zones, surtout des dérives d'isolation | Supprimée |
+| M14 | Retours de coupure | Reprise à 100 % du palier en médiane ; tenu dès la 1ʳᵉ séance 73 à 74 fois sur 100 | MOTEUR §9.9 |
+| M15 | Étirement | Crans > 10 % : 41 tests ratés sur 100 exigeraient plus de 20 reps, aucun plus de 30 | Plafond à 30 |
+| M16 | Top set suivi de séries allégées | 2 à 5 séances sur 100 | Rien pour l'instant (MOTEUR §22.3) |
+
+M6, M9 et M10 sont des mesures de contexte (cran relatif, powerbuilding, ouverture avec les zones), détaillées dans `CHANTIER-48-MOTEUR-2026-09-19.md` §2.
+
+**Limites** : cinq pratiquants d'un même entourage, un historique sans consigne. Zones et réglages se revérifient sur les premières semaines prescrites, grâce à `predictions`.

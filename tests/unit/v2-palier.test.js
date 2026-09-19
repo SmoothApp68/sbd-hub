@@ -656,6 +656,20 @@ describe('§17.3 — le cran d’effort lit le ressenti autant que le RPE', () =
       expect(['facile', 'dur', 'max']).toContain(P.cranDeSerie({ ressenti: r }));
     });
   });
+
+  // ⚠️ ET LE SENS INVERSE (48b-2). Le test ci-dessus attrape une valeur AJOUTÉE
+  // à l'écran sans cran ; celui-ci attrape une valeur RETIRÉE de l'écran qui
+  // survivrait dans le moteur. Sans lui, `reste_2` pourrait disparaître de la
+  // saisie et continuer d'être lu ici pendant des mois, sur des lignes que plus
+  // personne ne produit — du code mort qui a l'air vivant.
+  test('et chaque ressenti de la table du moteur existe dans THSeance.RESSENTIS', () => {
+    const duMoteur = Object.keys(P.CRAN_DU_RESSENTI);
+    expect(duMoteur.length).toBeGreaterThan(0);
+    const inconnus = duMoteur.filter((r) => Seance.RESSENTIS.indexOf(r) < 0);
+    expect(inconnus).toEqual([]);
+    // Les deux listes disent donc exactement la même chose, dans les deux sens.
+    expect(duMoteur.slice().sort()).toEqual(Seance.RESSENTIS.slice().sort());
+  });
 });
 
 // ── §7 bis.5 — LA MEILLEURE SÉRIE (chantier 18) ────────────────────────────

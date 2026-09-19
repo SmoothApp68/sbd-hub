@@ -475,6 +475,8 @@ Vingt kilos d'écart. Un compteur de stagnation qui mélange les deux verra une 
 
 Une séance-exercice se compare aux séances **du même format** sur le même exercice. Les autres sont ignorées, pas traitées comme des régressions.
 
+**Précisé le 19/09/2026 (48b-2).** Les reps médianes sont celles des **séries retenues** de la séance-exercice (§7 : hors chauffes, rampe, descente, explorations, dégressives et séries ratées). Une médiane qui tombe entre deux entiers se range **au-dessus** : 6,5 → Mixte, 8,5 → Hypertrophie.
+
 ### 8.3 Pourquoi le format ne se stocke pas
 
 Le stocker imposerait de le demander, ce qui viole la règle §1.1, et il changerait sans que personne ne le mette à jour. Le déduire coûte une médiane et se corrige tout seul.
@@ -570,6 +572,8 @@ Le format (§8) se **déduit** d'une séance passée pour savoir à quoi la comp
 3. l'**habitude observée**, dès la première séance avec un palier (§9.1.2), calculée sur les séances postérieures au dernier changement de profil déclaré (§8.5.3) ;
 4. le **profil de travail déclaré**, pour un exercice jamais fait (§8.5).
 
+**Dans le code, au 19/09/2026 : seuls les rangs 2 et 3 existent.** Le plan (rang 1) viendra avec les programmes ; le profil de travail déclaré (rang 4) n'est encore ni stocké ni calculé. Sans correction ni habitude, un exercice n'a pas de zone, et le moteur se tait.
+
 Le profil déclaré garde son rôle du §8.5 : une porte, pas une suggestion. Sur un exercice de moins de 8 séances, il autorise ou interdit une zone ; il ne choisit jamais la zone à la place de l'observation.
 
 ### 9.1.2 La largeur de la fourchette — ce qu'elle ne décide pas, et ce qu'elle décide
@@ -610,7 +614,20 @@ En format force, **un progrès sur trois seulement passe par la charge** — moi
 
 **La zone est une intention, et la double progression se fait à l'intérieur.** C'est la correction d'un défaut de la cloche : elle plaçait l'habitude au bas de la fourchette et faisait monter les reps au-dessus. Au squat, elle demandait `125 × 6`, donc des séries de 6 à 7 reps sur un mouvement lourd, alors que ce paragraphe cite lui-même Schoenfeld 2021 pour la force à 1-5 reps.
 
-**Déduite, jamais demandée (§1.1).** L'**habitude** est la médiane des reps au palier sur les **8 dernières séances** du couple exercice-format. Elle range l'exercice dans la zone où elle tombe **en bas** (10 → Volume, 8 → Hypertrophie, jusqu'à 5 → Lourd) ; une habitude de 13 ou 14 va en Séries longues. Une habitude sous 3 reps (maximaux) ne se range dans aucune zone : la règle de bord ci-dessous s'applique. Pourquoi 8 séances : sur tout l'historique, 7 des 23 exercices actifs d'Aurélien étaient mal rangés (banc M12) ; la science pondère le récent (Williams et al. 2017), et les coachs changent de reps au rythme de cycles de 3 à 6 semaines.
+**Déduite, jamais demandée (§1.1).** L'**habitude** est la médiane des reps de **toutes les séries au palier** sur les **8 dernières séances** du couple exercice-format — le format de la dernière séance désigne le couple (§8.2) —, **arrondie à l'entier supérieur**, et calculée sur les seules séances antérieures à celle qu'on prescrit (§9.12). Pourquoi 8 séances : sur tout l'historique, 7 des 23 exercices actifs d'Aurélien étaient mal rangés (banc M12) ; la science pondère le récent (Williams et al. 2017), et les coachs changent de reps au rythme de cycles de 3 à 6 semaines.
+
+**La table de rangement — précisée le 19/09/2026, et c'est la seule règle** (celle du banc, qui a servi à toutes les mesures) :
+
+| Habitude | Zone |
+|---|---|
+| 1 ou 2 | aucune zone : règle de bord ci-dessous |
+| 3 à 5 | Lourd |
+| 6 ou 7 | Mix |
+| 8 ou 9 | Hypertrophie |
+| 10 à 12 | Volume |
+| 13 et plus | Séries longues |
+
+Deux zones se chevauchent (8 appartient à Mix et à Hypertrophie) : c'est la table qui range, pas l'appartenance à l'intervalle. Une habitude de 8 range en Hypertrophie ; l'utilisateur peut toujours choisir Mix (ECRAN-SAISIE §3.8).
 
 **Corrigeable d'un geste.** L'utilisateur touche l'étiquette de zone dans l'en-tête du bloc (ECRAN-SAISIE §3.8) et choisit dans le menu, sans saisie libre. La correction vaut **pour l'exercice, toutes routines confondues**, et elle devient la vérité (§1.1). Elle s'écrit dans `zones_exercice` (append-only) ; une zone vide rend la main à la déduction. **Priorité : plan d'un programme > correction > déduction.** La zone par jour des programmes (`routine_exercises`) viendra avec eux (§9.10).
 
@@ -692,6 +709,8 @@ Les séries 1 et 2 sont les moins fatiguées, donc les plus représentatives de 
 **Le rang se compte après application des §5 et §6.** Sur un exercice qui monte en charge, la « première série » est la première série au palier, pas la première série de l'exercice.
 
 **Le niveau validé — défini le 19/09/2026.** C'est le plus haut nombre de reps *c* tel que les deux premières séries au palier font au moins *c*, et les suivantes au moins *c* − 1. Une série marquée « max » compte une rep de moins (§17.4). Exemples : `5-5-4-4` → niveau 5 ; `4-5` → niveau 4 ; `12-12-11` → niveau 12. C'est ce niveau que la consigne suivante augmente d'une rep (§9.1), et c'est lui qui dit si le haut de la zone est atteint.
+
+Avec **une seule série au palier**, le niveau est son nombre de reps compté ; **sans série au palier**, il n'y a pas de niveau.
 
 ### 9.3 Réserve honnête
 
@@ -842,6 +861,14 @@ Aujourd'hui, la phase se **déduit** de l'historique. Le futur chantier programm
 | `valeur_observee`, `observee_a`, `set_observe` | remplis après la séance — les seuls champs modifiables |
 
 **Immuable** : le trigger `predictions_immuable` (`v2_046`) refuse toute modification d'une prédiction, hors ces trois champs. Aucune migration de plus : la table reste générique (CADRAGE §5). L'écriture est un chantier à risque (CADRAGE §2 septies), traité à part.
+
+### 9.12 Le moteur ne lit jamais l'avenir — décidé le 19/09/2026
+
+> **Tout calcul qui prescrit — l'habitude, le pas de salle, l'écart habituel, la coupure, le palier de référence — ne lit que les séances antérieures à celle qu'on prescrit.**
+
+Deux raisons. Une séance corrigée après coup (mode Édition) ne doit pas changer la consigne qu'on a lue la veille. Et une consigne écrite dans `predictions` (§9.11) doit pouvoir se recalculer à l'identique. Le banc procède déjà ainsi, séance après séance.
+
+**Exception : l'état de l'exercice** (§5.2), qui décrit une habitude sur tout l'historique. Depuis la correction de la rampe (48a), il ne change presque plus jamais le palier : un sur 6 531 séance-exercices mesurées.
 
 ---
 

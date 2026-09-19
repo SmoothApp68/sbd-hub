@@ -594,6 +594,10 @@
     analyser: analyser,
     meilleureSerie: meilleureSerie,
     cranEffort: cranEffort,
+    // Exportée pour le test anti-dérive SEUL : il l'énumère pour vérifier
+    // qu'aucun ressenti du moteur n'a disparu de l'écran. Rien d'autre ne la
+    // lit — on passe par `cranDeSerie`, qui arbitre.
+    CRAN_DU_RESSENTI: CRAN_DU_RESSENTI,
     cranDeSerie: cranDeSerie,
     repsComptees: repsComptees,
     palierTenu: palierTenu

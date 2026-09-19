@@ -422,10 +422,16 @@
   // `pg_trigger` — il n'y a rien sur `auth.users`. Un compte tout neuf n'a donc
   // pas de profil, et `single` ferait remonter une erreur là où la bonne réponse
   // est « pas encore ».
+  // ⚠️ `rythme_progression` DEPUIS 48b-4. Elle existe en base depuis `v2_046`
+  // avec un défaut `normal`, et PostgREST ne renvoie QUE ce qu'on nomme :
+  // omise, elle vaudrait `undefined` à chaque lecture, l'écran afficherait
+  // toujours « Normal », et le choix de l'utilisateur disparaîtrait à chaque
+  // rechargement — sans une erreur, sans une trace.
   var COLONNES_PROFIL =
     'id, username, bio, sexe, taille_cm, date_naissance, mode_entrainement, ' +
-    'unites, anciennete, intention, materiel, niveau_declare, ' +
-    'seances_par_semaine, jours_vises, duree_seance_min, onboarding_completed';
+    'unites, anciennete, intention, rythme_progression, materiel, ' +
+    'niveau_declare, seances_par_semaine, jours_vises, duree_seance_min, ' +
+    'onboarding_completed';
 
   async function monProfil(id) {
     var r = await client().from('profiles').select(COLONNES_PROFIL).eq('id', id).maybeSingle();

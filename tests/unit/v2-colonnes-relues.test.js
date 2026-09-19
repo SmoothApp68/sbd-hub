@@ -317,6 +317,9 @@ describe('12. la liste de lecture est DÉRIVÉE, jamais recopiée', () => {
         },
         eq() { return c; }, gt() { return c; }, or() { return c; },
         order() { return c; }, limit() { return c; },
+        // `monProfil` termine par là : sans elle, la lecture du profil ne
+        // pouvait pas être exercée du tout.
+        maybeSingle() { return c; },
         then(res, rej) { return Promise.resolve({ data: [], error: null, count: 0 }).then(res, rej); }
       };
       return c;
@@ -363,6 +366,21 @@ describe('12. la liste de lecture est DÉRIVÉE, jamais recopiée', () => {
   // le repli du §10.2 lisait `undefined` sur chaque exercice et se taisait
   // partout, en silence, sans une erreur. Même piège que `routines.rang` au
   // chantier 46 — d'où ce test, écrit AVANT la colonne.
+  // ⚠️ `rythme_progression` — MÊME PIÈGE QUE `equipement` (48b-4). La colonne
+  // existe depuis `v2_046` avec un défaut `normal`, mais PostgREST ne renvoie
+  // que ce qu'on nomme : omise ici, le réglage de rythme serait toujours lu
+  // `undefined`, donc toujours affiché « Normal », et le choix de l'utilisateur
+  // disparaîtrait à chaque rechargement sans qu'une seule erreur le dise.
+  test('le `select` du profil demande `rythme_progression` — le réglage en dépend', async () => {
+    const Donnees = charger();
+    await Donnees.monProfil('u-1');
+    const demandees = requetes[0].colonnes.split(',').map((c) => c.trim());
+    expect(demandees).toContain('rythme_progression');
+    // Et les colonnes déjà lues n'ont pas bougé au passage.
+    ['id', 'username', 'intention', 'seances_par_semaine', 'onboarding_completed']
+      .forEach((c) => expect(demandees).toContain(c));
+  });
+
   test('le `select` du catalogue demande `equipement` — le repli du §10.2 en dépend', async () => {
     const Donnees = charger();
     await Donnees.tousLesExercices();

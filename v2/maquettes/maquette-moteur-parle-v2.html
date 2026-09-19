@@ -172,6 +172,7 @@ table.dico{border-collapse:collapse;width:100%;min-width:760px;font-size:14px}
 .segment{display:grid;grid-template-columns:1fr 1fr;background:var(--panneau);border-radius:6px;padding:3px}
 .segment span{text-align:center;padding:8px 0;border-radius:4px;font-size:14px;color:var(--texte-2)}
 .segment span.actif{background:var(--panneau-2);color:var(--texte);font-weight:600}
+.segment.trois{grid-template-columns:1fr 1fr 1fr}
 .option-rythme{display:grid;grid-template-columns:22px 1fr;gap:10px;padding:10px;border-radius:6px}
 .option-rythme .rond{width:18px;height:18px;border-radius:9px;border:1.5px solid var(--texte-3);margin-top:2px}
 .option-rythme.active{background:var(--panneau-2)}
@@ -346,7 +347,7 @@ table.dico{border-collapse:collapse;width:100%;min-width:760px;font-size:14px}
 <div class="rangee">
 
   <figure>
-    <figcaption><b>Profil</b>Le rythme n'apparaît qu'en Progresser. En Entretenir, le moteur ne propose plus de charge, et zones et rythme disparaissent de l'écran.</figcaption>
+    <figcaption><b>Profil</b>Le rythme n'apparaît qu'en Progresser. En Entretenir, le moteur ne propose plus de charge, et zones et rythme disparaissent de l'écran. Le même sélecteur que l'intention ; la phrase dessous suit le choix (tranché le 19/09).</figcaption>
     <div class="tel">
       <div class="bandeau"><span class="titre">Profil</span></div>
       <div class="section-profil">
@@ -355,10 +356,9 @@ table.dico{border-collapse:collapse;width:100%;min-width:760px;font-size:14px}
       </div>
       <div class="section-profil">
         <h4>Ton rythme</h4>
-        <div class="option-rythme"><span class="rond"></span><div><b>Prudent</b><span>Monte quand toutes tes séries touchent le haut de ta zone, deux séances de suite.</span></div></div>
-        <div class="option-rythme active"><span class="rond"></span><div><b>Normal</b><span>Monte quand tes deux premières séries touchent le haut de ta zone.</span></div></div>
-        <div class="option-rythme"><span class="rond"></span><div><b>Franc</b><span>Chaque série monte pour son compte, et deux crans d'un coup quand tu dépasses nettement.</span></div></div>
-        <p class="dit" style="margin:10px 0 0">La prochaine consigne en tient compte.</p>
+        <div class="segment trois"><span>Prudent</span><span class="actif">Normal</span><span>Franc</span></div>
+        <p class="dit" style="margin:10px 0 0">Monte quand tes deux premières séries touchent le haut de ta zone.</p>
+        <p class="dit" style="margin:6px 0 0;color:var(--texte-3)">La prochaine consigne en tient compte.</p>
       </div>
       <div class="onglets"><span>Séances</span><span>Saisie</span><span>Progression</span><span class="actif">Profil</span></div>
     </div>

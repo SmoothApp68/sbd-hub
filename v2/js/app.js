@@ -3618,6 +3618,11 @@
     return valeurs.map(function (v) { return { cle: v, libelle: v + suffixe }; });
   }
 
+  // ⚠️ CE « RYTHME »-LÀ EST « TA SEMAINE » — séances par semaine et durée,
+  // borné par `profiles_rythme_borne`. À NE PAS CONFONDRE avec
+  // `rythme_progression` (MOTEUR §9.8), qui règle la vitesse de montée du
+  // moteur et vit dans la section « TON RYTHME ». Les noms internes gardent
+  // l'ancien mot ; seuls les libellés d'écran ont été dé-confondus.
   function ouvrirRythmeProfil(cle) {
     var seances = cle === 'seances_par_semaine';
     var valeurs = [];
@@ -3817,6 +3822,17 @@
           note: { fort: 'Le moteur propose des charges',
                   reste: 'en mode Progresser. En Entretenir, il se tait sur la ' +
                          'charge et garde le repos et la structure.' } },
+        // ── MOTEUR §9.8 / ECRAN-PROFIL §2.3 — « TON RYTHME » ───────────────
+        //
+        // Le MÊME sélecteur que l'intention juste au-dessus (§2.3, tranché le
+        // 19/09) : deux composants pour deux réglages voisins donneraient deux
+        // langages sur le même écran.
+        //
+        // ⚠️ LA SECTION SE CONSTRUIT DANS `profil.js`, ET C'EST VOULU. Elle
+        // porte une RÈGLE — absente en Entretenir — et une COLONNE écrite ;
+        // ici, rien ne les exercerait (`rendreProfilEcran` n'est pas testable).
+        // `null` en Entretenir, et `rendreProfil` saute les sections absentes.
+        Profil.sectionRythme(p, ecrireProfil),
         { titre: 'DEPUIS QUAND', lignes: [
           ligneChoix('anciennete', 'Entraînement régulier'),
           ligneChoix('niveau_declare', 'Niveau déclaré')
@@ -3840,7 +3856,12 @@
             surChoix: function () { ouvrirSaisieProfil('date_naissance'); } },
           ligneChoix('sexe', 'Sexe')
         ] },
-        { titre: 'RYTHME VISÉ', lignes: [
+        // ⚠️ « TA SEMAINE », ET PLUS « RYTHME VISÉ » (ECRAN-PROFIL §2.4, renommé
+        // le 19/09). Ce bloc-ci parle de séances par semaine ; « rythme »
+        // désigne désormais le réglage de progression, juste au-dessus. Deux
+        // sections nommées « rythme » sur le même écran ne parleraient pas de
+        // la même chose.
+        { titre: 'TA SEMAINE', lignes: [
           { libelle: 'Séances par semaine', valeur: p.seances_par_semaine || null,
             surChoix: function () { ouvrirRythmeProfil('seances_par_semaine'); } },
           { libelle: 'Jours', valeur: Profil.libelleJours(p.jours_vises),

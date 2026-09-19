@@ -48,6 +48,7 @@ function cible() {
 function vueProfil(p, options) {
   const o = options || {};
   const lib = (liste, cle) => Profil.libelleDe(liste, p[cle]);
+  const intention = p.intention || 'progresser';
   return {
     accueil: p.onboarding_completed === false
       ? { surPlusTard: o.surPlusTard || (() => {}) } : null,
@@ -65,10 +66,16 @@ function vueProfil(p, options) {
           valeur: lib(Profil.MATERIELS, 'materiel'), surChoix: () => {} }
       ] },
       { titre: 'POURQUOI',
-        segment: { options: Profil.INTENTIONS, valeur: p.intention || 'progresser',
+        segment: { options: Profil.INTENTIONS, valeur: intention,
                    surChoix: o.surIntention || (() => {}) },
         note: { fort: 'Le moteur propose des charges',
                 reste: 'en mode Progresser. En Entretenir, il se tait sur la charge.' } },
+      // ⚠️ LA VRAIE FONCTION, PAS UNE COPIE. Tout le reste de cette vue
+      // reproduit la déclaration d'`app.js` ; la section du rythme, elle,
+      // porte une règle et une colonne écrite, et `profil.js` la construit
+      // pour l'écran comme pour ce test. C'est le banc de mutation qui l'a
+      // imposé : muté dans `app.js`, rien ne tombait.
+      Profil.sectionRythme(p, o.surRythme || (() => {})),
       { titre: 'DEPUIS QUAND', lignes: [
         { libelle: 'Entraînement régulier', valeur: lib(Profil.ANCIENNETES, 'anciennete'),
           surChoix: () => {} },
@@ -80,7 +87,7 @@ function vueProfil(p, options) {
         { libelle: 'Date de naissance', valeur: p.date_naissance || null, surChoix: () => {} },
         { libelle: 'Sexe', valeur: lib(Profil.SEXES, 'sexe'), surChoix: () => {} }
       ] },
-      { titre: 'RYTHME VISÉ', lignes: [
+      { titre: 'TA SEMAINE', lignes: [
         { libelle: 'Séances par semaine', valeur: p.seances_par_semaine || null, surChoix: () => {} },
         { libelle: 'Jours', valeur: Profil.libelleJours(p.jours_vises), surChoix: () => {} },
         { libelle: 'Durée d’une séance',
@@ -210,10 +217,21 @@ describe('test 7 — l’onboarding EST le profil, et il est contournable', () =
 // ════════════════════════════════════════════════════════════════════════════
 
 describe('test 9 — l’intention se règle, et ce qui part est la clé de la base', () => {
+  // ⚠️ PORTÉ SUR SON GROUPE LE 19/09/2026 (48b-4). Ces trois tests
+  // interrogeaient `.p-seg button` sur TOUT l'écran, ce qui était sans
+  // ambiguïté tant que l'intention était le seul sélecteur. « Ton rythme » en
+  // ajoute un second, de trois boutons : un sélecteur global lirait désormais
+  // cinq boutons et mélangerait les deux réglages. Les assertions, elles, sont
+  // exactement celles d'avant.
+  const segIntention = (c) => {
+    const t = Array.from(c.querySelectorAll('.p-sect')).find((n) => n.textContent === 'POURQUOI');
+    return t.nextElementSibling.querySelectorAll('.p-seg button');
+  };
+
   test('deux crans, et celui en vigueur est marqué', () => {
     const c = cible();
     R().rendreProfil(c, vueProfil({ intention: 'progresser' }));
-    const seg = c.querySelectorAll('.p-seg button');
+    const seg = segIntention(c);
     expect(seg.length).toBe(2);
     expect(seg[0].textContent).toBe('Progresser');
     expect(seg[1].textContent).toBe('Entretenir');
@@ -230,14 +248,14 @@ describe('test 9 — l’intention se règle, et ce qui part est la clé de la b
     let ecrit = null;
     R().rendreProfil(c, vueProfil({ intention: 'progresser' },
       { surIntention: (v) => { ecrit = v; } }));
-    c.querySelectorAll('.p-seg button')[1].click();
+    segIntention(c)[1].click();
     expect(ecrit).toBe('entretien');
   });
 
   test('une fois en Entretenir, c’est lui qui est marqué', () => {
     const c = cible();
     R().rendreProfil(c, vueProfil({ intention: 'entretien' }));
-    const seg = c.querySelectorAll('.p-seg button');
+    const seg = segIntention(c);
     expect(seg[1].className).toBe('on');
     expect(seg[0].className).toBe('');
   });
@@ -245,7 +263,10 @@ describe('test 9 — l’intention se règle, et ce qui part est la clé de la b
   test('la note dit ce que le moteur fait, et ce qu’il ne fait pas', () => {
     const c = cible();
     R().rendreProfil(c, vueProfil({}));
-    const note = c.querySelector('.p-note').textContent;
+    // Portée sur son groupe pour la même raison : l'écran porte maintenant
+    // deux notes, et la première n'est la bonne que par accident d'ordre.
+    const t = Array.from(c.querySelectorAll('.p-sect')).find((n) => n.textContent === 'POURQUOI');
+    const note = t.nextElementSibling.querySelector('.p-note').textContent;
     expect(note).toContain('propose des charges');
     expect(note).toContain('se tait sur la charge');
   });
@@ -460,5 +481,149 @@ describe('l’écran d’entrée : un écran, deux modes', () => {
     expect(v.champEmail.autocomplete).toBe('username');
     expect(v.champMdp.autocomplete).toBe('current-password');
     expect(v.pseudo.hidden).toBe(true);
+  });
+});
+
+
+// ════════════════════════════════════════════════════════════════════════════
+// 48b-4 — « TON RYTHME » (MOTEUR §9.8 · ECRAN-PROFIL §2.3)
+// ════════════════════════════════════════════════════════════════════════════
+//
+// ⚠️ CONFIGURATION DISCRIMINANTE (`CADRAGE-V2` §2 quater) : les TROIS valeurs,
+// plus l'absence de valeur, plus l'Entretenir. Sur le seul défaut, « j'affiche
+// Normal parce que c'est la valeur » et « j'affiche Normal quoi qu'il arrive »
+// se ressemblent ; sur le seul Progresser, la condition d'affichage ne serait
+// jamais exercée. Et les trois phrases doivent être vérifiées SÉPARÉMENT :
+// deux d'entre elles permutées passeraient un test qui n'en lit qu'une.
+describe('48b-4 — le réglage de rythme, dans Profil', () => {
+  const BASE = {
+    username: 'aurel_br', bio: '', sexe: 'homme', taille_cm: 182,
+    date_naissance: '1998-01-01', mode_entrainement: 'musculation', unites: 'kg',
+    anciennete: '5_ans_plus', intention: 'progresser', materiel: 'salle',
+    niveau_declare: 'avance', seances_par_semaine: 5, jours_vises: null,
+    duree_seance_min: 90, onboarding_completed: true
+  };
+  const avec = (o) => Object.assign({}, BASE, o);
+  const titres = (c) => Array.from(c.querySelectorAll('.p-sect')).map((n) => n.textContent);
+  // Le groupe qui suit le titre « TON RYTHME » — c'est lui qui porte le
+  // sélecteur et la note.
+  const groupeRythme = (c) => {
+    const t = Array.from(c.querySelectorAll('.p-sect')).find((n) => n.textContent === 'TON RYTHME');
+    return t ? t.nextElementSibling : null;
+  };
+  const boutons = (g) => Array.from(g.querySelectorAll('.p-seg button'));
+  const actif = (g) => {
+    const b = boutons(g).find((x) => x.getAttribute('aria-pressed') === 'true');
+    return b ? b.textContent : null;
+  };
+  const note = (g) => g.querySelector('.p-note').textContent;
+
+  test('sans valeur en base, le choix affiché est Normal, avec SA phrase', () => {
+    const c = cible();
+    R().rendreProfil(c, vueProfil(avec({ rythme_progression: undefined })));
+    const g = groupeRythme(c);
+    expect(g).not.toBeNull();
+    expect(boutons(g).map((b) => b.textContent)).toEqual(['Prudent', 'Normal', 'Franc']);
+    expect(actif(g)).toBe('Normal');
+    expect(note(g)).toContain('Monte quand tes deux premières séries touchent le haut de ta zone.');
+    expect(note(g)).toContain('La prochaine consigne en tient compte.');
+  });
+
+  test('DISCRIMINANT — Prudent : son bouton actif ET sa phrase', () => {
+    const c = cible();
+    R().rendreProfil(c, vueProfil(avec({ rythme_progression: 'prudent' })));
+    const g = groupeRythme(c);
+    expect(actif(g)).toBe('Prudent');
+    expect(note(g)).toContain('Monte quand toutes tes séries touchent le haut de ta zone, deux séances de suite.');
+    // Et pas celle d'un autre : deux phrases permutées passeraient sans ça.
+    expect(note(g)).not.toContain('deux premières séries');
+    expect(note(g)).not.toContain('pour son compte');
+  });
+
+  test('DISCRIMINANT — Franc : son bouton actif ET sa phrase', () => {
+    const c = cible();
+    R().rendreProfil(c, vueProfil(avec({ rythme_progression: 'franc' })));
+    const g = groupeRythme(c);
+    expect(actif(g)).toBe('Franc');
+    expect(note(g)).toContain('Chaque série monte pour son compte, et deux crans d\u2019un coup quand tu dépasses nettement.');
+    expect(note(g)).not.toContain('deux premières séries');
+    expect(note(g)).not.toContain('deux séances de suite');
+  });
+
+  test('DISCRIMINANT — en Entretenir, la section N’EXISTE PAS', () => {
+    const c = cible();
+    R().rendreProfil(c, vueProfil(avec({ intention: 'entretien', rythme_progression: 'franc' })));
+    expect(titres(c)).not.toContain('TON RYTHME');
+    expect(groupeRythme(c)).toBeNull();
+    // Elle ne se grise pas : aucun bouton de rythme nulle part sur l'écran.
+    expect(c.textContent).not.toContain('Prudent');
+    // Contre-épreuve : en Progresser, elle est là.
+    const c2 = cible();
+    R().rendreProfil(c2, vueProfil(avec({ intention: 'progresser' })));
+    expect(titres(c2)).toContain('TON RYTHME');
+  });
+
+  test('DISCRIMINANT — un toucher sur Prudent écrit `rythme_progression`, et rien d’autre', () => {
+    // C'est l'OBJET envoyé à `ecrireProfil` qu'on lit, pas seulement la valeur :
+    // une clé changée — `intention`, `seances_par_semaine` — partirait sans
+    // qu'un test de valeur seule le voie.
+    const ecrits = [];
+    const c = cible();
+    R().rendreProfil(c, vueProfil(avec({ rythme_progression: 'normal' }),
+      { surRythme: (champs) => ecrits.push(champs) }));
+    boutons(groupeRythme(c)).find((b) => b.textContent === 'Prudent').click();
+    expect(ecrits).toEqual([{ rythme_progression: 'prudent' }]);
+  });
+
+  // ⚠️ GARDE DE LIBELLÉ, ET ELLE LIT LE SOURCE — ce que ce dépôt reproche par
+  // ailleurs aux tests de la v1. Assumé ici, pour une raison précise : les
+  // TITRES de sections vivent dans `rendreProfilEcran`, que rien ne peut rendre
+  // (elle referme sur la moitié d'`app.js`), et le renommage est tout l'objet
+  // de ce commit. Sans cette garde, remettre « RYTHME VISÉ » ne fait tomber
+  // aucun test, et l'écran porte de nouveau deux sections « rythme » qui ne
+  // parlent pas de la même chose. À retirer le jour où la déclaration des
+  // sections deviendra testable.
+  test('GARDE — `app.js` dit « TA SEMAINE », et branche bien la section du rythme', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const src = fs.readFileSync(path.join(__dirname, '..', '..', 'v2', 'js', 'app.js'), 'utf8');
+    // Le renommage — sans quoi l'écran porte de nouveau deux « rythme ».
+    expect(src).toContain("titre: 'TA SEMAINE'");
+    expect(src).not.toContain("titre: 'RYTHME VISÉ'");
+    // Et le BRANCHEMENT, avec le profil et l'écriture. C'est la seule ligne du
+    // chantier que rien n'exerce : retirée, la section disparaît de l'écran
+    // sans qu'un test tombe ; passée `null`, elle affiche Normal pour tout le
+    // monde. Le banc de mutation l'a montré — deux survivants, ces deux-là.
+    expect(src).toContain('Profil.sectionRythme(p, ecrireProfil)');
+  });
+
+  test('l’écran dit « TA SEMAINE », et plus jamais « RYTHME VISÉ »', () => {
+    const c = cible();
+    R().rendreProfil(c, vueProfil(avec({})));
+    expect(titres(c)).toContain('TA SEMAINE');
+    expect(titres(c)).not.toContain('RYTHME VISÉ');
+    expect(c.textContent).not.toContain('Rythme visé');
+    // Les deux sections coexistent sans se confondre.
+    expect(titres(c)).toContain('TON RYTHME');
+  });
+
+  test('DISCRIMINANT — `rendreProfil` saute une section absente sans broncher', () => {
+    // La garde vit dans `rendu.js`, à UN endroit : sans elle, l'écran entier
+    // plante en Entretenir — sur la lecture du `titre` d'un `null`.
+    const c = cible();
+    expect(() => R().rendreProfil(c, {
+      kpis: [], sections: [null, { titre: 'APRÈS', lignes: [] }, null],
+      surQuitter: () => {}, surSupprimer: () => {}
+    })).not.toThrow();
+    expect(Array.from(c.querySelectorAll('.p-sect')).map((n) => n.textContent))
+      .toEqual(['APRÈS']);
+  });
+
+  test('une valeur inconnue en base retombe sur Normal plutôt que sur rien', () => {
+    const c = cible();
+    R().rendreProfil(c, vueProfil(avec({ rythme_progression: 'turbo' })));
+    const g = groupeRythme(c);
+    expect(actif(g)).toBe('Normal');
+    expect(note(g)).toContain('deux premières séries');
   });
 });

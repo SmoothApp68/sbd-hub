@@ -84,6 +84,12 @@ Dessous : « La prochaine consigne en tient compte. » Aucun argument chiffré �
 En **Entretenir**, le bloc disparaît, comme les étiquettes de zone et les consignes.
 Colonne : `profiles.rythme_progression` (`v2_046`).
 
+**Présentation — tranchée le 19/09/2026** : le même sélecteur à boutons que l'intention, juste
+au-dessus (Prudent · Normal · Franc). Sous lui, la phrase du choix affiché, qui change quand on
+touche un autre bouton, puis « La prochaine consigne en tient compte. ». La maquette v2 montrait
+une liste avec les trois phrases visibles : le sélecteur l'emporte, pour que l'écran garde un seul
+langage. Sans valeur en base, le choix affiché est Normal.
+
 ### 2.4 Ta semaine — pour le chantier 5
 
 *Renommé le 19/09/2026 : « rythme » désigne désormais le réglage de progression (§2.3). Libellé à l'écran : « Ta semaine ».*

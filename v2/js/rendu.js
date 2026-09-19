@@ -2855,6 +2855,11 @@
     cible.appendChild(chiffres);
 
     (vue.sections || []).forEach(function (sec) {
+      // ⚠️ UNE SECTION ABSENTE VAUT `null`, ET C'EST ICI QU'ON LA SAUTE.
+      // « Ton rythme » n'existe pas en Entretenir (ECRAN-PROFIL §2.3), et
+      // d'autres suivront. Filtrer chez l'appelant demandait à chaque écran d'y
+      // penser ; une garde ici le fait une fois pour toutes, et elle se teste.
+      if (!sec) return;
       cible.appendChild(el('div', 'p-sect', sec.titre));
       var g = el('div', 'p-groupe');
       if (sec.segment) g.appendChild(segmentProfil(sec.segment));

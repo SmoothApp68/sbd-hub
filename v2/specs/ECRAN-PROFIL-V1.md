@@ -43,8 +43,11 @@ sur ses mérites. Les cinq utilisateurs ressaisissent — deux minutes.
 
 **Le pas de progression n'est pas demandé.** Mesuré le 16/09 sur l'historique d'aurel_br :
 machines 7 kg, barres 5, haltères 4, poulies 2,2. **Il dépend du matériel, pas de la
-personne**, et il se lit dans les charges. On ne demande pas ce qu'on peut observer. Un
-exercice jamais fait prend le pas le plus fréquent de son matériel.
+personne**, et il se lit dans les charges. On ne demande pas ce qu'on peut observer. Quand
+l'historique ne donne pas le pas, le moteur applique le repli du MOTEUR §10.2 : barre et Smith
+2,5 kg ; haltères +2 kg sous une paire de 20 kg, +4 kg à partir de 20 ; ailleurs, pas de chiffre. Décidé
+le 19/09/2026 : le pas le plus fréquent (5 kg à la barre) était trop grand pour les charges
+légères, et le plus petit saut est le plus prudent.
 
 ### 2.2 Ce que le chantier 1 lira
 

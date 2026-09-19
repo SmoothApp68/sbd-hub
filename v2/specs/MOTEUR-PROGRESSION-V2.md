@@ -774,7 +774,7 @@ Ceci vaut pour la déduction de la cible. Le modèle charge/reps du §15 conserv
 
 Le palier bascule de lui-même quand la charge testée tient la majorité des séries (§7.2).
 
-**Un test raté se reprend d'un seul cran — validé le 19/09/2026**, même si le test raté valait deux crans (couché : 130 raté → le moteur proposera 127,5). **Si même un cran échoue**, parce que la salle ne fait pas plus petit, la zone **s'étire** : le palier gratte des reps au-delà du haut, et le moteur reteste quand il a regagné les reps perdues au test. Curl barre EZ : `35 × 8` raté en zone Volume 10-12 → on reteste 35 quand le palier fait 30 × 16 (12 + 4 perdues). Jamais au-delà de 30 reps (§9.1.2).
+**Un test raté se reprend d'un seul cran — validé le 19/09/2026**, même si le test raté valait deux crans (couché : 130 raté → le moteur proposera 127,5). **Si même un cran échoue**, parce que la salle ne fait pas plus petit, la zone **s'étire** : le palier gratte des reps au-delà du haut, et le moteur reteste quand il a regagné les reps perdues au test. Curl marteau : `32 × 8` raté en zone Volume 10-12 — au-delà d'une paire de 20 kg, les haltères vont de 4 en 4 (2 kg par main), le cran ne peut pas être plus petit → on reteste 32 quand le palier fait 28 × 16 (12 + 4 perdues). Jamais au-delà de 30 reps (§9.1.2).
 
 **Garde-fou — en zone Lourd, au plus une série de plus par séance**, même en Franc. Remarque d'Aurélien : plus c'est lourd, plus c'est dur d'enchaîner les séries. Ses données ne le confirment pas (14 cas lourds seulement, banc M5) : c'est un garde-fou, pas une règle centrale.
 
@@ -788,7 +788,7 @@ Le palier bascule de lui-même quand la charge testée tient la majorité des s�
 | Squat barre | 120×5, 125×5, 125×5, **130×5** (au haut de Lourd) | 130 kg sur 2 séries, vise 5 — et 125 kg sur la première, vise 5 |
 | Rowing poulie en V | 93×10, 93×10, **100×10** (au bas de Volume) | 93 kg, vise 11 — puis 100 kg en dernière série, vise 11 |
 | Couché haltères | 88×10 ×3, **92×6** (sous Volume) | 88 kg, vise 11 |
-| Curl barre EZ | 30×12 ×3 (haut de Volume) | 30 kg, vise 12 — puis 35 kg en dernière série, vise 10 |
+| Curl barre EZ | 30×12 ×3 (haut de Volume) | 30 kg, vise 12 — puis 32,5 kg en dernière série, vise 10 (repli de la barre, §10.2) |
 
 **Parentés dans le métier** : la double progression dynamique (chaque série progresse pour son compte), les Joker sets de Wendler (une série plus lourde les bons jours), l'APRE de Mann (charge ajustée sur les reps d'une série test). **Ce que fait Aurélien après un test réussi** (515 tests, banc M5), sur 100 : gardé sur une série 35, abandonné 30, passé sur toutes 22, étendu d'une série 12.
 
@@ -825,6 +825,8 @@ Le palier bascule de lui-même quand la charge testée tient la majorité des s�
 > **Après une coupure, le moteur ne demande pas de rep de plus. Au-delà de 12 semaines, il repart un cran sous le dernier palier.**
 
 Coupure au sens du §12.6 : un écart depuis la séance précédente supérieur à 3 fois l'écart habituel de l'exercice.
+
+**Précisé le 19/09/2026 (48b-3).** L'écart habituel est la médiane des écarts, en jours, entre les séances consécutives de l'exercice antérieures à celle qu'on prescrit (§9.12) ; il faut au moins deux séances pour en avoir un, sinon il n'y a pas de coupure. La coupure est stricte : à 3 fois l'écart habituel pile, il n'y en a pas. La durée qui départage les deux reprises se compte de la dernière séance à celle qu'on prescrit : jusqu'à 84 jours inclus, reprise courte ; au-delà, reprise longue.
 
 | Coupure | Consigne |
 |---|---|
@@ -870,6 +872,8 @@ Deux raisons. Une séance corrigée après coup (mode Édition) ne doit pas chan
 
 **Exception : l'état de l'exercice** (§5.2), qui décrit une habitude sur tout l'historique. Depuis la correction de la rampe (48a), il ne change presque plus jamais le palier : un sur 6 531 séance-exercices mesurées.
 
+**Les dates se comparent comme des instants, pas comme des textes** (précisé le 19/09/2026, 48b-3) : une même heure peut s'écrire « …Z » ou « …+00:00 », et deux écritures d'un même instant ne se classent pas pareil en texte — assez pour compter la séance qu'on prescrit parmi ses propres antécédents.
+
 ---
 
 ## 10. L'incrément
@@ -900,8 +904,14 @@ Sur les poulies et machines, les charges viennent d'une conversion livres → ki
 
 1. **pas exact** déduit de l'historique (§10.1) : palier + pas ;
 2. pas approximatif : la **charge déjà utilisée juste au-dessus** du palier (élévation latérale poulie : 9 → 11,5, et non 9 + 2,2) ;
-3. aucune charge utilisée au-dessus : le **pas habituel du matériel** (ECRAN-PROFIL §2.1 : barres 5, haltères 4), valable pour les charges à disques (curl barre EZ : 30 → 35, jamais chargée mais réelle) ;
+3. aucune charge utilisée au-dessus : le **repli du matériel**, lu dans `exercises.equipement` — **barre et Smith : 2,5 kg** (disques de 1,25 kg) ; **haltères**, charge notée pour la paire : **+2 kg sous une paire de 20 kg, +4 kg à partir de 20** (élévations latérales : 18 → 20 → 24 ; curl barre EZ : 30 → 32,5). Décidé le 19/09/2026 : le plus petit saut est le plus prudent ;
 4. sinon : « **le cran au-dessus** », sans chiffre.
+
+**Précisé le 19/09/2026 (48b-3) :**
+
+- Le pas se mesure sur **la plus lourde série de chaque séance**, explorations comprises (hors chauffes, dégressives et séries ratées), sur les séances des **24 mois** qui précèdent celle qu'on prescrit (§9.12). Un écart est récurrent s'il revient **au moins 3 fois** ; on retient **le plus petit** écart récurrent, et il n'est exact que s'il est un multiple de 0,5 kg.
+- Les « charges déjà utilisées » du rang 2 sont toutes les charges de travail et d'exploration des séances antérieures, sans limite de date.
+- **Vers le bas, même ordre** (reprise après plus de 12 semaines, §9.9) : le palier moins le pas exact ; sinon la charge déjà utilisée juste en dessous ; sinon le repli du matériel (barre et Smith −2,5 kg ; haltères −2 kg jusqu'à une paire de 20 kg incluse, −4 kg au-delà) ; sinon « un cran en dessous », sans chiffre.
 
 ### 10.3 Le progrès en pourcentage est interdit
 
@@ -1434,7 +1444,7 @@ Conforme au cadrage : **descriptif, jamais prescriptif sur l'historique.**
 | Test gardé | « Ton test à 130 du 15 sept. est tombé au bas de ta zone : on le garde sur la dernière série. » |
 | Test réussi dedans | « 130 kg : 3 reps le 15 sept., 4 aujourd'hui, dans ta zone. » + « Prochaine séance : … » |
 | Test raté | « 130 × 2 : pas encore dans ta zone. » + « Prochaine séance : 125 kg, vise 5, puis 127,5 kg sur la dernière, vise 3. » |
-| Zone étirée | « Ton cran ne peut pas être plus petit : ta zone s'étire. On retestera 35 quand tu feras 16 à 30. » |
+| Zone étirée | « Ton cran ne peut pas être plus petit : ta zone s'étire. On retestera 32 quand tu feras 16 à 28. » |
 | Reprise | « On reprend à ton dernier palier, sans rep de plus. » — jamais la durée de l'absence |
 | Seuil dépassé | « 122,5 ne bouge plus depuis 4 séances — c'est plus long que d'habitude pour toi. » + la marche suivante (formulation à reprendre au chantier de la stagnation, §12.8) |
 | Frère qui progresse | « Ta barre tient, mais tes haltères sont montés à 92. » |

@@ -42,6 +42,19 @@
   // les coachs changent de reps par cycles de 3 à 6 semaines.
   var FENETRE_HABITUDE = 8;
 
+  // §10.2 — le pas se mesure sur 24 mois. Une salle change de matériel, on
+  // déménage : un pas d'il y a trois ans ne dit rien de celui d'aujourd'hui.
+  var FENETRE_PAS_MOIS = 24;
+  // Un écart isolé est du bruit, pas un plan de charges.
+  var RECURRENCE_PAS = 3;
+
+  // §9.9 / §12.6 — la coupure, et les deux reprises.
+  var FACTEUR_COUPURE = 3;
+  var SEUIL_REPRISE_LONGUE = 84;        // 12 semaines, INCLUSES dans la courte
+  var AUCUNE_REPRISE = 'aucune';
+  var REPRISE_COURTE = 'courte';
+  var REPRISE_LONGUE = 'longue';
+
   // ── LES CINQ ZONES — UNE SEULE TABLE (§9.1.2) ────────────────────────────
   //
   // Clé, libellé, bas et haut vivent ICI et nulle part ailleurs : l'étiquette
@@ -93,15 +106,42 @@
     return isFinite(n) ? n : null;
   }
 
-  // Un instant COMPARABLE. `sessions.debut` est une chaîne ISO 8601, et deux
-  // chaînes ISO se comparent lexicographiquement dans l'ordre chronologique —
-  // c'est la propriété qui rend le tri et la coupure exacts sans fuseau. Un
-  // objet `Date` passe par `toISOString` plutôt que par `String()`, qui rendrait
-  // « Sun Sep 20 2026 » et trierait par jour de la semaine.
+  // ⚠️ UN INSTANT, EN MILLISECONDES — PLUS UNE CHAÎNE (corrigé le 19/09/2026,
+  // 48b-3, MOTEUR §9.12).
+  //
+  // La première écriture comparait les dates COMME DES TEXTES. Ça tient tant
+  // que toutes les dates s'écrivent pareil, et le corpus du dépôt s'écrit
+  // pareil — d'où un défaut qu'aucun test ne voyait. Mais un même instant
+  // s'écrit de DEUX façons dans ce projet :
+  //
+  //   · l'app écrit `new Date().toISOString()`   -> « 2026-09-20T10:00:00.000Z »
+  //   · `sessions.debut` est un `timestamptz`    -> « 2026-09-20T10:00:00+00:00 »
+  //
+  // et en texte, « +00:00 » passe AVANT « .000Z » — le « + » précède le « . ».
+  // Une séance relue du serveur se classait donc avant une coupure écrite par
+  // l'app au même instant : **la séance qu'on prescrit se comptait parmi ses
+  // propres antécédents**, et le §9.12 tombait précisément là où il compte.
+  //
+  // `Date.parse` lit les deux écritures et rend le même nombre. Ce qu'il ne
+  // sait pas lire rend `NaN`, donc `null` — jamais une comparaison de travers.
   function instant(v) {
     if (v === null || v === undefined || v === '') return null;
-    return v.toISOString ? v.toISOString() : String(v);
+    var t = (v && typeof v.getTime === 'function') ? v.getTime() : Date.parse(v);
+    return isFinite(t) ? t : null;
   }
+
+  var JOUR = 86400000;
+
+  // Les charges se comparent au centième de kilo. Sans cet arrondi, les écarts
+  // d'une poulie convertie des livres ne se comptent pas : `12,2 − 10` vaut
+  // 2,1999999999999993 et `16,6 − 14,4` vaut 2,1999999999999996 — trois fois le
+  // même pas de 2,2 kg, et trois nombres différents. Le centième est très en
+  // dessous de tout incrément réel ; il ne fusionne que ce qui est déjà égal.
+  function auCentieme(v) { return Math.round(v * 100) / 100; }
+
+  // §10.2 — un pas n'est EXACT que s'il est un multiple de 0,5 kg. En dessous,
+  // c'est une conversion des livres, et l'arithmétique dessus est fausse.
+  function estMultipleDeDemi(v) { return Math.round(v * 100) % 50 === 0; }
 
   // La médiane, sur une liste de nombres déjà nettoyée. Longueur paire : la
   // moyenne des deux du milieu — et c'est ELLE qui produit les demi-entiers que
@@ -272,10 +312,7 @@
     });
     if (!utiles.length) return null;
 
-    utiles.sort(function (a, b) {
-      var da = instant(a.debut), db = instant(b.debut);
-      return da < db ? -1 : (da > db ? 1 : 0);
-    });
+    utiles.sort(function (a, b) { return instant(a.debut) - instant(b.debut); });
 
     var couple = formatDe(utiles[utiles.length - 1].retenues);
     var duCouple = utiles.filter(function (se) {
@@ -291,8 +328,221 @@
     return m === null ? null : Math.ceil(m);
   }
 
+  // ── §10.2 — LE REPLI DU MATÉRIEL ─────────────────────────────────────────
+  //
+  // UNE SEULE TABLE, et elle ne sert QU'au rang 3 : quand l'historique ne donne
+  // ni pas exact ni charge déjà utilisée au-delà du palier. Décidé le
+  // 19/09/2026 : le plus petit saut est le plus prudent — le « pas le plus
+  // fréquent » (5 kg à la barre) était trop grand pour les charges légères.
+  //
+  // Les clés sont celles de `exercises.equipement`. Les matériels absents de la
+  // table — poulie, machine, elastique, kettlebell, disque, aucun — n'ont PAS de
+  // repli, et c'est un choix : leurs charges viennent d'une conversion ou d'un
+  // plan de poids qu'on ne devine pas. L'écran dira « le cran au-dessus », sans
+  // chiffre, plutôt qu'un chiffre que la salle ne fait pas.
+  //
+  // ⚠️ LES HALTÈRES SE NOTENT POUR LA PAIRE, et la salle change de pas au
+  // passage d'une paire de 20 kg : de 2 en 2 en dessous (1 kg par main), de 4 en
+  // 4 au-dessus (2 kg par main). Mesuré sur les élévations latérales réelles :
+  // 18, 20, puis 24 — jamais 22.
+  var REPLI_MATERIEL = {
+    barre:         { pas: 2.5 },
+    machine_smith: { pas: 2.5 },
+    haltere:       { pas: 2, pasLourd: 4, bascule: 20 }
+  };
+
+  // ⚠️ LA BASCULE APPARTIENT À LA BANDE LÉGÈRE, et l'asymétrie est voulue : on
+  // SORT de la bande en montant depuis 20 (20 -> 24), on y RESTE en descendant
+  // depuis 20 (20 -> 18). Les deux sens décrivent le même plan de charges.
+  function repliDe(equipement, palier, sens) {
+    if (!Object.prototype.hasOwnProperty.call(REPLI_MATERIEL, equipement)) return null;
+    var r = REPLI_MATERIEL[equipement];
+    if (r.pasLourd === undefined) return r.pas;
+    return (sens > 0 ? palier >= r.bascule : palier > r.bascule) ? r.pasLourd : r.pas;
+  }
+
+  // ── Les séances, lues dans l'ordre et sans lire l'avenir ─────────────────
+  //
+  // `avant` est obligatoire partout, comme pour `habitudeDe` : le §9.12 ne se
+  // tient que si on ne peut pas l'oublier. La coupure est STRICTE — la séance
+  // qu'on prescrit n'est jamais son propre antécédent.
+  function anterieures(seances, avant) {
+    var coupure = instant(avant);
+    if (coupure === null) return [];
+    var utiles = (seances || []).filter(function (se) {
+      var d = instant(se && se.debut);
+      return d !== null && d < coupure;
+    });
+    return utiles.sort(function (a, b) { return instant(a.debut) - instant(b.debut); });
+  }
+
+  // Les charges d'une séance-exercice qui COMPTENT pour le plan de charges de la
+  // salle : les `votantes` de `THPalier.analyser`, c'est-à-dire le travail ET
+  // les explorations — hors chauffes, dégressives et séries ratées.
+  //
+  // ⚠️ LES EXPLORATIONS EN FONT PARTIE, et c'est le point : une charge tentée
+  // une seule fois reste une charge que la salle FAIT. C'est même la seule trace
+  // qu'on ait du cran du dessus avant de l'avoir tenu.
+  function chargesDe(seanceExercice) {
+    var sortie = [];
+    ((seanceExercice && seanceExercice.votantes) || []).forEach(function (s) {
+      var kg = nombre(s && s.charge_kg);
+      if (kg !== null) sortie.push(auCentieme(kg));
+    });
+    return sortie;
+  }
+
+  // ── §10.2 — LE PAS DE LA SALLE ───────────────────────────────────────────
+  //
+  // « L'app ne demande jamais de combien monter. Elle déduit le pas de la salle
+  // depuis les charges déjà utilisées sur cet exercice. »
+  //
+  // La plus lourde série de chaque séance, sur 24 MOIS — pas tout l'historique.
+  // Une salle change de matériel, on déménage : un pas de 2010 ne dit rien de
+  // celui d'aujourd'hui. Et pas « toutes les séries » non plus : les back-offs
+  // et les rampes d'une même séance créent des écarts qui ne sont pas des crans.
+  //
+  // UN ÉCART EST RÉCURRENT S'IL REVIENT AU MOINS 3 FOIS. Deux suffiraient à
+  // prendre une coïncidence pour un plan de charges ; quatre laisse muet un
+  // exercice fait dix fois. On retient LE PLUS PETIT des écarts récurrents :
+  // c'est le cran de la salle, les autres en sont des multiples.
+  function pasDeSalle(seances, avant) {
+    var limite = instant(avant);
+    if (limite === null) return null;
+    var debut = new Date(limite);
+    debut.setUTCMonth(debut.getUTCMonth() - FENETRE_PAS_MOIS);
+    var plancher = debut.getTime();
+
+    var lourdes = {};
+    anterieures(seances, avant).forEach(function (se) {
+      if (instant(se.debut) < plancher) return;
+      var charges = chargesDe(se);
+      if (!charges.length) return;
+      lourdes[Math.max.apply(null, charges)] = true;
+    });
+
+    var distinctes = Object.keys(lourdes).map(Number).sort(function (a, b) { return a - b; });
+    if (distinctes.length < 2) return null;
+
+    var compte = new Map();
+    for (var i = 1; i < distinctes.length; i++) {
+      var e = auCentieme(distinctes[i] - distinctes[i - 1]);
+      if (e <= 0) continue;
+      compte.set(e, (compte.get(e) || 0) + 1);
+    }
+
+    var pas = null;
+    compte.forEach(function (n, e) {
+      if (n >= RECURRENCE_PAS && (pas === null || e < pas)) pas = e;
+    });
+    if (pas === null) return null;
+    return { pas: pas, nature: estMultipleDeDemi(pas) ? 'exact' : 'approche' };
+  }
+
+  // ── §10.2 — QUELLE CHARGE PROPOSER, DANS L'ORDRE ─────────────────────────
+  //
+  // « Le moteur ne propose que des charges que la salle fait. » Quatre rangs, et
+  // l'ordre est la décision :
+  //
+  //   1. le pas EXACT déduit de l'historique : palier ± pas ;
+  //   2. sinon la charge DÉJÀ UTILISÉE juste au-delà — sans limite de date,
+  //      contrairement au pas : une charge faite il y a trois ans existe
+  //      toujours dans la salle, même si le plan de charges a changé depuis ;
+  //   3. sinon le repli du MATÉRIEL ;
+  //   4. sinon RIEN, et l'écran dira « le cran au-dessus », sans chiffre.
+  //
+  // ⚠️ LE RANG 2 PASSE AVANT LE RANG 3, et l'ordre inverse est un vrai défaut :
+  // sur `60, 65, 70`, le repli de la barre proposerait 67,5 — une charge qui
+  // n'a jamais été faite — là où 70 est attesté.
+  //
+  // ⚠️ UN PAS APPROCHÉ NE SERT À RIEN AU RANG 1. Sur une poulie convertie des
+  // livres, `9 + 2,2` donne 11,2, une charge que la machine ne fait pas ; la
+  // charge déjà utilisée juste au-dessus, elle, vaut 11,5 et elle est vraie.
+  //
+  // `sens` : +1 pour la charge au-dessus, −1 pour celle en dessous. Le sens
+  // descendant sert à la reprise longue (§9.9).
+  function chargeVoisine(seances, avant, palier, equipement, sens) {
+    var p = nombre(palier);
+    // ⚠️ LA GARDE DE COUPURE VAUT ICI AUSSI, et elle manquait au premier jet.
+    // Les rangs 1 et 2 se taisent d'eux-mêmes sans coupure — ils ne lisent que
+    // des séances antérieures, et il n'y en a aucune. Mais le rang 3 ne lit
+    // AUCUNE séance : le repli du matériel proposait donc une charge alors même
+    // qu'on ne savait pas ce qu'était « l'avenir ». Le §9.12 se contournait par
+    // la porte de derrière, et c'est un test de bord qui l'a montré.
+    if (p === null || instant(avant) === null) return null;
+    var dir = nombre(sens) < 0 ? -1 : 1;
+
+    var pas = pasDeSalle(seances, avant);
+    if (pas && pas.nature === 'exact') return auCentieme(p + dir * pas.pas);
+
+    var voisine = null;
+    anterieures(seances, avant).forEach(function (se) {
+      chargesDe(se).forEach(function (c) {
+        if (dir > 0 ? c <= p : c >= p) return;
+        if (voisine === null || (dir > 0 ? c < voisine : c > voisine)) voisine = c;
+      });
+    });
+    if (voisine !== null) return voisine;
+
+    var repli = repliDe(equipement, p, dir);
+    if (repli !== null) return auCentieme(p + dir * repli);
+
+    return null;
+  }
+
+  // ── §12.6 / §9.9 — L'ÉCART HABITUEL, LA COUPURE ET LA REPRISE ────────────
+  //
+  // L'écart habituel est la médiane des écarts, EN JOURS, entre séances
+  // consécutives de l'exercice. Une médiane et non une moyenne : une seule
+  // coupure de trois mois tirerait la moyenne au point de rendre la règle
+  // muette pour toujours.
+  //
+  // Il faut AU MOINS DEUX séances : avec une seule, il n'y a pas d'écart, donc
+  // pas de coupure — une première séance n'est pas une reprise.
+  function ecartHabituel(seances, avant) {
+    var dates = anterieures(seances, avant).map(function (se) { return instant(se.debut); });
+    if (dates.length < 2) return null;
+    var ecarts = [];
+    for (var i = 1; i < dates.length; i++) ecarts.push((dates[i] - dates[i - 1]) / JOUR);
+    return mediane(ecarts);
+  }
+
+  // §9.9 — « Après une coupure, le moteur ne demande pas de rep de plus.
+  // Au-delà de 12 semaines, il repart un cran sous le dernier palier. »
+  //
+  // La coupure est STRICTE (§12.6) : à 3 fois l'écart habituel pile, il n'y en a
+  // pas. Sinon une semaine de retard sur un exercice hebdomadaire deviendrait
+  // une reprise, et le moteur se tairait sans raison.
+  //
+  // 84 jours INCLUS restent une reprise courte : douze semaines pile, c'est la
+  // borne mesurée au banc M14 — jusque-là, la personne tient son palier dès la
+  // première séance 73 à 74 fois sur 100.
+  //
+  // ⚠️ RIEN ICI NE DIT LA DURÉE DE L'ABSENCE, et rien ne doit la dire :
+  // `CADRAGE §3.1 bis` interdit tout commentaire sur l'assiduité. Cette fonction
+  // rend un CRAN, pas un nombre de jours.
+  function repriseDe(seances, avant) {
+    var coupure = instant(avant);
+    var dates = anterieures(seances, avant).map(function (se) { return instant(se.debut); });
+    if (coupure === null || !dates.length) return AUCUNE_REPRISE;
+    var habituel = ecartHabituel(seances, avant);
+    if (habituel === null) return AUCUNE_REPRISE;
+
+    var depuis = (coupure - dates[dates.length - 1]) / JOUR;
+    if (!(depuis > FACTEUR_COUPURE * habituel)) return AUCUNE_REPRISE;
+    return depuis <= SEUIL_REPRISE_LONGUE ? REPRISE_COURTE : REPRISE_LONGUE;
+  }
+
   var api = {
     FENETRE_HABITUDE: FENETRE_HABITUDE,
+    FENETRE_PAS_MOIS: FENETRE_PAS_MOIS,
+    RECURRENCE_PAS: RECURRENCE_PAS,
+    FACTEUR_COUPURE: FACTEUR_COUPURE,
+    SEUIL_REPRISE_LONGUE: SEUIL_REPRISE_LONGUE,
+    AUCUNE_REPRISE: AUCUNE_REPRISE,
+    REPRISE_COURTE: REPRISE_COURTE,
+    REPRISE_LONGUE: REPRISE_LONGUE,
+    REPLI_MATERIEL: REPLI_MATERIEL,
     ZONES: ZONES,
     RANGEMENT: RANGEMENT,
     mediane: mediane,
@@ -304,7 +554,12 @@
     // Le pont entre `THPalier.analyser` et `niveauValide` : l'un rend une
     // séance décrite, l'autre attend les seules séries au palier.
     seriesAuPalier: seriesAuPalier,
-    habitudeDe: habitudeDe
+    habitudeDe: habitudeDe,
+    anterieures: anterieures,
+    pasDeSalle: pasDeSalle,
+    chargeVoisine: chargeVoisine,
+    ecartHabituel: ecartHabituel,
+    repriseDe: repriseDe
   };
 
   racine.THMoteur = api;

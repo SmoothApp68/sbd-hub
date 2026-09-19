@@ -475,7 +475,7 @@ constat, et annonce la prochaine étape (§3.5) :
 |---|---|
 | Test réussi dedans | « 130 kg : 3 reps le 15 sept., 4 aujourd'hui, dans ta zone. » + « Prochaine séance : 130 kg sur deux séries, vise 4, et 125 kg sur la première, vise 5. » |
 | Test raté | « 130 × 2 : pas encore dans ta zone. » + « Prochaine séance : 125 kg, vise 5, puis 127,5 kg sur la dernière, vise 3. On reteste d'un seul cran. » |
-| Test raté, cran impossible à réduire | « 35 × 8 : pas encore dans ta zone. » + « Ton cran ne peut pas être plus petit : ta zone s'étire. Prochaine séance : 30 kg, vise 13. On retestera 35 quand tu feras 16 à 30. » |
+| Test raté, cran impossible à réduire | « 32 × 8 : pas encore dans ta zone. » + « Ton cran ne peut pas être plus petit : ta zone s'étire. Prochaine séance : 28 kg, vise 13. On retestera 32 quand tu feras 16 à 28. » |
 
 Aucun rouge, aucun « échec » : « pas encore ».
 

@@ -259,11 +259,15 @@ Trois états possibles par exercice :
 
 | État | Condition | Conséquence sur le palier |
 |---|---|---|
-| **Monte** | ≥ 60 % des séances | la 1ʳᵉ série n'est pas retenue pour juger le palier |
+| **Monte** | ≥ 60 % des séances | la 1ʳᵉ série n'est pas retenue pour juger le palier, **si elle est plus légère que le palier provisoire** (§7.3) |
 | **Indéterminé** | 35 – 60 %, ou moins de 8 séances | toutes les séries sont retenues, comportement par défaut |
 | **Ne monte pas** | ≤ 35 % | toutes les séries sont retenues |
 
 Les seuils 35 / 60 sont un **choix produit**, pas un résultat mesuré : la distribution est continue, pas bimodale. Ils sont placés là où l'erreur est symétrique, et ils sont paramétrables.
+
+**Contre quoi se juge la première série — corrigé le 19/09/2026.** Elle n'est écartée que si elle est plus légère que le **palier provisoire** de la passe 1 (§7.3). Jamais parce qu'elle est plus légère que la plus lourde des séries suivantes : celle-ci peut être une exploration (§7.5), et la prendre pour repère écartait une série tenue au palier.
+
+Cas qui a révélé le défaut, confirmé sur appareil : couché du 15/09/2026, `125×4, 125×5, 130×3`. La première série était écartée parce que plus légère que 130 ; il restait deux séries, et le §7.2 retenait la plus lourde : **palier 130**, faux. Jugée contre le palier provisoire (125, tenu sur deux séries), elle est retenue : **palier 125**. Recettes : squat du 2 février 2026 = 125 ; soulevé hex du 21/08/2026 = 130, le 120 restant une rampe (§7.4).
 
 ### 5.3 Couverture
 
@@ -422,11 +426,11 @@ Mesuré sur les 3 675 séance-exercices : la règle « 3 séries minimum » reco
 
 Le §4.1 situe la chauffe probable **avant la première série au palier**. Mais le palier se calcule ici **après** exclusion de la chauffe probable. Chacun a besoin de l'autre : appliqués naïvement, les deux tournent en rond.
 
-> **Résolution en deux passes.** Passe 1 : un palier *provisoire* se calcule sur les séries brutes, à seule fin de situer la frontière de chauffe. Passe 2 : le palier *définitif* se calcule après application des §4.1, §5 et §6.
+> **Résolution en deux passes.** Passe 1 : un palier *provisoire* se calcule sur les séries brutes, à deux fins seulement : situer la frontière de chauffe (§4.1) et juger la rampe (§5.2). Passe 2 : le palier *définitif* se calcule après application des §4.1, §5 et §6.
 
-Le palier provisoire ne sort jamais de ce calcul — il n'est ni affiché, ni stocké, ni comparé. C'est un choix d'implémentation, pas une propriété du modèle : une autre résolution est concevable, mais elle doit être explicite, sans quoi deux développeurs produiront deux paliers différents sur la même séance.
+Le palier provisoire ne sort jamais de ce calcul — il n'est ni affiché, ni stocké, ni comparé à une autre séance. C'est un choix d'implémentation, pas une propriété du modèle : une autre résolution est concevable, mais elle doit être explicite, sans quoi deux développeurs produiront deux paliers différents sur la même séance.
 
-Vérifié au banc : un palier est reconnu sur **93 à 98 %** des séance-exercices selon le profil, sans casse hors du profil d'Aurélien.
+Vérifié au banc le 19/09/2026, après correction de la rampe (§5.2) : un palier est reconnu sur **90 à 92 %** des séance-exercices selon le profil (Aurélien 90,9 %, Léa 92,4 %, Mélodie 90,5 %, Alexis 90,0 %), et sur **73,5 %** chez Jordan. L'ancien chiffre (93 à 98 %) comptait des faux paliers. Les paliers perdus sont presque tous des pyramides, tenues sur une seule série à chaque charge : le moteur s'y tait plutôt que d'annoncer un palier jamais tenu. Jordan pyramide beaucoup : à regarder avant de lui ouvrir le moteur.
 
 ### 7.4 Ce qui entre dans `n`
 
@@ -440,7 +444,7 @@ Sans cette règle, `n = 4` et `k = 3` — le palier était déjà reconnu ici, m
 
 ### 7.5 L'exploration
 
-Toute série plus lourde que le palier est enregistrée comme **exploration**. Elle est conservée, affichée, elle nourrit l'estimation du maximum — mais elle **ne valide rien**.
+Toute série plus lourde que le palier est enregistrée comme **exploration**. Elle est conservée, affichée, elle nourrit l'estimation du maximum. **Elle sert de test** (§9.7, tranché le 19/09/2026) : si elle atterrit au moins au bas de la zone, la charge testée avance à la séance suivante ; en dessous, le test est noté, sans effet sur le palier. Elle ne change jamais le palier du jour, qui reste défini par le §7.2.
 
 ---
 
@@ -519,6 +523,8 @@ séries.
 pour cet exercice. La péremption n'est donc pas globale : le squat basculera sur
 l'observation bien avant l'élévation latérale, ce qui est le bon comportement.
 
+**Précisé le 19/09/2026 (MOTEUR §9.1.1), pour la zone de reps : l'amorce est une porte.** Sous 8 séances, la déclaration autorise ou interdit une zone ; la zone elle-même se déduit de l'habitude dès la première séance avec un palier. Seul un exercice jamais fait n'a que la déclaration.
+
 **8.5.3 — Un changement déclaré reprend la main.** L'utilisateur peut changer son
 profil à tout moment ; la déclaration porte une date, et le moteur ne lit plus que
 les séances postérieures pour juger de la zone acceptée. L'ancien historique reste
@@ -541,10 +547,12 @@ rien changer.
 
 ### 9.1 La cible — une consigne, pas une prévision
 
-> **La cible n'essaie pas de deviner ce qui sera fait. Elle dit quoi faire.** Double progression au sens strict, deux états et rien d'autre :
+> **La cible n'essaie pas de deviner ce qui sera fait. Elle dit quoi faire.** Double progression à l'intérieur d'une zone de reps (§9.1.2), deux états et rien d'autre :
 >
-> 1. **Palier non tenu** → même charge, cible = reps du dernier passage **+ 1**.
-> 2. **Palier tenu au haut de la fourchette** → charge **+ 1 incrément** (§10), cible = **bas de la fourchette**.
+> 1. **Haut de la zone pas encore atteint** → même charge, cible = **niveau validé + 1** (§9.2), sans dépasser le haut de la zone (sauf zone étirée, §9.7).
+> 2. **Haut de la zone atteint** → le moteur propose un **test** : **un cran** (§10) sur la dernière série, cible = **bas de la zone**. La charge avance ensuite série par série, selon la règle du test (§9.7).
+>
+> La condition exacte de « haut atteint », la taille du saut et le sort d'un test réussi dépendent du **réglage de rythme** (§9.8). Tranché le 19/09/2026 : la version précédente montait toutes les séries d'un coup, cible au bas d'une fourchette.
 
 ### 9.1.1 La fourchette n'est pas le format
 
@@ -553,7 +561,16 @@ Le format (§8) se **déduit** d'une séance passée pour savoir à quoi la comp
 - Un format déduit `mixte` couvre 7 à 8 reps. Une fourchette enfermée dans cette borne n'a qu'une rep de battement — mesuré, **78 % des séances mixtes valideraient dès leur première occurrence**, soit une montée de charge quasi systématique.
 - À l'inverse, monter jusqu'au haut d'une fourchette fait franchir la frontière du format. Le moteur changerait silencieusement de référentiel de comparaison au moment même où il demande l'effort.
 
-> **La fourchette est attachée au profil de travail déclaré (§8.5), pas au format déduit.** Le format sert à lire le passé, la fourchette à écrire la consigne suivante.
+> **La zone n'est pas le format, et elle ne vient pas du profil de travail déclaré.** Le format sert à lire le passé, la zone à écrire la consigne suivante (§9.1.2). *Révisé le 19/09/2026 : la première rédaction attachait la fourchette au profil de travail déclaré.*
+
+**Qui décide de la zone d'un exercice — ordre fixé le 19/09/2026 :**
+
+1. le **plan** d'un programme, quand il en existera un (§9.10) ;
+2. la **correction** de l'utilisateur sur cet exercice (`zones_exercice`, ECRAN-SAISIE §3.8) ;
+3. l'**habitude observée**, dès la première séance avec un palier (§9.1.2), calculée sur les séances postérieures au dernier changement de profil déclaré (§8.5.3) ;
+4. le **profil de travail déclaré**, pour un exercice jamais fait (§8.5).
+
+Le profil déclaré garde son rôle du §8.5 : une porte, pas une suggestion. Sur un exercice de moins de 8 séances, il autorise ou interdit une zone ; il ne choisit jamais la zone à la place de l'observation.
 
 ### 9.1.2 La largeur de la fourchette — ce qu'elle ne décide pas, et ce qu'elle décide
 
@@ -577,34 +594,45 @@ Mesuré sur les cinq profils, la répartition va dans le mauvais sens :
 
 En format force, **un progrès sur trois seulement passe par la charge** — moins qu'en hypertrophie, alors que c'est le format où elle compte le plus.
 
-> **La largeur de la fourchette est le levier de l'objectif, et elle suit le nombre de reps — pas une étiquette déclarée.**
+> **La largeur est le levier de l'objectif, et elle suit le nombre de reps — pas une étiquette déclarée.**
 
-| Zone (médiane observée sur le couple) | Fourchette | Nature du travail | Appui |
+**Tranché le 19/09/2026 : cinq zones remplacent la fourchette en cloche.**
+
+| Zone | Reps | Nature du travail | Appui |
 |---|---|---|---|
-| **1-2** | **pas de progression en reps** | effort maximal | NSCA — effort unique 1-2 reps |
-| **3-5** | bas + 2 | force | NSCA ; Schoenfeld 2021 : la zone 1-5 bat le 8-12 pour le 1RM |
-| **6-8** | bas + 3 | charnière force/hypertrophie | charnière des deux zones NSCA |
-| **9-12** | bas + 4 | hypertrophie | zone canonique ; les deux voies se valent |
-| **13-15** | bas + 3 | hypertrophie légère, isolation | transition |
-| **16+** | bas + 2, **plafond à 20** | endurance musculaire, entretien | NSCA — endurance au-delà de 12-15 |
+| **Lourd** | 3-5 | force | NSCA ; Schoenfeld 2021 : la zone 1-5 bat le 8-12 pour le 1RM |
+| **Mix** | 6-8 | charnière force/hypertrophie | charnière des deux zones NSCA |
+| **Hypertrophie** | 8-10 | hypertrophie | zone canonique |
+| **Volume** | 10-12 | hypertrophie, accessoires | zone canonique ; les deux voies se valent (Schoenfeld 2017) |
+| **Séries longues** | 15-20 | isolation légère, endurance musculaire | NSCA — endurance au-delà de 12-15 |
 
-**La courbe est en cloche** : large au milieu, étroite aux deux bouts. C'est au milieu que gagner une rep a le plus de valeur. À 3 reps, une rep de plus vaut +33 % de travail sur la série ; à 16, elle vaut +6 % et coûte du temps.
+**Menu fixe**, proposé par Aurélien. Il couvre **97 habitudes sur 100** sur les cinq profils (banc M7). Réserve : cinq pratiquants d'un même entourage.
+
+**La zone est une intention, et la double progression se fait à l'intérieur.** C'est la correction d'un défaut de la cloche : elle plaçait l'habitude au bas de la fourchette et faisait monter les reps au-dessus. Au squat, elle demandait `125 × 6`, donc des séries de 6 à 7 reps sur un mouvement lourd, alors que ce paragraphe cite lui-même Schoenfeld 2021 pour la force à 1-5 reps.
+
+**Déduite, jamais demandée (§1.1).** L'**habitude** est la médiane des reps au palier sur les **8 dernières séances** du couple exercice-format. Elle range l'exercice dans la zone où elle tombe **en bas** (10 → Volume, 8 → Hypertrophie, jusqu'à 5 → Lourd) ; une habitude de 13 ou 14 va en Séries longues. Une habitude sous 3 reps (maximaux) ne se range dans aucune zone : la règle de bord ci-dessous s'applique. Pourquoi 8 séances : sur tout l'historique, 7 des 23 exercices actifs d'Aurélien étaient mal rangés (banc M12) ; la science pondère le récent (Williams et al. 2017), et les coachs changent de reps au rythme de cycles de 3 à 6 semaines.
+
+**Corrigeable d'un geste.** L'utilisateur touche l'étiquette de zone dans l'en-tête du bloc (ECRAN-SAISIE §3.8) et choisit dans le menu, sans saisie libre. La correction vaut **pour l'exercice, toutes routines confondues**, et elle devient la vérité (§1.1). Elle s'écrit dans `zones_exercice` (append-only) ; une zone vide rend la main à la déduction. **Priorité : plan d'un programme > correction > déduction.** La zone par jour des programmes (`routine_exercises`) viendra avec eux (§9.10).
+
+**15-20 reste une zone, pas une cible nue.** « Vise 15 » serait inatteignable après un gros saut ; avec un bas, le moteur repart de là où l'on atterrit.
 
 **Deux règles de bord.**
 
 > **Sous 3 reps, le moteur ne demande jamais une rep de plus.** Il propose le plus petit incrément de charge disponible, rien d'autre. La variabilité journalière de ±18 % (Jovanovic & Flanagan 2014) dépasse l'écart entre une rep et deux : prescrire « une de plus » sur un simple lourd revient à demander un record à chaque séance.
 
-> **Au-delà de 20 reps, la fourchette se ferme.** On ne propose plus d'allonger, on propose de charger. Sinon quelqu'un à 25 reps aux mollets se verrait proposer 29.
+> **Jamais au-delà de 30 reps.** La zone Séries longues s'arrête à 20, mais une zone étirée (§9.7) peut monter plus haut, jamais au-delà de 30. Mesuré (banc M15) : sur les crans de plus de 10 %, 41 tests ratés sur 100 exigeraient plus de 20 reps pour regagner les reps perdues, aucun plus de 30. Au-delà, on ne propose plus d'allonger, on propose de charger.
 
 **La zone appartient au couple exercice-format, pas à la personne.** C'est le point le plus important du tableau, et il est contre-intuitif : ce n'est pas le powerlifter qui vit à 3-5 reps et le pratiquant loisir à 15+. **Le powerlifter couvre le spectre le plus large** — maximaux à 1-3, force à 3-5, accessoires à 8-12, élévations latérales et gainage à 15+. Une pratique orientée hypertrophie en couvre moins ; une pratique d'entretien reste sur une bande étroite autour de 10-15.
 
-> Un même utilisateur a donc, **le même jour**, un squat en fourchette 3-5 et des élévations latérales en 16-18. Le moteur le gère sans rien demander, puisque la médiane est déjà calculée par couple (exercice, format). Une largeur attachée au profil de travail déclaré aurait imposé la même valeur à tous ses exercices — c'était l'erreur de la première rédaction de ce paragraphe.
+> Un même utilisateur a donc, **le même jour**, un squat en zone Lourd et des élévations latérales en Séries longues. Le moteur le gère sans rien demander, puisque la médiane est déjà calculée par couple (exercice, format). Une largeur attachée au profil de travail déclaré aurait imposé la même valeur à tous ses exercices — c'était l'erreur de la première rédaction de ce paragraphe.
 
-Le bas de la fourchette reste la **médiane de reps observée sur le couple** : le moteur ne demande jamais moins que l'habitude. Aucune de ces valeurs n'a besoin d'être exacte — l'autorégulation reste entière, seule l'orientation du progrès change.
+L'habitude range l'exercice dans une zone ; c'est ensuite la zone qui fixe le bas et le haut. Avec le rangement retenu, l'habitude tombe au bas de sa zone ou dedans : le moteur ne demande pas moins que ce que la personne fait déjà. Aucune de ces valeurs n'a besoin d'être exacte — l'autorégulation reste entière, seule l'orientation du progrès change.
 
 **Mesure de contexte.** Répartition des couples exercice-format des cinq profils par zone : 1-2 reps **0,4 %** · 3-5 **2,2 %** · 6-7 **3,1 %** · 8-12 **65,2 %** · 13-15 **15,4 %** · 16+ **13,7 %**. La zone force est marginale dans cette base — les bornes basses viennent donc de la pratique du coaching, pas de la mesure, et sont à revoir si des profils de force arrivent. La zone haute, elle, représente **29 % du travail réel** et était mal servie par la version précédente, qui l'aurait élargie au lieu de la resserrer.
 
 ### 9.1.3 Les deux garde-fous
+
+> **Statut au 19/09/2026 — plus en vigueur, conservé pour mémoire.** Ces deux garde-fous avaient été calibrés sur un historique sans consigne. **Le garde-fou 1 disparaît avec la règle de transition (§9.1.4)**, dont il n'était que le complément : sous consigne, il produisait des cibles absurdes (tirage visage : « 24,8 × 21 », une rep de plus au-delà du plafond, parce que la charge n'était pas au record du 1ᵉʳ/09). **Le garde-fou 2 est sans objet sous consigne** : le moteur demande une rep de plus à chaque séance, et qui ne l'atteint jamais relève du compteur de stagnation (§12) et de l'escalier (§14). Les mesures ci-dessous restent vraies.
 
 Ce sont les deux seuls résultats de calibration qui ont survécu à la mesure, et ils ne portent pas sur la fourchette mais sur le droit de proposer une montée.
 
@@ -628,20 +656,22 @@ Les garde-fous du §9.1.3 ont été calibrés sur des données produites **sans 
 
 **Le dilemme était mal posé.** Le dépassement n'est pas un signal à préserver : c'est un **substitut**. Faute de savoir si la personne avait atteint une cible, on regardait si elle dépassait son habitude. Une fois la cible affichée, le détour n'a plus lieu d'être — le moteur sait si les 6 reps demandées ont été faites.
 
-> **Sous prescription, la règle principale est la double progression elle-même (§9.1) : cible atteinte au haut de la fourchette → montée.** Aucun proxy.
+> **Sous prescription, la règle principale est la double progression elle-même (§9.1) : haut de la zone atteint → test d'un cran (§9.7).** Aucun proxy.
 
-Rôle de chaque pièce après cette bascule :
+Rôle de chaque pièce après cette bascule — **révisé le 19/09/2026** :
 
 | Pièce | Statut sous prescription |
 |---|---|
-| Double progression (§9.1) | **règle principale** |
-| Garde-fou 1 — au record de charge (§9.1.3) | **conservé** ; ne dépend d'aucune consigne, empêche de pousser en pleine oscillation |
-| Garde-fou 2 — ancienneté du palier (§9.1.3) | **repli**, pour qui n'atteint jamais la cible (cas de lea aujourd'hui) |
-| Dépassement ≥ médiane+1 (§9.1.3) | **transition uniquement** — s'applique aux exercices dont l'historique est importé et non encore prescrit |
+| Double progression dans la zone (§9.1, §9.1.2) | **règle principale** |
+| Règle du test (§9.7) | **fait avancer la charge**, série par série |
+| Réglage de rythme (§9.8) | règle la condition de montée, le saut, le sort d'un test réussi |
+| Garde-fou 1 — au record de charge (§9.1.3) | **retiré** avec la transition |
+| Garde-fou 2 — ancienneté du palier (§9.1.3) | **sans objet** sous consigne |
+| Dépassement ≥ médiane+1 (transition) | **supprimé** |
 
-Cette dernière ligne est ce qui permet au moteur de ne pas démarrer muet chez quelqu'un qui arrive avec trois ans de Hevy : il exploite l'historique libre jusqu'à ce que des séances prescrites prennent le relais, exercice par exercice.
+**Pourquoi la transition est supprimée.** Elle devait éviter un moteur muet au premier jour. Mesuré (banc M13) : elle n'ajoute presque rien aux zones, et ce qu'elle ajoute, ce sont surtout des exercices d'isolation dont les reps ont dérivé par choix (écarté machine, triceps corde passés à 15 reps) : elle prenait une dérive de pratique pour un progrès. Les tests la remplacent : on part du palier actuel et l'on sonde par une série test, là où elle montait toutes les séries d'un coup. C'est ce que recommandent la science (autorégulation par série test, Zhang et al. 2021) et les coachs (démarrer prudemment, Wendler).
 
-**Ce qui reste à vérifier sur les premières données réelles.** La bascule suppose que la cible sera atteinte assez souvent pour faire avancer la double progression. Si les cibles sont manquées bien plus souvent que prévu, c'est la fourchette (§9.1.2) qu'il faudra revoir, pas la règle. **Les premières semaines d'usage sont un test, pas une mise en service.**
+**Ce qui reste à vérifier sur les premières données réelles.** La bascule suppose que la cible sera atteinte assez souvent pour faire avancer la double progression. Si les cibles sont manquées bien plus souvent que prévu, c'est le rangement en zones (§9.1.2) ou le réglage de rythme (§9.8) qu'il faudra revoir, pas la règle. Chaque consigne écrite dans `predictions` porte sa zone et son réglage (§9.11) : c'est ce qui rend cette vérification possible. **Les premières semaines d'usage sont un test, pas une mise en service.**
 
 ### 9.2 Règle
 
@@ -661,9 +691,13 @@ Les séries 1 et 2 sont les moins fatiguées, donc les plus représentatives de 
 
 **Le rang se compte après application des §5 et §6.** Sur un exercice qui monte en charge, la « première série » est la première série au palier, pas la première série de l'exercice.
 
+**Le niveau validé — défini le 19/09/2026.** C'est le plus haut nombre de reps *c* tel que les deux premières séries au palier font au moins *c*, et les suivantes au moins *c* − 1. Une série marquée « max » compte une rep de moins (§17.4). Exemples : `5-5-4-4` → niveau 5 ; `4-5` → niveau 4 ; `12-12-11` → niveau 12. C'est ce niveau que la consigne suivante augmente d'une rep (§9.1), et c'est lui qui dit si le haut de la zone est atteint.
+
 ### 9.3 Réserve honnête
 
 Sur l'historique, cette règle aurait envoyé Aurélien à 122,5 kg dès le 14/07 (profil `5-5-5-4`), et 122,5 s'est écroulé à `4-4-3-3` le 04/08. **Une seule observation** — insuffisant pour conclure que la règle est trop permissive. À revérifier avec Jordan, Léa et Alexis.
+
+**Revérifié le 19/09/2026 sur les cinq profils**, avec le critère « la montée tient-elle » (BANC §12.4 : la charge atteinte est réutilisée dans les trois séances suivantes). Réglage Normal : **79 montées sur 100 tiennent** (386 montées suivies), contre **80 sur 100** pour les montées spontanées des mêmes personnes (1 153). La règle n'est pas plus permissive que leur propre pratique.
 
 ### 9.4 Ce que la règle ne peut pas voir
 
@@ -692,6 +726,8 @@ Critère de la colonne de droite : **gain de précision** par rapport au hasard,
 
 **Le fil commun de tous ces échecs.** Chacune de ces pistes essayait de *prédire* le comportement à partir de l'historique. La variable qui décide — la proximité de l'échec — n'est pas dans les données : le RPE est renseigné sur **1 % des séries d'un seul utilisateur et 0 % chez les quatre autres**. La littérature contourne systématiquement ce trou en imposant une série à l'échec (Greyskull, 5/3/1, SBS-RTF) ; la doctrine de cette app l'interdit. La double progression est retenue précisément parce qu'elle **ne prédit rien**.
 
+**Soldé le 19/09/2026.** Ces douze pistes avaient été jugées sur un critère d'imitation — « la personne est-elle montée à la séance suivante » —, que le banc a depuis retiré (BANC §12.3). Rejouées sur le critère « la montée tient-elle » (BANC §12.4) : la **confirmation sur deux séances** et le **2-pour-2** tiennent, et servent de base au réglage Prudent (§9.8) ; les fourchettes sont remplacées par les zones (§9.1.2) ; le reste est exclu par la doctrine. Ne pas les retenter.
+
 ### 9.6 Pourquoi la cible ne se corrige pas par la charge
 
 Tentative documentée et **rejetée par la mesure**. Puisque la cible tombe moins souvent juste quand le palier a changé (56,6 % contre 72,6 % chez Aurélien, clivage confirmé sur les cinq profils), l'idée était de la conditionner à la charge via le modèle du §15.
@@ -703,6 +739,109 @@ La raison, sur 1 544 changements de charge : **la variation médiane du nombre d
 > **Un changement de charge n'abaisse pas la cible, il élargit l'incertitude autour d'elle.** Le moteur n'en déduit rien : c'est exactement le cas où la cible sera le plus souvent ratée, et rater n'est pas un événement (§12).
 
 Ceci vaut pour la déduction de la cible. Le modèle charge/reps du §15 conserve son rôle de filet au premier passage, qui n'est pas affecté.
+
+### 9.7 La règle du test — tranchée le 19/09/2026
+
+Énoncé d'Aurélien : « L'exploration sert de test à la montée d'une charge. Si on atterrit dans la fourchette et pas en dessous, on réessaye la prochaine fois de refaire ça une série de plus, ou garder en dernière série mais en grattant des reps. »
+
+> **Une série plus lourde que le palier est un test. S'il atterrit au moins au bas de la zone, la charge testée avance d'une série à la fois ; sinon, il est noté et le palier reprend la main.**
+
+| Où atterrit le test | Séance suivante (réglage Normal) |
+|---|---|
+| **Sous le bas** de la zone | Test raté : noté, palier inchangé. Le palier reprend la double progression ; au haut de la zone, le moteur reteste **d'un seul cran** |
+| **Au bas** | La charge testée est **gardée** sur la dernière série ; on gratte des reps |
+| **Dedans** | Elle est **étendue d'une série** |
+| **Au haut** | Normal : étendue. Franc : tout passe. Prudent : on refait le test pour confirmer (§9.8) |
+
+Le palier bascule de lui-même quand la charge testée tient la majorité des séries (§7.2).
+
+**Un test raté se reprend d'un seul cran — validé le 19/09/2026**, même si le test raté valait deux crans (couché : 130 raté → le moteur proposera 127,5). **Si même un cran échoue**, parce que la salle ne fait pas plus petit, la zone **s'étire** : le palier gratte des reps au-delà du haut, et le moteur reteste quand il a regagné les reps perdues au test. Curl barre EZ : `35 × 8` raté en zone Volume 10-12 → on reteste 35 quand le palier fait 30 × 16 (12 + 4 perdues). Jamais au-delà de 30 reps (§9.1.2).
+
+**Garde-fou — en zone Lourd, au plus une série de plus par séance**, même en Franc. Remarque d'Aurélien : plus c'est lourd, plus c'est dur d'enchaîner les séries. Ses données ne le confirment pas (14 cas lourds seulement, banc M5) : c'est un garde-fou, pas une règle centrale.
+
+**Consigne à deux charges.** Quand un test est gardé ou proposé, la consigne porte deux charges, sur deux lignes : « 125 kg, vise 5 », puis « 130 kg en dernière série, vise 4 » (ECRAN-SAISIE §3.1).
+
+**Cas réels (banc M8, réglage Normal, habitude sur 8 séances) :**
+
+| Exercice | Dernière séance | Consigne |
+|---|---|---|
+| Couché barre | 125×4, 125×5, **130×3** (au bas de Lourd) | 125 kg, vise 5 — puis 130 kg en dernière série, vise 4 |
+| Squat barre | 120×5, 125×5, 125×5, **130×5** (au haut de Lourd) | 130 kg sur 2 séries, vise 5 — et 125 kg sur la première, vise 5 |
+| Rowing poulie en V | 93×10, 93×10, **100×10** (au bas de Volume) | 93 kg, vise 11 — puis 100 kg en dernière série, vise 11 |
+| Couché haltères | 88×10 ×3, **92×6** (sous Volume) | 88 kg, vise 11 |
+| Curl barre EZ | 30×12 ×3 (haut de Volume) | 30 kg, vise 12 — puis 35 kg en dernière série, vise 10 |
+
+**Parentés dans le métier** : la double progression dynamique (chaque série progresse pour son compte), les Joker sets de Wendler (une série plus lourde les bons jours), l'APRE de Mann (charge ajustée sur les reps d'une série test). **Ce que fait Aurélien après un test réussi** (515 tests, banc M5), sur 100 : gardé sur une série 35, abandonné 30, passé sur toutes 22, étendu d'une série 12.
+
+### 9.8 Les réglages de rythme — tranchés le 19/09/2026
+
+> **Le réglage agit sur trois choses : quand la charge monte, de combien, et ce que devient un test réussi. Jamais sur le vocabulaire** (CADRAGE §2 terdecies).
+
+| Réglage | La charge monte quand | De combien | Après un test réussi |
+|---|---|---|---|
+| **Entretenir** | Jamais : aucune proposition de charge, le fantôme reprend la dernière séance | — | Noté, sans suite |
+| **Prudent** | Toutes les séries au haut de la zone, deux séances de suite (repère NSCA « 2-pour-2 ») | 1 cran | Gardé sur la dernière série ; au haut de la zone, on refait le test |
+| **Normal** (défaut) | Niveau validé au haut de la zone (§9.2), sans séance de confirmation | 1 cran | Étendu d'une série s'il dépasse le bas, gardé s'il y est |
+| **Franc** | Chaque série pour son compte (double progression dynamique) | **2 crans** si le haut est dépassé de 3 reps, ou si l'effort dit « facile » (logique APRE) | Étendu d'une série, ou tout passe s'il touche le haut |
+
+**Garde-fous du réglage Franc** : jamais plus de 2 crans en une fois ; le double saut exige une preuve (haut dépassé de 3 reps, ou effort « facile », §17.3) ; **un cran au maximum sur les grosses barres**, dont le cran vaut environ 2 % — deux crans sortiraient de la fourchette de l'ACSM (+2 à 10 %) ; en zone Lourd, une série de plus au maximum par séance (§9.7).
+
+**Mesuré (banc M11, critère BANC §12.4, cinq profils).** Combien de fois sur 100 séances le réglage propose de monter, et combien de montées suivies tiennent :
+
+| Réglage | Propose de monter | Tiennent |
+|---|---|---|
+| Prudent | 12,4 | 80 sur 100 (115 montées) |
+| Normal | 27,6 | 79 sur 100 (386) |
+| Franc | 33,2 | 81 sur 100 (448) |
+| *Montées spontanées, sans consigne* | — | *80 sur 100 (1 153)* |
+
+**Prudent est plus lent, pas plus sûr** : les montées tiennent autant quel que soit le réglage. C'est un fait pour qui conçoit le moteur, pas un argument affiché par l'app.
+
+**Où il vit.** `profiles.intention` (progresser | entretien) décide si le moteur parle de charge ; `profiles.rythme_progression` (prudent | normal | franc, défaut normal, `v2_046`) règle le rythme. Écran : ECRAN-PROFIL §2.3. Chaque consigne écrite dans `predictions` porte son réglage (§9.11) : les premières semaines pourront comparer les réglages entre eux.
+
+**Appui.** Chez des sujets entraînés, régler la charge sur la performance du jour fait mieux que des charges fixes, et APRE arrive en tête (Zhang et al. 2021 ; méta-analyse en réseau de 2025). Réserve : 8 études, 166 sujets, 5 à 10 semaines. L'ACSM (2009) recommande +2 à 10 % quand on dépasse de 1 à 2 reps le nombre visé.
+
+### 9.9 La reprise après une coupure — tranchée le 19/09/2026
+
+> **Après une coupure, le moteur ne demande pas de rep de plus. Au-delà de 12 semaines, il repart un cran sous le dernier palier.**
+
+Coupure au sens du §12.6 : un écart depuis la séance précédente supérieur à 3 fois l'écart habituel de l'exercice.
+
+| Coupure | Consigne |
+|---|---|
+| Jusqu'à 12 semaines | Dernier palier, cible = niveau validé, **sans +1** |
+| Au-delà de 12 semaines | **Un cran sous** le dernier palier, cible = niveau validé ; la règle du test ramène la charge (§9.7) |
+
+**Mesuré (banc M14, coupures de plus de 21 jours, cinq profils)** : la reprise se fait à 100 % du palier en médiane, et la personne le tient dès la première séance 73 à 74 fois sur 100 jusqu'à 12 semaines, 73 fois sur 100 au-delà. **Appui** : pas de perte mesurable jusqu'à une semaine environ ; −6 à 9 % du maximum après 4 semaines d'arrêt complet chez des entraînés (Izquierdo et al. 2007), puis une perte qui s'accélère (Mujika & Padilla 2000). Un recul de 6 à 9 % fait perdre 1 à 2 reps à charge égale : « même charge, sans rep de plus » l'encaisse. Au-delà de 12 semaines, les données se font rares ; la science et les coachs tranchent pour un cran en dessous.
+
+**Ce que l'app dit** : « On reprend à ton dernier palier, sans rep de plus. » / « On reprend un cran sous ton dernier palier, 125 kg. » **Jamais la durée de l'absence** (CADRAGE §3.1 bis) : la date de la dernière séance reste dans la feuille « Pourquoi ».
+
+### 9.10 Phases et blocs — les prises du moteur, décidées le 19/09/2026
+
+> **En powerbuilding, on périodise le côté force (les barres), pas le côté muscle. La phase appartient à chaque exercice, pas à la séance ni au programme.**
+
+Appui : Moesgaard et al. 2022 (35 études, volume égal) — périodiser fait gagner plus de force, seulement chez les entraînés, et n'apporte rien au muscle. Le moteur ne fabrique pas de programmes (§20.1), mais il doit pouvoir en suivre un. **Câbler tôt, remplir tard** — quatre prises :
+
+| Prise | Ce que fait le moteur |
+|---|---|
+| **Bloc** : la zone d'une barre change pour plusieurs semaines | La charge est reportée via le maximum estimé (en coulisse, jamais affiché) ; le compteur de stagnation repart à zéro |
+| **Ondulation** : deux zones pour une même barre dans la même semaine | Deux paliers avancent en parallèle, sans remise à zéro |
+| **Semaine de décharge** | Reconnue : ni stagnation ni coupure, aucune proposition de charge |
+| **Phase** | Notée dans `predictions` avec chaque consigne (§9.11) |
+
+Aujourd'hui, la phase se **déduit** de l'historique. Le futur chantier programmes l'**écrira** : une zone par jour dans `routine_exercises`, avec la priorité plan > correction > déduction (§9.1.2).
+
+### 9.11 Ce que le moteur écrit dans `predictions` — décidé le 19/09/2026
+
+> **Une ligne par ligne de consigne** : le palier, et le test s'il est proposé.
+
+| Champ | Contenu |
+|---|---|
+| `valeur_predite` | la charge proposée |
+| `fondement` (jsonb) | reps visées, nombre de séries, zone, réglage, phase, raison |
+| `valeur_observee`, `observee_a`, `set_observe` | remplis après la séance — les seuls champs modifiables |
+
+**Immuable** : le trigger `predictions_immuable` (`v2_046`) refuse toute modification d'une prédiction, hors ces trois champs. Aucune migration de plus : la table reste générique (CADRAGE §5). L'écriture est un chantier à risque (CADRAGE §2 septies), traité à part.
 
 ---
 
@@ -730,6 +869,13 @@ Sur les poulies et machines, les charges viennent d'une conversion livres → ki
 
 **Détection :** si le pas déduit n'est pas un multiple de 0,5 kg, basculer sur l'écart **médian** et marquer le pas comme approximatif.
 
+**Quelle charge proposer — ordre tranché le 19/09/2026.** Le moteur ne propose que des charges que la salle fait :
+
+1. **pas exact** déduit de l'historique (§10.1) : palier + pas ;
+2. pas approximatif : la **charge déjà utilisée juste au-dessus** du palier (élévation latérale poulie : 9 → 11,5, et non 9 + 2,2) ;
+3. aucune charge utilisée au-dessus : le **pas habituel du matériel** (ECRAN-PROFIL §2.1 : barres 5, haltères 4), valable pour les charges à disques (curl barre EZ : 30 → 35, jamais chargée mais réelle) ;
+4. sinon : « **le cran au-dessus** », sans chiffre.
+
 ### 10.3 Le progrès en pourcentage est interdit
 
 Référentiel §1.3 : +5 kg sur un squat à 135 kg fait +3,7 %, sur un squat à 405 kg fait +1,2 %, et c'est la même quantité de tissu contractile nouveau. **Un algorithme qui progresse en pourcentage fixe sous-charge le débutant et sur-charge l'avancé.** L'incrément est toujours absolu, dérivé du pas de la salle.
@@ -755,7 +901,7 @@ Charge en baisse → pas un progrès, mais pas nécessairement un problème (§1
 
 > **Le compteur ne déclenche pas l'action, il déclenche le changement de méthode.**
 
-L'utilisateur n'attend jamais. Le moteur lui donne une consigne **à chaque séance** : une rep de plus, ou un cran de charge (§9.1). Ce que le compteur signale, c'est que **la double progression ne suffit plus sur cet exercice** — ce qui appelle un deload, un changement de fourchette ou un changement d'exercice.
+L'utilisateur n'attend jamais. Le moteur lui donne une consigne **à chaque séance** : une rep de plus, ou un cran de charge (§9.1). Ce que le compteur signale, c'est que **la double progression ne suffit plus sur cet exercice** — ce qui appelle un deload, un changement de zone ou un changement d'exercice.
 
 C'est pourquoi le seuil peut être plus lent qu'une alarme ordinaire : il fait abandonner une méthode qui fonctionne dans la grande majorité des cas. Et c'est aussi pourquoi **rien ne doit paraître bloqué entre-temps** : le §3.7 de l'écran de saisie affiche le chemin parcouru (« 122,5 kg : 4 reps il y a un mois, 6 aujourd'hui »), qui rend le mouvement visible sans attendre un record.
 
@@ -816,6 +962,12 @@ Effet mesuré : le reset abaisse le taux de reprise spontanée de 4 à 5 points 
 ### 12.7 Point ouvert
 
 La mesure charge-seule montrait une remontée nette de la reprise spontanée autour de 6 séances, qui résiste au reset après coupure. Cause non identifiée — cycle de programmation, effet de vague ? Sans conséquence sur le seuil retenu, mais non expliqué.
+
+### 12.8 Sous consigne — décidé le 19/09/2026, détaillé au chantier suivant
+
+- **Le compteur ne compte que les séances qui ont reçu une consigne.** Un historique sans consigne ne dit pas si la personne a essayé.
+- **Le seuil s'adaptera aux habitudes de chacun.** Il sera repris au chantier de la stagnation, avec l'escalier (§14).
+- **Pourquoi ne pas le calculer sur l'historique** : mesuré (banc M4), 8 exercices d'Aurélien dépasseraient déjà le seuil à l'ouverture (extension jambes 13 séances, presse 10, curls 10, tirage poitrine 7…).
 
 ---
 
@@ -1238,9 +1390,14 @@ Conforme au cadrage : **descriptif, jamais prescriptif sur l'historique.**
 | Situation | Formulation |
 |---|---|
 | Progrès en reps | « 122,5 kg, ta meilleure séance sur ce palier. » |
-| Palier validé | « 5-5-5-5 à 120 kg. On passe à 122,5 ? » |
-| Exploration | « 135 kg sur une série — noté. Le palier reste 122,5. » |
-| Seuil dépassé | « 122,5 ne bouge plus depuis 3 séances — c'est plus long que d'habitude pour toi. » + la marche suivante |
+| Consigne | « 125 kg, vise 5 » — en jaune, sous le nom (ECRAN-SAISIE §3.1) |
+| Consigne à deux charges | « 125 kg, vise 5 » puis « 130 kg en dernière série, vise 4 » |
+| Test gardé | « Ton test à 130 du 15 sept. est tombé au bas de ta zone : on le garde sur la dernière série. » |
+| Test réussi dedans | « 130 kg : 3 reps le 15 sept., 4 aujourd'hui, dans ta zone. » + « Prochaine séance : … » |
+| Test raté | « 130 × 2 : pas encore dans ta zone. » + « Prochaine séance : 125 kg, vise 5, puis 127,5 kg sur la dernière, vise 3. » |
+| Zone étirée | « Ton cran ne peut pas être plus petit : ta zone s'étire. On retestera 35 quand tu feras 16 à 30. » |
+| Reprise | « On reprend à ton dernier palier, sans rep de plus. » — jamais la durée de l'absence |
+| Seuil dépassé | « 122,5 ne bouge plus depuis 4 séances — c'est plus long que d'habitude pour toi. » + la marche suivante (formulation à reprendre au chantier de la stagnation, §12.8) |
 | Frère qui progresse | « Ta barre tient, mais tes haltères sont montés à 92. » |
 | Muscle limitant | « Tes triceps et tes épaules montent, tes pecs seuls stagnent. Piste à vérifier, pas un diagnostic. » |
 | Ratio extrême | « Ton rapport squat/couché te place dans les 2 % de lifters au squat le plus bas relativement au couché. Ça peut être morphologique. » |
@@ -1340,6 +1497,12 @@ L'erreur passe de 1,00 rep si on ne garde que les séries ≤ 8 reps à 2,00 si 
 | Progression entre exercices (prise serrée → diamant) | distincte du champ `parent`, non traitée |
 | Recalcul des seuils v1.1 sur le fichier reconstruit | paliers et incréments portaient sur un fichier amputé de 12 % |
 
+| Seuil de stagnation personnel, escalier (§12.8, §14) | chantier suivant ; compteur sur séances prescrites uniquement |
+| Calisthénie : les cinq leviers de progression | non traité, hors chantier 48 |
+| Top set suivi de séries allégées (banc M16) | 2 à 5 séances sur 100 ; le moteur y voit un test raté, sans effet — à surveiller |
+| Zones, fenêtre de 8 séances, seuils de reprise (3 et 12 semaines) | calés sur cinq profils d'un même entourage et sur la littérature ; à revérifier sur les premières données prescrites |
+| Couverture du palier chez Jordan (73,5 %) | pyramides fréquentes : à regarder avant de lui ouvrir le moteur (§7.3) |
+
 ### 22.4 Revue externe du 24/08/2026 — ce qui a été retenu et ce qui ne l'a pas été
 
 Document soumis à une relecture indépendante. Quatre objections, deux retenues, une écartée, une reformulée.
@@ -1395,6 +1558,24 @@ Déclenché par la même séance. La dernière série de l'extension jambes port
 
 ---
 
+### 22.8 Amendement du 19/09/2026 — le moteur parle (chantier 48)
+
+Décisions prises avec Aurélien, mesurées au banc (`banc_moteur48.py`, mesures M1 à M16), confrontées à la littérature et au coaching. État complet : `CHANTIER-48-MOTEUR-2026-09-19.md`.
+
+| Où | Avant | Après |
+|---|---|---|
+| §5.2, §7.3 | Rampe jugée contre la plus lourde des séries suivantes | Jugée contre le palier provisoire (défaut P1, confirmé sur appareil) |
+| §7.5 | L'exploration ne valide rien | Elle sert de test (§9.7) |
+| §9.1, §9.1.2 | Fourchette en cloche, montée de toutes les séries, plafond 20 | Cinq zones, test d'un cran sur la dernière série, étirement jusqu'à 30 |
+| §9.1.3, §9.1.4 | Garde-fous, transition par dépassement | Retirés : les tests remplacent la transition |
+| §9.2 | Règle de validation | Niveau validé défini |
+| §9.5 | Douze pistes rejetées sur un critère d'imitation | Rejouées sur le critère BANC §12.4, soldées |
+| §9.7 à §9.11 | — | Règle du test, réglages, reprise, phases, écriture dans `predictions` |
+| §10.2 | Pas approximatif | Ordre des charges proposées |
+| §12.8, §20 | Compteur sur tout l'historique ; « depuis 3 séances » | Séances prescrites seulement ; 4 séances |
+
+Sources ajoutées au §23 : Zhang et al. 2021, méta-analyse en réseau de 2025, ACSM 2009, Williams et al. 2017, Izquierdo et al. 2007, Mujika & Padilla 2000, Mann et al. 2010, Moesgaard et al. 2022.
+
 ## 23. Sources
 
 - Plotkin D. et al. (2022). *PeerJ* 10:e14142 — progression en charge vs en reps
@@ -1411,3 +1592,12 @@ Déclenché par la même séance. La dernière série de l'extension jambes port
 - Sheiko Gold — dissociation entre point de force minimale et point de vitesse minimale
 - Steele J. et al. (2017) ; Refalo M.C. et al. (2023) — exactitude de l'effort auto-rapporté
 - Androulakis-Korakakis P. et al. (2021). DOI 10.3389/fspor.2021.713655 — dose minimale efficace
+
+- Zhang X. et al. (2021). *Frontiers in Physiology* 12:651112. DOI 10.3389/fphys.2021.651112 — autorégulation contre charges fixes chez des athlètes
+- *Autoregulated resistance training for maximal strength enhancement: a systematic review and network meta-analysis* (2025) — APRE en tête des méthodes d'autorégulation
+- American College of Sports Medicine (2009). *Progression models in resistance training for healthy adults* — +2 à 10 % quand on dépasse le nombre de reps visé
+- Mann J.B. et al. (2010). *Journal of Strength and Conditioning Research* — APRE, charge ajustée sur une série test
+- Williams S. et al. (2017). *British Journal of Sports Medicine* — pondérer les séances récentes
+- Izquierdo M. et al. (2007) — perte de force après 4 semaines d'arrêt chez des entraînés
+- Mujika I. & Padilla S. (2000). *Sports Medicine* — désentraînement
+- Moesgaard L. et al. (2022). *Sports Medicine* — périodisation, force et hypertrophie à volume égal

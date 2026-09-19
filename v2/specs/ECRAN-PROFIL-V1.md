@@ -65,10 +65,25 @@ Deux crans : **Progresser · Entretenir**. En Entretenir, la double progression 
 dire : **le moteur se tait sur la charge** et garde le repos, la structure, le suivi.
 
 **Un réglage explicite, dans le profil, et rien d'autre pour l'instant** — les alternatives
-sont écartées dans `CADRAGE-V2` §2 duodecies. Le **réglage de rythme** (prudent, normal, franc)
-se tranche au chantier du moteur, avec sa spec sous les yeux.
+sont écartées dans `CADRAGE-V2` §2 terdecies.
 
-### 2.4 Rythme visé — pour le chantier 5
+**Le réglage de rythme — tranché le 19/09/2026** (MOTEUR §9.8, maquette v2). Sous
+l'intention, un bloc « Ton rythme », **visible seulement en Progresser**. Trois choix,
+chacun avec sa phrase :
+
+| Choix | Phrase affichée |
+|---|---|
+| Prudent | « Monte quand toutes tes séries touchent le haut de ta zone, deux séances de suite. » |
+| **Normal** (défaut) | « Monte quand tes deux premières séries touchent le haut de ta zone. » |
+| Franc | « Chaque série monte pour son compte, et deux crans d'un coup quand tu dépasses nettement. » |
+
+Dessous : « La prochaine consigne en tient compte. » Aucun argument chiffré à l'écran.
+En **Entretenir**, le bloc disparaît, comme les étiquettes de zone et les consignes.
+Colonne : `profiles.rythme_progression` (`v2_046`).
+
+### 2.4 Ta semaine — pour le chantier 5
+
+*Renommé le 19/09/2026 : « rythme » désigne désormais le réglage de progression (§2.3). Libellé à l'écran : « Ta semaine ».*
 
 Séances par semaine, jours, durée. Entrées d'un générateur de programme qui n'existe pas.
 **Demandés quand même** : simples, sans calcul, et un profil qui dit « cinq séances de 90 min

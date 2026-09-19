@@ -384,6 +384,98 @@ un passage précédent — « tue » tous les mutants sans rien mesurer. La camp
 
 ---
 
+## 2 terdecies. Le réglage du moteur — tranché le 19/09/2026
+
+*Section écrite au projet le 15/09 sous le numéro 2 duodecies, que le dépôt avait entre-temps donné à « Commiter AVANT toute campagne de mutations » : renumérotée à son entrée dans le dépôt, le 19/09/2026.*
+
+Posée le 15/09/2026, **tranchée le 19/09/2026** au chantier 48 (MOTEUR §9.8, ECRAN-PROFIL §2.3) :
+
+- **l'intention** (Progresser · Entretenir) décide si le moteur parle de charge ;
+- **le rythme**, en Progresser, a trois crans — *prudent · normal · franc*, défaut normal — et agit sur trois choses : quand la charge monte, de combien, et ce que devient un test réussi. Jamais sur le vocabulaire.
+
+Les mots d'Aurélien : Entretenir, « pour ceux qui s'en fichent et ne veulent pas de coach » ; Prudent, « pour ceux qui sont un peu frileux » ; Franc, « le plus fort ; je le prendrais, perso, pour aller plus vite dans ma progression ». La suite de cette section garde la réflexion qui y a mené.
+
+> **« Quelqu'un qui ne veut pas évoluer et qui fait du bien-être va cocher musculation en
+> arrivant et va se trouver face à quoi ? »**
+
+### Ce que le moteur sait faire varier
+
+Sa règle centrale est la **double progression** : la fourchette de reps atteinte sur toutes
+les séries fait monter la charge. Ce qui se règle, c'est donc **le pas** — combien de séances
+de confirmation avant une montée, et de combien.
+
+> « Agressif » contre « doucement » n'est **pas une question de ton**. C'est un nombre de
+> séances et un incrément.
+
+### Deux besoins distincts, à ne pas confondre
+
+**Un réglage de rythme** — proposition : trois crans, *prudent · normal · franc*. Il agit sur
+le nombre de séances de confirmation, jamais sur le vocabulaire.
+
+**Un mode entretien**, séparé. Quelqu'un qui ne cherche pas à progresser rend la double
+progression sans objet : **le moteur doit se taire sur la charge** et ne garder que le repos,
+la structure et le suivi. Ce n'est pas un cran de plus sur la même échelle — c'est le moteur
+qui s'éteint sur sa fonction principale.
+
+### Discipline ≠ intention
+
+**Musculation, powerbuilding, powerlifting, calisthénie sont des disciplines** — le moteur
+sait leur parler, c'est de la surcharge progressive. `coef_pdc` couvre déjà la calisthénie.
+
+**Yoga et pilates n'en sont pas** : ni charge, ni palier, ni progression à décrire. Traités
+comme des sorties (§2 ter). Léa en a dans son historique.
+
+**« Bien-être » n'est pas une discipline, c'est une intention.** D'où deux champs : *ce que tu
+fais*, et *pourquoi*.
+
+### Comment on en change — tranché le 15/09
+
+**Un réglage explicite dans le profil, et rien d'autre pour l'instant.**
+
+Écartés, avec leur raison :
+
+- **une question en fin de séance** (mécanisme du §6) — elle suppose que le moteur sache déjà
+  quoi faire de l'intention ; une question sans conséquence use la confiance ;
+- **détecter l'intention depuis les données** — trois séances écourtées peuvent être une
+  blessure, un déménagement ou une semaine chargée. Le projet s'interdit de déduire un état
+  mental de séances ratées (règle centrale : descriptif, jamais prescriptif).
+
+À rouvrir **avec une mesure**, si l'usage montre que personne ne retourne dans le réglage.
+
+---
+
+## 2 quaterdecies. Le contrat vient de l'appelant — 18/09/2026
+
+*Section écrite au projet le 18/09 sous le numéro 2 terdecies : renumérotée à son entrée dans le dépôt, le 19/09/2026.*
+
+**Constaté sur le RPC `pseudo_libre`.** Claude Code avait écrit le client et deux tests qui
+fixaient la signature ; j'ai créé la fonction en base avec un nom de paramètre **inventé**.
+
+```
+le client envoie   { nom: … }        (donnees.js:464)
+la fonction attend ( p_pseudo text ) ← nom inventé
+      →  PGRST202 permanent, 404 à chaque appel
+```
+
+> **PostgREST résout une RPC par le NOM de l'argument, jamais par position.**
+
+**Et l'échec est invisible** : l'app restait dans son état « on ne sait pas », bouton allumé,
+sans rien signaler. C'est le pire genre — un disjoncteur qui se tait.
+
+### La règle
+
+> **Quand le dépôt appelle la base, le contrat vient du dépôt.** Le nom d'un paramètre de RPC,
+> comme une liste de colonnes, est déjà écrit quelque part — **le demander avant d'écrire**,
+> jamais le deviner.
+
+C'est le §2 undecies appliqué à la frontière entre le dépôt et la base : deux endroits
+décrivaient la même signature, et celui qui l'inventait n'était pas celui qui l'appelait.
+
+**Postgres ne permet pas de couvrir plusieurs noms** : deux fonctions de même nom et même type
+sont refusées. Il n'y a donc pas de rattrapage possible — il faut le bon nom du premier coup.
+
+---
+
 ## 2 ter. Périmètre du moteur ≠ périmètre de l'affichage
 
 Le §2 exclut du périmètre la randonnée, le pilates, l'escalade et la course. Cette exclusion

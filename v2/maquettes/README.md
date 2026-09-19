@@ -12,6 +12,7 @@ plutôt que de mémoire.
 | `bloc-suggere-entete.html` | Anatomie d'un bloc : palier et cible de reps écrits **une seule fois** dans l'en-tête, pas sur chaque série. Les séries de rampe et de chauffe ne reçoivent aucune suggestion. Un exercice sans palier établi le dit au lieu d'inventer un chiffre. |
 | `mode-edition.html` | Bascule **Modifier** : les blocs se replient sur leur légende, les poignées apparaissent, le menu trois points expose grouper / dégrouper / déplacer / remplacer / supprimer. |
 | `grouper-degrouper.html` | Grouper en superset par désignation (« tape le bloc à joindre »), ouvrir un bloc pour atteindre ses exercices, **Sortir du superset**. Un superset retombé à un exercice redevient un bloc simple. |
+| `maquette-moteur-parle-v2.html` | **Le moteur qui parle** (chantier 48) — étiquette de zone, consigne à deux charges, règle du test, menu des zones, feuille « Pourquoi », constats, rythme dans Profil, reprise, et le dictionnaire complet des phrases. Remplace la v1, jamais commitée. |
 
 ## Ce qu'elles ne fixent pas
 

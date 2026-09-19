@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ce que l'app dira — v2 · chantier 48</title>
+<style>
+
+:root{
+  --fond:#15171A; --panneau:#1D2025; --panneau-2:#24272D; --trait:#2E323A;
+  --texte:#E8EAED; --texte-2:#959BA5; --texte-3:#676D77;
+  --accent:#F2B705; --reussi:#5FA97A; --manque:#C4564A;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--fond);color:var(--texte)}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans",Ubuntu,Cantarell,sans-serif;font-size:15px;line-height:1.45;font-variant-numeric:tabular-nums}
+a{color:inherit;text-decoration-color:var(--texte-3);text-underline-offset:3px}
+p{margin:0 0 10px}
+.page{max-width:1180px;margin:0 auto;padding:40px 24px 96px}
+h1{font-size:32px;line-height:1.1;margin:0 0 12px;font-weight:750;letter-spacing:-.01em}
+.chapeau{color:var(--texte-2);max-width:68ch;margin:0 0 40px}
+h2{font-size:21px;line-height:1.25;margin:56px 0 10px;font-weight:700}
+.intro{color:var(--texte-2);max-width:68ch;margin:0 0 24px}
+.ref{display:inline-block;min-width:20px;height:20px;padding:0 5px;border-radius:10px;border:1px solid var(--texte-3);color:var(--texte-2);font-size:12px;line-height:18px;text-align:center;font-weight:600;vertical-align:2px;text-decoration:none;margin:0 2px}
+h2 .ref,h3 .ref{vertical-align:3px;margin:0 8px 0 0}
+
+/* ---------- préalable ① ---------- */
+.prealable{background:var(--panneau);border-radius:12px;padding:24px;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:32px}
+.prealable h2{margin-top:0}
+.prealable p{color:var(--texte-2);max-width:62ch}
+.prealable p b{color:var(--texte);font-weight:600}
+.cas{width:100%;border-collapse:collapse;font-size:13px;margin:4px 0 20px}
+.cas th{text-align:left;color:var(--texte-3);font-weight:500;font-size:12px;padding:0 8px 6px 0;border-bottom:1px solid var(--trait)}
+.cas td{padding:8px 8px 8px 0;border-bottom:1px solid var(--trait);color:var(--texte-2);vertical-align:top}
+.cas td.faux{color:var(--texte-3)}
+.cas td.juste{color:var(--texte)}
+.barres{margin:6px 0 0}
+.barre{display:grid;grid-template-columns:78px 1fr 44px;gap:10px;align-items:center;font-size:13px;color:var(--texte-2);margin:6px 0}
+.barre i{display:block;height:10px;border-radius:3px;background:var(--texte-2)}
+.barre.moi i{background:var(--texte)}
+.barre.moi{color:var(--texte)}
+.legende-barres{font-size:12px;color:var(--texte-3);margin-top:8px}
+
+/* ---------- téléphone ---------- */
+.rangee{display:flex;flex-wrap:wrap;gap:40px 32px;align-items:flex-start}
+figure{margin:0;width:360px;flex:0 0 360px}
+figcaption{font-size:14px;color:var(--texte-2);margin:0 0 12px;max-width:360px}
+figcaption b{color:var(--texte);font-weight:600;display:block;font-size:15px;margin-bottom:2px}
+.tel{width:360px;border:1px solid var(--trait);border-radius:12px;overflow:hidden;background:var(--fond)}
+.bandeau{display:flex;align-items:center;gap:10px;padding:12px;border-bottom:1px solid var(--trait)}
+.bandeau .titre{font-weight:650;font-size:16px}
+.bandeau .chrono{color:var(--texte-2);font-size:13px}
+.bandeau .vide{flex:1}
+.discret{font:inherit;font-size:13px;color:var(--texte-2);background:none;border:1px solid var(--trait);border-radius:6px;padding:5px 10px}
+.bloc{padding:16px 12px 10px;border-bottom:1px solid var(--trait)}
+.bloc:last-child{border-bottom:0}
+.nom{font-size:16px;font-weight:650;line-height:1.3}
+.consigne{color:var(--accent);font-size:19px;font-weight:720;line-height:1.3;margin-top:3px}
+.consigne.terne{color:var(--texte-3)}
+.dit{color:var(--texte-2);font-size:13px;line-height:1.4;margin-top:4px}
+.constat{color:var(--texte);font-size:16px;font-weight:620;line-height:1.35;margin-top:4px}
+.meta{color:var(--texte-3);font-size:12px;margin-top:8px;display:flex;gap:14px}
+.entete-grille,.ligne{display:grid;grid-template-columns:30px 62px minmax(0,1fr) 44px 40px 40px;gap:5px;align-items:center}
+.entete-grille{color:var(--texte-3);font-size:11px;padding:12px 0 4px}
+.entete-grille span:nth-child(n+3){text-align:center}
+.ligne{height:42px;border-radius:6px}
+.no{font-size:13px;color:var(--texte-2);text-align:center}
+.no.c,.no.d{color:var(--texte-3);border:1px solid var(--trait);border-radius:6px;height:22px;line-height:20px;font-size:12px}
+.prec{font-size:12px;color:var(--texte-2);white-space:nowrap}
+.champ{height:32px;border-radius:6px;background:var(--panneau-2);display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--texte-3)}
+.champ.saisi{color:var(--texte)}
+.eff{height:32px;border-radius:6px;border:1px solid var(--trait)}
+.coche{width:28px;height:28px;border-radius:50%;border:1.5px solid var(--trait);justify-self:center}
+.ligne.ok{background:rgba(95,169,122,.15)}
+.ligne.ok .coche{background:var(--reussi);border-color:var(--reussi)}
+.ajout{color:var(--texte-2);font-size:13px;padding:8px 0 2px}
+.onglets{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--trait);padding:12px 0 14px;font-size:12px;color:var(--texte-3);text-align:center}
+.onglets .actif{color:var(--accent);font-weight:600}
+.membre{display:grid;grid-template-columns:24px 1fr;gap:6px;margin-bottom:10px}
+.lettre{font-weight:700;color:var(--texte-2);font-size:15px;padding-top:1px}
+.hyp{font-size:12px;color:var(--texte-3);padding:12px 12px 0}
+.variante{border-bottom:1px solid var(--trait)}
+.variante:last-child{border-bottom:0}
+.variante .bloc{border-bottom:0;padding-top:6px}
+.derriere{opacity:.28}
+.feuille{background:var(--panneau);border-top:1px solid var(--trait);border-radius:12px 12px 0 0;padding:10px 16px 18px;margin-top:-6px}
+.poignee{width:40px;height:4px;border-radius:2px;background:var(--trait);margin:0 auto 14px}
+.f-titre{font-size:18px;font-weight:700;color:var(--accent)}
+.f-sous{font-size:13px;color:var(--texte-2);margin-bottom:14px}
+.f-sec{font-size:12px;color:var(--texte-3);margin:4px 0 4px}
+.f-ligne{display:flex;justify-content:space-between;gap:12px;font-size:14px;padding:6px 0;border-bottom:1px solid var(--trait)}
+.f-ligne span:last-child{color:var(--texte-2);text-align:right}
+.f-ligne.muet span:first-child{color:var(--texte-3)}
+.feuille p{font-size:14px;color:var(--texte-2);margin:12px 0 0}
+.feuille p.fort{color:var(--texte)}
+.feuille .discret{margin-top:16px;width:100%;padding:9px}
+.notes{flex:1 1 320px;max-width:520px;color:var(--texte-2);font-size:14px;padding-top:44px}
+.notes p{margin:0 0 14px}
+.notes b{color:var(--texte);font-weight:600}
+
+/* ---------- planche des en-têtes ---------- */
+.planche{border:1px solid var(--trait);border-radius:12px;overflow:hidden;max-width:980px}
+.rang{display:grid;grid-template-columns:360px minmax(0,1fr);border-bottom:1px solid var(--trait)}
+.rang:last-child{border-bottom:0}
+.rendu{padding:16px 12px;border-right:1px solid var(--trait);background:var(--fond)}
+.etiquette,.rendu .seance{font-size:11px;color:var(--texte-3);margin-bottom:6px}
+.note{padding:16px 20px;color:var(--texte-2);font-size:14px;background:var(--panneau)}
+.note p{margin:0 0 8px}
+.note .avant{color:var(--texte-3)}
+
+/* ---------- décisions ---------- */
+.decisions{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px}
+.dec{background:var(--panneau);border-radius:12px;padding:18px 20px 16px}
+.dec h3{font-size:16px;line-height:1.3;margin:0 0 10px;font-weight:680}
+.dec p{font-size:14px;color:var(--texte-2);margin:0 0 10px}
+.dec p.reco{color:var(--texte)}
+.dec p.trace{font-size:13px;color:var(--texte-3)}
+.stagnation{background:var(--panneau);border-radius:12px;padding:24px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:32px}
+.stagnation h2{margin-top:0}
+.stagnation p{color:var(--texte-2)}
+.stagnation p.reco{color:var(--texte)}
+.compteurs{font-size:14px}
+.compteurs div{display:grid;grid-template-columns:1fr 60px;padding:7px 0;border-bottom:1px solid var(--trait);color:var(--texte-2)}
+.compteurs div span:last-child{text-align:right}
+.compteurs div.cle{color:var(--texte)}
+
+/* ---------- dictionnaire ---------- */
+.defile{overflow-x:auto;border:1px solid var(--trait);border-radius:12px}
+table.dico{border-collapse:collapse;width:100%;min-width:760px;font-size:14px}
+.dico th{text-align:left;color:var(--texte-3);font-weight:500;font-size:12px;padding:12px 14px;border-bottom:1px solid var(--trait);background:var(--panneau)}
+.dico td{padding:11px 14px;border-bottom:1px solid var(--trait);vertical-align:top;color:var(--texte-2)}
+.dico tr:last-child td{border-bottom:0}
+.dico td.phrase{color:var(--texte)}
+.dico .sous{display:block;color:var(--texte-2);margin-top:3px}
+.dico td.moment{color:var(--texte-3);white-space:nowrap}
+.dico tr.jamais td.phrase{color:var(--texte-3)}
+.prompt p{max-width:78ch;color:var(--texte-2);margin:0 0 14px}
+.prompt p b{color:var(--texte);font-weight:600}
+
+@media (max-width:820px){
+  .prealable,.stagnation{grid-template-columns:1fr;gap:20px}
+  .rang{grid-template-columns:1fr}
+  .rendu{border-right:0}
+  .notes{padding-top:0}
+}
+@media (max-width:400px){
+  .page{padding:24px 0 64px}
+  .page>header,.page>h2,.page>.intro,.prompt,.decisions,.defile{margin-left:12px;margin-right:12px}
+  .prealable,.stagnation{border-radius:0;padding:20px 12px}
+  figure{flex-basis:100%}
+  .tel{border-left:0;border-right:0;border-radius:0}
+  figcaption,.notes{padding:0 12px}
+  .planche{border-radius:0;border-left:0;border-right:0}
+}
+
+/* ---------- ajouts v2 ---------- */
+.tete-nom{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
+.puce-zone{display:inline-flex;align-items:center;height:26px;padding:0 10px;border:1px solid var(--trait);border-radius:13px;color:var(--texte-2);font-size:12px;font-weight:600;white-space:nowrap}
+.puce-zone.choisie{background:var(--panneau-2);border-color:var(--panneau-2);color:var(--texte)}
+.puce-zone.choisie::before{content:"";width:6px;height:6px;border-radius:3px;background:var(--texte);margin-right:7px}
+.consigne.test{font-size:15px;font-weight:650;margin-top:1px;line-height:1.35}
+.f-titre-neutre{font-size:18px;font-weight:700;color:var(--texte)}
+.option-zone{display:grid;grid-template-columns:22px 1fr auto;gap:10px;align-items:center;padding:11px 10px;border-radius:6px;font-size:15px}
+.option-zone + .option-zone{margin-top:2px}
+.option-zone .rond{width:18px;height:18px;border-radius:9px;border:1.5px solid var(--texte-3)}
+.option-zone.active{background:var(--panneau-2)}
+.option-zone.active .rond{border-color:var(--texte);box-shadow:inset 0 0 0 4px var(--panneau-2);background:var(--texte)}
+.option-zone .oz-reps{color:var(--texte-2);font-size:13px}
+.option-zone .oz-sous{grid-column:2 / 4;color:var(--texte-3);font-size:12px;margin-top:-4px}
+.section-profil{padding:16px 12px;border-bottom:1px solid var(--trait)}
+.section-profil h4{margin:0 0 10px;font-size:15px;font-weight:650}
+.segment{display:grid;grid-template-columns:1fr 1fr;background:var(--panneau);border-radius:6px;padding:3px}
+.segment span{text-align:center;padding:8px 0;border-radius:4px;font-size:14px;color:var(--texte-2)}
+.segment span.actif{background:var(--panneau-2);color:var(--texte);font-weight:600}
+.option-rythme{display:grid;grid-template-columns:22px 1fr;gap:10px;padding:10px;border-radius:6px}
+.option-rythme .rond{width:18px;height:18px;border-radius:9px;border:1.5px solid var(--texte-3);margin-top:2px}
+.option-rythme.active{background:var(--panneau-2)}
+.option-rythme.active .rond{border-color:var(--texte);box-shadow:inset 0 0 0 4px var(--panneau-2);background:var(--texte)}
+.option-rythme b{font-weight:650;display:block}
+.option-rythme span{color:var(--texte-2);font-size:13px;line-height:1.4}
+.aparte{font-size:12px;color:var(--texte-3);padding:10px 12px 0}
+.etats-puce{display:flex;gap:12px;align-items:center;margin:6px 0 14px;flex-wrap:wrap}
+.nouveau{display:inline-block;font-size:11px;font-weight:650;color:var(--texte);border:1px solid var(--texte-3);border-radius:4px;padding:0 6px;margin-left:6px;vertical-align:1px}
+</style>
+</head>
+<body>
+<main class="page">
+
+<header>
+  <h1>Ce que l'app dira — v2</h1>
+  <p class="chapeau">La maquette du moteur, mise à jour avec tout ce qui a été décidé depuis la v1 : les cinq zones, ta règle du test, les quatre réglages de rythme, la reprise après une coupure, la zone qu'on corrige en la touchant. Les chiffres sortent de ton export Hevy du 15 septembre, avec l'habitude calculée sur tes 8 dernières séances. Les issues de séance marquées « si tu fais » sont des hypothèses.</p>
+  <p class="chapeau">Validée le 19/09/2026. <b>Elle remplace la v1</b>, qui dessinait encore des règles abandonnées depuis : la décision ②, la fourchette en cloche, la règle de transition. Son dictionnaire, en fin de page, reprend les phrases de la v1 qui tiennent toujours : c'est la seule référence.</p>
+</header>
+
+<!-- ======================= séance ======================= -->
+<h2>Ta prochaine Pecs – Dos, à l'ouverture</h2>
+<p class="intro">Ce qui change à l'œil : l'étiquette de zone à côté du nom, et une consigne qui peut porter deux charges, le palier puis le test.</p>
+<div class="rangee">
+  <figure>
+    <div class="tel">
+      <div class="bandeau"><span class="titre">Pecs – Dos</span><span class="chrono">0:04</span><span class="vide"></span><button class="discret">Modifier</button><button class="discret">Terminer</button></div>
+      <div class="bloc">
+        <div class="tete-nom"><span class="nom">Développé Couché (Barre)</span><span class="puce-zone">Lourd 3-5</span></div>
+        <div class="consigne">125 kg, vise 5</div>
+        <div class="consigne test">puis 130 kg en dernière série, vise 4</div>
+        <div class="dit">Ton test à 130 du 15 sept. est tombé au bas de ta zone : on le garde sur la dernière série.</div>
+        <div class="meta"><span>charge × reps</span><span>repos 2:30</span></div>
+        <div class="entete-grille"><span>n°</span><span>préc.</span><span>kg</span><span>reps</span><span>effort</span><span></span></div>
+        <div class="ligne"><span class="no c">C</span><span class="prec">20×15</span><span class="champ">20</span><span class="champ">15</span><span></span><span class="coche"></span></div>
+        <div class="ligne"><span class="no c">C</span><span class="prec">60×10</span><span class="champ">60</span><span class="champ">10</span><span></span><span class="coche"></span></div>
+        <div class="ligne"><span class="no c">C</span><span class="prec">100×5</span><span class="champ">100</span><span class="champ">5</span><span></span><span class="coche"></span></div>
+        <div class="ligne"><span class="no c">C</span><span class="prec">115×1</span><span class="champ">115</span><span class="champ">1</span><span></span><span class="coche"></span></div>
+        <div class="ligne"><span class="no">1</span><span class="prec">125×4</span><span class="champ">125</span><span class="champ">5</span><span class="eff"></span><span class="coche"></span></div>
+        <div class="ligne"><span class="no">2</span><span class="prec">125×5</span><span class="champ">125</span><span class="champ">5</span><span class="eff"></span><span class="coche"></span></div>
+        <div class="ligne"><span class="no">3</span><span class="prec">130×3</span><span class="champ">130</span><span class="champ">4</span><span class="eff"></span><span class="coche"></span></div>
+        <div class="ajout">+ Série</div>
+      </div>
+      <div class="bloc">
+        <div class="tete-nom"><span class="nom">Rowing Poulie Assis - Prise en V</span><span class="puce-zone">Volume 10-12</span></div>
+        <div class="consigne">93 kg, vise 11</div>
+        <div class="consigne test">puis 100 kg en dernière série, vise 11</div>
+      </div>
+      <div class="onglets"><span>Séances</span><span class="actif">Saisie</span><span>Progression</span><span>Profil</span></div>
+    </div>
+  </figure>
+  <div class="notes">
+    <p><b>L'étiquette de zone</b> dit dans quelle zone le moteur te fait travailler. Toucher l'étiquette ouvre le menu des cinq zones. Elle n'est jamais jaune : le jaune reste la voix du moteur.</p>
+    <div class="etats-puce"><span class="puce-zone">Lourd 3-5</span><span style="color:var(--texte-3);font-size:13px">déduite de tes séances</span><span class="puce-zone choisie">Mix 6-8</span><span style="color:var(--texte-3);font-size:13px">ton choix</span></div>
+    <p><b>La consigne à deux charges</b> se lit en deux lignes jaunes : d'abord le palier, puis le test sur la dernière série. Le test du 15 sept. (130 × 3) est tombé au bas de ta zone : ta règle dit de le garder et de gratter une rep.</p>
+    <p><b>Dans la grille</b>, les lignes 1 et 2 reçoivent la consigne du palier, et la ligne 3 celle du test : 130, vise 4. Les chauffes gardent ta dernière séance. C'est l'évolution de la décision ⑤ : le test fait désormais partie de la consigne.</p>
+    <p><b>La phrase grise</b> dit d'où vient la ligne du test. Pas de délai, pas de rouge, rien sur ton assiduité.</p>
+  </div>
+</div>
+
+<!-- ======================= autres moments ======================= -->
+<h2>La zone, le pourquoi, la fin du bloc</h2>
+<p class="intro">Ce qui s'ouvre quand on touche l'étiquette ou la consigne, et ce que dit l'en-tête après la dernière série.</p>
+<div class="rangee">
+
+  <figure>
+    <figcaption><b>Toucher la zone</b>Un menu de cinq zones, pas de saisie libre. Ton choix vaut pour toutes tes routines.</figcaption>
+    <div class="tel">
+      <div class="derriere">
+        <div class="bandeau"><span class="titre">Pecs – Dos</span><span class="chrono">0:04</span><span class="vide"></span><button class="discret">Terminer</button></div>
+        <div class="bloc"><div class="tete-nom"><span class="nom">Développé Couché (Barre)</span><span class="puce-zone">Lourd 3-5</span></div><div class="consigne">125 kg, vise 5</div></div>
+      </div>
+      <div class="feuille">
+        <div class="poignee"></div>
+        <div class="f-titre-neutre">Zone de travail</div>
+        <div class="f-sous">Développé Couché (Barre), dans toutes tes routines</div>
+        <div class="option-zone active"><span class="rond"></span><span>Lourd</span><span class="oz-reps">3 à 5 reps</span><span class="oz-sous">D'après tes 8 dernières séances : 4 reps d'habitude.</span></div>
+        <div class="option-zone"><span class="rond"></span><span>Mix</span><span class="oz-reps">6 à 8 reps</span></div>
+        <div class="option-zone"><span class="rond"></span><span>Hypertrophie</span><span class="oz-reps">8 à 10 reps</span></div>
+        <div class="option-zone"><span class="rond"></span><span>Volume</span><span class="oz-reps">10 à 12 reps</span></div>
+        <div class="option-zone"><span class="rond"></span><span>Séries longues</span><span class="oz-reps">15 à 20 reps</span></div>
+        <p>La consigne se recalcule dès que tu changes de zone. Si tu en choisis une, un bouton te permettra de revenir à celle d'après tes séances.</p>
+        <button class="discret">Fermer</button>
+      </div>
+    </div>
+  </figure>
+
+  <figure>
+    <figcaption><b>« Pourquoi ? »</b>En touchant la consigne. Le calcul, avec tes séries, ta zone, ton test et ton réglage.</figcaption>
+    <div class="tel">
+      <div class="derriere">
+        <div class="bandeau"><span class="titre">Pecs – Dos</span><span class="chrono">0:04</span><span class="vide"></span><button class="discret">Terminer</button></div>
+        <div class="bloc"><div class="tete-nom"><span class="nom">Développé Couché (Barre)</span><span class="puce-zone">Lourd 3-5</span></div><div class="consigne">125 kg, vise 5</div></div>
+      </div>
+      <div class="feuille">
+        <div class="poignee"></div>
+        <div class="f-titre">Pourquoi cette consigne</div>
+        <div class="f-sous">Développé Couché (Barre)</div>
+        <div class="f-sec">Ta dernière séance, le 15 sept.</div>
+        <div class="f-ligne muet"><span>20, 60, 100, 115</span><span>chauffes, ne comptent pas</span></div>
+        <div class="f-ligne"><span>125 × 4</span><span>au palier</span></div>
+        <div class="f-ligne"><span>125 × 5</span><span>au palier</span></div>
+        <div class="f-ligne"><span>130 × 3</span><span>test, au bas de ta zone</span></div>
+        <p>Ta zone : Lourd, de 3 à 5 reps. Sur tes 8 dernières séances, tu fais 4 reps d'habitude. Touche l'étiquette pour la changer.</p>
+        <p>Ton palier est 125 kg, validé à 4 : tes deux premières séries y ont fait 4 puis 5.</p>
+        <p>Ton test à 130 a fait 3, le bas de ta zone : il tient. On le garde sur la dernière série, et quand il fera 4, on l'étendra d'une série.</p>
+        <p class="fort">Donc 125 kg, vise 5, puis 130 kg sur la dernière, vise 4.</p>
+        <p>Ton réglage : Normal. Il se change dans Profil.</p>
+        <p>Tu veux faire autre chose ? Tape-le, ta saisie fait foi.</p>
+        <button class="discret">Fermer</button>
+      </div>
+    </div>
+  </figure>
+
+  <figure>
+    <figcaption><b>Après la dernière série</b>L'en-tête passe du jaune au constat, et annonce la prochaine étape. Issues hypothétiques, chauffes masquées.</figcaption>
+    <div class="tel">
+      <div class="variante">
+        <div class="hyp">Si tu fais 125 × 5, 125 × 5, 130 × 4</div>
+        <div class="bloc"><div class="tete-nom"><span class="nom">Développé Couché (Barre)</span><span class="puce-zone">Lourd 3-5</span></div>
+          <div class="constat">130 kg : 3 reps le 15 sept., 4 aujourd'hui, dans ta zone.</div>
+          <div class="dit">Prochaine séance : 130 kg sur deux séries, vise 4, et 125 kg sur la première, vise 5.</div>
+          <div class="ligne ok"><span class="no">1</span><span class="prec">125×4</span><span class="champ saisi">125</span><span class="champ saisi">5</span><span class="eff"></span><span class="coche"></span></div>
+          <div class="ligne ok"><span class="no">2</span><span class="prec">125×5</span><span class="champ saisi">125</span><span class="champ saisi">5</span><span class="eff"></span><span class="coche"></span></div>
+          <div class="ligne ok"><span class="no">3</span><span class="prec">130×3</span><span class="champ saisi">130</span><span class="champ saisi">4</span><span class="eff"></span><span class="coche"></span></div>
+        </div>
+      </div>
+      <div class="variante">
+        <div class="hyp">Si tu fais 125 × 5, 125 × 5, 130 × 2 <span class="nouveau">validé</span></div>
+        <div class="bloc"><div class="tete-nom"><span class="nom">Développé Couché (Barre)</span><span class="puce-zone">Lourd 3-5</span></div>
+          <div class="constat">130 × 2 : pas encore dans ta zone.</div>
+          <div class="dit">Prochaine séance : 125 kg, vise 5, puis 127,5 kg sur la dernière, vise 3. On reteste d'un seul cran.</div>
+        </div>
+      </div>
+      <div class="variante">
+        <div class="hyp">Curl barre EZ : si tu fais 30 × 12, 30 × 12, 35 × 8 <span class="nouveau">validé</span></div>
+        <div class="bloc"><div class="tete-nom"><span class="nom">Curl Biceps (Barre EZ)</span><span class="puce-zone">Volume 10-12</span></div>
+          <div class="constat">35 × 8 : pas encore dans ta zone.</div>
+          <div class="dit">Ton cran ne peut pas être plus petit : ta zone s'étire. Prochaine séance : 30 kg, vise 13. On retestera 35 quand tu feras 16 à 30.</div>
+        </div>
+      </div>
+    </div>
+  </figure>
+
+  <figure>
+    <figcaption><b>Un superset</b>Épaules / Bras, calculé sur le 10 sept. Chaque exercice a son étiquette et sa consigne.</figcaption>
+    <div class="tel">
+      <div class="bandeau"><span class="titre">Épaules / Bras</span><span class="chrono">0:31</span><span class="vide"></span><button class="discret">Terminer</button></div>
+      <div class="bloc">
+        <div class="membre"><span class="lettre">A</span><div><div class="tete-nom"><span class="nom">Curl Marteau (Haltère)</span><span class="puce-zone">Volume 10-12</span></div><div class="consigne">28 kg, vise 12</div><div class="consigne test">puis 32 kg en dernière série, vise 10</div><div class="dit">12-12-12 le 10 sept., le haut de ta zone : on teste le cran du dessus.</div></div></div>
+        <div class="membre"><span class="lettre">B</span><div><div class="tete-nom"><span class="nom">Extension Triceps Corde</span><span class="puce-zone">Séries longues 15-20</span></div><div class="consigne">24,8 kg, vise 16</div><div class="dit">15-15-15 le 10 sept. : une de plus.</div></div></div>
+        <div class="meta"><span>tour 1 sur 3</span><span>repos 1:30</span></div>
+        <div class="entete-grille"><span>n°</span><span>préc.</span><span>kg</span><span>reps</span><span>effort</span><span></span></div>
+        <div class="ligne"><span class="no">A1</span><span class="prec">28×12</span><span class="champ">28</span><span class="champ">12</span><span class="eff"></span><span class="coche"></span></div>
+        <div class="ligne"><span class="no">B1</span><span class="prec">24,8×15</span><span class="champ">24,8</span><span class="champ">16</span><span class="eff"></span><span class="coche"></span></div>
+        <div class="ligne"><span class="no">A2</span><span class="prec">28×12</span><span class="champ">28</span><span class="champ">12</span><span class="eff"></span><span class="coche"></span></div>
+        <div class="ligne"><span class="no">B2</span><span class="prec">24,8×15</span><span class="champ">24,8</span><span class="champ">16</span><span class="eff"></span><span class="coche"></span></div>
+        <div class="ligne"><span class="no">A3</span><span class="prec">28×12</span><span class="champ">32</span><span class="champ">10</span><span class="eff"></span><span class="coche"></span></div>
+        <div class="ligne"><span class="no">B3</span><span class="prec">24,8×15</span><span class="champ">24,8</span><span class="champ">16</span><span class="eff"></span><span class="coche"></span></div>
+        <div class="ligne"><span class="no d">AD</span><span class="prec">14×8</span><span class="champ">14</span><span class="champ">8</span><span class="eff"></span><span class="coche"></span></div>
+        <div class="ligne"><span class="no d">BD</span><span class="prec">15,8×5</span><span class="champ">15,8</span><span class="champ">5</span><span class="eff"></span><span class="coche"></span></div>
+      </div>
+    </div>
+    <p class="dit" style="margin-top:10px">En v1, le triceps corde disait « 27 kg, vise 12 » : la règle de transition prenait ton passage à 15 reps pour un progrès. Rangé en Séries longues, il demande une rep de plus.</p>
+  </figure>
+
+</div>
+
+<!-- ======================= profil et reprise ======================= -->
+<h2>Ton rythme, et la reprise après une coupure</h2>
+<p class="intro">Le réglage vit dans Profil. La reprise ne dit jamais combien de temps tu es parti.</p>
+<div class="rangee">
+
+  <figure>
+    <figcaption><b>Profil</b>Le rythme n'apparaît qu'en Progresser. En Entretenir, le moteur ne propose plus de charge, et zones et rythme disparaissent de l'écran.</figcaption>
+    <div class="tel">
+      <div class="bandeau"><span class="titre">Profil</span></div>
+      <div class="section-profil">
+        <h4>Ce que tu veux</h4>
+        <div class="segment"><span class="actif">Progresser</span><span>Entretenir</span></div>
+      </div>
+      <div class="section-profil">
+        <h4>Ton rythme</h4>
+        <div class="option-rythme"><span class="rond"></span><div><b>Prudent</b><span>Monte quand toutes tes séries touchent le haut de ta zone, deux séances de suite.</span></div></div>
+        <div class="option-rythme active"><span class="rond"></span><div><b>Normal</b><span>Monte quand tes deux premières séries touchent le haut de ta zone.</span></div></div>
+        <div class="option-rythme"><span class="rond"></span><div><b>Franc</b><span>Chaque série monte pour son compte, et deux crans d'un coup quand tu dépasses nettement.</span></div></div>
+        <p class="dit" style="margin:10px 0 0">La prochaine consigne en tient compte.</p>
+      </div>
+      <div class="onglets"><span>Séances</span><span>Saisie</span><span>Progression</span><span class="actif">Profil</span></div>
+    </div>
+  </figure>
+
+  <figure>
+    <figcaption><b>La reprise</b>Deux hypothèses sur ton couché : dernière séance il y a 5 semaines, puis il y a 4 mois.</figcaption>
+    <div class="tel">
+      <div class="variante">
+        <div class="hyp">Coupure de plus de 3 semaines</div>
+        <div class="bloc"><div class="tete-nom"><span class="nom">Développé Couché (Barre)</span><span class="puce-zone">Lourd 3-5</span></div>
+          <div class="consigne">125 kg, vise 4</div>
+          <div class="dit">On reprend à ton dernier palier, sans rep de plus.</div>
+        </div>
+      </div>
+      <div class="variante">
+        <div class="hyp">Coupure de plus de 12 semaines</div>
+        <div class="bloc"><div class="tete-nom"><span class="nom">Développé Couché (Barre)</span><span class="puce-zone">Lourd 3-5</span></div>
+          <div class="consigne">122,5 kg, vise 4</div>
+          <div class="dit">On reprend un cran sous ton dernier palier, 125 kg. Le test te ramènera à 125.</div>
+        </div>
+      </div>
+    </div>
+    <p class="dit" style="margin-top:10px">Aucune durée affichée : le moteur ne commente jamais l'assiduité. La date de la dernière séance reste lisible dans la feuille « Pourquoi ».</p>
+  </figure>
+
+</div>
+
+<!-- ======================= planche ======================= -->
+<h2>Ce que dit chaque en-tête, v1 contre v2</h2>
+<p class="intro">Tes six exercices de référence, avec l'habitude sur 8 séances. À gauche l'écran v2 ; à droite le pourquoi, et ce que disait la v1.</p>
+<div class="planche">
+  <div class="rang">
+    <div class="rendu"><div class="tete-nom"><span class="nom">Développé Couché (Barre)</span><span class="puce-zone">Lourd 3-5</span></div><div class="consigne">125 kg, vise 5</div><div class="consigne test">puis 130 kg en dernière série, vise 4</div></div>
+    <div class="note"><p>Palier 125 validé à 4 ; test 130 × 3 au bas de la zone, gardé.</p><p class="avant">v1 : « 125 kg, vise 5 », le test à 130 simplement noté.</p></div>
+  </div>
+  <div class="rang">
+    <div class="rendu"><div class="seance">Quads tous terrains</div><div class="tete-nom"><span class="nom">Squat (Barre)</span><span class="puce-zone">Lourd 3-5</span></div><div class="consigne">130 kg sur 2 séries, vise 5</div><div class="consigne test">et 125 kg sur la première, vise 5</div></div>
+    <div class="note"><p>Test 130 × 5 réussi dans ta zone : on l'étend d'une série. Ta rampe à 120 garde ta dernière séance.</p><p class="avant">v1 : « 125 kg, vise 6 », soit des séries de 6 à 7 reps sur un mouvement lourd.</p></div>
+  </div>
+  <div class="rang">
+    <div class="rendu"><div class="tete-nom"><span class="nom">Rowing Poulie Assis - Prise en V</span><span class="puce-zone">Volume 10-12</span></div><div class="consigne">93 kg, vise 11</div><div class="consigne test">puis 100 kg en dernière série, vise 11</div></div>
+    <div class="note"><p>Test 100 × 10 au bas de la zone : gardé, on gratte une rep.</p><p class="avant">v1 : « 100 kg, vise 10 » partout, avec la décision ② remplacée depuis par ta règle.</p></div>
+  </div>
+  <div class="rang">
+    <div class="rendu"><div class="seance">Haut du corps</div><div class="tete-nom"><span class="nom">Développé Couché (Haltère)</span><span class="puce-zone">Volume 10-12</span></div><div class="consigne">88 kg, vise 11</div><div class="dit">92 × 6 le 12 sept. : pas encore dans ta zone. On le retestera au haut de ta zone.</div></div>
+    <div class="note"><p>Test 92 × 6 sous le bas (10) : le palier reprend la main. Nouveau test quand tu toucheras 12.</p><p class="avant">v1 : « 88 kg, vise 11 », identique.</p></div>
+  </div>
+  <div class="rang">
+    <div class="rendu"><div class="seance">Épaules / Bras</div><div class="tete-nom"><span class="nom">Curl Biceps (Barre EZ)</span><span class="puce-zone">Volume 10-12</span></div><div class="consigne">30 kg, vise 12</div><div class="consigne test">puis 35 kg en dernière série, vise 10</div></div>
+    <div class="note"><p>12-12-12, le haut de ta zone : le moteur propose le test du cran au-dessus. Un cran de 5 kg fait 17 % : s'il ne passe pas, ta zone s'étire (voir la fin du bloc).</p><p class="avant">v1 : « 30 kg, vise 13 », vers une fourchette 12-16.</p></div>
+  </div>
+  <div class="rang">
+    <div class="rendu"><div class="tete-nom"><span class="nom">Élévation Latérale (Poulie)</span><span class="puce-zone">Séries longues 15-20</span></div><div class="consigne">9 kg, vise 16</div><div class="dit">13,6 × 12 le 10 sept. : pas encore dans ta zone.</div></div>
+    <div class="note"><p>Ton test valait deux crans (+4,6 kg, soit la moitié de la charge). Le moteur retestera d'un seul cran, à 11,5 kg (une charge que ta poulie fait déjà), quand tu toucheras 20.</p><p class="avant">v1 : « 9 kg, vise 16 », vers une fourchette 15-18.</p></div>
+  </div>
+</div>
+
+<!-- ======================= à valider ======================= -->
+<h2>Tranché avec cette maquette</h2>
+<p class="intro">Ce qui était nouveau par rapport aux décisions déjà prises. Validé par Aurélien le 19/09/2026, tel que dessiné.</p>
+<div class="decisions">
+  <div class="dec">
+    <h3>Après un test raté, on reteste d'un seul cran</h3>
+    <p>Ta règle dit quoi faire quand le test tient, pas quand il échoue. Proposé : le palier reprend la main (une rep de plus), et au haut de ta zone, le moteur reteste d'un seul cran, même si ton test était de deux crans (130 raté → 127,5).</p>
+    <p class="reco">Si même un cran échoue, parce que la salle ne fait pas plus petit (curl : 5 kg, soit 17 %), la zone s'étire : on gratte au-delà du haut, et on reteste quand tu as regagné les reps perdues au test (35 × 8 à 30 kg × 12 : on retestera à 30 × 16).</p>
+  </div>
+  <div class="dec">
+    <h3>La consigne tient sur deux lignes</h3>
+    <p>La première ligne donne le palier, la seconde le test, en jaune toutes les deux. Une seule ligne (« 125 × 5, puis 130 × 4 ») serait plus courte, mais se lit mal sur les noms longs à 360 px.</p>
+    <p class="reco">Deux lignes, et la ligne du test dans la grille reçoit la consigne du test en fantôme.</p>
+  </div>
+  <div class="dec">
+    <h3>L'étiquette de zone a deux états</h3>
+    <p>Un contour quand la zone est déduite de tes séances, un fond plein avec un point quand c'est ton choix. Jamais de jaune.</p>
+    <p class="reco">Ainsi, tu vois d'un coup d'œil ce que tu as imposé au moteur.</p>
+  </div>
+  <div class="dec">
+    <h3>La reprise ne dit pas la durée</h3>
+    <p>« On reprend à ton dernier palier » plutôt que « après 5 semaines d'absence ». La doctrine interdit tout commentaire sur l'assiduité ; la date reste dans la feuille « Pourquoi ».</p>
+    <p class="reco">Dessiné ainsi.</p>
+  </div>
+</div>
+
+<!-- ======================= dictionnaire ======================= -->
+<h2>Le dictionnaire du moteur</h2>
+<p class="intro">Toutes les phrases du moteur. Celles de la v1 qui tiennent toujours y sont reprises ; les autres ont disparu avec les règles qu'elles servaient.</p>
+<div class="defile">
+<table class="dico">
+  <thead><tr><th>Quand</th><th>Situation</th><th>L'app dit</th></tr></thead>
+  <tbody>
+    <tr><td class="moment">avant</td><td>test gardé (au bas de la zone)</td><td class="phrase">« 125 kg, vise 5 »<span class="sous">« puis 130 kg en dernière série, vise 4 »</span></td></tr>
+    <tr><td class="moment">avant</td><td>test étendu (dedans)</td><td class="phrase">« 130 kg sur 2 séries, vise 5 »<span class="sous">« et 125 kg sur la première, vise 5 »</span></td></tr>
+    <tr><td class="moment">avant</td><td>haut de zone tenu, test proposé</td><td class="phrase">« 30 kg, vise 12 »<span class="sous">« puis 35 kg en dernière série, vise 10 »</span></td></tr>
+    <tr><td class="moment">avant</td><td>test raté la dernière fois</td><td class="phrase">« 92 × 6 le 12 sept. : pas encore dans ta zone. On le retestera au haut de ta zone. »</td></tr>
+    <tr><td class="moment">avant</td><td>reprise, plus de 3 semaines</td><td class="phrase">« On reprend à ton dernier palier, sans rep de plus. »</td></tr>
+    <tr><td class="moment">avant</td><td>reprise, plus de 12 semaines</td><td class="phrase">« On reprend un cran sous ton dernier palier, 125 kg. Le test te ramènera à 125. »</td></tr>
+    <tr><td class="moment">avant</td><td>une série à fond la dernière fois</td><td class="phrase">« 150 kg, vise 8 »<span class="sous">« Ta 2ᵉ série, 150 × 8, était à RPE 10 : elle compte pour 7. »</span></td></tr>
+    <tr><td class="moment">avant</td><td>pas de palier la dernière fois</td><td class="phrase">« Pas de palier le 14 sept. : 54,3, 59 puis 61,3 kg, aucune charge répétée. Rien à proposer. »</td></tr>
+    <tr><td class="moment">avant</td><td>exercice jamais fait</td><td class="phrase">« Première fois ici. Ce que tu notes aujourd'hui servira de départ. »</td></tr>
+    <tr><td class="moment">avant</td><td>reps seules, temps, cardio</td><td class="phrase">rien</td></tr>
+    <tr><td class="moment">avant</td><td>mode Entretenir</td><td class="phrase">rien sur la charge, ni étiquette de zone</td></tr>
+    <tr><td class="moment">après</td><td>test réussi dedans</td><td class="phrase">« 130 kg : 3 reps le 15 sept., 4 aujourd'hui, dans ta zone. »<span class="sous">« Prochaine séance : 130 kg sur deux séries, vise 4, et 125 kg sur la première, vise 5. »</span></td></tr>
+    <tr><td class="moment">après</td><td>test raté</td><td class="phrase">« 130 × 2 : pas encore dans ta zone. »<span class="sous">« Prochaine séance : 125 kg, vise 5, puis 127,5 kg sur la dernière, vise 3. On reteste d'un seul cran. »</span></td></tr>
+    <tr><td class="moment">après</td><td>test raté, cran impossible à réduire</td><td class="phrase">« 35 × 8 : pas encore dans ta zone. »<span class="sous">« Ton cran ne peut pas être plus petit : ta zone s'étire. Prochaine séance : 30 kg, vise 13. On retestera 35 quand tu feras 16 à 30. »</span></td></tr>
+    <tr><td class="moment">après</td><td>une rep gagnée, haut de zone pas encore atteint</td><td class="phrase">« 125 kg : 3 reps le 8 sept., 4 aujourd'hui. »<span class="sous">« Il te manque une rep pour tester 127,5. »</span></td></tr>
+    <tr><td class="moment">après</td><td>cible manquée</td><td class="phrase">« Pas encore : 4-4-4 à 125. »<span class="sous">« Même cible la prochaine fois : 125 kg, vise 5. »</span></td></tr>
+    <tr><td class="moment">menu</td><td>zone de travail</td><td class="phrase">« D'après tes 8 dernières séances : 4 reps d'habitude. »<span class="sous">« La consigne se recalcule dès que tu changes de zone. »</span></td></tr>
+    <tr><td class="moment">profil</td><td>rythme</td><td class="phrase">Prudent : « Monte quand toutes tes séries touchent le haut de ta zone, deux séances de suite. »<span class="sous">Normal : « Monte quand tes deux premières séries touchent le haut de ta zone. » Franc : « Chaque série monte pour son compte, et deux crans d'un coup quand tu dépasses nettement. »</span></td></tr>
+    <tr class="jamais"><td class="moment">jamais</td><td>durée d'absence, délai, rouge, échec, assiduité, « ça a marché pour toi »</td><td class="phrase">—</td></tr>
+  </tbody>
+</table>
+</div>
+
+</main>
+</body>
+</html>

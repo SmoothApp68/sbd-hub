@@ -116,14 +116,23 @@ ce qui compense le regroupement par exercice perdu à l'affichage.
 
 ## 3. Charge suggérée
 
-**3.1** — **La charge suggérée n'est pas une colonne.** Le palier et la cible de
-reps s'écrivent une seule fois, dans l'en-tête du bloc, à côté du nom de
-l'exercice.
+**3.1** — **La charge suggérée n'est pas une colonne.** La consigne du moteur
+s'écrit une seule fois, dans l'en-tête du bloc, **sous le nom de l'exercice**, en
+jaune — la seule voix du moteur (§7 bis.4). Une consigne à deux charges tient sur
+**deux lignes jaunes** : le palier (« 125 kg, vise 5 »), puis le test sur la
+dernière série (« puis 130 kg en dernière série, vise 4 »). Une phrase grise
+dessous dit d'où vient le test. À côté du nom : l'étiquette de zone (§3.8).
+Tranché le 19/09/2026 avec la maquette v2 (`maquette-moteur-parle-v2.html`).
 
 **3.2** — Les séries de rampe et d'échauffement ne reçoivent aucune suggestion.
 Elles dépendent du jour, de la fatigue, du matériel disponible. Elles ne se
 prédisent pas, et le §7.3 du moteur dit déjà qu'elles ne votent pas pour le
 palier. Les suggérer serait inventer.
+
+**Exception, la série test — 19/09/2026.** Quand le moteur propose ou garde un
+test (MOTEUR §9.7), la dernière série reçoit la consigne du test dans le fantôme.
+Le test fait partie de la consigne ; les chauffes, la rampe et les dégressives
+gardent la dernière séance (§7 septendecies.3).
 
 **3.3** — Un exercice sans palier établi **le dit** (« pas assez de séances ») au
 lieu d'afficher un chiffre inventé. Sans alarme.
@@ -414,9 +423,10 @@ constante fausse par une autre.
 > en PWA installée. Même schéma qu'au chantier 18 (`CLAUDE.md` §4 bis).
 
 **3.5** — **La destination s'affiche, jamais le délai.** L'en-tête de bloc peut
-nommer le palier suivant — « prochain palier : 125 kg × 5 » — parce que ce
-chiffre est de l'arithmétique : charge courante + incrément déduit (§10.1 du
-moteur), reps = bas de la fourchette (§9.1.2).
+annoncer la prochaine étape — « Prochaine séance : 130 kg sur deux séries,
+vise 4 » — parce que ce chiffre est de l'arithmétique : charge testée ou charge
+courante + cran (§9.7 et §10 du moteur), reps tirées de la zone et du test
+(§9.1.2 et §9.7).
 
 > **Interdit : « possible dans 3 séances ».** Un délai est une prédiction, et la
 > prédiction a échoué douze fois au banc d'essai. Mesuré sur les cinq profils, un
@@ -443,6 +453,47 @@ montées ne sont pas toutes de la rampe : chez Aurélien et Jordan, ~45 % des
 montées arrivent après la 3ᵉ série, ce qui exclut l'échauffement non tagué. Les
 deux mécanismes coexistent, en proportions différentes selon la personne.
 
+**3.8** — **L'étiquette de zone — 19/09/2026.** À côté du nom de l'exercice, une
+étiquette dit la zone de travail : « Lourd 3-5 », « Volume 10-12 »… (MOTEUR
+§9.1.2). **Jamais jaune.** Deux états : un contour quand la zone est déduite des
+séances, un fond plein avec un point quand c'est le choix de l'utilisateur.
+
+- **Toucher l'étiquette** ouvre le menu des cinq zones, sans saisie libre. La
+  zone déduite y porte sa raison (« D'après tes 8 dernières séances : 4 reps
+  d'habitude »). Quand une zone est choisie, un bouton rend la main à la
+  déduction.
+- Le choix vaut **pour l'exercice, dans toutes les routines** ; il s'écrit dans
+  `zones_exercice`. La consigne se recalcule aussitôt.
+- L'étiquette est aussi visible sur la page d'exercice (§7 quater). L'éditeur de
+  routine n'en parle pas.
+- En Entretenir, ni étiquette ni consigne.
+
+**3.9** — **Après la dernière série, le constat.** L'en-tête passe du jaune au
+constat, et annonce la prochaine étape (§3.5) :
+
+| Issue | L'en-tête dit |
+|---|---|
+| Test réussi dedans | « 130 kg : 3 reps le 15 sept., 4 aujourd'hui, dans ta zone. » + « Prochaine séance : 130 kg sur deux séries, vise 4, et 125 kg sur la première, vise 5. » |
+| Test raté | « 130 × 2 : pas encore dans ta zone. » + « Prochaine séance : 125 kg, vise 5, puis 127,5 kg sur la dernière, vise 3. On reteste d'un seul cran. » |
+| Test raté, cran impossible à réduire | « 35 × 8 : pas encore dans ta zone. » + « Ton cran ne peut pas être plus petit : ta zone s'étire. Prochaine séance : 30 kg, vise 13. On retestera 35 quand tu feras 16 à 30. » |
+
+Aucun rouge, aucun « échec » : « pas encore ».
+
+**3.10** — **La feuille « Pourquoi ».** Toucher la consigne ouvre le calcul : la
+dernière séance ligne par ligne, avec le rôle de chaque série (chauffe, au palier,
+test) ; la zone et l'habitude qui l'a rangée ; le palier et son niveau validé ; le
+sort du test ; la conclusion ; le réglage de rythme, avec renvoi au Profil ; et
+« Tu veux faire autre chose ? Tape-le, ta saisie fait foi. »
+
+**3.11** — **La reprise.** Après une coupure (MOTEUR §9.9), l'en-tête dit « On
+reprend à ton dernier palier, sans rep de plus » ou « On reprend un cran sous ton
+dernier palier, 125 kg ». **Jamais la durée de l'absence** (CADRAGE §3.1 bis) : la
+date de la dernière séance reste lisible dans la feuille « Pourquoi ».
+
+**3.12** — **Le dictionnaire.** Les phrases du moteur sont arrêtées dans la maquette
+`maquette-moteur-parle-v2.html`, qui remplace la v1 et reprend celles de ses phrases
+qui tiennent toujours. Toute nouvelle phrase s'y ajoute avant d'entrer dans le code.
+
 ---
 
 ## 4. Profil de travail déclaré
@@ -464,6 +515,8 @@ générale : ne jamais écrire une déclaration ni une déduction dans l'étage 
 **4.4** — L'observation le remplace **exercice par exercice**, au seuil habituel
 de 8 séances. En dessous, la déclaration sert d'amorce. Au-dessus, elle est
 ignorée pour cet exercice.
+
+**Précisé le 19/09/2026 (MOTEUR §8.5.2 et §9.1.1), pour la zone de reps : l'amorce est une porte.** Sous 8 séances, la déclaration autorise ou interdit une zone ; la zone elle-même se déduit de l'habitude dès la première séance avec un palier. Seul un exercice jamais fait n'a que la déclaration.
 
 **4.5** — L'utilisateur peut changer son profil à tout moment. **Un changement
 déclaré reprend la main sur l'observation antérieure à sa date.** La déclaration
@@ -1822,7 +1875,14 @@ Question laissée ouverte au chantier 43 : la charge programmée descend-elle da
 Elle ne s'affiche donc que sur un **exercice jamais fait**, ou repris après des mois. Aucune
 concurrence avec la colonne `précédent`, qui montre le passé et non une proposition.
 
-**Quand le moteur parlera, il se placera au-dessus d'elle** — rang 2 bis — pas à côté.
+**Tranché le 19/09/2026 (décision ⑤ de la maquette v1, étendue par la v2) : la consigne du moteur prend le rang 2.**
+
+> 1. ce qui vient d'être tapé dans la séance (`derniereSaisie`) — par type, et seulement s'il dévie de ce que la ligne proposait (§7 unvicies) ;
+> 2. **la consigne du moteur**, sur les lignes du palier et sur la ligne du test seulement ;
+> 3. la dernière séance sur cet exercice, même type et même rang (chantier 38) — donc les chauffes, la rampe et les dégressives ;
+> 4. `charge_cible_kg`, faute de mieux.
+
+Pas de rang 2 bis : la consigne passe devant la dernière séance sur les lignes qu'elle couvre, et nulle part ailleurs.
 
 > ⚠️ **Elle est LUE, jamais écrite.** La ligne de séance la porte pour que le fantôme y accède ;
 > `sets` n'a pas cette colonne et `COLONNES_SET` ne la laisse pas partir. Une intention n'est
@@ -1871,6 +1931,14 @@ c'est juste » (§3 bis.3) perdait sa montée.
 > **`derniereSaisie` ne prime que lorsqu'elle DIFFÈRE de ce que la séance précédente portait au
 > même rang.** Retaper ce qui était déjà proposé n'est pas une déviation : il n'y a rien à
 > propager.
+
+**Précisé le 19/09/2026 (chantier 48) : « dévier » se juge contre ce que la ligne proposait.**
+Avant le moteur, la ligne proposait la séance précédente, d'où la formulation ci-dessus. Avec
+la consigne au rang 2 de la cascade (§7 septendecies.3), la référence devient **le fantôme de
+la ligne** : la consigne là où elle s'affiche, la séance précédente ailleurs. Sinon, valider
+exactement la consigne — 125 kg alors que la dernière séance était à 122,5 — passerait pour
+une déviation, et propagerait 125 jusque sur la ligne du test (127,5), qu'elle effacerait. Le
+principe ne change pas : retaper ce qui était proposé n'est pas une déviation.
 
 **Sans séance précédente, tout dévie** — il n'y a rien à quoi être égal. Le premier jour sur un
 exercice, la propagation est donc pleine : c'est le seul fait dont on dispose.

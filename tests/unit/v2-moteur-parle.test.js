@@ -868,6 +868,16 @@ describe('la zone en vigueur se lit sur l’historique (MOTEUR §9.1.1)', () => 
       .toBe('lourd');
   });
 
+  test('DISCRIMINANT — « vide » se normalise en `null`, quelle que soit sa forme', () => {
+    // La colonne est `text` NULLABLE : la base peut rendre `null`, et un jour
+    // une chaîne vide. Les deux veulent dire « retour à la déduction », et la
+    // fonction rend `null` dans les deux cas plutôt que de laisser filer une
+    // valeur que chaque appelant devrait retester à sa façon.
+    ['', null, undefined].forEach((vide) => {
+      expect([vide, Moteur.zoneEnVigueur([L('a', 'dc', vide, T('14'))], 'dc')]).toEqual([vide, null]);
+    });
+  });
+
   test('DISCRIMINANT — l’appareil devant le serveur, et l’inverse', () => {
     const serveur = L('s', 'dc', 'volume', T('10'));
     const appareil = L('a', 'dc', 'mix', T('14'));

@@ -20,7 +20,7 @@
   var Periode = racine.THPeriode, Poids = racine.THPoids;
   var Palier = racine.THPalier, Routines = racine.THRoutines;
   var Seance = racine.THSeance, Attente = racine.THAttente;
-  var Profil = racine.THProfil;
+  var Profil = racine.THProfil, Moteur = racine.THMoteur;
 
   var vues = {};
   var local = { seances: [], series: [], exercices: [], pesees: [], parSeance: null };
@@ -227,6 +227,7 @@
     // recalculent à la prochaine ouverture de la liste, pas ici : cet écran
     // n'est presque jamais celui qu'on regarde pendant une synchronisation.
     datesExercices = null;
+    consignes = null;
     try {
       etatsExercices = Palier.etatsExercices(Palier.seanceExercices(local.series));
     } catch (e) {
@@ -1295,7 +1296,7 @@
     var g = Modele.gabaritDe((local.exercices || []).filter(function (e) {
       return e && e.slug === exo.exercise_slug;
     })[0]);
-    var f = Seance.fantome(seance, iExo, iSerie, precedentDe(exo.exercise_slug));
+    var f = Seance.fantome(seance, iExo, iSerie, precedentDe(exo.exercise_slug), planDe(iExo));
     var champs = {};
     //
     // La seule condition qui compte est « le champ est VIDE » : ce qui a été
@@ -1357,6 +1358,60 @@
     return Seance.precedent(slug, local.seances, seriesDe, seance ? seance.id : null);
   }
 
+  // ── §9.13 — LA CONSIGNE DE CHAQUE EXERCICE DE LA SÉANCE OUVERTE ────────────
+  //
+  // ⚠️ UNE FOIS PAR EXERCICE, JAMAIS À LA FRAPPE. Le mémo suit exactement le
+  // patron de `datesExercices` : paresseux (le premier rendu suit l'ouverture,
+  // donc « calculé à l'ouverture »), remis à `null` quand le CORPUS change
+  // (`recalculerEtats`), et clé sur ce qui change la consigne sans toucher au
+  // corpus : la séance ouverte et le profil (intention, rythme). Un slug qui
+  // n'y est pas encore — un exercice ajouté en séance — se calcule seul.
+  //
+  // Tout est en mémoire (`local`, `seancesDeLExercice`) : aucun réseau, et en
+  // salle il n'y en a pas. Le plan, lui, se dérive à chaque rendu depuis cette
+  // consigne et la liste ACTUELLE des séries — c'est `Seance.planDe`, et c'est
+  // de l'arithmétique sur trois entiers, pas le moteur.
+  var consignes = null;   // { cle, index, parSlug }
+
+  function cleConsignes() {
+    return (seance ? seance.id : '') + '|' + ((profil && profil.intention) || '') +
+      '|' + Profil.rythmeDe(profil);
+  }
+
+  function consigneDe(slug) {
+    if (!seance) return null;
+    var cle = cleConsignes();
+    if (!consignes || consignes.cle !== cle) {
+      consignes = { cle: cle, index: Modele.indexerExercices(local.exercices), parSlug: {} };
+    }
+    if (!Object.prototype.hasOwnProperty.call(consignes.parSlug, slug)) {
+      var exo = consignes.index[slug];
+      var g = Modele.gabaritDe(exo);
+      consignes.parSlug[slug] = Moteur.consigneDExercice(
+        seancesDeLExercice(slug), etatsExercices[slug], seance.debut, {
+          mesure: g.inconnue ? null : g.mesure,
+          equipement: exo ? exo.equipement : null,
+          intention: profil ? profil.intention : null,
+          reglage: Profil.rythmeDe(profil),
+          // §7 octies — une séance terminée rouverte est une séance FAITE : le
+          // moteur n'y prescrit rien, ni en-tête ni plan.
+          edition: enEdition()
+        });
+    }
+    return consignes.parSlug[slug];
+  }
+
+  function libellesDe(slug) {
+    var c = consigneDe(slug);
+    return c ? c.libelles : null;
+  }
+
+  function planDe(iExo) {
+    var exo = seance.exercices[iExo];
+    var c = consigneDe(exo.exercise_slug);
+    return Seance.planDe(exo.series, c ? c.consigne : null);
+  }
+
   // ── L'écran ─────────────────────────────────────────────────────────────
   function rendreSeance() {
     montrer('seance', Routeur.SAISIE);
@@ -1411,7 +1466,12 @@
       // retombe alors sur `charge_reps` sans rien affirmer.
       exercice: function (slug) { return index[slug]; },
       precedent: precedentDe,
-      fantome: function (i, j) { return Seance.fantome(seance, i, j, precedentDe(seance.exercices[i].exercise_slug)); },
+      fantome: function (i, j) {
+        return Seance.fantome(seance, i, j, precedentDe(seance.exercices[i].exercise_slug), planDe(i));
+      },
+      // §3.1 — la voix du moteur dans l'en-tête : les lignes jaunes et la
+      // phrase grise, ou rien (Édition, Entretenir, mesure sans charge).
+      libelles: libellesDe,
       surChamp: function (i, j, champ, valeur) {
         seance = Seance.modifierSerie(seance, i, j, defObjet(champ, valeur));
         apresGeste({ rendre: false });

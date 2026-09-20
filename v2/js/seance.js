@@ -1471,9 +1471,25 @@
     return a === b;
   }
 
+  // ⚠️ CE QUE LA LIGNE PROPOSAIT (§7 unvicies, précisé le 19/09/2026) : le
+  // plan du moteur là où il couvre la ligne, la dernière séance ailleurs. C'est
+  // la RÉFÉRENCE de la déviation, et rien d'autre. Sans elle, valider 125 sur
+  // la 1re série quand la dernière séance y portait 122,5 « déviait », donc
+  // propageait 125 sur la ligne du test — qui perdait ses 130.
+  //
+  // Une charge NULLE dans le plan (« le cran au-dessus ») ne propose rien :
+  // la référence retombe sur la dernière séance, comme pour un champ que le
+  // plan ne porte pas (durée, distance).
+  function proposition(liste, k, champ, prec, plan) {
+    var p = plan && plan[k];
+    if (p && p[champ] !== null && p[champ] !== undefined) return p[champ];
+    var ref = correspondant(liste, k, prec);
+    return ref && ref[champ] !== undefined ? ref[champ] : null;
+  }
+
   // Remonte la dernière valeur saisie pour CE champ, sur CET exercice, dans
   // CETTE séance — sur une série du MÊME TYPE, et seulement si elle dévie.
-  function derniereSaisie(exo, iSerie, champ, prec) {
+  function derniereSaisie(exo, iSerie, champ, prec, plan) {
     var liste = (exo && exo.series) || [];
     var type = typeDe(liste[iSerie]);
     for (var k = iSerie - 1; k >= 0; k--) {
@@ -1482,10 +1498,10 @@
       if (v === null || v === undefined) continue;
       // ⚠️ LA COMPARAISON SE FAIT AU RANG DE LA SÉRIE SOURCE, pas à celui de
       // la série qu'on remplit : la question est « ce qui a été tapé là
-      // dévie-t-il ? », et `correspondant` répond déjà, par type, pour n'importe
+      // dévie-t-il ? », et `proposition` répond déjà, par type, pour n'importe
       // quel rang. Une seule règle d'alignement dans tout le fichier.
-      var ref = correspondant(liste, k, prec);
-      if (ref && memeValeur(ref[champ], v)) return null;
+      var ref = proposition(liste, k, champ, prec, plan);
+      if (ref !== null && memeValeur(ref, v)) return null;
       return v;
     }
     return null;
@@ -1546,39 +1562,77 @@
     return null;
   }
 
-  function fantome(seance, iExo, iSerie, prec) {
+  // ── §7 septendecies.3 — LE PLAN : ce que le moteur propose, série par série ──
+  //
+  // Un tableau aligné sur `exo.series` : `null` là où le moteur ne dit rien,
+  // `{ charge_kg, reps }` là où il couvre. La consigne couvre les `n`
+  // DERNIÈRES SÉRIES DE TRAVAIL de l'exercice dans la séance ouverte — s'il y en
+  // a moins de `n`, toutes ; les `k` dernières reçoivent `haut`, les autres
+  // `ligne`. Les séries d'avant, les chauffes et les dégressives gardent la
+  // dernière séance : une rampe plus légère que l'ancien palier ne bouge pas.
+  //
+  // ⚠️ LE PLAN VIT À CÔTÉ DE LA SÉANCE, JAMAIS DEDANS. Il se dérive à chaque
+  // rendu depuis la consigne (mémoïsée dans `app.js`) et la liste actuelle
+  // des séries ; il ne devient JAMAIS une propriété d'une série — ni en
+  // mémoire, ni dans IndexedDB, ni dans la file. `COLONNES_SET` ne change pas.
+  // Une intention n'est pas une observation.
+  //
+  // Une charge NULLE (« le cran au-dessus ») reste nulle dans le plan : la
+  // charge retombe au rang suivant de la cascade, les reps restent proposées.
+  function planDe(series, consigne) {
+    var liste = series || [];
+    var plan = liste.map(function () { return null; });
+    if (!consigne || !consigne.n) return plan;
+    var travail = [];
+    liste.forEach(function (s, i) { if (typeDe(s) === 'travail') travail.push(i); });
+    var couvertes = travail.slice(-consigne.n);
+    var k = consigne.haut ? consigne.haut.k : 0;
+    var m = couvertes.length;
+    couvertes.forEach(function (i, j) {
+      var source = j >= m - k ? consigne.haut : consigne.ligne;
+      if (!source) return;
+      plan[i] = {
+        charge_kg: source.charge === null || source.charge === undefined ? null : source.charge,
+        reps: source.vise === null || source.vise === undefined ? null : source.vise
+      };
+    });
+    return plan;
+  }
+
+  function fantome(seance, iExo, iSerie, prec, plan) {
     var exo = seance.exercices[iExo];
     var ligne = correspondant(exo.series, iSerie, prec);
 
     var propre = exo.series[iSerie];
+    var propose = (plan && plan[iSerie]) || null;
 
-    // ⚠️ LE FANTÔME EST UNE CASCADE À TROIS NIVEAUX (§7 septendecies.3), et
+    // ⚠️ LE FANTÔME EST UNE CASCADE À QUATRE NIVEAUX (§7 septendecies.3), et
     // l'ordre est la décision :
     //
     //   1. ce qu'on vient de taper dans la séance — MÊME TYPE, et seulement
-    //      si ça DÉVIE du rang correspondant (chantier 46)
-    //   2. la dernière séance, même type, même rang (chantier 38)
-    //   3. `charge_cible_kg`, faute de mieux
+    //      si ça DÉVIE de ce que la ligne proposait (chantier 46, puis 48b)
+    //   2. LE PLAN du moteur, là où il couvre la ligne (48b-5b-2)
+    //   3. la dernière séance, même type, même rang (chantier 38)
+    //   4. `charge_cible_kg`, faute de mieux
     //
-    // Les niveaux 1 et 2 s'alignent donc par la MÊME règle, `correspondant` —
-    // le niveau 1 l'a reçue au chantier 46, huit chantiers après le niveau 2.
-    //
-    // Le rang 3 ne s'affiche donc que sur un exercice JAMAIS FAIT, ou repris
-    // après des mois. Aucune concurrence avec la colonne `précédent`, qui
-    // montre le passé et non une proposition — et quand le moteur parlera, il
-    // se placera AU-DESSUS d'elle, rang 2 bis, pas à côté.
-    var charge = derniereSaisie(exo, iSerie, 'charge_kg', prec);
+    // Le moteur se place AU-DESSUS de la dernière séance et EN DESSOUS de la
+    // saisie : ce qu'on vient de taper reste souverain — « ta saisie fait
+    // foi » —, mais entre une proposition et un souvenir, c'est la proposition
+    // qui parle. La colonne « précédent », elle, ne lit toujours que le passé.
+    var charge = derniereSaisie(exo, iSerie, 'charge_kg', prec, plan);
+    if (charge === null && propose && propose.charge_kg !== null) charge = propose.charge_kg;
     if (charge === null && ligne) charge = ligne.charge_kg;
     if ((charge === null || charge === undefined) && propre) {
       charge = propre.charge_cible_kg;
     }
 
-    // ⚠️ L'INTENTION DE **CETTE** LIGNE, PAS CELLE DE L'EXERCICE (ch. 43).
-    // Une rampe 15-10-5-1 a quatre intentions différentes ; un entier au niveau
-    // de l'exercice n'en portait qu'une, et la posait sur les quatre. Sans
-    // intention, on retombe sur la règle du chantier 38 : la Nᵉ série du MÊME
-    // type, la fois d'avant.
-    var reps = propre ? propre.reps_visees : null;
+    // ⚠️ LES REPS SUIVENT LE MÊME ORDRE : le plan d'abord (48b-5b-2, tranché
+    // le 20/09/2026), puis l'INTENTION DE **CETTE** LIGNE (ch. 43), puis la
+    // fois d'avant. « Vise 5 » en jaune et un fantôme à 8 sur la même ligne
+    // seraient deux voix ; `reps_visees` est le pendant de `charge_cible_kg`,
+    // une intention de routine qui parle quand le moteur se tait.
+    var reps = propose ? propose.reps : null;
+    if ((reps === null || reps === undefined) && propre) reps = propre.reps_visees;
     if ((reps === null || reps === undefined) && ligne) reps = ligne.reps;
 
     // La durée et la distance suivent la MÊME règle que la charge : ce qu'on
@@ -1802,7 +1856,8 @@
     precedent: precedent,
     correspondant: correspondant,
     derniereSaisie: derniereSaisie,
-    fantome: fantome
+    fantome: fantome,
+    planDe: planDe
   };
 
   racine.THSeance = api;

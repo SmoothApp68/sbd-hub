@@ -1285,6 +1285,73 @@
     return { jaune: lignesJaunes(consigne), gris: phraseGrise(consigne) };
   }
 
+  // ── §9.13 — LE PONT DEPUIS `analyser`, ET LA CONSIGNE D'UN EXERCICE ──────
+  //
+  // `analyser` ne connaît pas de rôle « palier » : une série au palier y est
+  // une série `travail` à la charge du palier. Le contrat de `consignePour`,
+  // lui, les distingue — et sans ce pont, la consigne ne verrait JAMAIS le
+  // palier. UNE SEULE FONCTION fait la traduction, dans l'ordre des séries de
+  // la séance (`r.series` est déjà l'ordre de `trier`).
+  //
+  //   travail à la charge du palier → palier
+  //   autre travail                 → travail
+  //   exploration, rampe            → tels quels
+  //   chauffe, chauffe_probable, degressive, descente_choisie, echec → autre
+  //   null (séance hors moteur ou sans charge : `sortie` avant tout marquage) → autre
+  var ROLES_TELS_QUELS = { exploration: true, rampe: true };
+
+  function seanceDuContrat(debut, resultat) {
+    var r = resultat || {};
+    var P = nombre(r.palier);
+    var series = (r.series || []).map(function (d) {
+      var s = (d && d.serie) || {};
+      var role;
+      if (d && d.role === 'travail') {
+        role = (P !== null && nombre(s.charge_kg) === P) ? 'palier' : 'travail';
+      } else if (d && Object.prototype.hasOwnProperty.call(ROLES_TELS_QUELS, d.role)) {
+        role = d.role;
+      } else {
+        role = 'autre';
+      }
+      return { charge_kg: s.charge_kg, reps: s.reps, rpe: s.rpe, ressenti: s.ressenti, role: role };
+    });
+    return { debut: debut, palier: r.palier === undefined ? null : r.palier, series: series };
+  }
+
+  // La consigne d'UN exercice de la séance ouverte, silences compris. Pure :
+  // `app.js` ne fait que résoudre les valeurs (`mesure` par `gabaritDe`,
+  // `reglage` par `Profil.rythmeDe`, `equipement` au catalogue) et les passer.
+  // La leçon de 48b-4 : ce qui vit dans `app.js` ne se teste pas.
+  //
+  // `groupes` : les séances qui portent l'exercice, `{ seance, series }` — la
+  // forme de `seancesDeLExercice`. `etat` : `etatsExercices[slug]`, l'exception
+  // assumée du §9.12 (il lit tout l'historique). `avant` : le début de la
+  // séance ouverte.
+  //
+  // ⚠️ TROIS SILENCES PASSENT AVANT LE MOTEUR, et ils rendent `null` — pas une
+  // consigne muette. `null` veut dire « le moteur n'a rien à faire ici » :
+  // l'en-tête n'affiche rien, le fantôme garde sa cascade d'avant.
+  //   · une séance en ÉDITION (§7 octies) : le moteur prescrit une séance à
+  //     faire, pas une séance faite ;
+  //   · l'intention `entretien` : on ne cherche pas à monter ;
+  //   · une mesure autre que `charge_reps`, ou inconnue : pas de charge à
+  //     prescrire.
+  // Les silences DU moteur (première fois, pas de palier) sont autre chose :
+  // une consigne à l'état `silence`, avec sa seule phrase grise.
+  function consigneDExercice(groupes, etat, avant, options) {
+    var o = options || {};
+    if (o.edition) return null;
+    if ((o.intention || 'progresser') === 'entretien') return null;
+    if (o.mesure !== 'charge_reps') return null;
+    var seances = (groupes || []).map(function (g) {
+      var r = Palier().analyser((g && g.series) || [], etat, { mesure: o.mesure });
+      return seanceDuContrat(g && g.seance ? g.seance.debut : null, r);
+    });
+    var consigne = consignePour(seances, avant,
+      { reglage: o.reglage, equipement: o.equipement, correction: null });
+    return { consigne: consigne, libelles: libellesConsigne(consigne) };
+  }
+
   var api = {
     FENETRE_HABITUDE: FENETRE_HABITUDE,
     FENETRE_COUPLE: FENETRE_COUPLE,
@@ -1317,6 +1384,8 @@
     repriseDe: repriseDe,
     consignePour: consignePour,
     libellesConsigne: libellesConsigne,
+    seanceDuContrat: seanceDuContrat,
+    consigneDExercice: consigneDExercice,
     MOIS_COURTS: MOIS_COURTS,
     INSECABLE: INSECABLE
   };

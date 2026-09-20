@@ -3985,13 +3985,30 @@ const SETS_IMPORTES = [
   // Ce que seul ce banc prouve : le fantôme AFFICHÉ à l'écran, après une vraie
   // validation au pouce. Le test unitaire montre la règle ; celui-ci montre que
   // le rendu la lit.
+  // ⚠️ DATÉE UNE SECONDE AVANT MAINTENANT — corrigé le 20/09/2026 (48b-5b-2).
+  // Elle était datée `LUNDI + 5 j` : un jour de semaine, c'est dans le futur et
+  // elle gagne d'office ; un DIMANCHE, samedi 08:00 est dans le passé et sept
+  // séances `dc-barre` créées par les scénarios précédents lui passent devant —
+  // le fantôme montrait une séance Push à 100 kg, et trois vérifications
+  // tombaient sans qu'aucun code n'ait changé. Mesuré sur `main` le 20/09.
+  //
+  // « La fois d'avant » doit être la plus récente quel que soit le jour, ET dans
+  // le passé : depuis 48b, le moteur ne lit rien après le début de la séance
+  // ouverte (MOTEUR §9.12) — une « fois d'avant » datée dans le futur serait vue
+  // par le fantôme et ignorée par la consigne, deux voix pour une ligne. Le
+  // premier correctif la calait « une seconde après la dernière séance de la
+  // base » : un décor du §7 octodecies est daté `LUNDI + 6 j`, dimanche 08:00,
+  // encore à venir à l'heure du banc — et la consigne se calculait sur la
+  // séance d'avant. Une seconde avant maintenant est toujours dans le passé,
+  // et après tout ce que l'app a créé pendant la campagne.
+  const debutDC = new Date(Date.now() - 1000);
   const AVANT_DC = {
     id: 'sess-dc-rampe', user_id: 'u-banc', titre: 'Pecs — la fois d’avant',
-    debut: new Date(LUNDI.getTime() + 5 * 86400000).toISOString(),
-    fin: new Date(LUNDI.getTime() + 5 * 86400000 + 3600000).toISOString(),
+    debut: debutDC.toISOString(),
+    fin: new Date(debutDC.getTime() + 3600000).toISOString(),
     statut: 'terminee', note: null, salle: null, salle_norme: null,
     routine_id: null, source: 'app',
-    created_at: new Date(LUNDI.getTime() + 5 * 86400000).toISOString()
+    created_at: debutDC.toISOString()
   };
   base.sessions.push(Object.assign({}, AVANT_DC));
   [[1, 20, 12, 'echauffement'], [2, 60, 8, 'echauffement'],
@@ -4031,28 +4048,87 @@ const SETS_IMPORTES = [
       const i = l.querySelector('.ch-serie input');
       return i ? (i.value || i.placeholder || '') : '';
     }));
-  ok('[G] la rampe de la fois d’avant s’affiche, chauffes comprises',
-    JSON.stringify(await fantomes()) === JSON.stringify(['20', '60', '120', '120', '125']),
-    JSON.stringify(await fantomes()));
+
+  // ⚠️ DEPUIS 48b-5b-2, LE MOTEUR PARLE AU RANG 2 DE LA CASCADE. Les chauffes
+  // gardent la fois d'avant ; les séries de travail que la consigne couvre
+  // proposent LE PLAN. L'attendu se calcule ici par les MÊMES modules purs que
+  // l'app (`THMoteur.consigneDExercice`, `THSeance.planDe`), sur les mêmes
+  // données : le banc prouve que l'écran LIT le plan, pas que le moteur calcule
+  // juste — ça, 76 cas unitaires le prouvent. Un attendu en dur dépendrait de
+  // tout ce que les scénarios précédents ont laissé en base pour cet exercice.
+  // Dans l'ordre d'`index.html` : `moteur.js` lit `THModele` et `THPalier`
+  // tardivement, sans repli — un module absent casse bruyamment, et c'est voulu.
+  require(path.join(R, 'v2/js/modele.js'));
+  require(path.join(R, 'v2/js/palier.js'));
+  const Moteur = require(path.join(R, 'v2/js/moteur.js'));
+  const SeanceM = require(path.join(R, 'v2/js/seance.js'));
+  const PalierM = require(path.join(R, 'v2/js/palier.js'));
+  const ProfilM = require(path.join(R, 'v2/js/profil.js'));
+  const attenduMoteur = () => {
+    const parSeance = {};
+    base.sets.filter((x) => x.exercise_slug === 'dc-barre').forEach((x) => {
+      (parSeance[x.session_id] = parSeance[x.session_id] || []).push(x);
+    });
+    const groupes = base.sessions.filter((x) => parSeance[x.id] && x.statut === 'terminee')
+      .map((x) => ({ seance: x, series: parSeance[x.id] }));
+    const etats = PalierM.etatsExercices(PalierM.seanceExercices(base.sets));
+    const profil = base.profiles ? base.profiles[0] : null;
+    const c = Moteur.consigneDExercice(groupes, etats['dc-barre'], new Date().toISOString(), {
+      mesure: 'charge_reps', equipement: null, intention: profil && profil.intention,
+      reglage: ProfilM.rythmeDe(profil), edition: false
+    });
+    const types = ['echauffement', 'echauffement', 'travail', 'travail', 'travail'];
+    const plan = SeanceM.planDe(types.map((t) => ({ type_serie: t })), c && c.consigne);
+    return { c, plan };
+  };
+  const { c: consigneDC, plan: planDC } = attenduMoteur();
+  // Le garde-fou de la prémisse : aucune séance `dc-barre` de la base n'est
+  // datée après la fois d'avant. Sinon la consigne ne se calcule pas sur elle,
+  // et ce banc mesure autre chose que ce qu'il annonce — il le DIT, en nommant
+  // la séance fautive, plutôt que de tomber trois lignes plus bas sans raison.
+  const dcApres = base.sessions.filter((x) => x.id !== AVANT_DC.id &&
+    Date.parse(x.debut) >= Date.parse(AVANT_DC.debut) &&
+    base.sets.some((y) => y.session_id === x.id && y.exercise_slug === 'dc-barre'));
+  ok('[G] la fois d’avant est bien la dernière séance de couché de la base, et dans le passé',
+    dcApres.length === 0 && Date.parse(AVANT_DC.debut) < Date.now(),
+    dcApres.length ? 'datées après : ' + JSON.stringify(dcApres.map((x) => x.id + '@' + x.debut)) : AVANT_DC.debut);
+  const chargeFr = (v) => v === null || v === undefined ? null : String(v).replace('.', ',');
+  // Les deux premières lignes : la fois d'avant (chauffes). Les trois autres :
+  // le plan là où il propose une charge, la fois d'avant sinon.
+  const attendus = ['20', '60'].concat([120, 120, 125].map((kg, j) =>
+    planDC[j + 2] && planDC[j + 2].charge_kg !== null ? chargeFr(planDC[j + 2].charge_kg) : String(kg)));
+  ok('[G] le moteur a une consigne sur cette séance, et elle couvre les trois séries de travail',
+    !!consigneDC && consigneDC.consigne.etat !== 'silence' && planDC.slice(2).every(Boolean),
+    JSON.stringify(consigneDC && { etat: consigneDC.consigne.etat, n: consigneDC.consigne.n }) + ' · plan ' + JSON.stringify(planDC));
+  ok('[G] les chauffes montrent la fois d’avant, les séries de travail LE PLAN',
+    JSON.stringify(await fantomes()) === JSON.stringify(attendus),
+    JSON.stringify(await fantomes()) + ' vs ' + JSON.stringify(attendus));
+  const entete = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('.legende-exo .consigne, .legende-exo .consigne-dit')).map((e) => e.textContent));
+  ok('[G] l’en-tête dit la consigne en jaune, puis sa phrase grise',
+    JSON.stringify(entete) === JSON.stringify(consigneDC.libelles.jaune.concat([consigneDC.libelles.gris])),
+    JSON.stringify(entete).replace(/\u00a0/g, '·'));
 
   // ① LE DÉFAUT DU DEVICE : taper une chauffe qui DÉVIE (25 au lieu de 20).
   // Sans le filtre par type, les trois séries de travail passeraient à 25.
   await saisirSerie(0, 25, 12);
   ok('[G] une chauffe qui dévie ne touche PAS à la rampe de travail',
-    JSON.stringify((await fantomes()).slice(2)) === JSON.stringify(['120', '120', '125']),
+    JSON.stringify((await fantomes()).slice(2)) === JSON.stringify(attendus.slice(2)),
     JSON.stringify(await fantomes()));
   ok('[G] …mais elle propage bien à la chauffe suivante',
     (await fantomes())[1] === '25', JSON.stringify(await fantomes()));
 
-  // ② LA RÈGLE DE DÉVIATION : valider la 1ʳᵉ série de travail À CE QUI ÉTAIT
-  // PROPOSÉ (120) ne doit rien écraser — la 3ᵉ garde son 125.
-  await saisirSerie(2, 120, 5);
-  ok('[G] valider 120 sur la 1ʳᵉ laisse le 125 de la 3ᵉ',
-    (await fantomes())[4] === '125', JSON.stringify(await fantomes()));
+  // ② LA RÈGLE DE DÉVIATION (§7 unvicies, précisée 48b-5b-2) : valider la 1ʳᵉ
+  // série de travail À CE QUE LA LIGNE PROPOSAIT — le plan — ne doit rien
+  // écraser : la 3ᵉ garde sa proposition.
+  await saisirSerie(2, Number(attendus[2].replace(',', '.')), 5);
+  ok('[G] valider la proposition de la 1ʳᵉ laisse celle de la 3ᵉ',
+    (await fantomes())[4] === attendus[4], JSON.stringify(await fantomes()) + ' vs ' + attendus[4]);
 
-  // ③ ET UNE VRAIE DÉVIATION SE PROPAGE — à plat, jamais en décalant la rampe.
+  // ③ ET UNE VRAIE DÉVIATION SE PROPAGE — à plat, jamais en décalant la rampe,
+  // et par-dessus le plan : ce qu'on vient de taper reste souverain.
   await saisirSerie(3, 130, 5);
-  ok('[G] 130 se propage à plat sur la suivante, pas 135',
+  ok('[G] 130 se propage à plat sur la suivante, pas 135 — et par-dessus le plan',
     (await fantomes())[4] === '130', JSON.stringify(await fantomes()));
 
   await terminer();

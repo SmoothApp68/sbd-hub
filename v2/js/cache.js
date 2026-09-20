@@ -21,8 +21,9 @@
   // VERSION 3 : ajout de `brouillon` (la séance en cours) et `attente` (la file
   //   d'écriture). La montée de version est la seule façon de créer un magasin —
   //   et elle est sans perte, les magasins existants ne sont pas touchés.
-  var VERSION = 3;
-  var MAGASINS = ['seances', 'series', 'exercices', 'pesees', 'meta',
+  // VERSION 4 : ajout de `zones` (les corrections de zone, §9.1.1).
+  var VERSION = 4;
+  var MAGASINS = ['seances', 'series', 'exercices', 'pesees', 'meta', 'zones',
                   'brouillon', 'attente'];
   var LOT = 500;
   var _db = null;
@@ -52,6 +53,20 @@
         // hors ligne doit retrouver sa file au redémarrage, sinon elle ne
         // monterait jamais.
         if (!db.objectStoreNames.contains('attente')) db.createObjectStore('attente', { keyPath: 'cle' });
+        // §9.1.1 — les corrections de zone. UN HISTORIQUE EN AJOUT SEUL : une
+        // ligne par choix, la plus récente fait foi. Il grandit, il vient de
+        // DEUX sources — l'appareil et le serveur — et les deux se fondent par
+        // `id`, donc `ecrireLot` (un `put` par ligne) et jamais
+        // `remplacerTout`, qui vide avant d'écrire.
+        //
+        // ⚠️ AUCUN CODE DE MIGRATION ICI, ET C'EST VOULU. Chaque magasin se
+        // crée s'il manque : une montée depuis la version 1, 2 ou 3 passe par
+        // ce même bloc et ne touche à aucun magasin existant. Les séances, les
+        // séries, le profil et la file traversent la montée intacts — c'est ce
+        // que `tests/unit/v2-cache-montee.test.js` prouve.
+        if (!db.objectStoreNames.contains('zones')) {
+          db.createObjectStore('zones', { keyPath: 'id' }).createIndex('exercise_slug', 'exercise_slug');
+        }
       };
       req.onsuccess = function () { _db = req.result; resoudre(_db); };
       req.onerror = function () { rejeter(req.error); };

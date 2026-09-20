@@ -712,7 +712,7 @@ describe('l’étiquette de zone (ECRAN-SAISIE §3.8)', () => {
   };
   const puces = (c) => [...c.querySelectorAll('.puce-zone')].map((e) => e.textContent);
   // La consigne d'un cas du fichier, calculée pour de vrai.
-  const CAS = require('./fixtures/consigne-48b6a.json');
+  const CAS = require('./fixtures/consigne-48b7.json');
   const consigneDe = (id) => {
     const c = CAS.filter((x) => x.id === id)[0];
     return Moteur.consignePour(c.seances, c.avant,
@@ -772,7 +772,7 @@ describe('l’étiquette de zone (ECRAN-SAISIE §3.8)', () => {
 
 // ── §3.10 — LA FEUILLE « POURQUOI » ─────────────────────────────────────────
 describe('la feuille « Pourquoi » (ECRAN-SAISIE §3.10)', () => {
-  const CAS = require('./fixtures/consigne-48b6a.json');
+  const CAS = require('./fixtures/consigne-48b7.json');
   const pourquoiDe = (id) => {
     const c = CAS.filter((x) => x.id === id)[0];
     const r = Moteur.consignePour(c.seances, c.avant,
@@ -843,5 +843,181 @@ describe('la feuille « Pourquoi » (ECRAN-SAISIE §3.10)', () => {
     expect(textes(cible, '.pq-sec')).toEqual([]);
     expect(textes(cible, '.pq-ligne')).toEqual([]);
     expect(textes(cible, '.pq-p')[0]).toBe('Rien avant aujourd\'hui\u00a0: ce que tu notes servira de départ.');
+  });
+});
+
+// ── §9.1.1 — LA ZONE EN VIGUEUR ─────────────────────────────────────────────
+describe('la zone en vigueur se lit sur l’historique (MOTEUR §9.1.1)', () => {
+  const L = (id, slug, zone, quand) => ({ id: id, exercise_slug: slug, zone: zone, corrigee_a: quand });
+  const T = (jour) => '2026-09-' + jour + 'T10:00:00+00:00';
+
+  test('deux lignes : la plus récente l’emporte', () => {
+    const lignes = [L('a', 'dc', 'lourd', T('10')), L('b', 'dc', 'volume', T('14'))];
+    expect(Moteur.zoneEnVigueur(lignes, 'dc')).toBe('volume');
+    // Et l'ordre du tableau n'y fait rien : c'est la DATE qui tranche.
+    expect(Moteur.zoneEnVigueur(lignes.slice().reverse(), 'dc')).toBe('volume');
+  });
+
+  test('DISCRIMINANT — une ligne VIDE, la plus récente, ramène à la déduction', () => {
+    // « Revenir à celle d'après tes séances » AJOUTE une ligne, il n'efface
+    // rien : le choix d'avant reste en base, et ne doit plus rien décider.
+    const lignes = [L('a', 'dc', 'lourd', T('10')), L('b', 'dc', null, T('14'))];
+    expect(Moteur.zoneEnVigueur(lignes, 'dc')).toBeNull();
+    // La même ligne vide, mais PLUS ANCIENNE, ne défait rien.
+    expect(Moteur.zoneEnVigueur([L('a', 'dc', null, T('10')), L('b', 'dc', 'lourd', T('14'))], 'dc'))
+      .toBe('lourd');
+  });
+
+  test('DISCRIMINANT — l’appareil devant le serveur, et l’inverse', () => {
+    const serveur = L('s', 'dc', 'volume', T('10'));
+    const appareil = L('a', 'dc', 'mix', T('14'));
+    expect(Moteur.zoneEnVigueur([serveur, appareil], 'dc')).toBe('mix');
+    expect(Moteur.zoneEnVigueur([L('s', 'dc', 'volume', T('16')), appareil], 'dc')).toBe('volume');
+  });
+
+  test('DISCRIMINANT — à la même seconde, l’identifiant tranche, et toujours pareil', () => {
+    // Deux appareils peuvent poser dans la même seconde. Sans ce départage, la
+    // zone dépendrait de l'ordre d'arrivée des lignes : deux lectures de la
+    // même base donneraient deux consignes.
+    const a = L('aaa', 'dc', 'lourd', T('14')), b = L('bbb', 'dc', 'volume', T('14'));
+    expect(Moteur.zoneEnVigueur([a, b], 'dc')).toBe('volume');
+    expect(Moteur.zoneEnVigueur([b, a], 'dc')).toBe('volume');
+  });
+
+  test('chaque exercice a la sienne ; sans ligne, rien', () => {
+    const lignes = [L('a', 'dc', 'lourd', T('14')), L('b', 'sq', 'volume', T('14'))];
+    expect(Moteur.zoneEnVigueur(lignes, 'dc')).toBe('lourd');
+    expect(Moteur.zoneEnVigueur(lignes, 'sq')).toBe('volume');
+    expect(Moteur.zoneEnVigueur(lignes, 'tr')).toBeNull();
+    expect(Moteur.zoneEnVigueur([], 'dc')).toBeNull();
+    expect(Moteur.zoneEnVigueur(null, 'dc')).toBeNull();
+  });
+
+  test('une ligne sans date ne décide de rien', () => {
+    expect(Moteur.zoneEnVigueur([L('a', 'dc', 'lourd', null)], 'dc')).toBeNull();
+    expect(Moteur.zoneEnVigueur([L('a', 'dc', 'lourd', null), L('b', 'dc', 'mix', T('10'))], 'dc'))
+      .toBe('mix');
+  });
+
+  test('DISCRIMINANT — la correction traverse jusqu’à la consigne, et l’emporte', () => {
+    const OPT = { mesure: 'charge_reps', equipement: 'barre', intention: 'progresser',
+                  reglage: 'normal', edition: false };
+    const sans = Moteur.consigneDExercice(couche(), undefined, AVANT, OPT);
+    expect(sans.etiquette).toBe('Lourd 3-5');
+    const avec = Moteur.consigneDExercice(couche(), undefined, AVANT,
+      Object.assign({}, OPT, { correction: 'volume' }));
+    expect(avec.etiquette).toBe('Volume 10-12');
+    // Et ce n'est pas qu'une étiquette : la consigne entière a changé.
+    expect(avec.consigne.zone).toBe('volume');
+    expect(avec.libelles.jaune).not.toEqual(sans.libelles.jaune);
+    expect(avec.pourquoi.zone).toContain('choisie par toi');
+  });
+});
+
+// ── §3.8 — L'ÉTIQUETTE EST UNE PORTE, ET LE MENU DES ZONES ──────────────────
+describe('l’étiquette se touche, et le menu (ECRAN-SAISIE §3.8)', () => {
+  const EXOS = [
+    { slug: 'dc', nom: 'Développé Couché (Barre)', mesure: 'charge_reps', equipement: 'barre', muscles_primaires: ['pectoraux'] }
+  ];
+  const rendre = (vue) => {
+    const s = ouverte(T(3));
+    const cible = document.createElement('div');
+    Rendu().rendreBlocsSeance(cible, s, Object.assign({
+      blocs: Modele.blocsDeSeance(s, EXOS),
+      modifier: false, selection: null, programme: false,
+      surGrouper: () => {}, surDeplacerBloc: () => {},
+      surMenuBloc: () => {}, surMenuExercice: () => {},
+      tourAtteint: () => 0,
+      exercice: (slug) => EXOS.filter((e) => e.slug === slug)[0],
+      precedent: () => null, fantome: () => ({}),
+      etiquette: () => 'Lourd 3-5',
+      surChamp: () => {}, surValider: () => {}, surNumero: () => {},
+      surEffort: () => {}, surNote: () => {}, surRepos: () => {},
+      surSupprimerSerie: () => {}, surAjoutSerie: () => {}
+    }, vue || {}));
+    return cible;
+  };
+
+  test('DISCRIMINANT — avec un geste c’est un BOUTON, sans geste c’est un span', () => {
+    const vus = [];
+    const b = rendre({ surZone: (s) => vus.push(s) }).querySelector('.puce-zone');
+    expect(b.tagName).toBe('BUTTON');
+    b.click();
+    expect(vus).toEqual(['dc']);
+    // Sans `surZone` — un écran qui ne sait pas corriger — elle ne promet rien.
+    expect(rendre({}).querySelector('.puce-zone').tagName).toBe('SPAN');
+  });
+
+  test('DISCRIMINANT — « choisie » se voit, « déduite » ne se voit pas', () => {
+    expect(rendre({ surZone: () => {}, zoneChoisie: () => true })
+      .querySelector('.puce-zone').className).toContain('choisie');
+    expect(rendre({ surZone: () => {}, zoneChoisie: () => false })
+      .querySelector('.puce-zone').className).not.toContain('choisie');
+  });
+
+  test('l’étiquette reste absente là où le moteur se tait', () => {
+    // Le geste ne la fait pas apparaître : c'est la consigne qui décide.
+    expect(rendre({ surZone: () => {}, etiquette: () => null })
+      .querySelectorAll('.puce-zone')).toHaveLength(0);
+  });
+
+  // ── Le menu ──
+  const ZONES = Moteur.ZONES;
+  const menu = (vue) => {
+    const cible = document.createElement('div');
+    Rendu().rendreFeuilleZone(cible, Object.assign({
+      nom: 'Rowing Poulie Assis - Prise en V', zones: ZONES,
+      choisie: null, deduite: { zone: 'volume', habitude: 10, seances: 8 },
+      surChoix: () => {}, surFermer: () => {}
+    }, vue || {}));
+    return cible;
+  };
+  const textes = (c, sel) => [...c.querySelectorAll(sel)].map((e) => e.textContent);
+
+  test('les cinq zones, avec leurs bornes, et le titre', () => {
+    const c = menu();
+    expect(textes(c, '.feuille-t')).toEqual(['Zone de travail']);
+    expect(textes(c, '.feuille-sous'))
+      .toEqual(['Rowing Poulie Assis - Prise en V, dans toutes tes routines']);
+    expect(textes(c, '.oz-nom')).toEqual(['Lourd', 'Mix', 'Hypertrophie', 'Volume', 'Séries longues']);
+    expect(textes(c, '.oz-reps')).toEqual(
+      ['3 à 5 reps', '6 à 8 reps', '8 à 10 reps', '10 à 12 reps', '15 à 20 reps']);
+    // Aucune saisie libre : cinq boutons, pas un champ.
+    expect(c.querySelectorAll('input, textarea')).toHaveLength(0);
+  });
+
+  test('DISCRIMINANT — la coche suit la zone CHOISIE, sinon la déduite', () => {
+    const actives = (c) => [...c.querySelectorAll('.option-zone.active')].map((n) => n.dataset.cle);
+    expect(actives(menu())).toEqual(['volume']);
+    expect(actives(menu({ choisie: 'hypertrophie' }))).toEqual(['hypertrophie']);
+    expect(menu({ choisie: 'hypertrophie' }).querySelector('[data-cle="hypertrophie"]')
+      .getAttribute('aria-pressed')).toBe('true');
+  });
+
+  test('DISCRIMINANT — la raison ne vit que sous la zone DÉDUITE', () => {
+    const c = menu({ choisie: 'hypertrophie' });
+    expect(textes(c, '.oz-sous')).toEqual(['D’après tes 8 dernières séances : 10 reps d’habitude.'
+      .replace(/’/g, '\'')]);
+    expect(c.querySelector('[data-cle="volume"] .oz-sous')).not.toBeNull();
+    expect(c.querySelector('[data-cle="hypertrophie"] .oz-sous')).toBeNull();
+    // Sans habitude — un exercice jamais fait — aucune raison à donner.
+    expect(textes(menu({ deduite: null }), '.oz-sous')).toEqual([]);
+  });
+
+  test('DISCRIMINANT — « Revenir » n’existe que si une zone est choisie', () => {
+    const revenir = (c) => textes(c, 'button').filter((x) => /Revenir/.test(x));
+    expect(revenir(menu())).toEqual([]);
+    expect(revenir(menu({ choisie: 'hypertrophie' })))
+      .toEqual(['Revenir à celle d\'après tes séances']);
+  });
+
+  test('choisir rend la clé ; « Revenir » rend null ; « Fermer » ferme', () => {
+    const vus = []; let ferme = 0;
+    const c = menu({ choisie: 'lourd', surChoix: (v) => vus.push(v), surFermer: () => { ferme++; } });
+    c.querySelector('[data-cle="volume"]').click();
+    [...c.querySelectorAll('button')].filter((b) => /Revenir/.test(b.textContent))[0].click();
+    [...c.querySelectorAll('button')].filter((b) => b.textContent === 'Fermer')[0].click();
+    expect(vus).toEqual(['volume', null]);
+    expect(ferme).toBe(1);
   });
 });

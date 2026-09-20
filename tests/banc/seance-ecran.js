@@ -250,6 +250,7 @@ const SETS_IMPORTES = [
     sessions: [Object.assign({}, PASSEE), Object.assign({}, IMPORTEE)],
     sets: SETS_PASSES.concat(SETS_IMPORTES).map((s) => Object.assign({}, s)),
     profiles: [Object.assign({}, PROFIL_BANC)],
+    zones: [],
     journal: [], patchs: [], reseau: true
   };
 
@@ -521,6 +522,32 @@ const SETS_IMPORTES = [
     // l'upsert renvoie, PROJETÉE sur `select=`) n'était exercé par aucun banc.
     // `maybeSingle` sans ligne → PGRST116 « 0 rows », que postgrest-js rend en
     // `data: null` — c'est le cas du compte neuf.
+    // §9.1.1 (48b-7) — `zones_exercice`, l'historique des corrections de zone.
+    // En ajout seul : chaque choix ajoute une ligne, et l'upsert par `id` est
+    // ce qui rend un renvoi inoffensif. La politique réelle est celle du
+    // propriétaire, donc la lecture ne filtre pas par `user_id`.
+    if (table === 'zones_exercice') {
+      if (req.method() === 'GET') return json(projeter(base.zones, url));
+      if (req.method() === 'POST') {
+        const l = Array.isArray(corps) ? corps[0] : corps;
+        base.journal.push({ op: 'zone', id: l.id, slug: l.exercise_slug, zone: l.zone });
+        if (!l.id) return json(refus('23502', 'zones_exercice.id NOT NULL'), 400);
+        if (!l.user_id) return json(refus('23502', 'zones_exercice.user_id NOT NULL'), 400);
+        if (l.user_id !== MOI) return json(refus('42501', 'new row violates row-level security policy for table "zones_exercice"'), 400);
+        if (!CATALOGUE.some((e) => e.slug === l.exercise_slug)) return json(refus('23503', 'zones_exercice_exercise_slug_fkey'), 400);
+        // La contrainte réelle de la colonne : cinq clés, ou NULL.
+        if (l.zone !== null && l.zone !== undefined &&
+            ['lourd', 'mix', 'hypertrophie', 'volume', 'series_longues'].indexOf(l.zone) < 0) {
+          return json(refus('23514', 'zones_exercice_zone_ok'), 400);
+        }
+        if (!l.corrigee_a) return json(refus('23502', 'zones_exercice.corrigee_a NOT NULL'), 400);
+        const i = base.zones.findIndex((x) => x.id === l.id);
+        const ligne = Object.assign({ created_at: l.corrigee_a }, i >= 0 ? base.zones[i] : {}, l);
+        if (i >= 0) base.zones[i] = ligne; else base.zones.push(ligne);
+        return json(projeter([ligne], url), 201);
+      }
+    }
+
     if (table === 'profiles') {
       if (req.method() === 'GET') {
         const lignesProfil = projeter(base.profiles, url);
@@ -847,6 +874,139 @@ const SETS_IMPORTES = [
     }, nom);
     await attendre(900);
   };
+
+  console.log('\n══ 0. LA MONTÉE D’INDEXEDDB, VERSION 3 → 4 ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE (§2 quater) : UNE BASE QUI EXISTE DÉJÀ, en
+  // version 3, AVEC DES DONNÉES DEDANS. Une base neuve ne distingue rien —
+  // elle se crée en version 4 et tous les magasins y sont d'emblée. Ce qu'on
+  // doit prouver, c'est qu'un téléphone qui a déjà tout (des séances, des
+  // séries, son profil, une file d'attente non vidée) traverse la montée sans
+  // rien perdre. Un magasin ajouté par une montée fautive — `deleteObjectStore`
+  // de trop, transaction avortée — les emporterait DÉFINITIVEMENT.
+  //
+  // On se place sur l'origine SANS lancer l'app : une feuille de style suffit.
+  // Charger l'app d'abord créerait la base en version 4 et il n'y aurait plus
+  // de montée à mesurer.
+  await page.goto(BASE + '/styles.css', { waitUntil: 'domcontentloaded' }).catch(() => {});
+  const posees = await page.evaluate(() => new Promise((resoudre, rejeter) => {
+    const req = indexedDB.open('trainhub-v2', 3);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      db.createObjectStore('seances', { keyPath: 'id' }).createIndex('debut', 'debut');
+      db.createObjectStore('series', { keyPath: 'id' }).createIndex('session_id', 'session_id');
+      db.createObjectStore('exercices', { keyPath: 'slug' });
+      db.createObjectStore('pesees', { keyPath: 'id' });
+      db.createObjectStore('meta', { keyPath: 'cle' });
+      db.createObjectStore('brouillon', { keyPath: 'cle' });
+      db.createObjectStore('attente', { keyPath: 'cle' });
+    };
+    req.onerror = () => rejeter(req.error);
+    req.onsuccess = () => {
+      const db = req.result;
+      const tx = db.transaction(['seances', 'series', 'meta', 'attente'], 'readwrite');
+      tx.objectStore('seances').put({ id: 'sess-v3', user_id: 'u-banc', titre: 'Séance de la v3',
+        debut: '2026-09-01T08:00:00.000Z', fin: '2026-09-01T09:00:00.000Z', statut: 'terminee' });
+      tx.objectStore('series').put({ id: 'set-v3', session_id: 'sess-v3', user_id: 'u-banc',
+        exercise_slug: 'dc-barre', charge_kg: 111, reps: 5, type_serie: 'travail', rang: 1 });
+      // ⚠️ `proprietaire` FAIT PARTIE DU DÉCOR, ET SANS ELLE IL N'Y A PAS DE
+      // SCÉNARIO. Le cache appartient à un compte et à un seul : sans cette
+      // clé, `garantirProprietaire` le VIDE au démarrage — à juste titre, un
+      // cache orphelin pourrait être celui de quelqu'un d'autre. On mesurerait
+      // alors cette purge en croyant mesurer la montée. Un vrai téléphone en
+      // version 3 la porte ; le décor doit la porter aussi.
+      tx.objectStore('meta').put({ cle: 'proprietaire', valeur: { userId: 'u-banc' } });
+      tx.objectStore('meta').put({ cle: 'profil', valeur: { id: 'u-banc', intention: 'progresser' } });
+      tx.objectStore('meta').put({ cle: 'curseurSeries', valeur: '2026-09-01T00:00:00.000Z' });
+      // ⚠️ ET LA MARQUE DE FORME, POUR LA MÊME RAISON QUE `proprietaire`. Sans
+      // elle, `armerResynchronisation` conclut — à juste titre — qu'il faut
+      // reprendre une passe complète, et remet le curseur à zéro : on
+      // mesurerait ce cliquet en croyant mesurer la montée. Un téléphone qui a
+      // déjà synchronisé la porte.
+      tx.objectStore('meta').put({ cle: 'formeSync', valeur: { version: 4 } });
+      tx.objectStore('meta').put({ cle: 'attendu', valeur: { series: 1 } });
+      tx.objectStore('attente').put({ cle: 'sessions:sess-v3', seq: 1, table: 'sessions',
+        op: 'upsert', id: 'sess-v3', donnees: { id: 'sess-v3' }, version: 1, essais: 0, bloquee: null });
+      tx.oncomplete = () => { db.close(); resoudre(true); };
+      tx.onerror = () => rejeter(tx.error);
+    };
+  })).catch((e) => String(e));
+  ok('[V] une base de version 3 existe, avec séance, série, profil et file',
+    posees === true, String(posees));
+
+  // L'app démarre : `cache.js` ouvre en version 4 et crée `zones`.
+  //
+  // ⚠️ RÉSEAU COUPÉ POUR CETTE OUVERTURE, ET C'EST LA MOITIÉ DU SCÉNARIO.
+  // Avec le réseau, la synchronisation qui suit la montée REMPLACE légitimement
+  // séances et profil par ce que le serveur envoie : le magasin serait vide de
+  // `sess-v3` sans qu'aucune montée n'ait rien perdu, et ce banc mesurerait la
+  // synchronisation en croyant mesurer la montée. Hors réseau, la montée est
+  // seule à agir — et c'est aussi le cas réel : un téléphone mis à jour rouvre
+  // l'app là où il est, souvent sans réseau.
+  base.reseau = false;
+  await aller('/');
+  await attendre(1500);
+  const apresMontee = await page.evaluate(() => new Promise((resoudre, rejeter) => {
+    const req = indexedDB.open('trainhub-v2');
+    req.onerror = () => rejeter(req.error);
+    req.onsuccess = () => {
+      const db = req.result;
+      const noms = Array.from(db.objectStoreNames);
+      const tx = db.transaction(['seances', 'series', 'meta', 'attente'], 'readonly');
+      const lu = {};
+      const prendre = (magasin, cle, nom) => {
+        const r = tx.objectStore(magasin).get(cle);
+        r.onsuccess = () => { lu[nom] = r.result || null; };
+      };
+      prendre('seances', 'sess-v3', 'seance');
+      prendre('series', 'set-v3', 'serie');
+      prendre('meta', 'profil', 'profil');
+      prendre('meta', 'curseurSeries', 'curseur');
+      prendre('attente', 'sessions:sess-v3', 'file');
+      tx.oncomplete = () => { resoudre({ version: db.version, magasins: noms, lu: lu }); db.close(); };
+      tx.onerror = () => rejeter(tx.error);
+    };
+  })).catch((e) => ({ erreur: String(e) }));
+  ok('[V] la base est montée en version 4, et `zones` existe',
+    apresMontee.version === 4 && apresMontee.magasins.indexOf('zones') >= 0,
+    'version ' + apresMontee.version + ' · ' + JSON.stringify(apresMontee.magasins));
+  ok('[V] les sept magasins d’avant sont TOUS encore là',
+    ['seances', 'series', 'exercices', 'pesees', 'meta', 'brouillon', 'attente']
+      .every((m) => apresMontee.magasins.indexOf(m) >= 0),
+    JSON.stringify(apresMontee.magasins));
+  ok('[V] LA SÉANCE ET SA SÉRIE ONT TRAVERSÉ LA MONTÉE',
+    apresMontee.lu.seance && apresMontee.lu.seance.titre === 'Séance de la v3' &&
+    apresMontee.lu.serie && apresMontee.lu.serie.charge_kg === 111,
+    JSON.stringify(apresMontee.lu.seance && apresMontee.lu.seance.titre) + ' · ' +
+    JSON.stringify(apresMontee.lu.serie && apresMontee.lu.serie.charge_kg));
+  // Le curseur est le témoin le plus exigeant : il ne se retélécharge pas et
+  // sa perte ferait redescendre 15 Mo de séries à la prochaine ouverture.
+  ok('[V] le profil et le curseur de synchronisation aussi',
+    apresMontee.lu.profil && apresMontee.lu.profil.valeur.id === 'u-banc' &&
+    apresMontee.lu.curseur && apresMontee.lu.curseur.valeur === '2026-09-01T00:00:00.000Z',
+    JSON.stringify(apresMontee.lu.profil && apresMontee.lu.profil.valeur));
+  // ⚠️ LA FILE EST LE PLUS IMPORTANT DES CINQ. Une séance perdue dans le cache
+  // se retélécharge ; une entrée de file perdue est une écriture qui ne montera
+  // JAMAIS, et personne ne le saura.
+  ok('[V] ET LA FILE D’ATTENTE, qui ne se retélécharge pas',
+    apresMontee.lu.file && apresMontee.lu.file.id === 'sess-v3',
+    JSON.stringify(apresMontee.lu.file && apresMontee.lu.file.cle));
+
+  // Le décor de la v3 a fait son office : on le retire pour que les comptes des
+  // sections suivantes portent sur ce que la séance en cours écrit. Le réseau
+  // revient avec lui.
+  base.reseau = true;
+  await page.evaluate(() => new Promise((resoudre) => {
+    const req = indexedDB.open('trainhub-v2');
+    req.onsuccess = () => {
+      const db = req.result;
+      const tx = db.transaction(['seances', 'series', 'attente'], 'readwrite');
+      tx.objectStore('seances').delete('sess-v3');
+      tx.objectStore('series').delete('set-v3');
+      tx.objectStore('attente').delete('sessions:sess-v3');
+      tx.oncomplete = () => { db.close(); resoudre(); };
+    };
+  })).catch(() => {});
 
   console.log('\n══ 1. DÉMARRER DEPUIS UNE ROUTINE ══');
   await aller('/saisie');
@@ -4951,6 +5111,169 @@ const SETS_IMPORTES = [
     // (`envoyerProfil` envoie `champsEcrits(profil)`), dans l'ordre des gestes.
     console.log('   écritures du profil pendant la section : ' +
       JSON.stringify(base.journal.slice(repereH).filter((j) => j.op === 'profil').map((j) => j.champs.intention)));
+  }
+
+  console.log('\n══ 7 tervicies. LA CORRECTION DE ZONE ══');
+  //
+  // ⚠️ CE QUE SEUL CE BANC PROUVE : l'écriture. La zone choisie s'affiche
+  // d'abord sur l'appareil, part par la file, et un renvoi ne la double pas.
+  // Les modules purs disent la règle ; ici on regarde une ligne arriver en
+  // base, et l'en-tête changer sous le pouce.
+  //
+  // Le soulevé de terre du §7 duovicies sert de sujet : son historique est
+  // connu (125 × 4 · 125 × 5 · 130 × 3), sa zone déduite est Lourd, et une
+  // correction en Volume change la consigne du tout au tout — la configuration
+  // discriminante, puisque deux zones voisines donneraient presque le même
+  // chiffre et ne prouveraient pas le recalcul.
+  {
+    const repereZ = base.journal.length;
+    const enTete = () => page.evaluate(() =>
+      Array.from(document.querySelectorAll('.legende-exo .consigne')).map((e) => e.textContent));
+    const puce = () => page.evaluate(() => {
+      const n = document.querySelector('.legende-exo .puce-zone');
+      return n ? { balise: n.tagName, texte: n.textContent, choisie: n.classList.contains('choisie') } : null;
+    });
+    const optionsMenu = () => page.evaluate(() =>
+      Array.from(document.querySelectorAll('#feuille-contenu .option-zone')).map((b) => ({
+        cle: b.dataset.cle, actif: b.classList.contains('active'),
+        sous: (b.querySelector('.oz-sous') || {}).textContent || null })));
+    const boutonsMenu = () => page.evaluate(() =>
+      Array.from(document.querySelectorAll('#feuille-contenu button:not(.option-zone)'))
+        .map((b) => b.textContent));
+    const ouvrirMenu = async () => {
+      await page.click('.legende-exo .puce-zone');
+      await attendre(700);
+    };
+    const choisirZone = async (cle) => {
+      await page.click('#feuille-contenu .option-zone[data-cle="' + cle + '"]');
+      await attendre(1600);
+    };
+    const zonesEnBase = () => base.zones.map((z) => z.exercise_slug + ':' + z.zone);
+    const enFileZones = () => page.evaluate(() =>
+      (window.THCache ? window.THCache.lireAttente() : Promise.resolve([]))
+        .then((f) => f.filter((e) => e.table === 'zones_exercice').map((e) => e.id)));
+
+    await demarrerRoutine('Terre');
+    const avantCorrection = await enTete();
+    ok('[Z] l’étiquette est un BOUTON, au contour, et dit la zone déduite',
+      JSON.stringify(await puce()) === JSON.stringify({ balise: 'BUTTON', texte: 'Lourd 3-5', choisie: false }),
+      JSON.stringify(await puce()));
+
+    await ouvrirMenu();
+    const opts = await optionsMenu();
+    ok('[Z] le menu montre les cinq zones, la déduite cochée, et sa raison',
+      opts.length === 5 && opts.filter((o) => o.actif).map((o) => o.cle).join() === 'lourd' &&
+      opts.filter((o) => o.sous).length === 1 && /reps d’|reps d'/.test(opts.filter((o) => o.sous)[0].sous),
+      JSON.stringify(opts));
+    ok('[Z] aucune zone choisie : pas de « Revenir », mais « Fermer »',
+      (await boutonsMenu()).filter((x) => /Revenir/.test(x)).length === 0 &&
+      (await boutonsMenu()).indexOf('Fermer') >= 0,
+      JSON.stringify(await boutonsMenu()));
+
+    // ── LE CHOIX : l'écran d'abord, la base ensuite ───────────────────────
+    await choisirZone('volume');
+    ok('[Z] L’EN-TÊTE A CHANGÉ AUSSITÔT — la consigne s’est recalculée',
+      JSON.stringify(await enTete()) !== JSON.stringify(avantCorrection) &&
+      (await enTete()).length > 0,
+      JSON.stringify(avantCorrection) + ' → ' + JSON.stringify(await enTete()));
+    ok('[Z] et l’étiquette passe au fond plein : Volume 10-12, choisie',
+      JSON.stringify(await puce()) === JSON.stringify({ balise: 'BUTTON', texte: 'Volume 10-12', choisie: true }),
+      JSON.stringify(await puce()));
+    ok('[Z] une ligne est montée en base, avec son identifiant et sa date',
+      base.zones.length === 1 && base.zones[0].exercise_slug === 'souleve-terre' &&
+      base.zones[0].zone === 'volume' && !!base.zones[0].id && !!base.zones[0].corrigee_a &&
+      base.zones[0].user_id === 'u-banc',
+      JSON.stringify(base.zones));
+    ok('[Z] aucun refus du serveur : la ligne était acceptable',
+      base.journal.filter((j, i) => i >= repereZ && j.op === 'refus').length === 0,
+      JSON.stringify(base.journal.filter((j, i) => i >= repereZ && j.op === 'refus').slice(0, 2)));
+    ok('[Z] la file est vide : la ligne est partie',
+      (await enFileZones()).length === 0, JSON.stringify(await enFileZones()));
+
+    // ── « Revenir » n'existe que maintenant, et écrit une ligne VIDE ───────
+    await ouvrirMenu();
+    ok('[Z] une zone choisie : « Revenir » apparaît',
+      (await boutonsMenu()).filter((x) => /Revenir/.test(x)).length === 1,
+      JSON.stringify(await boutonsMenu()));
+    await page.evaluate(() => {
+      Array.from(document.querySelectorAll('#feuille-contenu button'))
+        .filter((b) => /Revenir/.test(b.textContent))[0].click();
+    });
+    await attendre(1600);
+    ok('[Z] « Revenir » AJOUTE une ligne vide, il n’efface pas l’historique',
+      base.zones.length === 2 && base.zones[1].zone === null,
+      JSON.stringify(zonesEnBase()));
+    ok('[Z] et la consigne revient à celle d’avant, au contour',
+      JSON.stringify(await enTete()) === JSON.stringify(avantCorrection) &&
+      (await puce()).choisie === false,
+      JSON.stringify(await enTete()));
+
+    // ── HORS LIGNE : le choix s'affiche et ATTEND ─────────────────────────
+    base.reseau = false;
+    await ouvrirMenu();
+    await choisirZone('mix');
+    ok('[Z] HORS LIGNE, le choix s’affiche quand même',
+      (await puce()).texte === 'Mix 6-8' && (await puce()).choisie === true,
+      JSON.stringify(await puce()));
+    ok('[Z] …et il attend dans la file, rien n’est monté',
+      (await enFileZones()).length === 1 && base.zones.length === 2,
+      (await enFileZones()).length + ' en file · ' + base.zones.length + ' en base');
+
+    // ── L'APP RECHARGÉE, TOUJOURS HORS LIGNE : le choix tient ─────────────
+    await aller('/saisie');
+    ok('[Z] l’app rechargée garde le choix, sans réseau',
+      (await puce()).texte === 'Mix 6-8' && (await puce()).choisie === true,
+      JSON.stringify(await puce()));
+
+    // ── LE RÉSEAU REVIENT : la ligne monte, et UNE SEULE FOIS ────────────
+    base.reseau = true;
+    await aller('/saisie');
+    await attendre(2000);
+    ok('[Z] le réseau revenu, la ligne monte',
+      base.zones.length === 3 && base.zones[2].zone === 'mix',
+      JSON.stringify(zonesEnBase()));
+    const envoisMix = base.journal.filter((j) => j.op === 'zone' && j.zone === 'mix').length;
+    // ⚠️ L'IDEMPOTENCE : on rejoue une vidange. L'entrée est partie, donc rien
+    // ne doit repartir ; et même rejouée, l'`upsert` par `id` écrirait la MÊME
+    // ligne. Un identifiant laissé au serveur en ferait une seconde.
+    await aller('/saisie');
+    await attendre(2000);
+    ok('[Z] UN RENVOI NE DOUBLE RIEN : toujours trois lignes',
+      base.zones.length === 3 && new Set(base.zones.map((z) => z.id)).size === 3,
+      base.zones.length + ' ligne(s) · ' + envoisMix + ' envoi(s) de « mix »');
+    await abandonner();
+
+    // ── LE MENU DEPUIS LA PAGE D'EXERCICE, SANS SÉANCE EN COURS ──────────
+    //
+    // ⚠️ C'EST LA CONFIGURATION QUI A DEMANDÉ UNE PORTE À PART. `rendreFeuille`
+    // refuse net sans séance en cours — une garde juste pour les six autres
+    // feuilles, qui toutes lisent la séance. Ici il n'y en a aucune, et le menu
+    // doit quand même s'ouvrir et écrire.
+    ok('[Z] aucune séance en cours : la configuration est bien celle-là',
+      !seanceCourante(), String(seanceCourante()));
+    await aller('/exercice/souleve-terre');
+    const puceExo = () => page.evaluate(() => {
+      const n = document.querySelector('#page-exercice .puce-zone');
+      return n ? { balise: n.tagName, texte: n.textContent, choisie: n.classList.contains('choisie') } : null;
+    });
+    ok('[Z] la page d’exercice porte l’étiquette, et c’est un bouton',
+      (await puceExo()) && (await puceExo()).balise === 'BUTTON' && (await puceExo()).texte === 'Mix 6-8',
+      JSON.stringify(await puceExo()));
+    await page.click('#page-exercice .puce-zone');
+    await attendre(700);
+    ok('[Z] le menu s’ouvre SANS séance en cours',
+      (await optionsMenu()).length === 5, JSON.stringify((await optionsMenu()).map((o) => o.cle)));
+    await choisirZone('hypertrophie');
+    ok('[Z] le choix depuis la page d’exercice écrit sa ligne',
+      base.zones.length === 4 && base.zones[3].zone === 'hypertrophie' &&
+      base.zones[3].exercise_slug === 'souleve-terre',
+      JSON.stringify(zonesEnBase()));
+    ok('[Z] la file est repartie à vide, et la page s’est redessinée',
+      (await enFileZones()).length === 0 && (await puceExo()).texte === 'Hypertrophie 8-10' &&
+      (await puceExo()).choisie === true,
+      JSON.stringify(await puceExo()));
+    ok('[Z] aucune erreur de page pendant toute la correction',
+      erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
 
   console.log('\n══ 8. NON-RÉGRESSION ══');

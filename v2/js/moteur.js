@@ -207,6 +207,33 @@
   // `correction` est une clé de `zones_exercice`, ou rien. Une clé VIDE veut
   // dire « retour à la déduction » — c'est le sens que lui donne la migration
   // `v2_046` —, donc elle retombe sur l'habitude comme une absence.
+  // ── §9.1.1 — LA ZONE EN VIGUEUR, LUE SUR L'HISTORIQUE ────────────────────
+  //
+  // `zones_exercice` est un historique EN AJOUT SEUL : chaque choix ajoute une
+  // ligne, et la plus récente fait foi. Une ligne à zone VIDE ramène à la
+  // déduction — c'est ainsi que « Revenir à celle d'après tes séances »
+  // s'écrit, sans jamais effacer ce qui a été choisi avant.
+  //
+  // ⚠️ LE DÉPARTAGE VA JUSQU'À L'IDENTIFIANT, et ce n'est pas du zèle : deux
+  // appareils peuvent poser à la même seconde, et `corrigee_a` seul rendrait
+  // alors une zone qui dépend de l'ordre d'arrivée des lignes. Deux lectures de
+  // la même base donneraient deux consignes.
+  function zoneEnVigueur(lignes, slug) {
+    var gagnante = null;
+    (lignes || []).forEach(function (l) {
+      if (!l || l.exercise_slug !== slug) return;
+      var t = instant(l.corrigee_a);
+      if (t === null) return;
+      if (gagnante === null || t > gagnante.t ||
+          (t === gagnante.t && String(l.id) > String(gagnante.id))) {
+        gagnante = { t: t, id: l.id, zone: l.zone };
+      }
+    });
+    // Une zone vide, ou inconnue, vaut « pas de correction » : `zoneRetenue`
+    // retombera sur l'habitude.
+    return gagnante && gagnante.zone ? gagnante.zone : null;
+  }
+
   function zoneRetenue(correction, habitude) {
     // `zoneParCle` ne lit que les cinq clés de la table : une valeur inventée,
     // ou `constructor` venu d'une ligne de base, n'y trouve rien et retombe sur
@@ -916,7 +943,26 @@
         f.habitude = { valeur: habitudeVraie,
                        seances: Math.min(FENETRE_HABITUDE, duCouple.length) };
       }
-      if (figee !== null) f.zoneFigee = { date: figee.debut };
+      // ⚠️ LE GEL S'EFFACE DEVANT UNE CORRECTION (C3). Il protège la zone
+      // DÉDUITE pendant qu'un étirement court ; quand l'utilisateur a choisi la
+      // sienne, il n'a plus d'objet, et la feuille ne doit pas raconter un gel
+      // qu'elle n'affiche plus. L'épisode, lui, continue : l'état reste
+      // `etirement`, seule la zone change.
+      if (figee !== null && zoneParCle(correction) === null) {
+        f.zoneFigee = { date: figee.debut };
+      }
+      // §9.1.1 (48b-7) — QUAND UNE ZONE EST CHOISIE, la feuille « Pourquoi »
+      // doit pouvoir dire ce que les séances auraient donné. Elle ne le
+      // recalcule pas : le moteur le lui donne.
+      //
+      // ⚠️ SUR L'HABITUDE VRAIE, PAS SUR LA GELÉE. Pendant un étirement, la
+      // zone gelée est justement celle que la correction remplace : répondre
+      // « ce serait Volume » en citant le gel ferait dire au moteur qu'il
+      // déduirait aujourd'hui ce qu'il a cessé de déduire il y a trois séances.
+      if (zoneParCle(correction) !== null) {
+        var deduite = zoneDe(habitudeVraie);
+        f.correction = { zoneDeduite: deduite === null ? null : deduite.cle };
+      }
       if (aFond !== null) f.serieAFond = aFond;
       // ⚠️ `testUnCran` NE SE POSE QUE SUR LE TEST DE LA DERNIÈRE SÉANCE. Le
       // test d'un épisode d'étirement (§9.7) arrive par `plus`, sans lui : on
@@ -1445,18 +1491,38 @@
     return dit;
   }
 
+  // ⚠️ « TOUCHE L'ÉTIQUETTE POUR LA CHANGER » TERMINE TOUTES LES FORMES
+  // (48b-7). La ligne de zone en a trois — choisie, figée par un étirement,
+  // déduite — et la porte est la même dans les trois : la dire dans deux cas
+  // sur trois, c'est laisser croire que la zone n'est pas toujours corrigible.
+  var TOUCHE_ETIQUETTE = ' Touche l\'étiquette pour la changer.';
+
   function zoneDuPourquoi(c) {
     var z = zoneParCle(c.zone);
     if (z === null) return null;
     var f = c.fondement || {};
     var tete = 'Ta zone' + DEUX_POINTS + z.libelle + ', de ' + z.bas + ' à ' + z.haut + ' reps';
+
+    // Choisie : elle se dit d'abord, et ce que les séances auraient donné
+    // ensuite — mais SEULEMENT si c'est autre chose. « Ce serait Lourd » sous
+    // une zone Lourd choisie ne dit rien à personne, et sous 3 reps
+    // d'habitude il n'y a pas de zone à citer du tout.
+    if (f.correction) {
+      var d = zoneParCle(f.correction.zoneDeduite);
+      if (d === null || d.cle === z.cle || !f.habitude) {
+        return tete + ', choisie par toi.' + TOUCHE_ETIQUETTE;
+      }
+      return tete + ', choisie par toi. D\'après tes ' + f.habitude.seances +
+             ' dernières séances, ce serait ' + d.libelle + DEUX_POINTS +
+             'tu fais ' + f.habitude.valeur + ' reps d\'habitude.' + TOUCHE_ETIQUETTE;
+    }
     if (f.zoneFigee) {
       return tete + ', celle de ton test du ' + leJour(f.zoneFigee.date) + DEUX_POINTS +
-             'elle ne bouge pas pendant que ta zone s\'étire.';
+             'elle ne bouge pas pendant que ta zone s\'étire.' + TOUCHE_ETIQUETTE;
     }
-    if (!f.habitude) return tete + '.';
+    if (!f.habitude) return tete + '.' + TOUCHE_ETIQUETTE;
     return tete + '. Sur tes ' + f.habitude.seances + ' dernières séances, tu fais ' +
-           f.habitude.valeur + ' reps d\'habitude.';
+           f.habitude.valeur + ' reps d\'habitude.' + TOUCHE_ETIQUETTE;
   }
 
   function palierDuPourquoi(c) {
@@ -1685,8 +1751,10 @@
       var r = Palier().analyser((g && g.series) || [], etat, { mesure: o.mesure });
       return seanceDuContrat(g && g.seance ? g.seance.debut : null, r);
     });
+    // §9.1.1 (48b-7) — LE RANG 2 EST BRANCHÉ. Il attendait ici depuis
+    // 48b-5b-2, câblé à `null` faute d'un endroit où lire la zone choisie.
     var consigne = consignePour(seances, avant,
-      { reglage: o.reglage, equipement: o.equipement, correction: null });
+      { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null });
     return { consigne: consigne, libelles: libellesConsigne(consigne),
              etiquette: etiquetteZone(consigne),
              pourquoi: pourquoiConsigne(consigne, o.reglage) };
@@ -1726,6 +1794,10 @@
     libellesConsigne: libellesConsigne,
     pourquoiConsigne: pourquoiConsigne,
     etiquetteZone: etiquetteZone,
+    // Le menu des zones les affiche toutes (§3.8) : il lit cette table, il ne
+    // recopie ni les libellés ni les bornes.
+    ZONES: ZONES,
+    zoneEnVigueur: zoneEnVigueur,
     seanceDuContrat: seanceDuContrat,
     consigneDExercice: consigneDExercice,
     MOIS_COURTS: MOIS_COURTS,

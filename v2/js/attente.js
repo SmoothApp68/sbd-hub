@@ -53,6 +53,16 @@
   'use strict';
 
   var SESSIONS = 'sessions', SETS = 'sets', ROUTINE_EXOS = 'routine_exercises';
+  // §9.1.1 (48b-7) — la quatrième. Une correction de zone se choisit EN SALLE,
+  // là où le réseau n'est pas : la perdre parce que la requête directe a échoué
+  // serait la perte silencieuse que cette file existe pour empêcher.
+  //
+  // ⚠️ UN IDENTIFIANT NEUF PAR CHOIX, DONC AUCUNE COMPRESSION ENTRE DEUX
+  // CHOIX. La compression de `poser` se fait sur `table:id` : deux corrections
+  // du même exercice portent deux identifiants, donc deux entrées, donc deux
+  // lignes. C'est l'historique voulu — compresser par exercice n'enverrait que
+  // le dernier choix et perdrait l'ordre de ceux faits hors ligne.
+  var ZONES = 'zones_exercice';
   var UPSERT = 'upsert', SUPPRIMER = 'supprimer', REMPLACER = 'remplacer';
   var PLAN = 'plan';
 
@@ -408,7 +418,7 @@
   }
 
   var api = {
-    SESSIONS: SESSIONS, SETS: SETS, ROUTINE_EXOS: ROUTINE_EXOS,
+    SESSIONS: SESSIONS, SETS: SETS, ROUTINE_EXOS: ROUTINE_EXOS, ZONES: ZONES,
     UPSERT: UPSERT, SUPPRIMER: SUPPRIMER, REMPLACER: REMPLACER, PLAN: PLAN,
     CODES_DEFINITIFS: CODES_DEFINITIFS,
     cleDe: cleDe,

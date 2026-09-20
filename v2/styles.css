@@ -656,6 +656,33 @@ button.bloc-exo:active{background:var(--panneau-2)}
   color:var(--texte-2);font-size:11px;font-weight:600;white-space:nowrap}
 .exo-tete .puce-zone{margin-top:var(--e1)}
 
+/* §3.8 (48b-7) — L'ÉTIQUETTE EST UNE PORTE. Même dessin qu'au contour, plus
+   l'état « choisie » : fond plein et un point, pour qu'on voie d'un coup d'œil
+   ce qu'on a imposé au moteur. Jamais de jaune dans aucun des deux états.
+   La cible de tap fait 26 px de haut : on la vise une barre à la main. */
+button.puce-zone{font:inherit;font-size:11px;font-weight:600;cursor:pointer;
+  min-height:26px;padding:3px 9px}
+.puce-zone.choisie{background:var(--panneau-2);border-color:var(--panneau-2);
+  color:var(--texte)}
+.puce-zone.choisie::before{content:"";width:5px;height:5px;border-radius:50%;
+  background:var(--texte);margin-right:6px;flex:0 0 auto}
+.puce-seule{display:inline-flex}
+
+/* Le menu des cinq zones. Une option est une ligne tapable : le rond, le nom,
+   les reps — et, sous la zone déduite seulement, sa raison. */
+.option-zone{display:grid;grid-template-columns:20px 1fr auto;gap:var(--e2);
+  align-items:center;width:100%;padding:10px 8px;border:0;border-radius:var(--r-petit);
+  background:none;color:var(--texte);font:inherit;font-size:14px;text-align:left}
+.option-zone + .option-zone{margin-top:1px}
+.option-zone .oz-rond{width:16px;height:16px;border-radius:50%;
+  border:1.5px solid var(--texte-3)}
+.option-zone.active{background:var(--panneau-2)}
+.option-zone.active .oz-rond{border-color:var(--texte);background:var(--texte);
+  box-shadow:inset 0 0 0 3.5px var(--panneau-2)}
+.option-zone .oz-reps{color:var(--texte-2);font-size:12px}
+.option-zone .oz-sous{grid-column:2 / 4;color:var(--texte-3);font-size:11px;
+  line-height:1.35;margin-top:2px}
+
 /* §3.10 — LA FEUILLE « POURQUOI ». Une ligne de séance est un couple : ce qui
    a été fait à gauche, son rôle à droite, et le rôle passe sous lui quand la
    place manque plutôt que de rogner le chiffre. */

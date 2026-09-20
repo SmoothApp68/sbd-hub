@@ -411,6 +411,32 @@
     return r.data || [];
   }
 
+  // ══ LES CORRECTIONS DE ZONE (§9.1.1, chantier 48b-7) ═════════════════════
+  //
+  // `zones_exercice` est un HISTORIQUE EN AJOUT SEUL : chaque choix ajoute une
+  // ligne, la plus récente par `corrigee_a` fait foi, une zone vide ramène à la
+  // déduction. La politique du propriétaire est `(select auth.uid())` : la
+  // lecture ne ramène que les siennes, on ne filtre donc pas par `user_id`.
+  var COLONNES_ZONE = 'id, user_id, exercise_slug, zone, corrigee_a, created_at';
+
+  function mesZones() {
+    return paginerParCle(trancheur(function () {
+      return client().from('zones_exercice').select(COLONNES_ZONE);
+    }, 'id'), 'id');
+  }
+
+  // ⚠️ `upsert` SUR `id`, ET L'IDENTIFIANT VIENT DE L'APPAREIL. C'est ce qui
+  // rend l'envoi idempotent : la file peut rejouer la même intention sans
+  // jamais doubler la ligne. `user_id` et `corrigee_a` sont posés par l'app,
+  // jamais laissés au défaut du serveur — l'ordre des choix faits hors ligne
+  // est celui des gestes, pas celui du retour du réseau.
+  async function enregistrerZone(ligne) {
+    var r = await client().from('zones_exercice').upsert(ligne, { onConflict: 'id' })
+      .select(COLONNES_ZONE).single();
+    if (r.error) throw r.error;
+    return r.data;
+  }
+
   // ══ LE PROFIL (chantier 46 §2) ═══════════════════════════════════════════
   //
   // Une ligne, la sienne. `profiles_select_own` est `auth.uid() = id` : ce
@@ -501,6 +527,8 @@
     seriesDepuis: seriesDepuis,
     tousLesExercices: tousLesExercices,
     toutesLesPesees: toutesLesPesees,
+    mesZones: mesZones,
+    enregistrerZone: enregistrerZone,
     mesRoutines: mesRoutines,
     creerRoutine: creerRoutine,
     majRoutine: majRoutine,

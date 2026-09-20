@@ -1249,21 +1249,69 @@ describe('le constat de fin de bloc (ECRAN-SAISIE §3.9)', () => {
     // `constatDExercice` fait le pont lui-même : l'app lui passe ce qu'elle a
     // en mémoire, pas le contrat du moteur. Sans ce test, le pont pourrait
     // perdre une colonne sans qu'aucun des 14 cas ne s'en aperçoive.
-    const brut = (s) => ({ seance: { debut: s.debut }, series: s.series.map((x) => ({
-      charge_kg: x.charge_kg, reps: x.reps, rpe: x.rpe, ressenti: null, type_serie: 'travail' })) });
+    // ⚠️ DES IDENTIFIANTS, ET À CONTRE-SENS DU RANG (20/09/2026). Ces cas
+    // n'en portaient aucun, et c'était leur angle mort : sans `id`, le
+    // départage de `Palier.trier` ne se déclenchait pas et l'ordre du tableau
+    // survivait par chance. L'app, elle, donne de vrais UUID — et pendant un
+    // chantier, le constat a lu la séance du jour dans l'ordre de ces UUID.
+    // Les deux formes de ce que l'app passe sont donc jouées : avec le rang
+    // (depuis le correctif du 20/09), et sans lui.
+    const brut = (avecRang) => (s) => ({ seance: { debut: s.debut },
+      series: s.series.map((x, i, l) => {
+        var ligne = { id: 'u' + (l.length - i), charge_kg: x.charge_kg, reps: x.reps,
+          rpe: x.rpe, ressenti: null, type_serie: 'travail' };
+        if (avecRang) ligne.rang = i + 1;
+        return ligne;
+      }) });
     // ⚠️ `{ etat: 'monte' }`, ET C'EST LA MOITIÉ DU PONT. Le rôle `rampe` ne
     // naît QUE sur un exercice qui monte (`palier.js`, §5.2) : sans cet état,
     // `analyser` prend la première série d'un échauffement en charge pour du
     // travail, et K15 comme K17 comptent « les 2 d'avant » au lieu d'« une ».
     // L'app passe `etatsExercices[slug]` ; le test doit passer la même chose.
-    CAS.forEach((c) => {
-      const r = Moteur.constatDExercice(
-        c.seances.map(brut), brut(c.seanceDuJour), { etat: 'monte' }, c.avant, c.apres,
-        { mesure: 'charge_reps', equipement: c.equipement, intention: 'progresser',
-          reglage: c.reglage, edition: false });
-      expect([c.id, r.constat]).toEqual([c.id, c.constat]);
-      expect([c.id, r.cranSuivant]).toEqual([c.id, c.cranSuivant]);
+    [true, false].forEach((avecRang) => {
+      const forme = brut(avecRang);
+      const quoi = avecRang ? 'avec rang' : 'sans rang';
+      CAS.forEach((c) => {
+        const r = Moteur.constatDExercice(
+          c.seances.map(forme), forme(c.seanceDuJour), { etat: 'monte' }, c.avant, c.apres,
+          { mesure: 'charge_reps', equipement: c.equipement, intention: 'progresser',
+            reglage: c.reglage, edition: false });
+        expect([quoi, c.id, r.constat]).toEqual([quoi, c.id, c.constat]);
+        expect([quoi, c.id, r.cranSuivant]).toEqual([quoi, c.id, c.cranSuivant]);
+      });
     });
+  });
+
+  // ── LA SÉANCE DU 20/09, CELLE QUI A OUVERT LE DÉFAUT ─────────────────────
+  //
+  // Squat, 21 h 09 : une rampe à 120, puis 130 sur trois séries — 5, 4, 4. Le
+  // constat a écrit « 4-5-4 ». Ni l'ordre de l'écran, ni celui de la
+  // validation : celui des UUID, tirés au hasard. C'est le cas d'espèce du
+  // §1.2 de MOTEUR-PROGRESSION (`120 → 130 → 130 → 130` mal lu), par l'autre
+  // bout — là, le rang manquait au lieu d'être ignoré.
+  test('DISCRIMINANT — la séance du 20/09 se lit « 5-4-4 », jamais « 4-5-4 »', () => {
+    const jour = (d) => '2026-' + d + 'T18:00:00+00:00';
+    const hist = ['08-16', '08-23', '08-30', '09-06', '09-13'].map((d, i) => ({
+      seance: { debut: jour(d) },
+      series: [115 + i * 2.5, 115 + i * 2.5, 115 + i * 2.5].map((kg, k) => ({
+        id: 'h' + k, rang: k + 1, charge_kg: kg, reps: 5, rpe: null,
+        ressenti: null, type_serie: 'travail' }))
+    }));
+    // Les identifiants sont à CONTRE-SENS du rang, comme ce soir-là : trié sur
+    // eux, on lirait « 4-5-4 » ; trié sur le rang, « 5-4-4 ».
+    const duSoir = [[120, 5, 'z'], [130, 5, 'm'], [130, 4, 'b'], [130, 4, 'a']]
+      .map((x, i) => ({ id: x[2], rang: i + 1, charge_kg: x[0], reps: x[1],
+        rpe: null, ressenti: null, type_serie: 'travail' }));
+    const r = Moteur.constatDExercice(hist, { seance: { debut: jour('09-20') }, series: duSoir },
+      { etat: 'monte' }, jour('09-20'), '2026-09-20T21:30:00+00:00',
+      { mesure: 'charge_reps', equipement: 'barre', intention: 'progresser',
+        reglage: 'normal', edition: false });
+    expect(r.constat.verdict).toBe('Pas encore' + NB + ': 5-4-4 à 130.');
+    expect(r.constat.verdict).not.toMatch(/4-5-4/);
+    // Et le 120 reste la RAMPE, pas une descente de fin : l'ordre décide aussi
+    // du rôle, donc de la phrase qui suit.
+    const roles = r.apres.consigne.fondement.seance.map((x) => x.role);
+    expect(roles).toEqual(['rampe', 'palier', 'palier', 'palier']);
   });
 
   test('DISCRIMINANT — là où le moteur se tait, il ne constate pas non plus', () => {

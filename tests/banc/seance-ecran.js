@@ -5386,6 +5386,37 @@ const SETS_IMPORTES = [
       JSON.stringify(await constat()).replace(/\u00a0/g, '·'));
     await taperReps(2, repsOrigine);
 
+    // ── L'ORDRE DE LECTURE (20/09/2026) ──────────────────────────────────
+    //
+    // ⚠️ CONFIGURATION DISCRIMINANTE : trois séries à la MÊME charge et à des
+    // reps DIFFÉRENTES. À charges inégales, c'est le palier qui départage et
+    // l'ordre ne se voit pas ; à reps égales, « 4-4-4 » se lit pareil dans
+    // tous les sens. Il faut 5-4-3 pour que l'ordre soit lisible dans la
+    // phrase. Et c'est ici, et NULLE PART AILLEURS, que l'ordre se teste pour
+    // de vrai : le banc conduit la vraie app, donc ses séries portent de vrais
+    // UUID tirés au hasard — le décor exact qui a fait lire « 4-5-4 » à la
+    // séance du 20/09, alors que l'écran montrait 5, 4, 4.
+    const taper = async (i, charge, reps) => {
+      const champs = await (await ligne(i)).$$('input');
+      await champs[0].fill(String(charge));
+      await champs[1].fill(String(reps));
+      await attendre(450);
+    };
+    await taper(0, 130, 5);
+    await taper(1, 130, 4);
+    await taper(2, 130, 3);
+    const vues = [await repsDe(0), await repsDe(1), await repsDe(2)];
+    ok('[C6] l’écran montre 5, 4, 3 dans cet ordre',
+      JSON.stringify(vues) === JSON.stringify(['5', '4', '3']), JSON.stringify(vues));
+    const lecture = String((await constat()).verdict);
+    ok('[C6] LE MOTEUR LIT DANS L’ORDRE DE L’ÉCRAN : « 5-4-3 », aucune autre permutation',
+      /5-4-3/.test(lecture) && !/4-5-3|4-3-5|5-3-4|3-4-5|3-5-4/.test(lecture),
+      JSON.stringify(lecture).replace(/\u00a0/g, '·'));
+    await taper(2, 130, 4);
+    ok('[C6] la troisième corrigée à 4 : la lecture suit, « 5-4-4 »',
+      /5-4-4/.test(String((await constat()).verdict)),
+      JSON.stringify(await constat()).replace(/\u00a0/g, '·'));
+
     await plusSerie(0);
     ok('[C6] AJOUTER UNE SÉRIE LE DÉFAIT AUSSI — l’exercice n’est plus fini',
       (await constat()).verdict === null && (await enTete()).length > 0,

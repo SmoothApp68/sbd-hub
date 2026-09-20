@@ -82,6 +82,12 @@ Deux dégâts réels, à un mois d'écart :
 
 Le second cas est plus grave que le premier parce que la règle existait déjà et n'a pas été appliquée. Elle est donc rappelée ici, avec son cas d'espèce.
 
+**Et quand le rang manque — 20/09/2026.** La règle disait la moitié : trier sur `sets.rang`. Elle ne disait pas ce qui se passe quand **il n'y a pas de rang** — le cas d'une série en mémoire, pas encore écrite en base, où `rang` se calcule à l'écriture.
+
+> **Rang absent : l'ordre reçu fait foi. Jamais un départage sur autre chose — ni l'identifiant, ni l'instant de validation, ni l'ordre d'insertion.**
+
+Le départage de `Palier.trier` tombait sur `localeCompare` de l'identifiant, un UUID tiré au hasard à la création de la ligne. Le constat de fin de bloc lisait donc la séance du jour dans un ordre qu'aucun geste de l'utilisateur n'avait produit : **au squat du 20/09/2026**, `120 → 130 → 130 → 130` (5, 4, 4 au palier) s'est lu « 4-5-4 ». C'est le cas d'espèce du soulevé hex ci-dessus, par l'autre bout — là l'ordre était ignoré, ici il n'existait pas. Un départage « pour la forme » n'est pas de la stabilité : c'est du hasard rendu déterministe.
+
 ### 1.3 La règle du suspendu
 
 > **Suspendu = 100 % du poids de corps daté. Dès qu'un appui touche le sol = zéro.**

@@ -789,3 +789,53 @@ describe('meilleure série — distincte du palier, et les deux sont vraies', ()
     expect(r.meilleure).toEqual({ charge: 120, reps: 6 });
   });
 });
+
+// ── §1.2 — LE TRI, ET CE QU'IL FAIT QUAND LE RANG MANQUE ───────────────────
+//
+// La règle existait et disait la moitié : « tri explicite sur le rang ». Elle
+// ne disait pas ce qui se passe quand le rang N'EST PAS LÀ — le cas d'une
+// série en mémoire, pas encore écrite en base. Le départage tombait sur
+// `localeCompare` de l'identifiant, un UUID tiré au hasard.
+describe('§1.2 — le tri par rang, et l’ordre reçu quand le rang manque', () => {
+  // Les identifiants sont à CONTRE-SENS du rang : c'est ce qui sépare les deux
+  // lectures. Avec des identifiants dans le même ordre que les rangs, aucun
+  // test ne peut distinguer — c'était l'angle mort de toute la suite.
+  const lire = (r) => r.series.map((d) => d.serie.charge_kg + '×' + d.serie.reps);
+
+  test('DISCRIMINANT — le rang gagne contre l’ordre des identifiants ET contre celui du tableau', () => {
+    // Le tableau est donné DANS UN TROISIÈME ORDRE, exprès : trié sur les
+    // identifiants on lirait « 130×4  130×5  120×5 », sur le tableau
+    // « 130×4  120×5  130×5 ». Une seule lecture rend la séance réelle, et
+    // c'est le rang. Sans ces trois ordres distincts, un tri absent passerait.
+    const r = P.analyser([
+      { id: 'aaa', rang: 3, type_serie: 'travail', charge_kg: 130, reps: 4, rpe: null },
+      { id: 'zzz', rang: 1, type_serie: 'travail', charge_kg: 120, reps: 5, rpe: null },
+      { id: 'mmm', rang: 2, type_serie: 'travail', charge_kg: 130, reps: 5, rpe: null }
+    ], etat('monte'), { mesure: 'charge_reps' });
+    expect(lire(r)).toEqual(['120×5', '130×5', '130×4']);
+  });
+
+  test('DISCRIMINANT — sans rang, l’ordre REÇU fait foi, jamais l’identifiant', () => {
+    // Le tri de JavaScript est stable : à rangs égaux (tous absents, donc tous
+    // à 0), le tableau survit tel qu'on l'a donné. C'est l'ordre de l'écran.
+    const sans = (id, kg, reps) => ({ id: id, type_serie: 'travail',
+      charge_kg: kg, reps: reps, rpe: null });
+    const r = P.analyser([sans('zzz', 120, 5), sans('mmm', 130, 5), sans('aaa', 130, 4)],
+      etat('monte'), { mesure: 'charge_reps' });
+    expect(lire(r)).toEqual(['120×5', '130×5', '130×4']);
+    // Et l'ordre inverse se lit à l'envers : le tri n'invente rien, il garde.
+    const inverse = P.analyser([sans('aaa', 130, 4), sans('mmm', 130, 5), sans('zzz', 120, 5)],
+      etat('monte'), { mesure: 'charge_reps' });
+    expect(lire(inverse)).toEqual(['130×4', '130×5', '120×5']);
+  });
+
+  test('un rang manquant ne double pas la place d’un autre', () => {
+    // Rang absent → 0, donc AVANT les rangs réels. La série sans rang ne se
+    // faufile pas au milieu : elle passe devant, et on le sait.
+    const r = P.analyser([
+      { id: 'a', rang: 2, type_serie: 'travail', charge_kg: 130, reps: 5, rpe: null },
+      { id: 'b', type_serie: 'travail', charge_kg: 120, reps: 5, rpe: null }
+    ], etat('monte'), { mesure: 'charge_reps' });
+    expect(lire(r)).toEqual(['120×5', '130×5']);
+  });
+});

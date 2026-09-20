@@ -128,6 +128,64 @@ describe('le pont depuis analyser (MOTEUR §9.13)', () => {
       .toEqual(['autre', 'autre', 'autre', 'autre', 'palier', 'palier', 'exploration']);
   });
 
+  // ⚠️ AJOUTÉ LE 20/09 SUR UNE QUESTION D'AURÉLIEN, ET C'ÉTAIT UN TROU : aucun
+  // test ne faisait passer un EFFORT par le pont. Les 39 + 37 cas des fixtures
+  // nourrissent `consignePour` directement, en forme de contrat ; un pont qui
+  // perdait `rpe` ou `ressenti` survivait à 2 391 tests. Ici la série a la forme
+  // que l'app lui donne (toutes les colonnes de `COLONNES_SET`), et le cas est
+  // N10 du fichier de 5a-2 : 130 × 5 à RPE 10 se compte 4, donc le haut vise 4
+  // et la phrase dit « est entré dans ta zone » — pas « a touché le haut ».
+  describe('DISCRIMINANT — l’effort d’une série de l’app traverse le pont jusqu’à la consigne', () => {
+    let k = 0;
+    const app = (kg, reps, effort) => ({
+      id: 'a' + (++k), rang: k, session_id: 'S5', user_id: 'u', exercise_slug: 'squat',
+      source: 'app', type_serie: 'travail', charge_kg: kg, reps: reps, duree_s: null,
+      distance_m: null, rpe: typeof effort === 'number' ? effort : null,
+      ressenti: typeof effort === 'string' ? effort : null, note: null,
+      groupe_superset: null, validee_a: jour('09-13'), repos_s: null
+    });
+    // N10 : 120 × 5 (une rampe — l'exercice « monte »), 125 × 5, 125 × 5, puis le
+    // test 130 × 5 avec l'effort.
+    const squat = (effort) => {
+      k = 0;
+      return [{ seance: { id: 'S5', debut: jour('09-13') },
+        series: [app(120, 5), app(125, 5), app(125, 5), app(130, 5, effort)] }].concat(montee());
+    };
+    const ETAT = { etat: Palier.ETAT_MONTE };
+    const N10 = {
+      attendu: { etat: 'etend', zone: 'lourd', n: 3, ligne: { charge: 125, vise: 5 }, haut: { charge: 130, vise: 4, k: 2 } },
+      test: { charge: 130, reps: 5, niveau: 4, date: jour('09-13') },
+      jaune: ['130' + NB + 'kg sur 2 séries, vise 4', 'et 125' + NB + 'kg sur la première, vise 5'],
+      gris: 'Ton test à 130 du 13' + NB + 'sept. est entré dans ta zone' + NB + ': il gagne une série.'
+    };
+
+    test('à RPE 10, le pont garde le rpe : le test se compte 4, le haut vise 4', () => {
+      const r = Palier.analyser(squat(10)[0].series, ETAT, { mesure: 'charge_reps' });
+      const pont = Moteur.seanceDuContrat(jour('09-13'), r);
+      expect(pont.series[3]).toEqual({ charge_kg: 130, reps: 5, rpe: 10, ressenti: null, role: 'exploration' });
+      const c = Moteur.consigneDExercice(squat(10), ETAT, AVANT, OPTIONS);
+      expect(c.consigne).toMatchObject(N10.attendu);
+      expect(c.consigne.fondement.test).toEqual(N10.test);
+      expect(c.libelles).toEqual({ jaune: N10.jaune, gris: N10.gris });
+    });
+
+    test('à « reste 0 », le pont garde le ressenti : même compte, même consigne', () => {
+      const pont = Moteur.seanceDuContrat(jour('09-13'),
+        Palier.analyser(squat('reste_0')[0].series, ETAT, { mesure: 'charge_reps' }));
+      expect(pont.series[3]).toEqual({ charge_kg: 130, reps: 5, rpe: null, ressenti: 'reste_0', role: 'exploration' });
+      const c = Moteur.consigneDExercice(squat('reste_0'), ETAT, AVANT, OPTIONS);
+      expect(c.consigne).toMatchObject(N10.attendu);
+      expect(c.libelles).toEqual({ jaune: N10.jaune, gris: N10.gris });
+    });
+
+    test('témoin — sans effort, 130 × 5 touche le haut : vise 5, « a touché le haut »', () => {
+      const c = Moteur.consigneDExercice(squat(null), ETAT, AVANT, OPTIONS);
+      expect(c.consigne.haut).toEqual({ charge: 130, vise: 5, k: 2 });
+      expect(c.libelles.jaune[0]).toBe('130' + NB + 'kg sur 2 séries, vise 5');
+      expect(c.libelles.gris).toContain('a touché le haut de ta zone');
+    });
+  });
+
   test('une séance sans palier (pyramide) traverse le pont sans « palier »', () => {
     const r = Palier.analyser([brute(100, 5), brute(110, 3), brute(120, 1)],
       undefined, { mesure: 'charge_reps' });

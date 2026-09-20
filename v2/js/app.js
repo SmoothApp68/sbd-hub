@@ -1498,15 +1498,21 @@
   // Les chauffes ne comptent pas : on peut finir un exercice sans en faire, et
   // en laisser une non validée ne doit pas retenir le constat. Un exercice sans
   // aucune série de travail n'a rien fini du tout.
+  //
+  // ⚠️ ET ELLES PORTENT LEUR RANG (20/09/2026). Une série en mémoire n'en a
+  // pas : `rang` se calcule à l'écriture (`Seance.lignes`). Or le moteur trie
+  // dessus (MOTEUR §1.2) — et sans lui, `Palier.trier` départageait sur
+  // l'identifiant, un UUID tiré au hasard : le constat lisait la séance du jour
+  // dans un ordre qu'aucun geste n'avait produit. Au squat du 20/09,
+  // `120 → 130 → 130 → 130` (5, 4, 4 au palier) s'est lu « 4-5-4 ».
+  //
+  // La numérotation vient de `toutesLesSeries` — LA MÊME que celle qui partira
+  // en base — pour que l'écran, la base et le moteur lisent la même séance.
   function seriesDeTravailDe(slug) {
-    var sortie = [];
-    (seance.exercices || []).forEach(function (exo) {
-      if (!exo || exo.exercise_slug !== slug) return;
-      (exo.series || []).forEach(function (s) {
-        if ((s.type_serie || 'travail') === 'travail') sortie.push(s);
-      });
-    });
-    return sortie;
+    return Seance.toutesLesSeries(seance).filter(function (p) {
+      return p.exo && p.exo.exercise_slug === slug &&
+        ((p.serie.type_serie || 'travail') === 'travail');
+    }).map(function (p) { return Object.assign({}, p.serie, { rang: p.rang }); });
   }
 
   function exerciceFini(slug) {

@@ -100,13 +100,25 @@
   // d'arrivée d'une requête n'est pas l'ordre de la séance, et tout ce qui
   // suit — première série, dernière série, avant-dernière — n'a de sens que
   // trié.
+  //
+  // ⚠️ ET QUAND LE RANG MANQUE, L'ORDRE REÇU FAIT FOI (20/09/2026). Une série
+  // qui n'est pas encore en base n'a pas de rang : il se calcule à l'écriture.
+  // Le départage tombait alors sur `localeCompare` de l'identifiant — un UUID
+  // tiré au hasard à la création de la ligne —, et le constat de fin de bloc
+  // lisait la séance du jour dans un ordre qu'aucun geste de l'utilisateur
+  // n'avait produit : au squat du 20/09, `120 → 130 → 130 → 130` (5, 4, 4 au
+  // palier) s'est lu « 4-5-4 ». Le même dégât qu'au soulevé hex du 21 août
+  // (§1.2 de la spec), par l'autre bout.
+  //
+  // Le tri de JavaScript est STABLE : à rangs égaux, l'ordre du tableau
+  // survit, et c'est celui de l'écran. Un départage « pour la forme » n'est pas
+  // de la stabilité — c'est du hasard rendu déterministe.
   function trier(series) {
     return (series || []).filter(utilisable).slice().sort(function (a, b) {
       var ra = nombre(a.rang), rb = nombre(b.rang);
       if (ra === null) ra = 0;
       if (rb === null) rb = 0;
-      if (ra !== rb) return ra - rb;
-      return String(a.id).localeCompare(String(b.id));   // ordre stable
+      return ra - rb;
     });
   }
 

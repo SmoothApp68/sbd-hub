@@ -1185,6 +1185,30 @@ describe('§9.13 — la consigne, en calcul pur', () => {
     });
   });
 
+  test('DISCRIMINANT — la zone figée est celle du PREMIER test raté de l’épisode', () => {
+    // ⚠️ AUCUN DES 42 CAS NE L'ATTEINT : leurs épisodes d'étirement n'ont qu'UN
+    // test raté, où « le premier » et « le dernier » sont la même séance.
+    // Mesuré le 20/09 — le mutant qui prend `rates[0]` leur survivait.
+    //
+    // Avec DEUX ratés, l'écart compte : la zone reste celle du 6 sept., pas
+    // celle du 13. C'est tout l'objet du §9.7 — si elle suivait le test le
+    // plus récent, les reps déjà étirées entreraient dans l'habitude et
+    // déplaceraient la zone que l'épisode a justement pour but de tenir.
+    const N8 = require('./fixtures/consigne-48b6a.json').filter((c) => c.id === 'N8')[0];
+    const derniere = N8.seances[N8.seances.length - 1];
+    const avantDerniere = JSON.parse(JSON.stringify(derniere));
+    avantDerniere.debut = '2026-09-06T18:00:00+00:00';
+    const r = M.consignePour(
+      N8.seances.slice(0, -1).concat([avantDerniere, derniere]), N8.avant,
+      { reglage: 'normal', equipement: N8.equipement, correction: null });
+    expect(r.etat).toBe('etirement');
+    expect(r.fondement.zoneFigee).toEqual({ date: '2026-09-06T18:00:00+00:00' });
+    // Et la feuille le dit avec cette date-là.
+    expect(M.pourquoiConsigne(r, 'normal').zone)
+      .toBe('Ta zone\u00a0: Volume, de 10 à 12 reps, celle de ton test du 6\u00a0sept.\u00a0: '
+            + 'elle ne bouge pas pendant que ta zone s\'étire.');
+  });
+
   test('DISCRIMINANT — un niveau illisible fait taire le moteur, il ne l’invente pas', () => {
     // Une série au palier sans reps : `niveauValide` ne conclut pas (§9.2), et
     // tout ce qui suit se calculerait sur `null`. Sans la garde, le moteur

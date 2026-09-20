@@ -1363,14 +1363,18 @@
     return 'dans ta zone';
   }
 
-  // « le bas de ta zone », « dans ta zone » — la même échelle, dite au milieu
-  // d'une phrase plutôt qu'en étiquette de ligne.
+  // « dans ta zone », « le haut de ta zone » — la même échelle que ci-dessus,
+  // dite au milieu d'une phrase plutôt qu'en étiquette de ligne.
+  //
+  // ⚠️ DEUX CAS, PAS QUATRE, ET C'EST STRUCTUREL. Cette phrase ne sert qu'à
+  // `etend` et à `tout_passe`, et ni l'un ni l'autre n'existe sous le bas de
+  // la zone : au bas le test est GARDÉ (`if (lvl === lo) return rendre('garde'
+  // …)`), en dessous il est raté. Écrire « le bas de ta zone » ici, c'était
+  // une branche qu'aucune mutation ne pouvait tuer — mesuré le 20/09 — donc
+  // un garde-fou mort, qui a l'air de protéger et ne protège rien.
   function niveauDansPhrase(niveau, z) {
     if (z === null || niveau === null) return null;
-    if (niveau < z.bas) return null;
-    if (niveau === z.bas) return 'le bas de ta zone';
-    if (niveau >= z.haut) return 'le haut de ta zone';
-    return 'dans ta zone';
+    return niveau >= z.haut ? 'le haut de ta zone' : 'dans ta zone';
   }
 
   var ORIGINES_CHAUFFE = { chauffe: true, chauffe_probable: true };

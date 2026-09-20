@@ -892,6 +892,8 @@ Validé sur tout l'historique des cinq profils (`banc_consigne48.py`) : 6 109 co
 
 **Le pont depuis `analyser` — 19/09/2026 (48b-5b-2).** `analyser` ne connaît pas de rôle « palier » : une série au palier y est une série `travail` à la charge du palier. Traduction vers le contrat de `consignePour` : `travail` à la charge du palier → `palier` ; autre `travail` → `travail` ; `exploration` → `exploration` ; `rampe` → `rampe` ; `chauffe`, `chauffe_probable`, `degressive`, `descente_choisie` et `echec` → `autre`. **Une seule fonction fait ce pont**, dans l'ordre des séries de la séance. La date de coupure est le début de la séance ouverte.
 
+**Le fondement enrichi — 20/09/2026 (48b-6a).** Pour la feuille « Pourquoi », le fondement porte aussi : **la dernière séance, série par série** (`seance` : charge, reps, RPE, ressenti, rôle du contrat, et `origine`, le rôle d'`analyser` — chauffe, chauffe probable, dégressive, descente, échec — que le contrat résume en `autre`) ; **l'habitude** (`habitude` : sa valeur, et le nombre de séances qui la fondent, 8 au plus) ; pendant un étirement, **la zone figée** (`zoneFigee` : la date du premier test raté de l'épisode). Le pont transmet `origine` avec chaque série.
+
 ---
 
 ## 10. L'incrément

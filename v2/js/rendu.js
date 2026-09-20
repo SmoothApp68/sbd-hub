@@ -475,6 +475,9 @@
 
     var tete = el('div', 'exo-tete');
     tete.appendChild(el('h2', null, vue.nom));
+    // §7 quater — LA MÊME ÉTIQUETTE QU'EN SÉANCE, et pour la même raison : la
+    // zone appartient à l'exercice, pas à la séance où on le croise.
+    if (vue.etiquette) tete.appendChild(el('div', 'puce-zone', vue.etiquette));
     if (vue.sousTitre) tete.appendChild(el('div', 'exo-meta num', vue.sousTitre));
     cible.appendChild(tete);
 
@@ -1807,6 +1810,18 @@
         nom.appendChild(el('span', 'nom-exo', x.nom));
       }
       ligne.appendChild(nom);
+      // §3.8 — L'ÉTIQUETTE DE ZONE, à côté du nom. Elle dit dans quelle zone le
+      // moteur fait travailler, et elle n'est JAMAIS jaune : le jaune est la
+      // seule voix du moteur (§7 bis.4), l'étiquette n'en est qu'un repère.
+      //
+      // ⚠️ CE N'EST PAS UN BOUTON AVANT 48b-7. La correction de zone viendra
+      // avec son menu ; d'ici là un geste qui ne fait rien serait une promesse,
+      // et une promesse qu'on ne tient pas coûte plus cher qu'une surface en
+      // moins. Elle ne paraît que si la consigne porte une zone — pas en
+      // silence, pas sous 3 reps d'habitude, pas en Entretenir, pas sur une
+      // mesure sans charge, jamais en mode programme.
+      var eti = !vue.programme && vue.etiquette ? vue.etiquette(x.slug) : null;
+      if (eti) nom.appendChild(el('span', 'puce-zone', eti));
       // §5.6 — le menu d'un EXERCICE n'existe que dans un bloc à plusieurs. Sur
       // un bloc d'un seul, le menu du bloc porte déjà ses gestes : deux boutons
       // pour le même objet dérouteraient.
@@ -1832,8 +1847,22 @@
       // moteur se recalculerait à chaque validation.
       var lib = !vue.programme && vue.libelles ? vue.libelles(x.slug) : null;
       if (lib) {
-        (lib.jaune || []).forEach(function (l) { entree.appendChild(el('div', 'consigne', l)); });
-        if (lib.gris) entree.appendChild(el('div', 'consigne-dit', lib.gris));
+        // §3.10 — TOUCHER LA CONSIGNE OUVRE LE CALCUL. Les lignes jaunes comme
+        // la phrase grise, et le silence compris : « pourquoi rien ? » est la
+        // question qu'on se pose le plus. Chaque ligne porte le geste plutôt
+        // qu'un conteneur autour d'elles — l'ordre des enfants de la légende
+        // est une règle du §3.1, et l'envelopper la changerait pour rien.
+        var tapable = function (n) {
+          if (!vue.surPourquoi || !x.slug) return n;
+          n.setAttribute('role', 'button');
+          n.tabIndex = 0;
+          n.addEventListener('click', function () { vue.surPourquoi(x.slug); });
+          return n;
+        };
+        (lib.jaune || []).forEach(function (l) {
+          entree.appendChild(tapable(el('div', 'consigne', l)));
+        });
+        if (lib.gris) entree.appendChild(tapable(el('div', 'consigne-dit', lib.gris)));
       }
       entree.appendChild(reglagesExo(x, vue));
 
@@ -2252,6 +2281,52 @@
     else b.addEventListener('click', o.surClic);
     menu.appendChild(b);
     return b;
+  }
+
+  // ── §3.10 — LA FEUILLE « POURQUOI » ─────────────────────────────────────
+  //
+  // ⚠️ ELLE N'ÉCRIT AUCUNE PHRASE. Tout son texte vient de `pourquoiConsigne`,
+  // qui le tire du fondement (§9.13) ; ici on ne fait que poser des nœuds dans
+  // l'ordre des sept lignes. Une phrase composée à l'écran finirait par dire
+  // autre chose que le moteur, et personne ne saurait laquelle a raison.
+  //
+  // Le renvoi au Profil est un LIEN, pas une phrase : « il se change dans
+  // Profil » sans moyen d'y aller est une indication, pas une porte.
+  function rendreFeuillePourquoi(cible, vue) {
+    vider(cible);
+    var p = vue.pourquoi;
+    if (!p) return cible;
+    cible.appendChild(el('div', 'feuille-t', 'Pourquoi cette consigne'));
+    cible.appendChild(el('div', 'feuille-sous', vue.nom));
+
+    if (p.seance) {
+      cible.appendChild(el('div', 'pq-sec', 'Ta dernière séance, le ' + p.seance.date));
+      p.seance.lignes.forEach(function (l) {
+        var n = el('div', 'pq-ligne' + (l.role && /ne compte/.test(l.role) ? ' muet' : ''));
+        n.appendChild(el('span', 'pq-quoi', l.texte));
+        n.appendChild(el('span', 'pq-role', l.role || ''));
+        cible.appendChild(n);
+      });
+    }
+    ['zone', 'palier', 'etat'].forEach(function (k) {
+      if (p[k]) cible.appendChild(el('p', 'pq-p', p[k]));
+    });
+    if (p.donc) cible.appendChild(el('p', 'pq-p fort', p.donc));
+    if (p.reglage) {
+      // « Profil » est le dernier mot de la phrase : on la coupe dessus plutôt
+      // que d'en réécrire une seconde à côté du lien.
+      var pr = el('p', 'pq-p');
+      var i = p.reglage.lastIndexOf('Profil');
+      pr.appendChild(doc.createTextNode(p.reglage.slice(0, i)));
+      var lien = el('button', 'lien-profil', 'Profil');
+      lien.type = 'button';
+      lien.addEventListener('click', vue.surProfil);
+      pr.appendChild(lien);
+      pr.appendChild(doc.createTextNode(p.reglage.slice(i + 'Profil'.length)));
+      cible.appendChild(pr);
+    }
+    cible.appendChild(el('p', 'pq-p', p.fin));
+    return cible;
   }
 
   function rendreFeuilleBloc(cible, vue) {
@@ -3126,6 +3201,7 @@
     VALEURS_REPOS: VALEURS_REPOS,
     rendreFeuilleConfirmer: rendreFeuilleConfirmer,
     rendreFeuilleSeance: rendreFeuilleSeance,
+    rendreFeuillePourquoi: rendreFeuillePourquoi,
     rendreFeuilleBloc: rendreFeuilleBloc,
     rendreFeuilleExercice: rendreFeuilleExercice,
     rendreFeuilleSupprimer: rendreFeuilleSupprimer,

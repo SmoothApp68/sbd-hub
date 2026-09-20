@@ -17,6 +17,12 @@ require('../../v2/js/palier.js');          // `moteur.js` lit `THPalier`
 // ce commit il retombait sur `this`, `undefined` en mode strict sous Jest, et
 // le module était inchargeable ici. L'ordre reproduit celui d'`index.html`.
 require('../../v2/js/modele.js');
+// Et `THProfil` depuis 48b-6a : la feuille « Pourquoi » nomme le réglage
+// (« Ton réglage : Normal »), et ce libellé vit dans `profil.js`, avec les
+// clés et les phrases du rythme. Le recopier dans le moteur ferait deux
+// tables pour un seul réglage. `profil.js` charge après `moteur.js` dans
+// `index.html` ; la lecture, elle, n'a lieu qu'au rendu.
+require('../../v2/js/profil.js');
 const M = require('../../v2/js/moteur.js');
 const P = require('../../v2/js/palier.js');
 
@@ -1049,11 +1055,19 @@ describe('§9.13 — la consigne, en calcul pur', () => {
                { charge_kg: 100, reps: 5, rpe: null, role: '__proto__' }]
     };
     // ⚠️ LE FONDEMENT LE PROUVE MIEUX QUE L'ÉTAT : `charges` est VIDE, donc
-    // ni `constructor` ni `__proto__` n'est entré dans les votantes.
+    // ni `constructor` ni `__proto__` n'est entré dans les votantes. La séance,
+    // elle, est bien LÀ depuis 48b-6a — la feuille « Pourquoi » liste ses
+    // séries, sans rôle : « rien n'a été répété » se montre, il ne se résume
+    // pas. Les rôles douteux y arrivent tels quels, et c'est voulu : le
+    // fondement rapporte ce qui a été fait, il ne juge pas une seconde fois.
     expect(M.consignePour([seance], '2026-09-20T10:00:00+00:00',
       { reglage: 'normal', equipement: 'barre' }))
       .toEqual({ etat: 'silence', raison: 'pas_de_palier',
-                 fondement: { date: '2026-09-13T18:00:00+00:00', charges: [] } });
+                 fondement: { date: '2026-09-13T18:00:00+00:00', charges: [],
+                   seance: [
+                     { charge_kg: 100, reps: 5, rpe: null, ressenti: null, role: 'constructor', origine: null },
+                     { charge_kg: 100, reps: 5, rpe: null, ressenti: null, role: '__proto__', origine: null }
+                   ] } });
   });
 
   // ── CE QUE LES 29 CAS NE TOUCHENT PAS ────────────────────────────────────
@@ -1179,7 +1193,11 @@ describe('§9.13 — la consigne, en calcul pur', () => {
       serie(100, null, 'palier'), serie(100, 5, 'palier'))];
     expect(pour(s, 'normal', 'barre')).toEqual({
       etat: 'silence', raison: 'pas_de_palier',
-      fondement: { date: '2026-09-13T18:00:00+00:00', charges: [100] }
+      fondement: { date: '2026-09-13T18:00:00+00:00', charges: [100],
+        seance: [
+          { charge_kg: 100, reps: null, rpe: null, ressenti: null, role: 'palier', origine: null },
+          { charge_kg: 100, reps: 5, rpe: null, ressenti: null, role: 'palier', origine: null }
+        ] }
     });
     // Et la phrase le dit sans inventer de reps : « 100 kg, aucune charge répétée ».
     expect(M.libellesConsigne(pour(s, 'normal', 'barre')))
@@ -1190,19 +1208,24 @@ describe('§9.13 — la consigne, en calcul pur', () => {
 
 // ── ECRAN-SAISIE §3.12 — LE FONDEMENT ET LES PHRASES ───────────────────────
 //
-// ⚠️ C'EST LE FICHIER QUI FAIT FOI, comme pour 48b-5a-2. `consigne-48b5b1.json`
-// reprend les 29 cas de la référence et en ajoute dix, chacun apportant la
-// SECONDE BRANCHE d'une règle de rédaction — sans quoi une mutation qui
-// retourne la règle survivrait. Le test rejoue, il ne redit pas la règle.
+// ⚠️ C'EST LE FICHIER QUI FAIT FOI, comme pour 48b-5a-2. `consigne-48b6a.json`
+// reprend les 39 cas de `consigne-48b5b1.json` — mêmes consignes, mêmes
+// phrases, fondement ENRICHI — et en ajoute trois (Y1 à Y3) qui font traverser
+// au pont les rôles d'`analyser` que le contrat résume en `autre` : une
+// dégressive, une série arrêtée, une chauffe non déclarée, une descente.
+// Le test rejoue, il ne redit pas la règle.
 //
-// Deux vérifications par cas, et elles sont distinctes :
+// Trois vérifications par cas, et elles sont distinctes :
 //   · le FONDEMENT, clé pour clé — y compris les clés ABSENTES. « Une clé n'y
 //     figure que lorsqu'elle a un sens » (§9.13) : un fondement qui porterait
 //     toujours `palierPrecedent`, parfois nul, passerait un `toEqual` indulgent
 //     et obligerait chaque lecteur à retrancher les cas.
-//   · les PHRASES, octet pour octet. Les espaces insécables en font partie.
-describe('§9.13 / ECRAN-SAISIE §3.12 — le fondement et les phrases', () => {
-  const CAS = require('./fixtures/consigne-48b5b1.json');
+//   · les PHRASES de l'en-tête, octet pour octet. Les espaces insécables en
+//     font partie.
+//   · la FEUILLE « POURQUOI », ses sept champs, octet pour octet aussi — c'est
+//     le plus long texte que l'app écrive, et le seul qui explique un calcul.
+describe('§9.13 / ECRAN-SAISIE §3.12 et §3.10 — le fondement, les phrases et le pourquoi', () => {
+  const CAS = require('./fixtures/consigne-48b6a.json');
   const NB = ' ';
   const pour = (c) => M.consignePour(c.seances, c.avant,
     { reglage: c.reglage, equipement: c.equipement, correction: null });
@@ -1246,6 +1269,7 @@ describe('§9.13 / ECRAN-SAISIE §3.12 — le fondement et les phrases', () => {
       expect(Object.keys(rendu.fondement).sort()).toEqual(Object.keys(c.fondement).sort());
       expect(rendu.fondement).toEqual(c.fondement);
       expect(M.libellesConsigne(rendu)).toEqual(c.phrases);
+      expect(M.pourquoiConsigne(rendu, c.reglage)).toEqual(c.pourquoi);
     });
   });
 

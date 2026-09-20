@@ -21,6 +21,9 @@
 
 require('../../v2/js/modele.js');
 require('../../v2/js/palier.js');
+// Depuis 48b-6a, `moteur.js` lit aussi `THProfil` — le libellé du rythme que
+// la feuille « Pourquoi » énonce vit dans `profil.js`, une seule fois.
+require('../../v2/js/profil.js');
 require('../../v2/js/moteur.js');
 require('../../v2/js/rendu.js');
 const Modele = window.THModele;
@@ -104,9 +107,19 @@ describe('le pont depuis analyser (MOTEUR §9.13)', () => {
       'autre', 'autre', 'rampe', 'palier', 'travail', 'exploration',
       'autre', 'autre', 'autre', 'autre'
     ]);
-    // L'ordre des séries est conservé, et chaque série garde ses quatre champs.
+    // ⚠️ ET `origine` GARDE LE RÔLE D'`analyser`, CELUI QUE LE CONTRAT EFFACE
+    // (48b-6a). Les six rôles que la colonne ci-dessus résume en « autre » se
+    // relisent ici un par un : c'est ce qui permet à la feuille « Pourquoi »
+    // de dire « dégressive, ne compte pas » là où le contrat ne sait plus que
+    // « autre ». Un `null` reste `null` — on ne lui invente pas d'origine.
+    expect(c.series.map((x) => x.origine)).toEqual([
+      'chauffe', 'chauffe_probable', 'rampe', 'travail', 'travail', 'exploration',
+      'descente_choisie', 'degressive', 'echec', null
+    ]);
+    // L'ordre des séries est conservé, et chaque série garde ses cinq champs.
     expect(c.series.map((x) => x.charge_kg)).toEqual([20, 60, 120, 125, 122.5, 130, 110, 100, 125, 125]);
-    expect(Object.keys(c.series[3]).sort()).toEqual(['charge_kg', 'reps', 'ressenti', 'role', 'rpe']);
+    expect(Object.keys(c.series[3]).sort())
+      .toEqual(['charge_kg', 'origine', 'reps', 'ressenti', 'role', 'rpe']);
   });
 
   test('DISCRIMINANT — « travail » AU PALIER devient « palier », sous le palier reste « travail »', () => {
@@ -162,7 +175,8 @@ describe('le pont depuis analyser (MOTEUR §9.13)', () => {
     test('à RPE 10, le pont garde le rpe : le test se compte 4, le haut vise 4', () => {
       const r = Palier.analyser(squat(10)[0].series, ETAT, { mesure: 'charge_reps' });
       const pont = Moteur.seanceDuContrat(jour('09-13'), r);
-      expect(pont.series[3]).toEqual({ charge_kg: 130, reps: 5, rpe: 10, ressenti: null, role: 'exploration' });
+      expect(pont.series[3]).toEqual({ charge_kg: 130, reps: 5, rpe: 10, ressenti: null,
+                                       role: 'exploration', origine: 'exploration' });
       const c = Moteur.consigneDExercice(squat(10), ETAT, AVANT, OPTIONS);
       expect(c.consigne).toMatchObject(N10.attendu);
       expect(c.consigne.fondement.test).toEqual(N10.test);
@@ -172,7 +186,8 @@ describe('le pont depuis analyser (MOTEUR §9.13)', () => {
     test('à « reste 0 », le pont garde le ressenti : même compte, même consigne', () => {
       const pont = Moteur.seanceDuContrat(jour('09-13'),
         Palier.analyser(squat('reste_0')[0].series, ETAT, { mesure: 'charge_reps' }));
-      expect(pont.series[3]).toEqual({ charge_kg: 130, reps: 5, rpe: null, ressenti: 'reste_0', role: 'exploration' });
+      expect(pont.series[3]).toEqual({ charge_kg: 130, reps: 5, rpe: null, ressenti: 'reste_0',
+                                       role: 'exploration', origine: 'exploration' });
       const c = Moteur.consigneDExercice(squat('reste_0'), ETAT, AVANT, OPTIONS);
       expect(c.consigne).toMatchObject(N10.attendu);
       expect(c.libelles).toEqual({ jaune: N10.jaune, gris: N10.gris });
@@ -391,9 +406,9 @@ describe('l’en-tête dit la consigne (ECRAN-SAISIE §3.1)', () => {
     { slug: 'dc', nom: 'Développé Couché (Barre)', mesure: 'charge_reps', equipement: 'barre', muscles_primaires: ['pectoraux'] },
     { slug: 'pl', nom: 'Planche', mesure: 'temps', muscles_primaires: ['abdominaux'] }
   ];
-  function rendre(s, libelles, programme) {
+  function rendre(s, libelles, programme, extra) {
     const cible = document.createElement('div');
-    Rendu().rendreBlocsSeance(cible, s, {
+    Rendu().rendreBlocsSeance(cible, s, Object.assign({
       blocs: Modele.blocsDeSeance(s, EXOS),
       modifier: false, selection: null, programme: !!programme,
       surGrouper: () => {}, surDeplacerBloc: () => {},
@@ -405,7 +420,7 @@ describe('l’en-tête dit la consigne (ECRAN-SAISIE §3.1)', () => {
       surChamp: () => {}, surValider: () => {}, surNumero: () => {},
       surEffort: () => {}, surNote: () => {}, surRepos: () => {},
       surSupprimerSerie: () => {}, surAjoutSerie: () => {}
-    });
+    }, extra || {}));
     return cible;
   }
   const textes = (cible, sel) => [...cible.querySelectorAll(sel)].map((e) => e.textContent);
@@ -438,6 +453,42 @@ describe('l’en-tête dit la consigne (ECRAN-SAISIE §3.1)', () => {
   test('DISCRIMINANT — en mode programme, rien, même avec des libellés', () => {
     const cible = rendre(ouverte(T(3)), () => LIB, true);
     expect(cible.querySelectorAll('.consigne, .consigne-dit').length).toBe(0);
+  });
+
+  test('DISCRIMINANT — toucher la consigne ouvre le calcul : les jaunes ET la grise', () => {
+    const vus = [];
+    const cible = rendre(ouverte(T(3)), () => LIB, false, { surPourquoi: (s) => vus.push(s) });
+    const lignes = [...cible.querySelectorAll('.consigne, .consigne-dit')];
+    expect(lignes).toHaveLength(3);
+    lignes.forEach((n) => {
+      expect(n.getAttribute('role')).toBe('button');
+      expect(n.tabIndex).toBe(0);
+      n.click();
+    });
+    // Les deux jaunes et la grise mènent au même endroit : l'exercice, pas la ligne.
+    expect(vus).toEqual(['dc', 'dc', 'dc']);
+  });
+
+  test('DISCRIMINANT — en silence, la phrase grise SEULE porte le geste', () => {
+    // « Pourquoi rien ? » est la question qu'on se pose le plus, et c'est
+    // justement là qu'il n'y a aucune ligne jaune à toucher.
+    const muet = { jaune: [], gris: 'Première fois ici. Ce que tu notes aujourd\'hui servira de départ.' };
+    const vus = [];
+    const cible = rendre(ouverte(T(3)), () => muet, false, { surPourquoi: (s) => vus.push(s) });
+    expect(cible.querySelectorAll('.consigne')).toHaveLength(0);
+    const gris = cible.querySelector('.consigne-dit');
+    expect(gris.getAttribute('role')).toBe('button');
+    gris.click();
+    expect(vus).toEqual(['dc']);
+  });
+
+  test('sans `surPourquoi`, aucune ligne ne se prétend tapable', () => {
+    const lignes = [...rendre(ouverte(T(3)), () => LIB).querySelectorAll('.consigne, .consigne-dit')];
+    expect(lignes).toHaveLength(3);
+    lignes.forEach((n) => {
+      expect(n.getAttribute('role')).toBeNull();
+      expect(n.tabIndex).toBe(-1);
+    });
   });
 
   test('chaque exercice d’un superset reçoit les siens', () => {
@@ -632,5 +683,165 @@ describe('la proposition n’est jamais écrite (§7 septendecies.3)', () => {
     // routine d'avant le moteur, pas une trace du plan.)
     expect(JSON.stringify(s)).not.toMatch(/"(plan|propose|vise|haut|ligne|k)"/);
     expect(Seance.COLONNES_SET).toHaveLength(17);
+  });
+});
+
+
+// ── §3.8 — L'ÉTIQUETTE DE ZONE ──────────────────────────────────────────────
+describe('l’étiquette de zone (ECRAN-SAISIE §3.8)', () => {
+  const EXOS = [
+    { slug: 'dc', nom: 'Développé Couché (Barre)', mesure: 'charge_reps', equipement: 'barre', muscles_primaires: ['pectoraux'] },
+    { slug: 'tr', nom: 'Tractions', mesure: 'reps', muscles_primaires: ['dorsaux'] }
+  ];
+  const rendre = (s, etiquette, programme) => {
+    const cible = document.createElement('div');
+    Rendu().rendreBlocsSeance(cible, s, {
+      blocs: Modele.blocsDeSeance(s, EXOS),
+      modifier: false, selection: null, programme: !!programme,
+      surGrouper: () => {}, surDeplacerBloc: () => {},
+      surMenuBloc: () => {}, surMenuExercice: () => {},
+      tourAtteint: () => 0,
+      exercice: (slug) => EXOS.filter((e) => e.slug === slug)[0],
+      precedent: () => null, fantome: () => ({}),
+      etiquette: etiquette,
+      surChamp: () => {}, surValider: () => {}, surNumero: () => {},
+      surEffort: () => {}, surNote: () => {}, surRepos: () => {},
+      surSupprimerSerie: () => {}, surAjoutSerie: () => {}
+    });
+    return cible;
+  };
+  const puces = (c) => [...c.querySelectorAll('.puce-zone')].map((e) => e.textContent);
+  // La consigne d'un cas du fichier, calculée pour de vrai.
+  const CAS = require('./fixtures/consigne-48b6a.json');
+  const consigneDe = (id) => {
+    const c = CAS.filter((x) => x.id === id)[0];
+    return Moteur.consignePour(c.seances, c.avant,
+      { reglage: c.reglage, equipement: c.equipement, correction: null });
+  };
+
+  test('avec une zone, l’étiquette la dit — libellé et bornes', () => {
+    expect(Moteur.etiquetteZone(consigneDe('N1'))).toBe('Lourd 3-5');
+    const cible = rendre(ouverte(T(3)), () => 'Lourd 3-5');
+    expect(puces(cible)).toEqual(['Lourd 3-5']);
+  });
+
+  test('DISCRIMINANT — pendant un étirement, c’est la ZONE FIGÉE, pas celle des reps étirées', () => {
+    // N8 : le palier vise 13 reps au-delà du haut, ce qui rangerait l'exercice
+    // en Séries longues si la zone suivait l'habitude. Elle ne la suit pas.
+    const c = consigneDe('N8');
+    expect(c.fondement.habitude.valeur).toBe(12);
+    expect(Moteur.etiquetteZone(c)).toBe('Volume 10-12');
+    const n9 = consigneDe('N9');
+    expect(n9.fondement.habitude.valeur).toBe(13);   // 13 reps d'habitude…
+    expect(Moteur.etiquetteZone(n9)).toBe('Volume 10-12');   // … et la zone tient
+  });
+
+  test('sans zone — silence et règle de bord — rien du tout', () => {
+    ['N13', 'N14', 'N15'].forEach((id) => {
+      expect([id, Moteur.etiquetteZone(consigneDe(id))]).toEqual([id, null]);
+    });
+    expect(puces(rendre(ouverte(T(3)), () => null))).toEqual([]);
+    // Et une vue qui ne connaît pas encore `etiquette` — les tests d'avant 48b-6a.
+    expect(puces(rendre(ouverte(T(3)), undefined))).toEqual([]);
+  });
+
+  test('DISCRIMINANT — en mode programme, rien, même avec une étiquette', () => {
+    expect(puces(rendre(ouverte(T(3)), () => 'Lourd 3-5', true))).toEqual([]);
+  });
+
+  test('DISCRIMINANT — ce n’est PAS un bouton avant 48b-7', () => {
+    const cible = rendre(ouverte(T(3)), () => 'Lourd 3-5');
+    const puce = cible.querySelector('.puce-zone');
+    expect(puce.tagName).toBe('SPAN');
+    expect(puce.getAttribute('role')).toBeNull();
+    expect(puce.tabIndex).toBe(-1);
+    // Jamais jaune : le jaune est la seule voix du moteur (§7 bis.4).
+    expect(puce.className).not.toMatch(/consigne/);
+  });
+
+  test('Entretenir, Édition et mesure sans charge : aucune consigne, donc aucune étiquette', () => {
+    const OPT = { mesure: 'charge_reps', equipement: 'barre', intention: 'progresser',
+                  reglage: 'normal', edition: false };
+    expect(Moteur.consigneDExercice(couche(), undefined, AVANT, OPT).etiquette).toBe('Lourd 3-5');
+    [{ intention: 'entretien' }, { edition: true }, { mesure: 'reps' }].forEach((quoi) => {
+      expect([quoi, Moteur.consigneDExercice(couche(), undefined, AVANT,
+        Object.assign({}, OPT, quoi))]).toEqual([quoi, null]);
+    });
+  });
+});
+
+// ── §3.10 — LA FEUILLE « POURQUOI » ─────────────────────────────────────────
+describe('la feuille « Pourquoi » (ECRAN-SAISIE §3.10)', () => {
+  const CAS = require('./fixtures/consigne-48b6a.json');
+  const pourquoiDe = (id) => {
+    const c = CAS.filter((x) => x.id === id)[0];
+    const r = Moteur.consignePour(c.seances, c.avant,
+      { reglage: c.reglage, equipement: c.equipement, correction: null });
+    return Moteur.pourquoiConsigne(r, c.reglage);
+  };
+  const rendre = (pourquoi, surProfil) => {
+    const cible = document.createElement('div');
+    Rendu().rendreFeuillePourquoi(cible, {
+      nom: 'Développé Couché (Barre)', pourquoi: pourquoi,
+      surProfil: surProfil || (() => {})
+    });
+    return cible;
+  };
+  const textes = (c, sel) => [...c.querySelectorAll(sel)].map((e) => e.textContent);
+
+  test('Y1 — la feuille de la maquette, ligne pour ligne', () => {
+    const cible = rendre(pourquoiDe('Y1'));
+    expect(textes(cible, '.feuille-t')).toEqual(['Pourquoi cette consigne']);
+    expect(textes(cible, '.feuille-sous')).toEqual(['Développé Couché (Barre)']);
+    expect(textes(cible, '.pq-sec')).toEqual(['Ta dernière séance, le 13\u00a0sept.']);
+    expect(textes(cible, '.pq-quoi')).toEqual(
+      ['20, 60, 100, 115', '125\u00a0\u00d7\u00a04', '125\u00a0\u00d7\u00a05', '130\u00a0\u00d7\u00a03']);
+    expect(textes(cible, '.pq-role')).toEqual(
+      ['chauffes, ne comptent pas', 'au palier', 'au palier', 'test, au bas de ta zone']);
+    // Les quatre paragraphes, puis « Donc », le réglage et la fin : sept lignes.
+    const p = textes(cible, '.pq-p');
+    expect(p[0]).toMatch(/^Ta zone/);
+    expect(p[1]).toMatch(/^Ton palier est 125/);
+    expect(p[2]).toMatch(/^Ton test à 130 a fait 3/);
+    expect(textes(cible, '.pq-p.fort')).toEqual(
+      ['Donc 125\u00a0kg, vise 5, puis 130\u00a0kg en dernière série, vise 4.']);
+    expect(p[p.length - 1]).toBe('Tu veux faire autre chose ? Tape-le, ta saisie fait foi.');
+  });
+
+  test('DISCRIMINANT — les chauffes sont GRISÉES, les séries qui comptent ne le sont pas', () => {
+    const cible = rendre(pourquoiDe('Y1'));
+    const muets = [...cible.querySelectorAll('.pq-ligne')].map((n) => n.classList.contains('muet'));
+    expect(muets).toEqual([true, false, false, false]);
+  });
+
+  test('« Profil » est un LIEN, et il y va', () => {
+    let alle = 0;
+    const cible = rendre(pourquoiDe('Y1'), () => { alle++; });
+    const lien = cible.querySelector('.lien-profil');
+    expect(lien.tagName).toBe('BUTTON');
+    expect(lien.textContent).toBe('Profil');
+    lien.click();
+    expect(alle).toBe(1);
+    // La phrase reste entière autour de lui.
+    expect(lien.parentNode.textContent).toBe('Ton réglage\u00a0: Normal. Il se change dans Profil.');
+  });
+
+  test('en silence, la feuille dit la séance et pourquoi le moteur se tait — rien d’autre', () => {
+    const cible = rendre(pourquoiDe('N15'));
+    expect(textes(cible, '.pq-quoi')).toHaveLength(3);
+    expect(textes(cible, '.pq-role')).toEqual(['', '', '']);
+    expect(textes(cible, '.pq-p')).toEqual([
+      'Ta dernière séance n\'a répété aucune charge sur deux séries\u00a0: sans palier, le moteur n\'a rien à proposer.',
+      'Tu veux faire autre chose ? Tape-le, ta saisie fait foi.'
+    ]);
+    expect(cible.querySelector('.lien-profil')).toBeNull();
+    expect(textes(cible, '.pq-p.fort')).toEqual([]);
+  });
+
+  test('première fois : pas même une séance à montrer', () => {
+    const cible = rendre(pourquoiDe('N14'));
+    expect(textes(cible, '.pq-sec')).toEqual([]);
+    expect(textes(cible, '.pq-ligne')).toEqual([]);
+    expect(textes(cible, '.pq-p')[0]).toBe('Rien avant aujourd\'hui\u00a0: ce que tu notes servira de départ.');
   });
 });

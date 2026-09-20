@@ -1406,6 +1406,17 @@
     return c ? c.libelles : null;
   }
 
+  // §3.8 et §3.10 — l'étiquette de zone et le calcul, tirés du MÊME mémo que
+  // les phrases. Trois lectures d'une consigne calculée une fois à l'ouverture.
+  function etiquetteDe(slug) {
+    var c = consigneDe(slug);
+    return c ? c.etiquette : null;
+  }
+  function pourquoiDe(slug) {
+    var c = consigneDe(slug);
+    return c ? c.pourquoi : null;
+  }
+
   function planDe(iExo) {
     var exo = seance.exercices[iExo];
     var c = consigneDe(exo.exercise_slug);
@@ -1472,6 +1483,10 @@
       // §3.1 — la voix du moteur dans l'en-tête : les lignes jaunes et la
       // phrase grise, ou rien (Édition, Entretenir, mesure sans charge).
       libelles: libellesDe,
+      // §3.8 — l'étiquette de zone, à côté du nom.
+      etiquette: etiquetteDe,
+      // §3.10 — toucher la consigne ouvre le calcul.
+      surPourquoi: ouvrirPourquoi,
       surChamp: function (i, j, champ, valeur) {
         seance = Seance.modifierSerie(seance, i, j, defObjet(champ, valeur));
         apresGeste({ rendre: false });
@@ -1927,11 +1942,38 @@
     });
   }
 
+  // §3.10 — La feuille « Pourquoi ». Elle vise un EXERCICE par son slug, pas
+  // une série ni un bloc : la consigne est celle de l'exercice, et un superset
+  // en a une par branche.
+  function ouvrirPourquoi(slug) {
+    if (!pourquoiDe(slug)) return;
+    feuille = { quoi: 'pourquoi', slug: slug };
+    rendreFeuille();
+    ouvrirVoile($('feuille-seance'), function () {
+      feuille = null;
+      if (seance) rendreSeance();
+    });
+  }
+
   function rendreFeuille() {
     if (!feuille || !seance) return;
     var cible = $('feuille-contenu');
     var index = Modele.indexerExercices(local.exercices);
     if (feuille.quoi === 'fin') return rendreFeuilleFin(cible, index);
+    if (feuille.quoi === 'pourquoi') {
+      return Rendu.rendreFeuillePourquoi(cible, {
+        nom: Modele.nommer(index, feuille.slug),
+        pourquoi: pourquoiDe(feuille.slug),
+        // ⚠️ ON FERME AVANT DE NAVIGUER. Une feuille laissée ouverte sur un
+        // autre écran est un voile qu'on ne sait plus d'où il vient — et le
+        // retour d'Android le refermerait au lieu de remonter.
+        surProfil: function () {
+          fermerVoile();
+          allerA(Routeur.PROFIL, {});
+          rendreProfilEcran();
+        }
+      });
+    }
     if (feuille.quoi === 'bloc' || feuille.quoi === 'exercice' ||
         feuille.quoi === 'supprimer') return rendreFeuilleDeviation(cible, index);
 
@@ -3127,8 +3169,26 @@
     record.date = record.cle || null;
 
     var visibles = groupes.slice(0, exoAffiche.combien);
+    // §7 quater — L'ÉTIQUETTE DE ZONE SUR LA PAGE D'EXERCICE. La zone
+    // appartient à l'exercice : la montrer seulement en séance la ferait
+    // passer pour un réglage de la séance du jour.
+    //
+    // ⚠️ LA DATE DE COUPURE EST CELLE DE LA SÉANCE OUVERTE quand il y en a
+    // une, comme partout ailleurs (MOTEUR §9.12) : sinon la page d'exercice
+    // lirait une séance que l'écran de saisie, lui, ne voit pas — deux zones
+    // pour un même exercice à la même seconde.
+    var gabaritExo = Modele.gabaritDe(exo);
+    var consigneExo = Moteur.consigneDExercice(groupes, etatsExercices[slug],
+      seance ? seance.debut : new Date().toISOString(), {
+        mesure: gabaritExo.inconnue ? null : gabaritExo.mesure,
+        equipement: exo ? exo.equipement : null,
+        intention: profil ? profil.intention : null,
+        reglage: Profil.rythmeDe(profil),
+        edition: false
+      });
     Rendu.rendrePageExercice($('page-exercice'), {
       nom: exo ? exo.nom : slug,
+      etiquette: consigneExo ? consigneExo.etiquette : null,
       mesure: mesure,
       onglet: vueOnglet,
       sousTitre: sousTitreExercice(groupes),

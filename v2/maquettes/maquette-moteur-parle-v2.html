@@ -540,8 +540,9 @@ table.dico{border-collapse:collapse;width:100%;min-width:760px;font-size:14px}
 </table>
 </div>
 
+
 <h2>Le constat, état par état — pour 48b-6b</h2>
-<p class="intro">Validé le 20/09. Il paraît dès que toutes les séries de travail de l'exercice sont validées, et se défait si l'on en ajoute ou en dévalide une. Deux lignes, jamais en jaune : le verdict du jour, puis la suite. En Franc, le progrès se lit sur la meilleure série, comme son déclencheur. « Aujourd'hui : 8-8-8 à 115 » est la seule variante née de la construction : une charge choisie sous le palier, dite sans jugement. Chaque ligne ci-dessous est un des 14 cas de test.</p>
+<p class="intro">Validé le 20/09. Il paraît dès que toutes les séries de travail du bloc sont validées — en superset, celles de tous ses exercices —, se défait si l'on en ajoute ou en dévalide une, et se recalcule à chaque changement d'une série validée (corrigé le 20/09). Deux lignes, jamais en jaune : le verdict du jour, puis la suite. En Franc, le progrès se lit sur la meilleure série, comme son déclencheur. « Aujourd'hui : 8-8-8 à 115 » est la seule variante née de la construction : une charge choisie sous le palier, dite sans jugement. Chaque ligne ci-dessous est un des 14 cas de test.</p>
 <div class="defile">
 <table class="dico">
   <thead><tr><th>Cas</th><th>Situation</th><th>Le constat (verdict, puis suite)</th></tr></thead>
@@ -553,13 +554,16 @@ table.dico{border-collapse:collapse;width:100%;min-width:760px;font-size:14px}
     <tr><td class="moment">K5</td><td>Une rep gagnée, jusqu'au haut : le test viendra</td><td class="phrase">« 125 kg : 4 reps le 13 sept., 5 aujourd'hui, le haut de ta zone. »<span class="sous gris">« Prochaine séance : 125 kg, vise 5, puis 127,5 kg en dernière série, vise 3. »</span></td></tr>
     <tr><td class="moment">K6</td><td>Une rep gagnée, sous le haut : il manque une rep</td><td class="phrase">« 125 kg : 3 reps le 13 sept., 4 aujourd'hui. »<span class="sous gris">« Il te manque une rep pour tester 127,5. »</span></td></tr>
     <tr><td class="moment">K7</td><td>Rien de gagné : même cible</td><td class="phrase">« Pas encore : 4-4-4 à 125. »<span class="sous gris">« Même cible la prochaine fois : 125 kg, vise 5. »</span></td></tr>
-    <tr><td class="moment">K8</td><td>Tout est passé à la nouvelle charge</td><td class="phrase">« 92,5 kg sur toutes tes séries : 12-12-12. »<span class="sous gris">« Prochaine séance : 92,5 kg, vise 12, puis 95 kg en dernière série, vise 10. »</span></td></tr>
+    <tr><td class="moment">K8</td><td>Tout est passé à la nouvelle charge</td><td class="phrase">« 12-12-12 à 92,5 : ta nouvelle charge tient sur toutes tes séries. »<span class="sous gris">« Prochaine séance : 92,5 kg, vise 12, puis 95 kg en dernière série, vise 10. »</span></td></tr>
     <tr><td class="moment">K9</td><td>Une séance de reprise</td><td class="phrase">« Reprise faite : 5-5-5 à 125. »<span class="sous gris">« Prochaine séance : 125 kg, vise 5, puis 127,5 kg en dernière série, vise 3. »</span></td></tr>
     <tr><td class="moment">K10</td><td>Un exercice fait pour la première fois</td><td class="phrase">« Premier repère : 8-8-8 à 40. »<span class="sous gris">« Il te manque 2 reps pour tester 42,5. »</span></td></tr>
     <tr><td class="moment">K11</td><td>Aucune charge répétée</td><td class="phrase">« Pas de palier aujourd'hui : rien de répété sur deux séries. »</td></tr>
     <tr><td class="moment">K12</td><td>Prudent, une rep gagnée : pas de « il te manque »</td><td class="phrase">« 125 kg : 3 reps le 13 sept., 4 aujourd'hui. »<span class="sous gris">« Prochaine séance : 125 kg, vise 5. »</span></td></tr>
     <tr><td class="moment">K13</td><td>Franc : il manque une rep sur la meilleure série</td><td class="phrase">« 125 kg : 3 reps le 13 sept., 4 aujourd'hui. »<span class="sous gris">« Il te manque une rep pour tester 127,5. »</span></td></tr>
     <tr><td class="moment">K14</td><td>Une charge plus légère que le palier : aujourd'hui, sans jugement</td><td class="phrase">« Aujourd'hui : 8-8-8 à 115. »<span class="sous gris">« Prochaine séance : 115 kg, vise 5, puis 117,5 kg en dernière série, vise 3. »</span></td></tr>
+    <tr><td class="moment">K15</td><td>Ton squat : la charge de test gagne une série et devient le palier</td><td class="phrase">« 4-4 à 130 : ta nouvelle charge tient sur 2 séries, dans ta zone. »<span class="sous gris">« Prochaine séance : 130 kg, vise 4. »</span></td></tr>
+    <tr><td class="moment">K16</td><td>Extension sans bascule : 130 sur 2 séries, le palier reste 125</td><td class="phrase">« 4-4 à 130 : ta nouvelle charge tient sur 2 séries, dans ta zone. »<span class="sous gris">« Prochaine séance : 130 kg sur les 3 dernières séries, vise 4, et 125 kg sur les 2 d'avant, vise 5. »</span></td></tr>
+    <tr><td class="moment">K17</td><td>Extension pas encore dans la zone</td><td class="phrase">« 2-2 à 130 : sur 2 séries, pas encore dans ta zone. »<span class="sous gris">« Prochaine séance : 130 kg sur les 2 dernières séries, vise 3, et 125 kg sur celle d'avant, vise 5. »</span></td></tr>
   </tbody>
 </table>
 </div>

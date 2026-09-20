@@ -1705,6 +1705,57 @@
   // Ce qui s'est passé. L'ordre des cas EST la règle : le silence d'abord — il
   // n'y a rien à raconter d'autre —, puis ce que la consigne d'avant attendait,
   // puis ce que la séance a donné.
+  // ── §3.9 (48b-6b-2) — LA CHARGE DE TEST QUI GAGNE DES SÉRIES ─────────────
+  //
+  // Un FAIT, lu sur les deux séances, jamais une règle du §9 rejouée : la
+  // charge la plus lourde du jour est au-dessus de l'ancien palier, et elle
+  // couvre PLUS de séries qu'à la séance d'avant, qui en portait déjà au
+  // moins une. C'est l'étape de l'échelle en train de se franchir.
+  //
+  // ⚠️ « AU MOINS UNE LA FOIS D'AVANT » EST LA MOITIÉ QUI DISCRIMINE. Sans
+  // elle, une charge essayée pour la première fois sur deux séries se dirait
+  // « ta nouvelle charge tient » alors que rien ne s'étend : il n'y avait pas
+  // de barreau en dessous.
+  //
+  // Les VOTANTES, pas les retenues : une exploration au-dessus du palier
+  // compte (c'est précisément elle qui s'étend), la rampe d'échauffement non.
+  function extensionDe(av, ap, palierAvant) {
+    if (palierAvant === null) return null;
+    var jour = parRole((ap || {}).seance, ROLES_VOTANTS);
+    if (!jour.length) return null;
+    var C = null;
+    jour.forEach(function (s) {
+      var c = nombre(s.charge_kg);
+      if (c !== null && (C === null || c > C)) C = c;
+    });
+    if (C === null || C <= palierAvant) return null;
+    var aC = jour.filter(function (s) { return nombre(s.charge_kg) === C; });
+    var avantC = parRole((av || {}).seance, ROLES_VOTANTS).filter(function (s) {
+      return nombre(s.charge_kg) === C;
+    });
+    if (!avantC.length || avantC.length >= aC.length) return null;
+    return { charge: C, series: aC, k: aC.length, toutes: aC.length === jour.length,
+             niveau: niveauValide(aC) };
+  }
+
+  // « 4-4 à 130 : ta nouvelle charge tient sur 2 séries, dans ta zone. »
+  //
+  // La zone décide de la forme, le compte est toujours dit. Sous le bas, rien
+  // ne « tient » encore : la phrase constate le nombre de séries et s'arrête.
+  // Sans zone connue (§9.1.2, sous 3 reps d'habitude), la clause de zone tombe
+  // plutôt que d'écrire un mot que le moteur n'a pas.
+  function phraseExtension(e, z) {
+    var tete = e.series.map(function (s) { return nombreFr(s.reps); }).join('-') +
+      ' à ' + nombreFr(e.charge) + DEUX_POINTS;
+    var combien = e.toutes ? 'toutes tes séries' : e.k + ' séries';
+    var dit = niveauDuTest(e.niveau, z);
+    if (z !== null && e.niveau !== null && e.niveau < z.bas) {
+      return tete + 'sur ' + combien + ', ' + dit + '.';
+    }
+    if (e.toutes) return tete + 'ta nouvelle charge tient sur toutes tes séries.';
+    return tete + 'ta nouvelle charge tient sur ' + combien + (dit ? ', ' + dit : '') + '.';
+  }
+
   function verdictDuJour(cAvant, cApres, z, repsDuJour, t, fait, av, ap) {
     // Aucune charge répétée : il n'y a pas de palier, donc pas de progrès à
     // mesurer. On le dit sans le reprocher.
@@ -1716,11 +1767,14 @@
     if (cAvant.etat === 'reprise_courte' || cAvant.etat === 'reprise_longue') {
       return 'Reprise faite' + DEUX_POINTS + repsDuJour + ' à ' + P + '.';
     }
-    // La bascule du réglage Franc : toutes les séries ont pris la nouvelle
-    // charge. C'est la consigne d'AVANT qui le disait ; la séance l'a fait.
-    if (cAvant.etat === 'tout_passe') {
-      return enKg(cApres.palier) + ' sur toutes tes séries' + DEUX_POINTS + repsDuJour + '.';
-    }
+    // ⚠️ L'ÉTAPE DE L'ÉCHELLE QUI RÉUSSIT, AVANT LE TEST DU JOUR (48b-6b-2).
+    // C'est le trou qu'a trouvé la vérification sur appareil : au squat, 125
+    // × 5 puis 130 × 4 et 130 × 4 — exactement la consigne — donnaient « Pas
+    // encore : 4-4 à 130 », parce que le NOUVEAU palier (130, niveau 4) se
+    // comparait à l'ANCIEN (125, niveau 5). Arithmétiquement vrai,
+    // sportivement faux : l'échelle a monté d'un barreau.
+    var e = extensionDe(av, ap, nombre(cAvant.palier));
+    if (e !== null) return phraseExtension(e, z);
     // ⚠️ UNE SÉANCE PLUS LÉGÈRE NE SE JUGE PAS. Descendre de charge est une
     // décision, pas un échec : le constat la note et s'arrête là (CADRAGE §2
     // terdecies — le moteur ne commente jamais ce qu'il n'a pas demandé).

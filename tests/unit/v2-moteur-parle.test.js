@@ -1052,7 +1052,7 @@ describe('le constat de fin de bloc (ECRAN-SAISIE §3.9)', () => {
              apres: Moteur.consignePour(c.seances.concat([c.seanceDuJour]), c.apres, o) };
   };
 
-  test('les 14 branches y sont, chacune avec sa jumelle', () => {
+  test('les 17 branches y sont, chacune avec sa jumelle', () => {
     const ids = new Set(CAS.map((c) => c.id));
     [['test déjà tenté ou première fois', 'K1', 'K2'],
      ['dans la zone ou pas encore', 'K1', 'K3'],
@@ -1061,14 +1061,32 @@ describe('le constat de fin de bloc (ECRAN-SAISIE §3.9)', () => {
      ['gagnée ou rien', 'K6', 'K7'],
      ['Normal, Franc sur la meilleure série, Prudent', 'K6', 'K13'],
      ['Prudent : la phrase générale', 'K12', 'K6'],
-     ['toutes les séries passées', 'K8', 'K1'],
      ['reprise', 'K9', 'K1'],
      ['première fois', 'K10', 'K1'],
      ['pas de palier, sans suite', 'K11', 'K1'],
-     ['charge sous le palier', 'K14', 'K1']].forEach(([regle, a, b]) => {
+     ['charge sous le palier', 'K14', 'K1'],
+     // 48b-6b-2 — l’extension, et les quatre façons de ne pas y tomber.
+     ['l’extension ou le test du jour', 'K15', 'K1'],
+     ['l’extension dans la zone ou pas encore', 'K15', 'K17'],
+     ['sur quelques séries ou sur toutes', 'K15', 'K8'],
+     ['le palier bascule ou non', 'K15', 'K16']].forEach(([regle, a, b]) => {
       expect([regle, ids.has(a), ids.has(b)]).toEqual([regle, true, true]);
     });
-    expect(CAS).toHaveLength(14);
+    expect(CAS).toHaveLength(17);
+  });
+
+  // ⚠️ K15 EN PREMIER : c’est le squat du téléphone. La consigne disait
+  // « 130 kg sur les 2 dernières séries, vise 4 » ; il a fait exactement ça,
+  // et l’en-tête a répondu « Pas encore : 4-4 à 130 » — le nouveau palier
+  // comparé à l’ancien. C’est ce cas-là qui a ouvert 48b-6b-2.
+  test('K15 — le squat de l’appareil ne dit plus « Pas encore »', () => {
+    const c = CAS.filter((x) => x.id === 'K15')[0];
+    const { avant, apres } = deux(c);
+    expect([avant.etat, avant.palier, avant.niveau]).toEqual(['etend', 125, 5]);
+    expect([apres.etat, apres.palier, apres.niveau]).toEqual(['rejoint', 130, 4]);
+    const constat = Moteur.constatDe(avant, apres, c.reglage, 132.5);
+    expect(constat.verdict).toBe('4-4 à 130' + NB + ': ta nouvelle charge tient sur 2 séries, dans ta zone.');
+    expect(constat.verdict).not.toMatch(/Pas encore/);
   });
 
   CAS.forEach((c) => {
@@ -1086,13 +1104,14 @@ describe('le constat de fin de bloc (ECRAN-SAISIE §3.9)', () => {
     });
   });
 
-  // ── TROIS CAS QUE LES 14 N'ATTEIGNENT PAS ────────────────────────────────
+  // ── LES CAS QUE LE FICHIER N'ATTEINT PAS ─────────────────────────────────
   //
-  // Le fichier couvre les 14 branches que la spec nomme. La campagne de
-  // mutation en a trouvé trois qu'aucun des 14 ne SÉPARE : trois lignes du
-  // moteur qu'on pouvait retirer sans en faire rougir un seul. Elles se
-  // testent ici, sur un cas du fichier dont on ne change que ce qui rend le
-  // cas discriminant — le reste vient de lui.
+  // Le fichier couvre les branches que la spec nomme. Trois viennent de la
+  // campagne de mutation de 48b-6b — trois lignes du moteur qu'on pouvait
+  // retirer sans faire rougir un seul des cas —, deux de 48b-6b-2 : le
+  // sous-cas qu'aucun des 17 ne porte, et le changement de comportement qu'on
+  // assume. Chacun part d'un cas du fichier, dont on ne change que ce qui le
+  // rend discriminant — le reste vient de lui.
   const K = (id) => JSON.parse(JSON.stringify(CAS.filter((c) => c.id === id)[0]));
   const auPalier = (kg, reps) => ({ charge_kg: kg, reps: reps, rpe: null,
     role: 'palier', origine: 'travail' });
@@ -1106,6 +1125,71 @@ describe('le constat de fin de bloc (ECRAN-SAISIE §3.9)', () => {
                              apres.palier, c.equipement, 1);
     return { cran: cran, constat: Moteur.constatDe(avant, apres, c.reglage, cran) };
   };
+
+  // ── 48b-6b-2 ─────────────────────────────────────────────────────────────
+
+  test('l’extension sur TOUTES les séries, mais sous le bas de la zone', () => {
+    // Le sous-cas qu'aucun des 17 ne porte : les deux moitiés de la phrase
+    // s'opposent — « ta nouvelle charge tient » et « pas encore dans ta zone ».
+    // C'est la ZONE qui décide de la forme ; le compte, lui, se dit toujours.
+    const c = K('K8');
+    c.seanceDuJour = uneSeance('2026-09-20T18:00:00+00:00', 92.5,
+      [auPalier(92.5, 8), auPalier(92.5, 8), auPalier(92.5, 8)]);
+    expect(constatDe(c).constat).toEqual({
+      verdict: '8-8-8 à 92,5' + NB + ': sur toutes tes séries, pas encore dans ta zone.',
+      suite: 'Même cible la prochaine fois' + NB + ': 92,5' + NB + 'kg, vise 9.'
+    });
+  });
+
+  test('sans zone connue, la clause de zone tombe (règle de bord, §9.1.2)', () => {
+    // Sous 3 reps d'habitude il n'y a plus de zone du tout — l'état `bord`.
+    // Le moteur ne peut pas dire « dans ta zone » et ne l'invente pas : la
+    // phrase garde ce qu'elle sait, la charge, les reps, le nombre de séries.
+    // Aucun des 17 ne passe par là, et c'est pourtant atteignable.
+    const jour = (d, p, series) => uneSeance('2026-' + d + 'T18:00:00+00:00', p, series);
+    const trois = (d) => jour(d, 100, [auPalier(100, 2), auPalier(100, 2), auPalier(100, 2)]);
+    const c = {
+      reglage: 'normal', equipement: 'barre',
+      seances: ['07-19', '07-26', '08-02', '08-09'].map(trois).concat([
+        jour('09-13', 100, [auPalier(100, 2), auPalier(100, 2), exploration(105, 2)])]),
+      seanceDuJour: jour('09-20', 105,
+        [auPalier(100, 2), auPalier(105, 2), auPalier(105, 2)]),
+      avant: '2026-09-20T18:00:00+00:00', apres: '2026-09-20T20:00:00+00:00'
+    };
+    // La prémisse : c'est bien une consigne SANS zone.
+    expect(deux(c).apres.zone).toBeNull();
+    expect(constatDe(c).constat.verdict)
+      .toBe('2-2 à 105' + NB + ': ta nouvelle charge tient sur 2 séries.');
+  });
+
+  test('CHANGEMENT ASSUMÉ — « tout passe » annoncé ne félicite plus d’office', () => {
+    // 48b-6b lisait l'état de la consigne d'AVANT : `tout_passe` suffisait à
+    // écrire « 92,5 kg sur toutes tes séries », que la séance ait pris la
+    // charge ou non. Le moteur constate, il ne présume pas : si la charge
+    // n'est pas prise, c'est une séance ordinaire, et elle se dit comme telle.
+    const gagne = K('K8');
+    gagne.seanceDuJour = uneSeance('2026-09-20T18:00:00+00:00', 90,
+      [auPalier(90, 11), auPalier(90, 11), auPalier(90, 11)]);
+    expect(constatDe(gagne).constat).toEqual({
+      verdict: '90' + NB + 'kg' + NB + ': 10 reps le 13' + NB + 'sept., 11 aujourd\'hui.',
+      suite: 'Il te manque une rep pour tester 92,5.'
+    });
+
+    const rien = K('K8');
+    rien.seanceDuJour = uneSeance('2026-09-20T18:00:00+00:00', 90,
+      [auPalier(90, 10), auPalier(90, 10), auPalier(90, 10)]);
+    expect(constatDe(rien).constat).toEqual({
+      verdict: 'Pas encore' + NB + ': 10-10-10 à 90.',
+      suite: 'Même cible la prochaine fois' + NB + ': 90' + NB + 'kg, vise 11.'
+    });
+
+    // Et la garde qui porte le changement : plus aucune félicitation.
+    [gagne, rien].forEach((c) => {
+      expect(constatDe(c).constat.verdict).not.toMatch(/toutes tes séries/);
+    });
+    // K8 lui-même, où la charge EST prise, la dit toujours.
+    expect(constatDe(K('K8')).constat.verdict).toMatch(/toutes tes séries/);
+  });
 
   test('DISCRIMINANT — la fois d’avant ne se cite que si c’était LA MÊME CHARGE', () => {
     // Le retest d'un cran : 130 raté le 13 sept., 127,5 aujourd'hui. Les deux
@@ -1167,9 +1251,14 @@ describe('le constat de fin de bloc (ECRAN-SAISIE §3.9)', () => {
     // perdre une colonne sans qu'aucun des 14 cas ne s'en aperçoive.
     const brut = (s) => ({ seance: { debut: s.debut }, series: s.series.map((x) => ({
       charge_kg: x.charge_kg, reps: x.reps, rpe: x.rpe, ressenti: null, type_serie: 'travail' })) });
+    // ⚠️ `{ etat: 'monte' }`, ET C'EST LA MOITIÉ DU PONT. Le rôle `rampe` ne
+    // naît QUE sur un exercice qui monte (`palier.js`, §5.2) : sans cet état,
+    // `analyser` prend la première série d'un échauffement en charge pour du
+    // travail, et K15 comme K17 comptent « les 2 d'avant » au lieu d'« une ».
+    // L'app passe `etatsExercices[slug]` ; le test doit passer la même chose.
     CAS.forEach((c) => {
       const r = Moteur.constatDExercice(
-        c.seances.map(brut), brut(c.seanceDuJour), undefined, c.avant, c.apres,
+        c.seances.map(brut), brut(c.seanceDuJour), { etat: 'monte' }, c.avant, c.apres,
         { mesure: 'charge_reps', equipement: c.equipement, intention: 'progresser',
           reglage: c.reglage, edition: false });
       expect([c.id, r.constat]).toEqual([c.id, c.constat]);
@@ -1256,6 +1345,44 @@ describe('l’en-tête passe au constat (ECRAN-SAISIE §3.9)', () => {
     const c = rendre({ constat: () => ({ verdict: 'Pas de palier aujourd\'hui.', suite: null }) });
     expect(textes(c, '.constat')).toEqual(['Pas de palier aujourd\'hui.']);
     expect(textes(c, '.constat-suite')).toEqual([]);
+  });
+
+  // ── §3.9 (48b-6b-2) — LA PORTE ÉTROITE ───────────────────────────────────
+
+  test('DISCRIMINANT — majConstat réécrit les deux lignes SANS toucher aux champs', () => {
+    // TOUTE la raison d'être de cette fonction : taper dans un champ ne
+    // redessine pas la séance, sinon le champ perdrait le focus au milieu d'un
+    // nombre. Si un jour elle reconstruit la légende, ce test tombe — et c'est
+    // exactement ce qu'on lui demande de garder.
+    const c = rendre({ constat: () => CONSTAT });
+    const champ = c.querySelector('input');
+    champ.value = '127,5';
+    Rendu().majConstat(c, 'dc', { verdict: 'Nouveau verdict.', suite: 'Nouvelle suite.' });
+    expect(textes(c, '.constat')).toEqual(['Nouveau verdict.']);
+    expect(textes(c, '.constat-suite')).toEqual(['Nouvelle suite.']);
+    expect(c.querySelector('input')).toBe(champ);
+    expect(champ.value).toBe('127,5');
+  });
+
+  test('la suite se retire quand elle disparaît, et revient à sa place', () => {
+    const c = rendre({ constat: () => CONSTAT });
+    Rendu().majConstat(c, 'dc', { verdict: 'Seul.', suite: null });
+    expect(textes(c, '.constat-suite')).toEqual([]);
+    Rendu().majConstat(c, 'dc', { verdict: 'Seul.', suite: 'De retour.' });
+    expect(textes(c, '.constat-suite')).toEqual(['De retour.']);
+    const classes = [...c.querySelector('.legende-exo').children].map((n) => n.className);
+    expect(classes.indexOf('constat-suite')).toBe(classes.indexOf('constat') + 1);
+  });
+
+  test('DISCRIMINANT — sans constat à l’écran, elle ne construit rien', () => {
+    // Elle ne fait pas revenir la consigne et ne crée pas un constat absent :
+    // c'est le prochain vrai rendu qui s'en charge.
+    const c = rendre({ constat: () => null });
+    Rendu().majConstat(c, 'dc', CONSTAT);
+    expect(textes(c, '.constat, .constat-suite')).toEqual([]);
+    expect(textes(c, '.consigne')).toEqual(LIB.jaune);
+    expect(() => Rendu().majConstat(c, 'slug-inconnu', CONSTAT)).not.toThrow();
+    expect(() => Rendu().majConstat(null, 'dc', CONSTAT)).not.toThrow();
   });
 
   test('DISCRIMINANT — en mode programme, rien, même avec un constat', () => {

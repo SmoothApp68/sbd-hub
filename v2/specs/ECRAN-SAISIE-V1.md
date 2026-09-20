@@ -483,6 +483,13 @@ constat, et annonce la prochaine étape (§3.5) :
 
 Aucun rouge, aucun « échec » : « pas encore ».
 
+**Le constat, tel qu'il se construit — 20/09/2026 (48b-6b).** Il paraît **dès que toutes les séries de travail de l'exercice sont validées**, et se défait si l'on en ajoute ou en dévalide une : la consigne revient. Il se lit entre deux consignes : celle affichée pendant la séance, qui décrit la fois d'avant, et celle calculée juste après, dont la dernière séance est celle du jour — aucune règle du moteur n'est recalculée pour lui. Deux lignes, jamais en jaune (maquette, tableau « Le constat, état par état ») :
+
+- **le verdict du jour** : le test entré dans la zone (« 130 kg : 3 reps le 15 sept., 4 aujourd'hui, dans ta zone. », ou « 127,5 kg : 3 aujourd'hui, au bas de ta zone. » la première fois à cette charge) ; pas encore (« 130 × 2 : pas encore dans ta zone. ») ; une rep gagnée (« 125 kg : 3 reps le 8 sept., 4 aujourd'hui. » — en Franc, sur la meilleure série) ; rien de gagné (« Pas encore : 4-4-4 à 125. ») ; toutes les séries passées (« 130 kg sur toutes tes séries : 4-4-4. ») ; une reprise (« Reprise faite : 5-5-5 à 125. ») ; une première fois (« Premier repère : 8-8-8 à 40. ») ; une charge sous le palier (« Aujourd'hui : 8-8-8 à 115. ») ; aucune charge répétée (« Pas de palier aujourd'hui : rien de répété sur deux séries. », sans suite) ;
+- **la suite** : « Prochaine séance : » et les lignes jaunes de la consigne d'après ; « Il te manque une rep pour tester 127,5. » quand des reps restent à gagner avant le test (Normal : jusqu'au niveau validé ; Franc : sur la meilleure série ; Prudent : la phrase générale) ; « Même cible la prochaine fois : … » quand rien n'a été gagné ; « … On reteste d'un seul cran. » ; et, pour l'étirement, « Ton cran ne peut pas être plus petit : ta zone s'étire. Prochaine séance : … On retestera 32 quand tu feras 16 à 28. »
+
+Le retour immédiat soutient la performance et la motivation (méta-analyse de Weakley et collègues, 2023).
+
 **3.10** — **La feuille « Pourquoi ».** Toucher la consigne ouvre le calcul : la
 dernière séance ligne par ligne, avec le rôle de chaque série (chauffe, au palier,
 test) ; la zone et l'habitude qui l'a rangée ; le palier et son niveau validé ; le

@@ -5276,6 +5276,146 @@ const SETS_IMPORTES = [
       erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
 
+  console.log('\n══ 7 quatervicies. LE CONSTAT DE FIN DE BLOC ══');
+  //
+  // ⚠️ CE QUE SEUL CE BANC PROUVE : la CONDITION. Les 14 cas du fichier
+  // montrent ce que le constat dit ; ici on regarde QUAND il paraît, et
+  // surtout quand il se défait. Un constat qui resterait après l'ajout d'une
+  // série annoncerait la fin d'un exercice qu'on est en train de continuer.
+  //
+  // Le soulevé de terre du §7 duovicies sert encore : trois séries de travail,
+  // un historique connu, et l'exercice tient dans un seul bloc.
+  {
+    const enTete = () => page.evaluate(() =>
+      Array.from(document.querySelectorAll('.legende-exo .consigne')).map((e) => e.textContent));
+    const constat = () => page.evaluate(() => ({
+      verdict: (document.querySelector('.legende-exo .constat') || {}).textContent || null,
+      suite: (document.querySelector('.legende-exo .constat-suite') || {}).textContent || null
+    }));
+    const puceZone = () => page.evaluate(() =>
+      (document.querySelector('.legende-exo .puce-zone') || {}).textContent || null);
+    const valider = async (i) => {
+      await page.evaluate((k) => {
+        document.querySelectorAll('.ligne-serie')[k].querySelector('.ok-serie').click();
+      }, i);
+      await attendre(700);
+    };
+
+    // La zone du soulevé a été corrigée en Hypertrophie au §7 tervicies : on
+    // revient à la déduction pour que le constat se lise sur la zone d'origine.
+    await aller('/exercice/souleve-terre');
+    await page.click('#page-exercice .puce-zone');
+    await attendre(700);
+    await page.evaluate(() => {
+      Array.from(document.querySelectorAll('#feuille-contenu button'))
+        .filter((b) => /Revenir/.test(b.textContent))[0].click();
+    });
+    await attendre(1600);
+
+    await aller('/saisie');
+    await demarrerRoutine('Terre');
+    ok('[C6] au départ, la consigne parle et il n’y a pas de constat',
+      (await enTete()).length > 0 && (await constat()).verdict === null,
+      JSON.stringify(await enTete()));
+
+    await valider(0);
+    await valider(1);
+    ok('[C6] DEUX séries sur trois validées : toujours la consigne, pas de constat',
+      (await enTete()).length > 0 && (await constat()).verdict === null,
+      JSON.stringify(await enTete()));
+
+    await valider(2);
+    const fini = await constat();
+    ok('[C6] LA TROISIÈME VALIDÉE : le constat paraît, et la consigne s’efface',
+      !!fini.verdict && (await enTete()).length === 0,
+      JSON.stringify(fini).replace(/\u00a0/g, '·'));
+    ok('[C6] il porte un verdict ET une suite',
+      /aujourd’hui|aujourd'hui|Pas encore|Premier|Reprise|toutes tes séries/.test(fini.verdict) &&
+      !!fini.suite,
+      JSON.stringify(fini).replace(/\u00a0/g, '·'));
+    ok('[C6] l’étiquette de zone, elle, reste',
+      (await puceZone()) === 'Lourd 3-5', String(await puceZone()));
+
+    // ── CE QUI LE DÉFAIT ──────────────────────────────────────────────────
+    await valider(2);   // dévalide : la coche est une bascule
+    ok('[C6] DÉVALIDER UNE SÉRIE DÉFAIT LE CONSTAT : la consigne revient',
+      (await constat()).verdict === null && (await enTete()).length > 0,
+      JSON.stringify(await enTete()));
+    await valider(2);
+    ok('[C6] et la revalider le ramène, identique',
+      JSON.stringify(await constat()) === JSON.stringify(fini),
+      JSON.stringify(await constat()).replace(/\u00a0/g, '·'));
+
+    await plusSerie(0);
+    ok('[C6] AJOUTER UNE SÉRIE LE DÉFAIT AUSSI — l’exercice n’est plus fini',
+      (await constat()).verdict === null && (await enTete()).length > 0,
+      (await compter('.ligne-serie')) + ' ligne(s) · ' + JSON.stringify(await enTete()));
+    await valider(3);
+    ok('[C6] la quatrième validée : le constat revient',
+      (await constat()).verdict !== null && (await enTete()).length === 0,
+      JSON.stringify(await constat()).replace(/\u00a0/g, '·'));
+    await abandonner();
+
+    // ── LES CHAUFFES NE COMPTENT PAS, ET NE SUFFISENT PAS ────────────────
+    await seanceVide();
+    await ajouterExoSeance('Terre');
+    await plusSerie(0);
+    await attendre(400);
+    await page.evaluate(() => { document.querySelectorAll('.ligne-serie .no-serie')[0].click(); });
+    await attendre(500);
+    await page.evaluate(() => {
+      Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
+        .filter((x) => /chauffement/i.test(x.textContent))[0].click();
+    });
+    await attendre(700);
+    await valider(0);
+    ok('[C6] SEULE LA CHAUFFE VALIDÉE : pas de constat, la consigne tient',
+      (await constat()).verdict === null && (await enTete()).length > 0,
+      JSON.stringify(await enTete()));
+    await valider(1);
+    ok('[C6] la série de travail validée : le constat paraît, la chauffe n’a rien retenu',
+      (await constat()).verdict !== null,
+      JSON.stringify(await constat()).replace(/\u00a0/g, '·'));
+    await abandonner();
+
+    // ── UN SUPERSET : LE CONSTAT EST PAR EXERCICE ────────────────────────
+    //
+    // ⚠️ CONFIGURATION DISCRIMINANTE : deux exercices dans UN bloc. Un constat
+    // calculé par bloc paraîtrait sur les deux branches dès que la première
+    // est finie — et dirait à la seconde que son exercice est terminé alors
+    // qu'on n'y a rien fait.
+    await seanceVide();
+    await ajouterExoSeance('Terre');
+    await ajouterExoSeance('Curl');
+    await menuBloc(0);
+    await entree('Grouper en superset');
+    await attendre(400);
+    await page.evaluate(() => {
+      const b = Array.from(document.querySelectorAll('.bloc-seance'))[1];
+      if (b) b.click();
+    });
+    await attendre(800);
+    ok('[C6] le superset est formé : deux exercices, un bloc',
+      (await compter('.bloc-seance.superset')) === 1 && (await compter('.legende-exo')) === 2,
+      (await compter('.bloc-seance.superset')) + ' superset · ' +
+      (await compter('.legende-exo')) + ' légende(s)');
+    // La première ligne est celle de A (le soulevé) : on la valide seule.
+    await valider(0);
+    const parExo = await page.evaluate(() =>
+      Array.from(document.querySelectorAll('.legende-exo')).map((n) => ({
+        nom: (n.querySelector('.nom-exo') || {}).textContent || '',
+        constat: !!n.querySelector('.constat'),
+        consigne: !!n.querySelector('.consigne')
+      })));
+    ok('[C6] A est fini : son constat paraît. B ne l’est pas : sa consigne tient',
+      parExo.length === 2 && parExo[0].constat && !parExo[0].consigne &&
+      !parExo[1].constat,
+      JSON.stringify(parExo));
+    await abandonner();
+    ok('[C6] aucune erreur de page pendant tout le constat',
+      erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
+  }
+
   console.log('\n══ 8. NON-RÉGRESSION ══');
   for (const [chemin, attendu] of [['/', 'vue-liste'], ['/progression', 'vue-progression'],
                                    ['/profil', 'vue-profil'], ['/routine/nouvelle', 'vue-routine']]) {

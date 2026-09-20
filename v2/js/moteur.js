@@ -1662,6 +1662,132 @@
     };
   }
 
+  // ── §3.9 — LE CONSTAT DE FIN DE BLOC ─────────────────────────────────────
+  //
+  // Quand toutes les séries de travail d'un exercice sont validées, l'en-tête
+  // passe de la consigne au constat : ce qui s'est passé aujourd'hui, puis ce
+  // qui vient. Le retour immédiat soutient la performance et la motivation
+  // (méta-analyse de Weakley et coll., 2023).
+  //
+  // ⚠️ IL NE RECALCULE AUCUNE RÈGLE, ET C'EST TOUTE SA CONSTRUCTION. Il se lit
+  // entre DEUX consignes que le moteur a déjà rendues :
+  //
+  //   · `consigneAvant` — celle affichée pendant la séance, qui décrit la fois
+  //     d'avant ;
+  //   · `consigneApres` — la même fonction, sur l'historique PLUS la séance du
+  //     jour, avec une coupure après son début.
+  //
+  // Tout ce qu'il dit sort de leurs deux fondements. Rejouer ici une règle du
+  // §9 — « le test est-il dans la zone ? », « le palier a-t-il monté ? » —
+  // donnerait deux juges pour une même séance, et le jour où l'un change,
+  // l'écran dirait une chose et le lendemain l'autre.
+  function constatDe(consigneAvant, consigneApres, reglage, cranSuivant) {
+    if (!consigneAvant || !consigneApres) return null;
+    var ap = consigneApres.fondement || {};
+    var av = consigneAvant.fondement || {};
+    var z = zoneParCle(consigneApres.zone);
+    var repsDuJour = (ap.reps || []).join('-');
+    var testDuJour = ap.test || null;
+
+    // Ce qui compte comme « fait aujourd'hui » : le niveau validé, sauf en
+    // Franc, dont le déclencheur est UNE série — le constat se lit donc sur la
+    // meilleure, comme la règle qui le suit (§9.8).
+    var faitAujourdHui = reglage === 'franc'
+      ? (ap.reps || []).reduce(function (m, r) { return r !== null && r > m ? r : m; }, 0)
+      : consigneApres.niveau;
+
+    return { verdict: verdictDuJour(consigneAvant, consigneApres, z, repsDuJour,
+                                    testDuJour, faitAujourdHui, av, ap),
+             suite: suiteDuJour(consigneAvant, consigneApres, z, reglage,
+                                faitAujourdHui, cranSuivant) };
+  }
+
+  // Ce qui s'est passé. L'ordre des cas EST la règle : le silence d'abord — il
+  // n'y a rien à raconter d'autre —, puis ce que la consigne d'avant attendait,
+  // puis ce que la séance a donné.
+  function verdictDuJour(cAvant, cApres, z, repsDuJour, t, fait, av, ap) {
+    // Aucune charge répétée : il n'y a pas de palier, donc pas de progrès à
+    // mesurer. On le dit sans le reprocher.
+    if (cApres.etat === 'silence') {
+      return 'Pas de palier aujourd\'hui' + DEUX_POINTS + 'rien de répété sur deux séries.';
+    }
+    var P = nombreFr(cApres.palier);
+    if (cAvant.etat === 'silence') return 'Premier repère' + DEUX_POINTS + repsDuJour + ' à ' + P + '.';
+    if (cAvant.etat === 'reprise_courte' || cAvant.etat === 'reprise_longue') {
+      return 'Reprise faite' + DEUX_POINTS + repsDuJour + ' à ' + P + '.';
+    }
+    // La bascule du réglage Franc : toutes les séries ont pris la nouvelle
+    // charge. C'est la consigne d'AVANT qui le disait ; la séance l'a fait.
+    if (cAvant.etat === 'tout_passe') {
+      return enKg(cApres.palier) + ' sur toutes tes séries' + DEUX_POINTS + repsDuJour + '.';
+    }
+    // ⚠️ UNE SÉANCE PLUS LÉGÈRE NE SE JUGE PAS. Descendre de charge est une
+    // décision, pas un échec : le constat la note et s'arrête là (CADRAGE §2
+    // terdecies — le moteur ne commente jamais ce qu'il n'a pas demandé).
+    var palierAvant = nombre(cAvant.palier);
+    if (palierAvant !== null && nombre(cApres.palier) !== null &&
+        nombre(cApres.palier) < palierAvant) {
+      return 'Aujourd\'hui' + DEUX_POINTS + repsDuJour + ' à ' + P + '.';
+    }
+    // Un test aujourd'hui : c'est lui qu'on raconte, il porte la décision.
+    if (t !== null) {
+      var dit = niveauDuTest(t.niveau, z);
+      if (z !== null && t.niveau !== null && t.niveau < z.bas) {
+        return croix(t.charge, t.reps) + DEUX_POINTS + dit + '.';
+      }
+      // La fois d'avant n'avait de test que si c'était LA MÊME CHARGE : sinon
+      // « 3 reps le 13 sept. » parlerait d'autre chose.
+      var avant = av.test && av.test.charge === t.charge ? av.test : null;
+      return enKg(t.charge) + DEUX_POINTS +
+        (avant ? nombreFr(avant.reps) + ' reps le ' + leJour(avant.date) + ', ' : '') +
+        nombreFr(t.reps) + ' aujourd\'hui, ' + dit + '.';
+    }
+    // Pas de test : le palier a-t-il gagné une rep ? On compare au NIVEAU de la
+    // consigne d'avant, celui qu'elle a elle-même calculé.
+    var nivAvant = nombre(cAvant.niveau);
+    if (nivAvant !== null && fait !== null && fait > nivAvant) {
+      var haut = z !== null && fait >= z.haut ? ', ' + niveauDansPhrase(fait, z) : '';
+      return enKg(cApres.palier) + DEUX_POINTS + nivAvant + ' reps le ' + leJour(av.date) +
+             ', ' + fait + ' aujourd\'hui' + haut + '.';
+    }
+    return 'Pas encore' + DEUX_POINTS + repsDuJour + ' à ' + P + '.';
+  }
+
+  // Ce qui vient. La consigne d'après le dit déjà en jaune : on la reprend
+  // telle quelle plutôt que de la réécrire.
+  function suiteDuJour(cAvant, cApres, z, reglage, fait, cranSuivant) {
+    if (cApres.etat === 'silence') return null;
+    var jaune = lignesJaunes(cApres).join(', ');
+    var prochaine = 'Prochaine séance' + DEUX_POINTS + jaune + '.';
+
+    if (cApres.etat === 'etirement') {
+      return 'Ton cran ne peut pas être plus petit' + DEUX_POINTS + 'ta zone s\'étire. ' +
+             prochaine + ' On retestera ' + nombreFr(cApres.fondement.test.charge) +
+             ' quand tu feras ' + cApres.fondement.cible + ' à ' + nombreFr(cApres.ligne.charge) + '.';
+    }
+    if (cApres.etat === 'retest_un_cran') return prochaine + ' On reteste d\'un seul cran.';
+
+    if (cApres.etat === 'progression') {
+      var nivAvant = nombre(cAvant.niveau);
+      // Rien de gagné : la cible ne bouge pas, et on le dit comme tel plutôt
+      // que d'annoncer un manque qui n'a pas changé depuis la dernière fois.
+      if (nivAvant !== null && fait !== null && fait <= nivAvant) {
+        return 'Même cible la prochaine fois' + DEUX_POINTS + jaune + '.';
+      }
+      // ⚠️ PRUDENT NE COMPTE PAS LES REPS QUI MANQUENT. Son déclencheur
+      // demande TOUTES les séries au haut, DEUX séances de suite : « il te
+      // manque une rep » y serait faux la moitié du temps — il en manquerait
+      // une, puis une séance entière. La phrase générale ne promet rien.
+      if (reglage !== 'prudent' && z !== null && fait !== null && fait < z.haut) {
+        var manque = z.haut - fait;
+        return 'Il te manque ' + (manque === 1 ? 'une rep' : manque + ' reps') +
+               ' pour tester ' + (cranSuivant === null || cranSuivant === undefined
+                 ? 'le cran au-dessus' : nombreFr(cranSuivant)) + '.';
+      }
+    }
+    return prochaine;
+  }
+
   // ── §3.8 — L'ÉTIQUETTE DE ZONE ───────────────────────────────────────────
   //
   // « Lourd 3-5 » — le libellé de la zone et ses bornes, ou `null`. C'est la
@@ -1722,6 +1848,17 @@
     return { debut: debut, palier: r.palier === undefined ? null : r.palier, series: series };
   }
 
+  // Le pont, pour un lot de séances d'un exercice. Extrait de
+  // `consigneDExercice` au 48b-6b : le constat en a besoin deux fois — une
+  // fois pour la consigne d'après, une fois pour `chargeVoisine`, qui lit le
+  // contrat et non les séries brutes.
+  function contratDe(groupes, etat, mesure) {
+    return (groupes || []).map(function (g) {
+      var r = Palier().analyser((g && g.series) || [], etat, { mesure: mesure });
+      return seanceDuContrat(g && g.seance ? g.seance.debut : null, r);
+    });
+  }
+
   // La consigne d'UN exercice de la séance ouverte, silences compris. Pure :
   // `app.js` ne fait que résoudre les valeurs (`mesure` par `gabaritDe`,
   // `reglage` par `Profil.rythmeDe`, `equipement` au catalogue) et les passer.
@@ -1747,10 +1884,7 @@
     if (o.edition) return null;
     if ((o.intention || 'progresser') === 'entretien') return null;
     if (o.mesure !== 'charge_reps') return null;
-    var seances = (groupes || []).map(function (g) {
-      var r = Palier().analyser((g && g.series) || [], etat, { mesure: o.mesure });
-      return seanceDuContrat(g && g.seance ? g.seance.debut : null, r);
-    });
+    var seances = contratDe(groupes, etat, o.mesure);
     // §9.1.1 (48b-7) — LE RANG 2 EST BRANCHÉ. Il attendait ici depuis
     // 48b-5b-2, câblé à `null` faute d'un endroit où lire la zone choisie.
     var consigne = consignePour(seances, avant,
@@ -1758,6 +1892,33 @@
     return { consigne: consigne, libelles: libellesConsigne(consigne),
              etiquette: etiquetteZone(consigne),
              pourquoi: pourquoiConsigne(consigne, o.reglage) };
+  }
+
+  // ── §3.9 — LE CONSTAT D'UN EXERCICE, DE BOUT EN BOUT ─────────────────────
+  //
+  // L'app passe l'historique et la séance du jour ; le moteur rend les deux
+  // consignes, le cran suivant et le constat. Les silences sont ceux de la
+  // consigne, et c'est voulu : là où le moteur ne prescrit rien — Entretenir,
+  // Édition, mesure sans charge — il n'a rien à constater non plus.
+  //
+  // ⚠️ `apres` EST APRÈS LE DÉBUT DE LA SÉANCE DU JOUR, et c'est ce qui fait
+  // entrer celle-ci dans le calcul : le moteur ne lit jamais l'avenir
+  // (§9.12), donc une coupure au début de la séance l'exclurait — on
+  // recalculerait la consigne d'avant et le constat serait vide.
+  function constatDExercice(groupes, groupeDuJour, etat, avant, apres, options) {
+    var o = options || {};
+    var cAvant = consigneDExercice(groupes, etat, avant, o);
+    if (!cAvant) return null;
+    var tous = (groupes || []).concat([groupeDuJour]);
+    var cApres = consigneDExercice(tous, etat, apres, o);
+    if (!cApres) return null;
+    var P = cApres.consigne.palier;
+    var cran = P === null || P === undefined ? null
+      : chargeVoisine(contratDe(tous, etat, o.mesure), apres, P, o.equipement, 1);
+    return {
+      avant: cAvant, apres: cApres, cranSuivant: cran,
+      constat: constatDe(cAvant.consigne, cApres.consigne, o.reglage, cran)
+    };
   }
 
   var api = {
@@ -1793,6 +1954,8 @@
     consignePour: consignePour,
     libellesConsigne: libellesConsigne,
     pourquoiConsigne: pourquoiConsigne,
+    constatDe: constatDe,
+    constatDExercice: constatDExercice,
     etiquetteZone: etiquetteZone,
     // Le menu des zones les affiche toutes (§3.8) : il lit cette table, il ne
     // recopie ni les libellés ni les bornes.

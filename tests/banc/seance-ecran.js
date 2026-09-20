@@ -3278,6 +3278,27 @@ const SETS_IMPORTES = [
     await page.click('#feuille-contenu .principal');
     await attendre(2600);
   };
+  // ⚠️ ABANDONNER N'EST PAS TERMINER, ET C'EST TOUT L'INTÉRÊT (§7 octodecies).
+  // « Terminer » fait entrer la séance dans l'historique : elle devient alors
+  // LA FOIS D'AVANT de son exercice, et devance le décor que la section vient
+  // de poser. « Abandonner » la supprime — l'antécédent reste l'antécédent.
+  const abandonner = async () => {
+    await page.click('#bandeau-seance .bandeau-fin');
+    await attendre(600);
+    await page.click('#feuille-contenu .danger');
+    await attendre(1600);
+  };
+  const onglet = async (vue) => {
+    await page.click('.onglet[data-vue="' + vue + '"]');
+    await attendre(900);
+  };
+  // La bascule d'intention, par l'écran : le mémo des consignes se cle dessus
+  // (`cleConsignes`), et l'écrire en base à la main ne le ferait pas bouger.
+  const choisirIntention = async (cle) => {
+    await onglet('profil');
+    await page.click('.p-seg button[data-cle="' + cle + '"]');
+    await attendre(1200);   // l'écriture locale, puis l'aller-retour serveur
+  };
 
   // ── 8. L'ajout d'exercice se pose à la FIN, pas en tête ────────────────
   const repereVide = base.journal.length;
@@ -3859,13 +3880,29 @@ const SETS_IMPORTES = [
   // fantôme (§3 bis.3 — « on valide sans rien taper quand c'est juste »). Le
   // test unitaire montre le bon fantôme ; celui-ci montre la bonne ligne EN BASE.
 
+  // ⚠️ DATÉE UNE SECONDE AVANT MAINTENANT — corrigé le 20/09/2026 (48b-5b-4),
+  // exactement comme `AVANT_DC` au §7 unvicies, et pour la même raison.
+  //
+  // Elle était datée `LUNDI + 6 j`, dimanche 08:00. Un jour de semaine, cette
+  // date est DANS LE FUTUR : la séance devançait tout ce que la campagne crée,
+  // et le moteur l'ignorait (il ne lit jamais l'avenir, MOTEUR §9.12). Les deux
+  // effets se compensaient par accident. Un dimanche matin elle repasse dans le
+  // passé, l'ordre s'inverse et le moteur se met à parler : quatre
+  // vérifications tombaient, sans qu'aucun code ait changé (mesuré sur `main`
+  // le 20/09). Un banc qui dépend du jour de la semaine ne prouve rien.
+  //
+  // Ce que la section teste est LA CASCADE D'AVANT LE MOTEUR — le fantôme et la
+  // colonne par type, chantiers 38 et 39. Elle tourne donc en ENTRETENIR, où le
+  // moteur se tait PAR RÈGLE et non par accident de calendrier, et le décor est
+  // dans le passé comme une vraie séance. Les attendus ne changent pas.
+  const debutRowing = new Date(Date.now() - 1000);
   const AVANT_ROWING = {
     id: 'sess-rowing', user_id: 'u-banc', titre: 'Dos — la fois d’avant',
-    debut: new Date(LUNDI.getTime() + 6 * 86400000).toISOString(),
-    fin: new Date(LUNDI.getTime() + 6 * 86400000 + 3600000).toISOString(),
+    debut: debutRowing.toISOString(),
+    fin: new Date(debutRowing.getTime() + 3600000).toISOString(),
     statut: 'terminee', note: null, salle: null, salle_norme: null,
     routine_id: null, source: 'app',
-    created_at: new Date(LUNDI.getTime() + 6 * 86400000).toISOString()
+    created_at: debutRowing.toISOString()
   };
   base.sessions.push(Object.assign({}, AVANT_ROWING));
   // `40(W) · 70(W) · 120 · 120 · 120` — exactement le cas de l'audit.
@@ -3904,6 +3941,35 @@ const SETS_IMPORTES = [
   // raison étrangère au défaut testé.
   await aller('/saisie');
   if (JSON.stringify(await visible()) === '["vue-seance"]') await terminer();
+
+  // ⚠️ LE GARDE-FOU DE LA PRÉMISSE (§7 unvicies, généralisé ici). La section
+  // repose entière sur un fait : « Dos — la fois d'avant » est la DERNIÈRE
+  // séance de rowing ET de tractions de la base. Si une séance la devance, le
+  // banc mesure autre chose que ce qu'il annonce — il le DIT, en nommant la
+  // fautive, plutôt que de tomber vingt lignes plus bas sans raison lisible.
+  const devancentRowing = () => base.sessions.filter((x) => x.id !== AVANT_ROWING.id &&
+    Date.parse(x.debut) >= Date.parse(AVANT_ROWING.debut) &&
+    base.sets.some((y) => y.session_id === x.id &&
+      (y.exercise_slug === 'rowing-barre' || y.exercise_slug === 'tractions')));
+  const premisseRowing = (quand) => ok('[F] la fois d’avant est la dernière séance de rowing et de tractions — ' + quand,
+    devancentRowing().length === 0 && Date.parse(AVANT_ROWING.debut) < Date.now(),
+    devancentRowing().length
+      ? 'datées après : ' + JSON.stringify(devancentRowing().map((x) => x.id + '@' + x.debut))
+      : AVANT_ROWING.debut);
+  premisseRowing('au départ');
+
+  // ⚠️ EN ENTRETENIR, ET C'EST LA CONFIGURATION DISCRIMINANTE. Le moteur se tait
+  // par RÈGLE (`consigneDExercice` rend `null`), donc le plan est vide et la
+  // cascade qui s'affiche est celle d'avant lui : ce que la section mesure
+  // depuis le chantier 38. En Progresser, le plan prendrait le rang 2 et
+  // couvrirait ces lignes — on testerait le moteur, pas la cascade.
+  //
+  // ⚠️ ET AUCUNE ROUTINE ICI : les séries sont ajoutées à la main, donc
+  // `reps_visees` est nul. C'est ce qui fait que les reps descendent jusqu'à la
+  // dernière séance. Depuis une routine qui porte des reps visées, elles
+  // passeraient DEVANT (ECRAN-SAISIE §7 septendecies.3) et « 5 » viendrait de
+  // la routine, pas de l'antécédent — la section ne prouverait plus rien.
+  await choisirIntention('entretien');
 
   await seanceVide();
   await ajouterExoSeance('Rowing');
@@ -3944,7 +4010,11 @@ const SETS_IMPORTES = [
     base.journal.filter((j, i) => i >= repereF && j.op === 'refus').length === 0,
     JSON.stringify(base.journal.filter((j, i) => i >= repereF && j.op === 'refus').slice(0, 3)));
 
-  await terminer();
+  // ⚠️ ABANDONNÉE, PAS TERMINÉE. Terminée, elle deviendrait la fois d'avant du
+  // rowing pour la suite de la section — elle n'a aucune chauffe, et le
+  // superset ci-dessous ne pourrait plus mesurer « la chauffe prend la
+  // chauffe ». C'est exactement ce que la date dans le futur masquait.
+  await abandonner();
 
   // ── L'ALIGNEMENT TIENT DANS UN SUPERSET (§2.5) ────────────────────────
   //
@@ -4020,7 +4090,11 @@ const SETS_IMPORTES = [
     'placeholder = « ' + (await fantomeChauffeA()) + ' » · badges ' +
     JSON.stringify(await badgesF()));
 
-  await terminer();
+  premisseRowing('après le superset');
+  await abandonner();
+  // Le moteur reprend la parole : le §7 unvicies mesure le PLAN, et le §7
+  // duovicies rejouera la bascule par les deux écrans.
+  await choisirIntention('progresser');
 
   console.log('\n══ 7 unvicies. LE NIVEAU 1 DE LA CASCADE — PAR TYPE, ET S’IL DÉVIE ══');
   //
@@ -4829,16 +4903,6 @@ const SETS_IMPORTES = [
         Array.from(l.querySelectorAll('input')).map((i) => i.value ? '[' + i.value + ']' : (i.placeholder || '\u2205')).join('\u00d7')));
     const enteteExo = () => page.evaluate(() =>
       Array.from(document.querySelectorAll('.legende-exo .consigne, .legende-exo .consigne-dit')).map((e) => e.textContent));
-    const onglet = async (vue) => { await page.click('.onglet[data-vue="' + vue + '"]'); await attendre(900); };
-    const choisirIntention = async (cle) => {
-      await page.click('.p-seg button[data-cle="' + cle + '"]');
-      await attendre(1200);   // l'écriture locale, puis l'aller-retour serveur
-    };
-    const abandonner = async () => {
-      await page.click('#bandeau-seance .bandeau-fin'); await attendre(600);
-      await page.click('#feuille-contenu .danger'); await attendre(1600);
-    };
-
     // ── Progresser : le plan, charge et reps, et l'en-tête ────────────────
     await demarrerRoutine('Terre');
     ok('[H] Progresser, routine à 8 reps visées : les fantômes disent LE PLAN, charge et reps',
@@ -4848,7 +4912,6 @@ const SETS_IMPORTES = [
       JSON.stringify(await enteteExo()).replace(/\u00a0/g, '·'));
 
     // ── Profil → Entretenir → retour par l'onglet Saisie ───────────────────
-    await onglet('profil');
     await choisirIntention('entretien');
     ok('[H] l’intention est partie au serveur, et la ligne rendue la porte',
       base.profiles[0].intention === 'entretien' &&
@@ -4875,7 +4938,6 @@ const SETS_IMPORTES = [
     await abandonner();
 
     // ── Retour en Progresser : le mémo se re-cle, le plan revient ──────────
-    await onglet('profil');
     await choisirIntention('progresser');
     await onglet('saisie');
     await demarrerRoutine('Terre');

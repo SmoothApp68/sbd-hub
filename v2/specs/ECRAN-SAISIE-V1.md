@@ -1890,6 +1890,8 @@ Pas de rang 2 bis : la consigne passe devant la dernière séance sur les lignes
 > `sets` n'a pas cette colonne et `COLONNES_SET` ne la laisse pas partir. Une intention n'est
 > pas une observation.
 
+**Précisé le 19/09/2026 (48b-5b-2).** « La ligne la porte » s'entend de la ligne **affichée**, pas de la série : la proposition vit dans **un plan par exercice**, calculé à l'ouverture de la séance et passé au fantôme. Elle ne devient jamais une propriété d'une série — ni en mémoire, ni sur l'appareil, ni dans la file d'attente. La consigne couvre les `n` dernières séries de travail de l'exercice dans la séance ouverte (MOTEUR §9.13) : les `n − k` premières reçoivent la ligne du palier, les `k` dernières celle du test ; les séries d'avant, les chauffes et les dégressives gardent la dernière séance. Sans consigne (Entretenir, mesure sans charge, silence du moteur), la cascade est celle d'avant le moteur.
+
 ---
 
 ## 7 unvicies. Le niveau 1 de la cascade — par type, et seulement s'il dévie

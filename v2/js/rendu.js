@@ -1820,6 +1820,21 @@
       // colonnes au milieu de lignes à trois désoriente. Tu par prudence quand
       // la mesure est inconnue — on ne nomme pas ce qu'on ne sait pas.
       if (g.libelle) entree.appendChild(el('div', 'type-mesure', g.libelle));
+
+      // §3.1 — LA VOIX DU MOTEUR, entre la ligne de mesure et les réglages : les
+      // lignes jaunes de `libellesConsigne`, puis sa phrase grise. Le jaune est
+      // la SEULE voix du moteur (§7 bis.4) ; le gris, le jeton du texte
+      // secondaire. Rien en mode programme : une routine n'est pas une séance,
+      // elle n'a ni début ni dernière fois.
+      //
+      // ⚠️ L'EN-TÊTE NE CALCULE RIEN : il lit `vue.libelles(slug)`, qui rend ce
+      // que `app.js` a mémoïsé à l'ouverture. Un en-tête qui appellerait le
+      // moteur se recalculerait à chaque validation.
+      var lib = !vue.programme && vue.libelles ? vue.libelles(x.slug) : null;
+      if (lib) {
+        (lib.jaune || []).forEach(function (l) { entree.appendChild(el('div', 'consigne', l)); });
+        if (lib.gris) entree.appendChild(el('div', 'consigne-dit', lib.gris));
+      }
       entree.appendChild(reglagesExo(x, vue));
 
       tete.appendChild(entree);

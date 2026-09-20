@@ -890,6 +890,8 @@ Validé sur tout l'historique des cinq profils (`banc_consigne48.py`) : 6 109 co
 
 **Le fondement — ajouté le 19/09/2026 (48b-5b-1).** `consignePour` rend aussi `fondement`, les faits sur lesquels la consigne repose : la date de la dernière séance ; les reps saisies de ses séries au palier ; le test (charge, reps saisies de sa première série, niveau compté, date) et s'il valait un seul cran ; la cible d'un étirement ; la preuve d'un double saut (`haut` ou `facile`) ; le seuil d'une série qui attend ; le palier précédent, après la bascule ; la série à fond (rang parmi les séries au palier, charge, reps saisies, reps comptées, cause `rpe` ou `ressenti`) ; en silence, les charges de la dernière séance. Les phrases de l'en-tête (ECRAN-SAISIE §3.12), la feuille « Pourquoi » (ECRAN-SAISIE §3.10) et la table `predictions` (§9.11) le lisent : **aucune ne recalcule une règle du moteur**.
 
+**Le pont depuis `analyser` — 19/09/2026 (48b-5b-2).** `analyser` ne connaît pas de rôle « palier » : une série au palier y est une série `travail` à la charge du palier. Traduction vers le contrat de `consignePour` : `travail` à la charge du palier → `palier` ; autre `travail` → `travail` ; `exploration` → `exploration` ; `rampe` → `rampe` ; `chauffe`, `chauffe_probable`, `degressive`, `descente_choisie` et `echec` → `autre`. **Une seule fonction fait ce pont**, dans l'ordre des séries de la séance. La date de coupure est le début de la séance ouverte.
+
 ---
 
 ## 10. L'incrément

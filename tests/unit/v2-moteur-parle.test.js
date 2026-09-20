@@ -155,7 +155,7 @@ describe('le pont depuis analyser (MOTEUR §9.13)', () => {
     const N10 = {
       attendu: { etat: 'etend', zone: 'lourd', n: 3, ligne: { charge: 125, vise: 5 }, haut: { charge: 130, vise: 4, k: 2 } },
       test: { charge: 130, reps: 5, niveau: 4, date: jour('09-13') },
-      jaune: ['130' + NB + 'kg sur 2 séries, vise 4', 'et 125' + NB + 'kg sur la première, vise 5'],
+      jaune: ['130' + NB + 'kg sur les 2 dernières séries, vise 4', 'et 125' + NB + 'kg sur celle d\'avant, vise 5'],
       gris: 'Ton test à 130 du 13' + NB + 'sept. est entré dans ta zone' + NB + ': il gagne une série.'
     };
 
@@ -181,7 +181,7 @@ describe('le pont depuis analyser (MOTEUR §9.13)', () => {
     test('témoin — sans effort, 130 × 5 touche le haut : vise 5, « a touché le haut »', () => {
       const c = Moteur.consigneDExercice(squat(null), ETAT, AVANT, OPTIONS);
       expect(c.consigne.haut).toEqual({ charge: 130, vise: 5, k: 2 });
-      expect(c.libelles.jaune[0]).toBe('130' + NB + 'kg sur 2 séries, vise 5');
+      expect(c.libelles.jaune[0]).toBe('130' + NB + 'kg sur les 2 dernières séries, vise 5');
       expect(c.libelles.gris).toContain('a touché le haut de ta zone');
     });
   });
@@ -500,6 +500,69 @@ describe('consigneDExercice : les silences passent avant le moteur', () => {
     // §9.12 — une coupure AVANT la dernière séance ne la voit pas.
     expect(Moteur.consigneDExercice(franc, undefined, jour('09-13'), OPTIONS).consigne.fondement.date)
       .toBe(jour('08-09'));
+  });
+
+  // ── LA CASCADE DES REPS SOUS CHAQUE SILENCE (ECRAN-SAISIE §7 septendecies.3) ──
+  //
+  // Constaté sur l'appareil le 20/09 : en Entretenir, une routine de couché à
+  // 5 · 5 · 4 reps donnait le MÊME fantôme que le plan du moteur — mêmes
+  // chiffres, autre source. Les trois sources se distinguent ici : le plan
+  // vise 5, la routine dit 8, la dernière séance a fait 4 · 5 · 3. Chaque
+  // silence descend jusqu'au fantôme, avec une série qui PORTE des reps visées.
+  describe('sous chaque silence, le fantôme dit la routine avant la dernière séance', () => {
+    const PREC = () => prec([p(125, 4), p(125, 5), p(130, 3)]);
+    // La séance DEPUIS UNE ROUTINE, comme sur l'appareil : trois lignes de
+    // travail programmées à `reps` (8, ou rien), que `exerciceDepuisRoutine`
+    // pose en `reps_visees` sur chaque ligne (ch. 43).
+    const avecRoutine = (slug, reps) => Seance.creer({
+      id: 'S', userId: 'u', idSerie: uuid,
+      routine: { id: 'r', exercices: [{ id: 'e1', exercise_slug: slug, repos_cible_s: null,
+        groupe_superset: null, note: null,
+        series: [1, 2, 3].map(() => ({ type_serie: 'travail', reps: reps })) }] }
+    });
+    const fantomes = (s, plan, pr) => [0, 1, 2].map((i) => {
+      const f = Seance.fantome(s, 0, i, pr, plan);
+      return f.charge_kg + '\u00d7' + f.reps;
+    });
+    const plan = (options) => {
+      const c = Moteur.consigneDExercice(couche(), undefined, AVANT, Object.assign({}, OPTIONS, options));
+      return { c: c, plan: Seance.planDe(avecRoutine('dc', 8).exercices[0].series, c ? c.consigne : null) };
+    };
+
+    test('témoin — en Progresser, le plan passe devant les reps visées : 125 × 5, puis 130 × 4', () => {
+      const r = plan({});
+      expect(r.c).not.toBeNull();
+      expect(fantomes(avecRoutine('dc', 8), r.plan, PREC())).toEqual(['125\u00d75', '125\u00d75', '130\u00d74']);
+    });
+
+    test('DISCRIMINANT — Entretenir : charges de la dernière séance, reps de la routine', () => {
+      const r = plan({ intention: 'entretien' });
+      expect(r.c).toBeNull();
+      expect(r.plan).toEqual([null, null, null]);
+      expect(fantomes(avecRoutine('dc', 8), r.plan, PREC())).toEqual(['125\u00d78', '125\u00d78', '130\u00d78']);
+      // Sans reps visées, la dernière séance parle, reps comprises.
+      expect(fantomes(avecRoutine('dc', null), r.plan, PREC())).toEqual(['125\u00d74', '125\u00d75', '130\u00d73']);
+    });
+
+    test('DISCRIMINANT — Édition : même cascade, la routine avant la dernière séance', () => {
+      const r = plan({ edition: true });
+      expect(r.c).toBeNull();
+      expect(fantomes(avecRoutine('dc', 8), r.plan, PREC())).toEqual(['125\u00d78', '125\u00d78', '130\u00d78']);
+      expect(fantomes(avecRoutine('dc', null), r.plan, PREC())).toEqual(['125\u00d74', '125\u00d75', '130\u00d73']);
+    });
+
+    test('DISCRIMINANT — mesure reps (tractions) : pas de charge, reps de la routine puis de la dernière séance', () => {
+      const c = Moteur.consigneDExercice(couche(), undefined, AVANT, Object.assign({}, OPTIONS, { mesure: 'reps' }));
+      expect(c).toBeNull();
+      const pr = prec([p(null, 10), p(null, 9), p(null, 8)]);
+      const s = avecRoutine('tr', 12);
+      const vide = Seance.planDe(s.exercices[0].series, null);
+      expect([0, 1, 2].map((i) => Seance.fantome(s, 0, i, pr, vide)))
+        .toEqual([{ charge_kg: null, reps: 12, duree_s: null, distance_m: null },
+                  { charge_kg: null, reps: 12, duree_s: null, distance_m: null },
+                  { charge_kg: null, reps: 12, duree_s: null, distance_m: null }]);
+      expect([0, 1, 2].map((i) => Seance.fantome(avecRoutine('tr', null), 0, i, pr, vide).reps)).toEqual([10, 9, 8]);
+    });
   });
 });
 

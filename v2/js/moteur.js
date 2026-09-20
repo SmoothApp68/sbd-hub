@@ -1104,10 +1104,6 @@
   var MOIS_COURTS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin',
                      'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
 
-  // « 2ᵉ » avec la lettre modificative (U+1D49), pas un exposant typographique :
-  // elle se copie et se lit à la synthèse vocale.
-  var EXPOSANT_E = '\u1d49';
-
   // ⚠️ LU TARDIVEMENT, SANS REPLI, comme `THPalier`. `modele.js` charge avant
   // `moteur.js` (index.html 325 puis 329), mais un repli « si THModele manque,
   // écris le point décimal » afficherait « 127.5 » à un utilisateur français
@@ -1129,8 +1125,6 @@
     return d.getDate() + INSECABLE + MOIS_COURTS[d.getMonth()];
   }
 
-  function rangFr(n) { return n === 1 ? '1re' : String(n) + EXPOSANT_E; }
-
   // « 100, 110 puis 120 » — la dernière se détache, parce que c'est elle qui
   // dit que la série de charges s'arrête là.
   function suiteFr(valeurs) {
@@ -1149,10 +1143,16 @@
   }
 
   // ⚠️ L'ORDRE DES DEUX LIGNES EST UNE RÈGLE, pas un goût. La ligne majoritaire
-  // passe devant : à trois séries dont deux à 130, on lit « 130 kg sur 2
-  // séries » d'abord. Quand une SEULE série porte la nouvelle charge, le palier
-  // reprend la tête et le test se dit « puis … en dernière série ». Sinon
-  // l'œil lit la charge du test comme celle de toute la séance.
+  // passe devant : à trois séries dont deux à 130, on lit « 130 kg sur les 2
+  // dernières séries » d'abord. Quand une SEULE série porte la nouvelle charge,
+  // le palier reprend la tête et le test se dit « puis … en dernière série ».
+  // Sinon l'œil lit la charge du test comme celle de toute la séance.
+  //
+  // ⚠️ JAMAIS DE POSITION ABSOLUE (ECRAN-SAISIE §3.12, 48b-5b-3). La consigne
+  // ne voit que les séries qu'elle couvre ; à l'écran, une rampe ou une chauffe
+  // peut les précéder. « Sur la première » tombait, au squat d'Aurélien, sur la
+  // rampe à 120. On parle donc DEPUIS LA FIN : « les 2 dernières », « celle
+  // d'avant », « les 3 d'avant ».
   function lignesJaunes(c) {
     if (c.etat === 'silence') return [];
     var dessous = c.etat === 'reprise_longue';
@@ -1168,9 +1168,9 @@
     }
     var restantes = c.n - haut.k;
     return [
-      fragmentCharge(haut.charge, true, false) + ' sur ' + haut.k + ' séries, vise ' + haut.vise,
+      fragmentCharge(haut.charge, true, false) + ' sur les ' + haut.k + ' dernières séries, vise ' + haut.vise,
       'et ' + fragmentCharge(ligne.charge, false, dessous) +
-        (restantes === 1 ? ' sur la première' : ' sur les ' + restantes + ' premières') +
+        (restantes === 1 ? ' sur celle d\'avant' : ' sur les ' + restantes + ' d\'avant') +
         ', vise ' + ligne.vise
     ];
   }
@@ -1202,9 +1202,11 @@
         if (t !== null) return rate + (f.testUnCran ? ' On le retestera au haut de ta zone.' : '');
         // La note de la série à fond REMPLACE « une de plus », elle ne s'y
         // ajoute pas : une seule phrase grise par en-tête.
+        // Dite PAR SA CHARGE, jamais par son rang : « ta 2ᵉ série » comptait
+        // parmi les séries du palier, pas parmi les lignes de l'écran.
         if (f.serieAFond) {
           var a = f.serieAFond;
-          return 'Ta ' + rangFr(a.rang) + ' série, ' + croix(a.charge, a.reps) + ', était à ' +
+          return 'Ta série à ' + croix(a.charge, a.reps) + ' était à ' +
                  (a.cause === 'rpe' ? 'RPE 10' : 'fond') + DEUX_POINTS +
                  'elle compte pour ' + a.comptees + '.';
         }
@@ -1229,16 +1231,19 @@
         return duTest + (t.niveau >= hi ? ' a touché le haut de ta zone' : ' est entré dans ta zone') +
                DEUX_POINTS + 'il gagne une série.';
 
+      // « La série restée à 125 » : l'ancien palier est dans le fondement, et
+      // c'est la seule façon de la désigner sans compter les lignes.
       case 'rejoint':
-        return (c.ligne ? 'Une série de plus rejoint ' : 'Ta première série rejoint ') +
+        return (c.ligne ? 'Une série de plus rejoint '
+                        : 'La série restée à ' + nombreFr(f.palierPrecedent) + ' rejoint ') +
                nombreFr(c.haut.charge) + '.';
 
       case 'attend':
         return c.n - c.haut.k === 1
-          ? 'Ta première série rejoindra ' + nombreFr(c.haut.charge) +
-            ' quand tu y feras ' + f.seuil + '.'
-          : 'Tes premières séries rejoindront ' + nombreFr(c.haut.charge) +
-            ' une à une, quand tu y feras ' + f.seuil + '.';
+          ? 'La série restée à ' + nombreFr(f.palierPrecedent) + ' rejoindra ' +
+            nombreFr(c.haut.charge) + ' quand tu y feras ' + f.seuil + '.'
+          : 'Les séries restées à ' + nombreFr(f.palierPrecedent) + ' rejoindront ' +
+            nombreFr(c.haut.charge) + ' une à une, quand tu y feras ' + f.seuil + '.';
 
       case 'tout_passe':
         if (t !== null) {

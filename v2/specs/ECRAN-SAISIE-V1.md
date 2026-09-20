@@ -494,7 +494,9 @@ date de la dernière séance reste lisible dans la feuille « Pourquoi ».
 `maquette-moteur-parle-v2.html`, qui remplace la v1 et reprend celles de ses phrases
 qui tiennent toujours. Toute nouvelle phrase s'y ajoute avant d'entrer dans le code.
 
-**Précisé le 19/09/2026 (48b-5b-1).** Le tableau « L'en-tête, état par état » de la maquette donne, pour chaque état que rend `consignePour`, ce que l'en-tête affiche en jaune et sa phrase grise, avec leurs variantes. Trois règles de rédaction : **une seule phrase grise** par en-tête ; **la ligne jaune qui porte le plus de séries vient d'abord** (« 130 kg sur 2 séries, vise 4 », puis « et 125 kg sur la première, vise 5 »), sauf quand une seule série porte la nouvelle charge (« 125 kg, vise 5 », puis « puis 130 kg en dernière série, vise 4 ») ; « On le retestera au haut de ta zone » **ne se dit que si le test raté valait un seul cran**. Les phrases se fabriquent à partir du fondement de la consigne (MOTEUR §9.13), jamais en recalculant une règle du moteur.
+**Précisé le 19/09/2026 (48b-5b-1).** Le tableau « L'en-tête, état par état » de la maquette donne, pour chaque état que rend `consignePour`, ce que l'en-tête affiche en jaune et sa phrase grise, avec leurs variantes. Trois règles de rédaction : **une seule phrase grise** par en-tête ; **la ligne jaune qui porte le plus de séries vient d'abord** (« 130 kg sur les 2 dernières séries, vise 4 », puis « et 125 kg sur celle d'avant, vise 5 »), sauf quand une seule série porte la nouvelle charge (« 125 kg, vise 5 », puis « puis 130 kg en dernière série, vise 4 ») ; « On le retestera au haut de ta zone » **ne se dit que si le test raté valait un seul cran**. Les phrases se fabriquent à partir du fondement de la consigne (MOTEUR §9.13), jamais en recalculant une règle du moteur.
+
+**Jamais de position absolue — décidé le 19/09/2026 (48b-5b-3).** Une rampe ou une chauffe peut précéder les séries que couvre la consigne : « la première », « ta 2ᵉ série » désigneraient la mauvaise ligne (au squat, « et 125 kg sur la première » tombait sur la rampe à 120). Les phrases parlent **depuis la fin** (« les 2 dernières séries », « celle d'avant », « les 3 d'avant ») ou **par la charge** (« la série restée à 125 », « ta série à 150 × 8 »).
 
 ---
 
@@ -1891,6 +1893,17 @@ Pas de rang 2 bis : la consigne passe devant la dernière séance sur les lignes
 > pas une observation.
 
 **Précisé le 19/09/2026 (48b-5b-2).** « La ligne la porte » s'entend de la ligne **affichée**, pas de la série : la proposition vit dans **un plan par exercice**, calculé à l'ouverture de la séance et passé au fantôme. Elle ne devient jamais une propriété d'une série — ni en mémoire, ni sur l'appareil, ni dans la file d'attente. La consigne couvre les `n` dernières séries de travail de l'exercice dans la séance ouverte (MOTEUR §9.13) : les `n − k` premières reçoivent la ligne du palier, les `k` dernières celle du test ; les séries d'avant, les chauffes et les dégressives gardent la dernière séance. Sans consigne (Entretenir, mesure sans charge, silence du moteur), la cascade est celle d'avant le moteur.
+
+**Les reps n'ont pas la même cascade que la charge — écrit le 20/09/2026 (48b-5b-3)**, règle du chantier 43 jusque-là seulement dans un commentaire du code :
+
+| Rang | Charge | Reps |
+|---|---|---|
+| 1 | ce qui vient d'être tapé (s'il dévie) | ce qui vient d'être tapé (s'il dévie) |
+| 2 | le plan du moteur | le plan du moteur |
+| 3 | la dernière séance, même type, même rang | **les reps visées de la routine** |
+| 4 | la charge cible de la routine | la dernière séance, même type, même rang |
+
+Pourquoi : une routine se lit comme un programme de coach — elle fixe les reps (« 3 × 8 »), et la charge suit ce que le pratiquant a réellement fait. Quand le moteur parle, il passe devant les deux ; quand il se tait (Entretenir, silence), c'est la routine qui parle. Constaté à l'usage le 20/09 : en Entretenir, une routine de couché à 5 · 5 · 4 reps donnait le même fantôme que la consigne du moteur — mêmes chiffres, autre source.
 
 ---
 

@@ -140,6 +140,38 @@ const ROUTINE_MESURES = {
 // les totaux de la semaine valent zéro, et « 0 » avec la séance en cours comme
 // sans elle ne distingue rien : le banc passerait sur du code qui ne filtre
 // pas. Il faut un total NON NUL qui doit rester IDENTIQUE.
+// ⚠️ DEUX ROUTINES POUR LA CASCADE DES REPS (48b-5b-3, §7 duovicies) : le
+// même exercice, trois séries de travail, avec des reps visées (8) et sans.
+// Le soulevé de terre, que rien d'autre dans ce banc ne fait : son historique
+// se pose au §7 duovicies, et la consigne s'y calcule sans décor parasite.
+const ROUTINE_TERRE = {
+  id: 'r-terre', nom: 'Terre', note: null, archivee_a: null,
+  created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+  routine_exercises: [
+    { id: 'rt1', routine_id: 'r-terre', exercise_slug: 'souleve-terre', rang: 0, routine_sets: progr(3, 8), repos_cible_s: 180, groupe_superset: null, note: null }
+  ]
+};
+const ROUTINE_TERRE_LIBRE = {
+  id: 'r-terre-libre', nom: 'Terre libre', note: null, archivee_a: null,
+  created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+  routine_exercises: [
+    { id: 'rtl1', routine_id: 'r-terre-libre', exercise_slug: 'souleve-terre', rang: 0, routine_sets: progr(3, null), repos_cible_s: 180, groupe_superset: null, note: null }
+  ]
+};
+
+// ⚠️ LE PROFIL DU BANC, DÉJÀ VU (48b-5b-3). Sans ligne `profiles`, l'app en
+// crée une à `onboarding_completed: false` et le démarrage suivant s'ouvre sur
+// le profil (`doitOuvrirProfil`) : chaque `aller('/saisie')` tomberait sur le
+// mauvais écran. Un profil existant, comme sur l'appareil, et l'intention
+// fait l'aller-retour serveur — c'est ce que le §7 duovicies mesure.
+const PROFIL_BANC = {
+  id: 'u-banc', username: 'banc', bio: null, sexe: null, taille_cm: null,
+  date_naissance: null, mode_entrainement: null, unites: null, anciennete: null,
+  intention: 'progresser', rythme_progression: 'normal', materiel: null,
+  niveau_declare: null, seances_par_semaine: null, jours_vises: null,
+  duree_seance_min: null, onboarding_completed: true
+};
+
 const LUNDI = (() => {
   const d = new Date();
   d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
@@ -217,6 +249,7 @@ const SETS_IMPORTES = [
   const base = {
     sessions: [Object.assign({}, PASSEE), Object.assign({}, IMPORTEE)],
     sets: SETS_PASSES.concat(SETS_IMPORTES).map((s) => Object.assign({}, s)),
+    profiles: [Object.assign({}, PROFIL_BANC)],
     journal: [], patchs: [], reseau: true
   };
 
@@ -241,7 +274,7 @@ const SETS_IMPORTES = [
   // base. Un instantané permet de REFUSER une écriture en la défaisant, comme
   // le ferait Postgres — sans lui, le banc laisserait passer un plan qui
   // collisionne et le device seul dirait non.
-  const ROUTINES = [ROUTINE, ROUTINE_MESURES, ROUTINE_SUPERSET];
+  const ROUTINES = [ROUTINE, ROUTINE_MESURES, ROUTINE_SUPERSET, ROUTINE_TERRE, ROUTINE_TERRE_LIBRE];
   // ⚠️ L'INSTANTANÉ COPIE AUSSI LES LIGNES PROGRAMMÉES. Sans ça, défaire une
   // écriture refusée rendrait les rangs d'avant et les séries d'après — un
   // état que la vraie base n'atteint jamais, et sur lequel la suite du banc
@@ -483,9 +516,34 @@ const SETS_IMPORTES = [
       });
     }
 
+    // ⚠️ LA TABLE `profiles` (48b-5b-3). Elle n'était pas servie : le profil ne
+    // faisait jamais l'aller-retour serveur, et `profil = rendu` (la ligne que
+    // l'upsert renvoie, PROJETÉE sur `select=`) n'était exercé par aucun banc.
+    // `maybeSingle` sans ligne → PGRST116 « 0 rows », que postgrest-js rend en
+    // `data: null` — c'est le cas du compte neuf.
+    if (table === 'profiles') {
+      if (req.method() === 'GET') {
+        const lignesProfil = projeter(base.profiles, url);
+        if (unSeul && !lignesProfil.length) {
+          return route.fulfill({ status: 406, contentType: 'application/json',
+            body: JSON.stringify({ code: 'PGRST116', details: 'The result contains 0 rows',
+              hint: null, message: 'JSON object requested, multiple (or no) rows returned' }) });
+        }
+        return json(lignesProfil);
+      }
+      if (req.method() === 'POST') {
+        const l = Array.isArray(corps) ? corps[0] : corps;
+        base.journal.push({ op: 'profil', champs: Object.assign({}, l) });
+        const i = base.profiles.findIndex((x) => x.id === l.id);
+        const ligne = Object.assign({}, i >= 0 ? base.profiles[i] : {}, l);
+        if (i >= 0) base.profiles[i] = ligne; else base.profiles.push(ligne);
+        return json(projeter([ligne], url), 201);
+      }
+    }
+
     if (req.method() === 'GET') {
       if (table === 'exercises') return json(projeter(CATALOGUE, url));
-      if (table === 'routines') return json(projeter([ROUTINE, ROUTINE_MESURES, ROUTINE_SUPERSET], url));
+      if (table === 'routines') return json(projeter(ROUTINES, url));
       if (table === 'sessions') {
         const st = (url.searchParams.get('statut') || '').replace('eq.', '');
         return json(projeter(st ? base.sessions.filter((s) => s.statut === st) : base.sessions, url));
@@ -4704,6 +4762,134 @@ const SETS_IMPORTES = [
     (await page.evaluate(() => (document.getElementById('btn-retour-exercice') || {}).textContent || '')).trim()
       === '← Retour',
     await page.evaluate(() => (document.getElementById('btn-retour-exercice') || {}).textContent || ''));
+
+  console.log('\n══ 7 duovicies. LA CASCADE DES REPS, ET LE SILENCE D’ENTRETENIR ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE (§2 quater) : les TROIS sources du fantôme
+  // de reps doivent différer deux à deux, sinon le banc ne dit pas laquelle
+  // parle. Constaté sur l'appareil le 20/09 : une routine de couché à 5 · 5 · 4
+  // reps donnait, en Entretenir, le même fantôme que le plan du moteur —
+  // mêmes chiffres, autre source. Ici : le plan vise 5 · 5 · 4, la routine dit
+  // 8 · 8 · 8, la dernière séance a fait 4 · 5 · 3.
+  //
+  // Ce que seul ce banc prouve : l'aller-retour Progresser → Entretenir → séance
+  // par les VRAIS écrans (l'onglet Profil, le segment, l'onglet Saisie, puis un
+  // rechargement), avec le profil qui fait l'aller-retour serveur — le mémo de
+  // `app.js` se re-cle sur l'intention, et l'en-tête ET le fantôme le lisent.
+  // Le soulevé de terre : quatre séances, la dernière une seconde avant
+  // maintenant (§7 unvicies, même raison), 125 × 4 · 125 × 5 · 130 × 3.
+  {
+    const JOUR = 86400000, tMaintenant = Date.now(), repereH = base.journal.length;
+    const poserTerre = (id, ilYA, lignes) => {
+      const debut = new Date(tMaintenant - ilYA).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'Jambes — ' + id, debut,
+        fin: new Date(tMaintenant - ilYA + 3600000).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      lignes.forEach(([kg, reps], i) => base.sets.push({
+        id: id + '-s' + (i + 1), session_id: id, user_id: 'u-banc', exercise_slug: 'souleve-terre',
+        charge_kg: kg, reps, duree_s: null, distance_m: null, type_serie: 'travail',
+        rang: i + 1, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null,
+        repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+    };
+    poserTerre('terre-a', 21 * JOUR, [[120, 5], [120, 5], [120, 5]]);
+    poserTerre('terre-b', 14 * JOUR, [[122.5, 5], [122.5, 5], [122.5, 5]]);
+    poserTerre('terre-c', 7 * JOUR, [[125, 5], [125, 5], [125, 5]]);
+    poserTerre('terre-d', 1000, [[125, 4], [125, 5], [130, 3]]);
+    await aller('/');
+    await attendre(1200);
+    await aller('/saisie');
+    if (JSON.stringify(await visible()) === '["vue-seance"]') await terminer();
+
+    // L'attendu par les MÊMES modules purs que l'app, sur les mêmes données.
+    const attenduTerre = () => {
+      const parSeance = {};
+      base.sets.filter((x) => x.exercise_slug === 'souleve-terre').forEach((x) => {
+        (parSeance[x.session_id] = parSeance[x.session_id] || []).push(x);
+      });
+      const groupes = base.sessions.filter((x) => parSeance[x.id] && x.statut === 'terminee')
+        .map((x) => ({ seance: x, series: parSeance[x.id] }));
+      const etats = PalierM.etatsExercices(PalierM.seanceExercices(base.sets));
+      const c = Moteur.consigneDExercice(groupes, etats['souleve-terre'], new Date().toISOString(), {
+        mesure: 'charge_reps', equipement: null, intention: 'progresser',
+        reglage: ProfilM.rythmeDe(base.profiles[0]), edition: false
+      });
+      return { c, plan: SeanceM.planDe([{}, {}, {}], c && c.consigne) };
+    };
+    const { c: cTerre, plan: planTerre } = attenduTerre();
+    const PLAN = ['125\u00d75', '125\u00d75', '130\u00d74'];
+    const ROUTINE_8 = ['125\u00d78', '125\u00d78', '130\u00d78'];
+    const DERNIERE = ['125\u00d74', '125\u00d75', '130\u00d73'];
+    ok('[H] prémisse : sur cet historique, le moteur dit 125 kg vise 5, puis 130 kg vise 4',
+      !!cTerre && JSON.stringify(planTerre.map((x) => x.charge_kg + '\u00d7' + x.reps)) === JSON.stringify(PLAN),
+      JSON.stringify(cTerre && { etat: cTerre.consigne.etat, ligne: cTerre.consigne.ligne, haut: cTerre.consigne.haut }));
+
+    // Le fantôme AFFICHÉ, charge ET reps : « 125×5 » ; une valeur saisie se lit entre crochets.
+    const fantomesCR = () => page.evaluate(() =>
+      Array.from(document.querySelectorAll('.ligne-serie')).map((l) =>
+        Array.from(l.querySelectorAll('input')).map((i) => i.value ? '[' + i.value + ']' : (i.placeholder || '\u2205')).join('\u00d7')));
+    const enteteExo = () => page.evaluate(() =>
+      Array.from(document.querySelectorAll('.legende-exo .consigne, .legende-exo .consigne-dit')).map((e) => e.textContent));
+    const onglet = async (vue) => { await page.click('.onglet[data-vue="' + vue + '"]'); await attendre(900); };
+    const choisirIntention = async (cle) => {
+      await page.click('.p-seg button[data-cle="' + cle + '"]');
+      await attendre(1200);   // l'écriture locale, puis l'aller-retour serveur
+    };
+    const abandonner = async () => {
+      await page.click('#bandeau-seance .bandeau-fin'); await attendre(600);
+      await page.click('#feuille-contenu .danger'); await attendre(1600);
+    };
+
+    // ── Progresser : le plan, charge et reps, et l'en-tête ────────────────
+    await demarrerRoutine('Terre');
+    ok('[H] Progresser, routine à 8 reps visées : les fantômes disent LE PLAN, charge et reps',
+      JSON.stringify(await fantomesCR()) === JSON.stringify(PLAN), JSON.stringify(await fantomesCR()));
+    ok('[H] et l’en-tête dit la consigne',
+      JSON.stringify(await enteteExo()) === JSON.stringify(cTerre.libelles.jaune.concat([cTerre.libelles.gris])),
+      JSON.stringify(await enteteExo()).replace(/\u00a0/g, '·'));
+
+    // ── Profil → Entretenir → retour par l'onglet Saisie ───────────────────
+    await onglet('profil');
+    await choisirIntention('entretien');
+    ok('[H] l’intention est partie au serveur, et la ligne rendue la porte',
+      base.profiles[0].intention === 'entretien' &&
+      base.journal.filter((j) => j.op === 'profil').slice(-1)[0].champs.intention === 'entretien',
+      JSON.stringify(base.profiles[0].intention));
+    await onglet('saisie');
+    ok('[H] retour à la séance en Entretenir : l’en-tête est MUET',
+      (await enteteExo()).length === 0, JSON.stringify(await enteteExo()));
+    ok('[H] …et les fantômes : charges de la dernière séance, reps de la ROUTINE (8)',
+      JSON.stringify(await fantomesCR()) === JSON.stringify(ROUTINE_8), JSON.stringify(await fantomesCR()));
+
+    // ── L'app rechargée, séance reprise, profil relu du cache puis du serveur ──
+    await aller('/saisie');
+    ok('[H] après rechargement : toujours muet, toujours la routine',
+      (await enteteExo()).length === 0 && JSON.stringify(await fantomesCR()) === JSON.stringify(ROUTINE_8),
+      JSON.stringify(await fantomesCR()));
+    await abandonner();
+
+    // ── Sans reps visées, en Entretenir : la dernière séance, reps comprises ──
+    await demarrerRoutine('Terre libre');
+    ok('[H] routine sans reps visées, Entretenir : la dernière séance, charge ET reps',
+      JSON.stringify(await fantomesCR()) === JSON.stringify(DERNIERE), JSON.stringify(await fantomesCR()));
+    ok('[H] en-tête muet aussi', (await enteteExo()).length === 0, JSON.stringify(await enteteExo()));
+    await abandonner();
+
+    // ── Retour en Progresser : le mémo se re-cle, le plan revient ──────────
+    await onglet('profil');
+    await choisirIntention('progresser');
+    await onglet('saisie');
+    await demarrerRoutine('Terre');
+    ok('[H] revenu en Progresser : le plan et l’en-tête reviennent',
+      JSON.stringify(await fantomesCR()) === JSON.stringify(PLAN) && (await enteteExo()).length === 3,
+      JSON.stringify(await fantomesCR()) + ' · ' + (await enteteExo()).length + ' ligne(s)');
+    await abandonner();
+    ok('[H] la seconde bascule est partie au serveur aussi : la ligne dit Progresser',
+      base.profiles[0].intention === 'progresser', JSON.stringify(base.profiles[0].intention));
+    // Pour le relevé : chaque bascule est une écriture du profil ENTIER
+    // (`envoyerProfil` envoie `champsEcrits(profil)`), dans l'ordre des gestes.
+    console.log('   écritures du profil pendant la section : ' +
+      JSON.stringify(base.journal.slice(repereH).filter((j) => j.op === 'profil').map((j) => j.champs.intention)));
+  }
 
   console.log('\n══ 8. NON-RÉGRESSION ══');
   for (const [chemin, attendu] of [['/', 'vue-liste'], ['/progression', 'vue-progression'],

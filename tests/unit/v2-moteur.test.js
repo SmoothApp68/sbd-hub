@@ -1194,7 +1194,7 @@ describe('§9.13 — la consigne, en calcul pur', () => {
     // celle du 13. C'est tout l'objet du §9.7 — si elle suivait le test le
     // plus récent, les reps déjà étirées entreraient dans l'habitude et
     // déplaceraient la zone que l'épisode a justement pour but de tenir.
-    const N8 = require('./fixtures/consigne-48b6a.json').filter((c) => c.id === 'N8')[0];
+    const N8 = require('./fixtures/consigne-48b7.json').filter((c) => c.id === 'N8')[0];
     const derniere = N8.seances[N8.seances.length - 1];
     const avantDerniere = JSON.parse(JSON.stringify(derniere));
     avantDerniere.debut = '2026-09-06T18:00:00+00:00';
@@ -1206,7 +1206,8 @@ describe('§9.13 — la consigne, en calcul pur', () => {
     // Et la feuille le dit avec cette date-là.
     expect(M.pourquoiConsigne(r, 'normal').zone)
       .toBe('Ta zone\u00a0: Volume, de 10 à 12 reps, celle de ton test du 6\u00a0sept.\u00a0: '
-            + 'elle ne bouge pas pendant que ta zone s\'étire.');
+            + 'elle ne bouge pas pendant que ta zone s\'étire.'
+            + ' Touche l\'étiquette pour la changer.');
   });
 
   test('DISCRIMINANT — un niveau illisible fait taire le moteur, il ne l’invente pas', () => {
@@ -1232,7 +1233,7 @@ describe('§9.13 — la consigne, en calcul pur', () => {
 
 // ── ECRAN-SAISIE §3.12 — LE FONDEMENT ET LES PHRASES ───────────────────────
 //
-// ⚠️ C'EST LE FICHIER QUI FAIT FOI, comme pour 48b-5a-2. `consigne-48b6a.json`
+// ⚠️ C'EST LE FICHIER QUI FAIT FOI, comme pour 48b-5a-2. `consigne-48b7.json`
 // reprend les 39 cas de `consigne-48b5b1.json` — mêmes consignes, mêmes
 // phrases, fondement ENRICHI — et en ajoute trois (Y1 à Y3) qui font traverser
 // au pont les rôles d'`analyser` que le contrat résume en `autre` : une
@@ -1249,10 +1250,20 @@ describe('§9.13 — la consigne, en calcul pur', () => {
 //   · la FEUILLE « POURQUOI », ses sept champs, octet pour octet aussi — c'est
 //     le plus long texte que l'app écrive, et le seul qui explique un calcul.
 describe('§9.13 / ECRAN-SAISIE §3.12 et §3.10 — le fondement, les phrases et le pourquoi', () => {
-  const CAS = require('./fixtures/consigne-48b6a.json');
+  const CAS = require('./fixtures/consigne-48b7.json');
+  // Les cinq corrections de 48b-7 : sans elles, `correction` serait toujours
+  // nulle et la moitié de §9.1.1 ne serait jouée par aucun cas.
+  test('le fichier porte des cas AVEC correction, et des cas sans', () => {
+    const avec = CAS.filter((c) => c.correction);
+    expect(avec.map((c) => c.id)).toEqual(['C1', 'C3', 'C4', 'C5']);
+    expect(CAS.filter((c) => !c.correction).length).toBe(43);
+  });
   const NB = ' ';
+  // ⚠️ LA CORRECTION VIENT DU CAS DEPUIS 48b-7. La passer en dur à `null`
+  // laisserait les cinq cas C muets : ils rendraient la zone déduite, leurs
+  // phrases tomberaient, et c'est justement ce qu'ils existent pour prouver.
   const pour = (c) => M.consignePour(c.seances, c.avant,
-    { reglage: c.reglage, equipement: c.equipement, correction: null });
+    { reglage: c.reglage, equipement: c.equipement, correction: c.correction });
 
   // Les deux branches de chaque règle de rédaction (prompt 48b-5b-1 §3.4).
   // Si le fichier perd un de ces cas, la mutation correspondante redevient

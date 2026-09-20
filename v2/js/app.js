@@ -23,7 +23,7 @@
   var Profil = racine.THProfil, Moteur = racine.THMoteur;
 
   var vues = {};
-  var local = { seances: [], series: [], exercices: [], pesees: [], parSeance: null };
+  var local = { seances: [], series: [], exercices: [], pesees: [], zones: [], parSeance: null };
   var etat = { code: 'vide', libelle: '', local: false };
   var syncEnCours = false;
   var lundiAffiche = null;   // le lundi de la semaine à l'écran
@@ -179,12 +179,61 @@
   }
   function seriesDe(sessionId) { return (local.parSeance && local.parSeance.get(sessionId)) || []; }
 
+  // ── §9.1.1 — LES CORRECTIONS DE ZONE ─────────────────────────────────────
+  //
+  // Un historique en ajout seul : chaque choix ajoute une ligne, la plus
+  // récente fait foi, une zone vide ramène à la déduction. Rien ne se modifie,
+  // rien ne s'efface — donc la fusion est une UNION par identifiant, et la
+  // ligne du serveur l'emporte sur sa copie locale (elle a traversé les
+  // contraintes de la base).
+  function fondreZones(locales, distantes) {
+    var par = {};
+    (locales || []).forEach(function (l) { if (l && l.id) par[l.id] = l; });
+    (distantes || []).forEach(function (l) { if (l && l.id) par[l.id] = l; });
+    return Object.keys(par).map(function (k) { return par[k]; });
+  }
+
+  // La zone en vigueur d'un exercice. Le CALCUL vit dans le moteur (§9.1.1) —
+  // l'app lui passe les lignes, elle ne les trie pas elle-même.
+  function zoneDe(slug) { return Moteur.zoneEnVigueur(local.zones, slug); }
+
+  // ⚠️ L'APPAREIL D'ABORD, LE RÉSEAU ENSUITE. Le choix s'affiche tout de suite,
+  // même sans réseau, et part par la file. `user_id` et `corrigee_a` sont posés
+  // ICI, à l'instant du geste : laissés au défaut du serveur, deux choix faits
+  // hors ligne remonteraient dans l'ordre du réseau, pas dans celui des gestes,
+  // et le dernier choisi ne serait pas le dernier gardé.
+  //
+  // `zone` nulle veut dire « Revenir à celle d'après tes séances » : on AJOUTE
+  // une ligne vide, on n'efface pas l'historique.
+  async function poserZone(slug, zone) {
+    var id = uuid();
+    var ligne = {
+      id: id,
+      user_id: (sessionActive && sessionActive.user && sessionActive.user.id) || null,
+      exercise_slug: slug,
+      zone: zone || null,
+      corrigee_a: new Date().toISOString()
+    };
+    local.zones = local.zones.concat([ligne]);
+    // Le mémo des consignes ne connaît pas les zones : on le remet à zéro
+    // plutôt que d'allonger sa clé. Un oubli de clé se verrait à l'écran une
+    // séance plus tard ; une remise à zéro ne s'oublie pas.
+    consignes = null;
+    await Cache.ecrireLot('zones', [ligne]).catch(function () {});
+    await poser({ table: Attente.ZONES, op: Attente.UPSERT, id: id, donnees: ligne });
+  }
+
   // ── Cache ────────────────────────────────────────────────────────────────
   async function chargerCache() {
     local.seances = await Cache.lireTout('seances');
     local.series = await Cache.lireTout('series');
     local.exercices = await Cache.lireTout('exercices');
     local.pesees = await Cache.lireTout('pesees');
+    // §9.1.1 — les corrections de zone. Elles sont LUES AU DÉMARRAGE comme le
+    // reste : une zone choisie hier doit tenir avant même que le réseau
+    // réponde, sinon la première consigne de la séance serait celle d'avant la
+    // correction, puis changerait sous les yeux.
+    local.zones = await Cache.lireTout('zones');
     rangerSeances();
     indexerParSeance();
     recalculerEtats();
@@ -296,6 +345,11 @@
       // c'est le gros du travail et le cœur de l'app. `null` veut dire « on
       // n'a rien reçu », et le cache garde ce qu'il avait.
       var pesees = await essayer(Donnees.toutesLesPesees);
+      // Les corrections de zone sont ACCESSOIRES au même titre que les pesées :
+      // une lecture qui échoue ne doit pas emporter la synchronisation des
+      // séries. `null` veut dire « on n'a rien reçu », et le cache garde ce
+      // qu'il avait — donc les choix faits ici tiennent.
+      var zones = await essayer(Donnees.mesZones);
 
       // Le serveur annonce ce qu'il a. C'est ce qui autorise la purge, et c'est
       // ce qui permet de dire qu'il manque quelque chose au lieu de l'ignorer.
@@ -339,6 +393,15 @@
       if (pesees) {
         local.pesees = Sync.remplacer(pesees);
         await Cache.remplacerTout('pesees', local.pesees);
+      }
+      // ⚠️ FUSION, JAMAIS REMPLACEMENT. Une correction posée hors ligne n'est
+      // pas encore chez le serveur : la liste qu'il envoie ne la contient pas,
+      // et l'écraser avec elle effacerait le choix au moment précis où le
+      // réseau revient — le défaut que `Sync.remplacer` évite déjà pour les
+      // séances. On fond par `id`, et `ecrireLot` upserte ligne à ligne.
+      if (zones) {
+        local.zones = fondreZones(local.zones, zones);
+        await Cache.ecrireLot('zones', local.zones);
       }
       await Cache.supprimer('series', idsRetires(fusionnees, local.series));
       await Cache.ecrireLot('series', local.series);
@@ -633,6 +696,9 @@
     }
     if (op.table === Attente.SESSIONS) return Donnees.enregistrerSeance(op.donnees);
     if (op.table === Attente.SETS) return Donnees.remplacerSeries(op.id, op.donnees || []);
+    // §9.1.1 — la ligne part telle qu'elle a été posée : son identifiant la
+    // rend idempotente, sa date dit quand le choix a été fait.
+    if (op.table === Attente.ZONES) return Donnees.enregistrerZone(op.donnees);
     // §6 — l'intention porte l'ÉTAT VOULU de la routine, pas un chemin pour y
     // aller : le plan d'écritures se calcule à la vidange, contre ce que la
     // routine est devenue entre-temps. C'est de là que vient l'idempotence.
@@ -1393,6 +1459,10 @@
           equipement: exo ? exo.equipement : null,
           intention: profil ? profil.intention : null,
           reglage: Profil.rythmeDe(profil),
+          // §9.1.1 — la zone choisie, ou `null`. Le mémo ne la porte pas dans
+          // sa clé : `poserZone` le remet à zéro, et la synchronisation passe
+          // par `recalculerEtats`, qui fait déjà de même.
+          correction: zoneDe(slug),
           // §7 octies — une séance terminée rouverte est une séance FAITE : le
           // moteur n'y prescrit rien, ni en-tête ni plan.
           edition: enEdition()
@@ -1483,8 +1553,10 @@
       // §3.1 — la voix du moteur dans l'en-tête : les lignes jaunes et la
       // phrase grise, ou rien (Édition, Entretenir, mesure sans charge).
       libelles: libellesDe,
-      // §3.8 — l'étiquette de zone, à côté du nom.
+      // §3.8 — l'étiquette de zone, à côté du nom, et son menu (48b-7).
       etiquette: etiquetteDe,
+      zoneChoisie: function (slug) { return !!zoneDe(slug); },
+      surZone: function (slug) { if (etiquetteDe(slug)) ouvrirZone(slug); },
       // §3.10 — toucher la consigne ouvre le calcul.
       surPourquoi: ouvrirPourquoi,
       surChamp: function (i, j, champ, valeur) {
@@ -1953,6 +2025,54 @@
       feuille = null;
       if (seance) rendreSeance();
     });
+  }
+
+  // ── §3.8 — LE MENU DES ZONES, ET SA PROPRE PORTE ────────────────────────
+  //
+  // ⚠️ IL NE PASSE PAS PAR `rendreFeuille`, ET C'EST LA RAISON D'ÊTRE DE CETTE
+  // FONCTION. `rendreFeuille` refuse net s'il n'y a pas de séance en cours —
+  // une garde juste, qui protège les feuilles de série, de bloc et de fin, qui
+  // toutes lisent `seance`. Or l'étiquette s'ouvre AUSSI depuis la page
+  // d'exercice, où il n'y a pas de séance. Lever la garde là-bas, c'était la
+  // lever pour les six autres feuilles ; on ouvre donc une porte à part, qui
+  // ne lit rien de la séance.
+  //
+  // `apres` dit ce qu'il faut redessiner à la fermeture : l'écran d'où l'on
+  // vient, et la séance ouverte s'il y en a une — un choix fait depuis la page
+  // d'exercice change la consigne de la séance, qui est derrière.
+  function ouvrirZone(slug, apres) {
+    var exo = Modele.indexerExercices(local.exercices)[slug];
+    var rendre = function () {
+      Rendu.rendreFeuilleZone($('feuille-contenu'), {
+        nom: Modele.nommer(Modele.indexerExercices(local.exercices), slug),
+        zones: Moteur.ZONES,
+        choisie: zoneDe(slug),
+        deduite: deduiteDe(slug),
+        surChoix: async function (cle) {
+          await poserZone(slug, cle);
+          fermerVoile();
+        },
+        surFermer: fermerVoile
+      });
+    };
+    rendre();
+    ouvrirVoile($('feuille-seance'), function () {
+      feuille = null;
+      if (typeof apres === 'function') apres();
+      if (seance && !vues.seance.hidden) rendreSeance();
+    });
+    return exo;
+  }
+
+  // La zone DÉDUITE de l'exercice, et la raison qui l'accompagne : ce sont
+  // exactement l'habitude et sa profondeur, que le fondement porte déjà. Le
+  // menu ne les recalcule pas — il les lit, comme la feuille « Pourquoi ».
+  function deduiteDe(slug) {
+    var c = consigneDe(slug);
+    var f = c && c.consigne ? c.consigne.fondement : null;
+    if (!f || !f.habitude) return null;
+    var cle = f.correction ? f.correction.zoneDeduite : c.consigne.zone;
+    return { zone: cle, habitude: f.habitude.valeur, seances: f.habitude.seances };
   }
 
   function rendreFeuille() {
@@ -3184,11 +3304,22 @@
         equipement: exo ? exo.equipement : null,
         intention: profil ? profil.intention : null,
         reglage: Profil.rythmeDe(profil),
+        correction: zoneDe(slug),
         edition: false
       });
     Rendu.rendrePageExercice($('page-exercice'), {
       nom: exo ? exo.nom : slug,
       etiquette: consigneExo ? consigneExo.etiquette : null,
+      zoneChoisie: !!zoneDe(slug),
+      // ⚠️ ET LA PAGE SE REDESSINE APRÈS LE CHOIX. Elle n'est pas rendue par
+      // `rendreSeance` : sans ce rappel, l'étiquette et la consigne y
+      // resteraient celles d'avant la correction — la ligne écrite, l'écran
+      // muet. Trouvé au banc, pas en test. `ouvrirZone` s'occupe de la séance
+      // ouverte s'il y en a une, et il peut n'y en avoir aucune : c'est
+      // précisément d'ici qu'on ouvre le menu sans séance.
+      surZone: consigneExo ? function () {
+        ouvrirZone(slug, function () { rendreExercice(slug, vueOnglet); });
+      } : null,
       mesure: mesure,
       onglet: vueOnglet,
       sousTitre: sousTitreExercice(groupes),

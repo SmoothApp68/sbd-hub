@@ -574,6 +574,8 @@ Le format (§8) se **déduit** d'une séance passée pour savoir à quoi la comp
 
 **Dans le code, au 19/09/2026 : seuls les rangs 2 et 3 existent.** Le plan (rang 1) viendra avec les programmes ; le profil de travail déclaré (rang 4) n'est encore ni stocké ni calculé. Sans correction ni habitude, un exercice n'a pas de zone, et le moteur se tait.
 
+**Le rang 2 est branché — 20/09/2026 (48b-7).** La correction est la ligne la plus récente de `zones_exercice` pour l'exercice (par `corrigee_a`) ; une zone vide ramène à la déduction. **Elle l'emporte sur tout**, zone figée d'un étirement comprise, et sur la règle de bord : une zone choisie sous 3 reps d'habitude suit la règle de sa zone. Elle tient jusqu'à ce que l'utilisateur la change. Le fondement porte alors `correction.zoneDeduite` — la zone d'après l'habitude, ou rien — pour que la feuille « Pourquoi » la dise.
+
 Le profil déclaré garde son rôle du §8.5 : une porte, pas une suggestion. Sur un exercice de moins de 8 séances, il autorise ou interdit une zone ; il ne choisit jamais la zone à la place de l'observation.
 
 ### 9.1.2 La largeur de la fourchette — ce qu'elle ne décide pas, et ce qu'elle décide

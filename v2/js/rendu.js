@@ -477,7 +477,11 @@
     tete.appendChild(el('h2', null, vue.nom));
     // §7 quater — LA MÊME ÉTIQUETTE QU'EN SÉANCE, et pour la même raison : la
     // zone appartient à l'exercice, pas à la séance où on le croise.
-    if (vue.etiquette) tete.appendChild(el('div', 'puce-zone', vue.etiquette));
+    if (vue.etiquette) {
+      var puce = puceZone(vue.etiquette, vue.zoneChoisie, vue.surZone);
+      puce.classList.add('puce-seule');
+      tete.appendChild(puce);
+    }
     if (vue.sousTitre) tete.appendChild(el('div', 'exo-meta num', vue.sousTitre));
     cible.appendChild(tete);
 
@@ -1738,6 +1742,22 @@
     return noeud;
   }
 
+  // §3.8 — L'ÉTIQUETTE DE ZONE, FABRIQUÉE UNE SEULE FOIS. L'écran de séance et
+  // la page d'exercice la montrent tous les deux ; deux constructions, c'était
+  // deux états à tenir d'accord et une divergence garantie le jour où l'un des
+  // deux gagne une classe.
+  //
+  // Sans geste, elle reste un `span` : un bouton qui ne fait rien est une
+  // promesse, et c'est ce que 48b-6a refusait d'afficher.
+  function puceZone(texte, choisie, surClic) {
+    var classe = 'puce-zone' + (choisie ? ' choisie' : '');
+    if (typeof surClic !== 'function') return el('span', classe, texte);
+    var b = el('button', classe, texte);
+    b.type = 'button';
+    b.addEventListener('click', surClic);
+    return b;
+  }
+
   function teteDeBloc(bloc, iBloc, gabarits, vue) {
     var tete = el('div', 'tete-seance');
 
@@ -1814,14 +1834,16 @@
       // moteur fait travailler, et elle n'est JAMAIS jaune : le jaune est la
       // seule voix du moteur (§7 bis.4), l'étiquette n'en est qu'un repère.
       //
-      // ⚠️ CE N'EST PAS UN BOUTON AVANT 48b-7. La correction de zone viendra
-      // avec son menu ; d'ici là un geste qui ne fait rien serait une promesse,
-      // et une promesse qu'on ne tient pas coûte plus cher qu'une surface en
-      // moins. Elle ne paraît que si la consigne porte une zone — pas en
-      // silence, pas sous 3 reps d'habitude, pas en Entretenir, pas sur une
-      // mesure sans charge, jamais en mode programme.
+      // ⚠️ ELLE SE TOUCHE DEPUIS 48b-7, et son état dit d'où vient la zone :
+      // au contour quand elle est déduite des séances, au fond plein avec un
+      // point quand c'est un choix. Jamais jaune dans les deux cas — le jaune
+      // est la voix du moteur, l'étiquette est un repère et une porte.
+      // Elle ne paraît que si la consigne porte une zone : pas en silence, pas
+      // sous 3 reps d'habitude, pas en Entretenir, pas sur une mesure sans
+      // charge, jamais en mode programme.
       var eti = !vue.programme && vue.etiquette ? vue.etiquette(x.slug) : null;
-      if (eti) nom.appendChild(el('span', 'puce-zone', eti));
+      if (eti) nom.appendChild(puceZone(eti, vue.zoneChoisie && vue.zoneChoisie(x.slug),
+        vue.surZone && function () { vue.surZone(x.slug); }));
       // §5.6 — le menu d'un EXERCICE n'existe que dans un bloc à plusieurs. Sur
       // un bloc d'un seul, le menu du bloc porte déjà ses gestes : deux boutons
       // pour le même objet dérouteraient.
@@ -2326,6 +2348,49 @@
       cible.appendChild(pr);
     }
     cible.appendChild(el('p', 'pq-p', p.fin));
+    return cible;
+  }
+
+  // ── §3.8 — LE MENU DES ZONES ────────────────────────────────────────────
+  //
+  // Cinq zones, pas de saisie libre : une fourchette tapée à la main serait une
+  // sixième règle de rangement, et le moteur n'en a qu'une. La zone en vigueur
+  // est cochée ; la zone DÉDUITE porte sa raison, pour qu'on sache ce qu'on
+  // remplace. « Revenir » n'existe que s'il y a quelque chose à défaire.
+  function rendreFeuilleZone(cible, vue) {
+    vider(cible);
+    cible.appendChild(el('div', 'feuille-t', 'Zone de travail'));
+    cible.appendChild(el('div', 'feuille-sous', vue.nom + ', dans toutes tes routines'));
+    var d = vue.deduite || null;
+    (vue.zones || []).forEach(function (z) {
+      var actif = vue.choisie ? vue.choisie === z.cle : (d && d.zone === z.cle);
+      var b = el('button', 'option-zone' + (actif ? ' active' : ''));
+      b.type = 'button';
+      b.setAttribute('aria-pressed', actif ? 'true' : 'false');
+      b.dataset.cle = z.cle;
+      b.appendChild(el('span', 'oz-rond'));
+      b.appendChild(el('span', 'oz-nom', z.libelle));
+      b.appendChild(el('span', 'oz-reps', z.bas + ' à ' + z.haut + ' reps'));
+      // La raison ne vit que sous la zone DÉDUITE : c'est elle qu'elle explique.
+      if (d && d.zone === z.cle) {
+        b.appendChild(el('span', 'oz-sous', 'D\'après tes ' + d.seances +
+          ' dernières séances\u00a0: ' + d.habitude + ' reps d\'habitude.'));
+      }
+      b.addEventListener('click', function () { vue.surChoix(z.cle); });
+      cible.appendChild(b);
+    });
+    if (vue.choisie) {
+      var retour = el('button', 'discret bloc-large', 'Revenir à celle d\'après tes séances');
+      retour.type = 'button';
+      retour.addEventListener('click', function () { vue.surChoix(null); });
+      cible.appendChild(retour);
+    }
+    cible.appendChild(el('p', 'feuille-aide',
+      'La consigne se recalcule dès que tu changes de zone.'));
+    var fermer = el('button', 'discret bloc-large', 'Fermer');
+    fermer.type = 'button';
+    fermer.addEventListener('click', vue.surFermer);
+    cible.appendChild(fermer);
     return cible;
   }
 
@@ -3202,6 +3267,7 @@
     rendreFeuilleConfirmer: rendreFeuilleConfirmer,
     rendreFeuilleSeance: rendreFeuilleSeance,
     rendreFeuillePourquoi: rendreFeuillePourquoi,
+    rendreFeuilleZone: rendreFeuilleZone,
     rendreFeuilleBloc: rendreFeuilleBloc,
     rendreFeuilleExercice: rendreFeuilleExercice,
     rendreFeuilleSupprimer: rendreFeuilleSupprimer,

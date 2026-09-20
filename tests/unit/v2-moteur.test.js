@@ -1212,7 +1212,7 @@ describe('§9.13 / ECRAN-SAISIE §3.12 — le fondement et les phrases', () => {
   // inkillable — et ce test tombe avant elle.
   const BRANCHES = [
     ['ordre des lignes',                    ['N3'],        ['N4', 'X3']],
-    ['« la première » ou « les m premières »', ['N4'],     ['X3', 'X4']],
+    ['« celle d’avant » ou « les m d’avant »', ['N4'],    ['X3', 'X4']],
     ['annonce du retest à un seul cran',    ['X7'],        ['X8']],
     ['garde au bas ou dans la zone',        ['N3'],        ['P3']],
     ['étend depuis la zone ou depuis le haut', ['N4'],     ['P4', 'F6']],
@@ -1220,7 +1220,7 @@ describe('§9.13 / ECRAN-SAISIE §3.12 — le fondement et les phrases', () => {
     ['une ou plusieurs séries restées',     ['N5', 'N6'],  ['X9', 'X4']],
     ['tout passe avec ou sans test',        ['F5'],        ['X5']],
     ['preuve par le haut ou par l’effort',  ['F2'],        ['F4b']],
-    ['série à fond : RPE ou ressenti, 1re ou 2\u1d49', ['X1'], ['X6', 'X10']],
+    ['série à fond : RPE ou ressenti, par sa charge', ['X1'], ['X6', 'X10']],
     ['charge connue ou « le cran au-dessus »', ['N2'],     ['X2']]
   ];
 

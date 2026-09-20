@@ -187,6 +187,17 @@ describe('le plan : les n dernières séries de travail (§7 septendecies.3)', (
     expect(Seance.planDe([], consigne(3, L, H))).toEqual([]);
   });
 
+  // ⚠️ AJOUTÉ APRÈS LE BANC DE MUTATION. Le garde `!consigne.n` survivait : une
+  // consigne en silence n'a ni `ligne` ni `haut`, donc même sans le garde rien
+  // ne s'écrivait. Le garde ne se voit que sur une consigne qui PORTE une ligne
+  // sans dire combien de séries elle couvre — et là, il décide : sans `n`, rien
+  // n'est couvert. C'est le contrat (§9.13 : « les n dernières séries »), pas
+  // une tolérance : couvrir TOUT par défaut serait la pire des lectures.
+  test('DISCRIMINANT — sans `n`, une ligne ne couvre rien', () => {
+    expect(Seance.planDe(series(T(3)), { etat: 'x', ligne: L, haut: null })).toEqual([null, null, null]);
+    expect(Seance.planDe(series(T(3)), { etat: 'x', n: 0, ligne: L, haut: H })).toEqual([null, null, null]);
+  });
+
   test('les dégressives et les échecs ne sont jamais couverts', () => {
     const plan = Seance.planDe(series(['travail', 'travail', 'degressive', 'echec']), consigne(3, L, H));
     expect(plan).toEqual([{ charge_kg: 125, reps: 5 }, { charge_kg: 130, reps: 4 }, null, null]);

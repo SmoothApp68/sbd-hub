@@ -437,6 +437,45 @@
     return r.data;
   }
 
+  // ══ LES PRÉDICTIONS (§9.11, 48c) ═════════════════════════════════════════
+  //
+  // ⚠️ UN INSERT QUI IGNORE LES DOUBLONS, JAMAIS UN UPSERT. Le trigger
+  // `predictions_immuable` (`v2_046`) compare `to_jsonb(new)` moins les trois
+  // colonnes d'observation à `to_jsonb(old)` moins ces mêmes colonnes, et lève
+  // une exception si ça diffère : un upsert rejoué par la file ferait un
+  // UPDATE qui touche les autres colonnes, donc une erreur DÉFINITIVE et une
+  // entrée bloquée pour toujours. `ignoreDuplicates` rend l'envoi idempotent
+  // par la porte que le trigger laisse ouverte : ne rien faire.
+  var COLONNES_PREDICTION = 'id, user_id, module, module_version, emise_a, exercise_slug, ' +
+    'grandeur, horizon_jours, valeur_predite, borne_basse, borne_haute, fondement, ' +
+    'valeur_observee, observee_a, set_observe';
+
+  function mesPredictions() {
+    return paginerParCle(trancheur(function () {
+      return client().from('predictions').select(COLONNES_PREDICTION);
+    }, 'id'), 'id');
+  }
+
+  async function enregistrerPrediction(ligne) {
+    var r = await client().from('predictions')
+      .upsert(ligne, { onConflict: 'id', ignoreDuplicates: true });
+    if (r.error) throw r.error;
+    return ligne;
+  }
+
+  // L'observation part par une mise à jour ÉTROITE : trois colonnes, pas la
+  // ligne. C'est la seule forme que le trigger accepte sur une ligne déjà là —
+  // et celle qui rejoue sans risque quand l'insert, lui, n'a rien fait.
+  async function observerPrediction(id, champs) {
+    var r = await client().from('predictions').update({
+      valeur_observee: champs.valeur_observee,
+      observee_a: champs.observee_a,
+      set_observe: champs.set_observe === undefined ? null : champs.set_observe
+    }).eq('id', id);
+    if (r.error) throw r.error;
+    return true;
+  }
+
   // ══ LE PROFIL (chantier 46 §2) ═══════════════════════════════════════════
   //
   // Une ligne, la sienne. `profiles_select_own` est `auth.uid() = id` : ce
@@ -529,6 +568,9 @@
     toutesLesPesees: toutesLesPesees,
     mesZones: mesZones,
     enregistrerZone: enregistrerZone,
+    mesPredictions: mesPredictions,
+    enregistrerPrediction: enregistrerPrediction,
+    observerPrediction: observerPrediction,
     mesRoutines: mesRoutines,
     creerRoutine: creerRoutine,
     majRoutine: majRoutine,

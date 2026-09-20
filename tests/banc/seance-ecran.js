@@ -251,6 +251,7 @@ const SETS_IMPORTES = [
     sets: SETS_PASSES.concat(SETS_IMPORTES).map((s) => Object.assign({}, s)),
     profiles: [Object.assign({}, PROFIL_BANC)],
     zones: [],
+    predictions: [],
     journal: [], patchs: [], reseau: true
   };
 
@@ -545,6 +546,70 @@ const SETS_IMPORTES = [
         const ligne = Object.assign({ created_at: l.corrigee_a }, i >= 0 ? base.zones[i] : {}, l);
         if (i >= 0) base.zones[i] = ligne; else base.zones.push(ligne);
         return json(projeter([ligne], url), 201);
+      }
+    }
+
+    // §9.11 (48c) — `predictions`, AVEC SON VERROU. C'est ce verrou qui fait
+    // la valeur de ce décor : la vraie base porte le trigger
+    // `predictions_immuable`, qui compare `to_jsonb(new)` moins les trois
+    // colonnes d'observation à `to_jsonb(old)` moins ces mêmes colonnes et
+    // lève si ça diffère. Un décor sans lui laisserait passer un upsert rejoué
+    // — exactement la forme que la vraie base refuse définitivement.
+    const OBSERVATION = ['valeur_observee', 'observee_a', 'set_observe'];
+    const sansObservation = (l) => {
+      const o = {};
+      Object.keys(l || {}).sort().forEach((k) => {
+        if (OBSERVATION.indexOf(k) < 0) o[k] = l[k];
+      });
+      return JSON.stringify(o);
+    };
+    if (table === 'predictions') {
+      if (req.method() === 'GET') return json(projeter(base.predictions, url));
+      if (req.method() === 'POST') {
+        const l = Array.isArray(corps) ? corps[0] : corps;
+        const ignorer = /resolution=ignore-duplicates/.test(req.headers()['prefer'] || '');
+        base.journal.push({ op: 'prediction', id: l.id, slug: l.exercise_slug,
+                            rang: l.fondement && l.fondement.rang, ignorer: ignorer });
+        if (!l.id) return json(refus('23502', 'predictions.id NOT NULL'), 400);
+        if (!l.user_id) return json(refus('23502', 'predictions.user_id NOT NULL'), 400);
+        if (l.user_id !== MOI) return json(refus('42501', 'new row violates row-level security policy for table "predictions"'), 400);
+        if (!CATALOGUE.some((e) => e.slug === l.exercise_slug)) return json(refus('23503', 'predictions_exercise_slug_fkey'), 400);
+        if (l.set_observe && !base.sets.some((x) => x.id === l.set_observe)) {
+          return json(refus('23503', 'predictions_set_observe_fkey'), 400);
+        }
+        if (l.borne_basse !== null && l.borne_haute !== null &&
+            l.borne_basse !== undefined && l.borne_haute !== undefined &&
+            l.borne_basse > l.borne_haute) {
+          return json(refus('23514', 'predictions_bornes_ordonnees'), 400);
+        }
+        const i = base.predictions.findIndex((x) => x.id === l.id);
+        if (i >= 0) {
+          // ON CONFLICT DO NOTHING d'un côté ; de l'autre, le trigger.
+          if (ignorer) return json([], 201);
+          if (sansObservation(base.predictions[i]) !== sansObservation(l)) {
+            return json(refus('P0001', 'predictions : ligne immuable'), 400);
+          }
+          base.predictions[i] = Object.assign({}, base.predictions[i], l);
+          return json(projeter([base.predictions[i]], url), 201);
+        }
+        base.predictions.push(Object.assign({ created_at: l.emise_a }, l));
+        return json(projeter([l], url), 201);
+      }
+      if (req.method() === 'PATCH') {
+        const id = (url.searchParams.get('id') || '').replace('eq.', '');
+        const l = Array.isArray(corps) ? corps[0] : corps;
+        base.journal.push({ op: 'observation', id: id, valeur: l.valeur_observee });
+        const i = base.predictions.findIndex((x) => x.id === id);
+        if (i < 0) return json([], 200);
+        const fusion = Object.assign({}, base.predictions[i], l);
+        if (sansObservation(base.predictions[i]) !== sansObservation(fusion)) {
+          return json(refus('P0001', 'predictions : ligne immuable'), 400);
+        }
+        if (fusion.set_observe && !base.sets.some((x) => x.id === fusion.set_observe)) {
+          return json(refus('23503', 'predictions_set_observe_fkey'), 400);
+        }
+        base.predictions[i] = fusion;
+        return json(projeter([fusion], url), 200);
       }
     }
 
@@ -875,11 +940,11 @@ const SETS_IMPORTES = [
     await attendre(900);
   };
 
-  console.log('\n══ 0. LA MONTÉE D’INDEXEDDB, VERSION 3 → 4 ══');
+  console.log('\n══ 0. LA MONTÉE D’INDEXEDDB, VERSION 4 → 5 ══');
   //
   // ⚠️ CONFIGURATION DISCRIMINANTE (§2 quater) : UNE BASE QUI EXISTE DÉJÀ, en
-  // version 3, AVEC DES DONNÉES DEDANS. Une base neuve ne distingue rien —
-  // elle se crée en version 4 et tous les magasins y sont d'emblée. Ce qu'on
+  // version 4, AVEC DES DONNÉES DEDANS. Une base neuve ne distingue rien —
+  // elle se crée en version 5 et tous les magasins y sont d'emblée. Ce qu'on
   // doit prouver, c'est qu'un téléphone qui a déjà tout (des séances, des
   // séries, son profil, une file d'attente non vidée) traverse la montée sans
   // rien perdre. Un magasin ajouté par une montée fautive — `deleteObjectStore`
@@ -890,7 +955,7 @@ const SETS_IMPORTES = [
   // de montée à mesurer.
   await page.goto(BASE + '/styles.css', { waitUntil: 'domcontentloaded' }).catch(() => {});
   const posees = await page.evaluate(() => new Promise((resoudre, rejeter) => {
-    const req = indexedDB.open('trainhub-v2', 3);
+    const req = indexedDB.open('trainhub-v2', 4);
     req.onupgradeneeded = (e) => {
       const db = e.target.result;
       db.createObjectStore('seances', { keyPath: 'id' }).createIndex('debut', 'debut');
@@ -900,11 +965,22 @@ const SETS_IMPORTES = [
       db.createObjectStore('meta', { keyPath: 'cle' });
       db.createObjectStore('brouillon', { keyPath: 'cle' });
       db.createObjectStore('attente', { keyPath: 'cle' });
+      db.createObjectStore('zones', { keyPath: 'id' }).createIndex('exercise_slug', 'exercise_slug');
     };
     req.onerror = () => rejeter(req.error);
     req.onsuccess = () => {
       const db = req.result;
-      const tx = db.transaction(['seances', 'series', 'meta', 'attente'], 'readwrite');
+      const tx = db.transaction(['seances', 'series', 'meta', 'attente', 'zones'], 'readwrite');
+      // La correction de zone est ce que la version d'avant a de plus récent,
+      // donc ce qu'une montée fautive emporterait en premier (48b-7).
+      //
+      // ⚠️ UNE LIGNE À ZONE VIDE, ET C'EST DÉLIBÉRÉ. C'est ce qu'écrit
+      // « Revenir à celle d'après tes séances » : une vraie ligne, qui ne
+      // change AUCUNE consigne. Une correction active ici tiendrait tout le
+      // reste du banc — mesuré : `mix` sur le couché faisait dire « 120 kg,
+      // vise 6 » à quatre sections qui n'ont rien à voir avec les zones.
+      tx.objectStore('zones').put({ id: 'zone-v4', user_id: 'u-banc',
+        exercise_slug: 'dc-barre', zone: null, corrigee_a: '2026-09-02T08:00:00.000Z' });
       tx.objectStore('seances').put({ id: 'sess-v3', user_id: 'u-banc', titre: 'Séance de la v3',
         debut: '2026-09-01T08:00:00.000Z', fin: '2026-09-01T09:00:00.000Z', statut: 'terminee' });
       tx.objectStore('series').put({ id: 'set-v3', session_id: 'sess-v3', user_id: 'u-banc',
@@ -931,10 +1007,10 @@ const SETS_IMPORTES = [
       tx.onerror = () => rejeter(tx.error);
     };
   })).catch((e) => String(e));
-  ok('[V] une base de version 3 existe, avec séance, série, profil et file',
+  ok('[V] une base de version 4 existe, avec séance, série, profil, zone et file',
     posees === true, String(posees));
 
-  // L'app démarre : `cache.js` ouvre en version 4 et crée `zones`.
+  // L'app démarre : `cache.js` ouvre en version 5 et crée `predictions`.
   //
   // ⚠️ RÉSEAU COUPÉ POUR CETTE OUVERTURE, ET C'EST LA MOITIÉ DU SCÉNARIO.
   // Avec le réseau, la synchronisation qui suit la montée REMPLACE légitimement
@@ -952,7 +1028,7 @@ const SETS_IMPORTES = [
     req.onsuccess = () => {
       const db = req.result;
       const noms = Array.from(db.objectStoreNames);
-      const tx = db.transaction(['seances', 'series', 'meta', 'attente'], 'readonly');
+      const tx = db.transaction(['seances', 'series', 'meta', 'attente', 'zones'], 'readonly');
       const lu = {};
       const prendre = (magasin, cle, nom) => {
         const r = tx.objectStore(magasin).get(cle);
@@ -963,17 +1039,23 @@ const SETS_IMPORTES = [
       prendre('meta', 'profil', 'profil');
       prendre('meta', 'curseurSeries', 'curseur');
       prendre('attente', 'sessions:sess-v3', 'file');
+      prendre('zones', 'zone-v4', 'zone');
       tx.oncomplete = () => { resoudre({ version: db.version, magasins: noms, lu: lu }); db.close(); };
       tx.onerror = () => rejeter(tx.error);
     };
   })).catch((e) => ({ erreur: String(e) }));
-  ok('[V] la base est montée en version 4, et `zones` existe',
-    apresMontee.version === 4 && apresMontee.magasins.indexOf('zones') >= 0,
+  ok('[V] la base est montée en version 5, et `predictions` existe',
+    apresMontee.version === 5 && apresMontee.magasins.indexOf('predictions') >= 0,
     'version ' + apresMontee.version + ' · ' + JSON.stringify(apresMontee.magasins));
-  ok('[V] les sept magasins d’avant sont TOUS encore là',
-    ['seances', 'series', 'exercices', 'pesees', 'meta', 'brouillon', 'attente']
+  ok('[V] les huit magasins d’avant sont TOUS encore là',
+    ['seances', 'series', 'exercices', 'pesees', 'meta', 'brouillon', 'attente', 'zones']
       .every((m) => apresMontee.magasins.indexOf(m) >= 0),
     JSON.stringify(apresMontee.magasins));
+  ok('[V] LA CORRECTION DE ZONE A TRAVERSÉ LA MONTÉE',
+    apresMontee.lu.zone && apresMontee.lu.zone.exercise_slug === 'dc-barre' &&
+    apresMontee.lu.zone.corrigee_a === '2026-09-02T08:00:00.000Z' &&
+    apresMontee.lu.zone.user_id === 'u-banc',
+    JSON.stringify(apresMontee.lu.zone));
   ok('[V] LA SÉANCE ET SA SÉRIE ONT TRAVERSÉ LA MONTÉE',
     apresMontee.lu.seance && apresMontee.lu.seance.titre === 'Séance de la v3' &&
     apresMontee.lu.serie && apresMontee.lu.serie.charge_kg === 111,
@@ -5502,6 +5584,162 @@ const SETS_IMPORTES = [
       JSON.stringify(tout).replace(/\u00a0/g, '·'));
     await abandonner();
     ok('[C6] aucune erreur de page pendant tout le constat',
+      erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
+  }
+
+  console.log('\n══ 7 quinvicies. CE QUE LE MOTEUR A PROPOSÉ S’ÉCRIT (§9.11) ══');
+  //
+  // Cette écriture est INVISIBLE : aucun pixel ne change. Elle ne se teste donc
+  // qu'ici, par ce que la base reçoit et par ce que la file porte — et c'est
+  // aussi la seule surface où `app.js` est exécuté pour de vrai.
+  {
+    // ⚠️ ON NE COMPTE QUE CE QUE CETTE SÉANCE ÉCRIT. Sept séances antérieures
+    // du banc ont déjà affiché une consigne pour le soulevé, et elles ont eu
+    // RAISON de la noter : filtrer sur le seul exercice ferait passer leur
+    // travail pour des doublons. Le repère est l'index de départ, comme
+    // `DECORS` ailleurs dans ce fichier.
+    const depart = base.predictions.length;
+    const predictions = () => base.predictions.slice(depart)
+      .filter((l) => l.exercise_slug === 'souleve-terre')
+      .sort((a, b) => a.fondement.rang - b.fondement.rang);
+    const enFilePred = () => page.evaluate(() =>
+      (window.THCache ? window.THCache.lireAttente() : Promise.resolve([]))
+        .then((f) => f.filter((e) => e.table === 'predictions')
+          .map((e) => ({ id: e.id, op: e.op, depend: e.depend, seq: e.seq }))));
+    const enFileSets = () => page.evaluate(() =>
+      (window.THCache ? window.THCache.lireAttente() : Promise.resolve([]))
+        .then((f) => f.filter((e) => e.table === 'sets').map((e) => e.seq)));
+
+    // La zone du soulevé a été corrigée puis rendue à la déduction plus haut ;
+    // on repart d'une séance neuve pour que la consigne soit celle d'origine.
+    await aller('/saisie');
+    await demarrerRoutine('Terre');
+    const notees = predictions();
+    ok('[P] une ligne PAR SÉRIE PROPOSÉE dès l’affichage de la consigne',
+      notees.length === 3 && notees.map((l) => l.fondement.rang).join() === '1,2,3' &&
+      new Set(notees.map((l) => l.fondement.seance)).size === 1,
+      JSON.stringify(notees.map((l) => l.fondement.rang + ':' + l.fondement.charge +
+        '×' + l.valeur_predite)));
+    ok('[P] le pari, ce sont les REPS ; la charge vit dans le fondement',
+      notees.every((l) => l.grandeur === 'reps' && l.valeur_predite !== null &&
+        l.fondement.charge !== null && l.module === 'moteur.consigne'),
+      JSON.stringify(notees[0]));
+    // ⚠️ LA VERSION EST CELLE DU MODULE, ET C'EST TOUT L'ENJEU. Un chiffre
+    // recopié dans `app.js` dériverait le jour où une règle change, et deux
+    // semaines de prédictions se compareraient sans le savoir. On lit la
+    // constante DANS LA PAGE et on la confronte à ce que la base a reçu.
+    const versionModule = await page.evaluate(() => window.THMoteur.VERSION_CONSIGNE);
+    ok('[P] chaque ligne porte son identité, son instant et LA VERSION DU MODULE',
+      notees.every((l) => !!l.id && l.user_id === 'u-banc' && !!l.emise_a &&
+        l.module_version === versionModule && l.horizon_jours === null),
+      JSON.stringify({ id: !!notees[0].id, user: notees[0].user_id,
+        v: notees[0].module_version, module: versionModule, h: notees[0].horizon_jours }));
+    ok('[P] le fondement porte la séance, l’état, la zone, le réglage, le palier',
+      notees.every((l) => l.fondement.seance && l.fondement.etat && l.fondement.reglage &&
+        l.fondement.palier !== undefined && l.fondement.niveau !== undefined),
+      JSON.stringify(notees[0].fondement));
+
+    // ⚠️ DIX REDESSINS. La consigne se relit à chaque rendu : sans la garde,
+    // chaque frappe, chaque validation, chaque retour d'onglet ajouterait
+    // trois lignes de plus. La table serait noyée en une séance.
+    for (let i = 0; i < 10; i++) {
+      await aller('/progression');
+      await aller('/saisie');
+    }
+    ok('[P] DIX REDESSINS PLUS TARD : toujours trois lignes, pas trente',
+      predictions().length === 3, predictions().length + ' ligne(s)');
+
+    // ── L'OBSERVATION : MÊME RANG, MÊME CHARGE ────────────────────────────
+    const parRang = (r) => predictions().filter((l) => l.fondement.rang === r)[0];
+    const c1 = parRang(1).fondement.charge;
+    await saisirSerie(0, c1, 5);
+    ok('[P] la série faite à la charge proposée est OBSERVÉE',
+      parRang(1).valeur_observee === 5 && !!parRang(1).observee_a && !!parRang(1).set_observe,
+      JSON.stringify({ v: parRang(1).valeur_observee, set: !!parRang(1).set_observe }));
+    ok('[P] et `set_observe` désigne une série QUI EXISTE en base',
+      base.sets.some((x) => x.id === parRang(1).set_observe),
+      String(parRang(1).set_observe));
+
+    // ⚠️ CONFIGURATION DISCRIMINANTE : une charge AUTRE que celle proposée. À
+    // la même charge, apparier sur le rang seul et apparier sur les deux
+    // donnent le même résultat — c'est la déviation qui les sépare.
+    await saisirSerie(1, parRang(2).fondement.charge + 5, 5);
+    ok('[P] UNE CHARGE AUTRE QUE CELLE PROPOSÉE N’OBSERVE RIEN',
+      parRang(2).valeur_observee === null && parRang(2).set_observe === null,
+      JSON.stringify({ propose: parRang(2).fondement.charge, v: parRang(2).valeur_observee }));
+
+    // ── UNE VALEUR CORRIGÉE APRÈS COUP ────────────────────────────────────
+    const taper = async (i, champ, v) => {
+      const champs = await (await ligne(i)).$$('input');
+      await champs[champ].fill(String(v));
+      await attendre(600);
+    };
+    await taper(0, 1, 4);
+    ok('[P] les reps corrigées sur une série validée : l’observation SUIT',
+      parRang(1).valeur_observee === 4, JSON.stringify(parRang(1).valeur_observee));
+    await taper(0, 0, c1 + 10);
+    ok('[P] la CHARGE corrigée hors de la proposition : l’observation SE RETIRE',
+      parRang(1).valeur_observee === null && parRang(1).observee_a === null,
+      JSON.stringify({ v: parRang(1).valeur_observee, a: parRang(1).observee_a }));
+    await taper(0, 0, c1);
+    ok('[P] revenue à la charge proposée : l’observation revient',
+      parRang(1).valeur_observee === 4, JSON.stringify(parRang(1).valeur_observee));
+
+    // ── L'ORDRE DANS LA FILE, ET HORS LIGNE ───────────────────────────────
+    base.reseau = false;
+    await taper(0, 1, 3);
+    const fileP = await enFilePred();
+    const fileS = await enFileSets();
+    ok('[P] hors ligne, la prédiction ATTEND dans la file, avec sa dépendance',
+      fileP.length > 0 && fileP.every((e) => e.depend === fileP[0].depend && !!e.depend),
+      JSON.stringify(fileP));
+    ok('[P] et les séries y sont AVANT elle : `set_observe` trouvera sa ligne',
+      fileS.length > 0 && Math.min.apply(null, fileS) < Math.min.apply(null, fileP.map((e) => e.seq)),
+      'sets ' + JSON.stringify(fileS) + ' · predictions ' + JSON.stringify(fileP.map((e) => e.seq)));
+    base.reseau = true;
+    await aller('/saisie');
+    await attendre(2200);
+    ok('[P] le réseau revenu, la file se vide et l’observation monte',
+      (await enFilePred()).length === 0 && parRang(1).valeur_observee === 3,
+      JSON.stringify({ file: (await enFilePred()).length, v: parRang(1).valeur_observee }));
+
+    // ── L'APP FERMÉE PUIS ROUVERTE ────────────────────────────────────────
+    //
+    // ⚠️ C'EST LA RAISON D'ÊTRE DU MAGASIN LOCAL. La garde « déjà noté » ne
+    // peut pas vivre en mémoire : le JS s'arrête quand l'app se ferme, et la
+    // séance, elle, continue. Sans le magasin, rouvrir réécrirait tout.
+    const avantFermeture = predictions().length;
+    await page.close();
+    page = await ctx.newPage();
+    brancher(page);
+    await aller('/saisie');
+    await attendre(1200);
+    ok('[P] L’APP ROUVERTE EN PLEINE SÉANCE NE RÉÉCRIT RIEN',
+      predictions().length === avantFermeture, predictions().length + ' vs ' + avantFermeture);
+    await abandonner();
+
+    // ── LÀ OÙ LE MOTEUR SE TAIT, IL N'ÉCRIT PAS ───────────────────────────
+    // L'intention se change AU SERVEUR : la synchronisation qui suit le
+    // rechargement écraserait sinon une écriture locale, et le banc mesurerait
+    // cette synchronisation en croyant mesurer le silence du moteur.
+    const compteAvant = base.predictions.length;
+    base.profiles[0].intention = 'entretien';
+    await aller('/saisie');
+    await demarrerRoutine('Terre');
+    ok('[P] EN ENTRETENIR, rien ne s’écrit — le moteur ne prescrit pas',
+      base.predictions.length === compteAvant,
+      base.predictions.length + ' vs ' + compteAvant);
+    await abandonner();
+    base.profiles[0].intention = 'progresser';
+    await aller('/saisie');
+    await seanceVide();
+    await ajouterExoSeance('Planche');
+    await attendre(900);
+    ok('[P] sur une mesure SANS CHARGE, rien non plus',
+      base.predictions.length === compteAvant,
+      base.predictions.length + ' vs ' + compteAvant);
+    await abandonner();
+    ok('[P] aucune erreur de page pendant toute l’écriture',
       erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
 

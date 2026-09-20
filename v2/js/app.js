@@ -23,7 +23,8 @@
   var Profil = racine.THProfil, Moteur = racine.THMoteur;
 
   var vues = {};
-  var local = { seances: [], series: [], exercices: [], pesees: [], zones: [], parSeance: null };
+  var local = { seances: [], series: [], exercices: [], pesees: [], zones: [],
+                predictions: [], parSeance: null };
   var etat = { code: 'vide', libelle: '', local: false };
   var syncEnCours = false;
   var lundiAffiche = null;   // le lundi de la semaine à l'écran
@@ -234,6 +235,10 @@
     // réponde, sinon la première consigne de la séance serait celle d'avant la
     // correction, puis changerait sous les yeux.
     local.zones = await Cache.lireTout('zones');
+    // §9.11 (48c) — ce que le moteur a DÉJÀ noté. Lu au démarrage, parce que
+    // c'est ce qui l'empêche de réécrire : fermer l'app au milieu d'une séance
+    // et la rouvrir rejouerait sinon toutes les consignes de cette séance.
+    local.predictions = await Cache.lireTout('predictions');
     rangerSeances();
     indexerParSeance();
     recalculerEtats();
@@ -700,6 +705,9 @@
     // §9.1.1 — la ligne part telle qu'elle a été posée : son identifiant la
     // rend idempotente, sa date dit quand le choix a été fait.
     if (op.table === Attente.ZONES) return Donnees.enregistrerZone(op.donnees);
+    // §9.11 — l'insertion IGNORE les doublons (le trigger refuserait un
+    // upsert rejoué), et l'observation la suit par une mise à jour étroite.
+    if (op.table === Attente.PREDICTIONS) return envoyerPrediction(op);
     // §6 — l'intention porte l'ÉTAT VOULU de la routine, pas un chemin pour y
     // aller : le plan d'écritures se calcule à la vidange, contre ce que la
     // routine est devenue entre-temps. C'est de là que vient l'idempotence.
@@ -713,6 +721,18 @@
     // existe pour empêcher.
     if (op.table === Attente.ROUTINE_EXOS) return Donnees.majExercice(op.id, op.donnees);
     return Promise.resolve();
+  }
+
+  async function envoyerPrediction(op) {
+    await Donnees.enregistrerPrediction(op.donnees);
+    if (op.op !== Attente.OBSERVER) return true;
+    var l = op.donnees || {};
+    await Donnees.observerPrediction(op.id, {
+      valeur_observee: l.valeur_observee === undefined ? null : l.valeur_observee,
+      observee_a: l.observee_a === undefined ? null : l.observee_a,
+      set_observe: l.set_observe === undefined ? null : l.set_observe
+    });
+    return true;
   }
 
   // Après chaque geste : on sauve, on pose l'état des séries, on redessine.
@@ -1351,7 +1371,8 @@
       // Dévalider RETIRE la ligne : une série non validée ne peut pas exister
       // en base (`sets_validee_si_saisie`).
       seance = Seance.devalider(seance, iExo, iSerie);
-      return apresGeste();
+      await apresGeste();
+      return observerSerie(iExo, iSerie);
     }
     // Ce qui est affiché en gris devient réel à la validation : on valide sans
     // rien taper quand c'est juste (§3 bis.3).
@@ -1393,7 +1414,11 @@
     // séries RÉELLES ; en rouvrant une séance d'avant-hier, il compterait un
     // repos qui n'a pas eu lieu et l'écrirait dans `repos_s`.
     if (!enEdition()) demarrerChrono(exo.repos_cible_s, iExo, exo.exercise_slug);
-    return apresGeste();
+    // ⚠️ L'OBSERVATION VIENT APRÈS `apresGeste`, ET C'EST L'ORDRE QUI COMPTE :
+    // `poserSeries` y pose l'entrée des séries, donc avec un `seq` plus petit
+    // que celui de la prédiction. `set_observe` trouve alors toujours sa série.
+    await apresGeste();
+    await observerSerie(iExo, iSerie);
   }
 
   // Le retour haptique : aucun pixel, et il confirme la validation même avec
@@ -1635,6 +1660,121 @@
     });
   }
 
+  // ── §9.11 (48c) — CE QUE LE MOTEUR A PROPOSÉ S'ÉCRIT ─────────────────────
+  //
+  // ⚠️ À L'AFFICHAGE, UNE SEULE FOIS PAR SÉANCE ET PAR EXERCICE. C'est ce que
+  // l'utilisateur a LU et sur quoi il a agi : ni à chaque redessin, qui
+  // noierait la table, ni la veille au constat, qu'un historique modifié peut
+  // encore changer. Rien quand le moteur se tait — `consigneDe` rend déjà
+  // `null` en Entretenir, en Édition et sur une mesure sans charge, et
+  // `lignesDePrediction` rend une liste vide en silence.
+  //
+  // La garde vit dans `local.predictions`, pas en mémoire : rouvrir l'app au
+  // milieu d'une séance ne doit pas réécrire ce qui a déjà été noté.
+  function dejaNote(slug) {
+    return (local.predictions || []).some(function (l) {
+      return l && l.exercise_slug === slug && l.fondement &&
+        l.fondement.seance === seance.id;
+    });
+  }
+
+  async function noterConsignes() {
+    if (!seance || enEdition()) return;
+    var exos = (seance.exercices || []).map(function (e) { return e && e.exercise_slug; });
+    var vus = {};
+    for (var i = 0; i < exos.length; i++) {
+      var slug = exos[i];
+      if (!slug || vus[slug]) continue;
+      vus[slug] = true;
+      if (dejaNote(slug)) continue;
+      var c = consigneDe(slug);
+      if (!c) continue;
+      var lignes = Moteur.lignesDePrediction(c.consigne, {
+        slug: slug, reglage: Profil.rythmeDe(profil), seance: seance.id
+      });
+      if (!lignes.length) continue;
+      await noterLignes(lignes);
+    }
+  }
+
+  // ⚠️ `emise_a` ET `user_id` SONT POSÉS ICI, comme pour une correction de zone
+  // (§9.1.1) : laissés au défaut du serveur, deux séances notées hors ligne
+  // remonteraient dans l'ordre du réseau, pas dans celui des gestes.
+  //
+  // `depend` porte la séance : une prédiction ne monte jamais avant les séries
+  // auxquelles son observation se référera (`set_observe` → `sets`).
+  async function noterLignes(lignes) {
+    var emise = new Date().toISOString();
+    var uid = (sessionActive && sessionActive.user && sessionActive.user.id) || null;
+    var neuves = lignes.map(function (l) {
+      return Object.assign({}, l, {
+        id: uuid(), user_id: uid,
+        module_version: Moteur.VERSION_CONSIGNE,
+        emise_a: emise, horizon_jours: null,
+        valeur_observee: null, observee_a: null, set_observe: null
+      });
+    });
+    local.predictions = local.predictions.concat(neuves);
+    await Cache.ecrireLot('predictions', neuves).catch(function () {});
+    for (var i = 0; i < neuves.length; i++) {
+      await poser({ table: Attente.PREDICTIONS, op: Attente.UPSERT,
+                    id: neuves[i].id, depend: seance.id, donnees: neuves[i] });
+    }
+  }
+
+  // ⚠️ APPARIEMENT STRICT : MÊME RANG, MÊME CHARGE. Le rang vient de
+  // `Seance.couvertureDe`, la fonction qui décide déjà quelles lignes la
+  // consigne couvre (§9.13) — deux numérotations diraient deux séances
+  // différentes. La charge doit être celle qui a été proposée : une série
+  // faite à une autre charge n'observe rien, et la ligne reste sans
+  // observation. C'est un fait à mesurer, pas un manque — elle dira combien de
+  // fois le moteur a proposé ce qui n'a pas été suivi.
+  //
+  // ⚠️ ET ELLE RETIRE AUTANT QU'ELLE POSE. Une observation qui ne se retirerait
+  // pas serait pire que pas d'observation du tout : corriger 130 en 140 après
+  // coup, ou dévalider la série, laisserait en base un fait FAUX — dans la
+  // table même qui existe pour dire si le moteur a eu raison. Trois chemins y
+  // mènent : la validation, la dévalidation, et la frappe dans un champ.
+  //
+  // Appelée APRÈS `poserSeries` : la série doit être posée avant la prédiction
+  // pour que la clé étrangère de `set_observe` trouve sa ligne.
+  async function observerSerie(iExo, iSerie) {
+    if (!seance || enEdition()) return;
+    var exo = (seance.exercices || [])[iExo];
+    if (!exo) return;
+    var serie = (exo.series || [])[iSerie];
+    if (!serie) return;
+    var c = consigneDe(exo.exercise_slug);
+    if (!c) return;
+    var couverture = Seance.couvertureDe(exo.series, c.consigne)[iSerie];
+    if (!couverture) return;
+    var ligne = (local.predictions || []).filter(function (l) {
+      return l && l.exercise_slug === exo.exercise_slug && l.fondement &&
+        l.fondement.seance === seance.id && l.fondement.rang === couverture.rang;
+    })[0];
+    if (!ligne) return;
+
+    var reps = Seance.partEnBase(serie) ? Palier.repsComptees(serie) : null;
+    var apparie = reps !== null &&
+      Modele.nombre(ligne.fondement.charge) === Modele.nombre(serie.charge_kg);
+    var sienne = ligne.set_observe && serie.id && ligne.set_observe === serie.id;
+    // Ni appariée maintenant, ni observée par cette série avant : rien à dire.
+    if (!apparie && !sienne) return;
+    // Rien n'a changé — et `surChamp` passe ici à CHAQUE FRAPPE : sans cette
+    // sortie, taper « 130 » poserait trois fois la même intention.
+    if (apparie && sienne && ligne.valeur_observee === reps) return;
+
+    var maj = Object.assign({}, ligne, apparie
+      ? { valeur_observee: reps, observee_a: new Date().toISOString(), set_observe: serie.id }
+      : { valeur_observee: null, observee_a: null, set_observe: null });
+    local.predictions = local.predictions.map(function (l) {
+      return l && l.id === maj.id ? maj : l;
+    });
+    await Cache.ecrireLot('predictions', [maj]).catch(function () {});
+    await poser({ table: Attente.PREDICTIONS, op: Attente.OBSERVER,
+                  id: maj.id, depend: seance.id, donnees: maj });
+  }
+
   function planDe(iExo) {
     var exo = seance.exercices[iExo];
     var c = consigneDe(exo.exercise_slug);
@@ -1709,10 +1849,13 @@
       surPourquoi: ouvrirPourquoi,
       // §3.9 — et quand l'exercice est fini, le constat prend sa place.
       constat: constatPour,
-      surChamp: function (i, j, champ, valeur) {
+      surChamp: async function (i, j, champ, valeur) {
         seance = Seance.modifierSerie(seance, i, j, defObjet(champ, valeur));
         rafraichirConstats();
-        apresGeste({ rendre: false });
+        await apresGeste({ rendre: false });
+        // §9.11 — une valeur corrigée sur une série DÉJÀ validée : l'observation
+        // suit, ou se retire si la charge ne correspond plus.
+        await observerSerie(i, j);
       },
       surValider: validerSerie,
       surNumero: function (i, j) { ouvrirFeuille('type', i, j); },
@@ -1734,6 +1877,10 @@
     brancherReorg('blocs-seance');
     brancherAppuiLong('blocs-seance');
     rendrePiedReorg();
+    // §9.11 — la consigne vient d'être affichée : on note ce qu'elle a
+    // proposé. Sans `await` : le rendu ne doit rien attendre, et la garde
+    // `dejaNote` rend l'appel inoffensif à chaque redessin.
+    noterConsignes().catch(function () { /* la file gardera l'intention */ });
   }
 
   function defObjet(cle, valeur) { var o = {}; o[cle] = valeur; return o; }
@@ -3829,7 +3976,8 @@
     // rendue — y compris par un retour qui atterrirait sur une ancienne entrée.
     sessionActive = null;
     try { await Cache.viderTout(); } catch (e) { /* rien à garder de toute façon */ }
-    local = { seances: [], series: [], exercices: [], pesees: [], parSeance: null };
+    local = { seances: [], series: [], exercices: [], pesees: [], zones: [],
+              predictions: [], parSeance: null };
     // Les routines vivent en mémoire, pas dans le cache — mais elles
     // appartiennent quand même au compte qui part.
     routines = []; brouillon = null; etatRoutines = { code: 'jamais', message: '' };

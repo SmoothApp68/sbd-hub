@@ -646,6 +646,32 @@ button.bloc-exo:active{background:var(--panneau-2)}
 .consigne{color:var(--accent);font-size:15px;font-weight:650;line-height:1.3;
   margin-top:5px;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
 .consigne + .consigne{font-size:13.5px;font-weight:600;margin-top:1px}
+/* §3.8 — L'ÉTIQUETTE DE ZONE. Au CONTOUR, et JAMAIS jaune : le jaune est la
+   seule voix du moteur, l'étiquette n'est qu'un repère. Le fond plein avec un
+   point (« ton choix ») viendra avec la correction, au chantier 48b-7.
+   Elle vit à côté d'un nom qui peut être long : elle ne se coupe pas, elle
+   passe à la ligne avec lui — `.exo-seance` est déjà un flex à `baseline`. */
+.puce-zone{display:inline-flex;align-items:center;flex:0 0 auto;
+  padding:1px 7px;border:1px solid var(--trait);border-radius:999px;
+  color:var(--texte-2);font-size:11px;font-weight:600;white-space:nowrap}
+.exo-tete .puce-zone{margin-top:var(--e1)}
+
+/* §3.10 — LA FEUILLE « POURQUOI ». Une ligne de séance est un couple : ce qui
+   a été fait à gauche, son rôle à droite, et le rôle passe sous lui quand la
+   place manque plutôt que de rogner le chiffre. */
+.pq-sec{color:var(--texte-3);font-size:11px;margin:var(--e3) 0 var(--e1)}
+.pq-ligne{display:flex;justify-content:space-between;gap:var(--e2);flex-wrap:wrap;
+  font-size:13px;padding:5px 0;border-bottom:1px solid var(--trait)}
+.pq-ligne.muet .pq-quoi{color:var(--texte-3)}
+.pq-quoi{font-variant-numeric:tabular-nums}
+.pq-role{color:var(--texte-2);text-align:right;margin-left:auto}
+.pq-p{font-size:13px;line-height:1.45;color:var(--texte-2);margin:var(--e2) 0 0}
+.pq-p.fort{color:var(--texte)}
+/* Le renvoi au Profil est une PORTE, pas une indication : il se voit comme un
+   lien et il y va. */
+.lien-profil{font:inherit;color:var(--texte);background:none;border:0;padding:0;
+  text-decoration:underline;text-underline-offset:3px}
+
 .consigne-dit{color:var(--texte-2);font-size:12px;line-height:1.4;margin-top:3px;
   overflow-wrap:anywhere}
 

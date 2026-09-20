@@ -468,6 +468,8 @@ séances, un fond plein avec un point quand c'est le choix de l'utilisateur.
   routine n'en parle pas.
 - En Entretenir, ni étiquette ni consigne.
 
+**Précisé le 20/09/2026 (48b-6a).** Jusqu'à la correction (48b-7), l'étiquette s'affiche **sans réagir au toucher** : un geste qui ne fait rien serait une promesse. Elle ne paraît que si la consigne porte une zone — ni en silence du moteur, ni sous 3 reps d'habitude ; pendant un étirement, c'est la zone figée. Seul l'état « déduite », au contour, existe avant 48b-7.
+
 **3.9** — **Après la dernière série, le constat.** L'en-tête passe du jaune au
 constat, et annonce la prochaine étape (§3.5) :
 
@@ -484,6 +486,8 @@ dernière séance ligne par ligne, avec le rôle de chaque série (chauffe, au p
 test) ; la zone et l'habitude qui l'a rangée ; le palier et son niveau validé ; le
 sort du test ; la conclusion ; le réglage de rythme, avec renvoi au Profil ; et
 « Tu veux faire autre chose ? Tape-le, ta saisie fait foi. »
+
+**Précisé le 20/09/2026 (48b-6a).** La feuille a **sept lignes**, et la maquette donne le paragraphe de chaque état (tableau « La feuille « Pourquoi », état par état ») : la dernière séance, chauffes regroupées, chaque série avec son rôle (« au palier », « test, au bas de ta zone », « rampe, ne compte pas », « restée à 125 », « dégressive, ne compte pas », « série arrêtée, ne compte pas ») ; la zone et l'habitude — pendant un étirement, la zone figée et la date de son test ; le palier, son niveau validé et les reps de ses séries au palier ; le paragraphe de l'état ; « Donc » et les lignes jaunes ; le réglage, avec son renvoi au Profil ; « ta saisie fait foi ». « Touche l'étiquette pour la changer » attend 48b-7. En silence, la feuille dit seulement la dernière séance et pourquoi le moteur se tait. **Jamais de durée ni d'assiduité** : la date de la dernière séance suffit. Toucher la consigne — les lignes jaunes comme la phrase grise — ouvre la feuille ; c'est la feuille qui monte du bas, déjà utilisée ailleurs dans l'app.
 
 **3.11** — **La reprise.** Après une coupure (MOTEUR §9.9), l'en-tête dit « On
 reprend à ton dernier palier, sans rep de plus » ou « On reprend un cran sous ton

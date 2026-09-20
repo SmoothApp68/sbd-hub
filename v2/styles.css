@@ -656,6 +656,13 @@ button.bloc-exo:active{background:var(--panneau-2)}
   color:var(--texte-2);font-size:11px;font-weight:600;white-space:nowrap}
 .exo-tete .puce-zone{margin-top:var(--e1)}
 
+/* §3.9 — LE CONSTAT DE FIN DE BLOC. Il prend la place de la consigne quand
+   l'exercice est fini, et il n'est JAMAIS jaune : le jaune est la voix de ce
+   qu'il reste à faire. Le verdict au ton du texte, la suite en secondaire. */
+.constat{color:var(--texte);font-size:15px;font-weight:650;line-height:1.3;
+  margin-top:var(--e1)}
+.constat-suite{color:var(--texte-2);font-size:12px;line-height:1.4;margin-top:3px}
+
 /* §3.8 (48b-7) — L'ÉTIQUETTE EST UNE PORTE. Même dessin qu'au contour, plus
    l'état « choisie » : fond plein et un point, pour qu'on voie d'un coup d'œil
    ce qu'on a imposé au moteur. Jamais de jaune dans aucun des deux états.

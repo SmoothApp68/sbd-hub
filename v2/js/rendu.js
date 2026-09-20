@@ -1867,7 +1867,20 @@
       // ⚠️ L'EN-TÊTE NE CALCULE RIEN : il lit `vue.libelles(slug)`, qui rend ce
       // que `app.js` a mémoïsé à l'ouverture. Un en-tête qui appellerait le
       // moteur se recalculerait à chaque validation.
-      var lib = !vue.programme && vue.libelles ? vue.libelles(x.slug) : null;
+      // §3.9 — LE CONSTAT REMPLACE LA CONSIGNE, IL NE S'Y AJOUTE PAS. Quand
+      // l'exercice est fini, la consigne ne dit plus rien d'utile : elle
+      // prescrivait ce qui vient d'être fait. Les deux ensemble donneraient
+      // deux voix pour un même bloc.
+      //
+      // ⚠️ ET JAMAIS EN JAUNE. Le jaune est la voix de la CONSIGNE — ce qu'il
+      // reste à faire. Un constat en jaune se lirait comme une prescription
+      // qu'on aurait déjà remplie.
+      var constat = !vue.programme && vue.constat ? vue.constat(x.slug) : null;
+      if (constat) {
+        entree.appendChild(el('div', 'constat', constat.verdict));
+        if (constat.suite) entree.appendChild(el('div', 'constat-suite', constat.suite));
+      }
+      var lib = constat ? null : (!vue.programme && vue.libelles ? vue.libelles(x.slug) : null);
       if (lib) {
         // §3.10 — TOUCHER LA CONSIGNE OUVRE LE CALCUL. Les lignes jaunes comme
         // la phrase grise, et le silence compris : « pourquoi rien ? » est la

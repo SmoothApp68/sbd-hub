@@ -277,6 +277,7 @@
     // n'est presque jamais celui qu'on regarde pendant une synchronisation.
     datesExercices = null;
     consignes = null;
+    constats = null;
     try {
       etatsExercices = Palier.etatsExercices(Palier.seanceExercices(local.series));
     } catch (e) {
@@ -1487,6 +1488,82 @@
     return c ? c.pourquoi : null;
   }
 
+  // ── §3.9 — LE CONSTAT DE FIN DE BLOC ─────────────────────────────────────
+  //
+  // ⚠️ LA CONDITION EST « TOUTES LES SÉRIES DE TRAVAIL VALIDÉES », et elle se
+  // lit sur ce que l'écran MONTRE : `partEnBase`, le même critère que la coche
+  // (chantier 35, D3). Tester `validee_a` ferait diverger la case cochée et le
+  // constat sur une séance importée.
+  //
+  // Les chauffes ne comptent pas : on peut finir un exercice sans en faire, et
+  // en laisser une non validée ne doit pas retenir le constat. Un exercice sans
+  // aucune série de travail n'a rien fini du tout.
+  function seriesDeTravailDe(slug) {
+    var sortie = [];
+    (seance.exercices || []).forEach(function (exo) {
+      if (!exo || exo.exercise_slug !== slug) return;
+      (exo.series || []).forEach(function (s) {
+        if ((s.type_serie || 'travail') === 'travail') sortie.push(s);
+      });
+    });
+    return sortie;
+  }
+
+  function exerciceFini(slug) {
+    var travail = seriesDeTravailDe(slug);
+    if (!travail.length) return false;
+    for (var i = 0; i < travail.length; i++) {
+      if (!Seance.partEnBase(travail[i])) return false;
+    }
+    return true;
+  }
+
+  // ⚠️ SON PROPRE MÉMO, ET SA PROPRE CLÉ. Celui des consignes a pour clé la
+  // séance et le profil, qui ne bougent pas d'une validation à l'autre ; le
+  // constat, lui, dépend de CE QUI EST VALIDÉ — il doit donc se recalculer
+  // quand une série est validée ou dévalidée, et à ce moment-là seulement. Une
+  // clé qui compte les séries de travail et les validées dit exactement ça :
+  // ajouter une série la change, en dévalider une aussi, et taper dans un
+  // champ ne la change pas.
+  var constats = null;   // { cle, parSlug }
+
+  function empreinteValidations() {
+    var parts = [];
+    (seance.exercices || []).forEach(function (exo) {
+      var t = seriesDeTravailDe(exo.exercise_slug);
+      var faites = t.filter(function (s) { return Seance.partEnBase(s); }).length;
+      parts.push(exo.exercise_slug + ':' + t.length + '/' + faites);
+    });
+    return parts.join(',');
+  }
+
+  function constatPour(slug) {
+    if (!seance || !exerciceFini(slug)) return null;
+    var cle = cleConsignes() + '|' + empreinteValidations();
+    if (!constats || constats.cle !== cle) constats = { cle: cle, parSlug: {} };
+    if (!Object.prototype.hasOwnProperty.call(constats.parSlug, slug)) {
+      var exo = Modele.indexerExercices(local.exercices)[slug];
+      var g = Modele.gabaritDe(exo);
+      var faites = seriesDeTravailDe(slug).filter(function (s) { return Seance.partEnBase(s); });
+      // ⚠️ LA COUPURE D'APRÈS EST L'INSTANT PRÉSENT. Le moteur ne lit jamais
+      // l'avenir : une coupure au début de la séance en exclurait la séance du
+      // jour, et le constat raconterait la fois d'avant.
+      var r = Moteur.constatDExercice(
+        seancesDeLExercice(slug),
+        { seance: { debut: seance.debut }, series: faites },
+        etatsExercices[slug], seance.debut, new Date().toISOString(), {
+          mesure: g.inconnue ? null : g.mesure,
+          equipement: exo ? exo.equipement : null,
+          intention: profil ? profil.intention : null,
+          reglage: Profil.rythmeDe(profil),
+          correction: zoneDe(slug),
+          edition: enEdition()
+        });
+      constats.parSlug[slug] = r ? r.constat : null;
+    }
+    return constats.parSlug[slug];
+  }
+
   function planDe(iExo) {
     var exo = seance.exercices[iExo];
     var c = consigneDe(exo.exercise_slug);
@@ -1559,6 +1636,8 @@
       surZone: function (slug) { if (etiquetteDe(slug)) ouvrirZone(slug); },
       // §3.10 — toucher la consigne ouvre le calcul.
       surPourquoi: ouvrirPourquoi,
+      // §3.9 — et quand l'exercice est fini, le constat prend sa place.
+      constat: constatPour,
       surChamp: function (i, j, champ, valeur) {
         seance = Seance.modifierSerie(seance, i, j, defObjet(champ, valeur));
         apresGeste({ rendre: false });

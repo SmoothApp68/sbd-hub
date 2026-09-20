@@ -1031,3 +1031,245 @@ describe('l’étiquette se touche, et le menu (ECRAN-SAISIE §3.8)', () => {
     expect(ferme).toBe(1);
   });
 });
+
+// ── §3.9 — LE CONSTAT DE FIN DE BLOC ────────────────────────────────────────
+//
+// ⚠️ C'EST LE FICHIER QUI FAIT FOI. `constat-48b6b.json` porte, pour chacun
+// des 14 cas, l'historique, la séance du jour, les deux instants, les deux
+// consignes attendues, le cran suivant et le constat. Le test rejoue, il ne
+// redit pas la règle : le constat n'a le droit de recalculer AUCUNE règle du
+// moteur, et vérifier d'abord les deux consignes est ce qui le prouve.
+describe('le constat de fin de bloc (ECRAN-SAISIE §3.9)', () => {
+  const CAS = require('./fixtures/constat-48b6b.json');
+  const forme = (r) => r.etat === 'silence'
+    ? { etat: 'silence', raison: r.raison }
+    : { etat: r.etat, zone: r.zone, n: r.n,
+        ligne: r.ligne && [r.ligne.charge, r.ligne.vise],
+        haut: r.haut && [r.haut.charge, r.haut.vise, r.haut.k] };
+  const deux = (c) => {
+    const o = { reglage: c.reglage, equipement: c.equipement, correction: null };
+    return { avant: Moteur.consignePour(c.seances, c.avant, o),
+             apres: Moteur.consignePour(c.seances.concat([c.seanceDuJour]), c.apres, o) };
+  };
+
+  test('les 14 branches y sont, chacune avec sa jumelle', () => {
+    const ids = new Set(CAS.map((c) => c.id));
+    [['test déjà tenté ou première fois', 'K1', 'K2'],
+     ['dans la zone ou pas encore', 'K1', 'K3'],
+     ['retest d’un cran ou étirement', 'K3', 'K4'],
+     ['rep gagnée jusqu’au haut ou en dessous', 'K5', 'K6'],
+     ['gagnée ou rien', 'K6', 'K7'],
+     ['Normal, Franc sur la meilleure série, Prudent', 'K6', 'K13'],
+     ['Prudent : la phrase générale', 'K12', 'K6'],
+     ['toutes les séries passées', 'K8', 'K1'],
+     ['reprise', 'K9', 'K1'],
+     ['première fois', 'K10', 'K1'],
+     ['pas de palier, sans suite', 'K11', 'K1'],
+     ['charge sous le palier', 'K14', 'K1']].forEach(([regle, a, b]) => {
+      expect([regle, ids.has(a), ids.has(b)]).toEqual([regle, true, true]);
+    });
+    expect(CAS).toHaveLength(14);
+  });
+
+  CAS.forEach((c) => {
+    test(`${c.id} — ${c.titre} (${c.reglage})`, () => {
+      const { avant, apres } = deux(c);
+      // La prémisse d'abord : si les deux consignes ne sont pas celles du
+      // fichier, le constat mesurerait autre chose que ce qu'il annonce.
+      expect(forme(avant)).toEqual(c.consigneAvant);
+      expect(forme(apres)).toEqual(c.consigneApres);
+      const cran = apres.palier === null || apres.palier === undefined ? null
+        : Moteur.chargeVoisine(c.seances.concat([c.seanceDuJour]), c.apres,
+                               apres.palier, c.equipement, 1);
+      expect(cran).toBe(c.cranSuivant);
+      expect(Moteur.constatDe(avant, apres, c.reglage, cran)).toEqual(c.constat);
+    });
+  });
+
+  // ── TROIS CAS QUE LES 14 N'ATTEIGNENT PAS ────────────────────────────────
+  //
+  // Le fichier couvre les 14 branches que la spec nomme. La campagne de
+  // mutation en a trouvé trois qu'aucun des 14 ne SÉPARE : trois lignes du
+  // moteur qu'on pouvait retirer sans en faire rougir un seul. Elles se
+  // testent ici, sur un cas du fichier dont on ne change que ce qui rend le
+  // cas discriminant — le reste vient de lui.
+  const K = (id) => JSON.parse(JSON.stringify(CAS.filter((c) => c.id === id)[0]));
+  const auPalier = (kg, reps) => ({ charge_kg: kg, reps: reps, rpe: null,
+    role: 'palier', origine: 'travail' });
+  const exploration = (kg, reps) => ({ charge_kg: kg, reps: reps, rpe: null,
+    role: 'exploration', origine: 'exploration' });
+  const uneSeance = (debut, palier, series) => ({ debut: debut, palier: palier, series: series });
+  const constatDe = (c) => {
+    const { avant, apres } = deux(c);
+    const cran = apres.palier === null || apres.palier === undefined ? null
+      : Moteur.chargeVoisine(c.seances.concat([c.seanceDuJour]), c.apres,
+                             apres.palier, c.equipement, 1);
+    return { cran: cran, constat: Moteur.constatDe(avant, apres, c.reglage, cran) };
+  };
+
+  test('DISCRIMINANT — la fois d’avant ne se cite que si c’était LA MÊME CHARGE', () => {
+    // Le retest d'un cran : 130 raté le 13 sept., 127,5 aujourd'hui. Les deux
+    // séances portent un test, mais pas à la même charge. K1 tient l'autre
+    // moitié de la règle — même charge les deux fois, la citation paraît.
+    const c = K('K1');
+    c.seances[c.seances.length - 1] = uneSeance('2026-09-13T18:00:00+00:00', 125,
+      [auPalier(125, 5), auPalier(125, 5), exploration(130, 2)]);
+    c.seanceDuJour = uneSeance('2026-09-20T18:00:00+00:00', 125,
+      [auPalier(125, 5), auPalier(125, 5), exploration(127.5, 3)]);
+    // Sans la garde, ce serait « 2 reps le 13 sept. » — le 130 raconté comme
+    // un 127,5.
+    expect(constatDe(c).constat).toEqual({
+      verdict: '127,5' + NB + 'kg' + NB + ': 3 aujourd\'hui, au bas de ta zone.',
+      suite: 'Prochaine séance' + NB + ': 125' + NB + 'kg, vise 5, puis 127,5' + NB +
+             'kg en dernière série, vise 4.'
+    });
+  });
+
+  test('DISCRIMINANT — hors Franc, la meilleure série ne compte pas', () => {
+    // Des séries INÉGALES : 3-3-3 la fois d'avant, 4-3-3 aujourd'hui. Aucun
+    // des 14 n'en a — ils montent tous d'un bloc. En Normal le niveau validé
+    // est 3 : rien n'est gagné. En Franc, une seule série suffit.
+    const c = K('K6');
+    c.seanceDuJour = uneSeance('2026-09-20T18:00:00+00:00', 125,
+      [auPalier(125, 4), auPalier(125, 3), auPalier(125, 3)]);
+    expect(constatDe(c).constat).toEqual({
+      verdict: 'Pas encore' + NB + ': 4-3-3 à 125.',
+      suite: 'Même cible la prochaine fois' + NB + ': 125' + NB + 'kg, vise 4.'
+    });
+    // La jumelle, à la même séance : le réglage seul change le constat.
+    expect(constatDe(Object.assign(c, { reglage: 'franc' })).constat).toEqual({
+      verdict: '125' + NB + 'kg' + NB + ': 3 reps le 13' + NB + 'sept., 4 aujourd\'hui.',
+      suite: 'Il te manque une rep pour tester 127,5.'
+    });
+  });
+
+  test('DISCRIMINANT — sans cran connu, le manque s’annonce quand même', () => {
+    // Une machine dont on n'a jamais bougé la charge : aucun pas observé, donc
+    // aucun cran au-dessus à nommer. La phrase ne peut pas s'arrêter là pour
+    // autant — il manque bien une rep.
+    const c = K('K6');
+    c.equipement = 'machine';
+    const trois = (d, r) => uneSeance('2026-' + d + 'T18:00:00+00:00', 40,
+      [auPalier(40, r), auPalier(40, r), auPalier(40, r)]);
+    c.seances = ['07-19', '07-26', '08-02', '08-09', '09-13'].map((d) => trois(d, 8));
+    c.seanceDuJour = trois('09-20', 9);
+    const r = constatDe(c);
+    expect(r.cran).toBeNull();
+    expect(r.constat).toEqual({
+      verdict: '40' + NB + 'kg' + NB + ': 8 reps le 13' + NB + 'sept., 9 aujourd\'hui.',
+      suite: 'Il te manque une rep pour tester le cran au-dessus.'
+    });
+  });
+
+  test('DISCRIMINANT — l’orchestrateur part des séries BRUTES, comme l’app', () => {
+    // `constatDExercice` fait le pont lui-même : l'app lui passe ce qu'elle a
+    // en mémoire, pas le contrat du moteur. Sans ce test, le pont pourrait
+    // perdre une colonne sans qu'aucun des 14 cas ne s'en aperçoive.
+    const brut = (s) => ({ seance: { debut: s.debut }, series: s.series.map((x) => ({
+      charge_kg: x.charge_kg, reps: x.reps, rpe: x.rpe, ressenti: null, type_serie: 'travail' })) });
+    CAS.forEach((c) => {
+      const r = Moteur.constatDExercice(
+        c.seances.map(brut), brut(c.seanceDuJour), undefined, c.avant, c.apres,
+        { mesure: 'charge_reps', equipement: c.equipement, intention: 'progresser',
+          reglage: c.reglage, edition: false });
+      expect([c.id, r.constat]).toEqual([c.id, c.constat]);
+      expect([c.id, r.cranSuivant]).toEqual([c.id, c.cranSuivant]);
+    });
+  });
+
+  test('DISCRIMINANT — là où le moteur se tait, il ne constate pas non plus', () => {
+    const c = CAS[0];
+    const brut = (s) => ({ seance: { debut: s.debut }, series: s.series.map((x) => ({
+      charge_kg: x.charge_kg, reps: x.reps, rpe: null, ressenti: null, type_serie: 'travail' })) });
+    const OPT = { mesure: 'charge_reps', equipement: 'barre', intention: 'progresser',
+                  reglage: 'normal', edition: false };
+    const faire = (quoi) => Moteur.constatDExercice(c.seances.map(brut), brut(c.seanceDuJour),
+      undefined, c.avant, c.apres, Object.assign({}, OPT, quoi));
+    expect(faire({})).not.toBeNull();
+    [{ intention: 'entretien' }, { edition: true }, { mesure: 'reps' }].forEach((quoi) => {
+      expect([quoi, faire(quoi)]).toEqual([quoi, null]);
+    });
+  });
+
+  test('sans l’une des deux consignes, pas de constat', () => {
+    expect(Moteur.constatDe(null, { etat: 'progression' }, 'normal', null)).toBeNull();
+    expect(Moteur.constatDe({ etat: 'progression' }, null, 'normal', null)).toBeNull();
+  });
+});
+
+// ── §3.9 — L'ÉCRAN : LE CONSTAT PREND LA PLACE DE LA CONSIGNE ───────────────
+describe('l’en-tête passe au constat (ECRAN-SAISIE §3.9)', () => {
+  const EXOS = [
+    { slug: 'dc', nom: 'Développé Couché (Barre)', mesure: 'charge_reps', equipement: 'barre', muscles_primaires: ['pectoraux'] }
+  ];
+  const LIB = { jaune: ['125' + NB + 'kg, vise 5'], gris: 'Une phrase grise.' };
+  const CONSTAT = { verdict: '125' + NB + 'kg' + NB + ': 3 reps le 13' + NB + 'sept., 4 aujourd\'hui.',
+                    suite: 'Il te manque une rep pour tester 127,5.' };
+  const rendre = (vue) => {
+    const s = ouverte(T(3));
+    const cible = document.createElement('div');
+    Rendu().rendreBlocsSeance(cible, s, Object.assign({
+      blocs: Modele.blocsDeSeance(s, EXOS),
+      modifier: false, selection: null, programme: false,
+      surGrouper: () => {}, surDeplacerBloc: () => {},
+      surMenuBloc: () => {}, surMenuExercice: () => {},
+      tourAtteint: () => 0,
+      exercice: (slug) => EXOS.filter((e) => e.slug === slug)[0],
+      precedent: () => null, fantome: () => ({}),
+      libelles: () => LIB, etiquette: () => 'Lourd 3-5',
+      surChamp: () => {}, surValider: () => {}, surNumero: () => {},
+      surEffort: () => {}, surNote: () => {}, surRepos: () => {},
+      surSupprimerSerie: () => {}, surAjoutSerie: () => {}
+    }, vue || {}));
+    return cible;
+  };
+  const textes = (c, sel) => [...c.querySelectorAll(sel)].map((e) => e.textContent);
+
+  test('DISCRIMINANT — le constat REMPLACE la consigne, il ne s’y ajoute pas', () => {
+    const c = rendre({ constat: () => CONSTAT });
+    expect(textes(c, '.constat')).toEqual([CONSTAT.verdict]);
+    expect(textes(c, '.constat-suite')).toEqual([CONSTAT.suite]);
+    // Plus une seule ligne de consigne : elle prescrivait ce qui vient d'être fait.
+    expect(textes(c, '.consigne, .consigne-dit')).toEqual([]);
+  });
+
+  test('sans constat, la consigne reste', () => {
+    const c = rendre({ constat: () => null });
+    expect(textes(c, '.consigne')).toEqual(LIB.jaune);
+    expect(textes(c, '.constat, .constat-suite')).toEqual([]);
+    // Et une vue qui ne connaît pas encore `constat` — les tests d'avant 48b-6b.
+    expect(textes(rendre({}), '.consigne')).toEqual(LIB.jaune);
+  });
+
+  test('l’étiquette de zone reste, elle', () => {
+    expect(textes(rendre({ constat: () => CONSTAT }), '.puce-zone')).toEqual(['Lourd 3-5']);
+  });
+
+  test('DISCRIMINANT — jamais en jaune : le constat ne porte aucune classe de consigne', () => {
+    const c = rendre({ constat: () => CONSTAT });
+    [...c.querySelectorAll('.constat, .constat-suite')].forEach((n) => {
+      expect(n.className).not.toMatch(/consigne/);
+    });
+  });
+
+  test('un constat sans suite ne pose qu’une ligne', () => {
+    const c = rendre({ constat: () => ({ verdict: 'Pas de palier aujourd\'hui.', suite: null }) });
+    expect(textes(c, '.constat')).toEqual(['Pas de palier aujourd\'hui.']);
+    expect(textes(c, '.constat-suite')).toEqual([]);
+  });
+
+  test('DISCRIMINANT — en mode programme, rien, même avec un constat', () => {
+    const s = ouverte(T(3));
+    const cible = document.createElement('div');
+    Rendu().rendreBlocsSeance(cible, s, {
+      blocs: Modele.blocsDeSeance(s, EXOS), modifier: false, selection: null, programme: true,
+      surGrouper: () => {}, surDeplacerBloc: () => {}, surMenuBloc: () => {},
+      surMenuExercice: () => {}, tourAtteint: () => 0,
+      exercice: (slug) => EXOS.filter((e) => e.slug === slug)[0],
+      precedent: () => null, fantome: () => ({}), constat: () => CONSTAT,
+      surChamp: () => {}, surValider: () => {}, surNumero: () => {}, surEffort: () => {},
+      surNote: () => {}, surRepos: () => {}, surSupprimerSerie: () => {}, surAjoutSerie: () => {}
+    });
+    expect(textes(cible, '.constat, .constat-suite')).toEqual([]);
+  });
+});

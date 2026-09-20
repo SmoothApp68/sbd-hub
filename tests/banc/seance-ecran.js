@@ -5346,6 +5346,46 @@ const SETS_IMPORTES = [
       JSON.stringify(await constat()) === JSON.stringify(fini),
       JSON.stringify(await constat()).replace(/\u00a0/g, '·'));
 
+    // ── LES MODIFICATIONS SUIVENT (48b-6b-2) ─────────────────────────────
+    //
+    // ⚠️ LE DÉFAUT VU SUR APPAREIL. Corriger une valeur sur une série DÉJÀ
+    // VALIDÉE laissait le constat tel quel : taper ne redessine pas la séance
+    // (le champ perdrait le focus), et la clé du mémo ne comptait que les
+    // séries et les validées, jamais leurs VALEURS. Les deux moitiés sont
+    // testées ici, et la seconde vérification est celle qui compte : le champ
+    // garde ce qu'on y a tapé.
+    const repsDe = (i) => page.evaluate((k) =>
+      document.querySelectorAll('.ligne-serie')[k].querySelectorAll('input')[1].value, i);
+    const taperReps = async (i, v) => {
+      const champs = await (await ligne(i)).$$('input');
+      await champs[1].fill(String(v));
+      await attendre(500);
+    };
+    const repsOrigine = await repsDe(2);
+    await taperReps(2, 9);
+    const modifie = await constat();
+    ok('[C6] UNE VALEUR CHANGÉE SUR UNE SÉRIE VALIDÉE : le constat suit',
+      modifie.verdict !== null && modifie.verdict !== fini.verdict && /9/.test(modifie.verdict),
+      JSON.stringify(modifie).replace(/\u00a0/g, '·'));
+    ok('[C6] et le champ garde ce qu’on y a tapé — la porte étroite n’a rien reconstruit',
+      (await repsDe(2)) === '9', JSON.stringify(await repsDe(2)));
+    await taperReps(2, repsOrigine);
+    ok('[C6] la valeur d’origine revenue, le constat d’origine revient',
+      JSON.stringify(await constat()) === JSON.stringify(fini),
+      JSON.stringify(await constat()).replace(/\u00a0/g, '·'));
+
+    // Dévalider pour corriger, puis revalider : le constat des NOUVELLES valeurs.
+    await valider(2);
+    ok('[C6] dévalidée pour la corriger : la consigne revient',
+      (await constat()).verdict === null && (await enTete()).length > 0,
+      JSON.stringify(await enTete()));
+    await taperReps(2, 9);
+    await valider(2);
+    ok('[C6] revalidée : le constat est celui des NOUVELLES valeurs',
+      JSON.stringify(await constat()) === JSON.stringify(modifie),
+      JSON.stringify(await constat()).replace(/\u00a0/g, '·'));
+    await taperReps(2, repsOrigine);
+
     await plusSerie(0);
     ok('[C6] AJOUTER UNE SÉRIE LE DÉFAIT AUSSI — l’exercice n’est plus fini',
       (await constat()).verdict === null && (await enTete()).length > 0,
@@ -5378,12 +5418,15 @@ const SETS_IMPORTES = [
       JSON.stringify(await constat()).replace(/\u00a0/g, '·'));
     await abandonner();
 
-    // ── UN SUPERSET : LE CONSTAT EST PAR EXERCICE ────────────────────────
+    // ── UN SUPERSET : LE CONSTAT EST CELUI DU BLOC (48b-6b-2) ────────────
     //
-    // ⚠️ CONFIGURATION DISCRIMINANTE : deux exercices dans UN bloc. Un constat
-    // calculé par bloc paraîtrait sur les deux branches dès que la première
-    // est finie — et dirait à la seconde que son exercice est terminé alors
-    // qu'on n'y a rien fait.
+    // ⚠️ CETTE SECTION DÉFENDAIT LA RÈGLE INVERSE, ET ELLE AVAIT TORT. 48b-6b
+    // ouvrait le constat dès que L'EXERCICE était fini ; sur appareil, la
+    // première branche du superset annonçait son bilan pendant qu'on
+    // travaillait encore la seconde. Un superset est UN bloc (ECRAN-SAISIE
+    // §3.9) : le constat attend la fin du bloc, chaque exercice gardant le
+    // sien. La configuration reste discriminante — deux exercices dans un
+    // bloc, la première branche finie seule — seul l'attendu a changé de sens.
     await seanceVide();
     await ajouterExoSeance('Terre');
     await ajouterExoSeance('Curl');
@@ -5399,18 +5442,33 @@ const SETS_IMPORTES = [
       (await compter('.bloc-seance.superset')) === 1 && (await compter('.legende-exo')) === 2,
       (await compter('.bloc-seance.superset')) + ' superset · ' +
       (await compter('.legende-exo')) + ' légende(s)');
-    // La première ligne est celle de A (le soulevé) : on la valide seule.
-    await valider(0);
-    const parExo = await page.evaluate(() =>
+    const parExo = () => page.evaluate(() =>
       Array.from(document.querySelectorAll('.legende-exo')).map((n) => ({
         nom: (n.querySelector('.nom-exo') || {}).textContent || '',
-        constat: !!n.querySelector('.constat'),
+        constat: ((n.querySelector('.constat') || {}).textContent || null),
         consigne: !!n.querySelector('.consigne')
       })));
-    ok('[C6] A est fini : son constat paraît. B ne l’est pas : sa consigne tient',
-      parExo.length === 2 && parExo[0].constat && !parExo[0].consigne &&
-      !parExo[1].constat,
-      JSON.stringify(parExo));
+
+    // La première ligne est celle de A (le soulevé) : on la valide seule.
+    await valider(0);
+    const seulA = await parExo();
+    ok('[C6] A est fini, B ne l’est pas : AUCUN constat — le BLOC n’est pas fini',
+      seulA.length === 2 && !seulA[0].constat && !seulA[1].constat,
+      JSON.stringify(seulA));
+
+    // Tout le reste du bloc, valeurs comprises : B n'a pas d'historique, une
+    // série validée à vide n'existe pas en base (`sets_validee_si_saisie`).
+    const lignes = await compter('.ligne-serie');
+    for (let i = 0; i < lignes; i++) {
+      const deja = await page.evaluate((k) =>
+        !!document.querySelectorAll('.ligne-serie')[k].querySelector('.ok-serie.cochee'), i);
+      if (!deja) await saisirSerie(i, 20, 10);
+    }
+    const tout = await parExo();
+    ok('[C6] le bloc fini : LES DEUX constats paraissent, chacun le sien',
+      tout.length === 2 && !!tout[0].constat && !!tout[1].constat &&
+      tout[0].constat !== tout[1].constat && !tout[0].consigne && !tout[1].consigne,
+      JSON.stringify(tout).replace(/\u00a0/g, '·'));
     await abandonner();
     ok('[C6] aucune erreur de page pendant tout le constat',
       erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));

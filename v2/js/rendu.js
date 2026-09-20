@@ -1601,6 +1601,30 @@
   //
   // Les blocs arrivent déjà construits (`THModele.blocsDeSeance`), donc par la
   // MÊME fonction que le détail de séance. Ici on ne fait que poser dans le DOM.
+  // ── §3.9 (48b-6b-2) — RÉÉCRIRE LES DEUX LIGNES DU CONSTAT, ET RIEN D'AUTRE
+  //
+  // ⚠️ DETTE ASSUMÉE, PAS UN SECOND CHEMIN DE RENDU. Taper dans un champ ne
+  // redessine pas la séance (`app.js`, `apresGeste({ rendre: false })`) : le
+  // champ écoute chaque frappe, et le redessiner volerait le focus au milieu
+  // d'un nombre. Le constat, lui, doit suivre. D'où cette porte étroite : elle
+  // touche le texte de `.constat` et de `.constat-suite`, pose ou retire la
+  // seconde ligne, et NE CONSTRUIT RIEN. Elle ne fait pas revenir la consigne
+  // et ne crée pas un constat absent : le prochain vrai rendu s'en charge.
+  // Toute envie de lui faire davantage est le signal qu'il faut un rendu.
+  function majConstat(racine, slug, constat) {
+    if (!racine || !slug) return;
+    var legende = racine.querySelector('.legende-exo[data-exo="' + slug + '"]');
+    if (!legende) return;
+    var ligne = legende.querySelector('.constat');
+    if (!ligne || !constat) return;
+    ligne.textContent = constat.verdict === null || constat.verdict === undefined
+      ? '' : String(constat.verdict);
+    var suite = legende.querySelector('.constat-suite');
+    if (!constat.suite) { if (suite) suite.parentNode.removeChild(suite); return; }
+    if (suite) { suite.textContent = constat.suite; return; }
+    legende.insertBefore(el('div', 'constat-suite', constat.suite), ligne.nextSibling);
+  }
+
   function rendreBlocsSeance(cible, seance, vue) {
     vider(cible);
     var blocs = vue.blocs || [];
@@ -1808,6 +1832,9 @@
     bloc.exercices.forEach(function (x, i) {
       var g = gabarits[i];
       var entree = el('div', 'legende-exo');
+      // Le slug sur la légende : la SEULE chose dont `majConstat` a besoin
+      // pour retrouver ses deux lignes (48b-6b-2).
+      if (x.slug) entree.setAttribute('data-exo', x.slug);
 
       var ligne = el('div', 'legende-haut');
       var nom = el('div', 'exo-seance');
@@ -3272,6 +3299,7 @@
   racine.THRendu = {
     rendreBandeauSeance: rendreBandeauSeance,
     rendreBlocsSeance: rendreBlocsSeance,
+    majConstat: majConstat,
     rendreRepos: rendreRepos,
     rendreFeuilleSerie: rendreFeuilleSerie,
     rendreFeuilleNote: rendreFeuilleNote,

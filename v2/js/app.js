@@ -1518,6 +1518,42 @@
     return true;
   }
 
+  // ── §3.9 (48b-6b-2) — LE CONSTAT EST CELUI DU BLOC ───────────────────────
+  //
+  // ⚠️ CORRIGÉ APRÈS L'APPAREIL. 48b-6b ouvrait le constat dès que L'EXERCICE
+  // était fini : en superset, la première branche annonçait son bilan pendant
+  // qu'on travaillait encore la seconde. Un superset est UN bloc (§3.9), et
+  // son constat attend la fin du bloc — chaque exercice gardant le sien.
+  //
+  // Le bloc, ici, c'est `groupe_superset` : deux exercices le partagent, ou
+  // chacun est seul. ⚠️ `null` NE GROUPE PAS — deux exercices hors superset
+  // ont tous deux `null` et ne forment pas un bloc à eux deux.
+  function slugsDuBloc(slug) {
+    var groupe, trouve = false;
+    (seance.exercices || []).forEach(function (exo) {
+      if (!exo || exo.exercise_slug !== slug) return;
+      groupe = exo.groupe_superset === undefined ? null : exo.groupe_superset;
+      trouve = true;
+    });
+    if (!trouve) return [];
+    if (groupe === null) return [slug];
+    var sortie = [];
+    (seance.exercices || []).forEach(function (exo) {
+      if (!exo || exo.groupe_superset !== groupe) return;
+      if (sortie.indexOf(exo.exercise_slug) < 0) sortie.push(exo.exercise_slug);
+    });
+    return sortie;
+  }
+
+  function blocFini(slug) {
+    var liste = slugsDuBloc(slug);
+    if (!liste.length) return false;
+    for (var i = 0; i < liste.length; i++) {
+      if (!exerciceFini(liste[i])) return false;
+    }
+    return true;
+  }
+
   // ⚠️ SON PROPRE MÉMO, ET SA PROPRE CLÉ. Celui des consignes a pour clé la
   // séance et le profil, qui ne bougent pas d'une validation à l'autre ; le
   // constat, lui, dépend de CE QUI EST VALIDÉ — il doit donc se recalculer
@@ -1527,18 +1563,29 @@
   // champ ne la change pas.
   var constats = null;   // { cle, parSlug }
 
+  // ⚠️ ET ELLE PORTE LES VALEURS, PAS SEULEMENT LE COMPTE (48b-6b-2). Compter
+  // les séries et les validées suffisait à voir une validation ; corriger une
+  // charge ou des reps SUR UNE SÉRIE DÉJÀ VALIDÉE laissait la clé identique,
+  // donc le constat en cache — vu sur appareil. Les quatre colonnes que le
+  // moteur lit : la charge, les reps, et l'effort sous ses deux formes (un RPE
+  // de 10 vaut une rep de moins, §17.4).
+  function empreinteSerie(s) {
+    return [s.charge_kg, s.reps, s.rpe, s.ressenti].join('|');
+  }
+
   function empreinteValidations() {
     var parts = [];
     (seance.exercices || []).forEach(function (exo) {
       var t = seriesDeTravailDe(exo.exercise_slug);
-      var faites = t.filter(function (s) { return Seance.partEnBase(s); }).length;
-      parts.push(exo.exercise_slug + ':' + t.length + '/' + faites);
+      var faites = t.filter(function (s) { return Seance.partEnBase(s); });
+      parts.push(exo.exercise_slug + ':' + t.length + '/' + faites.length +
+        ':' + faites.map(empreinteSerie).join(';'));
     });
     return parts.join(',');
   }
 
   function constatPour(slug) {
-    if (!seance || !exerciceFini(slug)) return null;
+    if (!seance || !blocFini(slug)) return null;
     var cle = cleConsignes() + '|' + empreinteValidations();
     if (!constats || constats.cle !== cle) constats = { cle: cle, parSlug: {} };
     if (!Object.prototype.hasOwnProperty.call(constats.parSlug, slug)) {
@@ -1562,6 +1609,24 @@
       constats.parSlug[slug] = r ? r.constat : null;
     }
     return constats.parSlug[slug];
+  }
+
+  // Taper dans un champ ne redessine pas la séance — le champ perdrait le
+  // focus à chaque frappe. Le constat, lui, doit suivre : on réécrit ses deux
+  // lignes par la porte étroite de `rendu.js`, et rien d'autre. Les exercices
+  // dont le bloc n'est pas fini sortent tout de suite de `constatPour` : le
+  // coût d'une frappe reste celui du seul bloc qui affiche un constat.
+  function rafraichirConstats() {
+    if (!seance) return;
+    var racine = $('blocs-seance');
+    if (!racine) return;
+    var vus = {};
+    (seance.exercices || []).forEach(function (exo) {
+      var slug = exo && exo.exercise_slug;
+      if (!slug || vus[slug]) return;
+      vus[slug] = true;
+      Rendu.majConstat(racine, slug, constatPour(slug));
+    });
   }
 
   function planDe(iExo) {
@@ -1640,6 +1705,7 @@
       constat: constatPour,
       surChamp: function (i, j, champ, valeur) {
         seance = Seance.modifierSerie(seance, i, j, defObjet(champ, valeur));
+        rafraichirConstats();
         apresGeste({ rendre: false });
       },
       surValider: validerSerie,

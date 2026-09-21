@@ -1579,10 +1579,21 @@
   //
   // Une charge NULLE (« le cran au-dessus ») reste nulle dans le plan : la
   // charge retombe au rang suivant de la cascade, les reps restent proposées.
-  function planDe(series, consigne) {
+  // §9.13 — CE QUE LA CONSIGNE COUVRE, ET À QUEL RANG. Une seule décision —
+  // « les n dernières séries de travail, les k dernières au haut » — et deux
+  // lecteurs : le plan du fantôme, qui n'a besoin que des valeurs, et
+  // l'observation d'une prédiction (48c), qui a besoin du rang.
+  //
+  // ⚠️ LES RANGS S'ALIGNENT PAR LA FIN, et c'est ce qui les rend comparables
+  // aux prédictions. Une consigne sur 3 séries écrit les rangs 1, 2, 3 ; si la
+  // séance n'en porte que deux, ce sont les rangs 2 et 3 qui existent — le
+  // test reste le dernier, et la série proposée qu'on n'a pas faite est la
+  // PREMIÈRE. Compter depuis le début attacherait le test au rang 2 et
+  // apparierait l'observation à la mauvaise prédiction.
+  function couvertureDe(series, consigne) {
     var liste = series || [];
-    var plan = liste.map(function () { return null; });
-    if (!consigne || !consigne.n) return plan;
+    var sortie = liste.map(function () { return null; });
+    if (!consigne || !consigne.n) return sortie;
     var travail = [];
     liste.forEach(function (s, i) { if (typeDe(s) === 'travail') travail.push(i); });
     var couvertes = travail.slice(-consigne.n);
@@ -1591,12 +1602,19 @@
     couvertes.forEach(function (i, j) {
       var source = j >= m - k ? consigne.haut : consigne.ligne;
       if (!source) return;
-      plan[i] = {
+      sortie[i] = {
+        rang: consigne.n - (m - 1 - j),
         charge_kg: source.charge === null || source.charge === undefined ? null : source.charge,
         reps: source.vise === null || source.vise === undefined ? null : source.vise
       };
     });
-    return plan;
+    return sortie;
+  }
+
+  function planDe(series, consigne) {
+    return couvertureDe(series, consigne).map(function (c) {
+      return c ? { charge_kg: c.charge_kg, reps: c.reps } : null;
+    });
   }
 
   function fantome(seance, iExo, iSerie, prec, plan) {
@@ -1857,7 +1875,8 @@
     correspondant: correspondant,
     derniereSaisie: derniereSaisie,
     fantome: fantome,
-    planDe: planDe
+    planDe: planDe,
+    couvertureDe: couvertureDe
   };
 
   racine.THSeance = api;

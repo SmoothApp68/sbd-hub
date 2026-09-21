@@ -63,7 +63,24 @@
   // lignes. C'est l'historique voulu — compresser par exercice n'enverrait que
   // le dernier choix et perdrait l'ordre de ceux faits hors ligne.
   var ZONES = 'zones_exercice';
+  // §9.11 (48c) — la cinquième. Ce que le moteur a proposé se note EN SALLE,
+  // comme le reste.
+  //
+  // ⚠️ ET ELLE PORTE UNE DÉPENDANCE DÉCLARÉE. `set_observe` référence `sets` :
+  // une prédiction observée ne peut pas monter avant les séries de sa séance,
+  // ou sa clé étrangère échoue en 23503 — un code DÉFINITIF, donc une ligne
+  // bloquée pour toujours. `seq` donne le bon ordre en marche normale ; il ne
+  // donne rien quand l'entrée des séries est bloquée, car `prochaine` ne
+  // retenait que par identité. D'où `depend`.
+  var PREDICTIONS = 'predictions';
   var UPSERT = 'upsert', SUPPRIMER = 'supprimer', REMPLACER = 'remplacer';
+  // §9.11 (48c) — « cette ligne porte une observation », et c'est l'OPÉRATION
+  // qui le dit, pas son contenu. Retirer une observation remet les trois
+  // colonnes à vide : à lire les seules données, ce serait indiscernable d'une
+  // ligne jamais observée, et la mise à jour ne partirait pas. L'entrée porte
+  // toujours la ligne ENTIÈRE, pour que la compression n'emporte jamais
+  // l'insertion qui n'a pas encore eu lieu.
+  var OBSERVER = 'observer';
   var PLAN = 'plan';
 
   function cleDe(table, id) { return String(table) + ':' + String(id); }
@@ -133,6 +150,7 @@
       // voir `retirer`.
       liste[i] = Object.assign({}, liste[i], {
         op: op.op, donnees: op.donnees,
+        depend: op.depend === undefined ? (liste[i].depend || null) : op.depend,
         creation: liste[i].creation || !!op.creation,
         version: (liste[i].version || 1) + 1,
         bloquee: null, essais: 0
@@ -145,6 +163,7 @@
   function entree(cle, op, seq) {
     return {
       cle: cle, seq: seq, table: op.table, op: op.op, id: op.id,
+      depend: op.depend === undefined ? null : op.depend,
       donnees: op.donnees === undefined ? null : op.donnees,
       creation: !!op.creation, posee_a: op.posee_a || null,
       version: 1, essais: 0, bloquee: null
@@ -187,7 +206,13 @@
     for (var i = 0; i < liste.length; i++) {
       var e = liste[i];
       if (e.bloquee) { retenues[e.id] = true; continue; }
-      if (retenues[e.id]) continue;
+      // ⚠️ RETENUE PAR DÉPENDANCE DÉCLARÉE (48c), et elle se propage : une
+      // entrée retenue retient à son tour ce qui dépend d'elle, sinon la
+      // chaîne se romprait au deuxième maillon.
+      if (retenues[e.id] || (e.depend && retenues[e.depend])) {
+        retenues[e.id] = true;
+        continue;
+      }
       return e;
     }
     return null;
@@ -419,6 +444,8 @@
 
   var api = {
     SESSIONS: SESSIONS, SETS: SETS, ROUTINE_EXOS: ROUTINE_EXOS, ZONES: ZONES,
+    PREDICTIONS: PREDICTIONS,
+    OBSERVER: OBSERVER,
     UPSERT: UPSERT, SUPPRIMER: SUPPRIMER, REMPLACER: REMPLACER, PLAN: PLAN,
     CODES_DEFINITIFS: CODES_DEFINITIFS,
     cleDe: cleDe,

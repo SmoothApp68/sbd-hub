@@ -868,15 +868,22 @@ Aujourd'hui, la phase se **déduit** de l'historique. Le futur chantier programm
 
 ### 9.11 Ce que le moteur écrit dans `predictions` — décidé le 19/09/2026
 
-> **Une ligne par ligne de consigne** : le palier, et le test s'il est proposé.
+> **Une ligne par série de travail proposée** — corrigé le 20/09/2026 (48c). `set_observe` ne désigne qu'une seule série : une prédiction en désigne une aussi. Une consigne de trois séries écrit donc trois lignes, chacune avec son rang.
 
 | Champ | Contenu |
 |---|---|
-| `valeur_predite` | la charge proposée |
-| `fondement` (jsonb) | reps visées, nombre de séries, zone, réglage, phase, raison |
+| `grandeur`, `valeur_predite` | `reps` et les reps visées de cette série — **le pari du moteur**. La charge est une prescription qu'on suit ou non, pas une prédiction : elle vit dans le fondement et sert à l'appariement |
+| `borne_basse`, `borne_haute` | les bornes de la zone : elles diront plus tard combien de fois le moteur a visé dedans |
+| `fondement` (jsonb) | le rang de la série, sa charge, l'état, la zone, le réglage, le palier, le niveau validé, l'identifiant de la séance |
 | `valeur_observee`, `observee_a`, `set_observe` | remplis après la séance — les seuls champs modifiables |
 
 **Immuable** : le trigger `predictions_immuable` (`v2_046`) refuse toute modification d'une prédiction, hors ces trois champs. Aucune migration de plus : la table reste générique (CADRAGE §5). L'écriture est un chantier à risque (CADRAGE §2 septies), traité à part.
+
+**Quand — décidé le 20/09/2026.** À l'**affichage de la consigne dans la séance**, une seule fois par séance et par exercice : c'est ce que l'utilisateur a lu et sur quoi il a agi. Ni à chaque redessin, qui noierait la table, ni la veille au constat, qu'un historique modifié peut encore changer. Rien n'est écrit quand le moteur se tait (silence, Entretenir, mesure sans charge). L'écriture passe par la file d'attente hors ligne, avec un identifiant créé sur l'appareil.
+
+**L'observation.** Quand la série visée est validée : les reps comptées dans `valeur_observee`, son identifiant dans `set_observe`, l'instant dans `observee_a`. **Appariement strict** : même rang, même charge. Sinon la ligne reste sans observation — et c'est un fait à mesurer, pas un manque : elle dira combien de fois le moteur a proposé ce qui n'a pas été suivi. La série partant avant la prédiction dans la file, la clé étrangère de `set_observe` trouve toujours sa série.
+
+**Comment on jugera, plus tard.** Par exercice, jamais sur une moyenne tous exercices confondus : la relation entre reps et charge relative dépend surtout de l'exercice, au point que la méta-régression de Nuzzo et collègues (2024, 952 tests, 7 289 personnes) publie des tables séparées pour le couché et la presse. Et une erreur d'une rep n'est pas une erreur : les pratiquants eux-mêmes se trompent d'environ une rep sur ce qui leur reste (Halperin et collègues, 2021).
 
 ### 9.12 Le moteur ne lit jamais l'avenir — décidé le 19/09/2026
 

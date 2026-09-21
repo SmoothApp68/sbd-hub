@@ -22,7 +22,7 @@
   //   d'écriture). La montée de version est la seule façon de créer un magasin —
   //   et elle est sans perte, les magasins existants ne sont pas touchés.
   // VERSION 4 : ajout de `zones` (les corrections de zone, §9.1.1).
-  var VERSION = 4;
+  var VERSION = 5;
   var MAGASINS = ['seances', 'series', 'exercices', 'pesees', 'meta', 'zones',
                   'brouillon', 'attente'];
   var LOT = 500;
@@ -66,6 +66,18 @@
         // que `tests/unit/v2-cache-montee.test.js` prouve.
         if (!db.objectStoreNames.contains('zones')) {
           db.createObjectStore('zones', { keyPath: 'id' }).createIndex('exercise_slug', 'exercise_slug');
+        }
+        // §9.11 (48c) — LES PRÉDICTIONS, sur l'appareil aussi. Elles y sont
+        // pour deux raisons, et la seconde n'est pas du confort : elles disent
+        // ce qui a DÉJÀ été noté — fermer l'app au milieu d'une séance et la
+        // rouvrir ne doit pas réécrire la consigne qu'on a lue —, et c'est en
+        // elles que l'observation retrouve la ligne à compléter.
+        if (!db.objectStoreNames.contains('predictions')) {
+          // La ligne stockée est CELLE QUI PART EN BASE, sans un champ de
+          // plus : un champ local voyagerait et la base le refuserait (42703,
+          // code définitif). L'index lit donc dans le fondement.
+          db.createObjectStore('predictions', { keyPath: 'id' })
+            .createIndex('seance', 'fondement.seance');
         }
       };
       req.onsuccess = function () { _db = req.result; resoudre(_db); };

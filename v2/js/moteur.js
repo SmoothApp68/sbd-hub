@@ -1181,6 +1181,14 @@
   var INSECABLE = '\u00a0';
   var DEUX_POINTS = INSECABLE + ': ';
 
+  // §9.11 — L'IDENTITÉ DE CE QUI ÉCRIT, et elle vit ICI, à côté de la règle.
+  // `module_version` monte quand une règle du moteur change : deux semaines de
+  // prédictions calculées par deux versions différentes ne se comparent pas
+  // sans le savoir. ⚠️ Ne JAMAIS la recopier ailleurs — comme `CACHE_V2`, un
+  // chiffre recopié ne peut que dériver (CADRAGE §2 undecies).
+  var MODULE_CONSIGNE = 'moteur.consigne';
+  var VERSION_CONSIGNE = 1;
+
   // ⚠️ SECONDE LISTE APRÈS `Calendrier.MOIS`, et assumée. L'abréviation ne se
   // dérive pas du nom entier : « février » donne « févr. », « mars » reste
   // « mars » SANS point, « juillet » donne « juil. ». Une règle mécanique se
@@ -1705,6 +1713,58 @@
   // Ce qui s'est passé. L'ordre des cas EST la règle : le silence d'abord — il
   // n'y a rien à raconter d'autre —, puis ce que la consigne d'avant attendait,
   // puis ce que la séance a donné.
+  // ── §9.11 — CE QUE LE MOTEUR ÉCRIT DANS `predictions` (48c) ──────────────
+  //
+  // L'étage des déductions : ce que le moteur a proposé, puis ce qui s'est
+  // réellement produit. C'est ce qui a manqué à la v1, où personne ne savait
+  // que les 4 035 kcal et les ratios « Critique » étaient faux avant la
+  // vérification sur appareil.
+  //
+  // ⚠️ UNE LIGNE PAR SÉRIE PROPOSÉE, parce que `set_observe` n'en désigne
+  // qu'une. Une consigne de trois séries écrit trois lignes, chacune avec son
+  // rang — les `n − k` premières à `ligne`, les `k` dernières à `haut`, comme
+  // le plan du fantôme (§9.13, `Seance.couvertureDe`).
+  //
+  // ⚠️ LE PARI, CE SONT LES REPS. La charge est une prescription qu'on suit ou
+  // non, pas une prédiction : elle vit dans le fondement, où elle sert à
+  // l'appariement. Les bornes de la zone diront plus tard combien de fois le
+  // moteur a visé dedans.
+  //
+  // Pure : `app.js` fabrique l'identifiant, l'instant et le propriétaire, et
+  // ne recalcule aucune règle. Rien quand le moteur se tait.
+  function lignesDePrediction(consigne, options) {
+    var o = options || {};
+    if (!consigne || consigne.etat === 'silence' || !consigne.n) return [];
+    var z = zoneParCle(consigne.zone);
+    var k = consigne.haut && consigne.haut.k ? consigne.haut.k : 0;
+    var sortie = [];
+    for (var i = 1; i <= consigne.n; i++) {
+      var source = i > consigne.n - k ? consigne.haut : consigne.ligne;
+      // Une consigne qui couvre n séries sans porter la ligne correspondante
+      // n'a rien à parier : on n'invente pas une valeur pour remplir un rang.
+      if (!source) return [];
+      sortie.push({
+        module: MODULE_CONSIGNE,
+        exercise_slug: o.slug === undefined ? null : o.slug,
+        grandeur: 'reps',
+        valeur_predite: source.vise === undefined ? null : source.vise,
+        borne_basse: z ? z.bas : null,
+        borne_haute: z ? z.haut : null,
+        fondement: {
+          rang: i,
+          charge: source.charge === undefined ? null : source.charge,
+          etat: consigne.etat,
+          zone: consigne.zone === undefined ? null : consigne.zone,
+          reglage: o.reglage === undefined ? null : o.reglage,
+          palier: consigne.palier === undefined ? null : consigne.palier,
+          niveau: consigne.niveau === undefined ? null : consigne.niveau,
+          seance: o.seance === undefined ? null : o.seance
+        }
+      });
+    }
+    return sortie;
+  }
+
   // ── §3.9 (48b-6b-2) — LA CHARGE DE TEST QUI GAGNE DES SÉRIES ─────────────
   //
   // Un FAIT, lu sur les deux séances, jamais une règle du §9 rejouée : la
@@ -2009,6 +2069,9 @@
     libellesConsigne: libellesConsigne,
     pourquoiConsigne: pourquoiConsigne,
     constatDe: constatDe,
+    MODULE_CONSIGNE: MODULE_CONSIGNE,
+    VERSION_CONSIGNE: VERSION_CONSIGNE,
+    lignesDePrediction: lignesDePrediction,
     constatDExercice: constatDExercice,
     etiquetteZone: etiquetteZone,
     // Le menu des zones les affiche toutes (§3.8) : il lit cette table, il ne

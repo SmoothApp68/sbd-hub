@@ -114,6 +114,128 @@ describe('§9.11 — les lignes écrites, cas par cas', () => {
   });
 });
 
+// ── L'IDENTIFIANT (48c-2) ───────────────────────────────────────────────────
+//
+// Le 21/09, la première séance réelle a écrit le squat DEUX FOIS : six lignes,
+// même `emise_a` à la milliseconde. Deux réalités JavaScript dont les lectures
+// du magasin local ont précédé les écritures — une course qu'aucune garde en
+// mémoire ne ferme. Ce qui la ferme est à destination : le même triplet donne
+// le même identifiant, et l'insertion qui ignore les doublons fait du second
+// envoi un non-événement.
+describe('§9.11 — l’identifiant d’une prédiction est calculé, pas tiré', () => {
+  const UUID5 = /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+  // ⚠️ jsdom NE FOURNIT NI `crypto.subtle` NI `TextEncoder` sur `window` ; un
+  // navigateur, si — et le banc tourne sur `localhost`, contexte sécurisé. On
+  // les pose donc ici, et ce sont les MÊMES API (la WebCrypto de Node), pas
+  // une imitation. Sans elles, ce bloc ne mesurerait que le repli, c'est-à-dire
+  // rien de ce que le correctif apporte.
+  const vraiCrypto = window.crypto;
+  beforeAll(() => {
+    if (!window.crypto || !window.crypto.subtle) {
+      Object.defineProperty(window, 'crypto',
+        { value: require('crypto').webcrypto, configurable: true });
+    }
+    if (typeof window.TextEncoder !== 'function') {
+      window.TextEncoder = require('util').TextEncoder;
+    }
+  });
+  afterAll(() => {
+    Object.defineProperty(window, 'crypto', { value: vraiCrypto, configurable: true });
+  });
+
+  test('DISCRIMINANT — même séance, même exercice, même rang : MÊME identifiant', () => {
+    return Promise.all([
+      Moteur.idDePrediction('s-1', 'squat-barre', 1),
+      Moteur.idDePrediction('s-1', 'squat-barre', 1)
+    ]).then(([a, b]) => { expect(a).toBe(b); expect(a).toMatch(UUID5); });
+  });
+
+  test('DISCRIMINANT — un rang différent donne un AUTRE identifiant', () => {
+    return Promise.all([1, 2, 3].map((r) => Moteur.idDePrediction('s-1', 'squat-barre', r)))
+      .then((l) => { expect(new Set(l).size).toBe(3); l.forEach((x) => expect(x).toMatch(UUID5)); });
+  });
+
+  test('et un autre exercice, ou une autre séance, aussi', () => {
+    return Promise.all([
+      Moteur.idDePrediction('s-1', 'squat-barre', 1),
+      Moteur.idDePrediction('s-1', 'presse-cuisses', 1),
+      Moteur.idDePrediction('s-2', 'squat-barre', 1)
+    ]).then((l) => expect(new Set(l).size).toBe(3));
+  });
+
+  test('DISCRIMINANT — les trois faits ne se confondent pas entre eux', () => {
+    // Un séparateur oublié ferait de ('ab', 'c') et ('a', 'bc') le même nom,
+    // donc le même identifiant — et deux prédictions s'écraseraient.
+    return Promise.all([
+      Moteur.idDePrediction('ab', 'c', 1),
+      Moteur.idDePrediction('a', 'bc', 1)
+    ]).then(([a, b]) => expect(a).not.toBe(b));
+  });
+
+  test('sans `crypto.subtle`, il rend null — et l’appelant retombe sur l’aléatoire', () => {
+    const pose = window.crypto;
+    Object.defineProperty(window, 'crypto', { value: {}, configurable: true });
+    return Moteur.idDePrediction('s-1', 'squat-barre', 1)
+      .then((x) => expect(x).toBeNull())
+      .finally(() => Object.defineProperty(window, 'crypto',
+        { value: pose, configurable: true }));
+  });
+});
+
+// ── L'OBSERVATION (48c-2) ───────────────────────────────────────────────────
+describe('§9.11 — l’observation relie toujours, ne compte que si c’est suivi', () => {
+  const PROPOSE = { rang: 3, charge: 130, palier: 125 };
+  // « Le cran au-dessus », sans chiffre : le cran de la machine est inconnu.
+  const INCONNUE = { rang: 3, charge: null, palier: 125 };
+  const fait = (charge, reps, id) => ({ enBase: true, id: id || 'set-1', charge: charge, reps: reps });
+
+  test('consigne SUIVIE : la série est reliée, ses reps comptent', () => {
+    expect(Moteur.observationDe(PROPOSE, fait(130, 4)))
+      .toEqual({ set_observe: 'set-1', valeur_observee: 4 });
+  });
+
+  test('DISCRIMINANT — AUTRE CHOSE TENTÉ : la série est reliée, ses reps NE comptent PAS', () => {
+    // C'est la remarque qui a ouvert 48c-2 : une exploration dit quelque chose,
+    // elle ne doit pas disparaître de la table. Mais comparer « vise 4 à 130 »
+    // à « 3 à 135 » ne dirait rien de la visée du moteur.
+    expect(Moteur.observationDe(PROPOSE, fait(135, 3)))
+      .toEqual({ set_observe: 'set-1', valeur_observee: null });
+    expect(Moteur.observationDe(PROPOSE, fait(125, 6)))
+      .toEqual({ set_observe: 'set-1', valeur_observee: null });
+  });
+
+  test('RIEN FAIT à ce rang : ni série, ni reps', () => {
+    expect(Moteur.observationDe(PROPOSE, { enBase: false, id: 'set-1', charge: 130, reps: 4 }))
+      .toEqual({ set_observe: null, valeur_observee: null });
+  });
+
+  test('DISCRIMINANT — charge proposée INCONNUE : au-dessus du palier, ça compte', () => {
+    // Le cas de l'adduction, le 21/09 : sans cette branche, la ligne ne
+    // pouvait JAMAIS être observée, quoi qu'on fasse.
+    expect(Moteur.observationDe(INCONNUE, fait(130, 8)))
+      .toEqual({ set_observe: 'set-1', valeur_observee: 8 });
+  });
+
+  test('DISCRIMINANT — et STRICTEMENT au-dessus : au palier, ça ne compte pas', () => {
+    // Au palier, on n'a pas monté d'un cran : la consigne n'est pas suivie.
+    expect(Moteur.observationDe(INCONNUE, fait(125, 8)))
+      .toEqual({ set_observe: 'set-1', valeur_observee: null });
+    expect(Moteur.observationDe(INCONNUE, fait(120, 8)))
+      .toEqual({ set_observe: 'set-1', valeur_observee: null });
+  });
+
+  test('sans palier connu non plus, on relie sans compter', () => {
+    expect(Moteur.observationDe({ rang: 1, charge: null, palier: null }, fait(130, 5)))
+      .toEqual({ set_observe: 'set-1', valeur_observee: null });
+  });
+
+  test('une série sans reps comptables est reliée, sans valeur', () => {
+    expect(Moteur.observationDe(PROPOSE, fait(130, null)))
+      .toEqual({ set_observe: 'set-1', valeur_observee: null });
+  });
+});
+
 // ── LA COUVERTURE, ET SES RANGS ─────────────────────────────────────────────
 describe('§9.13 — la couverture dit quelle ligne porte quel rang', () => {
   const s = (type) => ({ id: 'x', type_serie: type || 'travail', charge_kg: null, reps: null });

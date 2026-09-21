@@ -172,27 +172,27 @@ const PROFIL_BANC = {
   duree_seance_min: null, onboarding_completed: true
 };
 
-const LUNDI = (() => {
-  const d = new Date();
-  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
-  d.setHours(8, 0, 0, 0);
-  return d;
-})();
+// ⚠️ LE DÉCOR SE DATE DANS LA JOURNÉE EN COURS, JAMAIS DEPUIS UN JOUR DE LA
+// SEMAINE. Le pourquoi, en entier, est dans `decor-dates.js` — avec la seule
+// milliseconde de bord qui subsiste. `JOURS[n]` remplace l'ancien
+// `LUNDI + n jours` : même ORDRE, mêmes rangs, et toujours dans le passé.
+const { datesDuDecor, JOUR } = require('./decor-dates.js');
+const JOURS = datesDuDecor();
 
 const PASSEE = {
   id: 'sess-passee', user_id: 'u-banc', titre: 'Séance de lundi',
-  debut: LUNDI.toISOString(), fin: new Date(LUNDI.getTime() + 3600000).toISOString(),
+  debut: JOURS[0].toISOString(), fin: new Date(JOURS[0].getTime() + 3600000).toISOString(),
   statut: 'terminee', salle: null, salle_norme: null,
-  created_at: LUNDI.toISOString()
+  created_at: JOURS[0].toISOString()
 };
 
 const SETS_PASSES = [1, 2].map((n) => ({
   id: 'set-passe-' + n, session_id: PASSEE.id, user_id: 'u-banc',
   exercise_slug: 'squat-barre',
   charge_kg: 120, reps: 5, duree_s: null, distance_m: null, type_serie: 'travail',
-  rang: n, groupe_superset: null, validee_a: LUNDI.toISOString(), rpe: null,
+  rang: n, groupe_superset: null, validee_a: JOURS[0].toISOString(), rpe: null,
   ressenti: null, repos_s: null, note: null, source: 'import',
-  created_at: LUNDI.toISOString(), modifie_a: null
+  created_at: JOURS[0].toISOString(), modifie_a: null
 }));
 
 // ⚠️ LA SÉANCE IMPORTÉE, TELLE QUE LA BASE LA PORTE VRAIMENT (chantier 34).
@@ -213,11 +213,11 @@ const SETS_PASSES = [1, 2].map((n) => ({
 // deux colonnes que la liste de lecture oubliait.
 const IMPORTEE = {
   id: 'sess-importee', user_id: 'u-banc', titre: 'Séance importée',
-  debut: new Date(LUNDI.getTime() + 2 * 86400000).toISOString(),
-  fin: new Date(LUNDI.getTime() + 2 * 86400000 + 3600000).toISOString(),
+  debut: JOURS[2].toISOString(),
+  fin: new Date(JOURS[2].getTime() + 3600000).toISOString(),
   statut: 'terminee', note: null, salle: null, salle_norme: null,
   routine_id: null, source: 'hevy',
-  created_at: new Date(LUNDI.getTime() + 2 * 86400000).toISOString()
+  created_at: JOURS[2].toISOString()
 };
 
 // ⚠️ DEUX BLOCS, PAS UN — ET C'EST LE CHANTIER 35 QUI L'EXIGE (§6).
@@ -3973,10 +3973,10 @@ const SETS_IMPORTES = [
   // `23505`, code définitif.
   const FANTOME = {
     id: 'sess-fantome', user_id: 'u-banc', titre: 'Restée ouverte',
-    debut: new Date(LUNDI.getTime() + 4 * 86400000).toISOString(), fin: null,
+    debut: JOURS[4].toISOString(), fin: null,
     statut: 'en_cours', note: null, salle: null, salle_norme: null,
     routine_id: null, source: 'app',
-    created_at: new Date(LUNDI.getTime() + 4 * 86400000).toISOString()
+    created_at: JOURS[4].toISOString()
   };
   base.sessions.push(Object.assign({}, FANTOME));
   base.sets.push({
@@ -4036,11 +4036,11 @@ const SETS_IMPORTES = [
 
   const SESS_BLOQ = {
     id: 'sess-bloquee', user_id: 'u-banc', titre: 'Bloquée depuis des jours',
-    debut: new Date(LUNDI.getTime() + 5 * 86400000).toISOString(),
-    fin: new Date(LUNDI.getTime() + 5 * 86400000 + 3600000).toISOString(),
+    debut: JOURS[5].toISOString(),
+    fin: new Date(JOURS[5].getTime() + 3600000).toISOString(),
     statut: 'terminee', note: null, salle: null, salle_norme: null,
     routine_id: null, source: 'app',
-    created_at: new Date(LUNDI.getTime() + 5 * 86400000).toISOString()
+    created_at: JOURS[5].toISOString()
   };
   base.sessions.push(Object.assign({}, SESS_BLOQ));
 
@@ -4132,6 +4132,7 @@ const SETS_IMPORTES = [
   // passé, l'ordre s'inverse et le moteur se met à parler : quatre
   // vérifications tombaient, sans qu'aucun code ait changé (mesuré sur `main`
   // le 20/09). Un banc qui dépend du jour de la semaine ne prouve rien.
+  // (L'ancre elle-même a été refaite le 21/09 : voir `decor-dates.js`.)
   //
   // Ce que la section teste est LA CASCADE D'AVANT LE MOTEUR — le fantôme et la
   // colonne par type, chantiers 38 et 39. Elle tourne donc en ENTRETENIR, où le
@@ -4608,11 +4609,11 @@ const SETS_IMPORTES = [
   const avantSortie = (await texte('.barre-totaux')).replace(/\s+/g, ' ').trim();
   const SORTIE = {
     id: 'sess-sortie', user_id: 'u-banc', titre: 'Marche du soir',
-    debut: new Date(LUNDI.getTime() + 3 * 86400000 + 3600000).toISOString(),
-    fin: new Date(LUNDI.getTime() + 3 * 86400000 + 7200000).toISOString(),
+    debut: new Date(JOURS[3].getTime() + 3600000).toISOString(),
+    fin: new Date(JOURS[3].getTime() + 7200000).toISOString(),
     statut: 'terminee', note: null, salle: null, salle_norme: null,
     routine_id: null, source: 'app',
-    created_at: new Date(LUNDI.getTime() + 3 * 86400000).toISOString()
+    created_at: JOURS[3].toISOString()
   };
   base.sessions.push(Object.assign({}, SORTIE));
   [1, 2].forEach((rang) => base.sets.push({
@@ -4651,7 +4652,7 @@ const SETS_IMPORTES = [
   const ID_MIXTE = '40000000-0000-4000-8000-000000000014';
 
   // Une semaine à elle toute seule, loin de celle du banc.
-  const L_EXO = new Date(LUNDI.getTime() - 56 * 86400000);
+  const L_EXO = new Date(JOURS[0].getTime() - 56 * JOUR);
   const isoL = (d) => d.getFullYear() + '-' +
     String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   const jourExo = (n) => new Date(L_EXO.getTime() + n * 86400000 + 10 * 3600000).toISOString();

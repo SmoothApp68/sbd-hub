@@ -1671,7 +1671,18 @@
   //
   // La garde vit dans `local.predictions`, pas en mémoire : rouvrir l'app au
   // milieu d'une séance ne doit pas réécrire ce qui a déjà été noté.
+  // ⚠️ DEUX MARQUES, ET LA PREMIÈRE EST SYNCHRONE. `local.predictions` dit ce
+  // qui est noté ; `notesEnCours` dit ce qui est EN TRAIN de l'être. Depuis
+  // 48c-2, fabriquer l'identifiant demande une attente (SHA-256), et sans
+  // cette seconde marque deux rendus rapprochés repasseraient tous deux la
+  // garde. Les lignes seraient identiques — l'identifiant les dédoublonne à
+  // destination — mais on les écrirait deux fois pour rien.
+  var notesEnCours = {};
+
+  function cleNote(slug) { return seance.id + '|' + slug; }
+
   function dejaNote(slug) {
+    if (notesEnCours[cleNote(slug)]) return true;
     return (local.predictions || []).some(function (l) {
       return l && l.exercise_slug === slug && l.fondement &&
         l.fondement.seance === seance.id;
@@ -1693,6 +1704,7 @@
         slug: slug, reglage: Profil.rythmeDe(profil), seance: seance.id
       });
       if (!lignes.length) continue;
+      notesEnCours[cleNote(slug)] = true;
       await noterLignes(lignes);
     }
   }
@@ -1706,14 +1718,23 @@
   async function noterLignes(lignes) {
     var emise = new Date().toISOString();
     var uid = (sessionActive && sessionActive.user && sessionActive.user.id) || null;
-    var neuves = lignes.map(function (l) {
-      return Object.assign({}, l, {
-        id: uuid(), user_id: uid,
+    // ⚠️ L'IDENTIFIANT EST CALCULÉ, PAS TIRÉ (48c-2). Deux instances de l'app
+    // qui notent la même consigne calculent le même identifiant, et l'insert
+    // qui ignore les doublons fait du second envoi un non-événement. C'est ce
+    // qui a manqué le 21/09 : six lignes au lieu de trois. `uuid()` reste le
+    // repli quand `crypto.subtle` n'existe pas.
+    var neuves = [];
+    for (var n = 0; n < lignes.length; n++) {
+      var l = lignes[n];
+      var calcule = await Moteur.idDePrediction(
+        seance.id, l.exercise_slug, l.fondement.rang).catch(function () { return null; });
+      neuves.push(Object.assign({}, l, {
+        id: calcule || uuid(), user_id: uid,
         module_version: Moteur.VERSION_CONSIGNE,
         emise_a: emise, horizon_jours: null,
         valeur_observee: null, observee_a: null, set_observe: null
-      });
-    });
+      }));
+    }
     local.predictions = local.predictions.concat(neuves);
     await Cache.ecrireLot('predictions', neuves).catch(function () {});
     for (var i = 0; i < neuves.length; i++) {
@@ -1754,19 +1775,26 @@
     })[0];
     if (!ligne) return;
 
-    var reps = Seance.partEnBase(serie) ? Palier.repsComptees(serie) : null;
-    var apparie = reps !== null &&
-      Modele.nombre(ligne.fondement.charge) === Modele.nombre(serie.charge_kg);
-    var sienne = ligne.set_observe && serie.id && ligne.set_observe === serie.id;
-    // Ni appariée maintenant, ni observée par cette série avant : rien à dire.
-    if (!apparie && !sienne) return;
+    var enBase = Seance.partEnBase(serie);
+    var vue = Moteur.observationDe(ligne.fondement, {
+      enBase: enBase, id: serie.id, charge: serie.charge_kg,
+      reps: enBase ? Palier.repsComptees(serie) : null
+    });
+    var etaitSienne = ligne.set_observe && serie.id && ligne.set_observe === serie.id;
+    // Ni reliée maintenant, ni reliée par cette série avant : rien à dire.
+    if (vue.set_observe === null && !etaitSienne) return;
     // Rien n'a changé — et `surChamp` passe ici à CHAQUE FRAPPE : sans cette
     // sortie, taper « 130 » poserait trois fois la même intention.
-    if (apparie && sienne && ligne.valeur_observee === reps) return;
+    if (ligne.set_observe === vue.set_observe &&
+        ligne.valeur_observee === vue.valeur_observee) return;
 
-    var maj = Object.assign({}, ligne, apparie
-      ? { valeur_observee: reps, observee_a: new Date().toISOString(), set_observe: serie.id }
-      : { valeur_observee: null, observee_a: null, set_observe: null });
+    // `observee_a` DATE UNE OBSERVATION, et « autre chose tenté » n'en est pas
+    // une : la série est reliée, rien n'est compté, la colonne reste vide.
+    var maj = Object.assign({}, ligne, {
+      set_observe: vue.set_observe,
+      valeur_observee: vue.valeur_observee,
+      observee_a: vue.valeur_observee === null ? null : new Date().toISOString()
+    });
     local.predictions = local.predictions.map(function (l) {
       return l && l.id === maj.id ? maj : l;
     });
@@ -3978,6 +4006,7 @@
     try { await Cache.viderTout(); } catch (e) { /* rien à garder de toute façon */ }
     local = { seances: [], series: [], exercices: [], pesees: [], zones: [],
               predictions: [], parSeance: null };
+    notesEnCours = {};
     // Les routines vivent en mémoire, pas dans le cache — mais elles
     // appartiennent quand même au compte qui part.
     routines = []; brouillon = null; etatRoutines = { code: 'jamais', message: '' };

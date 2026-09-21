@@ -5665,9 +5665,16 @@ const SETS_IMPORTES = [
     // la même charge, apparier sur le rang seul et apparier sur les deux
     // donnent le même résultat — c'est la déviation qui les sépare.
     await saisirSerie(1, parRang(2).fondement.charge + 5, 5);
-    ok('[P] UNE CHARGE AUTRE QUE CELLE PROPOSÉE N’OBSERVE RIEN',
-      parRang(2).valeur_observee === null && parRang(2).set_observe === null,
-      JSON.stringify({ propose: parRang(2).fondement.charge, v: parRang(2).valeur_observee }));
+    // ⚠️ CORRIGÉ LE 21/09 (48c-2) : la série est RELIÉE, ses reps ne comptent
+    // pas. Une exploration dit quelque chose ; elle ne doit pas disparaître de
+    // la table. Mais comparer « vise 4 à 130 » à « 3 à 135 » ne dirait rien de
+    // la visée du moteur.
+    ok('[P] AUTRE CHOSE TENTÉ : la série est reliée, ses reps ne comptent PAS',
+      parRang(2).valeur_observee === null && parRang(2).observee_a === null &&
+      !!parRang(2).set_observe && base.sets.some((x) => x.id === parRang(2).set_observe),
+      JSON.stringify({ propose: parRang(2).fondement.charge,
+        v: parRang(2).valeur_observee, a: parRang(2).observee_a,
+        set: !!parRang(2).set_observe }));
 
     // ── UNE VALEUR CORRIGÉE APRÈS COUP ────────────────────────────────────
     const taper = async (i, champ, v) => {
@@ -5679,9 +5686,11 @@ const SETS_IMPORTES = [
     ok('[P] les reps corrigées sur une série validée : l’observation SUIT',
       parRang(1).valeur_observee === 4, JSON.stringify(parRang(1).valeur_observee));
     await taper(0, 0, c1 + 10);
-    ok('[P] la CHARGE corrigée hors de la proposition : l’observation SE RETIRE',
-      parRang(1).valeur_observee === null && parRang(1).observee_a === null,
-      JSON.stringify({ v: parRang(1).valeur_observee, a: parRang(1).observee_a }));
+    ok('[P] la CHARGE corrigée hors de la proposition : les reps se retirent, la série reste',
+      parRang(1).valeur_observee === null && parRang(1).observee_a === null &&
+      !!parRang(1).set_observe,
+      JSON.stringify({ v: parRang(1).valeur_observee, a: parRang(1).observee_a,
+        set: !!parRang(1).set_observe }));
     await taper(0, 0, c1);
     ok('[P] revenue à la charge proposée : l’observation revient',
       parRang(1).valeur_observee === 4, JSON.stringify(parRang(1).valeur_observee));
@@ -5740,6 +5749,63 @@ const SETS_IMPORTES = [
       base.predictions.length === compteAvant,
       base.predictions.length + ' vs ' + compteAvant);
     await abandonner();
+    // ── DEUX INSTANCES QUI NOTENT EN MÊME TEMPS (48c-2) ──────────────────
+    //
+    // ⚠️ LE DÉFAUT DU 21/09, dans sa configuration discriminante. Le squat a
+    // été noté DEUX FOIS — six lignes, même `emise_a` à la milliseconde. Une
+    // seule page ne le peut pas : la marque « déjà noté » se pose avant toute
+    // attente. Il faut TROIS conditions ensemble, et aucune ne suffit seule :
+    //
+    //   · UNE SÉANCE QUI EXISTE DÉJÀ, sinon chaque instance crée la sienne et
+    //     les deux jeux de lignes sont légitimes ;
+    //   · SA CONSIGNE PAS ENCORE NOTÉE — l'état du 21/09, où l'écriture n'avait
+    //     pas encore atteint le magasin. Sinon les deux instances voient la
+    //     marque et s'abstiennent, et le banc ne prouve rien ;
+    //   · DEUX DÉMARRAGES SIMULTANÉS, sans `await` entre eux : c'est ce qui
+    //     place les deux LECTURES avant les deux ÉCRITURES.
+    //
+    // Ce qui les dédoublonne n'est pas une garde — c'est l'identifiant, calculé
+    // depuis (séance, exercice, rang). Les deux instances écrivent les mêmes
+    // lignes, et l'insertion qui ignore les doublons fait du second envoi un
+    // non-événement.
+    const depart3 = base.predictions.length;
+    await aller('/saisie');
+    await demarrerRoutine('Terre');
+    await attendre(1200);
+    const jeuSolo = base.predictions.slice(depart3);
+    ok('[P] la séance est ouverte et sa consigne notée une fois',
+      jeuSolo.length === 3, jeuSolo.length + ' ligne(s)');
+
+    // On remet la séance dans l'état du 21/09 : elle existe, ses prédictions
+    // ne sont notées NULLE PART — ni en base, ni sur l'appareil.
+    await page.evaluate((ids) => window.THCache.supprimer('predictions', ids),
+      jeuSolo.map((l) => l.id));
+    base.predictions.length = depart3;
+    await page.close();
+
+    const p1 = await ctx.newPage();
+    const p2 = await ctx.newPage();
+    brancher(p1); brancher(p2);
+    await Promise.all([
+      p1.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {}),
+      p2.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {})
+    ]);
+    await attendre(3200);
+    const duo = base.predictions.slice(depart3);
+    ok('[P] DEUX INSTANCES SIMULTANÉES : UN SEUL jeu de lignes en base',
+      duo.length === 3 && new Set(duo.map((l) => l.id)).size === 3,
+      duo.length + ' ligne(s) · ' + new Set(duo.map((l) => l.id)).size + ' identifiant(s) distinct(s)');
+    ok('[P] et leurs identifiants sont CALCULÉS, pas tirés au hasard',
+      duo.length > 0 && duo.every((l) =>
+        /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(l.id)),
+      JSON.stringify(duo.map((l) => l.id)));
+    await p1.close();
+    await p2.close();
+    page = await ctx.newPage();
+    brancher(page);
+    await aller('/saisie');
+    await abandonner();
+
     ok('[P] aucune erreur de page pendant toute l’écriture',
       erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }

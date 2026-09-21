@@ -1765,6 +1765,74 @@
     return sortie;
   }
 
+  // ── §9.11 (48c-2) — L'IDENTIFIANT EST UNE FONCTION DE CE QUE LA LIGNE EST ─
+  //
+  // ⚠️ APRÈS LA PREMIÈRE SÉANCE RÉELLE : le squat a été noté DEUX FOIS, six
+  // lignes au lieu de trois, même `emise_a` à la milliseconde. Une seule page
+  // ne le peut pas — la marque « déjà noté » se pose avant toute attente. Il a
+  // donc fallu deux réalités JavaScript dont les deux LECTURES du magasin
+  // local ont précédé les deux ÉCRITURES, et aucune garde en mémoire ne ferme
+  // cette course-là.
+  //
+  // Ce qui la ferme est ailleurs : à DESTINATION. Deux instances qui calculent
+  // la même ligne calculent le même identifiant, et l'insertion qui ignore les
+  // doublons fait du second envoi un non-événement. C'est déjà la doctrine de
+  // la file (`attente.js` : « l'app fabrique les identifiants elle-même, et
+  // l'envoi devient une réécriture IDEMPOTENTE ») — la prédiction y rentre.
+  //
+  // SHA-256 des trois faits qui définissent la ligne, mis en forme d'UUID
+  // valide : version 5 (un nom, pas un hasard) et variante RFC 4122. Sans
+  // `crypto.subtle` — contexte non sécurisé —, on rend `null` et l'appelant
+  // retombe sur un identifiant aléatoire : le comportement d'avant, pas pire.
+  async function idDePrediction(seance, slug, rang) {
+    var c = racine.crypto;
+    if (!c || !c.subtle || typeof c.subtle.digest !== 'function') return null;
+    if (typeof racine.TextEncoder !== 'function') return null;
+    var nom = String(seance) + '|' + String(slug) + '|' + String(rang);
+    var somme = await c.subtle.digest('SHA-256', new racine.TextEncoder().encode(nom));
+    var o = new Uint8Array(somme).slice(0, 16);
+    o[6] = (o[6] & 0x0f) | 0x50;
+    o[8] = (o[8] & 0x3f) | 0x80;
+    var h = Array.prototype.map.call(o, function (b) {
+      return ('0' + b.toString(16)).slice(-2);
+    }).join('');
+    return h.slice(0, 8) + '-' + h.slice(8, 12) + '-' + h.slice(12, 16) + '-' +
+           h.slice(16, 20) + '-' + h.slice(20);
+  }
+
+  // ── §9.11 (48c-2) — CE QUE LA SÉRIE FAITE DIT DE LA PRÉDICTION ───────────
+  //
+  // Deux décisions, et elles sont SÉPARÉES — c'est toute la correction du
+  // 21/09. À l'adduction, le moteur proposait « le cran au-dessus » sans
+  // chiffre (le cran de la machine étant inconnu) : avec un appariement strict
+  // sur la charge, cette ligne ne pouvait JAMAIS être observée.
+  //
+  //   · RELIER — toujours, dès que la série du rang est validée. Une
+  //     exploration dit quelque chose ; elle ne doit pas disparaître de la
+  //     table.
+  //   · COMPTER — seulement si la consigne a été suivie : même charge ; ou,
+  //     charge proposée inconnue, n'importe quelle charge STRICTEMENT au-dessus
+  //     du palier. Comparer « vise 4 à 130 » à « 3 à 135 » ne dirait rien de la
+  //     visée du moteur.
+  //
+  // Le palier vient du fondement de la ligne, jamais d'un recalcul : la
+  // prédiction porte ses propres faits (§9.13).
+  function observationDe(fondement, fait) {
+    var f = fondement || {}, x = fait || {};
+    if (!x.enBase) return { set_observe: null, valeur_observee: null };
+    var proposee = nombre(f.charge);
+    var palier = nombre(f.palier);
+    var faite = nombre(x.charge);
+    var suivie = faite !== null && (proposee !== null
+      ? faite === proposee
+      : (palier !== null && faite > palier));
+    var reps = x.reps === undefined ? null : x.reps;
+    return {
+      set_observe: x.id || null,
+      valeur_observee: suivie ? reps : null
+    };
+  }
+
   // ── §3.9 (48b-6b-2) — LA CHARGE DE TEST QUI GAGNE DES SÉRIES ─────────────
   //
   // Un FAIT, lu sur les deux séances, jamais une règle du §9 rejouée : la
@@ -2072,6 +2140,8 @@
     MODULE_CONSIGNE: MODULE_CONSIGNE,
     VERSION_CONSIGNE: VERSION_CONSIGNE,
     lignesDePrediction: lignesDePrediction,
+    idDePrediction: idDePrediction,
+    observationDe: observationDe,
     constatDExercice: constatDExercice,
     etiquetteZone: etiquetteZone,
     // Le menu des zones les affiche toutes (§3.8) : il lit cette table, il ne

@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Le coach à côté de toi — réaction série par série, v1 · chantier 49</title>
+<style>
+
+:root{
+  --fond:#15171A; --panneau:#1D2025; --panneau-2:#24272D; --trait:#2E323A;
+  --texte:#E8EAED; --texte-2:#959BA5; --texte-3:#676D77;
+  --accent:#F2B705; --reussi:#5FA97A; --manque:#C4564A;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--fond);color:var(--texte)}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans",Ubuntu,Cantarell,sans-serif;font-size:15px;line-height:1.45;font-variant-numeric:tabular-nums}
+a{color:inherit;text-decoration-color:var(--texte-3);text-underline-offset:3px}
+p{margin:0 0 10px}
+.page{max-width:1180px;margin:0 auto;padding:40px 24px 96px}
+h1{font-size:32px;line-height:1.1;margin:0 0 12px;font-weight:750;letter-spacing:-.01em}
+.chapeau{color:var(--texte-2);max-width:68ch;margin:0 0 40px}
+h2{font-size:21px;line-height:1.25;margin:56px 0 10px;font-weight:700}
+.intro{color:var(--texte-2);max-width:68ch;margin:0 0 24px}
+.ref{display:inline-block;min-width:20px;height:20px;padding:0 5px;border-radius:10px;border:1px solid var(--texte-3);color:var(--texte-2);font-size:12px;line-height:18px;text-align:center;font-weight:600;vertical-align:2px;text-decoration:none;margin:0 2px}
+h2 .ref,h3 .ref{vertical-align:3px;margin:0 8px 0 0}
+
+/* ---------- préalable ① ---------- */
+.prealable{background:var(--panneau);border-radius:12px;padding:24px;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:32px}
+.prealable h2{margin-top:0}
+.prealable p{color:var(--texte-2);max-width:62ch}
+.prealable p b{color:var(--texte);font-weight:600}
+.cas{width:100%;border-collapse:collapse;font-size:13px;margin:4px 0 20px}
+.cas th{text-align:left;color:var(--texte-3);font-weight:500;font-size:12px;padding:0 8px 6px 0;border-bottom:1px solid var(--trait)}
+.cas td{padding:8px 8px 8px 0;border-bottom:1px solid var(--trait);color:var(--texte-2);vertical-align:top}
+.cas td.faux{color:var(--texte-3)}
+.cas td.juste{color:var(--texte)}
+.barres{margin:6px 0 0}
+.barre{display:grid;grid-template-columns:78px 1fr 44px;gap:10px;align-items:center;font-size:13px;color:var(--texte-2);margin:6px 0}
+.barre i{display:block;height:10px;border-radius:3px;background:var(--texte-2)}
+.barre.moi i{background:var(--texte)}
+.barre.moi{color:var(--texte)}
+.legende-barres{font-size:12px;color:var(--texte-3);margin-top:8px}
+
+/* ---------- téléphone ---------- */
+.rangee{display:flex;flex-wrap:wrap;gap:40px 32px;align-items:flex-start}
+figure{margin:0;width:360px;flex:0 0 360px}
+figcaption{font-size:14px;color:var(--texte-2);margin:0 0 12px;max-width:360px}
+figcaption b{color:var(--texte);font-weight:600;display:block;font-size:15px;margin-bottom:2px}
+.tel{width:360px;border:1px solid var(--trait);border-radius:12px;overflow:hidden;background:var(--fond)}
+.bandeau{display:flex;align-items:center;gap:10px;padding:12px;border-bottom:1px solid var(--trait)}
+.bandeau .titre{font-weight:650;font-size:16px}
+.bandeau .chrono{color:var(--texte-2);font-size:13px}
+.bandeau .vide{flex:1}
+.discret{font:inherit;font-size:13px;color:var(--texte-2);background:none;border:1px solid var(--trait);border-radius:6px;padding:5px 10px}
+.bloc{padding:16px 12px 10px;border-bottom:1px solid var(--trait)}
+.bloc:last-child{border-bottom:0}
+.nom{font-size:16px;font-weight:650;line-height:1.3}
+.consigne{color:var(--accent);font-size:19px;font-weight:720;line-height:1.3;margin-top:3px}
+.consigne.terne{color:var(--texte-3)}
+.dit{color:var(--texte-2);font-size:13px;line-height:1.4;margin-top:4px}
+.constat{color:var(--texte);font-size:16px;font-weight:620;line-height:1.35;margin-top:4px}
+.meta{color:var(--texte-3);font-size:12px;margin-top:8px;display:flex;gap:14px}
+.entete-grille,.ligne{display:grid;grid-template-columns:30px 62px minmax(0,1fr) 44px 40px 40px;gap:5px;align-items:center}
+.entete-grille{color:var(--texte-3);font-size:11px;padding:12px 0 4px}
+.entete-grille span:nth-child(n+3){text-align:center}
+.ligne{height:42px;border-radius:6px}
+.no{font-size:13px;color:var(--texte-2);text-align:center}
+.no.c,.no.d{color:var(--texte-3);border:1px solid var(--trait);border-radius:6px;height:22px;line-height:20px;font-size:12px}
+.prec{font-size:12px;color:var(--texte-2);white-space:nowrap}
+.champ{height:32px;border-radius:6px;background:var(--panneau-2);display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--texte-3)}
+.champ.saisi{color:var(--texte)}
+.eff{height:32px;border-radius:6px;border:1px solid var(--trait)}
+.coche{width:28px;height:28px;border-radius:50%;border:1.5px solid var(--trait);justify-self:center}
+.ligne.ok{background:rgba(95,169,122,.15)}
+.ligne.ok .coche{background:var(--reussi);border-color:var(--reussi)}
+.ajout{color:var(--texte-2);font-size:13px;padding:8px 0 2px}
+.onglets{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--trait);padding:12px 0 14px;font-size:12px;color:var(--texte-3);text-align:center}
+.onglets .actif{color:var(--accent);font-weight:600}
+.membre{display:grid;grid-template-columns:24px 1fr;gap:6px;margin-bottom:10px}
+.lettre{font-weight:700;color:var(--texte-2);font-size:15px;padding-top:1px}
+.hyp{font-size:12px;color:var(--texte-3);padding:12px 12px 0}
+.variante{border-bottom:1px solid var(--trait)}
+.variante:last-child{border-bottom:0}
+.variante .bloc{border-bottom:0;padding-top:6px}
+.derriere{opacity:.28}
+.feuille{background:var(--panneau);border-top:1px solid var(--trait);border-radius:12px 12px 0 0;padding:10px 16px 18px;margin-top:-6px}
+.poignee{width:40px;height:4px;border-radius:2px;background:var(--trait);margin:0 auto 14px}
+.f-titre{font-size:18px;font-weight:700;color:var(--accent)}
+.f-sous{font-size:13px;color:var(--texte-2);margin-bottom:14px}
+.f-sec{font-size:12px;color:var(--texte-3);margin:4px 0 4px}
+.f-ligne{display:flex;justify-content:space-between;gap:12px;font-size:14px;padding:6px 0;border-bottom:1px solid var(--trait)}
+.f-ligne span:last-child{color:var(--texte-2);text-align:right}
+.f-ligne.muet span:first-child{color:var(--texte-3)}
+.feuille p{font-size:14px;color:var(--texte-2);margin:12px 0 0}
+.feuille p.fort{color:var(--texte)}
+.feuille .discret{margin-top:16px;width:100%;padding:9px}
+.notes{flex:1 1 320px;max-width:520px;color:var(--texte-2);font-size:14px;padding-top:44px}
+.notes p{margin:0 0 14px}
+.notes b{color:var(--texte);font-weight:600}
+
+/* ---------- planche des en-têtes ---------- */
+.planche{border:1px solid var(--trait);border-radius:12px;overflow:hidden;max-width:980px}
+.rang{display:grid;grid-template-columns:360px minmax(0,1fr);border-bottom:1px solid var(--trait)}
+.rang:last-child{border-bottom:0}
+.rendu{padding:16px 12px;border-right:1px solid var(--trait);background:var(--fond)}
+.etiquette,.rendu .seance{font-size:11px;color:var(--texte-3);margin-bottom:6px}
+.note{padding:16px 20px;color:var(--texte-2);font-size:14px;background:var(--panneau)}
+.note p{margin:0 0 8px}
+.note .avant{color:var(--texte-3)}
+
+/* ---------- décisions ---------- */
+.decisions{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px}
+.dec{background:var(--panneau);border-radius:12px;padding:18px 20px 16px}
+.dec h3{font-size:16px;line-height:1.3;margin:0 0 10px;font-weight:680}
+.dec p{font-size:14px;color:var(--texte-2);margin:0 0 10px}
+.dec p.reco{color:var(--texte)}
+.dec p.trace{font-size:13px;color:var(--texte-3)}
+.stagnation{background:var(--panneau);border-radius:12px;padding:24px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:32px}
+.stagnation h2{margin-top:0}
+.stagnation p{color:var(--texte-2)}
+.stagnation p.reco{color:var(--texte)}
+.compteurs{font-size:14px}
+.compteurs div{display:grid;grid-template-columns:1fr 60px;padding:7px 0;border-bottom:1px solid var(--trait);color:var(--texte-2)}
+.compteurs div span:last-child{text-align:right}
+.compteurs div.cle{color:var(--texte)}
+
+/* ---------- dictionnaire ---------- */
+.defile{overflow-x:auto;border:1px solid var(--trait);border-radius:12px}
+table.dico{border-collapse:collapse;width:100%;min-width:760px;font-size:14px}
+.dico th{text-align:left;color:var(--texte-3);font-weight:500;font-size:12px;padding:12px 14px;border-bottom:1px solid var(--trait);background:var(--panneau)}
+.dico td{padding:11px 14px;border-bottom:1px solid var(--trait);vertical-align:top;color:var(--texte-2)}
+.dico tr:last-child td{border-bottom:0}
+.dico td.phrase{color:var(--texte)}
+.dico .sous{display:block;color:var(--texte-2);margin-top:3px}
+.dico td.moment{color:var(--texte-3);white-space:nowrap}
+.dico tr.jamais td.phrase{color:var(--texte-3)}
+.prompt p{max-width:78ch;color:var(--texte-2);margin:0 0 14px}
+.prompt p b{color:var(--texte);font-weight:600}
+
+@media (max-width:820px){
+  .prealable,.stagnation{grid-template-columns:1fr;gap:20px}
+  .rang{grid-template-columns:1fr}
+  .rendu{border-right:0}
+  .notes{padding-top:0}
+}
+@media (max-width:400px){
+  .page{padding:24px 0 64px}
+  .page>header,.page>h2,.page>.intro,.prompt,.decisions,.defile{margin-left:12px;margin-right:12px}
+  .prealable,.stagnation{border-radius:0;padding:20px 12px}
+  figure{flex-basis:100%}
+  .tel{border-left:0;border-right:0;border-radius:0}
+  figcaption,.notes{padding:0 12px}
+  .planche{border-radius:0;border-left:0;border-right:0}
+}
+
+/* ---------- ajouts v2 ---------- */
+.tete-nom{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
+.puce-zone{display:inline-flex;align-items:center;height:26px;padding:0 10px;border:1px solid var(--trait);border-radius:13px;color:var(--texte-2);font-size:12px;font-weight:600;white-space:nowrap}
+.puce-zone.choisie{background:var(--panneau-2);border-color:var(--panneau-2);color:var(--texte)}
+.puce-zone.choisie::before{content:"";width:6px;height:6px;border-radius:3px;background:var(--texte);margin-right:7px}
+.consigne.test{font-size:15px;font-weight:650;margin-top:1px;line-height:1.35}
+.f-titre-neutre{font-size:18px;font-weight:700;color:var(--texte)}
+.option-zone{display:grid;grid-template-columns:22px 1fr auto;gap:10px;align-items:center;padding:11px 10px;border-radius:6px;font-size:15px}
+.option-zone + .option-zone{margin-top:2px}
+.option-zone .rond{width:18px;height:18px;border-radius:9px;border:1.5px solid var(--texte-3)}
+.option-zone.active{background:var(--panneau-2)}
+.option-zone.active .rond{border-color:var(--texte);box-shadow:inset 0 0 0 4px var(--panneau-2);background:var(--texte)}
+.option-zone .oz-reps{color:var(--texte-2);font-size:13px}
+.option-zone .oz-sous{grid-column:2 / 4;color:var(--texte-3);font-size:12px;margin-top:-4px}
+.section-profil{padding:16px 12px;border-bottom:1px solid var(--trait)}
+.section-profil h4{margin:0 0 10px;font-size:15px;font-weight:650}
+.segment{display:grid;grid-template-columns:1fr 1fr;background:var(--panneau);border-radius:6px;padding:3px}
+.segment span{text-align:center;padding:8px 0;border-radius:4px;font-size:14px;color:var(--texte-2)}
+.segment span.actif{background:var(--panneau-2);color:var(--texte);font-weight:600}
+.segment.trois{grid-template-columns:1fr 1fr 1fr}
+.option-rythme{display:grid;grid-template-columns:22px 1fr;gap:10px;padding:10px;border-radius:6px}
+.option-rythme .rond{width:18px;height:18px;border-radius:9px;border:1.5px solid var(--texte-3);margin-top:2px}
+.option-rythme.active{background:var(--panneau-2)}
+.option-rythme.active .rond{border-color:var(--texte);box-shadow:inset 0 0 0 4px var(--panneau-2);background:var(--texte)}
+.option-rythme b{font-weight:650;display:block}
+.option-rythme span{color:var(--texte-2);font-size:13px;line-height:1.4}
+.aparte{font-size:12px;color:var(--texte-3);padding:10px 12px 0}
+.etats-puce{display:flex;gap:12px;align-items:center;margin:6px 0 14px;flex-wrap:wrap}
+.nouveau{display:inline-block;font-size:11px;font-weight:650;color:var(--texte);border:1px solid var(--texte-3);border-radius:4px;padding:0 6px;margin-left:6px;vertical-align:1px}
+.dico .sous.gris{color:var(--texte-3);font-style:normal}
+
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+.page{max-width:900px}
+.commandes{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 20px}
+.puce{font:inherit;font-size:13px;color:var(--texte-2);background:none;border:1px solid var(--trait);border-radius:16px;padding:6px 12px;cursor:pointer}
+.puce[aria-pressed="true"]{background:var(--panneau-2);color:var(--texte);border-color:var(--panneau-2)}
+.puce:focus-visible,.coche:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.duo{display:flex;gap:24px;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:8px;-webkit-overflow-scrolling:touch}
+.duo figure{flex:0 0 360px;width:360px}
+.duo .tel{width:360px}
+@media (max-width:760px){.page{padding:24px 14px 64px}.duo{gap:14px;margin:0 -14px;padding:0 14px 8px;scroll-padding-left:14px}.duo figure{flex-basis:88vw;width:88vw}.duo .tel{width:88vw}}
+input.champ{border:0;font:inherit;font-size:15px;text-align:center;width:100%;color:var(--texte);padding:0}
+input.champ::placeholder{color:var(--texte-3);opacity:1}
+input.champ.prop::placeholder{color:var(--accent);opacity:.9}
+input.champ[disabled]{color:var(--texte);-webkit-text-fill-color:var(--texte);opacity:1}
+input.champ[disabled]::placeholder{color:var(--texte-3);-webkit-text-fill-color:var(--texte-3)}
+.ligne .coche{cursor:pointer;background:none;padding:0}
+.ligne.ok .coche{background:var(--reussi);border-color:var(--reussi)}
+.reagit{grid-column:1/-1;color:var(--accent);font-size:13.5px;font-weight:620;line-height:1.35;padding:6px 2px 4px 35px}
+.reagit.gris{color:var(--texte-2);font-weight:500}
+.consigne.coach{font-size:14.5px;font-weight:650;margin-top:6px;padding-top:6px;border-top:1px dashed var(--trait)}
+.consigne.coach.gris{color:var(--texte-2);font-weight:500}
+.ligne.proposee{box-shadow:inset 3px 0 0 var(--accent);background:rgba(242,183,5,.06)}
+.aide{color:var(--texte-3);font-size:13px;max-width:68ch;margin:14px 0 0}
+.no.c{display:flex;align-items:center;justify-content:center}
+
+.reagit.fait{color:var(--texte);font-weight:560}
+.cote{flex:1 1 300px;max-width:440px;color:var(--texte-2);font-size:14px}
+.cote p{margin:0 0 12px}
+.cote b{color:var(--texte);font-weight:600}
+.duo{overflow:visible;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<div class="page">
+<h1>Le coach à côté de toi</h1>
+<p class="chapeau">Maquette validée le 25/09/2026 (MOTEUR §9.14, ECRAN-SAISIE §3.2). Tape tes reps, et ta charge si tu veux, puis touche le rond pour valider la série. Touche à nouveau le dernier rond vert pour dévalider.</p>
+<div class="commandes">
+<button class="puce" data-exo="couche" aria-pressed="true">Couché · Lourd 3-5</button>
+<button class="puce" data-exo="squat" aria-pressed="false">Squat · Hypertrophie 8-10</button>
+<button class="puce" data-exo="rowing" aria-pressed="false">Rowing · Volume 10-12</button>
+<button class="puce" id="raz">Recommencer</button>
+</div>
+<div class="duo">
+<figure><div class="tel" id="tel"></div></figure>
+<div class="cote">
+<p><b>Il parle à 3 reps de marge ou plus</b>, sur une série faite à la charge proposée, et propose un cran sur la série suivante, en visant ta zone. Le fantôme porte la charge basse et le bas de la zone : on valide sans rien taper si c'est juste.</p>
+<p><b>À 5 reps de marge</b>, deux charges : le cran, et ton saut habituel sur cet exercice (couché, rowing), ou deux crans sous 10 % (squat). Le programme passera devant, le jour où il existera.</p>
+<p><b>La montée tient</b> : il dit le fait, en blanc. <b>Elle ne tient pas</b> : « pas encore », en gris, retour à la charge du jour. <b>Une seule montée par bloc.</b> En zone Lourd, au plus une série de plus à la charge montée.</p>
+<p><b>Il se tait</b> sous la visée, à 1 ou 2 reps de marge, après un refus (saisir une autre charge) jusqu'à la fin du bloc, les jours de reprise, et toujours en Entretenir.</p>
+<p>À essayer : couché, 8 reps sur la série 1, puis 5 ou 2 à 130 ; 10 reps sur la série 1 pour les deux charges ; 125 saisi au lieu de 130 pour un refus.</p>
+</div>
+</div>
+</div>
+<script>
+const EXOS = {
+  couche: {nom:'Développé Couché (Barre)', seance:'Pecs – Dos', zone:'Lourd 3-5', lourd:true, lo:3, hi:5, P:125, v:5, test:{kg:130, v:4}, n:3,
+           cran:130, haut:{kg:135, source:'habitude'}, chauffes:[[60,10],[100,5]], prec:['125×4','125×5','130×3']},
+  squat:  {nom:'Squat (Barre)', seance:'Jambes', zone:'Hypertrophie 8-10', lourd:false, lo:8, hi:10, P:120, v:9, test:null, n:3,
+           cran:125, haut:{kg:130, source:'preconisation'}, chauffes:[[60,10],[90,5]], prec:['120×8','120×8','120×8']},
+  rowing: {nom:'Rowing Poulie Assis - Prise en V', seance:'Pecs – Dos', zone:'Volume 10-12', lourd:false, lo:10, hi:12, P:93, v:11, test:{kg:100, v:11}, n:4,
+           cran:100, haut:{kg:107, source:'habitude'}, chauffes:[], prec:['93×10','93×10','93×10','100×10']}
+};
+const fr = x => String(x).replace('.', ',');
+
+/* Le coach (MOTEUR §9.14) : une fonction pure. Consigne et séries validées en entrée ;
+   plan des séries restantes, message et constat en sortie. L'écran ne fait que lire. */
+function coach(ex, faites) {
+  const plan = [];
+  for (let i = 0; i < ex.n; i++) plan.push(ex.test && i === ex.n - 1 ? {kg: ex.test.kg, v: ex.test.v, src: 'consigne'} : {kg: ex.P, v: ex.v, src: 'consigne'});
+  let attente = null, refus = false, fini = false, msg = null;
+  faites.forEach((s, i) => {
+    msg = null;
+    if (attente && attente.rang === i) { if (s.kg < attente.kgs[0]) refus = true; attente = null; }
+    if (refus || fini) return;
+    if (s.kg > ex.P) {                                        // la série montée (proposée ou test prévu)
+      fini = true;
+      if (s.reps >= ex.lo) {
+        let ajout = 0;
+        for (let j = i + 1; j < ex.n; j++) {
+          if (plan[j].kg === s.kg) continue;
+          if (ex.lourd && ajout >= 0 && plan[i].src === 'coach') break;   // Lourd : au plus une série de plus
+          plan[j] = {kg: s.kg, v: ex.lo, src: 'coach'};
+        }
+        if (i < ex.n - 1) {
+          const avance = ex.test && plan[i].src === 'coach';
+          msg = {ton: 'fait', rang: i + 1, txt: s.reps >= ex.hi ? `${fr(s.kg)} × ${s.reps}, le haut de ta zone.`
+               : `${fr(s.kg)} × ${s.reps}, dans ta zone : ${avance ? 'ton test a avancé d’une série.' : 'tu montes dès aujourd’hui.'}`};
+        }
+      } else {
+        for (let j = i + 1; j < ex.n; j++) plan[j] = {kg: ex.P, v: ex.v, src: 'retour'};
+        if (i < ex.n - 1) msg = {ton: 'gris', rang: i + 1, txt: `${fr(s.kg)} × ${s.reps} : pas encore. Tu as tenté plus tôt que prévu ; on reprend à ${fr(ex.P)}.`};
+      }
+      return;
+    }
+    if (s.kg === ex.P && i < ex.n - 1) {
+      const marge = s.reps - plan[i].v;
+      if (marge >= 3) {
+        const kgs = [ex.cran];
+        if (marge >= 5 && ex.haut && ex.haut.kg > ex.cran) kgs.push(ex.haut.kg);
+        plan[i + 1] = {kg: kgs[0], v: ex.lo, src: 'coach'};
+        attente = {rang: i + 1, kgs};
+        const ch = kgs.length > 1 ? `${fr(kgs[0])}, ou ${fr(kgs[1])} si tu te sens bien` : fr(kgs[0]);
+        msg = {ton: 'propose', rang: i + 1, txt: `${fr(s.kg)} × ${s.reps}, ${marge} de plus que visé : ${ch} dès la série ${i + 2}, vise ${ex.lo} à ${ex.hi} ?`};
+      }
+    }
+  });
+  let constat = null;
+  if (faites.length === ex.n) {
+    const haut = faites.findIndex(s => s.kg > ex.P && s.reps >= ex.lo);
+    constat = haut >= 0
+      ? {txt: `${fr(faites[haut].kg)} kg dès la série ${haut + 1} : ${faites.filter(s => s.kg === faites[haut].kg).map(s => s.reps).join(' puis ')} reps, dans ta zone.`,
+         dit: refus ? '' : (haut < ex.n - 1 ? 'Tu as monté plus tôt que prévu.' : 'Le test prévu a tenu.')}
+      : {txt: `${fr(ex.P)} kg : ${faites.map(s => s.reps).join(', ')} reps.`, dit: ''};
+  }
+  return {plan, msg: faites.length < ex.n ? msg : null, constat, attente};
+}
+
+let cle = 'couche', faites = [], brouillon = {};
+const ex = () => EXOS[cle];
+function lire(i, s) {
+  const p = s.plan[i], b = brouillon[i] || {};
+  const kg = b.kg ? parseFloat(String(b.kg).replace(',', '.')) : p.kg;
+  const reps = b.reps ? parseInt(b.reps, 10) : p.v;
+  return {kg, reps};
+}
+function valider(i) {
+  const s = coach(ex(), faites);
+  if (i === faites.length) { const r = lire(i, s); if (isNaN(r.kg) || isNaN(r.reps)) return; faites.push(r); delete brouillon[i]; }
+  else if (i === faites.length - 1) faites.pop();
+  rendre();
+}
+function rendre() {
+  const e = ex(), s = coach(e, faites);
+  let tete = s.constat ? `<div class="constat">${s.constat.txt}</div>${s.constat.dit ? `<div class="dit">${s.constat.dit}</div>` : ''}`
+    : `<div class="consigne">${fr(e.P)} kg, vise ${e.v}</div>` + (e.test ? `<div class="consigne test">puis ${fr(e.test.kg)} kg en dernière série, vise ${e.test.v}</div>` : '');
+  let l = '';
+  e.chauffes.forEach(c => l += `<div class="ligne ok"><span class="no c">C</span><span class="prec">${c[0]}×${c[1]}</span><span class="champ saisi">${c[0]}</span><span class="champ saisi">${c[1]}</span><span></span><span class="coche" aria-hidden="true"></span></div>`);
+  for (let i = 0; i < e.n; i++) {
+    if (s.msg && s.msg.rang === i) l += `<div class="reagit${s.msg.ton === 'gris' ? ' gris' : s.msg.ton === 'fait' ? ' fait' : ''}">${s.msg.txt}</div>`;
+    const fait = i < faites.length, p = s.plan[i], prop = !fait && s.attente && s.attente.rang === i, actif = i === faites.length, b = brouillon[i] || {};
+    l += `<div class="ligne${fait ? ' ok' : ''}${prop ? ' proposee' : ''}"><span class="no">${i + 1}</span><span class="prec">${e.prec[i]}</span>
+      <input class="champ${prop ? ' prop' : ''}" inputmode="decimal" aria-label="Charge série ${i + 1}" data-i="${i}" data-k="kg" placeholder="${fr(p.kg)}" value="${fait ? fr(faites[i].kg) : (b.kg ?? '')}" ${fait || !actif ? 'disabled' : ''}>
+      <input class="champ${prop ? ' prop' : ''}" inputmode="numeric" aria-label="Reps série ${i + 1}" data-i="${i}" data-k="reps" placeholder="${p.v}" value="${fait ? faites[i].reps : (b.reps ?? '')}" ${fait || !actif ? 'disabled' : ''}>
+      <span class="eff"></span><button class="coche" aria-label="${fait ? 'Dévalider' : 'Valider'} la série ${i + 1}" data-v="${i}" ${(actif || i === faites.length - 1) ? '' : 'disabled'}></button></div>`;
+  }
+  document.getElementById('tel').innerHTML = `<div class="bandeau"><span class="titre">${e.seance}</span><span class="chrono">0:18</span><span class="vide"></span><button class="discret" tabindex="-1">Terminer</button></div>
+    <div class="bloc"><div class="tete-nom"><span class="nom">${e.nom}</span><span class="puce-zone">${e.zone}</span></div>${tete}
+    <div class="meta"><span>charge × reps</span><span>repos 2:30</span></div>
+    <div class="entete-grille"><span>n°</span><span>préc.</span><span>kg</span><span>reps</span><span>effort</span><span></span></div>${l}
+    <div class="ajout">+ Série</div></div>
+    <div class="onglets"><span>Séances</span><span class="actif">Saisie</span><span>Progression</span><span>Profil</span></div>`;
+}
+document.addEventListener('input', ev => { const t = ev.target; if (t.dataset.i === undefined) return; const i = +t.dataset.i; (brouillon[i] = brouillon[i] || {})[t.dataset.k] = t.value; });
+document.addEventListener('click', ev => {
+  const c = ev.target.closest('[data-v]'); if (c) return valider(+c.dataset.v);
+  const p = ev.target.closest('[data-exo]');
+  if (p) { cle = p.dataset.exo; faites = []; brouillon = {}; document.querySelectorAll('[data-exo]').forEach(x => x.setAttribute('aria-pressed', x === p)); rendre(); }
+  if (ev.target.closest('#raz')) { faites = []; brouillon = {}; rendre(); }
+});
+rendre();
+</script>
+</body>
+</html>

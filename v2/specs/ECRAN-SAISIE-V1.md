@@ -134,6 +134,8 @@ test (MOTEUR §9.7), la dernière série reçoit la consigne du test dans le fan
 Le test fait partie de la consigne ; les chauffes, la rampe et les dégressives
 gardent la dernière séance (§7 septendecies.3).
 
+**La réaction série par série — 25/09/2026 (MOTEUR §9.14).** Maquette validée : `maquette-reaction-serie-v1.html`, variante A. **La proposition parle dans la grille**, sur une ligne jaune juste au-dessus de la série qu'elle concerne — l'œil est sur la ligne qu'on va remplir. La ligne proposée reçoit un filet jaune à gauche et son fantôme en jaune : la charge basse, et en reps le bas de la zone, pour qu'on puisse valider sans rien taper comme ailleurs (§3 bis.3). La fourchette de reps et la seconde charge se lisent dans la phrase, pas dans les champs. Après une montée tenue, le fait s'écrit à la même place, en blanc ; un retour au palier, en gris. L'en-tête garde la consigne du jour, puis devient le constat en fin de bloc (48b-6b), qui dit la montée s'il y en a eu une. Refuser, c'est simplement saisir une autre charge : la phrase disparaît et le coach se tait jusqu'à la fin du bloc. Rien en Entretenir.
+
 **3.3** — Un exercice sans palier établi **le dit** (« pas assez de séances ») au
 lieu d'afficher un chiffre inventé. Sans alarme.
 
@@ -1910,6 +1912,8 @@ Pas de rang 2 bis : la consigne passe devant la dernière séance sur les lignes
 > pas une observation.
 
 **Précisé le 19/09/2026 (48b-5b-2).** « La ligne la porte » s'entend de la ligne **affichée**, pas de la série : la proposition vit dans **un plan par exercice**, calculé à l'ouverture de la séance et passé au fantôme. Elle ne devient jamais une propriété d'une série — ni en mémoire, ni sur l'appareil, ni dans la file d'attente. La consigne couvre les `n` dernières séries de travail de l'exercice dans la séance ouverte (MOTEUR §9.13) : les `n − k` premières reçoivent la ligne du palier, les `k` dernières celle du test ; les séries d'avant, les chauffes et les dégressives gardent la dernière séance. Sans consigne (Entretenir, mesure sans charge, silence du moteur), la cascade est celle d'avant le moteur.
+
+**Le plan se recalcule — 25/09/2026 (MOTEUR §9.14).** Le plan par exercice n'est plus figé à l'ouverture : il se recalcule à chaque série **validée** de cet exercice, par la fonction de réaction, et le rang 2 de la cascade lit le plan courant. Il reste une proposition portée par la ligne affichée, jamais une propriété d'une série. Au rang 1, une charge saisie sur la ligne proposée n'est une déviation que si elle diffère de la charge proposée — c'est alors un refus, et elle se propage comme aujourd'hui.
 
 **Les reps n'ont pas la même cascade que la charge — écrit le 20/09/2026 (48b-5b-3)**, règle du chantier 43 jusque-là seulement dans un commentaire du code :
 

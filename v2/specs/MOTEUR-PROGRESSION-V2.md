@@ -883,6 +883,12 @@ Aujourd'hui, la phase se **déduit** de l'historique. Le futur chantier programm
 
 **L'observation — corrigée le 21/09/2026 (48c-2), après la première séance réelle.** À la validation, la série faite **au même rang** est toujours reliée (`set_observe`), quelle que soit sa charge : une exploration dit quelque chose, elle ne doit pas disparaître de la table. Mais ses reps ne deviennent une observation (`valeur_observee`, reps comptées) **que si la consigne a été suivie** : même charge ; ou, quand la charge proposée est inconnue (« le cran au-dessus »), n'importe quelle charge au-dessus du palier. Comparer « vise 4 à 130 » à « 3 à 135 » ne dirait rien de la visée du moteur. Trois cas se lisent ainsi : suivie (série et reps), **autre chose tenté** (série, sans reps), rien fait à ce rang (ni l'un ni l'autre). Corriger la charge ou dévalider refait ce calcul, et retire ce qui est devenu faux. La série partant avant la prédiction dans la file (`depend`), la clé étrangère de `set_observe` trouve toujours sa série.
 
+**Les révisions — décidé le 25/09/2026 (§9.14).** Une consigne revue en cours de séance est **un nouveau pari**, écrit à côté du premier, jamais à sa place : la table est immuable. Chaque changement du plan porte un **numéro de révision** par séance et par exercice, qui commence à 1 : la proposition du coach, puis, si la montée tient, les séries suivantes passées à la charge montée. Une ligne par série dont la charge change, à l'affichage de la proposition, une seule fois. Un retour au palier ne s'écrit pas : il rend sa valeur au pari de la consigne, qui n'a jamais cessé d'exister.
+
+- **L'identifiant reçoit la révision** : SHA-256 de (séance | exercice | rang | révision), mis en forme d'UUID. **La révision 0 — la consigne de l'ouverture — garde la formule sans révision** : aucun identifiant existant ne change.
+- **Le fondement** porte la révision, la série déclencheuse (rang, charge, reps saisies, reps comptées, marge), les charges proposées (une ou deux), la source de la borne haute (`programme`, `habitude`, `preconisation`), et tout ce que la consigne y mettait déjà (zone, réglage, palier, niveau validé, séance). `valeur_predite` : le bas de la zone ; `borne_basse` et `borne_haute` : la zone.
+- **L'observation** suit la règle du 48c-2 pour chaque pari : relié au même rang toujours ; reps comptées seulement si la consigne de **ce** pari a été suivie — pour une proposition à deux charges, l'une ou l'autre. Deux paris sur un même rang se départagent ainsi seuls : celui dont la charge a été faite compte ses reps, l'autre se lit « autre chose tenté ».
+
 **L'intégrité — décidée le 21/09/2026 (`v2_047`).** Deux séances de test supprimées avaient laissé 24 prédictions orphelines, dont 8 « comptées sans série » : la clé de `set_observe` ne vidait que le lien et laissait les reps. Une observation doit dire le vrai, quitte à se taire. Trois règles, tenues par la base et non par l'app :
 
 - **Une séance supprimée emporte ses prédictions.** `predictions.session_id` est une colonne générée depuis `fondement ->> 'seance'`, avec une clé en cascade vers `sessions`. Le fondement **doit** donc porter la clé `seance` : une prédiction écrite sans elle survivrait à sa séance.
@@ -916,6 +922,45 @@ Validé sur tout l'historique des cinq profils (`banc_consigne48.py`) : 6 109 co
 **Le pont depuis `analyser` — 19/09/2026 (48b-5b-2).** `analyser` ne connaît pas de rôle « palier » : une série au palier y est une série `travail` à la charge du palier. Traduction vers le contrat de `consignePour` : `travail` à la charge du palier → `palier` ; autre `travail` → `travail` ; `exploration` → `exploration` ; `rampe` → `rampe` ; `chauffe`, `chauffe_probable`, `degressive`, `descente_choisie` et `echec` → `autre`. **Une seule fonction fait ce pont**, dans l'ordre des séries de la séance. La date de coupure est le début de la séance ouverte.
 
 **Le fondement enrichi — 20/09/2026 (48b-6a).** Pour la feuille « Pourquoi », le fondement porte aussi : **la dernière séance, série par série** (`seance` : charge, reps, RPE, ressenti, rôle du contrat, et `origine`, le rôle d'`analyser` — chauffe, chauffe probable, dégressive, descente, échec — que le contrat résume en `autre`) ; **l'habitude** (`habitude` : sa valeur, et le nombre de séances qui la fondent, 8 au plus) ; pendant un étirement, **la zone figée** (`zoneFigee` : la date du premier test raté de l'épisode). Le pont transmet `origine` avec chaque série.
+
+### 9.14 La réaction série par série — décidé le 25/09/2026 (chantier 49)
+
+> **Le coach lit chaque série que tu valides. Quand une série faite à la charge proposée dépasse sa visée de 3 reps comptées ou plus, il propose de monter dès la série suivante. Sinon, il se tait.**
+
+Jusqu'ici, la consigne se calculait à l'ouverture de la séance et ne bougeait plus : le test entrait par la dernière série et gagnait une série par séance (§9.7). C'est la moitié de l'APRE (Mann 2010 ; §9.8), qui règle la charge d'une série sur les reps de la précédente, **dans la même séance**. La réaction fait l'autre moitié.
+
+**Quand il parle.** Après une série de travail faite **à la charge du palier proposé**, avant toute montée dans le bloc, quand ses reps comptées (§17.4 : une série à RPE 10 ou « reste 0 » compte une rep de moins) dépassent la visée de cette série de **3 ou plus**. Jamais sur la dernière série de l'exercice : il n'y a rien après. Jamais sur les chauffes, la rampe, les dégressives. En superset, « la série suivante » est la suivante **du même exercice**.
+
+**Ce qu'il propose.** La série suivante, avec **une fourchette de reps** : « 130, vise 3 à 5 » — à une charge qu'on n'a pas encore faite, le coach vise la zone, pas un chiffre. Le pari écrit dans `predictions` est le bas de la zone (§9.11). La charge :
+
+| Borne | Ce qu'elle vaut |
+|---|---|
+| Basse, toujours | **Un cran** : la charge immédiatement au-dessus du palier, dans l'ordre du §10.2 (la même que celle d'un test) |
+| Haute, seulement à 5 reps de marge ou plus | Dans cet ordre : **le programme**, quand il en fixe une (prise vide aujourd'hui, remplie par le chantier programmes, comme les phases du §9.10) ; sinon **ton saut habituel** sur cet exercice ; sinon **deux crans**, s'ils restent sous 10 % du palier (les garde-fous du réglage Franc). Si la borne haute ne dépasse pas la basse, une seule charge est proposée |
+
+Le **saut habituel** est la médiane, sur les séances antérieures de cet exercice (§9.12), des montées en cours de séance — une série de travail plus lourde que la série au palier qui la précède —, rapportée au palier, puis ramenée à la plus petite charge déjà utilisée sur cet exercice qui l'atteint. Il faut au moins 5 montées antérieures, sinon on passe à la source suivante. C'est une habitude décrite, comme le pas de salle : **comment** la personne monte, jamais les seules fois où ça a tenu. Même ordre de priorité que pour les zones : ce que le plan fixe, puis ce que la personne fait, puis la préconisation (§9.1.2).
+
+**Ce qui suit la série montée.**
+
+- **Elle tient** (reps comptées au moins au bas de la zone) : la charge montée reste pour les séries suivantes, visée à la zone ; une série que la consigne avait déjà prévue à cette charge garde sa visée. Le coach le dit par un fait (§20). **En zone Lourd, au plus une série de plus** à la charge montée que ce que la consigne prévoyait (le garde-fou du §9.7) : les autres gardent la consigne.
+- **Elle ne tient pas** : retour à la charge et à la visée du palier pour les séries suivantes, dit en gris, avec « pas encore » (§20).
+- **Une seule montée par bloc.** Après une montée, tenue ou non, le coach ne propose plus rien dans ce bloc.
+
+**Quand il se tait.** Sous la visée ou à 1-2 reps de marge ; **après un refus** — la série proposée validée à une charge inférieure à la borne basse —, jusqu'à la fin du bloc : reproposer serait insister après un non ; en **Entretenir** (ECRAN-PROFIL §2.3), qui coupe le coach, propositions et encouragements compris ; quand le moteur se tait déjà (silence, mesure sans charge, règle de bord sans zone) ; les jours de **reprise** (`reprise_courte`, `reprise_longue`, §9.9), où la consigne est volontairement sans rep de plus. Le réglage Prudent, Normal ou Franc ne change rien en version 1.
+
+**Ce qu'il lit.** Les séances antérieures, comme la consigne, **et les séries déjà validées de la séance en cours** — jamais une série seulement tapée. Corriger ou dévalider une série validée refait le calcul. **Une fonction pure** : consigne et séries validées en entrée ; plan des séries restantes, message et fondement en sortie. L'écran, la feuille « Pourquoi » et `predictions` lisent sa sortie, aucun ne la recalcule — le moteur ne connaît pas l'écran.
+
+**Mesure** (rejeu de la consigne sur les cinq historiques, 4 679 séries faites à la charge proposée, 991 suivies d'une montée) — part des montées qui tiennent dans la zone :
+
+| Marge de la série d'avant | Montées qui tiennent |
+|---|---|
+| Aucune (tests prévus d'avance, surtout) | 58 sur 100 (772) |
+| 1 ou 2 reps | 69 sur 100 (117) |
+| **3 reps ou plus** | **90 sur 100** (102) — après la série 1 : 78 sur 100 (36) ; après la série 2 ou plus tard : 97 sur 100 (66) |
+
+Les montées de l'historique valaient +12 % en médiane, plus qu'un cran : pour le coach, qui propose un cran, ces chiffres sont une borne basse. Le saut habituel est propre à chaque exercice et régulier (sur 56 exercices assez fournis, la moitié des sauts tient dans 4 à 5 points autour de l'habitude ; de +5 % aux haltères à +26 % sur une poulie à plaques) ; les montées de la taille habituelle tiennent aussi bien que les autres (21 sur 25). **Réserve** : dans l'historique, les gens montaient quand ils se sentaient bien ; le coach le proposera aussi à ceux qui n'y auraient pas pensé. Chaque proposition étant un pari (§9.11), les premières semaines le mesureront.
+
+**Confrontation.** L'APRE monte dès 2 reps au-dessus de la visée ; nous à 3. Leur série de référence est poussée jusqu'à l'échec, pas la nôtre, et à 2 reps de marge nos montées ne tiennent que 58 fois sur 100. L'APRE décide après deux séries d'approche ; nos données trouvent aussi la décision plus sûre après la série 2. L'APRE baisse la charge après un gros raté ; pas nous (le niveau validé tolère la fatigue, §9.2, et la doctrine est de ne jamais imposer une baisse). Le retour d'information verbal et l'encouragement améliorent la performance chez des pratiquants entraînés (Weakley 2020), et le retour d'information améliore l'adaptation sur 4 à 6 semaines (méta-analyse, Weakley 2023) ; ce qui fait un encouragement efficace est mal connu, d'où le choix de dire un fait plutôt qu'un « bravo » (§20).
 
 ---
 
@@ -1528,6 +1573,10 @@ Conforme au cadrage : **descriptif, jamais prescriptif sur l'historique.**
 | Test raté | « 130 × 2 : pas encore dans ta zone. » + « Prochaine séance : 125 kg, vise 5, puis 127,5 kg sur la dernière, vise 3. » |
 | Zone étirée | « Ton cran ne peut pas être plus petit : ta zone s'étire. On retestera 32 quand tu feras 16 à 28. » |
 | Reprise | « On reprend à ton dernier palier, sans rep de plus. » — jamais la durée de l'absence |
+| Proposition en séance (§9.14) | « 8 à 125, 3 de plus que visé : 130 dès la série 2, vise 3 à 5 ? » — à 5 reps de marge : « 125, ou 130 si tu te sens bien » — en jaune, dans la grille |
+| Montée tenue | « 130 × 5, dans ta zone : ton test a avancé d'une série. » — sans test prévu : « 125 × 9, dans ta zone : tu montes dès aujourd'hui. » — au haut de la zone : « 130 × 5, le haut de ta zone. » **Un fait, jamais un « bravo »** |
+| Montée pas encore tenue | « 130 × 2 : pas encore. Tu as tenté plus tôt que prévu ; on reprend à 125. » — en gris |
+| Proposition refusée, Entretenir | rien |
 | Seuil dépassé | « 122,5 ne bouge plus depuis 4 séances — c'est plus long que d'habitude pour toi. » + la marche suivante — « plus long que d'habitude » seulement si c'est vrai pour la personne, sinon « 122,5 ne bouge plus depuis 4 séances. » (§12.8, 25/09/2026) |
 | Frère qui progresse | « Ta barre tient, mais tes haltères sont montés à 92. » |
 | Muscle limitant | « Tes triceps et tes épaules montent, tes pecs seuls stagnent. Piste à vérifier, pas un diagnostic. » |
@@ -1629,7 +1678,13 @@ L'erreur passe de 1,00 rep si on ne garde que les séries ≤ 8 reps à 2,00 si 
 | Recalcul des seuils v1.1 sur le fichier reconstruit | paliers et incréments portaient sur un fichier amputé de 12 % |
 
 | Stagnation sous consigne (§12.2 bis, §12.8) | **tranchée le 25/09/2026** : niveau validé, par zone, séances suivies seulement, seuil fixe et mots personnels |
-| Réaction série par série en séance (l'APRE dans la séance, §9.8) | chantier 49, à mesurer avant l'escalier ; un nouveau pari par révision dans `predictions` |
+| Réaction série par série (§9.14) | **tranchée le 25/09/2026**, version 1. Ses limites connues, par ordre d'importance : |
+| — le ressenti | il ne lit que les reps : 8 reps avec 3 en réserve ou à l'échec ne sont pas la même série. L'app doit collecter le ressenti dès maintenant pour qu'une version 2 s'en serve sur des données réelles |
+| — la fatigue normale | il se tait quand ça baisse ; un coach dirait parfois « normal, garde la charge ». À peser : une phrase de plus est une phrase de trop si elle n'apporte rien |
+| — une seule montée | pas de deuxième montée dans le bloc : seule la première a été mesurée |
+| — le nombre de séries | ajouter ou retirer une série : quatrième sujet du chantier 49, avec l'escalier |
+| — l'ordre dans la séance | un exercice après quinze séries sur le même muscle (§12 bis), non mesuré |
+| — l'apprentissage | seuil de 3 reps identique pour tous ; à ajuster par exercice sur les paris observés dans `predictions` |
 | Escalier (§14) | chantier 49 : ordre des marches rouvert, première marche selon la vitesse de progression |
 | Calisthénie : les cinq leviers de progression | non traité, hors chantier 48 |
 | Top set suivi de séries allégées (banc M16) | 2 à 5 séances sur 100 ; le moteur y voit un test raté, sans effet — à surveiller |
@@ -1725,6 +1780,19 @@ Décisions prises avec Aurélien, mesurées en rejouant la consigne sur les cinq
 
 Sources ajoutées au §23 : Rogerson et al. 2024. Pratique de coaching confrontée : protocoles d'échec de GZCLP et du 5×5 (programmes pour débutants).
 
+### 22.10 Amendement du 25/09/2026 — la réaction série par série (chantier 49)
+
+Décisions prises avec Aurélien, mesurées en rejouant la consigne sur les cinq historiques (`mesure_reaction49.py`), confrontées à l'APRE, à la littérature sur le retour d'information et au coaching. Maquette : `maquette-reaction-serie-v1.html`.
+
+| Où | Avant | Après |
+|---|---|---|
+| §9.14 | La consigne ne bouge plus une fois la séance ouverte | Le coach réagit à chaque série validée : 3 reps de marge, un cran, fourchette programme puis habitude puis préconisation |
+| §9.11 | Une consigne par séance et par exercice | Des révisions, chacune un pari ; la révision entre dans l'identifiant, la révision 0 garde l'ancienne formule |
+| §20 | — | Les phrases de la réaction : proposer, constater un fait, « pas encore » |
+| §22.3 | Réaction à mesurer | Tranchée ; six limites notées |
+
+Sources ajoutées au §23 : Weakley et al. 2020 ; Weakley et al. 2023.
+
 ## 23. Sources
 
 - Plotkin D. et al. (2022). *PeerJ* 10:e14142 — progression en charge vs en reps
@@ -1736,6 +1804,8 @@ Sources ajoutées au §23 : Rogerson et al. 2024. Pratique de coaching confront�
 - Coleman M. et al. (2024). *PeerJ* 12:e16777 — deload d'une semaine
 
 - Rogerson D. et al. (2024). *Sports Medicine – Open* 10:26. DOI 10.1186/s40798-024-00691-y — pratiques de décharge de 246 athlètes de force et de physique : environ 6 jours toutes les 5 à 6 semaines, surtout planifiées, déclenchées aussi quand la performance cale
+- Weakley J. et al. (2020). *Journal of Strength and Conditioning Research* 34(11). DOI 10.1519/JSC.0000000000002887 — encouragement verbal, retour verbal et retour visuel améliorent la performance au squat chez des pratiquants entraînés
+- Weakley J. et al. (2023). *The Effect of Feedback on Resistance Training Performance and Adaptations: A Systematic Review and Meta-analysis* — le retour d'information améliore l'adaptation, surtout sur 4 à 6 semaines
 - LeSuer D.A. et al. (1997) — validité des équations de 1RM sur les trois barres
 - van den Tillaar R. (2013) — contribution musculaire à la sortie du point de blocage
 - *Journal of Functional Morphology and Kinesiology* (2025). DOI 10.3390/jfmk10030322 — le point de blocage est géométrique

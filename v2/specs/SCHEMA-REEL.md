@@ -1,4 +1,4 @@
-# Schéma réel — état au 21 septembre 2026
+# Schéma réel — état au 25 septembre 2026
 
 **Régénéré depuis la base**, projet Supabase `swwygywahfdenyzotrce` (eu-west-1).
 Dernière migration appliquée : **`v2_047_predictions_integrite`**.
@@ -7,13 +7,13 @@ Dernière migration appliquée : **`v2_047_predictions_integrite`**.
 > routines et n'a plus valeur de référence. En cas de doute, la base fait foi — pas ce
 > fichier. Il est régénéré, pas rédigé.
 
-> **Régénéré le 21/09/2026 depuis la base.** Dernière migration : **`v2_047_predictions_integrite`**.
+> **Régénéré le 25/09/2026 depuis la base.** Dernière migration : **`v2_047_predictions_integrite`**.
 > Prochain numéro libre : **`v2_048`**. Cette version remplace celle du 19/09 (`v2_046`), qui
 > avait elle-même repris ce que seule la version du dépôt portait : les contraintes de
 > `routine_sets`, sa phrase RLS, et l'avertissement sur `series`/`reps_visees` — tous
-> revérifiés dans la base le 21/09.
+> revérifiés dans la base le 25/09.
 
-**Volumétrie régénérée le 21/09/2026 :** **1 249 séances · 28 768 séries** · 237 exercices ·
+**Volumétrie régénérée le 25/09/2026 :** **1 249 séances · 28 768 séries** · 237 exercices ·
 255 alias · 116 pesées · **5 profils** · **11 routines · 79 exercices de routine ·
 280 séries programmées** · 59 modèles · **0 prédiction** · 6 zones corrigées.
 
@@ -25,7 +25,7 @@ Dernière migration appliquée : **`v2_047_predictions_integrite`**.
 **9 484 séries en superset.** 1 799 portent une durée, 288 un RPE.
 
 > ⚠️ **80 séries seulement portent `validee_a`, et 75 un `repos_s`** — celles saisies dans
-> l'app, toutes par `aurel_br`, seul à saisir au 21/09. Tout le reste vient de l'import Hevy,
+> l'app, toutes par `aurel_br`, seul à saisir au 25/09. Tout le reste vient de l'import Hevy,
 > qui ne porte ni l'un ni l'autre.
 
 ---
@@ -132,7 +132,7 @@ select rendait « zéro ligne » pour un pseudo pris comme pour un libre.
 
 - **`profiles.rythme_progression`** : `text not null default 'normal'`, contrainte `in ('prudent', 'normal', 'franc')` ; les 5 profils en `normal`. L'intention reste dans `profiles.intention` (`v2_043`).
 - **`zones_exercice`** (nouvelle, étage 1 — déclaré, append-only) : `id`, `user_id` (→ `profiles`), `exercise_slug` (→ `exercises.slug`), `zone` (`lourd`, `mix`, `hypertrophie`, `volume`, `series_longues`, ou vide = retour à la déduction), `corrigee_a`, `created_at`. Zone courante = dernière ligne par (`user_id`, `exercise_slug`), index `zones_exercice_courante_idx`. RLS `zones_exercice_owner`, avec `(select auth.uid())`.
-- **Verrou d'immuabilité sur `predictions`** : trigger `predictions_immuable` (`BEFORE UPDATE`, fonction `predictions_refuse_modification`), qui refuse toute modification sauf `valeur_observee`, `observee_a`, `set_observe`. Il compare la ligne entière moins ces colonnes : **toute colonne ajoutée plus tard est verrouillée par défaut**. Refus en `check_violation`. Autotesté, trace effacée. *Précisé le 21/09 :* depuis `v2_047`, la colonne calculée `session_id` est aussi exclue de la comparaison — voir ci-dessous ; cela ne desserre rien, puisque `fondement`, sa source, reste comparé.
+- **Verrou d'immuabilité sur `predictions`** : trigger `predictions_immuable` (`BEFORE UPDATE`, fonction `predictions_refuse_modification`), qui refuse toute modification sauf `valeur_observee`, `observee_a`, `set_observe`. Il compare la ligne entière moins ces colonnes : **toute colonne ajoutée plus tard est verrouillée par défaut**. Refus en `check_violation`. Autotesté, trace effacée. *Précisé le 25/09 :* depuis `v2_047`, la colonne calculée `session_id` est aussi exclue de la comparaison — voir ci-dessous ; cela ne desserre rien, puisque `fondement`, sa source, reste comparé.
 
 Vérifié après application : 5 profils en `normal`, 0 prédiction, séries intactes.
 
@@ -150,7 +150,7 @@ changement d'app :
   `predictions_session_idx`.
   > ⚠️ **La cascade ne tient que si le fondement porte la clé `seance`.** Une prédiction écrite
   > sans elle a `session_id` vide et **survit à la suppression de sa séance**. Non vérifiable
-  > au 21/09 (table vide) : à contrôler sur la première vraie séance.
+  > au 25/09 (table vide) : à contrôler sur la première vraie séance.
 - **Une série supprimée emporte toute son observation.** Trigger **`sets_efface_observation`**
   (`BEFORE DELETE ON sets`) : remet `set_observe`, `valeur_observee` et `observee_a` à NULL sur
   les prédictions qui la désignent — sauf celles dont la séance est déjà supprimée, que la
@@ -166,7 +166,7 @@ de la comparaison. Et l'ordre des cascades à la suppression d'une séance : les
 avec elle, et `sets_efface_observation` ne doit pas écrire sur une prédiction que la cascade
 emporte déjà.
 
-Les 24 prédictions orphelines ont été emportées : **`predictions` est vide au 21/09.**
+Les 24 prédictions orphelines ont été emportées : **`predictions` est vide au 25/09.**
 
 ---
 
@@ -202,7 +202,7 @@ Index : `predictions_en_attente_idx` (non observées), `predictions_user_module_
 
 **Étage 1 : déclaré, ajout seulement.** Une ligne = une correction datée de la zone d'un
 exercice ; la dernière par (`user_id`, `exercise_slug`) fait foi, une zone vide rend la main
-à la déduction. **Pas d'unicité** : c'est voulu. Contenu au 21/09 : 6 corrections de
+à la déduction. **Pas d'unicité** : c'est voulu. Contenu au 25/09 : 6 corrections de
 `aurel_br`, sur deux exercices, toutes du 20/09 (essais de 48b).
 
 ## `routine_sets` — 280 lignes · créée par `v2_042` le 15/09/2026
@@ -336,7 +336,7 @@ non-archivées).
 (évite la réévaluation par ligne).
 
 > ⚠️ **Contredit par l'advisor Supabase le 19/09/2026** : 66 politiques sont signalées pour
-> réévaluer `auth.uid()` à chaque ligne. **Recompté le 21/09 par schéma** : 52 dans `archive`
+> réévaluer `auth.uid()` à chaque ligne. **Recompté le 25/09 par schéma** : 52 dans `archive`
 > (tables v1), 2 dans `storage`, **14 dans `public`** — dont 9 sur les tables v1 archivées
 > (`sbd_profiles`, `workout_sessions`) et **5 seulement sur des tables v2** : les quatre de
 > `profiles` (`profiles_select_own`, `_insert`, `_update`, `_delete`) et `routine_sets_owner`.
@@ -360,4 +360,4 @@ renseigner à l'écriture (il n'a pas de défaut).
 vérifiés. **Écriture, migration et RLS : jamais.**
 
 Toujours `list_migrations` avant de nommer une migration : la numérotation a historiquement
-déraillé. Prochain numéro libre au 21/09/2026 : **`v2_048`**.
+déraillé. Prochain numéro libre au 25/09/2026 : **`v2_048`**.

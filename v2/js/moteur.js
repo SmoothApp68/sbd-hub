@@ -1379,18 +1379,115 @@
     return sauts;
   }
 
+  // §9.14 (49-R2) — LE CONTEXTE DE LA RÉACTION, sur les séances ANTÉRIEURES
+  // seulement (§9.12) : le cran au-dessus de la charge proposée (§10.2, la
+  // même fonction que le test), le cran suivant, les sauts habituels et les
+  // charges déjà utilisées — et de là la seconde charge (`secondeCharge`).
+  //
+  // ⚠️ LA BASE EST LA CHARGE DE LA LIGNE, pas `consigne.palier` : c'est à elle
+  // que la réaction compare (« une série au palier proposé »). En état
+  // `attend`, la ligne est l'ancien palier et la proposition monte d'elle.
+  //
+  // `seances` : les séances du contrat (`contratDe`), `{ debut, palier,
+  // series }`. `programme` : la charge qu'un programme fixerait — `null`
+  // aujourd'hui, la prise du chantier programmes (§9.10).
+  function contexteReaction(seances, avant, consigne, equipement, programme) {
+    var vide = { cran: null, haut: null };
+    if (!consigne || !consigne.ligne) return vide;
+    var base = nombre(consigne.ligne.charge);
+    if (base === null) base = nombre(consigne.palier);
+    if (base === null) return vide;
+    var vues = (seances || []).map(vueDeSeance);
+    var cran = chargeVoisine(vues, avant, base, equipement, 1);
+    var cranSuivant = cran === null ? null : chargeVoisine(vues, avant, cran, equipement, 1);
+    var ant = anterieures(vues, avant);
+    var charges = [];
+    ant.forEach(function (se) {
+      chargesDe(se).forEach(function (c) { if (charges.indexOf(c) < 0) charges.push(c); });
+    });
+    return {
+      cran: cran,
+      haut: secondeCharge({ palier: base, cran: cran, cranSuivant: cranSuivant,
+        sauts: sautsDeMontee(ant), charges: charges,
+        programme: programme === undefined ? null : programme })
+    };
+  }
+
+  // §9.11 (49-R2, delta 49-4) — LA RÉVISION DE CHAQUE LIGNE, lue sur le plan
+  // seul : la première ligne du coach porte la révision 1 (la série
+  // proposée), les suivantes la révision 2 (passées à la charge montée). La
+  // consigne et le retour au palier gardent la révision 0 : leur pari est
+  // celui de l'ouverture.
+  function revisionsDuPlan(plan) {
+    var vu = false;
+    return (plan || []).map(function (p) {
+      if (!p || p.source !== 'coach') return 0;
+      if (!vu) { vu = true; return 1; }
+      return 2;
+    });
+  }
+
+  // §9.11 (49-R2) — LE PARI D'UNE RÉVISION, écrit à la validation de la série
+  // qu'il concerne. `faites` : les séries validées, dans l'ordre, celle de
+  // l'index `j` comprise. Le plan se relit TEL QU'IL ÉTAIT avant elle — la
+  // proposition qu'elle a reçue —, donc sur `faites` jusqu'à `j` exclu : un
+  // effort saisi entre-temps qui a retiré la proposition ne laisse rien écrire.
+  //
+  // Rend une liste, vide si la ligne `j` n'était pas une ligne du coach.
+  function lignesDeRevision(consigne, faites, contexte, j, options) {
+    var o = options || {};
+    var liste = faites || [];
+    if (!consigne || j < 0 || j >= liste.length) return [];
+    var z = zoneParCle(consigne.zone);
+    if (z === null) return [];
+    var r = reactionPour(consigne, liste.slice(0, j), contexte);
+    var revs = revisionsDuPlan(r.plan);
+    var rev = revs[j];
+    if (!rev) return [];
+    var p = r.plan[j];
+    var iDecl = rev === 1 ? j - 1 : revs.indexOf(1);
+    var d = liste[iDecl] || {};
+    var comptees = Palier().repsComptees(d);
+    var viseDecl = r.plan[iDecl] ? r.plan[iDecl].vise : null;
+    var propose = rev === 1 && r.message && r.message.type === 'propose' ? r.message : null;
+    return [{
+      module: MODULE_CONSIGNE,
+      exercise_slug: o.slug === undefined ? null : o.slug,
+      grandeur: 'reps',
+      valeur_predite: z.bas,
+      borne_basse: z.bas,
+      borne_haute: z.haut,
+      fondement: {
+        rang: j + 1,
+        charge: p.charge,
+        etat: consigne.etat,
+        zone: consigne.zone === undefined ? null : consigne.zone,
+        reglage: o.reglage === undefined ? null : o.reglage,
+        palier: consigne.palier === undefined ? null : consigne.palier,
+        niveau: consigne.niveau === undefined ? null : consigne.niveau,
+        seance: o.seance === undefined ? null : o.seance,
+        revision: rev,
+        declencheur: {
+          rang: iDecl + 1, charge: nombre(d.charge_kg), reps: nombre(d.reps),
+          comptees: comptees,
+          marge: comptees === null || viseDecl === null ? null : comptees - viseDecl
+        },
+        charges: rev === 1 && r.attente ? r.attente.charges.slice() : [p.charge],
+        source: propose ? propose.source : null
+      }
+    }];
+  }
+
   // §20 — LES PHRASES DE LA RÉACTION. Un fait, jamais un « bravo ».
   // Elles ne lisent que le message et les bornes de la zone : aucune règle ne
   // se rejoue ici. Mêmes insécables que les phrases de l'en-tête (autour du
   // « × », avant les deux-points).
   //
-  // ⚠️ JUSQU'AU MILLIÈME, pas au centième comme `nombreFr` : une charge de
-  // poulie convertie (21,315) doit se lire telle que la personne l'a faite, et
-  // l'arrondir en 21,32 afficherait une charge qu'elle n'a pas soulevée.
-  function nombreReaction(v) { return Modele().nombre(v, 3); }
-  function croixReaction(a, b) {
-    return nombreReaction(a) + INSECABLE + '×' + INSECABLE + nombreReaction(b);
-  }
+  // Le centième, comme toutes les phrases du moteur (`nombreFr`). Le millième
+  // de 49-R1 venait d'un artefact de la simulation (« 21,315 »), corrigé dans
+  // le fichier de cas v2 (49-R2).
+  function nombreReaction(v) { return nombreFr(v); }
+  function croixReaction(a, b) { return croix(a, b); }
 
   function phraseReaction(message, zone) {
     var m = message || null;
@@ -2099,12 +2196,17 @@
   function observationDe(fondement, fait) {
     var f = fondement || {}, x = fait || {};
     if (!x.enBase) return { set_observe: null, valeur_observee: null };
-    var proposee = nombre(f.charge);
     var palier = nombre(f.palier);
     var faite = nombre(x.charge);
-    var suivie = faite !== null && (proposee !== null
-      ? faite === proposee
-      : (palier !== null && faite > palier));
+    // §9.11 (49-R2) — UNE PROPOSITION À DEUX CHARGES est suivie par l'une ou
+    // l'autre. Chaque pari se juge sur SES charges, jamais sur celles d'un
+    // autre pari du même rang.
+    var liste = Array.isArray(f.charges) && f.charges.length ? f.charges : [f.charge];
+    var suivie = faite !== null && liste.some(function (c) {
+      var p = nombre(c);
+      return p !== null ? auCentieme(faite) === auCentieme(p)
+        : (palier !== null && faite > palier);
+    });
     var reps = x.reps === undefined ? null : x.reps;
     return {
       set_observe: x.id || null,
@@ -2352,7 +2454,10 @@
       { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null });
     return { consigne: consigne, libelles: libellesConsigne(consigne),
              etiquette: etiquetteZone(consigne),
-             pourquoi: pourquoiConsigne(consigne, o.reglage) };
+             pourquoi: pourquoiConsigne(consigne, o.reglage),
+             // §9.14 (49-R2) — le contexte de la réaction, UNE FOIS par séance
+             // et par exercice, sur les séances antérieures (§9.12).
+             contexte: contexteReaction(seances, avant, consigne, o.equipement, null) };
   }
 
   // ── §3.9 — LE CONSTAT D'UN EXERCICE, DE BOUT EN BOUT ─────────────────────
@@ -2416,6 +2521,9 @@
     reactionPour: reactionPour,
     secondeCharge: secondeCharge,
     sautsDeMontee: sautsDeMontee,
+    contexteReaction: contexteReaction,
+    revisionsDuPlan: revisionsDuPlan,
+    lignesDeRevision: lignesDeRevision,
     phraseReaction: phraseReaction,
     libellesConsigne: libellesConsigne,
     pourquoiConsigne: pourquoiConsigne,

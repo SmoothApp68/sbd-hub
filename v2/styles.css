@@ -807,6 +807,28 @@ button.puce-zone{font:inherit;font-size:11px;font-weight:600;cursor:pointer;
 .ch-serie.fantome input::placeholder,.rp-serie.fantome input::placeholder{
   color:var(--texte-3);font-weight:400;opacity:1}
 
+/* §9.14 (49-R2) — LA RÉACTION DANS LA GRILLE (maquette-reaction-serie-v1,
+   variante A). La phrase au-dessus de la ligne qu'elle concerne ; la ligne
+   proposée porte un filet à gauche et sa charge en couleur du coach ; ses reps
+   n'ont qu'une indication (la fourchette), pas un fantôme. */
+.reaction-serie{color:var(--accent);font-size:13.5px;font-weight:620;line-height:1.35;
+  padding:6px 2px 4px 35px}
+.reaction-serie.tenue,.reaction-serie.haut{color:var(--texte);font-weight:560}
+.reaction-serie.pas_encore{color:var(--texte-2);font-weight:500}
+.reaction-serie.debut-tour{margin-top:11px}
+.reaction-serie .coche-verte{width:14px;height:14px;margin:0 6px -2px 0;fill:none;
+  stroke:var(--reussi);stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.ligne-serie.proposee .serie{box-shadow:inset 3px 0 0 var(--accent);
+  background:rgba(242,183,5,.06)}
+.ch-serie.coach input::placeholder{color:var(--accent);font-weight:600;opacity:.9}
+.rp-serie.indication{border-style:dashed;background:transparent}
+.rp-serie.indication input::placeholder{color:var(--accent);font-weight:400;opacity:.9}
+/* La ligne proposée validée sans ses reps : le champ attend, sans alarme. */
+.rp-serie.a-taper{border-color:var(--accent);border-style:solid;
+  animation:attendre-reps .9s ease-out 1}
+@keyframes attendre-reps{0%{box-shadow:0 0 0 0 rgba(242,183,5,.45)}
+  100%{box-shadow:0 0 0 8px rgba(242,183,5,0)}}
+
 .eff-serie{height:38px;border-radius:var(--r-petit);border:1px dashed var(--trait);
   background:transparent;color:var(--texte-3);font:600 12px/1 inherit;
   font-family:inherit;display:grid;place-items:center}

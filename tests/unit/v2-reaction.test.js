@@ -73,8 +73,8 @@ function proche(vu, attendu, chemin) {
 const espaces = (t) => (t === null ? null : t.replace(/ /g, ' '));
 
 describe('§9.14 — reactionPour, rejouée série après série sur le fichier de cas', () => {
-  test('le fichier porte 53 cas de réaction, 17 de seconde charge, 6 de sauts', () => {
-    expect(DONNEES.reaction.length).toBe(53);
+  test('le fichier porte 55 cas de réaction, 17 de seconde charge, 6 de sauts', () => {
+    expect(DONNEES.reaction.length).toBe(55);
     expect(DONNEES.seconde_charge.length).toBe(17);
     expect(DONNEES.sauts_de_montee.length).toBe(6);
   });

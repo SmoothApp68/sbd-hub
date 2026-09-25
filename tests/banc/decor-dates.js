@@ -1,6 +1,11 @@
 //
 // Les dates du décor du banc d'écran — UN SEUL ENDROIT.
 //
+// ══ LA RÈGLE (famille #304, #311, #316) ════════════════════════════════════
+// 1. Toute date du décor qui dépend de maintenant passe par ce fichier, jamais par un calcul local du banc.
+// 2. Elle est dans le passé, et dans la semaine que la section qui la lit ouvre.
+// 3. `tests/unit/v2-banc-dates.test.js` la vérifie pour les 7 jours × 4 heures : une date qui n'y passe pas n'est pas contrôlée.
+//
 // ══ POURQUOI CE FICHIER EXISTE ═════════════════════════════════════════════
 //
 // Le décor se datait depuis « le lundi de cette semaine ». Deux contraintes
@@ -87,11 +92,56 @@ function seanceSansSeries(ancre) {
   return new Date(new Date(ancre).getTime());
 }
 
+// Les séances de la semaine isolée (sections 40 à 49) : les AUTRES jours de
+// la semaine de l'ancre, à midi. Elles remplacent « ancre + k jours + 10 h »,
+// qui sortait de cette semaine dès que l'ancre n'était pas un lundi (« Quads
+// tous terrains », k = 2 : le samedi et le dimanche).
+//
+// ⚠️ JAMAIS LE JOUR DE L'ANCRE : c'est celui de la section 47, et sa carte
+// sans séries n'a pas d'enveloppe — elle cherche le « ⋯ » dans le bloc du
+// JOUR. Une autre séance le même jour y mettrait le sien, et la vérification
+// mesurerait la voisine.
+// Toute la semaine de l'ancre est huit semaines derrière nous : n'importe quel
+// jour y est passé. Midi, et non l'heure de l'ancre : un changement d'heure
+// ne fait jamais changer midi de jour.
+// `n` va de 1 à 6 : le n-ième jour de la semaine, l'ancre exclue, dans l'ordre.
+function jourIsole(ancre, n) {
+  var a = new Date(ancre);
+  var lundi = new Date(a.getFullYear(), a.getMonth(), a.getDate() - ((a.getDay() + 6) % 7), 12);
+  var autres = [];
+  for (var i = 0; i < 7; i++) {
+    var d = new Date(lundi.getFullYear(), lundi.getMonth(), lundi.getDate() + i, 12);
+    if (d.getDate() !== a.getDate() || d.getMonth() !== a.getMonth()) autres.push(d);
+  }
+  return autres[n - 1];
+}
+
+// « Il y a `duree` millisecondes » — la séance d'avant, posée juste derrière
+// maintenant (et quelques semaines plus tôt pour un historique).
+function ilYa(duree, maintenant) {
+  var t = maintenant === undefined ? Date.now() : Number(maintenant);
+  return new Date(t - duree);
+}
+
+// La FIN d'une séance terminée du décor : une heure après son début, mais
+// jamais dans l'avenir. « Début + 1 h » tombait à venir à minuit passé
+// (rangs du décor) et TOUJOURS pour une séance posée une seconde avant
+// maintenant : une séance terminée ne finit pas plus tard qu'aujourd'hui.
+var HEURE = 3600000;
+function finDe(debut, maintenant) {
+  var t = maintenant === undefined ? Date.now() : Number(maintenant);
+  var d = new Date(debut).getTime();
+  return new Date(Math.max(d, Math.min(d + HEURE, t - 1)));
+}
+
 module.exports = {
   JOUR: JOUR,
   RANGS: RANGS,
   debutDeJournee: debutDeJournee,
   datesDuDecor: datesDuDecor,
   ancreSemaineIsolee: ancreSemaineIsolee,
-  seanceSansSeries: seanceSansSeries
+  seanceSansSeries: seanceSansSeries,
+  jourIsole: jourIsole,
+  ilYa: ilYa,
+  finDe: finDe
 };

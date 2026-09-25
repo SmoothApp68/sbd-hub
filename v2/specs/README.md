@@ -19,7 +19,7 @@ Les autres fixent les bornes chiffrées.
 | Fichier | Rôle |
 |---|---|
 | `CADRAGE-V2.md` | **Prime sur tous les autres.** Cible, périmètre, ce que le système peut affirmer |
-| `SCHEMA-REEL.md` | État réel de la base, régénéré le 11/09/2026 (`v2_040`) |
+| `SCHEMA-REEL.md` | État réel de la base, **régénéré, pas rédigé** — la date et la dernière migration sont dans son en-tête |
 | `REFERENTIEL-BORNES-V1.md` | Bornes scientifiques sourcées. Ce que l'algo n'a pas le droit d'affirmer |
 | `MOTEUR-PROGRESSION-V2.md` | Progression, palier, format, stagnation |
 | `REGLE-VOLUME-V2.md` | Volume par muscle, fenêtres, seuils |

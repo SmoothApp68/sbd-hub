@@ -93,6 +93,39 @@ describe('le décor du banc ne dépend plus du jour de la semaine', () => {
     });
   });
 
+  // ── LA SEMAINE ISOLÉE (sections 40 à 49), étendue le 25/09/2026 ─────────
+  //
+  // Même famille, une semaine plus loin : la séance de la section 47 était
+  // posée à « ancre + 6 jours », et l'ancre n'est pas un lundi. Elle ne tombait
+  // dans la semaine ouverte (`/semaine/<date de l'ancre>`) QUE le lundi — la
+  // carte était « absente » six jours sur sept, sur `main` comme ailleurs.
+  //
+  // `isoL` du banc : la date LOCALE de l'ancre, dont le routeur ouvre la
+  // semaine. On la rejoue ici pour savoir quelle semaine est affichée.
+  const semaineOuverte = (ancre) => lundiDe(ancre.getTime());
+
+  test('DISCRIMINANT — la séance de la section 47 est DANS la semaine ouverte, aucun jour', () => {
+    INSTANTS.forEach(({ nom, t }) => {
+      const ancre = Decor.ancreSemaineIsolee(Decor.datesDuDecor(t)[0]);
+      const d = Decor.seanceSansSeries(ancre);
+      expect([nom, lundiDe(d.getTime())]).toEqual([nom, semaineOuverte(ancre)]);
+    });
+  });
+
+  test('DISCRIMINANT — et elle est dans le passé, aucun jour', () => {
+    INSTANTS.forEach(({ nom, t }) => {
+      const ancre = Decor.ancreSemaineIsolee(Decor.datesDuDecor(t)[0]);
+      expect([nom, Decor.seanceSansSeries(ancre).getTime() < t]).toEqual([nom, true]);
+    });
+  });
+
+  test('le banc pose la section 47 par CETTE fonction, et l’ancre aussi', () => {
+    const source = require('fs').readFileSync(
+      require('path').join(__dirname, '../banc/seance-ecran.js'), 'utf8');
+    expect(source).toMatch(/const L_EXO = ancreSemaineIsolee\(JOURS\[0\]\);/);
+    expect(source).toMatch(/poserSeance\(ID_VIDE, 'Séries pas arrivées', seanceSansSeries\(L_EXO\)/);
+  });
+
   test('le banc lit bien CETTE fonction, et aucune autre ancre', () => {
     // Un garde-fou de couplage : si le banc recalculait ses dates lui-même,
     // ce fichier ne prouverait plus rien de ce que le banc fait.

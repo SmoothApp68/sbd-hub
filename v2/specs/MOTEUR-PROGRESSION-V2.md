@@ -471,7 +471,7 @@ Vingt kilos d'écart. Un compteur de stagnation qui mélange les deux verra une 
 
 ### 8.2 Règle
 
-> **Le palier, le compteur de stagnation et le modèle charge/reps travaillent par exercice ET par format. Le format se déduit du niveau validé de la séance (§9.2) ; il ne se stocke pas comme un champ de configuration.**
+> **Le palier et le modèle charge/reps travaillent par exercice ET par format ; le compteur de stagnation, par exercice ET par zone (§12.2 bis, corrigé le 25/09/2026). Le format se déduit du niveau validé de la séance (§9.2) ; il ne se stocke pas comme un champ de configuration.**
 
 | Format | Niveau validé de la séance-exercice (§9.2) |
 |---|---|
@@ -861,7 +861,7 @@ Appui : Moesgaard et al. 2022 (35 études, volume égal) — périodiser fait ga
 |---|---|
 | **Bloc** : la zone d'une barre change pour plusieurs semaines | La charge est reportée via le maximum estimé (en coulisse, jamais affiché) ; le compteur de stagnation repart à zéro |
 | **Ondulation** : deux zones pour une même barre dans la même semaine | Deux paliers avancent en parallèle, sans remise à zéro |
-| **Semaine de décharge** | Reconnue : ni stagnation ni coupure, aucune proposition de charge |
+| **Semaine de décharge** | **Déclarée, jamais déduite** (tranché le 25/09/2026) : ni stagnation ni coupure, aucune proposition de charge. Une séance plus légère ne dit pas pourquoi elle l'est — décharge, jour sans, douleur. D'ici à la déclaration (chantier programmes), une séance où la consigne n'a pas été suivie est simplement neutre pour le compteur (§12.2 bis) |
 | **Phase** | Notée dans `predictions` avec chaque consigne (§9.11) |
 
 Aujourd'hui, la phase se **déduit** de l'historique. Le futur chantier programmes l'**écrira** : une zone par jour dans `routine_exercises`, avec la priorité plan > correction > déduction (§9.1.2).
@@ -879,9 +879,17 @@ Aujourd'hui, la phase se **déduit** de l'historique. Le futur chantier programm
 
 **Immuable** : le trigger `predictions_immuable` (`v2_046`) refuse toute modification d'une prédiction, hors ces trois champs. Aucune migration de plus : la table reste générique (CADRAGE §5). L'écriture est un chantier à risque (CADRAGE §2 septies), traité à part.
 
-**Quand — décidé le 20/09/2026.** À l'**affichage de la consigne dans la séance**, une seule fois par séance et par exercice : c'est ce que l'utilisateur a lu et sur quoi il a agi. Ni à chaque redessin, qui noierait la table, ni la veille au constat, qu'un historique modifié peut encore changer. Rien n'est écrit quand le moteur se tait (silence, Entretenir, mesure sans charge). L'écriture passe par la file d'attente hors ligne, avec un identifiant créé sur l'appareil.
+**Quand — décidé le 20/09/2026.** À l'**affichage de la consigne dans la séance**, une seule fois par séance et par exercice : c'est ce que l'utilisateur a lu et sur quoi il a agi. Ni à chaque redessin, qui noierait la table, ni la veille au constat, qu'un historique modifié peut encore changer. Rien n'est écrit quand le moteur se tait (silence, Entretenir, mesure sans charge). L'écriture passe par la file d'attente hors ligne, avec un identifiant créé sur l'appareil — **déterminé, pas tiré au hasard** (corrigé le 21/09/2026, 48c-2) : SHA-256 de (séance | exercice | rang), mis en forme d'UUID. Deux instances de l'app ouvertes dans la même milliseconde avaient noté deux fois le même squat, chacune ayant lu le stockage local avant que l'autre n'écrive. Avec un identifiant déterminé, la seconde écriture est ignorée à destination : l'idempotence vit dans la donnée, pas dans une garde en mémoire.
 
 **L'observation — corrigée le 21/09/2026 (48c-2), après la première séance réelle.** À la validation, la série faite **au même rang** est toujours reliée (`set_observe`), quelle que soit sa charge : une exploration dit quelque chose, elle ne doit pas disparaître de la table. Mais ses reps ne deviennent une observation (`valeur_observee`, reps comptées) **que si la consigne a été suivie** : même charge ; ou, quand la charge proposée est inconnue (« le cran au-dessus »), n'importe quelle charge au-dessus du palier. Comparer « vise 4 à 130 » à « 3 à 135 » ne dirait rien de la visée du moteur. Trois cas se lisent ainsi : suivie (série et reps), **autre chose tenté** (série, sans reps), rien fait à ce rang (ni l'un ni l'autre). Corriger la charge ou dévalider refait ce calcul, et retire ce qui est devenu faux. La série partant avant la prédiction dans la file (`depend`), la clé étrangère de `set_observe` trouve toujours sa série.
+
+**L'intégrité — décidée le 21/09/2026 (`v2_047`).** Deux séances de test supprimées avaient laissé 24 prédictions orphelines, dont 8 « comptées sans série » : la clé de `set_observe` ne vidait que le lien et laissait les reps. Une observation doit dire le vrai, quitte à se taire. Trois règles, tenues par la base et non par l'app :
+
+- **Une séance supprimée emporte ses prédictions.** `predictions.session_id` est une colonne générée depuis `fondement ->> 'seance'`, avec une clé en cascade vers `sessions`. Le fondement **doit** donc porter la clé `seance` : une prédiction écrite sans elle survivrait à sa séance.
+- **Une série supprimée emporte toute son observation** — lien, reps et heure (trigger `sets_efface_observation`), et pas seulement le lien.
+- **Une observation comptée sans série est impossible** (contrainte `predictions_observation_coherente`) : des reps sans série seraient un fait faux.
+
+Le verrou d'immuabilité ne se desserre pas : `session_id` est exclue de sa comparaison parce que PostgreSQL la calcule après les déclencheurs `BEFORE`, mais `fondement`, sa source, reste verrouillé. Détail et pièges de la migration : `SCHEMA-REEL.md`.
 
 **Comment on jugera, plus tard.** Par exercice, jamais sur une moyenne tous exercices confondus : la relation entre reps et charge relative dépend surtout de l'exercice, au point que la méta-régression de Nuzzo et collègues (2024, 952 tests, 7 289 personnes) publie des tables séparées pour le couché et la presse. Et une erreur d'une rep n'est pas une erreur : les pratiquants eux-mêmes se trompent d'environ une rep sur ce qui leur reste (Halperin et collègues, 2021).
 
@@ -995,6 +1003,36 @@ Effet de la correction, mesuré sur les cinq profils :
 
 Un vrai blocage dure **2 séances en médiane**, pas 5. L'ancien tableau du §12.1 (90 % des épisodes sous 3 séances) était en outre faussé dans l'autre sens : il comptait comme progrès toute montée de charge, **retours d'oscillation compris** — or une montée sur deux chez le profil assidu est un retour, pas un record (§9.1.3). Il voyait du progrès partout et concluait à des plateaux courts.
 
+### 12.2 bis Sous consigne — corrigé le 25/09/2026 (chantier 49)
+
+Le §12.2 a été écrit avant le moteur du chantier 48 : il compte la meilleure série, quand le moteur avance sur le **niveau validé** (§9.2). Deux définitions de « progresser », c'est la duplication que le CADRAGE §2 undecies interdit.
+
+> **Il y a progrès quand le palier monte, ou quand le niveau validé monte au même palier — la même fonction que celle de la consigne. Un test tenu dans la zone (§9.7) compte aussi, s'il fait mieux que le meilleur test précédent. Le tout se juge contre le meilleur (palier, niveau) depuis la dernière remise à zéro, jamais contre les records de toute une vie.**
+
+**Quelles séances comptent.** Seulement celles qui ont reçu une consigne **et** où elle a été suivie : les séries au palier proposé faites à la charge proposée, ou au-dessus. Une séance faite sous la charge proposée n'est **ni un progrès ni une stagnation** : le compteur se tait. Faire plus que demandé sans progresser, c'est avoir essayé ; faire moins, c'est une consigne non tentée, qui ne dit rien de la méthode. Cette frontière n'est pas celle de l'observation (§9.11), qui ne compte les reps qu'à la charge exacte : les deux répondent à deux questions différentes — « le pari du moteur a-t-il été vérifié ? » et « la personne a-t-elle au moins tenté la consigne ? ».
+
+**Par exercice et par zone**, pas par format. Le format n'a que trois cases : des séries de 11 et de 15 tombaient dans la même, et un 66 × 11 bloquait tout ce qui suivait à 15 reps (extension jambes d'Aurélien : 41 séances de stagnation fictive, 13 par zone). Un changement de zone est un bloc (§9.10) et remet le compteur à zéro.
+
+**Remises à zéro** : une reprise après coupure (§9.9, la même règle que la consigne), un changement de zone.
+
+**Deux pièges trouvés en rejouant.** Compter tout test réussi faisait passer pour un progrès le même test refait à l'identique, séance après séance. Et sans le test, la fausse alarme type revenait : presse d'Aurélien, 275,7 kg avec un test à 295,7 × 12, compteur à 14 parce que 275,7 avait déjà été son palier des mois plus tôt.
+
+**Mesure** (rejeu de la consigne sur les cinq historiques, réglage Normal) — chance qu'un exercice reparte seul dans les deux séances suivantes, selon les séances déjà passées sans progrès :
+
+| Séances bloquées | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+|---|---|---|---|---|---|---|---|---|
+| Repart seul | 53 % | 45 % | **40 %** | **30 %** | 28 % | 29 % | 25 % | 27 % |
+
+| | 3 blocages sur 4 durent au plus | Exercices à 4 ou plus à l'ouverture |
+|---|---|---|
+| aurel_br | 3 séances | 7 sur 38 |
+| lea | 3 | 2 sur 32 |
+| alexis | 2 | 1 sur 38 |
+| jordan | 2 | 1 sur 11 |
+| melodie | 1 | 0 sur 17 |
+
+Ne compter que les séances suivies retire 28 % des déclenchements (177 → 128). **Réserve** : ces historiques n'ont jamais reçu de consigne. Une séance « suivie » y est une coïncidence de charge, pas une intention : les chiffres bornent ce que le coach aurait pu déclarer, les premières semaines réelles diront ce qu'il déclare.
+
 ### 12.3 Le seuil est un choix, pas une découverte
 
 Chance qu'un exercice reparte seul dans les deux séances suivantes, selon le nombre de séances déjà passées sans aucun progrès (tous profils) :
@@ -1015,6 +1053,8 @@ Trois raisons. L'information est stabilisée dès 3 séances, donc attendre plus
 
 **Coût assumé : 30 % des déclenchements auraient repris seuls.** Acceptable parce que le déclenchement n'est pas une alarme mais une proposition de piste. L'erreur inverse — laisser quelqu'un bloqué un mois de plus pour préserver un taux de justesse — est bien plus coûteuse.
 
+**Confirmé sous consigne le 25/09/2026** (§12.2 bis) : la courbe ne reste plus plate, elle **décroche entre 3 et 4 séances** (40 % puis 30 % de reprises seules). Le seuil de 4 n'est plus seulement un arbitrage, la mesure le soutient. Les programmes pour débutants réagissent plus tôt (GZCLP change de schéma dès la séance qui suit un échec ; le 5×5 baisse la charge après trois échecs) : une borne calée sur des peu entraînés, que le pratiquant assidu n'a pas à reprendre. Ce que la comparaison enseigne vaut pour l'escalier : sa première marche doit être légère.
+
 Le seuil est une constante, pas un percentile personnel. Le 9-sur-10 par utilisateur donnait 23 séances chez le profil assidu, soit près de quatre mois sur un exercice : attendre la certitude quand elle n'apporte rien.
 
 ### 12.5 Le compteur est en séances, pas en jours
@@ -1031,14 +1071,14 @@ La corrélation entre l'écart médian entre séances et la durée des épisodes
 
 Effet mesuré : le reset abaisse le taux de reprise spontanée de 4 à 5 points sur toute la plage utile. Il fait donc bien son travail — mais **pas celui qu'on lui prêtait** : il n'explique pas la bosse observée à 6 séances dans la mesure charge-seule, qui lui survit. Après trois semaines sans toucher un mouvement, ne pas progresser n'est pas un blocage, c'est une reprise.
 
-### 12.7 Point ouvert
+### 12.7 Point clos le 25/09/2026
 
-La mesure charge-seule montrait une remontée nette de la reprise spontanée autour de 6 séances, qui résiste au reset après coupure. Cause non identifiée — cycle de programmation, effet de vague ? Sans conséquence sur le seuil retenu, mais non expliqué.
+La mesure charge seule montrait une remontée de la reprise spontanée autour de 6 séances, qui résistait au reset après coupure. **Elle disparaît avec la définition du §12.2 bis** : c'était un artefact de la mesure charge seule, qui comptait comme progrès les retours d'oscillation. Rien à expliquer de plus.
 
 ### 12.8 Sous consigne — décidé le 19/09/2026, détaillé au chantier suivant
 
-- **Le compteur ne compte que les séances qui ont reçu une consigne.** Un historique sans consigne ne dit pas si la personne a essayé.
-- **Le seuil s'adaptera aux habitudes de chacun.** Il sera repris au chantier de la stagnation, avec l'escalier (§14).
+- **Le compteur ne compte que les séances qui ont reçu une consigne, et où elle a été suivie** (précisé le 25/09/2026, §12.2 bis). Un historique sans consigne ne dit pas si la personne a essayé ; une consigne non tentée non plus.
+- **Le seuil ne s'adapte pas, les mots si** (tranché le 25/09/2026). Le déclencheur reste 4 séances pour tout le monde (§12.4). Ce qui s'adapte, c'est la phrase : « plus long que d'habitude pour toi » ne se dit **que si c'est vrai pour cette personne** — au moins 3 de ses blocages sur 4, terminés sous consigne, ont été plus courts que le seuil. Sans assez de blocages sous consigne (moins de 8, choix produit), la phrase reste neutre : « 122,5 ne bouge plus depuis 4 séances. » Au rejeu, la phrase aurait été vraie chez les cinq profils (§12.2 bis) ; c'est un constat sur eux, pas une garantie.
 - **Pourquoi ne pas le calculer sur l'historique** : mesuré (banc M4), 8 exercices d'Aurélien dépasseraient déjà le seuil à l'ouverture (extension jambes 13 séances, presse 10, curls 10, tirage poitrine 7…).
 
 ---
@@ -1169,6 +1209,13 @@ Aucune source ne valide la démarche. La littérature dit « identifie tes point
 
 ## 14. L'escalier — une marche à la fois
 
+> **Révision en cours — chantier 49 (25/09/2026).** L'escalier a été écrit avant le moteur du chantier 48. Ce qui est déjà tranché :
+>
+> - **Marche 1 sans objet** : des reps gagnées sont un progrès depuis le §12.2, le compteur ne se serait pas déclenché. **Marche 2 absorbée** par le niveau validé (§9.2), qui accepte déjà un profil qui descend d'une rep. À confirmer à la mesure de l'escalier : si c'est le cas, la première proposition réelle touche au nombre de séries.
+> - **La première marche dépend de la vitesse de progression de l'exercice** — le niveau se lit par exercice, jamais comme une étiquette globale, avec le rangement du §9.1.3. Qui progresse vite : réagir léger, changer le schéma à charge égale. Qui progresse lentement : toucher au volume ou à la zone. Le seuil, lui, ne change pas (§12.4) ; l'incrément dépend déjà du pas (§10.1).
+> - **L'ordre des marches est rouvert.** Les coachs changent le schéma de reps **avant** de baisser la charge (GZCLP : 5×3, puis 6×2, puis 10×1 à charge égale, puis seulement la baisse) ; ici, le repli (marche 4) passe avant le changement de format (marche 5). À mesurer avant de trancher.
+> - **Agir avant de réagir.** Pour le pratiquant assidu, l'essentiel du coaching est proactif — blocs, décharges planifiées — et relève du chantier programmes (§9.10). L'escalier est le filet.
+
 Quand le compteur dépasse le seuil **et** que le contrôle du §13 ne trouve pas de frère qui progresse, l'app propose **la marche suivante, jamais deux**. Ordre fixe, du moins coûteux au plus engageant.
 
 | # | Marche | Ce que ça change | Statut |
@@ -1198,7 +1245,7 @@ Le « −10 % » est une convention de coach. La marche 4 utilise **le dernier p
 
 **Trois garde-fous, sans lesquels la règle est fausse.** Rien dans sa formulation initiale n'obligeait le repli à descendre : après une blessure ou un long détour sur une autre variante, le dernier palier tenu en entier peut être **au-dessus** du palier où l'utilisateur bloque. La marche 4 lui proposerait alors de monter, au moment précis où il stagne.
 
-> **Le repli est le dernier palier validé en entier qui soit à la fois : (1) strictement inférieur au palier actuel, (2) sur le même exercice et le même format, (3) dans les 3 derniers mois.**
+> **Le repli est le dernier palier qui soit à la fois : (1) strictement inférieur au palier actuel, (2) sur le même exercice et la même zone, (3) dans les 3 derniers mois, (4) tenu — son niveau validé (§9.2) a atteint le bas de la zone.** *(Traduit le 25/09/2026 : « validé en entier » et « même format » dataient d'avant les zones du chantier 48 ; l'intention ne change pas — une charge réellement tenue, jamais un pourcentage.)*
 >
 > **Si aucun palier ne remplit les trois conditions, la marche 4 est sautée. L'escalier passe directement à la marche 5.**
 
@@ -1481,7 +1528,7 @@ Conforme au cadrage : **descriptif, jamais prescriptif sur l'historique.**
 | Test raté | « 130 × 2 : pas encore dans ta zone. » + « Prochaine séance : 125 kg, vise 5, puis 127,5 kg sur la dernière, vise 3. » |
 | Zone étirée | « Ton cran ne peut pas être plus petit : ta zone s'étire. On retestera 32 quand tu feras 16 à 28. » |
 | Reprise | « On reprend à ton dernier palier, sans rep de plus. » — jamais la durée de l'absence |
-| Seuil dépassé | « 122,5 ne bouge plus depuis 4 séances — c'est plus long que d'habitude pour toi. » + la marche suivante (formulation à reprendre au chantier de la stagnation, §12.8) |
+| Seuil dépassé | « 122,5 ne bouge plus depuis 4 séances — c'est plus long que d'habitude pour toi. » + la marche suivante — « plus long que d'habitude » seulement si c'est vrai pour la personne, sinon « 122,5 ne bouge plus depuis 4 séances. » (§12.8, 25/09/2026) |
 | Frère qui progresse | « Ta barre tient, mais tes haltères sont montés à 92. » |
 | Muscle limitant | « Tes triceps et tes épaules montent, tes pecs seuls stagnent. Piste à vérifier, pas un diagnostic. » |
 | Ratio extrême | « Ton rapport squat/couché te place dans les 2 % de lifters au squat le plus bas relativement au couché. Ça peut être morphologique. » |
@@ -1581,7 +1628,9 @@ L'erreur passe de 1,00 rep si on ne garde que les séries ≤ 8 reps à 2,00 si 
 | Progression entre exercices (prise serrée → diamant) | distincte du champ `parent`, non traitée |
 | Recalcul des seuils v1.1 sur le fichier reconstruit | paliers et incréments portaient sur un fichier amputé de 12 % |
 
-| Seuil de stagnation personnel, escalier (§12.8, §14) | chantier suivant ; compteur sur séances prescrites uniquement |
+| Stagnation sous consigne (§12.2 bis, §12.8) | **tranchée le 25/09/2026** : niveau validé, par zone, séances suivies seulement, seuil fixe et mots personnels |
+| Réaction série par série en séance (l'APRE dans la séance, §9.8) | chantier 49, à mesurer avant l'escalier ; un nouveau pari par révision dans `predictions` |
+| Escalier (§14) | chantier 49 : ordre des marches rouvert, première marche selon la vitesse de progression |
 | Calisthénie : les cinq leviers de progression | non traité, hors chantier 48 |
 | Top set suivi de séries allégées (banc M16) | 2 à 5 séances sur 100 ; le moteur y voit un test raté, sans effet — à surveiller |
 | Zones, fenêtre de 8 séances, seuils de reprise (3 et 12 semaines) | calés sur cinq profils d'un même entourage et sur la littérature ; à revérifier sur les premières données prescrites |
@@ -1660,6 +1709,22 @@ Décisions prises avec Aurélien, mesurées au banc (`banc_moteur48.py`, mesures
 
 Sources ajoutées au §23 : Zhang et al. 2021, méta-analyse en réseau de 2025, ACSM 2009, Williams et al. 2017, Izquierdo et al. 2007, Mujika & Padilla 2000, Mann et al. 2010, Moesgaard et al. 2022.
 
+### 22.9 Amendement du 25/09/2026 — la stagnation sous consigne (chantier 49)
+
+Décisions prises avec Aurélien, mesurées en rejouant la consigne sur les cinq historiques (`mesure_stagnation49.py`), confrontées à la pratique des coachs et à la littérature.
+
+| Où | Avant | Après |
+|---|---|---|
+| §8.2 | Compteur par exercice et par format | Par exercice et par zone |
+| §9.10 | Décharge « reconnue » | Déclarée, jamais déduite ; une consigne non suivie est neutre |
+| §12.2 bis | Record de charge ou de reps, meilleure série | Niveau validé ou palier, test qui bat le meilleur test, contre le meilleur depuis la remise à zéro |
+| §12.4 | Courbe plate dès 3 séances, seuil arbitré | Décrochage entre 3 et 4, seuil soutenu par la mesure |
+| §12.7 | Bosse inexpliquée vers 6 séances | Close : artefact de la mesure charge seule |
+| §12.8 | Seuil qui s'adaptera | Seuil fixe, phrase personnelle seulement si vraie ; séances suivies seulement |
+| §14, §14.2 | Cinq marches, repli « validé en entier » | Marches 1 et 2 absorbées (à confirmer), ordre rouvert, repli dit avec le niveau validé |
+
+Sources ajoutées au §23 : Rogerson et al. 2024. Pratique de coaching confrontée : protocoles d'échec de GZCLP et du 5×5 (programmes pour débutants).
+
 ## 23. Sources
 
 - Plotkin D. et al. (2022). *PeerJ* 10:e14142 — progression en charge vs en reps
@@ -1669,6 +1734,8 @@ Sources ajoutées au §23 : Zhang et al. 2021, méta-analyse en réseau de 2025,
 - Zourdos M.C. et al. (2016). *Nutr Hosp* 33(2):437-443 — variabilité quotidienne du 1RM
 - Nuzzo J.L. et al. (2023). *Sports Medicine*. PMID 37792272 — reps/%1RM
 - Coleman M. et al. (2024). *PeerJ* 12:e16777 — deload d'une semaine
+
+- Rogerson D. et al. (2024). *Sports Medicine – Open* 10:26. DOI 10.1186/s40798-024-00691-y — pratiques de décharge de 246 athlètes de force et de physique : environ 6 jours toutes les 5 à 6 semaines, surtout planifiées, déclenchées aussi quand la performance cale
 - LeSuer D.A. et al. (1997) — validité des équations de 1RM sur les trois barres
 - van den Tillaar R. (2013) — contribution musculaire à la sortie du point de blocage
 - *Journal of Functional Morphology and Kinesiology* (2025). DOI 10.3390/jfmk10030322 — le point de blocage est géométrique

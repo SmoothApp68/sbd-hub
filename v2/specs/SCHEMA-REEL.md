@@ -1,26 +1,31 @@
-# Schéma réel — état au 19 septembre 2026
+# Schéma réel — état au 21 septembre 2026
 
 **Régénéré depuis la base**, projet Supabase `swwygywahfdenyzotrce` (eu-west-1).
-Dernière migration appliquée : **`v2_046_moteur_rythme_zones_verrou`**.
+Dernière migration appliquée : **`v2_047_predictions_integrite`**.
 
 > ⚠️ **Ce document remplace `SCHEMA-V2_2.md`**, qui décrivait un état antérieur aux
 > routines et n'a plus valeur de référence. En cas de doute, la base fait foi — pas ce
 > fichier. Il est régénéré, pas rédigé.
 
-> **Régénéré le 19/09/2026 depuis la base.** Dernière migration : **`v2_046_moteur_rythme_zones_verrou`**.
-> Prochain numéro libre : **`v2_047`**. Cette version remplace celle du dépôt (arrêtée à
-> `v2_040`) et en reprend ce que seule elle portait : les contraintes de `routine_sets`, sa
-> phrase RLS, et l'avertissement sur `series`/`reps_visees` — tous revérifiés dans la base.
+> **Régénéré le 21/09/2026 depuis la base.** Dernière migration : **`v2_047_predictions_integrite`**.
+> Prochain numéro libre : **`v2_048`**. Cette version remplace celle du 19/09 (`v2_046`), qui
+> avait elle-même repris ce que seule la version du dépôt portait : les contraintes de
+> `routine_sets`, sa phrase RLS, et l'avertissement sur `series`/`reps_visees` — tous
+> revérifiés dans la base le 21/09.
 
-**Volumétrie régénérée le 19/09/2026 :** **1 249 séances · 28 768 séries** · 237 exercices ·
+**Volumétrie régénérée le 21/09/2026 :** **1 249 séances · 28 768 séries** · 237 exercices ·
 255 alias · 116 pesées · **5 profils** · **11 routines · 79 exercices de routine ·
-280 séries programmées** · 59 modèles · **0 prédiction** · 0 zone corrigée.
+280 séries programmées** · 59 modèles · **0 prédiction** · 6 zones corrigées.
+
+> Les séances de test du 21/09 ont été supprimées par Aurélien : la volumétrie est celle du
+> 19/09, et `predictions` est vide (voir `v2_047` ci-dessous). **La prochaine vraie séance
+> sera la première mesure.**
 
 **Séries par type :** travail 26 665 · échauffement 1 550 · dégressive 425 · échec 128.
 **9 484 séries en superset.** 1 799 portent une durée, 288 un RPE.
 
 > ⚠️ **80 séries seulement portent `validee_a`, et 75 un `repos_s`** — celles saisies dans
-> l'app, toutes par `aurel_br`, seul à saisir au 19/09. Tout le reste vient de l'import Hevy,
+> l'app, toutes par `aurel_br`, seul à saisir au 21/09. Tout le reste vient de l'import Hevy,
 > qui ne porte ni l'un ni l'autre.
 
 ---
@@ -127,11 +132,78 @@ select rendait « zéro ligne » pour un pseudo pris comme pour un libre.
 
 - **`profiles.rythme_progression`** : `text not null default 'normal'`, contrainte `in ('prudent', 'normal', 'franc')` ; les 5 profils en `normal`. L'intention reste dans `profiles.intention` (`v2_043`).
 - **`zones_exercice`** (nouvelle, étage 1 — déclaré, append-only) : `id`, `user_id` (→ `profiles`), `exercise_slug` (→ `exercises.slug`), `zone` (`lourd`, `mix`, `hypertrophie`, `volume`, `series_longues`, ou vide = retour à la déduction), `corrigee_a`, `created_at`. Zone courante = dernière ligne par (`user_id`, `exercise_slug`), index `zones_exercice_courante_idx`. RLS `zones_exercice_owner`, avec `(select auth.uid())`.
-- **Verrou d'immuabilité sur `predictions`** : trigger `predictions_immuable` (fonction `predictions_refuse_modification`), qui refuse toute modification sauf `valeur_observee`, `observee_a`, `set_observe`. Autotesté, trace effacée.
+- **Verrou d'immuabilité sur `predictions`** : trigger `predictions_immuable` (`BEFORE UPDATE`, fonction `predictions_refuse_modification`), qui refuse toute modification sauf `valeur_observee`, `observee_a`, `set_observe`. Il compare la ligne entière moins ces colonnes : **toute colonne ajoutée plus tard est verrouillée par défaut**. Refus en `check_violation`. Autotesté, trace effacée. *Précisé le 21/09 :* depuis `v2_047`, la colonne calculée `session_id` est aussi exclue de la comparaison — voir ci-dessous ; cela ne desserre rien, puisque `fondement`, sa source, reste comparé.
 
 Vérifié après application : 5 profils en `normal`, 0 prédiction, séries intactes.
 
+## Migration du 21/09/2026
+
+**`v2_047_predictions_integrite`** — fin du chantier 48 (MOTEUR §9.11). Trou trouvé en base
+après la vérification de 48c-2 : deux séances de test supprimées avaient laissé **24
+prédictions orphelines**, dont 8 « comptées sans série » — la clé de `set_observe`, en
+`ON DELETE SET NULL`, ne vidait que le lien et laissait les reps. Trois règles, aucun
+changement d'app :
+
+- **Une séance supprimée emporte ses prédictions.** Colonne **`predictions.session_id`**,
+  `uuid` **GÉNÉRÉE** (`(fondement ->> 'seance')::uuid`) — ne jamais l'écrire. Clé
+  `predictions_session_fk` → `sessions(id)` **ON DELETE CASCADE**, index
+  `predictions_session_idx`.
+  > ⚠️ **La cascade ne tient que si le fondement porte la clé `seance`.** Une prédiction écrite
+  > sans elle a `session_id` vide et **survit à la suppression de sa séance**. Non vérifiable
+  > au 21/09 (table vide) : à contrôler sur la première vraie séance.
+- **Une série supprimée emporte toute son observation.** Trigger **`sets_efface_observation`**
+  (`BEFORE DELETE ON sets`) : remet `set_observe`, `valeur_observee` et `observee_a` à NULL sur
+  les prédictions qui la désignent — sauf celles dont la séance est déjà supprimée, que la
+  cascade emporte.
+- **Une observation comptée sans série est impossible.** Contrainte
+  **`predictions_observation_coherente`** : `valeur_observee` NULL ou `set_observe` renseigné,
+  et `valeur_observee` NULL **si et seulement si** `observee_a` NULL.
+
+**La répétition à blanc (9 tests) a trouvé deux pièges avant d'écrire.** PostgreSQL calcule
+une colonne générée **après** les déclencheurs `BEFORE` : `predictions_immuable` voyait
+`session_id` vide dans `NEW`, et aurait refusé **toutes** les observations — d'où son exclusion
+de la comparaison. Et l'ordre des cascades à la suppression d'une séance : les séries partent
+avec elle, et `sets_efface_observation` ne doit pas écrire sur une prédiction que la cascade
+emporte déjà.
+
+Les 24 prédictions orphelines ont été emportées : **`predictions` est vide au 21/09.**
+
 ---
+
+## `predictions` — 0 ligne · créée par `v2_006`, verrouillée par `v2_046`, intègre depuis `v2_047`
+
+**Étage 3 : ce que le moteur affirme.** Une ligne par série de travail proposée (MOTEUR §9.11).
+
+| Colonne | Type | Notes |
+|---|---|---|
+| `id` | uuid NOT NULL | défaut `gen_random_uuid()`, mais **fabriqué par l'app** (identifiant déterminé, voir MOTEUR §9.11) |
+| `user_id` | uuid NOT NULL | → `auth.users`, CASCADE |
+| `module`, `module_version` | text NOT NULL | qui a prédit, et dans quelle version |
+| `emise_a` | timestamptz NOT NULL | défaut `now()` |
+| `exercise_slug` | text | → `exercises(slug)` |
+| `grandeur` | text NOT NULL | `reps` pour la consigne |
+| `horizon_jours` | integer | |
+| `valeur_predite` | numeric NOT NULL | **le pari** |
+| `borne_basse`, `borne_haute` | numeric | `predictions_bornes_ordonnees` |
+| `fondement` | jsonb | les entrées du calcul ; **porte la clé `seance`** |
+| `valeur_observee`, `observee_a`, `set_observe` | | **les seules modifiables après coup** ; `set_observe` → `sets(id)` `ON DELETE SET NULL` |
+| `created_at` | timestamptz NOT NULL | arrivée en base |
+| `session_id` | uuid | **GÉNÉRÉE** depuis `fondement ->> 'seance'` (`v2_047`) |
+
+Index : `predictions_en_attente_idx` (non observées), `predictions_user_module_idx`,
+`predictions_session_idx`. RLS `predictions_owner`, avec `(select auth.uid())`.
+
+> ⚠️ **Commentaire périmé en base** : `predictions.valeur_observee` se dit encore « seul champ
+> que l'on a le droit de renseigner après coup ». Depuis `v2_046`, ils sont trois. À corriger
+> dans la prochaine migration qui touche la table — la base fait foi pour les colonnes, pas
+> pour ses commentaires.
+
+## `zones_exercice` — 6 lignes · créée par `v2_046`
+
+**Étage 1 : déclaré, ajout seulement.** Une ligne = une correction datée de la zone d'un
+exercice ; la dernière par (`user_id`, `exercise_slug`) fait foi, une zone vide rend la main
+à la déduction. **Pas d'unicité** : c'est voulu. Contenu au 21/09 : 6 corrections de
+`aurel_br`, sur deux exercices, toutes du 20/09 (essais de 48b).
 
 ## `routine_sets` — 280 lignes · créée par `v2_042` le 15/09/2026
 
@@ -252,10 +324,7 @@ non-archivées).
 
 `profiles` (5) · `body_weight_log` (116) · `exercise_alias` (255) ·
 `user_exercise_model` (59, un seul calcul du 23/08, **append-only par doctrine**) ·
-`predictions` (**0 — c'est le chantier du moteur qui la remplira** ; immuable depuis `v2_046`,
-seuls `valeur_observee`, `observee_a`, `set_observe` se remplissent après coup) ·
-`zones_exercice` (0, `v2_046`) ·
-`routine_sets` (280) · `sbd_profiles` et `workout_sessions`
+`predictions`, `zones_exercice` et `routine_sets` : voir leurs sections · `sbd_profiles` et `workout_sessions`
 (**archive v1, ne pas toucher**).
 
 ---
@@ -267,9 +336,12 @@ seuls `valeur_observee`, `observee_a`, `set_observe` se remplissent après coup)
 (évite la réévaluation par ligne).
 
 > ⚠️ **Contredit par l'advisor Supabase le 19/09/2026** : 66 politiques sont signalées pour
-> réévaluer `auth.uid()` à chaque ligne. À vérifier et corriger à la passe sécurité, après le
-> chantier 48 (décision du 19/09). Exemple vérifié le 19/09 : `routine_sets_owner` compare
-> `user_id = auth.uid()` sans `SELECT`. Les politiques de `v2_046` suivent bien le motif.
+> réévaluer `auth.uid()` à chaque ligne. **Recompté le 21/09 par schéma** : 52 dans `archive`
+> (tables v1), 2 dans `storage`, **14 dans `public`** — dont 9 sur les tables v1 archivées
+> (`sbd_profiles`, `workout_sessions`) et **5 seulement sur des tables v2** : les quatre de
+> `profiles` (`profiles_select_own`, `_insert`, `_update`, `_delete`) et `routine_sets_owner`.
+> À corriger à la passe sécurité. Les politiques de `v2_046` et `predictions_owner` suivent le
+> motif.
 
 `routine_exercises` n'a pas de `user_id` : sa propriété est héritée de `routines` via un
 `EXISTS`, avec le même `WITH CHECK` — c'est lui qui empêche de rattacher une ligne à la
@@ -288,4 +360,4 @@ renseigner à l'écriture (il n'a pas de défaut).
 vérifiés. **Écriture, migration et RLS : jamais.**
 
 Toujours `list_migrations` avant de nommer une migration : la numérotation a historiquement
-déraillé. Prochain numéro libre au 19/09/2026 : **`v2_047`**.
+déraillé. Prochain numéro libre au 21/09/2026 : **`v2_048`**.

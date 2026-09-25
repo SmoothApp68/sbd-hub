@@ -176,12 +176,13 @@ const PROFIL_BANC = {
 // SEMAINE. Le pourquoi, en entier, est dans `decor-dates.js` — avec la seule
 // milliseconde de bord qui subsiste. `JOURS[n]` remplace l'ancien
 // `LUNDI + n jours` : même ORDRE, mêmes rangs, et toujours dans le passé.
-const { datesDuDecor, JOUR, ancreSemaineIsolee, seanceSansSeries } = require('./decor-dates.js');
+const { datesDuDecor, ancreSemaineIsolee, seanceSansSeries, jourIsole, ilYa, finDe } =
+  require('./decor-dates.js');
 const JOURS = datesDuDecor();
 
 const PASSEE = {
   id: 'sess-passee', user_id: 'u-banc', titre: 'Séance de lundi',
-  debut: JOURS[0].toISOString(), fin: new Date(JOURS[0].getTime() + 3600000).toISOString(),
+  debut: JOURS[0].toISOString(), fin: finDe(JOURS[0]).toISOString(),
   statut: 'terminee', salle: null, salle_norme: null,
   created_at: JOURS[0].toISOString()
 };
@@ -214,7 +215,7 @@ const SETS_PASSES = [1, 2].map((n) => ({
 const IMPORTEE = {
   id: 'sess-importee', user_id: 'u-banc', titre: 'Séance importée',
   debut: JOURS[2].toISOString(),
-  fin: new Date(JOURS[2].getTime() + 3600000).toISOString(),
+  fin: finDe(JOURS[2]).toISOString(),
   statut: 'terminee', note: null, salle: null, salle_norme: null,
   routine_id: null, source: 'hevy',
   created_at: JOURS[2].toISOString()
@@ -4037,7 +4038,7 @@ const SETS_IMPORTES = [
   const SESS_BLOQ = {
     id: 'sess-bloquee', user_id: 'u-banc', titre: 'Bloquée depuis des jours',
     debut: JOURS[5].toISOString(),
-    fin: new Date(JOURS[5].getTime() + 3600000).toISOString(),
+    fin: finDe(JOURS[5]).toISOString(),
     statut: 'terminee', note: null, salle: null, salle_norme: null,
     routine_id: null, source: 'app',
     created_at: JOURS[5].toISOString()
@@ -4138,11 +4139,11 @@ const SETS_IMPORTES = [
   // colonne par type, chantiers 38 et 39. Elle tourne donc en ENTRETENIR, où le
   // moteur se tait PAR RÈGLE et non par accident de calendrier, et le décor est
   // dans le passé comme une vraie séance. Les attendus ne changent pas.
-  const debutRowing = new Date(Date.now() - 1000);
+  const debutRowing = ilYa(1000);
   const AVANT_ROWING = {
     id: 'sess-rowing', user_id: 'u-banc', titre: 'Dos — la fois d’avant',
     debut: debutRowing.toISOString(),
-    fin: new Date(debutRowing.getTime() + 3600000).toISOString(),
+    fin: finDe(debutRowing).toISOString(),
     statut: 'terminee', note: null, salle: null, salle_norme: null,
     routine_id: null, source: 'app',
     created_at: debutRowing.toISOString()
@@ -4376,11 +4377,11 @@ const SETS_IMPORTES = [
   // encore à venir à l'heure du banc — et la consigne se calculait sur la
   // séance d'avant. Une seconde avant maintenant est toujours dans le passé,
   // et après tout ce que l'app a créé pendant la campagne.
-  const debutDC = new Date(Date.now() - 1000);
+  const debutDC = ilYa(1000);
   const AVANT_DC = {
     id: 'sess-dc-rampe', user_id: 'u-banc', titre: 'Pecs — la fois d’avant',
     debut: debutDC.toISOString(),
-    fin: new Date(debutDC.getTime() + 3600000).toISOString(),
+    fin: finDe(debutDC).toISOString(),
     statut: 'terminee', note: null, salle: null, salle_norme: null,
     routine_id: null, source: 'app',
     created_at: debutDC.toISOString()
@@ -4609,8 +4610,8 @@ const SETS_IMPORTES = [
   const avantSortie = (await texte('.barre-totaux')).replace(/\s+/g, ' ').trim();
   const SORTIE = {
     id: 'sess-sortie', user_id: 'u-banc', titre: 'Marche du soir',
-    debut: new Date(JOURS[3].getTime() + 3600000).toISOString(),
-    fin: new Date(JOURS[3].getTime() + 7200000).toISOString(),
+    debut: JOURS[3].toISOString(),
+    fin: finDe(JOURS[3]).toISOString(),
     statut: 'terminee', note: null, salle: null, salle_norme: null,
     routine_id: null, source: 'app',
     created_at: JOURS[3].toISOString()
@@ -4656,7 +4657,10 @@ const SETS_IMPORTES = [
   const L_EXO = ancreSemaineIsolee(JOURS[0]);
   const isoL = (d) => d.getFullYear() + '-' +
     String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-  const jourExo = (n) => new Date(L_EXO.getTime() + n * 86400000 + 10 * 3600000).toISOString();
+  // Les séances de cette semaine : `jourIsole`, les autres jours de la
+  // semaine de l'ancre (`decor-dates.js`). « Ancre + k jours » en sortait
+  // selon le jour où le banc tourne.
+  const jourExo = (rang) => jourIsole(L_EXO, rang).toISOString();
 
   let nExo = 0;
   const poserSeance = (id, titre, quand, lignes, note) => {
@@ -5101,9 +5105,9 @@ const SETS_IMPORTES = [
   {
     const JOUR = 86400000, tMaintenant = Date.now(), repereH = base.journal.length;
     const poserTerre = (id, ilYA, lignes) => {
-      const debut = new Date(tMaintenant - ilYA).toISOString();
+      const debut = ilYa(ilYA, tMaintenant).toISOString();
       base.sessions.push({ id, user_id: 'u-banc', titre: 'Jambes — ' + id, debut,
-        fin: new Date(tMaintenant - ilYA + 3600000).toISOString(), statut: 'terminee', note: null,
+        fin: finDe(debut, tMaintenant).toISOString(), statut: 'terminee', note: null,
         salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
       lignes.forEach(([kg, reps], i) => base.sets.push({
         id: id + '-s' + (i + 1), session_id: id, user_id: 'u-banc', exercise_slug: 'souleve-terre',

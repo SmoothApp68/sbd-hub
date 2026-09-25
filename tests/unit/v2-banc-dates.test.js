@@ -126,6 +126,74 @@ describe('le décor du banc ne dépend plus du jour de la semaine', () => {
     expect(source).toMatch(/poserSeance\(ID_VIDE, 'Séries pas arrivées', seanceSansSeries\(L_EXO\)/);
   });
 
+  // ── TOUT LE DÉCOR (famille #304, #311, #316, fermée le 25/09/2026) ──────
+  //
+  // Chaque date que le banc calcule depuis maintenant passe par
+  // `decor-dates.js`, et chacune est vérifiée ici : dans le passé, et dans la
+  // semaine que la section qui la lit ouvre.
+
+  test('DISCRIMINANT — les séances de la semaine isolée y restent, tous les jours', () => {
+    // « Quads tous terrains » (2) sortait de la semaine ouverte le samedi et le
+    // dimanche ; « Pecs – Dos » (4) du jeudi, « Gainage » (5) du mercredi.
+    INSTANTS.forEach(({ nom, t }) => {
+      const ancre = Decor.ancreSemaineIsolee(Decor.datesDuDecor(t)[0]);
+      for (let n = 1; n <= 6; n++) {
+        const d = Decor.jourIsole(ancre, n);
+        expect([nom, n, lundiDe(d.getTime()), d.getTime() < t])
+          .toEqual([nom, n, semaineOuverte(ancre), true]);
+      }
+    });
+  });
+
+  test('DISCRIMINANT — jamais le jour de la section 47, et dans l’ordre', () => {
+    // La carte sans séries de la section 47 cherche le « ⋯ » dans le bloc de
+    // SON JOUR : une autre séance ce jour-là y mettrait le sien.
+    const jourLocal = (d) => new Date(d).toDateString();
+    INSTANTS.forEach(({ nom, t }) => {
+      const ancre = Decor.ancreSemaineIsolee(Decor.datesDuDecor(t)[0]);
+      const vide = jourLocal(Decor.seanceSansSeries(ancre));
+      const l = [1, 2, 3, 4, 5, 6].map((n) => Decor.jourIsole(ancre, n));
+      l.forEach((d, i) => {
+        expect([nom, i + 1, jourLocal(d) === vide]).toEqual([nom, i + 1, false]);
+        if (i) expect([nom, i + 1, d.getTime() > l[i - 1].getTime()]).toEqual([nom, i + 1, true]);
+      });
+    });
+  });
+
+  test('DISCRIMINANT — une fin de séance n’est jamais dans l’avenir, ni hors de la semaine', () => {
+    // « Début + 1 h » tombait à venir à 00 h 01, chaque jour.
+    INSTANTS.forEach(({ nom, t }) => {
+      Decor.datesDuDecor(t).forEach((d, n) => {
+        const f = Decor.finDe(d, t).getTime();
+        expect([nom, 'rang ' + n, f < t, f >= d.getTime(), lundiDe(f)])
+          .toEqual([nom, 'rang ' + n, true, true, lundiDe(t)]);
+      });
+    });
+  });
+
+  test('« il y a une seconde » : passé, dans la semaine en cours, et sa fin aussi', () => {
+    INSTANTS.forEach(({ nom, t }) => {
+      const d = Decor.ilYa(1000, t);
+      const f = Decor.finDe(d, t).getTime();
+      expect([nom, d.getTime() < t, lundiDe(d.getTime()), f < t, f >= d.getTime()])
+        .toEqual([nom, true, lundiDe(t), true, true]);
+      [7, 14, 21].forEach((j) => {
+        expect([nom, j, Decor.ilYa(j * Decor.JOUR, t).getTime() < t]).toEqual([nom, j, true]);
+      });
+    });
+  });
+
+  test('le banc ne calcule plus aucune date du décor lui-même', () => {
+    const source = require('fs').readFileSync(
+      require('path').join(__dirname, '../banc/seance-ecran.js'), 'utf8');
+    const code = source.split('\n').filter((l) => !/^\s*\/\//.test(l));
+    // Les motifs des quatre défauts : un décalage en millisecondes posé sur
+    // une date, et « maintenant moins » écrit à la main.
+    expect(code.filter((l) => /\+\s*(3600000|7200000|\d+\s*\*\s*86400000)/.test(l))).toEqual([]);
+    expect(code.filter((l) => /new Date\(\s*Date\.now\(\)\s*-/.test(l))).toEqual([]);
+    expect(source).toMatch(/const jourExo = \(rang\) => jourIsole\(L_EXO, rang\)/);
+  });
+
   test('le banc lit bien CETTE fonction, et aucune autre ancre', () => {
     // Un garde-fou de couplage : si le banc recalculait ses dates lui-même,
     // ce fichier ne prouverait plus rien de ce que le banc fait.

@@ -176,7 +176,7 @@ const PROFIL_BANC = {
 // SEMAINE. Le pourquoi, en entier, est dans `decor-dates.js` — avec la seule
 // milliseconde de bord qui subsiste. `JOURS[n]` remplace l'ancien
 // `LUNDI + n jours` : même ORDRE, mêmes rangs, et toujours dans le passé.
-const { datesDuDecor, JOUR } = require('./decor-dates.js');
+const { datesDuDecor, JOUR, ancreSemaineIsolee, seanceSansSeries } = require('./decor-dates.js');
 const JOURS = datesDuDecor();
 
 const PASSEE = {
@@ -4652,7 +4652,8 @@ const SETS_IMPORTES = [
   const ID_MIXTE = '40000000-0000-4000-8000-000000000014';
 
   // Une semaine à elle toute seule, loin de celle du banc.
-  const L_EXO = new Date(JOURS[0].getTime() - 56 * JOUR);
+  // Huit semaines avant le décor : `decor-dates.js`, contrôlé pour les sept jours.
+  const L_EXO = ancreSemaineIsolee(JOURS[0]);
   const isoL = (d) => d.getFullYear() + '-' +
     String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   const jourExo = (n) => new Date(L_EXO.getTime() + n * 86400000 + 10 * 3600000).toISOString();
@@ -4862,7 +4863,9 @@ const SETS_IMPORTES = [
   if ((await visible())[0] === 'vue-seance') await terminer().catch(() => {});
 
   const ID_VIDE = '40000000-0000-4000-8000-0000000000e1';
-  poserSeance(ID_VIDE, 'Séries pas arrivées', jourExo(6), []);
+  // ⚠️ PAS `jourExo(6)` : l'ancre n'est pas un lundi, et « ancre + 6 jours »
+  // sortait de la semaine ouverte six jours sur sept (`decor-dates.js`).
+  poserSeance(ID_VIDE, 'Séries pas arrivées', seanceSansSeries(L_EXO).toISOString(), []);
   // ⚠️ ON MESURE AVANT, ON COMPARE APRÈS. Un compte écrit en dur dans
   // l'assertion ne dit rien du défaut — il dit ce que la fixture contenait le
   // jour où on l'a écrit, et il se périme au premier ajout. L'invariante, elle,

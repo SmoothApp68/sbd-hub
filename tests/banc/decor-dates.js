@@ -60,9 +60,38 @@ function datesDuDecor(maintenant) {
   return sortie;
 }
 
+// ══ LA SEMAINE ISOLÉE DES SECTIONS 40 À 49 ═════════════════════════════════
+//
+// Certaines sections veulent une semaine À ELLES SEULES, loin de celle du
+// décor : huit semaines avant son premier rang. Le banc l'ouvre par
+// `/semaine/<date de l'ancre>`, c'est-à-dire la semaine qui CONTIENT l'ancre.
+//
+// ⚠️ L'ANCRE N'EST PAS UN LUNDI : c'est le même jour de la semaine
+// qu'aujourd'hui. « Ancre + 6 jours » (la séance de la section 47) ne tombait
+// donc dans la semaine ouverte QUE le lundi, et la carte cherchée était
+// absente six jours sur sept — la même famille que #311, d'une semaine à
+// l'autre au lieu d'aujourd'hui à demain.
+//
+// Même remède : la JOURNÉE DE L'ANCRE, la seule qui appartienne à la semaine
+// ouverte quel que soit le jour — elle en est la définition —, et elle est
+// huit semaines dans le passé. Rendue telle quelle, sans heure ajoutée : un
+// décalage d'heure pourrait la faire passer au lendemain.
+var SEMAINES_ISOLEE = 8;
+
+function ancreSemaineIsolee(premierRang) {
+  return new Date(new Date(premierRang).getTime() - SEMAINES_ISOLEE * 7 * JOUR);
+}
+
+// Section 47 — la séance dont les séries ne sont pas arrivées.
+function seanceSansSeries(ancre) {
+  return new Date(new Date(ancre).getTime());
+}
+
 module.exports = {
   JOUR: JOUR,
   RANGS: RANGS,
   debutDeJournee: debutDeJournee,
-  datesDuDecor: datesDuDecor
+  datesDuDecor: datesDuDecor,
+  ancreSemaineIsolee: ancreSemaineIsolee,
+  seanceSansSeries: seanceSansSeries
 };

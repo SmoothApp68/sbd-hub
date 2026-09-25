@@ -173,6 +173,37 @@ describe('§9.11 — l’identifiant d’une prédiction est calculé, pas tiré
     ]).then(([a, b]) => expect(a).not.toBe(b));
   });
 
+  // ⚠️ LA VALEUR, PAS SEULEMENT DES ÉGALITÉS (49-R1). Les tests ci-dessus
+  // passeraient encore si la formule changeait — ils ne comparent que des
+  // identifiants entre eux. Celui-ci fige le NOMBRE, calculé sur le code
+  // d'avant les révisions : c'est lui qui garde « la révision 0 ne change
+  // pas » (MOTEUR §9.11). Un identifiant déjà en base qui changerait ferait
+  // noter deux fois le même pari.
+  test('DISCRIMINANT — la valeur de la révision 0 est figée', () => {
+    return Moteur.idDePrediction('00000000-0000-4000-8000-000000000049', 'squat_barre', 2)
+      .then((x) => expect(x).toBe('b9b7a693-794e-5b79-86f6-8194e29043ee'));
+  });
+
+  test('la révision 0 — passée, nulle ou absente — garde la formule à trois faits', () => {
+    const args = ['00000000-0000-4000-8000-000000000049', 'squat_barre', 2];
+    return Promise.all([undefined, null, 0].map((r) => Moteur.idDePrediction(...args, r)))
+      .then((l) => l.forEach((x) => expect(x).toBe('b9b7a693-794e-5b79-86f6-8194e29043ee')));
+  });
+
+  test('DISCRIMINANT — une révision 1 : un AUTRE identifiant, stable, au format UUID', () => {
+    const args = ['00000000-0000-4000-8000-000000000049', 'squat_barre', 2];
+    return Promise.all([
+      Moteur.idDePrediction(...args, 1),
+      Moteur.idDePrediction(...args, 1),
+      Moteur.idDePrediction(...args, 2)
+    ]).then(([a, b, c]) => {
+      expect(a).toMatch(UUID5);
+      expect(a).toBe(b);
+      expect(a).not.toBe('b9b7a693-794e-5b79-86f6-8194e29043ee');
+      expect(c).not.toBe(a);
+    });
+  });
+
   test('sans `crypto.subtle`, il rend null — et l’appelant retombe sur l’aléatoire', () => {
     const pose = window.crypto;
     Object.defineProperty(window, 'crypto', { value: {}, configurable: true });

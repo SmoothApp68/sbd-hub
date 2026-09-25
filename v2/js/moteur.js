@@ -1150,6 +1150,276 @@
       preuveRetenue === null ? null : { preuve: preuveRetenue });
   }
 
+  // ── §9.14 — LA RÉACTION SÉRIE PAR SÉRIE (chantier 49, 49-R1) ─────────────
+  //
+  // La consigne se calcule à l'ouverture et ne bouge plus ; la réaction la
+  // relit après chaque série VALIDÉE. « 50 × 12, 3 de plus que visé : 52,5 dès
+  // la série 2, vise 8 à 10 ? » Elle ne rend pas de phrase (`phraseReaction`
+  // s'en charge) : elle rend le plan, le message, la proposition en attente et
+  // le numéro de révision (§9.11).
+  //
+  // ⚠️ UNE FONCTION PURE, et c'est tout son intérêt. L'écran, la feuille
+  // « Pourquoi » et `predictions` liront SA sortie ; aucun ne rejouera la
+  // règle. Le contexte (cran, seconde charge) se calcule sur les séances
+  // ANTÉRIEURES par l'appelant (§9.12) : la séance en cours n'entre ici que par
+  // ses séries validées.
+  //
+  // ENTRÉE. `consigne` : la sortie de `consignePour`. `faites` : les séries
+  // validées de l'exercice, parmi les `n` que la consigne couvre, dans l'ordre,
+  // `{ charge_kg, reps, rpe, ressenti }`. `contexte` : `{ cran, haut }`, où
+  // `cran` est la charge immédiatement au-dessus (ou `null`, « le cran
+  // au-dessus » sans chiffre) et `haut` la seconde charge `{ charge, source }`
+  // de `secondeCharge`, ou `null`.
+  //
+  // SORTIE. `{ plan, message, attente, revision }`. Le plan couvre TOUTES les
+  // séries de la consigne, validées comprises, avec la charge proposée à
+  // chaque rang : la cascade du fantôme en a besoin pour juger une déviation
+  // (P4, 25/09/2026). `message.rang` et `attente.rang` sont l'index 0 de la
+  // ligne au-dessus de laquelle la phrase s'écrit.
+
+  // §9.14 — 3 reps comptées de marge pour proposer, 5 pour la seconde charge.
+  var SEUIL_REACTION = 3;
+  var SEUIL_SECONDE_CHARGE = 5;
+  // §9.14 — « il faut au moins 5 montées antérieures » pour parler d'habitude.
+  var MIN_MONTEES_HABITUDE = 5;
+  // Les états où la réaction se tait par règle : rien à tenter (silence), la
+  // reprise, qui ne demande volontairement pas de rep de plus (§9.9), et la
+  // règle de bord, sans zone (§9.1.2).
+  var ETATS_MUETS_REACTION = {
+    silence: true, reprise_courte: true, reprise_longue: true, bord: true
+  };
+
+  function ligneDePlan(charge, vise, zone, source) {
+    return { charge: charge, vise: vise, zone: zone, source: source };
+  }
+
+  // Le plan de la consigne telle qu'elle a été donnée : les `n − k` premières
+  // séries à la ligne, les `k` dernières au test (§9.13).
+  function planDeConsigne(c) {
+    var n = nombre(c && c.n);
+    if (n === null || n <= 0) return [];
+    var k = c.haut ? Math.min(nombre(c.haut.k) || 0, n) : 0;
+    var plan = [];
+    for (var i = 0; i < n; i++) {
+      var src = i >= n - k ? c.haut : c.ligne;
+      plan.push(ligneDePlan(src ? nombre(src.charge) : null, src ? nombre(src.vise) : null,
+        null, 'consigne'));
+    }
+    return plan;
+  }
+
+  function memeCharge(a, b) {
+    return a !== null && b !== null && auCentieme(a) === auCentieme(b);
+  }
+
+  function reactionPour(consigne, faites, contexte) {
+    var c = consigne || null;
+    var plan = planDeConsigne(c);
+    var sortie = { plan: plan, message: null, attente: null, revision: 0 };
+    if (c === null || ETATS_MUETS_REACTION[c.etat] === true) return sortie;
+    // `zone` : une clé chez `consignePour` ; la table des zones donne les bornes.
+    var z = typeof c.zone === 'string' ? zoneParCle(c.zone) : null;
+    var P = c.ligne ? nombre(c.ligne.charge) : null;
+    if (z === null || !c.ligne || P === null || nombre(c.palier) === null) return sortie;
+
+    var ctx = contexte || {};
+    var n = plan.length;
+    var bornes = [z.bas, z.haut];
+    var clos = false;        // une montée, ou un refus : plus rien dans ce bloc
+    var attente = null;
+    var revision = 0;
+    var message = null;
+    var liste = (faites || []).slice(0, n);
+
+    for (var i = 0; i < liste.length; i++) {
+      var s = liste[i] || {};
+      var charge = nombre(s.charge_kg);
+      var reps = nombre(s.reps);
+      var comptees = Palier().repsComptees(s);
+      var derniere = i === n - 1;
+      message = null;
+
+      // La ligne proposée vient d'être validée : prise, ou refusée (P3).
+      if (attente !== null && attente.rang === i) {
+        var propose = attente.charges[0];
+        attente = null;
+        var prise = propose === null
+          ? charge !== null && charge > P && !memeCharge(charge, P)
+          : charge !== null && (charge > propose || memeCharge(charge, propose));
+        clos = true;
+        if (!prise) continue;          // refus : le coach se tait jusqu'au bout du bloc
+
+        if (comptees !== null && comptees >= z.bas) {
+          // TENUE. La charge montée reste pour la suite, visée au bas de la
+          // zone — sauf en Lourd, où le garde-fou du §9.7 n'accorde qu'une
+          // série de plus : la série montée l'a déjà prise.
+          var change = false;
+          if (z.cle !== 'lourd') {
+            for (var j = i + 1; j < n; j++) {
+              // Une série que la consigne prévoyait déjà à cette charge garde
+              // sa visée (§9.14).
+              if (plan[j].source === 'consigne' && memeCharge(plan[j].charge, charge)) continue;
+              plan[j] = ligneDePlan(charge, z.bas, bornes.slice(), 'coach');
+              change = true;
+            }
+          }
+          if (change) revision += 1;
+          if (!derniere) {
+            message = comptees >= z.haut
+              ? { type: 'haut', rang: i + 1, charge: charge, reps: reps }
+              : { type: 'tenue', rang: i + 1, charge: charge, reps: reps, avance: !!c.haut };
+          }
+        } else {
+          // PAS ENCORE. Retour à la charge et à la visée du palier ; le pari de
+          // la consigne n'a jamais cessé d'exister, rien de neuf ne s'écrit.
+          for (var r = i + 1; r < n; r++) {
+            plan[r] = ligneDePlan(P, nombre(c.ligne.vise), null, 'retour');
+          }
+          if (!derniere) {
+            message = { type: 'pas_encore', rang: i + 1, charge: charge, reps: reps, palier: P };
+          }
+        }
+        continue;
+      }
+      if (clos) continue;
+
+      // Toute montée clôt les propositions (P1). Un test prévu suit la
+      // consigne ; une montée de son propre chef est un choix : silence.
+      if (charge !== null && charge > P && !memeCharge(charge, P)) { clos = true; continue; }
+
+      // Une série au palier, sur une ligne encore celle de la consigne, qui
+      // n'est pas la dernière : 3 reps comptées de plus que visé, on propose.
+      if (derniere || !memeCharge(charge, P) || plan[i].source !== 'consigne') continue;
+      var vise = plan[i].vise;
+      if (comptees === null || vise === null) continue;
+      var marge = comptees - vise;
+      if (marge < SEUIL_REACTION) continue;
+      var charges = [ctx.cran === undefined ? null : nombre(ctx.cran)];
+      var sourceHaut = null;
+      if (marge >= SEUIL_SECONDE_CHARGE && ctx.haut && nombre(ctx.haut.charge) !== null) {
+        charges.push(nombre(ctx.haut.charge));
+        sourceHaut = ctx.haut.source || null;
+      }
+      plan[i + 1] = ligneDePlan(charges[0], z.bas, bornes.slice(), 'coach');
+      revision += 1;
+      attente = { rang: i + 1, charges: charges.slice() };
+      message = { type: 'propose', rang: i + 1, charge: charge, reps: reps,
+                  charges: charges, marge: marge, source: sourceHaut };
+    }
+
+    sortie.revision = revision;
+    sortie.attente = attente;
+    // Toutes les séries faites : plus rien à dire dans la grille.
+    sortie.message = liste.length >= n ? null : message;
+    return sortie;
+  }
+
+  // §9.14 — LA SECONDE CHARGE, à 5 reps de marge : ce que le programme fixe,
+  // puis ce que la personne fait (son saut habituel), puis la préconisation
+  // (deux crans, sous 10 % du palier). `null` si elle ne dépasse pas le cran,
+  // ou si le cran n'a pas de chiffre.
+  //
+  // ⚠️ LE SEUIL SE LIT AU CENTIÈME, comme toutes les charges (`auCentieme`).
+  // Un saut habituel de 6,6667 % sur 75 kg vise 80,000025 : sans l'arrondi,
+  // 80 kg, la charge vraie, serait « sous » le seuil.
+  function secondeCharge(o) {
+    var e = o || {};
+    var palier = nombre(e.palier);
+    var cran = nombre(e.cran);
+    if (palier === null || cran === null) return null;
+    var retenue = null;
+    var programme = nombre(e.programme);
+    if (programme !== null) {
+      retenue = { charge: programme, source: 'programme' };
+    } else {
+      var sauts = (e.sauts || []).map(nombre).filter(function (v) { return v !== null; });
+      if (sauts.length >= MIN_MONTEES_HABITUDE) {
+        var seuil = auCentieme(palier * (1 + mediane(sauts)));
+        var plusPetite = null;
+        (e.charges || []).forEach(function (v) {
+          var ch = nombre(v);
+          if (ch === null || auCentieme(ch) < seuil) return;
+          if (plusPetite === null || ch < plusPetite) plusPetite = ch;
+        });
+        if (plusPetite !== null) retenue = { charge: plusPetite, source: 'habitude' };
+      }
+      if (retenue === null) {
+        var suivant = nombre(e.cranSuivant);
+        if (suivant !== null && auCentieme(suivant) <= auCentieme(palier * (1 + MARGE_DOUBLE_SAUT))) {
+          retenue = { charge: suivant, source: 'preconisation' };
+        }
+      }
+    }
+    if (retenue === null || !(retenue.charge > cran) || memeCharge(retenue.charge, cran)) return null;
+    return retenue;
+  }
+
+  // §9.14 — LE SAUT HABITUEL, relevé séance par séance : la PREMIÈRE série de
+  // travail plus lourde que le palier qui suit IMMÉDIATEMENT une série au
+  // palier, rapportée au palier. Les chauffes et les autres rôles ne comptent
+  // ni comme montée ni comme interruption. Une habitude décrite, comme le pas
+  // de salle : COMMENT la personne monte, jamais les seules fois où ça a tenu.
+  //
+  // `seances` : `[{ palier, series: [{ charge_kg, role }] }]`, les séances
+  // antérieures (§9.12), avec les rôles du contrat (`analyser` → §9.13).
+  function sautsDeMontee(seances) {
+    var sauts = [];
+    (seances || []).forEach(function (se) {
+      var p = nombre(se && se.palier);
+      if (p === null || p <= 0) return;
+      var travail = parRole(se.series, ROLES_VOTANTS);
+      for (var i = 1; i < travail.length; i++) {
+        var avant = nombre(travail[i - 1].charge_kg);
+        var ch = nombre(travail[i].charge_kg);
+        if (ch === null || !memeCharge(avant, p) || !(ch > p) || memeCharge(ch, p)) continue;
+        sauts.push((ch - p) / p);
+        return;
+      }
+    });
+    return sauts;
+  }
+
+  // §20 — LES PHRASES DE LA RÉACTION. Un fait, jamais un « bravo ».
+  // Elles ne lisent que le message et les bornes de la zone : aucune règle ne
+  // se rejoue ici. Mêmes insécables que les phrases de l'en-tête (autour du
+  // « × », avant les deux-points).
+  //
+  // ⚠️ JUSQU'AU MILLIÈME, pas au centième comme `nombreFr` : une charge de
+  // poulie convertie (21,315) doit se lire telle que la personne l'a faite, et
+  // l'arrondir en 21,32 afficherait une charge qu'elle n'a pas soulevée.
+  function nombreReaction(v) { return Modele().nombre(v, 3); }
+  function croixReaction(a, b) {
+    return nombreReaction(a) + INSECABLE + '×' + INSECABLE + nombreReaction(b);
+  }
+
+  function phraseReaction(message, zone) {
+    var m = message || null;
+    if (m === null) return null;
+    var z = typeof zone === 'string' ? zoneParCle(zone) : (zone || null);
+    var fait = croixReaction(m.charge, m.reps);
+    switch (m.type) {
+      case 'propose': {
+        if (z === null) return null;
+        var ch = (m.charges || []).map(function (v) {
+          return v === null ? 'le cran au-dessus' : nombreReaction(v);
+        });
+        var quoi = ch.length > 1 ? ch[0] + ', ou ' + ch[1] + ' si tu te sens bien' : ch[0];
+        return fait + ', ' + m.marge + ' de plus que visé' + DEUX_POINTS + quoi +
+          ' dès la série ' + (m.rang + 1) + ', vise ' + z.bas + ' à ' + z.haut + ' ?';
+      }
+      case 'tenue':
+        return fait + ', dans ta zone' + DEUX_POINTS +
+          (m.avance ? 'ton test a avancé d\'une série.' : 'tu montes dès aujourd\'hui.');
+      case 'haut':
+        return fait + ', le haut de ta zone.';
+      case 'pas_encore':
+        return fait + DEUX_POINTS + 'pas encore. Tu as tenté plus tôt que prévu ; on reprend à ' +
+          nombreReaction(m.palier) + '.';
+      default:
+        return null;
+    }
+  }
+
 
   // ── ECRAN-SAISIE §3.12 — LES PHRASES DE L'EN-TÊTE ────────────────────────
   //
@@ -1784,11 +2054,20 @@
   // valide : version 5 (un nom, pas un hasard) et variante RFC 4122. Sans
   // `crypto.subtle` — contexte non sécurisé —, on rend `null` et l'appelant
   // retombe sur un identifiant aléatoire : le comportement d'avant, pas pire.
-  async function idDePrediction(seance, slug, rang) {
+  //
+  // §9.11 (49-R1) — LA RÉVISION. Une consigne revue en séance est un nouveau
+  // pari, à côté du premier : la révision entre dans le nom. ⚠️ LA RÉVISION 0
+  // GARDE LA FORMULE À TROIS FAITS, octet pour octet — aucun identifiant déjà
+  // en base ne change (test à valeur figée). Seul un entier ≥ 1 ajoute un
+  // quatrième fait ; `undefined`, `null` et 0 ne le font jamais, sans quoi
+  // « |0 » changerait l'identifiant de tous les paris d'ouverture.
+  async function idDePrediction(seance, slug, rang, revision) {
     var c = racine.crypto;
     if (!c || !c.subtle || typeof c.subtle.digest !== 'function') return null;
     if (typeof racine.TextEncoder !== 'function') return null;
     var nom = String(seance) + '|' + String(slug) + '|' + String(rang);
+    var rev = nombre(revision);
+    if (rev !== null && rev >= 1 && Math.floor(rev) === rev) nom += '|' + String(rev);
     var somme = await c.subtle.digest('SHA-256', new racine.TextEncoder().encode(nom));
     var o = new Uint8Array(somme).slice(0, 16);
     o[6] = (o[6] & 0x0f) | 0x50;
@@ -2134,6 +2413,10 @@
     ecartHabituel: ecartHabituel,
     repriseDe: repriseDe,
     consignePour: consignePour,
+    reactionPour: reactionPour,
+    secondeCharge: secondeCharge,
+    sautsDeMontee: sautsDeMontee,
+    phraseReaction: phraseReaction,
     libellesConsigne: libellesConsigne,
     pourquoiConsigne: pourquoiConsigne,
     constatDe: constatDe,

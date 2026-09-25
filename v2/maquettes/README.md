@@ -13,6 +13,7 @@ plutôt que de mémoire.
 | `mode-edition.html` | Bascule **Modifier** : les blocs se replient sur leur légende, les poignées apparaissent, le menu trois points expose grouper / dégrouper / déplacer / remplacer / supprimer. |
 | `grouper-degrouper.html` | Grouper en superset par désignation (« tape le bloc à joindre »), ouvrir un bloc pour atteindre ses exercices, **Sortir du superset**. Un superset retombé à un exercice redevient un bloc simple. |
 | `maquette-moteur-parle-v2.html` | **Le moteur qui parle** (chantier 48) — étiquette de zone, consigne à deux charges, règle du test, menu des zones, feuille « Pourquoi », constats, rythme dans Profil, reprise, et le dictionnaire complet des phrases. Remplace la v1, jamais commitée. |
+| `maquette-reaction-serie-v1.html` | **La réaction série par série** (chantier 49, MOTEUR §9.14, ECRAN-SAISIE §3.2) — variante A : la phrase du coach dans la grille, au-dessus de la série qu'elle concerne ; la ligne proposée avec son filet et sa charge en couleur du coach, les reps à taper ; « tenue », « le haut de ta zone », « pas encore » ; le refus qui fait taire le bloc. |
 
 ## Ce qu'elles ne fixent pas
 

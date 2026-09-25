@@ -5817,6 +5817,197 @@ const SETS_IMPORTES = [
       erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
 
+  console.log('\n══ 7 sexvicies. LA RÉACTION SÉRIE PAR SÉRIE, DANS LA GRILLE (§9.14) ══');
+  //
+  // Le vrai `app.js`, par les vrais gestes : la phrase au-dessus de la série
+  // suivante, la ligne proposée qui demande ses reps, le pari de révision
+  // écrit à la validation de SA série et pas avant, les deux paris du rang
+  // observés chacun sur sa charge, le refus, l'effort saisi après coup, la
+  // correction au clavier, et le silence d'Entretenir.
+  {
+    const depart = base.predictions.length;
+    const revisions = () => base.predictions.slice(depart)
+      .filter((l) => l.exercise_slug === 'souleve-terre' && l.fondement &&
+        Number(l.fondement.revision) >= 1);
+    const duRang = (seanceId, rang) => base.predictions.slice(depart)
+      .filter((l) => l.exercise_slug === 'souleve-terre' && l.fondement &&
+        l.fondement.seance === seanceId && l.fondement.rang === rang);
+    const phrases = () => page.evaluate(() =>
+      Array.from(document.querySelectorAll('.bloc-seance .reaction-serie'))
+        .map((n) => n.className.replace('reaction-serie', '').trim() + ':' + n.textContent));
+    const proposees = () => page.evaluate(() =>
+      Array.from(document.querySelectorAll('.ligne-serie')).map((l) => l.classList.contains('proposee')));
+    const placeholders = async (i) => (await ligne(i)).$$eval('input', (l) => l.map((x) => x.placeholder));
+    const seanceOuverte = () => page.evaluate(() => {
+      const n = document.querySelector('#bandeau-seance');
+      return n ? true : false;
+    });
+    const idSeance = () => base.sessions.filter((x) => x.statut === 'en_cours').map((x) => x.id)[0];
+    const quitterChamp = async (i, champ, v) => {
+      const champs = await (await ligne(i)).$$('input');
+      await champs[champ].fill(String(v));
+      await champs[champ].evaluate((e) => e.blur());
+      await attendre(900);
+    };
+
+    // ── LA PROPOSITION, PUIS LA MONTÉE PRISE ─────────────────────────────
+    await aller('/saisie');
+    await demarrerRoutine('Terre');
+    await attendre(600);
+    const [c1Txt, viseTxt] = await placeholders(0);
+    const c1 = Number(String(c1Txt).replace(',', '.'));
+    const vise = Number(viseTxt);
+    ok('[R] le décor : une consigne au palier sur la première série',
+      isFinite(c1) && c1 > 0 && isFinite(vise) && vise > 0 && (await seanceOuverte()),
+      JSON.stringify({ c1Txt, viseTxt }));
+
+    await saisirSerie(0, c1, vise + 3);
+    const ph1 = await phrases();
+    ok('[R] 3 DE PLUS QUE VISÉ : la phrase apparaît au-dessus de la série suivante',
+      ph1.length === 1 && /^propose:/.test(ph1[0]) && /3 de plus que visé/.test(ph1[0]) &&
+      /dès la série 2/.test(ph1[0]),
+      JSON.stringify(ph1));
+    const prop1 = await proposees();
+    const [cranTxt, fourchette] = await placeholders(1);
+    const cran = Number(String(cranTxt).replace(',', '.'));
+    ok('[R] la ligne proposée : le filet, la charge du coach, la FOURCHETTE dans les reps',
+      prop1[1] === true && prop1.filter(Boolean).length === 1 && cran > c1 &&
+      /^\d+-\d+$/.test(fourchette),
+      JSON.stringify({ prop1, cranTxt, fourchette }));
+    ok('[R] PAS DE PARI À L’AFFICHAGE : aucune ligne de révision tant que la série n’est pas validée',
+      revisions().length === 0, revisions().length + ' ligne(s)');
+
+    // Valider la ligne proposée SANS ses reps : refusé, le curseur va aux reps.
+    const setsAvant = base.sets.length;
+    await (await ligne(1)).$eval('.ok-serie', (b) => b.click());
+    await attendre(600);
+    const focus = await page.evaluate(() => {
+      const a = document.activeElement;
+      const rp = a && a.closest ? a.closest('.rp-serie') : null;
+      const serie = a && a.closest ? a.closest('.serie') : null;
+      return { rp: !!rp, attend: !!(rp && rp.classList.contains('a-taper')),
+               iSerie: serie ? serie.getAttribute('data-iserie') : null };
+    });
+    ok('[R] VALIDER À VIDE NE VALIDE PAS : la série reste ouverte, le curseur va à ses reps',
+      base.sets.length === setsAvant && !(await (await ligne(1)).$eval('.ok-serie',
+        (b) => b.classList.contains('cochee'))) && focus.rp && focus.attend && focus.iSerie === '1',
+      JSON.stringify({ sets: base.sets.length - setsAvant, focus }));
+
+    // Les reps tapées, la charge laissée au fantôme du coach : la montée tient.
+    const bas = Number(fourchette.split('-')[0]);
+    {
+      const champs = await (await ligne(1)).$$('input');
+      await champs[1].fill(String(bas));
+      await (await ligne(1)).$eval('.ok-serie', (b) => b.click());
+      await attendre(900);
+    }
+    const ph2 = await phrases();
+    ok('[R] REPS TAPÉES, MONTÉE TENUE : la phrase blanche, précédée de la coche verte',
+      ph2.length === 1 && /^(tenue|haut):/.test(ph2[0]) && /dans ta zone|le haut de ta zone/.test(ph2[0]) &&
+      (await page.evaluate(() => !!document.querySelector('.reaction-serie .coche-verte'))),
+      JSON.stringify(ph2));
+    const sId = idSeance();
+    const rev1 = revisions().filter((l) => l.fondement.seance === sId);
+    ok('[R] À LA VALIDATION DE SA SÉRIE : UNE ligne de révision 1, la séance dans le fondement',
+      rev1.length === 1 && rev1[0].fondement.revision === 1 && rev1[0].fondement.rang === 2 &&
+      rev1[0].fondement.seance === sId && rev1[0].valeur_predite === bas &&
+      rev1[0].fondement.declencheur && rev1[0].fondement.declencheur.marge === 3 &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-5/.test(rev1[0].id),
+      JSON.stringify(rev1.map((l) => ({ rang: l.fondement.rang, rev: l.fondement.revision,
+        seance: !!l.fondement.seance, decl: l.fondement.declencheur }))));
+    const rang2 = duRang(sId, 2);
+    const p0 = rang2.filter((l) => !l.fondement.revision)[0];
+    const p1 = rang2.filter((l) => l.fondement.revision === 1)[0];
+    ok('[R] LES DEUX PARIS DU RANG SONT OBSERVÉS, chacun sur SA charge',
+      !!p0 && !!p1 && p1.valeur_observee === bas && !!p1.set_observe &&
+      p0.set_observe === p1.set_observe && p0.valeur_observee === null,
+      JSON.stringify(rang2.map((l) => ({ rev: l.fondement.revision || 0, charge: l.fondement.charge,
+        v: l.valeur_observee, set: !!l.set_observe }))));
+    await abandonner();
+
+    // ── LE REFUS ─────────────────────────────────────────────────────────
+    await aller('/saisie');
+    await demarrerRoutine('Terre');
+    await attendre(600);
+    await saisirSerie(0, c1, vise + 3);
+    await saisirSerie(1, c1, vise + 2);
+    const phRefus = await phrases();
+    ok('[R] UNE CHARGE PLUS BASSE SUR LA LIGNE PROPOSÉE : la phrase disparaît, plus rien dans le bloc',
+      phRefus.length === 0 && (await proposees()).every((x) => !x),
+      JSON.stringify(phRefus));
+    await saisirSerie(2, c1, vise + 3);
+    ok('[R] et le coach se tait jusqu’à la fin du bloc',
+      (await phrases()).length === 0, JSON.stringify(await phrases()));
+    await abandonner();
+
+    // ── L'EFFORT SAISI APRÈS COUP ────────────────────────────────────────
+    await aller('/saisie');
+    await demarrerRoutine('Terre');
+    await attendre(600);
+    await saisirSerie(0, c1, vise + 3);
+    ok('[R] (effort) la proposition est affichée', (await phrases()).length === 1,
+      JSON.stringify(await phrases()));
+    await toucher(0, '.eff-serie');
+    if ((await compter('#feuille-contenu .grille-rpe')) > 0) {
+      await page.click('#feuille-contenu .bascule button');
+      await attendre(400);
+    }
+    await page.click('#feuille-contenu .grille-rir button:nth-child(4)');   // « 0 », à fond
+    await attendre(900);
+    ok('[R] « À FOND » SUR LA SÉRIE QUI A DÉCLENCHÉ : la proposition disparaît',
+      (await phrases()).length === 0 && (await proposees()).every((x) => !x),
+      JSON.stringify(await phrases()));
+    const sEffort = idSeance();
+    await saisirSerie(1, cran, bas);
+    ok('[R] et AUCUN pari de révision ne s’écrit',
+      revisions().filter((l) => l.fondement.seance === sEffort).length === 0,
+      revisions().filter((l) => l.fondement.seance === sEffort).length + ' ligne(s)');
+    await abandonner();
+
+    // ── LA CORRECTION AU CLAVIER D'UNE SÉRIE VALIDÉE ─────────────────────
+    await aller('/saisie');
+    await demarrerRoutine('Terre');
+    await attendre(600);
+    await saisirSerie(0, c1, vise);
+    ok('[R] (clavier) à la visée, le coach se tait', (await phrases()).length === 0,
+      JSON.stringify(await phrases()));
+    await quitterChamp(0, 1, vise + 3);
+    ok('[R] CORRIGER AU CLAVIER UNE SÉRIE VALIDÉE REDESSINE LE BLOC : la proposition arrive',
+      (await phrases()).length === 1 && (await proposees())[1] === true,
+      JSON.stringify(await phrases()));
+    await abandonner();
+
+    // ── UNE SÉRIE TAPÉE MAIS NON VALIDÉE N'EST PAS UNE SÉRIE FAITE ───────
+    await aller('/saisie');
+    await demarrerRoutine('Terre');
+    await attendre(600);
+    await quitterChamp(0, 0, c1);
+    await quitterChamp(0, 1, vise + 3);
+    await aller('/progression');
+    await aller('/saisie');
+    await attendre(600);
+    ok('[R] UNE SÉRIE SEULEMENT TAPÉE NE DÉCLENCHE RIEN, même au rendu suivant',
+      (await phrases()).length === 0 && (await proposees()).every((x) => !x),
+      JSON.stringify(await phrases()));
+    await abandonner();
+
+    // ── ENTRETENIR : RIEN ────────────────────────────────────────────────
+    base.profiles[0].intention = 'entretien';
+    await aller('/saisie');
+    await demarrerRoutine('Terre');
+    await attendre(600);
+    await saisirSerie(0, c1, vise + 3);
+    ok('[R] EN ENTRETENIR, rien : ni phrase, ni ligne proposée',
+      (await phrases()).length === 0 && (await proposees()).every((x) => !x),
+      JSON.stringify(await phrases()));
+    await abandonner();
+    base.profiles[0].intention = 'progresser';
+    await aller('/saisie');
+
+    ok('[R] aucune erreur de page pendant la réaction',
+      erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
+  }
+
   console.log('\n══ 8. NON-RÉGRESSION ══');
   for (const [chemin, attendu] of [['/', 'vue-liste'], ['/progression', 'vue-progression'],
                                    ['/profil', 'vue-profil'], ['/routine/nouvelle', 'vue-routine']]) {

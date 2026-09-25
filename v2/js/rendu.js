@@ -1337,17 +1337,31 @@
     return env;
   }
 
-  function champSerie(classe, valeur, fantomeVal, suffixe, surSaisie) {
+  // `options.indication` : un texte à montrer dans un champ VIDE qui n'a pas
+  // de fantôme — la fourchette de reps de la ligne proposée (§9.14, ECRAN
+  // §3.2). Ce n'est pas une valeur : rien ne la recopie à la validation.
+  // `options.surQuitte` : la sortie du champ (`change`), pour redessiner après
+  // une correction sans voler le focus à chaque frappe.
+  function champSerie(classe, valeur, fantomeVal, suffixe, surSaisie, options) {
+    var o = options || {};
     var vide = valeur === null || valeur === undefined;
-    var enveloppe = el('div', classe + (vide && fantomeVal !== null ? ' fantome' : ''));
+    var indication = vide && (fantomeVal === null || fantomeVal === undefined) && o.indication
+      ? o.indication : null;
+    var enveloppe = el('div', classe + (vide && fantomeVal !== null && fantomeVal !== undefined
+      ? ' fantome' : '') + (indication ? ' indication' : ''));
     var input = doc.createElement('input');
     input.type = 'text';
     input.inputMode = 'decimal';
     input.value = vide ? '' : nombreFr(valeur);
     if (vide && fantomeVal !== null && fantomeVal !== undefined) {
       input.placeholder = nombreFr(fantomeVal);
+    } else if (indication) {
+      input.placeholder = indication;
     }
     input.addEventListener('input', function () { surSaisie(input.value); });
+    if (typeof o.surQuitte === 'function') {
+      input.addEventListener('change', function () { o.surQuitte(); });
+    }
     enveloppe.appendChild(input);
     if (suffixe) enveloppe.appendChild(el('u', '', suffixe));
     return enveloppe;
@@ -1759,7 +1773,14 @@
     var complets = M().toursComplets(bloc);
 
     bloc.series.forEach(function (s) {
-      noeud.appendChild(rangeeDeSerie(bloc, s, complets, vue));
+      // §9.14 (49-R2) — LA RÉACTION PARLE DANS LA GRILLE, au-dessus de la
+      // ligne qu'elle concerne (ECRAN §3.2, maquette variante A). Une ligne de
+      // plus DANS le bloc, jamais une seconde couche. Une SŒUR de la ligne, et
+      // pas son enfant : le glissement déplace le premier enfant de la ligne.
+      var info = !vue.programme && typeof vue.reaction === 'function'
+        ? vue.reaction(s._iExo, s._iSerie) : null;
+      if (info && info.message) noeud.appendChild(phraseDeReaction(info.message, s.debutTour));
+      noeud.appendChild(rangeeDeSerie(bloc, s, complets, vue, info));
     });
 
     noeud.appendChild(boutonsAjoutSerie(bloc, vue));
@@ -2017,7 +2038,36 @@
     return null;
   }
 
-  function rangeeDeSerie(bloc, s, complets, vue) {
+  // La phrase du coach. `propose` en couleur du coach ; `tenue` et `haut` en
+  // blanc, précédés de la coche verte ; `pas_encore` en gris. Le texte vient
+  // de `phraseReaction` — le rendu n'en écrit pas un mot.
+  function phraseDeReaction(message, debutTour) {
+    var n = el('div', 'reaction-serie ' + message.type + (debutTour ? ' debut-tour' : ''));
+    if (message.type === 'tenue' || message.type === 'haut') {
+      var v = svg('svg', 'coche-verte', { viewBox: '0 0 24 24', 'aria-hidden': 'true' });
+      v.appendChild(svg('path', null, { d: 'M5 13l4 4L19 7' }));
+      n.appendChild(v);
+    }
+    n.appendChild(doc.createTextNode(message.phrase || ''));
+    return n;
+  }
+
+  // §9.14 — la ligne proposée validée à vide : on ne valide pas, on met le
+  // curseur dans ses reps et on le montre, sans alarme ni rouge.
+  function demanderReps(racine, iExo, iSerie) {
+    if (!racine) return false;
+    var r = racine.querySelector('.serie[data-iexo="' + iExo + '"][data-iserie="' + iSerie + '"]');
+    var champ = r && r.querySelector('.rp-serie');
+    var input = champ && champ.querySelector('input');
+    if (!input) return false;
+    champ.classList.remove('a-taper');
+    void champ.offsetWidth;
+    champ.classList.add('a-taper');
+    input.focus();
+    return true;
+  }
+
+  function rangeeDeSerie(bloc, s, complets, vue, reaction) {
     var iExo = s._iExo, iSerie = s._iSerie;
     var g = gabaritDe(vue, s.exercise_slug);
     var champs = g.champs.map(function (n) { return M().champDeMesure(n); });
@@ -2044,9 +2094,16 @@
     // ⚠️ LA MARQUE VA SUR LA LIGNE, PAS SUR LA RANGÉE. C'est la ligne qui porte
     // le fond de glissement ; une marge posée sur la rangée laisserait le fond
     // rouge dépasser dans l'espace, au-dessus du vide.
-    var ligne = el('div', 'ligne-serie' + (s.debutTour ? ' debut-tour' : ''));
+    // La marque de tour passe à la phrase du coach quand elle précède la ligne :
+    // l'espace va AU-DESSUS de la phrase, pas entre elle et sa série.
+    var proposee = !!(reaction && reaction.proposee);
+    var ligne = el('div', 'ligne-serie' +
+      (s.debutTour && !(reaction && reaction.message) ? ' debut-tour' : '') +
+      (proposee ? ' proposee' : ''));
     var fond = el('div', 'glisse-fond', 'Supprimer');
     var rangee = el('div', 'serie' + classeGrille + (allumee ? ' faite' : ''));
+    rangee.setAttribute('data-iexo', iExo);
+    rangee.setAttribute('data-iserie', iSerie);
 
     var eti = etiquetteDeSerie(bloc, s);
     // Une note propre à CETTE série se signale sur son numéro — sinon elle
@@ -2106,11 +2163,18 @@
           function (v) { vue.surChamp(iExo, iSerie, nom, v); }));
         return;
       }
-      rangee.appendChild(champSerie(classe,
+      // §9.14 — sur la ligne proposée, la charge est celle du coach, et les
+      // reps n'ont que la fourchette pour indication.
+      var fourchette = proposee && c.cle === 'reps' && reaction.fourchette
+        ? reaction.fourchette[0] + '-' + reaction.fourchette[1] : null;
+      rangee.appendChild(champSerie(classe + (proposee && c.cle === 'charge_kg' ? ' coach' : ''),
         enUniteDeSaisie(s[c.cle], c.facteur),
         enUniteDeSaisie(f[c.cle], c.facteur),
         c.unite,
-        function (v) { vue.surChamp(iExo, iSerie, nom, v); }));
+        function (v) { vue.surChamp(iExo, iSerie, nom, v); },
+        { indication: fourchette,
+          surQuitte: typeof vue.surChampQuitte === 'function'
+            ? function () { vue.surChampQuitte(iExo, iSerie); } : null }));
     });
 
     if (g.effort && !vue.programme) {
@@ -3300,6 +3364,7 @@
     rendreBandeauSeance: rendreBandeauSeance,
     rendreBlocsSeance: rendreBlocsSeance,
     majConstat: majConstat,
+    demanderReps: demanderReps,
     rendreRepos: rendreRepos,
     rendreFeuilleSerie: rendreFeuilleSerie,
     rendreFeuilleNote: rendreFeuilleNote,

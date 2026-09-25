@@ -1502,6 +1502,7 @@
       // quel rang. Une seule règle d'alignement dans tout le fichier.
       var ref = proposition(liste, k, champ, prec, plan);
       if (ref !== null && memeValeur(ref, v)) return null;
+      if (champ === 'charge_kg' && plan && accepteLaProposition(plan[k], v)) return null;
       return v;
     }
     return null;
@@ -1611,10 +1612,43 @@
     return sortie;
   }
 
-  function planDe(series, consigne) {
+  // §9.14 (49-R2) — LE PLAN COURANT, quand la réaction est branchée. `reaction`
+  // est `reactionPour(...).plan` : une ligne par rang de la consigne, validées
+  // comprises. La couverture dit QUELLE série porte quel rang ; la réaction dit
+  // ce que ce rang propose MAINTENANT.
+  //
+  // ⚠️ LA LIGNE PROPOSÉE N'A PAS DE FANTÔME DE REPS (ECRAN §3.2, 25/09/2026).
+  // `reps: null`, `proposee: true` et la fourchette pour l'indication : valider
+  // à vide enregistrerait le bas de la zone, la montée « tiendrait » toujours
+  // et le pari serait jugé exact d'office.
+  function planDe(series, consigne, reaction) {
+    var palier = consigne && consigne.ligne && consigne.ligne.charge !== null &&
+      consigne.ligne.charge !== undefined ? consigne.ligne.charge
+      : (consigne ? consigne.palier : null);
     return couvertureDe(series, consigne).map(function (c) {
-      return c ? { charge_kg: c.charge_kg, reps: c.reps } : null;
+      if (!c) return null;
+      var p = reaction && reaction[c.rang - 1];
+      if (!p) return { charge_kg: c.charge_kg, reps: c.reps };
+      if (p.source === 'coach') {
+        return { charge_kg: p.charge === undefined ? null : p.charge, reps: null,
+                 proposee: true, fourchette: p.zone ? p.zone.slice() : null,
+                 palier: palier === undefined ? null : palier };
+      }
+      return { charge_kg: p.charge === undefined ? null : p.charge,
+               reps: p.vise === undefined ? null : p.vise };
     });
+  }
+
+  // §9.14 (P3, P10) — une charge tapée sur la ligne proposée, ÉGALE OU
+  // SUPÉRIEURE à la charge proposée (au-dessus du palier quand le cran n'a pas
+  // de chiffre), est une ACCEPTATION : la réaction fixe la suite, le rang 1 ne
+  // la propage pas. Inférieure, c'est un refus, et elle se propage comme
+  // n'importe quelle déviation.
+  function accepteLaProposition(p, v) {
+    var n = Number(v);
+    if (!p || !p.proposee || v === null || v === undefined || !isFinite(n)) return false;
+    if (p.charge_kg !== null && p.charge_kg !== undefined) return n >= Number(p.charge_kg);
+    return p.palier !== null && p.palier !== undefined && n > Number(p.palier);
   }
 
   function fantome(seance, iExo, iSerie, prec, plan) {
@@ -1650,8 +1684,11 @@
     // seraient deux voix ; `reps_visees` est le pendant de `charge_cible_kg`,
     // une intention de routine qui parle quand le moteur se tait.
     var reps = propose ? propose.reps : null;
-    if ((reps === null || reps === undefined) && propre) reps = propre.reps_visees;
-    if ((reps === null || reps === undefined) && ligne) reps = ligne.reps;
+    // La ligne proposée : AUCUN repli, ni la routine ni la fois d'avant — ses
+    // reps se tapent (§9.14, ECRAN §3.2).
+    var aTaper = !!(propose && propose.proposee);
+    if (!aTaper && (reps === null || reps === undefined) && propre) reps = propre.reps_visees;
+    if (!aTaper && (reps === null || reps === undefined) && ligne) reps = ligne.reps;
 
     // La durée et la distance suivent la MÊME règle que la charge : ce qu'on
     // vient de faire dans la séance, à défaut ce qu'on a fait au même rang la

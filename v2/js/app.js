@@ -1384,7 +1384,17 @@
     var g = Modele.gabaritDe((local.exercices || []).filter(function (e) {
       return e && e.slug === exo.exercise_slug;
     })[0]);
-    var f = Seance.fantome(seance, iExo, iSerie, precedentDe(exo.exercise_slug), planDe(iExo));
+    var plan = planDe(iExo);
+    // §9.14 (ECRAN §3.2, 25/09/2026) — LA LIGNE PROPOSÉE NE SE VALIDE PAS À
+    // VIDE. Ses reps ne sont pas un fantôme : valider sans les taper
+    // enregistrerait le bas de la zone, et le pari serait jugé exact d'office.
+    // On ne valide pas, on met le curseur dans les reps, et on le dit — sans
+    // alarme ni rouge.
+    if (plan[iSerie] && plan[iSerie].proposee && (serie.reps === null || serie.reps === undefined)) {
+      Rendu.demanderReps($('blocs-seance'), iExo, iSerie);
+      return;
+    }
+    var f = Seance.fantome(seance, iExo, iSerie, precedentDe(exo.exercise_slug), plan);
     var champs = {};
     //
     // La seule condition qui compte est « le champ est VIDE » : ce qui a été
@@ -1418,6 +1428,9 @@
     // `poserSeries` y pose l'entrée des séries, donc avec un `seq` plus petit
     // que celui de la prédiction. `set_observe` trouve alors toujours sa série.
     await apresGeste();
+    // §9.11 (49-R2) — le pari de révision de CETTE série, s'il y en a un,
+    // AVANT son observation : il doit exister pour être observé.
+    await noterRevision(iExo, iSerie);
     await observerSerie(iExo, iSerie);
   }
 
@@ -1679,34 +1692,71 @@
   // destination — mais on les écrirait deux fois pour rien.
   var notesEnCours = {};
 
-  function cleNote(slug) { return seance.id + '|' + slug; }
+  // §9.11 (49-R2) — LA GARDE PORTE LA RÉVISION. La révision 0 — les paris de
+  // l'ouverture — se note d'un bloc, par séance et par exercice, comme avant.
+  // Une révision ≥ 1 se note ligne par ligne, à la validation de SA série :
+  // la garde porte alors aussi le rang. Sans la révision dans la clé, le pari
+  // de l'ouverture bloquerait tous ceux du coach : aucun ne s'écrirait.
+  function revisionDe(l) {
+    var r = l && l.fondement ? Number(l.fondement.revision) : 0;
+    return isFinite(r) && r >= 1 ? r : 0;
+  }
 
-  function dejaNote(slug) {
-    if (notesEnCours[cleNote(slug)]) return true;
+  function cleNote(slug, revision, rang) {
+    return seance.id + '|' + slug + '|' + (revision || 0) + (revision ? '|' + rang : '');
+  }
+
+  function dejaNote(slug, revision, rang) {
+    var rev = revision || 0;
+    if (notesEnCours[cleNote(slug, rev, rang)]) return true;
     return (local.predictions || []).some(function (l) {
       return l && l.exercise_slug === slug && l.fondement &&
-        l.fondement.seance === seance.id;
+        l.fondement.seance === seance.id && revisionDe(l) === rev &&
+        (rev === 0 || l.fondement.rang === rang);
     });
   }
 
   async function noterConsignes() {
     if (!seance || enEdition()) return;
-    var exos = (seance.exercices || []).map(function (e) { return e && e.exercise_slug; });
+    var exos = seance.exercices || [];
     var vus = {};
     for (var i = 0; i < exos.length; i++) {
-      var slug = exos[i];
+      var slug = exos[i] && exos[i].exercise_slug;
       if (!slug || vus[slug]) continue;
       vus[slug] = true;
-      if (dejaNote(slug)) continue;
-      var c = consigneDe(slug);
-      if (!c) continue;
-      var lignes = Moteur.lignesDePrediction(c.consigne, {
+      if (dejaNote(slug, 0)) continue;
+      // §9.14 — la consigne se lit par la RÉACTION, le seul lecteur (49-R2).
+      var r = reactionDe(i);
+      if (!r) continue;
+      var lignes = Moteur.lignesDePrediction(r.consigne, {
         slug: slug, reglage: Profil.rythmeDe(profil), seance: seance.id
       });
       if (!lignes.length) continue;
-      notesEnCours[cleNote(slug)] = true;
+      notesEnCours[cleNote(slug, 0)] = true;
       await noterLignes(lignes);
     }
+  }
+
+  // §9.11 (49-R2, P6) — LE PARI D'UNE RÉVISION S'ÉCRIT À LA VALIDATION DE SA
+  // SÉRIE, juste avant son observation, jamais à l'affichage : l'effort de la
+  // série déclencheuse arrive pendant le repos et peut retirer la proposition.
+  // `lignesDeRevision` relit le plan tel qu'il était AVANT cette série ; si la
+  // ligne n'était pas celle du coach, elle ne rend rien.
+  async function noterRevision(iExo, iSerie) {
+    if (!seance || enEdition()) return;
+    var r = reactionDe(iExo);
+    if (!r) return;
+    var j = r.indices.indexOf(iSerie);
+    if (j < 0 || j >= r.faites.length) return;
+    var slug = seance.exercices[iExo].exercise_slug;
+    var lignes = Moteur.lignesDeRevision(r.consigne, r.faites, r.contexte, j, {
+      slug: slug, reglage: Profil.rythmeDe(profil), seance: seance.id
+    });
+    if (!lignes.length) return;
+    var rev = lignes[0].fondement.revision;
+    if (dejaNote(slug, rev, j + 1)) return;
+    notesEnCours[cleNote(slug, rev, j + 1)] = true;
+    await noterLignes(lignes);
   }
 
   // ⚠️ `emise_a` ET `user_id` SONT POSÉS ICI, comme pour une correction de zone
@@ -1727,7 +1777,7 @@
     for (var n = 0; n < lignes.length; n++) {
       var l = lignes[n];
       var calcule = await Moteur.idDePrediction(
-        seance.id, l.exercise_slug, l.fondement.rang).catch(function () { return null; });
+        seance.id, l.exercise_slug, l.fondement.rang, revisionDe(l)).catch(function () { return null; });
       neuves.push(Object.assign({}, l, {
         id: calcule || uuid(), user_id: uid,
         module_version: Moteur.VERSION_CONSIGNE,
@@ -1765,16 +1815,25 @@
     if (!exo) return;
     var serie = (exo.series || [])[iSerie];
     if (!serie) return;
-    var c = consigneDe(exo.exercise_slug);
-    if (!c) return;
-    var couverture = Seance.couvertureDe(exo.series, c.consigne)[iSerie];
-    if (!couverture) return;
-    var ligne = (local.predictions || []).filter(function (l) {
+    // §9.14 (49-R2) — le rang se lit sur la RÉACTION, le seul lecteur de la
+    // consigne ; la consigne mémorisée à l'ouverture n'est plus relue ici.
+    var r = reactionDe(iExo);
+    if (!r) return;
+    var j = r.indices.indexOf(iSerie);
+    if (j < 0) return;
+    // ⚠️ TOUS LES PARIS DU RANG, jamais le premier trouvé (§9.11, P7). Après
+    // un rechargement, les lignes se relisent dans l'ordre de leur identifiant
+    // haché : « le premier » serait un pari au hasard. Chacun se juge sur SES
+    // charges — celui dont la charge a été faite compte ses reps, l'autre se
+    // lit « autre chose tenté ».
+    var paris = (local.predictions || []).filter(function (l) {
       return l && l.exercise_slug === exo.exercise_slug && l.fondement &&
-        l.fondement.seance === seance.id && l.fondement.rang === couverture.rang;
-    })[0];
-    if (!ligne) return;
+        l.fondement.seance === seance.id && l.fondement.rang === j + 1;
+    });
+    for (var p = 0; p < paris.length; p++) await observerPari(paris[p], serie);
+  }
 
+  async function observerPari(ligne, serie) {
     var enBase = Seance.partEnBase(serie);
     var vue = Moteur.observationDe(ligne.fondement, {
       enBase: enBase, id: serie.id, charge: serie.charge_kg,
@@ -1803,15 +1862,108 @@
                   id: maj.id, depend: seance.id, donnees: maj });
   }
 
+  // ── §9.14 (49-R2) — LA RÉACTION SÉRIE PAR SÉRIE, BRANCHÉE ────────────────
+  //
+  // `Moteur.reactionPour` relit la consigne après chaque série VALIDÉE. Ses
+  // entrées : la consigne et son contexte (mémoïsés à l'ouverture, une fois
+  // par séance et par exercice, sur les séances antérieures) et les séries
+  // validées de l'exercice parmi celles que la consigne couvre, dans l'ordre.
+  // Pas de mémo : c'est de l'arithmétique sur une poignée de séries, et chaque
+  // lecture voit donc l'état courant — une validation, une dévalidation, une
+  // correction, un effort saisi après coup.
+  //
+  // ⚠️ `faites` S'ARRÊTE À LA PREMIÈRE SÉRIE NON VALIDÉE. La réaction lit la
+  // série i comme la ligne i du plan : une série tapée mais non validée, ou un
+  // trou, décalerait tout. Et si la séance porte moins de séries que la
+  // consigne, les rangs s'alignent par la fin (§9.13) : la première ligne du
+  // plan n'a pas de série, et la réaction se tait plutôt que de mal aligner.
+  function reactionDe(iExo) {
+    if (!seance) return null;
+    var exo = (seance.exercices || [])[iExo];
+    if (!exo) return null;
+    var c = consigneDe(exo.exercise_slug);
+    if (!c || !c.consigne) return null;
+    var couverture = Seance.couvertureDe(exo.series, c.consigne);
+    var n = c.consigne.n || 0;
+    var indices = [];
+    couverture.forEach(function (x, i) { if (x) indices[x.rang - 1] = i; });
+    var faites = [];
+    var complet = n > 0 && indices.length === n;
+    for (var r = 0; complet && r < n; r++) {
+      if (indices[r] === undefined) { complet = false; break; }
+    }
+    if (complet) {
+      for (var k = 0; k < n; k++) {
+        var s = exo.series[indices[k]];
+        if (!Seance.partEnBase(s)) break;
+        faites.push({ charge_kg: s.charge_kg, reps: s.reps, rpe: s.rpe, ressenti: s.ressenti });
+      }
+    }
+    return {
+      consigne: c.consigne, contexte: c.contexte || null, indices: indices,
+      faites: faites, reaction: Moteur.reactionPour(c.consigne, faites, c.contexte || null)
+    };
+  }
+
+  // ⚠️ LE REDESSIN ATTEND QUE LA SAISIE SOIT FINIE. Corriger la charge d'une
+  // série validée puis toucher ses reps fait SORTIR du premier champ : un
+  // redessin à cet instant détruirait le champ qu'on vient de toucher — le
+  // clavier se fermerait sous le doigt. On marque la réaction périmée, et on
+  // ne redessine que lorsque le focus a quitté TOUS les champs du journal.
+  // Une validation, elle, redessine de toute façon.
+  var reactionPerimee = false;
+  var ecouteSortie = false;
+
+  function redessinerSiSaisieFinie() {
+    if (!reactionPerimee || !seance) return;
+    var a = doc.activeElement;
+    if (a && a.tagName === 'INPUT' && a.closest && a.closest('#blocs-seance')) return;
+    reactionPerimee = false;
+    apresGeste().catch(function () { /* la file garde la séance */ });
+  }
+
+  function ecouterSortieDesChamps() {
+    if (ecouteSortie) return;
+    ecouteSortie = true;
+    doc.addEventListener('focusout', function () {
+      if (reactionPerimee) setTimeout(redessinerSiSaisieFinie, 0);
+    });
+  }
+
   function planDe(iExo) {
     var exo = seance.exercices[iExo];
-    var c = consigneDe(exo.exercise_slug);
-    return Seance.planDe(exo.series, c ? c.consigne : null);
+    var r = reactionDe(iExo);
+    return Seance.planDe(exo.series, r ? r.consigne : null, r ? r.reaction.plan : null);
+  }
+
+  // Ce que la grille montre de la réaction sur UNE ligne : la phrase au-dessus
+  // d'elle (`message.rang`), et la ligne proposée — filet, charge en couleur du
+  // coach, fourchette dans le champ des reps. La phrase vient de
+  // `phraseReaction`, jamais recalculée ici.
+  function reactionSurLigne(iExo, iSerie) {
+    var r = reactionDe(iExo);
+    if (!r) return null;
+    var j = r.indices.indexOf(iSerie);
+    if (j < 0) return null;
+    var m = r.reaction.message;
+    var sortie = { message: null, proposee: false, fourchette: null };
+    if (m && m.rang === j) {
+      sortie.message = { type: m.type, phrase: Moteur.phraseReaction(m, r.consigne.zone) };
+    }
+    var p = r.reaction.plan[j];
+    var serie = seance.exercices[iExo].series[iSerie];
+    if (p && p.source === 'coach' && !Seance.partEnBase(serie)) {
+      sortie.proposee = true;
+      sortie.fourchette = p.zone ? p.zone.slice() : null;
+    }
+    return sortie.message || sortie.proposee ? sortie : null;
   }
 
   // ── L'écran ─────────────────────────────────────────────────────────────
   function rendreSeance() {
     montrer('seance', Routeur.SAISIE);
+    reactionPerimee = false;
+    ecouterSortieDesChamps();
     var index = Modele.indexerExercices(local.exercices);
     var c = Seance.compter(seance);
     Rendu.rendreBandeauSeance($('bandeau-seance'), {
@@ -1886,6 +2038,18 @@
         await observerSerie(i, j);
       },
       surValider: validerSerie,
+      // §9.14 (49-R2) — la phrase du coach et la ligne proposée.
+      reaction: reactionSurLigne,
+      // ⚠️ CORRIGER AU CLAVIER UNE SÉRIE VALIDÉE REDESSINE LE BLOC (P10), mais
+      // à la SORTIE du champ, pas à chaque frappe : redessiner à la frappe
+      // volerait le focus au milieu de « 130 ». La réaction se refait alors sur
+      // la valeur finale.
+      surChampQuitte: function (i, j) {
+        var s0 = seance && seance.exercices[i] && seance.exercices[i].series[j];
+        if (!s0 || !Seance.partEnBase(s0)) return;
+        reactionPerimee = true;
+        setTimeout(redessinerSiSaisieFinie, 0);
+      },
       surNumero: function (i, j) { ouvrirFeuille('type', i, j); },
       surEffort: function (i, j) { ouvrirFeuille('effort', i, j); },
       // Les deux réglages de l'exercice, sous son nom (§7 septies.1 et .2).

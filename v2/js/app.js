@@ -20,7 +20,7 @@
   var Periode = racine.THPeriode, Poids = racine.THPoids;
   var Palier = racine.THPalier, Routines = racine.THRoutines;
   var Seance = racine.THSeance, Attente = racine.THAttente;
-  var Profil = racine.THProfil, Moteur = racine.THMoteur;
+  var Profil = racine.THProfil, Moteur = racine.THMoteur, Plan = racine.THPlan;
 
   var vues = {};
   var local = { seances: [], series: [], exercices: [], pesees: [], zones: [],
@@ -216,10 +216,13 @@
       corrigee_a: new Date().toISOString()
     };
     local.zones = local.zones.concat([ligne]);
-    // Le mémo des consignes ne connaît pas les zones : on le remet à zéro
-    // plutôt que d'allonger sa clé. Un oubli de clé se verrait à l'écran une
-    // séance plus tard ; une remise à zéro ne s'oublie pas.
-    consignes = null;
+    // La seule exception au gel de la consigne (§9.13 bis, 49-U1) :
+    // l'utilisateur corrige LUI-MÊME la zone de CET exercice. Il se recalcule,
+    // lui seul ; ses séries validées restent figées par leurs paris.
+    if (consignes && consignes.parSlug) {
+      delete consignes.parSlug[slug];
+      versionConsignes++;
+    }
     await Cache.ecrireLot('zones', [ligne]).catch(function () {});
     await poser({ table: Attente.ZONES, op: Attente.UPSERT, id: id, donnees: ligne });
   }
@@ -281,7 +284,8 @@
     // recalculent à la prochaine ouverture de la liste, pas ici : cet écran
     // n'est presque jamais celui qu'on regarde pendant une synchronisation.
     datesExercices = null;
-    consignes = null;
+    // ⚠️ PLUS `consignes = null` (49-U1, D7) : la consigne est figée pour la
+    // séance ; ce qui arrive en arrière-plan sert à la séance suivante.
     constats = null;
     try {
       etatsExercices = Palier.etatsExercices(Palier.seanceExercices(local.series));
@@ -1483,16 +1487,33 @@
       '|' + Profil.rythmeDe(profil);
   }
 
+  // ⚠️ LA CONSIGNE EST FIGÉE POUR LA SÉANCE dès son premier calcul (MOTEUR
+  // §9.13 bis, 49-U1, D7) : une synchronisation, un import, une séance
+  // corrigée ailleurs pendant la séance servent à la séance SUIVANTE — le mémo
+  // n'est plus remis à zéro par `recalculerEtats`. Il se recalcule quand la
+  // CLÉ change (une autre séance, l'intention ou le rythme changés par
+  // l'utilisateur), et pour UN exercice quand l'utilisateur corrige sa zone
+  // (`poserZone`). `versionConsignes` dit au plan que le mémo a bougé.
+  //
+  // ⚠️ ON NE FIGE PAS SANS CATALOGUE : un exercice encore inconnu donnerait
+  // une mesure inconnue, donc une consigne nulle, figée pour toute la séance.
+  var versionConsignes = 0;
+
   function consigneDe(slug) {
     if (!seance) return null;
     var cle = cleConsignes();
     if (!consignes || consignes.cle !== cle) {
       consignes = { cle: cle, index: Modele.indexerExercices(local.exercices), parSlug: {} };
+      versionConsignes++;
     }
     if (!Object.prototype.hasOwnProperty.call(consignes.parSlug, slug)) {
       var exo = consignes.index[slug];
+      if (!exo && (local.exercices || []).length) {
+        consignes.index = Modele.indexerExercices(local.exercices);
+        exo = consignes.index[slug];
+      }
       var g = Modele.gabaritDe(exo);
-      consignes.parSlug[slug] = Moteur.consigneDExercice(
+      var calculee = Moteur.consigneDExercice(
         seancesDeLExercice(slug), etatsExercices[slug], seance.debut, {
           mesure: g.inconnue ? null : g.mesure,
           equipement: exo ? exo.equipement : null,
@@ -1506,13 +1527,63 @@
           // moteur n'y prescrit rien, ni en-tête ni plan.
           edition: enEdition()
         });
+      if (!exo) return calculee;
+      consignes.parSlug[slug] = calculee;
+      versionConsignes++;
     }
     return consignes.parSlug[slug];
   }
 
+  // ── §9.13 bis (49-U1) — LE PLAN DE SÉANCE, UN SEUL COACH ─────────────────
+  //
+  // Un seul calcul (`THPlan.planDeSeance`) décide de tout ce que le coach dit
+  // et fait dans la séance ; la grille, l'en-tête, le « Donc » du « Pourquoi »
+  // et la phrase du coach le LISENT. Mémoïsé sur ses entrées : la séance (un
+  // nouvel objet à chaque geste), les paris (un nouveau tableau à chaque
+  // écriture), la version du mémo des consignes et le mode Édition.
+  var planMemo = null;
+
+  function planActuel() {
+    if (!seance) return null;
+    var edition = enEdition();
+    var exos = seance.exercices || [];
+    var cs = {};
+    exos.forEach(function (x) {
+      var slug = x && x.exercise_slug;
+      if (slug && !Object.prototype.hasOwnProperty.call(cs, slug)) cs[slug] = consigneDe(slug);
+    });
+    if (planMemo && planMemo.seance === seance && planMemo.paris === local.predictions &&
+        planMemo.version === versionConsignes && planMemo.edition === edition) return planMemo.plan;
+    var entrees = {
+      seance: { id: seance.id, debut: seance.debut, edition: edition, exercices: exos },
+      consignes: cs,
+      paris: (local.predictions || []).filter(function (l) {
+        return l && l.fondement && l.fondement.seance === seance.id;
+      })
+    };
+    var plan = Plan.planDeSeance(entrees);
+    planMemo = { seance: seance, paris: local.predictions, version: versionConsignes,
+                 edition: edition, plan: plan };
+    // Le banc lit le dernier plan et ses entrées pour vérifier les invariants
+    // après chaque geste (§9.13 bis) ; rien d'autre ne le relit.
+    Plan.dernier = { entrees: entrees, plan: plan };
+    return plan;
+  }
+
+  function planDuSlug(slug) {
+    var p = planActuel();
+    if (!p) return null;
+    return p.exercices.filter(function (x) { return x.slug === slug && x.consigne; })[0] || null;
+  }
+
+  // §3.12 (49-U1) — l'en-tête LU SUR LE PLAN : il décrit les lignes de la
+  // séance, plus le `n` de la consigne brute. Sans exercice dans la séance
+  // (la page d'exercice), la consigne seule.
   function libellesDe(slug) {
     var c = consigneDe(slug);
-    return c ? c.libelles : null;
+    if (!c) return null;
+    var x = planDuSlug(slug);
+    return x ? { jaune: x.entete.jaune, gris: x.entete.gris } : c.libelles;
   }
 
   // §3.8 et §3.10 — l'étiquette de zone et le calcul, tirés du MÊME mémo que
@@ -1521,9 +1592,13 @@
     var c = consigneDe(slug);
     return c ? c.etiquette : null;
   }
+  // Le « Donc » du « Pourquoi » dit la même chose que l'en-tête (49-U1) ; le
+  // reste de la feuille lit encore la consigne (C5).
   function pourquoiDe(slug) {
     var c = consigneDe(slug);
-    return c ? c.pourquoi : null;
+    if (!c || !c.pourquoi) return c ? c.pourquoi : null;
+    var x = planDuSlug(slug);
+    return x ? Object.assign({}, c.pourquoi, { donc: x.donc }) : c.pourquoi;
   }
 
   // ── §3.9 — LE CONSTAT DE FIN DE BLOC ─────────────────────────────────────
@@ -1902,43 +1977,13 @@
   // Rend, par POSITION (l'index dans le plan) : `indices` (l'index de la série
   // dans l'exercice), `rangs` et `roles` ; et `figees`, `planInitial`,
   // `faites`, `reaction`.
-  function figeesDeLExercice(exo, consigne) {
-    var paris = (local.predictions || []).filter(function (l) {
-      return l && l.exercise_slug === exo.exercise_slug && l.fondement &&
-        l.fondement.seance === seance.id;
-    });
-    return Seance.figeesDe(paris, exo.series, consigne);
-  }
-
+  // 49-U1 — LE PLAN DE L'EXERCICE, lu dans le plan de séance : la même
+  // couverture, les mêmes lignes figées, la même réaction pour la grille, la
+  // phrase, les paris et l'observation. Plus aucun recalcul ici.
   function reactionDe(iExo) {
-    if (!seance) return null;
-    var exo = (seance.exercices || [])[iExo];
-    if (!exo) return null;
-    var c = consigneDe(exo.exercise_slug);
-    if (!c || !c.consigne) return null;
-    var figees = figeesDeLExercice(exo, c.consigne);
-    var couverture = Seance.couvertureSeance(exo.series, c.consigne, figees);
-    var indices = [], rangs = [], roles = [], couvertes = [];
-    couverture.forEach(function (x, i) {
-      if (!x) return;
-      indices[x.position] = i;
-      rangs[x.position] = x.rang;
-      roles[x.position] = x.role;
-      couvertes[x.position] = x;
-    });
-    var faites = [];
-    for (var k = 0; k < indices.length; k++) {
-      var s = exo.series[indices[k]];
-      if (!Seance.partEnBase(s)) break;
-      faites.push({ charge_kg: s.charge_kg, reps: s.reps, rpe: s.rpe, ressenti: s.ressenti });
-    }
-    var planInitial = Moteur.planDeCouverture(c.consigne, couvertes);
-    return {
-      consigne: c.consigne, contexte: c.contexte || null,
-      indices: indices, rangs: rangs, roles: roles,
-      figees: figees, planInitial: planInitial, faites: faites,
-      reaction: Moteur.reactionPour(c.consigne, faites, c.contexte || null, planInitial)
-    };
+    var p = planActuel();
+    var x = p && p.exercices[iExo];
+    return x && x.consigne ? x : null;
   }
 
   // ⚠️ LE REDESSIN ATTEND QUE LA SAISIE SOIT FINIE. Corriger la charge d'une
@@ -1982,10 +2027,10 @@
     if (!r) return null;
     var j = r.indices.indexOf(iSerie);
     if (j < 0) return null;
-    var m = r.reaction.message;
+    var m = r.message;
     var sortie = { message: null, proposee: false, fourchette: null };
-    if (m && m.rang === j) {
-      sortie.message = { type: m.type, phrase: Moteur.phraseReaction(m, r.consigne.zone) };
+    if (m && m.position === j) {
+      sortie.message = { type: m.type, phrase: m.phrase };
     }
     var p = r.reaction.plan[j];
     var serie = seance.exercices[iExo].series[iSerie];

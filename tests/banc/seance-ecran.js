@@ -73,7 +73,12 @@ const CATALOGUE = [
   // pour le nombre de séries posé au départ hors routine (l'intention, faute
   // d'habitude). Tous les autres slugs de ce banc finissent par porter des
   // séries. Son nom ne répond à aucune des recherches faites ailleurs.
-  { slug: 'mollets-debout', nom: 'Mollets Debout (Machine)', mesure: 'charge_reps', charge: 'externe', muscles_primaires: ['mollets'], muscles_secondaires: [] }
+  { slug: 'mollets-debout', nom: 'Mollets Debout (Machine)', mesure: 'charge_reps', charge: 'externe', muscles_primaires: ['mollets'], muscles_secondaires: [] },
+  // ⚠️ RÉSERVÉ AU CHANTIER 49-U1 : le décor EXACT du 26/09/2026 (un historique
+  // qui donne `etend`, n = 4, deux tests à 130, un cran à 127,5). Aucun autre
+  // exercice du banc ne peut le porter sans fausser la section qui l'utilise.
+  // Son nom ne répond à aucune des recherches faites ailleurs.
+  { slug: 'hip-thrust', nom: 'Hip Thrust (Barre)', mesure: 'charge_reps', charge: 'externe', muscles_primaires: ['fessiers'], muscles_secondaires: [] }
 ];
 
 // ⚠️ UNE ROUTINE PORTE MAINTENANT SES LIGNES (chantier 43). `routine_sets`
@@ -6487,6 +6492,132 @@ const SETS_IMPORTES = [
     await aller('/saisie');
 
     ok('[C] aucune erreur de page pendant la séance qui fait foi',
+      erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
+  }
+
+  console.log('\n══ 7 novovicies. LE PLAN DE SÉANCE, UN SEUL COACH (§9.13 bis, §9.14, ECRAN §3.12 — 49-U1) ══');
+  //
+  // ⚠️ LE CAS DU 26/09/2026, REJOUÉ SUR LE VRAI `app.js`. La consigne (`etend`,
+  // palier 125, deux tests à 130, `n` = 4 de la dernière séance) sur une
+  // routine à 3 : l'en-tête décrivait 4 séries quand la grille en montrait 3,
+  // et après 125 × 8 la réaction proposait 127,5 SUR LA SÉRIE PRÉVUE EN TEST
+  // À 130. Sans ce décor (n ≠ nombre de séries, un cran plus bas que le test),
+  // l'ancien code et le nouveau donnent le même écran.
+  //
+  // Après CHAQUE geste, `THPlan.verifierPlan` repasse sur le plan que l'app
+  // vient de calculer, avec ses entrées (I1, I2, I3, I6, I9, I12).
+  {
+    const tH = Date.now();
+    const poserHip = (id, jours, lignes) => {
+      const debut = ilYa(jours * 86400000, tH).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'Fessiers — ' + id, debut,
+        fin: finDe(debut, tH).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      lignes.forEach(([kg, reps], i) => base.sets.push({
+        id: id + '-s' + (i + 1), session_id: id, user_id: 'u-banc', exercise_slug: 'hip-thrust',
+        charge_kg: kg, reps, duree_s: null, distance_m: null, type_serie: 'travail',
+        rang: i + 1, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null,
+        repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+    };
+    poserHip('hip-z', 25, [[127.5, 3], [127.5, 3], [127.5, 3]]);
+    poserHip('hip-a', 21, [[120, 5], [120, 5], [120, 5]]);
+    poserHip('hip-b', 14, [[122.5, 5], [122.5, 5], [122.5, 5]]);
+    poserHip('hip-c', 7, [[125, 5], [125, 5], [125, 5], [130, 4]]);
+    ROUTINES.push({ id: 'r-hip', nom: 'Hip ×3', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-hip-e', routine_id: 'r-hip', exercise_slug: 'hip-thrust', rang: 0,
+        routine_sets: progr(3, 8), repos_cible_s: 180, groupe_superset: null, note: null }] });
+
+    const nb = (x) => JSON.stringify(x).replace(/ /g, ' ');
+    const enTeteU = () => page.evaluate(() =>
+      Array.from(document.querySelectorAll('.legende-exo .consigne')).map((e) => e.textContent));
+    const grilleU = () => page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie')).map((l) =>
+      (l.classList.contains('proposee') ? '*' : '') + Array.from(l.querySelectorAll('input'))
+        .map((i) => (i.value ? '[' + i.value + ']' : (i.placeholder || '∅'))).join('×')));
+    const phrasesU = () => page.evaluate(() =>
+      Array.from(document.querySelectorAll('.bloc-seance .reaction-serie')).map((n) => n.textContent));
+    const invariants = () => page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      if (!d) return { ok: false, erreurs: ['aucun plan calculé'] };
+      return window.THPlan.verifierPlan(d.plan, d.entrees);
+    });
+    const verifierApres = async (geste) => {
+      const v = await invariants();
+      ok('[U] invariants du plan après « ' + geste + ' »', v.ok, v.ok ? 'I1 I2 I3 I6 I9 I12' : nb(v.erreurs.slice(0, 3)));
+    };
+    const idSeanceU = () => base.sessions.filter((x) => x.statut === 'en_cours').map((x) => x.id)[0];
+
+    await aller('/saisie');
+    await demarrerRoutine('Hip ×3');
+    await attendre(800);
+    await verifierApres('ouverture');
+    const entete0 = await enTeteU();
+    ok('[U] DISCRIMINANT — l’en-tête décrit les 3 séries de la grille, pas les 4 de la dernière séance',
+      nb(entete0) === nb(['130 kg sur les 2 dernières séries, vise 4', 'et 125 kg sur celle d\'avant, vise 5']),
+      nb(entete0));
+    ok('[U] la grille : la ligne, puis deux tests à 130',
+      nb(await grilleU()) === nb(['125×5', '130×4', '130×4']), nb(await grilleU()));
+
+    await saisirSerie(0, 125, 8);
+    await attendre(900);
+    await verifierApres('125 × 8');
+    const g1 = await grilleU();
+    const ph1 = await phrasesU();
+    ok('[U] DISCRIMINANT — 125 × 8 : AUCUNE proposition à 127,5, la série 2 reste le test à 130',
+      g1[1] === '130×4' && g1.every((x) => x.charAt(0) !== '*') && !/127,5/.test(g1.join(' ') + ph1.join(' ')),
+      nb({ g1, ph1 }));
+    ok('[U] et la phrase est celle de la décision du 26/09 : le test arrive, avec de la marge',
+      nb(ph1) === nb(['125 kg × 8, 3 de plus que prévu : ton test à 130 kg arrive dès la série 2, avec de la marge.']),
+      nb(ph1));
+
+    await saisirSerie(1, 130, 4);
+    await attendre(1200);
+    await verifierApres('130 × 4 en série 2');
+    const ph2 = await phrasesU();
+    ok('[U] 130 × 4 en série 2 : PAS de « ton test a avancé » à tort',
+      !ph2.some((x) => /ton test a avancé/.test(x)), nb(ph2));
+    const sidU = idSeanceU();
+    const parisU = base.predictions.filter((l) => l.exercise_slug === 'hip-thrust' && l.fondement &&
+      l.fondement.seance === sidU).sort((a, b) => a.fondement.rang - b.fondement.rang);
+    ok('[U] et le pari de la série 2 est celui du TEST à 130, pas d’une proposition',
+      parisU.length === 2 && parisU[1].fondement.role === 'haut' && parisU[1].fondement.charge === 130 &&
+      !parisU[1].fondement.revision && parisU[1].valeur_observee === 4,
+      nb(parisU.map((l) => l.fondement.rang + ':' + l.fondement.role + ':' + l.fondement.charge + '→' + l.valeur_observee)));
+
+    // ── D7 — LA CONSIGNE EST FIGÉE POUR LA SÉANCE ───────────────────────
+    // Une séance ANTÉRIEURE plus récente arrive en base pendant la séance (une
+    // séance corrigée ailleurs, un import) ; une synchronisation la ramène.
+    // La consigne de la séance ne change pas : elle servira à la suivante.
+    poserHip('hip-d', 0.1, [[130, 5], [130, 5], [130, 5], [135, 3]]);
+    await onglet('racine');
+    await page.evaluate(() => document.getElementById('btn-rafraichir').click());
+    await attendre(2600);
+    await onglet('saisie');
+    await attendre(900);
+    ok('[U] D7 — une synchronisation en pleine séance ne change pas la consigne : même en-tête',
+      nb(await enTeteU()) === nb(entete0), nb(await enTeteU()));
+    ok('[U] …et la série 3 garde le test à 130 (la séance arrivée derrière le dirait à 135)',
+      (await grilleU())[2] === '130×4', nb(await grilleU()));
+    await verifierApres('synchronisation');
+    await abandonner();
+
+    // ── SANS TEST À SUIVRE : LA PROPOSITION CLASSIQUE DE R2 ──────────────
+    await aller('/saisie');
+    await demarrerRoutine('Terre ×4');
+    await attendre(800);
+    const refT = await (await ligne(0)).$$eval('input', (l) => l.map((x) => x.placeholder));
+    const cT = Number(String(refT[0]).replace(',', '.')), vT = Number(refT[1]);
+    await saisirSerie(0, cT, vT + 3);
+    await attendre(900);
+    await verifierApres('+3 sur la série 1, routine à 4');
+    const phT = await phrasesU();
+    ok('[U] sans test à suivre, la proposition de R2 tient : la série 2 est proposée',
+      phT.length === 1 && /de plus que visé/.test(phT[0]) && /dès la série 2/.test(phT[0]) &&
+      (await grilleU())[1].charAt(0) === '*', nb({ phT, g: await grilleU() }));
+    await abandonner();
+    await aller('/saisie');
+
+    ok('[U] aucune erreur de page pendant le plan de séance',
       erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
 

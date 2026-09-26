@@ -1232,12 +1232,17 @@
           source: f.source || 'consigne',
           charges: Array.isArray(f.charges) ? f.charges.slice() : null,
           sourceHaut: f.sourceHaut === undefined ? null : f.sourceHaut,
+          role: x.role || null,
           figee: true
         };
       }
       var src = x.role === 'haut' ? c.haut : c.ligne;
-      return ligneDePlan(src ? nombre(src.charge) : null, src ? nombre(src.vise) : null,
+      var l = ligneDePlan(src ? nombre(src.charge) : null, src ? nombre(src.vise) : null,
         null, 'consigne');
+      // §9.13 bis (49-U1) — LE RÔLE DE LA LIGNE VOYAGE AVEC ELLE : la réaction
+      // en a besoin pour ne jamais poser une proposition sur un test.
+      l.role = x.role === 'haut' ? 'haut' : 'ligne';
+      return l;
     });
   }
 
@@ -1263,6 +1268,19 @@
     var ctx = contexte || {};
     var n = plan.length;
     var bornes = [z.bas, z.haut];
+    // §9.13 bis (49-U1) — LE RÔLE INITIAL DE CHAQUE LIGNE : celui du plan de la
+    // séance quand il est donné, sinon la disposition de la consigne seule
+    // (les `k` dernières au test) — la forme que rejoue le fichier de cas.
+    var kCons = c.haut ? Math.min(nombre(c.haut.k) || 0, n) : 0;
+    var roleInitial = plan.map(function (p, idx) {
+      if (Array.isArray(planInitial)) return p && p.role ? p.role : 'ligne';
+      return idx >= n - kCons ? 'haut' : 'ligne';
+    });
+    // Une ligne est un TEST À VENIR tant qu'elle garde la consigne du haut.
+    var testAVenir = function (idx) {
+      var p = plan[idx];
+      return !!p && !p.figee && p.source === 'consigne' && roleInitial[idx] === 'haut';
+    };
     var clos = false;        // une montée, ou un refus : plus rien dans ce bloc
     var attente = null;
     var revision = 0;
@@ -1296,6 +1314,10 @@
             for (var j = i + 1; j < n; j++) {
               // Une série déjà faite garde sa ligne (49-C, §9.13).
               if (plan[j].figee) continue;
+              // Un test à venir garde la sienne : il est déjà la montée (I2,
+              // 49-U1). Sans cette garde, 127,5 tenu réécrivait un test prévu
+              // à 130 en 127,5 — le défaut du 26/09 par un autre chemin.
+              if (testAVenir(j)) continue;
               // Une série que la consigne prévoyait déjà à cette charge garde
               // sa visée (§9.14).
               if (plan[j].source === 'consigne' && memeCharge(plan[j].charge, charge)) continue;
@@ -1305,9 +1327,21 @@
           }
           if (change) revision += 1;
           if (!derniere) {
+            // §9.13 bis, I9 (49-U1) — « ton test a avancé d'une série » se lit
+            // SUR LES LIGNES : la charge PROPOSÉE est celle d'un test encore à
+            // venir, qui arrive donc une série plus tôt. « Le cran au-dessus »
+            // sans chiffre vaut « le cran au-dessus » sans chiffre. Avant,
+            // `!!c.haut` le disait de toute montée dès que la consigne portait
+            // un test — 127,5 tenu « faisait avancer » un test prévu à 130.
+            var avance = false;
+            for (var t2 = i + 1; t2 < n; t2++) {
+              if (!testAVenir(t2)) continue;
+              var tc = nombre(plan[t2].charge);
+              if (tc === null ? propose === null : memeCharge(tc, propose)) { avance = true; break; }
+            }
             message = comptees >= z.haut
               ? { type: 'haut', rang: i + 1, charge: charge, reps: reps }
-              : { type: 'tenue', rang: i + 1, charge: charge, reps: reps, avance: !!c.haut };
+              : { type: 'tenue', rang: i + 1, charge: charge, reps: reps, avance: avance };
           }
         } else {
           // PAS ENCORE. Retour à la charge et à la visée du palier ; le pari de
@@ -1346,6 +1380,15 @@
       // avec SES charges, celles qu'elle affichait ; sinon, il n'y a pas eu de
       // proposition, et le rejeu n'en invente pas une après coup.
       var suivante = plan[i + 1];
+      // §9.14 (décidé le 26/09/2026, 49-U1) — LA SÉRIE SUIVANTE EST DÉJÀ UN
+      // TEST : le test est déjà la montée. Pas de proposition, ni seconde
+      // charge ; la charge, la visée et le pari du test ne changent pas. Une
+      // phrase seulement (I2).
+      if (testAVenir(i + 1)) {
+        message = { type: 'test_suit', rang: i + 1, charge: charge, reps: reps, marge: marge,
+                    test: { charge: suivante.charge, vise: suivante.vise } };
+        continue;
+      }
       if (suivante && suivante.figee) {
         if (suivante.source !== 'coach') continue;
         charges = Array.isArray(suivante.charges) && suivante.charges.length
@@ -1357,6 +1400,10 @@
                     charges: charges, marge: marge, source: sourceHaut };
         continue;
       }
+      // I3 (49-U1) — une proposition n'est jamais plus basse que la charge
+      // prévue de la ligne qu'elle remplace.
+      if (suivante && charges[0] !== null && nombre(suivante.charge) !== null &&
+          charges[0] < nombre(suivante.charge) && !memeCharge(charges[0], suivante.charge)) continue;
       plan[i + 1] = ligneDePlan(charges[0], z.bas, bornes.slice(), 'coach');
       revision += 1;
       attente = { rang: i + 1, charges: charges.slice() };
@@ -1611,6 +1658,15 @@
           (m.avance ? 'ton test a avancé d\'une série.' : 'tu montes dès aujourd\'hui.');
       case 'haut':
         return fait + ', le haut de ta zone.';
+      case 'test_suit': {
+        // §9.14 (26/09/2026) — dans la nouvelle voix du coach, charge d'abord.
+        var t = m.test || {};
+        var leTest = t.charge === null || t.charge === undefined
+          ? 'ton test au cran du dessus' : 'ton test à ' + enKg(t.charge);
+        return enKg(m.charge) + INSECABLE + '\u00d7' + INSECABLE + nombreFr(m.reps) + ', ' +
+          m.marge + ' de plus que prévu' + DEUX_POINTS + leTest + ' arrive dès la série ' +
+          (m.rang + 1) + ', avec de la marge.';
+      }
       case 'pas_encore':
         return fait + DEUX_POINTS + 'pas encore. Tu as tenté plus tôt que prévu ; on reprend à ' +
           nombreReaction(m.palier) + '.';
@@ -1740,6 +1796,53 @@
         (restantes === 1 ? ' sur celle d\'avant' : ' sur les ' + restantes + ' d\'avant') +
         ', vise ' + ligne.vise
     ];
+  }
+
+  // §3.12 (49-U1, ECRAN-SAISIE révisé le 26/09/2026) — L'EN-TÊTE DÉCRIT LA
+  // SÉANCE, plus le `n` de la consigne brute. `roles` : la disposition de la
+  // consigne sur les séries de travail de la séance, dans l'ordre — `haut` pour
+  // une ligne de test, `ligne` sinon (la couverture du plan de séance, §9.13
+  // bis). Une routine à 3 sur un historique à 4 se dit « 130 kg sur les 2
+  // dernières séries » et « 125 kg sur celle d'avant », pas « les 2 d'avant ».
+  //
+  // Les formes habituelles — des lignes au palier puis des tests — gardent
+  // leurs phrases, mot pour mot. Une forme inhabituelle (un test déjà fait,
+  // puis une série ajoutée) se dit dans l'ordre, segment par segment.
+  //
+  // Rend `{ jaune, segments }` : `segments` est la description STRUCTURÉE, dans
+  // l'ordre de la séance — `{ role, charge, vise, nombre }` — et c'est sur
+  // elle que `verifierPlan` contrôle que l'en-tête dit exactement les lignes
+  // (I6). Les phrases ne lisent qu'elle.
+  function enteteDeDisposition(c, roles) {
+    if (!c || c.etat === 'silence') return { jaune: [], segments: [] };
+    var liste = (roles || []).map(function (r) { return r === 'haut' ? 'haut' : 'ligne'; });
+    var segments = [];
+    liste.forEach(function (r) {
+      var src = r === 'haut' ? c.haut : c.ligne;
+      var der = segments[segments.length - 1];
+      if (der && der.role === r) { der.nombre++; return; }
+      segments.push({ role: r, charge: src ? src.charge : null, vise: src ? src.vise : null, nombre: 1 });
+    });
+    if (!segments.length) return { jaune: [], segments: [] };
+    var a = segments[0].role === 'ligne' ? segments[0].nombre : 0;
+    var b = segments[segments.length - 1].role === 'haut' ? segments[segments.length - 1].nombre : 0;
+    var habituelle = segments.length === 1 || (segments.length === 2 && a > 0 && b > 0);
+    if (habituelle && (a === 0 || c.ligne) && (b === 0 || c.haut)) {
+      var forme = Object.assign({}, c, {
+        n: a + b,
+        ligne: a > 0 ? c.ligne : null,
+        haut: b > 0 ? Object.assign({}, c.haut, { k: b }) : null
+      });
+      return { jaune: lignesJaunes(forme), segments: segments };
+    }
+    var dessous = c.etat === 'reprise_longue';
+    var jaune = segments.map(function (s, i) {
+      if (s.charge === undefined || s.vise === undefined) return null;
+      var tete = i === 0;
+      return (tete ? '' : 'puis ') + fragmentCharge(s.charge, tete, s.role === 'ligne' && dessous) +
+        (s.nombre === 1 ? ' sur une série' : ' sur ' + s.nombre + ' séries') + ', vise ' + s.vise;
+    }).filter(Boolean);
+    return { jaune: jaune, segments: segments };
   }
 
   function phraseGrise(c) {
@@ -2632,6 +2735,7 @@
     contexteReaction: contexteReaction,
     revisionsDuPlan: revisionsDuPlan,
     lignesDeRevision: lignesDeRevision,
+    enteteDeDisposition: enteteDeDisposition,
     lignesDePari: lignesDePari,
     planDeCouverture: planDeCouverture,
     phraseReaction: phraseReaction,

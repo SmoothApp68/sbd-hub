@@ -675,12 +675,18 @@
       while (garde-- > 0) {
         var op = Attente.prochaine(attente);
         if (!op) break;
-        try {
-          await executer(op);
-        } catch (e) {
-          attente = Attente.marquerEchec(attente, op.cle, e);
+        // ⚠️ LE CONFLIT « UNE SEULE EN COURS » SE RÉSOUT DANS L'ENVOI
+        // (26/09/2026) : une autre séance encore ouverte en base est refermée
+        // — la décision du chantier 36, puisque la nôtre est celle que le
+        // téléphone a sous les yeux —, puis l'entrée repart AUSSITÔT, et ses
+        // séries et ses paris derrière elle dans cette même boucle. Si le
+        // renvoi échoue encore, l'entrée reste EN ÉCHEC, à retenter comme une
+        // coupure : jamais bloquée, jamais abandonnée en silence.
+        var echec = await Attente.envoyer(op, executer, refermerSeancesSauf);
+        if (echec) {
+          attente = Attente.marquerEchec(attente, op.cle, echec);
           await Cache.ecrireAttente(attente).catch(function () {});
-          console.warn('Envoi différé (' + op.cle + ') :', texteErreur(e));
+          console.warn('Envoi différé (' + op.cle + ') :', texteErreur(echec));
           break;
         }
         // Retirée APRÈS confirmation, jamais avant — et seulement si elle est
@@ -697,6 +703,20 @@
     } finally {
       vidangeEnCours = false;
       rendreEtatSync();
+    }
+  }
+
+  // Referme en base toutes les séances `en_cours` sauf celle-ci. UPDATE ciblé
+  // (`Donnees.refermerSeance`) : rien n'est supprimé, elles gardent leurs
+  // séries et rejoignent l'historique. Une lecture qui échoue remonte — la
+  // vidange en fait un échec à retenter, pas un blocage.
+  async function refermerSeancesSauf(id) {
+    var ouvertes = await Donnees.seancesEnCours();
+    for (var i = 0; i < (ouvertes || []).length; i++) {
+      var x = ouvertes[i];
+      if (!x || !x.id || x.id === id) continue;
+      await Donnees.refermerSeance(x.id);
+      console.warn('Séance restée ouverte en base refermée : ' + x.id);
     }
   }
 
@@ -839,6 +859,21 @@
       (r.lignes ? ', ' + r.lignes + ' série(s) bornée(s)' : '') + '.');
   }
 
+  // ⚠️ ET CELLES QUE LE CONFLIT « UNE SEULE EN COURS » AVAIT BLOQUÉES (26/09).
+  //
+  // Même règle encore : une file écrite avant ce correctif porte peut-être une
+  // séance marquée définitive sur `sessions_une_seule_en_cours`, et ses séries
+  // et ses paris retenus derrière elle. On la débloque ; la vidange la renverra
+  // en refermant d'abord l'autre séance.
+  async function reparerFileConflitsEnCours() {
+    var r = Attente.reparerConflitsEnCours(attente);
+    if (!r.entrees) return;
+    attente = r.file;
+    try { await Cache.ecrireAttente(attente); }
+    catch (e) { console.warn('File réparée non persistée :', texteErreur(e)); }
+    console.warn('File réparée : ' + r.entrees + ' séance(s) en conflit « une seule en cours » débloquée(s).');
+  }
+
   // ══ LA SÉANCE `en_cours` RESTÉE EN BASE (chantier 36, D7) ════════════════
   //
   // `sessions_une_seule_en_cours` est un index UNIQUE sur `user_id` WHERE
@@ -847,6 +882,9 @@
   // la CRÉATION de la suivante en `23505` : code définitif, la file meurt, et
   // avec elle tout ce qui suit. `Donnees.seancesEnCours` avait été écrite
   // exactement pour ça, et n'était appelée que par un test.
+  // (Depuis le 26/09/2026, ce `23505`-là n'est plus définitif : la vidange le
+  // résout en refermant l'autre séance — voir `vidanger`. Cette fonction reste
+  // la première ligne : elle évite le conflit au lieu de le réparer.)
   //
   // ── CE QU'ON EN FAIT, ET POURQUOI ──────────────────────────────────────
   //
@@ -925,6 +963,10 @@
 
   // Une seule séance en cours à la fois. Au lancement, si un brouillon existe,
   // on le REPREND — on n'en crée pas une seconde.
+  // La vérification de la séance en cours en base, lancée au démarrage.
+  // Toujours résolue (jamais rejetée) : on l'attend sans jamais en dépendre.
+  var verificationSeance = null;
+
   async function chargerSeanceLocale() {
     try {
       seance = await Cache.lireBrouillon('seance');
@@ -2899,6 +2941,10 @@
 
   async function chargerRoutines() {
     etatRoutines = { code: 'charge', message: '' };
+    // Sans routines, pas de « Démarrer » : attendre ici la vérification de la
+    // séance en cours en base garantit qu'une séance ouverte ailleurs est
+    // reprise AVANT qu'on puisse en lancer une autre (voir `entrerVraiment`).
+    if (verificationSeance) await verificationSeance;
     try {
       var brutes = await Donnees.mesRoutines();
       routines = brutes.map(normaliserRoutine);
@@ -4197,6 +4243,7 @@
     // resterait bloquée pour toujours (voir `reparerIdentifiantsManquants`).
     await reparerIdentifiantsManquants();
     await reparerFileHorsBornes();
+    await reparerFileConflitsEnCours();
 
     // Ouverture immédiate sur ce qu'on a déjà, avant toute requête réseau.
     // On honore l'URL d'entrée : un rechargement direct sur /semaine/… ou
@@ -4232,6 +4279,22 @@
     // Défaut trouvé au banc d'écran, pas en test : la mesure unitaire relit le
     // disque et conclut « tout est là », alors que l'écran, lui, montrait autre
     // chose.
+    // ⚠️ LA SÉANCE EN COURS EN BASE SE VÉRIFIE AVANT LA SYNCHRONISATION
+    // COMPLÈTE (26/09/2026), et avant que « Démarrer » soit possible.
+    //
+    // Elle se vérifiait APRÈS `synchroniser()` : des secondes — une première
+    // synchro, bien plus —, pendant lesquelles l'écran des routines offrait
+    // « Démarrer ». Le 26/09, une séance B a été lancée dans cette fenêtre
+    // alors que A était encore ouverte en base : 409, et B n'a existé que sur
+    // le téléphone jusqu'à « Terminer ».
+    //
+    // Une lecture légère, lancée ICI sans être attendue : l'écran s'ouvre
+    // toujours sur ce qu'on a en local, hors ligne compris. Ce qui l'attend,
+    // c'est `chargerRoutines` — or sans routines, pas de « Démarrer ». Hors
+    // ligne, la lecture échoue vite et ne bloque rien : si une séance naît
+    // quand même face à une autre ouverte, la vidange résout le conflit.
+    verificationSeance = resoudreSeanceEnCoursDistante().catch(function () {});
+
     if (seance || local.seances.length) rendreRoute(routeInitiale);
     else { montrer('liste', Routeur.RACINE); Rendu.message($('liste-seances'), 'Première synchronisation…'); }
 
@@ -4241,6 +4304,7 @@
     // n'avait pas d'ancre et se fermait donc sans absorption.
     sortie.apresNavigation(false);
 
+    await verificationSeance;
     await synchroniser();
     // ⚠️ VOLONTAIREMENT PAS ATTENDU, comme `vidanger()` plus bas. Une ligne de
     // 300 octets n'a aucune raison de retarder le rendu final — et hors réseau,
@@ -4249,10 +4313,9 @@
     // mesure unitaire ne voit pas une seconde de plus, l'écran si.
     // Le profil sait se rendre tout seul quand il arrive.
     chargerProfil();
-    // ⚠️ AVANT LA VIDANGE, et seulement une fois le réseau confirmé (ch. 36, D7).
-    // Une séance `en_cours` restée en base ferait échouer l'upsert de la nôtre
-    // en `23505` — code définitif, file morte. On la résout d'abord.
-    await resoudreSeanceEnCoursDistante();
+    // La séance `en_cours` restée en base est déjà résolue (ch. 36, D7) : la
+    // vérification ci-dessus a précédé la synchronisation. Et si elle a échoué,
+    // le conflit se résout à la vidange elle-même.
     vidanger();   // le réseau vient de répondre : c'est le moment d'envoyer
     // L'utilisateur est parti ailleurs pendant la synchro. Re-rendre écraserait
     // son écran — et, sur l'éditeur de routine, le brouillon qu'il est en train

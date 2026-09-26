@@ -502,6 +502,20 @@ const SETS_IMPORTES = [
 
     if (url.pathname.startsWith('/auth/')) return json({ error: 'x' }, 400);
     if (!base.reseau) return route.abort('failed');
+    // 26/09/2026 — deux réglages de la section 7 tricies. `lenteur` retarde la
+    // synchronisation COMPLÈTE (la liste des séances), pas la lecture légère
+    // des séances en cours : c'est la fenêtre du constat, où « Démarrer »
+    // était offert avant que la séance ouverte en base soit vue. `enCoursEnPanne`
+    // fait échouer cette lecture légère — le démarrage « hors ligne »
+    // où la vérification ne peut rien, et où la vidange doit prendre le relais.
+    // Une PANNE TENUE (la requête n'aboutit pas), pas un compteur : le client
+    // retente certains GET, un seul refus serait absorbé sans rien éprouver.
+    const lectureEnCours = req.method() === 'GET' && table === 'sessions' &&
+      /statut=eq\.en_cours/.test(url.search);
+    if (base.enCoursEnPanne && lectureEnCours) return route.abort('failed');
+    if (base.lenteur && req.method() === 'GET' && table === 'sessions' && !lectureEnCours) {
+      await attendre(base.lenteur);
+    }
 
     // ⚠️ LE COMPTE DE CONTRÔLE, POUR DE VRAI. Sans l'en-tête `Content-Range`,
     // `compterSeances`/`compterSeries` rendent null, `verifierCompletude` se
@@ -6619,6 +6633,174 @@ const SETS_IMPORTES = [
 
     ok('[U] aucune erreur de page pendant le plan de séance',
       erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
+  }
+
+  console.log('\n══ 7 tricies. UNE SÉANCE NE RESTE PLUS BLOQUÉE SUR LE TÉLÉPHONE (409, démarrage, brouillon — 26/09) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : UNE SÉANCE `en_cours` EN BASE, LE
+  // TÉLÉPHONE SANS SON BROUILLON, ET UNE SYNCHRONISATION LENTE. Réseau rapide,
+  // la fenêtre où « Démarrer » était offert avant que la séance ouverte en base
+  // soit vue dure quelques millisecondes : aucune mesure ne la voit. Le 26/09,
+  // elle a duré assez pour lancer B — 409, et B n'a existé que sur le téléphone
+  // pendant onze minutes, jusqu'à « Terminer ».
+  {
+    const idbT = (p) => (p || page).evaluate(() => new Promise((res) => {
+      const r = indexedDB.open('trainhub-v2');
+      r.onsuccess = () => {
+        const tx = r.result.transaction(['attente', 'brouillon'], 'readonly');
+        const out = {};
+        tx.objectStore('attente').getAll().onsuccess = (e) => { out.file = e.target.result; };
+        tx.objectStore('brouillon').get('seance').onsuccess = (e) => {
+          out.brouillon = (e.target.result && e.target.result.valeur) || null;
+        };
+        tx.oncomplete = () => { r.result.close(); res(out); };
+      };
+    }));
+    // Le téléphone « perd » sa séance : brouillon et file effacés, la base
+    // garde la séance ouverte. C'est l'état du 26/09 à la réouverture.
+    const perdreLocal = () => page.evaluate(() => new Promise((res) => {
+      const r = indexedDB.open('trainhub-v2');
+      r.onsuccess = () => {
+        const tx = r.result.transaction(['brouillon', 'attente'], 'readwrite');
+        tx.objectStore('brouillon').clear(); tx.objectStore('attente').clear();
+        tx.oncomplete = () => { r.result.close(); res(); };
+      };
+    }));
+    const enCours = () => base.sessions.filter((x) => x.user_id === MOI && x.statut === 'en_cours').map((x) => x.id);
+    const statutDe = (id) => (base.sessions.find((x) => x.id === id) || {}).statut || '(absente)';
+    const setsDe = (id) => base.sets.filter((x) => x.session_id === id).length;
+    const boutonsDemarrer = () => compter('.routine-rangee .demarrer');
+    const recharger = async (ms) => {
+      await page.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {});
+      await attendre(ms);
+    };
+    const etatT = async () => (await texte('#etat-sync')).trim();
+    const nettoyer = async () => {
+      base.lenteur = 0; base.enCoursEnPanne = false; base.reseau = true;
+      await aller('/saisie');
+      if ((await visible())[0] === 'vue-seance') await abandonner();
+      base.sessions.forEach((x) => { if (x.user_id === MOI && x.statut === 'en_cours') x.statut = 'terminee'; });
+    };
+    await nettoyer();
+
+    // ── C — LA FERMETURE IMMÉDIATE APRÈS LE LANCEMENT ────────────────────
+    // Non-régression : le brouillon s'écrit, attendu, AVANT l'envoi. Ce banc
+    // ne reproduit pas la perte du 26/09 (voir la PR) — il garde ce qui tient.
+    for (const delai of [0, 30]) {
+      await aller('/saisie');
+      await page.evaluate(() => {
+        const r = Array.from(document.querySelectorAll('.routine-rangee'))
+          .filter((x) => x.querySelector('.routine-nom').textContent === 'Push')[0];
+        r.querySelector('.demarrer').click();
+      });
+      if (delai) await attendre(delai);
+      await page.close({ runBeforeUnload: false });
+      page = await ctx.newPage(); brancher(page);
+      await page.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {});
+      await attendre(2600);
+      const d = await idbT();
+      ok('[409] C — page fermée ' + delai + ' ms après « Démarrer » : la séance est là à la réouverture',
+        !!d.brouillon && (await visible())[0] === 'vue-seance' && (await boutonsDemarrer()) === 0,
+        JSON.stringify({ brouillon: d.brouillon && d.brouillon.id, vue: await visible() }));
+      await nettoyer();
+    }
+
+    // ── B — LA SÉANCE OUVERTE EN BASE EST REPRISE AVANT TOUT « DÉMARRER » ─
+    await aller('/saisie');
+    await demarrerRoutine('Push');
+    const idA = enCours()[0];
+    ok('[409] prémisse : A est en cours en base', !!idA, JSON.stringify(enCours()));
+    await perdreLocal();
+    base.lenteur = 6000;
+    await recharger(1800);
+    // La synchronisation complète n'est PAS finie (6 s) : c'est la fenêtre.
+    ok('[409] B — réouverture sans brouillon, synchro lente : A est REPRISE, aucun « Démarrer »',
+      (await visible())[0] === 'vue-seance' && (await boutonsDemarrer()) === 0 &&
+      ((await idbT()).brouillon || {}).id === idA,
+      JSON.stringify({ vue: await visible(), demarrer: await boutonsDemarrer(),
+        brouillon: ((await idbT()).brouillon || {}).id }));
+    await attendre(6000);
+    await nettoyer();
+
+    // ── A — LE CAS DU 26/09 : B NAÎT FACE À A OUVERTE → 409 → RÉSOLU ─────
+    // La vérification du démarrage échoue (réseau capricieux) : rien ne
+    // bloque, « Démarrer » est offert, B est lancée alors que A est ouverte en
+    // base. C'est la vidange qui doit résoudre — sans « Terminer ».
+    await aller('/saisie');
+    await demarrerRoutine('Push');
+    const idA2 = enCours()[0];
+    await perdreLocal();
+    // Synchro plus lente encore : la lecture en panne est retentée par le
+    // client (1 s, 2 s, 4 s) avant d'échouer, et la synchro ne part qu'après.
+    base.lenteur = 12000; base.enCoursEnPanne = true;
+    const refus0 = base.journal.length;
+    await recharger(500);
+    for (let t = 0; t < 40 && (await boutonsDemarrer()) === 0; t++) await attendre(500);
+    ok('[409] A — prémisse : la vérification a échoué, « Démarrer » est offert',
+      (await boutonsDemarrer()) > 0, String(await boutonsDemarrer()));
+    // La lecture revient : c'est ce que la vidange utilisera pour refermer A.
+    base.enCoursEnPanne = false;
+    await demarrerRoutine('Push');
+    await attendre(800);
+    const idB = enCours().filter((x) => x !== idA2)[0] || enCours()[0];
+    const refus409 = base.journal.slice(refus0).filter((j) => j.op === 'refus' && j.refus === '23505').length;
+    ok('[409] A — B a heurté A en base (409 `sessions_une_seule_en_cours`)', refus409 >= 1, String(refus409));
+    ok('[409] A — DÈS LE 409 : A refermée, B montée en cours — sans « Terminer », synchro pas finie',
+      statutDe(idA2) === 'terminee' && !!idB && idB !== idA2 && statutDe(idB) === 'en_cours',
+      JSON.stringify({ A: statutDe(idA2), B: idB && statutDe(idB) }));
+    await saisirSerie(0, 100, 5);
+    await saisirSerie(1, 100, 5);
+    await attendre(900);
+    const dA = await idbT();
+    ok('[409] A — les séries de B arrivent en base au fil de la séance, et sa file est vide',
+      setsDe(idB) === 2 && dA.file.length === 0,
+      JSON.stringify({ sets: setsDe(idB), file: dA.file.map((e) => e.cle + (e.bloquee ? ' BLOQUÉE' : '')) }));
+    ok('[409] A — l’état ne dit jamais « refusé »', !/refus/i.test(await etatT()), await etatT());
+    await attendre(12000);
+    await nettoyer();
+
+    // ── A3 — UNE FILE DÉJÀ BLOQUÉE SUR LE TÉLÉPHONE ─────────────────────
+    // L'état exact d'un téléphone du 26/09 : B et sa série en file, la séance
+    // marquée DÉFINITIVE sur le conflit, A ouverte en base. On le fabrique :
+    // B lancée hors ligne, une série validée, puis l'entrée marquée à la main.
+    await aller('/saisie');
+    base.reseau = false;
+    await demarrerRoutine('Push');
+    await saisirSerie(0, 100, 5);
+    await attendre(600);
+    const idB3 = ((await idbT()).brouillon || {}).id;
+    await page.evaluate((id) => new Promise((res) => {
+      const r = indexedDB.open('trainhub-v2');
+      r.onsuccess = () => {
+        const tx = r.result.transaction(['attente'], 'readwrite');
+        const st = tx.objectStore('attente');
+        st.get('sessions:' + id).onsuccess = (e) => {
+          const v = e.target.result;
+          st.put(Object.assign({}, v, { essais: 1, bloquee: { code: '23505',
+            message: 'duplicate key value violates unique constraint "sessions_une_seule_en_cours"' } }));
+        };
+        tx.oncomplete = () => { r.result.close(); res(); };
+      };
+    }), idB3);
+    const idA3 = '40000000-0000-4000-8000-00000000a409';
+    const debutA3 = ilYa(600000).toISOString();   // ouverte il y a dix minutes
+    base.sessions.push({ id: idA3, user_id: MOI, titre: 'Ouverte ailleurs', debut: debutA3,
+      fin: null, statut: 'en_cours', note: null, salle: null, salle_norme: null, routine_id: null,
+      source: 'app', created_at: debutA3 });
+    const bloqueeAvant = ((await idbT()).file.find((e) => e.cle === 'sessions:' + idB3) || {}).bloquee;
+    ok('[409] A3 — prémisse : la séance est bloquée DÉFINITIVE dans la file, B absente de la base',
+      !!bloqueeAvant && statutDe(idB3) === '(absente)', JSON.stringify({ bloqueeAvant, B: statutDe(idB3) }));
+    base.reseau = true;
+    await recharger(3500);
+    const d3 = await idbT();
+    ok('[409] A3 — au démarrage : débloquée ET envoyée — B en base avec sa série, A refermée, file vide',
+      statutDe(idB3) === 'en_cours' && setsDe(idB3) === 1 && statutDe(idA3) === 'terminee' && d3.file.length === 0,
+      JSON.stringify({ B: statutDe(idB3), sets: setsDe(idB3), A: statutDe(idA3),
+        file: d3.file.map((e) => e.cle + (e.bloquee ? ' BLOQUÉE' : '')) }));
+    ok('[409] A3 — l’état ne dit pas « refusé »', !/refus/i.test(await etatT()), await etatT());
+    await nettoyer();
+
+    ok('[409] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
 
   console.log('\n══ 8. NON-RÉGRESSION ══');

@@ -91,8 +91,45 @@
   // l'utilisateur que quelque chose ne montera pas.
   var CODES_DEFINITIFS = ['23502', '23503', '23505', '23514', '22P02', '42501', '42703'];
 
+  // ⚠️ SAUF UN `23505`, ET UN SEUL (26/09/2026) : `sessions_une_seule_en_cours`.
+  //
+  // Index unique sur `user_id` WHERE `statut = 'en_cours'`. Il refuse la
+  // séance du téléphone parce qu'une AUTRE est encore ouverte en base — un état
+  // qui se LÈVE : la vidange referme l'autre et renvoie (`app.js`, `vidanger`).
+  // Le classer définitif laissait la séance, ses séries et ses paris sur le
+  // seul appareil jusqu'à « Terminer » (constat du 26/09, onze minutes).
+  //
+  // On reconnaît la contrainte à son NOM, pas au seul code : tout autre
+  // `23505` — une clé primaire, `sets_rang_unique`, les index des routines —
+  // reste définitif, parce que le renvoyer échouerait à l'identique.
+  var CONTRAINTE_EN_COURS = 'sessions_une_seule_en_cours';
+
+  function estConflitEnCours(erreur) {
+    if (!erreur || String(erreur.code || '') !== '23505') return false;
+    var texte = String(erreur.message || '') + ' ' + String(erreur.details || '');
+    return texte.indexOf(CONTRAINTE_EN_COURS) >= 0;
+  }
+
+  // Un envoi, et sa résolution si la base répond « une seule en cours » :
+  // refermer les autres séances ouvertes, puis renvoyer AUSSITÔT. Rend l'erreur
+  // qui reste (null si l'entrée est passée) ; ne lève jamais. `executer` et
+  // `refermerSauf` sont fournis par l'appelant — ce module ne touche pas au
+  // réseau, et c'est ce qui rend la règle testable sans navigateur.
+  async function envoyer(op, executer, refermerSauf) {
+    try { await executer(op); return null; }
+    catch (e) {
+      if (!op || op.table !== SESSIONS || !estConflitEnCours(e)) return e;
+      try {
+        await refermerSauf(op.id);
+        await executer(op);
+        return null;
+      } catch (e2) { return e2; }
+    }
+  }
+
   function estDefinitive(erreur) {
     if (!erreur) return false;
+    if (estConflitEnCours(erreur)) return false;
     var code = String(erreur.code || '');
     if (CODES_DEFINITIFS.indexOf(code) >= 0) return true;
     var texte = String(erreur.message || '') + ' ' + String(erreur.details || '');
@@ -366,6 +403,26 @@
     return { file: neuve, entrees: entrees, lignes: lignesReparees };
   }
 
+  // ⚠️ ET LES FILES DÉJÀ BLOQUÉES SUR CE CONFLIT (26/09/2026).
+  //
+  // Même règle qu'au-dessus : L'APPAREIL NE SE RÉPARE PAS TOUT SEUL. Une file
+  // écrite avant ce correctif porte peut-être une séance marquée définitive sur
+  // `sessions_une_seule_en_cours` ; `estConflitEnCours` ne la rouvre pas, elle
+  // est déjà sur le disque. On lève le blocage — seulement celui-là, reconnu à
+  // son nom : la vidange saura désormais le résoudre.
+  function reparerConflitsEnCours(file) {
+    var entrees = 0;
+    var neuve = (file || []).map(function (e) {
+      if (!e || !e.bloquee || e.table !== SESSIONS) return e;
+      if (!estConflitEnCours(e.bloquee)) return e;
+      entrees++;
+      return Object.assign({}, e, {
+        version: (e.version || 1) + 1, bloquee: null, essais: 0
+      });
+    });
+    return { file: neuve, entrees: entrees };
+  }
+
   // Tout ce qui attend encore, par table. La synchronisation s'en sert pour
   // NE PAS EFFACER ce qu'elle ne connaît pas encore : `Sync.remplacer` remplace
   // la liste des séances par celle du serveur, et une séance saisie hors ligne
@@ -450,6 +507,10 @@
     CODES_DEFINITIFS: CODES_DEFINITIFS,
     cleDe: cleDe,
     estDefinitive: estDefinitive,
+    estConflitEnCours: estConflitEnCours,
+    envoyer: envoyer,
+    CONTRAINTE_EN_COURS: CONTRAINTE_EN_COURS,
+    reparerConflitsEnCours: reparerConflitsEnCours,
     poser: poser,
     ordonnee: ordonnee,
     prochaine: prochaine,

@@ -861,7 +861,7 @@ Appui : Moesgaard et al. 2022 (35 études, volume égal) — périodiser fait ga
 |---|---|
 | **Bloc** : la zone d'une barre change pour plusieurs semaines | La charge est reportée via le maximum estimé (en coulisse, jamais affiché) ; le compteur de stagnation repart à zéro |
 | **Ondulation** : deux zones pour une même barre dans la même semaine | Deux paliers avancent en parallèle, sans remise à zéro |
-| **Semaine de décharge** | **Déclarée, jamais déduite** (tranché le 25/09/2026) : ni stagnation ni coupure, aucune proposition de charge. Une séance plus légère ne dit pas pourquoi elle l'est — décharge, jour sans, douleur. D'ici à la déclaration (chantier programmes), une séance où la consigne n'a pas été suivie est simplement neutre pour le compteur (§12.2 bis) |
+| **Semaine de décharge** | **Déclarée, jamais déduite** (tranché le 25/09/2026) : ni stagnation ni coupure. Une séance plus légère ne dit pas pourquoi elle l'est — décharge, jour sans, douleur ; d'ici à la déclaration, une séance où la consigne n'a pas été suivie est simplement neutre pour le compteur (§12.2 bis). **Déclarée — acceptée depuis l'escalier (§14) ou, plus tard, planifiée par un programme — elle a sa consigne** (précisé le 25/09/2026) : mêmes exercices et même charge, séries −40 %, 2 reps de moins que la visée, aucun test ni montée. L'ancienne règle « aucune proposition de charge » est retirée |
 | **Phase** | Notée dans `predictions` avec chaque consigne (§9.11) |
 
 Aujourd'hui, la phase se **déduit** de l'historique. Le futur chantier programmes l'**écrira** : une zone par jour dans `routine_exercises`, avec la priorité plan > correction > déduction (§9.1.2).
@@ -888,6 +888,8 @@ Aujourd'hui, la phase se **déduit** de l'historique. Le futur chantier programm
 - **L'identifiant reçoit la révision** : SHA-256 de (séance | exercice | rang | révision), mis en forme d'UUID. **La révision 0 — la consigne de l'ouverture — garde la formule sans révision** : aucun identifiant existant ne change.
 
 - **Quelle révision porte chaque ligne — précisé le 25/09/2026.** Une seule proposition par bloc (§9.14) : dans le plan, **la première ligne dont la source est le coach porte la révision 1** (la série proposée), **les suivantes la révision 2** (les séries passées à la charge montée, une fois la montée tenue). Une ligne de la consigne ou revenue au palier (« retour ») garde la révision 0 : son pari est celui de l'ouverture. La règle se lit sur le plan seul, sans mémoire de l'ordre des événements.
+- **Une proposition refusée écrit aussi son pari** (tranché le 25/09/2026, #318) : à la validation de la série qu'elle concerne, comme une proposition prise ; son observation dit « autre chose tenté ». C'est un refus enregistré, pas un oubli : le coach a affiché une affirmation, `predictions` en garde la trace, et l'on saura combien de propositions sont prises, pas seulement si celles qui le sont tiennent.
+- **La garde qui empêche d'écrire deux fois un pari porte sur (séance, exercice, rang, révision)** (#318) : plusieurs lignes peuvent porter la révision 2 ; sans le rang, seule la première s'écrirait.
 - **Le fondement** porte la révision, la série déclencheuse (rang, charge, reps saisies, reps comptées, marge), les charges proposées (une ou deux), la source de la borne haute (`programme`, `habitude`, `preconisation`), et tout ce que la consigne y mettait déjà (zone, réglage, palier, niveau validé, séance). `valeur_predite` : le bas de la zone ; `borne_basse` et `borne_haute` : la zone.
 - **L'observation** suit la règle du 48c-2 **pour chacun des paris du rang**, jamais pour le premier trouvé (l'ordre de lecture suit l'identifiant haché, donc le hasard) : relié au même rang toujours ; reps comptées seulement si la consigne de **ce** pari a été suivie — pour une proposition à deux charges, l'une ou l'autre. Deux paris sur un même rang se départagent ainsi seuls : celui dont la charge a été faite compte ses reps, l'autre se lit « autre chose tenté ».
 
@@ -950,7 +952,7 @@ Le **saut habituel** est la médiane, sur les séances antérieures de cet exerc
 - **Elle ne tient pas** : retour à la charge et à la visée du palier pour les séries suivantes, dit en gris, avec « pas encore » (§20).
 - **Une seule montée par bloc.** Après une montée, tenue ou non, le coach ne propose plus rien dans ce bloc.
 
-**Quand il se tait.** Sous la visée ou à 1-2 reps de marge ; **après un refus** — la série proposée validée **à une charge inférieure à la charge proposée** (la borne basse ; le palier ou moins, quand le cran n'a pas de chiffre) ; égale ou supérieure, c'est une acceptation —, jusqu'à la fin du bloc : reproposer serait insister après un non ; en **Entretenir** (ECRAN-PROFIL §2.3), qui coupe le coach, propositions et encouragements compris ; quand le moteur se tait déjà (silence, mesure sans charge, règle de bord sans zone) ; les jours de **reprise** (`reprise_courte`, `reprise_longue`, §9.9), où la consigne est volontairement sans rep de plus. Le réglage Prudent, Normal ou Franc ne change rien en version 1.
+**Quand il se tait.** Quand la séance compte moins de séries de travail que la consigne n'en couvre (précisé le 25/09/2026, #318 : aligner les séries sur les rangs serait deviner). Sous la visée ou à 1-2 reps de marge ; **après un refus** — la série proposée validée **à une charge inférieure à la charge proposée** (la borne basse ; le palier ou moins, quand le cran n'a pas de chiffre) ; égale ou supérieure, c'est une acceptation —, jusqu'à la fin du bloc : reproposer serait insister après un non ; en **Entretenir** (ECRAN-PROFIL §2.3), qui coupe le coach, propositions et encouragements compris ; quand le moteur se tait déjà (silence, mesure sans charge, règle de bord sans zone) ; les jours de **reprise** (`reprise_courte`, `reprise_longue`, §9.9), où la consigne est volontairement sans rep de plus. Le réglage Prudent, Normal ou Franc ne change rien en version 1.
 
 **Ce qu'il lit.** Les séances antérieures, comme la consigne, **et les séries déjà validées de la séance en cours** — jamais une série seulement tapée. Corriger ou dévalider une série validée refait le calcul. **Une fonction pure** : consigne, séries validées et contexte (cran, seconde charge et sa source, calculés sur les séances antérieures) en entrée ; en sortie, le plan de **toutes** les séries de la consigne — validées comprises, avec la charge qui était proposée à chaque rang, dont la cascade du fantôme a besoin —, le message, la proposition en attente et le numéro de révision. Un effort saisi après coup (§17.4) refait le calcul pour la suite, jamais pour ce qui est déjà écrit. L'écran, la feuille « Pourquoi » et `predictions` lisent sa sortie, aucun ne la recalcule — le moteur ne connaît pas l'écran.
 
@@ -1258,14 +1260,48 @@ Aucune source ne valide la démarche. La littérature dit « identifie tes point
 
 ## 14. L'escalier — une marche à la fois
 
-> **Révision en cours — chantier 49 (25/09/2026).** L'escalier a été écrit avant le moteur du chantier 48. Ce qui est déjà tranché :
->
-> - **Marche 1 sans objet** : des reps gagnées sont un progrès depuis le §12.2, le compteur ne se serait pas déclenché. **Marche 2 absorbée** par le niveau validé (§9.2), qui accepte déjà un profil qui descend d'une rep. À confirmer à la mesure de l'escalier : si c'est le cas, la première proposition réelle touche au nombre de séries.
-> - **La première marche dépend de la vitesse de progression de l'exercice** — le niveau se lit par exercice, jamais comme une étiquette globale, avec le rangement du §9.1.3. Qui progresse vite : réagir léger, changer le schéma à charge égale. Qui progresse lentement : toucher au volume ou à la zone. Le seuil, lui, ne change pas (§12.4) ; l'incrément dépend déjà du pas (§10.1).
-> - **L'ordre des marches est rouvert.** Les coachs changent le schéma de reps **avant** de baisser la charge (GZCLP : 5×3, puis 6×2, puis 10×1 à charge égale, puis seulement la baisse) ; ici, le repli (marche 4) passe avant le changement de format (marche 5). À mesurer avant de trancher.
-> - **Agir avant de réagir.** Pour le pratiquant assidu, l'essentiel du coaching est proactif — blocs, décharges planifiées — et relève du chantier programmes (§9.10). L'escalier est le filet.
+> **Tranché le 25/09/2026 (chantier 49) : l'escalier lit d'abord le contexte, puis propose une marche — une seule, jamais deux.** Un blocage vient rarement d'une seule cause ; la même réponse ne convient pas à tous les blocages.
 
-Quand le compteur dépasse le seuil **et** que le contrôle du §13 ne trouve pas de frère qui progresse, l'app propose **la marche suivante, jamais deux**. Ordre fixe, du moins coûteux au plus engageant.
+**Deux contextes, lus sur ce que l'app voit déjà.**
+- **Blocage généralisé** : au moins deux **autres** exercices de la personne ont leur compteur à 4 ou plus sur une séance des 7 jours autour. Signe probable d'une fatigue globale.
+- **Blocage isolé** : sinon. Le contrôle des frères (§13) reste fait d'abord : si un exercice du même pattern progresse, le message change de nature (« ta barre tient pendant que tes haltères montent »).
+
+**Blocage généralisé → alléger, une fois pour la séance.** Une seule proposition, à l'ouverture de la séance, pas une par exercice : **une semaine allégée**, pendant 7 jours. Acceptée, c'est **une décharge déclarée** (§9.10) : ni stagnation ni coupure. **Son format, tranché le 25/09/2026 après confrontation à la littérature :**
+
+| | Semaine normale | Semaine allégée |
+|---|---|---|
+| Exercices, zone, format | ceux de la routine | **les mêmes** |
+| Séries de travail | *n* | **environ −40 %**, au moins une (3 → 2) |
+| Charge | le palier | **la même** : garder l'intensité est ce qui garde la force |
+| Reps | la consigne | **2 de moins que la visée**, loin de l'échec |
+| Test, montée en séance (§9.14) | oui | **non** : rien ne monte cette semaine |
+
+Le coach **dit** la consigne allégée (« 125 kg, vise 3 · 2 séries ») : sans elle, chacun baisse la charge à l'instinct — précisément ce qu'il ne faut pas faire. Appui : l'intensité est la variable clé pour garder force et muscle quand le volume baisse fortement (Spiering et al. 2021) ; les coachs réduisent le volume d'une décharge par moins de séries, de reps ou de séances (Bell et al. 2023, consensus Delphi) ; en sport de force, baisse de volume de 30 à 60 %, intensité gardée, ou baisse de charge d'environ 10 % en gardant les reps, ou charge gardée avec plus de reps en réserve (Bell et al. 2025). **Le coach suggère, il ne demande pas pourquoi** (décidé par Aurélien le 25/09) : pas de question sur la semaine, le sommeil ou le stress ; une carte, deux réponses. **Fréquence mesurée** (`mesure_escalier49_generalise.py`, sur les 7 jours antérieurs, une proposition par épisode) : aurel_br 7 fois en 169 semaines (environ 2 par an), lea 3 en 145, alexis 1 en 69, jordan 1 en 50, melodie 0 — un filet rare, pas un rythme ; les décharges planifiées relèvent du chantier programmes.
+
+**Blocage isolé → stimuler cet exercice, selon sa zone.**
+1. **Zones muscle** (hypertrophie, volume, séries longues) : **une série de plus** (environ +20 % sur l'exercice), si la règle de volume laisse de la place sur le muscle (REGLE-VOLUME) ; sinon, marche suivante. **Zones force** (lourd, mix) : **changer de schéma de reps** — la seule marche qui pose une question, parce qu'elle change ce que la personne entraîne ; plus de séries aide peu la force.
+2. **Redescendre au dernier palier tenu** (§14.2).
+3. Au-delà : le coach se tait sur cet exercice et le signale dans le constat de fin de bloc, sans alarme.
+
+**Toujours.** Un levier à la fois ; la marche suivante seulement au déclenchement suivant (4 nouvelles séances suivies sans progrès) ; une marche refusée n'est jamais retentée (§14.3), le coach passe à la suivante au déclenchement d'après ; chaque proposition est un pari dans `predictions` (§9.11). La proposition d'une série de plus ou de moins est une **proposition de structure** : la routine reste celle de la personne, qui décide.
+
+**Ce qui n'est pas tranché** : le réglage des marches selon la vitesse de progression de l'exercice (prise vide : les données ne permettent pas de trancher) ; la forme exacte de la semaine allégée et de la carte (maquette d'abord).
+
+**Mesure** (cinq historiques, 112 blocages suivis d'au moins 3 séances ; débloqué = le maximum estimé, en coulisse, dépasse de 2 % le meilleur des 8 séances d'avant, dans les 8 séances d'après) :
+
+| Réponse dans les 2 séances suivantes | Blocage isolé | Blocage généralisé |
+|---|---|---|
+| Rien | 22 sur 100 (9) | 38 sur 100 (26) |
+| Une série de plus | **67 sur 100** (6) | 30 sur 100 (10) |
+| Une série de moins | 0 sur 100 (4) | **53 sur 100** (17) |
+| Charge baissée | 33 sur 100 (6) | 50 sur 100 (10) |
+| Pause | 71 sur 100 (7) | 50 sur 100 (8) |
+
+Le blocage généralisé est le plus fréquent (76 sur 112 ; 52 sur 70 chez aurel_br). **Cases de 4 à 26 cas : des tendances, pas des lois** ; le changement de schéma (9 cas, 22 sur 100) n'est pas jugeable, la mesure est biaisée contre lui (le maximum estimé se calcule plus haut sur les séries longues). **Descriptif seulement** : personne ne change de méthode au hasard, et la mesure ne dit jamais « fais X parce que ça a marché ».
+
+**Confrontation.** Coachs : décharger quand plusieurs exercices calent ensemble (échauffements lourds, articulations irritées, motivation en baisse), corriger l'exercice quand il cale seul ; un levier à la fois ; vérifier d'abord technique, sommeil, alimentation, stress ; une décharge réduit le volume de 30 à 50 % une semaine, mêmes exercices. Science : environ +20 % de volume par rapport à l'habitude a mieux fait grossir le muscle de pratiquants entraînés (Scarpelli et al. 2022), sans avantage à une hausse brutale (+120 %, 2026) ; pour la force, un groupe qui gardait son volume a le plus gagné au maximum — d'où « changer de schéma » plutôt que « une série de plus » en zone force. Décharges des pratiquants sérieux : environ 6 jours toutes les 5 à 6 semaines, aussi quand la performance cale (Rogerson et al. 2024).
+
+*L'échelle d'origine, remplacée ci-dessus le 25/09/2026, est conservée pour mémoire.*
 
 | # | Marche | Ce que ça change | Statut |
 |---|---|---|---|
@@ -1689,7 +1725,7 @@ L'erreur passe de 1,00 rep si on ne garde que les séries ≤ 8 reps à 2,00 si 
 | — le nombre de séries | ajouter ou retirer une série : quatrième sujet du chantier 49, avec l'escalier |
 | — l'ordre dans la séance | un exercice après quinze séries sur le même muscle (§12 bis), non mesuré |
 | — l'apprentissage | seuil de 3 reps identique pour tous ; à ajuster par exercice sur les paris observés dans `predictions` |
-| Escalier (§14) | chantier 49 : ordre des marches rouvert, première marche selon la vitesse de progression |
+| Escalier (§14) | **tranché le 25/09/2026** : lire le contexte (isolé ou généralisé), alléger si généralisé, stimuler selon la zone si isolé ; réglage selon la vitesse de progression laissé vide ; maquette de la carte et de la semaine allégée à faire |
 | Calisthénie : les cinq leviers de progression | non traité, hors chantier 48 |
 | Top set suivi de séries allégées (banc M16) | 2 à 5 séances sur 100 ; le moteur y voit un test raté, sans effet — à surveiller |
 | Zones, fenêtre de 8 séances, seuils de reprise (3 et 12 semaines) | calés sur cinq profils d'un même entourage et sur la littérature ; à revérifier sur les premières données prescrites |
@@ -1797,6 +1833,16 @@ Décisions prises avec Aurélien, mesurées en rejouant la consigne sur les cinq
 
 Sources ajoutées au §23 : Weakley et al. 2020 ; Weakley et al. 2023.
 
+### 22.11 Amendement du 25/09/2026 — l'escalier lit le contexte (chantier 49)
+
+| Où | Avant | Après |
+|---|---|---|
+| §14 | Cinq marches dans un ordre fixe, pour tout blocage | Contexte d'abord : généralisé → semaine allégée (décharge déclarée) ; isolé → une série de plus (zones muscle) ou un autre schéma (zones force), puis repli |
+| §9.10 | Décharge : aucune proposition de charge | Décharge déclarée avec sa consigne : même charge, séries −40 %, 2 reps de moins, rien ne monte |
+| §22.3 | Ordre des marches rouvert | Tranché ; vitesse de progression laissée vide |
+
+Mesures : `mesure_escalier49.py`, `mesure_escalier49_contexte.py`, `mesure_escalier49_generalise.py`. Sources ajoutées au §23 : Scarpelli et al. 2022 ; l'étude de 2026 sur +20 % contre +120 % ; Spiering et al. 2021 ; Bell et al. 2023 et 2025.
+
 ## 23. Sources
 
 - Plotkin D. et al. (2022). *PeerJ* 10:e14142 — progression en charge vs en reps
@@ -1808,6 +1854,11 @@ Sources ajoutées au §23 : Weakley et al. 2020 ; Weakley et al. 2023.
 - Coleman M. et al. (2024). *PeerJ* 12:e16777 — deload d'une semaine
 
 - Rogerson D. et al. (2024). *Sports Medicine – Open* 10:26. DOI 10.1186/s40798-024-00691-y — pratiques de décharge de 246 athlètes de force et de physique : environ 6 jours toutes les 5 à 6 semaines, surtout planifiées, déclenchées aussi quand la performance cale
+- Scarpelli M.C. et al. (2022). *Journal of Strength and Conditioning Research* 36(4):1153-1157 — un volume individualisé (+20 % par rapport à l'habitude) fait plus grossir le muscle de pratiquants entraînés qu'un volume standard
+- Spiering B.A. et al. (2021). *Journal of Strength and Conditioning Research* 35(5):1449-1458. DOI 10.1519/JSC.0000000000003964 — l'intensité est la variable clé pour maintenir force et muscle quand volume et fréquence baissent
+- Bell L. et al. (2023). *Sports Medicine – Open* 9:87. DOI 10.1186/s40798-023-00633-0 — consensus Delphi sur la décharge
+- Bell L. et al. (2025). *Strength and Conditioning Journal*. DOI 10.1519/SSC.0000000000000910 — recommandations pratiques pour la décharge
+- *Large increases in resistance training volume do not impair muscle hypertrophy or anabolic-catabolic molecular signaling in trained individuals* (2026), *Journal of Applied Physiology*, DOI 10.1152/japplphysiol.00284.2026 — +120 % d'un coup ne fait pas mieux que +20 %
 - Weakley J. et al. (2020). *Journal of Strength and Conditioning Research* 34(11). DOI 10.1519/JSC.0000000000002887 — encouragement verbal, retour verbal et retour visuel améliorent la performance au squat chez des pratiquants entraînés
 - Weakley J. et al. (2023). *The Effect of Feedback on Resistance Training Performance and Adaptations: A Systematic Review and Meta-analysis* — le retour d'information améliore l'adaptation, surtout sur 4 à 6 semaines
 - LeSuer D.A. et al. (1997) — validité des équations de 1RM sur les trois barres

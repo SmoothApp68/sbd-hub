@@ -1820,20 +1820,48 @@
     var r = reactionDe(iExo);
     if (!r) return;
     var j = r.indices.indexOf(iSerie);
-    if (j < 0) return;
     // ⚠️ TOUS LES PARIS DU RANG, jamais le premier trouvé (§9.11, P7). Après
     // un rechargement, les lignes se relisent dans l'ordre de leur identifiant
     // haché : « le premier » serait un pari au hasard. Chacun se juge sur SES
     // charges — celui dont la charge a été faite compte ses reps, l'autre se
     // lit « autre chose tenté ».
+    //
+    // ⚠️ ET UNE OBSERVATION NE CHANGE JAMAIS DE SÉRIE (§9.11, 49-8). Le rang
+    // se relit sur la liste actuelle et glisse quand une série est ajoutée ou
+    // supprimée : `parisAObserver` rend les paris de CETTE série, où qu'ils
+    // soient, et ceux de son rang que personne d'autre ne tient.
     var paris = (local.predictions || []).filter(function (l) {
       return l && l.exercise_slug === exo.exercise_slug && l.fondement &&
-        l.fondement.seance === seance.id && l.fondement.rang === j + 1;
+        l.fondement.seance === seance.id;
     });
-    for (var p = 0; p < paris.length; p++) await observerPari(paris[p], serie);
+    var aLire = Seance.parisAObserver(paris, serie, j < 0 ? null : j + 1, exo.series);
+    for (var p = 0; p < aLire.length; p++) await observerPari(aLire[p], serie, exo.series);
   }
 
-  async function observerPari(ligne, serie) {
+  // §9.11 (49-8) — UNE SÉRIE SUPPRIMÉE EMPORTE SON OBSERVATION. En base, le
+  // déclencheur `sets_efface_observation` le fait déjà (v2_047) ; la copie
+  // locale doit dire la même chose, sinon la ligne garderait des reps comptées
+  // sur une série qui n'existe plus. Rien n'est ré-observé ensuite sur une
+  // autre série : c'est `parisAObserver` qui le garantit.
+  async function oublierObservationDe(iExo, iSerie) {
+    var exo = seance && (seance.exercices || [])[iExo];
+    var s = exo && (exo.series || [])[iSerie];
+    var id = s && s.id;
+    if (!id) return;
+    var maj = [];
+    local.predictions = (local.predictions || []).map(function (l) {
+      if (!l || l.set_observe !== id) return l;
+      var m = Object.assign({}, l, { set_observe: null, valeur_observee: null, observee_a: null });
+      maj.push(m);
+      return m;
+    });
+    if (maj.length) await Cache.ecrireLot('predictions', maj).catch(function () {});
+  }
+
+  async function observerPari(ligne, serie, series) {
+    // La garde, au plus près de l'écriture : une ligne observée sur une AUTRE
+    // série, encore en base, n'est jamais réécrite par celle-ci.
+    if (!Seance.peutObserver(ligne, serie, series)) return;
     var enBase = Seance.partEnBase(serie);
     var vue = Moteur.observationDe(ligne.fondement, {
       enBase: enBase, id: serie.id, charge: serie.charge_kg,
@@ -2060,6 +2088,7 @@
         await apresGeste({ structure: false });
       },
       surSupprimerSerie: async function (i, j) {
+        await oublierObservationDe(i, j);
         seance = Seance.retirerSerie(seance, i, j);
         await apresGeste();
       }
@@ -2660,6 +2689,7 @@
       surSupprimer: async function () {
         var i = feuille.iExo, j = feuille.iSerie;
         fermerVoile();
+        await oublierObservationDe(i, j);
         seance = Seance.retirerSerie(seance, i, j);
         await apresGeste();
       },

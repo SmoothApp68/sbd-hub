@@ -1612,6 +1612,50 @@
     return sortie;
   }
 
+  // ══ §9.11 (49-8) — UNE OBSERVATION NE CHANGE JAMAIS DE SÉRIE ═════════════
+  //
+  // `couvertureDe` recalcule les rangs sur la liste ACTUELLE, alignée par la
+  // fin : une série ajoutée (« + Série ») ou supprimée plus haut les fait
+  // glisser. Sans garde, la série qui prend un rang remplaçait l'observation
+  // déjà faite par une autre — un test tenu devenait « autre chose tenté »,
+  // ou un test raté (diagnostic du 26/09/2026). La table qui doit dire si le
+  // moteur a eu raison gardait un fait faux.
+  //
+  // Deux règles, et le rang n'est toujours pas figé (§9.13, piste 2, à
+  // trancher avant l'escalier isolé) :
+  //   · une ligne observée reste sur SA série tant que celle-ci existe et
+  //     reste en base — corriger ou dévalider LA MÊME série refait le calcul ;
+  //   · une série n'observe qu'UN rang : déjà reliée à un pari d'un autre
+  //     rang, elle ne s'attache pas au rang qu'elle vient de prendre.
+  // Mieux vaut un pari non observé qu'un pari faux.
+  function observationTenue(setObserve, series) {
+    if (!setObserve) return false;
+    return (series || []).some(function (s) {
+      return !!s && s.id === setObserve && partEnBase(s);
+    });
+  }
+
+  function peutObserver(ligne, serie, series) {
+    var sienne = ligne && ligne.set_observe;
+    if (!sienne || (serie && sienne === serie.id)) return true;
+    return !observationTenue(sienne, series);
+  }
+
+  // Les paris qu'une série doit (re)lire : les siens d'abord, quel que soit
+  // leur rang aujourd'hui ; puis ceux du rang qu'elle porte, si elle n'en sert
+  // pas déjà un autre et si leur observation n'appartient pas à une autre
+  // série encore en base. `rang` vaut null quand la série n'est plus couverte.
+  function parisAObserver(paris, serie, rang, series) {
+    var id = serie && serie.id;
+    var liste = (paris || []).filter(function (l) { return l && l.fondement; });
+    var siens = id ? liste.filter(function (l) { return l.set_observe === id; }) : [];
+    var ailleurs = siens.some(function (l) { return l.fondement.rang !== rang; });
+    if (rang === null || rang === undefined || ailleurs) return siens;
+    return siens.concat(liste.filter(function (l) {
+      return l.fondement.rang === rang && siens.indexOf(l) < 0 && peutObserver(l, serie, series);
+    }));
+  }
+
   // §9.14 (49-R2) — LE PLAN COURANT, quand la réaction est branchée. `reaction`
   // est `reactionPour(...).plan` : une ligne par rang de la consigne, validées
   // comprises. La couverture dit QUELLE série porte quel rang ; la réaction dit
@@ -1913,7 +1957,10 @@
     derniereSaisie: derniereSaisie,
     fantome: fantome,
     planDe: planDe,
-    couvertureDe: couvertureDe
+    couvertureDe: couvertureDe,
+    observationTenue: observationTenue,
+    peutObserver: peutObserver,
+    parisAObserver: parisAObserver
   };
 
   racine.THSeance = api;

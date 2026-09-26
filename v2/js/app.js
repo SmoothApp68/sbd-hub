@@ -1428,9 +1428,9 @@
     // `poserSeries` y pose l'entrée des séries, donc avec un `seq` plus petit
     // que celui de la prédiction. `set_observe` trouve alors toujours sa série.
     await apresGeste();
-    // §9.11 (49-R2) — le pari de révision de CETTE série, s'il y en a un,
-    // AVANT son observation : il doit exister pour être observé.
-    await noterRevision(iExo, iSerie);
+    // §9.11 (49-C) — le pari de CETTE série, AVANT son observation : il doit
+    // exister pour être observé. C'est aussi lui qui la fige (§9.13).
+    await noterPari(iExo, iSerie);
     await observerSerie(iExo, iSerie);
   }
 
@@ -1675,35 +1675,40 @@
 
   // ── §9.11 (48c) — CE QUE LE MOTEUR A PROPOSÉ S'ÉCRIT ─────────────────────
   //
-  // ⚠️ À L'AFFICHAGE, UNE SEULE FOIS PAR SÉANCE ET PAR EXERCICE. C'est ce que
-  // l'utilisateur a LU et sur quoi il a agi : ni à chaque redessin, qui
-  // noierait la table, ni la veille au constat, qu'un historique modifié peut
-  // encore changer. Rien quand le moteur se tait — `consigneDe` rend déjà
-  // `null` en Entretenir, en Édition et sur une mesure sans charge, et
-  // `lignesDePrediction` rend une liste vide en silence.
+  // ⚠️ À LA VALIDATION DE CHAQUE SÉRIE COUVERTE, JUSTE AVANT SON OBSERVATION
+  // (révisé le 26/09/2026, 49-C). C'est ce que l'utilisateur a LU sur la ligne
+  // et sur quoi il a agi — charge, visée, rôle —, et le rang que la série
+  // porte à ce moment-là, qui ne change plus. Jusque-là, les paris s'écrivaient
+  // à l'affichage de la consigne, une fois par séance et par exercice : des
+  // paris pour des séries qui n'ont jamais existé quand la séance en comptait
+  // moins que `n`, et des paris qui changeaient de série à chaque ajout ou
+  // retrait. Ni à chaque redessin, qui noierait la table, ni la veille au
+  // constat, qu'un historique modifié peut encore changer. Rien quand le
+  // moteur se tait — `consigneDe` rend `null` en Entretenir, en Édition et sur
+  // une mesure sans charge, et `lignesDePari` ne rend rien en silence.
   //
   // La garde vit dans `local.predictions`, pas en mémoire : rouvrir l'app au
   // milieu d'une séance ne doit pas réécrire ce qui a déjà été noté.
   // ⚠️ DEUX MARQUES, ET LA PREMIÈRE EST SYNCHRONE. `local.predictions` dit ce
   // qui est noté ; `notesEnCours` dit ce qui est EN TRAIN de l'être. Depuis
   // 48c-2, fabriquer l'identifiant demande une attente (SHA-256), et sans
-  // cette seconde marque deux rendus rapprochés repasseraient tous deux la
+  // cette seconde marque deux gestes rapprochés repasseraient tous deux la
   // garde. Les lignes seraient identiques — l'identifiant les dédoublonne à
   // destination — mais on les écrirait deux fois pour rien.
   var notesEnCours = {};
 
-  // §9.11 (49-R2) — LA GARDE PORTE LA RÉVISION. La révision 0 — les paris de
-  // l'ouverture — se note d'un bloc, par séance et par exercice, comme avant.
-  // Une révision ≥ 1 se note ligne par ligne, à la validation de SA série :
-  // la garde porte alors aussi le rang. Sans la révision dans la clé, le pari
-  // de l'ouverture bloquerait tous ceux du coach : aucun ne s'écrirait.
+  // §9.11 — LA GARDE PORTE (séance, exercice, rang, révision). Depuis 49-C,
+  // chaque pari s'écrit ligne par ligne, révision 0 comprise : la garde porte
+  // donc toujours le rang. Sans la révision dans la clé, le pari de la
+  // consigne bloquerait celui du coach sur le même rang (séance ouverte avant
+  // 49-C, dont les paris de l'ouverture existent déjà).
   function revisionDe(l) {
     var r = l && l.fondement ? Number(l.fondement.revision) : 0;
     return isFinite(r) && r >= 1 ? r : 0;
   }
 
   function cleNote(slug, revision, rang) {
-    return seance.id + '|' + slug + '|' + (revision || 0) + (revision ? '|' + rang : '');
+    return seance.id + '|' + slug + '|' + (revision || 0) + '|' + rang;
   }
 
   function dejaNote(slug, revision, rang) {
@@ -1712,50 +1717,36 @@
     return (local.predictions || []).some(function (l) {
       return l && l.exercise_slug === slug && l.fondement &&
         l.fondement.seance === seance.id && revisionDe(l) === rev &&
-        (rev === 0 || l.fondement.rang === rang);
+        l.fondement.rang === rang;
     });
   }
 
-  async function noterConsignes() {
-    if (!seance || enEdition()) return;
-    var exos = seance.exercices || [];
-    var vus = {};
-    for (var i = 0; i < exos.length; i++) {
-      var slug = exos[i] && exos[i].exercise_slug;
-      if (!slug || vus[slug]) continue;
-      vus[slug] = true;
-      if (dejaNote(slug, 0)) continue;
-      // §9.14 — la consigne se lit par la RÉACTION, le seul lecteur (49-R2).
-      var r = reactionDe(i);
-      if (!r) continue;
-      var lignes = Moteur.lignesDePrediction(r.consigne, {
-        slug: slug, reglage: Profil.rythmeDe(profil), seance: seance.id
-      });
-      if (!lignes.length) continue;
-      notesEnCours[cleNote(slug, 0)] = true;
-      await noterLignes(lignes);
-    }
-  }
-
-  // §9.11 (49-R2, P6) — LE PARI D'UNE RÉVISION S'ÉCRIT À LA VALIDATION DE SA
-  // SÉRIE, juste avant son observation, jamais à l'affichage : l'effort de la
-  // série déclencheuse arrive pendant le repos et peut retirer la proposition.
-  // `lignesDeRevision` relit le plan tel qu'il était AVANT cette série ; si la
-  // ligne n'était pas celle du coach, elle ne rend rien.
-  async function noterRevision(iExo, iSerie) {
+  // §9.11 (49-C) — LE PARI DE LA SÉRIE QU'ON VIENT DE VALIDER. `reactionDe`
+  // relit la séance APRÈS la validation, mais la série n'est pas encore figée
+  // (son pari n'existe pas) : la couverture lui donne donc exactement la ligne
+  // et le rang qu'elle affichait juste avant. `lignesDePari` rejoue la
+  // réaction sur les séries validées qui la PRÉCÈDENT — l'effort saisi
+  // pendant le repos qui a retiré une proposition ne laisse rien écrire du
+  // coach : la ligne redevient celle de la consigne.
+  async function noterPari(iExo, iSerie) {
     if (!seance || enEdition()) return;
     var r = reactionDe(iExo);
     if (!r) return;
     var j = r.indices.indexOf(iSerie);
-    if (j < 0 || j >= r.faites.length) return;
+    if (j < 0) return;
+    var serie = seance.exercices[iExo].series[iSerie];
+    if (!serie || !Seance.partEnBase(serie) || r.figees[serie.id]) return;
     var slug = seance.exercices[iExo].exercise_slug;
-    var lignes = Moteur.lignesDeRevision(r.consigne, r.faites, r.contexte, j, {
-      slug: slug, reglage: Profil.rythmeDe(profil), seance: seance.id
-    });
+    var rang = r.rangs[j];
+    var lignes = Moteur.lignesDePari(r.consigne, r.planInitial,
+      r.faites.slice(0, Math.min(r.faites.length, j)), r.contexte, j, {
+        slug: slug, reglage: Profil.rythmeDe(profil), seance: seance.id,
+        rang: rang, role: r.roles[j], rangs: r.rangs
+      });
     if (!lignes.length) return;
-    var rev = lignes[0].fondement.revision;
-    if (dejaNote(slug, rev, j + 1)) return;
-    notesEnCours[cleNote(slug, rev, j + 1)] = true;
+    var rev = revisionDe(lignes[0]);
+    if (dejaNote(slug, rev, rang)) return;
+    notesEnCours[cleNote(slug, rev, rang)] = true;
     await noterLignes(lignes);
   }
 
@@ -1794,7 +1785,7 @@
   }
 
   // ⚠️ APPARIEMENT STRICT : MÊME RANG, MÊME CHARGE. Le rang vient de
-  // `Seance.couvertureDe`, la fonction qui décide déjà quelles lignes la
+  // `Seance.couvertureSeance`, la fonction qui décide déjà quelles lignes la
   // consigne couvre (§9.13) — deux numérotations diraient deux séances
   // différentes. La charge doit être celle qui a été proposée : une série
   // faite à une autre charge n'observe rien, et la ligne reste sans
@@ -1820,6 +1811,7 @@
     var r = reactionDe(iExo);
     if (!r) return;
     var j = r.indices.indexOf(iSerie);
+    var rang = j < 0 ? null : r.rangs[j];
     // ⚠️ TOUS LES PARIS DU RANG, jamais le premier trouvé (§9.11, P7). Après
     // un rechargement, les lignes se relisent dans l'ordre de leur identifiant
     // haché : « le premier » serait un pari au hasard. Chacun se juge sur SES
@@ -1834,7 +1826,7 @@
       return l && l.exercise_slug === exo.exercise_slug && l.fondement &&
         l.fondement.seance === seance.id;
     });
-    var aLire = Seance.parisAObserver(paris, serie, j < 0 ? null : j + 1, exo.series);
+    var aLire = Seance.parisAObserver(paris, serie, rang, exo.series);
     for (var p = 0; p < aLire.length; p++) await observerPari(aLire[p], serie, exo.series);
   }
 
@@ -1894,42 +1886,58 @@
   //
   // `Moteur.reactionPour` relit la consigne après chaque série VALIDÉE. Ses
   // entrées : la consigne et son contexte (mémoïsés à l'ouverture, une fois
-  // par séance et par exercice, sur les séances antérieures) et les séries
-  // validées de l'exercice parmi celles que la consigne couvre, dans l'ordre.
-  // Pas de mémo : c'est de l'arithmétique sur une poignée de séries, et chaque
-  // lecture voit donc l'état courant — une validation, une dévalidation, une
-  // correction, un effort saisi après coup.
+  // par séance et par exercice, sur les séances antérieures), le plan de la
+  // séance EN COURS (49-C : toutes ses séries de travail, les validées figées)
+  // et les séries validées couvertes, dans l'ordre. Pas de mémo : c'est de
+  // l'arithmétique sur une poignée de séries, et chaque lecture voit donc
+  // l'état courant — une validation, une dévalidation, une correction, un
+  // effort saisi après coup, une série ajoutée ou retirée.
   //
   // ⚠️ `faites` S'ARRÊTE À LA PREMIÈRE SÉRIE NON VALIDÉE. La réaction lit la
   // série i comme la ligne i du plan : une série tapée mais non validée, ou un
-  // trou, décalerait tout. Et si la séance porte moins de séries que la
-  // consigne, les rangs s'alignent par la fin (§9.13) : la première ligne du
-  // plan n'a pas de série, et la réaction se tait plutôt que de mal aligner.
+  // trou, décalerait tout. Le silence « la séance compte moins de séries que
+  // la consigne » (#318) n'existe plus : la consigne couvre les séries de la
+  // séance, il n'y a plus rien à aligner (§9.14, retiré le 26/09/2026).
+  //
+  // Rend, par POSITION (l'index dans le plan) : `indices` (l'index de la série
+  // dans l'exercice), `rangs` et `roles` ; et `figees`, `planInitial`,
+  // `faites`, `reaction`.
+  function figeesDeLExercice(exo, consigne) {
+    var paris = (local.predictions || []).filter(function (l) {
+      return l && l.exercise_slug === exo.exercise_slug && l.fondement &&
+        l.fondement.seance === seance.id;
+    });
+    return Seance.figeesDe(paris, exo.series, consigne);
+  }
+
   function reactionDe(iExo) {
     if (!seance) return null;
     var exo = (seance.exercices || [])[iExo];
     if (!exo) return null;
     var c = consigneDe(exo.exercise_slug);
     if (!c || !c.consigne) return null;
-    var couverture = Seance.couvertureDe(exo.series, c.consigne);
-    var n = c.consigne.n || 0;
-    var indices = [];
-    couverture.forEach(function (x, i) { if (x) indices[x.rang - 1] = i; });
+    var figees = figeesDeLExercice(exo, c.consigne);
+    var couverture = Seance.couvertureSeance(exo.series, c.consigne, figees);
+    var indices = [], rangs = [], roles = [], couvertes = [];
+    couverture.forEach(function (x, i) {
+      if (!x) return;
+      indices[x.position] = i;
+      rangs[x.position] = x.rang;
+      roles[x.position] = x.role;
+      couvertes[x.position] = x;
+    });
     var faites = [];
-    var complet = n > 0 && indices.length === n;
-    for (var r = 0; complet && r < n; r++) {
-      if (indices[r] === undefined) { complet = false; break; }
+    for (var k = 0; k < indices.length; k++) {
+      var s = exo.series[indices[k]];
+      if (!Seance.partEnBase(s)) break;
+      faites.push({ charge_kg: s.charge_kg, reps: s.reps, rpe: s.rpe, ressenti: s.ressenti });
     }
-    if (complet) {
-      for (var k = 0; k < n; k++) {
-        var s = exo.series[indices[k]];
-        if (!Seance.partEnBase(s)) break;
-        faites.push({ charge_kg: s.charge_kg, reps: s.reps, rpe: s.rpe, ressenti: s.ressenti });
-      }
-    }
+    var planInitial = Moteur.planDeCouverture(c.consigne, couvertes);
     return {
-      consigne: c.consigne, contexte: c.contexte || null, indices: indices,
-      faites: faites, reaction: Moteur.reactionPour(c.consigne, faites, c.contexte || null)
+      consigne: c.consigne, contexte: c.contexte || null,
+      indices: indices, rangs: rangs, roles: roles,
+      figees: figees, planInitial: planInitial, faites: faites,
+      reaction: Moteur.reactionPour(c.consigne, faites, c.contexte || null, planInitial)
     };
   }
 
@@ -1961,7 +1969,8 @@
   function planDe(iExo) {
     var exo = seance.exercices[iExo];
     var r = reactionDe(iExo);
-    return Seance.planDe(exo.series, r ? r.consigne : null, r ? r.reaction.plan : null);
+    return Seance.planDe(exo.series, r ? r.consigne : null, r ? r.reaction.plan : null,
+      r ? r.figees : null);
   }
 
   // Ce que la grille montre de la réaction sur UNE ligne : la phrase au-dessus
@@ -2098,10 +2107,8 @@
     brancherReorg('blocs-seance');
     brancherAppuiLong('blocs-seance');
     rendrePiedReorg();
-    // §9.11 — la consigne vient d'être affichée : on note ce qu'elle a
-    // proposé. Sans `await` : le rendu ne doit rien attendre, et la garde
-    // `dejaNote` rend l'appel inoffensif à chaque redessin.
-    noterConsignes().catch(function () { /* la file gardera l'intention */ });
+    // §9.11 (49-C) — plus aucun pari à l'affichage : chacun s'écrit à la
+    // validation de SA série (`noterPari`).
   }
 
   function defObjet(cle, valeur) { var o = {}; o[cle] = valeur; return o; }
@@ -3489,6 +3496,20 @@
   // garde qui survit au prochain appelant.
   function indiceOuNul(v) { return typeof v === 'number' && isFinite(v) ? v : null; }
 
+  // §9.13 (49-C) — le nombre de séries proposé au départ, hors routine :
+  // `n` de la consigne (l'habitude), sinon les séries de travail de la
+  // dernière séance, sinon l'intention (`Seance.seriesDeDepart`).
+  //
+  // ⚠️ PAS EN ÉDITION. Corriger une séance passée (§7 octies), c'est noter ce
+  // qui a été fait, pas démarrer une séance : il n'y a pas de « séance en
+  // cours » à proposer, et le moteur s'y tait déjà. Une ligne, comme avant.
+  function seriesDeDepartPour(slug) {
+    if (enEdition()) return 1;
+    var c = seance ? consigneDe(slug) : null;
+    var n = c && c.consigne ? c.consigne.n : null;
+    return Seance.seriesDeDepart(n, precedentDe(slug), profil ? profil.intention : null);
+  }
+
   function ouvrirCatalogue(apres, remplace) {
     intentionCatalogue = { apres: indiceOuNul(apres), remplace: indiceOuNul(remplace) };
     $('champ-recherche-exo').value = '';
@@ -3518,11 +3539,16 @@
               exo.slug, uuid);
             return apresStructure();
           }
+          // §9.13 (49-C) — HORS ROUTINE, les séries de travail sont posées
+          // d'emblée : l'habitude de l'exercice, sinon l'intention. Un
+          // pré-remplissage, pas une prescription : « + Série » et le retrait
+          // restent libres.
+          var depart = { series: seriesDeDepartPour(exo.slug) };
           if (intentionCatalogue.apres !== null) {
-            seance = Seance.insererExercice(seance, intentionCatalogue.apres, exo.slug, uuid);
+            seance = Seance.insererExercice(seance, intentionCatalogue.apres, exo.slug, uuid, depart);
             return apresStructure();
           }
-          seance = Seance.ajouterExercice(seance, exo.slug, uuid());
+          seance = Seance.ajouterExercice(seance, exo.slug, uuid, depart);
           return apresGeste({ structure: false });
         }
         // ⚠️ UNE SEULE LIGNE, VIDE (chantier 43). L'ancien modèle posait

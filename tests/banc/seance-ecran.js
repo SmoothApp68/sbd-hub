@@ -68,7 +68,12 @@ const CATALOGUE = [
   // slug que le banc utilise ailleurs finit par porter des séries, et la page
   // vide ne serait alors jamais mesurée. Son nom ne répond à aucune des
   // recherches du catalogue faites plus haut.
-  { slug: 'souleve-terre', nom: 'Soulevé de Terre (Barre)', mesure: 'charge_reps', charge: 'externe', muscles_primaires: ['ischios'], muscles_secondaires: [] }
+  { slug: 'souleve-terre', nom: 'Soulevé de Terre (Barre)', mesure: 'charge_reps', charge: 'externe', muscles_primaires: ['ischios'], muscles_secondaires: [] },
+  // ⚠️ RÉSERVÉ AU CHANTIER 49-C, et à lui seul : « un exercice JAMAIS FAIT »,
+  // pour le nombre de séries posé au départ hors routine (l'intention, faute
+  // d'habitude). Tous les autres slugs de ce banc finissent par porter des
+  // séries. Son nom ne répond à aucune des recherches faites ailleurs.
+  { slug: 'mollets-debout', nom: 'Mollets Debout (Machine)', mesure: 'charge_reps', charge: 'externe', muscles_primaires: ['mollets'], muscles_secondaires: [] }
 ];
 
 // ⚠️ UNE ROUTINE PORTE MAINTENANT SES LIGNES (chantier 43). `routine_sets`
@@ -3507,6 +3512,25 @@ const SETS_IMPORTES = [
     await attendre(300);
     await choisirCatalogue(q);
   };
+  // ⚠️ 49-C (MOTEUR §9.13, 26/09/2026) — HORS ROUTINE, UN EXERCICE AJOUTÉ
+  // ARRIVE AVEC SES SÉRIES DE DÉPART : l'habitude, sinon l'intention (3 en
+  // Progresser, 2 en Entretenir). Avant, il arrivait avec UNE ligne. Les
+  // sections qui construisent une forme précise à partir de cette ligne
+  // unique (« + Série » × k, puis retypage) la retrouvent ici, EXPLICITEMENT :
+  // on retire les dernières lignes jusqu'à `n`. Ça ne vaut que lorsque
+  // l'exercice ajouté est le DERNIER de la séance — c'est le cas partout où
+  // on l'appelle.
+  const reduireA = async (n) => {
+    while ((await compter('.ligne-serie')) > n) {
+      await page.evaluate(() => {
+        const nos = document.querySelectorAll('.ligne-serie .no-serie');
+        nos[nos.length - 1].click();
+      });
+      await attendre(500);
+      await page.click('#feuille-contenu .feuille-menu button.danger');
+      await attendre(700);
+    }
+  };
   const plusSerie = async (iBloc) => {
     await page.evaluate((k) => {
       document.querySelectorAll('.ajout-serie')[k].querySelector('button').click();
@@ -3877,25 +3901,43 @@ const SETS_IMPORTES = [
   await demarrerRoutine('Push');
   await saisirSerie(0, 100, 5);
   const avantAjout = await compter('.ligne-serie');
+  // 49-C (§9.13) — l'attendu du pré-remplissage, par la MÊME fonction pure que
+  // l'app, sur la même base : les tractions n'ont pas de consigne (mesure en
+  // reps), donc l'habitude = les séries de travail de leur dernière séance,
+  // faute de quoi l'intention.
+  const departTractions = (() => {
+    const SeanceD5 = require(path.join(R, 'v2/js/seance.js'));
+    const avecTr = base.sessions.filter((x) => x.statut === 'terminee' &&
+      base.sets.some((y) => y.session_id === x.id && y.exercise_slug === 'tractions'))
+      .sort((a, b) => Date.parse(b.debut) - Date.parse(a.debut))[0];
+    const prec = avecTr ? { series: base.sets.filter((y) => y.session_id === avecTr.id &&
+      y.exercise_slug === 'tractions').map((y) => ({ type_serie: y.type_serie })) } : null;
+    return SeanceD5.seriesDeDepart(null, prec, base.profiles[0].intention);
+  })();
   await ajouterExoSeance('Tractions');
   const avantVidage = await compter('.ligne-serie');
-  ok('[D5] l’exercice ajouté arrive avec UNE série de plus',
-    avantVidage === avantAjout + 1 && /Tractions/.test(await texte('#vue-seance')),
-    avantAjout + ' → ' + avantVidage + ' ligne(s)');
+  ok('[D5] l’exercice ajouté arrive avec SES SÉRIES DE DÉPART (49-C : l’habitude, sinon l’intention)',
+    avantVidage === avantAjout + departTractions && departTractions >= 1 &&
+    /Tractions/.test(await texte('#vue-seance')),
+    avantAjout + ' → ' + avantVidage + ' ligne(s), attendu +' + departTractions);
 
   // ⚠️ PAR LE MENU DU NUMÉRO, pas par le glissement. `rendu.js` le dit :
   // « il n'est JAMAIS le seul chemin : le menu du numéro porte Supprimer ».
   // Au banc, le glissement synthétique est le geste le plus fragile du projet ;
   // ce qu'on éprouve ici est la BORNE du report, pas la reconnaissance du geste.
-  await page.evaluate(() => {
-    const nos = document.querySelectorAll('.ligne-serie .no-serie');
-    nos[nos.length - 1].click();
-  });
-  await attendre(600);
-  await page.click('#feuille-contenu .feuille-menu button.danger');
-  await attendre(900);
-  ok('[D5] sa dernière série est supprimée — l’exercice reste, VIDE',
-    (await compter('.ligne-serie')) === avantVidage - 1 &&
+  // 49-C : l'exercice arrive avec plusieurs séries — on les retire TOUTES,
+  // la configuration discriminante reste « un exercice ajouté puis vidé ».
+  for (let k = 0; k < avantVidage - avantAjout; k++) {
+    await page.evaluate(() => {
+      const nos = document.querySelectorAll('.ligne-serie .no-serie');
+      nos[nos.length - 1].click();
+    });
+    await attendre(600);
+    await page.click('#feuille-contenu .feuille-menu button.danger');
+    await attendre(900);
+  }
+  ok('[D5] ses séries sont supprimées — l’exercice reste, VIDE',
+    (await compter('.ligne-serie')) === avantAjout &&
     /Tractions/.test(await texte('#vue-seance')),
     (await compter('.ligne-serie')) + ' ligne(s), Tractions présent : ' +
     /Tractions/.test(await texte('#vue-seance')));
@@ -4227,9 +4269,17 @@ const SETS_IMPORTES = [
 
   await seanceVide();
   await ajouterExoSeance('Rowing');
-  ok('[F] l’exercice est ajouté, avec UNE série de travail, aucune chauffe',
-    (await compter('.ligne-serie')) === 1,
-    (await compter('.ligne-serie')) + ' ligne(s)');
+  // 49-C (§9.13) — en Entretenir, pas de consigne : l'habitude, ce sont les
+  // séries de TRAVAIL de la fois d'avant (ses chauffes ne comptent pas). Avant
+  // 49-C : une seule ligne.
+  const travailAvantRowing = base.sets.filter((x) => x.session_id === AVANT_ROWING.id &&
+    x.exercise_slug === 'rowing-barre' && x.type_serie === 'travail').length;
+  const badgesAjout = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('.ligne-serie .no-serie')).map((n) => n.textContent));
+  ok('[F] l’exercice est ajouté avec SON HABITUDE — les séries de travail de la fois d’avant, aucune chauffe',
+    (await compter('.ligne-serie')) === travailAvantRowing && travailAvantRowing >= 1 &&
+    badgesAjout.indexOf('W') < 0,
+    (await compter('.ligne-serie')) + ' ligne(s) · attendu ' + travailAvantRowing + ' · ' + JSON.stringify(badgesAjout));
 
   // Le fantôme s'affiche en `placeholder` du champ de charge.
   const fantomeAffiche = () => page.evaluate(() =>
@@ -4283,6 +4333,7 @@ const SETS_IMPORTES = [
   // et prend 40.
   await seanceVide();
   await ajouterExoSeance('Rowing');
+  await reduireA(1);                  // 49-C : la forme de la section part d'UNE ligne
   await plusSerie(0);
   await attendre(400);
   await page.evaluate(() => {
@@ -4296,6 +4347,7 @@ const SETS_IMPORTES = [
   });
   await attendre(800);
   await ajouterExoSeance('Tractions');
+  await reduireA(3);                  // 49-C : deux lignes de rowing, UNE de tractions
   await menuBloc(0);
   await entree('Grouper en superset');
   await attendre(400);
@@ -4415,6 +4467,7 @@ const SETS_IMPORTES = [
 
   await seanceVide();
   await ajouterExoSeance('Couch');
+  await reduireA(1);                  // 49-C : la forme de la section part d'UNE ligne
   await plusSerie(0); await plusSerie(0); await plusSerie(0); await plusSerie(0);
   await attendre(500);
   // Les deux premières en chauffe : on reproduit la forme de la fois d'avant.
@@ -4529,6 +4582,7 @@ const SETS_IMPORTES = [
   if (JSON.stringify(await visible()) === '["vue-seance"]') await terminer();
   await seanceVide();
   await ajouterExoSeance('Rowing');
+  await reduireA(1);                  // 49-C : la forme de la section part d'UNE ligne
   await plusSerie(0); await plusSerie(0); await plusSerie(0);
   await attendre(400);
   // Les DEUX premières en échauffement : 2 chauffes + 2 séries de travail.
@@ -5530,6 +5584,7 @@ const SETS_IMPORTES = [
     // ── LES CHAUFFES NE COMPTENT PAS, ET NE SUFFISENT PAS ────────────────
     await seanceVide();
     await ajouterExoSeance('Terre');
+    await reduireA(1);                // 49-C : la forme de la section part d'UNE ligne
     await plusSerie(0);
     await attendre(400);
     await page.evaluate(() => { document.querySelectorAll('.ligne-serie .no-serie')[0].click(); });
@@ -5632,12 +5687,29 @@ const SETS_IMPORTES = [
     // on repart d'une séance neuve pour que la consigne soit celle d'origine.
     await aller('/saisie');
     await demarrerRoutine('Terre');
+    // ⚠️ 49-C (MOTEUR §9.11, révisé le 26/09/2026) : RIEN À L'OUVERTURE. Un
+    // pari s'écrit à la validation de SA série, avec ce que sa ligne affichait
+    // — avant, trois lignes s'écrivaient ici, dont une orpheline dès que la
+    // séance comptait moins de séries que la consigne.
+    ok('[P] 49-C — à l’ouverture, AUCUN pari : la consigne est affichée, rien n’est écrit',
+      predictions().length === 0, predictions().length + ' ligne(s)');
+    const planOuvert = [];
+    for (let i = 0; i < 3; i++) {
+      const [cTxt, rTxt] = await (await ligne(i)).$$eval('input', (l) => l.map((x) => x.placeholder));
+      planOuvert.push([Number(String(cTxt).replace(',', '.')), Number(rTxt)]);
+    }
+    await saisirSerie(0, planOuvert[0][0], planOuvert[0][1]);
+    await saisirSerie(1, planOuvert[1][0], planOuvert[1][1]);
+    await saisirSerie(2, planOuvert[2][0], planOuvert[2][1]);
+    await attendre(900);
     const notees = predictions();
-    ok('[P] une ligne PAR SÉRIE PROPOSÉE dès l’affichage de la consigne',
+    ok('[P] une ligne PAR SÉRIE VALIDÉE, écrite à sa validation, avec ce que la ligne affichait',
       notees.length === 3 && notees.map((l) => l.fondement.rang).join() === '1,2,3' &&
-      new Set(notees.map((l) => l.fondement.seance)).size === 1,
-      JSON.stringify(notees.map((l) => l.fondement.rang + ':' + l.fondement.charge +
-        '×' + l.valeur_predite)));
+      new Set(notees.map((l) => l.fondement.seance)).size === 1 &&
+      notees.every((l, i) => l.fondement.charge === planOuvert[i][0] && l.valeur_predite === planOuvert[i][1]) &&
+      notees.map((l) => l.fondement.role).join() === 'ligne,ligne,haut',
+      JSON.stringify(notees.map((l) => l.fondement.rang + ':' + l.fondement.role + ':' +
+        l.fondement.charge + '×' + l.valeur_predite)));
     ok('[P] le pari, ce sont les REPS ; la charge vit dans le fondement',
       notees.every((l) => l.grandeur === 'reps' && l.valeur_predite !== null &&
         l.fondement.charge !== null && l.module === 'moteur.consigne'),
@@ -5666,10 +5738,16 @@ const SETS_IMPORTES = [
     }
     ok('[P] DIX REDESSINS PLUS TARD : toujours trois lignes, pas trente',
       predictions().length === 3, predictions().length + ' ligne(s)');
+    await abandonner();
 
     // ── L'OBSERVATION : MÊME RANG, MÊME CHARGE ────────────────────────────
-    const parRang = (r) => predictions().filter((l) => l.fondement.rang === r)[0];
-    const c1 = parRang(1).fondement.charge;
+    // Une séance neuve : l'observation se lit série par série, dès la
+    // validation de chacune (49-C : le pari naît à la même validation).
+    await aller('/saisie');
+    await demarrerRoutine('Terre');
+    const parRang = (r) => predictions().filter((l) => l.fondement.rang === r &&
+      l.fondement.seance === base.sessions.filter((x) => x.statut === 'en_cours').map((x) => x.id)[0])[0];
+    const c1 = planOuvert[0][0];
     await saisirSerie(0, c1, 5);
     ok('[P] la série faite à la charge proposée est OBSERVÉE',
       parRang(1).valeur_observee === 5 && !!parRang(1).observee_a && !!parRang(1).set_observe,
@@ -5681,7 +5759,7 @@ const SETS_IMPORTES = [
     // ⚠️ CONFIGURATION DISCRIMINANTE : une charge AUTRE que celle proposée. À
     // la même charge, apparier sur le rang seul et apparier sur les deux
     // donnent le même résultat — c'est la déviation qui les sépare.
-    await saisirSerie(1, parRang(2).fondement.charge + 5, 5);
+    await saisirSerie(1, planOuvert[1][0] + 5, 5);
     // ⚠️ CORRIGÉ LE 21/09 (48c-2) : la série est RELIÉE, ses reps ne comptent
     // pas. Une exploration dit quelque chose ; elle ne doit pas disparaître de
     // la table. Mais comparer « vise 4 à 130 » à « 3 à 135 » ne dirait rien de
@@ -5753,6 +5831,10 @@ const SETS_IMPORTES = [
     base.profiles[0].intention = 'entretien';
     await aller('/saisie');
     await demarrerRoutine('Terre');
+    // 49-C : le pari naîtrait à la validation — on valide donc, sinon cette
+    // vérification serait vraie de toute implémentation.
+    await saisirSerie(0, planOuvert[0][0], planOuvert[0][1]);
+    await attendre(900);
     ok('[P] EN ENTRETENIR, rien ne s’écrit — le moteur ne prescrit pas',
       base.predictions.length === compteAvant,
       base.predictions.length + ' vs ' + compteAvant);
@@ -5771,33 +5853,24 @@ const SETS_IMPORTES = [
     // ⚠️ LE DÉFAUT DU 21/09, dans sa configuration discriminante. Le squat a
     // été noté DEUX FOIS — six lignes, même `emise_a` à la milliseconde. Une
     // seule page ne le peut pas : la marque « déjà noté » se pose avant toute
-    // attente. Il faut TROIS conditions ensemble, et aucune ne suffit seule :
+    // attente. Il faut deux réalités JavaScript dont les deux LECTURES du
+    // magasin ont précédé les deux ÉCRITURES.
     //
-    //   · UNE SÉANCE QUI EXISTE DÉJÀ, sinon chaque instance crée la sienne et
-    //     les deux jeux de lignes sont légitimes ;
-    //   · SA CONSIGNE PAS ENCORE NOTÉE — l'état du 21/09, où l'écriture n'avait
-    //     pas encore atteint le magasin. Sinon les deux instances voient la
-    //     marque et s'abstiennent, et le banc ne prouve rien ;
-    //   · DEUX DÉMARRAGES SIMULTANÉS, sans `await` entre eux : c'est ce qui
-    //     place les deux LECTURES avant les deux ÉCRITURES.
+    // ⚠️ 49-C : le pari ne naît plus à l'ouverture mais à la VALIDATION. La
+    // configuration discriminante devient donc : UNE SÉANCE QUI EXISTE, et la
+    // MÊME série validée dans deux instances ouvertes en même temps — chacune
+    // a lu le magasin avant que l'autre n'écrive.
     //
     // Ce qui les dédoublonne n'est pas une garde — c'est l'identifiant, calculé
-    // depuis (séance, exercice, rang). Les deux instances écrivent les mêmes
-    // lignes, et l'insertion qui ignore les doublons fait du second envoi un
+    // depuis (séance, exercice, rang). Les deux instances écrivent la même
+    // ligne, et l'insertion qui ignore les doublons fait du second envoi un
     // non-événement.
     const depart3 = base.predictions.length;
     await aller('/saisie');
     await demarrerRoutine('Terre');
     await attendre(1200);
-    const jeuSolo = base.predictions.slice(depart3);
-    ok('[P] la séance est ouverte et sa consigne notée une fois',
-      jeuSolo.length === 3, jeuSolo.length + ' ligne(s)');
-
-    // On remet la séance dans l'état du 21/09 : elle existe, ses prédictions
-    // ne sont notées NULLE PART — ni en base, ni sur l'appareil.
-    await page.evaluate((ids) => window.THCache.supprimer('predictions', ids),
-      jeuSolo.map((l) => l.id));
-    base.predictions.length = depart3;
+    ok('[P] la séance est ouverte, et rien n’est noté avant une validation (49-C)',
+      base.predictions.length === depart3, (base.predictions.length - depart3) + ' ligne(s)');
     await page.close();
 
     const p1 = await ctx.newPage();
@@ -5808,9 +5881,18 @@ const SETS_IMPORTES = [
       p2.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {})
     ]);
     await attendre(3200);
+    await Promise.all([p1, p2].map(async (p) => {
+      const l = (await p.$$('.ligne-serie'))[0];
+      const champs = await l.$$('input');
+      await champs[0].fill(String(planOuvert[0][0]));
+      await champs[1].fill(String(planOuvert[0][1]));
+    }));
+    await Promise.all([p1, p2].map((p) => p.evaluate(() =>
+      document.querySelectorAll('.ligne-serie')[0].querySelector('.ok-serie').click())));
+    await attendre(3200);
     const duo = base.predictions.slice(depart3);
-    ok('[P] DEUX INSTANCES SIMULTANÉES : UN SEUL jeu de lignes en base',
-      duo.length === 3 && new Set(duo.map((l) => l.id)).size === 3,
+    ok('[P] DEUX INSTANCES QUI VALIDENT LA MÊME SÉRIE : UN SEUL pari en base',
+      duo.length === 1 && new Set(duo.map((l) => l.id)).size === 1,
       duo.length + ' ligne(s) · ' + new Set(duo.map((l) => l.id)).size + ' identifiant(s) distinct(s)');
     ok('[P] et leurs identifiants sont CALCULÉS, pas tirés au hasard',
       duo.length > 0 && duo.every((l) =>
@@ -5928,9 +6010,13 @@ const SETS_IMPORTES = [
     const rang2 = duRang(sId, 2);
     const p0 = rang2.filter((l) => !l.fondement.revision)[0];
     const p1 = rang2.filter((l) => l.fondement.revision === 1)[0];
-    ok('[R] LES DEUX PARIS DU RANG SONT OBSERVÉS, chacun sur SA charge',
-      !!p0 && !!p1 && p1.valeur_observee === bas && !!p1.set_observe &&
-      p0.set_observe === p1.set_observe && p0.valeur_observee === null,
+    // 49-C (MOTEUR §9.11, révisé le 26/09/2026) : UN pari par série validée,
+    // celui de ce que sa ligne affichait — la proposition du coach. Avant
+    // 49-C, le pari de l'ouverture (révision 0) existait aussi sur ce rang,
+    // et les deux étaient observés, chacun sur sa charge.
+    ok('[R] UN SEUL PARI SUR LA SÉRIE PROPOSÉE : celui du coach, observé sur sa charge',
+      !p0 && !!p1 && rang2.length === 1 && p1.valeur_observee === bas && !!p1.set_observe &&
+      p1.fondement.role === 'coach',
       JSON.stringify(rang2.map((l) => ({ rev: l.fondement.revision || 0, charge: l.fondement.charge,
         v: l.valeur_observee, set: !!l.set_observe }))));
     await abandonner();
@@ -6128,8 +6214,10 @@ const SETS_IMPORTES = [
     await attendre(1200);
     const avantE = photo(sid);
     const rang2E = () => lignesDe(sid).filter((l) => l.fondement.rang === 2);
-    ok('[O] E2 — prémisse : les deux paris du rang 2 sont sur la série proposée',
-      rang2E().length === 2 && rang2E().every((l) => serieDe(l.set_observe) === 2) &&
+    // 49-C : un seul pari sur la série proposée, celui du coach (avant : le
+    // pari de l'ouverture l'accompagnait sur le même rang).
+    ok('[O] E2 — prémisse : le pari du rang 2 est sur la série proposée',
+      rang2E().length === 1 && rang2E().every((l) => serieDe(l.set_observe) === 2) &&
       rang2E().some((l) => l.fondement.revision === 1 && l.valeur_observee === bas), dire(sid));
     await plusSerie();
     await saisirSerie(2, cran, bas + 2);
@@ -6173,6 +6261,232 @@ const SETS_IMPORTES = [
     await aller('/saisie');
 
     ok('[O] aucune erreur de page pendant ces glissements',
+      erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
+  }
+
+  console.log('\n══ 7 octovicies. LA SÉANCE EN COURS FAIT FOI (§9.13, §9.11, §9.14 — 49-C) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : une séance qui ne compte PAS autant de
+  // séries de travail que la consigne (`n` = 3 sur l'historique du soulevé) —
+  // 4 dans une routine, 2 dans une autre —, des séries ajoutées avant et après
+  // le test, un retrait, un rechargement. À trois séries et sans geste,
+  // l'ancienne couverture (« les n dernières ») et la nouvelle donnent
+  // exactement le même écran : c'est ce qui a laissé passer le constat du
+  // 26/09 (routine à 4, première série sans consigne, aucune réaction).
+  {
+    const routineTerre = (id, nom, n) => ({ id: id, nom: nom, note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: id + '-e', routine_id: id, exercise_slug: 'souleve-terre', rang: 0,
+        routine_sets: progr(n, 8), repos_cible_s: 180, groupe_superset: null, note: null }] });
+    ROUTINES.push(routineTerre('r-terre-4', 'Terre ×4', 4), routineTerre('r-terre-2', 'Terre ×2', 2));
+    const idSeance = () => base.sessions.filter((x) => x.statut === 'en_cours').map((x) => x.id)[0];
+    const parisDe = (sid) => base.predictions.filter((l) => l.exercise_slug === 'souleve-terre' &&
+      l.fondement && l.fondement.seance === sid).sort((a, b) => a.fondement.rang - b.fondement.rang);
+    const rangDuSet = (id) => { const s = base.sets.find((x) => x.id === id); return s ? s.rang : null; };
+    const dire = (sid) => JSON.stringify(parisDe(sid).map((l) => l.fondement.rang + ':' +
+      (l.fondement.role || '?') + ':' + l.fondement.charge + '×' + l.valeur_predite + '→' +
+      (l.set_observe ? 's' + rangDuSet(l.set_observe) : '∅') + ':' + l.valeur_observee));
+    const fantomesC = () => page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie')).map((l) =>
+      (l.classList.contains('proposee') ? '*' : '') + Array.from(l.querySelectorAll('input'))
+        .map((i) => (i.value ? '[' + i.value + ']' : (i.placeholder || '∅'))).join('×')));
+    const phrasesC = () => page.evaluate(() =>
+      Array.from(document.querySelectorAll('.bloc-seance .reaction-serie')).map((n) => n.textContent));
+    const plusC = async () => {
+      await page.evaluate(() => document.querySelectorAll('.ajout-serie button')[0].click());
+      await attendre(900);
+    };
+    const lue = async (i) => {
+      const [c, r] = await (await ligne(i)).$$eval('input', (l) => l.map((x) => x.placeholder));
+      return [Number(String(c).replace(',', '.')), Number(String(r).split('-')[0])];
+    };
+    const X = (v) => String(v[0]).replace('.', ',') + '×' + v[1];
+
+    await aller('/saisie');
+    const noms = await page.evaluate(() => Array.from(document.querySelectorAll('.routine-rangee .routine-nom'))
+      .map((n) => n.textContent));
+    ok('[C] prémisse : les routines « Terre ×4 » et « Terre ×2 » sont arrivées',
+      noms.indexOf('Terre ×4') >= 0 && noms.indexOf('Terre ×2') >= 0, JSON.stringify(noms));
+
+    // La référence : la consigne sur la routine à trois, que l'historique donne.
+    await demarrerRoutine('Terre');
+    await attendre(600);
+    const ref = [await lue(0), await lue(1), await lue(2)];
+    ok('[C] prémisse : une consigne sur 3 séries, la dernière plus lourde (le test)',
+      ref.every((v) => v[0] > 0 && v[1] > 0) && ref[2][0] > ref[0][0], JSON.stringify(ref));
+    const Lg = X(ref[0]), Tst = X(ref[2]);
+    await abandonner();
+
+    // ── ROUTINE À 4 SUR UN HISTORIQUE À 3 ────────────────────────────────
+    await aller('/saisie');
+    await demarrerRoutine('Terre ×4');
+    await attendre(600);
+    ok('[C] routine à 4, historique à 3 : QUATRE séries couvertes, le test sur la dernière',
+      JSON.stringify(await fantomesC()) === JSON.stringify([Lg, Lg, Lg, Tst]), JSON.stringify(await fantomesC()));
+    await saisirSerie(0, ref[0][0], ref[0][1] + 3);
+    await attendre(900);
+    const ph4 = await phrasesC();
+    const f4 = await fantomesC();
+    ok('[C] la PREMIÈRE série a sa consigne, et réagit : proposition sur la série 2',
+      ph4.length === 1 && /de plus que visé/.test(ph4[0]) && /dès la série 2/.test(ph4[0]) &&
+      f4[1].charAt(0) === '*', JSON.stringify({ ph4, f4 }));
+    await abandonner();
+
+    // ── ROUTINE À 2 SUR UN HISTORIQUE À 3 ────────────────────────────────
+    await aller('/saisie');
+    await demarrerRoutine('Terre ×2');
+    await attendre(900);
+    let sid = idSeance();
+    ok('[C] routine à 2 : la ligne, puis le test',
+      JSON.stringify(await fantomesC()) === JSON.stringify([Lg, Tst]), JSON.stringify(await fantomesC()));
+    ok('[C] RIEN À L’OUVERTURE : aucun pari avant une validation',
+      parisDe(sid).length === 0, dire(sid));
+    await saisirSerie(0, ref[0][0], ref[0][1]);
+    await saisirSerie(1, ref[2][0], ref[2][1]);
+    await attendre(1500);
+    const p2 = parisDe(sid);
+    const setsDe = (s) => base.sets.filter((x) => x.session_id === s).map((x) => x.id);
+    ok('[C] un pari PAR SÉRIE VALIDÉE, écrit à sa validation — et AUCUN sans série',
+      p2.length === 2 && p2.map((l) => l.fondement.rang + ':' + l.fondement.role).join() === '1:ligne,2:haut' &&
+      p2.every((l) => setsDe(sid).indexOf(l.set_observe) >= 0) && p2[1].valeur_observee === ref[2][1],
+      dire(sid));
+    await abandonner();
+
+    // ── « + SÉRIE » AVANT LE TEST ────────────────────────────────────────
+    await aller('/saisie');
+    await demarrerRoutine('Terre');
+    await attendre(600);
+    sid = idSeance();
+    await saisirSerie(0, ref[0][0], ref[0][1]);
+    await saisirSerie(1, ref[1][0], ref[1][1]);
+    await plusC();
+    const fAvant = await fantomesC();
+    ok('[C] « + Série » AVANT le test : le test passe sur la nouvelle dernière',
+      fAvant[2] === Lg && fAvant[3] === Tst, JSON.stringify(fAvant));
+    await saisirSerie(2, ref[0][0], ref[0][1]);
+    await saisirSerie(3, ref[2][0], ref[2][1]);
+    await attendre(1500);
+    const pc = parisDe(sid);
+    ok('[C] et chaque série a SON pari, à son rang : la 3ᵉ à la ligne, la 4ᵉ au test',
+      pc.length === 4 && pc.map((l) => l.fondement.rang + ':' + l.fondement.role).join() ===
+        '1:ligne,2:ligne,3:ligne,4:haut' && pc.every((l) => rangDuSet(l.set_observe) === l.fondement.rang),
+      dire(sid));
+    await abandonner();
+
+    // ── « + SÉRIE » APRÈS LE TEST FAIT, PUIS RECHARGEMENT ────────────────
+    await aller('/saisie');
+    await demarrerRoutine('Terre');
+    await attendre(600);
+    sid = idSeance();
+    for (let i = 0; i < 3; i++) await saisirSerie(i, ref[i][0], ref[i][1]);
+    await attendre(900);
+    await plusC();
+    const fApres = await fantomesC();
+    const test3 = parisDe(sid).filter((l) => l.fondement.rang === 3)[0];
+    ok('[C] « + Série » APRÈS le test fait : la série ajoutée reçoit la LIGNE, le test reste sur la 3ᵉ',
+      fApres[3] === Lg && !!test3 && test3.fondement.role === 'haut' && rangDuSet(test3.set_observe) === 3,
+      JSON.stringify({ fApres, paris: dire(sid) }));
+    const empreinte = () => JSON.stringify(parisDe(sid).map((l) =>
+      [l.id, l.fondement.rang, l.fondement.role, l.set_observe, l.valeur_observee]));
+    const parisAvant = empreinte();
+    await page.close();
+    page = await ctx.newPage();
+    brancher(page);
+    await aller('/saisie');
+    await attendre(1200);
+    const fRecharge = await fantomesC();
+    ok('[C] RECHARGEMENT en pleine séance : mêmes rangs, mêmes rôles — la série ajoutée reste à la ligne',
+      JSON.stringify(fRecharge) === JSON.stringify(fApres) && empreinte() === parisAvant,
+      JSON.stringify({ avant: fApres, apres: fRecharge }));
+    await abandonner();
+
+    // ── RETRAIT D'UNE SÉRIE NON VALIDÉE ──────────────────────────────────
+    await aller('/saisie');
+    await demarrerRoutine('Terre');
+    await attendre(600);
+    sid = idSeance();
+    await saisirSerie(0, ref[0][0], ref[0][1]);
+    await attendre(900);
+    const avantRetrait = empreinte();
+    await toucher(1, '.no-serie');
+    await page.click('#feuille-contenu .feuille-menu button.danger');   // Supprimer la série
+    await attendre(1500);
+    const fRetrait = await fantomesC();
+    ok('[C] retirer une série NON validée : rien de ce qui est fait ne bouge, le test reste le dernier',
+      empreinte() === avantRetrait && fRetrait.length === 2 && fRetrait[1] === Tst &&
+      /^\[/.test(fRetrait[0]), JSON.stringify({ fRetrait, paris: dire(sid) }));
+    await abandonner();
+
+    // ── UNE SÉRIE PLUS LÉGÈRE NOTÉE EN TRAVAIL N'EST PAS UN REFUS ────────
+    await aller('/saisie');
+    await demarrerRoutine('Terre ×4');
+    await attendre(600);
+    sid = idSeance();
+    await saisirSerie(0, ref[0][0] - 20, ref[0][1] + 3);
+    await saisirSerie(1, ref[0][0], ref[0][1] + 3);
+    await attendre(900);
+    const phL = await phrasesC();
+    const p1L = parisDe(sid).filter((l) => l.fondement.rang === 1)[0];
+    ok('[C] une série PLUS LÉGÈRE en travail : pas un refus — la suivante propose encore',
+      phL.length === 1 && /dès la série 3/.test(phL[0]), JSON.stringify(phL));
+    ok('[C] et son pari dit « autre chose tenté » : reliée, rien de compté',
+      !!p1L && rangDuSet(p1L.set_observe) === 1 && p1L.valeur_observee === null && p1L.observee_a === null,
+      dire(sid));
+    await abandonner();
+
+    // ── HORS ROUTINE : LE NOMBRE DE SÉRIES POSÉ AU DÉPART ────────────────
+    // Le curl : sa dernière séance, cinq séries de travail (et une chauffe),
+    // une seconde avant maintenant — l'habitude, qui n'est ni 3 ni 2.
+    {
+      const tM = Date.now();
+      const debut = ilYa(1000, tM).toISOString();
+      base.sessions.push({ id: 'curl-49c', user_id: 'u-banc', titre: 'Bras — 49-C', debut,
+        fin: finDe(debut, tM).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      [['echauffement', 6, 15], ['travail', 12, 12], ['travail', 12, 12], ['travail', 12, 11],
+       ['travail', 12, 10], ['travail', 12, 10]].forEach(([type, kg, reps], i) => base.sets.push({
+        id: 'curl-49c-s' + (i + 1), session_id: 'curl-49c', user_id: 'u-banc', exercise_slug: 'curl',
+        charge_kg: kg, reps, duree_s: null, distance_m: null, type_serie: type,
+        rang: i + 1, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null,
+        repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+    }
+    await seanceVide();
+    await ajouterExoSeance('Curl');
+    const nCurl = await compter('.ligne-serie');
+    const typesCurl = await page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie'))
+      .map((l) => (l.querySelector('.no-serie') || {}).textContent));
+    ok('[C] hors routine, un exercice déjà fait : pré-rempli à SON habitude (5 séries de travail)',
+      nCurl === 5, nCurl + ' ligne(s) ' + JSON.stringify(typesCurl));
+    await abandonner();
+    // En ÉDITION d'une séance passée, il n'y a pas de séance en cours à
+    // proposer : l'exercice ajouté arrive avec une ligne, comme avant 49-C.
+    await ouvrirMenuDe('Bras — 49-C');
+    await entree('Modifier');
+    await attendre(600);
+    const avantEd = await compter('.ligne-serie');
+    await ajouterExoSeance('Mollets');
+    ok('[C] EN ÉDITION d’une séance passée : l’exercice ajouté arrive avec UNE ligne',
+      avantEd === 6 && (await compter('.ligne-serie')) === avantEd + 1,
+      avantEd + ' → ' + (await compter('.ligne-serie')) + ' ligne(s)');
+    await page.click('#bandeau-seance .bandeau-fin');
+    await attendre(2600);
+    ok('[C] et l’enregistrer n’écrit aucune ligne vide : la séance garde ses 6 séries',
+      base.sets.filter((x) => x.session_id === 'curl-49c').length === 6,
+      base.sets.filter((x) => x.session_id === 'curl-49c').length + ' série(s)');
+    await seanceVide();
+    await ajouterExoSeance('Mollets');
+    ok('[C] hors routine, un exercice jamais fait, en Progresser : 3 séries',
+      (await compter('.ligne-serie')) === 3, (await compter('.ligne-serie')) + ' ligne(s)');
+    await abandonner();
+    base.profiles[0].intention = 'entretien';
+    await seanceVide();
+    await ajouterExoSeance('Mollets');
+    ok('[C] hors routine, un exercice jamais fait, en Entretenir : 2 séries',
+      (await compter('.ligne-serie')) === 2, (await compter('.ligne-serie')) + ' ligne(s)');
+    await abandonner();
+    base.profiles[0].intention = 'progresser';
+    await aller('/saisie');
+
+    ok('[C] aucune erreur de page pendant la séance qui fait foi',
       erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
 

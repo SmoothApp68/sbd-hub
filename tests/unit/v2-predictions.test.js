@@ -279,12 +279,13 @@ describe('§9.13 — la couverture dit quelle ligne porte quel rang', () => {
     expect(rangs(Seance.couvertureDe(series(3), consigne(3, L, H)))).toEqual([1, 2, 3]);
   });
 
-  test('DISCRIMINANT — moins de séries que n : les rangs s’alignent par la FIN', () => {
-    // Deux séries pour une consigne sur trois. Les prédictions portent 1, 2, 3 ;
-    // ce sont les rangs 2 et 3 qui existent à l'écran, et le TEST reste le
-    // dernier. Compter depuis le début donnerait 1 et 2, et l'observation du
-    // test irait s'apparier à la prédiction du palier.
-    expect(rangs(Seance.couvertureDe(series(2), consigne(3, L, H)))).toEqual([2, 3]);
+  test('DISCRIMINANT — moins de séries que n : les rangs 1 et 2, le test reste le dernier (49-C)', () => {
+    // Deux séries pour une consigne sur trois (§9.13 et §9.11, révisés le
+    // 26/09/2026). Les paris s'écrivent à la validation de chaque série, avec
+    // le rang qu'elle porte : il n'y a plus de pari pour une série qui
+    // n'existe pas, donc plus rien à aligner par la fin. Avant 49-C : les rangs
+    // 2 et 3, et le pari du rang 1 restait orphelin.
+    expect(rangs(Seance.couvertureDe(series(2), consigne(3, L, H)))).toEqual([1, 2]);
     expect(Seance.couvertureDe(series(2), consigne(3, L, H))[1].charge_kg).toBe(130);
   });
 
@@ -293,8 +294,10 @@ describe('§9.13 — la couverture dit quelle ligne porte quel rang', () => {
     expect(rangs(c)).toEqual([null, null, 1, 2, 3]);
   });
 
-  test('plus de séries que n : ce sont les DERNIÈRES qui portent les rangs', () => {
-    expect(rangs(Seance.couvertureDe(series(4), consigne(3, L, H)))).toEqual([null, 1, 2, 3]);
+  test('plus de séries que n : toutes portent un rang (49-C)', () => {
+    // §9.13 (26/09/2026) — la séance en cours fait foi. Avant 49-C :
+    // [null, 1, 2, 3], la première série hors consigne.
+    expect(rangs(Seance.couvertureDe(series(4), consigne(3, L, H)))).toEqual([1, 2, 3, 4]);
   });
 
   test('le plan garde sa forme : la couverture ne la lui impose pas', () => {

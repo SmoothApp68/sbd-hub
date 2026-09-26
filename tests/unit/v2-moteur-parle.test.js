@@ -211,7 +211,7 @@ describe('le pont depuis analyser (MOTEUR §9.13)', () => {
 });
 
 // ── LE PLAN ─────────────────────────────────────────────────────────────────
-describe('le plan : les n dernières séries de travail (§7 septendecies.3)', () => {
+describe('le plan : les séries de travail de la séance en cours (§7 septendecies.3, §9.13 49-C)', () => {
   const consigne = (n, ligne, haut) => ({ etat: 'x', n: n, ligne: ligne, haut: haut });
   const L = { charge: 125, vise: 5 }, H = { charge: 130, vise: 4, k: 1 };
   const series = (types) => ouverte(types).exercices[0].series;
@@ -222,12 +222,14 @@ describe('le plan : les n dernières séries de travail (§7 septendecies.3)', (
       { charge_kg: 125, reps: 5 }, { charge_kg: 125, reps: 5 }, { charge_kg: 130, reps: 4 }]);
   });
 
-  test('DISCRIMINANT — plus de séries que n : ce sont les DERNIÈRES qui sont couvertes', () => {
-    // Quatre séries de travail, consigne sur 3 : la première est une rampe,
-    // elle garde la dernière séance. « Les premières » couvrirait l'inverse.
+  test('DISCRIMINANT — plus de séries que n : TOUTES sont couvertes, le haut sur la dernière (49-C)', () => {
+    // Quatre séries de travail, consigne sur 3 (§9.13, révisé le 26/09/2026) :
+    // la séance en cours fait foi, `n` n'est qu'une proposition de départ. La
+    // première série reçoit la ligne, comme les autres. Avant 49-C : `null`,
+    // et la première série d'une routine à 4 restait hors consigne.
     const plan = Seance.planDe(series(T(4)), consigne(3, L, H));
-    expect(plan).toEqual([null, { charge_kg: 125, reps: 5 }, { charge_kg: 125, reps: 5 },
-      { charge_kg: 130, reps: 4 }]);
+    expect(plan).toEqual([{ charge_kg: 125, reps: 5 }, { charge_kg: 125, reps: 5 },
+      { charge_kg: 125, reps: 5 }, { charge_kg: 130, reps: 4 }]);
   });
 
   test('DISCRIMINANT — k = 2 : les DEUX dernières reçoivent le haut', () => {
@@ -264,8 +266,8 @@ describe('le plan : les n dernières séries de travail (§7 septendecies.3)', (
   // consigne en silence n'a ni `ligne` ni `haut`, donc même sans le garde rien
   // ne s'écrivait. Le garde ne se voit que sur une consigne qui PORTE une ligne
   // sans dire combien de séries elle couvre — et là, il décide : sans `n`, rien
-  // n'est couvert. C'est le contrat (§9.13 : « les n dernières séries »), pas
-  // une tolérance : couvrir TOUT par défaut serait la pire des lectures.
+  // n'est couvert. C'est le contrat (§9.13 : une consigne sans `n` n'en est pas
+  // une), pas une tolérance : couvrir TOUT par défaut serait la pire des lectures.
   test('DISCRIMINANT — sans `n`, une ligne ne couvre rien', () => {
     expect(Seance.planDe(series(T(3)), { etat: 'x', ligne: L, haut: null })).toEqual([null, null, null]);
     expect(Seance.planDe(series(T(3)), { etat: 'x', n: 0, ligne: L, haut: H })).toEqual([null, null, null]);
@@ -642,10 +644,13 @@ describe('un cas réel — le couché, du bout en bout', () => {
     expect(Seance.fantome(s2, 0, 6, pr, plan).charge_kg).toBe(130);
   });
 
-  test('une rampe : la première des quatre séries de travail garde 120, la dernière séance', () => {
+  test('une rampe notée en travail reçoit la consigne comme les autres (§9.13, 49-C)', () => {
     // Squat : la dernière séance montait 120 · 125 · 125 · 130, l'exercice
     // « monte » (l'état de `etatsExercices`), donc 120 est une rampe (§5.2) et
-    // la consigne porte sur n = 3.
+    // la consigne porte sur n = 3. Depuis le 26/09/2026, la séance en cours
+    // fait foi : ses QUATRE séries de travail sont couvertes, et une montée en
+    // charge se déclare en échauffement. Avant 49-C : la première gardait 120,
+    // la dernière séance.
     const squat = [{ seance: { id: 'S5', debut: jour('09-13') },
       series: [brute(120, 5), brute(125, 5), brute(125, 5), brute(130, 4)] }].concat(montee());
     const c = Moteur.consigneDExercice(squat, { etat: Palier.ETAT_MONTE }, AVANT, OPTIONS);
@@ -654,9 +659,9 @@ describe('un cas réel — le couché, du bout en bout', () => {
     const pr = Seance.precedent('dc', squat.map((g) => g.seance),
       (id) => squat.filter((g) => g.seance.id === id)[0].series, 'S');
     const plan = Seance.planDe(s.exercices[0].series, c.consigne);
-    expect(plan[0]).toBeNull();
+    expect(plan[0]).toEqual({ charge_kg: 125, reps: 5 });
     const f = (i) => Seance.fantome(s, 0, i, pr, plan);
-    expect([0, 1, 2, 3].map((i) => f(i).charge_kg + '×' + f(i).reps)).toEqual(['120×5', '125×5', '130×4', '130×4']);
+    expect([0, 1, 2, 3].map((i) => f(i).charge_kg + '×' + f(i).reps)).toEqual(['125×5', '125×5', '130×4', '130×4']);
   });
 });
 

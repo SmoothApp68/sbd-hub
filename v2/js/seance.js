@@ -413,10 +413,25 @@
   // ⚠️ L'INTENTION VA SUR LA LIGNE, PLUS SUR L'EXERCICE (chantier 43). Le
   // fantôme lit `reps_visees` de SA série : la poser sur l'exercice la
   // rendrait invisible, c'est-à-dire un champ écrit que personne ne relit.
+  // §9.13 (49-C) — `options.series` : le nombre de séries de travail posées
+  // d'emblée (`seriesDeDepart`), une par défaut. ⚠️ Plus d'une série demande
+  // un `idSerie` FONCTION : une chaîne ne fait qu'un identifiant, et deux
+  // séries qui le partageraient heurteraient `sets_pkey`.
+  function seriesInitiales(idSerie, o) {
+    var nb = Number(o.series);
+    if (!isFinite(nb) || nb < 1 || Math.floor(nb) !== nb) nb = 1;
+    if (typeof idSerie !== 'function') nb = 1;
+    var series = [];
+    for (var i = 0; i < nb; i++) {
+      var s = serieVide(idSerie);
+      if (o.reps_visees !== undefined) s.reps_visees = o.reps_visees;
+      series.push(s);
+    }
+    return series;
+  }
+
   function ajouterExercice(seance, slug, idSerie, options) {
     var o = options || {};
-    var premiere = serieVide(idSerie);
-    if (o.reps_visees !== undefined) premiere.reps_visees = o.reps_visees;
     var exos = seance.exercices.concat([{
       exercise_slug: slug,
       routine_exercise_id: null,
@@ -425,7 +440,7 @@
       // Un exercice ajouté en séance est un bloc d'un seul : on ne groupe pas
       // ici (§5 du chantier 27).
       groupe_superset: null,
-      series: [premiere]
+      series: seriesInitiales(idSerie, o)
     }]);
     return avecExercices(seance, exos);
   }
@@ -688,15 +703,13 @@
   function insererExercice(seance, apres, slug, idSerie, options) {
     var o = options || {};
     var exos = seance.exercices.slice();
-    var premiere = serieVide(idSerie);
-    if (o.reps_visees !== undefined) premiere.reps_visees = o.reps_visees;
     exos.splice(Math.max(0, Math.min(exos.length, apres)), 0, {
       exercise_slug: slug,
       routine_exercise_id: null,
       repos_cible_s: o.repos_cible_s === undefined ? null : o.repos_cible_s,
       note: texteOuNul(o.note),
       groupe_superset: null,
-      series: [premiere]
+      series: seriesInitiales(idSerie, o)
     });
     return normaliserGroupes(avecExercices(seance, exos));
   }
@@ -1566,11 +1579,7 @@
   // ── §7 septendecies.3 — LE PLAN : ce que le moteur propose, série par série ──
   //
   // Un tableau aligné sur `exo.series` : `null` là où le moteur ne dit rien,
-  // `{ charge_kg, reps }` là où il couvre. La consigne couvre les `n`
-  // DERNIÈRES SÉRIES DE TRAVAIL de l'exercice dans la séance ouverte — s'il y en
-  // a moins de `n`, toutes ; les `k` dernières reçoivent `haut`, les autres
-  // `ligne`. Les séries d'avant, les chauffes et les dégressives gardent la
-  // dernière séance : une rampe plus légère que l'ancien palier ne bouge pas.
+  // `{ charge_kg, reps }` là où il couvre.
   //
   // ⚠️ LE PLAN VIT À CÔTÉ DE LA SÉANCE, JAMAIS DEDANS. Il se dérive à chaque
   // rendu depuis la consigne (mémoïsée dans `app.js`) et la liste actuelle
@@ -1580,36 +1589,179 @@
   //
   // Une charge NULLE (« le cran au-dessus ») reste nulle dans le plan : la
   // charge retombe au rang suivant de la cascade, les reps restent proposées.
-  // §9.13 — CE QUE LA CONSIGNE COUVRE, ET À QUEL RANG. Une seule décision —
-  // « les n dernières séries de travail, les k dernières au haut » — et deux
-  // lecteurs : le plan du fantôme, qui n'a besoin que des valeurs, et
-  // l'observation d'une prédiction (48c), qui a besoin du rang.
   //
-  // ⚠️ LES RANGS S'ALIGNENT PAR LA FIN, et c'est ce qui les rend comparables
-  // aux prédictions. Une consigne sur 3 séries écrit les rangs 1, 2, 3 ; si la
-  // séance n'en porte que deux, ce sont les rangs 2 et 3 qui existent — le
-  // test reste le dernier, et la série proposée qu'on n'a pas faite est la
-  // PREMIÈRE. Compter depuis le début attacherait le test au rang 2 et
-  // apparierait l'observation à la mauvaise prédiction.
-  function couvertureDe(series, consigne) {
+  // ══ §9.13 (49-C, 26/09/2026) — LA SÉANCE EN COURS FAIT FOI ═══════════════
+  //
+  // La consigne couvre TOUTES les séries de travail de la séance, telles
+  // qu'elles sont à chaque instant — celles de la routine, celles qu'on ajoute
+  // ou retire, celles de « + Série ». `n` n'est plus qu'une proposition de
+  // départ (`seriesDeDepart`). L'alignement « sur les n dernières » du 19/09
+  // laissait une série de la routine hors consigne quand la routine en
+  // comptait plus que la dernière séance (constaté sur l'appareil le 26/09 :
+  // aucune réaction même à 20 reps), écrivait un pari pour une série
+  // inexistante quand elle en comptait moins, et faisait glisser les paris à
+  // chaque ajout ou retrait.
+  //
+  // Trois règles, et leur ordre compte :
+  //   1. UNE SÉRIE VALIDÉE EST FIGÉE. Son rang et sa ligne (ligne, test,
+  //      proposition du coach, retour) sont ceux qu'elle affichait à sa
+  //      validation — relus dans SON pari (`figeesDe`), donc identiques après
+  //      un rechargement de l'app.
+  //   2. PARMI LES AUTRES, les `k` dernières reçoivent `haut`, moins les
+  //      tests déjà faits : ajouter une série non validée déplace le test sur
+  //      la nouvelle dernière ; une série ajoutée APRÈS le test fait reçoit la
+  //      ligne. Retirer une série non validée ne touche à rien de ce qui est fait.
+  //   3. LE RANG d'une série non figée est le plus petit entier libre à partir
+  //      de sa position : jamais celui d'une série figée, même après le retrait
+  //      d'une série faite plus haut. C'est le rang que portera son pari.
+  //
+  // Une montée en charge se déclare en échauffement (§9.13) : une série plus
+  // légère notée en travail reçoit la consigne comme les autres.
+  //
+  // Rend, pour chaque série : `null`, ou `{ position, rang, role, charge_kg,
+  // reps, figee }` — `position` est son index dans le plan de la réaction
+  // (les séries couvertes, dans l'ordre), `figee` la ligne figée ou `null`.
+  var ROLES_FIGES = { ligne: true, haut: true, coach: true, retour: true };
+
+  function couvertureSeance(series, consigne, figees) {
     var liste = series || [];
     var sortie = liste.map(function () { return null; });
     if (!consigne || !consigne.n) return sortie;
+    var gel = figees || {};
     var travail = [];
     liste.forEach(function (s, i) { if (typeDe(s) === 'travail') travail.push(i); });
-    var couvertes = travail.slice(-consigne.n);
-    var k = consigne.haut ? consigne.haut.k : 0;
-    var m = couvertes.length;
-    couvertes.forEach(function (i, j) {
-      var source = j >= m - k ? consigne.haut : consigne.ligne;
-      if (!source) return;
+    var figeeDe = function (i) {
+      var s = liste[i];
+      return s && s.id && partEnBase(s) && gel[s.id] ? gel[s.id] : null;
+    };
+    var k = consigne.haut ? (Number(consigne.haut.k) || 0) : 0;
+    var testsFaits = travail.filter(function (i) {
+      var f = figeeDe(i);
+      return !!f && f.role === 'haut';
+    }).length;
+    var libres = travail.filter(function (i) { return !figeeDe(i); });
+    var reste = Math.max(0, k - testsFaits);
+    var roles = {};
+    libres.forEach(function (i, j) { roles[i] = j >= libres.length - reste ? 'haut' : 'ligne'; });
+
+    // Les rangs figés d'abord : aucun rang libre ne peut les reprendre.
+    var pris = {};
+    travail.forEach(function (i) { var f = figeeDe(i); if (f) pris[f.rang] = true; });
+    var position = 0;
+    travail.forEach(function (i) {
+      var f = figeeDe(i);
+      var role = f ? f.role : roles[i];
+      var ligne = f ? f.ligne : null;
+      var source = role === 'haut' ? consigne.haut : consigne.ligne;
+      // Une consigne sans la ligne correspondante ne couvre pas cette série :
+      // on n'invente pas une valeur pour remplir un rang.
+      if (!f && !source) return;
+      var rang;
+      if (f) {
+        rang = f.rang;
+      } else {
+        rang = position + 1;
+        while (pris[rang]) rang++;
+        pris[rang] = true;
+      }
+      var charge = f ? ligne.charge : source.charge;
+      var vise = f ? ligne.vise : source.vise;
       sortie[i] = {
-        rang: consigne.n - (m - 1 - j),
-        charge_kg: source.charge === null || source.charge === undefined ? null : source.charge,
-        reps: source.vise === null || source.vise === undefined ? null : source.vise
+        position: position,
+        rang: rang,
+        role: role,
+        charge_kg: charge === null || charge === undefined ? null : charge,
+        reps: vise === null || vise === undefined ? null : vise,
+        figee: f ? ligne : null
+      };
+      position++;
+    });
+    return sortie;
+  }
+
+  // La même couverture, réduite à ce que lisent le fantôme et les tests d'avant
+  // 49-C : le rang, la charge, les reps.
+  function couvertureDe(series, consigne, figees) {
+    return couvertureSeance(series, consigne, figees).map(function (c) {
+      return c ? { rang: c.rang, charge_kg: c.charge_kg, reps: c.reps } : null;
+    });
+  }
+
+  // ⚠️ LES LIGNES FIGÉES SE RELISENT DANS LES PARIS (§9.11, 49-C). Chaque
+  // série couverte écrit son pari à sa validation, avec ce que sa ligne
+  // affichait : c'est la seule mémoire qui survit à un rechargement — elle est
+  // dans IndexedDB et en base, pas dans la mémoire de la page. Une série
+  // validée est figée par le pari qui la désigne (`set_observe`).
+  //
+  // `paris` : ceux de CETTE séance et de CET exercice. Plusieurs paris sur une
+  // même série (une séance ouverte avant 49-C : le pari de l'ouverture et celui
+  // du coach) : la plus haute révision dit ce que la ligne affichait.
+  //
+  // Un pari d'avant 49-C ne porte pas `role` : on le relit par l'ancienne
+  // règle, celle qui l'avait écrit — les `k` derniers rangs au haut.
+  function figeesDe(paris, series, consigne) {
+    var parSerie = {};
+    (paris || []).forEach(function (l) {
+      if (!l || !l.set_observe || !l.fondement) return;
+      var avant = parSerie[l.set_observe];
+      var rev = Number(l.fondement.revision) || 0;
+      if (!avant || rev > (Number(avant.fondement.revision) || 0)) parSerie[l.set_observe] = l;
+    });
+    var sortie = {};
+    (series || []).forEach(function (s) {
+      if (!s || !s.id || !partEnBase(s) || !parSerie[s.id]) return;
+      var l = parSerie[s.id];
+      var f = l.fondement;
+      var rang = Number(f.rang);
+      if (!isFinite(rang) || rang < 1) return;
+      var rev = Number(f.revision) || 0;
+      var role = ROLES_FIGES[f.role] === true ? f.role : null;
+      if (role === null) {
+        if (rev >= 1) {
+          role = 'coach';
+        } else {
+          var n = consigne ? Number(consigne.n) || 0 : 0;
+          var k = consigne && consigne.haut ? Number(consigne.haut.k) || 0 : 0;
+          role = rang > n - k ? 'haut' : 'ligne';
+        }
+      }
+      var charge = f.charge === undefined ? null : f.charge;
+      var bornes = l.borne_basse !== null && l.borne_basse !== undefined &&
+        l.borne_haute !== null && l.borne_haute !== undefined ? [l.borne_basse, l.borne_haute] : null;
+      sortie[s.id] = {
+        rang: rang,
+        role: role,
+        ligne: {
+          charge: charge,
+          vise: l.valeur_predite === undefined ? null : l.valeur_predite,
+          zone: role === 'coach' ? bornes : null,
+          source: role === 'coach' ? 'coach' : (role === 'retour' ? 'retour' : 'consigne'),
+          charges: role === 'coach'
+            ? (Array.isArray(f.charges) && f.charges.length ? f.charges.slice() : [charge]) : null,
+          sourceHaut: role === 'coach' && f.source !== undefined ? f.source : null
+        }
       };
     });
     return sortie;
+  }
+
+  // §9.13 (49-C) — LE NOMBRE DE SÉRIES PROPOSÉ AU DÉPART, HORS ROUTINE.
+  // L'habitude d'abord : `n`, le nombre de séries de travail de la dernière
+  // séance de l'exercice tel que la consigne le lit ; sans consigne (Entretenir,
+  // mesure sans charge), les séries de travail de la dernière séance ; sans
+  // historique, l'intention — 3 en Progresser, 2 en Entretenir (Spiering et
+  // al. 2021). Ce n'est qu'un pré-remplissage : on ajoute et on retire
+  // librement. Une routine garde ses propres séries (`exerciceDepuisRoutine`).
+  var SERIES_DEPART_PROGRESSER = 3;
+  var SERIES_DEPART_ENTRETIEN = 2;
+
+  function seriesDeDepart(n, prec, intention) {
+    var v = Number(n);
+    if (isFinite(v) && v >= 1 && Math.floor(v) === v) return v;
+    var faites = prec && prec.series
+      ? prec.series.filter(function (s) { return typeDe(s) === 'travail'; }).length : 0;
+    if (faites >= 1) return faites;
+    return intention === 'entretien' ? SERIES_DEPART_ENTRETIEN : SERIES_DEPART_PROGRESSER;
   }
 
   // ══ §9.11 (49-8) — UNE OBSERVATION NE CHANGE JAMAIS DE SÉRIE ═════════════
@@ -1657,21 +1809,22 @@
   }
 
   // §9.14 (49-R2) — LE PLAN COURANT, quand la réaction est branchée. `reaction`
-  // est `reactionPour(...).plan` : une ligne par rang de la consigne, validées
-  // comprises. La couverture dit QUELLE série porte quel rang ; la réaction dit
-  // ce que ce rang propose MAINTENANT.
+  // est `reactionPour(...).plan` : une ligne par série couverte, dans l'ordre,
+  // validées comprises (49-C : par POSITION, plus par rang). La couverture dit
+  // QUELLE série est à quelle position ; la réaction dit ce que cette position
+  // propose MAINTENANT. `figees` : les lignes figées (`figeesDe`).
   //
   // ⚠️ LA LIGNE PROPOSÉE N'A PAS DE FANTÔME DE REPS (ECRAN §3.2, 25/09/2026).
   // `reps: null`, `proposee: true` et la fourchette pour l'indication : valider
   // à vide enregistrerait le bas de la zone, la montée « tiendrait » toujours
   // et le pari serait jugé exact d'office.
-  function planDe(series, consigne, reaction) {
+  function planDe(series, consigne, reaction, figees) {
     var palier = consigne && consigne.ligne && consigne.ligne.charge !== null &&
       consigne.ligne.charge !== undefined ? consigne.ligne.charge
       : (consigne ? consigne.palier : null);
-    return couvertureDe(series, consigne).map(function (c) {
+    return couvertureSeance(series, consigne, figees).map(function (c) {
       if (!c) return null;
-      var p = reaction && reaction[c.rang - 1];
+      var p = reaction && reaction[c.position];
       if (!p) return { charge_kg: c.charge_kg, reps: c.reps };
       if (p.source === 'coach') {
         return { charge_kg: p.charge === undefined ? null : p.charge, reps: null,
@@ -1958,6 +2111,11 @@
     fantome: fantome,
     planDe: planDe,
     couvertureDe: couvertureDe,
+    couvertureSeance: couvertureSeance,
+    figeesDe: figeesDe,
+    seriesDeDepart: seriesDeDepart,
+    SERIES_DEPART_PROGRESSER: SERIES_DEPART_PROGRESSER,
+    SERIES_DEPART_ENTRETIEN: SERIES_DEPART_ENTRETIEN,
     observationTenue: observationTenue,
     peutObserver: peutObserver,
     parisAObserver: parisAObserver

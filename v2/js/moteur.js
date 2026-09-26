@@ -1208,13 +1208,51 @@
     return plan;
   }
 
+  // §9.13 (49-C, 26/09/2026) — LE PLAN DE LA SÉANCE EN COURS. La consigne ne
+  // couvre plus « les n dernières séries » : elle couvre toutes les séries de
+  // travail de la séance, telles qu'elles sont (`Seance.couvertureSeance`).
+  // Ce plan-ci part de CETTE couverture, une ligne par série couverte, dans
+  // l'ordre : une série validée y apporte sa ligne FIGÉE (celle qu'elle
+  // affichait à sa validation, relue dans son pari), les autres la ligne ou
+  // le haut de la consigne selon leur rôle.
+  //
+  // ⚠️ UNE LIGNE FIGÉE PORTE `figee: true`, et `reactionPour` ne la réécrit
+  // jamais : ni la montée tenue, ni le retour au palier ne remontent sur une
+  // série déjà faite. C'est la règle « une série validée est figée ».
+  function planDeCouverture(consigne, couverture) {
+    var c = consigne || null;
+    if (c === null) return [];
+    return (couverture || []).filter(function (x) { return !!x; }).map(function (x) {
+      if (x.figee) {
+        var f = x.figee;
+        return {
+          charge: f.charge === undefined ? null : nombre(f.charge),
+          vise: f.vise === undefined ? null : nombre(f.vise),
+          zone: Array.isArray(f.zone) ? f.zone.slice() : null,
+          source: f.source || 'consigne',
+          charges: Array.isArray(f.charges) ? f.charges.slice() : null,
+          sourceHaut: f.sourceHaut === undefined ? null : f.sourceHaut,
+          figee: true
+        };
+      }
+      var src = x.role === 'haut' ? c.haut : c.ligne;
+      return ligneDePlan(src ? nombre(src.charge) : null, src ? nombre(src.vise) : null,
+        null, 'consigne');
+    });
+  }
+
   function memeCharge(a, b) {
     return a !== null && b !== null && auCentieme(a) === auCentieme(b);
   }
 
-  function reactionPour(consigne, faites, contexte) {
+  // `planInitial` (49-C) : le plan de la séance en cours (`planDeCouverture`).
+  // Absent, c'est le plan de la consigne seule, sur ses `n` séries — la forme
+  // que rejoue le fichier de cas de 49-R1, qui ne change pas.
+  function reactionPour(consigne, faites, contexte, planInitial) {
     var c = consigne || null;
-    var plan = planDeConsigne(c);
+    var plan = Array.isArray(planInitial)
+      ? planInitial.map(function (p) { return p ? Object.assign({}, p) : p; })
+      : planDeConsigne(c);
     var sortie = { plan: plan, message: null, attente: null, revision: 0 };
     if (c === null || ETATS_MUETS_REACTION[c.etat] === true) return sortie;
     // `zone` : une clé chez `consignePour` ; la table des zones donne les bornes.
@@ -1256,6 +1294,8 @@
           var change = false;
           if (z.cle !== 'lourd') {
             for (var j = i + 1; j < n; j++) {
+              // Une série déjà faite garde sa ligne (49-C, §9.13).
+              if (plan[j].figee) continue;
               // Une série que la consigne prévoyait déjà à cette charge garde
               // sa visée (§9.14).
               if (plan[j].source === 'consigne' && memeCharge(plan[j].charge, charge)) continue;
@@ -1273,6 +1313,7 @@
           // PAS ENCORE. Retour à la charge et à la visée du palier ; le pari de
           // la consigne n'a jamais cessé d'exister, rien de neuf ne s'écrit.
           for (var r = i + 1; r < n; r++) {
+            if (plan[r].figee) continue;
             plan[r] = ligneDePlan(P, nombre(c.ligne.vise), null, 'retour');
           }
           if (!derniere) {
@@ -1299,6 +1340,22 @@
       if (marge >= SEUIL_SECONDE_CHARGE && ctx.haut && nombre(ctx.haut.charge) !== null) {
         charges.push(nombre(ctx.haut.charge));
         sourceHaut = ctx.haut.source || null;
+      }
+      // ⚠️ LA SÉRIE SUIVANTE EST DÉJÀ FAITE (49-C). Sa ligne est figée : si
+      // c'était la proposition du coach, elle a bien eu lieu — on la rejoue
+      // avec SES charges, celles qu'elle affichait ; sinon, il n'y a pas eu de
+      // proposition, et le rejeu n'en invente pas une après coup.
+      var suivante = plan[i + 1];
+      if (suivante && suivante.figee) {
+        if (suivante.source !== 'coach') continue;
+        charges = Array.isArray(suivante.charges) && suivante.charges.length
+          ? suivante.charges.slice() : [suivante.charge];
+        sourceHaut = suivante.sourceHaut === undefined ? null : suivante.sourceHaut;
+        revision += 1;
+        attente = { rang: i + 1, charges: charges.slice() };
+        message = { type: 'propose', rang: i + 1, charge: charge, reps: reps,
+                    charges: charges, marge: marge, source: sourceHaut };
+        continue;
       }
       plan[i + 1] = ligneDePlan(charges[0], z.bas, bornes.slice(), 'coach');
       revision += 1;
@@ -1435,21 +1492,83 @@
   //
   // Rend une liste, vide si la ligne `j` n'était pas une ligne du coach.
   function lignesDeRevision(consigne, faites, contexte, j, options) {
-    var o = options || {};
     var liste = faites || [];
     if (!consigne || j < 0 || j >= liste.length) return [];
+    var o = Object.assign({}, options || {});
+    if (o.rang === undefined) o.rang = j + 1;
+    return lignesDePari(consigne, null, liste.slice(0, j), contexte, j, o)
+      .filter(function (l) { return l.fondement.revision >= 1; });
+  }
+
+  // §9.11 (49-C, révisé le 26/09/2026) — LE PARI D'UNE SÉRIE, écrit À SA
+  // VALIDATION, juste avant son observation, avec ce que sa ligne affichait à
+  // ce moment-là. Plus rien ne s'écrit à l'ouverture : un pari n'existe que
+  // pour une série qui a existé.
+  //
+  // `planInitial` : le plan de la séance en cours (`planDeCouverture`), la
+  // série `j` encore NON figée — c'est ce que l'écran montrait juste avant
+  // la validation. `faitesAvant` : les séries validées qui la précèdent, dans
+  // l'ordre (le préfixe que lit la réaction), elle exclue. `options.rang` :
+  // le rang de la série au moment de sa validation (`Seance.couvertureSeance`),
+  // qui ne changera plus ; `options.role` : `ligne` ou `haut`.
+  //
+  // UNE ligne : la révision du coach (1 : la série proposée ; 2 : les
+  // suivantes, montée tenue), ou la révision 0 — la consigne, ou le retour
+  // au palier. Rien si la ligne n'a pas de visée à parier.
+  function lignesDePari(consigne, planInitial, faitesAvant, contexte, j, options) {
+    var o = options || {};
+    if (!consigne || consigne.etat === 'silence' || j < 0) return [];
+    var liste = faitesAvant || [];
+    var r = reactionPour(consigne, liste, contexte, planInitial);
+    var p = r.plan[j];
+    if (!p) return [];
     var z = zoneParCle(consigne.zone);
-    if (z === null) return [];
-    var r = reactionPour(consigne, liste.slice(0, j), contexte);
     var revs = revisionsDuPlan(r.plan);
     var rev = revs[j];
-    if (!rev) return [];
-    var p = r.plan[j];
+    var rang = o.rang === undefined ? j + 1 : o.rang;
+    var fondement = {
+      rang: rang,
+      charge: p.charge,
+      etat: consigne.etat,
+      zone: consigne.zone === undefined ? null : consigne.zone,
+      reglage: o.reglage === undefined ? null : o.reglage,
+      palier: consigne.palier === undefined ? null : consigne.palier,
+      niveau: consigne.niveau === undefined ? null : consigne.niveau,
+      seance: o.seance === undefined ? null : o.seance
+    };
+    if (!rev) {
+      // La révision 0 : la consigne, ou le retour au palier (qui rend sa
+      // valeur au pari de la consigne). Le rôle dit ce que la ligne affichait.
+      if (p.vise === null || p.vise === undefined) return [];
+      fondement.role = p.source === 'retour' ? 'retour' : (o.role === 'haut' ? 'haut' : 'ligne');
+      return [{
+        module: MODULE_CONSIGNE,
+        exercise_slug: o.slug === undefined ? null : o.slug,
+        grandeur: 'reps',
+        valeur_predite: p.vise,
+        borne_basse: z ? z.bas : null,
+        borne_haute: z ? z.haut : null,
+        fondement: fondement
+      }];
+    }
+    if (z === null) return [];
     var iDecl = rev === 1 ? j - 1 : revs.indexOf(1);
     var d = liste[iDecl] || {};
     var comptees = Palier().repsComptees(d);
     var viseDecl = r.plan[iDecl] ? r.plan[iDecl].vise : null;
     var propose = rev === 1 && r.message && r.message.type === 'propose' ? r.message : null;
+    fondement.revision = rev;
+    // Le rang du déclencheur est SON rang (`options.rangs`, par position),
+    // pas sa position : après un retrait, les deux ne coïncident plus.
+    fondement.declencheur = {
+      rang: Array.isArray(o.rangs) && o.rangs[iDecl] !== undefined ? o.rangs[iDecl] : iDecl + 1,
+      charge: nombre(d.charge_kg), reps: nombre(d.reps),
+      comptees: comptees,
+      marge: comptees === null || viseDecl === null ? null : comptees - viseDecl
+    };
+    fondement.charges = rev === 1 && r.attente ? r.attente.charges.slice() : [p.charge];
+    fondement.source = propose ? propose.source : null;
+    fondement.role = 'coach';
     return [{
       module: MODULE_CONSIGNE,
       exercise_slug: o.slug === undefined ? null : o.slug,
@@ -1457,24 +1576,7 @@
       valeur_predite: z.bas,
       borne_basse: z.bas,
       borne_haute: z.haut,
-      fondement: {
-        rang: j + 1,
-        charge: p.charge,
-        etat: consigne.etat,
-        zone: consigne.zone === undefined ? null : consigne.zone,
-        reglage: o.reglage === undefined ? null : o.reglage,
-        palier: consigne.palier === undefined ? null : consigne.palier,
-        niveau: consigne.niveau === undefined ? null : consigne.niveau,
-        seance: o.seance === undefined ? null : o.seance,
-        revision: rev,
-        declencheur: {
-          rang: iDecl + 1, charge: nombre(d.charge_kg), reps: nombre(d.reps),
-          comptees: comptees,
-          marge: comptees === null || viseDecl === null ? null : comptees - viseDecl
-        },
-        charges: rev === 1 && r.attente ? r.attente.charges.slice() : [p.charge],
-        source: propose ? propose.source : null
-      }
+      fondement: fondement
     }];
   }
 
@@ -2099,6 +2201,12 @@
   //
   // Pure : `app.js` fabrique l'identifiant, l'instant et le propriétaire, et
   // ne recalcule aucune règle. Rien quand le moteur se tait.
+  //
+  // ⚠️ 49-C (26/09/2026) : PLUS APPELÉE PAR L'APP. Les paris ne s'écrivent
+  // plus à l'ouverture mais à la validation de chaque série (`lignesDePari`),
+  // et la consigne ne couvre plus « n séries » mais celles de la séance en
+  // cours (§9.13). Gardée telle quelle : ses tests figent la forme d'un pari de
+  // consigne, que `lignesDePari` reprend à l'identique pour la révision 0.
   function lignesDePrediction(consigne, options) {
     var o = options || {};
     if (!consigne || consigne.etat === 'silence' || !consigne.n) return [];
@@ -2524,6 +2632,8 @@
     contexteReaction: contexteReaction,
     revisionsDuPlan: revisionsDuPlan,
     lignesDeRevision: lignesDeRevision,
+    lignesDePari: lignesDePari,
+    planDeCouverture: planDeCouverture,
     phraseReaction: phraseReaction,
     libellesConsigne: libellesConsigne,
     pourquoiConsigne: pourquoiConsigne,

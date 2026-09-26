@@ -254,13 +254,24 @@ describe('49-U1 — plans générés : les invariants tiennent après chaque ges
   test('toutes les combinaisons passent verifierPlan (et I12), après chaque geste', () => {
     let plans = 0;
     const echecs = [];
+    // 49-U2 — I11 n'éprouve rien si aucun plan ne porte les deux sources : on
+    // compte les fantômes « dernière série » et les retours au plan qui suivent.
+    const sources = { plan: 0, derniere: 0, retours: 0 };
     consignes.forEach(({ id, obj }) => {
       FORMES.forEach((forme) => {
         SUITES.forEach((suite, iSuite) => {
           const sim = simulateur('x', obj, forme.n, forme.types);
+          let avant = [];
           const verifier = (quand) => {
             plans++;
             const v = sim.verifier();
+            const ls = sim.exo().lignes || [];
+            ls.forEach((l, i) => {
+              if (!l.fantome) return;
+              sources[l.fantome.source]++;
+              if (l.fantome.source === 'plan' && avant[i] === 'derniere') sources.retours++;
+            });
+            avant = ls.map((l) => (l.fantome ? l.fantome.source : null));
             if (!v.ok) echecs.push(id + ' · ' + forme.n + (forme.types ? 'W' : '') + ' · suite ' + iSuite + ' · ' + quand + ' : ' + v.erreurs[0]);
           };
           verifier('ouverture');
@@ -287,5 +298,7 @@ describe('49-U1 — plans générés : les invariants tiennent après chaque ges
     });
     expect(echecs.slice(0, 5)).toEqual([]);
     expect(plans).toBeGreaterThan(3000);
+    expect(sources.derniere).toBeGreaterThan(100);
+    expect(sources.retours).toBeGreaterThan(10);
   });
 });

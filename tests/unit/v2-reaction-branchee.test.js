@@ -16,6 +16,7 @@ require('../../v2/js/profil.js');
 require('../../v2/js/moteur.js');
 const Moteur = window.THMoteur;
 const Seance = require('../../v2/js/seance.js');
+const Plan = require('../../v2/js/plan.js');
 
 let n = 0;
 const uuid = () => 'id-' + (++n);
@@ -201,31 +202,47 @@ describe('ECRAN §3.2 — la ligne proposée : sa charge, et des reps à taper',
     expect(p[1]).toEqual({ charge_kg: 52.5, reps: null, proposee: true, fourchette: [8, 10], palier: 50 });
   });
 
+  // ⚠️ 49-U2 — LE FANTÔME D'UNE LIGNE COUVERTE VIENT DU PLAN (§9.13 bis), plus
+  // de `Seance.fantome`. Ces trois tests passaient par la cascade avec un plan
+  // posé à la main et des charges TAPÉES ; ils passent désormais par le plan,
+  // avec des séries VALIDÉES — seule une série faite décide (« c'est la
+  // dernière série validée qui décide »). La réaction propose 52,5 sur la
+  // série 2 après 50 × 12, comme le plan d'avant le posait à la main.
+  const contexte = { cran: 52.5, haut: { charge: 55, source: 'preconisation' } };
+  const fantomes = (se) => Plan.planDesLignes(se.exercices[0].series, consigne, contexte, {})
+    .lignes.map((l) => l.fantome);
+  const faire = (se, i, kg, reps) => Seance.valider(Seance.modifierSerie(se, 0, i, { charge_kg: kg, reps: reps }),
+    0, i, new Date('2026-09-26T10:0' + i + ':00Z'));
+
   test('DISCRIMINANT — le fantôme de ses reps reste VIDE : ni la fois d’avant, ni la routine', () => {
     let se = ouverte(3);
     se = Seance.modifierSerie(se, 0, 1, { reps_visees: 10 });
-    const p = Seance.planDe(se.exercices[0].series, consigne, plan);
-    const f = Seance.fantome(se, 0, 1, prec, p);
-    expect(f.charge_kg).toBe(52.5);
-    expect(f.reps).toBeNull();
+    se = faire(se, 0, 50, 12);
+    const f = fantomes(se);
+    expect(f[1]).toEqual({ charge: 52.5, reps: null, source: 'plan' });
     // Témoin : la ligne d'après, de la consigne, garde son fantôme de reps.
-    expect(Seance.fantome(se, 0, 2, prec, p).reps).toBe(9);
+    expect(f[2]).toEqual({ charge: 50, reps: 9, source: 'plan' });
   });
 
   test('P10 — une charge ÉGALE OU SUPÉRIEURE à la proposée est une acceptation : elle ne se propage pas', () => {
     let se = ouverte(3);
-    se = Seance.modifierSerie(se, 0, 0, { charge_kg: 50, reps: 12 });
-    se = Seance.modifierSerie(se, 0, 1, { charge_kg: 55, reps: 8 });
-    const p = Seance.planDe(se.exercices[0].series, consigne, plan);
-    // La ligne 3 garde ce que le plan lui donne, pas les 55 tapés au-dessus.
-    expect(Seance.fantome(se, 0, 2, prec, p).charge_kg).toBe(50);
+    se = faire(se, 0, 50, 12);
+    se = faire(se, 1, 55, 8);
+    // La ligne 3 garde ce que le PLAN lui donne — ici la réaction, qui propose
+    // 55 après une proposition acceptée —, jamais la série faite recopiée
+    // (55 × 8). Avant 49-U2, les charges étaient tapées sans être validées :
+    // la réaction ne réagissait pas, et la ligne restait à 50.
+    const lignes = Plan.planDesLignes(se.exercices[0].series, consigne, contexte, {}).lignes;
+    expect(fantomes(se)[2].source).toBe('plan');
+    expect(fantomes(se)[2].charge).toBe(lignes[2].charge);
+    expect(fantomes(se)[2]).not.toEqual({ charge: 55, reps: 8, source: 'derniere' });
   });
 
-  test('P3 — une charge INFÉRIEURE est un refus : elle se propage comme toute déviation', () => {
+  test('P3 — une charge INFÉRIEURE est un refus : la ligne suivante recopie la série faite, charge ET reps', () => {
     let se = ouverte(3);
-    se = Seance.modifierSerie(se, 0, 0, { charge_kg: 50, reps: 12 });
-    se = Seance.modifierSerie(se, 0, 1, { charge_kg: 47.5, reps: 11 });
-    const p = Seance.planDe(se.exercices[0].series, consigne, plan);
-    expect(Seance.fantome(se, 0, 2, prec, p).charge_kg).toBe(47.5);
+    se = faire(se, 0, 50, 12);
+    se = faire(se, 1, 47.5, 11);
+    // Avant 49-U2 : 47,5 et les reps du plan (9) — deux sources sur une ligne.
+    expect(fantomes(se)[2]).toEqual({ charge: 47.5, reps: 11, source: 'derniere' });
   });
 });

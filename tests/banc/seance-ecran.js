@@ -78,7 +78,12 @@ const CATALOGUE = [
   // qui donne `etend`, n = 4, deux tests à 130, un cran à 127,5). Aucun autre
   // exercice du banc ne peut le porter sans fausser la section qui l'utilise.
   // Son nom ne répond à aucune des recherches faites ailleurs.
-  { slug: 'hip-thrust', nom: 'Hip Thrust (Barre)', mesure: 'charge_reps', charge: 'externe', muscles_primaires: ['fessiers'], muscles_secondaires: [] }
+  { slug: 'hip-thrust', nom: 'Hip Thrust (Barre)', mesure: 'charge_reps', charge: 'externe', muscles_primaires: ['fessiers'], muscles_secondaires: [] },
+  // ⚠️ RÉSERVÉ AU CHANTIER 49-U2 : un décor calqué sur le cas F044 du
+  // simulateur (ligne 50 × 5, deux tests à 55 × 4, un cran à 52,5). Aucun autre
+  // exercice du banc ne peut le porter sans fausser la section qui l'utilise.
+  // Son nom ne répond à aucune des recherches faites ailleurs.
+  { slug: 'leg-extension', nom: 'Leg Extension (Machine)', mesure: 'charge_reps', charge: 'externe', muscles_primaires: ['quadriceps'], muscles_secondaires: [] }
 ];
 
 // ⚠️ UNE ROUTINE PORTE MAINTENANT SES LIGNES (chantier 43). `routine_sets`
@@ -6801,6 +6806,114 @@ const SETS_IMPORTES = [
     await nettoyer();
 
     ok('[409] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
+  }
+
+  console.log('\n══ 7 untricies. LE FANTÔME D’UNE LIGNE VIENT D’UNE SEULE SOURCE (§9.13 bis, I11 — 49-U2) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : UN ÉCART, PUIS UN RETOUR AU PLAN, ET UN
+  // REFUS SUIVI D'UN TEST. Sans écart, l'ancienne cascade et le plan donnent le
+  // même fantôme. Après un écart, l'ancienne prenait la charge tapée et les reps
+  // du plan (« 125 × 4 ») ; après un retour, elle continuait parfois de
+  // recopier. Et « valider sans rien taper » écrivait ce mélange en base.
+  //
+  // Après CHAQUE geste, `THPlan.verifierPlan` repasse sur le plan que l'app
+  // vient de calculer (I11 compris).
+  {
+    const tL = Date.now();
+    const poserLE = (id, jours, lignes) => {
+      const debut = ilYa(jours * 86400000, tL).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'Quadriceps — ' + id, debut,
+        fin: finDe(debut, tL).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      lignes.forEach(([kg, reps], i) => base.sets.push({
+        id: id + '-s' + (i + 1), session_id: id, user_id: 'u-banc', exercise_slug: 'leg-extension',
+        charge_kg: kg, reps, duree_s: null, distance_m: null, type_serie: 'travail',
+        rang: i + 1, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null,
+        repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+    };
+    poserLE('le-z', 25, [[52.5, 3], [52.5, 3], [52.5, 3]]);
+    poserLE('le-a', 21, [[45, 5], [45, 5], [45, 5]]);
+    poserLE('le-b', 14, [[47.5, 5], [47.5, 5], [47.5, 5]]);
+    poserLE('le-c', 7, [[50, 5], [50, 5], [50, 5], [55, 4]]);
+    ROUTINES.push({ id: 'r-le', nom: 'LE ×4', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-le-e', routine_id: 'r-le', exercise_slug: 'leg-extension', rang: 0,
+        routine_sets: progr(4, 8), repos_cible_s: 90, groupe_superset: null, note: null }] });
+
+    const nbF = (x) => JSON.stringify(x).replace(/ /g, ' ');
+    const grilleF = () => page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie')).map((l) =>
+      (l.classList.contains('proposee') ? '*' : '') + Array.from(l.querySelectorAll('input'))
+        .map((i) => String(i.value ? '[' + i.value + ']' : (i.placeholder || '∅')).replace(',', '.')).join('×')));
+    const invariantsF = async (geste) => {
+      const v = await page.evaluate(() => {
+        const d = window.THPlan && window.THPlan.dernier;
+        if (!d) return { ok: false, erreurs: ['aucun plan calculé'] };
+        return window.THPlan.verifierPlan(d.plan, d.entrees);
+      });
+      ok('[F] invariants du plan après « ' + geste + ' »', v.ok, v.ok ? 'I1 I2 I3 I6 I9 I11 I12' : nbF(v.erreurs.slice(0, 3)));
+    };
+    const ouvrirLE = async () => {
+      await aller('/saisie');
+      await demarrerRoutine('LE ×4');
+      await attendre(800);
+    };
+
+    // ── L'ÉCART, PUIS LE RETOUR AU PLAN ─────────────────────────────────
+    await ouvrirLE();
+    await invariantsF('ouverture');
+    const g0 = await grilleF();
+    ok('[F] prémisse : le décor donne la ligne 50 × 5 puis deux tests à 55 × 4',
+      nbF(g0) === nbF(['50×5', '50×5', '55×4', '55×4']), nbF(g0));
+    await saisirSerie(0, 45, 7);
+    await attendre(700);
+    await invariantsF('série 1 plus légère (45 × 7)');
+    const g1 = await grilleF();
+    ok('[F] DISCRIMINANT — série 1 plus légère : les trois lignes suivantes recopient 45 × 7, charge ET reps',
+      nbF(g1.slice(1)) === nbF(['45×7', '45×7', '45×7']), nbF(g1));
+    await saisirSerie(1, 50, 5);
+    await attendre(700);
+    await invariantsF('série 2 à la charge prévue (50 × 5)');
+    const g2 = await grilleF();
+    ok('[F] DISCRIMINANT — série 2 faite à la charge prévue : le plan revient (55 × 4, 55 × 4)',
+      nbF(g2.slice(2)) === nbF(['55×4', '55×4']), nbF(g2));
+    await abandonner();
+
+    // ── VALIDER SANS RIEN TAPER, APRÈS UN ÉCART ─────────────────────────
+    await ouvrirLE();
+    await saisirSerie(0, 45, 7);
+    await attendre(700);
+    await toucher(1, '.ok-serie');
+    await attendre(900);
+    await invariantsF('série 2 validée sans rien taper');
+    const g3 = await grilleF();
+    ok('[F] DISCRIMINANT — valider sans taper après un écart écrit 45 × 7, pas « 45 × 5 »',
+      g3[1] === '[45]×[7]', nbF(g3));
+    await abandonner();
+
+    // ── F044 : LE REFUS SUIVI D'UN TEST ─────────────────────────────────
+    await ouvrirLE();
+    await saisirSerie(0, 50, 8);
+    await attendre(900);
+    await invariantsF('série 1 à 50 × 8');
+    const g4 = await grilleF();
+    ok('[F] prémisse F044 : après 50 × 8, le coach propose 52,5 sur la série 2 (reps à taper)',
+      g4[1].charAt(0) === '*' && /^\*52\.5×/.test(g4[1]), nbF(g4));
+    await saisirSerie(1, 50, 6);
+    await attendre(900);
+    await invariantsF('refus : série 2 à 50 × 6');
+    const g5 = await grilleF();
+    ok('[F] DISCRIMINANT — F044 : après le refus, les tests affichent 50 × 6 — plus « 50 × 4 »',
+      nbF(g5.slice(2)) === nbF(['50×6', '50×6']), nbF(g5));
+    await saisirSerie(2, 55, 7);
+    await attendre(900);
+    await invariantsF('série 3, le test, à 55 × 7');
+    const g6 = await grilleF();
+    ok('[F] F044 : le test fait à 55 — le plan revient sur la série 4 (55 × 4)',
+      g6[3] === '55×4', nbF(g6));
+    await abandonner();
+    await aller('/saisie');
+
+    ok('[F] aucune erreur de page pendant le fantôme', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
 
   console.log('\n══ 8. NON-RÉGRESSION ══');

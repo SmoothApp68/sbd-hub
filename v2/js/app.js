@@ -1440,7 +1440,7 @@
       Rendu.demanderReps($('blocs-seance'), iExo, iSerie);
       return;
     }
-    var f = Seance.fantome(seance, iExo, iSerie, precedentDe(exo.exercise_slug), plan);
+    var f = fantomeDe(iExo, iSerie);
     var champs = {};
     //
     // La seule condition qui compte est « le champ est VIDE » : ce qui a été
@@ -2053,6 +2053,27 @@
     });
   }
 
+  // ⚠️ LE FANTÔME D'UNE LIGNE COUVERTE VIENT DU PLAN, ET DE LUI SEUL
+  // (§9.13 bis, 49-U2). Tant que la dernière série faite a suivi sa ligne, la
+  // ligne affiche le plan ; sinon elle recopie la dernière série faite, charge
+  // ET reps ensemble. L'ancienne cascade (`Seance.fantome`) prenait la charge
+  // dans la saisie et les reps dans le plan : le « 125 × 4 » après un refus.
+  // Elle ne sert plus qu'aux lignes hors plan — chauffes, dégressives, séries
+  // sans consigne —, où rien ne change. La durée et la distance, qu'aucune
+  // consigne ne porte, gardent leur règle.
+  function fantomeDe(iExo, iSerie) {
+    var exo = seance.exercices[iExo];
+    var ancien = Seance.fantome(seance, iExo, iSerie, precedentDe(exo.exercise_slug), planDe(iExo));
+    var x = reactionDe(iExo);
+    var l = x && x.lignes[iSerie];
+    if (!l || l.role === 'hors' || !l.fantome) return ancien;
+    return {
+      charge_kg: l.fantome.charge === undefined ? null : l.fantome.charge,
+      reps: l.fantome.reps === undefined ? null : l.fantome.reps,
+      duree_s: ancien.duree_s, distance_m: ancien.distance_m
+    };
+  }
+
   function planDe(iExo) {
     var exo = seance.exercices[iExo];
     var r = reactionDe(iExo);
@@ -2140,7 +2161,7 @@
       exercice: function (slug) { return index[slug]; },
       precedent: precedentDe,
       fantome: function (i, j) {
-        return Seance.fantome(seance, i, j, precedentDe(seance.exercices[i].exercise_slug), planDe(i));
+        return fantomeDe(i, j);
       },
       // §3.1 — la voix du moteur dans l'en-tête : les lignes jaunes et la
       // phrase grise, ou rien (Édition, Entretenir, mesure sans charge).

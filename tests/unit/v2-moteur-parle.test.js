@@ -30,7 +30,24 @@ const Modele = window.THModele;
 const Palier = window.THPalier;
 const Moteur = window.THMoteur;
 const Seance = require('../../v2/js/seance.js');
+const Plan = require('../../v2/js/plan.js');
 const Rendu = () => window.THRendu;
+
+// ⚠️ 49-U2 — LE FANTÔME D'UNE LIGNE COUVERTE VIENT DU PLAN (MOTEUR §9.13 bis).
+// Les tests qui passaient par `Seance.fantome` avec un plan, sur une ligne
+// couverte, passent désormais par le plan : `Seance.fantome` ne sert plus
+// qu'aux lignes hors plan (chauffes, dégressives, séries sans consigne). Et
+// seule une série VALIDÉE décide : une charge tapée sans être validée ne
+// change le fantôme de personne.
+const fantomesDuPlan = (s, consigne, contexte) =>
+  Plan.planDesLignes(s.exercices[0].series, consigne, contexte || null, {}).lignes.map((l) => l.fantome);
+const X = (f) => (f ? f.charge + '×' + f.reps + ' ' + f.source : null);
+const faire = (s, i, kg, reps) => Seance.valider(Seance.modifierSerie(s, 0, i, { charge_kg: kg, reps: reps }),
+  0, i, new Date('2026-09-20T10:0' + (i % 10) + ':00Z'));
+// Une consigne réelle, la même que « la cascade » posait à la main :
+// 125 × 5, puis le test à 130 × 4 sur la dernière série.
+const GARDE = { etat: 'garde', zone: 'lourd', palier: 125, n: 3,
+  ligne: { charge: 125, vise: 5 }, haut: { charge: 130, vise: 4, k: 1 } };
 
 const NB = ' ';
 let n = 0;
@@ -291,8 +308,10 @@ describe('la cascade du fantôme : saisie > plan > dernière séance > cible', (
 
   test('DISCRIMINANT — le plan passe DEVANT la dernière séance sur les lignes couvertes', () => {
     const s = ouverte(W(2).concat(T(3)));
-    expect(f(s, 2, PLAN)).toMatchObject({ charge_kg: 125, reps: 5 });
-    expect(f(s, 4, PLAN)).toMatchObject({ charge_kg: 130, reps: 4 });
+    // 49-U2 : sur une ligne couverte, c'est le plan qui parle — plus la cascade.
+    const fp = fantomesDuPlan(s, GARDE);
+    expect(X(fp[2])).toBe('125×5 plan');
+    expect(X(fp[4])).toBe('130×4 plan');
     // Sans plan, la dernière séance parle : 122,5 et 125 × 4.
     expect(f(s, 2, null)).toMatchObject({ charge_kg: 122.5, reps: 5 });
     expect(f(s, 4, null)).toMatchObject({ charge_kg: 125, reps: 4 });
@@ -304,37 +323,50 @@ describe('la cascade du fantôme : saisie > plan > dernière séance > cible', (
     expect(f(s, 1, PLAN)).toMatchObject({ charge_kg: 70, reps: 5 });
   });
 
-  test('DISCRIMINANT — ce qui vient d’être tapé passe DEVANT le plan', () => {
+  test('DISCRIMINANT — une série FAITE qui dévie passe devant le plan, charge ET reps ; tapée seule, rien', () => {
     let s = ouverte(W(2).concat(T(3)));
+    // 49-U2 — tapée sans être validée, 127,5 ne change le fantôme de personne.
+    // Avant : elle propageait sa CHARGE sur les lignes suivantes, reps du plan.
     s = Seance.modifierSerie(s, 0, 2, { charge_kg: 127.5 });
-    // 127,5 dévie de la proposition (125) : il propage sur les lignes de travail
-    // suivantes, plan compris.
-    expect(f(s, 3, PLAN).charge_kg).toBe(127.5);
-    expect(f(s, 4, PLAN).charge_kg).toBe(127.5);
+    expect(fantomesDuPlan(s, GARDE).slice(3).map(X)).toEqual(['125×5 plan', '130×4 plan']);
+    // Validée à 127,5 × 5 : elle dévie de sa ligne (125), les suivantes la
+    // recopient, charge et reps ensemble.
+    s = faire(s, 2, 127.5, 5);
+    expect(fantomesDuPlan(s, GARDE).slice(3).map(X)).toEqual(['127.5×5 derniere', '127.5×5 derniere']);
   });
 
-  test('une charge nulle dans le plan retombe sur la dernière séance, les reps restent', () => {
+  test('une ligne du plan sans chiffre (« le cran au-dessus ») : charge vide, reps du plan', () => {
+    // 49-U2 — le fantôme d'une ligne couverte vient du plan SEUL : la charge
+    // reste vide, elle ne retombe plus sur la dernière séance (120). C'est le
+    // cas F001 du simulateur : `{ charge: null, reps: 10, source: 'plan' }`.
     const s = ouverte(T(3));
-    const plan = [{ charge_kg: 125, reps: 5 }, { charge_kg: 125, reps: 5 }, { charge_kg: null, reps: 3 }];
-    const pr = prec([p(120, 5), p(120, 5), p(120, 5)]);
-    expect(Seance.fantome(s, 0, 2, pr, plan)).toMatchObject({ charge_kg: 120, reps: 3 });
+    const c = { etat: 'test_propose', zone: 'lourd', palier: 125, n: 3,
+      ligne: { charge: 125, vise: 5 }, haut: { charge: null, vise: 3, k: 1 } };
+    expect(X(fantomesDuPlan(s, c)[2])).toBe('null×3 plan');
   });
 
   test('sans dernière séance ni plan, la cible de routine parle (rang 4)', () => {
     const s = ouverte(T(1));
     s.exercices[0].series[0].charge_cible_kg = 60;   // l'intention d'une routine
     expect(Seance.fantome(s, 0, 0, null, [null]).charge_kg).toBe(60);
-    // Et le plan passe devant elle.
-    expect(Seance.fantome(s, 0, 0, null, [{ charge_kg: 62.5, reps: 8 }]).charge_kg).toBe(62.5);
+    // Et le plan passe devant elle (49-U2 : lu sur le plan).
+    const c = { etat: 'garde', zone: 'hypertrophie', palier: 62.5, n: 1, ligne: { charge: 62.5, vise: 8 }, haut: null };
+    expect(X(fantomesDuPlan(s, c)[0])).toBe('62.5×8 plan');
   });
 
   test('DISCRIMINANT — les reps du plan passent devant reps_visees, qui passe devant la dernière séance', () => {
     let s = Seance.creer({ id: 'S', userId: 'u', idSerie: uuid });
     s = Seance.ajouterExercice(s, 'dc', uuid, { reps_visees: 8 });
     const pr = prec([p(120, 6)]);
-    expect(Seance.fantome(s, 0, 0, pr, [{ charge_kg: 125, reps: 5 }]).reps).toBe(5);
+    // 49-U2 — sur une ligne couverte, les reps sont celles du plan (lu sur le plan).
+    const c = { etat: 'garde', zone: 'lourd', palier: 125, n: 1, ligne: { charge: 125, vise: 5 }, haut: null };
+    expect(fantomesDuPlan(s, c)[0].reps).toBe(5);
+    // Hors plan, la cascade : `reps_visees` avant la dernière séance.
     expect(Seance.fantome(s, 0, 0, pr, [null]).reps).toBe(8);
-    expect(Seance.fantome(s, 0, 0, pr, [{ charge_kg: 125, reps: null }]).reps).toBe(8);
+    // Avant 49-U2 : une ligne du plan SANS reps retombait sur `reps_visees`.
+    // Une ligne couverte sans reps est désormais une ligne du coach, dont les
+    // reps se tapent : voir `v2-reaction-branchee` (« le fantôme de ses reps
+    // reste VIDE »).
     let sans = Seance.creer({ id: 'S2', userId: 'u', idSerie: uuid });
     sans = Seance.ajouterExercice(sans, 'dc', uuid);
     expect(Seance.fantome(sans, 0, 0, pr, [null]).reps).toBe(6);
@@ -350,26 +382,28 @@ describe('la déviation se juge contre ce que la ligne proposait (§7 unvicies)'
   const PLAN = [{ charge_kg: 125, reps: 5 }, { charge_kg: 125, reps: 5 }, { charge_kg: 130, reps: 4 }];
   const f = (s, i) => Seance.fantome(s, 0, i, PREC(), PLAN);
 
+  // 49-U2 — sur les lignes couvertes, la déviation se lit dans le PLAN, sur
+  // une série VALIDÉE ; la cascade (`derniereSaisie`) garde son test ici, pour
+  // les lignes hors plan qui la lisent encore.
   test('DISCRIMINANT — valider exactement la proposition de la 1re série ne propage rien', () => {
     let s = ouverte(T(3));
-    s = Seance.modifierSerie(s, 0, 0, { charge_kg: 125 });   // = le plan, ≠ la dernière séance
+    s = faire(s, 0, 125, 5);   // = le plan, ≠ la dernière séance
     // La ligne du test garde 130. L'ancienne règle aurait propagé 125.
-    expect(f(s, 1).charge_kg).toBe(125);
-    expect(f(s, 2).charge_kg).toBe(130);
+    expect(fantomesDuPlan(s, GARDE).slice(1).map(X)).toEqual(['125×5 plan', '130×4 plan']);
     expect(Seance.derniereSaisie(s.exercices[0], 2, 'charge_kg', PREC(), PLAN)).toBeNull();
   });
 
-  test('DISCRIMINANT — retaper la dernière séance là où le plan dit autre chose EST une déviation', () => {
+  test('DISCRIMINANT — refaire la dernière séance là où le plan dit autre chose EST une déviation', () => {
     let s = ouverte(T(3));
-    s = Seance.modifierSerie(s, 0, 0, { charge_kg: 122.5 });  // = la dernière séance, ≠ le plan
-    expect(f(s, 2).charge_kg).toBe(122.5);
+    s = faire(s, 0, 122.5, 5);  // = la dernière séance, ≠ le plan
+    expect(X(fantomesDuPlan(s, GARDE)[2])).toBe('122.5×5 derniere');
   });
 
-  test('une autre valeur propage, comme aujourd’hui', () => {
+  test('une autre charge faite se recopie, charge ET reps (49-U2 : plus la charge seule)', () => {
     let s = ouverte(T(3));
-    s = Seance.modifierSerie(s, 0, 0, { charge_kg: 127.5 });
-    expect(f(s, 1).charge_kg).toBe(127.5);
-    expect(f(s, 2).charge_kg).toBe(127.5);
+    s = faire(s, 0, 127.5, 4);
+    // Avant : 127,5 et les reps du plan (5, puis 4) — deux sources par ligne.
+    expect(fantomesDuPlan(s, GARDE).slice(1).map(X)).toEqual(['127.5×4 derniere', '127.5×4 derniere']);
   });
 
   test('sans plan, la référence est la dernière séance — la règle du chantier 46', () => {
@@ -380,16 +414,21 @@ describe('la déviation se juge contre ce que la ligne proposait (§7 unvicies)'
     expect(Seance.fantome(s, 0, 2, PREC(), null).charge_kg).toBe(125);
   });
 
-  test('DISCRIMINANT — sous « le cran au-dessus », retaper la dernière séance n’est pas une déviation', () => {
-    // Le plan ne propose pas de charge sur cette ligne : la référence retombe
-    // sur la dernière séance. Une référence NULLE ferait de chaque saisie une
-    // déviation, et 120 tapé sur la 1re série effacerait la 2ᵉ.
+  test('DISCRIMINANT — sous « le cran au-dessus », une charge au-dessus du palier suit la ligne ; le palier, non', () => {
+    // 49-U2 — « suivre » une ligne sans chiffre : toute charge au-dessus de la
+    // charge de travail (§9.13 bis). Avant, la référence retombait sur la
+    // dernière séance, et retaper 120 n'était pas une déviation : la cascade ne
+    // savait pas ce que la ligne demandait.
+    const c = { etat: 'test_propose', zone: 'lourd', palier: 120, n: 3,
+      ligne: { charge: 120, vise: 5 }, haut: { charge: null, vise: 5, k: 2 } };
     let s = ouverte(T(3));
-    const pr = prec([p(120, 5), p(120, 5), p(120, 5)]);
-    const plan = [{ charge_kg: null, reps: 6 }, { charge_kg: null, reps: 6 }, { charge_kg: 125, reps: 5 }];
-    s = Seance.modifierSerie(s, 0, 0, { charge_kg: 120 });
-    expect(Seance.derniereSaisie(s.exercices[0], 1, 'charge_kg', pr, plan)).toBeNull();
-    expect(Seance.fantome(s, 0, 2, pr, plan).charge_kg).toBe(125);
+    s = faire(s, 0, 120, 5);          // la ligne : 120, suivie
+    s = faire(s, 1, 122.5, 5);        // le test sans chiffre : au-dessus, suivi
+    expect(X(fantomesDuPlan(s, c)[2])).toBe('null×5 plan');
+    let t = ouverte(T(3));
+    t = faire(t, 0, 120, 5);
+    t = faire(t, 1, 120, 5);          // le test refait au palier : pas suivi
+    expect(X(fantomesDuPlan(t, c)[2])).toBe('120×5 derniere');
   });
 
   test('la déviation d’une chauffe ne regarde pas le plan (il ne couvre pas les chauffes)', () => {
@@ -585,7 +624,9 @@ describe('consigneDExercice : les silences passent avant le moteur', () => {
     test('témoin — en Progresser, le plan passe devant les reps visées : 125 × 5, puis 130 × 4', () => {
       const r = plan({});
       expect(r.c).not.toBeNull();
-      expect(fantomes(avecRoutine('dc', 8), r.plan, PREC())).toEqual(['125\u00d75', '125\u00d75', '130\u00d74']);
+      // 49-U2 : lu sur le plan.
+      expect(fantomesDuPlan(avecRoutine('dc', 8), r.c.consigne, r.c.contexte).map(X))
+        .toEqual(['125×5 plan', '125×5 plan', '130×4 plan']);
     });
 
     test('DISCRIMINANT — Entretenir : charges de la dernière séance, reps de la routine', () => {
@@ -635,13 +676,14 @@ describe('un cas réel — le couché, du bout en bout', () => {
       (id) => groupes.filter((g) => g.seance.id === id)[0].series, 'S');
     const plan = Seance.planDe(s.exercices[0].series, c.consigne);
     const f = (i) => Seance.fantome(s, 0, i, pr, plan);
-    // Les chauffes proposent celles de la dernière séance.
+    // Les chauffes, hors plan, proposent celles de la dernière séance.
     expect([0, 1, 2, 3].map((i) => f(i).charge_kg + '×' + f(i).reps)).toEqual(['20×15', '60×10', '100×5', '115×1']);
-    // Les deux premières séries de travail proposent 125 × 5, la dernière 130 × 4.
-    expect([4, 5, 6].map((i) => f(i).charge_kg + '×' + f(i).reps)).toEqual(['125×5', '125×5', '130×4']);
+    // Les deux premières séries de travail proposent 125 × 5, la dernière
+    // 130 × 4 — lu sur le plan (49-U2).
+    expect(fantomesDuPlan(s, c.consigne, c.contexte).slice(4).map(X)).toEqual(['125×5 plan', '125×5 plan', '130×4 plan']);
     // Valider 125 sur la première ne touche pas la ligne du test.
-    const s2 = Seance.modifierSerie(s, 0, 4, { charge_kg: 125 });
-    expect(Seance.fantome(s2, 0, 6, pr, plan).charge_kg).toBe(130);
+    const s2 = faire(s, 4, 125, 5);
+    expect(X(fantomesDuPlan(s2, c.consigne, c.contexte)[6])).toBe('130×4 plan');
   });
 
   test('une rampe notée en travail reçoit la consigne comme les autres (§9.13, 49-C)', () => {
@@ -660,8 +702,9 @@ describe('un cas réel — le couché, du bout en bout', () => {
       (id) => squat.filter((g) => g.seance.id === id)[0].series, 'S');
     const plan = Seance.planDe(s.exercices[0].series, c.consigne);
     expect(plan[0]).toEqual({ charge_kg: 125, reps: 5 });
-    const f = (i) => Seance.fantome(s, 0, i, pr, plan);
-    expect([0, 1, 2, 3].map((i) => f(i).charge_kg + '×' + f(i).reps)).toEqual(['125×5', '125×5', '130×4', '130×4']);
+    expect(pr).not.toBeNull();
+    // 49-U2 : lu sur le plan.
+    expect(fantomesDuPlan(s, c.consigne, c.contexte).map(X)).toEqual(['125×5 plan', '125×5 plan', '130×4 plan', '130×4 plan']);
   });
 });
 
@@ -672,10 +715,13 @@ describe('la proposition n’est jamais écrite (§7 septendecies.3)', () => {
     const pr = prec([p(122.5, 5), p(125, 5), p(130, 3)]);
     const plan = Seance.planDe(s.exercices[0].series, { etat: 'garde', n: 3,
       ligne: { charge: 125, vise: 5 }, haut: { charge: 130, vise: 4, k: 1 } });
-    // On valide « sans rien taper » : ce que le fantôme montre devient réel.
+    expect(plan).toHaveLength(3);
+    expect(pr).not.toBeNull();
+    // On valide « sans rien taper » : ce que le fantôme montre devient réel —
+    // le fantôme du PLAN, comme `validerSerie` le lit (49-U2).
     [0, 1, 2].forEach((i) => {
-      const f = Seance.fantome(s, 0, i, pr, plan);
-      s = Seance.modifierSerie(s, 0, i, { charge_kg: f.charge_kg, reps: f.reps });
+      const f = fantomesDuPlan(s, GARDE)[i];
+      s = Seance.modifierSerie(s, 0, i, { charge_kg: f.charge, reps: f.reps });
       s = Seance.valider(s, 0, i, new Date('2026-09-20T10:0' + i + ':00Z'));
     });
     const lignes = Seance.lignes(s);

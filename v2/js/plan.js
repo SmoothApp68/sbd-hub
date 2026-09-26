@@ -17,9 +17,10 @@
 // et THSeance à l'appel, comme `moteur.js` lit THPalier.
 //
 // C1 (49-U1) : la grille, l'en-tête, le « Donc » du « Pourquoi » et la phrase
-// du coach. Le fantôme, les paris, le constat et le reste du « Pourquoi »
-// suivent en C2 à C5 : ils lisent déjà la couverture et la réaction d'ICI, par
-// `app.js`, mais leurs règles propres n'y sont pas encore.
+// du coach. C2 (49-U2) : le fantôme de chaque ligne couverte (étape 4). Les
+// paris, le constat et le reste du « Pourquoi » suivent en C3 à C5 : ils lisent
+// déjà la couverture et la réaction d'ICI, par `app.js`, mais leurs règles
+// propres n'y sont pas encore.
 
 (function (racine) {
   'use strict';
@@ -53,6 +54,145 @@
     return 'ligne';
   }
 
+  // ── L'ÉTAPE 4 : LE FANTÔME D'UNE LIGNE (§9.13 bis, 49-U2) ─────────────────
+  //
+  // « Le fantôme d'une ligne vient d'une seule source. » Tant que l'utilisateur
+  // suit le plan, une ligne affiche le plan. Dès qu'il valide une autre charge
+  // que celle prévue, les lignes suivantes non validées recopient SA DERNIÈRE
+  // SÉRIE FAITE, charge et reps ensemble — jamais la charge d'une source et les
+  // reps d'une autre (le « 125 × 4 » après un refus : la charge tapée, les reps
+  // du plan).
+  //
+  // « Suivre sa ligne » : la même charge que la ligne ; pour une ligne proposée
+  // par le coach, sa charge ou plus — « le cran au-dessus » sans chiffre : toute
+  // charge au-dessus de la charge de travail. C'est la DERNIÈRE série validée
+  // qui décide : a-t-elle suivi sa ligne, retour au plan ; sinon, recopie.
+  //
+  // Les reps d'une ligne proposée par le coach se tapent : `reps` nul.
+  function chargeDeTravail(consigne) {
+    var c = consigne && consigne.ligne ? nombre(consigne.ligne.charge) : null;
+    return c !== null ? c : nombre(consigne && consigne.palier);
+  }
+
+  function aSuiviSaLigne(l, consigne) {
+    var fait = nombre(l.faite && l.faite.charge);
+    if (fait === null) return false;
+    var prevue = nombre(l.charge);
+    if (prevue === null) {
+      var travail = chargeDeTravail(consigne);
+      return travail !== null && fait > travail && !memeCharge(fait, travail);
+    }
+    if (l.role === 'coach') return fait >= prevue || memeCharge(fait, prevue);
+    return memeCharge(fait, prevue);
+  }
+
+  function poserFantomes(lignes, consigne) {
+    var derniere = null;
+    lignes.forEach(function (l) {
+      if (l.role === 'hors') return;
+      if (l.validee) {
+        l.fantome = null;
+        derniere = l;
+        return;
+      }
+      if (!derniere || aSuiviSaLigne(derniere, consigne)) {
+        l.fantome = { charge: l.charge, reps: l.role === 'coach' ? null : l.vise, source: 'plan' };
+      } else {
+        l.fantome = { charge: derniere.faite.charge, reps: derniere.faite.reps, source: 'derniere' };
+      }
+    });
+  }
+
+  // ── LE CŒUR : LES LIGNES D'UN EXERCICE, À PARTIR D'UNE CONSIGNE DONNÉE ────
+  //
+  // `series` : les séries de l'exercice telles qu'elles sont (validées ou non) ;
+  // `consigne`, `contexte` : ceux de l'exercice, FIGÉS pour la séance ;
+  // `figees` : `{ [id de série]: { rang, role, ligne } }`, les lignes figées
+  // relues dans les paris (`THSeance.figeesDe`). Pur : ne lit rien d'autre.
+  function planDesLignes(series, consigne, contexte, figees) {
+    var S = Seance(), M = Moteur();
+    var liste = series || [];
+    var couverture = S.couvertureSeance(liste, consigne, figees || {});
+    var indices = [], rangs = [], roles = [], couvertes = [];
+    couverture.forEach(function (x, i) {
+      if (!x) return;
+      indices[x.position] = i;
+      rangs[x.position] = x.rang;
+      roles[x.position] = x.role;
+      couvertes[x.position] = x;
+    });
+    // `faites` s'arrête à la première série non validée (§9.14).
+    var faites = [];
+    for (var k = 0; k < indices.length; k++) {
+      var s = liste[indices[k]];
+      if (!S.partEnBase(s)) break;
+      faites.push({ charge_kg: s.charge_kg, reps: s.reps, rpe: s.rpe, ressenti: s.ressenti });
+    }
+    var planInitial = M.planDeCouverture(consigne, couvertes);
+    var reaction = M.reactionPour(consigne, faites, contexte || null, planInitial);
+
+    var lignes = liste.map(function (sr, i) {
+      var cov = couverture[i];
+      var ligne = { iSerie: i, type: S.typeDe(sr), validee: S.partEnBase(sr) };
+      if (!cov) { ligne.role = 'hors'; return ligne; }
+      var p = reaction.plan[cov.position] || {};
+      ligne.position = cov.position;
+      ligne.rang = cov.rang;
+      ligne.role = roleDeLigne(planInitial[cov.position], p);
+      ligne.charge = p.charge === undefined ? null : p.charge;
+      ligne.vise = p.vise === undefined ? null : p.vise;
+      ligne.source = p.source || null;
+      ligne.figee = !!(planInitial[cov.position] && planInitial[cov.position].figee);
+      ligne.proposee = p.source === 'coach' && !ligne.validee;
+      ligne.fourchette = Array.isArray(p.zone) ? p.zone.slice() : null;
+      if (ligne.validee) {
+        ligne.faite = { charge: sr.charge_kg === undefined ? null : sr.charge_kg,
+                        reps: sr.reps === undefined ? null : sr.reps };
+      }
+      return ligne;
+    });
+    poserFantomes(lignes, consigne);
+
+    // La phrase du coach : sur la ligne `message.rang` (une POSITION).
+    var m = reaction.message;
+    var message = m ? {
+      position: m.rang, iSerie: indices[m.rang] === undefined ? null : indices[m.rang],
+      type: m.type, phrase: M.phraseReaction(m, consigne.zone)
+    } : null;
+
+    return {
+      indices: indices, rangs: rangs, roles: roles,
+      planInitial: planInitial, faites: faites, reaction: reaction,
+      lignes: lignes, message: message
+    };
+  }
+
+  // L'entrée qui rejoue l'étape 4 à partir d'une consigne donnée, sans
+  // historique : `n` séries de travail, dont les `faites` validées dans
+  // l'ordre, et les lignes `figees` de ces séries (`{ [i]: { rang, role,
+  // ligne } }`, indexées par position). Pure et exportée : c'est par elle que
+  // les cas du simulateur (`coach49.py`) sont rejoués.
+  function rejouer(consigne, contexte, n, faites, figees) {
+    var fa = faites || [];
+    var series = [];
+    for (var i = 0; i < n; i++) {
+      var f = fa[i];
+      series.push({
+        id: 'r' + (i + 1), type_serie: 'travail',
+        charge_kg: f ? f.charge : null, reps: f ? f.reps : null,
+        validee_a: f ? '2026-09-26T10:0' + Math.min(i, 9) + ':00.000Z' : null
+      });
+    }
+    var gel = {};
+    Object.keys(figees || {}).forEach(function (k) { gel['r' + (Number(k) + 1)] = figees[k]; });
+    var r = planDesLignes(series, consigne, contexte, gel);
+    return {
+      lignes: r.lignes, message: r.message, reaction: r.reaction,
+      planInitial: r.planInitial, indices: r.indices, rangs: r.rangs, roles: r.roles,
+      faites: r.faites, series: series
+    };
+  }
+
   // ── LE PLAN D'UN EXERCICE ───────────────────────────────────────────────
   function planDExercice(exo, iExo, consigneDuSlug, paris, seanceId) {
     var S = Seance(), M = Moteur();
@@ -70,61 +210,20 @@
       return l && l.exercise_slug === base.slug && l.fondement && l.fondement.seance === seanceId;
     });
     var figees = S.figeesDe(siens, series, consigne);
-    var couverture = S.couvertureSeance(series, consigne, figees);
-    var indices = [], rangs = [], roles = [], couvertes = [];
-    couverture.forEach(function (x, i) {
-      if (!x) return;
-      indices[x.position] = i;
-      rangs[x.position] = x.rang;
-      roles[x.position] = x.role;
-      couvertes[x.position] = x;
-    });
-    // `faites` s'arrête à la première série non validée (§9.14).
-    var faites = [];
-    for (var k = 0; k < indices.length; k++) {
-      var s = series[indices[k]];
-      if (!S.partEnBase(s)) break;
-      faites.push({ charge_kg: s.charge_kg, reps: s.reps, rpe: s.rpe, ressenti: s.ressenti });
-    }
-    var planInitial = M.planDeCouverture(consigne, couvertes);
-    var reaction = M.reactionPour(consigne, faites, c.contexte || null, planInitial);
-
-    var lignes = series.map(function (sr, i) {
-      var cov = couverture[i];
-      var ligne = { iSerie: i, type: S.typeDe(sr), validee: S.partEnBase(sr) };
-      if (!cov) { ligne.role = 'hors'; return ligne; }
-      var p = reaction.plan[cov.position] || {};
-      ligne.position = cov.position;
-      ligne.rang = cov.rang;
-      ligne.role = roleDeLigne(planInitial[cov.position], p);
-      ligne.charge = p.charge === undefined ? null : p.charge;
-      ligne.vise = p.vise === undefined ? null : p.vise;
-      ligne.source = p.source || null;
-      ligne.figee = !!(planInitial[cov.position] && planInitial[cov.position].figee);
-      ligne.proposee = p.source === 'coach' && !ligne.validee;
-      ligne.fourchette = Array.isArray(p.zone) ? p.zone.slice() : null;
-      return ligne;
-    });
-
-    // La phrase du coach : sur la ligne `message.rang` (une POSITION).
-    var m = reaction.message;
-    var message = m ? {
-      position: m.rang, iSerie: indices[m.rang] === undefined ? null : indices[m.rang],
-      type: m.type, phrase: M.phraseReaction(m, consigne.zone)
-    } : null;
+    var r = planDesLignes(series, consigne, c.contexte || null, figees);
 
     // L'en-tête décrit la disposition de la consigne sur les lignes de la
     // séance (ECRAN §3.12, 26/09/2026) — plus le `n` de la consigne brute.
-    var disposition = planInitial.map(function (p) { return p && p.role === 'haut' ? 'haut' : 'ligne'; });
+    var disposition = r.planInitial.map(function (p) { return p && p.role === 'haut' ? 'haut' : 'ligne'; });
     var entete = M.enteteDeDisposition(consigne, disposition);
     var gris = c.libelles ? c.libelles.gris : '';
 
     return {
       iExo: iExo, slug: base.slug,
       consigne: consigne, contexte: c.contexte || null,
-      indices: indices, rangs: rangs, roles: roles, figees: figees,
-      planInitial: planInitial, faites: faites, reaction: reaction,
-      lignes: lignes, message: message,
+      indices: r.indices, rangs: r.rangs, roles: r.roles, figees: figees,
+      planInitial: r.planInitial, faites: r.faites, reaction: r.reaction,
+      lignes: r.lignes, message: r.message,
       entete: { jaune: entete.jaune, gris: gris, segments: entete.segments },
       donc: entete.jaune.length ? 'Donc ' + entete.jaune.join(', ') + '.' : null
     };
@@ -161,8 +260,8 @@
   // ══ LES INVARIANTS — UN COACH QUI NE PEUT PAS SE CONTREDIRE ══════════════
   //
   // Vérifiés sur chaque plan : en test (plans générés), au banc (après chaque
-  // geste). C1 porte I1, I2, I3, I6, I9 et I12 ; les autres arrivent avec les
-  // étapes qu'ils gardent (C2 à C6). Rend `{ ok, erreurs }`.
+  // geste). C1 porte I1, I2, I3, I6, I9 et I12, C2 (49-U2) I11 ; les autres
+  // arrivent avec les étapes qu'ils gardent (C3 à C6). Rend `{ ok, erreurs }`.
   //
   // ⚠️ AUCUNE VÉRIFICATION NE RELIT LA RÈGLE QU'ELLE CONTRÔLE. I6 ne rappelle
   // pas la fonction qui rédige l'en-tête : il compte les séries que le texte
@@ -291,6 +390,52 @@
         if (!avant) err('I9', '« ton test a avancé » alors qu\'aucun test à venir n\'est à la charge proposée');
       }
     }
+    // I11 — le fantôme d'une ligne vient d'une seule règle (49-U2). Un fantôme
+    // `plan` reprend la charge et la visée de SA ligne (les reps d'une ligne du
+    // coach se tapent : nulles) ; un fantôme `derniere` reprend la charge ET les
+    // reps de la dernière série validée ; jamais `plan` après une dernière série
+    // qui n'a pas suivi sa ligne, jamais `derniere` après une qui l'a suivie.
+    // « Suivre » se relit ici, à la main, sans rappeler `aSuiviSaLigne`.
+    var travailI11 = x.consigne.ligne && nombre(x.consigne.ligne.charge) !== null
+      ? nombre(x.consigne.ligne.charge) : nombre(x.consigne.palier);
+    var precedente = null;
+    couvertes.forEach(function (l) {
+      var f = l.fantome;
+      if (l.validee) {
+        if (f) err('I11', 'la série ' + l.iSerie + ' est faite et porte encore un fantôme');
+        precedente = l;
+        return;
+      }
+      if (!f) { err('I11', 'la série ' + l.iSerie + ' n\'a pas de fantôme'); return; }
+      var suivie = true;
+      if (precedente) {
+        var fait = precedente.faite ? nombre(precedente.faite.charge) : null;
+        var prevue = nombre(precedente.charge);
+        if (fait === null) suivie = false;
+        else if (prevue === null) suivie = travailI11 !== null && fait > travailI11 && !memeCharge(fait, travailI11);
+        else if (precedente.role === 'coach') suivie = fait > prevue || memeCharge(fait, prevue);
+        else suivie = memeCharge(fait, prevue);
+      }
+      if (f.source === 'plan') {
+        if (!suivie) err('I11', 'fantôme du plan en série ' + l.iSerie + ' après une série ' + precedente.iSerie + ' qui n\'a pas suivi sa ligne');
+        var repsPlan = l.role === 'coach' ? null : nombre(l.vise);
+        if (!memeCharge(f.charge, l.charge) || nombre(f.reps) !== repsPlan) {
+          err('I11', 'fantôme du plan ' + f.charge + '×' + f.reps + ' pour une ligne ' + l.charge + '×' + repsPlan + ' (série ' + l.iSerie + ')');
+        }
+      } else if (f.source === 'derniere') {
+        if (!precedente) err('I11', 'fantôme « dernière série » en série ' + l.iSerie + ' sans série faite avant');
+        else {
+          if (suivie) err('I11', 'fantôme « dernière série » en série ' + l.iSerie + ' alors que la série ' + precedente.iSerie + ' a suivi sa ligne');
+          var d = precedente.faite || {};
+          if (!memeCharge(f.charge, d.charge) || nombre(f.reps) !== nombre(d.reps)) {
+            err('I11', 'fantôme ' + f.charge + '×' + f.reps + ' pour une dernière série ' + d.charge + '×' + d.reps + ' (série ' + l.iSerie + ')');
+          }
+        }
+      } else {
+        err('I11', 'fantôme de source inconnue « ' + f.source + ' » (série ' + l.iSerie + ')');
+      }
+    });
+
     // Le message affiché est celui de la réaction, sur la bonne série.
     if ((x.message ? 1 : 0) !== (msg ? 1 : 0) ||
         (x.message && msg && x.message.iSerie !== (couvertes[msg.rang] || {}).iSerie)) {
@@ -314,6 +459,8 @@
 
   var api = {
     planDeSeance: planDeSeance,
+    planDesLignes: planDesLignes,
+    rejouer: rejouer,
     verifierPlan: verifierPlan,
     seriesDites: seriesDites,
     // Le dernier plan calculé par l'app, et ses entrées : le banc le lit pour

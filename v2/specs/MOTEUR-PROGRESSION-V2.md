@@ -1263,7 +1263,7 @@ Aucune source ne valide la démarche. La littérature dit « identifie tes point
 > **Tranché le 25/09/2026 (chantier 49) : l'escalier lit d'abord le contexte, puis propose une marche — une seule, jamais deux.** Un blocage vient rarement d'une seule cause ; la même réponse ne convient pas à tous les blocages.
 
 **Deux contextes, lus sur ce que l'app voit déjà.**
-- **Blocage généralisé** : au moins deux **autres** exercices de la personne ont leur compteur à 4 ou plus sur une séance des 7 jours autour. Signe probable d'une fatigue globale.
+- **Blocage généralisé** : au moins deux **autres** exercices de la personne ont leur compteur à 4 ou plus sur une séance des 7 jours **antérieurs**, le jour même compris — la proposition arrive à l'ouverture de la séance et le moteur ne lit jamais l'avenir (§9.12 ; précisé le 25/09/2026, #319). Signe probable d'une fatigue globale.
 - **Blocage isolé** : sinon. Le contrôle des frères (§13) reste fait d'abord : si un exercice du même pattern progresse, le message change de nature (« ta barre tient pendant que tes haltères montent »).
 
 **Blocage généralisé → alléger, une fois pour la séance.** Une seule proposition, à l'ouverture de la séance, pas une par exercice : **une semaine allégée**, pendant 7 jours. Acceptée, c'est **une décharge déclarée** (§9.10) : ni stagnation ni coupure. **Son format, tranché le 25/09/2026 après confrontation à la littérature :**
@@ -1271,19 +1271,19 @@ Aucune source ne valide la démarche. La littérature dit « identifie tes point
 | | Semaine normale | Semaine allégée |
 |---|---|---|
 | Exercices, zone, format | ceux de la routine | **les mêmes** |
-| Séries de travail | *n* | **environ −40 %**, au moins une (3 → 2) |
+| Séries de travail | *n* | **60 % arrondi au plus proche**, au moins une : 1 → 1, 2 → 1, 3 → 2, 4 → 2, 5 → 3, 6 → 4 |
 | Charge | le palier | **la même** : garder l'intensité est ce qui garde la force |
-| Reps | la consigne | **2 de moins que la visée**, loin de l'échec |
+| Reps | la consigne | **2 de moins que la visée**, jamais moins d'une, loin de l'échec |
 | Test, montée en séance (§9.14) | oui | **non** : rien ne monte cette semaine |
 
 Le coach **dit** la consigne allégée (« 125 kg, vise 3 · 2 séries ») : sans elle, chacun baisse la charge à l'instinct — précisément ce qu'il ne faut pas faire. Appui : l'intensité est la variable clé pour garder force et muscle quand le volume baisse fortement (Spiering et al. 2021) ; les coachs réduisent le volume d'une décharge par moins de séries, de reps ou de séances (Bell et al. 2023, consensus Delphi) ; en sport de force, baisse de volume de 30 à 60 %, intensité gardée, ou baisse de charge d'environ 10 % en gardant les reps, ou charge gardée avec plus de reps en réserve (Bell et al. 2025). **Le coach suggère, il ne demande pas pourquoi** (décidé par Aurélien le 25/09) : pas de question sur la semaine, le sommeil ou le stress ; une carte, deux réponses. **Fréquence mesurée** (`mesure_escalier49_generalise.py`, sur les 7 jours antérieurs, une proposition par épisode) : aurel_br 7 fois en 169 semaines (environ 2 par an), lea 3 en 145, alexis 1 en 69, jordan 1 en 50, melodie 0 — un filet rare, pas un rythme ; les décharges planifiées relèvent du chantier programmes.
 
 **Blocage isolé → stimuler cet exercice, selon sa zone.**
-1. **Zones muscle** (hypertrophie, volume, séries longues) : **une série de plus** (environ +20 % sur l'exercice), si la règle de volume laisse de la place sur le muscle (REGLE-VOLUME) ; sinon, marche suivante. **Zones force** (lourd, mix) : **changer de schéma de reps** — la seule marche qui pose une question, parce qu'elle change ce que la personne entraîne ; plus de séries aide peu la force.
+1. **Zones muscle** (hypertrophie, volume, séries longues) : **une série de plus** (environ +20 % sur l'exercice), si la règle de volume laisse de la place sur le muscle ; sinon, marche suivante. **« Laisse de la place »** : sur chaque muscle primaire, la moyenne des 3 dernières semaines actives ne dépasse pas les trois quarts de ses moyennes habituelles — symétrique du premier quart de REGLE-VOLUME, qui en sera la source (décidé le 25/09/2026). **La série de plus passe par la consigne** (*n* + 1 séries couvertes), jamais par le bouton « + Série », et **dure jusqu'au prochain progrès de l'exercice** : ensuite, la routine redevient celle de la personne (décidé le 25/09/2026). **Zones force** (lourd, mix) : **changer de schéma de reps** — la seule marche qui pose une question, parce qu'elle change ce que la personne entraîne ; plus de séries aide peu la force.
 2. **Redescendre au dernier palier tenu** (§14.2).
 3. Au-delà : le coach se tait sur cet exercice et le signale dans le constat de fin de bloc, sans alarme.
 
-**Toujours.** Un levier à la fois ; la marche suivante seulement au déclenchement suivant (4 nouvelles séances suivies sans progrès) ; une marche refusée n'est jamais retentée (§14.3), le coach passe à la suivante au déclenchement d'après ; chaque proposition est un pari dans `predictions` (§9.11). La proposition d'une série de plus ou de moins est une **proposition de structure** : la routine reste celle de la personne, qui décide.
+**Toujours.** Un levier à la fois ; la marche suivante seulement au déclenchement suivant (4 nouvelles séances suivies sans progrès) ; une marche refusée n'est pas retentée **avant le prochain progrès de l'exercice** (§14.3), le coach passe à la suivante au déclenchement d'après ; **après une semaine allégée refusée ou sans effet, le déclenchement suivant passe à l'escalier isolé, exercice par exercice** (précisé le 25/09/2026, #319). **Chaque proposition est un pari** dans `predictions` : elle affirme **« débloqué avant le prochain déclenchement »** (1 ou 0) ; refusée, elle s'écrit aussi, observée « autre chose tenté » (comme au §9.11). Identifiant sans rang : SHA-256(séance | exercice | marche), exercice vide pour la semaine allégée. Son observation ne se rattache à aucune série : **la contrainte `predictions_observation_coherente` (une observation exige `set_observe`) demandera une migration**, décidée avec Aurélien avant l'implémentation. La proposition d'une série de plus ou de moins est une **proposition de structure** : la routine reste celle de la personne, qui décide.
 
 **Ce qui n'est pas tranché** : le réglage des marches selon la vitesse de progression de l'exercice (prise vide : les données ne permettent pas de trancher) ; la forme exacte de la semaine allégée et de la carte (maquette d'abord).
 
@@ -1291,13 +1291,13 @@ Le coach **dit** la consigne allégée (« 125 kg, vise 3 · 2 séries ») : san
 
 | Réponse dans les 2 séances suivantes | Blocage isolé | Blocage généralisé |
 |---|---|---|
-| Rien | 22 sur 100 (9) | 38 sur 100 (26) |
-| Une série de plus | **67 sur 100** (6) | 30 sur 100 (10) |
+| Rien | 21 sur 100 (14) | 43 sur 100 (21) |
+| Une série de plus | **62 sur 100** (8) | 25 sur 100 (8) |
 | Une série de moins | 0 sur 100 (4) | **53 sur 100** (17) |
-| Charge baissée | 33 sur 100 (6) | 50 sur 100 (10) |
-| Pause | 71 sur 100 (7) | 50 sur 100 (8) |
+| Charge baissée | 25 sur 100 (8) | 62 sur 100 (8) |
+| Pause | 75 sur 100 (8) | 43 sur 100 (7) |
 
-Le blocage généralisé est le plus fréquent (76 sur 112 ; 52 sur 70 chez aurel_br). **Cases de 4 à 26 cas : des tendances, pas des lois** ; le changement de schéma (9 cas, 22 sur 100) n'est pas jugeable, la mesure est biaisée contre lui (le maximum estimé se calcule plus haut sur les séries longues). **Descriptif seulement** : personne ne change de méthode au hasard, et la mesure ne dit jamais « fais X parce que ça a marché ».
+*Rejoué le 25/09/2026 sur les 7 jours antérieurs (#319) ; la première version regardait 7 jours autour — la conclusion ne change pas.* Le blocage généralisé est le plus fréquent (65 sur 112 ; 48 sur 70 chez aurel_br). **Cases de 4 à 26 cas : des tendances, pas des lois** ; le changement de schéma (9 cas, 22 sur 100) n'est pas jugeable, la mesure est biaisée contre lui (le maximum estimé se calcule plus haut sur les séries longues). **Descriptif seulement** : personne ne change de méthode au hasard, et la mesure ne dit jamais « fais X parce que ça a marché ».
 
 **Confrontation.** Coachs : décharger quand plusieurs exercices calent ensemble (échauffements lourds, articulations irritées, motivation en baisse), corriger l'exercice quand il cale seul ; un levier à la fois ; vérifier d'abord technique, sommeil, alimentation, stress ; une décharge réduit le volume de 30 à 50 % une semaine, mêmes exercices. Science : environ +20 % de volume par rapport à l'habitude a mieux fait grossir le muscle de pratiquants entraînés (Scarpelli et al. 2022), sans avantage à une hausse brutale (+120 %, 2026) ; pour la force, un groupe qui gardait son volume a le plus gagné au maximum — d'où « changer de schéma » plutôt que « une série de plus » en zone force. Décharges des pratiquants sérieux : environ 6 jours toutes les 5 à 6 semaines, aussi quand la performance cale (Rogerson et al. 2024).
 
@@ -1326,15 +1326,15 @@ Observation dans les données, à prendre pour ce qu'elle est — une seule comp
 
 ### 14.2 Le repli n'est pas un pourcentage — et il ne monte jamais
 
-Le « −10 % » est une convention de coach. La marche 4 utilise **le dernier palier validé en entier dans l'historique** — pour Aurélien au couché : 120 kg, validé le 28/07 sur `5-5-5-5`.
+Le « −10 % » est une convention de coach. Le repli utilise **le dernier palier validé en entier dans l'historique** — pour Aurélien au couché : 120 kg, validé le 28/07 sur `5-5-5-5`.
 
-**Trois garde-fous, sans lesquels la règle est fausse.** Rien dans sa formulation initiale n'obligeait le repli à descendre : après une blessure ou un long détour sur une autre variante, le dernier palier tenu en entier peut être **au-dessus** du palier où l'utilisateur bloque. La marche 4 lui proposerait alors de monter, au moment précis où il stagne.
+**Quatre garde-fous, sans lesquels la règle est fausse.** Rien dans sa formulation initiale n'obligeait le repli à descendre : après une blessure ou un long détour sur une autre variante, le dernier palier tenu en entier peut être **au-dessus** du palier où l'utilisateur bloque. Le repli lui proposerait alors de monter, au moment précis où il stagne.
 
 > **Le repli est le dernier palier qui soit à la fois : (1) strictement inférieur au palier actuel, (2) sur le même exercice et la même zone, (3) dans les 3 derniers mois, (4) tenu — son niveau validé (§9.2) a atteint le bas de la zone.** *(Traduit le 25/09/2026 : « validé en entier » et « même format » dataient d'avant les zones du chantier 48 ; l'intention ne change pas — une charge réellement tenue, jamais un pourcentage.)*
 >
-> **Si aucun palier ne remplit les trois conditions, la marche 4 est sautée. L'escalier passe directement à la marche 5.**
+> **Si aucun palier ne remplit les quatre conditions, le repli est sauté : le coach se tait sur cet exercice** (§14, marche 3 ; précisé le 25/09/2026, #319).
 
-Sauter plutôt que retomber sur un pourcentage : quand l'historique récent ne contient pas de palier plus bas déjà tenu, l'app n'a aucune base pour en inventer un. La marche 5 pose une question, ce qui est la bonne réponse à une absence de donnée.
+Sauter plutôt que retomber sur un pourcentage : quand l'historique récent ne contient pas de palier plus bas déjà tenu, l'app n'a aucune base pour en inventer un. Se taire est la bonne réponse à une absence de donnée.
 
 La fenêtre de 3 mois est un **choix produit**. Elle vient du même raisonnement que le reset du compteur (§12.4) : au-delà, ce n'est plus le même athlète sur ce mouvement.
 
@@ -1348,7 +1348,7 @@ Si l'utilisateur retire une série, l'app **ne la repropose pas** — ni sur min
 2. **Un délai de re-proposition serait un choix produit déguisé en fait scientifique.** La science ne dit rien sur le bon moment pour retester.
 3. **C'est le piège du niveau 3 du cadrage.** Une app qui prescrit puis observe les conséquences de ses propres consignes ne s'optimise pas, elle se confirme.
 
-Le filet existe déjà : si le retrait fait descendre le volume sous la fourchette personnelle pendant 3 fenêtres, la règle de volume le signale.
+Le filet existe déjà : si le retrait fait descendre le volume sous la fourchette personnelle, la règle de volume le signale, selon ses propres conditions — REGLE-VOLUME fait foi, le nombre de fenêtres ne se recopie pas ici (précisé le 25/09/2026, #319).
 
 ---
 

@@ -2112,6 +2112,7 @@
     planDe: planDe,
     couvertureDe: couvertureDe,
     couvertureSeance: couvertureSeance,
+    typeDe: typeDe,
     figeesDe: figeesDe,
     seriesDeDepart: seriesDeDepart,
     SERIES_DEPART_PROGRESSER: SERIES_DEPART_PROGRESSER,

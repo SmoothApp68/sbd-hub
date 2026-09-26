@@ -169,9 +169,14 @@ describe('§9.14 (49-C) — la réaction suit la couverture de la séance', () =
   });
 
   test('DISCRIMINANT — moins de séries que la consigne : plus de silence (#318 retiré)', () => {
+    // Routine à 2 : la ligne, puis le test. 49-U1 (§9.14, 26/09/2026) : la
+    // série 2 est un test, la réaction ne propose plus de charge — elle parle
+    // (avant 49-U1 : `propose`, qui remplaçait le test). Le silence de #318,
+    // lui, reste retiré : il y a bien un message.
     const plan0 = planDe([libre('a'), libre('b')]);
     const r = Moteur.reactionPour(C3, [s(125, 8)], ctx, plan0);
-    expect(r.message).toMatchObject({ type: 'propose', rang: 1 });
+    expect(r.message).toMatchObject({ type: 'test_suit', rang: 1 });
+    expect(r.plan[1]).toMatchObject({ source: 'consigne', charge: 130 });
   });
 
   test('DISCRIMINANT — une série plus légère en travail n’est PAS un refus : la suivante propose encore', () => {

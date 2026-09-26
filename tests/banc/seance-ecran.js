@@ -888,6 +888,16 @@ const SETS_IMPORTES = [
         base.sets = base.sets.filter((s) => ids.indexOf(s.session_id) < 0);   // CASCADE
       } else {
         base.sets = base.sets.filter((s) => ids.indexOf(s.id) < 0);
+        // `sets_efface_observation` (v2_047, BEFORE DELETE ON sets) : une série
+        // supprimée emporte l'observation des prédictions qui la désignent.
+        // Sans lui, le banc garderait des reps comptées sur une série disparue
+        // — un état que la vraie base ne peut pas avoir.
+        base.predictions.forEach((l, i) => {
+          if (l.set_observe && ids.indexOf(l.set_observe) >= 0) {
+            base.predictions[i] = Object.assign({}, l,
+              { set_observe: null, valeur_observee: null, observee_a: null });
+          }
+        });
       }
       return json([]);
     }
@@ -6005,6 +6015,164 @@ const SETS_IMPORTES = [
     await aller('/saisie');
 
     ok('[R] aucune erreur de page pendant la réaction',
+      erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
+  }
+
+  console.log('\n══ 7 septvicies. UNE OBSERVATION NE CHANGE JAMAIS DE SÉRIE (§9.11, 49-8) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : une série AJOUTÉE ou SUPPRIMÉE après des
+  // séries déjà observées. `couvertureDe` aligne les rangs par la fin : la
+  // série ajoutée prend le rang du test, et la validation qui suit écrasait
+  // l'observation du test tenu (diagnostic du 26/09/2026, scénarios A, B2, C,
+  // E2). Sans glissement, garde et absence de garde donnent le même résultat.
+  {
+    const idSeance = () => base.sessions.filter((x) => x.statut === 'en_cours').map((x) => x.id)[0];
+    const lignesDe = (sid) => base.predictions.filter((l) => l.exercise_slug === 'souleve-terre' &&
+      l.fondement && l.fondement.seance === sid);
+    const photo = (sid) => {
+      const m = {};
+      lignesDe(sid).forEach((l) => { m[l.id] = { rang: l.fondement.rang, rev: l.fondement.revision || 0,
+        set: l.set_observe, v: l.valeur_observee, a: l.observee_a }; });
+      return m;
+    };
+    const serieDe = (id) => { const s = base.sets.find((x) => x.id === id); return s ? s.rang : null; };
+    const dire = (sid) => JSON.stringify(lignesDe(sid).map((l) => l.fondement.rang + '.' +
+      (l.fondement.revision || 0) + '→' + (l.set_observe ? 's' + serieDe(l.set_observe) : '∅') + ':' + l.valeur_observee));
+    // Aucune ligne déjà observée n'a changé de série, ni de valeur, ni de date.
+    const rienNaBouge = (avant, apres) => Object.keys(avant).every((id) =>
+      !avant[id].set || (apres[id] && apres[id].set === avant[id].set &&
+        apres[id].v === avant[id].v && apres[id].a === avant[id].a));
+    const plusSerie = async () => {
+      await page.evaluate(() => document.querySelectorAll('.ajout-serie button')[0].click());
+      await attendre(900);
+    };
+    const planAffiche = async () => {
+      const p = [];
+      for (let i = 0; i < 3; i++) {
+        const [c, r] = await (await ligne(i)).$$eval('input', (l) => l.map((x) => x.placeholder));
+        p.push([Number(String(c).replace(',', '.')), Number(String(r).split('-')[0])]);
+      }
+      return p;
+    };
+    const faireLePlan = async (plan, n) => {
+      for (let i = 0; i < n; i++) await saisirSerie(i, plan[i][0], plan[i][1]);
+      await attendre(1200);
+    };
+    const localPred = (id) => page.evaluate((x) => window.THCache.lireTout('predictions')
+      .then((l) => l.filter((p) => p.id === x)[0] || null), id);
+
+    // ── A. le bloc fait, « + Série », une série plus légère ─────────────
+    await aller('/saisie');
+    await demarrerRoutine('Terre');
+    await attendre(600);
+    const plan = await planAffiche();
+    ok('[O] prémisse : une consigne de trois séries, la dernière plus lourde (le test)',
+      plan.every((x) => x[0] > 0 && x[1] > 0) && plan[2][0] > plan[0][0], JSON.stringify(plan));
+    const leger = [plan[0][0] - 15, plan[0][1] + 3];
+    let sid = idSeance();
+    await faireLePlan(plan, 3);
+    const avantA = photo(sid);
+    const testA = lignesDe(sid).filter((l) => l.fondement.rang === 3)[0];
+    ok('[O] A — le test tenu est observé sur la série 3',
+      !!testA && serieDe(testA.set_observe) === 3 && testA.valeur_observee === plan[2][1] && !!testA.observee_a,
+      dire(sid));
+    await plusSerie();
+    await saisirSerie(3, leger[0], leger[1]);
+    await attendre(1200);
+    ok('[O] A — « + Série » puis une série plus légère : AUCUNE observation ne change de série',
+      rienNaBouge(avantA, photo(sid)) && base.sets.some((x) => x.session_id === sid && x.rang === 4),
+      dire(sid));
+    await abandonner();
+
+    // ── B2. la série ajoutée au poids du test, ratée ─────────────────────
+    await aller('/saisie');
+    await demarrerRoutine('Terre');
+    await attendre(600);
+    sid = idSeance();
+    await faireLePlan(plan, 3);
+    const avantB = photo(sid);
+    await plusSerie();
+    await saisirSerie(3, plan[2][0], Math.max(1, plan[2][1] - 2));
+    await attendre(1200);
+    const testB = lignesDe(sid).filter((l) => l.fondement.rang === 3)[0];
+    ok('[O] B2 — à la MÊME charge, une autre série ne fait pas d’un test tenu un test raté',
+      rienNaBouge(avantB, photo(sid)) && testB.valeur_observee === plan[2][1], dire(sid));
+    await abandonner();
+
+    // ── C. « + Série » avant la 3ᵉ ───────────────────────────────────────
+    await aller('/saisie');
+    await demarrerRoutine('Terre');
+    await attendre(600);
+    sid = idSeance();
+    await faireLePlan(plan, 2);
+    const avantC = photo(sid);
+    await plusSerie();
+    await saisirSerie(2, plan[2][0], plan[2][1]);
+    await saisirSerie(3, leger[0], leger[1]);
+    await attendre(1200);
+    const rang2C = lignesDe(sid).filter((l) => l.fondement.rang === 2)[0];
+    ok('[O] C — l’observation juste du rang 2 reste sur la série 2',
+      rienNaBouge(avantC, photo(sid)) && serieDe(rang2C.set_observe) === 2 &&
+      rang2C.valeur_observee === plan[1][1], dire(sid));
+    await abandonner();
+
+    // ── E2. la proposition du coach, puis « + Série » juste après ────────
+    await aller('/saisie');
+    await demarrerRoutine('Terre');
+    await attendre(600);
+    sid = idSeance();
+    await saisirSerie(0, plan[0][0], plan[0][1] + 3);
+    const [cranTxt, fourchette] = await (await ligne(1)).$$eval('input', (l) => l.map((x) => x.placeholder));
+    const cran = Number(String(cranTxt).replace(',', '.')), bas = Number(String(fourchette).split('-')[0]);
+    await saisirSerie(1, cran, bas);
+    await attendre(1200);
+    const avantE = photo(sid);
+    const rang2E = () => lignesDe(sid).filter((l) => l.fondement.rang === 2);
+    ok('[O] E2 — prémisse : les deux paris du rang 2 sont sur la série proposée',
+      rang2E().length === 2 && rang2E().every((l) => serieDe(l.set_observe) === 2) &&
+      rang2E().some((l) => l.fondement.revision === 1 && l.valeur_observee === bas), dire(sid));
+    await plusSerie();
+    await saisirSerie(2, cran, bas + 2);
+    await saisirSerie(3, plan[2][0], plan[2][1]);
+    await attendre(1200);
+    ok('[O] E2 — « + Série » juste après : la proposition reste jugée sur SA série',
+      rienNaBouge(avantE, photo(sid)) && rang2E().every((l) => serieDe(l.set_observe) === 2),
+      dire(sid));
+    await abandonner();
+
+    // ── LA SUPPRESSION, PUIS UNE FRAPPE SUR s1 ───────────────────────────
+    await aller('/saisie');
+    await demarrerRoutine('Terre');
+    await attendre(600);
+    sid = idSeance();
+    await faireLePlan(plan, 3);
+    const rang = (r) => lignesDe(sid).filter((l) => l.fondement.rang === r)[0];
+    const id2 = rang(2).id, id1 = rang(1).id, s1 = rang(1).set_observe;
+    await toucher(1, '.no-serie');
+    await page.click('#feuille-contenu .feuille-menu button.danger');   // Supprimer la série
+    await attendre(2000);
+    const local2 = await localPred(id2);
+    ok('[O] la série observée supprimée : l’observation se vide, en base ET dans l’app',
+      rang(2).set_observe === null && rang(2).valeur_observee === null &&
+      !!local2 && local2.set_observe === null && local2.valeur_observee === null && local2.observee_a === null,
+      JSON.stringify({ base: dire(sid), local: local2 && [local2.set_observe, local2.valeur_observee] }));
+    // s1 porte maintenant le rang 2 (alignement par la fin). Une frappe sur
+    // ses reps refait SON observation — et rien d'autre.
+    const champs = await (await ligne(0)).$$('input');
+    await champs[1].fill(String(plan[0][1] + 1));
+    await champs[1].evaluate((e) => e.blur());
+    await attendre(1500);
+    const local2b = await localPred(id2);
+    ok('[O] une frappe sur s1 ne rattache PAS le pari du rang 2 à s1',
+      rang(2).set_observe === null && rang(2).valeur_observee === null &&
+      !!local2b && local2b.set_observe === null, dire(sid));
+    ok('[O] et s1 relit SON pari : la correction suit (48c-2)',
+      rang(1).id === id1 && rang(1).set_observe === s1 && rang(1).valeur_observee === plan[0][1] + 1,
+      dire(sid));
+    await abandonner();
+    await aller('/saisie');
+
+    ok('[O] aucune erreur de page pendant ces glissements',
       erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
 

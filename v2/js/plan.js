@@ -27,6 +27,7 @@
 
   function Moteur() { return racine.THMoteur; }
   function Seance() { return racine.THSeance; }
+  function Palier() { return racine.THPalier; }
 
   var ROLES = { ligne: true, test: true, coach: true, retour: true, hors: true };
 
@@ -149,7 +150,9 @@
       ligne.fourchette = Array.isArray(p.zone) ? p.zone.slice() : null;
       if (ligne.validee) {
         ligne.faite = { charge: sr.charge_kg === undefined ? null : sr.charge_kg,
-                        reps: sr.reps === undefined ? null : sr.reps };
+                        reps: sr.reps === undefined ? null : sr.reps,
+                        rpe: sr.rpe === undefined ? null : sr.rpe,
+                        ressenti: sr.ressenti === undefined ? null : sr.ressenti };
       }
       return ligne;
     });
@@ -221,8 +224,50 @@
     };
   }
 
+  // ── L'ÉTAPE DU CONSTAT (§3.9, §9.13 bis, 49-U4) ─────────────────────────
+  //
+  // Le constat de fin de bloc, comme l'en-tête, est une étape du plan : il
+  // n'existe que lorsque TOUTES les lignes de travail couvertes sont validées
+  // (I10 a), et il lit les rôles du jour — ce que `constatDe` seul ne sait
+  // pas. La suite (la consigne de la prochaine séance) vient de l'app, calculée
+  // par la même fonction que la consigne sur l'historique augmenté
+  // (`Moteur.suiteDExercice`) : le plan n'a pas l'historique.
+  function faitsDuJour(lignes, consigne) {
+    var z = Moteur().zoneParCle(consigne.zone);
+    var couvertes = lignes.filter(function (l) { return l.role !== 'hors'; });
+    var montee = null;
+    couvertes.forEach(function (l) {
+      if (l.role !== 'coach' || !l.validee || !aSuiviSaLigne(l, consigne) || !z) return;
+      var comptees = Palier().repsComptees({ reps: l.faite.reps, rpe: l.faite.rpe, ressenti: l.faite.ressenti });
+      if (comptees === null || comptees < z.bas || comptees > z.haut) return;
+      if (!montee || nombre(l.faite.charge) > nombre(montee.charge)) {
+        montee = { charge: l.faite.charge, reps: l.faite.reps };
+      }
+    });
+    return {
+      montee: montee,
+      suivies: couvertes.length > 0 && couvertes.every(function (l) { return l.validee && aSuiviSaLigne(l, consigne); }),
+      faites: couvertes.map(function (l) { return { charge: l.faite ? l.faite.charge : null, reps: l.faite ? l.faite.reps : null }; })
+    };
+  }
+
+  function constatDuPlan(lignes, consigne, suite, reglage) {
+    var couvertes = lignes.filter(function (l) { return l.role !== 'hors'; });
+    if (!couvertes.length || !couvertes.every(function (l) { return l.validee; })) return null;
+    if (!suite || !suite.consigne) return null;
+    var c = Moteur().constatDuJour(consigne, suite.consigne, reglage || null,
+      suite.cranSuivant === undefined ? null : suite.cranSuivant, faitsDuJour(lignes, consigne));
+    if (!c) return null;
+    // Ce que la prochaine séance proposera, en charges : de quoi vérifier
+    // qu'elle ne propose pas moins qu'une montée tenue (I10 b).
+    var k = suite.consigne;
+    c.suiteCharges = [k.ligne ? k.ligne.charge : null, k.haut ? k.haut.charge : null];
+    c.suiteEtat = k.etat || null;
+    return c;
+  }
+
   // ── LE PLAN D'UN EXERCICE ───────────────────────────────────────────────
-  function planDExercice(exo, iExo, consigneDuSlug, paris, seanceId, reglage) {
+  function planDExercice(exo, iExo, consigneDuSlug, paris, seanceId, reglage, suite) {
     var S = Seance(), M = Moteur();
     var series = (exo && exo.series) || [];
     var c = consigneDuSlug && consigneDuSlug.consigne ? consigneDuSlug : null;
@@ -257,6 +302,7 @@
       indices: r.indices, rangs: r.rangs, roles: r.roles, figees: figees,
       planInitial: r.planInitial, faites: r.faites, reaction: r.reaction,
       lignes: r.lignes, message: r.message, paris: r.paris,
+      constat: constatDuPlan(r.lignes, consigne, suite, reglage),
       entete: { jaune: entete.jaune, gris: gris, segments: entete.segments },
       donc: entete.jaune.length ? 'Donc ' + entete.jaune.join(', ') + '.' : null
     };
@@ -274,7 +320,10 @@
   //   · `paris` — les lignes `predictions` de la séance : les lignes figées se
   //     relisent dans les paris (§9.13, #322) ;
   //   · `reglage` — le rythme du profil, que porte le fondement de chaque
-  //     pari (§9.11).
+  //     pari (§9.11) ;
+  //   · `suites` — `{ [slug]: { consigne, cranSuivant } }`, la consigne de la
+  //     PROCHAINE séance (`Moteur.suiteDExercice`), donnée par l'app quand les
+  //     séries de travail de l'exercice sont faites : le constat en a besoin.
   //
   // Pure : mêmes entrées, même plan ; les entrées ne sont jamais modifiées.
   function planDeSeance(entrees) {
@@ -287,7 +336,9 @@
       exercices: exos.map(function (exo, i) {
         var slug = exo && exo.exercise_slug;
         var c = Object.prototype.hasOwnProperty.call(consignes, slug) ? consignes[slug] : null;
-        return planDExercice(exo, i, c, e.paris || [], seance.id, e.reglage);
+        var suites = e.suites || {};
+        var suite = Object.prototype.hasOwnProperty.call(suites, slug) ? suites[slug] : null;
+        return planDExercice(exo, i, c, e.paris || [], seance.id, e.reglage, suite);
       })
     };
   }
@@ -296,8 +347,8 @@
   //
   // Vérifiés sur chaque plan : en test (plans générés), au banc (après chaque
   // geste). C1 porte I1, I2, I3, I6, I9 et I12, C2 (49-U2) I11, C3 (49-U3)
-  // I4, I7 et I8 ; les autres arrivent avec les étapes qu'ils gardent (C4 à
-  // C6). Rend `{ ok, erreurs }`.
+  // I4, I7 et I8, C4 (49-U4) I10 ; les autres arrivent avec les étapes qu'ils
+  // gardent (C5, C6). Rend `{ ok, erreurs }`.
   //
   // ⚠️ AUCUNE VÉRIFICATION NE RELIT LA RÈGLE QU'ELLE CONTRÔLE. I6 ne rappelle
   // pas la fonction qui rédige l'en-tête : il compte les séries que le texte
@@ -474,6 +525,54 @@
         err('I11', 'fantôme de source inconnue « ' + f.source + ' » (série ' + l.iSerie + ')');
       }
     });
+
+    // I10 — le constat ne contredit jamais le plan du jour (49-U4). Relu ici à
+    // la main, sans rappeler `faitsDuJour` :
+    //   (a) pas de constat tant qu'une ligne de travail couverte n'est pas faite ;
+    //   (b) une montée du coach tenue (ligne du coach faite à sa charge ou
+    //       plus, reps comptées dans la zone) : le verdict la dit, et la suite
+    //       propose au moins une série à cette charge — la partie « suite » se
+    //       signale à part (`I10 suite`), pour être RAPPORTÉE, pas corrigée ici ;
+    //   (c) toutes les séries ont suivi leur ligne : jamais « Pas de palier ».
+    var k10 = x.constat || null;
+    if (k10 && couvertes.some(function (l) { return !l.validee; })) {
+      err('I10', 'un constat alors qu\'une ligne de travail n\'est pas faite');
+    }
+    if (k10) {
+      var zI10 = racine.THMoteur.zoneParCle(x.consigne.zone);
+      var tI10 = x.consigne.ligne && nombre(x.consigne.ligne.charge) !== null
+        ? nombre(x.consigne.ligne.charge) : nombre(x.consigne.palier);
+      var suivieI10 = function (l) {
+        var fait = l.faite ? nombre(l.faite.charge) : null;
+        var prevue = nombre(l.charge);
+        if (fait === null) return false;
+        if (prevue === null) return tI10 !== null && fait > tI10 && !memeCharge(fait, tI10);
+        if (l.role === 'coach') return fait > prevue || memeCharge(fait, prevue);
+        return memeCharge(fait, prevue);
+      };
+      var tenue = null;
+      couvertes.forEach(function (l) {
+        if (l.role !== 'coach' || !l.validee || !suivieI10(l) || !zI10) return;
+        var c = racine.THPalier.repsComptees({ reps: l.faite.reps, rpe: l.faite.rpe, ressenti: l.faite.ressenti });
+        if (c === null || c < zI10.bas || c > zI10.haut) return;
+        if (tenue === null || nombre(l.faite.charge) > tenue) tenue = nombre(l.faite.charge);
+      });
+      var verdict = String(k10.verdict || '');
+      if (tenue !== null) {
+        if (!k10.montee || !memeCharge(k10.montee.charge, tenue)) {
+          err('I10', 'une montée du coach a tenu à ' + tenue + ', le constat ne la dit pas : « ' + verdict + ' »');
+        }
+        var proposees = (k10.suiteCharges || []).map(nombre).filter(function (v) { return v !== null; });
+        var max = proposees.length ? Math.max.apply(null, proposees) : null;
+        if (max === null || (max < tenue && !memeCharge(max, tenue))) {
+          err('I10 suite', 'la montée a tenu à ' + tenue + ', la prochaine séance propose ' +
+            (max === null ? 'aucune charge' : max) + ' (état ' + k10.suiteEtat + ')');
+        }
+      }
+      if (/^Pas de palier/.test(verdict) && couvertes.every(suivieI10)) {
+        err('I10', '« Pas de palier » alors que toutes les séries ont suivi le plan');
+      }
+    }
 
     // I8 — les rangs sont uniques par exercice : aucune ligne ne reprend le
     // rang d'une autre, figée ou non.

@@ -2712,7 +2712,11 @@
   // `jour` vient du PLAN, jamais d'une règle refaite ici :
   //   · `montee` — `{ charge, reps }`, la plus haute ligne du coach validée à
   //     sa charge ou plus, reps comptées dans la zone : une montée tenue compte
-  //     comme un test tenu, et le verdict le dit ;
+  //     comme un test tenu. Sa phrase ne remplace QUE les verdicts qui la
+  //     contredisent — « Pas de palier… », « Pas encore… » ; les autres la
+  //     disent déjà (la montée racontée comme un test du jour) ou disent mieux
+  //     (« 4-4 à 130 : ta nouvelle charge tient… ») et restent tels quels
+  //     (décidé le 27/09/2026, 49-U4) ;
   //   · `suivies` — toutes les séries de travail ont suivi leur ligne (ligne,
   //     test, proposition du coach acceptée) : c'est le coach qui a mené les
   //     charges, et « Pas de palier » serait faux ;
@@ -2726,8 +2730,11 @@
     var j = jour || {};
     var m = j.montee || null;
     if (m) {
-      return { verdict: 'La montée du coach a tenu' + DEUX_POINTS + croix(m.charge, m.reps) +
-                        ', dans ta zone. Elle compte comme un test tenu.',
+      var contredit = /^Pas de palier/.test(base.verdict || '') || /^Pas encore/.test(base.verdict || '');
+      return { verdict: contredit
+                 ? 'La montée du coach a tenu' + DEUX_POINTS + croix(m.charge, m.reps) +
+                   ', dans ta zone. Elle compte comme un test tenu.'
+                 : base.verdict,
                suite: base.suite, montee: { charge: m.charge, reps: m.reps }, orchestre: false };
     }
     if (j.suivies && consigneApres.etat === 'silence') {

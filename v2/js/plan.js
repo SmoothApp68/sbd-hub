@@ -530,7 +530,8 @@
     // la main, sans rappeler `faitsDuJour` :
     //   (a) pas de constat tant qu'une ligne de travail couverte n'est pas faite ;
     //   (b) une montée du coach tenue (ligne du coach faite à sa charge ou
-    //       plus, reps comptées dans la zone) : le verdict la dit, et la suite
+    //       plus, reps comptées dans la zone) : le constat la porte et son
+    //       verdict ne la contredit pas (« Pas de palier », « Pas encore »), et la suite
     //       propose au moins une série à cette charge — la partie « suite » se
     //       signale à part (`I10 suite`), pour être RAPPORTÉE, pas corrigée ici ;
     //   (c) toutes les séries ont suivi leur ligne : jamais « Pas de palier ».
@@ -559,7 +560,8 @@
       });
       var verdict = String(k10.verdict || '');
       if (tenue !== null) {
-        if (!k10.montee || !memeCharge(k10.montee.charge, tenue)) {
+        if (!k10.montee || !memeCharge(k10.montee.charge, tenue) ||
+            /^Pas de palier/.test(verdict) || /^Pas encore/.test(verdict)) {
           err('I10', 'une montée du coach a tenu à ' + tenue + ', le constat ne la dit pas : « ' + verdict + ' »');
         }
         var proposees = (k10.suiteCharges || []).map(nombre).filter(function (v) { return v !== null; });

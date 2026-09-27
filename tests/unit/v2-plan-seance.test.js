@@ -289,7 +289,7 @@ describe('49-U1 — plans générés : les invariants tiennent après chaque ges
     // montée tenue et ceux d'une séance menée par le coach. La partie « suite »
     // d'I10 (b) se RAPPORTE, elle ne fait pas échouer ce test (décision de
     // fond, hors de ce commit) : elle est comptée à part.
-    const constats = { tous: 0, montee: 0, orchestre: 0, pasDePalier: 0 };
+    const constats = { tous: 0, montee: 0, remplace: 0, garde: 0, orchestre: 0, pasDePalier: 0 };
     const suiteSous = [];
     consignes.forEach(({ id, obj, suiteDe }) => {
       FORMES.forEach((forme) => {
@@ -307,6 +307,9 @@ describe('49-U1 — plans générés : les invariants tiennent après chaque ges
             if (k10) {
               constats.tous++;
               if (k10.montee) constats.montee++;
+              // La montée ne remplace que le verdict qui la contredisait ; les
+              // autres verdicts restent tels qu'ils étaient (décidé le 27/09).
+              if (k10.montee) constats[/^La montée du coach a tenu/.test(k10.verdict) ? 'remplace' : 'garde']++;
               if (k10.orchestre) constats.orchestre++;
               if (/^Pas de palier/.test(k10.verdict)) constats.pasDePalier++;
             }
@@ -347,6 +350,8 @@ describe('49-U1 — plans générés : les invariants tiennent après chaque ges
     expect(sources.retours).toBeGreaterThan(10);
     expect(constats.tous).toBeGreaterThan(100);
     expect(constats.montee).toBeGreaterThan(10);
+    expect(constats.remplace).toBeGreaterThan(10);
+    expect(constats.garde).toBeGreaterThan(10);
     // Ce que la PR rapporte : les constats, et les montées tenues dont la
     // prochaine séance proposerait moins.
     // eslint-disable-next-line no-console

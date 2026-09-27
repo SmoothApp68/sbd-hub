@@ -98,6 +98,31 @@ describe('49-U4 — le cas du 26/09, reconstitué sous l’ancienne règle', () 
   });
 });
 
+// ── LE VERDICT DE LA MONTÉE NE REMPLACE QUE CE QUI LA CONTREDIT ─────────────
+//
+// Décidé le 27/09/2026 : la montée tenue ne prend la place du verdict que
+// s'il la contredit (« Pas de palier », « Pas encore »). Une séance qui a
+// tenu PLUS que la montée — ici deux tests à 130 après la montée à 127,5 —
+// garde son verdict : il dit déjà mieux.
+describe('49-U4 — un verdict qui ne contredit pas la montée reste tel qu’il était', () => {
+  const SEANCE = [serie('t1', 125, 5), serie('t2', 127.5, 4), serie('t3', 130, 4), serie('t4', 130, 4)];
+  const PARIS = PARIS_ANCIENS.concat([pari('t4', 4, 'haut', 130, 4)]);
+  const { entrees, plan } = planDu26(SEANCE, PARIS);
+  const x = plan.exercices[0];
+
+  test('prémisse : une montée du coach tenue, puis deux tests tenus à 130', () => {
+    expect(x.lignes.map((l) => l.role + ':' + l.charge)).toEqual(['ligne:125', 'coach:127.5', 'test:130', 'test:130']);
+    expect(x.lignes.every((l) => l.validee)).toBe(true);
+  });
+
+  test('⚠️ DISCRIMINANT — le verdict reste « ta nouvelle charge tient » ; la montée est portée à part', () => {
+    expect(x.constat.verdict.replace(/[\u00a0\u202f]/g, ' ')).toBe(
+      '4-4 à 130 : ta nouvelle charge tient sur 2 séries, dans ta zone.');
+    expect(x.constat.montee).toEqual({ charge: 127.5, reps: 4 });
+    expect(T.verifierPlan(plan, entrees).erreurs).toEqual([]);
+  });
+});
+
 describe('49-U4 — I10 (a) : pas de constat avant la dernière ligne validée', () => {
   test('deux séries faites sur trois : aucun constat, même si une suite est fournie', () => {
     const series = [serie('t1', 125, 8), serie('t2', 127.5, 4), serie('t3', null, null)];
@@ -176,6 +201,16 @@ describe('49-U4 — I10 : verifierPlan voit chaque violation', () => {
     p.exercices[0].constat.montee = null;
     p.exercices[0].constat.verdict = 'Pas encore : 8-4-4 à 125.';
     expect(i10(p)).toMatch(/une montée du coach a tenu à 127.5, le constat ne la dit pas/);
+  });
+
+  test('⚠️ DISCRIMINANT — (b) la montée portée, mais un verdict qui la contredit', () => {
+    ['Pas encore : 8-4-4 à 125.', 'Pas de palier aujourd\'hui : rien de répété sur deux séries.'].forEach((v) => {
+      const p = copie(); p.exercices[0].constat.verdict = v;
+      expect(i10(p)).toMatch(/une montée du coach a tenu à 127.5, le constat ne la dit pas/);
+    });
+    // Témoin : un verdict qui ne la contredit pas passe.
+    const q = copie(); q.exercices[0].constat.verdict = '4-4 à 130 : ta nouvelle charge tient sur 2 séries, dans ta zone.';
+    expect(i10(q)).toBe('');
   });
 
   test('⚠️ DISCRIMINANT — (c) « Pas de palier » alors que tout a suivi le plan', () => {

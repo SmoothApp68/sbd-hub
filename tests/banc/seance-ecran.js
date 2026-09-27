@@ -6909,8 +6909,10 @@ const SETS_IMPORTES = [
     await attendre(900);
     await invariantsF('série 1 à 50 × 8');
     const g4 = await grilleF();
-    ok('[F] prémisse F044 : après 50 × 8, le coach propose 52,5 sur la série 2 (reps à taper)',
-      g4[1].charAt(0) === '*' && /^\*52\.5×/.test(g4[1]), nbF(g4));
+    // 49-U5 (delta 49-13, §9.14, I14) : les tests à 55 sont prévus plus loin,
+    // la proposition prend leur charge (avant : 52,5, le cran du dessus).
+    ok('[F] prémisse F044 : après 50 × 8, le coach propose 55 — la charge du test prévu — sur la série 2 (reps à taper)',
+      g4[1].charAt(0) === '*' && /^\*55×/.test(g4[1]), nbF(g4));
     await saisirSerie(1, 50, 6);
     await attendre(900);
     await invariantsF('refus : série 2 à 50 × 6');
@@ -7248,7 +7250,7 @@ const SETS_IMPORTES = [
     ok('[C4] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
 
-  console.log('\n══ 7 quater. LA RÉACTION REVUE : LA REPRISE (49-U5) ══');
+  console.log('\n══ 7 quatertricies. LA RÉACTION REVUE : LA REPRISE (49-U5) ══');
   //
   // ⚠️ CONFIGURATION DISCRIMINANTE. (1) Une reprise longue (plus de 12
   // semaines) sur une machine à GROS CRAN : le cran dessous (23) est à −28 %
@@ -7302,14 +7304,14 @@ const SETS_IMPORTES = [
     await demarrerRoutine('CP ×3');
     await attendre(900);
     let r = await planR();
-    ok('[R1] prémisse : reprise longue, palier 32', !!r.consigne && r.consigne.etat === 'reprise_longue' &&
+    ok('[RP1] prémisse : reprise longue, palier 32', !!r.consigne && r.consigne.etat === 'reprise_longue' &&
       r.consigne.palier === 32, nbR(r.consigne));
     let g = await grilleR();
-    ok('[R1] DISCRIMINANT — la consigne garde le dernier palier : 32 sur les trois séries (avant : 23, −28 %)',
+    ok('[RP1] DISCRIMINANT — la consigne garde le dernier palier : 32 sur les trois séries (avant : 23, −28 %)',
       g.length === 3 && g.every((l) => nr(l.charge) === 32), nbR(g));
-    ok('[R1] …et le dit, sans « un cran sous »', (await griseR()) === 'On reprend à ton dernier palier, sans rep de plus.',
+    ok('[RP1] …et le dit, sans « un cran sous »', (await griseR()) === 'On reprend à ton dernier palier, sans rep de plus.',
       nbR(await griseR()));
-    ok('[R1] invariants du plan (le repli compris)', r.erreurs.length === 0, nbR(r.erreurs.slice(0, 3)));
+    ok('[RP1] invariants du plan (le repli compris)', r.erreurs.length === 0, nbR(r.erreurs.slice(0, 3)));
     await abandonner();
 
     // ── (2) REPRISE COURTE, 3 REPS DE MARGE ─────────────────────────────
@@ -7317,19 +7319,19 @@ const SETS_IMPORTES = [
     await demarrerRoutine('HB ×3');
     await attendre(900);
     r = await planR();
-    ok('[R2] prémisse : reprise courte, 80 × 12', !!r.consigne && r.consigne.etat === 'reprise_courte' &&
+    ok('[RP2] prémisse : reprise courte, 80 × 12', !!r.consigne && r.consigne.etat === 'reprise_courte' &&
       r.consigne.ligne && r.consigne.ligne.charge === 80, nbR(r.consigne));
     g = await grilleR();
     await saisirSerie(0, nr(g[0].charge), nr(g[0].reps) + 3);
     await attendre(900);
     g = await grilleR();
     r = await planR();
-    ok('[R2] DISCRIMINANT — la réaction parle en reprise : une proposition au-dessus de 80 sur la série 2',
+    ok('[RP2] DISCRIMINANT — la réaction parle en reprise : une proposition au-dessus de 80 sur la série 2',
       g[1].proposee && nr(g[1].charge) > 80, nbR(g));
-    ok('[R2] invariants du plan', r.erreurs.length === 0, nbR(r.erreurs.slice(0, 3)));
+    ok('[RP2] invariants du plan', r.erreurs.length === 0, nbR(r.erreurs.slice(0, 3)));
     await abandonner();
     await aller('/saisie');
-    ok('[R] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
+    ok('[RP] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
 
   console.log('\n══ 8. NON-RÉGRESSION ══');

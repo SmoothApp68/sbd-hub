@@ -36,18 +36,27 @@ function simulateur(slug, consigneObj, series, types) {
       consignes: { [slug]: consigneObj }, paris: paris.slice() }),
     plan: () => T.planDeSeance(api.entrees()),
     exo: () => api.plan().exercices[0],
-    verifier: () => { const e = api.entrees(); return T.verifierPlan(T.planDeSeance(e), e); },
+    // 49-U3 — I4 : chaque plan se compare au précédent (une ligne figée ne
+    // change jamais). I7 et I8 lisent les paris des entrées.
+    avant: null,
+    verifier: () => {
+      const e = api.entrees();
+      const p = T.planDeSeance(e);
+      const v = T.verifierPlan(p, e, api.avant);
+      api.avant = p;
+      return v;
+    },
     series: () => se.exercices[0].series,
     valider: (i, kg, reps) => {
       se = S.modifierSerie(se, 0, i, { charge_kg: kg, reps: reps });
       se = S.valider(se, 0, i, new Date('2026-09-26T10:30:00Z'));
+      // 49-U3 — le pari se lit dans le plan, comme `noterPari` le lit.
       const x = api.exo();
-      const j = x.consigne ? x.indices.indexOf(i) : -1;
-      if (j < 0) return [];
-      const l = M.lignesDePari(x.consigne, x.planInitial, x.faites.slice(0, Math.min(x.faites.length, j)),
-        x.contexte, j, { rang: x.rangs[j], role: x.roles[j], seance: 'S', slug: slug, rangs: x.rangs });
-      l.forEach((q) => paris.push(Object.assign({}, q, { set_observe: api.series()[i].id })));
-      return l;
+      if (!x.consigne || !x.paris) return [];
+      const q = x.paris[i];
+      if (!q) return [];
+      paris.push(Object.assign({}, q, { set_observe: api.series()[i].id }));
+      return [q];
     },
     ajouter: () => { se = S.ajouterSerie(se, 0, id); }
   };

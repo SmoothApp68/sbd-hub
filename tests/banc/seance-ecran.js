@@ -6916,6 +6916,154 @@ const SETS_IMPORTES = [
     ok('[F] aucune erreur de page pendant le fantôme', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
 
+  console.log('\n══ 7 duotricies. LES PARIS ET LES LIGNES FIGÉES SE LISENT DANS LE PLAN ; LA CONSIGNE SURVIT AU RECHARGEMENT (49-U3) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : UNE SYNCHRONISATION QUI CHANGE LA
+  // CONSIGNE, PUIS UN RECHARGEMENT COMPLET DE LA PAGE. Sans rechargement, le gel
+  // en mémoire suffisait déjà (49-U1, D7) ; c'est le rechargement — Android
+  // ferme la PWA pendant un repos — qui recalculait la consigne sur un
+  // historique changé. La prémisse est vérifiée à la fin : une NOUVELLE séance
+  // reçoit bien une autre consigne.
+  //
+  // Après chaque geste : `verifierPlan(plan, entrées, plan d'avant)` — I4
+  // compris, À TRAVERS le rechargement.
+  {
+    const nbP = (x) => JSON.stringify(x).replace(/ /g, ' ');
+    const enTeteP = () => page.evaluate(() =>
+      Array.from(document.querySelectorAll('.legende-exo .consigne')).map((e) => e.textContent));
+    const planP = () => page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      return d ? JSON.parse(JSON.stringify(d)) : null;
+    });
+    let avantP = null;
+    const invariantsP = async (geste) => {
+      const v = await page.evaluate((avant) => {
+        const d = window.THPlan && window.THPlan.dernier;
+        if (!d) return { ok: false, erreurs: ['aucun plan calculé'] };
+        return window.THPlan.verifierPlan(d.plan, d.entrees, avant);
+      }, avantP);
+      ok('[P3] invariants du plan après « ' + geste + ' »', v.ok,
+        v.ok ? 'I1 I2 I3 I4 I6 I7 I8 I9 I11 I12' : nbP(v.erreurs.slice(0, 3)));
+      avantP = (await planP()).plan;
+    };
+    const figeesP = (d) => d.plan.exercices[0].lignes.filter((l) => l.figee)
+      .map((l) => l.id + ':' + l.rang + ':' + l.role + ':' + l.charge + '×' + l.vise);
+    const brouillonConsignes = () => page.evaluate(() => new Promise((res) => {
+      const r = indexedDB.open('trainhub-v2');
+      r.onsuccess = () => {
+        const q = r.result.transaction(['brouillon'], 'readonly').objectStore('brouillon').get('consignes');
+        q.onsuccess = () => { r.result.close(); res(q.result ? q.result.valeur : null); };
+      };
+    }));
+
+    await aller('/saisie');
+    await demarrerRoutine('LE ×4');
+    await attendre(800);
+    await invariantsP('ouverture');
+    const idS = base.sessions.filter((x) => x.statut === 'en_cours').map((x) => x.id)[0];
+    await saisirSerie(0, 50, 5);
+    await attendre(700);
+    await invariantsP('série 1');
+    await saisirSerie(1, 50, 5);
+    await attendre(700);
+    await invariantsP('série 2');
+    const avant = await planP();
+    const enTete0 = await enTeteP();
+    const consigne0 = avant.plan.exercices[0].consigne;
+    const figees0 = figeesP(avant);
+    const stockee = await brouillonConsignes();
+    ok('[P3] la consigne est sur l’appareil, liée à CETTE séance',
+      !!stockee && stockee.seanceId === idS && !!stockee.parSlug && !!stockee.parSlug['leg-extension'],
+      nbP(stockee ? { seanceId: stockee.seanceId === idS, slugs: Object.keys(stockee.parSlug || {}) } : null));
+    ok('[P3] prémisse : deux séries figées par leurs paris', figees0.length === 2, nbP(figees0));
+
+    // Une séance arrive en arrière-plan : elle changerait la consigne d'une
+    // séance NEUVE (le palier monte à 55, sans test).
+    const tP = Date.now();
+    const debutP = ilYa(3 * 3600000, tP).toISOString();
+    base.sessions.push({ id: 'le-d', user_id: 'u-banc', titre: 'Quadriceps — le-d', debut: debutP,
+      fin: finDe(debutP, tP).toISOString(), statut: 'terminee', note: null, salle: null, salle_norme: null,
+      routine_id: null, source: 'app', created_at: debutP });
+    [[55, 5], [55, 5], [55, 5], [57.5, 5]].forEach(([kg, reps], i) => base.sets.push({
+      id: 'le-d-s' + (i + 1), session_id: 'le-d', user_id: 'u-banc', exercise_slug: 'leg-extension',
+      charge_kg: kg, reps, duree_s: null, distance_m: null, type_serie: 'travail', rang: i + 1,
+      groupe_superset: null, validee_a: debutP, rpe: null, ressenti: null, repos_s: null, note: null,
+      source: 'app', created_at: debutP, modifie_a: null }));
+
+    // ⚠️ LA SYNCHRONISATION AVANT LA FERMETURE, comme sur l'appareil : la
+    // séance arrivée est dans le CACHE quand l'app se rouvre. Sans ce pas, le
+    // premier rendu recalculait la consigne sur l'ancien cache — le même
+    // historique — et une consigne jamais relue passait inaperçue (mutation
+    // (b) de 49-U3, survivante avant ce correctif).
+    await page.click('.onglet[data-vue="racine"]');
+    await attendre(900);
+    await page.click('#btn-rafraichir');
+    await attendre(2500);
+    await page.click('.onglet[data-vue="saisie"]');
+    await attendre(900);
+    ok('[P3] prémisse : la séance arrivée est dans le cache AVANT la fermeture',
+      await page.evaluate(() => new Promise((res) => {
+        const r = indexedDB.open('trainhub-v2');
+        r.onsuccess = () => {
+          const q = r.result.transaction(['seances'], 'readonly').objectStore('seances').get('le-d');
+          q.onsuccess = () => { r.result.close(); res(!!q.result); };
+          q.onerror = () => { r.result.close(); res(false); };
+        };
+      })), 'le-d');
+
+    // Le RECHARGEMENT COMPLET : l'app repart de zéro, synchronise, et relit.
+    await page.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await attendre(3200);
+    const apres = await planP();
+    ok('[P3] DISCRIMINANT — après une synchronisation ET un rechargement, la même consigne',
+      nbP(apres.plan.exercices[0].consigne) === nbP(consigne0),
+      nbP({ avant: consigne0 && consigne0.ligne, apres: apres.plan.exercices[0].consigne && apres.plan.exercices[0].consigne.ligne }));
+    ok('[P3] …le même en-tête', nbP(await enTeteP()) === nbP(enTete0), nbP({ avant: enTete0, apres: await enTeteP() }));
+    ok('[P3] …et les mêmes lignes figées (rang, rôle, charge, visée)',
+      nbP(figeesP(apres)) === nbP(figees0), nbP({ avant: figees0, apres: figeesP(apres) }));
+    avantP = avant.plan;   // I4 À TRAVERS le rechargement
+    await invariantsP('rechargement');
+
+    // La séance complète : chaque pari en base, une ligne du plan.
+    await saisirSerie(2, 55, 4);
+    await attendre(700);
+    await invariantsP('série 3');
+    await saisirSerie(3, 55, 4);
+    await attendre(1500);
+    await invariantsP('série 4');
+    const fin = await planP();
+    const role = { ligne: 'ligne', test: 'haut', coach: 'coach', retour: 'retour' };
+    const lignes = fin.plan.exercices[0].lignes;
+    const enBase = base.predictions.filter((l) => l.exercise_slug === 'leg-extension' &&
+      l.fondement && l.fondement.seance === idS);
+    const concordent = lignes.every((l) => {
+      const q = enBase.filter((x) => x.fondement.rang === l.rang);
+      return l.validee && q.length === 1 && q[0].fondement.role === role[l.role] &&
+        Number(q[0].fondement.charge) === Number(l.charge) && Number(q[0].valeur_predite) === Number(l.vise) &&
+        q[0].set_observe === l.id;
+    });
+    ok('[P3] séance complète : UN pari en base par série validée, identique à sa ligne (rang, rôle, charge, visée, série)',
+      enBase.length === lignes.length && concordent,
+      nbP({ base: enBase.map((q) => q.fondement.rang + ':' + q.fondement.role + ':' + q.fondement.charge + '×' + q.valeur_predite),
+            plan: lignes.map((l) => l.rang + ':' + l.role + ':' + l.charge + '×' + l.vise) }));
+
+    await terminer();
+    ok('[P3] la séance terminée emporte sa consigne sur l’appareil', (await brouillonConsignes()) === null,
+      nbP(await brouillonConsignes()));
+
+    // La prémisse, vérifiée : une séance NEUVE reçoit l'autre consigne.
+    await aller('/saisie');
+    await demarrerRoutine('LE ×4');
+    await attendre(900);
+    const neuve = await planP();
+    ok('[P3] prémisse : une séance neuve reçoit bien une AUTRE consigne (la synchronisation la changeait)',
+      nbP(neuve.plan.exercices[0].consigne) !== nbP(consigne0),
+      nbP({ avant: consigne0 && consigne0.ligne, neuve: neuve.plan.exercices[0].consigne && neuve.plan.exercices[0].consigne.ligne }));
+    await abandonner();
+    await aller('/saisie');
+    ok('[P3] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
+  }
+
   console.log('\n══ 8. NON-RÉGRESSION ══');
   for (const [chemin, attendu] of [['/', 'vue-liste'], ['/progression', 'vue-progression'],
                                    ['/profil', 'vue-profil'], ['/routine/nouvelle', 'vue-routine']]) {

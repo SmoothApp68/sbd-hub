@@ -12,6 +12,7 @@ require('../../v2/js/palier.js');
 require('../../v2/js/profil.js');
 const Moteur = require('../../v2/js/moteur.js');
 const Seance = require('../../v2/js/seance.js');
+const Plan = require('../../v2/js/plan.js');
 
 const L = { charge: 125, vise: 5 }, H = { charge: 130, vise: 4, k: 1 };
 const consigne = (n, ligne, haut) => ({ etat: 'garde', zone: 'lourd', palier: 125, niveau: 5,
@@ -22,7 +23,7 @@ const libre = (id, type) => ({ id: id, type_serie: type || 'travail', charge_kg:
   rpe: null, ressenti: null, validee_a: null, source: null });
 const faite = (id, kg, reps) => ({ id: id, type_serie: 'travail', charge_kg: kg, reps: reps,
   rpe: null, ressenti: null, validee_a: '2026-09-26T10:00:00Z', source: 'app' });
-// Un pari tel que `lignesDePari` l'écrit, observé sur sa série.
+// Un pari tel que le plan le porte et que l'app l'écrit, observé sur sa série.
 const pari = (serie, rang, role, charge, vise, extra) => Object.assign({
   id: 'p-' + serie, set_observe: serie, valeur_predite: vise, borne_basse: 3, borne_haute: 5,
   valeur_observee: vise, fondement: Object.assign({ rang: rang, charge: charge, role: role,
@@ -183,9 +184,11 @@ describe('§9.14 (49-C) — la réaction suit la couverture de la séance', () =
     const plan0 = planDe([libre('a'), libre('b'), libre('c'), libre('d')]);
     const r = Moteur.reactionPour(C3, [s(100, 8), s(125, 8)], ctx, plan0);
     expect(r.message).toMatchObject({ type: 'propose', rang: 2 });
-    // Et son pari dit « autre chose tenté » : reliée, rien de compté.
-    const p = Moteur.lignesDePari(C3, plan0, [], ctx, 0, { slug: 'x', seance: 'S', rang: 1, role: 'ligne' });
-    expect(Moteur.observationDe(p[0].fondement, { enBase: true, id: 'a', charge: 100, reps: 8 }))
+    // Et son pari — lu dans le plan (49-U3) — dit « autre chose tenté » :
+    // reliée, rien de compté.
+    const q = Plan.planDesLignes([faite('a', 100, 8), libre('b'), libre('c'), libre('d')], C3, ctx, {},
+      { slug: 'x', seance: 'S' }).paris[0];
+    expect(Moteur.observationDe(q.fondement, { enBase: true, id: 'a', charge: 100, reps: 8 }))
       .toEqual({ set_observe: 'a', valeur_observee: null });
   });
 
@@ -230,34 +233,43 @@ describe('§9.11 (49-C) — le pari d’une série, avec ce que sa ligne afficha
   const plan0 = () => Moteur.planDeCouverture(C3,
     Seance.couvertureSeance([libre('a'), libre('b'), libre('c')], C3, {}));
 
+  // ⚠️ 49-U3 — LE PARI SE LIT DANS LE PLAN (`paris[iSerie]`), tel qu'il
+  // s'écrira à la validation de la série : `lignesDePari` ne relance plus la
+  // réaction, c'est le plan qui la calcule sur les séries qui PRÉCÈDENT. Les
+  // attendus sont inchangés ; seul le chemin l'est.
+  const parisDu = (series) => Plan.planDesLignes(series, C3, ctx, {},
+    { slug: 'x', reglage: 'normal', seance: 'S' }).paris;
+
   test('la ligne de la consigne : révision 0, sa charge, sa visée, son rôle', () => {
-    const p = Moteur.lignesDePari(C3, plan0(), [], ctx, 0, o(1, 'ligne'));
-    expect(p).toHaveLength(1);
-    expect(p[0]).toMatchObject({ grandeur: 'reps', valeur_predite: 5, borne_basse: 3, borne_haute: 5,
+    const p = parisDu([faite('a', 125, 5), libre('b'), libre('c')])[0];
+    expect(p).toMatchObject({ grandeur: 'reps', valeur_predite: 5, borne_basse: 3, borne_haute: 5,
       fondement: { rang: 1, charge: 125, role: 'ligne', seance: 'S', etat: 'garde' } });
-    expect(p[0].fondement.revision).toBeUndefined();
+    expect(p.fondement.revision).toBeUndefined();
   });
 
   test('le test : rôle `haut`, sa charge et sa visée', () => {
-    const p = Moteur.lignesDePari(C3, plan0(), [s(125, 5), s(125, 5)], ctx, 2, o(3, 'haut'));
-    expect(p[0]).toMatchObject({ valeur_predite: 4, fondement: { rang: 3, charge: 130, role: 'haut' } });
+    const p = parisDu([faite('a', 125, 5), faite('b', 125, 5), libre('c')])[2];
+    expect(p).toMatchObject({ valeur_predite: 4, fondement: { rang: 3, charge: 130, role: 'haut' } });
   });
 
   test('la proposition du coach : UN pari, de révision 1, rôle `coach`', () => {
-    const p = Moteur.lignesDePari(C3, plan0(), [s(125, 8)], ctx, 1, o(2, 'ligne'));
-    expect(p).toHaveLength(1);
-    expect(p[0].fondement).toMatchObject({ rang: 2, revision: 1, role: 'coach', charge: 127.5,
+    const p = parisDu([faite('a', 125, 8), libre('b'), libre('c')])[1];
+    expect(p.fondement).toMatchObject({ rang: 2, revision: 1, role: 'coach', charge: 127.5,
       charges: [127.5], declencheur: { rang: 1, marge: 3 } });
   });
 
+  // La mise en forme du pari, seule : `lignesDePari` reçoit la réaction (celle
+  // que le plan calcule) et ne la relance pas.
   test('le déclencheur porte SON rang, pas sa position', () => {
-    const p = Moteur.lignesDePari(C3, plan0(), [s(125, 8)], ctx, 1,
+    const avant = Moteur.reactionPour(C3, [s(125, 8)], ctx, plan0());
+    const p = Moteur.lignesDePari(C3, avant, [s(125, 8)], 1,
       Object.assign(o(5, 'ligne'), { rangs: [4, 5, 6] }));
     expect(p[0].fondement.declencheur.rang).toBe(4);
   });
 
-  test('en silence, rien', () => {
-    expect(Moteur.lignesDePari({ etat: 'silence', raison: 'premiere_fois' }, [], [], ctx, 0, o(1))).toEqual([]);
+  test('en silence, ou sans réaction, rien', () => {
+    expect(Moteur.lignesDePari({ etat: 'silence', raison: 'premiere_fois' }, { plan: [] }, [], 0, o(1))).toEqual([]);
+    expect(Moteur.lignesDePari(C3, null, [], 0, o(1, 'ligne'))).toEqual([]);
   });
 });
 

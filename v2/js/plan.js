@@ -108,8 +108,10 @@
   // `series` : les séries de l'exercice telles qu'elles sont (validées ou non) ;
   // `consigne`, `contexte` : ceux de l'exercice, FIGÉS pour la séance ;
   // `figees` : `{ [id de série]: { rang, role, ligne } }`, les lignes figées
-  // relues dans les paris (`THSeance.figeesDe`). Pur : ne lit rien d'autre.
-  function planDesLignes(series, consigne, contexte, figees) {
+  // relues dans les paris (`THSeance.figeesDe`) ; `options` : `{ slug,
+  // seance, reglage }`, ce que porte le pari. Pur : ne lit rien d'autre.
+  function planDesLignes(series, consigne, contexte, figees, options) {
+    var o = options || {};
     var S = Seance(), M = Moteur();
     var liste = series || [];
     var couverture = S.couvertureSeance(liste, consigne, figees || {});
@@ -133,7 +135,7 @@
 
     var lignes = liste.map(function (sr, i) {
       var cov = couverture[i];
-      var ligne = { iSerie: i, type: S.typeDe(sr), validee: S.partEnBase(sr) };
+      var ligne = { iSerie: i, id: sr && sr.id ? sr.id : null, type: S.typeDe(sr), validee: S.partEnBase(sr) };
       if (!cov) { ligne.role = 'hors'; return ligne; }
       var p = reaction.plan[cov.position] || {};
       ligne.position = cov.position;
@@ -153,6 +155,30 @@
     });
     poserFantomes(lignes, consigne);
 
+    // ── L'ÉTAPE DES PARIS (§9.11, §9.13 bis, 49-U3) ──────────────────────
+    //
+    // Le pari de chaque ligne couverte NON FIGÉE, tel qu'il s'écrira à sa
+    // validation : la réaction relue sur les séries validées qui la PRÉCÈDENT
+    // — ce que l'écran montrait juste avant —, sur le plan de la couverture
+    // actuelle, où la ligne n'est pas encore figée. `noterPari` n'écrit que
+    // ce qui est ICI : plus aucune seconde réaction calculée à part. Une ligne
+    // figée a déjà son pari (c'est lui qui la fige) : rien à écrire.
+    var reactionsAvant = {};
+    var paris = liste.map(function () { return null; });
+    lignes.forEach(function (l) {
+      if (l.role === 'hors' || l.figee) return;
+      var j = l.position;
+      var n = Math.min(faites.length, j);
+      if (!reactionsAvant[n]) {
+        reactionsAvant[n] = M.reactionPour(consigne, faites.slice(0, n), contexte || null, planInitial);
+      }
+      var p = M.lignesDePari(consigne, reactionsAvant[n], faites.slice(0, n), j, {
+        slug: o.slug, reglage: o.reglage, seance: o.seance,
+        rang: rangs[j], role: roles[j], rangs: rangs
+      });
+      paris[l.iSerie] = p.length ? p[0] : null;
+    });
+
     // La phrase du coach : sur la ligne `message.rang` (une POSITION).
     var m = reaction.message;
     var message = m ? {
@@ -163,7 +189,7 @@
     return {
       indices: indices, rangs: rangs, roles: roles,
       planInitial: planInitial, faites: faites, reaction: reaction,
-      lignes: lignes, message: message
+      lignes: lignes, message: message, paris: paris
     };
   }
 
@@ -172,7 +198,7 @@
   // l'ordre, et les lignes `figees` de ces séries (`{ [i]: { rang, role,
   // ligne } }`, indexées par position). Pure et exportée : c'est par elle que
   // les cas du simulateur (`coach49.py`) sont rejoués.
-  function rejouer(consigne, contexte, n, faites, figees) {
+  function rejouer(consigne, contexte, n, faites, figees, options) {
     var fa = faites || [];
     var series = [];
     for (var i = 0; i < n; i++) {
@@ -180,21 +206,23 @@
       series.push({
         id: 'r' + (i + 1), type_serie: 'travail',
         charge_kg: f ? f.charge : null, reps: f ? f.reps : null,
+        rpe: f && f.rpe !== undefined ? f.rpe : null,
+        ressenti: f && f.ressenti !== undefined ? f.ressenti : null,
         validee_a: f ? '2026-09-26T10:0' + Math.min(i, 9) + ':00.000Z' : null
       });
     }
     var gel = {};
     Object.keys(figees || {}).forEach(function (k) { gel['r' + (Number(k) + 1)] = figees[k]; });
-    var r = planDesLignes(series, consigne, contexte, gel);
+    var r = planDesLignes(series, consigne, contexte, gel, options);
     return {
-      lignes: r.lignes, message: r.message, reaction: r.reaction,
+      lignes: r.lignes, message: r.message, reaction: r.reaction, paris: r.paris,
       planInitial: r.planInitial, indices: r.indices, rangs: r.rangs, roles: r.roles,
       faites: r.faites, series: series
     };
   }
 
   // ── LE PLAN D'UN EXERCICE ───────────────────────────────────────────────
-  function planDExercice(exo, iExo, consigneDuSlug, paris, seanceId) {
+  function planDExercice(exo, iExo, consigneDuSlug, paris, seanceId, reglage) {
     var S = Seance(), M = Moteur();
     var series = (exo && exo.series) || [];
     var c = consigneDuSlug && consigneDuSlug.consigne ? consigneDuSlug : null;
@@ -209,8 +237,13 @@
     var siens = (paris || []).filter(function (l) {
       return l && l.exercise_slug === base.slug && l.fondement && l.fondement.seance === seanceId;
     });
+    // ⚠️ LES LIGNES FIGÉES SE LISENT ICI, UNE FOIS, DANS LES PARIS DE LA SÉANCE
+    // (§9.13, #322) — et nulle part ailleurs : elles sont une ENTRÉE du plan.
     var figees = S.figeesDe(siens, series, consigne);
-    var r = planDesLignes(series, consigne, c.contexte || null, figees);
+    var r = planDesLignes(series, consigne, c.contexte || null, figees, {
+      slug: base.slug, seance: seanceId === undefined ? null : seanceId,
+      reglage: reglage === undefined ? null : reglage
+    });
 
     // L'en-tête décrit la disposition de la consigne sur les lignes de la
     // séance (ECRAN §3.12, 26/09/2026) — plus le `n` de la consigne brute.
@@ -223,7 +256,7 @@
       consigne: consigne, contexte: c.contexte || null,
       indices: r.indices, rangs: r.rangs, roles: r.roles, figees: figees,
       planInitial: r.planInitial, faites: r.faites, reaction: r.reaction,
-      lignes: r.lignes, message: r.message,
+      lignes: r.lignes, message: r.message, paris: r.paris,
       entete: { jaune: entete.jaune, gris: gris, segments: entete.segments },
       donc: entete.jaune.length ? 'Donc ' + entete.jaune.join(', ') + '.' : null
     };
@@ -239,7 +272,9 @@
   //     bis) : une synchronisation pendant la séance ne les change pas ; seule
   //     une correction de zone par l'utilisateur recalcule son exercice ;
   //   · `paris` — les lignes `predictions` de la séance : les lignes figées se
-  //     relisent dans les paris (§9.13, #322).
+  //     relisent dans les paris (§9.13, #322) ;
+  //   · `reglage` — le rythme du profil, que porte le fondement de chaque
+  //     pari (§9.11).
   //
   // Pure : mêmes entrées, même plan ; les entrées ne sont jamais modifiées.
   function planDeSeance(entrees) {
@@ -252,7 +287,7 @@
       exercices: exos.map(function (exo, i) {
         var slug = exo && exo.exercise_slug;
         var c = Object.prototype.hasOwnProperty.call(consignes, slug) ? consignes[slug] : null;
-        return planDExercice(exo, i, c, e.paris || [], seance.id);
+        return planDExercice(exo, i, c, e.paris || [], seance.id, e.reglage);
       })
     };
   }
@@ -260,8 +295,9 @@
   // ══ LES INVARIANTS — UN COACH QUI NE PEUT PAS SE CONTREDIRE ══════════════
   //
   // Vérifiés sur chaque plan : en test (plans générés), au banc (après chaque
-  // geste). C1 porte I1, I2, I3, I6, I9 et I12, C2 (49-U2) I11 ; les autres
-  // arrivent avec les étapes qu'ils gardent (C3 à C6). Rend `{ ok, erreurs }`.
+  // geste). C1 porte I1, I2, I3, I6, I9 et I12, C2 (49-U2) I11, C3 (49-U3)
+  // I4, I7 et I8 ; les autres arrivent avec les étapes qu'ils gardent (C4 à
+  // C6). Rend `{ ok, erreurs }`.
   //
   // ⚠️ AUCUNE VÉRIFICATION NE RELIT LA RÈGLE QU'ELLE CONTRÔLE. I6 ne rappelle
   // pas la fonction qui rédige l'en-tête : il compte les séries que le texte
@@ -282,7 +318,10 @@
     return { compte: compte, sansCompte: sansCompte };
   }
 
-  function verifierExercice(x, erreurs) {
+  // Le rôle qu'un pari écrit, pour le rôle d'une ligne du plan.
+  var ROLE_DU_PARI = { ligne: 'ligne', test: 'haut', coach: 'coach', retour: 'retour' };
+
+  function verifierExercice(x, erreurs, parisSeance) {
     var nom = 'exercice ' + x.iExo + ' (' + x.slug + ')';
     var err = function (inv, texte) { erreurs.push(inv + ' — ' + nom + ' : ' + texte); };
     var lignes = x.lignes || [];
@@ -436,6 +475,60 @@
       }
     });
 
+    // I8 — les rangs sont uniques par exercice : aucune ligne ne reprend le
+    // rang d'une autre, figée ou non.
+    var vus = {};
+    couvertes.forEach(function (l) {
+      if (l.rang === null || l.rang === undefined) { err('I8', 'la série ' + l.iSerie + ' est couverte sans rang'); return; }
+      if (vus[l.rang] !== undefined) err('I8', 'le rang ' + l.rang + ' est porté par les séries ' + vus[l.rang] + ' et ' + l.iSerie);
+      vus[l.rang] = l.iSerie;
+    });
+
+    // I7 — chaque ligne validée et couverte a EXACTEMENT UN pari, qui reprend
+    // sa charge, sa visée et son rôle ; aucun pari observé sans sa ligne.
+    // Seulement quand les paris de la séance sont connus (les entrées).
+    //
+    // Un pari NON OBSERVÉ sans ligne est permis : c'est celui d'une série
+    // validée puis supprimée (§9.11, 49-11 — « le pari reste, non observé »).
+    // Une ligne validée que le plan ne fait rien parier (`paris` nul : pas de
+    // visée) n'en attend aucun.
+    if (parisSeance) {
+      var siens = parisSeance.filter(function (q) {
+        return q && q.exercise_slug === x.slug && q.fondement;
+      });
+      couvertes.forEach(function (l) {
+        if (!l.validee) return;
+        var duRang = siens.filter(function (q) { return Number(q.fondement.rang) === Number(l.rang); });
+        var attendu = l.figee || !!(x.paris && x.paris[l.iSerie]);
+        if (!attendu) {
+          if (duRang.length) err('I7', 'la série ' + l.iSerie + ' ne devait rien parier, et le rang ' + l.rang + ' porte ' + duRang.length + ' pari(s)');
+          return;
+        }
+        if (duRang.length !== 1) {
+          err('I7', 'la série ' + l.iSerie + ' (rang ' + l.rang + ') porte ' + duRang.length + ' pari(s), pour un seul attendu');
+          return;
+        }
+        var q = duRang[0];
+        if (q.fondement.role !== ROLE_DU_PARI[l.role]) {
+          err('I7', 'le pari du rang ' + l.rang + ' dit « ' + q.fondement.role + ' » pour une ligne « ' + l.role + ' »');
+        }
+        if (!memeCharge(q.fondement.charge, l.charge)) {
+          err('I7', 'le pari du rang ' + l.rang + ' porte ' + q.fondement.charge + ' pour une ligne à ' + l.charge);
+        }
+        if (nombre(q.valeur_predite) !== nombre(l.vise)) {
+          err('I7', 'le pari du rang ' + l.rang + ' vise ' + q.valeur_predite + ' pour une ligne qui vise ' + l.vise);
+        }
+      });
+      siens.forEach(function (q) {
+        if (!q.set_observe) return;
+        var l = couvertes.filter(function (c) { return c.id === q.set_observe; })[0];
+        if (!l || !l.validee) err('I7', 'un pari (rang ' + q.fondement.rang + ') est observé sur une série qui n\'est pas une ligne validée du plan');
+        else if (Number(l.rang) !== Number(q.fondement.rang)) {
+          err('I7', 'un pari du rang ' + q.fondement.rang + ' est observé sur la série de rang ' + l.rang);
+        }
+      });
+    }
+
     // Le message affiché est celui de la réaction, sur la bonne série.
     if ((x.message ? 1 : 0) !== (msg ? 1 : 0) ||
         (x.message && msg && x.message.iSerie !== (couvertes[msg.rang] || {}).iSerie)) {
@@ -443,11 +536,41 @@
     }
   }
 
-  // `entrees` (facultatif) : I12 — mêmes entrées, même plan, et les entrées
-  // ne sont pas modifiées par le calcul.
-  function verifierPlan(plan, entrees) {
+  // I4 — d'un plan au suivant, une ligne figée ne change jamais : même rang,
+  // même rôle, même charge, même visée — et elle reste figée. On suit la
+  // SÉRIE (son identifiant), pas sa position : une série ajoutée ou retirée
+  // plus haut décale les positions, jamais une ligne figée. Une série
+  // supprimée n'a plus de ligne : rien à comparer.
+  function verifierSuite(avant, plan, erreurs) {
+    ((avant && avant.exercices) || []).forEach(function (xa, i) {
+      var xp = ((plan && plan.exercices) || [])[i];
+      if (!xp || xp.slug !== xa.slug) return;
+      var parId = {};
+      (xp.lignes || []).forEach(function (l) { if (l.id) parId[l.id] = l; });
+      (xa.lignes || []).forEach(function (la) {
+        if (!la.figee || !la.id) return;
+        var lp = parId[la.id];
+        if (!lp) return;
+        var nom = 'I4 — exercice ' + xa.iExo + ' (' + xa.slug + '), série ' + la.id + ' : ';
+        if (!lp.figee) { erreurs.push(nom + 'figée avant, plus maintenant'); return; }
+        if (lp.rang !== la.rang) erreurs.push(nom + 'rang ' + la.rang + ' → ' + lp.rang);
+        if (lp.role !== la.role) erreurs.push(nom + 'rôle ' + la.role + ' → ' + lp.role);
+        if (!memeCharge(lp.charge, la.charge)) erreurs.push(nom + 'charge ' + la.charge + ' → ' + lp.charge);
+        if (nombre(lp.vise) !== nombre(la.vise)) erreurs.push(nom + 'visée ' + la.vise + ' → ' + lp.vise);
+      });
+    });
+  }
+
+  // `entrees` (facultatif) : I7 — les paris de la séance face aux lignes ;
+  // I12 — mêmes entrées, même plan, et les entrées ne sont pas modifiées par
+  // le calcul. `avant` (facultatif) : le plan précédent, pour I4.
+  function verifierPlan(plan, entrees, avant) {
     var erreurs = [];
-    ((plan && plan.exercices) || []).forEach(function (x) { verifierExercice(x, erreurs); });
+    var parisSeance = entrees && entrees.paris ? entrees.paris.filter(function (q) {
+      return q && q.fondement && (!plan || plan.seance === null || q.fondement.seance === plan.seance);
+    }) : null;
+    ((plan && plan.exercices) || []).forEach(function (x) { verifierExercice(x, erreurs, parisSeance); });
+    if (avant) verifierSuite(avant, plan, erreurs);
     if (entrees !== undefined) {
       var avant = JSON.stringify(entrees);
       var refait = planDeSeance(entrees);

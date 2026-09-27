@@ -135,23 +135,34 @@ describe('49-U1 — sans test à suivre, la proposition de R2 marche toujours', 
     ligne: { charge: 125, vise: 5 }, haut: { charge: 130, vise: 4, k: 1 }, fondement: {} },
     contexte: { cran: 127.5, haut: null }, libelles: { jaune: [], gris: 'g' } };
 
-  test('routine à 4 : 125 × 8 propose 127,5 sur la série 2 (une ligne, pas un test)', () => {
+  // 49-U5 (delta 49-13, §9.14) — AVANT : « routine à 4 : 125 × 8 propose
+  // 127,5 sur la série 2 ». Le test à 130 est prévu plus loin dans le bloc : la
+  // proposition prend SA charge (I14), une seule montée par bloc.
+  test('routine à 4 : 125 × 8 propose 130 sur la série 2 — la charge du test prévu en série 4', () => {
     const sim = simulateur('x', C, 4);
     sim.valider(0, 125, 8);
     const x = sim.exo();
-    expect(x.lignes[1]).toMatchObject({ role: 'coach', charge: 127.5, proposee: true });
+    expect(x.lignes[1]).toMatchObject({ role: 'coach', charge: 130, proposee: true });
     expect(x.lignes[3]).toMatchObject({ role: 'test', charge: 130 });
-    expect(esp(x.message.phrase)).toBe('125 × 8, 3 de plus que visé : 127,5 dès la série 2, vise 3 à 5 ?');
+    expect(esp(x.message.phrase)).toBe('125 × 8, 3 de plus que visé : 130 dès la série 2, vise 3 à 5 ?');
     expect(sim.verifier().ok).toBe(true);
   });
 
-  test('DISCRIMINANT — 127,5 tenu, le test à 130 encore à venir : « tu montes », pas « ton test a avancé » (I9)', () => {
+  // 49-U5 — AVANT : « 127,5 tenu, le test à 130 encore à venir : tu montes,
+  // pas ton test a avancé (I9) ». 127,5 n'est plus proposé : c'est un refus,
+  // le coach se tait. 130 tenu, lui, fait avancer le test d'une série (I9).
+  test('DISCRIMINANT — 127,5 ensuite est un refus (silence) ; 130 tenu : « ton test a avancé d’une série » (I9)', () => {
+    const refus = simulateur('x', C, 4);
+    refus.valider(0, 125, 8);
+    refus.valider(1, 127.5, 4);
+    expect(refus.exo().message).toBeNull();
+    expect(refus.verifier().ok).toBe(true);
     const sim = simulateur('x', C, 4);
     sim.valider(0, 125, 8);
-    sim.valider(1, 127.5, 4);
+    sim.valider(1, 130, 4);
     const x = sim.exo();
     expect(x.message).toMatchObject({ type: 'tenue' });
-    expect(esp(x.message.phrase)).toBe('127,5 × 4, dans ta zone : tu montes dès aujourd\'hui.');
+    expect(esp(x.message.phrase)).toBe('130 × 4, dans ta zone : ton test a avancé d\'une série.');
     expect(sim.verifier().ok).toBe(true);
   });
 
@@ -291,6 +302,11 @@ describe('49-U1 — plans générés : les invariants tiennent après chaque ges
     // fond, hors de ce commit) : elle est comptée à part.
     const constats = { tous: 0, montee: 0, remplace: 0, garde: 0, orchestre: 0, pasDePalier: 0 };
     const suiteSous = [];
+    // 49-U5 — I14 et la réaction en reprise n'éprouvent rien sans leurs cas :
+    // on compte les propositions suivies d'un test prévu, et celles d'une
+    // reprise (muette avant le 27/09).
+    const u5 = { avantTest: 0, reprise: 0 };
+    const vuU5 = {};
     consignes.forEach(({ id, obj, suiteDe }) => {
       FORMES.forEach((forme) => {
         SUITES.forEach((suite, iSuite) => {
@@ -313,6 +329,15 @@ describe('49-U1 — plans générés : les invariants tiennent après chaque ges
               if (k10.orchestre) constats.orchestre++;
               if (/^Pas de palier/.test(k10.verdict)) constats.pasDePalier++;
             }
+            const xU5 = sim.exo();
+            (xU5.lignes || []).forEach((l, i) => {
+              if (l.role !== 'coach' || !l.proposee) return;
+              const cle = id + '|' + forme.n + (forme.types ? 'W' : '') + '|' + iSuite + '|' + i;
+              if (vuU5[cle]) return;
+              vuU5[cle] = true;
+              if ((xU5.planInitial || []).some((q, t) => t > l.position && q && q.role === 'haut')) u5.avantTest++;
+              if (/^reprise/.test(xU5.consigne.etat)) u5.reprise++;
+            });
             const ls = sim.exo().lignes || [];
             ls.forEach((l, i) => {
               if (!l.fantome) return;
@@ -350,12 +375,14 @@ describe('49-U1 — plans générés : les invariants tiennent après chaque ges
     expect(sources.retours).toBeGreaterThan(10);
     expect(constats.tous).toBeGreaterThan(100);
     expect(constats.montee).toBeGreaterThan(10);
+    expect(u5.avantTest).toBeGreaterThan(10);
+    expect(u5.reprise).toBeGreaterThan(3);
     expect(constats.remplace).toBeGreaterThan(10);
     expect(constats.garde).toBeGreaterThan(10);
     // Ce que la PR rapporte : les constats, et les montées tenues dont la
     // prochaine séance proposerait moins.
     // eslint-disable-next-line no-console
-    console.log('49-U4 constats ' + JSON.stringify(constats) + ' · suite sous la montée : ' +
+    console.log('49-U5 propositions ' + JSON.stringify(u5) + ' · 49-U4 constats ' + JSON.stringify(constats) + ' · suite sous la montée : ' +
       suiteSous.length + '\n' + suiteSous.slice(0, 40).join('\n'));
   });
 });

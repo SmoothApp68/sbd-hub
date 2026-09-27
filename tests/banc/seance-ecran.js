@@ -91,7 +91,12 @@ const CATALOGUE = [
   // ⚠️ RÉSERVÉ AU CHANTIER 49-U4 : le décor du cas N3 (`consigne-48b7.json`),
   // À LA BARRE — le cran au-dessus de 125 est 127,5, sous le test à 130. C'est
   // ce qui permet une montée du coach ENTRE la ligne et le test.
-  { slug: 'front-squat', nom: 'Front Squat (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['quadriceps'], muscles_secondaires: [] }
+  { slug: 'front-squat', nom: 'Front Squat (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['quadriceps'], muscles_secondaires: [] },
+  // ⚠️ RÉSERVÉS AU CHANTIER 49-U5 : une reprise longue sur une machine à GROS
+  // CRAN (32 → 23, −28 %, le curl pupitre du 26/09), et une reprise courte à
+  // la barre. Leurs noms ne répondent à aucune des recherches faites ailleurs.
+  { slug: 'pupitre-machine', nom: 'Pupitre (Machine)', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['biceps'], muscles_secondaires: [] },
+  { slug: 'haussement-barre', nom: 'Haussement d’Épaules (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['trapezes'], muscles_secondaires: [] }
 ];
 
 // ⚠️ UNE ROUTINE PORTE MAINTENANT SES LIGNES (chantier 43). `routine_sets`
@@ -7181,12 +7186,13 @@ const SETS_IMPORTES = [
       !!k2.verdict && !/Pas de palier/.test(k2.verdict), nbC(k2));
     await abandonner();
 
-    // ── (3) SUIVIE À LA LETTRE, SANS AUCUNE CHARGE RÉPÉTÉE ───────────────
-    // Le décor du cas N3, à la barre : la ligne à 125, la montée du coach à
-    // 127,5 — un cran SOUS le test —, tenue dans la zone, puis le test à 130.
-    // Tout a suivi le plan, aucune charge ne se répète : c'est la séance où
-    // l'ancien constat, lu sur les séries brutes, disait « Pas de palier
-    // aujourd'hui » (le 26/09 sous l'ancienne règle).
+    // ── (3) LE CAS DE #327 : 125 × 8 AVANT UN TEST À 130 ─────────────────
+    // Le décor du cas N3, à la barre : la ligne à 125, le test à 130 en série
+    // 3, le cran connu 127,5. 49-U4 y montrait trois charges sans répétition
+    // (125, la montée du coach à 127,5, le test à 130) et une suite MUETTE.
+    // ⚠️ 49-U5 (delta 49-13, §9.14, I14) : le test est prévu plus loin, la
+    // proposition prend SA charge — 130 dès la série 2, une seule montée —, et
+    // 130 se répète : la suite est chiffrée.
     const tF = Date.now();
     const poserFS = (id, jours, lignes) => {
       const debut = ilYa(jours * 86400000, tF).toISOString();
@@ -7219,25 +7225,111 @@ const SETS_IMPORTES = [
     g = await grilleC();
     const d2 = nr(g[1].charge);
     const basZone = nr(g[1].reps);
-    ok('[C4] prémisse : le coach propose sur la série 2, un cran SOUS le test', g[1].proposee && d2 > d1 &&
-      d2 < nr(g[2].charge), nbC(g));
+    await invariantsC('série 1 à ' + d1 + ' × ' + (w1 + 3) + ', avant le test');
+    ok('[C5] DISCRIMINANT — la proposition est 130, la charge du test prévu, dès la série 2 (avant : 127,5)',
+      g[1].proposee && d2 === 130 && d2 === nr(g[2].charge), nbC(g));
     await saisirSerie(1, d2, basZone);
     await attendre(900);
+    await invariantsC('130 accepté et tenu en série 2');
     g = await grilleC();
     const d3 = nr(g[2].charge), w3 = nr(g[2].reps);
-    ok('[C4] prémisse : trois charges différentes, toutes prévues par la grille',
-      new Set([d1, d2, d3]).size === 3 && d3 > 0 && !g[2].proposee, nbC({ d1, d2, d3, g }));
+    ok('[C5] une seule montée : deux charges seulement, 125 puis 130', new Set([d1, d2, d3]).size === 2 && d3 === 130,
+      nbC({ d1, d2, d3, g }));
     await saisirSerie(2, d3, w3);
     await attendre(1500);
-    await invariantsC('suivie à la lettre, trois charges');
+    await invariantsC('suivie à la lettre, une seule montée');
     const k3 = await constatC();
-    ok('[C4] DISCRIMINANT — suivie à la lettre sans charge répétée : jamais « Pas de palier » — la montée est dite',
-      !!k3.verdict && !/Pas de palier/.test(k3.verdict) && /La montée du coach a tenu/.test(k3.verdict), nbC(k3));
-    ok('[C4] RAPPORTÉ — la suite de cette séance passe sous la montée (`consignePour` en silence)',
-      suitesSous.length >= 1, nbC(suitesSous));
+    ok('[C5] le constat ne dit pas « Pas de palier »', !!k3.verdict && !/Pas de palier/.test(k3.verdict), nbC(k3));
+    ok('[C5] DISCRIMINANT — le constat annonce une suite chiffrée (avant : aucune, la suite muette de #327)',
+      /^Prochaine séance/.test((k3.suite || '').replace(/[\u00a0\u202f]/g, ' ')) && /130/.test(k3.suite || ''), nbC(k3));
+    ok('[C5] plus aucune suite sous la montée dans cette section', suitesSous.length === 0, nbC(suitesSous));
     await abandonner();
     await aller('/saisie');
     ok('[C4] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
+  }
+
+  console.log('\n══ 7 quater. LA RÉACTION REVUE : LA REPRISE (49-U5) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE. (1) Une reprise longue (plus de 12
+  // semaines) sur une machine à GROS CRAN : le cran dessous (23) est à −28 %
+  // du palier (32) — l'ancienne consigne y reprenait, la nouvelle garde 32.
+  // (2) Une reprise courte, 3 reps de marge sur la série 1 : l'ancienne
+  // réaction se taisait, la nouvelle propose. Les charges sont LUES à l'écran.
+  {
+    const tR = Date.now();
+    const poser = (slug, titre) => (id, jours, lignes) => {
+      const debut = ilYa(jours * 86400000, tR).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: titre + ' — ' + id, debut,
+        fin: finDe(debut, tR).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      lignes.forEach(([kg, reps], i) => base.sets.push({
+        id: id + '-s' + (i + 1), session_id: id, user_id: 'u-banc', exercise_slug: slug,
+        charge_kg: kg, reps, duree_s: null, distance_m: null, type_serie: 'travail',
+        rang: i + 1, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null,
+        repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+    };
+    const poserCP = poser('pupitre-machine', 'Bras');
+    poserCP('cp-a', 130, [[23, 12], [23, 12], [23, 12]]);
+    poserCP('cp-b', 123, [[32, 12], [32, 12], [32, 12]]);
+    poserCP('cp-c', 116, [[32, 12], [32, 12], [32, 12]]);
+    poserCP('cp-d', 109, [[32, 12], [32, 12], [32, 12]]);
+    const poserHB = poser('haussement-barre', 'Dos');
+    poserHB('hb-a', 60, [[80, 12], [80, 12], [80, 12]]);
+    poserHB('hb-b', 53, [[80, 12], [80, 12], [80, 12]]);
+    poserHB('hb-c', 46, [[80, 12], [80, 12], [80, 12]]);
+    [['r-cp', 'CP ×3', 'pupitre-machine'], ['r-hb', 'HB ×3', 'haussement-barre']].forEach(([rid, nom, slug]) =>
+      ROUTINES.push({ id: rid, nom, note: null, archivee_a: null,
+        created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+        routine_exercises: [{ id: rid + '-e', routine_id: rid, exercise_slug: slug, rang: 0,
+          routine_sets: progr(3, 12), repos_cible_s: 90, groupe_superset: null, note: null }] }));
+
+    const nbR = (x) => JSON.stringify(x).replace(/[\u00a0\u202f]/g, ' ');
+    const nr = (v) => Number(String(v).replace(',', '.').split('-')[0]);
+    const grilleR = () => page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie')).map((l) => ({
+      proposee: l.classList.contains('proposee'),
+      charge: (l.querySelectorAll('input')[0] || {}).placeholder || '',
+      reps: (l.querySelectorAll('input')[1] || {}).placeholder || '' })));
+    const griseR = () => page.evaluate(() =>
+      ((document.querySelector('.legende-exo .consigne-dit') || {}).textContent || '').replace(/[\u00a0\u202f]/g, ' '));
+    const planR = () => page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      if (!d) return { consigne: null, erreurs: ['aucun plan calculé'] };
+      return { consigne: d.plan.exercices[0].consigne, erreurs: window.THPlan.verifierPlan(d.plan, d.entrees).erreurs };
+    });
+
+    // ── (1) REPRISE LONGUE, MACHINE À GROS CRAN ──────────────────────────
+    await aller('/saisie');
+    await demarrerRoutine('CP ×3');
+    await attendre(900);
+    let r = await planR();
+    ok('[R1] prémisse : reprise longue, palier 32', !!r.consigne && r.consigne.etat === 'reprise_longue' &&
+      r.consigne.palier === 32, nbR(r.consigne));
+    let g = await grilleR();
+    ok('[R1] DISCRIMINANT — la consigne garde le dernier palier : 32 sur les trois séries (avant : 23, −28 %)',
+      g.length === 3 && g.every((l) => nr(l.charge) === 32), nbR(g));
+    ok('[R1] …et le dit, sans « un cran sous »', (await griseR()) === 'On reprend à ton dernier palier, sans rep de plus.',
+      nbR(await griseR()));
+    ok('[R1] invariants du plan (le repli compris)', r.erreurs.length === 0, nbR(r.erreurs.slice(0, 3)));
+    await abandonner();
+
+    // ── (2) REPRISE COURTE, 3 REPS DE MARGE ─────────────────────────────
+    await aller('/saisie');
+    await demarrerRoutine('HB ×3');
+    await attendre(900);
+    r = await planR();
+    ok('[R2] prémisse : reprise courte, 80 × 12', !!r.consigne && r.consigne.etat === 'reprise_courte' &&
+      r.consigne.ligne && r.consigne.ligne.charge === 80, nbR(r.consigne));
+    g = await grilleR();
+    await saisirSerie(0, nr(g[0].charge), nr(g[0].reps) + 3);
+    await attendre(900);
+    g = await grilleR();
+    r = await planR();
+    ok('[R2] DISCRIMINANT — la réaction parle en reprise : une proposition au-dessus de 80 sur la série 2',
+      g[1].proposee && nr(g[1].charge) > 80, nbR(g));
+    ok('[R2] invariants du plan', r.erreurs.length === 0, nbR(r.erreurs.slice(0, 3)));
+    await abandonner();
+    await aller('/saisie');
+    ok('[R] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
 
   console.log('\n══ 8. NON-RÉGRESSION ══');

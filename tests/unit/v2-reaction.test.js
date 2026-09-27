@@ -83,6 +83,18 @@ const espaces = (t) => (t === null ? null : t.replace(/ /g, ' '));
 //     a avancé » ne se dit plus (§9.13 bis, I9).
 const REMPLACES_U2 = { R008: 1, R015: 1, R016: 1, R037: 1, R038: 1, R028: 1, R029: 1 };
 
+// ⚠️ 49-U5 (delta 49-13, 27/09/2026) — SIX AUTRES CAS ENCODENT UNE RÈGLE RETIRÉE
+// LE 27/09. Mêmes principes : le fichier n'est pas réécrit, leurs attendus sont
+// remplacés dans le bloc « 49-U5 » plus bas.
+//   · R028 à R032 — un test est prévu plus loin dans le bloc : la proposition
+//     prend SA charge, 55 (avant : 52,5, le cran du dessus ; MOTEUR §9.14, I14).
+//     R028 et R029 quittent donc le bloc 49-U1 ;
+//   · ⚠️ R055 — RAPPORTÉ, pas listé par le prompt : une reprise longue, 60 × 13
+//     pour un palier de 65. La réaction était muette en reprise ; elle propose
+//     maintenant 65 (§9.14, « on retrouve ton palier »). Le cas P005 du fichier
+//     de reprise (`cas-49u5-reprise.json`) porte exactement cette séance.
+const REMPLACES_U5 = { R028: 1, R029: 1, R030: 1, R031: 1, R032: 1, R055: 1 };
+
 describe('§9.14 — reactionPour, rejouée série après série sur le fichier de cas', () => {
   test('le fichier porte 55 cas de réaction, 17 de seconde charge, 6 de sauts', () => {
     expect(DONNEES.reaction.length).toBe(55);
@@ -90,7 +102,7 @@ describe('§9.14 — reactionPour, rejouée série après série sur le fichier 
     expect(DONNEES.sauts_de_montee.length).toBe(6);
   });
 
-  DONNEES.reaction.filter((c) => !REMPLACES_U2[c.id]).forEach((c) => {
+  DONNEES.reaction.filter((c) => !REMPLACES_U2[c.id] && !REMPLACES_U5[c.id]).forEach((c) => {
     test(c.id + ' — ' + c.origine, () => {
       const consigne = consigneDuCas(c);
       const faites = c.faites.map(serie);
@@ -113,15 +125,24 @@ describe('§9.14 — reactionPour, rejouée série après série sur le fichier 
 });
 
 describe('§9.14 — la réaction se tait par règle, pas par accident', () => {
-  // DISCRIMINANT — une consigne de reprise PORTE `n`, une ligne et une zone
-  // (`consignePour` les rend toujours) : seul l'état doit la faire taire.
-  test('reprise courte, 3 reps de marge au palier : silence', () => {
+  // 49-U5 (delta 49-13, 27/09/2026) — AVANT : « reprise courte, 3 reps de
+  // marge au palier : silence ». La réaction reste active pendant une reprise.
+  test('reprise courte, 3 reps de marge au palier : le coach propose le cran du dessus', () => {
     const consigne = { etat: 'reprise_courte', zone: 'hypertrophie', palier: 50, n: 3,
       ligne: { charge: 50, vise: 9 }, haut: null };
     const r = M.reactionPour(consigne, [{ charge_kg: 50, reps: 12 }], { cran: 52.5, haut: null });
-    expect(r.message).toBeNull();
-    expect(r.revision).toBe(0);
-    expect(r.plan[1].source).toBe('consigne');
+    expect(r.message).toMatchObject({ type: 'propose', rang: 1, charges: [52.5] });
+    expect(r.revision).toBe(1);
+    expect([r.plan[1].source, r.plan[1].charge]).toEqual(['coach', 52.5]);
+  });
+
+  // DISCRIMINANT — la règle de bord et le silence se taisent toujours.
+  test('silence et règle de bord : toujours muets', () => {
+    ['silence', 'bord'].forEach((etat) => {
+      const consigne = { etat, zone: 'hypertrophie', palier: 50, n: 3, ligne: { charge: 50, vise: 9 }, haut: null };
+      const r = M.reactionPour(consigne, [{ charge_kg: 50, reps: 12 }], { cran: 52.5, haut: null });
+      expect([r.message, r.revision]).toEqual([null, 0]);
+    });
   });
 
   test('sans consigne (Entretenir, Édition) : un plan vide, rien à dire', () => {
@@ -179,22 +200,57 @@ describe('§9.14 (49-U1) — les cas du fichier dont la règle a changé le 26/0
     });
   });
 
-  // Avant : « …dans ta zone : ton test a avancé d'une série. »
-  [['R028', '52,5 × 4, dans ta zone : tu montes dès aujourd\'hui.'],
-   ['R029', '52,5 × 3, dans ta zone : tu montes dès aujourd\'hui.']].forEach(([id, phrase]) => {
-    test(id + ' — 52,5 tenu, le test à 55 encore à venir : pas « ton test a avancé »', () => {
-      const r = rejouer(id, 2);
-      expect(r.r.message).toMatchObject({ type: 'tenue', avance: false });
-      expect(r.phrase).toBe(phrase);
-      // Le reste du cas ne bouge pas : le plan et la révision du fichier.
-      const c = cas(id);
-      expect(sources(r.r)).toBe(c.attendu[2].plan.map((p) => p.source + ':' + p.charge).join(' '));
-      expect(r.r.revision).toBe(c.attendu[2].revision);
-    });
-  });
+  // R028 et R029 étaient ici (« 52,5 tenu, le test à 55 encore à venir : pas
+  // ton test a avancé ») : depuis le 27/09, 52,5 n'est plus proposé — bloc 49-U5.
 
   test('DISCRIMINANT — R045 : la proposition et le test au « cran du dessus », le test a bien avancé', () => {
     // Témoin de la règle : sans chiffre des deux côtés, c'est le même cran.
     expect(rejouer('R045', 2).r.message).toMatchObject({ type: 'tenue', avance: true });
+  });
+});
+
+// ── 49-U5 — LES CAS DONT LA RÈGLE A CHANGÉ LE 27/09/2026 (delta 49-13) ──────
+describe('§9.14 (49-U5) — un test prévu plus loin : la proposition prend sa charge', () => {
+  const cas = (id) => DONNEES.reaction.filter((c) => c.id === id)[0];
+  const rejouer = (id, k) => {
+    const c = cas(id);
+    const r = M.reactionPour(consigneDuCas(c), c.faites.map(serie).slice(0, k), c.contexte);
+    return { r, phrase: espaces(M.phraseReaction(r.message, c.consigne.zone && c.consigne.zone.nom)) };
+  };
+  const sources = (r) => r.plan.map((p) => p.source + ':' + p.charge).join(' ');
+  const PLAN = 'consigne:50 coach:55 consigne:55 consigne:55';
+
+  // Avant : « 50 × 8, 3 de plus que visé : 52,5 dès la série 2, vise 3 à 5 ? »,
+  // plan `consigne:50 coach:52.5 consigne:55 consigne:55`. À 5 de marge (R029),
+  // « 52,5, ou 55 si tu te sens bien » : la seconde charge ne dépasse plus la
+  // première, une seule charge.
+  [['R028', '50 × 8, 3 de plus que visé : 55 dès la série 2, vise 3 à 5 ?'],
+   ['R029', '50 × 10, 5 de plus que visé : 55 dès la série 2, vise 3 à 5 ?'],
+   ['R030', '50 × 8, 3 de plus que visé : 55 dès la série 2, vise 3 à 5 ?'],
+   ['R031', '50 × 8, 3 de plus que visé : 55 dès la série 2, vise 3 à 5 ?'],
+   ['R032', '50 × 8, 3 de plus que visé : 55 dès la série 2, vise 3 à 5 ?']].forEach(([id, phrase]) => {
+    test(id + ' — la proposition est à 55, la charge du test prévu ; 52,5 ou 50 ensuite est un refus', () => {
+      const un = rejouer(id, 1);
+      expect(un.r.message).toMatchObject({ type: 'propose', rang: 1, charges: [55], source: null });
+      expect(un.phrase).toBe(phrase);
+      expect(sources(un.r)).toBe(PLAN);
+      expect([un.r.revision, un.r.attente]).toEqual([1, { rang: 1, charges: [55] }]);
+      // La série 2 du fichier est faite à 52,5 (ou 50 pour R030) : sous 55,
+      // c'est un refus — le coach se tait jusqu'au bout du bloc, le plan reste.
+      for (let k = 2; k <= 4; k++) {
+        const r = rejouer(id, k).r;
+        expect([r.message, r.attente, r.revision, sources(r)]).toEqual([null, null, 1, PLAN]);
+      }
+    });
+  });
+
+  test('⚠️ RAPPORTÉ — R055 : la reprise longue n\'est plus muette, la proposition ramène au palier', () => {
+    const un = rejouer('R055', 1);
+    expect(un.r.message).toMatchObject({ type: 'propose', rang: 1, charges: [65], retrouve: true });
+    expect(un.phrase).toBe('60 × 13, 3 de plus que visé : on retrouve ton palier, 65 dès la série 2, vise 6 à 8 ?');
+    expect(sources(un.r)).toBe('consigne:60 coach:65 consigne:60');
+    // 60 × 11 ensuite : sous 65, un refus.
+    const deux = rejouer('R055', 2).r;
+    expect([deux.message, deux.attente, sources(deux)]).toEqual([null, null, 'consigne:60 coach:65 consigne:60']);
   });
 });

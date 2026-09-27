@@ -1006,7 +1006,10 @@
     // cran dessous. Rien ici ne dit la durée de l'absence (CADRAGE §3.1 bis).
     var reprise = repriseDe(vues, avant);
     if (reprise === REPRISE_COURTE) return rendre('reprise_courte', ligneDe(P, niv), null);
-    if (reprise === REPRISE_LONGUE) return rendre('reprise_longue', ligneDe(voisine(P, -1), niv), null);
+    // §9.9 (delta 49-13, 27/09/2026) — le repli ne descend jamais de plus de
+    // 10 % : `repliDeReprise` est la SEULE règle, que le plan réapplique à
+    // toute consigne qu'il reçoit (`consigneFigee`).
+    if (reprise === REPRISE_LONGUE) return rendre('reprise_longue', ligneDe(repliDeReprise(P, voisine(P, -1)), niv), null);
 
     // 4. La règle de bord : sous 3 reps d'habitude, il n'y a plus de zone. On
     // monte la charge AUX MÊMES REPS — la variabilité journalière des maximaux
@@ -1182,12 +1185,39 @@
   var SEUIL_SECONDE_CHARGE = 5;
   // §9.14 — « il faut au moins 5 montées antérieures » pour parler d'habitude.
   var MIN_MONTEES_HABITUDE = 5;
-  // Les états où la réaction se tait par règle : rien à tenter (silence), la
-  // reprise, qui ne demande volontairement pas de rep de plus (§9.9), et la
-  // règle de bord, sans zone (§9.1.2).
+  // Les états où la réaction se tait par règle : rien à tenter (silence) et la
+  // règle de bord, sans zone (§9.1.2). ⚠️ PLUS LA REPRISE (delta 49-13,
+  // 27/09/2026) : sa consigne reste sans rep de plus, mais une série faite à sa
+  // charge avec 3 reps de marge montre que la prudence n'était pas nécessaire,
+  // et le coach le dit (mesure R1 : retour à 98 % en médiane).
   var ETATS_MUETS_REACTION = {
-    silence: true, reprise_courte: true, reprise_longue: true, bord: true
+    silence: true, bord: true
   };
+
+  // §9.9 (delta 49-13, 27/09/2026) — LE REPLI DE LA REPRISE LONGUE, PLAFONNÉ.
+  // « Un cran sous le dernier palier », jamais plus de 10 % sous lui : le cran
+  // d'une machine peut valoir 15 à 30 % de la charge (curl pupitre repris à 23
+  // pour un palier de 32, −28 %), quand ce repli veut couvrir une perte de 6
+  // à 9 %. Au-delà, la consigne garde le dernier palier, sans rep de plus. Un
+  // cran sans chiffre (`null`) reste tel quel : on ne sait pas ce qu'il vaut.
+  var REPLI_MAX_REPRISE = 0.10;
+  function repliDeReprise(palier, cranDessous) {
+    var P = nombre(palier), c = nombre(cranDessous);
+    if (P === null || c === null) return cranDessous;
+    return P - c > P * REPLI_MAX_REPRISE + 1e-9 ? P : cranDessous;
+  }
+
+  // L'ÉTAPE DE LA CONSIGNE FIGÉE (§9.13 bis) : le plan la passe sur toute
+  // consigne qu'il reçoit — une consigne calculée avant ce jour et gardée pour
+  // la séance, ou celle d'un fichier de cas. Pure, et sans effet sur une
+  // consigne déjà juste : `consignePour` pose la même règle à la source.
+  function consigneFigee(consigne) {
+    var c = consigne || null;
+    if (c === null || c.etat !== 'reprise_longue' || !c.ligne) return c;
+    var l = repliDeReprise(c.palier, c.ligne.charge);
+    if (l === c.ligne.charge) return c;
+    return Object.assign({}, c, { ligne: Object.assign({}, c.ligne, { charge: l }) });
+  }
 
   function ligneDePlan(charge, vise, zone, source) {
     return { charge: charge, vise: vise, zone: zone, source: source };
@@ -1400,6 +1430,32 @@
                     charges: charges, marge: marge, source: sourceHaut };
         continue;
       }
+      // §9.14 (delta 49-13, 27/09/2026, #327) — UN TEST EST PRÉVU PLUS LOIN
+      // DANS LE BLOC : la proposition prend SA charge, le test avance d'une
+      // série. Une seule montée par bloc — le cran du dessus avant un test plus
+      // lourd en ajoutait une seconde, plus petite (125, 127,5, puis 130 : rien
+      // ne se répétait, la séance suivante ne proposait plus aucune charge).
+      // ⚠️ LE « PLUS LOIN » SE LIT SUR LE RÔLE PRÉVU (`roleInitial`), jamais
+      // sur le rôle courant : une ligne de test déjà figée, ou revenue à la
+      // charge de travail après un « pas encore », reste un test prévu — sinon
+      // la décision changerait après coup, et une ligne figée bougerait (I4).
+      // Pas de seconde charge : rien au-dessus d'un test (I14).
+      var testPrevu = false;
+      for (var t3 = i + 1; t3 < n; t3++) {
+        if (roleInitial[t3] === 'haut') { testPrevu = true; break; }
+      }
+      var retrouve = false;
+      if (testPrevu && c.haut) {
+        charges = [nombre(c.haut.charge)];
+        sourceHaut = null;
+      } else if (c.etat === 'reprise_longue' && P < nombre(c.palier) && !memeCharge(P, nombre(c.palier))) {
+        // §9.14 (delta 49-13) — EN REPRISE LONGUE SOUS LE DERNIER PALIER, la
+        // proposition ramène d'abord au palier (« on retrouve ton palier ») ;
+        // à partir du palier, la proposition habituelle, le cran du dessus.
+        charges = [nombre(c.palier)];
+        sourceHaut = null;
+        retrouve = true;
+      }
       // I3 (49-U1) — une proposition n'est jamais plus basse que la charge
       // prévue de la ligne qu'elle remplace.
       if (suivante && charges[0] !== null && nombre(suivante.charge) !== null &&
@@ -1409,6 +1465,7 @@
       attente = { rang: i + 1, charges: charges.slice() };
       message = { type: 'propose', rang: i + 1, charge: charge, reps: reps,
                   charges: charges, marge: marge, source: sourceHaut };
+      if (retrouve) message.retrouve = true;
     }
 
     sortie.revision = revision;
@@ -1639,6 +1696,8 @@
           return v === null ? 'le cran au-dessus' : nombreReaction(v);
         });
         var quoi = ch.length > 1 ? ch[0] + ', ou ' + ch[1] + ' si tu te sens bien' : ch[0];
+        // §9.14 (delta 49-13) — la reprise longue qui ramène au palier le dit.
+        if (m.retrouve) quoi = 'on retrouve ton palier, ' + quoi;
         return fait + ', ' + m.marge + ' de plus que visé' + DEUX_POINTS + quoi +
           ' dès la série ' + (m.rang + 1) + ', vise ' + z.bas + ' à ' + z.haut + ' ?';
       }
@@ -1931,6 +1990,11 @@
       // descend, la consigne dit 122,5. Et RIEN sur la durée de l'absence
       // (CADRAGE §3.1 bis).
       case 'reprise_longue':
+        // §9.9 (delta 49-13) — le cran d'en dessous descendait de plus de
+        // 10 % : la consigne garde le palier, et ne dit plus « un cran sous ».
+        if (c.ligne && memeCharge(nombre(c.ligne.charge), nombre(c.palier))) {
+          return 'On reprend à ton dernier palier, sans rep de plus.';
+        }
         return 'On reprend un cran sous ton dernier palier, ' + enKg(c.palier) +
                '. Le test te ramènera à ' + nombreFr(c.palier) + '.';
 
@@ -2203,6 +2267,10 @@
                'La progression repart à la séance suivante.';
 
       case 'reprise_longue':
+        if (c.ligne && memeCharge(nombre(c.ligne.charge), nombre(c.palier))) {
+          return 'On reprend à ton dernier palier, sans rep de plus' + DEUX_POINTS +
+                 'le cran d\'en dessous descendait de plus de 10' + INSECABLE + '%.';
+        }
         return 'On reprend un cran sous ton dernier palier, ' + enKg(c.palier) +
                ', sans rep de plus. Le test te ramènera à ' + nombreFr(c.palier) + '.';
 
@@ -2777,6 +2845,8 @@
     repriseDe: repriseDe,
     consignePour: consignePour,
     reactionPour: reactionPour,
+    consigneFigee: consigneFigee,
+    REPLI_MAX_REPRISE: REPLI_MAX_REPRISE,
     secondeCharge: secondeCharge,
     sautsDeMontee: sautsDeMontee,
     contexteReaction: contexteReaction,

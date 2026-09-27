@@ -6990,6 +6990,27 @@ const SETS_IMPORTES = [
       groupe_superset: null, validee_a: debutP, rpe: null, ressenti: null, repos_s: null, note: null,
       source: 'app', created_at: debutP, modifie_a: null }));
 
+    // ⚠️ LA SYNCHRONISATION AVANT LA FERMETURE, comme sur l'appareil : la
+    // séance arrivée est dans le CACHE quand l'app se rouvre. Sans ce pas, le
+    // premier rendu recalculait la consigne sur l'ancien cache — le même
+    // historique — et une consigne jamais relue passait inaperçue (mutation
+    // (b) de 49-U3, survivante avant ce correctif).
+    await page.click('.onglet[data-vue="racine"]');
+    await attendre(900);
+    await page.click('#btn-rafraichir');
+    await attendre(2500);
+    await page.click('.onglet[data-vue="saisie"]');
+    await attendre(900);
+    ok('[P3] prémisse : la séance arrivée est dans le cache AVANT la fermeture',
+      await page.evaluate(() => new Promise((res) => {
+        const r = indexedDB.open('trainhub-v2');
+        r.onsuccess = () => {
+          const q = r.result.transaction(['seances'], 'readonly').objectStore('seances').get('le-d');
+          q.onsuccess = () => { r.result.close(); res(!!q.result); };
+          q.onerror = () => { r.result.close(); res(false); };
+        };
+      })), 'le-d');
+
     // Le RECHARGEMENT COMPLET : l'app repart de zéro, synchronise, et relit.
     await page.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {});
     await attendre(3200);

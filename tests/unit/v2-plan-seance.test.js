@@ -24,7 +24,7 @@ const esp = (x) => (x === null || x === undefined ? x : String(x).replace(/ /g,
 const AVANT = '2026-09-26T10:00:00+00:00';
 
 // ── Une séance simulée, et ses paris écrits comme l'app les écrit ──────────
-function simulateur(slug, consigneObj, series, types) {
+function simulateur(slug, consigneObj, series, types, suiteDe) {
   let n = 0;
   const id = () => slug + '-s' + (++n);
   let se = S.creer({ id: 'S', userId: 'u', idSerie: id });
@@ -32,8 +32,15 @@ function simulateur(slug, consigneObj, series, types) {
   (types || []).forEach((t, i) => { if (t !== 'travail') se = S.changerType(se, 0, i, t); });
   const paris = [];
   const api = {
-    entrees: () => ({ seance: { id: 'S', debut: AVANT, edition: false, exercices: se.exercices },
-      consignes: { [slug]: consigneObj }, paris: paris.slice() }),
+    // 49-U4 — la suite (la consigne de la prochaine séance), fournie comme
+    // l'app la fournit : quand toutes les séries de travail sont faites.
+    entrees: () => {
+      const travail = se.exercices[0].series.filter((x) => S.typeDe(x) === 'travail');
+      const fini = travail.length && travail.every((x) => S.partEnBase(x));
+      return { seance: { id: 'S', debut: AVANT, edition: false, exercices: se.exercices },
+        consignes: { [slug]: consigneObj }, paris: paris.slice(),
+        suites: suiteDe && fini ? { [slug]: suiteDe(travail) } : {} };
+    },
     plan: () => T.planDeSeance(api.entrees()),
     exo: () => api.plan().exercices[0],
     // 49-U3 — I4 : chaque plan se compare au précédent (une ligne figée ne
@@ -242,9 +249,21 @@ describe('49-U1 — verifierPlan voit chaque violation (I1, I2, I3, I6, I9, I12)
 // ── DES PLANS GÉNÉRÉS ───────────────────────────────────────────────────────
 describe('49-U1 — plans générés : les invariants tiennent après chaque geste', () => {
   const CAS = require('./fixtures/consigne-48b7.json');
+  // 49-U4 — la suite de chaque cas : `consignePour` sur l'historique du cas
+  // augmenté de la séance du jour, passée par le même pont que l'app
+  // (`contratDe`), et le cran au-dessus de son palier.
+  const APRES = '2026-09-26T12:00:00+00:00';
   const consignes = CAS.map((c) => {
-    const k = M.consignePour(c.seances, c.avant, { reglage: c.reglage, equipement: c.equipement, correction: c.correction });
-    return { id: c.id, obj: { consigne: k, libelles: M.libellesConsigne(k),
+    const opts = { reglage: c.reglage, equipement: c.equipement, correction: c.correction };
+    const k = M.consignePour(c.seances, c.avant, opts);
+    const suiteDe = (faites) => {
+      const tous = c.seances.concat(M.contratDe([{ seance: { debut: AVANT }, series: faites }], null, 'charge_reps'));
+      const apres = M.consignePour(tous, APRES, opts);
+      const P = apres.palier;
+      return { consigne: apres,
+        cranSuivant: P === null || P === undefined ? null : M.chargeVoisine(tous, APRES, P, c.equipement, 1) };
+    };
+    return { id: c.id, suiteDe, obj: { consigne: k, libelles: M.libellesConsigne(k),
       contexte: M.contexteReaction(c.seances, c.avant, k, c.equipement, null) } };
   });
   // Les gestes : ce que la ligne affiche, +3, +5, plus léger, plus lourd ; et
@@ -266,14 +285,34 @@ describe('49-U1 — plans générés : les invariants tiennent après chaque ges
     // 49-U2 — I11 n'éprouve rien si aucun plan ne porte les deux sources : on
     // compte les fantômes « dernière série » et les retours au plan qui suivent.
     const sources = { plan: 0, derniere: 0, retours: 0 };
-    consignes.forEach(({ id, obj }) => {
+    // 49-U4 — I10 n'éprouve rien sans constats : on compte ceux qui disent une
+    // montée tenue et ceux d'une séance menée par le coach. La partie « suite »
+    // d'I10 (b) se RAPPORTE, elle ne fait pas échouer ce test (décision de
+    // fond, hors de ce commit) : elle est comptée à part.
+    const constats = { tous: 0, montee: 0, remplace: 0, garde: 0, orchestre: 0, pasDePalier: 0 };
+    const suiteSous = [];
+    consignes.forEach(({ id, obj, suiteDe }) => {
       FORMES.forEach((forme) => {
         SUITES.forEach((suite, iSuite) => {
-          const sim = simulateur('x', obj, forme.n, forme.types);
+          const sim = simulateur('x', obj, forme.n, forme.types, suiteDe);
           let avant = [];
           const verifier = (quand) => {
             plans++;
-            const v = sim.verifier();
+            const v0 = sim.verifier();
+            const horsSuite = v0.erreurs.filter((e) => e.indexOf('I10 suite') !== 0);
+            v0.erreurs.filter((e) => e.indexOf('I10 suite') === 0).forEach((e) =>
+              suiteSous.push(id + ' · ' + forme.n + (forme.types ? 'W' : '') + ' · suite ' + iSuite + ' : ' + e));
+            const v = { ok: horsSuite.length === 0, erreurs: horsSuite };
+            const k10 = sim.exo().constat;
+            if (k10) {
+              constats.tous++;
+              if (k10.montee) constats.montee++;
+              // La montée ne remplace que le verdict qui la contredisait ; les
+              // autres verdicts restent tels qu'ils étaient (décidé le 27/09).
+              if (k10.montee) constats[/^La montée du coach a tenu/.test(k10.verdict) ? 'remplace' : 'garde']++;
+              if (k10.orchestre) constats.orchestre++;
+              if (/^Pas de palier/.test(k10.verdict)) constats.pasDePalier++;
+            }
             const ls = sim.exo().lignes || [];
             ls.forEach((l, i) => {
               if (!l.fantome) return;
@@ -309,5 +348,14 @@ describe('49-U1 — plans générés : les invariants tiennent après chaque ges
     expect(plans).toBeGreaterThan(3000);
     expect(sources.derniere).toBeGreaterThan(100);
     expect(sources.retours).toBeGreaterThan(10);
+    expect(constats.tous).toBeGreaterThan(100);
+    expect(constats.montee).toBeGreaterThan(10);
+    expect(constats.remplace).toBeGreaterThan(10);
+    expect(constats.garde).toBeGreaterThan(10);
+    // Ce que la PR rapporte : les constats, et les montées tenues dont la
+    // prochaine séance proposerait moins.
+    // eslint-disable-next-line no-console
+    console.log('49-U4 constats ' + JSON.stringify(constats) + ' · suite sous la montée : ' +
+      suiteSous.length + '\n' + suiteSous.slice(0, 40).join('\n'));
   });
 });

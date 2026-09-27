@@ -83,7 +83,15 @@ const CATALOGUE = [
   // simulateur (ligne 50 × 5, deux tests à 55 × 4, un cran à 52,5). Aucun autre
   // exercice du banc ne peut le porter sans fausser la section qui l'utilise.
   // Son nom ne répond à aucune des recherches faites ailleurs.
-  { slug: 'leg-extension', nom: 'Leg Extension (Machine)', mesure: 'charge_reps', charge: 'externe', muscles_primaires: ['quadriceps'], muscles_secondaires: [] }
+  { slug: 'leg-extension', nom: 'Leg Extension (Machine)', mesure: 'charge_reps', charge: 'externe', muscles_primaires: ['quadriceps'], muscles_secondaires: [] },
+  // ⚠️ RÉSERVÉ AU CHANTIER 49-U4 : une montée du coach HORS ZONE LOURD, pour
+  // que la propagation joue (en Lourd, la montée ne se propage pas, §9.7).
+  // Son nom ne répond à aucune des recherches faites ailleurs.
+  { slug: 'elevations-laterales', nom: 'Élévations Latérales (Machine)', mesure: 'charge_reps', charge: 'externe', muscles_primaires: ['epaules'], muscles_secondaires: [] },
+  // ⚠️ RÉSERVÉ AU CHANTIER 49-U4 : le décor du cas N3 (`consigne-48b7.json`),
+  // À LA BARRE — le cran au-dessus de 125 est 127,5, sous le test à 130. C'est
+  // ce qui permet une montée du coach ENTRE la ligne et le test.
+  { slug: 'front-squat', nom: 'Front Squat (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['quadriceps'], muscles_secondaires: [] }
 ];
 
 // ⚠️ UNE ROUTINE PORTE MAINTENANT SES LIGNES (chantier 43). `routine_sets`
@@ -7062,6 +7070,174 @@ const SETS_IMPORTES = [
     await abandonner();
     await aller('/saisie');
     ok('[P3] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
+  }
+
+  console.log('\n══ 7 tertricies. LE CONSTAT DE FIN DE BLOC LIT LE PLAN (I10 — 49-U4) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE. (1) Une montée du coach TENUE jusqu'à la
+  // fin du bloc, hors zone Lourd : la proposition se propage à la série
+  // suivante, la séance du jour a deux charges — l'ancien constat, lu sur les
+  // séries brutes, ne savait pas qu'une montée avait été proposée. (2) Une
+  // séance suivie à la lettre sur une ligne ET un test à une autre charge :
+  // aucune charge répétée, et l'ancien constat disait « Pas de palier
+  // aujourd'hui ». Les charges sont LUES à l'écran, jamais supposées.
+  {
+    const tE = Date.now();
+    const poserEL = (id, jours, lignes) => {
+      const debut = ilYa(jours * 86400000, tE).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'Épaules — ' + id, debut,
+        fin: finDe(debut, tE).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      lignes.forEach(([kg, reps], i) => base.sets.push({
+        id: id + '-s' + (i + 1), session_id: id, user_id: 'u-banc', exercise_slug: 'elevations-laterales',
+        charge_kg: kg, reps, duree_s: null, distance_m: null, type_serie: 'travail',
+        rang: i + 1, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null,
+        repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+    };
+    poserEL('el-z', 35, [[52.5, 7], [52.5, 7], [52.5, 7]]);
+    poserEL('el-a', 21, [[50, 9], [50, 9], [50, 9]]);
+    poserEL('el-b', 14, [[50, 9], [50, 9], [50, 9]]);
+    poserEL('el-c', 7, [[50, 9], [50, 9], [50, 9]]);
+    ROUTINES.push({ id: 'r-el', nom: 'EL ×3', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-el-e', routine_id: 'r-el', exercise_slug: 'elevations-laterales', rang: 0,
+        routine_sets: progr(3, 9), repos_cible_s: 90, groupe_superset: null, note: null }] });
+
+    const nbC = (x) => JSON.stringify(x).replace(/[  ]/g, ' ');
+    const nr = (v) => Number(String(v).replace(',', '.').split('-')[0]);
+    const grilleC = () => page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie')).map((l) => ({
+      proposee: l.classList.contains('proposee'),
+      charge: (l.querySelectorAll('input')[0] || {}).placeholder || '',
+      reps: (l.querySelectorAll('input')[1] || {}).placeholder || '' })));
+    const constatC = () => page.evaluate(() => ({
+      verdict: (document.querySelector('.legende-exo .constat') || {}).textContent || null,
+      suite: (document.querySelector('.legende-exo .constat-suite') || {}).textContent || null }));
+    // La partie « suite » d'I10 (b) — la prochaine séance proposerait moins
+    // que la montée tenue — se RAPPORTE (décision de fond, hors de ce
+    // commit) : comptée à part, elle ne fait pas échouer l'invariant.
+    const suitesSous = [];
+    const invariantsC = async (geste) => {
+      const v = await page.evaluate(() => {
+        const d = window.THPlan && window.THPlan.dernier;
+        if (!d) return { ok: false, erreurs: ['aucun plan calculé'] };
+        return window.THPlan.verifierPlan(d.plan, d.entrees);
+      });
+      const horsSuite = v.erreurs.filter((e) => e.indexOf('I10 suite') !== 0);
+      v.erreurs.filter((e) => e.indexOf('I10 suite') === 0).forEach((e) => suitesSous.push(geste + ' : ' + e));
+      ok('[C4] invariants du plan après « ' + geste + ' »', horsSuite.length === 0,
+        horsSuite.length === 0 ? 'I1 … I12, I10 compris' : nbC(horsSuite.slice(0, 3)));
+    };
+
+    // ── (1) LA MONTÉE DU COACH, TENUE JUSQU'À LA FIN DU BLOC ─────────────
+    await aller('/saisie');
+    await demarrerRoutine('EL ×3');
+    await attendre(800);
+    const zoneC = await page.evaluate(() => {
+      const d = window.THPlan.dernier;
+      return d && d.plan.exercices[0].consigne ? d.plan.exercices[0].consigne.zone : null;
+    });
+    ok('[C4] prémisse : hors zone Lourd', !!zoneC && zoneC !== 'lourd', String(zoneC));
+    let g = await grilleC();
+    const c1 = nr(g[0].charge), v1 = nr(g[0].reps);
+    await saisirSerie(0, c1, v1 + 3);
+    await attendre(900);
+    await invariantsC('série 1 à ' + c1 + ' × ' + (v1 + 3));
+    g = await grilleC();
+    ok('[C4] prémisse : 3 reps de plus → le coach propose sur la série 2', g[1].proposee && nr(g[1].charge) > c1, nbC(g));
+    const cm = nr(g[1].charge);
+    const zoneBas = nr(g[1].reps);          // la fourchette « bas-haut » des reps à taper
+    await saisirSerie(1, cm, zoneBas + 1);
+    await attendre(900);
+    await invariantsC('montée acceptée et tenue à ' + cm);
+    g = await grilleC();
+    ok('[C4] prémisse : la montée tenue se propage à la série 3 (hors Lourd)', nr(g[2].charge) === cm, nbC(g));
+    ok('[C4] aucun constat avant la dernière ligne validée (I10 a)', (await constatC()).verdict === null,
+      nbC(await constatC()));
+    await saisirSerie(2, cm, zoneBas + 1);
+    await attendre(1500);
+    await invariantsC('fin du bloc');
+    const k1 = await constatC();
+    const cmFr = String(cm).replace('.', ',');
+    ok('[C4] DISCRIMINANT — le constat dit la montée du coach tenue',
+      /La montée du coach a tenu/.test(k1.verdict || '') && (k1.verdict || '').indexOf(cmFr) >= 0, nbC(k1));
+    ok('[C4] …et la suite propose cette charge', (k1.suite || '').indexOf(cmFr) >= 0, nbC(k1));
+    await abandonner();
+
+    // ── (2) UNE SÉANCE SUIVIE À LA LETTRE : UNE LIGNE, PUIS UN TEST ──────
+    await aller('/saisie');
+    await demarrerRoutine('Terre ×2');
+    await attendre(900);
+    g = await grilleC();
+    const t1 = nr(g[0].charge), t2 = nr(g[1].charge);
+    ok('[C4] prémisse : une ligne puis un test à une AUTRE charge (aucune charge répétée)', t1 > 0 && t2 > t1, nbC(g));
+    await saisirSerie(0, t1, nr(g[0].reps));
+    await attendre(900);
+    g = await grilleC();
+    await saisirSerie(1, nr(g[1].charge) || t2, nr(g[1].reps));
+    await attendre(1500);
+    await invariantsC('séance suivie à la lettre');
+    const k2 = await constatC();
+    ok('[C4] suivie à la lettre (une ligne, un test) : pas de « Pas de palier »',
+      !!k2.verdict && !/Pas de palier/.test(k2.verdict), nbC(k2));
+    await abandonner();
+
+    // ── (3) SUIVIE À LA LETTRE, SANS AUCUNE CHARGE RÉPÉTÉE ───────────────
+    // Le décor du cas N3, à la barre : la ligne à 125, la montée du coach à
+    // 127,5 — un cran SOUS le test —, tenue dans la zone, puis le test à 130.
+    // Tout a suivi le plan, aucune charge ne se répète : c'est la séance où
+    // l'ancien constat, lu sur les séries brutes, disait « Pas de palier
+    // aujourd'hui » (le 26/09 sous l'ancienne règle).
+    const tF = Date.now();
+    const poserFS = (id, jours, lignes) => {
+      const debut = ilYa(jours * 86400000, tF).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'Jambes — ' + id, debut,
+        fin: finDe(debut, tF).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      lignes.forEach(([kg, reps], i) => base.sets.push({
+        id: id + '-s' + (i + 1), session_id: id, user_id: 'u-banc', exercise_slug: 'front-squat',
+        charge_kg: kg, reps, duree_s: null, distance_m: null, type_serie: 'travail',
+        rang: i + 1, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null,
+        repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+    };
+    poserFS('fs-a', 70, [[115, 5], [115, 5], [115, 5]]);
+    poserFS('fs-b', 63, [[117.5, 5], [117.5, 5], [117.5, 5]]);
+    poserFS('fs-c', 56, [[120, 5], [120, 5], [120, 5]]);
+    poserFS('fs-d', 49, [[122.5, 5], [122.5, 5], [122.5, 5]]);
+    poserFS('fs-e', 14, [[125, 5], [125, 5], [130, 3]]);
+    ROUTINES.push({ id: 'r-fs', nom: 'FS ×3', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-fs-e', routine_id: 'r-fs', exercise_slug: 'front-squat', rang: 0,
+        routine_sets: progr(3, 5), repos_cible_s: 180, groupe_superset: null, note: null }] });
+    await aller('/saisie');
+    await demarrerRoutine('FS ×3');
+    await attendre(800);
+    g = await grilleC();
+    const d1 = nr(g[0].charge), w1 = nr(g[0].reps);
+    ok('[C4] prémisse : la ligne, puis le test à une autre charge', d1 > 0 && nr(g[2].charge) > d1, nbC(g));
+    await saisirSerie(0, d1, w1 + 3);
+    await attendre(900);
+    g = await grilleC();
+    const d2 = nr(g[1].charge);
+    const basZone = nr(g[1].reps);
+    ok('[C4] prémisse : le coach propose sur la série 2, un cran SOUS le test', g[1].proposee && d2 > d1 &&
+      d2 < nr(g[2].charge), nbC(g));
+    await saisirSerie(1, d2, basZone);
+    await attendre(900);
+    g = await grilleC();
+    const d3 = nr(g[2].charge), w3 = nr(g[2].reps);
+    ok('[C4] prémisse : trois charges différentes, toutes prévues par la grille',
+      new Set([d1, d2, d3]).size === 3 && d3 > 0 && !g[2].proposee, nbC({ d1, d2, d3, g }));
+    await saisirSerie(2, d3, w3);
+    await attendre(1500);
+    await invariantsC('suivie à la lettre, trois charges');
+    const k3 = await constatC();
+    ok('[C4] DISCRIMINANT — suivie à la lettre sans charge répétée : jamais « Pas de palier » — la montée est dite',
+      !!k3.verdict && !/Pas de palier/.test(k3.verdict) && /La montée du coach a tenu/.test(k3.verdict), nbC(k3));
+    ok('[C4] RAPPORTÉ — la suite de cette séance passe sous la montée (`consignePour` en silence)',
+      suitesSous.length >= 1, nbC(suitesSous));
+    await abandonner();
+    await aller('/saisie');
+    ok('[C4] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
 
   console.log('\n══ 8. NON-RÉGRESSION ══');

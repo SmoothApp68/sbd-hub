@@ -1631,23 +1631,31 @@
     var edition = enEdition();
     var exos = seance.exercices || [];
     var cs = {};
+    var suites = {};
     exos.forEach(function (x) {
       var slug = x && x.exercise_slug;
-      if (slug && !Object.prototype.hasOwnProperty.call(cs, slug)) cs[slug] = consigneDe(slug);
+      if (slug && !Object.prototype.hasOwnProperty.call(cs, slug)) {
+        cs[slug] = consigneDe(slug);
+        suites[slug] = cs[slug] ? suiteDe(slug) : null;
+      }
     });
+    // `constats` porte les suites : une synchronisation le remet à zéro
+    // (`recalculerEtats`) et la suite se recalcule sur le nouvel historique.
     if (planMemo && planMemo.seance === seance && planMemo.paris === local.predictions &&
-        planMemo.version === versionConsignes && planMemo.edition === edition) return planMemo.plan;
+        planMemo.version === versionConsignes && planMemo.edition === edition &&
+        planMemo.constats === constats) return planMemo.plan;
     var entrees = {
       seance: { id: seance.id, debut: seance.debut, edition: edition, exercices: exos },
       consignes: cs,
       reglage: Profil.rythmeDe(profil),
+      suites: suites,
       paris: (local.predictions || []).filter(function (l) {
         return l && l.fondement && l.fondement.seance === seance.id;
       })
     };
     var plan = Plan.planDeSeance(entrees);
     planMemo = { seance: seance, paris: local.predictions, version: versionConsignes,
-                 edition: edition, plan: plan };
+                 edition: edition, constats: constats, plan: plan };
     // Le banc lit le dernier plan et ses entrées pour vérifier les invariants
     // après chaque geste (§9.13 bis) ; rien d'autre ne le relit.
     Plan.dernier = { entrees: entrees, plan: plan };
@@ -1787,8 +1795,14 @@
     return parts.join(',');
   }
 
-  function constatPour(slug) {
-    if (!seance || !blocFini(slug)) return null;
+  // §3.9 (49-U4) — LA SUITE D'UN EXERCICE : la consigne de la PROCHAINE
+  // séance, sur l'historique augmenté de la séance du jour (`consignePour`,
+  // par `Moteur.suiteDExercice`), et le cran au-dessus de son palier. C'est
+  // la seule chose que le plan ne peut pas calculer seul : il n'a pas
+  // l'historique. Calculée quand les séries de travail de l'exercice sont
+  // faites, jamais avant — le constat n'existe pas avant (I10 a).
+  function suiteDe(slug) {
+    if (!seance || !exerciceFini(slug)) return null;
     var cle = cleConsignes() + '|' + empreinteValidations();
     if (!constats || constats.cle !== cle) constats = { cle: cle, parSlug: {} };
     if (!Object.prototype.hasOwnProperty.call(constats.parSlug, slug)) {
@@ -1797,11 +1811,11 @@
       var faites = seriesDeTravailDe(slug).filter(function (s) { return Seance.partEnBase(s); });
       // ⚠️ LA COUPURE D'APRÈS EST L'INSTANT PRÉSENT. Le moteur ne lit jamais
       // l'avenir : une coupure au début de la séance en exclurait la séance du
-      // jour, et le constat raconterait la fois d'avant.
-      var r = Moteur.constatDExercice(
+      // jour, et la suite raconterait la fois d'avant.
+      var r = Moteur.suiteDExercice(
         seancesDeLExercice(slug),
         { seance: { debut: seance.debut }, series: faites },
-        etatsExercices[slug], seance.debut, new Date().toISOString(), {
+        etatsExercices[slug], new Date().toISOString(), {
           mesure: g.inconnue ? null : g.mesure,
           equipement: exo ? exo.equipement : null,
           intention: profil ? profil.intention : null,
@@ -1809,9 +1823,20 @@
           correction: zoneDe(slug),
           edition: enEdition()
         });
-      constats.parSlug[slug] = r ? r.constat : null;
+      constats.parSlug[slug] = r ? { consigne: r.apres.consigne, cranSuivant: r.cranSuivant } : null;
     }
     return constats.parSlug[slug];
+  }
+
+  // ⚠️ LE CONSTAT SE LIT DANS LE PLAN (§9.13 bis, 49-U4, I10). Il y était
+  // recalculé à part — deux consignes sur les séries BRUTES, sans les rôles du
+  // jour — et disait « Pas de palier aujourd'hui » juste après une montée du
+  // coach annoncée « dans ta zone ». Il s'affiche, comme avant, quand le BLOC
+  // est fini (superset compris).
+  function constatPour(slug) {
+    if (!seance || !blocFini(slug)) return null;
+    var x = planDuSlug(slug);
+    return x && x.constat ? x.constat : null;
   }
 
   // Taper dans un champ ne redessine pas la séance — le champ perdrait le

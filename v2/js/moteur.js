@@ -2675,16 +2675,74 @@
     var o = options || {};
     var cAvant = consigneDExercice(groupes, etat, avant, o);
     if (!cAvant) return null;
+    var s = suiteDExercice(groupes, groupeDuJour, etat, apres, o);
+    if (!s) return null;
+    return {
+      avant: cAvant, apres: s.apres, cranSuivant: s.cranSuivant,
+      constat: constatDe(cAvant.consigne, s.apres.consigne, o.reglage, s.cranSuivant)
+    };
+  }
+
+  // §3.9 (49-U4) — LA SUITE SEULE : la consigne de la PROCHAINE séance, par la
+  // même fonction que la consigne (`consigneDExercice`, donc `consignePour`)
+  // sur l'historique augmenté de la séance du jour, et le cran au-dessus de
+  // son palier. C'est tout ce que le plan de séance ne peut pas savoir seul :
+  // il n'a pas l'historique. Le VERDICT, lui, se lit sur le plan
+  // (`constatDuJour`) — une seconde règle ne le recalcule plus.
+  function suiteDExercice(groupes, groupeDuJour, etat, apres, options) {
+    var o = options || {};
     var tous = (groupes || []).concat([groupeDuJour]);
     var cApres = consigneDExercice(tous, etat, apres, o);
     if (!cApres) return null;
     var P = cApres.consigne.palier;
     var cran = P === null || P === undefined ? null
       : chargeVoisine(contratDe(tous, etat, o.mesure), apres, P, o.equipement, 1);
-    return {
-      avant: cAvant, apres: cApres, cranSuivant: cran,
-      constat: constatDe(cAvant.consigne, cApres.consigne, o.reglage, cran)
-    };
+    return { apres: cApres, cranSuivant: cran };
+  }
+
+  // ── §3.9, §9.13 bis (49-U4) — LE CONSTAT LU SUR LE PLAN (I10) ────────────
+  //
+  // Le constat ne contredit jamais le plan du jour. `constatDe` compare deux
+  // consignes calculées sur les séries BRUTES : il ne sait pas qu'une charge
+  // a été proposée par le coach. Trois charges différentes le même jour —
+  // 125, puis 127,5 proposé et tenu, puis le test à 130 — ne font aucun
+  // palier répété, et il disait « Pas de palier aujourd'hui » juste après une
+  // montée annoncée « dans ta zone » (26/09/2026, D4).
+  //
+  // `jour` vient du PLAN, jamais d'une règle refaite ici :
+  //   · `montee` — `{ charge, reps }`, la plus haute ligne du coach validée à
+  //     sa charge ou plus, reps comptées dans la zone : une montée tenue compte
+  //     comme un test tenu. Sa phrase ne remplace QUE les verdicts qui la
+  //     contredisent — « Pas de palier… », « Pas encore… » ; les autres la
+  //     disent déjà (la montée racontée comme un test du jour) ou disent mieux
+  //     (« 4-4 à 130 : ta nouvelle charge tient… ») et restent tels quels
+  //     (décidé le 27/09/2026, 49-U4) ;
+  //   · `suivies` — toutes les séries de travail ont suivi leur ligne (ligne,
+  //     test, proposition du coach acceptée) : c'est le coach qui a mené les
+  //     charges, et « Pas de palier » serait faux ;
+  //   · `faites` — `[{ charge, reps }]`, les séries de travail du jour.
+  //
+  // La SUITE reste celle de `constatDe` (la consigne d'après) : pas de seconde
+  // règle. Rend `{ verdict, suite, montee, orchestre }`, ou `null`.
+  function constatDuJour(consigneAvant, consigneApres, reglage, cranSuivant, jour) {
+    var base = constatDe(consigneAvant, consigneApres, reglage, cranSuivant);
+    if (!base) return null;
+    var j = jour || {};
+    var m = j.montee || null;
+    if (m) {
+      var contredit = /^Pas de palier/.test(base.verdict || '') || /^Pas encore/.test(base.verdict || '');
+      return { verdict: contredit
+                 ? 'La montée du coach a tenu' + DEUX_POINTS + croix(m.charge, m.reps) +
+                   ', dans ta zone. Elle compte comme un test tenu.'
+                 : base.verdict,
+               suite: base.suite, montee: { charge: m.charge, reps: m.reps }, orchestre: false };
+    }
+    if (j.suivies && consigneApres.etat === 'silence') {
+      var dites = (j.faites || []).map(function (f) { return croix(f.charge, f.reps); }).join(', ');
+      return { verdict: 'Le coach a mené tes charges aujourd\'hui' + DEUX_POINTS + dites + '.',
+               suite: base.suite, montee: null, orchestre: true };
+    }
+    return { verdict: base.verdict, suite: base.suite, montee: null, orchestre: false };
   }
 
   var api = {
@@ -2730,6 +2788,9 @@
     libellesConsigne: libellesConsigne,
     pourquoiConsigne: pourquoiConsigne,
     constatDe: constatDe,
+    constatDuJour: constatDuJour,
+    suiteDExercice: suiteDExercice,
+    contratDe: contratDe,
     MODULE_CONSIGNE: MODULE_CONSIGNE,
     VERSION_CONSIGNE: VERSION_CONSIGNE,
     lignesDePrediction: lignesDePrediction,

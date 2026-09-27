@@ -102,8 +102,37 @@ describe('§9.11 — le pari d’une révision, écrit à la validation de SA s�
   const opts = { slug: 'dc', reglage: 'normal', seance: 'S-1' };
   const s = (charge, reps, rpe) => ({ charge_kg: charge, reps: reps, rpe: rpe || null, ressenti: null });
 
+  // ⚠️ 49-U3 — LE PARI SE LIT DANS LE PLAN. Ces tests appelaient
+  // `lignesDeRevision`, qui relançait la réaction de son côté ; elle n'existe
+  // plus. Ils rejouent désormais les validations une à une, comme l'app :
+  // à chaque validation, le pari que le plan porte pour la série (`paris`),
+  // observé sur elle, qui fige sa ligne pour la suite. Les attendus sont
+  // INCHANGÉS.
+  const Plan = require('../../v2/js/plan.js');
+  const parisEcrits = (faites) => {
+    const n = Math.max(consigne.n, faites.length);
+    const vus = faites.map((f) => ({ charge: f.charge_kg, reps: f.reps, rpe: f.rpe }));
+    const paris = [], parSerie = [];
+    let figees = {};
+    for (let t = 0; t < vus.length; t++) {
+      const apres = Plan.rejouer(consigne, ctx, n, vus.slice(0, t + 1), figees, opts);
+      const q = apres.paris[t];
+      parSerie.push(q ? [q] : []);
+      if (q) paris.push(Object.assign({}, q, { set_observe: 'r' + (t + 1) }));
+      const g = Seance.figeesDe(paris, apres.series, consigne);
+      figees = {};
+      Object.keys(g).forEach((k) => { figees[Number(k.slice(1)) - 1] = g[k]; });
+    }
+    return parSerie;
+  };
+  // Le pari de révision (≥ 1) écrit à la validation de la série `j` — rien
+  // tant qu'elle n'est pas validée (`noterPari` n'écrit que pour une série
+  // faite).
+  const revision = (faites, j) => (j >= faites.length ? []
+    : parisEcrits(faites)[j].filter((l) => l.fondement.revision >= 1));
+
   test('la série proposée, validée : UNE ligne de révision 1, avec la séance dans le fondement', () => {
-    const l = Moteur.lignesDeRevision(consigne, [s(50, 12), s(52.5, 9)], ctx, 1, opts);
+    const l = revision([s(50, 12), s(52.5, 9)], 1);
     expect(l).toHaveLength(1);
     expect(l[0]).toMatchObject({ module: 'moteur.consigne', exercise_slug: 'dc', grandeur: 'reps',
       valeur_predite: 8, borne_basse: 8, borne_haute: 10 });
@@ -114,12 +143,12 @@ describe('§9.11 — le pari d’une révision, écrit à la validation de SA s�
   });
 
   test('à 5 reps de marge, les DEUX charges et la source de la seconde', () => {
-    const l = Moteur.lignesDeRevision(consigne, [s(50, 14), s(55, 8)], ctx, 1, opts);
+    const l = revision([s(50, 14), s(55, 8)], 1);
     expect(l[0].fondement).toMatchObject({ charges: [52.5, 55], source: 'preconisation', revision: 1 });
   });
 
   test('la montée tenue : la série suivante porte la révision 2', () => {
-    const l = Moteur.lignesDeRevision(consigne, [s(50, 12), s(52.5, 9), s(52.5, 8)], ctx, 2, opts);
+    const l = revision([s(50, 12), s(52.5, 9), s(52.5, 8)], 2);
     expect(l).toHaveLength(1);
     expect(l[0].fondement).toMatchObject({ rang: 3, revision: 2, charge: 52.5,
       declencheur: { rang: 2, charge: 52.5, reps: 9, comptees: 9, marge: 1 } });
@@ -128,24 +157,27 @@ describe('§9.11 — le pari d’une révision, écrit à la validation de SA s�
   test('DISCRIMINANT — PAS AVANT sa validation : la série proposée non faite n’écrit rien', () => {
     // La proposition est affichée (la série 1 est validée), mais la série 2
     // ne l'est pas : aucun pari n'est encore un fait à écrire.
-    expect(Moteur.lignesDeRevision(consigne, [s(50, 12)], ctx, 1, opts)).toEqual([]);
+    expect(revision([s(50, 12)], 1)).toEqual([]);
+    // Témoin : le plan porte bien la proposition, et le pari qu'elle écrira.
+    const plan = Plan.rejouer(consigne, ctx, 3, [{ charge: 50, reps: 12 }], {}, opts);
+    expect(plan.lignes[1].role).toBe('coach');
+    expect(plan.paris[1].fondement.revision).toBe(1);
   });
 
   test('DISCRIMINANT — 8 reps puis « à fond » : la proposition disparaît, aucun pari', () => {
     // La même série à RPE 10 compte une rep de moins : 11, 2 de plus que visé.
     expect(Moteur.reactionPour(consigne, [s(50, 12, 10)], ctx).message).toBeNull();
-    expect(Moteur.lignesDeRevision(consigne, [s(50, 12, 10), s(52.5, 9)], ctx, 1, opts)).toEqual([]);
+    expect(revision([s(50, 12, 10), s(52.5, 9)], 1)).toEqual([]);
   });
 
   test('une ligne de la consigne, ou un retour au palier, n’écrit rien de neuf', () => {
-    expect(Moteur.lignesDeRevision(consigne, [s(50, 9), s(50, 9)], ctx, 1, opts)).toEqual([]);
+    expect(revision([s(50, 9), s(50, 9)], 1)).toEqual([]);
     // Montée ratée : la ligne 3 revient au palier, son pari est celui de l'ouverture.
-    expect(Moteur.lignesDeRevision(consigne, [s(50, 12), s(52.5, 6), s(50, 9)], ctx, 2, opts))
-      .toEqual([]);
+    expect(revision([s(50, 12), s(52.5, 6), s(50, 9)], 2)).toEqual([]);
   });
 
   test('le refus : la ligne proposée validée plus bas reste un pari de révision 1 — « autre chose tenté »', () => {
-    const l = Moteur.lignesDeRevision(consigne, [s(50, 12), s(50, 11)], ctx, 1, opts);
+    const l = revision([s(50, 12), s(50, 11)], 1);
     expect(l).toHaveLength(1);
     expect(Moteur.observationDe(l[0].fondement,
       { enBase: true, id: 'x', charge: 50, reps: 11 })).toEqual({ set_observe: 'x', valeur_observee: null });

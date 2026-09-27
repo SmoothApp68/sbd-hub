@@ -1531,42 +1531,31 @@
     });
   }
 
-  // §9.11 (49-R2) — LE PARI D'UNE RÉVISION, écrit à la validation de la série
-  // qu'il concerne. `faites` : les séries validées, dans l'ordre, celle de
-  // l'index `j` comprise. Le plan se relit TEL QU'IL ÉTAIT avant elle — la
-  // proposition qu'elle a reçue —, donc sur `faites` jusqu'à `j` exclu : un
-  // effort saisi entre-temps qui a retiré la proposition ne laisse rien écrire.
-  //
-  // Rend une liste, vide si la ligne `j` n'était pas une ligne du coach.
-  function lignesDeRevision(consigne, faites, contexte, j, options) {
-    var liste = faites || [];
-    if (!consigne || j < 0 || j >= liste.length) return [];
-    var o = Object.assign({}, options || {});
-    if (o.rang === undefined) o.rang = j + 1;
-    return lignesDePari(consigne, null, liste.slice(0, j), contexte, j, o)
-      .filter(function (l) { return l.fondement.revision >= 1; });
-  }
-
   // §9.11 (49-C, révisé le 26/09/2026) — LE PARI D'UNE SÉRIE, écrit À SA
   // VALIDATION, juste avant son observation, avec ce que sa ligne affichait à
   // ce moment-là. Plus rien ne s'écrit à l'ouverture : un pari n'existe que
   // pour une série qui a existé.
   //
-  // `planInitial` : le plan de la séance en cours (`planDeCouverture`), la
-  // série `j` encore NON figée — c'est ce que l'écran montrait juste avant
-  // la validation. `faitesAvant` : les séries validées qui la précèdent, dans
-  // l'ordre (le préfixe que lit la réaction), elle exclue. `options.rang` :
-  // le rang de la série au moment de sa validation (`Seance.couvertureSeance`),
-  // qui ne changera plus ; `options.role` : `ligne` ou `haut`.
+  // ⚠️ ELLE NE RELANCE PAS LA RÉACTION (§9.13 bis, 49-U3). C'est le plan de
+  // séance qui la calcule — sur les séries validées qui PRÉCÈDENT la série
+  // `j`, c'est-à-dire ce que l'écran montrait juste avant la validation — et
+  // qui la passe ici (`reactionAvant`). Cette fonction ne fait que mettre en
+  // forme le pari de la ligne `j` : une seconde réaction, calculée à part,
+  // pouvait écrire un pari qui ne disait pas la ligne affichée (D5).
+  //
+  // `faitesAvant` : ces mêmes séries (le déclencheur d'une révision s'y lit).
+  // `options.rang` : le rang de la série au moment de sa validation
+  // (`Seance.couvertureSeance`), qui ne changera plus ; `options.role` :
+  // `ligne` ou `haut`.
   //
   // UNE ligne : la révision du coach (1 : la série proposée ; 2 : les
   // suivantes, montée tenue), ou la révision 0 — la consigne, ou le retour
   // au palier. Rien si la ligne n'a pas de visée à parier.
-  function lignesDePari(consigne, planInitial, faitesAvant, contexte, j, options) {
+  function lignesDePari(consigne, reactionAvant, faitesAvant, j, options) {
     var o = options || {};
-    if (!consigne || consigne.etat === 'silence' || j < 0) return [];
+    if (!consigne || consigne.etat === 'silence' || j < 0 || !reactionAvant) return [];
     var liste = faitesAvant || [];
-    var r = reactionPour(consigne, liste, contexte, planInitial);
+    var r = reactionAvant;
     var p = r.plan[j];
     if (!p) return [];
     var z = zoneParCle(consigne.zone);
@@ -2734,7 +2723,6 @@
     sautsDeMontee: sautsDeMontee,
     contexteReaction: contexteReaction,
     revisionsDuPlan: revisionsDuPlan,
-    lignesDeRevision: lignesDeRevision,
     enteteDeDisposition: enteteDeDisposition,
     lignesDePari: lignesDePari,
     planDeCouverture: planDeCouverture,

@@ -19,7 +19,7 @@
 // comparent au centième.
 //
 // ⚠️ LES LIGNES FIGÉES PASSENT PAR LE VRAI CHEMIN. À chaque validation, le pari
-// s'écrit comme l'app l'écrit (`lignesDePari`, puis `set_observe`), et les
+// s'écrit comme l'app l'écrit (lu dans le plan, puis `set_observe`), et les
 // lignes figées se relisent dans les paris (`figeesDe`). Un rejeu qui
 // fabriquerait ses propres lignes figées ne dirait rien de l'app.
 
@@ -61,11 +61,11 @@ function rejouerCas(c) {
       brut: r
     });
     if (t === c.series) break;
-    // La validation de la série t : son pari, comme `noterPari`.
-    const apres = T.rejouer(consigne, c.contexte, c.series, c.faites.slice(0, t + 1), figees);
-    M.lignesDePari(consigne, apres.planInitial, apres.faites.slice(0, t), c.contexte, t,
-      { slug: 'x', seance: 'S', rang: apres.rangs[t], role: apres.roles[t], rangs: apres.rangs })
-      .forEach((l) => paris.push(Object.assign({}, l, { set_observe: 'r' + (t + 1) })));
+    // La validation de la série t : son pari, lu dans le plan comme `noterPari`
+    // le lit depuis 49-U3.
+    const apres = T.rejouer(consigne, c.contexte, c.series, c.faites.slice(0, t + 1), figees,
+      { slug: 'x', seance: 'S' });
+    if (apres.paris[t]) paris.push(Object.assign({}, apres.paris[t], { set_observe: 'r' + (t + 1) }));
     const g = S.figeesDe(paris, apres.series, consigne);
     figees = {};
     Object.keys(g).forEach((k) => { figees[Number(k.slice(1)) - 1] = g[k]; });
@@ -147,14 +147,19 @@ describe('49-U2 — I11 : verifierPlan voit chaque violation', () => {
   const id = () => 'x-s' + (++n);
   let se = S.creer({ id: 'S', userId: 'u', idSerie: id });
   se = S.ajouterExercice(se, 'x', id, { series: 4 });
+  // Chaque validation écrit son pari comme l'app : lu dans le plan, puis
+  // observé sur sa série (I7, 49-U3).
+  const parisS = [];
+  const entrees = () => ({ seance: { id: 'S', debut: '2026-09-26T10:00:00Z', edition: false, exercices: se.exercices },
+    consignes: { x: obj }, paris: parisS.slice() });
   const valider = (i, kg, reps) => {
     se = S.modifierSerie(se, 0, i, { charge_kg: kg, reps: reps });
     se = S.valider(se, 0, i, new Date('2026-09-26T10:30:00Z'));
+    const q = T.planDeSeance(entrees()).exercices[0].paris[i];
+    if (q) parisS.push(Object.assign({}, q, { set_observe: se.exercices[0].series[i].id }));
   };
   valider(0, 50, 8);
   valider(1, 50, 6);
-  const entrees = () => ({ seance: { id: 'S', debut: '2026-09-26T10:00:00Z', edition: false, exercices: se.exercices },
-    consignes: { x: obj }, paris: [] });
   const juste = () => T.planDeSeance(entrees());
   const forger = (fn) => { const p = JSON.parse(JSON.stringify(juste())); fn(p.exercices[0].lignes); return T.verifierPlan(p); };
   const i11 = (v) => v.erreurs.filter((e) => /^I11/.test(e));

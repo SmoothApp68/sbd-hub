@@ -222,6 +222,7 @@
     if (consignes && consignes.parSlug) {
       delete consignes.parSlug[slug];
       versionConsignes++;
+      sauverConsignes();
     }
     await Cache.ecrireLot('zones', [ligne]).catch(function () {});
     await poser({ table: Attente.ZONES, op: Attente.UPSERT, id: id, donnees: ligne });
@@ -975,6 +976,10 @@
       console.warn('Séance locale illisible :', texteErreur(e));
       seance = null; attente = [];
     }
+    // §9.13 bis (49-U3) — les consignes figées de CETTE séance, relues avec
+    // elle. Une lecture qui échoue ne coûte qu'un recalcul : on n'invente rien.
+    try { consignesSauvees = await Cache.lireBrouillon(CLE_CONSIGNES); }
+    catch (e) { consignesSauvees = null; }
   }
 
   async function terminerSeance(verdict) {
@@ -995,6 +1000,7 @@
     // traverser la fin, et la réserve du bas la suivrait.
     rendreChrono();
     await Cache.ecrireBrouillon('seance', null);
+    await oublierConsignes();
     rendreSaisie();
   }
 
@@ -1052,6 +1058,7 @@
     seance = null; chrono = null; arreterMinuteur();
     rendreChrono();
     await Cache.ecrireBrouillon('seance', null);
+    await oublierConsignes();
     await poser({ table: Attente.SESSIONS, op: Attente.SUPPRIMER, id: id });
     rendreSaisie();
   }
@@ -1541,11 +1548,44 @@
   // une mesure inconnue, donc une consigne nulle, figée pour toute la séance.
   var versionConsignes = 0;
 
+  // ⚠️ ET ELLE SURVIT AU RECHARGEMENT (MOTEUR §9.13 bis, 49-U3). Sur Android,
+  // le système ferme souvent une PWA restée en arrière-plan pendant un repos :
+  // un gel qui ne vivait qu'en mémoire recalculait la consigne à la
+  // réouverture — sur un historique qu'une synchronisation avait pu changer.
+  //
+  // OÙ : dans le magasin `brouillon`, sous sa propre clé, à côté de la séance
+  // en cours (`'seance'`) — même base, même durée de vie : relue avec elle au
+  // démarrage (`chargerSeanceLocale`), effacée avec elle à la fin, à l'abandon,
+  // à l'enregistrement d'une correction, et par `viderTout` (déconnexion,
+  // changement de compte). PAS DANS L'OBJET `seance` : il part tel quel dans
+  // la file et en base, et une consigne n'est pas une propriété de la séance
+  // (« la proposition n'est jamais écrite », §7 septendecies.3).
+  //
+  // Liée à l'identifiant de la séance ET à la clé du mémo : une autre séance,
+  // ou l'intention ou le rythme changés par l'utilisateur, la font ignorer.
+  var CLE_CONSIGNES = 'consignes';
+  var consignesSauvees = null;   // { seanceId, cle, parSlug }, tel que sur le disque
+
+  function sauverConsignes() {
+    if (!seance || !consignes) return;
+    consignesSauvees = { seanceId: seance.id, cle: consignes.cle, parSlug: consignes.parSlug };
+    Cache.ecrireBrouillon(CLE_CONSIGNES, consignesSauvees)
+      .catch(function (e) { console.warn('Consignes non sauvées :', texteErreur(e)); });
+  }
+
+  async function oublierConsignes() {
+    consignesSauvees = null;
+    await Cache.ecrireBrouillon(CLE_CONSIGNES, null).catch(function () {});
+  }
+
   function consigneDe(slug) {
     if (!seance) return null;
     var cle = cleConsignes();
     if (!consignes || consignes.cle !== cle) {
-      consignes = { cle: cle, index: Modele.indexerExercices(local.exercices), parSlug: {} };
+      var sauvees = consignesSauvees && consignesSauvees.seanceId === seance.id &&
+        consignesSauvees.cle === cle && consignesSauvees.parSlug ? consignesSauvees.parSlug : null;
+      consignes = { cle: cle, index: Modele.indexerExercices(local.exercices),
+                    parSlug: sauvees ? Object.assign({}, sauvees) : {} };
       versionConsignes++;
     }
     if (!Object.prototype.hasOwnProperty.call(consignes.parSlug, slug)) {
@@ -1572,6 +1612,7 @@
       if (!exo) return calculee;
       consignes.parSlug[slug] = calculee;
       versionConsignes++;
+      sauverConsignes();
     }
     return consignes.parSlug[slug];
   }
@@ -1599,6 +1640,7 @@
     var entrees = {
       seance: { id: seance.id, debut: seance.debut, edition: edition, exercices: exos },
       consignes: cs,
+      reglage: Profil.rythmeDe(profil),
       paris: (local.predictions || []).filter(function (l) {
         return l && l.fondement && l.fondement.seance === seance.id;
       })
@@ -1838,29 +1880,26 @@
     });
   }
 
-  // §9.11 (49-C) — LE PARI DE LA SÉRIE QU'ON VIENT DE VALIDER. `reactionDe`
-  // relit la séance APRÈS la validation, mais la série n'est pas encore figée
-  // (son pari n'existe pas) : la couverture lui donne donc exactement la ligne
-  // et le rang qu'elle affichait juste avant. `lignesDePari` rejoue la
-  // réaction sur les séries validées qui la PRÉCÈDENT — l'effort saisi
-  // pendant le repos qui a retiré une proposition ne laisse rien écrire du
-  // coach : la ligne redevient celle de la consigne.
+  // §9.11 (49-C) — LE PARI DE LA SÉRIE QU'ON VIENT DE VALIDER.
+  //
+  // ⚠️ IL SE LIT DANS LE PLAN, IL NE SE CALCULE PLUS ICI (§9.13 bis, 49-U3).
+  // Le plan relit la séance APRÈS la validation, la série pas encore figée
+  // (son pari n'existe pas) : il porte donc exactement ce que la ligne
+  // affichait juste avant, et le pari qu'elle doit écrire (`paris[iSerie]`),
+  // tiré de la réaction sur les séries validées qui la PRÉCÈDENT — l'effort
+  // saisi pendant le repos qui a retiré une proposition ne laisse rien écrire
+  // du coach. Cette fonction n'écrit que ce que le plan dit.
   async function noterPari(iExo, iSerie) {
     if (!seance || enEdition()) return;
     var r = reactionDe(iExo);
     if (!r) return;
-    var j = r.indices.indexOf(iSerie);
-    if (j < 0) return;
     var serie = seance.exercices[iExo].series[iSerie];
     if (!serie || !Seance.partEnBase(serie) || r.figees[serie.id]) return;
-    var slug = seance.exercices[iExo].exercise_slug;
-    var rang = r.rangs[j];
-    var lignes = Moteur.lignesDePari(r.consigne, r.planInitial,
-      r.faites.slice(0, Math.min(r.faites.length, j)), r.contexte, j, {
-        slug: slug, reglage: Profil.rythmeDe(profil), seance: seance.id,
-        rang: rang, role: r.roles[j], rangs: r.rangs
-      });
-    if (!lignes.length) return;
+    var pari = r.paris && r.paris[iSerie];
+    if (!pari) return;
+    var lignes = [pari];
+    var slug = pari.exercise_slug;
+    var rang = pari.fondement.rang;
     var rev = revisionDe(lignes[0]);
     if (dejaNote(slug, rev, rang)) return;
     notesEnCours[cleNote(slug, rev, rang)] = true;
@@ -4196,6 +4235,7 @@
     arreterMinuteur();
     rendreChrono();
     await Cache.ecrireBrouillon('seance', null);
+    await oublierConsignes();
     // Enregistrer une correction est un RETOUR, pas une navigation : on revient
     // d'où l'on vient, on n'empile pas une seconde fois le détail.
     allerA(Routeur.SEANCE, { id: id }, true);

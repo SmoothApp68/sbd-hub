@@ -28,7 +28,19 @@ const { chromium } = require(path.join(R, 'node_modules/playwright-core'));
 const { creer } = require(path.join(R, 'v2/banc/serveur-pages.js'));
 const CHROME = process.env.CHROME_BIN || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 const PORT = Number(process.env.BANC_PORT || 8874), BASE = 'http://127.0.0.1:' + PORT;
-const attendre = (ms) => new Promise((r) => setTimeout(r, ms));
+const pause = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// ⚠️ 49-U7 (C6) — LA GARDE DU BANC. Chaque geste de chaque section est suivi
+// d'une attente : c'est là que le crochet commun passe. Après CHAQUE attente,
+// si l'app a calculé un nouveau plan, `verifierPlan` le vérifie (I1 à I15,
+// I4 face au plan d'avant de la même séance, rechargement compris). Une
+// violation fait échouer la section qui l'a produite. Posé une fois la page
+// ouverte (plus bas) ; jamais rappelé par lui-même (il n'attend qu'avec `pause`).
+let crochetPlan = null;
+const attendre = async (ms) => {
+  await pause(ms);
+  if (crochetPlan) await crochetPlan();
+};
 
 // Attendre une CONDITION plutôt qu'une durée. Le pavé de chronométrage pose une
 // écriture par chiffre : taper « 21000 » enchaîne cinq vidanges de file, et la
@@ -44,8 +56,12 @@ const jusqua = async (cond, ms) => {
 };
 
 let echecs = 0;
+// Le dernier contrôle écrit : la garde du banc s'en sert pour situer le geste
+// qui a produit un plan fautif.
+let dernierControle = '(aucun contrôle encore)';
 const ok = (nom, cond, detail) => {
   if (!cond) echecs++;
+  if (!/^\[garde\]/.test(nom)) dernierControle = nom;
   console.log('   ' + (cond ? '✅' : '❌') + ' ' + nom + (detail !== undefined ? '  — ' + detail : ''));
 };
 
@@ -962,6 +978,90 @@ const SETS_IMPORTES = [
     p.on('pageerror', (e) => erreurs.push(String(e).slice(0, 140)));
   };
   brancher(page);
+
+  // ── 49-U7 (C6) — LA GARDE DU BANC : TOUS LES PLANS, TOUTES LES SECTIONS ──
+  //
+  // Deux comptes, indépendants l'un de l'autre :
+  //   · LE CROCHET (`verifierDernier`) : après chaque attente, si l'app a
+  //     calculé un nouveau plan (`THPlan.dernier`), `verifierPlan` le vérifie,
+  //     avec le plan d'avant de la même séance (I4, rechargement compris — le
+  //     plan d'avant est gardé ici, côté banc, pas dans la page). Une violation
+  //     fait échouer la section qui l'a produite, avec le dernier contrôle
+  //     écrit pour situer le geste ;
+  //   · LA GARDE DE L'APP (`THPlan.garde`, active sur 127.0.0.1) : elle voit
+  //     TOUS les plans que l'app calcule, même ceux qu'un geste remplace avant
+  //     la fin de l'attente. Le banc lit son compte à chaque attente : une
+  //     violation qu'elle voit fait aussi échouer la section, et à la fin,
+  //     chaque section où l'app a calculé un plan doit avoir été vérifiée par
+  //     le crochet — sans quoi le crochet s'est tu quelque part.
+  // `I10 suite` est RAPPORTÉE (49-U4), pas une violation : comptée à part.
+  const gardeBanc = { plans: 0, violations: 0, rapports: [], avant: null, sections: {}, liste: [],
+                      suspendue: false, app: { plans: 0, violations: 0 } };
+  let sectionCourante = '(préparation)';
+  const sectionDe = (nom) => gardeBanc.sections[nom] ||
+    (gardeBanc.sections[nom] = { verifies: 0, app: 0, violations: 0 });
+  const logBanc = console.log;
+  console.log = function () {
+    const m = /^\n══ (.*) ══$/.exec(String(arguments[0]));
+    if (m) { sectionCourante = m[1]; sectionDe(sectionCourante); }
+    return logBanc.apply(console, arguments);
+  };
+  const echouerGarde = (quoi, erreurs) => {
+    const s = sectionDe(sectionCourante);
+    s.violations++;
+    gardeBanc.violations++;
+    gardeBanc.liste.push({ section: sectionCourante, geste: dernierControle, quoi, erreurs });
+    ok('[garde] ' + sectionCourante + ' — ' + quoi + ' après « ' + dernierControle + ' »', false,
+      JSON.stringify(erreurs.slice(0, 3)));
+  };
+  const verifierDernier = async () => {
+    let r;
+    try {
+      r = await page.evaluate((avant) => {
+        const P = window.THPlan, d = P && P.dernier;
+        if (!d || !d.plan) return null;
+        window.__gardeBancVu = d;
+        const av = avant && avant.seance === d.plan.seance ? avant : null;
+        return { erreurs: P.verifierPlan(d.plan, d.entrees, av).erreurs, plan: d.plan };
+      }, gardeBanc.avant);
+    } catch (e) { return; }   // navigation en cours : le plan sera vu à l'attente suivante
+    if (!r) return;
+    gardeBanc.plans++;
+    gardeBanc.avant = r.plan;
+    sectionDe(sectionCourante).verifies++;
+    r.erreurs.filter((x) => x.indexOf('I10 suite') === 0)
+      .forEach((x) => gardeBanc.rapports.push(sectionCourante + ' : ' + x));
+    const graves = r.erreurs.filter((x) => x.indexOf('I10 suite') !== 0);
+    if (graves.length) echouerGarde('le plan viole un invariant', graves);
+  };
+  let enCours = false;
+  crochetPlan = async () => {
+    if (enCours || gardeBanc.suspendue) return;
+    enCours = true;
+    try {
+      let r;
+      try {
+        r = await page.evaluate(() => {
+          const P = window.THPlan;
+          if (!P) return null;
+          // Un nouveau contexte (page neuve, rechargement) : la garde de l'app
+          // y repart de zéro.
+          const neufCtx = !window.__gardeBancJeton;
+          window.__gardeBancJeton = 1;
+          const e = P.garde && P.garde.etat ? P.garde.etat() : null;
+          return { neufCtx, app: e ? e.plans : 0, appV: e ? e.violations : [],
+                   neuf: !!(P.dernier && window.__gardeBancVu !== P.dernier) };
+        });
+      } catch (e) { return; }
+      if (!r) return;
+      const base = r.neufCtx ? { plans: 0, violations: 0 } : gardeBanc.app;
+      sectionDe(sectionCourante).app += Math.max(0, r.app - base.plans);
+      const nouvelles = r.appV.slice(base.violations).filter((x) => x.indexOf('I10 suite') !== 0);
+      gardeBanc.app = { plans: r.app, violations: r.appV.length };
+      if (nouvelles.length) echouerGarde('la garde de l’app a vu une violation', nouvelles);
+      if (r.neuf) await verifierDernier();
+    } finally { enCours = false; }
+  };
 
   const aller = async (chemin) => {
     await page.goto(BASE + (chemin || '/'), { waitUntil: 'domcontentloaded' }).catch(() => {});
@@ -7529,6 +7629,90 @@ const SETS_IMPORTES = [
         [l.fondement.rang, l.fondement.revision || 0, l.set_observe ? 'obs' : '—', l.valeur_observee])));
     await aller('/saisie');
     ok('[OF] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
+  }
+
+  console.log('\n══ 7 G. LA GARDE DU COACH DANS L’APP (49-U7) ══');
+  //
+  // La garde de l'app, bout à bout : sur 127.0.0.1 elle est active ; un plan
+  // FORGÉ (un champ de plus : I12, « même entrée, plan différent ») fait
+  // apparaître le marqueur ; avec `?garde=0`, le même plan forgé ne fait rien.
+  // Le crochet du banc est suspendu le temps du forgé — c'est lui qu'on
+  // attend fautif.
+  {
+    const forger = () => page.evaluate(() => {
+      const P = window.THPlan;
+      if (!P.__planOrigine) P.__planOrigine = P.planDeSeance;
+      P.planDeSeance = (e) => Object.assign({ forge: true }, P.__planOrigine(e));
+    });
+    const deforger = () => page.evaluate(() => {
+      const P = window.THPlan;
+      if (P.__planOrigine) { P.planDeSeance = P.__planOrigine; delete P.__planOrigine; }
+    });
+    const marqueur = () => page.evaluate(() => {
+      const m = document.getElementById('garde-coach');
+      return m ? m.textContent : null;
+    });
+    const etatG = () => page.evaluate(() => window.THPlan.garde.etat());
+
+    await aller('/saisie');
+    const e0 = await etatG();
+    ok('[G] prémisse : sur 127.0.0.1, la garde de l’app est active et a déjà vérifié des plans',
+      e0.active === true && e0.plans >= 0, JSON.stringify({ active: e0.active, plans: e0.plans }));
+    gardeBanc.suspendue = true;
+    await demarrerRoutine('Terre ×4');
+    await attendre(800);
+    await forger();
+    await saisirSerie(0, 100, 5);
+    await attendre(900);
+    const m1 = await marqueur();
+    const e1 = await etatG();
+    ok('[G] DISCRIMINANT — un plan forgé : le marqueur apparaît et dit l’invariant (I12)',
+      m1 !== null && /I12/.test(m1) && e1.violations.some((v) => /^I12 — /.test(v)), JSON.stringify({ m1, v: e1.violations.slice(0, 2) }));
+    await deforger();
+    await abandonner();
+
+    // Le même plan forgé, garde éteinte par `?garde=0` : rien.
+    await aller('/saisie?garde=0');
+    const e2 = await etatG();
+    await demarrerRoutine('Terre ×4');
+    await attendre(800);
+    await forger();
+    await saisirSerie(0, 100, 5);
+    await attendre(900);
+    const e3 = await etatG();
+    ok('[G] DISCRIMINANT — `?garde=0` : ni marqueur, ni plan vérifié, malgré le plan forgé',
+      e2.active === false && e3.plans === 0 && e3.violations.length === 0 && (await marqueur()) === null,
+      JSON.stringify({ e2: { active: e2.active }, e3: { plans: e3.plans, v: e3.violations.length }, m: await marqueur() }));
+    await deforger();
+    await abandonner();
+    await page.evaluate(() => { try { localStorage.removeItem('th-v2-garde'); } catch (e) { /* rien */ } });
+    await aller('/saisie');
+    ok('[G] le paramètre retiré, la garde revient (hôte de développement)', (await etatG()).active === true,
+      JSON.stringify(await etatG()));
+    // Le crochet reprend sur un plan neuf, sans comparer au forgé.
+    await page.evaluate(() => { window.__gardeBancVu = window.THPlan.dernier; });
+    gardeBanc.avant = null;
+    gardeBanc.suspendue = false;
+  }
+
+  console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');
+  {
+    const noms = Object.keys(gardeBanc.sections);
+    const sansVerif = noms.filter((n) => gardeBanc.sections[n].app > 0 && gardeBanc.sections[n].verifies === 0 &&
+      n !== '7 G. LA GARDE DU COACH DANS L’APP (49-U7)');
+    const avecPlans = noms.filter((n) => gardeBanc.sections[n].verifies > 0);
+    const totalApp = noms.reduce((t, n) => t + gardeBanc.sections[n].app, 0);
+    ok('[garde] chaque section où l’app a calculé un plan a été vérifiée par le crochet',
+      sansVerif.length === 0, JSON.stringify(sansVerif));
+    ok('[garde] le crochet a vu des plans dans les sections ANCIENNES, pas seulement celles du chantier 49',
+      avecPlans.filter((n) => /^[0-6]|^7 (bis|ter|quater|quinquies|sexies|septies|octies|nonies|undecies)\./.test(n)).length >= 5,
+      JSON.stringify(avecPlans.slice(0, 8)));
+    console.log('   ' + gardeBanc.plans + ' plans vérifiés par le crochet, dans ' + avecPlans.length + ' sections · ' +
+      totalApp + ' plans vérifiés par la garde de l’app · ' + gardeBanc.violations + ' violation(s) · ' +
+      gardeBanc.rapports.length + ' « I10 suite » rapportée(s)');
+    gardeBanc.liste.forEach((v) => console.log('   ⚠️ ' + v.section + ' · après « ' + v.geste + ' » · ' + v.quoi + ' · ' +
+      JSON.stringify(v.erreurs.slice(0, 2))));
+    gardeBanc.rapports.slice(0, 10).forEach((x) => console.log('   ℹ️ rapporté — ' + x));
   }
 
   console.log('\n══ 8. NON-RÉGRESSION ══');

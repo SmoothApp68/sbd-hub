@@ -1648,6 +1648,44 @@
   // écriture), la version du mémo des consignes et le mode Édition.
   var planMemo = null;
 
+  // §9.13 bis (49-U7) — LA GARDE DU COACH. Hors production (machine locale,
+  // prévisualisation Cloudflare, `?garde=1`), chaque plan calculé passe les
+  // invariants ; une violation s'écrit en console et un petit marqueur
+  // apparaît. En production, `verifier` ne fait rien (`THPlan.creerGarde`).
+  var garde = Plan.creerGarde({
+    location: racine.location,
+    stockage: (function () { try { return racine.localStorage; } catch (e) { return null; } })(),
+    journal: racine.console,
+    marquer: marquerGarde
+  });
+  // Le banc lit ce que la garde a vu (le nombre de plans vérifiés) ; rien
+  // d'autre ne le relit.
+  Plan.garde = garde;
+
+  function marquerGarde(violations) {
+    var doc = racine.document;
+    if (!doc || !doc.body) return;
+    var m = doc.getElementById('garde-coach');
+    if (!m) {
+      m = doc.createElement('button');
+      m.id = 'garde-coach';
+      m.type = 'button';
+      m.className = 'garde-coach';
+      m.addEventListener('click', function () {
+        if (racine.console) racine.console.error('[garde du coach]', m.violations || []);
+      });
+      doc.body.appendChild(m);
+    }
+    m.violations = violations;
+    var invariants = [];
+    violations.forEach(function (v) {
+      var i = String(v).split(' — ')[0];
+      if (invariants.indexOf(i) < 0) invariants.push(i);
+    });
+    m.textContent = '⚠ ' + invariants.join(' ') + ' (' + violations.length + ')';
+    m.title = violations[violations.length - 1] || '';
+  }
+
   function planActuel() {
     if (!seance) return null;
     var edition = enEdition();
@@ -1681,6 +1719,7 @@
     // Le banc lit le dernier plan et ses entrées pour vérifier les invariants
     // après chaque geste (§9.13 bis) ; rien d'autre ne le relit.
     Plan.dernier = { entrees: entrees, plan: plan };
+    garde.verifier(plan, entrees);
     return plan;
   }
 

@@ -414,7 +414,7 @@
   // fantôme lit `reps_visees` de SA série : la poser sur l'exercice la
   // rendrait invisible, c'est-à-dire un champ écrit que personne ne relit.
   // §9.13 (49-C) — `options.series` : le nombre de séries de travail posées
-  // d'emblée (`seriesDeDepart`), une par défaut. ⚠️ Plus d'une série demande
+  // d'emblée (`THPlan.seriesDeDepart`), une par défaut. ⚠️ Plus d'une série demande
   // un `idSerie` FONCTION : une chaîne ne fait qu'un identifiant, et deux
   // séries qui le partageraient heurteraient `sets_pkey`.
   function seriesInitiales(idSerie, o) {
@@ -442,12 +442,6 @@
       groupe_superset: null,
       series: seriesInitiales(idSerie, o)
     }]);
-    return avecExercices(seance, exos);
-  }
-
-  function retirerExercice(seance, iExo) {
-    var exos = seance.exercices.slice();
-    exos.splice(iExo, 1);
     return avecExercices(seance, exos);
   }
 
@@ -1595,7 +1589,7 @@
   // La consigne couvre TOUTES les séries de travail de la séance, telles
   // qu'elles sont à chaque instant — celles de la routine, celles qu'on ajoute
   // ou retire, celles de « + Série ». `n` n'est plus qu'une proposition de
-  // départ (`seriesDeDepart`). L'alignement « sur les n dernières » du 19/09
+  // départ (`THPlan.seriesDeDepart`). L'alignement « sur les n dernières » du 19/09
   // laissait une série de la routine hors consigne quand la routine en
   // comptait plus que la dernière séance (constaté sur l'appareil le 26/09 :
   // aucune réaction même à 20 reps), écrivait un pari pour une série
@@ -1745,24 +1739,8 @@
     return sortie;
   }
 
-  // §9.13 (49-C) — LE NOMBRE DE SÉRIES PROPOSÉ AU DÉPART, HORS ROUTINE.
-  // L'habitude d'abord : `n`, le nombre de séries de travail de la dernière
-  // séance de l'exercice tel que la consigne le lit ; sans consigne (Entretenir,
-  // mesure sans charge), les séries de travail de la dernière séance ; sans
-  // historique, l'intention — 3 en Progresser, 2 en Entretenir (Spiering et
-  // al. 2021). Ce n'est qu'un pré-remplissage : on ajoute et on retire
-  // librement. Une routine garde ses propres séries (`exerciceDepuisRoutine`).
-  var SERIES_DEPART_PROGRESSER = 3;
-  var SERIES_DEPART_ENTRETIEN = 2;
-
-  function seriesDeDepart(n, prec, intention) {
-    var v = Number(n);
-    if (isFinite(v) && v >= 1 && Math.floor(v) === v) return v;
-    var faites = prec && prec.series
-      ? prec.series.filter(function (s) { return typeDe(s) === 'travail'; }).length : 0;
-    if (faites >= 1) return faites;
-    return intention === 'entretien' ? SERIES_DEPART_ENTRETIEN : SERIES_DEPART_PROGRESSER;
-  }
+  // §9.13 (49-C) — le nombre de séries proposé au départ, hors routine, vit
+  // désormais dans le plan (`THPlan.seriesDeDepart`, 49-U6) : il lit la consigne.
 
   // ══ §9.11 (49-8) — UNE OBSERVATION NE CHANGE JAMAIS DE SÉRIE ═════════════
   //
@@ -2074,7 +2052,6 @@
     creer: creer,
     serieVide: serieVide,
     ajouterExercice: ajouterExercice,
-    retirerExercice: retirerExercice,
     ajouterSerie: ajouterSerie,
     retirerSerie: retirerSerie,
     modifierSerie: modifierSerie,
@@ -2133,9 +2110,6 @@
     couvertureSeance: couvertureSeance,
     typeDe: typeDe,
     figeesDe: figeesDe,
-    seriesDeDepart: seriesDeDepart,
-    SERIES_DEPART_PROGRESSER: SERIES_DEPART_PROGRESSER,
-    SERIES_DEPART_ENTRETIEN: SERIES_DEPART_ENTRETIEN,
     observationTenue: observationTenue,
     peutObserver: peutObserver,
     parisAObserver: parisAObserver,

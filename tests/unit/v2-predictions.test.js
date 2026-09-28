@@ -22,95 +22,17 @@ const Moteur = window.THMoteur;
 const Seance = require('../../v2/js/seance.js');
 const Attente = require('../../v2/js/attente.js');
 
-// ── LES 12 CAS ──────────────────────────────────────────────────────────────
-describe('§9.11 — les lignes écrites, cas par cas', () => {
-  const CAS = require('./fixtures/predictions-48c.json');
-  const forme = (r) => r.etat === 'silence'
-    ? { etat: 'silence', raison: r.raison }
-    : { etat: r.etat, zone: r.zone, n: r.n,
-        ligne: r.ligne && [r.ligne.charge, r.ligne.vise],
-        haut: r.haut && [r.haut.charge, r.haut.vise, r.haut.k] };
-  const consigneDe = (c) => Moteur.consignePour(c.seances, c.avant,
-    { reglage: c.reglage, equipement: c.equipement, correction: c.correction });
-
-  test('les 12 cas y sont, dont les deux silences', () => {
-    const ids = CAS.map((c) => c.id);
-    expect(CAS).toHaveLength(12);
-    expect(ids).toEqual(expect.arrayContaining(['N14', 'N15']));
-    expect(CAS.filter((c) => !c.lignes.length).map((c) => c.id)).toEqual(['N14', 'N15']);
-  });
-
-  CAS.forEach((c) => {
-    test(`${c.id} — ${c.titre} (${c.reglage})`, () => {
-      const consigne = consigneDe(c);
-      // La prémisse d'abord : si la consigne n'est pas celle du fichier, les
-      // lignes mesureraient autre chose que ce qu'elles annoncent.
-      expect(forme(consigne)).toEqual(c.consigne);
-      expect(Moteur.lignesDePrediction(consigne, {
-        slug: c.exercise_slug, reglage: c.reglage, seance: c.seance
-      })).toEqual(c.lignes);
-    });
-  });
-
-  test('DISCRIMINANT — le pari, ce sont les REPS, jamais la charge', () => {
-    // N2 : deux séries à 125 visant 5, et un test à 127,5 visant 3. Si
-    // `valeur_predite` portait la charge, les trois lignes diraient 125, 125,
-    // 127,5 — et aucun des 12 cas ne le dirait autrement.
-    const c = CAS.filter((x) => x.id === 'N2')[0];
-    const l = Moteur.lignesDePrediction(consigneDe(c),
-      { slug: c.exercise_slug, reglage: c.reglage, seance: c.seance });
-    expect(l.map((x) => x.valeur_predite)).toEqual([5, 5, 3]);
-    expect(l.map((x) => x.fondement.charge)).toEqual([125, 125, 127.5]);
-    expect(l.every((x) => x.grandeur === 'reps')).toBe(true);
-  });
-
-  test('DISCRIMINANT — les bornes sont celles de la ZONE, pas celles du pari', () => {
-    // N9, l'étirement : on vise 16 reps dans une zone qui va de 10 à 12. Des
-    // bornes tirées du pari donneraient 16 et 16 — et personne ne saurait plus
-    // dire que le moteur a visé HORS de sa zone, ce que ces colonnes existent
-    // précisément pour mesurer.
-    const c = CAS.filter((x) => x.id === 'N9')[0];
-    const l = Moteur.lignesDePrediction(consigneDe(c),
-      { slug: c.exercise_slug, reglage: c.reglage, seance: c.seance });
-    expect([l[0].valeur_predite, l[0].borne_basse, l[0].borne_haute]).toEqual([16, 10, 12]);
-  });
-
-  test('sans zone (règle de bord), les bornes sont vides et pas inventées', () => {
-    const c = CAS.filter((x) => x.id === 'N13')[0];
-    const l = Moteur.lignesDePrediction(consigneDe(c),
-      { slug: c.exercise_slug, reglage: c.reglage, seance: c.seance });
-    expect(l.map((x) => [x.borne_basse, x.borne_haute])).toEqual([[null, null], [null, null], [null, null]]);
-  });
-
-  test('la version du module vit à côté de la règle, et rien ne la recopie', () => {
+// ── LA VERSION DU MOTEUR ────────────────────────────────────────────────────
+//
+// `lignesDePrediction` (48c), qui écrivait les paris à l'ouverture, est partie
+// en 49-U6 : plus d'appelant depuis 49-C. La forme d'un pari est figée par la
+// référence des paris du plan (`v2-paris-plan`, plus de 300 paris).
+describe('§9.13 bis — la version des règles du moteur (49-U6)', () => {
+  test('le module et sa version vivent à côté de la règle', () => {
     expect(Moteur.MODULE_CONSIGNE).toBe('moteur.consigne');
-    expect(typeof Moteur.VERSION_CONSIGNE).toBe('number');
-    // Elle n'est PAS dans les lignes : c'est `app.js` qui la lit ici et la pose
-    // sur la ligne qui part. Un second chiffre écrit à la main dériverait.
-    const c = CAS[0];
-    expect(Moteur.lignesDePrediction(consigneDe(c), { slug: 'x', reglage: 'normal', seance: 's' })[0]
-      .module_version).toBeUndefined();
-  });
-
-  test('DISCRIMINANT — une consigne qui couvre n séries sans porter ses lignes n’invente rien', () => {
-    expect(Moteur.lignesDePrediction({ etat: 'x', n: 3, ligne: null, haut: null }, {})).toEqual([]);
-    expect(Moteur.lignesDePrediction(null, {})).toEqual([]);
-    // ⚠️ RIEN, PAS « CE QU'ON SAIT ». Une consigne qui couvre trois séries et
-    // ne connaît que la dernière décrirait une séance à une série : le rang 3
-    // serait écrit seul, et la table dirait que le moteur n'a proposé qu'une
-    // série là où il en a proposé trois. On n'en note aucune.
-    expect(Moteur.lignesDePrediction(
-      { etat: 'x', n: 3, ligne: null, haut: { charge: 92.5, vise: 12, k: 1 } }, {})).toEqual([]);
-  });
-
-  test('DISCRIMINANT — un SILENCE n’écrit rien, même s’il porte une ligne', () => {
-    // L'état fait foi, pas la forme : c'est le contrat de cette fonction
-    // publique. `consignePour` ne rend aujourd'hui aucun silence qui porte un
-    // `n` — mais `lignesDePrediction` ne doit pas dépendre de ce que l'autre
-    // fonction se trouve faire, à deux fichiers de distance.
-    expect(Moteur.lignesDePrediction({ etat: 'silence', raison: 'premiere_fois', n: 3 }, {})).toEqual([]);
-    expect(Moteur.lignesDePrediction({ etat: 'silence', raison: 'pas_de_palier', n: 3,
-      ligne: { charge: 125, vise: 5 }, haut: null }, {})).toEqual([]);
+    // 1 jusqu'à 49-U5 exclu ; 2 depuis 49-U5 (reprise mesurée, une seule
+    // montée par bloc). Écrite dans la colonne `predictions.module_version`.
+    expect(Moteur.VERSION_CONSIGNE).toBe(2);
   });
 });
 

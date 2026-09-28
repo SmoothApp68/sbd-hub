@@ -3953,13 +3953,16 @@ const SETS_IMPORTES = [
   // reps), donc l'habitude = les séries de travail de leur dernière séance,
   // faute de quoi l'intention.
   const departTractions = (() => {
-    const SeanceD5 = require(path.join(R, 'v2/js/seance.js'));
+    // 49-U6 — la règle vit dans le plan (`THPlan.seriesDeDepart`), qui lit la
+    // consigne lui-même ; il s'appuie sur `THSeance` (le type d'une série).
+    require(path.join(R, 'v2/js/seance.js'));
+    const PlanD5 = require(path.join(R, 'v2/js/plan.js'));
     const avecTr = base.sessions.filter((x) => x.statut === 'terminee' &&
       base.sets.some((y) => y.session_id === x.id && y.exercise_slug === 'tractions'))
       .sort((a, b) => Date.parse(b.debut) - Date.parse(a.debut))[0];
     const prec = avecTr ? { series: base.sets.filter((y) => y.session_id === avecTr.id &&
       y.exercise_slug === 'tractions').map((y) => ({ type_serie: y.type_serie })) } : null;
-    return SeanceD5.seriesDeDepart(null, prec, base.profiles[0].intention);
+    return PlanD5.seriesDeDepart(null, prec, base.profiles[0].intention);
   })();
   await ajouterExoSeance('Tractions');
   const avantVidage = await compter('.ligne-serie');
@@ -6658,6 +6661,74 @@ const SETS_IMPORTES = [
     ok('[U] sans test à suivre, la proposition de R2 tient : la série 2 est proposée',
       phT.length === 1 && /de plus que visé/.test(phT[0]) && /dès la série 2/.test(phT[0]) &&
       (await grilleU())[1].charAt(0) === '*', nb({ phT, g: await grilleU() }));
+
+    // ── 49-U6 — LA FEUILLE « POURQUOI » LIT LE PLAN (ECRAN §3.10) ────────
+    // ⚠️ CONFIGURATION DISCRIMINANTE : une routine à 4 sur un historique dont
+    // la consigne dit `n` = 3. Une feuille qui relirait la consigne brute
+    // décrirait 3 séries ; la grille en porte 4. Et une proposition du coach :
+    // la ligne 2 n'est pas celle de la consigne.
+    const feuilleU = () => page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .pq-plan'))
+      .map((n) => n.querySelector('.pq-quoi').textContent + ' | ' + n.querySelector('.pq-role').textContent));
+    const planFeuilleU = () => page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      const x = d && d.plan.exercices.filter((e) => e.slug === 'souleve-terre')[0];
+      if (!x || !x.pourquoi) return null;
+      return { n: x.consigne.n,
+        grille: x.lignes.filter((l) => l.role !== 'hors').map((l) => [l.rang, l.role, l.charge, l.vise]),
+        feuille: x.pourquoi.lignes.map((f) => [f.rang, f.role, f.charge, f.vise]) };
+    });
+    const ouvrirFeuilleU = async () => {
+      await page.evaluate(() => {
+        const c = document.querySelector('.legende-exo .consigne, .legende-exo .consigne-dit');
+        if (c) c.click();
+      });
+      await attendre(700);
+    };
+    const chargeDe = (t) => String(t).split(/\s*kg/)[0];
+    const feuilleCommeLaGrille = async (quand) => {
+      await ouvrirFeuilleU();
+      const f = await feuilleU();
+      const p = await planFeuilleU();
+      const rangs = (await grilleU()).length;
+      ok('[U6] ' + quand + ' — la feuille décrit les ' + rangs + ' lignes de la grille, pas les ' + (p && p.n) + ' de la consigne',
+        !!p && rangs === 4 && p.n === 3 && f.length === rangs && nb(p.feuille) === nb(p.grille) &&
+        f.every((t, k) => chargeDe(t) === String(p.grille[k][2]).replace('.', ',')),
+        nb({ f, p }));
+      await fermerFeuille();
+      return f;
+    };
+
+    const f1 = await feuilleCommeLaGrille('proposition affichée');
+    ok('[U6] la ligne 2 est dite « proposée après » la série 1, à la charge proposée',
+      f1.length > 1 && /proposée par le coach · proposée après /.test(f1[1]) && !/\./.test(f1.join(' ')), nb(f1));
+    const phProp = await (await ligne(1)).$$eval('input', (l) => l.map((x) => x.placeholder));
+    const cProp = Number(String(phProp[0]).replace(',', '.')), vProp = Number(String(phProp[1]).split('-')[0]);
+    await saisirSerie(1, cProp, vProp);
+    await attendre(900);
+    await verifierApres('proposition acceptée');
+    const f2 = await feuilleCommeLaGrille('après une proposition acceptée');
+    ok('[U6] la ligne acceptée est décrite FIGÉE, telle que validée (faite à la charge proposée)',
+      f2.length > 1 && /proposée après /.test(f2[1]) && f2[1].indexOf('faite') >= 0 &&
+      f2[1].indexOf(String(cProp).replace('.', ',')) >= 0, nb({ f2, cProp }));
+    await page.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await attendre(2600);
+    await verifierApres('rechargement');
+    const f3 = await feuilleCommeLaGrille('après un rechargement');
+    ok('[U6] DISCRIMINANT — après un rechargement, la feuille est IDENTIQUE', nb(f3) === nb(f2), nb({ f2, f3 }));
+    await abandonner();
+
+    await aller('/saisie');
+    await demarrerRoutine('Terre ×4');
+    await attendre(800);
+    await saisirSerie(0, cT, vT + 3);
+    await attendre(900);
+    await saisirSerie(1, cT, vT);
+    await attendre(900);
+    await verifierApres('proposition refusée');
+    const f4 = await feuilleCommeLaGrille('après une proposition refusée');
+    ok('[U6] refusée, la ligne 2 dit ce qui a été fait (à ' + String(cT).replace('.', ',') + ')',
+      f4.length > 1 && f4[1].indexOf('faite') >= 0 && f4[1].indexOf(String(cT).replace('.', ',') + ' kg ×') >= 0,
+      nb(f4));
     await abandonner();
     await aller('/saisie');
 

@@ -278,23 +278,25 @@ describe('§9.11 (49-C) — le pari d’une série, avec ce que sa ligne afficha
 });
 
 // ── RÈGLE 7 — le nombre de séries proposé au départ, hors routine ───────────
+// 49-U6 — la règle vit dans le plan (`Plan.seriesDeDepart`), qui lit la consigne
+// elle-même : avant, `Seance.seriesDeDepart(n, …)` recevait `consigne.n` lu par l'app.
 describe('§9.13 (49-C) — le pré-remplissage hors routine', () => {
   const prec = (types) => ({ series: types.map((t) => ({ type_serie: t })) });
 
   test('l’habitude d’abord : `n`', () => {
-    expect(Seance.seriesDeDepart(4, prec(['travail', 'travail']), 'progresser')).toBe(4);
+    expect(Plan.seriesDeDepart({ etat: 'garde', n: 4 }, prec(['travail', 'travail']), 'progresser')).toBe(4);
   });
 
   test('DISCRIMINANT — sans consigne, les séries de travail de la dernière séance (chauffes exclues)', () => {
-    expect(Seance.seriesDeDepart(null, prec(['echauffement', 'travail', 'travail', 'travail', 'travail']),
+    expect(Plan.seriesDeDepart(null, prec(['echauffement', 'travail', 'travail', 'travail', 'travail']),
       'entretien')).toBe(4);
   });
 
   test('sans historique, l’intention : 3 en Progresser, 2 en Entretenir', () => {
-    expect(Seance.seriesDeDepart(null, null, 'progresser')).toBe(3);
-    expect(Seance.seriesDeDepart(null, null, null)).toBe(3);
-    expect(Seance.seriesDeDepart(null, null, 'entretien')).toBe(2);
-    expect([Seance.SERIES_DEPART_PROGRESSER, Seance.SERIES_DEPART_ENTRETIEN]).toEqual([3, 2]);
+    expect(Plan.seriesDeDepart(null, null, 'progresser')).toBe(3);
+    expect(Plan.seriesDeDepart(null, null, null)).toBe(3);
+    expect(Plan.seriesDeDepart(null, null, 'entretien')).toBe(2);
+    expect([Plan.SERIES_DEPART_PROGRESSER, Plan.SERIES_DEPART_ENTRETIEN]).toEqual([3, 2]);
   });
 
   test('`ajouterExercice` et `insererExercice` posent ce nombre de séries de travail, identifiants distincts', () => {

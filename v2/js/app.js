@@ -1708,11 +1708,14 @@
   }
   // Le « Donc » du « Pourquoi » dit la même chose que l'en-tête (49-U1) ; le
   // reste de la feuille lit encore la consigne (C5).
+  // ECRAN §3.10 (delta 49-14 W1) — LA FEUILLE LIT LE PLAN. « Donc » et les
+  // lignes : celles de la séance en cours (`x.pourquoi`). Les paragraphes : la
+  // consigne FIGÉE du plan (`x.consigne`), plus la consigne brute du mémo.
   function pourquoiDe(slug) {
-    var c = consigneDe(slug);
-    if (!c || !c.pourquoi) return c ? c.pourquoi : null;
     var x = planDuSlug(slug);
-    return x ? Object.assign({}, c.pourquoi, { donc: x.donc }) : c.pourquoi;
+    if (!x || !x.consigne || !x.pourquoi) return null;
+    var base = Moteur.pourquoiConsigne(x.consigne, Profil.rythmeDe(profil));
+    return base ? Object.assign({}, base, x.pourquoi) : null;
   }
 
   // ── §3.9 — LE CONSTAT DE FIN DE BLOC ─────────────────────────────────────
@@ -3750,7 +3753,7 @@
 
   // §9.13 (49-C) — le nombre de séries proposé au départ, hors routine :
   // `n` de la consigne (l'habitude), sinon les séries de travail de la
-  // dernière séance, sinon l'intention (`Seance.seriesDeDepart`).
+  // dernière séance, sinon l'intention (`Plan.seriesDeDepart`, 49-U6).
   //
   // ⚠️ PAS EN ÉDITION. Corriger une séance passée (§7 octies), c'est noter ce
   // qui a été fait, pas démarrer une séance : il n'y a pas de « séance en
@@ -3758,8 +3761,7 @@
   function seriesDeDepartPour(slug) {
     if (enEdition()) return 1;
     var c = seance ? consigneDe(slug) : null;
-    var n = c && c.consigne ? c.consigne.n : null;
-    return Seance.seriesDeDepart(n, precedentDe(slug), profil ? profil.intention : null);
+    return Plan.seriesDeDepart(c ? c.consigne : null, precedentDe(slug), profil ? profil.intention : null);
   }
 
   function ouvrirCatalogue(apres, remplace) {

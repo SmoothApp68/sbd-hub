@@ -270,6 +270,72 @@
     return c;
   }
 
+  // ── L'ÉTAPE DE LA FEUILLE « POURQUOI » (ECRAN §3.10, delta 49-14 W1) ─────
+  //
+  // La feuille LIT LE PLAN : « Donc » et ses lignes décrivent les lignes de la
+  // séance en cours, une par une — rôle, charge, visée ; pour une ligne du
+  // coach sa raison, pour une ligne revenue à la charge de travail la sienne ;
+  // une ligne validée dit aussi ce qui a été fait. Jamais le `n` de la
+  // consigne. La dernière séance, la zone, le palier, l'état et le réglage
+  // restent ceux de la CONSIGNE FIGÉE du plan (`pourquoiConsigne(x.consigne)`,
+  // assemblée par l'app).
+  //
+  // Les lignes suivent `VOIX-DU-COACH-V1` : la charge d'abord (« 130 kg × 4 »).
+  // Invariant (I6, étendu à la feuille) : exactement les lignes de la grille,
+  // même nombre, mêmes charges, mêmes visées, même ordre.
+  function nombreFr(v) { return racine.THModele.nombre(v); }
+  var NBSP = '\u00a0';
+  function kg(v) {
+    var n = nombre(v);
+    return n === null ? 'le cran au-dessus' : nombreFr(n) + NBSP + 'kg';
+  }
+  function kgFois(charge, reps) { return kg(charge) + NBSP + '\u00d7' + NBSP + nombreFr(reps); }
+  var ROLE_FEUILLE = { ligne: 'consigne', test: 'test', coach: 'proposée par le coach', retour: 'retour à ta charge' };
+
+  function lignesDeLaFeuille(lignes) {
+    var couvertes = (lignes || []).filter(function (l) { return l.role !== 'hors'; });
+    var premiereCoach = null;
+    return couvertes.map(function (l, k) {
+      var visee = l.role === 'coach' && Array.isArray(l.fourchette) && l.fourchette.length === 2
+        ? nombreFr(l.fourchette[0]) + ' à ' + nombreFr(l.fourchette[1])
+        : (l.vise === null || l.vise === undefined ? '' : nombreFr(l.vise));
+      var raison = null;
+      if (l.role === 'coach') {
+        if (premiereCoach === null) {
+          premiereCoach = l;
+          var avant = couvertes[k - 1];
+          raison = avant && avant.faite ? 'proposée après ' + kgFois(avant.faite.charge, avant.faite.reps) : 'proposée par le coach';
+        } else {
+          raison = premiereCoach.faite
+            ? 'la montée a tenu à ' + kgFois(premiereCoach.faite.charge, premiereCoach.faite.reps)
+            : 'la montée continue';
+        }
+      } else if (l.role === 'retour') {
+        var montee = premiereCoach || couvertes.filter(function (c) { return c.role === 'coach'; })[0];
+        raison = 'on revient à ' + kg(l.charge) +
+          (montee && montee.faite ? ' après ' + kgFois(montee.faite.charge, montee.faite.reps) : '');
+      }
+      return {
+        rang: l.rang, role: l.role, charge: l.charge === undefined ? null : l.charge,
+        vise: l.vise === undefined ? null : l.vise,
+        texte: kg(l.charge) + (visee ? NBSP + '\u00d7' + NBSP + visee : ''),
+        libelle: ROLE_FEUILLE[l.role] || l.role,
+        raison: raison,
+        faite: l.validee && l.faite ? 'faite' + NBSP + ': ' + kgFois(l.faite.charge, l.faite.reps) : null
+      };
+    });
+  }
+
+  // La part de la feuille qui décrit la SÉANCE : « Donc » et les lignes. Les
+  // paragraphes (dernière séance, zone, palier, état, réglage) se lisent sur la
+  // consigne figée du plan (`x.consigne`) par `pourquoiConsigne` : l'app les
+  // assemble, le plan n'a pas à connaître le fondement complet d'une consigne.
+  function pourquoiDuPlan(consigne, lignes, donc) {
+    if (!consigne) return null;
+    var muet = consigne.etat === 'silence';
+    return { donc: muet ? null : donc, lignes: muet ? [] : lignesDeLaFeuille(lignes) };
+  }
+
   // ── LE PLAN D'UN EXERCICE ───────────────────────────────────────────────
   function planDExercice(exo, iExo, consigneDuSlug, paris, seanceId, reglage, suite) {
     var S = Seance(), M = Moteur();
@@ -301,6 +367,7 @@
     var disposition = r.planInitial.map(function (p) { return p && p.role === 'haut' ? 'haut' : 'ligne'; });
     var entete = M.enteteDeDisposition(consigne, disposition);
     var gris = c.libelles ? c.libelles.gris : '';
+    var donc = entete.jaune.length ? 'Donc ' + entete.jaune.join(', ') + '.' : null;
 
     return {
       iExo: iExo, slug: base.slug,
@@ -310,8 +377,31 @@
       lignes: r.lignes, message: r.message, paris: r.paris,
       constat: constatDuPlan(r.lignes, consigne, suite, reglage),
       entete: { jaune: entete.jaune, gris: gris, segments: entete.segments },
-      donc: entete.jaune.length ? 'Donc ' + entete.jaune.join(', ') + '.' : null
+      donc: donc,
+      pourquoi: pourquoiDuPlan(consigne, r.lignes, donc)
     };
+  }
+
+  // §9.13 (49-C ; 49-U6) — LE NOMBRE DE SÉRIES PROPOSÉ AU DÉPART, HORS ROUTINE.
+  // Une seule règle, ici, lue par l'ajout d'exercice : l'habitude d'abord —
+  // `n`, le nombre de séries de travail de la dernière séance de l'exercice tel
+  // que la consigne le lit ; sans consigne (Entretenir, mesure sans charge), les
+  // séries de travail de la dernière séance ; sans historique, l'intention — 3
+  // en Progresser, 2 en Entretenir (Spiering et al. 2021). Ce n'est qu'un
+  // pré-remplissage : on ajoute et on retire librement. Une routine garde ses
+  // propres séries (`exerciceDepuisRoutine`). Plus aucune lecture de
+  // `consigne.n` hors du plan.
+  var SERIES_DEPART_PROGRESSER = 3;
+  var SERIES_DEPART_ENTRETIEN = 2;
+
+  function seriesDeDepart(consigne, prec, intention) {
+    var c = consigne ? Moteur().consigneFigee(consigne) : null;
+    var v = Number(c ? c.n : null);
+    if (c && isFinite(v) && v >= 1 && Math.floor(v) === v) return v;
+    var faites = prec && prec.series
+      ? prec.series.filter(function (s) { return Seance().typeDe(s) === 'travail'; }).length : 0;
+    if (faites >= 1) return faites;
+    return intention === 'entretien' ? SERIES_DEPART_ENTRETIEN : SERIES_DEPART_PROGRESSER;
   }
 
   // ══ LE PLAN DE SÉANCE ═══════════════════════════════════════════════════
@@ -448,7 +538,7 @@
       }
     });
 
-    // LE REPLI (§9.9, delta 49-13) — une reprise longue ne descend jamais de
+    // I15, LE REPLI (§9.9, delta 49-13 ; numéroté par le delta 49-14) — une reprise longue ne descend jamais de
     // plus de 10 % sous le dernier palier : ni la consigne figée, ni une ligne
     // qui la reprend.
     if (x.consigne.etat === 'reprise_longue') {
@@ -456,13 +546,31 @@
       var plancher = Pal === null ? null : Pal * (1 - racine.THMoteur.REPLI_MAX_REPRISE);
       var sous = function (v) { var n = nombre(v); return n !== null && plancher !== null && n < plancher - 1e-9; };
       if (x.consigne.ligne && sous(x.consigne.ligne.charge)) {
-        err('Repli', 'la consigne reprend à ' + x.consigne.ligne.charge + ', plus de 10 % sous le palier ' + Pal);
+        err('I15', 'la consigne reprend à ' + x.consigne.ligne.charge + ', plus de 10 % sous le palier ' + Pal);
       }
       (x.lignes || []).forEach(function (l) {
         if ((l.role === 'ligne' || l.role === 'retour') && sous(l.charge)) {
-          err('Repli', 'la série ' + l.iSerie + ' reprend à ' + l.charge + ', plus de 10 % sous le palier ' + Pal);
+          err('I15', 'la série ' + l.iSerie + ' reprend à ' + l.charge + ', plus de 10 % sous le palier ' + Pal);
         }
       });
+    }
+
+    // I6, ÉTENDU À LA FEUILLE « POURQUOI » (ECRAN §3.10, delta 49-14 W1) : la
+    // feuille décrit exactement les lignes de la grille — même nombre, mêmes
+    // rangs dans le même ordre, mêmes charges, mêmes visées.
+    if (x.pourquoi && x.consigne.etat !== 'silence') {
+      var fl = x.pourquoi.lignes || [];
+      if (fl.length !== couvertes.length) {
+        err('I6', 'la feuille décrit ' + fl.length + ' ligne(s), la grille en porte ' + couvertes.length);
+      } else {
+        fl.forEach(function (f, k) {
+          var g = couvertes[k];
+          if (f.rang !== g.rang || f.role !== g.role || !memeCharge(f.charge, g.charge) || nombre(f.vise) !== nombre(g.vise)) {
+            err('I6', 'la feuille décrit la ligne ' + k + ' (rang ' + f.rang + ', ' + f.role + ') à ' + f.charge + '×' + f.vise +
+              ', la grille (rang ' + g.rang + ', ' + g.role + ') à ' + g.charge + '×' + g.vise);
+          }
+        });
+      }
     }
 
     // I6 — l'en-tête décrit exactement les lignes : les segments recouvrent
@@ -634,9 +742,18 @@
       vus[l.rang] = l.iSerie;
     });
 
-    // I7 — chaque ligne validée et couverte a EXACTEMENT UN pari, qui reprend
-    // sa charge, sa visée et son rôle ; aucun pari observé sans sa ligne.
-    // Seulement quand les paris de la séance sont connus (les entrées).
+    // I7 — chaque ligne validée et couverte a EXACTEMENT UN pari DE LA
+    // RÉVISION QU'ELLE AFFICHAIT À SA VALIDATION, qui reprend sa charge, sa
+    // visée et son rôle ; aucun pari observé sans sa ligne. Seulement quand les
+    // paris de la séance sont connus (les entrées).
+    //
+    // ⚠️ D'AUTRES RÉVISIONS DU MÊME RANG PEUVENT EXISTER (delta 49-14 W3,
+    // 27/09/2026). « Exactement un pari » par rang contredisait §9.11 — une
+    // consigne revue est un nouveau pari, écrit à côté du premier : une série
+    // validée sans proposition (révision 0), dévalidée, puis revalidée sous la
+    // proposition du coach (révision 1) porte les deux. La révision de la ligne
+    // se lit sur le plan, par la règle même qui écrit les paris
+    // (`revisionsDuPlan`).
     //
     // Un pari NON OBSERVÉ sans ligne est permis : c'est celui d'une série
     // validée puis supprimée (§9.11, 49-11 — « le pari reste, non observé »).
@@ -646,19 +763,23 @@
       var siens = parisSeance.filter(function (q) {
         return q && q.exercise_slug === x.slug && q.fondement;
       });
+      var revisionsI7 = racine.THMoteur.revisionsDuPlan(cour);
       couvertes.forEach(function (l) {
         if (!l.validee) return;
         var duRang = siens.filter(function (q) { return Number(q.fondement.rang) === Number(l.rang); });
+        var revL = revisionsI7[l.position] || 0;
+        var deSaRevision = duRang.filter(function (q) { return (Number(q.fondement.revision) || 0) === revL; });
         var attendu = l.figee || !!(x.paris && x.paris[l.iSerie]);
         if (!attendu) {
           if (duRang.length) err('I7', 'la série ' + l.iSerie + ' ne devait rien parier, et le rang ' + l.rang + ' porte ' + duRang.length + ' pari(s)');
           return;
         }
-        if (duRang.length !== 1) {
-          err('I7', 'la série ' + l.iSerie + ' (rang ' + l.rang + ') porte ' + duRang.length + ' pari(s), pour un seul attendu');
+        if (deSaRevision.length !== 1) {
+          err('I7', 'la série ' + l.iSerie + ' (rang ' + l.rang + ') porte ' + deSaRevision.length +
+            ' pari(s) de sa révision (' + revL + '), pour un seul attendu');
           return;
         }
-        var q = duRang[0];
+        var q = deSaRevision[0];
         if (q.fondement.role !== ROLE_DU_PARI[l.role]) {
           err('I7', 'le pari du rang ' + l.rang + ' dit « ' + q.fondement.role + ' » pour une ligne « ' + l.role + ' »');
         }
@@ -736,6 +857,9 @@
     rejouer: rejouer,
     verifierPlan: verifierPlan,
     seriesDites: seriesDites,
+    seriesDeDepart: seriesDeDepart,
+    SERIES_DEPART_PROGRESSER: SERIES_DEPART_PROGRESSER,
+    SERIES_DEPART_ENTRETIEN: SERIES_DEPART_ENTRETIEN,
     // Le dernier plan calculé par l'app, et ses entrées : le banc le lit pour
     // vérifier les invariants après chaque geste. Rien ne le relit en prod.
     dernier: null

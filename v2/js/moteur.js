@@ -1759,8 +1759,13 @@
   // prédictions calculées par deux versions différentes ne se comparent pas
   // sans le savoir. ⚠️ Ne JAMAIS la recopier ailleurs — comme `CACHE_V2`, un
   // chiffre recopié ne peut que dériver (CADRAGE §2 undecies).
+  //
+  // Elle s'écrit dans la COLONNE `predictions.module_version` de chaque pari
+  // (`noterLignes`), pas dans son fondement. 1 jusqu'à 49-U5 exclu ; 2 depuis
+  // 49-U5 (reprise mesurée, une seule montée par bloc — MOTEUR §9.13 bis,
+  // précisé le 27/09/2026).
   var MODULE_CONSIGNE = 'moteur.consigne';
-  var VERSION_CONSIGNE = 1;
+  var VERSION_CONSIGNE = 2;
 
   // ⚠️ SECONDE LISTE APRÈS `Calendrier.MOIS`, et assumée. L'abréviation ne se
   // dérive pas du nom entier : « février » donne « févr. », « mars » reste
@@ -2349,56 +2354,9 @@
   // que les 4 035 kcal et les ratios « Critique » étaient faux avant la
   // vérification sur appareil.
   //
-  // ⚠️ UNE LIGNE PAR SÉRIE PROPOSÉE, parce que `set_observe` n'en désigne
-  // qu'une. Une consigne de trois séries écrit trois lignes, chacune avec son
-  // rang — les `n − k` premières à `ligne`, les `k` dernières à `haut`, comme
-  // le plan du fantôme (§9.13, `Seance.couvertureDe`).
-  //
-  // ⚠️ LE PARI, CE SONT LES REPS. La charge est une prescription qu'on suit ou
-  // non, pas une prédiction : elle vit dans le fondement, où elle sert à
-  // l'appariement. Les bornes de la zone diront plus tard combien de fois le
-  // moteur a visé dedans.
-  //
-  // Pure : `app.js` fabrique l'identifiant, l'instant et le propriétaire, et
-  // ne recalcule aucune règle. Rien quand le moteur se tait.
-  //
-  // ⚠️ 49-C (26/09/2026) : PLUS APPELÉE PAR L'APP. Les paris ne s'écrivent
-  // plus à l'ouverture mais à la validation de chaque série (`lignesDePari`),
-  // et la consigne ne couvre plus « n séries » mais celles de la séance en
-  // cours (§9.13). Gardée telle quelle : ses tests figent la forme d'un pari de
-  // consigne, que `lignesDePari` reprend à l'identique pour la révision 0.
-  function lignesDePrediction(consigne, options) {
-    var o = options || {};
-    if (!consigne || consigne.etat === 'silence' || !consigne.n) return [];
-    var z = zoneParCle(consigne.zone);
-    var k = consigne.haut && consigne.haut.k ? consigne.haut.k : 0;
-    var sortie = [];
-    for (var i = 1; i <= consigne.n; i++) {
-      var source = i > consigne.n - k ? consigne.haut : consigne.ligne;
-      // Une consigne qui couvre n séries sans porter la ligne correspondante
-      // n'a rien à parier : on n'invente pas une valeur pour remplir un rang.
-      if (!source) return [];
-      sortie.push({
-        module: MODULE_CONSIGNE,
-        exercise_slug: o.slug === undefined ? null : o.slug,
-        grandeur: 'reps',
-        valeur_predite: source.vise === undefined ? null : source.vise,
-        borne_basse: z ? z.bas : null,
-        borne_haute: z ? z.haut : null,
-        fondement: {
-          rang: i,
-          charge: source.charge === undefined ? null : source.charge,
-          etat: consigne.etat,
-          zone: consigne.zone === undefined ? null : consigne.zone,
-          reglage: o.reglage === undefined ? null : o.reglage,
-          palier: consigne.palier === undefined ? null : consigne.palier,
-          niveau: consigne.niveau === undefined ? null : consigne.niveau,
-          seance: o.seance === undefined ? null : o.seance
-        }
-      });
-    }
-    return sortie;
-  }
+  // Les lignes elles-mêmes : `lignesDePari`, une par série validée (49-C).
+  // `lignesDePrediction`, qui les écrivait toutes à l'ouverture, n'avait plus
+  // d'appelant depuis 49-C : retirée en 49-U6, avec ses tests.
 
   // ── §9.11 (48c-2) — L'IDENTIFIANT EST UNE FONCTION DE CE QUE LA LIGNE EST ─
   //
@@ -2728,28 +2686,10 @@
              contexte: contexteReaction(seances, avant, consigne, o.equipement, null) };
   }
 
-  // ── §3.9 — LE CONSTAT D'UN EXERCICE, DE BOUT EN BOUT ─────────────────────
-  //
-  // L'app passe l'historique et la séance du jour ; le moteur rend les deux
-  // consignes, le cran suivant et le constat. Les silences sont ceux de la
-  // consigne, et c'est voulu : là où le moteur ne prescrit rien — Entretenir,
-  // Édition, mesure sans charge — il n'a rien à constater non plus.
-  //
-  // ⚠️ `apres` EST APRÈS LE DÉBUT DE LA SÉANCE DU JOUR, et c'est ce qui fait
-  // entrer celle-ci dans le calcul : le moteur ne lit jamais l'avenir
-  // (§9.12), donc une coupure au début de la séance l'exclurait — on
-  // recalculerait la consigne d'avant et le constat serait vide.
-  function constatDExercice(groupes, groupeDuJour, etat, avant, apres, options) {
-    var o = options || {};
-    var cAvant = consigneDExercice(groupes, etat, avant, o);
-    if (!cAvant) return null;
-    var s = suiteDExercice(groupes, groupeDuJour, etat, apres, o);
-    if (!s) return null;
-    return {
-      avant: cAvant, apres: s.apres, cranSuivant: s.cranSuivant,
-      constat: constatDe(cAvant.consigne, s.apres.consigne, o.reglage, s.cranSuivant)
-    };
-  }
+  // ── §3.9 — LE CONSTAT D'UN EXERCICE ────────────────────────────────────
+  // `constatDExercice`, qui recalculait le constat hors du plan sur les
+  // séries brutes, n'avait plus d'appelant depuis 49-U4 (le verdict se lit
+  // sur le plan, `constatDuJour`) : retirée en 49-U6.
 
   // §3.9 (49-U4) — LA SUITE SEULE : la consigne de la PROCHAINE séance, par la
   // même fonction que la consigne (`consigneDExercice`, donc `consignePour`)
@@ -2863,10 +2803,8 @@
     contratDe: contratDe,
     MODULE_CONSIGNE: MODULE_CONSIGNE,
     VERSION_CONSIGNE: VERSION_CONSIGNE,
-    lignesDePrediction: lignesDePrediction,
     idDePrediction: idDePrediction,
     observationDe: observationDe,
-    constatDExercice: constatDExercice,
     etiquetteZone: etiquetteZone,
     // Le menu des zones les affiche toutes (§3.8) : il lit cette table, il ne
     // recopie ni les libellés ni les bornes.

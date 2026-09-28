@@ -254,8 +254,8 @@ describe('49-U5 — I14 et le repli : verifierPlan voit chaque violation', () =>
     const plan = jouer(consigneDuCas(c.consigne), c.contexte, c.series, c.faites)[0].plan;
     expect(T.verifierPlan(plan).erreurs).toEqual([]);
     const k = copie(plan); k.exercices[0].consigne.ligne.charge = 15;
-    expect(du('Repli', T.verifierPlan(k))).toMatch(/la consigne reprend à 15, plus de 10 % sous le palier 20/);
+    expect(du('I15', T.verifierPlan(k))).toMatch(/la consigne reprend à 15, plus de 10 % sous le palier 20/);
     const l = copie(plan); l.exercices[0].lignes[2].charge = 15;
-    expect(du('Repli', T.verifierPlan(l))).toMatch(/la série 2 reprend à 15, plus de 10 % sous le palier 20/);
+    expect(du('I15', T.verifierPlan(l))).toMatch(/la série 2 reprend à 15, plus de 10 % sous le palier 20/);
   });
 });

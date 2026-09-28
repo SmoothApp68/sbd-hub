@@ -15,6 +15,20 @@ require('../../v2/js/modele.js');
 require('../../v2/js/profil.js');
 const P = require('../../v2/js/palier.js');
 const M = require('../../v2/js/moteur.js');
+
+// `constatDExercice` est partie en 49-U6 (plus d'appelant depuis 49-U4 : le
+// verdict se lit sur le plan). Ses tests gardent leur discriminant — le pont
+// depuis les séries BRUTES, l'ordre des rangs — sur la même composition, faite
+// de fonctions que le moteur appelle toujours.
+function constatBrut(groupes, groupeDuJour, etat, avant, apres, options) {
+  const o = options || {};
+  const cAvant = M.consigneDExercice(groupes, etat, avant, o);
+  if (!cAvant) return null;
+  const s = M.suiteDExercice(groupes, groupeDuJour, etat, apres, o);
+  if (!s) return null;
+  return { avant: cAvant, apres: s.apres, cranSuivant: s.cranSuivant,
+    constat: M.constatDe(cAvant.consigne, s.apres.consigne, o.reglage, s.cranSuivant) };
+}
 const S = require('../../v2/js/seance.js');
 const T = require('../../v2/js/plan.js');
 
@@ -74,7 +88,7 @@ describe('49-U4 — le cas du 26/09, reconstitué sous l’ancienne règle', () 
   });
 
   test('prémisse : l’ancien constat, calculé à part sur les séries brutes, disait « Pas de palier aujourd’hui »', () => {
-    const ancien = M.constatDExercice(HISTOIRE, { seance: { debut: AVANT }, series: SEANCE_26 },
+    const ancien = constatBrut(HISTOIRE, { seance: { debut: AVANT }, series: SEANCE_26 },
       ETAT.terre, AVANT, APRES, OPTS);
     expect(ancien.constat.verdict).toMatch(/^Pas de palier aujourd'hui/);
   });

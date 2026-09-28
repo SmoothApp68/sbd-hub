@@ -50,6 +50,20 @@ const GARDE = { etat: 'garde', zone: 'lourd', palier: 125, n: 3,
   ligne: { charge: 125, vise: 5 }, haut: { charge: 130, vise: 4, k: 1 } };
 
 const NB = ' ';
+
+// `constatDExercice` est partie en 49-U6 (plus d'appelant depuis 49-U4 : le
+// verdict se lit sur le plan). Ses tests gardent leur discriminant — le pont
+// depuis les séries BRUTES, l'ordre des rangs — sur la même composition, faite
+// de fonctions que le moteur appelle toujours.
+function constatBrut(groupes, groupeDuJour, etat, avant, apres, options) {
+  const o = options || {};
+  const cAvant = Moteur.consigneDExercice(groupes, etat, avant, o);
+  if (!cAvant) return null;
+  const s = Moteur.suiteDExercice(groupes, groupeDuJour, etat, apres, o);
+  if (!s) return null;
+  return { avant: cAvant, apres: s.apres, cranSuivant: s.cranSuivant,
+    constat: Moteur.constatDe(cAvant.consigne, s.apres.consigne, o.reglage, s.cranSuivant) };
+}
 let n = 0;
 const uuid = () => 'id-' + (++n);
 beforeEach(() => { n = 0; });
@@ -1297,7 +1311,7 @@ describe('le constat de fin de bloc (ECRAN-SAISIE §3.9)', () => {
   });
 
   test('DISCRIMINANT — l’orchestrateur part des séries BRUTES, comme l’app', () => {
-    // `constatDExercice` fait le pont lui-même : l'app lui passe ce qu'elle a
+    // le pont (`constatBrut`, ex-`constatDExercice`) part des séries brutes : l'app lui passe ce qu'elle a
     // en mémoire, pas le contrat du moteur. Sans ce test, le pont pourrait
     // perdre une colonne sans qu'aucun des 14 cas ne s'en aperçoive.
     // ⚠️ DES IDENTIFIANTS, ET À CONTRE-SENS DU RANG (20/09/2026). Ces cas
@@ -1323,7 +1337,7 @@ describe('le constat de fin de bloc (ECRAN-SAISIE §3.9)', () => {
       const forme = brut(avecRang);
       const quoi = avecRang ? 'avec rang' : 'sans rang';
       CAS.forEach((c) => {
-        const r = Moteur.constatDExercice(
+        const r = constatBrut(
           c.seances.map(forme), forme(c.seanceDuJour), { etat: 'monte' }, c.avant, c.apres,
           { mesure: 'charge_reps', equipement: c.equipement, intention: 'progresser',
             reglage: c.reglage, edition: false });
@@ -1353,7 +1367,7 @@ describe('le constat de fin de bloc (ECRAN-SAISIE §3.9)', () => {
     const duSoir = [[120, 5, 'z'], [130, 5, 'm'], [130, 4, 'b'], [130, 4, 'a']]
       .map((x, i) => ({ id: x[2], rang: i + 1, charge_kg: x[0], reps: x[1],
         rpe: null, ressenti: null, type_serie: 'travail' }));
-    const r = Moteur.constatDExercice(hist, { seance: { debut: jour('09-20') }, series: duSoir },
+    const r = constatBrut(hist, { seance: { debut: jour('09-20') }, series: duSoir },
       { etat: 'monte' }, jour('09-20'), '2026-09-20T21:30:00+00:00',
       { mesure: 'charge_reps', equipement: 'barre', intention: 'progresser',
         reglage: 'normal', edition: false });
@@ -1371,7 +1385,7 @@ describe('le constat de fin de bloc (ECRAN-SAISIE §3.9)', () => {
       charge_kg: x.charge_kg, reps: x.reps, rpe: null, ressenti: null, type_serie: 'travail' })) });
     const OPT = { mesure: 'charge_reps', equipement: 'barre', intention: 'progresser',
                   reglage: 'normal', edition: false };
-    const faire = (quoi) => Moteur.constatDExercice(c.seances.map(brut), brut(c.seanceDuJour),
+    const faire = (quoi) => constatBrut(c.seances.map(brut), brut(c.seanceDuJour),
       undefined, c.avant, c.apres, Object.assign({}, OPT, quoi));
     expect(faire({})).not.toBeNull();
     [{ intention: 'entretien' }, { edition: true }, { mesure: 'reps' }].forEach((quoi) => {

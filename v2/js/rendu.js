@@ -2438,6 +2438,16 @@
       if (p[k]) cible.appendChild(el('p', 'pq-p', p[k]));
     });
     if (p.donc) cible.appendChild(el('p', 'pq-p fort', p.donc));
+    // ECRAN §3.10 (delta 49-14 W1) — les lignes de la SÉANCE EN COURS, une par
+    // une, telles que le plan les porte : la charge d'abord, puis leur rôle, la
+    // raison d'une ligne du coach ou d'un retour, et ce qui a été fait. Aucun
+    // texte composé ici : il vient du plan.
+    (p.lignes || []).forEach(function (l) {
+      var n = el('div', 'pq-ligne pq-plan');
+      n.appendChild(el('span', 'pq-quoi', l.texte));
+      n.appendChild(el('span', 'pq-role', [l.libelle, l.raison, l.faite].filter(Boolean).join(' · ')));
+      cible.appendChild(n);
+    });
     if (p.reglage) {
       // « Profil » est le dernier mot de la phrase : on la coupe dessus plutôt
       // que d'en réécrire une seconde à côté du lien.

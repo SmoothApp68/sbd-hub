@@ -2019,8 +2019,12 @@
     // ⚠️ `emise_a` ET `user_id` SONT POSÉS ICI, comme pour une correction de
     // zone (§9.1.1) : laissés au défaut du serveur, deux séances notées hors
     // ligne remonteraient dans l'ordre du réseau, pas dans celui des gestes.
+    // ⚠️ UNE LIGNE PROVISOIRE N'EST PAS OBSERVABLE (pas d'identifiant : une
+    // observation partirait vers `id = null`). `observerSerie` l'ignore ;
+    // `validerSerie` l'observe lui-même, une fois identifiée. Le jeton la
+    // retrouve même si elle a été recopiée entre-temps.
     var provisoire = Object.assign({}, pari, {
-      id: null,
+      id: null, _provisoire: uuid(),
       user_id: (sessionActive && sessionActive.user && sessionActive.user.id) || null,
       module_version: Moteur.VERSION_CONSIGNE,
       emise_a: new Date().toISOString(), horizon_jours: null,
@@ -2041,9 +2045,10 @@
     var calcule = await Moteur.idDePrediction(seance.id, provisoire.exercise_slug,
       provisoire.fondement.rang, revisionDe(provisoire)).catch(function () { return null; });
     var ligne = Object.assign({}, provisoire, { id: calcule || uuid() });
+    delete ligne._provisoire;
     var trouve = false;
     local.predictions = (local.predictions || []).map(function (l) {
-      if (l !== provisoire) return l;
+      if (!l || l._provisoire !== provisoire._provisoire) return l;
       trouve = true;
       return ligne;
     });
@@ -2097,8 +2102,12 @@
     // se relit sur la liste actuelle et glisse quand une série est ajoutée ou
     // supprimée : `parisAObserver` rend les paris de CETTE série, où qu'ils
     // soient, et ceux de son rang que personne d'autre ne tient.
+    // ⚠️ SANS IDENTIFIANT, PAS D'OBSERVATION (49-U7 bis) : un pari encore
+    // provisoire (`enregistrerPari`, avant `finirPari`) est ignoré ici. Une
+    // frappe qui croise la validation l'observait, et l'observation partait
+    // vers `id = null` — deux paris du même rang, et aucun en base.
     var paris = (local.predictions || []).filter(function (l) {
-      return l && l.exercise_slug === exo.exercise_slug && l.fondement &&
+      return l && l.id && l.exercise_slug === exo.exercise_slug && l.fondement &&
         l.fondement.seance === seance.id;
     });
     var aLire = Seance.parisAObserver(paris, serie, rang, exo.series);

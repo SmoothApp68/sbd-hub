@@ -7715,6 +7715,53 @@ const SETS_IMPORTES = [
     gardeBanc.suspendue = false;
   }
 
+  console.log('\n══ 7 G ter. LE PARI ENREGISTRÉ AVANT LE PLAN, ET LA FRAPPE QUI LE CROISE (49-U7 bis) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : UNE FRAPPE ET LA VALIDATION DANS LE MÊME
+  // INSTANT. Taper dans un champ (`surChamp`) attend la sauvegarde, PUIS
+  // observe la série. Si « valider » passe pendant cette attente, l'observation
+  // arrive après la validation — et trouve le pari que `enregistrerPari` vient
+  // de poser sur l'appareil, alors qu'il n'a pas encore son identifiant. Sous
+  // charge (deux bancs à la fois), le banc a vu : deux paris du même rang et de
+  // la même révision sur l'appareil, et aucun en base. Ici, le croisement est
+  // forcé : la frappe et le toucher partent dans la même tâche.
+  {
+    const parisLocaux = () => page.evaluate(async () => {
+      const toutes = await window.THCache.lireTout('predictions');
+      return toutes.filter((l) => l.exercise_slug === 'souleve-terre');
+    });
+    const idSeance = () => (base.sessions.filter((x) => x.statut === 'en_cours')[0] || {}).id;
+    await aller('/saisie');
+    await demarrerRoutine('Terre ×4');
+    await attendre(800);
+    const sid = idSeance();
+    await page.evaluate(() => {
+      const l = document.querySelectorAll('.ligne-serie')[0];
+      const [ch, rp] = l.querySelectorAll('input');
+      ch.value = String(Number(String(ch.placeholder).replace(',', '.')));
+      ch.dispatchEvent(new Event('input', { bubbles: true }));
+      rp.value = String(parseInt(rp.placeholder, 10));
+      rp.dispatchEvent(new Event('input', { bubbles: true }));
+      l.querySelector('.ok-serie').click();
+    });
+    await attendre(2500);
+    const locaux = (await parisLocaux()).filter((l) => l.fondement && l.fondement.seance === sid);
+    const enBase = base.predictions.filter((l) => l.fondement && l.fondement.seance === sid &&
+      l.exercise_slug === 'souleve-terre');
+    const serie0 = base.sets.filter((x) => x.session_id === sid && x.rang === 1)[0];
+    ok('[FV] DISCRIMINANT — la frappe croise la validation : UN pari au rang 1 sur l’appareil, avec son identifiant',
+      locaux.filter((l) => l.fondement.rang === 1).length === 1 && locaux.every((l) => !!l.id),
+      JSON.stringify(locaux.map((l) => [l.fondement.rang, l.fondement.revision || 0, l.id ? 'id' : 'SANS id', l.set_observe ? 'obs' : '—'])));
+    ok('[FV] …et en base : le pari du rang 1, observé sur la série 1',
+      enBase.filter((l) => l.fondement.rang === 1).length === 1 && !!serie0 &&
+      enBase.filter((l) => l.fondement.rang === 1)[0].set_observe === serie0.id,
+      JSON.stringify(enBase.map((l) => [l.fondement.rang, l.set_observe === (serie0 && serie0.id) ? 'obs s1' : l.set_observe])));
+    const fileF = await page.evaluate(() => window.THCache.lireAttente());
+    ok('[FV] …et la file est vide : rien de bloqué', fileF.length === 0,
+      JSON.stringify(fileF.map((e) => e.cle + (e.bloquee ? ' BLOQUÉE' : ''))));
+    await abandonner();
+  }
+
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');
   {
     const noms = Object.keys(gardeBanc.sections);

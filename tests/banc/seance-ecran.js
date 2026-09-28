@@ -1387,9 +1387,23 @@ const SETS_IMPORTES = [
     JSON.stringify(await visible()) + ' · ' + (await compter('.ok-serie.cochee')) + ' validée(s)');
 
   console.log('\n══ 3. LE TYPE ET L’EFFORT ══');
+  // G3 (49-17) — la série 1 est VALIDÉE et son pari OBSERVÉ en base : c'est la
+  // configuration qui laissait un pari de travail jugé sur une chauffe.
+  const enCoursB = (base.sessions.filter((x) => x.statut === 'en_cours')[0] || {}).id;
+  const serieB = sets().filter((x) => x.session_id === enCoursB && x.rang === 1 && x.type_serie === 'travail')[0];
+  const observesB = () => base.predictions.filter((l) => serieB && l.set_observe === serieB.id);
+  ok('[B] prémisse : la série 1 est validée, et un pari est observé sur elle en base',
+    !!serieB && !!serieB.validee_a && observesB().length >= 1,
+    JSON.stringify({ serie: serieB && serieB.id, observes: observesB().length }));
   await toucher(0, '.no-serie');
   await page.click('#feuille-contenu .feuille-menu button:nth-child(2)');   // Échauffement
   await attendre(700);
+  await jusqua(async () => observesB().length === 0, 6000);
+  ok('[B] DISCRIMINANT — passée en chauffe, elle perd son observation : plus aucun pari observé sur elle en base',
+    observesB().length === 0, JSON.stringify(observesB().map((l) => [l.fondement.rang, l.valeur_observee])));
+  const fileB = await page.evaluate(() => window.THCache.lireAttente());
+  ok('[B] et rien ne reste refusé ni en attente dans la file',
+    fileB.length === 0, JSON.stringify(fileB.map((e) => e.cle + (e.bloquee ? ' BLOQUÉE' : ''))));
   // §7 undecies.1 — hors superset, le badge porte `W` : il n'y a pas de lettre
   // d'exercice à porter, et « C » se confondait avec la charge.
   ok('le numéro porte le type : la série devient une chauffe',
@@ -4195,6 +4209,12 @@ const SETS_IMPORTES = [
   const repereD7 = base.journal.length;
   await aller('/');
   await attendre(1500);
+  // G2 (49-17) — A' : la série arrive validée, sans pari. Personne ne l'écrit
+  // après coup.
+  ok('[A’] une série validée hors de l’app n’est JAMAIS pariée après coup',
+    !base.predictions.some((l) => l.set_observe === 'set-fantome-1' ||
+      (l.fondement && l.fondement.seance === FANTOME.id)),
+    JSON.stringify(base.predictions.filter((l) => l.fondement && l.fondement.seance === FANTOME.id)));
   ok('[D7] la séance restée ouverte est REPRISE, avec sa série',
     (base.sessions.filter((x) => x.id === FANTOME.id)[0] || {}).statut === 'en_cours' &&
     (await page.evaluate(() => !document.getElementById('vue-seance').hidden ||

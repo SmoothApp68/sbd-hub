@@ -1771,7 +1771,7 @@
   // chiffre recopié ne peut que dériver (CADRAGE §2 undecies).
   //
   // Elle s'écrit dans la COLONNE `predictions.module_version` de chaque pari
-  // (`noterLignes`), pas dans son fondement. 1 jusqu'à 49-U5 exclu ; 2 depuis
+  // (`enregistrerPari`), pas dans son fondement. 1 jusqu'à 49-U5 exclu ; 2 depuis
   // 49-U5 (reprise mesurée, une seule montée par bloc — MOTEUR §9.13 bis,
   // précisé le 27/09/2026).
   var MODULE_CONSIGNE = 'moteur.consigne';

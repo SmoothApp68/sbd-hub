@@ -114,8 +114,10 @@ describe('49-U2 — F044 : le refus suivi d’un test', () => {
   const c = FICHIER.cas.find((x) => x.id === 'F044');
   const vu = rejouerCas(c);
 
-  test('prémisse : 50 × 8, puis 52,5 proposé sur la série 2', () => {
-    expect(vu[1].lignes[1]).toEqual({ role: 'coach', charge: 52.5, vise: 3 });
+  // 49-U5 (delta 49-13, §9.14) — le test à 55 est prévu plus loin : la
+  // proposition prend sa charge (avant : 52,5, le cran du dessus).
+  test('prémisse : 50 × 8, puis 55 — la charge du test prévu — proposé sur la série 2', () => {
+    expect(vu[1].lignes[1]).toEqual({ role: 'coach', charge: 55, vise: 3 });
     expect(vu[1].message).toBe('propose');
   });
 
@@ -180,17 +182,18 @@ describe('49-U2 — I11 : verifierPlan voit chaque violation', () => {
     expect(i11(v).join(' ')).toMatch(/n'a pas suivi sa ligne/);
   });
 
+  // 49-U5 : la proposition acceptée est à 55, la charge du test prévu (delta 49-13).
   test('un fantôme « dernière série » après une série qui a suivi sa ligne', () => {
     const v = forger((l) => {
-      l[1].faite = { charge: 52.5, reps: 3 };   // la proposition acceptée
-      l[2].fantome = { charge: 52.5, reps: 3, source: 'derniere' };
+      l[1].faite = { charge: 55, reps: 3 };   // la proposition acceptée
+      l[2].fantome = { charge: 55, reps: 3, source: 'derniere' };
     });
     expect(i11(v).join(' ')).toMatch(/a suivi sa ligne/);
   });
 
   test('un fantôme du plan qui ne reprend pas sa ligne', () => {
     const v = forger((l) => {
-      l[1].faite = { charge: 52.5, reps: 3 };
+      l[1].faite = { charge: 55, reps: 3 };
       l[2].fantome = { charge: 55, reps: 5, source: 'plan' };
     });
     expect(i11(v).join(' ')).toMatch(/pour une ligne 55×4/);

@@ -165,8 +165,10 @@ describe('§9.14 (49-C) — la réaction suit la couverture de la séance', () =
   test('DISCRIMINANT — routine à 4, historique à 3 : 125 × 8 sur la PREMIÈRE série propose sur la 2ᵉ', () => {
     const plan0 = planDe([libre('a'), libre('b'), libre('c'), libre('d')]);
     const r = Moteur.reactionPour(C3, [s(125, 8)], ctx, plan0);
-    expect(r.message).toMatchObject({ type: 'propose', rang: 1, charges: [127.5], marge: 3 });
-    expect(r.plan[1]).toMatchObject({ charge: 127.5, source: 'coach' });
+    // 49-U5 (delta 49-13, §9.14) : le test à 130 est prévu plus loin (série
+    // 4) — la proposition prend SA charge (avant : 127,5, le cran du dessus).
+    expect(r.message).toMatchObject({ type: 'propose', rang: 1, charges: [130], marge: 3 });
+    expect(r.plan[1]).toMatchObject({ charge: 130, source: 'coach' });
   });
 
   test('DISCRIMINANT — moins de séries que la consigne : plus de silence (#318 retiré)', () => {
@@ -254,8 +256,10 @@ describe('§9.11 (49-C) — le pari d’une série, avec ce que sa ligne afficha
 
   test('la proposition du coach : UN pari, de révision 1, rôle `coach`', () => {
     const p = parisDu([faite('a', 125, 8), libre('b'), libre('c')])[1];
-    expect(p.fondement).toMatchObject({ rang: 2, revision: 1, role: 'coach', charge: 127.5,
-      charges: [127.5], declencheur: { rang: 1, marge: 3 } });
+    // 49-U5 (delta 49-13) : le test à 130 suit en série 3 — la proposition
+    // prend sa charge (avant : 127,5).
+    expect(p.fondement).toMatchObject({ rang: 2, revision: 1, role: 'coach', charge: 130,
+      charges: [130], declencheur: { rang: 1, marge: 3 } });
   });
 
   // La mise en forme du pari, seule : `lignesDePari` reçoit la réaction (celle

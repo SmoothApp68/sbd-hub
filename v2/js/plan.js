@@ -111,9 +111,12 @@
   // `figees` : `{ [id de série]: { rang, role, ligne } }`, les lignes figées
   // relues dans les paris (`THSeance.figeesDe`) ; `options` : `{ slug,
   // seance, reglage }`, ce que porte le pari. Pur : ne lit rien d'autre.
-  function planDesLignes(series, consigne, contexte, figees, options) {
+  function planDesLignes(series, consigneDonnee, contexte, figees, options) {
     var o = options || {};
     var S = Seance(), M = Moteur();
+    // L'ÉTAPE DE LA CONSIGNE FIGÉE (§9.9, delta 49-13) : le repli de la
+    // reprise longue ne descend jamais de plus de 10 % sous le dernier palier.
+    var consigne = M.consigneFigee(consigneDonnee);
     var liste = series || [];
     var couverture = S.couvertureSeance(liste, consigne, figees || {});
     var indices = [], rangs = [], roles = [], couvertes = [];
@@ -190,7 +193,7 @@
     } : null;
 
     return {
-      indices: indices, rangs: rangs, roles: roles,
+      consigne: consigne, indices: indices, rangs: rangs, roles: roles,
       planInitial: planInitial, faites: faites, reaction: reaction,
       lignes: lignes, message: message, paris: paris
     };
@@ -218,6 +221,7 @@
     Object.keys(figees || {}).forEach(function (k) { gel['r' + (Number(k) + 1)] = figees[k]; });
     var r = planDesLignes(series, consigne, contexte, gel, options);
     return {
+      consigne: r.consigne,
       lignes: r.lignes, message: r.message, reaction: r.reaction, paris: r.paris,
       planInitial: r.planInitial, indices: r.indices, rangs: r.rangs, roles: r.roles,
       faites: r.faites, series: series
@@ -278,7 +282,9 @@
       });
       return base;
     }
-    var consigne = c.consigne;
+    // La consigne figée (§9.9, delta 49-13) : c'est elle que lisent les lignes
+    // figées, l'en-tête, le constat et les invariants.
+    var consigne = M.consigneFigee(c.consigne);
     var siens = (paris || []).filter(function (l) {
       return l && l.exercise_slug === base.slug && l.fondement && l.fondement.seance === seanceId;
     });
@@ -411,10 +417,53 @@
       if (ch !== null && prevue !== null && ch < prevue && !memeCharge(ch, prevue)) {
         err('I3', 'proposition ' + ch + ' plus basse que la ligne prévue ' + prevue + ' (ligne ' + i + ')');
       }
-      if (ch !== null && P !== null && !(ch > P && !memeCharge(ch, P))) {
+      // ⚠️ SAUF LA REPRISE LONGUE QUI RAMÈNE AU PALIER (§9.14, delta 49-13) :
+      // quand le repli plafonné garde déjà le palier et que le cran connu est
+      // ce palier, la proposition « on retrouve ton palier » est à sa charge.
+      var auPalier = x.consigne.etat === 'reprise_longue' && memeCharge(ch, x.consigne.palier);
+      if (ch !== null && P !== null && !(ch > P && !memeCharge(ch, P)) && !auPalier) {
         err('I3', 'proposition ' + ch + ' pas au-dessus de la charge de travail ' + P + ' (ligne ' + i + ')');
       }
     });
+
+    // I14 (§9.14, delta 49-13) — une proposition du coach suivie d'un test
+    // PRÉVU a la charge de ce test : une seule montée par bloc. Le test prévu
+    // se lit sur le rôle de la couverture (`planInitial`), figé ou non.
+    // ⚠️ LA PROPOSITION, c'est la PREMIÈRE ligne du coach (révision 1) : les
+    // suivantes portent la charge réellement montée (« la charge montée reste
+    // pour la suite »). Et une proposition FIGÉE est de l'histoire — écrite
+    // avant ce jour, elle garde sa charge (I4) : I14 juge les décisions à venir.
+    var testI14 = x.consigne.haut ? nombre(x.consigne.haut.charge) : null;
+    var premiereCoach = -1;
+    cour.forEach(function (p, i) { if (premiereCoach < 0 && p && p.source === 'coach') premiereCoach = i; });
+    cour.forEach(function (p, i) {
+      if (i !== premiereCoach || (init[i] && init[i].figee)) return;
+      var suivi = false;
+      for (var t = i + 1; t < init.length; t++) {
+        if (init[t] && init[t].role === 'haut') { suivi = true; break; }
+      }
+      if (suivi && !memeCharge(p.charge, testI14)) {
+        err('I14', 'la proposition du coach (ligne ' + i + ', ' + p.charge + ') précède un test prévu à ' +
+          testI14 + ', à une autre charge');
+      }
+    });
+
+    // LE REPLI (§9.9, delta 49-13) — une reprise longue ne descend jamais de
+    // plus de 10 % sous le dernier palier : ni la consigne figée, ni une ligne
+    // qui la reprend.
+    if (x.consigne.etat === 'reprise_longue') {
+      var Pal = nombre(x.consigne.palier);
+      var plancher = Pal === null ? null : Pal * (1 - racine.THMoteur.REPLI_MAX_REPRISE);
+      var sous = function (v) { var n = nombre(v); return n !== null && plancher !== null && n < plancher - 1e-9; };
+      if (x.consigne.ligne && sous(x.consigne.ligne.charge)) {
+        err('Repli', 'la consigne reprend à ' + x.consigne.ligne.charge + ', plus de 10 % sous le palier ' + Pal);
+      }
+      (x.lignes || []).forEach(function (l) {
+        if ((l.role === 'ligne' || l.role === 'retour') && sous(l.charge)) {
+          err('Repli', 'la série ' + l.iSerie + ' reprend à ' + l.charge + ', plus de 10 % sous le palier ' + Pal);
+        }
+      });
+    }
 
     // I6 — l'en-tête décrit exactement les lignes : les segments recouvrent
     // chaque ligne une fois, dans l'ordre, avec sa charge et sa visée prévues ;

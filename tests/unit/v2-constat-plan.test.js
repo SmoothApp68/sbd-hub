@@ -229,3 +229,45 @@ describe('49-U4 — I10 : verifierPlan voit chaque violation', () => {
     expect(T.verifierPlan(juste).erreurs.filter((e) => /^I10/.test(e))).toEqual([]);
   });
 });
+
+// ── 49-U5 — LE CAS DE #327 SOUS LA RÈGLE 3 (delta 49-13, 27/09/2026) ────────
+//
+// Le même décor, les paris écrits comme l'app les écrit AUJOURD'HUI (lus dans
+// le plan, validation après validation), sur QUATRE séries — à trois, la série
+// 2 est déjà un test (« ton test arrive », 49-U1) : la forme de #327, une
+// ligne en série 2 et le test plus loin, en demande quatre ici. 125 × 8 avant
+// le test prévu à 130 :
+// la proposition prend la charge du test dès la série 2 — une seule montée
+// dans le bloc. 130 se répète, et la séance suivante a une charge.
+describe('49-U5 — le cas de #327 : une seule montée, et une suite chiffrée', () => {
+  const FAITES = [['t1', 125, 8], ['t2', 130, 4], ['t3', 130, 4], ['t4', 130, 4]];
+  const paris = [];
+  let series = FAITES.map(([sid]) => serie(sid, null, null));
+  const plans = [];
+  FAITES.forEach(([sid, kg, reps], i) => {
+    series = series.map((s, j) => (j === i ? serie(sid, kg, reps) : s));
+    const q = planDu26(series, paris.slice()).plan.exercices[0].paris[i];
+    if (q) paris.push(Object.assign({}, q, { set_observe: sid }));
+    plans.push(planDu26(series, paris.slice()));
+  });
+
+  test('⚠️ DISCRIMINANT — après 125 × 8, la proposition est 130 dès la série 2 (avant : 127,5)', () => {
+    const x = plans[0].plan.exercices[0];
+    expect(x.lignes.map((l) => l.role + ':' + l.charge)).toEqual(['ligne:125', 'coach:130', 'test:130', 'test:130']);
+    expect(x.lignes[1].proposee).toBe(true);
+    expect(x.message.phrase.replace(/[  ]/g, ' ')).toBe('125 × 8, 3 de plus que visé : 130 dès la série 2, vise 3 à 5 ?');
+  });
+
+  test('⚠️ DISCRIMINANT — le constat annonce une suite chiffrée (avant : aucune, `silence`)', () => {
+    const k = plans[3].plan.exercices[0].constat;
+    expect(k.suiteEtat).not.toBe('silence');
+    expect(k.suiteCharges.filter((c) => c !== null)).toContain(130);
+    expect(k.suite.replace(/[  ]/g, ' ')).toMatch(/^Prochaine séance : 130 kg/);
+  });
+
+  test('chaque plan passe verifierPlan, I4 d’un plan au suivant et I14 compris', () => {
+    plans.forEach(({ plan, entrees }, i) => {
+      expect(T.verifierPlan(plan, entrees, i ? plans[i - 1].plan : undefined).erreurs).toEqual([]);
+    });
+  });
+});

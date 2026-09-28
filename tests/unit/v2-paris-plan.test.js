@@ -25,6 +25,20 @@ const REF = require('./fixtures/paris-49u3-reference.json');
 const REACTION = require('./fixtures/reaction-49r1.json');
 const FANTOME = require('./fixtures/cas-49u2-fantome.json');
 
+// ⚠️ 49-U5 (delta 49-13, 27/09/2026) — LES CAS QUE LES RÈGLES DU JOUR
+// CHANGENT. La référence est ce que l'app écrivait AVANT ; ces cas-là en
+// sortent, un par un, avec leur règle :
+//   · F026 à F035 — le fichier du fantôme v2 porte de nouvelles séries faites
+//     (reprises longues, repli plafonné : les lignes à 50, plus à 40) ;
+//   · F038, F039, F044, F045 — le fichier v2 : la proposition prend la charge
+//     du test prévu (55, plus 52,5) ;
+//   · R028 à R032 — la même règle 3 : la proposition passe à 55 ;
+//   · ⚠️ RAPPORTÉS, non listés par le prompt : R033 et R034 (reprise longue à
+//     40 pour un palier de 50 : le repli plafonné met les lignes à 50) ; R055
+//     (reprise longue, 60 × 13 : la réaction, muette avant, propose 65).
+const CHANGES_U5 = { F026: 1, F027: 1, F028: 1, F029: 1, F030: 1, F031: 1, F032: 1, F033: 1, F034: 1, F035: 1,
+  F038: 1, F039: 1, F044: 1, F045: 1, R028: 1, R029: 1, R030: 1, R031: 1, R032: 1, R033: 1, R034: 1, R055: 1 };
+
 const consigneDuCas = (k) => ({ etat: k.etat, zone: k.zone === null ? null : k.zone.nom,
   palier: k.palier, n: k.n, ligne: k.ligne, haut: k.haut });
 const OPTIONS = { slug: 'x', seance: 'S', reglage: 'normal' };
@@ -64,6 +78,7 @@ describe('49-U3 — le pari du plan est, champ par champ, celui que l’app écr
 
   REF.reaction.forEach((ref, i) => {
     const c = REACTION.reaction[i];
+    if (CHANGES_U5[ref.id]) return;
     test('réaction ' + ref.id, () => {
       expect(c.id).toBe(ref.id);
       const vu = parisDuPlan(c.consigne, c.contexte, c.faites.length, c.faites);
@@ -73,11 +88,29 @@ describe('49-U3 — le pari du plan est, champ par champ, celui que l’app écr
 
   REF.fantome.forEach((ref, i) => {
     const c = FANTOME.cas[i];
+    if (CHANGES_U5[ref.id]) return;
     test('fantôme ' + ref.id, () => {
       expect(c.id).toBe(ref.id);
       const vu = parisDuPlan(c.consigne, c.contexte, c.series, c.faites);
       ref.validations.forEach((v, t) => expect({ serie: t, paris: vu[t] }).toEqual({ serie: t, paris: v.paris }));
     });
+  });
+
+  // ⚠️ DISCRIMINANT — la liste des cas sortis de la référence n'est pas une
+  // tolérance : EXACTEMENT ces cas-là diffèrent de ce que l'app écrivait, pas
+  // un de plus, pas un de moins.
+  test('49-U5 — exactement les cas du delta 49-13 diffèrent de la référence', () => {
+    const differe = [];
+    const diff = (ref, vu) => ref.validations.some((v, t) => JSON.stringify(vu[t]) !== JSON.stringify(v.paris));
+    REF.reaction.forEach((ref, i) => {
+      const c = REACTION.reaction[i];
+      if (diff(ref, parisDuPlan(c.consigne, c.contexte, c.faites.length, c.faites))) differe.push(ref.id);
+    });
+    REF.fantome.forEach((ref, i) => {
+      const c = FANTOME.cas[i];
+      if (diff(ref, parisDuPlan(c.consigne, c.contexte, c.series, c.faites))) differe.push(ref.id);
+    });
+    expect(differe.sort()).toEqual(Object.keys(CHANGES_U5).sort());
   });
 });
 
@@ -113,7 +146,9 @@ describe('49-U3 — I4, I7, I8 : verifierPlan voit chaque violation', () => {
 
   test('prémisse : trois paris écrits, un par série faite, et le plan juste passe — avec chaque paire de plans', () => {
     expect(paris.map((q) => q.fondement.rang + ':' + q.fondement.role + ':' + q.fondement.charge))
-      .toEqual(['1:ligne:50', '2:coach:52.5', '3:haut:55']);
+      // 49-U5 (delta 49-13, §9.14) : la proposition prend la charge du test
+      // prévu, 55 (avant : 52,5, le cran du dessus).
+      .toEqual(['1:ligne:50', '2:coach:55', '3:haut:55']);
     expect(T.verifierPlan(p, e).erreurs).toEqual([]);
     for (let k = 1; k < plans.length; k++) expect(T.verifierPlan(plans[k], undefined, plans[k - 1]).erreurs).toEqual([]);
     expect(p.exercices[0].lignes.slice(0, 3).every((l) => l.figee)).toBe(true);
@@ -157,7 +192,7 @@ describe('49-U3 — I4, I7, I8 : verifierPlan voit chaque violation', () => {
     const cas = [
       ['rang', (l) => { l.rang = 7; }, /rang 2 → 7/],
       ['rôle', (l) => { l.role = 'ligne'; }, /rôle coach → ligne/],
-      ['charge', (l) => { l.charge = 50; }, /charge 52.5 → 50/],
+      ['charge', (l) => { l.charge = 50; }, /charge 55 → 50/],
       ['visée', (l) => { l.vise = 5; }, /visée 3 → 5/],
       ['dégel', (l) => { l.figee = false; }, /figée avant, plus maintenant/]
     ];

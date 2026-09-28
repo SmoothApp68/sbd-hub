@@ -5724,7 +5724,9 @@ const SETS_IMPORTES = [
       .sort((a, b) => a.fondement.rang - b.fondement.rang);
     const enFilePred = () => page.evaluate(() =>
       (window.THCache ? window.THCache.lireAttente() : Promise.resolve([]))
-        .then((f) => f.filter((e) => e.table === 'predictions')
+        // 27/09/2026 — l'observation a sa propre entrée (`observations`),
+        // séparée de son pari : les deux attendent, et c'est elle qui compte ici.
+        .then((f) => f.filter((e) => e.table === 'predictions' || e.table === 'observations')
           .map((e) => ({ id: e.id, op: e.op, depend: e.depend, seq: e.seq }))));
     const enFileSets = () => page.evaluate(() =>
       (window.THCache ? window.THCache.lireAttente() : Promise.resolve([]))

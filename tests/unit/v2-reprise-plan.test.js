@@ -259,3 +259,42 @@ describe('49-U5 — I14 et le repli : verifierPlan voit chaque violation', () =>
     expect(du('I15', T.verifierPlan(l))).toMatch(/la série 2 reprend à 15, plus de 10 % sous le palier 20/);
   });
 });
+
+// ── 49-U7 — LE CRAN SE LIT AU-DESSUS DE LA CHARGE RETENUE ; I3 SANS EXCEPTION ─
+//
+// Le simulateur a été corrigé le 27/09 : après un repli plafonné, le cran se
+// lit au-dessus du palier retenu. P008, P009, F028, F029, F034 et F035 ne
+// proposent plus « 20, vise 10 à 12 » (la charge de travail elle-même) mais
+// « le cran au-dessus », sans chiffre — et la tolérance de I3 pour une reprise
+// longue « au palier » est partie avec eux.
+describe('49-U7 — la réaction lit le cran au-dessus de la charge retenue ; I3 sans tolérance', () => {
+  const s = (kg, reps) => ({ charge_kg: kg, reps, rpe: null, ressenti: null });
+  const C = { etat: 'reprise_longue', zone: 'volume', palier: 20, n: 3, ligne: { charge: 20, vise: 15 }, haut: null };
+
+  test('⚠️ DISCRIMINANT — un cran connu ÉGAL à la charge retenue vaut « le cran au-dessus », sans chiffre', () => {
+    const r = M.reactionPour(C, [s(20, 18)], { cran: 20, haut: null });
+    expect(r.message).toMatchObject({ type: 'propose', charges: [null] });
+    expect(r.plan[1]).toMatchObject({ charge: null, source: 'coach' });
+  });
+
+  test('un cran connu PLUS BAS aussi (contexte d’une consigne d’avant le repli, ligne à 15)', () => {
+    const r = M.reactionPour(C, [s(20, 18)], { cran: 17.5, haut: null });
+    expect(r.message).toMatchObject({ type: 'propose', charges: [null] });
+  });
+
+  test('témoin — un cran au-dessus garde son chiffre', () => {
+    const r = M.reactionPour(C, [s(20, 18)], { cran: 22.5, haut: null });
+    expect(r.message).toMatchObject({ type: 'propose', charges: [22.5] });
+  });
+
+  test('⚠️ DISCRIMINANT — I3 : une proposition À la charge du palier, en reprise longue, est vue', () => {
+    const c = REPRISE.cas.find((x) => x.id === 'P008');
+    const etapes = jouer(consigneDuCas(c.consigne), c.contexte, c.series, c.faites);
+    const plan = JSON.parse(JSON.stringify(etapes[1].plan));
+    expect(plan.exercices[0].reaction.plan[1]).toMatchObject({ source: 'coach', charge: null });
+    expect(T.verifierPlan(plan).erreurs).toEqual([]);
+    plan.exercices[0].reaction.plan[1].charge = 20;
+    expect(T.verifierPlan(plan).erreurs.filter((e) => e.indexOf('I3 —') === 0).join(' '))
+      .toMatch(/proposition 20 pas au-dessus de la charge de travail 20/);
+  });
+});

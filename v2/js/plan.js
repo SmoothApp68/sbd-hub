@@ -442,9 +442,10 @@
   // ══ LES INVARIANTS — UN COACH QUI NE PEUT PAS SE CONTREDIRE ══════════════
   //
   // Vérifiés sur chaque plan : en test (plans générés), au banc (après chaque
-  // geste). C1 porte I1, I2, I3, I6, I9 et I12, C2 (49-U2) I11, C3 (49-U3)
-  // I4, I7 et I8, C4 (49-U4) I10 ; les autres arrivent avec les étapes qu'ils
-  // gardent (C5, C6). Rend `{ ok, erreurs }`.
+  // geste de chaque section, 49-U7) et, hors production, dans l'app par la
+  // garde du coach (`creerGarde`). C1 porte I1, I2, I3, I6, I9 et I12, C2
+  // (49-U2) I11, C3 (49-U3) I4, I7 et I8, C4 (49-U4) I10, 49-U5 I14 et I15,
+  // C5 (49-U6) l'extension de I6 à la feuille. Rend `{ ok, erreurs }`.
   //
   // ⚠️ AUCUNE VÉRIFICATION NE RELIT LA RÈGLE QU'ELLE CONTRÔLE. I6 ne rappelle
   // pas la fonction qui rédige l'en-tête : il compte les séries que le texte
@@ -507,11 +508,10 @@
       if (ch !== null && prevue !== null && ch < prevue && !memeCharge(ch, prevue)) {
         err('I3', 'proposition ' + ch + ' plus basse que la ligne prévue ' + prevue + ' (ligne ' + i + ')');
       }
-      // ⚠️ SAUF LA REPRISE LONGUE QUI RAMÈNE AU PALIER (§9.14, delta 49-13) :
-      // quand le repli plafonné garde déjà le palier et que le cran connu est
-      // ce palier, la proposition « on retrouve ton palier » est à sa charge.
-      var auPalier = x.consigne.etat === 'reprise_longue' && memeCharge(ch, x.consigne.palier);
-      if (ch !== null && P !== null && !(ch > P && !memeCharge(ch, P)) && !auPalier) {
+      // Sans exception (49-U7) : la tolérance de 49-U5 pour une reprise longue
+      // « au palier » (P008, F028) est partie avec les cas corrigés — le cran
+      // se lit au-dessus de la charge retenue (`reactionPour`).
+      if (ch !== null && P !== null && !(ch > P && !memeCharge(ch, P))) {
         err('I3', 'proposition ' + ch + ' pas au-dessus de la charge de travail ' + P + ' (ligne ' + i + ')');
       }
     });
@@ -851,11 +851,95 @@
     return { ok: erreurs.length === 0, erreurs: erreurs };
   }
 
+  // ══ LA GARDE DU COACH (49-U7, C6) — CHAQUE PLAN, HORS PRODUCTION ════════
+  //
+  // Hors production, chaque plan que l'app calcule passe `verifierPlan` : une
+  // violation s'écrit en console (l'invariant, le plan, les entrées) et un
+  // petit marqueur apparaît à l'écran. EN PRODUCTION, RIEN : ni calcul en plus
+  // (`verifierPlan` refait le plan pour I12), ni affichage.
+  //
+  // ⚠️ L'APP SE CROIT EN PRODUCTION PAR DÉFAUT. Le domaine de production n'est
+  // écrit nulle part dans le dépôt : on ne le reconnaît pas, on reconnaît ce
+  // qui n'en est PAS. La garde s'allume seulement :
+  //   · sur la machine du développeur ou du banc : `localhost`, `*.localhost`,
+  //     `127.0.0.1`, `::1` ;
+  //   · sur une PRÉVISUALISATION Cloudflare Pages : `<déploiement>.<projet>.
+  //     pages.dev` — quatre étiquettes ou plus. La production servie par
+  //     Cloudflare est `<projet>.pages.dev` (trois) ou un domaine à soi ;
+  //   · ou par le paramètre explicite `?garde=1`, retenu sur l'appareil
+  //     (`th-v2-garde`) ; `?garde=0` l'éteint, et l'emporte sur l'hôte.
+  // Tout autre hôte — un domaine à soi, `<projet>.pages.dev` — est la
+  // production.
+  //
+  // `I10 suite` n'est pas une violation : c'est la partie RAPPORTÉE de I10
+  // (49-U4), en attente d'une décision de fond. Elle s'écrit en console, à
+  // part, sans marqueur.
+  var CLE_GARDE = 'th-v2-garde';
+
+  function hoteDeDeveloppement(hote) {
+    var h = String(hote || '').toLowerCase().replace(/^\[|\]$/g, '');
+    if (h === 'localhost' || h === '127.0.0.1' || h === '::1') return true;
+    if (/\.localhost$/.test(h)) return true;
+    return /\.pages\.dev$/.test(h) && h.split('.').length >= 4;
+  }
+
+  // `location` : `{ hostname, search }` ; `stockage` : `{ getItem, setItem }`
+  // (ou rien). Rend `true` si la garde tourne.
+  function gardeActive(location, stockage) {
+    var loc = location || {};
+    var m = /[?&]garde=([01])(?:&|$)/.exec(String(loc.search || ''));
+    if (m) {
+      try { if (stockage) stockage.setItem(CLE_GARDE, m[1]); } catch (e) { /* stockage fermé */ }
+      return m[1] === '1';
+    }
+    var retenu = null;
+    try { retenu = stockage ? stockage.getItem(CLE_GARDE) : null; } catch (e) { retenu = null; }
+    if (retenu === '1') return true;
+    if (retenu === '0') return false;
+    return hoteDeDeveloppement(loc.hostname);
+  }
+
+  // `o` : `{ location, stockage, journal, marquer }`. `journal` : une console ;
+  // `marquer(violations)` : le marqueur à l'écran (l'app le dessine). Rend
+  // `{ active, verifier(plan, entrees) }` ; en production, `verifier` ne fait
+  // RIEN et rend `null`.
+  function creerGarde(o) {
+    var e = o || {};
+    var active = gardeActive(e.location, e.stockage);
+    var precedent = null;
+    var violations = [];
+    var plans = 0;
+    function verifier(plan, entrees) {
+      if (!active || !plan) return null;
+      // I4 : le plan d'avant, s'il est de la même séance.
+      var avant = precedent && precedent.seance === plan.seance ? precedent : null;
+      var v = api.verifierPlan(plan, entrees, avant);
+      precedent = plan;
+      plans += 1;
+      var graves = v.erreurs.filter(function (x) { return x.indexOf('I10 suite') !== 0; });
+      var rapports = v.erreurs.filter(function (x) { return x.indexOf('I10 suite') === 0; });
+      var j = e.journal || null;
+      if (rapports.length && j && j.info) j.info('[garde du coach] rapporté', rapports);
+      if (graves.length) {
+        violations = violations.concat(graves);
+        if (j && j.error) j.error('[garde du coach] ' + graves.length + ' violation(s)', graves, { plan: plan, entrees: entrees });
+        if (e.marquer) e.marquer(violations.slice());
+      }
+      return { violations: graves, rapports: rapports };
+    }
+    // Ce que la garde a vu : le banc le lit pour s'assurer que chacune de ses
+    // sections a été vérifiée.
+    function etat() { return { active: active, plans: plans, violations: violations.slice() }; }
+    return { active: active, verifier: verifier, etat: etat };
+  }
+
   var api = {
     planDeSeance: planDeSeance,
     planDesLignes: planDesLignes,
     rejouer: rejouer,
     verifierPlan: verifierPlan,
+    gardeActive: gardeActive,
+    creerGarde: creerGarde,
     seriesDites: seriesDites,
     seriesDeDepart: seriesDeDepart,
     SERIES_DEPART_PROGRESSER: SERIES_DEPART_PROGRESSER,

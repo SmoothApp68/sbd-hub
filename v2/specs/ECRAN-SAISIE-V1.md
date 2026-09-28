@@ -1335,6 +1335,20 @@ intention, donc « 122,5 » ouvrait la fenêtre cinq fois depuis le chantier 22.
 l'entrée est restée **celle qu'on a envoyée**. Sinon elle reste en file, et le tour suivant
 l'envoie.
 
+### 7 sexies.1 Ce qui ne bloque jamais une séance — 26-28/09/2026 (#324, #329)
+
+> **Une séance, ses séries, ses paris et leurs observations finissent toujours en base, sans attendre « Terminer ».** Tant qu'ils n'y sont pas, ils n'existent que sur l'appareil — et un appareil qui perd ses données locales les perd avec eux.
+
+- **Le refus « une seule séance en cours »** (`23505` sur `sessions_une_seule_en_cours`) **n'est pas définitif** : la file referme les autres séances en cours de l'utilisateur (la règle non destructive du chantier 36), puis renvoie aussitôt la séance, et ses séries et ses paris derrière elle. Les autres `23505` restent définitifs. Au démarrage, les entrées déjà bloquées sur ce refus sont débloquées.
+- **Au démarrage, la séance en cours en base est vérifiée avant la synchronisation complète**, et « Démarrer » attend cette vérification : une séance ouverte ailleurs est reprise avant qu'une autre puisse être lancée.
+- **Un pari et son observation sont deux entrées distinctes** : l'observation part **après** la création de son pari ; reposée, elle passe en fin de file, derrière les séries qu'elle désigne.
+- **Un envoi qui ne touche aucune ligne n'est pas un succès** : il est retenté.
+- **Un refus parce que la série observée n'est pas (ou plus) en base** (`23503`) **n'est pas définitif** : l'observation attend sa série, sans arrêter la file.
+- **La copie locale ne tient une observation pour posée qu'une fois la base d'accord.**
+- **Le filet : à « Terminer »**, chaque observation portant sur une série encore validée est renvoyée (l'envoi est idempotent).
+
+*(Le 26/09 : après deux 409, une séance entière est restée onze minutes sur l'appareil, partie seulement à « Terminer ». Le 27/09 : l'observation d'une série est partie avant la création de son pari — zéro ligne touchée, comptée comme faite —, puis un nouvel essai a été refusé parce que la série venait d'être dévalidée, et jeté ; revalidée, la série n'a jamais été observée.)*
+
 ---
 
 ## 7 quater. La page d'exercice — une seule, atteinte de partout

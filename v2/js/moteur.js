@@ -1399,7 +1399,17 @@
       if (comptees === null || vise === null) continue;
       var marge = comptees - vise;
       if (marge < SEUIL_REACTION) continue;
-      var charges = [ctx.cran === undefined ? null : nombre(ctx.cran)];
+      // §9.14 (49-U7) — LE CRAN SE LIT AU-DESSUS DE LA CHARGE DE TRAVAIL
+      // RETENUE. Un cran connu qui n'est pas au-dessus de `P` — un contexte
+      // calculé sur une consigne d'avant le repli plafonné, dont la ligne est
+      // plus basse que la consigne figée — vaut « le cran au-dessus », sans
+      // chiffre : on ne propose jamais la charge de travail elle-même, ni
+      // moins (I3). Dans l'app, le contexte se calcule sur la consigne déjà
+      // plafonnée (`consignePour`), et `chargeVoisine` rend toujours plus
+      // haut que sa base : rien n'y change.
+      var cranLu = ctx.cran === undefined ? null : nombre(ctx.cran);
+      if (cranLu !== null && !(cranLu > P && !memeCharge(cranLu, P))) cranLu = null;
+      var charges = [cranLu];
       var sourceHaut = null;
       if (marge >= SEUIL_SECONDE_CHARGE && ctx.haut && nombre(ctx.haut.charge) !== null) {
         charges.push(nombre(ctx.haut.charge));

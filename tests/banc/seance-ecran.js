@@ -96,6 +96,10 @@ const CATALOGUE = [
   // CRAN (32 → 23, −28 %, le curl pupitre du 26/09), et une reprise courte à
   // la barre. Leurs noms ne répondent à aucune des recherches faites ailleurs.
   { slug: 'pupitre-machine', nom: 'Pupitre (Machine)', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['biceps'], muscles_secondaires: [] },
+  // ⚠️ RÉSERVÉS AU CORRECTIF DE LA FILE (27/09/2026) : la séance du constat,
+  // « Mardi — Pecs Dos », deux exercices.
+  { slug: 'rowing-poulie', nom: 'Rowing Poulie Assis', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['dorsaux'], muscles_secondaires: [] },
+  { slug: 'dci-halteres', nom: 'Développé Couché Incliné (Haltères)', mesure: 'charge_reps', charge: 'externe', equipement: 'haltere', muscles_primaires: ['pectoraux'], muscles_secondaires: [] },
   { slug: 'haussement-barre', nom: 'Haussement d’Épaules (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['trapezes'], muscles_secondaires: [] }
 ];
 
@@ -520,6 +524,12 @@ const SETS_IMPORTES = [
 
     if (url.pathname.startsWith('/auth/')) return json({ error: 'x' }, 400);
     if (!base.reseau) return route.abort('failed');
+    // 27/09/2026 — une LENTEUR sur `predictions` seule (écritures) : c'est la
+    // fenêtre du constat, où l'observation vidée à la dévalidation était encore
+    // en vol quand la série revenait.
+    if (base.lenteurPredictions && table === 'predictions' && req.method() !== 'GET') {
+      await new Promise((r) => setTimeout(r, base.lenteurPredictions));
+    }
     // 26/09/2026 — deux réglages de la section 7 tricies. `lenteur` retarde la
     // synchronisation COMPLÈTE (la liste des séances), pas la lecture légère
     // des séances en cours : c'est la fenêtre du constat, où « Démarrer »
@@ -7332,6 +7342,120 @@ const SETS_IMPORTES = [
     await abandonner();
     await aller('/saisie');
     ok('[RP] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
+  }
+
+  console.log('\n══ 7 quinquatricies. UNE OBSERVATION NE SE PERD PLUS DANS LA FILE (§9.11, 27/09/2026) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE — LA SÉQUENCE DES JOURNAUX DU 27/09. Une
+  // série observée, DÉVALIDÉE pendant que d'autres séries sont supprimées ;
+  // l'observation vidée part LENTEMENT (en vol) ; la série est REVALIDÉE
+  // pendant ce temps. Avant le correctif, l'observation reposée gardait sa
+  // position de première pose et partait AVANT la réinsertion de la série :
+  // 23503, classé définitif, observation perdue en base, « posée » en local.
+  {
+    const tO = Date.now();
+    const poserO = (slug, titre) => (id, jours, lignes) => {
+      const debut = ilYa(jours * 86400000, tO).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: titre + ' — ' + id, debut,
+        fin: finDe(debut, tO).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      lignes.forEach(([kg, reps], i) => base.sets.push({
+        id: id + '-s' + (i + 1), session_id: id, user_id: 'u-banc', exercise_slug: slug,
+        charge_kg: kg, reps, duree_s: null, distance_m: null, type_serie: 'travail',
+        rang: i + 1, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null,
+        repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+    };
+    const ro = poserO('rowing-poulie', 'Dos');
+    ro('of-ro-a', 21, [[95, 12], [95, 12]]); ro('of-ro-b', 14, [[95, 12], [95, 12]]); ro('of-ro-c', 7, [[95, 12], [100, 10]]);
+    const dci = poserO('dci-halteres', 'Pecs');
+    dci('of-dc-z', 35, [[84, 8], [84, 8], [84, 8]]);
+    dci('of-dc-a', 21, [[80, 10], [80, 10], [80, 10]]); dci('of-dc-b', 14, [[80, 10], [80, 10], [80, 10]]);
+    dci('of-dc-c', 7, [[80, 10], [80, 10], [80, 10]]);
+    ROUTINES.push({ id: 'r-of', nom: 'Mardi — Pecs Dos', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [
+        { id: 'r-of-1', routine_id: 'r-of', exercise_slug: 'rowing-poulie', rang: 0,
+          routine_sets: progr(2, 12), repos_cible_s: 90, groupe_superset: null, note: null },
+        { id: 'r-of-2', routine_id: 'r-of', exercise_slug: 'dci-halteres', rang: 1,
+          routine_sets: progr(3, 11), repos_cible_s: 90, groupe_superset: null, note: null }] });
+
+    const nbO = (x) => JSON.stringify(x);
+    const idS = () => base.sessions.filter((x) => x.statut === 'en_cours').map((x) => x.id)[0];
+    const pariDC = (sid, rang) => base.predictions.filter((l) => l.exercise_slug === 'dci-halteres' &&
+      l.fondement && l.fondement.seance === sid && l.fondement.rang === rang && !l.fondement.revision)[0] || null;
+    const serieDC1 = (sid) => base.sets.filter((x) => x.session_id === sid && x.exercise_slug === 'dci-halteres')
+      .sort((a, b) => a.rang - b.rang)[0] || null;
+    const fileO = () => page.evaluate(() => window.THCache.lireAttente())
+      .then((f) => (f || []).map((e) => e.cle.split(':')[0] + (e.bloquee ? ' BLOQUÉE' : '') + (e.attend ? ' ATTEND' : '')));
+    const grilleO = () => page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie')).map((l) => ({
+      charge: (l.querySelectorAll('input')[0] || {}).placeholder || '',
+      reps: (l.querySelectorAll('input')[1] || {}).placeholder || '' })));
+    const supprimerLigne = async (i) => {
+      await toucher(i, '.no-serie');
+      await page.click('#feuille-contenu .feuille-menu button.danger');   // Supprimer la série
+      await attendre(300);
+    };
+
+    await aller('/saisie');
+    await demarrerRoutine('Mardi — Pecs Dos');
+    await attendre(1200);
+    const sid = idS();
+    let g = await grilleO();
+    await saisirSerie(0, g[0].charge, g[0].reps);
+    await saisirSerie(1, g[1].charge, g[1].reps);
+    await saisirSerie(2, 80, 14);                 // couché, série 1 : 80 × 14
+    await attendre(2500);
+    const p1 = pariDC(sid, 1);
+    ok('[OF] prémisse : la série 1 du couché est observée en base (14)',
+      !!p1 && !!p1.set_observe && p1.valeur_observee === 14, nbO(p1));
+    const s1 = p1 && p1.set_observe;
+
+    // La séquence : l'observation part lentement ; dévalider, supprimer,
+    // revalider, pendant qu'elle est en vol.
+    base.lenteurPredictions = 2500;
+    await toucher(2, '.ok-serie');                // dévalidée (le tap accidentel)
+    await attendre(700);
+    await supprimerLigne(0);                      // rowing, série 1
+    await supprimerLigne(0);                      // rowing, série 2
+    const enVol = base.sets.some((x) => x.id === s1);
+    await toucher(0, '.ok-serie');                // couché, série 1 revalidée (80 × 14 déjà tapé)
+    await attendre(600);
+    ok('[OF] prémisse : la série a bien quitté la base pendant la séquence (dévalidée)',
+      !enVol, nbO({ serieEnBase: enVol }));
+    base.lenteurPredictions = 0;
+    await attendre(9000);
+    const apres = pariDC(sid, 1);
+    ok('[OF] prémisse : la série 1 est revenue en base, même identifiant',
+      !!serieDC1(sid) && serieDC1(sid).id === s1, nbO(serieDC1(sid)));
+    ok('[OF] DISCRIMINANT — le pari du rang 1 est observé en base, SANS « Terminer »',
+      !!apres && apres.set_observe === s1 && apres.valeur_observee === 14, nbO(apres));
+    const f1 = await fileO();
+    ok('[OF] la file est vide : rien de refusé, rien qui attende encore', f1.length === 0, nbO(f1));
+
+    // LE RATTRAPAGE : une divergence forcée par le serveur — l'observation
+    // vidée en base dans le dos de l'app, qui la croit posée.
+    const i1 = base.predictions.indexOf(pariDC(sid, 1));
+    base.predictions[i1] = Object.assign({}, base.predictions[i1], { set_observe: null, valeur_observee: null, observee_a: null });
+    g = await grilleO();
+    await saisirSerie(1, 84, 10);
+    await saisirSerie(2, 84, 10);
+    await attendre(2000);
+    ok('[OF] prémisse : la divergence tient tant qu’on ne termine pas', pariDC(sid, 1).set_observe === null,
+      nbO(pariDC(sid, 1)));
+    await page.click('#bandeau-seance .bandeau-fin');
+    await attendre(500);
+    await page.click('#feuille-contenu .principal');
+    await attendre(3000);
+    const fin = pariDC(sid, 1);
+    ok('[OF] DISCRIMINANT — « Terminer » rattrape l’observation perdue (14, sur la série 1)',
+      !!fin && fin.set_observe === s1 && fin.valeur_observee === 14, nbO(fin));
+    const toutes = base.predictions.filter((l) => l.fondement && l.fondement.seance === sid &&
+      l.exercise_slug === 'dci-halteres');
+    ok('[OF] chaque série validée du couché a son observation',
+      [1, 2, 3].every((r) => toutes.some((l) => l.fondement.rang === r && l.set_observe)), nbO(toutes.map((l) =>
+        [l.fondement.rang, l.fondement.revision || 0, l.set_observe ? 'obs' : '—', l.valeur_observee])));
+    await aller('/saisie');
+    ok('[OF] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
 
   console.log('\n══ 8. NON-RÉGRESSION ══');

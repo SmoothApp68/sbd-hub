@@ -82,6 +82,25 @@
   // l'insertion qui n'a pas encore eu lieu.
   var OBSERVER = 'observer';
   var PLAN = 'plan';
+  // §9.11 (27/09/2026) — L'OBSERVATION A SA PROPRE ENTRÉE, séparée de son pari.
+  //
+  // Elle partageait la clé `predictions:<id>` : l'insertion du pari et
+  // l'observation partaient ensemble, dans une entrée COMPRESSÉE — donc à la
+  // position de la PREMIÈRE pose. Une observation reposée à la revalidation
+  // d'une série partait alors AVANT la réinsertion de cette série : `set_observe`
+  // échouait en 23503, classé définitif, et l'observation était perdue alors
+  // que la copie locale la croyait posée (séance du 27/09, journaux Supabase).
+  //
+  // Trois règles, tenues ici :
+  //   · elle porte l'identifiant de SON pari : un pari retenu la retient
+  //     (`prochaine` retient par identifiant), et elle est toujours posée
+  //     après lui ;
+  //   · reposée, elle passe EN FIN DE FILE (`alaFin`) : derrière les séries
+  //     qu'elle désigne ;
+  //   · un 23503 (la série n'est pas, ou plus, en base) n'est pas un refus :
+  //     elle ATTEND (`attend`), sans arrêter la file, et repart dès que les
+  //     séries de sa séance sont montées (`libererObservations`).
+  var OBSERVATIONS = 'observations';
 
   function cleDe(table, id) { return String(table) + ':' + String(id); }
 
@@ -177,6 +196,15 @@
       return liste.concat([entree(cle, op, prochainSeq(liste))]);
     }
 
+    if (i >= 0 && op.alaFin) {
+      // En fin de file, avec une version NEUVE plus haute : une requête partie
+      // avec l'ancienne ne doit pas pouvoir retirer celle-ci (`retirer`).
+      var ancienne = liste[i];
+      liste.splice(i, 1);
+      return liste.concat([Object.assign(entree(cle, op, prochainSeq(liste.concat([ancienne]))), {
+        version: (ancienne.version || 1) + 1
+      })]);
+    }
     if (i >= 0) {
       // Compression : la dernière intention gagne, la POSITION reste celle de
       // la première. Sans ça, modifier la séance après avoir validé des séries
@@ -190,7 +218,7 @@
         depend: op.depend === undefined ? (liste[i].depend || null) : op.depend,
         creation: liste[i].creation || !!op.creation,
         version: (liste[i].version || 1) + 1,
-        bloquee: null, essais: 0
+        bloquee: null, essais: 0, attend: null
       });
       return liste;
     }
@@ -203,7 +231,7 @@
       depend: op.depend === undefined ? null : op.depend,
       donnees: op.donnees === undefined ? null : op.donnees,
       creation: !!op.creation, posee_a: op.posee_a || null,
-      version: 1, essais: 0, bloquee: null
+      version: 1, essais: 0, bloquee: null, attend: null
     };
   }
 
@@ -243,6 +271,8 @@
     for (var i = 0; i < liste.length; i++) {
       var e = liste[i];
       if (e.bloquee) { retenues[e.id] = true; continue; }
+      // Une observation qui attend sa série ne part pas, et n'arrête rien.
+      if (e.attend) continue;
       // ⚠️ RETENUE PAR DÉPENDANCE DÉCLARÉE (48c), et elle se propage : une
       // entrée retenue retient à son tour ce qui dépend d'elle, sinon la
       // chaîne se romprait au deuxième maillon.
@@ -297,6 +327,30 @@
           ? { code: (erreur && erreur.code) || '', message: (erreur && erreur.message) || '' }
           : null
       });
+    });
+  }
+
+  // §9.11 (27/09/2026) — UNE OBSERVATION REFUSÉE PARCE QUE SA SÉRIE N'EST PAS
+  // EN BASE (23503 sur `set_observe`) N'EST PAS UN REFUS DÉFINITIF : la série
+  // peut revenir (revalidée), et l'observation doit la suivre. Elle attend.
+  // Toute autre erreur suit la règle commune.
+  function attendSaSerie(op, erreur) {
+    return !!op && op.table === OBSERVATIONS && !!erreur && String(erreur.code || '') === '23503';
+  }
+
+  function marquerAttente(file, cle) {
+    return (file || []).map(function (e) {
+      if (e.cle !== cle) return e;
+      return Object.assign({}, e, { attend: 'serie', essais: (e.essais || 0) + 1, bloquee: null });
+    });
+  }
+
+  // Les séries d'une séance viennent de monter : les observations qui les
+  // attendaient repartent. Une observation dépend de sa séance (`depend`).
+  function libererObservations(file, seanceId) {
+    return (file || []).map(function (e) {
+      if (!e.attend || e.table !== OBSERVATIONS || e.depend !== seanceId) return e;
+      return Object.assign({}, e, { attend: null });
     });
   }
 
@@ -502,7 +556,11 @@
   var api = {
     SESSIONS: SESSIONS, SETS: SETS, ROUTINE_EXOS: ROUTINE_EXOS, ZONES: ZONES,
     PREDICTIONS: PREDICTIONS,
+    OBSERVATIONS: OBSERVATIONS,
     OBSERVER: OBSERVER,
+    attendSaSerie: attendSaSerie,
+    marquerAttente: marquerAttente,
+    libererObservations: libererObservations,
     UPSERT: UPSERT, SUPPRIMER: SUPPRIMER, REMPLACER: REMPLACER, PLAN: PLAN,
     CODES_DEFINITIFS: CODES_DEFINITIFS,
     cleDe: cleDe,

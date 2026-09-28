@@ -1808,6 +1808,25 @@
     }));
   }
 
+  // §9.11 (27/09/2026) — LE RATTRAPAGE À « TERMINER » : les paris de CETTE
+  // séance dont la copie locale porte une observation (`set_observe`) sur une
+  // série qui y est encore validée. Ils seront renvoyés, tels quels — l'envoi
+  // est idempotent. Pur : les paris et la séance en entrée, une liste en sortie
+  // (les lignes elles-mêmes), rien d'autre.
+  function observationsARenvoyer(paris, seance) {
+    if (!seance || !seance.id) return [];
+    var enBase = {};
+    (seance.exercices || []).forEach(function (exo) {
+      ((exo && exo.series) || []).forEach(function (s) {
+        if (s && s.id && partEnBase(s)) enBase[s.id] = true;
+      });
+    });
+    return (paris || []).filter(function (l) {
+      return !!l && !!l.id && !!l.fondement && l.fondement.seance === seance.id &&
+        !!l.set_observe && enBase[l.set_observe] === true;
+    });
+  }
+
   // §9.14 (49-R2) — LE PLAN COURANT, quand la réaction est branchée. `reaction`
   // est `reactionPour(...).plan` : une ligne par série couverte, dans l'ordre,
   // validées comprises (49-C : par POSITION, plus par rang). La couverture dit
@@ -2119,7 +2138,8 @@
     SERIES_DEPART_ENTRETIEN: SERIES_DEPART_ENTRETIEN,
     observationTenue: observationTenue,
     peutObserver: peutObserver,
-    parisAObserver: parisAObserver
+    parisAObserver: parisAObserver,
+    observationsARenvoyer: observationsARenvoyer
   };
 
   racine.THSeance = api;

@@ -456,9 +456,15 @@
     }, 'id'), 'id');
   }
 
+  // ⚠️ LE PARI S'INSÈRE SANS SON OBSERVATION (§9.11, 27/09/2026). L'observation
+  // part par sa propre entrée, derrière les séries qu'elle désigne : insérée
+  // avec le pari, `set_observe` pouvait viser une série dévalidée entre-temps,
+  // et l'insertion entière échouait en 23503.
   async function enregistrerPrediction(ligne) {
+    var sansObservation = Object.assign({}, ligne,
+      { valeur_observee: null, observee_a: null, set_observe: null });
     var r = await client().from('predictions')
-      .upsert(ligne, { onConflict: 'id', ignoreDuplicates: true });
+      .upsert(sansObservation, { onConflict: 'id', ignoreDuplicates: true });
     if (r.error) throw r.error;
     return ligne;
   }
@@ -466,13 +472,24 @@
   // L'observation part par une mise à jour ÉTROITE : trois colonnes, pas la
   // ligne. C'est la seule forme que le trigger accepte sur une ligne déjà là —
   // et celle qui rejoue sans risque quand l'insert, lui, n'a rien fait.
+  //
+  // ⚠️ ELLE DOIT PROUVER QU'ELLE A TOUCHÉ LE PARI (27/09/2026). Un UPDATE qui ne
+  // trouve aucune ligne répond 204 sans erreur : partie avant son pari, elle
+  // comptait comme faite et quittait la file. On relit l'identifiant touché
+  // (`return=representation`) : zéro ligne, ce n'est pas fait — une erreur
+  // temporaire, que la vidange retente.
+  var AUCUNE_LIGNE = 'TH000';
+
   async function observerPrediction(id, champs) {
     var r = await client().from('predictions').update({
       valeur_observee: champs.valeur_observee,
       observee_a: champs.observee_a,
       set_observe: champs.set_observe === undefined ? null : champs.set_observe
-    }).eq('id', id);
+    }).eq('id', id).select('id');
     if (r.error) throw r.error;
+    if (!r.data || !r.data.length) {
+      throw { code: AUCUNE_LIGNE, message: 'observation : aucun pari touché (' + id + ')' };
+    }
     return true;
   }
 

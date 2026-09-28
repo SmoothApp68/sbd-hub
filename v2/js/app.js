@@ -684,6 +684,14 @@
         // renvoi échoue encore, l'entrée reste EN ÉCHEC, à retenter comme une
         // coupure : jamais bloquée, jamais abandonnée en silence.
         var echec = await Attente.envoyer(op, executer, refermerSeancesSauf);
+        // §9.11 (27/09/2026) — une observation dont la série n'est pas (ou
+        // plus) en base ATTEND : elle ne bloque rien, et repart quand les
+        // séries de sa séance montent. Ni perdue, ni définitive.
+        if (echec && Attente.attendSaSerie(op, echec)) {
+          attente = Attente.marquerAttente(attente, op.cle);
+          await Cache.ecrireAttente(attente).catch(function () {});
+          continue;
+        }
         if (echec) {
           attente = Attente.marquerEchec(attente, op.cle, echec);
           await Cache.ecrireAttente(attente).catch(function () {});
@@ -699,7 +707,9 @@
         // silencieuse rouvrirait, une seule fois, pour ce qui traînait dans la
         // file au moment de la mise à jour.
         attente = Attente.retirer(attente, op.cle, op.version || 1);
+        if (op.table === Attente.SETS) attente = Attente.libererObservations(attente, op.id);
         await Cache.ecrireAttente(attente).catch(function () {});
+        if (op.table === Attente.OBSERVATIONS) await confirmerObservation(op);
       }
     } finally {
       vidangeEnCours = false;
@@ -733,6 +743,7 @@
     // §9.11 — l'insertion IGNORE les doublons (le trigger refuserait un
     // upsert rejoué), et l'observation la suit par une mise à jour étroite.
     if (op.table === Attente.PREDICTIONS) return envoyerPrediction(op);
+    if (op.table === Attente.OBSERVATIONS) return Donnees.observerPrediction(op.id, op.donnees || {});
     // §6 — l'intention porte l'ÉTAT VOULU de la routine, pas un chemin pour y
     // aller : le plan d'écritures se calcule à la vidange, contre ce que la
     // routine est devenue entre-temps. C'est de là que vient l'idempotence.
@@ -748,6 +759,11 @@
     return Promise.resolve();
   }
 
+  // ⚠️ UNE ENTRÉE `predictions` EN `observer` EST UNE ENTRÉE D'AVANT LE
+  // 27/09/2026, encore sur un appareil : le pari et son observation dans la
+  // même entrée. On la rejoue telle quelle — l'insertion part sans
+  // observation, la mise à jour prouve qu'elle a touché le pari. Les entrées
+  // neuves séparent les deux (`Attente.OBSERVATIONS`).
   async function envoyerPrediction(op) {
     await Donnees.enregistrerPrediction(op.donnees);
     if (op.op !== Attente.OBSERVER) return true;
@@ -987,6 +1003,12 @@
     await sauverSeance();
     await poserSeries();
     await poserSeance(false);
+    // §9.11 (27/09/2026) — LE RATTRAPAGE, en filet : chaque pari dont la copie
+    // locale porte une observation sur une série encore validée la renvoie,
+    // derrière les séries. Idempotent ; il répare toute divergence restante
+    // entre la base et l'appareil, quelle qu'en soit l'origine.
+    var aRenvoyer = Seance.observationsARenvoyer(local.predictions, seance);
+    for (var r = 0; r < aRenvoyer.length; r++) await poserObservation(aRenvoyer[r]);
     // §6 — le report sur la routine, seulement s'il a été demandé, et APRÈS la
     // séance : la séance ne dépend pas de lui, et l'ordre de la file le dit.
     if (majRoutineVoulue) await reporterSurRoutine(verdict);
@@ -2029,6 +2051,53 @@
       return m;
     });
     if (maj.length) await Cache.ecrireLot('predictions', maj).catch(function () {});
+    // La base le fait déjà (le déclencheur) ; l'entrée qui partirait encore
+    // avec l'ancienne observation est remplacée par la vraie, vide — sinon
+    // elle attendrait pour toujours une série qui ne reviendra pas.
+    for (var k = 0; k < maj.length; k++) await poserObservation(maj[k]);
+  }
+
+  // §9.11 (27/09/2026) — L'OBSERVATION PART PAR SA PROPRE ENTRÉE, EN FIN DE
+  // FILE : derrière son pari (même identifiant, posé avant elle) et derrière
+  // les séries qu'elle désigne (`poserSeries` passe avant). Voir `attente.js`.
+  async function poserObservation(ligne) {
+    await poser({ table: Attente.OBSERVATIONS, op: Attente.OBSERVER, id: ligne.id,
+                  depend: seance.id, alaFin: true,
+                  donnees: donneesObservation(ligne) });
+  }
+
+  function donneesObservation(l) {
+    return {
+      valeur_observee: l.valeur_observee === undefined ? null : l.valeur_observee,
+      observee_a: l.observee_a === undefined ? null : l.observee_a,
+      set_observe: l.set_observe === undefined ? null : l.set_observe
+    };
+  }
+
+  // Ce que la base a CONFIRMÉ, sur la copie locale : l'observation n'est
+  // « posée » qu'une fois la base d'accord. Sans cette trace, une observation
+  // perdue en route restait « posée » en local, et rien ne la renvoyait.
+  function confirmee(l, vue) {
+    var c = l && l.observation_confirmee;
+    return !!c && c.set_observe === vue.set_observe && c.valeur_observee === vue.valeur_observee;
+  }
+
+  function observationEnFile(id) {
+    var cle = Attente.cleDe(Attente.OBSERVATIONS, id);
+    return (attente || []).some(function (e) { return e.cle === cle; });
+  }
+
+  async function confirmerObservation(op) {
+    var d = op.donnees || {};
+    var maj = null;
+    local.predictions = (local.predictions || []).map(function (l) {
+      if (!l || l.id !== op.id) return l;
+      maj = Object.assign({}, l, { observation_confirmee: {
+        set_observe: d.set_observe === undefined ? null : d.set_observe,
+        valeur_observee: d.valeur_observee === undefined ? null : d.valeur_observee } });
+      return maj;
+    });
+    if (maj) await Cache.ecrireLot('predictions', [maj]).catch(function () {});
   }
 
   async function observerPari(ligne, serie, series) {
@@ -2045,22 +2114,29 @@
     if (vue.set_observe === null && !etaitSienne) return;
     // Rien n'a changé — et `surChamp` passe ici à CHAQUE FRAPPE : sans cette
     // sortie, taper « 130 » poserait trois fois la même intention.
-    if (ligne.set_observe === vue.set_observe &&
-        ligne.valeur_observee === vue.valeur_observee) return;
+    //
+    // ⚠️ « RIEN N'A CHANGÉ » VEUT DIRE : LA BASE EST D'ACCORD, OU L'ENVOI EST EN
+    // FILE (27/09/2026). La copie locale seule ne suffit pas : une observation
+    // refusée en route y restait « posée », et la revalidation de sa série ne
+    // renvoyait rien.
+    var memeLocale = ligne.set_observe === vue.set_observe &&
+      ligne.valeur_observee === vue.valeur_observee;
+    if (memeLocale && (confirmee(ligne, vue) || observationEnFile(ligne.id))) return;
 
     // `observee_a` DATE UNE OBSERVATION, et « autre chose tenté » n'en est pas
-    // une : la série est reliée, rien n'est compté, la colonne reste vide.
+    // une : la série est reliée, rien n'est compté, la colonne reste vide. Une
+    // observation renvoyée telle quelle garde sa date.
     var maj = Object.assign({}, ligne, {
       set_observe: vue.set_observe,
       valeur_observee: vue.valeur_observee,
-      observee_a: vue.valeur_observee === null ? null : new Date().toISOString()
+      observee_a: vue.valeur_observee === null ? null
+        : (memeLocale && ligne.observee_a ? ligne.observee_a : new Date().toISOString())
     });
     local.predictions = local.predictions.map(function (l) {
       return l && l.id === maj.id ? maj : l;
     });
     await Cache.ecrireLot('predictions', [maj]).catch(function () {});
-    await poser({ table: Attente.PREDICTIONS, op: Attente.OBSERVER,
-                  id: maj.id, depend: seance.id, donnees: maj });
+    await poserObservation(maj);
   }
 
   // ── §9.14 (49-R2) — LA RÉACTION SÉRIE PAR SÉRIE, BRANCHÉE ────────────────

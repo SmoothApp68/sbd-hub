@@ -89,16 +89,16 @@ describe('49-U1 — le cas du 26/09/2026, rejoué sur le plan', () => {
     expect(cons.contexte.cran).toBe(127.5);
     // La consigne brute, seule, décrit QUATRE séries — c'est ce que l'en-tête
     // affichait le 26/09.
-    expect(cons.libelles.jaune.map(esp)).toEqual(['130 kg sur les 2 dernières séries, vise 4',
-      'et 125 kg sur les 2 d\'avant, vise 5']);
+    expect(cons.libelles.jaune.map(esp)).toEqual(['130 kg × 4 sur les 2 dernières séries',
+      '125 kg × 5 sur les 2 d\'avant']);
   });
 
   test('DISCRIMINANT — routine à 3 : l’en-tête décrit les 3 séries de la grille (I6)', () => {
     const sim = simulateur('terre', cons, 3);
     const x = sim.exo();
-    expect(x.entete.jaune.map(esp)).toEqual(['130 kg sur les 2 dernières séries, vise 4',
-      'et 125 kg sur celle d\'avant, vise 5']);
-    expect(esp(x.donc)).toBe('Donc 130 kg sur les 2 dernières séries, vise 4, et 125 kg sur celle d\'avant, vise 5.');
+    expect(x.entete.jaune.map(esp)).toEqual(['130 kg × 4 sur les 2 dernières séries',
+      '125 kg × 5 sur celle d\'avant']);
+    expect(esp(x.donc)).toBe('Donc 130 kg × 4 sur les 2 dernières séries, 125 kg × 5 sur celle d\'avant.');
     expect(x.lignes.map((l) => l.role + ':' + l.charge + '×' + l.vise)).toEqual(['ligne:125×5', 'test:130×4', 'test:130×4']);
     expect(sim.verifier()).toEqual({ ok: true, erreurs: [] });
   });
@@ -144,7 +144,7 @@ describe('49-U1 — sans test à suivre, la proposition de R2 marche toujours', 
     const x = sim.exo();
     expect(x.lignes[1]).toMatchObject({ role: 'coach', charge: 130, proposee: true });
     expect(x.lignes[3]).toMatchObject({ role: 'test', charge: 130 });
-    expect(esp(x.message.phrase)).toBe('125 × 8, 3 de plus que visé : 130 dès la série 2, vise 3 à 5 ?');
+    expect(esp(x.message.phrase)).toBe('125 kg × 8, 3 de plus que visé : je passe ta série 2 à 130 kg, vise 3 à 5.');
     expect(sim.verifier().ok).toBe(true);
   });
 
@@ -162,7 +162,7 @@ describe('49-U1 — sans test à suivre, la proposition de R2 marche toujours', 
     sim.valider(1, 130, 4);
     const x = sim.exo();
     expect(x.message).toMatchObject({ type: 'tenue' });
-    expect(esp(x.message.phrase)).toBe('130 × 4, dans ta zone : ton test a avancé d\'une série.');
+    expect(esp(x.message.phrase)).toBe('130 kg × 4, dans ta zone : ton test a avancé d\'une série.');
     expect(sim.verifier().ok).toBe(true);
   });
 
@@ -172,7 +172,7 @@ describe('49-U1 — sans test à suivre, la proposition de R2 marche toujours', 
     const sim = simulateur('x', C2, 3);
     sim.valider(0, 125, 8);
     sim.valider(1, 127.5, 4);
-    expect(esp(sim.exo().message.phrase)).toBe('127,5 × 4, dans ta zone : ton test a avancé d\'une série.');
+    expect(esp(sim.exo().message.phrase)).toBe('127,5 kg × 4, dans ta zone : ton test a avancé d\'une série.');
     expect(sim.verifier().ok).toBe(true);
   });
 
@@ -181,8 +181,8 @@ describe('49-U1 — sans test à suivre, la proposition de R2 marche toujours', 
     sim.valider(0, 125, 5); sim.valider(1, 125, 5); sim.valider(2, 130, 4);
     sim.ajouter();
     const x = sim.exo();
-    expect(x.entete.jaune.map(esp)).toEqual(['125 kg sur 2 séries, vise 5', 'puis 130 kg sur une série, vise 4',
-      'puis 125 kg sur une série, vise 5']);
+    expect(x.entete.jaune.map(esp)).toEqual(['125 kg × 5 sur 2 séries', 'puis 130 kg × 4 sur une série',
+      'puis 125 kg × 5 sur une série']);
     expect(sim.verifier().ok).toBe(true);
   });
 });
@@ -222,7 +222,7 @@ describe('49-U1 — verifierPlan voit chaque violation (I1, I2, I3, I6, I9, I12)
 
   test('I6 — un en-tête qui compte les séries de la consigne brute (4) pour une grille à 3', () => {
     const { plan } = base();
-    plan.exercices[0].entete.jaune = ['130 kg sur les 2 dernières séries, vise 4', 'et 125 kg sur les 2 d\'avant, vise 5'];
+    plan.exercices[0].entete.jaune = ['130 kg × 4 sur les 2 dernières séries', '125 kg × 5 sur les 2 d\'avant'];
     expect(erreurs(plan)).toContain('I6');
     const b = base().plan;
     b.exercices[0].entete.segments = [{ role: 'ligne', charge: 125, vise: 5, nombre: 3 }, { role: 'haut', charge: 130, vise: 4, nombre: 1 }];
@@ -250,9 +250,10 @@ describe('49-U1 — verifierPlan voit chaque violation (I1, I2, I3, I6, I9, I12)
   });
 
   test('`seriesDites` compte ce que le texte dit', () => {
-    expect(T.seriesDites(['130 kg sur les 2 dernières séries, vise 4', 'et 125 kg sur celle d\'avant, vise 5']))
+    // §20.2 (49-U9) — la voix a changé ses mots, pas ce qu'ils comptent.
+    expect(T.seriesDites(['130 kg × 4 sur les 2 dernières séries', '125 kg × 5 sur celle d\'avant']))
       .toEqual({ compte: 3, sansCompte: 0 });
-    expect(T.seriesDites(['125 kg, vise 5', 'puis 130 kg en dernière série, vise 4']))
+    expect(T.seriesDites(['125 kg × 5', 'puis 130 kg × 4 sur la dernière série']))
       .toEqual({ compte: 1, sansCompte: 1 });
   });
 });

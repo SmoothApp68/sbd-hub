@@ -119,7 +119,7 @@ describe('49-U5 — les 9 cas de la reprise, à chaque étape, par le vrai chemi
     const c = REPRISE.cas.find((x) => x.id === 'P005');
     const x = jouer(consigneDuCas(c.consigne), c.contexte, c.series, c.faites)[1].x;
     expect(x.lignes[1]).toMatchObject({ role: 'coach', charge: 65, proposee: true });
-    expect(esp(x.message.phrase)).toBe('60 × 13, 3 de plus que visé : on retrouve ton palier, 65 dès la série 2, vise 6 à 8 ?');
+    expect(esp(x.message.phrase)).toBe('60 kg × 13, 3 de plus que visé : on retrouve ta charge de travail, je passe ta série 2 à 65 kg, vise 6 à 8.');
   });
 });
 
@@ -155,16 +155,17 @@ describe('49-U5 — règle 1 à la source : la consigne d’une reprise longue g
   test('⚠️ DISCRIMINANT — la consigne reprend à 32, sans rep de plus, et le dit', () => {
     const k = M.consignePour(H, AVANT, { reglage: 'normal', equipement: 'machine' });
     expect([k.etat, k.palier, k.ligne]).toEqual(['reprise_longue', 32, { charge: 32, vise: 12 }]);
-    expect(esp(M.libellesConsigne(k).gris)).toBe('On reprend à ton dernier palier, sans rep de plus.');
+    // §20.2 (49-U9) — la reprise longue plafonnée se distingue enfin de la courte.
+    expect(esp(M.libellesConsigne(k).gris)).toBe('Longue pause : on reprend à ta charge de travail, sans rep de plus.');
     expect(esp(M.pourquoiConsigne(k, 'normal').etat))
-      .toBe('On reprend à ton dernier palier, sans rep de plus : le cran d\'en dessous descendait de plus de 10 %.');
+      .toBe('Longue pause : on reprend à ta charge de travail, sans rep de plus. Le cran d\'en dessous descendait de plus de 10 %.');
   });
 
   test('témoin — un petit cran (125 → 122,5, −2 %) reste un cran sous le palier', () => {
     const B = [se('2026-03-01T18:00:00+00:00', 122.5), se('2026-03-08T18:00:00+00:00', 125), se('2026-03-15T18:00:00+00:00', 125)];
     const k = M.consignePour(B, AVANT, { reglage: 'normal', equipement: 'barre' });
     expect([k.etat, k.ligne.charge]).toEqual(['reprise_longue', 122.5]);
-    expect(esp(M.libellesConsigne(k).gris)).toMatch(/^On reprend un cran sous ton dernier palier/);
+    expect(esp(M.libellesConsigne(k).gris)).toMatch(/^Longue pause : on reprend un cran en dessous, à 122,5 kg/);
   });
 
   test('la limite : 10 % tout rond reste permis, au-delà le palier', () => {

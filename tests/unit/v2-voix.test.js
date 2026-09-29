@@ -1,0 +1,360 @@
+/** @jest-environment node */
+//
+// 49-U9 — LA VOIX DU COACH (MOTEUR §20, §20.2).
+//
+//   1. LE FORMATEUR (`modele.js`) : charges, reps, dates relatives — le seul,
+//      appelé par le moteur ET le plan.
+//   2. LA GARDE DE LA VOIX : toutes les phrases que le coach PRODUIT, sur les
+//      trois fichiers de cas qui figent du texte et sur des plans générés,
+//      passent les règles du §20.2. Une phrase qui les viole fait échouer le
+//      test avec sa famille, la règle, et la phrase.
+//   3. Les textes qu'aucun test ne figeait : « retour à ta charge de
+//      travail », « la montée a tenu à … », « la montée continue », et l'en-tête
+//      de forme inhabituelle, lu directement sur `enteteDeDisposition`.
+
+// ⚠️ LE FUSEAU AVANT TOUTE DATE : « mardi » se compte en jours du calendrier
+// LOCAL, et le passage à l'heure d'hiver (25/10/2026) doit être éprouvé.
+process.env.TZ = 'Europe/Paris';
+
+require('../../v2/js/modele.js');
+require('../../v2/js/palier.js');
+require('../../v2/js/profil.js');
+const Modele = require('../../v2/js/modele.js');
+const M = require('../../v2/js/moteur.js');
+const S = require('../../v2/js/seance.js');
+const T = require('../../v2/js/plan.js');
+
+const NB = ' ';
+const CONSIGNES = require('./fixtures/consigne-48b7.json');
+const CONSTATS = require('./fixtures/constat-48b6b.json');
+const REACTION = require('./fixtures/reaction-49r1.json');
+
+// ── 1. LE FORMATEUR ─────────────────────────────────────────────────────────
+describe('§20.2 — le formateur de la voix (`modele.js`)', () => {
+  const REF = '2026-09-20T10:00:00+02:00';   // un dimanche
+  test('`quand` : aujourd\'hui, le nom du jour de 1 à 6 jours, sinon la date', () => {
+    expect(Modele.quand('2026-09-20T07:00:00+02:00', REF)).toBe('aujourd\'hui');
+    expect(Modele.quand('2026-09-19T23:30:00+02:00', REF)).toBe('samedi');          // 1 jour
+    expect(Modele.quand('2026-09-14T10:00:00+02:00', REF)).toBe('lundi');           // 6 jours
+    expect(Modele.quand('2026-09-13T10:00:00+02:00', REF)).toBe('le 13' + NB + 'sept.');  // 7 jours
+  });
+  test('`quand` en tête de phrase : la majuscule', () => {
+    expect(Modele.quand('2026-09-15T10:00:00+02:00', REF, true)).toBe('Mardi');
+    expect(Modele.quand('2026-09-20T10:00:00+02:00', REF, true)).toBe('Aujourd\'hui');
+    expect(Modele.quand('2026-09-13T10:00:00+02:00', REF, true)).toBe('Le 13' + NB + 'sept.');
+  });
+  test('`quand` : un changement de mois ne change rien au compte', () => {
+    expect(Modele.quand('2026-09-29T18:00:00+02:00', '2026-10-02T09:00:00+02:00')).toBe('mardi');
+    expect(Modele.quand('2026-08-31T18:00:00+02:00', '2026-09-07T09:00:00+02:00')).toBe('le 31' + NB + 'août');
+  });
+  test('`quand` : un changement d\'heure (25/10/2026) ne décale pas le jour', () => {
+    // Samedi 24 à 23 h 30 (heure d'été), lundi 26 à 0 h 30 (heure d'hiver) :
+    // 49 heures, mais DEUX jours du calendrier.
+    expect(Modele.quand('2026-10-24T23:30:00+02:00', '2026-10-26T00:30:00+01:00')).toBe('samedi');
+    // Et le passage à l'heure d'été (29/03/2026) : 23 h dans la journée.
+    expect(Modele.quand('2026-03-28T00:30:00+01:00', '2026-03-29T23:30:00+02:00')).toBe('samedi');
+    expect(Modele.quand('2026-03-22T12:00:00+01:00', '2026-03-29T12:00:00+02:00')).toBe('le 22' + NB + 'mars');
+  });
+  test('`quand` sans référence : la date absolue — jamais l\'horloge', () => {
+    expect(Modele.quand('2026-09-13T10:00:00+02:00')).toBe('le 13' + NB + 'sept.');
+    expect(Modele.quand(null, REF)).toBe('');
+  });
+  test('`chargeFois`, `charge`, `serie` : la charge d\'abord, avec kg, la virgule', () => {
+    expect(Modele.chargeFois(127.5, 5)).toBe('127,5' + NB + 'kg' + NB + '×' + NB + '5');
+    expect(Modele.charge(125)).toBe('125' + NB + 'kg');
+    expect(Modele.charge(null)).toBe('le cran au-dessus');
+    expect(Modele.serie(125, [4, 4, 4])).toBe('125' + NB + 'kg' + NB + '×' + NB + '4, 4, 4');
+    expect(Modele.serie(20.25, [8])).toBe('20,25' + NB + 'kg' + NB + '×' + NB + '8');
+  });
+});
+
+// ── 2. LA GARDE DE LA VOIX ─────────────────────────────────────────────────
+//
+// Les règles du §20.2, lues sur chaque phrase produite :
+//   · « palier » n'apparaît jamais ;
+//   · « le moteur » n'apparaît jamais ;
+//   · un « ? » seulement dans la phrase de seconde charge (le choix entre
+//     deux charges, R2) ;
+//   · un « × » toujours précédé de « kg » — ou du cran sans chiffre (« le
+//     cran au-dessus × 10 »), que la table garde tel quel ;
+//   · aucune date au format absolu pour une séance à 6 jours ou moins de la
+//     référence.
+const MOIS = Modele.MOIS_COURTS;
+const jourLocal = (iso) => { const d = new Date(iso); return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()); };
+const absolue = (iso) => { const d = new Date(iso); return d.getDate() + NB + MOIS[d.getMonth()]; };
+const SECONDE_CHARGE = /, si tu te sens bien \?$/;
+
+function reglesViolees(phrase, famille, dates, reference) {
+  const t = String(phrase);
+  const v = [];
+  if (/palier/i.test(t)) v.push('« palier »');
+  if (/le moteur/i.test(t)) v.push('« le moteur »');
+  if (t.indexOf('?') >= 0 && !(famille === 'réaction' && SECONDE_CHARGE.test(t) &&
+      t.indexOf('?') === t.length - 1)) v.push('un « ? » hors du choix entre deux charges');
+  for (let i = t.indexOf('×'); i >= 0; i = t.indexOf('×', i + 1)) {
+    const avant = t.slice(0, i).replace(/[\s ]+$/, '');
+    if (!/kg$/.test(avant) && !/cran (au-dessus|en dessous|du dessus)$/i.test(avant)) {
+      v.push('un « × » sans « kg » devant');
+      break;
+    }
+  }
+  (dates || []).forEach((d) => {
+    if (!d || !reference) return;
+    const ecart = Math.round((jourLocal(reference) - jourLocal(d)) / 86400000);
+    if (ecart >= 0 && ecart <= 6 && t.indexOf(absolue(d)) >= 0) {
+      v.push('la date absolue « ' + absolue(d) + ' » pour une séance à ' + ecart + ' jour(s)');
+    }
+  });
+  return v;
+}
+
+// Tout le texte d'une feuille « Pourquoi » (moteur), d'un en-tête, etc.
+function textesDe(o) {
+  const out = [];
+  (function marcher(x) {
+    if (x === null || x === undefined) return;
+    if (typeof x === 'string') { if (x) out.push(x); return; }
+    if (Array.isArray(x)) { x.forEach(marcher); return; }
+    if (typeof x === 'object') Object.keys(x).forEach((k) => marcher(x[k]));
+  })(o);
+  return out;
+}
+
+const plusJours = (iso, n) => new Date(new Date(iso).getTime() + n * 86400000).toISOString();
+
+describe('§20.2 — la garde de la voix : toutes les phrases produites', () => {
+  const vues = [];          // { famille, source, phrase, dates, reference }
+  const noter = (famille, source, phrases, dates, reference) => {
+    (Array.isArray(phrases) ? phrases : [phrases]).forEach((p) => {
+      if (p === null || p === undefined || p === '') return;
+      vues.push({ famille, source, phrase: String(p), dates, reference });
+    });
+  };
+
+  // (a) L'en-tête et la feuille, sur les 47 cas — à la référence du fichier
+  // (`avant`, 7 jours après la dernière séance), puis à 2 jours de la dernière
+  // séance : c'est là que « mardi » doit remplacer la date.
+  CONSIGNES.forEach((c) => {
+    const k = M.consignePour(c.seances, c.avant, { reglage: c.reglage, equipement: c.equipement, correction: c.correction });
+    const f = k.fondement || {};
+    const dates = [f.date, f.test && f.test.date, f.zoneFigee && f.zoneFigee.date].filter(Boolean);
+    const proche = f.date ? plusJours(f.date, 2) : c.avant;
+    [c.avant, proche].forEach((ref) => {
+      const l = M.libellesConsigne(k, ref);
+      noter('en-tête', 'consigne-48b7 ' + c.id, l.jaune.concat([l.gris]), dates, ref);
+      noter('feuille', 'consigne-48b7 ' + c.id, textesDe(M.pourquoiConsigne(k, c.reglage, ref)), dates, ref);
+    });
+  });
+
+  // (b) Le constat, sur les 17 cas — à la référence du fichier (le jour de la
+  // séance), puis à 3 jours de la séance d'avant.
+  CONSTATS.forEach((c) => {
+    const o = { reglage: c.reglage, equipement: c.equipement, correction: null };
+    const a = M.consignePour(c.seances, c.avant, o);
+    const b = M.consignePour(c.seances.concat([c.seanceDuJour]), c.apres, o);
+    const fa = a.fondement || {};
+    const dates = [fa.date, fa.test && fa.test.date].filter(Boolean);
+    [c.seanceDuJour.debut, fa.date ? plusJours(fa.date, 3) : c.seanceDuJour.debut].forEach((ref) => {
+      noter('constat', 'constat-48b6b ' + c.id, textesDe(M.constatDe(a, b, c.reglage, c.cranSuivant, ref)), dates, ref);
+    });
+  });
+
+  // (c) La réaction, pas après pas, sur les 55 cas du fichier.
+  REACTION.reaction.forEach((c) => {
+    const k = c.consigne;
+    const consigne = { etat: k.etat, zone: k.zone === null ? null : k.zone.nom, palier: k.palier,
+      n: k.n, ligne: k.ligne, haut: k.haut };
+    const faites = c.faites.map((s) => ({ charge_kg: s.charge, reps: s.reps, rpe: s.rpe === undefined ? null : s.rpe, ressenti: null }));
+    for (let i = 0; i <= faites.length; i++) {
+      const r = M.reactionPour(consigne, faites.slice(0, i), c.contexte);
+      if (r.message) noter('réaction', 'reaction-49r1 ' + c.id, M.phraseReaction(r.message, consigne.zone));
+    }
+  });
+
+  // (d) Des PLANS GÉNÉRÉS : chaque consigne du fichier, en séance, sous des
+  // gestes qui font parler le coach (propositions, montées, retours, constat).
+  const AVANT = '2026-09-26T10:00:00+00:00';
+  const APRES = '2026-09-26T12:00:00+00:00';
+  const GESTES = [['plan', 'plan', 'plan', 'plan'], ['+3', 'accepte', 'plan', 'plan'],
+    ['+5', 'accepte', 'accepte', 'plan'], ['+3', 'bas', 'plan', 'plan'], ['+3', 'refuse', 'plan', 'plan']];
+  CONSIGNES.forEach((c) => {
+    const opts = { reglage: c.reglage, equipement: c.equipement, correction: c.correction };
+    const k = M.consignePour(c.seances, c.avant, opts);
+    const obj = { consigne: k, libelles: M.libellesConsigne(k, AVANT),
+      contexte: M.contexteReaction(c.seances, c.avant, k, c.equipement, null) };
+    GESTES.forEach((gestes) => {
+      let n = 0;
+      const id = () => 'x-s' + (++n);
+      let se = S.creer({ id: 'S', userId: 'u', idSerie: id });
+      se = S.ajouterExercice(se, 'x', id, { series: 4 });
+      const paris = [];
+      const entrees = () => {
+        const travail = se.exercices[0].series.filter((s) => S.typeDe(s) === 'travail');
+        const fini = travail.every((s) => S.partEnBase(s));
+        let suites = {};
+        if (fini) {
+          const tous = c.seances.concat(M.contratDe([{ seance: { debut: AVANT }, series: travail }], null, 'charge_reps'));
+          const apres = M.consignePour(tous, APRES, opts);
+          suites = { x: { consigne: apres, cranSuivant: apres.palier === null || apres.palier === undefined
+            ? null : M.chargeVoisine(tous, APRES, apres.palier, c.equipement, 1) } };
+        }
+        return { seance: { id: 'S', debut: AVANT, edition: false, exercices: se.exercices },
+          consignes: { x: obj }, reglage: c.reglage, paris: paris.slice(), suites };
+      };
+      const lire = () => {
+        const x = T.planDeSeance(entrees()).exercices[0];
+        const dates = [k.fondement && k.fondement.date].filter(Boolean);
+        noter('en-tête', 'plan ' + c.id, (x.entete ? x.entete.jaune : []).concat([x.entete && x.entete.gris]), dates, AVANT);
+        noter('feuille', 'plan ' + c.id, [x.donc].concat(textesDe(x.pourquoi)), dates, AVANT);
+        if (x.message) noter('réaction', 'plan ' + c.id, x.message.phrase);
+        if (x.constat) noter('constat', 'plan ' + c.id, [x.constat.verdict, x.constat.suite], dates, AVANT);
+        return x;
+      };
+      gestes.forEach((g, i) => {
+        const x = lire();
+        const l = x.lignes && x.lignes[i];
+        if (!l || l.role === 'hors') return;
+        const charge = l.charge === null || l.charge === undefined ? (k.palier || 20) + 2.5 : l.charge;
+        const vise = l.vise === null || l.vise === undefined ? (l.fourchette ? l.fourchette[0] : 5) : l.vise;
+        const reps = g === '+3' ? vise + 3 : g === '+5' ? vise + 5 : g === 'bas' ? 1 : vise;
+        const kg = g === 'refuse' ? charge - 2.5 : charge;
+        se = S.modifierSerie(se, 0, i, { charge_kg: kg, reps: reps });
+        se = S.valider(se, 0, i, new Date('2026-09-26T10:30:00Z'));
+        const y = T.planDeSeance(entrees()).exercices[0];
+        const q = y.paris && y.paris[i];
+        if (q) paris.push(Object.assign({}, q, { set_observe: se.exercices[0].series[i].id }));
+      });
+      lire();
+    });
+  });
+
+  test('chaque famille est jouée, et la date relative l\'est vraiment', () => {
+    const parFamille = {};
+    vues.forEach((v) => { parFamille[v.famille] = (parFamille[v.famille] || 0) + 1; });
+    expect(parFamille['en-tête']).toBeGreaterThan(200);
+    expect(parFamille.feuille).toBeGreaterThan(500);
+    expect(parFamille['réaction']).toBeGreaterThan(50);
+    expect(parFamille.constat).toBeGreaterThan(50);
+    // Sans ces phrases, la règle des dates ne serait jamais éprouvée.
+    const jours = vues.filter((v) => /(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)/i.test(v.phrase));
+    expect(jours.length).toBeGreaterThan(50);
+    expect(vues.some((v) => SECONDE_CHARGE.test(v.phrase))).toBe(true);
+    expect(vues.some((v) => /le cran (au-dessus|en dessous) ×/i.test(v.phrase))).toBe(true);
+  });
+
+  test('⚠️ LA GARDE — aucune phrase ne viole les règles de la voix (§20.2)', () => {
+    const fautes = [];
+    vues.forEach((v) => {
+      reglesViolees(v.phrase, v.famille, v.dates, v.reference).forEach((r) => {
+        fautes.push('[' + v.famille + ' · ' + v.source + '] ' + r + ' : « ' + v.phrase.replace(/ /g, ' ') + ' »');
+      });
+    });
+    expect(fautes.slice(0, 20)).toEqual([]);
+  });
+
+  test('la garde elle-même attrape chaque règle (sinon elle serait muette)', () => {
+    const ref = '2026-09-20T10:00:00+02:00';
+    expect(reglesViolees('Ton palier est 125 kg.', 'feuille')).toContain('« palier »');
+    expect(reglesViolees('le moteur n\'a rien à proposer.', 'feuille')).toContain('« le moteur »');
+    expect(reglesViolees('125 kg × 8 : 130 kg dès la série 2 ?', 'réaction'))
+      .toContain('un « ? » hors du choix entre deux charges');
+    expect(reglesViolees('Ou 55 kg, si tu te sens bien ?', 'réaction')).toEqual([]);
+    expect(reglesViolees('Ou 55 kg, si tu te sens bien ?', 'feuille'))
+      .toContain('un « ? » hors du choix entre deux charges');
+    expect(reglesViolees('130 × 2 : pas encore.', 'constat')).toContain('un « × » sans « kg » devant');
+    expect(reglesViolees('130 kg × 2 : pas encore.', 'constat')).toEqual([]);
+    expect(reglesViolees('Le cran au-dessus × 10', 'en-tête')).toEqual([]);
+    expect(reglesViolees('Le 15' + NB + 'sept.' + NB + ': 125 kg × 5.', 'en-tête',
+      ['2026-09-15T10:00:00+02:00'], ref)).toContain('la date absolue « 15' + NB + 'sept. » pour une séance à 5 jour(s)');
+    expect(reglesViolees('Le 13' + NB + 'sept.' + NB + ': 125 kg × 5.', 'en-tête',
+      ['2026-09-13T10:00:00+02:00'], ref)).toEqual([]);
+  });
+});
+
+// ── 3. LES TEXTES QU'AUCUN TEST NE FIGEAIT ─────────────────────────────────
+describe('§20.2 — les lignes de la feuille en séance, et l\'en-tête de forme inhabituelle', () => {
+  const AVANT = '2026-09-26T10:00:00+00:00';
+  const esp = (x) => (x === null || x === undefined ? x : String(x).replace(/ /g, ' '));
+  // Hypertrophie 8-10, 50 × 9 sur 4 séries, le cran au-dessus est 52,5.
+  const C = { etat: 'progression', zone: 'hypertrophie', palier: 50, niveau: 9, n: 4,
+    ligne: { charge: 50, vise: 9 }, haut: null, fondement: {} };
+  function seance() {
+    let n = 0;
+    const id = () => 's' + (++n);
+    let se = S.creer({ id: 'S', userId: 'u', idSerie: id });
+    se = S.ajouterExercice(se, 'x', id, { series: 4 });
+    const paris = [];
+    const obj = { consigne: C, libelles: M.libellesConsigne(C, AVANT), contexte: { cran: 52.5, haut: null } };
+    const entrees = () => ({ seance: { id: 'S', debut: AVANT, edition: false, exercices: se.exercices },
+      consignes: { x: obj }, paris: paris.slice(), suites: {} });
+    const api = {
+      exo: () => T.planDeSeance(entrees()).exercices[0],
+      valider: (i, kg, reps) => {
+        se = S.modifierSerie(se, 0, i, { charge_kg: kg, reps: reps });
+        se = S.valider(se, 0, i, new Date('2026-09-26T10:30:00Z'));
+        const q = api.exo().paris[i];
+        if (q) paris.push(Object.assign({}, q, { set_observe: se.exercices[0].series[i].id }));
+      },
+      devalider: (i) => { se = S.devalider(se, 0, i); },
+      verifier: () => T.verifierPlan(T.planDeSeance(entrees()), entrees()).erreurs
+    };
+    return api;
+  }
+  const ligne = (l) => [l.libelle, l.raison].filter(Boolean).map(esp).join(' · ');
+
+  test('P28 — « retour à ta charge de travail » : la montée pas encore tenue', () => {
+    const s = seance();
+    s.valider(0, 50, 12);
+    s.valider(1, 52.5, 6);
+    expect(s.exo().pourquoi.lignes.map(ligne)).toEqual([
+      'consigne',
+      'proposée par le coach · proposée après 50 kg × 12',
+      'retour à ta charge de travail · on revient à 50 kg après 52,5 kg × 6',
+      'retour à ta charge de travail · on revient à 50 kg après 52,5 kg × 6'
+    ]);
+    expect(s.verifier()).toEqual([]);
+  });
+
+  test('P30 — « la montée a tenu à … » : la montée tenue gagne les séries suivantes', () => {
+    const s = seance();
+    s.valider(0, 50, 12);
+    s.valider(1, 52.5, 9);
+    expect(s.exo().pourquoi.lignes.map(ligne)).toEqual([
+      'consigne',
+      'proposée par le coach · proposée après 50 kg × 12',
+      'proposée par le coach · la montée a tenu à 52,5 kg × 9',
+      'proposée par le coach · la montée a tenu à 52,5 kg × 9'
+    ]);
+    expect(s.verifier()).toEqual([]);
+  });
+
+  test('P30 — « la montée continue » : la première montée dévalidée, la suivante déjà faite', () => {
+    const s = seance();
+    s.valider(0, 50, 12);
+    s.valider(1, 52.5, 9);
+    s.valider(2, 52.5, 9);
+    s.devalider(1);
+    const l = s.exo().pourquoi.lignes;
+    expect(l.map(ligne)).toEqual([
+      'consigne',
+      'proposée par le coach · proposée après 50 kg × 12',
+      'proposée par le coach · la montée continue',
+      'consigne'
+    ]);
+    expect(esp(l[2].faite)).toBe('faite : 52,5 kg × 9');
+    expect(esp(l[2].texte)).toBe('52,5 kg × 8 à 10');
+  });
+
+  test('J5 — l\'en-tête d\'une forme inhabituelle se dit segment par segment', () => {
+    const c = { etat: 'etend', zone: 'lourd', palier: 125, n: 3,
+      ligne: { charge: 125, vise: 5 }, haut: { charge: 130, vise: 4, k: 1 } };
+    expect(M.enteteDeDisposition(c, ['ligne', 'haut', 'ligne']).jaune.map(esp))
+      .toEqual(['125 kg × 5 sur une série', 'puis 130 kg × 4 sur une série', 'puis 125 kg × 5 sur une série']);
+    expect(M.enteteDeDisposition(c, ['ligne', 'ligne', 'haut', 'ligne']).jaune.map(esp))
+      .toEqual(['125 kg × 5 sur 2 séries', 'puis 130 kg × 4 sur une série', 'puis 125 kg × 5 sur une série']);
+    // Et une charge inconnue en tête : « Le cran au-dessus × 4 ».
+    const d = Object.assign({}, c, { haut: { charge: null, vise: 4, k: 1 } });
+    expect(M.enteteDeDisposition(d, ['haut', 'ligne']).jaune.map(esp))
+      .toEqual(['Le cran au-dessus × 4 sur une série', 'puis 125 kg × 5 sur une série']);
+  });
+});

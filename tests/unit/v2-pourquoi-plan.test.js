@@ -322,11 +322,11 @@ describe('49-U6 — aucune phrase générée n’écrit un point décimal', () =
 
   test('une reprise longue à 38,3 kg se dit avec une virgule', () => {
     const p = M.phraseReaction({ type: 'propose', rang: 1, charge: 38.3, reps: 12, charges: [40.8], marge: 3 }, 'lourd');
-    expect(p).toMatch(/^38,3\s×\s12/);
+    expect(p).toMatch(/^38,3\skg\s×\s12/);
     expect(p).toMatch(/40,8/);
     expect(p).not.toMatch(/\d\.\d/);
     expect(M.phraseReaction({ type: 'pas_encore', rang: 1, charge: 38.3, reps: 5, palier: 38.3 }))
-      .toMatch(/on reprend à 38,3\.$/);
+      .toMatch(/On revient à 38,3\skg\.$/);
   });
 });
 

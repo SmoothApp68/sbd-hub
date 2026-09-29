@@ -1772,7 +1772,9 @@
   function pourquoiDe(slug) {
     var x = planDuSlug(slug);
     if (!x || !x.consigne || !x.pourquoi) return null;
-    var base = Moteur.pourquoiConsigne(x.consigne, Profil.rythmeDe(profil));
+    // §20.2 — « Ta dernière séance, mardi » se lit contre le début de la séance
+    // en cours : la référence est une entrée, jamais l'horloge du moteur.
+    var base = Moteur.pourquoiConsigne(x.consigne, Profil.rythmeDe(profil), seance ? seance.debut : null);
     return base ? Object.assign({}, base, x.pourquoi) : null;
   }
 

@@ -2426,7 +2426,8 @@
     cible.appendChild(el('div', 'feuille-sous', vue.nom));
 
     if (p.seance) {
-      cible.appendChild(el('div', 'pq-sec', 'Ta dernière séance, le ' + p.seance.date));
+      // La date vient du formateur de la voix : « mardi », ou « le 13 sept. ».
+      cible.appendChild(el('div', 'pq-sec', 'Ta dernière séance, ' + p.seance.date));
       p.seance.lignes.forEach(function (l) {
         var n = el('div', 'pq-ligne' + (l.role && /ne compte/.test(l.role) ? ' muet' : ''));
         n.appendChild(el('span', 'pq-quoi', l.texte));

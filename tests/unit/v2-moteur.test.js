@@ -1205,7 +1205,7 @@ describe('§9.13 — la consigne, en calcul pur', () => {
     expect(r.fondement.zoneFigee).toEqual({ date: '2026-09-06T18:00:00+00:00' });
     // Et la feuille le dit avec cette date-là.
     expect(M.pourquoiConsigne(r, 'normal').zone)
-      .toBe('Ta zone\u00a0: Volume, de 10 à 12 reps, celle de ton test du 6\u00a0sept.\u00a0: '
+      .toBe('Ta zone\u00a0: Volume, 10 à 12 reps, celle de ton test le 6\u00a0sept.\u00a0: '
             + 'elle ne bouge pas pendant que ta zone s\'étire.'
             + ' Touche l\'étiquette pour la changer.');
   });
@@ -1224,10 +1224,13 @@ describe('§9.13 — la consigne, en calcul pur', () => {
           { charge_kg: 100, reps: 5, rpe: null, ressenti: null, role: 'palier', origine: null }
         ] }
     });
-    // Et la phrase le dit sans inventer de reps : « 100 kg, aucune charge répétée ».
-    expect(M.libellesConsigne(pour(s, 'normal', 'barre')))
-      .toEqual({ jaune: [],
-                 gris: 'Pas de palier le 13\u00a0sept.\u00a0: 100\u00a0kg, aucune charge répétée. Rien à proposer.' });
+    // ⚠️ 49-U9 (§20.2) — la phrase « pas de palier » est partie : la chaîne
+    // complète n'y arrive plus (`analyser` écarte une série sans reps, et le
+    // §7.6 retient une charge ou neutralise la séance). Ce silence n'existe
+    // plus que sur un contrat brut, et il ne dit rien — il n'invente pas non
+    // plus de reps. Avant : « Pas de palier le 13 sept. : 100 kg, aucune
+    // charge répétée. Rien à proposer. »
+    expect(M.libellesConsigne(pour(s, 'normal', 'barre'))).toEqual({ jaune: [], gris: '' });
   });
 });
 
@@ -1303,8 +1306,9 @@ describe('§9.13 / ECRAN-SAISIE §3.12 et §3.10 — le fondement, les phrases e
       // Les clés d'abord : c'est l'ABSENCE qui porte le sens.
       expect(Object.keys(rendu.fondement).sort()).toEqual(Object.keys(c.fondement).sort());
       expect(rendu.fondement).toEqual(c.fondement);
-      expect(M.libellesConsigne(rendu)).toEqual(c.phrases);
-      expect(M.pourquoiConsigne(rendu, c.reglage)).toEqual(c.pourquoi);
+      // §20.2 (49-U9) — la référence des dates est `avant`, comme dans l'app.
+      expect(M.libellesConsigne(rendu, c.avant)).toEqual(c.phrases);
+      expect(M.pourquoiConsigne(rendu, c.reglage, c.avant)).toEqual(c.pourquoi);
     });
   });
 
@@ -1336,7 +1340,7 @@ describe('§9.13 / ECRAN-SAISIE §3.12 et §3.10 — le fondement, les phrases e
       { reglage: 'normal', equipement: 'machine', correction: null });
     expect(r.etat).toBe('reprise_longue');
     expect(r.ligne).toEqual({ charge: null, vise: 5 });
-    expect(M.libellesConsigne(r).jaune).toEqual(['Le cran en dessous, vise 5']);
+    expect(M.libellesConsigne(r).jaune).toEqual(['Le cran en dessous\u00a0×\u00a05']);
   });
 
   test('DISCRIMINANT — et « Le cran au-dessus » en tête de ligne à la règle de bord', () => {
@@ -1348,25 +1352,26 @@ describe('§9.13 / ECRAN-SAISIE §3.12 et §3.10 — le fondement, les phrases e
       { reglage: 'normal', equipement: 'machine', correction: null });
     expect(r.etat).toBe('bord');
     expect(r.ligne).toEqual({ charge: null, vise: 2 });
-    expect(M.libellesConsigne(r).jaune).toEqual(['Le cran au-dessus, vise 2']);
+    expect(M.libellesConsigne(r).jaune).toEqual(['Le cran au-dessus\u00a0×\u00a02']);
     expect(M.libellesConsigne(r).gris)
-      .toBe('Sous 3 reps, pas une de plus' + NB + ': le cran au-dessus, aux mêmes reps.');
+      .toBe('Sous 3 reps, pas de rep de plus' + NB + ': le cran au-dessus, aux mêmes reps.');
   });
 
   test('DISCRIMINANT — les espaces insécables sont bien U+00A0, pas des espaces ordinaires', () => {
     // Un espace ordinaire entre « 127,5 » et « kg » coupe la charge en deux en
     // bout de ligne à 360 px. Le test le voit ; l'œil, sur une maquette, non.
     const n2 = CAS.find((c) => c.id === 'N2');
-    const p = M.libellesConsigne(pour(n2));
-    expect(p.jaune[0]).toBe('125' + NB + 'kg, vise 5');
-    expect(p.jaune[1]).toBe('puis 127,5' + NB + 'kg en dernière série, vise 3');
-    expect(p.gris).toContain('le 13' + NB + 'sept.,');
-    expect(p.gris).toContain('ta zone' + NB + ': on teste');
+    const p = M.libellesConsigne(pour(n2), n2.avant);
+    expect(p.jaune[0]).toBe('125' + NB + 'kg' + NB + '×' + NB + '5');
+    expect(p.jaune[1]).toBe('puis 127,5' + NB + 'kg' + NB + '×' + NB + '3 sur la dernière série');
+    expect(p.gris).toContain('Le 13' + NB + 'sept.' + NB + ':');
+    expect(p.gris).toContain('125' + NB + 'kg' + NB + '×' + NB + '5, 5, 5');
     // Contre-épreuve : aucune de ces chaînes ne porte l'espace ORDINAIRE au
     // même endroit.
     expect(p.jaune[0]).not.toContain('125 kg');
+    expect(p.jaune[0]).not.toContain('kg ×');
     const n7 = CAS.find((c) => c.id === 'N7');
-    expect(M.libellesConsigne(pour(n7)).gris).toContain('130' + NB + '×' + NB + '2');
+    expect(M.libellesConsigne(pour(n7), n7.avant).gris).toContain('130' + NB + 'kg' + NB + '×' + NB + '2');
   });
 
   test('sans consigne, la fonction rend des libellés vides plutôt que de casser', () => {

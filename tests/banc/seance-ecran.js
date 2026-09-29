@@ -5735,12 +5735,13 @@ const SETS_IMPORTES = [
     ok('[C6] l’écran montre 5, 4, 3 dans cet ordre',
       JSON.stringify(vues) === JSON.stringify(['5', '4', '3']), JSON.stringify(vues));
     const lecture = String((await constat()).verdict);
-    ok('[C6] LE MOTEUR LIT DANS L’ORDRE DE L’ÉCRAN : « 5-4-3 », aucune autre permutation',
-      /5-4-3/.test(lecture) && !/4-5-3|4-3-5|5-3-4|3-4-5|3-5-4/.test(lecture),
+    // §20.2 (49-U9) — les reps se disent « × 5, 4, 3 » (plus « 5-4-3 »).
+    ok('[C6] LE MOTEUR LIT DANS L’ORDRE DE L’ÉCRAN : « 5, 4, 3 », aucune autre permutation',
+      /5, 4, 3/.test(lecture) && !/4, 5, 3|4, 3, 5|5, 3, 4|3, 4, 5|3, 5, 4/.test(lecture),
       JSON.stringify(lecture).replace(/\u00a0/g, '·'));
     await taper(2, 130, 4);
-    ok('[C6] la troisième corrigée à 4 : la lecture suit, « 5-4-4 »',
-      /5-4-4/.test(String((await constat()).verdict)),
+    ok('[C6] la troisième corrigée à 4 : la lecture suit, « 5, 4, 4 »',
+      /5, 4, 4/.test(String((await constat()).verdict)),
       JSON.stringify(await constat()).replace(/\u00a0/g, '·'));
 
     await plusSerie(0);
@@ -6131,7 +6132,7 @@ const SETS_IMPORTES = [
     const ph1 = await phrases();
     ok('[R] 3 DE PLUS QUE VISÉ : la phrase apparaît au-dessus de la série suivante',
       ph1.length === 1 && /^propose:/.test(ph1[0]) && /3 de plus que visé/.test(ph1[0]) &&
-      /dès la série 2/.test(ph1[0]),
+      /je passe ta série 2 /.test(ph1[0]) && !/\?/.test(ph1[0]),
       JSON.stringify(ph1));
     const prop1 = await proposees();
     const [cranTxt, fourchette] = await placeholders(1);
@@ -6501,7 +6502,7 @@ const SETS_IMPORTES = [
     const ph4 = await phrasesC();
     const f4 = await fantomesC();
     ok('[C] la PREMIÈRE série a sa consigne, et réagit : proposition sur la série 2',
-      ph4.length === 1 && /de plus que visé/.test(ph4[0]) && /dès la série 2/.test(ph4[0]) &&
+      ph4.length === 1 && /de plus que visé/.test(ph4[0]) && /ta série 2 /.test(ph4[0]) &&
       f4[1].charAt(0) === '*', JSON.stringify({ ph4, f4 }));
     await abandonner();
 
@@ -6601,7 +6602,7 @@ const SETS_IMPORTES = [
     const phL = await phrasesC();
     const p1L = parisDe(sid).filter((l) => l.fondement.rang === 1)[0];
     ok('[C] une série PLUS LÉGÈRE en travail : pas un refus — la suivante propose encore',
-      phL.length === 1 && /dès la série 3/.test(phL[0]), JSON.stringify(phL));
+      phL.length === 1 && /ta série 3 /.test(phL[0]), JSON.stringify(phL));
     ok('[C] et son pari dit « autre chose tenté » : reliée, rien de compté',
       !!p1L && rangDuSet(p1L.set_observe) === 1 && p1L.valeur_observee === null && p1L.observee_a === null,
       dire(sid));
@@ -6722,7 +6723,7 @@ const SETS_IMPORTES = [
     await verifierApres('ouverture');
     const entete0 = await enTeteU();
     ok('[U] DISCRIMINANT — l’en-tête décrit les 3 séries de la grille, pas les 4 de la dernière séance',
-      nb(entete0) === nb(['130 kg sur les 2 dernières séries, vise 4', 'et 125 kg sur celle d\'avant, vise 5']),
+      nb(entete0) === nb(['130 kg × 4 sur les 2 dernières séries', '125 kg × 5 sur celle d\'avant']),
       nb(entete0));
     ok('[U] la grille : la ligne, puis deux tests à 130',
       nb(await grilleU()) === nb(['125×5', '130×4', '130×4']), nb(await grilleU()));
@@ -6781,7 +6782,7 @@ const SETS_IMPORTES = [
     await verifierApres('+3 sur la série 1, routine à 4');
     const phT = await phrasesU();
     ok('[U] sans test à suivre, la proposition de R2 tient : la série 2 est proposée',
-      phT.length === 1 && /de plus que visé/.test(phT[0]) && /dès la série 2/.test(phT[0]) &&
+      phT.length === 1 && /de plus que visé/.test(phT[0]) && /ta série 2 /.test(phT[0]) &&
       (await grilleU())[1].charAt(0) === '*', nb({ phT, g: await grilleU() }));
 
     // ── 49-U6 — LA FEUILLE « POURQUOI » LIT LE PLAN (ECRAN §3.10) ────────
@@ -7514,7 +7515,8 @@ const SETS_IMPORTES = [
     let g = await grilleR();
     ok('[RP1] DISCRIMINANT — la consigne garde le dernier palier : 32 sur les trois séries (avant : 23, −28 %)',
       g.length === 3 && g.every((l) => nr(l.charge) === 32), nbR(g));
-    ok('[RP1] …et le dit, sans « un cran sous »', (await griseR()) === 'On reprend à ton dernier palier, sans rep de plus.',
+    ok('[RP1] …et le dit, sans « un cran en dessous »',
+      (await griseR()) === 'Longue pause : on reprend à ta charge de travail, sans rep de plus.',
       nbR(await griseR()));
     ok('[RP1] invariants du plan (le repli compris)', r.erreurs.length === 0, nbR(r.erreurs.slice(0, 3)));
     await abandonner();
@@ -7854,7 +7856,7 @@ const SETS_IMPORTES = [
     ok('[SP] DISCRIMINANT — après la pyramide, la consigne n’est plus un silence : palier 110 (avant : « Pas de palier »)',
       !!cons && cons.etat !== 'silence' && cons.palier === 110, JSON.stringify(cons));
     ok('[SP] l’en-tête chiffre 110, la plus lourde charge TENUE dans la zone — ni 115 (la plus lourde de la séance), ni rien',
-      ent.length > 0 && ent[0] === '110 kg, vise 4' && !ent.some((t) => /Pas de palier|115/.test(t)), JSON.stringify(ent));
+      ent.length > 0 && ent[0] === '110 kg × 4' && !ent.some((t) => /Pas de palier|115/.test(t)), JSON.stringify(ent));
     // La séance du jour : encore une pyramide, trois charges, aucune répétée.
     await saisirSerie(0, 105, 5);
     await attendre(700);

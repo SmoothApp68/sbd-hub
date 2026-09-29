@@ -224,11 +224,11 @@ describe('§9.14 (49-U5) — un test prévu plus loin : la proposition prend sa 
   // plan `consigne:50 coach:52.5 consigne:55 consigne:55`. À 5 de marge (R029),
   // « 52,5, ou 55 si tu te sens bien » : la seconde charge ne dépasse plus la
   // première, une seule charge.
-  [['R028', '50 × 8, 3 de plus que visé : 55 dès la série 2, vise 3 à 5 ?'],
-   ['R029', '50 × 10, 5 de plus que visé : 55 dès la série 2, vise 3 à 5 ?'],
-   ['R030', '50 × 8, 3 de plus que visé : 55 dès la série 2, vise 3 à 5 ?'],
-   ['R031', '50 × 8, 3 de plus que visé : 55 dès la série 2, vise 3 à 5 ?'],
-   ['R032', '50 × 8, 3 de plus que visé : 55 dès la série 2, vise 3 à 5 ?']].forEach(([id, phrase]) => {
+  [['R028', '50 kg × 8, 3 de plus que visé : je passe ta série 2 à 55 kg, vise 3 à 5.'],
+   ['R029', '50 kg × 10, 5 de plus que visé : je passe ta série 2 à 55 kg, vise 3 à 5.'],
+   ['R030', '50 kg × 8, 3 de plus que visé : je passe ta série 2 à 55 kg, vise 3 à 5.'],
+   ['R031', '50 kg × 8, 3 de plus que visé : je passe ta série 2 à 55 kg, vise 3 à 5.'],
+   ['R032', '50 kg × 8, 3 de plus que visé : je passe ta série 2 à 55 kg, vise 3 à 5.']].forEach(([id, phrase]) => {
     test(id + ' — la proposition est à 55, la charge du test prévu ; 52,5 ou 50 ensuite est un refus', () => {
       const un = rejouer(id, 1);
       expect(un.r.message).toMatchObject({ type: 'propose', rang: 1, charges: [55], source: null });
@@ -247,7 +247,7 @@ describe('§9.14 (49-U5) — un test prévu plus loin : la proposition prend sa 
   test('⚠️ RAPPORTÉ — R055 : la reprise longue n\'est plus muette, la proposition ramène au palier', () => {
     const un = rejouer('R055', 1);
     expect(un.r.message).toMatchObject({ type: 'propose', rang: 1, charges: [65], retrouve: true });
-    expect(un.phrase).toBe('60 × 13, 3 de plus que visé : on retrouve ton palier, 65 dès la série 2, vise 6 à 8 ?');
+    expect(un.phrase).toBe('60 kg × 13, 3 de plus que visé : on retrouve ta charge de travail, je passe ta série 2 à 65 kg, vise 6 à 8.');
     expect(sources(un.r)).toBe('consigne:60 coach:65 consigne:60');
     // 60 × 11 ensuite : sous 65, un refus.
     const deux = rejouer('R055', 2).r;

@@ -90,17 +90,17 @@ describe('49-U4 — le cas du 26/09, reconstitué sous l’ancienne règle', () 
   test('prémisse : l’ancien constat, calculé à part sur les séries brutes, ne disait pas la montée', () => {
     // Avant 49-U8, il disait « Pas de palier aujourd'hui » ; depuis le §7.6,
     // la séance prend 130, sa plus lourde charge tenue dans la zone, et le
-    // calcul à part dit « Pas encore : 4 à 130. » — toujours pas la montée.
+    // calcul à part dit « Pas encore : 130 kg × 4. » — toujours pas la montée.
     const ancien = constatBrut(HISTOIRE, { seance: { debut: AVANT }, series: SEANCE_26 },
       ETAT.terre, AVANT, APRES, OPTS);
-    expect(ancien.constat.verdict.replace(/[\u00a0\u202f]/g, ' ')).toBe('Pas encore : 4 à 130.');
+    expect(ancien.constat.verdict.replace(/[\u00a0\u202f]/g, ' ')).toBe('Pas encore : 130 kg × 4.');
   });
 
   test('⚠️ DISCRIMINANT — le constat du plan ne dit plus « Pas de palier » : il dit la montée tenue', () => {
     expect(x.constat.verdict).not.toMatch(/Pas de palier/);
     expect(x.constat.montee).toEqual({ charge: 127.5, reps: 4 });
     expect(x.constat.verdict.replace(/[\u00a0\u202f]/g, ' ')).toBe(
-      'La montée du coach a tenu : 127,5 × 4, dans ta zone. Elle compte comme un test tenu.');
+      'La montée du coach a tenu : 127,5 kg × 4, dans ta zone. Elle compte comme un test tenu.');
   });
 
   test('⚠️ DISCRIMINANT — 49-U8 (MOTEUR §7.6) : la suite propose une charge, I10 ne signale plus rien', () => {
@@ -108,7 +108,7 @@ describe('49-U4 — le cas du 26/09, reconstitué sous l’ancienne règle', () 
     // d'après était en silence (`suite` nulle) et I10 (b) le signalait. Depuis
     // le §7.6, la séance prend 130, sa plus lourde charge tenue dans la zone.
     expect(x.constat.suiteEtat).toBe('rejoint');
-    expect(x.constat.suite.replace(/[\u00a0\u202f]/g, ' ')).toBe('Prochaine séance : 130 kg, vise 4.');
+    expect(x.constat.suite.replace(/[\u00a0\u202f]/g, ' ')).toBe('Prochaine séance : 130 kg × 4.');
     const v = T.verifierPlan(plan, entrees);
     expect(v.erreurs).toEqual([]);
   });
@@ -133,7 +133,7 @@ describe('49-U4 — un verdict qui ne contredit pas la montée reste tel qu’il
 
   test('⚠️ DISCRIMINANT — le verdict reste « ta nouvelle charge tient » ; la montée est portée à part', () => {
     expect(x.constat.verdict.replace(/[\u00a0\u202f]/g, ' ')).toBe(
-      '4-4 à 130 : ta nouvelle charge tient sur 2 séries, dans ta zone.');
+      '130 kg × 4, 4 : ta nouvelle charge tient sur 2 séries, dans ta zone.');
     expect(x.constat.montee).toEqual({ charge: 127.5, reps: 4 });
     expect(T.verifierPlan(plan, entrees).erreurs).toEqual([]);
   });
@@ -176,13 +176,16 @@ describe('49-U4 — I10 (c) : une séance menée par le coach n’est jamais « 
   test('prémisse : toutes suivies, la ligne du coach au-dessus de la zone, la suite sans palier', () => {
     expect(x.lignes.map((l) => l.role)).toEqual(['ligne', 'coach', 'test']);
     expect(apres.etat).toBe('silence');
-    expect(M.constatDe(C, apres, 'normal', null).verdict).toMatch(/^Pas de palier/);
+    // ⚠️ 49-U9 (§20.2) — le verdict « Pas de palier » est parti : sur ce contrat
+    // brut, le constat seul n'a plus de verdict. Avant : « Pas de palier
+    // aujourd'hui : rien de répété sur deux séries. »
+    expect(M.constatDe(C, apres, 'normal', null).verdict).toBeNull();
   });
 
   test('⚠️ DISCRIMINANT — le constat dit que le coach a mené les charges, pas « Pas de palier »', () => {
     expect(x.constat.orchestre).toBe(true);
     expect(x.constat.verdict.replace(/[\u00a0\u202f]/g, ' ')).toBe(
-      'Le coach a mené tes charges aujourd\'hui : 50 × 12, 52,5 × 11, 55 × 8.');
+      'Le coach a mené tes charges aujourd\'hui : 50 kg × 12, 52,5 kg × 11, 55 kg × 8.');
     expect(T.verifierPlan(T.planDeSeance(entrees), entrees).erreurs).toEqual([]);
   });
 
@@ -225,7 +228,7 @@ describe('49-U4 — I10 : verifierPlan voit chaque violation', () => {
       expect(i10(p)).toMatch(/une montée du coach a tenu à 127.5, le constat ne la dit pas/);
     });
     // Témoin : un verdict qui ne la contredit pas passe.
-    const q = copie(); q.exercices[0].constat.verdict = '4-4 à 130 : ta nouvelle charge tient sur 2 séries, dans ta zone.';
+    const q = copie(); q.exercices[0].constat.verdict = '130 kg × 4, 4 : ta nouvelle charge tient sur 2 séries, dans ta zone.';
     expect(i10(q)).toBe('');
   });
 
@@ -271,7 +274,7 @@ describe('49-U5 — le cas de #327 : une seule montée, et une suite chiffrée',
     const x = plans[0].plan.exercices[0];
     expect(x.lignes.map((l) => l.role + ':' + l.charge)).toEqual(['ligne:125', 'coach:130', 'test:130', 'test:130']);
     expect(x.lignes[1].proposee).toBe(true);
-    expect(x.message.phrase.replace(/[  ]/g, ' ')).toBe('125 × 8, 3 de plus que visé : 130 dès la série 2, vise 3 à 5 ?');
+    expect(x.message.phrase.replace(/[  ]/g, ' ')).toBe('125 kg × 8, 3 de plus que visé : je passe ta série 2 à 130 kg, vise 3 à 5.');
   });
 
   test('⚠️ DISCRIMINANT — le constat annonce une suite chiffrée (avant : aucune, `silence`)', () => {

@@ -27,7 +27,7 @@ tort. Lis [`v2/specs/README.md`](v2/specs/README.md) avant d'écrire dans `v2/`.
 
 ⚠️ **Tout ce qui suit (§4 à §18) décrit le v1 et vaut à titre d'archive.** Les valeurs, les
 algorithmes et le scope de lancement qui y figurent ne pilotent plus rien.
-**Seule exception : le §4 bis, qui porte sur le service worker v2 et s'applique.**
+**Seules exceptions : le §4 bis (le service worker v2) et le §4 ter (un seul coach, un seul câblage), qui s'appliquent.**
 
 ---
 
@@ -129,6 +129,26 @@ npx jest tests/unit/v2-service-worker.test.js
 GESTIONNAIRE `fetch`.** Un service worker cassé se remplace au rechargement
 suivant ; un service worker **qui pend** est le seul cas irrécupérable — la
 trappe `/__sw-off` pendrait avec lui.
+
+---
+
+## 4 ter. UN SEUL COACH, UN SEUL CÂBLAGE (v2)
+
+> **Règle permanente** (29/09/2026). Le détail vit dans
+> [MOTEUR §9.13 bis](v2/specs/MOTEUR-PROGRESSION-V2.md) — ne le recopie pas ici.
+
+- **Toute nouvelle règle du coach se branche sur `planDeSeance`** (`v2/js/plan.js`)
+  et passe les invariants de `verifierPlan` (I1 à I15). **Aucun écran ne calcule une
+  décision du coach** : il lit le plan.
+- **La garde d'architecture** : `tests/unit/v2-architecture.test.js` lit le source de
+  `v2/js/` et `v2/index.html`. Une fonction de calcul du coach (liste `GARDEES`) ne
+  s'appelle que depuis son module, `plan.js`, ou un fichier inscrit pour elle dans
+  `AUTORISATIONS` **avec sa raison**. L'élargir est un geste conscient, dans une PR
+  qui le justifie — jamais un contournement silencieux. Une entrée sans appel fait
+  aussi échouer le test : la liste dit ce qui est.
+- **La garde de développement** (C6, `THPlan.creerGarde`) vérifie chaque plan que
+  l'app calcule, hors production : `localhost`, les aperçus `*.pages.dev`, ou
+  `?garde=1`. Le banc de saisie vérifie les invariants après chaque geste.
 
 ---
 

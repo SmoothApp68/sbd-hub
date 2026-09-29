@@ -125,7 +125,7 @@ describe('49-U7 — hors production, une violation s’écrit en console et se m
     const e = espion();
     const g = T.creerGarde({ location: loc('localhost'), stockage: stockage(), journal: e.journal, marquer: e.marquer });
     const a = JSON.parse(JSON.stringify(unPlan().plan));
-    a.exercices[0].lignes[0] = Object.assign({}, a.exercices[0].lignes[0], { id: 'z', figee: true, rang: 1 });
+    a.exercices[0].lignes[0] = Object.assign({}, a.exercices[0].lignes[0], { id: 'z', figee: true, validee: true, rang: 1 });
     const b = JSON.parse(JSON.stringify(a));
     b.exercices[0].lignes[0].rang = 9;
     g.verifier(a);

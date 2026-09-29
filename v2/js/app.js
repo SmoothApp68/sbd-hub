@@ -1446,7 +1446,14 @@
       // Dévalider RETIRE la ligne : une série non validée ne peut pas exister
       // en base (`sets_validee_si_saisie`).
       seance = Seance.devalider(seance, iExo, iSerie);
+      // R2 (49-18) — l'observation se vide SUR L'APPAREIL AVANT LE REDESSIN,
+      // comme pour A et B : la partie synchrone d'`oublierObservationDe` est
+      // faite dès l'appel. Avant, `apresGeste` dessinait un plan où la série
+      // dévalidée portait encore l'observation de son pari (I7), et rien ne le
+      // redessinait avant le geste suivant.
+      var vidage = oublierObservationDe(iExo, iSerie);
       await apresGeste();
+      await vidage;
       return observerSerie(iExo, iSerie);
     }
     // Ce qui est affiché en gris devient réel à la validation : on valide sans
@@ -1494,6 +1501,10 @@
     // et c'est précisément ce que l'asymétrie assumée interdit.
     seance = Seance.avancerTours(seance,
       Modele.toursFaitsParGroupe(Modele.blocsDeSeance(seance, local.exercices)));
+    // §9.11, I7 G2 (49-17) — le pari de CETTE série est enregistré sur
+    // l'appareil AVANT tout plan suivant, dans le même geste synchrone que la
+    // validation : aucun plan ne voit la série validée sans son pari.
+    var pariProvisoire = enregistrerPari(iExo, iSerie);
     vibrer();
     // ⚠️ PAS DE REPOS EN CORRECTION. Le chronomètre mesure le temps entre deux
     // séries RÉELLES ; en rouvrant une séance d'avant-hier, il compterait un
@@ -1504,8 +1515,9 @@
     // que celui de la prédiction. `set_observe` trouve alors toujours sa série.
     await apresGeste();
     // §9.11 (49-C) — le pari de CETTE série, AVANT son observation : il doit
-    // exister pour être observé. C'est aussi lui qui la fige (§9.13).
-    await noterPari(iExo, iSerie);
+    // exister pour être observé. C'est aussi lui qui la fige (§9.13). Déjà sur
+    // l'appareil ; il entre dans la file ICI, derrière les séries.
+    if (pariProvisoire) await poserPari(await finirPari(pariProvisoire));
     await observerSerie(iExo, iSerie);
   }
 
@@ -1686,8 +1698,9 @@
     m.title = violations[violations.length - 1] || '';
   }
 
-  function planActuel() {
-    if (!seance) return null;
+  // Les entrées du plan de la séance ouverte. Les consignes et les suites se
+  // lisent D'ABORD : leur mémo peut changer `versionConsignes`.
+  function entreesDuPlan() {
     var edition = enEdition();
     var exos = seance.exercices || [];
     var cs = {};
@@ -1699,12 +1712,7 @@
         suites[slug] = cs[slug] ? suiteDe(slug) : null;
       }
     });
-    // `constats` porte les suites : une synchronisation le remet à zéro
-    // (`recalculerEtats`) et la suite se recalcule sur le nouvel historique.
-    if (planMemo && planMemo.seance === seance && planMemo.paris === local.predictions &&
-        planMemo.version === versionConsignes && planMemo.edition === edition &&
-        planMemo.constats === constats) return planMemo.plan;
-    var entrees = {
+    return {
       seance: { id: seance.id, debut: seance.debut, edition: edition, exercices: exos },
       consignes: cs,
       reglage: Profil.rythmeDe(profil),
@@ -1713,6 +1721,17 @@
         return l && l.fondement && l.fondement.seance === seance.id;
       })
     };
+  }
+
+  function planActuel() {
+    if (!seance) return null;
+    var entrees = entreesDuPlan();
+    var edition = entrees.seance.edition;
+    // `constats` porte les suites : une synchronisation le remet à zéro
+    // (`recalculerEtats`) et la suite se recalcule sur le nouvel historique.
+    if (planMemo && planMemo.seance === seance && planMemo.paris === local.predictions &&
+        planMemo.version === versionConsignes && planMemo.edition === edition &&
+        planMemo.constats === constats) return planMemo.plan;
     var plan = Plan.planDeSeance(entrees);
     planMemo = { seance: seance, paris: local.predictions, version: versionConsignes,
                  edition: edition, constats: constats, plan: plan };
@@ -1978,55 +1997,78 @@
   // tiré de la réaction sur les séries validées qui la PRÉCÈDENT — l'effort
   // saisi pendant le repos qui a retiré une proposition ne laisse rien écrire
   // du coach. Cette fonction n'écrit que ce que le plan dit.
-  async function noterPari(iExo, iSerie) {
-    if (!seance || enEdition()) return;
-    var r = reactionDe(iExo);
-    if (!r) return;
+  //
+  // ⚠️ I7, G2 (49-17, 28/09/2026) — LE PARI S'ENREGISTRE SUR L'APPAREIL AVANT
+  // QUE LE PLAN SUIVANT SOIT CALCULÉ. Avant, le redessin (`apresGeste`)
+  // passait d'abord : un plan où la série était validée sans son pari, vu par
+  // la garde à chaque validation. Le pari se lit donc ici SANS passer par
+  // `planActuel` (mémoïsé, gardé) : `Plan.planDeSeance`, pur, sur les mêmes
+  // entrées — le même plan (I12). Et il entre dans `local.predictions`
+  // TOUT DE SUITE, de façon synchrone : l'identifiant (SHA-256) demande une
+  // attente, pendant laquelle un redessin (minuterie, synchronisation) doit
+  // déjà le voir. L'identifiant se pose ensuite (`finirPari`), et l'envoi
+  // dans la file reste après les séries (`poserPari`, après `apresGeste`).
+  // Rend la ligne provisoire (sans identifiant), ou `null`.
+  function enregistrerPari(iExo, iSerie) {
+    if (!seance || enEdition()) return null;
+    var p = Plan.planDeSeance(entreesDuPlan());
+    var r = p && p.exercices[iExo];
+    if (!r || !r.consigne) return null;
     var serie = seance.exercices[iExo].series[iSerie];
-    if (!serie || !Seance.partEnBase(serie) || r.figees[serie.id]) return;
+    if (!serie || !Seance.partEnBase(serie) || r.figees[serie.id]) return null;
     var pari = r.paris && r.paris[iSerie];
-    if (!pari) return;
-    var lignes = [pari];
+    if (!pari) return null;
     var slug = pari.exercise_slug;
     var rang = pari.fondement.rang;
-    var rev = revisionDe(lignes[0]);
-    if (dejaNote(slug, rev, rang)) return;
+    var rev = revisionDe(pari);
+    if (dejaNote(slug, rev, rang)) return null;
     notesEnCours[cleNote(slug, rev, rang)] = true;
-    await noterLignes(lignes);
+    // ⚠️ `emise_a` ET `user_id` SONT POSÉS ICI, comme pour une correction de
+    // zone (§9.1.1) : laissés au défaut du serveur, deux séances notées hors
+    // ligne remonteraient dans l'ordre du réseau, pas dans celui des gestes.
+    // ⚠️ UNE LIGNE PROVISOIRE N'EST PAS OBSERVABLE (pas d'identifiant : une
+    // observation partirait vers `id = null`). `observerSerie` l'ignore ;
+    // `validerSerie` l'observe lui-même, une fois identifiée. Le jeton la
+    // retrouve même si elle a été recopiée entre-temps.
+    var provisoire = Object.assign({}, pari, {
+      id: null, _provisoire: uuid(),
+      user_id: (sessionActive && sessionActive.user && sessionActive.user.id) || null,
+      module_version: Moteur.VERSION_CONSIGNE,
+      emise_a: new Date().toISOString(), horizon_jours: null,
+      valeur_observee: null, observee_a: null, set_observe: null
+    });
+    local.predictions = (local.predictions || []).concat([provisoire]);
+    return provisoire;
   }
 
-  // ⚠️ `emise_a` ET `user_id` SONT POSÉS ICI, comme pour une correction de zone
-  // (§9.1.1) : laissés au défaut du serveur, deux séances notées hors ligne
-  // remonteraient dans l'ordre du réseau, pas dans celui des gestes.
-  //
+  // ⚠️ L'IDENTIFIANT EST CALCULÉ, PAS TIRÉ (48c-2). Deux instances de l'app
+  // qui notent la même consigne calculent le même identifiant, et l'insert
+  // qui ignore les doublons fait du second envoi un non-événement. C'est ce
+  // qui a manqué le 21/09 : six lignes au lieu de trois. `uuid()` reste le
+  // repli quand `crypto.subtle` n'existe pas. La ligne provisoire est
+  // remplacée par la ligne identifiée — ajoutée si une synchronisation l'a
+  // emportée entre-temps.
+  async function finirPari(provisoire) {
+    var calcule = await Moteur.idDePrediction(seance.id, provisoire.exercise_slug,
+      provisoire.fondement.rang, revisionDe(provisoire)).catch(function () { return null; });
+    var ligne = Object.assign({}, provisoire, { id: calcule || uuid() });
+    delete ligne._provisoire;
+    var trouve = false;
+    local.predictions = (local.predictions || []).map(function (l) {
+      if (!l || l._provisoire !== provisoire._provisoire) return l;
+      trouve = true;
+      return ligne;
+    });
+    if (!trouve) local.predictions = local.predictions.concat([ligne]);
+    await Cache.ecrireLot('predictions', [ligne]).catch(function () {});
+    return ligne;
+  }
+
   // `depend` porte la séance : une prédiction ne monte jamais avant les séries
   // auxquelles son observation se référera (`set_observe` → `sets`).
-  async function noterLignes(lignes) {
-    var emise = new Date().toISOString();
-    var uid = (sessionActive && sessionActive.user && sessionActive.user.id) || null;
-    // ⚠️ L'IDENTIFIANT EST CALCULÉ, PAS TIRÉ (48c-2). Deux instances de l'app
-    // qui notent la même consigne calculent le même identifiant, et l'insert
-    // qui ignore les doublons fait du second envoi un non-événement. C'est ce
-    // qui a manqué le 21/09 : six lignes au lieu de trois. `uuid()` reste le
-    // repli quand `crypto.subtle` n'existe pas.
-    var neuves = [];
-    for (var n = 0; n < lignes.length; n++) {
-      var l = lignes[n];
-      var calcule = await Moteur.idDePrediction(
-        seance.id, l.exercise_slug, l.fondement.rang, revisionDe(l)).catch(function () { return null; });
-      neuves.push(Object.assign({}, l, {
-        id: calcule || uuid(), user_id: uid,
-        module_version: Moteur.VERSION_CONSIGNE,
-        emise_a: emise, horizon_jours: null,
-        valeur_observee: null, observee_a: null, set_observe: null
-      }));
-    }
-    local.predictions = local.predictions.concat(neuves);
-    await Cache.ecrireLot('predictions', neuves).catch(function () {});
-    for (var i = 0; i < neuves.length; i++) {
-      await poser({ table: Attente.PREDICTIONS, op: Attente.UPSERT,
-                    id: neuves[i].id, depend: seance.id, donnees: neuves[i] });
-    }
+  async function poserPari(ligne) {
+    await poser({ table: Attente.PREDICTIONS, op: Attente.UPSERT,
+                  id: ligne.id, depend: seance.id, donnees: ligne });
   }
 
   // ⚠️ APPARIEMENT STRICT : MÊME RANG, MÊME CHARGE. Le rang vient de
@@ -2067,8 +2109,12 @@
     // se relit sur la liste actuelle et glisse quand une série est ajoutée ou
     // supprimée : `parisAObserver` rend les paris de CETTE série, où qu'ils
     // soient, et ceux de son rang que personne d'autre ne tient.
+    // ⚠️ SANS IDENTIFIANT, PAS D'OBSERVATION (49-U7 bis) : un pari encore
+    // provisoire (`enregistrerPari`, avant `finirPari`) est ignoré ici. Une
+    // frappe qui croise la validation l'observait, et l'observation partait
+    // vers `id = null` — deux paris du même rang, et aucun en base.
     var paris = (local.predictions || []).filter(function (l) {
-      return l && l.exercise_slug === exo.exercise_slug && l.fondement &&
+      return l && l.id && l.exercise_slug === exo.exercise_slug && l.fondement &&
         l.fondement.seance === seance.id;
     });
     var aLire = Seance.parisAObserver(paris, serie, rang, exo.series);
@@ -2398,7 +2444,7 @@
     brancherAppuiLong('blocs-seance');
     rendrePiedReorg();
     // §9.11 (49-C) — plus aucun pari à l'affichage : chacun s'écrit à la
-    // validation de SA série (`noterPari`).
+    // validation de SA série (`enregistrerPari`).
   }
 
   function defObjet(cle, valeur) { var o = {}; o[cle] = valeur; return o; }
@@ -2979,8 +3025,24 @@
         apresGeste({ rendre: false });
       },
       surType: async function (type) {
-        seance = Seance.changerType(seance, feuille.iExo, feuille.iSerie, type);
+        var i = feuille.iExo, j = feuille.iSerie;
+        var etait = Seance.typeDe(seance.exercices[i].series[j]);
+        seance = Seance.changerType(seance, i, j, type);
+        // §9.11, G3 (49-17, 28/09/2026) — UNE SÉRIE QUI CESSE D'ÊTRE UNE SÉRIE
+        // DE TRAVAIL PERD SON OBSERVATION, comme une série supprimée : des reps
+        // d'échauffement ne jugent pas un pari de travail. Sur l'appareil et
+        // dans la file (une observation vide) ; la base le garantit aussi.
+        // ⚠️ LANCÉ AVANT `fermerVoile`, QUI REDESSINE : le vidage local est la
+        // partie synchrone d'`oublierObservationDe`, faite dès l'appel — aucun
+        // plan ne voit le type changé sans l'observation vidée.
+        // E1 (49-19) — TOUT PASSAGE DE `travail` À UN AUTRE TYPE VIDE :
+        // l'échauffement, la dégressive, et l'échec — une TENTATIVE MANQUÉE
+        // (« Tentative manquée » à l'écran, « série ratée » chez Hevy), hors
+        // couverture et qui ne vote pas au palier. La base suit la même règle
+        // (`v2_050`, qui annule `v2_049`).
+        var vidage = etait === 'travail' && type !== 'travail' ? oublierObservationDe(i, j) : null;
         fermerVoile();
+        if (vidage) await vidage;
         await apresGeste();
       },
       surSupprimer: async function () {

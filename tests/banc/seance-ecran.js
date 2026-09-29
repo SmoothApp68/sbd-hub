@@ -1387,9 +1387,23 @@ const SETS_IMPORTES = [
     JSON.stringify(await visible()) + ' · ' + (await compter('.ok-serie.cochee')) + ' validée(s)');
 
   console.log('\n══ 3. LE TYPE ET L’EFFORT ══');
+  // G3 (49-17) — la série 1 est VALIDÉE et son pari OBSERVÉ en base : c'est la
+  // configuration qui laissait un pari de travail jugé sur une chauffe.
+  const enCoursB = (base.sessions.filter((x) => x.statut === 'en_cours')[0] || {}).id;
+  const serieB = sets().filter((x) => x.session_id === enCoursB && x.rang === 1 && x.type_serie === 'travail')[0];
+  const observesB = () => base.predictions.filter((l) => serieB && l.set_observe === serieB.id);
+  ok('[B] prémisse : la série 1 est validée, et un pari est observé sur elle en base',
+    !!serieB && !!serieB.validee_a && observesB().length >= 1,
+    JSON.stringify({ serie: serieB && serieB.id, observes: observesB().length }));
   await toucher(0, '.no-serie');
   await page.click('#feuille-contenu .feuille-menu button:nth-child(2)');   // Échauffement
   await attendre(700);
+  await jusqua(async () => observesB().length === 0, 6000);
+  ok('[B] DISCRIMINANT — passée en chauffe, elle perd son observation : plus aucun pari observé sur elle en base',
+    observesB().length === 0, JSON.stringify(observesB().map((l) => [l.fondement.rang, l.valeur_observee])));
+  const fileB = await page.evaluate(() => window.THCache.lireAttente());
+  ok('[B] et rien ne reste refusé ni en attente dans la file',
+    fileB.length === 0, JSON.stringify(fileB.map((e) => e.cle + (e.bloquee ? ' BLOQUÉE' : ''))));
   // §7 undecies.1 — hors superset, le badge porte `W` : il n'y a pas de lettre
   // d'exercice à porter, et « C » se confondait avec la charge.
   ok('le numéro porte le type : la série devient une chauffe',
@@ -4195,6 +4209,12 @@ const SETS_IMPORTES = [
   const repereD7 = base.journal.length;
   await aller('/');
   await attendre(1500);
+  // G2 (49-17) — A' : la série arrive validée, sans pari. Personne ne l'écrit
+  // après coup.
+  ok('[A’] une série validée hors de l’app n’est JAMAIS pariée après coup',
+    !base.predictions.some((l) => l.set_observe === 'set-fantome-1' ||
+      (l.fondement && l.fondement.seance === FANTOME.id)),
+    JSON.stringify(base.predictions.filter((l) => l.fondement && l.fondement.seance === FANTOME.id)));
   ok('[D7] la séance restée ouverte est REPRISE, avec sa série',
     (base.sessions.filter((x) => x.id === FANTOME.id)[0] || {}).statut === 'en_cours' &&
     (await page.evaluate(() => !document.getElementById('vue-seance').hidden ||
@@ -7693,6 +7713,95 @@ const SETS_IMPORTES = [
     await page.evaluate(() => { window.__gardeBancVu = window.THPlan.dernier; });
     gardeBanc.avant = null;
     gardeBanc.suspendue = false;
+  }
+
+  console.log('\n══ 7 G ter. LE PARI ENREGISTRÉ AVANT LE PLAN, ET LA FRAPPE QUI LE CROISE (49-U7 bis) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : UNE FRAPPE ET LA VALIDATION DANS LE MÊME
+  // INSTANT. Taper dans un champ (`surChamp`) attend la sauvegarde, PUIS
+  // observe la série. Si « valider » passe pendant cette attente, l'observation
+  // arrive après la validation — et trouve le pari que `enregistrerPari` vient
+  // de poser sur l'appareil, alors qu'il n'a pas encore son identifiant. Sous
+  // charge (deux bancs à la fois), le banc a vu : deux paris du même rang et de
+  // la même révision sur l'appareil, et aucun en base. Ici, le croisement est
+  // forcé : la frappe et le toucher partent dans la même tâche.
+  {
+    const parisLocaux = () => page.evaluate(async () => {
+      const toutes = await window.THCache.lireTout('predictions');
+      return toutes.filter((l) => l.exercise_slug === 'souleve-terre');
+    });
+    const idSeance = () => (base.sessions.filter((x) => x.statut === 'en_cours')[0] || {}).id;
+    await aller('/saisie');
+    await demarrerRoutine('Terre ×4');
+    await attendre(800);
+    const sid = idSeance();
+    await page.evaluate(() => {
+      const l = document.querySelectorAll('.ligne-serie')[0];
+      const [ch, rp] = l.querySelectorAll('input');
+      ch.value = String(Number(String(ch.placeholder).replace(',', '.')));
+      ch.dispatchEvent(new Event('input', { bubbles: true }));
+      rp.value = String(parseInt(rp.placeholder, 10));
+      rp.dispatchEvent(new Event('input', { bubbles: true }));
+      l.querySelector('.ok-serie').click();
+    });
+    await attendre(2500);
+    const locaux = (await parisLocaux()).filter((l) => l.fondement && l.fondement.seance === sid);
+    const enBase = base.predictions.filter((l) => l.fondement && l.fondement.seance === sid &&
+      l.exercise_slug === 'souleve-terre');
+    const serie0 = base.sets.filter((x) => x.session_id === sid && x.rang === 1)[0];
+    ok('[FV] DISCRIMINANT — la frappe croise la validation : UN pari au rang 1 sur l’appareil, avec son identifiant',
+      locaux.filter((l) => l.fondement.rang === 1).length === 1 && locaux.every((l) => !!l.id),
+      JSON.stringify(locaux.map((l) => [l.fondement.rang, l.fondement.revision || 0, l.id ? 'id' : 'SANS id', l.set_observe ? 'obs' : '—'])));
+    ok('[FV] …et en base : le pari du rang 1, observé sur la série 1',
+      enBase.filter((l) => l.fondement.rang === 1).length === 1 && !!serie0 &&
+      enBase.filter((l) => l.fondement.rang === 1)[0].set_observe === serie0.id,
+      JSON.stringify(enBase.map((l) => [l.fondement.rang, l.set_observe === (serie0 && serie0.id) ? 'obs s1' : l.set_observe])));
+    const fileF = await page.evaluate(() => window.THCache.lireAttente());
+    ok('[FV] …et la file est vide : rien de bloqué', fileF.length === 0,
+      JSON.stringify(fileF.map((e) => e.cle + (e.bloquee ? ' BLOQUÉE' : ''))));
+    await abandonner();
+  }
+
+  console.log('\n══ 7 G quater. L’ÉCHEC ET LA DÉGRESSIVE VIDENT L’OBSERVATION (49-19, E1) ══');
+  //
+  // Une série validée, son pari observé en base. Passée en « Tentative
+  // manquée » (`echec`) : l'observation se vide — une tentative manquée ne
+  // juge pas un pari de travail (E1 ; H2, qui la gardait, est annulé).
+  // Deuxième série : passée en dégressive, elle se vide aussi.
+  {
+    const idSeance = () => (base.sessions.filter((x) => x.statut === 'en_cours')[0] || {}).id;
+    await aller('/saisie');
+    await demarrerRoutine('Terre ×4');
+    await attendre(800);
+    const sid = idSeance();
+    await saisirSerie(0, 125, 5);
+    await attendre(1500);
+    const s1 = base.sets.filter((x) => x.session_id === sid && x.rang === 1)[0];
+    const observes = () => base.predictions.filter((l) => s1 && l.set_observe === s1.id);
+    ok('[TY] prémisse : la série 1 est validée, son pari observé en base',
+      !!s1 && observes().length === 1, JSON.stringify({ s1: s1 && s1.id, observes: observes().length }));
+    await toucher(0, '.no-serie');
+    await page.click('#feuille-contenu .feuille-menu button:nth-child(4)');   // Tentative manquée (echec)
+    await attendre(700);
+    await jusqua(async () => observes().length === 0, 6000);
+    ok('[TY] DISCRIMINANT — passée en « Tentative manquée », elle perd son observation (E1)',
+      sets().filter((x) => x.id === s1.id)[0].type_serie === 'echec' && observes().length === 0,
+      JSON.stringify({ type: (sets().filter((x) => x.id === s1.id)[0] || {}).type_serie, observes: observes().length }));
+    // La dégressive, sur la série 2.
+    await saisirSerie(1, 125, 5);
+    await attendre(1500);
+    const s2 = base.sets.filter((x) => x.session_id === sid && x.rang === 2)[0];
+    const observes2 = () => base.predictions.filter((l) => s2 && l.set_observe === s2.id);
+    ok('[TY] prémisse : la série 2 est validée, son pari observé en base',
+      !!s2 && observes2().length === 1, JSON.stringify({ s2: s2 && s2.id, observes: observes2().length }));
+    await toucher(1, '.no-serie');
+    await page.click('#feuille-contenu .feuille-menu button:nth-child(3)');   // Dégressive
+    await attendre(700);
+    await jusqua(async () => observes2().length === 0, 6000);
+    ok('[TY] DISCRIMINANT — passée en dégressive, elle perd son observation',
+      sets().filter((x) => x.id === s2.id)[0].type_serie === 'degressive' && observes2().length === 0,
+      JSON.stringify({ type: (sets().filter((x) => x.id === s2.id)[0] || {}).type_serie, observes: observes2().length }));
+    await abandonner();
   }
 
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');

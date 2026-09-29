@@ -166,7 +166,7 @@
     // Le pari de chaque ligne couverte NON FIGÉE, tel qu'il s'écrira à sa
     // validation : la réaction relue sur les séries validées qui la PRÉCÈDENT
     // — ce que l'écran montrait juste avant —, sur le plan de la couverture
-    // actuelle, où la ligne n'est pas encore figée. `noterPari` n'écrit que
+    // actuelle, où la ligne n'est pas encore figée. `enregistrerPari` n'écrit que
     // ce qui est ICI : plus aucune seconde réaction calculée à part. Une ligne
     // figée a déjà son pari (c'est lui qui la fige) : rien à écrire.
     var reactionsAvant = {};
@@ -469,7 +469,8 @@
   // Le rôle qu'un pari écrit, pour le rôle d'une ligne du plan.
   var ROLE_DU_PARI = { ligne: 'ligne', test: 'haut', coach: 'coach', retour: 'retour' };
 
-  function verifierExercice(x, erreurs, parisSeance) {
+  // `avantX` (facultatif) : le même exercice dans le plan d'avant (I7, G2).
+  function verifierExercice(x, erreurs, parisSeance, avantX) {
     var nom = 'exercice ' + x.iExo + ' (' + x.slug + ')';
     var err = function (inv, texte) { erreurs.push(inv + ' — ' + nom + ' : ' + texte); };
     var lignes = x.lignes || [];
@@ -759,7 +760,22 @@
     // validée puis supprimée (§9.11, 49-11 — « le pari reste, non observé »).
     // Une ligne validée que le plan ne fait rien parier (`paris` nul : pas de
     // visée) n'en attend aucun.
+    //
+    // ⚠️ G2 (delta 49-17, 28/09/2026) — UN PARI S'ÉCRIT AVANT QUE LE PLAN
+    // SUIVANT SOIT CALCULÉ, ET JAMAIS APRÈS COUP. Une ligne qui VIENT d'être
+    // validée — non validée dans le plan d'avant (`avantX`) — doit porter son
+    // pari dès ce plan-ci. Une ligne validée sans aucun pari, qui ne vient pas
+    // de l'être (séance reprise d'un autre appareil, séance d'avant 49-C,
+    // série injectée), est NON PARIÉE : I7 ne l'exige pas, et personne ne
+    // l'écrit après coup. Sans plan d'avant, rien ne « vient » d'être validé.
     if (parisSeance) {
+      var valideeAvant = {};
+      ((avantX && avantX.lignes) || []).forEach(function (la) {
+        if (la && la.id) valideeAvant[la.id] = !!la.validee;
+      });
+      var vientDEtreValidee = function (l) {
+        return !!avantX && !!l.id && valideeAvant[l.id] === false;
+      };
       var siens = parisSeance.filter(function (q) {
         return q && q.exercise_slug === x.slug && q.fondement;
       });
@@ -769,8 +785,10 @@
         var duRang = siens.filter(function (q) { return Number(q.fondement.rang) === Number(l.rang); });
         var revL = revisionsI7[l.position] || 0;
         var deSaRevision = duRang.filter(function (q) { return (Number(q.fondement.revision) || 0) === revL; });
-        var attendu = l.figee || !!(x.paris && x.paris[l.iSerie]);
+        var aParier = !!(x.paris && x.paris[l.iSerie]);
+        var attendu = l.figee || (aParier && (duRang.length > 0 || vientDEtreValidee(l)));
         if (!attendu) {
+          // Non pariée (G2) : aucun pari sur ce rang, donc aucune erreur ici.
           if (duRang.length) err('I7', 'la série ' + l.iSerie + ' ne devait rien parier, et le rang ' + l.rang + ' porte ' + duRang.length + ' pari(s)');
           return;
         }
@@ -808,7 +826,10 @@
   }
 
   // I4 — d'un plan au suivant, une ligne figée ne change jamais : même rang,
-  // même rôle, même charge, même visée — et elle reste figée. On suit la
+  // même rôle, même charge, même visée — et elle reste figée, TANT QU'ELLE
+  // RESTE VALIDÉE (G1, delta 49-17, 28/09/2026) : dévalidée, elle redevient une
+  // ligne du plan et peut être revalidée sous une autre révision (delta W3).
+  // Le code l'interdisait depuis 49-U3, contre W3 — la garde l'a trouvé. On suit la
   // SÉRIE (son identifiant), pas sa position : une série ajoutée ou retirée
   // plus haut décale les positions, jamais une ligne figée. Une série
   // supprimée n'a plus de ligne : rien à comparer.
@@ -821,7 +842,10 @@
       (xa.lignes || []).forEach(function (la) {
         if (!la.figee || !la.id) return;
         var lp = parId[la.id];
-        if (!lp) return;
+        // H1, E2 (49-18, 49-19) : tant qu'elle reste une SÉRIE DE TRAVAIL validée —
+        // passée en échauffement, en dégressive ou en échec, elle sort de la
+        // couverture (`hors`).
+        if (!lp || !lp.validee || lp.role === 'hors') return;
         var nom = 'I4 — exercice ' + xa.iExo + ' (' + xa.slug + '), série ' + la.id + ' : ';
         if (!lp.figee) { erreurs.push(nom + 'figée avant, plus maintenant'); return; }
         if (lp.rang !== la.rang) erreurs.push(nom + 'rang ' + la.rang + ' → ' + lp.rang);
@@ -840,13 +864,17 @@
     var parisSeance = entrees && entrees.paris ? entrees.paris.filter(function (q) {
       return q && q.fondement && (!plan || plan.seance === null || q.fondement.seance === plan.seance);
     }) : null;
-    ((plan && plan.exercices) || []).forEach(function (x) { verifierExercice(x, erreurs, parisSeance); });
+    var memeSeance = !!(avant && plan && avant.seance === plan.seance);
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      var xa = memeSeance ? (avant.exercices || [])[i] : null;
+      verifierExercice(x, erreurs, parisSeance, xa && xa.slug === x.slug ? xa : null);
+    });
     if (avant) verifierSuite(avant, plan, erreurs);
     if (entrees !== undefined) {
-      var avant = JSON.stringify(entrees);
+      var entreesAvant = JSON.stringify(entrees);
       var refait = planDeSeance(entrees);
       if (JSON.stringify(refait) !== JSON.stringify(plan)) erreurs.push('I12 — même entrée, plan différent');
-      if (JSON.stringify(entrees) !== avant) erreurs.push('I12 — le calcul a modifié ses entrées');
+      if (JSON.stringify(entrees) !== entreesAvant) erreurs.push('I12 — le calcul a modifié ses entrées');
     }
     return { ok: erreurs.length === 0, erreurs: erreurs };
   }

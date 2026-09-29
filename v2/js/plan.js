@@ -255,12 +255,15 @@
     };
   }
 
-  function constatDuPlan(lignes, consigne, suite, reglage) {
+  // `reference` : le début de la séance du jour — le constat dit « mardi »
+  // contre elle (§20.2), jamais contre l'horloge.
+  function constatDuPlan(lignes, consigne, suite, reglage, reference) {
     var couvertes = lignes.filter(function (l) { return l.role !== 'hors'; });
     if (!couvertes.length || !couvertes.every(function (l) { return l.validee; })) return null;
     if (!suite || !suite.consigne) return null;
     var c = Moteur().constatDuJour(consigne, suite.consigne, reglage || null,
-      suite.cranSuivant === undefined ? null : suite.cranSuivant, faitsDuJour(lignes, consigne));
+      suite.cranSuivant === undefined ? null : suite.cranSuivant, faitsDuJour(lignes, consigne),
+      reference === undefined ? null : reference);
     if (!c) return null;
     // Ce que la prochaine séance proposera, en charges : de quoi vérifier
     // qu'elle ne propose pas moins qu'une montée tenue (I10 b).
@@ -283,14 +286,16 @@
   // Les lignes suivent `VOIX-DU-COACH-V1` : la charge d'abord (« 130 kg × 4 »).
   // Invariant (I6, étendu à la feuille) : exactement les lignes de la grille,
   // même nombre, mêmes charges, mêmes visées, même ordre.
-  function nombreFr(v) { return racine.THModele.nombre(v); }
+  //
+  // §20.2 (49-U9) — LE FORMATEUR DE LA VOIX EST CELUI DE `modele.js`, le même
+  // que le moteur : `kgFois`, qui en recopiait un second ici, est parti.
+  function Voix() { return racine.THModele; }
+  function nombreFr(v) { return Voix().nombre(v); }
   var NBSP = '\u00a0';
-  function kg(v) {
-    var n = nombre(v);
-    return n === null ? 'le cran au-dessus' : nombreFr(n) + NBSP + 'kg';
-  }
-  function kgFois(charge, reps) { return kg(charge) + NBSP + '\u00d7' + NBSP + nombreFr(reps); }
-  var ROLE_FEUILLE = { ligne: 'consigne', test: 'test', coach: 'proposée par le coach', retour: 'retour à ta charge' };
+  function kg(v) { return Voix().charge(nombre(v)); }
+  function kgFois(charge, reps) { return Voix().chargeFois(nombre(charge), reps); }
+  var ROLE_FEUILLE = { ligne: 'consigne', test: 'test', coach: 'proposée par le coach',
+                       retour: 'retour à ta charge de travail' };
 
   function lignesDeLaFeuille(lignes) {
     var couvertes = (lignes || []).filter(function (l) { return l.role !== 'hors'; });
@@ -337,7 +342,7 @@
   }
 
   // ── LE PLAN D'UN EXERCICE ───────────────────────────────────────────────
-  function planDExercice(exo, iExo, consigneDuSlug, paris, seanceId, reglage, suite) {
+  function planDExercice(exo, iExo, consigneDuSlug, paris, seanceId, reglage, suite, debut) {
     var S = Seance(), M = Moteur();
     var series = (exo && exo.series) || [];
     var c = consigneDuSlug && consigneDuSlug.consigne ? consigneDuSlug : null;
@@ -375,7 +380,7 @@
       indices: r.indices, rangs: r.rangs, roles: r.roles, figees: figees,
       planInitial: r.planInitial, faites: r.faites, reaction: r.reaction,
       lignes: r.lignes, message: r.message, paris: r.paris,
-      constat: constatDuPlan(r.lignes, consigne, suite, reglage),
+      constat: constatDuPlan(r.lignes, consigne, suite, reglage, debut),
       entete: { jaune: entete.jaune, gris: gris, segments: entete.segments },
       donc: donc,
       pourquoi: pourquoiDuPlan(consigne, r.lignes, donc)
@@ -434,7 +439,7 @@
         var c = Object.prototype.hasOwnProperty.call(consignes, slug) ? consignes[slug] : null;
         var suites = e.suites || {};
         var suite = Object.prototype.hasOwnProperty.call(suites, slug) ? suites[slug] : null;
-        return planDExercice(exo, i, c, e.paris || [], seance.id, e.reglage, suite);
+        return planDExercice(exo, i, c, e.paris || [], seance.id, e.reglage, suite, seance.debut);
       })
     };
   }
@@ -458,7 +463,7 @@
       if ((m = /sur les (\d+) dernières séries/.exec(x))) compte += Number(m[1]);
       else if ((m = /sur les (\d+) d'avant/.exec(x))) compte += Number(m[1]);
       else if (/sur celle d'avant/.test(x)) compte += 1;
-      else if (/en dernière série/.test(x)) compte += 1;
+      else if (/sur la dernière série/.test(x)) compte += 1;
       else if (/sur une série/.test(x)) compte += 1;
       else if ((m = /sur (\d+) séries/.exec(x))) compte += Number(m[1]);
       else sansCompte += 1;
@@ -605,7 +610,11 @@
       }
       (e.segments || []).forEach(function (s) {
         if (s.vise === null || s.vise === undefined) return;
-        var dit = (e.jaune || []).some(function (t) { return String(t).indexOf('vise ' + s.vise) >= 0; });
+        // §20.2 (49-U9) — la visée se dit « × 5 » (plus « vise 5 ») : la règle
+        // ne change pas, seul le mot qu'elle cherche.
+        var dit = (e.jaune || []).some(function (t) {
+          return String(t).replace(/\u00a0/g, ' ').indexOf('\u00d7 ' + s.vise) >= 0;
+        });
         if (!dit) err('I6', 'la visée ' + s.vise + ' n\'apparaît pas dans l\'en-tête');
       });
     }

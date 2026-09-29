@@ -38,6 +38,79 @@
     return String(Math.round(n * f) / f).replace('.', ',');
   }
 
+  // ── LA VOIX DU COACH : LE SEUL FORMATEUR (MOTEUR §20.2, 49-U9) ──────────
+  //
+  // Toutes les phrases du coach — moteur ET plan — passent par ici pour les
+  // charges, les reps et les dates : un seul format, charge d'abord, avec
+  // « kg » (`125 kg × 5`). Aucune phrase ne formate un nombre elle-même :
+  // trois graphies ont coexisté (`croix`, `kgFois`, celle de « ton test
+  // arrive »), et c'est ce qui les avait fait diverger.
+  //
+  // ⚠️ L'ESPACE INSÉCABLE, ÉCRITE EN ÉCHAPPEMENT : entre le nombre et « kg »,
+  // autour du « × » et dans la date. Sans elle, « 127,5 » et « kg » se
+  // séparent en bout de ligne à 360 px.
+  var INSECABLE = '\u00a0';
+  var CRAN_INCONNU = 'le cran au-dessus';
+
+  // « 125 kg ». Une charge inconnue se dit, elle ne se tait pas : « le cran
+  // au-dessus » (§10.2, rang 4) — ou le repli que l'appelant donne.
+  function charge(kg, repli) {
+    if (kg === null || kg === undefined || kg === '' || !isFinite(Number(kg))) {
+      return repli === undefined ? CRAN_INCONNU : repli;
+    }
+    return nombre(kg) + INSECABLE + 'kg';
+  }
+
+  // « 125 kg × 5 » — la charge d'abord, puis les reps.
+  function chargeFois(kg, reps, repli) {
+    return charge(kg, repli) + INSECABLE + '\u00d7' + INSECABLE + nombre(reps);
+  }
+
+  // « 125 kg × 4, 4, 4 » — une série de reps à une même charge.
+  function serie(kg, reps, repli) {
+    var l = (reps || []).map(function (r) { return nombre(r); }).join(', ');
+    return charge(kg, repli) + INSECABLE + '\u00d7' + INSECABLE + l;
+  }
+
+  // ⚠️ SECONDE LISTE APRÈS `Calendrier.MOIS`, et assumée : l'abréviation ne se
+  // dérive pas du nom entier (« févr. », « mars » sans point, « juil. »). Un
+  // test vérifie que les deux tables ont douze entrées dans le même ordre.
+  var MOIS_COURTS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin',
+                     'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+  var JOURS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+  var JOURS_NOMMES = 6;
+
+  function jourLocal(iso) {
+    if (iso === null || iso === undefined || iso === '') return null;
+    var d = new Date(iso);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  // « aujourd'hui » (même jour local), le NOM DU JOUR de 1 à 6 jours avant
+  // (« mardi »), sinon « le 13 sept. ». `tete` : la majuscule, en tête de
+  // phrase (« Mardi : … »).
+  //
+  // ⚠️ LA RÉFÉRENCE EST UNE ENTRÉE, JAMAIS L'HORLOGE : la date de la séance pour
+  // laquelle la phrase est écrite. Le moteur et le plan restent purs — la même
+  // consigne se relit à l'identique. Sans référence, la date absolue.
+  //
+  // L'écart se compte en JOURS DU CALENDRIER LOCAL, pas en heures : une séance
+  // de 23 h la veille est « hier » même 1 h plus tard, et un changement
+  // d'heure (23 h ou 25 h dans la journée) ne décale rien.
+  function quand(iso, reference, tete) {
+    var d = jourLocal(iso);
+    if (d === null) return '';
+    var dit = 'le ' + d.getDate() + INSECABLE + MOIS_COURTS[d.getMonth()];
+    var r = jourLocal(reference);
+    if (r !== null) {
+      var ecart = Math.round((Date.UTC(r.getFullYear(), r.getMonth(), r.getDate()) -
+                              Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())) / 86400000);
+      if (ecart === 0) dit = 'aujourd\'hui';
+      else if (ecart >= 1 && ecart <= JOURS_NOMMES) dit = JOURS[d.getDay()];
+    }
+    return tete ? dit.charAt(0).toUpperCase() + dit.slice(1) : dit;
+  }
+
   // 23715 -> « 6 h 35 » · 750 -> « 12 min 30 » · 60 -> « 1 min »
   function formatDuree(secondes) {
     if (secondes === null || secondes === undefined || secondes === '') return '';
@@ -1068,6 +1141,13 @@
     formatPrecedent: formatPrecedent,
     estTravail: estTravail,
     nombre: nombre,
+    charge: charge,
+    chargeFois: chargeFois,
+    serie: serie,
+    quand: quand,
+    MOIS_COURTS: MOIS_COURTS,
+    JOURS: JOURS,
+    JOURS_NOMMES: JOURS_NOMMES,
     anciennete: anciennete,
     formatDuree: formatDuree,
     formatDistance: formatDistance,

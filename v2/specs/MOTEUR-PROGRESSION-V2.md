@@ -1654,23 +1654,23 @@ Conforme au cadrage : **descriptif, jamais prescriptif sur l'historique.**
 
 | Situation | Formulation |
 |---|---|
-| Progrès en reps | « 122,5 kg, ta meilleure séance sur ce palier. » |
-| Consigne | « 125 kg, vise 5 » — en jaune, sous le nom (ECRAN-SAISIE §3.1) |
-| Consigne à deux charges | « 125 kg, vise 5 » puis « 130 kg en dernière série, vise 4 » |
-| Test gardé | « Ton test à 130 du 15 sept. est tombé au bas de ta zone : on le garde sur la dernière série. » |
-| Test réussi dedans | « 130 kg : 3 reps le 15 sept., 4 aujourd'hui, dans ta zone. » + « Prochaine séance : … » |
-| Test raté | « 130 × 2 : pas encore dans ta zone. » + « Prochaine séance : 125 kg, vise 5, puis 127,5 kg sur la dernière, vise 3. » |
-| Zone étirée | « Ton cran ne peut pas être plus petit : ta zone s'étire. On retestera 32 quand tu feras 16 à 28. » |
-| Reprise | « On reprend à ton dernier palier, sans rep de plus. » — jamais la durée de l'absence |
-| Proposition en séance (§9.14) | « 8 à 125, 3 de plus que visé : 130 dès la série 2, vise 3 à 5 ? » — à 5 reps de marge : « 125, ou 130 si tu te sens bien » — en jaune, dans la grille |
-| Montée tenue | « 130 × 5, dans ta zone : ton test a avancé d'une série. » — sans test prévu : « 125 × 9, dans ta zone : tu montes dès aujourd'hui. » — au haut de la zone : « 130 × 5, le haut de ta zone. » **Un fait, jamais un « bravo »** |
-| Montée pas encore tenue | « 130 × 2 : pas encore. Tu as tenté plus tôt que prévu ; on reprend à 125. » — en gris |
+| Progrès en reps | « 122,5 kg, ta meilleure séance à cette charge de travail. » |
+| Consigne | « 125 kg × 5 » — en jaune, sous le nom (ECRAN-SAISIE §3.1) |
+| Consigne à deux charges | « 125 kg × 5 » puis « 130 kg × 4 sur la dernière série » |
+| Test gardé | « Ton test à 130 kg, mardi, est au bas de ta zone : on le garde sur la dernière série. » |
+| Test réussi dedans | « 130 kg : 3 reps mardi, 4 aujourd'hui, dans ta zone. » + « Prochaine séance : … » |
+| Test raté | « 130 kg × 2 : pas encore dans ta zone. » + « Prochaine séance : 125 kg × 5, puis 127,5 kg × 3 sur la dernière série. » |
+| Zone étirée | « Ta machine ne permet pas un plus petit cran : ta zone s'étire. On retestera 32 kg quand tu feras 16 reps à 28 kg. » |
+| Reprise | « Reprise après une pause : ta charge de travail, sans rep de plus. » — longue : « Longue pause : … » — jamais la durée de l'absence |
+| Proposition en séance (§9.14) | « 125 kg × 8, 3 de plus que visé : je passe ta série 2 à 130 kg, vise 3 à 5. » — appliquée d'office, **sans question** ; à 5 reps de marge : « … ta série 2 passe à 125 kg, vise 3 à 5. Ou 130 kg, si tu te sens bien ? » (**la seule question du coach**) — en jaune, dans la grille |
+| Montée tenue | « 130 kg × 5, dans ta zone : ton test a avancé d'une série. » — sans test prévu : « 125 kg × 9, dans ta zone : tu montes dès aujourd'hui. » — au haut de la zone : « 130 kg × 5 : le haut de ta zone. » **Un fait, jamais un « bravo »** |
+| Montée pas encore tenue | « 130 kg × 2 : pas encore. On revient à 125 kg. » — en gris |
 | Proposition refusée, Entretenir | rien |
-| Seuil dépassé | « 122,5 ne bouge plus depuis 4 séances — c'est plus long que d'habitude pour toi. » + la marche suivante — « plus long que d'habitude » seulement si c'est vrai pour la personne, sinon « 122,5 ne bouge plus depuis 4 séances. » (§12.8, 25/09/2026) |
-| Frère qui progresse | « Ta barre tient, mais tes haltères sont montés à 92. » |
+| Seuil dépassé | « 122,5 kg ne bouge plus depuis 4 séances — c'est plus long que d'habitude pour toi. » + la marche suivante — « plus long que d'habitude » seulement si c'est vrai pour la personne, sinon « 122,5 kg ne bouge plus depuis 4 séances. » (§12.8, 25/09/2026) |
+| Frère qui progresse | « Ta barre tient, mais tes haltères sont montés à 92 kg. » |
 | Muscle limitant | « Tes triceps et tes épaules montent, tes pecs seuls stagnent. Piste à vérifier, pas un diagnostic. » |
 | Ratio extrême | « Ton rapport squat/couché te place dans les 2 % de lifters au squat le plus bas relativement au couché. Ça peut être morphologique. » |
-| Marche 5 atteinte | Seule question posée à l'utilisateur |
+| Marche 5 atteinte | Une question posée à l'utilisateur (avec le choix entre deux charges, les seules du coach) |
 
 **Aucun rouge. Aucun vocabulaire de risque.** Le seuil est présenté comme une comparaison à ses propres habitudes, jamais à une norme extérieure.
 
@@ -1682,6 +1682,22 @@ La **fabrication de programmes** — variantes lourdes à pause ou à arrêt, ra
 
 1. Un programme fabriqué par l'app sort de la **littérature**, jamais de l'historique de l'utilisateur (cadrage §3.1).
 2. Chaque programme proposé s'écrit dans `predictions`.
+
+### 20.2 La voix du coach — réécriture du chantier 49 (29/09/2026)
+
+Validée par Aurélien le 29/09/2026 sur le relevé des 82 gabarits (`RELEVE-PHRASES-COACH-2026-09-29`), selon `VOIX-DU-COACH-V1`. **Les règles, qui s'imposent à toute phrase future :**
+
+1. **Un seul format pour les chiffres, charge d'abord, avec « kg »** : `125 kg × 5` ; une série de reps : `125 kg × 4, 4, 4`. **Un seul formateur** (charges, reps, dates), appelé par le moteur et le plan ; aucune phrase ne formate un nombre elle-même.
+2. **La date relative** : « aujourd'hui » ; **le nom du jour** (« mardi ») de 1 à 6 jours avant ; au-delà, « le 13 sept. ». **La date de référence est une entrée** (la date de la séance, `avant`), jamais l'horloge : les fonctions restent pures.
+3. **« Palier » n'apparaît dans aucune phrase** : « ta charge de travail ». **« Le moteur » n'apparaît dans aucune phrase** : le coach dit « je » quand il agit, « on » pour un plan commun, rien pour un fait.
+4. **Phrases courtes, au « tu », un fait puis sa conséquence.** Jamais de « bravo ».
+5. **Le coach applique d'office et le dit** (« je passe ta série 2 à 130 kg ») ; **la seule question** est le choix entre deux charges (§9.14, seconde charge). Aucune autre phrase ne se termine par « ? ».
+6. **Une seule formulation par fait** (les doublons du relevé fusionnent) ; la reprise courte et la reprise longue plafonnée se distinguent aussi dans l'en-tête.
+7. « Ta machine ne permet pas un plus petit cran » remplace « ton cran ne peut pas être plus petit ».
+8. **Supprimées** (plus jamais produites depuis 49-U8, §7.6) : la phrase grise, le paragraphe de la feuille et le verdict du constat « pas de palier ».
+
+**Garde de la voix** : un test balaie toutes les phrases produites sur les fichiers de cas et les plans générés, et échoue sur « palier », « le moteur », un « ? » hors du choix entre deux charges, un « × » sans « kg » devant, ou une date au format absolu à 6 jours ou moins. Le texte exact de chaque gabarit est figé par les fichiers de cas (`consigne-48b7`, `constat-48b6b`, `reaction-49r1`) ; la table avant/après de la réécriture est `PHRASES-COACH-REECRITURE-V1` (projet).
+
 
 ---
 

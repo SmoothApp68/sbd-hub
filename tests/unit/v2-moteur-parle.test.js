@@ -199,8 +199,8 @@ describe('le pont depuis analyser (MOTEUR §9.13)', () => {
     const N10 = {
       attendu: { etat: 'etend', zone: 'lourd', n: 3, ligne: { charge: 125, vise: 5 }, haut: { charge: 130, vise: 4, k: 2 } },
       test: { charge: 130, reps: 5, niveau: 4, date: jour('09-13') },
-      jaune: ['130' + NB + 'kg sur les 2 dernières séries, vise 4', 'et 125' + NB + 'kg sur celle d\'avant, vise 5'],
-      gris: 'Ton test à 130 du 13' + NB + 'sept. est entré dans ta zone' + NB + ': il gagne une série.'
+      jaune: ['130' + NB + 'kg' + NB + '×' + NB + '4 sur les 2 dernières séries', '125' + NB + 'kg' + NB + '×' + NB + '5 sur celle d\'avant'],
+      gris: 'Ton test à 130' + NB + 'kg, le 13' + NB + 'sept., est dans ta zone' + NB + ': il gagne une série.'
     };
 
     test('à RPE 10, le pont garde le rpe : le test se compte 4, le haut vise 4', () => {
@@ -227,7 +227,7 @@ describe('le pont depuis analyser (MOTEUR §9.13)', () => {
     test('témoin — sans effort, 130 × 5 touche le haut : vise 5, « a touché le haut »', () => {
       const c = Moteur.consigneDExercice(squat(null), ETAT, AVANT, OPTIONS);
       expect(c.consigne.haut).toEqual({ charge: 130, vise: 5, k: 2 });
-      expect(c.libelles.jaune[0]).toBe('130' + NB + 'kg sur les 2 dernières séries, vise 5');
+      expect(c.libelles.jaune[0]).toBe('130' + NB + 'kg' + NB + '×' + NB + '5 sur les 2 dernières séries');
       expect(c.libelles.gris).toContain('a touché le haut de ta zone');
     });
   });
@@ -479,8 +479,8 @@ describe('l’en-tête dit la consigne (ECRAN-SAISIE §3.1)', () => {
     return cible;
   }
   const textes = (cible, sel) => [...cible.querySelectorAll(sel)].map((e) => e.textContent);
-  const LIB = { jaune: ['125' + NB + 'kg, vise 5', 'puis 130' + NB + 'kg en dernière série, vise 4'],
-                gris: 'Ton test à 130 du 13' + NB + 'sept. est tombé au bas de ta zone' + NB + ': on le garde sur la dernière série.' };
+  const LIB = { jaune: ['125' + NB + 'kg' + NB + '×' + NB + '5', 'puis 130' + NB + 'kg' + NB + '×' + NB + '4 sur la dernière série'],
+                gris: 'Ton test à 130' + NB + 'kg, le 13' + NB + 'sept., est au bas de ta zone' + NB + ': on le garde sur la dernière série.' };
 
   test('les lignes jaunes puis la phrase grise, entre la mesure et les réglages', () => {
     const cible = rendre(ouverte(T(3)), () => LIB);
@@ -500,9 +500,9 @@ describe('l’en-tête dit la consigne (ECRAN-SAISIE §3.1)', () => {
   });
 
   test('en silence du moteur, la seule phrase grise', () => {
-    const cible = rendre(ouverte(T(3)), () => ({ jaune: [], gris: 'Première fois ici. Ce que tu notes aujourd\'hui servira de départ.' }));
+    const cible = rendre(ouverte(T(3)), () => ({ jaune: [], gris: 'Première fois ici' + NB + ': ce que tu notes aujourd\'hui servira de départ.' }));
     expect(cible.querySelectorAll('.consigne').length).toBe(0);
-    expect(textes(cible, '.consigne-dit')).toEqual(['Première fois ici. Ce que tu notes aujourd\'hui servira de départ.']);
+    expect(textes(cible, '.consigne-dit')).toEqual(['Première fois ici' + NB + ': ce que tu notes aujourd\'hui servira de départ.']);
   });
 
   test('DISCRIMINANT — en mode programme, rien, même avec des libellés', () => {
@@ -527,7 +527,7 @@ describe('l’en-tête dit la consigne (ECRAN-SAISIE §3.1)', () => {
   test('DISCRIMINANT — en silence, la phrase grise SEULE porte le geste', () => {
     // « Pourquoi rien ? » est la question qu'on se pose le plus, et c'est
     // justement là qu'il n'y a aucune ligne jaune à toucher.
-    const muet = { jaune: [], gris: 'Première fois ici. Ce que tu notes aujourd\'hui servira de départ.' };
+    const muet = { jaune: [], gris: 'Première fois ici' + NB + ': ce que tu notes aujourd\'hui servira de départ.' };
     const vus = [];
     const cible = rendre(ouverte(T(3)), () => muet, false, { surPourquoi: (s) => vus.push(s) });
     expect(cible.querySelectorAll('.consigne')).toHaveLength(0);
@@ -588,7 +588,7 @@ describe('consigneDExercice : les silences passent avant le moteur', () => {
   test('les silences DU moteur gardent leur phrase : première fois, pas de palier', () => {
     const c = Moteur.consigneDExercice([], undefined, AVANT, OPTIONS);
     expect(c.consigne.etat).toBe('silence');
-    expect(c.libelles).toEqual({ jaune: [], gris: 'Première fois ici. Ce que tu notes aujourd\'hui servira de départ.' });
+    expect(c.libelles).toEqual({ jaune: [], gris: 'Première fois ici' + NB + ': ce que tu notes aujourd\'hui servira de départ.' });
     const pyramide = [{ seance: { id: 'S', debut: jour('09-13') },
       series: [brute(100, 5), brute(110, 3), brute(120, 1)] }].concat(montee());
     // ⚠️ 49-U8 (MOTEUR §7.6) : par la chaîne complète, la pyramide n'est plus
@@ -596,12 +596,13 @@ describe('consigneDExercice : les silences passent avant le moteur', () => {
     // Lourd (3 reps comptées, au bas). Avant : `silence`, `pas_de_palier`.
     const c2 = Moteur.consigneDExercice(pyramide, undefined, AVANT, OPTIONS);
     expect(c2.consigne).toMatchObject({ etat: 'progression', palier: 110 });
-    // La phrase du silence reste celle du contrat BRUT, qui n'a pas la règle.
+    // Le silence du contrat BRUT, qui n'a pas la règle, reste un silence — mais
+    // il n'a plus de phrase (§20.2, 49-U9) : la chaîne complète n'y arrive plus.
+    // Avant : « Pas de palier le 13 sept. : 100, 110 puis 120 kg, aucune charge
+    // répétée. Rien à proposer. »
     const brut = Moteur.consignePour(Moteur.contratDe(pyramide, undefined, 'charge_reps'), AVANT, OPTIONS);
     expect(brut).toMatchObject({ etat: 'silence', raison: 'pas_de_palier' });
-    const l2 = Moteur.libellesConsigne(brut);
-    expect(l2.jaune).toEqual([]);
-    expect(l2.gris).toBe('Pas de palier le 13' + NB + 'sept.' + NB + ': 100, 110 puis 120' + NB + 'kg, aucune charge répétée. Rien à proposer.');
+    expect(Moteur.libellesConsigne(brut)).toEqual({ jaune: [], gris: '' });
   });
 
   test('le réglage et la coupure sont ceux qu’on passe : Franc propose le test dès une série au haut', () => {
@@ -687,8 +688,8 @@ describe('un cas réel — le couché, du bout en bout', () => {
     const c = Moteur.consigneDExercice(groupes, undefined, AVANT, OPTIONS);
     expect(c.consigne).toMatchObject({ etat: 'garde', zone: 'lourd', n: 3,
       ligne: { charge: 125, vise: 5 }, haut: { charge: 130, vise: 4, k: 1 } });
-    expect(c.libelles.jaune).toEqual(['125' + NB + 'kg, vise 5', 'puis 130' + NB + 'kg en dernière série, vise 4']);
-    expect(c.libelles.gris).toBe('Ton test à 130 du 13' + NB + 'sept. est tombé au bas de ta zone' + NB +
+    expect(c.libelles.jaune).toEqual(['125' + NB + 'kg' + NB + '×' + NB + '5', 'puis 130' + NB + 'kg' + NB + '×' + NB + '4 sur la dernière série']);
+    expect(c.libelles.gris).toBe('Ton test à 130' + NB + 'kg, le 13' + NB + 'sept., est au bas de ta zone' + NB +
       ': on le garde sur la dernière série.');
 
     // La séance ouverte reproduit la structure : quatre chauffes, trois travail.
@@ -867,17 +868,17 @@ describe('la feuille « Pourquoi » (ECRAN-SAISIE §3.10)', () => {
     expect(textes(cible, '.feuille-sous')).toEqual(['Développé Couché (Barre)']);
     expect(textes(cible, '.pq-sec')).toEqual(['Ta dernière séance, le 13\u00a0sept.']);
     expect(textes(cible, '.pq-quoi')).toEqual(
-      ['20, 60, 100, 115', '125\u00a0\u00d7\u00a04', '125\u00a0\u00d7\u00a05', '130\u00a0\u00d7\u00a03']);
+      ['20, 60, 100, 115', '125\u00a0kg\u00a0\u00d7\u00a04', '125\u00a0kg\u00a0\u00d7\u00a05', '130\u00a0kg\u00a0\u00d7\u00a03']);
     expect(textes(cible, '.pq-role')).toEqual(
-      ['chauffes, ne comptent pas', 'au palier', 'au palier', 'test, au bas de ta zone']);
+      ['chauffes, ne comptent pas', 'ta charge de travail', 'ta charge de travail', 'test, au bas de ta zone']);
     // Les quatre paragraphes, puis « Donc », le réglage et la fin : sept lignes.
     const p = textes(cible, '.pq-p');
     expect(p[0]).toMatch(/^Ta zone/);
-    expect(p[1]).toMatch(/^Ton palier est 125/);
-    expect(p[2]).toMatch(/^Ton test à 130 a fait 3/);
+    expect(p[1]).toMatch(/^Ta charge de travail\u00a0: 125\u00a0kg/);
+    expect(p[2]).toMatch(/^Ton test à 130\u00a0kg a fait 3 reps/);
     expect(textes(cible, '.pq-p.fort')).toEqual(
-      ['Donc 125\u00a0kg, vise 5, puis 130\u00a0kg en dernière série, vise 4.']);
-    expect(p[p.length - 1]).toBe('Tu veux faire autre chose ? Tape-le, ta saisie fait foi.');
+      ['Donc 125\u00a0kg\u00a0\u00d7\u00a05, puis 130\u00a0kg\u00a0\u00d7\u00a04 sur la dernière série.']);
+    expect(p[p.length - 1]).toBe('Tu peux toujours taper autre chose\u00a0: ta saisie fait foi.');
   });
 
   test('DISCRIMINANT — les chauffes sont GRISÉES, les séries qui comptent ne le sont pas', () => {
@@ -898,13 +899,14 @@ describe('la feuille « Pourquoi » (ECRAN-SAISIE §3.10)', () => {
     expect(lien.parentNode.textContent).toBe('Ton réglage\u00a0: Normal. Il se change dans Profil.');
   });
 
-  test('en silence, la feuille dit la séance et pourquoi le moteur se tait — rien d’autre', () => {
+  // ⚠️ 49-U9 (§20.2) — le paragraphe « sans palier, le moteur n'a rien à
+  // proposer » est parti : ce silence n'arrive plus que sur un contrat brut.
+  test('en silence (contrat brut), la feuille dit la séance — et plus un mot du moteur', () => {
     const cible = rendre(pourquoiDe('N15'));
     expect(textes(cible, '.pq-quoi')).toHaveLength(3);
     expect(textes(cible, '.pq-role')).toEqual(['', '', '']);
     expect(textes(cible, '.pq-p')).toEqual([
-      'Ta dernière séance n\'a répété aucune charge sur deux séries\u00a0: sans palier, le moteur n\'a rien à proposer.',
-      'Tu veux faire autre chose ? Tape-le, ta saisie fait foi.'
+      'Tu peux toujours taper autre chose\u00a0: ta saisie fait foi.'
     ]);
     expect(cible.querySelector('.lien-profil')).toBeNull();
     expect(textes(cible, '.pq-p.fort')).toEqual([]);
@@ -1066,6 +1068,10 @@ describe('l’étiquette se touche, et le menu (ECRAN-SAISIE §3.8)', () => {
       ['3 à 5 reps', '6 à 8 reps', '8 à 10 reps', '10 à 12 reps', '15 à 20 reps']);
     // Aucune saisie libre : cinq boutons, pas un champ.
     expect(c.querySelectorAll('input, textarea')).toHaveLength(0);
+    // §20.2 (49-U9) — l'aide et « Fermer », figés ici aussi (Z5 ne l'était
+    // que par le banc).
+    expect(textes(c, '.feuille-aide')).toEqual(['La consigne se recalcule dès que tu changes de zone.']);
+    expect(textes(c, 'button').filter((x) => x === 'Fermer')).toEqual(['Fermer']);
   });
 
   test('DISCRIMINANT — la coche suit la zone CHOISIE, sinon la déduite', () => {
@@ -1157,7 +1163,7 @@ describe('le constat de fin de bloc (ECRAN-SAISIE §3.9)', () => {
     expect([avant.etat, avant.palier, avant.niveau]).toEqual(['etend', 125, 5]);
     expect([apres.etat, apres.palier, apres.niveau]).toEqual(['rejoint', 130, 4]);
     const constat = Moteur.constatDe(avant, apres, c.reglage, 132.5);
-    expect(constat.verdict).toBe('4-4 à 130' + NB + ': ta nouvelle charge tient sur 2 séries, dans ta zone.');
+    expect(constat.verdict).toBe('130' + NB + 'kg' + NB + '×' + NB + '4, 4' + NB + ': ta nouvelle charge tient sur 2 séries, dans ta zone.');
     expect(constat.verdict).not.toMatch(/Pas encore/);
   });
 
@@ -1172,7 +1178,7 @@ describe('le constat de fin de bloc (ECRAN-SAISIE §3.9)', () => {
         : Moteur.chargeVoisine(c.seances.concat([c.seanceDuJour]), c.apres,
                                apres.palier, c.equipement, 1);
       expect(cran).toBe(c.cranSuivant);
-      expect(Moteur.constatDe(avant, apres, c.reglage, cran)).toEqual(c.constat);
+      expect(Moteur.constatDe(avant, apres, c.reglage, cran, c.seanceDuJour.debut)).toEqual(c.constat);
     });
   });
 
@@ -1208,8 +1214,8 @@ describe('le constat de fin de bloc (ECRAN-SAISIE §3.9)', () => {
     c.seanceDuJour = uneSeance('2026-09-20T18:00:00+00:00', 92.5,
       [auPalier(92.5, 8), auPalier(92.5, 8), auPalier(92.5, 8)]);
     expect(constatDe(c).constat).toEqual({
-      verdict: '8-8-8 à 92,5' + NB + ': sur toutes tes séries, pas encore dans ta zone.',
-      suite: 'Même cible la prochaine fois' + NB + ': 92,5' + NB + 'kg, vise 9.'
+      verdict: '92,5' + NB + 'kg' + NB + '×' + NB + '8, 8, 8' + NB + ': pas encore dans ta zone.',
+      suite: 'Même cible la prochaine fois' + NB + ': 92,5' + NB + 'kg' + NB + '×' + NB + '9.'
     });
   });
 
@@ -1231,7 +1237,7 @@ describe('le constat de fin de bloc (ECRAN-SAISIE §3.9)', () => {
     // La prémisse : c'est bien une consigne SANS zone.
     expect(deux(c).apres.zone).toBeNull();
     expect(constatDe(c).constat.verdict)
-      .toBe('2-2 à 105' + NB + ': ta nouvelle charge tient sur 2 séries.');
+      .toBe('105' + NB + 'kg' + NB + '×' + NB + '2, 2' + NB + ': ta nouvelle charge tient sur 2 séries.');
   });
 
   test('CHANGEMENT ASSUMÉ — « tout passe » annoncé ne félicite plus d’office', () => {
@@ -1244,15 +1250,15 @@ describe('le constat de fin de bloc (ECRAN-SAISIE §3.9)', () => {
       [auPalier(90, 11), auPalier(90, 11), auPalier(90, 11)]);
     expect(constatDe(gagne).constat).toEqual({
       verdict: '90' + NB + 'kg' + NB + ': 10 reps le 13' + NB + 'sept., 11 aujourd\'hui.',
-      suite: 'Il te manque une rep pour tester 92,5.'
+      suite: 'Il te manque une rep pour tester 92,5' + NB + 'kg.'
     });
 
     const rien = K('K8');
     rien.seanceDuJour = uneSeance('2026-09-20T18:00:00+00:00', 90,
       [auPalier(90, 10), auPalier(90, 10), auPalier(90, 10)]);
     expect(constatDe(rien).constat).toEqual({
-      verdict: 'Pas encore' + NB + ': 10-10-10 à 90.',
-      suite: 'Même cible la prochaine fois' + NB + ': 90' + NB + 'kg, vise 11.'
+      verdict: 'Pas encore' + NB + ': 90' + NB + 'kg' + NB + '×' + NB + '10, 10, 10.',
+      suite: 'Même cible la prochaine fois' + NB + ': 90' + NB + 'kg' + NB + '×' + NB + '11.'
     });
 
     // Et la garde qui porte le changement : plus aucune félicitation.
@@ -1276,8 +1282,8 @@ describe('le constat de fin de bloc (ECRAN-SAISIE §3.9)', () => {
     // un 127,5.
     expect(constatDe(c).constat).toEqual({
       verdict: '127,5' + NB + 'kg' + NB + ': 3 aujourd\'hui, au bas de ta zone.',
-      suite: 'Prochaine séance' + NB + ': 125' + NB + 'kg, vise 5, puis 127,5' + NB +
-             'kg en dernière série, vise 4.'
+      suite: 'Prochaine séance' + NB + ': 125' + NB + 'kg' + NB + '×' + NB + '5, puis 127,5' + NB +
+             'kg' + NB + '×' + NB + '4 sur la dernière série.'
     });
   });
 
@@ -1289,13 +1295,13 @@ describe('le constat de fin de bloc (ECRAN-SAISIE §3.9)', () => {
     c.seanceDuJour = uneSeance('2026-09-20T18:00:00+00:00', 125,
       [auPalier(125, 4), auPalier(125, 3), auPalier(125, 3)]);
     expect(constatDe(c).constat).toEqual({
-      verdict: 'Pas encore' + NB + ': 4-3-3 à 125.',
-      suite: 'Même cible la prochaine fois' + NB + ': 125' + NB + 'kg, vise 4.'
+      verdict: 'Pas encore' + NB + ': 125' + NB + 'kg' + NB + '×' + NB + '4, 3, 3.',
+      suite: 'Même cible la prochaine fois' + NB + ': 125' + NB + 'kg' + NB + '×' + NB + '4.'
     });
     // La jumelle, à la même séance : le réglage seul change le constat.
     expect(constatDe(Object.assign(c, { reglage: 'franc' })).constat).toEqual({
       verdict: '125' + NB + 'kg' + NB + ': 3 reps le 13' + NB + 'sept., 4 aujourd\'hui.',
-      suite: 'Il te manque une rep pour tester 127,5.'
+      suite: 'Il te manque une rep pour tester 127,5' + NB + 'kg.'
     });
   });
 
@@ -1324,8 +1330,8 @@ describe('le constat de fin de bloc (ECRAN-SAISIE §3.9)', () => {
   // palier aujourd'hui : rien de répété sur deux séries. », sans suite, et
   // aucun cran suivant (`null`) ; le cran au-dessus de 110 est 112,5.
   const PAR_LA_CHAINE_49U8 = {
-    K11: { constat: { verdict: 'Aujourd\'hui' + NB + ': 3 à 110.',
-                      suite: 'Même cible la prochaine fois' + NB + ': 110' + NB + 'kg, vise 4.' },
+    K11: { constat: { verdict: 'Aujourd\'hui' + NB + ': 110' + NB + 'kg' + NB + '×' + NB + '3.',
+                      suite: 'Même cible la prochaine fois' + NB + ': 110' + NB + 'kg' + NB + '×' + NB + '4.' },
            cranSuivant: 112.5 }
   };
 
@@ -1392,8 +1398,8 @@ describe('le constat de fin de bloc (ECRAN-SAISIE §3.9)', () => {
       { etat: 'monte' }, jour('09-20'), '2026-09-20T21:30:00+00:00',
       { mesure: 'charge_reps', equipement: 'barre', intention: 'progresser',
         reglage: 'normal', edition: false });
-    expect(r.constat.verdict).toBe('Pas encore' + NB + ': 5-4-4 à 130.');
-    expect(r.constat.verdict).not.toMatch(/4-5-4/);
+    expect(r.constat.verdict).toBe('Pas encore' + NB + ': 130' + NB + 'kg' + NB + '×' + NB + '5, 4, 4.');
+    expect(r.constat.verdict).not.toMatch(/4, 5, 4/);
     // Et le 120 reste la RAMPE, pas une descente de fin : l'ordre décide aussi
     // du rôle, donc de la phrase qui suit.
     const roles = r.apres.consigne.fondement.seance.map((x) => x.role);
@@ -1425,7 +1431,7 @@ describe('l’en-tête passe au constat (ECRAN-SAISIE §3.9)', () => {
   const EXOS = [
     { slug: 'dc', nom: 'Développé Couché (Barre)', mesure: 'charge_reps', equipement: 'barre', muscles_primaires: ['pectoraux'] }
   ];
-  const LIB = { jaune: ['125' + NB + 'kg, vise 5'], gris: 'Une phrase grise.' };
+  const LIB = { jaune: ['125' + NB + 'kg' + NB + '×' + NB + '5'], gris: 'Une phrase grise.' };
   const CONSTAT = { verdict: '125' + NB + 'kg' + NB + ': 3 reps le 13' + NB + 'sept., 4 aujourd\'hui.',
                     suite: 'Il te manque une rep pour tester 127,5.' };
   const rendre = (vue) => {

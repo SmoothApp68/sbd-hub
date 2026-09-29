@@ -1446,7 +1446,14 @@
       // Dévalider RETIRE la ligne : une série non validée ne peut pas exister
       // en base (`sets_validee_si_saisie`).
       seance = Seance.devalider(seance, iExo, iSerie);
+      // R2 (49-18) — l'observation se vide SUR L'APPAREIL AVANT LE REDESSIN,
+      // comme pour A et B : la partie synchrone d'`oublierObservationDe` est
+      // faite dès l'appel. Avant, `apresGeste` dessinait un plan où la série
+      // dévalidée portait encore l'observation de son pari (I7), et rien ne le
+      // redessinait avant le geste suivant.
+      var vidage = oublierObservationDe(iExo, iSerie);
       await apresGeste();
+      await vidage;
       return observerSerie(iExo, iSerie);
     }
     // Ce qui est affiché en gris devient réel à la validation : on valide sans
@@ -3028,7 +3035,12 @@
         // ⚠️ LANCÉ AVANT `fermerVoile`, QUI REDESSINE : le vidage local est la
         // partie synchrone d'`oublierObservationDe`, faite dès l'appel — aucun
         // plan ne voit le type changé sans l'observation vidée.
-        var vidage = etait === 'travail' && type !== 'travail' ? oublierObservationDe(i, j) : null;
+        // H2 (49-18) — SEULS L'ÉCHAUFFEMENT ET LA DÉGRESSIVE VIDENT : une série
+        // poussée à l'échec (`echec`, « jusqu'à l'échec » chez Hevy) reste une
+        // série de travail, ses reps jugent le pari. La base suit la même
+        // règle (`v2_049`).
+        var vidage = etait !== type && (type === 'echauffement' || type === 'degressive')
+          ? oublierObservationDe(i, j) : null;
         fermerVoile();
         if (vidage) await vidage;
         await apresGeste();

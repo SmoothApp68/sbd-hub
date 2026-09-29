@@ -7762,6 +7762,39 @@ const SETS_IMPORTES = [
     await abandonner();
   }
 
+  console.log('\n══ 7 G quater. L’ÉCHEC GARDE L’OBSERVATION, LA DÉGRESSIVE LA VIDE (49-18, H2) ══');
+  //
+  // Une série validée, son pari observé en base. Passée en « échec » : rien ne
+  // se vide (H2 — une série poussée à l'échec reste une série de travail).
+  // Passée en dégressive : l'observation se vide, comme en échauffement.
+  {
+    const idSeance = () => (base.sessions.filter((x) => x.statut === 'en_cours')[0] || {}).id;
+    await aller('/saisie');
+    await demarrerRoutine('Terre ×4');
+    await attendre(800);
+    const sid = idSeance();
+    await saisirSerie(0, 125, 5);
+    await attendre(1500);
+    const s1 = base.sets.filter((x) => x.session_id === sid && x.rang === 1)[0];
+    const observes = () => base.predictions.filter((l) => s1 && l.set_observe === s1.id);
+    ok('[TY] prémisse : la série 1 est validée, son pari observé en base',
+      !!s1 && observes().length === 1, JSON.stringify({ s1: s1 && s1.id, observes: observes().length }));
+    await toucher(0, '.no-serie');
+    await page.click('#feuille-contenu .feuille-menu button:nth-child(4)');   // Tentative manquée (echec)
+    await attendre(1500);
+    ok('[TY] DISCRIMINANT — passée en « échec », elle GARDE son observation (H2)',
+      sets().filter((x) => x.id === s1.id)[0].type_serie === 'echec' && observes().length === 1,
+      JSON.stringify({ type: (sets().filter((x) => x.id === s1.id)[0] || {}).type_serie, observes: observes().length }));
+    await toucher(0, '.no-serie');
+    await page.click('#feuille-contenu .feuille-menu button:nth-child(3)');   // Dégressive
+    await attendre(700);
+    await jusqua(async () => observes().length === 0, 6000);
+    ok('[TY] DISCRIMINANT — passée en dégressive, elle perd son observation',
+      sets().filter((x) => x.id === s1.id)[0].type_serie === 'degressive' && observes().length === 0,
+      JSON.stringify({ type: (sets().filter((x) => x.id === s1.id)[0] || {}).type_serie, observes: observes().length }));
+    await abandonner();
+  }
+
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');
   {
     const noms = Object.keys(gardeBanc.sections);

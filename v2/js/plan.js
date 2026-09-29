@@ -842,7 +842,9 @@
       (xa.lignes || []).forEach(function (la) {
         if (!la.figee || !la.id) return;
         var lp = parId[la.id];
-        if (!lp || !lp.validee) return;
+        // H1 (49-18) : tant qu'elle reste une SÉRIE DE TRAVAIL validée — passée
+        // en échauffement ou en dégressive, elle sort de la couverture (`hors`).
+        if (!lp || !lp.validee || lp.role === 'hors') return;
         var nom = 'I4 — exercice ' + xa.iExo + ' (' + xa.slug + '), série ' + la.id + ' : ';
         if (!lp.figee) { erreurs.push(nom + 'figée avant, plus maintenant'); return; }
         if (lp.rang !== la.rang) erreurs.push(nom + 'rang ' + la.rang + ' → ' + lp.rang);

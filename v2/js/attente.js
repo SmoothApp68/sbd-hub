@@ -334,24 +334,99 @@
   // EN BASE (23503 sur `set_observe`) N'EST PAS UN REFUS DÉFINITIF : la série
   // peut revenir (revalidée), et l'observation doit la suivre. Elle attend.
   // Toute autre erreur suit la règle commune.
+  //
+  // ⚠️ ET UNE OBSERVATION QUI NE TOUCHE AUCUNE LIGNE (`TH000`, `donnees.js`)
+  // ATTEND AUSSI (29/09/2026). Classée temporaire, elle arrêtait la vidange
+  // (`break`) : la tête de file ne passait jamais, et TOUT ce qui la suivait —
+  // les observations de la séance, puis la séance suivante entière — restait
+  // sur le téléphone, réseau présent. Séance du 29/09 : un pari perdu avant
+  // d'entrer dans la file (la ré-entrée `SIGNED_IN → entrer()` relit la file
+  // du disque), son observation partie seule, ~30 PATCH à zéro ligne, cinq
+  // observations bloquées derrière.
+  var AUCUNE_LIGNE = 'TH000';
+
   function attendSaSerie(op, erreur) {
-    return !!op && op.table === OBSERVATIONS && !!erreur && String(erreur.code || '') === '23503';
+    if (!op || op.table !== OBSERVATIONS || !erreur) return false;
+    var code = String(erreur.code || '');
+    return code === '23503' || code === AUCUNE_LIGNE;
   }
 
-  function marquerAttente(file, cle) {
+  // ⚠️ L'OBSERVATION ORPHELINE EST ABANDONNÉE — et seulement elle (29/09/2026).
+  //
+  // `TH000` : son pari n'est pas en base. Tant que sa séance a encore une
+  // entrée dans la file — la séance, ses séries, un pari (le sien peut-être) —
+  // le pari peut encore monter : elle attend. Quand il n'en reste plus aucune,
+  // tout ce que la séance devait écrire est parti, et le pari n'y était pas :
+  // il ne sera JAMAIS en base, car un pari ne s'écrit jamais après coup
+  // (§9.11). Son observation n'a plus d'objet ; la garder ne ferait que
+  // renvoyer le même PATCH vide pour toujours.
+  //
+  // Les autres OBSERVATIONS de la séance ne comptent pas : deux orphelines se
+  // retiendraient l'une l'autre, pour toujours.
+  function orpheline(file, op, erreur) {
+    if (!op || op.table !== OBSERVATIONS || !erreur) return false;
+    if (String(erreur.code || '') !== AUCUNE_LIGNE) return false;
+    var seance = op.depend;
+    return !(file || []).some(function (e) {
+      if (!e || e.cle === op.cle || e.table === OBSERVATIONS) return false;
+      if (e.id === op.id) return true;   // son pari, quelle que soit sa dépendance
+      if (!seance) return false;
+      return e.id === seance || e.depend === seance;
+    });
+  }
+
+  function marquerAttente(file, cle, raison) {
     return (file || []).map(function (e) {
       if (e.cle !== cle) return e;
-      return Object.assign({}, e, { attend: 'serie', essais: (e.essais || 0) + 1, bloquee: null });
+      return Object.assign({}, e, { attend: raison || 'serie', essais: (e.essais || 0) + 1, bloquee: null });
     });
   }
 
   // Les séries d'une séance viennent de monter : les observations qui les
   // attendaient repartent. Une observation dépend de sa séance (`depend`).
-  function libererObservations(file, seanceId) {
+  // `raison` restreint aux observations qui attendent pour cette raison-là.
+  function libererObservations(file, seanceId, raison) {
     return (file || []).map(function (e) {
       if (!e.attend || e.table !== OBSERVATIONS || e.depend !== seanceId) return e;
+      if (raison && e.attend !== raison) return e;
       return Object.assign({}, e, { attend: null });
     });
+  }
+
+  // La séance d'une entrée : son identifiant pour la séance et ses séries, sa
+  // dépendance pour le reste.
+  function seanceDe(op) {
+    if (!op) return null;
+    if (op.table === SESSIONS || op.table === SETS) return op.id;
+    return op.depend || null;
+  }
+
+  // ── Ce que la vidange fait d'un envoi (`app.js`, `vidanger`) ─────────────
+  //
+  // Ici plutôt que dans la boucle : c'est ce qui se teste. `suite` dit à la
+  // boucle quoi faire — `arret` est le seul cas qui arrête la vidange.
+  function apresEchec(file, op, erreur) {
+    if (orpheline(file, op, erreur)) {
+      return { file: retirer(file, op.cle, op.version || 1), suite: 'abandonnee' };
+    }
+    if (attendSaSerie(op, erreur)) {
+      var raison = String(erreur.code || '') === AUCUNE_LIGNE ? 'pari' : 'serie';
+      return { file: marquerAttente(file, op.cle, raison), suite: 'attend' };
+    }
+    return { file: marquerEchec(file, op.cle, erreur), suite: 'arret' };
+  }
+
+  // Retirée APRÈS confirmation, et seulement si elle est restée celle qu'on a
+  // envoyée (`retirer`). Les séries montées libèrent les observations de leur
+  // séance ; TOUT envoi réussi de la séance libère celles qui attendent leur
+  // pari — c'est peut-être lui qui vient de monter, ou la dernière entrée de
+  // la séance, qui fait d'elle une orpheline à abandonner.
+  function apresSucces(file, op) {
+    var f = retirer(file, op.cle, op.version || 1);
+    if (op.table === SETS) f = libererObservations(f, op.id);
+    var seance = seanceDe(op);
+    if (seance) f = libererObservations(f, seance, 'pari');
+    return f;
   }
 
   // ⚠️ RÉPARER UNE FILE ÉCRITE PAR UNE VERSION FAUTIVE (chantier 33).
@@ -559,6 +634,11 @@
     OBSERVATIONS: OBSERVATIONS,
     OBSERVER: OBSERVER,
     attendSaSerie: attendSaSerie,
+    AUCUNE_LIGNE: AUCUNE_LIGNE,
+    orpheline: orpheline,
+    apresEchec: apresEchec,
+    apresSucces: apresSucces,
+    seanceDe: seanceDe,
     marquerAttente: marquerAttente,
     libererObservations: libererObservations,
     UPSERT: UPSERT, SUPPRIMER: SUPPRIMER, REMPLACER: REMPLACER, PLAN: PLAN,

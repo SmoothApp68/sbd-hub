@@ -1773,9 +1773,10 @@
   // Elle s'écrit dans la COLONNE `predictions.module_version` de chaque pari
   // (`enregistrerPari`), pas dans son fondement. 1 jusqu'à 49-U5 exclu ; 2 depuis
   // 49-U5 (reprise mesurée, une seule montée par bloc — MOTEUR §9.13 bis,
-  // précisé le 27/09/2026).
+  // précisé le 27/09/2026) ; 3 depuis 49-U8 (une séance sans charge répétée
+  // prend sa plus lourde charge tenue dans la zone — MOTEUR §7.6).
   var MODULE_CONSIGNE = 'moteur.consigne';
-  var VERSION_CONSIGNE = 2;
+  var VERSION_CONSIGNE = 3;
 
   // ⚠️ SECONDE LISTE APRÈS `Calendrier.MOIS`, et assumée. L'abréviation ne se
   // dérive pas du nom entier : « février » donne « févr. », « mars » reste
@@ -2651,11 +2652,75 @@
   // `consigneDExercice` au 48b-6b : le constat en a besoin deux fois — une
   // fois pour la consigne d'après, une fois pour `chargeVoisine`, qui lit le
   // contrat et non les séries brutes.
-  function contratDe(groupes, etat, mesure) {
-    return (groupes || []).map(function (g) {
+  //
+  // ⚠️ `options` PORTE LE §7.6 (49-U8) : `{ reglage, equipement, correction }`,
+  // les mêmes que la consigne — la zone d'une séance sans palier est celle de
+  // SA consigne. Sans elles, le contrat reste celui d'`analyser`, brut.
+  function contratDe(groupes, etat, mesure, options) {
+    var seances = (groupes || []).map(function (g) {
       var r = Palier().analyser((g && g.series) || [], etat, { mesure: mesure });
       return seanceDuContrat(g && g.seance ? g.seance.debut : null, r);
     });
+    return options ? sansPalierRetenues(seances, options) : seances;
+  }
+
+  // ── §7.6 (49-U8) — UNE SÉANCE SANS CHARGE RÉPÉTÉE ────────────────────────
+  //
+  // Une séance sans palier (§7.2) n'efface plus la charge de travail : elle
+  // prend pour charge de travail la plus lourde charge qu'elle a TENUE DANS LA
+  // ZONE — reps comptées (§17.4) au moins au bas de la zone — et ses séries de
+  // travail à cette charge deviennent ses séries au palier. Aucune série de
+  // travail dans la zone : la séance est NEUTRE, retirée du contrat, et la
+  // consigne suivante repart de la séance d'avant.
+  //
+  // ⚠️ LA ZONE D'UNE SÉANCE EST CELLE DE LA CONSIGNE QUI LA PRÉCÉDAIT — et pas
+  // de circularité : cette consigne se calcule sur les séances STRICTEMENT
+  // antérieures, déjà passées par cette même règle. On les traite donc dans
+  // l'ordre du temps ; chaque séance ne dépend que de celles d'avant, jamais
+  // d'elle-même ni de l'avenir (§9.12). Une consigne sans zone (première fois,
+  // règle de bord) laisse la séance neutre : il n'y a rien à tenir « dans ».
+  //
+  // Pure : les séances d'entrée ne sont jamais modifiées, l'ordre d'arrivée
+  // est gardé. `consignePour` n'est appelée QUE pour les séances sans palier —
+  // cinq sur cent — et jamais pour les autres.
+  function sansPalierRetenues(seances, options) {
+    var o = options || {};
+    var opts = { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null };
+    var liste = seances || [];
+    var ordre = liste.map(function (se, i) { return i; }).filter(function (i) {
+      return instant(liste[i] && liste[i].debut) !== null;
+    }).sort(function (a, b) { return instant(liste[a].debut) - instant(liste[b].debut); });
+    var sortie = liste.slice();
+    var faites = [];
+    ordre.forEach(function (i) {
+      var se = liste[i];
+      if (nombre(se.palier) === null) {
+        var avant = consignePour(faites, se.debut, opts);
+        var z = zoneParCle(avant && avant.zone);
+        var C = null;
+        if (z !== null) {
+          parRole(se.series, { travail: true }).forEach(function (s) {
+            var kg = nombre(s.charge_kg);
+            var r = Palier().repsComptees(s);
+            if (kg !== null && r !== null && r >= z.bas && (C === null || kg > C)) C = kg;
+          });
+        }
+        if (C === null) { sortie[i] = null; return; }
+        se = {
+          debut: se.debut, palier: C,
+          series: (se.series || []).map(function (s) {
+            if (!estRole(s, { travail: true }) || nombre(s.charge_kg) !== C) return s;
+            var copie = {};
+            for (var k in s) if (Object.prototype.hasOwnProperty.call(s, k)) copie[k] = s[k];
+            copie.role = 'palier';
+            return copie;
+          })
+        };
+        sortie[i] = se;
+      }
+      faites.push(se);
+    });
+    return sortie.filter(function (se) { return se !== null; });
   }
 
   // La consigne d'UN exercice de la séance ouverte, silences compris. Pure :
@@ -2683,7 +2748,8 @@
     if (o.edition) return null;
     if ((o.intention || 'progresser') === 'entretien') return null;
     if (o.mesure !== 'charge_reps') return null;
-    var seances = contratDe(groupes, etat, o.mesure);
+    var seances = contratDe(groupes, etat, o.mesure,
+      { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null });
     // §9.1.1 (48b-7) — LE RANG 2 EST BRANCHÉ. Il attendait ici depuis
     // 48b-5b-2, câblé à `null` faute d'un endroit où lire la zone choisie.
     var consigne = consignePour(seances, avant,
@@ -2714,7 +2780,9 @@
     if (!cApres) return null;
     var P = cApres.consigne.palier;
     var cran = P === null || P === undefined ? null
-      : chargeVoisine(contratDe(tous, etat, o.mesure), apres, P, o.equipement, 1);
+      : chargeVoisine(contratDe(tous, etat, o.mesure,
+          { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null }),
+        apres, P, o.equipement, 1);
     return { apres: cApres, cranSuivant: cran };
   }
 
@@ -2811,6 +2879,7 @@
     constatDuJour: constatDuJour,
     suiteDExercice: suiteDExercice,
     contratDe: contratDe,
+    sansPalierRetenues: sansPalierRetenues,
     MODULE_CONSIGNE: MODULE_CONSIGNE,
     VERSION_CONSIGNE: VERSION_CONSIGNE,
     idDePrediction: idDePrediction,

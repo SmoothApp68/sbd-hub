@@ -454,6 +454,23 @@ Toute série plus lourde que le palier est enregistrée comme **exploration**. E
 
 ---
 
+### 7.6 Une séance sans charge répétée — décidé le 28/09/2026 (chantier 49)
+
+> **Une séance sans palier (§7.2) n'efface pas la charge de travail : elle prend pour charge de travail la plus lourde charge qu'elle a tenue dans la zone** (reps comptées au moins au bas de la zone, §9.1.2). **Si aucune série de travail n'est dans la zone, elle est neutre** : la consigne suivante repart de la séance d'avant.
+
+Les séries à cette charge comptent comme les séries au palier de la séance (elles votent pour le niveau validé, §9.1.1) ; le palier du §7.2, quand il existe, reste la règle. La consigne de la séance suivante se calcule comme d'habitude, à partir de cette charge de travail (§9.3).
+
+**Mesure S1** (cinq historiques). Une séance sans charge répétée est le plus souvent une pyramide (100, 105, 110) : on a progressé, pas régressé. Pour choisir la charge de départ, quatre candidates comparées à ce que la personne a fait **la séance suivante** (309 cas) :
+
+| Charge de départ | Ce qui est fait ensuite, en médiane | La moitié entre | À ±5 % | Moins |
+|---|---|---|---|---|
+| Le palier d'avant | 108 % | 100 et 120 % | 27 sur 100 | 17 sur 100 |
+| La plus lourde de la séance | 96 % | 88 et 100 % | 33 sur 100 | 47 sur 100 |
+| **La plus lourde tenue dans la zone** | **100 %** | **93 et 109 %** | **36 sur 100** | 29 sur 100 |
+| La dernière série de travail | 100 % | 90 et 105 % | 34 sur 100 | 41 sur 100 |
+
+Effet, simulé sur tout l'historique (`coach49.py`) : les consignes en silence passent de **11,1 à 1,4 sur 100** ; après une séance sans charge répétée, plus aucun silence (518 cas), et ce que la personne fait vaut **100 % de la consigne proposée en médiane** (la moitié entre 97 et 108 %). Le §7.3 notait déjà que les paliers perdus sont presque tous des pyramides et que le moteur s'y taisait : c'est ce silence que cette règle remplace. *(Relevé par Claude Code dans #327 et #328 : les constats sans « suite » après une séance à trois charges différentes.)*
+
 ## 8. Le format
 
 ### 8.1 Le constat

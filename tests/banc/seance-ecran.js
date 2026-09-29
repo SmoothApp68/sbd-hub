@@ -116,7 +116,9 @@ const CATALOGUE = [
   // « Mardi — Pecs Dos », deux exercices.
   { slug: 'rowing-poulie', nom: 'Rowing Poulie Assis', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['dorsaux'], muscles_secondaires: [] },
   { slug: 'dci-halteres', nom: 'Développé Couché Incliné (Haltères)', mesure: 'charge_reps', charge: 'externe', equipement: 'haltere', muscles_primaires: ['pectoraux'], muscles_secondaires: [] },
-  { slug: 'haussement-barre', nom: 'Haussement d’Épaules (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['trapezes'], muscles_secondaires: [] }
+  { slug: 'haussement-barre', nom: 'Haussement d’Épaules (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['trapezes'], muscles_secondaires: [] },
+  // 49-U8 — réservé à la section 7 G quinquies (une séance sans charge répétée).
+  { slug: 'rowing-pendlay', nom: 'Rowing Pendlay (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['dorsaux'], muscles_secondaires: [] }
 ];
 
 // ⚠️ UNE ROUTINE PORTE MAINTENANT SES LIGNES (chantier 43). `routine_sets`
@@ -7802,6 +7804,73 @@ const SETS_IMPORTES = [
       sets().filter((x) => x.id === s2.id)[0].type_serie === 'degressive' && observes2().length === 0,
       JSON.stringify({ type: (sets().filter((x) => x.id === s2.id)[0] || {}).type_serie, observes: observes2().length }));
     await abandonner();
+  }
+
+  console.log('\n══ 7 G quinquies. UNE SÉANCE SANS CHARGE RÉPÉTÉE (49-U8, MOTEUR §7.6) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE. La dernière séance est une PYRAMIDE —
+  // 105 × 5, 110 × 4, 115 × 2 : aucune charge répétée, donc aucun palier
+  // (§7.2), et la consigne se taisait. Zone Lourd (3-5) : 110 est la plus
+  // lourde charge TENUE dans la zone ; 115 × 2 est sous le bas. « La plus
+  // lourde de la séance » dirait 115 : la consigne doit dire 110. Puis la
+  // séance du jour refait une pyramide : le constat annonce une suite chiffrée.
+  {
+    const tP = Date.now();
+    const poserRP = (id, jours, lignes) => {
+      const debut = ilYa(jours * 86400000, tP).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'Dos — ' + id, debut,
+        fin: finDe(debut, tP).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      lignes.forEach(([kg, reps], i) => base.sets.push({
+        id: id + '-s' + (i + 1), session_id: id, user_id: 'u-banc', exercise_slug: 'rowing-pendlay',
+        charge_kg: kg, reps, duree_s: null, distance_m: null, type_serie: 'travail',
+        rang: i + 1, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null,
+        repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+    };
+    poserRP('rp-a', 28, [[100, 5], [100, 5], [100, 5]]);
+    poserRP('rp-b', 21, [[102.5, 5], [102.5, 5], [102.5, 5]]);
+    poserRP('rp-c', 14, [[105, 5], [105, 5], [105, 5]]);
+    poserRP('rp-d', 7, [[105, 5], [110, 4], [115, 2]]);
+    ROUTINES.push({ id: 'r-rp', nom: 'RP ×3', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-rp-e', routine_id: 'r-rp', exercise_slug: 'rowing-pendlay', rang: 0,
+        routine_sets: progr(3, 5), repos_cible_s: 180, groupe_superset: null, note: null }] });
+    const esp = (t) => String(t || '').replace(/[\u00a0\u202f]/g, ' ');
+    const enteteSP = () => page.evaluate(() =>
+      Array.from(document.querySelectorAll('.legende-exo .consigne, .legende-exo .consigne-dit')).map((e) => e.textContent));
+    const constatSP = () => page.evaluate(() => ({
+      verdict: (document.querySelector('.legende-exo .constat') || {}).textContent || null,
+      suite: (document.querySelector('.legende-exo .constat-suite') || {}).textContent || null }));
+    const violationsAvant = gardeBanc.violations;
+    await aller('/saisie');
+    await demarrerRoutine('RP ×3');
+    await attendre(900);
+    const cons = await page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      const c = d && d.plan.exercices[0].consigne;
+      return c ? { etat: c.etat, palier: c.palier } : null;
+    });
+    const ent = (await enteteSP()).map(esp);
+    ok('[SP] DISCRIMINANT — après la pyramide, la consigne n’est plus un silence : palier 110 (avant : « Pas de palier »)',
+      !!cons && cons.etat !== 'silence' && cons.palier === 110, JSON.stringify(cons));
+    ok('[SP] l’en-tête chiffre 110, la plus lourde charge TENUE dans la zone — ni 115 (la plus lourde de la séance), ni rien',
+      ent.length > 0 && ent[0] === '110 kg, vise 4' && !ent.some((t) => /Pas de palier|115/.test(t)), JSON.stringify(ent));
+    // La séance du jour : encore une pyramide, trois charges, aucune répétée.
+    await saisirSerie(0, 105, 5);
+    await attendre(700);
+    await saisirSerie(1, 110, 4);
+    await attendre(700);
+    await saisirSerie(2, 112.5, 3);
+    await attendre(1500);
+    const k = await constatSP();
+    ok('[SP] le constat de fin de bloc paraît', !!k.verdict, esp(JSON.stringify(k)));
+    ok('[SP] DISCRIMINANT — il annonce une suite chiffrée (avant : aucune suite après trois charges différentes)',
+      /^Prochaine séance : .*\d.* kg/.test(esp(k.suite)), esp(JSON.stringify(k)));
+    ok('[SP] la garde (C6) n’a rien signalé dans cette section', gardeBanc.violations === violationsAvant,
+      JSON.stringify(gardeBanc.liste.slice(-2)));
+    await abandonner();
+    await aller('/saisie');
+    ok('[SP] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
 
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');

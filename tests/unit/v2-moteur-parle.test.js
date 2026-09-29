@@ -591,10 +591,17 @@ describe('consigneDExercice : les silences passent avant le moteur', () => {
     expect(c.libelles).toEqual({ jaune: [], gris: 'Première fois ici. Ce que tu notes aujourd\'hui servira de départ.' });
     const pyramide = [{ seance: { id: 'S', debut: jour('09-13') },
       series: [brute(100, 5), brute(110, 3), brute(120, 1)] }].concat(montee());
+    // ⚠️ 49-U8 (MOTEUR §7.6) : par la chaîne complète, la pyramide n'est plus
+    // un silence — elle prend 110, sa plus lourde charge tenue dans la zone
+    // Lourd (3 reps comptées, au bas). Avant : `silence`, `pas_de_palier`.
     const c2 = Moteur.consigneDExercice(pyramide, undefined, AVANT, OPTIONS);
-    expect(c2.consigne).toMatchObject({ etat: 'silence', raison: 'pas_de_palier' });
-    expect(c2.libelles.jaune).toEqual([]);
-    expect(c2.libelles.gris).toBe('Pas de palier le 13' + NB + 'sept.' + NB + ': 100, 110 puis 120' + NB + 'kg, aucune charge répétée. Rien à proposer.');
+    expect(c2.consigne).toMatchObject({ etat: 'progression', palier: 110 });
+    // La phrase du silence reste celle du contrat BRUT, qui n'a pas la règle.
+    const brut = Moteur.consignePour(Moteur.contratDe(pyramide, undefined, 'charge_reps'), AVANT, OPTIONS);
+    expect(brut).toMatchObject({ etat: 'silence', raison: 'pas_de_palier' });
+    const l2 = Moteur.libellesConsigne(brut);
+    expect(l2.jaune).toEqual([]);
+    expect(l2.gris).toBe('Pas de palier le 13' + NB + 'sept.' + NB + ': 100, 110 puis 120' + NB + 'kg, aucune charge répétée. Rien à proposer.');
   });
 
   test('le réglage et la coupure sont ceux qu’on passe : Franc propose le test dès une série au haut', () => {
@@ -1310,6 +1317,18 @@ describe('le constat de fin de bloc (ECRAN-SAISIE §3.9)', () => {
     });
   });
 
+  // ⚠️ 49-U8 (MOTEUR §7.6) — LE SEUL CAS QUE LA RÈGLE CHANGE, et seulement par
+  // la chaîne complète (le contrat du fichier, lu par `consignePour`, n'a pas
+  // la règle et garde sa phrase). K11 fait 100 × 5, 110 × 3, 120 × 1 : aucune
+  // charge répétée, mais 110 est tenue dans la zone Lourd. Avant : « Pas de
+  // palier aujourd'hui : rien de répété sur deux séries. », sans suite, et
+  // aucun cran suivant (`null`) ; le cran au-dessus de 110 est 112,5.
+  const PAR_LA_CHAINE_49U8 = {
+    K11: { constat: { verdict: 'Aujourd\'hui' + NB + ': 3 à 110.',
+                      suite: 'Même cible la prochaine fois' + NB + ': 110' + NB + 'kg, vise 4.' },
+           cranSuivant: 112.5 }
+  };
+
   test('DISCRIMINANT — l’orchestrateur part des séries BRUTES, comme l’app', () => {
     // le pont (`constatBrut`, ex-`constatDExercice`) part des séries brutes : l'app lui passe ce qu'elle a
     // en mémoire, pas le contrat du moteur. Sans ce test, le pont pourrait
@@ -1341,8 +1360,10 @@ describe('le constat de fin de bloc (ECRAN-SAISIE §3.9)', () => {
           c.seances.map(forme), forme(c.seanceDuJour), { etat: 'monte' }, c.avant, c.apres,
           { mesure: 'charge_reps', equipement: c.equipement, intention: 'progresser',
             reglage: c.reglage, edition: false });
-        expect([quoi, c.id, r.constat]).toEqual([quoi, c.id, c.constat]);
-        expect([quoi, c.id, r.cranSuivant]).toEqual([quoi, c.id, c.cranSuivant]);
+        const attendu = Object.prototype.hasOwnProperty.call(PAR_LA_CHAINE_49U8, c.id)
+          ? PAR_LA_CHAINE_49U8[c.id] : c;
+        expect([quoi, c.id, r.constat]).toEqual([quoi, c.id, attendu.constat]);
+        expect([quoi, c.id, r.cranSuivant]).toEqual([quoi, c.id, attendu.cranSuivant]);
       });
     });
   });

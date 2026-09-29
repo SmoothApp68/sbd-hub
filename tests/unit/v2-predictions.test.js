@@ -31,8 +31,10 @@ describe('§9.13 bis — la version des règles du moteur (49-U6)', () => {
   test('le module et sa version vivent à côté de la règle', () => {
     expect(Moteur.MODULE_CONSIGNE).toBe('moteur.consigne');
     // 1 jusqu'à 49-U5 exclu ; 2 depuis 49-U5 (reprise mesurée, une seule
-    // montée par bloc). Écrite dans la colonne `predictions.module_version`.
-    expect(Moteur.VERSION_CONSIGNE).toBe(2);
+    // montée par bloc) ; 3 depuis 49-U8 (une séance sans charge répétée prend
+    // sa plus lourde charge tenue dans la zone, MOTEUR §7.6). Écrite dans la
+    // colonne `predictions.module_version`.
+    expect(Moteur.VERSION_CONSIGNE).toBe(3);
   });
 });
 

@@ -87,10 +87,13 @@ describe('49-U4 — le cas du 26/09, reconstitué sous l’ancienne règle', () 
     expect(x.lignes.every((l) => l.figee && l.validee)).toBe(true);
   });
 
-  test('prémisse : l’ancien constat, calculé à part sur les séries brutes, disait « Pas de palier aujourd’hui »', () => {
+  test('prémisse : l’ancien constat, calculé à part sur les séries brutes, ne disait pas la montée', () => {
+    // Avant 49-U8, il disait « Pas de palier aujourd'hui » ; depuis le §7.6,
+    // la séance prend 130, sa plus lourde charge tenue dans la zone, et le
+    // calcul à part dit « Pas encore : 4 à 130. » — toujours pas la montée.
     const ancien = constatBrut(HISTOIRE, { seance: { debut: AVANT }, series: SEANCE_26 },
       ETAT.terre, AVANT, APRES, OPTS);
-    expect(ancien.constat.verdict).toMatch(/^Pas de palier aujourd'hui/);
+    expect(ancien.constat.verdict.replace(/[\u00a0\u202f]/g, ' ')).toBe('Pas encore : 4 à 130.');
   });
 
   test('⚠️ DISCRIMINANT — le constat du plan ne dit plus « Pas de palier » : il dit la montée tenue', () => {
@@ -100,15 +103,14 @@ describe('49-U4 — le cas du 26/09, reconstitué sous l’ancienne règle', () 
       'La montée du coach a tenu : 127,5 × 4, dans ta zone. Elle compte comme un test tenu.');
   });
 
-  test('⚠️ RAPPORTÉ, NON CORRIGÉ — la suite, elle, ne propose aucune charge (`consignePour` en silence)', () => {
-    // Trois charges différentes sur la séance du jour : la consigne de la
-    // prochaine séance n'a pas de palier. I10 (b) le signale à part ; c'est
-    // une décision de fond (Claude.ai, Aurélien), pas de ce commit.
-    expect(x.constat.suiteEtat).toBe('silence');
-    expect(x.constat.suite).toBeNull();
+  test('⚠️ DISCRIMINANT — 49-U8 (MOTEUR §7.6) : la suite propose une charge, I10 ne signale plus rien', () => {
+    // Rapporté, non corrigé en 49-U4 : trois charges différentes, la consigne
+    // d'après était en silence (`suite` nulle) et I10 (b) le signalait. Depuis
+    // le §7.6, la séance prend 130, sa plus lourde charge tenue dans la zone.
+    expect(x.constat.suiteEtat).toBe('rejoint');
+    expect(x.constat.suite.replace(/[\u00a0\u202f]/g, ' ')).toBe('Prochaine séance : 130 kg, vise 4.');
     const v = T.verifierPlan(plan, entrees);
-    expect(v.erreurs.filter((e) => e.indexOf('I10 suite') !== 0)).toEqual([]);
-    expect(v.erreurs.filter((e) => e.indexOf('I10 suite') === 0)).toHaveLength(1);
+    expect(v.erreurs).toEqual([]);
   });
 });
 

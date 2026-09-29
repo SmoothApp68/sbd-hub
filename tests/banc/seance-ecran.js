@@ -7762,11 +7762,12 @@ const SETS_IMPORTES = [
     await abandonner();
   }
 
-  console.log('\n══ 7 G quater. L’ÉCHEC GARDE L’OBSERVATION, LA DÉGRESSIVE LA VIDE (49-18, H2) ══');
+  console.log('\n══ 7 G quater. L’ÉCHEC ET LA DÉGRESSIVE VIDENT L’OBSERVATION (49-19, E1) ══');
   //
-  // Une série validée, son pari observé en base. Passée en « échec » : rien ne
-  // se vide (H2 — une série poussée à l'échec reste une série de travail).
-  // Passée en dégressive : l'observation se vide, comme en échauffement.
+  // Une série validée, son pari observé en base. Passée en « Tentative
+  // manquée » (`echec`) : l'observation se vide — une tentative manquée ne
+  // juge pas un pari de travail (E1 ; H2, qui la gardait, est annulé).
+  // Deuxième série : passée en dégressive, elle se vide aussi.
   {
     const idSeance = () => (base.sessions.filter((x) => x.statut === 'en_cours')[0] || {}).id;
     await aller('/saisie');
@@ -7781,17 +7782,25 @@ const SETS_IMPORTES = [
       !!s1 && observes().length === 1, JSON.stringify({ s1: s1 && s1.id, observes: observes().length }));
     await toucher(0, '.no-serie');
     await page.click('#feuille-contenu .feuille-menu button:nth-child(4)');   // Tentative manquée (echec)
-    await attendre(1500);
-    ok('[TY] DISCRIMINANT — passée en « échec », elle GARDE son observation (H2)',
-      sets().filter((x) => x.id === s1.id)[0].type_serie === 'echec' && observes().length === 1,
-      JSON.stringify({ type: (sets().filter((x) => x.id === s1.id)[0] || {}).type_serie, observes: observes().length }));
-    await toucher(0, '.no-serie');
-    await page.click('#feuille-contenu .feuille-menu button:nth-child(3)');   // Dégressive
     await attendre(700);
     await jusqua(async () => observes().length === 0, 6000);
-    ok('[TY] DISCRIMINANT — passée en dégressive, elle perd son observation',
-      sets().filter((x) => x.id === s1.id)[0].type_serie === 'degressive' && observes().length === 0,
+    ok('[TY] DISCRIMINANT — passée en « Tentative manquée », elle perd son observation (E1)',
+      sets().filter((x) => x.id === s1.id)[0].type_serie === 'echec' && observes().length === 0,
       JSON.stringify({ type: (sets().filter((x) => x.id === s1.id)[0] || {}).type_serie, observes: observes().length }));
+    // La dégressive, sur la série 2.
+    await saisirSerie(1, 125, 5);
+    await attendre(1500);
+    const s2 = base.sets.filter((x) => x.session_id === sid && x.rang === 2)[0];
+    const observes2 = () => base.predictions.filter((l) => s2 && l.set_observe === s2.id);
+    ok('[TY] prémisse : la série 2 est validée, son pari observé en base',
+      !!s2 && observes2().length === 1, JSON.stringify({ s2: s2 && s2.id, observes: observes2().length }));
+    await toucher(1, '.no-serie');
+    await page.click('#feuille-contenu .feuille-menu button:nth-child(3)');   // Dégressive
+    await attendre(700);
+    await jusqua(async () => observes2().length === 0, 6000);
+    ok('[TY] DISCRIMINANT — passée en dégressive, elle perd son observation',
+      sets().filter((x) => x.id === s2.id)[0].type_serie === 'degressive' && observes2().length === 0,
+      JSON.stringify({ type: (sets().filter((x) => x.id === s2.id)[0] || {}).type_serie, observes: observes2().length }));
     await abandonner();
   }
 

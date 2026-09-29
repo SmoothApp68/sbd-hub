@@ -3035,12 +3035,12 @@
         // ⚠️ LANCÉ AVANT `fermerVoile`, QUI REDESSINE : le vidage local est la
         // partie synchrone d'`oublierObservationDe`, faite dès l'appel — aucun
         // plan ne voit le type changé sans l'observation vidée.
-        // H2 (49-18) — SEULS L'ÉCHAUFFEMENT ET LA DÉGRESSIVE VIDENT : une série
-        // poussée à l'échec (`echec`, « jusqu'à l'échec » chez Hevy) reste une
-        // série de travail, ses reps jugent le pari. La base suit la même
-        // règle (`v2_049`).
-        var vidage = etait !== type && (type === 'echauffement' || type === 'degressive')
-          ? oublierObservationDe(i, j) : null;
+        // E1 (49-19) — TOUT PASSAGE DE `travail` À UN AUTRE TYPE VIDE :
+        // l'échauffement, la dégressive, et l'échec — une TENTATIVE MANQUÉE
+        // (« Tentative manquée » à l'écran, « série ratée » chez Hevy), hors
+        // couverture et qui ne vote pas au palier. La base suit la même règle
+        // (`v2_050`, qui annule `v2_049`).
+        var vidage = etait === 'travail' && type !== 'travail' ? oublierObservationDe(i, j) : null;
         fermerVoile();
         if (vidage) await vidage;
         await apresGeste();

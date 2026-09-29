@@ -202,20 +202,20 @@ describe('49-U7 bis — C : une ligne figée ne change jamais tant qu’elle res
   });
 });
 
-// ── 49-18 — R1, ET L'ÉCHEC (H1, H2) ─────────────────────────────────────────
-describe('49-18 — R1 : une série validée qui quitte le travail sort de I4 ; l’échec (H2)', () => {
-  // Le geste de l'app : le type change, et — pour l'échauffement et la
-  // dégressive — l'observation se vide dans le même geste (H2).
+// ── 49-18, 49-19 — R1, ET L'ÉCHEC (H1, E1, E2) ──────────────────────────────
+describe('49-18/19 — R1 : une série validée qui quitte le travail sort de I4 ; l’échec est une tentative manquée', () => {
+  // Le geste de l'app : le type change, et tout passage de `travail` à un
+  // autre type vide l'observation dans le même geste (E1).
   const changerType = (s, i, type) => {
     const sid = s.serie(i).id;
     s.seance = S.changerType(s.seance, 0, i, type);
-    if (type === 'echauffement' || type === 'degressive') {
+    if (type !== 'travail') {
       s.paris = s.paris.map((q) => (q.set_observe === sid ? Object.assign({}, q, { set_observe: null }) : q));
     }
     return s.calculer('→ ' + type);
   };
 
-  ['echauffement', 'degressive'].forEach((type) => {
+  ['echauffement', 'degressive', 'echec'].forEach((type) => {
     test('⚠️ DISCRIMINANT — R1 : validée, observée, passée en ' + type + ' : aucune violation (ni I4, ni I7)', () => {
       const s = seanceSimulee(3);
       s.valider(0, 125, 5);
@@ -236,18 +236,14 @@ describe('49-18 — R1 : une série validée qui quitte le travail sort de I4 ; 
       .toEqual([expect.stringMatching(/figée avant, plus maintenant/)]);
   });
 
-  test('⚠️ RAPPORTÉ — l’échec garde son observation (H2), mais le plan ne le couvre pas : I7', () => {
-    // H2 dit qu'une série « échec » reste une série de travail ; le code (la
-    // couverture, le palier — « ne vote pas » —, le libellé « Tentative
-    // manquée ») la traite comme une tentative manquée, hors couverture. Le
-    // pari reste donc observé sur une série que le plan ne couvre pas. La
-    // définition est à trancher (voir la PR) ; ce test la mesure, il ne la
-    // tranche pas.
+  test('⚠️ DISCRIMINANT — E1 : passée en échec, l’observation est vidée, et aucune violation I7', () => {
+    // 49-19 : `echec` est une tentative manquée (hors couverture, ne vote pas).
+    // Au quatrième commit (H2, annulé), l'observation restait : I7.
     const s = seanceSimulee(3);
     s.valider(0, 125, 5);
     const p = changerType(s, 0, 'echec');
-    expect(s.paris.filter((q) => q.set_observe === s.serie(0).id)).toHaveLength(1);
+    expect(s.paris.filter((q) => q.set_observe === s.serie(0).id)).toHaveLength(0);
     expect(p.exercices[0].lignes[0].role).toBe('hors');
-    expect(s.erreurs).toEqual([expect.stringMatching(/→ echec : I7 — .*observé sur une série qui n'est pas une ligne validée/)]);
+    expect(s.erreurs).toEqual([]);
   });
 });

@@ -716,14 +716,21 @@
 
   // La séance du contrat, vue comme `THPalier.analyser` la rendrait : c'est
   // cette vue, et elle seule, que les fonctions existantes reçoivent.
+  //
+  // ⚠️ UNE SÉANCE NEUTRE (§7.6, précisé le 29/09/2026) RESTE UNE PRÉSENCE : sa
+  // date compte pour le rythme (écart habituel, dernière présence — §9.9),
+  // mais elle ne porte AUCUNE charge : ni retenues, ni votantes. Elle ne vote
+  // donc ni pour le plan de charges de la salle, ni pour le palier.
   function vueDeSeance(se) {
     var series = (se && se.series) || [];
+    var neutre = !!se && se.neutre === true;
     return {
       debut: se && se.debut,
       palier: se && se.palier,
+      neutre: neutre,
       series: series,
-      retenues: parRole(series, ROLES_RETENUS),
-      votantes: parRole(series, ROLES_VOTANTS)
+      retenues: neutre ? [] : parRole(series, ROLES_RETENUS),
+      votantes: neutre ? [] : parRole(series, ROLES_VOTANTS)
     };
   }
 
@@ -855,7 +862,10 @@
     var correction = opt.correction;
 
     var vues = (seances || []).map(vueDeSeance);
-    var ant = anterieures(vues, avant);
+    // §7.6 — les séances neutres ne comptent que pour le rythme (`repriseDe`,
+    // qui lit `vues`) : la dernière séance, celle d'où la consigne repart, est
+    // la dernière qui n'est PAS neutre.
+    var ant = anterieures(vues, avant).filter(function (se) { return !se.neutre; });
     // 1. Les silences. Une première fois n'a rien à dire, et le dire serait
     // inventer ; une séance sans palier n'a rien TENU (§7.2).
     // Le fondement d'un silence de première fois est VIDE, et pas absent : la
@@ -2670,8 +2680,15 @@
   // prend pour charge de travail la plus lourde charge qu'elle a TENUE DANS LA
   // ZONE — reps comptées (§17.4) au moins au bas de la zone — et ses séries de
   // travail à cette charge deviennent ses séries au palier. Aucune série de
-  // travail dans la zone : la séance est NEUTRE, retirée du contrat, et la
-  // consigne suivante repart de la séance d'avant.
+  // travail dans la zone : la séance est NEUTRE, et la consigne suivante
+  // repart de la séance d'avant.
+  //
+  // ⚠️ UNE SÉANCE NEUTRE RESTE UNE PRÉSENCE (delta 49-20, 29/09/2026). Elle
+  // reste dans le contrat, marquée `neutre: true` : elle ne compte pas pour
+  // la charge (palier, niveau validé, zone, habitude — `vueDeSeance` lui
+  // retire ses votantes), mais sa date compte pour l'écart habituel et la
+  // dernière présence (§9.9). Retirée de tout, elle faisait conclure à une
+  // absence de 135 jours après une séance faite trois jours avant (S014).
   //
   // ⚠️ LA ZONE D'UNE SÉANCE EST CELLE DE LA CONSIGNE QUI LA PRÉCÉDAIT — et pas
   // de circularité : cette consigne se calcule sur les séances STRICTEMENT
@@ -2705,7 +2722,12 @@
             if (kg !== null && r !== null && r >= z.bas && (C === null || kg > C)) C = kg;
           });
         }
-        if (C === null) { sortie[i] = null; return; }
+        if (C === null) {
+          se = { debut: se.debut, palier: null, neutre: true, series: se.series || [] };
+          sortie[i] = se;
+          faites.push(se);
+          return;
+        }
         se = {
           debut: se.debut, palier: C,
           series: (se.series || []).map(function (s) {
@@ -2720,7 +2742,7 @@
       }
       faites.push(se);
     });
-    return sortie.filter(function (se) { return se !== null; });
+    return sortie;
   }
 
   // La consigne d'UN exercice de la séance ouverte, silences compris. Pure :

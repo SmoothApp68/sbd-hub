@@ -456,7 +456,7 @@ Toute série plus lourde que le palier est enregistrée comme **exploration**. E
 
 ### 7.6 Une séance sans charge répétée — décidé le 28/09/2026 (chantier 49)
 
-> **Une séance sans palier (§7.2) n'efface pas la charge de travail : elle prend pour charge de travail la plus lourde charge qu'elle a tenue dans la zone** (reps comptées au moins au bas de la zone, §9.1.2). **Si aucune série de travail n'est dans la zone, elle est neutre** : la consigne suivante repart de la séance d'avant.
+> **Une séance sans palier (§7.2) n'efface pas la charge de travail : elle prend pour charge de travail la plus lourde charge qu'elle a tenue dans la zone** (reps comptées au moins au bas de la zone, §9.1.2). **Si aucune série de travail n'est dans la zone, elle est neutre** : la consigne suivante repart de la séance d'avant. **Une séance neutre reste une présence** (précisé le 29/09/2026) : elle ne compte pas pour la charge (palier, niveau validé, zone, habitude), mais **elle compte pour le rythme et les absences** — l'écart habituel et la dernière présence (§9.9, la reprise) se calculent sur toutes les séances datées de l'exercice, neutres comprises. On ne conclut jamais à une absence de plusieurs mois quand l'exercice a été fait la semaine d'avant.
 
 Les séries à cette charge comptent comme les séries au palier de la séance (elles votent pour le niveau validé, §9.1.1) ; le palier du §7.2, quand il existe, reste la règle. La consigne de la séance suivante se calcule comme d'habitude, à partir de cette charge de travail (§9.3).
 

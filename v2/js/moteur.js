@@ -2773,7 +2773,21 @@
              pourquoi: pourquoiConsigne(consigne, o.reglage, avant),
              // §9.14 (49-R2) — le contexte de la réaction, UNE FOIS par séance
              // et par exercice, sur les séances antérieures (§9.12).
-             contexte: contexteReaction(seances, avant, consigne, o.equipement, null) };
+             contexte: contexteReaction(seances, avant, consigne, o.equipement, null),
+             // §9.15 (49-U10) — le cran des chauffes et des dégressives : le pas
+             // exact de la salle, sinon le repli du matériel, sinon rien (le
+             // plan prend alors 2,5 kg).
+             pas: pasDesChauffes(seances, avant, o.equipement, consigne) };
+  }
+
+  // §9.15 (49-U10) — le cran existant de l'exercice, pour arrondir les chauffes
+  // et les dégressives hors barre : le pas EXACT déduit de l'historique
+  // (§10.2, rang 1), sinon le repli du matériel en descendant, sinon `null`.
+  function pasDesChauffes(seances, avant, equipement, consigne) {
+    var p = pasDeSalle(seances, avant);
+    if (p && p.nature === 'exact') return p.pas;
+    var ref = consigne && consigne.ligne ? nombre(consigne.ligne.charge) : nombre(consigne && consigne.palier);
+    return repliDe(equipement, ref === null ? 0 : ref, -1);
   }
 
   // ── §3.9 — LE CONSTAT D'UN EXERCICE ────────────────────────────────────
@@ -2817,13 +2831,15 @@
   //     disent déjà (la montée racontée comme un test du jour) ou disent mieux
   //     (« 4-4 à 130 : ta nouvelle charge tient… ») et restent tels quels
   //     (décidé le 27/09/2026, 49-U4) ;
-  //   · `suivies` — toutes les séries de travail ont suivi leur ligne (ligne,
-  //     test, proposition du coach acceptée) : c'est le coach qui a mené les
-  //     charges, et « Pas de palier » serait faux ;
-  //   · `faites` — `[{ charge, reps }]`, les séries de travail du jour.
+  //
+  // ⚠️ K-V11 RETIRÉ (49-U10, 30/09/2026). « Le coach a mené tes charges
+  // aujourd'hui » remplaçait « Pas de palier » quand toutes les séries avaient
+  // suivi leur ligne ; « Pas de palier » n'existe plus depuis 49-U9 (§20.2), et
+  // le verdict n'était plus atteignable depuis 49-U8 : parti, comme les phrases
+  // « pas de palier ».
   //
   // La SUITE reste celle de `constatDe` (la consigne d'après) : pas de seconde
-  // règle. Rend `{ verdict, suite, montee, orchestre }`, ou `null`.
+  // règle. Rend `{ verdict, suite, montee }`, ou `null`.
   //
   // `reference` : la date de la séance du jour (le plan la tient de sa séance).
   function constatDuJour(consigneAvant, consigneApres, reglage, cranSuivant, jour, reference) {
@@ -2837,17 +2853,162 @@
                  ? 'La montée du coach a tenu' + DEUX_POINTS + chargeFois(m.charge, m.reps) +
                    ', dans ta zone. Elle compte comme un test tenu.'
                  : base.verdict,
-               suite: base.suite, montee: { charge: m.charge, reps: m.reps }, orchestre: false };
+               suite: base.suite, montee: { charge: m.charge, reps: m.reps } };
     }
-    if (j.suivies && consigneApres.etat === 'silence') {
-      var dites = (j.faites || []).map(function (f) { return chargeFois(f.charge, f.reps); }).join(', ');
-      return { verdict: 'Le coach a mené tes charges aujourd\'hui' + DEUX_POINTS + dites + '.',
-               suite: base.suite, montee: null, orchestre: true };
+    return { verdict: base.verdict, suite: base.suite, montee: null };
+  }
+
+  // ══ §9.15 — LES CHAUFFES ET LES DÉGRESSIVES (49-U10, 30/09/2026) ═════════
+  //
+  // « La routine (ou l'utilisateur) décide combien de chauffes et de
+  // dégressives, et leurs reps ; le coach en calcule la charge, à partir de la
+  // charge de travail du jour. » Deux fonctions PURES, appelées par le plan
+  // seul (`plan.js`, garde d'architecture) ; aucune ne compte pour le coach
+  // (ni pari, ni réaction, ni couverture, ni stagnation — §9.15.4).
+  //
+  // La référence est la charge de la consigne FIGÉE (la ligne, pas le test) :
+  // une montée en séance ne change aucune chauffe.
+  var BARRE_VIDE = 20;
+  var SEUIL_BARRE_LOURDE = 70;
+  var SEUIL_DIZAINE = 100;
+  var CRAN_PAR_DEFAUT = 2.5;
+  var BAISSE_DEGRESSIVE = 0.225;
+
+  // « Soulevé au sol » (§9.15.1) : le conventionnel, le sumo, la barre
+  // hexagonale. PAS le roumain ni les jambes tendues (ils partent debout), ni
+  // le rack pull. Liste fermée, décidée le 30/09/2026 (49-U10).
+  var SOULEVES_AU_SOL = ['souleve_de_terre_barre', 'souleve_de_terre_sumo', 'souleve_de_terre_barre_hex'];
+
+  // La table de §9.15.1 : une marche est la barre vide, ou un pourcentage de la
+  // référence, avec ses reps.
+  var TABLE_CHAUFFES = {
+    barre_lourde:  [{ barre: true, reps: 10 }, { p: 0.50, reps: 6 }, { p: 0.70, reps: 3 }, { p: 0.88, reps: 1 }],
+    sol:           [{ p: 0.50, reps: 5 }, { p: 0.70, reps: 3 }, { p: 0.88, reps: 1 }],
+    barre_legere:  [{ barre: true, reps: 10 }, { p: 0.88, reps: 2 }],
+    deja_barre:    [{ p: 0.60, reps: 5 }, { p: 0.88, reps: 2 }],
+    premier_autre: [{ p: 0.60, reps: 8 }],
+    aucune:        []
+  };
+  // Moins de lignes dans la routine que dans la table : les marches les plus
+  // utiles, la barre vide tombant la première (§9.15.1).
+  var MARCHES_REDUITES = { 1: [0.60], 2: [0.60, 0.88], 3: [0.50, 0.70, 0.88] };
+
+  function estBarre(equipement) { return equipement === 'barre'; }
+
+  // `entree` : `{ equipement, reference, deja_sollicite, sol }`.
+  function situationChauffe(entree) {
+    var e = entree || {};
+    var ref = nombre(e.reference);
+    if (ref === null || ref <= 0) return 'aucune';
+    if (estBarre(e.equipement)) {
+      if (e.deja_sollicite) return ref >= SEUIL_BARRE_LOURDE ? 'deja_barre' : 'aucune';
+      if (e.sol) return 'sol';
+      return ref >= SEUIL_BARRE_LOURDE ? 'barre_lourde' : 'barre_legere';
     }
-    return { verdict: base.verdict, suite: base.suite, montee: null, orchestre: false };
+    return e.deja_sollicite ? 'aucune' : 'premier_autre';
+  }
+
+  // Le pas d'arrondi : à la dizaine sur une barre dès 100 kg de référence, à
+  // 5 kg en dessous ; au cran du matériel ailleurs.
+  function pasDeChauffe(entree) {
+    if (estBarre(entree.equipement)) return nombre(entree.reference) >= SEUIL_DIZAINE ? 10 : 5;
+    var c = nombre(entree.cran);
+    return c !== null && c > 0 ? c : CRAN_PAR_DEFAUT;
+  }
+
+  // Au plus proche multiple du pas, l'égalité vers le bas.
+  function auPasLePlusProche(v, pas) {
+    var bas = Math.floor(v / pas + 1e-9) * pas;
+    var haut = bas + pas;
+    return auCentieme(v - bas <= haut - v + 1e-9 ? bas : haut);
+  }
+
+  function chargeDeMarche(m, entree, pas) {
+    var ref = nombre(entree.reference);
+    var c = m.barre ? BARRE_VIDE : auPasLePlusProche(ref * m.p, pas);
+    // Toujours au moins un cran sous la référence…
+    var plafond = Math.floor((ref - pas) / pas + 1e-9) * pas;
+    if (c > ref - pas + 1e-9) c = auCentieme(plafond);
+    // … et jamais sous la barre vide.
+    if (estBarre(entree.equipement) && c < BARRE_VIDE) c = BARRE_VIDE;
+    return c;
+  }
+
+  // Les marches pour `n` lignes de la routine : la table si elle a autant de
+  // lignes ou plus (les lignes en trop restent vides), sinon les marches
+  // réduites.
+  function marchesPour(table, n) {
+    if (n >= table.length) return table.slice();
+    return MARCHES_REDUITES[n].map(function (p) { return { p: p }; });
+  }
+
+  // `entree` : `{ equipement, reference, deja_sollicite, sol, cran, routine }`,
+  // `routine` = les reps des lignes de chauffe de l'exercice, ou `null` s'il
+  // n'en a aucune. Rend, avec des lignes : `{ situation, lignes: [{ reps,
+  // charge }], non_remplies, phrase }` ; sans ligne : `{ situation,
+  // proposition: [[charge, reps]], phrase_proposition }`.
+  function chauffesDe(entree) {
+    var e = entree || {};
+    var situation = situationChauffe(e);
+    var table = TABLE_CHAUFFES[situation];
+    var pas = pasDeChauffe(e);
+    var ref = nombre(e.reference);
+    if (e.routine === null || e.routine === undefined) {
+      var prop = table.map(function (m) { return [chargeDeMarche(m, e, pas), m.reps]; });
+      return {
+        situation: situation, proposition: prop,
+        phrase_proposition: prop.length
+          ? 'Chauffe : ' + prop.map(function (x) { return Modele().charge(x[0]) + ' × ' + nombreFr(x[1]); }).join(' · ')
+          : null
+      };
+    }
+    var routine = e.routine;
+    var n = routine.length;
+    var marches = table.length && n ? marchesPour(table, n) : [];
+    var lignes = routine.map(function (reps, i) {
+      var m = marches[i];
+      return { reps: reps, charge: m ? chargeDeMarche(m, e, pas) : null };
+    });
+    var remplies = lignes.filter(function (l) { return l.charge !== null; }).map(function (l) { return l.charge; });
+    var phrase = null;
+    if (remplies.length) {
+      var avant = remplies.slice(0, -1).map(function (c) { return nombreFr(c); });
+      phrase = 'Chauffes calées sur ' + Modele().charge(ref) + ' : ' +
+        avant.concat([Modele().charge(remplies[remplies.length - 1])]).join(' · ') + '.';
+    }
+    return { situation: situation, lignes: lignes,
+             non_remplies: lignes.length - remplies.length, phrase: phrase };
+  }
+
+  // §9.15.3 — la dégressive. `entree` : `{ equipement, derniere_serie,
+  // reps_travail, cran }`. Rend `{ charge, vise, phrase, repos }` ; à la
+  // barre, `{ charge: null, phrase }`.
+  function degressiveDe(entree) {
+    var e = entree || {};
+    if (estBarre(e.equipement)) return { charge: null, phrase: 'Pas de dégressive à la barre.' };
+    var der = nombre(e.derniere_serie);
+    if (der === null || der <= 0) return { charge: null, phrase: null };
+    var cran = nombre(e.cran);
+    if (cran === null || cran <= 0) cran = CRAN_PAR_DEFAUT;
+    // Au cran INFÉRIEUR : jamais au-dessus des −22,5 %.
+    var charge = auCentieme(Math.floor(der * (1 - BAISSE_DEGRESSIVE) / cran + 1e-9) * cran);
+    var reps = nombre(e.reps_travail);
+    var milieu = Math.max(4, Math.floor((reps === null ? 8 : reps) / 2));
+    var vise = [milieu - 1, milieu + 1];
+    return {
+      charge: charge, vise: vise, repos: 0,
+      phrase: 'Dégressive : ' + Modele().charge(charge) + ', sans repos, jusqu\'à l\'échec. Vise ' +
+        nombreFr(vise[0]) + ' à ' + nombreFr(vise[1]) + '.'
+    };
   }
 
   var api = {
+    BARRE_VIDE: BARRE_VIDE,
+    SOULEVES_AU_SOL: SOULEVES_AU_SOL,
+    TABLE_CHAUFFES: TABLE_CHAUFFES,
+    situationChauffe: situationChauffe,
+    chauffesDe: chauffesDe,
+    degressiveDe: degressiveDe,
     FENETRE_HABITUDE: FENETRE_HABITUDE,
     FENETRE_COUPLE: FENETRE_COUPLE,
     MAJORITE_COUPLE: MAJORITE_COUPLE,

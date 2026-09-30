@@ -228,6 +228,30 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
     });
   });
 
+  // (e) MOTEUR §9.15 (49-U10) — les chauffes et la dégressive : les 32 cas du
+  // fichier, ce que la règle rend, et la note de la feuille sur un plan dont la
+  // routine prévoit plus de chauffes que la table.
+  const CHAUFFES = require('./fixtures/cas-49u10-chauffes.json');
+  CHAUFFES.chauffes.forEach((c) => {
+    const r = M.chauffesDe(c.entree);
+    noter('chauffes', 'cas-49u10 ' + c.id, [r.phrase, r.phrase_proposition]);
+  });
+  CHAUFFES.degressives.forEach((c) => noter('chauffes', 'cas-49u10 ' + c.id, M.degressiveDe(c.entree).phrase));
+  (() => {
+    let n = 0;
+    const id = () => 'w-s' + (++n);
+    let se = S.creer({ id: 'W', userId: 'u', idSerie: id });
+    se = S.ajouterExercice(se, 'developpe_couche_barre', id, { series: 2 });
+    se = S.insererChauffes(se, 0, [[0, 10], [0, 6], [0, 3], [0, 1], [0, 1]], id);
+    const k = { etat: 'progression', zone: 'force', palier: 125, niveau: 5, n: 2,
+      ligne: { charge: 125, vise: 5 }, haut: null, fondement: {} };
+    const x = T.planDeSeance({ seance: { id: 'W', debut: '2026-09-26T10:00:00+00:00', edition: false, exercices: se.exercices },
+      consignes: { developpe_couche_barre: { consigne: k, libelles: M.libellesConsigne(k) } },
+      catalogue: { developpe_couche_barre: { equipement: 'barre', muscles_primaires: ['pectoraux'] } },
+      paris: [] }).exercices[0];
+    noter('chauffes', 'plan 49-U10', [x.chauffes && x.chauffes.phrase, x.pourquoi && x.pourquoi.chauffes]);
+  })();
+
   test('chaque famille est jouée, et la date relative l\'est vraiment', () => {
     const parFamille = {};
     vues.forEach((v) => { parFamille[v.famille] = (parFamille[v.famille] || 0) + 1; });
@@ -235,6 +259,10 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
     expect(parFamille.feuille).toBeGreaterThan(500);
     expect(parFamille['réaction']).toBeGreaterThan(50);
     expect(parFamille.constat).toBeGreaterThan(50);
+    // 29 phrases des cas (trois cas « aucune » n'en ont pas) + la phrase et la
+    // note de la feuille sur le plan.
+    expect(parFamille.chauffes).toBe(31);
+    expect(vues.filter((v) => v.source === 'plan 49-U10').length).toBe(2);
     // Sans ces phrases, la règle des dates ne serait jamais éprouvée.
     const jours = vues.filter((v) => /(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)/i.test(v.phrase));
     expect(jours.length).toBeGreaterThan(50);

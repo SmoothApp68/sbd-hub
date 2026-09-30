@@ -1019,6 +1019,47 @@ Les montées de l'historique valaient +12 % en médiane, plus qu'un cran : pour 
 
 ---
 
+### 9.15 Les chauffes et les dégressives — décidé les 26 et 29/09/2026 (chantier 49)
+
+> **La routine (ou l'utilisateur) décide combien de chauffes et de dégressives, et leurs reps ; le coach en calcule la charge, à partir de la charge de travail du jour.** C'est la règle de toute la séance (§9.13 : la routine décide de la structure, le moteur de la charge et des reps), étendue aux séries qui entourent le travail.
+
+**La charge de référence** est la charge de la consigne figée de la séance (la ligne, pas le test). Si le coach fait monter une série en cours de séance, les chauffes déjà faites ne bougent pas, et les suivantes non plus : elles se calculent sur la consigne figée. Toutes les charges sont arrondies au cran existant (incrément de l'équipement, §10), jamais sous la barre vide, jamais au niveau de la charge de travail ou au-dessus.
+
+#### 9.15.1 La règle des chauffes
+
+**Le nombre de chauffes et leurs reps dépendent de la situation de l'exercice dans la séance ; leurs charges, de la charge de référence.** Validé par Aurélien le 29/09/2026 (sa montée, confrontée à la littérature et à la pratique des coachs) :
+
+| Situation | Chauffes (charge · reps) |
+|---|---|
+| **Barre, 70 kg et plus, premier exercice sur ses muscles primaires** | barre vide × 10 · ~50 % × 6 · ~70 % × 3 · ~88 % × 1 |
+| **Soulevé de terre et variantes au sol** (pas de barre vide) | ~50 % × 5 · ~70 % × 3 · ~88 % × 1 |
+| **Barre, moins de 70 kg**, premier exercice sur ses muscles | barre vide × 10 · ~88 % × 2 |
+| **Exercice dont les muscles primaires sont déjà sollicités** dans la séance, à la barre dès 70 kg | ~60 % × 5 · ~88 % × 2 |
+| **Machine, poulie ou haltères, premier exercice sur ses muscles primaires** | ~60 % × 8 |
+| **Isolation ou machine sur des muscles déjà sollicités** | aucune |
+
+**Arrondi** : à la dizaine sur une barre dont la charge de référence atteint 100 kg ; à 5 kg en dessous ; au cran existant sur les machines et les haltères ; à égalité, vers le bas. Jamais sous la barre vide, toujours au moins un cran sous la charge de référence. **Repos** : environ 1 minute entre deux chauffes, 2 minutes avant la première série de travail (le minuteur de la séance l'applique).
+
+**Exemples** (aurel_br, 29/09) : couché ou squat à 125 kg → **20 × 10 · 60 × 6 · 90 × 3 · 110 × 1** ; soulevé à 155 kg → **80 × 5 · 110 × 3 · 140 × 1** ; militaire à 57,5 kg → **20 × 10 · 50 × 2** ; squat avec pause à 100 kg après le soulevé → **60 × 5 · 90 × 2**.
+
+**Les chauffes de la routine** : quand l'exercice a des lignes de chauffe (routine ou saisie), **le coach remplit leurs charges d'office** selon la ligne de la table qui correspond (les reps restent celles de la routine). **Si la routine prévoit moins de lignes que la table**, le coach garde les marches les plus utiles : **une ligne → ~60 %** ; **deux → ~60 % puis ~88 %** ; **trois → ~50 %, ~70 % puis ~88 %** (la barre vide est la première marche à tomber). **Si elle en prévoit plus**, les lignes en trop ne sont pas remplies, et la feuille « Pourquoi » le dit. L'utilisateur peut taper une autre charge : sa saisie fait foi.
+
+#### 9.15.2 Pas de chauffe prévue : le coach propose
+
+Quand l'exercice n'a **aucune** ligne de chauffe et que la table en prévoit, **le coach propose** la montée de la table dans une ligne à accepter, jamais des séries insérées d'office (ajouter des séries, c'est la structure, qui appartient à l'utilisateur). **Ajouter** insère les lignes au-dessus des séries de travail, typées échauffement ; **Non merci** retire la proposition pour la séance. **Après trois « Non merci » d'affilée sur un exercice, le coach n'en propose plus** sur celui-ci (§14.3).
+
+#### 9.15.3 Les dégressives
+
+Quand l'exercice a une ligne **dégressive** (routine ou saisie), **le coach en remplit la charge** : **la charge de la dernière série de travail du jour moins 20 à 25 %** (au milieu, 22,5 %, arrondi au cran inférieur existant), et affiche **« jusqu'à l'échec »**, en indiquant environ la moitié des reps de la série de travail (par exemple 6-8 après 15). **Pas de repos** : le minuteur ne démarre pas entre la dernière série de travail et la dégressive, et le coach dit « sans repos ». **Jamais aux barres** (squat, couché, soulevé, militaire et leurs variantes à la barre) : sur une barre, le coach laisse la ligne vide et le dit. **Une seule baisse** : le coach ne remplit que la première ligne dégressive qui suit la dernière série de travail.
+
+**Plus tard** (décision d'Aurélien, 29/09) : le coach pourra **proposer de lui-même une dégressive**, comme un barreau de l'escalier (§14), et **plusieurs baisses** (2 à 3) hors sèche, selon la phase du questionnaire.
+
+#### 9.15.4 Ce qui ne change pas
+
+**Une chauffe et une dégressive ne comptent jamais pour le coach** : ni couverture (§9.13), ni pari, ni réaction, ni stagnation. **Invariants** : **I16** les chauffes d'un exercice ont des charges croissantes et des reps décroissantes, toutes sous la charge de référence ; **I17** une dégressive a une charge sous la dernière série de travail, et n'existe jamais sur une barre.
+
+**Mesure et confrontation.** *Chauffes* (cinq historiques, 6 518 séance-exercices) : notées à la barre dès 80 kg, premier exercice sur ses muscles, 59 fois sur 100 ; rampes notées sur barre lourde 50 → 73 % (deux chauffes), 43 → 67 → 83 % (trois), 20 → 53 → 75 → 88 % (quatre). La littérature trouve le meilleur effet quand la dernière chauffe atteint environ 80 % de la charge de travail (Ribeiro et al. 2020 : au squat, 80 % ; au couché, 40 puis 80 %) ; une ou deux chauffes à 40-60 % seules apportent peu ; les coachs montent en 3 ou 4 marches, reps décroissantes. *Dégressives* (aurel_br, 182 dégressives sur 31 exercices) : baisse médiane 38 %, 10 reps en médiane — plutôt une série plus légère de plus ; les méta-analyses (Sødal et al. 2023 ; 2026) trouvent la même hypertrophie et la même force qu'en séries classiques, en deux à trois fois moins de temps, avec des baisses de 20 à 25 %, sans repos, jusqu'à l'échec ; les coachs la placent sur la dernière série, sur machine ou poulie. **La science et la pratique des coachs passent avant l'habitude** (décidé par Aurélien le 29/09, qui remplace « l'habitude d'abord » du 26/09).
+
 ## 10. L'incrément
 
 ### 10.1 Règle

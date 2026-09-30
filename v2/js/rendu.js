@@ -1772,7 +1772,16 @@
     // dégénère exactement en l'ancien comportement, sans cas particulier.
     var complets = M().toursComplets(bloc);
 
+    var proposees = {};
     bloc.series.forEach(function (s) {
+      // MOTEUR §9.15.2 (49-U10) — la proposition de chauffes, au-dessus de la
+      // première série de l'exercice : une ligne à accepter, jamais des séries
+      // insérées d'office.
+      if (!vue.programme && typeof vue.propositionChauffes === 'function' && !proposees[s._iExo]) {
+        proposees[s._iExo] = true;
+        var pc = vue.propositionChauffes(s._iExo);
+        if (pc) noeud.appendChild(propositionDeChauffes(pc, s._iExo, vue));
+      }
       // §9.14 (49-R2) — LA RÉACTION PARLE DANS LA GRILLE, au-dessus de la
       // ligne qu'elle concerne (ECRAN §3.2, maquette variante A). Une ligne de
       // plus DANS le bloc, jamais une seconde couche. Une SŒUR de la ligne, et
@@ -2049,6 +2058,25 @@
       n.appendChild(v);
     }
     n.appendChild(doc.createTextNode(message.phrase || ''));
+    return n;
+  }
+
+  // MOTEUR §9.15.2 (49-U10) — « Chauffe : 20 kg × 10 · 60 kg × 6 … », avec
+  // « Ajouter » et « Non merci ». Le texte vient du plan (`chauffesDe`).
+  function propositionDeChauffes(pc, iExo, vue) {
+    var n = el('div', 'proposition-chauffes');
+    n.setAttribute('data-iexo', String(iExo));
+    n.appendChild(el('div', 'pc-texte', pc.phrase));
+    var gestes = el('div', 'pc-gestes');
+    var oui = el('button', 'pc-ajouter', 'Ajouter');
+    oui.type = 'button';
+    oui.addEventListener('click', function () { vue.surAjouterChauffes(iExo); });
+    var non = el('button', 'pc-refuser', 'Non merci');
+    non.type = 'button';
+    non.addEventListener('click', function () { vue.surRefuserChauffes(iExo); });
+    gestes.appendChild(oui);
+    gestes.appendChild(non);
+    n.appendChild(gestes);
     return n;
   }
 
@@ -2449,6 +2477,9 @@
       n.appendChild(el('span', 'pq-role', [l.libelle, l.raison, l.faite].filter(Boolean).join(' · ')));
       cible.appendChild(n);
     });
+    // MOTEUR §9.15.1 (49-U10) — une routine qui prévoit plus de chauffes que
+    // la table : les lignes en trop ne sont pas remplies, et la feuille le dit.
+    if (p.chauffes) cible.appendChild(el('p', 'pq-p', p.chauffes));
     if (p.reglage) {
       // « Profil » est le dernier mot de la phrase : on la coupe dessus plutôt
       // que d'en réécrire une seconde à côté du lien.

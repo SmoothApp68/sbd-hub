@@ -371,6 +371,15 @@ describe('12. la liste de lecture est DÉRIVÉE, jamais recopiée', () => {
   // que ce qu'on nomme : omise ici, le réglage de rythme serait toujours lu
   // `undefined`, donc toujours affiché « Normal », et le choix de l'utilisateur
   // disparaîtrait à chaque rechargement sans qu'une seule erreur le dise.
+  // 49-U11 — même piège pour la phase (`v2_051`) : omise, elle serait lue
+  // vide, donc « maintien », et « Depuis le … » ne s'afficherait jamais.
+  test('le `select` du profil demande `phase` et `phase_depuis`', async () => {
+    const Donnees = charger();
+    await Donnees.monProfil('u-1');
+    const demandees = requetes[0].colonnes.split(',').map((c) => c.trim());
+    expect(demandees).toEqual(expect.arrayContaining(['phase', 'phase_depuis']));
+  });
+
   test('le `select` du profil demande `rythme_progression` — le réglage en dépend', async () => {
     const Donnees = charger();
     await Donnees.monProfil('u-1');

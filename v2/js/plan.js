@@ -182,6 +182,10 @@
         slug: o.slug, reglage: o.reglage, seance: o.seance,
         rang: rangs[j], role: roles[j], rangs: rangs
       });
+      // MOTEUR §9.16 (49-U11) — la phase GELÉE de la séance, dans le fondement
+      // de chaque pari (I18). `rejouer` ne la passe pas : les cas du simulateur
+      // gardent leur fondement tel quel.
+      if (p.length && o.phase !== undefined) p[0].fondement.phase = o.phase;
       paris[l.iSerie] = p.length ? p[0] : null;
     });
 
@@ -472,7 +476,7 @@
   }
 
   // ── LE PLAN D'UN EXERCICE ───────────────────────────────────────────────
-  function planDExercice(exo, iExo, consigneDuSlug, paris, seanceId, reglage, suite, debut, materiel) {
+  function planDExercice(exo, iExo, consigneDuSlug, paris, seanceId, reglage, suite, debut, materiel, phase) {
     var S = Seance(), M = Moteur();
     var series = (exo && exo.series) || [];
     var c = consigneDuSlug && consigneDuSlug.consigne ? consigneDuSlug : null;
@@ -501,7 +505,7 @@
     var figees = S.figeesDe(siens, series, consigne);
     var r = planDesLignes(series, consigne, c.contexte || null, figees, {
       slug: base.slug, seance: seanceId === undefined ? null : seanceId,
-      reglage: reglage === undefined ? null : reglage
+      reglage: reglage === undefined ? null : reglage, phase: phase
     });
 
     // L'en-tête décrit la disposition de la consigne sur les lignes de la
@@ -613,6 +617,11 @@
     return sortie;
   }
 
+  // MOTEUR §9.16 (49-U11) — les phases qu'un pari peut porter. Vide, ou
+  // inconnue : `maintien` (« je ne sais pas »). Jamais vide dans un fondement.
+  var PHASES_DU_PLAN = ['prise_de_masse', 'maintien', 'seche'];
+  function phaseDuPlan(v) { return PHASES_DU_PLAN.indexOf(v) >= 0 ? v : 'maintien'; }
+
   // ══ LE PLAN DE SÉANCE ═══════════════════════════════════════════════════
   //
   // `entrees` :
@@ -632,7 +641,9 @@
   //   · `catalogue` — `{ [slug]: { equipement, muscles_primaires } }`, les
   //     exercices de la séance lus au catalogue (§9.15, 49-U10) ;
   //   · `refusChauffes` — `{ [slug]: true }` : la proposition de chauffes est
-  //     retirée (« Non merci » dans la séance, ou trois refus d'affilée).
+  //     retirée (« Non merci » dans la séance, ou trois refus d'affilée) ;
+  //   · `phase` — la phase GELÉE de la séance (MOTEUR §9.16, 49-U11), lue dans
+  //     le profil par l'app quand la consigne se fige ; vide = `maintien`.
   //
   // Pure : mêmes entrées, même plan ; les entrées ne sont jamais modifiées.
   function planDeSeance(entrees) {
@@ -640,15 +651,17 @@
     var seance = e.seance || {};
     var consignes = e.consignes || {};
     var exos = seance.exercices || [];
+    var phase = phaseDuPlan(e.phase);
     return {
       seance: seance.id === undefined ? null : seance.id,
+      phase: phase,
       exercices: exos.map(function (exo, i) {
         var slug = exo && exo.exercise_slug;
         var c = Object.prototype.hasOwnProperty.call(consignes, slug) ? consignes[slug] : null;
         var suites = e.suites || {};
         var suite = Object.prototype.hasOwnProperty.call(suites, slug) ? suites[slug] : null;
         return planDExercice(exo, i, c, e.paris || [], seance.id, e.reglage, suite, seance.debut,
-          materielDe(exos, i, e.catalogue || null, c, e.refusChauffes || {}));
+          materielDe(exos, i, e.catalogue || null, c, e.refusChauffes || {}), phase);
       })
     };
   }
@@ -1128,6 +1141,29 @@
     });
   }
 
+  // I18 (MOTEUR §9.16, 49-U11) — chaque pari de la séance porte dans son
+  // fondement la phase GELÉE du plan (`prise_de_masse`, `maintien` ou
+  // `seche`, jamais vide), la même pour tous : ceux que le plan écrira
+  // (`x.paris`) comme ceux déjà posés (`entrees.paris`).
+  function verifierPhase(plan, parisSeance, erreurs) {
+    if (!plan) return;
+    var phase = plan.phase;
+    if (PHASES_DU_PLAN.indexOf(phase) < 0) erreurs.push('I18 — la phase du plan est vide ou inconnue (' + phase + ')');
+    var voir = function (q, ou) {
+      var f = q && q.fondement;
+      if (!f) return;
+      if (PHASES_DU_PLAN.indexOf(f.phase) < 0) {
+        erreurs.push('I18 — ' + ou + ' : un pari sans phase (' + f.phase + ')');
+      } else if (f.phase !== phase) {
+        erreurs.push('I18 — ' + ou + ' : un pari à la phase ' + f.phase + ' dans une séance à ' + phase);
+      }
+    };
+    (plan.exercices || []).forEach(function (x) {
+      (x.paris || []).forEach(function (q, i) { voir(q, 'exercice ' + x.iExo + ' (' + x.slug + '), série ' + i); });
+    });
+    (parisSeance || []).forEach(function (q) { voir(q, 'pari posé ' + (q.exercise_slug || '') + ' rang ' + (q.fondement && q.fondement.rang)); });
+  }
+
   // `entrees` (facultatif) : I7 — les paris de la séance face aux lignes ;
   // I12 — mêmes entrées, même plan, et les entrées ne sont pas modifiées par
   // le calcul. `avant` (facultatif) : le plan précédent, pour I4.
@@ -1137,6 +1173,7 @@
       return q && q.fondement && (!plan || plan.seance === null || q.fondement.seance === plan.seance);
     }) : null;
     var memeSeance = !!(avant && plan && avant.seance === plan.seance);
+    verifierPhase(plan, parisSeance, erreurs);
     ((plan && plan.exercices) || []).forEach(function (x, i) {
       var xa = memeSeance ? (avant.exercices || [])[i] : null;
       verifierExercice(x, erreurs, parisSeance, xa && xa.slug === x.slug ? xa : null);

@@ -42,7 +42,9 @@ const serie = (id, kg, reps) => ({ id, type_serie: 'travail', charge_kg: kg, rep
 // Un pari tel que l'app l'écrit, observé sur sa série.
 const pari = (sid, rang, role, charge, vise, extra) => Object.assign({
   id: 'p-' + sid, exercise_slug: 'terre', set_observe: sid, valeur_predite: vise, borne_basse: 3, borne_haute: 5,
-  fondement: Object.assign({ rang, charge, role, seance: 'S' }, extra || {})
+  // 49-U11 (I18) : un pari posé porte la phase gelée de sa séance ; ces
+  // plans n'en reçoivent pas, donc `maintien`.
+  fondement: Object.assign({ rang, charge, role, seance: 'S', phase: 'maintien' }, extra || {})
 });
 
 // ── LE DÉCOR DU 26/09 ───────────────────────────────────────────────────────

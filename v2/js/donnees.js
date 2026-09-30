@@ -508,10 +508,12 @@
   // avec un défaut `normal`, et PostgREST ne renvoie QUE ce qu'on nomme :
   // omise, elle vaudrait `undefined` à chaque lecture, l'écran afficherait
   // toujours « Normal », et le choix de l'utilisateur disparaîtrait à chaque
-  // rechargement — sans une erreur, sans une trace.
+  // rechargement — sans une erreur, sans une trace. Même piège pour `phase` et
+  // `phase_depuis` (49-U11, `v2_051`) : omises, la phase serait toujours lue
+  // « maintien ».
   var COLONNES_PROFIL =
     'id, username, bio, sexe, taille_cm, date_naissance, mode_entrainement, ' +
-    'unites, anciennete, intention, rythme_progression, materiel, ' +
+    'unites, anciennete, intention, rythme_progression, phase, phase_depuis, materiel, ' +
     'niveau_declare, seances_par_semaine, jours_vises, duree_seance_min, ' +
     'onboarding_completed';
 

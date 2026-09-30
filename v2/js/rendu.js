@@ -3113,7 +3113,9 @@
 
   // Deux crans, jamais plus : c'est une INTENTION, pas un réglage de finesse.
   function segmentProfil(seg) {
-    var barre = el('div', 'p-seg');
+    // Quatre choix longs (la phase) : deux colonnes, sinon « Maintien ou
+    // recomposition » ne tient pas dans un quart de 360 px.
+    var barre = el('div', 'p-seg' + (seg.deuxColonnes ? ' deux' : ''));
     (seg.options || []).forEach(function (o) {
       var b = el('button', o.cle === seg.valeur ? 'on' : '', o.libelle);
       b.type = 'button';
@@ -3163,7 +3165,11 @@
       if (!sec) return;
       cible.appendChild(el('div', 'p-sect', sec.titre));
       var g = el('div', 'p-groupe');
+      // La voix du coach sous le titre, puis le choix, puis une ligne grise
+      // (« Depuis le 29 sept. ») — la phase (49-U11).
+      if (sec.aide) g.appendChild(el('div', 'p-aide', sec.aide));
       if (sec.segment) g.appendChild(segmentProfil(sec.segment));
+      if (sec.pied) g.appendChild(el('div', 'p-pied', sec.pied));
       (sec.lignes || []).forEach(function (l) { g.appendChild(ligneProfil(l)); });
       if (sec.note) {
         var note = el('div', 'p-note');

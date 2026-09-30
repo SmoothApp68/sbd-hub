@@ -1073,13 +1073,13 @@ Quand l'exercice a une ligne **dégressive** (routine ou saisie), **le coach en 
 | | Prise de masse | Maintien ou recomposition | Sèche |
 |---|---|---|---|
 | Tests au haut de la zone, montées en séance | inchangés | inchangés | **inchangés** — la force progresse autant en déficit (Murphy et Koehler 2022) |
-| Série de plus (escalier, §14) | permise | non | **non** — vers 500 kcal de déficit, plus de volume ne fait plus grossir le muscle |
-| Patience du compteur de stagnation (§12) | normale | normale | **une séance de plus**, et le coach le dit : « … ne bouge plus depuis 4 séances. En sèche, je ne te propose rien de plus. » |
+| Série de plus (escalier, §14) | permise | **permise** — à l'équilibre, rien ne freine la prise de muscle (Scarpelli et al. 2022 : +20 % de volume) | **non** — vers 500 kcal de déficit, plus de volume ne fait plus grossir le muscle |
+| Déclenchement du compteur de stagnation (§12) | 4 séances | 4 séances | **4 séances aussi** : le seuil ne s'adapte pas, les mots si (§12.8). Ce qui change, c'est la réponse : là où l'escalier isolé proposerait une série de plus, le coach **le dit et ne propose rien** — « 80 kg ne bouge plus depuis 4 séances. En sèche, je ne te propose rien de plus. » — puis passe à la marche suivante au déclenchement d'après |
 | Fondement de chaque pari | **la phase gelée de la séance y est enregistrée** | | |
 
 **Gelée pour la séance.** Changer de phase en pleine séance ne change rien à la séance en cours (ni la consigne, ni les paris suivants) : la nouvelle phase vaut à partir de la séance suivante, comme une correction de zone qui ne touche pas une série déjà validée. **Hors ligne**, la dernière phase connue s'applique.
 
-**Ce qui n'existe pas encore** : le compteur de stagnation (§12) et l'escalier (§14) lisent la phase dès qu'ils sont câblés ; d'ici là, la phase ne change **que le fondement des paris**. La question redemandée toutes les 6 semaines environ (`QUESTIONNAIRE-COACH-V1` §2) appartient au chantier du questionnaire.
+**Ce qui n'existe pas encore** : le compteur de stagnation (§12, qui ne lit la phase **que pour ses mots**) et l'escalier (§14, qui la lit pour sa première marche en zone muscle) lisent la phase dès qu'ils sont câblés ; d'ici là, la phase ne change **que le fondement des paris**. La question redemandée toutes les 6 semaines environ (`QUESTIONNAIRE-COACH-V1` §2) appartient au chantier du questionnaire.
 
 **Invariant I18** : chaque pari posé porte dans son fondement la phase gelée de sa séance (`prise_de_masse`, `maintien` ou `seche`), la même pour tous les paris d'une séance.
 

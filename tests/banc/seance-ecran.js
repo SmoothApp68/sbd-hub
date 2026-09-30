@@ -26,6 +26,7 @@ const path = require('path');
 const R = path.join(__dirname, '../..');
 const { chromium } = require(path.join(R, 'node_modules/playwright-core'));
 const { creer } = require(path.join(R, 'v2/banc/serveur-pages.js'));
+const { compteDeLaGarde } = require(path.join(__dirname, 'garde-compte.js'));
 const CHROME = process.env.CHROME_BIN || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 const PORT = Number(process.env.BANC_PORT || 8874), BASE = 'http://127.0.0.1:' + PORT;
 const pause = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -59,9 +60,33 @@ let echecs = 0;
 // Le dernier contrôle écrit : la garde du banc s'en sert pour situer le geste
 // qui a produit un plan fautif.
 let dernierControle = '(aucun contrôle encore)';
+// ── LE RAPPORT (outillage, 30/09/2026) ──────────────────────────────────
+//
+// Chaque contrôle est noté avec sa section, chaque section avec sa durée. Si
+// `BANC_RAPPORT` nomme un fichier, le tout y est écrit en JSON à la fin :
+// c'est ce que lit le lanceur parallèle (`seance-rapide.js`) pour fusionner
+// les groupes et prouver qu'aucun contrôle ne manque. Sans la variable, rien
+// ne change à la sortie du banc.
+const rapport = { debut: Date.now(), sections: [], controles: [] };
+let sectionRapport = '(préambule)';
+{
+  const logDuModule = console.log;
+  console.log = function () {
+    const m = /^\n══ (.*) ══$/.exec(String(arguments[0]));
+    if (m) {
+      const t = Date.now();
+      const prec = rapport.sections[rapport.sections.length - 1];
+      if (prec && prec.fin === null) prec.fin = t;
+      rapport.sections.push({ nom: m[1], debut: t, fin: null });
+      sectionRapport = m[1];
+    }
+    return logDuModule.apply(console, arguments);
+  };
+}
 const ok = (nom, cond, detail) => {
   if (!cond) echecs++;
   if (!/^\[garde\]/.test(nom)) dernierControle = nom;
+  rapport.controles.push({ section: sectionRapport, nom: nom, ok: !!cond });
   console.log('   ' + (cond ? '✅' : '❌') + ' ' + nom + (detail !== undefined ? '  — ' + detail : ''));
 };
 
@@ -227,7 +252,7 @@ const PROFIL_BANC = {
 // milliseconde de bord qui subsiste. `JOURS[n]` remplace l'ancien
 // `LUNDI + n jours` : même ORDRE, mêmes rangs, et toujours dans le passé.
 const { datesDuDecor, ancreSemaineIsolee, seanceSansSeries, jourIsole, ilYa, finDe } =
-  require('./decor-dates.js');
+  require(path.join(__dirname, 'decor-dates.js'));
 const JOURS = datesDuDecor();
 
 const PASSEE = {
@@ -1103,6 +1128,29 @@ const SETS_IMPORTES = [
       r.querySelector('.demarrer').click();
     }, nom);
     await attendre(900);
+  };
+
+  // ── LA FIN DU BANC ──────────────────────────────────────────────────────
+  // Une fonction, et pas des lignes en fin de fichier : le découpeur de
+  // sections (`seance-sections.js`) la garde telle quelle, quelles que soient
+  // les sections jouées.
+  const clore = async () => {
+    const fin = rapport.sections[rapport.sections.length - 1];
+    if (fin && fin.fin === null) fin.fin = Date.now();
+    console.log('\nerreurs de page : ' + (erreurs.length ? erreurs.join(' | ') : 'aucune'));
+    if (erreurs.length) echecs++;
+    if (process.env.BANC_RAPPORT) {
+      require('fs').writeFileSync(process.env.BANC_RAPPORT, JSON.stringify({
+        debut: rapport.debut, fin: Date.now(), echecs: echecs, erreurs: erreurs,
+        sections: rapport.sections, controles: rapport.controles,
+        garde: { plans: gardeBanc.plans, violations: gardeBanc.violations, rapports: gardeBanc.rapports,
+                 liste: gardeBanc.liste, sections: gardeBanc.sections }
+      }));
+    }
+    console.log('\n' + (echecs ? '❌ ' + echecs + ' vérification(s) en échec' : '✅ tout passe'));
+    await nav.close();
+    await new Promise((r) => serveur.close(r));
+    process.exit(echecs ? 1 : 0);
   };
 
   console.log('\n══ 0. LA MONTÉE D’INDEXEDDB, VERSION 4 → 5 ══');
@@ -8026,23 +8074,12 @@ const SETS_IMPORTES = [
   }
 
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');
+  // Le compte vit dans `garde-compte.js` : le lanceur parallèle refait les
+  // mêmes contrôles sur le compte fusionné de ses groupes.
   {
-    const noms = Object.keys(gardeBanc.sections);
-    const sansVerif = noms.filter((n) => gardeBanc.sections[n].app > 0 && gardeBanc.sections[n].verifies === 0 &&
-      n !== '7 G. LA GARDE DU COACH DANS L’APP (49-U7)');
-    const avecPlans = noms.filter((n) => gardeBanc.sections[n].verifies > 0);
-    const totalApp = noms.reduce((t, n) => t + gardeBanc.sections[n].app, 0);
-    ok('[garde] chaque section où l’app a calculé un plan a été vérifiée par le crochet',
-      sansVerif.length === 0, JSON.stringify(sansVerif));
-    ok('[garde] le crochet a vu des plans dans les sections ANCIENNES, pas seulement celles du chantier 49',
-      avecPlans.filter((n) => /^[0-6]|^7 (bis|ter|quater|quinquies|sexies|septies|octies|nonies|undecies)\./.test(n)).length >= 5,
-      JSON.stringify(avecPlans.slice(0, 8)));
-    console.log('   ' + gardeBanc.plans + ' plans vérifiés par le crochet, dans ' + avecPlans.length + ' sections · ' +
-      totalApp + ' plans vérifiés par la garde de l’app · ' + gardeBanc.violations + ' violation(s) · ' +
-      gardeBanc.rapports.length + ' « I10 suite » rapportée(s)');
-    gardeBanc.liste.forEach((v) => console.log('   ⚠️ ' + v.section + ' · après « ' + v.geste + ' » · ' + v.quoi + ' · ' +
-      JSON.stringify(v.erreurs.slice(0, 2))));
-    gardeBanc.rapports.slice(0, 10).forEach((x) => console.log('   ℹ️ rapporté — ' + x));
+    const compte = compteDeLaGarde(gardeBanc);
+    compte.controles.forEach((c) => ok(c.nom, c.ok, c.detail));
+    compte.lignes.forEach((l) => console.log(l));
   }
 
   console.log('\n══ 8. NON-RÉGRESSION ══');
@@ -8056,10 +8093,5 @@ const SETS_IMPORTES = [
   ok('hors ligne, les séances restent lisibles', (await visible())[0] === 'vue-liste',
     JSON.stringify(await visible()));
 
-  console.log('\nerreurs de page : ' + (erreurs.length ? erreurs.join(' | ') : 'aucune'));
-  if (erreurs.length) echecs++;
-  console.log('\n' + (echecs ? '❌ ' + echecs + ' vérification(s) en échec' : '✅ tout passe'));
-  await nav.close();
-  await new Promise((r) => serveur.close(r));
-  process.exit(echecs ? 1 : 0);
+  await clore();
 })();

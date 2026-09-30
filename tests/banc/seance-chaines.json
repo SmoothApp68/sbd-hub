@@ -1,0 +1,173 @@
+{
+  "mesure": "30/09/2026, banc séquentiel complet (1513 s, 653 contrôles), une machine à 4 cœurs",
+  "à_lire": "chaines : sections qui se jouent ensemble, dans un même groupe, dans l’ordre du banc (chacune lit l’état laissé par la précédente). prealables : sections REJOUÉES avant, dans le même groupe, pour construire l’état (base de papier, routines, historique) — leurs contrôles ne comptent pas là, ils comptent dans le groupe qui les possède. Mesuré en jouant chaque section seule, puis par fenêtres, contre le banc séquentiel complet.",
+  "chaines": [
+    [
+      "1",
+      "2",
+      "2-bis",
+      "2-ter",
+      "3",
+      "4",
+      "4-bis",
+      "5",
+      "5-bis",
+      "5-ter",
+      "5-quater",
+      "6",
+      "7",
+      "7-bis",
+      "7-ter",
+      "7-quinquies",
+      "7-sexies",
+      "7-quater",
+      "7-terdecies"
+    ],
+    [
+      "7-sexdecies",
+      "7-septdecies",
+      "7-octodecies",
+      "7-novodecies"
+    ],
+    [
+      "7-vicies",
+      "47",
+      "47-bis",
+      "49"
+    ],
+    [
+      "7-unvicies",
+      "7-duovicies"
+    ],
+    [
+      "7-tervicies",
+      "7-quatervicies"
+    ],
+    [
+      "7-octovicies",
+      "7-novovicies",
+      "7-tricies"
+    ],
+    [
+      "7-untricies",
+      "7-duotricies",
+      "7-tertricies",
+      "7-G",
+      "7-G-ter",
+      "7-G-quater"
+    ]
+  ],
+  "prealables": {
+    "7-tervicies": [
+      "7-unvicies",
+      "7-duovicies"
+    ],
+    "7-quatervicies": [
+      "7-unvicies",
+      "7-duovicies"
+    ],
+    "7-quinvicies": [
+      "7-unvicies",
+      "7-duovicies"
+    ],
+    "7-sexvicies": [
+      "7-unvicies",
+      "7-duovicies"
+    ],
+    "7-septvicies": [
+      "7-unvicies",
+      "7-duovicies"
+    ],
+    "7-octovicies": [
+      "7-unvicies",
+      "7-duovicies"
+    ],
+    "7-novovicies": [
+      "7-unvicies",
+      "7-duovicies"
+    ],
+    "7-tricies": [
+      "7-unvicies",
+      "7-duovicies"
+    ],
+    "7-tertricies": [
+      "7-unvicies",
+      "7-duovicies",
+      "7-octovicies"
+    ],
+    "7-G": [
+      "7-unvicies",
+      "7-duovicies",
+      "7-octovicies"
+    ],
+    "7-G-ter": [
+      "7-unvicies",
+      "7-duovicies",
+      "7-octovicies"
+    ],
+    "7-G-quater": [
+      "7-unvicies",
+      "7-duovicies",
+      "7-octovicies"
+    ]
+  },
+  "durees": {
+    "0": 4.7,
+    "1": 3.7,
+    "2": 2.4,
+    "3": 3.8,
+    "4": 5.4,
+    "5": 2.5,
+    "6": 8.4,
+    "7": 7.9,
+    "8": 13.9,
+    "47": 14.3,
+    "49": 13.6,
+    "2-bis": 0,
+    "2-ter": 5.7,
+    "4-bis": 2.3,
+    "5-bis": 2.5,
+    "5-ter": 47.2,
+    "5-quater": 21.6,
+    "7-bis": 3.7,
+    "7-ter": 5.2,
+    "7-quinquies": 2.3,
+    "7-sexies": 1.7,
+    "7-quater": 5.8,
+    "7-septies": 64.3,
+    "7-octies": 18.1,
+    "7-nonies": 56.2,
+    "7-undecies": 39.6,
+    "7-duodecies": 20.2,
+    "7-terdecies": 29.5,
+    "7-quaterdecies": 6.8,
+    "7-quindecies": 44.9,
+    "7-sexdecies": 36.5,
+    "7-septdecies": 8.8,
+    "7-octodecies": 41.6,
+    "7-unvicies": 23.5,
+    "7-novodecies": 30.2,
+    "7-vicies": 65.8,
+    "47-bis": 16.3,
+    "7-duovicies": 25.3,
+    "7-tervicies": 27.9,
+    "7-quatervicies": 48.6,
+    "7-quinvicies": 118.1,
+    "7-sexvicies": 58.2,
+    "7-septvicies": 63.9,
+    "7-octovicies": 101.6,
+    "7-novovicies": 45.5,
+    "7-tricies": 86.4,
+    "7-untricies": 32.4,
+    "7-duotricies": 31.1,
+    "7-tertricies": 36.5,
+    "7-quatertricies": 18,
+    "7-quinquatricies": 31.1,
+    "7-G": 19.2,
+    "7-G-ter": 9.4,
+    "7-G-quater": 13.1,
+    "7-G-quinquies": 14.1,
+    "7-G-sexies": 46.5,
+    "7-G-bis": 0
+  }
+}

@@ -816,6 +816,15 @@ button.puce-zone{font:inherit;font-size:11px;font-weight:600;cursor:pointer;
 .reaction-serie.tenue,.reaction-serie.haut{color:var(--texte);font-weight:560}
 .reaction-serie.pas_encore{color:var(--texte-2);font-weight:500}
 .reaction-serie.debut-tour{margin-top:11px}
+/* MOTEUR §9.15 (49-U10) — les chauffes et la dégressive : la voix du coach, en
+   retrait (elles ne comptent pas), et la proposition de chauffes à accepter. */
+.reaction-serie.chauffe,.reaction-serie.degressive{color:var(--texte-2);font-weight:500}
+.proposition-chauffes{margin:6px 0 4px;padding:8px 10px;border:1px dashed var(--trait);border-radius:8px}
+.proposition-chauffes .pc-texte{color:var(--texte-2);font-size:13.5px;line-height:1.35}
+.proposition-chauffes .pc-gestes{display:flex;gap:8px;margin-top:6px}
+.proposition-chauffes button{min-height:36px;padding:0 12px;border-radius:8px;font:inherit;font-size:13.5px}
+.proposition-chauffes .pc-ajouter{background:var(--accent);color:#111;border:0;font-weight:620}
+.proposition-chauffes .pc-refuser{background:transparent;color:var(--texte-2);border:1px solid var(--trait)}
 .reaction-serie .coche-verte{width:14px;height:14px;margin:0 6px -2px 0;fill:none;
   stroke:var(--reussi);stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
 .ligne-serie.proposee .serie{box-shadow:inset 3px 0 0 var(--accent);

@@ -453,6 +453,29 @@
     return avecExercices(seance, exos);
   }
 
+  // MOTEUR §9.15.2 (49-U10) — « Ajouter » : les chauffes proposées par le
+  // coach, typées échauffement, AU-DESSUS des séries de travail (avant la
+  // première ; en tête s'il n'y en a pas). Une ligne par marche, avec ses reps
+  // visées ; la charge reste vide : le plan la remplit, comme pour une routine.
+  // `lignes` : `[[charge, reps]]`, la proposition telle que le plan la porte.
+  function insererChauffes(seance, iExo, lignes, idSerie) {
+    var exos = seance.exercices.slice();
+    var exo = copie(exos[iExo]);
+    var series = exo.series.slice();
+    var a = 0;
+    while (a < series.length && typeDe(series[a]) !== 'travail') a++;
+    if (a === series.length) a = 0;
+    var neuves = (lignes || []).map(function (q) {
+      var s = serieVide(idSerie);
+      s.type_serie = 'echauffement';
+      s.reps_visees = q && q[1] !== undefined ? q[1] : null;
+      return s;
+    });
+    exo.series = series.slice(0, a).concat(neuves, series.slice(a));
+    exos[iExo] = exo;
+    return avecExercices(seance, exos);
+  }
+
   function retirerSerie(seance, iExo, iSerie) {
     var exos = seance.exercices.slice();
     var exo = copie(exos[iExo]);
@@ -2053,6 +2076,7 @@
     serieVide: serieVide,
     ajouterExercice: ajouterExercice,
     ajouterSerie: ajouterSerie,
+    insererChauffes: insererChauffes,
     retirerSerie: retirerSerie,
     modifierSerie: modifierSerie,
     changerType: changerType,

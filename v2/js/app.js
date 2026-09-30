@@ -1514,7 +1514,13 @@
     // ⚠️ PAS DE REPOS EN CORRECTION. Le chronomètre mesure le temps entre deux
     // séries RÉELLES ; en rouvrant une séance d'avant-hier, il compterait un
     // repos qui n'a pas eu lieu et l'écrirait dans `repos_s`.
-    if (!enEdition()) demarrerChrono(exo.repos_cible_s, iExo, exo.exercise_slug);
+    //
+    // MOTEUR §9.15.3 (49-U10) — ET PAS DE REPOS AVANT LA DÉGRESSIVE : la
+    // dernière série de travail validée, la dégressive que le coach a remplie
+    // s'enchaîne « sans repos » (`repos: 0` dans le plan). Une cible nulle
+    // n'arme rien ET arrête le repos d'avant — valider met toujours fin au
+    // repos précédent.
+    if (!enEdition()) demarrerChrono(enchaineDegressive(iExo, iSerie) ? null : exo.repos_cible_s, iExo, exo.exercise_slug);
     // ⚠️ L'OBSERVATION VIENT APRÈS `apresGeste`, ET C'EST L'ORDRE QUI COMPTE :
     // `poserSeries` y pose l'entrée des séries, donc avec un `seq` plus petit
     // que celui de la prédiction. `set_observe` trouve alors toujours sa série.
@@ -1524,6 +1530,14 @@
     // l'appareil ; il entre dans la file ICI, derrière les séries.
     if (pariProvisoire) await poserPari(await finirPari(pariProvisoire));
     await observerSerie(iExo, iSerie);
+  }
+
+  function enchaineDegressive(iExo, iSerie) {
+    var x = planDeLExercice(iExo);
+    var d = x && x.degressive;
+    if (!d || d.apres !== iSerie || d.repos !== 0 || d.charge === null) return false;
+    var l = x.lignes[d.iSerie];
+    return !!l && !l.validee;
   }
 
   // Le retour haptique : aucun pixel, et il confirme la validation même avec
@@ -1703,6 +1717,51 @@
     m.title = violations[violations.length - 1] || '';
   }
 
+  var catalogueMemo = null;
+  function catalogueIndexe() {
+    if (!catalogueMemo || catalogueMemo.source !== local.exercices) {
+      catalogueMemo = { source: local.exercices, index: Modele.indexerExercices(local.exercices || []) };
+    }
+    return catalogueMemo.index;
+  }
+
+  // ── MOTEUR §9.15.2 (49-U10) — LA MÉMOIRE DES « NON MERCI » ───────────────
+  //
+  // ⚠️ SUR L'APPAREIL SEULEMENT, aucune colonne en base : `localStorage`,
+  // clé `th-v2-refus-chauffes`, `{ [slug]: { n, seance } }`. La règle
+  // (un refus par séance, trois d'affilée, « Ajouter » remet à zéro) vit dans
+  // `THPlan` (fonctions pures) ; ici, seulement la lecture et l'écriture. Un
+  // autre appareil repart de zéro : assumé, rien n'est perdu que trois « Non
+  // merci ».
+  var CLE_REFUS_CHAUFFES = 'th-v2-refus-chauffes';
+  var refusChauffes = null;   // l'objet lu, remplacé (jamais modifié) à chaque écriture
+
+  function lireRefusChauffes() {
+    if (refusChauffes) return refusChauffes;
+    var lu = null;
+    try { lu = JSON.parse(racine.localStorage.getItem(CLE_REFUS_CHAUFFES) || 'null'); }
+    catch (e) { lu = null; }
+    refusChauffes = lu && typeof lu === 'object' ? lu : {};
+    return refusChauffes;
+  }
+
+  function ecrireRefusChauffes(r) {
+    refusChauffes = r;
+    try { racine.localStorage.setItem(CLE_REFUS_CHAUFFES, JSON.stringify(r)); }
+    catch (e) { /* stockage indisponible : la mémoire vit pour la session */ }
+  }
+
+  function refusChauffesDe(seanceId) { return Plan.refusChauffesDe(lireRefusChauffes(), seanceId); }
+  function refuserChauffes(slug) { ecrireRefusChauffes(Plan.refuserChauffes(lireRefusChauffes(), slug, seance.id)); }
+  function accepterChauffes(slug) { ecrireRefusChauffes(Plan.accepterChauffes(lireRefusChauffes(), slug)); }
+
+  // Le plan de l'exercice `iExo`, avec ou sans consigne : les chauffes et la
+  // dégressive existent aussi sans elle (§9.15).
+  function planDeLExercice(iExo) {
+    var p = planActuel();
+    return p ? p.exercices[iExo] || null : null;
+  }
+
   // Les entrées du plan de la séance ouverte. Les consignes et les suites se
   // lisent D'ABORD : leur mémo peut changer `versionConsignes`.
   function entreesDuPlan() {
@@ -1717,9 +1776,23 @@
         suites[slug] = cs[slug] ? suiteDe(slug) : null;
       }
     });
+    // §9.15 (49-U10) — le catalogue des exercices de la séance (matériel,
+    // muscles primaires) et les propositions de chauffes retirées.
+    var catalogue = {};
+    var index = catalogueIndexe();
+    exos.forEach(function (x) {
+      var slug = x && x.exercise_slug;
+      var f = slug && index[slug];
+      if (f && !catalogue[slug]) {
+        catalogue[slug] = { equipement: f.equipement || null,
+                            muscles_primaires: (f.muscles_primaires || []).slice() };
+      }
+    });
     return {
       seance: { id: seance.id, debut: seance.debut, edition: edition, exercices: exos },
       consignes: cs,
+      catalogue: catalogue,
+      refusChauffes: refusChauffesDe(seance.id),
       reglage: Profil.rythmeDe(profil),
       suites: suites,
       paris: (local.predictions || []).filter(function (l) {
@@ -1736,10 +1809,12 @@
     // (`recalculerEtats`) et la suite se recalcule sur le nouvel historique.
     if (planMemo && planMemo.seance === seance && planMemo.paris === local.predictions &&
         planMemo.version === versionConsignes && planMemo.edition === edition &&
-        planMemo.constats === constats) return planMemo.plan;
+        planMemo.constats === constats && planMemo.catalogue === local.exercices &&
+        planMemo.refus === refusChauffes) return planMemo.plan;
     var plan = Plan.planDeSeance(entrees);
     planMemo = { seance: seance, paris: local.predictions, version: versionConsignes,
-                 edition: edition, constats: constats, plan: plan };
+                 edition: edition, constats: constats, catalogue: local.exercices,
+                 refus: refusChauffes, plan: plan };
     // Le banc lit le dernier plan et ses entrées pour vérifier les invariants
     // après chaque geste (§9.13 bis) ; rien d'autre ne le relit.
     Plan.dernier = { entrees: entrees, plan: plan };
@@ -2299,9 +2374,17 @@
   function fantomeDe(iExo, iSerie) {
     var exo = seance.exercices[iExo];
     var ancien = Seance.fantome(seance, iExo, iSerie, precedentDe(exo.exercise_slug), planDe(iExo));
-    var x = reactionDe(iExo);
+    var x = planDeLExercice(iExo);
     var l = x && x.lignes[iSerie];
-    if (!l || l.role === 'hors' || !l.fantome) return ancien;
+    // MOTEUR §9.15 (49-U10) — une chauffe ou une dégressive que le coach
+    // remplit : SA charge (vide à la barre pour une dégressive) ; les reps
+    // restent celles de la routine, ou de la fois d'avant.
+    if (l && l.role === 'hors' && l.fantome &&
+        (l.fantome.source === 'chauffe' || l.fantome.source === 'degressive')) {
+      return { charge_kg: l.fantome.charge === undefined ? null : l.fantome.charge,
+               reps: ancien.reps, duree_s: ancien.duree_s, distance_m: ancien.distance_m };
+    }
+    if (!x || !x.consigne || !l || l.role === 'hors' || !l.fantome) return ancien;
     return {
       charge_kg: l.fantome.charge === undefined ? null : l.fantome.charge,
       reps: l.fantome.reps === undefined ? null : l.fantome.reps,
@@ -2321,6 +2404,16 @@
   // coach, fourchette dans le champ des reps. La phrase vient de
   // `phraseReaction`, jamais recalculée ici.
   function reactionSurLigne(iExo, iSerie) {
+    // MOTEUR §9.15 (49-U10) — la phrase des chauffes, au-dessus de la première
+    // ligne de chauffe ; celle de la dégressive, au-dessus d'elle. Du plan,
+    // jamais recomposées ici.
+    var x = planDeLExercice(iExo);
+    if (x && x.chauffes && x.chauffes.phrase && x.chauffes.iSerie === iSerie) {
+      return { message: { type: 'chauffe', phrase: x.chauffes.phrase }, proposee: false, fourchette: null };
+    }
+    if (x && x.degressive && x.degressive.phrase && x.degressive.iSerie === iSerie) {
+      return { message: { type: 'degressive', phrase: x.degressive.phrase }, proposee: false, fourchette: null };
+    }
     var r = reactionDe(iExo);
     if (!r) return null;
     var j = r.indices.indexOf(iSerie);
@@ -2438,6 +2531,25 @@
       surAjoutSerie: async function (i) {
         seance = Seance.ajouterSerie(seance, i, uuid());
         await apresGeste({ structure: false });
+      },
+      // MOTEUR §9.15.2 (49-U10) — la proposition de chauffes, lue sur le plan.
+      propositionChauffes: function (i) {
+        if (enEdition()) return null;
+        var x = planDeLExercice(i);
+        return x && x.proposition ? x.proposition : null;
+      },
+      surAjouterChauffes: async function (i) {
+        var x = planDeLExercice(i);
+        if (!x || !x.proposition) return;
+        accepterChauffes(x.slug);
+        seance = Seance.insererChauffes(seance, i, x.proposition.lignes, uuid);
+        await apresGeste({ structure: false });
+      },
+      surRefuserChauffes: function (i) {
+        var x = planDeLExercice(i);
+        if (!x || !x.proposition) return;
+        refuserChauffes(x.slug);
+        rendreSeance();
       },
       surSupprimerSerie: async function (i, j) {
         await oublierObservationDe(i, j);

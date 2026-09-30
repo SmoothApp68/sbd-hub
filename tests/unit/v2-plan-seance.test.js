@@ -298,10 +298,10 @@ describe('49-U1 — plans générés : les invariants tiennent après chaque ges
     // compte les fantômes « dernière série » et les retours au plan qui suivent.
     const sources = { plan: 0, derniere: 0, retours: 0 };
     // 49-U4 — I10 n'éprouve rien sans constats : on compte ceux qui disent une
-    // montée tenue et ceux d'une séance menée par le coach. La partie « suite »
+    // montée tenue (K-V11, la séance menée par le coach, est parti en 49-U10). La partie « suite »
     // d'I10 (b) se RAPPORTE, elle ne fait pas échouer ce test (décision de
     // fond, hors de ce commit) : elle est comptée à part.
-    const constats = { tous: 0, montee: 0, remplace: 0, garde: 0, orchestre: 0, pasDePalier: 0 };
+    const constats = { tous: 0, montee: 0, remplace: 0, garde: 0, pasDePalier: 0 };
     const suiteSous = [];
     // 49-U5 — I14 et la réaction en reprise n'éprouvent rien sans leurs cas :
     // on compte les propositions suivies d'un test prévu, et celles d'une
@@ -327,7 +327,6 @@ describe('49-U1 — plans générés : les invariants tiennent après chaque ges
               // La montée ne remplace que le verdict qui la contredisait ; les
               // autres verdicts restent tels qu'ils étaient (décidé le 27/09).
               if (k10.montee) constats[/^La montée du coach a tenu/.test(k10.verdict) ? 'remplace' : 'garde']++;
-              if (k10.orchestre) constats.orchestre++;
               if (/^Pas de palier/.test(k10.verdict)) constats.pasDePalier++;
             }
             const xU5 = sim.exo();

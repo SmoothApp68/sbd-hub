@@ -248,11 +248,7 @@
         montee = { charge: l.faite.charge, reps: l.faite.reps };
       }
     });
-    return {
-      montee: montee,
-      suivies: couvertes.length > 0 && couvertes.every(function (l) { return l.validee && aSuiviSaLigne(l, consigne); }),
-      faites: couvertes.map(function (l) { return { charge: l.faite ? l.faite.charge : null, reps: l.faite ? l.faite.reps : null }; })
-    };
+    return { montee: montee };
   }
 
   // `reference` : le début de la séance du jour — le constat dit « mardi »
@@ -341,8 +337,116 @@
     return { donc: muet ? null : donc, lignes: muet ? [] : lignesDeLaFeuille(lignes) };
   }
 
+  // ── L'ÉTAPE DES CHAUFFES ET DE LA DÉGRESSIVE (MOTEUR §9.15, 49-U10) ──────
+  //
+  // « La routine (ou l'utilisateur) décide combien de chauffes et de
+  // dégressives, et leurs reps ; le coach en calcule la charge. » Les lignes
+  // restent HORS de la couverture (`hors`) : ni pari, ni réaction, ni
+  // stagnation (§9.15.4). Elles gagnent seulement :
+  //   · une ligne de chauffe : `chauffe: { charge }` — la charge de la table,
+  //     `null` pour une ligne en trop — et, non validée et remplie, son
+  //     fantôme (`source: 'chauffe'`) ;
+  //   · la première ligne dégressive après la dernière série de travail :
+  //     `degressive: { charge, vise, repos, phrase }`, et son fantôme ; À LA
+  //     BARRE, un fantôme de charge VIDE — « la ligne reste vide ».
+  //
+  // `materiel` : `{ equipement, sol, deja_sollicite, pas, refus }`, lu au
+  // catalogue par `planDeSeance` ; `null` (exercice hors catalogue) : l'étape
+  // se tait. La RÉFÉRENCE des chauffes est la charge de la consigne FIGÉE (la
+  // ligne, pas le test) : une montée en séance ne change aucune chauffe.
+  var MATERIELS_DE_CHAUFFE = ['barre', 'machine', 'machine_smith', 'poulie', 'haltere'];
+
+  function chauffesEtDegressive(lignes, series, consigne, materiel) {
+    var sortie = { chauffes: null, proposition: null, degressive: null };
+    if (!materiel) return sortie;
+    var M = Moteur(), S = Seance();
+    var liste = series || [];
+
+    // La table ne connaît que la barre, la machine (Smith comprise), la poulie
+    // et les haltères (§9.15.1) : élastique, disque, kettlebell, rien — pas de
+    // chauffe calculée. La dégressive, elle, vaut pour tout ce qui n'est pas
+    // une barre.
+    var reference = consigne && consigne.etat !== 'silence' && MATERIELS_DE_CHAUFFE.indexOf(materiel.equipement) >= 0
+      ? chargeDeTravail(consigne) : null;
+    if (reference !== null) {
+      var deChauffe = lignes.filter(function (l) { return l.type === 'echauffement'; });
+      var entree = {
+        equipement: materiel.equipement, reference: reference,
+        deja_sollicite: !!materiel.deja_sollicite, sol: !!materiel.sol, cran: materiel.pas,
+        routine: deChauffe.length ? deChauffe.map(function (l) {
+          var v = nombre(liste[l.iSerie] && liste[l.iSerie].reps_visees);
+          return v;
+        }) : null
+      };
+      var r = M.chauffesDe(entree);
+      if (deChauffe.length) {
+        deChauffe.forEach(function (l, k) {
+          var c = r.lignes[k] ? r.lignes[k].charge : null;
+          l.chauffe = { charge: c };
+          if (c !== null && !l.validee) l.fantome = { charge: c, reps: null, source: 'chauffe' };
+        });
+        sortie.chauffes = {
+          situation: r.situation, reference: reference, phrase: r.phrase,
+          non_remplies: r.non_remplies, prevues: M.TABLE_CHAUFFES[r.situation].length,
+          iSerie: deChauffe[0].iSerie
+        };
+      } else if (r.proposition.length && !materiel.refus &&
+                 !lignes.some(function (l) { return l.validee; })) {
+        // §9.15.2 — aucune ligne de chauffe : une PROPOSITION, jamais des
+        // séries insérées d'office. Tant qu'aucune série de l'exercice n'est
+        // faite : après, la montée n'a plus d'objet.
+        sortie.proposition = { situation: r.situation, reference: reference,
+                               lignes: r.proposition, phrase: r.phrase_proposition };
+      }
+    }
+
+    // §9.15.3 — LA DÉGRESSIVE : la première ligne dégressive qui suit la
+    // dernière série de travail. Sa référence : cette série, faite (sa charge
+    // et ses reps) ou à faire (la charge et la visée de sa ligne).
+    var derniere = -1;
+    lignes.forEach(function (l, i) { if (l.type === 'travail') derniere = i; });
+    if (derniere < 0) return sortie;
+    var deg = null;
+    for (var i = derniere + 1; i < lignes.length; i++) {
+      if (lignes[i].type === 'degressive') { deg = lignes[i]; break; }
+    }
+    if (!deg) return sortie;
+    var t = lignes[derniere];
+    var sr = liste[t.iSerie] || {};
+    var charge, reps;
+    if (t.validee) {
+      charge = nombre(sr.charge_kg);
+      reps = nombre(sr.reps);
+    } else {
+      charge = t.fantome ? nombre(t.fantome.charge) : nombre(t.charge);
+      if (charge === null) charge = nombre(sr.charge_kg);
+      reps = nombre(t.vise);
+      if (reps === null) reps = nombre(sr.reps_visees);
+    }
+    if (charge === null && materiel.equipement !== 'barre') return sortie;
+    var d = M.degressiveDe({ equipement: materiel.equipement, derniere_serie: charge,
+                             reps_travail: reps, cran: materiel.pas });
+    deg.degressive = { charge: d.charge, vise: d.vise || null,
+                       repos: d.repos === undefined ? null : d.repos, phrase: d.phrase };
+    if (!deg.validee) deg.fantome = { charge: d.charge, reps: null, source: 'degressive' };
+    sortie.degressive = { iSerie: deg.iSerie, apres: t.iSerie, reference: charge,
+                          charge: d.charge, repos: deg.degressive.repos, phrase: d.phrase };
+    return sortie;
+  }
+
+  // La feuille « Pourquoi » (§9.15.1) : une routine qui prévoit plus de
+  // chauffes que la table — les lignes en trop ne sont pas remplies, et la
+  // feuille le dit.
+  function noteDesChauffes(ch) {
+    if (!ch || !ch.non_remplies) return null;
+    var n = ch.non_remplies;
+    return 'Ta routine prévoit ' + nombreFr(ch.prevues + n) + ' chauffes ; le coach en calcule ' +
+      nombreFr(ch.prevues) + (n > 1 ? ' : les ' + nombreFr(n) + ' dernières restent à remplir.'
+                                  : ' : la dernière reste à remplir.');
+  }
+
   // ── LE PLAN D'UN EXERCICE ───────────────────────────────────────────────
-  function planDExercice(exo, iExo, consigneDuSlug, paris, seanceId, reglage, suite, debut) {
+  function planDExercice(exo, iExo, consigneDuSlug, paris, seanceId, reglage, suite, debut, materiel) {
     var S = Seance(), M = Moteur();
     var series = (exo && exo.series) || [];
     var c = consigneDuSlug && consigneDuSlug.consigne ? consigneDuSlug : null;
@@ -351,6 +455,13 @@
       base.lignes = series.map(function (s, i) {
         return { iSerie: i, type: S.typeDe(s), role: 'hors', validee: S.partEnBase(s) };
       });
+      // §9.15 — sans consigne, pas de chauffe (pas de référence) ; la
+      // dégressive se cale sur la dernière série de travail faite.
+      var sans = chauffesEtDegressive(base.lignes, series, null, materiel || null);
+      base.materiel = materiel ? materiel.equipement || null : null;
+      base.chauffes = null;
+      base.proposition = null;
+      base.degressive = sans.degressive;
       return base;
     }
     // La consigne figée (§9.9, delta 49-13) : c'est elle que lisent les lignes
@@ -373,6 +484,10 @@
     var entete = M.enteteDeDisposition(consigne, disposition);
     var gris = c.libelles ? c.libelles.gris : '';
     var donc = entete.jaune.length ? 'Donc ' + entete.jaune.join(', ') + '.' : null;
+    var autour = chauffesEtDegressive(r.lignes, series, consigne, materiel || null);
+    var pourquoi = pourquoiDuPlan(consigne, r.lignes, donc);
+    var note = noteDesChauffes(autour.chauffes);
+    if (pourquoi && note) pourquoi.chauffes = note;
 
     return {
       iExo: iExo, slug: base.slug,
@@ -383,7 +498,9 @@
       constat: constatDuPlan(r.lignes, consigne, suite, reglage, debut),
       entete: { jaune: entete.jaune, gris: gris, segments: entete.segments },
       donc: donc,
-      pourquoi: pourquoiDuPlan(consigne, r.lignes, donc)
+      pourquoi: pourquoi,
+      materiel: materiel ? materiel.equipement || null : null,
+      chauffes: autour.chauffes, proposition: autour.proposition, degressive: autour.degressive
     };
   }
 
@@ -409,6 +526,67 @@
     return intention === 'entretien' ? SERIES_DEPART_ENTRETIEN : SERIES_DEPART_PROGRESSER;
   }
 
+  // §9.15 (49-U10) — ce que l'étape des chauffes lit du catalogue.
+  //
+  // « PREMIER SUR SES MUSCLES » : aucun exercice PLACÉ AVANT lui dans la séance
+  // (l'ordre de la séance, fait ou non) n'a un muscle PRIMAIRE en commun avec
+  // les siens (catalogue, `muscles_primaires`). Les muscles secondaires ne
+  // comptent pas. « SOULEVÉ AU SOL » : `Moteur.SOULEVES_AU_SOL` — le
+  // conventionnel, le sumo, la barre hexagonale ; pas le roumain.
+  function materielDe(exos, i, catalogue, consigneDuSlug, refus) {
+    var slug = exos[i] && exos[i].exercise_slug;
+    var cat = catalogue && slug && Object.prototype.hasOwnProperty.call(catalogue, slug) ? catalogue[slug] : null;
+    // Sans matériel au catalogue, on ne devine pas : l'étape se tait.
+    if (!cat || !cat.equipement) return null;
+    var miens = cat.muscles_primaires || [];
+    var deja = false;
+    for (var k = 0; k < i && !deja; k++) {
+      var autre = exos[k] && catalogue[exos[k].exercise_slug];
+      var siens = (autre && autre.muscles_primaires) || [];
+      deja = siens.some(function (m) { return miens.indexOf(m) >= 0; });
+    }
+    var pas = consigneDuSlug ? nombre(consigneDuSlug.pas) : null;
+    return {
+      equipement: cat.equipement || null,
+      sol: Moteur().SOULEVES_AU_SOL.indexOf(slug) >= 0,
+      deja_sollicite: deja,
+      pas: pas,
+      refus: !!(refus && refus[slug])
+    };
+  }
+
+  // §9.15.2 (49-U10) — LA MÉMOIRE DES « NON MERCI », en fonctions pures : l'app
+  // la garde sur l'appareil (`localStorage`, `th-v2-refus-chauffes`), jamais en
+  // base. `memoire` : `{ [slug]: { n, seance } }` — `n` les refus d'affilée,
+  // un par séance au plus ; `seance` celle du dernier. Rend toujours un objet
+  // NEUF : l'app s'en sert comme clé de son mémo.
+  var REFUS_DEFINITIFS = 3;
+
+  function refuserChauffes(memoire, slug, seanceId) {
+    var r = Object.assign({}, memoire || {});
+    var x = r[slug] || { n: 0, seance: null };
+    r[slug] = x.seance === seanceId ? x : { n: (Number(x.n) || 0) + 1, seance: seanceId };
+    return r;
+  }
+
+  // « Ajouter » : le compte repart de zéro.
+  function accepterChauffes(memoire, slug) {
+    var r = Object.assign({}, memoire || {});
+    delete r[slug];
+    return r;
+  }
+
+  // L'entrée du plan : `{ [slug]: true }` — refusée dans CETTE séance, ou
+  // trois fois d'affilée.
+  function refusChauffesDe(memoire, seanceId) {
+    var sortie = {};
+    Object.keys(memoire || {}).forEach(function (slug) {
+      var x = memoire[slug] || {};
+      if (x.seance === seanceId || Number(x.n) >= REFUS_DEFINITIFS) sortie[slug] = true;
+    });
+    return sortie;
+  }
+
   // ══ LE PLAN DE SÉANCE ═══════════════════════════════════════════════════
   //
   // `entrees` :
@@ -424,7 +602,11 @@
   //     pari (§9.11) ;
   //   · `suites` — `{ [slug]: { consigne, cranSuivant } }`, la consigne de la
   //     PROCHAINE séance (`Moteur.suiteDExercice`), donnée par l'app quand les
-  //     séries de travail de l'exercice sont faites : le constat en a besoin.
+  //     séries de travail de l'exercice sont faites : le constat en a besoin ;
+  //   · `catalogue` — `{ [slug]: { equipement, muscles_primaires } }`, les
+  //     exercices de la séance lus au catalogue (§9.15, 49-U10) ;
+  //   · `refusChauffes` — `{ [slug]: true }` : la proposition de chauffes est
+  //     retirée (« Non merci » dans la séance, ou trois refus d'affilée).
   //
   // Pure : mêmes entrées, même plan ; les entrées ne sont jamais modifiées.
   function planDeSeance(entrees) {
@@ -439,7 +621,8 @@
         var c = Object.prototype.hasOwnProperty.call(consignes, slug) ? consignes[slug] : null;
         var suites = e.suites || {};
         var suite = Object.prototype.hasOwnProperty.call(suites, slug) ? suites[slug] : null;
-        return planDExercice(exo, i, c, e.paris || [], seance.id, e.reglage, suite, seance.debut);
+        return planDExercice(exo, i, c, e.paris || [], seance.id, e.reglage, suite, seance.debut,
+          materielDe(exos, i, e.catalogue || null, c, e.refusChauffes || {}));
       })
     };
   }
@@ -474,6 +657,56 @@
   // Le rôle qu'un pari écrit, pour le rôle d'une ligne du plan.
   var ROLE_DU_PARI = { ligne: 'ligne', test: 'haut', coach: 'coach', retour: 'retour' };
 
+  // I16, I17 (MOTEUR §9.15.4, 49-U10) — les chauffes et la dégressive.
+  //
+  // I16 : les charges de chauffe que le coach remplit montent (la barre vide
+  // peut se répéter), toutes SOUS la référence — sauf la barre vide, qui ne
+  // descend jamais (§9.15.1 : « jamais sous la barre vide » l'emporte) ; la
+  // proposition, dont le coach décide aussi les reps, a des reps qui ne
+  // montent pas. Les reps des lignes sont celles de la routine : pas au coach.
+  // I17 : la dégressive est sous la dernière série de travail, et jamais
+  // remplie à la barre. Le fantôme d'une ligne non validée porte la charge
+  // décidée — c'est ce qui s'écrit à la validation.
+  function verifierAutour(x, err) {
+    var lignes = x.lignes || [];
+    var barre = x.materiel === 'barre';
+    var ch = x.chauffes;
+    var sousRef = function (c, ref) {
+      return (c < ref && !memeCharge(c, ref)) || (barre && memeCharge(c, 20));
+    };
+    if (ch) {
+      var avant = null;
+      lignes.forEach(function (l) {
+        if (!l.chauffe || l.chauffe.charge === null) return;
+        var c = nombre(l.chauffe.charge);
+        if (!sousRef(c, ch.reference)) err('I16', 'chauffe ' + c + ' pas sous la référence ' + ch.reference + ' (série ' + l.iSerie + ')');
+        if (avant !== null && c < avant && !memeCharge(c, avant)) err('I16', 'chauffe ' + c + ' après ' + avant + ' : la montée redescend (série ' + l.iSerie + ')');
+        if (!l.validee && (!l.fantome || !memeCharge(l.fantome.charge, c))) err('I16', 'la chauffe de la série ' + l.iSerie + ' n’est pas dans son fantôme');
+        avant = c;
+      });
+    }
+    if (x.proposition) {
+      var pa = null, pr = null;
+      x.proposition.lignes.forEach(function (q) {
+        if (!sousRef(q[0], x.proposition.reference)) err('I16', 'chauffe proposée ' + q[0] + ' pas sous la référence ' + x.proposition.reference);
+        if (pa !== null && q[0] < pa) err('I16', 'chauffe proposée ' + q[0] + ' après ' + pa);
+        if (pr !== null && q[1] > pr) err('I16', 'reps proposées ' + q[1] + ' après ' + pr + ' : elles montent');
+        pa = q[0]; pr = q[1];
+      });
+      if (lignes.some(function (l) { return l.type === 'echauffement'; })) err('I16', 'une proposition de chauffes alors que l’exercice en a');
+    }
+    var d = x.degressive;
+    if (d) {
+      var l = lignes[d.iSerie] || {};
+      if (barre && d.charge !== null) err('I17', 'une dégressive remplie à la barre (' + d.charge + ')');
+      if (barre && !l.validee && l.fantome && l.fantome.charge !== null) err('I17', 'la dégressive à la barre a un fantôme de charge (' + l.fantome.charge + ')');
+      if (d.charge !== null && !(d.charge < d.reference && !memeCharge(d.charge, d.reference))) {
+        err('I17', 'dégressive ' + d.charge + ' pas sous la dernière série de travail ' + d.reference);
+      }
+      if (!l.validee && (!l.fantome || !memeCharge(l.fantome.charge, d.charge))) err('I17', 'la dégressive n’est pas dans son fantôme');
+    }
+  }
+
   // `avantX` (facultatif) : le même exercice dans le plan d'avant (I7, G2).
   function verifierExercice(x, erreurs, parisSeance, avantX) {
     var nom = 'exercice ' + x.iExo + ' (' + x.slug + ')';
@@ -484,7 +717,11 @@
     lignes.forEach(function (l) {
       if (!ROLES[l.role]) err('I1', 'série ' + l.iSerie + ' sans rôle valide (' + l.role + ')');
       if (l.role !== 'hors' && l.type !== 'travail') err('I1', 'série ' + l.iSerie + ' couverte mais de type ' + l.type);
+      // Une ligne hors couverture (chauffe, dégressive, échec) n'a jamais de
+      // pari (§9.15.4).
+      if (l.role === 'hors' && x.paris && x.paris[l.iSerie]) err('I1', 'série ' + l.iSerie + ' hors couverture, avec un pari');
     });
+    verifierAutour(x, err);
     if (!x.consigne) {
       lignes.forEach(function (l) {
         if (l.role !== 'hors') err('I1', 'série ' + l.iSerie + ' couverte sans consigne');
@@ -979,6 +1216,10 @@
     creerGarde: creerGarde,
     seriesDites: seriesDites,
     seriesDeDepart: seriesDeDepart,
+    REFUS_DEFINITIFS: REFUS_DEFINITIFS,
+    refuserChauffes: refuserChauffes,
+    accepterChauffes: accepterChauffes,
+    refusChauffesDe: refusChauffesDe,
     SERIES_DEPART_PROGRESSER: SERIES_DEPART_PROGRESSER,
     SERIES_DEPART_ENTRETIEN: SERIES_DEPART_ENTRETIEN,
     // Le dernier plan calculé par l'app, et ses entrées : le banc le lit pour

@@ -143,7 +143,15 @@ const CATALOGUE = [
   { slug: 'dci-halteres', nom: 'Développé Couché Incliné (Haltères)', mesure: 'charge_reps', charge: 'externe', equipement: 'haltere', muscles_primaires: ['pectoraux'], muscles_secondaires: [] },
   { slug: 'haussement-barre', nom: 'Haussement d’Épaules (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['trapezes'], muscles_secondaires: [] },
   // 49-U8 — réservé à la section 7 G quinquies (une séance sans charge répétée).
-  { slug: 'rowing-pendlay', nom: 'Rowing Pendlay (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['dorsaux'], muscles_secondaires: [] }
+  { slug: 'rowing-pendlay', nom: 'Rowing Pendlay (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['dorsaux'], muscles_secondaires: [] },
+  // 49-U10 — réservés à la section 7 G septies (les chauffes et la dégressive,
+  // MOTEUR §9.15). Leurs noms ne répondent à aucune des recherches faites
+  // ailleurs ; aucun muscle primaire en commun entre eux : chacun est « premier
+  // sur ses muscles ».
+  { slug: 'bench-u10', nom: 'Bench U10 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['pectoraux'], muscles_secondaires: [] },
+  { slug: 'quadri-u10', nom: 'Quadri U10 (Machine)', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['quadriceps'], muscles_secondaires: [] },
+  { slug: 'biceps-u10', nom: 'Biceps U10 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['biceps'], muscles_secondaires: [] },
+  { slug: 'militaire-u10', nom: 'Militaire U10 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['epaules'], muscles_secondaires: [] }
 ];
 
 // ⚠️ UNE ROUTINE PORTE MAINTENANT SES LIGNES (chantier 43). `routine_sets`
@@ -8071,6 +8079,156 @@ const SETS_IMPORTES = [
     await abandonner();
     page.off('console', ecouter);
     ok('[RE] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
+  }
+
+  console.log('\n══ 7 G septies. LES CHAUFFES ET LA DÉGRESSIVE, CALCULÉES PAR LE COACH (49-U10, MOTEUR §9.15) ══');
+  //
+  // ⚠️ CONFIGURATIONS DISCRIMINANTES.
+  //   · Une routine avec des chauffes SANS charge (10-6-3-1) sur une barre à
+  //     125 : avant, la ligne recopiait la fois d'avant ou restait vide ;
+  //     maintenant 20 · 60 · 90 · 110, calées sur la consigne.
+  //   · Une machine avec une dégressive après la dernière série de travail :
+  //     −22,5 % au cran inférieur, et AUCUN repos entre les deux.
+  //   · Une barre avec une dégressive : la ligne reste VIDE.
+  //   · Un exercice ajouté hors routine, à la barre, sans chauffe : une
+  //     proposition, « Non merci » (la séance), puis « Ajouter » (une autre).
+  {
+    const tU = Date.now();
+    const poserU = (id, jours, exos) => {
+      const debut = ilYa(jours * 86400000, tU).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'U10 — ' + id, debut,
+        fin: finDe(debut, tU).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      let rang = 0;
+      exos.forEach(([slug, kg, reps, n]) => {
+        for (let i = 0; i < n; i++) {
+          rang++;
+          base.sets.push({ id: id + '-s' + rang, session_id: id, user_id: 'u-banc', exercise_slug: slug,
+            charge_kg: kg, reps, duree_s: null, distance_m: null, type_serie: 'travail',
+            rang, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null,
+            repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null });
+        }
+      });
+    };
+    [21, 14, 7].forEach((j) => poserU('u10-' + j, j, [['bench-u10', 125, 5, 3], ['quadri-u10', 60, 15, 2],
+      ['biceps-u10', 40, 12, 2], ['militaire-u10', 80, 5, 3]]));
+    const lignesU = (types) => types.map(([t, reps], i) => ({ id: 'u10-l' + (++grainePr), rang: i + 1,
+      type_serie: t, reps_visees: reps, charge_cible_kg: null, duree_cible_s: null, distance_cible_m: null }));
+    ROUTINES.push({ id: 'r-u10', nom: 'Chauffes U10', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [
+        { id: 'r-u10-a', routine_id: 'r-u10', exercise_slug: 'bench-u10', rang: 0,
+          routine_sets: lignesU([['echauffement', 10], ['echauffement', 6], ['echauffement', 3], ['echauffement', 1],
+            ['travail', 5], ['travail', 5], ['travail', 5]]), repos_cible_s: 180, groupe_superset: null, note: null },
+        { id: 'r-u10-b', routine_id: 'r-u10', exercise_slug: 'quadri-u10', rang: 1,
+          routine_sets: lignesU([['travail', 15], ['travail', 15], ['degressive', null]]),
+          repos_cible_s: 90, groupe_superset: null, note: null },
+        { id: 'r-u10-c', routine_id: 'r-u10', exercise_slug: 'biceps-u10', rang: 2,
+          routine_sets: lignesU([['travail', 12], ['travail', 12], ['degressive', null]]),
+          repos_cible_s: 90, groupe_superset: null, note: null }] });
+    const esp = (t) => String(t || '').replace(/[  ]/g, ' ');
+    const fantomesU = () => page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie'))
+      .map((l) => (l.querySelector('.ch-serie input') || {}).placeholder || ''));
+    const phrasesU = (cls) => page.evaluate((c) => Array.from(document.querySelectorAll('.reaction-serie.' + c))
+      .map((e) => e.textContent), cls);
+    const reposVisible = () => page.evaluate(() => !document.getElementById('repos').hidden);
+    // La proposition d'UN exercice (par son indice) : le biceps à la barre de
+    // la routine, sans chauffe, a aussi la sienne (20 kg × 10 · 35 kg × 2).
+    const propositionU = (iExo) => page.evaluate((i) => {
+      const p = document.querySelector('.proposition-chauffes[data-iexo="' + i + '"] .pc-texte');
+      return p ? p.textContent : null;
+    }, iExo);
+    const planU = (slug) => page.evaluate((sl) => {
+      const d = window.THPlan && window.THPlan.dernier;
+      const x = d && d.plan.exercices.filter((e) => e.slug === sl)[0];
+      return x ? { reference: x.chauffes && x.chauffes.reference, degressive: x.degressive,
+                   paris: (x.paris || []).map((q, i) => (q ? x.lignes[i].type : null)).filter(Boolean) } : null;
+    }, slug);
+    const violationsAvant = gardeBanc.violations;
+
+    await aller('/saisie');
+    await demarrerRoutine('Chauffes U10');
+    await attendre(900);
+    let f = await fantomesU();
+    const pb = await planU('bench-u10');
+    ok('[U10] la référence des chauffes est la ligne de la consigne : 125', pb && pb.reference === 125, JSON.stringify(pb));
+    ok('[U10] DISCRIMINANT — les chauffes de la routine, remplies d’office : 20 · 60 · 90 · 110 (avant : vides)',
+      JSON.stringify(f.slice(0, 4)) === JSON.stringify(['20', '60', '90', '110']), JSON.stringify(f.slice(0, 7)));
+    ok('[U10] la phrase des chauffes, au-dessus de la première',
+      esp((await phrasesU('chauffe'))[0]) === 'Chauffes calées sur 125 kg : 20 · 60 · 90 · 110 kg.', esp(JSON.stringify(await phrasesU('chauffe'))));
+    ok('[U10] aucun pari sur une chauffe ni une dégressive', pb && pb.paris.every((t) => t === 'travail'), JSON.stringify(pb && pb.paris));
+
+    // Valider une chauffe SANS RIEN TAPER : sa charge s'écrit (ce qui est gris devient réel).
+    await page.evaluate(() => document.querySelectorAll('.ligne-serie')[1].querySelector('.ok-serie').click());
+    await attendre(900);
+    const chauffeEcrite = base.sets.filter((x) => x.exercise_slug === 'bench-u10' && x.type_serie === 'echauffement' &&
+      DECORS.indexOf(x.session_id) < 0 && !/^u10-/.test(x.session_id));
+    ok('[U10] une chauffe validée à vide s’écrit à 60 kg, typée échauffement',
+      chauffeEcrite.some((x) => Number(x.charge_kg) === 60), JSON.stringify(chauffeEcrite.map((x) => [x.charge_kg, x.reps])));
+
+    // La machine : deux séries de travail, puis la dégressive.
+    ok('[U10] DISCRIMINANT — la dégressive de la machine : 45 kg (60 − 22,5 %, au cran inférieur)', f[9] === '45', JSON.stringify(f.slice(7, 10)));
+    ok('[U10] la routine sans chauffe du biceps à la barre (40 kg) : une proposition aussi',
+      esp(await propositionU(2)) === 'Chauffe : 20 kg × 10 · 35 kg × 2', esp(await propositionU(2)));
+    await saisirSerie(7, 60, 15);
+    await attendre(500);
+    ok('[U10] après la première série de travail, le repos tourne', await reposVisible(), '');
+    await saisirSerie(8, 60, 15);
+    await attendre(500);
+    ok('[U10] DISCRIMINANT — après la dernière série de travail, PAS de repos avant la dégressive', !(await reposVisible()),
+      esp(await texte('#repos')));
+    // La visée : la moitié des reps de la dernière série de travail FAITE (15).
+    ok('[U10] la phrase de la dégressive',
+      esp((await phrasesU('degressive'))[0]) === 'Dégressive : 45 kg, sans repos, jusqu\'à l\'échec. Vise 6 à 8.',
+      esp(JSON.stringify(await phrasesU('degressive'))));
+    await page.evaluate(() => document.querySelectorAll('.ligne-serie')[9].querySelector('.ok-serie').click());
+    await attendre(1200);
+    const deg = base.sets.filter((x) => x.exercise_slug === 'quadri-u10' && x.type_serie === 'degressive' && !/^u10-/.test(x.session_id));
+    ok('[U10] la dégressive validée à vide s’écrit à 45 kg', deg.some((x) => Number(x.charge_kg) === 45),
+      JSON.stringify(deg.map((x) => [x.charge_kg, x.reps])));
+    ok('[U10] la dégressive faite relance le repos (la suite n’est plus une dégressive)', await reposVisible(), '');
+
+    // La barre : la dégressive reste vide.
+    f = await fantomesU();
+    ok('[U10] DISCRIMINANT — à la barre, la dégressive reste vide', f[12] === '', JSON.stringify(f.slice(10, 13)));
+    ok('[U10] et le coach le dit', (await phrasesU('degressive')).map(esp).indexOf('Pas de dégressive à la barre.') >= 0,
+      esp(JSON.stringify(await phrasesU('degressive'))));
+
+    // Un exercice ajouté hors routine, à la barre, sans chauffe : la proposition.
+    await ajouterExoSeance('Militaire U10');
+    const prop1 = await propositionU(3);
+    ok('[U10] DISCRIMINANT — ajouté sans chauffe : le coach PROPOSE la montée (80 kg : 20 · 40 · 55 · 70)',
+      esp(prop1) === 'Chauffe : 20 kg × 10 · 40 kg × 6 · 55 kg × 3 · 70 kg × 1', esp(prop1));
+    const nAvant = await compter('.ligne-serie');
+    await page.click('.proposition-chauffes[data-iexo="3"] .pc-refuser');
+    await attendre(700);
+    ok('[U10] « Non merci » : la proposition disparaît, aucune série insérée',
+      (await propositionU(3)) === null && (await compter('.ligne-serie')) === nAvant, String(await compter('.ligne-serie')));
+    const memoire1 = await page.evaluate(() => localStorage.getItem('th-v2-refus-chauffes'));
+    ok('[U10] la mémoire du refus vit sur l’appareil (localStorage), un refus', /"militaire-u10":\{"n":1/.test(memoire1 || ''), memoire1);
+    await abandonner();
+
+    // Une AUTRE séance : un seul refus, la proposition revient ; « Ajouter ».
+    await aller('/saisie');
+    await demarrerRoutine('Chauffes U10');
+    await attendre(900);
+    await ajouterExoSeance('Militaire U10');
+    ok('[U10] une autre séance : la proposition revient (un refus seulement)', (await propositionU(3)) !== null, '');
+    const avantAjout = await compter('.ligne-serie');
+    await page.click('.proposition-chauffes[data-iexo="3"] .pc-ajouter');
+    await attendre(900);
+    f = await fantomesU();
+    ok('[U10] « Ajouter » : quatre lignes au-dessus du travail, remplies 20 · 40 · 55 · 70',
+      (await compter('.ligne-serie')) === avantAjout + 4 && JSON.stringify(f.slice(13, 17)) === JSON.stringify(['20', '40', '55', '70']),
+      JSON.stringify(f.slice(13)));
+    ok('[U10] et la proposition disparaît', (await propositionU(3)) === null, '');
+    const memoire2 = await page.evaluate(() => localStorage.getItem('th-v2-refus-chauffes'));
+    ok('[U10] « Ajouter » remet le compte à zéro', !/militaire-u10/.test(memoire2 || ''), memoire2);
+    ok('[U10] la garde (C6) n’a rien signalé dans cette section', gardeBanc.violations === violationsAvant,
+      JSON.stringify(gardeBanc.liste.slice(-2)));
+    await abandonner();
+    await aller('/saisie');
+    ok('[U10] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
 
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');

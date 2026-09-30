@@ -182,10 +182,13 @@ describe('49-U4 — I10 (c) : une séance menée par le coach n’est jamais « 
     expect(M.constatDe(C, apres, 'normal', null).verdict).toBeNull();
   });
 
-  test('⚠️ DISCRIMINANT — le constat dit que le coach a mené les charges, pas « Pas de palier »', () => {
-    expect(x.constat.orchestre).toBe(true);
-    expect(x.constat.verdict.replace(/[\u00a0\u202f]/g, ' ')).toBe(
-      'Le coach a mené tes charges aujourd\'hui : 50 kg × 12, 52,5 kg × 11, 55 kg × 8.');
+  // ⚠️ 49-U10 — K-V11 RETIRÉ. « Le coach a mené tes charges aujourd'hui »
+  // remplaçait « Pas de palier », qui n'existe plus (49-U9) : la séance menée
+  // par le coach garde le verdict du constat (ici aucun), jamais « Pas de palier ».
+  test('une séance menée par le coach : ni « Pas de palier », ni verdict K-V11, et le plan passe ses invariants', () => {
+    expect(x.constat).not.toBeNull();
+    expect(x.constat.verdict).toBeNull();
+    expect('orchestre' in x.constat).toBe(false);
     expect(T.verifierPlan(T.planDeSeance(entrees), entrees).erreurs).toEqual([]);
   });
 
@@ -195,7 +198,6 @@ describe('49-U4 — I10 (c) : une séance menée par le coach n’est jamais « 
     const e2 = Object.assign({}, entrees, { seance: Object.assign({}, entrees.seance, { exercices: [{ exercise_slug: 'x', series: s2 }] }),
       paris: [paris[0], Object.assign({}, paris[1]), paris[2]], suites: { x: { consigne: a2, cranSuivant: null } } });
     const k = T.planDeSeance(e2).exercices[0].constat;
-    expect(k.orchestre).toBe(false);
     expect(k.montee).toBeNull();
   });
 });

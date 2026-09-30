@@ -7875,19 +7875,20 @@ const SETS_IMPORTES = [
     ok('[SP] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
 
-  console.log('\n══ 7 G sexies. UNE OBSERVATION ORPHELINE NE BLOQUE PLUS LA FILE (29/09/2026) ══');
+  console.log('\n══ 7 G sexies. LE DÉVERROUILLAGE EN PLEINE SÉANCE NE PERD PLUS RIEN (29-30/09/2026) ══');
   //
-  // La séance du 29/09, rejouée. Hors réseau, chaque validation se fait
-  // PENDANT une relecture de la file par la ré-entrée `SIGNED_IN → entrer()` :
-  // le SDK l'émet à chaque retour au premier plan (`visibilitychange`, qui
-  // REMONTE jusqu'à `window` — un événement qui ne remonte pas n'est pas vu, et
-  // le banc ne prouverait rien). La relecture est ralentie comme sur le
-  // téléphone, où elle suit la lecture de tout l'historique : un pari posé
-  // pendant qu'elle court est perdu, et son observation part seule (`TH000`).
+  // La séance du 29/09, rejouée. Hors réseau, chaque validation « armée » se
+  // fait juste après un retour au premier plan : le SDK émet alors `SIGNED_IN`
+  // (`visibilitychange`, qui REMONTE jusqu'à `window` — un événement qui ne
+  // remonte pas n'est pas vu, et le banc ne prouverait rien), et l'app
+  // ré-entre. Avant le 30/09, la ré-entrée relisait la file et la séance
+  // depuis le disque, et un pari posé pendant la lecture était perdu (2 sur 7
+  // au banc). Les lectures du disque sont RALENTIES comme sur le téléphone, et
+  // le clic tombe DEDANS s'il y en a une ; sinon, 300 ms après le retour.
   //
-  // ⚠️ CE COMMIT NE CORRIGE PAS LA PERTE (le second le fera) : il garantit
-  // que l'orpheline ne bloque plus rien. La séance suivante monte, et les
-  // observations des paris qui existent aussi.
+  // #336 (l'orpheline ne bloque plus la file) reste couvert par
+  // `v2-file-orpheline.test.js` : sans perte, ce rejeu ne produit plus
+  // d'orpheline.
   {
     const idSeanceO = () => (base.sessions.filter((x) => x.statut === 'en_cours')[0] || {}).id;
     const avertissements = [];
@@ -7897,26 +7898,43 @@ const SETS_IMPORTES = [
     await demarrerRoutine('Superset');
     await attendre(800);
     const sid = idSeanceO();
-    ok('[OR] prémisse : la séance est ouverte en base', !!sid, String(sid));
+    ok('[RE] prémisse : la séance est ouverte en base', !!sid, String(sid));
     base.reseau = false;
-    // La relecture ralentie, et le clic qui tombe dedans : posés dans la page,
-    // parce qu'un aller-retour du banc arriverait après la fenêtre.
+    // Les lectures du disque ralenties, le clic dedans, et le compte des
+    // `SIGNED_IN` (les ré-entrées).
     await page.evaluate(() => {
       const C = window.THCache;
-      C.__lireAttenteVrai = C.lireAttente;
-      C.lireAttente = function () {
+      window.__reentrees = 0;
+      C.__vrais = { lireAttente: C.lireAttente, lireBrouillon: C.lireBrouillon };
+      const cliquer = () => {
         const k = window.__cliquerALaRelecture;
-        const r = C.__lireAttenteVrai.apply(this, arguments);
-        if (k === undefined || k === null) return r;
+        if (k === undefined || k === null) return false;
         window.__cliquerALaRelecture = null;
+        clearTimeout(window.__repli);
         setTimeout(() => {
           const li = document.querySelectorAll('.ligne-serie')[k];
           if (li) li.querySelector('.ok-serie').click();
         }, 30);
+        return true;
+      };
+      window.__cliquer = cliquer;
+      const lente = (nom) => function () {
+        const r = C.__vrais[nom].apply(this, arguments);
+        if (nom === 'lireBrouillon' && arguments[0] !== 'seance') return r;
+        if (!cliquer()) return r;
         return r.then((v) => new Promise((ok) => setTimeout(() => ok(v), 1500)));
       };
+      C.lireAttente = lente('lireAttente');
+      C.lireBrouillon = lente('lireBrouillon');
+      // Le compte des ré-entrées : le même `SIGNED_IN` que reçoit l'app.
+      window.THClient.obtenir().auth.onAuthStateChange((evt) => {
+        if (evt === 'SIGNED_IN') window.__reentrees++;
+      });
     });
+    await attendre(300);
+    await page.evaluate(() => { window.__reentrees = 0; });
     const n = await compter('.ligne-serie');
+    let armees = 0;
     for (let i = 0; i < n; i++) {
       const l = await ligne(i);
       const ph = await l.$$eval('input', (x) => x.map((y) => y.placeholder));
@@ -7928,12 +7946,12 @@ const SETS_IMPORTES = [
           x[1].value = v[1]; x[1].dispatchEvent(new Event('input', { bubbles: true }));
         }, [String(c), String(r)]);
       }
-      // Une validation sur deux pendant la relecture, l'autre normalement :
-      // des paris perdus ET des paris qui existent, dont les observations
-      // doivent monter.
+      // Une validation sur deux après un déverrouillage, l'autre normalement.
       if (i % 2 === 0) {
+        armees++;
         await page.evaluate((k) => {
           window.__cliquerALaRelecture = k;
+          window.__repli = setTimeout(() => window.__cliquer(), 300);
           document.dispatchEvent(new Event('visibilitychange', { bubbles: true }));
         }, i);
         await attendre(4000);
@@ -7942,44 +7960,53 @@ const SETS_IMPORTES = [
         await attendre(1200);
       }
     }
-    await page.evaluate(() => { const C = window.THCache; C.lireAttente = C.__lireAttenteVrai; });
+    const reentrees = await page.evaluate(() => window.__reentrees);
+    await page.evaluate(() => { const C = window.THCache; C.lireAttente = C.__vrais.lireAttente; C.lireBrouillon = C.__vrais.lireBrouillon; });
+    ok('[RE] prémisse : l’app a ré-entré à chaque déverrouillage (SIGNED_IN reçu)',
+      reentrees >= armees, reentrees + ' ré-entrée(s) pour ' + armees + ' déverrouillage(s)');
+    const validees = await page.evaluate(() =>
+      document.querySelectorAll('.ligne-serie .ok-serie.cochee').length);
+    ok('[RE] prémisse : toutes les lignes sont validées à l’écran', validees === n, validees + ' / ' + n);
     const locaux = await page.evaluate((s) => window.THCache.lireTout('predictions')
       .then((l) => l.filter((x) => x && x.id && x.fondement && x.fondement.seance === s)), sid);
     // Hors réseau, rien n'est en base : un pari perdu est un pari de
-    // l'appareil qui n'a PLUS d'entrée dans la file.
+    // l'appareil qui n'a PAS d'entrée dans la file.
     const enFile = await page.evaluate(() => window.THCache.lireAttente()
       .then((f) => f.filter((e) => e.table === 'predictions').map((e) => e.id)));
     const horsFile = locaux.filter((x) => enFile.indexOf(x.id) < 0);
-    ok('[OR] prémisse : la ré-entrée a vraiment relu la file pendant les validations — un pari au moins est perdu, un au moins est gardé',
-      horsFile.length >= 1 && locaux.length - horsFile.length >= 1,
-      locaux.length + ' pari(s) sur l’appareil, ' + horsFile.length + ' sorti(s) de la file');
-    const perdus = () => locaux.filter((x) => !base.predictions.some((p) => p.id === x.id));
+    ok('[RE] DISCRIMINANT — hors réseau, chaque pari de l’appareil est dans la file (avant : 2 sur 7 perdus)',
+      locaux.length >= 4 && horsFile.length === 0,
+      locaux.length + ' pari(s) sur l’appareil, ' + horsFile.length + ' hors de la file : ' +
+      horsFile.map((x) => x.id.slice(0, 8)).join(','));
 
-    // Le réseau revient ; « Terminer » : le rattrapage repose les observations,
-    // dont celle du pari perdu.
+    // Le réseau revient ; « Terminer ».
     base.reseau = true;
     await page.evaluate(() => window.dispatchEvent(new Event('online')));
     await attendre(2500);
     await terminer();
     await jusqua(async () => (await page.evaluate(() => window.THCache.lireAttente())).length === 0, 8000);
     const fileO = await page.evaluate(() => window.THCache.lireAttente());
-    ok('[OR] DISCRIMINANT — la file se vide : l’orpheline est abandonnée, rien ne reste derrière elle',
-      fileO.length === 0, JSON.stringify(fileO.map((e) => e.cle + (e.attend ? ' (attend)' : '') + ' ×' + e.essais)));
-    ok('[OR] l’abandon laisse une trace dans la console',
-      avertissements.some((t) => /Observation orpheline abandonnée/.test(t)), JSON.stringify(avertissements.slice(-3)));
-    ok('[OR] le pari perdu reste perdu : on ne le recrée pas après coup (§9.11)',
-      perdus().length === horsFile.length && horsFile.every((x) => perdus().indexOf(x) >= 0),
-      perdus().map((x) => x.id.slice(0, 8)).join(',') + ' / sortis de la file : ' + horsFile.map((x) => x.id.slice(0, 8)).join(','));
+    ok('[RE] la file se vide', fileO.length === 0,
+      JSON.stringify(fileO.map((e) => e.cle + (e.attend ? ' (attend)' : '') + ' ×' + e.essais)));
+    ok('[RE] DISCRIMINANT — toutes les séries validées sont en base',
+      base.sets.filter((x) => x.session_id === sid).length === n,
+      base.sets.filter((x) => x.session_id === sid).length + ' / ' + n);
     const finaux = await page.evaluate((s) => window.THCache.lireTout('predictions')
       .then((l) => l.filter((x) => x && x.id && x.fondement && x.fondement.seance === s)), sid);
-    const observes = finaux.filter((x) => x.set_observe && base.predictions.some((p) => p.id === x.id));
-    const divergents = observes.filter((x) => {
+    const absents = finaux.filter((x) => !base.predictions.some((p) => p.id === x.id));
+    ok('[RE] DISCRIMINANT — tous les paris posés sont en base, sans en perdre un seul',
+      finaux.length >= 4 && absents.length === 0,
+      finaux.length + ' pari(s), ' + absents.length + ' absent(s) : ' + absents.map((x) => x.id.slice(0, 8)).join(','));
+    const divergents = finaux.filter((x) => {
       const p = base.predictions.filter((q) => q.id === x.id)[0];
-      return p.set_observe !== x.set_observe || p.valeur_observee !== x.valeur_observee;
+      return !p || p.set_observe !== x.set_observe || p.valeur_observee !== x.valeur_observee;
     });
-    ok('[OR] DISCRIMINANT — les observations des paris qui existent sont en base, identiques à l’appareil',
-      observes.length >= 1 && divergents.length === 0,
-      observes.length + ' observée(s), ' + divergents.length + ' divergente(s)');
+    ok('[RE] et leurs observations sont en base, identiques à l’appareil',
+      finaux.some((x) => x.set_observe) && divergents.length === 0,
+      divergents.length + ' divergente(s)');
+    ok('[RE] aucune observation orpheline à abandonner',
+      !avertissements.some((t) => /Observation orpheline abandonnée/.test(t)),
+      JSON.stringify(avertissements.filter((t) => /orpheline/.test(t)).slice(0, 2)));
 
     // La séance suivante, réseau présent : elle monte.
     await aller('/saisie');
@@ -7990,14 +8017,12 @@ const SETS_IMPORTES = [
     const ph0 = await l0.$$eval('input', (x) => x.map((y) => y.placeholder));
     await saisirSerie(0, Number(String(ph0[0]).replace(',', '.')) || 20, Number(ph0[1]) || 8);
     await attendre(2000);
-    ok('[OR] DISCRIMINANT — la séance suivante arrive en base, avec sa série',
+    ok('[RE] la séance suivante arrive en base, avec sa série',
       !!sid2 && sid2 !== sid && base.sets.some((x) => x.session_id === sid2),
       JSON.stringify({ sid2: sid2, series: base.sets.filter((x) => x.session_id === sid2).length }));
-    ok('[OR] et la file est vide', (await page.evaluate(() => window.THCache.lireAttente())).length === 0,
-      JSON.stringify((await page.evaluate(() => window.THCache.lireAttente())).map((e) => e.cle)));
     await abandonner();
     page.off('console', ecouter);
-    ok('[OR] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
+    ok('[RE] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
 
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');

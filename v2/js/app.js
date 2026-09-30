@@ -4482,11 +4482,42 @@
   // cache pourtant complet.
   var entreeEnCours = null;
 
+  // ⚠️ LA RÉ-ENTRÉE DU MÊME UTILISATEUR NE RELIT PLUS LE DISQUE (30/09/2026).
+  //
+  // Le SDK émet `SIGNED_IN` à CHAQUE retour au premier plan — chaque
+  // déverrouillage du téléphone, en pleine séance. L'entrée complète relisait
+  // alors la séance, la file et les paris depuis le disque, après un
+  // `chargerCache` de tout l'historique : ce qui était posé en mémoire pendant
+  // la lecture était écrasé par l'état d'avant. Séance du 29/09 : trois paris
+  // du coach perdus — posés une seule fois (`dejaNote`), ils ne revenaient
+  // jamais —, et une observation orpheline qui a bloqué la file (#336).
+  //
+  // Pour l'utilisateur DÉJÀ ENTRÉ, la mémoire est la vérité : on met à jour la
+  // session (le jeton), on synchronise, on vide la file. La première entrée,
+  // et celle d'un autre compte, restent complètes.
+  var entreeFaitePour = null;
+
+  function idDeSession(session) {
+    return (session && session.user && session.user.id) || null;
+  }
+
   function entrer(session) {
     if (entreeEnCours) return entreeEnCours;
-    entreeEnCours = entrerVraiment(session);
+    var uid = idDeSession(session);
+    entreeEnCours = uid && uid === entreeFaitePour ? reentrer(session) : entrerVraiment(session);
     entreeEnCours.catch(function () {}).then(function () { entreeEnCours = null; });
     return entreeEnCours;
+  }
+
+  async function reentrer(session) {
+    sessionActive = session;
+    await synchroniser();
+    vidanger();
+    rendreEtatSync();
+    // Comme à la fin de l'entrée complète : une synchronisation de fond ne
+    // reprend jamais la main sur un écran en cours d'édition.
+    if (!vues.detail.hidden || !vues.routine.hidden || !vues.seance.hidden) return;
+    rendreRoute(Routeur.analyser(racine.location.pathname));
   }
 
   async function entrerVraiment(session) {
@@ -4516,6 +4547,9 @@
     await reparerIdentifiantsManquants();
     await reparerFileHorsBornes();
     await reparerFileConflitsEnCours();
+    // La mémoire est chargée : désormais, pour ce compte, c'est elle qui fait
+    // foi (`entrer`).
+    entreeFaitePour = userId || null;
 
     // Ouverture immédiate sur ce qu'on a déjà, avant toute requête réseau.
     // On honore l'URL d'entrée : un rechargement direct sur /semaine/… ou
@@ -4603,6 +4637,8 @@
     // Avant toute chose : plus de session, donc plus aucune vue authentifiée
     // rendue — y compris par un retour qui atterrirait sur une ancienne entrée.
     sessionActive = null;
+    // La prochaine entrée, même du même compte, repart du disque (vidé).
+    entreeFaitePour = null;
     try { await Cache.viderTout(); } catch (e) { /* rien à garder de toute façon */ }
     local = { seances: [], series: [], exercices: [], pesees: [], zones: [],
               predictions: [], parSeance: null };
@@ -5566,6 +5602,7 @@
       if (session) { entrer(session); return; }
       if (Auth.sessionPersistee()) return;
       sessionActive = null;
+      entreeFaitePour = null;
       profil = null; datesExercices = null;
       allerA(Routeur.CONNEXION, {}, true);
       rendreEntree('connexion');

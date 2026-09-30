@@ -1614,14 +1614,35 @@
 
   function sauverConsignes() {
     if (!seance || !consignes) return;
-    consignesSauvees = { seanceId: seance.id, cle: consignes.cle, parSlug: consignes.parSlug };
+    consignesSauvees = { seanceId: seance.id, cle: consignes.cle, parSlug: consignes.parSlug,
+                         phase: phaseDeLaSeance() };
     Cache.ecrireBrouillon(CLE_CONSIGNES, consignesSauvees)
       .catch(function (e) { console.warn('Consignes non sauvées :', texteErreur(e)); });
   }
 
   async function oublierConsignes() {
     consignesSauvees = null;
+    phaseGelee = null;
     await Cache.ecrireBrouillon(CLE_CONSIGNES, null).catch(function () {});
+  }
+
+  // ── MOTEUR §9.16 (49-U11) — LA PHASE, GELÉE AVEC LA CONSIGNE ─────────────
+  //
+  // Lue UNE FOIS dans le profil (le cache, hors ligne compris), au moment où la
+  // consigne de la séance se fige, et gelée pour la séance : changer de phase
+  // dans Profil en pleine séance ne change ni la séance en cours ni ses paris
+  // suivants — elle vaut à partir de la séance suivante. Elle ne suit PAS la
+  // clé des consignes (un rythme changé recalcule la consigne, pas la phase) :
+  // elle ne dépend que de la séance. Elle survit au rechargement avec les
+  // consignes (`consignesSauvees.phase`). Jamais vide : `Profil.phaseDe`.
+  var phaseGelee = null;   // { seanceId, phase }
+
+  function phaseDeLaSeance() {
+    if (!seance) return null;
+    var sauvee = consignesSauvees && consignesSauvees.seanceId === seance.id
+      ? consignesSauvees.phase : null;
+    phaseGelee = Profil.phaseGelee(phaseGelee, seance.id, sauvee, profil);
+    return phaseGelee.phase;
   }
 
   function consigneDe(slug) {
@@ -1784,6 +1805,9 @@
     return {
       seance: { id: seance.id, debut: seance.debut, edition: edition, exercices: exos },
       consignes: cs,
+      // MOTEUR §9.16 — la phase GELÉE de la séance (lue après les consignes :
+      // elle se fige avec elles).
+      phase: phaseDeLaSeance(),
       catalogue: catalogue,
       refusChauffes: refusChauffesDe(seance.id),
       reglage: Profil.rythmeDe(profil),
@@ -5153,6 +5177,9 @@
         // ici, rien ne les exercerait (`rendreProfilEcran` n'est pas testable).
         // `null` en Entretenir, et `rendreProfil` saute les sections absentes.
         Profil.sectionRythme(p, ecrireProfil),
+        // MOTEUR §9.16 (49-U11) — « TA PHASE », à côté du rythme : le même
+        // sélecteur, la même écriture (`ecrireProfil`, par la file du profil).
+        Profil.sectionPhase(p, ecrireProfil),
         { titre: 'DEPUIS QUAND', lignes: [
           ligneChoix('anciennete', 'Entraînement régulier'),
           ligneChoix('niveau_declare', 'Niveau déclaré')

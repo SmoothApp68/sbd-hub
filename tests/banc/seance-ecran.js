@@ -151,7 +151,10 @@ const CATALOGUE = [
   { slug: 'bench-u10', nom: 'Bench U10 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['pectoraux'], muscles_secondaires: [] },
   { slug: 'quadri-u10', nom: 'Quadri U10 (Machine)', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['quadriceps'], muscles_secondaires: [] },
   { slug: 'biceps-u10', nom: 'Biceps U10 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['biceps'], muscles_secondaires: [] },
-  { slug: 'militaire-u10', nom: 'Militaire U10 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['epaules'], muscles_secondaires: [] }
+  { slug: 'militaire-u10', nom: 'Militaire U10 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['epaules'], muscles_secondaires: [] },
+  // 49-U11 — réservé à la section 7 G octies (la phase). Son nom ne répond à
+  // aucune des recherches faites ailleurs.
+  { slug: 'presse-u11', nom: 'Presse U11 (Machine)', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['quadriceps'], muscles_secondaires: [] }
 ];
 
 // ⚠️ UNE ROUTINE PORTE MAINTENANT SES LIGNES (chantier 43). `routine_sets`
@@ -8244,6 +8247,102 @@ const SETS_IMPORTES = [
     await abandonner();
     await aller('/saisie');
     ok('[U10] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
+  }
+
+  console.log('\n══ 7 G octies. LA PHASE, GELÉE POUR LA SÉANCE ET ENREGISTRÉE AVEC CHAQUE PARI (49-U11, MOTEUR §9.16) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : la phase CHANGÉE EN PLEINE SÉANCE. Une
+  // phase lue en direct et une phase gelée donnent les mêmes paris tant que
+  // personne ne touche au Profil ; seul le troisième pari, posé après le
+  // changement, les sépare. Puis la séance SUIVANTE, qui doit, elle, prendre
+  // la nouvelle phase.
+  {
+    const tF = Date.now();
+    [21, 14, 7].forEach((j) => {
+      const id = 'u11-' + j;
+      const debut = ilYa(j * 86400000, tF).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'U11 — ' + id, debut,
+        fin: finDe(debut, tF).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      [1, 2, 3].forEach((rang) => base.sets.push({ id: id + '-s' + rang, session_id: id, user_id: 'u-banc',
+        exercise_slug: 'presse-u11', charge_kg: 100, reps: 10, duree_s: null, distance_m: null,
+        type_serie: 'travail', rang, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null,
+        repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+    });
+    ROUTINES.push({ id: 'r-u11', nom: 'Phase U11', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-u11-e', routine_id: 'r-u11', exercise_slug: 'presse-u11', rang: 0,
+        routine_sets: progr(3, 10), repos_cible_s: 90, groupe_superset: null, note: null }] });
+    const esp = (t) => String(t || '').replace(/[  ]/g, ' ');
+    const phases = () => base.predictions.filter((q) => q.exercise_slug === 'presse-u11')
+      .map((q) => q.fondement && q.fondement.phase);
+    const parSeance = () => {
+      const m = {};
+      base.predictions.filter((q) => q.exercise_slug === 'presse-u11')
+        .forEach((q) => { const k = q.fondement.seance; (m[k] = m[k] || []).push(q.fondement.phase); });
+      return Object.keys(m).map((k) => m[k]);
+    };
+    const choisirPhase = async (cle) => {
+      await onglet('profil');
+      await page.click('.p-seg button[data-cle="' + cle + '"]');
+      await attendre(1200);
+    };
+    const violationsAvant = gardeBanc.violations;
+    const avantProfil = base.journal.length;
+
+    // 1. Profil : Sèche, et la date du jour sous le réglage.
+    await aller('/saisie');
+    await choisirPhase('seche');
+    const pied = esp(await texte('.p-pied'));
+    const aujourdHui = await page.evaluate(() => window.THModele.quand(new Date().toISOString()));
+    ok('[U11] Profil : Sèche est sélectionnée, sans attendre le serveur',
+      (await texte('.p-seg button.on[data-cle="seche"]')) === 'Sèche', esp(await texte('.p-seg.deux')));
+    ok('[U11] « Depuis le … » : la date de la déclaration', pied === esp('Depuis ' + aujourdHui), pied);
+    const envoi = base.journal.slice(avantProfil).filter((j) => j.op === 'profil').slice(-1)[0];
+    ok('[U11] `phase` et `phase_depuis` partent au serveur (par la file du profil)',
+      base.profiles[0].phase === 'seche' && !!base.profiles[0].phase_depuis &&
+      !!envoi && envoi.champs.phase === 'seche' && !!envoi.champs.phase_depuis,
+      JSON.stringify({ phase: base.profiles[0].phase, depuis: base.profiles[0].phase_depuis }));
+
+    // 2. Une séance, deux séries validées : deux paris à `seche`.
+    await onglet('saisie');
+    await demarrerRoutine('Phase U11');
+    await attendre(900);
+    await saisirSerie(0, 100, 10);
+    await saisirSerie(1, 100, 10);
+    await attendre(1500);
+    ok('[U11] deux paris posés, tous deux à `seche`', JSON.stringify(phases()) === '["seche","seche"]',
+      JSON.stringify(phases()));
+
+    // 3. En pleine séance, la phase change dans Profil.
+    await choisirPhase('maintien');
+    ok('[U11] le profil passe à « Maintien ou recomposition »', base.profiles[0].phase === 'maintien',
+      JSON.stringify(base.profiles[0].phase));
+    await onglet('saisie');
+    await attendre(600);
+    // 4. Une troisième série : son pari reste à `seche`.
+    await saisirSerie(2, 100, 10);
+    await attendre(1500);
+    ok('[U11] DISCRIMINANT — le troisième pari, posé après le changement, reste à `seche` (gelée pour la séance)',
+      JSON.stringify(phases()) === '["seche","seche","seche"]', JSON.stringify(phases()));
+    await terminer();
+
+    // 5. La séance SUIVANTE prend la nouvelle phase.
+    await aller('/saisie');
+    await demarrerRoutine('Phase U11');
+    await attendre(900);
+    await saisirSerie(0, 100, 10);
+    await attendre(1500);
+    const ps = parSeance();
+    ok('[U11] la séance suivante prend la nouvelle phase : `maintien`',
+      ps.length === 2 && JSON.stringify(ps.map((l) => l.join(','))) === '["seche,seche,seche","maintien"]',
+      JSON.stringify(ps));
+    await abandonner();
+    await choisirPhase('seche');
+    ok('[U11] la garde (C6) n’a rien signalé dans cette section (I18 compris)', gardeBanc.violations === violationsAvant,
+      JSON.stringify(gardeBanc.liste.slice(-2)));
+    await aller('/saisie');
+    ok('[U11] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
 
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');

@@ -1060,6 +1060,31 @@ Quand l'exercice a une ligne **dégressive** (routine ou saisie), **le coach en 
 
 **Mesure et confrontation.** *Chauffes* (cinq historiques, 6 518 séance-exercices) : notées à la barre dès 80 kg, premier exercice sur ses muscles, 59 fois sur 100 ; rampes notées sur barre lourde 50 → 73 % (deux chauffes), 43 → 67 → 83 % (trois), 20 → 53 → 75 → 88 % (quatre). La littérature trouve le meilleur effet quand la dernière chauffe atteint environ 80 % de la charge de travail (Ribeiro et al. 2020 : au squat, 80 % ; au couché, 40 puis 80 %) ; une ou deux chauffes à 40-60 % seules apportent peu ; les coachs montent en 3 ou 4 marches, reps décroissantes. *Dégressives* (aurel_br, 182 dégressives sur 31 exercices) : baisse médiane 38 %, 10 reps en médiane — plutôt une série plus légère de plus ; les méta-analyses (Sødal et al. 2023 ; 2026) trouvent la même hypertrophie et la même force qu'en séries classiques, en deux à trois fois moins de temps, avec des baisses de 20 à 25 %, sans repos, jusqu'à l'échec ; les coachs la placent sur la dernière série, sur machine ou poulie. **La science et la pratique des coachs passent avant l'habitude** (décidé par Aurélien le 29/09, qui remplace « l'habitude d'abord » du 26/09).
 
+### 9.16 La phase — décidé le 30/09/2026 (chantier 49)
+
+> **La phase est une entrée du plan unique, lue une fois et gelée pour la séance avec la consigne. Elle ne se définit qu'à un seul endroit (`QUESTIONNAIRE-COACH-V1` §3.2), et tout ce qui en dépend la lit là.**
+
+**Les valeurs** : prise de masse, maintien ou recomposition, sèche (`profiles.phase` : `prise_de_masse`, `maintien`, `seche`). **Vide = maintien** (« je ne sais pas »). `profiles.phase_depuis` date la dernière déclaration.
+
+**Style et phase ne se recouvrent pas.** Le style (Prudent, Normal, Franc — « Me ménager, Normal, Me pousser ») règle **l'ampleur** des montées, rien d'autre. La phase règle **ce que le coach attend et quand il intervient**. Aucune règle ne lit l'un pour l'autre.
+
+**Ce que la phase change** (vérifié contre la science, les coachs et les données le 30/09/2026) :
+
+| | Prise de masse | Maintien ou recomposition | Sèche |
+|---|---|---|---|
+| Tests au haut de la zone, montées en séance | inchangés | inchangés | **inchangés** — la force progresse autant en déficit (Murphy et Koehler 2022) |
+| Série de plus (escalier, §14) | permise | **permise** — à l'équilibre, rien ne freine la prise de muscle (Scarpelli et al. 2022 : +20 % de volume) | **non** — vers 500 kcal de déficit, plus de volume ne fait plus grossir le muscle |
+| Déclenchement du compteur de stagnation (§12) | 4 séances | 4 séances | **4 séances aussi** : le seuil ne s'adapte pas, les mots si (§12.8). Ce qui change, c'est la réponse : là où l'escalier isolé proposerait une série de plus, le coach **le dit et ne propose rien** — « 80 kg ne bouge plus depuis 4 séances. En sèche, je ne te propose rien de plus. » — puis passe à la marche suivante au déclenchement d'après |
+| Fondement de chaque pari | **la phase gelée de la séance y est enregistrée** | | |
+
+**Gelée pour la séance.** Changer de phase en pleine séance ne change rien à la séance en cours (ni la consigne, ni les paris suivants) : la nouvelle phase vaut à partir de la séance suivante, comme une correction de zone qui ne touche pas une série déjà validée. **Hors ligne**, la dernière phase connue s'applique.
+
+**Ce qui n'existe pas encore** : le compteur de stagnation (§12, qui ne lit la phase **que pour ses mots**) et l'escalier (§14, qui la lit pour sa première marche en zone muscle) lisent la phase dès qu'ils sont câblés ; d'ici là, la phase ne change **que le fondement des paris**. La question redemandée toutes les 6 semaines environ (`QUESTIONNAIRE-COACH-V1` §2) appartient au chantier du questionnaire.
+
+**Invariant I18** : chaque pari posé porte dans son fondement la phase gelée de sa séance (`prise_de_masse`, `maintien` ou `seche`), la même pour tous les paris d'une séance.
+
+**Pourquoi maintenant** : c'est ce qui permettra de mesurer, pari par pari, si les montées tiennent moins en sèche **chez un pratiquant avancé** — les études portent surtout sur des moins avancés. Chaque séance de sèche sans phase enregistrée est une donnée perdue pour Apprendre.
+
 ## 10. L'incrément
 
 ### 10.1 Règle

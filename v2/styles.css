@@ -1263,6 +1263,10 @@ button.puce-zone{font:inherit;font-size:11px;font-weight:600;cursor:pointer;
   background:transparent;color:var(--texte-3);font-family:inherit;
   font-size:11px;font-weight:600}
 .p-seg button.on{background:var(--panneau-2);border-color:#4A5058;color:var(--texte)}
+.p-seg.deux{flex-wrap:wrap}
+.p-seg.deux button{flex:1 1 calc(50% - var(--e1))}
+.p-aide{padding:var(--e3) var(--e3) 0;font-size:12px;line-height:1.45;color:var(--texte-2)}
+.p-pied{padding:0 var(--e3) var(--e3);font-size:11px;line-height:1.5;color:var(--texte-3)}
 
 .p-note{padding:var(--e2) var(--e3) var(--e3);font-size:11px;line-height:1.5;
   color:var(--texte-3)}

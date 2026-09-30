@@ -168,6 +168,74 @@
     };
   }
 
+  // ── MOTEUR §9.16 — LA PHASE (49-U11, 30/09/2026) ─────────────────────────
+  //
+  // Les CLÉS sont celles de la contrainte `profiles_phase_valeurs`
+  // (`v2_051_profil_phase`) : `prise_de_masse`, `maintien`, `seche`, ou vide.
+  // « Je ne sais pas » écrit le VIDE, et le vide se lit « maintien » : c'est
+  // `phaseDe` qui le dit, une fois, pour l'écran comme pour le plan.
+  var PHASES = [
+    { cle: 'prise_de_masse', libelle: 'Prise de masse' },
+    { cle: 'maintien', libelle: 'Maintien ou recomposition' },
+    { cle: 'seche', libelle: 'Sèche' },
+    { cle: 'inconnue', libelle: 'Je ne sais pas' }
+  ];
+  var PHASES_EN_BASE = ['prise_de_masse', 'maintien', 'seche'];
+  var PHASE_DEFAUT = 'maintien';
+
+  // La phase EFFECTIVE d'un profil : sa valeur si elle est connue, sinon
+  // « maintien » (MOTEUR §9.16 : vide = maintien). Jamais vide.
+  function phaseDe(profil) {
+    var v = profil && profil.phase;
+    return PHASES_EN_BASE.indexOf(v) >= 0 ? v : PHASE_DEFAUT;
+  }
+
+  // « Depuis le 29 sept. » : la date de la dernière déclaration, au format de
+  // la voix (`THModele.quand` sans référence : toujours la date, jamais
+  // « mardi » — la ligne se relit des semaines plus tard).
+  function depuisPhase(profil) {
+    var d = profil && profil.phase_depuis;
+    if (!d || !racine.THModele) return null;
+    var q = racine.THModele.quand(d);
+    return q ? 'Depuis ' + q : null;
+  }
+
+  // LE GEL (MOTEUR §9.16) : la phase d'une séance se lit UNE fois et ne bouge
+  // plus. `gel` : `{ seanceId, phase }`, le gel en cours ou `null` ; `sauvee` :
+  // la phase gelée relue du disque pour cette séance (rechargement), ou `null`.
+  // Même séance : le gel reste, quoi que dise le profil. Autre séance : la
+  // phase sauvée, sinon celle du profil maintenant.
+  function phaseGelee(gel, seanceId, sauvee, profil) {
+    if (gel && gel.seanceId === seanceId) return gel;
+    return { seanceId: seanceId, phase: PHASES_EN_BASE.indexOf(sauvee) >= 0 ? sauvee : phaseDe(profil) };
+  }
+
+  // ── LA SECTION « TA PHASE », À CÔTÉ DU RYTHME ────────────────────────────
+  //
+  // Le même composant et la même écriture que « Ton rythme » (`ecrire` =
+  // `ecrireProfil`, local d'abord puis la file du profil). Elle existe aussi
+  // en Entretenir : la phase est un fait sur l'utilisateur, pas un réglage du
+  // moteur de charge. Choisir écrit `phase` ET `phase_depuis` (maintenant).
+  // `maintenant` : l'horloge, passée pour les tests.
+  function sectionPhase(profil, ecrire, maintenant) {
+    var p = profil || {};
+    var valeur = PHASES_EN_BASE.indexOf(p.phase) >= 0 ? p.phase : 'inconnue';
+    return {
+      titre: 'TA PHASE',
+      aide: 'Ce que tu vises en ce moment. Je l’enregistre avec chaque séance.',
+      segment: {
+        options: PHASES,
+        valeur: valeur,
+        deuxColonnes: true,
+        surChoix: function (v) {
+          var quand = typeof maintenant === 'function' ? maintenant() : new Date();
+          ecrire({ phase: v === 'inconnue' ? null : v, phase_depuis: quand.toISOString() });
+        }
+      },
+      pied: depuisPhase(p)
+    };
+  }
+
   // Lundi en tête : la semaine de l'app commence le lundi (THSemaine), et les
   // deux listes doivent se lire dans le même ordre.
   var JOURS = [
@@ -319,7 +387,7 @@
   // les six réglages de visibilité : c'est du social, et rien ici ne les touche.
   var CHAMPS_ECRITS = ['username', 'bio', 'sexe', 'taille_cm', 'date_naissance',
                        'mode_entrainement', 'unites', 'anciennete', 'intention',
-                       'rythme_progression', 'materiel', 'niveau_declare',
+                       'rythme_progression', 'phase', 'phase_depuis', 'materiel', 'niveau_declare',
                        'seances_par_semaine', 'jours_vises', 'duree_seance_min',
                        'onboarding_completed'];
 
@@ -507,6 +575,7 @@
     SEXES: SEXES, UNITES: UNITES, INTENTIONS: INTENTIONS, JOURS: JOURS,
     RYTHMES: RYTHMES, RYTHME_DEFAUT: RYTHME_DEFAUT,
     rythmeDe: rythmeDe, phraseRythme: phraseRythme, sectionRythme: sectionRythme,
+    PHASES: PHASES, PHASE_DEFAUT: PHASE_DEFAUT, phaseDe: phaseDe, phaseGelee: phaseGelee, sectionPhase: sectionPhase,
     DUREES: DUREES, SEANCES_MIN: SEANCES_MIN, SEANCES_MAX: SEANCES_MAX,
     TAILLE_MIN: TAILLE_MIN, TAILLE_MAX: TAILLE_MAX,
     PSEUDO_MIN: PSEUDO_MIN, PSEUDO_MAX: PSEUDO_MAX, MDP_MIN: MDP_MIN,

@@ -8165,11 +8165,26 @@ const SETS_IMPORTES = [
       DECORS.indexOf(x.session_id) < 0 && !/^u10-/.test(x.session_id));
     ok('[U10] une chauffe validée à vide s’écrit à 60 kg, typée échauffement',
       chauffeEcrite.some((x) => Number(x.charge_kg) === 60), JSON.stringify(chauffeEcrite.map((x) => [x.charge_kg, x.reps])));
+    // §9.15.1 — le repos des chauffes : 1 minute entre deux, 2 minutes après
+    // la dernière ; le repos de l'exercice (3:00) ne vaut que pour le travail.
+    ok('[U10] après une chauffe, 1 minute de repos (pas les 3:00 de l’exercice)', /cible 1:00/.test(await texte('#repos')),
+      esp(await texte('#repos')).replace(/\s+/g, ' ').slice(0, 60));
+    await page.evaluate(() => document.querySelectorAll('.ligne-serie')[2].querySelector('.ok-serie').click());
+    await attendre(700);
+    await page.evaluate(() => document.querySelectorAll('.ligne-serie')[3].querySelector('.ok-serie').click());
+    await attendre(700);
+    ok('[U10] après la dernière chauffe, 2 minutes', /cible 2:00/.test(await texte('#repos')),
+      esp(await texte('#repos')).replace(/\s+/g, ' ').slice(0, 60));
+    await saisirSerie(4, 125, 5);
+    ok('[U10] après une série de travail, le repos de l’exercice (3:00)', /cible 3:00/.test(await texte('#repos')),
+      esp(await texte('#repos')).replace(/\s+/g, ' ').slice(0, 60));
 
     // La machine : deux séries de travail, puis la dégressive.
     ok('[U10] DISCRIMINANT — la dégressive de la machine : 45 kg (60 − 22,5 %, au cran inférieur)', f[9] === '45', JSON.stringify(f.slice(7, 10)));
-    ok('[U10] la routine sans chauffe du biceps à la barre (40 kg) : une proposition aussi',
-      esp(await propositionU(2)) === 'Chauffe : 20 kg × 10 · 35 kg × 2', esp(await propositionU(2)));
+    // Delta 49-24 : une proposition seulement dès 60 kg à la barre, 80 kg
+    // ailleurs. Le biceps à la barre de la routine, à 40 kg : rien.
+    ok('[U10] DISCRIMINANT (49-24) — le biceps à la barre à 40 kg, sans chauffe : AUCUNE proposition (avant : « 20 kg × 10 · 35 kg × 2 »)',
+      (await propositionU(2)) === null && (await compter('.proposition-chauffes')) === 0, esp(await propositionU(2)));
     await saisirSerie(7, 60, 15);
     await attendre(500);
     ok('[U10] après la première série de travail, le repos tourne', await reposVisible(), '');

@@ -259,9 +259,9 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
     expect(parFamille.feuille).toBeGreaterThan(500);
     expect(parFamille['réaction']).toBeGreaterThan(50);
     expect(parFamille.constat).toBeGreaterThan(50);
-    // 29 phrases des cas (trois cas « aucune » n'en ont pas) + la phrase et la
-    // note de la feuille sur le plan.
-    expect(parFamille.chauffes).toBe(31);
+    // 30 phrases des 37 cas (les cas sans chauffe ni proposition n'en ont
+    // pas) + la phrase et la note de la feuille sur le plan.
+    expect(parFamille.chauffes).toBe(32);
     expect(vues.filter((v) => v.source === 'plan 49-U10').length).toBe(2);
     // Sans ces phrases, la règle des dates ne serait jamais éprouvée.
     const jours = vues.filter((v) => /(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)/i.test(v.phrase));

@@ -302,6 +302,68 @@ describe('§9.15.3 — la dégressive', () => {
   });
 });
 
+describe('§9.15.1 — le repos des chauffes (60 s, puis 120 s avant le travail)', () => {
+  const EXOS = [{ slug: 'developpe_couche_barre', chauffes: [10, 6, 3, 1], consigne: consigne(125, 5) }];
+  const MACHINE = [{ slug: 'extension_jambes', travail: 2, degressives: [1], consigne: consigne(60, 15), pas: 5 }];
+
+  test('60 s entre deux chauffes, 120 s après la dernière, le repos de l\'exercice pour le travail', () => {
+    const x = T.planDeSeance(entreesDe(seanceDe(EXOS), EXOS)).exercices[0];
+    expect([0, 1, 2, 3, 4, 5, 6].map((i) => T.reposApres(x, i, 180))).toEqual([60, 60, 60, 120, 180, 180, 180]);
+    expect(T.REPOS_ENTRE_CHAUFFES).toBe(60);
+    expect(T.REPOS_APRES_CHAUFFES).toBe(120);
+  });
+
+  test('le repos de la routine ne prime pas pour les chauffes, même désactivé', () => {
+    const x = T.planDeSeance(entreesDe(seanceDe(EXOS), EXOS)).exercices[0];
+    expect(T.reposApres(x, 2, null)).toBe(60);
+    expect(T.reposApres(x, 3, 90)).toBe(120);
+    expect(T.reposApres(x, 4, null)).toBeNull();
+  });
+
+  test('une chauffe unique est aussi la dernière : 120 s', () => {
+    const exos = [{ slug: 'extension_jambes', chauffes: [8], consigne: consigne(100, 10) }];
+    const x = T.planDeSeance(entreesDe(seanceDe(exos), exos)).exercices[0];
+    expect(T.reposApres(x, 0, 90)).toBe(120);
+  });
+
+  test('aucun repos avant la dégressive remplie ; après elle, le repos de l\'exercice', () => {
+    const x = T.planDeSeance(entreesDe(seanceDe(MACHINE), MACHINE)).exercices[0];
+    expect(T.reposApres(x, 0, 90)).toBe(90);
+    expect(T.reposApres(x, 1, 90)).toBeNull();
+    expect(T.reposApres(x, 2, 90)).toBe(90);
+  });
+
+  test('à la barre, la dégressive vide ne supprime pas le repos', () => {
+    const exos = [{ slug: 'curl_barre', travail: 2, degressives: [1], consigne: consigne(40, 12) }];
+    const x = T.planDeSeance(entreesDe(seanceDe(exos), exos)).exercices[0];
+    expect(T.reposApres(x, 1, 90)).toBe(90);
+  });
+});
+
+describe('§9.15.2 (delta 49-24) — le seuil des propositions, dans le plan', () => {
+  test('barre à 55 kg : pas de proposition ; à 60 kg : une proposition', () => {
+    const bas = [{ slug: 'developpe_militaire_barre', consigne: consigne(55, 5) }];
+    const pile = [{ slug: 'developpe_militaire_barre', consigne: consigne(60, 5) }];
+    expect(T.planDeSeance(entreesDe(seanceDe(bas), bas)).exercices[0].proposition).toBeNull();
+    expect(T.planDeSeance(entreesDe(seanceDe(pile), pile)).exercices[0].proposition.lignes).toEqual([[20, 10], [55, 2]]);
+  });
+
+  test('machine à 75 kg : pas de proposition ; à 80 kg : une', () => {
+    const bas = [{ slug: 'extension_jambes', consigne: consigne(75, 10), pas: 5 }];
+    const pile = [{ slug: 'extension_jambes', consigne: consigne(80, 10), pas: 5 }];
+    expect(T.planDeSeance(entreesDe(seanceDe(bas), bas)).exercices[0].proposition).toBeNull();
+    expect(T.planDeSeance(entreesDe(seanceDe(pile), pile)).exercices[0].proposition.lignes).toEqual([[50, 8]]);
+  });
+
+  test('le seuil ne touche pas les chauffes de la routine : une barre à 40 kg les remplit', () => {
+    const exos = [{ slug: 'curl_barre', chauffes: [10, 2], consigne: consigne(40, 10) }];
+    const e = entreesDe(seanceDe(exos), exos);
+    const p = T.planDeSeance(e);
+    expect(charges(p.exercices[0])).toEqual([20, 35]);
+    ok(p, e);
+  });
+});
+
 describe('I16, I17 — des violations forgées sont attrapées', () => {
   const clone = (o) => JSON.parse(JSON.stringify(o));
   const erreurs = (p) => T.verifierPlan(p).erreurs;

@@ -434,6 +434,32 @@
     return sortie;
   }
 
+  // §9.15.1 — LE REPOS DES CHAUFFES : « environ 1 minute entre deux chauffes,
+  // 2 minutes avant la première série de travail (le minuteur de la séance
+  // l'applique) ». Le repos de l'exercice (routine) vaut pour les séries de
+  // travail, pas pour les chauffes.
+  var REPOS_ENTRE_CHAUFFES = 60;
+  var REPOS_APRES_CHAUFFES = 120;
+
+  // Le repos qui suit la validation de la série `iSerie` de l'exercice `x`
+  // (son plan) : `null` avant la dégressive que le coach a remplie (§9.15.3,
+  // « sans repos ») ; 60 s après une chauffe, 120 s après la DERNIÈRE chauffe
+  // de l'exercice ; sinon `reposExo`, le repos de l'exercice. Pure : l'app
+  // la lit, et le minuteur ne calcule rien.
+  function reposApres(x, iSerie, reposExo) {
+    var lignes = (x && x.lignes) || [];
+    var d = x && x.degressive;
+    if (d && d.apres === iSerie && d.repos === 0 && d.charge !== null &&
+        lignes[d.iSerie] && !lignes[d.iSerie].validee) return null;
+    var l = lignes[iSerie];
+    if (l && l.type === 'echauffement') {
+      var derniere = -1;
+      lignes.forEach(function (h, i) { if (h.type === 'echauffement') derniere = i; });
+      return iSerie === derniere ? REPOS_APRES_CHAUFFES : REPOS_ENTRE_CHAUFFES;
+    }
+    return reposExo === undefined ? null : reposExo;
+  }
+
   // La feuille « Pourquoi » (§9.15.1) : une routine qui prévoit plus de
   // chauffes que la table — les lignes en trop ne sont pas remplies, et la
   // feuille le dit.
@@ -1216,6 +1242,9 @@
     creerGarde: creerGarde,
     seriesDites: seriesDites,
     seriesDeDepart: seriesDeDepart,
+    reposApres: reposApres,
+    REPOS_ENTRE_CHAUFFES: REPOS_ENTRE_CHAUFFES,
+    REPOS_APRES_CHAUFFES: REPOS_APRES_CHAUFFES,
     REFUS_DEFINITIFS: REFUS_DEFINITIFS,
     refuserChauffes: refuserChauffes,
     accepterChauffes: accepterChauffes,

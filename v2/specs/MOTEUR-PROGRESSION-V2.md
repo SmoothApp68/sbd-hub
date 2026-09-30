@@ -739,6 +739,21 @@ Les séries 1 et 2 sont les moins fatiguées, donc les plus représentatives de 
 
 Avec **une seule série au palier**, le niveau est son nombre de reps compté ; **sans série au palier**, il n'y a pas de niveau.
 
+### 9.2 bis La chute de fin de séance — décidé le 30/09/2026 (chantier 49)
+
+> **Une dernière série qui s'effondre après des séries stables ne dit rien du niveau ; elle dit que la fatigue est arrivée. Elle ne tire pas le niveau vers le bas, et la séance suivante ne teste rien de plus lourd.**
+
+**Définition.** La **dernière** série de travail au palier est une **chute** si **au moins deux séries la précèdent**, toutes à la même charge et **à une rep près de la première** (reps comptées, §17.4), et si elle perd **au moins 4 reps et au moins 30 %** par rapport à la première. Exemples : `10-10-6` → chute ; `12-12-11-7` → chute ; `8-7-4` → chute ; `10-4-4` → pas de chute (les séries d'avant ne sont pas stables : c'est la première qui sort du lot) ; `15-15-11` → pas de chute (−27 %) ; `10-10-7` → pas de chute (−3 reps) ; `10-5` → pas de chute (une seule série avant).
+
+**Ce qu'elle change.**
+1. **Le niveau validé se calcule sans elle** : `10-10-6` → niveau 10 (et non 7). La zone déduite de l'habitude et le compteur de stagnation lisent ce niveau-là.
+2. **À la séance suivante, aucun nouveau test** : un test proposé, un retest ou un retest d'un cran devient **« tenir »** — la ligne au palier, au niveau validé (borné au haut de la zone), sans ligne haute. Une échelle déjà en cours (§9.7 : garde, étend, rejoint, attend) n'est pas touchée.
+3. **La réaction en séance n'est pas touchée** (§9.14) : si la personne fait 3 reps de plus que visé, le coach réagit — la séance en cours fait foi.
+
+**Pourquoi.** Les séries 1 et 2 sont les plus représentatives (§9.2) ; une chute qui survient après elles est une courbe de fatigue, pas un défaut de maîtrise — la même logique que la tolérance à −1, poussée jusqu'au bout. Mais une chute annonce une fatigue qui peut durer (19 % de rechutes à la séance suivante, contre 3 %) : la prudence est de ne pas tester plus lourd tout de suite. Les coachs ne montent pas une charge juste après un effondrement ; la science ne dit pas autre chose (la fatigue aiguë se dissipe en 24 à 72 heures, pas toujours d'une séance à l'autre).
+
+**Phrase** (voix du coach) : dans l'en-tête de la séance suivante, en gris, « Mardi : 80 kg × 10, 10, 6. Je ne compte pas la dernière série : on tient 80 kg × 10. » — un fait, puis sa conséquence.
+
 ### 9.3 Réserve honnête
 
 Sur l'historique, cette règle aurait envoyé Aurélien à 122,5 kg dès le 14/07 (profil `5-5-5-4`), et 122,5 s'est écroulé à `4-4-3-3` le 04/08. **Une seule observation** — insuffisant pour conclure que la règle est trop permissive. À revérifier avec Jordan, Léa et Alexis.

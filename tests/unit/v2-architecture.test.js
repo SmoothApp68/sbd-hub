@@ -76,6 +76,8 @@ const GARDEES = [
   { fn: 'situationChauffe', module: 'moteur.js' },
   { fn: 'chauffesDe', module: 'moteur.js' },
   { fn: 'degressiveDe', module: 'moteur.js' },
+  // moteur.js — la chute de fin de séance (§9.2 bis, 49-U12)
+  { fn: 'chuteDe', module: 'moteur.js' },
   // seance.js — le fantôme, la couverture, les lignes figées, les paris
   { fn: 'fantome', module: 'seance.js',
     motif: /(?:\bSeance|\bS|\bSeance\(\)|\bS\(\)|racine\.THSeance)\s*\.\s*fantome\b/g },

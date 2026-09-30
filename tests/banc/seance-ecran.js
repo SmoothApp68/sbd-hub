@@ -154,7 +154,10 @@ const CATALOGUE = [
   { slug: 'militaire-u10', nom: 'Militaire U10 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['epaules'], muscles_secondaires: [] },
   // 49-U11 — réservé à la section 7 G octies (la phase). Son nom ne répond à
   // aucune des recherches faites ailleurs.
-  { slug: 'presse-u11', nom: 'Presse U11 (Machine)', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['quadriceps'], muscles_secondaires: [] }
+  { slug: 'presse-u11', nom: 'Presse U11 (Machine)', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['quadriceps'], muscles_secondaires: [] },
+  // 49-U12 — réservé à la section 7 G nonies (la chute). Son nom ne répond à
+  // aucune des recherches faites ailleurs.
+  { slug: 'incline-u12', nom: 'Incliné U12 (Haltères)', mesure: 'charge_reps', charge: 'externe', equipement: 'haltere', muscles_primaires: ['pectoraux'], muscles_secondaires: [] }
 ];
 
 // ⚠️ UNE ROUTINE PORTE MAINTENANT SES LIGNES (chantier 43). `routine_sets`
@@ -8343,6 +8346,66 @@ const SETS_IMPORTES = [
       JSON.stringify(gardeBanc.liste.slice(-2)));
     await aller('/saisie');
     ok('[U11] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
+  }
+
+  console.log('\n══ 7 G nonies. LA CHUTE DE FIN DE SÉANCE NE TIRE PLUS LE NIVEAU ET BLOQUE LE TEST (49-U12, MOTEUR §9.2 bis) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : la séance du 29/09 d'Aurélien, 80 × 10,
+  // 10, puis 6 à RPE 10, après deux séances à 9 (zone Hypertrophie, 8 à 10).
+  // Sans la règle, le niveau tombait à 7 (« une rep de plus », 80 × 8) ; avec
+  // le niveau à 10, le coach testerait plus lourd. Avec la règle : TENIR, à
+  // 80 kg × 10, sans ligne haute, et la phrase grise le dit.
+  {
+    const tC = Date.now();
+    const poserC = (id, jours, lignes) => {
+      const debut = ilYa(jours * 86400000, tC).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'U12 — ' + id, debut,
+        fin: finDe(debut, tC).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      lignes.forEach(([kg, reps, rpe], i) => base.sets.push({ id: id + '-s' + (i + 1), session_id: id,
+        user_id: 'u-banc', exercise_slug: 'incline-u12', charge_kg: kg, reps, duree_s: null, distance_m: null,
+        type_serie: 'travail', rang: i + 1, groupe_superset: null, validee_a: debut, rpe: rpe || null,
+        ressenti: null, repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+    };
+    poserC('u12-a', 15, [[80, 9], [80, 9], [80, 9]]);
+    poserC('u12-b', 8, [[80, 9], [80, 9], [80, 9]]);
+    poserC('u12-c', 1, [[80, 10], [80, 10], [80, 6, 10]]);
+    ROUTINES.push({ id: 'r-u12', nom: 'Chute U12', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-u12-e', routine_id: 'r-u12', exercise_slug: 'incline-u12', rang: 0,
+        routine_sets: progr(3, 10), repos_cible_s: 120, groupe_superset: null, note: null }] });
+    const esp = (t) => String(t || '').replace(/[  ]/g, ' ');
+    const violationsAvant = gardeBanc.violations;
+    await aller('/saisie');
+    await demarrerRoutine('Chute U12');
+    await attendre(900);
+    const cons = await page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      const x = d && d.plan.exercices.filter((e) => e.slug === 'incline-u12')[0];
+      const c = x && x.consigne;
+      return c ? { etat: c.etat, niveau: c.niveau, ligne: c.ligne, haut: c.haut, chute: c.fondement.chute || null } : null;
+    });
+    const jaune = (await page.evaluate(() => Array.from(document.querySelectorAll('.legende-exo .consigne'))
+      .map((e) => e.textContent))).map(esp);
+    const gris = esp(await texte('.legende-exo .consigne-dit'));
+    ok('[U12] la chute est repérée : la 3ᵉ série au palier', !!cons && !!cons.chute && cons.chute.rang === 3, JSON.stringify(cons));
+    ok('[U12] DISCRIMINANT — tenir : 80 kg × 10, niveau 10, sans ligne haute (avant : 80 kg × 8)',
+      !!cons && cons.etat === 'tenue_apres_chute' && cons.niveau === 10 && cons.haut === null &&
+      cons.ligne.charge === 80 && cons.ligne.vise === 10, JSON.stringify(cons));
+    ok('[U12] l’en-tête dit « 80 kg × 10 », et rien de plus lourd',
+      jaune.length === 1 && jaune[0] === '80 kg × 10', JSON.stringify(jaune));
+    ok('[U12] la phrase grise : « … : 80 kg × 10, 10, 6. Je ne compte pas la dernière série : on tient 80 kg × 10. »',
+      /^\S+ : 80 kg × 10, 10, 6\. Je ne compte pas la dernière série : on tient 80 kg × 10\.$/.test(gris), gris);
+    // La réaction en séance n'est pas touchée : 13 reps sur la première série, le coach réagit.
+    await saisirSerie(0, 80, 13);
+    await attendre(900);
+    const reaction = esp(await texte('.reaction-serie'));
+    ok('[U12] la réaction en séance reste libre (3 reps de plus → le coach parle)', reaction.length > 0, reaction);
+    ok('[U12] la garde (C6) n’a rien signalé dans cette section', gardeBanc.violations === violationsAvant,
+      JSON.stringify(gardeBanc.liste.slice(-2)));
+    await abandonner();
+    await aller('/saisie');
+    ok('[U12] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
 
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');

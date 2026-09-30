@@ -5,8 +5,10 @@
 // de dégressives, et leurs reps ; le coach en calcule la charge, à partir de la
 // charge de la consigne figée (la ligne, pas le test).
 //
-// LE FICHIER DE CAS FAIT FOI. `cas-49u10-chauffes.json` (25 chauffes, 7
-// dégressives) sort de `cas_chauffes49.py` (Claude.ai, 30/09/2026). Les phrases
+// LE FICHIER DE CAS FAIT FOI. `cas-49u10-chauffes.json` (30 chauffes, 7
+// dégressives) sort de `cas_chauffes49.py` (Claude.ai, 30/09/2026 ; remplacé
+// le même jour pour le seuil des propositions, delta 49-24 — ses espaces
+// insécables y sont écrites `\u00a0`, le JSON les relit). Les phrases
 // se comparent OCTET PAR OCTET, espaces insécables compris. Un cas qui semble
 // faux se rapporte ; il ne se corrige pas ici.
 
@@ -19,9 +21,9 @@ const FICHIER = require('./fixtures/cas-49u10-chauffes.json');
 const extrait = (r, attendu) => Object.keys(attendu).reduce((o, k) => { o[k] = r[k]; return o; }, {});
 const octets = (s) => (s === null || s === undefined ? s : Buffer.from(s, 'utf8').toString('hex'));
 
-describe('§9.15.1 — les chauffes, les 25 cas', () => {
-  test('le fichier a 25 chauffes et 7 dégressives', () => {
-    expect(FICHIER.chauffes).toHaveLength(25);
+describe('§9.15.1 — les chauffes, les 30 cas', () => {
+  test('le fichier a 30 chauffes et 7 dégressives', () => {
+    expect(FICHIER.chauffes).toHaveLength(30);
     expect(FICHIER.degressives).toHaveLength(7);
   });
 
@@ -59,6 +61,27 @@ describe('§9.15 — ce que les cas supposent', () => {
   test('« soulevé au sol » : le conventionnel, le sumo, la barre hexagonale — pas le roumain', () => {
     expect(M.SOULEVES_AU_SOL).toEqual(['souleve_de_terre_barre', 'souleve_de_terre_sumo', 'souleve_de_terre_barre_hex']);
     expect(M.SOULEVES_AU_SOL.some((s) => /roumain|jambes_tendues/.test(s))).toBe(false);
+  });
+
+  // §9.15.2 (delta 49-24) — le seuil d'une PROPOSITION, des deux côtés ; et
+  // il ne touche jamais les chauffes de la routine.
+  test('seuil de proposition : 60 kg à la barre, 80 kg ailleurs, bornes comprises', () => {
+    const p = (equipement, reference) => M.chauffesDe({ equipement, reference, deja_sollicite: false, cran: 5, routine: null }).proposition.length;
+    expect(p('barre', 57.5)).toBe(0);
+    expect(p('barre', 60)).toBeGreaterThan(0);
+    expect(p('machine', 77.5)).toBe(0);
+    expect(p('machine', 80)).toBeGreaterThan(0);
+    expect(p('haltere', 78)).toBe(0);
+    expect(p('poulie', 80)).toBeGreaterThan(0);
+    expect(M.SEUIL_PROPOSITION_BARRE).toBe(60);
+    expect(M.SEUIL_PROPOSITION_AUTRE).toBe(80);
+  });
+
+  test('le seuil ne touche pas les chauffes de la routine : barre à 30 kg, machine à 20 kg, remplies', () => {
+    expect(M.chauffesDe({ equipement: 'barre', reference: 30, deja_sollicite: false, routine: [10, 2] }).lignes
+      .map((l) => l.charge)).toEqual([20, 25]);
+    expect(M.chauffesDe({ equipement: 'machine', reference: 20, deja_sollicite: false, cran: 2.5, routine: [8] }).lignes
+      .map((l) => l.charge)).toEqual([12.5]);
   });
 
   test('égalité d\'arrondi vers le bas : 75 kg à 50 % (37,5) donne 35, pas 40', () => {

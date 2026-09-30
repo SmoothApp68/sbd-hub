@@ -1515,12 +1515,13 @@
     // séries RÉELLES ; en rouvrant une séance d'avant-hier, il compterait un
     // repos qui n'a pas eu lieu et l'écrirait dans `repos_s`.
     //
-    // MOTEUR §9.15.3 (49-U10) — ET PAS DE REPOS AVANT LA DÉGRESSIVE : la
-    // dernière série de travail validée, la dégressive que le coach a remplie
-    // s'enchaîne « sans repos » (`repos: 0` dans le plan). Une cible nulle
-    // n'arme rien ET arrête le repos d'avant — valider met toujours fin au
-    // repos précédent.
-    if (!enEdition()) demarrerChrono(enchaineDegressive(iExo, iSerie) ? null : exo.repos_cible_s, iExo, exo.exercise_slug);
+    // MOTEUR §9.15 (49-U10) — LE REPOS APRÈS CETTE SÉRIE VIENT DU PLAN
+    // (`THPlan.reposApres`) : 60 s après une chauffe, 120 s après la dernière,
+    // AUCUN avant la dégressive que le coach a remplie (« sans repos »), et le
+    // repos de l'exercice pour une série de travail. Une cible nulle n'arme
+    // rien ET arrête le repos d'avant — valider met toujours fin au repos
+    // précédent.
+    if (!enEdition()) demarrerChrono(Plan.reposApres(planDeLExercice(iExo), iSerie, exo.repos_cible_s), iExo, exo.exercise_slug);
     // ⚠️ L'OBSERVATION VIENT APRÈS `apresGeste`, ET C'EST L'ORDRE QUI COMPTE :
     // `poserSeries` y pose l'entrée des séries, donc avec un `seq` plus petit
     // que celui de la prédiction. `set_observe` trouve alors toujours sa série.
@@ -1530,14 +1531,6 @@
     // l'appareil ; il entre dans la file ICI, derrière les séries.
     if (pariProvisoire) await poserPari(await finirPari(pariProvisoire));
     await observerSerie(iExo, iSerie);
-  }
-
-  function enchaineDegressive(iExo, iSerie) {
-    var x = planDeLExercice(iExo);
-    var d = x && x.degressive;
-    if (!d || d.apres !== iSerie || d.repos !== 0 || d.charge === null) return false;
-    var l = x.lignes[d.iSerie];
-    return !!l && !l.validee;
   }
 
   // Le retour haptique : aucun pixel, et il confirme la validation même avec

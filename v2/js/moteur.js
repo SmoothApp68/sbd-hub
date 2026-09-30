@@ -2873,6 +2873,8 @@
   var SEUIL_DIZAINE = 100;
   var CRAN_PAR_DEFAUT = 2.5;
   var BAISSE_DEGRESSIVE = 0.225;
+  var SEUIL_PROPOSITION_BARRE = 60;
+  var SEUIL_PROPOSITION_AUTRE = 80;
 
   // « Soulevé au sol » (§9.15.1) : le conventionnel, le sumo, la barre
   // hexagonale. PAS le roumain ni les jambes tendues (ils partent debout), ni
@@ -2954,7 +2956,12 @@
     var pas = pasDeChauffe(e);
     var ref = nombre(e.reference);
     if (e.routine === null || e.routine === undefined) {
-      var prop = table.map(function (m) { return [chargeDeMarche(m, e, pas), m.reps]; });
+      // §9.15.2 (delta 49-24) — LE SEUIL D'UNE PROPOSITION : 60 kg à la barre,
+      // 80 kg ailleurs. En dessous, l'échauffement général suffit. Les chauffes
+      // de la routine, elles, se remplissent quelle que soit la charge.
+      var seuil = estBarre(e.equipement) ? SEUIL_PROPOSITION_BARRE : SEUIL_PROPOSITION_AUTRE;
+      var prop = ref !== null && ref >= seuil
+        ? table.map(function (m) { return [chargeDeMarche(m, e, pas), m.reps]; }) : [];
       return {
         situation: situation, proposition: prop,
         phrase_proposition: prop.length
@@ -3005,6 +3012,8 @@
   var api = {
     BARRE_VIDE: BARRE_VIDE,
     SOULEVES_AU_SOL: SOULEVES_AU_SOL,
+    SEUIL_PROPOSITION_BARRE: SEUIL_PROPOSITION_BARRE,
+    SEUIL_PROPOSITION_AUTRE: SEUIL_PROPOSITION_AUTRE,
     TABLE_CHAUFFES: TABLE_CHAUFFES,
     situationChauffe: situationChauffe,
     chauffesDe: chauffesDe,

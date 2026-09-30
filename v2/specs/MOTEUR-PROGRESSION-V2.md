@@ -1046,7 +1046,7 @@ Les montées de l'historique valaient +12 % en médiane, plus qu'un cran : pour 
 
 #### 9.15.2 Pas de chauffe prévue : le coach propose
 
-Quand l'exercice n'a **aucune** ligne de chauffe et que la table en prévoit, **le coach propose** la montée de la table dans une ligne à accepter, jamais des séries insérées d'office (ajouter des séries, c'est la structure, qui appartient à l'utilisateur). **Ajouter** insère les lignes au-dessus des séries de travail, typées échauffement ; **Non merci** retire la proposition pour la séance. **Après trois « Non merci » d'affilée sur un exercice, le coach n'en propose plus** sur celui-ci (§14.3).
+Quand l'exercice n'a **aucune** ligne de chauffe, que la table en prévoit, **et que la charge de référence atteint 60 kg à la barre ou 80 kg sur un autre matériel** (en dessous, une chauffe spécifique n'apporte presque rien : l'échauffement général de la séance suffit, précisé le 30/09/2026), **le coach propose** la montée de la table dans une ligne à accepter, jamais des séries insérées d'office (ajouter des séries, c'est la structure, qui appartient à l'utilisateur). **Ajouter** insère les lignes au-dessus des séries de travail, typées échauffement ; **Non merci** retire la proposition pour la séance. **Après trois « Non merci » d'affilée sur un exercice, le coach n'en propose plus** sur celui-ci (§14.3).
 
 #### 9.15.3 Les dégressives
 

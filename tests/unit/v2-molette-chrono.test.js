@@ -357,9 +357,10 @@ describe('§D — la feuille relit la valeur posée, pas celle demandée', () =>
 // On extrait donc la ligne et on l'EXÉCUTE.
 
 describe('§E — valider une série arme AVEC l’exercice', () => {
-  // 49-U10 : la ligne gagne `enchaineDegressive` (pas de repos avant la
-  // dégressive que le coach remplit, MOTEUR §9.15.3) — le bac l'exécute aussi.
-  function bacArmement(enEdition, degressive) {
+  // 49-U10 : la cible vient du plan (`Plan.reposApres`, MOTEUR §9.15) — le bac
+  // l'exécute avec un plan d'exercice fourni ; la règle elle-même est éprouvée
+  // dans `v2-chauffes-plan.test.js`.
+  function bacArmement(enEdition, cible) {
     const re = /^    if \(!enEdition\(\)\) demarrerChrono\(.*$/m;
     const m = APP.match(re);
     if (!m) throw new Error("ligne d'armement introuvable dans v2/js/app.js");
@@ -367,7 +368,8 @@ describe('§E — valider une série arme AVEC l’exercice', () => {
     const ctx = {
       enEdition: () => !!enEdition,
       demarrerChrono: function () { vus.push(Array.prototype.slice.call(arguments)); },
-      enchaineDegressive: () => !!degressive,
+      Plan: { reposApres: (x, j, reposExo) => (x === 'plan-3' && j === 2 ? (cible === undefined ? reposExo : cible) : 'faux') },
+      planDeLExercice: (i) => 'plan-' + i,
       exo: { exercise_slug: 'developpe-couche', repos_cible_s: 180 },
       iExo: 3, iSerie: 2
     };
@@ -387,9 +389,11 @@ describe('§E — valider une série arme AVEC l’exercice', () => {
   });
 
   // MOTEUR §9.15.3 (49-U10) — sans repos avant la dégressive remplie.
-  // Une cible NULLE : rien ne s'arme, et le repos d'avant s'arrête (valider
-  // met toujours fin au repos précédent).
-  test('et avant la dégressive que le coach remplit, elle arme une cible nulle', () => {
-    expect(bacArmement(false, true)).toEqual([[null, 3, 'developpe-couche']]);
+  // La cible est celle que le plan rend pour CETTE série de CET exercice :
+  // nulle avant la dégressive (rien ne s'arme, le repos d'avant s'arrête), 60
+  // ou 120 s après une chauffe.
+  test('la cible est celle du plan de l’exercice, pour cette série', () => {
+    expect(bacArmement(false, null)).toEqual([[null, 3, 'developpe-couche']]);
+    expect(bacArmement(false, 120)).toEqual([[120, 3, 'developpe-couche']]);
   });
 });

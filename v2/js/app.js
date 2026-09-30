@@ -684,17 +684,22 @@
         // renvoi échoue encore, l'entrée reste EN ÉCHEC, à retenter comme une
         // coupure : jamais bloquée, jamais abandonnée en silence.
         var echec = await Attente.envoyer(op, executer, refermerSeancesSauf);
-        // §9.11 (27/09/2026) — une observation dont la série n'est pas (ou
-        // plus) en base ATTEND : elle ne bloque rien, et repart quand les
-        // séries de sa séance montent. Ni perdue, ni définitive.
-        if (echec && Attente.attendSaSerie(op, echec)) {
-          attente = Attente.marquerAttente(attente, op.cle);
-          await Cache.ecrireAttente(attente).catch(function () {});
-          continue;
-        }
+        // §9.11 — ce que devient un envoi refusé se décide dans `attente.js`
+        // (`apresEchec`). Une observation dont la série (23503) ou le pari
+        // (`TH000`, 29/09/2026) n'est pas en base ATTEND : elle ne bloque
+        // rien. Orpheline — sa séance n'a plus rien en file, son pari ne
+        // montera jamais —, elle est ABANDONNÉE. Seul le reste arrête la
+        // vidange.
         if (echec) {
-          attente = Attente.marquerEchec(attente, op.cle, echec);
+          var issue = Attente.apresEchec(attente, op, echec);
+          attente = issue.file;
           await Cache.ecrireAttente(attente).catch(function () {});
+          if (issue.suite === 'abandonnee') {
+            console.warn('Observation orpheline abandonnée (' + op.cle + ') : son pari n\u2019est pas en base, ' +
+              'et sa séance n\u2019a plus rien à envoyer.');
+            continue;
+          }
+          if (issue.suite === 'attend') continue;
           console.warn('Envoi différé (' + op.cle + ') :', texteErreur(echec));
           break;
         }
@@ -706,8 +711,8 @@
         // Sans ce défaut elle serait retirée sans condition — donc la perte
         // silencieuse rouvrirait, une seule fois, pour ce qui traînait dans la
         // file au moment de la mise à jour.
-        attente = Attente.retirer(attente, op.cle, op.version || 1);
-        if (op.table === Attente.SETS) attente = Attente.libererObservations(attente, op.id);
+        // Les observations qui attendaient repartent (`apresSucces`).
+        attente = Attente.apresSucces(attente, op);
         await Cache.ecrireAttente(attente).catch(function () {});
         if (op.table === Attente.OBSERVATIONS) await confirmerObservation(op);
       }

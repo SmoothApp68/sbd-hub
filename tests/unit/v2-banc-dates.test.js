@@ -199,7 +199,9 @@ describe('le décor du banc ne dépend plus du jour de la semaine', () => {
     // ce fichier ne prouverait plus rien de ce que le banc fait.
     const source = require('fs').readFileSync(
       require('path').join(__dirname, '../banc/seance-ecran.js'), 'utf8');
-    expect(source).toMatch(/require\('\.\/decor-dates\.js'\)/);
+    // Chemin absolu depuis le 30/09/2026 : le banc rapide rejoue ce fichier
+    // découpé, ailleurs (`seance-sections.js`) — un chemin relatif s'y perdrait.
+    expect(source).toMatch(/require\(path\.join\(__dirname, 'decor-dates\.js'\)\)/);
     // `getDay()` dans une construction de date de décor : c'est exactement le
     // motif qui a coûté trois chantiers.
     expect(source.split('\n').filter((l) => /getDay\(\)/.test(l) && !/^\s*\/\//.test(l)))

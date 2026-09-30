@@ -27,7 +27,7 @@ tort. Lis [`v2/specs/README.md`](v2/specs/README.md) avant d'écrire dans `v2/`.
 
 ⚠️ **Tout ce qui suit (§4 à §18) décrit le v1 et vaut à titre d'archive.** Les valeurs, les
 algorithmes et le scope de lancement qui y figurent ne pilotent plus rien.
-**Seules exceptions : le §4 bis (le service worker v2) et le §4 ter (un seul coach, un seul câblage), qui s'appliquent.**
+**Seules exceptions : le §4 bis (le service worker v2), le §4 ter (un seul coach, un seul câblage) et le §4 quater (vérifier vite), qui s'appliquent.**
 
 ---
 
@@ -149,6 +149,38 @@ trappe `/__sw-off` pendrait avec lui.
 - **La garde de développement** (C6, `THPlan.creerGarde`) vérifie chaque plan que
   l'app calcule, hors production : `localhost`, les aperçus `*.pages.dev`, ou
   `?garde=1`. Le banc de saisie vérifie les invariants après chaque geste.
+
+---
+
+## 4 quater. VÉRIFIER VITE
+
+> **Règle permanente** (29-30/09/2026). Rien ne se relâche : on change la
+> façon de lancer, pas ce qui est vérifié.
+
+- **Les tests se lancent toujours sur l'état commité.** On commite, puis on vérifie.
+- **Pendant le travail** : les tests unitaires ciblés (`npx jest tests/unit/…`)
+  et le **banc réduit** aux sections concernées :
+  `node tests/banc/seance-rapide.js --sections 7-G-sexies,7-tricies`.
+  Il se déclare « BANC RÉDUIT : N section(s) sur M » et n'est jamais le banc
+  complet. `--lister` donne les sections, leurs chaînes et leur durée.
+- **Le banc complet, une seule fois, à la fin**, sur l'état commité, avec
+  `npm test` et les deux autres bancs, tous en même temps :
+  `node tests/banc/tout.js`. Le banc de séance y tourne en parallèle
+  (6 groupes, ~5 min au lieu de 25) ; `--sequentiel` rejoue la référence historique.
+- **Les mutations** : banc réduit et tests ciblés, jamais le banc complet,
+  chacune dans son worktree, lancées ensemble :
+  `node tests/banc/muter.js --lot mutations.json` (format dans l'en-tête du
+  fichier).
+- **Le banc complet est superflu** pour un changement de texte seul (commentaire,
+  spec, description de PR) ou de tests unitaires seuls. Il reste obligatoire
+  dès qu'un fichier servi (`v2/`) ou un banc change.
+- **Changer les groupes ou les chaînes** se prouve : `--sequentiel --rapport seq.json`
+  une fois (25 min), puis `node tests/banc/seance-rapide.js --contre seq.json` —
+  mêmes contrôles, un par un.
+- **Une section ajoutée au banc** qui lit l'état laissé par une autre s'inscrit
+  dans une chaîne (`tests/banc/seance-chaines.json`) : sinon, en parallèle ou
+  seule, elle ne rend pas ses contrôles. Le lanceur vérifie à chaque exécution
+  que chaque section a été jouée, une fois.
 
 ---
 

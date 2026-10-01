@@ -1660,7 +1660,16 @@
     var libres = travail.filter(function (i) { return !figeeDe(i); });
     var reste = Math.max(0, k - testsFaits);
     var roles = {};
-    libres.forEach(function (i, j) { roles[i] = j >= libres.length - reste ? 'haut' : 'ligne'; });
+    // §14.7 (49-U17) — LA SÉRIE DE PLUS : la routine compte `routine` séries ;
+    // les séries de travail AU-DELÀ (la ligne en plus, et ce qu'on ajoute
+    // ensuite) suivent les lignes de la routine, à la charge et à la visée de
+    // la ligne, JAMAIS un test (I24). Le test reste sur la routine.
+    var plus = consigne.serieDePlus && typeof consigne.serieDePlus.routine === 'number'
+      ? consigne.serieDePlus.routine : null;
+    var ajoutee = function (i) { return plus !== null && travail.indexOf(i) >= plus; };
+    var libresRoutine = libres.filter(function (i) { return !ajoutee(i); });
+    libres.forEach(function (i) { roles[i] = 'ligne'; });
+    libresRoutine.forEach(function (i, j) { roles[i] = j >= libresRoutine.length - reste ? 'haut' : 'ligne'; });
 
     // Les rangs figés d'abord : aucun rang libre ne peut les reprendre.
     var pris = {};
@@ -1671,6 +1680,9 @@
       var role = f ? f.role : roles[i];
       var ligne = f ? f.ligne : null;
       var source = role === 'haut' ? consigne.haut : consigne.ligne;
+      // Une consigne sans ligne basse (« rejoint ») : la ligne en plus prend la
+      // charge et la visée de la ligne haute, sans en être un test.
+      if (!f && ajoutee(i) && !source) source = consigne.haut;
       // Une consigne sans la ligne correspondante ne couvre pas cette série :
       // on n'invente pas une valeur pour remplir un rang.
       if (!f && !source) return;
@@ -1693,7 +1705,8 @@
         role: role,
         charge_kg: charge === null || charge === undefined ? null : charge,
         reps: vise === null || vise === undefined ? null : vise,
-        figee: f ? ligne : null
+        figee: f ? ligne : null,
+        ajoutee: ajoutee(i)
       };
       position++;
     });

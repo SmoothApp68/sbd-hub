@@ -823,7 +823,7 @@ button.puce-zone{font:inherit;font-size:11px;font-weight:600;cursor:pointer;
    la carte de schéma. */
 .proposition-exercice{margin:6px 0 4px;padding:8px 10px;border:1px dashed var(--trait);border-radius:8px}
 .proposition-exercice .pc-texte{color:var(--texte-2);font-size:13.5px;line-height:1.35}
-.proposition-schema .pc-texte{color:var(--texte);font-weight:600}
+.proposition-schema .pc-texte,.proposition-serie .pc-texte{color:var(--texte);font-weight:600}
 .proposition-exercice .pc-detail{margin-top:4px;color:var(--texte-2);font-size:13px;line-height:1.4}
 .proposition-exercice .pc-gestes{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
 .proposition-exercice button{min-height:36px;padding:0 12px;border-radius:8px;font:inherit;font-size:13.5px}
@@ -843,6 +843,8 @@ button.puce-zone{font:inherit;font-size:11px;font-weight:600;cursor:pointer;
 .bandeau-allegee{padding:8px 12px;border-left:3px solid var(--accent);color:var(--texte-2);font-size:13.5px;line-height:1.35}
 .reaction-serie .coche-verte{width:14px;height:14px;margin:0 6px -2px 0;fill:none;
   stroke:var(--reussi);stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+/* MOTEUR §14.7 (49-U17) — la ligne de la série de plus, à la couleur du coach. */
+.ligne-serie.ajoutee .serie{box-shadow:inset 3px 0 0 var(--accent)}
 .ligne-serie.proposee .serie{box-shadow:inset 3px 0 0 var(--accent);
   background:rgba(242,183,5,.06)}
 .ch-serie.coach input::placeholder{color:var(--accent);font-weight:600;opacity:.9}

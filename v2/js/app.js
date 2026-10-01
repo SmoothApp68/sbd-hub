@@ -880,6 +880,8 @@
     await appliquerAllegee();
     // §14.5 (49-U15) — le repli s'écrit à l'ouverture.
     await ecrireReplis();
+    // §14.7 (49-U17) — une série de plus en cours : la ligne en plus.
+    await appliquerSerieDePlus();
   }
 
   // §14.4 (49-U14) — RETIRER LES LIGNES EN TROP, une fois : à l'acceptation
@@ -1812,6 +1814,13 @@
 
   // Les semaines allégées ACCEPTÉES, `[{ debut, fin }]` : le compteur ne compte
   // ni ne juge leurs séances (décharge déclarée, §9.10).
+  // §14.7 (49-U17) — les périodes de série de plus d'un exercice, lues dans les
+  // paris de l'escalier et les compteurs figés : `[{ debut, fin, n }]`.
+  function periodesSerieDePlusDe(slug) {
+    var p = Moteur.periodesSerieDePlus(Moteur.marchesDesParis(parisEscalierConnus()), compteursDesParis());
+    return p[slug] || [];
+  }
+
   function periodesAllegees() {
     return Moteur.cartesDesParis(parisEscalierConnus()).filter(function (c) {
       return c.reponse === 'acceptee' && c.debut && c.fin;
@@ -1863,6 +1872,9 @@
           // §14.4 (49-U14) — les semaines allégées acceptées : leurs séances ne
           // sont ni comptées ni jugées par le compteur.
           periodesAllegees: periodesAllegees(),
+          // §14.7 (49-U17) — les périodes où une série de plus était active :
+          // le niveau de ces séances se lit sur les séries de la routine.
+          periodesSerieDePlus: periodesSerieDePlusDe(slug),
           // §7 octies — une séance terminée rouverte est une séance FAITE : le
           // moteur n'y prescrit rien, ni en-tête ni plan.
           edition: enEdition()
@@ -1875,6 +1887,19 @@
       consignes.parSlug[slug] = calculee;
       versionConsignes++;
       sauverConsignes();
+    }
+    // §14.7 (delta 49-35) — un exercice ajouté hors routine : sa consigne a
+    // servi au pré-remplissage AVANT ses séries (figée à 0). Sa routine se fige
+    // à ses premières séries — sinon le compte suivrait « + Série », et la
+    // ligne de plus se fondrait dans la routine.
+    var figee = consignes.parSlug[slug];
+    if (figee && figee.seriesRoutine === 0) {
+      var premieres = nombreDeSeriesDeTravail(slug);
+      if (premieres > 0) {
+        figee.seriesRoutine = premieres;
+        versionConsignes++;
+        sauverConsignes();
+      }
     }
     return consignes.parSlug[slug];
   }
@@ -2009,7 +2034,7 @@
       // elle se fige avec elles).
       phase: phaseDeLaSeance(),
       // MOTEUR §14.6 (49-U16) — la règle de volume, gelée pour la séance.
-      volume: volumeDeLaSeance(),
+      volume: volumeDeDemo(volumeDeLaSeance(), catalogue),
       catalogue: catalogue,
       refusChauffes: refusChauffesDe(seance.id),
       reglage: Profil.rythmeDe(profil),
@@ -2047,6 +2072,18 @@
   // schéma reste en mémoire : AUCUNE zone n'est posée, AUCUN pari n'est écrit.
   var demoReponse = null;   // la carte « répondue » de la démonstration, en mémoire
   var demoMarches = [];     // les schémas « répondus » de la démonstration, en mémoire
+  var demoSerieDePlus = null;   // l'exercice de la série de plus de la démonstration
+  // La place inventée de la démonstration : les muscles primaires de cet
+  // exercice ont de la place (une copie de l'entrée, jamais le gel).
+  function volumeDeDemo(volume, catalogue) {
+    if (!demoSerieDePlus || demoModeEscalier() !== 'isole') return volume;
+    var cat = catalogue && catalogue[demoSerieDePlus];
+    var copie = Object.assign({}, volume || {});
+    ((cat && cat.muscles_primaires) || []).forEach(function (m) {
+      copie[m] = { place: true, moyenne: 5, seuil: 6, fenetres: 6 };
+    });
+    return copie;
+  }
   function demoModeEscalier() {
     // ⚠️ La clé est ICI, pas dans une `var` du module : la fonction est appelée
     // au démarrage, plus haut, avant que cette ligne ne soit exécutée.
@@ -2084,7 +2121,17 @@
       var z = Moteur.zoneParCle(k.zone);
       return { palier: P, niveau: l && typeof l.vise === 'number' ? l.vise : (z ? z.bas : 5) };
     };
-    var a = avecConsigne[0], b = avecConsigne[1];
+    var a = avecConsigne[0], b = avecConsigne[1], c = avecConsigne[2];
+    // §14.7 (49-U17) — le troisième : une zone muscle qui cale (compteur 4),
+    // ses muscles avec de la place (`volumeDeDemo`) — la carte de la série de plus.
+    demoSerieDePlus = null;
+    if (c) {
+      var kc = cs[c].consigne;
+      var zc = kc.zone === 'lourd' || kc.zone === 'mix' || !kc.zone ? 'volume' : kc.zone;
+      copie[c] = Object.assign({}, cs[c], { consigne: Object.assign({}, kc, { zone: zc }),
+        compteur: compteurDe(c, 4, (cs[c].compteur && cs[c].compteur.meilleur) || meilleurDe(kc)) });
+      demoSerieDePlus = c;
+    }
     if (a) {
       var ka = cs[a].consigne;
       var za = ka.zone === 'lourd' || ka.zone === 'mix' ? ka.zone : 'lourd';
@@ -2134,7 +2181,8 @@
         { exercice: 'demo-b', jour: jour, compteur: 4, seance: 'demo', debut: seance.debut }]);
       if (demoReponse) cartes = cartes.concat([demoReponse]);
     }
-    return { cartes: cartes, compteurs: compteurs, noms: noms, seriesRoutine: seriesRoutine, marches: marches };
+    return { cartes: cartes, compteurs: compteurs, noms: noms, seriesRoutine: seriesRoutine, marches: marches,
+             carteSuspendue: demoModeEscalier() === 'isole' };
   }
 
   function planActuel() {
@@ -2174,7 +2222,8 @@
     var c = consigneDe(slug);
     if (!c) return null;
     var x = planDuSlug(slug);
-    return x ? { jaune: x.entete.jaune, gris: x.entete.gris, compteur: x.entete.compteur || null } : c.libelles;
+    return x ? { jaune: x.entete.jaune, gris: x.entete.gris, compteur: x.entete.compteur || null,
+                 plus: x.entete.plus || null } : c.libelles;
   }
 
   // §3.8 et §3.10 — l'étiquette de zone et le calcul, tirés du MÊME mémo que
@@ -2596,6 +2645,10 @@
   // ZONE (48b-7, `poserZone`), comme si la personne l'avait choisie — pas un
   // second chemin : elle revient depuis l'étiquette, et le compteur repart de
   // zéro (changement de zone). NON = rien ne change. Les deux s'écrivent.
+  //
+  // §14.7 (49-U17) — LA MÊME RÉPONSE pour la carte de la SÉRIE DE PLUS : le
+  // pari (`marche : serie_de_plus`, avec les séries de la routine `n_routine`
+  // et le début de la séance), puis, acceptée, la ligne en plus.
   async function repondreSchema(iExo, reponse) {
     if (!seance || enEdition() || reponseEnCours) return;
     var p = planActuel();
@@ -2604,22 +2657,63 @@
     if (!m || !m.carte) return;
     reponseEnCours = true;
     var acceptee = reponse === 'acceptee';
+    var marche = m.marche;
+    var plus = marche === Moteur.MARCHE_SERIE_DE_PLUS;
+    var nRoutine = nombreDeSeriesRoutine(x.slug);
     try {
       if (demoEscalier()) {
-        // La démonstration : la réponse reste en mémoire ; aucune zone posée.
+        // La démonstration : la réponse reste en mémoire ; aucune zone posée,
+        // aucun pari.
         demoMarches = demoMarches.concat([{ seance: seance.id, jour: Moteur.jourCivil(seance.debut),
-          exercice: x.slug, marche: Moteur.MARCHE_SCHEMA, reponse: acceptee ? 'acceptee' : 'refusee',
-          compteur: m.compteur }]);
+          exercice: x.slug, marche: marche, reponse: acceptee ? 'acceptee' : 'refusee',
+          compteur: m.compteur, debut: seance.debut, n: nRoutine }]);
       } else {
-        var id = await Moteur.idDEscalier(seance.id, x.slug, Moteur.MARCHE_SCHEMA).catch(function () { return null; });
-        await ecrirePariDeMarche(pariDeMarche(id, x, Moteur.MARCHE_SCHEMA, acceptee ? 'acceptee' : 'refusee',
-          p.phase, { nouvelle_zone: m.carte.nouvelle_zone }));
-        if (acceptee) await poserZone(x.slug, m.carte.nouvelle_zone);
+        var id = await Moteur.idDEscalier(seance.id, x.slug, marche).catch(function () { return null; });
+        await ecrirePariDeMarche(pariDeMarche(id, x, marche, acceptee ? 'acceptee' : 'refusee', p.phase,
+          plus ? { n_routine: nRoutine, debut: seance.debut } : { nouvelle_zone: m.carte.nouvelle_zone }));
+        if (acceptee && !plus) await poserZone(x.slug, m.carte.nouvelle_zone);
       }
     } finally {
       reponseEnCours = false;
     }
     if (seance) rendreSeance();
+    if (seance && acceptee && plus) await appliquerSerieDePlus();
+  }
+
+  // §14.7 (delta 49-35) — LA LIGNE DE PLUS DE L'EXERCICE QU'ON VIENT D'AJOUTER,
+  // et de lui SEUL : l'exercice nouveau (absent de `avantExos`, sans série
+  // faite), s'il a une série de plus en cours. Le même geste qu'à l'ouverture
+  // (`lignesAAjouter`), restreint à lui : une ligne retirée ailleurs par la
+  // personne ne revient pas (§14.3).
+  async function ligneDePlusPourAjout(avantExos, slug) {
+    if (!seance || enEdition()) return;
+    var exos = seance.exercices || [];
+    var i = -1;
+    for (var k = 0; k < exos.length && i < 0; k++) {
+      var x = exos[k];
+      if (x && x.exercise_slug === slug && (avantExos || []).indexOf(x) < 0 &&
+          !(x.series || []).some(function (s) { return !!s.validee_a; })) i = k;
+    }
+    if (i < 0 || Plan.lignesAAjouter(planActuel()).indexOf(i) < 0) return;
+    seance = Seance.ajouterSerie(seance, i, uuid());
+    await apresGeste();
+  }
+
+  // Les séries de la routine d'un exercice, figées avec sa consigne.
+  function nombreDeSeriesRoutine(slug) {
+    var c = consigneDe(slug);
+    return c && typeof c.seriesRoutine === 'number' && c.seriesRoutine > 0 ? c.seriesRoutine : nombreDeSeriesDeTravail(slug);
+  }
+
+  // §14.7 (49-U17) — LA LIGNE EN PLUS, une fois : à l'acceptation, et à la
+  // création d'une séance pendant que la série de plus est en cours. Jamais au
+  // rendu : une ligne retirée par la personne ne revient pas dans la séance.
+  async function appliquerSerieDePlus() {
+    if (!seance || enEdition()) return;
+    var aAjouter = Plan.lignesAAjouter(planActuel());
+    if (!aAjouter.length) return;
+    aAjouter.forEach(function (iExo) { seance = Seance.ajouterSerie(seance, iExo, uuid()); });
+    await apresGeste();
   }
 
   // LE REPLI S'ÉCRIT À L'OUVERTURE (`reponse : appliquee`) : pas de question.
@@ -2951,8 +3045,11 @@
     if (x && x.degressive && x.degressive.phrase && x.degressive.iSerie === iSerie) {
       return { message: { type: 'degressive', phrase: x.degressive.phrase }, proposee: false, fourchette: null };
     }
+    // §14.7 (49-U17) — la ligne de la série de plus, marquée à la couleur du
+    // coach (lue sur le plan).
+    var ajoutee = !!(x && x.lignes && x.lignes[iSerie] && x.lignes[iSerie].ajoutee);
     var r = reactionDe(iExo);
-    if (!r) return null;
+    if (!r) return ajoutee ? { message: null, proposee: false, fourchette: null, ajoutee: true } : null;
     var j = r.indices.indexOf(iSerie);
     if (j < 0) return null;
     var m = r.message;
@@ -2966,7 +3063,8 @@
       sortie.proposee = true;
       sortie.fourchette = p.zone ? p.zone.slice() : null;
     }
-    return sortie.message || sortie.proposee ? sortie : null;
+    if (ajoutee) sortie.ajoutee = true;
+    return sortie.message || sortie.proposee || sortie.ajoutee ? sortie : null;
   }
 
   // ── L'écran ─────────────────────────────────────────────────────────────
@@ -4561,11 +4659,15 @@
       function (exo) {
         fermerVoile();
         if (pourSeance) {
+          // §14.7 (49-U17, delta 49-35) — l'exercice ajouté dont la série de
+          // plus est active reçoit sa ligne de plus, comme à l'ouverture.
+          var avantAjout = seance.exercices;
+          var puisLigneDePlus = function () { return ligneDePlusPourAjout(avantAjout, exo.slug); };
           if (intentionCatalogue.remplace !== null) {
             // §5.2 — remplacer, c'est ajouter puis sauter en gardant la place.
             seance = Seance.remplacerExercice(seance, intentionCatalogue.remplace,
               exo.slug, uuid);
-            return apresStructure();
+            return apresStructure().then(puisLigneDePlus);
           }
           // §9.13 (49-C) — HORS ROUTINE, les séries de travail sont posées
           // d'emblée : l'habitude de l'exercice, sinon l'intention. Un
@@ -4574,10 +4676,10 @@
           var depart = { series: seriesDeDepartPour(exo.slug) };
           if (intentionCatalogue.apres !== null) {
             seance = Seance.insererExercice(seance, intentionCatalogue.apres, exo.slug, uuid, depart);
-            return apresStructure();
+            return apresStructure().then(puisLigneDePlus);
           }
           seance = Seance.ajouterExercice(seance, exo.slug, uuid, depart);
-          return apresGeste({ structure: false });
+          return apresGeste({ structure: false }).then(puisLigneDePlus);
         }
         // ⚠️ UNE SEULE LIGNE, VIDE (chantier 43). L'ancien modèle posait
         // `series: 3` — un défaut hérité de la colonne, qui prescrivait trois

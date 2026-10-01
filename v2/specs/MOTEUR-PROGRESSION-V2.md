@@ -1537,8 +1537,8 @@ Le filet existe déjà : si le retrait fait descendre le volume sous la fourchet
 
 | n | Zones force (Lourd, Mix) | Zones muscle, en sèche | Zones muscle, hors sèche |
 |---|---|---|---|
-| 1 | **changer de schéma** (la seule question) | **le coach le dit**, sans rien proposer | la série de plus — **PR 2c** ; d'ici là, rien n'est proposé (la phrase du compteur seule) |
-| 2 | **le repli** (§14.2) | le repli | le repli |
+| 1 | **changer de schéma** (la seule question) | **le coach le dit**, sans rien proposer | **la série de plus** si la règle de volume laisse de la place sur chaque muscle primaire (§14.6) ; **sinon le repli tout de suite** (§14.7) |
+| 2 | **le repli** (§14.2) | le repli | **le repli** si une série de plus a été proposée depuis le dernier progrès (acceptée ou refusée) ; **sinon le silence** (le repli a déjà eu son tour) |
 | 3 et plus | **le silence** | le silence | le silence |
 
 **Changer de schéma** — une carte **sous l'exercice** (le composant des propositions d'exercice) : « 125 kg × 5 reste ton meilleur depuis 4 séances, et tes autres exercices avancent. » (la fin seulement si aucun autre exercice n'a eu un compteur à 4 ou plus sur 0 à 7 jours ; sinon un point) ; « En force, une série de plus aide peu. Changer de schéma quelques semaines relance souvent la barre, avant d'y revenir. » ; boutons « **Passer à 6-8 reps** » / « **Garder 3-5** » (Lourd → Mix ; Mix → Lourd : « Passer à 3-5 reps » / « Garder 6-8 »). **Oui** = le geste de la correction de zone (48b-7), comme si la personne l'avait choisie ; elle revient depuis l'étiquette ; le compteur repart de zéro (changement de zone). **Non** = rien ne change.
@@ -1563,9 +1563,29 @@ Le filet existe déjà : si le retrait fait descendre le volume sous la fourchet
 - **Époque** : 4 semaines vides consécutives ouvrent une nouvelle époque — la référence repart de zéro, le suivi continue (REGLE-VOLUME §11.4).
 - **Seuil** : le **troisième quartile** des fenêtres d'avant de la même époque, au **rang le plus proche** (rang ⌈0,75 n⌉ dans les fenêtres triées). **Au moins 6 fenêtres de référence**, sinon **pas de base**.
 - **Place** : la dernière fenêtre (les 3 dernières semaines actives **avant** la semaine de la séance) est **inférieure ou égale** au seuil. **Pour un exercice** : il faut de la place sur **chacun de ses muscles primaires** ; un seul muscle sans base ou sans place, et la série de plus n'est pas proposée (se taire faute de donnée, comme le repli, §14.2).
-- **Rien ne s'affiche** dans cette PR : le fait est une entrée du plan, que la série de plus (PR 2c) lira.
+- **Quatre semaines vides ou plus juste avant la séance** : la séance ouvre une époque qui n'a encore aucune fenêtre — **pas de base** (précisé le 01/10/2026, #347 : on ne compare pas à un état perdu, REGLE-VOLUME §11.4).
+- **Rien ne s'affiche** : le fait est une entrée du plan, que lit la série de plus (§14.7).
 
 **Référence** : `coach49.py` ; cas `cas_volume49.json`.
+
+
+### 14.7 La série de plus dans l'app — câblée le 01/10/2026 (chantier 49, PR 2c)
+
+> **Un exercice de zone muscle cale seul, hors sèche, et son muscle a de la place : le coach propose une série de plus, jusqu'au prochain progrès.**
+
+**La carte**, sous l'exercice (le composant des propositions d'exercice) : « 27 kg × 12 reste ton meilleur depuis 4 séances, et tes autres exercices avancent. » (la fin seulement si aucun autre exercice n'a eu un compteur à 4 ou plus sur 0 à 7 jours ; sinon un point) ; « Sur cet exercice, une série de plus aide souvent : environ 20 % de travail en plus. Tes pectoraux restent sous leur volume habituel. » (les muscles primaires de l'exercice, leurs noms au catalogue ; accord au singulier pour un seul muscle au singulier) ; boutons « **Ajouter une série** » / « **Non merci** ».
+
+**Acceptée** : **une ligne de plus**, après les lignes de la routine, **à la charge et à la visée de la ligne** (jamais un test), entourée de la couleur du coach, avec en gris sous l'en-tête « une série de plus, jusqu'à ton prochain progrès » ; **elle revient à chaque séance de l'exercice jusqu'à son prochain progrès** (§12.2 bis), puis disparaît. La routine ne change pas. Son rang est le rang suivant, jamais un rang déjà pris (I8 ; depuis 49-C, un rang validé est figé). **Refusée** : rien ne change.
+
+**Une marche proposée ne revient pas** (précisé le 01/10/2026, #348) : une marche de l'escalier isolé — **changement de schéma ou série de plus** — proposée depuis le dernier progrès de l'exercice, acceptée ou refusée (son pari existe), **n'est plus proposée** : rouvrir une séance au même déclenchement, ou en ouvrir une autre avant le suivant, ne fait pas revenir la carte. Le déclenchement suivant passe à la marche d'après (§14.5). **Un exercice ajouté en cours de séance** dont la série de plus est active reçoit sa ligne de plus, comme à l'ouverture.
+
+**Le niveau validé** (§9.2), tant que la série de plus est active, **se lit sur les N séries de la routine** : la série ajoutée, faite en fatigue, ne le tire pas vers le bas (12, 12, 12 puis 9 → niveau 12, et non 10). Elle compte pour le volume (§14.6), comme toute série de travail.
+
+**Le pari** (`module = 'escalier'`, `marche : serie_de_plus`, colonne `exercise_slug` vide, l'exercice dans le fondement) : écrit à la réponse (`acceptee` / `refusee`) ; accepté, observé sans série : 1 si l'exercice progresse avant son prochain déclenchement, 0 à ce déclenchement ; refusé, jamais observé. **C'est ce pari qui dit, au déclenchement suivant, qu'une série de plus a été proposée** (deuxième marche : le repli).
+
+**Jamais en sèche** (§9.16) ; **jamais en zone force** (§14.5 : le schéma).
+
+**Référence** : `coach49.py` ; cas `cas_plus49.json`.
 
 
 ---

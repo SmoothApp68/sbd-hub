@@ -106,6 +106,13 @@ const GARDEES = [
   // moteur.js — la règle de volume, la place pour une série de plus (§14.6, 49-U16)
   { fn: 'placeDeVolume', module: 'moteur.js' },
   { fn: 'placePourExercice', module: 'moteur.js' },
+  // moteur.js — l'escalier, la série de plus (§14.7, 49-U17)
+  { fn: 'marcheProposee', module: 'moteur.js' },
+  { fn: 'serieDePlusProposee', module: 'moteur.js' },
+  { fn: 'serieDePlusActive', module: 'moteur.js' },
+  { fn: 'periodesSerieDePlus', module: 'moteur.js' },
+  { fn: 'carteSerieDePlus', module: 'moteur.js' },
+  { fn: 'consigneSerieDePlus', module: 'moteur.js' },
   // seance.js — le fantôme, la couverture, les lignes figées, les paris
   { fn: 'fantome', module: 'seance.js',
     motif: /(?:\bSeance|\bS|\bSeance\(\)|\bS\(\)|racine\.THSeance)\s*\.\s*fantome\b/g },
@@ -137,6 +144,11 @@ const AUTORISATIONS = {
     'app.js': 'calcule les ENTRÉES du plan (`entrees.consignes`) : le plan n’a pas l’historique ' +
       '(app.js, `consigneDe`) ; et l’étiquette de zone de la page d’exercice, hors séance, où ' +
       'il n’y a pas de plan (app.js, `rendreExercice`).'
+  },
+  periodesSerieDePlus: {
+    'app.js': 'calcule l’ENTRÉE `periodesSerieDePlus` de `consigneDExercice` (les séances où une ' +
+      'série de plus était active, dont le niveau se lit sur la routine) — préparer les entrées ' +
+      'du plan (app.js, `periodesSerieDePlusDe`, 49-U17).'
   },
   placeDeVolume: {
     'app.js': 'calcule l’ENTRÉE `entrees.volume` du plan, une fois par séance, sur tout ' +

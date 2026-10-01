@@ -470,6 +470,15 @@
     }, 'id'), 'id');
   }
 
+  // L'outil de rejeu (développement seulement, `rejeu.js`) — les paris d'UNE
+  // séance, en LECTURE : `session_id` est la colonne générée depuis le
+  // fondement. Rien d'autre ne l'appelle.
+  function parisDeSeance(sessionId) {
+    return paginerParCle(trancheur(function () {
+      return client().from('predictions').select(COLONNES_PREDICTION).eq('session_id', sessionId);
+    }, 'id'), 'id');
+  }
+
   function mesPredictions() {
     return paginerParCle(trancheur(function () {
       return client().from('predictions').select(COLONNES_PREDICTION);
@@ -608,6 +617,7 @@
     mesZones: mesZones,
     enregistrerZone: enregistrerZone,
     mesPredictions: mesPredictions,
+    parisDeSeance: parisDeSeance,
     seancesAvecPari: seancesAvecPari,
     parisEscalier: parisEscalier,
     enregistrerPrediction: enregistrerPrediction,

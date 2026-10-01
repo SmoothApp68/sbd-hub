@@ -380,12 +380,20 @@
   // est du travail entier, mais elle n'a pas tenu le palier et ne dit rien de
   // l'habitude. C'est aussi l'entrée exacte de `niveauValide` (§9.2 : « le rang
   // se compte au palier, pas sur l'exercice »).
+  //
+  // §14.7 (49-U17) — TANT QUE LA SÉRIE DE PLUS EST ACTIVE, LE NIVEAU SE LIT SUR
+  // LES N SÉRIES DE LA ROUTINE (`nRoutine`, posé sur la séance par
+  // `marquerSousConsigne`) : la série ajoutée, faite en fin d'exercice et en
+  // fatigue, ne le tire pas vers le bas (12, 12, 12 puis 9 → 12, pas 10). Tout
+  // le niveau passe par ici — consigne, compteur, repli, constat.
   function seriesAuPalier(seanceExercice) {
     var p = nombre(seanceExercice && seanceExercice.palier);
     if (p === null) return [];
-    return (seanceExercice.retenues || []).filter(function (s) {
+    var A = (seanceExercice.retenues || []).filter(function (s) {
       return nombre(s && s.charge_kg) === p;
     });
+    var n = nombre(seanceExercice.nRoutine);
+    return n !== null && n >= 1 && A.length > n ? A.slice(0, n) : A;
   }
 
   // ── §9.1.2 — L'HABITUDE ──────────────────────────────────────────────────
@@ -769,6 +777,9 @@
       debut: se && se.debut,
       palier: se && se.palier,
       neutre: neutre,
+      // §14.7 (49-U17) — les N séries de la routine, quand une série de plus
+      // était active ce jour-là (le niveau se lit sur elles).
+      nRoutine: se && typeof se.nRoutine === 'number' ? se.nRoutine : null,
       series: series,
       retenues: neutre ? [] : parRole(series, ROLES_RETENUS),
       votantes: neutre ? [] : parRole(series, ROLES_VOTANTS)
@@ -3257,7 +3268,7 @@
   var MARCHE_SCHEMA = 'schema';
   var MARCHE_REPLI = 'repli';
   var MARCHE_SECHE = 'seche_rien';
-  var MARCHE_SERIE_DE_PLUS = 'serie_de_plus_a_venir';
+  var MARCHE_SERIE_DE_PLUS = 'serie_de_plus';
   var MARCHE_SILENCE = 'silence';
   // Lourd → Mix, Mix → Lourd : le schéma voisin, et les deux libellés.
   var SCHEMAS = {
@@ -3300,13 +3311,21 @@
   }
 
   // La table de §14.5 : `n` (1, 2, 3 et plus), la zone, la phase.
-  function marcheIsolee(n, zone, phase) {
+  // §14.7 (49-U17) — LES ZONES MUSCLE HORS SÈCHE : n = 1 → la série de plus si
+  // la règle de volume laisse de la place (`place === true` ; `null`, pas de
+  // base, n'en laisse pas), sinon le repli tout de suite ; n = 2 → le repli si
+  // une série de plus a été proposée depuis le dernier progrès (`proposee`),
+  // sinon le silence (le repli a déjà eu son tour). Zones force et sèche :
+  // inchangé (§14.5).
+  function marcheIsolee(n, zone, phase, place, proposee) {
     var k = nombre(n);
     if (k === null || k < 1) return null;
     if (k >= 3) return MARCHE_SILENCE;
-    if (k === 2) return MARCHE_REPLI;
+    var muscle = ZONES_FORCE.indexOf(zone) < 0 && phase !== 'seche';
+    if (k === 2) return !muscle || proposee === true ? MARCHE_REPLI : MARCHE_SILENCE;
     if (ZONES_FORCE.indexOf(zone) >= 0) return MARCHE_SCHEMA;
-    return phase === 'seche' ? MARCHE_SECHE : MARCHE_SERIE_DE_PLUS;
+    if (phase === 'seche') return MARCHE_SECHE;
+    return place === true ? MARCHE_SERIE_DE_PLUS : MARCHE_REPLI;
   }
 
   // « Et tes autres exercices avancent » : aucun AUTRE exercice n'a eu un
@@ -3421,12 +3440,14 @@
   function marchesDesParis(paris) {
     return (paris || []).filter(function (l) {
       return l && l.module === MODULE_ESCALIER && l.fondement &&
-        (l.fondement.marche === MARCHE_SCHEMA || l.fondement.marche === MARCHE_REPLI);
+        (l.fondement.marche === MARCHE_SCHEMA || l.fondement.marche === MARCHE_REPLI ||
+         l.fondement.marche === MARCHE_SERIE_DE_PLUS);
     }).map(function (l) {
       var f = l.fondement;
       return { id: l.id || null, seance: f.seance || null, jour: f.jour || null,
                exercice: f.exercice || l.exercise_slug || null, marche: f.marche,
-               reponse: f.reponse || null, compteur: nombre(f.compteur), debut: f.debut || null };
+               reponse: f.reponse || null, compteur: nombre(f.compteur), debut: f.debut || null,
+               n: nombre(f.n_routine) };
     });
   }
 
@@ -3455,6 +3476,115 @@
       if (schema) precedent = v;
     }
     return null;
+  }
+
+  // ══ §14.7 (49-U17) — L'ESCALIER, LA SÉRIE DE PLUS ════════════════════════
+  //
+  // Un exercice de zone muscle cale seul, hors sèche, et ses muscles primaires
+  // ont de la place (§14.6) : une série de plus, jusqu'au prochain progrès.
+  // Référence : `coach49.py` (`marche_isolee_2c`, `carte_serie_de_plus`,
+  // `niveau_sur_la_routine`) ; cas `cas-49u17-serie-de-plus.json`.
+  var DETAIL_SERIE_DE_PLUS = 'Sur cet exercice, une série de plus aide souvent : environ 20 % de travail en plus.';
+  var GRIS_SERIE_DE_PLUS = 'une série de plus, jusqu\'à ton prochain progrès';
+  // Les muscles au SINGULIER (« ton grand dorsal reste… ») ; les autres se
+  // disent au pluriel (« tes pectoraux restent… »). Tous masculins.
+  var MUSCLES_SINGULIERS = ['bas_du_dos', 'haut_du_dos', 'grand_dorsal',
+    'deltoide_anterieur', 'deltoide_lateral', 'deltoide_posterieur'];
+
+  // Les marches de `exercice` écrites DEPUIS SON DERNIER PROGRÈS : la marche
+  // (`marche`), une réponse parmi `reponses`, un compteur au plus égal à celui
+  // d'aujourd'hui, et aucun compteur plus bas vu sur l'exercice entre elle et
+  // `jour` (même lecture que `declenchementsRepondus`).
+  function marchesDepuisProgres(exercice, jour, compteur, marches, compteurs, marche, reponses) {
+    var c = nombre(compteur);
+    if (c === null) return [];
+    return (marches || []).filter(function (m) {
+      var mc = nombre(m && m.compteur);
+      if (!m || m.exercice !== exercice || m.marche !== marche || mc === null || mc > c) return false;
+      if (reponses.indexOf(m.reponse) < 0 || !m.jour || m.jour > jour) return false;
+      return !(compteurs || []).some(function (x) {
+        return x && x.exercice === exercice && x.jour > m.jour && x.jour <= jour &&
+          nombre(x.compteur) !== null && nombre(x.compteur) < mc;
+      });
+    });
+  }
+
+  // Une série de plus a-t-elle été proposée (acceptée ou refusée) depuis le
+  // dernier progrès ? C'est ce qui ouvre le repli au déclenchement suivant.
+  function serieDePlusProposee(exercice, jour, compteur, marches, compteurs) {
+    return marchesDepuisProgres(exercice, jour, compteur, marches, compteurs, MARCHE_SERIE_DE_PLUS,
+      ['acceptee', 'refusee']).length > 0;
+  }
+
+  // LA SÉRIE DE PLUS EN COURS : acceptée, et pas de progrès depuis. Rend le
+  // pari (la plus récente acceptation), ou `null`.
+  function serieDePlusActive(exercice, jour, compteur, marches, compteurs) {
+    var a = marchesDepuisProgres(exercice, jour, compteur, marches, compteurs, MARCHE_SERIE_DE_PLUS, ['acceptee']);
+    if (!a.length) return null;
+    return a.slice().sort(function (x, y) { return avantAlpha(String(y.jour), String(x.jour)); })[0];
+  }
+
+  // Les PÉRIODES où une série de plus était active, pour le niveau sur la
+  // routine : du début de la séance qui l'a acceptée jusqu'à la séance qui
+  // ouvre APRÈS le progrès (exclue) — le premier compteur plus bas que celui
+  // de l'acceptation. `marches` : `marchesDesParis` (avec `debut`, `n`).
+  // Rend `{ [exercice]: [{ debut, fin, n }] }`.
+  function periodesSerieDePlus(marches, compteurs) {
+    var sortie = {};
+    (marches || []).forEach(function (m) {
+      if (!m || m.marche !== MARCHE_SERIE_DE_PLUS || m.reponse !== 'acceptee' || !m.debut || nombre(m.n) === null) return;
+      var c0 = nombre(m.compteur);
+      var apres = (compteurs || []).filter(function (x) {
+        return x && x.exercice === m.exercice && x.jour > m.jour && nombre(x.compteur) !== null &&
+          (c0 === null || nombre(x.compteur) < c0);
+      }).sort(function (a, b) { return avantAlpha(String(a.debut || a.jour), String(b.debut || b.jour)); });
+      (sortie[m.exercice] || (sortie[m.exercice] = [])).push({
+        debut: m.debut, fin: apres.length ? (apres[0].debut || apres[0].jour) : null, n: nombre(m.n) });
+    });
+    return sortie;
+  }
+
+  // « Tes pectoraux restent », « ton grand dorsal reste », « tes biceps et ton
+  // grand dorsal restent ». `muscles` : `[{ cle, libelle }]` (le libellé du
+  // catalogue), dans l'ordre de l'exercice.
+  function sujetDesMuscles(muscles) {
+    var l = (muscles || []).map(function (m) {
+      var lib = String(m.libelle || m.cle || '');
+      var sing = MUSCLES_SINGULIERS.indexOf(m.cle) >= 0;
+      return { mots: (sing ? 'ton ' : 'tes ') + lib.charAt(0).toLowerCase() + lib.slice(1), sing: sing };
+    });
+    if (!l.length) return null;
+    var liste = l.length > 1
+      ? l.slice(0, -1).map(function (x) { return x.mots; }).join(', ') + ' et ' + l[l.length - 1].mots
+      : l[0].mots;
+    var pluriel = l.length > 1 || !l[0].sing;
+    return liste.charAt(0).toUpperCase() + liste.slice(1) +
+      (pluriel ? ' restent sous leur volume habituel.' : ' reste sous son volume habituel.');
+  }
+
+  // LA CARTE DE LA SÉRIE DE PLUS, sous l'exercice : la phrase du meilleur (avec
+  // « et tes autres exercices avancent » ou un point), le détail, les deux
+  // boutons, et le gris qui suivra l'acceptation.
+  function carteSerieDePlus(meilleur, compteur, avancent, muscles) {
+    if (!meilleur || meilleur.niveau === null || meilleur.niveau === undefined) return null;
+    var sujet = sujetDesMuscles(muscles);
+    return {
+      type: MARCHE_SERIE_DE_PLUS,
+      phrase: meilleurDepuis(meilleur, compteur) + (avancent ? ', et tes autres exercices avancent.' : '.'),
+      detail: DETAIL_SERIE_DE_PLUS + (sujet ? ' ' + sujet : ''),
+      oui: 'Ajouter une série', non: 'Non merci', gris_apres: GRIS_SERIE_DE_PLUS
+    };
+  }
+
+  // LA CONSIGNE AVEC LA SÉRIE DE PLUS : la même consigne, qui sait que la
+  // routine compte `n` séries — la couverture (`couvertureSeance`) met la
+  // ligne en plus APRÈS elles, à la charge et à la visée de la ligne, jamais
+  // un test (I24).
+  function consigneSerieDePlus(consigne, n) {
+    var c = consigne || null;
+    var k = nombre(n);
+    if (!c || c.etat === 'silence' || k === null || k < 1 || !(c.ligne || c.haut)) return c;
+    return Object.assign({}, c, { serieDePlus: { routine: k } });
   }
 
   // ══ §14.6 (49-U16) — LA PLACE POUR UNE SÉRIE DE PLUS : LA RÈGLE DE VOLUME ══
@@ -3542,7 +3672,8 @@
     // 48b-5b-2, câblé à `null` faute d'un endroit où lire la zone choisie.
     var consigne = consignePour(seances, avant,
       { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null });
-    var marquees = marquerSousConsigne(seances, groupes, o.seancesSousConsigne, o.periodesAllegees);
+    var marquees = marquerSousConsigne(seances, groupes, o.seancesSousConsigne, o.periodesAllegees,
+      o.periodesSerieDePlus);
     var compteur = compteurFige(compteurDe(marquees, avant,
       { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null,
         corrections: o.correctionsDeZone || null }));
@@ -3591,7 +3722,11 @@
   // §14.4 (49-U14) — `periodes` : `[{ debut, fin }]` (jours civils), les
   // semaines allégées ACCEPTÉES ; une séance dont le jour y tombe est une
   // décharge déclarée (`decharge`), que le compteur ne compte ni ne juge.
-  function marquerSousConsigne(seances, groupes, ids, periodes) {
+  // §14.7 (49-U17) — `seriesDePlus` : `[{ debut, fin, n }]` (instants ; `fin`
+  // exclue, `null` = toujours active), les périodes où une série de plus était
+  // active : une séance qui y tombe lit son niveau sur ses `n` séries de
+  // routine (`nRoutine`).
+  function marquerSousConsigne(seances, groupes, ids, periodes, seriesDePlus) {
     var connus = {};
     (ids || []).forEach(function (id) { connus[id] = true; });
     return (seances || []).map(function (se, i) {
@@ -3601,8 +3736,13 @@
       var decharge = !!jour && (periodes || []).some(function (p) {
         return p && p.debut && p.fin && p.debut <= jour && jour <= p.fin;
       });
-      return Object.assign({}, se, { sousConsigne: id !== null && id !== undefined && connus[id] === true,
-                                     decharge: decharge });
+      var marque = { sousConsigne: id !== null && id !== undefined && connus[id] === true, decharge: decharge };
+      var t = instant(se && se.debut);
+      (seriesDePlus || []).forEach(function (p) {
+        var a = instant(p && p.debut), b = p && p.fin ? instant(p.fin) : null;
+        if (t !== null && a !== null && t >= a && (b === null || t < b) && nombre(p.n) !== null) marque.nRoutine = nombre(p.n);
+      });
+      return Object.assign({}, se, marque);
     });
   }
 
@@ -3882,6 +4022,12 @@
     marchesDesParis: marchesDesParis,
     observationMarche: observationMarche,
     placeDeVolume: placeDeVolume,
+    GRIS_SERIE_DE_PLUS: GRIS_SERIE_DE_PLUS,
+    serieDePlusProposee: serieDePlusProposee,
+    serieDePlusActive: serieDePlusActive,
+    periodesSerieDePlus: periodesSerieDePlus,
+    carteSerieDePlus: carteSerieDePlus,
+    consigneSerieDePlus: consigneSerieDePlus,
     placePourExercice: placePourExercice,
     situationChauffe: situationChauffe,
     chauffesDe: chauffesDe,

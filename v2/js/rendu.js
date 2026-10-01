@@ -1965,6 +1965,8 @@
         // §12.9 (49-U13) — le compteur de stagnation, à 4 séances ou plus : une
         // seconde ligne grise, lue sur le plan (`lib.compteur`), jamais calculée ici.
         if (lib.compteur) entree.appendChild(tapable(el('div', 'consigne-dit compteur', lib.compteur)));
+        // MOTEUR §14.7 (49-U17) — « une série de plus, jusqu'à ton prochain progrès ».
+        if (lib.plus) entree.appendChild(tapable(el('div', 'consigne-dit serie-de-plus', lib.plus)));
       }
       entree.appendChild(reglagesExo(x, vue));
 
@@ -2140,6 +2142,16 @@
   // MOTEUR §14.5 (49-U15) — « Changer de schéma » : la phrase, le détail,
   // « Passer à 6-8 reps » / « Garder 3-5 ». Lue sur le plan (`escalier.carte`).
   function propositionDeSchema(carte, iExo, vue) {
+    // MOTEUR §14.7 (49-U17) — la carte de la SÉRIE DE PLUS : « Ajouter une
+    // série » / « Non merci », la même réponse (`vue.surSchema`).
+    if (carte.type === 'serie_de_plus') {
+      return propositionDExercice({
+        classe: 'proposition-serie', texte: carte.phrase, detail: carte.detail,
+        oui: carte.oui, non: carte.non, classeOui: 'psp-oui', classeNon: 'psp-non',
+        surOui: function () { vue.surSchema(iExo, 'acceptee'); },
+        surNon: function () { vue.surSchema(iExo, 'refusee'); }
+      }, iExo);
+    }
     return propositionDExercice({
       classe: 'proposition-schema', texte: carte.phrase, detail: carte.detail,
       oui: carte.oui, non: carte.non, classeOui: 'ps-oui', classeNon: 'ps-non',
@@ -2193,9 +2205,11 @@
     // La marque de tour passe à la phrase du coach quand elle précède la ligne :
     // l'espace va AU-DESSUS de la phrase, pas entre elle et sa série.
     var proposee = !!(reaction && reaction.proposee);
+    // MOTEUR §14.7 (49-U17) — la ligne de la série de plus, à la couleur du coach.
+    var ajoutee = !!(reaction && reaction.ajoutee);
     var ligne = el('div', 'ligne-serie' +
       (s.debutTour && !(reaction && reaction.message) ? ' debut-tour' : '') +
-      (proposee ? ' proposee' : ''));
+      (proposee ? ' proposee' : '') + (ajoutee ? ' ajoutee' : ''));
     var fond = el('div', 'glisse-fond', 'Supprimer');
     var rangee = el('div', 'serie' + classeGrille + (allumee ? ' faite' : ''));
     rangee.setAttribute('data-iexo', iExo);

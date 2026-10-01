@@ -27,6 +27,7 @@
 
   function Moteur() { return racine.THMoteur; }
   function Seance() { return racine.THSeance; }
+  function Semaine() { return racine.THSemaine; }
   function Palier() { return racine.THPalier; }
 
   var ROLES = { ligne: true, test: true, coach: true, retour: true, hors: true };
@@ -150,6 +151,8 @@
       ligne.source = p.source || null;
       ligne.figee = !!(planInitial[cov.position] && planInitial[cov.position].figee);
       ligne.proposee = p.source === 'coach' && !ligne.validee;
+      // §14.7 — la ligne de la série de plus (après les séries de la routine).
+      if (cov.ajoutee) ligne.ajoutee = true;
       ligne.fourchette = Array.isArray(p.zone) ? p.zone.slice() : null;
       if (ligne.validee) {
         ligne.faite = { charge: sr.charge_kg === undefined ? null : sr.charge_kg,
@@ -481,7 +484,7 @@
   }
 
   // ── LE PLAN D'UN EXERCICE ───────────────────────────────────────────────
-  function planDExercice(exo, iExo, consigneDuSlug, paris, seanceId, reglage, suite, debut, materiel, phase, allegee, seriesRoutine, marche) {
+  function planDExercice(exo, iExo, consigneDuSlug, paris, seanceId, reglage, suite, debut, materiel, phase, allegee, seriesRoutine, marche, routinePlus) {
     var S = Seance(), M = Moteur();
     var series = (exo && exo.series) || [];
     var c = consigneDuSlug && consigneDuSlug.consigne ? consigneDuSlug : null;
@@ -514,6 +517,10 @@
     if (marche && marche.repli && !consigne.allegee && consigne.etat !== 'silence') {
       consigne = M.consigneRepli(consigne, marche.repli);
     }
+    // MOTEUR §14.7 (49-U17) — LA SÉRIE DE PLUS EN COURS : la consigne sait que
+    // la routine compte `routinePlus` séries ; la ligne en plus les suit, à la
+    // charge et à la visée de la ligne, jamais un test.
+    if (routinePlus && !consigne.allegee) consigne = M.consigneSerieDePlus(consigne, routinePlus);
     var siens = (paris || []).filter(function (l) {
       return l && l.exercise_slug === base.slug && l.fondement && l.fondement.seance === seanceId;
     });
@@ -541,6 +548,8 @@
     }
     // §14.5 — « On repart de 120 kg, ta dernière charge tenue : … le 3 févr. »
     if (consigne.repli) gris = M.phraseRepli(consigne.repli, debut);
+    // §14.7 — « une série de plus, jusqu'à ton prochain progrès », en gris.
+    var grisPlus = consigne.serieDePlus ? M.GRIS_SERIE_DE_PLUS : null;
     var donc = entete.jaune.length ? 'Donc ' + entete.jaune.join(', ') + '.' : null;
     var autour = chauffesEtDegressive(r.lignes, series, consigne, materiel || null);
     var pourquoi = pourquoiDuPlan(consigne, r.lignes, donc);
@@ -573,7 +582,7 @@
       planInitial: r.planInitial, faites: r.faites, reaction: r.reaction,
       lignes: r.lignes, message: r.message, paris: r.paris,
       constat: constat,
-      entete: { jaune: entete.jaune, gris: gris, segments: entete.segments, compteur: phraseDuCompteur },
+      entete: { jaune: entete.jaune, gris: gris, segments: entete.segments, compteur: phraseDuCompteur, plus: grisPlus },
       // §14.5 (49-U15) — la marche de l'escalier de cet exercice, ou `null` :
       // `{ marche, n, compteur, declenchement, zone, carte?, repli?, reponse? }`.
       escalier: marche || null,
@@ -709,6 +718,7 @@
     var esc = escalierDuPlan(e, seance, consignes);
     var seriesRoutine = (e.escalier && e.escalier.seriesRoutine) || {};
     var isoles = marchesIsolees(e, seance, consignes, esc, phase);
+    var plus = seriesDePlusActives(e, seance, consignes, esc, phase);
     // Une marche par EXERCICE (I21) : un exercice présent deux fois dans la
     // séance ne la porte que sur sa première occurrence ; le repli, lui, est la
     // consigne de l'exercice — les deux occurrences la lisent.
@@ -728,14 +738,14 @@
         if (m) portee[slug] = true;
         var x = planDExercice(exo, i, c, e.paris || [], seance.id, e.reglage, suite, seance.debut,
           materielDe(exos, i, e.catalogue || null, c, e.refusChauffes || {}), phase,
-          !!esc.allegee, Object.prototype.hasOwnProperty.call(seriesRoutine, slug) ? seriesRoutine[slug] : null, m);
+          !!esc.allegee, Object.prototype.hasOwnProperty.call(seriesRoutine, slug) ? seriesRoutine[slug] : null, m,
+          Object.prototype.hasOwnProperty.call(plus, slug) ? plus[slug] : null);
         if (x.escalier && x.escalier.copie) x.escalier = null;
         // MOTEUR §14.6 (49-U16) — LA PLACE POUR UNE SÉRIE DE PLUS : de la place
         // sur CHACUN des muscles primaires de l'exercice (catalogue), lue dans
         // `entrees.volume`. Un fait, rien d'affiché : la série de plus (PR 2c)
         // le lira. `null` sans entrée de volume.
-        var cat = e.catalogue && slug && Object.prototype.hasOwnProperty.call(e.catalogue, slug) ? e.catalogue[slug] : null;
-        x.placeSerieDePlus = e.volume ? Moteur().placePourExercice(e.volume, cat ? cat.muscles_primaires : null) : null;
+        x.placeSerieDePlus = placeDeLExercice(e, slug);
         return x;
       })
     };
@@ -761,6 +771,22 @@
   // les indices décroissants dans chaque exercice (on retire par la fin). Pure ;
   // l'app l'applique à l'acceptation et à la création d'une séance dans la
   // période, jamais au rendu : « + Série » reste libre ensuite.
+  // §14.7 (49-U17) — LA LIGNE DE LA SÉRIE DE PLUS À CRÉER : un exercice dont la
+  // consigne porte une série de plus et qui n'a encore QUE les séries de sa
+  // routine (autant de séries de travail que `routine`). Rend `[iExo]`. Pur ;
+  // l'app l'applique à l'acceptation et à la création d'une séance, jamais au
+  // rendu : une ligne retirée par la personne ne revient pas (§14.3).
+  function lignesAAjouter(plan) {
+    var sortie = [];
+    ((plan && plan.exercices) || []).forEach(function (x) {
+      var p = x && x.consigne && x.consigne.serieDePlus;
+      if (!p) return;
+      var travail = (x.lignes || []).filter(function (l) { return l.type === 'travail'; }).length;
+      if (travail === p.routine) sortie.push(x.iExo);
+    });
+    return sortie;
+  }
+
   function lignesARetirer(plan) {
     var sortie = [];
     if (!plan || !plan.allegee) return sortie;
@@ -836,7 +862,11 @@
       var k = c.compteur.compteur;
       var zone = c.consigne.zone;
       var n = M.nIsole(k, M.declenchementsRepondus(slug, jour, k, cartes, compteurs));
-      var marche = M.marcheIsolee(n, zone, phase);
+      // §14.7 (49-U17) — la place sur chacun des muscles primaires (§14.6), et
+      // une série de plus déjà proposée depuis le dernier progrès.
+      var place = placeDeLExercice(e, slug);
+      var proposee = M.serieDePlusProposee(slug, jour, k, marches, compteurs);
+      var marche = M.marcheIsolee(n, zone, phase, place, proposee);
       if (!marche) return;
       var declenche = M.estDeclenchement(k);
       if (!declenche && marche !== M.MARCHE_SILENCE) return;
@@ -846,19 +876,71 @@
         if (c.repli) m.repli = c.repli;
         else { m.marche = M.MARCHE_SILENCE; m.saute = true; }
       }
-      if (marche === M.MARCHE_SCHEMA) {
+      if (marche === M.MARCHE_SCHEMA || marche === M.MARCHE_SERIE_DE_PLUS) {
+        // Déjà répondue dans cette séance — et, pour la série de plus, déjà
+        // proposée depuis le dernier progrès (une autre séance du même
+        // déclenchement) : la carte ne revient pas ; la ligne en plus, si elle
+        // a été acceptée, se lit dans `seriesDePlusActives`.
         var deja = marches.filter(function (x) {
-          return x && x.seance === seance.id && x.exercice === slug && x.marche === M.MARCHE_SCHEMA;
+          return x && x.exercice === slug && x.marche === marche &&
+            (x.seance === seance.id || (marche === M.MARCHE_SERIE_DE_PLUS && proposee &&
+              (x.reponse === 'acceptee' || x.reponse === 'refusee')));
         })[0];
         if (deja) {
           m.reponse = deja.reponse;
         } else {
           if (J === null) J = joursDesCompteurs(E, seance, consignes, jour);
-          m.carte = M.carteSchema(zone, c.compteur.meilleur, k, M.autresAvancent(J.jours, jour, slug));
+          var avancent = M.autresAvancent(J.jours, jour, slug);
+          m.carte = marche === M.MARCHE_SCHEMA
+            ? M.carteSchema(zone, c.compteur.meilleur, k, avancent)
+            : M.carteSerieDePlus(c.compteur.meilleur, k, avancent, musclesPrimaires(e, slug));
           if (!m.carte) return;
         }
       }
       sortie[slug] = m;
+    });
+    return sortie;
+  }
+
+  // §14.6, §14.7 — la place pour une série de plus sur CHACUN des muscles
+  // primaires de l'exercice (catalogue), lue dans `entrees.volume` ; `null`
+  // sans entrée de volume.
+  function placeDeLExercice(e, slug) {
+    if (!e.volume) return null;
+    var cat = e.catalogue && slug && Object.prototype.hasOwnProperty.call(e.catalogue, slug) ? e.catalogue[slug] : null;
+    return Moteur().placePourExercice(e.volume, cat ? cat.muscles_primaires : null);
+  }
+
+  // Les muscles primaires de l'exercice, avec leur nom au catalogue
+  // (`THSemaine.libelleMuscle`), pour la carte de la série de plus.
+  function musclesPrimaires(e, slug) {
+    var cat = e.catalogue && slug && Object.prototype.hasOwnProperty.call(e.catalogue, slug) ? e.catalogue[slug] : null;
+    var Sm = Semaine();
+    return ((cat && cat.muscles_primaires) || []).map(function (m) {
+      return { cle: m, libelle: Sm && Sm.libelleMuscle ? Sm.libelleMuscle(m) : m };
+    });
+  }
+
+  // §14.7 (49-U17) — LES SÉRIES DE PLUS EN COURS : acceptées, pas de progrès
+  // depuis — à chaque séance de l'exercice jusqu'à son prochain progrès. Jamais
+  // pendant une semaine allégée, jamais en sèche, jamais en zone force (I23) ;
+  // la routine compte `seriesRoutine[slug]` séries (figées avec la consigne).
+  // Rend `{ [slug]: n }`.
+  function seriesDePlusActives(e, seance, consignes, esc, phase) {
+    var sortie = {};
+    var E = e.escalier;
+    if (!E || seance.edition || esc.allegee || phase === 'seche') return sortie;
+    var M = Moteur();
+    var jour = M.jourCivil(seance.debut);
+    if (!jour) return sortie;
+    var routine = E.seriesRoutine || {};
+    Object.keys(consignes).forEach(function (slug) {
+      var c = consignes[slug];
+      if (!c || !c.consigne || !c.compteur || typeof c.compteur.compteur !== 'number') return;
+      if (c.consigne.zone === 'lourd' || c.consigne.zone === 'mix' || !c.consigne.zone) return;
+      if (!M.serieDePlusActive(slug, jour, c.compteur.compteur, E.marches || [], E.compteurs || [])) return;
+      var n = Object.prototype.hasOwnProperty.call(routine, slug) ? Number(routine[slug]) : NaN;
+      if (isFinite(n) && n >= 1) sortie[slug] = n;
     });
     return sortie;
   }
@@ -878,6 +960,10 @@
     }
     // Une carte à laquelle cette séance a déjà répondu ne revient pas.
     if (cartes.some(function (c) { return c && c.seance === seance.id; })) return vide;
+    // La démonstration du blocage isolé (`?escalier=isole`, garde active
+    // seulement) suspend la carte : ses trois exercices témoins, à 4 et plus,
+    // la déclencheraient, et elle masquerait les marches qu'on veut montrer.
+    if (esc.carteSuspendue === true) return vide;
     var J = joursDesCompteurs(esc, seance, consignes, jour);
     var b = M.blocageGeneralise(J.jours, jour, esc.noms || null, J.ouverts);
     if (!b || !M.carteAutorisee(b.declencheur, jour, cartes, esc.compteurs || [])) return vide;
@@ -1420,6 +1506,33 @@
         if (vues[x.slug]) erreurs.push('I21 — ' + nom + ' : une seconde marche pour le même exercice');
         vues[x.slug] = true;
       }
+      // I23 (§14.7) — jamais de série de plus en sèche ni en zone force ; une
+      // carte de série de plus seulement quand les muscles ont de la place.
+      // I24 — la ligne en plus n'est jamais un test et suit les lignes de la
+      // routine.
+      var sp = x.consigne && x.consigne.serieDePlus;
+      var carteSp = m && m.carte && m.carte.type === 'serie_de_plus';
+      if (sp || carteSp) {
+        var zSp = x.consigne ? x.consigne.zone : null;
+        if (plan.phase === 'seche') erreurs.push('I23 — ' + nom + ' : une série de plus en sèche');
+        if (zSp === 'lourd' || zSp === 'mix') erreurs.push('I23 — ' + nom + ' : une série de plus en zone force (' + zSp + ')');
+        if (plan.allegee) erreurs.push('I23 — ' + nom + ' : une série de plus pendant une semaine allégée');
+      }
+      if (carteSp && x.placeSerieDePlus !== true) erreurs.push('I23 — ' + nom + ' : une série de plus proposée sans place');
+      if (sp) {
+        var trav = (x.lignes || []).filter(function (l) { return l.type === 'travail'; });
+        trav.forEach(function (l, j) {
+          if (j >= sp.routine && l.role !== 'hors' && l.role !== 'ligne' && !l.validee) {
+            erreurs.push('I24 — ' + nom + ' : la ligne en plus (série ' + l.iSerie + ') est une ligne ' + l.role);
+          }
+          if (j >= sp.routine && l.role !== 'hors' && !l.ajoutee) {
+            erreurs.push('I24 — ' + nom + ' : la série ' + l.iSerie + ', après la routine, n\'est pas la ligne en plus');
+          }
+          if (j < sp.routine && l.ajoutee) {
+            erreurs.push('I24 — ' + nom + ' : la ligne en plus (série ' + l.iSerie + ') ne suit pas les lignes de la routine');
+          }
+        });
+      }
       var r = x.consigne && x.consigne.repli;
       if (!r) return;
       var err = function (texte) { erreurs.push('I22 — ' + nom + ' : ' + texte); };
@@ -1588,6 +1701,7 @@
   var api = {
     planDeSeance: planDeSeance,
     lignesARetirer: lignesARetirer,
+    lignesAAjouter: lignesAAjouter,
     planDesLignes: planDesLignes,
     rejouer: rejouer,
     verifierPlan: verifierPlan,

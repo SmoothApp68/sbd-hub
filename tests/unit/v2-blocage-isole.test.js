@@ -76,8 +76,16 @@ describe('§14.2, §14.5 — les cas du simulateur', () => {
     });
   });
 
-  test('la table des marches : les 48 lignes', () => {
-    const faux = F.marche.filter((m) => M.marcheIsolee(m.n_isole, m.zone, m.phase) !== m.marche);
+  // ⚠️ REMPLACÉE EN PARTIE PAR LA TABLE DE 49-34 (49-U17, `cas-49u17-serie-de-plus.json`) :
+  // en zone muscle hors sèche, n = 1 n'est plus « rien n'est proposé » (la série
+  // de plus, ou le repli tout de suite), et n = 2 n'est le repli que si une
+  // série de plus a été proposée. Les 40 lignes inchangées (zones force, sèche,
+  // n ≥ 3) se vérifient encore ici ; les 8 autres, par la table de 49-U17.
+  test('la table des marches : les lignes que 49-34 n\'a pas changées (zones force, sèche, n ≥ 3)', () => {
+    const muscleHorsSeche = (m) => ['lourd', 'mix'].indexOf(m.zone) < 0 && m.phase !== 'seche';
+    const gardees = F.marche.filter((m) => !(muscleHorsSeche(m) && m.n_isole <= 2));
+    expect(gardees).toHaveLength(40);
+    const faux = gardees.filter((m) => M.marcheIsolee(m.n_isole, m.zone, m.phase) !== m.marche);
     expect(faux).toEqual([]);
   });
 
@@ -236,14 +244,13 @@ describe('§14.5 — le blocage isolé, dans le plan', () => {
     expect(x.paris.filter(Boolean).every((q) => q.module !== 'escalier')).toBe(true);
     expect(T.verifierPlan(p, e).erreurs).toEqual([]);
   });
-  test('zone muscle hors sèche : la série de plus attend (PR 2c) — rien n\'est proposé, la phrase du compteur seule', () => {
-    const { p } = decor({ consigne: { zone: 'volume', etat: 'progression', haut: null, ligne: { charge: 27, vise: 12 } },
-      meilleur: { palier: 27, niveau: 12 } });
+  test('zone muscle hors sèche, sans entrée de volume (pas de place) : le repli tout de suite (49-34)', () => {
+    const { e, p } = decor({ consigne: { zone: 'volume', etat: 'progression', haut: null, ligne: { charge: 27, vise: 12 } },
+      meilleur: { palier: 27, niveau: 12 }, repli: { palier: 25, niveau: 12, debut: '2026-09-20T10:00:00+00:00', reps: [12, 12, 12], ligne: [25, 12] } });
     const x = p.exercices[0];
-    expect(x.escalier.marche).toBe('serie_de_plus_a_venir');
-    expect(x.escalier.carte).toBeUndefined();
-    expect(x.consigne.repli).toBeUndefined();
-    expect(x.entete.compteur).toBe('27' + NB + 'kg × 12 reste ton meilleur depuis 4 séances.');
+    expect(x.escalier.marche).toBe('repli');
+    expect(x.consigne.repli.palier).toBe(25);
+    expect(T.verifierPlan(p, e).erreurs).toEqual([]);
   });
   test('2e déclenchement : le repli — 120 kg × 4, sans ligne haute ni test, la phrase grise par `quand`', () => {
     const { e, p } = decor({ compteur: 8 });
@@ -395,7 +402,7 @@ describe('§14.5 — les paris de l\'escalier : identifiants et observations', (
     const l = { id: 'x', module: 'escalier', exercise_slug: null,
       fondement: { seance: 'S1', jour: '2026-10-01', exercice: 'couche', marche: 'repli', reponse: 'appliquee', compteur: 8 } };
     expect(M.marchesDesParis([l])).toEqual([{ id: 'x', seance: 'S1', jour: '2026-10-01', exercice: 'couche',
-      marche: 'repli', reponse: 'appliquee', compteur: 8, debut: null }]);
+      marche: 'repli', reponse: 'appliquee', compteur: 8, debut: null, n: null }]);
     // Une carte de semaine allégée n'est pas une marche isolée, et l'inverse.
     expect(M.marchesDesParis([Object.assign({}, l, { fondement: { marche: 'semaine_allegee' } })])).toEqual([]);
     expect(M.cartesDesParis([l])).toEqual([]);

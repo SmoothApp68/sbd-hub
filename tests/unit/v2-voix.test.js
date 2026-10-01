@@ -305,6 +305,16 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
   });
   noter('escalier isolé', 'sèche', [M.phraseSeche({ compteur: 4, meilleur: { palier: 27, niveau: 12 }, blocages: [] })]);
   noter('escalier isolé', 'silence', [M.phraseCompteur({ compteur: 12, meilleur: { palier: 80, niveau: 10 }, blocages: [] })]);
+  // (j) MOTEUR §14.7 (49-U17) — la série de plus : les 4 cartes (phrase,
+  // détail, deux boutons) et le gris qui suit l'acceptation. Les muscles par
+  // leurs noms au catalogue.
+  const Semaine = require('../../v2/js/semaine.js');
+  require('./fixtures/cas-49u17-serie-de-plus.json').carte.forEach((c, i) => {
+    const k = M.carteSerieDePlus({ palier: c.meilleur[0], niveau: c.meilleur[1] }, c.compteur, c.autres_avancent,
+      c.muscles.map((m) => ({ cle: m, libelle: Semaine.libelleMuscle(m) })));
+    noter('escalier isolé', 'cas-49u17 carte ' + (i + 1), [k.phrase, k.detail, k.oui, k.non]);
+  });
+  noter('escalier isolé', 'série de plus, après', [M.GRIS_SERIE_DE_PLUS]);
   ISO.repli.filter((c) => c.attendu).forEach((c) => {
     const r = M.repliEscalier(c.seances, c.avant, { palier: c.meilleur[0], niveau: c.meilleur[1] }, c.zone);
     noter('escalier isolé', 'cas-49u15 ' + c.id, [M.phraseRepli(r, c.avant)], [r.debut], c.avant);
@@ -326,8 +336,9 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
     expect(parFamille.compteur).toBe(30);
     // 6 cartes × 2 phrases + 14 consignes allégées × 2 + 3 bandeaux + le refus.
     expect(parFamille.escalier).toBe(44);
-    // 3 cartes × 4 textes + la sèche + le silence + 2 replis × 2 références.
-    expect(parFamille['escalier isolé']).toBe(18);
+    // 3 cartes × 4 textes + la sèche + le silence + 2 replis × 2 références,
+    // puis (49-U17) 4 cartes de série de plus × 4 textes + le gris d'après.
+    expect(parFamille['escalier isolé']).toBe(35);
     // La phrase « Je ne compte pas la dernière série » est bien jouée.
     expect(vues.filter((v) => v.famille === 'chute' && /Je ne compte pas la dernière série/.test(v.phrase)).length)
       .toBeGreaterThanOrEqual(14);

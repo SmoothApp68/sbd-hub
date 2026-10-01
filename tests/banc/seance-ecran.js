@@ -172,7 +172,13 @@ const CATALOGUE = [
   { slug: 'pousse-u15', nom: 'Poussé U15 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['pectoraux'], muscles_secondaires: [] },
   { slug: 'tracte-u15', nom: 'Tracté U15 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['dorsaux'], muscles_secondaires: [] },
   { slug: 'leve-u15', nom: 'Levé U15 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['epaules'], muscles_secondaires: [] },
-  { slug: 'presse-u15', nom: 'Pressé U15 (Machine)', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['quadriceps'], muscles_secondaires: [] }
+  { slug: 'presse-u15', nom: 'Pressé U15 (Machine)', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['quadriceps'], muscles_secondaires: [] },
+  // 49-U17 — réservé à la section 7 G terdecies (la série de plus). Son muscle
+  // (les avant-bras) n'est travaillé nulle part ailleurs : sa règle de volume
+  // ne dépend que de ce décor.
+  { slug: 'serre-u17', nom: 'Serré U17 (Poulie)', mesure: 'charge_reps', charge: 'externe', equipement: 'poulie', muscles_primaires: ['avant_bras'], muscles_secondaires: [] },
+  { slug: 'hausse-u17', nom: 'Haussé U17 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['trapezes'], muscles_secondaires: [] },
+  { slug: 'tendu-u17', nom: 'Tendu U17 (Machine)', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['mollets'], muscles_secondaires: [] }
 ];
 
 // ⚠️ UNE ROUTINE PORTE MAINTENANT SES LIGNES (chantier 43). `routine_sets`
@@ -8533,7 +8539,10 @@ const SETS_IMPORTES = [
     const compteurs = await page.evaluate(() => {
       const d = window.THPlan && window.THPlan.dernier;
       const de = (slug) => { const x = d && d.plan.exercices.filter((e) => e.slug === slug)[0]; return x ? x.compteur : null; };
-      return { curl: de('curl-u13'), tirage: de('tirage-u13'), phase: d ? d.plan.phase : null };
+      const x = d && d.plan.exercices.filter((e) => e.slug === 'curl-u13')[0];
+      const carte = x ? document.querySelector('.proposition-exercice[data-iexo="' + x.iExo + '"]:not(.proposition-chauffes) .pc-texte') : null;
+      return { curl: de('curl-u13'), tirage: de('tirage-u13'), phase: d ? d.plan.phase : null,
+               marche: x && x.escalier ? x.escalier.marche : null, carte: carte ? carte.textContent : null };
     });
     // MOTEUR §14.5 (49-U15) — le curl (Volume, compteur 4) est au 1er
     // déclenchement isolé : EN SÈCHE, la phrase dit aussi « je ne te propose
@@ -8547,8 +8556,18 @@ const SETS_IMPORTES = [
     ok('[U13] le curl : 4 séances suivies sans progrès depuis 25 kg × 12 (la séance à 20 kg, non suivie, ne compte pas)',
       !!compteurs.curl && compteurs.curl.compteur === 4 && compteurs.curl.meilleur.palier === 25 &&
       compteurs.curl.meilleur.niveau === 12, JSON.stringify(compteurs.curl));
+    // MOTEUR §14.7 (49-U17) — le curl (Volume, compteur 4) est au 1er
+    // déclenchement isolé : selon la place de ses muscles (lue sur tout
+    // l'historique du banc), la carte de la série de plus dit le meilleur, ou
+    // le repli tout de suite — sauté sans palier tenu, c'est le silence : la
+    // phrase quitte l'en-tête. Le meilleur, lui, reste 25 × 12 (contrôle
+    // ci-dessus) ; là où une phrase le dit, elle dit celui-là.
+    const silence = compteurs.marche === 'silence';
     ok('[U13] DISCRIMINANT — la phrase grise à l’ouverture : « 25 kg × 12 reste ton meilleur depuis 4 séances. » (le meilleur, pas les 20 kg du jour)',
-      lignesCompteur[0] === phraseU13, JSON.stringify([lignesCompteur, compteurs.phase]));
+      silence ? lignesCompteur[0] === null
+        : (compteurs.carte ? esp(compteurs.carte).indexOf('25 kg × 12 reste ton meilleur depuis 4 séances') === 0
+                           : lignesCompteur[0] === phraseU13),
+      JSON.stringify([lignesCompteur, compteurs.phase, compteurs.marche, compteurs.carte]));
     ok('[U13] DISCRIMINANT — le tirage : les séances sans pari ne comptent pas → 3 (elles en feraient 5)',
       !!compteurs.tirage && compteurs.tirage.compteur === 3, JSON.stringify(compteurs.tirage));
     ok('[U13] à 3 séances : rien dans l’en-tête', lignesCompteur.length === 2 && lignesCompteur[1] === null,
@@ -8561,8 +8580,8 @@ const SETS_IMPORTES = [
     await attendre(700);
     const feuille = (await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .pq-p'))
       .map((n) => n.textContent))).map(esp);
-    ok('[U13] la feuille « Pourquoi » le dit en une ligne',
-      feuille.filter((t) => t === phraseU13).length === 1, JSON.stringify(feuille));
+    ok('[U13] la feuille « Pourquoi » le dit en une ligne (quand l’en-tête le dit)',
+      feuille.filter((t) => t === phraseU13).length === (lignesCompteur[0] ? 1 : 0), JSON.stringify(feuille));
     await page.click('#btn-fermer-feuille');
     await attendre(600);
     ok('[U13] la garde (C6) n’a rien signalé dans cette section', gardeBanc.violations === violationsAvant,
@@ -8570,6 +8589,174 @@ const SETS_IMPORTES = [
     await abandonner();
     await aller('/saisie');
     ok('[U13] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
+  }
+
+  console.log('\n══ 7 G terdecies. LA SÉRIE DE PLUS, JUSQU’AU PROCHAIN PROGRÈS (49-U17, MOTEUR §14.7) ══');
+  //
+  // ⚠️ CHAÎNÉE DEVANT 7 G duodecies et 7 G undecies (`seance-chaines.json`) :
+  // 7 G undecies laisse une semaine allégée acceptée aujourd'hui (aucune marche
+  // pendant la période, I21). Ici, rien ne gêne la suite : les paris du décor
+  // ont 9 jours ou plus, et la section ne valide aucune série.
+  //
+  // CONFIGURATION DISCRIMINANTE : `serre-u17` (Volume, 25 kg × 12), SEUL sur
+  // son muscle (avant-bras) :
+  //   · seize séances, une par semaine, de 114 à 9 jours : 4 séries, puis 3 sur
+  //     les trois dernières semaines → la dernière fenêtre (3) ne dépasse pas
+  //     le 3e quartile (4) : DE LA PLACE ;
+  //   · les cinq dernières sous consigne → compteur 4 : le 1er déclenchement
+  //     isolé, en zone muscle, hors sèche → la carte de la série de plus.
+  // A — la carte, « Ajouter une série » : le pari, PUIS une ligne de plus,
+  //     après les 3 de la routine, à 25 kg × 12, jamais un test.
+  // B — une nouvelle séance, le même jour (compteur toujours 4, pas de
+  //     progrès) : la ligne en plus revient d'elle-même, sans carte.
+  // 0 — `?escalier=isole`, le 3e exercice : la carte, « Ajouter une série »,
+  //     la ligne de plus — et AUCUN pari.
+  {
+    const tP = Date.now();
+    let graineP = 500;
+    const sessionP = (id, jours) => {
+      const debut = ilYa(jours * 86400000, tP).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'U17 — ' + id, debut,
+        fin: finDe(debut, tP).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      return debut;
+    };
+    const serieP = (id, slug, rang, kg, reps, debut) => base.sets.push({ id: id + '-' + slug + '-s' + rang,
+      session_id: id, user_id: 'u-banc', exercise_slug: slug, charge_kg: kg, reps, duree_s: null,
+      distance_m: null, type_serie: 'travail', rang, groupe_superset: null, validee_a: debut, rpe: null,
+      ressenti: null, repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null });
+    const pariP = (id, slug, debut, compteur, kg, reps) => base.predictions.push({
+      id: '00000000-0000-5000-8000-' + String(++graineP).padStart(12, '0'),
+      user_id: 'u-banc', module: 'moteur.consigne', module_version: 4, emise_a: debut,
+      exercise_slug: slug, grandeur: 'reps', horizon_jours: null, valeur_predite: reps,
+      borne_basse: 10, borne_haute: 12,
+      fondement: { rang: 1, charge: kg, etat: 'progression', zone: 'volume', reglage: 'normal',
+                   palier: kg, niveau: reps, seance: id, role: 'ligne', phase: 'maintien', compteur },
+      valeur_observee: reps, observee_a: debut, set_observe: id + '-' + slug + '-s1', created_at: debut });
+    const jours = [];
+    for (let k = 15; k >= 0; k--) jours.push(9 + 7 * k);
+    jours.forEach((j, i) => {
+      const id = 'u17-s' + i;
+      const debut = sessionP(id, j);
+      const n = i >= jours.length - 3 ? 3 : 4;
+      for (let r = 1; r <= n; r++) serieP(id, 'serre-u17', r, 25, 12, debut);
+      if (i >= jours.length - 5) pariP(id, 'serre-u17', debut, i - (jours.length - 5), 25, 12);
+    });
+    // La démonstration : deux exercices avec une consigne (deux séances, sans
+    // pari), devant le serré.
+    [['u17-h', 'hausse-u17', 60], ['u17-t', 'tendu-u17', 100]].forEach(([id, slug, kg]) => {
+      [40, 31].forEach((jj, k) => {
+        const sid = id + '-' + k;
+        const debut = sessionP(sid, jj);
+        [1, 2, 3].forEach((r) => serieP(sid, slug, r, kg, 5, debut));
+      });
+    });
+    ROUTINES.push({ id: 'r-u17', nom: 'Série U17', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-u17-a', routine_id: 'r-u17', exercise_slug: 'serre-u17', rang: 0,
+        routine_sets: progr(3, 12), repos_cible_s: 90, groupe_superset: null, note: null }] });
+    ROUTINES.push({ id: 'r-u17-d', nom: 'Démo U17', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: ['hausse-u17', 'tendu-u17', 'serre-u17'].map((slug, k) => ({ id: 'r-u17-d' + k,
+        routine_id: 'r-u17-d', exercise_slug: slug, rang: k, routine_sets: progr(3, 12), repos_cible_s: 90,
+        groupe_superset: null, note: null })) });
+    // La phase du profil : celle qu'auront laissée d'autres sections (en
+    // séquentiel, 7 G octies finit en sèche) n'est pas la question ici.
+    if (base.profiles && base.profiles[0]) base.profiles[0].phase = 'maintien';
+    const esp = (t) => String(t || '').replace(/[  ]/g, ' ');
+    const lireSerie = () => page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      const x = d && d.plan.exercices.filter((e) => e.slug === 'serre-u17')[0];
+      const i = x ? x.iExo : -1;
+      const carte = document.querySelector('.proposition-serie[data-iexo="' + i + '"]');
+      const legende = Array.from(document.querySelectorAll('.legende-exo'))[i] || null;
+      return {
+        phase: d ? d.plan.phase : null,
+        compteur: x && x.compteur ? x.compteur.compteur : null,
+        place: x ? x.placeSerieDePlus : null,
+        marche: x && x.escalier ? x.escalier.marche : null,
+        carte: carte ? { texte: carte.querySelector('.pc-texte').textContent,
+                         detail: carte.querySelector('.pc-detail').textContent,
+                         oui: carte.querySelector('.psp-oui').textContent, non: carte.querySelector('.psp-non').textContent } : null,
+        lignes: x ? x.lignes.filter((l) => l.type === 'travail').map((l) => [l.role, l.charge, l.vise, !!l.ajoutee]) : null,
+        ajouteesEcran: document.querySelectorAll('.ligne-serie.ajoutee').length,
+        plus: legende && legende.querySelector('.consigne-dit.serie-de-plus') ? legende.querySelector('.consigne-dit.serie-de-plus').textContent : null
+      };
+    });
+    const parisPlus = () => base.predictions.filter((l) => l.module === 'escalier' && l.fondement &&
+      l.fondement.marche === 'serie_de_plus');
+    const violationsAvant = gardeBanc.violations;
+
+    // ── 0. La démonstration : le 3e exercice, sans pari.
+    const parisAvant = base.predictions.length;
+    await aller('/saisie?escalier=isole');
+    await demarrerRoutine('Démo U17');
+    await attendre(1200);
+    const d1 = await page.evaluate(() => {
+      const c = document.querySelector('.proposition-serie');
+      return c ? { iexo: c.getAttribute('data-iexo'), texte: c.querySelector('.pc-texte').textContent } : null;
+    });
+    ok('[U17] 0 — démonstration : la carte de la série de plus sur le 3e exercice',
+      !!d1 && d1.iexo === '2' && /reste ton meilleur depuis 4 séances/.test(esp(d1.texte)), JSON.stringify(d1));
+    const avant0 = await compter('.ligne-serie');
+    await page.click('.proposition-serie .psp-oui');
+    await attendre(1200);
+    ok('[U17] 0 — « Ajouter une série » : une ligne de plus, et AUCUN pari écrit',
+      (await compter('.ligne-serie')) === avant0 + 1 && (await compter('.ligne-serie.ajoutee')) === 1 &&
+      base.predictions.length === parisAvant,
+      JSON.stringify({ lignes: (await compter('.ligne-serie')) - avant0, paris: base.predictions.length - parisAvant }));
+    await abandonner();
+    await aller('/saisie?escalier=0');
+
+    // ── A. La carte, puis « Ajouter une série ».
+    await aller('/saisie');
+    await demarrerRoutine('Série U17');
+    await attendre(1200);
+    const a = await lireSerie();
+    ok('[U17] prémisse : Volume, maintien, compteur 4, de la place sur les avant-bras',
+      a.phase === 'maintien' && a.compteur === 4 && a.place === true, JSON.stringify(a));
+    ok('[U17] A — la carte de la série de plus sous l’exercice : la phrase, le détail, « Ajouter une série » / « Non merci »',
+      a.marche === 'serie_de_plus' && !!a.carte &&
+      /^25 kg × 12 reste ton meilleur depuis 4 séances(, et tes autres exercices avancent)?\.$/.test(esp(a.carte.texte)) &&
+      a.carte.detail === 'Sur cet exercice, une série de plus aide souvent : environ 20 % de travail en plus. Tes avant-bras restent sous leur volume habituel.' &&
+      a.carte.oui === 'Ajouter une série' && a.carte.non === 'Non merci', JSON.stringify(a.carte));
+    ok('[U17] A — avant la réponse : les 3 lignes de la routine, aucune en plus',
+      a.lignes.length === 3 && a.lignes.every((l) => !l[3]), JSON.stringify(a.lignes));
+    await page.click('.proposition-serie .psp-oui');
+    await attendre(1500);
+    const a2 = await lireSerie();
+    const pari = parisPlus()[0];
+    ok('[U17] A — le pari : escalier, série de plus, acceptée, l’exercice dans le fondement, 3 séries de routine',
+      !!pari && pari.exercise_slug === null && pari.fondement.exercice === 'serre-u17' &&
+      pari.fondement.reponse === 'acceptee' && pari.fondement.compteur === 4 && pari.fondement.n_routine === 3,
+      JSON.stringify(pari && pari.fondement));
+    ok('[U17] A — une ligne de plus, après la routine, à 25 kg × 12, jamais un test ; marquée à l’écran',
+      a2.lignes.length === 4 && JSON.stringify(a2.lignes[0]) === JSON.stringify(['ligne', 25, 12, false]) &&
+      JSON.stringify(a2.lignes[3]) === JSON.stringify(['ligne', 25, 12, true]) &&
+      a2.lignes.slice(0, 3).every((l) => !l[3]) && a2.ajouteesEcran === 1 && a2.carte === null, JSON.stringify(a2));
+    ok('[U17] A — en gris : « une série de plus, jusqu’à ton prochain progrès »',
+      a2.plus === 'une série de plus, jusqu\'à ton prochain progrès',
+      JSON.stringify(a2.plus));
+    await abandonner();
+
+    // ── B. Une nouvelle séance : la ligne en plus revient, sans carte.
+    await aller('/saisie');
+    await demarrerRoutine('Série U17');
+    await attendre(1500);
+    const b = await lireSerie();
+    ok('[U17] B — la séance suivante, sans progrès : 4 lignes, la dernière en plus ; ni carte ni nouveau pari',
+      b.lignes.length === 4 && b.lignes[3][3] === true && b.lignes[3][0] === 'ligne' && b.carte === null &&
+      parisPlus().length === 1, JSON.stringify({ b, paris: parisPlus().length }));
+    await abandonner();
+
+
+    ok('[U17] la garde (C6) n’a rien signalé dans cette section (I23, I24 compris)', gardeBanc.violations === violationsAvant,
+      JSON.stringify(gardeBanc.liste.slice(-2)));
+    ok('[U17] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
+    // Rien d'ici ne reste pour la suite de la chaîne : le pari de la série de
+    // plus est retiré de la base.
+    base.predictions = base.predictions.filter((l) => !(l.module === 'escalier' && l.fondement &&
+      l.fondement.exercice === 'serre-u17'));
   }
 
   console.log('\n══ 7 G duodecies. LE BLOCAGE ISOLÉ : LE SCHÉMA, PUIS LE REPLI (49-U15, MOTEUR §14.5) ══');

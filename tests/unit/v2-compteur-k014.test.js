@@ -4,14 +4,18 @@
 // les séances du cas (`blocages_termines: null`), comme l'app les calcule
 // depuis son historique sous consigne.
 //
-// ⚠️ CE CAS ÉCHOUE, ET C'EST RAPPORTÉ (PR du second commit de 49-U13). La
-// référence (`coach49.py`) compte trois séances qui suivent une séance SANS
-// PALIER à plusieurs charges (30/08/2024, 13/09/2025, 23/09/2025) ; pour le
-// moteur, la consigne de ces jours-là est un silence (`pas_de_palier`, MOTEUR
-// §9), donc elles ne comptent pas. Il manque deux blocages courts : 6 au lieu
-// de 8, et « plus long que d'habitude » ne se dit pas. Le fichier de cas fait
-// foi : ce test reste tel quel jusqu'à ce que la référence ou le moteur soit
-// tranché — il ne s'ajuste pas.
+// ⚠️ CE CAS ÉCHOUE ENCORE, ET C'EST RAPPORTÉ (#344). Le fichier de cas corrigé
+// (`neutre` sur chaque séance) règle les trois pyramides ; il reste un écart
+// de CONSIGNE entre le moteur et la référence (`coach49.py`) :
+//   · 27/04/2025 — 17 jours après le 10/04 (écart habituel 5,4 j) : pour le
+//     moteur (`repriseDe`), une reprise courte, donc une remise à zéro, et le
+//     blocage en cours (1) se perd ; pour la référence, pas de reprise : un
+//     progrès, qui termine ce blocage. C'est le blocage manquant (7 au lieu de 8).
+//   · 03/10/2025 — consigne `rejoint` : le moteur propose 115 kg, la séance à
+//     105 kg n'est pas suivie ; la référence la juge suivie (sans effet sur le
+//     compteur ni les blocages).
+// Le fichier de cas fait foi : ce test reste tel quel, à part des autres cas
+// pour que leur base reste verte (mutations), jusqu'à ce que l'écart soit tranché.
 
 process.env.TZ = 'Europe/Paris';
 

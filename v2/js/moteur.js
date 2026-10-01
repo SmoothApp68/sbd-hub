@@ -2911,10 +2911,13 @@
       var k = consignePour(liste.slice(0, i), se.debut, opts);
       var v = vueDeSeance(se);
       var P = nombre(v.palier);
-      // Une séance sans consigne de zone (silence, bord, reprise sans zone) ou
-      // sans palier fait n'est pas comptée (cas K014, 49-29) — mais une reprise
-      // vue là remet quand même à zéro la suivante.
-      if (!k || k.etat === 'silence' || k.zone === null || k.zone === undefined || P === null) {
+      // Une séance NEUTRE (§7.6 : aucune série dans la zone), sans palier fait,
+      // ou dont la consigne est muette ou sans zone (bord, reprise sans zone)
+      // n'est ni comptée ni jugée (§12.9, 49-29, `deroule_compteur`) — mais une
+      // reprise vue là remet quand même à zéro la suivante. Le rejeu lit les
+      // séances DU CONTRAT (`contratDe`, où `neutre` est posé) : la même règle
+      // de calcul que la consigne vivante.
+      if (se.neutre === true || !k || k.etat === 'silence' || k.zone === null || k.zone === undefined || P === null) {
         if (!premiere && k && repriseDe(liste.slice(0, i), se.debut) !== AUCUNE_REPRISE) repriseEnAttente = true;
         return;
       }

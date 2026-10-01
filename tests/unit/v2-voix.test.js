@@ -252,6 +252,18 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
     noter('chauffes', 'plan 49-U10', [x.chauffes && x.chauffes.phrase, x.pourquoi && x.pourquoi.chauffes]);
   })();
 
+  // (f) MOTEUR §9.2 bis (49-U12) — la chute : l'en-tête et la feuille des 23
+  // cas, à la référence du cas puis à 1 jour de la dernière séance (« Mardi »).
+  require('./fixtures/cas-49u12-chute.json').cas.forEach((c) => {
+    const k = M.consignePour(c.seances, c.avant, { reglage: c.reglage, equipement: c.equipement, correction: null });
+    const d = k.fondement && k.fondement.date;
+    [c.avant, d ? plusJours(d, 1) : c.avant].forEach((ref) => {
+      const l = M.libellesConsigne(k, ref);
+      noter('chute', 'cas-49u12 ' + c.id, l.jaune.concat([l.gris]), [d].filter(Boolean), ref);
+      noter('chute', 'cas-49u12 ' + c.id, textesDe(M.pourquoiConsigne(k, c.reglage, ref)), [d].filter(Boolean), ref);
+    });
+  });
+
   test('chaque famille est jouée, et la date relative l\'est vraiment', () => {
     const parFamille = {};
     vues.forEach((v) => { parFamille[v.famille] = (parFamille[v.famille] || 0) + 1; });
@@ -262,6 +274,9 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
     // 30 phrases des 37 cas (les cas sans chauffe ni proposition n'en ont
     // pas) + la phrase et la note de la feuille sur le plan.
     expect(parFamille.chauffes).toBe(32);
+    // La phrase « Je ne compte pas la dernière série » est bien jouée.
+    expect(vues.filter((v) => v.famille === 'chute' && /Je ne compte pas la dernière série/.test(v.phrase)).length)
+      .toBeGreaterThanOrEqual(14);
     expect(vues.filter((v) => v.source === 'plan 49-U10').length).toBe(2);
     // Sans ces phrases, la règle des dates ne serait jamais éprouvée.
     const jours = vues.filter((v) => /(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)/i.test(v.phrase));

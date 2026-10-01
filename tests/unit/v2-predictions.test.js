@@ -34,7 +34,9 @@ describe('§9.13 bis — la version des règles du moteur (49-U6)', () => {
     // montée par bloc) ; 3 depuis 49-U8 (une séance sans charge répétée prend
     // sa plus lourde charge tenue dans la zone, MOTEUR §7.6). Écrite dans la
     // colonne `predictions.module_version`.
-    expect(Moteur.VERSION_CONSIGNE).toBe(3);
+    // 4 depuis 49-U12 (la chute de fin de séance ne tire plus le niveau et
+    // bloque le test suivant, MOTEUR §9.2 bis).
+    expect(Moteur.VERSION_CONSIGNE).toBe(4);
   });
 });
 

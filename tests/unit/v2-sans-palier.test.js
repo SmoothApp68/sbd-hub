@@ -158,7 +158,9 @@ describe('49-U8 — la règle, ses bords', () => {
     expect(M.chargeVoisine(r, S014.avant, 52, 'machine', -1)).toBeNull();
   });
 
-  test('la version des règles monte à 3', () => {
-    expect(M.VERSION_CONSIGNE).toBe(3);
+  // 3 depuis 49-U8 ; elle a monté depuis (4 en 49-U12, la chute) — ce test
+  // garde seulement qu'elle ne redescend pas sous celle de ce chantier.
+  test('la version des règles est montée à 3 (au moins)', () => {
+    expect(M.VERSION_CONSIGNE).toBeGreaterThanOrEqual(3);
   });
 });

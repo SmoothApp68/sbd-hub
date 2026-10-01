@@ -259,9 +259,50 @@
   // Une série dont on ne sait pas compter les reps ne se juge pas, et elle ne
   // se saute pas non plus : la sauter décalerait le rang des suivantes, donc
   // changerait qui est « la deuxième série ». Pas de niveau du tout.
+  // ── §9.2 bis — LA CHUTE DE FIN DE SÉANCE (49-U12, delta 49-27) ────────────
+  //
+  // « Une dernière série qui s'effondre après des séries stables ne dit rien du
+  // niveau ; elle dit que la fatigue est arrivée. » La DERNIÈRE série au palier
+  // est une chute si :
+  //   · au moins deux séries la précèdent ;
+  //   · toutes à la même charge ;
+  //   · chacune de celles d'avant à UNE REP PRÈS de la première ;
+  //   · et elle perd AU MOINS 4 reps ET AU MOINS 30 % sur la première.
+  // Tout en REPS COMPTÉES (§17.4) : une série à RPE 10 ou « reste 0 » compte une
+  // rep de moins. `10-10-6` → chute ; `10-4-4` → non (c'est la première qui sort
+  // du lot) ; `15-15-11` → non (−27 %) ; `10-10-7` → non (−3) ; `10-5` → non.
+  // Rend le RANG (1-based) de la chute dans `seriesAuPalier`, ou `null`.
+  var CHUTE_REPS = 4;
+  var CHUTE_PART = 0.30;
+
+  function chuteDe(seriesAuPalier) {
+    var liste = seriesAuPalier || [];
+    var n = liste.length;
+    if (n < 3) return null;
+    var c = [];
+    for (var i = 0; i < n; i++) {
+      var r = Palier().repsComptees(liste[i]);
+      if (r === null) return null;
+      c.push(r);
+    }
+    var charge = nombre(liste[0] && liste[0].charge_kg);
+    for (var j = 1; j < n; j++) {
+      if (!memeCharge(nombre(liste[j] && liste[j].charge_kg), charge)) return null;
+    }
+    var premiere = c[0];
+    for (var k = 1; k < n - 1; k++) {
+      if (Math.abs(c[k] - premiere) > 1) return null;
+    }
+    var perte = premiere - c[n - 1];
+    if (perte < CHUTE_REPS || perte < premiere * CHUTE_PART - 1e-9) return null;
+    return n;
+  }
+
   function niveauValide(seriesAuPalier) {
     var liste = seriesAuPalier || [];
     if (!liste.length) return null;
+    // §9.2 bis — la chute ne tire pas le niveau : il se calcule sans elle.
+    if (chuteDe(liste) !== null) liste = liste.slice(0, -1);
 
     var comptees = [];
     for (var i = 0; i < liste.length; i++) {
@@ -792,6 +833,9 @@
   // Les états où l'ÉCHELLE bouge : ceux-là, et eux seuls, ont besoin de
   // l'ancien palier pour se raconter.
   var ETATS_ECHELLE = { rejoint: true, attend: true, tout_passe: true };
+  // §9.2 bis — les états qui PROPOSENT un nouveau test : après une chute, ils
+  // deviennent « tenir » (`tenue_apres_chute`).
+  var ETATS_DE_TEST = { test_propose: true, retest: true, retest_un_cran: true };
 
   // Les reps SAISIES, dans l'ordre — « 4-4-4 ». Jamais les comptées : la phrase
   // rappelle ce qui a été fait, la note de la série à fond dit le reste.
@@ -942,10 +986,27 @@
     // sans série qui attend : une clé toujours présente et parfois nulle
     // obligerait chaque lecteur à retrancher les cas — et un oubli passerait
     // en silence. L'absence est le signal.
-    var aFond = serieAFondDe(A);
     var testDeL = testDe(L);
+    // §9.2 bis (49-U12) — une chute sur la dernière séance : son rang parmi les
+    // séries au palier, ou `null`. Le niveau `niv` se calcule déjà sans elle,
+    // et la note de la série à fond (§17.4) ne la cite pas : « compte pour 5 »
+    // serait faux, elle ne compte pas du tout.
+    var chute = chuteDe(A);
+    var aFond = serieAFondDe(chute !== null ? A.slice(0, -1) : A);
     function rendre(etat, ligne, haut, plus) {
+      // §9.2 bis — APRÈS UNE CHUTE, AUCUN NOUVEAU TEST : un test proposé, un
+      // retest ou un retest d'un cran devient « tenir » — la ligne au palier,
+      // au niveau validé borné au haut de la zone, sans ligne haute. Une
+      // échelle en cours (garde, étend, rejoint, attend) n'est pas touchée, ni
+      // la réaction en séance (§9.14).
+      if (chute !== null && ETATS_DE_TEST[etat] === true && zone !== null) {
+        etat = 'tenue_apres_chute';
+        ligne = ligneDe(P, cible(Math.min(niv, zone.haut)));
+        haut = null;
+        plus = null;
+      }
       var f = { date: L.debut, reps: repsSaisies(A) };
+      if (chute !== null) f.chute = { rang: chute };
       // §9.13, enrichi le 20/09/2026 (48b-6a) : de quoi écrire la feuille
       // « Pourquoi » sans jamais rejouer une règle du moteur.
       f.seance = seanceDuFondement(L);
@@ -1791,9 +1852,11 @@
   // (`enregistrerPari`), pas dans son fondement. 1 jusqu'à 49-U5 exclu ; 2 depuis
   // 49-U5 (reprise mesurée, une seule montée par bloc — MOTEUR §9.13 bis,
   // précisé le 27/09/2026) ; 3 depuis 49-U8 (une séance sans charge répétée
-  // prend sa plus lourde charge tenue dans la zone — MOTEUR §7.6).
+  // prend sa plus lourde charge tenue dans la zone — MOTEUR §7.6) ; 4 depuis
+  // 49-U12 (la chute de fin de séance ne tire plus le niveau et bloque le
+  // test suivant — MOTEUR §9.2 bis).
   var MODULE_CONSIGNE = 'moteur.consigne';
-  var VERSION_CONSIGNE = 3;
+  var VERSION_CONSIGNE = 4;
 
   // ⚠️ LU TARDIVEMENT, SANS REPLI, comme `THPalier`. `modele.js` charge avant
   // `moteur.js` (index.html 325 puis 329), mais un repli « si THModele manque,
@@ -1989,6 +2052,12 @@
 
       case 'retest_un_cran':
         return rate + ' On reteste d\'un seul cran.';
+
+      // §9.2 bis (49-U12) — un fait, puis sa conséquence : « Mardi : 80 kg ×
+      // 10, 10, 6. Je ne compte pas la dernière série : on tient 80 kg × 10. »
+      case 'tenue_apres_chute':
+        return jour + DEUX_POINTS + auPalier + '. Je ne compte pas la dernière série' + DEUX_POINTS +
+               'on tient ' + chargeFois(c.ligne.charge, c.ligne.vise) + '.';
 
       case 'etirement':
         return 'Ta machine ne permet pas un plus petit cran' + DEUX_POINTS + 'ta zone s\'étire. ' +
@@ -2257,6 +2326,13 @@
                  : 'Tes séries restées à ' + enKg(f.palierPrecedent) +
                    ' y passeront une à une, quand tu feras ') +
                f.seuil + ' reps à ' + enKg(c.haut.charge) + '.';
+
+      // §9.2 bis (49-U12) — une phrase : pourquoi la chute ne compte pas, et
+      // pourquoi pas de test tout de suite.
+      case 'tenue_apres_chute':
+        return 'Ta dernière série a chuté après des séries stables' + DEUX_POINTS +
+               'c\'est la fatigue, pas ton niveau. Je ne la compte pas, et on tient ' +
+               chargeFois(c.ligne.charge, c.ligne.vise) + ' avant de tester plus lourd.';
 
       case 'retest_un_cran':
         return rate + ' Ta charge de travail est au haut' + DEUX_POINTS +
@@ -3015,6 +3091,7 @@
     SEUIL_PROPOSITION_BARRE: SEUIL_PROPOSITION_BARRE,
     SEUIL_PROPOSITION_AUTRE: SEUIL_PROPOSITION_AUTRE,
     TABLE_CHAUFFES: TABLE_CHAUFFES,
+    chuteDe: chuteDe,
     situationChauffe: situationChauffe,
     chauffesDe: chauffesDe,
     degressiveDe: degressiveDe,

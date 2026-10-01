@@ -178,7 +178,16 @@ const CATALOGUE = [
   // ne dépend que de ce décor.
   { slug: 'serre-u17', nom: 'Serré U17 (Poulie)', mesure: 'charge_reps', charge: 'externe', equipement: 'poulie', muscles_primaires: ['avant_bras'], muscles_secondaires: [] },
   { slug: 'hausse-u17', nom: 'Haussé U17 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['trapezes'], muscles_secondaires: [] },
-  { slug: 'tendu-u17', nom: 'Tendu U17 (Machine)', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['mollets'], muscles_secondaires: [] }
+  { slug: 'tendu-u17', nom: 'Tendu U17 (Machine)', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['mollets'], muscles_secondaires: [] },
+  // Le rejeu (diagnostic du 01/10/2026) — réservés à la section 7 G
+  // quaterdecies : le décor équivalent de la séance « Jeudi — Haut B » (le
+  // militaire, le couché aux haltères, le tirage visage, le curl EZ). Leurs
+  // noms ne répondent à AUCUNE recherche faite ailleurs (« Couch », « Curl »…),
+  // et leurs muscles ne sont travaillés nulle part ailleurs.
+  { slug: 'militaire-rj', nom: 'Rejeu Un (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['deltoide_anterieur'], muscles_secondaires: [] },
+  { slug: 'couche-rj', nom: 'Rejeu Deux (Haltères)', mesure: 'charge_reps', charge: 'externe', equipement: 'haltere', muscles_primaires: ['triceps'], muscles_secondaires: [] },
+  { slug: 'visage-rj', nom: 'Rejeu Trois (Poulie)', mesure: 'charge_reps', charge: 'externe', equipement: 'poulie', muscles_primaires: ['deltoide_posterieur'], muscles_secondaires: [] },
+  { slug: 'curlez-rj', nom: 'Rejeu Quatre (Barre EZ)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['brachial'], muscles_secondaires: [] }
 ];
 
 // ⚠️ UNE ROUTINE PORTE MAINTENANT SES LIGNES (chantier 43). `routine_sets`
@@ -707,8 +716,11 @@ const SETS_IMPORTES = [
       if (req.method() === 'GET') {
         // 49-U14 — le filtre `module=eq.…` (les paris de l'escalier, lus à part).
         const module = (url.searchParams.get('module') || '').replace(/^eq\./, '');
-        return json(projeter(base.predictions.filter((l) => !module || l.module === module).map((l) => Object.assign({}, l,
-          { session_id: l.fondement && l.fondement.seance ? l.fondement.seance : null })), url));
+        // L'outil de rejeu — le filtre `session_id=eq.…` (les paris d'UNE séance).
+        const sid = (url.searchParams.get('session_id') || '').replace(/^eq\./, '');
+        return json(projeter(base.predictions.map((l) => Object.assign({}, l,
+          { session_id: l.fondement && l.fondement.seance ? l.fondement.seance : null }))
+          .filter((l) => (!module || l.module === module) && (!sid || l.session_id === sid)), url));
       }
       if (req.method() === 'POST') {
         const l = Array.isArray(corps) ? corps[0] : corps;
@@ -9163,6 +9175,201 @@ const SETS_IMPORTES = [
       JSON.stringify(gardeBanc.liste.slice(-2)));
     await aller('/saisie');
     ok('[U14] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
+  }
+
+  console.log('\n══ 7 G quaterdecies. L’OUTIL DE REJEU (développement, diagnostic du 01/10/2026) ══');
+  //
+  // LE DÉCOR ÉQUIVALENT de la séance réelle du 01/10 (« Jeudi — Haut B ») :
+  //   · un militaire en Mix (corrigé APRÈS sa dernière séance), au rythme de
+  //     4 jours, repris 14 jours après → la reprise courte ;
+  //   · un couché aux haltères dont la dernière séance commence par une
+  //     montée (88, 92, 92), routine de 4 séries → « rejoint » ;
+  //   · un tirage visage à la poulie : 24,8 kg × 20 trois fois, un 27 essayé,
+  //     et un vieux 25 (l'hypothèse à vérifier sur les vraies données) ;
+  //   · un curl à la barre EZ avec sa dégressive.
+  // La séance est JOUÉE DANS L'APP (les paris enregistrent ce que l'écran
+  // affichait), terminée, puis rouverte par `?rejouer=<id>`. Chaque ligne
+  // validée confronte le pari en base à la ligne que le rejeu affichait juste
+  // avant : un écart serait un rejeu infidèle.
+  {
+    const tR = Date.now();
+    const sessionR = (id, jours) => {
+      const debut = ilYa(jours * 86400000, tR).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'RJ — ' + id, debut,
+        fin: finDe(debut, tR).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      return debut;
+    };
+    const seriesR = (id, slug, lignes, debut) => lignes.forEach(([kg, reps], k) => base.sets.push({
+      id: id + '-' + slug + '-s' + (k + 1), session_id: id, user_id: 'u-banc', exercise_slug: slug,
+      charge_kg: kg, reps, duree_s: null, distance_m: null, type_serie: 'travail', rang: k + 1,
+      groupe_superset: null, validee_a: debut, rpe: null, ressenti: null, repos_s: null, note: null,
+      source: 'app', created_at: debut, modifie_a: null }));
+    const historique = [
+      ['militaire-rj', 26, [[50, 10], [50, 10], [50, 10], [52.5, 8]]],
+      ['militaire-rj', 22, [[50, 10], [50, 10], [50, 10], [52.5, 9]]],
+      ['militaire-rj', 18, [[52.5, 10], [52.5, 10], [52.5, 9], [55, 7]]],
+      ['militaire-rj', 14, [[52.5, 10], [52.5, 10], [52.5, 10], [55, 8]]],
+      ['couche-rj', 14, [[88, 10], [88, 10], [88, 10]]],
+      ['couche-rj', 11, [[88, 10], [88, 10], [88, 11]]],
+      ['couche-rj', 8, [[88, 11], [88, 11], [92, 11]]],
+      ['couche-rj', 5, [[88, 10], [92, 11], [92, 11]]],
+      ['visage-rj', 120, [[25, 15], [25, 15], [25, 15]]],
+      ['visage-rj', 40, [[22.5, 20], [22.5, 20], [22.5, 20]]],
+      ['visage-rj', 33, [[22.5, 20], [22.5, 20], [27, 12]]],
+      ['visage-rj', 26, [[24.8, 20], [24.8, 20], [24.8, 20]]],
+      ['visage-rj', 19, [[24.8, 20], [24.8, 20], [24.8, 20]]],
+      ['visage-rj', 12, [[24.8, 20], [24.8, 20], [24.8, 20]]],
+      ['curlez-rj', 21, [[20, 10], [20, 10], [20, 10]]],
+      ['curlez-rj', 14, [[20, 10], [20, 10], [20, 10]]],
+      ['curlez-rj', 7, [[20, 10], [20, 10], [20, 10]]]
+    ];
+    historique.forEach(([slug, j, lignes], k) => {
+      const id = 'rj-h' + k;
+      seriesR(id, slug, lignes, sessionR(id, j));
+    });
+    // La zone du militaire, corrigée en Mix APRÈS sa dernière séance.
+    base.zones.push({ id: 'rj-zone-1', user_id: 'u-banc', exercise_slug: 'militaire-rj', zone: 'mix',
+      corrigee_a: ilYa(10 * 86400000, tR).toISOString() });
+    const ligneR = (type, reps) => ({ id: 'pr' + (++grainePr), rang: 0, type_serie: type, reps_visees: reps,
+      charge_cible_kg: null, duree_cible_s: null, distance_cible_m: null });
+    const lignesR = (l) => l.map((x, k) => Object.assign(x, { rang: k + 1 }));
+    ROUTINES.push({ id: 'r-rj', nom: 'Jeudi RJ', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [
+        ['militaire-rj', lignesR([ligneR('echauffement', 10), ligneR('echauffement', 2)].concat(progr(4, null)))],
+        ['couche-rj', progr(4, null)],
+        ['visage-rj', progr(3, null)],
+        ['curlez-rj', lignesR(progr(3, null).concat([ligneR('degressive', null)]))]
+      ].map(([slug, sets], k) => ({ id: 'r-rj-' + k, routine_id: 'r-rj', exercise_slug: slug, rang: k,
+        routine_sets: sets, repos_cible_s: 90, groupe_superset: null, note: null })) });
+    if (base.profiles && base.profiles[0]) base.profiles[0].phase = 'maintien';
+    const violationsAvant = gardeBanc.violations;
+
+    // ── La séance, jouée comme le 01/10 ──
+    await aller('/saisie');
+    await demarrerRoutine('Jeudi RJ');
+    await attendre(1200);
+    const idRJ = enCoursId();
+    const validerTel = async (i) => {
+      const l = (await page.$$('.ligne-serie'))[i];
+      await l.$eval('.ok-serie', (b) => b.click());
+      await attendre(450);
+    };
+    // Militaire : une chauffe à 40 × 6 (la seconde laissée), puis le travail.
+    await saisirSerie(0, 40, 6);
+    for (const [i, kg, r] of [[2, 52.5, 10], [3, 52.5, 10], [4, 52.5, 10], [5, 52.5, 9]]) await saisirSerie(i, kg, r);
+    // Couché : la 1re ligne validée TELLE QUELLE (son pré-remplissage), puis 92.
+    await validerTel(6);
+    for (const [i, kg, r] of [[7, 92, 10], [8, 92, 9], [9, 92, 9]]) await saisirSerie(i, kg, r);
+    // Tirage visage : 24,8 × 20 deux fois, puis la ligne de test telle quelle.
+    for (const [i, kg, r] of [[10, 24.8, 20], [11, 24.8, 20]]) await saisirSerie(i, kg, r);
+    await validerTel(12);
+    // Curl EZ : trois séries, puis la dégressive à 15 × 10.
+    for (const [i, kg, r] of [[13, 20, 10], [14, 20, 10], [15, 20, 10], [16, 15, 10]]) await saisirSerie(i, kg, r);
+    const enBaseRJ = () => base.sets.filter((x) => x.session_id === idRJ).length;
+    await terminer();
+    await attendre(1500);
+    ok('[RJ] le décor : la séance jouée est terminée en base, ses séries et ses paris montés',
+      !!idRJ && (base.sessions.filter((x) => x.id === idRJ)[0] || {}).statut === 'terminee' && enBaseRJ() >= 15 &&
+      base.predictions.filter((l) => l.fondement && l.fondement.seance === idRJ).length >= 10,
+      JSON.stringify({ idRJ, series: enBaseRJ(), paris: base.predictions.filter((l) => l.fondement && l.fondement.seance === idRJ).length }));
+
+    // ── Le rejeu : AUCUNE écriture ──
+    const ecritures = [];
+    const surRequete = (req) => {
+      if (req.method() !== 'GET' && req.method() !== 'HEAD' && req.method() !== 'OPTIONS' && /\/rest\/v1\//.test(req.url())) {
+        ecritures.push(req.method() + ' ' + req.url().replace(/^.*\/rest\/v1\//, ''));
+      }
+    };
+    const avant = { journal: base.journal.length, patchs: base.patchs.length, paris: base.predictions.length,
+                    sets: base.sets.length, sessions: base.sessions.length, zones: base.zones.length };
+    const local = () => page.evaluate(async () => {
+      const ls = {};
+      for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); ls[k] = localStorage.getItem(k); }
+      const brouillon = {};
+      for (const k of ['seance', 'consignes']) {
+        try { brouillon[k] = JSON.stringify(await window.THCache.lireBrouillon(k)); } catch (e) { brouillon[k] = 'illisible'; }
+      }
+      let attente = null;
+      try { attente = JSON.stringify(await window.THCache.lireAttente()); } catch (e) { attente = 'illisible'; }
+      return { ls, brouillon, attente };
+    });
+    await aller('/saisie');
+    const localAvant = await local();
+    page.on('request', surRequete);
+    await aller('/saisie?rejouer=' + idRJ);
+    await jusqua(() => page.evaluate(() => {
+      const v = document.getElementById('rejeu');
+      return !!v && !v.hidden && /═══ Rejeu/.test(document.getElementById('rejeu-sortie').textContent);
+    }), 15000);
+    const lireRejeu = () => page.evaluate(() => ({
+      visible: !document.getElementById('rejeu').hidden,
+      texte: document.getElementById('rejeu-sortie').textContent
+    }));
+    const r1 = await lireRejeu();
+    const t1 = r1.texte;
+    console.log('   ── sortie du rejeu (décor) ──\n' + t1.split('\n').map((l) => '   │ ' + l).join('\n'));
+    const nValidees = base.sets.filter((x) => x.session_id === idRJ && x.validee_a).length;
+    const nEtapes = (t1.match(/^── Étape \d+/gm) || []).length;
+    ok('[RJ] la vue s’ouvre et rejoue l’ouverture puis chaque série validée, dans l’ordre réel',
+      r1.visible && t1.indexOf('═══ Rejeu de la séance ' + idRJ) === 0 && /── Étape 0 — à l’ouverture/.test(t1) &&
+      nEtapes === nValidees + 1, JSON.stringify({ nEtapes, nValidees }));
+    ok('[RJ] chaque exercice y est, avec sa consigne, ses lignes et ses phrases',
+      ['Rejeu Un', 'Rejeu Deux', 'Rejeu Trois', 'Rejeu Quatre'].every((n) => t1.indexOf('▸ ' + n) >= 0) &&
+      /consigne reprise_courte · zone mix/.test(t1) && /consigne rejoint/.test(t1) &&
+      /en-tête \(jaune\)/.test(t1) && /pré-rempli/.test(t1) && /invariants : /.test(t1), '');
+    const controles = t1.split('\n').filter((l) => /contrôle /.test(l));
+    const ecarts = controles.filter((l) => /✗/.test(l));
+    ok('[RJ] le rejeu est fidèle : chaque pari en base dit la ligne que le rejeu affichait juste avant',
+      controles.length >= 10 && ecarts.length === 0, JSON.stringify({ controles: controles.length, ecarts: ecarts.slice(0, 4) }));
+    // Le décor ne viole aucun invariant pendant la séance jouée (la garde du
+    // banc le vérifie plus bas) : le rejeu n'en invente pas.
+    ok('[RJ] le rejeu n’invente aucune violation : « aucune violation » à chaque étape',
+      (t1.match(/^invariants : aucune violation$/gm) || []).length === nEtapes,
+      JSON.stringify(t1.split('\n').filter((l) => /^invariants : /.test(l) && !/aucune/.test(l)).slice(0, 3)));
+    ok('[RJ] une ligne de routine jamais validée est reconstruite (la 2e chauffe du militaire)',
+      /reconstruites vides[^\n]*Rejeu Un \(Barre\) × 1/.test(t1), '');
+    ok('[RJ] ce qui n’est pas reconstruit exactement est dit', /Ce qui n’est pas reconstruit exactement :/.test(t1) &&
+      /jamais validée/.test(t1), '');
+
+    // ── Deux fois de suite, la même sortie ──
+    await page.click('#rejeu-relancer');
+    await attendre(2500);
+    const t2 = (await lireRejeu()).texte;
+    ok('[RJ] « Rejouer » rend la même sortie, à l’octet', t2 === t1 && t1.length > 500, t2.length + ' / ' + t1.length);
+    // Les plans du rejeu ne passent pas par la garde de l'app : elle ne vérifie
+    // que les plans de la séance en cours (il n'y en a pas ici).
+    ok('[RJ] la garde de l’app n’a vu aucun plan du rejeu (ni `Plan.dernier`)',
+      await page.evaluate(() => window.THPlan.garde.etat().plans === 0 && window.THPlan.dernier === null), '');
+    ok('[RJ] « Copier » est là', await page.evaluate(() => !!document.getElementById('rejeu-copier')), '');
+
+    // ── Rien n'est parti, rien n'a été écrit ──
+    page.off('request', surRequete);
+    const localApres = await local();
+    const apres = { journal: base.journal.length, patchs: base.patchs.length, paris: base.predictions.length,
+                    sets: base.sets.length, sessions: base.sessions.length, zones: base.zones.length };
+    ok('[RJ] aucune écriture vers la base pendant le rejeu (ni séance, ni série, ni pari, ni zone)',
+      ecritures.length === 0 && JSON.stringify(avant) === JSON.stringify(apres),
+      JSON.stringify({ ecritures: ecritures.slice(0, 4), avant, apres }));
+    ok('[RJ] rien dans la file, ni dans le brouillon de séance, ni dans le stockage local',
+      localApres.attente === localAvant.attente && JSON.stringify(localApres.brouillon) === JSON.stringify(localAvant.brouillon) &&
+      JSON.stringify(localApres.ls) === JSON.stringify(localAvant.ls),
+      JSON.stringify({ avant: localAvant.brouillon, apres: localApres.brouillon }));
+    ok('[RJ] la vue n’ouvre pas de séance', !base.sessions.some((x) => x.statut === 'en_cours') &&
+      await page.evaluate(() => document.getElementById('vue-seance').hidden), '');
+
+    // ── En production (garde éteinte), rien ──
+    await aller('/saisie?garde=0&rejouer=' + idRJ);
+    await attendre(2500);
+    const prod = await page.evaluate(() => ({ cache: document.getElementById('rejeu').hidden,
+      texte: document.getElementById('rejeu-sortie').textContent }));
+    ok('[RJ] garde éteinte (la production) : l’outil ne s’ouvre pas', prod.cache && prod.texte === '', JSON.stringify(prod));
+    await page.evaluate(() => localStorage.removeItem('th-v2-garde'));
+    await aller('/saisie');
+    ok('[RJ] la garde du banc n’a rien signalé pendant la séance du décor', gardeBanc.violations === violationsAvant,
+      JSON.stringify(gardeBanc.liste.slice(-3)));
+    ok('[RJ] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
 
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');

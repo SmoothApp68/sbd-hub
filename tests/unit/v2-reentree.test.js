@@ -66,7 +66,9 @@ function bac() {
     rendreRoute: () => { journal.rendus++; },
     rendreEtatSync: () => {},
     synchroniser: () => { journal.syncs++; return Promise.resolve(); },
-    vidanger: () => { journal.vidanges++; }
+    vidanger: () => { journal.vidanges++; },
+    // L'outil de rejeu (développement) : rien demandé ici.
+    rejeuDemande: null, ouvrirRejeu: () => {}
   };
   vm.createContext(ctx);
   ['idDeSession', 'entrer', 'reentrer', 'entrerVraiment', 'chargerCache',

@@ -21,6 +21,7 @@
   var Palier = racine.THPalier, Routines = racine.THRoutines;
   var Seance = racine.THSeance, Attente = racine.THAttente;
   var Profil = racine.THProfil, Moteur = racine.THMoteur, Plan = racine.THPlan;
+  var Rejeu = racine.THRejeu;
 
   var vues = {};
   var local = { seances: [], series: [], exercices: [], pesees: [], zones: [],
@@ -1688,7 +1689,8 @@
   var consignesSauvees = null;   // { seanceId, cle, parSlug }, tel que sur le disque
 
   function sauverConsignes() {
-    if (!seance || !consignes) return;
+    // L'outil de rejeu (développement) ne fige rien sur le disque.
+    if (!seance || !consignes || rejeuEnCours) return;
     consignesSauvees = { seanceId: seance.id, cle: consignes.cle, parSlug: consignes.parSlug,
                          phase: phaseDeLaSeance() };
     Cache.ecrireBrouillon(CLE_CONSIGNES, consignesSauvees)
@@ -1930,6 +1932,380 @@
   // routeur ne réécrive l'adresse ; il est ensuite retenu pour la session.
   try { demoEscalier(); } catch (e) { /* rien à retenir */ }
 
+  // ══ L'OUTIL DE REJEU (développement seulement, diagnostic du 01/10/2026) ══
+  //
+  // `…/saisie?rejouer=<id de séance>`, LÀ OÙ LA GARDE EST ACTIVE — jamais en
+  // production (`THRejeu.demande`). Il rejoue le plan de la séance à
+  // l'ouverture, puis après chaque série validée (ordre réel de `validee_a`),
+  // chaque réponse de l'escalier et chaque zone corrigée, et l'écrit en texte
+  // (`rejeu.js`).
+  //
+  // ⚠️ IL PASSE PAR LES FONCTIONS MÊMES DE L'APP — `consigneDe`,
+  // `entreesDuPlan`, `fantomeDe` —, sur un état « tel qu'à l'ouverture » posé
+  // à la place de l'état courant le temps d'un calcul SYNCHRONE, puis rendu
+  // (`finally`). Aucune attente entre les deux : aucun geste, aucune
+  // synchronisation, aucun rendu ne voit l'état du rejeu. Et pendant ce calcul
+  // (`rejeuEnCours`), rien ne s'écrit : ni consigne figée sur le disque
+  // (`sauverConsignes`), ni la garde, ni `Plan.dernier`. La séance en cours,
+  // s'il y en a une, n'est ni lue ni touchée.
+  var rejeuEnCours = null;    // { instant } pendant un calcul de rejeu
+  var rejeuDemande = null;    // l'identifiant lu au démarrage
+  var rejeuSortie = null;     // le dernier texte rendu
+  try { rejeuDemande = Rejeu ? Rejeu.demande(racine.location, garde.active) : null; } catch (e) { rejeuDemande = null; }
+
+  var ROLE_DU_PARI_REJEU = { ligne: 'ligne', test: 'haut', coach: 'coach', retour: 'retour' };
+
+  async function rejouerSeance(id) {
+    var ligne = (local.seances || []).filter(function (s) { return s && s.id === id; })[0] || null;
+    if (!ligne) {
+      return 'Séance ' + id + ' introuvable sur cet appareil : la synchronisation est-elle finie ? ' +
+        '(Seules les séances terminées se rejouent.)\n';
+    }
+    var notes = [];
+    var parId = {}, serveur = 0, appareil = 0;
+    try {
+      (await Donnees.parisDeSeance(id)).forEach(function (l) {
+        if (l && l.id && l.fondement && l.fondement.seance === id) { parId[l.id] = l; serveur++; }
+      });
+    } catch (e) {
+      notes.push('les paris du serveur n’ont pas pu être lus (' + texteErreur(e) + ') : seuls ceux de l’appareil le sont');
+    }
+    (local.predictions || []).forEach(function (l) {
+      if (!l || !l.id || !l.fondement || l.fondement.seance !== id) return;
+      if (!parId[l.id]) appareil++;
+      parId[l.id] = l;
+    });
+    var paris = Object.keys(parId).map(function (k) { return parId[k]; }).sort(function (a, b) {
+      var ta = Date.parse(a.emise_a), tb = Date.parse(b.emise_a);
+      return ta !== tb ? ta - tb : (a.id < b.id ? -1 : 1);
+    });
+    var routine = null;
+    if (ligne.routine_id) {
+      if (etatRoutines.code !== 'ok') await chargerRoutines().catch(function () { return false; });
+      routine = (routines || []).filter(function (r) { return r && r.id === ligne.routine_id; })[0] || null;
+    }
+    return calculerRejeu(ligne, paris, routine, notes, { serveur: serveur, appareil: appareil });
+  }
+
+  // L'état d'UNE étape posé à la place de l'état courant, `fn` calculée, puis
+  // tout rendu. Le mémo des consignes du rejeu survit d'une étape à l'autre
+  // (`memo`) : la consigne se fige à l'ouverture, comme dans la séance.
+  function avecEtatDeRejeu(e, fn) {
+    var avant = { seance: seance, local: local, consignes: consignes, sauvees: consignesSauvees,
+                  version: versionConsignes, phaseGelee: phaseGelee, volumeGele: volumeGele,
+                  constats: constats, planMemo: planMemo, etats: etatsExercices, dernier: Plan.dernier };
+    seance = e.seance; local = e.local;
+    consignes = e.memo.consignes; consignesSauvees = null; versionConsignes = e.memo.version;
+    phaseGelee = e.memo.phaseGelee; volumeGele = e.memo.volumeGele; constats = null;
+    planMemo = null; etatsExercices = e.etats;
+    rejeuEnCours = { instant: e.instant };
+    try {
+      return fn();
+    } finally {
+      e.memo.consignes = consignes; e.memo.version = versionConsignes;
+      e.memo.phaseGelee = phaseGelee; e.memo.volumeGele = volumeGele;
+      seance = avant.seance; local = avant.local; consignes = avant.consignes;
+      consignesSauvees = avant.sauvees; versionConsignes = avant.version;
+      phaseGelee = avant.phaseGelee; volumeGele = avant.volumeGele; constats = avant.constats;
+      planMemo = avant.planMemo; etatsExercices = avant.etats; Plan.dernier = avant.dernier;
+      rejeuEnCours = null;
+    }
+  }
+
+  function memeNombre(a, b) {
+    if (a === null || a === undefined || b === null || b === undefined) return a === b || (a == null && b == null);
+    return Number(a) === Number(b);
+  }
+
+  function calculerRejeu(ligne, paris, routine, notes, lus) {
+    var id = ligne.id;
+    var enBase = Seance.reprendre(ligne, Modele.construireBlocs(seriesDe(id), local.exercices));
+    // La séance de l'ouverture : la routine (les lignes jamais validées
+    // reconstruites, vides), puis ce que la base y ajoute (`THRejeu.structure`).
+    var pres = {};
+    var reconstruites = [];
+    var finale = Object.assign({}, enBase, { statut: Seance.EN_COURS, fin: null,
+      exercices: Rejeu.structure(enBase.exercices, routine ? { exercices: routine.exercices } : null).map(function (x) {
+        var exo = x.iExo === null ? null : enBase.exercices[x.iExo];
+        var parId = {};
+        ((exo && exo.series) || []).forEach(function (s) { parId[s.id] = s; });
+        return Object.assign({ exercise_slug: x.exercise_slug, routine_exercise_id: null, repos_cible_s: null,
+                               note: null, groupe_superset: null }, exo || {}, {
+          series: x.lignes.map(function (l) {
+            pres[l.id] = l;
+            if (l.reconstruite) reconstruites.push(x.exercise_slug);
+            return parId[l.id] ? parId[l.id] : Object.assign(Seance.serieVide(l.id), { type_serie: l.type_serie });
+          })
+        });
+      })
+    });
+    var debutMs = Date.parse(ligne.debut);
+    var finMs = Date.parse(ligne.fin || '');
+    if (!isFinite(finMs)) finMs = Infinity;
+    var index = catalogueIndexe();
+    var nomDe = function (slug) { return index[slug] && index[slug].nom ? index[slug].nom : slug; };
+
+    // ── L'historique, tel que l'app l'avait à l'ouverture ──
+    var seances = (local.seances || []).filter(function (s) { return s && s.id !== id && Date.parse(s.debut) < debutMs; });
+    var ids = {};
+    seances.forEach(function (s) { ids[s.id] = true; });
+    var series = (local.series || []).filter(function (s) { return s && ids[s.session_id]; });
+    var parSeance = new Map();
+    series.forEach(function (s) {
+      var l = parSeance.get(s.session_id);
+      if (l) l.push(s); else parSeance.set(s.session_id, [s]);
+    });
+    var sousConsigne = {};
+    Object.keys(local.sousConsigne || {}).forEach(function (slug) {
+      var l = (local.sousConsigne[slug] || []).filter(function (sid) { return ids[sid]; });
+      if (l.length) sousConsigne[slug] = l;
+    });
+    var dAvant = function (l) {
+      var sid = l && (l.session_id || (l.fondement && l.fondement.seance));
+      return !!sid && !!ids[sid];
+    };
+    var parisLegers = (local.parisLegers || []).filter(dAvant);
+    var escalierAvant = (local.escalier || []).filter(dAvant);
+    var predictionsAvant = (local.predictions || []).filter(dAvant);
+    var etats = {};
+    try { etats = Palier.etatsExercices(Palier.seanceExercices(series)); } catch (e) { etats = {}; }
+
+    // ── Ce que les paris de la séance disent de l'ouverture ──
+    var deConsigne = paris.filter(function (l) { return l.module !== Moteur.MODULE_ESCALIER && l.exercise_slug; });
+    var phaseLue = null;
+    deConsigne.forEach(function (l) { if (!phaseLue && l.fondement && l.fondement.phase) phaseLue = l.fondement.phase; });
+    var reglageLu = null;
+    deConsigne.forEach(function (l) { if (!reglageLu && l.fondement && l.fondement.reglage) reglageLu = l.fondement.reglage; });
+
+    // ── Les événements, dans l'ordre réel ──
+    var evts = [];
+    Rejeu.etapes(finale.exercices).forEach(function (v) { evts.push({ a: v.a, ordre: 2, quoi: 'serie', v: v }); });
+    paris.filter(function (l) { return l.module === Moteur.MODULE_ESCALIER && l.emise_a; }).forEach(function (l) {
+      evts.push({ a: l.emise_a, ordre: 1, quoi: 'escalier', pari: l });
+    });
+    (local.zones || []).forEach(function (z) {
+      var t = z && Date.parse(z.corrigee_a);
+      if (isFinite(t) && t > debutMs && t <= finMs) evts.push({ a: z.corrigee_a, ordre: 0, quoi: 'zone', zone: z });
+    });
+    evts.sort(function (x, y) {
+      var tx = Date.parse(x.a), ty = Date.parse(y.a);
+      return tx !== ty ? tx - ty : x.ordre - y.ordre;
+    });
+
+    var ajoutees = [];
+    finale.exercices.forEach(function (exo) {
+      (exo.series || []).forEach(function (s, i) {
+        if (pres[s.id] && !pres[s.id].ouverture) ajoutees.push(nomDe(exo.exercise_slug) + ' #' + (i + 1));
+      });
+    });
+
+    // ── La séance à une étape : les séries validées (leurs valeurs), et les
+    // autres lignes de l'ouverture, VIDES (la base ne garde pas une saisie non
+    // validée) ──
+    var seanceA = function (validees) {
+      var exos = finale.exercices.map(function (exo) {
+        var siennes = (exo.series || []).filter(function (s) {
+          return validees[s.id] || (pres[s.id] && pres[s.id].ouverture);
+        }).map(function (s) {
+          var p = pres[s.id] || {};
+          var b = Object.assign({}, s, { reps_visees: p.reps_visees === undefined ? null : p.reps_visees,
+                                         charge_cible_kg: p.charge_cible_kg === undefined ? null : p.charge_cible_kg });
+          if (validees[s.id]) return b;
+          return Object.assign(b, { charge_kg: null, reps: null, duree_s: null, distance_m: null, rpe: null,
+                                    ressenti: null, validee_a: null, repos_s: null, source: null });
+        });
+        return Object.assign({}, exo, { series: siennes });
+      }).filter(function (exo) { return exo.series.length; });
+      return Object.assign({}, finale, { exercices: exos });
+    };
+
+    var memo = { consignes: null, version: 0, volumeGele: null,
+                 phaseGelee: phaseLue ? { seanceId: id, phase: phaseLue } : null };
+    var validees = {};
+    var zonesVues = {};
+    var resultat = [];
+    var precedent = null;
+    for (var k = 0; k <= evts.length; k++) {
+      var ev = k === 0 ? null : evts[k - 1];
+      if (ev && ev.quoi === 'serie') validees[ev.v.id] = true;
+      var t = ev ? ev.a : ligne.debut;
+      var tMs = Date.parse(t);
+      var loc = {
+        seances: seances, series: series, exercices: local.exercices, pesees: local.pesees,
+        zones: (local.zones || []).filter(function (z) { return z && Date.parse(z.corrigee_a) <= tMs; }),
+        // Les paris de la séance déjà écrits à cet instant : celui d'une série
+        // validée (sa série observée) ; sans série observée, par son heure
+        // d'émission (une réponse de l'escalier, un pari dont l'observation n'a
+        // pas été écrite — une seconde de marge après la validation).
+        predictions: predictionsAvant.concat(paris.filter(function (l) {
+          if (l.set_observe) return !!validees[l.set_observe];
+          return Date.parse(l.emise_a) <= tMs + (ev && ev.quoi === 'serie' ? 1000 : 0);
+        })),
+        sousConsigne: sousConsigne, parisLegers: parisLegers, escalier: escalierAvant, parSeance: parSeance
+      };
+      var etape = avecEtatDeRejeu({ seance: seanceA(validees), local: loc, memo: memo, etats: etats, instant: t },
+        function () {
+          // Une zone corrigée en cours de séance : son exercice se recalcule,
+          // lui seul (`poserZone`).
+          if (consignes && consignes.parSlug) {
+            Object.keys(consignes.parSlug).forEach(function (slug) {
+              if (Object.prototype.hasOwnProperty.call(zonesVues, slug) && zonesVues[slug] !== zoneDe(slug)) {
+                delete consignes.parSlug[slug];
+                versionConsignes++;
+              }
+            });
+          }
+          var entrees = entreesDuPlan();
+          var plan = Plan.planDeSeance(entrees);
+          var verification = Plan.verifierPlan(plan, entrees, precedent ? precedent.plan : null);
+          var occ = {};
+          var blocs = plan.exercices.map(function (x, i) {
+            var exo = seance.exercices[i];
+            occ[x.slug] = (occ[x.slug] || 0) + 1;
+            zonesVues[x.slug] = zoneDe(x.slug);
+            var fantomes = {};
+            x.lignes.forEach(function (l) { if (!l.validee) fantomes[l.iSerie] = fantomeDe(i, l.iSerie); });
+            var controles = controlesRejeu(x, exo, ev, precedent, paris, k === 0);
+            return { cle: x.slug + '#' + occ[x.slug], nom: nomDe(x.slug),
+                     texte: Rejeu.texteExercice(x, { nom: nomDe(x.slug), series: exo.series, fantomes: fantomes, controles: controles }) };
+          });
+          return { plan: plan, verification: verification, blocs: blocs };
+        });
+      etape.titre = titreEtape(k, ev, t, finale, nomDe);
+      resultat.push(etape);
+      precedent = etape;
+    }
+
+    var entete = [
+      finale.exercices.length + ' exercice(s) · ' + seriesDe(id).length + ' série(s) en base · ' +
+        Rejeu.etapes(finale.exercices).length + ' validée(s) · ' + paris.length + ' pari(s) (' +
+        lus.serveur + ' du serveur, ' + lus.appareil + ' de l’appareil seulement)',
+      'historique lu : ' + seances.length + ' séance(s) terminée(s) avant le début, ' + series.length + ' série(s)',
+      'phase gelée : ' + (phaseLue ? phaseLue + ' (lue dans les paris)' : (Profil.phaseDe(profil) + ' (profil actuel : aucun pari ne la porte)')),
+      'rythme : ' + Profil.rythmeDe(profil) + ' (profil actuel)' +
+        (reglageLu ? (reglageLu === Profil.rythmeDe(profil) ? ' = celui des paris ✓' : ' ≠ celui des paris (' + reglageLu + ') ✗') : ''),
+      'intention : ' + ((profil && profil.intention) || '–') + ' (profil actuel)',
+      'routine : ' + (routine ? '« ' + (routine.nom || '?') + ' » (sa structure ACTUELLE)' : (ligne.routine_id ? 'introuvable' : 'aucune'))
+    ];
+    notes.push('l’historique est celui du cache d’aujourd’hui, coupé au début de la séance : une séance antérieure corrigée depuis l’est aussi ici');
+    if (routine) {
+      notes.push('les lignes présentes à l’ouverture viennent de la routine actuelle ; les autres (' +
+        (ajoutees.length ? ajoutees.join(', ') : 'aucune') + ') n’apparaissent qu’à leur validation, en fin d’exercice — l’instant et la place d’un ajout ne sont pas en base');
+      var parExo = {};
+      reconstruites.forEach(function (slug) { parExo[slug] = (parExo[slug] || 0) + 1; });
+      var dites = Object.keys(parExo).map(function (slug) { return nomDe(slug) + ' × ' + parExo[slug]; });
+      notes.push('lignes de la routine jamais validées, reconstruites vides (elles ont pu être retirées pendant la séance) : ' +
+        (dites.length ? dites.join(', ') : 'aucune'));
+    } else {
+      notes.push('sans routine, toutes les séries en base sont présentes dès l’ouverture');
+    }
+    notes.push('une ligne jamais validée n’est pas en base : elle manque au rejeu');
+    notes.push('« pré-rempli » est le fantôme recalculé ; une valeur tapée puis effacée avant validation ne se voit pas');
+    notes.push('les « Non merci » aux chauffes vivent sur l’appareil de la séance : supposés aucun');
+    if (!phaseLue) notes.push('la phase est celle du profil actuel, pas celle gelée ce jour-là');
+    notes.push('le rythme et l’intention sont ceux du profil actuel');
+    return Rejeu.texte({ seance: { id: id, titre: ligne.titre, debut: ligne.debut, fin: ligne.fin },
+                         entete: entete, notes: notes, etapes: resultat });
+  }
+
+  function titreEtape(k, ev, t, finale, nomDe) {
+    if (!ev) return 'Étape 0 — à l’ouverture (' + Rejeu.heure(t) + ')';
+    var tete = 'Étape ' + k + ' — ' + Rejeu.heure(t) + ' — ';
+    if (ev.quoi === 'serie') {
+      var exo = finale.exercices[ev.v.iExo];
+      var s = exo.series[ev.v.iSerie];
+      return tete + nomDe(exo.exercise_slug) + ' #' + (ev.v.iSerie + 1) + ' validée : ' +
+        Modele.nombre(s.charge_kg) + ' × ' + Modele.nombre(s.reps) + ' (' + Seance.typeDe(s) + ')';
+    }
+    if (ev.quoi === 'escalier') {
+      var f = ev.pari.fondement || {};
+      return tete + 'escalier : ' + (f.marche || '?') + ' « ' + (f.reponse || '?') + ' »' +
+        (f.exercice ? ' (' + nomDe(f.exercice) + ')' : '');
+    }
+    return tete + 'zone de ' + nomDe(ev.zone.exercise_slug) + ' corrigée → ' + (ev.zone.zone || 'déduite');
+  }
+
+  // Ce que les paris disent, en face de ce que le rejeu affiche : à
+  // l'ouverture, la consigne figée et le compteur ; à chaque validation, la
+  // ligne affichée JUSTE AVANT (étape précédente) et le pari écrit.
+  function controlesRejeu(x, exo, ev, precedent, paris, ouverture) {
+    var c = [];
+    var siens = paris.filter(function (l) {
+      return l.exercise_slug === x.slug && l.module !== Moteur.MODULE_ESCALIER && l.fondement;
+    });
+    if (ouverture && x.consigne && siens.length) {
+      var f = siens[0].fondement;
+      var ok = f.etat === x.consigne.etat && (f.zone || null) === (x.consigne.zone || null) &&
+        memeNombre(f.palier, x.consigne.palier) && memeNombre(f.niveau, x.consigne.niveau);
+      c.push('contrôle consigne (1er pari) : ' + f.etat + ' · zone ' + (f.zone || '–') + ' · palier ' +
+        Modele.nombre(f.palier) + ' · niveau ' + Modele.nombre(f.niveau) + (ok ? ' ✓' : ' ✗ ÉCART avec le rejeu'));
+      if (f.compteur !== undefined) {
+        var cr = x.compteur ? x.compteur.compteur : null;
+        c.push('contrôle compteur : pari ' + f.compteur + ' · rejeu ' + (cr === null ? '–' : cr) +
+          (memeNombre(f.compteur, cr) ? ' ✓' : ' ✗'));
+      }
+    }
+    if (!ev || ev.quoi !== 'serie') return c;
+    var s = null;
+    (exo.series || []).forEach(function (y) { if (y.id === ev.v.id) s = y; });
+    if (!s) return c;
+    var avant = null;
+    if (precedent) {
+      precedent.plan.exercices.forEach(function (px) {
+        (px.lignes || []).forEach(function (l) { if (l.id === s.id) avant = l; });
+      });
+    }
+    var leurs = siens.filter(function (l) { return l.set_observe === s.id; });
+    if (!leurs.length && avant && avant.role !== 'hors') {
+      leurs = siens.filter(function (l) { return !l.set_observe && Number(l.fondement.rang) === Number(avant.rang); });
+    }
+    var vu = avant ? (avant.role === 'hors' ? 'hors plan' :
+      avant.role + ' ' + Modele.nombre(avant.charge) + ' × ' + Modele.nombre(avant.vise)) : 'absente (ligne ajoutée)';
+    if (!leurs.length) {
+      c.push('contrôle #' + (ev.v.iSerie + 1) + ' : ligne affichée juste avant : ' + vu + ' · aucun pari en base' +
+        (avant && avant.role !== 'hors' ? ' ✗ (ligne couverte sans pari)' : ''));
+      return c;
+    }
+    leurs.forEach(function (l) {
+      var f = l.fondement;
+      var rev = Number(f.revision) || 0;
+      var ok = !!avant && avant.role !== 'hors' && ROLE_DU_PARI_REJEU[avant.role] === f.role &&
+        memeNombre(f.charge, avant.charge) && (rev > 0 || memeNombre(l.valeur_predite, avant.vise));
+      c.push('contrôle #' + (ev.v.iSerie + 1) + ' : pari en base ' + f.role + ' ' + Modele.nombre(f.charge) + ' × ' +
+        Modele.nombre(l.valeur_predite) + (rev ? ' (révision ' + rev + ')' : '') + ' · ligne affichée juste avant : ' + vu +
+        (ok ? ' ✓' : ' ✗ ÉCART'));
+    });
+    return c;
+  }
+
+  // La vue : un texte brut, « Copier », « Rejouer », « Fermer ». Rien d'autre.
+  var rejeuBranche = false;
+  async function ouvrirRejeu() {
+    var vue = $('rejeu'), pre = $('rejeu-sortie');
+    if (!rejeuDemande || !vue || !pre) return;
+    if (!rejeuBranche) {
+      rejeuBranche = true;
+      $('rejeu-copier').addEventListener('click', function () {
+        var t = rejeuSortie || pre.textContent || '';
+        var dit = function (m) { $('rejeu-etat').textContent = m; };
+        try {
+          racine.navigator.clipboard.writeText(t).then(function () { dit('Copié.'); },
+            function () { dit('Copie refusée : sélectionne le texte.'); });
+        } catch (e) { dit('Copie indisponible : sélectionne le texte.'); }
+      });
+      $('rejeu-relancer').addEventListener('click', function () { ouvrirRejeu(); });
+      $('rejeu-fermer').addEventListener('click', function () { vue.hidden = true; });
+    }
+    vue.hidden = false;
+    $('rejeu-etat').textContent = 'Rejeu en cours…';
+    var texte;
+    try { texte = await rejouerSeance(rejeuDemande); }
+    catch (e) { texte = 'Rejeu impossible : ' + texteErreur(e) + '\n' + ((e && e.stack) || '') + '\n'; }
+    rejeuSortie = texte;
+    pre.textContent = texte;
+    $('rejeu-etat').textContent = '';
+  }
+
   function marquerGarde(violations) {
     var doc = racine.document;
     if (!doc || !doc.body) return;
@@ -2036,7 +2412,9 @@
       // MOTEUR §14.6 (49-U16) — la règle de volume, gelée pour la séance.
       volume: volumeDeDemo(volumeDeLaSeance(), catalogue),
       catalogue: catalogue,
-      refusChauffes: refusChauffesDe(seance.id),
+      // Le rejeu (développement) : les « Non merci » vivent sur l'appareil de
+      // la séance, pas en base — supposés aucun, et la sortie le dit.
+      refusChauffes: rejeuEnCours ? {} : refusChauffesDe(seance.id),
       reglage: Profil.rythmeDe(profil),
       suites: suites,
       paris: (local.predictions || []).filter(function (l) {
@@ -2088,7 +2466,7 @@
     // ⚠️ La clé est ICI, pas dans une `var` du module : la fonction est appelée
     // au démarrage, plus haut, avant que cette ligne ne soit exécutée.
     var CLE_DEMO_ESCALIER = 'th-v2-escalier-demo';
-    if (!garde || !garde.active) return null;
+    if (!garde || !garde.active || rejeuEnCours) return null;
     var s = null;
     try { s = racine.sessionStorage; } catch (e) { s = null; }
     var m = /[?&]escalier=(demo|isole|0)(?:&|$)/.exec(String((racine.location && racine.location.search) || ''));
@@ -2203,9 +2581,12 @@
                  refus: refusChauffes, escalier: local.escalier, legers: local.parisLegers,
                  seances: local.seances, demo: demoReponse, demoMarches: demoMarches, plan: plan };
     // Le banc lit le dernier plan et ses entrées pour vérifier les invariants
-    // après chaque geste (§9.13 bis) ; rien d'autre ne le relit.
-    Plan.dernier = { entrees: entrees, plan: plan };
-    garde.verifier(plan, entrees);
+    // après chaque geste (§9.13 bis) ; rien d'autre ne le relit. Un plan du
+    // REJEU (développement) n'y entre pas : il vérifie ses invariants lui-même.
+    if (!rejeuEnCours) {
+      Plan.dernier = { entrees: entrees, plan: plan };
+      garde.verifier(plan, entrees);
+    }
     return plan;
   }
 
@@ -2368,7 +2749,7 @@
       var r = Moteur.suiteDExercice(
         seancesDeLExercice(slug),
         { seance: { debut: seance.debut }, series: faites },
-        etatsExercices[slug], new Date().toISOString(), {
+        etatsExercices[slug], rejeuEnCours ? rejeuEnCours.instant : new Date().toISOString(), {
           mesure: g.inconnue ? null : g.mesure,
           equipement: exo ? exo.equipement : null,
           intention: profil ? profil.intention : null,
@@ -5391,6 +5772,9 @@
     // vérification ci-dessus a précédé la synchronisation. Et si elle a échoué,
     // le conflit se résout à la vidange elle-même.
     vidanger();   // le réseau vient de répondre : c'est le moment d'envoyer
+    // L'outil de rejeu (développement seulement) : après la synchronisation,
+    // l'historique est là.
+    if (rejeuDemande) ouvrirRejeu();
     // L'utilisateur est parti ailleurs pendant la synchro. Re-rendre écraserait
     // son écran — et, sur l'éditeur de routine, le brouillon qu'il est en train
     // de remplir. Une synchronisation de fond ne reprend jamais la main.

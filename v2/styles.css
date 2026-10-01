@@ -1350,3 +1350,16 @@ button.puce-zone{font:inherit;font-size:11px;font-weight:600;cursor:pointer;
   font:600 10px/1.2 var(--pile);color:#fff;background:var(--manque);opacity:.85;
   border:0;border-radius:var(--r-petit);padding:2px 6px;
 }
+
+/* L'outil de rejeu (développement seulement) : un texte brut, par-dessus tout. */
+.rejeu{
+  position:fixed;inset:0;z-index:2147483001;display:flex;flex-direction:column;
+  background:var(--fond, #0b0c0e);color:var(--texte, #e8e8e8);
+}
+.rejeu[hidden]{display:none}
+.rejeu-barre{display:flex;gap:8px;align-items:center;padding:8px 16px;flex-wrap:wrap}
+.rejeu-etat{font-size:12px;opacity:.8}
+.rejeu-sortie{
+  flex:1;overflow:auto;margin:0;padding:8px 16px 32px;
+  font:11px/1.4 ui-monospace, monospace;white-space:pre-wrap;word-break:break-word;
+}

@@ -321,6 +321,18 @@
   <button id="onglet-profil" class="onglet" type="button" data-vue="profil"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg><span class="onglet-nom">Profil</span></button>
 </nav>
 
+<!-- L'outil de rejeu (développement seulement, `?rejouer=<id>` là où la garde
+     du coach est active) : un texte brut, rien d'autre. Caché en production. -->
+<section id="rejeu" class="rejeu" hidden>
+  <div class="rejeu-barre">
+    <button type="button" id="rejeu-copier">Copier</button>
+    <button type="button" id="rejeu-relancer" class="discret">Rejouer</button>
+    <button type="button" id="rejeu-fermer" class="discret">Fermer</button>
+    <span id="rejeu-etat" class="rejeu-etat"></span>
+  </div>
+  <pre id="rejeu-sortie" class="rejeu-sortie"></pre>
+</section>
+
 <script src="/vendor/supabase.js"></script>
 <script src="/js/config.js"></script>
 <script src="/js/client.js"></script>
@@ -343,6 +355,7 @@
 <script src="/js/sortie.js"></script>
 <script src="/js/cache.js"></script>
 <script src="/js/rendu.js"></script>
+<script src="/js/rejeu.js"></script>
 <script src="/js/app.js"></script>
 </body>
 </html>

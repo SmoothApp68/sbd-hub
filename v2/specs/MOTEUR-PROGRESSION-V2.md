@@ -1477,7 +1477,7 @@ Le « −10 % » est une convention de coach. Le repli utilise **le dernier pali
 
 **Quatre garde-fous, sans lesquels la règle est fausse.** Rien dans sa formulation initiale n'obligeait le repli à descendre : après une blessure ou un long détour sur une autre variante, le dernier palier tenu en entier peut être **au-dessus** du palier où l'utilisateur bloque. Le repli lui proposerait alors de monter, au moment précis où il stagne.
 
-> **Le repli est le dernier palier qui soit à la fois : (1) strictement inférieur au palier actuel, (2) sur le même exercice et la même zone, (3) dans les 3 derniers mois, (4) tenu — son niveau validé (§9.2) a atteint le bas de la zone.** *(Traduit le 25/09/2026 : « validé en entier » et « même format » dataient d'avant les zones du chantier 48 ; l'intention ne change pas — une charge réellement tenue, jamais un pourcentage.)*
+> **Le repli est le dernier palier qui soit à la fois : (1) strictement inférieur au palier actuel, (2) sur le même exercice et la même zone, (3) dans les 3 derniers mois, (4) tenu — son niveau validé (§9.2) a atteint le bas de la zone, (5) à 10 % au plus sous le meilleur — la même limite que le repli de la reprise longue (`PLAFOND_REPLI`, 49-U5 ; ajouté le 01/10/2026 : sans elle, le rejeu proposait 90 kg après un meilleur de 130 kg).** Parmi ceux-là, **le plus récent**. *(Traduit le 25/09/2026 : « validé en entier » et « même format » dataient d'avant les zones du chantier 48 ; l'intention ne change pas — une charge réellement tenue, jamais un pourcentage.)*
 >
 > **Si aucun palier ne remplit les quatre conditions, le repli est sauté : le coach se tait sur cet exercice** (§14, marche 3 ; précisé le 25/09/2026, #319).
 
@@ -1525,6 +1525,33 @@ Le filet existe déjà : si le retrait fait descendre le volume sous la fourchet
 **Toutes les phases** : un blocage généralisé est d'abord de la fatigue, en sèche comme ailleurs ; la carte et la semaine allégée ne lisent pas la phase.
 
 **Référence** : `coach49.py` (`blocage_generalise`, `phrase_carte`, `consigne_allegee`, `series_allegees`, `fin_allegee`, `deroule_compteur` qui ignore `decharge`) ; cas `cas_allege49.json`.
+
+
+### 14.5 Le blocage isolé dans l'app — câblé le 01/10/2026 (chantier 49, PR 2a)
+
+> **Un exercice cale seul : une marche à la fois, selon sa zone et la phase. La série de plus (zones muscle) arrive avec la règle de volume (PR 2b, 2c).**
+
+**Quand.** À l'ouverture, un exercice a un **déclenchement** (compteur à 4, 8, 12…) **et** aucune carte de semaine allégée ne s'ouvre pour lui (pas de blocage généralisé, ou carte retenue par la mémoire de §14.4).
+
+**Quelle marche.** Le **n-ième déclenchement isolé** depuis le dernier progrès de l'exercice — n = (compteur − 4) / 4 + 1, moins les déclenchements répondus par une carte de semaine allégée dont il était le déclencheur :
+
+| n | Zones force (Lourd, Mix) | Zones muscle, en sèche | Zones muscle, hors sèche |
+|---|---|---|---|
+| 1 | **changer de schéma** (la seule question) | **le coach le dit**, sans rien proposer | la série de plus — **PR 2c** ; d'ici là, rien n'est proposé (la phrase du compteur seule) |
+| 2 | **le repli** (§14.2) | le repli | le repli |
+| 3 et plus | **le silence** | le silence | le silence |
+
+**Changer de schéma** — une carte **sous l'exercice** (le composant des propositions d'exercice) : « 125 kg × 5 reste ton meilleur depuis 4 séances, et tes autres exercices avancent. » (la fin seulement si aucun autre exercice n'a eu un compteur à 4 ou plus sur 0 à 7 jours ; sinon un point) ; « En force, une série de plus aide peu. Changer de schéma quelques semaines relance souvent la barre, avant d'y revenir. » ; boutons « **Passer à 6-8 reps** » / « **Garder 3-5** » (Lourd → Mix ; Mix → Lourd : « Passer à 3-5 reps » / « Garder 6-8 »). **Oui** = le geste de la correction de zone (48b-7), comme si la personne l'avait choisie ; elle revient depuis l'étiquette ; le compteur repart de zéro (changement de zone). **Non** = rien ne change.
+
+**En sèche, zone muscle** — la phrase grise de l'en-tête devient « 27 kg × 12 reste ton meilleur depuis 4 séances. En sèche, je ne te propose rien de plus. » ; pas de carte, pas de pari.
+
+**Le repli** — pas de question : **la consigne de la séance devient celle du repli** (la charge du palier de repli, visée = son niveau validé borné à la zone, **sans ligne haute**), avec en gris « On repart de 120 kg, ta dernière charge tenue : 120 kg × 4, 4, 4, 4 le 3 févr. » (la date par le formateur `quand`). Repli sauté (aucun palier ne remplit les cinq conditions) → silence. Ensuite, la consigne repart normalement de ce qui est fait.
+
+**Le silence** — aucune proposition ; la phrase du compteur quitte l'en-tête et passe une fois dans le constat de fin de bloc (« 80 kg × 10 reste ton meilleur depuis 12 séances. »), sans alarme.
+
+**Les paris** (`module = 'escalier'`, identifiant `escalier|séance|exercice|marche`) : **schéma**, écrit à la réponse (`reponse : acceptee | refusee`), accepté observé sans série (1 si l'exercice progresse avant son prochain déclenchement, 0 à son prochain déclenchement), refusé jamais observé ; **repli**, écrit à l'ouverture (`reponse : appliquee`), observé de même. La sèche (« le coach le dit ») et le silence ne sont pas des propositions : pas de pari.
+
+**Référence** : `coach49.py` ; cas `cas_isole49.json`.
 
 
 ---

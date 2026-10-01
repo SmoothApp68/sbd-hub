@@ -3184,7 +3184,10 @@
       var f = l.fondement;
       return { id: l.id || null, seance: f.seance || null, jour: f.jour || jourCivil(f.debut),
                declencheur: f.declencheur, compteur: nombre(f.compteur), reponse: f.reponse,
-               debut: f.debut || null, fin: f.fin || null };
+               debut: f.debut || null, fin: f.fin || null,
+               // §14.5 (49-U15) — les exercices cités : une carte répondue dans
+               // la séance les garde de toute marche isolée (I21).
+               cites: Array.isArray(f.cites) ? f.cites.slice() : [] };
     });
   }
 
@@ -3241,6 +3244,219 @@
     return null;
   }
 
+  // ══ §14.5 (49-U15) — L'ESCALIER, DEUXIÈME MARCHE : LE BLOCAGE ISOLÉ ══════
+  //
+  // « Un exercice cale seul : une marche à la fois, selon sa zone et la
+  // phase. » Tout est pur ici. Référence : `coach49.py` (`repli_de`,
+  // `marche_isolee`, `carte_schema`, `consigne_repli`, `phrase_repli`,
+  // `phrase_seche`) ; cas `cas-49u15-blocage-isole.json`. La série de plus
+  // (zones muscle hors sèche) attend la règle de volume (PR 2b, 2c) : d'ici
+  // là, sa marche ne propose RIEN.
+  var FENETRE_REPLI_JOURS = 90;       // le repli : dans les 3 derniers mois (§14.2)
+  var ZONES_FORCE = ['lourd', 'mix'];
+  var MARCHE_SCHEMA = 'schema';
+  var MARCHE_REPLI = 'repli';
+  var MARCHE_SECHE = 'seche_rien';
+  var MARCHE_SERIE_DE_PLUS = 'serie_de_plus_a_venir';
+  var MARCHE_SILENCE = 'silence';
+  // Lourd → Mix, Mix → Lourd : le schéma voisin, et les deux libellés.
+  var SCHEMAS = {
+    lourd: { vers: 'mix', oui: 'Passer à 6-8 reps', non: 'Garder 3-5' },
+    mix: { vers: 'lourd', oui: 'Passer à 3-5 reps', non: 'Garder 6-8' }
+  };
+  var DETAIL_SCHEMA = 'En force, une série de plus aide peu. Changer de schéma quelques semaines ' +
+    'relance souvent la barre, avant d\'y revenir.';
+  var FIN_SECHE = ' En sèche, je ne te propose rien de plus.';
+
+  // Le n-ième déclenchement isolé depuis le dernier progrès : n = (compteur −
+  // 4) / 4 + 1, moins les déclenchements répondus par une carte de semaine
+  // allégée dont l'exercice était le déclencheur. Entre deux déclenchements,
+  // la marche du dernier (le silence s'y lit : « la phrase quitte l'en-tête »).
+  // 0 sous le premier déclenchement.
+  function nIsole(compteur, repondus) {
+    var c = nombre(compteur);
+    if (c === null || c < PAS_ESCALIER) return 0;
+    return Math.floor((c - PAS_ESCALIER) / PAS_ESCALIER) + 1 - (nombre(repondus) || 0);
+  }
+
+  // Les déclenchements de `exercice` répondus par une carte de semaine allégée
+  // (acceptée ou refusée) DEPUIS SON DERNIER PROGRÈS : la carte a lui pour
+  // déclencheur, un compteur au plus égal à celui d'aujourd'hui, et aucun
+  // compteur plus bas n'a été vu sur cet exercice entre la carte et `jour`.
+  // `cartes` : `cartesDesParis` ; `compteurs` : `[{ exercice, jour, compteur }]`.
+  function declenchementsRepondus(exercice, jour, compteur, cartes, compteurs) {
+    var c = nombre(compteur);
+    if (c === null) return 0;
+    return (cartes || []).filter(function (k) {
+      var kc = nombre(k && k.compteur);
+      if (!k || k.declencheur !== exercice || kc === null || kc < PAS_ESCALIER || kc > c) return false;
+      if (k.reponse !== 'acceptee' && k.reponse !== 'refusee') return false;
+      if (!k.jour || k.jour > jour) return false;
+      return !(compteurs || []).some(function (x) {
+        return x && x.exercice === exercice && x.jour > k.jour && x.jour <= jour &&
+          nombre(x.compteur) !== null && nombre(x.compteur) < kc;
+      });
+    }).length;
+  }
+
+  // La table de §14.5 : `n` (1, 2, 3 et plus), la zone, la phase.
+  function marcheIsolee(n, zone, phase) {
+    var k = nombre(n);
+    if (k === null || k < 1) return null;
+    if (k >= 3) return MARCHE_SILENCE;
+    if (k === 2) return MARCHE_REPLI;
+    if (ZONES_FORCE.indexOf(zone) >= 0) return MARCHE_SCHEMA;
+    return phase === 'seche' ? MARCHE_SECHE : MARCHE_SERIE_DE_PLUS;
+  }
+
+  // « Et tes autres exercices avancent » : aucun AUTRE exercice n'a eu un
+  // compteur à 4 ou plus sur 0 à 7 jours (la fenêtre de la semaine allégée).
+  // `jours` : la forme de `blocageGeneralise`.
+  function autresAvancent(jours, jour, exercice) {
+    var d0 = numeroDuJour(jour);
+    if (d0 === null) return false;
+    return !Object.keys(jours || {}).some(function (jr) {
+      var k = numeroDuJour(jr);
+      if (k === null || d0 - k < 0 || d0 - k > FENETRE_BLOCAGE_JOURS) return false;
+      return Object.keys(jours[jr] || {}).some(function (x) {
+        var c = nombre(jours[jr][x]);
+        return x !== exercice && c !== null && c >= PAS_ESCALIER;
+      });
+    });
+  }
+
+  // Le début de la phrase du compteur, sans le « plus long que d'habitude » :
+  // « 125 kg × 5 reste ton meilleur depuis 4 séances » — les espaces de
+  // `phraseCompteur` (insécable avant « kg », espaces ordinaires autour de ×).
+  function meilleurDepuis(meilleur, compteur) {
+    return Modele().charge(meilleur.palier) + ' × ' + nombreFr(meilleur.niveau) +
+      ' reste ton meilleur depuis ' + nombreFr(compteur) + ' séances';
+  }
+
+  // CHANGER DE SCHÉMA (zones force, n = 1) : la carte sous l'exercice. Rend
+  // `null` hors des zones force.
+  function carteSchema(zone, meilleur, compteur, avancent) {
+    var s = SCHEMAS[zone];
+    if (!s || !meilleur || meilleur.niveau === null || meilleur.niveau === undefined) return null;
+    return {
+      zone: zone, nouvelle_zone: s.vers,
+      phrase: meilleurDepuis(meilleur, compteur) + (avancent ? ', et tes autres exercices avancent.' : '.'),
+      detail: DETAIL_SCHEMA, oui: s.oui, non: s.non
+    };
+  }
+
+  // EN SÈCHE, ZONE MUSCLE (n = 1) : la phrase grise de l'en-tête, sans carte.
+  function phraseSeche(c) {
+    var p = phraseCompteur(c);
+    return p ? p + FIN_SECHE : null;
+  }
+
+  // LE REPLI (§14.2) : le dernier palier TENU (niveau validé au moins au bas de
+  // la zone), strictement sous le meilleur ET à 10 % au plus sous lui — la
+  // limite du repli de la reprise longue (`REPLI_MAX_REPRISE`, 49-U5 : un seul
+  // coach, une seule limite) —, même zone, dans les 90 jours ; le plus récent.
+  // Sinon `null` : le repli est sauté, le coach se tait.
+  //
+  // `seances` : celles du contrat (`neutre`, `decharge` posés) ; une séance
+  // neutre ou d'une semaine allégée n'est pas un palier tenu. `o.zoneAu(liste,
+  // i)` (facultatif) : la zone de la i-ème séance antérieure — l'app la donne
+  // (la consigne que la séance a reçue) ; sans elle, `se.zone` si posée, sinon
+  // la séance est de la zone (les cas du simulateur : un exercice, une zone).
+  // Rend `{ palier, niveau, debut, reps: [saisies au palier], ligne: [charge,
+  // visée] }` — la visée : le niveau borné à la zone.
+  function repliEscalier(seances, avant, meilleur, zone, options) {
+    var o = options || {};
+    var z = zoneParCle(zone);
+    var M = meilleur ? nombre(meilleur.palier) : null;
+    var t0 = instant(avant);
+    if (!z || M === null || t0 === null) return null;
+    var plancher = M * (1 - REPLI_MAX_REPRISE) - 1e-9;
+    var liste = anterieures(seances || [], avant);
+    for (var i = liste.length - 1; i >= 0; i--) {
+      var se = liste[i];
+      if (t0 - instant(se.debut) > FENETRE_REPLI_JOURS * JOUR) break;
+      if (se.neutre === true || se.decharge === true) continue;
+      var v = vueDeSeance(se);
+      var P = nombre(v.palier);
+      if (P === null || P > M || memeCharge(P, M) || P < plancher) continue;
+      var A = seriesAuPalier(v);
+      var niv = A.length ? niveauValide(A) : null;
+      if (niv === null || niv < z.bas) continue;
+      var zSe = typeof o.zoneAu === 'function' ? o.zoneAu(liste, i) : se.zone;
+      if (zSe !== undefined && zSe !== null && zSe !== zone) continue;
+      return { palier: P, niveau: niv, debut: se.debut,
+               reps: A.map(function (s) { return nombre(s.reps); }),
+               ligne: [P, Math.min(z.haut, Math.max(z.bas, niv))] };
+    }
+    return null;
+  }
+
+  // LA CONSIGNE DE REPLI : la charge du repli, visée = son niveau borné à la
+  // zone, SANS LIGNE HAUTE (I22). `repli` porte de quoi dire la phrase.
+  function consigneRepli(consigne, repli) {
+    var c = consigne || null;
+    if (!c || !repli || c.etat === 'silence') return c;
+    return Object.assign({}, c, {
+      ligne: { charge: repli.ligne[0], vise: repli.ligne[1] },
+      haut: null,
+      repli: { palier: repli.palier, niveau: repli.niveau, debut: repli.debut, reps: (repli.reps || []).slice() }
+    });
+  }
+
+  // « On repart de 120 kg, ta dernière charge tenue : 120 kg × 4, 4, 4, 4 le
+  // 3 févr. » — la date par le formateur `quand`, contre `reference` (le début
+  // de la séance) : « mardi » à 6 jours ou moins.
+  function phraseRepli(repli, reference) {
+    if (!repli) return null;
+    var kg = Modele().charge(repli.palier);
+    var date = quand(repli.debut, reference);
+    // « le 3 févr. » porte déjà son point : on n'en remet pas un second.
+    return 'On repart de ' + kg + ', ta dernière charge tenue : ' + kg + ' × ' +
+      (repli.reps || []).map(function (r) { return nombreFr(r); }).join(', ') + ' ' +
+      date + (/\.$/.test(date) ? '' : '.');
+  }
+
+  // Les marches d'un exercice déjà écrites, lues dans les paris de l'escalier :
+  // `{ id, seance, jour, exercice, marche, reponse, compteur, debut }`.
+  function marchesDesParis(paris) {
+    return (paris || []).filter(function (l) {
+      return l && l.module === MODULE_ESCALIER && l.fondement &&
+        (l.fondement.marche === MARCHE_SCHEMA || l.fondement.marche === MARCHE_REPLI);
+    }).map(function (l) {
+      var f = l.fondement;
+      return { id: l.id || null, seance: f.seance || null, jour: f.jour || null,
+               exercice: f.exercice || l.exercise_slug || null, marche: f.marche,
+               reponse: f.reponse || null, compteur: nombre(f.compteur), debut: f.debut || null };
+    });
+  }
+
+  // L'OBSERVATION D'UNE MARCHE, SANS SÉRIE : 1 si l'exercice progresse avant
+  // son prochain déclenchement, 0 à ce déclenchement ; refusée, jamais. Le
+  // repli garde le compteur (8 → 9…) : un compteur plus bas que celui de la
+  // marche est un progrès, comme pour la semaine allégée. LE SCHÉMA ACCEPTÉ
+  // CHANGE LA ZONE, et le compteur repart de zéro : la première valeur vue
+  // après lui est la remise à zéro, pas un progrès ; ensuite, une valeur plus
+  // basse que la précédente est un progrès, et 4 le prochain déclenchement.
+  function observationMarche(m, compteurs) {
+    if (!m || (m.reponse !== 'acceptee' && m.reponse !== 'appliquee')) return null;
+    var c0 = nombre(m.compteur);
+    if (c0 === null) return null;
+    var apres = (compteurs || []).filter(function (x) {
+      return x && x.exercice === m.exercice && x.jour > m.jour && nombre(x.compteur) !== null;
+    }).sort(function (a, b) { return avantAlpha(String(a.debut || a.jour), String(b.debut || b.jour)); });
+    var schema = m.marche === MARCHE_SCHEMA;
+    var prochain = schema ? PAS_ESCALIER : c0 - (c0 % PAS_ESCALIER) + PAS_ESCALIER;
+    var precedent = schema ? null : c0;
+    for (var i = 0; i < apres.length; i++) {
+      var v = nombre(apres[i].compteur);
+      var tranche = { jour: apres[i].jour, seance: apres[i].seance || null, debut: apres[i].debut || null };
+      if (precedent !== null && v < precedent) return Object.assign({ valeur: 1 }, tranche);
+      if (v >= prochain) return Object.assign({ valeur: 0 }, tranche);
+      if (schema) precedent = v;
+    }
+    return null;
+  }
+
   // La consigne d'UN exercice de la séance ouverte, silences compris. Pure :
   // `app.js` ne fait que résoudre les valeurs (`mesure` par `gabaritDe`,
   // `reglage` par `Profil.rythmeDe`, `equipement` au catalogue) et les passer.
@@ -3272,6 +3488,15 @@
     // 48b-5b-2, câblé à `null` faute d'un endroit où lire la zone choisie.
     var consigne = consignePour(seances, avant,
       { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null });
+    var marquees = marquerSousConsigne(seances, groupes, o.seancesSousConsigne, o.periodesAllegees);
+    var compteur = compteurFige(compteurDe(marquees, avant,
+      { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null,
+        corrections: o.correctionsDeZone || null }));
+    var zoneAu = function (liste, i) {
+      var k = consignePour(liste.slice(0, i), liste[i].debut, { reglage: o.reglage, equipement: o.equipement,
+        correction: o.correctionsDeZone ? correctionAu(o.correctionsDeZone, liste[i].debut) : (o.correction || null) });
+      return k ? (k.zone === undefined ? null : k.zone) : null;
+    };
     // §20.2 — la référence des dates est `avant`, le début de la séance pour
     // laquelle la consigne est calculée : « mardi » se dit contre elle.
     return { consigne: consigne, libelles: libellesConsigne(consigne, avant),
@@ -3289,10 +3514,13 @@
              // séances sous consigne : `o.seancesSousConsigne`, les identifiants
              // des séances qui portent au moins un pari sur l'exercice. Le plan
              // le lit ; aucun écran ne le recalcule.
-             compteur: compteurFige(compteurDe(marquerSousConsigne(seances, groupes, o.seancesSousConsigne,
-               o.periodesAllegees), avant,
-               { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null,
-                 corrections: o.correctionsDeZone || null })) };
+             compteur: compteur,
+             // §14.5 (49-U15) — LE REPLI POSSIBLE, figé avec la consigne : le
+             // plan décide s'il s'applique (la marche dépend des cartes). La
+             // zone de chaque séance candidate est celle de la consigne qu'elle
+             // a reçue (la zone choisie en vigueur ce jour-là).
+             repli: compteur.compteur >= PAS_ESCALIER && consigne && consigne.zone
+               ? repliEscalier(marquees, avant, compteur.meilleur, consigne.zone, { zoneAu: zoneAu }) : null };
   }
 
   // Ce que la consigne FIGÉE garde du compteur (elle s'écrit sur le disque avec
@@ -3582,6 +3810,23 @@
     periodeAllegee: periodeAllegee,
     carteAutorisee: carteAutorisee,
     observationSemaineAllegee: observationSemaineAllegee,
+    MARCHE_SCHEMA: MARCHE_SCHEMA,
+    MARCHE_REPLI: MARCHE_REPLI,
+    MARCHE_SECHE: MARCHE_SECHE,
+    MARCHE_SERIE_DE_PLUS: MARCHE_SERIE_DE_PLUS,
+    MARCHE_SILENCE: MARCHE_SILENCE,
+    FENETRE_REPLI_JOURS: FENETRE_REPLI_JOURS,
+    nIsole: nIsole,
+    declenchementsRepondus: declenchementsRepondus,
+    marcheIsolee: marcheIsolee,
+    autresAvancent: autresAvancent,
+    carteSchema: carteSchema,
+    phraseSeche: phraseSeche,
+    repliEscalier: repliEscalier,
+    consigneRepli: consigneRepli,
+    phraseRepli: phraseRepli,
+    marchesDesParis: marchesDesParis,
+    observationMarche: observationMarche,
     situationChauffe: situationChauffe,
     chauffesDe: chauffesDe,
     degressiveDe: degressiveDe,

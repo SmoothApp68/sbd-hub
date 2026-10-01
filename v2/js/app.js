@@ -841,6 +841,9 @@
     await sauverSeance();
     if (o.structure !== false) await poserSeries();
     if (o.rendre !== false) rendreSeance();
+    // §14.5 (49-U15) — un exercice ajouté en cours de séance peut ouvrir sur
+    // un repli : son pari s'écrit à sa première apparition (une fois).
+    if (o.structure !== false) ecrireReplis().catch(function () {});
   }
 
   function poserSeries() {
@@ -875,6 +878,8 @@
     // §14.4 (49-U14) — une séance créée PENDANT une semaine allégée ne garde
     // que ses lignes allégées.
     await appliquerAllegee();
+    // §14.5 (49-U15) — le repli s'écrit à l'ouverture.
+    await ecrireReplis();
   }
 
   // §14.4 (49-U14) — RETIRER LES LIGNES EN TROP, une fois : à l'acceptation
@@ -2012,25 +2017,74 @@
   // EN MÉMOIRE, et AUCUN PARI NE S'ÉCRIT (ni de consigne, ni de l'escalier) :
   // la base ne voit rien de faux. ⚠️ On n'y valide donc AUCUNE SÉRIE (une série
   // validée sans son pari, la garde le dirait : I7) ; on abandonne la séance.
+  //
+  // §14.5 (49-U15) — `?escalier=isole` : le BLOCAGE ISOLÉ, sur une séance
+  // quelconque. Le premier exercice qui a une consigne déclenche une première
+  // fois (compteur 4, en zone force : la carte de schéma) ; le suivant, une
+  // deuxième fois (compteur 8, avec un repli inventé à 5 % sous son meilleur).
+  // Une valeur à part, et pas `demo` : la carte de semaine allégée cite tous
+  // les exercices à 4 ou plus, et un exercice cité n'a pas de marche isolée
+  // (I21) — les deux ne se montrent pas dans la même séance. La réponse au
+  // schéma reste en mémoire : AUCUNE zone n'est posée, AUCUN pari n'est écrit.
   var demoReponse = null;   // la carte « répondue » de la démonstration, en mémoire
-  function demoEscalier() {
+  var demoMarches = [];     // les schémas « répondus » de la démonstration, en mémoire
+  function demoModeEscalier() {
     // ⚠️ La clé est ICI, pas dans une `var` du module : la fonction est appelée
     // au démarrage, plus haut, avant que cette ligne ne soit exécutée.
     var CLE_DEMO_ESCALIER = 'th-v2-escalier-demo';
-    if (!garde || !garde.active) return false;
+    if (!garde || !garde.active) return null;
     var s = null;
     try { s = racine.sessionStorage; } catch (e) { s = null; }
-    var m = /[?&]escalier=(demo|0)(?:&|$)/.exec(String((racine.location && racine.location.search) || ''));
-    if (m) { try { if (s) s.setItem(CLE_DEMO_ESCALIER, m[1] === 'demo' ? '1' : '0'); } catch (e) { /* fermé */ } return m[1] === 'demo'; }
-    try { return !!s && s.getItem(CLE_DEMO_ESCALIER) === '1'; } catch (e) { return false; }
+    var m = /[?&]escalier=(demo|isole|0)(?:&|$)/.exec(String((racine.location && racine.location.search) || ''));
+    if (m) {
+      try { if (s) s.setItem(CLE_DEMO_ESCALIER, m[1]); } catch (e) { /* fermé */ }
+      return m[1] === '0' ? null : m[1];
+    }
+    var v = null;
+    try { v = s ? s.getItem(CLE_DEMO_ESCALIER) : null; } catch (e) { v = null; }
+    // `1` : la valeur d'avant 49-U15, pour `demo`.
+    return v === 'demo' || v === '1' ? 'demo' : (v === 'isole' ? 'isole' : null);
   }
+  function demoEscalier() { return !!demoModeEscalier(); }
   function consignesDeDemo(cs) {
     var copie = Object.assign({}, cs);
-    var premier = Object.keys(cs).filter(function (s) { return cs[s] && cs[s].consigne && cs[s].consigne.etat !== 'silence'; })[0];
-    if (premier) {
-      copie[premier] = Object.assign({}, cs[premier], {
-        compteur: Object.assign({ meilleur: null, derniere: null, blocages: [] }, cs[premier].compteur || {}, { compteur: 4 })
-      });
+    var avecConsigne = Object.keys(cs).filter(function (s) { return cs[s] && cs[s].consigne && cs[s].consigne.etat !== 'silence'; });
+    var compteurDe = function (slug, n, meilleur) {
+      return Object.assign({ meilleur: null, derniere: null, blocages: [] }, cs[slug].compteur || {},
+        { compteur: n }, meilleur ? { meilleur: meilleur } : {});
+    };
+    if (demoModeEscalier() !== 'isole') {
+      var premier = avecConsigne[0];
+      if (premier) copie[premier] = Object.assign({}, cs[premier], { compteur: compteurDe(premier, 4) });
+      return copie;
+    }
+    var meilleurDe = function (k) {
+      var l = k.ligne || k.haut;
+      var P = l && typeof l.charge === 'number' ? l.charge : (typeof k.palier === 'number' ? k.palier : null);
+      if (P === null) return null;
+      var z = Moteur.zoneParCle(k.zone);
+      return { palier: P, niveau: l && typeof l.vise === 'number' ? l.vise : (z ? z.bas : 5) };
+    };
+    var a = avecConsigne[0], b = avecConsigne[1];
+    if (a) {
+      var ka = cs[a].consigne;
+      var za = ka.zone === 'lourd' || ka.zone === 'mix' ? ka.zone : 'lourd';
+      copie[a] = Object.assign({}, cs[a], { consigne: Object.assign({}, ka, { zone: za }),
+        compteur: compteurDe(a, 4, (cs[a].compteur && cs[a].compteur.meilleur) || meilleurDe(ka)) });
+    }
+    if (b) {
+      var kb = cs[b].consigne;
+      var mb = (cs[b].compteur && cs[b].compteur.meilleur) || meilleurDe(kb);
+      var zb = Moteur.zoneParCle(kb.zone);
+      if (mb && zb) {
+        // Le repli inventé : 5 % sous le meilleur, au demi-kilo, tenu au bas de
+        // la zone il y a 10 jours — dans les bornes de I22.
+        var P = Math.round(mb.palier * 0.95 * 2) / 2;
+        if (P >= mb.palier) P = mb.palier - 0.5;
+        var il = new Date(new Date(seance.debut).getTime() - 10 * 86400000).toISOString();
+        copie[b] = Object.assign({}, cs[b], { compteur: compteurDe(b, 8, mb),
+          repli: { palier: P, niveau: zb.bas, debut: il, reps: [zb.bas, zb.bas, zb.bas], ligne: [P, zb.bas] } });
+      }
     }
     return copie;
   }
@@ -2046,9 +2100,13 @@
       seriesRoutine[s] = c && typeof c.seriesRoutine === 'number' && c.seriesRoutine > 0
         ? c.seriesRoutine : nombreDeSeriesDeTravail(s);
     });
-    var cartes = Moteur.cartesDesParis(parisEscalierConnus());
+    var connus = parisEscalierConnus();
+    var cartes = Moteur.cartesDesParis(connus);
     var compteurs = compteursDesParis();
-    if (demoEscalier() && seance) {
+    // §14.5 (49-U15) — les marches isolées déjà écrites (schéma, repli).
+    var marches = Moteur.marchesDesParis(connus);
+    if (demoModeEscalier() === 'isole' && seance) marches = marches.concat(demoMarches);
+    if (demoModeEscalier() === 'demo' && seance) {
       var jour = Moteur.jourCivil(seance.debut);
       noms['demo-a'] = 'Exercice témoin A';
       noms['demo-b'] = 'Exercice témoin B';
@@ -2057,7 +2115,7 @@
         { exercice: 'demo-b', jour: jour, compteur: 4, seance: 'demo', debut: seance.debut }]);
       if (demoReponse) cartes = cartes.concat([demoReponse]);
     }
-    return { cartes: cartes, compteurs: compteurs, noms: noms, seriesRoutine: seriesRoutine };
+    return { cartes: cartes, compteurs: compteurs, noms: noms, seriesRoutine: seriesRoutine, marches: marches };
   }
 
   function planActuel() {
@@ -2071,12 +2129,12 @@
         planMemo.constats === constats && planMemo.catalogue === local.exercices &&
         planMemo.refus === refusChauffes && planMemo.escalier === local.escalier &&
         planMemo.legers === local.parisLegers && planMemo.seances === local.seances &&
-        planMemo.demo === demoReponse) return planMemo.plan;
+        planMemo.demo === demoReponse && planMemo.demoMarches === demoMarches) return planMemo.plan;
     var plan = Plan.planDeSeance(entrees);
     planMemo = { seance: seance, paris: local.predictions, version: versionConsignes,
                  edition: edition, constats: constats, catalogue: local.exercices,
                  refus: refusChauffes, escalier: local.escalier, legers: local.parisLegers,
-                 seances: local.seances, demo: demoReponse, plan: plan };
+                 seances: local.seances, demo: demoReponse, demoMarches: demoMarches, plan: plan };
     // Le banc lit le dernier plan et ses entrées pour vérifier les invariants
     // après chaque geste (§9.13 bis) ; rien d'autre ne le relit.
     Plan.dernier = { entrees: entrees, plan: plan };
@@ -2484,6 +2542,89 @@
     if (seance && reponse === 'acceptee') await appliquerAllegee();
   }
 
+  // ── MOTEUR §14.5 (49-U15) — LES MARCHES ISOLÉES : SCHÉMA ET REPLI ───────
+  //
+  // Un pari de marche (`module = 'escalier'`) a l'identifiant de son espace de
+  // noms : `escalier|séance|exercice|marche`. ⚠️ SA COLONNE `exercise_slug`
+  // RESTE VIDE, l'exercice vit dans le fondement (`exercice`) : cinq lecteurs
+  // prennent un pari portant `exercise_slug` pour un pari de CONSIGNE — les
+  // lignes figées du plan, I7, `dejaNote`, l'observation d'une série, et
+  // « sous consigne » côté serveur (`seancesAvecPari`).
+  function pariDeMarche(id, x, marche, reponse, phase, extra) {
+    return {
+      id: id || uuid(),
+      user_id: (sessionActive && sessionActive.user && sessionActive.user.id) || null,
+      module: Moteur.MODULE_ESCALIER, module_version: VERSION_ESCALIER,
+      emise_a: new Date().toISOString(),
+      exercise_slug: null, grandeur: 'progres', horizon_jours: null,
+      valeur_predite: 1, borne_basse: null, borne_haute: null,
+      fondement: Object.assign({
+        seance: seance.id, jour: Moteur.jourCivil(seance.debut), exercice: x.slug,
+        marche: marche, reponse: reponse, compteur: x.escalier.compteur, n: x.escalier.n,
+        zone: x.escalier.zone, phase: phase
+      }, extra || {}),
+      valeur_observee: null, observee_a: null, set_observe: null
+    };
+  }
+
+  async function ecrirePariDeMarche(pari) {
+    local.predictions = (local.predictions || []).concat([pari]);
+    await Cache.ecrireLot('predictions', [pari]).catch(function () {});
+    await poserPari(pari);
+  }
+
+  // « Passer à 6-8 reps » / « Garder 3-5 ». OUI = LE GESTE DE LA CORRECTION DE
+  // ZONE (48b-7, `poserZone`), comme si la personne l'avait choisie — pas un
+  // second chemin : elle revient depuis l'étiquette, et le compteur repart de
+  // zéro (changement de zone). NON = rien ne change. Les deux s'écrivent.
+  async function repondreSchema(iExo, reponse) {
+    if (!seance || enEdition() || reponseEnCours) return;
+    var p = planActuel();
+    var x = p && p.exercices[iExo];
+    var m = x && x.escalier;
+    if (!m || !m.carte) return;
+    reponseEnCours = true;
+    var acceptee = reponse === 'acceptee';
+    try {
+      if (demoEscalier()) {
+        // La démonstration : la réponse reste en mémoire ; aucune zone posée.
+        demoMarches = demoMarches.concat([{ seance: seance.id, jour: Moteur.jourCivil(seance.debut),
+          exercice: x.slug, marche: Moteur.MARCHE_SCHEMA, reponse: acceptee ? 'acceptee' : 'refusee',
+          compteur: m.compteur }]);
+      } else {
+        var id = await Moteur.idDEscalier(seance.id, x.slug, Moteur.MARCHE_SCHEMA).catch(function () { return null; });
+        await ecrirePariDeMarche(pariDeMarche(id, x, Moteur.MARCHE_SCHEMA, acceptee ? 'acceptee' : 'refusee',
+          p.phase, { nouvelle_zone: m.carte.nouvelle_zone }));
+        if (acceptee) await poserZone(x.slug, m.carte.nouvelle_zone);
+      }
+    } finally {
+      reponseEnCours = false;
+    }
+    if (seance) rendreSeance();
+  }
+
+  // LE REPLI S'ÉCRIT À L'OUVERTURE (`reponse : appliquee`) : pas de question.
+  // Une fois par séance et par exercice — l'identifiant déterminé fait le
+  // reste (un second envoi est ignoré à destination).
+  var replisEcrits = {};
+  async function ecrireReplis() {
+    if (!seance || enEdition() || demoEscalier()) return;
+    var p = planActuel();
+    var aEcrire = ((p && p.exercices) || []).filter(function (x) {
+      return x && x.escalier && x.escalier.marche === Moteur.MARCHE_REPLI && x.escalier.repli &&
+        !replisEcrits[seance.id + '|' + x.slug];
+    });
+    for (var i = 0; i < aEcrire.length; i++) {
+      var x = aEcrire[i];
+      replisEcrits[seance.id + '|' + x.slug] = true;
+      var id = await Moteur.idDEscalier(seance.id, x.slug, Moteur.MARCHE_REPLI).catch(function () { return null; });
+      if (id && parisEscalierConnus().some(function (l) { return l && l.id === id; })) continue;
+      var r = x.escalier.repli;
+      await ecrirePariDeMarche(pariDeMarche(id, x, Moteur.MARCHE_REPLI, 'appliquee', p.phase,
+        { repli: { palier: r.palier, niveau: r.niveau, debut: r.debut } }));
+    }
+  }
+
   // L'OBSERVATION DU PARI ACCEPTÉ, SANS SÉRIE (§14.4) — SON PROPRE CHEMIN, pas
   // celui des paris de consigne (`observerSerie`, qui suppose une série) :
   // 1 si le déclencheur progresse avant son prochain déclenchement, 0 à ce
@@ -2501,7 +2642,11 @@
       if (!l || !l.id || escalierObserves[l.id]) continue;
       if (l.valeur_observee !== null && l.valeur_observee !== undefined) continue;
       var carte = Moteur.cartesDesParis([l])[0];
-      var obs = carte ? Moteur.observationSemaineAllegee(carte, compteurs) : null;
+      // §14.5 (49-U15) — une marche isolée (schéma accepté, repli) s'observe
+      // de même, sur les compteurs de SON exercice.
+      var marche = carte ? null : Moteur.marchesDesParis([l])[0];
+      var obs = carte ? Moteur.observationSemaineAllegee(carte, compteurs)
+        : (marche ? Moteur.observationMarche(marche, compteurs) : null);
       if (!obs) continue;
       escalierObserves[l.id] = true;
       var maj = Object.assign({}, l, { valeur_observee: obs.valeur,
@@ -2515,7 +2660,7 @@
       if (ici) await Cache.ecrireLot('predictions', [maj]).catch(function () {});
       local.escalier = (local.escalier || []).map(function (x) { return x && x.id === maj.id ? maj : x; });
       await poser({ table: Attente.OBSERVATIONS, op: Attente.OBSERVER, id: maj.id,
-                    depend: carte.seance, alaFin: true, donnees: donneesObservation(maj) });
+                    depend: (carte || marche).seance, alaFin: true, donnees: donneesObservation(maj) });
     }
   }
 
@@ -2927,6 +3072,14 @@
         seance = Seance.insererChauffes(seance, i, x.proposition.lignes, uuid);
         await apresGeste({ structure: false });
       },
+      // MOTEUR §14.5 (49-U15) — la carte de schéma, sous l'exercice, lue sur
+      // le plan ; ses deux gestes.
+      propositionSchema: function (i) {
+        if (enEdition()) return null;
+        var x = planDeLExercice(i);
+        return x && x.escalier && x.escalier.carte ? x.escalier.carte : null;
+      },
+      surSchema: function (i, reponse) { return repondreSchema(i, reponse); },
       surRefuserChauffes: function (i) {
         var x = planDeLExercice(i);
         if (!x || !x.proposition) return;

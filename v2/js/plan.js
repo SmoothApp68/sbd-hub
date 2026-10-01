@@ -481,7 +481,7 @@
   }
 
   // ── LE PLAN D'UN EXERCICE ───────────────────────────────────────────────
-  function planDExercice(exo, iExo, consigneDuSlug, paris, seanceId, reglage, suite, debut, materiel, phase, allegee, seriesRoutine) {
+  function planDExercice(exo, iExo, consigneDuSlug, paris, seanceId, reglage, suite, debut, materiel, phase, allegee, seriesRoutine, marche) {
     var S = Seance(), M = Moteur();
     var series = (exo && exo.series) || [];
     var c = consigneDuSlug && consigneDuSlug.consigne ? consigneDuSlug : null;
@@ -507,6 +507,13 @@
     // des séries de la routine, rien ne monte. C'est elle que lisent les
     // lignes, l'en-tête, les paris, les chauffes et les invariants.
     if (allegee && consigne && consigne.etat !== 'silence') consigne = M.consigneAllegee(consigne, seriesRoutine);
+    // MOTEUR §14.5 (49-U15) — LE REPLI (deuxième déclenchement isolé) : la
+    // consigne de la séance devient celle du repli — la charge du dernier
+    // palier tenu, sa visée bornée à la zone, sans ligne haute (I22). Les
+    // chauffes s'y calent, les paris de consigne continuent.
+    if (marche && marche.repli && !consigne.allegee && consigne.etat !== 'silence') {
+      consigne = M.consigneRepli(consigne, marche.repli);
+    }
     var siens = (paris || []).filter(function (l) {
       return l && l.exercise_slug === base.slug && l.fondement && l.fondement.seance === seanceId;
     });
@@ -532,6 +539,8 @@
       entete = { jaune: [M.phraseAllegee(consigne)], segments: entete.segments };
       gris = M.detailAllegee(consigne);
     }
+    // §14.5 — « On repart de 120 kg, ta dernière charge tenue : … le 3 févr. »
+    if (consigne.repli) gris = M.phraseRepli(consigne.repli, debut);
     var donc = entete.jaune.length ? 'Donc ' + entete.jaune.join(', ') + '.' : null;
     var autour = chauffesEtDegressive(r.lignes, series, consigne, materiel || null);
     var pourquoi = pourquoiDuPlan(consigne, r.lignes, donc);
@@ -543,7 +552,19 @@
     var compteur = c.compteur || null;
     // Pendant la semaine allégée, le compteur se tait : rien ne se juge.
     var phraseDuCompteur = compteur && !consigne.allegee ? M.phraseCompteur(compteur) : null;
+    // §14.5 (49-U15) — LA MARCHE PARLE À LA PLACE DU COMPTEUR, une seule voix :
+    // en sèche, la phrase grise dit qu'il n'y a rien de plus ; la carte de
+    // schéma et le repli disent déjà le meilleur ; au silence, la phrase quitte
+    // l'en-tête et passe une fois dans le constat.
+    if (marche && compteur) {
+      if (marche.marche === M.MARCHE_SECHE) phraseDuCompteur = M.phraseSeche(compteur);
+      else if (marche.marche === M.MARCHE_SILENCE || marche.carte || consigne.repli) phraseDuCompteur = null;
+    }
     if (pourquoi && phraseDuCompteur) pourquoi.compteur = phraseDuCompteur;
+    var constat = constatDuPlan(r.lignes, consigne, suite, reglage, debut);
+    if (constat && marche && marche.marche === M.MARCHE_SILENCE && marche.declenchement && compteur) {
+      constat.escalier = M.phraseCompteur(compteur);
+    }
 
     return {
       iExo: iExo, slug: base.slug,
@@ -551,8 +572,11 @@
       indices: r.indices, rangs: r.rangs, roles: r.roles, figees: figees,
       planInitial: r.planInitial, faites: r.faites, reaction: r.reaction,
       lignes: r.lignes, message: r.message, paris: r.paris,
-      constat: constatDuPlan(r.lignes, consigne, suite, reglage, debut),
+      constat: constat,
       entete: { jaune: entete.jaune, gris: gris, segments: entete.segments, compteur: phraseDuCompteur },
+      // §14.5 (49-U15) — la marche de l'escalier de cet exercice, ou `null` :
+      // `{ marche, n, compteur, declenchement, zone, carte?, repli?, reponse? }`.
+      escalier: marche || null,
       compteur: compteur ? { compteur: compteur.compteur, meilleur: compteur.meilleur } : null,
       donc: donc,
       pourquoi: pourquoi,
@@ -681,6 +705,11 @@
     var phase = phaseDuPlan(e.phase);
     var esc = escalierDuPlan(e, seance, consignes);
     var seriesRoutine = (e.escalier && e.escalier.seriesRoutine) || {};
+    var isoles = marchesIsolees(e, seance, consignes, esc, phase);
+    // Une marche par EXERCICE (I21) : un exercice présent deux fois dans la
+    // séance ne la porte que sur sa première occurrence ; le repli, lui, est la
+    // consigne de l'exercice — les deux occurrences la lisent.
+    var portee = {};
     return {
       seance: seance.id === undefined ? null : seance.id,
       phase: phase,
@@ -691,9 +720,14 @@
         var c = Object.prototype.hasOwnProperty.call(consignes, slug) ? consignes[slug] : null;
         var suites = e.suites || {};
         var suite = Object.prototype.hasOwnProperty.call(suites, slug) ? suites[slug] : null;
-        return planDExercice(exo, i, c, e.paris || [], seance.id, e.reglage, suite, seance.debut,
+        var m = Object.prototype.hasOwnProperty.call(isoles, slug) ? isoles[slug] : null;
+        if (m && portee[slug]) m = m.repli ? { marche: m.marche, repli: m.repli, copie: true } : null;
+        if (m) portee[slug] = true;
+        var x = planDExercice(exo, i, c, e.paris || [], seance.id, e.reglage, suite, seance.debut,
           materielDe(exos, i, e.catalogue || null, c, e.refusChauffes || {}), phase,
-          !!esc.allegee, Object.prototype.hasOwnProperty.call(seriesRoutine, slug) ? seriesRoutine[slug] : null);
+          !!esc.allegee, Object.prototype.hasOwnProperty.call(seriesRoutine, slug) ? seriesRoutine[slug] : null, m);
+        if (x.escalier && x.escalier.copie) x.escalier = null;
+        return x;
       })
     };
   }
@@ -731,23 +765,11 @@
     return sortie;
   }
 
-  function escalierDuPlan(e, seance, consignes) {
-    var vide = { allegee: null, carte: null };
-    var esc = e.escalier;
-    if (!esc || seance.edition) return vide;
-    var M = Moteur();
-    var jour = M.jourCivil(seance.debut);
-    if (!jour) return vide;
-    var cartes = esc.cartes || [];
-    var p = M.periodeAllegee(cartes, jour);
-    if (p) {
-      return { allegee: { debut: p.debut, fin: p.fin, bandeau: M.bandeauAllegee(p.fin), declencheur: p.declencheur },
-               carte: null };
-    }
-    // Une carte à laquelle cette séance a déjà répondu ne revient pas.
-    if (cartes.some(function (c) { return c && c.seance === seance.id; })) return vide;
-    // Les compteurs à l'ouverture, par jour : ceux des AUTRES séances (lus dans
-    // leurs paris), plus ceux de la séance qui s'ouvre (ses consignes figées).
+  // Les compteurs à l'ouverture, par jour : ceux des AUTRES séances (lus dans
+  // leurs paris), plus ceux de la séance qui s'ouvre (ses consignes figées).
+  // Rend `{ jours, ouverts }` — `ouverts` : les exercices de la séance qui
+  // s'ouvre, les seuls qui peuvent déclencher.
+  function joursDesCompteurs(esc, seance, consignes, jour) {
     var jours = {};
     var poser = function (jr, slug, n) {
       var j = jours[jr] || (jours[jr] = {});
@@ -767,7 +789,88 @@
       poser(jour, slug, n);
       ouverts.push(slug);
     });
-    var b = M.blocageGeneralise(jours, jour, esc.noms || null, ouverts);
+    return { jours: jours, ouverts: ouverts };
+  }
+
+  // ── MOTEUR §14.5 (49-U15) — L'ÉTAPE DE L'ESCALIER : LE BLOCAGE ISOLÉ ─────
+  //
+  // Pour chaque exercice de la séance qui a un DÉCLENCHEMENT (compteur à 4, 8,
+  // 12…) et pour qui aucune carte de semaine allégée ne s'ouvre : le n-ième
+  // déclenchement isolé, et sa marche (`Moteur.marcheIsolee`). Hors de la
+  // séance d'un déclenchement, seul le silence demeure (la phrase reste hors
+  // de l'en-tête). Rien pendant une semaine allégée, rien en Édition (I21).
+  // Un exercice CITÉ par la carte ouverte, ou par une carte répondue dans
+  // cette séance, n'a pas de marche isolée : une marche à la fois, et après
+  // un refus « au prochain blocage, je regarderai exercice par exercice ».
+  // `entrees.escalier.marches` : les marches déjà écrites (`marchesDesParis`).
+  // Rend `{ [slug]: marche }`.
+  function marchesIsolees(e, seance, consignes, esc, phase) {
+    var sortie = {};
+    var E = e.escalier;
+    if (!E || seance.edition || esc.allegee) return sortie;
+    var M = Moteur();
+    var jour = M.jourCivil(seance.debut);
+    if (!jour) return sortie;
+    var cartes = E.cartes || [];
+    var compteurs = E.compteurs || [];
+    var marches = E.marches || [];
+    var pris = {};
+    var prendre = function (l) { (l || []).forEach(function (s) { pris[s] = true; }); };
+    if (esc.carte) prendre(esc.carte.cites);
+    cartes.forEach(function (k) {
+      if (k && k.seance === seance.id) prendre((k.cites && k.cites.length) ? k.cites : [k.declencheur]);
+    });
+    var J = null;
+    Object.keys(consignes).forEach(function (slug) {
+      var c = consignes[slug];
+      if (pris[slug] || !c || !c.consigne || !c.compteur || typeof c.compteur.compteur !== 'number') return;
+      var k = c.compteur.compteur;
+      var zone = c.consigne.zone;
+      var n = M.nIsole(k, M.declenchementsRepondus(slug, jour, k, cartes, compteurs));
+      var marche = M.marcheIsolee(n, zone, phase);
+      if (!marche) return;
+      var declenche = M.estDeclenchement(k);
+      if (!declenche && marche !== M.MARCHE_SILENCE) return;
+      var m = { marche: marche, n: n, compteur: k, declenchement: declenche, zone: zone === undefined ? null : zone };
+      if (marche === M.MARCHE_REPLI) {
+        // Repli sauté (aucun palier ne remplit les cinq conditions) : le silence.
+        if (c.repli) m.repli = c.repli;
+        else { m.marche = M.MARCHE_SILENCE; m.saute = true; }
+      }
+      if (marche === M.MARCHE_SCHEMA) {
+        var deja = marches.filter(function (x) {
+          return x && x.seance === seance.id && x.exercice === slug && x.marche === M.MARCHE_SCHEMA;
+        })[0];
+        if (deja) {
+          m.reponse = deja.reponse;
+        } else {
+          if (J === null) J = joursDesCompteurs(E, seance, consignes, jour);
+          m.carte = M.carteSchema(zone, c.compteur.meilleur, k, M.autresAvancent(J.jours, jour, slug));
+          if (!m.carte) return;
+        }
+      }
+      sortie[slug] = m;
+    });
+    return sortie;
+  }
+
+  function escalierDuPlan(e, seance, consignes) {
+    var vide = { allegee: null, carte: null };
+    var esc = e.escalier;
+    if (!esc || seance.edition) return vide;
+    var M = Moteur();
+    var jour = M.jourCivil(seance.debut);
+    if (!jour) return vide;
+    var cartes = esc.cartes || [];
+    var p = M.periodeAllegee(cartes, jour);
+    if (p) {
+      return { allegee: { debut: p.debut, fin: p.fin, bandeau: M.bandeauAllegee(p.fin), declencheur: p.declencheur },
+               carte: null };
+    }
+    // Une carte à laquelle cette séance a déjà répondu ne revient pas.
+    if (cartes.some(function (c) { return c && c.seance === seance.id; })) return vide;
+    var J = joursDesCompteurs(esc, seance, consignes, jour);
+    var b = M.blocageGeneralise(J.jours, jour, esc.noms || null, J.ouverts);
     if (!b || !M.carteAutorisee(b.declencheur, jour, cartes, esc.compteurs || [])) return vide;
     var nom = function (s) { return esc.noms && esc.noms[s] ? esc.noms[s] : s; };
     return {
@@ -1285,6 +1388,49 @@
   // I20 : au plus une carte par séance — jamais pendant une période, jamais
   // sur une séance qui y a déjà répondu. La règle n'est pas relue : I19 compte
   // les lignes, I20 lit les paris de l'escalier donnés en entrée.
+  // I21, I22 (MOTEUR §14.5, 49-U15) — le blocage isolé.
+  // I21 : au plus UNE marche de l'escalier par exercice et par séance (une
+  // carte de semaine allégée qui le cite en est une), et jamais pendant une
+  // semaine allégée.
+  // I22 : une consigne de repli n'a pas de ligne haute, aucune ligne de test ni
+  // proposition du coach dès le départ, et sa charge est strictement sous le
+  // meilleur, à 10 % au plus sous lui. La règle n'est pas relue : I22 confronte
+  // la charge au meilleur du compteur que le plan porte.
+  function verifierMarches(plan, erreurs) {
+    if (!plan) return;
+    var cites = plan.carte && Array.isArray(plan.carte.cites) ? plan.carte.cites : [];
+    var vues = {};
+    (plan.exercices || []).forEach(function (x) {
+      var nom = 'exercice ' + x.iExo + ' (' + x.slug + ')';
+      var m = x.escalier;
+      if (m) {
+        if (Array.isArray(m) || !m.marche) erreurs.push('I21 — ' + nom + ' : la marche n\'est pas UNE marche');
+        if (plan.allegee) erreurs.push('I21 — ' + nom + ' : une marche (' + m.marche + ') pendant une semaine allégée');
+        if (cites.indexOf(x.slug) >= 0) erreurs.push('I21 — ' + nom + ' : une marche pour un exercice cité par la carte');
+        if (m.carte && x.consigne && x.consigne.repli) erreurs.push('I21 — ' + nom + ' : une carte de schéma ET un repli');
+        if (vues[x.slug]) erreurs.push('I21 — ' + nom + ' : une seconde marche pour le même exercice');
+        vues[x.slug] = true;
+      }
+      var r = x.consigne && x.consigne.repli;
+      if (!r) return;
+      var err = function (texte) { erreurs.push('I22 — ' + nom + ' : ' + texte); };
+      if (plan.allegee) err('un repli pendant une semaine allégée');
+      if (x.consigne.haut) err('une ligne haute sur la consigne de repli');
+      (x.planInitial || []).forEach(function (q, i) {
+        if (q && q.role === 'haut') err('la ligne ' + i + ' est un test');
+      });
+      var meilleur = x.compteur && x.compteur.meilleur ? Number(x.compteur.meilleur.palier) : NaN;
+      var ch = x.consigne.ligne ? Number(x.consigne.ligne.charge) : NaN;
+      if (!isFinite(meilleur) || !isFinite(ch)) {
+        err('un repli sans meilleur ou sans charge');
+      } else if (ch >= meilleur - 1e-9) {
+        err(ch + ' kg n\'est pas sous le meilleur (' + meilleur + ' kg)');
+      } else if (meilleur - ch > meilleur * Moteur().REPLI_MAX_REPRISE + 1e-9) {
+        err(ch + ' kg est à plus de 10 % sous le meilleur (' + meilleur + ' kg)');
+      }
+    });
+  }
+
   function verifierEscalier(plan, entrees, erreurs) {
     if (!plan) return;
     var M = Moteur();
@@ -1333,6 +1479,7 @@
     var memeSeance = !!(avant && plan && avant.seance === plan.seance);
     verifierPhase(plan, parisSeance, erreurs);
     verifierEscalier(plan, entrees, erreurs);
+    verifierMarches(plan, erreurs);
     ((plan && plan.exercices) || []).forEach(function (x, i) {
       var xa = memeSeance ? (avant.exercices || [])[i] : null;
       verifierExercice(x, erreurs, parisSeance, xa && xa.slug === x.slug ? xa : null);

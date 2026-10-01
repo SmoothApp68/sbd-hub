@@ -24,7 +24,7 @@
 
   var vues = {};
   var local = { seances: [], series: [], exercices: [], pesees: [], zones: [],
-                predictions: [], parSeance: null };
+                predictions: [], sousConsigne: {}, parSeance: null };
   var etat = { code: 'vide', libelle: '', local: false };
   var syncEnCours = false;
   var lundiAffiche = null;   // le lundi de la semaine à l'écran
@@ -243,6 +243,11 @@
     // c'est ce qui l'empêche de réécrire : fermer l'app au milieu d'une séance
     // et la rouvrir rejouerait sinon toutes les consignes de cette séance.
     local.predictions = await Cache.lireTout('predictions');
+    // §12.9 (49-U13) — les séances SOUS CONSIGNE vues par le serveur (tous
+    // appareils), relues à la dernière synchronisation : le compteur de
+    // stagnation tient hors ligne.
+    try { local.sousConsigne = (await Cache.lireBrouillon(CLE_SOUS_CONSIGNE)) || {}; }
+    catch (e) { local.sousConsigne = {}; }
     rangerSeances();
     indexerParSeance();
     recalculerEtats();
@@ -310,6 +315,9 @@
     // `viderTout` ci-dessus a effacé leurs magasins ; on remet la mémoire
     // d'accord avec le disque.
     seance = null; attente = []; chrono = null;
+    // §12.9 (49-U13) — les séances sous consigne aussi (le brouillon qui les
+    // porte vient d'être effacé avec le reste).
+    local.sousConsigne = {};
     // Le profil aussi appartient au compte précédent — et son envoi en attente
     // avec lui. Le rejouer sur le compte suivant écrirait la taille de
     // quelqu'un d'autre dans sa ligne `profiles`.
@@ -367,6 +375,23 @@
       var compteSeances = await compteSur(Donnees.compterSeances);
       var compteSeries = await compteSur(Donnees.compterSeries);
 
+      // §12.9 (49-U13) — les paris du compte, EN LECTURE SEULE, pour une seule
+      // chose : savoir quelles séances ont reçu une consigne (« sous
+      // consigne »). Trois colonnes (`Donnees.seancesAvecPari`). Accessoire
+      // comme les zones : un échec garde ce qu'on avait. Ils n'entrent PAS dans
+      // `local.predictions` (le circuit des paris et des observations de la
+      // séance en cours n'en dépend pas, et n'en change pas). En mémoire TOUT
+      // DE SUITE : une consigne qui se fige pendant les écritures qui suivent
+      // doit déjà les voir.
+      //
+      // ⚠️ APRÈS LES DEUX COMPTES, PAS ENTRE `seriesDepuis` ET `compterSeries`.
+      // Une série montée par la file pendant cette fenêtre est comptée par le
+      // serveur sans être dans `nouvellesSeries` : l'état dit « 1 série
+      // manquante » jusqu'à la synchronisation suivante. Toute lecture posée
+      // là élargit la fenêtre (banc d'écran, section 5, 01/10/2026).
+      var parisDuCompte = await essayer(Donnees.seancesAvecPari);
+      if (parisDuCompte) local.sousConsigne = seancesAvecPari(parisDuCompte);
+
       // ⚠️ La liste du serveur ne contient PAS ce qui n'y est pas encore monté.
       // Sans cette garde, la première synchronisation réussie effacerait une
       // séance saisie hors ligne — au moment précis où le réseau revient.
@@ -413,6 +438,9 @@
       if (zones) {
         local.zones = fondreZones(local.zones, zones);
         await Cache.ecrireLot('zones', local.zones);
+      }
+      if (parisDuCompte) {
+        await Cache.ecrireBrouillon(CLE_SOUS_CONSIGNE, local.sousConsigne).catch(function () {});
       }
       await Cache.supprimer('series', idsRetires(fusionnees, local.series));
       await Cache.ecrireLot('series', local.series);
@@ -1645,6 +1673,39 @@
     return phaseGelee.phase;
   }
 
+  // §12.9 (49-U13) — « sous consigne », dans l'app : une séance qui porte au
+  // moins un pari sur l'exercice (table `predictions`, le fondement dit la
+  // séance). Deux sources, réunies : les paris du serveur (tous appareils,
+  // relus à la synchronisation, `local.sousConsigne`) et ceux de cet appareil
+  // pas encore montés (`local.predictions`).
+  var CLE_SOUS_CONSIGNE = 'sous-consigne';
+
+  // `{ [slug]: [identifiants de séance] }`, à partir de lignes `predictions` —
+  // celles du serveur (`session_id`, colonne générée) ou celles de l'appareil
+  // (le fondement).
+  function seancesAvecPari(lignes) {
+    var parSlug = {}, vus = {};
+    (lignes || []).forEach(function (l) {
+      var slug = l && l.exercise_slug;
+      var id = !slug ? null : l.session_id || (l.fondement ? l.fondement.seance : null);
+      if (!id || vus[slug + '|' + id]) return;
+      vus[slug + '|' + id] = true;
+      (parSlug[slug] || (parSlug[slug] = [])).push(id);
+    });
+    return parSlug;
+  }
+
+  function seancesSousConsigne(slug) {
+    var ids = ((local.sousConsigne || {})[slug] || []).slice();
+    var vus = {};
+    ids.forEach(function (id) { vus[id] = true; });
+    (local.predictions || []).forEach(function (l) {
+      var id = l && l.exercise_slug === slug && l.fondement ? l.fondement.seance : null;
+      if (id && !vus[id]) { vus[id] = true; ids.push(id); }
+    });
+    return ids;
+  }
+
   function consigneDe(slug) {
     if (!seance) return null;
     var cle = cleConsignes();
@@ -1672,6 +1733,14 @@
           // sa clé : `poserZone` le remet à zéro, et la synchronisation passe
           // par `recalculerEtats`, qui fait déjà de même.
           correction: zoneDe(slug),
+          // §12.9 (49-U13) — les séances SOUS CONSIGNE de l'exercice : celles
+          // qui portent au moins un pari sur lui. Le compteur de stagnation ne
+          // compte qu'elles ; les séances importées ou d'avant le coach n'en
+          // portent aucun.
+          seancesSousConsigne: seancesSousConsigne(slug),
+          // Et l'historique des zones choisies : chaque séance passée se rejoue
+          // avec la zone en vigueur ce jour-là, pas celle d'aujourd'hui.
+          correctionsDeZone: (local.zones || []).filter(function (l) { return l && l.exercise_slug === slug; }),
           // §7 octies — une séance terminée rouverte est une séance FAITE : le
           // moteur n'y prescrit rien, ni en-tête ni plan.
           edition: enEdition()
@@ -1852,7 +1921,7 @@
     var c = consigneDe(slug);
     if (!c) return null;
     var x = planDuSlug(slug);
-    return x ? { jaune: x.entete.jaune, gris: x.entete.gris } : c.libelles;
+    return x ? { jaune: x.entete.jaune, gris: x.entete.gris, compteur: x.entete.compteur || null } : c.libelles;
   }
 
   // §3.8 et §3.10 — l'étiquette de zone et le calcul, tirés du MÊME mémo que
@@ -4770,7 +4839,7 @@
     entreeFaitePour = null;
     try { await Cache.viderTout(); } catch (e) { /* rien à garder de toute façon */ }
     local = { seances: [], series: [], exercices: [], pesees: [], zones: [],
-              predictions: [], parSeance: null };
+              predictions: [], sousConsigne: {}, parSeance: null };
     notesEnCours = {};
     // Les routines vivent en mémoire, pas dans le cache — mais elles
     // appartiennent quand même au compte qui part.

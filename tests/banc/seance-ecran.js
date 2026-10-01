@@ -157,7 +157,11 @@ const CATALOGUE = [
   { slug: 'presse-u11', nom: 'Presse U11 (Machine)', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['quadriceps'], muscles_secondaires: [] },
   // 49-U12 — réservé à la section 7 G nonies (la chute). Son nom ne répond à
   // aucune des recherches faites ailleurs.
-  { slug: 'incline-u12', nom: 'Incliné U12 (Haltères)', mesure: 'charge_reps', charge: 'externe', equipement: 'haltere', muscles_primaires: ['pectoraux'], muscles_secondaires: [] }
+  { slug: 'incline-u12', nom: 'Incliné U12 (Haltères)', mesure: 'charge_reps', charge: 'externe', equipement: 'haltere', muscles_primaires: ['pectoraux'], muscles_secondaires: [] },
+  // 49-U13 — réservés à la section 7 G decies (le compteur). Leurs noms ne
+  // répondent à aucune des recherches faites ailleurs.
+  { slug: 'curl-u13', nom: 'Curl U13 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['biceps'], muscles_secondaires: [] },
+  { slug: 'tirage-u13', nom: 'Tirage U13 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['dorsaux'], muscles_secondaires: [] }
 ];
 
 // ⚠️ UNE ROUTINE PORTE MAINTENANT SES LIGNES (chantier 43). `routine_sets`
@@ -674,7 +678,12 @@ const SETS_IMPORTES = [
       return JSON.stringify(o);
     };
     if (table === 'predictions') {
-      if (req.method() === 'GET') return json(projeter(base.predictions, url));
+      // `session_id` est une colonne GÉNÉRÉE en base (`fondement->>'seance'`,
+      // relevé le 01/10/2026) : le banc la calcule comme Postgres.
+      if (req.method() === 'GET') {
+        return json(projeter(base.predictions.map((l) => Object.assign({}, l,
+          { session_id: l.fondement && l.fondement.seance ? l.fondement.seance : null })), url));
+      }
       if (req.method() === 'POST') {
         const l = Array.isArray(corps) ? corps[0] : corps;
         const ignorer = /resolution=ignore-duplicates/.test(req.headers()['prefer'] || '');
@@ -3819,6 +3828,29 @@ const SETS_IMPORTES = [
     JSON.stringify(await formeEcran()));
 
   // ── 4. Séance vide, six séries ajoutées à la main → les six arrivent ───
+  // ⚠️ LA FORME DE DÉPART SE POSE, ELLE NE SE SUPPOSE PAS (49-U13). Hors
+  // routine, un exercice arrive avec les séries de travail de SA DERNIÈRE
+  // séance (49-C) : une ligne chacun seulement si l'historique laissé par les
+  // sections d'avant en dit une. Après « 7 octies » (deux Planche dans le
+  // superset), la Planche en arrive avec DEUX, et le banc comptait 7 lignes
+  // au lieu de 6 — prouvé sur `main`, sans 49-U13, par
+  // `--sections 7-septies,7-octies,7-terdecies`. On ramène chaque bloc à UNE
+  // ligne, comme `reduireA`, mais bloc par bloc : la Planche n'est pas le
+  // dernier exercice à y passer.
+  const reduireBlocA = async (k, n) => {
+    const dans = () => page.evaluate((i) =>
+      document.querySelectorAll('.bloc-seance')[i].querySelectorAll('.ligne-serie').length, k);
+    while ((await dans()) > n) {
+      await page.evaluate((i) => {
+        const nos = document.querySelectorAll('.bloc-seance')[i].querySelectorAll('.ligne-serie .no-serie');
+        nos[nos.length - 1].click();
+      }, k);
+      await attendre(500);
+      await page.click('#feuille-contenu .feuille-menu button.danger');
+      await attendre(700);
+    }
+  };
+  await reduireBlocA(0, 1); await reduireBlocA(1, 1);
   await plusSerie(0); await plusSerie(0);
   await plusSerie(1); await plusSerie(1);
   const idVide = enCoursId();
@@ -8406,6 +8438,100 @@ const SETS_IMPORTES = [
     await abandonner();
     await aller('/saisie');
     ok('[U12] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
+  }
+
+  console.log('\n══ 7 G decies. LE COMPTEUR DE STAGNATION, CALCULÉ DANS LE PLAN (49-U13, MOTEUR §12.9) ══');
+  //
+  // ⚠️ CONFIGURATIONS DISCRIMINANTES.
+  //   · `curl-u13` : 25 kg × 12 cinq fois, chaque séance PORTANT UN PARI (sous
+  //     consigne) : la première remet à zéro, les quatre suivantes sont
+  //     suivies sans progrès → 4, et la phrase grise le dit, à l'ouverture et
+  //     dans la feuille « Pourquoi ».
+  //   · `tirage-u13` : le même plateau, mais deux des séances n'ont AUCUN pari
+  //     (importées, ou d'avant le coach) : comptées, elles feraient 5 ; elles
+  //     ne comptent pas → 3, et rien ne s'affiche.
+  {
+    const tK = Date.now();
+    let graineK = 0;
+    const poserK = (slug, id, jours, avecPari, charge) => {
+      const kg = charge || 25;
+      const debut = ilYa(jours * 86400000, tK).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'U13 — ' + id, debut,
+        fin: finDe(debut, tK).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      [1, 2, 3].forEach((rang) => base.sets.push({ id: id + '-s' + rang, session_id: id, user_id: 'u-banc',
+        exercise_slug: slug, charge_kg: kg, reps: 12, duree_s: null, distance_m: null,
+        type_serie: 'travail', rang, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null,
+        repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+      if (avecPari) {
+        // Un pari sur la première série, comme l'app l'écrit : c'est lui qui
+        // fait de la séance une séance SOUS CONSIGNE.
+        base.predictions.push({ id: '00000000-0000-5000-8000-' + String(++graineK).padStart(12, '0') + '',
+          user_id: 'u-banc', module: 'moteur.consigne', module_version: 4, emise_a: debut,
+          exercise_slug: slug, grandeur: 'reps', horizon_jours: null, valeur_predite: 12,
+          borne_basse: 10, borne_haute: 12,
+          fondement: { rang: 1, charge: 25, etat: 'progression', zone: 'volume', reglage: 'normal',
+                       palier: 25, niveau: 12, seance: id, role: 'ligne', phase: 'maintien' },
+          valeur_observee: 12, observee_a: debut, set_observe: id + '-s1', created_at: debut });
+      }
+    };
+    // Le curl : sept séances, la première sans pari (le départ), les six
+    // suivantes avec — 1 remise à zéro + 4 suivies sans progrès, puis une
+    // séance à 20 kg, SOUS la charge proposée : ni progrès ni stagnation (le
+    // compteur reste à 4), et la phrase cite toujours le meilleur, 25 kg × 12,
+    // jamais la charge du jour.
+    poserK('curl-u13', 'k-c0', 40, false);
+    [35, 30, 25, 20, 15].forEach((j, i) => poserK('curl-u13', 'k-c' + (i + 1), j, true));
+    poserK('curl-u13', 'k-c6', 10, true, 20);
+    // Le tirage : sept séances ; les deux du milieu SANS pari.
+    poserK('tirage-u13', 'k-t0', 40, false);
+    [[35, true], [30, true], [25, false], [20, false], [15, true], [10, true]]
+      .forEach(([j, p], i) => poserK('tirage-u13', 'k-t' + (i + 1), j, p));
+    ROUTINES.push({ id: 'r-u13', nom: 'Compteur U13', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [
+        { id: 'r-u13-a', routine_id: 'r-u13', exercise_slug: 'curl-u13', rang: 0,
+          routine_sets: progr(3, 12), repos_cible_s: 90, groupe_superset: null, note: null },
+        { id: 'r-u13-b', routine_id: 'r-u13', exercise_slug: 'tirage-u13', rang: 1,
+          routine_sets: progr(3, 12), repos_cible_s: 90, groupe_superset: null, note: null }] });
+    const esp = (t) => String(t || '').replace(/[  ]/g, ' ');
+    const violationsAvant = gardeBanc.violations;
+    await aller('/saisie');
+    await demarrerRoutine('Compteur U13');
+    await attendre(900);
+    const compteurs = await page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      const de = (slug) => { const x = d && d.plan.exercices.filter((e) => e.slug === slug)[0]; return x ? x.compteur : null; };
+      return { curl: de('curl-u13'), tirage: de('tirage-u13') };
+    });
+    const lignesCompteur = (await page.evaluate(() => Array.from(document.querySelectorAll('.legende-exo'))
+      .map((l) => { const c = l.querySelector('.consigne-dit.compteur'); return c ? c.textContent : null; }))).map((t) => t && esp(t));
+    ok('[U13] le curl : 4 séances suivies sans progrès depuis 25 kg × 12 (la séance à 20 kg, non suivie, ne compte pas)',
+      !!compteurs.curl && compteurs.curl.compteur === 4 && compteurs.curl.meilleur.palier === 25 &&
+      compteurs.curl.meilleur.niveau === 12, JSON.stringify(compteurs.curl));
+    ok('[U13] DISCRIMINANT — la phrase grise à l’ouverture : « 25 kg × 12 reste ton meilleur depuis 4 séances. » (le meilleur, pas les 20 kg du jour)',
+      lignesCompteur[0] === '25 kg × 12 reste ton meilleur depuis 4 séances.', JSON.stringify(lignesCompteur));
+    ok('[U13] DISCRIMINANT — le tirage : les séances sans pari ne comptent pas → 3 (elles en feraient 5)',
+      !!compteurs.tirage && compteurs.tirage.compteur === 3, JSON.stringify(compteurs.tirage));
+    ok('[U13] à 3 séances : rien dans l’en-tête', lignesCompteur.length === 2 && lignesCompteur[1] === null,
+      JSON.stringify(lignesCompteur));
+    // La feuille « Pourquoi » du curl : la même phrase, en une ligne.
+    await page.evaluate(() => {
+      const c = document.querySelector('.legende-exo .consigne, .legende-exo .consigne-dit');
+      if (c) c.click();
+    });
+    await attendre(700);
+    const feuille = (await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .pq-p'))
+      .map((n) => n.textContent))).map(esp);
+    ok('[U13] la feuille « Pourquoi » le dit en une ligne',
+      feuille.filter((t) => t === '25 kg × 12 reste ton meilleur depuis 4 séances.').length === 1, JSON.stringify(feuille));
+    await page.click('#btn-fermer-feuille');
+    await attendre(600);
+    ok('[U13] la garde (C6) n’a rien signalé dans cette section', gardeBanc.violations === violationsAvant,
+      JSON.stringify(gardeBanc.liste.slice(-2)));
+    await abandonner();
+    await aller('/saisie');
+    ok('[U13] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
 
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');

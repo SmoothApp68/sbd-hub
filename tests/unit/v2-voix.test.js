@@ -264,6 +264,18 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
     });
   });
 
+  // (g) MOTEUR §12.9 (49-U13) — le compteur de stagnation : la phrase des 12
+  // cas, et des meilleurs décimaux, de 4 à 12 séances, avec et sans « plus long
+  // que d'habitude ».
+  require('./fixtures/cas-49u13-compteur.json').cas.forEach((c) => {
+    const r = M.compteurDe(c.seances, c.avant, { reglage: c.reglage, equipement: c.equipement, correction: null, toutes: true });
+    noter('compteur', 'cas-49u13 ' + c.id, M.phraseCompteur(r, c.blocages_termines));
+  });
+  [4, 5, 9, 12].forEach((k) => [[122.5, 6], [16, 10], [275.7, 12]].forEach(([kg, n]) => {
+    noter('compteur', 'compteur ' + k, M.phraseCompteur({ compteur: k, meilleur: { palier: kg, niveau: n } }));
+    noter('compteur', 'compteur ' + k, M.phraseCompteur({ compteur: k, meilleur: { palier: kg, niveau: n } }, [1, 1, 1, 1, 1, 1, 1, 1]));
+  }));
+
   test('chaque famille est jouée, et la date relative l\'est vraiment', () => {
     const parFamille = {};
     vues.forEach((v) => { parFamille[v.famille] = (parFamille[v.famille] || 0) + 1; });
@@ -274,6 +286,8 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
     // 30 phrases des 37 cas (les cas sans chauffe ni proposition n'en ont
     // pas) + la phrase et la note de la feuille sur le plan.
     expect(parFamille.chauffes).toBe(32);
+    // 5 phrases des cas (les 7 autres sont sous 4 : rien) + 24 synthétiques.
+    expect(parFamille.compteur).toBe(29);
     // La phrase « Je ne compte pas la dernière série » est bien jouée.
     expect(vues.filter((v) => v.famille === 'chute' && /Je ne compte pas la dernière série/.test(v.phrase)).length)
       .toBeGreaterThanOrEqual(14);

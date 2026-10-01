@@ -1089,7 +1089,7 @@ Quand l'exercice a une ligne **dégressive** (routine ou saisie), **le coach en 
 |---|---|---|---|
 | Tests au haut de la zone, montées en séance | inchangés | inchangés | **inchangés** — la force progresse autant en déficit (Murphy et Koehler 2022) |
 | Série de plus (escalier, §14) | permise | **permise** — à l'équilibre, rien ne freine la prise de muscle (Scarpelli et al. 2022 : +20 % de volume) | **non** — vers 500 kcal de déficit, plus de volume ne fait plus grossir le muscle |
-| Déclenchement du compteur de stagnation (§12) | 4 séances | 4 séances | **4 séances aussi** : le seuil ne s'adapte pas, les mots si (§12.8). Ce qui change, c'est la réponse : là où l'escalier isolé proposerait une série de plus, le coach **le dit et ne propose rien** — « 80 kg ne bouge plus depuis 4 séances. En sèche, je ne te propose rien de plus. » — puis passe à la marche suivante au déclenchement d'après |
+| Déclenchement du compteur de stagnation (§12) | 4 séances | 4 séances | **4 séances aussi** : le seuil ne s'adapte pas, les mots si (§12.8). Ce qui change, c'est la réponse : là où l'escalier isolé proposerait une série de plus, le coach **le dit et ne propose rien** — « 80 kg × 10 reste ton meilleur depuis 4 séances. En sèche, je ne te propose rien de plus. » — puis passe à la marche suivante au déclenchement d'après |
 | Fondement de chaque pari | **la phase gelée de la séance y est enregistrée** | | |
 
 **Gelée pour la séance.** Changer de phase en pleine séance ne change rien à la séance en cours (ni la consigne, ni les paris suivants) : la nouvelle phase vaut à partir de la séance suivante, comme une correction de zone qui ne touche pas une série déjà validée. **Hors ligne**, la dernière phase connue s'applique.
@@ -1259,8 +1259,19 @@ La mesure charge seule montrait une remontée de la reprise spontanée autour de
 ### 12.8 Sous consigne — décidé le 19/09/2026, détaillé au chantier suivant
 
 - **Le compteur ne compte que les séances qui ont reçu une consigne, et où elle a été suivie** (précisé le 25/09/2026, §12.2 bis). Un historique sans consigne ne dit pas si la personne a essayé ; une consigne non tentée non plus.
-- **Le seuil ne s'adapte pas, les mots si** (tranché le 25/09/2026). Le déclencheur reste 4 séances pour tout le monde (§12.4). Ce qui s'adapte, c'est la phrase : « plus long que d'habitude pour toi » ne se dit **que si c'est vrai pour cette personne** — au moins 3 de ses blocages sur 4, terminés sous consigne, ont été plus courts que le seuil. Sans assez de blocages sous consigne (moins de 8, choix produit), la phrase reste neutre : « 122,5 ne bouge plus depuis 4 séances. » Au rejeu, la phrase aurait été vraie chez les cinq profils (§12.2 bis) ; c'est un constat sur eux, pas une garantie.
+- **Le seuil ne s'adapte pas, les mots si** (tranché le 25/09/2026). Le déclencheur reste 4 séances pour tout le monde (§12.4). Ce qui s'adapte, c'est la phrase : « plus long que d'habitude pour toi » ne se dit **que si c'est vrai pour cette personne** — au moins 3 de ses blocages sur 4, terminés sous consigne, ont été plus courts que le seuil. Sans assez de blocages sous consigne (moins de 8, choix produit), la phrase reste neutre : « 122,5 kg × 6 reste ton meilleur depuis 4 séances. » **Elle cite le meilleur (palier, niveau validé) depuis la dernière remise à zéro, jamais la charge du jour** (corrigé le 30/09/2026) : le compteur mesure le temps écoulé depuis ce meilleur, et la charge du jour peut osciller sous lui (au rejeu : « 88 kg ne bouge plus depuis 5 séances » alors que 88 kg n'avait été fait qu'une fois). Au rejeu, la phrase aurait été vraie chez les cinq profils (§12.2 bis) ; c'est un constat sur eux, pas une garantie.
 - **Pourquoi ne pas le calculer sur l'historique** : mesuré (banc M4), 8 exercices d'Aurélien dépasseraient déjà le seuil à l'ouverture (extension jambes 13 séances, presse 10, curls 10, tirage poitrine 7…).
+
+### 12.9 Le compteur dans l'app — câblé le 30/09/2026 (chantier 49)
+
+> **Le compteur est un fait calculé une fois, dans le plan unique, à l'ouverture de chaque exercice ; l'écran le lit.**
+
+- **Quelles séances comptent.** Seulement celles qui **ont reçu une consigne** — dans l'app : une séance qui porte **au moins un pari** sur l'exercice (table `predictions`) — **et** où elle a été **suivie** (séries au palier à la charge proposée ou au-dessus, §12.2 bis). Les séances importées ou d'avant le coach ne comptent pas (§12.8 : pas de calcul sur l'historique).
+- **Ce qui se calcule** : par exercice et par zone, le meilleur (palier, niveau validé) depuis la dernière remise à zéro, le nombre de séances suivies sans progrès depuis lui, et les blocages terminés (pour « plus long que d'habitude »). Le niveau est celui du §9.2, chute exclue (§9.2 bis).
+- **Ce qui s'affiche** : à **4 séances ou plus**, une phrase grise dans l'en-tête de l'exercice, à l'ouverture, et une ligne dans la feuille « Pourquoi ». Sous 4, rien. La phrase est la même dans toutes les phases : ce que la phase change, c'est la réponse de l'escalier (§9.16, §14), câblé à part.
+- **Rien d'autre ne change** : ni la consigne, ni les paris, ni la réaction. Le compteur ne déclenche que des mots, jusqu'à l'escalier.
+- **Référence** : `coach49.py` (`deroule_compteur`, `phrase_compteur`) ; cas `cas_compteur49.json`.
+
 
 ---
 
@@ -1747,7 +1758,7 @@ Conforme au cadrage : **descriptif, jamais prescriptif sur l'historique.**
 | Montée tenue | « 130 kg × 5, dans ta zone : ton test a avancé d'une série. » — sans test prévu : « 125 kg × 9, dans ta zone : tu montes dès aujourd'hui. » — au haut de la zone : « 130 kg × 5 : le haut de ta zone. » **Un fait, jamais un « bravo »** |
 | Montée pas encore tenue | « 130 kg × 2 : pas encore. On revient à 125 kg. » — en gris |
 | Proposition refusée, Entretenir | rien |
-| Seuil dépassé | « 122,5 kg ne bouge plus depuis 4 séances — c'est plus long que d'habitude pour toi. » + la marche suivante — « plus long que d'habitude » seulement si c'est vrai pour la personne, sinon « 122,5 kg ne bouge plus depuis 4 séances. » (§12.8, 25/09/2026) |
+| Seuil dépassé | « 122,5 kg × 6 reste ton meilleur depuis 4 séances : c'est plus long que d'habitude pour toi. » + la marche suivante — « plus long que d'habitude » seulement si c'est vrai pour la personne, sinon « 122,5 kg × 6 reste ton meilleur depuis 4 séances. » (§12.8, 25/09/2026 ; formulée le 30/09/2026) |
 | Frère qui progresse | « Ta barre tient, mais tes haltères sont montés à 92 kg. » |
 | Muscle limitant | « Tes triceps et tes épaules montent, tes pecs seuls stagnent. Piste à vérifier, pas un diagnostic. » |
 | Ratio extrême | « Ton rapport squat/couché te place dans les 2 % de lifters au squat le plus bas relativement au couché. Ça peut être morphologique. » |

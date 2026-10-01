@@ -2811,6 +2811,172 @@
     return sortie;
   }
 
+  // ══ §12.9 — LE COMPTEUR DE STAGNATION (49-U13, delta 49-28) ════════════════
+  //
+  // « Le compteur constate, l'escalier propose. » Il rejoue, dans l'ordre, les
+  // séances SOUS CONSIGNE de l'exercice : pour chacune, la consigne qu'elle a
+  // reçue (`consignePour` sur les séances d'avant — la même fonction, jamais
+  // une seconde règle), puis son verdict :
+  //   · REMISE À ZÉRO à la première séance comptée, à une reprise (§9.9, l'état
+  //     de la consigne rejouée) et à un changement de zone (§12.2 bis) : le
+  //     meilleur devient (palier, niveau) de cette séance, le compteur 0 ;
+  //   · PROGRÈS (§12.2 bis), dans cet ordre : le palier monte au-dessus du
+  //     meilleur ; sinon, au même palier, le niveau validé monte (§9.2, chute
+  //     exclue §9.2 bis) ; sinon un test TENU dans la zone (niveau au moins au
+  //     bas) fait mieux que le meilleur test depuis la remise à zéro — plus
+  //     lourd, ou aussi lourd et plus de reps. Le même test refait à
+  //     l'identique n'est PAS un progrès (« deux pièges trouvés en rejouant ») ;
+  //   · SUIVIE : la charge de travail de la séance atteint la charge proposée
+  //     (la ligne ; sinon la ligne haute ; sinon le palier). Une séance non
+  //     suivie n'ajoute rien au compteur — « ni progrès ni stagnation » — mais
+  //     un progrès y reste un progrès (cas K002, K008).
+  // Un progrès clôt le blocage en cours (sa durée entre dans `blocages`) et
+  // remet le compteur à 0 ; une séance suivie sans progrès l'incrémente. Une
+  // remise à zéro ne clôt pas de blocage : on ne sait pas comment il aurait
+  // fini.
+  //
+  // Les séances d'une consigne muette (première fois, aucune charge tenue) ne
+  // sont pas comptées : elles n'ont rien reçu. `options.toutes` compte toutes
+  // les séances comme sous consigne (les cas du simulateur, sur des historiques
+  // qui n'en ont jamais reçu) ; sinon, seules celles marquées `sousConsigne`.
+  //
+  // Rend `{ compteur, meilleur: { palier, niveau } | null, derniere, verdicts,
+  // blocages }` — `derniere` : (palier, niveau) de la dernière séance comptée,
+  // « la charge du jour », que la phrase ne cite JAMAIS (§12.8, delta 49-28 :
+  // elle peut osciller sous le meilleur). Pure.
+  var SEUIL_COMPTEUR = 4;
+  var BLOCAGES_CONNUS = 8;
+  // ⚠️ PAS DE FENÊTRE : le rejeu couvre TOUTES les séances sous consigne. Les
+  // blocages terminés (« plus long que d'habitude ») se comptent sur tout
+  // l'historique sous consigne (§12.8) ; une fenêtre les coupait, et la phrase
+  // devenait presque inatteignable (revue du 01/10/2026). Le coût, lui, grandit
+  // avec l'usage — une consigne par séance comptée, sur tout ce qui la précède :
+  // mesuré (Node) ~0 aujourd'hui, ~70 ms par exercice à 50 séances sous consigne
+  // sur 200, ~175 ms à 150 sur 350. Signalé dans la PR, avec une reprise
+  // incrémentale à prévoir avant que l'historique sous consigne ne grandisse.
+
+  // §9.1.1 — la zone choisie EN VIGUEUR AU DÉBUT d'une séance passée : la plus
+  // récente des corrections posées strictement avant elle. Une zone choisie
+  // aujourd'hui ne réécrit pas la consigne que les séances d'avant ont reçue.
+  function correctionAu(corrections, debut) {
+    var t0 = instant(debut);
+    if (t0 === null) return null;
+    var avant = (corrections || []).filter(function (l) {
+      var t = instant(l && l.corrigee_a);
+      return t !== null && t < t0;
+    });
+    var gagnante = null;
+    avant.forEach(function (l) {
+      var t = instant(l.corrigee_a);
+      if (gagnante === null || t > gagnante.t || (t === gagnante.t && String(l.id) > String(gagnante.id))) {
+        gagnante = { t: t, id: l.id, zone: l.zone };
+      }
+    });
+    return gagnante && gagnante.zone ? gagnante.zone : null;
+  }
+
+  function chargeProposee(k) {
+    var l = k.ligne ? nombre(k.ligne.charge) : null;
+    if (l !== null) return l;
+    var h = k.haut ? nombre(k.haut.charge) : null;
+    return h !== null ? h : nombre(k.palier);
+  }
+
+  function testMeilleur(t, mt) {
+    if (mt === null) return true;
+    if (t.charge > mt.charge && !memeCharge(t.charge, mt.charge)) return true;
+    return memeCharge(t.charge, mt.charge) && t.niveau > mt.niveau;
+  }
+
+  function compteurDe(seances, avant, options) {
+    var o = options || {};
+    var liste = anterieures(seances || [], avant);
+    var meilleur = null, meilleurTest = null, compteur = 0, derniere = null;
+    // Une REPRISE vue sur une séance non comptée (sans pari, consigne muette)
+    // vaut quand même remise à zéro : elle s'applique à la prochaine séance
+    // comptée. La coupure est un fait de calendrier, pas un pari (§12.6).
+    var repriseEnAttente = false;
+    var zonePrecedente, premiere = true;
+    var verdicts = [], blocages = [];
+    liste.forEach(function (se, i) {
+      if (o.toutes !== true && se.sousConsigne !== true) {
+        if (!premiere && repriseDe(liste.slice(0, i), se.debut) !== AUCUNE_REPRISE) repriseEnAttente = true;
+        return;
+      }
+      // La consigne que la séance a REÇUE : le rythme d'aujourd'hui (aucun
+      // historique ne le garde hors des paris), mais la zone choisie en vigueur
+      // ce jour-là (`o.corrections`, l'historique des choix), sinon `o.correction`.
+      var opts = { reglage: o.reglage, equipement: o.equipement,
+                   correction: o.corrections ? correctionAu(o.corrections, se.debut) : (o.correction || null) };
+      var k = consignePour(liste.slice(0, i), se.debut, opts);
+      if (!k || k.etat === 'silence') {
+        if (!premiere && k && repriseDe(liste.slice(0, i), se.debut) !== AUCUNE_REPRISE) repriseEnAttente = true;
+        return;
+      }
+      var v = vueDeSeance(se);
+      var A = seriesAuPalier(v);
+      var P = nombre(v.palier);
+      var n = A.length ? niveauValide(A) : null;
+      var z = zoneParCle(k.zone);
+      var t = testDe(v);
+      var tenu = t !== null && t.niveau !== null && z !== null && t.niveau >= z.bas;
+      var propose = chargeProposee(k);
+      var suivie = P !== null && propose !== null && (P > propose || memeCharge(P, propose));
+      var rz = premiere || repriseEnAttente || k.etat === 'reprise_courte' || k.etat === 'reprise_longue' ||
+               k.zone !== zonePrecedente;
+      repriseEnAttente = false;
+      var progres = false;
+      if (rz) {
+        progres = true;
+        meilleur = P === null ? null : { palier: P, niveau: n };
+        meilleurTest = null;
+        compteur = 0;
+      } else {
+        if (P !== null && (meilleur === null ||
+            (P > meilleur.palier && !memeCharge(P, meilleur.palier)) ||
+            (memeCharge(P, meilleur.palier) && n !== null && (meilleur.niveau === null || n > meilleur.niveau)))) {
+          progres = true;
+          meilleur = { palier: P, niveau: n };
+        } else if (tenu && testMeilleur(t, meilleurTest)) {
+          progres = true;
+          meilleurTest = { charge: t.charge, niveau: t.niveau };
+        }
+        if (progres) {
+          if (compteur > 0) blocages.push(compteur);
+          compteur = 0;
+        } else if (suivie) {
+          compteur++;
+        }
+      }
+      verdicts.push({ debut: se.debut, zone: k.zone === undefined ? null : k.zone, progres: progres,
+                      suivie: suivie, remise_a_zero: rz, compteur: compteur });
+      zonePrecedente = k.zone;
+      premiere = false;
+      derniere = P === null ? null : { palier: P, niveau: n };
+    });
+    return { compteur: compteur, meilleur: meilleur, derniere: derniere, verdicts: verdicts, blocages: blocages };
+  }
+
+  // §12.8, §20 — la phrase du compteur. À 4 séances ou plus : « 25 kg × 12
+  // reste ton meilleur depuis 4 séances. » — LE MEILLEUR depuis la remise à
+  // zéro, jamais la charge du jour (delta 49-28). « : c'est plus long que
+  // d'habitude pour toi. » seulement si au moins 8 blocages terminés sont
+  // connus et que 3 sur 4 ont duré moins de 4 séances. Sous 4 : rien.
+  //
+  // ⚠️ LES ESPACES SONT CELLES DU FICHIER DE CAS (`cas-49u13-compteur.json`),
+  // à l'octet : insécable avant « kg » (le formateur `charge`), espaces
+  // ordinaires autour de « × » et avant « : » — comme la proposition de
+  // chauffes (49-U10), et pas comme `chargeFois`. Signalé dans la PR.
+  function phraseCompteur(c, blocages) {
+    if (!c || c.compteur < SEUIL_COMPTEUR || !c.meilleur || c.meilleur.niveau === null) return null;
+    var b = blocages || c.blocages || [];
+    var courts = b.filter(function (d) { return d < SEUIL_COMPTEUR; }).length;
+    var plusLong = b.length >= BLOCAGES_CONNUS && courts * 4 >= b.length * 3;
+    return Modele().charge(c.meilleur.palier) + ' × ' + nombreFr(c.meilleur.niveau) +
+      ' reste ton meilleur depuis ' + nombreFr(c.compteur) + ' séances' +
+      (plusLong ? ' : c\'est plus long que d\'habitude pour toi.' : '.');
+  }
+
   // La consigne d'UN exercice de la séance ouverte, silences compris. Pure :
   // `app.js` ne fait que résoudre les valeurs (`mesure` par `gabaritDe`,
   // `reglage` par `Profil.rythmeDe`, `equipement` au catalogue) et les passer.
@@ -2853,7 +3019,36 @@
              // §9.15 (49-U10) — le cran des chauffes et des dégressives : le pas
              // exact de la salle, sinon le repli du matériel, sinon rien (le
              // plan prend alors 2,5 kg).
-             pas: pasDesChauffes(seances, avant, o.equipement, consigne) };
+             pas: pasDesChauffes(seances, avant, o.equipement, consigne),
+             // §12.9 (49-U13) — le compteur de stagnation, calculé UNE FOIS avec
+             // la consigne (figé pour la séance, comme elle), sur les seules
+             // séances sous consigne : `o.seancesSousConsigne`, les identifiants
+             // des séances qui portent au moins un pari sur l'exercice. Le plan
+             // le lit ; aucun écran ne le recalcule.
+             compteur: compteurFige(compteurDe(marquerSousConsigne(seances, groupes, o.seancesSousConsigne), avant,
+               { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null,
+                 corrections: o.correctionsDeZone || null })) };
+  }
+
+  // Ce que la consigne FIGÉE garde du compteur (elle s'écrit sur le disque avec
+  // les consignes) : le compte, le meilleur, la dernière séance et les blocages
+  // — pas le détail des verdicts, que rien ne relit hors des tests.
+  function compteurFige(c) {
+    return { compteur: c.compteur, meilleur: c.meilleur, derniere: c.derniere, blocages: c.blocages };
+  }
+
+  // §12.9 — « sous consigne », dans l'app : la séance porte au moins un pari
+  // sur l'exercice (`predictions`). Le contrat perd l'identifiant de séance ;
+  // il garde l'ordre des groupes (`contratDe`), et c'est par lui qu'on marque.
+  // Sans liste, aucune séance n'est sous consigne : le compteur reste à zéro.
+  function marquerSousConsigne(seances, groupes, ids) {
+    var connus = {};
+    (ids || []).forEach(function (id) { connus[id] = true; });
+    return (seances || []).map(function (se, i) {
+      var g = (groupes || [])[i];
+      var id = g && g.seance ? g.seance.id : null;
+      return Object.assign({}, se, { sousConsigne: id !== null && id !== undefined && connus[id] === true });
+    });
   }
 
   // §9.15 (49-U10) — le cran existant de l'exercice, pour arrondir les chauffes
@@ -3092,6 +3287,9 @@
     SEUIL_PROPOSITION_AUTRE: SEUIL_PROPOSITION_AUTRE,
     TABLE_CHAUFFES: TABLE_CHAUFFES,
     chuteDe: chuteDe,
+    SEUIL_COMPTEUR: SEUIL_COMPTEUR,
+    compteurDe: compteurDe,
+    phraseCompteur: phraseCompteur,
     situationChauffe: situationChauffe,
     chauffesDe: chauffesDe,
     degressiveDe: degressiveDe,

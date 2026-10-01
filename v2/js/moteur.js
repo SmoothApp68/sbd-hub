@@ -3152,11 +3152,13 @@
     });
   }
 
-  // « 125 kg × 3 » (l'insécable avant « kg », comme dans les cas) et, en gris,
-  // « 2 séries au lieu de 4, cette semaine ».
+  // « 125 kg × 3 » par le FORMATEUR UNIQUE (`chargeFois`), exactement comme
+  // les autres en-têtes — décidé par Aurélien le 01/10/2026 (#345) : les
+  // insécables autour de « × » aussi, là où les cas n'en mettaient qu'avant
+  // « kg ». Et, en gris, « 2 séries au lieu de 4, cette semaine ».
   function phraseAllegee(c) {
     var l = c && c.ligne;
-    return l ? Modele().charge(nombre(l.charge)) + ' × ' + nombreFr(l.vise) : null;
+    return l ? Modele().chargeFois(nombre(l.charge), nombre(l.vise)) : null;
   }
   function detailAllegee(c) {
     var a = c && c.allegee;

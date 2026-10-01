@@ -21,6 +21,8 @@ const S = require('../../v2/js/seance.js');
 const T = require('../../v2/js/plan.js');
 
 const F = require('./fixtures/cas-49u14-semaine-allegee.json');
+// Le × du formateur (chargeFois) est entouré d'insécables.
+const surFormateur = (s) => s.replace(/ × /g, '\u00a0×\u00a0');
 const octets = (s) => (s === null || s === undefined ? s : Buffer.from(s, 'utf8').toString('hex'));
 const consigneDuCas = (k) => ({ etat: k.etat, zone: k.zone[0], ligne: { charge: k.ligne[0], vise: k.ligne[1] },
   haut: k.haut ? { charge: k.haut[0], vise: k.haut[1], k: k.haut[2] } : null });
@@ -51,7 +53,10 @@ describe('§14.4 — les cas du simulateur', () => {
       expect([a.ligne.charge, a.ligne.vise]).toEqual(c.attendu.ligne);
       expect(a.haut).toBe(c.attendu.haut);
       expect(a.allegee.series).toBe(c.attendu.series);
-      expect(octets(M.phraseAllegee(a))).toBe(octets(c.attendu.phrase));
+      // Décision d'Aurélien (01/10/2026, #345) : la phrase passe par le
+      // formateur unique (chargeFois), insécables autour du ×. Le cas écrit
+      // « 125 kg × 3 » avec des espaces simples : l'attendu suit le formateur.
+      expect(octets(M.phraseAllegee(a))).toBe(octets(surFormateur(c.attendu.phrase)));
       expect(octets(M.detailAllegee(a))).toBe(octets(c.attendu.detail));
     });
   });
@@ -176,7 +181,9 @@ function decor(o) {
   const id = () => 's' + (++n);
   let se = S.creer({ id: opt.seance || 'S1', userId: 'u', idSerie: id });
   se = S.ajouterExercice(se, 'couche', id, { series: 4 });
-  const c = { consigne: C, libelles: M.libellesConsigne(C),
+  if (opt.geste) se = opt.geste(se, id);
+  const k = opt.consigne || C;
+  const c = { consigne: k, libelles: M.libellesConsigne(k),
     compteur: { compteur: opt.compteur === undefined ? 4 : opt.compteur, meilleur: { palier: 125, niveau: 5 }, blocages: [] } };
   const e = { seance: { id: opt.seance || 'S1', debut: opt.debut || DEBUT, edition: false, exercices: se.exercices },
     consignes: { couche: c }, reglage: 'normal', paris: [], suites: {},
@@ -216,7 +223,7 @@ describe('§14.4 — la semaine allégée, dans le plan', () => {
       expect(p.carte).toBeNull();
       expect(p.allegee.bandeau).toBe('Semaine allégée jusqu’au 7 oct. : mêmes charges, moins de séries, loin de l’échec. Rien ne monte.');
       const x = p.exercices[0];
-      expect(x.entete.jaune).toEqual(['125 kg × 3']);
+      expect(x.entete.jaune).toEqual(['125\u00a0kg\u00a0×\u00a03']);
       expect(x.entete.gris).toBe('2 séries au lieu de 4, cette semaine');
       expect(x.lignes.map((l) => l.role)).toEqual(['ligne', 'ligne', 'hors', 'hors']);
       expect(x.lignes.slice(0, 2).map((l) => [l.charge, l.vise])).toEqual([[125, 3], [125, 3]]);
@@ -304,5 +311,55 @@ describe('§14.4 — le compteur dans le fondement de chaque pari', () => {
     // Restent S1 (remise à zéro) et S2 (suivie, sans progrès) : 1. Les séances
     // de la période restent des présences : l'ouverture n'est pas une reprise.
     expect(M.consigneDExercice(groupes, null, avant, Object.assign({ periodesAllegees: p }, base)).compteur.compteur).toBe(1);
+  });
+});
+
+// ── DÉCISIONS DU 01/10/2026 (#345) ──────────────────────────────────────────
+describe('§14.4 — « rejoint » : la consigne s’allège sur la ligne haute (49-30)', () => {
+  // L'état « rejoint » n'a pas de ligne de travail : la charge du jour est la
+  // ligne HAUTE. L'allégée la reprend, à vise − 2, et n'a plus de haut.
+  const R = { etat: 'rejoint', zone: 'lourd', palier: 115, niveau: 5, n: 4,
+    ligne: null, haut: { charge: 115, vise: 5, k: 4 }, fondement: {} };
+  test('le moteur : 115 kg × 3 sur la ligne, plus de haut, 2 séries sur 4', () => {
+    const a = M.consigneAllegee(R, 4);
+    expect(a.ligne).toEqual({ charge: 115, vise: 3 });
+    expect(a.haut).toBeNull();
+    expect([a.n, a.couvre]).toEqual([2, 2]);
+    expect(octets(M.phraseAllegee(a))).toBe(octets('115 kg × 3'));
+  });
+  test('le plan : l’en-tête dit 115 kg × 3, deux lignes couvertes, aucune violation', () => {
+    const { e, p } = decor({ consigne: R, cartes: [acceptee('2026-10-01')] });
+    const x = p.exercices[0];
+    expect(x.entete.jaune).toEqual(['115 kg × 3']);
+    expect(x.lignes.map((l) => l.role)).toEqual(['ligne', 'ligne', 'hors', 'hors']);
+    expect(T.verifierPlan(p, e).erreurs).toEqual([]);
+  });
+});
+
+describe('§14.4 — pendant la période, la séance ne contient que les lignes allégées', () => {
+  test('les lignes de travail en trop, non validées, sont à retirer — de la fin vers le début', () => {
+    const { p } = decor({ cartes: [acceptee('2026-10-01')] });
+    expect(T.lignesARetirer(p)).toEqual([{ iExo: 0, iSerie: 3 }, { iExo: 0, iSerie: 2 }]);
+  });
+  test('une série déjà validée n’est jamais retirée', () => {
+    const geste = (se) => {
+      let x = S.modifierSerie(se, 0, 3, { charge_kg: 125, reps: 5 });
+      return S.valider(x, 0, 3, '2026-10-01T10:05:00Z');
+    };
+    const { p } = decor({ cartes: [acceptee('2026-10-01')], geste });
+    const r = T.lignesARetirer(p);
+    expect(r.some((l) => l.iSerie === 3)).toBe(false);
+    expect(p.exercices[0].lignes[3].validee).toBe(true);
+    expect(r).toEqual([{ iExo: 0, iSerie: 2 }]);
+  });
+  test('hors période (carte ou séance normale) : rien à retirer', () => {
+    expect(T.lignesARetirer(decor().p)).toEqual([]);
+    expect(T.lignesARetirer(decor({ compteur: 5 }).p)).toEqual([]);
+  });
+  test('« + Série » reste possible : une ligne ajoutée après le retrait est « hors », sans violation', () => {
+    const geste = (se, id) => S.ajouterSerie(S.retirerSerie(S.retirerSerie(se, 0, 3), 0, 2), 0, id);
+    const { e, p } = decor({ cartes: [acceptee('2026-10-01')], geste });
+    expect(p.exercices[0].lignes.map((l) => l.role)).toEqual(['ligne', 'ligne', 'hors']);
+    expect(T.verifierPlan(p, e).erreurs).toEqual([]);
   });
 });

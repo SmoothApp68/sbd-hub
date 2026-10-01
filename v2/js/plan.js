@@ -711,6 +711,26 @@
   // La séance du jour lit ses compteurs dans ses consignes figées. Rend
   // `{ allegee, carte }` : la période en cours, ou la carte à proposer — jamais
   // les deux (I20).
+  // §14.4 (49-U14, décidé le 01/10/2026) — PENDANT LA PÉRIODE, LA SÉANCE NE
+  // CONTIENT QUE LES LIGNES ALLÉGÉES. Les lignes « en trop » : les séries de
+  // TRAVAIL qu'une consigne allégée ne couvre pas, et qui ne sont PAS validées
+  // — une série déjà validée n'est jamais retirée. Rend `[{ iExo, iSerie }]`,
+  // les indices décroissants dans chaque exercice (on retire par la fin). Pure ;
+  // l'app l'applique à l'acceptation et à la création d'une séance dans la
+  // période, jamais au rendu : « + Série » reste libre ensuite.
+  function lignesARetirer(plan) {
+    var sortie = [];
+    if (!plan || !plan.allegee) return sortie;
+    (plan.exercices || []).forEach(function (x) {
+      if (!x || !x.consigne || !x.consigne.allegee) return;
+      (x.lignes || []).filter(function (l) {
+        return l.role === 'hors' && l.type === 'travail' && !l.validee;
+      }).map(function (l) { return l.iSerie; }).sort(function (a, b) { return b - a; })
+        .forEach(function (i) { sortie.push({ iExo: x.iExo, iSerie: i }); });
+    });
+    return sortie;
+  }
+
   function escalierDuPlan(e, seance, consignes) {
     var vide = { allegee: null, carte: null };
     var esc = e.escalier;
@@ -1411,6 +1431,7 @@
 
   var api = {
     planDeSeance: planDeSeance,
+    lignesARetirer: lignesARetirer,
     planDesLignes: planDesLignes,
     rejouer: rejouer,
     verifierPlan: verifierPlan,

@@ -8652,7 +8652,9 @@ const SETS_IMPORTES = [
     // changer la charge du jour ; la règle, elle, ne bouge pas).
     const kgFr = (v) => String(v).replace('.', ',');
     const allegee = (x) => (x.normale ? [x.normale[0], Math.max(1, x.normale[1] - 2)] : null);
-    const jauneAttendu = (x) => (allegee(x) ? kgFr(allegee(x)[0]) + ' kg × ' + allegee(x)[1] : '?');
+    // À l'OCTET : le formateur unique (chargeFois) met des insécables autour
+    // du « × » aussi (décision du 01/10/2026, #345).
+    const jauneAttendu = (x) => (allegee(x) ? kgFr(allegee(x)[0]) + '\u00a0kg\u00a0×\u00a0' + allegee(x)[1] : '?');
     const deuxLignes = (x) => JSON.stringify(x.couvertes) === JSON.stringify([['ligne'].concat(allegee(x)), ['ligne'].concat(allegee(x))]);
 
     // ── 0. La démonstration de la prévisualisation (`?escalier=demo`, garde
@@ -8695,10 +8697,20 @@ const SETS_IMPORTES = [
     ok('[U14] A — acceptée hier : le bandeau en tête de la séance, et pas de carte',
       a.visible && a.carte === null && esp(a.bandeau) === esp(bandeauAttendu(hier)), JSON.stringify(a));
     ok('[U14] A — la consigne allégée : la charge de la consigne normale, 2 reps de moins (« 125 kg × 3 » au décor seul), « 2 séries au lieu de 4, cette semaine »',
-      a.jaune.length === 1 && esp(a.jaune[0]) === jauneAttendu(a) && esp(a.gris) === '2 séries au lieu de 4, cette semaine',
+      a.jaune.length === 1 && a.jaune[0] === jauneAttendu(a) && esp(a.gris) === '2 séries au lieu de 4, cette semaine',
       JSON.stringify([a.jaune, a.gris, a.normale]));
-    ok('[U14] A — 2 lignes couvertes sur 4, à cette charge, aucun test',
-      deuxLignes(a) && JSON.stringify(a.roles) === JSON.stringify(['ligne', 'ligne', 'hors', 'hors']), JSON.stringify(a));
+    // Décision d'Aurélien (01/10/2026, #345) : pendant la période, la séance
+    // ne contient QUE les lignes allégées — les 2 séries en trop de la routine
+    // ne sont pas laissées à l'écran. « + Série » reste disponible.
+    ok('[U14] A — 2 lignes couvertes, à cette charge, aucun test — et seulement elles : les 2 séries en trop sont retirées',
+      deuxLignes(a) && JSON.stringify(a.roles) === JSON.stringify(['ligne', 'ligne']) &&
+      (await compter('.ligne-serie')) === 2, JSON.stringify(a));
+    await plusSerie(0);
+    await attendre(600);
+    const a2 = await lireEscalier();
+    ok('[U14] A — « + Série » reste disponible : une 3ᵉ ligne, hors consigne, et la consigne allégée ne bouge pas',
+      (await compter('.ligne-serie')) === 3 && JSON.stringify(a2.roles) === JSON.stringify(['ligne', 'ligne', 'hors']) &&
+      deuxLignes(a2), JSON.stringify(a2));
     await abandonner();
     base.predictions = base.predictions.filter((l) => l.module !== 'escalier');
 
@@ -8719,7 +8731,10 @@ const SETS_IMPORTES = [
     ok('[U14] B — « Alléger 7 jours » : le bandeau remplace la carte',
       c.carte === null && esp(c.bandeau) === esp(bandeauAttendu(aujourdhui)), JSON.stringify(c));
     ok('[U14] B — la séance même passe en allégée : la charge normale, 2 reps de moins, sur 2 séries, aucun test',
-      deuxLignes(c) && esp(c.jaune[0]) === jauneAttendu(c), JSON.stringify(c));
+      deuxLignes(c) && c.jaune[0] === jauneAttendu(c), JSON.stringify(c));
+    ok('[U14] B — à l’acceptation, les 2 séries en trop (non validées) sont retirées : 2 lignes à l’écran',
+      JSON.stringify(c.roles) === JSON.stringify(['ligne', 'ligne']) && (await compter('.ligne-serie')) === 2,
+      JSON.stringify(c.roles));
     const pari = base.predictions.filter((l) => l.module === 'escalier')[0];
     ok('[U14] B — le pari de la semaine allégée est en base : module escalier, acceptée, J à J+6, sans exercice',
       !!pari && pari.exercise_slug === null && pari.fondement.reponse === 'acceptee' &&

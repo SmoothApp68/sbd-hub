@@ -872,6 +872,21 @@
     await poserSeance(true);
     allerA(Routeur.SAISIE, {}, true);
     rendreSeance();
+    // §14.4 (49-U14) — une séance créée PENDANT une semaine allégée ne garde
+    // que ses lignes allégées.
+    await appliquerAllegee();
+  }
+
+  // §14.4 (49-U14) — RETIRER LES LIGNES EN TROP, une fois : à l'acceptation
+  // de la carte et à la création d'une séance dans la période. Jamais au
+  // rendu : une série ajoutée ensuite (« + Série ») reste. La règle est
+  // `Plan.lignesARetirer` (les séries validées n'y sont jamais).
+  async function appliquerAllegee() {
+    if (!seance || enEdition()) return;
+    var aRetirer = Plan.lignesARetirer(planActuel());
+    if (!aRetirer.length) return;
+    aRetirer.forEach(function (r) { seance = Seance.retirerSerie(seance, r.iExo, r.iSerie); });
+    await apresGeste();
   }
 
   // ⚠️ RÉPARATION AU DÉMARRAGE (chantier 33). L'APPAREIL NE SE RÉPARE PAS TOUT
@@ -2437,6 +2452,7 @@
                         fin: acceptee ? Moteur.finAllegee(carte.jour) : null };
         if (!acceptee) montrerRefus();
         rendreSeance();
+        if (acceptee) await appliquerAllegee();
         return;
       }
       var id = await Moteur.idDEscalier(seance.id, null, Moteur.MARCHE_SEMAINE_ALLEGEE)
@@ -2465,6 +2481,7 @@
       reponseEnCours = false;
     }
     if (seance) rendreSeance();
+    if (seance && reponse === 'acceptee') await appliquerAllegee();
   }
 
   // L'OBSERVATION DU PARI ACCEPTÉ, SANS SÉRIE (§14.4) — SON PROPRE CHEMIN, pas

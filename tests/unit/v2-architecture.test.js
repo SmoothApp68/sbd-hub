@@ -92,6 +92,17 @@ const GARDEES = [
   { fn: 'carteAutorisee', module: 'moteur.js' },
   { fn: 'observationSemaineAllegee', module: 'moteur.js' },
   { fn: 'idDEscalier', module: 'moteur.js' },
+  // moteur.js — l'escalier, le blocage isolé (§14.5, 49-U15)
+  { fn: 'nIsole', module: 'moteur.js' },
+  { fn: 'declenchementsRepondus', module: 'moteur.js' },
+  { fn: 'marcheIsolee', module: 'moteur.js' },
+  { fn: 'autresAvancent', module: 'moteur.js' },
+  { fn: 'carteSchema', module: 'moteur.js' },
+  { fn: 'phraseSeche', module: 'moteur.js' },
+  { fn: 'repliEscalier', module: 'moteur.js' },
+  { fn: 'consigneRepli', module: 'moteur.js' },
+  { fn: 'phraseRepli', module: 'moteur.js' },
+  { fn: 'observationMarche', module: 'moteur.js' },
   // seance.js — le fantôme, la couverture, les lignes figées, les paris
   { fn: 'fantome', module: 'seance.js',
     motif: /(?:\bSeance|\bS|\bSeance\(\)|\bS\(\)|racine\.THSeance)\s*\.\s*fantome\b/g },
@@ -146,7 +157,13 @@ const AUTORISATIONS = {
   },
   idDEscalier: {
     'app.js': 'l’identifiant déterministe du pari de l’escalier au moment de l’écrire en base : ' +
-      'de la persistance, la carte elle-même vient du plan (app.js, `repondreCarte`).'
+      'de la persistance, la carte (ou la marche isolée, 49-U15) vient du plan (app.js, ' +
+      '`repondreCarte`, `repondreSchema`, `ecrireReplis`).'
+  },
+  observationMarche: {
+    'app.js': 'l’observation SANS SÉRIE du pari d’une marche isolée (schéma accepté, repli), au ' +
+      'moment de l’écrire en base : de la persistance (app.js, `observerEscalier`) ; la règle ' +
+      'vit dans le moteur (49-U15).'
   },
   observationDe: {
     'app.js': 'l’observation d’un pari par sa série, au moment de l’écrire en base : de la ' +

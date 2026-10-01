@@ -294,6 +294,24 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
   ESC.bandeau.forEach((b) => noter('escalier', 'bandeau ' + b.acceptee_le, [M.bandeauAllegee(M.finAllegee(b.acceptee_le))]));
   noter('escalier', 'refus', [M.PHRASE_REFUS]);
 
+  // (i) MOTEUR §14.5 (49-U15) — le blocage isolé : les 3 cartes de schéma
+  // (phrase, détail, deux boutons), la phrase de la sèche, celle du silence,
+  // et les 2 replis trouvés — à la référence du cas, puis à 3 jours de la
+  // séance du repli : « mardi » doit y remplacer la date. Aucun « palier ».
+  const ISO = require('./fixtures/cas-49u15-blocage-isole.json');
+  ISO.schema.forEach((c) => {
+    const k = M.carteSchema(c.zone, { palier: c.meilleur[0], niveau: c.meilleur[1] }, c.compteur, c.autres_avancent);
+    noter('escalier isolé', 'cas-49u15 ' + c.id, [k.phrase, k.detail, k.oui, k.non]);
+  });
+  noter('escalier isolé', 'sèche', [M.phraseSeche({ compteur: 4, meilleur: { palier: 27, niveau: 12 }, blocages: [] })]);
+  noter('escalier isolé', 'silence', [M.phraseCompteur({ compteur: 12, meilleur: { palier: 80, niveau: 10 }, blocages: [] })]);
+  ISO.repli.filter((c) => c.attendu).forEach((c) => {
+    const r = M.repliEscalier(c.seances, c.avant, { palier: c.meilleur[0], niveau: c.meilleur[1] }, c.zone);
+    noter('escalier isolé', 'cas-49u15 ' + c.id, [M.phraseRepli(r, c.avant)], [r.debut], c.avant);
+    const proche = plusJours(r.debut, 3);
+    noter('escalier isolé', 'cas-49u15 ' + c.id + ' à 3 jours', [M.phraseRepli(r, proche)], [r.debut], proche);
+  });
+
   test('chaque famille est jouée, et la date relative l\'est vraiment', () => {
     const parFamille = {};
     vues.forEach((v) => { parFamille[v.famille] = (parFamille[v.famille] || 0) + 1; });
@@ -308,6 +326,8 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
     expect(parFamille.compteur).toBe(30);
     // 6 cartes × 2 phrases + 14 consignes allégées × 2 + 3 bandeaux + le refus.
     expect(parFamille.escalier).toBe(44);
+    // 3 cartes × 4 textes + la sèche + le silence + 2 replis × 2 références.
+    expect(parFamille['escalier isolé']).toBe(18);
     // La phrase « Je ne compte pas la dernière série » est bien jouée.
     expect(vues.filter((v) => v.famille === 'chute' && /Je ne compte pas la dernière série/.test(v.phrase)).length)
       .toBeGreaterThanOrEqual(14);

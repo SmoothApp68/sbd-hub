@@ -166,7 +166,13 @@ const CATALOGUE = [
   // noms ne répondent à AUCUNE recherche faite ailleurs (« Couch », « Rowing »…).
   { slug: 'couche-u14', nom: 'Allongé U14 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['pectoraux'], muscles_secondaires: [] },
   { slug: 'rowing-u14', nom: 'Tirée U14', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['dorsaux'], muscles_secondaires: [] },
-  { slug: 'squat-u14', nom: 'Fléchi U14 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['quadriceps'], muscles_secondaires: [] }
+  { slug: 'squat-u14', nom: 'Fléchi U14 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['quadriceps'], muscles_secondaires: [] },
+  // 49-U15 — réservés à la section 7 G duodecies (le blocage isolé). Leurs
+  // noms ne répondent à aucune recherche faite ailleurs.
+  { slug: 'pousse-u15', nom: 'Poussé U15 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['pectoraux'], muscles_secondaires: [] },
+  { slug: 'tracte-u15', nom: 'Tracté U15 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['dorsaux'], muscles_secondaires: [] },
+  { slug: 'leve-u15', nom: 'Levé U15 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['epaules'], muscles_secondaires: [] },
+  { slug: 'presse-u15', nom: 'Pressé U15 (Machine)', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['quadriceps'], muscles_secondaires: [] }
 ];
 
 // ⚠️ UNE ROUTINE PORTE MAINTENANT SES LIGNES (chantier 43). `routine_sets`
@@ -8527,15 +8533,22 @@ const SETS_IMPORTES = [
     const compteurs = await page.evaluate(() => {
       const d = window.THPlan && window.THPlan.dernier;
       const de = (slug) => { const x = d && d.plan.exercices.filter((e) => e.slug === slug)[0]; return x ? x.compteur : null; };
-      return { curl: de('curl-u13'), tirage: de('tirage-u13') };
+      return { curl: de('curl-u13'), tirage: de('tirage-u13'), phase: d ? d.plan.phase : null };
     });
+    // MOTEUR §14.5 (49-U15) — le curl (Volume, compteur 4) est au 1er
+    // déclenchement isolé : EN SÈCHE, la phrase dit aussi « je ne te propose
+    // rien de plus ». La phase est celle que les sections d'avant ont laissée
+    // au profil (en séquentiel, 7 G octies finit en sèche) : on la lit sur le
+    // plan, la phrase attendue suit.
+    const phraseU13 = '25 kg × 12 reste ton meilleur depuis 4 séances.' +
+      (compteurs.phase === 'seche' ? ' En sèche, je ne te propose rien de plus.' : '');
     const lignesCompteur = (await page.evaluate(() => Array.from(document.querySelectorAll('.legende-exo'))
       .map((l) => { const c = l.querySelector('.consigne-dit.compteur'); return c ? c.textContent : null; }))).map((t) => t && esp(t));
     ok('[U13] le curl : 4 séances suivies sans progrès depuis 25 kg × 12 (la séance à 20 kg, non suivie, ne compte pas)',
       !!compteurs.curl && compteurs.curl.compteur === 4 && compteurs.curl.meilleur.palier === 25 &&
       compteurs.curl.meilleur.niveau === 12, JSON.stringify(compteurs.curl));
     ok('[U13] DISCRIMINANT — la phrase grise à l’ouverture : « 25 kg × 12 reste ton meilleur depuis 4 séances. » (le meilleur, pas les 20 kg du jour)',
-      lignesCompteur[0] === '25 kg × 12 reste ton meilleur depuis 4 séances.', JSON.stringify(lignesCompteur));
+      lignesCompteur[0] === phraseU13, JSON.stringify([lignesCompteur, compteurs.phase]));
     ok('[U13] DISCRIMINANT — le tirage : les séances sans pari ne comptent pas → 3 (elles en feraient 5)',
       !!compteurs.tirage && compteurs.tirage.compteur === 3, JSON.stringify(compteurs.tirage));
     ok('[U13] à 3 séances : rien dans l’en-tête', lignesCompteur.length === 2 && lignesCompteur[1] === null,
@@ -8549,7 +8562,7 @@ const SETS_IMPORTES = [
     const feuille = (await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .pq-p'))
       .map((n) => n.textContent))).map(esp);
     ok('[U13] la feuille « Pourquoi » le dit en une ligne',
-      feuille.filter((t) => t === '25 kg × 12 reste ton meilleur depuis 4 séances.').length === 1, JSON.stringify(feuille));
+      feuille.filter((t) => t === phraseU13).length === 1, JSON.stringify(feuille));
     await page.click('#btn-fermer-feuille');
     await attendre(600);
     ok('[U13] la garde (C6) n’a rien signalé dans cette section', gardeBanc.violations === violationsAvant,
@@ -8557,6 +8570,197 @@ const SETS_IMPORTES = [
     await abandonner();
     await aller('/saisie');
     ok('[U13] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
+  }
+
+  console.log('\n══ 7 G duodecies. LE BLOCAGE ISOLÉ : LE SCHÉMA, PUIS LE REPLI (49-U15, MOTEUR §14.5) ══');
+  //
+  // ⚠️ AVANT 7 G undecies, ET CHAÎNÉE DEVANT ELLE (`seance-chaines.json`) :
+  // celle-ci laisse une semaine allégée ACCEPTÉE aujourd'hui (sur l'appareil
+  // ET en base), et pendant la période aucune marche isolée ne s'ouvre (I21).
+  // En sens inverse, rien d'ici ne la gêne : les paris de ce décor ont tous
+  // 9 jours ou plus, hors de sa fenêtre de 7 jours, et cette section ne valide
+  // aucune série (aucun compteur figé aujourd'hui).
+  //
+  // CONFIGURATION DISCRIMINANTE : UN SEUL exercice cale (aucun autre à 4 ou
+  // plus sur 7 jours) — pas de carte de semaine allégée.
+  //   · `pousse-u15` (Lourd, 125 kg × 5) : six séances tous les 9 jours, cinq
+  //     sous consigne → compteur 4 à l'ouverture : le 1er déclenchement isolé,
+  //     en zone force — la carte de schéma ;
+  //   · `tracte-u15` (Lourd, 125 kg × 5) : une séance à 120 kg × 5 il y a 88
+  //     jours (le palier TENU sous le meilleur, à moins de 10 %), puis neuf
+  //     séances à 125 sous consigne → compteur 8 : le 2e déclenchement, le
+  //     repli à 120 kg.
+  // 0 — `?escalier=isole` : la carte de schéma et un repli sur une séance
+  //     quelconque, AUCUN pari, aucune zone posée.
+  // A — la carte, « Passer à 6-8 reps » : le pari, puis la correction de zone.
+  // B — le repli : la consigne de 120 kg, sans test, et son pari à l'ouverture.
+  {
+    const tI = Date.now();
+    let graineI = 300;
+    const sessionI = (id, jours) => {
+      const debut = ilYa(jours * 86400000, tI).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'U15 — ' + id, debut,
+        fin: finDe(debut, tI).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      return debut;
+    };
+    const serieI = (id, slug, rang, kg, reps, debut) => base.sets.push({ id: id + '-' + slug + '-s' + rang,
+      session_id: id, user_id: 'u-banc', exercise_slug: slug, charge_kg: kg, reps, duree_s: null,
+      distance_m: null, type_serie: 'travail', rang, groupe_superset: null, validee_a: debut, rpe: null,
+      ressenti: null, repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null });
+    const pariI = (id, slug, debut, compteur, kg, reps) => base.predictions.push({
+      id: '00000000-0000-5000-8000-' + String(++graineI).padStart(12, '0'),
+      user_id: 'u-banc', module: 'moteur.consigne', module_version: 4, emise_a: debut,
+      exercise_slug: slug, grandeur: 'reps', horizon_jours: null, valeur_predite: reps,
+      borne_basse: 3, borne_haute: 5,
+      fondement: { rang: 1, charge: kg, etat: 'progression', zone: 'lourd', reglage: 'normal',
+                   palier: kg, niveau: reps, seance: id, role: 'ligne', phase: 'maintien', compteur },
+      valeur_observee: reps, observee_a: debut, set_observe: id + '-' + slug + '-s1', created_at: debut });
+    // Le poussé : six séances, la première sans pari.
+    [54, 45, 36, 27, 18, 9].forEach((j, i) => {
+      const id = 'u15-p' + i;
+      const debut = sessionI(id, j);
+      [1, 2, 3, 4].forEach((r) => serieI(id, 'pousse-u15', r, 125, 5, debut));
+      if (i > 0) pariI(id, 'pousse-u15', debut, i - 1, 125, 5);
+    });
+    // Le tracté : 120 × 5 il y a 88 jours (sans pari), puis neuf séances à 125.
+    const debutRepli = sessionI('u15-t-repli', 88);
+    [1, 2, 3, 4].forEach((r) => serieI('u15-t-repli', 'tracte-u15', r, 120, 5, debutRepli));
+    [81, 72, 63, 54, 45, 36, 27, 18, 9].forEach((j, i) => {
+      const id = 'u15-t' + i;
+      const debut = sessionI(id, j);
+      [1, 2, 3, 4].forEach((r) => serieI(id, 'tracte-u15', r, 125, 5, debut));
+      pariI(id, 'tracte-u15', debut, i, 125, 5);
+    });
+    // La démonstration : deux exercices avec une consigne, sans pari.
+    [['u15-d1', 'leve-u15', 40, 60], ['u15-d2', 'presse-u15', 30, 150]].forEach(([id, slug, j, kg]) => {
+      [j + 9, j].forEach((jj, k) => {
+        const sid = id + '-' + k;
+        const debut = sessionI(sid, jj);
+        [1, 2, 3].forEach((r) => serieI(sid, slug, r, kg, 5, debut));
+      });
+    });
+    const routineI = (id, nom, slug) => ROUTINES.push({ id, nom, note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: id + '-a', routine_id: id, exercise_slug: slug, rang: 0,
+        routine_sets: progr(4, 5), repos_cible_s: 180, groupe_superset: null, note: null }] });
+    routineI('r-u15-p', 'Schéma U15', 'pousse-u15');
+    routineI('r-u15-t', 'Repli U15', 'tracte-u15');
+    ROUTINES.push({ id: 'r-u15-d', nom: 'Démo U15', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [
+        { id: 'r-u15-d1', routine_id: 'r-u15-d', exercise_slug: 'leve-u15', rang: 0,
+          routine_sets: progr(3, 5), repos_cible_s: 120, groupe_superset: null, note: null },
+        { id: 'r-u15-d2', routine_id: 'r-u15-d', exercise_slug: 'presse-u15', rang: 1,
+          routine_sets: progr(3, 5), repos_cible_s: 120, groupe_superset: null, note: null }] });
+    const esp = (t) => String(t || '').replace(/[  ]/g, ' ');
+    const lireIsole = (slug) => page.evaluate((s) => {
+      const d = window.THPlan && window.THPlan.dernier;
+      const x = d && d.plan.exercices.filter((e) => e.slug === s)[0];
+      const i = x ? x.iExo : -1;
+      const carte = document.querySelector('.proposition-schema[data-iexo="' + i + '"]');
+      const legende = Array.from(document.querySelectorAll('.legende-exo'))[i] || null;
+      return {
+        marche: x && x.escalier ? x.escalier.marche : null,
+        carte: carte ? { texte: carte.querySelector('.pc-texte').textContent,
+                         detail: carte.querySelector('.pc-detail') ? carte.querySelector('.pc-detail').textContent : null,
+                         oui: carte.querySelector('.ps-oui').textContent, non: carte.querySelector('.ps-non').textContent } : null,
+        cartes: document.querySelectorAll('.proposition-schema').length,
+        zone: x && x.consigne ? x.consigne.zone : null,
+        compteur: x && x.compteur ? x.compteur.compteur : null,
+        jaune: legende ? Array.from(legende.querySelectorAll('.consigne')).map((n) => n.textContent) : [],
+        gris: legende && legende.querySelector('.consigne-dit:not(.compteur)') ? legende.querySelector('.consigne-dit:not(.compteur)').textContent : null,
+        phraseCompteur: legende && legende.querySelector('.consigne-dit.compteur') ? legende.querySelector('.consigne-dit.compteur').textContent : null,
+        lignes: x ? x.lignes.filter((l) => l.type === 'travail').map((l) => [l.role, l.charge, l.vise]) : null,
+        repli: x && x.consigne && x.consigne.repli ? x.consigne.repli : null,
+        carteAllegee: !!(d && d.plan.carte)
+      };
+    }, slug);
+    const parisEscalier = () => base.predictions.filter((l) => l.module === 'escalier');
+    const violationsAvant = gardeBanc.violations;
+
+    // ── 0. `?escalier=isole` : la carte de schéma sur le premier exercice, un
+    //     repli inventé sur le second — et RIEN n'est écrit.
+    const parisAvant = base.predictions.length;
+    const zonesAvant = base.zones.length;
+    await aller('/saisie?escalier=isole');
+    await demarrerRoutine('Démo U15');
+    await attendre(900);
+    const d1 = await lireIsole('leve-u15');
+    const d2 = await lireIsole('presse-u15');
+    ok('[U15] 0 — démonstration : la carte de schéma sous le premier exercice, « Passer à 6-8 reps » / « Garder 3-5 »',
+      d1.marche === 'schema' && !!d1.carte && /reste ton meilleur depuis 4 séances/.test(esp(d1.carte.texte)) &&
+      d1.carte.oui === 'Passer à 6-8 reps' && d1.carte.non === 'Garder 3-5', JSON.stringify(d1));
+    ok('[U15] 0 — démonstration : un repli sur le second, sans test, la phrase « On repart de … »',
+      d2.marche === 'repli' && !!d2.repli && /^On repart de .* kg, ta dernière charge tenue : .* kg × (\d+), \1, \1 le /.test(esp(d2.gris)) &&
+      d2.lignes.every((l) => l[0] === 'ligne' && l[1] === d2.repli.palier), JSON.stringify(d2));
+    await page.click('.proposition-schema .ps-non');
+    await attendre(700);
+    const d3 = await lireIsole('leve-u15');
+    ok('[U15] 0 — « Garder 3-5 » : la carte part ; AUCUN pari, AUCUNE zone posée',
+      d3.cartes === 0 && base.predictions.length === parisAvant && base.zones.length === zonesAvant,
+      JSON.stringify({ cartes: d3.cartes, paris: base.predictions.length - parisAvant, zones: base.zones.length - zonesAvant }));
+    await abandonner();
+    await aller('/saisie?escalier=0');
+
+    // ── A. Le poussé : la carte de schéma, puis « Passer à 6-8 reps ».
+    await aller('/saisie');
+    await demarrerRoutine('Schéma U15');
+    await attendre(900);
+    const a = await lireIsole('pousse-u15');
+    ok('[U15] A — compteur 4, zone Lourd, un seul exercice qui cale : la carte de schéma, pas de carte de semaine allégée',
+      a.compteur === 4 && a.zone === 'lourd' && a.marche === 'schema' && !a.carteAllegee && a.cartes === 1, JSON.stringify(a));
+    ok('[U15] A — la phrase, le détail et les deux libellés de §14.5',
+      !!a.carte && /^125 kg × 5 reste ton meilleur depuis 4 séances(, et tes autres exercices avancent)?\.$/.test(esp(a.carte.texte)) &&
+      a.carte.detail === 'En force, une série de plus aide peu. Changer de schéma quelques semaines relance souvent la barre, avant d\'y revenir.' &&
+      a.carte.oui === 'Passer à 6-8 reps' && a.carte.non === 'Garder 3-5', JSON.stringify(a.carte));
+    ok('[U15] A — la phrase du compteur n\'est pas répétée dans l\'en-tête', a.phraseCompteur === null, JSON.stringify(a.phraseCompteur));
+    await page.click('.proposition-schema .ps-oui');
+    await attendre(1500);
+    const a2 = await lireIsole('pousse-u15');
+    const pariS = parisEscalier().filter((l) => l.fondement && l.fondement.marche === 'schema')[0];
+    const zoneS = base.zones.filter((l) => l.exercise_slug === 'pousse-u15').slice(-1)[0];
+    ok('[U15] A — « Passer à 6-8 reps » écrit le pari : escalier, schéma, accepté, exercice dans le fondement, colonne vide',
+      !!pariS && pariS.exercise_slug === null && pariS.fondement.exercice === 'pousse-u15' &&
+      pariS.fondement.reponse === 'acceptee' && pariS.fondement.compteur === 4 && pariS.fondement.nouvelle_zone === 'mix' &&
+      pariS.valeur_observee === null, JSON.stringify(pariS));
+    ok('[U15] A — … puis la correction de zone (le geste de 48b-7) : Mix, et le compteur repart de zéro',
+      !!zoneS && zoneS.zone === 'mix' && a2.zone === 'mix' && a2.compteur === 0 && a2.cartes === 0 && a2.marche === null,
+      JSON.stringify({ zone: zoneS, plan: a2 }));
+    await abandonner();
+
+    // ── B. Le tracté : le 2e déclenchement, le repli à 120 kg.
+    await aller('/saisie');
+    await demarrerRoutine('Repli U15');
+    await attendre(1500);
+    const b = await lireIsole('tracte-u15');
+    ok('[U15] B — compteur 8 : la consigne de repli, 120 kg × 5 sur les quatre séries, aucun test',
+      b.compteur === 8 && b.marche === 'repli' && JSON.stringify(b.lignes) === JSON.stringify([['ligne', 120, 5], ['ligne', 120, 5], ['ligne', 120, 5], ['ligne', 120, 5]]),
+      JSON.stringify(b));
+    ok('[U15] B — l\'en-tête : « 120 kg × 5 », et en gris « On repart de 120 kg, ta dernière charge tenue : 120 kg × 5, 5, 5, 5 le … » ; pas de phrase du compteur',
+      b.jaune.length === 1 && b.jaune[0] === '120 kg × 5' &&
+      /^On repart de 120 kg, ta dernière charge tenue : 120 kg × 5, 5, 5, 5 le \d+ [a-zéû]+\.?$/.test(esp(b.gris)) &&
+      b.phraseCompteur === null, JSON.stringify([b.jaune, b.gris, b.phraseCompteur]));
+    await attendre(800);
+    const pariR = parisEscalier().filter((l) => l.fondement && l.fondement.marche === 'repli')[0];
+    ok('[U15] B — le pari du repli, écrit à l\'ouverture : escalier, appliqué, 120 kg, exercice dans le fondement',
+      !!pariR && pariR.exercise_slug === null && pariR.fondement.exercice === 'tracte-u15' &&
+      pariR.fondement.reponse === 'appliquee' && pariR.fondement.compteur === 8 && pariR.fondement.repli.palier === 120,
+      JSON.stringify(pariR && pariR.fondement));
+    ok('[U15] B — un seul pari de repli, même après un geste (l\'identifiant est déterminé)',
+      parisEscalier().filter((l) => l.fondement && l.fondement.marche === 'repli').length === 1,
+      String(parisEscalier().length));
+    await abandonner();
+
+    ok('[U15] la garde (C6) n’a rien signalé dans cette section (I21, I22 compris)', gardeBanc.violations === violationsAvant,
+      JSON.stringify(gardeBanc.liste.slice(-2)));
+    await aller('/saisie');
+    ok('[U15] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
+    // Rien d'ici ne doit rester pour 7 G undecies : les paris de l'escalier
+    // de cette section sont retirés de la base (ceux de l'appareil ne portent
+    // pas de carte de semaine allégée, et leurs compteurs ont 9 jours ou plus).
+    base.predictions = base.predictions.filter((l) => !(l.module === 'escalier' && l.fondement &&
+      (l.fondement.exercice === 'pousse-u15' || l.fondement.exercice === 'tracte-u15')));
   }
 
   console.log('\n══ 7 G undecies. LA SEMAINE ALLÉGÉE : LA CARTE, PUIS 7 JOURS ALLÉGÉS (49-U14, MOTEUR §14.4) ══');

@@ -1777,9 +1777,13 @@
       // MOTEUR §9.15.2 (49-U10) — la proposition de chauffes, au-dessus de la
       // première série de l'exercice : une ligne à accepter, jamais des séries
       // insérées d'office.
-      if (!vue.programme && typeof vue.propositionChauffes === 'function' && !proposees[s._iExo]) {
+      if (!vue.programme && !proposees[s._iExo]) {
         proposees[s._iExo] = true;
-        var pc = vue.propositionChauffes(s._iExo);
+        // MOTEUR §14.5 (49-U15) — la carte de schéma d'abord : la seule
+        // question du coach sur cet exercice.
+        var ps = typeof vue.propositionSchema === 'function' ? vue.propositionSchema(s._iExo) : null;
+        if (ps) noeud.appendChild(propositionDeSchema(ps, s._iExo, vue));
+        var pc = typeof vue.propositionChauffes === 'function' ? vue.propositionChauffes(s._iExo) : null;
         if (pc) noeud.appendChild(propositionDeChauffes(pc, s._iExo, vue));
       }
       // §9.14 (49-R2) — LA RÉACTION PARLE DANS LA GRILLE, au-dessus de la
@@ -1936,6 +1940,9 @@
       if (constat) {
         entree.appendChild(el('div', 'constat', constat.verdict));
         if (constat.suite) entree.appendChild(el('div', 'constat-suite', constat.suite));
+        // MOTEUR §14.5 (49-U15) — au silence de l'escalier, la phrase du
+        // compteur, une fois, dans le constat — sans alarme.
+        if (constat.escalier) entree.appendChild(el('div', 'constat-suite constat-escalier', constat.escalier));
       }
       var lib = constat ? null : (!vue.programme && vue.libelles ? vue.libelles(x.slug) : null);
       if (lib) {
@@ -2096,23 +2103,49 @@
     return cible;
   }
 
-  // MOTEUR §9.15.2 (49-U10) — « Chauffe : 20 kg × 10 · 60 kg × 6 … », avec
-  // « Ajouter » et « Non merci ». Le texte vient du plan (`chauffesDe`).
-  function propositionDeChauffes(pc, iExo, vue) {
-    var n = el('div', 'proposition-chauffes');
+  // LA PROPOSITION D'EXERCICE (MOTEUR §9.15.2 ; généralisée en 49-U15) : un
+  // texte, un détail facultatif, deux libellés, deux gestes — sous le nom de
+  // l'exercice, au-dessus de sa première série. La proposition de chauffes et
+  // la carte de schéma (§14.5) en sont deux usages. Les textes viennent du
+  // plan ; ce composant n'en écrit aucun.
+  // `p` : `{ classe, texte, detail, oui, non, classeOui, classeNon, surOui, surNon }`.
+  function propositionDExercice(p, iExo) {
+    var n = el('div', 'proposition-exercice ' + (p.classe || ''));
     n.setAttribute('data-iexo', String(iExo));
-    n.appendChild(el('div', 'pc-texte', pc.phrase));
+    n.appendChild(el('div', 'pc-texte', p.texte));
+    if (p.detail) n.appendChild(el('div', 'pc-detail', p.detail));
     var gestes = el('div', 'pc-gestes');
-    var oui = el('button', 'pc-ajouter', 'Ajouter');
+    var oui = el('button', 'pc-ajouter' + (p.classeOui ? ' ' + p.classeOui : ''), p.oui);
     oui.type = 'button';
-    oui.addEventListener('click', function () { vue.surAjouterChauffes(iExo); });
-    var non = el('button', 'pc-refuser', 'Non merci');
+    oui.addEventListener('click', function () { p.surOui(); });
+    var non = el('button', 'pc-refuser' + (p.classeNon ? ' ' + p.classeNon : ''), p.non);
     non.type = 'button';
-    non.addEventListener('click', function () { vue.surRefuserChauffes(iExo); });
+    non.addEventListener('click', function () { p.surNon(); });
     gestes.appendChild(oui);
     gestes.appendChild(non);
     n.appendChild(gestes);
     return n;
+  }
+
+  // MOTEUR §9.15.2 (49-U10) — « Chauffe : 20 kg × 10 · 60 kg × 6 … », avec
+  // « Ajouter » et « Non merci ». Le texte vient du plan (`chauffesDe`).
+  function propositionDeChauffes(pc, iExo, vue) {
+    return propositionDExercice({
+      classe: 'proposition-chauffes', texte: pc.phrase, oui: 'Ajouter', non: 'Non merci',
+      surOui: function () { vue.surAjouterChauffes(iExo); },
+      surNon: function () { vue.surRefuserChauffes(iExo); }
+    }, iExo);
+  }
+
+  // MOTEUR §14.5 (49-U15) — « Changer de schéma » : la phrase, le détail,
+  // « Passer à 6-8 reps » / « Garder 3-5 ». Lue sur le plan (`escalier.carte`).
+  function propositionDeSchema(carte, iExo, vue) {
+    return propositionDExercice({
+      classe: 'proposition-schema', texte: carte.phrase, detail: carte.detail,
+      oui: carte.oui, non: carte.non, classeOui: 'ps-oui', classeNon: 'ps-non',
+      surOui: function () { vue.surSchema(iExo, 'acceptee'); },
+      surNon: function () { vue.surSchema(iExo, 'refusee'); }
+    }, iExo);
   }
 
   // §9.14 — la ligne proposée validée à vide : on ne valide pas, on met le

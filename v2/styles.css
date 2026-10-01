@@ -819,12 +819,16 @@ button.puce-zone{font:inherit;font-size:11px;font-weight:600;cursor:pointer;
 /* MOTEUR §9.15 (49-U10) — les chauffes et la dégressive : la voix du coach, en
    retrait (elles ne comptent pas), et la proposition de chauffes à accepter. */
 .reaction-serie.chauffe,.reaction-serie.degressive{color:var(--texte-2);font-weight:500}
-.proposition-chauffes{margin:6px 0 4px;padding:8px 10px;border:1px dashed var(--trait);border-radius:8px}
-.proposition-chauffes .pc-texte{color:var(--texte-2);font-size:13.5px;line-height:1.35}
-.proposition-chauffes .pc-gestes{display:flex;gap:8px;margin-top:6px}
-.proposition-chauffes button{min-height:36px;padding:0 12px;border-radius:8px;font:inherit;font-size:13.5px}
-.proposition-chauffes .pc-ajouter{background:var(--accent);color:#111;border:0;font-weight:620}
-.proposition-chauffes .pc-refuser{background:transparent;color:var(--texte-2);border:1px solid var(--trait)}
+/* La proposition d'exercice (49-U10, généralisée en 49-U15) : les chauffes,
+   la carte de schéma. */
+.proposition-exercice{margin:6px 0 4px;padding:8px 10px;border:1px dashed var(--trait);border-radius:8px}
+.proposition-exercice .pc-texte{color:var(--texte-2);font-size:13.5px;line-height:1.35}
+.proposition-schema .pc-texte{color:var(--texte);font-weight:600}
+.proposition-exercice .pc-detail{margin-top:4px;color:var(--texte-2);font-size:13px;line-height:1.4}
+.proposition-exercice .pc-gestes{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.proposition-exercice button{min-height:36px;padding:0 12px;border-radius:8px;font:inherit;font-size:13.5px}
+.proposition-exercice .pc-ajouter{background:var(--accent);color:#111;border:0;font-weight:620}
+.proposition-exercice .pc-refuser{background:transparent;color:var(--texte-2);border:1px solid var(--trait)}
 /* MOTEUR §14.4 (49-U14) — l'escalier en tête de la séance : la carte de la
    semaine allégée (deux gestes), ou le bandeau de la période. Le jaune reste
    à la suggestion du moteur ; aucune couleur d'alarme. */

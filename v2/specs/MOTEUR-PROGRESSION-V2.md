@@ -1272,6 +1272,9 @@ La mesure charge seule montrait une remontée de la reprise spontanée autour de
 - **La remise à zéro vaut dès l'ouverture** (précisé le 30/09/2026, #343) : si la séance qui s'ouvre est une **reprise** (§9.9 : la consigne du jour est une reprise) ou **change de zone**, le compteur est à zéro **à l'ouverture** — pas de phrase. Une reprise n'est pas une stagnation, même quand les séances d'avant en étaient une.
 - **Le meilleur test se retient à chaque séance où un test est tenu dans la zone** (précisé le 30/09/2026, #343), **même quand le progrès de la séance vient du palier** : sinon, le même test refait à l'identique passe pour un progrès (§12.2 bis).
 
+- **La charge proposée, pour juger qu'une séance est suivie** (précisé le 01/10/2026, #344) : celle de la ligne de la consigne ; **sans ligne basse** (toutes les séries à la charge haute, état « rejoint »), **celle de la ligne haute**. Une séance faite sous la charge proposée n'est pas suivie : ni progrès ni stagnation.
+- **La présence, pour la reprise** (rappel de §7.6) : l'écart habituel et la dernière présence comptent **toutes** les séances datées de l'exercice, y compris une séance faite uniquement de chauffes ou de séries ratées.
+
 - **Rien d'autre ne change** : ni la consigne, ni les paris, ni la réaction. Le compteur ne déclenche que des mots, jusqu'à l'escalier.
 - **Référence** : `coach49.py` (`deroule_compteur`, `phrase_compteur`) ; cas `cas_compteur49.json`.
 

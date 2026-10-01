@@ -23,21 +23,22 @@ const FICHIER = require('./fixtures/cas-49u13-compteur.json');
 const octets = (s) => (s === null || s === undefined ? s : Buffer.from(s, 'utf8').toString('hex'));
 const options = (c, plus) => Object.assign({ reglage: c.reglage, equipement: c.equipement, correction: null }, plus || {});
 
-describe('§12.9 — les cas du simulateur (14, régénérés au 49-29)', () => {
+describe('§12.9 — les cas du simulateur (14 ; K014 remplacé au 49-30 : le soulevé roumain de Léa)', () => {
   test('le fichier a 14 cas, dont 6 avec une phrase', () => {
     expect(FICHIER.cas).toHaveLength(14);
     expect(FICHIER.cas.filter((c) => c.attendu.phrase !== null)).toHaveLength(6);
   });
 
-  // K014 (blocages calculés depuis les séances du cas) vit à part :
-  // `v2-compteur-k014.test.js` — il diverge de la référence (rapporté dans la PR).
-  FICHIER.cas.filter((c) => c.id !== 'K014').forEach((c) => {
+  FICHIER.cas.forEach((c) => {
     test(c.id + ' — ' + c.titre, () => {
       const r = M.compteurDe(c.seances, c.avant, options(c, { toutes: true }));
       // Les verdicts, séance par séance, à l'octet (JSON).
       expect(JSON.stringify(r.verdicts)).toBe(JSON.stringify(c.attendu.verdicts));
       expect(r.compteur).toBe(c.attendu.compteur);
       expect(r.meilleur ? [r.meilleur.palier, r.meilleur.niveau] : null).toEqual(c.attendu.meilleur);
+      // `blocages_termines: null` (K014) : les blocages se calculent depuis les
+      // séances du cas, comme l'app les calcule depuis son historique sous consigne.
+      if (c.blocages_termines === null) expect(r.blocages).toEqual(c.attendu.blocages_calcules);
       // La phrase, octet par octet (insécable avant « kg »).
       expect(octets(M.phraseCompteur(r, c.blocages_termines))).toBe(octets(c.attendu.phrase));
     });

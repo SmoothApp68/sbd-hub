@@ -426,3 +426,32 @@ describe('§14.5 — les paris de l\'escalier : identifiants et observations', (
     expect(M.observationMarche(m, [k('2026-10-04', 0), k('2026-10-07', 1), k('2026-10-10', 0)])).toBeNull();
   });
 });
+
+// ── 49-35 (#348) — UNE MARCHE PROPOSÉE NE REVIENT PAS, QUELLE QU'ELLE SOIT ─────
+describe('§14.7 (delta 49-35) — une marche proposée ne revient pas : la même règle pour le schéma', () => {
+  const schema = (reponse, seance, jour) => ({ seance: seance || 'S0', jour: jour || '2026-10-01', exercice: 'couche',
+    marche: 'schema', reponse, compteur: 4 });
+  test('rouvrir une séance au même déclenchement après un schéma REFUSÉ : pas de carte', () => {
+    const { e, p } = decor({ seance: 'S2', marches: [schema('refusee')] });
+    expect(p.exercices[0].escalier.marche).toBe('schema');
+    expect(p.exercices[0].escalier.carte).toBeUndefined();
+    expect(p.exercices[0].escalier.reponse).toBe('refusee');
+    expect(T.verifierPlan(p, e).erreurs).toEqual([]);
+  });
+  test('… après un schéma ACCEPTÉ (une autre séance, même déclenchement) : pas de carte', () => {
+    expect(decor({ seance: 'S2', marches: [schema('acceptee')] }).p.exercices[0].escalier.carte).toBeUndefined();
+  });
+  test('après un progrès depuis, la marche peut revenir au déclenchement suivant', () => {
+    const progres = [{ exercice: 'couche', jour: '2026-09-25', compteur: 0, seance: 'X' }];
+    const d = decor({ seance: 'S2', marches: [schema('refusee', 'S0', '2026-09-20')], compteurs: progres });
+    expect(d.p.exercices[0].escalier.carte).toBeDefined();
+  });
+  test('une seule fonction : `marcheProposee` dit la même chose pour les deux marches', () => {
+    const m = (marche) => [{ exercice: 'x', jour: '2026-10-01', marche, reponse: 'refusee', compteur: 4 }];
+    ['schema', 'serie_de_plus'].forEach((marche) => {
+      expect(M.marcheProposee('x', '2026-10-03', 4, m(marche), [], marche)).not.toBeNull();
+      expect(M.marcheProposee('x', '2026-10-03', 4, m(marche), [{ exercice: 'x', jour: '2026-10-02', compteur: 0 }], marche)).toBeNull();
+    });
+    expect(M.marcheProposee('x', '2026-10-03', 4, m('schema'), [], 'serie_de_plus')).toBeNull();
+  });
+});

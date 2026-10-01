@@ -877,15 +877,14 @@
         else { m.marche = M.MARCHE_SILENCE; m.saute = true; }
       }
       if (marche === M.MARCHE_SCHEMA || marche === M.MARCHE_SERIE_DE_PLUS) {
-        // Déjà répondue dans cette séance — et, pour la série de plus, déjà
-        // proposée depuis le dernier progrès (une autre séance du même
-        // déclenchement) : la carte ne revient pas ; la ligne en plus, si elle
-        // a été acceptée, se lit dans `seriesDePlusActives`.
+        // UNE MARCHE PROPOSÉE NE REVIENT PAS (§14.7, delta 49-35) : répondue
+        // dans cette séance, ou proposée depuis le dernier progrès (une autre
+        // séance du même déclenchement) — la même règle pour le schéma et la
+        // série de plus. La ligne en plus acceptée se lit dans
+        // `seriesDePlusActives`.
         var deja = marches.filter(function (x) {
-          return x && x.exercice === slug && x.marche === marche &&
-            (x.seance === seance.id || (marche === M.MARCHE_SERIE_DE_PLUS && proposee &&
-              (x.reponse === 'acceptee' || x.reponse === 'refusee')));
-        })[0];
+          return x && x.seance === seance.id && x.exercice === slug && x.marche === marche;
+        })[0] || M.marcheProposee(slug, jour, k, marches, compteurs, marche);
         if (deja) {
           m.reponse = deja.reponse;
         } else {

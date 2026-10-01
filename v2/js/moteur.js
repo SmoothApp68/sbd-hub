@@ -3509,11 +3509,21 @@
     });
   }
 
-  // Une série de plus a-t-elle été proposée (acceptée ou refusée) depuis le
-  // dernier progrès ? C'est ce qui ouvre le repli au déclenchement suivant.
+  // UNE MARCHE PROPOSÉE NE REVIENT PAS (§14.7, delta 49-35, #348) : la marche
+  // `marche` (schéma ou série de plus) a-t-elle été proposée — acceptée ou
+  // refusée, son pari existe — depuis le dernier progrès de l'exercice ? Rend
+  // le pari le plus récent, ou `null`. UNE seule règle pour toutes les marches :
+  // c'est elle qui retient la carte au même déclenchement, et elle qui ouvre le
+  // repli au suivant après une série de plus.
+  function marcheProposee(exercice, jour, compteur, marches, compteurs, marche) {
+    var p = marchesDepuisProgres(exercice, jour, compteur, marches, compteurs, marche, ['acceptee', 'refusee']);
+    if (!p.length) return null;
+    return p.slice().sort(function (x, y) { return avantAlpha(String(y.jour), String(x.jour)); })[0];
+  }
+
+  // Une série de plus a-t-elle été proposée depuis le dernier progrès ?
   function serieDePlusProposee(exercice, jour, compteur, marches, compteurs) {
-    return marchesDepuisProgres(exercice, jour, compteur, marches, compteurs, MARCHE_SERIE_DE_PLUS,
-      ['acceptee', 'refusee']).length > 0;
+    return marcheProposee(exercice, jour, compteur, marches, compteurs, MARCHE_SERIE_DE_PLUS) !== null;
   }
 
   // LA SÉRIE DE PLUS EN COURS : acceptée, et pas de progrès depuis. Rend le
@@ -4023,6 +4033,7 @@
     observationMarche: observationMarche,
     placeDeVolume: placeDeVolume,
     GRIS_SERIE_DE_PLUS: GRIS_SERIE_DE_PLUS,
+    marcheProposee: marcheProposee,
     serieDePlusProposee: serieDePlusProposee,
     serieDePlusActive: serieDePlusActive,
     periodesSerieDePlus: periodesSerieDePlus,

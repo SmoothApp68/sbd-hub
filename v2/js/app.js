@@ -1888,6 +1888,19 @@
       versionConsignes++;
       sauverConsignes();
     }
+    // §14.7 (delta 49-35) — un exercice ajouté hors routine : sa consigne a
+    // servi au pré-remplissage AVANT ses séries (figée à 0). Sa routine se fige
+    // à ses premières séries — sinon le compte suivrait « + Série », et la
+    // ligne de plus se fondrait dans la routine.
+    var figee = consignes.parSlug[slug];
+    if (figee && figee.seriesRoutine === 0) {
+      var premieres = nombreDeSeriesDeTravail(slug);
+      if (premieres > 0) {
+        figee.seriesRoutine = premieres;
+        versionConsignes++;
+        sauverConsignes();
+      }
+    }
     return consignes.parSlug[slug];
   }
 
@@ -2665,6 +2678,25 @@
     }
     if (seance) rendreSeance();
     if (seance && acceptee && plus) await appliquerSerieDePlus();
+  }
+
+  // §14.7 (delta 49-35) — LA LIGNE DE PLUS DE L'EXERCICE QU'ON VIENT D'AJOUTER,
+  // et de lui SEUL : l'exercice nouveau (absent de `avantExos`, sans série
+  // faite), s'il a une série de plus en cours. Le même geste qu'à l'ouverture
+  // (`lignesAAjouter`), restreint à lui : une ligne retirée ailleurs par la
+  // personne ne revient pas (§14.3).
+  async function ligneDePlusPourAjout(avantExos, slug) {
+    if (!seance || enEdition()) return;
+    var exos = seance.exercices || [];
+    var i = -1;
+    for (var k = 0; k < exos.length && i < 0; k++) {
+      var x = exos[k];
+      if (x && x.exercise_slug === slug && (avantExos || []).indexOf(x) < 0 &&
+          !(x.series || []).some(function (s) { return !!s.validee_a; })) i = k;
+    }
+    if (i < 0 || Plan.lignesAAjouter(planActuel()).indexOf(i) < 0) return;
+    seance = Seance.ajouterSerie(seance, i, uuid());
+    await apresGeste();
   }
 
   // Les séries de la routine d'un exercice, figées avec sa consigne.
@@ -4627,11 +4659,15 @@
       function (exo) {
         fermerVoile();
         if (pourSeance) {
+          // §14.7 (49-U17, delta 49-35) — l'exercice ajouté dont la série de
+          // plus est active reçoit sa ligne de plus, comme à l'ouverture.
+          var avantAjout = seance.exercices;
+          var puisLigneDePlus = function () { return ligneDePlusPourAjout(avantAjout, exo.slug); };
           if (intentionCatalogue.remplace !== null) {
             // §5.2 — remplacer, c'est ajouter puis sauter en gardant la place.
             seance = Seance.remplacerExercice(seance, intentionCatalogue.remplace,
               exo.slug, uuid);
-            return apresStructure();
+            return apresStructure().then(puisLigneDePlus);
           }
           // §9.13 (49-C) — HORS ROUTINE, les séries de travail sont posées
           // d'emblée : l'habitude de l'exercice, sinon l'intention. Un
@@ -4640,10 +4676,10 @@
           var depart = { series: seriesDeDepartPour(exo.slug) };
           if (intentionCatalogue.apres !== null) {
             seance = Seance.insererExercice(seance, intentionCatalogue.apres, exo.slug, uuid, depart);
-            return apresStructure();
+            return apresStructure().then(puisLigneDePlus);
           }
           seance = Seance.ajouterExercice(seance, exo.slug, uuid, depart);
-          return apresGeste({ structure: false });
+          return apresGeste({ structure: false }).then(puisLigneDePlus);
         }
         // ⚠️ UNE SEULE LIGNE, VIDE (chantier 43). L'ancien modèle posait
         // `series: 3` — un défaut hérité de la colonne, qui prescrivait trois

@@ -107,6 +107,7 @@ const GARDEES = [
   { fn: 'placeDeVolume', module: 'moteur.js' },
   { fn: 'placePourExercice', module: 'moteur.js' },
   // moteur.js — l'escalier, la série de plus (§14.7, 49-U17)
+  { fn: 'marcheProposee', module: 'moteur.js' },
   { fn: 'serieDePlusProposee', module: 'moteur.js' },
   { fn: 'serieDePlusActive', module: 'moteur.js' },
   { fn: 'periodesSerieDePlus', module: 'moteur.js' },

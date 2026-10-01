@@ -8749,6 +8749,17 @@ const SETS_IMPORTES = [
       parisPlus().length === 1, JSON.stringify({ b, paris: parisPlus().length }));
     await abandonner();
 
+    // ── C. (delta 49-35) Un exercice AJOUTÉ en cours de séance, sa série de
+    //     plus active : il reçoit sa ligne de plus, comme à l'ouverture.
+    await seanceVide();
+    await ajouterExoSeance('Serré U17');
+    await attendre(1200);
+    const c = await lireSerie();
+    ok('[U17] C — l’exercice ajouté en cours de séance reçoit sa ligne de plus : ses séries de départ, puis la ligne en plus',
+      !!c.lignes && c.lignes.length >= 2 && c.lignes[c.lignes.length - 1][3] === true &&
+      c.lignes.slice(0, -1).every((l) => !l[3]) && c.carte === null && c.ajouteesEcran === 1, JSON.stringify(c));
+    await abandonner();
+
 
     ok('[U17] la garde (C6) n’a rien signalé dans cette section (I23, I24 compris)', gardeBanc.violations === violationsAvant,
       JSON.stringify(gardeBanc.liste.slice(-2)));

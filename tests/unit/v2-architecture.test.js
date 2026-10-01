@@ -103,6 +103,9 @@ const GARDEES = [
   { fn: 'consigneRepli', module: 'moteur.js' },
   { fn: 'phraseRepli', module: 'moteur.js' },
   { fn: 'observationMarche', module: 'moteur.js' },
+  // moteur.js — la règle de volume, la place pour une série de plus (§14.6, 49-U16)
+  { fn: 'placeDeVolume', module: 'moteur.js' },
+  { fn: 'placePourExercice', module: 'moteur.js' },
   // seance.js — le fantôme, la couverture, les lignes figées, les paris
   { fn: 'fantome', module: 'seance.js',
     motif: /(?:\bSeance|\bS|\bSeance\(\)|\bS\(\)|racine\.THSeance)\s*\.\s*fantome\b/g },
@@ -134,6 +137,11 @@ const AUTORISATIONS = {
     'app.js': 'calcule les ENTRÉES du plan (`entrees.consignes`) : le plan n’a pas l’historique ' +
       '(app.js, `consigneDe`) ; et l’étiquette de zone de la page d’exercice, hors séance, où ' +
       'il n’y a pas de plan (app.js, `rendreExercice`).'
+  },
+  placeDeVolume: {
+    'app.js': 'calcule l’ENTRÉE `entrees.volume` du plan, une fois par séance, sur tout ' +
+      'l’historique (le plan ne l’a pas) — préparer les entrées du plan (app.js, ' +
+      '`volumeDeLaSeance`, 49-U16).'
   },
   suiteDExercice: {
     'app.js': 'calcule l’ENTRÉE `entrees.suites` du plan (la consigne de la prochaine séance, ' +

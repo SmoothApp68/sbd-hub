@@ -8715,6 +8715,16 @@ const SETS_IMPORTES = [
       a.carte.detail === 'En force, une série de plus aide peu. Changer de schéma quelques semaines relance souvent la barre, avant d\'y revenir.' &&
       a.carte.oui === 'Passer à 6-8 reps' && a.carte.non === 'Garder 3-5', JSON.stringify(a.carte));
     ok('[U15] A — la phrase du compteur n\'est pas répétée dans l\'en-tête', a.phraseCompteur === null, JSON.stringify(a.phraseCompteur));
+    // MOTEUR §14.6 (49-U16) — la règle de volume, entrée du plan : calculée
+    // UNE FOIS par séance (le même objet d'un plan au suivant), sur tout
+    // l'historique ; le poussé (pectoraux) a une entrée. Rien ne s'affiche.
+    const volumeAvant = await page.evaluate(() => {
+      const v = window.THPlan && window.THPlan.dernier && window.THPlan.dernier.entrees.volume;
+      window.__volumeU16 = v;
+      return v ? { pectoraux: Object.prototype.hasOwnProperty.call(v, 'pectoraux'), place: window.THPlan.dernier.plan.exercices[0].placeSerieDePlus } : null;
+    });
+    ok('[U16] l\'entrée de volume est dans le plan (pectoraux), et la place par exercice aussi',
+      !!volumeAvant && volumeAvant.pectoraux === true && typeof volumeAvant.place === 'boolean', JSON.stringify(volumeAvant));
     await page.click('.proposition-schema .ps-oui');
     await attendre(1500);
     const a2 = await lireIsole('pousse-u15');
@@ -8724,6 +8734,8 @@ const SETS_IMPORTES = [
       !!pariS && pariS.exercise_slug === null && pariS.fondement.exercice === 'pousse-u15' &&
       pariS.fondement.reponse === 'acceptee' && pariS.fondement.compteur === 4 && pariS.fondement.nouvelle_zone === 'mix' &&
       pariS.valeur_observee === null, JSON.stringify(pariS));
+    ok('[U16] l\'entrée de volume n\'est PAS recalculée en cours de séance (même objet après la correction de zone)',
+      await page.evaluate(() => !!window.__volumeU16 && window.THPlan.dernier.entrees.volume === window.__volumeU16), '');
     ok('[U15] A — … puis la correction de zone (le geste de 48b-7) : Mix, et le compteur repart de zéro',
       !!zoneS && zoneS.zone === 'mix' && a2.zone === 'mix' && a2.compteur === 0 && a2.cartes === 0 && a2.marche === null,
       JSON.stringify({ zone: zoneS, plan: a2 }));

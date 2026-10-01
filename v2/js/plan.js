@@ -694,7 +694,10 @@
   //   · `refusChauffes` — `{ [slug]: true }` : la proposition de chauffes est
   //     retirée (« Non merci » dans la séance, ou trois refus d'affilée) ;
   //   · `phase` — la phase GELÉE de la séance (MOTEUR §9.16, 49-U11), lue dans
-  //     le profil par l'app quand la consigne se fige ; vide = `maintien`.
+  //     le profil par l'app quand la consigne se fige ; vide = `maintien` ;
+  //   · `volume` — MOTEUR §14.6 (49-U16) : `{ [muscle]: { place, moyenne,
+  //     seuil, fenetres } | null }`, la règle de volume calculée UNE FOIS par
+  //     séance sur tout l'historique (`Moteur.placeDeVolume`) ; facultatif.
   //
   // Pure : mêmes entrées, même plan ; les entrées ne sont jamais modifiées.
   function planDeSeance(entrees) {
@@ -727,6 +730,12 @@
           materielDe(exos, i, e.catalogue || null, c, e.refusChauffes || {}), phase,
           !!esc.allegee, Object.prototype.hasOwnProperty.call(seriesRoutine, slug) ? seriesRoutine[slug] : null, m);
         if (x.escalier && x.escalier.copie) x.escalier = null;
+        // MOTEUR §14.6 (49-U16) — LA PLACE POUR UNE SÉRIE DE PLUS : de la place
+        // sur CHACUN des muscles primaires de l'exercice (catalogue), lue dans
+        // `entrees.volume`. Un fait, rien d'affiché : la série de plus (PR 2c)
+        // le lira. `null` sans entrée de volume.
+        var cat = e.catalogue && slug && Object.prototype.hasOwnProperty.call(e.catalogue, slug) ? e.catalogue[slug] : null;
+        x.placeSerieDePlus = e.volume ? Moteur().placePourExercice(e.volume, cat ? cat.muscles_primaires : null) : null;
         return x;
       })
     };

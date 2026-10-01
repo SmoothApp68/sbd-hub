@@ -1531,7 +1531,7 @@ Le filet existe déjà : si le retrait fait descendre le volume sous la fourchet
 
 > **Un exercice cale seul : une marche à la fois, selon sa zone et la phase. La série de plus (zones muscle) arrive avec la règle de volume (PR 2b, 2c).**
 
-**Quand.** À l'ouverture, un exercice a un **déclenchement** (compteur à 4, 8, 12…) **et** aucune carte de semaine allégée ne s'ouvre pour lui (pas de blocage généralisé, ou carte retenue par la mémoire de §14.4).
+**Quand.** À l'ouverture, un exercice a un **déclenchement** (compteur à 4, 8, 12…) **et** aucune carte de semaine allégée ne s'ouvre pour lui (pas de blocage généralisé, ou carte retenue par la mémoire de §14.4). **Un exercice cité par une carte de semaine allégée de la même séance, acceptée ou refusée, n'a pas de marche isolée dans cette séance** (tranché le 01/10/2026, #346 : sinon une carte surgirait juste après « au prochain blocage »).
 
 **Quelle marche.** Le **n-ième déclenchement isolé** depuis le dernier progrès de l'exercice — n = (compteur − 4) / 4 + 1, moins les déclenchements répondus par une carte de semaine allégée dont il était le déclencheur :
 
@@ -1549,9 +1549,23 @@ Le filet existe déjà : si le retrait fait descendre le volume sous la fourchet
 
 **Le silence** — aucune proposition ; la phrase du compteur quitte l'en-tête et passe une fois dans le constat de fin de bloc (« 80 kg × 10 reste ton meilleur depuis 12 séances. »), sans alarme.
 
-**Les paris** (`module = 'escalier'`, identifiant `escalier|séance|exercice|marche`) : **schéma**, écrit à la réponse (`reponse : acceptee | refusee`), accepté observé sans série (1 si l'exercice progresse avant son prochain déclenchement, 0 à son prochain déclenchement), refusé jamais observé ; **repli**, écrit à l'ouverture (`reponse : appliquee`), observé de même. La sèche (« le coach le dit ») et le silence ne sont pas des propositions : pas de pari.
+**Les paris** (`module = 'escalier'`, identifiant `escalier|séance|exercice|marche` ; **colonne `exercise_slug` vide, l'exercice dans `fondement.exercice`** — tranché le 01/10/2026, #346 : remplie, cinq lecteurs de paris les prendraient pour des paris de consigne) : **schéma**, écrit à la réponse (`reponse : acceptee | refusee`), accepté observé sans série (1 si l'exercice progresse avant son prochain déclenchement, 0 à son prochain déclenchement), refusé jamais observé ; **repli**, écrit à l'ouverture (`reponse : appliquee`), observé de même. La sèche (« le coach le dit ») et le silence ne sont pas des propositions : pas de pari.
 
 **Référence** : `coach49.py` ; cas `cas_isole49.json`.
+
+
+### 14.6 La place pour une série de plus — la règle de volume, câblée le 01/10/2026 (chantier 49, PR 2b)
+
+> **Un fait par muscle, calculé une fois sur tout l'historique : la moyenne des 3 dernières semaines actives dépasse-t-elle le troisième quart de ses moyennes habituelles ?**
+
+- **Volume d'une semaine, pour un muscle** : les séries de travail de la semaine (lundi à dimanche), **1** si le muscle est primaire de l'exercice, **0,5** s'il est secondaire (`THSemaine.volumeParMuscle`). **Toutes les séances comptent**, importées comprises : c'est un fait descriptif de l'historique, pas un jugement sous consigne.
+- **Semaine active** : au moins une séance, quel que soit l'exercice. **Fenêtre** : la moyenne des 3 dernières semaines actives, calculée à chaque semaine active ; une semaine vide ne compte pas et ne casse pas la fenêtre (REGLE-VOLUME §11.3).
+- **Époque** : 4 semaines vides consécutives ouvrent une nouvelle époque — la référence repart de zéro, le suivi continue (REGLE-VOLUME §11.4).
+- **Seuil** : le **troisième quartile** des fenêtres d'avant de la même époque, au **rang le plus proche** (rang ⌈0,75 n⌉ dans les fenêtres triées). **Au moins 6 fenêtres de référence**, sinon **pas de base**.
+- **Place** : la dernière fenêtre (les 3 dernières semaines actives **avant** la semaine de la séance) est **inférieure ou égale** au seuil. **Pour un exercice** : il faut de la place sur **chacun de ses muscles primaires** ; un seul muscle sans base ou sans place, et la série de plus n'est pas proposée (se taire faute de donnée, comme le repli, §14.2).
+- **Rien ne s'affiche** dans cette PR : le fait est une entrée du plan, que la série de plus (PR 2c) lira.
+
+**Référence** : `coach49.py` ; cas `cas_volume49.json`.
 
 
 ---

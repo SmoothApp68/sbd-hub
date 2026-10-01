@@ -3457,6 +3457,60 @@
     return null;
   }
 
+  // ══ §14.6 (49-U16) — LA PLACE POUR UNE SÉRIE DE PLUS : LA RÈGLE DE VOLUME ══
+  //
+  // « La moyenne des 3 dernières semaines actives dépasse-t-elle le troisième
+  // quart de ses moyennes habituelles ? » Un fait par muscle, sur le volume de
+  // chaque semaine (`THSemaine.semainesDeVolume`, le seul fil du volume) ;
+  // AUCUN affichage : la série de plus (PR 2c) le lira dans le plan.
+  // Référence : `coach49.py` (`fenetres_muscle`, `laisse_de_la_place`) ; cas
+  // `cas-49u16-volume.json` ; REGLE-VOLUME-V2 §1, §11.3, §11.4.
+  var FENETRE_VOLUME = 3;          // les 3 dernières semaines ACTIVES
+  var VIDES_NOUVELLE_EPOQUE = 4;   // 4 semaines vides consécutives : une nouvelle époque
+  var FENETRES_DE_BASE = 6;        // au moins 6 fenêtres de référence, sinon pas de base
+  var QUARTILE_VOLUME = 0.75;      // le 3e quartile, au rang le plus proche ⌈0,75 n⌉
+
+  // `semaines` : `[{ semaine, active, volume }]`, dans l'ordre, TOUTES les
+  // semaines avant celle de la séance, vides comprises. Une fenêtre se calcule
+  // à chaque semaine active, sur les 3 dernières semaines actives de la même
+  // époque (une semaine vide ne compte pas et ne casse pas la fenêtre) ; la
+  // dernière est celle d'aujourd'hui, les précédentes de l'époque sont la
+  // référence. Rend `{ place, moyenne, seuil, fenetres }` (`fenetres` : le
+  // nombre de fenêtres de référence), ou `null` : pas de base — moins de 6
+  // fenêtres de référence, ou une époque qui n'a pas encore 3 semaines actives
+  // (4 semaines vides juste avant la séance en ouvrent une).
+  function placeDeVolume(semaines) {
+    var actifs = [], ref = [], derniere = null, vides = 0;
+    (semaines || []).forEach(function (s) {
+      if (!s || s.active !== true) { vides++; return; }
+      if (vides >= VIDES_NOUVELLE_EPOQUE) { actifs = []; ref = []; derniere = null; }
+      vides = 0;
+      actifs.push(nombre(s.volume) || 0);
+      if (actifs.length >= FENETRE_VOLUME) {
+        if (derniere !== null) ref.push(derniere);
+        var a = actifs.slice(-FENETRE_VOLUME);
+        derniere = a.reduce(function (x, y) { return x + y; }, 0) / FENETRE_VOLUME;
+      }
+    });
+    if (vides >= VIDES_NOUVELLE_EPOQUE || derniere === null || ref.length < FENETRES_DE_BASE) return null;
+    var tri = ref.slice().sort(function (x, y) { return x - y; });
+    var seuil = tri[Math.ceil(QUARTILE_VOLUME * tri.length) - 1];
+    return { place: derniere <= seuil + 1e-9, moyenne: derniere, seuil: seuil, fenetres: ref.length };
+  }
+
+  // POUR UN EXERCICE : de la place sur CHACUN de ses muscles primaires. Un seul
+  // muscle sans base (`null`, absent) ou sans place, et pas de place — se taire
+  // faute de donnée, comme le repli (§14.2). Sans muscle primaire connu : non.
+  // `volume` : `{ [muscle]: placeDeVolume(...) | null }`.
+  function placePourExercice(volume, primaires) {
+    var p = primaires || [];
+    if (!volume || !p.length) return false;
+    return p.every(function (m) {
+      var v = Object.prototype.hasOwnProperty.call(volume, m) ? volume[m] : null;
+      return !!v && v.place === true;
+    });
+  }
+
   // La consigne d'UN exercice de la séance ouverte, silences compris. Pure :
   // `app.js` ne fait que résoudre les valeurs (`mesure` par `gabaritDe`,
   // `reglage` par `Profil.rythmeDe`, `equipement` au catalogue) et les passer.
@@ -3827,6 +3881,8 @@
     phraseRepli: phraseRepli,
     marchesDesParis: marchesDesParis,
     observationMarche: observationMarche,
+    placeDeVolume: placeDeVolume,
+    placePourExercice: placePourExercice,
     situationChauffe: situationChauffe,
     chauffesDe: chauffesDe,
     degressiveDe: degressiveDe,

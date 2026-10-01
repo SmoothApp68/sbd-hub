@@ -2909,13 +2909,19 @@
       var opts = { reglage: o.reglage, equipement: o.equipement,
                    correction: o.corrections ? correctionAu(o.corrections, se.debut) : (o.correction || null) };
       var k = consignePour(liste.slice(0, i), se.debut, opts);
-      if (!k || k.etat === 'silence') {
+      var v = vueDeSeance(se);
+      var P = nombre(v.palier);
+      // Une séance NEUTRE (§7.6 : aucune série dans la zone), sans palier fait,
+      // ou dont la consigne est muette ou sans zone (bord, reprise sans zone)
+      // n'est ni comptée ni jugée (§12.9, 49-29, `deroule_compteur`) — mais une
+      // reprise vue là remet quand même à zéro la suivante. Le rejeu lit les
+      // séances DU CONTRAT (`contratDe`, où `neutre` est posé) : la même règle
+      // de calcul que la consigne vivante.
+      if (se.neutre === true || !k || k.etat === 'silence' || k.zone === null || k.zone === undefined || P === null) {
         if (!premiere && k && repriseDe(liste.slice(0, i), se.debut) !== AUCUNE_REPRISE) repriseEnAttente = true;
         return;
       }
-      var v = vueDeSeance(se);
       var A = seriesAuPalier(v);
-      var P = nombre(v.palier);
       var n = A.length ? niveauValide(A) : null;
       var z = zoneParCle(k.zone);
       var t = testDe(v);
@@ -2929,17 +2935,22 @@
       if (rz) {
         progres = true;
         meilleur = P === null ? null : { palier: P, niveau: n };
-        meilleurTest = null;
+        // §12.9 (49-29) — le test tenu ce jour-là est le meilleur test.
+        meilleurTest = tenu ? { charge: t.charge, niveau: t.niveau } : null;
         compteur = 0;
       } else {
+        // §12.9 (49-29) — le meilleur test se retient À CHAQUE séance où un
+        // test est tenu, même quand le progrès vient du palier : sinon le même
+        // test refait passerait pour un progrès (§12.2 bis).
+        var testMieux = tenu && testMeilleur(t, meilleurTest);
+        if (testMieux) meilleurTest = { charge: t.charge, niveau: t.niveau };
         if (P !== null && (meilleur === null ||
             (P > meilleur.palier && !memeCharge(P, meilleur.palier)) ||
             (memeCharge(P, meilleur.palier) && n !== null && (meilleur.niveau === null || n > meilleur.niveau)))) {
           progres = true;
           meilleur = { palier: P, niveau: n };
-        } else if (tenu && testMeilleur(t, meilleurTest)) {
+        } else if (testMieux) {
           progres = true;
-          meilleurTest = { charge: t.charge, niveau: t.niveau };
         }
         if (progres) {
           if (compteur > 0) blocages.push(compteur);
@@ -2954,6 +2965,20 @@
       premiere = false;
       derniere = P === null ? null : { palier: P, niveau: n };
     });
+    // §12.9 (49-29) — LA REMISE À ZÉRO VAUT DÈS L'OUVERTURE : si la séance qui
+    // s'ouvre (`avant`) est une reprise, ou change de zone, le compteur est à
+    // zéro — pas de phrase. Une reprise vue sur une séance non comptée depuis
+    // la dernière comptée vaut de même. Le meilleur reste ce qu'il était.
+    if (!premiere) {
+      var kOuverture = consignePour(liste, avant, { reglage: o.reglage, equipement: o.equipement,
+        // La zone EN VIGUEUR AUJOURD'HUI : la dernière choisie (l'historique des
+        // choix), sinon `o.correction` — dans l'app, les deux disent la même chose.
+        correction: o.corrections ? correctionAu(o.corrections, '9999-12-31T00:00:00Z') : (o.correction || null) });
+      if (repriseEnAttente || (kOuverture && (kOuverture.etat === 'reprise_courte' ||
+          kOuverture.etat === 'reprise_longue' || kOuverture.zone !== zonePrecedente))) {
+        compteur = 0;
+      }
+    }
     return { compteur: compteur, meilleur: meilleur, derniere: derniere, verdicts: verdicts, blocages: blocages };
   }
 

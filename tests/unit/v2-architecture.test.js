@@ -81,6 +81,17 @@ const GARDEES = [
   // moteur.js — le compteur de stagnation (§12.9, 49-U13)
   { fn: 'compteurDe', module: 'moteur.js' },
   { fn: 'phraseCompteur', module: 'moteur.js' },
+  // moteur.js — l'escalier, la semaine allégée (§14.4, 49-U14)
+  { fn: 'blocageGeneralise', module: 'moteur.js' },
+  { fn: 'phraseCarte', module: 'moteur.js' },
+  { fn: 'consigneAllegee', module: 'moteur.js' },
+  { fn: 'phraseAllegee', module: 'moteur.js' },
+  { fn: 'detailAllegee', module: 'moteur.js' },
+  { fn: 'bandeauAllegee', module: 'moteur.js' },
+  { fn: 'periodeAllegee', module: 'moteur.js' },
+  { fn: 'carteAutorisee', module: 'moteur.js' },
+  { fn: 'observationSemaineAllegee', module: 'moteur.js' },
+  { fn: 'idDEscalier', module: 'moteur.js' },
   // seance.js — le fantôme, la couverture, les lignes figées, les paris
   { fn: 'fantome', module: 'seance.js',
     motif: /(?:\bSeance|\bS|\bSeance\(\)|\bS\(\)|racine\.THSeance)\s*\.\s*fantome\b/g },
@@ -128,6 +139,14 @@ const AUTORISATIONS = {
   idDePrediction: {
     'app.js': 'l’identifiant déterministe d’un pari au moment de l’écrire en base : de la ' +
       'persistance, le pari lui-même vient du plan (app.js, `finirPari`).'
+  },
+  observationSemaineAllegee: {
+    'app.js': 'l’observation SANS SÉRIE du pari de la semaine allégée, au moment de l’écrire ' +
+      'en base : de la persistance (app.js, `observerEscalier`) ; la règle vit dans le moteur.'
+  },
+  idDEscalier: {
+    'app.js': 'l’identifiant déterministe du pari de l’escalier au moment de l’écrire en base : ' +
+      'de la persistance, la carte elle-même vient du plan (app.js, `repondreCarte`).'
   },
   observationDe: {
     'app.js': 'l’observation d’un pari par sa série, au moment de l’écrire en base : de la ' +

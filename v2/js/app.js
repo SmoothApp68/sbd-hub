@@ -24,7 +24,7 @@
 
   var vues = {};
   var local = { seances: [], series: [], exercices: [], pesees: [], zones: [],
-                predictions: [], sousConsigne: {}, parSeance: null };
+                predictions: [], sousConsigne: {}, parisLegers: [], escalier: [], parSeance: null };
   var etat = { code: 'vide', libelle: '', local: false };
   var syncEnCours = false;
   var lundiAffiche = null;   // le lundi de la semaine à l'écran
@@ -248,6 +248,13 @@
     // stagnation tient hors ligne.
     try { local.sousConsigne = (await Cache.lireBrouillon(CLE_SOUS_CONSIGNE)) || {}; }
     catch (e) { local.sousConsigne = {}; }
+    // MOTEUR §14.4 (49-U14) — les compteurs figés dans les paris (tous
+    // appareils) et les paris de l'escalier, relus à la dernière
+    // synchronisation : la carte et la semaine allégée tiennent hors ligne.
+    try { local.parisLegers = (await Cache.lireBrouillon(CLE_PARIS_LEGERS)) || []; }
+    catch (e) { local.parisLegers = []; }
+    try { local.escalier = (await Cache.lireBrouillon(CLE_PARIS_ESCALIER)) || []; }
+    catch (e) { local.escalier = []; }
     rangerSeances();
     indexerParSeance();
     recalculerEtats();
@@ -318,6 +325,8 @@
     // §12.9 (49-U13) — les séances sous consigne aussi (le brouillon qui les
     // porte vient d'être effacé avec le reste).
     local.sousConsigne = {};
+    local.parisLegers = [];
+    local.escalier = [];
     // Le profil aussi appartient au compte précédent — et son envoi en attente
     // avec lui. Le rejouer sur le compte suivant écrirait la taille de
     // quelqu'un d'autre dans sa ligne `profiles`.
@@ -390,7 +399,17 @@
       // manquante » jusqu'à la synchronisation suivante. Toute lecture posée
       // là élargit la fenêtre (banc d'écran, section 5, 01/10/2026).
       var parisDuCompte = await essayer(Donnees.seancesAvecPari);
-      if (parisDuCompte) local.sousConsigne = seancesAvecPari(parisDuCompte);
+      if (parisDuCompte) {
+        local.sousConsigne = seancesAvecPari(parisDuCompte);
+        // §14.4 (49-U14) — et le compteur figé dans chacun (`compteur`).
+        local.parisLegers = parisDuCompte;
+      }
+      // MOTEUR §14.4 (49-U14) — LES PARIS DE L'ESCALIER, en entier : peu de
+      // lignes (une par carte), lues à part. Accessoires comme les autres.
+      var escalierDuCompte = await essayer(Donnees.parisEscalier);
+      if (escalierDuCompte) {
+        local.escalier = escalierDuCompte.filter(function (l) { return l && l.module === Moteur.MODULE_ESCALIER; });
+      }
 
       // ⚠️ La liste du serveur ne contient PAS ce qui n'y est pas encore monté.
       // Sans cette garde, la première synchronisation réussie effacerait une
@@ -441,6 +460,10 @@
       }
       if (parisDuCompte) {
         await Cache.ecrireBrouillon(CLE_SOUS_CONSIGNE, local.sousConsigne).catch(function () {});
+        await Cache.ecrireBrouillon(CLE_PARIS_LEGERS, local.parisLegers).catch(function () {});
+      }
+      if (escalierDuCompte) {
+        await Cache.ecrireBrouillon(CLE_PARIS_ESCALIER, local.escalier).catch(function () {});
       }
       await Cache.supprimer('series', idsRetires(fusionnees, local.series));
       await Cache.ecrireLot('series', local.series);
@@ -461,6 +484,8 @@
       etat = Sync.deciderEtat({
         syncOk: true, aDesDonnees: true, manquantes: commit.manquantes
       });
+      // §14.4 (49-U14) — une semaine allégée acceptée se tranche ici aussi.
+      observerEscalier().catch(function () {});
     } catch (e) {
       // Une synchronisation ratée n'est jamais bloquante : on garde ce qu'on a.
       etat = Sync.deciderEtat({ syncOk: false, aDesDonnees: local.seances.length > 0 });
@@ -847,6 +872,21 @@
     await poserSeance(true);
     allerA(Routeur.SAISIE, {}, true);
     rendreSeance();
+    // §14.4 (49-U14) — une séance créée PENDANT une semaine allégée ne garde
+    // que ses lignes allégées.
+    await appliquerAllegee();
+  }
+
+  // §14.4 (49-U14) — RETIRER LES LIGNES EN TROP, une fois : à l'acceptation
+  // de la carte et à la création d'une séance dans la période. Jamais au
+  // rendu : une série ajoutée ensuite (« + Série ») reste. La règle est
+  // `Plan.lignesARetirer` (les séries validées n'y sont jamais).
+  async function appliquerAllegee() {
+    if (!seance || enEdition()) return;
+    var aRetirer = Plan.lignesARetirer(planActuel());
+    if (!aRetirer.length) return;
+    aRetirer.forEach(function (r) { seance = Seance.retirerSerie(seance, r.iExo, r.iSerie); });
+    await apresGeste();
   }
 
   // ⚠️ RÉPARATION AU DÉMARRAGE (chantier 33). L'APPAREIL NE SE RÉPARE PAS TOUT
@@ -1679,6 +1719,8 @@
   // relus à la synchronisation, `local.sousConsigne`) et ceux de cet appareil
   // pas encore montés (`local.predictions`).
   var CLE_SOUS_CONSIGNE = 'sous-consigne';
+  var CLE_PARIS_LEGERS = 'paris-legers';
+  var CLE_PARIS_ESCALIER = 'paris-escalier';
 
   // `{ [slug]: [identifiants de séance] }`, à partir de lignes `predictions` —
   // celles du serveur (`session_id`, colonne générée) ou celles de l'appareil
@@ -1704,6 +1746,61 @@
       if (id && !vus[id]) { vus[id] = true; ids.push(id); }
     });
     return ids;
+  }
+
+  // ── MOTEUR §14.4 (49-U14) — L'ESCALIER : CE QUE L'APP LIT POUR LE PLAN ──
+  //
+  // Les paris de l'escalier : ceux du serveur (`local.escalier`) et ceux de cet
+  // appareil (`local.predictions`, `module = 'escalier'`), une fois chacun — la
+  // copie de l'appareil l'emporte (elle porte la dernière observation posée).
+  function parisEscalierConnus() {
+    var parId = {};
+    (local.escalier || []).forEach(function (l) { if (l && l.id) parId[l.id] = l; });
+    (local.predictions || []).forEach(function (l) {
+      if (l && l.id && l.module === Moteur.MODULE_ESCALIER) parId[l.id] = l;
+    });
+    return Object.keys(parId).map(function (k) { return parId[k]; });
+  }
+
+  // Les compteurs à l'ouverture, lus dans le fondement des paris de consigne :
+  // ceux du serveur (`local.parisLegers`, la colonne `compteur`) et ceux de
+  // l'appareil. Une entrée par (séance, exercice). La date est celle de la
+  // séance (`local.seances`, ou la séance ouverte).
+  function compteursDesParis() {
+    var debutDe = {};
+    (local.seances || []).forEach(function (s) { if (s && s.id) debutDe[s.id] = s.debut; });
+    if (seance && seance.id) debutDe[seance.id] = seance.debut;
+    var vus = {}, sortie = [];
+    var ajouter = function (slug, sid, c) {
+      if (!slug || !sid || typeof c !== 'number' || !debutDe[sid] || vus[sid + '|' + slug]) return;
+      vus[sid + '|' + slug] = true;
+      sortie.push({ exercice: slug, seance: sid, compteur: c, debut: debutDe[sid],
+                    jour: Moteur.jourCivil(debutDe[sid]) });
+    };
+    (local.predictions || []).forEach(function (l) {
+      if (!l || l.module === Moteur.MODULE_ESCALIER || !l.fondement) return;
+      ajouter(l.exercise_slug, l.fondement.seance, l.fondement.compteur);
+    });
+    (local.parisLegers || []).forEach(function (l) {
+      var c = l && typeof l.compteur === 'string' ? Number(l.compteur) : l && l.compteur;
+      ajouter(l && l.exercise_slug, l && l.session_id, typeof c === 'number' && isFinite(c) ? c : null);
+    });
+    return sortie;
+  }
+
+  // Les semaines allégées ACCEPTÉES, `[{ debut, fin }]` : le compteur ne compte
+  // ni ne juge leurs séances (décharge déclarée, §9.10).
+  function periodesAllegees() {
+    return Moteur.cartesDesParis(parisEscalierConnus()).filter(function (c) {
+      return c.reponse === 'acceptee' && c.debut && c.fin;
+    }).map(function (c) { return { debut: c.debut, fin: c.fin }; });
+  }
+
+  // Les séries de travail d'un exercice dans la séance ouverte : à l'ouverture,
+  // celles de la routine (ou du pré-remplissage). Figées avec la consigne.
+  function nombreDeSeriesDeTravail(slug) {
+    var exo = ((seance && seance.exercices) || []).filter(function (x) { return x && x.exercise_slug === slug; })[0];
+    return exo ? (exo.series || []).filter(function (s) { return Seance.typeDe(s) === 'travail'; }).length : 0;
   }
 
   function consigneDe(slug) {
@@ -1741,11 +1838,18 @@
           // Et l'historique des zones choisies : chaque séance passée se rejoue
           // avec la zone en vigueur ce jour-là, pas celle d'aujourd'hui.
           correctionsDeZone: (local.zones || []).filter(function (l) { return l && l.exercise_slug === slug; }),
+          // §14.4 (49-U14) — les semaines allégées acceptées : leurs séances ne
+          // sont ni comptées ni jugées par le compteur.
+          periodesAllegees: periodesAllegees(),
           // §7 octies — une séance terminée rouverte est une séance FAITE : le
           // moteur n'y prescrit rien, ni en-tête ni plan.
           edition: enEdition()
         });
       if (!exo) return calculee;
+      // §14.4 (49-U14) — les séries de travail de la routine, FIGÉES avec la
+      // consigne : la semaine allégée en couvre 60 %, et « + Série » ne change
+      // pas ce compte en cours de séance.
+      if (calculee) calculee.seriesRoutine = nombreDeSeriesDeTravail(slug);
       consignes.parSlug[slug] = calculee;
       versionConsignes++;
       sauverConsignes();
@@ -1775,6 +1879,9 @@
   // Le banc lit ce que la garde a vu (le nombre de plans vérifiés) ; rien
   // d'autre ne le relit.
   Plan.garde = garde;
+  // §14.4 (49-U14) — `?escalier=demo` se lit AU DÉMARRAGE, avant que le
+  // routeur ne réécrive l'adresse ; il est ensuite retenu pour la session.
+  try { demoEscalier(); } catch (e) { /* rien à retenir */ }
 
   function marquerGarde(violations) {
     var doc = racine.document;
@@ -1871,6 +1978,8 @@
                             muscles_primaires: (f.muscles_primaires || []).slice() };
       }
     });
+    // §14.4 (49-U14) — la démonstration ne touche qu'aux ENTRÉES (une copie).
+    if (demoEscalier()) cs = consignesDeDemo(cs);
     return {
       seance: { id: seance.id, debut: seance.debut, edition: edition, exercices: exos },
       consignes: cs,
@@ -1883,8 +1992,72 @@
       suites: suites,
       paris: (local.predictions || []).filter(function (l) {
         return l && l.fondement && l.fondement.seance === seance.id;
-      })
+      }),
+      // MOTEUR §14.4 (49-U14) — l'escalier : les cartes passées, les compteurs
+      // figés dans les paris des autres séances, les noms du catalogue et les
+      // séries de la routine. Le plan décide de la carte et de la période.
+      escalier: escalierDesEntrees(cs)
     };
+  }
+
+  // ── MOTEUR §14.4 (49-U14) — VOIR LA CARTE SUR LA PRÉVISUALISATION ────────
+  //
+  // `?escalier=demo` (et `?escalier=0` pour l'éteindre), SEULEMENT là où la
+  // garde du coach est active — `localhost`, une prévisualisation `*.pages.dev`,
+  // `?garde=1` ; JAMAIS en production. Retenu pour la session de l'onglet.
+  // Tant qu'il est allumé : deux exercices TÉMOINS (« Exercice témoin A, B »)
+  // calent depuis 4 et 5 séances aujourd'hui, et le premier exercice de la
+  // séance qui a une consigne déclenche (compteur 4) — dans les ENTRÉES du plan
+  // seulement, jamais dans le mémo des consignes. La réponse à la carte reste
+  // EN MÉMOIRE, et AUCUN PARI NE S'ÉCRIT (ni de consigne, ni de l'escalier) :
+  // la base ne voit rien de faux. ⚠️ On n'y valide donc AUCUNE SÉRIE (une série
+  // validée sans son pari, la garde le dirait : I7) ; on abandonne la séance.
+  var demoReponse = null;   // la carte « répondue » de la démonstration, en mémoire
+  function demoEscalier() {
+    // ⚠️ La clé est ICI, pas dans une `var` du module : la fonction est appelée
+    // au démarrage, plus haut, avant que cette ligne ne soit exécutée.
+    var CLE_DEMO_ESCALIER = 'th-v2-escalier-demo';
+    if (!garde || !garde.active) return false;
+    var s = null;
+    try { s = racine.sessionStorage; } catch (e) { s = null; }
+    var m = /[?&]escalier=(demo|0)(?:&|$)/.exec(String((racine.location && racine.location.search) || ''));
+    if (m) { try { if (s) s.setItem(CLE_DEMO_ESCALIER, m[1] === 'demo' ? '1' : '0'); } catch (e) { /* fermé */ } return m[1] === 'demo'; }
+    try { return !!s && s.getItem(CLE_DEMO_ESCALIER) === '1'; } catch (e) { return false; }
+  }
+  function consignesDeDemo(cs) {
+    var copie = Object.assign({}, cs);
+    var premier = Object.keys(cs).filter(function (s) { return cs[s] && cs[s].consigne && cs[s].consigne.etat !== 'silence'; })[0];
+    if (premier) {
+      copie[premier] = Object.assign({}, cs[premier], {
+        compteur: Object.assign({ meilleur: null, derniere: null, blocages: [] }, cs[premier].compteur || {}, { compteur: 4 })
+      });
+    }
+    return copie;
+  }
+
+  function escalierDesEntrees(cs) {
+    var noms = {}, seriesRoutine = {};
+    var index = catalogueIndexe();
+    Object.keys(index).forEach(function (s) { if (index[s] && index[s].nom) noms[s] = index[s].nom; });
+    Object.keys(cs).forEach(function (s) {
+      var c = cs[s];
+      // Figé à 0 (un exercice ajouté hors routine, avant ses séries) : le compte
+      // d'aujourd'hui.
+      seriesRoutine[s] = c && typeof c.seriesRoutine === 'number' && c.seriesRoutine > 0
+        ? c.seriesRoutine : nombreDeSeriesDeTravail(s);
+    });
+    var cartes = Moteur.cartesDesParis(parisEscalierConnus());
+    var compteurs = compteursDesParis();
+    if (demoEscalier() && seance) {
+      var jour = Moteur.jourCivil(seance.debut);
+      noms['demo-a'] = 'Exercice témoin A';
+      noms['demo-b'] = 'Exercice témoin B';
+      compteurs = compteurs.concat([
+        { exercice: 'demo-a', jour: jour, compteur: 5, seance: 'demo', debut: seance.debut },
+        { exercice: 'demo-b', jour: jour, compteur: 4, seance: 'demo', debut: seance.debut }]);
+      if (demoReponse) cartes = cartes.concat([demoReponse]);
+    }
+    return { cartes: cartes, compteurs: compteurs, noms: noms, seriesRoutine: seriesRoutine };
   }
 
   function planActuel() {
@@ -1896,11 +2069,14 @@
     if (planMemo && planMemo.seance === seance && planMemo.paris === local.predictions &&
         planMemo.version === versionConsignes && planMemo.edition === edition &&
         planMemo.constats === constats && planMemo.catalogue === local.exercices &&
-        planMemo.refus === refusChauffes) return planMemo.plan;
+        planMemo.refus === refusChauffes && planMemo.escalier === local.escalier &&
+        planMemo.legers === local.parisLegers && planMemo.seances === local.seances &&
+        planMemo.demo === demoReponse) return planMemo.plan;
     var plan = Plan.planDeSeance(entrees);
     planMemo = { seance: seance, paris: local.predictions, version: versionConsignes,
                  edition: edition, constats: constats, catalogue: local.exercices,
-                 refus: refusChauffes, plan: plan };
+                 refus: refusChauffes, escalier: local.escalier, legers: local.parisLegers,
+                 seances: local.seances, demo: demoReponse, plan: plan };
     // Le banc lit le dernier plan et ses entrées pour vérifier les invariants
     // après chaque geste (§9.13 bis) ; rien d'autre ne le relit.
     Plan.dernier = { entrees: entrees, plan: plan };
@@ -2179,6 +2355,9 @@
   // Rend la ligne provisoire (sans identifiant), ou `null`.
   function enregistrerPari(iExo, iSerie) {
     if (!seance || enEdition()) return null;
+    // §14.4 (49-U14) — en démonstration de l'escalier, AUCUN pari ne s'écrit :
+    // les compteurs y sont inventés.
+    if (demoEscalier()) return null;
     var p = Plan.planDeSeance(entreesDuPlan());
     var r = p && p.exercices[iExo];
     if (!r || !r.consigne) return null;
@@ -2229,7 +2408,115 @@
     });
     if (!trouve) local.predictions = local.predictions.concat([ligne]);
     await Cache.ecrireLot('predictions', [ligne]).catch(function () {});
+    // §14.4 (49-U14) — un compteur de plus vient d'être figé : une semaine
+    // allégée acceptée peut se trancher.
+    observerEscalier().catch(function () {});
     return ligne;
+  }
+
+  // ── MOTEUR §14.4 (49-U14) — LA RÉPONSE À LA CARTE ──────────────────────
+  //
+  // Acceptée ou refusée, la réponse S'ÉCRIT : c'est le pari de la semaine
+  // allégée (`module = 'escalier'`), identifié dans son espace de noms
+  // (`Moteur.idDEscalier`). Acceptée, il ouvre la période (le plan la lit dans
+  // les paris de l'escalier) ; refusée, il n'est jamais observé, et un bandeau
+  // d'un instant le dit. Rien d'autre n'est stocké : la mémoire des cartes vit
+  // dans ces paris.
+  var refusMontre = null;      // l'identifiant de la séance du bandeau d'un instant
+  var DUREE_BANDEAU_REFUS = 6000;
+  var VERSION_ESCALIER = '1';
+  var reponseEnCours = false;
+
+  function montrerRefus() {
+    var ici = seance.id;
+    refusMontre = ici;
+    setTimeout(function () {
+      if (refusMontre !== ici) return;
+      refusMontre = null;
+      if (seance && seance.id === ici && ecranCourant === 'seance') rendreSeance();
+    }, DUREE_BANDEAU_REFUS);
+  }
+
+  async function repondreCarte(reponse) {
+    if (!seance || enEdition() || reponseEnCours) return;
+    var p = planActuel();
+    var carte = p && p.carte;
+    if (!carte) return;
+    reponseEnCours = true;
+    try {
+      var acceptee = reponse === 'acceptee';
+      if (demoEscalier()) {
+        // La démonstration : la réponse reste en mémoire, rien ne s'écrit.
+        demoReponse = { seance: seance.id, jour: carte.jour, declencheur: carte.declencheur, compteur: carte.compteur,
+                        reponse: acceptee ? 'acceptee' : 'refusee', debut: acceptee ? carte.jour : null,
+                        fin: acceptee ? Moteur.finAllegee(carte.jour) : null };
+        if (!acceptee) montrerRefus();
+        rendreSeance();
+        if (acceptee) await appliquerAllegee();
+        return;
+      }
+      var id = await Moteur.idDEscalier(seance.id, null, Moteur.MARCHE_SEMAINE_ALLEGEE)
+        .catch(function () { return null; });
+      var pari = {
+        id: id || uuid(),
+        user_id: (sessionActive && sessionActive.user && sessionActive.user.id) || null,
+        module: Moteur.MODULE_ESCALIER, module_version: VERSION_ESCALIER,
+        emise_a: new Date().toISOString(),
+        exercise_slug: null, grandeur: 'progres', horizon_jours: null,
+        valeur_predite: 1, borne_basse: null, borne_haute: null,
+        fondement: {
+          seance: seance.id, jour: carte.jour, marche: Moteur.MARCHE_SEMAINE_ALLEGEE,
+          reponse: acceptee ? 'acceptee' : 'refusee',
+          declencheur: carte.declencheur, compteur: carte.compteur, cites: carte.cites.slice(),
+          debut: acceptee ? carte.jour : null, fin: acceptee ? Moteur.finAllegee(carte.jour) : null,
+          phase: p.phase
+        },
+        valeur_observee: null, observee_a: null, set_observe: null
+      };
+      local.predictions = (local.predictions || []).concat([pari]);
+      await Cache.ecrireLot('predictions', [pari]).catch(function () {});
+      await poserPari(pari);
+      if (!acceptee) montrerRefus();
+    } finally {
+      reponseEnCours = false;
+    }
+    if (seance) rendreSeance();
+    if (seance && reponse === 'acceptee') await appliquerAllegee();
+  }
+
+  // L'OBSERVATION DU PARI ACCEPTÉ, SANS SÉRIE (§14.4) — SON PROPRE CHEMIN, pas
+  // celui des paris de consigne (`observerSerie`, qui suppose une série) :
+  // 1 si le déclencheur progresse avant son prochain déclenchement, 0 à ce
+  // déclenchement, `observee_a` = le début de la séance qui tranche. Lue dans
+  // les compteurs figés des paris ; posée par la file, comme toute observation.
+  // La contrainte `predictions_observation_coherente` l'admet pour `module =
+  // 'escalier'` seulement (`v2_052`).
+  var escalierObserves = {};
+  async function observerEscalier() {
+    if (demoEscalier()) return;
+    var compteurs = compteursDesParis();
+    var paris = parisEscalierConnus();
+    for (var i = 0; i < paris.length; i++) {
+      var l = paris[i];
+      if (!l || !l.id || escalierObserves[l.id]) continue;
+      if (l.valeur_observee !== null && l.valeur_observee !== undefined) continue;
+      var carte = Moteur.cartesDesParis([l])[0];
+      var obs = carte ? Moteur.observationSemaineAllegee(carte, compteurs) : null;
+      if (!obs) continue;
+      escalierObserves[l.id] = true;
+      var maj = Object.assign({}, l, { valeur_observee: obs.valeur,
+        observee_a: obs.debut || new Date().toISOString(), set_observe: null });
+      var ici = false;
+      local.predictions = (local.predictions || []).map(function (x) {
+        if (!x || x.id !== maj.id) return x;
+        ici = true;
+        return maj;
+      });
+      if (ici) await Cache.ecrireLot('predictions', [maj]).catch(function () {});
+      local.escalier = (local.escalier || []).map(function (x) { return x && x.id === maj.id ? maj : x; });
+      await poser({ table: Attente.OBSERVATIONS, op: Attente.OBSERVER, id: maj.id,
+                    depend: carte.seance, alaFin: true, donnees: donneesObservation(maj) });
+    }
   }
 
   // `depend` porte la séance : une prédiction ne monte jamais avant les séries
@@ -2546,6 +2833,15 @@
       },
       surAnnulerSelection: function () { selectionGroupe = null; rendreSeance(); },
       surTerminer: function () { if (enEdition()) return enregistrerEdition(); confirmerFin(); }
+    });
+    // MOTEUR §14.4 (49-U14) — l'escalier en tête de la séance, lu sur le plan.
+    var planEsc = planActuel();
+    Rendu.rendreEscalier($('escalier-seance'), {
+      carte: planEsc ? planEsc.carte : null,
+      allegee: planEsc ? planEsc.allegee : null,
+      refus: refusMontre === seance.id ? Moteur.PHRASE_REFUS : null,
+      surAlleger: function () { repondreCarte('acceptee'); },
+      surRefuser: function () { repondreCarte('refusee'); }
     });
     var blocs = Modele.blocsDeSeance(seance, local.exercices);
     Rendu.rendreBlocsSeance($('blocs-seance'), seance, {
@@ -4839,7 +5135,7 @@
     entreeFaitePour = null;
     try { await Cache.viderTout(); } catch (e) { /* rien à garder de toute façon */ }
     local = { seances: [], series: [], exercices: [], pesees: [], zones: [],
-              predictions: [], sousConsigne: {}, parSeance: null };
+              predictions: [], sousConsigne: {}, parisLegers: [], escalier: [], parSeance: null };
     notesEnCours = {};
     // Les routines vivent en mémoire, pas dans le cache — mais elles
     // appartiennent quand même au compte qui part.

@@ -61,7 +61,13 @@ describe('§12.9 — le compteur, lu par le plan', () => {
     const a = plan(compteur(6)).p.exercices[0];
     const b = plan(compteur(0)).p.exercices[0];
     expect(a.lignes).toEqual(b.lignes);
-    expect(a.paris).toEqual(b.paris);
+    // 49-U14 (MOTEUR §14.4) : chaque pari porte le compteur À L'OUVERTURE dans
+    // son fondement — c'est la seule différence, et elle est voulue.
+    const sansCompteur = (ps) => ps.map((q) => q && Object.assign({}, q,
+      { fondement: Object.assign({}, q.fondement, { compteur: undefined }) }));
+    expect(a.paris.map((q) => q && q.fondement.compteur)).toEqual([6, 6, 6]);
+    expect(b.paris.map((q) => q && q.fondement.compteur)).toEqual([0, 0, 0]);
+    expect(sansCompteur(a.paris)).toEqual(sansCompteur(b.paris));
     expect(a.message).toEqual(b.message);
     expect(a.entete.jaune).toEqual(b.entete.jaune);
     expect(a.entete.gris).toEqual(b.entete.gris);

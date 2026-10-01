@@ -161,7 +161,12 @@ const CATALOGUE = [
   // 49-U13 — réservés à la section 7 G decies (le compteur). Leurs noms ne
   // répondent à aucune des recherches faites ailleurs.
   { slug: 'curl-u13', nom: 'Curl U13 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['biceps'], muscles_secondaires: [] },
-  { slug: 'tirage-u13', nom: 'Tirage U13 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['dorsaux'], muscles_secondaires: [] }
+  { slug: 'tirage-u13', nom: 'Tirage U13 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['dorsaux'], muscles_secondaires: [] },
+  // 49-U14 — réservés à la section 7 G undecies (la semaine allégée). Leurs
+  // noms ne répondent à AUCUNE recherche faite ailleurs (« Couch », « Rowing »…).
+  { slug: 'couche-u14', nom: 'Allongé U14 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['pectoraux'], muscles_secondaires: [] },
+  { slug: 'rowing-u14', nom: 'Tirée U14', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['dorsaux'], muscles_secondaires: [] },
+  { slug: 'squat-u14', nom: 'Fléchi U14 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['quadriceps'], muscles_secondaires: [] }
 ];
 
 // ⚠️ UNE ROUTINE PORTE MAINTENANT SES LIGNES (chantier 43). `routine_sets`
@@ -558,6 +563,13 @@ const SETS_IMPORTES = [
           : imbrique;
         continue;
       }
+      // 49-U14 — un champ JSON nommé, comme PostgREST : `compteur:fondement->compteur`.
+      const j = /^(\w+):(\w+)->(\w+)$/.exec(champ);
+      if (j) {
+        const objet = ligne[j[2]];
+        sortie[j[1]] = objet && Object.prototype.hasOwnProperty.call(objet, j[3]) ? objet[j[3]] : null;
+        continue;
+      }
       // ⚠️ LA COLONNE ABSENTE DE `select=` EST ABSENTE DE LA RÉPONSE — pas
       // `null`. C'est la différence qui compte : `undefined` traverse
       // `Object.assign` sans écraser, `null` écrase.
@@ -681,7 +693,9 @@ const SETS_IMPORTES = [
       // `session_id` est une colonne GÉNÉRÉE en base (`fondement->>'seance'`,
       // relevé le 01/10/2026) : le banc la calcule comme Postgres.
       if (req.method() === 'GET') {
-        return json(projeter(base.predictions.map((l) => Object.assign({}, l,
+        // 49-U14 — le filtre `module=eq.…` (les paris de l'escalier, lus à part).
+        const module = (url.searchParams.get('module') || '').replace(/^eq\./, '');
+        return json(projeter(base.predictions.filter((l) => !module || l.module === module).map((l) => Object.assign({}, l,
           { session_id: l.fondement && l.fondement.seance ? l.fondement.seance : null })), url));
       }
       if (req.method() === 'POST') {
@@ -692,7 +706,10 @@ const SETS_IMPORTES = [
         if (!l.id) return json(refus('23502', 'predictions.id NOT NULL'), 400);
         if (!l.user_id) return json(refus('23502', 'predictions.user_id NOT NULL'), 400);
         if (l.user_id !== MOI) return json(refus('42501', 'new row violates row-level security policy for table "predictions"'), 400);
-        if (!CATALOGUE.some((e) => e.slug === l.exercise_slug)) return json(refus('23503', 'predictions_exercise_slug_fkey'), 400);
+        // Une clé étrangère NULLE ne vérifie rien (le pari de la semaine
+        // allégée, 49-U14, ne porte aucun exercice).
+        if (l.exercise_slug !== null && l.exercise_slug !== undefined &&
+            !CATALOGUE.some((e) => e.slug === l.exercise_slug)) return json(refus('23503', 'predictions_exercise_slug_fkey'), 400);
         if (l.set_observe && !base.sets.some((x) => x.id === l.set_observe)) {
           return json(refus('23503', 'predictions_set_observe_fkey'), 400);
         }
@@ -726,6 +743,14 @@ const SETS_IMPORTES = [
         }
         if (fusion.set_observe && !base.sets.some((x) => x.id === fusion.set_observe)) {
           return json(refus('23503', 'predictions_set_observe_fkey'), 400);
+        }
+        // `predictions_observation_coherente` (v2_052) : une observation exige
+        // `set_observe`, sauf pour `module = 'escalier'` ; `observee_a` la suit.
+        if ((fusion.valeur_observee !== null && fusion.valeur_observee !== undefined &&
+             !fusion.set_observe && fusion.module !== 'escalier') ||
+            ((fusion.valeur_observee === null || fusion.valeur_observee === undefined) !==
+             (fusion.observee_a === null || fusion.observee_a === undefined))) {
+          return json(refus('23514', 'predictions_observation_coherente'), 400);
         }
         base.predictions[i] = fusion;
         return json(projeter([fusion], url), 200);
@@ -8532,6 +8557,198 @@ const SETS_IMPORTES = [
     await abandonner();
     await aller('/saisie');
     ok('[U13] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
+  }
+
+  console.log('\n══ 7 G undecies. LA SEMAINE ALLÉGÉE : LA CARTE, PUIS 7 JOURS ALLÉGÉS (49-U14, MOTEUR §14.4) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : TROIS exercices qui calent ensemble.
+  //   · `couche-u14` : 125 kg × 5 sur 4 séries, six séances dont cinq SOUS
+  //     CONSIGNE → un compteur de 4 à l'ouverture : un DÉCLENCHEMENT ;
+  //   · `squat-u14` (5) et `rowing-u14` (4) : un pari chacun il y a 2 et 3
+  //     jours, le compteur À L'OUVERTURE figé dans son fondement. Le blocage
+  //     généralisé se lit là, dans les paris, sans rejeu.
+  // Un seul autre exercice à 4 ne suffirait pas ; les deux, si.
+  // A — UNE SEMAINE ACCEPTÉE HIER : la séance d'aujourd'hui est allégée, sans
+  //     carte (le bandeau, « 125 kg × 3 », « 2 séries au lieu de 4 »).
+  // B — SANS ELLE : la carte s'ouvre ; « Alléger 7 jours » écrit le pari de
+  //     l'escalier, et la séance même passe en allégée.
+  {
+    const tK = Date.now();
+    let graineK = 100;
+    const sessionK = (id, jours) => {
+      const debut = ilYa(jours * 86400000, tK).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'U14 — ' + id, debut,
+        fin: finDe(debut, tK).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      return debut;
+    };
+    const serieK = (id, slug, rang, kg, reps, debut) => base.sets.push({ id: id + '-' + slug + '-s' + rang,
+      session_id: id, user_id: 'u-banc', exercise_slug: slug, charge_kg: kg, reps, duree_s: null,
+      distance_m: null, type_serie: 'travail', rang, groupe_superset: null, validee_a: debut, rpe: null,
+      ressenti: null, repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null });
+    const pariK = (id, slug, debut, compteur, kg, reps) => base.predictions.push({
+      id: '00000000-0000-5000-8000-' + String(++graineK).padStart(12, '0'),
+      user_id: 'u-banc', module: 'moteur.consigne', module_version: 4, emise_a: debut,
+      exercise_slug: slug, grandeur: 'reps', horizon_jours: null, valeur_predite: reps,
+      borne_basse: 3, borne_haute: 5,
+      fondement: { rang: 1, charge: kg, etat: 'progression', zone: 'lourd', reglage: 'normal',
+                   palier: kg, niveau: reps, seance: id, role: 'ligne', phase: 'maintien', compteur },
+      valeur_observee: reps, observee_a: debut, set_observe: id + '-' + slug + '-s1', created_at: debut });
+    // Le couché : six séances à 125 × 5 (4 séries), la première sans pari.
+    [30, 25, 20, 15, 10, 5].forEach((j, i) => {
+      const id = 'u14-c' + i;
+      const debut = sessionK(id, j);
+      [1, 2, 3, 4].forEach((r) => serieK(id, 'couche-u14', r, 125, 5, debut));
+      if (i > 0) pariK(id, 'couche-u14', debut, i - 1, 125, 5);
+    });
+    // Le squat (5) et le rowing (4), dans les 7 jours.
+    [['u14-sq', 'squat-u14', 2, 5, 140], ['u14-ro', 'rowing-u14', 3, 4, 80]].forEach(([id, slug, j, k, kg]) => {
+      const debut = sessionK(id, j);
+      [1, 2, 3].forEach((r) => serieK(id, slug, r, kg, 5, debut));
+      pariK(id, slug, debut, k, kg, 5);
+    });
+    // La routine de la démonstration : le rowing seul (aucun déclenchement réel).
+    ROUTINES.push({ id: 'r-u14-demo', nom: 'Démo U14', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [
+        { id: 'r-u14-d', routine_id: 'r-u14-demo', exercise_slug: 'rowing-u14', rang: 0,
+          routine_sets: progr(3, 5), repos_cible_s: 120, groupe_superset: null, note: null }] });
+    ROUTINES.push({ id: 'r-u14', nom: 'Allégée U14', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [
+        { id: 'r-u14-a', routine_id: 'r-u14', exercise_slug: 'couche-u14', rang: 0,
+          routine_sets: progr(4, 5), repos_cible_s: 180, groupe_superset: null, note: null }] });
+    const esp = (t) => String(t || '').replace(/[\u00a0\u202f]/g, ' ');
+    const MOIS_U14 = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+    const bandeauAttendu = (jourDebut) => {
+      const f = new Date(jourDebut.getFullYear(), jourDebut.getMonth(), jourDebut.getDate() + 6);
+      return 'Semaine allégée jusqu’au ' + f.getDate() + ' ' + MOIS_U14[f.getMonth()] +
+        ' : mêmes charges, moins de séries, loin de l’échec. Rien ne monte.';
+    };
+    const lireEscalier = () => page.evaluate(() => {
+      const z = document.querySelector('#escalier-seance');
+      const l = document.querySelector('.legende-exo');
+      const d = window.THPlan && window.THPlan.dernier;
+      const x = d && d.plan.exercices.filter((e) => e.slug === 'couche-u14')[0];
+      return {
+        visible: !!z && !z.hidden,
+        carte: z && z.querySelector('.carte-escalier .ce-phrase') ? z.querySelector('.carte-escalier .ce-phrase').textContent : null,
+        bandeau: z && z.querySelector('.bandeau-allegee') ? z.querySelector('.bandeau-allegee').textContent : null,
+        jaune: l ? Array.from(l.querySelectorAll('.consigne')).map((n) => n.textContent) : [],
+        gris: l && l.querySelector('.consigne-dit') ? l.querySelector('.consigne-dit').textContent : null,
+        couvertes: x ? x.lignes.filter((li) => li.role !== 'hors').map((li) => [li.role, li.charge, li.vise]) : null,
+        // La consigne NORMALE du jour (entrée du plan) : la ligne, sinon la haute.
+        normale: (() => {
+          const c = d && d.entrees.consignes['couche-u14'];
+          const k = c && c.consigne && (c.consigne.ligne || c.consigne.haut);
+          return k ? [k.charge, k.vise] : null;
+        })(),
+        roles: x ? x.lignes.map((li) => li.role) : null
+      };
+    });
+    const violationsAvant = gardeBanc.violations;
+    // L'allégée attendue, lue sur la consigne NORMALE : même charge, 2 reps de
+    // moins, sur 2 séries de 4 (le décor laissé par d'autres sections peut
+    // changer la charge du jour ; la règle, elle, ne bouge pas).
+    const kgFr = (v) => String(v).replace('.', ',');
+    const allegee = (x) => (x.normale ? [x.normale[0], Math.max(1, x.normale[1] - 2)] : null);
+    // À l'OCTET : le formateur unique (chargeFois) met des insécables autour
+    // du « × » aussi (décision du 01/10/2026, #345).
+    const jauneAttendu = (x) => (allegee(x) ? kgFr(allegee(x)[0]) + '\u00a0kg\u00a0×\u00a0' + allegee(x)[1] : '?');
+    const deuxLignes = (x) => JSON.stringify(x.couvertes) === JSON.stringify([['ligne'].concat(allegee(x)), ['ligne'].concat(allegee(x))]);
+
+    // ── 0. La démonstration de la prévisualisation (`?escalier=demo`, garde
+    //     active seulement) : la carte sur une séance QUELCONQUE, deux exercices
+    //     témoins, et RIEN n'est écrit : la réponse reste en mémoire.
+    const parisAvant = base.predictions.length;
+    await aller('/saisie?escalier=demo');
+    await demarrerRoutine('Démo U14');
+    await attendre(900);
+    const d1 = await lireEscalier();
+    ok('[U14] 0 — démonstration : la carte, avec les exercices témoins',
+      /^Tirée U14, Exercice témoin A, .* autres exercices : aucun n'a progressé depuis 4 séances\.$/.test(esp(d1.carte)),
+      JSON.stringify(d1.carte));
+    await page.click('#escalier-seance .ce-alleger');
+    await attendre(900);
+    const d2 = await lireEscalier();
+    ok('[U14] 0 — « Alléger 7 jours » : le bandeau, la séance allégée, et AUCUN pari écrit',
+      d2.carte === null && /^Semaine allégée jusqu’au /.test(esp(d2.bandeau)) && base.predictions.length === parisAvant &&
+      esp(d2.gris) === '2 séries au lieu de 3, cette semaine',
+      JSON.stringify({ bandeau: d2.bandeau, gris: d2.gris, paris: base.predictions.length - parisAvant }));
+    await abandonner();
+    await aller('/saisie?escalier=0');
+
+    // ── A. Acceptée HIER (une autre séance) : aujourd'hui est allégé.
+    const hier = new Date(tK - 86400000);
+    const jourDe = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    const debutHier = sessionK('u14-hier', 1);
+    const finHier = new Date(hier.getFullYear(), hier.getMonth(), hier.getDate() + 6);
+    base.predictions.push({ id: '00000000-0000-5000-8000-000000000199', user_id: 'u-banc',
+      module: 'escalier', module_version: '1', emise_a: debutHier, exercise_slug: null, grandeur: 'progres',
+      horizon_jours: null, valeur_predite: 1, borne_basse: null, borne_haute: null,
+      fondement: { seance: 'u14-hier', jour: jourDe(hier), marche: 'semaine_allegee', reponse: 'acceptee',
+                   declencheur: 'couche-u14', compteur: 4, cites: ['couche-u14', 'squat-u14', 'rowing-u14'],
+                   debut: jourDe(hier), fin: jourDe(finHier), phase: 'maintien' },
+      valeur_observee: null, observee_a: null, set_observe: null, created_at: debutHier });
+    await aller('/saisie');
+    await demarrerRoutine('Allégée U14');
+    await attendre(900);
+    const a = await lireEscalier();
+    ok('[U14] A — acceptée hier : le bandeau en tête de la séance, et pas de carte',
+      a.visible && a.carte === null && esp(a.bandeau) === esp(bandeauAttendu(hier)), JSON.stringify(a));
+    ok('[U14] A — la consigne allégée : la charge de la consigne normale, 2 reps de moins (« 125 kg × 3 » au décor seul), « 2 séries au lieu de 4, cette semaine »',
+      a.jaune.length === 1 && a.jaune[0] === jauneAttendu(a) && esp(a.gris) === '2 séries au lieu de 4, cette semaine',
+      JSON.stringify([a.jaune, a.gris, a.normale]));
+    // Décision d'Aurélien (01/10/2026, #345) : pendant la période, la séance
+    // ne contient QUE les lignes allégées — les 2 séries en trop de la routine
+    // ne sont pas laissées à l'écran. « + Série » reste disponible.
+    ok('[U14] A — 2 lignes couvertes, à cette charge, aucun test — et seulement elles : les 2 séries en trop sont retirées',
+      deuxLignes(a) && JSON.stringify(a.roles) === JSON.stringify(['ligne', 'ligne']) &&
+      (await compter('.ligne-serie')) === 2, JSON.stringify(a));
+    await plusSerie(0);
+    await attendre(600);
+    const a2 = await lireEscalier();
+    ok('[U14] A — « + Série » reste disponible : une 3ᵉ ligne, hors consigne, et la consigne allégée ne bouge pas',
+      (await compter('.ligne-serie')) === 3 && JSON.stringify(a2.roles) === JSON.stringify(['ligne', 'ligne', 'hors']) &&
+      deuxLignes(a2), JSON.stringify(a2));
+    await abandonner();
+    base.predictions = base.predictions.filter((l) => l.module !== 'escalier');
+
+    // ── B. Sans semaine en cours : la carte, puis « Alléger 7 jours ».
+    await aller('/saisie');
+    await demarrerRoutine('Allégée U14');
+    await attendre(900);
+    const b = await lireEscalier();
+    ok('[U14] B — la carte s’ouvre, une seule, en tête de la séance (le déclencheur, puis par compteur)',
+      esp(b.carte) === 'Allongé U14 (Barre), Fléchi U14 (Barre) et Tirée U14 : aucun n\'a progressé depuis 4 séances.' &&
+      (await compter('.carte-escalier')) === 1, JSON.stringify(b));
+    ok('[U14] B — avant la réponse, la séance est normale (un test est prévu sur la dernière série)',
+      JSON.stringify(b.roles) === JSON.stringify(['ligne', 'ligne', 'ligne', 'test']), JSON.stringify(b.roles));
+    await page.click('#escalier-seance .ce-alleger');
+    await attendre(1500);
+    const c = await lireEscalier();
+    const aujourdhui = new Date();
+    ok('[U14] B — « Alléger 7 jours » : le bandeau remplace la carte',
+      c.carte === null && esp(c.bandeau) === esp(bandeauAttendu(aujourdhui)), JSON.stringify(c));
+    ok('[U14] B — la séance même passe en allégée : la charge normale, 2 reps de moins, sur 2 séries, aucun test',
+      deuxLignes(c) && c.jaune[0] === jauneAttendu(c), JSON.stringify(c));
+    ok('[U14] B — à l’acceptation, les 2 séries en trop (non validées) sont retirées : 2 lignes à l’écran',
+      JSON.stringify(c.roles) === JSON.stringify(['ligne', 'ligne']) && (await compter('.ligne-serie')) === 2,
+      JSON.stringify(c.roles));
+    const pari = base.predictions.filter((l) => l.module === 'escalier')[0];
+    ok('[U14] B — le pari de la semaine allégée est en base : module escalier, acceptée, J à J+6, sans exercice',
+      !!pari && pari.exercise_slug === null && pari.fondement.reponse === 'acceptee' &&
+      pari.fondement.debut === jourDe(aujourdhui) && pari.fondement.declencheur === 'couche-u14' &&
+      pari.fondement.marche === 'semaine_allegee' && pari.valeur_observee === null,
+      JSON.stringify(pari && pari.fondement));
+    ok('[U14] B — son identifiant n’est pas celui d’un pari de consigne (espace de noms à part)',
+      !!pari && !base.predictions.some((l) => l !== pari && l.id === pari.id), pari && pari.id);
+    await abandonner();
+
+    ok('[U14] la garde (C6) n’a rien signalé dans cette section (I19, I20 compris)', gardeBanc.violations === violationsAvant,
+      JSON.stringify(gardeBanc.liste.slice(-2)));
+    await aller('/saisie');
+    ok('[U14] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
 
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');

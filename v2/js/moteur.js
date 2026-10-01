@@ -1361,6 +1361,9 @@
       : planDeConsigne(c);
     var sortie = { plan: plan, message: null, attente: null, revision: 0 };
     if (c === null || ETATS_MUETS_REACTION[c.etat] === true) return sortie;
+    // §14.4 (49-U14) — PENDANT UNE SEMAINE ALLÉGÉE, RIEN NE MONTE : ni test, ni
+    // proposition en séance (§9.14). La ligne reste la ligne.
+    if (c.allegee) return sortie;
     // `zone` : une clé chez `consignePour` ; la table des zones donne les bornes.
     var z = typeof c.zone === 'string' ? zoneParCle(c.zone) : null;
     var P = c.ligne ? nombre(c.ligne.charge) : null;
@@ -2474,12 +2477,24 @@
   // quatrième fait ; `undefined`, `null` et 0 ne le font jamais, sans quoi
   // « |0 » changerait l'identifiant de tous les paris d'ouverture.
   async function idDePrediction(seance, slug, rang, revision) {
-    var c = racine.crypto;
-    if (!c || !c.subtle || typeof c.subtle.digest !== 'function') return null;
-    if (typeof racine.TextEncoder !== 'function') return null;
     var nom = String(seance) + '|' + String(slug) + '|' + String(rang);
     var rev = nombre(revision);
     if (rev !== null && rev >= 1 && Math.floor(rev) === rev) nom += '|' + String(rev);
+    return uuidDuNom(nom);
+  }
+
+  // MOTEUR §14 (49-U14) — L'IDENTIFIANT D'UN PARI DE L'ESCALIER, dans un
+  // espace de noms à part : `escalier|séance|exercice|marche` (exercice vide
+  // pour la semaine allégée). Un nom de consigne commence par l'identifiant de
+  // la séance : les deux ne peuvent jamais se rencontrer.
+  async function idDEscalier(seance, exercice, marche) {
+    return uuidDuNom('escalier|' + String(seance) + '|' + (exercice ? String(exercice) : '') + '|' + String(marche));
+  }
+
+  async function uuidDuNom(nom) {
+    var c = racine.crypto;
+    if (!c || !c.subtle || typeof c.subtle.digest !== 'function') return null;
+    if (typeof racine.TextEncoder !== 'function') return null;
     var somme = await c.subtle.digest('SHA-256', new racine.TextEncoder().encode(nom));
     var o = new Uint8Array(somme).slice(0, 16);
     o[6] = (o[6] & 0x0f) | 0x50;
@@ -2917,7 +2932,10 @@
       // reprise vue là remet quand même à zéro la suivante. Le rejeu lit les
       // séances DU CONTRAT (`contratDe`, où `neutre` est posé) : la même règle
       // de calcul que la consigne vivante.
-      if (se.neutre === true || !k || k.etat === 'silence' || k.zone === null || k.zone === undefined || P === null) {
+      // §14.4 (49-U14) — une séance d'une SEMAINE ALLÉGÉE acceptée (`decharge`)
+      // n'est ni comptée ni jugée, comme une séance neutre ; elle reste une
+      // présence pour la reprise (§9.9) : aucune coupure.
+      if (se.neutre === true || se.decharge === true || !k || k.etat === 'silence' || k.zone === null || k.zone === undefined || P === null) {
         if (!premiere && k && repriseDe(liste.slice(0, i), se.debut) !== AUCUNE_REPRISE) repriseEnAttente = true;
         return;
       }
@@ -3002,6 +3020,227 @@
       (plusLong ? ' : c\'est plus long que d\'habitude pour toi.' : '.');
   }
 
+  // ══ §14.4 (49-U14) — L'ESCALIER, PREMIÈRE MARCHE : LA SEMAINE ALLÉGÉE ════
+  //
+  // « Quand tout cale en même temps, c'est souvent de la fatigue. » Tout est
+  // pur ici : les compteurs viennent des paris (le compteur de chaque exercice
+  // est figé dans le fondement de chaque pari de consigne), la date de la
+  // séance qui s'ouvre vient de l'appelant. Référence : `coach49.py`
+  // (`blocage_generalise`, `phrase_carte`, `consigne_allegee`,
+  // `series_allegees`, `fin_allegee`) ; cas `cas-49u14-semaine-allegee.json`.
+  var PAS_ESCALIER = 4;               // un déclenchement : 4, 8, 12…
+  var FENETRE_BLOCAGE_JOURS = 7;      // de 0 à 7 jours avant, le jour même compris
+  var AUTRES_EXERCICES_MIN = 2;       // au moins deux AUTRES exercices à 4 ou plus
+  var NOMS_MAX_CARTE = 4;             // au-delà, les 3 premiers puis « et N autres exercices »
+  var PART_ALLEGEE = 0.6;             // 60 % des séries de la routine
+  var REPS_EN_MOINS = 2;
+  var DUREE_ALLEGEE_JOURS = 7;        // du jour d'acceptation à J+6 compris
+  var MODULE_ESCALIER = 'escalier';
+  var MARCHE_SEMAINE_ALLEGEE = 'semaine_allegee';
+  var DETAIL_CARTE = 'Quand tout cale en même temps, c\'est souvent de la fatigue. Je te propose une ' +
+    'semaine allégée : mêmes exercices, mêmes charges, 60 % des séries, 2 reps de moins, pendant 7 jours. Rien ne monte.';
+  var PHRASE_REFUS = 'Séance normale. Au prochain blocage, je regarderai exercice par exercice.';
+
+  function estDeclenchement(c) {
+    var n = nombre(c);
+    return n !== null && n >= PAS_ESCALIER && n % PAS_ESCALIER === 0;
+  }
+
+  // Le JOUR CIVIL local d'un instant, « AAAA-MM-JJ » ; une date déjà au jour
+  // passe telle quelle.
+  function jourCivil(v) {
+    if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+    var t = instant(v);
+    if (t === null) return null;
+    var d = new Date(t);
+    var deux = function (x) { return (x < 10 ? '0' : '') + x; };
+    return d.getFullYear() + '-' + deux(d.getMonth() + 1) + '-' + deux(d.getDate());
+  }
+  function numeroDuJour(jour) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(jour || ''));
+    return m ? Math.round(Date.UTC(+m[1], +m[2] - 1, +m[3]) / JOUR) : null;
+  }
+  function ajouterJours(jour, n) {
+    var k = numeroDuJour(jour);
+    if (k === null) return null;
+    var d = new Date((k + n) * JOUR);
+    var deux = function (x) { return (x < 10 ? '0' : '') + x; };
+    return d.getUTCFullYear() + '-' + deux(d.getUTCMonth() + 1) + '-' + deux(d.getUTCDate());
+  }
+  // L'ordre alphabétique de `coach49.py` : par points de code, sans locale
+  // (« Écarté » vient après « Rowing », comme dans les cas).
+  function avantAlpha(a, b) { return a < b ? -1 : (a > b ? 1 : 0); }
+
+  // LA DÉTECTION. `jours` : `{ "AAAA-MM-JJ": { exercice: compteur à l'ouverture } }`
+  // — les séances SOUS CONSIGNE, lues dans les paris (et, pour la séance du
+  // jour, dans les compteurs déjà figés). `jour` : la date de la séance qui
+  // s'ouvre ; ses exercices sont `jours[jour]`. `noms` (facultatif) : le nom
+  // affiché d'un exercice, qui sert aussi à l'ordre alphabétique.
+  // Rend `null` ou `{ declencheur, compteur, cites: [exercices] }`.
+  // `candidats` (facultatif) : les exercices qui PEUVENT déclencher — ceux de
+  // la séance qui s'ouvre, quand d'autres séances du même jour sont lues.
+  function blocageGeneralise(jours, jour, noms, candidats) {
+    var J = jours || {}, d0 = numeroDuJour(jour);
+    var nomDe = function (x) { return noms && noms[x] ? String(noms[x]) : String(x); };
+    var aujourdhui = J[jour] || {};
+    var declencheurs = Object.keys(aujourdhui).filter(function (x) {
+      return estDeclenchement(aujourdhui[x]) && (!candidats || candidats.indexOf(x) >= 0);
+    });
+    if (d0 === null || !declencheurs.length) return null;
+    declencheurs.sort(function (a, b) {
+      return nombre(aujourdhui[b]) - nombre(aujourdhui[a]) || avantAlpha(nomDe(a), nomDe(b));
+    });
+    var d = declencheurs[0];
+    // Le compteur d'un autre exercice : le plus grand de la fenêtre.
+    var max = {};
+    Object.keys(J).forEach(function (jr) {
+      var k = numeroDuJour(jr);
+      if (k === null || d0 - k < 0 || d0 - k > FENETRE_BLOCAGE_JOURS) return;
+      Object.keys(J[jr] || {}).forEach(function (x) {
+        var c = nombre(J[jr][x]);
+        if (x === d || c === null) return;
+        if (max[x] === undefined || c > max[x]) max[x] = c;
+      });
+    });
+    var autres = Object.keys(max).filter(function (x) { return max[x] >= PAS_ESCALIER; });
+    if (autres.length < AUTRES_EXERCICES_MIN) return null;
+    autres.sort(function (a, b) { return max[b] - max[a] || avantAlpha(nomDe(a), nomDe(b)); });
+    return { declencheur: d, compteur: nombre(aujourdhui[d]), cites: [d].concat(autres) };
+  }
+
+  // « A, B et C : aucun n'a progressé depuis 4 séances. » — au plus 4 noms ;
+  // au-delà, les 3 premiers puis « et N autres exercices ».
+  function phraseCarte(noms) {
+    var l = (noms || []).map(String);
+    var liste;
+    if (l.length > NOMS_MAX_CARTE) {
+      liste = l.slice(0, 3).join(', ') + ' et ' + (l.length - 3) + ' autres exercices';
+    } else if (l.length > 1) {
+      liste = l.slice(0, -1).join(', ') + ' et ' + l[l.length - 1];
+    } else {
+      liste = l.join('');
+    }
+    return liste + ' : aucun n\'a progressé depuis ' + PAS_ESCALIER + ' séances.';
+  }
+
+  // 60 % des séries de travail de la routine, au plus proche, au moins une :
+  // 1 → 1, 2 → 1, 3 → 2, 4 → 2, 5 → 3, 6 → 4.
+  function seriesAllegees(n) {
+    var k = nombre(n);
+    if (k === null || k < 1) return 1;
+    return Math.max(1, Math.round(k * PART_ALLEGEE + 1e-9));
+  }
+
+  // LA CONSIGNE ALLÉGÉE : la même charge que la ligne de la consigne normale
+  // (sans ligne basse, celle de la ligne haute — §12.9, 49-30), 2 reps de
+  // moins (au moins 1), aucune ligne haute, et ne COUVRE que les premières
+  // séries (`couvre`). `allegee` porte de quoi écrire l'en-tête et l'invariant.
+  function consigneAllegee(consigne, seriesRoutine) {
+    var c = consigne || null;
+    if (!c || c.etat === 'silence') return c;
+    var src = c.ligne || c.haut;
+    if (!src) return c;
+    var routine = Math.max(1, nombre(seriesRoutine) || 1);
+    var series = seriesAllegees(routine);
+    var vise = nombre(src.vise);
+    return Object.assign({}, c, {
+      ligne: { charge: src.charge, vise: vise === null ? null : Math.max(1, vise - REPS_EN_MOINS) },
+      haut: null,
+      n: series,
+      couvre: series,
+      allegee: { series: series, routine: routine }
+    });
+  }
+
+  // « 125 kg × 3 » par le FORMATEUR UNIQUE (`chargeFois`), exactement comme
+  // les autres en-têtes — décidé par Aurélien le 01/10/2026 (#345) : les
+  // insécables autour de « × » aussi, là où les cas n'en mettaient qu'avant
+  // « kg ». Et, en gris, « 2 séries au lieu de 4, cette semaine ».
+  function phraseAllegee(c) {
+    var l = c && c.ligne;
+    return l ? Modele().chargeFois(nombre(l.charge), nombre(l.vise)) : null;
+  }
+  function detailAllegee(c) {
+    var a = c && c.allegee;
+    if (!a) return null;
+    return a.series + (a.series > 1 ? ' séries' : ' série') + ' au lieu de ' + a.routine + ', cette semaine';
+  }
+
+  // Le dernier jour (J+6) et le bandeau : « Semaine allégée jusqu'au 7 oct. : … ».
+  function finAllegee(jour) { return ajouterJours(jourCivil(jour), DUREE_ALLEGEE_JOURS - 1); }
+  function bandeauAllegee(fin) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(fin || ''));
+    if (!m) return null;
+    return 'Semaine allégée jusqu’au ' + Number(m[3]) + ' ' + Modele().MOIS_COURTS[Number(m[2]) - 1] +
+      ' : mêmes charges, moins de séries, loin de l’échec. Rien ne monte.';
+  }
+
+  // Les cartes passées, lues dans les paris de l'escalier : `{ jour, seance,
+  // declencheur, compteur, reponse, debut, fin }`.
+  function cartesDesParis(paris) {
+    return (paris || []).filter(function (l) {
+      return l && l.module === MODULE_ESCALIER && l.fondement && l.fondement.marche === MARCHE_SEMAINE_ALLEGEE;
+    }).map(function (l) {
+      var f = l.fondement;
+      return { id: l.id || null, seance: f.seance || null, jour: f.jour || jourCivil(f.debut),
+               declencheur: f.declencheur, compteur: nombre(f.compteur), reponse: f.reponse,
+               debut: f.debut || null, fin: f.fin || null };
+    });
+  }
+
+  // La période allégée en cours au jour `jour` : la carte ACCEPTÉE dont la
+  // période le contient, ou `null`.
+  function periodeAllegee(cartes, jour) {
+    var j = numeroDuJour(jourCivil(jour));
+    if (j === null) return null;
+    var p = null;
+    (cartes || []).forEach(function (c) {
+      if (!c || c.reponse !== 'acceptee') return;
+      var a = numeroDuJour(c.debut), b = numeroDuJour(c.fin);
+      if (a !== null && b !== null && a <= j && j <= b && (!p || c.debut > p.debut)) p = c;
+    });
+    return p;
+  }
+
+  // LA MÉMOIRE (§14.3) : une carte, acceptée ou refusée, ne revient pas tant
+  // que son déclencheur n'a pas progressé — un compteur à l'ouverture, sur une
+  // séance POSTÉRIEURE à la carte, plus bas que celui de la carte ; aucune
+  // carte pendant une période allégée. `compteurs` : `[{ exercice, jour,
+  // compteur }]`, lus dans les paris de consigne.
+  function carteAutorisee(declencheur, jour, cartes, compteurs) {
+    if (periodeAllegee(cartes, jour)) return false;
+    var derniere = null;
+    (cartes || []).forEach(function (c) {
+      if (c && c.declencheur === declencheur && c.jour <= jour && (!derniere || c.jour > derniere.jour)) derniere = c;
+    });
+    if (!derniere) return true;
+    var seuil = derniere.compteur === null || derniere.compteur === undefined ? PAS_ESCALIER : derniere.compteur;
+    return (compteurs || []).some(function (x) {
+      return x && x.exercice === declencheur && x.jour > derniere.jour && x.jour <= jour &&
+        nombre(x.compteur) !== null && nombre(x.compteur) < seuil;
+    });
+  }
+
+  // L'OBSERVATION DU PARI ACCEPTÉ, SANS SÉRIE : 1 si le déclencheur progresse
+  // avant son prochain déclenchement, 0 à son prochain déclenchement. Rend
+  // `null` (pas encore tranché) ou `{ valeur, jour, seance }` — la séance qui
+  // tranche, la première dans l'ordre du temps.
+  function observationSemaineAllegee(carte, compteurs) {
+    if (!carte || carte.reponse !== 'acceptee') return null;
+    var c0 = nombre(carte.compteur);
+    if (c0 === null) return null;
+    var prochain = c0 - (c0 % PAS_ESCALIER) + PAS_ESCALIER;
+    var apres = (compteurs || []).filter(function (x) {
+      return x && x.exercice === carte.declencheur && x.jour > carte.jour && nombre(x.compteur) !== null;
+    }).sort(function (a, b) { return avantAlpha(String(a.debut || a.jour), String(b.debut || b.jour)); });
+    for (var i = 0; i < apres.length; i++) {
+      var v = nombre(apres[i].compteur);
+      if (v < c0) return { valeur: 1, jour: apres[i].jour, seance: apres[i].seance || null, debut: apres[i].debut || null };
+      if (v >= prochain) return { valeur: 0, jour: apres[i].jour, seance: apres[i].seance || null, debut: apres[i].debut || null };
+    }
+    return null;
+  }
+
   // La consigne d'UN exercice de la séance ouverte, silences compris. Pure :
   // `app.js` ne fait que résoudre les valeurs (`mesure` par `gabaritDe`,
   // `reglage` par `Profil.rythmeDe`, `equipement` au catalogue) et les passer.
@@ -3050,7 +3289,8 @@
              // séances sous consigne : `o.seancesSousConsigne`, les identifiants
              // des séances qui portent au moins un pari sur l'exercice. Le plan
              // le lit ; aucun écran ne le recalcule.
-             compteur: compteurFige(compteurDe(marquerSousConsigne(seances, groupes, o.seancesSousConsigne), avant,
+             compteur: compteurFige(compteurDe(marquerSousConsigne(seances, groupes, o.seancesSousConsigne,
+               o.periodesAllegees), avant,
                { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null,
                  corrections: o.correctionsDeZone || null })) };
   }
@@ -3066,13 +3306,21 @@
   // sur l'exercice (`predictions`). Le contrat perd l'identifiant de séance ;
   // il garde l'ordre des groupes (`contratDe`), et c'est par lui qu'on marque.
   // Sans liste, aucune séance n'est sous consigne : le compteur reste à zéro.
-  function marquerSousConsigne(seances, groupes, ids) {
+  // §14.4 (49-U14) — `periodes` : `[{ debut, fin }]` (jours civils), les
+  // semaines allégées ACCEPTÉES ; une séance dont le jour y tombe est une
+  // décharge déclarée (`decharge`), que le compteur ne compte ni ne juge.
+  function marquerSousConsigne(seances, groupes, ids, periodes) {
     var connus = {};
     (ids || []).forEach(function (id) { connus[id] = true; });
     return (seances || []).map(function (se, i) {
       var g = (groupes || [])[i];
       var id = g && g.seance ? g.seance.id : null;
-      return Object.assign({}, se, { sousConsigne: id !== null && id !== undefined && connus[id] === true });
+      var jour = jourCivil(se && se.debut);
+      var decharge = !!jour && (periodes || []).some(function (p) {
+        return p && p.debut && p.fin && p.debut <= jour && jour <= p.fin;
+      });
+      return Object.assign({}, se, { sousConsigne: id !== null && id !== undefined && connus[id] === true,
+                                     decharge: decharge });
     });
   }
 
@@ -3315,6 +3563,25 @@
     SEUIL_COMPTEUR: SEUIL_COMPTEUR,
     compteurDe: compteurDe,
     phraseCompteur: phraseCompteur,
+    PAS_ESCALIER: PAS_ESCALIER,
+    MODULE_ESCALIER: MODULE_ESCALIER,
+    MARCHE_SEMAINE_ALLEGEE: MARCHE_SEMAINE_ALLEGEE,
+    DETAIL_CARTE: DETAIL_CARTE,
+    PHRASE_REFUS: PHRASE_REFUS,
+    estDeclenchement: estDeclenchement,
+    jourCivil: jourCivil,
+    blocageGeneralise: blocageGeneralise,
+    phraseCarte: phraseCarte,
+    seriesAllegees: seriesAllegees,
+    consigneAllegee: consigneAllegee,
+    phraseAllegee: phraseAllegee,
+    detailAllegee: detailAllegee,
+    finAllegee: finAllegee,
+    bandeauAllegee: bandeauAllegee,
+    cartesDesParis: cartesDesParis,
+    periodeAllegee: periodeAllegee,
+    carteAutorisee: carteAutorisee,
+    observationSemaineAllegee: observationSemaineAllegee,
     situationChauffe: situationChauffe,
     chauffesDe: chauffesDe,
     degressiveDe: degressiveDe,
@@ -3369,6 +3636,7 @@
     MODULE_CONSIGNE: MODULE_CONSIGNE,
     VERSION_CONSIGNE: VERSION_CONSIGNE,
     idDePrediction: idDePrediction,
+    idDEscalier: idDEscalier,
     observationDe: observationDe,
     etiquetteZone: etiquetteZone,
     // Le menu des zones les affiche toutes (§3.8) : il lit cette table, il ne

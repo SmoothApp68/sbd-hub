@@ -518,6 +518,12 @@
     var pourquoi = pourquoiDuPlan(consigne, r.lignes, donc);
     var note = noteDesChauffes(autour.chauffes);
     if (pourquoi && note) pourquoi.chauffes = note;
+    // §12.9 (49-U13) — le compteur de stagnation, calculé avec la consigne
+    // figée (`consigneDExercice`) ; sa phrase, à 4 séances ou plus, s'écrit en
+    // gris dans l'en-tête et en une ligne de la feuille « Pourquoi ».
+    var compteur = c.compteur || null;
+    var phraseDuCompteur = compteur ? M.phraseCompteur(compteur) : null;
+    if (pourquoi && phraseDuCompteur) pourquoi.compteur = phraseDuCompteur;
 
     return {
       iExo: iExo, slug: base.slug,
@@ -526,7 +532,8 @@
       planInitial: r.planInitial, faites: r.faites, reaction: r.reaction,
       lignes: r.lignes, message: r.message, paris: r.paris,
       constat: constatDuPlan(r.lignes, consigne, suite, reglage, debut),
-      entete: { jaune: entete.jaune, gris: gris, segments: entete.segments },
+      entete: { jaune: entete.jaune, gris: gris, segments: entete.segments, compteur: phraseDuCompteur },
+      compteur: compteur ? { compteur: compteur.compteur, meilleur: compteur.meilleur } : null,
       donc: donc,
       pourquoi: pourquoi,
       materiel: materiel ? materiel.equipement || null : null,

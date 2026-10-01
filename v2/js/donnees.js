@@ -450,6 +450,15 @@
     'grandeur, horizon_jours, valeur_predite, borne_basse, borne_haute, fondement, ' +
     'valeur_observee, observee_a, set_observe';
 
+  // §12.9 (49-U13) — les séances qui portent au moins un pari, par exercice :
+  // trois colonnes, pas quinze. `session_id` est une colonne GÉNÉRÉE en base
+  // (`fondement->>'seance'`) : on n'a pas à rapatrier le fondement pour la lire.
+  function seancesAvecPari() {
+    return paginerParCle(trancheur(function () {
+      return client().from('predictions').select('id, exercise_slug, session_id');
+    }, 'id'), 'id');
+  }
+
   function mesPredictions() {
     return paginerParCle(trancheur(function () {
       return client().from('predictions').select(COLONNES_PREDICTION);
@@ -588,6 +597,7 @@
     mesZones: mesZones,
     enregistrerZone: enregistrerZone,
     mesPredictions: mesPredictions,
+    seancesAvecPari: seancesAvecPari,
     enregistrerPrediction: enregistrerPrediction,
     observerPrediction: observerPrediction,
     mesRoutines: mesRoutines,

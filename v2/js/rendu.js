@@ -1955,6 +1955,9 @@
           entree.appendChild(tapable(el('div', 'consigne', l)));
         });
         if (lib.gris) entree.appendChild(tapable(el('div', 'consigne-dit', lib.gris)));
+        // §12.9 (49-U13) — le compteur de stagnation, à 4 séances ou plus : une
+        // seconde ligne grise, lue sur le plan (`lib.compteur`), jamais calculée ici.
+        if (lib.compteur) entree.appendChild(tapable(el('div', 'consigne-dit compteur', lib.compteur)));
       }
       entree.appendChild(reglagesExo(x, vue));
 
@@ -2477,6 +2480,8 @@
       n.appendChild(el('span', 'pq-role', [l.libelle, l.raison, l.faite].filter(Boolean).join(' · ')));
       cible.appendChild(n);
     });
+    // MOTEUR §12.9 (49-U13) — le compteur de stagnation, en une ligne.
+    if (p.compteur) cible.appendChild(el('p', 'pq-p', p.compteur));
     // MOTEUR §9.15.1 (49-U10) — une routine qui prévoit plus de chauffes que
     // la table : les lignes en trop ne sont pas remplies, et la feuille le dit.
     if (p.chauffes) cible.appendChild(el('p', 'pq-p', p.chauffes));

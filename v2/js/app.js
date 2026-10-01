@@ -1852,35 +1852,8 @@
         consignes.index = Modele.indexerExercices(local.exercices);
         exo = consignes.index[slug];
       }
-      var g = Modele.gabaritDe(exo);
       var calculee = Moteur.consigneDExercice(
-        seancesDeLExercice(slug), etatsExercices[slug], seance.debut, {
-          mesure: g.inconnue ? null : g.mesure,
-          equipement: exo ? exo.equipement : null,
-          intention: profil ? profil.intention : null,
-          reglage: Profil.rythmeDe(profil),
-          // §9.1.1 — la zone choisie, ou `null`. Le mémo ne la porte pas dans
-          // sa clé : `poserZone` le remet à zéro, et la synchronisation passe
-          // par `recalculerEtats`, qui fait déjà de même.
-          correction: zoneDe(slug),
-          // §12.9 (49-U13) — les séances SOUS CONSIGNE de l'exercice : celles
-          // qui portent au moins un pari sur lui. Le compteur de stagnation ne
-          // compte qu'elles ; les séances importées ou d'avant le coach n'en
-          // portent aucun.
-          seancesSousConsigne: seancesSousConsigne(slug),
-          // Et l'historique des zones choisies : chaque séance passée se rejoue
-          // avec la zone en vigueur ce jour-là, pas celle d'aujourd'hui.
-          correctionsDeZone: (local.zones || []).filter(function (l) { return l && l.exercise_slug === slug; }),
-          // §14.4 (49-U14) — les semaines allégées acceptées : leurs séances ne
-          // sont ni comptées ni jugées par le compteur.
-          periodesAllegees: periodesAllegees(),
-          // §14.7 (49-U17) — les périodes où une série de plus était active :
-          // le niveau de ces séances se lit sur les séries de la routine.
-          periodesSerieDePlus: periodesSerieDePlusDe(slug),
-          // §7 octies — une séance terminée rouverte est une séance FAITE : le
-          // moteur n'y prescrit rien, ni en-tête ni plan.
-          edition: enEdition()
-        });
+        seancesDeLExercice(slug), etatsExercices[slug], seance.debut, optionsDeConsigne(slug, exo));
       if (!exo) return calculee;
       // §14.4 (49-U14) — les séries de travail de la routine, FIGÉES avec la
       // consigne : la semaine allégée en couvre 60 %, et « + Série » ne change
@@ -1904,6 +1877,44 @@
       }
     }
     return consignes.parSlug[slug];
+  }
+
+  // ⚠️ LES OPTIONS DE LA CONSIGNE, UNE SEULE FOIS (49-U18, 01/10/2026). La
+  // consigne de la séance (`consigneDe`) et la consigne de la PROCHAINE séance
+  // que le constat annonce (`suiteDe`) sont le même calcul
+  // (`Moteur.consigneDExercice`) : elles reçoivent les mêmes entrées. La suite
+  // en recevait moins (ni les séances sous consigne, ni les zones par date, ni
+  // les périodes) — sa « cible de la prochaine fois » pouvait ne pas être la
+  // consigne de la fois d'après (« le coach ne fait qu'un »).
+  function optionsDeConsigne(slug, exo) {
+    var g = Modele.gabaritDe(exo);
+    return {
+      mesure: g.inconnue ? null : g.mesure,
+      equipement: exo ? exo.equipement : null,
+      intention: profil ? profil.intention : null,
+      reglage: Profil.rythmeDe(profil),
+      // §9.1.1 — la zone choisie, ou `null`. Le mémo ne la porte pas dans
+      // sa clé : `poserZone` le remet à zéro, et la synchronisation passe
+      // par `recalculerEtats`, qui fait déjà de même.
+      correction: zoneDe(slug),
+      // §12.9 (49-U13) — les séances SOUS CONSIGNE de l'exercice : celles
+      // qui portent au moins un pari sur lui. Le compteur de stagnation ne
+      // compte qu'elles ; les séances importées ou d'avant le coach n'en
+      // portent aucun.
+      seancesSousConsigne: seancesSousConsigne(slug),
+      // Et l'historique des zones choisies : chaque séance passée se rejoue
+      // avec la zone en vigueur ce jour-là, pas celle d'aujourd'hui.
+      correctionsDeZone: (local.zones || []).filter(function (l) { return l && l.exercise_slug === slug; }),
+      // §14.4 (49-U14) — les semaines allégées acceptées : leurs séances ne
+      // sont ni comptées ni jugées par le compteur.
+      periodesAllegees: periodesAllegees(),
+      // §14.7 (49-U17) — les périodes où une série de plus était active :
+      // le niveau de ces séances se lit sur les séries de la routine.
+      periodesSerieDePlus: periodesSerieDePlusDe(slug),
+      // §7 octies — une séance terminée rouverte est une séance FAITE : le
+      // moteur n'y prescrit rien, ni en-tête ni plan.
+      edition: enEdition()
+    };
   }
 
   // ── §9.13 bis (49-U1) — LE PLAN DE SÉANCE, UN SEUL COACH ─────────────────
@@ -2741,7 +2752,6 @@
     if (!constats || constats.cle !== cle) constats = { cle: cle, parSlug: {} };
     if (!Object.prototype.hasOwnProperty.call(constats.parSlug, slug)) {
       var exo = Modele.indexerExercices(local.exercices)[slug];
-      var g = Modele.gabaritDe(exo);
       var faites = seriesDeTravailDe(slug).filter(function (s) { return Seance.partEnBase(s); });
       // ⚠️ LA COUPURE D'APRÈS EST L'INSTANT PRÉSENT. Le moteur ne lit jamais
       // l'avenir : une coupure au début de la séance en exclurait la séance du
@@ -2749,14 +2759,9 @@
       var r = Moteur.suiteDExercice(
         seancesDeLExercice(slug),
         { seance: { debut: seance.debut }, series: faites },
-        etatsExercices[slug], rejeuEnCours ? rejeuEnCours.instant : new Date().toISOString(), {
-          mesure: g.inconnue ? null : g.mesure,
-          equipement: exo ? exo.equipement : null,
-          intention: profil ? profil.intention : null,
-          reglage: Profil.rythmeDe(profil),
-          correction: zoneDe(slug),
-          edition: enEdition()
-        });
+        etatsExercices[slug], rejeuEnCours ? rejeuEnCours.instant : new Date().toISOString(),
+        // Les MÊMES options que la consigne de la séance (49-U18).
+        optionsDeConsigne(slug, exo));
       constats.parSlug[slug] = r ? { consigne: r.apres.consigne, cranSuivant: r.cranSuivant } : null;
     }
     return constats.parSlug[slug];

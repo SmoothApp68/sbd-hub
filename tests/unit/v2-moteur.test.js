@@ -708,9 +708,13 @@ describe('§10.2 — le pas de la salle, et quelle charge proposer', () => {
     // récurrent — le pas est APPROCHÉ à 5, et le rang 1 ne le lit pas.
     expect(M.pasDeSalle(P9b, COUPURE)).toEqual({ pas: 5, nature: 'approche' });
     expect(dessus(P9b, 'machine', 45)).toBeNull();
-    // Contre-épreuve du rang 2 : il n'a PAS de limite de date, et depuis 22 il
-    // retrouve bien la charge de 22,5 faite il y a deux ans et demi.
-    expect(dessus(P9b, 'machine', 22)).toBe(22.5);
+    // Contre-épreuve du rang 2 (§10.2, delta 49-36) : À LA BARRE il n'a PAS
+    // de limite de date, et depuis 22 il retrouve la charge de 22,5 faite il
+    // y a deux ans et demi ; sur une MACHINE, seulement les 12 derniers mois
+    // en montant — c'est 40 (il y a 20 jours). Vers le bas, sans limite.
+    expect(dessus(P9b, 'barre', 22)).toBe(22.5);
+    expect(dessus(P9b, 'machine', 22)).toBe(40);
+    expect(dessous(P9b, 'machine', 26)).toBe(25);
   });
 
   test('P10 — DISCRIMINANT : les haltères basculent À 20 kg, la paire incluse', () => {

@@ -1680,11 +1680,17 @@
       var role = f ? f.role : roles[i];
       var ligne = f ? f.ligne : null;
       var source = role === 'haut' ? consigne.haut : consigne.ligne;
-      // Une consigne sans ligne basse (« rejoint ») : la ligne en plus prend la
-      // charge et la visée de la ligne haute, sans en être un test.
-      if (!f && ajoutee(i) && !source) source = consigne.haut;
-      // Une consigne sans la ligne correspondante ne couvre pas cette série :
-      // on n'invente pas une valeur pour remplir un rang.
+      // §9.13 (49-U18, 01/10/2026) — UNE LIGNE DE TRAVAIL QUE LA CONSIGNE NE
+      // COUVRE PAS PREND LA CHARGE DU COACH, JAMAIS UNE VALEUR D'UNE ANCIENNE
+      // SÉANCE : sans ligne basse (« rejoint », « tout passe »), la ligne prend
+      // la charge et la visée de la ligne haute, sans en être un test ; sans
+      // ligne haute, l'inverse. Laissée hors plan, elle reprenait la 1re série
+      // de la séance d'avant (le couché du 01/10 à 88 kg, le hip thrust du
+      // 30/09 à 52,7), sans pari. La ligne en plus de la série de plus en est
+      // un cas (§14.7).
+      if (!f && !source) source = role === 'haut' ? consigne.ligne : consigne.haut;
+      // Une consigne sans aucune ligne ne couvre pas cette série : on
+      // n'invente pas une valeur pour remplir un rang.
       if (!f && !source) return;
       // §14.4 (49-U14) — LA SEMAINE ALLÉGÉE ne couvre que les premières séries
       // (`couvre` : 60 % de la routine) ; les autres ne sont pas proposées.
@@ -1907,7 +1913,12 @@
     // qui parle. La colonne « précédent », elle, ne lit toujours que le passé.
     var charge = derniereSaisie(exo, iSerie, 'charge_kg', prec, plan);
     if (charge === null && propose && propose.charge_kg !== null) charge = propose.charge_kg;
-    if (charge === null && ligne) charge = ligne.charge_kg;
+    // §9.15.3 (49-U18, 01/10/2026) — UNE DÉGRESSIVE NE REPREND JAMAIS LA
+    // CHARGE D'UNE ANCIENNE SÉANCE : sa charge vient du coach (`THPlan`), et
+    // à la barre il la laisse vide (« Pas de dégressive à la barre »). Le
+    // curl EZ du 01/10 reprenait les 15 kg de la fois d'avant là où le plan ne
+    // plaçait pas la dégressive.
+    if (charge === null && ligne && typeDe(propre) !== 'degressive') charge = ligne.charge_kg;
     if ((charge === null || charge === undefined) && propre) {
       charge = propre.charge_cible_kg;
     }

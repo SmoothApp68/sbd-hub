@@ -1070,6 +1070,19 @@
       if (l.role === 'hors' && x.paris && x.paris[l.iSerie]) err('I1', 'série ' + l.iSerie + ' hors couverture, avec un pari');
     });
     verifierAutour(x, err);
+    // I25 (49-U18, 01/10/2026) — AUCUNE LIGNE DE TRAVAIL À FAIRE N'EST LAISSÉE
+    // HORS PLAN SOUS UNE CONSIGNE : elle prend la charge du coach (§9.13), et
+    // son pré-remplissage vient du plan, jamais d'une ancienne séance. Une
+    // montée en charge se déclare en échauffement (rôle explicite). Seule la
+    // semaine allégée laisse des lignes hors plan (`couvre`, I19).
+    var k25 = x.consigne;
+    if (k25 && k25.etat !== 'silence' && (k25.ligne || k25.haut) && typeof k25.couvre !== 'number') {
+      lignes.forEach(function (l) {
+        if (l.type === 'travail' && !l.validee && l.role === 'hors') {
+          err('I25', 'la série de travail ' + l.iSerie + ' est hors plan sous une consigne « ' + k25.etat + ' »');
+        }
+      });
+    }
     if (!x.consigne) {
       lignes.forEach(function (l) {
         if (l.role !== 'hors') err('I1', 'série ' + l.iSerie + ' couverte sans consigne');

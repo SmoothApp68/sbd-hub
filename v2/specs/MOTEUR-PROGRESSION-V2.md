@@ -872,7 +872,7 @@ Le palier bascule de lui-même quand la charge testée tient la majorité des s�
 
 Coupure au sens du §12.6 : un écart depuis la séance précédente supérieur à 3 fois l'écart habituel de l'exercice.
 
-**Précisé le 19/09/2026 (48b-3).** L'écart habituel est la médiane des écarts, en jours, entre les séances consécutives de l'exercice antérieures à celle qu'on prescrit (§9.12) ; il faut au moins deux séances pour en avoir un, sinon il n'y a pas de coupure. La coupure est stricte : à 3 fois l'écart habituel pile, il n'y en a pas. La durée qui départage les deux reprises se compte de la dernière séance à celle qu'on prescrit : jusqu'à 84 jours inclus, reprise courte ; au-delà, reprise longue.
+**Précisé le 19/09/2026 (48b-3).** L'écart habituel est la médiane des **8 derniers** écarts, en jours, entre les séances consécutives de l'exercice antérieures à celle qu'on prescrit (§9.12) — **le rythme actuel, pas celui d'il y a un an** (précisé le 01/10/2026 : un militaire fait deux fois par semaine à l'automne 2025, une fois par semaine depuis, voyait 14 jours d'absence comme une reprise ; la zone se lit déjà sur les 8 dernières séances, même logique). **Une reprise, courte ou longue, ne vise jamais au-dessus du haut de la zone** (précisé le 01/10/2026 : 52,5 kg × 10 en zone Mix 6-8) ; les autres états ne sont pas bornés, l'étirement dépassant la zone exprès ; il faut au moins deux séances pour en avoir un, sinon il n'y a pas de coupure. La coupure est stricte : à 3 fois l'écart habituel pile, il n'y en a pas. La durée qui départage les deux reprises se compte de la dernière séance à celle qu'on prescrit : jusqu'à 84 jours inclus, reprise courte ; au-delà, reprise longue.
 
 | Coupure | Consigne |
 |---|---|
@@ -1134,7 +1134,7 @@ Sur les poulies et machines, les charges viennent d'une conversion livres → ki
 **Précisé le 19/09/2026 (48b-3) :**
 
 - Le pas se mesure sur **la plus lourde série de chaque séance**, explorations comprises (hors chauffes, dégressives et séries ratées), sur les séances des **24 mois** qui précèdent celle qu'on prescrit (§9.12). Un écart est récurrent s'il revient **au moins 3 fois** ; on retient **le plus petit** écart récurrent, et il n'est exact que s'il est un multiple de 0,5 kg. Sinon, le pas est **approché** : il vaut l'écart médian, et la charge se choisit au rang 2 (la charge déjà utilisée).
-- Les « charges déjà utilisées » du rang 2 sont toutes les charges de travail et d'exploration des séances antérieures, sans limite de date.
+- Les « charges déjà utilisées » du rang 2 sont les charges de travail et d'exploration des séances antérieures : **pour chercher plus lourd sur une machine, une poulie ou des haltères, seulement celles des 12 derniers mois** (précisé le 01/10/2026 : un 25 kg du 30/04/2024, sur une autre machine, passait devant le 27 kg de la poulie actuelle — un test à +0,2 kg ; d'une salle à l'autre, les piles et les haltères changent) ; **à la barre, sans limite de date** (les disques sont les mêmes partout) ; **vers le bas, sans limite de date** (le repli a sa propre limite de 10 %). Le rang 1 (pas de salle, 24 mois) et le rang 3 (repli matériel) ne changent pas.
 - **Vers le bas, même ordre** (reprise après plus de 12 semaines, §9.9) : le palier moins le pas exact ; sinon la charge déjà utilisée juste en dessous ; sinon le repli du matériel (barre et Smith −2,5 kg ; haltères −2 kg jusqu'à une paire de 20 kg incluse, −4 kg au-delà) ; sinon « un cran en dessous », sans chiffre.
 
 ### 10.3 Le progrès en pourcentage est interdit
@@ -1248,7 +1248,7 @@ La corrélation entre l'écart médian entre séances et la durée des épisodes
 
 > **Le compteur repart à zéro si l'écart depuis la séance précédente dépasse 3× l'écart habituel de cet exercice.**
 
-Écart habituel = médiane des écarts entre séances sur cet exercice. Couché : 7 jours → reset à 21 jours. Sur l'ensemble, écart médian 4 jours, 90ᵉ centile 19 jours ; **14,5 % des séances suivent une coupure ainsi définie**.
+Écart habituel = médiane des **8 derniers** écarts entre séances sur cet exercice (§9.9, une seule définition). Couché : 7 jours → reset à 21 jours. Sur l'ensemble, écart médian 4 jours, 90ᵉ centile 19 jours ; **14,5 % des séances suivent une coupure ainsi définie**.
 
 Effet mesuré : le reset abaisse le taux de reprise spontanée de 4 à 5 points sur toute la plage utile. Il fait donc bien son travail — mais **pas celui qu'on lui prêtait** : il n'explique pas la bosse observée à 6 séances dans la mesure charge-seule, qui lui survit. Après trois semaines sans toucher un mouvement, ne pas progresser n'est pas un blocage, c'est une reprise.
 

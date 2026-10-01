@@ -73,10 +73,15 @@ describe('§9.13 (49-C) — le test va sur la dernière série non validée', ()
     expect(vue(cov).map((x) => x.split(':')[1])).toEqual(['ligne', 'ligne', 'haut', 'haut']);
   });
 
-  test('une consigne sans ligne (tout passe) ne couvre que ce que le haut peut couvrir', () => {
+  // 49-U18 (01/10/2026) — INVERSÉ. Ce test gardait le défaut : sous une
+  // consigne sans ligne basse, la série de trop restait HORS PLAN et reprenait
+  // la 1re série de la séance d'avant (le couché du 01/10 à 88 kg, le hip
+  // thrust du 30/09). Elle prend maintenant la charge du coach : la ligne
+  // haute, sans en être un test.
+  test('une consigne sans ligne (tout passe) : la série de trop prend la charge du coach, à la ligne', () => {
     const cov = Seance.couvertureSeance([libre('a'), libre('b'), libre('c'), libre('d')],
       consigne(3, null, { charge: 92.5, vise: 12, k: 3 }), {});
-    expect(vue(cov)).toEqual([null, '1:haut:92.5×12', '2:haut:92.5×12', '3:haut:92.5×12']);
+    expect(vue(cov)).toEqual(['1:ligne:92.5×12', '2:haut:92.5×12', '3:haut:92.5×12', '4:haut:92.5×12']);
   });
 });
 

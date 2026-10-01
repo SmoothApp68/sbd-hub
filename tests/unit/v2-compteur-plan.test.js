@@ -73,7 +73,10 @@ describe('§12.9 — le compteur, lu par le plan', () => {
     expect(a.entete.gris).toEqual(b.entete.gris);
   });
 
-  test('VERSION_CONSIGNE ne change pas (4)', () => {
-    expect(M.VERSION_CONSIGNE).toBe(4);
+  // 4 pour le compteur (49-U13) ; 5 depuis 49-U18 (l'écart habituel sur les 8
+  // derniers écarts, les reprises bornées à la zone, la charge plus lourde sur
+  // 12 mois hors barre) — le compteur lui-même n'a pas changé de règle.
+  test('VERSION_CONSIGNE vaut 5 (49-U18)', () => {
+    expect(M.VERSION_CONSIGNE).toBe(5);
   });
 });

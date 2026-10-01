@@ -1215,7 +1215,9 @@ describe('le constat de fin de bloc (ECRAN-SAISIE §3.9)', () => {
       [auPalier(92.5, 8), auPalier(92.5, 8), auPalier(92.5, 8)]);
     expect(constatDe(c).constat).toEqual({
       verdict: '92,5' + NB + 'kg' + NB + '×' + NB + '8, 8, 8' + NB + ': pas encore dans ta zone.',
-      suite: 'Même cible la prochaine fois' + NB + ': 92,5' + NB + 'kg' + NB + '×' + NB + '9.'
+      // 49-U18 (principe ii) — la cible du jour n'était pas celle-ci : « Même
+      // cible » ne se dit que si la ligne jaune d'après est celle du jour.
+      suite: 'Prochaine séance' + NB + ': 92,5' + NB + 'kg' + NB + '×' + NB + '9.'
     });
   });
 
@@ -1258,7 +1260,9 @@ describe('le constat de fin de bloc (ECRAN-SAISIE §3.9)', () => {
       [auPalier(90, 10), auPalier(90, 10), auPalier(90, 10)]);
     expect(constatDe(rien).constat).toEqual({
       verdict: 'Pas encore' + NB + ': 90' + NB + 'kg' + NB + '×' + NB + '10, 10, 10.',
-      suite: 'Même cible la prochaine fois' + NB + ': 90' + NB + 'kg' + NB + '×' + NB + '11.'
+      // 49-U18 (principe ii) — la cible du jour n'était pas celle-ci : « Même
+      // cible » ne se dit que si la ligne jaune d'après est celle du jour.
+      suite: 'Prochaine séance' + NB + ': 90' + NB + 'kg' + NB + '×' + NB + '11.'
     });
 
     // Et la garde qui porte le changement : plus aucune félicitation.
@@ -1331,7 +1335,8 @@ describe('le constat de fin de bloc (ECRAN-SAISIE §3.9)', () => {
   // aucun cran suivant (`null`) ; le cran au-dessus de 110 est 112,5.
   const PAR_LA_CHAINE_49U8 = {
     K11: { constat: { verdict: 'Aujourd\'hui' + NB + ': 110' + NB + 'kg' + NB + '×' + NB + '3.',
-                      suite: 'Même cible la prochaine fois' + NB + ': 110' + NB + 'kg' + NB + '×' + NB + '4.' },
+                      // 49-U18 (principe ii) : la cible du jour n'était pas 110 kg × 4.
+                      suite: 'Prochaine séance' + NB + ': 110' + NB + 'kg' + NB + '×' + NB + '4.' },
            cranSuivant: 112.5 }
   };
 

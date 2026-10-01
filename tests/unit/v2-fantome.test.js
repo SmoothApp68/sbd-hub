@@ -131,9 +131,13 @@ describe('la règle vaut pour les quatre types', () => {
     p(90, 8, 'degressive'), p(120, 2, 'echec')
   ]);
 
-  test('une dégressive ne propose pas une charge de travail', () => {
+  // 49-U18 (01/10/2026) — INVERSÉ : une dégressive ne reprend plus rien de
+  // la fois d'avant, ni une charge de travail, ni SA dégressive (90). Sa
+  // charge vient du coach seul (`THPlan`) ; à la barre, il la laisse vide.
+  // C'est par ici que le curl EZ du 01/10 retrouvait ses 15 kg.
+  test('une dégressive ne propose ni une charge de travail, ni la dégressive d’avant', () => {
     const s = seanceDe(['degressive']);
-    expect(charges(s, QUATRE())).toEqual([90]);
+    expect(charges(s, QUATRE())).toEqual([null]);
   });
 
   test('une série d’échec s’aligne sur une série d’échec', () => {
@@ -143,7 +147,8 @@ describe('la règle vaut pour les quatre types', () => {
 
   test('et chaque type trouve le sien, quel que soit l’ordre d’aujourd’hui', () => {
     const s = seanceDe(['echec', 'degressive', 'travail', 'echauffement']);
-    expect(charges(s, QUATRE())).toEqual([120, 90, 120, 40]);
+    // La dégressive : vide (49-U18, ci-dessus).
+    expect(charges(s, QUATRE())).toEqual([120, null, 120, 40]);
   });
 
   test('un type absent de la fois précédente ne retombe pas sur un autre', () => {

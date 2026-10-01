@@ -186,6 +186,11 @@
       // de chaque pari (I18). `rejouer` ne la passe pas : les cas du simulateur
       // gardent leur fondement tel quel.
       if (p.length && o.phase !== undefined) p[0].fondement.phase = o.phase;
+      // MOTEUR §14.4 (49-U14) — le compteur de l'exercice À L'OUVERTURE, figé
+      // dans le fondement de chaque pari : le blocage généralisé se lit dans
+      // les paris des 7 jours, sans rejeu. Et la semaine allégée se dit.
+      if (p.length && o.compteur !== undefined) p[0].fondement.compteur = o.compteur;
+      if (p.length && o.allegee) p[0].fondement.allegee = true;
       paris[l.iSerie] = p.length ? p[0] : null;
     });
 
@@ -476,7 +481,7 @@
   }
 
   // ── LE PLAN D'UN EXERCICE ───────────────────────────────────────────────
-  function planDExercice(exo, iExo, consigneDuSlug, paris, seanceId, reglage, suite, debut, materiel, phase) {
+  function planDExercice(exo, iExo, consigneDuSlug, paris, seanceId, reglage, suite, debut, materiel, phase, allegee, seriesRoutine) {
     var S = Seance(), M = Moteur();
     var series = (exo && exo.series) || [];
     var c = consigneDuSlug && consigneDuSlug.consigne ? consigneDuSlug : null;
@@ -497,15 +502,24 @@
     // La consigne figée (§9.9, delta 49-13) : c'est elle que lisent les lignes
     // figées, l'en-tête, le constat et les invariants.
     var consigne = M.consigneFigee(c.consigne);
+    // MOTEUR §14.4 (49-U14) — PENDANT UNE SEMAINE ALLÉGÉE, la consigne de
+    // l'exercice est la consigne allégée : même charge, 2 reps de moins, 60 %
+    // des séries de la routine, rien ne monte. C'est elle que lisent les
+    // lignes, l'en-tête, les paris, les chauffes et les invariants.
+    if (allegee && consigne && consigne.etat !== 'silence') consigne = M.consigneAllegee(consigne, seriesRoutine);
     var siens = (paris || []).filter(function (l) {
       return l && l.exercise_slug === base.slug && l.fondement && l.fondement.seance === seanceId;
     });
     // ⚠️ LES LIGNES FIGÉES SE LISENT ICI, UNE FOIS, DANS LES PARIS DE LA SÉANCE
     // (§9.13, #322) — et nulle part ailleurs : elles sont une ENTRÉE du plan.
     var figees = S.figeesDe(siens, series, consigne);
+    // Sans compteur (une consigne figée avant 49-U13), rien ne s'écrit : un 0
+    // inventé se lirait comme un progrès (mémoire et observation, §14.4).
+    var compteurOuverture = c.compteur && typeof c.compteur.compteur === 'number' ? c.compteur.compteur : undefined;
     var r = planDesLignes(series, consigne, c.contexte || null, figees, {
       slug: base.slug, seance: seanceId === undefined ? null : seanceId,
-      reglage: reglage === undefined ? null : reglage, phase: phase
+      reglage: reglage === undefined ? null : reglage, phase: phase,
+      compteur: compteurOuverture, allegee: !!consigne.allegee
     });
 
     // L'en-tête décrit la disposition de la consigne sur les lignes de la
@@ -513,6 +527,11 @@
     var disposition = r.planInitial.map(function (p) { return p && p.role === 'haut' ? 'haut' : 'ligne'; });
     var entete = M.enteteDeDisposition(consigne, disposition);
     var gris = c.libelles ? c.libelles.gris : '';
+    if (consigne.allegee) {
+      // « 125 kg × 3 », et en gris « 2 séries au lieu de 4, cette semaine ».
+      entete = { jaune: [M.phraseAllegee(consigne)], segments: entete.segments };
+      gris = M.detailAllegee(consigne);
+    }
     var donc = entete.jaune.length ? 'Donc ' + entete.jaune.join(', ') + '.' : null;
     var autour = chauffesEtDegressive(r.lignes, series, consigne, materiel || null);
     var pourquoi = pourquoiDuPlan(consigne, r.lignes, donc);
@@ -522,7 +541,8 @@
     // figée (`consigneDExercice`) ; sa phrase, à 4 séances ou plus, s'écrit en
     // gris dans l'en-tête et en une ligne de la feuille « Pourquoi ».
     var compteur = c.compteur || null;
-    var phraseDuCompteur = compteur ? M.phraseCompteur(compteur) : null;
+    // Pendant la semaine allégée, le compteur se tait : rien ne se juge.
+    var phraseDuCompteur = compteur && !consigne.allegee ? M.phraseCompteur(compteur) : null;
     if (pourquoi && phraseDuCompteur) pourquoi.compteur = phraseDuCompteur;
 
     return {
@@ -659,19 +679,84 @@
     var consignes = e.consignes || {};
     var exos = seance.exercices || [];
     var phase = phaseDuPlan(e.phase);
+    var esc = escalierDuPlan(e, seance, consignes);
+    var seriesRoutine = (e.escalier && e.escalier.seriesRoutine) || {};
     return {
       seance: seance.id === undefined ? null : seance.id,
       phase: phase,
+      allegee: esc.allegee,
+      carte: esc.carte,
       exercices: exos.map(function (exo, i) {
         var slug = exo && exo.exercise_slug;
         var c = Object.prototype.hasOwnProperty.call(consignes, slug) ? consignes[slug] : null;
         var suites = e.suites || {};
         var suite = Object.prototype.hasOwnProperty.call(suites, slug) ? suites[slug] : null;
         return planDExercice(exo, i, c, e.paris || [], seance.id, e.reglage, suite, seance.debut,
-          materielDe(exos, i, e.catalogue || null, c, e.refusChauffes || {}), phase);
+          materielDe(exos, i, e.catalogue || null, c, e.refusChauffes || {}), phase,
+          !!esc.allegee, Object.prototype.hasOwnProperty.call(seriesRoutine, slug) ? seriesRoutine[slug] : null);
       })
     };
   }
+
+  // ── MOTEUR §14.4 (49-U14) — L'ÉTAPE DE L'ESCALIER : LA SEMAINE ALLÉGÉE ───
+  //
+  // `entrees.escalier` (facultatif, donné par l'app) :
+  //   · `cartes` — les paris de l'escalier (`Moteur.cartesDesParis`) ;
+  //   · `compteurs` — `[{ exercice, jour, compteur, seance, debut }]`, le
+  //     compteur à l'ouverture lu dans le fondement des paris de consigne des
+  //     AUTRES séances (serveur et appareil) ;
+  //   · `noms` — `{ [slug]: nom }`, les noms du catalogue ;
+  //   · `seriesRoutine` — `{ [slug]: n }`, les séries de travail de chaque
+  //     exercice à l'ouverture, figées avec la consigne.
+  // La séance du jour lit ses compteurs dans ses consignes figées. Rend
+  // `{ allegee, carte }` : la période en cours, ou la carte à proposer — jamais
+  // les deux (I20).
+  function escalierDuPlan(e, seance, consignes) {
+    var vide = { allegee: null, carte: null };
+    var esc = e.escalier;
+    if (!esc || seance.edition) return vide;
+    var M = Moteur();
+    var jour = M.jourCivil(seance.debut);
+    if (!jour) return vide;
+    var cartes = esc.cartes || [];
+    var p = M.periodeAllegee(cartes, jour);
+    if (p) {
+      return { allegee: { debut: p.debut, fin: p.fin, bandeau: M.bandeauAllegee(p.fin), declencheur: p.declencheur },
+               carte: null };
+    }
+    // Une carte à laquelle cette séance a déjà répondu ne revient pas.
+    if (cartes.some(function (c) { return c && c.seance === seance.id; })) return vide;
+    // Les compteurs à l'ouverture, par jour : ceux des AUTRES séances (lus dans
+    // leurs paris), plus ceux de la séance qui s'ouvre (ses consignes figées).
+    var jours = {};
+    var poser = function (jr, slug, n) {
+      var j = jours[jr] || (jours[jr] = {});
+      if (j[slug] === undefined || n > j[slug]) j[slug] = n;
+    };
+    (esc.compteurs || []).forEach(function (x) {
+      if (!x || !x.jour || x.seance === seance.id || typeof x.compteur !== 'number') return;
+      poser(x.jour, x.exercice, x.compteur);
+    });
+    // ⚠️ LE DÉCLENCHEUR EST UN EXERCICE DE LA SÉANCE QUI S'OUVRE : une autre
+    // séance du même jour ne prête que ses compteurs.
+    var ouverts = [];
+    Object.keys(consignes).forEach(function (slug) {
+      var c = consignes[slug];
+      var n = c && c.consigne && c.compteur && typeof c.compteur.compteur === 'number' ? c.compteur.compteur : null;
+      if (n === null) return;
+      poser(jour, slug, n);
+      ouverts.push(slug);
+    });
+    var b = M.blocageGeneralise(jours, jour, esc.noms || null, ouverts);
+    if (!b || !M.carteAutorisee(b.declencheur, jour, cartes, esc.compteurs || [])) return vide;
+    var nom = function (s) { return esc.noms && esc.noms[s] ? esc.noms[s] : s; };
+    return {
+      allegee: null,
+      carte: { jour: jour, declencheur: b.declencheur, compteur: b.compteur, cites: b.cites.slice(),
+               phrase: M.phraseCarte(b.cites.map(nom)), detail: M.DETAIL_CARTE }
+    };
+  }
+
 
   // ══ LES INVARIANTS — UN COACH QUI NE PEUT PAS SE CONTREDIRE ══════════════
   //
@@ -1171,6 +1256,52 @@
     (parisSeance || []).forEach(function (q) { voir(q, 'pari posé ' + (q.exercise_slug || '') + ' rang ' + (q.fondement && q.fondement.rang)); });
   }
 
+  // I19, I20 (MOTEUR §14.4, 49-U14) — la semaine allégée et sa carte.
+  //
+  // I19 : pendant une période allégée, aucune ligne de test ni proposition de
+  // montée (ni dans le plan initial, ni dans la réaction), et chaque exercice
+  // avec une consigne couvre 60 % des séries de la routine, arrondi (moins
+  // s'il reste moins de séries de travail) ; ses paris le disent (`allegee`).
+  // I20 : au plus une carte par séance — jamais pendant une période, jamais
+  // sur une séance qui y a déjà répondu. La règle n'est pas relue : I19 compte
+  // les lignes, I20 lit les paris de l'escalier donnés en entrée.
+  function verifierEscalier(plan, entrees, erreurs) {
+    if (!plan) return;
+    var M = Moteur();
+    if (plan.carte && plan.allegee) erreurs.push('I20 — une carte pendant une semaine allégée');
+    if (plan.carte && (Array.isArray(plan.carte) || !plan.carte.declencheur)) {
+      erreurs.push('I20 — la carte n\'est pas UNE proposition (' + JSON.stringify(plan.carte) + ')');
+    }
+    var esc = entrees && entrees.escalier;
+    if (plan.carte && esc && (esc.cartes || []).some(function (c) { return c && c.seance === plan.seance; })) {
+      erreurs.push('I20 — une carte sur une séance qui y a déjà répondu');
+    }
+    if (!plan.allegee) return;
+    (plan.exercices || []).forEach(function (x) {
+      if (!x.consigne || x.consigne.etat === 'silence') return;
+      var nom = 'exercice ' + x.iExo + ' (' + x.slug + ')';
+      var err = function (texte) { erreurs.push('I19 — ' + nom + ' : ' + texte); };
+      var a = x.consigne.allegee;
+      if (!a) { err('une consigne qui n\'est pas allégée pendant la période'); return; }
+      if (x.consigne.haut) err('une ligne haute pendant la période');
+      (x.lignes || []).forEach(function (l) {
+        if (l.role === 'test' || l.role === 'coach') err('la série ' + l.iSerie + ' est une ligne ' + l.role);
+      });
+      ((x.reaction && x.reaction.plan) || []).forEach(function (q, i) {
+        if (q && q.source === 'coach') err('une proposition de montée (ligne ' + i + ')');
+      });
+      var travail = (x.lignes || []).filter(function (l) { return l.type === 'travail'; }).length;
+      var couvertes = (x.lignes || []).filter(function (l) { return l.role !== 'hors'; }).length;
+      var attendu = Math.min(M.seriesAllegees(a.routine), travail);
+      if (couvertes !== attendu) {
+        err(couvertes + ' ligne(s) couverte(s), pour ' + attendu + ' attendue(s) (60 % de ' + a.routine + ')');
+      }
+      (x.paris || []).forEach(function (q, i) {
+        if (q && !(q.fondement && q.fondement.allegee === true)) err('le pari de la série ' + i + ' ne dit pas « allégée »');
+      });
+    });
+  }
+
   // `entrees` (facultatif) : I7 — les paris de la séance face aux lignes ;
   // I12 — mêmes entrées, même plan, et les entrées ne sont pas modifiées par
   // le calcul. `avant` (facultatif) : le plan précédent, pour I4.
@@ -1181,6 +1312,7 @@
     }) : null;
     var memeSeance = !!(avant && plan && avant.seance === plan.seance);
     verifierPhase(plan, parisSeance, erreurs);
+    verifierEscalier(plan, entrees, erreurs);
     ((plan && plan.exercices) || []).forEach(function (x, i) {
       var xa = memeSeance ? (avant.exercices || [])[i] : null;
       verifierExercice(x, erreurs, parisSeance, xa && xa.slug === x.slug ? xa : null);

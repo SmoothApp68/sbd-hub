@@ -1652,6 +1652,7 @@
       return s && s.id && partEnBase(s) && gel[s.id] ? gel[s.id] : null;
     };
     var k = consigne.haut ? (Number(consigne.haut.k) || 0) : 0;
+    var couvre = typeof consigne.couvre === 'number' && consigne.couvre >= 1 ? consigne.couvre : null;
     var testsFaits = travail.filter(function (i) {
       var f = figeeDe(i);
       return !!f && f.role === 'haut';
@@ -1673,6 +1674,9 @@
       // Une consigne sans la ligne correspondante ne couvre pas cette série :
       // on n'invente pas une valeur pour remplir un rang.
       if (!f && !source) return;
+      // §14.4 (49-U14) — LA SEMAINE ALLÉGÉE ne couvre que les premières séries
+      // (`couvre` : 60 % de la routine) ; les autres ne sont pas proposées.
+      if (!f && couvre !== null && position >= couvre) return;
       var rang;
       if (f) {
         rang = f.rang;

@@ -825,6 +825,18 @@ button.puce-zone{font:inherit;font-size:11px;font-weight:600;cursor:pointer;
 .proposition-chauffes button{min-height:36px;padding:0 12px;border-radius:8px;font:inherit;font-size:13.5px}
 .proposition-chauffes .pc-ajouter{background:var(--accent);color:#111;border:0;font-weight:620}
 .proposition-chauffes .pc-refuser{background:transparent;color:var(--texte-2);border:1px solid var(--trait)}
+/* MOTEUR §14.4 (49-U14) — l'escalier en tête de la séance : la carte de la
+   semaine allégée (deux gestes), ou le bandeau de la période. Le jaune reste
+   à la suggestion du moteur ; aucune couleur d'alarme. */
+#escalier-seance{margin:8px 12px 4px}
+.carte-escalier{padding:10px 12px;border:1px dashed var(--trait);border-radius:10px}
+.carte-escalier .ce-phrase{margin:0;font-weight:600;line-height:1.35}
+.carte-escalier .ce-detail{margin:6px 0 0;color:var(--texte-2);font-size:13.5px;line-height:1.4}
+.carte-escalier .ce-gestes{display:flex;gap:8px;margin-top:10px}
+.carte-escalier button{min-height:40px;padding:0 14px;border-radius:8px;font:inherit;font-size:14px}
+.carte-escalier .ce-alleger{background:var(--accent);color:#111;border:0;font-weight:620}
+.carte-escalier .ce-refuser{background:transparent;color:var(--texte-2);border:1px solid var(--trait)}
+.bandeau-allegee{padding:8px 12px;border-left:3px solid var(--accent);color:var(--texte-2);font-size:13.5px;line-height:1.35}
 .reaction-serie .coche-verte{width:14px;height:14px;margin:0 6px -2px 0;fill:none;
   stroke:var(--reussi);stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
 .ligne-serie.proposee .serie{box-shadow:inset 3px 0 0 var(--accent);

@@ -1430,9 +1430,9 @@ Le coach **dit** la consigne allégée (« 125 kg, vise 3 · 2 séries ») : san
 2. **Redescendre au dernier palier tenu** (§14.2).
 3. Au-delà : le coach se tait sur cet exercice et le signale dans le constat de fin de bloc, sans alarme.
 
-**Toujours.** Un levier à la fois ; la marche suivante seulement au déclenchement suivant (4 nouvelles séances suivies sans progrès) ; une marche refusée n'est pas retentée **avant le prochain progrès de l'exercice** (§14.3), le coach passe à la suivante au déclenchement d'après ; **après une semaine allégée refusée ou sans effet, le déclenchement suivant passe à l'escalier isolé, exercice par exercice** (précisé le 25/09/2026, #319). **Chaque proposition est un pari** dans `predictions` : elle affirme **« débloqué avant le prochain déclenchement »** (1 ou 0) ; refusée, elle s'écrit aussi, observée « autre chose tenté » (comme au §9.11). Identifiant sans rang : SHA-256(séance | exercice | marche), exercice vide pour la semaine allégée. Son observation ne se rattache à aucune série : **la contrainte `predictions_observation_coherente` (une observation exige `set_observe`) demandera une migration**, décidée avec Aurélien avant l'implémentation. La proposition d'une série de plus ou de moins est une **proposition de structure** : la routine reste celle de la personne, qui décide.
+**Toujours.** Un levier à la fois ; la marche suivante seulement au déclenchement suivant (4 nouvelles séances suivies sans progrès) ; une marche refusée n'est pas retentée **avant le prochain progrès de l'exercice** (§14.3), le coach passe à la suivante au déclenchement d'après ; **après une semaine allégée refusée ou sans effet, le déclenchement suivant passe à l'escalier isolé, exercice par exercice** (précisé le 25/09/2026, #319). **Chaque proposition est un pari** dans `predictions` : elle affirme **« débloqué avant le prochain déclenchement »** (1 ou 0) ; refusée, elle s'écrit aussi, avec `reponse : refusee` dans son fondement, et **n'est jamais observée** — le refus est enregistré par le pari lui-même (précisé le 01/10/2026 : une observation « autre chose tenté » suppose une série, ce pari n'en a pas). **Identifiant sans rang**, dans un espace de noms à part : le même UUID v5 que les paris de consigne, calculé sur `escalier|séance|exercice|marche` (exercice vide pour la semaine allégée) — il ne peut jamais rencontrer l'identifiant d'un pari de consigne. Son observation ne se rattache à aucune série : la contrainte `predictions_observation_coherente` l'autorise **pour `module = 'escalier'` seulement** (migration `v2_052`, décidée par Aurélien et appliquée le 01/10/2026). La proposition d'une série de plus ou de moins est une **proposition de structure** : la routine reste celle de la personne, qui décide.
 
-**Ce qui n'est pas tranché** : le réglage des marches selon la vitesse de progression de l'exercice (prise vide : les données ne permettent pas de trancher) ; la forme exacte de la semaine allégée et de la carte (maquette d'abord).
+**Ce qui n'est pas tranché** : le réglage des marches selon la vitesse de progression de l'exercice (prise vide : les données ne permettent pas de trancher). *La forme de la semaine allégée et de la carte est tranchée le 01/10/2026 (maquette v4, §14.4).*
 
 **Mesure** (cinq historiques, 112 blocages suivis d'au moins 3 séances ; débloqué = le maximum estimé, en coulisse, dépasse de 2 % le meilleur des 8 séances d'avant, dans les 8 séances d'après) :
 
@@ -1496,6 +1496,36 @@ Si l'utilisateur retire une série, l'app **ne la repropose pas** — ni sur min
 3. **C'est le piège du niveau 3 du cadrage.** Une app qui prescrit puis observe les conséquences de ses propres consignes ne s'optimise pas, elle se confirme.
 
 Le filet existe déjà : si le retrait fait descendre le volume sous la fourchette personnelle, la règle de volume le signale, selon ses propres conditions — REGLE-VOLUME fait foi, le nombre de fenêtres ne se recopie pas ici (précisé le 25/09/2026, #319).
+
+### 14.4 La semaine allégée dans l'app — câblée le 01/10/2026 (chantier 49)
+
+> **Une carte, en tête de la séance, quand plusieurs exercices calent ensemble. Acceptée : 7 jours, mêmes exercices, mêmes charges, 60 % des séries, 2 reps de moins, rien ne monte.**
+
+**Le compteur, figé dans chaque pari.** Chaque pari de consigne porte dans son fondement le **compteur de son exercice à l'ouverture** (§12.9). Le blocage généralisé se lit **dans les paris** des 7 jours antérieurs : aucun rejeu, aucune table ; seules comptent les séances sous consigne, comme pour le compteur.
+
+**La détection, à l'ouverture de la séance.** Un exercice de la séance a un **déclenchement** — son compteur à l'ouverture vaut 4, 8, 12… (la marche suivante seulement au déclenchement suivant, §14) — **et au moins deux autres exercices** ont eu un compteur à l'ouverture de 4 ou plus sur une séance de 0 à 7 jours avant, le jour même compris. Plusieurs déclencheurs : le plus grand compteur, puis l'ordre alphabétique. Les exercices **cités** : le déclencheur, puis les autres par compteur décroissant, puis ordre alphabétique.
+
+**La carte** (une seule, en tête de la séance, pas une par exercice) :
+- « {les noms} : aucun n'a progressé depuis 4 séances. » — au plus 4 noms ; au-delà, les 3 premiers puis « et N autres exercices » ;
+- « Quand tout cale en même temps, c'est souvent de la fatigue. Je te propose une semaine allégée : mêmes exercices, mêmes charges, 60 % des séries, 2 reps de moins, pendant 7 jours. Rien ne monte. »
+- deux boutons : **« Alléger 7 jours »** et **« Non merci »**. Pas de question (le coach suggère, il ne demande pas pourquoi).
+
+**Acceptée** — une **décharge déclarée** (§9.10), du jour d'acceptation au 6ᵉ jour suivant compris :
+- un bandeau en tête de chaque séance de la période : « Semaine allégée jusqu'au 7 oct. : mêmes charges, moins de séries, loin de l'échec. Rien ne monte. » ;
+- **la consigne allégée** de chaque exercice qui a une consigne : la **même charge** que la ligne de la consigne normale ; **reps visées − 2**, au moins 1 ; **séries couvertes = 60 % des séries de travail de la routine, arrondi au plus proche, au moins une** (1 → 1, 2 → 1, 3 → 2, 4 → 2, 5 → 3, 6 → 4) — les premières lignes de la routine, les autres ne sont pas proposées cette semaine ; **aucun test, aucune montée en séance** (§9.14) ; en-tête « 125 kg × 3 » et, en gris, « 2 séries au lieu de 4, cette semaine » ; les chauffes (§9.15) se calent sur cette charge ;
+- **les paris de consigne continuent** (ils parient sur la consigne allégée), avec `allegee : true` dans leur fondement ;
+- **le compteur ignore les séances de la période** : ni comptées ni jugées (§12.9), comme une séance neutre. Ce sont des présences pour la reprise (§9.9) : elles ne créent aucune coupure.
+
+**Refusée** : séance normale ; un bandeau d'un instant, « Séance normale. Au prochain blocage, je regarderai exercice par exercice. »
+
+**La mémoire.** Une carte, acceptée ou refusée, **ne revient pas tant que son déclencheur n'a pas progressé** (§14.3 : pas retentée avant le prochain progrès) ; aucune carte pendant les 7 jours d'une semaine allégée acceptée. Au déclenchement suivant, faute de carte, l'escalier isolé prend le relais (PR suivantes ; d'ici là, le compteur parle seul).
+
+**Le pari de la semaine allégée** (`module = 'escalier'`), écrit à la réponse : fondement `marche : semaine_allegee`, `reponse : acceptee | refusee`, `declencheur`, `cites`, `debut`, `fin`, `phase`. **Acceptée, il s'observe sans série** : **1** si le déclencheur progresse avant son prochain déclenchement, **0** à son prochain déclenchement (`observee_a` = la séance qui tranche). Refusée, jamais observée (§14).
+
+**Toutes les phases** : un blocage généralisé est d'abord de la fatigue, en sèche comme ailleurs ; la carte et la semaine allégée ne lisent pas la phase.
+
+**Référence** : `coach49.py` (`blocage_generalise`, `phrase_carte`, `consigne_allegee`, `series_allegees`, `fin_allegee`, `deroule_compteur` qui ignore `decharge`) ; cas `cas_allege49.json`.
+
 
 ---
 

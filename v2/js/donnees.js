@@ -453,9 +453,20 @@
   // §12.9 (49-U13) — les séances qui portent au moins un pari, par exercice :
   // trois colonnes, pas quinze. `session_id` est une colonne GÉNÉRÉE en base
   // (`fondement->>'seance'`) : on n'a pas à rapatrier le fondement pour la lire.
+  // MOTEUR §14.4 (49-U14) : plus `compteur`, le compteur de l'exercice à
+  // l'ouverture que chaque pari de consigne fige dans son fondement — le seul
+  // champ du fondement qui descend (`fondement->compteur`).
   function seancesAvecPari() {
     return paginerParCle(trancheur(function () {
-      return client().from('predictions').select('id, exercise_slug, session_id');
+      return client().from('predictions').select('id, exercise_slug, session_id, compteur:fondement->compteur');
+    }, 'id'), 'id');
+  }
+
+  // MOTEUR §14.4 (49-U14) — les paris de l'ESCALIER, en entier (une ligne par
+  // carte : peu). `module = 'escalier'` les distingue des paris de consigne.
+  function parisEscalier() {
+    return paginerParCle(trancheur(function () {
+      return client().from('predictions').select(COLONNES_PREDICTION).eq('module', 'escalier');
     }, 'id'), 'id');
   }
 
@@ -598,6 +609,7 @@
     enregistrerZone: enregistrerZone,
     mesPredictions: mesPredictions,
     seancesAvecPari: seancesAvecPari,
+    parisEscalier: parisEscalier,
     enregistrerPrediction: enregistrerPrediction,
     observerPrediction: observerPrediction,
     mesRoutines: mesRoutines,

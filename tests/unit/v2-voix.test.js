@@ -276,6 +276,24 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
     noter('compteur', 'compteur ' + k, M.phraseCompteur({ compteur: k, meilleur: { palier: kg, niveau: n } }, [1, 1, 1, 1, 1, 1, 1, 1]));
   }));
 
+  // (h) MOTEUR §14.4 (49-U14) — l'escalier : la carte (les 16 cas de détection,
+  // phrase et détail), la consigne allégée (14 cas, en-tête et gris), les trois
+  // bandeaux de période et celui du refus. Aucun « ? » : le coach suggère, il ne
+  // demande pas pourquoi.
+  const ESC = require('./fixtures/cas-49u14-semaine-allegee.json');
+  ESC.detection.forEach((c) => {
+    const b = M.blocageGeneralise(c.jours, c.date);
+    if (b) noter('escalier', 'cas-49u14 ' + c.id, [M.phraseCarte(b.cites), M.DETAIL_CARTE]);
+  });
+  ESC.consigne_allegee.forEach((c) => {
+    const k = c.consigne;
+    const a = M.consigneAllegee({ etat: k.etat, zone: k.zone[0], ligne: { charge: k.ligne[0], vise: k.ligne[1] },
+      haut: k.haut ? { charge: k.haut[0], vise: k.haut[1], k: k.haut[2] } : null }, c.series_routine);
+    noter('escalier', 'cas-49u14 ' + c.id, [M.phraseAllegee(a), M.detailAllegee(a)]);
+  });
+  ESC.bandeau.forEach((b) => noter('escalier', 'bandeau ' + b.acceptee_le, [M.bandeauAllegee(M.finAllegee(b.acceptee_le))]));
+  noter('escalier', 'refus', [M.PHRASE_REFUS]);
+
   test('chaque famille est jouée, et la date relative l\'est vraiment', () => {
     const parFamille = {};
     vues.forEach((v) => { parFamille[v.famille] = (parFamille[v.famille] || 0) + 1; });
@@ -288,6 +306,8 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
     expect(parFamille.chauffes).toBe(32);
     // 6 phrases des 14 cas (les 8 autres sont à 0-3 : rien) + 24 synthétiques.
     expect(parFamille.compteur).toBe(30);
+    // 6 cartes × 2 phrases + 14 consignes allégées × 2 + 3 bandeaux + le refus.
+    expect(parFamille.escalier).toBe(44);
     // La phrase « Je ne compte pas la dernière série » est bien jouée.
     expect(vues.filter((v) => v.famille === 'chute' && /Je ne compte pas la dernière série/.test(v.phrase)).length)
       .toBeGreaterThanOrEqual(14);

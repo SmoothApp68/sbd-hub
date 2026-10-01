@@ -2064,6 +2064,38 @@
     return n;
   }
 
+  // MOTEUR §14.4 (49-U14) — L'ESCALIER EN TÊTE DE LA SÉANCE. Trois états,
+  // jamais deux à la fois, tous LUS sur le plan : la carte de la semaine
+  // allégée (« Alléger 7 jours », « Non merci ») ; le bandeau de la période ;
+  // le bandeau d'un instant après un refus. Sinon, rien.
+  function rendreEscalier(cible, vue) {
+    if (!cible) return cible;
+    vider(cible);
+    var v = vue || {};
+    if (v.carte) {
+      var c = el('div', 'carte-escalier');
+      c.appendChild(el('p', 'ce-phrase', v.carte.phrase));
+      c.appendChild(el('p', 'ce-detail', v.carte.detail));
+      var gestes = el('div', 'ce-gestes');
+      var oui = el('button', 'ce-alleger', 'Alléger 7 jours');
+      oui.type = 'button';
+      oui.addEventListener('click', function () { v.surAlleger(); });
+      var non = el('button', 'ce-refuser', 'Non merci');
+      non.type = 'button';
+      non.addEventListener('click', function () { v.surRefuser(); });
+      gestes.appendChild(oui);
+      gestes.appendChild(non);
+      c.appendChild(gestes);
+      cible.appendChild(c);
+    } else if (v.allegee && v.allegee.bandeau) {
+      cible.appendChild(el('div', 'bandeau-allegee', v.allegee.bandeau));
+    } else if (v.refus) {
+      cible.appendChild(el('div', 'bandeau-allegee refus', v.refus));
+    }
+    cible.hidden = !cible.firstChild;
+    return cible;
+  }
+
   // MOTEUR §9.15.2 (49-U10) — « Chauffe : 20 kg × 10 · 60 kg × 6 … », avec
   // « Ajouter » et « Non merci ». Le texte vient du plan (`chauffesDe`).
   function propositionDeChauffes(pc, iExo, vue) {
@@ -3436,6 +3468,7 @@
     etiquetteSerie: etiquetteSerie,
     texteEffort: texteEffort,
     rendreBandeauReprise: rendreBandeauReprise,
+    rendreEscalier: rendreEscalier,
     brancherReorganisation: brancherReorganisation,
     rendrePiedReorganisation: rendrePiedReorganisation,
     rendreListeRoutines: rendreListeRoutines,

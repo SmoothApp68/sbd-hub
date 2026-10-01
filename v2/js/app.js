@@ -1710,6 +1710,23 @@
   // consignes (`consignesSauvees.phase`). Jamais vide : `Profil.phaseDe`.
   var phaseGelee = null;   // { seanceId, phase }
 
+  // MOTEUR §14.6 (49-U16) — LA RÈGLE DE VOLUME, UNE FOIS PAR SÉANCE, à côté
+  // de la phase : le volume de chaque semaine par muscle sur TOUT l'historique
+  // (`Semaine.semainesDeVolume`, importées comprises), puis la place de chaque
+  // muscle (`Moteur.placeDeVolume`). Gelée en mémoire pour la séance : une
+  // synchronisation en cours de séance ne la change pas ; au rechargement, le
+  // même historique la redonne. Aucun affichage.
+  var volumeGele = null;   // { seanceId, volume }
+  function volumeDeLaSeance() {
+    if (!seance) return null;
+    if (volumeGele && volumeGele.seanceId === seance.id) return volumeGele.volume;
+    var semaines = Semaine.semainesDeVolume(local.seances, local.series, local.exercices, seance.debut);
+    var volume = {};
+    Object.keys(semaines).forEach(function (m) { volume[m] = Moteur.placeDeVolume(semaines[m]); });
+    volumeGele = { seanceId: seance.id, volume: volume };
+    return volume;
+  }
+
   function phaseDeLaSeance() {
     if (!seance) return null;
     var sauvee = consignesSauvees && consignesSauvees.seanceId === seance.id
@@ -1991,6 +2008,8 @@
       // MOTEUR §9.16 — la phase GELÉE de la séance (lue après les consignes :
       // elle se fige avec elles).
       phase: phaseDeLaSeance(),
+      // MOTEUR §14.6 (49-U16) — la règle de volume, gelée pour la séance.
+      volume: volumeDeLaSeance(),
       catalogue: catalogue,
       refusChauffes: refusChauffesDe(seance.id),
       reglage: Profil.rythmeDe(profil),

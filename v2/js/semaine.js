@@ -127,6 +127,56 @@
     });
   }
 
+  // MOTEUR §14.6 (49-U16) — LE VOLUME DE CHAQUE SEMAINE, PAR MUSCLE, sur tout
+  // l'historique (importées comprises) : l'entrée de la règle de volume. Un
+  // seul fil : chaque semaine passe par `volumeParMuscle`, aucun second calcul
+  // du volume. Les semaines vont de celle de la première séance à celle qui
+  // PRÉCÈDE la semaine de `avant` (la séance qui s'ouvre), vides comprises —
+  // une semaine vide est un fait que la règle lit (époques, §11.4).
+  // Rend `{ [muscle]: [{ semaine: 'AAAA-MM-JJ' (lundi), active, volume }] }`.
+  // Pur. Le jugement (fenêtres, seuil, place) n'est pas ici : il est au moteur.
+  function semainesDeVolume(seances, series, exercices, avant) {
+    var b = bornesSemaine(avant);
+    if (!b) return {};
+    var parSeance = {};
+    (series || []).forEach(function (s) {
+      if (s && s.session_id) (parSeance[s.session_id] || (parSeance[s.session_id] = [])).push(s);
+    });
+    var cle = function (d) {
+      var deux = function (x) { return (x < 10 ? '0' : '') + x; };
+      return d.getFullYear() + '-' + deux(d.getMonth() + 1) + '-' + deux(d.getDate());
+    };
+    var semaines = {};   // lundi → { active, series }
+    var premier = null;
+    (seances || []).forEach(function (s) {
+      if (!s || !s.debut) return;
+      var bs = bornesSemaine(s.debut);
+      if (!bs || bs.lundi.getTime() >= b.lundi.getTime()) return;
+      var k = cle(bs.lundi);
+      var w = semaines[k] || (semaines[k] = { active: true, series: [] });
+      w.series = w.series.concat(parSeance[s.id] || []);
+      if (premier === null || bs.lundi.getTime() < premier.getTime()) premier = bs.lundi;
+    });
+    var sortie = {};
+    if (premier === null) return sortie;
+    var lignes = [];
+    for (var l = premier; l.getTime() < b.lundi.getTime(); l = decalerSemaine(l, 1).lundi) {
+      var k2 = cle(l);
+      var w2 = semaines[k2];
+      var v = {};
+      if (w2) volumeParMuscle(w2.series, exercices).forEach(function (m) { v[m.muscle] = m.series; });
+      lignes.push({ semaine: k2, active: !!w2, volume: v });
+    }
+    var muscles = {};
+    lignes.forEach(function (x) { Object.keys(x.volume).forEach(function (m) { muscles[m] = true; }); });
+    Object.keys(muscles).sort().forEach(function (m) {
+      sortie[m] = lignes.map(function (x) {
+        return { semaine: x.semaine, active: x.active, volume: x.volume[m] || 0 };
+      });
+    });
+    return sortie;
+  }
+
   // ── Zones (ECRAN-SAISIE §7 bis.10) ──────────────────────────────────────
   //
   // SIX zones, pas dix-huit muscles. Mesuré sur 52 semaines : le premier muscle
@@ -316,6 +366,7 @@
     memeSemaine: memeSemaine,
     repartirParJour: repartirParJour,
     volumeParMuscle: volumeParMuscle,
+    semainesDeVolume: semainesDeVolume,
     porteDuVolume: porteDuVolume,
     compteSeriesTravail: compteSeriesTravail,
     bilanSemaine: bilanSemaine

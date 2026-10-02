@@ -1201,7 +1201,10 @@ const SETS_IMPORTES = [
       sectionDe(sectionCourante).app += Math.max(0, r.app - base.plans);
       const nouvelles = r.appV.slice(base.violations).filter((x) => x.indexOf('I10 suite') !== 0);
       r.appP.slice(base.phrases || 0).forEach((e) => {
-        const x = { plan: 'banc', ou: e.ou, phrase: e.phrase, citation: e.citation, attendu: e.attendu, cause: e.cause };
+        // PR 7 — la section et l'exercice : l'identité d'un écart (sa cause et
+        // son endroit), pas son texte, dont les chiffres dépendent de l'ordre.
+        const x = { plan: 'banc', section: sectionCourante, exercice: e.exercice || null, ou: e.ou, phrase: e.phrase,
+                    citation: e.citation, attendu: e.attendu, cause: e.cause };
         const cle = JSON.stringify(x);
         if (phrasesVues[cle]) return;
         phrasesVues[cle] = true;

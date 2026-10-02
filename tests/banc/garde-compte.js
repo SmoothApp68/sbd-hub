@@ -20,7 +20,9 @@ const SECTION_GARDE_APP = '7 G. LA GARDE DU COACH DANS L’APP (49-U7)';
 // un banc réduit ne dit rien des écarts qu'il n'a pas joués.
 // Régénérer la part du banc : ECRIRE_ATTENTE_BANC=1, sur le banc complet.
 const FICHIER_ATTENTE = path.join(__dirname, '..', 'unit', 'fixtures', 'attente-coherence-phrases.json');
-const cleDEcart = (e) => [e.plan, e.ou, e.phrase, e.citation, e.attendu, e.cause].map((v) => String(v)).join(' ¦ ');
+// L'identité d'un écart — sa cause et son endroit, pas son texte (PR 7) — et
+// sa lecture : partagées avec le test des cas.
+const { cleDEcart, lectureDe } = require('../i26-ecarts.js');
 const parCle = (a, b) => (cleDEcart(a) < cleDEcart(b) ? -1 : cleDEcart(a) > cleDEcart(b) ? 1 : 0);
 function lireAttente() { return JSON.parse(fs.readFileSync(FICHIER_ATTENTE, 'utf8')); }
 function ecrireAttente(o) {
@@ -33,7 +35,8 @@ function comparerPhrases(garde) {
   // Le préambule, rejoué par chaque groupe, voit les mêmes écarts : une fois.
   const uniques = new Map();
   (garde.phrases || []).forEach((e) => { if (!uniques.has(cleDEcart(e))) uniques.set(cleDEcart(e), e); });
-  const vues = Array.from(uniques.values()).sort(parCle);
+  const vues = Array.from(uniques.values()).sort(parCle)
+    .map((e) => Object.assign({}, e, { lecture: lectureDe(e) }));
   if (process.env.ECRIRE_ATTENTE_BANC === '1') {
     const a = lireAttente();
     a.banc = vues;

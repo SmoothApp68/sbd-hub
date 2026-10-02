@@ -2353,9 +2353,7 @@
     $('rejeu-etat').textContent = '';
   }
 
-  // `ecarts` : les écarts de cohérence des phrases (I26, en mode rapport) —
-  // marqués en rouge comme les violations, nommés à part.
-  function marquerGarde(violations, ecarts) {
+  function marquerGarde(violations) {
     var doc = racine.document;
     if (!doc || !doc.body) return;
     var m = doc.getElementById('garde-coach');
@@ -2365,25 +2363,18 @@
       m.type = 'button';
       m.className = 'garde-coach';
       m.addEventListener('click', function () {
-        if (racine.console) racine.console.error('[garde du coach]', m.violations || [], m.ecarts || []);
+        if (racine.console) racine.console.error('[garde du coach]', m.violations || []);
       });
       doc.body.appendChild(m);
     }
-    var phrases = ecarts || [];
     m.violations = violations;
-    m.ecarts = phrases;
     var invariants = [];
     violations.forEach(function (v) {
       var i = String(v).split(' — ')[0];
       if (invariants.indexOf(i) < 0) invariants.push(i);
     });
-    var bouts = [];
-    if (violations.length) bouts.push(invariants.join(' ') + ' (' + violations.length + ')');
-    if (phrases.length) bouts.push('I26 phrases (' + phrases.length + ')');
-    m.textContent = '⚠ ' + bouts.join(' · ');
-    var dernier = phrases.length ? phrases[phrases.length - 1] : null;
-    m.title = violations[violations.length - 1] ||
-      (dernier ? 'I26 — ' + dernier.ou + ' : « ' + dernier.citation + ' » (' + dernier.cause + ')' : '');
+    m.textContent = '⚠ ' + invariants.join(' ') + ' (' + violations.length + ')';
+    m.title = violations[violations.length - 1] || '';
   }
 
   var catalogueMemo = null;
@@ -2793,8 +2784,15 @@
       // ⚠️ LA COUPURE D'APRÈS EST L'INSTANT PRÉSENT. Le moteur ne lit jamais
       // l'avenir : une coupure au début de la séance en exclurait la séance du
       // jour, et la suite raconterait la fois d'avant.
+      // ⚠️ RIEN DE CE QUI A COMMENCÉ APRÈS ELLE. Une séance restée ouverte et
+      // reprise des jours plus tard : les séances faites entre-temps ne sont
+      // pas « aujourd'hui » (le constat racontait l'une d'elles).
+      var debutDuJour = Date.parse(seance.debut);
+      var anterieures = seancesDeLExercice(slug).filter(function (g) {
+        return g.seance.id === seance.id || !(Date.parse(g.seance.debut) > debutDuJour);
+      });
       var r = Moteur.suiteDExercice(
-        seancesDeLExercice(slug),
+        anterieures,
         { seance: { debut: seance.debut }, series: faites },
         etatsExercices[slug], rejeuEnCours ? rejeuEnCours.instant : new Date().toISOString(),
         options);

@@ -225,6 +225,16 @@
     return t;
   }
 
+  // UNE SÉRIE FAITE : « 125 kg × 5 », et « 3 reps » quand elle a été validée
+  // sans charge. Jamais le repli de la charge INCONNUE DU COACH (« le cran
+  // au-dessus ») : il dit une cible, pas ce que tu as fait.
+  function serieFaite(kg, reps, cite) {
+    if (chargeOuNul(kg) !== null) return chargeFois(kg, reps, undefined, cite);
+    var t = nombreTexte(reps) + (Number(reps) > 1 ? ' reps' : ' rep');
+    declarer(cite, { valeur: reps === undefined ? null : reps }, t);
+    return t;
+  }
+
   // « 125 kg × 4, 4, 4 » — une série de reps à une même charge.
   function serie(kg, reps, repli, cite) {
     var l = (reps || []).map(function (r) { return nombreTexte(r); }).join(', ');
@@ -1377,6 +1387,7 @@
     dateLongue: dateLongue,
     jourMois: jourMois,
     jourCourt: jourCourt,
+    serieFaite: serieFaite,
     moisAnnee: moisAnnee,
     heureParis: heureParis,
     dateHeureParis: dateHeureParis,

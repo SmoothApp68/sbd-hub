@@ -210,8 +210,9 @@ const AUTORISATIONS = {
 //     d'AUTRES fichiers qui doivent passer par elle ;
 //   · `interdit` (facultatif) : un littéral qui ne doit plus exister dans son
 //     module — la trace d'une décision écrite d'office.
-// Chaque PR de la consolidation y ajoute ses notions ; la dernière le rend
-// complet (tout le registre du relevé) et bloquant.
+// Chaque PR de la consolidation y a ajouté ses notions ; la PR 7, la
+// dernière, le rend complet (les sept PR y figurent, un test le vérifie) et
+// bloquant (chaque test ci-dessous exige zéro faute).
 const NOTIONS = [
   { notion: 'la feuille « Pourquoi » (ses paragraphes)', pr: 'PR 1',
     module: 'moteur.js', fonction: 'pourquoiConsigne', lecteurs: ['plan.js'],
@@ -508,6 +509,12 @@ describe('architecture — le registre des notions : une source, des lecteurs', 
   const FICHIERS = perimetre();
   const parNom = {};
   FICHIERS.forEach((f) => { parNom[f.nom] = f; });
+
+  test('le registre est complet : chacune des sept PR de la consolidation y a ses notions', () => {
+    const prs = ['PR 1', 'PR 2', 'PR 3', 'PR 4', 'PR 5', 'PR 6', 'PR 7'];
+    expect(prs.filter((pr) => !NOTIONS.some((n) => n.pr === pr))).toEqual([]);
+    expect(NOTIONS.filter((n) => prs.indexOf(n.pr) < 0).map((n) => n.notion)).toEqual([]);
+  });
 
   test('chaque notion a sa source, déclarée dans son module, et sa raison', () => {
     NOTIONS.forEach((n) => {

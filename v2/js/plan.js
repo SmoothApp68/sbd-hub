@@ -388,7 +388,7 @@
         texte: kg(l.charge, cL) + (visee ? NBSP + '\u00d7' + NBSP + visee : ''),
         libelle: libelleDeLigne(l, consigne),
         raison: raison,
-        faite: l.validee && l.faite ? 'faite' + NBSP + ': ' + kgFois(l.faite.charge, l.faite.reps, DU_JOUR) : null
+        faite: l.validee && l.faite ? 'faite' + NBSP + ': ' + Voix().serieFaite(nombre(l.faite.charge), l.faite.reps, DU_JOUR) : null
       };
     });
   }
@@ -1960,6 +1960,11 @@
     var couvertes = (x.lignes || []).filter(function (l) { return l.role !== 'hors'; });
     var lignes = couvertes.map(function (l) { return { charge: l.charge, vise: l.vise }; })
       .concat((x.planInitial || []).filter(Boolean).map(function (p) { return { charge: p.charge, vise: p.vise }; }));
+    // Un exercice sans aucune série (toutes supprimées) n'a pas de ligne : ses
+    // phrases disent alors la consigne elle-même, sa ligne et sa ligne haute.
+    if (!lignes.length) {
+      lignes = [k.ligne, k.haut].filter(Boolean).map(function (l) { return { charge: l.charge, vise: l.vise }; });
+    }
     // Les séries faites du jour, par charge : une citation « 80 kg × 10, 10, 6 »
     // en prend une partie (une série, ou celles d'une même charge).
     var parCharge = [];
@@ -2125,8 +2130,13 @@
     duPlan.forEach(function (p) { verifierTexte(null, p, ajouter); });
 
     ((plan && plan.exercices) || []).forEach(function (x) {
-      var phrases = x.phrases || [];
-      if (x.pourquoi && x.pourquoi.indisponible) {
+      // Une consigne SANS FONDEMENT n'est jamais rendue par l'app : seuls le
+      // simulateur et les tests en forgent (ni niveau, ni séance d'avant). Les
+      // paragraphes de sa feuille n'ont rien à dire, et ne se vérifient pas.
+      var f = x.consigne && x.consigne.fondement;
+      var forgee = !!x.consigne && (!f || !Object.keys(f).length);
+      var phrases = (x.phrases || []).filter(function (p) { return !(forgee && p.ou === 'pourquoi.paragraphes'); });
+      if (x.pourquoi && x.pourquoi.indisponible && !forgee) {
         ajouter(x, { ou: 'pourquoi.paragraphes', texte: '' }, x.pourquoi.indisponible, 'la feuille rédigée', 'feuille_indisponible');
       }
       if (!x.consigne) { phrases.forEach(function (p) { verifierTexte(x, p, ajouter); }); return; }
@@ -2252,8 +2262,17 @@
       if (JSON.stringify(refait) !== JSON.stringify(plan)) erreurs.push('I12 — même entrée, plan différent');
       if (JSON.stringify(entrees) !== entreesAvant) erreurs.push('I12 — le calcul a modifié ses entrées');
     }
-    // I26 — EN MODE RAPPORT (49-U19) : à part, `ok` ne les compte pas.
-    return { ok: erreurs.length === 0, erreurs: erreurs, ecartsPhrases: verifierPhrases(plan, null) };
+    // I26 — BLOQUANTE depuis la PR 7 de la consolidation (02/10/2026) : la
+    // liste d'attente s'est vidée, chaque écart est une violation. Le détail
+    // reste à côté (`ecartsPhrases`), pour le rejeu.
+    var ecartsPhrases = verifierPhrases(plan, null);
+    ecartsPhrases.forEach(function (e) { erreurs.push(texteI26(e)); });
+    return { ok: erreurs.length === 0, erreurs: erreurs, ecartsPhrases: ecartsPhrases };
+  }
+
+  function texteI26(e) {
+    return 'I26 — ' + (e.exercice ? 'exercice ' + e.iExo + ' (' + e.exercice + ')' : 'le plan') + ', ' + e.ou +
+      ' : « ' + e.citation + ' » (' + e.cause + ', attendu : ' + e.attendu + ')';
   }
 
   // ══ LA GARDE DU COACH (49-U7, C6) — CHAQUE PLAN, HORS PRODUCTION ════════
@@ -2280,10 +2299,8 @@
   // (49-U4), en attente d'une décision de fond. Elle s'écrit en console, à
   // part, sans marqueur.
   //
-  // I26 (MOTEUR §20 bis, 49-U19) — LA COHÉRENCE DES PHRASES, EN MODE RAPPORT :
-  // ses écarts ne sont pas des violations (le banc ne les compte pas), mais la
-  // garde les MARQUE EN ROUGE (`marquer(violations, ecarts)`) et les écrit en
-  // console, chacun une fois.
+  // I26 (MOTEUR §20 bis, 49-U19) — LA COHÉRENCE DES PHRASES : une violation
+  // comme les autres depuis la PR 7 de la consolidation.
   var CLE_GARDE = 'th-v2-garde';
 
   function hoteDeDeveloppement(hote) {
@@ -2318,7 +2335,6 @@
     var active = gardeActive(e.location, e.stockage);
     var precedent = null;
     var violations = [];
-    var ecarts = [], ecartsVus = {};
     var plans = 0;
     function verifier(plan, entrees) {
       if (!active || !plan) return null;
@@ -2331,26 +2347,17 @@
       var rapports = v.erreurs.filter(function (x) { return x.indexOf('I10 suite') === 0; });
       var j = e.journal || null;
       if (rapports.length && j && j.info) j.info('[garde du coach] rapporté', rapports);
-      var phrases = (v.ecartsPhrases || []).filter(function (x) {
-        var cle = [x.exercice, x.ou, x.phrase, x.citation, x.cause].join('¦');
-        if (ecartsVus[cle]) return false;
-        ecartsVus[cle] = true;
-        return true;
-      });
-      if (phrases.length) {
-        ecarts = ecarts.concat(phrases);
-        if (j && j.warn) j.warn('[garde du coach] I26 — ' + phrases.length + ' écart(s) de cohérence (rapport)', phrases);
-      }
       if (graves.length) {
         violations = violations.concat(graves);
-        if (j && j.error) j.error('[garde du coach] ' + graves.length + ' violation(s)', graves, { plan: plan, entrees: entrees });
+        if (j && j.error) j.error('[garde du coach] ' + graves.length + ' violation(s)', graves,
+          { plan: plan, entrees: entrees, ecartsPhrases: v.ecartsPhrases || [] });
       }
-      if ((graves.length || phrases.length) && e.marquer) e.marquer(violations.slice(), ecarts.slice());
-      return { violations: graves, rapports: rapports, ecartsPhrases: v.ecartsPhrases || [] };
+      if (graves.length && e.marquer) e.marquer(violations.slice());
+      return { violations: graves, rapports: rapports };
     }
     // Ce que la garde a vu : le banc le lit pour s'assurer que chacune de ses
     // sections a été vérifiée.
-    function etat() { return { active: active, plans: plans, violations: violations.slice(), ecartsPhrases: ecarts.slice() }; }
+    function etat() { return { active: active, plans: plans, violations: violations.slice() }; }
     return { active: active, verifier: verifier, etat: etat };
   }
 

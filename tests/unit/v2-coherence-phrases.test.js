@@ -1,6 +1,7 @@
 /** @jest-environment node */
 //
-// 49-U19 — LA COHÉRENCE DES PHRASES (MOTEUR §20 bis, I26), EN MODE RAPPORT.
+// 49-U19 — LA COHÉRENCE DES PHRASES (MOTEUR §20 bis, I26), BLOQUANTE depuis
+// la PR 7 de la consolidation (02/10/2026).
 //
 // « Chaque chiffre que le coach écrit a une origine dans le plan ; et deux
 // phrases du même plan ne disent jamais deux choses différentes. »
@@ -11,22 +12,14 @@
 //   2. LA GARDE ATTRAPE ce qu'elle doit attraper (cas forgés), et laisse
 //      passer ce qui est juste.
 //   3. LE BALAYAGE : toutes les phrases de tous les plans tirés des fichiers
-//      de cas. Les écarts trouvés sont LA LISTE D'ATTENTE
-//      (`fixtures/attente-coherence-phrases.json`) : aucune phrase n'est
-//      corrigée ici. Le test échoue sur un écart NOUVEAU, et aussi quand un
-//      écart de la liste DISPARAÎT (il se retire alors de la liste, dans la PR
-//      qui le tranche).
+//      de cas. AUCUN ÉCART : la liste d'attente s'est vidée (PR 7) et n'existe
+//      plus ; un écart est une violation de `verifierPlan`.
 //   4. LA SÉANCE DU 01/10 : sur l'état d'avant #350 (un décor qui reproduit
 //      les phrases d'alors, avec ce que le formateur en déclarait), la garde
-//      retrouve les incohérences ; sur l'état actuel, plus aucune hors liste.
-//
-// Régénérer la liste (seulement dans la PR qui tranche un écart) :
-//   ECRIRE_ATTENTE=1 npx jest tests/unit/v2-coherence-phrases.test.js
+//      retrouve les incohérences ; sur l'état actuel, aucune.
 
 process.env.TZ = 'Europe/Paris';
 
-const fs = require('fs');
-const path = require('path');
 
 require('../../v2/js/modele.js');
 require('../../v2/js/palier.js');
@@ -38,7 +31,6 @@ const T = require('../../v2/js/plan.js');
 
 const NB = '\u00a0';
 const esp = (x) => (x === null || x === undefined ? x : String(x).replace(/\u00a0/g, ' '));
-const FICHIER_ATTENTE = path.join(__dirname, 'fixtures', 'attente-coherence-phrases.json');
 
 // ── 1. LE FORMATEUR DÉCLARE ─────────────────────────────────────────────────
 describe('§20 bis — le formateur déclare la nature de chaque chiffre', () => {
@@ -150,12 +142,10 @@ describe('I26 — la garde attrape ce qu’elle doit attraper', () => {
       ligne: { charge: 92, vise: 12 }, haut: null, fondement: {} }, cranSuivant: 94 };
     const p = planDe(K92, { faites: [[92, 11], [92, 11], [92, 11]], suites: { x: suite } });
     expect(p.exercices[0].constat).not.toBeNull();
-    expect(T.verifierPhrases(p).filter((x) => x.cause !== 'hors_formateur')).toEqual([]);
+    expect(T.verifierPhrases(p)).toEqual([]);
     const faux = JSON.parse(JSON.stringify(p));
     faux.exercices[0].constat.suiteLignes.ligne.vise = 13;
-    // (« 10 reps mardi, 11 aujourd'hui » : deux chiffres écrits à la main, en
-    // liste d'attente — ils ne sont pas l'objet de ce cas.)
-    expect(causes(faux).filter((c) => c.indexOf('hors_formateur') !== 0)).toEqual(['suivante_differente · constat']);
+    expect(causes(faux)).toEqual(['suivante_differente · constat']);
   });
 
   test('« × null » : le mot interdit, et la visée déclarée nulle', () => {
@@ -223,7 +213,7 @@ const COUCHE_0110 = {
   seanceDuJour: { series: [{ charge_kg: 92, reps: 10 }, { charge_kg: 92, reps: 9 }, { charge_kg: 92, reps: 9 }] }
 };
 
-// ── 3. LE BALAYAGE ET LA LISTE D'ATTENTE ────────────────────────────────────
+// ── 3. LE BALAYAGE ───────────────────────────────────────────────────────────
 //
 // Les plans tirés des fichiers de cas : chaque consigne en séance, sous des
 // gestes qui font parler le coach (le plan suivi, des montées acceptées, une
@@ -305,7 +295,7 @@ function casHistorique(source, c, vue, extra) {
 
 // La consigne du simulateur (`zone: { nom }`), sans historique.
 const consigneSimulee = (k) => ({ etat: k.etat, zone: k.zone === null ? null : k.zone.nom, palier: k.palier,
-  n: k.n, ligne: k.ligne, haut: k.haut, fondement: {} });
+  n: k.n, ligne: k.ligne, haut: k.haut });
 
 function balayer() {
   const ecarts = [];
@@ -317,7 +307,7 @@ function balayer() {
   const vue = (plan, p, simulee) => {
     phrases.plans += 1;
     p.exercices.forEach((x) => { phrases.toutes += (x.phrases || []).length; });
-    T.verifierPhrases(p).filter((e) => !(simulee && e.ou === 'pourquoi.paragraphes')).forEach((e) => {
+    T.verifierPhrases(p).forEach((e) => {
       ecarts.push(Object.assign({ plan }, e));
       if (e.cause === 'hors_formateur') phrases.horsFormateur.add(plan + '|' + e.ou + '|' + e.phrase);
     });
@@ -399,65 +389,19 @@ function balayer() {
   return { ecarts, phrases };
 }
 
-// La lecture d'un écart et son identité : `tests/i26-ecarts.js` (PR 7 de la
-// consolidation — par cause et par endroit, plus par texte).
-const { lectureDe, cleDEcart, listeDe } = require('../i26-ecarts.js');
-
-// Une ligne par écart : la liste se relit, et ses diffs aussi.
-function ecrireAttente(o) {
-  const tete = Object.keys(o).filter((k) => k !== 'cas' && k !== 'banc')
-    .map((k) => ' ' + JSON.stringify(k) + ': ' + JSON.stringify(o[k]));
-  const bloc = (k) => ' ' + JSON.stringify(k) + ': [\n' + (o[k] || []).map((e) => '  ' + JSON.stringify(e)).join(',\n') + '\n ]';
-  return '{\n' + tete.concat([bloc('cas'), bloc('banc')]).join(',\n') + '\n}\n';
-}
-
-describe('I26 — le balayage des plans des fichiers de cas (mode rapport)', () => {
+describe('I26 — le balayage des plans des fichiers de cas : aucun écart', () => {
   const { ecarts, phrases } = balayer();
-  const liste = listeDe(ecarts);
-  const parCause = {};
-  liste.forEach((e) => { parCause[e.cause] = (parCause[e.cause] || 0) + 1; });
-  // eslint-disable-next-line no-console
-  console.log('49-U19 balayage', JSON.stringify({ plans: phrases.plans, phrases: phrases.toutes,
-    ecarts: liste.length, phrasesHorsFormateur: phrases.horsFormateur.size, parCause }));
-
-  if (process.env.ECRIRE_ATTENTE === '1') {
-    const actuel = fs.existsSync(FICHIER_ATTENTE) ? JSON.parse(fs.readFileSync(FICHIER_ATTENTE, 'utf8')) : {};
-    actuel.version = '49-U19';
-    actuel.regle = 'MOTEUR §20 bis — I26 en mode rapport. Chaque écart se tranche (la phrase, ou la garde), puis se retire.';
-    actuel.cas = liste;
-    actuel.banc = (actuel.banc || []).map((e) => Object.assign({}, e, { lecture: lectureDe(e) }));
-    fs.writeFileSync(FICHIER_ATTENTE, ecrireAttente(actuel));
-  }
-  const ATTENTE = JSON.parse(fs.readFileSync(FICHIER_ATTENTE, 'utf8'));
+  // Une ligne par écart, lisible dans le message d'échec.
+  const lus = ecarts.map((e) => [e.plan, e.exercice || '', e.ou, e.cause, String(e.citation), e.attendu, e.phrase].join(' ¦ '));
 
   test('le balayage voit des plans, des phrases, et les familles qui parlent', () => {
     expect(phrases.plans).toBeGreaterThan(2000);
     expect(phrases.toutes).toBeGreaterThan(10000);
   });
 
-  test('⚠️ AUCUN ÉCART NOUVEAU : chaque écart trouvé est dans la liste d’attente', () => {
-    const attendus = new Set((ATTENTE.cas || []).map(cleDEcart));
-    expect(liste.filter((e) => !attendus.has(cleDEcart(e))).slice(0, 10)).toEqual([]);
-  });
-
-  test('⚠️ AUCUN ÉCART DISPARU : chaque écart de la liste est encore trouvé (sinon, le retirer)', () => {
-    const trouves = new Set(liste.map(cleDEcart));
-    expect((ATTENTE.cas || []).filter((e) => !trouves.has(cleDEcart(e))).slice(0, 10)).toEqual([]);
-  });
-
-  test('chaque écart de la liste porte son cas, sa phrase, sa citation, sa source attendue et sa cause', () => {
-    (ATTENTE.cas || []).forEach((e) => {
-      expect(Object.keys(e).sort()).toEqual(['attendu', 'cause', 'citation', 'exercice', 'lecture', 'ou', 'phrase', 'plan', 'section']);
-      expect(typeof e.plan).toBe('string');
-      expect(typeof e.phrase).toBe('string');
-      expect(typeof e.cause).toBe('string');
-    });
-  });
-
-  test('chaque écart, des cas ET du banc, a sa lecture de la cause (sinon : la lire, puis l’écrire ici)', () => {
-    const sans = (ATTENTE.cas || []).concat(ATTENTE.banc || []).filter((e) => !lectureDe(e));
-    expect(sans.slice(0, 5)).toEqual([]);
-    (ATTENTE.cas || []).concat(ATTENTE.banc || []).forEach((e) => expect(e.lecture).toBe(lectureDe(e)));
+  test('⚠️ AUCUN ÉCART : chaque chiffre a sa source, aucun n’est écrit à la main', () => {
+    expect(lus.slice(0, 10)).toEqual([]);
+    expect(phrases.horsFormateur.size).toBe(0);
   });
 });
 
@@ -469,7 +413,7 @@ describe('I26 — le balayage des plans des fichiers de cas (mode rapport)', () 
 // dont les trois phrases fautives reprennent le texte d'alors (tableau de
 // #349, lignes 4 et 8 ; et le « × null » trouvé au rejeu pendant #350), avec
 // ce que le formateur en déclare. La garde doit les retrouver ; sur l'état
-// actuel, il ne reste que des chiffres écrits à la main (liste d'attente).
+// actuel, aucun écart.
 //
 // ⚠️ CE QUE LA GARDE NE VOIT PAS, ET C'EST VOULU (§20 bis : les chiffres) :
 // les lignes 1, 2, 9 du tableau sont des RÈGLES (une visée hors zone, une
@@ -505,8 +449,9 @@ describe('49-U19 — la séance du 01/10 : la garde retrouve les phrases d’ava
     expect(esp(x.constat.suite)).toBe('Prochaine séance : 92 kg × 10.');
   });
 
-  test('ÉTAT ACTUEL : aucune incohérence — seulement des chiffres écrits à la main (liste d’attente)', () => {
-    plans.forEach((p) => T.verifierPhrases(p).forEach((e) => expect(e.cause).toBe('hors_formateur')));
+  test('ÉTAT ACTUEL : aucun écart, et `verifierPlan` passe', () => {
+    plans.forEach((p) => expect(T.verifierPhrases(p)).toEqual([]));
+    plans.forEach((p) => expect(T.verifierPlan(p).ok).toBe(true));
   });
 
   test('ÉTAT D’AVANT #350 (décor) : « dernière » sur une montée, « Même cible : 92 kg × 10 », « × null »', () => {
@@ -525,16 +470,85 @@ describe('49-U19 — la séance du 01/10 : la garde retrouve les phrases d’ava
     Object.assign(ou('entete.jaune'), { texte: 'Le cran au-dessus' + NB + '×' + NB + 'null sur une série, puis ' + K(92, 11) + ' sur 2 séries',
       citations: [Q('cible_du_jour', { role: 'ligne' }, { charge: null, reps: [null] }, 'Le cran au-dessus' + NB + '×' + NB),
                   Q('cible_du_jour', { role: 'haut' }, { charge: 92, reps: [11] }, K(92, 11))] });
-    const e = T.verifierPhrases(avant).filter((q) => q.cause !== 'hors_formateur');
+    const e = T.verifierPhrases(avant);
     expect(e.map((q) => q.ou + ' · ' + q.cause).sort()).toEqual([
       'constat · cible_hors_lignes',
       'entete.gris · mot_ordre',
+      'entete.jaune · hors_formateur',
       'entete.jaune · mot_interdit',
       'entete.jaune · valeur_nulle'
     ]);
     expect(e.filter((q) => q.cause === 'mot_ordre')[0].attendu).toBe('rang 1 sur 3');
     // Et ces trois phrases ne déclenchent AUCUN des invariants I1 à I25 : c'est
-    // pour elles que I26 existe.
-    expect(T.verifierPlan(avant).erreurs).toEqual([]);
+    // pour elles que I26 existe — et elle est bloquante (PR 7).
+    const v = T.verifierPlan(avant);
+    expect(v.ok).toBe(false);
+    expect(v.erreurs.filter((x) => x.indexOf('I26 — ') !== 0)).toEqual([]);
+    expect(v.erreurs).toHaveLength(e.length);
+  });
+});
+
+// ── 5. PR 7 DE LA CONSOLIDATION — LES DERNIERS ÉCARTS, TRANCHÉS ─────────────
+//
+// Chacun de ces cas était dans la liste d'attente ; la liste s'est vidée et
+// I26 est bloquante. Chaque test fait revenir l'écart si le correctif part.
+describe('PR 7 — les derniers écarts de la liste d’attente, tranchés', () => {
+  test('une série FAITE sans charge se dit « 3 reps », jamais par le repli du coach', () => {
+    expect(Modele.serieFaite(null, 3)).toBe('3 reps');
+    expect(Modele.serieFaite(null, 1)).toBe('1 rep');
+    expect(esp(Modele.serieFaite(62.5, 5))).toBe('62,5 kg × 5');
+    const p = planDe(K92, { faites: [[92, 11], [92, 11], [null, 3]] });
+    const f = p.exercices[0].pourquoi.lignes.map((l) => esp(l.faite));
+    expect(f[2]).toBe('faite : 3 reps');
+    expect(T.verifierPhrases(p)).toEqual([]);
+  });
+
+  test('le bandeau et la carte de la semaine allégée : chaque chiffre par le formateur', () => {
+    const noms = ['A', 'B', 'C', 'D', 'E'];
+    const juste = { exercices: [], allegee: { fin: '2026-10-07', bandeau: M.bandeauAllegee('2026-10-07') },
+      carte: { cites: noms, phrase: M.phraseCarte(noms), detail: M.detailCarte() } };
+    expect(esp(juste.allegee.bandeau)).toMatch(/^Semaine allégée jusqu’au 7 oct\. : /);
+    expect(juste.carte.phrase).toBe('A, B, C et 2 autres exercices : aucun n\'a progressé depuis 4 séances.');
+    expect(M.detailCarte()).toBe(M.DETAIL_CARTE);
+    expect(T.verifierPhrases(juste)).toEqual([]);
+    // Un bandeau dont la date n'est pas celle de la fin, un détail retouché :
+    // la capture refaite ne redonne pas le texte, la garde le dit.
+    const faux = JSON.parse(JSON.stringify(juste));
+    faux.allegee.bandeau = faux.allegee.bandeau.replace('7 oct.', '8 oct.');
+    faux.carte.detail = faux.carte.detail.replace('60 %', '50 %');
+    expect(T.verifierPhrases(faux).map((e) => e.ou + ' · ' + e.cause)).toEqual(
+      ['allegee.bandeau · sans_citations', 'carte.detail · sans_citations']);
+  });
+
+  test('pendant un étirement, le test d’une séance ANTÉRIEURE ne se raconte pas comme celui du jour', () => {
+    const z = ['series_longues', 15, 20];
+    const avant = { etat: 'etirement', zone: z[0], palier: 59, niveau: 15, n: 3, ligne: { charge: 59, vise: 16 }, haut: null,
+      fondement: { date: '2026-03-06T17:15:00+00:00', reps: [15, 15, 15] } };
+    const test = { charge: 66, reps: 12, niveau: 12, date: '2026-01-02T19:24:00+00:00' };
+    const apres = { etat: 'etirement', zone: z[0], palier: 59, niveau: 16, n: 3, ligne: { charge: 59, vise: 17 }, haut: null,
+      fondement: { date: '2026-03-13T17:15:00+00:00', reps: [16, 16, 16], test, cible: 23 } };
+    const ref = '2026-03-13T18:00:00+00:00';
+    const v = esp(M.constatDe(avant, apres, 'normal', null, ref).verdict);
+    expect(v).toBe('59 kg : 15 reps le 6 mars, 16 aujourd\'hui.');
+    // Le test DU JOUR, lui, se raconte toujours.
+    const duJour = JSON.parse(JSON.stringify(apres));
+    duJour.fondement.test.date = duJour.fondement.date;
+    expect(esp(M.constatDe(avant, duJour, 'normal', null, ref).verdict)).toBe('66 kg × 12 : pas encore dans ta zone.');
+  });
+
+  test('un exercice sans aucune série : ses phrases disent la consigne, la garde la lit', () => {
+    const k = { etat: 'attend', zone: 'volume', palier: 100, niveau: 10, n: 2,
+      ligne: { charge: 95, vise: 12 }, haut: { charge: 100, vise: 11, k: 1 },
+      fondement: { date: '2026-09-25T18:00:00+02:00', reps: [10] } };
+    const p = JSON.parse(JSON.stringify(planDe(k)));
+    const x = p.exercices[0];
+    x.lignes = []; x.planInitial = [];
+    x.phrases = [{ ou: 'entete.gris', texte: 'Passe à 100' + NB + 'kg.',
+      citations: [Q('cible_du_jour', { role: 'haut' }, { charge: 100 }, '100' + NB + 'kg')] }];
+    expect(T.verifierPhrases(p)).toEqual([]);
+    x.phrases[0].citations[0].charge = 105;
+    x.phrases[0].citations[0].texte = '105' + NB + 'kg';
+    x.phrases[0].texte = 'Passe à 105' + NB + 'kg.';
+    expect(T.verifierPhrases(p).map((e) => e.cause)).toEqual(['cible_hors_lignes']);
   });
 });

@@ -175,7 +175,7 @@ describe('rejeu — la même sortie, deux fois de suite', () => {
       attendu: '52,5 kg × 10 (entete.jaune)', cause: 'jaune_gris' }] };
     const t = J.texte(e);
     expect(t).toContain('cohérence des phrases (I26) : aucun écart');
-    expect(t).toContain('cohérence des phrases (I26, rapport) : 1 écart(s)');
+    expect(t).toContain('cohérence des phrases (I26) : 1 écart(s)');
     expect(t).toContain('  ≠ militaire · constat · jaune_gris : « 52,5 kg × 8 » — attendu 52,5 kg × 10 (entete.jaune)');
   });
 

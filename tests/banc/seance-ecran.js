@@ -9301,7 +9301,23 @@ const SETS_IMPORTES = [
 
     ok('[U14] la garde (C6) n’a rien signalé dans cette section (I19, I20 compris)', gardeBanc.violations === violationsAvant,
       JSON.stringify(gardeBanc.liste.slice(-2)));
+    // PR 8 de la consolidation — LA SECTION RETIRE CE QU'ELLE A POSÉ. B laisse
+    // une semaine allégée ACCEPTÉE aujourd'hui : toute séance du jour jouée
+    // ensuite était allégée. En séquentiel, le rejeu (7 G quaterdecies) ne
+    // trouvait plus que 11 de ses 17 lignes, et le banc s'arrêtait.
+    // ⚠️ EN BASE ET SUR L'APPAREIL. Le pari a été posé PAR L'APPAREIL : il vit
+    // aussi dans son magasin `predictions` (un pari ne s'efface jamais en
+    // base, l'app n'a aucune raison de l'oublier). Le retirer de la base seule
+    // ne suffisait pas. Le rechargement relit le magasin.
+    const semaineAllegee = (l) => l && l.module === 'escalier' && l.fondement && l.fondement.marche === 'semaine_allegee';
+    const parisU14 = base.predictions.filter(semaineAllegee).map((l) => l.id);
+    base.predictions = base.predictions.filter((l) => !semaineAllegee(l));
+    await page.evaluate((ids) => window.THCache.supprimer('predictions', ids), parisU14);
     await aller('/saisie');
+    const restes = await page.evaluate(() => window.THCache.lireTout('predictions')
+      .then((l) => l.filter((x) => x && x.module === 'escalier' && x.fondement && x.fondement.marche === 'semaine_allegee').length));
+    ok('[U14] la section ne laisse aucune semaine allégée derrière elle (base et appareil)',
+      parisU14.length === 1 && restes === 0 && !base.predictions.some(semaineAllegee), JSON.stringify([parisU14.length, restes]));
     ok('[U14] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
 

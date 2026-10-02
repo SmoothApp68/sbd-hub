@@ -2671,50 +2671,11 @@
     }).map(function (p) { return Object.assign({}, p.serie, { rang: p.rang }); });
   }
 
-  function exerciceFini(slug) {
-    var travail = seriesDeTravailDe(slug);
-    if (!travail.length) return false;
-    for (var i = 0; i < travail.length; i++) {
-      if (!Seance.partEnBase(travail[i])) return false;
-    }
-    return true;
-  }
-
-  // ── §3.9 (48b-6b-2) — LE CONSTAT EST CELUI DU BLOC ───────────────────────
-  //
-  // ⚠️ CORRIGÉ APRÈS L'APPAREIL. 48b-6b ouvrait le constat dès que L'EXERCICE
-  // était fini : en superset, la première branche annonçait son bilan pendant
-  // qu'on travaillait encore la seconde. Un superset est UN bloc (§3.9), et
-  // son constat attend la fin du bloc — chaque exercice gardant le sien.
-  //
-  // Le bloc, ici, c'est `groupe_superset` : deux exercices le partagent, ou
-  // chacun est seul. ⚠️ `null` NE GROUPE PAS — deux exercices hors superset
-  // ont tous deux `null` et ne forment pas un bloc à eux deux.
-  function slugsDuBloc(slug) {
-    var groupe, trouve = false;
-    (seance.exercices || []).forEach(function (exo) {
-      if (!exo || exo.exercise_slug !== slug) return;
-      groupe = exo.groupe_superset === undefined ? null : exo.groupe_superset;
-      trouve = true;
-    });
-    if (!trouve) return [];
-    if (groupe === null) return [slug];
-    var sortie = [];
-    (seance.exercices || []).forEach(function (exo) {
-      if (!exo || exo.groupe_superset !== groupe) return;
-      if (sortie.indexOf(exo.exercise_slug) < 0) sortie.push(exo.exercise_slug);
-    });
-    return sortie;
-  }
-
-  function blocFini(slug) {
-    var liste = slugsDuBloc(slug);
-    if (!liste.length) return false;
-    for (var i = 0; i < liste.length; i++) {
-      if (!exerciceFini(liste[i])) return false;
-    }
-    return true;
-  }
+  // « L'exercice est fini » et « le bloc est fini » : UNE définition, dans
+  // `seance.js` (relevé du 01/10, PR 2) — le plan lit la même pour ouvrir le
+  // constat. Le constat attend la fin du BLOC (un superset est un bloc, §3.9).
+  function exerciceFini(slug) { return Seance.exerciceFini(seance, slug); }
+  function blocFini(slug) { return Seance.blocFini(seance, slug); }
 
   // ⚠️ SON PROPRE MÉMO, ET SA PROPRE CLÉ. Celui des consignes a pour clé la
   // séance et le profil, qui ne bougent pas d'une validation à l'autre ; le
@@ -2752,12 +2713,26 @@
   // la seule chose que le plan ne peut pas calculer seul : il n'a pas
   // l'historique. Calculée quand les séries de travail de l'exercice sont
   // faites, jamais avant — le constat n'existe pas avant (I10 a).
+  //
+  // ⚠️ LA CLÉ PORTE AUSSI LES OPTIONS DE LA SUITE (relevé du 01/10, PR 2). Elle
+  // ne portait que la séance, le profil et les validations : une zone choisie
+  // sur un exercice fini (`poserZone`), ou une réponse à l'escalier (les
+  // périodes allégées, les séries de plus), laissaient la suite d'AVANT en
+  // cache — le constat comparait la consigne de la nouvelle zone à la suite de
+  // l'ancienne (vu en base : couché haltères, 26/09, Volume → Hypertrophie en
+  // pleine séance). Les options sont exactement celles que reçoit le moteur :
+  // l'une change, la suite se recalcule. Et l'objet `constats` est REMPLACÉ, pas
+  // modifié : le mémo du plan le reconnaît à son identité.
   function suiteDe(slug) {
     if (!seance || !exerciceFini(slug)) return null;
     var cle = cleConsignes() + '|' + empreinteValidations();
     if (!constats || constats.cle !== cle) constats = { cle: cle, parSlug: {} };
-    if (!Object.prototype.hasOwnProperty.call(constats.parSlug, slug)) {
-      var exo = Modele.indexerExercices(local.exercices)[slug];
+    var exo = catalogueIndexe()[slug];
+    // Les MÊMES options que la consigne de la séance (49-U18).
+    var options = optionsDeConsigne(slug, exo);
+    var cleOptions = JSON.stringify(options);
+    var vu = constats.parSlug[slug];
+    if (!vu || vu.options !== cleOptions) {
       var faites = seriesDeTravailDe(slug).filter(function (s) { return Seance.partEnBase(s); });
       // ⚠️ LA COUPURE D'APRÈS EST L'INSTANT PRÉSENT. Le moteur ne lit jamais
       // l'avenir : une coupure au début de la séance en exclurait la séance du
@@ -2766,11 +2741,13 @@
         seancesDeLExercice(slug),
         { seance: { debut: seance.debut }, series: faites },
         etatsExercices[slug], rejeuEnCours ? rejeuEnCours.instant : new Date().toISOString(),
-        // Les MÊMES options que la consigne de la séance (49-U18).
-        optionsDeConsigne(slug, exo));
-      constats.parSlug[slug] = r ? { consigne: r.apres.consigne, cranSuivant: r.cranSuivant } : null;
+        options);
+      var parSlug = Object.assign({}, constats.parSlug);
+      parSlug[slug] = { options: cleOptions,
+                        valeur: r ? { consigne: r.apres.consigne, cranSuivant: r.cranSuivant } : null };
+      constats = { cle: cle, parSlug: parSlug };
     }
-    return constats.parSlug[slug];
+    return constats.parSlug[slug].valeur;
   }
 
   // ⚠️ LE CONSTAT SE LIT DANS LE PLAN (§9.13 bis, 49-U4, I10). Il y était

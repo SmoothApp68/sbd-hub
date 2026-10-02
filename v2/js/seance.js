@@ -1562,6 +1562,51 @@
   // et une série d'échec ne propose pas une dégressive.
   function typeDe(serie) { return (serie && serie.type_serie) || 'travail'; }
 
+  // ── « L'EXERCICE EST FINI » : UNE SEULE DÉFINITION (relevé du 01/10/2026, PR 2) ──
+  //
+  // Toutes les séries de TRAVAIL de l'exercice, dans toute la séance (un
+  // exercice présent deux fois compte ses deux occurrences), sont en base. Le
+  // plan la lit pour ouvrir le constat ; l'app, pour calculer la suite et pour
+  // l'afficher. Elles le décidaient chacune de leur côté : le plan sur les
+  // lignes qu'il couvre, l'app sur toutes les séries de travail — d'accord
+  // seulement parce que les deux conditions s'ajoutaient. Pure.
+  function exerciceFini(seance, slug) {
+    var travail = [];
+    ((seance && seance.exercices) || []).forEach(function (exo) {
+      if (!exo || exo.exercise_slug !== slug) return;
+      (exo.series || []).forEach(function (s) { if (typeDe(s) === 'travail') travail.push(s); });
+    });
+    return travail.length > 0 && travail.every(function (s) { return partEnBase(s); });
+  }
+
+  // §3.9 (48b-6b-2) — LE BLOC : un superset est UN bloc, et son constat attend
+  // la fin du bloc. Le bloc, c'est `groupe_superset` : deux exercices le
+  // partagent, ou chacun est seul. ⚠️ `null` NE GROUPE PAS — deux exercices
+  // hors superset ont tous deux `null` et ne forment pas un bloc à eux deux.
+  function slugsDuBloc(seance, slug) {
+    var exos = (seance && seance.exercices) || [];
+    var groupe, trouve = false;
+    exos.forEach(function (exo) {
+      if (!exo || exo.exercise_slug !== slug) return;
+      groupe = exo.groupe_superset === undefined ? null : exo.groupe_superset;
+      trouve = true;
+    });
+    if (!trouve) return [];
+    if (groupe === null) return [slug];
+    var sortie = [];
+    exos.forEach(function (exo) {
+      if (!exo || exo.groupe_superset !== groupe) return;
+      if (sortie.indexOf(exo.exercise_slug) < 0) sortie.push(exo.exercise_slug);
+    });
+    return sortie;
+  }
+
+  // Le bloc est fini quand CHACUN de ses exercices l'est — la même définition.
+  function blocFini(seance, slug) {
+    var liste = slugsDuBloc(seance, slug);
+    return liste.length > 0 && liste.every(function (s) { return exerciceFini(seance, s); });
+  }
+
   // ⚠️ ELLE PREND LA LISTE DES SÉRIES, PAS L'EXERCICE (chantier 39). Deux
   // appelants la partagent désormais : `fantome`, qui a le modèle, et la colonne
   // « précédent » de `rendu.js`, qui n'a que le bloc d'affichage. Une seule règle,
@@ -2140,6 +2185,9 @@
     provenanceIncomplete: provenanceIncomplete,
     seriesIncompletes: seriesIncompletes,
     partEnBase: partEnBase,
+    exerciceFini: exerciceFini,
+    blocFini: blocFini,
+    slugsDuBloc: slugsDuBloc,
     REPS_MAX_SERIE: REPS_MAX_SERIE,
     DUREE_MAX_S: DUREE_MAX_S,
     plafonne: plafonne,

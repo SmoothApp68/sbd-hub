@@ -32,7 +32,7 @@
     return UUID.test(id) ? id.toLowerCase() : null;
   }
 
-  function typeDe(s) { return (s && s.type_serie) || 'travail'; }
+  function typeDe(s) { return Modele().typeDe(s); }
 
   // ── CE QUI EXISTAIT À L'OUVERTURE ────────────────────────────────────────
   //

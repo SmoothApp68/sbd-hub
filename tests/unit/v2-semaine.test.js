@@ -8,6 +8,10 @@
 // trivialement sur un runner déjà en UTC, sans rien prouver.
 process.env.TZ = 'Europe/Paris';
 
+// PR 6 de la consolidation — la série de travail et son compte vivent dans
+// `modele.js` et `semaine.js`, lus à l'appel par les autres modules.
+require('../../v2/js/modele.js');
+require('../../v2/js/semaine.js');
 const Semaine = require('../../v2/js/semaine.js');
 
 const jourDe = (d) => ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'][d.getDay()];

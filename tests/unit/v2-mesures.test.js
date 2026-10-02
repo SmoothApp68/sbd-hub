@@ -15,6 +15,10 @@
 // Le rendu tourne sous jsdom, dans un vrai DOM : `rendu.js` n'exporte rien en
 // CommonJS (il pose `window.THRendu`), et c'est cette surface-là qu'on lit.
 
+// PR 6 de la consolidation — la série de travail et son compte vivent dans
+// `modele.js` et `semaine.js`, lus à l'appel par les autres modules.
+require('../../v2/js/modele.js');
+require('../../v2/js/semaine.js');
 require('../../v2/js/modele.js');
 require('../../v2/js/rendu.js');
 const Modele = require('../../v2/js/modele.js');

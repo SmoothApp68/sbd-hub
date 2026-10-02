@@ -294,7 +294,27 @@ const NOTIONS = [
     module: 'palier.js', fonction: 'analyser', lecteurs: ['modele.js', 'moteur.js'],
     motif: /(?:\bPalier|\bpalier|THPalier)\s*(?:\(\))?\s*\.\s*analyser\b/g,
     raison: 'aucun écran ne lit le palier brut : les faits passent par `Modele`, les mots du ' +
-      'coach par la consigne. La page et Progression l’appelaient chacune à part.' }
+      'coach par la consigne. La page et Progression l’appelaient chacune à part.' },
+  { notion: 'la série de travail (le type, `travail` quand il manque)', pr: 'PR 6',
+    module: 'modele.js', fonction: 'estTravail', lecteurs: ['seance.js', 'semaine.js', 'plan.js', 'app.js'],
+    motif: /\.\s*estTravail\s*\(/g,
+    par: ['exercicesFaits', 'tableParReps', 'construireBlocs'],
+    interditAilleurs: { motif: /type_serie\s*[!=]==?\s*(['"])travail\1|typeDe\([^()]*\)\s*[!=]==?\s*(['"])travail\2|\|\|\s*(['"])travail\3\s*\)\s*[!=]==?/,
+      raison: 'une comparaison à « travail » écrite en dur : passer par `Modele.estTravail` (ou `typeDe`)' },
+    raison: 'cinq définitions : une série sans type était du travail pour le moteur et le plan, ' +
+      'pas pour les écrans ; la base dit `travail` par défaut.' },
+  { notion: 'le compte des séries de travail (la règle du volume)', pr: 'PR 6',
+    module: 'semaine.js', fonction: 'compteSeriesTravail', lecteurs: ['modele.js', 'seance.js', 'profil.js', 'routines.js', 'app.js'],
+    parAilleurs: { 'modele.js': ['resumerSeance', 'construireBlocs'], 'seance.js': ['compter'],
+                   'profil.js': ['statsDe'], 'app.js': ['rendreExercice'] },
+    raison: 'décision du 02/10/2026 : la carte, la barre, la page, le détail (« de travail »), le ' +
+      'bandeau, la feuille de fin et le profil disent le même nombre ; le tapis n’y entre pas.' },
+  { notion: 'l’exercice fait (au moins une série de travail, cardio compris)', pr: 'PR 6',
+    module: 'modele.js', fonction: 'exercicesFaits', lecteurs: ['app.js'],
+    par: ['resumerSeance'],
+    parAilleurs: { 'app.js': ['sommaireExercices', 'calculerDatesExercices'] },
+    raison: 'décision du 02/10/2026 : Progression, le profil et la carte comptaient les exercices ' +
+      'de trois façons (une ligne de chauffe suffisait au profil).' }
 ];
 
 const CONSEIL = 'Passe par `planDeSeance` (v2/js/plan.js), ou ajoute ce fichier à la liste ' +
@@ -530,6 +550,32 @@ describe('architecture — le registre des notions : une source, des lecteurs', 
       if (m) fautes.push(n.notion + ' : ' + n.interdit.raison + ', ligne ' + ligneDe(avecChaines, m.index));
     });
     expect(fautes).toEqual([]);
+  });
+
+  test('⚠️ aucune trace hors de son module : la définition n’est écrite qu’une fois (PR 6)', () => {
+    const fautes = [];
+    NOTIONS.filter((n) => n.interditAilleurs).forEach((n) => {
+      FICHIERS.forEach((f) => {
+        if (f.nom === n.module) return;
+        const avecChaines = nettoyer(f.src, true);
+        const motif = new RegExp(n.interditAilleurs.motif.source, 'g');
+        let m;
+        while ((m = motif.exec(avecChaines)) !== null) {
+          fautes.push(n.notion + ' : ' + n.interditAilleurs.raison + ' — ' + f.nom + ', ligne ' + ligneDe(avecChaines, m.index));
+        }
+      });
+    });
+    expect(fautes).toEqual([]);
+  });
+
+  test('l’interdit se lit vraiment : les trois formes écrites en dur se voient, l’appel non', () => {
+    const n = NOTIONS.filter((x) => x.interditAilleurs)[0];
+    const voit = (t) => n.interditAilleurs.motif.test(t);
+    expect(voit("if (s.type_serie !== 'travail') return;")).toBe(true);
+    expect(voit('return Seance.typeDe(s) === "travail";')).toBe(true);
+    expect(voit("((p.serie.type_serie || 'travail') === 'travail')")).toBe(true);
+    expect(voit('if (!Modele.estTravail(s)) return;')).toBe(false);
+    expect(voit("type_serie: 'travail',")).toBe(false);
   });
 
   test('le registre se lit vraiment : une décision écrite d’office et un lecteur de trop se voient', () => {

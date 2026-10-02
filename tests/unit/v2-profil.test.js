@@ -24,6 +24,10 @@
 //     laisserait passer toute colonne ajoutée plus tard ; il faut donc un test
 //     qui présente une colonne PRIVILÉGIÉE et une colonne INCONNUE.
 
+// PR 6 de la consolidation — la série de travail et son compte vivent dans
+// `modele.js` et `semaine.js`, lus à l'appel par les autres modules.
+require('../../v2/js/modele.js');
+require('../../v2/js/semaine.js');
 const Profil = require('../../v2/js/profil.js');
 
 const AUJ = new Date(2026, 8, 18);   // 18 septembre 2026, heure locale

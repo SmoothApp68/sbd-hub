@@ -13,6 +13,10 @@
 // Environnement jsdom (PAS de docblock `node`) : `v2/js/modele.js` se termine
 // par `this`, que Babel remplace par `undefined` sous l'environnement node.
 
+// PR 6 de la consolidation — la série de travail et son compte vivent dans
+// `modele.js` et `semaine.js`, lus à l'appel par les autres modules.
+require('../../v2/js/modele.js');
+require('../../v2/js/semaine.js');
 const Seance = require('../../v2/js/seance.js');
 const Modele = require('../../v2/js/modele.js');
 const { progTravail } = require('./aide-routine-programmee.js');

@@ -15,6 +15,10 @@
 // Ce fichier tient les deux autres règles du chantier : un groupe ne descend
 // jamais à un exercice (§7 decies), et les gestes sur une séance (§7 octies).
 
+// PR 6 de la consolidation — la série de travail et son compte vivent dans
+// `modele.js` et `semaine.js`, lus à l'appel par les autres modules.
+require('../../v2/js/modele.js');
+require('../../v2/js/semaine.js');
 const Seance = require('../../v2/js/seance.js');
 const Modele = require('../../v2/js/modele.js');
 const Routines = require('../../v2/js/routines.js');

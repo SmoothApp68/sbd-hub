@@ -460,7 +460,7 @@
     }
     if (i === series.length) return i;
     for (var j = i - 1; j >= 0; j--) {
-      if (series[j] && series[j].type_serie === 'travail') return i;
+      if (series[j] && estTravail(series[j])) return i;
     }
     return series.length;
   }
@@ -484,7 +484,7 @@
     var exo = copie(exos[iExo]);
     var series = exo.series.slice();
     var a = 0;
-    while (a < series.length && typeDe(series[a]) !== 'travail') a++;
+    while (a < series.length && !estTravail(series[a])) a++;
     if (a === series.length) a = 0;
     var neuves = (lignes || []).map(function (q) {
       var s = serieVide(idSerie);
@@ -1218,14 +1218,21 @@
     return plat;
   }
 
-  function compter(seance) {
+  // `travail` : les séries de travail FAITES, sur la règle unique
+  // (`THSemaine.compteSeriesTravail`, celle de la carte, de la barre et de
+  // la page d'exercice — PR 6 de la consolidation). « Faite » est
+  // `partEnBase` : validée, ou importée — une séance importée rouverte en
+  // modification disait « 0 série de travail » quand sa carte en disait 23.
+  // `exercices` : le catalogue, pour la règle du volume (le tapis ne compte
+  // pas) ; sans lui, rien n'est retranché.
+  function compter(seance, exercices) {
     var plat = toutesLesSeries(seance);
+    var faites = plat.filter(function (p) { return partEnBase(p.serie); })
+      .map(function (p) { return Object.assign({}, p.serie, { exercise_slug: p.exo.exercise_slug }); });
     return {
       series: plat.length,
       validees: plat.filter(function (p) { return !!p.serie.validee_a; }).length,
-      travail: plat.filter(function (p) {
-        return !!p.serie.validee_a && p.serie.type_serie === 'travail';
-      }).length
+      travail: racine.THSemaine.compteSeriesTravail(faites, exercices)
     };
   }
 
@@ -1581,7 +1588,10 @@
   // La règle : la Nᵉ série d'un type s'aligne sur la Nᵉ série du MÊME type. Elle
   // vaut pour les quatre — une dégressive ne propose pas une charge de travail,
   // et une série d'échec ne propose pas une dégressive.
-  function typeDe(serie) { return (serie && serie.type_serie) || 'travail'; }
+  // La série de travail et le type par défaut : UNE définition, dans
+  // `THModele` (PR 6 de la consolidation). Lue à l'appel.
+  function typeDe(serie) { return racine.THModele.typeDe(serie); }
+  function estTravail(serie) { return racine.THModele.estTravail(serie); }
 
   // ── « L'EXERCICE EST FINI » : UNE SEULE DÉFINITION (relevé du 01/10/2026, PR 2) ──
   //
@@ -1595,7 +1605,7 @@
     var travail = [];
     ((seance && seance.exercices) || []).forEach(function (exo) {
       if (!exo || exo.exercise_slug !== slug) return;
-      (exo.series || []).forEach(function (s) { if (typeDe(s) === 'travail') travail.push(s); });
+      (exo.series || []).forEach(function (s) { if (estTravail(s)) travail.push(s); });
     });
     return travail.length > 0 && travail.every(function (s) { return partEnBase(s); });
   }
@@ -1712,7 +1722,7 @@
     if (!consigne || !consigne.n) return sortie;
     var gel = figees || {};
     var travail = [];
-    liste.forEach(function (s, i) { if (typeDe(s) === 'travail') travail.push(i); });
+    liste.forEach(function (s, i) { if (estTravail(s)) travail.push(i); });
     var figeeDe = function (i) {
       var s = liste[i];
       return s && s.id && partEnBase(s) && gel[s.id] ? gel[s.id] : null;

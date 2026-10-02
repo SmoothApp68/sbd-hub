@@ -19,6 +19,10 @@
 // Environnement jsdom (pas de docblock `node`) : `rendu.js` se termine par
 // `this`, et c'est `window.THRendu` qu'on lit.
 
+// PR 6 de la consolidation — la série de travail et son compte vivent dans
+// `modele.js` et `semaine.js`, lus à l'appel par les autres modules.
+require('../../v2/js/modele.js');
+require('../../v2/js/semaine.js');
 require('../../v2/js/modele.js');
 require('../../v2/js/palier.js');
 // Depuis 48b-6a, `moteur.js` lit aussi `THProfil` — le libellé du rythme que

@@ -23,8 +23,33 @@
   // travail 26 132 · echauffement 1 458 · degressive 387 · echec 126.
   var TYPES_CONNUS = ['travail', 'echauffement', 'degressive', 'echec'];
 
+  // ⚠️ LA SÉRIE DE TRAVAIL : UNE DÉFINITION, ICI (PR 6 de la consolidation,
+  // 02/10/2026). Le type d'une série, et `travail` quand il manque : c'est le
+  // défaut de la base (`sets.type_serie` NOT NULL, défaut `travail`). Il y en
+  // avait cinq — `estTravail` disait « non » à une série sans type, `typeDe`
+  // (`seance.js`, `rejeu.js`) disait « oui ». Partout ailleurs, on appelle ;
+  // la garde d'architecture refuse un `type_serie === 'travail'` écrit en dur.
+  function typeDe(serie) { return (serie && serie.type_serie) || 'travail'; }
   function estTravail(serie) {
-    return !!serie && serie.type_serie === 'travail';
+    return !!serie && typeDe(serie) === 'travail';
+  }
+
+  // UN EXERCICE « FAIT » (PR 6, décision du 02/10/2026) : au moins une série
+  // de travail, cardio compris — le tapis est un exercice fait. Un exercice où
+  // l'on n'a fait que des chauffes ne l'est pas. Une seule fonction pour
+  // Progression (« N exercices »), le profil (« déjà faits »), Mes exercices
+  // et la carte de séance. Rend `{ slug: date }` : la date la plus récente de
+  // ses séances quand `debutDe` (`{ session_id: debut }`) est donné, sinon
+  // `true`.
+  function exercicesFaits(series, debutDe) {
+    var faits = {};
+    (series || []).forEach(function (s) {
+      if (!estTravail(s) || !s.exercise_slug) return;
+      var d = debutDe ? debutDe[s.session_id] : true;
+      if (!d) return;
+      if (faits[s.exercise_slug] === undefined || (debutDe && d > faits[s.exercise_slug])) faits[s.exercise_slug] = d;
+    });
+    return faits;
   }
 
   // ── Formatage des unités ────────────────────────────────────────────────
@@ -699,8 +724,19 @@
           bloc.exercices.reduce(function (acc, e) { return acc.concat(e.series); }, []));
       }
 
+      // PR 6 (décision du 02/10/2026) — « DE TRAVAIL » SE DIT SUR LA RÈGLE
+      // UNIQUE (`THSemaine.compteSeriesTravail`) : la somme des blocs « de
+      // travail » du détail égale la carte. Un bloc dont aucun exercice ne
+      // porte de volume (le tapis) dit « 3 séries », sans « de travail » :
+      // elles existent, elles n'entrent pas dans le total. `nbTravail` reste
+      // le compte de structure (tours, « 2 / 4 séries » replié).
+      var brutes = [];
+      bloc.exercices.forEach(function (e) { brutes = brutes.concat(e.series); });
+      bloc.nbTravailVolume = racine.THSemaine.compteSeriesTravail(brutes, exercices);
+      var horsVolume = bloc.nbTravail > 0 && bloc.nbTravailVolume === 0;
+      var nResume = horsVolume ? bloc.nbTravail : bloc.nbTravailVolume;
       bloc.resume = (bloc.superset ? 'Superset · ' : '') +
-        bloc.nbTravail + ' série' + (bloc.nbTravail > 1 ? 's' : '') + ' de travail';
+        nResume + ' série' + (nResume > 1 ? 's' : '') + (horsVolume ? '' : ' de travail');
     });
 
     return blocs;
@@ -1120,7 +1156,6 @@
   function resumerSeance(seance, series, exercices, palier, etats) {
     var index = indexerExercices(exercices);
     var listeSeries = series || [];
-    var slugs = {};
     // ⚠️ LA CARTE LIT LE MÊME COMPTE QUE LA BARRE (chantier 40).
     //
     // Elle comptait `estTravail` seul, sans la règle du volume : la séance du
@@ -1137,7 +1172,6 @@
     var sortie = listeSeries.length > 0;
 
     listeSeries.forEach(function (s) {
-      slugs[s.exercise_slug] = true;
       if (s.duree_s) dureeTotale += Number(s.duree_s) || 0;
       if (s.distance_m) distanceTotale += Number(s.distance_m) || 0;
       if (!estExerciceSortie(index[s.exercise_slug])) sortie = false;
@@ -1166,7 +1200,7 @@
       incomplet: incomplet,
       debut: seance.debut,
       salle: seance.salle_norme || seance.salle || '',
-      nbExercices: Object.keys(slugs).length,
+      nbExercices: Object.keys(exercicesFaits(listeSeries)).length,
       nbSeriesTravail: nbTravail,
       // Une sortie ne se résume pas en séries : elle se résume en durée et
       // distance. Elle reste visible, simplement plus discrète.
@@ -1228,6 +1262,8 @@
     formatChrono: formatChrono,
     formatPrecedent: formatPrecedent,
     estTravail: estTravail,
+    typeDe: typeDe,
+    exercicesFaits: exercicesFaits,
     nombre: nombre,
     charge: charge,
     capturer: capturer,

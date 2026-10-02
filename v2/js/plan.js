@@ -816,7 +816,7 @@
     var v = Number(c ? c.n : null);
     if (c && isFinite(v) && v >= 1 && Math.floor(v) === v) return v;
     var faites = prec && prec.series
-      ? prec.series.filter(function (s) { return Seance().typeDe(s) === 'travail'; }).length : 0;
+      ? prec.series.filter(function (s) { return Voix().estTravail(s); }).length : 0;
     if (faites >= 1) return faites;
     return intention === 'entretien' ? SERIES_DEPART_ENTRETIEN : SERIES_DEPART_PROGRESSER;
   }

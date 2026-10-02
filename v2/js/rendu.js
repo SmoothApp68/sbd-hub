@@ -2428,7 +2428,7 @@
     if (vue.quoi === 'type') {
       var menu = el('div', 'feuille-menu');
       LIBELLE_TYPE.forEach(function (t) {
-        var b = el('button', (vue.serie.type_serie || 'travail') === t[0] ? 'sel' : '', t[1]);
+        var b = el('button', M().typeDe(vue.serie) === t[0] ? 'sel' : '', t[1]);
         b.type = 'button';
         b.addEventListener('click', function () { vue.surType(t[0]); });
         menu.appendChild(b);

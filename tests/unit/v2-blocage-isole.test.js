@@ -39,9 +39,14 @@ const meilleurDuCas = (m) => ({ palier: m[0], niveau: m[1] });
 
 // ── 1. LES CAS DU SIMULATEUR ────────────────────────────────────────────────
 describe('§14.2, §14.5 — les cas du simulateur', () => {
-  test('le fichier : 4 replis (2 trouvés, 2 sautés), 3 cartes, 48 marches, 2 phrases', () => {
+  // 49-U18 (maj-attendus-0110) : R004 n'est plus un repli trouvé — l'écart
+  // habituel sur les 8 derniers écarts fait d'une séance de sa fenêtre une
+  // reprise, son compteur repart de zéro, et le 2e déclenchement (le repli)
+  // n'est plus atteint. `repliEscalier` seul le trouverait encore : un repli
+  // ATTEINT demande aussi le compteur (≥ 8).
+  test('le fichier : 4 replis (1 trouvé ; 2 sautés, 1 pas atteint), 3 cartes, 48 marches, 2 phrases', () => {
     expect(F.repli).toHaveLength(4);
-    expect(F.repli.filter((c) => c.attendu).map((c) => c.id)).toEqual(['R002', 'R004']);
+    expect(F.repli.filter((c) => c.attendu).map((c) => c.id)).toEqual(['R002']);
     expect(F.schema).toHaveLength(3);
     expect(F.marche).toHaveLength(48);
     expect(Object.keys(F.phrases)).toEqual(['seche', 'silence_constat']);
@@ -50,7 +55,10 @@ describe('§14.2, §14.5 — les cas du simulateur', () => {
   F.repli.forEach((c) => {
     test('repli ' + c.id + ' — ' + c.titre, () => {
       const r = M.repliEscalier(c.seances, c.avant, meilleurDuCas(c.meilleur), c.zone);
-      if (c.attendu === null) { expect(r).toBeNull(); return; }
+      // Le 2e déclenchement isolé : le compteur à 8 au moins (§14.5).
+      const atteint = M.compteurDe(c.seances, c.avant, { toutes: true }).compteur >= 8;
+      if (c.attendu === null) { expect(r === null || !atteint).toBe(true); return; }
+      expect(atteint).toBe(true);
       const a = c.attendu;
       expect([r.palier, r.niveau, r.debut]).toEqual([a.palier, a.niveau, a.debut]);
       expect(r.ligne).toEqual(a.ligne);

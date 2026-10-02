@@ -305,7 +305,16 @@
   var ROLE_FEUILLE = { ligne: 'consigne', test: 'test', coach: 'proposée par le coach',
                        retour: 'retour à ta charge de travail' };
 
-  function lignesDeLaFeuille(lignes) {
+  // 49-U18 (02/10/2026) — SOUS « REJOINT », LES LIGNES DU HAUT NE SONT PAS UN
+  // TEST : c'est la nouvelle charge de travail, que les séries restées
+  // rejoignent. Leur étiquette est celle de la consigne. Le rôle interne
+  // (`test`, le haut) ne change pas : les paris (I7) et la réaction le lisent.
+  function libelleDeLigne(l, consigne) {
+    if (l.role === 'test' && consigne && consigne.etat === 'rejoint') return ROLE_FEUILLE.ligne;
+    return ROLE_FEUILLE[l.role] || l.role;
+  }
+
+  function lignesDeLaFeuille(lignes, consigne) {
     var couvertes = (lignes || []).filter(function (l) { return l.role !== 'hors'; });
     var premiereCoach = null;
     return couvertes.map(function (l, k) {
@@ -332,7 +341,7 @@
         rang: l.rang, role: l.role, charge: l.charge === undefined ? null : l.charge,
         vise: l.vise === undefined ? null : l.vise,
         texte: kg(l.charge) + (visee ? NBSP + '\u00d7' + NBSP + visee : ''),
-        libelle: ROLE_FEUILLE[l.role] || l.role,
+        libelle: libelleDeLigne(l, consigne),
         raison: raison,
         faite: l.validee && l.faite ? 'faite' + NBSP + ': ' + kgFois(l.faite.charge, l.faite.reps) : null
       };
@@ -346,7 +355,7 @@
   function pourquoiDuPlan(consigne, lignes, donc) {
     if (!consigne) return null;
     var muet = consigne.etat === 'silence';
-    return { donc: muet ? null : donc, lignes: muet ? [] : lignesDeLaFeuille(lignes) };
+    return { donc: muet ? null : donc, lignes: muet ? [] : lignesDeLaFeuille(lignes, consigne) };
   }
 
   // ── L'ÉTAPE DES CHAUFFES ET DE LA DÉGRESSIVE (MOTEUR §9.15, 49-U10) ──────
@@ -397,8 +406,13 @@
           l.chauffe = { charge: c };
           if (c !== null && !l.validee) l.fantome = { charge: c, reps: null, source: 'chauffe' };
         });
+        // 49-U18 (02/10/2026) — LA PHRASE DES CHAUFFES DISPARAÎT DÈS QU'UNE
+        // CHAUFFE DE L'EXERCICE EST VALIDÉE : « calées sur 52,5 kg : 20 · 45 »
+        // restait au-dessus d'une chauffe faite à 40 × 6 — une phrase qui
+        // citait des charges que la personne n'avait pas faites.
+        var uneFaite = deChauffe.some(function (l) { return l.validee; });
         sortie.chauffes = {
-          situation: r.situation, reference: reference, phrase: r.phrase,
+          situation: r.situation, reference: reference, phrase: uneFaite ? null : r.phrase,
           non_remplies: r.non_remplies, prevues: M.TABLE_CHAUFFES[r.situation].length,
           iSerie: deChauffe[0].iSerie
         };
@@ -1070,6 +1084,19 @@
       if (l.role === 'hors' && x.paris && x.paris[l.iSerie]) err('I1', 'série ' + l.iSerie + ' hors couverture, avec un pari');
     });
     verifierAutour(x, err);
+    // I25 (49-U18, 01/10/2026) — AUCUNE LIGNE DE TRAVAIL À FAIRE N'EST LAISSÉE
+    // HORS PLAN SOUS UNE CONSIGNE : elle prend la charge du coach (§9.13), et
+    // son pré-remplissage vient du plan, jamais d'une ancienne séance. Une
+    // montée en charge se déclare en échauffement (rôle explicite). Seule la
+    // semaine allégée laisse des lignes hors plan (`couvre`, I19).
+    var k25 = x.consigne;
+    if (k25 && k25.etat !== 'silence' && (k25.ligne || k25.haut) && typeof k25.couvre !== 'number') {
+      lignes.forEach(function (l) {
+        if (l.type === 'travail' && !l.validee && l.role === 'hors') {
+          err('I25', 'la série de travail ' + l.iSerie + ' est hors plan sous une consigne « ' + k25.etat + ' »');
+        }
+      });
+    }
     if (!x.consigne) {
       lignes.forEach(function (l) {
         if (l.role !== 'hors') err('I1', 'série ' + l.iSerie + ' couverte sans consigne');

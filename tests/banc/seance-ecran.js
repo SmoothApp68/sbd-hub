@@ -9200,21 +9200,27 @@ const SETS_IMPORTES = [
         salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
       return debut;
     };
-    const seriesR = (id, slug, lignes, debut) => lignes.forEach(([kg, reps], k) => base.sets.push({
+    const seriesR = (id, slug, lignes, debut) => lignes.forEach(([kg, reps, type], k) => base.sets.push({
       id: id + '-' + slug + '-s' + (k + 1), session_id: id, user_id: 'u-banc', exercise_slug: slug,
-      charge_kg: kg, reps, duree_s: null, distance_m: null, type_serie: 'travail', rang: k + 1,
+      charge_kg: kg, reps, duree_s: null, distance_m: null, type_serie: type || 'travail', rang: k + 1,
       groupe_superset: null, validee_a: debut, rpe: null, ressenti: null, repos_s: null, note: null,
       source: 'app', created_at: debut, modifie_a: null }));
-    const historique = [
-      ['militaire-rj', 26, [[50, 10], [50, 10], [50, 10], [52.5, 8]]],
-      ['militaire-rj', 22, [[50, 10], [50, 10], [50, 10], [52.5, 9]]],
-      ['militaire-rj', 18, [[52.5, 10], [52.5, 10], [52.5, 9], [55, 7]]],
+    // 49-U18 — le militaire comme dans la base (lu par Claude.ai) : deux fois
+    // par semaine l'automne d'avant, une fois par semaine depuis, la dernière
+    // il y a 14 jours. Sur TOUT l'historique, l'écart habituel tombe sous 4,7
+    // jours (une reprise) ; sur les 8 derniers, il vaut 7 (pas de reprise).
+    const militaire = [];
+    for (let j = 150; j > 70; j -= (j % 2 ? 3 : 4)) militaire.push(['militaire-rj', j, [[45, 10], [45, 10], [45, 10]]]);
+    [70, 63, 56, 49, 42, 35, 28, 21].forEach((j) =>
+      militaire.push(['militaire-rj', j, [[50, 10], [50, 10], [50, 10], [52.5, 8]]]));
+    const historique = militaire.concat([
       ['militaire-rj', 14, [[52.5, 10], [52.5, 10], [52.5, 10], [55, 8]]],
       ['couche-rj', 14, [[88, 10], [88, 10], [88, 10]]],
       ['couche-rj', 11, [[88, 10], [88, 10], [88, 11]]],
       ['couche-rj', 8, [[88, 11], [88, 11], [92, 11]]],
       ['couche-rj', 5, [[88, 10], [92, 11], [92, 11]]],
-      ['visage-rj', 120, [[25, 15], [25, 15], [25, 15]]],
+      // Le 25 kg du 30/04/2024 : une autre machine, 17 mois avant.
+      ['visage-rj', 520, [[25, 15], [25, 15], [25, 15]]],
       ['visage-rj', 40, [[22.5, 20], [22.5, 20], [22.5, 20]]],
       ['visage-rj', 33, [[22.5, 20], [22.5, 20], [27, 12]]],
       ['visage-rj', 26, [[24.8, 20], [24.8, 20], [24.8, 20]]],
@@ -9222,8 +9228,10 @@ const SETS_IMPORTES = [
       ['visage-rj', 12, [[24.8, 20], [24.8, 20], [24.8, 20]]],
       ['curlez-rj', 21, [[20, 10], [20, 10], [20, 10]]],
       ['curlez-rj', 14, [[20, 10], [20, 10], [20, 10]]],
-      ['curlez-rj', 7, [[20, 10], [20, 10], [20, 10]]]
-    ];
+      // La fois d'avant porte une dégressive à 15 kg : à la barre, elle ne
+      // doit pas revenir pré-remplie (49-U18).
+      ['curlez-rj', 7, [[20, 10], [20, 10], [20, 10], [15, 10, 'degressive']]]
+    ]);
     historique.forEach(([slug, j, lignes], k) => {
       const id = 'rj-h' + k;
       seriesR(id, slug, lignes, sessionR(id, j));
@@ -9317,7 +9325,7 @@ const SETS_IMPORTES = [
       nEtapes === nValidees + 1, JSON.stringify({ nEtapes, nValidees }));
     ok('[RJ] chaque exercice y est, avec sa consigne, ses lignes et ses phrases',
       ['Rejeu Un', 'Rejeu Deux', 'Rejeu Trois', 'Rejeu Quatre'].every((n) => t1.indexOf('▸ ' + n) >= 0) &&
-      /consigne reprise_courte · zone mix/.test(t1) && /consigne rejoint/.test(t1) &&
+      /consigne rejoint/.test(t1) &&
       /en-tête \(jaune\)/.test(t1) && /pré-rempli/.test(t1) && /invariants : /.test(t1), '');
     const controles = t1.split('\n').filter((l) => /contrôle /.test(l));
     const ecarts = controles.filter((l) => /✗/.test(l));
@@ -9330,6 +9338,35 @@ const SETS_IMPORTES = [
       JSON.stringify(t1.split('\n').filter((l) => /^invariants : /.test(l) && !/aucune/.test(l)).slice(0, 3)));
     ok('[RJ] une ligne de routine jamais validée est reconstruite (la 2e chauffe du militaire)',
       /reconstruites vides[^\n]*Rejeu Un \(Barre\) × 1/.test(t1), '');
+    // ── 49-U18 — la séance du 01/10, rejouée avec les correctifs ──
+    const ouverture = t1.split('── Étape 1 ')[0];
+    const bloc = (nom) => (ouverture.split('▸ ' + nom)[1] || '').split('\n▸ ')[0];
+    const mil = bloc('Rejeu Un (Barre)'), cou = bloc('Rejeu Deux (Haltères)');
+    const vis = bloc('Rejeu Trois (Poulie)'), cur = bloc('Rejeu Quatre (Barre EZ)');
+    const visees = (b) => (b.match(/plan [0-9,–]+ × (\d+)/g) || []).map((x) => Number(x.split(' × ')[1]));
+    ok('[RJ] 49-U18 — le militaire n’est plus en reprise, et ne vise rien au-dessus de 8 (Mix 6-8)',
+      !/consigne reprise/.test(mil) && /zone mix/.test(mil) && visees(mil).length >= 4 && visees(mil).every((v) => v <= 8),
+      JSON.stringify({ tete: mil.split('\n')[0], visees: visees(mil) }));
+    ok('[RJ] 49-U18 — le couché n’a plus de ligne à 88 : sa 1re ligne prend la charge du coach',
+      /#1 · travail · ligne · rang 1 · plan 92 × 11/.test(cou) && !/88 × 10/.test(cou) && !/travail · hors plan/.test(cou),
+      cou.split('\n').filter((l) => /#\d/.test(l)).join(' | '));
+    ok('[RJ] 49-U18 — le tirage visage teste à 27 (le 25 d’il y a 17 mois ne compte plus)',
+      /haut 27 × /.test(vis) && /plan 27 × /.test(vis), vis.split('\n')[0]);
+    ok('[RJ] 49-U18 — la dégressive du curl EZ reste vide (malgré les 15 kg de la fois d’avant)',
+      /#4 · degressive · hors plan · dégressive – « Pas de dégressive à la barre\. » · à faire · pré-rempli – × /.test(cur),
+      cur.split('\n').filter((l) => /degressive/.test(l)).join(' | '));
+    // 49-U18 bis (02/10/2026) — la phrase des chauffes disparaît dès qu'une
+    // chauffe est validée (le militaire : 40 × 6 à l'étape 1).
+    const etape1 = (t1.split('── Étape 1 ')[1] || '').split('── Étape 2 ')[0];
+    ok('[RJ] 49-U18 bis — la phrase des chauffes du militaire disparaît après la chauffe à 40 × 6',
+      /chauffes : « Chauffes calées sur 52,5.kg.: 20 · 45.kg\. »/.test(mil) &&
+      /chauffes : \(sans phrase\)/.test(etape1) && !/Chauffes calées/.test(etape1),
+      (etape1.split('\n').filter((l) => /chauffes/.test(l))[0] || ''));
+    ok('[RJ] 49-U18 bis — le couché : « Ta première série à 88 kg passe à 92 kg. » (une montée)',
+      /en-tête \(gris\) : « Ta première série à 88.kg passe à 92.kg\. »/.test(cou),
+      (cou.split('\n').filter((l) => /gris/.test(l))[0] || ''));
+    ok('[RJ] 49-U18 — aucune phrase ne dit « null » (l’en-tête du couché disait « le cran au-dessus × null »)',
+      !/null/.test(t1), (t1.split('\n').filter((l) => /null/.test(l))[0] || ''));
     ok('[RJ] ce qui n’est pas reconstruit exactement est dit', /Ce qui n’est pas reconstruit exactement :/.test(t1) &&
       /jamais validée/.test(t1), '');
 

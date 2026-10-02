@@ -338,7 +338,9 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
     expect(parFamille.escalier).toBe(44);
     // 3 cartes × 4 textes + la sèche + le silence + 2 replis × 2 références,
     // puis (49-U17) 4 cartes de série de plus × 4 textes + le gris d'après.
-    expect(parFamille['escalier isolé']).toBe(35);
+    // 49-U18 : R004 n'est plus un repli atteint (l'écart habituel sur les 8
+    // derniers écarts fait repartir son compteur de zéro) — 2 phrases de moins.
+    expect(parFamille['escalier isolé']).toBe(33);
     // La phrase « Je ne compte pas la dernière série » est bien jouée.
     expect(vues.filter((v) => v.famille === 'chute' && /Je ne compte pas la dernière série/.test(v.phrase)).length)
       .toBeGreaterThanOrEqual(14);

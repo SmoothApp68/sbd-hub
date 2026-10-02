@@ -36,7 +36,10 @@ describe('§9.13 bis — la version des règles du moteur (49-U6)', () => {
     // colonne `predictions.module_version`.
     // 4 depuis 49-U12 (la chute de fin de séance ne tire plus le niveau et
     // bloque le test suivant, MOTEUR §9.2 bis).
-    expect(Moteur.VERSION_CONSIGNE).toBe(4);
+    // 5 depuis 49-U18 (delta 49-36 : l'écart habituel sur les 8 derniers
+    // écarts, les reprises bornées à la zone, la charge plus lourde sur 12
+    // mois hors barre).
+    expect(Moteur.VERSION_CONSIGNE).toBe(5);
   });
 });
 

@@ -56,6 +56,12 @@
   // §10.2 — le pas se mesure sur 24 mois. Une salle change de matériel, on
   // déménage : un pas d'il y a trois ans ne dit rien de celui d'aujourd'hui.
   var FENETRE_PAS_MOIS = 24;
+  // §10.2 (delta 49-36) — la charge déjà utilisée PLUS LOURDE, hors barre : 12
+  // mois. Les matériels dont la charge change d'une salle à l'autre. La
+  // machine Smith suit les machines (décidé le 02/10/2026) : sa barre guidée
+  // a son propre poids, qui change d'une machine à l'autre.
+  var FENETRE_VOISINE_MOIS = 12;
+  var FENETRE_VOISINE_MATERIELS = ['machine', 'machine_smith', 'poulie', 'haltere'];
   // Un écart isolé est du bruit, pas un plan de charges.
   var RECURRENCE_PAS = 3;
 
@@ -642,8 +648,21 @@
     var pas = pasDeSalle(seances, avant);
     if (pas && pas.nature === 'exact') return auCentieme(p + dir * pas.pas);
 
+    // §10.2 (delta 49-36, 01/10/2026) — LE RANG 2, VERS LE HAUT, HORS BARRE :
+    // seulement les 12 derniers mois. Un 25 kg du 30/04/2024, sur une autre
+    // machine, passait devant le 27 kg de la poulie actuelle — un test à
+    // +0,2 kg. D'une salle à l'autre, les piles et les haltères changent ; à la
+    // barre, les disques sont les mêmes partout (sans limite), et vers le bas
+    // le repli a sa propre limite de 10 % (sans limite non plus).
+    var plancher = null;
+    if (dir > 0 && FENETRE_VOISINE_MATERIELS.indexOf(equipement) >= 0) {
+      var depuis = new Date(instant(avant));
+      depuis.setUTCMonth(depuis.getUTCMonth() - FENETRE_VOISINE_MOIS);
+      plancher = depuis.getTime();
+    }
     var voisine = null;
     anterieures(seances, avant).forEach(function (se) {
+      if (plancher !== null && instant(se.debut) < plancher) return;
       chargesDe(se).forEach(function (c) {
         if (dir > 0 ? c <= p : c >= p) return;
         if (voisine === null || (dir > 0 ? c < voisine : c > voisine)) voisine = c;
@@ -659,19 +678,25 @@
 
   // ── §12.6 / §9.9 — L'ÉCART HABITUEL, LA COUPURE ET LA REPRISE ────────────
   //
-  // L'écart habituel est la médiane des écarts, EN JOURS, entre séances
-  // consécutives de l'exercice. Une médiane et non une moyenne : une seule
-  // coupure de trois mois tirerait la moyenne au point de rendre la règle
-  // muette pour toujours.
+  // L'écart habituel est la médiane des 8 DERNIERS écarts, EN JOURS, entre
+  // séances consécutives de l'exercice (§9.9, delta 49-36 : une seule
+  // définition, pour la reprise et pour le compteur, §12.6). Une médiane et non
+  // une moyenne : une seule coupure de trois mois tirerait la moyenne au point
+  // de rendre la règle muette pour toujours. Les 8 DERNIERS : le rythme actuel,
+  // pas celui d'il y a un an — un militaire fait deux fois par semaine à
+  // l'automne 2025, une fois par semaine depuis, voyait 14 jours d'absence
+  // comme une reprise (séance du 01/10/2026). La zone se lit déjà sur les 8
+  // dernières séances : même logique.
   //
   // Il faut AU MOINS DEUX séances : avec une seule, il n'y a pas d'écart, donc
   // pas de coupure — une première séance n'est pas une reprise.
+  var ECARTS_HABITUELS = 8;
   function ecartHabituel(seances, avant) {
     var dates = anterieures(seances, avant).map(function (se) { return instant(se.debut); });
     if (dates.length < 2) return null;
     var ecarts = [];
     for (var i = 1; i < dates.length; i++) ecarts.push((dates[i] - dates[i - 1]) / JOUR);
-    return mediane(ecarts);
+    return mediane(ecarts.slice(-ECARTS_HABITUELS));
   }
 
   // §9.9 — « Après une coupure, le moteur ne demande pas de rep de plus.
@@ -1087,11 +1112,18 @@
     // demande pas de rep de plus (§9.9), et au-delà de 12 semaines il repart un
     // cran dessous. Rien ici ne dit la durée de l'absence (CADRAGE §3.1 bis).
     var reprise = repriseDe(vues, avant);
-    if (reprise === REPRISE_COURTE) return rendre('reprise_courte', ligneDe(P, niv), null);
+    // §9.9 (delta 49-36, 01/10/2026) — UNE REPRISE NE VISE JAMAIS AU-DESSUS DU
+    // HAUT DE LA ZONE (52,5 kg × 10 en Mix 6-8, séance du 01/10). Les reprises
+    // seulement : l'étirement dépasse la zone exprès. Quand la borne
+    // s'applique, le fondement le dit (`borneZone`), et la phrase grise aussi.
+    var borne = reprise !== AUCUNE_REPRISE && zone !== null && niv > zone.haut
+      ? { borneZone: { zone: zone.cle, haut: zone.haut, niveau: niv } } : null;
+    var viseReprise = borne ? zone.haut : niv;
+    if (reprise === REPRISE_COURTE) return rendre('reprise_courte', ligneDe(P, viseReprise), null, borne);
     // §9.9 (delta 49-13, 27/09/2026) — le repli ne descend jamais de plus de
     // 10 % : `repliDeReprise` est la SEULE règle, que le plan réapplique à
     // toute consigne qu'il reçoit (`consigneFigee`).
-    if (reprise === REPRISE_LONGUE) return rendre('reprise_longue', ligneDe(repliDeReprise(P, voisine(P, -1)), niv), null);
+    if (reprise === REPRISE_LONGUE) return rendre('reprise_longue', ligneDe(repliDeReprise(P, voisine(P, -1)), viseReprise), null, borne);
 
     // 4. La règle de bord : sous 3 reps d'habitude, il n'y a plus de zone. On
     // monte la charge AUX MÊMES REPS — la variabilité journalière des maximaux
@@ -1348,7 +1380,9 @@
           figee: true
         };
       }
-      var src = x.role === 'haut' ? c.haut : c.ligne;
+      // §9.13 (49-U18) — la même source que la couverture : sans la ligne de
+      // son rôle, la ligne prend l'autre (la charge du coach, jamais rien).
+      var src = x.role === 'haut' ? (c.haut || c.ligne) : (c.ligne || c.haut);
       var l = ligneDePlan(src ? nombre(src.charge) : null, src ? nombre(src.vise) : null,
         null, 'consigne');
       // §9.13 bis (49-U1) — LE RÔLE DE LA LIGNE VOYAGE AVEC ELLE : la réaction
@@ -1870,7 +1904,7 @@
   // 49-U12 (la chute de fin de séance ne tire plus le niveau et bloque le
   // test suivant — MOTEUR §9.2 bis).
   var MODULE_CONSIGNE = 'moteur.consigne';
-  var VERSION_CONSIGNE = 4;
+  var VERSION_CONSIGNE = 5;
 
   // ⚠️ LU TARDIVEMENT, SANS REPLI, comme `THPalier`. `modele.js` charge avant
   // `moteur.js` (index.html 325 puis 329), mais un repli « si THModele manque,
@@ -1955,12 +1989,24 @@
     var liste = (roles || []).map(function (r) { return r === 'haut' ? 'haut' : 'ligne'; });
     var segments = [];
     liste.forEach(function (r) {
-      var src = r === 'haut' ? c.haut : c.ligne;
+      // §9.13 (49-U18) — la même source que la couverture : une ligne sans la
+      // ligne de son rôle prend l'autre (« rejoint » sans ligne basse : la
+      // ligne est à la charge du haut).
+      var src = r === 'haut' ? (c.haut || c.ligne) : (c.ligne || c.haut);
       var der = segments[segments.length - 1];
       if (der && der.role === r) { der.nombre++; return; }
       segments.push({ role: r, charge: src ? src.charge : null, vise: src ? src.vise : null, nombre: 1 });
     });
     if (!segments.length) return { jaune: [], segments: [] };
+    // Et quand TOUS les segments disent les mêmes chiffres (la ligne à la
+    // charge du haut), la ligne jaune les dit une fois : « 92 kg × 11 ». Les
+    // segments, eux, gardent leurs rôles (I6).
+    var unSeul = segments.every(function (x) {
+      return memeCharge(nombre(x.charge), nombre(segments[0].charge)) && x.vise === segments[0].vise;
+    });
+    if (segments.length > 1 && unSeul && segments[0].vise !== null && segments[0].vise !== undefined) {
+      return { jaune: [ligneFois(segments[0].charge, segments[0].vise, true, false)], segments: segments };
+    }
     var a = segments[0].role === 'ligne' ? segments[0].nombre : 0;
     var b = segments[segments.length - 1].role === 'haut' ? segments[segments.length - 1].nombre : 0;
     var habituelle = segments.length === 1 || (segments.length === 2 && a > 0 && b > 0);
@@ -1989,6 +2035,34 @@
   // séance sans charge répétée prend sa plus lourde charge tenue dans la zone,
   // ou devient neutre : la chaîne complète ne rend plus jamais ce silence. Seul
   // un contrat brut, sans la règle, y tombe encore — et il n'a rien à dire.
+  // §9.9 (delta 49-36) — LA RAISON D'UNE VISÉE BORNÉE, dite avec elle (C,
+  // principe iii : un chiffre qui change sans raison visible porte sa raison).
+  // « Ta zone Mix va jusqu'à 8 : je vise 8. » Rien quand la borne ne joue pas.
+  function phraseBorneZone(f) {
+    var b = f && f.borneZone;
+    var z = b ? zoneParCle(b.zone) : null;
+    if (!z) return '';
+    return ' Ta zone ' + z.libelle + ' va jusqu\'à ' + z.haut + DEUX_POINTS + 'je vise ' + z.haut + '.';
+  }
+
+  // §20 (49-U18, principe i) — LE MOT D'ORDRE SE DÉDUIT DU RANG, JAMAIS
+  // D'UNE HYPOTHÈSE. La série restée à l'ancien palier (« rejoint », une seule)
+  // se lit dans la dernière séance du fondement (`f.seance`) : la première de
+  // son échelle (une montée), la dernière, ou entre les deux (« ta série
+  // restée »).
+  function rangDuReste(f) {
+    var echelle = (f.seance || []).filter(function (s) {
+      return s && (ROLES_VOTANTS[s.role] === true || ROLES_RESTE[s.role] === true);
+    });
+    var ou = [];
+    echelle.forEach(function (s, i) {
+      if (memeCharge(nombre(s.charge_kg), nombre(f.palierPrecedent))) ou.push(i);
+    });
+    if (ou.length !== 1 || echelle.length < 2) return 'série restée';
+    if (ou[0] === 0) return 'première série';
+    return ou[0] === echelle.length - 1 ? 'dernière série' : 'série restée';
+  }
+
   function phraseGrise(c, reference) {
     var f = c.fondement || {};
     var z = zoneParCle(c.zone);
@@ -2041,12 +2115,13 @@
         return duTest + (t.niveau >= hi ? 'a touché le haut de ta zone' : 'est dans ta zone') +
                DEUX_POINTS + 'il gagne une série.';
 
-      // « Ta dernière série à 125 kg » : l'ancienne charge de travail est dans
-      // le fondement, et c'est la seule façon de la désigner sans compter les
-      // lignes.
+      // « Ta première série à 88 kg » : l'ancienne charge de travail est dans
+      // le fondement ; le mot d'ordre se lit sur le RANG de la série restée
+      // (`rangDuReste`, 49-U18) — « dernière » était écrit d'office, faux sur
+      // une montée (88, 92, 92 ; N5 : 125, 130, 130).
       case 'rejoint':
         return (c.ligne ? 'Une série de plus passe à '
-                        : 'Ta dernière série à ' + enKg(f.palierPrecedent) + ' passe à ') +
+                        : 'Ta ' + rangDuReste(f) + ' à ' + enKg(f.palierPrecedent) + ' passe à ') +
                enKg(c.haut.charge) + '.';
 
       case 'attend':
@@ -2083,7 +2158,8 @@
                'on retente ' + enKg(t.charge) + '.';
 
       case 'reprise_courte':
-        return 'Reprise après une pause' + DEUX_POINTS + 'ta charge de travail, sans rep de plus.';
+        return 'Reprise après une pause' + DEUX_POINTS + 'ta charge de travail, sans rep de plus.' +
+               phraseBorneZone(f);
 
       // Et RIEN sur la durée de l'absence (CADRAGE §3.1 bis).
       case 'reprise_longue':
@@ -2091,11 +2167,12 @@
         // 10 % : la consigne garde la charge de travail. §20.2 (49-U9) — la
         // phrase le distingue enfin de la reprise courte.
         if (c.ligne && memeCharge(nombre(c.ligne.charge), nombre(c.palier))) {
-          return 'Longue pause' + DEUX_POINTS + 'on reprend à ta charge de travail, sans rep de plus.';
+          return 'Longue pause' + DEUX_POINTS + 'on reprend à ta charge de travail, sans rep de plus.' +
+                 phraseBorneZone(f);
         }
         return 'Longue pause' + DEUX_POINTS + 'on reprend un cran en dessous' +
                (c.ligne && nombre(c.ligne.charge) !== null ? ', à ' + enKg(c.ligne.charge) : '') +
-               '. Le test te ramènera à ' + enKg(c.palier) + '.';
+               '. Le test te ramènera à ' + enKg(c.palier) + '.' + phraseBorneZone(f);
 
       // Le « 3 » se lit sur la table du rangement, il ne se recopie pas : sous
       // la première borne, il n'y a plus de zone (§9.1.2).
@@ -2365,16 +2442,16 @@
 
       case 'reprise_courte':
         return 'Reprise après une pause' + DEUX_POINTS + 'ta charge de travail, sans rep de plus. ' +
-               'La progression repart à la séance suivante.';
+               'La progression repart à la séance suivante.' + phraseBorneZone(f);
 
       case 'reprise_longue':
         if (c.ligne && memeCharge(nombre(c.ligne.charge), nombre(c.palier))) {
           return 'Longue pause' + DEUX_POINTS + 'on reprend à ta charge de travail, sans rep de plus. ' +
-                 'Le cran d\'en dessous descendait de plus de 10' + INSECABLE + '%.';
+                 'Le cran d\'en dessous descendait de plus de 10' + INSECABLE + '%.' + phraseBorneZone(f);
         }
         return 'Longue pause' + DEUX_POINTS + 'un cran en dessous' +
                (c.ligne && nombre(c.ligne.charge) !== null ? ', ' + enKg(c.ligne.charge) : '') +
-               ', sans rep de plus. Le test te ramènera à ' + enKg(c.palier) + '.';
+               ', sans rep de plus. Le test te ramènera à ' + enKg(c.palier) + '.' + phraseBorneZone(f);
 
       case 'bord':
         return 'Tu travailles sous ' + (RANGEMENT[0].jusqua + 1) + ' reps' + DEUX_POINTS +
@@ -2673,9 +2750,15 @@
       var nivAvant = nombre(cAvant.niveau);
       // Rien de gagné : la cible ne bouge pas, et on le dit comme tel plutôt
       // que d'annoncer un manque qui n'a pas changé depuis la dernière fois.
-      if (nivAvant !== null && fait !== null && fait <= nivAvant) {
+      // ⚠️ « MÊME CIBLE » SEULEMENT SI C'EST LA MÊME (49-U18, principe ii) :
+      // la cible d'après vient de la consigne de la séance suivante, et elle
+      // se COMPARE à celle du jour. « Même cible : 92 kg × 10 » après une
+      // séance qui visait 92 kg × 11 disait le contraire de ce qu'il montrait.
+      if (nivAvant !== null && fait !== null && fait <= nivAvant &&
+          lignesJaunes(cAvant).join(', ') === jaune) {
         return 'Même cible la prochaine fois' + DEUX_POINTS + jaune + '.';
       }
+      if (nivAvant !== null && fait !== null && fait <= nivAvant) return prochaine;
       // ⚠️ PRUDENT NE COMPTE PAS LES REPS QUI MANQUENT. Son déclencheur
       // demande TOUTES les séries au haut, DEUX séances de suite : « il te
       // manque une rep » y serait faux la moitié du temps — il en manquerait

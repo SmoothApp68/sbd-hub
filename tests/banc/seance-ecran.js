@@ -643,6 +643,36 @@ const SETS_IMPORTES = [
       await attendre(base.lenteur);
     }
 
+    // PR 8 de la consolidation — LA COURSE DE LA SYNCHRONISATION, FORCÉE
+    // (section 5). Au retour du réseau, la vidange de la file (l'envoi d'une
+    // série) et la synchronisation de l'entrée partent EN MÊME TEMPS. Selon le
+    // minutage, la série arrivait en base ENTRE les deux lectures de la
+    // synchronisation — la liste des séries (`seriesDepuis`) et leur compte
+    // (`compterSeries`) : l'une l'avait, l'autre non (2 bancs complets sur 4).
+    // Ici la fenêtre est imposée, quel que soit l'ordre des deux lectures :
+    // l'envoi attend que la PREMIÈRE ait été servie, la SECONDE attend que
+    // l'envoi soit en base. Un coup, puis le banc reprend son cours.
+    const cs = base.courseSync;
+    const lectureDeLaCourse = table === 'sets' && (
+      (req.method() === 'GET' && !url.searchParams.get('session_id')) ||
+      (req.method() === 'HEAD' && /count=exact/.test(req.headers()['prefer'] || '')));
+    if (cs && !cs.envoye && req.method() === 'POST' && table === 'sets') {
+      await Promise.race([cs.premiere, pause(5000)]);
+      cs.envoye = true;
+    }
+    if (cs && lectureDeLaCourse && cs.lectures < 2) {
+      cs.lectures++;
+      if (cs.lectures === 2) {
+        for (let k = 0; k < 50 && !cs.envoye; k++) await pause(100);
+        await pause(300);
+        cs.ordre.push(req.method());
+      } else {
+        cs.ordre.push(req.method());
+        // Servie d'abord, PUIS l'envoi est libéré.
+        setTimeout(() => cs.libere(), 50);
+      }
+    }
+
     // ⚠️ LE COMPTE DE CONTRÔLE, POUR DE VRAI. Sans l'en-tête `Content-Range`,
     // `compterSeances`/`compterSeries` rendent null, `verifierCompletude` se
     // déclare non vérifiable, et la cohérence entre la purge des séries
@@ -1656,9 +1686,19 @@ const SETS_IMPORTES = [
     (await compter('.ligne-serie')) + ' ligne(s) après');
 
   console.log('\n══ 5. LE RETOUR DU RÉSEAU ══');
+  // PR 8 — la course, imposée (voir le routeur) : la série de la file arrive
+  // en base entre les deux lectures de la synchronisation.
+  base.courseSync = { lectures: 0, ordre: [], envoye: false };
+  base.courseSync.premiere = new Promise((r) => { base.courseSync.libere = r; });
   base.reseau = true;
   await page.evaluate(() => window.dispatchEvent(new Event('online')));
+  // La course imposée retarde la seconde lecture : on attend qu'elle ait eu lieu.
   await attendre(2500);
+  for (let k = 0; k < 60 && !(base.courseSync.envoye && base.courseSync.lectures === 2); k++) await pause(100);
+  await attendre(2500);
+  ok('prémisse (PR 8) — la course a eu lieu : la série est arrivée en base entre les deux lectures de la synchronisation',
+    base.courseSync.envoye && base.courseSync.lectures === 2 && base.courseSync.ordre.length === 2,
+    JSON.stringify(base.courseSync.ordre) + ' · envoi ' + base.courseSync.envoye);
   ok('la séance monte', sets().length === 3, sets().length + ' séries en base');
   ok('sans doublon de séance', sessions().length === 1, sessions().length + ' séance(s)');
   const ids = sets().map((s) => s.id);
@@ -9261,7 +9301,23 @@ const SETS_IMPORTES = [
 
     ok('[U14] la garde (C6) n’a rien signalé dans cette section (I19, I20 compris)', gardeBanc.violations === violationsAvant,
       JSON.stringify(gardeBanc.liste.slice(-2)));
+    // PR 8 de la consolidation — LA SECTION RETIRE CE QU'ELLE A POSÉ. B laisse
+    // une semaine allégée ACCEPTÉE aujourd'hui : toute séance du jour jouée
+    // ensuite était allégée. En séquentiel, le rejeu (7 G quaterdecies) ne
+    // trouvait plus que 11 de ses 17 lignes, et le banc s'arrêtait.
+    // ⚠️ EN BASE ET SUR L'APPAREIL. Le pari a été posé PAR L'APPAREIL : il vit
+    // aussi dans son magasin `predictions` (un pari ne s'efface jamais en
+    // base, l'app n'a aucune raison de l'oublier). Le retirer de la base seule
+    // ne suffisait pas. Le rechargement relit le magasin.
+    const semaineAllegee = (l) => l && l.module === 'escalier' && l.fondement && l.fondement.marche === 'semaine_allegee';
+    const parisU14 = base.predictions.filter(semaineAllegee).map((l) => l.id);
+    base.predictions = base.predictions.filter((l) => !semaineAllegee(l));
+    await page.evaluate((ids) => window.THCache.supprimer('predictions', ids), parisU14);
     await aller('/saisie');
+    const restes = await page.evaluate(() => window.THCache.lireTout('predictions')
+      .then((l) => l.filter((x) => x && x.module === 'escalier' && x.fondement && x.fondement.marche === 'semaine_allegee').length));
+    ok('[U14] la section ne laisse aucune semaine allégée derrière elle (base et appareil)',
+      parisU14.length === 1 && restes === 0 && !base.predictions.some(semaineAllegee), JSON.stringify([parisU14.length, restes]));
     ok('[U14] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
 

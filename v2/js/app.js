@@ -364,6 +364,28 @@
       var resync = await armerResynchronisation();
       var curseur = await Cache.lireMeta('curseurSeries');
 
+      // ⚠️ LE COMPTE D'ABORD, LA LISTE ENSUITE (PR 8 de la consolidation).
+      // Le serveur annonce ce qu'il a. C'est ce qui autorise la purge, et
+      // c'est ce qui permet de dire qu'il manque quelque chose au lieu de
+      // l'ignorer. Les deux lectures ne sont pas atomiques, et la vidange de
+      // la file tourne EN MÊME TEMPS (au retour du réseau, l'entrée
+      // synchronise pendant que la file envoie). Lu APRÈS la liste, le compte
+      // voyait la série montée entre les deux : « 1 série manquante » à
+      // tort, jusqu'à la synchronisation suivante (2 bancs complets sur 4).
+      // Lu AVANT, il est un plancher : ce qu'il compte est dans la liste, et
+      // ce qui arrive entre les deux n'est qu'un surplus, que la décision de
+      // complétude accepte (`Sync.verifierCompletude`).
+      //
+      // ⚠️ ET UN COMPTE QUI ÉCHOUE FAIT ÉCHOUER LA SYNCHRONISATION. Lus en
+      // premier, les comptes sont la première requête : hors ligne, avaler
+      // leur échec (`compteSur`) laissait la synchronisation tenter encore
+      // deux requêtes avant de renoncer — trois fois plus long, et l'écran
+      // des routines n'annonçait plus « Réessayer » à temps (banc des
+      // routines, section 9). Un serveur qui ne renvoie pas de compte rend
+      // `null` sans exception : ce cas-là reste « non vérifiable ».
+      var compteSeances = await Donnees.compterSeances();
+      var compteSeries = await Donnees.compterSeries();
+
       // sessions : complet (545 Ko, aucune colonne de modification, capte aussi
       // les suppressions). sets : incrémental (15 Mo, 28× plus lourd).
       var seances = await Donnees.toutesLesSeances();
@@ -380,11 +402,6 @@
       // qu'il avait — donc les choix faits ici tiennent.
       var zones = await essayer(Donnees.mesZones);
 
-      // Le serveur annonce ce qu'il a. C'est ce qui autorise la purge, et c'est
-      // ce qui permet de dire qu'il manque quelque chose au lieu de l'ignorer.
-      var compteSeances = await compteSur(Donnees.compterSeances);
-      var compteSeries = await compteSur(Donnees.compterSeries);
-
       // §12.9 (49-U13) — les paris du compte, EN LECTURE SEULE, pour une seule
       // chose : savoir quelles séances ont reçu une consigne (« sous
       // consigne »). Trois colonnes (`Donnees.seancesAvecPari`). Accessoire
@@ -394,11 +411,6 @@
       // DE SUITE : une consigne qui se fige pendant les écritures qui suivent
       // doit déjà les voir.
       //
-      // ⚠️ APRÈS LES DEUX COMPTES, PAS ENTRE `seriesDepuis` ET `compterSeries`.
-      // Une série montée par la file pendant cette fenêtre est comptée par le
-      // serveur sans être dans `nouvellesSeries` : l'état dit « 1 série
-      // manquante » jusqu'à la synchronisation suivante. Toute lecture posée
-      // là élargit la fenêtre (banc d'écran, section 5, 01/10/2026).
       var parisDuCompte = await essayer(Donnees.seancesAvecPari);
       if (parisDuCompte) {
         local.sousConsigne = seancesAvecPari(parisDuCompte);

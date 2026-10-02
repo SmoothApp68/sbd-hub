@@ -8650,7 +8650,7 @@ const SETS_IMPORTES = [
     // rien de plus ». La phase est celle que les sections d'avant ont laissée
     // au profil (en séquentiel, 7 G octies finit en sèche) : on la lit sur le
     // plan, la phrase attendue suit.
-    const phraseU13 = '25 kg × 12 reste ton meilleur depuis 4 séances.' +
+    const phraseU13 = '25 kg × 12 reste ta meilleure charge de travail depuis 4 séances.' +
       (compteurs.phase === 'seche' ? ' En sèche, je ne te propose rien de plus.' : '');
     const lignesCompteur = (await page.evaluate(() => Array.from(document.querySelectorAll('.legende-exo'))
       .map((l) => { const c = l.querySelector('.consigne-dit.compteur'); return c ? c.textContent : null; }))).map((t) => t && esp(t));
@@ -8664,9 +8664,9 @@ const SETS_IMPORTES = [
     // phrase quitte l'en-tête. Le meilleur, lui, reste 25 × 12 (contrôle
     // ci-dessus) ; là où une phrase le dit, elle dit celui-là.
     const silence = compteurs.marche === 'silence';
-    ok('[U13] DISCRIMINANT — la phrase grise à l’ouverture : « 25 kg × 12 reste ton meilleur depuis 4 séances. » (le meilleur, pas les 20 kg du jour)',
+    ok('[U13] DISCRIMINANT — la phrase grise à l’ouverture : « 25 kg × 12 reste ta meilleure charge de travail depuis 4 séances. » (le meilleur, pas les 20 kg du jour)',
       silence ? lignesCompteur[0] === null
-        : (compteurs.carte ? esp(compteurs.carte).indexOf('25 kg × 12 reste ton meilleur depuis 4 séances') === 0
+        : (compteurs.carte ? esp(compteurs.carte).indexOf('25 kg × 12 reste ta meilleure charge de travail depuis 4 séances') === 0
                            : lignesCompteur[0] === phraseU13),
       JSON.stringify([lignesCompteur, compteurs.phase, compteurs.marche, compteurs.carte]));
     ok('[U13] DISCRIMINANT — le tirage : les séances sans pari ne comptent pas → 3 (elles en feraient 5)',
@@ -8798,7 +8798,7 @@ const SETS_IMPORTES = [
       return c ? { iexo: c.getAttribute('data-iexo'), texte: c.querySelector('.pc-texte').textContent } : null;
     });
     ok('[U17] 0 — démonstration : la carte de la série de plus sur le 3e exercice',
-      !!d1 && d1.iexo === '2' && /reste ton meilleur depuis 4 séances/.test(esp(d1.texte)), JSON.stringify(d1));
+      !!d1 && d1.iexo === '2' && /reste ta meilleure charge de travail depuis 4 séances/.test(esp(d1.texte)), JSON.stringify(d1));
     const avant0 = await compter('.ligne-serie');
     await page.click('.proposition-serie .psp-oui');
     await attendre(1200);
@@ -8818,7 +8818,7 @@ const SETS_IMPORTES = [
       a.phase === 'maintien' && a.compteur === 4 && a.place === true, JSON.stringify(a));
     ok('[U17] A — la carte de la série de plus sous l’exercice : la phrase, le détail, « Ajouter une série » / « Non merci »',
       a.marche === 'serie_de_plus' && !!a.carte &&
-      /^25 kg × 12 reste ton meilleur depuis 4 séances(, et tes autres exercices avancent)?\.$/.test(esp(a.carte.texte)) &&
+      /^25 kg × 12 reste ta meilleure charge de travail depuis 4 séances(, et tes autres exercices avancent)?\.$/.test(esp(a.carte.texte)) &&
       a.carte.detail === 'Sur cet exercice, une série de plus aide souvent : environ 20 % de travail en plus. Tes avant-bras restent sous leur volume habituel.' &&
       a.carte.oui === 'Ajouter une série' && a.carte.non === 'Non merci', JSON.stringify(a.carte));
     ok('[U17] A — avant la réponse : les 3 lignes de la routine, aucune en plus',
@@ -8988,7 +8988,7 @@ const SETS_IMPORTES = [
     const d1 = await lireIsole('leve-u15');
     const d2 = await lireIsole('presse-u15');
     ok('[U15] 0 — démonstration : la carte de schéma sous le premier exercice, « Passer à 6-8 reps » / « Garder 3-5 »',
-      d1.marche === 'schema' && !!d1.carte && /reste ton meilleur depuis 4 séances/.test(esp(d1.carte.texte)) &&
+      d1.marche === 'schema' && !!d1.carte && /reste ta meilleure charge de travail depuis 4 séances/.test(esp(d1.carte.texte)) &&
       d1.carte.oui === 'Passer à 6-8 reps' && d1.carte.non === 'Garder 3-5', JSON.stringify(d1));
     ok('[U15] 0 — démonstration : un repli sur le second, sans test, la phrase « On repart de … »',
       d2.marche === 'repli' && !!d2.repli && /^On repart de .* kg, ta dernière charge tenue : .* kg × (\d+), \1, \1 le /.test(esp(d2.gris)) &&
@@ -9010,7 +9010,7 @@ const SETS_IMPORTES = [
     ok('[U15] A — compteur 4, zone Lourd, un seul exercice qui cale : la carte de schéma, pas de carte de semaine allégée',
       a.compteur === 4 && a.zone === 'lourd' && a.marche === 'schema' && !a.carteAllegee && a.cartes === 1, JSON.stringify(a));
     ok('[U15] A — la phrase, le détail et les deux libellés de §14.5',
-      !!a.carte && /^125 kg × 5 reste ton meilleur depuis 4 séances(, et tes autres exercices avancent)?\.$/.test(esp(a.carte.texte)) &&
+      !!a.carte && /^125 kg × 5 reste ta meilleure charge de travail depuis 4 séances(, et tes autres exercices avancent)?\.$/.test(esp(a.carte.texte)) &&
       a.carte.detail === 'En force, une série de plus aide peu. Changer de schéma quelques semaines relance souvent la barre, avant d\'y revenir.' &&
       a.carte.oui === 'Passer à 6-8 reps' && a.carte.non === 'Garder 3-5', JSON.stringify(a.carte));
     ok('[U15] A — la phrase du compteur n\'est pas répétée dans l\'en-tête', a.phraseCompteur === null, JSON.stringify(a.phraseCompteur));

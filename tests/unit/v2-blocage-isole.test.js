@@ -219,14 +219,14 @@ describe('§14.5 — le blocage isolé, dans le plan', () => {
     const { e, p } = decor();
     const x = p.exercices[0];
     expect(x.escalier.marche).toBe('schema');
-    expect(x.escalier.carte.phrase).toBe('125' + NB + 'kg × 5 reste ton meilleur depuis 4 séances, et tes autres exercices avancent.');
+    expect(x.escalier.carte.phrase).toBe('125' + NB + 'kg × 5 reste ta meilleure charge de travail depuis 4 séances, et tes autres exercices avancent.');
     expect([x.escalier.carte.oui, x.escalier.carte.non, x.escalier.carte.nouvelle_zone]).toEqual(['Passer à 6-8 reps', 'Garder 3-5', 'mix']);
     expect(x.entete.compteur).toBeNull();
     expect(T.verifierPlan(p, e).erreurs).toEqual([]);
   });
   test('un autre exercice à 4 ou plus dans les 7 jours : la phrase finit sur un point', () => {
     const { p } = decor({ compteurs: [{ exercice: 'squat', jour: '2026-09-28', compteur: 4, seance: 'X' }] });
-    expect(p.exercices[0].escalier.carte.phrase).toBe('125' + NB + 'kg × 5 reste ton meilleur depuis 4 séances.');
+    expect(p.exercices[0].escalier.carte.phrase).toBe('125' + NB + 'kg × 5 reste ta meilleure charge de travail depuis 4 séances.');
   });
   test('Mix → Lourd : « Passer à 3-5 reps » / « Garder 6-8 »', () => {
     const { p } = decor({ consigne: { zone: 'mix' } });
@@ -238,7 +238,7 @@ describe('§14.5 — le blocage isolé, dans le plan', () => {
       const x = p.exercices[0];
       expect(x.escalier.carte).toBeUndefined();
       expect(x.escalier.reponse).toBe(reponse);
-      expect(x.entete.compteur).toBe('125' + NB + 'kg × 5 reste ton meilleur depuis 4 séances.');
+      expect(x.entete.compteur).toBe('125' + NB + 'kg × 5 reste ta meilleure charge de travail depuis 4 séances.');
       expect(T.verifierPlan(p, e).erreurs).toEqual([]);
     });
   });
@@ -317,7 +317,7 @@ describe('§14.5 — le blocage isolé, dans le plan', () => {
     };
     const a12 = avecSuite({ compteur: 12, geste: toutes });
     expect(a12.constat).not.toBeNull();
-    expect(a12.constat.escalier).toBe('125' + NB + 'kg × 5 reste ton meilleur depuis 12 séances.');
+    expect(a12.constat.escalier).toBe('125' + NB + 'kg × 5 reste ta meilleure charge de travail depuis 12 séances.');
     expect(avecSuite({ compteur: 13, geste: toutes }).constat.escalier).toBeUndefined();
   });
   test('un exercice présent deux fois : une seule marche (sur la première occurrence)', () => {

@@ -63,7 +63,7 @@ describe('§12.9 — quelles séances comptent', () => {
   test('toutes sous consigne : le plateau compte 4 séances, et la phrase les dit', () => {
     const r = M.compteurDe(PLATEAU, AVANT, Object.assign({ toutes: true }, OPTS));
     expect(r.compteur).toBe(4);
-    expect(M.phraseCompteur(r).replace(/ /g, ' ')).toBe('25 kg × 12 reste ton meilleur depuis 4 séances.');
+    expect(M.phraseCompteur(r).replace(/ /g, ' ')).toBe('25 kg × 12 reste ta meilleure charge de travail depuis 4 séances.');
   });
 
   test('DISCRIMINANT — une séance sans pari (pas sous consigne) est ignorée', () => {
@@ -230,7 +230,7 @@ describe('§12.8 — la phrase cite le MEILLEUR, jamais la charge du jour (delta
     const r = M.compteurDe(c.seances, c.avant, options(c, { toutes: true }));
     expect(r.derniere).toEqual({ palier: 14, niveau: 10 });
     expect(r.meilleur).toEqual({ palier: 16, niveau: 10 });
-    expect(M.phraseCompteur(r)).toBe('16\u00a0kg × 10 reste ton meilleur depuis 6 séances.');
+    expect(M.phraseCompteur(r)).toBe('16\u00a0kg × 10 reste ta meilleure charge de travail depuis 6 séances.');
   });
 });
 
@@ -239,16 +239,16 @@ describe('§12.8 — la phrase', () => {
 
   test('sous 4 : rien ; à 4 et au-delà : le meilleur, jamais la charge du jour', () => {
     expect(M.phraseCompteur(c(3))).toBeNull();
-    expect(M.phraseCompteur(c(4))).toBe('122,5 kg × 6 reste ton meilleur depuis 4 séances.');
-    expect(M.phraseCompteur(c(7))).toBe('122,5 kg × 6 reste ton meilleur depuis 7 séances.');
+    expect(M.phraseCompteur(c(4))).toBe('122,5 kg × 6 reste ta meilleure charge de travail depuis 4 séances.');
+    expect(M.phraseCompteur(c(7))).toBe('122,5 kg × 6 reste ta meilleure charge de travail depuis 7 séances.');
   });
 
   test('DISCRIMINANT — « plus long que d’habitude » exige au moins 8 blocages terminés', () => {
     const sept = [1, 1, 1, 1, 1, 1, 1];
     const huit = [1, 1, 1, 1, 1, 1, 1, 1];
-    expect(M.phraseCompteur(c(4), sept)).toBe('122,5 kg × 6 reste ton meilleur depuis 4 séances.');
+    expect(M.phraseCompteur(c(4), sept)).toBe('122,5 kg × 6 reste ta meilleure charge de travail depuis 4 séances.');
     expect(M.phraseCompteur(c(4), huit))
-      .toBe('122,5 kg × 6 reste ton meilleur depuis 4 séances : c\'est plus long que d\'habitude pour toi.');
+      .toBe('122,5 kg × 6 reste ta meilleure charge de travail depuis 4 séances : c\'est plus long que d\'habitude pour toi.');
   });
 
   test('« plus long que d’habitude » exige que 3 blocages sur 4 aient duré moins de 4 séances', () => {

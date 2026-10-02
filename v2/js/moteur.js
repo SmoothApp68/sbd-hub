@@ -3200,7 +3200,7 @@
   }
 
   // §12.8, §20 — la phrase du compteur. À 4 séances ou plus : « 25 kg × 12
-  // reste ton meilleur depuis 4 séances. » — LE MEILLEUR depuis la remise à
+  // reste ta meilleure charge de travail depuis 4 séances. » — LE MEILLEUR depuis la remise à
   // zéro, jamais la charge du jour (delta 49-28). « : c'est plus long que
   // d'habitude pour toi. » seulement si au moins 8 blocages terminés sont
   // connus et que 3 sur 4 ont duré moins de 4 séances. Sous 4 : rien.
@@ -3216,7 +3216,7 @@
     var plusLong = b.length >= BLOCAGES_CONNUS && courts * 4 >= b.length * 3;
     var cM = cite(FAIT, { quoi: 'meilleur' }), cR = cite(FAIT, { quoi: 'meilleur', champ: 'reps' });
     return Modele().charge(c.meilleur.palier, undefined, cM) + ' × ' + nombreFr(c.meilleur.niveau, cR) +
-      ' reste ton meilleur depuis ' + nombreFr(c.compteur, regle('compteur')) + ' séances' +
+      ' reste ta meilleure charge de travail depuis ' + nombreFr(c.compteur, regle('compteur')) + ' séances' +
       (plusLong ? ' : c\'est plus long que d\'habitude pour toi.' : '.');
   }
 
@@ -3538,12 +3538,12 @@
   }
 
   // Le début de la phrase du compteur, sans le « plus long que d'habitude » :
-  // « 125 kg × 5 reste ton meilleur depuis 4 séances » — les espaces de
+  // « 125 kg × 5 reste ta meilleure charge de travail depuis 4 séances » — les espaces de
   // `phraseCompteur` (insécable avant « kg », espaces ordinaires autour de ×).
   function meilleurDepuis(meilleur, compteur) {
     return Modele().charge(meilleur.palier, undefined, cite(FAIT, { quoi: 'meilleur' })) + ' × ' +
       nombreFr(meilleur.niveau, cite(FAIT, { quoi: 'meilleur', champ: 'reps' })) +
-      ' reste ton meilleur depuis ' + nombreFr(compteur, regle('compteur')) + ' séances';
+      ' reste ta meilleure charge de travail depuis ' + nombreFr(compteur, regle('compteur')) + ' séances';
   }
 
   // CHANGER DE SCHÉMA (zones force, n = 1) : la carte sous l'exercice. Rend

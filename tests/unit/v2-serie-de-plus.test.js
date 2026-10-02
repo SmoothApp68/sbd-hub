@@ -157,7 +157,7 @@ describe('§14.7 — la série de plus, dans le plan', () => {
     const { e, p } = decor();
     const x = p.exercices[0];
     expect(x.escalier.marche).toBe('serie_de_plus');
-    expect(x.escalier.carte.phrase).toBe('27' + NB + 'kg × 12 reste ton meilleur depuis 4 séances, et tes autres exercices avancent.');
+    expect(x.escalier.carte.phrase).toBe('27' + NB + 'kg × 12 reste ta meilleure charge de travail depuis 4 séances, et tes autres exercices avancent.');
     expect(x.escalier.carte.detail).toBe('Sur cet exercice, une série de plus aide souvent : environ 20 % de travail en plus. ' +
       'Tes pectoraux restent sous leur volume habituel.');
     expect([x.escalier.carte.oui, x.escalier.carte.non]).toEqual(['Ajouter une série', 'Non merci']);

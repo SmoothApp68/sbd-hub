@@ -552,7 +552,7 @@
   }
 
   // ── LE PLAN D'UN EXERCICE ───────────────────────────────────────────────
-  function planDExercice(exo, iExo, consigneDuSlug, paris, seanceId, reglage, suite, debut, materiel, phase, allegee, seriesRoutine, marche, routinePlus, fini) {
+  function planDExercice(exo, iExo, consigneDuSlug, paris, seanceId, reglage, suite, debut, materiel, phase, allegee, seriesRoutine, marche, routinePlus, fini, precedent) {
     var S = Seance(), M = Moteur();
     var series = (exo && exo.series) || [];
     var c = consigneDuSlug && consigneDuSlug.consigne ? consigneDuSlug : null;
@@ -568,6 +568,7 @@
       base.chauffes = null;
       base.proposition = null;
       base.degressive = sans.degressive;
+      preremplir(exo, base.lignes, null, null, precedent);
       base.phrases = [];
       if (sans.degressive && sans.degressive.phrase) {
         base.phrases.push({ ou: 'degressive', texte: sans.degressive.phrase, citations: sans.citations.degressive || [] });
@@ -724,6 +725,8 @@
     if (autour.degressive) dire('degressive', autour.degressive.phrase, autour.citations.degressive || []);
     if (marche && marche.carte) dire('escalier.carte', marche.carte.phrase, citationsDeCarte(marche.carte));
 
+    preremplir(exo, r.lignes, consigne, { reaction: r.reaction, figees: figees }, precedent);
+
     return {
       iExo: iExo, slug: base.slug,
       consigne: consigne, contexte: c.contexte || null,
@@ -742,6 +745,58 @@
       chauffes: autour.chauffes, proposition: autour.proposition, degressive: autour.degressive,
       phrases: phrases
     };
+  }
+
+  // ── LE PRÉ-REMPLISSAGE DE CHAQUE LIGNE (relevé du 01/10/2026, PR 3) ──────
+  //
+  // « Un seul coach, un seul câblage » : la valeur grisée d'une ligne — et donc
+  // ce qui s'écrit en base quand on valide un champ vide — se décide ICI, pour
+  // TOUTES les lignes. L'app la lit (`l.prerempli`) ; elle fusionnait jusqu'ici
+  // deux sources dans `fantomeDe` (la cascade d'avant le plan, et le fantôme
+  // du plan), et pouvait les faire diverger.
+  //
+  // L'ordre, inchangé :
+  //   · une ligne COUVERTE : la charge et les reps du plan (`l.fantome`) ;
+  //   · une CHAUFFE que le coach remplit : sa charge ; les reps de la routine
+  //     (MOTEUR §9.15 : de la structure) ;
+  //   · une DÉGRESSIVE que le coach remplit : sa charge, et les reps DU COACH
+  //     — le milieu de « Vise… » (MOTEUR §9.15.3, delta 49-38 : la phrase et la
+  //     ligne disent le même chiffre), jamais la routine ni la fois d'avant ;
+  //   · toute autre ligne : la cascade d'avant le plan (`Seance.fantome` : ce
+  //     qu'on vient de taper, la grille de la réaction, la fois d'avant, la
+  //     routine) ;
+  //   · la durée et la distance, qu'aucune consigne ne porte : la cascade.
+  // `precedent` : la dernière séance de l'exercice (`Seance.precedent`), une
+  // ENTRÉE (`entrees.precedents`) — le plan n'a pas l'historique.
+  function preremplir(exo, lignes, consigne, r, precedent) {
+    var S = Seance();
+    var series = (exo && exo.series) || [];
+    var seule = { exercices: [exo] };
+    var grille = consigne && r ? S.planDe(series, consigne, r.reaction ? r.reaction.plan : null, r.figees || null) : null;
+    (lignes || []).forEach(function (l, i) {
+      var cascade = S.fantome(seule, 0, i, precedent || null, grille);
+      var f = l.fantome;
+      var p = { charge_kg: cascade.charge_kg, reps: cascade.reps, duree_s: cascade.duree_s, distance_m: cascade.distance_m };
+      if (f && f.source === 'chauffe') {
+        p.charge_kg = f.charge === undefined ? null : f.charge;
+      } else if (f && f.source === 'degressive') {
+        p.charge_kg = f.charge === undefined ? null : f.charge;
+        p.reps = repsDeLaDegressive(l.degressive);
+      } else if (consigne && l.role !== 'hors' && f) {
+        p.charge_kg = f.charge === undefined ? null : f.charge;
+        p.reps = f.reps === undefined ? null : f.reps;
+      }
+      l.prerempli = p;
+    });
+  }
+
+  // MOTEUR §9.15.3 (delta 49-38) — les reps de la dégressive : le MILIEU de
+  // la fourchette que sa phrase annonce (« Vise 6 à 8 » → 7). Sans fourchette
+  // (à la barre : pas de dégressive), rien.
+  function repsDeLaDegressive(d) {
+    var v = d && Array.isArray(d.vise) && d.vise.length === 2 ? d.vise : null;
+    if (!v || nombre(v[0]) === null || nombre(v[1]) === null) return null;
+    return Math.round((nombre(v[0]) + nombre(v[1])) / 2);
   }
 
   // §9.13 (49-C ; 49-U6) — LE NOMBRE DE SÉRIES PROPOSÉ AU DÉPART, HORS ROUTINE.
@@ -868,6 +923,9 @@
     var esc = escalierDuPlan(e, seance, consignes);
     var seriesRoutine = (e.escalier && e.escalier.seriesRoutine) || {};
     var isoles = marchesIsolees(e, seance, consignes, esc, phase);
+    // PR 3 (relevé du 01/10) — la dernière séance de chaque exercice, pour le
+    // pré-remplissage des lignes que le plan ne couvre pas.
+    var precedents = e.precedents || {};
     var plus = seriesDePlusActives(e, seance, consignes, esc, phase);
     // Une marche par EXERCICE (I21) : un exercice présent deux fois dans la
     // séance ne la porte que sur sa première occurrence ; le repli, lui, est la
@@ -890,7 +948,8 @@
           materielDe(exos, i, e.catalogue || null, c, e.refusChauffes || {}), phase,
           !!esc.allegee, Object.prototype.hasOwnProperty.call(seriesRoutine, slug) ? seriesRoutine[slug] : null, m,
           Object.prototype.hasOwnProperty.call(plus, slug) ? plus[slug] : null,
-          Seance().exerciceFini(seance, slug));
+          Seance().exerciceFini(seance, slug),
+          Object.prototype.hasOwnProperty.call(precedents, slug) ? precedents[slug] : null);
         if (x.escalier && x.escalier.copie) x.escalier = null;
         // MOTEUR §14.6 (49-U16) — LA PLACE POUR UNE SÉRIE DE PLUS : de la place
         // sur CHACUN des muscles primaires de l'exercice (catalogue), lue dans

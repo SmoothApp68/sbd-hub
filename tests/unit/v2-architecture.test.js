@@ -195,14 +195,6 @@ const AUTORISATIONS = {
   },
   observationsARenvoyer: {
     'app.js': 'les observations à renvoyer à la reprise d’une séance : de la persistance (app.js).'
-  },
-  fantome: {
-    'app.js': 'la cascade d’AVANT le plan (routine, dernière séance, durée, distance) pour les ' +
-      'séries que le plan ne couvre pas — `fantomeDe` prend le fantôme du plan dès qu’il existe.'
-  },
-  planDe: {
-    'app.js': 'traduit la réaction DU PLAN (`r.reaction.plan`, `r.figees`) en lignes de la ' +
-      'grille : de la présentation sur une sortie du plan (app.js, `planDe`).'
   }
 };
 
@@ -246,7 +238,23 @@ const NOTIONS = [
     module: 'moteur.js', fonction: 'suiteDExercice', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['suiteDe'] },
     raison: 'une ENTRÉE du plan, calculée avec les options de la consigne ; son cache porte ' +
-      'ces options (une zone choisie la recalcule).' }
+      'ces options (une zone choisie la recalcule).' },
+  { notion: 'le pré-remplissage d’une ligne (ce qui s’écrit en base à la validation d’un champ vide)', pr: 'PR 3',
+    module: 'seance.js', fonction: 'fantome', lecteurs: ['plan.js'],
+    motif: /(?:\bSeance|\bS|\bSeance\(\)|\bS\(\)|racine\.THSeance)\s*\.\s*fantome\b/g,
+    parAilleurs: { 'plan.js': ['preremplir'] },
+    raison: 'le plan pose `l.prerempli` sur TOUTES les lignes ; l’app fusionnait la cascade ' +
+      'd’avant le plan et le fantôme du plan dans `fantomeDe`.' },
+  { notion: 'la grille de la réaction (la ligne proposée, sa fourchette)', pr: 'PR 3',
+    module: 'seance.js', fonction: 'planDe', lecteurs: ['plan.js'],
+    parAilleurs: { 'plan.js': ['preremplir'] },
+    raison: 'l’app refaisait la couverture pour savoir quelle ligne est proposée : le plan ' +
+      'le dit (`l.proposee`).' },
+  { notion: 'les reps de la dégressive (le milieu de « Vise… »)', pr: 'PR 3',
+    module: 'plan.js', fonction: 'repsDeLaDegressive', lecteurs: [],
+    par: ['preremplir'],
+    raison: 'MOTEUR §9.15.3 (delta 49-38) : la phrase « Vise 6 à 8 » et la ligne disent le ' +
+      'même chiffre ; la routine et la fois d’avant ne décident plus des reps de la dégressive.' }
 ];
 
 const CONSEIL = 'Passe par `planDeSeance` (v2/js/plan.js), ou ajoute ce fichier à la liste ' +
@@ -435,7 +443,7 @@ describe('architecture — le registre des notions : une source, des lecteurs', 
     NOTIONS.forEach((n) => {
       FICHIERS.forEach((f) => {
         if (f.nom === n.module || n.lecteurs.indexOf(f.nom) >= 0) return;
-        const a = appels(f.src, { fn: n.fonction });
+        const a = appels(f.src, { fn: n.fonction, motif: n.motif });
         if (a.length) fautes.push(n.notion + ' : `' + n.fonction + '` appelée dans ' + f.nom + ', ligne(s) ' + a.map((x) => x.ligne).join(', '));
       });
     });

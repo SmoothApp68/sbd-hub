@@ -17,6 +17,10 @@
 //    Sinon « les deux plus grosses de la période courante » et « … de la
 //    précédente » sont indiscernables.
 
+// PR 6 de la consolidation — la série de travail et son compte vivent dans
+// `modele.js` et `semaine.js`, lus à l'appel par les autres modules.
+require('../../v2/js/modele.js');
+require('../../v2/js/semaine.js');
 const Periode = require('../../v2/js/periode.js');
 
 const jour = (d) => d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();

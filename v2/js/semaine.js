@@ -113,7 +113,7 @@
     }
 
     (series || []).forEach(function (s) {
-      if (!s || s.type_serie !== 'travail') return;
+      if (!racine.THModele.estTravail(s)) return;
       var exo = cat[s.exercise_slug];
       if (!exo) return;
       (exo.muscles_primaires || []).forEach(function (m) { ajouter(m, 1); });
@@ -245,7 +245,7 @@
 
     var paquets = {}, ordre = [];
     (series || []).forEach(function (s) {
-      if (!s || s.type_serie !== 'travail') return;
+      if (!racine.THModele.estTravail(s)) return;
       var exo = cat[s.exercise_slug];
       if (!exo) return;
       var primaire = (exo.muscles_primaires || []).indexOf(muscle) >= 0;
@@ -328,7 +328,7 @@
     (exercices || []).forEach(function (e) { if (e && e.slug) cat[e.slug] = e; });
     var n = 0;
     (series || []).forEach(function (s) {
-      if (!s || s.type_serie !== 'travail') return;
+      if (!racine.THModele.estTravail(s)) return;
       // ⚠️ ON NE RETRANCHE QUE CE QU'ON CONNAÎT. Un exercice absent du catalogue
       // — cache pas encore chargé, slug inconnu — n'est pas un exercice sans
       // muscle : c'est un exercice dont on ne sait rien. L'écarter ferait

@@ -659,14 +659,11 @@
 
     // Le compte d'exercices distincts porte sur TOUT l'historique : c'est ce
     // que le bloc annonce, et il ne doit pas dépendre des trois séances lues.
-    var distincts = {}, n = 0;
-    local.series.forEach(function (serie) {
-      if (!serie || serie.type_serie !== 'travail' || !serie.exercise_slug) return;
-      if (distincts[serie.exercise_slug]) return;
-      distincts[serie.exercise_slug] = true; n++;
-    });
+    // PR 6 — « fait » a UNE définition (`Modele.exercicesFaits`), celle du
+    // profil et de Mes exercices. Et « 1 exercice » prend le singulier.
+    var n = Object.keys(Modele.exercicesFaits(local.series)).length;
 
-    return { quand: n ? n + ' exercices' : '', lignes: lignes, surExercice: surExercice };
+    return { quand: n ? n + ' exercice' + (n > 1 ? 's' : '') : '', lignes: lignes, surExercice: surExercice };
   }
 
   // ══ LA SÉANCE EN COURS ═══════════════════════════════════════════════════
@@ -1845,7 +1842,7 @@
   // celles de la routine (ou du pré-remplissage). Figées avec la consigne.
   function nombreDeSeriesDeTravail(slug) {
     var exo = ((seance && seance.exercices) || []).filter(function (x) { return x && x.exercise_slug === slug; })[0];
-    return exo ? (exo.series || []).filter(function (s) { return Seance.typeDe(s) === 'travail'; }).length : 0;
+    return exo ? (exo.series || []).filter(function (s) { return Modele.estTravail(s); }).length : 0;
   }
 
   // §14.4 (consolidation 4/7, décision du 02/10/2026) — UN REMPLACEMENT
@@ -2726,7 +2723,7 @@
   function seriesDeTravailDe(slug) {
     return Seance.toutesLesSeries(seance).filter(function (p) {
       return p.exo && p.exo.exercise_slug === slug &&
-        ((p.serie.type_serie || 'travail') === 'travail');
+        Modele.estTravail(p.serie);
     }).map(function (p) { return Object.assign({}, p.serie, { rang: p.rang }); });
   }
 
@@ -3502,7 +3499,7 @@
     reactionPerimee = false;
     ecouterSortieDesChamps();
     var index = Modele.indexerExercices(local.exercices);
-    var c = Seance.compter(seance);
+    var c = Seance.compter(seance, local.exercices);
     Rendu.rendreBandeauSeance($('bandeau-seance'), {
       titre: seance.titre || 'Séance',
       debut: seance.debut,
@@ -4296,7 +4293,7 @@
     // qu'on tape sans lire.
     var verdict = Seance.ecartsRoutine(seance, routine);
     Rendu.rendreFeuilleFin(cible, {
-      compte: Seance.compter(seance),
+      compte: Seance.compter(seance, local.exercices),
       titre: seance.titre,
       note: seance.note,
       salle: seance.salle,
@@ -6212,7 +6209,7 @@
     montrer('profil', Routeur.PROFIL);
     var p = profil || {};
     var resumePoids = Poids.resume(local.pesees);
-    var stats = Profil.statsDe(local.seances, local.series, new Date());
+    var stats = Profil.statsDe(local.seances, local.series, new Date(), local.exercices);
 
     $('profil-rond').textContent = Profil.initiale(p.username);
     $('profil-nom').textContent = p.username || 'Ton profil';
@@ -6340,13 +6337,13 @@
   // ⚠️ LA CONFIRMATION DIT CE QUI PART, en chiffres réels. « Es-tu sûr ? » ne
   // dit rien ; « 1 221 séances et 28 103 séries » se comprend sans réfléchir.
   function demanderSuppressionCompte() {
-    var stats = Profil.statsDe(local.seances, local.series, new Date());
+    var stats = Profil.statsDe(local.seances, local.series, new Date(), local.exercices);
     feuilleProfil = function (cible) {
       Rendu.rendreFeuilleConfirmer(cible, {
         titre: 'Supprimer mon compte',
         aide: 'Partent définitivement : ton profil, tes ' +
               nombreGroupe(stats.seances) + ' séances et leurs ' +
-              nombreGroupe(stats.series) + ' séries, tes ' +
+              nombreGroupe(stats.lignes) + ' séries, tes ' +
               (local.pesees || []).length + ' pesées, tes routines. ' +
               'Rien n’est conservé et rien ne se récupère.',
         libelle: 'Supprimer définitivement',
@@ -6391,15 +6388,11 @@
     (local.seances || []).forEach(function (s) {
       if (s && s.id && s.debut) parSeance[s.id] = s.debut;
     });
-    var dates = {};
-    (local.series || []).forEach(function (serie) {
-      if (!serie || !serie.exercise_slug) return;
-      var d = parSeance[serie.session_id];
-      if (!d) return;
-      if (!dates[serie.exercise_slug] || d > dates[serie.exercise_slug]) {
-        dates[serie.exercise_slug] = d;
-      }
-    });
+    // PR 6 — un exercice « fait » a au moins une SÉRIE DE TRAVAIL (cardio
+    // compris), pas une ligne de n'importe quel type : la définition unique
+    // (`Modele.exercicesFaits`), celle de Progression. Sa date est la plus
+    // récente de ces séances-là.
+    var dates = Modele.exercicesFaits(local.series, parSeance);
     datesExercices = dates;
     return dates;
   }

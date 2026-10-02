@@ -21,6 +21,10 @@
 // d'au moins TROIS exercices avec un retrait AU MILIEU : sur deux exercices, ou
 // en retirant le dernier, renuméroter et ne rien faire donnent le même résultat.
 
+// PR 6 de la consolidation — la série de travail et son compte vivent dans
+// `modele.js` et `semaine.js`, lus à l'appel par les autres modules.
+require('../../v2/js/modele.js');
+require('../../v2/js/semaine.js');
 require('../../v2/js/semaine.js');
 const Routines = require('../../v2/js/routines.js');
 const { progTravail } = require('./aide-routine-programmee.js');

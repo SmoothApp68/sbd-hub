@@ -305,7 +305,13 @@
   // exacts hors ligne — et « années » se compte de la PREMIÈRE séance à
   // aujourd'hui, pas sur le calendrier : quelqu'un qui a commencé en décembre
   // 2023 n'a pas « 3 ans » en janvier 2026.
-  function statsDe(seances, series, aujourdhui) {
+  // PR 6 de la consolidation (décision du 02/10/2026) — `series` : les
+  // SÉRIES DE TRAVAIL, sur la règle unique (`THSemaine.compteSeriesTravail`,
+  // `exercices` = le catalogue). Le KPI comptait toutes les lignes, chauffes
+  // comprises : un chiffre que le reste de l'app calcule autrement. `lignes` :
+  // toutes les lignes, pour ce qui dit ce qui sera EFFACÉ (la suppression du
+  // compte) — une autre question.
+  function statsDe(seances, series, aujourdhui, exercices) {
     var liste = seances || [];
     var plusAncienne = null;
     liste.forEach(function (s) {
@@ -322,7 +328,8 @@
         annees = jours > 0 ? jours / 365.25 : 0;
       }
     }
-    return { seances: liste.length, series: (series || []).length, annees: annees, depuis: plusAncienne };
+    return { seances: liste.length, series: racine.THSemaine.compteSeriesTravail(series || [], exercices),
+             lignes: (series || []).length, annees: annees, depuis: plusAncienne };
   }
 
   // « 3 ans », « 8 mois », « 1 mois ». Sous l'année, les mois disent quelque

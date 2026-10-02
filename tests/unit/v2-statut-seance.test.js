@@ -19,6 +19,10 @@
 // l'autre, et tombe.
 process.env.TZ = 'Europe/Paris';
 
+// PR 6 de la consolidation — la série de travail et son compte vivent dans
+// `modele.js` et `semaine.js`, lus à l'appel par les autres modules.
+require('../../v2/js/modele.js');
+require('../../v2/js/semaine.js');
 const Sync = require('../../v2/js/sync.js');
 const Semaine = require('../../v2/js/semaine.js');
 const Periode = require('../../v2/js/periode.js');

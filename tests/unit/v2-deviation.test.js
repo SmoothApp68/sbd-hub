@@ -15,6 +15,10 @@
 // fait donc au milieu, là où les rangs de tout ce qui suit doivent suivre sans
 // se heurter à `sets_rang_unique`.
 
+// PR 6 de la consolidation — la série de travail et son compte vivent dans
+// `modele.js` et `semaine.js`, lus à l'appel par les autres modules.
+require('../../v2/js/modele.js');
+require('../../v2/js/semaine.js');
 const Seance = require('../../v2/js/seance.js');
 const Modele = require('../../v2/js/modele.js');
 const Routines = require('../../v2/js/routines.js');

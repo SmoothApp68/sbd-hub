@@ -177,6 +177,11 @@ const CATALOGUE = [
   // écrans, mêmes données). Son nom ne répond à aucune recherche faite
   // ailleurs ; son muscle n'est travaillé nulle part ailleurs.
   { slug: 'ecrans-u5', nom: 'Écrans U5 (Machine)', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['adducteurs'], muscles_secondaires: [] },
+  // PR 6 — réservés aux comptes de la même section : un cardio (aucun muscle
+  // primaire : ses séries n'entrent pas dans « séries de travail ») et un
+  // exercice où l'on ne fera que des chauffes (il n'est pas « fait »).
+  { slug: 'cardio-u6', nom: 'Rameur U6', mesure: 'temps', charge: 'aucune', equipement: 'machine', muscles_primaires: [], muscles_secondaires: [] },
+  { slug: 'chauffes-u6', nom: 'Chauffé U6 (Machine)', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['adducteurs'], muscles_secondaires: [] },
   // 49-U17 — réservé à la section 7 G terdecies (la série de plus). Son muscle
   // (les avant-bras) n'est travaillé nulle part ailleurs : sa règle de volume
   // ne dépend que de ce décor.
@@ -9699,6 +9704,52 @@ const SETS_IMPORTES = [
     const puceSansApres = await puceE();
     ok('[E] prémisse — sans séance, les séances arrivées changent la zone (sinon le contrôle d’avant ne prouve rien)',
       !!puceSansApres && sp(puceSansApres) !== sp(enSeance.puce), JSON.stringify([enSeance.puce, puceSansApres]));
+
+    // ── C. LES COMPTES (PR 6) : une séance IMPORTÉE (rien de validé dans
+    //    l'app) — 3 séries de travail d'Écrans U5 et une chauffe, deux
+    //    chauffes de Chauffé U6 (rien d'autre), une série de Rameur U6.
+    //    La règle unique : 3 séries de travail, 2 exercices faits.
+    const debutCpt = ilYa(500, Date.now()).toISOString();
+    const ID_CPT = '50000000-0000-4000-8000-000000000601';
+    base.sessions.push({ id: ID_CPT, user_id: 'u-banc', titre: 'Écrans — comptes', debut: debutCpt,
+      fin: finDe(debutCpt, Date.now()).toISOString(), statut: 'terminee', note: null,
+      salle: null, salle_norme: null, routine_id: null, source: 'hevy', created_at: debutCpt });
+    [['ecrans-u5', 'echauffement', 40, 10], ['ecrans-u5', 'travail', 100, 10], ['ecrans-u5', 'travail', 100, 10], ['ecrans-u5', 'travail', 100, 9],
+      ['chauffes-u6', 'echauffement', 20, 10], ['chauffes-u6', 'echauffement', 30, 8], ['cardio-u6', 'travail', null, null]]
+      .forEach(([slug, type, kg, reps], k) => base.sets.push({ id: '50000000-0000-4000-8000-0000000006' + String(10 + k), session_id: ID_CPT, user_id: 'u-banc',
+        exercise_slug: slug, charge_kg: kg, reps, duree_s: slug === 'cardio-u6' ? 900 : null, distance_m: null, type_serie: type,
+        rang: k + 1, groupe_superset: null, validee_a: null, rpe: null, ressenti: null, repos_s: null, note: null,
+        source: 'hevy', created_at: debutCpt, modifie_a: null }));
+    await aller('/');
+    await page.evaluate(() => document.getElementById('btn-rafraichir').click());
+    await attendre(2500);
+    const carteCpt = await page.evaluate(() => Array.from(document.querySelectorAll('button.seance'))
+      .filter((c) => /Écrans — comptes/.test(c.textContent)).map((c) => (c.querySelector('.seance-meta') || {}).textContent).filter(Boolean)[0] || null);
+    ok('[E] PR 6 — DISCRIMINANT : la carte dit « 2 exercices · 3 séries de travail » (le cardio n’entre pas dans les séries, les chauffes seules ne font pas un exercice)',
+      sp(carteCpt) === '2 exercices · 3 séries de travail', JSON.stringify(carteCpt));
+    await aller('/seance/' + ID_CPT);
+    const resumes = await page.evaluate(() => Array.from(document.querySelectorAll('.resume')).map((r) => r.textContent));
+    const sommeDeTravail = resumes.filter((r) => / de travail$/.test(r)).reduce((t, r) => t + parseInt(r.replace(/^Superset · /, ''), 10), 0);
+    ok('[E] PR 6 — DISCRIMINANT : le détail dit « 1 série » au rameur, et la somme des blocs « de travail » égale la carte',
+      JSON.stringify(resumes) === JSON.stringify(['3 séries de travail', '0 série de travail', '1 série']) && sommeDeTravail === 3,
+      JSON.stringify(resumes));
+    await page.evaluate(() => Array.from(document.querySelectorAll('.detail-gestes button'))
+      .filter((b) => /^Modifier$/.test(b.textContent))[0].click());
+    await attendre(1500);
+    const bandeauCpt = await texte('#bandeau-seance');
+    ok('[E] PR 6 — DISCRIMINANT : rouverte en modification, le bandeau dit « 3 séries de travail » (avant : 0, rien n’était validé dans l’app)',
+      /(^|\D)3 séries de travail/.test(sp(bandeauCpt)), sp(bandeauCpt).slice(0, 90));
+    await page.click('#bandeau-seance .bandeau-fin').catch(() => {});
+    await attendre(2600);
+    // Le profil : les séries de travail, sur la même règle, contre ce que la
+    // base porte (la règle rejouée ici).
+    const sansMuscle = new Set(CATALOGUE.filter((e) => !(e.muscles_primaires || []).length).map((e) => e.slug));
+    const attendu = base.sets.filter((x) => (x.type_serie || 'travail') === 'travail' && !sansMuscle.has(x.exercise_slug)).length;
+    await aller('/profil');
+    const kpis = await page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-kpi')).map((k) => k.textContent));
+    const nKpi = parseInt(String(kpis[1] || '').replace(/[^\d]/g, ''), 10);
+    ok('[E] PR 6 — DISCRIMINANT : le profil compte les séries de travail (pas toutes les lignes)',
+      nKpi === attendu && attendu < base.sets.length, JSON.stringify({ kpi: kpis[1], attendu, lignes: base.sets.length }));
     ok('[E] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
 

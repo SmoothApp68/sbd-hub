@@ -17,6 +17,10 @@
 // corpus). Un pavé à deux groupes les rendrait 20:00 et 63:50 — ce que les
 // assertions rejettent.
 
+// PR 6 de la consolidation — la série de travail et son compte vivent dans
+// `modele.js` et `semaine.js`, lus à l'appel par les autres modules.
+require('../../v2/js/modele.js');
+require('../../v2/js/semaine.js');
 require('../../v2/js/modele.js');
 require('../../v2/js/rendu.js');
 const Modele = require('../../v2/js/modele.js');

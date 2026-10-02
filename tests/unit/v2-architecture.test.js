@@ -269,7 +269,12 @@ const NOTIONS = [
     module: 'app.js', fonction: 'exerciceAjoute', lecteurs: [],
     par: ['ligneDePlusPourAjout', 'allegeePourAjout'],
     raison: 'la ligne de plus et la semaine allégée s’appliquent au seul exercice ajouté : ' +
-      'une définition, sinon l’une toucherait un exercice que l’autre épargne.' }
+      'une définition, sinon l’une toucherait un exercice que l’autre épargne.' },
+  { notion: 'la routine figée avec la consigne (héritée d’un remplacement en semaine allégée)', pr: 'PR 4',
+    module: 'app.js', fonction: 'routineAFiger', lecteurs: [],
+    par: ['consigneDe'],
+    raison: 'décision du 02/10/2026 : l’allègement s’applique une fois, sur la routine de ' +
+      'l’exercice remplacé ; figer la routine aux lignes déjà allégées allégeait deux fois.' }
 ];
 
 const CONSEIL = 'Passe par `planDeSeance` (v2/js/plan.js), ou ajoute ce fichier à la liste ' +

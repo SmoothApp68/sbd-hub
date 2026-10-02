@@ -1836,6 +1836,33 @@
     return exo ? (exo.series || []).filter(function (s) { return Seance.typeDe(s) === 'travail'; }).length : 0;
   }
 
+  // §14.4 (consolidation 4/7, décision du 02/10/2026) — UN REMPLACEMENT
+  // PENDANT UNE SEMAINE ALLÉGÉE. Le nouvel exercice reprend la place, donc
+  // les lignes DÉJÀ ALLÉGÉES de l'exercice remplacé. Figer sa routine à ces
+  // lignes allégerait deux fois (2 lignes → 60 % → 1). L'allègement
+  // s'applique une seule fois, sur la routine de l'exercice remplacé : le
+  // nouvel exercice en hérite, et sa consigne la fige.
+  var routinesHeritees = {};
+  function heriterRoutine(iExo, slug) {
+    var p = planActuel();
+    var x = p && p.allegee ? (p.exercices || []).filter(function (e) { return e.iExo === iExo; })[0] : null;
+    if (!x || !x.consigne || !x.consigne.allegee || !seance) return;
+    var deja = consignes && consignes.parSlug && consignes.parSlug[slug];
+    if (deja && deja.seriesRoutine > 0) return;
+    routinesHeritees[seance.id + '|' + slug] = nombreDeSeriesRoutine(x.slug);
+  }
+  // Les séries de la routine à figer avec la consigne : l'héritage d'un
+  // remplacement, sinon les séries de travail de la séance ouverte.
+  function routineAFiger(slug) {
+    var cle = seance.id + '|' + slug;
+    if (Object.prototype.hasOwnProperty.call(routinesHeritees, cle)) {
+      var n = routinesHeritees[cle];
+      delete routinesHeritees[cle];
+      return n;
+    }
+    return nombreDeSeriesDeTravail(slug);
+  }
+
   function consigneDe(slug) {
     if (!seance) return null;
     var cle = cleConsignes();
@@ -1858,7 +1885,7 @@
       // §14.4 (49-U14) — les séries de travail de la routine, FIGÉES avec la
       // consigne : la semaine allégée en couvre 60 %, et « + Série » ne change
       // pas ce compte en cours de séance.
-      if (calculee) calculee.seriesRoutine = nombreDeSeriesDeTravail(slug);
+      if (calculee) calculee.seriesRoutine = routineAFiger(slug);
       consignes.parSlug[slug] = calculee;
       versionConsignes++;
       sauverConsignes();
@@ -1869,7 +1896,7 @@
     // ligne de plus se fondrait dans la routine.
     var figee = consignes.parSlug[slug];
     if (figee && figee.seriesRoutine === 0) {
-      var premieres = nombreDeSeriesDeTravail(slug);
+      var premieres = routineAFiger(slug);
       if (premieres > 0) {
         figee.seriesRoutine = premieres;
         versionConsignes++;
@@ -5041,11 +5068,13 @@
           // §14.4 (consolidation 4/7) — et, en semaine allégée, ses seules
           // lignes allégées. Pas au remplacement : la place reprend les lignes
           // de l'exercice remplacé, déjà allégées à l'ouverture — les réduire
-          // encore les allégerait deux fois.
+          // encore les allégerait deux fois. Le remplaçant hérite de sa
+          // routine (`heriterRoutine`).
           var puisAllegeeEtLigneDePlus = function () {
             return allegeePourAjout(avantAjout, exo.slug).then(puisLigneDePlus);
           };
           if (intentionCatalogue.remplace !== null) {
+            heriterRoutine(intentionCatalogue.remplace, exo.slug);
             // §5.2 — remplacer, c'est ajouter puis sauter en gardant la place.
             seance = Seance.remplacerExercice(seance, intentionCatalogue.remplace,
               exo.slug, uuid);

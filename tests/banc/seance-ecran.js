@@ -9197,6 +9197,31 @@ const SETS_IMPORTES = [
       JSON.stringify(a3.couche) === JSON.stringify(['ligne', 'ligne', 'hors']) && (await compter('.ligne-serie')) === 5,
       JSON.stringify(a3));
     await abandonner();
+    // PR 4, décision du 02/10/2026 — UN REMPLACEMENT PENDANT LA SEMAINE :
+    // le couché (routine de 4, allégé à 2 à l'ouverture) remplacé par la
+    // tirée. L'allègement s'applique une fois, sur la routine du couché (4) :
+    // 2 lignes couvertes, « 2 séries au lieu de 4 ». Avant, la tirée figeait
+    // sa routine aux 2 lignes déjà allégées, et n'en couvrait plus qu'une.
+    await aller('/saisie');
+    await demarrerRoutine('Allégée U14');
+    await attendre(900);
+    await menuBloc(0);
+    await entree('Remplacer');
+    await choisirCatalogue('Tirée U14');
+    await attendre(900);
+    const a4 = await page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      const x = d && d.plan.exercices.filter((e) => e.slug === 'rowing-u14')[0];
+      const l = document.querySelector('.legende-exo .consigne-dit');
+      return { roles: x ? x.lignes.map((li) => li.role) : null, allegee: !!(x && x.consigne && x.consigne.allegee),
+        series: x && x.consigne && x.consigne.allegee ? x.consigne.allegee.series : null, gris: l ? l.textContent : null,
+        couche: d ? d.plan.exercices.filter((e) => e.slug === 'couche-u14').length : null };
+    });
+    ok('[U14] A — PR 4, DISCRIMINANT : un remplacement pendant la semaine n’allège qu’une fois (2 lignes couvertes sur la routine de 4 du couché)',
+      a4.couche === 0 && a4.allegee && a4.series === 2 && JSON.stringify(a4.roles) === JSON.stringify(['ligne', 'ligne']) &&
+      esp(a4.gris) === '2 séries au lieu de 4, cette semaine' && (await compter('.ligne-serie')) === 2,
+      JSON.stringify(a4));
+    await abandonner();
     base.predictions = base.predictions.filter((l) => l.module !== 'escalier');
 
     // ── B. Sans semaine en cours : la carte, puis « Alléger 7 jours ».

@@ -2633,18 +2633,15 @@
     var c = consigneDe(slug);
     return c ? c.etiquette : null;
   }
-  // Le « Donc » du « Pourquoi » dit la même chose que l'en-tête (49-U1) ; le
-  // reste de la feuille lit encore la consigne (C5).
-  // ECRAN §3.10 (delta 49-14 W1) — LA FEUILLE LIT LE PLAN. « Donc » et les
-  // lignes : celles de la séance en cours (`x.pourquoi`). Les paragraphes : la
-  // consigne FIGÉE du plan (`x.consigne`), plus la consigne brute du mémo.
+  // ECRAN §3.10 — LA FEUILLE LIT LE PLAN, ENTIÈRE (relevé du 01/10, PR 1) :
+  // « Donc », les lignes de la séance en cours ET les paragraphes, que le plan
+  // rédige sur la consigne qu'il applique (`x.pourquoi`). L'app n'appelle plus
+  // le moteur pour la feuille : elle la lisait sur une autre consigne que
+  // l'en-tête, et plantait sous une semaine allégée ou un repli.
   function pourquoiDe(slug) {
     var x = planDuSlug(slug);
     if (!x || !x.consigne || !x.pourquoi) return null;
-    // §20.2 — « Ta dernière séance, mardi » se lit contre le début de la séance
-    // en cours : la référence est une entrée, jamais l'horloge du moteur.
-    var base = Moteur.pourquoiConsigne(x.consigne, Profil.rythmeDe(profil), seance ? seance.debut : null);
-    return base ? Object.assign({}, base, x.pourquoi) : null;
+    return x.pourquoi;
   }
 
   // ── §3.9 — LE CONSTAT DE FIN DE BLOC ─────────────────────────────────────

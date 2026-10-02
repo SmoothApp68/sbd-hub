@@ -370,6 +370,20 @@
   // paragraphes (dernière séance, zone, palier, état, réglage) se lisent sur la
   // consigne figée du plan (`x.consigne`) par `pourquoiConsigne` : l'app les
   // assemble, le plan n'a pas à connaître le fondement complet d'une consigne.
+  // Les paragraphes de la feuille que le plan pose (la dernière séance, la
+  // zone, la charge de travail, l'état, le réglage, la fin) — « Donc » et les
+  // lignes viennent de `pourquoiDuPlan`.
+  var PARAGRAPHES_DU_POURQUOI = ['seance', 'zone', 'palier', 'etat', 'reglage', 'fin'];
+  function texteDesParagraphes(p) {
+    var t = [];
+    if (p.seance) {
+      t.push(p.seance.date);
+      (p.seance.lignes || []).forEach(function (l) { t.push([l.texte, l.role].filter(Boolean).join(' · ')); });
+    }
+    ['zone', 'palier', 'etat', 'reglage', 'fin'].forEach(function (k) { if (p[k]) t.push(p[k]); });
+    return t.join(' | ');
+  }
+
   function pourquoiDuPlan(consigne, lignes, donc) {
     if (!consigne) return null;
     var muet = consigne.etat === 'silence';
@@ -642,6 +656,25 @@
       } else if (marche.marche === M.MARCHE_SILENCE || marche.carte || consigne.repli) phraseDuCompteur = null;
     }
     if (pourquoi && phraseDuCompteur) pourquoi.compteur = phraseDuCompteur;
+    // ECRAN §3.10 — LES PARAGRAPHES DE LA FEUILLE, ICI (relevé du 01/10, PR 1
+    // de la consolidation « un seul coach, un seul câblage »). Ils décrivent la
+    // consigne QUE LE PLAN APPLIQUE — figée, allégée, repli, série de plus —,
+    // rédigés sous capture (I26) ; l'app ne fait plus que les lire. Une
+    // consigne que la feuille ne sait pas rédiger ne fait pas tomber la
+    // séance : la feuille garde ses lignes, et I26 le rapporte.
+    var capF = null;
+    if (pourquoi) {
+      try {
+        capF = V.capturer(function () {
+          return M.pourquoiConsigne(consigne, reglage || 'normal', debut === undefined ? null : debut, { sansDonc: true });
+        });
+      } catch (ex) {
+        pourquoi.indisponible = String((ex && ex.message) || ex);
+      }
+      if (capF && capF.texte) {
+        PARAGRAPHES_DU_POURQUOI.forEach(function (k) { pourquoi[k] = capF.texte[k] === undefined ? null : capF.texte[k]; });
+      }
+    }
     var capC = V.capturer(function () { return constatDuPlan(r.lignes, consigne, suite, reglage, debut); });
     var constat = capC.texte, citesEscalier = [];
     if (constat && marche && marche.marche === M.MARCHE_SILENCE && marche.declenchement && compteur) {
@@ -665,6 +698,7 @@
       dire('pourquoi', (pourquoi.lignes || []).map(function (l) {
         return [l.texte, l.raison, l.faite].filter(Boolean).join(' · ');
       }).join(' | '), capP.citations);
+      if (capF && capF.texte) dire('pourquoi.paragraphes', texteDesParagraphes(capF.texte), capF.citations);
     }
     if (constat) {
       dire('constat', [constat.verdict, constat.suite].filter(Boolean).join(' '), capC.citations);
@@ -1749,7 +1783,7 @@
   // Des citations de même clé qui disent des choses DIFFÉRENTES par nature :
   // chaque série du jour, chaque chauffe, les deux bornes d'une visée.
   var SANS_CROISEMENT = { 'fait_passe|du_jour': true, 'regle|chauffe': true, 'regle|chauffe.reps': true,
-                          'regle|degressive.vise': true };
+                          'regle|degressive.vise': true, 'fait_passe|seance': true, 'regle|constante': true };
 
   function texteDuChiffre(v) {
     return v === null || v === undefined ? String(v) : (typeof v === 'number' ? Voix().nombre(v) || String(v) : String(v));
@@ -1785,6 +1819,8 @@
         var l = Array.isArray(src.reps) ? src.reps.map(nombre) : [];
         return l.indexOf(v) >= 0 ? null : 'reps';
       }
+      if (src.libre === true) return null;
+      if (champ && src[champ] !== undefined) return v !== null && v === nombre(src[champ]) ? null : champ;
       if (Array.isArray(src.valeurs)) return src.valeurs.map(nombre).indexOf(v) >= 0 ? null : 'valeur';
       return v !== null && v === nombre(src.valeur) ? null : 'valeur';
     }
@@ -1799,6 +1835,7 @@
   // Une citation du jour contre les séries faites à une charge : la charge, et
   // des reps qui sont TOUTES parmi celles de cette charge (un multi-ensemble).
   function dansLeJour(q, g) {
+    if (q.objet && q.objet.champ === 'charge') return q.valeur !== undefined && memeCharge(q.valeur, g.charge);
     if (q.charge !== undefined && !(q.charge !== null && memeCharge(q.charge, g.charge))) return false;
     var reste = g.reps.map(nombre);
     var dites = Array.isArray(q.reps) ? q.reps : (q.valeur !== undefined ? [q.valeur] : []);
@@ -1827,8 +1864,21 @@
     });
     var jour = parCharge;
     var fait = {};
-    if (f.date || k.palier !== undefined) fait.palier = { charge: k.palier, reps: Array.isArray(f.reps) ? f.reps : undefined, date: f.date || null };
-    if (f.test) fait.test = { charge: f.test.charge, reps: [f.test.reps], date: f.test.date || null };
+    if (f.date || k.palier !== undefined) {
+      fait.palier = { charge: k.palier, reps: Array.isArray(f.reps) ? f.reps : undefined, date: f.date || null,
+                      niveau: k.niveau === undefined ? undefined : k.niveau };
+    }
+    if (f.test) fait.test = { charge: f.test.charge, reps: [f.test.reps], date: f.test.date || null, niveau: f.test.niveau };
+    if (f.zoneFigee) fait.zone_figee = { date: f.zoneFigee.date || null };
+    // La dernière séance, série par série (la feuille « Pourquoi ») : par charge.
+    var seanceParCharge = [];
+    (f.seance || []).forEach(function (sr) {
+      var c = nombre(sr && sr.charge_kg);
+      if (c === null) return;
+      var g = seanceParCharge.filter(function (x) { return memeCharge(x.charge, c); })[0];
+      if (!g) seanceParCharge.push(g = { charge: c, reps: [] });
+      g.reps.push(sr.reps);
+    });
     if (f.palierPrecedent !== undefined && f.palierPrecedent !== null) fait.reste = { charge: f.palierPrecedent };
     if (f.serieAFond) fait.a_fond = { charge: f.serieAFond.charge, reps: [f.serieAFond.reps] };
     var meilleur = x.compteur && x.compteur.meilleur;
@@ -1853,13 +1903,26 @@
       'chauffe.reps': { valeurs: chauffesReps },
       reference: x.chauffes ? { charge: x.chauffes.reference } : x.proposition ? { charge: x.proposition.reference } : null,
       degressive: x.degressive ? { charge: x.degressive.charge } : null,
+      // Une constante du moteur écrite dans la phrase (10 %, 3 reps, 15 %) :
+      // déclarée, elle n'a pas d'autre source qu'elle-même.
+      constante: { libre: true },
+      'zone.bas+1': z ? { valeur: z.bas + 1 } : null,
+      'habitude.seances': f.habitude ? { valeur: f.habitude.seances } : null,
+      'habitude.valeur': f.habitude ? { valeur: f.habitude.valeur } : null,
+      seuil: f.seuil === undefined ? null : { valeur: f.seuil },
+      cible: f.cible === undefined ? null : { valeur: f.cible },
+      'allegee.series': k.allegee ? { valeur: k.allegee.series } : null,
+      'allegee.routine': k.allegee ? { valeur: k.allegee.routine } : null,
+      ecart: k.haut && k.ligne && k.haut.charge !== null ? { charge: k.haut.charge - k.ligne.charge } : null,
+      'ecart.pourcent': k.haut && k.ligne && k.haut.charge !== null && k.ligne.charge
+        ? { valeur: Math.round((k.haut.charge - k.ligne.charge) / k.ligne.charge * 1000) / 10 } : null,
       cran_suivant: x.constat && x.constat.suiteLignes ? { charge: x.constat.suiteLignes.cran } : null,
       'degressive.vise': { valeurs: degVise }
     };
     var msg = x.reaction && x.reaction.message;
     return { lignes: lignes, jour: jour, fait: fait, regle: regle, suite: suite,
              seconde: msg && Array.isArray(msg.charges) && msg.charges.length > 1 ? { charge: msg.charges[1] } : null,
-             fondement: f };
+             fondement: f, seance: seanceParCharge };
   }
 
   // Le rang de la série restée, relu dans le fondement (sa dernière séance),
@@ -1876,6 +1939,9 @@
     var o = q.objet || {};
     var base = q.nature + '|' + (o.role || o.quoi || o.regle || '');
     if (SANS_CROISEMENT[base]) return null;
+    // Les reps d'une liste (« 15, 15, 10 ») se déclarent une à une : elles ne
+    // se comparent pas entre elles — la série entière, si elle est citée, oui.
+    if (o.champ === 'reps') return null;
     return base + '|' + (o.rang === undefined ? '' : o.rang) + '|' + (o.champ || '');
   }
   function memesChiffres(a, b) {
@@ -1907,6 +1973,9 @@
 
     ((plan && plan.exercices) || []).forEach(function (x) {
       var phrases = x.phrases || [];
+      if (x.pourquoi && x.pourquoi.indisponible) {
+        ajouter(x, { ou: 'pourquoi.paragraphes', texte: '' }, x.pourquoi.indisponible, 'la feuille rédigée', 'feuille_indisponible');
+      }
       if (!x.consigne) { phrases.forEach(function (p) { verifierTexte(x, p, ajouter); }); return; }
       var src = sourcesDeLExercice(x, faits);
       var vues = [];
@@ -1938,8 +2007,10 @@
             var sl = l ? { charge: l.charge, reps: l.vise === null || l.vise === undefined ? undefined : [l.vise] } : null;
             if (contreSource(q, sl) !== null) { cause = 'suivante_differente'; attendu = decrire(sl); }
           } else if (q.nature === 'fait_passe') {
-            var fs = o.quoi === 'du_jour' ? src.jour : (src.fait[o.quoi] ? [src.fait[o.quoi]] : []);
-            var egal = o.quoi === 'du_jour' ? function (c) { return dansLeJour(q, c); }
+            var parSerie = o.quoi === 'du_jour' || o.quoi === 'seance';
+            var fs = o.quoi === 'du_jour' ? src.jour : o.quoi === 'seance' ? src.seance
+              : (src.fait[o.quoi] ? [src.fait[o.quoi]] : []);
+            var egal = parSerie ? function (c) { return dansLeJour(q, c); }
               : function (c) { return contreSource(q, c) === null; };
             if (!fs.some(egal)) {
               cause = fs.length ? 'fait_different' : 'fait_sans_source';

@@ -24,7 +24,9 @@ const loc = (hostname, search) => ({ hostname, search: search || '' });
 // Un plan juste, puis le même plan forgé pour violer I3 (une proposition sous
 // la charge de travail).
 const C = { consigne: { etat: 'garde', zone: 'lourd', palier: 125, niveau: 5, n: 3,
-  ligne: { charge: 125, vise: 5 }, haut: { charge: 130, vise: 4, k: 1 }, fondement: {} },
+  // Une consigne « garde » porte son test (le moteur ne la rend jamais sans) :
+  // la feuille « Pourquoi », que le plan rédige, le lit (PR 1, relevé du 01/10).
+  ligne: { charge: 125, vise: 5 }, haut: { charge: 130, vise: 4, k: 1 }, fondement: { test: { charge: 130, reps: 3, niveau: 3, date: '2026-09-24T10:00:00+00:00' } } },
   contexte: { cran: 127.5, haut: null }, libelles: { jaune: [], gris: '' } };
 function unPlan() {
   let n = 0;

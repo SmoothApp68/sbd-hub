@@ -1547,13 +1547,13 @@
     var g = Modele.gabaritDe((local.exercices || []).filter(function (e) {
       return e && e.slug === exo.exercise_slug;
     })[0]);
-    var plan = planDe(iExo);
+    var ligneDuPlan = (planDeLExercice(iExo) || { lignes: [] }).lignes[iSerie];
     // §9.14 (ECRAN §3.2, 25/09/2026) — LA LIGNE PROPOSÉE NE SE VALIDE PAS À
     // VIDE. Ses reps ne sont pas un fantôme : valider sans les taper
     // enregistrerait le bas de la zone, et le pari serait jugé exact d'office.
     // On ne valide pas, on met le curseur dans les reps, et on le dit — sans
     // alarme ni rouge.
-    if (plan[iSerie] && plan[iSerie].proposee && (serie.reps === null || serie.reps === undefined)) {
+    if (ligneDuPlan && ligneDuPlan.proposee && (serie.reps === null || serie.reps === undefined)) {
       Rendu.demanderReps($('blocs-seance'), iExo, iSerie);
       return;
     }
@@ -2402,11 +2402,15 @@
     var exos = seance.exercices || [];
     var cs = {};
     var suites = {};
+    var precedents = {};
     exos.forEach(function (x) {
       var slug = x && x.exercise_slug;
       if (slug && !Object.prototype.hasOwnProperty.call(cs, slug)) {
         cs[slug] = consigneDe(slug);
         suites[slug] = cs[slug] ? suiteDe(slug) : null;
+        // PR 3 (relevé du 01/10) — la dernière séance de l'exercice : le plan
+        // pré-remplit TOUTES les lignes, celles qu'il ne couvre pas comprises.
+        precedents[slug] = precedentDe(slug);
       }
     });
     // §9.15 (49-U10) — le catalogue des exercices de la séance (matériel,
@@ -2437,6 +2441,7 @@
       refusChauffes: rejeuEnCours ? {} : refusChauffesDe(seance.id),
       reglage: Profil.rythmeDe(profil),
       suites: suites,
+      precedents: precedents,
       paris: (local.predictions || []).filter(function (l) {
         return l && l.fondement && l.fondement.seance === seance.id;
       }),
@@ -3371,32 +3376,14 @@
   // Elle ne sert plus qu'aux lignes hors plan — chauffes, dégressives, séries
   // sans consigne —, où rien ne change. La durée et la distance, qu'aucune
   // consigne ne porte, gardent leur règle.
+  // PR 3 (relevé du 01/10) — LE PRÉ-REMPLISSAGE SE LIT DANS LE PLAN, pour
+  // TOUTES les lignes (`l.prerempli`, `THPlan` : `preremplir`). Il fusionnait
+  // ici deux sources — la cascade d'avant le plan et le fantôme du plan — et
+  // ce qui s'affichait en gris s'écrivait en base à la validation.
   function fantomeDe(iExo, iSerie) {
-    var exo = seance.exercices[iExo];
-    var ancien = Seance.fantome(seance, iExo, iSerie, precedentDe(exo.exercise_slug), planDe(iExo));
     var x = planDeLExercice(iExo);
-    var l = x && x.lignes[iSerie];
-    // MOTEUR §9.15 (49-U10) — une chauffe ou une dégressive que le coach
-    // remplit : SA charge (vide à la barre pour une dégressive) ; les reps
-    // restent celles de la routine, ou de la fois d'avant.
-    if (l && l.role === 'hors' && l.fantome &&
-        (l.fantome.source === 'chauffe' || l.fantome.source === 'degressive')) {
-      return { charge_kg: l.fantome.charge === undefined ? null : l.fantome.charge,
-               reps: ancien.reps, duree_s: ancien.duree_s, distance_m: ancien.distance_m };
-    }
-    if (!x || !x.consigne || !l || l.role === 'hors' || !l.fantome) return ancien;
-    return {
-      charge_kg: l.fantome.charge === undefined ? null : l.fantome.charge,
-      reps: l.fantome.reps === undefined ? null : l.fantome.reps,
-      duree_s: ancien.duree_s, distance_m: ancien.distance_m
-    };
-  }
-
-  function planDe(iExo) {
-    var exo = seance.exercices[iExo];
-    var r = reactionDe(iExo);
-    return Seance.planDe(exo.series, r ? r.consigne : null, r ? r.reaction.plan : null,
-      r ? r.figees : null);
+    var l = x && x.lignes && x.lignes[iSerie];
+    return l && l.prerempli ? l.prerempli : { charge_kg: null, reps: null, duree_s: null, distance_m: null };
   }
 
   // Ce que la grille montre de la réaction sur UNE ligne : la phrase au-dessus

@@ -8295,11 +8295,23 @@ const SETS_IMPORTES = [
     ok('[U10] la phrase de la dégressive',
       esp((await phrasesU('degressive'))[0]) === 'Dégressive : 45 kg, sans repos, jusqu\'à l\'échec. Vise 6 à 8.',
       esp(JSON.stringify(await phrasesU('degressive'))));
+    // PR 3 de la consolidation (delta 49-38, MOTEUR §9.15.3) — LA DÉGRESSIVE
+    // N'A QU'UNE VOIX : les reps grisées de la ligne sont le milieu de « Vise
+    // 6 à 8 », pas celles de la routine ni de la fois d'avant.
+    const repsDeg = await page.evaluate(() => {
+      const l = document.querySelectorAll('.ligne-serie')[9];
+      const champs = l ? Array.from(l.querySelectorAll('input')) : [];
+      return champs.length > 1 ? champs[1].placeholder : null;
+    });
+    ok('[U10] PR 3 (delta 49-38) — DISCRIMINANT : la dégressive pré-remplit 7 reps, le milieu de « Vise 6 à 8 »',
+      repsDeg === '7', String(repsDeg));
     await page.evaluate(() => document.querySelectorAll('.ligne-serie')[9].querySelector('.ok-serie').click());
     await attendre(1200);
     const deg = base.sets.filter((x) => x.exercise_slug === 'quadri-u10' && x.type_serie === 'degressive' && !/^u10-/.test(x.session_id));
     ok('[U10] la dégressive validée à vide s’écrit à 45 kg', deg.some((x) => Number(x.charge_kg) === 45),
       JSON.stringify(deg.map((x) => [x.charge_kg, x.reps])));
+    ok('[U10] PR 3 (delta 49-38) — et à 7 reps : ce que la ligne affichait, ce que la phrase visait',
+      deg.some((x) => Number(x.charge_kg) === 45 && Number(x.reps) === 7), JSON.stringify(deg.map((x) => [x.charge_kg, x.reps])));
     ok('[U10] la dégressive faite relance le repos (la suite n’est plus une dégressive)', await reposVisible(), '');
 
     // La barre : la dégressive reste vide.

@@ -8350,6 +8350,22 @@ const SETS_IMPORTES = [
     ok('[U10] et la proposition disparaît', (await propositionU(3)) === null, '');
     const memoire2 = await page.evaluate(() => localStorage.getItem('th-v2-refus-chauffes'));
     ok('[U10] « Ajouter » remet le compte à zéro', !/militaire-u10/.test(memoire2 || ''), memoire2);
+    // PR 4 de la consolidation — « + Série » sur la machine, dont la
+    // dégressive attend : la série de travail se place AVANT elle. Avant, elle
+    // tombait derrière la dégressive.
+    const typesQuadri = () => page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      const x = d && d.plan.exercices.filter((e) => e.slug === 'quadri-u10')[0];
+      return x ? x.lignes.map((l) => l.type) : null;
+    });
+    const avantPlus = await typesQuadri();
+    await plusSerie(1);
+    await attendre(600);
+    const apresPlus = await typesQuadri();
+    ok('[U10] PR 4 — DISCRIMINANT : « + Série » avant la dégressive qui attend (travail, travail, travail, dégressive)',
+      JSON.stringify(avantPlus) === JSON.stringify(['travail', 'travail', 'degressive']) &&
+      JSON.stringify(apresPlus) === JSON.stringify(['travail', 'travail', 'travail', 'degressive']),
+      JSON.stringify([avantPlus, apresPlus]));
     ok('[U10] la garde (C6) n’a rien signalé dans cette section', gardeBanc.violations === violationsAvant,
       JSON.stringify(gardeBanc.liste.slice(-2)));
     await abandonner();
@@ -9161,6 +9177,25 @@ const SETS_IMPORTES = [
     ok('[U14] A — « + Série » reste disponible : une 3ᵉ ligne, hors consigne, et la consigne allégée ne bouge pas',
       (await compter('.ligne-serie')) === 3 && JSON.stringify(a2.roles) === JSON.stringify(['ligne', 'ligne', 'hors']) &&
       deuxLignes(a2), JSON.stringify(a2));
+    // PR 4 de la consolidation — UN EXERCICE AJOUTÉ PENDANT LA SEMAINE :
+    // ses séries de départ (l'habitude : 3) sont allégées comme à
+    // l'ouverture (2), et la série rajoutée au couché reste. Avant, il
+    // gardait ses 3 lignes, la dernière « hors plan ».
+    await ajouterExoSeance('Tirée U14');
+    await attendre(900);
+    const a3 = await page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      const de = (slug) => {
+        const x = d && d.plan.exercices.filter((e) => e.slug === slug)[0];
+        return x ? x.lignes.map((l) => l.role) : null;
+      };
+      return { couche: de('couche-u14'), tiree: de('rowing-u14'),
+        allegee: !!(d && d.plan.exercices.filter((e) => e.slug === 'rowing-u14').map((e) => e.consigne && e.consigne.allegee)[0]) };
+    });
+    ok('[U14] A — PR 4, DISCRIMINANT : un exercice ajouté pendant la semaine ne garde que ses lignes allégées (2 sur 3), le couché garde sa série rajoutée',
+      a3.allegee && JSON.stringify(a3.tiree) === JSON.stringify(['ligne', 'ligne']) &&
+      JSON.stringify(a3.couche) === JSON.stringify(['ligne', 'ligne', 'hors']) && (await compter('.ligne-serie')) === 5,
+      JSON.stringify(a3));
     await abandonner();
     base.predictions = base.predictions.filter((l) => l.module !== 'escalier');
 

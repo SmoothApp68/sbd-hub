@@ -3059,17 +3059,36 @@
   // faite), s'il a une série de plus en cours. Le même geste qu'à l'ouverture
   // (`lignesAAjouter`), restreint à lui : une ligne retirée ailleurs par la
   // personne ne revient pas (§14.3).
-  async function ligneDePlusPourAjout(avantExos, slug) {
-    if (!seance || enEdition()) return;
-    var exos = seance.exercices || [];
-    var i = -1;
-    for (var k = 0; k < exos.length && i < 0; k++) {
+  // L'exercice nouveau : absent de `avantExos`, sans série faite. -1 sinon.
+  function exerciceAjoute(avantExos, slug) {
+    var exos = (seance && seance.exercices) || [];
+    for (var k = 0; k < exos.length; k++) {
       var x = exos[k];
       if (x && x.exercise_slug === slug && (avantExos || []).indexOf(x) < 0 &&
-          !(x.series || []).some(function (s) { return !!s.validee_a; })) i = k;
+          !(x.series || []).some(function (s) { return !!s.validee_a; })) return k;
     }
+    return -1;
+  }
+
+  async function ligneDePlusPourAjout(avantExos, slug) {
+    if (!seance || enEdition()) return;
+    var i = exerciceAjoute(avantExos, slug);
     if (i < 0 || Plan.lignesAAjouter(planActuel()).indexOf(i) < 0) return;
     seance = Seance.ajouterSerie(seance, i, uuid());
+    await apresGeste();
+  }
+
+  // §14.4 (49-U14, consolidation 4/7) — LA SEMAINE ALLÉGÉE DE L'EXERCICE
+  // QU'ON VIENT D'AJOUTER, et de lui seul : le même geste qu'à l'ouverture
+  // (`lignesARetirer`), restreint à lui. Les lignes des autres exercices ont
+  // déjà reçu le leur ; une ligne qu'on y a rajoutée (« + Série ») reste.
+  async function allegeePourAjout(avantExos, slug) {
+    if (!seance || enEdition()) return;
+    var i = exerciceAjoute(avantExos, slug);
+    if (i < 0) return;
+    var aRetirer = Plan.lignesARetirer(planActuel(), i);
+    if (!aRetirer.length) return;
+    aRetirer.forEach(function (r) { seance = Seance.retirerSerie(seance, r.iExo, r.iSerie); });
     await apresGeste();
   }
 
@@ -5019,6 +5038,13 @@
           // plus est active reçoit sa ligne de plus, comme à l'ouverture.
           var avantAjout = seance.exercices;
           var puisLigneDePlus = function () { return ligneDePlusPourAjout(avantAjout, exo.slug); };
+          // §14.4 (consolidation 4/7) — et, en semaine allégée, ses seules
+          // lignes allégées. Pas au remplacement : la place reprend les lignes
+          // de l'exercice remplacé, déjà allégées à l'ouverture — les réduire
+          // encore les allégerait deux fois.
+          var puisAllegeeEtLigneDePlus = function () {
+            return allegeePourAjout(avantAjout, exo.slug).then(puisLigneDePlus);
+          };
           if (intentionCatalogue.remplace !== null) {
             // §5.2 — remplacer, c'est ajouter puis sauter en gardant la place.
             seance = Seance.remplacerExercice(seance, intentionCatalogue.remplace,
@@ -5032,10 +5058,10 @@
           var depart = { series: seriesDeDepartPour(exo.slug) };
           if (intentionCatalogue.apres !== null) {
             seance = Seance.insererExercice(seance, intentionCatalogue.apres, exo.slug, uuid, depart);
-            return apresStructure().then(puisLigneDePlus);
+            return apresStructure().then(puisAllegeeEtLigneDePlus);
           }
           seance = Seance.ajouterExercice(seance, exo.slug, uuid, depart);
-          return apresGeste({ structure: false }).then(puisLigneDePlus);
+          return apresGeste({ structure: false }).then(puisAllegeeEtLigneDePlus);
         }
         // ⚠️ UNE SEULE LIGNE, VIDE (chantier 43). L'ancien modèle posait
         // `series: 3` — un défaut hérité de la colonne, qui prescrivait trois

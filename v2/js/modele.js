@@ -55,12 +55,83 @@
   // ── Formatage des unités ────────────────────────────────────────────────
   // Le séparateur décimal est la virgule. Jamais d'unité brute à l'écran.
 
+  // ⚠️ LE FORMATEUR UNIQUE (consolidation, PR 7). Tout chiffre, toute date
+  // affichée par l'app s'écrit ICI : `rendu.js` (`nombreFr`, `MOIS`, `mmss`,
+  // `dateCourte`, `dateLongue`), `app.js` (`nombreGroupe`), `poids.js`
+  // (`arrondi`), `calendrier.js` (les mois), `rejeu.js` (l'horodatage) en
+  // avaient chacun une copie. La garde d'architecture refuse une virgule
+  // décimale, une date `toLocale…` ou une liste de mois écrite ailleurs.
+
+  // Arrondi SYMÉTRIQUE. `Math.round` arrondit −11,5 vers −11 et +11,5 vers
+  // +12 : une prise de 1,15 kg s'afficherait « +1,2 » et une perte de 1,15 kg
+  // « −1,1 ». On arrondit la valeur absolue et on repose le signe. Le résidu
+  // du flottant (97,4 − 98,55 = −1,1499999999999915) est effacé AVANT.
+  function arrondi(v, decimales) {
+    var f = Math.pow(10, decimales === undefined ? 1 : decimales);
+    var x = Math.round(v * f * 1e6) / 1e6;
+    return (x < 0 ? -Math.round(-x) : Math.round(x)) / f;
+  }
+
   function nombreTexte(v, decimales) {
     if (v === null || v === undefined || v === '') return '';
     var n = Number(v);
     if (!isFinite(n)) return '';
-    var f = Math.pow(10, decimales === undefined ? 2 : decimales);
-    return String(Math.round(n * f) / f).replace('.', ',');
+    return String(arrondi(n, decimales === undefined ? 2 : decimales)).replace('.', ',');
+  }
+
+  // Un nombre TEL QUEL (sans arrondi) : séparateur décimal français, et le
+  // vrai signe moins (U+2212), jamais le trait d'union du clavier — une
+  // assistance se note « −50 kg ».
+  function nombreSigne(n) {
+    return String(n).replace('.', ',').replace(/^-/, '\u2212');
+  }
+
+  // « 28 404 » : l'espace FINE insécable sépare les milliers (typographie
+  // française ; un espace ordinaire casserait le nombre en bout de ligne).
+  function nombreGroupe(n) {
+    return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '\u202f');
+  }
+
+  // « 1:30 » : un chronomètre.
+  function mmss(secondes) {
+    var s = Math.max(0, Math.round(secondes || 0));
+    return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2);
+  }
+
+  // « 02 oct. 2026 ».
+  function dateCourte(iso) {
+    if (!iso) return '';
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+
+  // « Jeudi 11 septembre » ; l'année seulement si ce n'est pas l'année courante.
+  function dateLongue(iso) {
+    if (!iso) return '';
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    var opts = { weekday: 'long', day: 'numeric', month: 'long' };
+    if (d.getFullYear() !== new Date().getFullYear()) opts.year = 'numeric';
+    var t = d.toLocaleDateString('fr-FR', opts);
+    return t.charAt(0).toUpperCase() + t.slice(1);
+  }
+
+  // L'horodatage du rejeu (outil de développement) : à Paris, à la seconde.
+  function heureParis(iso) {
+    var d = new Date(iso);
+    if (!isFinite(d.getTime())) return String(iso || '–');
+    try {
+      return d.toLocaleTimeString('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    } catch (e) { return d.toISOString().slice(11, 19) + ' UTC'; }
+  }
+  function dateHeureParis(iso) {
+    var d = new Date(iso);
+    if (!isFinite(d.getTime())) return String(iso || '–');
+    try {
+      return d.toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }) +
+        ' ' + heureParis(iso);
+    } catch (e) { return d.toISOString(); }
   }
 
   // ══ MOTEUR §20 bis (49-U19) — CE QUE LE FORMATEUR DÉCLARE ══════════════
@@ -154,6 +225,16 @@
     return t;
   }
 
+  // UNE SÉRIE FAITE : « 125 kg × 5 », et « 3 reps » quand elle a été validée
+  // sans charge. Jamais le repli de la charge INCONNUE DU COACH (« le cran
+  // au-dessus ») : il dit une cible, pas ce que tu as fait.
+  function serieFaite(kg, reps, cite) {
+    if (chargeOuNul(kg) !== null) return chargeFois(kg, reps, undefined, cite);
+    var t = nombreTexte(reps) + (Number(reps) > 1 ? ' reps' : ' rep');
+    declarer(cite, { valeur: reps === undefined ? null : reps }, t);
+    return t;
+  }
+
   // « 125 kg × 4, 4, 4 » — une série de reps à une même charge.
   function serie(kg, reps, repli, cite) {
     var l = (reps || []).map(function (r) { return nombreTexte(r); }).join(', ');
@@ -162,11 +243,35 @@
     return t;
   }
 
-  // ⚠️ SECONDE LISTE APRÈS `Calendrier.MOIS`, et assumée : l'abréviation ne se
-  // dérive pas du nom entier (« févr. », « mars » sans point, « juil. »). Un
-  // test vérifie que les deux tables ont douze entrées dans le même ordre.
+  // Les mois : en entier (le calendrier, « septembre 2026 ») et abrégés. La
+  // seconde liste est assumée : l'abréviation ne se dérive pas du nom entier
+  // (« févr. », « mars » sans point, « juil. »). Un test vérifie que les deux
+  // tables ont douze entrées dans le même ordre.
+  var MOIS_LONGS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin',
+                    'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
   var MOIS_COURTS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin',
                      'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+  // « 11 sept. », et « 11 sept. 2024 » hors de l'année de référence.
+  function jourMois(d, anneeRef) {
+    if (!(d instanceof Date) || isNaN(d.getTime())) return '';
+    var txt = d.getDate() + ' ' + MOIS_COURTS[d.getMonth()];
+    var ref = typeof anneeRef === 'number' ? anneeRef : null;
+    return ref === null || d.getFullYear() === ref ? txt : txt + ' ' + d.getFullYear();
+  }
+  // « 7 oct. » : le jour civil « AAAA-MM-JJ » (lu tel quel, sans fuseau),
+  // DÉCLARÉ comme une date — le bandeau de la semaine allégée.
+  function jourCourt(jour, cite) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(jour || ''));
+    if (!m) return '';
+    var t = Number(m[3]) + ' ' + MOIS_COURTS[Number(m[2]) - 1];
+    declarer(cite, { date: jour }, t);
+    return t;
+  }
+  // « septembre 2026 ».
+  function moisAnnee(d) {
+    if (!(d instanceof Date) || isNaN(d.getTime())) return '';
+    return MOIS_LONGS[d.getMonth()] + ' ' + d.getFullYear();
+  }
   var JOURS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
   var JOURS_NOMMES = 6;
 
@@ -1273,6 +1378,19 @@
     serie: serie,
     quand: quand,
     MOIS_COURTS: MOIS_COURTS,
+    MOIS_LONGS: MOIS_LONGS,
+    arrondi: arrondi,
+    nombreSigne: nombreSigne,
+    nombreGroupe: nombreGroupe,
+    mmss: mmss,
+    dateCourte: dateCourte,
+    dateLongue: dateLongue,
+    jourMois: jourMois,
+    jourCourt: jourCourt,
+    serieFaite: serieFaite,
+    moisAnnee: moisAnnee,
+    heureParis: heureParis,
+    dateHeureParis: dateHeureParis,
     JOURS: JOURS,
     JOURS_NOMMES: JOURS_NOMMES,
     anciennete: anciennete,

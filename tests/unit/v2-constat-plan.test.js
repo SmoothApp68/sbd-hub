@@ -164,10 +164,14 @@ describe('49-U4 — I10 (c) : une séance menée par le coach n’est jamais « 
   const C = { etat: 'progression', zone: 'hypertrophie', palier: 50, niveau: 9, n: 3,
     ligne: { charge: 50, vise: 9 }, haut: { charge: 55, vise: 8, k: 1 } };
   const series = [serie('h1', 50, 12), serie('h2', 52.5, 11), serie('h3', 55, 8)];
+  // Les paris portent les bornes de LA zone de la consigne (Hypertrophie,
+  // 8-10) : avec celles de Lourd par défaut, la feuille disait « 52,5 kg × 3
+  // à 5 » sous une zone de 8 à 10 — I26 l'a vu (PR 7).
+  const H = { exercise_slug: 'x', borne_basse: 8, borne_haute: 10 };
   const paris = [
-    Object.assign(pari('h1', 1, 'ligne', 50, 9), { exercise_slug: 'x' }),
-    Object.assign(pari('h2', 2, 'coach', 52.5, 8, { revision: 1, charges: [52.5] }), { exercise_slug: 'x' }),
-    Object.assign(pari('h3', 3, 'haut', 55, 8), { exercise_slug: 'x' })
+    Object.assign(pari('h1', 1, 'ligne', 50, 9), H),
+    Object.assign(pari('h2', 2, 'coach', 52.5, 8, { revision: 1, charges: [52.5] }), H),
+    Object.assign(pari('h3', 3, 'haut', 55, 8), H)
   ];
   const apres = M.consignePour(M.contratDe([{ seance: { debut: AVANT }, series }], null, 'charge_reps'), APRES, {});
   const entrees = { seance: { id: 'S', debut: AVANT, edition: false, exercices: [{ exercise_slug: 'x', series }] },

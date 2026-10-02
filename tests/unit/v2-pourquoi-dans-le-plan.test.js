@@ -204,15 +204,16 @@ describe('PR 1 — la feuille est dans I26', () => {
     expect(T.verifierPhrases(faux).map((e) => e.ou + ' · ' + e.cause)).toEqual(['pourquoi.paragraphes · mot_ordre']);
   });
 
-  test('une feuille qui ne se rédige pas : la séance ne tombe pas, la feuille garde ses lignes, I26 le rapporte', () => {
+  test('une feuille qui ne se rédige pas : la séance ne tombe pas, la feuille garde ses lignes, I26 bloque', () => {
     const forge = { etat: 'garde', zone: 'lourd', palier: 125, niveau: 5, n: 3,
-      ligne: { charge: 125, vise: 5 }, haut: { charge: 130, vise: 4, k: 1 }, fondement: {} };
+      ligne: { charge: 125, vise: 5 }, haut: { charge: 130, vise: 4, k: 1 }, fondement: { date: '2026-09-26T18:00:00+02:00' } };
     let p;
     expect(() => { p = planDe(forge); }).not.toThrow();
     const x = p.exercices[0];
     expect(x.pourquoi.lignes).toHaveLength(3);
     expect(typeof x.pourquoi.indisponible).toBe('string');
     expect(T.verifierPhrases(p).map((e) => e.cause)).toContain('feuille_indisponible');
-    expect(T.verifierPlan(p).erreurs).toEqual([]);
+    // I26 est bloquante (PR 7) : c'est une violation de `verifierPlan`.
+    expect(T.verifierPlan(p).erreurs).toEqual([expect.stringMatching(/^I26 — .*feuille_indisponible/)]);
   });
 });

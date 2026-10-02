@@ -9,6 +9,9 @@
 // des vraies données : 93 des 114 pesées tombent en 2024, sept en 2025, quatre
 // en 2026, écart maximal 233 jours.
 
+// PR 7 de la consolidation — les nombres, les dates et les mois s'écrivent
+// dans le formateur unique, `modele.js`, lu à l'appel.
+require('../../v2/js/modele.js');
 const Poids = require('../../v2/js/poids.js');
 
 const pesee = (date, poids, source) => ({ id: date, date, poids_kg: poids, source: source || 'import_hevy' });

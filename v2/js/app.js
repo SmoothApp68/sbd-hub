@@ -2353,9 +2353,7 @@
     $('rejeu-etat').textContent = '';
   }
 
-  // `ecarts` : les écarts de cohérence des phrases (I26, en mode rapport) —
-  // marqués en rouge comme les violations, nommés à part.
-  function marquerGarde(violations, ecarts) {
+  function marquerGarde(violations) {
     var doc = racine.document;
     if (!doc || !doc.body) return;
     var m = doc.getElementById('garde-coach');
@@ -2365,25 +2363,18 @@
       m.type = 'button';
       m.className = 'garde-coach';
       m.addEventListener('click', function () {
-        if (racine.console) racine.console.error('[garde du coach]', m.violations || [], m.ecarts || []);
+        if (racine.console) racine.console.error('[garde du coach]', m.violations || []);
       });
       doc.body.appendChild(m);
     }
-    var phrases = ecarts || [];
     m.violations = violations;
-    m.ecarts = phrases;
     var invariants = [];
     violations.forEach(function (v) {
       var i = String(v).split(' — ')[0];
       if (invariants.indexOf(i) < 0) invariants.push(i);
     });
-    var bouts = [];
-    if (violations.length) bouts.push(invariants.join(' ') + ' (' + violations.length + ')');
-    if (phrases.length) bouts.push('I26 phrases (' + phrases.length + ')');
-    m.textContent = '⚠ ' + bouts.join(' · ');
-    var dernier = phrases.length ? phrases[phrases.length - 1] : null;
-    m.title = violations[violations.length - 1] ||
-      (dernier ? 'I26 — ' + dernier.ou + ' : « ' + dernier.citation + ' » (' + dernier.cause + ')' : '');
+    m.textContent = '⚠ ' + invariants.join(' ') + ' (' + violations.length + ')';
+    m.title = violations[violations.length - 1] || '';
   }
 
   var catalogueMemo = null;
@@ -2793,8 +2784,15 @@
       // ⚠️ LA COUPURE D'APRÈS EST L'INSTANT PRÉSENT. Le moteur ne lit jamais
       // l'avenir : une coupure au début de la séance en exclurait la séance du
       // jour, et la suite raconterait la fois d'avant.
+      // ⚠️ RIEN DE CE QUI A COMMENCÉ APRÈS ELLE. Une séance restée ouverte et
+      // reprise des jours plus tard : les séances faites entre-temps ne sont
+      // pas « aujourd'hui » (le constat racontait l'une d'elles).
+      var debutDuJour = Date.parse(seance.debut);
+      var anterieures = seancesDeLExercice(slug).filter(function (g) {
+        return g.seance.id === seance.id || !(Date.parse(g.seance.debut) > debutDuJour);
+      });
       var r = Moteur.suiteDExercice(
-        seancesDeLExercice(slug),
+        anterieures,
         { seance: { debut: seance.debut }, series: faites },
         etatsExercices[slug], rejeuEnCours ? rejeuEnCours.instant : new Date().toISOString(),
         options);
@@ -5481,12 +5479,10 @@
     var derniere = new Date(groupes[0].seance.debut);
     var bouts = [n + ' séance' + (n > 1 ? 's' : '')];
     if (!isNaN(depuis.getTime())) {
-      bouts[0] += ' depuis ' + depuis.toLocaleDateString('fr-FR',
-        { month: 'long', year: 'numeric' });
+      bouts[0] += ' depuis ' + Modele.moisAnnee(depuis);
     }
     if (!isNaN(derniere.getTime())) {
-      bouts.push('dernière le ' + derniere.toLocaleDateString('fr-FR',
-        { day: 'numeric', month: 'short' }));
+      bouts.push('dernière le ' + Modele.jourMois(derniere));
     }
     return bouts.join(' \u00b7 ');
   }
@@ -6192,11 +6188,8 @@
 
   // ── L'écran ──────────────────────────────────────────────────────────────
 
-  function nombreGroupe(n) {
-    // Espace INSÉCABLE FIN comme séparateur de milliers : c'est la typographie
-    // française, et un espace ordinaire casserait « 28 404 » en bout de ligne.
-    return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-  }
+  // Le formateur unique (`modele.js`, PR 7).
+  function nombreGroupe(n) { return Modele.nombreGroupe(n); }
 
   function ligneChoix(cle, libelle, sous) {
     return { libelle: libelle, sous: sous,
@@ -6270,7 +6263,7 @@
           // et son propre écran. La ligne MÈNE, elle ne saisit pas.
           { libelle: 'Poids',
             sous: resumePoids ? resumePoids.nb + ' pesée' + (resumePoids.nb > 1 ? 's' : '') : null,
-            valeur: resumePoids ? String(resumePoids.poids).replace('.', ',') + ' kg' : null,
+            valeur: resumePoids ? Modele.nombreSigne(resumePoids.poids) + ' kg' : null,
             surChoix: function () { allerA(Routeur.POIDS, {}); rendrePoids(); } },
           { libelle: 'Taille', valeur: p.taille_cm ? p.taille_cm + ' cm' : null,
             surChoix: function () { ouvrirSaisieProfil('taille_cm'); } },

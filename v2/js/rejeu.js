@@ -136,28 +136,16 @@
 
   function nb(v) {
     if (v === null || v === undefined || v === '') return '–';
-    var s = Modele() ? Modele().nombre(v) : String(v).replace('.', ',');
+    var s = Modele().nombre(v);
     return s === '' ? '–' : s;
   }
   function fois(charge, reps) { return nb(charge) + ' × ' + nb(reps); }
   function cite(t) { return '« ' + String(t) + ' »'; }
 
   // L'heure de Paris, à la seconde : la même sortie sur toutes les machines.
-  function heure(iso) {
-    var d = new Date(iso);
-    if (!isFinite(d.getTime())) return String(iso || '–');
-    try {
-      return d.toLocaleTimeString('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    } catch (e) { return d.toISOString().slice(11, 19) + ' UTC'; }
-  }
-  function date(iso) {
-    var d = new Date(iso);
-    if (!isFinite(d.getTime())) return String(iso || '–');
-    try {
-      return d.toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }) +
-        ' ' + heure(iso);
-    } catch (e) { return d.toISOString(); }
-  }
+  // L'horodatage : le formateur unique (`modele.js`, PR 7).
+  function heure(iso) { return Modele().heureParis(iso); }
+  function date(iso) { return Modele().dateHeureParis(iso); }
 
   var NOM_ROLE = { ligne: 'ligne', test: 'test', coach: 'coach', retour: 'retour', hors: 'hors plan' };
 
@@ -285,12 +273,13 @@
       t.push('invariants : ' + v.erreurs.length + ' violation(s)');
       v.erreurs.forEach(function (x) { t.push('  ✗ ' + x); });
     }
-    // MOTEUR §20 bis (49-U19) — la cohérence des phrases (I26), en mode
-    // rapport : chaque écart, avec sa phrase, sa citation et ce qui était attendu.
+    // MOTEUR §20 bis (49-U19) — la cohérence des phrases (I26), bloquante
+    // depuis la PR 7 : chaque écart, avec sa phrase, sa citation et ce qui
+    // était attendu (les violations ci-dessus les comptent déjà).
     if (v && Array.isArray(v.ecartsPhrases)) {
       if (!v.ecartsPhrases.length) t.push('cohérence des phrases (I26) : aucun écart');
       else {
-        t.push('cohérence des phrases (I26, rapport) : ' + v.ecartsPhrases.length + ' écart(s)');
+        t.push('cohérence des phrases (I26) : ' + v.ecartsPhrases.length + ' écart(s)');
         v.ecartsPhrases.forEach(function (e) {
           t.push('  ≠ ' + (e.exercice || 'séance') + ' · ' + e.ou + ' · ' + e.cause + ' : « ' + e.citation +
                  ' » — attendu ' + e.attendu + ' — dans ' + cite(e.phrase));

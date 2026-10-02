@@ -294,7 +294,19 @@
       ligne: k.ligne ? { charge: k.ligne.charge, vise: k.ligne.vise } : null,
       haut: k.haut ? { charge: k.haut.charge, vise: k.haut.vise } : null,
       test: ft ? { charge: ft.charge, reps: ft.reps, date: ft.date || null } : null,
-      cran: suite.cranSuivant === undefined ? null : suite.cranSuivant
+      cran: suite.cranSuivant === undefined ? null : suite.cranSuivant,
+      // La structure de la prochaine séance (PR 7) : la source des « sur les
+      // 2 dernières séries » que le constat écrit.
+      n: typeof k.n === 'number' ? k.n : null,
+      k: k.haut && typeof k.haut.k === 'number' ? k.haut.k : null,
+      // Ce que le constat compare (PR 7) : le niveau du jour — celui de la
+      // consigne suivante, ou la meilleure série en Franc —, le haut de sa
+      // zone, et la cible d'un étirement.
+      niveau: typeof k.niveau === 'number' ? k.niveau : null,
+      repsMax: (k.fondement && Array.isArray(k.fondement.reps) ? k.fondement.reps : [])
+        .reduce(function (m, r) { return typeof r === 'number' && r > m ? r : m; }, 0),
+      zoneHaut: Moteur().zoneParCle(k.zone) ? Moteur().zoneParCle(k.zone).haut : null,
+      cible: k.fondement && typeof k.fondement.cible === 'number' ? k.fondement.cible : null
     };
     // I27 (relevé du 01/10, PR 2) — la zone CHOISIE de la suite : la même que
     // celle de la consigne, ou aucune des deux. Un silence n'a pas de zone :
@@ -376,7 +388,7 @@
         texte: kg(l.charge, cL) + (visee ? NBSP + '\u00d7' + NBSP + visee : ''),
         libelle: libelleDeLigne(l, consigne),
         raison: raison,
-        faite: l.validee && l.faite ? 'faite' + NBSP + ': ' + kgFois(l.faite.charge, l.faite.reps, DU_JOUR) : null
+        faite: l.validee && l.faite ? 'faite' + NBSP + ': ' + Voix().serieFaite(nombre(l.faite.charge), l.faite.reps, DU_JOUR) : null
       };
     });
   }
@@ -1199,7 +1211,7 @@
     return {
       allegee: null,
       carte: { jour: jour, declencheur: b.declencheur, compteur: b.compteur, cites: b.cites.slice(),
-               phrase: M.phraseCarte(b.cites.map(nom)), detail: M.DETAIL_CARTE }
+               phrase: M.phraseCarte(b.cites.map(nom)), detail: M.detailCarte() }
     };
   }
 
@@ -1874,7 +1886,10 @@
   // Des citations de même clé qui disent des choses DIFFÉRENTES par nature :
   // chaque série du jour, chaque chauffe, les deux bornes d'une visée.
   var SANS_CROISEMENT = { 'fait_passe|du_jour': true, 'regle|chauffe': true, 'regle|chauffe.reps': true,
-                          'regle|degressive.vise': true, 'fait_passe|seance': true, 'regle|constante': true };
+                          'regle|degressive.vise': true, 'fait_passe|seance': true, 'regle|constante': true,
+                          // Les nombres de séries de chaque segment (PR 7) : « sur les 2
+                          // dernières » et « sur les 3 d'avant » disent deux segments.
+                          'regle|series': true };
 
   function texteDuChiffre(v) {
     return v === null || v === undefined ? String(v) : (typeof v === 'number' ? Voix().nombre(v) || String(v) : String(v));
@@ -1945,6 +1960,11 @@
     var couvertes = (x.lignes || []).filter(function (l) { return l.role !== 'hors'; });
     var lignes = couvertes.map(function (l) { return { charge: l.charge, vise: l.vise }; })
       .concat((x.planInitial || []).filter(Boolean).map(function (p) { return { charge: p.charge, vise: p.vise }; }));
+    // Un exercice sans aucune série (toutes supprimées) n'a pas de ligne : ses
+    // phrases disent alors la consigne elle-même, sa ligne et sa ligne haute.
+    if (!lignes.length) {
+      lignes = [k.ligne, k.haut].filter(Boolean).map(function (l) { return { charge: l.charge, vise: l.vise }; });
+    }
     // Les séries faites du jour, par charge : une citation « 80 kg × 10, 10, 6 »
     // en prend une partie (une série, ou celles d'une même charge).
     var parCharge = [];
@@ -1986,6 +2006,22 @@
     if (x.proposition) (x.proposition.lignes || []).forEach(function (q) { chauffes.push(q[0]); chauffesReps.push(q[1]); });
     var degVise = [];
     (x.lignes || []).forEach(function (l) { if (l.degressive && Array.isArray(l.degressive.vise)) degVise = degVise.concat(l.degressive.vise); });
+    var msgR = x.reaction && x.reaction.message;
+    // Les nombres de séries que l'en-tête, « Donc » et le constat écrivent
+    // (PR 7) : ceux de la consigne du jour, de ses segments, et de la suite.
+    var nbSeries = [];
+    var structure = function (n, kk) {
+      if (typeof kk === 'number') nbSeries.push(kk);
+      if (typeof n === 'number' && typeof kk === 'number') nbSeries.push(n - kk);
+      if (typeof n === 'number') nbSeries.push(n);
+    };
+    structure(k.n, k.haut ? k.haut.k : null);
+    if (suite) structure(suite.n, suite.k);
+    ((x.entete && x.entete.segments) || []).forEach(function (sg) { nbSeries.push(sg.nombre); });
+    // Et les séries faites aujourd'hui à une même charge (« ta nouvelle charge
+    // tient sur 2 séries »).
+    jour.forEach(function (g) { nbSeries.push(g.reps.length); });
+    var niveauxDuJour = suite ? [suite.niveau, suite.repsMax].filter(function (v) { return typeof v === 'number'; }) : [];
     var regle = {
       compteur: x.compteur ? { valeur: x.compteur.compteur } : null,
       'zone.bas': z ? { valeur: z.bas } : null,
@@ -2008,7 +2044,17 @@
       'ecart.pourcent': k.haut && k.ligne && k.haut.charge !== null && k.ligne.charge
         ? { valeur: Math.round((k.haut.charge - k.ligne.charge) / k.ligne.charge * 1000) / 10 } : null,
       cran_suivant: x.constat && x.constat.suiteLignes ? { charge: x.constat.suiteLignes.cran } : null,
-      'degressive.vise': { valeurs: degVise }
+      'degressive.vise': { valeurs: degVise },
+      'a_fond.comptees': f.serieAFond ? { valeur: f.serieAFond.comptees } : null,
+      // La réaction du jour (§9.14) : la marge et le numéro de la série.
+      'reaction.marge': msgR && msgR.marge !== undefined ? { valeur: msgR.marge } : null,
+      'reaction.rang': msgR && typeof msgR.rang === 'number' ? { valeur: msgR.rang + 1 } : null,
+      series: { valeurs: nbSeries },
+      'niveau.avant': typeof k.niveau === 'number' ? { valeur: k.niveau } : null,
+      'niveau.jour': { valeurs: niveauxDuJour },
+      manque: suite && typeof suite.zoneHaut === 'number'
+        ? { valeurs: niveauxDuJour.map(function (n) { return suite.zoneHaut - n; }) } : null,
+      'suite.cible': suite && suite.cible !== null ? { valeur: suite.cible } : null
     };
     var msg = x.reaction && x.reaction.message;
     return { lignes: lignes, jour: jour, fait: fait, regle: regle, suite: suite,
@@ -2053,18 +2099,44 @@
                     citation: citation, attendu: attendu, cause: cause });
     };
     // Les phrases du plan entier (le bandeau et la carte de la semaine
-    // allégée) : aucune citation, donc tout chiffre y est écrit à la main.
+    // allégée) : leur capture est REFAITE ici, depuis ce que le plan porte
+    // (`fin`, `cites`). Une capture qui ne redonne pas le texte du plan ne
+    // prouve rien (`citations: null`) ; la phrase de la carte se compare
+    // depuis « : », les noms affichés n'étant pas dans le plan.
     var duPlan = [];
-    if (plan && plan.allegee && plan.allegee.bandeau) duPlan.push({ ou: 'allegee.bandeau', texte: plan.allegee.bandeau, citations: [] });
+    var refaite = function (ou, texte, fn, pareil) {
+      var cap = null;
+      try { cap = Voix().capturer(fn); } catch (ex) { cap = null; }
+      var ok = cap && typeof cap.texte === 'string' && pareil(cap.texte);
+      duPlan.push({ ou: ou, texte: texte, citations: ok ? cap.citations : null });
+    };
+    var queue = function (t) { var i = String(t).lastIndexOf(' : '); return i < 0 ? String(t) : String(t).slice(i); };
+    if (plan && plan.allegee && plan.allegee.bandeau) {
+      var b = plan.allegee.bandeau;
+      refaite('allegee.bandeau', b, function () { return Moteur().bandeauAllegee(plan.allegee.fin); },
+              function (t) { return t === b; });
+    }
     if (plan && plan.carte) {
-      if (plan.carte.phrase) duPlan.push({ ou: 'carte.phrase', texte: plan.carte.phrase, citations: [] });
-      if (plan.carte.detail) duPlan.push({ ou: 'carte.detail', texte: plan.carte.detail, citations: [] });
+      var ca = plan.carte;
+      if (ca.phrase) {
+        refaite('carte.phrase', ca.phrase, function () { return Moteur().phraseCarte(ca.cites || []); },
+                function (t) { return queue(t) === queue(ca.phrase); });
+      }
+      if (ca.detail) {
+        refaite('carte.detail', ca.detail, function () { return Moteur().detailCarte(); },
+                function (t) { return t === ca.detail; });
+      }
     }
     duPlan.forEach(function (p) { verifierTexte(null, p, ajouter); });
 
     ((plan && plan.exercices) || []).forEach(function (x) {
-      var phrases = x.phrases || [];
-      if (x.pourquoi && x.pourquoi.indisponible) {
+      // Une consigne SANS FONDEMENT n'est jamais rendue par l'app : seuls le
+      // simulateur et les tests en forgent (ni niveau, ni séance d'avant). Les
+      // paragraphes de sa feuille n'ont rien à dire, et ne se vérifient pas.
+      var f = x.consigne && x.consigne.fondement;
+      var forgee = !!x.consigne && (!f || !Object.keys(f).length);
+      var phrases = (x.phrases || []).filter(function (p) { return !(forgee && p.ou === 'pourquoi.paragraphes'); });
+      if (x.pourquoi && x.pourquoi.indisponible && !forgee) {
         ajouter(x, { ou: 'pourquoi.paragraphes', texte: '' }, x.pourquoi.indisponible, 'la feuille rédigée', 'feuille_indisponible');
       }
       if (!x.consigne) { phrases.forEach(function (p) { verifierTexte(x, p, ajouter); }); return; }
@@ -2190,8 +2262,17 @@
       if (JSON.stringify(refait) !== JSON.stringify(plan)) erreurs.push('I12 — même entrée, plan différent');
       if (JSON.stringify(entrees) !== entreesAvant) erreurs.push('I12 — le calcul a modifié ses entrées');
     }
-    // I26 — EN MODE RAPPORT (49-U19) : à part, `ok` ne les compte pas.
-    return { ok: erreurs.length === 0, erreurs: erreurs, ecartsPhrases: verifierPhrases(plan, null) };
+    // I26 — BLOQUANTE depuis la PR 7 de la consolidation (02/10/2026) : la
+    // liste d'attente s'est vidée, chaque écart est une violation. Le détail
+    // reste à côté (`ecartsPhrases`), pour le rejeu.
+    var ecartsPhrases = verifierPhrases(plan, null);
+    ecartsPhrases.forEach(function (e) { erreurs.push(texteI26(e)); });
+    return { ok: erreurs.length === 0, erreurs: erreurs, ecartsPhrases: ecartsPhrases };
+  }
+
+  function texteI26(e) {
+    return 'I26 — ' + (e.exercice ? 'exercice ' + e.iExo + ' (' + e.exercice + ')' : 'le plan') + ', ' + e.ou +
+      ' : « ' + e.citation + ' » (' + e.cause + ', attendu : ' + e.attendu + ')';
   }
 
   // ══ LA GARDE DU COACH (49-U7, C6) — CHAQUE PLAN, HORS PRODUCTION ════════
@@ -2218,10 +2299,8 @@
   // (49-U4), en attente d'une décision de fond. Elle s'écrit en console, à
   // part, sans marqueur.
   //
-  // I26 (MOTEUR §20 bis, 49-U19) — LA COHÉRENCE DES PHRASES, EN MODE RAPPORT :
-  // ses écarts ne sont pas des violations (le banc ne les compte pas), mais la
-  // garde les MARQUE EN ROUGE (`marquer(violations, ecarts)`) et les écrit en
-  // console, chacun une fois.
+  // I26 (MOTEUR §20 bis, 49-U19) — LA COHÉRENCE DES PHRASES : une violation
+  // comme les autres depuis la PR 7 de la consolidation.
   var CLE_GARDE = 'th-v2-garde';
 
   function hoteDeDeveloppement(hote) {
@@ -2256,7 +2335,6 @@
     var active = gardeActive(e.location, e.stockage);
     var precedent = null;
     var violations = [];
-    var ecarts = [], ecartsVus = {};
     var plans = 0;
     function verifier(plan, entrees) {
       if (!active || !plan) return null;
@@ -2269,26 +2347,17 @@
       var rapports = v.erreurs.filter(function (x) { return x.indexOf('I10 suite') === 0; });
       var j = e.journal || null;
       if (rapports.length && j && j.info) j.info('[garde du coach] rapporté', rapports);
-      var phrases = (v.ecartsPhrases || []).filter(function (x) {
-        var cle = [x.exercice, x.ou, x.phrase, x.citation, x.cause].join('¦');
-        if (ecartsVus[cle]) return false;
-        ecartsVus[cle] = true;
-        return true;
-      });
-      if (phrases.length) {
-        ecarts = ecarts.concat(phrases);
-        if (j && j.warn) j.warn('[garde du coach] I26 — ' + phrases.length + ' écart(s) de cohérence (rapport)', phrases);
-      }
       if (graves.length) {
         violations = violations.concat(graves);
-        if (j && j.error) j.error('[garde du coach] ' + graves.length + ' violation(s)', graves, { plan: plan, entrees: entrees });
+        if (j && j.error) j.error('[garde du coach] ' + graves.length + ' violation(s)', graves,
+          { plan: plan, entrees: entrees, ecartsPhrases: v.ecartsPhrases || [] });
       }
-      if ((graves.length || phrases.length) && e.marquer) e.marquer(violations.slice(), ecarts.slice());
-      return { violations: graves, rapports: rapports, ecartsPhrases: v.ecartsPhrases || [] };
+      if (graves.length && e.marquer) e.marquer(violations.slice());
+      return { violations: graves, rapports: rapports };
     }
     // Ce que la garde a vu : le banc le lit pour s'assurer que chacune de ses
     // sections a été vérifiée.
-    function etat() { return { active: active, plans: plans, violations: violations.slice(), ecartsPhrases: ecarts.slice() }; }
+    function etat() { return { active: active, plans: plans, violations: violations.slice() }; }
     return { active: active, verifier: verifier, etat: etat };
   }
 

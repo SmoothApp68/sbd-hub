@@ -36,7 +36,7 @@ describe('§12.9 — le compteur, lu par le plan', () => {
   test('à 4 séances : la phrase dans l’en-tête (gris) et dans la feuille « Pourquoi »', () => {
     const { e, p } = plan(compteur(4));
     const x = p.exercices[0];
-    const phrase = '25 kg × 12 reste ton meilleur depuis 4 séances.';
+    const phrase = '25 kg × 12 reste ta meilleure charge de travail depuis 4 séances.';
     expect(x.entete.compteur).toBe(phrase);
     expect(x.pourquoi.compteur).toBe(phrase);
     expect(x.compteur).toEqual({ compteur: 4, meilleur: { palier: 25, niveau: 12 } });

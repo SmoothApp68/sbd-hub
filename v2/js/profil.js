@@ -291,7 +291,7 @@
     var p = profil || {};
     var bouts = [];
     if (poidsKg !== null && poidsKg !== undefined && isFinite(poidsKg)) {
-      bouts.push(String(poidsKg).replace('.', ',') + ' kg');
+      bouts.push(racine.THModele.nombreSigne(poidsKg) + ' kg');
     }
     if (p.taille_cm) bouts.push(p.taille_cm + ' cm');
     var a = age(p.date_naissance, aujourdhui);

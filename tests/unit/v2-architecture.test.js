@@ -210,8 +210,9 @@ const AUTORISATIONS = {
 //     d'AUTRES fichiers qui doivent passer par elle ;
 //   · `interdit` (facultatif) : un littéral qui ne doit plus exister dans son
 //     module — la trace d'une décision écrite d'office.
-// Chaque PR de la consolidation y ajoute ses notions ; la dernière le rend
-// complet (tout le registre du relevé) et bloquant.
+// Chaque PR de la consolidation y a ajouté ses notions ; la PR 7, la
+// dernière, le rend complet (les sept PR y figurent, un test le vérifie) et
+// bloquant (chaque test ci-dessous exige zéro faute).
 const NOTIONS = [
   { notion: 'la feuille « Pourquoi » (ses paragraphes)', pr: 'PR 1',
     module: 'moteur.js', fonction: 'pourquoiConsigne', lecteurs: ['plan.js'],
@@ -314,7 +315,26 @@ const NOTIONS = [
     par: ['resumerSeance'],
     parAilleurs: { 'app.js': ['sommaireExercices', 'calculerDatesExercices'] },
     raison: 'décision du 02/10/2026 : Progression, le profil et la carte comptaient les exercices ' +
-      'de trois façons (une ligne de chauffe suffisait au profil).' }
+      'de trois façons (une ligne de chauffe suffisait au profil).' },
+  { notion: 'les séries hors chauffe (« monte en charge », §5.1) — PAS la série de travail', pr: 'PR 7',
+    module: 'palier.js', fonction: 'seriesHorsChauffe', lecteurs: [],
+    par: ['etatsExercices'],
+    raison: 'le travail, les dégressives et les échecs : le compte du Python qui a produit le §5.1. ' +
+      'Une autre notion que `estTravail` ; elle portait un nom (`trav`) qui la faisait passer pour elle.' },
+  { notion: 'le formateur des nombres et des dates (un seul)', pr: 'PR 7',
+    module: 'modele.js', fonction: 'nombreSigne', lecteurs: ['rendu.js', 'app.js', 'profil.js'],
+    motif: /\.\s*nombreSigne\s*\(/g,
+    interditAilleurs: {
+      motif: /\.replace\(\s*(['"])\.\1\s*,\s*(['"]),\2\s*\)|toLocale(?:Date|Time)?String\s*\(|\\u2212|(['"])janv\.?\3|(['"])janvier\4/,
+      raison: 'une virgule décimale, une date `toLocale…`, un signe moins ou une liste de mois écrits hors du formateur ' +
+        '(`modele.js`)' },
+    raison: '`rendu.nombreFr`, `MOIS`, `mmss`, `dateCourte`, `nombreGroupe`, `poids.arrondi`, les mois du ' +
+      'calendrier et l’horodatage du rejeu en étaient des copies, chacune avec sa règle.' },
+  { notion: 'l’arrondi (symétrique) des nombres affichés', pr: 'PR 7',
+    module: 'modele.js', fonction: 'arrondi', lecteurs: ['poids.js'],
+    motif: /\.\s*arrondi\s*\(/g,
+    par: ['nombreTexte'],
+    raison: 'le formateur arrondissait −11,5 vers −11 et +11,5 vers +12 ; le poids, symétriquement. Un seul arrondi.' }
 ];
 
 const CONSEIL = 'Passe par `planDeSeance` (v2/js/plan.js), ou ajoute ce fichier à la liste ' +
@@ -490,6 +510,12 @@ describe('architecture — le registre des notions : une source, des lecteurs', 
   const parNom = {};
   FICHIERS.forEach((f) => { parNom[f.nom] = f; });
 
+  test('le registre est complet : chacune des sept PR de la consolidation y a ses notions', () => {
+    const prs = ['PR 1', 'PR 2', 'PR 3', 'PR 4', 'PR 5', 'PR 6', 'PR 7'];
+    expect(prs.filter((pr) => !NOTIONS.some((n) => n.pr === pr))).toEqual([]);
+    expect(NOTIONS.filter((n) => prs.indexOf(n.pr) < 0).map((n) => n.notion)).toEqual([]);
+  });
+
   test('chaque notion a sa source, déclarée dans son module, et sa raison', () => {
     NOTIONS.forEach((n) => {
       const code = nettoyer(parNom[n.module].src, false);
@@ -566,6 +592,16 @@ describe('architecture — le registre des notions : une source, des lecteurs', 
       });
     });
     expect(fautes).toEqual([]);
+  });
+
+  test('l’interdit du formateur se lit vraiment', () => {
+    const n = NOTIONS.filter((x) => x.fonction === 'nombreSigne')[0];
+    const voit = (t) => n.interditAilleurs.motif.test(t);
+    expect(voit("String(p).replace('.', ',')")).toBe(true);
+    expect(voit("d.toLocaleDateString('fr-FR', {})")).toBe(true);
+    expect(voit("'\\u2212' + x")).toBe(true);
+    expect(voit("var MOIS = ['janv.', 'févr.'];")).toBe(true);
+    expect(voit("Modele.nombreSigne(p)")).toBe(false);
   });
 
   test('l’interdit se lit vraiment : les trois formes écrites en dur se voient, l’appel non', () => {

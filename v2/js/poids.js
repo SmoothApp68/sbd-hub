@@ -28,20 +28,9 @@
   // rogné par le bord du cadre.
   var MARGE = 6;
 
-  // Arrondi SYMÉTRIQUE. `Math.round` arrondit −11,5 vers −11 et +11,5 vers +12 :
-  // une prise de 1,15 kg s'afficherait « +1,2 » et une perte de 1,15 kg
-  // « −1,1 ». Sur un écran où le seul chiffre est un écart, les deux sens
-  // doivent se lire pareil — on arrondit la valeur absolue et on repose le
-  // signe. (Défaut trouvé par le test, pas supposé.)
-  function arrondi(v, decimales) {
-    var f = Math.pow(10, decimales === undefined ? 1 : decimales);
-    // Les poids sont des décimaux à deux chiffres ; 97,4 − 98,55 vaut
-    // −1,1499999999999915 en flottant, et non −1,15. On efface ce résidu AVANT
-    // d'arrondir, sinon la même asymétrie revient par la porte du flottant :
-    // −1,15 tomberait sur −1,1 pendant que +1,15 monte à +1,2.
-    var x = Math.round(v * f * 1e6) / 1e6;
-    return (x < 0 ? -Math.round(-x) : Math.round(x)) / f;
-  }
+  // L'arrondi SYMÉTRIQUE vit dans le formateur unique (`modele.js`, PR 7) :
+  // le même pour les écarts de poids et pour tous les nombres affichés.
+  function arrondi(v, decimales) { return racine.THModele.arrondi(v, decimales); }
 
   function depuisJour(v) {
     if (v instanceof Date) return isNaN(v.getTime()) ? null : v;

@@ -1820,9 +1820,9 @@
       case 'propose': {
         if (z === null) return null;
         var ch = m.charges || [];
-        var vise = ', vise ' + z.bas + ' à ' + z.haut + '.';
-        var serieN = 'ta série ' + (m.rang + 1);
-        var tete = fait + ', ' + m.marge + ' de plus que visé' + DEUX_POINTS;
+        var vise = ', vise ' + nombreFr(z.bas, regle('zone.bas')) + ' à ' + nombreFr(z.haut, regle('zone.haut')) + '.';
+        var serieN = 'ta série ' + nombreFr(m.rang + 1, regle('reaction.rang'));
+        var tete = fait + ', ' + nombreFr(m.marge, regle('reaction.marge')) + ' de plus que visé' + DEUX_POINTS;
         // §9.14 — la seconde charge : le seul vrai choix, donc la seule question.
         if (ch.length > 1) {
           return tete + serieN + ' passe ' + versCharge(ch[0]) + vise + ' Ou ' + enKg(ch[1], cite(CIBLE, { role: 'seconde' })) +
@@ -1843,8 +1843,8 @@
         var t = m.test || {};
         var leTest = t.charge === null || t.charge === undefined
           ? 'ton test au cran du dessus' : 'ton test à ' + enKg(t.charge, cite(CIBLE, { role: 'haut' }));
-        return fait + ', ' + m.marge + ' de plus que prévu' + DEUX_POINTS + leTest +
-          ' arrive dès la série ' + (m.rang + 1) + ', avec de la marge.';
+        return fait + ', ' + nombreFr(m.marge, regle('reaction.marge')) + ' de plus que prévu' + DEUX_POINTS + leTest +
+          ' arrive dès la série ' + nombreFr(m.rang + 1, regle('reaction.rang')) + ', avec de la marge.';
       }
       case 'pas_encore':
         return fait + DEUX_POINTS + 'pas encore. On revient à ' + enKg(m.palier, cite(CIBLE, { role: 'retour' })) + '.';
@@ -1981,9 +1981,9 @@
     }
     var restantes = c.n - haut.k;
     return [
-      ligneFois(haut.charge, haut.vise, true, false, cH) + ' sur les ' + haut.k + ' dernières séries',
+      ligneFois(haut.charge, haut.vise, true, false, cH) + ' sur les ' + nombreFr(haut.k, regle('series')) + ' dernières séries',
       ligneFois(ligne.charge, ligne.vise, false, dessous, cL) +
-        (restantes === 1 ? ' sur celle d\'avant' : ' sur les ' + restantes + ' d\'avant')
+        (restantes === 1 ? ' sur celle d\'avant' : ' sur les ' + nombreFr(restantes, regle('series')) + ' d\'avant')
     ];
   }
 
@@ -2043,7 +2043,7 @@
       var tete = i === 0;
       return (tete ? '' : 'puis ') + ligneFois(s.charge, s.vise, tete, s.role === 'ligne' && dessous,
         cite(CIBLE, { role: s.role })) +
-        (s.nombre === 1 ? ' sur une série' : ' sur ' + s.nombre + ' séries');
+        (s.nombre === 1 ? ' sur une série' : ' sur ' + nombreFr(s.nombre, regle('series')) + ' séries');
     }).filter(Boolean);
     return { jaune: jaune, segments: segments };
   }
@@ -2130,13 +2130,14 @@
         if (f.serieAFond) {
           var a = f.serieAFond;
           return 'Ta série à ' + chargeFois(a.charge, a.reps, cite(FAIT, { quoi: 'a_fond' })) + ', à ' +
-                 (a.cause === 'rpe' ? 'RPE 10' : 'fond') + ', compte pour ' + a.comptees + '.';
+                 (a.cause === 'rpe' ? 'RPE ' + nombreFr(10, regle('constante')) : 'fond') + ', compte pour ' +
+                 nombreFr(a.comptees, regle('a_fond.comptees')) + '.';
         }
         return jour() + DEUX_POINTS + auPalier() + '. Une rep de plus.';
 
       case 'test_propose':
         return jour() + DEUX_POINTS + auPalier() + ', ' +
-               (f.preuve === 'haut' ? PREUVE_DEPASSEMENT + ' reps au-dessus du haut'
+               (f.preuve === 'haut' ? nombreFr(PREUVE_DEPASSEMENT, regle('constante')) + ' reps au-dessus du haut'
                 : f.preuve === 'facile' ? 'avec de la marge'
                 : 'le haut de ta zone') + '. ' +
                (f.preuve ? 'On teste deux crans au-dessus' : 'On teste le cran au-dessus') + '.';
@@ -2146,7 +2147,7 @@
           return duTest() + 'est au bas de ta zone' + DEUX_POINTS + 'on le garde sur la dernière série.';
         }
         return duTest() + 'est dans ta zone' + DEUX_POINTS +
-               'on le garde sur la dernière série jusqu\'à ' + hi + ' reps.';
+               'on le garde sur la dernière série jusqu\'à ' + nombreFr(hi, regle('zone.haut')) + ' reps.';
 
       case 'etend':
         return duTest() + (t.niveau >= hi ? 'a touché le haut de ta zone' : 'est dans ta zone') +
@@ -2164,9 +2165,9 @@
       case 'attend':
         return c.n - c.haut.k === 1
           ? 'Ta série restée à ' + enKg(f.palierPrecedent, cite(FAIT, { quoi: 'reste' })) + ' passera à ' +
-            enKg(c.haut.charge, cite(CIBLE, { role: 'haut' })) + ' quand tu y feras ' + f.seuil + ' reps.'
+            enKg(c.haut.charge, cite(CIBLE, { role: 'haut' })) + ' quand tu y feras ' + nombreFr(f.seuil, regle('seuil')) + ' reps.'
           : 'Tes séries restées à ' + enKg(f.palierPrecedent, cite(FAIT, { quoi: 'reste' })) + ' passeront à ' +
-            enKg(c.haut.charge, cite(CIBLE, { role: 'haut' })) + ' une à une, quand tu y feras ' + f.seuil + ' reps.';
+            enKg(c.haut.charge, cite(CIBLE, { role: 'haut' })) + ' une à une, quand tu y feras ' + nombreFr(f.seuil, regle('seuil')) + ' reps.';
 
       case 'tout_passe':
         if (t !== null) {
@@ -2187,11 +2188,11 @@
 
       case 'etirement':
         return 'Ta machine ne permet pas un plus petit cran' + DEUX_POINTS + 'ta zone s\'étire. ' +
-               'On retestera ' + enKg(t.charge, cite(FAIT, { quoi: 'test' })) + ' quand tu feras ' + f.cible +
+               'On retestera ' + enKg(t.charge, cite(FAIT, { quoi: 'test' })) + ' quand tu feras ' + nombreFr(f.cible, regle('cible')) +
                ' reps à ' + enKg(c.ligne.charge, cite(CIBLE, { role: 'ligne' })) + '.';
 
       case 'retest':
-        return f.cible + ' reps à ' + enKg(c.ligne.charge, cite(CIBLE, { role: 'ligne' })) + DEUX_POINTS +
+        return nombreFr(f.cible, regle('cible')) + ' reps à ' + enKg(c.ligne.charge, cite(CIBLE, { role: 'ligne' })) + DEUX_POINTS +
                'on retente ' + enKg(t.charge, cite(CIBLE, { role: 'haut' })) + '.';
 
       case 'reprise_courte':
@@ -2214,7 +2215,7 @@
       // Le « 3 » se lit sur la table du rangement, il ne se recopie pas : sous
       // la première borne, il n'y a plus de zone (§9.1.2).
       case 'bord':
-        return 'Sous ' + (RANGEMENT[0].jusqua + 1) + ' reps, pas de rep de plus' + DEUX_POINTS +
+        return 'Sous ' + nombreFr(RANGEMENT[0].jusqua + 1, regle('constante')) + ' reps, pas de rep de plus' + DEUX_POINTS +
                'le cran au-dessus, aux mêmes reps.';
     }
     return '';
@@ -2599,7 +2600,11 @@
     var av = consigneAvant.fondement || {};
     var z = zoneParCle(consigneApres.zone);
     var repsDuJour = ap.reps || [];
-    var testDuJour = ap.test || null;
+    // Le test DU JOUR seulement : pendant un étirement, le fondement porte le
+    // test de l'épisode (§9.7), daté de sa séance — le raconter comme celui
+    // d'aujourd'hui (« 66 kg × 12 : pas encore dans ta zone ») disait une
+    // séance qui n'a fait que la ligne.
+    var testDuJour = ap.test && jourCivil(ap.test.date) === jourCivil(ap.date) ? ap.test : null;
 
     // Ce qui compte comme « fait aujourd'hui » : le niveau validé, sauf en
     // Franc, dont le déclencheur est UNE série — le constat se lit donc sur la
@@ -2768,7 +2773,7 @@
   // d'écrire un mot que le coach n'a pas.
   function phraseExtension(e, z) {
     var tete = serieFr(e.charge, e.series.map(function (s) { return s.reps; }), cite(FAIT, { quoi: 'du_jour' })) + DEUX_POINTS;
-    var combien = e.toutes ? 'toutes tes séries' : e.k + ' séries';
+    var combien = e.toutes ? 'toutes tes séries' : nombreFr(e.k, regle('series')) + ' séries';
     var dit = niveauDuTest(e.niveau, z);
     if (z !== null && e.niveau !== null && e.niveau < z.bas) {
       return tete + dit + '.';
@@ -2823,9 +2828,9 @@
     var nivAvant = nombre(cAvant.niveau);
     if (nivAvant !== null && fait !== null && fait > nivAvant) {
       var haut = z !== null && fait >= z.haut ? ', ' + niveauDansPhrase(fait, z) : '';
-      return enKg(cApres.palier, cite(FAIT, { quoi: 'du_jour' })) + DEUX_POINTS + nivAvant + ' reps ' +
+      return enKg(cApres.palier, cite(FAIT, { quoi: 'du_jour' })) + DEUX_POINTS + nombreFr(nivAvant, regle('niveau.avant')) + ' reps ' +
              quand(av.date, reference, false, cite(FAIT, { quoi: 'palier' })) +
-             ', ' + fait + ' aujourd\'hui' + haut + '.';
+             ', ' + nombreFr(fait, regle('niveau.jour')) + ' aujourd\'hui' + haut + '.';
     }
     return 'Pas encore' + DEUX_POINTS + faitDuJour() + '.';
   }
@@ -2840,7 +2845,7 @@
     if (cApres.etat === 'etirement') {
       return 'Ta machine ne permet pas un plus petit cran' + DEUX_POINTS + 'ta zone s\'étire. ' +
              prochaine() + ' On retestera ' + enKg(cApres.fondement.test.charge, cite(FAIT, { quoi: 'test_du_jour' })) +
-             ' quand tu feras ' + cApres.fondement.cible + ' reps à ' +
+             ' quand tu feras ' + nombreFr(cApres.fondement.cible, regle('suite.cible')) + ' reps à ' +
              enKg(cApres.ligne.charge, cite(SUIVANTE, { role: 'ligne' })) + '.';
     }
     if (cApres.etat === 'retest_un_cran') return prochaine() + ' On reteste d\'un seul cran.';
@@ -2867,7 +2872,7 @@
       // une, puis une séance entière. La phrase générale ne promet rien.
       if (reglage !== 'prudent' && z !== null && fait !== null && fait < z.haut) {
         var manque = z.haut - fait;
-        return 'Il te manque ' + (manque === 1 ? 'une rep' : manque + ' reps') +
+        return 'Il te manque ' + (manque === 1 ? 'une rep' : nombreFr(manque, regle('manque')) + ' reps') +
                ' pour tester ' + enKg(cranSuivant, regle('cran_suivant')) + '.';
       }
     }
@@ -3200,7 +3205,7 @@
   }
 
   // §12.8, §20 — la phrase du compteur. À 4 séances ou plus : « 25 kg × 12
-  // reste ton meilleur depuis 4 séances. » — LE MEILLEUR depuis la remise à
+  // reste ta meilleure charge de travail depuis 4 séances. » — LE MEILLEUR depuis la remise à
   // zéro, jamais la charge du jour (delta 49-28). « : c'est plus long que
   // d'habitude pour toi. » seulement si au moins 8 blocages terminés sont
   // connus et que 3 sur 4 ont duré moins de 4 séances. Sous 4 : rien.
@@ -3216,7 +3221,7 @@
     var plusLong = b.length >= BLOCAGES_CONNUS && courts * 4 >= b.length * 3;
     var cM = cite(FAIT, { quoi: 'meilleur' }), cR = cite(FAIT, { quoi: 'meilleur', champ: 'reps' });
     return Modele().charge(c.meilleur.palier, undefined, cM) + ' × ' + nombreFr(c.meilleur.niveau, cR) +
-      ' reste ton meilleur depuis ' + nombreFr(c.compteur, regle('compteur')) + ' séances' +
+      ' reste ta meilleure charge de travail depuis ' + nombreFr(c.compteur, regle('compteur')) + ' séances' +
       (plusLong ? ' : c\'est plus long que d\'habitude pour toi.' : '.');
   }
 
@@ -3237,8 +3242,15 @@
   var DUREE_ALLEGEE_JOURS = 7;        // du jour d'acceptation à J+6 compris
   var MODULE_ESCALIER = 'escalier';
   var MARCHE_SEMAINE_ALLEGEE = 'semaine_allegee';
-  var DETAIL_CARTE = 'Quand tout cale en même temps, c\'est souvent de la fatigue. Je te propose une ' +
-    'semaine allégée : mêmes exercices, mêmes charges, 60 % des séries, 2 reps de moins, pendant 7 jours. Rien ne monte.';
+  // Les trois constantes de la semaine allégée, écrites PAR LE FORMATEUR et
+  // déclarées comme règles : le texte ne les recopie pas.
+  function detailCarte() {
+    return 'Quand tout cale en même temps, c\'est souvent de la fatigue. Je te propose une ' +
+      'semaine allégée : mêmes exercices, mêmes charges, ' +
+      nombreFr(Math.round(PART_ALLEGEE * 100), regle('constante')) + ' % des séries, ' +
+      nombreFr(REPS_EN_MOINS, regle('constante')) + ' reps de moins, pendant ' +
+      nombreFr(DUREE_ALLEGEE_JOURS, regle('constante')) + ' jours. Rien ne monte.';
+  }
   var PHRASE_REFUS = 'Séance normale. Au prochain blocage, je regarderai exercice par exercice.';
 
   function estDeclenchement(c) {
@@ -3314,13 +3326,13 @@
     var l = (noms || []).map(String);
     var liste;
     if (l.length > NOMS_MAX_CARTE) {
-      liste = l.slice(0, 3).join(', ') + ' et ' + (l.length - 3) + ' autres exercices';
+      liste = l.slice(0, 3).join(', ') + ' et ' + nombreFr(l.length - 3, regle('carte.autres')) + ' autres exercices';
     } else if (l.length > 1) {
       liste = l.slice(0, -1).join(', ') + ' et ' + l[l.length - 1];
     } else {
       liste = l.join('');
     }
-    return liste + ' : aucun n\'a progressé depuis ' + PAS_ESCALIER + ' séances.';
+    return liste + ' : aucun n\'a progressé depuis ' + nombreFr(PAS_ESCALIER, regle('constante')) + ' séances.';
   }
 
   // 60 % des séries de travail de la routine, au plus proche, au moins une :
@@ -3372,7 +3384,7 @@
   function bandeauAllegee(fin) {
     var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(fin || ''));
     if (!m) return null;
-    return 'Semaine allégée jusqu’au ' + Number(m[3]) + ' ' + Modele().MOIS_COURTS[Number(m[2]) - 1] +
+    return 'Semaine allégée jusqu’au ' + Modele().jourCourt(String(fin), regle('allegee.fin')) +
       ' : ' + FIN_ALLEGEE;
   }
   // Ce que la semaine allégée change, dit UNE fois : le bandeau et la feuille
@@ -3538,12 +3550,12 @@
   }
 
   // Le début de la phrase du compteur, sans le « plus long que d'habitude » :
-  // « 125 kg × 5 reste ton meilleur depuis 4 séances » — les espaces de
+  // « 125 kg × 5 reste ta meilleure charge de travail depuis 4 séances » — les espaces de
   // `phraseCompteur` (insécable avant « kg », espaces ordinaires autour de ×).
   function meilleurDepuis(meilleur, compteur) {
     return Modele().charge(meilleur.palier, undefined, cite(FAIT, { quoi: 'meilleur' })) + ' × ' +
       nombreFr(meilleur.niveau, cite(FAIT, { quoi: 'meilleur', champ: 'reps' })) +
-      ' reste ton meilleur depuis ' + nombreFr(compteur, regle('compteur')) + ' séances';
+      ' reste ta meilleure charge de travail depuis ' + nombreFr(compteur, regle('compteur')) + ' séances';
   }
 
   // CHANGER DE SCHÉMA (zones force, n = 1) : la carte sous l'exercice. Rend
@@ -4202,7 +4214,8 @@
     PAS_ESCALIER: PAS_ESCALIER,
     MODULE_ESCALIER: MODULE_ESCALIER,
     MARCHE_SEMAINE_ALLEGEE: MARCHE_SEMAINE_ALLEGEE,
-    DETAIL_CARTE: DETAIL_CARTE,
+    get DETAIL_CARTE() { return detailCarte(); },
+    detailCarte: detailCarte,
     PHRASE_REFUS: PHRASE_REFUS,
     estDeclenchement: estDeclenchement,
     jourCivil: jourCivil,

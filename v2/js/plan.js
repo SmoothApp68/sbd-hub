@@ -997,11 +997,14 @@
     return sortie;
   }
 
-  function lignesARetirer(plan) {
+  // `iExo` (facultatif) : le seul exercice à alléger — celui qu'on vient
+  // d'ajouter en pleine semaine allégée (consolidation 4/7). Sans lui, tous.
+  function lignesARetirer(plan, iExo) {
     var sortie = [];
     if (!plan || !plan.allegee) return sortie;
     (plan.exercices || []).forEach(function (x) {
       if (!x || !x.consigne || !x.consigne.allegee) return;
+      if (typeof iExo === 'number' && x.iExo !== iExo) return;
       (x.lignes || []).filter(function (l) {
         return l.role === 'hors' && l.type === 'travail' && !l.validee;
       }).map(function (l) { return l.iSerie; }).sort(function (a, b) { return b - a; })

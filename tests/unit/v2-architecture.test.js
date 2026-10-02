@@ -254,7 +254,27 @@ const NOTIONS = [
     module: 'plan.js', fonction: 'repsDeLaDegressive', lecteurs: [],
     par: ['preremplir'],
     raison: 'MOTEUR §9.15.3 (delta 49-38) : la phrase « Vise 6 à 8 » et la ligne disent le ' +
-      'même chiffre ; la routine et la fois d’avant ne décident plus des reps de la dégressive.' }
+      'même chiffre ; la routine et la fois d’avant ne décident plus des reps de la dégressive.' },
+  { notion: 'la place d’une série ajoutée (avant la dégressive qui attend)', pr: 'PR 4',
+    module: 'seance.js', fonction: 'placeDeLaSerie', lecteurs: [],
+    par: ['ajouterSerie'],
+    raison: '« + Série » après une dégressive posait une série de travail DERRIÈRE elle ; la ' +
+      'ligne de la série de plus passe par le même geste.' },
+  { notion: 'les lignes allégées d’une séance (la semaine allégée appliquée)', pr: 'PR 4',
+    module: 'plan.js', fonction: 'lignesARetirer', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['appliquerAllegee', 'allegeePourAjout'] },
+    raison: 'à l’ouverture, à l’acceptation ET à l’ajout d’un exercice, la même règle : un ' +
+      'exercice ajouté en pleine semaine allégée gardait toutes ses lignes de départ.' },
+  { notion: 'l’exercice qu’on vient d’ajouter (absent avant, rien de fait)', pr: 'PR 4',
+    module: 'app.js', fonction: 'exerciceAjoute', lecteurs: [],
+    par: ['ligneDePlusPourAjout', 'allegeePourAjout'],
+    raison: 'la ligne de plus et la semaine allégée s’appliquent au seul exercice ajouté : ' +
+      'une définition, sinon l’une toucherait un exercice que l’autre épargne.' },
+  { notion: 'la routine figée avec la consigne (héritée d’un remplacement en semaine allégée)', pr: 'PR 4',
+    module: 'app.js', fonction: 'routineAFiger', lecteurs: [],
+    par: ['consigneDe'],
+    raison: 'décision du 02/10/2026 : l’allègement s’applique une fois, sur la routine de ' +
+      'l’exercice remplacé ; figer la routine aux lignes déjà allégées allégeait deux fois.' }
 ];
 
 const CONSEIL = 'Passe par `planDeSeance` (v2/js/plan.js), ou ajoute ce fichier à la liste ' +

@@ -49,7 +49,9 @@ function seanceDe(exos) {
     if (e.chauffes) se = S.insererChauffes(se, i, e.chauffes.map((r) => [0, r]), id);
     (e.degressives || []).forEach(() => {
       se = S.ajouterSerie(se, i, id);
-      const j = se.exercices[i].series.length - 1;
+      // La ligne ajoutée, par son identifiant : « + Série » la place avant
+      // une dégressive qui attend (PR 4 de la consolidation).
+      const j = se.exercices[i].series.findIndex((x) => x.id === 's' + n);
       se = S.changerType(se, i, j, 'degressive');
     });
   });

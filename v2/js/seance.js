@@ -445,10 +445,31 @@
     return avecExercices(seance, exos);
   }
 
+  // « + Série » — la nouvelle série de travail se place APRÈS LA DERNIÈRE
+  // SÉRIE DE TRAVAIL, avant les dégressives qui terminent l'exercice,
+  // tant qu'aucune n'est faite (consolidation 4/7) : une
+  // dégressive se fait sur la dernière série de travail, une série ajoutée
+  // ensuite ne doit pas la laisser au milieu. Sans dégressive en attente en
+  // fin d'exercice, la série s'ajoute à la fin, comme avant.
+  function placeDeLaSerie(series) {
+    var i = series.length;
+    while (i > 0 && series[i - 1] && series[i - 1].type_serie === 'degressive') {
+      // Une dégressive déjà faite : la séquence est entamée, on ajoute à la fin.
+      if (series[i - 1].validee_a) return series.length;
+      i--;
+    }
+    if (i === series.length) return i;
+    for (var j = i - 1; j >= 0; j--) {
+      if (series[j] && series[j].type_serie === 'travail') return i;
+    }
+    return series.length;
+  }
+
   function ajouterSerie(seance, iExo, idSerie) {
     var exos = seance.exercices.slice();
     var exo = copie(exos[iExo]);
-    exo.series = exo.series.concat([serieVide(idSerie)]);
+    var place = placeDeLaSerie(exo.series);
+    exo.series = exo.series.slice(0, place).concat([serieVide(idSerie)], exo.series.slice(place));
     exos[iExo] = exo;
     return avecExercices(seance, exos);
   }

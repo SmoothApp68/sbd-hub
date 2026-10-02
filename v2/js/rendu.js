@@ -397,9 +397,9 @@
     cible.appendChild(el('div', 'section-t', 'RECORDS'));
     var fiche = el('div', 'exo-fiche');
 
-    // La dernière séance porte le PALIER — la grandeur du moteur — et non la
-    // meilleure série du jour : ce sont deux choses, et `palier.js` les sépare
-    // exprès (`palier`/`reps` d'un côté, `meilleure` de l'autre).
+    // La dernière séance porte la MEILLEURE SÉRIE du jour, comme Progression
+    // et la carte de séance ; le record de charge, la ligne la plus lourde de
+    // la table (PR 5 de la consolidation, décision du 02/10/2026).
     var d = vue.derniere;
     ligneFiche(fiche, 'Dernière séance', d ? dateCourte(d.date) : null,
       d ? texteMeilleure(d) : '');

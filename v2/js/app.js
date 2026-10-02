@@ -622,17 +622,17 @@
     for (var i = 0; i < local.seances.length && lignes.length < 3; i++) {
       var seance = local.seances[i];
       var d = seance.debut ? new Date(seance.debut) : null;
-      var parExo = {};
-      Palier.decouperParExercice(seriesDe(seance.id)).forEach(function (se) { parExo[se.slug] = se; });
-      Palier.trier(seriesDe(seance.id)).forEach(function (serie) {
+      var duJour = seriesDe(seance.id);
+      Palier.trier(duJour).forEach(function (serie) {
         if (!serie.exercise_slug || vus[serie.exercise_slug]) return;
         vus[serie.exercise_slug] = true;
         if (lignes.length >= 3) return;
-        // La mesure vient du catalogue : le moteur ne devine pas la nature
-        // d'un exercice (cf. `THPalier.analyser`).
-        var r = Palier.analyser((parExo[serie.exercise_slug] || {}).series || [],
-                                etatsExercices[serie.exercise_slug],
-                                { mesure: (index[serie.exercise_slug] || {}).mesure });
+        // PR 5 de la consolidation — LA MÊME FONCTION que la carte de séance
+        // et que « Dernière séance » sur la page d'exercice
+        // (`Modele.meilleureSerieDe`) : elle appelait le moteur de palier à
+        // part. Seule la charge s'affiche ici, comme avant.
+        var m = Modele.meilleureSerieDe(serie.exercise_slug, duJour, local.exercices, Palier, etatsExercices);
+        var r = { meilleure: m.charge === null || m.charge === undefined ? null : { charge: m.charge, reps: m.reps } };
         lignes.push({
           // Le slug voyage avec la ligne : c'est lui qui ouvre la page
           // d'exercice (§7 quater), et le nom ne sert qu'à l'affichage.
@@ -2648,6 +2648,21 @@
     return p.exercices.filter(function (x) { return x.slug === slug && x.consigne; })[0] || null;
   }
 
+  // PR 5 de la consolidation — LA CONSIGNE D'UN EXERCICE, HORS DE L'EN-TÊTE :
+  // la page d'exercice (étiquette, ligne mise en avant) et le menu des zones
+  // (la zone déduite). Une séance ouverte : SA consigne, figée à l'ouverture —
+  // la page ne recalcule plus la sienne avec moins d'options (deux zones pour
+  // un même exercice à la même seconde). Sans séance, ou en édition (le
+  // moteur n'y prescrit rien) : le même calcul, avec les mêmes options, à
+  // l'heure présente.
+  function consigneDeLExercice(slug) {
+    if (seance && !enEdition()) return consigneDe(slug);
+    var exo = Modele.indexerExercices(local.exercices)[slug] || null;
+    return Moteur.consigneDExercice(seancesDeLExercice(slug), etatsExercices[slug],
+      seance ? seance.debut : new Date().toISOString(),
+      Object.assign(optionsDeConsigne(slug, exo), { edition: false }));
+  }
+
   // §3.12 (49-U1) — l'en-tête LU SUR LE PLAN : il décrit les lignes de la
   // séance, plus le `n` de la consigne brute. Sans exercice dans la séance
   // (la page d'exercice), la consigne seule.
@@ -4103,7 +4118,7 @@
   // exactement l'habitude et sa profondeur, que le fondement porte déjà. Le
   // menu ne les recalcule pas — il les lit, comme la feuille « Pourquoi ».
   function deduiteDe(slug) {
-    var c = consigneDe(slug);
+    var c = consigneDeLExercice(slug);
     var f = c && c.consigne ? c.consigne.fondement : null;
     if (!f || !f.habitude) return null;
     var cle = f.correction ? f.correction.zoneDeduite : c.consigne.zone;
@@ -5282,10 +5297,11 @@
   // mêmes fonctions que la carte de séance et que la barre de semaine, et passe
   // le résultat au rendu.
   //
-  //   meilleure série  → `Modele.meilleureSerieDeTout`, qui rappelle le chemin
-  //                      de la carte séance par séance ;
-  //   palier           → `Palier.analyser` sur la DERNIÈRE séance, comme le
-  //                      sommaire de Progression ;
+  //   dernière séance  → `Modele.meilleureSerieDe`, le chemin de la carte et
+  //                      du sommaire de Progression ;
+  //   record de charge → `Modele.recordDeLaTable`, la ligne la plus lourde de
+  //                      la table par reps (PR 5) ;
+  //   zone, cible      → la consigne de la séance (`consigneDeLExercice`) ;
   //   séries de travail→ `Semaine.compteSeriesTravail`, la règle unique du §1 ;
   //   historique       → `Modele.construireBlocs`, qui rend déjà le détail.
   var PAS_HISTORIQUE = 20;     // §7 quater.4 — 20 séances, puis « voir plus »
@@ -5337,12 +5353,6 @@
     var groupes = seancesDeLExercice(slug);
     var toutes = [].concat.apply([], groupes.map(function (g) { return g.series; }));
 
-    // Le palier du JOUR le plus récent. Il ne se calcule pas sur trois ans :
-    // « chauffe probable » se juge à ≤ 75 % de la plus lourde DU JOUR (§4.1).
-    var palier = groupes.length
-      ? Palier.analyser(groupes[0].series, etatsExercices[slug], { mesure: mesure })
-      : { palier: null, reps: null, erreur: null };
-
     // La date d'un record est celle de la SÉANCE, pas `validee_a` : les séries
     // importées ont `validee_a` à NULL (chantier 35, D3).
     var debutDe = {};
@@ -5359,21 +5369,28 @@
       if (!joursRecord[l.date] || l.reps > joursRecord[l.date]) joursRecord[l.date] = l.reps;
     });
 
-    // La dernière séance porte le PALIER sur `charge_reps` — la grandeur du
-    // moteur. Sur les autres mesures il n'y en a pas : on lit alors la meilleure
-    // série du jour, par le chemin de la carte.
+    // PR 5 de la consolidation (décision du 02/10/2026) — « DERNIÈRE SÉANCE »
+    // EST LA MEILLEURE SÉRIE DU JOUR, sur toutes les mesures : le même chiffre
+    // que Progression et que la carte de séance, à un tap de distance. Elle
+    // affichait le palier sur `charge_reps` — deux nombres pour le même
+    // exercice et la même date.
     var derniere = null;
     if (groupes.length) {
-      derniere = mesure === 'charge_reps'
-        ? { charge: palier.palier, reps: palier.reps }
-        : Modele.meilleureSerieDe(slug, groupes[0].series, local.exercices, Palier, etatsExercices);
+      derniere = Modele.meilleureSerieDe(slug, groupes[0].series, local.exercices, Palier, etatsExercices);
       derniere.date = groupes[0].seance.debut;
     }
 
-    var record = Modele.meilleureSerieDeTout(slug, groupes.map(function (g) {
-      return { cle: g.seance.debut, series: g.series };
-    }), local.exercices, Palier, etatsExercices);
-    record.date = record.cle || null;
+    // PR 5 (décision du 02/10/2026) — « RECORD DE CHARGE » EST LA LIGNE LA
+    // PLUS LOURDE DE LA TABLE : un record est un fait, en vraies barres,
+    // exploration comprise. Il écartait les explorations (140 × 1 quand on
+    // travaille à 10), et pouvait s'afficher sous la ligne « 1 rep » de la
+    // table, sur la même page. Les autres mesures gardent leur meilleure série.
+    var record = mesure === 'charge_reps'
+      ? Modele.recordDeLaTable(table)
+      : Modele.meilleureSerieDeTout(slug, groupes.map(function (g) {
+        return { cle: g.seance.debut, series: g.series };
+      }), local.exercices, Palier, etatsExercices);
+    if (mesure !== 'charge_reps') record.date = record.cle || null;
 
     var visibles = groupes.slice(0, exoAffiche.combien);
     // §7 quater — L'ÉTIQUETTE DE ZONE SUR LA PAGE D'EXERCICE. La zone
@@ -5384,16 +5401,16 @@
     // une, comme partout ailleurs (MOTEUR §9.12) : sinon la page d'exercice
     // lirait une séance que l'écran de saisie, lui, ne voit pas — deux zones
     // pour un même exercice à la même seconde.
-    var gabaritExo = Modele.gabaritDe(exo);
-    var consigneExo = Moteur.consigneDExercice(groupes, etatsExercices[slug],
-      seance ? seance.debut : new Date().toISOString(), {
-        mesure: gabaritExo.inconnue ? null : gabaritExo.mesure,
-        equipement: exo ? exo.equipement : null,
-        intention: profil ? profil.intention : null,
-        reglage: Profil.rythmeDe(profil),
-        correction: zoneDe(slug),
-        edition: false
-      });
+    //
+    // PR 5 — ET C'EST LA CONSIGNE DE LA SÉANCE (`consigneDeLExercice`) : la
+    // page la recalculait avec cinq options de moins.
+    var consigneExo = consigneDeLExercice(slug);
+    // La ligne mise en avant dans la table : la VISÉE de l'en-tête — le plan
+    // quand l'exercice est dans la séance (semaine allégée comprise), sinon la
+    // consigne. Rien quand le coach se tait.
+    var xPlan = seance && !enEdition() ? planDuSlug(slug) : null;
+    var kVise = xPlan ? xPlan.consigne : (consigneExo ? consigneExo.consigne : null);
+    var cibleReps = kVise ? ((kVise.ligne || kVise.haut || {}).vise || null) : null;
     Rendu.rendrePageExercice($('page-exercice'), {
       nom: exo ? exo.nom : slug,
       etiquette: consigneExo ? consigneExo.etiquette : null,
@@ -5424,10 +5441,7 @@
         nbSeances: groupes.length
       },
       table: table,
-      // Pas de moteur de cible à ce jour (`CADRAGE-V2` §2 ter) : la ligne mise
-      // en avant est celle des reps du palier courant — celle sur laquelle on
-      // travaille réellement aujourd'hui.
-      cibleReps: palier.reps,
+      cibleReps: cibleReps,
       historique: visibles.map(function (g) {
         return {
           id: g.seance.id,

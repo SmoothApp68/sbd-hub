@@ -1075,6 +1075,24 @@
     return lignes;
   }
 
+  // ── LE RECORD DE CHARGE (§7 quater, PR 5 de la consolidation) ────────────
+  //
+  // LA LIGNE LA PLUS LOURDE DE LA TABLE PAR REPS ; à charge égale, celle qui
+  // a le plus de reps (l'autre est déduite). Un record est un FAIT, en vraies
+  // barres, exploration comprise (décision du 02/10/2026) : la fiche et la
+  // table d'une même page ne peuvent plus se contredire, elles lisent la même
+  // liste. Rend `{ charge, reps, date }`, ou `{ charge: null, reps: null,
+  // date: null }` sans table.
+  function recordDeLaTable(table) {
+    var best = null;
+    (table || []).forEach(function (l) {
+      if (!l || l.charge === null || l.charge === undefined) return;
+      if (!best || l.charge > best.charge || (l.charge === best.charge && l.reps > best.reps)) best = l;
+    });
+    return best ? { charge: best.charge, reps: best.reps, date: best.date || null }
+      : { charge: null, reps: null, date: null };
+  }
+
   function apercuExercices(series, exercices, palier, etats) {
     var index = indexerExercices(exercices || []);
     var vus = {}, ordre = [];
@@ -1242,6 +1260,7 @@
     meilleureSerieDe: meilleureSerieDe,
     meilleureSerieDeTout: meilleureSerieDeTout,
     tableParReps: tableParReps,
+    recordDeLaTable: recordDeLaTable,
     libelleAutres: libelleAutres
   };
 

@@ -274,7 +274,27 @@ const NOTIONS = [
     module: 'app.js', fonction: 'routineAFiger', lecteurs: [],
     par: ['consigneDe'],
     raison: 'décision du 02/10/2026 : l’allègement s’applique une fois, sur la routine de ' +
-      'l’exercice remplacé ; figer la routine aux lignes déjà allégées allégeait deux fois.' }
+      'l’exercice remplacé ; figer la routine aux lignes déjà allégées allégeait deux fois.' },
+  { notion: 'la dernière séance d’un exercice (la meilleure série du jour)', pr: 'PR 5',
+    module: 'modele.js', fonction: 'meilleureSerieDe', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['sommaireExercices', 'rendreExercice'] },
+    raison: 'décision du 02/10/2026 : la page d’exercice affichait le palier, Progression la ' +
+      'meilleure série — deux nombres pour le même exercice et la même date, à un tap.' },
+  { notion: 'le record de charge (la ligne la plus lourde de la table)', pr: 'PR 5',
+    module: 'modele.js', fonction: 'recordDeLaTable', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['rendreExercice'] },
+    raison: 'décision du 02/10/2026 : un record est un fait, exploration comprise ; la fiche ' +
+      'l’écartait et pouvait s’afficher sous la ligne « 1 rep » de la table.' },
+  { notion: 'la consigne d’un exercice hors de l’en-tête (étiquette, zone déduite, cible)', pr: 'PR 5',
+    module: 'app.js', fonction: 'consigneDeLExercice', lecteurs: [],
+    par: ['rendreExercice', 'deduiteDe'],
+    raison: 'la page d’exercice recalculait sa consigne avec cinq options de moins ; le menu ' +
+      'des zones n’avait pas de zone déduite sans séance.' },
+  { notion: 'le palier brut d’une séance (l’analyse du moteur de palier)', pr: 'PR 5',
+    module: 'palier.js', fonction: 'analyser', lecteurs: ['modele.js', 'moteur.js'],
+    motif: /(?:\bPalier|\bpalier|THPalier)\s*(?:\(\))?\s*\.\s*analyser\b/g,
+    raison: 'aucun écran ne lit le palier brut : les faits passent par `Modele`, les mots du ' +
+      'coach par la consigne. La page et Progression l’appelaient chacune à part.' }
 ];
 
 const CONSEIL = 'Passe par `planDeSeance` (v2/js/plan.js), ou ajoute ce fichier à la liste ' +

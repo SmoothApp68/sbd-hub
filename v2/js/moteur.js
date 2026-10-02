@@ -1815,7 +1815,7 @@
     var m = message || null;
     if (m === null) return null;
     var z = typeof zone === 'string' ? zoneParCle(zone) : (zone || null);
-    var fait = chargeFois(m.charge, m.reps);
+    var fait = chargeFois(m.charge, m.reps, cite(FAIT, { quoi: 'du_jour' }));
     switch (m.type) {
       case 'propose': {
         if (z === null) return null;
@@ -1825,7 +1825,7 @@
         var tete = fait + ', ' + m.marge + ' de plus que visé' + DEUX_POINTS;
         // §9.14 — la seconde charge : le seul vrai choix, donc la seule question.
         if (ch.length > 1) {
-          return tete + serieN + ' passe ' + versCharge(ch[0]) + vise + ' Ou ' + enKg(ch[1]) +
+          return tete + serieN + ' passe ' + versCharge(ch[0]) + vise + ' Ou ' + enKg(ch[1], cite(CIBLE, { role: 'seconde' })) +
             ', si tu te sens bien' + INSECABLE + '?';
         }
         // §9.14 (delta 49-13) — la reprise longue qui ramène à la charge de
@@ -1842,12 +1842,12 @@
         // §9.14 (26/09/2026) — dans la voix du coach, charge d'abord.
         var t = m.test || {};
         var leTest = t.charge === null || t.charge === undefined
-          ? 'ton test au cran du dessus' : 'ton test à ' + enKg(t.charge);
+          ? 'ton test au cran du dessus' : 'ton test à ' + enKg(t.charge, cite(CIBLE, { role: 'haut' }));
         return fait + ', ' + m.marge + ' de plus que prévu' + DEUX_POINTS + leTest +
           ' arrive dès la série ' + (m.rang + 1) + ', avec de la marge.';
       }
       case 'pas_encore':
-        return fait + DEUX_POINTS + 'pas encore. On revient à ' + enKg(m.palier) + '.';
+        return fait + DEUX_POINTS + 'pas encore. On revient à ' + enKg(m.palier, cite(CIBLE, { role: 'retour' })) + '.';
       default:
         return null;
     }
@@ -1856,7 +1856,7 @@
   // « à 130 kg », ou « au cran au-dessus » quand la machine ne donne pas de
   // chiffre : la phrase garde sa préposition.
   function versCharge(v) {
-    return v === null || v === undefined ? 'au cran au-dessus' : 'à ' + enKg(v);
+    return v === null || v === undefined ? 'au cran au-dessus' : 'à ' + enKg(v, cite(CIBLE, { role: 'coach' }));
   }
 
 
@@ -1915,26 +1915,40 @@
   // §20.2 (49-U9) — LE FORMATEUR DE LA VOIX VIT DANS `modele.js`, le seul :
   // le moteur et le plan l'appellent, aucune phrase ne formate un nombre
   // elle-même. `croix` (« 125 × 5 », sans kg) est partie avec la réécriture.
-  function nombreFr(v) { return Modele().nombre(v); }
-  function enKg(v) { return Modele().charge(v); }
-  function chargeFois(kg, reps) { return Modele().chargeFois(kg, reps); }
-  function serieFr(kg, reps) { return Modele().serie(kg, reps); }
+  // §20 bis (49-U19) — CHAQUE CHIFFRE PORTE SA NATURE ET SON OBJET (`cite`,
+  // le dernier argument) : le formateur le déclare au registre quand la phrase
+  // se rédige sous capture (`THModele.capturer`), et la garde de cohérence le
+  // lit. Hors capture, rien ne change.
+  var CIBLE = 'cible_du_jour', FAIT = 'fait_passe', SUIVANTE = 'cible_suivante', REGLE = 'regle';
+  function cite(nature, objet) { return { nature: nature, objet: objet === undefined ? null : objet }; }
+  // Une règle : sa clé (`zone.haut`, `compteur`, `constante`…), et sa valeur.
+  function regle(cle) { return cite(REGLE, { regle: cle }); }
+  function nombreFr(v, c) { return Modele().nombre(v, undefined, c); }
+  function enKg(v, c) { return Modele().charge(v, undefined, c); }
+  function chargeFois(kg, reps, c) { return Modele().chargeFois(kg, reps, undefined, c); }
+  function serieFr(kg, reps, c) { return Modele().serie(kg, reps, undefined, c); }
   // « mardi », « aujourd'hui », « le 13 sept. » — contre la RÉFÉRENCE, une
   // entrée (la date de la séance), jamais l'horloge.
-  function quand(iso, reference, tete) { return Modele().quand(iso, reference, tete); }
+  function quand(iso, reference, tete, c) { return Modele().quand(iso, reference, tete, c); }
+  // Une phrase rédigée pour COMPARER, jamais pour être dite : ses chiffres ne
+  // s'inscrivent pas (une capture jetée).
+  function sansDeclarer(fn) { return Modele().capturer(fn).texte; }
   var FOIS = INSECABLE + '×' + INSECABLE;
 
   // Une charge inconnue se dit, elle ne se tait pas : « le cran au-dessus ».
   // C'est le rang 4 du §10.2 rendu visible — le moteur sait qu'il faut monter,
   // il ne sait pas de combien, et il le dit plutôt que d'inventer un chiffre.
-  function fragmentCharge(charge, tete, dessous) {
-    if (charge !== null && charge !== undefined) return enKg(charge);
+  function motDuCran(tete, dessous) {
     var mot = 'le cran ' + (dessous ? 'en dessous' : 'au-dessus');
     return tete ? mot.charAt(0).toUpperCase() + mot.slice(1) : mot;
   }
-  // « 125 kg × 5 » — une ligne de la consigne, la charge d'abord (§20.2).
-  function ligneFois(charge, vise, tete, dessous) {
-    return fragmentCharge(charge, tete, dessous) + FOIS + vise;
+  function fragmentCharge(charge, tete, dessous, c) {
+    return Modele().charge(charge, motDuCran(tete, dessous), c);
+  }
+  // « 125 kg × 5 » — une ligne de la consigne, la charge d'abord (§20.2). La
+  // visée passe par le formateur, avec la charge : une seule citation.
+  function ligneFois(charge, vise, tete, dessous, c) {
+    return Modele().chargeFois(charge, vise, motDuCran(tete, dessous), c);
   }
 
   // ⚠️ L'ORDRE DES DEUX LIGNES EST UNE RÈGLE, pas un goût. La ligne majoritaire
@@ -1949,22 +1963,26 @@
   // peut les précéder. « Sur la première » tombait, au squat d'Aurélien, sur la
   // rampe à 120. On parle donc DEPUIS LA FIN : « les 2 dernières », « celle
   // d'avant », « les 3 d'avant ».
-  function lignesJaunes(c) {
+  // `nature` : `cible_du_jour` (l'en-tête), ou `cible_suivante` (la suite du
+  // constat, « Prochaine séance : … ») — les mêmes lignes, une autre nature.
+  function lignesJaunes(c, nature) {
     if (c.etat === 'silence') return [];
+    var nat = nature || CIBLE;
     var dessous = c.etat === 'reprise_longue';
     var ligne = c.ligne, haut = c.haut;
-    if (!haut) return [ligneFois(ligne.charge, ligne.vise, true, dessous)];
-    if (!ligne) return [ligneFois(haut.charge, haut.vise, true, false)];
+    var cL = cite(nat, { role: 'ligne' }), cH = cite(nat, { role: 'haut' });
+    if (!haut) return [ligneFois(ligne.charge, ligne.vise, true, dessous, cL)];
+    if (!ligne) return [ligneFois(haut.charge, haut.vise, true, false, cH)];
     if (haut.k === 1) {
       return [
-        ligneFois(ligne.charge, ligne.vise, true, dessous),
-        'puis ' + ligneFois(haut.charge, haut.vise, false, false) + ' sur la dernière série'
+        ligneFois(ligne.charge, ligne.vise, true, dessous, cL),
+        'puis ' + ligneFois(haut.charge, haut.vise, false, false, cH) + ' sur la dernière série'
       ];
     }
     var restantes = c.n - haut.k;
     return [
-      ligneFois(haut.charge, haut.vise, true, false) + ' sur les ' + haut.k + ' dernières séries',
-      ligneFois(ligne.charge, ligne.vise, false, dessous) +
+      ligneFois(haut.charge, haut.vise, true, false, cH) + ' sur les ' + haut.k + ' dernières séries',
+      ligneFois(ligne.charge, ligne.vise, false, dessous, cL) +
         (restantes === 1 ? ' sur celle d\'avant' : ' sur les ' + restantes + ' d\'avant')
     ];
   }
@@ -2005,7 +2023,8 @@
       return memeCharge(nombre(x.charge), nombre(segments[0].charge)) && x.vise === segments[0].vise;
     });
     if (segments.length > 1 && unSeul && segments[0].vise !== null && segments[0].vise !== undefined) {
-      return { jaune: [ligneFois(segments[0].charge, segments[0].vise, true, false)], segments: segments };
+      return { jaune: [ligneFois(segments[0].charge, segments[0].vise, true, false,
+        cite(CIBLE, { role: segments[0].role }))], segments: segments };
     }
     var a = segments[0].role === 'ligne' ? segments[0].nombre : 0;
     var b = segments[segments.length - 1].role === 'haut' ? segments[segments.length - 1].nombre : 0;
@@ -2022,7 +2041,8 @@
     var jaune = segments.map(function (s, i) {
       if (s.charge === undefined || s.vise === undefined) return null;
       var tete = i === 0;
-      return (tete ? '' : 'puis ') + ligneFois(s.charge, s.vise, tete, s.role === 'ligne' && dessous) +
+      return (tete ? '' : 'puis ') + ligneFois(s.charge, s.vise, tete, s.role === 'ligne' && dessous,
+        cite(CIBLE, { role: s.role })) +
         (s.nombre === 1 ? ' sur une série' : ' sur ' + s.nombre + ' séries');
     }).filter(Boolean);
     return { jaune: jaune, segments: segments };
@@ -2063,17 +2083,33 @@
     return ou[0] === echelle.length - 1 ? 'dernière série' : 'série restée';
   }
 
+  // La citation de la série restée porte le MOT D'ORDRE écrit (« première »,
+  // « dernière », ou aucun) : la garde de cohérence le compare au rang qu'elle
+  // relit elle-même dans le fondement (§20 bis), jamais à ce calcul-ci.
+  function citeDuReste(f) {
+    var mot = rangDuReste(f);
+    return cite(FAIT, { quoi: 'reste',
+      ordre: mot === 'première série' ? 'première' : mot === 'dernière série' ? 'dernière' : null });
+  }
+
   function phraseGrise(c, reference) {
     var f = c.fondement || {};
     var z = zoneParCle(c.zone);
     var hi = z === null ? null : z.haut;
-    var jour = f.date ? quand(f.date, reference, true) : '';
-    var auPalier = serieFr(c.palier, f.reps);
+    // §20 bis (49-U19) — des fragments RÉDIGÉS À LA DEMANDE : un fragment
+    // qu'une branche n'écrit pas ne doit rien déclarer.
+    var jour = function () { return f.date ? quand(f.date, reference, true, cite(FAIT, { quoi: 'palier' })) : ''; };
+    var auPalier = function () { return serieFr(c.palier, f.reps, cite(FAIT, { quoi: 'palier' })); };
     var t = f.test || null;
-    var duTest = t === null ? '' : 'Ton test à ' + enKg(t.charge) + ', ' + quand(t.date, reference) + ', ';
-    var rate = t === null ? '' :
-      quand(t.date, reference, true) + DEUX_POINTS + chargeFois(t.charge, t.reps) +
-      ', pas encore dans ta zone.';
+    var cT = cite(FAIT, { quoi: 'test' });
+    var duTest = function () {
+      return t === null ? '' : 'Ton test à ' + enKg(t.charge, cT) + ', ' + quand(t.date, reference, false, cT) + ', ';
+    };
+    var rate = function () {
+      return t === null ? '' :
+        quand(t.date, reference, true, cT) + DEUX_POINTS + chargeFois(t.charge, t.reps, cT) +
+        ', pas encore dans ta zone.';
+    };
 
     switch (c.etat) {
       case 'silence':
@@ -2086,19 +2122,19 @@
         // ⚠️ L'ANNONCE DU RETEST NE SE DIT QU'À UN SEUL CRAN. À deux crans, le
         // coach ne sait pas encore ce qu'il retestera : promettre « on le
         // retestera » serait promettre une charge qu'il va réduire.
-        if (t !== null) return rate + (f.testUnCran ? ' On le retestera au haut de ta zone.' : '');
+        if (t !== null) return rate() + (f.testUnCran ? ' On le retestera au haut de ta zone.' : '');
         // La note de la série à fond REMPLACE « une rep de plus », elle ne s'y
         // ajoute pas : une seule phrase grise par en-tête.
         // Dite PAR SA CHARGE, jamais par son rang.
         if (f.serieAFond) {
           var a = f.serieAFond;
-          return 'Ta série à ' + chargeFois(a.charge, a.reps) + ', à ' +
+          return 'Ta série à ' + chargeFois(a.charge, a.reps, cite(FAIT, { quoi: 'a_fond' })) + ', à ' +
                  (a.cause === 'rpe' ? 'RPE 10' : 'fond') + ', compte pour ' + a.comptees + '.';
         }
-        return jour + DEUX_POINTS + auPalier + '. Une rep de plus.';
+        return jour() + DEUX_POINTS + auPalier() + '. Une rep de plus.';
 
       case 'test_propose':
-        return jour + DEUX_POINTS + auPalier + ', ' +
+        return jour() + DEUX_POINTS + auPalier() + ', ' +
                (f.preuve === 'haut' ? PREUVE_DEPASSEMENT + ' reps au-dessus du haut'
                 : f.preuve === 'facile' ? 'avec de la marge'
                 : 'le haut de ta zone') + '. ' +
@@ -2106,13 +2142,13 @@
 
       case 'garde':
         if (t.niveau === z.bas) {
-          return duTest + 'est au bas de ta zone' + DEUX_POINTS + 'on le garde sur la dernière série.';
+          return duTest() + 'est au bas de ta zone' + DEUX_POINTS + 'on le garde sur la dernière série.';
         }
-        return duTest + 'est dans ta zone' + DEUX_POINTS +
+        return duTest() + 'est dans ta zone' + DEUX_POINTS +
                'on le garde sur la dernière série jusqu\'à ' + hi + ' reps.';
 
       case 'etend':
-        return duTest + (t.niveau >= hi ? 'a touché le haut de ta zone' : 'est dans ta zone') +
+        return duTest() + (t.niveau >= hi ? 'a touché le haut de ta zone' : 'est dans ta zone') +
                DEUX_POINTS + 'il gagne une série.';
 
       // « Ta première série à 88 kg » : l'ancienne charge de travail est dans
@@ -2121,41 +2157,41 @@
       // une montée (88, 92, 92 ; N5 : 125, 130, 130).
       case 'rejoint':
         return (c.ligne ? 'Une série de plus passe à '
-                        : 'Ta ' + rangDuReste(f) + ' à ' + enKg(f.palierPrecedent) + ' passe à ') +
-               enKg(c.haut.charge) + '.';
+                        : 'Ta ' + rangDuReste(f) + ' à ' + enKg(f.palierPrecedent, citeDuReste(f)) + ' passe à ') +
+               enKg(c.haut.charge, cite(CIBLE, { role: 'haut' })) + '.';
 
       case 'attend':
         return c.n - c.haut.k === 1
-          ? 'Ta série restée à ' + enKg(f.palierPrecedent) + ' passera à ' +
-            enKg(c.haut.charge) + ' quand tu y feras ' + f.seuil + ' reps.'
-          : 'Tes séries restées à ' + enKg(f.palierPrecedent) + ' passeront à ' +
-            enKg(c.haut.charge) + ' une à une, quand tu y feras ' + f.seuil + ' reps.';
+          ? 'Ta série restée à ' + enKg(f.palierPrecedent, cite(FAIT, { quoi: 'reste' })) + ' passera à ' +
+            enKg(c.haut.charge, cite(CIBLE, { role: 'haut' })) + ' quand tu y feras ' + f.seuil + ' reps.'
+          : 'Tes séries restées à ' + enKg(f.palierPrecedent, cite(FAIT, { quoi: 'reste' })) + ' passeront à ' +
+            enKg(c.haut.charge, cite(CIBLE, { role: 'haut' })) + ' une à une, quand tu y feras ' + f.seuil + ' reps.';
 
       case 'tout_passe':
         if (t !== null) {
-          return duTest + 'a touché le haut de ta zone' + DEUX_POINTS + 'tout passe à ' +
-                 enKg(c.haut.charge) + '.';
+          return duTest() + 'a touché le haut de ta zone' + DEUX_POINTS + 'tout passe à ' +
+                 enKg(c.haut.charge, cite(CIBLE, { role: 'haut' })) + '.';
         }
-        return jour + DEUX_POINTS + auPalier + ', le haut de ta zone. Tout passe à ' +
-               enKg(c.haut.charge) + '.';
+        return jour() + DEUX_POINTS + auPalier() + ', le haut de ta zone. Tout passe à ' +
+               enKg(c.haut.charge, cite(CIBLE, { role: 'haut' })) + '.';
 
       case 'retest_un_cran':
-        return rate + ' On reteste d\'un seul cran.';
+        return rate() + ' On reteste d\'un seul cran.';
 
       // §9.2 bis (49-U12) — un fait, puis sa conséquence : « Mardi : 80 kg ×
       // 10, 10, 6. Je ne compte pas la dernière série : on tient 80 kg × 10. »
       case 'tenue_apres_chute':
-        return jour + DEUX_POINTS + auPalier + '. Je ne compte pas la dernière série' + DEUX_POINTS +
-               'on tient ' + chargeFois(c.ligne.charge, c.ligne.vise) + '.';
+        return jour() + DEUX_POINTS + auPalier() + '. Je ne compte pas la dernière série' + DEUX_POINTS +
+               'on tient ' + chargeFois(c.ligne.charge, c.ligne.vise, cite(CIBLE, { role: 'ligne' })) + '.';
 
       case 'etirement':
         return 'Ta machine ne permet pas un plus petit cran' + DEUX_POINTS + 'ta zone s\'étire. ' +
-               'On retestera ' + enKg(t.charge) + ' quand tu feras ' + f.cible +
-               ' reps à ' + enKg(c.ligne.charge) + '.';
+               'On retestera ' + enKg(t.charge, cite(FAIT, { quoi: 'test' })) + ' quand tu feras ' + f.cible +
+               ' reps à ' + enKg(c.ligne.charge, cite(CIBLE, { role: 'ligne' })) + '.';
 
       case 'retest':
-        return f.cible + ' reps à ' + enKg(c.ligne.charge) + DEUX_POINTS +
-               'on retente ' + enKg(t.charge) + '.';
+        return f.cible + ' reps à ' + enKg(c.ligne.charge, cite(CIBLE, { role: 'ligne' })) + DEUX_POINTS +
+               'on retente ' + enKg(t.charge, cite(CIBLE, { role: 'haut' })) + '.';
 
       case 'reprise_courte':
         return 'Reprise après une pause' + DEUX_POINTS + 'ta charge de travail, sans rep de plus.' +
@@ -2171,8 +2207,8 @@
                  phraseBorneZone(f);
         }
         return 'Longue pause' + DEUX_POINTS + 'on reprend un cran en dessous' +
-               (c.ligne && nombre(c.ligne.charge) !== null ? ', à ' + enKg(c.ligne.charge) : '') +
-               '. Le test te ramènera à ' + enKg(c.palier) + '.' + phraseBorneZone(f);
+               (c.ligne && nombre(c.ligne.charge) !== null ? ', à ' + enKg(c.ligne.charge, cite(CIBLE, { role: 'ligne' })) : '') +
+               '. Le test te ramènera à ' + enKg(c.palier, cite(FAIT, { quoi: 'palier' })) + '.' + phraseBorneZone(f);
 
       // Le « 3 » se lit sur la table du rangement, il ne se recopie pas : sous
       // la première borne, il n'y a plus de zone (§9.1.2).
@@ -2504,6 +2540,17 @@
   // `reference` : la date de la séance du jour — « 3 reps mardi » se lit contre
   // elle, jamais contre l'horloge.
   function constatDe(consigneAvant, consigneApres, reglage, cranSuivant, reference) {
+    var d = constatEnDeux(consigneAvant, consigneApres, reglage, cranSuivant, reference);
+    if (!d) return null;
+    Modele().reporter(d.verdict.citations);
+    Modele().reporter(d.suite.citations);
+    return { verdict: d.verdict.texte, suite: d.suite.texte };
+  }
+
+  // §20 bis (49-U19) — le verdict et la suite, chacun RÉDIGÉ DANS SA CAPTURE
+  // (`{ texte, citations }`) : un verdict remplacé (la montée tenue) ne laisse
+  // pas ses citations derrière lui.
+  function constatEnDeux(consigneAvant, consigneApres, reglage, cranSuivant, reference) {
     if (!consigneAvant || !consigneApres) return null;
     var ap = consigneApres.fondement || {};
     var av = consigneAvant.fondement || {};
@@ -2518,10 +2565,15 @@
       ? (ap.reps || []).reduce(function (m, r) { return r !== null && r > m ? r : m; }, 0)
       : consigneApres.niveau;
 
-    return { verdict: verdictDuJour(consigneAvant, consigneApres, z, repsDuJour,
-                                    testDuJour, faitAujourdHui, av, ap, reference),
-             suite: suiteDuJour(consigneAvant, consigneApres, z, reglage,
-                                faitAujourdHui, cranSuivant) };
+    var V = Modele();
+    return { verdict: V.capturer(function () {
+               return verdictDuJour(consigneAvant, consigneApres, z, repsDuJour,
+                                    testDuJour, faitAujourdHui, av, ap, reference);
+             }),
+             suite: V.capturer(function () {
+               return suiteDuJour(consigneAvant, consigneApres, z, reglage,
+                                  faitAujourdHui, cranSuivant);
+             }) };
   }
 
   // Ce qui s'est passé. L'ordre des cas EST la règle : le silence d'abord — il
@@ -2672,7 +2724,7 @@
   // (§9.1.2, sous 3 reps d'habitude), la clause de zone tombe plutôt que
   // d'écrire un mot que le coach n'a pas.
   function phraseExtension(e, z) {
-    var tete = serieFr(e.charge, e.series.map(function (s) { return s.reps; })) + DEUX_POINTS;
+    var tete = serieFr(e.charge, e.series.map(function (s) { return s.reps; }), cite(FAIT, { quoi: 'du_jour' })) + DEUX_POINTS;
     var combien = e.toutes ? 'toutes tes séries' : e.k + ' séries';
     var dit = niveauDuTest(e.niveau, z);
     if (z !== null && e.niveau !== null && e.niveau < z.bas) {
@@ -2687,10 +2739,11 @@
     // complète ne rend plus de consigne d'après en silence. Un contrat brut
     // qui y tombe encore n'a pas de verdict.
     if (cApres.etat === 'silence') return null;
-    var faitDuJour = serieFr(cApres.palier, repsDuJour);
-    if (cAvant.etat === 'silence') return 'Premier repère' + DEUX_POINTS + faitDuJour + '.';
+    // Rédigé à la demande : seule la branche qui l'écrit le déclare (§20 bis).
+    var faitDuJour = function () { return serieFr(cApres.palier, repsDuJour, cite(FAIT, { quoi: 'du_jour' })); };
+    if (cAvant.etat === 'silence') return 'Premier repère' + DEUX_POINTS + faitDuJour() + '.';
     if (cAvant.etat === 'reprise_courte' || cAvant.etat === 'reprise_longue') {
-      return 'Reprise faite' + DEUX_POINTS + faitDuJour + '.';
+      return 'Reprise faite' + DEUX_POINTS + faitDuJour() + '.';
     }
     // ⚠️ L'ÉTAPE DE L'ÉCHELLE QUI RÉUSSIT, AVANT LE TEST DU JOUR (48b-6b-2).
     // C'est le trou qu'a trouvé la vérification sur appareil : au squat, 125
@@ -2706,45 +2759,48 @@
     var palierAvant = nombre(cAvant.palier);
     if (palierAvant !== null && nombre(cApres.palier) !== null &&
         nombre(cApres.palier) < palierAvant) {
-      return 'Aujourd\'hui' + DEUX_POINTS + faitDuJour + '.';
+      return 'Aujourd\'hui' + DEUX_POINTS + faitDuJour() + '.';
     }
     // Un test aujourd'hui : c'est lui qu'on raconte, il porte la décision.
     if (t !== null) {
       var dit = niveauDuTest(t.niveau, z);
       if (z !== null && t.niveau !== null && t.niveau < z.bas) {
-        return chargeFois(t.charge, t.reps) + DEUX_POINTS + dit + '.';
+        return chargeFois(t.charge, t.reps, cite(FAIT, { quoi: 'du_jour' })) + DEUX_POINTS + dit + '.';
       }
       // La fois d'avant n'avait de test que si c'était LA MÊME CHARGE : sinon
       // « 3 reps mardi » parlerait d'autre chose.
       var avant = av.test && av.test.charge === t.charge ? av.test : null;
-      return enKg(t.charge) + DEUX_POINTS +
-        (avant ? nombreFr(avant.reps) + ' reps ' + quand(avant.date, reference) + ', ' : '') +
-        nombreFr(t.reps) + ' aujourd\'hui, ' + dit + '.';
+      return enKg(t.charge, cite(FAIT, { quoi: 'du_jour' })) + DEUX_POINTS +
+        (avant ? nombreFr(avant.reps, cite(FAIT, { quoi: 'test', champ: 'reps' })) + ' reps ' +
+                 quand(avant.date, reference, false, cite(FAIT, { quoi: 'test' })) + ', ' : '') +
+        nombreFr(t.reps, cite(FAIT, { quoi: 'du_jour', champ: 'reps' })) + ' aujourd\'hui, ' + dit + '.';
     }
     // Pas de test : la charge de travail a-t-elle gagné une rep ? On compare
     // au NIVEAU de la consigne d'avant, celui qu'elle a elle-même calculé.
     var nivAvant = nombre(cAvant.niveau);
     if (nivAvant !== null && fait !== null && fait > nivAvant) {
       var haut = z !== null && fait >= z.haut ? ', ' + niveauDansPhrase(fait, z) : '';
-      return enKg(cApres.palier) + DEUX_POINTS + nivAvant + ' reps ' + quand(av.date, reference) +
+      return enKg(cApres.palier, cite(FAIT, { quoi: 'du_jour' })) + DEUX_POINTS + nivAvant + ' reps ' +
+             quand(av.date, reference, false, cite(FAIT, { quoi: 'palier' })) +
              ', ' + fait + ' aujourd\'hui' + haut + '.';
     }
-    return 'Pas encore' + DEUX_POINTS + faitDuJour + '.';
+    return 'Pas encore' + DEUX_POINTS + faitDuJour() + '.';
   }
 
   // Ce qui vient. La consigne d'après le dit déjà en jaune : on la reprend
   // telle quelle plutôt que de la réécrire.
   function suiteDuJour(cAvant, cApres, z, reglage, fait, cranSuivant) {
     if (cApres.etat === 'silence') return null;
-    var jaune = lignesJaunes(cApres).join(', ');
-    var prochaine = 'Prochaine séance' + DEUX_POINTS + jaune + '.';
+    // Rédigée à la demande : seule la branche qui l'écrit la déclare (§20 bis).
+    var prochaine = function () { return 'Prochaine séance' + DEUX_POINTS + lignesJaunes(cApres, SUIVANTE).join(', ') + '.'; };
 
     if (cApres.etat === 'etirement') {
       return 'Ta machine ne permet pas un plus petit cran' + DEUX_POINTS + 'ta zone s\'étire. ' +
-             prochaine + ' On retestera ' + enKg(cApres.fondement.test.charge) +
-             ' quand tu feras ' + cApres.fondement.cible + ' reps à ' + enKg(cApres.ligne.charge) + '.';
+             prochaine() + ' On retestera ' + enKg(cApres.fondement.test.charge, cite(FAIT, { quoi: 'test_du_jour' })) +
+             ' quand tu feras ' + cApres.fondement.cible + ' reps à ' +
+             enKg(cApres.ligne.charge, cite(SUIVANTE, { role: 'ligne' })) + '.';
     }
-    if (cApres.etat === 'retest_un_cran') return prochaine + ' On reteste d\'un seul cran.';
+    if (cApres.etat === 'retest_un_cran') return prochaine() + ' On reteste d\'un seul cran.';
 
     if (cApres.etat === 'progression') {
       var nivAvant = nombre(cAvant.niveau);
@@ -2755,10 +2811,13 @@
       // se COMPARE à celle du jour. « Même cible : 92 kg × 10 » après une
       // séance qui visait 92 kg × 11 disait le contraire de ce qu'il montrait.
       if (nivAvant !== null && fait !== null && fait <= nivAvant &&
-          lignesJaunes(cAvant).join(', ') === jaune) {
-        return 'Même cible la prochaine fois' + DEUX_POINTS + jaune + '.';
+          sansDeclarer(function () { return lignesJaunes(cAvant).join(', '); }) ===
+          sansDeclarer(function () { return lignesJaunes(cApres).join(', '); })) {
+        // « Même cible » DIT que ce sont les cibles du jour : elles se
+        // déclarent comme telles, et la garde les compare à l'en-tête.
+        return 'Même cible la prochaine fois' + DEUX_POINTS + lignesJaunes(cApres, CIBLE).join(', ') + '.';
       }
-      if (nivAvant !== null && fait !== null && fait <= nivAvant) return prochaine;
+      if (nivAvant !== null && fait !== null && fait <= nivAvant) return prochaine();
       // ⚠️ PRUDENT NE COMPTE PAS LES REPS QUI MANQUENT. Son déclencheur
       // demande TOUTES les séries au haut, DEUX séances de suite : « il te
       // manque une rep » y serait faux la moitié du temps — il en manquerait
@@ -2766,10 +2825,10 @@
       if (reglage !== 'prudent' && z !== null && fait !== null && fait < z.haut) {
         var manque = z.haut - fait;
         return 'Il te manque ' + (manque === 1 ? 'une rep' : manque + ' reps') +
-               ' pour tester ' + enKg(cranSuivant) + '.';
+               ' pour tester ' + enKg(cranSuivant, regle('cran_suivant')) + '.';
       }
     }
-    return prochaine;
+    return prochaine();
   }
 
   // ── §3.8 — L'ÉTIQUETTE DE ZONE ───────────────────────────────────────────
@@ -2791,7 +2850,10 @@
   // `reference` : la date de la séance pour laquelle la consigne est calculée.
   function libellesConsigne(consigne, reference) {
     if (!consigne) return { jaune: [], gris: '' };
-    return { jaune: lignesJaunes(consigne), gris: phraseGrise(consigne, reference) };
+    // Le jaune se rédige dans sa propre capture : la capture de l'appelant ne
+    // reçoit que les citations de la phrase grise (§20 bis).
+    var jaune = Modele().capturer(function () { return lignesJaunes(consigne); }).texte;
+    return { jaune: jaune, gris: phraseGrise(consigne, reference) };
   }
 
   // ── §9.13 — LE PONT DEPUIS `analyser`, ET LA CONSIGNE D'UN EXERCICE ──────
@@ -3109,8 +3171,9 @@
     var b = blocages || c.blocages || [];
     var courts = b.filter(function (d) { return d < SEUIL_COMPTEUR; }).length;
     var plusLong = b.length >= BLOCAGES_CONNUS && courts * 4 >= b.length * 3;
-    return Modele().charge(c.meilleur.palier) + ' × ' + nombreFr(c.meilleur.niveau) +
-      ' reste ton meilleur depuis ' + nombreFr(c.compteur) + ' séances' +
+    var cM = cite(FAIT, { quoi: 'meilleur' }), cR = cite(FAIT, { quoi: 'meilleur', champ: 'reps' });
+    return Modele().charge(c.meilleur.palier, undefined, cM) + ' × ' + nombreFr(c.meilleur.niveau, cR) +
+      ' reste ton meilleur depuis ' + nombreFr(c.compteur, regle('compteur')) + ' séances' +
       (plusLong ? ' : c\'est plus long que d\'habitude pour toi.' : '.');
   }
 
@@ -3252,7 +3315,7 @@
   // « kg ». Et, en gris, « 2 séries au lieu de 4, cette semaine ».
   function phraseAllegee(c) {
     var l = c && c.ligne;
-    return l ? Modele().chargeFois(nombre(l.charge), nombre(l.vise)) : null;
+    return l ? Modele().chargeFois(nombre(l.charge), nombre(l.vise), undefined, cite(CIBLE, { role: 'ligne' })) : null;
   }
   function detailAllegee(c) {
     var a = c && c.allegee;
@@ -3431,8 +3494,9 @@
   // « 125 kg × 5 reste ton meilleur depuis 4 séances » — les espaces de
   // `phraseCompteur` (insécable avant « kg », espaces ordinaires autour de ×).
   function meilleurDepuis(meilleur, compteur) {
-    return Modele().charge(meilleur.palier) + ' × ' + nombreFr(meilleur.niveau) +
-      ' reste ton meilleur depuis ' + nombreFr(compteur) + ' séances';
+    return Modele().charge(meilleur.palier, undefined, cite(FAIT, { quoi: 'meilleur' })) + ' × ' +
+      nombreFr(meilleur.niveau, cite(FAIT, { quoi: 'meilleur', champ: 'reps' })) +
+      ' reste ton meilleur depuis ' + nombreFr(compteur, regle('compteur')) + ' séances';
   }
 
   // CHANGER DE SCHÉMA (zones force, n = 1) : la carte sous l'exercice. Rend
@@ -3510,11 +3574,12 @@
   // de la séance) : « mardi » à 6 jours ou moins.
   function phraseRepli(repli, reference) {
     if (!repli) return null;
-    var kg = Modele().charge(repli.palier);
-    var date = quand(repli.debut, reference);
+    var cR = cite(FAIT, { quoi: 'repli' });
+    var kg = Modele().charge(repli.palier, undefined, cR);
+    var date = quand(repli.debut, reference, false, cR);
     // « le 3 févr. » porte déjà son point : on n'en remet pas un second.
     return 'On repart de ' + kg + ', ta dernière charge tenue : ' + kg + ' × ' +
-      (repli.reps || []).map(function (r) { return nombreFr(r); }).join(', ') + ' ' +
+      (repli.reps || []).map(function (r) { return nombreFr(r, cite(FAIT, { quoi: 'repli', champ: 'reps' })); }).join(', ') + ' ' +
       date + (/\.$/.test(date) ? '' : '.');
   }
 
@@ -3902,14 +3967,17 @@
   //
   // `reference` : la date de la séance du jour (le plan la tient de sa séance).
   function constatDuJour(consigneAvant, consigneApres, reglage, cranSuivant, jour, reference) {
-    var base = constatDe(consigneAvant, consigneApres, reglage, cranSuivant, reference);
-    if (!base) return null;
+    var d = constatEnDeux(consigneAvant, consigneApres, reglage, cranSuivant, reference);
+    if (!d) return null;
+    var base = { verdict: d.verdict.texte, suite: d.suite.texte };
+    Modele().reporter(d.suite.citations);
     var j = jour || {};
     var m = j.montee || null;
+    var contredit = !!m && (/^Pas de palier/.test(base.verdict || '') || /^Pas encore/.test(base.verdict || ''));
+    if (!contredit) Modele().reporter(d.verdict.citations);
     if (m) {
-      var contredit = /^Pas de palier/.test(base.verdict || '') || /^Pas encore/.test(base.verdict || '');
       return { verdict: contredit
-                 ? 'La montée du coach a tenu' + DEUX_POINTS + chargeFois(m.charge, m.reps) +
+                 ? 'La montée du coach a tenu' + DEUX_POINTS + chargeFois(m.charge, m.reps, cite(FAIT, { quoi: 'du_jour' })) +
                    ', dans ta zone. Elle compte comme un test tenu.'
                  : base.verdict,
                suite: base.suite, montee: { charge: m.charge, reps: m.reps } };
@@ -4024,7 +4092,9 @@
       return {
         situation: situation, proposition: prop,
         phrase_proposition: prop.length
-          ? 'Chauffe : ' + prop.map(function (x) { return Modele().charge(x[0]) + ' × ' + nombreFr(x[1]); }).join(' · ')
+          ? 'Chauffe : ' + prop.map(function (x) {
+              return Modele().charge(x[0], undefined, regle('chauffe')) + ' × ' + nombreFr(x[1], regle('chauffe.reps'));
+            }).join(' · ')
           : null
       };
     }
@@ -4038,9 +4108,9 @@
     var remplies = lignes.filter(function (l) { return l.charge !== null; }).map(function (l) { return l.charge; });
     var phrase = null;
     if (remplies.length) {
-      var avant = remplies.slice(0, -1).map(function (c) { return nombreFr(c); });
-      phrase = 'Chauffes calées sur ' + Modele().charge(ref) + ' : ' +
-        avant.concat([Modele().charge(remplies[remplies.length - 1])]).join(' · ') + '.';
+      var avant = remplies.slice(0, -1).map(function (c) { return nombreFr(c, regle('chauffe')); });
+      phrase = 'Chauffes calées sur ' + Modele().charge(ref, undefined, regle('reference')) + ' : ' +
+        avant.concat([Modele().charge(remplies[remplies.length - 1], undefined, regle('chauffe'))]).join(' · ') + '.';
     }
     return { situation: situation, lignes: lignes,
              non_remplies: lignes.length - remplies.length, phrase: phrase };
@@ -4063,8 +4133,9 @@
     var vise = [milieu - 1, milieu + 1];
     return {
       charge: charge, vise: vise, repos: 0,
-      phrase: 'Dégressive : ' + Modele().charge(charge) + ', sans repos, jusqu\'à l\'échec. Vise ' +
-        nombreFr(vise[0]) + ' à ' + nombreFr(vise[1]) + '.'
+      phrase: 'Dégressive : ' + Modele().charge(charge, undefined, regle('degressive')) +
+        ', sans repos, jusqu\'à l\'échec. Vise ' +
+        nombreFr(vise[0], regle('degressive.vise')) + ' à ' + nombreFr(vise[1], regle('degressive.vise')) + '.'
     };
   }
 

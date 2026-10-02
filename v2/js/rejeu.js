@@ -285,6 +285,18 @@
       t.push('invariants : ' + v.erreurs.length + ' violation(s)');
       v.erreurs.forEach(function (x) { t.push('  ✗ ' + x); });
     }
+    // MOTEUR §20 bis (49-U19) — la cohérence des phrases (I26), en mode
+    // rapport : chaque écart, avec sa phrase, sa citation et ce qui était attendu.
+    if (v && Array.isArray(v.ecartsPhrases)) {
+      if (!v.ecartsPhrases.length) t.push('cohérence des phrases (I26) : aucun écart');
+      else {
+        t.push('cohérence des phrases (I26, rapport) : ' + v.ecartsPhrases.length + ' écart(s)');
+        v.ecartsPhrases.forEach(function (e) {
+          t.push('  ≠ ' + (e.exercice || 'séance') + ' · ' + e.ou + ' · ' + e.cause + ' : « ' + e.citation +
+                 ' » — attendu ' + e.attendu + ' — dans ' + cite(e.phrase));
+        });
+      }
+    }
     return t;
   }
 

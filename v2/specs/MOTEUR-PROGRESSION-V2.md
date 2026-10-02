@@ -1890,6 +1890,31 @@ Validée par Aurélien le 29/09/2026 sur le relevé des 82 gabarits (`RELEVE-PHR
 
 ---
 
+## 20 bis. La cohérence des phrases — décidée le 01/10/2026 (chantier 49)
+
+> **Chaque chiffre que le coach écrit a une origine dans le plan ; et deux phrases du même plan ne disent jamais deux choses différentes.**
+
+**Chaque chiffre cité porte sa nature**, déclarée par le formateur unique qui l'écrit (`modele.js` : `charge`, `chargeFois`, `serie`, `quand` — jamais un chiffre écrit à la main dans une phrase) :
+
+| Nature | Ce qu'elle doit égaler |
+|---|---|
+| **cible du jour** (« 92 kg × 11 », « je passe ta série 2 à… », « on tient… ») | une ligne couverte du plan de cet exercice (charge et visée) |
+| **fait passé** (« mardi : 80 kg × 10, 10, 6 », « ton meilleur », « ta dernière charge tenue ») | une série réelle de l'historique, à sa date, ou le meilleur du compteur |
+| **cible suivante** (« la prochaine fois : … ») | la consigne que le plan donnera à la séance suivante, **par la même fonction** (§9.13 bis) |
+| **règle** (« ta zone va jusqu'à 8 », « depuis 4 séances », « 60 % des séries ») | la valeur de la règle dans le plan (zone, compteur, constante) |
+
+**Trois vérifications**, sur chaque plan :
+1. **Le jaune colle aux chiffres** : l'en-tête et les phrases jaunes ne citent que des cibles du jour qui sont des lignes du plan.
+2. **Le gris colle aux chiffres** : chaque chiffre d'une phrase grise a sa nature et égale sa source.
+3. **Le jaune et le gris disent la même chose** : pour un même exercice, deux citations de **même nature** et de **même objet** (la cible du jour d'une même ligne, la cible suivante, le meilleur) ont **les mêmes chiffres**, dans un sens comme dans l'autre ; un mot d'ordre (« première », « dernière ») égale le rang de la série citée.
+
+Plus : **aucune phrase ne contient** `null`, `undefined`, `NaN`, ni un nombre sans unité là où une charge est attendue.
+
+**Où elle tourne** : **I26** dans `verifierPlan` (banc, tests, garde de développement : un écart est un marqueur rouge en prévisualisation, rien en production) ; un test qui balaie toutes les phrases de tous les plans des fichiers de cas et du banc, comme la garde de la voix ; le rejeu (`?rejouer=`) l'affiche pour chaque étape.
+
+**Méthode** : la garde arrive **en mode rapport** — elle liste les écarts qu'elle trouve sur le banc et les fichiers de cas, sans corriger les phrases ; chaque écart se tranche ensuite (la phrase, ou la garde), puis la garde devient bloquante.
+
+
 # PARTIE F — GARDE-FOUS ET TROUS
 
 ## 21. Sept erreurs d'analyse, consignées

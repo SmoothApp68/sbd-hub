@@ -247,6 +247,7 @@ function fusionner(banc, groupes, resultats, avecGarde) {
       plans: Object.keys(secs).reduce((t, n) => t + (secs[n].verifies || 0), 0),
       violations: Object.keys(secs).reduce((t, n) => t + (secs[n].violations || 0), 0),
       rapports: (g.rapports || []).filter((x) => garderSection(String(x).split(' : ')[0])),
+      phrases: g.phrases || [],
       liste: (g.liste || []).filter((v) => garderSection(v.section)),
       sections: secs
     });

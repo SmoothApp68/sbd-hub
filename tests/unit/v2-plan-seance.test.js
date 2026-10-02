@@ -100,7 +100,9 @@ describe('49-U1 — le cas du 26/09/2026, rejoué sur le plan', () => {
       '125 kg × 5 sur celle d\'avant']);
     expect(esp(x.donc)).toBe('Donc 130 kg × 4 sur les 2 dernières séries, 125 kg × 5 sur celle d\'avant.');
     expect(x.lignes.map((l) => l.role + ':' + l.charge + '×' + l.vise)).toEqual(['ligne:125×5', 'test:130×4', 'test:130×4']);
-    expect(sim.verifier()).toEqual({ ok: true, erreurs: [] });
+    // I26 (49-U19) se rapporte à part (`ecartsPhrases`) : ici, I1 à I25.
+    const v = sim.verifier();
+    expect({ ok: v.ok, erreurs: v.erreurs }).toEqual({ ok: true, erreurs: [] });
   });
 
   test('DISCRIMINANT — 125 × 8 : AUCUNE proposition à 127,5, la série 2 reste le test à 130 (I2)', () => {
@@ -196,7 +198,7 @@ describe('49-U1 — verifierPlan voit chaque violation (I1, I2, I3, I6, I9, I12)
   const erreurs = (plan) => T.verifierPlan(plan).erreurs.map((e) => e.split(' — ')[0]);
 
   test('le plan d’origine passe', () => {
-    expect(T.verifierPlan(base().plan)).toEqual({ ok: true, erreurs: [] });
+    expect(T.verifierPlan(base().plan)).toEqual({ ok: true, erreurs: [], ecartsPhrases: [] });
   });
 
   test('I1 — un rôle inconnu, ou une chauffe couverte', () => {

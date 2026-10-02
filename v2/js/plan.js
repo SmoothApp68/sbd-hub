@@ -199,15 +199,19 @@
 
     // La phrase du coach : sur la ligne `message.rang` (une POSITION).
     var m = reaction.message;
+    // §20 bis (49-U19) — la phrase se rédige sous capture : ses chiffres
+    // déclarés restent à côté du plan (`citationsMessage`), pour I26.
+    var dite = m ? Voix().capturer(function () { return M.phraseReaction(m, consigne.zone); }) : null;
     var message = m ? {
       position: m.rang, iSerie: indices[m.rang] === undefined ? null : indices[m.rang],
-      type: m.type, phrase: M.phraseReaction(m, consigne.zone)
+      type: m.type, phrase: dite.texte
     } : null;
 
     return {
       consigne: consigne, indices: indices, rangs: rangs, roles: roles,
       planInitial: planInitial, faites: faites, reaction: reaction,
-      lignes: lignes, message: message, paris: paris
+      lignes: lignes, message: message, paris: paris,
+      citationsMessage: dite ? dite.citations : []
     };
   }
 
@@ -278,6 +282,15 @@
     var k = suite.consigne;
     c.suiteCharges = [k.ligne ? k.ligne.charge : null, k.haut ? k.haut.charge : null];
     c.suiteEtat = k.etat || null;
+    // §20 bis (49-U19) — les lignes de la prochaine séance, telles que la
+    // consigne suivante les donne : la source des cibles suivantes (I26).
+    var ft = k.fondement && k.fondement.test ? k.fondement.test : null;
+    c.suiteLignes = {
+      ligne: k.ligne ? { charge: k.ligne.charge, vise: k.ligne.vise } : null,
+      haut: k.haut ? { charge: k.haut.charge, vise: k.haut.vise } : null,
+      test: ft ? { charge: ft.charge, reps: ft.reps, date: ft.date || null } : null,
+      cran: suite.cranSuivant === undefined ? null : suite.cranSuivant
+    };
     return c;
   }
 
@@ -298,10 +311,13 @@
   // §20.2 (49-U9) — LE FORMATEUR DE LA VOIX EST CELUI DE `modele.js`, le même
   // que le moteur : `kgFois`, qui en recopiait un second ici, est parti.
   function Voix() { return racine.THModele; }
-  function nombreFr(v) { return Voix().nombre(v); }
+  // §20 bis (49-U19) — chaque chiffre porte sa nature et son objet (`c`).
+  function nombreFr(v, c) { return Voix().nombre(v, undefined, c); }
   var NBSP = '\u00a0';
-  function kg(v) { return Voix().charge(nombre(v)); }
-  function kgFois(charge, reps) { return Voix().chargeFois(nombre(charge), reps); }
+  function kg(v, c) { return Voix().charge(nombre(v), undefined, c); }
+  function kgFois(charge, reps, c) { return Voix().chargeFois(nombre(charge), reps, undefined, c); }
+  function cite(nature, objet) { return { nature: nature, objet: objet === undefined ? null : objet }; }
+  var DU_JOUR = cite('fait_passe', { quoi: 'du_jour' });
   var ROLE_FEUILLE = { ligne: 'consigne', test: 'test', coach: 'proposée par le coach',
                        retour: 'retour à ta charge de travail' };
 
@@ -318,32 +334,34 @@
     var couvertes = (lignes || []).filter(function (l) { return l.role !== 'hors'; });
     var premiereCoach = null;
     return couvertes.map(function (l, k) {
+      var cL = cite('cible_du_jour', { role: l.role, rang: l.rang });
       var visee = l.role === 'coach' && Array.isArray(l.fourchette) && l.fourchette.length === 2
-        ? nombreFr(l.fourchette[0]) + ' à ' + nombreFr(l.fourchette[1])
-        : (l.vise === null || l.vise === undefined ? '' : nombreFr(l.vise));
+        ? nombreFr(l.fourchette[0], cite('regle', { regle: 'zone.bas' })) + ' à ' +
+          nombreFr(l.fourchette[1], cite('regle', { regle: 'zone.haut' }))
+        : (l.vise === null || l.vise === undefined ? '' : nombreFr(l.vise, cite('cible_du_jour', { role: l.role, rang: l.rang, champ: 'reps' })));
       var raison = null;
       if (l.role === 'coach') {
         if (premiereCoach === null) {
           premiereCoach = l;
           var avant = couvertes[k - 1];
-          raison = avant && avant.faite ? 'proposée après ' + kgFois(avant.faite.charge, avant.faite.reps) : 'proposée par le coach';
+          raison = avant && avant.faite ? 'proposée après ' + kgFois(avant.faite.charge, avant.faite.reps, DU_JOUR) : 'proposée par le coach';
         } else {
           raison = premiereCoach.faite
-            ? 'la montée a tenu à ' + kgFois(premiereCoach.faite.charge, premiereCoach.faite.reps)
+            ? 'la montée a tenu à ' + kgFois(premiereCoach.faite.charge, premiereCoach.faite.reps, DU_JOUR)
             : 'la montée continue';
         }
       } else if (l.role === 'retour') {
         var montee = premiereCoach || couvertes.filter(function (c) { return c.role === 'coach'; })[0];
-        raison = 'on revient à ' + kg(l.charge) +
-          (montee && montee.faite ? ' après ' + kgFois(montee.faite.charge, montee.faite.reps) : '');
+        raison = 'on revient à ' + kg(l.charge, cL) +
+          (montee && montee.faite ? ' après ' + kgFois(montee.faite.charge, montee.faite.reps, DU_JOUR) : '');
       }
       return {
         rang: l.rang, role: l.role, charge: l.charge === undefined ? null : l.charge,
         vise: l.vise === undefined ? null : l.vise,
-        texte: kg(l.charge) + (visee ? NBSP + '\u00d7' + NBSP + visee : ''),
+        texte: kg(l.charge, cL) + (visee ? NBSP + '\u00d7' + NBSP + visee : ''),
         libelle: libelleDeLigne(l, consigne),
         raison: raison,
-        faite: l.validee && l.faite ? 'faite' + NBSP + ': ' + kgFois(l.faite.charge, l.faite.reps) : null
+        faite: l.validee && l.faite ? 'faite' + NBSP + ': ' + kgFois(l.faite.charge, l.faite.reps, DU_JOUR) : null
       };
     });
   }
@@ -378,7 +396,7 @@
   var MATERIELS_DE_CHAUFFE = ['barre', 'machine', 'machine_smith', 'poulie', 'haltere'];
 
   function chauffesEtDegressive(lignes, series, consigne, materiel) {
-    var sortie = { chauffes: null, proposition: null, degressive: null };
+    var sortie = { chauffes: null, proposition: null, degressive: null, citations: {} };
     if (!materiel) return sortie;
     var M = Moteur(), S = Seance();
     var liste = series || [];
@@ -399,7 +417,8 @@
           return v;
         }) : null
       };
-      var r = M.chauffesDe(entree);
+      var capR = Voix().capturer(function () { return M.chauffesDe(entree); });
+      var r = capR.texte;
       if (deChauffe.length) {
         deChauffe.forEach(function (l, k) {
           var c = r.lignes[k] ? r.lignes[k].charge : null;
@@ -416,6 +435,7 @@
           non_remplies: r.non_remplies, prevues: M.TABLE_CHAUFFES[r.situation].length,
           iSerie: deChauffe[0].iSerie
         };
+        if (sortie.chauffes.phrase) sortie.citations.chauffes = capR.citations;
       } else if (r.proposition.length && !materiel.refus &&
                  !lignes.some(function (l) { return l.validee; })) {
         // §9.15.2 — aucune ligne de chauffe : une PROPOSITION, jamais des
@@ -423,6 +443,7 @@
         // faite : après, la montée n'a plus d'objet.
         sortie.proposition = { situation: r.situation, reference: reference,
                                lignes: r.proposition, phrase: r.phrase_proposition };
+        sortie.citations.proposition = capR.citations;
       }
     }
 
@@ -450,8 +471,12 @@
       if (reps === null) reps = nombre(sr.reps_visees);
     }
     if (charge === null && materiel.equipement !== 'barre') return sortie;
-    var d = M.degressiveDe({ equipement: materiel.equipement, derniere_serie: charge,
+    var capD = Voix().capturer(function () {
+      return M.degressiveDe({ equipement: materiel.equipement, derniere_serie: charge,
                              reps_travail: reps, cran: materiel.pas });
+    });
+    var d = capD.texte;
+    sortie.citations.degressive = capD.citations;
     deg.degressive = { charge: d.charge, vise: d.vise || null,
                        repos: d.repos === undefined ? null : d.repos, phrase: d.phrase };
     if (!deg.validee) deg.fantome = { charge: d.charge, reps: null, source: 'degressive' };
@@ -514,6 +539,10 @@
       base.chauffes = null;
       base.proposition = null;
       base.degressive = sans.degressive;
+      base.phrases = [];
+      if (sans.degressive && sans.degressive.phrase) {
+        base.phrases.push({ ou: 'degressive', texte: sans.degressive.phrase, citations: sans.citations.degressive || [] });
+      }
       return base;
     }
     // La consigne figée (§9.9, delta 49-13) : c'est elle que lisent les lignes
@@ -552,21 +581,46 @@
 
     // L'en-tête décrit la disposition de la consigne sur les lignes de la
     // séance (ECRAN §3.12, 26/09/2026) — plus le `n` de la consigne brute.
+    //
+    // §20 bis (49-U19) — CHAQUE PHRASE SE RÉDIGE SOUS CAPTURE : le formateur
+    // déclare la nature et l'objet de chaque chiffre (`THModele.capturer`), et
+    // le plan garde les citations à côté du texte (`x.phrases`), pour I26.
+    var V = Voix();
     var disposition = r.planInitial.map(function (p) { return p && p.role === 'haut' ? 'haut' : 'ligne'; });
-    var entete = M.enteteDeDisposition(consigne, disposition);
+    var capE = V.capturer(function () { return M.enteteDeDisposition(consigne, disposition); });
+    var entete = capE.texte, citesJaune = capE.citations;
     var gris = c.libelles ? c.libelles.gris : '';
+    // La phrase grise vient de la consigne (`libellesConsigne`, calculée avec
+    // elle) : elle se RÉDIGE À NOUVEAU sous capture, et seul un texte
+    // identique prête ses citations (sinon I26 le dit).
+    // Une consigne que la règle ne sait pas rédiger (forgée) n'a pas de
+    // citations : la garde le dira, le plan ne tombe pas.
+    var capG = null;
+    if (gris) {
+      try { capG = V.capturer(function () { return M.libellesConsigne(c.consigne, debut).gris; }); } catch (ex) { capG = null; }
+    }
+    var citesGris = capG && capG.texte === gris ? capG.citations : null;
     if (consigne.allegee) {
       // « 125 kg × 3 », et en gris « 2 séries au lieu de 4, cette semaine ».
-      entete = { jaune: [M.phraseAllegee(consigne)], segments: entete.segments };
-      gris = M.detailAllegee(consigne);
+      var capA = V.capturer(function () { return M.phraseAllegee(consigne); });
+      entete = { jaune: [capA.texte], segments: entete.segments };
+      citesJaune = capA.citations;
+      var capDA = V.capturer(function () { return M.detailAllegee(consigne); });
+      gris = capDA.texte;
+      citesGris = capDA.citations;
     }
     // §14.5 — « On repart de 120 kg, ta dernière charge tenue : … le 3 févr. »
-    if (consigne.repli) gris = M.phraseRepli(consigne.repli, debut);
+    if (consigne.repli) {
+      var capR = V.capturer(function () { return M.phraseRepli(consigne.repli, debut); });
+      gris = capR.texte;
+      citesGris = capR.citations;
+    }
     // §14.7 — « une série de plus, jusqu'à ton prochain progrès », en gris.
     var grisPlus = consigne.serieDePlus ? M.GRIS_SERIE_DE_PLUS : null;
     var donc = entete.jaune.length ? 'Donc ' + entete.jaune.join(', ') + '.' : null;
     var autour = chauffesEtDegressive(r.lignes, series, consigne, materiel || null);
-    var pourquoi = pourquoiDuPlan(consigne, r.lignes, donc);
+    var capP = V.capturer(function () { return pourquoiDuPlan(consigne, r.lignes, donc); });
+    var pourquoi = capP.texte;
     var note = noteDesChauffes(autour.chauffes);
     if (pourquoi && note) pourquoi.chauffes = note;
     // §12.9 (49-U13) — le compteur de stagnation, calculé avec la consigne
@@ -574,20 +628,52 @@
     // gris dans l'en-tête et en une ligne de la feuille « Pourquoi ».
     var compteur = c.compteur || null;
     // Pendant la semaine allégée, le compteur se tait : rien ne se juge.
-    var phraseDuCompteur = compteur && !consigne.allegee ? M.phraseCompteur(compteur) : null;
+    var capK = V.capturer(function () { return compteur && !consigne.allegee ? M.phraseCompteur(compteur) : null; });
+    var phraseDuCompteur = capK.texte, citesCompteur = capK.citations;
     // §14.5 (49-U15) — LA MARCHE PARLE À LA PLACE DU COMPTEUR, une seule voix :
     // en sèche, la phrase grise dit qu'il n'y a rien de plus ; la carte de
     // schéma et le repli disent déjà le meilleur ; au silence, la phrase quitte
     // l'en-tête et passe une fois dans le constat.
     if (marche && compteur) {
-      if (marche.marche === M.MARCHE_SECHE) phraseDuCompteur = M.phraseSeche(compteur);
-      else if (marche.marche === M.MARCHE_SILENCE || marche.carte || consigne.repli) phraseDuCompteur = null;
+      if (marche.marche === M.MARCHE_SECHE) {
+        capK = V.capturer(function () { return M.phraseSeche(compteur); });
+        phraseDuCompteur = capK.texte;
+        citesCompteur = capK.citations;
+      } else if (marche.marche === M.MARCHE_SILENCE || marche.carte || consigne.repli) phraseDuCompteur = null;
     }
     if (pourquoi && phraseDuCompteur) pourquoi.compteur = phraseDuCompteur;
-    var constat = constatDuPlan(r.lignes, consigne, suite, reglage, debut);
+    var capC = V.capturer(function () { return constatDuPlan(r.lignes, consigne, suite, reglage, debut); });
+    var constat = capC.texte, citesEscalier = [];
     if (constat && marche && marche.marche === M.MARCHE_SILENCE && marche.declenchement && compteur) {
-      constat.escalier = M.phraseCompteur(compteur);
+      var capX = V.capturer(function () { return M.phraseCompteur(compteur); });
+      constat.escalier = capX.texte;
+      citesEscalier = capX.citations;
     }
+
+    var phrases = [];
+    var dire = function (ou, texte, citations) {
+      if (texte === null || texte === undefined || texte === '') return;
+      phrases.push({ ou: ou, texte: String(texte), citations: citations });
+    };
+    dire('entete.jaune', entete.jaune.join(', '), citesJaune);
+    dire('entete.gris', gris, citesGris);
+    dire('entete.compteur', phraseDuCompteur, citesCompteur);
+    dire('entete.plus', grisPlus, []);
+    dire('message', r.message ? r.message.phrase : null, r.citationsMessage);
+    dire('donc', donc, citesJaune);
+    if (pourquoi) {
+      dire('pourquoi', (pourquoi.lignes || []).map(function (l) {
+        return [l.texte, l.raison, l.faite].filter(Boolean).join(' · ');
+      }).join(' | '), capP.citations);
+    }
+    if (constat) {
+      dire('constat', [constat.verdict, constat.suite].filter(Boolean).join(' '), capC.citations);
+      dire('constat.escalier', constat.escalier, citesEscalier);
+    }
+    if (autour.chauffes) dire('chauffes', autour.chauffes.phrase, autour.citations.chauffes || []);
+    if (autour.proposition) dire('proposition', autour.proposition.phrase, autour.citations.proposition || []);
+    if (autour.degressive) dire('degressive', autour.degressive.phrase, autour.citations.degressive || []);
+    if (marche && marche.carte) dire('escalier.carte', marche.carte.phrase, citationsDeCarte(marche.carte));
 
     return {
       iExo: iExo, slug: base.slug,
@@ -604,7 +690,8 @@
       donc: donc,
       pourquoi: pourquoi,
       materiel: materiel ? materiel.equipement || null : null,
-      chauffes: autour.chauffes, proposition: autour.proposition, degressive: autour.degressive
+      chauffes: autour.chauffes, proposition: autour.proposition, degressive: autour.degressive,
+      phrases: phrases
     };
   }
 
@@ -853,6 +940,18 @@
   // un refus « au prochain blocage, je regarderai exercice par exercice ».
   // `entrees.escalier.marches` : les marches déjà écrites (`marchesDesParis`).
   // Rend `{ [slug]: marche }`.
+  // §20 bis (49-U19) — les citations de la carte d'une marche, à côté d'elle
+  // (une carte est une donnée de l'escalier : elle ne porte pas de champ de
+  // plus). Une table faible : la carte morte, ses citations partent avec elle.
+  var CITATIONS_DES_CARTES = typeof WeakMap === 'function' ? new WeakMap() : null;
+  function retenirCitationsDeCarte(carte, citations) {
+    if (CITATIONS_DES_CARTES && carte && typeof carte === 'object') CITATIONS_DES_CARTES.set(carte, citations);
+  }
+  function citationsDeCarte(carte) {
+    return CITATIONS_DES_CARTES && carte && typeof carte === 'object' && CITATIONS_DES_CARTES.has(carte)
+      ? CITATIONS_DES_CARTES.get(carte) : null;
+  }
+
   function marchesIsolees(e, seance, consignes, esc, phase) {
     var sortie = {};
     var E = e.escalier;
@@ -904,10 +1003,14 @@
         } else {
           if (J === null) J = joursDesCompteurs(E, seance, consignes, jour);
           var avancent = M.autresAvancent(J.jours, jour, slug);
-          m.carte = marche === M.MARCHE_SCHEMA
-            ? M.carteSchema(zone, c.compteur.meilleur, k, avancent)
-            : M.carteSerieDePlus(c.compteur.meilleur, k, avancent, musclesPrimaires(e, slug));
+          var capCarte = Voix().capturer(function () {
+            return marche === M.MARCHE_SCHEMA
+              ? M.carteSchema(zone, c.compteur.meilleur, k, avancent)
+              : M.carteSerieDePlus(c.compteur.meilleur, k, avancent, musclesPrimaires(e, slug));
+          });
+          m.carte = capCarte.texte;
           if (!m.carte) return;
+          retenirCitationsDeCarte(m.carte, capCarte.citations);
         }
       }
       sortie[slug] = m;
@@ -1616,6 +1719,292 @@
     });
   }
 
+  // ══ I26 — LA COHÉRENCE DES PHRASES (MOTEUR §20 bis, 49-U19) ═════════════
+  //
+  // « Chaque chiffre que le coach écrit a une origine dans le plan ; et deux
+  // phrases du même plan ne disent jamais deux choses différentes. » La garde
+  // LIT LES DÉCLARATIONS du formateur (`x.phrases`, capturées par le plan) :
+  // elle n'analyse pas le texte, sauf pour y trouver ce que personne n'a
+  // déclaré — un chiffre écrit à la main, un « null ».
+  //
+  // Trois vérifications, plus les mots interdits :
+  //   1. le jaune colle aux chiffres : une cible du jour est une ligne du plan ;
+  //   2. le gris colle aux chiffres : un fait passé égale sa source (le
+  //      fondement de la consigne, le compteur, les séries faites du jour),
+  //      une cible suivante égale la consigne suivante, une règle sa valeur ;
+  //   3. le jaune et le gris disent la même chose : même nature et même objet,
+  //      mêmes chiffres, dans les deux sens ; un mot d'ordre égale le rang.
+  //
+  // ⚠️ EN MODE RAPPORT (49-U19). Un écart ne rend pas le plan faux (`ok` ne le
+  // compte pas) : il se liste, se compare à la liste d'attente, et se tranche
+  // ensuite — la phrase, ou la garde. ⚠️ AUCUNE SOURCE N'EST RECALCULÉE PAR
+  // LA RÈGLE CONTRÔLÉE : le rang d'une série restée se relit dans le
+  // fondement, la cible suivante dans la consigne suivante que l'app a donnée.
+  //
+  // `faits` (facultatif) : `{ [slug]: { [quoi]: { charge, reps, date } } }`,
+  // des faits de l'historique qui remplacent ceux que le plan porte.
+  // Rend `[{ iExo, exercice, ou, phrase, citation, attendu, cause }]`.
+  var MOTS_INTERDITS = /\b(?:null|undefined|NaN)\b/;
+  var NATURES_I26 = { cible_du_jour: true, fait_passe: true, cible_suivante: true, regle: true };
+  // Des citations de même clé qui disent des choses DIFFÉRENTES par nature :
+  // chaque série du jour, chaque chauffe, les deux bornes d'une visée.
+  var SANS_CROISEMENT = { 'fait_passe|du_jour': true, 'regle|chauffe': true, 'regle|chauffe.reps': true,
+                          'regle|degressive.vise': true };
+
+  function texteDuChiffre(v) {
+    return v === null || v === undefined ? String(v) : (typeof v === 'number' ? Voix().nombre(v) || String(v) : String(v));
+  }
+  function memesReps(a, b) {
+    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+    for (var i = 0; i < a.length; i++) if (nombre(a[i]) === null || nombre(a[i]) !== nombre(b[i])) return false;
+    return true;
+  }
+  function memeJour(a, b) {
+    if (!a || !b) return false;
+    return String(a) === String(b) || String(a).slice(0, 10) === String(b).slice(0, 10);
+  }
+  function decrire(src) {
+    if (!src) return 'aucune source';
+    var b = [];
+    if (src.charge !== undefined) b.push(src.charge === null ? 'charge inconnue' : texteDuChiffre(src.charge) + ' kg');
+    if (Array.isArray(src.reps)) b.push('× ' + src.reps.map(texteDuChiffre).join(', '));
+    if (src.date) b.push(String(src.date).slice(0, 10));
+    if (src.valeur !== undefined) b.push(texteDuChiffre(src.valeur));
+    if (Array.isArray(src.valeurs)) b.push('une de : ' + src.valeurs.map(texteDuChiffre).join(', '));
+    return b.join(' ') || 'aucune source';
+  }
+
+  // La citation contre UNE source `{ charge?, reps?, date?, valeur?, valeurs? }` :
+  // `null` si elle l'égale, sinon ce qui diffère.
+  function contreSource(q, src) {
+    if (!src) return 'aucune source';
+    var champ = q.objet && q.objet.champ;
+    if (q.valeur !== undefined) {
+      var v = nombre(q.valeur);
+      if (champ === 'reps') {
+        var l = Array.isArray(src.reps) ? src.reps.map(nombre) : [];
+        return l.indexOf(v) >= 0 ? null : 'reps';
+      }
+      if (Array.isArray(src.valeurs)) return src.valeurs.map(nombre).indexOf(v) >= 0 ? null : 'valeur';
+      return v !== null && v === nombre(src.valeur) ? null : 'valeur';
+    }
+    if (q.charge !== undefined && src.charge !== undefined) {
+      if (q.charge === null ? nombre(src.charge) !== null : !memeCharge(q.charge, src.charge)) return 'charge';
+    }
+    if (q.reps !== undefined && Array.isArray(src.reps) && !memesReps(q.reps, src.reps)) return 'reps';
+    if (q.date !== undefined && src.date && !memeJour(q.date, src.date)) return 'date';
+    return null;
+  }
+
+  // Une citation du jour contre les séries faites à une charge : la charge, et
+  // des reps qui sont TOUTES parmi celles de cette charge (un multi-ensemble).
+  function dansLeJour(q, g) {
+    if (q.charge !== undefined && !(q.charge !== null && memeCharge(q.charge, g.charge))) return false;
+    var reste = g.reps.map(nombre);
+    var dites = Array.isArray(q.reps) ? q.reps : (q.valeur !== undefined ? [q.valeur] : []);
+    return dites.every(function (r) {
+      var i = reste.indexOf(nombre(r));
+      if (i < 0) return false;
+      reste.splice(i, 1);
+      return true;
+    });
+  }
+
+  function sourcesDeLExercice(x, faits) {
+    var M = Moteur();
+    var k = x.consigne || {};
+    var f = k.fondement || {};
+    var couvertes = (x.lignes || []).filter(function (l) { return l.role !== 'hors'; });
+    var lignes = couvertes.map(function (l) { return { charge: l.charge, vise: l.vise }; })
+      .concat((x.planInitial || []).filter(Boolean).map(function (p) { return { charge: p.charge, vise: p.vise }; }));
+    // Les séries faites du jour, par charge : une citation « 80 kg × 10, 10, 6 »
+    // en prend une partie (une série, ou celles d'une même charge).
+    var parCharge = [];
+    couvertes.filter(function (l) { return l.validee && l.faite; }).forEach(function (l) {
+      var g = parCharge.filter(function (x) { return memeCharge(x.charge, l.faite.charge); })[0];
+      if (!g) parCharge.push(g = { charge: l.faite.charge, reps: [] });
+      g.reps.push(l.faite.reps);
+    });
+    var jour = parCharge;
+    var fait = {};
+    if (f.date || k.palier !== undefined) fait.palier = { charge: k.palier, reps: Array.isArray(f.reps) ? f.reps : undefined, date: f.date || null };
+    if (f.test) fait.test = { charge: f.test.charge, reps: [f.test.reps], date: f.test.date || null };
+    if (f.palierPrecedent !== undefined && f.palierPrecedent !== null) fait.reste = { charge: f.palierPrecedent };
+    if (f.serieAFond) fait.a_fond = { charge: f.serieAFond.charge, reps: [f.serieAFond.reps] };
+    var meilleur = x.compteur && x.compteur.meilleur;
+    if (meilleur) fait.meilleur = { charge: meilleur.palier, reps: [meilleur.niveau] };
+    if (k.repli) fait.repli = { charge: k.repli.palier, reps: (k.repli.reps || []).slice(), date: k.repli.debut || null };
+    var suite = x.constat && x.constat.suiteLignes ? x.constat.suiteLignes : null;
+    if (suite && suite.test) fait.test_du_jour = { charge: suite.test.charge, reps: [suite.test.reps], date: suite.test.date };
+    var autres = faits && x.slug && faits[x.slug] ? faits[x.slug] : {};
+    Object.keys(autres).forEach(function (q) { fait[q] = autres[q]; });
+
+    var z = M.zoneParCle(k.zone);
+    var chauffes = [], chauffesReps = [];
+    (x.lignes || []).forEach(function (l) { if (l.chauffe && l.chauffe.charge !== null) chauffes.push(l.chauffe.charge); });
+    if (x.proposition) (x.proposition.lignes || []).forEach(function (q) { chauffes.push(q[0]); chauffesReps.push(q[1]); });
+    var degVise = [];
+    (x.lignes || []).forEach(function (l) { if (l.degressive && Array.isArray(l.degressive.vise)) degVise = degVise.concat(l.degressive.vise); });
+    var regle = {
+      compteur: x.compteur ? { valeur: x.compteur.compteur } : null,
+      'zone.bas': z ? { valeur: z.bas } : null,
+      'zone.haut': z ? { valeur: z.haut } : null,
+      chauffe: { charge: undefined, valeurs: chauffes },
+      'chauffe.reps': { valeurs: chauffesReps },
+      reference: x.chauffes ? { charge: x.chauffes.reference } : x.proposition ? { charge: x.proposition.reference } : null,
+      degressive: x.degressive ? { charge: x.degressive.charge } : null,
+      cran_suivant: x.constat && x.constat.suiteLignes ? { charge: x.constat.suiteLignes.cran } : null,
+      'degressive.vise': { valeurs: degVise }
+    };
+    var msg = x.reaction && x.reaction.message;
+    return { lignes: lignes, jour: jour, fait: fait, regle: regle, suite: suite,
+             seconde: msg && Array.isArray(msg.charges) && msg.charges.length > 1 ? { charge: msg.charges[1] } : null,
+             fondement: f };
+  }
+
+  // Le rang de la série restée, relu dans le fondement (sa dernière séance),
+  // jamais dans la phrase : `{ rang, sur }`, ou `null` s'il n'est pas unique.
+  var ROLES_ECHELLE = { palier: true, travail: true, exploration: true, rampe: true };
+  function rangDuResteLu(f) {
+    var echelle = (f.seance || []).filter(function (s) { return s && ROLES_ECHELLE[s.role] === true; });
+    var ou = [];
+    echelle.forEach(function (s, i) { if (memeCharge(nombre(s.charge_kg), nombre(f.palierPrecedent))) ou.push(i); });
+    return ou.length === 1 ? { rang: ou[0], sur: echelle.length } : null;
+  }
+
+  function cleDeCroisement(q) {
+    var o = q.objet || {};
+    var base = q.nature + '|' + (o.role || o.quoi || o.regle || '');
+    if (SANS_CROISEMENT[base]) return null;
+    return base + '|' + (o.rang === undefined ? '' : o.rang) + '|' + (o.champ || '');
+  }
+  function memesChiffres(a, b) {
+    if (a.valeur !== undefined || b.valeur !== undefined) {
+      return a.valeur === undefined || b.valeur === undefined || nombre(a.valeur) === nombre(b.valeur);
+    }
+    if (a.charge !== undefined && b.charge !== undefined && a.charge !== null && b.charge !== null &&
+        !memeCharge(a.charge, b.charge)) return false;
+    if (a.reps !== undefined && b.reps !== undefined && !memesReps(a.reps, b.reps)) return false;
+    if (a.date !== undefined && b.date !== undefined && !memeJour(a.date, b.date)) return false;
+    return true;
+  }
+
+  function verifierPhrases(plan, faits) {
+    var ecarts = [];
+    var ajouter = function (x, p, citation, attendu, cause) {
+      ecarts.push({ iExo: x ? x.iExo : null, exercice: x ? x.slug : null, ou: p.ou, phrase: p.texte,
+                    citation: citation, attendu: attendu, cause: cause });
+    };
+    // Les phrases du plan entier (le bandeau et la carte de la semaine
+    // allégée) : aucune citation, donc tout chiffre y est écrit à la main.
+    var duPlan = [];
+    if (plan && plan.allegee && plan.allegee.bandeau) duPlan.push({ ou: 'allegee.bandeau', texte: plan.allegee.bandeau, citations: [] });
+    if (plan && plan.carte) {
+      if (plan.carte.phrase) duPlan.push({ ou: 'carte.phrase', texte: plan.carte.phrase, citations: [] });
+      if (plan.carte.detail) duPlan.push({ ou: 'carte.detail', texte: plan.carte.detail, citations: [] });
+    }
+    duPlan.forEach(function (p) { verifierTexte(null, p, ajouter); });
+
+    ((plan && plan.exercices) || []).forEach(function (x) {
+      var phrases = x.phrases || [];
+      if (!x.consigne) { phrases.forEach(function (p) { verifierTexte(x, p, ajouter); }); return; }
+      var src = sourcesDeLExercice(x, faits);
+      var vues = [];
+      phrases.forEach(function (p) {
+        verifierTexte(x, p, ajouter);
+        (p.citations || []).forEach(function (q) {
+          var dit = q.texte;
+          var o = q.objet || {};
+          if (!NATURES_I26[q.nature]) { ajouter(x, p, dit, 'une nature', 'sans_nature'); return; }
+          // Une déclaration que la phrase n'écrit pas : un fragment rédigé
+          // d'avance, puis laissé de côté — il ne prouve rien.
+          if (dit && p.texte.indexOf(dit) < 0) { ajouter(x, p, dit, 'un fragment écrit dans la phrase', 'citation_non_ecrite'); return; }
+          if (Array.isArray(q.reps) && q.reps.some(function (r) { return nombre(r) === null; })) {
+            ajouter(x, p, dit, 'des reps', 'valeur_nulle'); return;
+          }
+          if (q.valeur !== undefined && nombre(q.valeur) === null) { ajouter(x, p, dit, 'un nombre', 'valeur_nulle'); return; }
+          var cause = null, attendu = null;
+          if (q.nature === 'cible_du_jour') {
+            var cands = o.role === 'seconde' ? (src.seconde ? [src.seconde] : []) : src.lignes.map(function (l) {
+              return { charge: l.charge, reps: l.vise === null || l.vise === undefined ? undefined : [l.vise] };
+            });
+            if (!cands.some(function (c) { return contreSource(q, c) === null; })) {
+              cause = 'cible_hors_lignes';
+              attendu = cands.map(decrire).join(' / ') || 'aucune ligne';
+            }
+          } else if (q.nature === 'cible_suivante') {
+            var s = src.suite;
+            var l = !s ? null : o.role === 'haut' ? (s.haut || s.ligne) : (s.ligne || s.haut);
+            var sl = l ? { charge: l.charge, reps: l.vise === null || l.vise === undefined ? undefined : [l.vise] } : null;
+            if (contreSource(q, sl) !== null) { cause = 'suivante_differente'; attendu = decrire(sl); }
+          } else if (q.nature === 'fait_passe') {
+            var fs = o.quoi === 'du_jour' ? src.jour : (src.fait[o.quoi] ? [src.fait[o.quoi]] : []);
+            var egal = o.quoi === 'du_jour' ? function (c) { return dansLeJour(q, c); }
+              : function (c) { return contreSource(q, c) === null; };
+            if (!fs.some(egal)) {
+              cause = fs.length ? 'fait_different' : 'fait_sans_source';
+              attendu = fs.map(decrire).join(' / ') || 'aucune source';
+            } else if (o.quoi === 'reste' && o.ordre) {
+              var r = rangDuResteLu(src.fondement);
+              var juste = r && (o.ordre === 'première' ? r.rang === 0 : r.rang === r.sur - 1);
+              if (!juste) {
+                cause = 'mot_ordre';
+                attendu = r ? 'rang ' + (r.rang + 1) + ' sur ' + r.sur : 'un rang unique';
+              }
+            }
+          } else {
+            var rs = Object.prototype.hasOwnProperty.call(src.regle, o.regle) ? src.regle[o.regle] : undefined;
+            if (rs === undefined) { cause = 'regle_sans_source'; attendu = 'aucune source'; }
+            else if (contreSource(q, rs) !== null) { cause = 'regle_differente'; attendu = decrire(rs); }
+          }
+          if (cause) ajouter(x, p, dit, attendu, cause);
+          vues.push({ q: q, p: p });
+        });
+      });
+      // 3. Le jaune et le gris disent la même chose — dans les deux sens.
+      var parCle = {};
+      vues.forEach(function (v) {
+        var cle = cleDeCroisement(v.q);
+        if (cle === null) return;
+        (parCle[cle] = parCle[cle] || []).push(v);
+      });
+      Object.keys(parCle).forEach(function (cle) {
+        var l = parCle[cle];
+        for (var i = 1; i < l.length; i++) {
+          if (!memesChiffres(l[0].q, l[i].q)) {
+            ajouter(x, l[i].p, l[i].q.texte, l[0].q.texte + ' (' + l[0].p.ou + ')', 'jaune_gris');
+          }
+        }
+      });
+    });
+    return ecarts;
+  }
+
+  // Ce que le texte seul suffit à dire : un mot interdit, et chaque chiffre
+  // qu'aucune citation ne couvre (écrit hors du formateur). Une phrase dont la
+  // capture n'a pas pu être refaite (`citations: null`) se dit une fois.
+  function verifierTexte(x, p, ajouter) {
+    var m = MOTS_INTERDITS.exec(p.texte);
+    if (m) ajouter(x, p, m[0], 'aucun « ' + m[0] + ' »', 'mot_interdit');
+    if (p.citations === null || p.citations === undefined) {
+      if (/\d/.test(p.texte)) ajouter(x, p, null, 'les citations de la phrase', 'sans_citations');
+      return;
+    }
+    var reste = p.texte;
+    p.citations.map(function (q) { return q.texte || ''; }).filter(Boolean)
+      .sort(function (a, b) { return b.length - a.length; })
+      .forEach(function (t) {
+        // Le fragment entier, jamais un morceau d'un autre nombre (« 10 »
+        // dans « 110,4 »).
+        var motif = t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        reste = reste.replace(new RegExp('(^|[^\\d,])' + motif + '(?![\\d])', 'g'), '$1 ');
+      });
+    // Un nombre, pas un chiffre collé à une lettre : « U14 » est un nom.
+    var nombres = /(^|[^A-Za-zÀ-ÿ\d,.])(\d+(?:[,.]\d+)?)(?![A-Za-zÀ-ÿ\d])/g;
+    var m2;
+    while ((m2 = nombres.exec(reste))) ajouter(x, p, m2[2], 'un chiffre écrit par le formateur', 'hors_formateur');
+  }
+
   // `entrees` (facultatif) : I7 — les paris de la séance face aux lignes ;
   // I12 — mêmes entrées, même plan, et les entrées ne sont pas modifiées par
   // le calcul. `avant` (facultatif) : le plan précédent, pour I4.
@@ -1639,7 +2028,8 @@
       if (JSON.stringify(refait) !== JSON.stringify(plan)) erreurs.push('I12 — même entrée, plan différent');
       if (JSON.stringify(entrees) !== entreesAvant) erreurs.push('I12 — le calcul a modifié ses entrées');
     }
-    return { ok: erreurs.length === 0, erreurs: erreurs };
+    // I26 — EN MODE RAPPORT (49-U19) : à part, `ok` ne les compte pas.
+    return { ok: erreurs.length === 0, erreurs: erreurs, ecartsPhrases: verifierPhrases(plan, null) };
   }
 
   // ══ LA GARDE DU COACH (49-U7, C6) — CHAQUE PLAN, HORS PRODUCTION ════════
@@ -1665,6 +2055,11 @@
   // `I10 suite` n'est pas une violation : c'est la partie RAPPORTÉE de I10
   // (49-U4), en attente d'une décision de fond. Elle s'écrit en console, à
   // part, sans marqueur.
+  //
+  // I26 (MOTEUR §20 bis, 49-U19) — LA COHÉRENCE DES PHRASES, EN MODE RAPPORT :
+  // ses écarts ne sont pas des violations (le banc ne les compte pas), mais la
+  // garde les MARQUE EN ROUGE (`marquer(violations, ecarts)`) et les écrit en
+  // console, chacun une fois.
   var CLE_GARDE = 'th-v2-garde';
 
   function hoteDeDeveloppement(hote) {
@@ -1699,6 +2094,7 @@
     var active = gardeActive(e.location, e.stockage);
     var precedent = null;
     var violations = [];
+    var ecarts = [], ecartsVus = {};
     var plans = 0;
     function verifier(plan, entrees) {
       if (!active || !plan) return null;
@@ -1711,16 +2107,26 @@
       var rapports = v.erreurs.filter(function (x) { return x.indexOf('I10 suite') === 0; });
       var j = e.journal || null;
       if (rapports.length && j && j.info) j.info('[garde du coach] rapporté', rapports);
+      var phrases = (v.ecartsPhrases || []).filter(function (x) {
+        var cle = [x.exercice, x.ou, x.phrase, x.citation, x.cause].join('¦');
+        if (ecartsVus[cle]) return false;
+        ecartsVus[cle] = true;
+        return true;
+      });
+      if (phrases.length) {
+        ecarts = ecarts.concat(phrases);
+        if (j && j.warn) j.warn('[garde du coach] I26 — ' + phrases.length + ' écart(s) de cohérence (rapport)', phrases);
+      }
       if (graves.length) {
         violations = violations.concat(graves);
         if (j && j.error) j.error('[garde du coach] ' + graves.length + ' violation(s)', graves, { plan: plan, entrees: entrees });
-        if (e.marquer) e.marquer(violations.slice());
       }
-      return { violations: graves, rapports: rapports };
+      if ((graves.length || phrases.length) && e.marquer) e.marquer(violations.slice(), ecarts.slice());
+      return { violations: graves, rapports: rapports, ecartsPhrases: v.ecartsPhrases || [] };
     }
     // Ce que la garde a vu : le banc le lit pour s'assurer que chacune de ses
     // sections a été vérifiée.
-    function etat() { return { active: active, plans: plans, violations: violations.slice() }; }
+    function etat() { return { active: active, plans: plans, violations: violations.slice(), ecartsPhrases: ecarts.slice() }; }
     return { active: active, verifier: verifier, etat: etat };
   }
 
@@ -1731,6 +2137,7 @@
     planDesLignes: planDesLignes,
     rejouer: rejouer,
     verifierPlan: verifierPlan,
+    verifierPhrases: verifierPhrases,
     gardeActive: gardeActive,
     creerGarde: creerGarde,
     seriesDites: seriesDites,

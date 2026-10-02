@@ -191,9 +191,9 @@ describe('I26 — la garde laisse passer ce qui est juste', () => {
     const p = planDe(k);
     const g = p.exercices[0].phrases.filter((x) => x.ou === 'entete.gris')[0];
     expect(esp(g.texte)).toBe('Ta machine ne permet pas un plus petit cran : ta zone s\'étire. On retestera 42,5 kg quand tu feras 13 reps à 40 kg.');
-    // Le « 13 » est la cible de l'étirement, écrit à la main : il se rapporte
-    // comme tel (liste d'attente), et rien d'autre.
-    expect(T.verifierPhrases(p).map((x) => [x.cause, x.citation])).toEqual([['hors_formateur', '13']]);
+    // Le « 13 » est la cible de l'étirement : écrit à la main jusqu'à la PR 7,
+    // il passe maintenant par le formateur (`regle('cible')`). Plus rien.
+    expect(T.verifierPhrases(p).map((x) => [x.cause, x.citation])).toEqual([]);
   });
 
   test('la borne d’une reprise, avec sa phrase', () => {

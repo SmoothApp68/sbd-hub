@@ -5481,12 +5481,10 @@
     var derniere = new Date(groupes[0].seance.debut);
     var bouts = [n + ' séance' + (n > 1 ? 's' : '')];
     if (!isNaN(depuis.getTime())) {
-      bouts[0] += ' depuis ' + depuis.toLocaleDateString('fr-FR',
-        { month: 'long', year: 'numeric' });
+      bouts[0] += ' depuis ' + Modele.moisAnnee(depuis);
     }
     if (!isNaN(derniere.getTime())) {
-      bouts.push('dernière le ' + derniere.toLocaleDateString('fr-FR',
-        { day: 'numeric', month: 'short' }));
+      bouts.push('dernière le ' + Modele.jourMois(derniere));
     }
     return bouts.join(' \u00b7 ');
   }
@@ -6192,11 +6190,8 @@
 
   // ── L'écran ──────────────────────────────────────────────────────────────
 
-  function nombreGroupe(n) {
-    // Espace INSÉCABLE FIN comme séparateur de milliers : c'est la typographie
-    // française, et un espace ordinaire casserait « 28 404 » en bout de ligne.
-    return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-  }
+  // Le formateur unique (`modele.js`, PR 7).
+  function nombreGroupe(n) { return Modele.nombreGroupe(n); }
 
   function ligneChoix(cle, libelle, sous) {
     return { libelle: libelle, sous: sous,
@@ -6270,7 +6265,7 @@
           // et son propre écran. La ligne MÈNE, elle ne saisit pas.
           { libelle: 'Poids',
             sous: resumePoids ? resumePoids.nb + ' pesée' + (resumePoids.nb > 1 ? 's' : '') : null,
-            valeur: resumePoids ? String(resumePoids.poids).replace('.', ',') + ' kg' : null,
+            valeur: resumePoids ? Modele.nombreSigne(resumePoids.poids) + ' kg' : null,
             surChoix: function () { allerA(Routeur.POIDS, {}); rendrePoids(); } },
           { libelle: 'Taille', valeur: p.taille_cm ? p.taille_cm + ' cm' : null,
             surChoix: function () { ouvrirSaisieProfil('taille_cm'); } },

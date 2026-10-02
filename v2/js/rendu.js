@@ -14,15 +14,12 @@
   var doc = racine.document;
   function M() { return racine.THModele; }
 
-  // Séparateur décimal français, jamais de point à l'écran — et le vrai signe
-  // moins (U+2212), jamais le trait d'union du clavier. Les charges NÉGATIVES
-  // existent au catalogue : une assistance se note « −50 kg » (muscle up
-  // assisté, tirage assisté). Sur un chiffre, un trait d'union se lit comme une
-  // césure ; la colonne de palier du chantier 17 est le premier écran à en
-  // afficher.
-  function nombreFr(n) {
-    return String(n).replace('.', ',').replace(/^-/, '\u2212');
-  }
+  // ⚠️ LES NOMBRES ET LES DATES S'ÉCRIVENT DANS `modele.js`, LE FORMATEUR
+  // UNIQUE (consolidation, PR 7). Ces noms ne sont plus que des appels.
+  function nombreFr(n) { return M().nombreSigne(n); }
+  function dateCourte(iso) { return M().dateCourte(iso); }
+  function dateLongue(iso) { return M().dateLongue(iso); }
+  function mmss(secondes) { return M().mmss(secondes); }
 
   function el(balise, classe, texte) {
     var n = doc.createElement(balise);
@@ -53,35 +50,11 @@
     return (points || []).map(function (p) { return p.x + ',' + p.y; }).join(' ');
   }
 
-  function dateCourte(iso) {
-    if (!iso) return '';
-    var d = new Date(iso);
-    if (isNaN(d.getTime())) return '';
-    return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
-  }
-
-  // « Jeudi 11 septembre » — l'historique d'un exercice se lit par JOUR, et le
-  // jour de la semaine en fait partie : « jeudi » situe la séance dans le
-  // rythme, ce que « 11/09 » ne fait pas. L'année n'apparaît que si ce n'est
-  // pas l'année courante — sinon elle allonge chaque en-tête pour rien.
-  function dateLongue(iso) {
-    if (!iso) return '';
-    var d = new Date(iso);
-    if (isNaN(d.getTime())) return '';
-    var opts = { weekday: 'long', day: 'numeric', month: 'long' };
-    if (d.getFullYear() !== new Date().getFullYear()) opts.year = 'numeric';
-    var t = d.toLocaleDateString('fr-FR', opts);
-    return t.charAt(0).toUpperCase() + t.slice(1);
-  }
-
   // « 30 août », ou « 30 août 2024 » quand l'année n'est pas celle de la
   // référence. Une variation « depuis le 18 mars » qui remonterait en fait à
   // l'an dernier serait fausse sans le dire.
   function jour(d, anneeRef) {
-    if (!(d instanceof Date) || isNaN(d.getTime())) return '';
-    var txt = d.getDate() + ' ' + MOIS[d.getMonth()];
-    var ref = typeof anneeRef === 'number' ? anneeRef : new Date().getFullYear();
-    return d.getFullYear() === ref ? txt : txt + ' ' + d.getFullYear();
+    return M().jourMois(d, typeof anneeRef === 'number' ? anneeRef : new Date().getFullYear());
   }
 
   // Le signe est le vrai signe moins (U+2212), pas le tiret du clavier : sur un
@@ -89,7 +62,7 @@
   function signe(v) {
     var n = Number(v) || 0;
     if (n > 0) return '+' + nombreFr(n);
-    if (n < 0) return '\u2212' + nombreFr(Math.abs(n));
+    if (n < 0) return nombreFr(n);
     return '0';
   }
 
@@ -526,14 +499,14 @@
 
   var JOURS_COURTS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 
-  var MOIS = ['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+  function MOIS() { return M().MOIS_COURTS; }
 
   // « 7 – 13 sept. 2026 », ou « 31 août – 6 sept. 2026 » à cheval sur deux mois.
   function libelleSemaine(lundi, dimanche) {
     if (!lundi || !dimanche) return '';
     var memeMois = lundi.getMonth() === dimanche.getMonth() && lundi.getFullYear() === dimanche.getFullYear();
-    var g = lundi.getDate() + (memeMois ? '' : ' ' + MOIS[lundi.getMonth()]);
-    return g + ' – ' + dimanche.getDate() + ' ' + MOIS[dimanche.getMonth()] + ' ' + dimanche.getFullYear();
+    var g = lundi.getDate() + (memeMois ? '' : ' ' + MOIS()[lundi.getMonth()]);
+    return g + ' – ' + dimanche.getDate() + ' ' + MOIS()[dimanche.getMonth()] + ' ' + dimanche.getFullYear();
   }
 
   // Bilan : le compte brut, puis le volume par muscle. Strictement descriptif —
@@ -801,7 +774,7 @@
       var bloc = el('div', 'jour');
       var tete = el('div', 'jour-tete');
       tete.appendChild(el('span', 'jour-nom', j.nom));
-      tete.appendChild(el('span', 'jour-date', j.date.getDate() + ' ' + MOIS[j.date.getMonth()]));
+      tete.appendChild(el('span', 'jour-date', M().jourMois(j.date)));
       bloc.appendChild(tete);
 
       j.seances.forEach(function (s) {
@@ -1122,11 +1095,6 @@
   // ══ LA SÉANCE EN COURS (chantier 22) ═════════════════════════════════════
 
   function S() { return racine.THSeance; }
-
-  function mmss(secondes) {
-    var s = Math.max(0, Math.round(secondes || 0));
-    return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2);
-  }
 
   function rendreBandeauSeance(cible, vue) {
     vider(cible);

@@ -294,7 +294,19 @@
       ligne: k.ligne ? { charge: k.ligne.charge, vise: k.ligne.vise } : null,
       haut: k.haut ? { charge: k.haut.charge, vise: k.haut.vise } : null,
       test: ft ? { charge: ft.charge, reps: ft.reps, date: ft.date || null } : null,
-      cran: suite.cranSuivant === undefined ? null : suite.cranSuivant
+      cran: suite.cranSuivant === undefined ? null : suite.cranSuivant,
+      // La structure de la prochaine séance (PR 7) : la source des « sur les
+      // 2 dernières séries » que le constat écrit.
+      n: typeof k.n === 'number' ? k.n : null,
+      k: k.haut && typeof k.haut.k === 'number' ? k.haut.k : null,
+      // Ce que le constat compare (PR 7) : le niveau du jour — celui de la
+      // consigne suivante, ou la meilleure série en Franc —, le haut de sa
+      // zone, et la cible d'un étirement.
+      niveau: typeof k.niveau === 'number' ? k.niveau : null,
+      repsMax: (k.fondement && Array.isArray(k.fondement.reps) ? k.fondement.reps : [])
+        .reduce(function (m, r) { return typeof r === 'number' && r > m ? r : m; }, 0),
+      zoneHaut: Moteur().zoneParCle(k.zone) ? Moteur().zoneParCle(k.zone).haut : null,
+      cible: k.fondement && typeof k.fondement.cible === 'number' ? k.fondement.cible : null
     };
     // I27 (relevé du 01/10, PR 2) — la zone CHOISIE de la suite : la même que
     // celle de la consigne, ou aucune des deux. Un silence n'a pas de zone :
@@ -1199,7 +1211,7 @@
     return {
       allegee: null,
       carte: { jour: jour, declencheur: b.declencheur, compteur: b.compteur, cites: b.cites.slice(),
-               phrase: M.phraseCarte(b.cites.map(nom)), detail: M.DETAIL_CARTE }
+               phrase: M.phraseCarte(b.cites.map(nom)), detail: M.detailCarte() }
     };
   }
 
@@ -1874,7 +1886,10 @@
   // Des citations de même clé qui disent des choses DIFFÉRENTES par nature :
   // chaque série du jour, chaque chauffe, les deux bornes d'une visée.
   var SANS_CROISEMENT = { 'fait_passe|du_jour': true, 'regle|chauffe': true, 'regle|chauffe.reps': true,
-                          'regle|degressive.vise': true, 'fait_passe|seance': true, 'regle|constante': true };
+                          'regle|degressive.vise': true, 'fait_passe|seance': true, 'regle|constante': true,
+                          // Les nombres de séries de chaque segment (PR 7) : « sur les 2
+                          // dernières » et « sur les 3 d'avant » disent deux segments.
+                          'regle|series': true };
 
   function texteDuChiffre(v) {
     return v === null || v === undefined ? String(v) : (typeof v === 'number' ? Voix().nombre(v) || String(v) : String(v));
@@ -1986,6 +2001,22 @@
     if (x.proposition) (x.proposition.lignes || []).forEach(function (q) { chauffes.push(q[0]); chauffesReps.push(q[1]); });
     var degVise = [];
     (x.lignes || []).forEach(function (l) { if (l.degressive && Array.isArray(l.degressive.vise)) degVise = degVise.concat(l.degressive.vise); });
+    var msgR = x.reaction && x.reaction.message;
+    // Les nombres de séries que l'en-tête, « Donc » et le constat écrivent
+    // (PR 7) : ceux de la consigne du jour, de ses segments, et de la suite.
+    var nbSeries = [];
+    var structure = function (n, kk) {
+      if (typeof kk === 'number') nbSeries.push(kk);
+      if (typeof n === 'number' && typeof kk === 'number') nbSeries.push(n - kk);
+      if (typeof n === 'number') nbSeries.push(n);
+    };
+    structure(k.n, k.haut ? k.haut.k : null);
+    if (suite) structure(suite.n, suite.k);
+    ((x.entete && x.entete.segments) || []).forEach(function (sg) { nbSeries.push(sg.nombre); });
+    // Et les séries faites aujourd'hui à une même charge (« ta nouvelle charge
+    // tient sur 2 séries »).
+    jour.forEach(function (g) { nbSeries.push(g.reps.length); });
+    var niveauxDuJour = suite ? [suite.niveau, suite.repsMax].filter(function (v) { return typeof v === 'number'; }) : [];
     var regle = {
       compteur: x.compteur ? { valeur: x.compteur.compteur } : null,
       'zone.bas': z ? { valeur: z.bas } : null,
@@ -2008,7 +2039,17 @@
       'ecart.pourcent': k.haut && k.ligne && k.haut.charge !== null && k.ligne.charge
         ? { valeur: Math.round((k.haut.charge - k.ligne.charge) / k.ligne.charge * 1000) / 10 } : null,
       cran_suivant: x.constat && x.constat.suiteLignes ? { charge: x.constat.suiteLignes.cran } : null,
-      'degressive.vise': { valeurs: degVise }
+      'degressive.vise': { valeurs: degVise },
+      'a_fond.comptees': f.serieAFond ? { valeur: f.serieAFond.comptees } : null,
+      // La réaction du jour (§9.14) : la marge et le numéro de la série.
+      'reaction.marge': msgR && msgR.marge !== undefined ? { valeur: msgR.marge } : null,
+      'reaction.rang': msgR && typeof msgR.rang === 'number' ? { valeur: msgR.rang + 1 } : null,
+      series: { valeurs: nbSeries },
+      'niveau.avant': typeof k.niveau === 'number' ? { valeur: k.niveau } : null,
+      'niveau.jour': { valeurs: niveauxDuJour },
+      manque: suite && typeof suite.zoneHaut === 'number'
+        ? { valeurs: niveauxDuJour.map(function (n) { return suite.zoneHaut - n; }) } : null,
+      'suite.cible': suite && suite.cible !== null ? { valeur: suite.cible } : null
     };
     var msg = x.reaction && x.reaction.message;
     return { lignes: lignes, jour: jour, fait: fait, regle: regle, suite: suite,
@@ -2053,12 +2094,33 @@
                     citation: citation, attendu: attendu, cause: cause });
     };
     // Les phrases du plan entier (le bandeau et la carte de la semaine
-    // allégée) : aucune citation, donc tout chiffre y est écrit à la main.
+    // allégée) : leur capture est REFAITE ici, depuis ce que le plan porte
+    // (`fin`, `cites`). Une capture qui ne redonne pas le texte du plan ne
+    // prouve rien (`citations: null`) ; la phrase de la carte se compare
+    // depuis « : », les noms affichés n'étant pas dans le plan.
     var duPlan = [];
-    if (plan && plan.allegee && plan.allegee.bandeau) duPlan.push({ ou: 'allegee.bandeau', texte: plan.allegee.bandeau, citations: [] });
+    var refaite = function (ou, texte, fn, pareil) {
+      var cap = null;
+      try { cap = Voix().capturer(fn); } catch (ex) { cap = null; }
+      var ok = cap && typeof cap.texte === 'string' && pareil(cap.texte);
+      duPlan.push({ ou: ou, texte: texte, citations: ok ? cap.citations : null });
+    };
+    var queue = function (t) { var i = String(t).lastIndexOf(' : '); return i < 0 ? String(t) : String(t).slice(i); };
+    if (plan && plan.allegee && plan.allegee.bandeau) {
+      var b = plan.allegee.bandeau;
+      refaite('allegee.bandeau', b, function () { return Moteur().bandeauAllegee(plan.allegee.fin); },
+              function (t) { return t === b; });
+    }
     if (plan && plan.carte) {
-      if (plan.carte.phrase) duPlan.push({ ou: 'carte.phrase', texte: plan.carte.phrase, citations: [] });
-      if (plan.carte.detail) duPlan.push({ ou: 'carte.detail', texte: plan.carte.detail, citations: [] });
+      var ca = plan.carte;
+      if (ca.phrase) {
+        refaite('carte.phrase', ca.phrase, function () { return Moteur().phraseCarte(ca.cites || []); },
+                function (t) { return queue(t) === queue(ca.phrase); });
+      }
+      if (ca.detail) {
+        refaite('carte.detail', ca.detail, function () { return Moteur().detailCarte(); },
+                function (t) { return t === ca.detail; });
+      }
     }
     duPlan.forEach(function (p) { verifierTexte(null, p, ajouter); });
 

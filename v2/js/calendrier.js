@@ -21,8 +21,8 @@
 (function (racine) {
   'use strict';
 
-  var MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin',
-              'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+  // Les mois vivent dans le formateur unique (`modele.js`, PR 7).
+  function MOIS() { return racine.THModele.MOIS_LONGS; }
 
   var LIGNES = 6;   // couvre tous les mois, y compris février qui commence un dimanche
 
@@ -77,7 +77,7 @@
       }
       lignes.push({ lundi: lundi, jours: jours });
     }
-    return { annee: annee, mois: mois, libelle: MOIS[mois] + ' ' + annee, lignes: lignes };
+    return { annee: annee, mois: mois, libelle: MOIS()[mois] + ' ' + annee, lignes: lignes };
   }
 
   // Le jour touché ne sert qu'à désigner sa ligne : on rend le lundi.
@@ -102,7 +102,7 @@
   }
 
   var api = {
-    MOIS: MOIS,
+    get MOIS() { return MOIS(); },
     LIGNES: LIGNES,
     grilleMois: grilleMois,
     semaineDuJour: semaineDuJour,

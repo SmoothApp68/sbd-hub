@@ -7,6 +7,9 @@
 // la semaine du jour touché » et « sélectionne la semaine du lundi » donnent le
 // même résultat et le banc ne prouve rien.
 
+// PR 7 de la consolidation — les nombres, les dates et les mois s'écrivent
+// dans le formateur unique, `modele.js`, lu à l'appel.
+require('../../v2/js/modele.js');
 const Calendrier = require('../../v2/js/calendrier.js');
 
 const seance = (iso) => ({ id: iso, debut: iso });

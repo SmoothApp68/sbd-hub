@@ -57,9 +57,11 @@
   // déménage : un pas d'il y a trois ans ne dit rien de celui d'aujourd'hui.
   var FENETRE_PAS_MOIS = 24;
   // §10.2 (delta 49-36) — la charge déjà utilisée PLUS LOURDE, hors barre : 12
-  // mois. Les matériels dont la charge change d'une salle à l'autre.
+  // mois. Les matériels dont la charge change d'une salle à l'autre. La
+  // machine Smith suit les machines (décidé le 02/10/2026) : sa barre guidée
+  // a son propre poids, qui change d'une machine à l'autre.
   var FENETRE_VOISINE_MOIS = 12;
-  var FENETRE_VOISINE_MATERIELS = ['machine', 'poulie', 'haltere'];
+  var FENETRE_VOISINE_MATERIELS = ['machine', 'machine_smith', 'poulie', 'haltere'];
   // Un écart isolé est du bruit, pas un plan de charges.
   var RECURRENCE_PAS = 3;
 
@@ -2043,6 +2045,24 @@
     return ' Ta zone ' + z.libelle + ' va jusqu\'à ' + z.haut + DEUX_POINTS + 'je vise ' + z.haut + '.';
   }
 
+  // §20 (49-U18, principe i) — LE MOT D'ORDRE SE DÉDUIT DU RANG, JAMAIS
+  // D'UNE HYPOTHÈSE. La série restée à l'ancien palier (« rejoint », une seule)
+  // se lit dans la dernière séance du fondement (`f.seance`) : la première de
+  // son échelle (une montée), la dernière, ou entre les deux (« ta série
+  // restée »).
+  function rangDuReste(f) {
+    var echelle = (f.seance || []).filter(function (s) {
+      return s && (ROLES_VOTANTS[s.role] === true || ROLES_RESTE[s.role] === true);
+    });
+    var ou = [];
+    echelle.forEach(function (s, i) {
+      if (memeCharge(nombre(s.charge_kg), nombre(f.palierPrecedent))) ou.push(i);
+    });
+    if (ou.length !== 1 || echelle.length < 2) return 'série restée';
+    if (ou[0] === 0) return 'première série';
+    return ou[0] === echelle.length - 1 ? 'dernière série' : 'série restée';
+  }
+
   function phraseGrise(c, reference) {
     var f = c.fondement || {};
     var z = zoneParCle(c.zone);
@@ -2095,12 +2115,13 @@
         return duTest + (t.niveau >= hi ? 'a touché le haut de ta zone' : 'est dans ta zone') +
                DEUX_POINTS + 'il gagne une série.';
 
-      // « Ta dernière série à 125 kg » : l'ancienne charge de travail est dans
-      // le fondement, et c'est la seule façon de la désigner sans compter les
-      // lignes.
+      // « Ta première série à 88 kg » : l'ancienne charge de travail est dans
+      // le fondement ; le mot d'ordre se lit sur le RANG de la série restée
+      // (`rangDuReste`, 49-U18) — « dernière » était écrit d'office, faux sur
+      // une montée (88, 92, 92 ; N5 : 125, 130, 130).
       case 'rejoint':
         return (c.ligne ? 'Une série de plus passe à '
-                        : 'Ta dernière série à ' + enKg(f.palierPrecedent) + ' passe à ') +
+                        : 'Ta ' + rangDuReste(f) + ' à ' + enKg(f.palierPrecedent) + ' passe à ') +
                enKg(c.haut.charge) + '.';
 
       case 'attend':

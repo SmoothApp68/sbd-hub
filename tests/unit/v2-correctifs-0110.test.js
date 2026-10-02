@@ -16,12 +16,12 @@
 // `coach49.py` (Claude.ai, 01/10/2026). Un cas qui semble faux se rapporte ;
 // il ne se corrige pas ici.
 //
-// ⚠️ V03 ET V04, RAPPORTÉS (PR 49-U18) : leurs attendus ne sortent qu'avec la
-// fenêtre de 12 mois appliquée AUSSI au pas de salle (rang 1). Le delta C3 dit
-// le contraire (« le rang 2 seulement ; le rang 1, 24 mois, ne change pas »)
-// et le rang 1 trouve ici un pas exact (7 ; 7,5) : 80 et 105,1, les valeurs
-// « avant ». Ils sont joués en `test.failing` — l'écart reste visible, et le
-// jour où la règle et le cas s'accordent, Jest le dira.
+// V03 ET V04 SONT DES TÉMOINS DU RANG 1 (décidé le 02/10/2026). Leurs premiers
+// attendus venaient d'une version intermédiaire de la référence (la fenêtre de
+// 12 mois appliquée aussi au pas de salle) ; ils ont été remplacés, de façon
+// chirurgicale, par leur `avant_le_correctif`. Le pas de salle (24 mois) passe
+// avant la charge déjà utilisée : 73 + 7 = 80, 97,6 + 7,5 = 105,1 — la fenêtre
+// de 12 mois du rang 2 ne les touche pas.
 
 process.env.TZ = 'Europe/Paris';
 
@@ -48,29 +48,32 @@ const forme = (k) => {
 };
 const consigneDuCas = (c) => M.consignePour(c.seances, c.avant,
   { equipement: c.equipement, reglage: c.reglage, correction: c.correction || null });
-const RAPPORTES = ['V03', 'V04'];
+const TEMOINS_RANG_1 = ['V03', 'V04'];
 
 // ── LES CAS ───────────────────────────────────────────────────────────────
 describe('49-U18 — le fichier de cas', () => {
-  test('11 cas : 4 de la borne, 4 de l’écart habituel, 3 de la charge voisine — chacun change', () => {
+  test('11 cas : 4 de la borne, 4 de l’écart habituel, 3 de la charge voisine — 9 changent, 2 témoins', () => {
     expect(F.cas).toHaveLength(11);
     const par = {};
     F.cas.forEach((c) => { par[c.regle] = (par[c.regle] || 0) + 1; });
     expect(par).toEqual({ borne: 4, ecart: 4, voisine: 3 });
-    F.cas.forEach((c) => expect(c.attendu).not.toEqual(c.avant_le_correctif));
+    F.cas.forEach((c) => {
+      if (TEMOINS_RANG_1.indexOf(c.id) >= 0) expect(c.attendu).toEqual(c.avant_le_correctif);
+      else expect(c.attendu).not.toEqual(c.avant_le_correctif);
+    });
   });
 
   F.cas.forEach((c) => {
-    const jouer = RAPPORTES.indexOf(c.id) >= 0 ? test.failing : test;
-    jouer(c.id + ' — ' + c.titre, () => {
+    test(c.id + ' — ' + c.titre, () => {
       expect(forme(consigneDuCas(c))).toEqual(c.attendu);
     });
   });
 
-  test('V03 et V04 (rapportés) : la règle C3 telle qu’écrite rend les valeurs d’avant, par le pas de salle', () => {
-    RAPPORTES.forEach((id) => {
+  test('V03 et V04, témoins du rang 1 : le pas de salle passe avant la charge déjà utilisée', () => {
+    TEMOINS_RANG_1.forEach((id) => {
       const c = F.cas.filter((x) => x.id === id)[0];
-      expect(forme(consigneDuCas(c))).toEqual(c.avant_le_correctif);
+      const a = c.attendu;
+      expect(a.haut[0]).toBeCloseTo(a.ligne[0] + (id === 'V03' ? 7 : 7.5), 6);
     });
   });
 
@@ -324,5 +327,97 @@ describe('49-U18 — la cible du constat : un seul calcul (« le coach ne fait q
 describe('49-U18 — la version', () => {
   test('VERSION_CONSIGNE vaut 5', () => {
     expect(M.VERSION_CONSIGNE).toBe(5);
+  });
+});
+
+// ── SECOND COMMIT (décisions du 02/10/2026) ──────────────────────────────
+describe('49-U18 bis — le mot d’ordre se lit sur le rang (principe i)', () => {
+  const serie = (kg, reps, role) => ({ charge_kg: kg, reps: reps, rpe: null, role: role || 'palier', origine: role || 'palier' });
+  const s = (j, palier, l) => ({ debut: '2026-09-' + j + 'T18:00:00+00:00', palier: palier, neutre: false, series: l });
+  const O = { reglage: 'normal', equipement: 'haltere', correction: null };
+  const debut = [s('17', 88, [serie(88, 10), serie(88, 10), serie(88, 10)]),
+                 s('20', 88, [serie(88, 10), serie(88, 10), serie(88, 11)]),
+                 s('23', 88, [serie(88, 11), serie(88, 11), serie(92, 11, 'exploration')])];
+  const gris = (derniere) => {
+    const k = M.consignePour(debut.concat([s('26', 92, derniere)]), '2026-10-01T17:00:00+00:00', O);
+    expect(k.etat).toBe('rejoint');
+    return M.libellesConsigne(k, '2026-10-01T17:00:00+00:00').gris;
+  };
+
+  test('une montée (88, 92, 92) : « Ta première série à 88 kg » — le couché du 01/10', () => {
+    expect(gris([serie(88, 10, 'rampe'), serie(92, 11), serie(92, 11)]))
+      .toBe('Ta première série à 88' + NB + 'kg passe à 92' + NB + 'kg.');
+  });
+
+  test('une série restée en fin de séance (92, 92, 88) : « Ta dernière série à 88 kg »', () => {
+    expect(gris([serie(92, 11), serie(92, 11), serie(88, 10, 'travail')]))
+      .toBe('Ta dernière série à 88' + NB + 'kg passe à 92' + NB + 'kg.');
+  });
+
+  test('entre les deux (92, 88, 92) : ni première ni dernière, « Ta série restée »', () => {
+    expect(gris([serie(92, 11), serie(88, 10, 'travail'), serie(92, 11)]))
+      .toBe('Ta série restée à 88' + NB + 'kg passe à 92' + NB + 'kg.');
+  });
+
+  test('N5, le cas livré corrigé : « Ta première série à 125 kg »', () => {
+    const N5 = require('./fixtures/consigne-48b7.json').filter((c) => c.id === 'N5')[0];
+    expect(N5.phrases.gris).toBe('Ta première série à 125' + NB + 'kg passe à 130' + NB + 'kg.');
+  });
+});
+
+describe('49-U18 bis — la phrase des chauffes disparaît dès qu’une chauffe est validée', () => {
+  const k = { etat: 'progression', zone: 'mix', palier: 52.5, niveau: 8, n: 2,
+              ligne: { charge: 52.5, vise: 8 }, haut: null, fondement: {} };
+  const ligne = (id, type, faite) => ({ id, type_serie: type, charge_kg: faite ? faite[0] : null,
+    reps: faite ? faite[1] : null, validee_a: faite ? '2026-10-01T17:10:00Z' : null, reps_visees: type === 'echauffement' ? 10 : null });
+  const plan = (premiere) => T.planDeSeance({
+    seance: { id: 'S', debut: '2026-10-01T17:07:00Z', edition: false, exercices: [{ exercise_slug: 'mil', series: [
+      ligne('c1', 'echauffement', premiere), ligne('c2', 'echauffement'), ligne('t1', 'travail'), ligne('t2', 'travail')] }] },
+    consignes: { mil: { consigne: k } }, paris: [],
+    catalogue: { mil: { equipement: 'barre', muscles_primaires: ['deltoide_anterieur'] } }
+  }).exercices[0];
+
+  test('avant : « Chauffes calées sur 52,5 kg : 20 · 45 kg. »', () => {
+    expect(plan(null).chauffes.phrase.replace(/\u00a0/g, ' ')).toBe('Chauffes calées sur 52,5 kg : 20 · 45 kg.');
+  });
+
+  test('une chauffe faite à 40 × 6 : plus de phrase ; la 2e chauffe garde sa charge pré-remplie', () => {
+    const x = plan([40, 6]);
+    expect(x.chauffes.phrase).toBeNull();
+    expect(x.lignes[1].fantome).toMatchObject({ charge: 45, source: 'chauffe' });
+  });
+});
+
+describe('49-U18 bis — sous « rejoint », les lignes ne sont pas un test', () => {
+  const libre = (id) => ({ id, type_serie: 'travail', charge_kg: null, reps: null, validee_a: null });
+  const plan = (consigne) => T.planDeSeance({
+    seance: { id: 'S', debut: '2026-10-01T17:07:00Z', edition: false,
+              exercices: [{ exercise_slug: 'x', series: [libre('a'), libre('b'), libre('c')] }] },
+    consignes: { x: { consigne: consigne } }, paris: [] }).exercices[0];
+
+  test('« rejoint » : la feuille dit « consigne », la nouvelle charge de travail', () => {
+    const x = plan({ etat: 'rejoint', zone: 'volume', palier: 92, niveau: 11, n: 3, ligne: null,
+                     haut: { charge: 92, vise: 11, k: 3 }, fondement: {} });
+    expect(x.pourquoi.lignes.map((l) => l.libelle)).toEqual(['consigne', 'consigne', 'consigne']);
+    // Le rôle interne ne change pas : les paris et la réaction le lisent.
+    expect(x.lignes.map((l) => l.role)).toEqual(['test', 'test', 'test']);
+  });
+
+  test('un vrai test (« test proposé ») garde son étiquette', () => {
+    const x = plan({ etat: 'test_propose', zone: 'volume', palier: 24.8, niveau: 12, n: 3,
+                     ligne: { charge: 24.8, vise: 12 }, haut: { charge: 27, vise: 10, k: 1 }, fondement: {} });
+    expect(x.pourquoi.lignes.map((l) => l.libelle)).toEqual(['consigne', 'consigne', 'test']);
+  });
+});
+
+describe('49-U18 bis — la machine Smith suit les machines (12 mois)', () => {
+  const COUPURE = '2026-10-01T18:00:00+00:00';
+  const une = (kg, jours) => ({ debut: new Date(Date.parse(COUPURE) - jours * 86400000).toISOString(), palier: kg,
+    retenues: [{ charge_kg: kg, reps: 10 }], votantes: [{ charge_kg: kg, reps: 10 }] });
+  const h = [une(62.5, 500), une(50, 60), une(70, 40), une(60, 20), une(60, 10)];
+
+  test('la charge de plus d’un an ne compte plus : 70, pas 62,5', () => {
+    expect(M.chargeVoisine(h, COUPURE, 60, 'machine_smith', 1)).toBe(70);
+    expect(M.chargeVoisine(h, COUPURE, 60, 'barre', 1)).toBe(62.5);
   });
 });

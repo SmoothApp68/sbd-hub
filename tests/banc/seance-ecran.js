@@ -9355,6 +9355,16 @@ const SETS_IMPORTES = [
     ok('[RJ] 49-U18 — la dégressive du curl EZ reste vide (malgré les 15 kg de la fois d’avant)',
       /#4 · degressive · hors plan · dégressive – « Pas de dégressive à la barre\. » · à faire · pré-rempli – × /.test(cur),
       cur.split('\n').filter((l) => /degressive/.test(l)).join(' | '));
+    // 49-U18 bis (02/10/2026) — la phrase des chauffes disparaît dès qu'une
+    // chauffe est validée (le militaire : 40 × 6 à l'étape 1).
+    const etape1 = (t1.split('── Étape 1 ')[1] || '').split('── Étape 2 ')[0];
+    ok('[RJ] 49-U18 bis — la phrase des chauffes du militaire disparaît après la chauffe à 40 × 6',
+      /chauffes : « Chauffes calées sur 52,5.kg.: 20 · 45.kg\. »/.test(mil) &&
+      /chauffes : \(sans phrase\)/.test(etape1) && !/Chauffes calées/.test(etape1),
+      (etape1.split('\n').filter((l) => /chauffes/.test(l))[0] || ''));
+    ok('[RJ] 49-U18 bis — le couché : « Ta première série à 88 kg passe à 92 kg. » (une montée)',
+      /en-tête \(gris\) : « Ta première série à 88.kg passe à 92.kg\. »/.test(cou),
+      (cou.split('\n').filter((l) => /gris/.test(l))[0] || ''));
     ok('[RJ] 49-U18 — aucune phrase ne dit « null » (l’en-tête du couché disait « le cran au-dessus × null »)',
       !/null/.test(t1), (t1.split('\n').filter((l) => /null/.test(l))[0] || ''));
     ok('[RJ] ce qui n’est pas reconstruit exactement est dit', /Ce qui n’est pas reconstruit exactement :/.test(t1) &&

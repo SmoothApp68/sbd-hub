@@ -101,9 +101,9 @@ describe('49-U7 — hors production, une violation s’écrit en console et se m
     const e = espion();
     const g = T.creerGarde({ location: loc('127.0.0.1'), stockage: stockage(), journal: e.journal, marquer: e.marquer });
     const { plan, entrees } = unPlan();
-    expect(g.verifier(plan, entrees)).toEqual({ violations: [], rapports: [] });
+    expect(g.verifier(plan, entrees)).toEqual({ violations: [], rapports: [], ecartsPhrases: [] });
     expect(e.appels).toEqual({ error: [], info: [], marques: [] });
-    expect(g.etat()).toEqual({ active: true, plans: 1, violations: [] });
+    expect(g.etat()).toEqual({ active: true, plans: 1, violations: [], ecartsPhrases: [] });
   });
 
   test('⚠️ DISCRIMINANT — un plan forgé : l’invariant, le plan et les entrées en console ; le marqueur', () => {
@@ -140,11 +140,33 @@ describe('49-U7 — hors production, une violation s’écrit en console et se m
     const g = T.creerGarde({ location: loc('localhost'), stockage: stockage(), journal: e.journal, marquer: e.marquer });
     const spy = jest.spyOn(T, 'verifierPlan').mockReturnValue({ ok: false, erreurs: ['I10 suite — exercice 0 (x) : …'] });
     try {
-      expect(g.verifier(unPlan().plan)).toEqual({ violations: [], rapports: ['I10 suite — exercice 0 (x) : …'] });
+      expect(g.verifier(unPlan().plan)).toEqual({ violations: [], rapports: ['I10 suite — exercice 0 (x) : …'], ecartsPhrases: [] });
     } finally { spy.mockRestore(); }
     expect(e.appels.info).toHaveLength(1);
     expect(e.appels.error).toEqual([]);
     expect(e.appels.marques).toEqual([]);
+  });
+});
+
+describe('49-U19 — I26 en mode rapport : marqué en rouge, jamais compté comme une violation', () => {
+  const ECART = { iExo: 0, exercice: 'x', ou: 'entete.gris', phrase: 'Même cible : 92 kg × 10.',
+    citation: '92 kg × 10', attendu: '92 kg × 11 (entete.jaune)', cause: 'jaune_gris' };
+  test('un écart de cohérence : console (avertissement), marqueur — et aucune violation', () => {
+    const e = espion();
+    const avert = [];
+    e.journal.warn = (...a) => avert.push(a);
+    const g = T.creerGarde({ location: loc('localhost'), stockage: stockage(), journal: e.journal,
+      marquer: (v, ec) => e.appels.marques.push({ v, ec }) });
+    const spy = jest.spyOn(T, 'verifierPlan').mockReturnValue({ ok: true, erreurs: [], ecartsPhrases: [ECART] });
+    try {
+      expect(g.verifier(unPlan().plan)).toEqual({ violations: [], rapports: [], ecartsPhrases: [ECART] });
+      // Le même écart, au plan suivant : une seule fois en console et au marqueur.
+      g.verifier(unPlan().plan);
+    } finally { spy.mockRestore(); }
+    expect(avert).toHaveLength(1);
+    expect(e.appels.error).toEqual([]);
+    expect(e.appels.marques).toEqual([{ v: [], ec: [ECART] }]);
+    expect(g.etat()).toEqual({ active: true, plans: 2, violations: [], ecartsPhrases: [ECART] });
   });
 });
 

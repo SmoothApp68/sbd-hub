@@ -30,12 +30,64 @@
   // ── Formatage des unités ────────────────────────────────────────────────
   // Le séparateur décimal est la virgule. Jamais d'unité brute à l'écran.
 
-  function nombre(v, decimales) {
+  function nombreTexte(v, decimales) {
     if (v === null || v === undefined || v === '') return '';
     var n = Number(v);
     if (!isFinite(n)) return '';
     var f = Math.pow(10, decimales === undefined ? 2 : decimales);
     return String(Math.round(n * f) / f).replace('.', ',');
+  }
+
+  // ══ MOTEUR §20 bis (49-U19) — CE QUE LE FORMATEUR DÉCLARE ══════════════
+  //
+  // « Chaque chiffre cité porte sa nature, déclarée par le formateur unique
+  // qui l'écrit. » Une phrase du coach se rédige SOUS CAPTURE
+  // (`capturer(fn)`) : chaque chiffre que le formateur écrit pendant ce temps
+  // s'inscrit au registre, avec sa nature et son objet (`cite`, le dernier
+  // argument de chaque fonction) — `cible_du_jour`, `fait_passe`,
+  // `cible_suivante`, `regle`. La garde de cohérence (`THPlan.verifierPhrases`)
+  // LIT CES DÉCLARATIONS : elle n'analyse pas le texte après coup.
+  //
+  // Hors capture, rien ne s'inscrit et le texte est exactement le même : la
+  // capture est une observation du formateur, pas une autre façon d'écrire.
+  // Synchrone, rendue dans `finally` : aucune autre phrase ne s'y glisse.
+  var NATURES = { CIBLE: 'cible_du_jour', FAIT: 'fait_passe', SUIVANTE: 'cible_suivante', REGLE: 'regle' };
+  var registres = [];
+
+  function capturer(fn) {
+    var r = [];
+    registres.push(r);
+    var texte;
+    try { texte = fn(); } finally { registres.pop(); }
+    return { texte: texte, citations: r };
+  }
+
+  // Les citations d'une capture intérieure, REPORTÉES dans la capture en
+  // cours : une phrase rédigée à part (pour décider de la garder), puis gardée.
+  function reporter(citations) {
+    if (!registres.length || !citations) return;
+    var r = registres[registres.length - 1];
+    citations.forEach(function (q) { r.push(q); });
+  }
+
+  function declarer(cite, valeurs, texte) {
+    if (!registres.length) return;
+    var c = cite || null;
+    registres[registres.length - 1].push({
+      nature: c && c.nature ? c.nature : null,
+      objet: c && c.objet !== undefined ? c.objet : null,
+      charge: valeurs.charge === undefined ? undefined : valeurs.charge,
+      reps: valeurs.reps === undefined ? undefined : valeurs.reps,
+      date: valeurs.date === undefined ? undefined : valeurs.date,
+      valeur: valeurs.valeur === undefined ? undefined : valeurs.valeur,
+      texte: texte
+    });
+  }
+
+  function nombre(v, decimales, cite) {
+    var t = nombreTexte(v, decimales);
+    declarer(cite, { valeur: v === undefined ? null : v }, t);
+    return t;
   }
 
   // ── LA VOIX DU COACH : LE SEUL FORMATEUR (MOTEUR §20.2, 49-U9) ──────────
@@ -54,22 +106,35 @@
 
   // « 125 kg ». Une charge inconnue se dit, elle ne se tait pas : « le cran
   // au-dessus » (§10.2, rang 4) — ou le repli que l'appelant donne.
-  function charge(kg, repli) {
+  function chargeTexte(kg, repli) {
     if (kg === null || kg === undefined || kg === '' || !isFinite(Number(kg))) {
       return repli === undefined ? CRAN_INCONNU : repli;
     }
-    return nombre(kg) + INSECABLE + 'kg';
+    return nombreTexte(kg) + INSECABLE + 'kg';
+  }
+  function chargeOuNul(kg) {
+    return kg === null || kg === undefined || kg === '' || !isFinite(Number(kg)) ? null : Number(kg);
+  }
+
+  function charge(kg, repli, cite) {
+    var t = chargeTexte(kg, repli);
+    declarer(cite, { charge: chargeOuNul(kg) }, t);
+    return t;
   }
 
   // « 125 kg × 5 » — la charge d'abord, puis les reps.
-  function chargeFois(kg, reps, repli) {
-    return charge(kg, repli) + INSECABLE + '\u00d7' + INSECABLE + nombre(reps);
+  function chargeFois(kg, reps, repli, cite) {
+    var t = chargeTexte(kg, repli) + INSECABLE + '\u00d7' + INSECABLE + nombreTexte(reps);
+    declarer(cite, { charge: chargeOuNul(kg), reps: [reps === undefined ? null : reps] }, t);
+    return t;
   }
 
   // « 125 kg × 4, 4, 4 » — une série de reps à une même charge.
-  function serie(kg, reps, repli) {
-    var l = (reps || []).map(function (r) { return nombre(r); }).join(', ');
-    return charge(kg, repli) + INSECABLE + '\u00d7' + INSECABLE + l;
+  function serie(kg, reps, repli, cite) {
+    var l = (reps || []).map(function (r) { return nombreTexte(r); }).join(', ');
+    var t = chargeTexte(kg, repli) + INSECABLE + '\u00d7' + INSECABLE + l;
+    declarer(cite, { charge: chargeOuNul(kg), reps: (reps || []).slice() }, t);
+    return t;
   }
 
   // ⚠️ SECONDE LISTE APRÈS `Calendrier.MOIS`, et assumée : l'abréviation ne se
@@ -97,7 +162,12 @@
   // L'écart se compte en JOURS DU CALENDRIER LOCAL, pas en heures : une séance
   // de 23 h la veille est « hier » même 1 h plus tard, et un changement
   // d'heure (23 h ou 25 h dans la journée) ne décale rien.
-  function quand(iso, reference, tete) {
+  function quand(iso, reference, tete, cite) {
+    var t = quandTexte(iso, reference, tete);
+    if (t) declarer(cite, { date: iso }, t);
+    return t;
+  }
+  function quandTexte(iso, reference, tete) {
     var d = jourLocal(iso);
     if (d === null) return '';
     var dit = 'le ' + d.getDate() + INSECABLE + MOIS_COURTS[d.getMonth()];
@@ -132,8 +202,8 @@
     if (metres === null || metres === undefined || metres === '') return '';
     var m = Number(metres);
     if (!isFinite(m) || m < 0) return '';
-    if (m < 1000) return nombre(m, 0) + ' m';
-    return nombre(m / 1000, 1) + ' km';
+    if (m < 1000) return nombreTexte(m, 0) + ' m';
+    return nombreTexte(m / 1000, 1) + ' km';
   }
 
   // « 52 kg × 12 » · « 6 h 35 · 22,7 km » · « 12 reps »
@@ -142,7 +212,7 @@
     var bouts = [];
     var aCharge = serie.charge_kg !== null && serie.charge_kg !== undefined;
     var aReps = serie.reps !== null && serie.reps !== undefined;
-    if (aCharge) bouts.push(nombre(serie.charge_kg) + ' kg');
+    if (aCharge) bouts.push(nombreTexte(serie.charge_kg) + ' kg');
     if (aReps) bouts.push(aCharge ? '× ' + serie.reps : serie.reps + ' reps');
     if (serie.duree_s) bouts.push(formatDuree(serie.duree_s));
     if (serie.distance_m) bouts.push(formatDistance(serie.distance_m));
@@ -355,7 +425,7 @@
       return formatChrono(serie.duree_s) || '—';
     }
     if (serie.charge_kg === null || serie.charge_kg === undefined) return '—';
-    return nombre(serie.charge_kg) +
+    return nombreTexte(serie.charge_kg) +
       (serie.reps === null || serie.reps === undefined ? '' : '\u00d7' + serie.reps);
   }
 
@@ -1142,6 +1212,9 @@
     estTravail: estTravail,
     nombre: nombre,
     charge: charge,
+    capturer: capturer,
+    reporter: reporter,
+    NATURES: NATURES,
     chargeFois: chargeFois,
     serie: serie,
     quand: quand,

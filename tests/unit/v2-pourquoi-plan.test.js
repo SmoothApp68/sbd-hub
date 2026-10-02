@@ -196,7 +196,7 @@ describe('49-U6 — verifierPlan voit une feuille qui ne décrit pas la grille (
   test('prémisse : la feuille d’origine passe, et elle porte trois lignes', () => {
     const p = base();
     expect(p.exercices[0].pourquoi.lignes).toHaveLength(3);
-    expect(T.verifierPlan(p)).toEqual({ ok: true, erreurs: [] });
+    expect(T.verifierPlan(p)).toEqual({ ok: true, erreurs: [], ecartsPhrases: [] });
   });
 
   test('⚠️ DISCRIMINANT — une feuille qui décrit le `n` de la consigne brute (4 lignes pour une grille à 3)', () => {

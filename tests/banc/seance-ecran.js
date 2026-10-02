@@ -1094,8 +1094,13 @@ const SETS_IMPORTES = [
   //     chaque section où l'app a calculé un plan doit avoir été vérifiée par
   //     le crochet — sans quoi le crochet s'est tu quelque part.
   // `I10 suite` est RAPPORTÉE (49-U4), pas une violation : comptée à part.
-  const gardeBanc = { plans: 0, violations: 0, rapports: [], avant: null, sections: {}, liste: [],
-                      suspendue: false, app: { plans: 0, violations: 0 } };
+  // I26 (49-U19) aussi, EN MODE RAPPORT : chaque écart de cohérence des
+  // phrases que LA GARDE DE L'APP voit (tous les plans, pas un échantillon :
+  // la liste ne dépend pas du moment des attentes) se note une fois
+  // (`phrases`), puis se compare à la liste d'attente (`garde-compte.js`).
+  const gardeBanc = { plans: 0, violations: 0, rapports: [], phrases: [], avant: null, sections: {}, liste: [],
+                      suspendue: false, app: { plans: 0, violations: 0, phrases: 0 } };
+  const phrasesVues = {};
   let sectionCourante = '(préparation)';
   const sectionDe = (nom) => gardeBanc.sections[nom] ||
     (gardeBanc.sections[nom] = { verifies: 0, app: 0, violations: 0 });
@@ -1148,15 +1153,22 @@ const SETS_IMPORTES = [
           const neufCtx = !window.__gardeBancJeton;
           window.__gardeBancJeton = 1;
           const e = P.garde && P.garde.etat ? P.garde.etat() : null;
-          return { neufCtx, app: e ? e.plans : 0, appV: e ? e.violations : [],
+          return { neufCtx, app: e ? e.plans : 0, appV: e ? e.violations : [], appP: e ? (e.ecartsPhrases || []) : [],
                    neuf: !!(P.dernier && window.__gardeBancVu !== P.dernier) };
         });
       } catch (e) { return; }
       if (!r) return;
-      const base = r.neufCtx ? { plans: 0, violations: 0 } : gardeBanc.app;
+      const base = r.neufCtx ? { plans: 0, violations: 0, phrases: 0 } : gardeBanc.app;
       sectionDe(sectionCourante).app += Math.max(0, r.app - base.plans);
       const nouvelles = r.appV.slice(base.violations).filter((x) => x.indexOf('I10 suite') !== 0);
-      gardeBanc.app = { plans: r.app, violations: r.appV.length };
+      r.appP.slice(base.phrases || 0).forEach((e) => {
+        const x = { plan: 'banc', ou: e.ou, phrase: e.phrase, citation: e.citation, attendu: e.attendu, cause: e.cause };
+        const cle = JSON.stringify(x);
+        if (phrasesVues[cle]) return;
+        phrasesVues[cle] = true;
+        gardeBanc.phrases.push(x);
+      });
+      gardeBanc.app = { plans: r.app, violations: r.appV.length, phrases: r.appP.length };
       if (nouvelles.length) echouerGarde('la garde de l’app a vu une violation', nouvelles);
       if (r.neuf) await verifierDernier();
     } finally { enCours = false; }
@@ -1216,7 +1228,7 @@ const SETS_IMPORTES = [
         debut: rapport.debut, fin: Date.now(), echecs: echecs, erreurs: erreurs,
         sections: rapport.sections, controles: rapport.controles,
         garde: { plans: gardeBanc.plans, violations: gardeBanc.violations, rapports: gardeBanc.rapports,
-                 liste: gardeBanc.liste, sections: gardeBanc.sections }
+                 phrases: gardeBanc.phrases, liste: gardeBanc.liste, sections: gardeBanc.sections }
       }));
     }
     console.log('\n' + (echecs ? '❌ ' + echecs + ' vérification(s) en échec' : '✅ tout passe'));

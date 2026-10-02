@@ -167,6 +167,18 @@ describe('rejeu — la même sortie, deux fois de suite', () => {
     expect(t).toContain('(inchangés : Militaire)');
   });
 
+  test('49-U19 — la cohérence des phrases (I26) de chaque étape : aucun écart, ou chaque écart', () => {
+    const e = entree();
+    e.etapes[0].verification = { erreurs: [], ecartsPhrases: [] };
+    e.etapes[1].verification = { erreurs: [], ecartsPhrases: [{ exercice: 'militaire', ou: 'constat',
+      phrase: 'Même cible la prochaine fois : 52,5 kg × 8.', citation: '52,5 kg × 8',
+      attendu: '52,5 kg × 10 (entete.jaune)', cause: 'jaune_gris' }] };
+    const t = J.texte(e);
+    expect(t).toContain('cohérence des phrases (I26) : aucun écart');
+    expect(t).toContain('cohérence des phrases (I26, rapport) : 1 écart(s)');
+    expect(t).toContain('  ≠ militaire · constat · jaune_gris : « 52,5 kg × 8 » — attendu 52,5 kg × 10 (entete.jaune)');
+  });
+
   test('l’heure se lit à Paris, quelle que soit la machine', () => {
     expect(J.heure('2026-10-01T17:07:05.000Z')).toBe('19:07:05');
   });

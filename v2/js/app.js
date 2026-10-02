@@ -2317,7 +2317,9 @@
     $('rejeu-etat').textContent = '';
   }
 
-  function marquerGarde(violations) {
+  // `ecarts` : les écarts de cohérence des phrases (I26, en mode rapport) —
+  // marqués en rouge comme les violations, nommés à part.
+  function marquerGarde(violations, ecarts) {
     var doc = racine.document;
     if (!doc || !doc.body) return;
     var m = doc.getElementById('garde-coach');
@@ -2327,18 +2329,25 @@
       m.type = 'button';
       m.className = 'garde-coach';
       m.addEventListener('click', function () {
-        if (racine.console) racine.console.error('[garde du coach]', m.violations || []);
+        if (racine.console) racine.console.error('[garde du coach]', m.violations || [], m.ecarts || []);
       });
       doc.body.appendChild(m);
     }
+    var phrases = ecarts || [];
     m.violations = violations;
+    m.ecarts = phrases;
     var invariants = [];
     violations.forEach(function (v) {
       var i = String(v).split(' — ')[0];
       if (invariants.indexOf(i) < 0) invariants.push(i);
     });
-    m.textContent = '⚠ ' + invariants.join(' ') + ' (' + violations.length + ')';
-    m.title = violations[violations.length - 1] || '';
+    var bouts = [];
+    if (violations.length) bouts.push(invariants.join(' ') + ' (' + violations.length + ')');
+    if (phrases.length) bouts.push('I26 phrases (' + phrases.length + ')');
+    m.textContent = '⚠ ' + bouts.join(' · ');
+    var dernier = phrases.length ? phrases[phrases.length - 1] : null;
+    m.title = violations[violations.length - 1] ||
+      (dernier ? 'I26 — ' + dernier.ou + ' : « ' + dernier.citation + ' » (' + dernier.cause + ')' : '');
   }
 
   var catalogueMemo = null;

@@ -307,6 +307,8 @@ describe('49-U18 — la cible du constat : un seul calcul (« le coach ne fait q
       Profil: { rythmeDe: () => 'normal' },
       Seance: { partEnBase: () => true },
       Moteur: { suiteDExercice: (g, j, e, a, o) => { vus.push(o); return null; } },
+      // `suiteDe` lit le catalogue indexé de l'app (PR 2 de la consolidation).
+      catalogueIndexe: () => ({ curl: { slug: 'curl', equipement: 'barre' } }),
       cleConsignes: () => 'k', empreinteValidations: () => 'e', exerciceFini: () => true,
       seriesDeTravailDe: () => [], seancesDeLExercice: () => [],
       zoneDe: () => 'mix', seancesSousConsigne: () => ['s1'],

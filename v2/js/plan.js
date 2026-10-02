@@ -269,9 +269,14 @@
 
   // `reference` : le début de la séance du jour — le constat dit « mardi »
   // contre elle (§20.2), jamais contre l'horloge.
-  function constatDuPlan(lignes, consigne, suite, reglage, reference) {
+  //
+  // `fini` : l'exercice est fini (`Seance.exerciceFini`, relevé du 01/10, PR 2)
+  // — la MÊME définition que celle avec laquelle l'app calcule la suite. Elle
+  // implique que chaque ligne couverte est validée (une ligne couverte est une
+  // série de travail) : I10 a le vérifie.
+  function constatDuPlan(lignes, consigne, suite, reglage, reference, fini) {
     var couvertes = lignes.filter(function (l) { return l.role !== 'hors'; });
-    if (!couvertes.length || !couvertes.every(function (l) { return l.validee; })) return null;
+    if (!couvertes.length || !fini) return null;
     if (!suite || !suite.consigne) return null;
     var c = Moteur().constatDuJour(consigne, suite.consigne, reglage || null,
       suite.cranSuivant === undefined ? null : suite.cranSuivant, faitsDuJour(lignes, consigne),
@@ -291,7 +296,17 @@
       test: ft ? { charge: ft.charge, reps: ft.reps, date: ft.date || null } : null,
       cran: suite.cranSuivant === undefined ? null : suite.cranSuivant
     };
+    // I27 (relevé du 01/10, PR 2) — la zone CHOISIE de la suite : la même que
+    // celle de la consigne, ou aucune des deux. Un silence n'a pas de zone :
+    // rien à comparer.
+    if (k.etat !== 'silence') c.suiteZoneChoisie = zoneChoisieDe(k);
     return c;
+  }
+
+  // La zone que l'utilisateur a CHOISIE pour une consigne (§9.1.1, rang 2) : le
+  // moteur pose `fondement.correction` quand une correction fait la zone.
+  function zoneChoisieDe(k) {
+    return k && k.fondement && k.fondement.correction ? (k.zone === undefined ? null : k.zone) : null;
   }
 
   // ── L'ÉTAPE DE LA FEUILLE « POURQUOI » (ECRAN §3.10, delta 49-14 W1) ─────
@@ -537,7 +552,7 @@
   }
 
   // ── LE PLAN D'UN EXERCICE ───────────────────────────────────────────────
-  function planDExercice(exo, iExo, consigneDuSlug, paris, seanceId, reglage, suite, debut, materiel, phase, allegee, seriesRoutine, marche, routinePlus) {
+  function planDExercice(exo, iExo, consigneDuSlug, paris, seanceId, reglage, suite, debut, materiel, phase, allegee, seriesRoutine, marche, routinePlus, fini) {
     var S = Seance(), M = Moteur();
     var series = (exo && exo.series) || [];
     var c = consigneDuSlug && consigneDuSlug.consigne ? consigneDuSlug : null;
@@ -675,7 +690,7 @@
         PARAGRAPHES_DU_POURQUOI.forEach(function (k) { pourquoi[k] = capF.texte[k] === undefined ? null : capF.texte[k]; });
       }
     }
-    var capC = V.capturer(function () { return constatDuPlan(r.lignes, consigne, suite, reglage, debut); });
+    var capC = V.capturer(function () { return constatDuPlan(r.lignes, consigne, suite, reglage, debut, fini); });
     var constat = capC.texte, citesEscalier = [];
     if (constat && marche && marche.marche === M.MARCHE_SILENCE && marche.declenchement && compteur) {
       var capX = V.capturer(function () { return M.phraseCompteur(compteur); });
@@ -874,7 +889,8 @@
         var x = planDExercice(exo, i, c, e.paris || [], seance.id, e.reglage, suite, seance.debut,
           materielDe(exos, i, e.catalogue || null, c, e.refusChauffes || {}), phase,
           !!esc.allegee, Object.prototype.hasOwnProperty.call(seriesRoutine, slug) ? seriesRoutine[slug] : null, m,
-          Object.prototype.hasOwnProperty.call(plus, slug) ? plus[slug] : null);
+          Object.prototype.hasOwnProperty.call(plus, slug) ? plus[slug] : null,
+          Seance().exerciceFini(seance, slug));
         if (x.escalier && x.escalier.copie) x.escalier = null;
         // MOTEUR §14.6 (49-U16) — LA PLACE POUR UNE SÉRIE DE PLUS : de la place
         // sur CHACUN des muscles primaires de l'exercice (catalogue), lue dans
@@ -1221,6 +1237,19 @@
       if (l.role === 'hors' && x.paris && x.paris[l.iSerie]) err('I1', 'série ' + l.iSerie + ' hors couverture, avec un pari');
     });
     verifierAutour(x, err);
+    // I27 (relevé du 01/10/2026, PR 2) — LA SUITE DU CONSTAT EST CALCULÉE AVEC
+    // LA ZONE EN VIGUEUR : la zone choisie de la consigne suivante est celle de
+    // la consigne du jour (ou aucune des deux). Une suite gardée en cache après
+    // un changement de zone comparait la consigne de la nouvelle zone à la
+    // suite de l'ancienne (couché haltères, 26/09).
+    if (x.constat && x.consigne && x.constat.suiteZoneChoisie !== undefined) {
+      var zJour = zoneChoisieDe(x.consigne);
+      if (zJour !== x.constat.suiteZoneChoisie) {
+        err('I27', 'la suite du constat a la zone choisie ' + (x.constat.suiteZoneChoisie || 'aucune') +
+            ', la consigne du jour ' + (zJour || 'aucune') + ' (suite : ' + (x.constat.suiteEtat || '?') + ')');
+      }
+    }
+
     // I25 (49-U18, 01/10/2026) — AUCUNE LIGNE DE TRAVAIL À FAIRE N'EST LAISSÉE
     // HORS PLAN SOUS UNE CONSIGNE : elle prend la charge du coach (§9.13), et
     // son pré-remplissage vient du plan, jamais d'une ancienne séance. Une

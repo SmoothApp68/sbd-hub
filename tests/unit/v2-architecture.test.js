@@ -214,6 +214,8 @@ const AUTORISATIONS = {
 //   · `lecteurs` : les fichiers autres que son module qui peuvent l'appeler ;
 //   · `par` (facultatif) : les fonctions de son module qui DOIVENT passer par
 //     elle (sinon elles la redécident à la main) ;
+//   · `parAilleurs` (facultatif) : `{ fichier: [fonctions] }`, les fonctions
+//     d'AUTRES fichiers qui doivent passer par elle ;
 //   · `interdit` (facultatif) : un littéral qui ne doit plus exister dans son
 //     module — la trace d'une décision écrite d'office.
 // Chaque PR de la consolidation y ajoute ses notions ; la dernière le rend
@@ -229,7 +231,22 @@ const NOTIONS = [
     interdit: { motif: /(['"])[Tt]a (?:dernière|première) série\1/,
                 raison: 'le mot d’ordre écrit d’office (« ta dernière série », le 01/10)' },
     raison: 'l’en-tête et la feuille le lisent sur le rang, par la même fonction : ils ' +
-      'disaient « première » et « dernière » pour la même série.' }
+      'disaient « première » et « dernière » pour la même série.' },
+  { notion: 'l’exercice fini (toutes ses séries de travail en base)', pr: 'PR 2',
+    module: 'seance.js', fonction: 'exerciceFini', lecteurs: ['app.js', 'plan.js'],
+    parAilleurs: { 'app.js': ['exerciceFini'], 'plan.js': ['planDeSeance'] },
+    raison: 'le plan ouvrait le constat sur ses lignes couvertes, l’app calculait la suite ' +
+      'sur toutes les séries de travail : deux définitions, d’accord par accident.' },
+  { notion: 'le bloc fini (un superset attend sa fin)', pr: 'PR 2',
+    module: 'seance.js', fonction: 'blocFini', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['blocFini'] },
+    raison: 'le constat d’un superset attend la fin du bloc ; le bloc se lit sur la même ' +
+      'définition de l’exercice fini.' },
+  { notion: 'la suite du constat (la consigne de la prochaine séance)', pr: 'PR 2',
+    module: 'moteur.js', fonction: 'suiteDExercice', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['suiteDe'] },
+    raison: 'une ENTRÉE du plan, calculée avec les options de la consigne ; son cache porte ' +
+      'ces options (une zone choisie la recalcule).' }
 ];
 
 const CONSEIL = 'Passe par `planDeSeance` (v2/js/plan.js), ou ajoute ce fichier à la liste ' +
@@ -435,6 +452,23 @@ describe('architecture — le registre des notions : une source, des lecteurs', 
         else if (!new RegExp('\\b' + echapper(n.fonction) + '\\s*\\(').test(corps)) {
           fautes.push(n.notion + ' : `' + fn + '` ne passe pas par `' + n.fonction + '`');
         }
+      });
+    });
+    expect(fautes).toEqual([]);
+  });
+
+  test('⚠️ hors de son module, chaque fonction désignée passe par la source', () => {
+    const fautes = [];
+    NOTIONS.filter((n) => n.parAilleurs).forEach((n) => {
+      Object.keys(n.parAilleurs).forEach((fichier) => {
+        const code = nettoyer(parNom[fichier].src, false);
+        n.parAilleurs[fichier].forEach((fn) => {
+          const corps = corpsDe(code, fn);
+          if (!corps) fautes.push(n.notion + ' : `' + fn + '` n’existe plus dans ' + fichier + ' — mets le registre à jour');
+          else if (!new RegExp('\\.\\s*' + echapper(n.fonction) + '\\s*\\(').test(corps)) {
+            fautes.push(n.notion + ' : `' + fn + '` (' + fichier + ') ne passe pas par `' + n.fonction + '`');
+          }
+        });
       });
     });
     expect(fautes).toEqual([]);

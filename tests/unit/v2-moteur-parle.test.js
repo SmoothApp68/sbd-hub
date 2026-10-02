@@ -994,7 +994,9 @@ describe('la zone en vigueur se lit sur l’historique (MOTEUR §9.1.1)', () => 
     // Et ce n'est pas qu'une étiquette : la consigne entière a changé.
     expect(avec.consigne.zone).toBe('volume');
     expect(avec.libelles.jaune).not.toEqual(sans.libelles.jaune);
-    expect(avec.pourquoi.zone).toContain('choisie par toi');
+    // La feuille se rédige sur la consigne (le plan la pose, PR 1 de la
+    // consolidation) : la zone choisie s'y dit.
+    expect(Moteur.pourquoiConsigne(avec.consigne, 'normal', AVANT).zone).toContain('choisie par toi');
   });
 });
 

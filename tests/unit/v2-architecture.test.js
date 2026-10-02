@@ -163,10 +163,6 @@ const AUTORISATIONS = {
     'app.js': 'lit la zone CHOISIE dans les lignes `zones` (§9.1.1) pour la passer en ' +
       '`correction` au moteur : une entrée, pas une décision (app.js, `zoneDe`).'
   },
-  pourquoiConsigne: {
-    'app.js': 'rédige les paragraphes de la feuille « Pourquoi » à partir de la consigne FIGÉE ' +
-      'du plan (`x.consigne`) : de la présentation sur une sortie du plan (app.js, `pourquoiDe`).'
-  },
   idDePrediction: {
     'app.js': 'l’identifiant déterministe d’un pari au moment de l’écrire en base : de la ' +
       'persistance, le pari lui-même vient du plan (app.js, `finirPari`).'
@@ -209,6 +205,32 @@ const AUTORISATIONS = {
       'grille : de la présentation sur une sortie du plan (app.js, `planDe`).'
   }
 };
+
+// ── LE REGISTRE DES NOTIONS (relevé du 01/10/2026, « un seul coach, un seul câblage ») ──
+//
+// La garde ci-dessus dit QUI APPELLE une fonction ; le registre dit, NOTION
+// PAR NOTION, sa source unique et qui la lit. Une notion du registre :
+//   · `module`, `fonction` : sa source — la seule fonction qui la décide ;
+//   · `lecteurs` : les fichiers autres que son module qui peuvent l'appeler ;
+//   · `par` (facultatif) : les fonctions de son module qui DOIVENT passer par
+//     elle (sinon elles la redécident à la main) ;
+//   · `interdit` (facultatif) : un littéral qui ne doit plus exister dans son
+//     module — la trace d'une décision écrite d'office.
+// Chaque PR de la consolidation y ajoute ses notions ; la dernière le rend
+// complet (tout le registre du relevé) et bloquant.
+const NOTIONS = [
+  { notion: 'la feuille « Pourquoi » (ses paragraphes)', pr: 'PR 1',
+    module: 'moteur.js', fonction: 'pourquoiConsigne', lecteurs: ['plan.js'],
+    raison: 'le plan la rédige sur la consigne qu’il applique (figée, allégée, repli, série de ' +
+      'plus) et la pose dans `x.pourquoi` ; l’app la lisait sur une autre, et plantait.' },
+  { notion: 'le mot d’ordre de la série restée (« première », « dernière »)', pr: 'PR 1',
+    module: 'moteur.js', fonction: 'rangDuReste', lecteurs: [],
+    par: ['phraseGrise', 'etatBrutDuPourquoi'],
+    interdit: { motif: /(['"])[Tt]a (?:dernière|première) série\1/,
+                raison: 'le mot d’ordre écrit d’office (« ta dernière série », le 01/10)' },
+    raison: 'l’en-tête et la feuille le lisent sur le rang, par la même fonction : ils ' +
+      'disaient « première » et « dernière » pour la même série.' }
+];
 
 const CONSEIL = 'Passe par `planDeSeance` (v2/js/plan.js), ou ajoute ce fichier à la liste ' +
   'AUTORISATIONS de tests/unit/v2-architecture.test.js, avec sa raison, dans une PR qui le justifie.';
@@ -361,6 +383,79 @@ describe('architecture — un seul coach, un seul câblage', () => {
   test('le plan appelle bien le moteur : la garde lit le vrai câblage, pas un fichier vide', () => {
     ['reactionPour', 'planDeCouverture', 'lignesDePari', 'constatDuJour', 'consigneFigee']
       .forEach((fn) => expect([fn, !!REL[fn][LE_COACH]]).toEqual([fn, true]));
+  });
+});
+
+// Le corps d'une fonction déclarée `function nom(...) { … }` dans un source
+// nettoyé : de son accolade ouvrante à l'accolade qui la ferme.
+function corpsDe(code, nom) {
+  const m = new RegExp('function\\s+' + echapper(nom) + '\\s*\\(').exec(code);
+  if (!m) return null;
+  let i = code.indexOf('{', m.index);
+  let prof = 0;
+  for (let j = i; j < code.length; j++) {
+    if (code[j] === '{') prof++;
+    else if (code[j] === '}' && --prof === 0) return code.slice(i, j + 1);
+  }
+  return null;
+}
+
+describe('architecture — le registre des notions : une source, des lecteurs', () => {
+  const FICHIERS = perimetre();
+  const parNom = {};
+  FICHIERS.forEach((f) => { parNom[f.nom] = f; });
+
+  test('chaque notion a sa source, déclarée dans son module, et sa raison', () => {
+    NOTIONS.forEach((n) => {
+      const code = nettoyer(parNom[n.module].src, false);
+      expect([n.notion, !!corpsDe(code, n.fonction)]).toEqual([n.notion, true]);
+      expect([n.notion, typeof n.raison === 'string' && n.raison.length > 20]).toEqual([n.notion, true]);
+    });
+  });
+
+  test('⚠️ hors de son module, une notion ne se lit QUE chez ses lecteurs', () => {
+    const fautes = [];
+    NOTIONS.forEach((n) => {
+      FICHIERS.forEach((f) => {
+        if (f.nom === n.module || n.lecteurs.indexOf(f.nom) >= 0) return;
+        const a = appels(f.src, { fn: n.fonction });
+        if (a.length) fautes.push(n.notion + ' : `' + n.fonction + '` appelée dans ' + f.nom + ', ligne(s) ' + a.map((x) => x.ligne).join(', '));
+      });
+    });
+    expect(fautes).toEqual([]);
+  });
+
+  test('⚠️ dans son module, chaque fonction qui la dit passe par sa source', () => {
+    const fautes = [];
+    NOTIONS.filter((n) => n.par).forEach((n) => {
+      const code = nettoyer(parNom[n.module].src, false);
+      n.par.forEach((fn) => {
+        const corps = corpsDe(code, fn);
+        if (!corps) fautes.push(n.notion + ' : `' + fn + '` n’existe plus — mets le registre à jour');
+        else if (!new RegExp('\\b' + echapper(n.fonction) + '\\s*\\(').test(corps)) {
+          fautes.push(n.notion + ' : `' + fn + '` ne passe pas par `' + n.fonction + '`');
+        }
+      });
+    });
+    expect(fautes).toEqual([]);
+  });
+
+  test('⚠️ aucune trace d’une décision écrite d’office', () => {
+    const fautes = [];
+    NOTIONS.filter((n) => n.interdit).forEach((n) => {
+      const avecChaines = nettoyer(parNom[n.module].src, true);
+      const m = n.interdit.motif.exec(avecChaines);
+      if (m) fautes.push(n.notion + ' : ' + n.interdit.raison + ', ligne ' + ligneDe(avecChaines, m.index));
+    });
+    expect(fautes).toEqual([]);
+  });
+
+  test('le registre se lit vraiment : une décision écrite d’office et un lecteur de trop se voient', () => {
+    const n = NOTIONS[1];
+    expect(n.interdit.motif.test('x = c.ligne ? \'une série de plus\' : \'ta dernière série\';')).toBe(true);
+    expect(n.interdit.motif.test('\'Ta dernière série a chuté après des séries stables\'')).toBe(false);
+    expect(appels('var p = Moteur.pourquoiConsigne(x.consigne);', { fn: 'pourquoiConsigne' })).toHaveLength(1);
+    expect(corpsDe('function a(x) { return b(x, { y: 1 }); } function c() {}', 'a')).toBe('{ return b(x, { y: 1 }); }');
   });
 });
 

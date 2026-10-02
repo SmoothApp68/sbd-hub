@@ -204,9 +204,10 @@ describe('I26 — la garde laisse passer ce qui est juste', () => {
     const x = p.exercices[0];
     expect(esp(x.entete.jaune[0])).toBe('52,5 kg × 8');
     expect(esp(x.entete.gris)).toBe('Reprise après une pause : ta charge de travail, sans rep de plus. Ta zone Mix va jusqu\'à 8 : je vise 8.');
-    // La visée bornée est une ligne ; les deux « 8 » de la borne sont écrits à
-    // la main (liste d'attente), pas une incohérence.
-    expect(T.verifierPhrases(p).map((e) => e.cause + ' ' + e.citation)).toEqual(['hors_formateur 8', 'hors_formateur 8']);
+    // La visée bornée est une ligne ; les deux « 8 » de la borne passent par
+    // le formateur depuis la PR 1 de la consolidation (la feuille les dit
+    // aussi) : la borne de la zone, une règle, égale à sa source.
+    expect(T.verifierPhrases(p)).toEqual([]);
   });
 });
 
@@ -309,10 +310,14 @@ const consigneSimulee = (k) => ({ etat: k.etat, zone: k.zone === null ? null : k
 function balayer() {
   const ecarts = [];
   const phrases = { toutes: 0, horsFormateur: new Set(), plans: 0 };
-  const vue = (plan, p) => {
+  // Les consignes du SIMULATEUR n'ont ni fondement ni niveau (l'app n'en
+  // produit jamais de telles) : ni leur phrase grise ni les paragraphes de
+  // leur feuille ne se rédigent — seules leurs lignes, leur réaction et leur
+  // « Donc » se balaient.
+  const vue = (plan, p, simulee) => {
     phrases.plans += 1;
     p.exercices.forEach((x) => { phrases.toutes += (x.phrases || []).length; });
-    T.verifierPhrases(p).forEach((e) => {
+    T.verifierPhrases(p).filter((e) => !(simulee && e.ou === 'pourquoi.paragraphes')).forEach((e) => {
       ecarts.push(Object.assign({ plan }, e));
       if (e.cause === 'hors_formateur') phrases.horsFormateur.add(plan + '|' + e.ou + '|' + e.phrase);
     });
@@ -338,7 +343,7 @@ function balayer() {
     const k = consigneSimulee(c.consigne);
     const faites = (c.faites || []).map((f) => [f.charge, f.reps]);
     seanceJouee({ k, debut: DEB, gestes: faites, series: c.series || faites.length || k.n || 1,
-      contexte: c.contexte || null, simulee: true }, (p) => vue(source + ' ' + c.id, p));
+      contexte: c.contexte || null, simulee: true }, (p) => vue(source + ' ' + c.id, p, true));
   }));
 
   // La séance du 01/10 (le décor de la section 4), sur l'état actuel.
@@ -435,8 +440,8 @@ const LECTURES = [
    'verdictDuJour (séance plus légère) : la charge et les reps viennent de la consigne suivante (`cApres.palier`), pas d\'une ligne couverte du jour ; soit une série hors plan, soit le verdict cite une autre séance — à trancher'],
   [(e) => e.cause === 'fait_different' && /faite.*le cran au-dessus/.test(e.phrase),
    'lignesDeLaFeuille : une ligne validée sans charge se dit « faite : le cran au-dessus × 3 » — le repli de la charge INCONNUE du coach sert à dire une série FAITE'],
-  [(e) => e.cause === 'cible_hors_lignes' && /passera à/.test(e.phrase),
-   'phraseGrise (« attend ») : la charge annoncée (`haut.charge`) n\'est sur aucune ligne du jour — la routine ne porte pas la ligne haute'],
+  [(e) => e.cause === 'cible_hors_lignes' && /passera à|y passera/.test(e.phrase),
+   '« attend » (phrase grise et feuille « Pourquoi ») : la charge annoncée (`haut.charge`) n\'est sur aucune ligne du jour — la routine ne porte pas la ligne haute'],
   [(e) => e.cause === 'cible_hors_lignes',
    'une cible du jour qui n\'est sur aucune ligne couverte du plan'],
   [(e) => e.cause === 'fait_sans_source', 'un fait passé sans source dans le plan'],

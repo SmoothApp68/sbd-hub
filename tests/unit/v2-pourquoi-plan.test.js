@@ -181,14 +181,23 @@ describe('49-U6 — la feuille décrit exactement les lignes de la grille (plans
   test('en silence, la feuille ne décrit aucune ligne', () => {
     const k = { etat: 'silence', raison: 'premiere_fois' };
     const x = simulateur('x', { consigne: k, libelles: M.libellesConsigne(k) }, 3).exo();
-    if (x.pourquoi) expect(x.pourquoi).toEqual({ donc: null, lignes: [] });
+    // Aucune ligne ni « Donc » ; les paragraphes du silence, que le plan
+    // rédige désormais (PR 1 de la consolidation) : « Rien avant aujourd'hui ».
+    if (x.pourquoi) {
+      expect(x.pourquoi.donc).toBeNull();
+      expect(x.pourquoi.lignes).toEqual([]);
+      expect(x.pourquoi.etat).toBe('Rien avant aujourd\'hui\u00a0: ce que tu notes servira de départ.');
+      expect([x.pourquoi.zone, x.pourquoi.palier, x.pourquoi.reglage]).toEqual([null, null, null]);
+    }
   });
 });
 
 // ── 2. DES FEUILLES FORGÉES ─────────────────────────────────────────────────
 describe('49-U6 — verifierPlan voit une feuille qui ne décrit pas la grille (I6)', () => {
+  // Une consigne « garde » porte son test : la feuille, que le plan rédige, le lit.
   const C = { consigne: { etat: 'garde', zone: 'lourd', palier: 125, niveau: 5, n: 3,
-    ligne: { charge: 125, vise: 5 }, haut: { charge: 130, vise: 4, k: 1 }, fondement: {} },
+    ligne: { charge: 125, vise: 5 }, haut: { charge: 130, vise: 4, k: 1 },
+    fondement: { test: { charge: 130, reps: 3, niveau: 3, date: '2026-09-24T10:00:00+00:00' } } },
     contexte: { cran: 127.5, haut: null }, libelles: { jaune: [], gris: '' } };
   const base = () => JSON.parse(JSON.stringify(simulateur('x', C, 3).plan()));
   const i6 = (plan) => I6(T.verifierPlan(plan)).filter((e) => /la feuille/.test(e));
@@ -231,8 +240,10 @@ describe('49-U6 — verifierPlan voit une feuille qui ne décrit pas la grille (
 
 // ── 2 bis. LES LIGNES DE LA FEUILLE, DITES ─────────────────────────────────
 describe('49-U6 — ce que la feuille dit d’une proposition du coach', () => {
+  // Une consigne « garde » porte son test : la feuille, que le plan rédige, le lit.
   const C = { consigne: { etat: 'garde', zone: 'lourd', palier: 125, niveau: 5, n: 3,
-    ligne: { charge: 125, vise: 5 }, haut: { charge: 130, vise: 4, k: 1 }, fondement: {} },
+    ligne: { charge: 125, vise: 5 }, haut: { charge: 130, vise: 4, k: 1 },
+    fondement: { test: { charge: 130, reps: 3, niveau: 3, date: '2026-09-24T10:00:00+00:00' } } },
     contexte: { cran: 127.5, haut: null }, libelles: { jaune: [], gris: '' } };
   const nb = (s) => (s === null || s === undefined ? s : String(s).replace(/[  ]/g, ' '));
 
@@ -259,8 +270,10 @@ describe('49-U6 — ce que la feuille dit d’une proposition du coach', () => {
 
 // ── 3. I7 ET LES RÉVISIONS ──────────────────────────────────────────────────
 describe('49-U6 — I7 : un pari de la révision que la ligne affichait (delta 49-14 W3)', () => {
+  // Une consigne « garde » porte son test : la feuille, que le plan rédige, le lit.
   const C = { consigne: { etat: 'garde', zone: 'lourd', palier: 125, niveau: 5, n: 3,
-    ligne: { charge: 125, vise: 5 }, haut: { charge: 130, vise: 4, k: 1 }, fondement: {} },
+    ligne: { charge: 125, vise: 5 }, haut: { charge: 130, vise: 4, k: 1 },
+    fondement: { test: { charge: 130, reps: 3, niveau: 3, date: '2026-09-24T10:00:00+00:00' } } },
     contexte: { cran: 127.5, haut: null }, libelles: { jaune: [], gris: '' } };
   const i7 = (v) => v.erreurs.filter((e) => e.indexOf('I7 ') === 0);
 

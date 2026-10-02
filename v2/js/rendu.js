@@ -2577,7 +2577,7 @@
       pr.appendChild(doc.createTextNode(p.reglage.slice(i + 'Profil'.length)));
       cible.appendChild(pr);
     }
-    cible.appendChild(el('p', 'pq-p', p.fin));
+    if (p.fin) cible.appendChild(el('p', 'pq-p', p.fin));
     return cible;
   }
 

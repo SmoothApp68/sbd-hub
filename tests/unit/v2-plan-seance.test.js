@@ -191,8 +191,10 @@ describe('49-U1 — sans test à suivre, la proposition de R2 marche toujours', 
 
 // ── verifierPlan VOIT CHAQUE VIOLATION ──────────────────────────────────────
 describe('49-U1 — verifierPlan voit chaque violation (I1, I2, I3, I6, I9, I12)', () => {
+  // Une consigne « garde » porte son test : la feuille « Pourquoi », que le
+  // plan rédige, le lit (PR 1, relevé du 01/10).
   const C = { consigne: { etat: 'garde', zone: 'lourd', palier: 125, niveau: 5, n: 3,
-    ligne: { charge: 125, vise: 5 }, haut: { charge: 130, vise: 4, k: 1 }, fondement: {} },
+    ligne: { charge: 125, vise: 5 }, haut: { charge: 130, vise: 4, k: 1 }, fondement: { test: { charge: 130, reps: 3, niveau: 3, date: '2026-09-24T10:00:00+00:00' } } },
     contexte: { cran: 127.5, haut: null }, libelles: { jaune: [], gris: '' } };
   const base = () => { const sim = simulateur('x', C, 3); return { sim, plan: JSON.parse(JSON.stringify(sim.plan())) }; };
   const erreurs = (plan) => T.verifierPlan(plan).erreurs.map((e) => e.split(' — ')[0]);

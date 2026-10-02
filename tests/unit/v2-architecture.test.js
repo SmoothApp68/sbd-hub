@@ -314,7 +314,12 @@ const NOTIONS = [
     par: ['resumerSeance'],
     parAilleurs: { 'app.js': ['sommaireExercices', 'calculerDatesExercices'] },
     raison: 'décision du 02/10/2026 : Progression, le profil et la carte comptaient les exercices ' +
-      'de trois façons (une ligne de chauffe suffisait au profil).' }
+      'de trois façons (une ligne de chauffe suffisait au profil).' },
+  { notion: 'les séries hors chauffe (« monte en charge », §5.1) — PAS la série de travail', pr: 'PR 7',
+    module: 'palier.js', fonction: 'seriesHorsChauffe', lecteurs: [],
+    par: ['etatsExercices'],
+    raison: 'le travail, les dégressives et les échecs : le compte du Python qui a produit le §5.1. ' +
+      'Une autre notion que `estTravail` ; elle portait un nom (`trav`) qui la faisait passer pour elle.' }
 ];
 
 const CONSEIL = 'Passe par `planDeSeance` (v2/js/plan.js), ou ajoute ce fichier à la liste ' +

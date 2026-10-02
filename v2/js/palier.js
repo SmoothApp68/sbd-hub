@@ -218,18 +218,27 @@
   // globale : la fréquence va de 0 % (rowing debout barre) à 91 % (hip thrust
   // machine). Une règle globale casserait sur la moitié du catalogue.
   //
-  // Le Python compte sur les séries NON-`warmup` — les dégressives comprises,
-  // contrairement à `analyser` qui les écarte. Incohérence du Python, portée
-  // telle quelle : c'est la référence qui a produit les chiffres du §5.1.
+  // ⚠️ LES SÉRIES HORS CHAUFFE — UNE NOTION À PART, PAS LA SÉRIE DE TRAVAIL
+  // (consolidation, PR 7). Tout ce qui n'est pas une chauffe : le travail, et
+  // AUSSI les dégressives et les échecs. Le Python du §5.1 compte ainsi —
+  // contrairement à `analyser`, qui les écarte —, et c'est la référence qui a
+  // produit les chiffres de « monte en charge » : on la porte telle quelle.
+  // La série de travail (`THModele.estTravail`, PR 6) est une autre notion ;
+  // celle-ci ne sert qu'à `etatsExercices`, et son nom ne peut pas la faire
+  // passer pour l'autre.
+  function seriesHorsChauffe(series) {
+    return (series || []).filter(function (s) { return s.type_serie !== CHAUFFE; });
+  }
+
   function etatsExercices(listeSeanceExercices) {
     var stats = new Map();
     (listeSeanceExercices || []).forEach(function (se) {
-      var trav = se.series.filter(function (s) { return s.type_serie !== CHAUFFE; });
-      if (trav.length < 3) return;
+      var horsChauffe = seriesHorsChauffe(se.series);
+      if (horsChauffe.length < 3) return;
       var st = stats.get(se.slug) || { monte: 0, total: 0 };
       st.total += 1;
-      var suivantes = trav.slice(1).map(function (s) { return nombre(s.charge_kg); });
-      if (nombre(trav[0].charge_kg) < Math.max.apply(null, suivantes)) st.monte += 1;
+      var suivantes = horsChauffe.slice(1).map(function (s) { return nombre(s.charge_kg); });
+      if (nombre(horsChauffe[0].charge_kg) < Math.max.apply(null, suivantes)) st.monte += 1;
       stats.set(se.slug, st);
     });
 
@@ -603,6 +612,7 @@
     decouperParExercice: decouperParExercice,
     seanceExercices: seanceExercices,
     etatsExercices: etatsExercices,
+    seriesHorsChauffe: seriesHorsChauffe,
     analyser: analyser,
     meilleureSerie: meilleureSerie,
     cranEffort: cranEffort,

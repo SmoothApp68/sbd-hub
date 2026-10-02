@@ -108,3 +108,19 @@ describe('PR 6 — l’exercice fait (point 6)', () => {
     expect(Modele.exercicesFaits(l, { A: '2026-09-01', B: '2026-09-20' })).toEqual({ couche: '2026-09-20' });
   });
 });
+
+// PR 7 — le comptage interne de `etatsExercices` est une AUTRE notion : les
+// séries hors chauffe (dégressives et échecs compris, comme le Python du §5.1).
+describe('PR 7 — les séries hors chauffe ne sont pas les séries de travail', () => {
+  test('⚠️ DISCRIMINANT — une dégressive et un échec sont hors chauffe, pas du travail', () => {
+    const l = [{ type_serie: 'echauffement' }, { type_serie: 'travail' }, { type_serie: 'degressive' }, { type_serie: 'echec' }];
+    expect(Palier.seriesHorsChauffe(l).map((s) => s.type_serie)).toEqual(['travail', 'degressive', 'echec']);
+    expect(l.filter(Modele.estTravail).map((s) => s.type_serie)).toEqual(['travail']);
+  });
+  test('« monte en charge » se lit sur elles : 3 séries hors chauffe suffisent, même avec une seule de travail', () => {
+    const se = (i) => ({ slug: 'x', series: [{ type_serie: 'travail', charge_kg: 50 }, { type_serie: 'degressive', charge_kg: 60 },
+      { type_serie: 'echec', charge_kg: 60 }], debut: '2026-09-' + String(10 + i).padStart(2, '0') });
+    const etats = Palier.etatsExercices([0, 1, 2, 3, 4, 5, 6, 7].map(se));
+    expect(etats.x && etats.x.etat).toBe('monte');
+  });
+});

@@ -173,6 +173,10 @@ const CATALOGUE = [
   { slug: 'tracte-u15', nom: 'Tracté U15 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['dorsaux'], muscles_secondaires: [] },
   { slug: 'leve-u15', nom: 'Levé U15 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['epaules'], muscles_secondaires: [] },
   { slug: 'presse-u15', nom: 'Pressé U15 (Machine)', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['quadriceps'], muscles_secondaires: [] },
+  // PR 5 de la consolidation — réservé à la section 7 G quindecies (tous les
+  // écrans, mêmes données). Son nom ne répond à aucune recherche faite
+  // ailleurs ; son muscle n'est travaillé nulle part ailleurs.
+  { slug: 'ecrans-u5', nom: 'Écrans U5 (Machine)', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['adducteurs'], muscles_secondaires: [] },
   // 49-U17 — réservé à la section 7 G terdecies (la série de plus). Son muscle
   // (les avant-bras) n'est travaillé nulle part ailleurs : sa règle de volume
   // ne dépend que de ce décor.
@@ -9491,6 +9495,155 @@ const SETS_IMPORTES = [
     ok('[RJ] la garde du banc n’a rien signalé pendant la séance du décor', gardeBanc.violations === violationsAvant,
       JSON.stringify(gardeBanc.liste.slice(-3)));
     ok('[RJ] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
+  }
+
+  console.log('\n══ 7 G quindecies. TOUS LES ÉCRANS, MÊMES DONNÉES (PR 5 de la consolidation) ══');
+  //
+  // UN HISTORIQUE, PLUSIEURS ÉCRANS : chaque notion affichée hors de l'en-tête
+  // est comparée à SA source (le registre `NOTIONS`).
+  //   · dernière séance → la meilleure série du jour : la page d'exercice,
+  //     Progression et la carte de la séance disent le même chiffre ;
+  //   · record de charge → la ligne la plus lourde de la table par reps ;
+  //   · zone → l'étiquette de la séance est celle de la page ; sans séance,
+  //     le menu des zones porte la zone déduite ;
+  //   · cible → la ligne mise en avant dans la table est la visée de l'en-tête.
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE :
+  //   · la dernière séance : 100 × 10, 100 × 10, 105 × 8 → palier 100 × 10,
+  //     meilleure série 105 × 8 (la page affichait le palier) ;
+  //   · une séance avec une exploration à 130 × 1 → le record de charge est
+  //     130 × 1, la ligne « 1 rep » de la table (la fiche l'écartait) ;
+  //   · la visée de l'en-tête n'est pas 10, les reps du palier qu'elle
+  //     mettait en avant.
+  {
+    const tE = Date.now();
+    const poserE = (id, debut, lignes) => {
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'Écrans — ' + id, debut,
+        fin: finDe(debut, tE).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      lignes.forEach(([kg, reps], k) => base.sets.push({ id: id + '-s' + (k + 1), session_id: id, user_id: 'u-banc',
+        exercise_slug: 'ecrans-u5', charge_kg: kg, reps, duree_s: null, distance_m: null, type_serie: 'travail',
+        rang: k + 1, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null, repos_s: null, note: null,
+        source: 'app', created_at: debut, modifie_a: null }));
+    };
+    poserE('ecr-1', ilYa(21 * 86400000, tE).toISOString(), [[90, 12], [90, 12], [90, 12]]);
+    poserE('ecr-2', ilYa(14 * 86400000, tE).toISOString(), [[95, 11], [95, 11], [95, 11]]);
+    poserE('ecr-3', ilYa(7 * 86400000, tE).toISOString(), [[100, 10], [100, 10], [100, 10], [130, 1]]);
+    // La plus récente de toutes : Progression la montre en tête.
+    poserE('ecr-4', new Date(tE - 1000).toISOString(), [[100, 10], [100, 10], [105, 8]]);
+    ROUTINES.push({ id: 'r-ecr', nom: 'Écrans U5', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [
+        { id: 'r-ecr-a', routine_id: 'r-ecr', exercise_slug: 'ecrans-u5', rang: 0,
+          routine_sets: progr(3), repos_cible_s: 120, groupe_superset: null, note: null }] });
+    const sp = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    // « 105 kg × 8 », « 105× 8 » : la charge et les reps, quel que soit l'écran.
+    const ck = (t) => { const m = /(\d+(?:,\d+)?)\D+?(\d+)\s*$/.exec(sp(t)); return m ? m[1] + '×' + m[2] : null; };
+    const fiche = () => page.evaluate(() => Array.from(document.querySelectorAll('#page-exercice .exo-li'))
+      .map((l) => [(l.querySelector('.exo-li-k') || {}).firstChild ? l.querySelector('.exo-li-k').firstChild.textContent : '',
+        (l.querySelector('.exo-li-v') || {}).textContent || '']));
+    const ligneFicheE = async (motif) => ((await fiche()).filter((l) => motif.test(l[0]))[0] || [null, null])[1];
+    const tableE = () => page.evaluate(() => Array.from(document.querySelectorAll('#page-exercice .tr-ligne')).map((l) => ({
+      reps: parseInt((l.querySelector('.tr-reps') || {}).textContent, 10),
+      charge: (l.querySelector('.tr-charge') || {}).textContent, cible: l.classList.contains('cible'),
+      deduit: l.classList.contains('deduit') })));
+    const puceE = () => page.evaluate(() => (document.querySelector('#page-exercice .puce-zone') || {}).textContent || null);
+
+    // ── A. SANS SÉANCE : la page, Progression, la carte de la séance.
+    await aller('/exercice/ecrans-u5');
+    await attendre(700);
+    const derniereA = await ligneFicheE(/Dernière séance/);
+    const recordA = await ligneFicheE(/Record/);
+    const tA = await tableE();
+    const plusLourde = tA.filter((l) => !l.deduit).reduce((a, l) => {
+      const c = parseFloat(String(l.charge).replace(',', '.'));
+      return !a || c > a.c || (c === a.c && l.reps > a.reps) ? { c, reps: l.reps } : a;
+    }, null);
+    ok('[E] DISCRIMINANT — « Dernière séance » : la meilleure série du jour, 105 kg × 8 (pas le palier 100 × 10)',
+      ck(derniereA) === '105×8', JSON.stringify(derniereA));
+    ok('[E] DISCRIMINANT — « Record de charge » : la ligne la plus lourde de la table, 130 kg × 1 (l’exploration comprise)',
+      ck(recordA) === '130×1' && plusLourde && plusLourde.c === 130 && plusLourde.reps === 1,
+      JSON.stringify([recordA, plusLourde]));
+    await aller('/progression');
+    await attendre(700);
+    const prog = await page.evaluate(() => Array.from(document.querySelectorAll('.bloc-exo'))
+      .filter((l) => /Écrans U5/.test(l.textContent)).map((l) => (l.querySelector('.bloc-exo-val') || {}).textContent)[0] || null);
+    ok('[E] Progression dit le même chiffre que la page', ck(prog) !== null && ck(prog) === ck(derniereA),
+      JSON.stringify([prog, derniereA]));
+    await aller('/');
+    await attendre(700);
+    const carte = await page.evaluate(() => Array.from(document.querySelectorAll('.apercu-exo'))
+      .filter((l) => /Écrans U5/.test(l.textContent)).map((l) => (l.querySelector('.apercu-val') || {}).textContent)[0] || null);
+    ok('[E] la carte de la séance aussi', ck(carte) !== null && ck(carte) === ck(derniereA), JSON.stringify([carte, derniereA]));
+    // Le menu des zones, ouvert depuis la page SANS séance : la zone déduite
+    // et sa raison (le menu la lisait sur la consigne de la séance, absente).
+    await aller('/exercice/ecrans-u5');
+    await attendre(700);
+    const puceSans = await puceE();
+    await page.click('#page-exercice .puce-zone');
+    await attendre(700);
+    const menuSans = await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .option-zone'))
+      .map((b) => ({ cle: b.dataset.cle, actif: b.classList.contains('active'), sous: (b.querySelector('.oz-sous') || {}).textContent || null })));
+    ok('[E] DISCRIMINANT — sans séance, le menu des zones porte la zone déduite et sa raison, celle de l’étiquette',
+      menuSans.filter((o) => o.actif && o.sous).length === 1 && !!puceSans,
+      JSON.stringify([puceSans, menuSans.filter((o) => o.actif)]));
+    await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu button'))
+      .filter((b) => /Fermer/.test(b.textContent))[0].click());
+    await attendre(500);
+
+    // ── B. AVEC LA SÉANCE OUVERTE : l'étiquette et la visée de l'en-tête.
+    await aller('/saisie');
+    await demarrerRoutine('Écrans U5');
+    await attendre(900);
+    const enSeance = await page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      const x = d && d.plan.exercices.filter((e) => e.slug === 'ecrans-u5')[0];
+      const k = x && x.consigne;
+      return { puce: (document.querySelector('.legende-exo .puce-zone') || {}).textContent || null,
+        vise: k ? (k.ligne || k.haut || {}).vise : null };
+    });
+    await aller('/exercice/ecrans-u5');
+    await attendre(700);
+    const puceAvec = await puceE();
+    const tB = await tableE();
+    const cible = tB.filter((l) => l.cible).map((l) => l.reps);
+    ok('[E] l’étiquette de la page est celle de la séance ouverte (une seule consigne)',
+      !!enSeance.puce && sp(puceAvec) === sp(enSeance.puce) && sp(puceSans) === sp(enSeance.puce),
+      JSON.stringify([enSeance.puce, puceAvec, puceSans]));
+    ok('[E] DISCRIMINANT — la ligne mise en avant est la visée de l’en-tête (pas les 10 reps du palier)',
+      typeof enSeance.vise === 'number' && enSeance.vise !== 10 &&
+      JSON.stringify(cible) === JSON.stringify(tB.some((l) => l.reps === enSeance.vise) ? [enSeance.vise] : []) &&
+      tB.some((l) => l.reps === enSeance.vise),
+      JSON.stringify({ vise: enSeance.vise, cible, reps: tB.map((l) => l.reps) }));
+    // ⚠️ LA SÉANCE OUVERTE FAIT FOI, MÊME APRÈS UNE SYNCHRONISATION. Cinq
+    // séances à 20 reps (l'habitude passe à 20, Séries longues) arrivent d'un autre appareil pendant la séance : la
+    // consigne de la séance est figée (MOTEUR §9.13 bis), et la page la lit.
+    // Une page qui recalculerait la sienne passerait à une autre zone que
+    // l'en-tête, à la même seconde.
+    [2, 3, 4, 5, 6].forEach((j) => poserE('ecr-sync-' + j, ilYa(j * 86400000, tE).toISOString(), [[60, 20], [60, 20], [60, 20]]));
+    await aller('/');
+    await attendre(500);
+    await page.evaluate(() => document.getElementById('btn-rafraichir').click());
+    await attendre(2500);
+    await aller('/exercice/ecrans-u5');
+    await attendre(700);
+    const puceApresSync = await puceE();
+    const neuve = await page.evaluate(() => {
+      const t = (window.THPlan && window.THPlan.dernier) || null;
+      return t ? t.entrees.seance.id : null;
+    });
+    ok('[E] DISCRIMINANT — après une synchronisation en pleine séance, l’étiquette de la page reste celle de la séance',
+      sp(puceApresSync) === sp(enSeance.puce), JSON.stringify([enSeance.puce, puceApresSync, neuve]));
+    await aller('/saisie');
+    await abandonner();
+    // Sans séance, la page lit l'historique à jour : la zone suit les cinq
+    // séances arrivées (la prémisse du contrôle précédent).
+    await aller('/exercice/ecrans-u5');
+    await attendre(700);
+    const puceSansApres = await puceE();
+    ok('[E] prémisse — sans séance, les séances arrivées changent la zone (sinon le contrôle d’avant ne prouve rien)',
+      !!puceSansApres && sp(puceSansApres) !== sp(enSeance.puce), JSON.stringify([enSeance.puce, puceSansApres]));
+    ok('[E] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
 
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');

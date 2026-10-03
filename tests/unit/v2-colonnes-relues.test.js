@@ -403,4 +403,13 @@ describe('12. la liste de lecture est DÉRIVÉE, jamais recopiée', () => {
     ['slug', 'nom', 'mesure', 'charge', 'muscles_primaires', 'muscles_secondaires']
       .forEach((c) => expect(demandees).toContain(c));
   });
+
+  test('le `select` du catalogue demande `mouvement` — les frères (MOTEUR §13.6, 49-U20) en dépendent', async () => {
+    const Donnees = charger();
+    await Donnees.tousLesExercices();
+    const demandees = requetes[0].colonnes.split(',').map((c) => c.trim());
+    expect(demandees).toContain('mouvement');
+    ['slug', 'nom', 'mesure', 'charge', 'equipement', 'muscles_primaires', 'muscles_secondaires']
+      .forEach((c) => expect(demandees).toContain(c));
+  });
 });

@@ -81,6 +81,9 @@ const GARDEES = [
   // moteur.js — le compteur de stagnation (§12.9, 49-U13)
   { fn: 'compteurDe', module: 'moteur.js' },
   { fn: 'phraseCompteur', module: 'moteur.js' },
+  // moteur.js — les frères (§13.6, 49-U20)
+  { fn: 'frereQuiProgresse', module: 'moteur.js' },
+  { fn: 'phraseFrere', module: 'moteur.js' },
   // moteur.js — l'escalier, la semaine allégée (§14.4, 49-U14)
   { fn: 'blocageGeneralise', module: 'moteur.js' },
   { fn: 'phraseCarte', module: 'moteur.js' },
@@ -334,7 +337,20 @@ const NOTIONS = [
     module: 'modele.js', fonction: 'arrondi', lecteurs: ['poids.js'],
     motif: /\.\s*arrondi\s*\(/g,
     par: ['nombreTexte'],
-    raison: 'le formateur arrondissait −11,5 vers −11 et +11,5 vers +12 ; le poids, symétriquement. Un seul arrondi.' }
+    raison: 'le formateur arrondissait −11,5 vers −11 et +11,5 vers +12 ; le poids, symétriquement. Un seul arrondi.' },
+  // Après la consolidation, les notions d'un chantier portent son geste.
+  { notion: 'les frères d’un exercice (même `mouvement` au catalogue, MOTEUR §13.6)', pr: '49-U20',
+    module: 'modele.js', fonction: 'freresDe', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['freresPourLeMoteur'] },
+    interditAilleurs: { motif: /\.\s*mouvement\b|\[\s*(['"`])mouvement\1\s*\]/,
+                        raison: '`mouvement` lu ailleurs que dans `freresDe` : une seconde définition des frères' },
+    raison: 'les frères sont les exercices de même `mouvement` — pas de même `famille`, plus large ; ' +
+      'une seule lecture de la colonne, sinon deux écrans auraient deux listes de frères.' },
+  { notion: 'le frère qui progresse pendant le blocage (MOTEUR §13.6)', pr: '49-U20',
+    module: 'moteur.js', fonction: 'frereQuiProgresse', lecteurs: [],
+    par: ['frereDuBlocage'],
+    raison: 'la règle (un progrès après le dernier progrès de l’exercice bloqué, un meilleur en hausse, ' +
+      'la même zone pour la flèche) se décide une fois ; le plan ne lit que son résultat, figé avec la consigne.' }
 ];
 
 const CONSEIL = 'Passe par `planDeSeance` (v2/js/plan.js), ou ajoute ce fichier à la liste ' +
@@ -513,7 +529,9 @@ describe('architecture — le registre des notions : une source, des lecteurs', 
   test('le registre est complet : chacune des sept PR de la consolidation y a ses notions', () => {
     const prs = ['PR 1', 'PR 2', 'PR 3', 'PR 4', 'PR 5', 'PR 6', 'PR 7'];
     expect(prs.filter((pr) => !NOTIONS.some((n) => n.pr === pr))).toEqual([]);
-    expect(NOTIONS.filter((n) => prs.indexOf(n.pr) < 0).map((n) => n.notion)).toEqual([]);
+    // Après la consolidation (49-U20) : une notion porte le geste du chantier
+    // qui l'a introduite (« 49-U20 »).
+    expect(NOTIONS.filter((n) => prs.indexOf(n.pr) < 0 && !/^\d+-U\d+$/.test(n.pr)).map((n) => n.notion)).toEqual([]);
   });
 
   test('chaque notion a sa source, déclarée dans son module, et sa raison', () => {
@@ -592,6 +610,15 @@ describe('architecture — le registre des notions : une source, des lecteurs', 
       });
     });
     expect(fautes).toEqual([]);
+  });
+
+  test('l’interdit des frères se lit vraiment : `mouvement` lu hors de `freresDe` se voit, la colonne nommée non', () => {
+    const n = NOTIONS.filter((x) => x.fonction === 'freresDe')[0];
+    const voit = (t) => n.interditAilleurs.motif.test(t);
+    expect(voit('if (a.mouvement === b.mouvement) return true;')).toBe(true);
+    expect(voit("var m = e['mouvement'];")).toBe(true);
+    expect(voit("select('slug, nom, mouvement')")).toBe(false);
+    expect(voit('Modele.freresDe(index, slug)')).toBe(false);
   });
 
   test('l’interdit du formateur se lit vraiment', () => {

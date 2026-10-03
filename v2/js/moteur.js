@@ -3181,8 +3181,11 @@
           compteur++;
         }
       }
+      // §13.6 (49-U20) — le MEILLEUR après la séance, avec chaque verdict : les
+      // frères se lisent là (« avant », « maintenant », un meilleur en hausse).
       verdicts.push({ debut: se.debut, zone: k.zone === undefined ? null : k.zone, progres: progres,
-                      suivie: suivie, remise_a_zero: rz, compteur: compteur });
+                      suivie: suivie, remise_a_zero: rz, compteur: compteur,
+                      meilleur: meilleur === null ? null : { palier: meilleur.palier, niveau: meilleur.niveau } });
       zonePrecedente = k.zone;
       premiere = false;
       derniere = P === null ? null : { palier: P, niveau: n };
@@ -3223,6 +3226,103 @@
     return Modele().charge(c.meilleur.palier, undefined, cM) + ' × ' + nombreFr(c.meilleur.niveau, cR) +
       ' reste ta meilleure charge de travail depuis ' + nombreFr(c.compteur, regle('compteur')) + ' séances' +
       (plusLong ? ' : c\'est plus long que d\'habitude pour toi.' : '.');
+  }
+
+  // ══ §13.6 (49-U20) — LES FRÈRES : CÔTE À CÔTE, SANS CONCLURE ════════════
+  //
+  // « Quand un exercice est bloqué et qu'un frère progresse pendant ce temps,
+  // le coach le montre côte à côte, sans conclure ; l'escalier propose sa
+  // marche comme d'habitude. » Les frères sont les exercices de même
+  // `mouvement` au catalogue (`THModele.freresDe`, la source unique) ; leurs
+  // verdicts sont ceux du compteur (`compteurDe`, par le même rejeu que
+  // l'exercice lui-même). Référence : `coach49.py` (`frere_qui_progresse`,
+  // `phrase_frere`) ; cas `cas-49u20-freres.json`.
+
+  // Le blocage court depuis le DERNIER PROGRÈS de l'exercice bloqué (§12.2
+  // bis) : le dernier verdict `progres` ; à défaut, son premier verdict.
+  function debutDuBlocage(verdicts) {
+    var l = (verdicts || []).filter(function (v) { return v && instant(v.debut) !== null; });
+    if (!l.length) return null;
+    var progres = l.filter(function (v) { return v.progres === true; });
+    return (progres.length ? progres[progres.length - 1] : l[0]).debut;
+  }
+
+  // Un meilleur (palier, niveau) au-dessus d'un autre : le palier, puis le
+  // niveau au même palier.
+  function meilleurAuDessus(a, b) {
+    var pa = nombre(a.palier), pb = nombre(b.palier);
+    if (pa === null || pb === null) return false;
+    if (pa > pb && !memeCharge(pa, pb)) return true;
+    return memeCharge(pa, pb) && nombre(a.niveau) !== null && nombre(b.niveau) !== null &&
+      nombre(a.niveau) > nombre(b.niveau);
+  }
+  function meilleurDit(m) {
+    return !!m && nombre(m.palier) !== null && nombre(m.niveau) !== null;
+  }
+
+  // LE FRÈRE QUI A PROGRESSÉ PENDANT LE BLOCAGE. `bloque` : `{ verdicts }` ;
+  // `freres` : `[{ id, nom, verdicts }]` (les verdicts de `compteurDe`, avec
+  // leur `meilleur`) ; `avant` : la séance qui s'ouvre. Un frère compte s'il a
+  // un progrès STRICTEMENT après le début du blocage et avant la séance, et si
+  // son meilleur a monté — un test tenu qui ne change pas le meilleur n'a rien
+  // à montrer. « Maintenant » : son dernier verdict avant la séance ; « avant » :
+  // son dernier verdict au début du blocage ou avant — `null` s'il n'en a pas,
+  // ou si sa zone n'est pas celle de « maintenant » (pas de flèche entre deux
+  // zones). Plusieurs : le progrès le plus récent, puis l'ordre alphabétique
+  // du nom. Rend `{ id, nom, avant, maintenant }` ou `null`. Pure.
+  function frereQuiProgresse(bloque, freres, avant) {
+    var depuis = instant(debutDuBlocage(bloque && bloque.verdicts));
+    if (depuis === null) return null;
+    var fin = instant(avant);
+    var retenus = [];
+    (freres || []).forEach(function (f) {
+      if (!f) return;
+      var vus = (f.verdicts || []).filter(function (v) {
+        var t = v ? instant(v.debut) : null;
+        return t !== null && (fin === null || t < fin);
+      }).sort(function (a, b) { return instant(a.debut) - instant(b.debut); });
+      var progres = vus.filter(function (v) { return v.progres === true && instant(v.debut) > depuis; });
+      if (!progres.length) return;
+      var maintenant = vus[vus.length - 1];
+      if (!meilleurDit(maintenant.meilleur)) return;
+      var anciens = vus.filter(function (v) { return instant(v.debut) <= depuis; });
+      var ancien = anciens.length ? anciens[anciens.length - 1] : null;
+      if (ancien && ancien.zone !== maintenant.zone) ancien = null;
+      // Un « avant » sans niveau ne se dit pas (pas de flèche) — mais son
+      // palier compte encore : un palier qui n'a pas monté n'est pas un progrès.
+      if (ancien && !meilleurDit(ancien.meilleur)) {
+        var pa = nombre(ancien.meilleur && ancien.meilleur.palier), pm = nombre(maintenant.meilleur.palier);
+        if (pa !== null && !(pm > pa && !memeCharge(pm, pa))) return;
+        ancien = null;
+      }
+      if (ancien && !meilleurAuDessus(maintenant.meilleur, ancien.meilleur)) return;
+      retenus.push({ quand: instant(progres[progres.length - 1].debut), id: f.id === undefined ? null : f.id,
+                     nom: String(f.nom === undefined || f.nom === null ? f.id : f.nom),
+                     avant: ancien ? { palier: nombre(ancien.meilleur.palier), niveau: nombre(ancien.meilleur.niveau) } : null,
+                     maintenant: { palier: nombre(maintenant.meilleur.palier), niveau: nombre(maintenant.meilleur.niveau) } });
+    });
+    if (!retenus.length) return null;
+    retenus.sort(function (a, b) {
+      if (a.quand !== b.quand) return b.quand - a.quand;
+      return a.nom < b.nom ? -1 : (a.nom > b.nom ? 1 : 0);
+    });
+    var r = retenus[0];
+    return { id: r.id, nom: r.nom, avant: r.avant, maintenant: r.maintenant };
+  }
+
+  // LA PHRASE, en gris, après celle du compteur : « Pendant ce temps, Développé
+  // Couché (Haltère) : 40 kg × 10 → 42 kg × 10. », ou sans « avant » :
+  // « Pendant ce temps, Développé Couché (Haltère) progresse : 42 kg × 10. »
+  // Par le formateur unique (`chargeFois`) ; « avant » et « maintenant » sont
+  // des FAITS PASSÉS (§20 bis), chacun sa source (`frere.avant`,
+  // `frere.maintenant`). Les deux-points et la flèche ont les espaces du
+  // fichier de cas, comme la phrase du compteur qu'elle suit.
+  function phraseFrere(f) {
+    if (!f || !f.nom || !meilleurDit(f.maintenant)) return null;
+    var dit = function (m, quoi) { return chargeFois(nombre(m.palier), nombre(m.niveau), cite(FAIT, { quoi: quoi })); };
+    return 'Pendant ce temps, ' + f.nom +
+      (meilleurDit(f.avant) ? ' : ' + dit(f.avant, 'frere.avant') + ' → ' : ' progresse : ') +
+      dit(f.maintenant, 'frere.maintenant') + '.';
   }
 
   // ══ §14.4 (49-U14) — L'ESCALIER, PREMIÈRE MARCHE : LA SEMAINE ALLÉGÉE ════
@@ -3889,11 +3989,9 @@
     // 48b-5b-2, câblé à `null` faute d'un endroit où lire la zone choisie.
     var consigne = consignePour(seances, avant,
       { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null });
-    var marquees = marquerSousConsigne(seances, groupes, o.seancesSousConsigne, o.periodesAllegees,
-      o.periodesSerieDePlus);
-    var compteur = compteurFige(compteurDe(marquees, avant,
-      { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null,
-        corrections: o.correctionsDeZone || null }));
+    var rejeu = rejeuDuCompteur(seances, groupes, avant, o);
+    var marquees = rejeu.marquees;
+    var compteur = compteurFige(rejeu.complet);
     var zoneAu = function (liste, i) {
       var k = consignePour(liste.slice(0, i), liste[i].debut, { reglage: o.reglage, equipement: o.equipement,
         correction: o.correctionsDeZone ? correctionAu(o.correctionsDeZone, liste[i].debut) : (o.correction || null) });
@@ -3925,7 +4023,61 @@
              // zone de chaque séance candidate est celle de la consigne qu'elle
              // a reçue (la zone choisie en vigueur ce jour-là).
              repli: compteur.compteur >= PAS_ESCALIER && consigne && consigne.zone
-               ? repliEscalier(marquees, avant, compteur.meilleur, consigne.zone, { zoneAu: zoneAu }) : null };
+               ? repliEscalier(marquees, avant, compteur.meilleur, consigne.zone, { zoneAu: zoneAu }) : null,
+             // §13.6 (49-U20) — LE FRÈRE QUI PROGRESSE PENDANT LE BLOCAGE, figé
+             // avec la consigne. Ses frères ne sont demandés (`o.freres`, une
+             // fonction) et rejoués que si le compteur est à 4 ou plus.
+             frere: compteur.compteur >= SEUIL_COMPTEUR && typeof o.freres === 'function'
+               ? frereDuBlocage(rejeu.complet.verdicts, o.freres, avant) : null };
+  }
+
+  // LE REJEU DU COMPTEUR, le même pour l'exercice et pour ses frères : les
+  // séances du contrat, marquées sous consigne, puis `compteurDe`. `toutes` :
+  // chaque séance jugée, sous consigne ou non (les frères, ci-dessous).
+  function rejeuDuCompteur(seances, groupes, avant, o, toutes) {
+    var marquees = marquerSousConsigne(seances, groupes, o.seancesSousConsigne, o.periodesAllegees,
+      o.periodesSerieDePlus);
+    return { marquees: marquees,
+             complet: compteurDe(marquees, avant, { reglage: o.reglage, equipement: o.equipement,
+               correction: o.correction || null, corrections: o.correctionsDeZone || null, toutes: toutes === true }) };
+  }
+
+  // §13.6 (49-U20) — les frères de l'exercice bloqué, rejoués. `fournir()` rend
+  // `[{ slug, nom, groupes, etat, options }]` (les mêmes entrées que la
+  // consigne de chaque frère).
+  //
+  // ⚠️ LE FRÈRE SE REJOUE SUR TOUTES SES SÉANCES (`toutes`, le mode du
+  // simulateur qui a produit les cas), pas sur ses seules séances sous
+  // consigne : la phrase dit ce qu'il a FAIT. Sur ses seules séances pariées, un
+  // frère qui a un historique d'avant le coach (importé) n'avait pas d'« avant »
+  // : sa première séance pariée, pendant le blocage, valait progrès (une remise
+  // à zéro), et « 40 kg × 12, puis 30 kg × 12 » se disait « progresse : 30 kg ×
+  // 12 » (relecture du 03/10/2026). Le blocage, lui, reste celui du compteur de
+  // l'exercice bloqué (ses séances sous consigne).
+  //
+  // ⚠️ LE COÛT : un rejeu complet par frère (le coût d'une consigne, quasi
+  // quadratique en séances). Il ne se paie qu'à 4 ou plus, une fois par séance
+  // (la consigne est figée), et seulement pour un frère mesuré en charge ×
+  // reps qui a au moins une séance pendant le blocage — sans elle, aucun
+  // verdict ne peut y dire un progrès.
+  function frereDuBlocage(verdicts, fournir, avant) {
+    var depuis = instant(debutDuBlocage(verdicts));
+    if (depuis === null) return null;
+    var fin = instant(avant);
+    var candidats = (fournir() || []).filter(function (f) {
+      var o = (f && f.options) || {};
+      if (o.mesure !== 'charge_reps') return false;
+      return (f.groupes || []).some(function (g) {
+        var t = g && g.seance ? instant(g.seance.debut) : null;
+        return t !== null && t > depuis && (fin === null || t < fin);
+      });
+    });
+    return frereQuiProgresse({ verdicts: verdicts }, candidats.map(function (f) {
+      var o = f.options;
+      var seances = contratDe(f.groupes, f.etat, o.mesure,
+        { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null });
+      return { id: f.slug, nom: f.nom, verdicts: rejeuDuCompteur(seances, f.groupes, avant, o, true).complet.verdicts };
+    }), avant);
   }
 
   // Ce que la consigne FIGÉE garde du compteur (elle s'écrit sur le disque avec
@@ -4211,6 +4363,8 @@
     SEUIL_COMPTEUR: SEUIL_COMPTEUR,
     compteurDe: compteurDe,
     phraseCompteur: phraseCompteur,
+    frereQuiProgresse: frereQuiProgresse,
+    phraseFrere: phraseFrere,
     PAS_ESCALIER: PAS_ESCALIER,
     MODULE_ESCALIER: MODULE_ESCALIER,
     MARCHE_SEMAINE_ALLEGEE: MARCHE_SEMAINE_ALLEGEE,

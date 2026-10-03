@@ -672,6 +672,7 @@
     // Pendant la semaine allégée, le compteur se tait : rien ne se juge.
     var capK = V.capturer(function () { return compteur && !consigne.allegee ? M.phraseCompteur(compteur) : null; });
     var phraseDuCompteur = capK.texte, citesCompteur = capK.citations;
+    var capK0 = capK.texte === undefined ? null : capK.texte;
     // §14.5 (49-U15) — LA MARCHE PARLE À LA PLACE DU COMPTEUR, une seule voix :
     // en sèche, la phrase grise dit qu'il n'y a rien de plus ; la carte de
     // schéma et le repli disent déjà le meilleur ; au silence, la phrase quitte
@@ -684,6 +685,17 @@
       } else if (marche.marche === M.MARCHE_SILENCE || marche.carte || consigne.repli) phraseDuCompteur = null;
     }
     if (pourquoi && phraseDuCompteur) pourquoi.compteur = phraseDuCompteur;
+    // MOTEUR §13.6 (49-U20) — LE FRÈRE QUI PROGRESSE, côte à côte : figé avec
+    // la consigne (`c.frere`), dit en gris après le compteur, CHAQUE FOIS QUE
+    // LE COMPTEUR PARLE — sa ligne de l'en-tête (sèche comprise), ou la carte
+    // de la marche, qui s'ouvre sur le meilleur. Le repli et le silence le
+    // taisent avec lui ; la semaine allégée aussi. L'escalier ne le lit pas :
+    // sa marche reste proposée (§13.1, ne pas conclure).
+    var frere = c.frere || null;
+    var compteurParle = capK0 !== null && !(marche && (marche.marche === M.MARCHE_SILENCE || consigne.repli));
+    var capFr = V.capturer(function () { return frere && compteurParle ? M.phraseFrere(frere) : null; });
+    var phraseDuFrere = capFr.texte, citesFrere = capFr.citations;
+    if (pourquoi && phraseDuFrere) pourquoi.frere = phraseDuFrere;
     // ECRAN §3.10 — LES PARAGRAPHES DE LA FEUILLE, ICI (relevé du 01/10, PR 1
     // de la consolidation « un seul coach, un seul câblage »). Ils décrivent la
     // consigne QUE LE PLAN APPLIQUE — figée, allégée, repli, série de plus —,
@@ -719,6 +731,7 @@
     dire('entete.jaune', entete.jaune.join(', '), citesJaune);
     dire('entete.gris', gris, citesGris);
     dire('entete.compteur', phraseDuCompteur, citesCompteur);
+    dire('entete.frere', phraseDuFrere, citesFrere);
     dire('entete.plus', grisPlus, []);
     dire('message', r.message ? r.message.phrase : null, r.citationsMessage);
     dire('donc', donc, citesJaune);
@@ -746,11 +759,16 @@
       planInitial: r.planInitial, faites: r.faites, reaction: r.reaction,
       lignes: r.lignes, message: r.message, paris: r.paris,
       constat: constat,
-      entete: { jaune: entete.jaune, gris: gris, segments: entete.segments, compteur: phraseDuCompteur, plus: grisPlus },
+      entete: Object.assign({ jaune: entete.jaune, gris: gris, segments: entete.segments, compteur: phraseDuCompteur, plus: grisPlus },
+                            phraseDuFrere ? { frere: phraseDuFrere } : {}),
       // §14.5 (49-U15) — la marche de l'escalier de cet exercice, ou `null` :
       // `{ marche, n, compteur, declenchement, zone, carte?, repli?, reponse? }`.
       escalier: marche || null,
       compteur: compteur ? { compteur: compteur.compteur, meilleur: compteur.meilleur } : null,
+      // §13.6 (49-U20) — le frère dit dans l'en-tête, ou `null` : la source de
+      // ses deux chiffres pour I26 (`frere.avant`, `frere.maintenant`).
+      frere: phraseDuFrere ? { slug: frere.id === undefined ? null : frere.id, nom: frere.nom,
+                                avant: frere.avant || null, maintenant: frere.maintenant } : null,
       donc: donc,
       pourquoi: pourquoi,
       materiel: materiel ? materiel.equipement || null : null,
@@ -1994,6 +2012,9 @@
     if (f.serieAFond) fait.a_fond = { charge: f.serieAFond.charge, reps: [f.serieAFond.reps] };
     var meilleur = x.compteur && x.compteur.meilleur;
     if (meilleur) fait.meilleur = { charge: meilleur.palier, reps: [meilleur.niveau] };
+    // §13.6 (49-U20) — le frère qui progresse : « avant » et « maintenant ».
+    if (x.frere && x.frere.avant) fait['frere.avant'] = { charge: x.frere.avant.palier, reps: [x.frere.avant.niveau] };
+    if (x.frere && x.frere.maintenant) fait['frere.maintenant'] = { charge: x.frere.maintenant.palier, reps: [x.frere.maintenant.niveau] };
     if (k.repli) fait.repli = { charge: k.repli.palier, reps: (k.repli.reps || []).slice(), date: k.repli.debut || null };
     var suite = x.constat && x.constat.suiteLignes ? x.constat.suiteLignes : null;
     if (suite && suite.test) fait.test_du_jour = { charge: suite.test.charge, reps: [suite.test.reps], date: suite.test.date };

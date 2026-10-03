@@ -196,7 +196,17 @@ const CATALOGUE = [
   { slug: 'militaire-rj', nom: 'Rejeu Un (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['deltoide_anterieur'], muscles_secondaires: [] },
   { slug: 'couche-rj', nom: 'Rejeu Deux (Haltères)', mesure: 'charge_reps', charge: 'externe', equipement: 'haltere', muscles_primaires: ['triceps'], muscles_secondaires: [] },
   { slug: 'visage-rj', nom: 'Rejeu Trois (Poulie)', mesure: 'charge_reps', charge: 'externe', equipement: 'poulie', muscles_primaires: ['deltoide_posterieur'], muscles_secondaires: [] },
-  { slug: 'curlez-rj', nom: 'Rejeu Quatre (Barre EZ)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['brachial'], muscles_secondaires: [] }
+  { slug: 'curlez-rj', nom: 'Rejeu Quatre (Barre EZ)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['brachial'], muscles_secondaires: [] },
+  // 49-U20 — réservés à la section 7 G sexdecies (les frères, MOTEUR §13.6) :
+  // deux mouvements, chacun un exercice bloqué et son frère, et un « cousin »
+  // d'un autre mouvement. Les seuls du banc à porter un `mouvement` ; leurs
+  // noms ne répondent à aucune recherche faite ailleurs, leurs muscles ne sont
+  // travaillés nulle part ailleurs.
+  { slug: 'frat-u20', nom: 'Fraternel U20 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['abducteurs'], muscles_secondaires: [], mouvement: 'fraternel_u20' },
+  { slug: 'frat-u20-h', nom: 'Fraternel U20 (Haltères)', mesure: 'charge_reps', charge: 'externe', equipement: 'haltere', muscles_primaires: ['bas_du_dos'], muscles_secondaires: [], mouvement: 'fraternel_u20' },
+  { slug: 'cousin-u20', nom: 'Cousin U20 (Haltères)', mesure: 'charge_reps', charge: 'externe', equipement: 'haltere', muscles_primaires: ['haut_du_dos'], muscles_secondaires: [], mouvement: 'cousin_u20' },
+  { slug: 'germain-u20', nom: 'Germain U20 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['grand_dorsal'], muscles_secondaires: [], mouvement: 'germain_u20' },
+  { slug: 'germain-u20-m', nom: 'Germain U20 (Machine)', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['deltoide_lateral'], muscles_secondaires: [], mouvement: 'germain_u20' }
 ];
 
 // ⚠️ UNE ROUTINE PORTE MAINTENANT SES LIGNES (chantier 43). `routine_sets`
@@ -8962,8 +8972,10 @@ const SETS_IMPORTES = [
         zone: x && x.consigne ? x.consigne.zone : null,
         compteur: x && x.compteur ? x.compteur.compteur : null,
         jaune: legende ? Array.from(legende.querySelectorAll('.consigne')).map((n) => n.textContent) : [],
-        gris: legende && legende.querySelector('.consigne-dit:not(.compteur)') ? legende.querySelector('.consigne-dit:not(.compteur)').textContent : null,
+        gris: legende && legende.querySelector('.consigne-dit:not(.compteur):not(.frere)') ? legende.querySelector('.consigne-dit:not(.compteur):not(.frere)').textContent : null,
         phraseCompteur: legende && legende.querySelector('.consigne-dit.compteur') ? legende.querySelector('.consigne-dit.compteur').textContent : null,
+        // 49-U20 — la ligne du frère (MOTEUR §13.6).
+        phraseFrere: legende && legende.querySelector('.consigne-dit.frere') ? legende.querySelector('.consigne-dit.frere').textContent : null,
         lignes: x ? x.lignes.filter((l) => l.type === 'travail').map((l) => [l.role, l.charge, l.vise]) : null,
         repli: x && x.consigne && x.consigne.repli ? x.consigne.repli : null,
         carteAllegee: !!(d && d.plan.carte)
@@ -8984,6 +8996,13 @@ const SETS_IMPORTES = [
     ok('[U15] 0 — démonstration : la carte de schéma sous le premier exercice, « Passer à 6-8 reps » / « Garder 3-5 »',
       d1.marche === 'schema' && !!d1.carte && /reste ta meilleure charge de travail depuis 4 séances/.test(esp(d1.carte.texte)) &&
       d1.carte.oui === 'Passer à 6-8 reps' && d1.carte.non === 'Garder 3-5', JSON.stringify(d1));
+    // 49-U20 (MOTEUR §13.6) — la démonstration montre aussi un FRÈRE inventé
+    // sur le premier (un frère au catalogue, sinon un témoin) : sa phrase en
+    // gris, et la carte de schéma quand même. Rien n'est écrit (contrôlé plus bas).
+    ok('[U15] 0 — 49-U20 : la démonstration montre la phrase d’un frère, côte à côte avec la carte de schéma',
+      d1.marche === 'schema' && !!d1.carte &&
+      /^Pendant ce temps, Exercice témoin \(frère\) : \d+(,\d+)? kg × \d+ → \d+(,\d+)? kg × \d+\.$/.test(esp(d1.phraseFrere)),
+      JSON.stringify([d1.phraseFrere, d1.marche]));
     ok('[U15] 0 — démonstration : un repli sur le second, sans test, la phrase « On repart de … »',
       d2.marche === 'repli' && !!d2.repli && /^On repart de .* kg, ta dernière charge tenue : .* kg × (\d+), \1, \1 le /.test(esp(d2.gris)) &&
       d2.lignes.every((l) => l[0] === 'ligne' && l[1] === d2.repli.palier), JSON.stringify(d2));
@@ -9552,6 +9571,134 @@ const SETS_IMPORTES = [
     ok('[RJ] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
 
+  console.log('\n══ 7 G sexdecies. LES FRÈRES : CÔTE À CÔTE, SANS CONCLURE, LA MARCHE MAINTENUE (49-U20, MOTEUR §13.6) ══');
+  //
+  // ⚠️ CONFIGURATIONS DISCRIMINANTES.
+  //   · `frat-u20` (barre, zone Lourd) : 100 kg × 5 six fois, les cinq
+  //     dernières sous consigne → 4, le 1er déclenchement : la CARTE DE SCHÉMA
+  //     est proposée, comme sans frère. Son frère `frat-u20-h` (haltères, même
+  //     `mouvement`) est passé de 30 à 34 kg × 10 PENDANT le blocage : la
+  //     phrase « Pendant ce temps, … : 30 kg × 10 → 34 kg × 10. » s'affiche
+  //     en gris, et la carte quand même (le coach ne conclut pas, §13.1).
+  //   · `cousin-u20` : un AUTRE mouvement, qui progresse plus récemment encore.
+  //     Il n'est jamais nommé (pas de cousins, §13.5).
+  //   · `germain-u20` (barre, zone Volume) : à 5, entre deux déclenchements —
+  //     aucune marche ; la ligne du compteur, PUIS celle de son frère
+  //     `germain-u20-m` (machine), côte à côte dans l'en-tête et dans la feuille.
+  {
+    const tF = Date.now();
+    let graineF = 0;
+    const poserF = (slug, id, jours, avecPari, kg, reps, zone) => {
+      const debut = ilYa(jours * 86400000, tF).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'U20 — ' + id, debut,
+        fin: finDe(debut, tF).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      [1, 2, 3].forEach((rang) => base.sets.push({ id: id + '-s' + rang, session_id: id, user_id: 'u-banc',
+        exercise_slug: slug, charge_kg: kg, reps, duree_s: null, distance_m: null,
+        type_serie: 'travail', rang, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null,
+        repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+      if (avecPari) {
+        // Un pari sur la première série : la séance est SOUS CONSIGNE.
+        base.predictions.push({ id: '00000000-0000-5000-8020-' + String(++graineF).padStart(12, '0'),
+          user_id: 'u-banc', module: 'moteur.consigne', module_version: 4, emise_a: debut,
+          exercise_slug: slug, grandeur: 'reps', horizon_jours: null, valeur_predite: reps,
+          borne_basse: reps, borne_haute: reps,
+          fondement: { rang: 1, charge: kg, etat: 'progression', zone, reglage: 'normal',
+                       palier: kg, niveau: reps, seance: id, role: 'ligne', phase: 'maintien' },
+          valeur_observee: reps, observee_a: debut, set_observe: id + '-s1', created_at: debut });
+      }
+    };
+    // Une séance tous les 4 jours, la dernière il y a 6 jours : plus loin, la
+    // séance qui s'ouvre serait une REPRISE, qui remet le compteur à zéro dès
+    // l'ouverture (§12.9). Le blocage de `frat-u20` commence au jour −22 (son
+    // dernier progrès : la remise à zéro de la première séance sous consigne).
+    poserF('frat-u20', 'f-b0', 26, false, 100, 5, 'lourd');
+    [22, 18, 14, 10, 6].forEach((j, i) => poserF('frat-u20', 'f-b' + (i + 1), j, true, 100, 5, 'lourd'));
+    // Son frère : 30 kg × 10 AVANT le blocage (j −24), puis 32 et 34 PENDANT.
+    poserF('frat-u20-h', 'f-h0', 28, false, 28, 10, 'volume');
+    poserF('frat-u20-h', 'f-h1', 24, true, 30, 10, 'volume');
+    poserF('frat-u20-h', 'f-h2', 16, true, 32, 10, 'volume');
+    poserF('frat-u20-h', 'f-h3', 8, true, 34, 10, 'volume');
+    // Le cousin : un progrès plus récent (j −5), d'un autre mouvement.
+    poserF('cousin-u20', 'f-c0', 28, false, 20, 10, 'volume');
+    poserF('cousin-u20', 'f-c1', 24, true, 20, 10, 'volume');
+    poserF('cousin-u20', 'f-c2', 5, true, 24, 10, 'volume');
+    // `germain-u20` : 25 kg × 12, une remise à zéro au jour −26 puis cinq
+    // séances suivies sans progrès → 5. Son frère : 50 → 55 kg × 12 pendant.
+    poserF('germain-u20', 'f-g0', 30, false, 25, 12, 'volume');
+    [26, 22, 18, 14, 10, 6].forEach((j, i) => poserF('germain-u20', 'f-g' + (i + 1), j, true, 25, 12, 'volume'));
+    poserF('germain-u20-m', 'f-m0', 32, false, 50, 12, 'volume');
+    poserF('germain-u20-m', 'f-m1', 28, true, 50, 12, 'volume');
+    poserF('germain-u20-m', 'f-m2', 12, true, 55, 12, 'volume');
+    ROUTINES.push({ id: 'r-u20', nom: 'Frères U20', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [
+        { id: 'r-u20-a', routine_id: 'r-u20', exercise_slug: 'frat-u20', rang: 0,
+          routine_sets: progr(3, 5), repos_cible_s: 120, groupe_superset: null, note: null },
+        { id: 'r-u20-b', routine_id: 'r-u20', exercise_slug: 'germain-u20', rang: 1,
+          routine_sets: progr(3, 12), repos_cible_s: 90, groupe_superset: null, note: null }] });
+    const espF = (t) => String(t || '').replace(/[  ]/g, ' ');
+    const PHRASE_FRAT = 'Pendant ce temps, Fraternel U20 (Haltères) : 30 kg × 10 → 34 kg × 10.';
+    const PHRASE_GERMAIN = 'Pendant ce temps, Germain U20 (Machine) : 50 kg × 12 → 55 kg × 12.';
+    // ⚠️ L'ESCALIER DE LA SECTION, ISOLÉ. Un compteur à 4 ou plus laissé dans
+    // les 7 jours par une autre section (7 G undecies, en séquentiel) ferait
+    // de la séance un BLOCAGE GÉNÉRALISÉ : la carte de semaine allégée
+    // prendrait la place de la carte de schéma (relecture du 03/10/2026). Le
+    // temps de la section, ces compteurs sont masqués ; ils sont rendus tels
+    // quels à la fin.
+    const masques = base.predictions.filter((l) => l && l.fondement && typeof l.fondement.compteur === 'number' &&
+      l.fondement.compteur >= 4 && !/-u20/.test(String(l.exercise_slug)));
+    const fondementsAvant = masques.map((l) => l.fondement);
+    masques.forEach((l) => { l.fondement = Object.assign({}, l.fondement, { compteur: null }); });
+    const parisAvant = base.predictions.length;
+    const violationsAvant = gardeBanc.violations;
+    await aller('/saisie');
+    await demarrerRoutine('Frères U20');
+    await attendre(900);
+    const lu = await page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      const x = (slug) => d && d.plan.exercices.filter((e) => e.slug === slug)[0];
+      const a = x('frat-u20'), b = x('germain-u20');
+      const carte = a ? document.querySelector('.proposition-schema[data-iexo="' + a.iExo + '"] .pc-texte') : null;
+      const lignes = Array.from(document.querySelectorAll('.legende-exo')).map((l) =>
+        Array.from(l.querySelectorAll('.consigne-dit')).map((n) => [n.className, n.textContent]));
+      return { carteAllegee: !!(d && d.plan.carte),
+               a: a ? { compteur: a.compteur, marche: a.escalier ? a.escalier.marche : null, frere: a.frere,
+                        entete: a.entete.frere || null } : null,
+               b: b ? { compteur: b.compteur, marche: b.escalier ? b.escalier.marche : null, entete: b.entete } : null,
+               carte: carte ? carte.textContent : null, lignes };
+    });
+    ok('[U20] prémisse — le couché « fraternel » : 4 séances suivies sans progrès depuis 100 kg × 5, 1er déclenchement',
+      !!lu.a && lu.a.compteur.compteur === 4 && lu.a.compteur.meilleur.palier === 100, JSON.stringify(lu.a));
+    ok('[U20] prémisse — l’escalier de la section est isolé : pas de carte de semaine allégée (' + masques.length + ' compteur(s) d’autres sections masqué(s))',
+      lu.carteAllegee === false, JSON.stringify({ carteAllegee: lu.carteAllegee, masques: masques.length }));
+    ok('[U20] DISCRIMINANT — la carte de l’escalier est TOUJOURS proposée (changer de schéma), un frère progresse ou pas',
+      !!lu.a && lu.a.marche === 'schema' && espF(lu.carte).indexOf('100 kg × 5 reste ta meilleure charge de travail depuis 4 séances') === 0,
+      JSON.stringify([lu.a && lu.a.marche, lu.carte]));
+    ok('[U20] DISCRIMINANT — la phrase du frère, en gris, côte à côte : « ' + PHRASE_FRAT + ' »',
+      !!lu.a && espF(lu.a.entete) === PHRASE_FRAT &&
+      lu.lignes[0].some((l) => /\bfrere\b/.test(l[0]) && espF(l[1]) === PHRASE_FRAT), JSON.stringify([lu.a && lu.a.entete, lu.lignes[0]]));
+    ok('[U20] DISCRIMINANT — pas de cousin : un autre mouvement qui progresse plus récemment n’est jamais nommé',
+      !!lu.a && lu.a.frere && lu.a.frere.nom === 'Fraternel U20 (Haltères)' && !/Cousin/.test(JSON.stringify(lu.lignes)),
+      JSON.stringify(lu.a && lu.a.frere));
+    // `germain-u20`, à 5 : la ligne du compteur, PUIS celle du frère.
+    const lignesB = (lu.lignes[1] || []).map((l) => [l[0], espF(l[1])]);
+    const iK = lignesB.findIndex((l) => /\bcompteur\b/.test(l[0]));
+    ok('[U20] DISCRIMINANT — à 5, sans marche : la ligne du compteur, puis celle du frère, juste après',
+      !!lu.b && lu.b.compteur.compteur === 5 && lu.b.marche === null && iK >= 0 &&
+      lignesB[iK][1] === '25 kg × 12 reste ta meilleure charge de travail depuis 5 séances.' &&
+      lignesB[iK + 1] && /\bfrere\b/.test(lignesB[iK + 1][0]) && lignesB[iK + 1][1] === PHRASE_GERMAIN,
+      JSON.stringify([lu.b && lu.b.compteur, lu.b && lu.b.marche, lignesB]));
+    ok('[U20] ouvrir la séance n’écrit aucun pari (la phrase ne parie rien)', base.predictions.length === parisAvant,
+      base.predictions.length + ' / ' + parisAvant);
+    ok('[U20] la garde (C6, I26 bloquante) n’a rien signalé dans cette section', gardeBanc.violations === violationsAvant,
+      JSON.stringify(gardeBanc.liste.slice(-2)));
+    await abandonner();
+    masques.forEach((l, i) => { l.fondement = fondementsAvant[i]; });
+    await aller('/saisie');
+    ok('[U20] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
+  }
+
   console.log('\n══ 7 G quindecies. TOUS LES ÉCRANS, MÊMES DONNÉES (PR 5 de la consolidation) ══');
   //
   // UN HISTORIQUE, PLUSIEURS ÉCRANS : chaque notion affichée hors de l'en-tête
@@ -9744,6 +9891,41 @@ const SETS_IMPORTES = [
     const nKpi = parseInt(String(kpis[1] || '').replace(/[^\d]/g, ''), 10);
     ok('[E] PR 6 — DISCRIMINANT : le profil compte les séries de travail (pas toutes les lignes)',
       nKpi === attendu && attendu < base.sets.length, JSON.stringify({ kpi: kpis[1], attendu, lignes: base.sets.length }));
+    // ── D. LE FRÈRE (49-U20, MOTEUR §13.6) : la phrase du frère s'affiche
+    // AILLEURS que dans l'en-tête — la feuille « Pourquoi ». Les deux disent
+    // le texte du plan, exercice par exercice. Le décor est celui de 7 G
+    // sexdecies (la chaîne : `seance-chaines.json`), son escalier isolé de
+    // même (les compteurs des autres sections masqués, puis rendus).
+    const masquesD = base.predictions.filter((l) => l && l.fondement && typeof l.fondement.compteur === 'number' &&
+      l.fondement.compteur >= 4 && !/-u20/.test(String(l.exercise_slug)));
+    const fondementsD = masquesD.map((l) => l.fondement);
+    masquesD.forEach((l) => { l.fondement = Object.assign({}, l.fondement, { compteur: null }); });
+    await aller('/saisie');
+    await demarrerRoutine('Frères U20');
+    await attendre(900);
+    const freresD = await page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      return d ? d.plan.exercices.map((x) => x.entete.frere || null) : [];
+    });
+    const enteteD = await page.evaluate(() => Array.from(document.querySelectorAll('.legende-exo'))
+      .map((l) => { const f = l.querySelector('.consigne-dit.frere'); return f ? f.textContent : null; }));
+    const feuilleD = [];
+    for (let i = 0; i < enteteD.length; i++) {
+      if (!enteteD[i]) { feuilleD.push(null); continue; }
+      await page.evaluate((k) => document.querySelectorAll('.legende-exo')[k].querySelector('.consigne-dit.frere').click(), i);
+      await attendre(700);
+      const pq = await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .pq-p')).map((n) => n.textContent));
+      feuilleD.push(pq.filter((t) => /^Pendant ce temps, /.test(sp(t))).map(sp));
+      await page.click('#btn-fermer-feuille');
+      await attendre(600);
+    }
+    ok('[E] 49-U20 — DISCRIMINANT : la phrase du frère, la même dans le plan, l’en-tête et la feuille « Pourquoi » (deux exercices)',
+      freresD.length === 2 && freresD.every(Boolean) && enteteD.length === 2 &&
+      freresD.every((f, i) => sp(enteteD[i]) === sp(f) && feuilleD[i].length === 1 && feuilleD[i][0] === sp(f)),
+      JSON.stringify([freresD, enteteD, feuilleD]));
+    await abandonner();
+    masquesD.forEach((l, i) => { l.fondement = fondementsD[i]; });
+    await aller('/saisie');
     ok('[E] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
 

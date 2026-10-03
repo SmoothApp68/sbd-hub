@@ -181,6 +181,7 @@
       if ((x.entete.jaune || []).length) t.push('  en-tête (jaune) : ' + x.entete.jaune.map(cite).join(' · '));
       if (x.entete.gris) t.push('  en-tête (gris) : ' + cite(x.entete.gris));
       if (x.entete.compteur) t.push('  compteur : ' + cite(x.entete.compteur));
+      if (x.entete.frere) t.push('  frère : ' + cite(x.entete.frere));
       if (x.entete.plus) t.push('  série de plus : ' + cite(x.entete.plus));
     }
     if (x && x.compteur) {

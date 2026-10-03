@@ -1888,8 +1888,14 @@
         consignes.index = Modele.indexerExercices(local.exercices);
         exo = consignes.index[slug];
       }
+      var options = optionsDeConsigne(slug, exo);
+      // MOTEUR §13.6 (49-U20) — LES FRÈRES, à la demande : le moteur ne les
+      // demande (et ne rejoue leur compteur) que si celui de l'exercice est à 4
+      // ou plus. Seule la consigne de la séance les reçoit, figés avec elle —
+      // ni la suite du constat, ni la page d'exercice.
+      if (exo) options.freres = function () { return freresPourLeMoteur(slug, consignes.index); };
       var calculee = Moteur.consigneDExercice(
-        seancesDeLExercice(slug), etatsExercices[slug], seance.debut, optionsDeConsigne(slug, exo));
+        seancesDeLExercice(slug), etatsExercices[slug], seance.debut, options);
       if (!exo) return calculee;
       // §14.4 (49-U14) — les séries de travail de la routine, FIGÉES avec la
       // consigne : la semaine allégée en couvre 60 %, et « + Série » ne change
@@ -1913,6 +1919,16 @@
       }
     }
     return consignes.parSlug[slug];
+  }
+
+  // §13.6 (49-U20) — les frères d'un exercice (`Modele.freresDe`, le même
+  // `mouvement`), avec ce que le moteur demande pour rejouer leur compteur :
+  // les MÊMES entrées que leur propre consigne (`optionsDeConsigne`).
+  function freresPourLeMoteur(slug, index) {
+    return Modele.freresDe(index, slug).map(function (f) {
+      return { slug: f, nom: Modele.nommer(index, f), groupes: seancesDeLExercice(f),
+               etat: etatsExercices[f], options: optionsDeConsigne(f, index[f]) };
+    });
   }
 
   // ⚠️ LES OPTIONS DE LA CONSIGNE, UNE SEULE FOIS (49-U18, 01/10/2026). La
@@ -2567,6 +2583,17 @@
       var za = ka.zone === 'lourd' || ka.zone === 'mix' ? ka.zone : 'lourd';
       copie[a] = Object.assign({}, cs[a], { consigne: Object.assign({}, ka, { zone: za }),
         compteur: compteurDe(a, 4, (cs[a].compteur && cs[a].compteur.meilleur) || meilleurDe(ka)) });
+      // §13.6 (49-U20) — SON FRÈRE INVENTÉ : un frère au catalogue s'il en a un
+      // (sinon un témoin), monté d'un cran pendant le blocage — la phrase côte
+      // à côte, et la carte de schéma quand même. Rien ne s'écrit.
+      var ma = copie[a].compteur.meilleur;
+      if (ma && typeof ma.palier === 'number' && typeof ma.niveau === 'number') {
+        var ix = catalogueIndexe();
+        var fa = Modele.freresDe(ix, a)[0] || null;
+        var pa = Math.max(2.5, Math.round(ma.palier * 0.8 / 2.5) * 2.5);
+        copie[a].frere = { id: fa || 'demo-frere', nom: fa ? Modele.nommer(ix, fa) : 'Exercice témoin (frère)',
+                           avant: { palier: pa, niveau: ma.niveau }, maintenant: { palier: pa + 2.5, niveau: ma.niveau } };
+      }
     }
     if (b) {
       var kb = cs[b].consigne;
@@ -2671,7 +2698,7 @@
     if (!c) return null;
     var x = planDuSlug(slug);
     return x ? { jaune: x.entete.jaune, gris: x.entete.gris, compteur: x.entete.compteur || null,
-                 plus: x.entete.plus || null } : c.libelles;
+                 frere: x.entete.frere || null, plus: x.entete.plus || null } : c.libelles;
   }
 
   // §3.8 et §3.10 — l'étiquette de zone et le calcul, tirés du MÊME mémo que

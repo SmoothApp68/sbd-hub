@@ -173,10 +173,15 @@
   // du MOTEUR §10.2, quand l'historique ne donne pas le pas de la salle.
   // PostgREST ne renvoie QUE ce qu'on nomme : omise, elle vaudrait `undefined`
   // sur les 237 exercices et le repli ne parlerait jamais, sans une erreur.
+  //
+  // ⚠️ `mouvement` DEPUIS 49-U20 (MOTEUR §13.6, migration `v2_053`) : les
+  // frères d'un exercice. Omise, aucun frère, en silence — le même piège. Un
+  // catalogue déjà en cache sans elle est réécrit en entier à la prochaine
+  // synchronisation (`remplacerTout`) : rien à migrer.
   function tousLesExercices() {
     return paginerParCle(trancheur(function () {
       return client().from('exercises')
-        .select('slug, nom, mesure, charge, equipement, muscles_primaires, muscles_secondaires');
+        .select('slug, nom, mesure, charge, equipement, muscles_primaires, muscles_secondaires, mouvement');
     }, 'slug'), 'slug');
   }
 

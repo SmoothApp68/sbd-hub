@@ -322,6 +322,18 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
     noter('escalier isolé', 'cas-49u15 ' + c.id + ' à 3 jours', [M.phraseRepli(r, proche)], [r.debut], proche);
   });
 
+  // (k) MOTEUR §13.6 (49-U20) — les frères : la phrase des 10 cas (7 en ont
+  // une), sans « avant » et avec la flèche. Le nom du frère est libre (son nom
+  // au catalogue) : la règle du « × » vaut pour ses deux chiffres.
+  const FR = require('./fixtures/cas-49u20-freres.json');
+  const mFr = (m) => (m ? { palier: m[0], niveau: m[1] } : null);
+  const vFr = (l) => l.map((v) => ({ debut: v.debut, zone: v.zone, progres: v.progres, meilleur: mFr(v.meilleur) }));
+  FR.cas.forEach((c) => {
+    const r = M.frereQuiProgresse({ verdicts: vFr(c.bloque.verdicts) },
+      Object.keys(c.freres).map((nom) => ({ id: nom, nom, verdicts: vFr(c.freres[nom]) })), c.avant);
+    if (r) noter('frères', 'cas-49u20 ' + c.id, [M.phraseFrere(r)]);
+  });
+
   test('chaque famille est jouée, et la date relative l\'est vraiment', () => {
     const parFamille = {};
     vues.forEach((v) => { parFamille[v.famille] = (parFamille[v.famille] || 0) + 1; });
@@ -341,6 +353,9 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
     // 49-U18 : R004 n'est plus un repli atteint (l'écart habituel sur les 8
     // derniers écarts fait repartir son compteur de zéro) — 2 phrases de moins.
     expect(parFamille['escalier isolé']).toBe(33);
+    // 49-U20 : 7 phrases des 10 cas de frères (3 sans frère qui progresse).
+    expect(parFamille['frères']).toBe(7);
+    expect(vues.filter((v) => v.famille === 'frères' && / → /.test(v.phrase)).length).toBe(5);
     // La phrase « Je ne compte pas la dernière série » est bien jouée.
     expect(vues.filter((v) => v.famille === 'chute' && /Je ne compte pas la dernière série/.test(v.phrase)).length)
       .toBeGreaterThanOrEqual(14);

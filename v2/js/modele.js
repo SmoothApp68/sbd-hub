@@ -598,6 +598,22 @@
     return (e && e.nom) || slug || '(exercice inconnu)';
   }
 
+  // MOTEUR §13.6 (49-U20) — LES FRÈRES d'un exercice : les exercices de même
+  // `mouvement` au catalogue (`exercises.mouvement`, migration `v2_053`), lui
+  // excepté. `NULL` = sans frère. Plus fin que la `famille` (affichage, repli
+  // de calcul §13.3), qui n'en fait PAS des frères. C'est la seule lecture de
+  // `mouvement` de l'app (registre NOTIONS). Triés par slug : la même liste à
+  // chaque calcul.
+  function freresDe(index, slug) {
+    var e = index && index[slug];
+    var m = e && typeof e.mouvement === 'string' && e.mouvement ? e.mouvement : null;
+    if (m === null) return [];
+    return Object.keys(index).filter(function (s) {
+      var x = index[s];
+      return s !== slug && x && x.mouvement === m;
+    }).sort();
+  }
+
   // Une « sortie » n'est pas une séance de musculation : l'exercice ne porte
   // aucune charge et se mesure en temps et/ou en distance. Établi par lecture
   // du catalogue : charge='aucune' + mesure ∈ {temps, distance_temps} couvre
@@ -1403,6 +1419,7 @@
     paqueter: paqueter,
     indexerExercices: indexerExercices,
     nommer: nommer,
+    freresDe: freresDe,
     construireBlocs: construireBlocs,
     faiteEnBase: faiteEnBase,
     blocsDeSeance: blocsDeSeance,

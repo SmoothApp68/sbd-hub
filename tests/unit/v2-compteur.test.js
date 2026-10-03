@@ -32,8 +32,23 @@ describe('§12.9 — les cas du simulateur (14 ; K014 remplacé au 49-30 : le so
   FICHIER.cas.forEach((c) => {
     test(c.id + ' — ' + c.titre, () => {
       const r = M.compteurDe(c.seances, c.avant, options(c, { toutes: true }));
-      // Les verdicts, séance par séance, à l'octet (JSON).
-      expect(JSON.stringify(r.verdicts)).toBe(JSON.stringify(c.attendu.verdicts));
+      // Les verdicts, séance par séance, à l'octet (JSON), sur les clés du
+      // fichier de cas. 49-U20 (§13.6) : chaque verdict porte en plus le
+      // `meilleur` après la séance (les frères le lisent) — le fichier ne
+      // change pas, et le meilleur se vérifie à part.
+      const surLeCas = r.verdicts.map((v, i) => {
+        const p = {};
+        Object.keys((c.attendu.verdicts[i] || {})).forEach((k) => { p[k] = v[k]; });
+        return p;
+      });
+      expect(JSON.stringify(surLeCas)).toBe(JSON.stringify(c.attendu.verdicts));
+      expect(r.verdicts.every((v) => Object.keys(v).join(',') ===
+        'debut,zone,progres,suivie,remise_a_zero,compteur,meilleur')).toBe(true);
+      // Le meilleur ne change qu'à un progrès ; le dernier est celui du compteur.
+      r.verdicts.forEach((v, i) => {
+        if (i > 0 && !v.progres) expect(v.meilleur).toEqual(r.verdicts[i - 1].meilleur);
+      });
+      if (r.verdicts.length) expect(r.verdicts[r.verdicts.length - 1].meilleur).toEqual(r.meilleur);
       expect(r.compteur).toBe(c.attendu.compteur);
       expect(r.meilleur ? [r.meilleur.palier, r.meilleur.niveau] : null).toEqual(c.attendu.meilleur);
       // `blocages_termines: null` (K014) : les blocages se calculent depuis les

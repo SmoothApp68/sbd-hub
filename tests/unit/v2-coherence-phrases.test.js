@@ -299,7 +299,7 @@ const consigneSimulee = (k) => ({ etat: k.etat, zone: k.zone === null ? null : k
 
 function balayer() {
   const ecarts = [];
-  const phrases = { toutes: 0, horsFormateur: new Set(), plans: 0 };
+  const phrases = { toutes: 0, horsFormateur: new Set(), plans: 0, freres: 0 };
   // Les consignes du SIMULATEUR n'ont ni fondement ni niveau (l'app n'en
   // produit jamais de telles) : ni leur phrase grise ni les paragraphes de
   // leur feuille ne se rédigent — seules leurs lignes, leur réaction et leur
@@ -307,6 +307,7 @@ function balayer() {
   const vue = (plan, p, simulee) => {
     phrases.plans += 1;
     p.exercices.forEach((x) => { phrases.toutes += (x.phrases || []).length; });
+    p.exercices.forEach((x) => { phrases.freres += (x.phrases || []).filter((q) => q.ou === 'entete.frere').length; });
     T.verifierPhrases(p).forEach((e) => {
       ecarts.push(Object.assign({ plan }, e));
       if (e.cause === 'hors_formateur') phrases.horsFormateur.add(plan + '|' + e.ou + '|' + e.phrase);
@@ -386,6 +387,26 @@ function balayer() {
       catalogue: { x: { equipement: 'machine', muscles_primaires: c.muscles } } },
       escalierIsole(c.compteur, m, 'volume', null, { volume: place })), (p) => vue('cas-49u17 carte ' + (i + 1), p));
   });
+  // Les frères (49-U20, MOTEUR §13.6) : chaque cas qui a un frère, à 5 (la
+  // phrase après celle du compteur, dans l'en-tête) et à 4 (avec la marche de
+  // l'escalier) — ses deux chiffres sont des faits passés, cités.
+  const FR = require('./fixtures/cas-49u20-freres.json');
+  const mFr = (x) => (x ? { palier: x[0], niveau: x[1] } : null);
+  const vFr = (l) => l.map((v) => ({ debut: v.debut, zone: v.zone, progres: v.progres, meilleur: mFr(v.meilleur) }));
+  FR.cas.forEach((c) => {
+    const r = M.frereQuiProgresse({ verdicts: vFr(c.bloque.verdicts) },
+      Object.keys(c.freres).map((nom) => ({ id: nom, nom, verdicts: vFr(c.freres[nom]) })), c.avant);
+    if (!r) return;
+    const m = mFr(c.bloque.meilleur);
+    const zone = c.bloque.verdicts[c.bloque.verdicts.length - 1].zone;
+    const k = { etat: 'progression', zone, palier: m.palier, niveau: m.niveau, n: 3,
+      ligne: { charge: m.palier, vise: m.niveau + 1 }, haut: null, fondement: {} };
+    [4, 5].forEach((n) => {
+      const e = escalierIsole(n, m, zone);
+      e.extra.frere = r;
+      seanceJouee(Object.assign({ k, debut: DEB, gestes: [], series: 3 }, e), (p) => vue('cas-49u20 ' + c.id + ' à ' + n, p));
+    });
+  });
   return { ecarts, phrases };
 }
 
@@ -397,6 +418,10 @@ describe('I26 — le balayage des plans des fichiers de cas : aucun écart', () 
   test('le balayage voit des plans, des phrases, et les familles qui parlent', () => {
     expect(phrases.plans).toBeGreaterThan(2000);
     expect(phrases.toutes).toBeGreaterThan(10000);
+    // 49-U20 : la phrase du frère — les 7 cas qui en ont un à 5 (l'en-tête),
+    // et à 4 les 3 en zone lourde (la carte de schéma) ; en zone muscle sans
+    // place ni repli, la marche est le silence, qui le tait avec le compteur.
+    expect(phrases.freres).toBe(10);
   });
 
   test('⚠️ AUCUN ÉCART : chaque chiffre a sa source, aucun n’est écrit à la main', () => {

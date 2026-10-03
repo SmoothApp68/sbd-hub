@@ -1933,6 +1933,9 @@
         // §12.9 (49-U13) — le compteur de stagnation, à 4 séances ou plus : une
         // seconde ligne grise, lue sur le plan (`lib.compteur`), jamais calculée ici.
         if (lib.compteur) entree.appendChild(tapable(el('div', 'consigne-dit compteur', lib.compteur)));
+        // MOTEUR §13.6 (49-U20) — « Pendant ce temps, … » : le frère qui
+        // progresse, en gris, après le compteur. Lu sur le plan.
+        if (lib.frere) entree.appendChild(tapable(el('div', 'consigne-dit frere', lib.frere)));
         // MOTEUR §14.7 (49-U17) — « une série de plus, jusqu'à ton prochain progrès ».
         if (lib.plus) entree.appendChild(tapable(el('div', 'consigne-dit serie-de-plus', lib.plus)));
       }
@@ -2529,6 +2532,8 @@
     });
     // MOTEUR §12.9 (49-U13) — le compteur de stagnation, en une ligne.
     if (p.compteur) cible.appendChild(el('p', 'pq-p', p.compteur));
+    // MOTEUR §13.6 (49-U20) — le frère qui progresse, après le compteur.
+    if (p.frere) cible.appendChild(el('p', 'pq-p', p.frere));
     // MOTEUR §9.15.1 (49-U10) — une routine qui prévoit plus de chauffes que
     // la table : les lignes en trop ne sont pas remplies, et la feuille le dit.
     if (p.chauffes) cible.appendChild(el('p', 'pq-p', p.chauffes));

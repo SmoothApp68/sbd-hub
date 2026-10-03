@@ -1399,6 +1399,19 @@ Deux profils progressent mieux sur leurs piliers, deux sur leurs accessoires, un
 
 Ce que la mesure valide, en revanche : deux populations d'exercices existent bel et bien, séparées par leur durée de vie — **environ 200 jours pour un accessoire contre 720 pour un pilier chez aurel_br, 93 contre 304 chez jordan**, un facteur trois à quatre chez tous. Cette séparation justifie le repli famille du §13.3 ; elle ne justifie aucun conseil.
 
+### 13.6 Les frères dans l'app — câblés le 02/10/2026 (chantier 49)
+
+> **Quand un exercice est bloqué et qu'un frère progresse pendant ce temps, le coach le montre côte à côte, sans conclure ; l'escalier propose sa marche comme d'habitude.**
+
+- **Frères** : les exercices de même `mouvement` au catalogue (`exercises.mouvement`, migration `v2_053`). `NULL` = sans frère. Plus fin que la `famille` (affichage, repli de calcul §13.3).
+- **Le blocage** court depuis le dernier progrès de l'exercice bloqué (§12.2 bis). **Un frère progresse pendant le blocage** s'il a un progrès strictement après ce début et avant la séance, **et si son meilleur (palier, niveau validé) a augmenté** — un test tenu qui ne change pas le meilleur n'a rien à montrer. Plusieurs : le progrès le plus récent, puis l'ordre alphabétique. Ses verdicts sont ceux du compteur (§12.9), par la même fonction.
+- **La phrase** suit celle du compteur, en gris, chaque fois qu'elle s'affiche (4 séances ou plus) : « Pendant ce temps, Développé couché (haltère) : 40 kg × 10 → 42 kg × 10. » — **sans flèche** si le frère n'a pas de séance avant le blocage, **ou si son « avant » est dans une autre zone** : « Pendant ce temps, Développé couché (haltère) progresse : 42 kg × 10. » Elle passe par le formateur unique (§20 bis) : « avant » et « maintenant » sont des faits passés.
+- **La marche de l'escalier reste proposée** (§14) : le transfert d'une variante à l'autre est partiel et asymétrique, et le coach ne conclut pas (§13.1). La personne décide.
+- **Pas de cousins** dans les messages : entre mouvements différents, le transfert est plus faible encore (§13.5).
+
+**Référence** : `coach49.py` (`frere_qui_progresse`, `phrase_frere`) ; cas `cas_freres49.json`.
+
+
 ### 13.5 Transfert isolation → polyarticulaire
 
 Aucune source ne valide la démarche. La littérature dit « identifie tes points faibles », jamais comment les détecter à partir de données, et le principe de spécificité limite le transfert. Reste le tableau descriptif, rien de plus.

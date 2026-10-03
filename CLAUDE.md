@@ -168,6 +168,11 @@ trappe `/__sw-off` pendrait avec lui.
   `npm test` et les deux autres bancs, tous en même temps :
   `node tests/banc/tout.js`. Le banc de séance y tourne en parallèle
   (6 groupes, ~5 min au lieu de 25) ; `--sequentiel` rejoue la référence historique.
+- **Et, à la fin de chaque CHANTIER, un banc séquentiel complet** sur l'état
+  commité : `node tests/banc/seance-rapide.js --sequentiel` (~30 min).
+  `tout.js` ne lance que le parallèle : le séquentiel était cassé depuis la
+  PR 6 de la consolidation (`plan.js` chargé sans `modele.js` en 7 sexdecies)
+  sans que personne le voie. Règle du 02/10/2026 (49-U20).
 - **Les mutations** : banc réduit et tests ciblés, jamais le banc complet,
   chacune dans son worktree, lancées ensemble :
   `node tests/banc/muter.js --lot mutations.json` (format dans l'en-tête du

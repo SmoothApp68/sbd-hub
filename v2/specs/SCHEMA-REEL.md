@@ -294,6 +294,7 @@ RLS strictement propriétaire (voir la section RLS).
 | `coef_pdc`, `masse_depart_kg`, `masse_depart_reglable` | | poids de corps et masse machine |
 | `compte_tonnage` | boolean NOT NULL | `false` par défaut |
 | `equipement` | text | signature de parc, pas de lieu |
+| `mouvement` | text | **les frères** (MOTEUR §13.6, migration `v2_053`) : même valeur = même mouvement ; `NULL` = sans frère. 100 exercices, 22 mouvements (lu le 03/10/2026). Plus fin que `famille` |
 | `actif` | boolean NOT NULL | |
 
 ## `routines` / `routine_exercises` — 11 et 79 lignes

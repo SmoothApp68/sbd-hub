@@ -813,11 +813,10 @@
   var REPS_MAX_SERIE = 9999;
   var DUREE_MAX_S = 86400;          // 24 h
 
-  function nombreOuNul(v) {
-    if (v === null || v === undefined || v === '') return null;
-    var n = Number(String(v).replace(',', '.'));
-    return isFinite(n) ? n : null;
-  }
+  // La lecture d'un nombre tapé est celle du formateur (`THModele.lireNombre`,
+  // correctif du 03/10/2026) : elle relit tout ce qu'il affiche, le vrai signe
+  // moins compris. Une copie locale relisait « −25 » comme rien.
+  function nombreOuNul(v) { return racine.THModele.lireNombre(v); }
 
   // Ramène dans [0, max]. `null` traverse — « non renseigné » n'est pas zéro.
   function plafonne(n, max) {

@@ -17,6 +17,7 @@
 // qui a besoin d'une chauffe ou d'une dégressive les écrit à la main : c'est la
 // configuration discriminante du chantier, et la cacher derrière une aide la
 // rendrait invisible.
+require('../../v2/js/modele.js'); // la lecture des nombres (`lireNombre`), chargée avant, comme dans index.html
 const Routines = require('../../v2/js/routines.js');
 
 function progTravail(n, reps) {

@@ -339,6 +339,14 @@ const NOTIONS = [
     par: ['nombreTexte'],
     raison: 'le formateur arrondissait −11,5 vers −11 et +11,5 vers +12 ; le poids, symétriquement. Un seul arrondi.' },
   // Après la consolidation, les notions d'un chantier portent son geste.
+  { notion: 'la lecture d’un nombre tapé (l’inverse du formateur, tous les signes moins)', pr: 'correctif 03/10/2026',
+    module: 'modele.js', fonction: 'lireNombre', lecteurs: ['seance.js', 'routines.js', 'app.js'],
+    motif: /\.\s*lireNombre\s*\(/g,
+    parAilleurs: { 'seance.js': ['nombreOuNul'], 'routines.js': ['decimalOuNul'] },
+    interditAilleurs: { motif: /\.replace\(\s*(['"]),\1\s*,\s*(['"])\.\2\s*\)/,
+                        raison: 'une virgule décimale relue hors de `lireNombre` : une seconde lecture des nombres' },
+    raison: 'le champ réaffiche une assistance avec le vrai signe moins (U+2212) que la copie de ' +
+      '`seance.js` ne relisait pas : retoucher les reps d’une série à « −25 » effaçait sa charge.' },
   { notion: 'les frères d’un exercice (même `mouvement` au catalogue, MOTEUR §13.6)', pr: '49-U20',
     module: 'modele.js', fonction: 'freresDe', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['freresPourLeMoteur'] },
@@ -530,8 +538,10 @@ describe('architecture — le registre des notions : une source, des lecteurs', 
     const prs = ['PR 1', 'PR 2', 'PR 3', 'PR 4', 'PR 5', 'PR 6', 'PR 7'];
     expect(prs.filter((pr) => !NOTIONS.some((n) => n.pr === pr))).toEqual([]);
     // Après la consolidation (49-U20) : une notion porte le geste du chantier
-    // qui l'a introduite (« 49-U20 »).
-    expect(NOTIONS.filter((n) => prs.indexOf(n.pr) < 0 && !/^\d+-U\d+$/.test(n.pr)).map((n) => n.notion)).toEqual([]);
+    // qui l'a introduite (« 49-U20 »), ou la date d'un correctif hors chantier
+    // (« correctif 03/10/2026 », le signe moins de l'assistance).
+    expect(NOTIONS.filter((n) => prs.indexOf(n.pr) < 0 && !/^\d+-U\d+$/.test(n.pr) &&
+      !/^correctif \d{2}\/\d{2}\/\d{4}$/.test(n.pr)).map((n) => n.notion)).toEqual([]);
   });
 
   test('chaque notion a sa source, déclarée dans son module, et sa raison', () => {

@@ -161,9 +161,8 @@
   // Un nombre facultatif, borné, qui accepte les décimales : `charge_cible_kg`
   // et `distance_cible_m` sont `numeric`, pas des entiers.
   function decimalOuNul(v, min, max) {
-    if (v === null || v === undefined || v === '') return null;
-    var n = Number(v);
-    if (!isFinite(n) || n < min || n > max) return null;
+    var n = racine.THModele.lireNombre(v);
+    if (n === null || n < min || n > max) return null;
     return n;
   }
 

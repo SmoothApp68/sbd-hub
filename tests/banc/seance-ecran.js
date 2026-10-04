@@ -206,7 +206,11 @@ const CATALOGUE = [
   { slug: 'frat-u20-h', nom: 'Fraternel U20 (Haltères)', mesure: 'charge_reps', charge: 'externe', equipement: 'haltere', muscles_primaires: ['bas_du_dos'], muscles_secondaires: [], mouvement: 'fraternel_u20' },
   { slug: 'cousin-u20', nom: 'Cousin U20 (Haltères)', mesure: 'charge_reps', charge: 'externe', equipement: 'haltere', muscles_primaires: ['haut_du_dos'], muscles_secondaires: [], mouvement: 'cousin_u20' },
   { slug: 'germain-u20', nom: 'Germain U20 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['grand_dorsal'], muscles_secondaires: [], mouvement: 'germain_u20' },
-  { slug: 'germain-u20-m', nom: 'Germain U20 (Machine)', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['deltoide_lateral'], muscles_secondaires: [], mouvement: 'germain_u20' }
+  { slug: 'germain-u20-m', nom: 'Germain U20 (Machine)', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['deltoide_lateral'], muscles_secondaires: [], mouvement: 'germain_u20' },
+  // Correctif du 03/10/2026 — réservé à la section 7 G septdecies (une
+  // assistance retouchée garde sa charge). Une assistance, notée en négatif
+  // comme en base ; aucun muscle, pour ne peser sur le volume de personne.
+  { slug: 'assist-0310', nom: 'Assistée Correctif (Machine)', mesure: 'charge_reps', charge: 'assistance', equipement: 'machine', muscles_primaires: [], muscles_secondaires: [] }
 ];
 
 // ⚠️ UNE ROUTINE PORTE MAINTENANT SES LIGNES (chantier 43). `routine_sets`
@@ -9927,6 +9931,60 @@ const SETS_IMPORTES = [
     masquesD.forEach((l, i) => { l.fondement = fondementsD[i]; });
     await aller('/saisie');
     ok('[E] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
+  }
+
+  console.log('\n══ 7 G septdecies. UNE ASSISTANCE RETOUCHÉE GARDE SA CHARGE (correctif du 03/10/2026) ══');
+  //
+  // Le champ de charge réaffiche une assistance avec le VRAI signe moins
+  // (U+2212, le formateur) ; la relecture d'avant ne lisait que le trait
+  // d'union du clavier. Retoucher la charge affichée l'effaçait en silence.
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : la retouche se fait AU CLAVIER, dans le
+  // champ tel qu'il est affiché (« −25 » → effacer le 5, taper 0), pas par un
+  // `fill` qui remplacerait le signe par celui du clavier. Retoucher les reps
+  // seules ne touchait pas la charge, même avant : c'est la prémisse, pas le
+  // discriminant.
+  {
+    ROUTINES.push({ id: 'r-0310', nom: 'Assistée 0310', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [
+        { id: 'r-0310-a', routine_id: 'r-0310', exercise_slug: 'assist-0310', rang: 0,
+          routine_sets: progr(2, 8), repos_cible_s: 90, groupe_superset: null, note: null }] });
+    const enBase = () => {
+      const id = (base.sessions.filter((x) => x.statut === 'en_cours')[0] || {}).id;
+      const l = base.sets.filter((x) => x.session_id === id && x.exercise_slug === 'assist-0310' && x.rang === 1)[0];
+      return l ? { charge: l.charge_kg, reps: l.reps } : null;
+    };
+    const champCharge = async () => (await (await ligne(0)).$$('input'))[0];
+    const valeurAffichee = async () => (await champCharge()).evaluate((e) => e.value);
+    await aller('/saisie');
+    await demarrerRoutine('Assistée 0310');
+    await attendre(600);
+    await saisirSerie(0, '-25', 8);
+    await attendre(1500);
+    ok('[0310] prémisse — la série part en base à −25 × 8', JSON.stringify(enBase()) === '{"charge":-25,"reps":8}',
+      JSON.stringify(enBase()));
+    const affichee = await valeurAffichee();
+    ok('[0310] prémisse — le champ réaffiche la charge avec le vrai signe moins (U+2212)', affichee === '\u221225',
+      JSON.stringify(affichee));
+    const reps = (await (await ligne(0)).$$('input'))[1];
+    await reps.fill('10');
+    await reps.evaluate((e) => e.blur());
+    await attendre(900);
+    ok('[0310] les reps retouchées : la charge reste −25', JSON.stringify(enBase()) === '{"charge":-25,"reps":10}',
+      JSON.stringify(enBase()));
+    const c = await champCharge();
+    await c.click();
+    await page.keyboard.press('End');
+    await page.keyboard.press('Backspace');
+    await page.keyboard.type('0');
+    await c.evaluate((e) => e.blur());
+    await attendre(900);
+    ok('[0310] DISCRIMINANT — la charge retouchée au clavier dans le champ affiché (« −25 » → « −20 ») : −20 en base, pas rien',
+      JSON.stringify(enBase()) === '{"charge":-20,"reps":10}', JSON.stringify([enBase(), await valeurAffichee()]));
+    await abandonner();
+    await aller('/saisie');
+    ok('[0310] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
 
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');

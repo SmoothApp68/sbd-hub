@@ -6114,7 +6114,7 @@
       lire: function (p) { return p.taille_cm; },
       valider: function (v) {
         if (!String(v).trim()) return { champs: { taille_cm: null } };
-        var n = Profil.tailleValide(String(v).replace(',', '.'));
+        var n = Profil.tailleValide(Modele.lireNombre(v));
         if (n === null) {
           return { erreur: 'Une taille entre ' + Profil.TAILLE_MIN + ' et ' +
                            Profil.TAILLE_MAX + ' cm.' };

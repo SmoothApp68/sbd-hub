@@ -20,6 +20,7 @@
 // Sans elles, « écrire n'importe quoi » et « écrire juste » donneraient le même
 // résultat, et aucun de ces tests ne prouverait quoi que ce soit.
 
+require('../../v2/js/modele.js'); // la lecture des nombres (`lireNombre`), chargée avant, comme dans index.html
 const Seance = require('../../v2/js/seance.js');
 const Attente = require('../../v2/js/attente.js');
 const Sync = require('../../v2/js/sync.js');

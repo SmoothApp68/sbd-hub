@@ -22,6 +22,7 @@
 // Sans elles, envoyer `salle: ''` ou `salle_norme` passerait sans bruit ici et
 // casserait sur l'appareil.
 
+require('../../v2/js/modele.js'); // la lecture des nombres (`lireNombre`), chargée avant, comme dans index.html
 const Seance = require('../../v2/js/seance.js');
 const Attente = require('../../v2/js/attente.js');
 const { progTravail } = require('./aide-routine-programmee.js');

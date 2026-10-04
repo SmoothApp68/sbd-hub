@@ -8,6 +8,7 @@
 // glissements du diagnostic sur les fonctions pures ; le câblage (`app.js`)
 // se vérifie dans le banc de l'écran de séance, section 7 septvicies.
 
+require('../../v2/js/modele.js'); // la lecture des nombres (`lireNombre`), chargée avant, comme dans index.html
 const Seance = require('../../v2/js/seance.js');
 
 const valid = (id, kg, reps) => ({ id, charge_kg: kg, reps, type_serie: 'travail',

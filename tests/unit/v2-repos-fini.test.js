@@ -28,6 +28,7 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 
+require('../../v2/js/modele.js'); // la lecture des nombres (`lireNombre`), chargée avant, comme dans index.html
 const Seance = require('../../v2/js/seance.js');
 const APP = fs.readFileSync(path.join(__dirname, '../../v2/js/app.js'), 'utf8');
 

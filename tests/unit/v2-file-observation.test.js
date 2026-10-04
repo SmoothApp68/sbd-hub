@@ -17,6 +17,7 @@
 //      que sa série existe, sans arrêter la file ;
 //   4. le rattrapage à « Terminer ».
 
+require('../../v2/js/modele.js'); // la lecture des nombres (`lireNombre`), chargée avant, comme dans index.html
 const A = require('../../v2/js/attente.js');
 const S = require('../../v2/js/seance.js');
 

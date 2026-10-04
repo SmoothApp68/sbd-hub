@@ -12,6 +12,7 @@
 // résultat — et c'est le seul cas qu'on teste spontanément. Les deux tests
 // existants du chantier 33 portent justement sur une file à une entrée.
 
+require('../../v2/js/modele.js'); // la lecture des nombres (`lireNombre`), chargée avant, comme dans index.html
 const Attente = require('../../v2/js/attente.js');
 const Seance = require('../../v2/js/seance.js');
 const Routines = require('../../v2/js/routines.js');

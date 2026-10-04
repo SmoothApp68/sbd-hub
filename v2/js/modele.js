@@ -86,6 +86,26 @@
     return String(n).replace('.', ',').replace(/^-/, '\u2212');
   }
 
+  // \u26a0\ufe0f LA LECTURE D'UN NOMBRE TAP\u00c9 \u2014 L'INVERSE DU FORMATEUR (correctif du
+  // 03/10/2026). Le champ de charge r\u00e9affiche une assistance avec le vrai
+  // signe moins (`nombreSigne`, U+2212), que la relecture d'alors (`Number`
+  // apr\u00e8s la seule virgule) rejetait : retoucher les reps d'une s\u00e9rie \u00e0
+  // \u00ab \u221225 \u00bb effa\u00e7ait sa charge. Tout ce que le formateur \u00e9crit se relit ici
+  // \u00e0 l'identique : les trois signes moins (le trait d'union du clavier
+  // U+002D, le vrai moins U+2212, le tiret demi-cadratin U+2013 que certains
+  // claviers produisent), la virgule d\u00e9cimale, les espaces (fine ins\u00e9cable
+  // des milliers, ins\u00e9cable, ordinaire). Rien d'autre n'est devin\u00e9 : ce qui
+  // ne fait pas un nombre rend `null`, et une cha\u00eene vide n'est pas z\u00e9ro.
+  function lireNombre(v) {
+    if (v === null || v === undefined) return null;
+    if (typeof v === 'number') return isFinite(v) ? v : null;
+    var t = String(v).replace(/[\s\u00a0\u202f\u2009]/g, '')
+      .replace(/[\u2212\u2013]/g, '-').replace(',', '.');
+    if (t === '') return null;
+    var n = Number(t);
+    return isFinite(n) ? n : null;
+  }
+
   // « 28 404 » : l'espace FINE insécable sépare les milliers (typographie
   // française ; un espace ordinaire casserait le nombre en bout de ligne).
   function nombreGroupe(n) {
@@ -1397,6 +1417,7 @@
     MOIS_LONGS: MOIS_LONGS,
     arrondi: arrondi,
     nombreSigne: nombreSigne,
+    lireNombre: lireNombre,
     nombreGroupe: nombreGroupe,
     mmss: mmss,
     dateCourte: dateCourte,

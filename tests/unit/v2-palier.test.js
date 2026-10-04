@@ -8,6 +8,7 @@
 // en tête — une passe et deux passes donnent le même résultat, et le banc ne
 // prouverait rien. Le cas qui sépare est le TOP SET SUIVI DE BACK-OFFS.
 
+require('../../v2/js/modele.js'); // la lecture des nombres (`lireNombre`), chargée avant, comme dans index.html
 const P = require('../../v2/js/palier.js');
 // ⚠️ LE MODULE, LUI, NE DÉPEND DE RIEN — c'est SON TEST qui va chercher
 // `RESSENTIS` chez l'écran de saisie, pour vérifier que la table de crans de

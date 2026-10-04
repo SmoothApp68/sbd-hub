@@ -257,11 +257,25 @@
   // UN CODE D'ERREUR (nuance posée au chantier 24, moteur au chantier 31). Une
   // planche n'a pas « échoué » à produire un palier : elle n'en aura jamais, et
   // `sans-charge` est un mot de moteur, pas une phrase pour quelqu'un.
+  //
+  // 50-1 bis (§9.17) — LE POIDS DU CORPS EST COACHÉ : la page d'un exercice en
+  // reps ne dit plus « pas de palier en kilos » (le coach suit ses reps, la
+  // charge vaut 0) ; sa phrase vient du formateur (`THModele`), la seule voix.
   var PHRASE_SANS_PALIER = {
-    reps: 'Cet exercice se compte en répétitions : il n’a pas de charge, donc pas de palier en kilos.',
+    reps: null,   // la phrase du formateur — voir `phraseSansPalier`
     temps: 'Cet exercice se mesure en durée : il n’a pas de charge, donc pas de palier en kilos.',
     distance_temps: 'Cet exercice se mesure en distance et en durée : il est hors du moteur.'
   };
+
+  // `undefined` pour une mesure qui n'en a pas (charge × reps). Le choix entre
+  // « a une phrase » et « n'en a pas » se lit ICI, jamais sur la table.
+  function phraseSansPalier(mesure) {
+    if (mesure === 'reps') return M().PHRASE_POIDS_DU_CORPS;
+    return PHRASE_SANS_PALIER[mesure];
+  }
+
+  // La barre d'une aide la plus forte : visible, jamais à zéro.
+  var JAUGE_MIN = 8;
 
   function texteMeilleure(m) {
     if (!m) return '';
@@ -325,7 +339,7 @@
     if (!vue.table || !vue.table.length) {
       // Deux absences distinctes, et on ne les confond pas : l'exercice n'a pas
       // de table par nature, ou il n'a rien encore à y mettre.
-      cible.appendChild(el('p', 'vide', PHRASE_SANS_PALIER[vue.mesure]
+      cible.appendChild(el('p', 'vide', phraseSansPalier(vue.mesure)
         ? 'Pas de table par répétitions pour cet exercice.'
         : 'Aucune série de travail enregistrée.'));
       return;
@@ -333,10 +347,22 @@
     var avecCharge = vue.mesure === 'charge_reps';
     var table = el('div', 'table-reps' + (avecCharge ? '' : ' sans-charge'));
     var plafond = 0, deduites = 0;
+    // 50-1 bis (§9.17) — LA JAUGE D'UNE AIDE SE LIT À L'ENVERS : moins d'aide, c'est
+    // monter (−25 → −22,5), donc la barre la plus LONGUE est la moins aidée. Une
+    // aide est une table dont les charges sont négatives ; l'échelle part alors
+    // de la plus forte aide (barre minimale, jamais vide : la ligne existe) et
+    // monte à pleine largeur vers « sans aide ».
+    var pire = 0;
     vue.table.forEach(function (l) {
       var kg = l.deduit && l.chargeDeduite !== undefined ? l.chargeDeduite : l.charge;
       if (kg > plafond) plafond = kg;
+      if (kg < 0 && -kg > pire) pire = -kg;
     });
+    var aide = plafond <= 0 && pire > 0;
+    var largeurDe = function (kg) {
+      if (aide) return Math.max(JAUGE_MIN, Math.round((1 - (-kg) / pire) * 100));
+      return plafond > 0 ? Math.round((kg / plafond) * 100) : 0;
+    };
 
     vue.table.forEach(function (l) {
       if (l.deduit) deduites++;
@@ -349,7 +375,7 @@
         // plus : elle rend la progression lisible d'un coup d'œil à 380 px.
         var jauge = el('span', 'tr-jauge');
         var barre = el('i');
-        barre.style.width = (plafond > 0 ? Math.round((kg / plafond) * 100) : 0) + '%';
+        barre.style.width = largeurDe(kg) + '%';
         jauge.appendChild(barre);
         ligne.appendChild(jauge);
         // §9.17 — une aide se lit « Aide 22,5 kg », jamais « −22,5 » : la même
@@ -388,7 +414,7 @@
     cible.appendChild(fiche);
 
     // ⚠️ L'AFFICHAGE LIT LA MESURE, PAS LE CODE D'ERREUR DU MOTEUR.
-    var sansPalier = PHRASE_SANS_PALIER[vue.mesure];
+    var sansPalier = phraseSansPalier(vue.mesure);
     if (sansPalier) cible.appendChild(el('p', 'exo-note', sansPalier));
 
     rendreTableReps(cible, vue);
@@ -2289,13 +2315,18 @@
       // §9.17 — UNE AIDE SE TAPE EN POSITIF ET SE RANGE EN NÉGATIF, par
       // `rangerAide` et nulle part ailleurs : le champ montre la valeur absolue
       // (« 22,5 »), la série garde −22,5. Une fonction, pas un signe à retenir.
+      //
+      // 50-1 bis — SAUF DANS L'ÉDITEUR DE ROUTINE (`vue.programme`) : la CIBLE d'une
+      // aide y reste POSITIVE (« 25 » sous « AIDE (KG) », `charge_cible_kg` est borné
+      // à 0..1000 et le brouillon garde le texte tapé). La conversion se fait plus
+      // tard, à la validation d'une série (`validerSerie`), par la même fonction.
       var aide = g.nature === 'aide' && c.cle === 'charge_kg';
       var versChamp = function (v) { return aide ? M().aideAffichee(v) : v; };
       rangee.appendChild(champSerie(classe + (proposee && c.cle === 'charge_kg' ? ' coach' : ''),
         versChamp(enUniteDeSaisie(s[c.cle], c.facteur)),
         versChamp(enUniteDeSaisie(f[c.cle], c.facteur)),
         c.unite,
-        function (v) { vue.surChamp(iExo, iSerie, nom, aide ? M().rangerAide(v) : v); },
+        function (v) { vue.surChamp(iExo, iSerie, nom, aide && !vue.programme ? M().rangerAide(v) : v); },
         { indication: fourchette,
           surQuitte: typeof vue.surChampQuitte === 'function'
             ? function () { vue.surChampQuitte(iExo, iSerie); } : null }));

@@ -259,6 +259,11 @@
   // insécable ; « Aide » et son nombre se séparent d'un espace ordinaire.
   var POIDS_DU_CORPS = 'Poids du corps';
   var AIDE = 'Aide';
+  // 50-1 bis — ce que la page d'un exercice en reps dit de sa charge : le coach
+  // suit les reps, la charge est le corps (§9.17). Une phrase, ici : le
+  // formateur est le seul endroit où le coach (et ses pages) ont une voix.
+  // Sans « palier », sans point d'interrogation (§20.2).
+  var PHRASE_POIDS_DU_CORPS = 'Ta charge, c\u2019est ton poids du corps' + INSECABLE + ': le coach suit tes reps.';
   function chargeTexte(kg, repli) {
     if (kg === null || kg === undefined || kg === '' || !isFinite(Number(kg))) {
       return repli === undefined ? CRAN_INCONNU : repli;
@@ -1486,6 +1491,7 @@
     CHAMPS_MESURE: CHAMPS_MESURE,
     gabaritDe: gabaritDe,
     natureDeCharge: natureDeCharge,
+    PHRASE_POIDS_DU_CORPS: PHRASE_POIDS_DU_CORPS,
     ENTETES_DE_CHARGE: ENTETES_DE_CHARGE,
     champDeMesure: champDeMesure,
     MAX_CHIFFRES_DUREE: MAX_CHIFFRES_DUREE,

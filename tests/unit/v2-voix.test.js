@@ -93,7 +93,8 @@ function reglesViolees(phrase, famille, dates, reference) {
       t.indexOf('?') === t.length - 1)) v.push('un « ? » hors du choix entre deux charges');
   for (let i = t.indexOf('×'); i >= 0; i = t.indexOf('×', i + 1)) {
     const avant = t.slice(0, i).replace(/[\s ]+$/, '');
-    if (!/kg$/.test(avant) && !/cran (au-dessus|en dessous|du dessus)$/i.test(avant)) {
+    // 50-1 : « Poids du corps × 8 » — au poids du corps, la charge est le corps.
+    if (!/kg$/.test(avant) && !/Poids du corps$/.test(avant) && !/cran (au-dessus|en dessous|du dessus)$/i.test(avant)) {
       v.push('un « × » sans « kg » devant');
       break;
     }
@@ -334,6 +335,10 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
     if (r) noter('frères', 'cas-49u20 ' + c.id, [M.phraseFrere(r)]);
   });
 
+  // 50-1 bis (§9.17) — ce que la page d'un exercice en reps dit de sa charge : le
+  // formateur la porte (`Modele.PHRASE_POIDS_DU_CORPS`), la garde la lit.
+  noter('page d’exercice', 'poids du corps', [Modele.PHRASE_POIDS_DU_CORPS]);
+
   test('chaque famille est jouée, et la date relative l\'est vraiment', () => {
     const parFamille = {};
     vues.forEach((v) => { parFamille[v.famille] = (parFamille[v.famille] || 0) + 1; });
@@ -355,6 +360,8 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
     expect(parFamille['escalier isolé']).toBe(33);
     // 49-U20 : 7 phrases des 10 cas de frères (3 sans frère qui progresse).
     expect(parFamille['frères']).toBe(7);
+    // 50-1 bis : une phrase, celle de la page d'un exercice au poids du corps.
+    expect(parFamille['page d’exercice']).toBe(1);
     expect(vues.filter((v) => v.famille === 'frères' && / → /.test(v.phrase)).length).toBe(5);
     // La phrase « Je ne compte pas la dernière série » est bien jouée.
     expect(vues.filter((v) => v.famille === 'chute' && /Je ne compte pas la dernière série/.test(v.phrase)).length)

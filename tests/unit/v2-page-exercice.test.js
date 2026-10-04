@@ -269,7 +269,7 @@ describe('⚠️ un exercice sans charge n’affiche jamais 0 kg', () => {
   // CONFIGURATION DISCRIMINANTE : `temps` ET `reps`, les deux chemins.
   test.each([
     ['temps', 'Planche', { valeur: '1 min 30 s' }, 'durée'],
-    ['reps', 'Tractions', { valeur: '15' }, 'répétitions']
+    ['reps', 'Tractions', { valeur: '15' }, 'poids du corps']
   ])('%s : la valeur est celle de la mesure, et la phrase la nomme', (mesure, nom, serie, mot) => {
     const c = rendre({
       nom: nom, mesure: mesure,

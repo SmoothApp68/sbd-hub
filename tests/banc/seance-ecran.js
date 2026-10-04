@@ -5272,7 +5272,7 @@ const SETS_IMPORTES = [
     'onglet « ' + (await texte('.sous-onglet.actif')) + ' »');
 
   // ── 5. UN EXERCICE SANS CHARGE N'AFFICHE JAMAIS 0 kg ────────────────────
-  for (const [slug, mot] of [['planche', 'durée'], ['tractions', 'répétitions']]) {
+  for (const [slug, mot] of [['planche', 'durée'], ['tractions', 'poids du corps']]) {
     await aller('/exercice/' + slug);
     const p = (await texte('#page-exercice')).replace(/\s+/g, ' ');
     ok('[40] ' + slug + ' : pas de « 0 kg », et la phrase lit la MESURE',
@@ -10045,6 +10045,23 @@ const SETS_IMPORTES = [
     });
     ok('[0310] la colonne PRÉC. ne montre pas de signe moins', prec === null || !/[−-]\s*\d/.test(prec),
       JSON.stringify(prec));
+    await abandonner();
+    // 50-1 bis — LA CIBLE D'UNE AIDE RESTE POSITIVE DANS LA ROUTINE (« 25 » sous
+    // « AIDE (KG) »), et c'est la VALIDATION qui la range en négatif, par la même
+    // fonction : valider à vide écrit −25, jamais +25 (un lest).
+    ROUTINES.push({ id: 'r-0310c', nom: 'Assistée cible 0310', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [
+        { id: 'r-0310c-a', routine_id: 'r-0310c', exercise_slug: 'assist-0310', rang: 0,
+          routine_sets: progr(1, 8).map((l) => Object.assign({}, l, { charge_cible_kg: 25 })),
+          repos_cible_s: 90, groupe_superset: null, note: null }] });
+    await aller('/saisie');
+    await demarrerRoutine('Assistée cible 0310');
+    await attendre(600);
+    await page.evaluate(() => document.querySelector('.ok-serie').click());
+    await attendre(1500);
+    ok('[0310] DISCRIMINANT — la cible positive de la routine (25) est rangée −25 à la validation, jamais +25',
+      JSON.stringify(enBase()) === '{"charge":-25,"reps":8}', JSON.stringify(enBase()));
     await abandonner();
     await aller('/saisie');
     ok('[0310] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));

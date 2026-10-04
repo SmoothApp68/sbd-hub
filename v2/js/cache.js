@@ -22,8 +22,11 @@
   //   d'écriture). La montée de version est la seule façon de créer un magasin —
   //   et elle est sans perte, les magasins existants ne sont pas touchés.
   // VERSION 4 : ajout de `zones` (les corrections de zone, §9.1.1).
-  var VERSION = 5;
-  var MAGASINS = ['seances', 'series', 'exercices', 'pesees', 'meta', 'zones',
+  // VERSION 5 : ajout de `predictions` (§9.11).
+  // VERSION 6 : ajout de `modes` (le mode de chaque exercice, §9.17 — Progresser
+  //   ou Entretenir ; `modes_exercice` en base). Sans perte, comme les autres.
+  var VERSION = 6;
+  var MAGASINS = ['seances', 'series', 'exercices', 'pesees', 'meta', 'zones', 'modes',
                   'brouillon', 'attente'];
   var LOT = 500;
   var _db = null;
@@ -66,6 +69,13 @@
         // que `tests/unit/v2-cache-montee.test.js` prouve.
         if (!db.objectStoreNames.contains('zones')) {
           db.createObjectStore('zones', { keyPath: 'id' }).createIndex('exercise_slug', 'exercise_slug');
+        }
+        // §9.17 (50-1) — le mode de chaque exercice : le MÊME patron que les
+        // zones, pour la même raison — un historique en ajout seul, de deux
+        // sources (l'appareil et le serveur), fondu par `id`. Le choix se fait
+        // en salle, sans réseau : il vit ici d'abord.
+        if (!db.objectStoreNames.contains('modes')) {
+          db.createObjectStore('modes', { keyPath: 'id' }).createIndex('exercise_slug', 'exercise_slug');
         }
         // §9.11 (48c) — LES PRÉDICTIONS, sur l'appareil aussi. Elles y sont
         // pour deux raisons, et la seconde n'est pas du confort : elles disent

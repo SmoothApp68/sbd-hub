@@ -240,6 +240,43 @@
     return gagnante && gagnante.zone ? gagnante.zone : null;
   }
 
+  // ── §9.17 — LE MODE D'UN EXERCICE, LU SUR L'HISTORIQUE ───────────────────
+  //
+  // `modes_exercice` est, comme `zones_exercice`, un historique EN AJOUT SEUL :
+  // chaque choix ajoute une ligne (« Progresser » ou « Entretenir »), la plus
+  // récente par `choisi_a` fait foi — jusqu'à l'identifiant, pour que deux
+  // appareils qui posent à la même seconde donnent la même lecture. C'est un
+  // réglage EXPLICITE : le coach ne le propose jamais (CADRAGE, 15/09 :
+  // l'intention ne se déduit pas des données), et rien ici ne le devine.
+  //
+  // Rend `'progresser'`, `'entretien'`, ou `null` — aucun choix. Une valeur
+  // inconnue (une ligne qu'un autre appareil écrirait un jour) ne vaut rien :
+  // elle ne change pas l'intention du profil.
+  var MODES = ['progresser', 'entretien'];
+  function modeEnVigueur(lignes, slug) {
+    var gagnante = null;
+    (lignes || []).forEach(function (l) {
+      if (!l || l.exercise_slug !== slug) return;
+      var t = instant(l.choisi_a);
+      if (t === null) return;
+      if (gagnante === null || t > gagnante.t ||
+          (t === gagnante.t && String(l.id) > String(gagnante.id))) {
+        gagnante = { t: t, id: l.id, mode: l.mode };
+      }
+    });
+    return gagnante && MODES.indexOf(gagnante.mode) >= 0 ? gagnante.mode : null;
+  }
+
+  // L'intention qu'un exercice reçoit : celle du PROFIL est l'interrupteur
+  // général (en Entretenir au profil, tous les exercices le sont — §9.17), puis
+  // le choix de l'exercice. Le moteur lit ce seul mot (`entretien` ou
+  // `progresser`) et ne sait pas d'où il vient : un exercice en Entretenir fait
+  // EXACTEMENT ce que fait le mode du profil (I13).
+  function intentionDe(intentionProfil, modeExercice) {
+    if (intentionProfil === 'entretien') return 'entretien';
+    return modeExercice === 'entretien' ? 'entretien' : 'progresser';
+  }
+
   function zoneRetenue(correction, habitude) {
     // `zoneParCle` ne lit que les cinq clés de la table : une valeur inventée,
     // ou `constructor` venu d'une ligne de base, n'y trouve rien et retombe sur
@@ -499,11 +536,33 @@
   // passage d'une paire de 20 kg : de 2 en 2 en dessous (1 kg par main), de 4 en
   // 4 au-dessus (2 kg par main). Mesuré sur les élévations latérales réelles :
   // 18, 20, puis 24 — jamais 22.
+  // ⚠️ LE LEST A SON SAUT, ET LA VALEUR N'EST ÉCRITE QU'ICI (§9.17, 03/10/2026) :
+  // 2,5 kg, le plus petit disque d'une ceinture ou d'un gilet — la règle des
+  // coachs, puis retour au bas de la fourchette. La version lestée d'un
+  // exercice au poids du corps n'est pas d'un matériel de la salle : sa charge
+  // s'ajoute au corps, et `equipement` (« aucun », « disque », « machine »…) ne
+  // dit rien de son cran. L'app lui donne donc, comme matériel EFFECTIF,
+  // `EQUIPEMENT_LEST` (`equipementEffectif`) — la seule clé que cette table
+  // lit pour lui. Le départ de la version lestée (`departLeste`) et la carte du
+  // lest (`carteLest`) disent la même valeur : ils la lisent ici, jamais en dur.
+  var EQUIPEMENT_LEST = 'lest';
+  var SAUT_LEST = 2.5;
+
   var REPLI_MATERIEL = {
     barre:         { pas: 2.5 },
     machine_smith: { pas: 2.5 },
     haltere:       { pas: 2, pasLourd: 4, bascule: 20 }
   };
+  REPLI_MATERIEL[EQUIPEMENT_LEST] = { pas: SAUT_LEST };
+
+  // Le matériel que le moteur lit pour un exercice du catalogue : le lest pour
+  // une charge ajoutée (`charge = ajoutee`), sinon son équipement. Le moteur ne
+  // lit pas le catalogue (§9.13) : l'app résout cette valeur, UNE fois, dans les
+  // options de la consigne — celle de l'exercice, de ses frères et de son parent.
+  function equipementEffectif(exo) {
+    if (!exo) return null;
+    return exo.charge === 'ajoutee' ? EQUIPEMENT_LEST : (exo.equipement === undefined ? null : exo.equipement);
+  }
 
   // ⚠️ LA BASCULE APPARTIENT À LA BANDE LÉGÈRE, et l'asymétrie est voulue : on
   // SORT de la bande en montant depuis 20 (20 -> 24), on y RESTE en descendant
@@ -940,6 +999,14 @@
     var reglage = opt.reglage || 'normal';
     var equipement = opt.equipement;
     var correction = opt.correction;
+    // §9.17 — la réponse à la carte du lest (`oui`, `non`), ou `null` : pas
+    // encore posée. Une réponse n'est qu'une entrée ; le moteur ne l'écrit pas.
+    var lestReponse = opt.lestReponse === 'oui' || opt.lestReponse === 'non' ? opt.lestReponse : null;
+    // §9.17 — `lestPossible` : le catalogue a une version lestée de l'exercice.
+    // Seul `false` retire la carte (l'app le dit quand `lesteDe` ne trouve rien) :
+    // une carte dont « J'ai du lest » ne saurait rien livrer promettrait ce
+    // qu'elle ne tient pas, et les reps continuent alors comme sans réponse.
+    var lestPossible = opt.lestPossible !== false;
 
     var vues = (seances || []).map(vueDeSeance);
     // §7.6 — les séances neutres ne comptent que pour le rythme (`repriseDe`,
@@ -956,6 +1023,16 @@
     var P = nombre(L.palier);
     var A = seriesAuPalier(L);
     var niv = A.length ? niveauValide(A) : null;
+    // §9.17 (03/10/2026) — LE POIDS DU CORPS EST UNE CHARGE QUI VAUT 0, et c'est
+    // CE ZÉRO qui le dit : aucun autre champ ne le porte, et le fichier de cas
+    // n'en donne pas. Un palier à 0 ne vient jamais d'une vraie charge (« zéro
+    // n'est pas une charge », `calculerPalier`) : il vient du contrat d'un
+    // exercice en `reps` (`THPalier.analyserPoidsDuCorps`). Il suit la consigne
+    // des charges, à une différence près — il n'a pas de cran. Une AIDE est une
+    // charge négative (la convention de la base, §9.17) : moins d'aide, c'est
+    // monter.
+    var poidsDuCorps = P === 0;
+    var aide = P !== null && P < 0;
     if (P === null || !A.length || niv === null) {
       // Les CHARGES, et elles seules : « 100, 110 puis 120 kg, aucune charge
       // répétée ». Sans palier il n'y a ni reps au palier ni test à raconter.
@@ -1041,6 +1118,32 @@
         haut = null;
         plus = null;
       }
+      // §9.17 — UN TEST SANS CRAN. Au poids du corps, le coach voudrait monter
+      // d'un cran et il n'y en a pas : `haut.charge` est `null` (aucun matériel
+      // ne dit le cran d'un corps). Deux sorties, et elles passent APRÈS la
+      // chute — un « tenir » n'est jamais une carte :
+      //   · `carte_lest` — les DEUX dernières séances ont un niveau au moins égal
+      //     au haut de la zone et la carte n'a pas de réponse : la ligne reste (au
+      //     haut de la zone, sans ligne haute), et la carte du lest parle, une
+      //     fois ;
+      //   · `etirement_reps` — sinon (« pas de lest », ou une seule séance au
+      //     haut) : la ligne au niveau de la dernière séance + 1, AU-DELÀ de la
+      //     zone, sans ligne haute — les reps continuent, la règle des coachs
+      //     quand on ne peut pas ajouter de poids.
+      if (poidsDuCorps && ETATS_DE_TEST[etat] === true && haut && haut.charge === null && zone !== null) {
+        var niveaux = niveauxDesDeuxDernieres();
+        if (lestReponse === null && lestPossible && niveaux !== null &&
+            niveaux[0] >= zone.haut && niveaux[1] >= zone.haut) {
+          etat = 'carte_lest';
+          ligne = ligneDe(P, cible(Math.min(niv + 1, zone.haut)));
+          plus = { carteLest: { niveaux: niveaux, bas: zone.bas, haut: zone.haut } };
+        } else {
+          etat = 'etirement_reps';
+          ligne = ligneDe(P, cible(niv + 1));
+          plus = null;
+        }
+        haut = null;
+      }
       var f = { date: L.debut, reps: repsSaisies(A) };
       if (chute !== null) f.chute = { rang: chute };
       // §9.13, enrichi le 20/09/2026 (48b-6a) : de quoi écrire la feuille
@@ -1093,7 +1196,20 @@
     function ligneDe(charge, vise) { return { charge: charge, vise: vise }; }
     function hautDe(charge, vise, k) { return { charge: charge, vise: vise, k: k }; }
     function voisine(depuis, sens) {
+      // §9.17 — AU POIDS DU CORPS, IL N'Y A PAS DE CRAN : ni au-dessus, ni en
+      // dessous, quel que soit le matériel du catalogue (l'hyperextension y est
+      // une « machine », dont le pas de pile n'a rien à dire d'un corps).
+      if (poidsDuCorps) return null;
       return chargeVoisine(vues, avant, depuis, equipement, sens);
+    }
+    // §9.17 — le niveau validé des DEUX dernières séances (non neutres), de la
+    // plus ancienne à la plus récente ; `null` s'il n'y en a qu'une, ou si l'une
+    // n'a pas de niveau. Le niveau se calcule sans la chute (§9.2 bis).
+    function niveauxDesDeuxDernieres() {
+      if (ant.length < 2) return null;
+      var a = niveauValide(seriesAuPalier(ant[ant.length - 2]));
+      var b = niveauValide(seriesAuPalier(ant[ant.length - 1]));
+      return a === null || b === null ? null : [a, b];
     }
     function comptees(s) {
       var r = Palier().repsComptees(s);
@@ -1123,12 +1239,26 @@
     // §9.9 (delta 49-13, 27/09/2026) — le repli ne descend jamais de plus de
     // 10 % : `repliDeReprise` est la SEULE règle, que le plan réapplique à
     // toute consigne qu'il reçoit (`consigneFigee`).
-    if (reprise === REPRISE_LONGUE) return rendre('reprise_longue', ligneDe(repliDeReprise(P, voisine(P, -1)), viseReprise), null, borne);
+    // §9.17 — ET PAS DE REPLI SOUS UN CORPS, NI SOUS UNE AIDE : une reprise
+    // longue garde la charge de travail, sans rep de plus (« Longue pause : on
+    // reprend à ta charge de travail »). Le cran en dessous d'un corps n'existe
+    // pas, et celui d'une aide — plus d'aide — serait un repli que la règle
+    // refuse (I30).
+    if (reprise === REPRISE_LONGUE) {
+      return rendre('reprise_longue',
+        ligneDe(poidsDuCorps || aide ? P : repliDeReprise(P, voisine(P, -1)), viseReprise), null, borne);
+    }
 
     // 4. La règle de bord : sous 3 reps d'habitude, il n'y a plus de zone. On
     // monte la charge AUX MÊMES REPS — la variabilité journalière des maximaux
     // dépasse l'écart entre une rep et deux (§9.1.2).
-    if (zone === null) return rendre('bord', ligneDe(voisine(P, 1), niv), null);
+    //
+    // §9.17 — Au poids du corps il n'y a pas de charge à monter : les reps
+    // continuent, comme l'étirement (une de plus, sans zone ni ligne haute).
+    if (zone === null) {
+      if (poidsDuCorps) return rendre('etirement_reps', ligneDe(P, cible(niv + 1)), null);
+      return rendre('bord', ligneDe(voisine(P, 1), niv), null);
+    }
 
     var lo = zone.bas;
     var hi = zone.haut;
@@ -1245,7 +1375,10 @@
     // trouvée puis refusée par la borne des 10 % (F3) ne se dit pas : la
     // phrase annoncerait « on teste deux crans » sur une consigne d'un cran.
     var preuveRetenue = null;
-    if (reglage === 'franc' && c1 !== null) {
+    // §9.17 — ET PAS DE DOUBLE SAUT SUR UNE AIDE : deux crans d'aide en moins
+    // d'un coup ne sont pas « 10 % de la charge » (une aide n'est pas une
+    // charge qu'on pèse en pourcentage, I30).
+    if (reglage === 'franc' && c1 !== null && !aide) {
       // La preuve du double saut : le haut dépassé de 3 reps, ou un effort dit
       // « facile » (§17.3, logique APRE).
       var preuve = auMoins(A, hi + PREUVE_DEPASSEMENT) || A.some(function (s) {
@@ -1413,6 +1546,13 @@
     var z = typeof c.zone === 'string' ? zoneParCle(c.zone) : null;
     var P = c.ligne ? nombre(c.ligne.charge) : null;
     if (z === null || !c.ligne || P === null || nombre(c.palier) === null) return sortie;
+    // §9.17 — AU POIDS DU CORPS, LA RÉACTION SE TAIT : « 3 reps de plus que visé,
+    // je passe ta série 2 au cran au-dessus » n'aurait aucun cran à proposer, et
+    // une charge proposée à un corps serait une ligne haute avec une charge
+    // (I28). Rien à dire, rien à proposer : à cette marche, le silence. (Le
+    // départ de la version lestée, §8.4, n'a pas de charge de travail : son
+    // `palier` est nul, et la réaction s'y tait déjà.)
+    if (P === 0) return sortie;
 
     var ctx = contexte || {};
     var n = plan.length;
@@ -1687,6 +1827,9 @@
     var base = nombre(consigne.ligne.charge);
     if (base === null) base = nombre(consigne.palier);
     if (base === null) return vide;
+    // §9.17 — PAS DE CRAN AU POIDS DU CORPS : la réaction se tait (`reactionPour`),
+    // et le contexte ne cherche pas une charge à lui proposer.
+    if (base === 0) return vide;
     var vues = (seances || []).map(vueDeSeance);
     var cran = chargeVoisine(vues, avant, base, equipement, 1);
     var cranSuivant = cran === null ? null : chargeVoisine(vues, avant, cran, equipement, 1);
@@ -1697,7 +1840,10 @@
     });
     return {
       cran: cran,
-      haut: secondeCharge({ palier: base, cran: cran, cranSuivant: cranSuivant,
+      // §9.17 — ET PAS DE SECONDE CHARGE SUR UNE AIDE : « ou 130 kg, si tu te
+      // sens bien ? » compare à 10 % de la charge, et une aide n'en est pas une
+      // (I30). Le cran seul reste proposé : moins d'aide, c'est monter.
+      haut: base < 0 ? null : secondeCharge({ palier: base, cran: cran, cranSuivant: cranSuivant,
         sauts: sautsDeMontee(ant), charges: charges,
         programme: programme === undefined ? null : programme })
     };
@@ -1902,9 +2048,14 @@
   // précisé le 27/09/2026) ; 3 depuis 49-U8 (une séance sans charge répétée
   // prend sa plus lourde charge tenue dans la zone — MOTEUR §7.6) ; 4 depuis
   // 49-U12 (la chute de fin de séance ne tire plus le niveau et bloque le
-  // test suivant — MOTEUR §9.2 bis).
+  // test suivant — MOTEUR §9.2 bis) ; 5 depuis 49-U18 (delta 49-36 : l'écart
+  // habituel sur les 8 derniers écarts, les reprises bornées à la zone, la
+  // charge plus lourde sur 12 mois hors barre) ; 6 depuis 50-1 (le poids du corps suit la
+  // consigne des charges, la charge valant 0 ; la carte du lest, l'étirement,
+  // l'aide, le départ lesté — MOTEUR §9.17). Les paris d'un exercice en `reps`
+  // n'existaient pas avant : seule la version dit qu'ils viennent de cette règle.
   var MODULE_CONSIGNE = 'moteur.consigne';
-  var VERSION_CONSIGNE = 5;
+  var VERSION_CONSIGNE = 6;
 
   // ⚠️ LU TARDIVEMENT, SANS REPLI, comme `THPalier`. `modele.js` charge avant
   // `moteur.js` (index.html 325 puis 329), mais un repli « si THModele manque,
@@ -2217,6 +2368,24 @@
       case 'bord':
         return 'Sous ' + nombreFr(RANGEMENT[0].jusqua + 1, regle('constante')) + ' reps, pas de rep de plus' + DEUX_POINTS +
                'le cran au-dessus, aux mêmes reps.';
+
+      // §9.17 — AU POIDS DU CORPS, au haut de la zone, deux séances de suite :
+      // la ligne tient, et la carte du lest parle (une fois). Le coach ne dit
+      // pas « palier » : « le haut de ta zone », comme partout.
+      case 'carte_lest':
+        return jour() + DEUX_POINTS + auPalier() + ', le haut de ta zone.';
+
+      // §9.17 — sans cran à monter, les reps continuent : une de plus que la
+      // dernière fois, au-delà de la zone. La même phrase que la progression,
+      // parce que c'est la même chose dite à un corps.
+      case 'etirement_reps':
+        return jour() + DEUX_POINTS + auPalier() + '. Une rep de plus.';
+
+      // §8.4 / §9.17 — la version lestée démarre de l'exercice libre : le saut
+      // de lest, au bas de la zone. Aucune séance à raconter : elle n'existe pas.
+      case 'depart_leste':
+        return 'Première fois avec du lest' + DEUX_POINTS + 'on commence à ' +
+               enKg(c.ligne.charge, cite(CIBLE, { role: 'ligne' })) + ', au bas de ta zone.';
     }
     return '';
   }
@@ -2515,6 +2684,19 @@
         return 'Tu as regagné les reps perdues au test, ' + nombreFr(f.cible, regle('cible')) + ' reps à ' +
                enKg(c.ligne.charge, cL) + DEUX_POINTS + 'on retente ' + enKg(t.charge, cH) + '.';
 
+      // §9.17 — au poids du corps, sans cran : la carte du lest, ou les reps.
+      case 'carte_lest':
+        return 'Ta charge de travail est au haut de ta zone depuis deux séances. ' +
+               'Un lest te ferait continuer en force : je te le propose, et on tient la ligne en attendant.';
+
+      case 'etirement_reps':
+        return 'Au poids du corps, il n\'y a pas de cran à monter' + DEUX_POINTS +
+               'tu gagnes des reps, une de plus que la dernière fois.';
+
+      case 'depart_leste':
+        return 'Première séance avec du lest' + DEUX_POINTS + 'on part de ' + enKg(c.ligne.charge, cL) +
+               ', au bas de ta zone.';
+
       case 'reprise_courte':
         return 'Reprise après une pause' + DEUX_POINTS + 'ta charge de travail, sans rep de plus. ' +
                'La progression repart à la séance suivante.' + phraseBorneZone(f);
@@ -2716,6 +2898,12 @@
     if (!x.enBase) return { set_observe: null, valeur_observee: null };
     var palier = nombre(f.palier);
     var faite = nombre(x.charge);
+    // §9.17 — AU POIDS DU CORPS, LA SÉRIE FAITE N'A PAS DE CHARGE EN BASE
+    // (`charge_kg` vide : `validerSerie` n'écrit que les champs du gabarit), et
+    // le pari, lui, porte la charge de sa ligne : 0. Sans cette lecture, la
+    // série ne « suivrait » jamais son pari et `valeur_observee` resterait vide :
+    // un pari écrit, jamais jugé.
+    if (faite === null && palier === 0) faite = 0;
     // §9.11 (49-R2) — UNE PROPOSITION À DEUX CHARGES est suivie par l'une ou
     // l'autre. Chaque pari se juge sur SES charges, jamais sur celles d'un
     // autre pari du même rang.
@@ -2870,7 +3058,11 @@
       // demande TOUTES les séries au haut, DEUX séances de suite : « il te
       // manque une rep » y serait faux la moitié du temps — il en manquerait
       // une, puis une séance entière. La phrase générale ne promet rien.
-      if (reglage !== 'prudent' && z !== null && fait !== null && fait < z.haut) {
+      // §9.17 — Au poids du corps il n'y a pas de cran à tester : la phrase
+      // « pour tester le cran au-dessus » ne se dit pas, la suite est celle du
+      // jaune.
+      if (reglage !== 'prudent' && z !== null && fait !== null && fait < z.haut &&
+          nombre(cApres.palier) !== 0) {
         var manque = z.haut - fait;
         return 'Il te manque ' + (manque === 1 ? 'une rep' : nombreFr(manque, regle('manque')) + ' reps') +
                ' pour tester ' + enKg(cranSuivant, regle('cran_suivant')) + '.';
@@ -2951,9 +3143,16 @@
   // ⚠️ `options` PORTE LE §7.6 (49-U8) : `{ reglage, equipement, correction }`,
   // les mêmes que la consigne — la zone d'une séance sans palier est celle de
   // SA consigne. Sans elles, le contrat reste celui d'`analyser`, brut.
+  //
+  // §9.17 — UN EXERCICE EN `reps` A LE CONTRAT D'UNE CHARGE QUI VAUT 0 : le poids
+  // du corps (`THPalier.analyserPoidsDuCorps`). C'est la SEULE différence avec
+  // un exercice à charge : le contrat qui en sort passe par la même
+  // `consignePour`.
   function contratDe(groupes, etat, mesure, options) {
     var seances = (groupes || []).map(function (g) {
-      var r = Palier().analyser((g && g.series) || [], etat, { mesure: mesure });
+      var r = mesure === 'reps'
+        ? Palier().analyserPoidsDuCorps((g && g.series) || [])
+        : Palier().analyser((g && g.series) || [], etat, { mesure: mesure });
       return seanceDuContrat(g && g.seance ? g.seance.debut : null, r);
     });
     return options ? sansPalierRetenues(seances, options) : seances;
@@ -3622,7 +3821,20 @@
   // une série de plus a été proposée depuis le dernier progrès (`proposee`),
   // sinon le silence (le repli a déjà eu son tour). Zones force et sèche :
   // inchangé (§14.5).
-  function marcheIsolee(n, zone, phase, place, proposee) {
+  //
+  // §9.17 — `palier` (facultatif) : la charge de travail de l'exercice. AU POIDS
+  // DU CORPS (0) il n'y a ni changement de schéma ni repli — pas de charge —, et
+  // sur une AIDE (négative) pas de repli : à ces marches, le silence. La série de
+  // plus, elle, reste possible : elle ne touche pas à la charge.
+  function marcheIsolee(n, zone, phase, place, proposee, palier) {
+    var m = marcheIsoleeBrute(n, zone, phase, place, proposee);
+    var p = nombre(palier);
+    if (p === 0 && (m === MARCHE_SCHEMA || m === MARCHE_REPLI)) return MARCHE_SILENCE;
+    if (p !== null && p < 0 && m === MARCHE_REPLI) return MARCHE_SILENCE;
+    return m;
+  }
+
+  function marcheIsoleeBrute(n, zone, phase, place, proposee) {
     var k = nombre(n);
     if (k === null || k < 1) return null;
     if (k >= 3) return MARCHE_SILENCE;
@@ -3958,6 +4170,77 @@
     });
   }
 
+  // ══ §9.17 — LE LEST : SON DÉPART, ET LA CARTE QUI Y MÈNE ═════════════════════
+  //
+  // « Le poids du corps est une charge qui ne bouge pas : seule différence,
+  // quand le coach voudrait monter d'un cran et qu'il n'y en a pas, la carte du
+  // lest ou l'étirement. » La carte est UNE donnée : le texte, deux libellés, et
+  // rien d'autre — l'écran la dessine avec le composant des propositions
+  // d'exercice, il n'en écrit aucun mot. Les deux nombres qu'elle dit (le niveau,
+  // le bas de la zone) et le saut de lest passent par le formateur, donc par la
+  // garde de cohérence (I26) : `lest.niveau`, `zone.bas`, `lest.saut`.
+  //
+  // `e` : `{ niveau, bas }` — `niveau`, le niveau validé des deux dernières
+  // séances (le plus bas des deux : « sur toutes tes séries, deux séances de
+  // suite » doit être vrai des deux) ; `bas`, le bas de la zone, où le lest
+  // ramène les reps. Sans « ? » (§20.2 : la voix du coach ne pose pas de
+  // question que le choix entre deux charges).
+  var OUI_LEST = 'J’ai du lest';
+  var NON_LEST = 'Pas de lest';
+  //
+  // Le titre et le détail s'écrivent chacun par sa fonction : le plan les rédige
+  // sous deux captures (§20 bis), pour que chaque phrase porte SES citations.
+  function carteLestTitre(e) {
+    var x = e || {};
+    return nombreFr(x.niveau, regle('lest.niveau')) + ' reps sur toutes tes séries, deux séances de suite.';
+  }
+  function carteLestDetail(e) {
+    var x = e || {};
+    return 'Au haut de ta zone, un lest te fait continuer en force. Avec une ceinture ou un gilet, ' +
+           'je te propose de commencer à ' + enKg(SAUT_LEST, regle('lest.saut')) +
+           ', en revenant à ' + nombreFr(x.bas, regle('zone.bas')) + ' reps.';
+  }
+  function carteLest(e) {
+    return { titre: carteLestTitre(e), detail: carteLestDetail(e), oui: OUI_LEST, non: NON_LEST };
+  }
+
+  // §8.4 (exception étroite, 03/10/2026) — LE DÉPART DE LA VERSION LESTÉE : sa
+  // première ligne vient de la dernière séance de l'exercice libre — le saut de
+  // lest, au BAS de la zone — au lieu de « Première fois ici ». Elle n'en hérite
+  // NI le palier, NI le compteur, NI le modèle : `palier` et `niveau` restent
+  // nuls, le compteur de la version lestée part de zéro, et dès sa première
+  // séance elle a sa propre histoire. `zone` : la clé de la zone de l'exercice
+  // libre ; `n` : ses séries de travail (la consigne ne couvre que celles-là).
+  function consigneDepartLeste(zone, n, date) {
+    var z = zoneParCle(zone);
+    if (z === null) return null;
+    return {
+      etat: 'depart_leste', zone: z.cle, palier: null, niveau: null,
+      n: nombre(n) !== null && nombre(n) >= 1 ? nombre(n) : 1,
+      ligne: { charge: SAUT_LEST, vise: z.bas }, haut: null,
+      fondement: { departLeste: { date: date === undefined ? null : date } }
+    };
+  }
+
+  // `o.libre` : une fonction que l'app fournit pour une version lestée —
+  // `{ groupes, etat, options }`, les MÊMES entrées que la consigne de l'exercice
+  // libre (comme `o.freres`) — ou `null`. Le départ n'existe que pour la toute
+  // première fois (aucune séance à elle) et si l'exercice libre a une zone : un
+  // exercice libre muet (première fois, sous 3 reps d'habitude) n'en donne
+  // aucune, et la version lestée reste alors « Première fois ici ».
+  function departDuLeste(consigne, o, avant) {
+    if (!consigne || consigne.etat !== 'silence' || consigne.raison !== 'premiere_fois') return null;
+    if (typeof o.libre !== 'function') return null;
+    var p = o.libre();
+    var po = p && p.options ? p.options : null;
+    if (!po || po.mesure !== 'reps') return null;
+    var opts = { reglage: po.reglage, equipement: po.equipement, correction: po.correction || null,
+                 lestReponse: o.lestReponse };
+    var kp = consignePour(contratDe(p.groupes, p.etat, 'reps', opts), avant, opts);
+    if (!kp || kp.etat === 'silence' || !zoneParCle(kp.zone)) return null;
+    return consigneDepartLeste(kp.zone, kp.n, kp.fondement ? kp.fondement.date : null);
+  }
+
   // La consigne d'UN exercice de la séance ouverte, silences compris. Pure :
   // `app.js` ne fait que résoudre les valeurs (`mesure` par `gabaritDe`,
   // `reglage` par `Profil.rythmeDe`, `equipement` au catalogue) et les passer.
@@ -3973,22 +4256,34 @@
   // l'en-tête n'affiche rien, le fantôme garde sa cascade d'avant.
   //   · une séance en ÉDITION (§7 octies) : le moteur prescrit une séance à
   //     faire, pas une séance faite ;
-  //   · l'intention `entretien` : on ne cherche pas à monter ;
-  //   · une mesure autre que `charge_reps`, ou inconnue : pas de charge à
-  //     prescrire.
+  //   · l'intention `entretien` : on ne cherche pas à monter — celle du profil,
+  //     ou celle de l'exercice (§9.17, `modes_exercice`) : l'app résout les
+  //     deux en UNE valeur, et le moteur ne sait pas d'où elle vient (I13) ;
+  //   · une mesure autre que `charge_reps` et `reps`, ou inconnue : la durée et
+  //     la distance restent hors du coach (CADRAGE §2 ter). Le poids du corps en
+  //     `reps` est coaché : la charge vaut 0 (§9.17).
   // Les silences DU moteur (première fois, pas de palier) sont autre chose :
   // une consigne à l'état `silence`, avec sa seule phrase grise.
   function consigneDExercice(groupes, etat, avant, options) {
     var o = options || {};
     if (o.edition) return null;
     if ((o.intention || 'progresser') === 'entretien') return null;
-    if (o.mesure !== 'charge_reps') return null;
+    if (o.mesure !== 'charge_reps' && o.mesure !== 'reps') return null;
     var seances = contratDe(groupes, etat, o.mesure,
       { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null });
     // §9.1.1 (48b-7) — LE RANG 2 EST BRANCHÉ. Il attendait ici depuis
     // 48b-5b-2, câblé à `null` faute d'un endroit où lire la zone choisie.
+    // §9.17 — `lestReponse` : la réponse à la carte du lest, une ENTRÉE du
+    // profil. Elle vaut pour toute séance, comme le rythme et l'intention (le
+    // rejeu le dit : « celles du profil actuel »).
     var consigne = consignePour(seances, avant,
-      { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null });
+      { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null,
+        lestReponse: o.lestReponse, lestPossible: o.lestPossible });
+    // §8.4 / §9.17 — LE DÉPART DE LA VERSION LESTÉE : la première fois qu'un
+    // exercice lesté se fait, il part de l'exercice libre au lieu de « Première
+    // fois ici ».
+    var depart = departDuLeste(consigne, o, avant);
+    if (depart !== null) consigne = depart;
     var rejeu = rejeuDuCompteur(seances, groupes, avant, o);
     var marquees = rejeu.marquees;
     var compteur = compteurFige(rejeu.complet);
@@ -4028,7 +4323,7 @@
              // avec la consigne. Ses frères ne sont demandés (`o.freres`, une
              // fonction) et rejoués que si le compteur est à 4 ou plus.
              frere: compteur.compteur >= SEUIL_COMPTEUR && typeof o.freres === 'function'
-               ? frereDuBlocage(rejeu.complet.verdicts, o.freres, avant) : null };
+               ? frereDuBlocage(rejeu.complet.verdicts, o.freres, avant, o.mesure) : null };
   }
 
   // LE REJEU DU COMPTEUR, le même pour l'exercice et pour ses frères : les
@@ -4060,13 +4355,20 @@
   // (la consigne est figée), et seulement pour un frère mesuré en charge ×
   // reps qui a au moins une séance pendant le blocage — sans elle, aucun
   // verdict ne peut y dire un progrès.
-  function frereDuBlocage(verdicts, fournir, avant) {
+  //
+  // §9.17 — PAS DE FRÈRE CITÉ ENTRE UNE CHARGE ET DES REPS : « tes haltères sont
+  // montés à 92 kg » ne dit rien à des pompes, et « Poids du corps × 14 » ne dit
+  // rien à une barre. Un frère n'est candidat que s'il se mesure comme
+  // l'exercice bloqué (`mesure`, charge × reps ou reps seules) — la durée et la
+  // distance restent hors du coach.
+  function frereDuBlocage(verdicts, fournir, avant, mesure) {
     var depuis = instant(debutDuBlocage(verdicts));
     if (depuis === null) return null;
     var fin = instant(avant);
     var candidats = (fournir() || []).filter(function (f) {
       var o = (f && f.options) || {};
-      if (o.mesure !== 'charge_reps') return false;
+      if (o.mesure !== 'charge_reps' && o.mesure !== 'reps') return false;
+      if (o.mesure !== mesure) return false;
       return (f.groupes || []).some(function (g) {
         var t = g && g.seance ? instant(g.seance.debut) : null;
         return t !== null && t > depuis && (fin === null || t < fin);
@@ -4145,7 +4447,8 @@
     var cApres = consigneDExercice(tous, etat, apres, o);
     if (!cApres) return null;
     var P = cApres.consigne.palier;
-    var cran = P === null || P === undefined ? null
+    // §9.17 — au poids du corps (palier 0), il n'y a pas de cran suivant.
+    var cran = P === null || P === undefined || P === 0 ? null
       : chargeVoisine(contratDe(tous, etat, o.mesure,
           { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null }),
         apres, P, o.equipement, 1);
@@ -4472,6 +4775,21 @@
     // recopie ni les libellés ni les bornes.
     ZONES: ZONES,
     zoneEnVigueur: zoneEnVigueur,
+    // §9.17 (50-1) — le poids du corps, l'aide et le lest : le mode d'un
+    // exercice (`modes_exercice`), son départ lesté, la carte qui y mène, le
+    // saut de lest et le matériel effectif d'une charge ajoutée.
+    MODES: MODES,
+    modeEnVigueur: modeEnVigueur,
+    intentionDe: intentionDe,
+    SAUT_LEST: SAUT_LEST,
+    EQUIPEMENT_LEST: EQUIPEMENT_LEST,
+    equipementEffectif: equipementEffectif,
+    carteLest: carteLest,
+    carteLestTitre: carteLestTitre,
+    carteLestDetail: carteLestDetail,
+    OUI_LEST: OUI_LEST,
+    NON_LEST: NON_LEST,
+    consigneDepartLeste: consigneDepartLeste,
     seanceDuContrat: seanceDuContrat,
     consigneDExercice: consigneDExercice,
     INSECABLE: INSECABLE

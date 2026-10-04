@@ -303,10 +303,13 @@ describe('49-U18 — la cible du constat : un seul calcul (« le coach ne fait q
       seance: { id: 'S', debut: '2026-10-01T17:07:00Z' }, profil: { intention: 'progresser' },
       local: { exercices: [{ slug: 'curl', equipement: 'barre' }], zones: [] },
       constats: null, etatsExercices: {}, rejeuEnCours: null,
-      Modele: { indexerExercices: (l) => ({ curl: l[0] }), gabaritDe: () => ({ mesure: 'charge_reps' }) },
+      Modele: { indexerExercices: (l) => ({ curl: l[0] }), gabaritDe: () => ({ mesure: 'charge_reps' }), lesteDe: () => null, parentDe: () => null },
       Profil: { rythmeDe: () => 'normal' },
       Seance: { partEnBase: () => true },
-      Moteur: { suiteDExercice: (g, j, e, a, o) => { vus.push(o); return null; } },
+      Moteur: { suiteDExercice: (g, j, e, a, o) => { vus.push(o); return null; },
+                equipementEffectif: (e) => (e ? e.equipement || null : null) },
+      // 50-1 : les deux lectures du profil et des modes que `optionsDeConsigne` appelle.
+      intentionDeLExercice: () => 'progresser', lestReponseDe: () => null,
       // `suiteDe` lit le catalogue indexé de l'app (PR 2 de la consolidation).
       catalogueIndexe: () => ({ curl: { slug: 'curl', equipement: 'barre' } }),
       cleConsignes: () => 'k', empreinteValidations: () => 'e', exerciceFini: () => true,
@@ -326,9 +329,11 @@ describe('49-U18 — la cible du constat : un seul calcul (« le coach ne fait q
   });
 });
 
-describe('49-U18 — la version', () => {
-  test('VERSION_CONSIGNE vaut 5', () => {
-    expect(M.VERSION_CONSIGNE).toBe(5);
+describe('50-1 — la version', () => {
+  // 5 depuis 49-U18 ; 6 depuis 50-1 (MOTEUR §9.17 : le poids du corps suit la
+  // consigne des charges, la charge valant 0 — une règle de la consigne change).
+  test('VERSION_CONSIGNE vaut 6', () => {
+    expect(M.VERSION_CONSIGNE).toBe(6);
   });
 });
 

@@ -412,4 +412,38 @@ describe('12. la liste de lecture est DÉRIVÉE, jamais recopiée', () => {
     ['slug', 'nom', 'mesure', 'charge', 'equipement', 'muscles_primaires', 'muscles_secondaires']
       .forEach((c) => expect(demandees).toContain(c));
   });
+
+  // ⚠️ `parent` (50-1, MOTEUR §9.17) — MÊME PIÈGE QUE `equipement` ET `mouvement` :
+  // la version lestée d'un exercice libre est l'exercice dont `parent` EST lui
+  // (`Modele.lesteDe`). Omise de ce `select`, `parent` vaudrait `undefined` sur
+  // les 237 exercices : la carte du lest ne trouverait jamais sa version lestée,
+  // et se tairait sans une erreur.
+  test('le `select` du catalogue demande `parent` — la version lestée (MOTEUR §9.17, 50-1) en dépend', async () => {
+    const Donnees = charger();
+    await Donnees.tousLesExercices();
+    const demandees = requetes[0].colonnes.split(',').map((c) => c.trim());
+    expect(demandees).toContain('parent');
+    ['slug', 'nom', 'mesure', 'charge', 'equipement', 'mouvement', 'muscles_primaires', 'muscles_secondaires']
+      .forEach((c) => expect(demandees).toContain(c));
+  });
+
+  // 50-1 — la réponse à la carte du lest vit au profil : omises du `select`,
+  // `lest_reponse` serait lue vide à chaque rechargement, et la carte reviendrait
+  // après chaque réponse.
+  test('le `select` du profil demande `lest_reponse` et `lest_reponse_le`', async () => {
+    const Donnees = charger();
+    await Donnees.monProfil('u-1');
+    const demandees = requetes[0].colonnes.split(',').map((c) => c.trim());
+    expect(demandees).toEqual(expect.arrayContaining(['lest_reponse', 'lest_reponse_le']));
+  });
+
+  // 50-1 — `modes_exercice` : le mode de chaque exercice, relu en entier (le
+  // patron de `zones_exercice`).
+  test('`mesModes` lit toutes les colonnes de `modes_exercice`, `choisi_a` comprise', async () => {
+    const Donnees = charger();
+    await Donnees.mesModes();
+    expect(requetes[0].table).toBe('modes_exercice');
+    const demandees = requetes[0].colonnes.split(',').map((c) => c.trim());
+    ['id', 'user_id', 'exercise_slug', 'mode', 'choisi_a'].forEach((c) => expect(demandees).toContain(c));
+  });
 });

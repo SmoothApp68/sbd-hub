@@ -106,6 +106,33 @@
     return isFinite(n) ? n : null;
   }
 
+  // ⚠️ L'AIDE SE TAPE EN POSITIF ET SE RANGE EN NÉGATIF — PAR CETTE FONCTION ET
+  // AUCUNE AUTRE (MOTEUR §9.17, 03/10/2026). Une aide (`charge = assistance` :
+  // machine assistée, élastique) est rangée en base comme une charge NÉGATIVE —
+  // la convention de 125 séries sur 129, et celle de Hevy : c'est le type
+  // d'exercice qui porte le sens, pas le signe tapé. La colonne s'appelle
+  // « Aide (kg) » et on y tape « 22,5 », jamais un moins : un signe à retenir,
+  // c'est un signe oublié. Moins d'aide, c'est monter (−25 → −22,5).
+  //
+  // Elle lit comme `lireNombre` (tous les signes moins, la virgule, les
+  // espaces) puis range : `22,5`, `−22,5` et `-22,5` donnent tous −22,5 — on
+  // retape donc sans risque ce qu'un champ affichait. Zéro reste zéro (« pas
+  // d'aide », sans signe), et ce qui n'est pas un nombre reste `null`. Elle sert
+  // à TOUT ce qui entre dans une série d'aide : la saisie, et le pré-remplissage
+  // que la validation écrit.
+  function rangerAide(v) {
+    var n = lireNombre(v);
+    if (n === null) return null;
+    return n === 0 ? 0 : -Math.abs(n);
+  }
+
+  // L'inverse, pour le champ « Aide (kg) » : ce qu'on y lit est la valeur
+  // absolue de l'aide rangée. `null` traverse — « non renseigné » n'est pas 0.
+  function aideAffichee(v) {
+    var n = lireNombre(v);
+    return n === null ? null : Math.abs(n);
+  }
+
   // « 28 404 » : l'espace FINE insécable sépare les milliers (typographie
   // française ; un espace ordinaire casserait le nombre en bout de ligne).
   function nombreGroupe(n) {
@@ -222,10 +249,23 @@
 
   // « 125 kg ». Une charge inconnue se dit, elle ne se tait pas : « le cran
   // au-dessus » (§10.2, rang 4) — ou le repli que l'appelant donne.
+  //
+  // §9.17 (03/10/2026) — LE SIGNE ET LE ZÉRO DISENT LA NATURE DE LA CHARGE, ICI,
+  // UNE FOIS : zéro est le poids du corps (« Poids du corps × 8 »), et une charge
+  // négative est une aide (« Aide 22,5 kg ») — la convention de la base, 125
+  // séries sur 129. Une phrase du coach n'écrit jamais « 0 kg » ni « −22,5 kg » :
+  // elle passe par ce formateur, et c'est lui qui sait que les deux n'ont pas le
+  // même sens qu'une barre. Le « kg » reste collé au nombre par l'espace
+  // insécable ; « Aide » et son nombre se séparent d'un espace ordinaire.
+  var POIDS_DU_CORPS = 'Poids du corps';
+  var AIDE = 'Aide';
   function chargeTexte(kg, repli) {
     if (kg === null || kg === undefined || kg === '' || !isFinite(Number(kg))) {
       return repli === undefined ? CRAN_INCONNU : repli;
     }
+    var n = Number(kg);
+    if (n === 0) return POIDS_DU_CORPS;
+    if (n < 0) return AIDE + ' ' + nombreTexte(-n) + INSECABLE + 'kg';
     return nombreTexte(kg) + INSECABLE + 'kg';
   }
   function chargeOuNul(kg) {
@@ -362,7 +402,10 @@
     var bouts = [];
     var aCharge = serie.charge_kg !== null && serie.charge_kg !== undefined;
     var aReps = serie.reps !== null && serie.reps !== undefined;
-    if (aCharge) bouts.push(nombreTexte(serie.charge_kg) + ' kg');
+    // §9.17 — une charge négative est une aide : « Aide 22,5 kg × 8 », jamais
+    // « −22,5 kg × 8 » (le journal dit la même chose que le coach).
+    if (aCharge) bouts.push(Number(serie.charge_kg) < 0 ? chargeTexte(serie.charge_kg)
+      : nombreTexte(serie.charge_kg) + ' kg');
     if (aReps) bouts.push(aCharge ? '× ' + serie.reps : serie.reps + ' reps');
     if (serie.duree_s) bouts.push(formatDuree(serie.duree_s));
     if (serie.distance_m) bouts.push(formatDistance(serie.distance_m));
@@ -543,10 +586,28 @@
   // `charge_reps`, de loin la plus courante, et on TAIT le libellé : affirmer
   // « CHARGE × REPS » sur un exercice qu'on ne connaît pas serait mentir avec
   // aplomb. `inconnue` le dit à la vue.
+  //
+  // §9.17 — LA NATURE DE LA CHARGE DONNE SON NOM À LA COLONNE : « Lest (kg) » sur
+  // une charge ajoutée, « Aide (kg) » sur une assistance. La mesure reste
+  // `charge_reps` (mêmes champs, même grille) : seul l'en-tête change, et `nature`
+  // dit à l'écran comment lire ce que l'on tape (l'aide se tape en positif,
+  // `rangerAide`). Ni l'une ni l'autre pour une mesure inconnue : on ne nomme pas
+  // ce qu'on ne connaît pas.
+  var ENTETES_DE_CHARGE = { aide: 'AIDE (KG)', lest: 'LEST (KG)' };
+
+  function natureDeCharge(exo) {
+    var c = exo && exo.charge;
+    return c === 'assistance' ? 'aide' : (c === 'ajoutee' ? 'lest' : null);
+  }
+
   function gabaritDe(exo) {
     var m = exo && exo.mesure;
     var g = Object.prototype.hasOwnProperty.call(GABARITS, m) ? GABARITS[m] : null;
-    if (g) return g;
+    if (g) {
+      var nature = g.mesure === 'charge_reps' ? natureDeCharge(exo) : null;
+      if (nature === null) return g;
+      return Object.assign({}, g, { nature: nature, entetes: { charge_kg: ENTETES_DE_CHARGE[nature] } });
+    }
     return { mesure: 'charge_reps', champs: GABARITS.charge_reps.champs,
              effort: true, libelle: null, inconnue: true };
   }
@@ -560,7 +621,7 @@
   // la grandeur qui porte l'information, et elle seule.
   //   charge_reps → « 122,5×5 » · reps → « 12 » · temps → « 45 s »
   //   distance_temps → « 6 h 35 » (la distance ne tient pas, la durée gagne)
-  function formatPrecedent(serie, mesure) {
+  function formatPrecedent(serie, mesure, nature) {
     if (!serie) return '—';
     if (mesure === 'reps') {
       return serie.reps === null || serie.reps === undefined ? '—' : String(serie.reps);
@@ -575,7 +636,11 @@
       return formatChrono(serie.duree_s) || '—';
     }
     if (serie.charge_kg === null || serie.charge_kg === undefined) return '—';
-    return nombreTexte(serie.charge_kg) +
+    // §9.17 — sous « AIDE (KG) », l'aide se lit comme elle se tape : sans signe.
+    // La colonne est de 62 px : « Aide 22,5 kg » n'y tient pas, et l'en-tête de
+    // la colonne d'à côté dit déjà ce que c'est.
+    var kg = nature === 'aide' ? aideAffichee(serie.charge_kg) : serie.charge_kg;
+    return nombreTexte(kg) +
       (serie.reps === null || serie.reps === undefined ? '' : '\u00d7' + serie.reps);
   }
 
@@ -632,6 +697,33 @@
       var x = index[s];
       return s !== slug && x && x.mouvement === m;
     }).sort();
+  }
+
+  // MOTEUR §9.17 (50-1) — LA VERSION LESTÉE d'un exercice libre : l'exercice du
+  // catalogue dont `parent` EST lui et dont la charge est ajoutée
+  // (`charge = ajoutee` : `tractions_leste` pour `tractions`). C'est un AUTRE
+  // exercice, avec son histoire, son palier et son compteur (§8.4) : « J'ai du
+  // lest » le met à la place de l'exercice libre. `null` quand le catalogue n'en
+  // a pas — la carte du lest ne promet alors pas ce qu'elle ne sait pas livrer.
+  // C'est la seule lecture de `parent` de l'app (registre NOTIONS). Triée par
+  // slug : la même version à chaque calcul.
+  function lesteDe(index, slug) {
+    if (!index || !slug) return null;
+    var versions = Object.keys(index).filter(function (s) {
+      var x = index[s];
+      return s !== slug && x && x.parent === slug && x.charge === 'ajoutee';
+    }).sort();
+    return versions.length ? versions[0] : null;
+  }
+
+  // L'INVERSE : l'exercice libre dont un exercice lesté est la version (`parent`),
+  // quand le catalogue le connaît. `null` pour tout autre exercice — un
+  // exercice dont `parent` existe mais dont la charge n'est pas ajoutée (une
+  // variante, pas un lest) n'a pas de départ lesté. Avec `lesteDe`, la seule
+  // lecture de `parent` de l'app.
+  function parentDe(index, slug) {
+    var x = index && slug ? index[slug] : null;
+    return x && x.charge === 'ajoutee' && x.parent && index[x.parent] ? x.parent : null;
   }
 
   // Une « sortie » n'est pas une séance de musculation : l'exercice ne porte
@@ -1393,6 +1485,8 @@
     GABARITS: GABARITS,
     CHAMPS_MESURE: CHAMPS_MESURE,
     gabaritDe: gabaritDe,
+    natureDeCharge: natureDeCharge,
+    ENTETES_DE_CHARGE: ENTETES_DE_CHARGE,
     champDeMesure: champDeMesure,
     MAX_CHIFFRES_DUREE: MAX_CHIFFRES_DUREE,
     MAX_DUREE_S: MAX_DUREE_S,
@@ -1418,6 +1512,9 @@
     arrondi: arrondi,
     nombreSigne: nombreSigne,
     lireNombre: lireNombre,
+    // §9.17 — l'aide : tapée en positif, rangée en négatif, lue sans signe.
+    rangerAide: rangerAide,
+    aideAffichee: aideAffichee,
     nombreGroupe: nombreGroupe,
     mmss: mmss,
     dateCourte: dateCourte,
@@ -1441,6 +1538,8 @@
     indexerExercices: indexerExercices,
     nommer: nommer,
     freresDe: freresDe,
+    lesteDe: lesteDe,
+    parentDe: parentDe,
     construireBlocs: construireBlocs,
     faiteEnBase: faiteEnBase,
     blocsDeSeance: blocsDeSeance,

@@ -44,6 +44,28 @@
     return auCentieme(x) === auCentieme(y);
   }
 
+  // ══ §9.17 (50-1) — LA NATURE DE LA CHARGE, LUE SUR LA CONSIGNE ═══════════════
+  //
+  // Le poids du corps est une charge qui vaut 0, une aide une charge négative
+  // (la convention de la base) : la consigne les porte déjà (`palier`), le plan
+  // les LIT — il ne redevine rien (un seul coach). Un palier nul ou négatif ne
+  // vient jamais d'une vraie charge : le contrat d'un exercice en `reps` le
+  // fabrique (`THPalier.analyserPoidsDuCorps`).
+  function estPoidsDuCorps(consigne) { return !!consigne && nombre(consigne.palier) === 0; }
+  function estAide(consigne) {
+    var p = consigne ? nombre(consigne.palier) : null;
+    return p !== null && p < 0;
+  }
+  // La charge qu'une série FAITE porte pour le plan. Au poids du corps, la série
+  // n'a pas de charge en base (`charge_kg` vide : `validerSerie` n'écrit que les
+  // champs du gabarit) et la ligne qu'elle suit vaut 0 : sans cette lecture, une
+  // série ne « suivrait » jamais sa ligne (`aSuiviSaLigne`), et le fantôme
+  // recopierait la dernière série au lieu du plan.
+  function chargeLue(serie, pdc) {
+    var c = serie && serie.charge_kg !== undefined ? serie.charge_kg : null;
+    return pdc && (c === null || c === undefined) ? 0 : c;
+  }
+
   // Le rôle d'une ligne du plan, lu sur la réaction (ce que la ligne PROPOSE
   // maintenant) et, à défaut, sur la couverture (ce que la consigne y prévoit).
   function roleDeLigne(initiale, courante) {
@@ -118,6 +140,7 @@
     // L'ÉTAPE DE LA CONSIGNE FIGÉE (§9.9, delta 49-13) : le repli de la
     // reprise longue ne descend jamais de plus de 10 % sous le dernier palier.
     var consigne = M.consigneFigee(consigneDonnee);
+    var pdc = estPoidsDuCorps(consigne);
     var liste = series || [];
     var couverture = S.couvertureSeance(liste, consigne, figees || {});
     var indices = [], rangs = [], roles = [], couvertes = [];
@@ -133,7 +156,7 @@
     for (var k = 0; k < indices.length; k++) {
       var s = liste[indices[k]];
       if (!S.partEnBase(s)) break;
-      faites.push({ charge_kg: s.charge_kg, reps: s.reps, rpe: s.rpe, ressenti: s.ressenti });
+      faites.push({ charge_kg: chargeLue(s, pdc), reps: s.reps, rpe: s.rpe, ressenti: s.ressenti });
     }
     var planInitial = M.planDeCouverture(consigne, couvertes);
     var reaction = M.reactionPour(consigne, faites, contexte || null, planInitial);
@@ -155,7 +178,7 @@
       if (cov.ajoutee) ligne.ajoutee = true;
       ligne.fourchette = Array.isArray(p.zone) ? p.zone.slice() : null;
       if (ligne.validee) {
-        ligne.faite = { charge: sr.charge_kg === undefined ? null : sr.charge_kg,
+        ligne.faite = { charge: chargeLue(sr, pdc),
                         reps: sr.reps === undefined ? null : sr.reps,
                         rpe: sr.rpe === undefined ? null : sr.rpe,
                         ressenti: sr.ressenti === undefined ? null : sr.ressenti };
@@ -441,6 +464,10 @@
     if (!materiel) return sortie;
     var M = Moteur(), S = Seance();
     var liste = series || [];
+    // §9.17 — LE LEST N'A NI CHAUFFES NI DÉGRESSIVE : 2,5 kg de lest, 22,5 % de
+    // moins, c'est « 0 kg » — des chiffres que la ceinture ne fait pas. La
+    // montée se fait sur l'exercice libre, qui est une chauffe en soi.
+    if (materiel.equipement === M.EQUIPEMENT_LEST) return sortie;
 
     // La table ne connaît que la barre, la machine (Smith comprise), la poulie
     // et les haltères (§9.15.1) : élastique, disque, kettlebell, rien — pas de
@@ -448,7 +475,10 @@
     // une barre.
     var reference = consigne && consigne.etat !== 'silence' && MATERIELS_DE_CHAUFFE.indexOf(materiel.equipement) >= 0
       ? chargeDeTravail(consigne) : null;
-    if (reference !== null) {
+    // §9.17 — PAS DE CHAUFFES AU POIDS DU CORPS (0) NI SUR UNE AIDE (négative) :
+    // la référence d'une chauffe est une charge qu'on monte, et le moteur
+    // répondait « aucune » en laissant l'objet derrière lui (I30).
+    if (reference !== null && reference > 0) {
       var deChauffe = lignes.filter(function (l) { return l.type === 'echauffement'; });
       var entree = {
         equipement: materiel.equipement, reference: reference,
@@ -512,6 +542,10 @@
       if (reps === null) reps = nombre(sr.reps_visees);
     }
     if (charge === null && materiel.equipement !== 'barre') return sortie;
+    // §9.17 — ET PAS DE DÉGRESSIVE SOUS UN CORPS NI SOUS UNE AIDE : une baisse de
+    // 22,5 % d'une charge nulle ou négative n'a pas de sens (I30). Aucun objet,
+    // pas seulement aucune charge.
+    if (charge !== null && charge <= 0) return sortie;
     var capD = Voix().capturer(function () {
       return M.degressiveDe({ equipement: materiel.equipement, derniere_serie: charge,
                              reps_travail: reps, cran: materiel.pas });
@@ -816,6 +850,10 @@
         p.charge_kg = f.charge === undefined ? null : f.charge;
         p.reps = f.reps === undefined ? null : f.reps;
       }
+      // §9.17 — AU POIDS DU CORPS, LA LIGNE VAUT 0 ET LA SÉRIE N'A PAS DE CHARGE :
+      // ce que le plan grise puis écrit à la validation n'est jamais un « 0 kg »
+      // sur un exercice en `reps` (une planche à 0 kg, la même famille de défaut).
+      if (estPoidsDuCorps(consigne)) p.charge_kg = null;
       l.prerempli = p;
     });
   }
@@ -950,6 +988,15 @@
     var consignes = e.consignes || {};
     var exos = seance.exercices || [];
     var phase = phaseDuPlan(e.phase);
+    // §9.17 (50-1) — CE QUE LE PLAN PORTE, pour qu'I13 et I28 à I31 se vérifient
+    // sur lui seul : la mesure de chaque exercice (`catalogue`), son mode
+    // (`modes`, l'historique `modes_exercice` lu par l'app), l'intention qui en
+    // résulte avec celle du profil, et la réponse à la carte du lest. Le plan
+    // ne décide rien de nouveau : il recopie ce qu'il a reçu, et le dit.
+    var intentionProfil = e.intention === 'entretien' ? 'entretien' : 'progresser';
+    var modes = e.modes || {};
+    var lestReponse = e.lestReponse === 'oui' || e.lestReponse === 'non' ? e.lestReponse : null;
+    var carteLestPosee = false;
     var esc = escalierDuPlan(e, seance, consignes);
     var seriesRoutine = (e.escalier && e.escalier.seriesRoutine) || {};
     var isoles = marchesIsolees(e, seance, consignes, esc, phase);
@@ -964,6 +1011,11 @@
     return {
       seance: seance.id === undefined ? null : seance.id,
       phase: phase,
+      // §9.17 — l'Édition d'une séance passée, l'intention du profil et la
+      // réponse du lest : trois faits que les invariants relisent (I13, I29).
+      edition: !!seance.edition,
+      intention: intentionProfil,
+      lestReponse: lestReponse,
       allegee: esc.allegee,
       carte: esc.carte,
       exercices: exos.map(function (exo, i) {
@@ -986,6 +1038,32 @@
         // `entrees.volume`. Un fait, rien d'affiché : la série de plus (PR 2c)
         // le lira. `null` sans entrée de volume.
         x.placeSerieDePlus = placeDeLExercice(e, slug);
+        var cat = e.catalogue && slug && Object.prototype.hasOwnProperty.call(e.catalogue, slug) ? e.catalogue[slug] : null;
+        x.mesure = cat && cat.mesure !== undefined ? cat.mesure : null;
+        x.mode = Object.prototype.hasOwnProperty.call(modes, slug) && modes[slug] ? modes[slug] : null;
+        x.intention = Moteur().intentionDe(intentionProfil, x.mode);
+        // §9.17 — LA CARTE DU LEST : UNE SEULE, en tête de l'exercice (le composant
+        // des propositions d'exercice). Quand le moteur la dit (`carte_lest`) et
+        // qu'aucune autre carte du lest n'est déjà posée dans la séance : deux
+        // exercices au haut en même temps ne posent pas deux fois la même
+        // question — le second tient sa ligne jusqu'à la réponse, qui est celle
+        // du profil. Jamais pendant une semaine allégée (rien ne monte, I19).
+        x.carteLest = null;
+        var kl = x.consigne;
+        var fl = kl && kl.fondement ? kl.fondement.carteLest : null;
+        if (!carteLestPosee && fl && kl.etat === 'carte_lest' && !kl.allegee) {
+          carteLestPosee = true;
+          var M2 = Moteur(), V2 = Voix();
+          var entreeLest = { niveau: Math.min.apply(null, fl.niveaux), bas: fl.bas };
+          var capLT = V2.capturer(function () { return M2.carteLestTitre(entreeLest); });
+          var capLD = V2.capturer(function () { return M2.carteLestDetail(entreeLest); });
+          x.carteLest = { titre: capLT.texte, detail: capLD.texte, oui: M2.OUI_LEST, non: M2.NON_LEST,
+                          niveaux: fl.niveaux.slice(), bas: fl.bas, haut: fl.haut,
+                          leste: cat && cat.leste ? cat.leste : null };
+          // §20 bis — le titre et le détail se vérifient comme toute phrase du coach.
+          x.phrases.push({ ou: 'lest.titre', texte: capLT.texte, citations: capLT.citations });
+          x.phrases.push({ ou: 'lest.detail', texte: capLD.texte, citations: capLD.citations });
+        }
         return x;
       })
     };
@@ -1121,7 +1199,7 @@
       // une série de plus déjà proposée depuis le dernier progrès.
       var place = placeDeLExercice(e, slug);
       var proposee = M.serieDePlusProposee(slug, jour, k, marches, compteurs);
-      var marche = M.marcheIsolee(n, zone, phase, place, proposee);
+      var marche = M.marcheIsolee(n, zone, phase, place, proposee, c.consigne.palier);
       if (!marche) return;
       var declenche = M.estDeclenchement(k);
       if (!declenche && marche !== M.MARCHE_SILENCE) return;
@@ -1419,14 +1497,21 @@
     // qui la reprend.
     if (x.consigne.etat === 'reprise_longue') {
       var Pal = nombre(x.consigne.palier);
-      var plancher = Pal === null ? null : Pal * (1 - racine.THMoteur.REPLI_MAX_REPRISE);
+      // §9.17 (50-1) — « 10 % sous le palier » n'a de sens que pour une charge
+      // POSITIVE : sous un corps (0) ou une aide (négative), `Pal × 0,9` est au
+      // niveau ou AU-DESSUS de `Pal` (−25 × 0,9 = −22,5), et toute reprise
+      // longue d'aide déclenchait l'invariant à tort. Là, la reprise ne descend
+      // pas du tout : la ligne est la charge de travail (I30 le dit pour l'aide).
+      var plancher = Pal === null ? null
+        : Pal > 0 ? Pal * (1 - racine.THMoteur.REPLI_MAX_REPRISE) : Pal;
+      var dit = Pal !== null && Pal > 0 ? 'plus de 10 % sous le palier ' : 'sous la charge de travail ';
       var sous = function (v) { var n = nombre(v); return n !== null && plancher !== null && n < plancher - 1e-9; };
       if (x.consigne.ligne && sous(x.consigne.ligne.charge)) {
-        err('I15', 'la consigne reprend à ' + x.consigne.ligne.charge + ', plus de 10 % sous le palier ' + Pal);
+        err('I15', 'la consigne reprend à ' + x.consigne.ligne.charge + ', ' + dit + Pal);
       }
       (x.lignes || []).forEach(function (l) {
         if ((l.role === 'ligne' || l.role === 'retour') && sous(l.charge)) {
-          err('I15', 'la série ' + l.iSerie + ' reprend à ' + l.charge + ', plus de 10 % sous le palier ' + Pal);
+          err('I15', 'la série ' + l.iSerie + ' reprend à ' + l.charge + ', ' + dit + Pal);
         }
       });
     }
@@ -1827,7 +1912,11 @@
       });
       var meilleur = x.compteur && x.compteur.meilleur ? Number(x.compteur.meilleur.palier) : NaN;
       var ch = x.consigne.ligne ? Number(x.consigne.ligne.charge) : NaN;
-      if (!isFinite(meilleur) || !isFinite(ch)) {
+      // §9.17 — pas de repli sous un corps ni sous une aide (I28, I30 le disent) :
+      // la limite de 10 % ne se lit que sur une charge positive.
+      if (isFinite(meilleur) && meilleur <= 0) {
+        err('un repli sous une charge nulle ou négative (' + meilleur + ' kg)');
+      } else if (!isFinite(meilleur) || !isFinite(ch)) {
         err('un repli sans meilleur ou sans charge');
       } else if (ch >= meilleur - 1e-9) {
         err(ch + ' kg n\'est pas sous le meilleur (' + meilleur + ' kg)');
@@ -1835,6 +1924,118 @@
         err(ch + ' kg est à plus de 10 % sous le meilleur (' + meilleur + ' kg)');
       }
     });
+  }
+
+  // ══ I13, I28 À I31 — LE POIDS DU CORPS, L'AIDE, LE LEST, ENTRETENIR PAR EXERCICE
+  //    (MOTEUR §9.17, 50-1, 03/10/2026) ═════════════════════════════════════════
+  //
+  // ⚠️ I13 N'ÉTAIT PAS VÉRIFIÉ jusqu'ici : la spec le disait (« en Entretenir ou
+  // en Édition : aucune ligne du coach, aucun pari, aucun message »), aucun
+  // code ne le lisait — le silence tenait au seul `consigneDExercice` qui rend
+  // `null`. Il se vérifie désormais sur ce que le PLAN porte : la mesure de
+  // chaque exercice, son mode, l'intention du profil, l'Édition (clés ajoutées
+  // en 50-1) — sans relire la règle qui les décide.
+  //
+  //   I13  Entretenir (le profil) ou Édition, ou une mesure en durée ou en
+  //        distance : aucune consigne, aucune ligne du coach, aucun pari, aucun
+  //        message. Le poids du corps en reps, lesté ou assisté, est coaché.
+  //   I28  au poids du corps (charge 0), jamais une ligne haute avec une charge,
+  //        ni une montée proposée.
+  //   I29  la carte du lest : au plus une, jamais après une réponse, jamais sans
+  //        deux séances au haut de la zone, jamais sans version lestée à poser.
+  //   I30  sur une aide (charge négative) : ni chauffes, ni dégressive, ni repli,
+  //        ni seconde charge, ni double saut.
+  //   I31  un exercice en Entretenir (`modes_exercice`) : ce que dit I13.
+  function sansCoach(x) {
+    var raisons = [];
+    if (x.consigne) raisons.push('une consigne (' + (x.consigne.etat || '?') + ')');
+    if ((x.lignes || []).some(function (l) { return l.role !== 'hors'; })) raisons.push('une ligne du coach');
+    if ((x.paris || []).some(Boolean)) raisons.push('un pari');
+    if (x.message) raisons.push('un message');
+    return raisons;
+  }
+
+  function verifierPoidsDuCorps(plan, erreurs) {
+    if (!plan) return;
+    var M = Moteur();
+    var cartes = 0;
+    (plan.exercices || []).forEach(function (x) {
+      var nom = 'exercice ' + x.iExo + ' (' + x.slug + ')';
+      var err = function (inv, texte) { erreurs.push(inv + ' — ' + nom + ' : ' + texte); };
+      var k = x.consigne || null;
+
+      // I13 — et I31, qui n'en est que le même silence pour un exercice choisi.
+      var horsMesure = x.mesure === 'temps' || x.mesure === 'distance_temps';
+      var causes = [];
+      if (plan.intention === 'entretien') causes.push('Entretenir (profil)');
+      if (plan.edition === true) causes.push('Édition');
+      if (horsMesure) causes.push('une mesure en ' + (x.mesure === 'temps' ? 'durée' : 'distance'));
+      if (causes.length) {
+        sansCoach(x).forEach(function (r) { err('I13', causes.join(', ') + ' : ' + r); });
+      }
+      if (x.mode === 'entretien') {
+        sansCoach(x).forEach(function (r) { err('I31', 'Entretenir (cet exercice) : ' + r); });
+      }
+
+      // I28 — au poids du corps, jamais une ligne haute avec une charge.
+      if (estPoidsDuCorps(k)) {
+        if (k.haut) err('I28', 'une ligne haute (' + k.haut.charge + ') au poids du corps');
+        (x.planInitial || []).forEach(function (q, i) {
+          if (q && q.role === 'haut') err('I28', 'la ligne ' + i + ' est un test au poids du corps');
+        });
+        ((x.reaction && x.reaction.plan) || []).forEach(function (q, i) {
+          if (q && q.source === 'coach') err('I28', 'la ligne ' + i + ' porte une montée du coach (' + q.charge + ') au poids du corps');
+        });
+        (x.lignes || []).forEach(function (l) {
+          if (l.role === 'hors') return;
+          if (nombre(l.charge) !== 0 && l.charge !== null) err('I28', 'la série ' + l.iSerie + ' porte une charge (' + l.charge + ') au poids du corps');
+          if (l.role === 'test' || l.role === 'coach') err('I28', 'la série ' + l.iSerie + ' est une ligne ' + l.role + ' au poids du corps');
+        });
+      }
+
+      // I29 — la carte du lest.
+      var fl = k && k.fondement ? k.fondement.carteLest : null;
+      if (k && k.etat === 'carte_lest') {
+        if (plan.lestReponse !== null && plan.lestReponse !== undefined) {
+          err('I29', 'la consigne dit la carte du lest après une réponse (' + plan.lestReponse + ')');
+        }
+        if (!fl || !Array.isArray(fl.niveaux) || fl.niveaux.length !== 2 ||
+            !fl.niveaux.every(function (n) { return typeof n === 'number' && n >= fl.haut; })) {
+          err('I29', 'la carte du lest sans deux séances au haut de la zone (' + JSON.stringify(fl ? fl.niveaux : null) + ')');
+        }
+        if (x.carteLest === undefined) err('I29', 'le plan ne dit pas où est la carte du lest');
+      }
+      if (x.carteLest) {
+        cartes += 1;
+        if (!k || k.etat !== 'carte_lest') err('I29', 'une carte du lest sans consigne « carte_lest »');
+        if (plan.lestReponse !== null && plan.lestReponse !== undefined) {
+          err('I29', 'la carte du lest revient après une réponse (' + plan.lestReponse + ')');
+        }
+        var nv = x.carteLest.niveaux;
+        if (!Array.isArray(nv) || nv.length !== 2 || !nv.every(function (n) { return typeof n === 'number' && n >= x.carteLest.haut; })) {
+          err('I29', 'une carte du lest sans deux séances au haut de la zone (' + JSON.stringify(nv) + ')');
+        }
+        if (!x.carteLest.leste) err('I29', 'une carte du lest sans version lestée à poser');
+        if (/\?/.test(String(x.carteLest.titre) + String(x.carteLest.detail))) err('I29', 'un point d’interrogation dans la carte du lest (§20.2)');
+        if (k && k.allegee) err('I29', 'la carte du lest pendant une semaine allégée');
+      }
+
+      // I30 — sur une aide : ni chauffes, ni dégressive, ni repli, ni seconde
+      // charge, ni double saut.
+      if (estAide(k)) {
+        if (x.chauffes || x.proposition) err('I30', 'des chauffes sur une aide');
+        if (x.degressive) err('I30', 'une dégressive sur une aide');
+        if (k.repli || (x.escalier && x.escalier.marche === M.MARCHE_REPLI)) err('I30', 'un repli sur une aide');
+        if (k.etat === 'reprise_longue' && k.ligne && !memeCharge(k.ligne.charge, k.palier)) {
+          err('I30', 'un repli de reprise longue sur une aide (' + k.ligne.charge + ' pour ' + k.palier + ')');
+        }
+        if (x.contexte && x.contexte.haut) err('I30', 'une seconde charge sur une aide');
+        var msg = x.reaction && x.reaction.message;
+        if (msg && Array.isArray(msg.charges) && msg.charges.length > 1) err('I30', 'une seconde charge dans le message sur une aide');
+        if (k.fondement && k.fondement.preuve) err('I30', 'un double saut sur une aide (' + k.fondement.preuve + ')');
+      }
+    });
+    if (cartes > 1) erreurs.push('I29 — ' + cartes + ' cartes du lest dans la même séance : au plus une');
   }
 
   function verifierEscalier(plan, entrees, erreurs) {
@@ -2075,7 +2276,13 @@
       'niveau.jour': { valeurs: niveauxDuJour },
       manque: suite && typeof suite.zoneHaut === 'number'
         ? { valeurs: niveauxDuJour.map(function (n) { return suite.zoneHaut - n; }) } : null,
-      'suite.cible': suite && suite.cible !== null ? { valeur: suite.cible } : null
+      'suite.cible': suite && suite.cible !== null ? { valeur: suite.cible } : null,
+      // §9.17 — la carte du lest : le niveau des deux séances (le plus bas, pour
+      // que « sur toutes tes séries, deux séances de suite » soit vrai des deux),
+      // et le saut de lest que le moteur seul écrit.
+      'lest.niveau': f.carteLest && Array.isArray(f.carteLest.niveaux)
+        ? { valeur: Math.min.apply(null, f.carteLest.niveaux) } : null,
+      'lest.saut': { charge: M.SAUT_LEST }
     };
     var msg = x.reaction && x.reaction.message;
     return { lignes: lignes, jour: jour, fait: fait, regle: regle, suite: suite,
@@ -2272,6 +2479,7 @@
     verifierPhase(plan, parisSeance, erreurs);
     verifierEscalier(plan, entrees, erreurs);
     verifierMarches(plan, erreurs);
+    verifierPoidsDuCorps(plan, erreurs);
     ((plan && plan.exercices) || []).forEach(function (x, i) {
       var xa = memeSeance ? (avant.exercices || [])[i] : null;
       verifierExercice(x, erreurs, parisSeance, xa && xa.slug === x.slug ? xa : null);

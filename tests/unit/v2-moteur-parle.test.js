@@ -571,11 +571,21 @@ describe('consigneDExercice : les silences passent avant le moteur', () => {
       Object.assign({}, OPTIONS, { intention: 'entretenir' }))).not.toBeNull();
   });
 
-  test('mesure autre que charge_reps, ou inconnue → null', () => {
-    ['reps', 'temps', 'distance_temps', null, undefined].forEach((m) => {
+  test('la durée, la distance et une mesure inconnue → null (CADRAGE §2 ter)', () => {
+    ['temps', 'distance_temps', null, undefined].forEach((m) => {
       expect(Moteur.consigneDExercice(couche(), undefined, AVANT,
         Object.assign({}, OPTIONS, { mesure: m }))).toBeNull();
     });
+  });
+
+  test('50-1 (MOTEUR §9.17) — le poids du corps en reps est COACHÉ : la charge vaut 0', () => {
+    // L'inverse de ce que ce test figeait jusqu'au 03/10/2026 : `mesure = reps`
+    // ne rend plus `null`. Même historique, lu comme une charge qui ne bouge pas.
+    const c = Moteur.consigneDExercice(couche(), undefined, AVANT,
+      Object.assign({}, OPTIONS, { mesure: 'reps' }));
+    expect(c).not.toBeNull();
+    expect(c.consigne.palier).toBe(0);
+    expect(c.consigne.ligne.charge).toBe(0);
   });
 
   test('DISCRIMINANT — séance terminée rouverte (§7 octies) → null, cascade d’avant', () => {
@@ -671,8 +681,11 @@ describe('consigneDExercice : les silences passent avant le moteur', () => {
       expect(fantomes(avecRoutine('dc', null), r.plan, PREC())).toEqual(['125\u00d74', '125\u00d75', '130\u00d73']);
     });
 
-    test('DISCRIMINANT — mesure reps (tractions) : pas de charge, reps de la routine puis de la dernière séance', () => {
-      const c = Moteur.consigneDExercice(couche(), undefined, AVANT, Object.assign({}, OPTIONS, { mesure: 'reps' }));
+    test('DISCRIMINANT — mesure reps (tractions) en Entretenir : pas de charge, reps de la routine puis de la dernière séance', () => {
+      // 50-1 : une mesure `reps` a désormais une consigne (la charge vaut 0) ;
+      // la cascade sans consigne qu'on défend ici est celle d'Entretenir.
+      const c = Moteur.consigneDExercice(couche(), undefined, AVANT,
+        Object.assign({}, OPTIONS, { mesure: 'reps', intention: 'entretien' }));
       expect(c).toBeNull();
       const pr = prec([p(null, 10), p(null, 9), p(null, 8)]);
       const s = avecRoutine('tr', 12);
@@ -836,11 +849,11 @@ describe('l’étiquette de zone (ECRAN-SAISIE §3.8)', () => {
     expect(puce.className).not.toMatch(/consigne/);
   });
 
-  test('Entretenir, Édition et mesure sans charge : aucune consigne, donc aucune étiquette', () => {
+  test('Entretenir, Édition, durée et distance : aucune consigne, donc aucune étiquette', () => {
     const OPT = { mesure: 'charge_reps', equipement: 'barre', intention: 'progresser',
                   reglage: 'normal', edition: false };
     expect(Moteur.consigneDExercice(couche(), undefined, AVANT, OPT).etiquette).toBe('Lourd 3-5');
-    [{ intention: 'entretien' }, { edition: true }, { mesure: 'reps' }].forEach((quoi) => {
+    [{ intention: 'entretien' }, { edition: true }, { mesure: 'temps' }, { mesure: 'distance_temps' }].forEach((quoi) => {
       expect([quoi, Moteur.consigneDExercice(couche(), undefined, AVANT,
         Object.assign({}, OPT, quoi))]).toEqual([quoi, null]);
     });
@@ -1426,7 +1439,7 @@ describe('le constat de fin de bloc (ECRAN-SAISIE §3.9)', () => {
     const faire = (quoi) => constatBrut(c.seances.map(brut), brut(c.seanceDuJour),
       undefined, c.avant, c.apres, Object.assign({}, OPT, quoi));
     expect(faire({})).not.toBeNull();
-    [{ intention: 'entretien' }, { edition: true }, { mesure: 'reps' }].forEach((quoi) => {
+    [{ intention: 'entretien' }, { edition: true }, { mesure: 'temps' }, { mesure: 'distance_temps' }].forEach((quoi) => {
       expect([quoi, faire(quoi)]).toEqual([quoi, null]);
     });
   });

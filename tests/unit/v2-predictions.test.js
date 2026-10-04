@@ -39,7 +39,9 @@ describe('§9.13 bis — la version des règles du moteur (49-U6)', () => {
     // 5 depuis 49-U18 (delta 49-36 : l'écart habituel sur les 8 derniers
     // écarts, les reprises bornées à la zone, la charge plus lourde sur 12
     // mois hors barre).
-    expect(Moteur.VERSION_CONSIGNE).toBe(5);
+    // 6 depuis 50-1 (MOTEUR §9.17 : le poids du corps suit la consigne des
+    // charges, la charge valant 0 ; la carte du lest, l'étirement, l'aide).
+    expect(Moteur.VERSION_CONSIGNE).toBe(6);
   });
 });
 

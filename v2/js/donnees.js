@@ -178,10 +178,16 @@
   // frères d'un exercice. Omise, aucun frère, en silence — le même piège. Un
   // catalogue déjà en cache sans elle est réécrit en entier à la prochaine
   // synchronisation (`remplacerTout`) : rien à migrer.
+  //
+  // ⚠️ `parent` DEPUIS 50-1 (MOTEUR §9.17) : la version lestée d'un exercice
+  // libre est l'exercice dont `parent` EST lui (`THModele.lesteDe`, la seule
+  // lecture de la colonne). Omise, `parent` vaudrait `undefined` sur les 237
+  // exercices et la carte du lest ne trouverait jamais sa version lestée — sans
+  // une erreur : le même piège que `equipement` et `mouvement`.
   function tousLesExercices() {
     return paginerParCle(trancheur(function () {
       return client().from('exercises')
-        .select('slug, nom, mesure, charge, equipement, muscles_primaires, muscles_secondaires, mouvement');
+        .select('slug, nom, mesure, charge, parent, equipement, muscles_primaires, muscles_secondaires, mouvement');
     }, 'slug'), 'slug');
   }
 
@@ -442,6 +448,30 @@
     return r.data;
   }
 
+  // ══ LE MODE DE CHAQUE EXERCICE (§9.17, 50-1) ═════════════════════════════
+  //
+  // `modes_exercice` — `progresser` ou `entretien` — suit EXACTEMENT le patron
+  // de `zones_exercice` : un historique en ajout seul, la ligne la plus récente
+  // par `choisi_a` fait foi, la politique du propriétaire est
+  // `(select auth.uid())` (la lecture ne ramène que les siennes), l'identifiant
+  // vient de l'appareil (l'envoi est idempotent), `user_id` et `choisi_a` sont
+  // posés par l'app au geste. Un réglage EXPLICITE : le coach ne le propose
+  // jamais (CADRAGE, 15/09 : l'intention ne se déduit pas des données).
+  var COLONNES_MODE = 'id, user_id, exercise_slug, mode, choisi_a, created_at';
+
+  function mesModes() {
+    return paginerParCle(trancheur(function () {
+      return client().from('modes_exercice').select(COLONNES_MODE);
+    }, 'id'), 'id');
+  }
+
+  async function enregistrerMode(ligne) {
+    var r = await client().from('modes_exercice').upsert(ligne, { onConflict: 'id' })
+      .select(COLONNES_MODE).single();
+    if (r.error) throw r.error;
+    return r.data;
+  }
+
   // ══ LES PRÉDICTIONS (§9.11, 48c) ═════════════════════════════════════════
   //
   // ⚠️ UN INSERT QUI IGNORE LES DOUBLONS, JAMAIS UN UPSERT. Le trigger
@@ -548,6 +578,7 @@
   var COLONNES_PROFIL =
     'id, username, bio, sexe, taille_cm, date_naissance, mode_entrainement, ' +
     'unites, anciennete, intention, rythme_progression, phase, phase_depuis, materiel, ' +
+    'lest_reponse, lest_reponse_le, ' +
     'niveau_declare, seances_par_semaine, jours_vises, duree_seance_min, ' +
     'onboarding_completed';
 
@@ -621,6 +652,8 @@
     toutesLesPesees: toutesLesPesees,
     mesZones: mesZones,
     enregistrerZone: enregistrerZone,
+    mesModes: mesModes,
+    enregistrerMode: enregistrerMode,
     mesPredictions: mesPredictions,
     parisDeSeance: parisDeSeance,
     seancesAvecPari: seancesAvecPari,

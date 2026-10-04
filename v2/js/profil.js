@@ -394,7 +394,8 @@
   // les six réglages de visibilité : c'est du social, et rien ici ne les touche.
   var CHAMPS_ECRITS = ['username', 'bio', 'sexe', 'taille_cm', 'date_naissance',
                        'mode_entrainement', 'unites', 'anciennete', 'intention',
-                       'rythme_progression', 'phase', 'phase_depuis', 'materiel', 'niveau_declare',
+                       'rythme_progression', 'phase', 'phase_depuis', 'lest_reponse', 'lest_reponse_le',
+                       'materiel', 'niveau_declare',
                        'seances_par_semaine', 'jours_vises', 'duree_seance_min',
                        'onboarding_completed'];
 

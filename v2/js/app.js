@@ -24,7 +24,7 @@
   var Rejeu = racine.THRejeu;
 
   var vues = {};
-  var local = { seances: [], series: [], exercices: [], pesees: [], zones: [],
+  var local = { seances: [], series: [], exercices: [], pesees: [], zones: [], modes: [],
                 predictions: [], sousConsigne: {}, parisLegers: [], escalier: [], parSeance: null };
   var etat = { code: 'vide', libelle: '', local: false };
   var syncEnCours = false;
@@ -229,6 +229,53 @@
     await poser({ table: Attente.ZONES, op: Attente.UPSERT, id: id, donnees: ligne });
   }
 
+  // ── §9.17 — LE MODE DE CHAQUE EXERCICE ───────────────────────────────────
+  //
+  // « Progresser » ou « Entretenir », choisi sur l'étiquette de l'exercice. Le
+  // MÊME patron que les zones, ligne pour ligne : un historique en ajout seul,
+  // la plus récente fait foi, fondu par `id`, posé sur l'appareil d'abord puis
+  // envoyé par la file. Le calcul de « quel est le mode en vigueur » vit dans le
+  // moteur (`modeEnVigueur`) ; l'app lui passe les lignes.
+  function fondreModes(locales, distantes) { return fondreZones(locales, distantes); }
+  function modeDe(slug) { return Moteur.modeEnVigueur(local.modes, slug); }
+
+  // L'intention qu'un exercice reçoit du plan : celle du profil est
+  // l'interrupteur général, puis le choix de l'exercice (`intentionDe`). Un seul
+  // endroit la compose — la consigne, le plan, les écrans la lisent d'ici.
+  function intentionDeLExercice(slug) {
+    return Moteur.intentionDe(profil && profil.intention, modeDe(slug));
+  }
+
+  // §9.17 — la réponse à la carte du lest, lue au profil : `oui`, `non`, ou
+  // `null`. UNE réponse pour tout le profil (« Pas de lest » vaut pour toutes
+  // les tractions et tous les dips), datée par `lest_reponse_le`.
+  function lestReponseDe() {
+    var v = profil && profil.lest_reponse;
+    return v === 'oui' || v === 'non' ? v : null;
+  }
+
+  async function poserMode(slug, mode) {
+    var id = uuid();
+    var ligne = {
+      id: id,
+      user_id: (sessionActive && sessionActive.user && sessionActive.user.id) || null,
+      exercise_slug: slug,
+      mode: mode,
+      choisi_a: new Date().toISOString()
+    };
+    local.modes = local.modes.concat([ligne]);
+    // Même exception au gel de la consigne que la zone (§9.13 bis, 49-U1) :
+    // l'utilisateur change LUI-MÊME le mode de CET exercice. Il se recalcule,
+    // lui seul ; ses séries validées restent figées par leurs paris.
+    if (consignes && consignes.parSlug) {
+      delete consignes.parSlug[slug];
+      versionConsignes++;
+      sauverConsignes();
+    }
+    await Cache.ecrireLot('modes', [ligne]).catch(function () {});
+    await poser({ table: Attente.MODES, op: Attente.UPSERT, id: id, donnees: ligne });
+  }
+
   // ── Cache ────────────────────────────────────────────────────────────────
   async function chargerCache() {
     local.seances = await Cache.lireTout('seances');
@@ -240,6 +287,8 @@
     // réponde, sinon la première consigne de la séance serait celle d'avant la
     // correction, puis changerait sous les yeux.
     local.zones = await Cache.lireTout('zones');
+    // §9.17 — le mode de chaque exercice, lu au démarrage pour la même raison.
+    local.modes = await Cache.lireTout('modes');
     // §9.11 (48c) — ce que le moteur a DÉJÀ noté. Lu au démarrage, parce que
     // c'est ce qui l'empêche de réécrire : fermer l'app au milieu d'une séance
     // et la rouvrir rejouerait sinon toutes les consignes de cette séance.
@@ -401,6 +450,7 @@
       // séries. `null` veut dire « on n'a rien reçu », et le cache garde ce
       // qu'il avait — donc les choix faits ici tiennent.
       var zones = await essayer(Donnees.mesZones);
+      var modes = await essayer(Donnees.mesModes);
 
       // §12.9 (49-U13) — les paris du compte, EN LECTURE SEULE, pour une seule
       // chose : savoir quelles séances ont reçu une consigne (« sous
@@ -470,6 +520,10 @@
       if (zones) {
         local.zones = fondreZones(local.zones, zones);
         await Cache.ecrireLot('zones', local.zones);
+      }
+      if (modes) {
+        local.modes = fondreModes(local.modes, modes);
+        await Cache.ecrireLot('modes', local.modes);
       }
       if (parisDuCompte) {
         await Cache.ecrireBrouillon(CLE_SOUS_CONSIGNE, local.sousConsigne).catch(function () {});
@@ -808,6 +862,7 @@
     // §9.1.1 — la ligne part telle qu'elle a été posée : son identifiant la
     // rend idempotente, sa date dit quand le choix a été fait.
     if (op.table === Attente.ZONES) return Donnees.enregistrerZone(op.donnees);
+    if (op.table === Attente.MODES) return Donnees.enregistrerMode(op.donnees);
     // §9.11 — l'insertion IGNORE les doublons (le trigger refuserait un
     // upsert rejoué), et l'observation la suit par une mise à jour étroite.
     if (op.table === Attente.PREDICTIONS) return envoyerPrediction(op);
@@ -1576,7 +1631,13 @@
     // `palier.js`, chantier 17).
     g.champs.forEach(function (nom) {
       var c = Modele.champDeMesure(nom);
-      if (c && serie[c.cle] === null) champs[c.cle] = f[c.cle];
+      // §9.17 — UNE AIDE SE RANGE EN NÉGATIF, par `rangerAide` et nulle part ailleurs,
+      // aussi pour ce que la validation recopie : le fantôme d'une aide est
+      // négatif (le coach, la séance d'avant), mais la CIBLE d'une routine se
+      // tape en positif sous « AIDE (KG) ». `rangerAide` est idempotente.
+      if (c && serie[c.cle] === null) {
+        champs[c.cle] = g.nature === 'aide' && c.cle === 'charge_kg' ? Modele.rangerAide(f[c.cle]) : f[c.cle];
+      }
     });
     if (Object.keys(champs).length) seance = Seance.modifierSerie(seance, iExo, iSerie, champs);
 
@@ -1664,7 +1725,7 @@
 
   function cleConsignes() {
     return (seance ? seance.id : '') + '|' + ((profil && profil.intention) || '') +
-      '|' + Profil.rythmeDe(profil);
+      '|' + Profil.rythmeDe(profil) + '|' + lestReponseDe();
   }
 
   // ⚠️ LA CONSIGNE EST FIGÉE POUR LA SÉANCE dès son premier calcul (MOTEUR
@@ -1940,10 +2001,27 @@
   // consigne de la fois d'après (« le coach ne fait qu'un »).
   function optionsDeConsigne(slug, exo) {
     var g = Modele.gabaritDe(exo);
+    var index = catalogueIndexe();
+    var libreDuLeste = Modele.parentDe(index, slug);
     return {
       mesure: g.inconnue ? null : g.mesure,
-      equipement: exo ? exo.equipement : null,
-      intention: profil ? profil.intention : null,
+      // §9.17 — le matériel EFFECTIF : une charge ajoutée est du lest (cran 2,5).
+      equipement: Moteur.equipementEffectif(exo),
+      // §9.17 — l'intention de l'EXERCICE : celle du profil, puis son mode
+      // (`modes_exercice`). Une seule valeur ; le moteur ne sait pas d'où elle vient.
+      intention: intentionDeLExercice(slug),
+      // §9.17 — la réponse à la carte du lest (profil), et ce que le catalogue
+      // sait livrer : sans version lestée, la carte ne se pose pas.
+      lestReponse: lestReponseDe(),
+      lestPossible: exo ? Modele.lesteDe(index, slug) !== null : false,
+      // §8.4 — la version lestée part de l'exercice libre : le parent, à la
+      // demande (le moteur ne le rejoue que pour une première fois lestée).
+      libre: libreDuLeste ? function () {
+        var px = index[libreDuLeste], pg = Modele.gabaritDe(px);
+        return { groupes: seancesDeLExercice(libreDuLeste), etat: etatsExercices[libreDuLeste],
+                 options: { mesure: pg.inconnue ? null : pg.mesure, equipement: Moteur.equipementEffectif(px),
+                            reglage: Profil.rythmeDe(profil), correction: zoneDe(libreDuLeste) } };
+      } : null,
       reglage: Profil.rythmeDe(profil),
       // §9.1.1 — la zone choisie, ou `null`. Le mémo ne la porte pas dans
       // sa clé : `poserZone` le remet à zéro, et la synchronisation passe
@@ -2150,6 +2228,11 @@
       var t = z && Date.parse(z.corrigee_a);
       if (isFinite(t) && t > debutMs && t <= finMs) evts.push({ a: z.corrigee_a, ordre: 0, quoi: 'zone', zone: z });
     });
+    // §9.17 — le mode d'un exercice, choisi pendant la séance : même événement.
+    (local.modes || []).forEach(function (m) {
+      var t = m && Date.parse(m.choisi_a);
+      if (isFinite(t) && t > debutMs && t <= finMs) evts.push({ a: m.choisi_a, ordre: 0, quoi: 'mode', mode: m });
+    });
     evts.sort(function (x, y) {
       var tx = Date.parse(x.a), ty = Date.parse(y.a);
       return tx !== ty ? tx - ty : x.ordre - y.ordre;
@@ -2196,6 +2279,7 @@
       var loc = {
         seances: seances, series: series, exercices: local.exercices, pesees: local.pesees,
         zones: (local.zones || []).filter(function (z) { return z && Date.parse(z.corrigee_a) <= tMs; }),
+        modes: (local.modes || []).filter(function (m) { return m && Date.parse(m.choisi_a) <= tMs; }),
         // Les paris de la séance déjà écrits à cet instant : celui d'une série
         // validée (sa série observée) ; sans série observée, par son heure
         // d'émission (une réponse de l'escalier, un pari dont l'observation n'a
@@ -2212,7 +2296,7 @@
           // lui seul (`poserZone`).
           if (consignes && consignes.parSlug) {
             Object.keys(consignes.parSlug).forEach(function (slug) {
-              if (Object.prototype.hasOwnProperty.call(zonesVues, slug) && zonesVues[slug] !== zoneDe(slug)) {
+              if (Object.prototype.hasOwnProperty.call(zonesVues, slug) && zonesVues[slug] !== zoneDe(slug) + '|' + modeDe(slug)) {
                 delete consignes.parSlug[slug];
                 versionConsignes++;
               }
@@ -2225,7 +2309,7 @@
           var blocs = plan.exercices.map(function (x, i) {
             var exo = seance.exercices[i];
             occ[x.slug] = (occ[x.slug] || 0) + 1;
-            zonesVues[x.slug] = zoneDe(x.slug);
+            zonesVues[x.slug] = zoneDe(x.slug) + '|' + modeDe(x.slug);
             var fantomes = {};
             x.lignes.forEach(function (l) { if (!l.validee) fantomes[l.iSerie] = fantomeDe(i, l.iSerie); });
             var controles = controlesRejeu(x, exo, ev, precedent, paris, k === 0);
@@ -2248,6 +2332,7 @@
       'rythme : ' + Profil.rythmeDe(profil) + ' (profil actuel)' +
         (reglageLu ? (reglageLu === Profil.rythmeDe(profil) ? ' = celui des paris ✓' : ' ≠ celui des paris (' + reglageLu + ') ✗') : ''),
       'intention : ' + ((profil && profil.intention) || '–') + ' (profil actuel)',
+      'lest : ' + (lestReponseDe() || '–') + ' (profil actuel)',
       'routine : ' + (routine ? '« ' + (routine.nom || '?') + ' » (sa structure ACTUELLE)' : (ligne.routine_id ? 'introuvable' : 'aucune'))
     ];
     notes.push('l’historique est celui du cache d’aujourd’hui, coupé au début de la séance : une séance antérieure corrigée depuis l’est aussi ici');
@@ -2284,6 +2369,9 @@
       var f = ev.pari.fondement || {};
       return tete + 'escalier : ' + (f.marche || '?') + ' « ' + (f.reponse || '?') + ' »' +
         (f.exercice ? ' (' + nomDe(f.exercice) + ')' : '');
+    }
+    if (ev.quoi === 'mode') {
+      return tete + 'mode de ' + nomDe(ev.mode.exercise_slug) + ' choisi → ' + (ev.mode.mode || '?');
     }
     return tete + 'zone de ' + nomDe(ev.zone.exercise_slug) + ' corrigée → ' + (ev.zone.zone || 'déduite');
   }
@@ -2464,12 +2552,32 @@
       var slug = x && x.exercise_slug;
       var f = slug && index[slug];
       if (f && !catalogue[slug]) {
-        catalogue[slug] = { equipement: f.equipement || null,
-                            muscles_primaires: (f.muscles_primaires || []).slice() };
+        var gc = Modele.gabaritDe(f);
+        catalogue[slug] = { equipement: Moteur.equipementEffectif(f) || null,
+                            muscles_primaires: (f.muscles_primaires || []).slice(),
+                            // §9.17 — la mesure (le plan la porte, I13/I28 la lisent) et
+                            // la version lestée (la carte du lest ne promet que ce qu'elle livre).
+                            mesure: gc.inconnue ? null : gc.mesure,
+                            leste: Modele.lesteDe(index, slug) };
       }
+    });
+    var modes = {};
+    exos.forEach(function (x) {
+      var slug = x && x.exercise_slug;
+      if (slug && !Object.prototype.hasOwnProperty.call(modes, slug)) modes[slug] = modeDe(slug);
     });
     // §14.4 (49-U14) — la démonstration ne touche qu'aux ENTRÉES (une copie).
     if (demoEscalier()) cs = consignesDeDemo(cs);
+    var lestPlan = lestReponseDe();
+    if (demoModeEscalier() === 'lest') {
+      lestPlan = demoLest;
+      // §9.17 — l'exercice de la démonstration : une copie de sa fiche, en `reps`,
+      // avec une version lestée inventée (la carte ne promet que ce qu'elle livre).
+      if (demoLestSlug && catalogue[demoLestSlug]) {
+        catalogue[demoLestSlug] = Object.assign({}, catalogue[demoLestSlug],
+          { mesure: 'reps', equipement: null, leste: 'demo-leste' });
+      }
+    }
     return {
       seance: { id: seance.id, debut: seance.debut, edition: edition, exercices: exos },
       consignes: cs,
@@ -2483,6 +2591,11 @@
       // la séance, pas en base — supposés aucun, et la sortie le dit.
       refusChauffes: rejeuEnCours ? {} : refusChauffesDe(seance.id),
       reglage: Profil.rythmeDe(profil),
+      // §9.17 — ce que le plan porte pour qu'on puisse VÉRIFIER (I13, I28–I31) :
+      // l'intention du profil, le mode de chaque exercice, la réponse du lest.
+      intention: profil ? profil.intention : null,
+      modes: modes,
+      lestReponse: lestPlan,
       suites: suites,
       precedents: precedents,
       paris: (local.predictions || []).filter(function (l) {
@@ -2537,7 +2650,7 @@
     if (!garde || !garde.active || rejeuEnCours) return null;
     var s = null;
     try { s = racine.sessionStorage; } catch (e) { s = null; }
-    var m = /[?&]escalier=(demo|isole|0)(?:&|$)/.exec(String((racine.location && racine.location.search) || ''));
+    var m = /[?&]escalier=(demo|isole|lest|0)(?:&|$)/.exec(String((racine.location && racine.location.search) || ''));
     if (m) {
       try { if (s) s.setItem(CLE_DEMO_ESCALIER, m[1]); } catch (e) { /* fermé */ }
       return m[1] === '0' ? null : m[1];
@@ -2545,10 +2658,49 @@
     var v = null;
     try { v = s ? s.getItem(CLE_DEMO_ESCALIER) : null; } catch (e) { v = null; }
     // `1` : la valeur d'avant 49-U15, pour `demo`.
-    return v === 'demo' || v === '1' ? 'demo' : (v === 'isole' ? 'isole' : null);
+    return v === 'demo' || v === '1' ? 'demo' : (v === 'isole' || v === 'lest' ? v : null);
   }
   function demoEscalier() { return !!demoModeEscalier(); }
+  // MOTEUR §9.17 (50-1) — `?escalier=lest` : LA CARTE DU LEST SUR LA
+  // PRÉVISUALISATION, sans rien écrire. Le premier exercice de la séance dont
+  // aucune série n'est validée reçoit, DANS LES ENTRÉES DU PLAN seulement, une
+  // consigne que le VRAI moteur calcule sur un historique inventé : trois
+  // séances de trois séries de 8 reps au poids du corps, zone Mix (6 à 8) — les
+  // deux dernières au haut, sans réponse. Le catalogue de cet exercice y est
+  // une copie en `reps`, avec une version lestée inventée. La réponse reste EN
+  // MÉMOIRE (`demoLest`) : ni le profil, ni aucun pari, ni la séance ne bougent.
+  var demoLestSlug = null;   // l'exercice qui porte la carte de la démonstration
+  function lestDeDemo(cs) {
+    var copie = Object.assign({}, cs);
+    var exos = (seance && seance.exercices) || [];
+    var cible = null;
+    for (var i = 0; i < exos.length && cible === null; i++) {
+      var x = exos[i];
+      if (x && x.exercise_slug && !(x.series || []).some(function (r) { return !!r.validee_a; })) {
+        cible = x.exercise_slug;
+      }
+    }
+    demoLestSlug = cible;
+    if (!cible) return copie;
+    var n = 0;
+    var jour = function (d) { return new Date(Date.parse(seance.debut) - d * 86400000).toISOString(); };
+    var seanceDe = function (d) {
+      var series = [8, 8, 8].map(function (reps) {
+        n++;
+        return { id: 'demo-' + n, rang: n, charge_kg: null, reps: reps, rpe: null, ressenti: null,
+                 type_serie: 'travail', exercise_slug: cible };
+      });
+      return { seance: { id: 'demo-s' + d, debut: jour(d) }, series: series };
+    };
+    var c = Moteur.consigneDExercice([seanceDe(21), seanceDe(14), seanceDe(7)], undefined, seance.debut,
+      { mesure: 'reps', equipement: null, intention: 'progresser', reglage: Profil.rythmeDe(profil),
+        correction: 'mix', lestPossible: true, lestReponse: demoLest });
+    if (c) copie[cible] = c;
+    return copie;
+  }
+
   function consignesDeDemo(cs) {
+    if (demoModeEscalier() === 'lest') return lestDeDemo(cs);
     var copie = Object.assign({}, cs);
     var avecConsigne = Object.keys(cs).filter(function (s) { return cs[s] && cs[s].consigne && cs[s].consigne.etat !== 'silence'; });
     var compteurDe = function (slug, n, meilleur) {
@@ -2653,12 +2805,14 @@
         planMemo.constats === constats && planMemo.catalogue === local.exercices &&
         planMemo.refus === refusChauffes && planMemo.escalier === local.escalier &&
         planMemo.legers === local.parisLegers && planMemo.seances === local.seances &&
-        planMemo.demo === demoReponse && planMemo.demoMarches === demoMarches) return planMemo.plan;
+        planMemo.demo === demoReponse && planMemo.demoMarches === demoMarches &&
+        planMemo.modes === local.modes && planMemo.lest === lestReponseDe() && planMemo.demoLest === demoLest) return planMemo.plan;
     var plan = Plan.planDeSeance(entrees);
     planMemo = { seance: seance, paris: local.predictions, version: versionConsignes,
                  edition: edition, constats: constats, catalogue: local.exercices,
                  refus: refusChauffes, escalier: local.escalier, legers: local.parisLegers,
-                 seances: local.seances, demo: demoReponse, demoMarches: demoMarches, plan: plan };
+                 seances: local.seances, demo: demoReponse, demoMarches: demoMarches,
+                 modes: local.modes, lest: lestReponseDe(), demoLest: demoLest, plan: plan };
     // Le banc lit le dernier plan et ses entrées pour vérifier les invariants
     // après chaque geste (§9.13 bis) ; rien d'autre ne le relit. Un plan du
     // REJEU (développement) n'y entre pas : il vérifie ses invariants lui-même.
@@ -3130,6 +3284,47 @@
     if (seance && acceptee && plus) await appliquerSerieDePlus();
   }
 
+  // ── MOTEUR §9.17 (50-1) — LA CARTE DU LEST : LA RÉPONSE ──────────────────
+  //
+  // « J'ai du lest » et « Pas de lest » s'écrivent AU PROFIL (`lest_reponse`,
+  // `lest_reponse_le`), par le MÊME chemin que la phase (`poserProfil`, local
+  // d'abord puis la file du profil) : la carte ne revient jamais, sur aucun
+  // appareil. Aucun pari : une réponse n'est pas une consigne.
+  //
+  // OUI remplace l'exercice libre par sa VERSION LESTÉE (`parent` = lui,
+  // `charge = ajoutee`), à la même place — le geste de « Remplacer l'exercice »,
+  // sans passer par le catalogue. Elle part de 2,5 kg au bas de la zone (§8.4).
+  // NON ne change rien à la séance : les reps continuent (l'étirement).
+  //
+  // La démonstration (`?escalier=lest`) garde la réponse EN MÉMOIRE : rien ne
+  // s'écrit, ni au profil ni ailleurs.
+  var demoLest = null;
+  async function repondreLest(iExo, reponse) {
+    if (!seance || enEdition() || reponseEnCours) return;
+    var x = planDeLExercice(iExo);
+    var carte = x && x.carteLest;
+    if (!carte) return;
+    var oui = reponse === 'oui';
+    var leste = carte.leste;
+    reponseEnCours = true;
+    try {
+      if (demoEscalier()) {
+        demoLest = oui ? 'oui' : 'non';
+      } else {
+        await poserProfil({ lest_reponse: oui ? 'oui' : 'non', lest_reponse_le: new Date().toISOString() });
+      }
+    } finally {
+      reponseEnCours = false;
+    }
+    if (seance && oui && leste && !demoEscalier()) {
+      heriterRoutine(iExo, leste);
+      seance = Seance.remplacerExercice(seance, iExo, leste, uuid);
+      await apresStructure();
+      return;
+    }
+    if (seance) rendreSeance();
+  }
+
   // §14.7 (delta 49-35) — LA LIGNE DE PLUS DE L'EXERCICE QU'ON VIENT D'AJOUTER,
   // et de lui SEUL : l'exercice nouveau (absent de `avantExos`, sans série
   // faite), s'il a une série de plus en cours. Le même geste qu'à l'ouverture
@@ -3592,7 +3787,7 @@
       // §3.8 — l'étiquette de zone, à côté du nom, et son menu (48b-7).
       etiquette: etiquetteDe,
       zoneChoisie: function (slug) { return !!zoneDe(slug); },
-      surZone: function (slug) { if (etiquetteDe(slug)) ouvrirZone(slug); },
+      surZone: function (slug) { if (etiquetteDe(slug) || modeDe(slug) === 'entretien') ouvrirZone(slug); },
       // §3.10 — toucher la consigne ouvre le calcul.
       surPourquoi: ouvrirPourquoi,
       // §3.9 — et quand l'exercice est fini, le constat prend sa place.
@@ -3648,6 +3843,17 @@
         return x && x.escalier && x.escalier.carte ? x.escalier.carte : null;
       },
       surSchema: function (i, reponse) { return repondreSchema(i, reponse); },
+      // MOTEUR §9.17 (50-1) — la carte du lest : UNE, en tête de l'exercice,
+      // lue sur le plan ; ses deux gestes écrivent la réponse au profil.
+      propositionLest: function (i) {
+        if (enEdition()) return null;
+        var x = planDeLExercice(i);
+        return x && x.carteLest ? x.carteLest : null;
+      },
+      surLest: function (i, reponse) { return repondreLest(i, reponse); },
+      // §9.17 — l'exercice est en Entretenir PAR SON PROPRE choix : l'étiquette
+      // devient « Entretien », la porte vers le mode (le profil n'y gagne rien).
+      modeEntretien: function (slug) { return modeDe(slug) === 'entretien'; },
       surRefuserChauffes: function (i) {
         var x = planDeLExercice(i);
         if (!x || !x.proposition) return;
@@ -4132,6 +4338,14 @@
         zones: Moteur.ZONES,
         choisie: zoneDe(slug),
         deduite: deduiteDe(slug),
+        // §9.17 — le mode de l'exercice, dans la même feuille : « Progresser »
+        // ou « Entretenir ». En Entretenir, la feuille ne montre que le mode :
+        // une zone n'a pas d'objet quand on ne cherche pas à monter.
+        mode: modeDe(slug) === 'entretien' ? 'entretien' : 'progresser',
+        surMode: async function (mode) {
+          await poserMode(slug, mode);
+          fermerVoile();
+        },
         surChoix: async function (cle) {
           await poserZone(slug, cle);
           fermerVoile();
@@ -5084,7 +5298,7 @@
   function seriesDeDepartPour(slug) {
     if (enEdition()) return 1;
     var c = seance ? consigneDe(slug) : null;
-    return Plan.seriesDeDepart(c ? c.consigne : null, precedentDe(slug), profil ? profil.intention : null);
+    return Plan.seriesDeDepart(c ? c.consigne : null, precedentDe(slug), intentionDeLExercice(slug));
   }
 
   function ouvrirCatalogue(apres, remplace) {
@@ -5449,13 +5663,16 @@
       nom: exo ? exo.nom : slug,
       etiquette: consigneExo ? consigneExo.etiquette : null,
       zoneChoisie: !!zoneDe(slug),
+      // §9.17 — en Entretenir par son propre choix, la page montre « Entretien »
+      // et garde la porte vers le mode.
+      modeEntretien: modeDe(slug) === 'entretien',
       // ⚠️ ET LA PAGE SE REDESSINE APRÈS LE CHOIX. Elle n'est pas rendue par
       // `rendreSeance` : sans ce rappel, l'étiquette et la consigne y
       // resteraient celles d'avant la correction — la ligne écrite, l'écran
       // muet. Trouvé au banc, pas en test. `ouvrirZone` s'occupe de la séance
       // ouverte s'il y en a une, et il peut n'y en avoir aucune : c'est
       // précisément d'ici qu'on ouvre le menu sans séance.
-      surZone: consigneExo ? function () {
+      surZone: consigneExo || modeDe(slug) === 'entretien' ? function () {
         ouvrirZone(slug, function () { rendreExercice(slug, vueOnglet); });
       } : null,
       mesure: mesure,
@@ -5868,7 +6085,7 @@
     // La prochaine entrée, même du même compte, repart du disque (vidé).
     entreeFaitePour = null;
     try { await Cache.viderTout(); } catch (e) { /* rien à garder de toute façon */ }
-    local = { seances: [], series: [], exercices: [], pesees: [], zones: [],
+    local = { seances: [], series: [], exercices: [], pesees: [], zones: [], modes: [],
               predictions: [], sousConsigne: {}, parisLegers: [], escalier: [], parSeance: null };
     notesEnCours = {};
     // Les routines vivent en mémoire, pas dans le cache — mais elles

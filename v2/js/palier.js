@@ -390,6 +390,49 @@
     return sortie(series, roles, palier, null, votantes);
   }
 
+  // ── §9.17 — LE POIDS DU CORPS : UNE CHARGE QUI NE BOUGE PAS ──────────────
+  //
+  // Un exercice mesuré en `reps` (tractions, dips, pompes, extension du dos,
+  // relevés…) n'a pas de charge en base — `charge_kg` y est NULL — et il suit
+  // pourtant la consigne des charges, LA CHARGE VALANT 0 : le poids du corps.
+  // C'est ce que fait cette fonction : elle rend la même description que
+  // `analyser`, avec un palier de 0 et des séries à 0, et c'est ce contrat que
+  // `consignePour` lit comme n'importe quel autre (« même fonction, pas une
+  // copie »).
+  //
+  // ⚠️ ELLE N'EST PAS `analyser` AVEC DES ZÉROS, et c'est tout son objet. La
+  // chaîne générique juge la chauffe sur la CHARGE (« ≤ 75 % de la plus lourde,
+  // avant le palier ») et le palier sur la majorité d'une charge non nulle : à
+  // zéro partout, `calculerPalier` rend `null` (« zéro n'est pas une charge »,
+  // plus haut), aucune série n'est « au palier » et toutes sortent en chauffe
+  // probable (0 ≤ 0,75 × 0). Sans charge, il n'y a ni rampe, ni chauffe
+  // probable, ni descente choisie à deviner : seuls les TAGS de la personne
+  // écartent une série (chauffe, dégressive, échec), tout le reste est du
+  // travail, et le palier est 0 dès qu'une série de travail existe.
+  //
+  // Les séries rendues sont des COPIES à `charge_kg: 0` : l'entrée n'est jamais
+  // modifiée, et rien de ce que cette description produit ne s'écrit en base —
+  // une série d'un exercice en `reps` garde sa charge vide (`validerSerie`
+  // n'écrit que les champs du gabarit).
+  function analyserPoidsDuCorps(seriesBrutes) {
+    var zero = (seriesBrutes || []).map(function (s) {
+      var copie = {};
+      for (var k in s) if (Object.prototype.hasOwnProperty.call(s, k)) copie[k] = s[k];
+      copie.charge_kg = 0;
+      return copie;
+    });
+    var series = trier(zero);
+    var roles = new Map();
+    var travail = [];
+    series.forEach(function (s) {
+      var tag = roleDuTag(s);
+      if (tag) roles.set(s, tag); else travail.push(s);
+    });
+    if (!travail.length) return sortie(series, roles, null, AUCUNE_SERIE, []);
+    travail.forEach(function (s) { roles.set(s, 'travail'); });
+    return sortie(series, roles, 0, null, travail);
+  }
+
   // ── §7 bis.5 — LA MEILLEURE SÉRIE ───────────────────────────────────────
   //
   // GRANDEUR DISTINCTE DU PALIER, et les deux sont vraies. Le palier est la
@@ -614,6 +657,7 @@
     etatsExercices: etatsExercices,
     seriesHorsChauffe: seriesHorsChauffe,
     analyser: analyser,
+    analyserPoidsDuCorps: analyserPoidsDuCorps,
     meilleureSerie: meilleureSerie,
     cranEffort: cranEffort,
     // Exportée pour le test anti-dérive SEUL : il l'énumère pour vérifier

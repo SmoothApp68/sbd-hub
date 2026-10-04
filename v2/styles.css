@@ -690,6 +690,14 @@ button.puce-zone{font:inherit;font-size:11px;font-weight:600;cursor:pointer;
 .option-zone .oz-sous{grid-column:2 / 4;color:var(--texte-3);font-size:11px;
   line-height:1.35;margin-top:2px}
 
+/* §9.17 (50-1) — « Progresser » / « Entretenir », en tête de la feuille de zone :
+   deux boutons de même largeur, l'actif plein (jamais jaune : le jaune est la
+   voix du moteur). */
+.mode-exercice{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:4px 0 10px}
+.option-mode{min-height:40px;padding:0 10px;border:1px solid var(--trait);border-radius:var(--r-petit);
+  background:none;color:var(--texte);font:inherit;font-size:14px}
+.option-mode.active{background:var(--panneau-2);border-color:var(--panneau-2);font-weight:620}
+
 /* §3.10 — LA FEUILLE « POURQUOI ». Une ligne de séance est un couple : ce qui
    a été fait à gauche, son rôle à droite, et le rôle passe sous lui quand la
    place manque plutôt que de rogner le chiffre. */
@@ -829,6 +837,8 @@ button.puce-zone{font:inherit;font-size:11px;font-weight:600;cursor:pointer;
 .proposition-exercice button{min-height:36px;padding:0 12px;border-radius:8px;font:inherit;font-size:13.5px}
 .proposition-exercice .pc-ajouter{background:var(--accent);color:#111;border:0;font-weight:620}
 .proposition-exercice .pc-refuser{background:transparent;color:var(--texte-2);border:1px solid var(--trait)}
+/* §9.17 (50-1) — la carte du lest : le même composant, le titre dit la chose. */
+.proposition-lest .pc-texte{color:var(--texte);font-weight:600}
 /* MOTEUR §14.4 (49-U14) — l'escalier en tête de la séance : la carte de la
    semaine allégée (deux gestes), ou le bandeau de la période. Le jaune reste
    à la suggestion du moteur ; aucune couleur d'alarme. */

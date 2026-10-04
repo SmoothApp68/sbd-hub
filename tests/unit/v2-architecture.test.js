@@ -48,6 +48,12 @@ const GARDEES = [
   { fn: 'habitudeDe', module: 'moteur.js' },
   { fn: 'zoneRetenue', module: 'moteur.js' },
   { fn: 'zoneEnVigueur', module: 'moteur.js' },
+  // moteur.js — le mode d'un exercice, la carte du lest, le départ lesté (§9.17, 50-1)
+  { fn: 'modeEnVigueur', module: 'moteur.js' },
+  { fn: 'intentionDe', module: 'moteur.js' },
+  { fn: 'carteLestTitre', module: 'moteur.js' },
+  { fn: 'carteLestDetail', module: 'moteur.js' },
+  { fn: 'consigneDepartLeste', module: 'moteur.js' },
   { fn: 'niveauValide', module: 'moteur.js' },
   { fn: 'chargeVoisine', module: 'moteur.js' },
   { fn: 'pasDeSalle', module: 'moteur.js' },
@@ -165,6 +171,14 @@ const AUTORISATIONS = {
   zoneEnVigueur: {
     'app.js': 'lit la zone CHOISIE dans les lignes `zones` (§9.1.1) pour la passer en ' +
       '`correction` au moteur : une entrée, pas une décision (app.js, `zoneDe`).'
+  },
+  modeEnVigueur: {
+    'app.js': 'lit le mode CHOISI d’un exercice dans les lignes `modes` (§9.17) pour le passer ' +
+      'au plan (`entrees.modes`) et à la consigne : une entrée, pas une décision (app.js, `modeDe`).'
+  },
+  intentionDe: {
+    'app.js': 'compose l’intention d’UN exercice (celle du profil, puis son mode, §9.17) pour la ' +
+      'passer à `consigneDExercice` : une entrée, pas une décision (app.js, `intentionDeLExercice`).'
   },
   idDePrediction: {
     'app.js': 'l’identifiant déterministe d’un pari au moment de l’écrire en base : de la ' +
@@ -354,6 +368,30 @@ const NOTIONS = [
                         raison: '`mouvement` lu ailleurs que dans `freresDe` : une seconde définition des frères' },
     raison: 'les frères sont les exercices de même `mouvement` — pas de même `famille`, plus large ; ' +
       'une seule lecture de la colonne, sinon deux écrans auraient deux listes de frères.' },
+  { notion: 'la version lestée d’un exercice libre (`parent` au catalogue, MOTEUR §9.17)', pr: '50-U1',
+    module: 'modele.js', fonction: 'lesteDe', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['optionsDeConsigne', 'entreesDuPlan'] },
+    interditAilleurs: { motif: /\.\s*parent\b|\[\s*(['"`])parent\1\s*\]/,
+                        raison: '`parent` lu ailleurs que dans `lesteDe` et `parentDe` : une seconde définition du lesté' },
+    raison: '« J’ai du lest » met la version lestée à la place de l’exercice libre : la carte ne ' +
+      'promet que ce que le catalogue sait livrer, et une seule lecture de la colonne le dit.' },
+  { notion: 'l’exercice libre d’une version lestée (le départ à 2,5 kg, MOTEUR §8.4)', pr: '50-U1',
+    module: 'modele.js', fonction: 'parentDe', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['optionsDeConsigne'] },
+    raison: 'la première fois qu’un exercice lesté se fait, il part de la zone de l’exercice libre ; ' +
+      'l’app donne au moteur cet exercice, par la même lecture du catalogue que la carte.' },
+  { notion: 'le matériel effectif d’un exercice (une charge ajoutée est du lest, cran 2,5 kg)', pr: '50-U1',
+    module: 'moteur.js', fonction: 'equipementEffectif', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['optionsDeConsigne', 'entreesDuPlan'] },
+    raison: 'le catalogue dit `equipement` ; la consigne, les chauffes et la dégressive lisent le ' +
+      'MATÉRIEL EFFECTIF : sans lui, le lesté prenait le cran de la salle ou celui d’une barre.' },
+  { notion: 'l’aide (tapée en positif, rangée en négatif)', pr: '50-U1',
+    module: 'modele.js', fonction: 'rangerAide', lecteurs: ['rendu.js', 'app.js'],
+    parAilleurs: { 'app.js': ['validerSerie'] },
+    interditAilleurs: { motif: /-\s*Math\.abs\s*\(/,
+                        raison: 'un signe d’aide posé à la main hors de `rangerAide` : une seconde règle du signe' },
+    raison: 'MOTEUR §9.17 : le signe d’une aide se pose à UN endroit — la saisie et le pré-remplissage ' +
+      'que la validation écrit. Une aide qui entre en positif se lit comme une charge.' },
   { notion: 'le frère qui progresse pendant le blocage (MOTEUR §13.6)', pr: '49-U20',
     module: 'moteur.js', fonction: 'frereQuiProgresse', lecteurs: [],
     par: ['frereDuBlocage'],

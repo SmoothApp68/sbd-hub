@@ -20,12 +20,15 @@
 //
 // ══ CE QUE LA ROUTINE NE PORTE JAMAIS ══════════════════════════════════════
 //
-//   AUCUNE CHARGE. Pas de kg, pas de poids, nulle part.
+//   AUCUNE CHARGE OBSERVÉE. Pas de poids soulevé, pas de RM.
 //
 // Une charge écrite dans une routine est périmée dès qu'on progresse, et c'est
-// précisément ce que le moteur sait calculer (ECRAN-SAISIE-V1 §1.1). La liste
-// blanche `CHAMPS_EXERCICE` ci-dessous est la garde : rien d'autre ne part en
-// base, et un test l'exige explicitement.
+// précisément ce que le moteur sait calculer (ECRAN-SAISIE-V1 §1.1). La seule
+// charge qu'elle porte est une CHARGE DE DÉPART (`routine_sets.charge_cible_kg`,
+// §7 quindecies.3, chantier 52) : elle ne sert que la première fois qu'un
+// exercice est fait — ensuite, le coach décide seul. La liste blanche
+// `CHAMPS_EXERCICE` ci-dessous ne porte aucune charge (elle vit sur la ligne de
+// série, `CHAMPS_SERIE`), et un test l'exige explicitement.
 
 (function (racine) {
   'use strict';
@@ -51,6 +54,14 @@
   // ne contraint plus rien ici : la colonne n'est plus écrite depuis le
   // chantier 43 (§7 quindecies), et son défaut vaut pour les lignes anciennes.
   var NOM_MAX = 60;
+  // `routines_dossier_ok` (v2_057) : NULL, ou 1 à 40 caractères sans espace au
+  // bord. Relevé sur le CHECK de la base, pas supposé.
+  var DOSSIER_MAX = 40;
+
+  // ⚠️ LISTE BLANCHE DE `routines` (chantier 52). Une création ou une mise à
+  // jour n'envoie que ces colonnes : le dossier y est entré avec v2_057, au
+  // même endroit que le nom et le rang — pas par un second chemin.
+  var CHAMPS_ROUTINE = ['user_id', 'nom', 'rang', 'dossier'];
   var REPS_MIN = 1, REPS_MAX = 100;
   var REPOS_MIN = 5, REPOS_MAX = 1800;
 
@@ -101,6 +112,82 @@
   function nomValide(nom) {
     var n = nomPropre(nom);
     return n.length >= 1 && n.length <= NOM_MAX;
+  }
+
+  // ── Le dossier (ECRAN-SAISIE §7 duodecies.3, chantier 52) ──────────────
+  //
+  // UNE ÉTIQUETTE, SANS ORDRE NI CYCLE. `null` veut dire « Sans dossier ».
+  // Le texte part tel que tapé, aux espaces de bord près : `routines_dossier_ok`
+  // refuse un espace au bord, et un dossier vide n'est pas un dossier.
+  function dossierPropre(v) {
+    if (v === null || v === undefined) return null;
+    var t = String(v).trim();
+    return t ? t : null;
+  }
+
+  function dossierValide(v) {
+    var d = dossierPropre(v);
+    return d === null || d.length <= DOSSIER_MAX;
+  }
+
+  // Les dossiers de la bibliothèque, dans l'ordre où ils apparaissent (l'ordre
+  // global, `visibles`) : c'est l'utilisateur qui range, rien ne se trie à part.
+  // Deux dossiers qui ne diffèrent que par la casse sont DEUX dossiers : le
+  // texte est celui que la personne a tapé, et la base ne les confond pas.
+  function dossiersDe(routines) {
+    var vus = {}, liste = [];
+    visibles(routines).forEach(function (r) {
+      var d = dossierPropre(r.dossier);
+      if (d === null || vus[d]) return;
+      vus[d] = true;
+      liste.push(d);
+    });
+    return liste;
+  }
+
+  // LA BIBLIOTHÈQUE REGROUPÉE : `[{ dossier, routines }]`, chaque dossier dans
+  // l'ordre global, « Sans dossier » (`dossier: null`) EN DERNIER. Une
+  // bibliothèque où aucune routine n'a de dossier rend `null` : elle reste une
+  // liste plate, sans un « Sans dossier » seul en tête qui n'apprendrait rien.
+  function parDossier(routines) {
+    var tri = visibles(routines);
+    if (!tri.some(function (r) { return dossierPropre(r.dossier) !== null; })) return null;
+    var groupes = dossiersDe(tri).map(function (d) {
+      return { dossier: d, routines: tri.filter(function (r) { return dossierPropre(r.dossier) === d; }) };
+    });
+    var sans = tri.filter(function (r) { return dossierPropre(r.dossier) === null; });
+    if (sans.length) groupes.push({ dossier: null, routines: sans });
+    return groupes;
+  }
+
+  // ── UN NOM LIBRE (chantier 52) — UNE SEULE FONCTION ────────────────────
+  //
+  // Le nom d'une routine créée depuis une séance (« (2) », « (3) »…) et celui
+  // d'une copie (« (copie) », « (copie 2) »…). La comparaison est celle de
+  // l'index `routines_user_nom_actif_uniq` — `lower(btrim(nom))` —, donc
+  // `normaliserNom`, comme `nomEnConflit` : la casse et les espaces de bord ne
+  // font pas deux noms. `existants` : les noms qui réservent déjà le leur (les
+  // non archivées — l'appelant les choisit, comme pour `nomEnConflit`).
+  //
+  // Le nom reste sous `NOM_MAX` : c'est la BASE qu'on raccourcit, jamais le
+  // suffixe, et par caractères entiers (un emoji ne se coupe pas en deux).
+  function nomLibre(nom, existants, mode) {
+    var copie = mode === 'copie';
+    var base = nomPropre(nom) || 'Routine';
+    var pris = {};
+    (existants || []).forEach(function (n) { pris[normaliserNom(n)] = true; });
+    var avec = function (suffixe) {
+      var b = Array.from(base);
+      var place = NOM_MAX - suffixe.length;
+      return (b.length > place ? b.slice(0, Math.max(1, place)).join('').trim() : base) + suffixe;
+    };
+    if (!copie && !pris[normaliserNom(avec(''))]) return avec('');
+    for (var k = copie ? 1 : 2; k < 1000; k++) {
+      var s = copie ? (k === 1 ? ' (copie)' : ' (copie ' + k + ')') : ' (' + k + ')';
+      var candidat = avec(s);
+      if (!pris[normaliserNom(candidat)]) return candidat;
+    }
+    return avec('');
   }
 
   // Conflit détecté LOCALEMENT, sur la liste déjà chargée. `saufId` permet de
@@ -281,6 +368,7 @@
     } else if (nomEnConflit(b.nom, routines, b.id)) {
       soucis.push({ champ: 'nom', raison: 'doublon' });
     }
+    if (!dossierValide(b.dossier)) soucis.push({ champ: 'dossier', raison: 'trop-long' });
     (b.exercices || []).forEach(function (e, i) {
       if (!e || !e.exercise_slug) soucis.push({ champ: 'exercice', rang: i, raison: 'sans-exercice' });
       if (!reposValide(e && e.repos_cible_s).ok) soucis.push({ champ: 'repos_cible_s', rang: i, raison: 'hors-bornes' });
@@ -655,6 +743,164 @@
     };
   }
 
+  // ══ DUPLIQUER (ECRAN-SAISIE §7 quindecies.4, chantier 52) ═══════════════
+  //
+  // UNE COPIE COMPLÈTE, PAR LE CHEMIN DE CRÉATION. Le brouillon rendu est celui
+  // d'une routine NEUVE (`id: null`, aucune ligne existante) : `enregistrer` la
+  // crée comme n'importe quelle routine — le rang suivant, et l'annulation si
+  // l'écriture échoue en route. Rien n'est partagé avec l'originale : chaque
+  // exercice et chaque série est recopié, SANS son identifiant (la copie a les
+  // siens, fabriqués à l'écriture), et l'originale n'est jamais touchée.
+  // Tout passe : exercices, séries, repos, notes, charges de départ, dossier.
+  function copieDeRoutine(routine, nom) {
+    var r = routine || {};
+    return {
+      id: null, nom: nom, nomChange: true,
+      dossier: dossierPropre(r.dossier),
+      existantes: [],
+      exercices: renumeroter((r.exercices || []).map(function (e) {
+        return {
+          id: null, exercise_slug: e.exercise_slug,
+          series: (e.series || []).map(function (l) { return Object.assign({}, l, { id: null }); }),
+          repos_cible_s: e.repos_cible_s === undefined ? null : e.repos_cible_s,
+          groupe_superset: e.groupe_superset === undefined ? null : e.groupe_superset,
+          note: e.note === undefined ? null : e.note
+        };
+      }))
+    };
+  }
+
+  // ══ EN FAIRE UNE ROUTINE (ECRAN-SAISIE §7 quindecies.4, chantier 52) ═══════
+  //
+  // ⚠️ LA STRUCTURE, JAMAIS LA CHARGE. Une séance faite — importée de Hevy ou
+  // saisie dans l'app — devient une routine : ses exercices dans l'ordre, ses
+  // supersets, ses séries par type, ses reps comme REPÈRES (`reps_visees`), la
+  // durée et la distance du cardio. Aucune charge : la routine ne fige pas de
+  // poids, c'est le coach qui les propose à chaque séance.
+  //
+  // ⚠️ LES BLOCS SONT CEUX DU DÉTAIL (`THModele.construireBlocs`), pas un second
+  // découpage : une occurrence = un bloc (deux occurrences voisines aux
+  // identifiants différents restent deux blocs ; sans identifiant — une séance
+  // importée —, le voisinage regroupe), et dans un superset les séries d'un même
+  // exercice forment un seul exercice. Un groupe se renumérote 1, 2… dans
+  // l'ordre de la séance.
+  //
+  // LE REPOS, absent de l'export Hevy : celui de l'exercice dans la routine la
+  // plus récemment modifiée qui le contient, sinon un DÉFAUT par classe — les
+  // classes de « J'ai peu de temps » (`THMoteur.estPolyarticulaire`, une seule
+  // définition) : 180 s pour le premier polyarticulaire de la séance, 120 s
+  // pour les autres, 90 s pour une isolation, rien pour un exercice sans muscle.
+  // L'origine se dit toujours. Dans un superset, seul le DERNIER exercice porte
+  // le repos (celui qu'on prend après le tour) ; les autres disent « superset ».
+  // Ce sont des valeurs par défaut, pas une règle du coach.
+  //
+  // `series` : des lignes de `sets` (exercise_slug, rang, type_serie, reps,
+  // duree_s, distance_m, groupe_superset, occurrence). `options` : `titre`,
+  // `exercices` (le catalogue), `routines` (celles de la personne, avec
+  // `modifiee_a`), `existants` (les noms qui réservent le leur).
+  // Rend `{ nom, exercices: [{ exercise_slug, groupe_superset, repos_cible_s,
+  // repos_origine, series: [{ type_serie, reps_visees, duree_cible_s,
+  // distance_cible_m }] }] }` — au vocabulaire de `routine_sets`.
+  var REPOS_PAR_DEFAUT = { premier: 180, poly: 120, isolation: 90 };
+  var ORIGINE_DEFAUT = 'par défaut', ORIGINE_SUPERSET = 'superset';
+
+  function reposDansLesRoutines(slug, routines) {
+    var recentes = (routines || []).filter(Boolean).slice().sort(function (a, b) {
+      return String(b.modifiee_a || '').localeCompare(String(a.modifiee_a || ''));
+    });
+    for (var i = 0; i < recentes.length; i++) {
+      var e = (recentes[i].exercices || []).filter(function (x) { return x && x.exercise_slug === slug; })[0];
+      if (e) {
+        return { repos: e.repos_cible_s === undefined ? null : reposEcrit(e.repos_cible_s),
+                 origine: nomPropre(recentes[i].nom) || null };
+      }
+    }
+    return null;
+  }
+
+  function serieDeStructure(ligne) {
+    var t = typePropre(ligne && ligne.type_serie);
+    // Un « échec » est une tentative, pas une intention : la routine programme
+    // une série de travail.
+    if (t === 'echec') t = 'travail';
+    var l = normaliserSerie(ligne, null, 1, null);
+    return { type_serie: t, reps_visees: l.reps_visees,
+             duree_cible_s: l.duree_cible_s, distance_cible_m: l.distance_cible_m };
+  }
+
+  function routineDepuisSeance(series, options) {
+    var o = options || {};
+    var Mo = racine.THMoteur;
+    var catalogue = o.exercices || [];
+    var index = racine.THModele.indexerExercices(catalogue);
+    var blocs = racine.THModele.construireBlocs(series || [], catalogue);
+    var groupe = 0, premierVu = false;
+    var exercices = [];
+    blocs.forEach(function (bloc) {
+      var g = bloc.superset ? ++groupe : null;
+      bloc.exercices.forEach(function (x, k) {
+        var cat = index[x.slug] || {};
+        var muscles = { prim: cat.muscles_primaires || [], sec: cat.muscles_secondaires || [] };
+        var classe = !Mo.aDesMuscles(muscles) ? null
+          : !Mo.estPolyarticulaire(muscles) ? 'isolation'
+          : premierVu ? 'poly' : 'premier';
+        if (classe === 'premier') premierVu = true;
+        var repos = null, origine = null;
+        if (bloc.superset && k < bloc.exercices.length - 1) {
+          origine = ORIGINE_SUPERSET;
+        } else {
+          var dejaRegle = reposDansLesRoutines(x.slug, o.routines);
+          if (dejaRegle) { repos = dejaRegle.repos; origine = dejaRegle.origine; }
+          else if (classe) { repos = REPOS_PAR_DEFAUT[classe]; origine = ORIGINE_DEFAUT; }
+        }
+        exercices.push({
+          exercise_slug: x.slug, groupe_superset: g,
+          repos_cible_s: repos, repos_origine: origine,
+          series: (x.series || []).map(serieDeStructure)
+        });
+      });
+    });
+    return { nom: nomLibre(o.titre, o.existants), exercices: exercices };
+  }
+
+  // ══ METTRE À JOUR UNE ROUTINE DEPUIS UNE SÉANCE (§7 quindecies.4) ═══════
+  //
+  // ⚠️ PAS UN SECOND MÉCANISME : le chemin de la question de fin de séance
+  // (§6.3). Cette fonction ne fait que RATTACHER la structure d'une séance à la
+  // routine choisie, pour que `THSeance.ecartsRoutine` la compare comme une
+  // séance issue de cette routine — les mêmes écarts, le même aperçu, la même
+  // écriture par la file.
+  //
+  // Une séance relue ne porte pas sa ligne de routine (`sets` n'a pas la
+  // colonne) : on la retrouve par l'EXERCICE, dans l'ordre — la première ligne
+  // de la routine encore libre au même slug. Une ligne retrouvée garde SES
+  // repos et SA note (« tes repos et tes notes restent ceux de ta routine ») ;
+  // un exercice que la routine n'a pas arrive avec le repos de la structure
+  // (`routineDepuisSeance`). Rend une séance au vocabulaire de la saisie.
+  function seanceSurRoutine(structure, routine) {
+    var r = routine || {};
+    var lignes = (r.exercices || []).slice().sort(function (a, b) { return (a.rang || 0) - (b.rang || 0); });
+    var prises = {};
+    return {
+      routine_id: r.id || null,
+      exercices: ((structure && structure.exercices) || []).map(function (e) {
+        var ligne = lignes.filter(function (l) {
+          return l && l.id && !prises[l.id] && l.exercise_slug === e.exercise_slug;
+        })[0] || null;
+        if (ligne) prises[ligne.id] = true;
+        return {
+          exercise_slug: e.exercise_slug,
+          routine_exercise_id: ligne ? ligne.id : null,
+          repos_cible_s: ligne ? (ligne.repos_cible_s === undefined ? null : ligne.repos_cible_s)
+            : (e.repos_cible_s === undefined ? null : e.repos_cible_s),
+          note: ligne ? (ligne.note === undefined ? null : ligne.note) : null,
+          groupe_superset: e.groupe_superset === undefined ? null : e.groupe_superset,
+          series: (e.series || []).map(enSaisie)
+        };
+      })
+    };
+  }
+
   // ══ LE BROUILLON LOCAL (§7 octodecies) ══════════════════════════════════
   //
   // ⚠️ DEUX QUESTIONS DIFFÉRENTES, DEUX FONCTIONS. « Y a-t-il un brouillon à
@@ -876,11 +1122,18 @@
         if (typeof ctx.rangSuivant === 'number' && isFinite(ctx.rangSuivant)) {
           neuve.rang = ctx.rangSuivant;
         }
-        routine = await ecrivain.creerRoutine(neuve);
+        // §7 duodecies.3 (52-1) — le dossier part avec la création, s'il y en
+        // a un ; « Sans dossier » est le NULL par défaut de la colonne.
+        if (dossierPropre(b.dossier) !== null) neuve.dossier = dossierPropre(b.dossier);
+        routine = await ecrivain.creerRoutine(ligneRoutine(neuve));
         ecrit = true;
       } else {
         routine = { id: b.id, nom: nom };
-        if (b.nomChange) { routine = await ecrivain.majRoutine(b.id, { nom: nom }); ecrit = true; }
+        // Le nom et le dossier, chacun seulement s'il a changé, en UNE écriture.
+        var maj = {};
+        if (b.nomChange) maj.nom = nom;
+        if (b.dossierChange) maj.dossier = dossierPropre(b.dossier);
+        if (Object.keys(maj).length) { routine = await ecrivain.majRoutine(b.id, ligneRoutine(maj)); ecrit = true; }
       }
     } catch (e) {
       // Rien n'est parti : le brouillon est intact à l'écran, on ne perd rien.
@@ -928,6 +1181,15 @@
     }
 
     return { ok: true, routine: routine, plan: plan };
+  }
+
+  // Ce qui part vers `routines` : la liste blanche, rien d'autre.
+  function ligneRoutine(champs) {
+    var l = {};
+    CHAMPS_ROUTINE.forEach(function (c) {
+      if (champs && Object.prototype.hasOwnProperty.call(champs, c)) l[c] = champs[c];
+    });
+    return l;
   }
 
   // Traduire une erreur Postgres en cause, jamais en texte brut à l'écran.
@@ -978,6 +1240,20 @@
     REPS_MIN: REPS_MIN, REPS_MAX: REPS_MAX,
     REPOS_MIN: REPOS_MIN, REPOS_MAX: REPOS_MAX,
     CHAMPS_EXERCICE: CHAMPS_EXERCICE,
+    CHAMPS_ROUTINE: CHAMPS_ROUTINE,
+    DOSSIER_MAX: DOSSIER_MAX,
+    REPOS_PAR_DEFAUT: REPOS_PAR_DEFAUT,
+    ORIGINE_DEFAUT: ORIGINE_DEFAUT,
+    ORIGINE_SUPERSET: ORIGINE_SUPERSET,
+    dossierPropre: dossierPropre,
+    dossierValide: dossierValide,
+    dossiersDe: dossiersDe,
+    parDossier: parDossier,
+    nomLibre: nomLibre,
+    copieDeRoutine: copieDeRoutine,
+    routineDepuisSeance: routineDepuisSeance,
+    seanceSurRoutine: seanceSurRoutine,
+    ligneRoutine: ligneRoutine,
     normaliserNom: normaliserNom,
     nomPropre: nomPropre,
     nomValide: nomValide,

@@ -454,6 +454,48 @@ const NOTIONS = [
     par: ['consigneFigee', 'repliDeLaRepriseLongue'],
     raison: '51-3 bis : « Plus léger » le réutilise quand le repli de §14.5 n’existe pas — la règle de ' +
       '§9.9 appelée par sa fonction, jamais recopiée (une charge de repli calculée à part serait une seconde règle).' },
+  { notion: 'la structure d’une séance en routine (« En faire une routine », ECRAN-SAISIE §7 quindecies.4)', pr: '52-U1',
+    module: 'routines.js', fonction: 'routineDepuisSeance', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['structureDeLaSeance'] },
+    raison: 'la nouvelle routine et la mise à jour lisent la même structure (blocs du détail, supersets, ' +
+      'reps repères, repos et leur origine, jamais une charge) : un second découpage dirait une autre routine.' },
+  { notion: 'un nom libre de routine (« (2) », « (copie) », l’index `lower(btrim(nom))`)', pr: '52-U1',
+    module: 'routines.js', fonction: 'nomLibre', lecteurs: ['app.js'],
+    par: ['routineDepuisSeance'],
+    parAilleurs: { 'app.js': ['demanderDuplication'] },
+    raison: 'une seule fonction pour le nom d’une routine créée depuis une séance et d’une copie : ' +
+      'la comparaison est celle de l’index de la base, sinon l’écriture se ferait refuser.' },
+  { notion: 'la copie d’une routine (« Dupliquer », par le chemin de création)', pr: '52-U1',
+    module: 'routines.js', fonction: 'copieDeRoutine', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['dupliquerRoutine'] },
+    raison: 'une routine NEUVE que `enregistrer` crée comme les autres (rang suivant, annulation) ; ' +
+      'aucun identifiant partagé : l’originale ne peut pas être touchée.' },
+  { notion: 'un polyarticulaire (au moins 3 muscles) : le raccourci et les repos par défaut', pr: '52-U1',
+    module: 'moteur.js', fonction: 'estPolyarticulaire', lecteurs: ['routines.js'],
+    par: ['raccourcirRoutine'],
+    parAilleurs: { 'routines.js': ['routineDepuisSeance'] },
+    raison: 'les repos par défaut d’« En faire une routine » sont les classes de « J’ai peu de temps » : ' +
+      'une définition, lue aux deux endroits.' },
+  { notion: 'les écarts d’une séance avec une routine (§6.3, et « Mettre à jour » depuis une séance)', pr: '52-U1',
+    module: 'seance.js', fonction: 'ecartsRoutine', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['rendreFeuilleFin', 'apercuMiseAJour'] },
+    raison: '« Mettre à jour une routine » passe par la question de fin de séance — les mêmes écarts, le ' +
+      'même aperçu, la même écriture —, pas par un second mécanisme (ECRAN-SAISIE §7 quindecies.4).' },
+  { notion: 'l’écriture d’une routine mise à jour depuis une séance (la file, comme la fin de séance)', pr: '52-U1',
+    module: 'app.js', fonction: 'reporterSurRoutine', lecteurs: [],
+    par: ['terminerSeance', 'apercuMiseAJour'],
+    raison: 'une intention posée dans la file, recalculée à la vidange : la fin de séance et « Mettre à ' +
+      'jour » écrivent par le même chemin, jamais par l’éditeur.' },
+  { notion: 'un exercice jamais fait (la charge de départ ne sert que là, MOTEUR §9.21)', pr: '52-U1',
+    module: 'app.js', fonction: 'jamaisFait', lecteurs: [],
+    par: ['chargeDansLEditeur', 'chargeDeDepartDe'],
+    raison: 'l’éditeur (« Charge de départ » ou « le coach décide ») et la charge passée au coach lisent la ' +
+      'même définition : sans elle, l’éditeur promettrait un départ que le coach ignore.' },
+  { notion: 'la consigne de la charge de départ, la première fois (MOTEUR §9.21)', pr: '52-U1',
+    module: 'moteur.js', fonction: 'departDeRoutine', lecteurs: [],
+    par: ['consigneDExercice'],
+    raison: 'seulement sur « Première fois ici », en charge × reps : la routine donne un point de départ, ' +
+      'et dès qu’il y a des données le coach décide seul.' },
   { notion: '« Plus léger, plus de reps » appliqué à la consigne (le repli de §14.5, sinon celui de §9.9)', pr: '51-U3',
     module: 'moteur.js', fonction: 'consignePlusLegere', lecteurs: ['plan.js'],
     parAilleurs: { 'plan.js': ['planDeSeance'] },

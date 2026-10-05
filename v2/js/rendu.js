@@ -115,6 +115,8 @@
 
     var menu = el('div', 'feuille-menu');
     entreeMenu(menu, 'Refaire cette séance', { surClic: vue.surRefaire });
+    // §7 quindecies.4 (52-1) — la structure de cette séance, en routine.
+    if (vue.surEnFaireUneRoutine) entreeMenu(menu, 'En faire une routine', { surClic: vue.surEnFaireUneRoutine });
     entreeMenu(menu, 'Modifier', { surClic: vue.surModifier });
     cible.appendChild(menu);
 
@@ -222,6 +224,14 @@
       refaire.type = 'button';
       refaire.addEventListener('click', vue.surRefaire);
       gestes.appendChild(refaire);
+
+      // §7 quindecies.4 (52-1) — le même geste que le menu ⋯ de la carte.
+      if (vue.surEnFaireUneRoutine) {
+        var enRoutine = el('button', 'discret', 'En faire une routine');
+        enRoutine.type = 'button';
+        enRoutine.addEventListener('click', vue.surEnFaireUneRoutine);
+        gestes.appendChild(enRoutine);
+      }
 
       var modifier = el('button', 'discret', 'Modifier');
       modifier.type = 'button';
@@ -1806,7 +1816,17 @@
     var memeGabarit = gabarits.every(function (g) {
       return g.mesure === gabarits[0].mesure && (g.nature || null) === (gabarits[0].nature || null);
     });
-    if (memeGabarit) noeud.appendChild(enTetesColonnes(gabarits[0], vue.programme));
+    // §7 quindecies.3 (52-1) — dans l'éditeur, la colonne de charge dit ce
+    // qu'elle est : « DÉPART » sur un exercice jamais fait, absente sinon. Des
+    // exercices qui ne s'accordent pas là-dessus taisent l'en-tête, comme des
+    // mesures mélangées.
+    var charges = vue.programme && vue.chargeProgramme
+      ? bloc.exercices.map(function (x) { return vue.chargeProgramme(x.slug); }) : null;
+    var cleCharge = function (cp) { return cp ? (cp.depart ? 'depart' : 'coach') : ''; };
+    var memeCharge = !charges || charges.every(function (cp) { return cleCharge(cp) === cleCharge(charges[0]); });
+    if (memeGabarit && memeCharge) {
+      noeud.appendChild(enTetesColonnes(gabarits[0], vue.programme, charges && charges.length ? charges[0] : null));
+    }
 
     // §2.6 — l'éclairage porte sur le TOUR entier, pas sur une ligne isolée.
     // Dans un bloc d'un seul exercice, le tour n'a qu'une série : la règle
@@ -2002,6 +2022,10 @@
         // compteur, une fois, dans le constat — sans alarme.
         if (constat.escalier) entree.appendChild(el('div', 'constat-suite constat-escalier', constat.escalier));
       }
+      // §7 quindecies.3 (52-1) — DANS L'ÉDITEUR, CE QUE DEVIENT LA CHARGE, en
+      // gris : un point de départ la première fois, le coach seul ensuite.
+      var cpx = vue.programme && vue.chargeProgramme ? vue.chargeProgramme(x.slug) : null;
+      if (cpx) entree.appendChild(el('div', 'consigne-dit charge-programme', texteChargeProgramme(cpx)));
       var lib = constat ? null : (!vue.programme && vue.libelles ? vue.libelles(x.slug, x._iExo) : null);
       if (lib) {
         // §3.10 — TOUCHER LA CONSIGNE OUVRE LE CALCUL. Les lignes jaunes comme
@@ -2087,15 +2111,20 @@
   // la seconde ce qui vient d'être fait — deux observations, et une routine
   // n'observe rien. `EFFORT` tombe avec elles pour la même raison, et parce
   // que `routine_sets` n'a pas de colonne où le mettre.
-  function enTetesColonnes(g, programme) {
+  function enTetesColonnes(g, programme, chargeProgramme) {
     var champs = g.champs.map(function (n) { return M().champDeMesure(n); });
+    var cp = programme ? chargeProgramme : null;
+    var sansCharge = !!cp && !cp.depart;
     var entetes = el('div', 'cols-seance grille g-' + g.mesure +
-      (programme ? ' programme' : ''));
+      (programme ? ' programme' : '') + (sansCharge ? ' sans-charge' : ''));
     entetes.appendChild(el('span', '', ''));
     if (!programme) entetes.appendChild(el('span', 'droite', 'PRÉC.'));
     champs.forEach(function (c, i) {
+      if (sansCharge && g.champs[i] === 'charge_kg') return;
       // §9.17 — la nature de la charge nomme la colonne (« LEST (KG) », « AIDE (KG) »).
       var surcharge = g.entetes && g.entetes[g.champs[i]];
+      // §7 quindecies.3 (52-1) — la charge de départ, sur un exercice jamais fait.
+      if (!surcharge && cp && cp.depart && g.champs[i] === 'charge_kg') surcharge = 'DÉPART (KG)';
       entetes.appendChild(el('span', 'centre', surcharge || c.entete));
     });
     if (g.effort && !programme) entetes.appendChild(el('span', 'centre', 'EFFORT'));
@@ -2282,7 +2311,13 @@
     var iExo = s._iExo, iSerie = s._iSerie;
     var g = gabaritDe(vue, s.exercise_slug);
     var champs = g.champs.map(function (n) { return M().champDeMesure(n); });
-    var classeGrille = ' grille g-' + g.mesure + (vue.programme ? ' programme' : '');
+    // §7 quindecies.3 (52-1) — dans l'éditeur, un exercice DÉJÀ FAIT n'a plus
+    // de champ de charge : le coach décide d'après les séances, et la légende
+    // le dit. Rien n'est ignoré sans être dit.
+    var cp = vue.programme && vue.chargeProgramme ? vue.chargeProgramme(s.exercise_slug) : null;
+    var sansCharge = !!cp && !cp.depart;
+    var classeGrille = ' grille g-' + g.mesure + (vue.programme ? ' programme' : '') +
+      (sansCharge ? ' sans-charge' : '');
 
     // §2.6 — l'éclairage porte sur le TOUR, jamais sur la ligne isolée.
     //
@@ -2371,6 +2406,7 @@
     champs.forEach(function (c, iChamp) {
       var classe = (iChamp === 0 ? 'ch-serie' : 'rp-serie') + ' num';
       var nom = g.champs[iChamp];
+      if (sansCharge && nom === 'charge_kg') return;
       if (c.saisie === 'chrono') {
         rangee.appendChild(champChrono(classe, s[c.cle], f[c.cle],
           function (v) { vue.surChamp(iExo, iSerie, nom, v); }));
@@ -2837,6 +2873,14 @@
   // arrivent tout faits (`THSeance.plusTard`, `THSeance.freresProposes`,
   // « Dernière séance » de la page d'exercice). Elle écrit seulement leurs
   // phrases, avec le formateur de la page d'exercice (`texteMeilleure`).
+  // §7 quindecies.3 (52-1) — « Charge de départ » sur un exercice jamais fait ;
+  // sinon « le coach décide », avec la dernière fois (« Dernière séance »).
+  function texteChargeProgramme(cp) {
+    if (cp.depart) return 'Charge de départ : le coach part d\u2019ici la première fois, puis décide d\u2019après tes séances.';
+    var valeur = texteMeilleure(cp.fait);
+    return 'Charge : le coach décide d\u2019après tes séances' + (valeur ? ' (dernière fois : ' + valeur + ')' : '') + '.';
+  }
+
   function texteFaitFrere(fait) {
     if (!fait) return 'Première fois ici';
     var d = new Date(fait.date);
@@ -3110,6 +3154,231 @@
     return e.nom || '';
   }
 
+  // ══ ORGANISER SES ROUTINES (ECRAN-SAISIE §7 duodecies.3, §7 quindecies.4) ══
+  //
+  // ⚠️ CES FEUILLES NE DÉCIDENT RIEN. La structure vient de
+  // `THRoutines.routineDepuisSeance`, les écarts de `THSeance.ecartsRoutine`,
+  // le nom de `THRoutines.nomLibre` : ici, on ne pose que des mots sur ce qu'on
+  // reçoit. Les repos sont des valeurs par défaut et leur origine se dit.
+
+  function pluriel(n, mot) { return n + ' ' + mot + (n > 1 ? 's' : ''); }
+
+  // L'origine d'un repos, en français : « par défaut », ou la routine d'où il
+  // vient. Dans un superset, le repos est porté par le dernier exercice : les
+  // autres n'en disent rien.
+  function texteOrigine(o) {
+    if (!o || o === R().ORIGINE_SUPERSET) return '';
+    if (o === R().ORIGINE_DEFAUT) return 'par défaut';
+    return 'ta routine « ' + o + ' »';
+  }
+
+  // Ce qu'annonce une ligne d'aperçu : la structure (chauffes, séries,
+  // dégressives — ou la durée d'un cardio), puis le repos et son origine.
+  // `series` au vocabulaire de la saisie (`reps`) ou de la cible (`reps_visees`).
+  function resumeStructure(series, repos, origine) {
+    var ch = 0, deg = 0, travail = [], duree = null;
+    (series || []).forEach(function (x) {
+      var t = (x && x.type_serie) || 'travail';
+      if (t === 'echauffement') { ch++; return; }
+      if (t === 'degressive') { deg++; return; }
+      var r = x.reps !== undefined ? x.reps : x.reps_visees;
+      travail.push(r === undefined ? null : r);
+      var d = x.duree_s !== undefined ? x.duree_s : x.duree_cible_s;
+      if (duree === null && d !== null && d !== undefined) duree = Number(d);
+    });
+    var parts = [];
+    if (ch) parts.push(pluriel(ch, 'chauffe'));
+    if (travail.length) {
+      var memes = travail[0] !== null && travail.every(function (r) { return r === travail[0]; });
+      if (duree !== null && travail.length === 1) parts.push(Math.round(duree / 60) + ' min');
+      else parts.push(memes ? travail.length + ' \u00d7 ' + travail[0] : pluriel(travail.length, 'série'));
+    }
+    if (deg) parts.push(pluriel(deg, 'dégressive'));
+    if (repos !== null && repos !== undefined) {
+      var o = texteOrigine(origine);
+      parts.push('repos ' + mmss(repos) + (o ? ' (' + o + ')' : ''));
+    }
+    return parts.join(' \u00b7 ');
+  }
+
+  // L'écart `series` (« Mettre à jour » seulement) : « 4 → 5 séries (dont 1
+  // dégressive) », et les chauffes à part quand elles changent.
+  function texteChangementSeries(e) {
+    var a = e.avant || {}, b = e.apres || {};
+    var parts = [];
+    if (a.series !== b.series) {
+      parts.push(a.series + ' \u2192 ' + pluriel(b.series, 'série') +
+        (b.degressives ? ' (dont ' + pluriel(b.degressives, 'dégressive') + ')' : ''));
+    }
+    if (a.chauffes !== b.chauffes) parts.push(a.chauffes + ' \u2192 ' + pluriel(b.chauffes, 'chauffe'));
+    return parts.length ? parts.join(' \u00b7 ') : 'séries modifiées';
+  }
+
+  function ligneDApercu(liste, gauche, droite, classe) {
+    var r = el('div', 'apercu-ligne' + (classe ? ' ' + classe : ''));
+    r.appendChild(el('span', 'apercu-nom', gauche));
+    r.appendChild(el('span', 'apercu-texte', droite || ''));
+    liste.appendChild(r);
+  }
+
+  // « En faire une routine » : une nouvelle, ou mettre à jour une existante.
+  function rendreFeuilleEnFaireUneRoutine(cible, vue) {
+    vider(cible);
+    var t = el('div', 'feuille-t', 'En faire une routine');
+    if (vue.sujet) t.appendChild(el('em', '', vue.sujet));
+    cible.appendChild(t);
+    var menu = el('div', 'feuille-menu choix-en-routine');
+    choixMachinePrise(menu, 'Une nouvelle routine', 'À partir de cette séance', vue.surNouvelle);
+    if (vue.surMettreAJour) {
+      choixMachinePrise(menu, 'Mettre à jour une routine', 'Choisir laquelle, puis voir les changements',
+        vue.surMettreAJour);
+    }
+    entreeMenu(menu, 'Annuler', { surClic: vue.surAnnuler });
+    cible.appendChild(menu);
+    return cible;
+  }
+
+  // Le champ « Dossier » : un bouton qui ouvre le choix, partout le même.
+  function champDossier(dossier, surClic) {
+    var d = el('button', 'champ-dossier');
+    d.type = 'button';
+    d.appendChild(el('span', 'champ-dossier-k', 'Dossier'));
+    d.appendChild(el('span', 'champ-dossier-v', (dossier || 'Sans dossier') + ' \u25be'));
+    d.addEventListener('click', surClic);
+    return d;
+  }
+
+  // L'aperçu d'une routine neuve, avant « Créer la routine ». `lignes` :
+  // `[{ nom, series, repos, origine }]`, la structure telle qu'elle sera écrite.
+  function rendreApercuRoutine(cible, vue) {
+    vider(cible);
+    cible.appendChild(el('div', 'feuille-t', 'Nouvelle routine : aperçu'));
+    var champs = el('div', 'champs-fin');
+    champs.appendChild(champTexte('Nom', vue.nom, { max: R().NOM_MAX }, vue.surNom));
+    cible.appendChild(champs);
+    cible.appendChild(champDossier(vue.dossier, vue.surDossier));
+    var liste = el('div', 'apercu-routine');
+    (vue.lignes || []).forEach(function (l) {
+      ligneDApercu(liste, l.nom, resumeStructure(l.series, l.repos, l.origine));
+    });
+    cible.appendChild(liste);
+    cible.appendChild(el('p', 'feuille-aide',
+      'Les reps sont des repères de départ ; les charges, c\u2019est le coach qui les propose à chaque séance.'));
+    var err = el('p', 'erreur', vue.erreur || '');
+    err.setAttribute('role', 'alert');
+    cible.appendChild(err);
+    var menu = el('div', 'feuille-menu');
+    entreeMenu(menu, 'Créer la routine', { classe: 'accent-menu', surClic: vue.surCreer });
+    entreeMenu(menu, 'Annuler', { surClic: vue.surAnnuler });
+    cible.appendChild(menu);
+    return cible;
+  }
+
+  // Quelle routine mettre à jour : la bibliothèque, dans son ordre.
+  function rendreFeuilleChoixRoutine(cible, vue) {
+    vider(cible);
+    var t = el('div', 'feuille-t', 'Mettre à jour une routine');
+    if (vue.sujet) t.appendChild(el('em', '', vue.sujet));
+    cible.appendChild(t);
+    var menu = el('div', 'feuille-menu');
+    (vue.routines || []).forEach(function (r) {
+      entreeMenu(menu, r.nom, { surClic: function () { vue.surChoix(r.id); } });
+    });
+    entreeMenu(menu, 'Annuler', { surClic: vue.surAnnuler });
+    cible.appendChild(menu);
+    return cible;
+  }
+
+  // L'aperçu de « Mettre à jour » : les écarts de `ecartsRoutine` (§6.3),
+  // chacun avec ce qu'il change, et les exercices inchangés en une ligne.
+  // `ecarts` : ceux de `ecartsRoutine` avec `nom` et, pour un ajout, `series`,
+  // `repos`, `origine` ; `inchanges` : leurs noms.
+  function rendreFeuilleMajRoutine(cible, vue) {
+    vider(cible);
+    var t = el('div', 'feuille-t', 'Mettre à jour');
+    t.appendChild(el('em', '', '« ' + (vue.nom || '') + ' »'));
+    cible.appendChild(t);
+    var ecarts = vue.ecarts || [];
+    if (!ecarts.length) {
+      cible.appendChild(el('p', 'feuille-aide',
+        'Cette séance a déjà la structure de cette routine : rien à mettre à jour.'));
+      var m0 = el('div', 'feuille-menu');
+      entreeMenu(m0, 'Fermer', { surClic: vue.surAnnuler });
+      cible.appendChild(m0);
+      return cible;
+    }
+    var liste = el('div', 'apercu-routine');
+    ecarts.forEach(function (e) {
+      if (e.type === 'ajoute') ligneDApercu(liste, '+ ' + e.nom, resumeStructure(e.series, e.repos, e.origine), 'plus');
+      // Un tiret (pas le signe moins du formateur : ce n'est pas un nombre).
+      else if (e.type === 'retire') ligneDApercu(liste, '\u2013 ' + e.nom, 'retiré', 'moins');
+      else if (e.type === 'series') ligneDApercu(liste, e.nom, texteChangementSeries(e));
+      else ligneDApercu(liste, libelleEcart(e), '');
+    });
+    if ((vue.inchanges || []).length) {
+      ligneDApercu(liste, vue.inchanges.join(', '), vue.inchanges.length > 1 ? 'inchangés' : 'inchangé');
+    }
+    cible.appendChild(liste);
+    cible.appendChild(el('p', 'feuille-aide',
+      'Tes repos et tes notes restent ceux de ta routine. Aucune charge n\u2019est écrite.'));
+    var menu = el('div', 'feuille-menu');
+    entreeMenu(menu, 'Mettre à jour la routine', { classe: 'accent-menu', surClic: vue.surMettreAJour });
+    entreeMenu(menu, 'Annuler', { surClic: vue.surAnnuler });
+    cible.appendChild(menu);
+    return cible;
+  }
+
+  // Le dossier d'une routine : « Sans dossier », un dossier existant, ou un
+  // nouveau nom. Une étiquette, rien de plus (§7 duodecies.3).
+  function rendreFeuilleDossier(cible, vue) {
+    vider(cible);
+    var t = el('div', 'feuille-t', 'Dossier');
+    if (vue.sujet) t.appendChild(el('em', '', vue.sujet));
+    cible.appendChild(t);
+    var menu = el('div', 'feuille-menu');
+    var actuel = vue.actuel === undefined ? null : vue.actuel;
+    entreeMenu(menu, 'Sans dossier', { classe: actuel === null ? 'sel' : '',
+      surClic: function () { vue.surChoix(null); } });
+    (vue.dossiers || []).forEach(function (d) {
+      entreeMenu(menu, d, { classe: actuel === d ? 'sel' : '', surClic: function () { vue.surChoix(d); } });
+    });
+    cible.appendChild(menu);
+    var saisi = '';
+    var champs = el('div', 'champs-fin');
+    champs.appendChild(champTexte('Nouveau dossier', '',
+      { max: R().DOSSIER_MAX, placeholder: 'Programme force, Prise de masse…' }, function (v) { saisi = v; }));
+    cible.appendChild(champs);
+    var err = el('p', 'erreur', vue.erreur || '');
+    err.setAttribute('role', 'alert');
+    cible.appendChild(err);
+    var pied = el('div', 'feuille-menu');
+    entreeMenu(pied, 'Ranger dans ce nouveau dossier', { surClic: function () { vue.surNouveau(saisi); } });
+    entreeMenu(pied, 'Annuler', { surClic: vue.surAnnuler });
+    cible.appendChild(pied);
+    return cible;
+  }
+
+  // Dupliquer : une copie complète, dans le même dossier, sous un nom libre.
+  function rendreFeuilleDupliquer(cible, vue) {
+    vider(cible);
+    var t = el('div', 'feuille-t', 'Dupliquer');
+    if (vue.sujet) t.appendChild(el('em', '', vue.sujet));
+    cible.appendChild(t);
+    cible.appendChild(el('p', 'feuille-aide',
+      'Une copie complète, dans le même dossier, que tu modifies sans toucher à l\u2019originale.'));
+    var champs = el('div', 'champs-fin');
+    champs.appendChild(champTexte('Nom', vue.nom, { max: R().NOM_MAX }, vue.surNom));
+    cible.appendChild(champs);
+    var err = el('p', 'erreur', vue.erreur || '');
+    err.setAttribute('role', 'alert');
+    cible.appendChild(err);
+    var menu = el('div', 'feuille-menu');
+    entreeMenu(menu, 'Dupliquer', { classe: 'accent-menu', surClic: vue.surDupliquer });
+    entreeMenu(menu, 'Annuler', { surClic: vue.surAnnuler });
+    cible.appendChild(menu);
+    return cible;
+  }
+
   function rendreFeuilleFin(cible, vue) {
     vider(cible);
     var t = el('div', 'feuille-t', 'Terminer la séance');
@@ -3271,66 +3540,29 @@
       return;
     }
 
-    liste.forEach(function (r) {
-      var carte = el('button', 'routine');
-      carte.type = 'button';
-      carte.appendChild(el('div', 'routine-nom', r.nom));
-      // ⚠️ « 3 × 8 » A DISPARU AU CHANTIER 43, LES CHAUFFES AU 44
-      // (§7 septendecies.1). Depuis `v2_042_routine_sets` les lignes d'un
-      // exercice ne sont plus identiques, donc « 3 séries × 8 reps » ne veut
-      // plus rien dire. Le chantier 43 avait ajouté « + 5 de chauffe » pour
-      // lever une ambiguïté de compte : **le détail est inutile dans un
-      // résumé**, il se voit en ouvrant la routine.
-      //
-      // Reste ce qui se compare d'une routine à l'autre : les séries de
-      // TRAVAIL, comme partout ailleurs (`compteSeriesTravail`, règle du
-      // volume comprise).
-      var a = R().apercu(r.exercices, v.catalogue);
-      carte.appendChild(el('div', 'routine-meta',
-        a.nbExercices + ' exercice' + (a.nbExercices > 1 ? 's' : '') +
-        ' \u00b7 ' + a.nbSeries + ' série' + (a.nbSeries > 1 ? 's' : '')));
-      // §9.18 (51-1) — LA DURÉE ESTIMÉE, toujours « (estimation) » ; pendant
-      // une semaine allégée, sa durée allégée. Lue sur `vue.temps`, jamais
-      // calculée ici.
-      var temps = v.temps ? v.temps(r) : null;
-      if (temps && temps.texte) carte.appendChild(el('div', 'routine-duree', temps.texte));
-      carte.disabled = !!v.reorganiser;
-      carte.addEventListener('click', function () { if (!v.reorganiser && v.surChoix) v.surChoix(r.id); });
-
-      var rangee = el('div', 'routine-rangee' + (v.reorganiser ? ' reorg' : ''));
-      // ⚠️ L'IDENTIFIANT ENTRE DANS LE DOM (ch. 46). Il ne vivait que dans la
-      // fermeture du gestionnaire de clic ; un réordonnancement doit pouvoir
-      // relire l'ordre AFFICHÉ, donc les rangées portent leur clé.
-      rangee.setAttribute('data-cle', r.id);
-      if (v.reorganiser) rangee.appendChild(poignee());
-      rangee.appendChild(carte);
-      // Démarrer est l'action principale d'une routine ; la modifier est
-      // secondaire. Deux cibles distinctes plutôt qu'un menu : on part
-      // s'entraîner plus souvent qu'on ne remanie.
-      //
-      // ⚠️ MAIS PAS PENDANT QU'ON RANGE. En mode réorganisation, « Démarrer »
-      // est une sortie d'écran à un pouce de la poignée : le garder ferait
-      // partir une séance sur un geste raté. La carte, elle, cesse aussi
-      // d'ouvrir l'éditeur — pour la même raison.
-      if (!v.reorganiser) {
-        var actions = el('div', 'routine-actions');
-        var go = el('button', 'demarrer', 'Démarrer');
-        go.type = 'button';
-        go.addEventListener('click', function () { if (v.surDemarrer) v.surDemarrer(r.id); });
-        actions.appendChild(go);
-        // §9.18 (51-1) — « J'ai peu de temps », à côté de « Démarrer » ; absent
-        // pendant une semaine allégée, ou quand la routine tient déjà dans la
-        // plus courte des durées proposées.
-        if (temps && temps.peuDeTemps && v.surPeuDeTemps) {
-          var pt = el('button', 'peu-de-temps', 'J’ai peu de temps');
-          pt.type = 'button';
-          pt.addEventListener('click', function () { v.surPeuDeTemps(r.id); });
-          actions.appendChild(pt);
-        }
-        rangee.appendChild(actions);
-      }
-      cible.appendChild(rangee);
-    });
+    // §7 duodecies.3 (52-1) — LES DOSSIERS : la bibliothèque regroupée,
+    // chaque dossier repliable, « Sans dossier » en dernier. L'ordre dans un
+    // dossier est l'ordre global (`rang`). Pendant qu'on RANGE, la liste reste
+    // plate : « Ranger » ne change pas, et il range l'ordre global. Sans aucun
+    // dossier, rien ne change non plus — pas de « Sans dossier » seul en tête.
+    var groupes = v.reorganiser ? null : R().parDossier(routines);
+    if (groupes) {
+      groupes.forEach(function (g) {
+        var cle = g.dossier === null ? '' : g.dossier;
+        var replie = !!(v.replies && v.replies[cle]);
+        var tete = el('button', 'dossier-tete' + (replie ? ' replie' : ''));
+        tete.type = 'button';
+        tete.setAttribute('aria-expanded', replie ? 'false' : 'true');
+        tete.appendChild(el('span', 'dossier-nom',
+          (replie ? '\u25b8 ' : '\u25be ') + (g.dossier === null ? 'Sans dossier' : g.dossier)));
+        tete.appendChild(el('span', 'dossier-compte num', String(g.routines.length)));
+        tete.addEventListener('click', function () { if (v.surReplier) v.surReplier(cle); });
+        cible.appendChild(tete);
+        if (!replie) g.routines.forEach(function (r) { cible.appendChild(rangeeDeRoutine(r, v)); });
+      });
+    } else {
+      liste.forEach(function (r) { cible.appendChild(rangeeDeRoutine(r, v)); });
+    }
 
     // On entre par où on veut (ECRAN-SAISIE §1) : une séance vide se note
     // exercice par exercice.
@@ -3340,6 +3572,68 @@
       vide2.addEventListener('click', v.surSeanceVide);
       cible.appendChild(vide2);
     }
+  }
+
+  // Une routine de la bibliothèque : sa carte et ses actions.
+  function rangeeDeRoutine(r, v) {
+    var carte = el('button', 'routine');
+    carte.type = 'button';
+    carte.appendChild(el('div', 'routine-nom', r.nom));
+    // ⚠️ « 3 × 8 » A DISPARU AU CHANTIER 43, LES CHAUFFES AU 44
+    // (§7 septendecies.1). Depuis `v2_042_routine_sets` les lignes d'un
+    // exercice ne sont plus identiques, donc « 3 séries × 8 reps » ne veut
+    // plus rien dire. Le chantier 43 avait ajouté « + 5 de chauffe » pour
+    // lever une ambiguïté de compte : **le détail est inutile dans un
+    // résumé**, il se voit en ouvrant la routine.
+    //
+    // Reste ce qui se compare d'une routine à l'autre : les séries de
+    // TRAVAIL, comme partout ailleurs (`compteSeriesTravail`, règle du
+    // volume comprise).
+    var a = R().apercu(r.exercices, v.catalogue);
+    carte.appendChild(el('div', 'routine-meta',
+      a.nbExercices + ' exercice' + (a.nbExercices > 1 ? 's' : '') +
+      ' \u00b7 ' + a.nbSeries + ' série' + (a.nbSeries > 1 ? 's' : '')));
+    // §9.18 (51-1) — LA DURÉE ESTIMÉE, toujours « (estimation) » ; pendant
+    // une semaine allégée, sa durée allégée. Lue sur `vue.temps`, jamais
+    // calculée ici.
+    var temps = v.temps ? v.temps(r) : null;
+    if (temps && temps.texte) carte.appendChild(el('div', 'routine-duree', temps.texte));
+    carte.disabled = !!v.reorganiser;
+    carte.addEventListener('click', function () { if (!v.reorganiser && v.surChoix) v.surChoix(r.id); });
+
+    var rangee = el('div', 'routine-rangee' + (v.reorganiser ? ' reorg' : ''));
+    // ⚠️ L'IDENTIFIANT ENTRE DANS LE DOM (ch. 46). Il ne vivait que dans la
+    // fermeture du gestionnaire de clic ; un réordonnancement doit pouvoir
+    // relire l'ordre AFFICHÉ, donc les rangées portent leur clé.
+    rangee.setAttribute('data-cle', r.id);
+    if (v.reorganiser) rangee.appendChild(poignee());
+    rangee.appendChild(carte);
+    // Démarrer est l'action principale d'une routine ; la modifier est
+    // secondaire. Deux cibles distinctes plutôt qu'un menu : on part
+    // s'entraîner plus souvent qu'on ne remanie.
+    //
+    // ⚠️ MAIS PAS PENDANT QU'ON RANGE. En mode réorganisation, « Démarrer »
+    // est une sortie d'écran à un pouce de la poignée : le garder ferait
+    // partir une séance sur un geste raté. La carte, elle, cesse aussi
+    // d'ouvrir l'éditeur — pour la même raison.
+    if (!v.reorganiser) {
+      var actions = el('div', 'routine-actions');
+      var go = el('button', 'demarrer', 'Démarrer');
+      go.type = 'button';
+      go.addEventListener('click', function () { if (v.surDemarrer) v.surDemarrer(r.id); });
+      actions.appendChild(go);
+      // §9.18 (51-1) — « J'ai peu de temps », à côté de « Démarrer » ; absent
+      // pendant une semaine allégée, ou quand la routine tient déjà dans la
+      // plus courte des durées proposées.
+      if (temps && temps.peuDeTemps && v.surPeuDeTemps) {
+        var pt = el('button', 'peu-de-temps', 'J’ai peu de temps');
+        pt.type = 'button';
+        pt.addEventListener('click', function () { v.surPeuDeTemps(r.id); });
+        actions.appendChild(pt);
+      }
+      rangee.appendChild(actions);
+    }
+    return rangee;
   }
 
   // ⚠️ LE MENU D'UN EXERCICE DE ROUTINE — les cinq gestes du §7 duodecies.2, et
@@ -3746,6 +4040,16 @@
     rendreFeuilleTemps: rendreFeuilleTemps,
     rendreCarteRaccourci: rendreCarteRaccourci,
     rendreFeuilleSeance: rendreFeuilleSeance,
+    rendreFeuilleEnFaireUneRoutine: rendreFeuilleEnFaireUneRoutine,
+    rendreApercuRoutine: rendreApercuRoutine,
+    rendreFeuilleChoixRoutine: rendreFeuilleChoixRoutine,
+    rendreFeuilleMajRoutine: rendreFeuilleMajRoutine,
+    rendreFeuilleDossier: rendreFeuilleDossier,
+    rendreFeuilleDupliquer: rendreFeuilleDupliquer,
+    champDossier: champDossier,
+    resumeStructure: resumeStructure,
+    texteChangementSeries: texteChangementSeries,
+    texteChargeProgramme: texteChargeProgramme,
     rendreFeuillePourquoi: rendreFeuillePourquoi,
     rendreFeuilleZone: rendreFeuilleZone,
     rendreFeuilleBloc: rendreFeuilleBloc,

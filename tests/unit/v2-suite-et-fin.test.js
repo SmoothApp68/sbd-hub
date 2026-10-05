@@ -111,7 +111,9 @@ describe('PR 2 — la suite du constat suit la zone en vigueur', () => {
       cleConsignes: () => 'k', empreinteValidations: () => 'e', exerciceFini: () => true,
       seriesDeTravailDe: () => [], seancesDeLExercice: () => [],
       zoneDe: () => etat.zone, seancesSousConsigne: () => [],
-      periodesAllegees: () => etat.periodes, periodesSerieDePlusDe: () => [], enEdition: () => false
+      periodesAllegees: () => etat.periodes, periodesSerieDePlusDe: () => [], enEdition: () => false,
+      // 52-1 : la charge de départ de la routine (MOTEUR §9.21), lue par `optionsDeConsigne`.
+      chargeDeDepartDe: () => null
     };
     vm.createContext(ctx);
     ['optionsDeConsigne', 'suiteDe'].forEach((n) => vm.runInContext(extraire(n), ctx));

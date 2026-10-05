@@ -130,14 +130,17 @@
 
   <!-- L'éditeur. Une VUE avec son URL (/routine/<uuid>), pas un basculement :
        un rechargement direct la rouvre, et le retour d'Android remonte à la
-       bibliothèque. AUCUN champ de charge nulle part — la routine porte la
-       structure, le moteur décide du poids (ECRAN-SAISIE-V1 §1.1). -->
+       bibliothèque. La routine porte la structure, le coach décide du poids
+       (ECRAN-SAISIE-V1 §1.1) : la seule charge de l'éditeur est la CHARGE DE
+       DÉPART d'un exercice jamais fait (§7 quindecies.3, chantier 52). -->
   <section id="vue-routine" hidden>
     <header class="entete">
       <button id="btn-retour-routine" type="button" class="discret">← Routines</button>
       <div class="actions">
         <!-- §7 vicies.1 — même entrée que la bibliothèque, même mode. -->
         <button id="btn-ranger-routine" type="button" class="discret" hidden>Ranger</button>
+        <!-- §7 quindecies.4 (52-1) — une copie complète, par le chemin de création. -->
+        <button id="btn-dupliquer-routine" type="button" class="discret" hidden>Dupliquer</button>
         <button id="btn-supprimer-routine" type="button" class="discret danger" hidden>Supprimer</button>
       </div>
     </header>
@@ -145,28 +148,25 @@
       <label for="champ-nom-routine">Nom</label>
       <input id="champ-nom-routine" type="text" maxlength="60" autocomplete="off"
              enterkeyhint="done" placeholder="Push, Jambes, Haut du corps…">
+      <!-- §7 duodecies.3 (52-1) — le dossier, une étiquette. -->
+      <div id="dossier-routine"></div>
     </div>
     <div id="exos-routine"></div>
     <button id="btn-ajouter-exo" type="button" class="discret bloc-large">Ajouter un exercice</button>
-    <!-- ⚠️ CE TEXTE NE PROMET AUCUN MOTEUR (chantier 47). Il annonçait « le
-         moteur recalcule la cible séance après séance » quand `seance.js` écrit
-         en toutes lettres « Rien n'est prédit ici ; le moteur parlera au
-         chantier 5 ». Une surface qui promet un comportement que le code
-         déclare absent est un mensonge d'interface — et c'est celui-là qu'on
-         passe son temps à réparer ailleurs. Le moteur viendra ; la phrase
-         attendra.
-
-         ⚠️ ET ELLE DEVRA ÊTRE RÉÉCRITE AU CHANTIER DU MOTEUR (§3.1, ch. 49).
-         Elle est juste AUJOURD'HUI, et seulement aujourd'hui : dès que le
-         moteur parlera, la cible s'insérera au NIVEAU 2 de la cascade du
-         fantôme (§7 septendecies.3) — la séance proposera donc autre chose que
-         le passé, et « la séance ne te proposera que ce que tu as déjà fait »
-         deviendra faux à son tour. C'est le genre de phrase qui survit à la
-         décision qu'elle décrit : celle-ci est datée exprès. -->
+    <!-- ⚠️ CE TEXTE NE PROMET RIEN QUE LE CODE NE FASSE (chantier 47, réécrit
+         au chantier 52). Il annonçait « le moteur recalcule la cible séance
+         après séance » quand aucun moteur n'existait ; puis « la séance ne te
+         proposera que ce que tu as déjà fait », devenu faux dès que le coach a
+         pris le rang 2 de la cascade (§7 septendecies.3). Ce qui est vrai
+         aujourd'hui : les reps de la routine sont des repères que rien ne
+         réécrit dans la routine, le coach propose les siennes en séance, et
+         la charge est une CHARGE DE DÉPART, lue la première fois seulement
+         (§7 quindecies.3). -->
     <p id="note-routine" class="note">Une ligne par série, comme en séance. Les reps
-      visées sont un point de départ : rien ne les recalcule, et la séance ne te
-      proposera que ce que tu as déjà fait.
-      La charge est une cible facultative, jamais une prescription.</p>
+      visées sont des repères : rien ne les recalcule dans la routine, et en séance
+      le coach propose les siennes dès qu'il a tes séances.
+      La charge de départ ne sert que la première fois qu'un exercice est fait ;
+      ensuite, le coach décide d'après tes séances.</p>
     <p id="erreur-routine" class="erreur" role="alert" aria-live="polite"></p>
     <button id="btn-enregistrer-routine" type="button" class="principal">Enregistrer</button>
   </section>

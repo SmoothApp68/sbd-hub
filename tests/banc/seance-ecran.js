@@ -277,7 +277,19 @@ const CATALOGUE = [
   { slug: 'voisin-u53', nom: 'Voisin Mal U53', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: [], muscles_secondaires: [] },
   // 51-3 bis — un second exercice SANS palier tenu dans la zone suivante :
   // « Plus léger » y passe par le repli de la reprise longue (§9.9).
-  { slug: 'mal2-u53', nom: 'Douleur Deux U53 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: [], muscles_secondaires: [] }
+  { slug: 'mal2-u53', nom: 'Douleur Deux U53 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: [], muscles_secondaires: [] },
+  // 52-1 (ECRAN-SAISIE §7 duodecies.3, §7 quindecies.3-4 ; MOTEUR §9.21) —
+  // réservés à la section « organiser » : un cardio (sans muscle), un gros
+  // mouvement (3 muscles : un polyarticulaire), deux isolations en superset,
+  // un exercice que la mise à jour retire, et un exercice JAMAIS FAIT (la
+  // charge de départ). Des muscles inventés (`u52…`) : personne d'autre ne
+  // voit leur volume ; des noms qu'aucune autre recherche du banc ne trouve.
+  { slug: 'org-cardio-u52', nom: 'Cardio Rangé U52', mesure: 'distance_temps', charge: 'aucune', muscles_primaires: [], muscles_secondaires: [] },
+  { slug: 'org-poly-u52', nom: 'Gros Rangé U52 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['u52_quad'], muscles_secondaires: ['u52_fess', 'u52_isch'] },
+  { slug: 'org-isoa-u52', nom: 'Isolé Un Rangé U52', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['u52_bi'], muscles_secondaires: [] },
+  { slug: 'org-isob-u52', nom: 'Isolé Deux Rangé U52', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['u52_tri'], muscles_secondaires: [] },
+  { slug: 'org-retire-u52', nom: 'Retiré Rangé U52', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['u52_mol'], muscles_secondaires: [] },
+  { slug: 'org-neuf-u52', nom: 'Neuf Rangé U52 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['u52_dos'], muscles_secondaires: ['u52_bi2', 'u52_lomb'] }
 ];
 
 // ⚠️ UNE ROUTINE PORTE MAINTENANT SES LIGNES (chantier 43). `routine_sets`
@@ -465,7 +477,10 @@ const SETS_IMPORTES = [
     zones: [],
     modes: [],
     predictions: [],
-    journal: [], patchs: [], reseau: true
+    journal: [], patchs: [], reseau: true,
+    // 52-1 — l'identifiant d'une routine créée par l'app (« En faire une
+    // routine », « Dupliquer »).
+    graineRoutines: 0
   };
 
   // Le décor ne doit pas fausser les comptes des sections qui parlent de LA
@@ -1012,6 +1027,78 @@ const SETS_IMPORTES = [
       if (l.rang !== undefined && !(l.rang >= 0)) return 'routine_exos_rang_positif';
       return null;
     };
+
+    // ⚠️ 52-1 — LA BIBLIOTHÈQUE S'ÉCRIT AUSSI DEPUIS CE BANC : « En faire une
+    // routine » crée une routine depuis le détail d'une séance, « Dupliquer »
+    // en crée une depuis l'éditeur, et le dossier se met à jour. Le banc des
+    // routines connaît ces écritures ; celui-ci, non — sans ces gestionnaires,
+    // la création « réussissait » dans le `json([])` final sans rien écrire.
+    // Les contraintes sont celles de la base : `routines_nom_court`,
+    // `routines_dossier_ok` (v2_057), les deux index partiels d'unicité.
+    const checkRoutine = (l) => {
+      if (l.nom !== undefined) {
+        const n = String(l.nom === null ? '' : l.nom);
+        if (!(n.length >= 1 && n.length <= 60)) return 'routines_nom_court';
+        if (!n.trim()) return 'routines_nom_non_vide';
+      }
+      if (l.dossier !== undefined && l.dossier !== null) {
+        const d = String(l.dossier);
+        if (d !== d.trim() || d.length < 1 || d.length > 40) return 'routines_dossier_ok';
+      }
+      if (l.rang !== undefined && l.rang !== null && !(l.rang >= 0)) return 'routines_rang_positif';
+      return null;
+    };
+    const collisionRoutines = () => {
+      const noms = new Set(), rangs = new Set();
+      for (const r of ROUTINES) {
+        if (r.archivee_a) continue;
+        const n = String(r.nom || '').trim().toLowerCase();
+        if (noms.has(n)) return 'routines_user_nom_actif_uniq';
+        noms.add(n);
+        if (r.rang !== null && r.rang !== undefined) {
+          if (rangs.has(r.rang)) return 'routines_user_rang_uniq';
+          rangs.add(r.rang);
+        }
+      }
+      return null;
+    };
+    if (req.method() === 'POST' && table === 'routines') {
+      const l = Object.assign({}, Array.isArray(corps) ? corps[0] : corps);
+      base.patchs.push({ op: 'routine-insert', champs: Object.assign({}, l) });
+      const mal = checkRoutine(l);
+      if (mal) return json(refus('23514', mal), 400);
+      const maintenant = new Date().toISOString();
+      // Un UUID, comme la base : le routeur n'ouvre l'éditeur que sur lui.
+      const neuve = Object.assign({ id: '00000000-0000-4000-9052-' + String(++base.graineRoutines).padStart(12, '0'),
+        note: null, archivee_a: null,
+        rang: null, dossier: null, created_at: maintenant, modifiee_a: maintenant }, l, { routine_exercises: [] });
+      ROUTINES.push(neuve);
+      const c = collisionRoutines();
+      if (c) { ROUTINES.pop(); return json(refus('23505', c), 409); }
+      return json(projeter([neuve], url), 201);
+    }
+    if (req.method() === 'PATCH' && table === 'routines') {
+      const id = (url.searchParams.get('id') || '').replace('eq.', '');
+      const champs = Object.assign({}, Array.isArray(corps) ? corps[0] : corps);
+      base.patchs.push({ op: 'routine-maj', id: id, champs: champs });
+      const mal = checkRoutine(champs);
+      if (mal) return json(refus('23514', mal), 400);
+      const r = ROUTINES.filter((x) => x.id === id)[0];
+      if (!r) return json([]);
+      const avant = Object.assign({}, r);
+      Object.assign(r, champs);
+      const c = collisionRoutines();
+      if (c) { Object.assign(r, avant); return json(refus('23505', c), 409); }
+      return json(projeter([r], url));
+    }
+    if (req.method() === 'DELETE' && table === 'routines') {
+      const id = (url.searchParams.get('id') || '').replace('eq.', '');
+      base.patchs.push({ op: 'routine-supprimee', id: id });
+      const i = ROUTINES.findIndex((x) => x.id === id);
+      if (i >= 0) ROUTINES.splice(i, 1);
+      base.sessions.forEach((x) => { if (x.routine_id === id) x.routine_id = null; });
+      return json([]);
+    }
 
     if (req.method() === 'PATCH' && table === 'routine_exercises') {
       const id = (url.searchParams.get('id') || '').replace('eq.', '');
@@ -3680,8 +3767,9 @@ const SETS_IMPORTES = [
 
   // ── §7 octies.3 — REFAIRE ───────────────────────────────────────────────
   await aller('/seance/' + idGestes);
-  ok('la séance terminée porte enfin ses trois gestes',
-    (await compter('#vue-detail .detail-gestes button')) === 3 &&
+  // 52-1 (§7 quindecies.4) — « En faire une routine » s'ajoute aux trois gestes.
+  ok('la séance terminée porte enfin ses gestes (les trois, et « En faire une routine »)',
+    (await compter('#vue-detail .detail-gestes button')) === 4 &&
     /Refaire cette séance/.test(await texte('#vue-detail .detail-gestes')) &&
     !/Partager/.test(await texte('#vue-detail .detail-gestes')),
     (await texte('#vue-detail .detail-gestes')).replace(/\s+/g, ' '));
@@ -3915,9 +4003,10 @@ const SETS_IMPORTES = [
     await attendre(700);
   };
   await ouvrirMenuCarte();
-  ok('il propose les TROIS gestes du détail, et pas « Partager »',
+  // 52-1 (§7 quindecies.4) — et « En faire une routine », le même que le détail.
+  ok('il propose les gestes du détail, « En faire une routine » compris, et pas « Partager »',
     JSON.stringify(await entreesFeuille()) ===
-    JSON.stringify(['Refaire cette séance', 'Modifier', 'Supprimer']),
+    JSON.stringify(['Refaire cette séance', 'En faire une routine', 'Modifier', 'Supprimer']),
     JSON.stringify(await entreesFeuille()));
   ok('et on n’a pas quitté la liste pour autant',
     JSON.stringify(await visible()) === '["vue-liste"]', JSON.stringify(await visible()));
@@ -5469,8 +5558,8 @@ const SETS_IMPORTES = [
 
   // NON-RÉGRESSION DU CHANTIER 29 : une séance COMPLÈTE garde ses trois gestes.
   await aller('/seance/' + ID_MIXTE);
-  ok('[47] une séance complète, elle, garde ses trois gestes',
-    (await compter('#vue-detail .detail-gestes button')) === 3,
+  ok('[47] une séance complète, elle, garde ses gestes (les trois, et « En faire une routine », 52-1)',
+    (await compter('#vue-detail .detail-gestes button')) === 4,
     (await compter('#vue-detail .detail-gestes button')) + ' geste(s)');
 
   console.log('\n══ 47 bis. « ← SÉANCES » REMONTE, IL N’EMPILE PAS ══');
@@ -9885,6 +9974,16 @@ const SETS_IMPORTES = [
     const carte = await page.evaluate(() => Array.from(document.querySelectorAll('.apercu-exo'))
       .filter((l) => /Écrans U5/.test(l.textContent)).map((l) => (l.querySelector('.apercu-val') || {}).textContent)[0] || null);
     ok('[E] la carte de la séance aussi', ck(carte) !== null && ck(carte) === ck(derniereA), JSON.stringify([carte, derniereA]));
+    // 52-1 (§7 quindecies.3) — L'ÉDITEUR DE ROUTINE dit aussi « dernière fois »
+    // sous un exercice déjà fait : la fonction de la page, le même chiffre.
+    await aller('/saisie');
+    await page.evaluate(() => Array.from(document.querySelectorAll('.routine-rangee'))
+      .filter((r) => r.querySelector('.routine-nom').textContent === 'Écrans U5')[0].querySelector('.routine').click());
+    await attendre(900);
+    const editeurE = await texte('#exos-routine .charge-programme');
+    const dansEditeur = (/dernière fois : (.*)\)/.exec(sp(editeurE)) || [])[1];
+    ok('[E] 52-1 — l’éditeur de routine dit la même dernière fois que la page', ck(dansEditeur) !== null &&
+      ck(dansEditeur) === ck(derniereA), JSON.stringify([editeurE, derniereA]));
     // Le menu des zones, ouvert depuis la page SANS séance : la zone déduite
     // et sa raison (le menu la lisait sur la consigne de la séance, absente).
     await aller('/exercice/ecrans-u5');
@@ -11322,6 +11421,309 @@ const SETS_IMPORTES = [
       JSON.stringify(gardeBanc.liste.slice(-2)));
     await abandonner();
     ok('[D53] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
+    await aller('/saisie');
+    await attendre(500);
+  }
+
+  console.log('\n══ organiser. ORGANISER SES ROUTINES : DOSSIERS, EN FAIRE UNE ROUTINE, METTRE À JOUR, DUPLIQUER, LA CHARGE DE DÉPART (52-1) ══');
+  //
+  // ECRAN-SAISIE §7 duodecies.3 (le dossier, une étiquette), §7 quindecies.4
+  // (« En faire une routine » depuis une séance importée, « Mettre à jour une
+  // routine » par le chemin de §6.3, « Dupliquer »), §7 quindecies.3 et MOTEUR
+  // §9.21 (la charge de départ, la première fois seulement).
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : une séance IMPORTÉE (source `hevy`, sans
+  // `validee_a`) dont chaque série porte une charge — une routine qui en
+  // recopierait une se verrait en base ; un exercice qu'une routine règle déjà
+  // (son repos vient de là) ; un superset ; et un exercice JAMAIS FAIT qui
+  // porte une charge de départ, à côté d'un exercice déjà fait qui en porte
+  // une aussi (elle doit se taire).
+  {
+    const tO = Date.now();
+    // Des UUID : le routeur n'ouvre l'éditeur (`/routine/<id>`) et le détail
+    // (`/seance/<id>`) que sur un identifiant de la base.
+    const ID_UN = '00000000-0000-4000-8052-000000000001', ID_DEUX = '00000000-0000-4000-8052-000000000002';
+    const ID_TROIS = '00000000-0000-4000-8052-000000000003', ID_HEVY = '00000000-0000-4000-8052-000000000100';
+    const sp = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const ligneR = (rang, type, reps, charge) => ({ id: 'org-rs-' + (++grainePr), rang, type_serie: type,
+      reps_visees: reps, charge_cible_kg: charge === undefined ? null : charge, duree_cible_s: null, distance_cible_m: null });
+    ROUTINES.push({ id: ID_UN, nom: 'Rangée Un U52', note: null, archivee_a: null, rang: null, dossier: null,
+      created_at: '2026-09-01T10:00:00.000Z', modifiee_a: '2026-09-20T10:00:00.000Z',
+      routine_exercises: [
+        { id: 'r-org-un-a', routine_id: ID_UN, exercise_slug: 'org-poly-u52', rang: 0,
+          routine_sets: [ligneR(1, 'travail', 5), ligneR(2, 'travail', 5)], repos_cible_s: 200, groupe_superset: null, note: 'Talons' },
+        { id: 'r-org-un-b', routine_id: ID_UN, exercise_slug: 'org-isoa-u52', rang: 1,
+          routine_sets: [ligneR(1, 'travail', 12, 14)], repos_cible_s: 60, groupe_superset: null, note: null }] });
+    ROUTINES.push({ id: ID_DEUX, nom: 'Rangée Deux U52', note: null, archivee_a: null, rang: null, dossier: null,
+      created_at: '2026-09-01T10:00:00.000Z', modifiee_a: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [
+        { id: 'r-org-deux-a', routine_id: ID_DEUX, exercise_slug: 'org-poly-u52', rang: 0,
+          routine_sets: [ligneR(1, 'travail', 8), ligneR(2, 'travail', 8)], repos_cible_s: 150, groupe_superset: null, note: 'Note Deux' },
+        { id: 'r-org-deux-b', routine_id: ID_DEUX, exercise_slug: 'org-retire-u52', rang: 1,
+          routine_sets: [ligneR(1, 'travail', 15), ligneR(2, 'travail', 15), ligneR(3, 'travail', 15)], repos_cible_s: 60, groupe_superset: null, note: null }] });
+    ROUTINES.push({ id: ID_TROIS, nom: 'Rangée Trois U52', note: null, archivee_a: null, rang: null, dossier: null,
+      created_at: '2026-09-01T10:00:00.000Z', modifiee_a: '2026-08-01T10:00:00.000Z',
+      routine_exercises: [
+        { id: 'r-org-trois-a', routine_id: ID_TROIS, exercise_slug: 'org-neuf-u52', rang: 0,
+          routine_sets: [ligneR(1, 'travail', 10, 60), ligneR(2, 'travail', 10, 60), ligneR(3, 'travail', 10, 60)],
+          repos_cible_s: 120, groupe_superset: null, note: null },
+        { id: 'r-org-trois-b', routine_id: ID_TROIS, exercise_slug: 'org-poly-u52', rang: 1,
+          routine_sets: [ligneR(1, 'travail', 5, 50), ligneR(2, 'travail', 5, 50)], repos_cible_s: 180, groupe_superset: null, note: null }] });
+
+    // La séance importée de Hevy : un cardio, le gros mouvement (une chauffe,
+    // trois séries), un superset de deux isolations entrelacées. Chaque série
+    // porte une charge.
+    const debutO = ilYa(6 * 86400000, tO).toISOString();
+    base.sessions.push({ id: ID_HEVY, user_id: 'u-banc', titre: 'Import Rangé U52', debut: debutO,
+      fin: finDe(debutO, tO).toISOString(), statut: 'terminee', note: null, salle: null, salle_norme: null,
+      routine_id: null, source: 'hevy', created_at: debutO });
+    [['org-cardio-u52', 'travail', null, null, null, 540, 1000],
+     ['org-poly-u52', 'echauffement', 40, 8, null], ['org-poly-u52', 'travail', 77.5, 5, null],
+     ['org-poly-u52', 'travail', 77.5, 5, null], ['org-poly-u52', 'travail', 77.5, 5, null],
+     ['org-isoa-u52', 'travail', 20, 12, 1], ['org-isob-u52', 'travail', 25, 12, 1],
+     ['org-isoa-u52', 'echec', 20, 10, 1], ['org-isob-u52', 'travail', 25, 10, 1]
+    ].forEach(([slug, type, kg, reps, ss, duree, dist], i) => base.sets.push({ id: 'org-hevy-s' + (i + 1),
+      session_id: ID_HEVY, user_id: 'u-banc', exercise_slug: slug, charge_kg: kg, reps, duree_s: duree || null,
+      distance_m: dist || null, type_serie: type, rang: i + 1, groupe_superset: ss, validee_a: null, rpe: null,
+      ressenti: null, repos_s: null, note: null, source: 'hevy', created_at: debutO, modifie_a: null,
+      douleur: false, occurrence: null }));
+    const violationsAvant = gardeBanc.violations;
+    const routineEnBase = (nom) => ROUTINES.filter((r) => r.nom === nom)[0] || null;
+    const forme = (r) => r.routine_exercises.slice().sort((a, b) => a.rang - b.rang).map((e) => ({
+      slug: e.exercise_slug, repos: e.repos_cible_s, ss: e.groupe_superset, note: e.note,
+      series: (e.routine_sets || []).slice().sort((a, b) => a.rang - b.rang)
+        .map((x) => [x.type_serie, x.reps_visees, x.charge_cible_kg]) }));
+    const feuille = () => page.evaluate(() => {
+      const c = document.getElementById('feuille-contenu');
+      return { titre: (c.querySelector('.feuille-t') || {}).textContent || '',
+        lignes: Array.from(c.querySelectorAll('.apercu-ligne')).map((l) =>
+          [l.querySelector('.apercu-nom').textContent, l.querySelector('.apercu-texte').textContent]),
+        aide: Array.from(c.querySelectorAll('.feuille-aide')).map((n) => n.textContent),
+        choix: Array.from(c.querySelectorAll('.choix-mp .mp-titre')).map((n) => n.textContent),
+        boutons: Array.from(c.querySelectorAll('.feuille-menu button')).map((b) => b.textContent),
+        champs: Array.from(c.querySelectorAll('input')).map((i) => i.value),
+        dossier: (c.querySelector('.champ-dossier-v') || {}).textContent || '' };
+    });
+    const ouvrirEditeur = async (id) => { await aller('/routine/' + id); await attendre(600); };
+    const enregistrerEditeur = async () => { await page.click('#btn-enregistrer-routine'); await attendre(2200); };
+    const bibliotheque = () => page.evaluate(() => Array.from(document.querySelectorAll('#liste-routines > *')).map((n) =>
+      n.classList.contains('dossier-tete') ? 'T:' + n.textContent
+        : n.classList.contains('routine-rangee') ? 'R:' + n.querySelector('.routine-nom').textContent : null).filter(Boolean));
+
+    // ── A. LE DOSSIER : choisi dans l'éditeur, une étiquette.
+    await ouvrirEditeur(ID_UN);
+    const dossierEditeur = () => texte('#dossier-routine .champ-dossier-v');
+    ok('[O52] l’éditeur montre le dossier, « Sans dossier » par défaut', sp(await dossierEditeur()) === 'Sans dossier ▾',
+      await texte('#dossier-routine'));
+    await page.click('#dossier-routine .champ-dossier');
+    await attendre(500);
+    await page.fill('#feuille-contenu input', 'Bloc U52');
+    await entree('^Ranger dans ce nouveau dossier');
+    ok('[O52] le dossier choisi s’affiche, rien n’est encore écrit', sp(await dossierEditeur()) === 'Bloc U52 ▾' &&
+      routineEnBase('Rangée Un U52').dossier === null, await texte('#dossier-routine'));
+    const patchsA = base.patchs.length;
+    await enregistrerEditeur();
+    const ecritsA = base.patchs.slice(patchsA);
+    ok('[O52] DISCRIMINANT — « Enregistrer » écrit le dossier, et SEULEMENT le dossier (une écriture de la routine)',
+      routineEnBase('Rangée Un U52').dossier === 'Bloc U52' && ecritsA.length === 1 && ecritsA[0].op === 'routine-maj' &&
+        JSON.stringify(Object.keys(ecritsA[0].champs).sort()) === JSON.stringify(['dossier', 'modifiee_a']),
+      JSON.stringify(ecritsA));
+    await ouvrirEditeur(ID_DEUX);
+    await page.click('#dossier-routine .champ-dossier');
+    await attendre(500);
+    const fd = await feuille();
+    ok('[O52] le choix propose « Sans dossier » et les dossiers existants', JSON.stringify(fd.boutons.slice(0, 2)) ===
+      JSON.stringify(['Sans dossier', 'Bloc U52']), JSON.stringify(fd.boutons));
+    await entree('^Bloc U52$');
+    await enregistrerEditeur();
+    ok('[O52] un dossier existant se choisit d’un tap', routineEnBase('Rangée Deux U52').dossier === 'Bloc U52',
+      String(routineEnBase('Rangée Deux U52').dossier));
+    await aller('/saisie');
+    const b0 = await bibliotheque();
+    const iBloc = b0.indexOf('T:▾ Bloc U522');
+    // Dans le dossier, l'ordre global : sans rang, le nom départage (« Deux » avant « Un »).
+    ok('[O52] DISCRIMINANT — la bibliothèque regroupée : « Bloc U52 » avec ses deux routines, « Sans dossier » en dernier',
+      iBloc >= 0 && b0[iBloc + 1] === 'R:Rangée Deux U52' && b0[iBloc + 2] === 'R:Rangée Un U52' &&
+        /^T:▾ Sans dossier\d+$/.test(b0.filter((x) => /^T:/.test(x)).slice(-1)[0]) &&
+        b0.indexOf('R:Rangée Trois U52') > b0.indexOf(b0.filter((x) => /^T:▾ Sans dossier/.test(x))[0]),
+      JSON.stringify(b0));
+    await page.evaluate(() => Array.from(document.querySelectorAll('.dossier-tete'))
+      .filter((n) => /Bloc U52/.test(n.textContent))[0].click());
+    await attendre(500);
+    const b1 = await bibliotheque();
+    ok('[O52] un dossier se replie : sa tête reste, ses routines se cachent', b1.indexOf('T:▸ Bloc U522') >= 0 &&
+      b1.indexOf('R:Rangée Un U52') < 0, JSON.stringify(b1));
+    await page.evaluate(() => Array.from(document.querySelectorAll('.dossier-tete'))
+      .filter((n) => /Bloc U52/.test(n.textContent))[0].click());
+    await attendre(500);
+    ok('[O52] et se déplie', (await bibliotheque()).indexOf('R:Rangée Un U52') >= 0, '');
+
+    // ── B. EN FAIRE UNE ROUTINE, depuis la séance importée. Le gros mouvement
+    // est dans deux routines : son repos vient de la PLUS RÉCEMMENT MODIFIÉE —
+    // « Rangée Deux », rangée dans son dossier après « Rangée Un ».
+    await aller('/seance/' + ID_HEVY);
+    await page.evaluate(() => Array.from(document.querySelectorAll('.detail-gestes button'))
+      .filter((b) => b.textContent === 'En faire une routine')[0].click());
+    await attendre(800);
+    const fb0 = await feuille();
+    ok('[O52] « En faire une routine » : une nouvelle, ou mettre à jour une existante',
+      JSON.stringify(fb0.choix) === JSON.stringify(['Une nouvelle routine', 'Mettre à jour une routine']), JSON.stringify(fb0));
+    await entree('^Une nouvelle routine');
+    const fb = await feuille();
+    ok('[O52] DISCRIMINANT — l’aperçu : la structure, le repos et son origine, et AUCUNE charge',
+      sp(fb.titre) === 'Nouvelle routine : aperçu' && fb.champs[0] === 'Import Rangé U52' &&
+        JSON.stringify(fb.lignes.map((l) => [l[0], sp(l[1])])) === JSON.stringify([
+          ['Cardio Rangé U52', '9 min'],
+          ['Gros Rangé U52 (Barre)', '1 chauffe · 3 × 5 · repos 2:30 (ta routine « Rangée Deux U52 »)'],
+          ['Isolé Un Rangé U52', '2 séries'],
+          ['Isolé Deux Rangé U52', '2 séries · repos 1:30 (par défaut)']]) &&
+        !/kg/.test(JSON.stringify(fb.lignes)),
+      JSON.stringify(fb));
+    ok('[O52] l’aperçu dit que les reps sont des repères et que le coach propose les charges',
+      fb.aide.some((a) => /reps sont des repères de départ/.test(a) && /coach qui les propose/.test(a)), JSON.stringify(fb.aide));
+    await entree('^Créer la routine');
+    await attendre(1500);
+    const neuve = routineEnBase('Import Rangé U52');
+    ok('[O52] DISCRIMINANT — la routine créée : la structure de la séance, le superset entier, et aucune charge en base',
+      neuve && JSON.stringify(forme(neuve)) === JSON.stringify([
+        { slug: 'org-cardio-u52', repos: null, ss: null, note: null, series: [['travail', null, null]] },
+        { slug: 'org-poly-u52', repos: 150, ss: null, note: null,
+          series: [['echauffement', 8, null], ['travail', 5, null], ['travail', 5, null], ['travail', 5, null]] },
+        { slug: 'org-isoa-u52', repos: null, ss: 1, note: null, series: [['travail', 12, null], ['travail', 10, null]] },
+        { slug: 'org-isob-u52', repos: 90, ss: 1, note: null, series: [['travail', 12, null], ['travail', 10, null]] }]) &&
+        neuve.routine_exercises.every((e) => (e.routine_sets || []).every((x) => x.charge_cible_kg === null)),
+      JSON.stringify(neuve && forme(neuve)));
+    ok('[O52] la durée du cardio passe dans la routine (§7 quindecies.4)', neuve &&
+      neuve.routine_exercises.filter((e) => e.exercise_slug === 'org-cardio-u52')[0].routine_sets[0].duree_cible_s === 540,
+      JSON.stringify(neuve && neuve.routine_exercises[0]));
+    ok('[O52] la nouvelle routine s’ouvre dans l’éditeur', (await visible())[0] === 'vue-routine' &&
+      (await page.inputValue('#champ-nom-routine')) === 'Import Rangé U52', JSON.stringify(await visible()));
+
+    // ── C. METTRE À JOUR UNE ROUTINE, par le chemin de §6.3.
+    const avantDeux = JSON.stringify(forme(routineEnBase('Rangée Deux U52')));
+    await aller('/seance/' + ID_HEVY);
+    await page.evaluate(() => Array.from(document.querySelectorAll('.detail-gestes button'))
+      .filter((b) => b.textContent === 'En faire une routine')[0].click());
+    await attendre(800);
+    await entree('^Mettre à jour une routine');
+    await entree('^Rangée Deux U52$');
+    const fc = await feuille();
+    ok('[O52] DISCRIMINANT — l’aperçu de « Mettre à jour » : le retrait, les ajouts, les séries qui changent',
+      JSON.stringify(fc.lignes.map((l) => [sp(l[0]), sp(l[1])])) === JSON.stringify([
+        ['– Retiré Rangé U52', 'retiré'],
+        ['+ Cardio Rangé U52', '9 min'],
+        ['+ Isolé Un Rangé U52', '2 séries'],
+        // Son repos vient maintenant de la routine créée en B, la plus récemment modifiée qui le contient.
+        ['+ Isolé Deux Rangé U52', '2 séries · repos 1:30 (ta routine « Import Rangé U52 »)'],
+        ['Gros Rangé U52 (Barre)', '2 → 3 séries · 0 → 1 chauffe']]) &&
+        fc.aide.some((a) => /restent ceux de ta routine/.test(a) && /Aucune charge/.test(a)),
+      JSON.stringify(fc));
+    ok('[O52] rien n’est écrit avant l’accord', JSON.stringify(forme(routineEnBase('Rangée Deux U52'))) === avantDeux, '');
+    await entree('^Mettre à jour la routine');
+    await attendre(2500);
+    const deux = forme(routineEnBase('Rangée Deux U52'));
+    ok('[O52] DISCRIMINANT — la routine mise à jour PAR LA FILE : ses repos et sa note gardés, la structure de la séance, aucune charge',
+      JSON.stringify(deux) === JSON.stringify([
+        { slug: 'org-cardio-u52', repos: null, ss: null, note: null, series: [['travail', null, null]] },
+        { slug: 'org-poly-u52', repos: 150, ss: null, note: 'Note Deux',
+          series: [['echauffement', 8, null], ['travail', 5, null], ['travail', 5, null], ['travail', 5, null]] },
+        { slug: 'org-isoa-u52', repos: null, ss: 1, note: null, series: [['travail', 12, null], ['travail', 10, null]] },
+        { slug: 'org-isob-u52', repos: 90, ss: 1, note: null, series: [['travail', 12, null], ['travail', 10, null]] }]),
+      JSON.stringify(deux));
+    ok('[O52] la ligne retrouvée garde son identifiant (une mise à jour, pas une recréation)',
+      routineEnBase('Rangée Deux U52').routine_exercises.some((e) => e.id === 'r-org-deux-a'), '');
+    ok('[O52] la feuille le dit', sp((await feuille()).titre) === 'Routine mise à jour' + 'Rangée Deux U52', (await feuille()).titre);
+    await fermerFeuille();
+
+    // ── D. DUPLIQUER, depuis l'en-tête de l'éditeur.
+    const avantUn = JSON.stringify(forme(routineEnBase('Rangée Un U52')));
+    await ouvrirEditeur(ID_UN);
+    ok('[O52] « Dupliquer » est dans l’en-tête, à côté de « Ranger » et « Supprimer »',
+      await page.evaluate(() => !document.getElementById('btn-dupliquer-routine').hidden), '');
+    await page.click('#btn-dupliquer-routine');
+    await attendre(500);
+    const fdup = await feuille();
+    ok('[O52] la copie se nomme « … (copie) »', fdup.champs[0] === 'Rangée Un U52 (copie)' &&
+      fdup.aide.some((a) => /copie complète, dans le même dossier/.test(a)), JSON.stringify(fdup));
+    await entree('^Dupliquer$');
+    await attendre(2200);
+    const copie = routineEnBase('Rangée Un U52 (copie)');
+    ok('[O52] DISCRIMINANT — la copie complète : exercices, séries, repos, notes, charges de départ, dossier',
+      copie && copie.id !== ID_UN && copie.dossier === 'Bloc U52' && JSON.stringify(forme(copie)) === avantUn &&
+        copie.routine_exercises.every((e) => !/^r-org-un/.test(e.id)), JSON.stringify(copie && forme(copie)));
+    ok('[O52] DISCRIMINANT — l’originale est intacte, et garde son nom', JSON.stringify(forme(routineEnBase('Rangée Un U52'))) === avantUn &&
+      routineEnBase('Rangée Un U52').id === ID_UN, '');
+    ok('[O52] la copie s’ouvre dans l’éditeur', (await page.inputValue('#champ-nom-routine')) === 'Rangée Un U52 (copie)', '');
+    await page.click('#btn-dupliquer-routine');
+    await attendre(500);
+    ok('[O52] dupliquer la copie : un nom libre de plus, « (copie) (copie) »',
+      (await feuille()).champs[0] === 'Rangée Un U52 (copie) (copie)', JSON.stringify((await feuille()).champs));
+    await fermerFeuille();
+
+    // ── E. LA CHARGE DE DÉPART.
+    await ouvrirEditeur(ID_TROIS);
+    const ed = await page.evaluate(() => Array.from(document.querySelectorAll('#exos-routine .bloc-seance')).map((b) => ({
+      nom: (b.querySelector('.nom-exo, .lien-exo') || {}).textContent || '',
+      entetes: Array.from(b.querySelectorAll('.cols-seance span')).map((s) => s.textContent).filter(Boolean),
+      gris: (b.querySelector('.charge-programme') || {}).textContent || '',
+      champs: b.querySelector('.ligne-serie') ? b.querySelector('.ligne-serie').querySelectorAll('input').length : 0 })));
+    ok('[O52] DISCRIMINANT — l’éditeur : « DÉPART (KG) » et sa phrase sur l’exercice jamais fait',
+      ed[0] && JSON.stringify(ed[0].entetes) === JSON.stringify(['DÉPART (KG)', 'REPS']) && ed[0].champs === 2 &&
+        sp(ed[0].gris) === 'Charge de départ : le coach part d’ici la première fois, puis décide d’après tes séances.',
+      JSON.stringify(ed[0]));
+    ok('[O52] DISCRIMINANT — l’exercice déjà fait : plus de champ de charge, « le coach décide », et la dernière fois',
+      ed[1] && JSON.stringify(ed[1].entetes) === JSON.stringify(['REPS']) && ed[1].champs === 1 &&
+        sp(ed[1].gris) === 'Charge : le coach décide d’après tes séances (dernière fois : 77,5 kg × 5).',
+      JSON.stringify(ed[1]));
+    await aller('/saisie');
+    await demarrerRoutine('Rangée Trois U52');
+    await attendre(1500);
+    const planO = () => page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      return d.plan.exercices.map((x) => ({ slug: x.slug, etat: x.consigne ? x.consigne.etat : null,
+        ligne: x.consigne && x.consigne.ligne ? [x.consigne.ligne.charge, x.consigne.ligne.vise] : null,
+        prerempli: x.lignes.filter((l) => l.role !== 'hors').map((l) => l.prerempli && l.prerempli.charge_kg) }));
+    });
+    const legende = () => page.evaluate(() => Array.from(document.querySelectorAll('.bloc-seance')).map((b) => ({
+      jaune: Array.from(b.querySelectorAll('.consigne')).map((n) => n.textContent),
+      gris: (b.querySelector('.consigne-dit') || {}).textContent || '' })));
+    const p0 = await planO();
+    const l0 = await legende();
+    ok('[O52] DISCRIMINANT — la première fois : la consigne part de la charge de départ, aux reps de la routine',
+      p0[0].slug === 'org-neuf-u52' && p0[0].etat === 'depart_routine' && JSON.stringify(p0[0].ligne) === '[60,10]' &&
+        JSON.stringify(p0[0].prerempli) === '[60,60,60]', JSON.stringify(p0[0]));
+    ok('[O52] DISCRIMINANT — et le dit : « Première fois ici : on part de ta charge de départ, 60 kg. »',
+      sp(l0[0].jaune[0]) === '60 kg × 10' && sp(l0[0].gris) === 'Première fois ici : on part de ta charge de départ, 60 kg.',
+      JSON.stringify(l0[0]));
+    ok('[O52] DISCRIMINANT — l’exercice déjà fait : le coach seul, la charge de départ de la routine (50 kg) se tait',
+      p0[1].slug === 'org-poly-u52' && p0[1].etat !== 'depart_routine' && p0[1].prerempli.every((c) => c !== 50),
+      JSON.stringify(p0[1]));
+    // On fait la séance : trois séries au pré-rempli, puis on termine.
+    for (let k = 0; k < 3; k++) {
+      await page.evaluate((j) => document.querySelectorAll('.bloc-seance')[0]
+        .querySelectorAll('.ligne-serie')[j].querySelector('.ok-serie').click(), k);
+      await attendre(900);
+    }
+    const faites = base.sets.filter((x) => x.exercise_slug === 'org-neuf-u52');
+    ok('[O52] les séries validées portent la charge de départ (le pré-rempli s’écrit)', faites.length === 3 &&
+      faites.every((x) => x.charge_kg === 60 && x.reps === 10), JSON.stringify(faites.map((x) => [x.charge_kg, x.reps])));
+    await terminer();
+    await aller('/saisie');
+    await demarrerRoutine('Rangée Trois U52');
+    await attendre(1500);
+    const p1 = await planO();
+    const l1 = await legende();
+    ok('[O52] DISCRIMINANT — ensuite, l’historique existe : le coach décide seul, la charge de départ ne parle plus',
+      p1[0].etat !== 'depart_routine' && !/charge de départ/.test(l1[0].gris), JSON.stringify([p1[0], l1[0]]));
+    await abandonner();
+
+    ok('[O52] la garde de l’app n’a rien signalé dans cette section', gardeBanc.violations === violationsAvant,
+      JSON.stringify(gardeBanc.liste.slice(-2)));
+    ok('[O52] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
+    // Le décor rendu : plus de dossier, rien de replié — les sections suivantes
+    // lisent une bibliothèque plate.
+    ROUTINES.forEach((r) => { r.dossier = null; });
+    await page.evaluate(() => { try { localStorage.removeItem('th-v2-dossiers-replies'); } catch (e) { /* rien */ } });
     await aller('/saisie');
     await attendre(500);
   }

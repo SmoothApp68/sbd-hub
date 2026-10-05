@@ -178,10 +178,11 @@
   // depuis une routine arrive maintenant avec ses chauffes et ses dégressives
   // déjà en place.
   //
-  // ⚠️ LE TYPE ET LES REPS VISÉES, JAMAIS LA CHARGE (§7 quindecies.3). La
-  // routine dit la structure, le moteur dit les charges : `charge_cible_kg`
-  // existe en base mais ne descend pas ici — le fantôme propose déjà mieux, à
-  // partir de ce qui a réellement été fait la fois d'avant (chantier 38).
+  // ⚠️ LE TYPE ET LES REPS VISÉES ; LA CHARGE DE DÉPART SEULEMENT COMME
+  // INTENTION (§7 quindecies.3, chantier 52). La routine dit la structure, le
+  // moteur dit les charges : `charge_cible_kg` descend sur la ligne pour que
+  // le coach et le fantôme la LISENT, et elle ne sert que la première fois
+  // qu'un exercice est fait — ensuite, le coach décide seul.
   //
   // Une routine sans aucune ligne programmée donne une série vide plutôt qu'un
   // exercice sans rien : un exercice à zéro série ne se saisit pas.
@@ -197,12 +198,11 @@
       // rôle : ce qui était la case qu'on remplit devient la cible qu'on vise,
       // donc elle passe dans `reps_visees` et la case part vide.
       ligne.reps_visees = (!p || p.reps === undefined) ? null : p.reps;
-      // ⚠️ LA CHARGE CIBLE DESCEND, MAIS EN DERNIER (§7 septendecies.3).
-      // Question laissée ouverte au chantier 43, tranchée le 15/09 : le fantôme
-      // est une CASCADE, pas un arbitrage — ce qu'on vient de taper, puis la
-      // dernière séance, puis la cible programmée faute de mieux. Elle ne
-      // s'affiche donc que sur un exercice jamais fait, ou repris après des
-      // mois, et n'entre en concurrence avec rien.
+      // ⚠️ LA CHARGE DE DÉPART DESCEND, ET NE SERT QUE LA PREMIÈRE FOIS
+      // (§7 quindecies.3, chantier 52). Le fantôme est une CASCADE — ce qu'on
+      // vient de taper, le plan du coach, la dernière séance, puis la charge de
+      // départ, sur un exercice JAMAIS FAIT seulement (plus « faute de séance
+      // au même rang »). Le coach part d'elle la première fois (MOTEUR §9.21).
       ligne.charge_cible_kg = (!p || p.charge_kg === undefined) ? null : p.charge_kg;
       return ligne;
     });
@@ -1116,7 +1116,19 @@
   // amputerait la routine pour toujours ». Un exercice ajouté n'a pas de valeur
   // de référence — on prend son nombre de lignes, qui est ce qu'on a prévu de
   // faire, pas ce qu'on a eu le temps de faire.
-  function ecartsRoutine(seance, routine) {
+  //
+  // ⚠️ « METTRE À JOUR UNE ROUTINE » DEPUIS UNE SÉANCE PASSÉE (ECRAN-SAISIE
+  // §7 quindecies.4, chantier 52) PASSE ICI, PAS AILLEURS. `options.series` :
+  // la personne a CHOISI cette séance comme modèle et voit l'aperçu avant
+  // d'écrire — la raison du §6.3 (« une séance écourtée amputerait la
+  // routine ») ne tient plus. Une ligne dont la STRUCTURE a changé (le nombre
+  // ou le type de ses séries, dans l'ordre) prend celle de la séance, reps
+  // comprises comme repères, et l'écart `series` le dit ; une structure égale
+  // garde les lignes de la routine telles quelles, reps et charges de départ
+  // comprises. Un exercice ajouté garde ses lignes au lieu de lignes vides.
+  // Sans l'option — la question de fin de séance —, rien ne change.
+  function ecartsRoutine(seance, routine, options) {
+    var o = options || {};
     var vide = { ecarts: [], voulues: [] };
     if (!seance || !routine || !routine.id) return vide;
     if (seance.routine_id !== routine.id) return vide;
@@ -1126,8 +1138,14 @@
     var parId = {};
     lignes.forEach(function (e) { if (e && e.id) parId[e.id] = e; });
 
-    var voulues = (seance.exercices || []).map(function (exo) {
+    var changees = [];
+    var voulues = (seance.exercices || []).map(function (exo, iVoulue) {
       var ligne = (exo.routine_exercise_id && parId[exo.routine_exercise_id]) || null;
+      if (o.series) {
+        var deSeance = (exo.series || []).map(structureDeLigne);
+        var garder = ligne && formeDesSeries(ligne.series) === formeDesSeries(deSeance);
+        if (ligne && !garder) changees.push({ i: iVoulue, avant: ligne.series || [], apres: deSeance });
+      }
       return {
         id: ligne ? ligne.id : (exo.routine_exercise_id || null),
         exercise_slug: exo.exercise_slug,
@@ -1138,9 +1156,11 @@
         // pour un exercice AJOUTÉ en séance qui n'a pas de ligne de routine, on
         // le déduit de ce qui a été fait, types compris. Même forme qu'avant,
         // où l'entier était repris de la routine ou compté sur la séance.
-        series: ligne ? (ligne.series || []) : (exo.series || []).map(function (x) {
-          return { type_serie: (x && x.type_serie) || 'travail', reps: null };
-        }),
+        series: o.series
+          ? (garder ? (ligne.series || []) : deSeance)
+          : ligne ? (ligne.series || []) : (exo.series || []).map(function (x) {
+            return { type_serie: (x && x.type_serie) || 'travail', reps: null };
+          }),
         repos_cible_s: exo.repos_cible_s === undefined ? null : exo.repos_cible_s,
         note: texteOuNul(exo.note),
         groupe_superset: exo.groupe_superset === undefined ? null : exo.groupe_superset
@@ -1186,10 +1206,18 @@
         ecarts.push({ type: 'retire', exercise_slug: e.exercise_slug });
       }
     });
-    voulues.forEach(function (v) {
+    voulues.forEach(function (v, i) {
       if (!v.id || idsAvant.indexOf(v.id) < 0) {
-        ecarts.push({ type: 'ajoute', exercise_slug: v.exercise_slug });
+        // Avec `series`, l'aperçu a besoin de la ligne voulue (ses séries, son
+        // repos) : l'écart dit laquelle. La question de fin n'en a pas besoin.
+        ecarts.push(o.series ? { type: 'ajoute', exercise_slug: v.exercise_slug, i: i }
+          : { type: 'ajoute', exercise_slug: v.exercise_slug });
       }
+    });
+    // §7 quindecies.4 — la structure changée d'une ligne gardée (option `series`).
+    changees.forEach(function (c) {
+      ecarts.push({ type: 'series', exercise_slug: voulues[c.i].exercise_slug, i: c.i,
+                    avant: compteDesSeries(c.avant), apres: compteDesSeries(c.apres) });
     });
 
     var memeComposition = idsApres.length === voulues.length &&
@@ -1207,6 +1235,35 @@
     }
 
     return { ecarts: ecarts, voulues: voulues };
+  }
+
+  // La STRUCTURE d'une ligne, au vocabulaire de la saisie : son type et ses
+  // repères (reps, durée, distance). Jamais sa charge — « Mettre à jour »
+  // n'écrit aucune charge (§7 quindecies.4).
+  function structureDeLigne(x) {
+    return { type_serie: (x && x.type_serie) || 'travail',
+             reps: x && x.reps !== undefined ? x.reps : null,
+             charge_kg: null,
+             duree_s: x && x.duree_s !== undefined ? x.duree_s : null,
+             distance_m: x && x.distance_m !== undefined ? x.distance_m : null };
+  }
+
+  // La forme d'une suite de séries : leurs types, dans l'ordre. Les reps sont
+  // des repères — 8 programmées et 7 faites ne sont pas une autre structure.
+  function formeDesSeries(series) {
+    return (series || []).map(function (x) { return (x && x.type_serie) || 'travail'; }).join('|');
+  }
+
+  // Ce que l'aperçu dit d'une suite de séries : les séries (tout sauf les
+  // chauffes), dont les dégressives, et les chauffes à part.
+  function compteDesSeries(series) {
+    var c = { series: 0, chauffes: 0, degressives: 0 };
+    (series || []).forEach(function (x) {
+      var t = (x && x.type_serie) || 'travail';
+      if (t === 'echauffement') c.chauffes++;
+      else { c.series++; if (t === 'degressive') c.degressives++; }
+    });
+    return c;
   }
 
   // Les lignes de routine retirées par le raccourci, remises à leur place —
@@ -2250,7 +2307,8 @@
     //      si ça DÉVIE de ce que la ligne proposait (chantier 46, puis 48b)
     //   2. LE PLAN du moteur, là où il couvre la ligne (48b-5b-2)
     //   3. la dernière séance, même type, même rang (chantier 38)
-    //   4. `charge_cible_kg`, faute de mieux
+    //   4. `charge_cible_kg` — la charge de départ, sur un exercice JAMAIS FAIT
+    //      seulement (§7 quindecies.3, chantier 52)
     //
     // Le moteur se place AU-DESSUS de la dernière séance et EN DESSOUS de la
     // saisie : ce qu'on vient de taper reste souverain — « ta saisie fait
@@ -2264,7 +2322,10 @@
     // curl EZ du 01/10 reprenait les 15 kg de la fois d'avant là où le plan ne
     // plaçait pas la dégressive.
     if (charge === null && ligne && typeDe(propre) !== 'degressive') charge = ligne.charge_kg;
-    if ((charge === null || charge === undefined) && propre) {
+    // §7 quindecies.3 (52-1) — « jamais fait » : aucune séance de l'historique
+    // ne porte cet exercice (`prec` nul). Déjà fait, la charge de départ se tait,
+    // même sans séance au même rang : c'est le coach qui décide.
+    if ((charge === null || charge === undefined) && propre && !prec) {
       charge = propre.charge_cible_kg;
     }
 
@@ -2280,10 +2341,10 @@
     if (!aTaper && (reps === null || reps === undefined) && propre) reps = propre.reps_visees;
     if (!aTaper && (reps === null || reps === undefined) && ligne) reps = ligne.reps;
 
-    // La durée et la distance suivent la MÊME règle que la charge : ce qu'on
-    // vient de faire dans la séance, à défaut ce qu'on a fait au même rang la
-    // dernière fois. Aucune intention déclarée n'existe pour elles — la routine
-    // ne porte que `reps_visees`, jamais une durée visée.
+    // La durée et la distance : ce qu'on vient de faire dans la séance, à
+    // défaut ce qu'on a fait au même rang la dernière fois. La routine porte
+    // `duree_cible_s` et `distance_cible_m`, mais elles ne descendent pas en
+    // séance (`exerciceDepuisRoutine`) : seule l'estimation de durée les lit.
     var duree = derniereSaisie(exo, iSerie, 'duree_s', prec);
     if (duree === null && ligne) duree = ligne.duree_s;
     var distance = derniereSaisie(exo, iSerie, 'distance_m', prec);

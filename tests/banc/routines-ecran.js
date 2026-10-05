@@ -333,6 +333,12 @@ const CATALOGUE = [
       return null;
     };
     const nomBorne = (l) => {
+      // 52-1 — `routines_dossier_ok` (v2_057) : NULL, ou 1 à 40 caractères
+      // sans espace au bord. L'éditeur écrit le dossier par le même chemin.
+      if (l.dossier !== undefined && l.dossier !== null) {
+        const d = String(l.dossier);
+        if (d !== d.trim() || d.length < 1 || d.length > 40) return 'routines_dossier_ok';
+      }
       if (l.nom === undefined) return null;
       const t = String(l.nom === null ? '' : l.nom).trim();
       if (!t.length || t.length > 60) return 'routines_nom_court';
@@ -609,8 +615,10 @@ const CATALOGUE = [
       .map((x) => x.textContent));
   const kgVides = await page.evaluate(() =>
     Array.from(document.querySelectorAll('.ch-serie input')).every((i) => i.value === ''));
-  ok('la colonne KG est là, et vide — la routine ne prescrit aucune charge',
-    JSON.stringify(colsCreation) === '["","KG","REPS",""]' && kgVides,
+  // 52-1 (§7 quindecies.3) — sur un exercice jamais fait, la colonne dit ce
+  // qu'elle est : la CHARGE DE DÉPART, lue la première fois seulement.
+  ok('la colonne de la charge de départ est là, et vide — la routine ne prescrit aucune charge',
+    JSON.stringify(colsCreation) === '["","DÉPART (KG)","REPS",""]' && kgVides,
     JSON.stringify(colsCreation) + ' · toutes vides = ' + kgVides);
 
   console.log('\n══ 4. ENREGISTRER ══');
@@ -782,8 +790,8 @@ const CATALOGUE = [
   const colonnes = () => page.evaluate(() =>
     Array.from(document.querySelectorAll('.bloc-seance')[0].querySelectorAll('.cols-seance span'))
       .map((x) => x.textContent));
-  ok('[43] la ligne porte KG et REPS — sans `PRÉC.`, sans coche, sans effort',
-    JSON.stringify(await colonnes()) === '["","KG","REPS",""]' &&
+  ok('[43] la ligne porte la charge de départ et REPS — sans `PRÉC.`, sans coche, sans effort',
+    JSON.stringify(await colonnes()) === '["","DÉPART (KG)","REPS",""]' &&
     (await page.evaluate(() => document.querySelectorAll('.prec, .ok-serie, .eff-serie').length)) === 0,
     JSON.stringify(await colonnes()));
   const reposCarte = async (i) => (await exos())[i].repos;

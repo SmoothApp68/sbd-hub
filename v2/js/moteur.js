@@ -2124,6 +2124,13 @@
   function compteDe(v) { var n = Math.floor(Number(v)); return isFinite(n) && n > 0 ? n : 0; }
   function enDuree(e) { return !!e && (e.mesure === 'temps' || e.mesure === 'distance_temps'); }
   function aDesMuscles(e) { return musclesDe(e.prim).length + musclesDe(e.sec).length > 0; }
+  // UN POLYARTICULAIRE : au moins 3 muscles principaux et secondaires. Une
+  // définition, lue par la priorité du raccourci (§9.18) et par les repos par
+  // défaut d'« En faire une routine » (ECRAN-SAISIE §7 quindecies.4, 52-1) —
+  // `e` porte `prim` et `sec` (tableaux, ou chaînes « a/b »).
+  function estPolyarticulaire(e) {
+    return !!e && musclesDe(e.prim).length + musclesDe(e.sec).length >= MUSCLES_POLYARTICULAIRE;
+  }
   // Le premier critère qui diffère départage (priorité, puis séries, puis rang).
   function avantDans(a, b) {
     if (!b) return true;
@@ -2178,7 +2185,7 @@
     r.forEach(function (e, i) { if (premier < 0 && aDesMuscles(e)) premier = i; });
     var priorite = function (e, i) {
       if (i === premier) return PRIORITE_PREMIER;
-      return e.prim.length + e.sec.length >= MUSCLES_POLYARTICULAIRE ? PRIORITE_POLY : PRIORITE_ISOLATION;
+      return estPolyarticulaire(e) ? PRIORITE_POLY : PRIORITE_ISOLATION;
     };
     if (tient()) return fin();
 
@@ -2805,6 +2812,11 @@
       case 'depart_leste':
         return 'Première fois avec du lest' + DEUX_POINTS + 'on commence à ' +
                enKg(c.ligne.charge, cite(CIBLE, { role: 'ligne' })) + ', au bas de ta zone.';
+
+      // §9.21 (52-1) — la charge de départ de la routine, la première fois.
+      case 'depart_routine':
+        return 'Première fois ici' + DEUX_POINTS + 'on part de ta charge de départ, ' +
+               enKg(c.ligne.charge, cite(CIBLE, { role: 'ligne' })) + '.';
     }
     return '';
   }
@@ -3115,6 +3127,10 @@
       case 'depart_leste':
         return 'Première séance avec du lest' + DEUX_POINTS + 'on part de ' + enKg(c.ligne.charge, cL) +
                ', au bas de ta zone.';
+
+      case 'depart_routine':
+        return 'Rien avant aujourd\'hui' + DEUX_POINTS + 'on part de la charge de départ de ta routine, ' +
+               enKg(c.ligne.charge, cL) + '. Ensuite, le coach décide d\'après tes séances.';
 
       case 'reprise_courte':
         return 'Reprise après une pause' + DEUX_POINTS + 'ta charge de travail, sans rep de plus. ' +
@@ -4670,6 +4686,37 @@
     };
   }
 
+  // §9.21 (52-1) — LA CHARGE DE DÉPART, LA PREMIÈRE FOIS. Un exercice JAMAIS
+  // FAIT (« Première fois ici ») dont la routine porte une charge de départ
+  // (`routine_sets.charge_cible_kg`) : la consigne part de cette charge, aux
+  // reps de la routine. Ni zone, ni charge de travail, ni compteur : il n'y a
+  // pas d'histoire, et ce n'est ni un pari sur un palier ni une règle — c'est
+  // la seule donnée disponible. Dès la première série validée, l'historique
+  // existe, et la consigne suivante est celle du coach seul.
+  //
+  // `depart` : `{ charge, reps, n }`, lu par l'app sur la première série de
+  // travail de l'exercice (`charge_cible_kg`, `reps_visees`) et ses séries de
+  // travail. La charge en kg, sur un exercice en `charge_reps` seulement : le
+  // poids du corps a sa propre première fois (le départ lesté, §8.4).
+  function consigneDepartRoutine(depart) {
+    var charge = nombre(depart && depart.charge);
+    if (charge === null || charge <= 0) return null;
+    var vise = nombre(depart.reps);
+    var n = nombre(depart.n);
+    return {
+      etat: 'depart_routine', zone: null, palier: null, niveau: null,
+      n: n !== null && n >= 1 ? n : 1,
+      ligne: { charge: charge, vise: vise !== null && vise >= 1 ? vise : null }, haut: null,
+      fondement: { departRoutine: { charge: charge } }
+    };
+  }
+
+  function departDeRoutine(consigne, o) {
+    if (!consigne || consigne.etat !== 'silence' || consigne.raison !== 'premiere_fois') return null;
+    if (o.mesure !== 'charge_reps' || !o.depart) return null;
+    return consigneDepartRoutine(o.depart);
+  }
+
   // `o.libre` : une fonction que l'app fournit pour une version lestée —
   // `{ groupes, etat, options }`, les MÊMES entrées que la consigne de l'exercice
   // libre (comme `o.freres`) — ou `null`. Le départ n'existe que pour la toute
@@ -4732,6 +4779,9 @@
     // fois ici ».
     var depart = departDuLeste(consigne, o, avant);
     if (depart !== null) consigne = depart;
+    // §9.21 (52-1) — la charge de départ de la routine, la toute première fois.
+    var departRoutine = departDeRoutine(consigne, o);
+    if (departRoutine !== null) consigne = departRoutine;
     var rejeu = rejeuDuCompteur(seances, groupes, avant, o);
     var marquees = rejeu.marquees;
     var compteur = compteurFige(rejeu.complet);
@@ -5131,6 +5181,9 @@
     dureeEstimee: dureeEstimee,
     raccourcirRoutine: raccourcirRoutine,
     structureDeRoutine: structureDeRoutine,
+    estPolyarticulaire: estPolyarticulaire,
+    consigneDepartRoutine: consigneDepartRoutine,
+    aDesMuscles: aDesMuscles,
     structureAllegee: structureAllegee,
     appliquerRaccourci: appliquerRaccourci,
     texteDureeEstimee: texteDureeEstimee,

@@ -1825,6 +1825,10 @@
         // MOTEUR §9.17 (50-1) — la carte du lest passe AVANT toute autre : elle est
         // la seule question du coach quand elle se pose (une seule, en tête de
         // l'exercice), et le plan ne la pose jamais avec une carte de schéma.
+        // §9.20 — la carte de reprise d'abord : elle ne se pose qu'après une
+        // séance douloureuse, et c'est elle qui décide comment l'exercice reprend.
+        var pr = typeof vue.propositionReprise === 'function' ? vue.propositionReprise(s._iExo) : null;
+        if (pr) noeud.appendChild(propositionDeReprise(pr, s._iExo, vue));
         var pl = typeof vue.propositionLest === 'function' ? vue.propositionLest(s._iExo) : null;
         if (pl) noeud.appendChild(propositionDeLest(pl, s._iExo, vue));
         var ps = typeof vue.propositionSchema === 'function' ? vue.propositionSchema(s._iExo) : null;
@@ -2178,6 +2182,19 @@
     n.appendChild(el('div', 'pc-texte', p.texte));
     if (p.detail) n.appendChild(el('div', 'pc-detail', p.detail));
     var gestes = el('div', 'pc-gestes');
+    // §9.20 — la carte de reprise a TROIS choix : la même carte, une liste de
+    // gestes au lieu de la paire oui / non.
+    if (p.gestes) {
+      gestes.classList.add('pc-choix');
+      p.gestes.forEach(function (g, k) {
+        var b = el('button', (k === 0 ? 'pc-ajouter' : 'pc-refuser') + (g.classe ? ' ' + g.classe : ''), g.texte);
+        b.type = 'button';
+        b.addEventListener('click', function () { g.surClic(); });
+        gestes.appendChild(b);
+      });
+      n.appendChild(gestes);
+      return n;
+    }
     var oui = el('button', 'pc-ajouter' + (p.classeOui ? ' ' + p.classeOui : ''), p.oui);
     oui.type = 'button';
     oui.addEventListener('click', function () { p.surOui(); });
@@ -2188,6 +2205,18 @@
     gestes.appendChild(non);
     n.appendChild(gestes);
     return n;
+  }
+
+  // MOTEUR §9.20 (51-3) — LA CARTE DE REPRISE après une séance douloureuse :
+  // le titre, la phrase et les choix viennent du plan (`x.carteReprise`), sans
+  // question. Le MÊME composant que les autres propositions d'exercice.
+  function propositionDeReprise(carte, iExo, vue) {
+    return propositionDExercice({
+      classe: 'proposition-reprise', texte: carte.titre, detail: carte.phrase,
+      gestes: (carte.choix || []).map(function (q) {
+        return { texte: q.texte, classe: 'pr-' + q.cle, surClic: function () { vue.surReprise(iExo, q.cle); } };
+      })
+    }, iExo);
   }
 
   // MOTEUR §9.15.2 (49-U10) — « Chauffe : 20 kg × 10 · 60 kg × 6 … », avec
@@ -2749,6 +2778,8 @@
       // §9.19 — « Machine prise » en tête : c'est le geste du moment où l'on
       // ouvre ce menu en pleine séance.
       if (vue.surMachinePrise) entreeMenu(menu, 'Machine prise', { surClic: vue.surMachinePrise });
+      // §9.20 — « J'ai mal », juste après : les deux gestes « adapter ».
+      if (vue.surJaiMal) entreeMenu(menu, 'J’ai mal', { surClic: vue.surJaiMal });
       entreeMenu(menu, 'Remplacer l’exercice', { surClic: vue.surRemplacer });
     }
     entreeMenu(menu, 'Grouper en superset…', {
@@ -2784,6 +2815,7 @@
 
     var menu = el('div', 'feuille-menu');
     if (vue.surMachinePrise) entreeMenu(menu, 'Machine prise', { surClic: vue.surMachinePrise });
+    if (vue.surJaiMal) entreeMenu(menu, 'J’ai mal', { surClic: vue.surJaiMal });
     entreeMenu(menu, 'Remplacer l’exercice', { surClic: vue.surRemplacer });
     // §5.8 — sortir agit sur UN exercice, jamais sur le bloc entier, et il se
     // pose JUSTE APRÈS son bloc d'origine : il ne remonte pas en fin de séance.
@@ -2825,7 +2857,7 @@
 
   function rendreFeuilleMachinePrise(cible, vue) {
     vider(cible);
-    var t = el('div', 'feuille-t', 'Machine prise');
+    var t = el('div', 'feuille-t', vue.titre || 'Machine prise');
     t.appendChild(el('em', '', vue.nom));
     cible.appendChild(t);
 
@@ -2847,6 +2879,31 @@
       entreeMenu(freres, 'Remplacer l’exercice', { surClic: vue.surCatalogue });
     }
     cible.appendChild(freres);
+    return cible;
+  }
+
+  // ── « J'AI MAL » (MOTEUR §9.20, chantier 51) ─────────────────────────────
+  //
+  // La feuille ne décide rien : ses phrases viennent du moteur (la voix du
+  // coach, `feuilleDouleur`) ; la marque est déjà posée quand elle s'ouvre.
+  // Jamais de diagnostic, de localisation ni de conseil médical : une seule
+  // phrase de sécurité, telle quelle, en bas.
+  function rendreFeuilleDouleur(cible, vue) {
+    vider(cible);
+    var f = vue.textes;
+    cible.appendChild(el('div', 'feuille-t', f.titre));
+    cible.appendChild(el('p', 'feuille-aide douleur-phrase', f.phrase));
+    var menu = el('div', 'feuille-menu machine-prise');
+    f.choix.forEach(function (q) {
+      var b = el('button', 'choix-mp douleur-' + q.cle);
+      b.type = 'button';
+      b.appendChild(el('span', 'mp-titre', q.texte));
+      if (q.sous) b.appendChild(el('span', 'mp-sous', q.sous));
+      b.addEventListener('click', function () { vue.surChoix(q.cle); });
+      menu.appendChild(b);
+    });
+    cible.appendChild(menu);
+    cible.appendChild(el('p', 'feuille-aide douleur-securite', f.securite));
     return cible;
   }
 
@@ -3694,6 +3751,8 @@
     rendreFeuilleBloc: rendreFeuilleBloc,
     rendreFeuilleExercice: rendreFeuilleExercice,
     rendreFeuilleMachinePrise: rendreFeuilleMachinePrise,
+    rendreFeuilleDouleur: rendreFeuilleDouleur,
+    propositionDeReprise: propositionDeReprise,
     texteFaitFrere: texteFaitFrere,
     rendreFeuilleSupprimer: rendreFeuilleSupprimer,
     phraseEffacement: phraseEffacement,

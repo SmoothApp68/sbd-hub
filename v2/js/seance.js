@@ -79,7 +79,11 @@
   var COLONNES_SET = [
     'id', 'session_id', 'user_id', 'exercise_slug', 'source', 'type_serie',
     'charge_kg', 'reps', 'duree_s', 'distance_m', 'rpe', 'ressenti', 'note',
-    'groupe_superset', 'validee_a', 'rang', 'repos_s'
+    'groupe_superset', 'validee_a', 'rang', 'repos_s',
+    // §9.20 (51-3, migration `v2_056`) — la marque « douleur » de la série, et
+    // l'occurrence de son exercice dans la séance (uuid ; NULL pour une ligne
+    // importée ou d'avant la colonne).
+    'douleur', 'occurrence'
   ];
   // Lues, jamais écrites : le serveur les pose lui-même.
   var COLONNES_SET_EN_PLUS = ['created_at', 'modifie_a'];
@@ -234,7 +238,12 @@
         var notes = exo.series.map(function (s) { return texteOuNul(s.note); });
         var commune = notes.length && notes.every(function (n) { return n === notes[0]; })
           ? notes[0] : null;
-        acc.push({
+        // §9.20 — l'occurrence et la marque relues de la base (une séance
+        // reprise), jamais recopiées dans une séance refaite : c'est une autre
+        // séance.
+        var occ = o.vider ? null : uuidDOccurrence(exo.series.length ? exo.series[0].occurrence : null);
+        var marque = !o.vider && exo.series.some(function (l) { return l.douleur === true; });
+        acc.push(Object.assign({
           exercise_slug: exo.slug,
           // `sets` ne porte pas la ligne de routine : une séance reprise ou
           // refaite n'en dépend plus, et c'est juste — elle a pu diverger.
@@ -278,7 +287,7 @@
               repos_s: ligne.repos_s === undefined ? null : ligne.repos_s
             };
           })
-        });
+        }, occ ? { occurrence: 'o-' + occ } : {}, marque ? { douleur: true } : {}));
       });
       return acc;
     }, []);
@@ -1524,9 +1533,57 @@
           groupe_superset: p.exo.groupe_superset === undefined ? null : p.exo.groupe_superset,
           validee_a: p.serie.validee_a,
           rang: rangs[i],
-          repos_s: p.serie.repos_s
+          repos_s: p.serie.repos_s,
+          // §9.20 — la marque de l'OCCURRENCE, sur chacune de ses séries (déjà
+          // validées et à venir) : une donnée de la série, la charge et les reps
+          // ne changent pas. Toujours envoyée : `false` efface une marque.
+          douleur: occurrenceDouloureuse(p.exo),
+          occurrence: uuidDOccurrence(p.exo.occurrence)
         };
       });
+  }
+
+  // §9.20 (51-3) — L'OCCURRENCE EST-ELLE MARQUÉE « DOULEUR » ? La marque est
+  // posée sur l'occurrence (`marquerDouleur`) ; une occurrence relue depuis la
+  // base la tient de ses séries. La seule lecture de la marque en séance : le
+  // plan (I33), l'envoi et l'écran passent par elle.
+  function occurrenceDouloureuse(exo) {
+    if (!exo) return false;
+    if (exo.douleur === true) return true;
+    return (exo.series || []).some(function (s) { return !!s && s.douleur === true; });
+  }
+
+  // « J'ai mal » (§9.20) : l'occurrence `iExo` porte la marque, pour la séance.
+  // Ses séries déjà validées la reçoivent aussi (elles repartent en base par la
+  // file, comme une série corrigée) ; leurs charges et leurs reps ne changent pas.
+  function marquerDouleur(seance, iExo) {
+    var exos = (seance.exercices || []).slice();
+    var exo = exos[iExo];
+    if (!exo || exo.douleur === true) return seance;
+    exos[iExo] = Object.assign({}, exo, { douleur: true,
+      series: (exo.series || []).map(function (sr) { return Object.assign({}, sr, { douleur: true }); }) });
+    return avecExercices(seance, exos);
+  }
+
+  // La carte de reprise (§9.20) : le choix fait dans CETTE séance, par
+  // exercice — « avant », ou « leger » avec le repli figé au choix. Il vit dans
+  // le brouillon (la séance n'a pas de colonne pour lui) ; « Sans coach cette
+  // fois » n'est pas un choix rangé ici : c'est la marque (`marquerDouleur`).
+  function choisirReprise(seance, slug, choix) {
+    var r = {};
+    Object.keys(seance.reprises || {}).forEach(function (k) { r[k] = seance.reprises[k]; });
+    r[slug] = choix;
+    return Object.assign({}, seance, { reprises: r });
+  }
+
+  // L'identifiant d'occurrence de l'app est `o-<uuid>` (l'identifiant de sa
+  // première série) ; la colonne `sets.occurrence` est un uuid. On écrit le
+  // uuid, et NULL pour une occurrence qui n'en porte pas (un exercice posé sans
+  // série) : la relecture retombe alors sur le regroupement par voisinage.
+  var UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  function uuidDOccurrence(occurrence) {
+    var o = typeof occurrence === 'string' ? occurrence.replace(/^o-/, '') : '';
+    return UUID.test(o) ? o : null;
   }
 
   // ⚠️ LA DÉCLARATION NE DOIT PAS POUVOIR ÊTRE CONTOURNÉE (chantier 34).
@@ -2412,6 +2469,10 @@
     grouperBlocs: grouperBlocs,
     degrouperExercice: degrouperExercice,
     plusTard: plusTard,
+    occurrenceDouloureuse: occurrenceDouloureuse,
+    marquerDouleur: marquerDouleur,
+    choisirReprise: choisirReprise,
+    uuidDOccurrence: uuidDOccurrence,
     freresProposes: freresProposes,
     remplacerExercice: remplacerExercice,
     insererExercice: insererExercice,

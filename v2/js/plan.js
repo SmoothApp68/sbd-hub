@@ -1032,7 +1032,21 @@
         // coach, ni pari, ni message (elles comptent pour le volume et
         // l'historique, comme d'habitude). Et chacune ne lit que SES paris.
         var coachee = Seance().occurrenceCoachee(seance, slug, e.paris || []) === i;
-        var c = coachee && Object.prototype.hasOwnProperty.call(consignes, slug) ? consignes[slug] : null;
+        // §9.20 (51-3) — « J'AI MAL » : une occurrence marquée est SANS COACH
+        // pour la séance, comme en Entretenir (I33) — ni ligne du coach, ni
+        // pari, ni message pour ses lignes restantes. Les paris déjà écrits
+        // restent en base ; le plan n'en écrit plus.
+        var douloureuse = Seance().occurrenceDouloureuse(exo);
+        var c = coachee && !douloureuse && Object.prototype.hasOwnProperty.call(consignes, slug) ? consignes[slug] : null;
+        // §9.20 — LA REPRISE CHOISIE dans cette séance (`seance.reprises`, le
+        // brouillon) : « Plus léger, plus de reps » applique le REPLI figé au
+        // choix (§14.5, `consigneRepli`), sur la consigne de la zone corrigée.
+        // Aucune autre charge.
+        var choixReprise = seance.reprises && Object.prototype.hasOwnProperty.call(seance.reprises, slug)
+          ? seance.reprises[slug] : null;
+        if (c && c.consigne && choixReprise && choixReprise.choix === 'leger' && choixReprise.repli) {
+          c = Object.assign({}, c, { consigne: Moteur().consigneRepli(c.consigne, choixReprise.repli) });
+        }
         var suites = e.suites || {};
         var suite = Object.prototype.hasOwnProperty.call(suites, slug) ? suites[slug] : null;
         var m = coachee && Object.prototype.hasOwnProperty.call(isoles, slug) ? isoles[slug] : null;
@@ -1060,6 +1074,25 @@
         // exercices au haut en même temps ne posent pas deux fois la même
         // question — le second tient sa ligne jusqu'à la réponse, qui est celle
         // du profil. Jamais pendant une semaine allégée (rien ne monte, I19).
+        // §9.20 — la marque, et la carte de reprise : UNE, en tête de
+        // l'exercice coaché, quand sa dernière séance porte la marque (la
+        // consigne le dit, `c.reprise`) et tant qu'aucun choix n'est fait dans
+        // cette séance. Jamais en Édition.
+        x.douleur = douloureuse;
+        x.carteReprise = null;
+        if (c && c.reprise && c.reprise.douleur === true && !choixReprise && !seance.edition && x.consigne) {
+          var M3 = Moteur(), V3 = Voix();
+          var nomR = cat && cat.nom ? cat.nom : slug;
+          // « Comme avant » cite la ligne du jour : elle se vérifie comme toute
+          // phrase du coach (I26). « Plus léger » est le libellé d'un CHOIX —
+          // sa ligne n'est pas celle du jour tant qu'on ne l'a pas choisie ;
+          // une fois choisie, I22 et I35 vérifient la charge du repli.
+          var capAv = V3.capturer(function () { return M3.texteRepriseAvant(x.consigne); });
+          var textesR = M3.carteRepriseTextes(nomR, x.consigne, c.reprise);
+          x.carteReprise = { titre: textesR.titre, phrase: textesR.phrase, choix: textesR.choix,
+                             zone: c.reprise.zone, repli: c.reprise.repli || null };
+          x.phrases.push({ ou: 'reprise.avant', texte: capAv.texte, citations: capAv.citations });
+        }
         x.carteLest = null;
         var kl = x.consigne;
         var fl = kl && kl.fondement ? kl.fondement.carteLest : null;
@@ -1983,6 +2016,46 @@
     return raisons;
   }
 
+  // I33 À I35 (MOTEUR §9.20, 51-3) — « J'AI MAL ».
+  //   I33  une occurrence marquée « douleur » : aucune ligne du coach, aucun
+  //        pari, aucun message pour ses lignes restantes ;
+  //   I34  une consigne ne lit jamais une séance-exercice marquée pour sa
+  //        charge : ni la séance qui fonde la ligne (`fondement.date`), ni
+  //        celle d'un repli ;
+  //   I35  la carte de reprise n'apparaît que si la dernière séance de
+  //        l'exercice porte la marque, et n'a pas de point d'interrogation ;
+  //        « Plus léger, plus de reps » ne pose que la charge du repli.
+  function verifierDouleur(plan, entrees, erreurs) {
+    if (!plan) return;
+    var consignes = (entrees && entrees.consignes) || {};
+    var reprises = (entrees && entrees.seance && entrees.seance.reprises) || {};
+    (plan.exercices || []).forEach(function (x) {
+      var nom = 'exercice ' + x.iExo + ' (' + x.slug + ')';
+      var err = function (inv, texte) { erreurs.push(inv + ' — ' + nom + ' : ' + texte); };
+      if (x.douleur) sansCoach(x).forEach(function (r) { err('I33', 'occurrence marquée « douleur » : ' + r); });
+      var c = x.slug && Object.prototype.hasOwnProperty.call(consignes, x.slug) ? consignes[x.slug] : null;
+      var marquees = (c && c.douleurs) || [];
+      var k = x.consigne;
+      if (k && marquees.length) {
+        var f = k.fondement || {};
+        if (f.date && marquees.indexOf(f.date) >= 0) err('I34', 'la charge se fonde sur une séance marquée (' + f.date + ')');
+        if (k.repli && marquees.indexOf(k.repli.debut) >= 0) err('I34', 'le repli lit une séance marquée (' + k.repli.debut + ')');
+      }
+      if (x.carteReprise) {
+        var rp = c && c.reprise;
+        if (!rp || rp.douleur !== true || marquees.indexOf(rp.derniere) < 0) {
+          err('I35', 'une carte de reprise sans dernière séance marquée');
+        }
+        var textes = [x.carteReprise.titre, x.carteReprise.phrase].concat((x.carteReprise.choix || []).map(function (q) { return q.texte; }));
+        if (textes.some(function (t) { return /\?/.test(String(t)); })) err('I35', 'la carte de reprise pose une question');
+      }
+      var r = Object.prototype.hasOwnProperty.call(reprises, x.slug) ? reprises[x.slug] : null;
+      if (k && r && r.choix === 'leger' && r.repli && !memeCharge(k.ligne && k.ligne.charge, r.repli.ligne[0])) {
+        err('I35', '« Plus léger » pose ' + (k.ligne && k.ligne.charge) + ', le repli est à ' + r.repli.ligne[0]);
+      }
+    });
+  }
+
   // I32 (MOTEUR §9.18, 51-1) — UNE SÉANCE RACCOURCIE GARDE CHAQUE MUSCLE, SON
   // PREMIER EXERCICE ET SES CHARGES. Sur `entrees.raccourci` (`complet`, la
   // structure de la routine ; `raccourcie`, celle de la carte acceptée) :
@@ -2580,6 +2653,7 @@
     verifierMarches(plan, erreurs);
     verifierPoidsDuCorps(plan, erreurs);
     if (entrees && entrees.raccourci) verifierRaccourci(plan, entrees, erreurs);
+    verifierDouleur(plan, entrees, erreurs);
     // Prérequis d'« adapter » — LES PARIS D'UNE OCCURRENCE, et seulement d'elle
     // (I7) : la seconde occurrence d'un exercice ne doit pas se voir reprocher
     // les paris de la première.

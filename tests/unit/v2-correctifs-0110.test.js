@@ -331,9 +331,10 @@ describe('49-U18 — la cible du constat : un seul calcul (« le coach ne fait q
 
 describe('50-1 — la version', () => {
   // 5 depuis 49-U18 ; 6 depuis 50-1 (MOTEUR §9.17 : le poids du corps suit la
-  // consigne des charges, la charge valant 0 — une règle de la consigne change).
-  test('VERSION_CONSIGNE vaut 6', () => {
-    expect(M.VERSION_CONSIGNE).toBe(6);
+  // consigne des charges, la charge valant 0 — une règle de la consigne change) ;
+  // 7 depuis 51-3 (MOTEUR §9.20 : une séance marquée « douleur » est neutre).
+  test('VERSION_CONSIGNE vaut 7', () => {
+    expect(M.VERSION_CONSIGNE).toBe(7);
   });
 });
 

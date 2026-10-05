@@ -1042,6 +1042,12 @@ button.puce-zone{font:inherit;font-size:11px;font-weight:600;cursor:pointer;
   color:var(--texte-3)}
 .feuille-menu.machine-prise + .feuille-menu.machine-prise{margin-top:var(--e2)}
 
+/* §9.20 — « J'ai mal » : la phrase de sécurité, factuelle, sous les choix ;
+   la carte de reprise a trois choix, empilés (un pouce, une ligne). */
+.douleur-securite{padding-top:var(--e2)}
+.pc-gestes.pc-choix{flex-direction:column;align-items:stretch}
+.pc-gestes.pc-choix button{width:100%;text-align:left}
+
 /* Un champ de texte libre : note d'exercice, note de série, titre, salle. */
 .champ-texte{display:block;padding-bottom:var(--e2)}
 .champ-texte span{display:block;font-size:9px;font-weight:600;color:#525862;

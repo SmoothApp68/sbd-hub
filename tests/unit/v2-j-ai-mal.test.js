@@ -124,32 +124,44 @@ describe('51-3 — la zone suivante en reps et la condition de la carte', () => 
   // 120 kg — le cas ne porte pas de paris, donc pas de compteur rejoué.
   const MEILLEUR = { palier: 120, niveau: 5 };
 
-  test('la reprise, figée avec la consigne : la zone suivante et le repli (§14.5) dans cette zone', () => {
+  // 53-1 (MOTEUR §9.10) — « PLUS LÉGER » EST UN CHANGEMENT DE ZONE : la charge
+  // se REPORTE, par la même fonction que la correction à l'étiquette — la plus
+  // basse de la charge déjà tenue dans la zone suivante (90 jours) et de
+  // l'estimation, au bas de la zone. Avant 53-1 : le repli de §14.5 (110 × 6
+  // ici, avec un meilleur), sinon celui de la reprise longue (115 × 6, sans).
+  test('la reprise, figée avec la consigne : la zone suivante et le REPORT (§9.10) vers cette zone', () => {
     const c = CAS.neutralite.find((x) => x.id === 'N01');
     const se = M.sansPalierRetenues(contrat(c), {});
     const k = M.consignePour(se, c.avant, {});
     const r = M.reprisePour(se, c.avant, k, MEILLEUR);
     expect([r.douleur, r.zone, r.derniere]).toEqual([true, 'mix', c.seances[c.seances.length - 1].debut]);
-    // Le repli : le dernier palier TENU dans la zone suivante, sous le meilleur
-    // et à 10 % au plus — la fonction de l'escalier, telle quelle.
-    expect(r.repli).toEqual(M.repliEscalier(se, c.avant, MEILLEUR, 'mix'));
-    expect(r.repli.ligne).toEqual([110, 6]);
-    expect(r.repli.palier).toBeLessThan(MEILLEUR.palier);
-    expect(r.repli.palier).toBeGreaterThanOrEqual(MEILLEUR.palier * 0.9);
+    // 110 kg × 6, déjà tenu en Mix : plus bas que l'estimation depuis 120 × 5.
+    expect(r.repli).toEqual({ source: 'report', palier: 120, ligne: [110, 6] });
   });
 
-  // 51-3 bis (D3) — « PLUS LÉGER » TOUJOURS PROPOSÉ : sans repli de §14.5, le
-  // repli de la reprise longue (§9.9), par SES fonctions.
-  test('⚠️ DISCRIMINANT — sans meilleur (aucun compteur) : « Plus léger » par le repli de la reprise longue', () => {
+  test('⚠️ DISCRIMINANT — sans meilleur (aucun compteur) : le même report, le compteur n’y entre pas', () => {
     const c = CAS.neutralite.find((x) => x.id === 'N01');
     const se = M.sansPalierRetenues(contrat(c), {});
     const k = M.consignePour(se, c.avant, {});
     const r = M.reprisePour(se, c.avant, k, null);
-    // Le cran en dessous de 120 : 115, déjà fait le 23/12 (`chargeVoisine`),
-    // plafonné à 10 % (`repliDeReprise`) — la règle de §9.9, appelée telle quelle.
-    expect(r.repli).toEqual({ source: 'reprise_longue', palier: 120, ligne: [M.repliDeReprise(120, 115), 6] });
+    // Avant 53-1 : 115 × 6, le cran en dessous de la reprise longue.
+    expect(r.repli).toEqual({ source: 'report', palier: 120, ligne: [110, 6] });
     expect(M.repliDeReprise(120, 115)).toBe(115);
     expect(M.repliDeReprise(120, 100)).toBe(120);
+  });
+
+  // 51-3 bis (D3) — « PLUS LÉGER » TOUJOURS PROPOSÉ : sans report (un lest, ici),
+  // les replis d'avant — celui de §14.5, sinon celui de la reprise longue (§9.9),
+  // par LEURS fonctions.
+  test('⚠️ DISCRIMINANT — sans report (un lest) : le repli de §14.5, sinon celui de la reprise longue', () => {
+    const c = CAS.neutralite.find((x) => x.id === 'N01');
+    const se = M.sansPalierRetenues(contrat(c), { equipement: 'lest' });
+    const k = M.consignePour(se, c.avant, { equipement: 'lest' });
+    const avec = M.reprisePour(se, c.avant, k, MEILLEUR, { equipement: 'lest' });
+    expect(avec.repli).toEqual(M.repliEscalier(se, c.avant, MEILLEUR, 'mix'));
+    expect(avec.repli.ligne).toEqual([110, 6]);
+    const sans = M.reprisePour(se, c.avant, k, null, { equipement: 'lest' });
+    expect(sans.repli).toEqual({ source: 'reprise_longue', palier: 120, ligne: [M.repliDeReprise(120, 115), 6] });
   });
 
   test('« Plus léger » est TOUJOURS proposé : les 4 cas réels, avec ou sans meilleur', () => {
@@ -209,13 +221,15 @@ describe('51-3 — la zone suivante en reps et la condition de la carte', () => 
     expect(M.reprisePour(se2, c.avant, null, MEILLEUR)).toBe(null);
   });
 
-  test('⚠️ DISCRIMINANT — sans palier tenu dans la zone suivante (N02) : le repli de la reprise longue, trois choix', () => {
+  // 53-1 — sans charge tenue en Mix, le report part de l'ESTIMATION depuis
+  // 120 × 4, au cran inférieur : 112,5 × 6 (avant 53-1 : 115 × 6, la reprise longue).
+  test('⚠️ DISCRIMINANT — sans palier tenu dans la zone suivante (N02) : le report estimé, trois choix', () => {
     const c = CAS.neutralite.find((x) => x.id === 'N02');
     const se = M.sansPalierRetenues(contrat(c), {});
     const k = M.consignePour(se, c.avant, {});
     const r = M.reprisePour(se, c.avant, k, { palier: 120, niveau: 5 });
     expect(M.repliEscalier(se, c.avant, { palier: 120, niveau: 5 }, 'mix')).toBe(null);
-    expect([r.repli.source, r.repli.ligne]).toEqual(['reprise_longue', [115, 6]]);
+    expect([r.repli.source, r.repli.ligne]).toEqual(['report', [112.5, 6]]);
     expect(M.carteRepriseTextes('Développé Couché (Barre)', k, r).choix.map((q) => q.cle)).toEqual(['avant', 'leger', 'sans']);
   });
 });

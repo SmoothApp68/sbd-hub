@@ -857,7 +857,7 @@
   function vueDeSeance(se) {
     var series = (se && se.series) || [];
     var neutre = !!se && se.neutre === true;
-    return {
+    var vue = {
       debut: se && se.debut,
       palier: se && se.palier,
       neutre: neutre,
@@ -868,6 +868,10 @@
       retenues: neutre ? [] : parRole(series, ROLES_RETENUS),
       votantes: neutre ? [] : parRole(series, ROLES_VOTANTS)
     };
+    // §9.10 (53-1) — la FIN de la séance, quand on la connaît : la zone choisie
+    // pendant une séance est celle de la séance (`zoneDeLaDerniere`).
+    if (se && se.fin) vue.fin = se.fin;
+    return vue;
   }
 
   // Le test d'une séance : la plus lourde exploration, ses séries, leur niveau.
@@ -2055,9 +2059,11 @@
   // l'aide, le départ lesté — MOTEUR §9.17). Les paris d'un exercice en `reps`
   // n'existaient pas avant : seule la version dit qu'ils viennent de cette règle.
   // 7 depuis 51-3 (une séance marquée « douleur » est neutre, déclarée — MOTEUR
-  // §9.20 : la neutralité change une entrée de la consigne).
+  // §9.20 : la neutralité change une entrée de la consigne). 8 depuis 53-1 (la
+  // charge se reporte au changement de zone — MOTEUR §9.10, l'état
+  // `nouvelle_zone`).
   var MODULE_CONSIGNE = 'moteur.consigne';
-  var VERSION_CONSIGNE = 7;
+  var VERSION_CONSIGNE = 8;
 
   // ⚠️ LU TARDIVEMENT, SANS REPLI, comme `THPalier`. `modele.js` charge avant
   // `moteur.js` (index.html 325 puis 329), mais un repli « si THModele manque,
@@ -2395,7 +2401,8 @@
   }
 
   // LA REPRISE, figée avec la consigne : `null` sans carte. Sinon la zone
-  // suivante, et le repli de §14.5 calculé pour elle — `repliEscalier`, la
+  // suivante, et (53-1) LE REPORT vers elle (§9.10) — à défaut, le repli de
+  // §14.5 calculé pour elle — `repliEscalier`, la
   // même fonction que l'escalier, contre le MÊME meilleur (celui du compteur) :
   // le dernier palier TENU dans cette zone, strictement sous le meilleur et à
   // 10 % au plus sous lui. I22 le vérifie comme tout repli. Pas de repli (ou
@@ -2413,8 +2420,16 @@
     if (!consigne || consigne.etat === 'silence' || !consigne.ligne || nombre(consigne.palier) === null) return null;
     var zone = zonePlusDeReps(consigne.zone);
     if (zone === null) return null;
-    var repli = meilleur ? repliEscalier(seances, avant, meilleur, zone) : null;
-    if (!repli) repli = repliDeLaRepriseLongue(seances, avant, consigne, zone, (options || {}).equipement);
+    var equipement = (options || {}).equipement;
+    // §9.10 (53-1) — « PLUS LÉGER » EST UN CHANGEMENT DE ZONE : la charge se
+    // reporte, par la même fonction que la correction à l'étiquette. Sans
+    // report (un corps, une aide, un lest, ou séries longues qui restent), les
+    // replis d'avant : celui de §14.5, sinon celui de la reprise longue.
+    var report = reportSur(seances, avant, consigne.zone, zone, equipement);
+    var repli = report === null ? null
+      : { source: 'report', palier: nombre(consigne.palier), ligne: [report.charge, report.visee] };
+    if (!repli && meilleur) repli = repliEscalier(seances, avant, meilleur, zone);
+    if (!repli) repli = repliDeLaRepriseLongue(seances, avant, consigne, zone, equipement);
     return { douleur: true, zone: zone, derniere: anterieuresSe[anterieuresSe.length - 1].debut, repli: repli };
   }
 
@@ -2435,11 +2450,12 @@
   }
 
   // « PLUS LÉGER, PLUS DE REPS », appliqué à la consigne de la séance : par le
-  // repli de §14.5 (`consigneRepli`, qu'I22 vérifie), ou par celui de la
-  // reprise longue — sa ligne, sans ligne haute. Le plan n'appelle qu'elle.
+  // repli de §14.5 (`consigneRepli`, qu'I22 vérifie), ou par le report (§9.10,
+  // 53-1) ou le repli de la reprise longue — leur ligne, sans ligne haute. Le
+  // plan n'appelle qu'elle.
   function consignePlusLegere(consigne, repli) {
     if (!consigne || !repli) return consigne;
-    if (repli.source !== 'reprise_longue') return consigneRepli(consigne, repli);
+    if (repli.source !== 'reprise_longue' && repli.source !== 'report') return consigneRepli(consigne, repli);
     return Object.assign({}, consigne, { ligne: { charge: repli.ligne[0], vise: repli.ligne[1] }, haut: null,
       plusLegere: { source: repli.source, palier: repli.palier } });
   }
@@ -2545,7 +2561,7 @@
   function lignesJaunes(c, nature) {
     if (c.etat === 'silence') return [];
     var nat = nature || CIBLE;
-    var dessous = c.etat === 'reprise_longue';
+    var dessous = c.etat === 'reprise_longue' || c.etat === 'nouvelle_zone';
     var ligne = c.ligne, haut = c.haut;
     var cL = cite(nat, { role: 'ligne' }), cH = cite(nat, { role: 'haut' });
     if (!haut) return [ligneFois(ligne.charge, ligne.vise, true, dessous, cL)];
@@ -2614,7 +2630,7 @@
       });
       return { jaune: lignesJaunes(forme), segments: segments };
     }
-    var dessous = c.etat === 'reprise_longue';
+    var dessous = c.etat === 'reprise_longue' || c.etat === 'nouvelle_zone';
     var jaune = segments.map(function (s, i) {
       if (s.charge === undefined || s.vise === undefined) return null;
       var tete = i === 0;
@@ -2817,8 +2833,28 @@
       case 'depart_routine':
         return 'Première fois ici' + DEUX_POINTS + 'on part de ta charge de départ, ' +
                enKg(c.ligne.charge, cite(CIBLE, { role: 'ligne' })) + '.';
+
+      // §9.10 (53-1) — la zone a changé : d'où vient la charge, la séance
+      // citée. L'estimation reste en coulisse : jamais un maximum.
+      case 'nouvelle_zone':
+        return phraseNouvelleZone(c, reference);
     }
     return '';
+  }
+
+  // « Nouvelle zone : Mix. Ta charge déjà tenue en Mix, le 8 déc. : 110 kg × 6. »
+  // « Nouvelle zone : Mix. Estimée depuis ton 125 kg × 4, un peu en dessous pour démarrer. »
+  function phraseNouvelleZone(c, reference) {
+    var r = (c.fondement || {}).report || {};
+    var d = r.depuis || {};
+    var z = zoneParCle(c.zone);
+    var cR = cite(FAIT, { quoi: 'report' });
+    var tete = 'Nouvelle zone' + DEUX_POINTS + z.libelle + '. ';
+    if (r.origine === 'tenue') {
+      return tete + 'Ta charge déjà tenue en ' + z.libelle + ', ' + quand(d.date, reference, false, cR) +
+             DEUX_POINTS + chargeFois(d.palier, d.niveau, cR) + '.';
+    }
+    return tete + 'Estimée depuis ton ' + chargeFois(d.palier, d.niveau, cR) + ', un peu en dessous pour démarrer.';
   }
 
   // ── §3.10 — LA FEUILLE « POURQUOI », UNE FONCTION PURE ───────────────────
@@ -3132,6 +3168,21 @@
         return 'Rien avant aujourd\'hui' + DEUX_POINTS + 'on part de la charge de départ de ta routine, ' +
                enKg(c.ligne.charge, cL) + '. Ensuite, le coach décide d\'après tes séances.';
 
+      // §9.10 (53-1) — la plus basse des deux, dite sans l'estimation.
+      case 'nouvelle_zone':
+        var rp = f.report || {};
+        var dp = rp.depuis || {};
+        var zA = zoneParCle(rp.zoneAvant);
+        var cR = cite(FAIT, { quoi: 'report' });
+        return 'Ta zone passe ' + (zA ? 'de ' + zA.libelle + ' ' : '') + 'à ' + z.libelle + DEUX_POINTS +
+               (rp.origine === 'tenue'
+                 ? 'je reprends la charge que tu y as déjà tenue, ' + chargeFois(dp.palier, dp.niveau, cR) +
+                   ', plutôt qu\'une estimation.'
+                 : 'j\'estime ta charge depuis ' + chargeFois(dp.palier, dp.niveau, cR) +
+                   ', et je la prends un peu en dessous pour démarrer.') +
+               ' On vise le bas de ta zone, ' + nombreFr(z.bas, regle('zone.bas')) +
+               ' reps ; la progression reprend à la séance suivante.';
+
       case 'reprise_courte':
         return 'Reprise après une pause' + DEUX_POINTS + 'ta charge de travail, sans rep de plus. ' +
                'La progression repart à la séance suivante.' + phraseBorneZone(f);
@@ -3423,6 +3474,11 @@
     if (cAvant.etat === 'reprise_courte' || cAvant.etat === 'reprise_longue') {
       return 'Reprise faite' + DEUX_POINTS + faitDuJour() + '.';
     }
+    // §9.10 (53-1) — la première séance d'une nouvelle zone ne se juge pas
+    // contre l'ancienne : elle pose un repère.
+    if (cAvant.etat === 'nouvelle_zone' && zoneParCle(cAvant.zone)) {
+      return 'Premier repère en ' + zoneParCle(cAvant.zone).libelle + DEUX_POINTS + faitDuJour() + '.';
+    }
     // ⚠️ L'ÉTAPE DE L'ÉCHELLE QUI RÉUSSIT, AVANT LE TEST DU JOUR (48b-6b-2).
     // C'est le trou qu'a trouvé la vérification sur appareil : au squat, 125
     // × 5 puis 130 × 4 et 130 × 4 — exactement la consigne — donnaient « Pas
@@ -3596,6 +3652,9 @@
         ? Palier().analyserPoidsDuCorps((g && g.series) || [])
         : Palier().analyser((g && g.series) || [], etat, { mesure: mesure });
       var se = seanceDuContrat(g && g.seance ? g.seance.debut : null, r);
+      // §9.10 (53-1) — la fin de la séance, si elle en a une (la zone choisie
+      // pendant la séance est la sienne). Absente, la clé n'existe pas.
+      if (g && g.seance && g.seance.fin) se.fin = g.seance.fin;
       // §9.20 (51-3) — LA MARQUE « DOULEUR » est une donnée des séries
       // (`sets.douleur`) : une seule série marquée rend la séance-exercice
       // douloureuse. `sansPalierRetenues` en fait une séance neutre.
@@ -3676,6 +3735,7 @@
           faites.push(se);
           return;
         }
+        var fin = se.fin;
         se = {
           debut: se.debut, palier: C,
           series: (se.series || []).map(function (s) {
@@ -3686,6 +3746,7 @@
             return copie;
           })
         };
+        if (fin) se.fin = fin;
         sortie[i] = se;
       }
       faites.push(se);
@@ -4717,6 +4778,177 @@
     return consigneDepartRoutine(o.depart);
   }
 
+  // ══ §9.10 (53-1) — LE REPORT DE CHARGE AU CHANGEMENT DE ZONE ══════════════
+  //
+  // « Quand la zone retenue pour la séance diffère de la zone de la dernière
+  // séance non neutre, la charge = la plus basse de (a) la dernière charge
+  // tenue dans la zone visée dans les 90 jours et (b) l'estimation depuis le
+  // dernier palier, P × (1 + n/30) / (1 + bas/30), arrondie au cran inférieur
+  // de l'exercice ; la visée = le bas de la zone. » Pour TOUT changement de
+  // zone : la correction à l'étiquette, la reprise « Plus léger », et demain
+  // un bloc.
+  //
+  // UNE FONCTION PURE, la seule qui décide. `o` :
+  //   · `seances` : `[{ debut, palier, niveau }]`, les séances NON NEUTRES de
+  //     l'exercice, leur palier et leur niveau validé ;
+  //   · `avant` : le début de la séance prescrite (rien après, §9.12) ;
+  //   · `zoneAvant` : la zone de la dernière séance (une clé) ;
+  //   · `zone` : la zone retenue pour la séance (une clé) ;
+  //   · `cran(charge, sens)` : la charge voisine que le moteur proposerait,
+  //     au-dessus (+1) ou en dessous (−1) — `chargeVoisine`, jamais un pas
+  //     recopié ; `null` quand il ne la connaît pas.
+  // Rend `null` (même zone, aucune séance, ni charge ni corps à reporter), ou
+  // `{ charge, visee, origine, depuis }` : `origine` vaut `tenue` ou
+  // `estimee`, `depuis` est la séance citée (`{ debut, palier, niveau }`).
+  //
+  // ⚠️ L'ESTIMATION NE SORT PAS D'ICI. Seule la charge arrondie sort : c'est
+  // un maximum calculé, en coulisse, que le coach ne dit jamais (§9.10).
+  // ⚠️ LE CRAN INFÉRIEUR SE LIT EN MARCHANT SUR LES CRANS DU MOTEUR depuis le
+  // dernier palier : la charge proposée est une charge que la salle fait
+  // (§10.2). Sans cran connu en dessous, la charge reste `null` — « le cran en
+  // dessous », comme la reprise longue (§9.9).
+  var REPORT_FENETRE_JOURS = 90;
+  var REPORT_EPLEY = 30;
+  var REPORT_MARCHE_MAX = 200;
+  function reportDeZone(o) {
+    var p = o || {};
+    var z = zoneParCle(p.zone);
+    var za = zoneParCle(p.zoneAvant);
+    if (z === null || za === null || za.cle === z.cle) return null;
+    var t0 = instant(p.avant);
+    if (t0 === null) return null;
+    var liste = (p.seances || []).filter(function (se) {
+      var d = instant(se && se.debut);
+      return d !== null && d < t0 && nombre(se.palier) !== null && nombre(se.niveau) !== null;
+    }).sort(function (a, b) { return instant(a.debut) - instant(b.debut); });
+    if (!liste.length) return null;
+    var L = liste[liste.length - 1];
+    var P = nombre(L.palier);
+    var n = nombre(L.niveau);
+    // §9.17 — ni un corps (0), ni une aide (négative) : une estimation sur une
+    // charge qui n'est pas la masse levée ne veut rien dire.
+    if (P <= 0) return null;
+    // La visée : le bas de la zone, d'où l'on remonte.
+    var visee = z.bas;
+    var estimee = P * (1 + n / REPORT_EPLEY) / (1 + z.bas / REPORT_EPLEY);
+    var charge = auCranInferieur(P, estimee, p.cran);
+    // (a) la dernière charge tenue DANS la zone visée — son niveau validé
+    // entre le bas et le haut —, dans les 90 jours.
+    var tenue = null;
+    for (var i = liste.length - 1; i >= 0; i--) {
+      var se = liste[i];
+      if ((t0 - instant(se.debut)) / JOUR > REPORT_FENETRE_JOURS) break;
+      var nv = nombre(se.niveau);
+      if (nombre(se.palier) > 0 && nv >= z.bas && nv <= z.haut) { tenue = se; break; }
+    }
+    var lue = function (se) { return { debut: se.debut, palier: nombre(se.palier), niveau: nombre(se.niveau) }; };
+    // La plus basse des deux ; à égalité, la charge déjà tenue (elle est vraie).
+    if (tenue !== null && charge !== null &&
+        (nombre(tenue.palier) < charge || memeCharge(nombre(tenue.palier), charge))) {
+      return { charge: nombre(tenue.palier), visee: visee, origine: 'tenue', depuis: lue(tenue) };
+    }
+    return { charge: charge, visee: visee, origine: 'estimee', depuis: lue(L) };
+  }
+
+  // La plus haute charge du plan de charges qui ne dépasse pas `v`, en
+  // partant de `P` et en marchant cran par cran (`cran(charge, sens)`).
+  function auCranInferieur(P, v, cran) {
+    var pas = typeof cran === 'function' ? cran : function () { return null; };
+    var c = P, i;
+    if (v > P || memeCharge(v, P)) {
+      for (i = 0; i < REPORT_MARCHE_MAX; i++) {
+        var u = nombre(pas(c, 1));
+        if (u === null || u <= c || (u > v && !memeCharge(u, v))) break;
+        c = u;
+      }
+      return auCentieme(c);
+    }
+    for (i = 0; i < REPORT_MARCHE_MAX; i++) {
+      var d = nombre(pas(c, -1));
+      if (d === null || d >= c) return null;
+      c = d;
+      if (c < v || memeCharge(c, v)) return auCentieme(c);
+    }
+    return null;
+  }
+
+  // LE REPORT SUR LE CONTRAT D'UN EXERCICE : ses séances non neutres (palier et
+  // niveau validé, comme la consigne les lit), et le cran du moteur. Le seul
+  // chemin vers `reportDeZone` — la consigne (`consigneNouvelleZone`) et la
+  // reprise « Plus léger » (`reprisePour`) le prennent tous les deux.
+  // ⚠️ PAS DE REPORT SUR UN LEST : la charge saisie n'est pas la masse levée
+  // (le corps n'y est pas), et l'estimation n'aurait pas de sens. Le poids du
+  // corps et l'aide sont écartés par `reportDeZone` (charge ≤ 0).
+  function reportSur(seances, avant, zoneAvant, zone, equipement) {
+    if (equipement === EQUIPEMENT_LEST) return null;
+    var vues = (seances || []).map(vueDeSeance);
+    var lues = anterieures(vues, avant).filter(function (v) { return !v.neutre; }).map(function (v) {
+      var A = seriesAuPalier(v);
+      return { debut: v.debut, palier: nombre(v.palier), niveau: A.length ? niveauValide(A) : null };
+    });
+    return reportDeZone({
+      seances: lues, avant: avant, zoneAvant: zoneAvant, zone: zone,
+      cran: function (charge, sens) { return chargeVoisine(vues, avant, charge, equipement, sens); }
+    });
+  }
+
+  // LA ZONE DE LA DERNIÈRE SÉANCE NON NEUTRE, LUE À DATE : celle de la consigne
+  // qu'elle a reçue (comme le compteur, `compteurDe`), avec la zone choisie EN
+  // VIGUEUR quand elle s'est faite.
+  // ⚠️ « QUAND ELLE S'EST FAITE » VA JUSQU'À SA FIN : une zone changée à
+  // l'étiquette PENDANT la séance est celle de la séance. Lue à son début, la
+  // séance d'après croirait la zone encore à changer, et reporterait une
+  // seconde fois. La fin est bornée par le début de la séance suivante (ou de
+  // celle qu'on prescrit) : une séance sans fin — en cours, ou refermée sans
+  // heure — se lit jusque-là.
+  function zoneDeLaDerniere(seances, avant, o) {
+    var vues = anterieures((seances || []).map(vueDeSeance), avant);
+    var ant = vues.filter(function (v) { return !v.neutre; });
+    if (!ant.length) return null;
+    var L = ant[ant.length - 1];
+    var tL = instant(L.debut);
+    var borne = instant(avant);
+    vues.forEach(function (v) {
+      var t = instant(v.debut);
+      if (t > tL && t < borne) borne = t;
+    });
+    var fin = instant(L.fin);
+    if (fin !== null && fin > tL && fin < borne) borne = fin;
+    var correction = o.correctionsDeZone
+      ? correctionAu(o.correctionsDeZone, new Date(borne + 1).toISOString()) : (o.correction || null);
+    var k = consignePour(seances, L.debut, { reglage: o.reglage, equipement: o.equipement, correction: correction });
+    return k && k.zone ? k.zone : null;
+  }
+
+  // LA CONSIGNE D'UNE NOUVELLE ZONE, sur la consigne calculée (une étape de
+  // `consigneDExercice`, comme les départs). Pas de report :
+  //   · sur un silence, une règle de bord (pas de zone), une REPRISE — elle prime
+  //     sur tout le reste (§9.9) ;
+  //   · quand la zone de la dernière séance est inconnue (pas de consigne
+  //     alors : rien ne change, on commence) ;
+  //   · sur un corps, une aide, un lest (`reportSur`).
+  // La ligne part de la charge reportée, au bas de la zone, sans ligne haute ;
+  // le fondement garde ce que la phrase grise et la feuille diront, rien de
+  // l'estimation.
+  var SANS_REPORT = { silence: true, bord: true, reprise_courte: true, reprise_longue: true };
+  function consigneNouvelleZone(consigne, seances, avant, o) {
+    if (!consigne || SANS_REPORT[consigne.etat] === true || !zoneParCle(consigne.zone)) return null;
+    if (o.mesure !== 'charge_reps') return null;
+    var zoneAvant = zoneDeLaDerniere(seances, avant, o);
+    var r = reportSur(seances, avant, zoneAvant, consigne.zone, o.equipement);
+    if (r === null) return null;
+    var f = consigne.fondement || {};
+    var garde = { date: f.date, reps: f.reps, seance: f.seance, habitude: f.habitude, correction: f.correction };
+    var fondement = {};
+    Object.keys(garde).forEach(function (cle) { if (garde[cle] !== undefined) fondement[cle] = garde[cle]; });
+    fondement.report = { origine: r.origine, zoneAvant: zoneAvant,
+                         depuis: { date: r.depuis.debut, palier: r.depuis.palier, niveau: r.depuis.niveau } };
+    return {
+      etat: 'nouvelle_zone', zone: consigne.zone, palier: consigne.palier, niveau: consigne.niveau,
+      n: consigne.n, ligne: { charge: r.charge, vise: r.visee }, haut: null, fondement: fondement
+    };
+  }
+
   // `o.libre` : une fonction que l'app fournit pour une version lestée —
   // `{ groupes, etat, options }`, les MÊMES entrées que la consigne de l'exercice
   // libre (comme `o.freres`) — ou `null`. Le départ n'existe que pour la toute
@@ -4774,6 +5006,11 @@
     var consigne = consignePour(seances, avant,
       { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null,
         lestReponse: o.lestReponse, lestPossible: o.lestPossible });
+    // §9.10 (53-1) — LA ZONE A CHANGÉ depuis la dernière séance : la charge se
+    // reporte (la plus basse de la charge déjà tenue et de l'estimation, au bas
+    // de la zone). Une seule fois, ici : tout ce qui suit lit cette consigne.
+    var nouvelle = consigneNouvelleZone(consigne, seances, avant, o);
+    if (nouvelle !== null) consigne = nouvelle;
     // §8.4 / §9.17 — LE DÉPART DE LA VERSION LESTÉE : la première fois qu'un
     // exercice lesté se fait, il part de l'exercice libre au lieu de « Première
     // fois ici ».
@@ -5306,6 +5543,8 @@
     sansPalierRetenues: sansPalierRetenues,
     MODULE_CONSIGNE: MODULE_CONSIGNE,
     VERSION_CONSIGNE: VERSION_CONSIGNE,
+    reportDeZone: reportDeZone,
+    REPORT_FENETRE_JOURS: REPORT_FENETRE_JOURS,
     idDePrediction: idDePrediction,
     idDEscalier: idDEscalier,
     observationDe: observationDe,

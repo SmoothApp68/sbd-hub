@@ -109,6 +109,8 @@ const GARDEES = [
   { fn: 'carteSchema', module: 'moteur.js' },
   { fn: 'phraseSeche', module: 'moteur.js' },
   { fn: 'repliEscalier', module: 'moteur.js' },
+  // moteur.js — le report de charge au changement de zone (§9.10, 53-1)
+  { fn: 'reportDeZone', module: 'moteur.js' },
   { fn: 'consigneRepli', module: 'moteur.js' },
   { fn: 'phraseRepli', module: 'moteur.js' },
   { fn: 'observationMarche', module: 'moteur.js' },
@@ -448,7 +450,8 @@ const NOTIONS = [
     module: 'moteur.js', fonction: 'reprisePour', lecteurs: [],
     par: ['consigneDExercice'],
     raison: 'MOTEUR §9.20 : la carte se décide sur la dernière séance, figée avec la consigne ; « Plus ' +
-      'léger » passe par la zone suivante et le repli existant (§14.5), jamais une charge à part.' },
+      'léger » passe par la zone suivante et le report (§9.10, 53-1), sinon les replis existants, ' +
+      'jamais une charge à part.' },
   { notion: 'le repli de la reprise longue (§9.9 : le cran en dessous, 10 % au plus)', pr: '51-U3',
     module: 'moteur.js', fonction: 'repliDeReprise', lecteurs: [],
     par: ['consigneFigee', 'repliDeLaRepriseLongue'],
@@ -496,7 +499,24 @@ const NOTIONS = [
     par: ['consigneDExercice'],
     raison: 'seulement sur « Première fois ici », en charge × reps : la routine donne un point de départ, ' +
       'et dès qu’il y a des données le coach décide seul.' },
-  { notion: '« Plus léger, plus de reps » appliqué à la consigne (le repli de §14.5, sinon celui de §9.9)', pr: '51-U3',
+  { notion: 'le report de charge au changement de zone (MOTEUR §9.10 : la plus basse de la charge tenue et de l’estimation, au bas de la zone)', pr: '53-U1',
+    module: 'moteur.js', fonction: 'reportDeZone', lecteurs: [],
+    par: ['reportSur'],
+    interditAilleurs: { motif: /\/\s*\(?\s*30\b|\bREPORT_EPLEY\b/,
+                        raison: 'une estimation (« n/30 ») écrite hors du moteur : un second calcul du report' },
+    raison: 'une seule règle pour tout changement de zone — la correction à l’étiquette, la reprise ' +
+      '« Plus léger », demain un bloc : l’estimation reste en coulisse, seule la charge arrondie en sort.' },
+  { notion: 'le report sur le contrat d’un exercice (ses séances non neutres, le cran du moteur)', pr: '53-U1',
+    module: 'moteur.js', fonction: 'reportSur', lecteurs: [],
+    par: ['consigneNouvelleZone', 'reprisePour'],
+    raison: 'la consigne d’une nouvelle zone et « Plus léger » lisent les mêmes séances et le même cran ' +
+      '(`chargeVoisine`) : la charge proposée à la carte est celle que la consigne pose ensuite (I35).' },
+  { notion: 'la consigne d’une nouvelle zone (l’état `nouvelle_zone`)', pr: '53-U1',
+    module: 'moteur.js', fonction: 'consigneNouvelleZone', lecteurs: [],
+    par: ['consigneDExercice'],
+    raison: 'une étape de la consigne, une seule fois, comme les départs : tout ce qui suit (le plan, ' +
+      'la réaction, la suite, le repli) lit la consigne reportée, jamais une charge à part.' },
+  { notion: '« Plus léger, plus de reps » appliqué à la consigne (le report de §9.10, sinon le repli de §14.5 ou de §9.9)', pr: '51-U3',
     module: 'moteur.js', fonction: 'consignePlusLegere', lecteurs: ['plan.js'],
     parAilleurs: { 'plan.js': ['planDeSeance'] },
     raison: 'le plan n’applique « Plus léger » que par elle : la ligne du repli choisi, sans ligne haute, ' +

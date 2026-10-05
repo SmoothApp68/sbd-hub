@@ -232,21 +232,23 @@ const CATALOGUE = [
   { slug: 'tiers-u51', nom: 'Tiers U51 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: [], muscles_secondaires: [] },
   // 51-1 (MOTEUR §9.18) — réservés à la section 7 G vicies (« J'ai peu de
   // temps ») : la routine du lundi d'Aurélien (le cas C07), sous des noms
-  // qu'aucune autre recherche ne trouve, avec des muscles inventés (`u51…`) :
+  // qu'aucune autre recherche ne trouve (ni « Couch », ni « Rowing »… : un
+  // premier jet appelé « Couché U51b » répondait à la recherche « Couch » de
+  // 7 unvicies, qui ajoutait alors cet exercice sans historique), avec des muscles inventés (`u51…`) :
   // le raccourci lit les muscles, et aucune autre section ne doit voir leur
   // volume. Puis une routine où 45 min est inatteignable.
-  { slug: 'tapis-u51b', nom: 'Tapis U51b', mesure: 'distance_temps', charge: 'aucune', muscles_primaires: [], muscles_secondaires: [] },
-  { slug: 'couche-u51b', nom: 'Couché U51b (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['u51_pecs'], muscles_secondaires: ['u51_tri', 'u51_delta'] },
-  { slug: 'tirage-u51b', nom: 'Tirage U51b', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['u51_dos'], muscles_secondaires: ['u51_bi', 'u51_hdd', 'u51_ab'] },
-  { slug: 'incline-u51b', nom: 'Incliné U51b (Haltères)', mesure: 'charge_reps', charge: 'externe', equipement: 'haltere', muscles_primaires: ['u51_pecs'], muscles_secondaires: ['u51_tri', 'u51_delta'] },
-  { slug: 'rowing-u51b', nom: 'Rowing U51b', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['u51_hdd', 'u51_dos'], muscles_secondaires: ['u51_bi', 'u51_dp', 'u51_ab', 'u51_trap'] },
-  { slug: 'elev-u51b', nom: 'Élévation U51b', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['u51_dl'], muscles_secondaires: ['u51_trap'] },
-  { slug: 'face-u51b', nom: 'Face Pull U51b', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['u51_dp'], muscles_secondaires: ['u51_trap', 'u51_hdd'] },
-  { slug: 'premier-u51c', nom: 'Premier U51c (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['u51_p1'], muscles_secondaires: [] },
-  { slug: 'iso-u51c-1', nom: 'Isolation U51c Un', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['u51_i1'], muscles_secondaires: [] },
-  { slug: 'iso-u51c-2', nom: 'Isolation U51c Deux', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['u51_i2'], muscles_secondaires: [] },
-  { slug: 'iso-u51c-3', nom: 'Isolation U51c Trois', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['u51_i3'], muscles_secondaires: [] },
-  { slug: 'iso-u51c-4', nom: 'Isolation U51c Quatre', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['u51_i4'], muscles_secondaires: [] }
+  { slug: 'tapis-u51b', nom: 'Cardio Délai U51', mesure: 'distance_temps', charge: 'aucune', muscles_primaires: [], muscles_secondaires: [] },
+  { slug: 'couche-u51b', nom: 'Poussée Délai U51 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['u51_pecs'], muscles_secondaires: ['u51_tri', 'u51_delta'] },
+  { slug: 'tirage-u51b', nom: 'Dorsal Délai U51', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['u51_dos'], muscles_secondaires: ['u51_bi', 'u51_hdd', 'u51_ab'] },
+  { slug: 'incline-u51b', nom: 'Poussée Haute Délai U51 (Haltères)', mesure: 'charge_reps', charge: 'externe', equipement: 'haltere', muscles_primaires: ['u51_pecs'], muscles_secondaires: ['u51_tri', 'u51_delta'] },
+  { slug: 'rowing-u51b', nom: 'Dos Délai U51', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['u51_hdd', 'u51_dos'], muscles_secondaires: ['u51_bi', 'u51_dp', 'u51_ab', 'u51_trap'] },
+  { slug: 'elev-u51b', nom: 'Épaule Délai U51', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['u51_dl'], muscles_secondaires: ['u51_trap'] },
+  { slug: 'face-u51b', nom: 'Arrière Délai U51', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['u51_dp'], muscles_secondaires: ['u51_trap', 'u51_hdd'] },
+  { slug: 'premier-u51c', nom: 'Tête Délai U51c (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['u51_p1'], muscles_secondaires: [] },
+  { slug: 'iso-u51c-1', nom: 'Seul Délai U51c Un', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['u51_i1'], muscles_secondaires: [] },
+  { slug: 'iso-u51c-2', nom: 'Seul Délai U51c Deux', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['u51_i2'], muscles_secondaires: [] },
+  { slug: 'iso-u51c-3', nom: 'Seul Délai U51c Trois', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['u51_i3'], muscles_secondaires: [] },
+  { slug: 'iso-u51c-4', nom: 'Seul Délai U51c Quatre', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['u51_i4'], muscles_secondaires: [] }
 ];
 
 // ⚠️ UNE ROUTINE PORTE MAINTENANT SES LIGNES (chantier 43). `routine_sets`
@@ -10738,8 +10740,8 @@ const SETS_IMPORTES = [
     ok('[T51] DISCRIMINANT — la carte : « Pour tenir en 45 min (estimation) », ce qui change (le moteur, ligne par ligne), la phrase, les deux boutons',
       sp(b1.titre) === 'Pour tenir en 45 min (estimation)' && sp(b1.titre) === sp(carte45.titre) &&
         JSON.stringify(b1.lignes.map(sp)) === JSON.stringify(carte45.lignes.map(sp)) &&
-        b1.lignes.some((l) => /Incliné U51b \(Haltères\) : retiré, ses muscles sont déjà travaillés/.test(sp(l))) &&
-        b1.lignes.some((l) => /Tapis U51b 7 → 3 min/.test(sp(l))) &&
+        b1.lignes.some((l) => /Poussée Haute Délai U51 \(Haltères\) : retiré, ses muscles sont déjà travaillés/.test(sp(l))) &&
+        b1.lignes.some((l) => /Cardio Délai U51 7 → 3 min/.test(sp(l))) &&
         sp(b1.phrase) === sp(carte45.phrase) && JSON.stringify(b1.boutons) === JSON.stringify(['Raccourcir', 'Garder la séance']),
       JSON.stringify(b1));
     await entree('^Garder la séance$');
@@ -10780,7 +10782,7 @@ const SETS_IMPORTES = [
     await attendre(700);
     const d1 = await texte('#feuille-contenu');
     ok('[T51] DISCRIMINANT — la question de fin ne propose jamais de retirer un exercice raccourci',
-      !/Incliné U51b/.test(d1) && !/Tapis U51b — retiré/.test(d1) && !/retiré/.test(d1),
+      !/Poussée Haute Délai/.test(d1) && !/Cardio Délai U51 — retiré/.test(d1) && !/retiré/.test(d1),
       sp(d1).slice(0, 160));
     await page.click('#feuille-contenu .danger');
     await attendre(1600);

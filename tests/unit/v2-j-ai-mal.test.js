@@ -279,7 +279,9 @@ describe('51-3 — une séance relue sépare deux occurrences voisines', () => {
 
 // ══ 5. LE PLAN : I33 À I35 ═══════════════════════════════════════════════════
 
-const REPLI = { palier: 45, niveau: 6, debut: '2026-09-20T10:00:00Z', reps: [6, 6], ligne: [45, 6] };
+// 47,5 kg, et pas 45 : 45 vaut exactement « 50 − 10 % », et une charge calculée
+// à −10 % hors du repli passerait pour lui (la mutation (d) l'a montré).
+const REPLI = { palier: 47.5, niveau: 6, debut: '2026-09-20T10:00:00Z', reps: [6, 6], ligne: [47.5, 6] };
 const entreesDe = (se, extra) => Object.assign({
   seance: { id: 'S', debut: '2026-10-05T10:00:00Z', edition: false, exercices: se.exercices, reprises: se.reprises || null },
   consignes: { x: { consigne: CONSIGNE, contexte: F044.contexte, compteur: { compteur: 0, meilleur: { palier: 50, niveau: 5 } } } },
@@ -357,7 +359,7 @@ describe('51-3 — I35 : la carte de reprise, et « Plus léger » par le repli'
     se = S.choisirReprise(se, 'x', { choix: 'leger', repli: REPLI });
     const e = avecReprise(entreesDe(se));
     const p = T.planDeSeance(e);
-    expect([p.exercices[0].consigne.ligne.charge, p.exercices[0].consigne.ligne.vise]).toEqual([45, 6]);
+    expect([p.exercices[0].consigne.ligne.charge, p.exercices[0].consigne.ligne.vise]).toEqual([47.5, 6]);
     expect(p.exercices[0].consigne.haut).toBe(null);
     expect(T.verifierPlan(p, e).erreurs).toEqual([]);
   });
@@ -367,8 +369,8 @@ describe('51-3 — I35 : la carte de reprise, et « Plus léger » par le repli'
     se = S.choisirReprise(se, 'x', { choix: 'leger', repli: REPLI });
     const e = avecReprise(entreesDe(se));
     const p = copie(T.planDeSeance(e));
-    p.exercices[0].consigne.ligne.charge = 47.5;
-    expect(erreursDe(p, e, 'I35').join(' ')).toMatch(/« Plus léger » pose 47.5, le repli est à 45/);
+    p.exercices[0].consigne.ligne.charge = 45;
+    expect(erreursDe(p, e, 'I35').join(' ')).toMatch(/« Plus léger » pose 45, le repli est à 47.5/);
   });
 
   test('violations forgées : une carte sans dernière séance marquée, une carte qui questionne → I35', () => {

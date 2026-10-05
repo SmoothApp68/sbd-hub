@@ -2394,14 +2394,47 @@
   // 10 % au plus sous lui. I22 le vérifie comme tout repli. Pas de repli (ou
   // pas de meilleur) : pas de « Plus léger » chiffré (§14.5 : repli sauté).
   // La consigne elle-même ne lit jamais la séance douloureuse : elle est neutre.
-  function reprisePour(seances, avant, consigne, meilleur) {
+  //
+  // 51-3 bis (D3) — « PLUS LÉGER » EST TOUJOURS PROPOSÉ : quand le repli de
+  // §14.5 n'existe pas (aucun palier tenu dans la zone suivante, ou pas de
+  // compteur), c'est LE REPLI DE LA REPRISE LONGUE (§9.9) — le cran en dessous
+  // (`chargeVoisine`), plafonné à 10 % (`repliDeReprise`) : la règle existante,
+  // appelée par ses fonctions, jamais recopiée (`repliDeLaRepriseLongue`).
+  function reprisePour(seances, avant, consigne, meilleur, options) {
     var anterieuresSe = anterieures(seances || [], avant);
     if (!carteReprise(anterieuresSe.map(function (se) { return se.douleur === true; }))) return null;
     if (!consigne || consigne.etat === 'silence' || !consigne.ligne || nombre(consigne.palier) === null) return null;
     var zone = zonePlusDeReps(consigne.zone);
     if (zone === null) return null;
-    return { douleur: true, zone: zone, derniere: anterieuresSe[anterieuresSe.length - 1].debut,
-             repli: meilleur ? repliEscalier(seances, avant, meilleur, zone) : null };
+    var repli = meilleur ? repliEscalier(seances, avant, meilleur, zone) : null;
+    if (!repli) repli = repliDeLaRepriseLongue(seances, avant, consigne, zone, (options || {}).equipement);
+    return { douleur: true, zone: zone, derniere: anterieuresSe[anterieuresSe.length - 1].debut, repli: repli };
+  }
+
+  // §9.9 réutilisé (51-3 bis) : la charge de la reprise longue depuis le palier
+  // de la consigne — le cran en dessous, 10 % au plus (au-delà, le palier ;
+  // sans cran connu, `null` : « le cran en dessous ») — et la visée bornée à la
+  // zone suivante, comme celle du repli de §14.5. Marquée `source`, pour que
+  // le plan l'applique comme telle (ce n'est pas un repli d'escalier : I22 ne
+  // le juge pas contre le meilleur du compteur, I35 contre lui-même).
+  function repliDeLaRepriseLongue(seances, avant, consigne, zone, equipement) {
+    var z = zoneParCle(zone);
+    var P = nombre(consigne.palier);
+    var vues = (seances || []).map(vueDeSeance);
+    var charge = repliDeReprise(P, chargeVoisine(vues, avant, P, equipement, -1));
+    var niv = nombre(consigne.niveau);
+    var vise = niv === null ? z.bas : Math.min(z.haut, Math.max(z.bas, niv));
+    return { source: 'reprise_longue', palier: P, ligne: [charge, vise] };
+  }
+
+  // « PLUS LÉGER, PLUS DE REPS », appliqué à la consigne de la séance : par le
+  // repli de §14.5 (`consigneRepli`, qu'I22 vérifie), ou par celui de la
+  // reprise longue — sa ligne, sans ligne haute. Le plan n'appelle qu'elle.
+  function consignePlusLegere(consigne, repli) {
+    if (!consigne || !repli) return consigne;
+    if (repli.source !== 'reprise_longue') return consigneRepli(consigne, repli);
+    return Object.assign({}, consigne, { ligne: { charge: repli.ligne[0], vise: repli.ligne[1] }, haut: null,
+      plusLegere: { source: repli.source, palier: repli.palier } });
   }
 
   var TEXTES_DOULEUR = Object.freeze({
@@ -2442,8 +2475,9 @@
     return l ? 'Comme avant : ' + ligneFois(l.charge, l.vise, false, false, cite(CIBLE, { quoi: 'reprise' })) : null;
   }
   function texteRepriseLeger(repli) {
+    // Une charge inconnue se dit : « le cran en dessous » (§10.2, rang 4).
     return repli ? 'Plus léger, plus de reps : ' +
-      ligneFois(repli.ligne[0], repli.ligne[1], false, false, cite(CIBLE, { quoi: 'reprise_repli' })) : null;
+      ligneFois(repli.ligne[0], repli.ligne[1], false, true, cite(CIBLE, { quoi: 'reprise_repli' })) : null;
   }
   function carteRepriseTextes(nom, consigne, reprise) {
     var choix = [{ cle: 'avant', texte: texteRepriseAvant(consigne) }];
@@ -4726,7 +4760,7 @@
                ? repliEscalier(marquees, avant, compteur.meilleur, consigne.zone, { zoneAu: zoneAu }) : null,
              // §9.20 (51-3) — LA REPRISE APRÈS UNE SÉANCE DOULOUREUSE, figée avec
              // la consigne : le plan pose la carte, aucun écran ne la décide.
-             reprise: reprisePour(marquees, avant, consigne, compteur.meilleur),
+             reprise: reprisePour(marquees, avant, consigne, compteur.meilleur, { equipement: o.equipement }),
              // I34 — les séances marquées « douleur » (leurs débuts) : le plan
              // vérifie qu'aucune ne fonde la charge de la consigne.
              douleurs: anterieures(seances, avant).filter(function (se) { return se.douleur === true; })
@@ -5136,6 +5170,9 @@
     zonePlusDeReps: zonePlusDeReps,
     carteReprise: carteReprise,
     reprisePour: reprisePour,
+    repliDeLaRepriseLongue: repliDeLaRepriseLongue,
+    consignePlusLegere: consignePlusLegere,
+    repliDeReprise: repliDeReprise,
     feuilleDouleur: feuilleDouleur,
     carteRepriseTextes: carteRepriseTextes,
     texteRepriseAvant: texteRepriseAvant,

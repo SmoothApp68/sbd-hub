@@ -4358,19 +4358,22 @@
       return Rendu.rendreFeuilleMachinePrise(cible, vueMachinePrise(blocs, iBloc, cibleExo));
     }
 
-    // §9.20 — « J'ai mal » : la marque est posée à l'ouverture (la feuille le
-    // dit : « est sans coach ») ; « Un frère » reprend la liste de §9.19.
+    // §9.20 — « J'ai mal » : la marque se pose AU CHOIX (51-3 bis, D4) — un
+    // « J'ai mal » touché par erreur, refermé sans choisir, ne change rien.
+    // « Un frère » marque, puis reprend la liste de §9.19.
     if (quoiFeuille === 'douleur') {
       return Rendu.rendreFeuilleDouleur(cible, {
         textes: Moteur.feuilleDouleur(Modele.nommer(index, seance.exercices[cibleExo].exercise_slug)),
         surChoix: function (cle) {
+          seance = Seance.marquerDouleur(seance, cibleExo);
           if (cle === 'frere') {
             feuille = { quoi: 'freres', iBloc: iBloc, cibleExo: cibleExo };
-            return rendreFeuille();
+            return apresGeste().then(rendreFeuille);
           }
           // « Alléger », « Changer de position », « Arrêter cet exercice » :
           // la personne fait — rien n'est validé à sa place.
           fermerVoile();
+          return apresGeste();
         }
       });
     }
@@ -4387,13 +4390,12 @@
         rendreFeuille();
       };
     };
-    // §9.20 — « J'ai mal » : la marque d'abord (sur l'appareil, puis la file),
-    // la feuille ensuite, dans le même voile.
+    // §9.20 — « J'ai mal » ouvre la feuille, dans le même voile ; la marque
+    // attend le choix (51-3 bis, D4).
     var jaiMal = function (iExo) {
       return function () {
-        seance = Seance.marquerDouleur(seance, iExo);
         feuille = { quoi: 'douleur', iBloc: iBloc, cibleExo: iExo };
-        return apresGeste().then(rendreFeuille);
+        rendreFeuille();
       };
     };
 

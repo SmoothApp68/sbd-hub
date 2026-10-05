@@ -138,11 +138,45 @@ describe('51-3 — la zone suivante en reps et la condition de la carte', () => 
     expect(r.repli.palier).toBeGreaterThanOrEqual(MEILLEUR.palier * 0.9);
   });
 
-  test('sans meilleur (aucun compteur), la carte se pose, sans « Plus léger » chiffré', () => {
+  // 51-3 bis (D3) — « PLUS LÉGER » TOUJOURS PROPOSÉ : sans repli de §14.5, le
+  // repli de la reprise longue (§9.9), par SES fonctions.
+  test('⚠️ DISCRIMINANT — sans meilleur (aucun compteur) : « Plus léger » par le repli de la reprise longue', () => {
     const c = CAS.neutralite.find((x) => x.id === 'N01');
     const se = M.sansPalierRetenues(contrat(c), {});
-    const r = M.reprisePour(se, c.avant, M.consignePour(se, c.avant, {}), null);
-    expect([r.douleur, r.repli]).toEqual([true, null]);
+    const k = M.consignePour(se, c.avant, {});
+    const r = M.reprisePour(se, c.avant, k, null);
+    // Le cran en dessous de 120 : 115, déjà fait le 23/12 (`chargeVoisine`),
+    // plafonné à 10 % (`repliDeReprise`) — la règle de §9.9, appelée telle quelle.
+    expect(r.repli).toEqual({ source: 'reprise_longue', palier: 120, ligne: [M.repliDeReprise(120, 115), 6] });
+    expect(M.repliDeReprise(120, 115)).toBe(115);
+    expect(M.repliDeReprise(120, 100)).toBe(120);
+  });
+
+  test('« Plus léger » est TOUJOURS proposé : les 4 cas réels, avec ou sans meilleur', () => {
+    CAS.neutralite.forEach((c) => {
+      const se = M.sansPalierRetenues(contrat(c), { equipement: 'barre' });
+      const k = M.consignePour(se, c.avant, { equipement: 'barre' });
+      [null, { palier: k.palier, niveau: k.niveau }].forEach((m) => {
+        const r = M.reprisePour(se, c.avant, k, m, { equipement: 'barre' });
+        expect([c.id, M.carteRepriseTextes('X', k, r).choix.map((q) => q.cle)]).toEqual([c.id, ['avant', 'leger', 'sans']]);
+      });
+    });
+  });
+
+  test('au-delà de 10 %, la reprise longue garde le palier (§9.9) : 20 kg × 15 au militaire', () => {
+    const c = CAS.neutralite.find((x) => x.id === 'N04');
+    const se = M.sansPalierRetenues(contrat(c), { equipement: 'barre' });
+    const k = M.consignePour(se, c.avant, { equipement: 'barre' });
+    expect(M.reprisePour(se, c.avant, k, null, { equipement: 'barre' }).repli.ligne).toEqual([20, 15]);
+  });
+
+  test('sans cran connu, la charge ne s’invente pas : « le cran en dessous »', () => {
+    const c = CAS.neutralite.find((x) => x.id === 'N03');
+    const se = M.sansPalierRetenues(contrat(c), {});
+    const k = M.consignePour(se, c.avant, {});
+    const r = M.reprisePour(se, c.avant, k, null);
+    expect(r.repli.ligne).toEqual([null, 6]);
+    expect(M.texteRepriseLeger(r.repli)).toBe('Plus léger, plus de reps : le cran en dessous\u00a0×\u00a06');
   });
 
   test('pas de carte sans séance douloureuse en dernier, ni sans consigne', () => {
@@ -153,13 +187,14 @@ describe('51-3 — la zone suivante en reps et la condition de la carte', () => 
     expect(M.reprisePour(se2, c.avant, null, MEILLEUR)).toBe(null);
   });
 
-  test('sans repli dans la zone suivante, la carte n’a pas de « Plus léger » chiffré', () => {
+  test('⚠️ DISCRIMINANT — sans palier tenu dans la zone suivante (N02) : le repli de la reprise longue, trois choix', () => {
     const c = CAS.neutralite.find((x) => x.id === 'N02');
     const se = M.sansPalierRetenues(contrat(c), {});
     const k = M.consignePour(se, c.avant, {});
     const r = M.reprisePour(se, c.avant, k, { palier: 120, niveau: 5 });
-    expect(r.repli).toBe(null);
-    expect(M.carteRepriseTextes('Développé Couché (Barre)', k, r).choix.map((q) => q.cle)).toEqual(['avant', 'sans']);
+    expect(M.repliEscalier(se, c.avant, { palier: 120, niveau: 5 }, 'mix')).toBe(null);
+    expect([r.repli.source, r.repli.ligne]).toEqual(['reprise_longue', [115, 6]]);
+    expect(M.carteRepriseTextes('Développé Couché (Barre)', k, r).choix.map((q) => q.cle)).toEqual(['avant', 'leger', 'sans']);
   });
 });
 
@@ -335,6 +370,21 @@ describe('51-3 — I34 : une consigne ne lit jamais une séance marquée', () =>
 });
 
 describe('51-3 — I35 : la carte de reprise, et « Plus léger » par le repli', () => {
+  // 51-3 bis — le repli de la reprise longue : sa ligne, sans ligne haute, et
+  // PAS un repli d'escalier (I22 ne le juge pas contre le meilleur du compteur).
+  const REPLI_LONGUE = { source: 'reprise_longue', palier: 50, ligne: [47.5, 6] };
+  test('⚠️ DISCRIMINANT — « Plus léger » par le repli de la reprise longue : sa ligne, sans ligne haute, le plan juste', () => {
+    let { se } = decor(['x']);
+    se = S.choisirReprise(se, 'x', { choix: 'leger', repli: REPLI_LONGUE });
+    const e = avecReprise(entreesDe(se));
+    e.consignes.x.compteur = { compteur: 0, meilleur: null };
+    const p = T.planDeSeance(e);
+    const k = p.exercices[0].consigne;
+    expect([k.ligne.charge, k.ligne.vise, k.haut, k.repli]).toEqual([47.5, 6, null, undefined]);
+    expect(k.plusLegere).toEqual({ source: 'reprise_longue', palier: 50 });
+    expect(T.verifierPlan(p, e).erreurs).toEqual([]);
+  });
+
   test('la dernière séance marquée : la carte, trois choix, sans question ; le plan est juste', () => {
     const { se } = decor(['x']);
     const e = avecReprise(entreesDe(se));
@@ -391,5 +441,27 @@ describe('51-3 — I35 : la carte de reprise, et « Plus léger » par le repli'
     const p = T.planDeSeance(e);
     expect([p.exercices[0].carteReprise, p.exercices[0].consigne, p.exercices[0].douleur]).toEqual([null, null, true]);
     expect(T.verifierPlan(p, e).erreurs).toEqual([]);
+  });
+});
+
+// ══ 6. 51-3 BIS (D4) — LA MARQUE SE POSE AU CHOIX ═════════════════════════════
+
+describe('51-3 bis — la marque se pose au choix, jamais à l’ouverture de la feuille', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const APP = fs.readFileSync(path.join(__dirname, '../../v2/js/app.js'), 'utf8');
+  const corps = APP.match(/^  function rendreFeuilleDeviation\b[\s\S]*?^  }/m)[0];
+
+  test('⚠️ DISCRIMINANT — ouvrir « J’ai mal » ne marque rien : la porte n’ouvre que la feuille', () => {
+    const porte = corps.match(/var jaiMal = function \(iExo\) \{[\s\S]*?\n    \};/)[0];
+    expect(porte).not.toMatch(/marquerDouleur|apresGeste/);
+    expect(porte).toMatch(/feuille = \{ quoi: 'douleur'/);
+  });
+
+  test('chacun des quatre choix marque, AVANT d’agir (le frère compris)', () => {
+    const feuilleDouleur = corps.slice(corps.indexOf("if (quoiFeuille === 'douleur')"), corps.indexOf("if (quoiFeuille === 'freres')"));
+    const surChoix = feuilleDouleur.slice(feuilleDouleur.indexOf('surChoix'));
+    expect(surChoix.indexOf('Seance.marquerDouleur(seance, cibleExo)')).toBeGreaterThan(-1);
+    expect(surChoix.indexOf('Seance.marquerDouleur')).toBeLessThan(surChoix.indexOf("cle === 'frere'"));
   });
 });

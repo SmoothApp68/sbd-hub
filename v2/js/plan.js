@@ -1040,12 +1040,13 @@
         var c = coachee && !douloureuse && Object.prototype.hasOwnProperty.call(consignes, slug) ? consignes[slug] : null;
         // §9.20 — LA REPRISE CHOISIE dans cette séance (`seance.reprises`, le
         // brouillon) : « Plus léger, plus de reps » applique le REPLI figé au
-        // choix (§14.5, `consigneRepli`), sur la consigne de la zone corrigée.
+        // choix — celui de §14.5, sinon celui de la reprise longue (§9.9, 51-3
+        // bis) — sur la consigne de la zone corrigée (`consignePlusLegere`).
         // Aucune autre charge.
         var choixReprise = seance.reprises && Object.prototype.hasOwnProperty.call(seance.reprises, slug)
           ? seance.reprises[slug] : null;
         if (c && c.consigne && choixReprise && choixReprise.choix === 'leger' && choixReprise.repli) {
-          c = Object.assign({}, c, { consigne: Moteur().consigneRepli(c.consigne, choixReprise.repli) });
+          c = Object.assign({}, c, { consigne: Moteur().consignePlusLegere(c.consigne, choixReprise.repli) });
         }
         var suites = e.suites || {};
         var suite = Object.prototype.hasOwnProperty.call(suites, slug) ? suites[slug] : null;

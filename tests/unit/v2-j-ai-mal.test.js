@@ -170,13 +170,35 @@ describe('51-3 — la zone suivante en reps et la condition de la carte', () => 
     expect(M.reprisePour(se, c.avant, k, null, { equipement: 'barre' }).repli.ligne).toEqual([20, 15]);
   });
 
+  // 51-3 ter (D5, §20 bis) — le libellé ne contredit jamais son chiffre.
+  test('⚠️ DISCRIMINANT — la charge ne baisse pas (militaire, 20 kg) : « Plus de reps », jamais « Plus léger »', () => {
+    const c = CAS.neutralite.find((x) => x.id === 'N04');
+    const se = M.sansPalierRetenues(contrat(c), { equipement: 'barre' });
+    const k = M.consignePour(se, c.avant, { equipement: 'barre' });
+    const r = M.reprisePour(se, c.avant, k, null, { equipement: 'barre' });
+    expect(k.ligne.charge).toBe(20);
+    const t = M.carteRepriseTextes('Développé Militaire (Barre)', k, r);
+    expect(t.choix.map((q) => q.texte)).toEqual(['Comme avant : 20\u00a0kg\u00a0×\u00a012',
+      'Plus de reps : 20\u00a0kg\u00a0×\u00a015', 'Sans coach cette fois']);
+    expect(t.choix.map((q) => q.cle)).toEqual(['avant', 'leger', 'sans']);
+  });
+
+  test('« Plus léger » ne se dit que si la charge baisse — et la charge inconnue est plus basse par définition', () => {
+    const k = { ligne: { charge: 100, vise: 5 } };
+    const r = (charge) => ({ source: 'reprise_longue', palier: 100, ligne: [charge, 6] });
+    expect(M.texteRepriseLeger(r(95), k)).toMatch(/^Plus léger, plus de reps : 95/);
+    expect(M.texteRepriseLeger(r(100), k)).toMatch(/^Plus de reps : 100/);
+    expect(M.texteRepriseLeger(r(102.5), k)).toMatch(/^Plus de reps : 102,5/);
+    expect(M.texteRepriseLeger(r(null), k)).toMatch(/^Plus léger, plus de reps : le cran en dessous/);
+  });
+
   test('sans cran connu, la charge ne s’invente pas : « le cran en dessous »', () => {
     const c = CAS.neutralite.find((x) => x.id === 'N03');
     const se = M.sansPalierRetenues(contrat(c), {});
     const k = M.consignePour(se, c.avant, {});
     const r = M.reprisePour(se, c.avant, k, null);
     expect(r.repli.ligne).toEqual([null, 6]);
-    expect(M.texteRepriseLeger(r.repli)).toBe('Plus léger, plus de reps : le cran en dessous\u00a0×\u00a06');
+    expect(M.texteRepriseLeger(r.repli, k)).toBe('Plus léger, plus de reps : le cran en dessous\u00a0×\u00a06');
   });
 
   test('pas de carte sans séance douloureuse en dernier, ni sans consigne', () => {

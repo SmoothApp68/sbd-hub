@@ -2474,14 +2474,23 @@
     var l = consigne && consigne.ligne;
     return l ? 'Comme avant : ' + ligneFois(l.charge, l.vise, false, false, cite(CIBLE, { quoi: 'reprise' })) : null;
   }
-  function texteRepriseLeger(repli) {
-    // Une charge inconnue se dit : « le cran en dessous » (§10.2, rang 4).
-    return repli ? 'Plus léger, plus de reps : ' +
-      ligneFois(repli.ligne[0], repli.ligne[1], false, true, cite(CIBLE, { quoi: 'reprise_repli' })) : null;
+  // 51-3 ter (D5, §20 bis) — LE LIBELLÉ NE CONTREDIT JAMAIS SON CHIFFRE. Quand
+  // la charge proposée n'est pas plus basse que celle de « Comme avant » (le
+  // repli de la reprise longue garde le palier au-delà de 10 %), le choix
+  // s'appelle « Plus de reps » : le coach ne dit pas « plus léger » sans l'être.
+  // Une charge inconnue se dit « le cran en dessous » (§10.2, rang 4) : elle
+  // est plus basse par définition.
+  function texteRepriseLeger(repli, consigne) {
+    if (!repli) return null;
+    var charge = nombre(repli.ligne[0]);
+    var avant = consigne && consigne.ligne ? nombre(consigne.ligne.charge) : null;
+    var plusLeger = charge === null || avant === null || charge < avant;
+    return (plusLeger ? 'Plus léger, plus de reps : ' : 'Plus de reps : ') +
+      ligneFois(repli.ligne[0], repli.ligne[1], false, true, cite(CIBLE, { quoi: 'reprise_repli' }));
   }
   function carteRepriseTextes(nom, consigne, reprise) {
     var choix = [{ cle: 'avant', texte: texteRepriseAvant(consigne) }];
-    var leger = texteRepriseLeger(reprise && reprise.repli);
+    var leger = texteRepriseLeger(reprise && reprise.repli, consigne);
     if (leger) choix.push({ cle: 'leger', texte: leger });
     choix.push({ cle: 'sans', texte: TEXTES_DOULEUR.sansCoach });
     return {

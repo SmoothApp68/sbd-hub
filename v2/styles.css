@@ -1085,6 +1085,15 @@ button.puce-zone{font:inherit;font-size:11px;font-weight:600;cursor:pointer;
   border:1px solid var(--trait);background:var(--panneau);color:var(--texte);
   font:700 12px/1 inherit;font-family:inherit}
 .demarrer:active{border-color:var(--texte-2)}
+/* §9.18 (51-1) — la durée estimée, et « J'ai peu de temps » sous « Démarrer ». */
+.routine-duree{font-size:12px;color:var(--texte-2);margin-top:2px;font-variant-numeric:tabular-nums}
+.routine-actions{display:flex;flex-direction:column;gap:6px;flex:0 0 auto}
+.routine-actions .demarrer{flex:1;min-height:40px}
+.peu-de-temps{padding:7px var(--e2);border-radius:10px;border:1px solid var(--trait);
+  background:none;color:var(--texte-2);font:600 11px/1.2 inherit;font-family:inherit}
+.peu-de-temps:active{border-color:var(--texte-2)}
+.cr-lignes{margin:var(--e2) 0 0;padding-left:18px;font-size:14px;line-height:1.5;color:var(--texte)}
+.cr-phrase{margin-top:var(--e2)}
 
 /* Une séance en cours se signale sur son onglet, depuis n'importe quel écran.
    Un point, pas une alarme — le système ne commente jamais, il constate. */

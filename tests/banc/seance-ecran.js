@@ -229,7 +229,24 @@ const CATALOGUE = [
   { slug: 'adapt-u51', nom: 'Adapté U51 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: [], muscles_secondaires: [] },
   { slug: 'rempl-u51', nom: 'Remplaçant U51 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: [], muscles_secondaires: [] },
   { slug: 'voisin-u51', nom: 'Voisin U51 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: [], muscles_secondaires: [] },
-  { slug: 'tiers-u51', nom: 'Tiers U51 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: [], muscles_secondaires: [] }
+  { slug: 'tiers-u51', nom: 'Tiers U51 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: [], muscles_secondaires: [] },
+  // 51-1 (MOTEUR §9.18) — réservés à la section 7 G vicies (« J'ai peu de
+  // temps ») : la routine du lundi d'Aurélien (le cas C07), sous des noms
+  // qu'aucune autre recherche ne trouve, avec des muscles inventés (`u51…`) :
+  // le raccourci lit les muscles, et aucune autre section ne doit voir leur
+  // volume. Puis une routine où 45 min est inatteignable.
+  { slug: 'tapis-u51b', nom: 'Tapis U51b', mesure: 'distance_temps', charge: 'aucune', muscles_primaires: [], muscles_secondaires: [] },
+  { slug: 'couche-u51b', nom: 'Couché U51b (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['u51_pecs'], muscles_secondaires: ['u51_tri', 'u51_delta'] },
+  { slug: 'tirage-u51b', nom: 'Tirage U51b', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['u51_dos'], muscles_secondaires: ['u51_bi', 'u51_hdd', 'u51_ab'] },
+  { slug: 'incline-u51b', nom: 'Incliné U51b (Haltères)', mesure: 'charge_reps', charge: 'externe', equipement: 'haltere', muscles_primaires: ['u51_pecs'], muscles_secondaires: ['u51_tri', 'u51_delta'] },
+  { slug: 'rowing-u51b', nom: 'Rowing U51b', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['u51_hdd', 'u51_dos'], muscles_secondaires: ['u51_bi', 'u51_dp', 'u51_ab', 'u51_trap'] },
+  { slug: 'elev-u51b', nom: 'Élévation U51b', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['u51_dl'], muscles_secondaires: ['u51_trap'] },
+  { slug: 'face-u51b', nom: 'Face Pull U51b', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['u51_dp'], muscles_secondaires: ['u51_trap', 'u51_hdd'] },
+  { slug: 'premier-u51c', nom: 'Premier U51c (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['u51_p1'], muscles_secondaires: [] },
+  { slug: 'iso-u51c-1', nom: 'Isolation U51c Un', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['u51_i1'], muscles_secondaires: [] },
+  { slug: 'iso-u51c-2', nom: 'Isolation U51c Deux', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['u51_i2'], muscles_secondaires: [] },
+  { slug: 'iso-u51c-3', nom: 'Isolation U51c Trois', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['u51_i3'], muscles_secondaires: [] },
+  { slug: 'iso-u51c-4', nom: 'Isolation U51c Quatre', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['u51_i4'], muscles_secondaires: [] }
 ];
 
 // ⚠️ UNE ROUTINE PORTE MAINTENANT SES LIGNES (chantier 43). `routine_sets`
@@ -10585,6 +10602,213 @@ const SETS_IMPORTES = [
     ok('[A51] la garde (C6) n’a rien signalé dans cette section', gardeBanc.violations === violationsAvant,
       JSON.stringify(gardeBanc.liste.slice(-2)));
     ok('[A51] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
+  }
+
+  console.log('\n══ 7 G vicies. « J’AI PEU DE TEMPS » : LA DURÉE ESTIMÉE, LA CARTE, LA SÉANCE RACCOURCIE (51-1, MOTEUR §9.18) ══');
+  //
+  // Le temps se décide AVANT de commencer, sur la routine : sa durée estimée,
+  // « J'ai peu de temps » → 45 ou 60 min → la carte du coach → « Raccourcir »
+  // (la séance démarre raccourcie, les charges habituelles) ou « Garder la
+  // séance ». La routine ne change jamais, et la question de fin ne propose
+  // jamais de retirer un exercice raccourci. Une cible inatteignable ne se
+  // promet pas : « Au plus court : … ».
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : la routine est le cas C07 de la référence
+  // (celui où un exercice tombe) ; l'attendu se calcule par le MÊME moteur, en
+  // Node, sur la même structure, et se compare à l'écran et au plan que l'app
+  // calcule (`THPlan.dernier`) — jamais à une valeur écrite à la main seule.
+  {
+    const tR = Date.now();
+    require(path.join(R, 'v2/js/modele.js'));
+    require(path.join(R, 'v2/js/semaine.js'));
+    require(path.join(R, 'v2/js/profil.js'));
+    require(path.join(R, 'v2/js/palier.js'));
+    const MoteurR = require(path.join(R, 'v2/js/moteur.js'));
+    const sp = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const poserR = (id, jours, slug, lignes /* [[kg, reps], …] */) => {
+      const debut = ilYa(jours * 86400000, tR).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'Peu de temps — ' + id, debut,
+        fin: finDe(debut, tR).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      lignes.forEach(([kg, reps], k) => base.sets.push({ id: id + '-s' + (k + 1), session_id: id, user_id: 'u-banc',
+        exercise_slug: slug, charge_kg: kg, reps, duree_s: null, distance_m: null, type_serie: 'travail',
+        rang: k + 1, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null, repos_s: null, note: null,
+        source: 'app', created_at: debut, modifie_a: null }));
+    };
+    // Le couché a un historique : sa consigne existe, et doit être la même
+    // dans la séance raccourcie que dans la séance complète.
+    poserR('r51-1', 21, 'couche-u51b', [[80, 8], [80, 8], [80, 8], [80, 8]]);
+    poserR('r51-2', 14, 'couche-u51b', [[80, 8], [80, 8], [80, 8], [80, 8]]);
+    poserR('r51-3', 7, 'couche-u51b', [[82.5, 8], [82.5, 8], [82.5, 7], [82.5, 6]]);
+    let rs = 0;
+    const lignesR = (types, extra) => types.map((t, k) => Object.assign({ id: 'rs51-' + (++rs), rang: k + 1, type_serie: t,
+      reps_visees: t === 'travail' || t === 'echauffement' ? 8 : null, charge_cible_kg: null, duree_cible_s: null,
+      distance_cible_m: null }, extra || {}));
+    const exoR = (rid, k, slug, types, repos, groupe, extra) => ({ id: rid + '-' + k, routine_id: rid, exercise_slug: slug,
+      rang: k, routine_sets: lignesR(types, extra), repos_cible_s: repos, groupe_superset: groupe, note: null });
+    const T4 = ['travail', 'travail', 'travail', 'travail'], T3 = ['travail', 'travail', 'travail'];
+    ROUTINES.push({ id: 'r-u51b', nom: 'Peu de temps U51', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [
+        exoR('r-u51b', 0, 'tapis-u51b', ['travail'], 60, null, { reps_visees: null, duree_cible_s: 420 }),
+        exoR('r-u51b', 1, 'couche-u51b', ['echauffement', 'echauffement', 'echauffement', 'echauffement'].concat(T4), 180, null),
+        exoR('r-u51b', 2, 'tirage-u51b', T4, 120, null),
+        exoR('r-u51b', 3, 'incline-u51b', T3, 150, null),
+        exoR('r-u51b', 4, 'rowing-u51b', T3, 120, null),
+        exoR('r-u51b', 5, 'elev-u51b', T4, null, 1),
+        exoR('r-u51b', 6, 'face-u51b', T3, 60, 1),
+        exoR('r-u51b', 7, 'tapis-u51b', ['travail'], null, null, { reps_visees: null, duree_cible_s: 1800 })] });
+    ROUTINES.push({ id: 'r-u51c', nom: 'Trop long U51', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [exoR('r-u51c', 0, 'premier-u51c', ['echauffement', 'echauffement', 'echauffement', 'echauffement'].concat(T4), 300, null)]
+        .concat([1, 2, 3, 4].map((n) => exoR('r-u51c', n, 'iso-u51c-' + n, T3, 300, null))) });
+
+    // L'attendu, par le moteur, sur la structure que l'app tirera de la routine.
+    const indexR = {};
+    CATALOGUE.forEach((e) => { indexR[e.slug] = e; });
+    const enSaisie = (rex) => rex.map((e) => ({ id: e.id, exercise_slug: e.exercise_slug, repos_cible_s: e.repos_cible_s,
+      groupe_superset: e.groupe_superset, series: e.routine_sets.map((l) => ({ type_serie: l.type_serie, duree_s: l.duree_cible_s })) }));
+    const routineR = ROUTINES.find((r) => r.id === 'r-u51b');
+    const completR = MoteurR.structureDeRoutine(enSaisie(routineR.routine_exercises), indexR);
+    const res45 = MoteurR.raccourcirRoutine(completR, 45);
+    const nommer = (slug) => (indexR[slug] || {}).nom || slug;
+    const carte45 = MoteurR.carteRaccourcir(completR, res45, 45, nommer);
+    const longR = MoteurR.structureDeRoutine(enSaisie(ROUTINES.find((r) => r.id === 'r-u51c').routine_exercises), indexR);
+    const resLong = MoteurR.raccourcirRoutine(longR, 45);
+    const carteLong = MoteurR.carteRaccourcir(longR, resLong, 45, nommer);
+    const instantaneR = () => JSON.stringify(ROUTINES.filter((r) => r.id === 'r-u51b' || r.id === 'r-u51c'));
+    const routinesAvant = instantaneR();
+    const patchsAvant = base.patchs.length;
+    const violationsAvant = gardeBanc.violations;
+
+    const rangeeR = (nom) => page.evaluate((n) => {
+      const r = Array.from(document.querySelectorAll('.routine-rangee'))
+        .filter((x) => (x.querySelector('.routine-nom') || {}).textContent === n)[0];
+      if (!r) return null;
+      return { duree: (r.querySelector('.routine-duree') || {}).textContent || null,
+               peuDeTemps: !!r.querySelector('.peu-de-temps'), demarrer: !!r.querySelector('.demarrer') };
+    }, nom);
+    const peuDeTemps = async (nom) => {
+      await page.evaluate((n) => {
+        const r = Array.from(document.querySelectorAll('.routine-rangee'))
+          .filter((x) => (x.querySelector('.routine-nom') || {}).textContent === n)[0];
+        r.querySelector('.peu-de-temps').click();
+      }, nom);
+      await attendre(500);
+    };
+    const feuilleR = () => page.evaluate(() => {
+      const c = document.getElementById('feuille-contenu');
+      return { titre: (c.querySelector('.feuille-t') || {}).textContent || '',
+               aide: (c.querySelector('.feuille-aide') || {}).textContent || '',
+               lignes: Array.from(c.querySelectorAll('.cr-lignes li')).map((l) => l.textContent),
+               phrase: (c.querySelector('.cr-phrase') || {}).textContent || '',
+               boutons: Array.from(c.querySelectorAll('.feuille-menu button')).map((b) => b.textContent) };
+    });
+    const structureR = () => page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      const ex = d.entrees.seance.exercices.map((e) => {
+        const n = (t) => e.series.filter((x) => (x.type_serie || 'travail') === t).length;
+        return [e.exercise_slug, n('echauffement'), n('travail'), n('degressive')];
+      });
+      const x = d.plan.exercices.filter((q) => q.slug === 'couche-u51b')[0];
+      const k = x && x.consigne;
+      const c = d.entrees.consignes['couche-u51b'];
+      return { ex, raccourci: !!d.entrees.raccourci,
+               consigne: k ? { etat: k.etat, ligne: k.ligne && [k.ligne.charge, k.ligne.vise], haut: k.haut && [k.haut.charge, k.haut.vise] } : null,
+               seriesRoutine: c ? c.seriesRoutine : null };
+    });
+
+    // ── A. LA DURÉE ESTIMÉE SUR LA ROUTINE, ET LE GESTE.
+    await aller('/saisie');
+    await attendre(700);
+    const a1 = await rangeeR('Peu de temps U51');
+    ok('[T51] la routine dit sa durée estimée, celle du moteur sur sa structure : « ' + sp(MoteurR.texteDureeEstimee(MoteurR.dureeEstimee(completR))) + ' »',
+      !!a1 && sp(a1.duree) === sp(MoteurR.texteDureeEstimee(MoteurR.dureeEstimee(completR))) && /\(estimation\)$/.test(sp(a1.duree)),
+      JSON.stringify(a1));
+    ok('[T51] « J’ai peu de temps » est à côté de « Démarrer »', !!a1 && a1.peuDeTemps && a1.demarrer, JSON.stringify(a1));
+
+    // ── B. 45 MIN → LA CARTE → « GARDER LA SÉANCE » : la séance complète.
+    await peuDeTemps('Peu de temps U51');
+    const b0 = await feuilleR();
+    ok('[T51] tous les écrans, mêmes données : la feuille dit la durée de la routine, et propose 45 et 60 min',
+      sp(b0.aide) === sp(a1 && a1.duree) && JSON.stringify(b0.boutons) === JSON.stringify(['45 min', '60 min', 'Annuler']),
+      JSON.stringify(b0));
+    await entree('^45 min$');
+    const b1 = await feuilleR();
+    ok('[T51] DISCRIMINANT — la carte : « Pour tenir en 45 min (estimation) », ce qui change (le moteur, ligne par ligne), la phrase, les deux boutons',
+      sp(b1.titre) === 'Pour tenir en 45 min (estimation)' && sp(b1.titre) === sp(carte45.titre) &&
+        JSON.stringify(b1.lignes.map(sp)) === JSON.stringify(carte45.lignes.map(sp)) &&
+        b1.lignes.some((l) => /Incliné U51b \(Haltères\) : retiré, ses muscles sont déjà travaillés/.test(sp(l))) &&
+        b1.lignes.some((l) => /Tapis U51b 7 → 3 min/.test(sp(l))) &&
+        sp(b1.phrase) === sp(carte45.phrase) && JSON.stringify(b1.boutons) === JSON.stringify(['Raccourcir', 'Garder la séance']),
+      JSON.stringify(b1));
+    await entree('^Garder la séance$');
+    await attendre(900);
+    const b2 = await structureR();
+    ok('[T51] « Garder la séance » démarre la séance complète, avec la structure de la routine',
+      JSON.stringify(b2.ex) === JSON.stringify(completR.map((e) => [e.slug, e.ch, e.tr, e.deg])) && !b2.raccourci,
+      JSON.stringify(b2));
+    ok('[T51] prémisse : le couché a une consigne (son historique), figée sur les 4 séries de sa routine',
+      !!b2.consigne && b2.seriesRoutine === 4, JSON.stringify(b2));
+    await abandonner();
+
+    // ── C. 45 MIN → « RACCOURCIR » : la séance raccourcie, les charges habituelles.
+    await aller('/saisie');
+    await attendre(700);
+    await peuDeTemps('Peu de temps U51');
+    await entree('^45 min$');
+    await entree('^Raccourcir$');
+    await attendre(1200);
+    const c1 = await structureR();
+    const attenduC = res45.exercices.map((e) => [e.slug, e.ch, e.tr, e.deg]).filter((e) => e[1] + e[2] + e[3] > 0);
+    ok('[T51] DISCRIMINANT — « Raccourcir » démarre la séance avec la structure de la carte (l’incliné et le cardio de fin en moins, les dernières séries coupées, toutes les chauffes du couché)',
+      JSON.stringify(c1.ex) === JSON.stringify(attenduC) && c1.raccourci, JSON.stringify([c1.ex, attenduC]));
+    ok('[T51] DISCRIMINANT — les charges habituelles : la consigne du couché est celle de la séance complète, et lit les 4 séries de la routine (pas les 2 de la séance)',
+      JSON.stringify(c1.consigne) === JSON.stringify(b2.consigne) && c1.seriesRoutine === 4,
+      JSON.stringify([c1.consigne, b2.consigne, c1.seriesRoutine]));
+    ok('[T51] la garde de l’app (I32 compris) n’a rien vu', gardeBanc.violations === violationsAvant,
+      JSON.stringify(gardeBanc.liste.slice(-2)));
+
+    // ── D. LA QUESTION DE FIN NE PROPOSE PAS DE RETIRER L'INCLINÉ.
+    await page.evaluate(() => {
+      const b = Array.from(document.querySelectorAll('.bloc-seance'))[1];
+      const l = b && b.querySelectorAll('.ligne-serie');
+      if (l && l.length) l[l.length - 1].querySelector('.ok-serie').click();
+    });
+    await attendre(1200);
+    await page.click('#bandeau-seance .bandeau-fin');
+    await attendre(700);
+    const d1 = await texte('#feuille-contenu');
+    ok('[T51] DISCRIMINANT — la question de fin ne propose jamais de retirer un exercice raccourci',
+      !/Incliné U51b/.test(d1) && !/Tapis U51b — retiré/.test(d1) && !/retiré/.test(d1),
+      sp(d1).slice(0, 160));
+    await page.click('#feuille-contenu .danger');
+    await attendre(1600);
+    ok('[T51] DISCRIMINANT — la routine n’a pas changé : aucune écriture, aucune ligne en moins',
+      instantaneR() === routinesAvant && base.patchs.length === patchsAvant,
+      JSON.stringify([base.patchs.length - patchsAvant]));
+
+    // ── E. UNE CIBLE INATTEIGNABLE NE SE PROMET PAS.
+    await aller('/saisie');
+    await attendre(700);
+    await peuDeTemps('Trop long U51');
+    await entree('^45 min$');
+    const e1 = await feuilleR();
+    ok('[T51] DISCRIMINANT — inatteignable : « Au plus court : … (estimation) » et « Raccourcir à … », jamais « Pour tenir en 45 min »',
+      !resLong.tient && sp(e1.titre) === sp(carteLong.titre) && /^Au plus court : \d+ min \(estimation\)$/.test(sp(e1.titre)) &&
+        JSON.stringify(e1.boutons.map(sp)) === JSON.stringify([sp(carteLong.oui), 'Garder la séance']) &&
+        /^Raccourcir à \d+ min$/.test(sp(carteLong.oui)) && !/45 min/.test(sp(e1.titre) + sp(carteLong.oui)),
+      JSON.stringify([e1, carteLong.titre, carteLong.oui]));
+    // On ferme par « Garder la séance » (la séance complète), puis on abandonne.
+    await entree('^Garder la séance$');
+    await attendre(900);
+    await abandonner();
+    await aller('/saisie');
+    await attendre(500);
+
+    ok('[T51] la garde (C6) n’a rien signalé dans cette section', gardeBanc.violations === violationsAvant,
+      JSON.stringify(gardeBanc.liste.slice(-2)));
+    ok('[T51] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
 
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');

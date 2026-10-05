@@ -119,3 +119,44 @@ describe('50-1 — la page d’exercice : un exercice en reps et une aide', () =
     });
   });
 });
+
+// ── 51-1 (MOTEUR §9.18) — LA DURÉE ESTIMÉE : UN SEUL CALCUL, PARTOUT ─────────
+//
+// « Tous les écrans, mêmes données », étendu à la durée d'une routine : la
+// carte de la bibliothèque, la feuille « J'ai peu de temps » et la carte du
+// raccourci lisent la MÊME estimation (`THMoteur.dureeEstimee`, sur
+// `structureDeRoutine`) — jamais un calcul à l'écran. Le banc (7 G vicies) la
+// relit à l'écran, routine, feuille et carte côte à côte.
+describe('51-1 — la durée estimée : la routine, la feuille et la carte disent la même chose', () => {
+  require('../../v2/js/semaine.js');
+  require('../../v2/js/profil.js');
+  const M = require('../../v2/js/moteur.js');
+  const fs = require('fs');
+  const path = require('path');
+  const vm = require('vm');
+  const APP = fs.readFileSync(path.join(__dirname, '../../v2/js/app.js'), 'utf8');
+  const extraire = (nom) => APP.match(new RegExp('^  function ' + nom + '\\b[\\s\\S]*?^  }', 'm'))[0];
+  const CAT = { a: { mesure: 'charge_reps', muscles_primaires: ['pectoraux'], muscles_secondaires: ['triceps', 'deltoide_anterieur'] },
+                b: { mesure: 'charge_reps', muscles_primaires: ['dos'], muscles_secondaires: [] } };
+  const lignes = (n, ch) => Array.from({ length: n + (ch || 0) }, (_, k) => ({ type_serie: k < (ch || 0) ? 'echauffement' : 'travail', reps: 8 }));
+  const ROUTINE = { id: 'r', nom: 'R', exercices: [
+    { id: 'x', exercise_slug: 'a', series: lignes(5, 3), repos_cible_s: 240, groupe_superset: null },
+    { id: 'y', exercise_slug: 'b', series: lignes(5), repos_cible_s: 180, groupe_superset: null }] };
+  const ctx = { Moteur: M, parisEscalierConnus: () => [], catalogueIndexe: () => CAT };
+  vm.createContext(ctx);
+  vm.runInContext('var CIBLES_TEMPS = [45, 60];', ctx);
+  ['semaineAllegeeEnCours', 'ciblesPlusCourtes', 'tempsDeLaRoutine'].forEach((n) => vm.runInContext(extraire(n), ctx));
+
+  test('la carte de la routine (et l’aide de la feuille) disent l’estimation du moteur sur la même structure', () => {
+    const attendu = M.texteDureeEstimee(M.dureeEstimee(M.structureDeRoutine(ROUTINE.exercices, CAT)));
+    ctx.r = ROUTINE;
+    expect(vm.runInContext('tempsDeLaRoutine(r).texte', ctx)).toBe(attendu);
+  });
+
+  test('la carte du raccourci part de la même estimation : sa structure complète est celle de la routine', () => {
+    const complet = M.structureDeRoutine(ROUTINE.exercices, CAT);
+    const r = M.raccourcirRoutine(complet, 45);
+    expect(M.dureeEstimee(r.exercices)).toBe(r.duree_s);
+    expect(r.duree_s).toBeLessThan(M.dureeEstimee(complet));
+  });
+});

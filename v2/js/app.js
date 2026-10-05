@@ -927,14 +927,42 @@
   }
 
   // ── Démarrer, reprendre, terminer ───────────────────────────────────────
-  async function demarrerSeance(routine) {
+  // §9.18 (51-1) — `raccourci` (facultatif) : `{ cible, complet, resultat }`,
+  // la carte « J'ai peu de temps » acceptée. La séance démarre sur une COPIE
+  // raccourcie de la routine (`Moteur.appliquerRaccourci`) ; la routine, elle,
+  // ne change jamais (ECRAN-SAISIE §6.3).
+  async function demarrerSeance(routine, raccourci) {
+    var id = uuid();
+    var depart = routine;
+    var applique = null;
+    if (routine && raccourci && raccourci.resultat) {
+      applique = Moteur.appliquerRaccourci(routine, raccourci.resultat);
+      depart = applique.routine;
+      // §9.18 (51-1 ter) — UNE RÉDUCTION S'APPLIQUE UNE SEULE FOIS, SUR LA
+      // ROUTINE : la semaine allégée et la série de plus lisent le nombre de
+      // séries de la routine COMPLÈTE, jamais celui de la séance raccourcie —
+      // le mécanisme du remplacement (`routinesHeritees`), lu par la consigne
+      // quand elle se fige. Sans lui : couché 4 → 2 → 1, et une ligne remise.
+      (raccourci.complet || []).forEach(function (e) {
+        var cle = id + '|' + e.slug;
+        if (e && e.tr > 0 && !Object.prototype.hasOwnProperty.call(routinesHeritees, cle)) routinesHeritees[cle] = e.tr;
+      });
+    }
     seance = Seance.creer({
-      id: uuid(),
+      id: id,
       userId: sessionActive && sessionActive.user && sessionActive.user.id,
       titre: routine ? routine.nom : null,
-      routine: routine,
+      routine: depart,
       idSerie: uuid
     });
+    // Le souvenir du raccourci, dans le brouillon de la séance seulement (la
+    // session et les séries n'ont pas de colonne pour lui) : I32 le vérifie, et
+    // la question de fin n'y propose jamais de retirer un exercice raccourci.
+    if (applique) {
+      seance = Object.assign({}, seance, { raccourcie: {
+        cible: raccourci.cible, complet: raccourci.complet,
+        raccourcie: raccourci.resultat.exercices, retires: applique.retires } });
+    }
     chrono = null;
     await sauverSeance();
     await poserSeance(true);
@@ -2633,7 +2661,10 @@
       // MOTEUR §14.4 (49-U14) — l'escalier : les cartes passées, les compteurs
       // figés dans les paris des autres séances, les noms du catalogue et les
       // séries de la routine. Le plan décide de la carte et de la période.
-      escalier: escalierDesEntrees(cs)
+      escalier: escalierDesEntrees(cs),
+      // §9.18 (51-1) — la séance raccourcie : la structure complète, la
+      // raccourcie et les exercices retirés, pour I32.
+      raccourci: seance.raccourcie || null
     };
   }
 
@@ -4782,6 +4813,12 @@
       surDemarrer: function (id) {
         demarrerSeance(routines.filter(function (r) { return r.id === id; })[0] || null);
       },
+      // §9.18 (51-1) — la durée estimée, et « J'ai peu de temps ».
+      temps: tempsDeLaRoutine,
+      surPeuDeTemps: function (id) {
+        var r = routines.filter(function (x) { return x.id === id; })[0];
+        if (r) ouvrirPeuDeTemps(r);
+      },
       surSeanceVide: function () { demarrerSeance(null); }
     });
     brancherReorg('liste-routines');
@@ -4829,6 +4866,68 @@
       surAnnuler: fermerVoile
     });
     ouvrirVoile($('feuille-seance'));
+  }
+
+  // ── §9.18 (51-1) — « J'AI PEU DE TEMPS », SUR LA ROUTINE ─────────────────
+  //
+  // La durée estimée de chaque routine, et le geste qui la raccourcit. Le
+  // temps se décide AVANT de commencer : en séance, il n'y a pas de geste
+  // « temps » (terminer plus tôt suffit). Pendant une semaine allégée, pas de
+  // « J'ai peu de temps » : la séance est déjà plus courte, et la routine dit
+  // sa durée allégée (51-1 ter).
+  var CIBLES_TEMPS = [45, 60];
+
+  function semaineAllegeeEnCours() {
+    return !!Moteur.periodeAllegee(Moteur.cartesDesParis(parisEscalierConnus()),
+      Moteur.jourCivil(new Date().toISOString()));
+  }
+
+  // Les cibles plus courtes que la routine : sans elles, le geste n'a rien à
+  // proposer et ne s'affiche pas.
+  function ciblesPlusCourtes(dureeS) {
+    return CIBLES_TEMPS.filter(function (m) { return m * 60 < dureeS; });
+  }
+
+  function tempsDeLaRoutine(routine) {
+    if (!routine || !(routine.exercices || []).length) return null;
+    var structure = Moteur.structureDeRoutine(routine.exercices, catalogueIndexe());
+    if (semaineAllegeeEnCours()) {
+      return { texte: Moteur.texteDureeAllegee(Moteur.dureeEstimee(Moteur.structureAllegee(structure))),
+               peuDeTemps: false };
+    }
+    var d = Moteur.dureeEstimee(structure);
+    return { texte: Moteur.texteDureeEstimee(d), peuDeTemps: ciblesPlusCourtes(d).length > 0 };
+  }
+
+  function ouvrirPeuDeTemps(routine) {
+    var t = tempsDeLaRoutine(routine);
+    if (!t || !t.peuDeTemps) return;
+    var d = Moteur.dureeEstimee(Moteur.structureDeRoutine(routine.exercices, catalogueIndexe()));
+    Rendu.rendreFeuilleTemps($('feuille-contenu'), {
+      sujet: routine.nom || 'Sans nom',
+      aide: t.texte,
+      choix: ciblesPlusCourtes(d).map(function (m) {
+        return { libelle: m + ' min', surClic: function () { montrerCarteRaccourci(routine, m); } };
+      }),
+      surAnnuler: fermerVoile
+    });
+    ouvrirVoile($('feuille-seance'));
+  }
+
+  // LA CARTE : le coach propose, la personne décide (§1.1). « Raccourcir »
+  // démarre la séance raccourcie, « Garder la séance » la séance normale.
+  function montrerCarteRaccourci(routine, cible) {
+    var index = catalogueIndexe();
+    var complet = Moteur.structureDeRoutine(routine.exercices, index);
+    var resultat = Moteur.raccourcirRoutine(complet, cible);
+    Rendu.rendreCarteRaccourci($('feuille-contenu'), {
+      carte: Moteur.carteRaccourcir(complet, resultat, cible, function (slug) { return Modele.nommer(index, slug); }),
+      surRaccourcir: function () {
+        fermerVoile();
+        demarrerSeance(routine, { cible: cible, complet: complet, resultat: resultat });
+      },
+      surGarder: function () { fermerVoile(); demarrerSeance(routine); }
+    });
   }
 
   async function afficherSaisie() {

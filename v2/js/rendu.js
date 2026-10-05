@@ -515,6 +515,39 @@
     return cible;
   }
 
+  // §9.18 (51-1) — LE CHOIX DE DURÉE (45 ou 60 min), avant la carte.
+  function rendreFeuilleTemps(cible, vue) {
+    vider(cible);
+    var t = el('div', 'feuille-t', 'J’ai peu de temps');
+    if (vue.sujet) t.appendChild(el('em', '', vue.sujet));
+    cible.appendChild(t);
+    if (vue.aide) cible.appendChild(el('p', 'feuille-aide', vue.aide));
+    var menu = el('div', 'feuille-menu choix-temps');
+    (vue.choix || []).forEach(function (c) { entreeMenu(menu, c.libelle, { surClic: c.surClic }); });
+    entreeMenu(menu, 'Annuler', { surClic: vue.surAnnuler });
+    cible.appendChild(menu);
+    return cible;
+  }
+
+  // §9.18 (51-1) — LA CARTE DU RACCOURCI. Elle n'écrit aucune phrase : tout
+  // vient de `THMoteur.carteRaccourcir` (titre, lignes, phrase, boutons).
+  function rendreCarteRaccourci(cible, vue) {
+    vider(cible);
+    var c = vue.carte || {};
+    var carte = el('div', 'carte-raccourci' + (c.tient ? '' : ' au-plus-court'));
+    carte.appendChild(el('div', 'feuille-t cr-titre', c.titre || ''));
+    var liste = el('ul', 'cr-lignes');
+    (c.lignes || []).forEach(function (l) { liste.appendChild(el('li', '', l)); });
+    carte.appendChild(liste);
+    if (c.phrase) carte.appendChild(el('p', 'feuille-aide cr-phrase', c.phrase));
+    cible.appendChild(carte);
+    var menu = el('div', 'feuille-menu');
+    entreeMenu(menu, c.oui || 'Raccourcir', { classe: 'cr-oui', surClic: vue.surRaccourcir });
+    entreeMenu(menu, c.non || 'Garder la séance', { classe: 'cr-non', surClic: vue.surGarder });
+    cible.appendChild(menu);
+    return cible;
+  }
+
   // Indicateur discret : il dit d'où viennent les données, il n'alarme pas et
   // ne bloque rien. Une app qui refuse de s'ouvrir faute de synchronisation est
   // pire que le problème qu'elle résout.
@@ -3143,6 +3176,11 @@
       carte.appendChild(el('div', 'routine-meta',
         a.nbExercices + ' exercice' + (a.nbExercices > 1 ? 's' : '') +
         ' \u00b7 ' + a.nbSeries + ' série' + (a.nbSeries > 1 ? 's' : '')));
+      // §9.18 (51-1) — LA DURÉE ESTIMÉE, toujours « (estimation) » ; pendant
+      // une semaine allégée, sa durée allégée. Lue sur `vue.temps`, jamais
+      // calculée ici.
+      var temps = v.temps ? v.temps(r) : null;
+      if (temps && temps.texte) carte.appendChild(el('div', 'routine-duree', temps.texte));
       carte.disabled = !!v.reorganiser;
       carte.addEventListener('click', function () { if (!v.reorganiser && v.surChoix) v.surChoix(r.id); });
 
@@ -3162,10 +3200,21 @@
       // partir une séance sur un geste raté. La carte, elle, cesse aussi
       // d'ouvrir l'éditeur — pour la même raison.
       if (!v.reorganiser) {
+        var actions = el('div', 'routine-actions');
         var go = el('button', 'demarrer', 'Démarrer');
         go.type = 'button';
         go.addEventListener('click', function () { if (v.surDemarrer) v.surDemarrer(r.id); });
-        rangee.appendChild(go);
+        actions.appendChild(go);
+        // §9.18 (51-1) — « J'ai peu de temps », à côté de « Démarrer » ; absent
+        // pendant une semaine allégée, ou quand la routine tient déjà dans la
+        // plus courte des durées proposées.
+        if (temps && temps.peuDeTemps && v.surPeuDeTemps) {
+          var pt = el('button', 'peu-de-temps', 'J’ai peu de temps');
+          pt.type = 'button';
+          pt.addEventListener('click', function () { v.surPeuDeTemps(r.id); });
+          actions.appendChild(pt);
+        }
+        rangee.appendChild(actions);
       }
       cible.appendChild(rangee);
     });
@@ -3581,6 +3630,8 @@
     rendreFeuilleRepos: rendreFeuilleRepos,
     VALEURS_REPOS: VALEURS_REPOS,
     rendreFeuilleConfirmer: rendreFeuilleConfirmer,
+    rendreFeuilleTemps: rendreFeuilleTemps,
+    rendreCarteRaccourci: rendreCarteRaccourci,
     rendreFeuilleSeance: rendreFeuilleSeance,
     rendreFeuillePourquoi: rendreFeuillePourquoi,
     rendreFeuilleZone: rendreFeuilleZone,

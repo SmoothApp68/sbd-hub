@@ -2081,6 +2081,283 @@
   // « mardi », « aujourd'hui », « le 13 sept. » — contre la RÉFÉRENCE, une
   // entrée (la date de la séance), jamais l'horloge.
   function quand(iso, reference, tete, c) { return Modele().quand(iso, reference, tete, c); }
+  // ══ §9.18 (51-1) — « J'AI PEU DE TEMPS » : LA DURÉE ESTIMÉE, LE RACCOURCI ══
+  //
+  // Le temps se décide AVANT de commencer, sur la routine. Le coach coupe les
+  // dernières séries, pas les muscles ; les charges ne changent pas.
+  //
+  // Une STRUCTURE est la forme d'une routine que ces fonctions lisent, et rien
+  // d'autre : `[{ slug, mesure, repos, ch, tr, deg, duree, prim, sec }]` — les
+  // chauffes, séries de travail et dégressives comptées, le repos prévu
+  // (`null` : porté par l'autre exercice du superset), la durée d'une série de
+  // cardio ou de durée, et les muscles principaux et secondaires (un tableau, ou
+  // « a/b » comme les cas). `structureDeRoutine` la tire d'une routine de l'app.
+  // Référence : `simu_raccourcir.py` ; cas `cas-51-1-peu-de-temps.json`.
+
+  // ⚠️ DES VALEURS PAR DÉFAUT (delta 51-1 bis, T3), PAS DES VÉRITÉS SUR UNE
+  // PERSONNE. Vérifiées sur les séances chronométrées d'Aurélien, pas réglées
+  // sur lui : la référence reste la fourchette personnelle. Quand l'historique
+  // chronométré d'une personne le permettra, elles se liront sur ses propres
+  // séances (noté, pas fait). Les cas les figent pour vérifier l'ALGORITHME.
+  // UNE SEULE DÉFINITION : aucune fonction ne les recopie (un test lit le corps
+  // de chacune et n'y tolère aucun nombre que 0 et 1).
+  var DUREE_PAR_DEFAUT = Object.freeze({
+    serie: 60,              // une série de travail, ou une chauffe, sans son repos
+    changement: 30,         // passer d'un exercice au suivant
+    reposSuperset: 15,      // le repos porté par l'autre exercice du superset
+    degressive: 45,         // une dégressive
+    cardioDebut: 180,       // le cardio de début, raccourci (§9.18, étape 2)
+    reposSansReglage: 90    // un exercice seul sans repos programmé (le repos le plus courant)
+  });
+  var SECONDES_PAR_MINUTE = 60;
+  // Les règles du raccourci (§9.18, étapes 4 et 5) — des règles, pas des défauts.
+  var PRIORITE_ISOLATION = 1, PRIORITE_POLY = 2, PRIORITE_PREMIER = 3;
+  var MUSCLES_POLYARTICULAIRE = 3;          // au moins 3 muscles principaux et secondaires
+  var PLANCHER_ISOLATION = 1, PLANCHER_COMPOSE = 2;   // ~2 séries portent presque tout le gain
+
+  function musclesDe(v) {
+    if (Array.isArray(v)) return v.filter(Boolean);
+    return String(v || '').split('/').filter(Boolean);
+  }
+  function compteDe(v) { var n = Math.floor(Number(v)); return isFinite(n) && n > 0 ? n : 0; }
+  function enDuree(e) { return !!e && (e.mesure === 'temps' || e.mesure === 'distance_temps'); }
+  function aDesMuscles(e) { return musclesDe(e.prim).length + musclesDe(e.sec).length > 0; }
+  // Le premier critère qui diffère départage (priorité, puis séries, puis rang).
+  function avantDans(a, b) {
+    if (!b) return true;
+    for (var k = 0; k < a.length; k++) if (a[k] !== b[k]) return a[k] < b[k];
+    return false;
+  }
+
+  // L'estimation d'UN exercice. Retiré (rien à faire) : rien, pas même son
+  // changement d'exercice (delta 51-1 ter).
+  function dureeExercice(e) {
+    var D = DUREE_PAR_DEFAUT;
+    var ch = compteDe(e.ch), tr = compteDe(e.tr), deg = compteDe(e.deg);
+    if (ch + tr + deg === 0) return 0;
+    var repos = e.repos === null || e.repos === undefined ? null : Number(e.repos);
+    var t = D.changement;
+    if (enDuree(e)) return t + (Number(e.duree) || 0) * tr + (repos || 0) * Math.max(0, tr - 1);
+    if (ch > 0) t += ch * D.serie + (ch - 1) * REPOS_ENTRE_CHAUFFES + REPOS_APRES_CHAUFFES;
+    t += tr * (D.serie + (repos === null ? D.reposSuperset : repos));
+    t += deg * D.degressive;
+    return t;
+  }
+
+  // LA DURÉE ESTIMÉE (une seule fonction), en secondes.
+  function dureeEstimee(structure) {
+    return (structure || []).reduce(function (t, e) { return t + (e ? dureeExercice(e) : 0); }, 0);
+  }
+
+  function copieStructure(structure) {
+    return (structure || []).map(function (e) {
+      return { slug: e.slug, mesure: e.mesure === undefined ? null : e.mesure,
+               repos: e.repos === undefined ? null : e.repos,
+               ch: compteDe(e.ch), tr: compteDe(e.tr), deg: compteDe(e.deg),
+               duree: e.duree === undefined ? null : e.duree,
+               prim: musclesDe(e.prim), sec: musclesDe(e.sec) };
+    });
+  }
+
+  // RACCOURCIR JUSQU'À LA CIBLE (§9.18), dans l'ordre, en recalculant à chaque
+  // pas et en s'arrêtant dès que l'estimation tient. Rend `{ exercices,
+  // journal, duree_s, tient }` : la structure (un exercice retiré ou mis à part
+  // y reste, à zéro, à sa place), ce qui a changé et pourquoi, l'estimation, et
+  // si la cible tient — une cible inatteignable rend la version la plus courte
+  // avec `tient = false` (51-1 bis, T4). Pure ; la structure reçue n'est jamais
+  // modifiée.
+  function raccourcirRoutine(structure, cibleMin) {
+    var r = copieStructure(structure);
+    var max = Number(cibleMin) * SECONDES_PAR_MINUTE;
+    var journal = [];
+    var tient = function () { return dureeEstimee(r) <= max; };
+    var fin = function () { return { exercices: r, journal: journal, duree_s: dureeEstimee(r), tient: tient() }; };
+    var premier = -1;
+    r.forEach(function (e, i) { if (premier < 0 && aDesMuscles(e)) premier = i; });
+    var priorite = function (e, i) {
+      if (i === premier) return PRIORITE_PREMIER;
+      return e.prim.length + e.sec.length >= MUSCLES_POLYARTICULAIRE ? PRIORITE_POLY : PRIORITE_ISOLATION;
+    };
+    if (tient()) return fin();
+
+    // 1. le cardio de fin (sans muscle, après le premier rang) : mis à part.
+    r.forEach(function (e, i) {
+      if (i === 0 || aDesMuscles(e) || e.ch + e.tr + e.deg === 0) return;
+      journal.push({ quoi: 'cardio_fin', i: i, slug: e.slug });
+      e.ch = 0; e.tr = 0; e.deg = 0; e.duree = 0;
+    });
+    if (tient()) return fin();
+
+    // 2. le cardio de début (sans muscle, au premier rang) : 3 minutes.
+    var e0 = r[0];
+    if (e0 && !aDesMuscles(e0) && enDuree(e0) && e0.tr > 0 && Number(e0.duree) > DUREE_PAR_DEFAUT.cardioDebut) {
+      journal.push({ quoi: 'cardio_debut', i: 0, slug: e0.slug, avant: Number(e0.duree), apres: DUREE_PAR_DEFAUT.cardioDebut });
+      e0.duree = DUREE_PAR_DEFAUT.cardioDebut;
+    }
+    if (tient()) return fin();
+
+    // 3. les dégressives, dans l'ordre de la séance.
+    for (var k = 0; k < r.length; k++) {
+      while (r[k].deg > 0 && !tient()) {
+        r[k].deg--;
+        journal.push({ quoi: 'degressive', i: k, slug: r[k].slug });
+      }
+      if (tient()) return fin();
+    }
+
+    // 4. une série de travail en moins, à chaque tour : la plus basse priorité,
+    // puis le plus de séries, puis le plus loin. Planchers : 2 séries, 1 pour
+    // l'isolation. Un exercice sans muscle n'est jamais coupé.
+    for (;;) {
+      if (tient()) return fin();
+      var choix = -1, cle = null;
+      r.forEach(function (e, i) {
+        if (!aDesMuscles(e)) return;
+        var p = priorite(e, i);
+        if (e.tr <= (p === PRIORITE_ISOLATION ? PLANCHER_ISOLATION : PLANCHER_COMPOSE)) return;
+        var c = [p, -e.tr, -i];
+        if (avantDans(c, cle)) { choix = i; cle = c; }
+      });
+      if (choix < 0) break;
+      r[choix].tr--;
+      journal.push({ quoi: 'serie', i: choix, slug: r[choix].slug });
+    }
+
+    // 5. un exercice entier (avec ses chauffes), seulement si chacun de ses
+    // muscles principaux est muscle principal d'un autre exercice gardé ;
+    // jamais le premier, jamais un exercice sans muscle principal.
+    for (;;) {
+      if (tient()) return fin();
+      var retire = -1, cleR = null;
+      r.forEach(function (e, i) {
+        if (i === premier || !e.prim.length || e.ch + e.tr + e.deg === 0) return;
+        var couvert = e.prim.every(function (m) {
+          return r.some(function (f, j) { return j !== i && f.tr > 0 && f.prim.indexOf(m) >= 0; });
+        });
+        if (!couvert) return;
+        var c = [priorite(e, i), -i];
+        if (avantDans(c, cleR)) { retire = i; cleR = c; }
+      });
+      if (retire < 0) break;
+      r[retire].ch = 0; r[retire].tr = 0; r[retire].deg = 0;
+      journal.push({ quoi: 'retire', i: retire, slug: r[retire].slug });
+    }
+    return fin();
+  }
+
+  // LA STRUCTURE D'UNE ROUTINE DE L'APP. `exercices` : ceux d'une routine
+  // normalisée (au vocabulaire de la saisie, `THRoutines.enSaisie`) ; `index` :
+  // le catalogue indexé par slug. Le repos est celui programmé ; sans lui, porté
+  // par le suivant du même superset (`null`), sinon le repos le plus courant.
+  function structureDeRoutine(exercices, index) {
+    var exos = exercices || [];
+    var idx = index || {};
+    return exos.map(function (e, i) {
+      var cat = idx[e.exercise_slug] || {};
+      var series = (e && e.series) || [];
+      // Le type d'une ligne, par la seule règle (`typeDe` : `travail` quand il manque).
+      var nb = function (t) { return series.filter(function (s) { return Modele().typeDe(s) === t; }).length; };
+      var g = e.groupe_superset;
+      var suivant = exos[i + 1];
+      var porte = g !== null && g !== undefined && !!suivant && suivant.groupe_superset === g;
+      var repos = e.repos_cible_s !== null && e.repos_cible_s !== undefined ? Number(e.repos_cible_s)
+        : (porte ? null : DUREE_PAR_DEFAUT.reposSansReglage);
+      var d = null;
+      series.forEach(function (s) { if (d === null && s && s.duree_s !== null && s.duree_s !== undefined) d = Number(s.duree_s); });
+      return { slug: e.exercise_slug, mesure: cat.mesure || null, repos: repos,
+               ch: nb('echauffement'), tr: nb('travail') + nb('echec'), deg: nb('degressive'),
+               duree: d, prim: cat.muscles_primaires || [], sec: cat.muscles_secondaires || [] };
+    });
+  }
+
+  // §9.18 (51-1 ter) — LA STRUCTURE D'UNE SEMAINE ALLÉGÉE, pour l'estimation
+  // seulement : les séries de travail d'un exercice coaché (muscles, mesure en
+  // charge ou en reps) passent à leur part allégée (`seriesAllegees`, §14.4).
+  // Une estimation : à l'écran de la routine, on ne sait pas encore quels
+  // exercices auront une consigne ce jour-là.
+  function structureAllegee(structure) {
+    return copieStructure(structure).map(function (e) {
+      if (aDesMuscles(e) && !enDuree(e) && e.tr > 0) e.tr = seriesAllegees(e.tr);
+      return e;
+    });
+  }
+
+  // LA ROUTINE RACCOURCIE, pour démarrer la séance : les mêmes lignes, moins
+  // celles que le raccourci retire — les DERNIÈRES séries de travail, les
+  // dégressives, les exercices retirés ; les chauffes d'un exercice gardé
+  // restent toutes. Le cardio de début garde sa ligne (la durée visée n'est
+  // pas une colonne de la séance). Rend `{ routine, retires }` : une COPIE (la
+  // routine n'est jamais touchée, ECRAN-SAISIE §6.3) et les identifiants de
+  // ligne des exercices retirés ou mis à part.
+  function appliquerRaccourci(routine, resultat) {
+    var r = (resultat && resultat.exercices) || [];
+    var retires = [];
+    var exercices = [];
+    ((routine && routine.exercices) || []).forEach(function (e, i) {
+      var x = r[i];
+      if (!x) { exercices.push(e); return; }
+      if (x.ch + x.tr + x.deg === 0) { if (e.id !== undefined && e.id !== null) retires.push(e.id); return; }
+      var garde = { echauffement: x.ch, travail: x.tr, echec: 0, degressive: x.deg };
+      var vus = { echauffement: 0, travail: 0, echec: 0, degressive: 0 };
+      var series = (e.series || []).filter(function (s) {
+        var t = Modele().typeDe(s);
+        if (t === 'echec') t = 'travail';
+        vus[t] = (vus[t] || 0) + 1;
+        return vus[t] <= (garde[t] || 0);
+      });
+      exercices.push(Object.assign({}, e, { series: series }));
+    });
+    return { routine: Object.assign({}, routine, { exercices: exercices }), retires: retires };
+  }
+
+  // LES PHRASES (la voix du coach, un seul formateur : `nombreFr`). Arrondies à
+  // la minute, toujours « (estimation) ».
+  function minutesDe(s) { return Math.round((Number(s) || 0) / SECONDES_PAR_MINUTE); }
+  function minutesFr(s, cle) { return nombreFr(minutesDe(s), regle(cle || 'estimation')); }
+  function texteDureeEstimee(s) { return 'Environ ' + minutesFr(s) + ' min (estimation)'; }
+  function texteDureeAllegee(s) { return 'Semaine allégée : environ ' + minutesFr(s) + ' min (estimation)'; }
+
+  // LA CARTE (§9.18 ; maquette `maquette-adapter-v1.html`). `avant` : la
+  // structure complète ; `resultat` : `raccourcirRoutine` ; `nommer(slug)`.
+  // Une cible inatteignable ne se promet pas (51-1 bis, T4) : « Au plus court :
+  // 35 min (estimation) », bouton « Raccourcir à 35 min ».
+  function carteRaccourcir(avant, resultat, cibleMin, nommer) {
+    var nom = function (slug) { return nommer ? nommer(slug) : slug; };
+    var apres = (resultat && resultat.exercices) || [];
+    var lignes = [];
+    (avant || []).forEach(function (a, i) {
+      var b = apres[i];
+      if (!b) return;
+      var ta = compteDe(a.tr), ca = compteDe(a.ch), da = compteDe(a.deg);
+      if (ta + ca + da > 0 && b.ch + b.tr + b.deg === 0) {
+        lignes.push(aDesMuscles(a) ? nom(a.slug) + ' : retiré, ses muscles sont déjà travaillés'
+                                   : nom(a.slug) + ' : mis à part pour aujourd’hui');
+        return;
+      }
+      if (enDuree(a) && Number(a.duree) !== Number(b.duree)) {
+        lignes.push(nom(a.slug) + ' ' + minutesFr(a.duree, 'duree.avant') + ' → ' + minutesFr(b.duree, 'duree.apres') + ' min');
+        return;
+      }
+      if (ta !== b.tr) {
+        lignes.push(nom(a.slug) + ' ' + nombreFr(ta, regle('series.avant')) + ' → ' +
+          nombreFr(b.tr, regle('series.apres')) + (b.tr > 1 ? ' séries' : ' série'));
+      }
+      if (da > 0 && b.deg < da) lignes.push(nom(a.slug) + ' : sans dégressive');
+    });
+    var tient = !!(resultat && resultat.tient);
+    var court = resultat ? resultat.duree_s : 0;
+    return {
+      tient: tient,
+      titre: tient ? 'Pour tenir en ' + nombreFr(cibleMin, regle('cible')) + ' min (estimation)'
+                   : 'Au plus court : ' + minutesFr(court) + ' min (estimation)',
+      lignes: lignes,
+      phrase: 'Tous tes muscles du jour gardent leurs premières séries : ce sont celles qui comptent le plus. ' +
+              'Les charges ne changent pas.',
+      oui: tient ? 'Raccourcir' : 'Raccourcir à ' + minutesFr(court) + ' min',
+      non: 'Garder la séance'
+    };
+  }
+
   // Une phrase rédigée pour COMPARER, jamais pour être dite : ses chiffres ne
   // s'inscrivent pas (une capture jetée).
   function sansDeclarer(fn) { return Modele().capturer(fn).texte; }
@@ -4532,6 +4809,13 @@
   // le rack pull. Liste fermée, décidée le 30/09/2026 (49-U10).
   var SOULEVES_AU_SOL = ['souleve_de_terre_barre', 'souleve_de_terre_sumo', 'souleve_de_terre_barre_hex'];
 
+  // §9.15 — LES REPOS DE CHAUFFE : 1 min entre deux chauffes, 2 min après la
+  // dernière. Une seule définition : le chronomètre du plan (`reposApres`) et
+  // l'estimation de la durée d'une routine (§9.18) les lisent ici. Ils
+  // vivaient dans `plan.js` ; l'estimation les aurait recopiés.
+  var REPOS_ENTRE_CHAUFFES = 60;
+  var REPOS_APRES_CHAUFFES = 120;
+
   // La table de §9.15.1 : une marche est la barre vide, ou un pourcentage de la
   // référence, avec ses reps.
   var TABLE_CHAUFFES = {
@@ -4669,6 +4953,18 @@
     SEUIL_PROPOSITION_BARRE: SEUIL_PROPOSITION_BARRE,
     SEUIL_PROPOSITION_AUTRE: SEUIL_PROPOSITION_AUTRE,
     TABLE_CHAUFFES: TABLE_CHAUFFES,
+    REPOS_ENTRE_CHAUFFES: REPOS_ENTRE_CHAUFFES,
+    REPOS_APRES_CHAUFFES: REPOS_APRES_CHAUFFES,
+    // §9.18 (51-1) — « J'ai peu de temps ».
+    DUREE_PAR_DEFAUT: DUREE_PAR_DEFAUT,
+    dureeEstimee: dureeEstimee,
+    raccourcirRoutine: raccourcirRoutine,
+    structureDeRoutine: structureDeRoutine,
+    structureAllegee: structureAllegee,
+    appliquerRaccourci: appliquerRaccourci,
+    texteDureeEstimee: texteDureeEstimee,
+    texteDureeAllegee: texteDureeAllegee,
+    carteRaccourcir: carteRaccourcir,
     chuteDe: chuteDe,
     SEUIL_COMPTEUR: SEUIL_COMPTEUR,
     compteurDe: compteurDe,

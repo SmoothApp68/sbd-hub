@@ -568,8 +568,8 @@
   // 2 minutes avant la première série de travail (le minuteur de la séance
   // l'applique) ». Le repos de l'exercice (routine) vaut pour les séries de
   // travail, pas pour les chauffes.
-  var REPOS_ENTRE_CHAUFFES = 60;
-  var REPOS_APRES_CHAUFFES = 120;
+  // §9.15 — les repos de chauffe : une seule définition, dans le moteur
+  // (l'estimation de §9.18 les lit aussi). Lus à l'appel.
 
   // Le repos qui suit la validation de la série `iSerie` de l'exercice `x`
   // (son plan) : `null` avant la dégressive que le coach a remplie (§9.15.3,
@@ -585,7 +585,7 @@
     if (l && l.type === 'echauffement') {
       var derniere = -1;
       lignes.forEach(function (h, i) { if (h.type === 'echauffement') derniere = i; });
-      return iSerie === derniere ? REPOS_APRES_CHAUFFES : REPOS_ENTRE_CHAUFFES;
+      return iSerie === derniere ? Moteur().REPOS_APRES_CHAUFFES : Moteur().REPOS_ENTRE_CHAUFFES;
     }
     return reposExo === undefined ? null : reposExo;
   }
@@ -1983,6 +1983,77 @@
     return raisons;
   }
 
+  // I32 (MOTEUR §9.18, 51-1) — UNE SÉANCE RACCOURCIE GARDE CHAQUE MUSCLE, SON
+  // PREMIER EXERCICE ET SES CHARGES. Sur `entrees.raccourci` (`complet`, la
+  // structure de la routine ; `raccourcie`, celle de la carte acceptée) :
+  //   · chaque muscle principal de la routine garde au moins une série de
+  //     travail ;
+  //   · le premier exercice (le premier qui a des muscles) garde au moins 2
+  //     séries de travail (ou toutes, s'il en avait moins) et toutes ses
+  //     chauffes ;
+  //   · aucune charge ne diffère de la consigne de la séance complète, et la
+  //     semaine allégée et la série de plus lisent les séries de la routine
+  //     COMPLÈTE (51-1 ter) — jamais celles de la séance raccourcie.
+  // Les deux premiers portent sur la structure du raccourci, pas sur la séance
+  // telle que la personne la modifie ensuite : retirer une série en séance est
+  // son geste, pas celui du coach.
+  function verifierRaccourci(plan, entrees, erreurs) {
+    var rc = entrees.raccourci;
+    if (!rc || !rc.complet || !rc.raccourcie) return;
+    var M = Moteur();
+    var liste = function (v) { return Array.isArray(v) ? v.filter(Boolean) : String(v || '').split('/').filter(Boolean); };
+    var complet = rc.complet, court = rc.raccourcie;
+    var gardes = {};
+    court.forEach(function (e) { if (e && e.tr > 0) liste(e.prim).forEach(function (m) { gardes[m] = true; }); });
+    var signales = {};
+    complet.forEach(function (e) {
+      if (!e || !(e.tr > 0)) return;
+      liste(e.prim).forEach(function (m) {
+        if (gardes[m] || signales[m]) return;
+        signales[m] = true;
+        erreurs.push('I32 — le muscle ' + m + ' n\'a plus aucune série de travail dans la séance raccourcie');
+      });
+    });
+    var p = -1;
+    complet.forEach(function (e, i) { if (p < 0 && e && liste(e.prim).length + liste(e.sec).length > 0) p = i; });
+    if (p >= 0) {
+      var a = complet[p], b = court[p] || {};
+      var min = Math.min(2, a.tr || 0);
+      if ((b.tr || 0) < min) {
+        erreurs.push('I32 — le premier exercice (' + a.slug + ') garde ' + (b.tr || 0) + ' série(s) de travail, pour au moins ' + min);
+      }
+      if ((b.ch || 0) !== (a.ch || 0)) {
+        erreurs.push('I32 — le premier exercice (' + a.slug + ') garde ' + (b.ch || 0) + ' chauffe(s) sur ' + (a.ch || 0));
+      }
+    }
+    var completDe = {};
+    complet.forEach(function (e) { if (e && !Object.prototype.hasOwnProperty.call(completDe, e.slug)) completDe[e.slug] = e; });
+    var cs = entrees.consignes || {};
+    ((plan && plan.exercices) || []).forEach(function (x) {
+      if (!x || !x.consigne || !Object.prototype.hasOwnProperty.call(completDe, x.slug)) return;
+      var tr = completDe[x.slug].tr || 0;
+      if (!tr) return;
+      var nom = 'I32 — exercice ' + x.iExo + ' (' + x.slug + ') : ';
+      var c = Object.prototype.hasOwnProperty.call(cs, x.slug) ? cs[x.slug] : null;
+      if (c && typeof c.seriesRoutine === 'number' && c.seriesRoutine > 0 && c.seriesRoutine !== tr) {
+        erreurs.push(nom + 'la consigne lit ' + c.seriesRoutine + ' séries de routine, la routine complète en a ' + tr);
+      }
+      if (x.consigne.allegee && x.consigne.allegee.routine !== tr) {
+        erreurs.push(nom + 'la semaine allégée part de ' + x.consigne.allegee.routine + ' séries, la routine complète en a ' + tr);
+      }
+      if (x.consigne.serieDePlus && x.consigne.serieDePlus.routine !== tr) {
+        erreurs.push(nom + 'la série de plus part de ' + x.consigne.serieDePlus.routine + ' séries, la routine complète en a ' + tr);
+      }
+      if (!x.consigne.repli && c && c.consigne) {
+        var ref = M.consigneFigee(c.consigne);
+        var chargeDe = function (k) { var l = k && (k.ligne || k.haut); return l ? l.charge : null; };
+        if (!memeCharge(chargeDe(x.consigne), chargeDe(ref))) {
+          erreurs.push(nom + 'la charge ' + chargeDe(x.consigne) + ' diffère de la consigne de la séance complète (' + chargeDe(ref) + ')');
+        }
+      }
+    });
+  }
+
   function verifierPoidsDuCorps(plan, erreurs) {
     if (!plan) return;
     var M = Moteur();
@@ -2508,6 +2579,7 @@
     verifierEscalier(plan, entrees, erreurs);
     verifierMarches(plan, erreurs);
     verifierPoidsDuCorps(plan, erreurs);
+    if (entrees && entrees.raccourci) verifierRaccourci(plan, entrees, erreurs);
     // Prérequis d'« adapter » — LES PARIS D'UNE OCCURRENCE, et seulement d'elle
     // (I7) : la seconde occurrence d'un exercice ne doit pas se voir reprocher
     // les paris de la première.
@@ -2638,8 +2710,8 @@
     seriesDites: seriesDites,
     seriesDeDepart: seriesDeDepart,
     reposApres: reposApres,
-    REPOS_ENTRE_CHAUFFES: REPOS_ENTRE_CHAUFFES,
-    REPOS_APRES_CHAUFFES: REPOS_APRES_CHAUFFES,
+    get REPOS_ENTRE_CHAUFFES() { return Moteur().REPOS_ENTRE_CHAUFFES; },
+    get REPOS_APRES_CHAUFFES() { return Moteur().REPOS_APRES_CHAUFFES; },
     REFUS_DEFINITIFS: REFUS_DEFINITIFS,
     refuserChauffes: refuserChauffes,
     accepterChauffes: accepterChauffes,

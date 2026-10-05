@@ -1076,6 +1076,14 @@
       };
     });
 
+    // §9.18 (51-1 ter) — LES EXERCICES ENLEVÉS PAR LE RACCOURCI RESTENT DANS LA
+    // ROUTINE. La séance raccourcie n'en a plus trace, mais la question de fin
+    // ne propose jamais de les retirer (ECRAN-SAISIE §6.3) — et une mise à jour
+    // demandée pour une autre raison ne doit pas les effacer en silence : ils
+    // reprennent leur place, et leur superset, dans ce qui serait écrit.
+    var retires = (seance.raccourcie && seance.raccourcie.retires) || [];
+    if (retires.length) voulues = avecRetires(voulues, lignes, retires);
+
     var ecarts = [];
 
     // ── Les écarts de RÉGLAGE, ligne à ligne (repos et note) ──────────────
@@ -1128,6 +1136,54 @@
     }
 
     return { ecarts: ecarts, voulues: voulues };
+  }
+
+  // Les lignes de routine retirées par le raccourci, remises à leur place —
+  // après la dernière ligne de la routine qui les précédait et que la séance
+  // garde —, et les supersets qu'elles partageaient refaits : la séance avait
+  // dissous un groupe devenu seul (§7 decies), la routine, elle, le garde. Les
+  // groupes se renumérotent par blocs contigus, comme `normaliserGroupes`.
+  function avecRetires(voulues, lignes, retires) {
+    var estRetire = {}, rangDe = {}, touches = {};
+    retires.forEach(function (id) { estRetire[id] = true; });
+    lignes.forEach(function (l, k) {
+      if (!l || !l.id) return;
+      rangDe[l.id] = k;
+      if (estRetire[l.id] && l.groupe_superset !== null && l.groupe_superset !== undefined) touches[l.groupe_superset] = true;
+    });
+    var cleDe = function (ligne, groupe) {
+      if (ligne && ligne.groupe_superset !== null && ligne.groupe_superset !== undefined && touches[ligne.groupe_superset]) {
+        return 'r' + ligne.groupe_superset;
+      }
+      return groupe === null || groupe === undefined ? null : 's' + groupe;
+    };
+    var parId = {};
+    lignes.forEach(function (l) { if (l && l.id) parId[l.id] = l; });
+    var liste = voulues.map(function (v) {
+      return { v: v, cle: cleDe(v.id ? parId[v.id] : null, v.groupe_superset) };
+    });
+    lignes.forEach(function (l, k) {
+      if (!l || !estRetire[l.id] || liste.some(function (x) { return x.v.id === l.id; })) return;
+      var pos = 0;
+      liste.forEach(function (x, j) {
+        if (x.v.id && rangDe[x.v.id] !== undefined && rangDe[x.v.id] < k) pos = j + 1;
+      });
+      liste.splice(pos, 0, { v: {
+        id: l.id, exercise_slug: l.exercise_slug, series: l.series || [],
+        repos_cible_s: l.repos_cible_s === undefined ? null : l.repos_cible_s,
+        note: texteOuNul(l.note),
+        groupe_superset: l.groupe_superset === undefined ? null : l.groupe_superset
+      }, cle: cleDe(l, null) });
+    });
+    var n = 0, i = 0, sortie = [];
+    while (i < liste.length) {
+      var j = i;
+      while (liste[i].cle !== null && j + 1 < liste.length && liste[j + 1].cle === liste[i].cle) j++;
+      var g = j > i ? ++n : null;
+      for (var k2 = i; k2 <= j; k2++) sortie.push(Object.assign({}, liste[k2].v, { groupe_superset: g }));
+      i = j + 1;
+    }
+    return sortie;
   }
 
   // « A A B · · C C » — les positions groupées ensemble, sans leurs numéros.

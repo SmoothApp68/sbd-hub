@@ -149,6 +149,11 @@ const LE_COACH = 'plan.js';
 // (29/09/2026) et sont RAPPORTÉES dans sa PR pour décision : elles ne sont pas
 // forcées dans le plan par ce commit.
 const AUTORISATIONS = {
+  periodeAllegee: {
+    'app.js': 'MOTEUR §9.18 (51-1 ter) : l’écran de la ROUTINE, avant toute séance — donc sans plan — ' +
+      'dit si une semaine allégée est en cours, pour taire « J’ai peu de temps » et afficher la durée ' +
+      'allégée ; la même lecture des cartes que `escalierDuPlan` (app.js, `semaineAllegeeEnCours`).'
+  },
   consigneDExercice: {
     'app.js': 'calcule les ENTRÉES du plan (`entrees.consignes`) : le plan n’a pas l’historique ' +
       '(app.js, `consigneDe`) ; et l’étiquette de zone de la page d’exercice, hors séance, où ' +
@@ -397,6 +402,17 @@ const NOTIONS = [
     par: ['frereDuBlocage'],
     raison: 'la règle (un progrès après le dernier progrès de l’exercice bloqué, un meilleur en hausse, ' +
       'la même zone pour la flèche) se décide une fois ; le plan ne lit que son résultat, figé avec la consigne.' },
+  { notion: 'la durée estimée d’une routine (MOTEUR §9.18)', pr: '51-U1',
+    module: 'moteur.js', fonction: 'dureeEstimee', lecteurs: ['app.js'],
+    par: ['raccourcirRoutine'],
+    parAilleurs: { 'app.js': ['tempsDeLaRoutine'] },
+    raison: 'une seule fonction pour la durée affichée sur la routine, la durée allégée et la carte ; ' +
+      'ses constantes sont des valeurs par défaut, définies une fois (`DUREE_PAR_DEFAUT`).' },
+  { notion: 'le raccourci d’une routine (« J’ai peu de temps », MOTEUR §9.18)', pr: '51-U1',
+    module: 'moteur.js', fonction: 'raccourcirRoutine', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['montrerCarteRaccourci'] },
+    raison: 'le coach coupe les dernières séries, pas les muscles : la carte et la séance raccourcie ' +
+      'lisent le même résultat, jamais une seconde règle à l’écran.' },
   { notion: 'l’occurrence coachée d’un exercice (la première, ou celle qui porte ses paris)', pr: 'correctif 04/10/2026',
     module: 'seance.js', fonction: 'occurrenceCoachee', lecteurs: ['plan.js', 'app.js'],
     parAilleurs: { 'plan.js': ['planDeSeance'], 'app.js': ['occurrenceLibre'] },

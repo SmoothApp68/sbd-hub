@@ -941,4 +941,31 @@ describe('⚠️ la carte dit le volume de travail, et rien d’autre', () => {
     expect(Routines.apercu([RAMPE(), tapis], cat))
       .toEqual({ nbExercices: 2, nbSeries: 2 });
   });
+
+  // §9.18 (51-1) — LA DURÉE ESTIMÉE ET « J'AI PEU DE TEMPS ». La carte lit
+  // `vue.temps(routine)` (l'app la calcule, une seule fois), jamais un calcul
+  // ici ; le geste n'apparaît que si l'app le propose.
+  const rangee = (temps) => {
+    const cible = document.createElement('div');
+    const appels = [];
+    Rendu().rendreListeRoutines(cible, [{ id: 'r1', nom: 'Push', exercices: [RAMPE()] }], {
+      catalogue: CAT, surChoix: () => {}, surDemarrer: () => {},
+      temps: () => temps, surPeuDeTemps: (id) => appels.push(id)
+    });
+    return { cible, appels };
+  };
+  test('la durée estimée sous le volume, et « J’ai peu de temps » sous « Démarrer »', () => {
+    const { cible, appels } = rangee({ texte: 'Environ 75 min (estimation)', peuDeTemps: true });
+    expect(cible.querySelector('.routine-duree').textContent).toBe('Environ 75 min (estimation)');
+    const b = cible.querySelector('.routine-actions .peu-de-temps');
+    expect(b.textContent).toBe('J’ai peu de temps');
+    expect(cible.querySelector('.routine-actions .demarrer').textContent).toBe('Démarrer');
+    b.click();
+    expect(appels).toEqual(['r1']);
+  });
+  test('sans geste proposé (semaine allégée, routine courte) : la durée seule, aucun bouton', () => {
+    const { cible } = rangee({ texte: 'Semaine allégée : environ 50 min (estimation)', peuDeTemps: false });
+    expect(cible.querySelector('.routine-duree').textContent).toBe('Semaine allégée : environ 50 min (estimation)');
+    expect(cible.querySelector('.peu-de-temps')).toBe(null);
+  });
 });

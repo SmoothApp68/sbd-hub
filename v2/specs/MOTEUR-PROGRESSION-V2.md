@@ -1128,6 +1128,35 @@ Pas de chauffe ni de dégressive au poids du corps. Pas de repli ni de changemen
 
 **Référence** : `coach49.py` (`consigne_pdc`, `carte_lest`, `depart_leste`, `aide_saisie`, `aide_affichee`) ; cas `cas_pdc49.json`.
 
+### 9.18 « J'ai peu de temps » — décidé le 04/10/2026 (chantier 51)
+
+> **Le temps se décide avant de commencer, sur la routine. Le coach coupe les dernières séries, pas les muscles ; les charges ne changent pas.**
+
+**Où.** Sur l'écran de la routine, à côté de « Démarrer » : « **J'ai peu de temps** ». La routine affiche sa durée estimée (« Environ 75 min (estimation) »). Le geste ouvre un choix de durée (45 min, 60 min) puis **une carte à accepter** (§1.1 : le coach propose, la personne décide) : « Pour tenir en 45 min (estimation) », la liste de ce qui change (« Soulevé de terre 3 → 2 séries », « Tapis 7 → 3 min », « Hip thrust : retiré, ses muscles sont déjà travaillés »), puis « Tous tes muscles du jour gardent leurs premières séries : ce sont celles qui comptent le plus. Les charges ne changent pas. » ; boutons « **Raccourcir** » / « **Garder la séance** ». « Raccourcir » démarre la séance avec cette structure : c'est un geste de la personne, la règle « la routine (ou l'utilisateur) décide de la structure » tient. **En séance, il n'y a pas de geste « temps »** : si le temps manque, terminer plus tôt suffit — les exercices non faits sont ignorés, sans compter comme un recul.
+
+**L'estimation** (une seule fonction, en secondes ; calée sur les séances chronométrées d'Aurélien) : par exercice, +30 (changement) ; cardio ou durée : durée × séries + repos × (séries − 1) ; chauffes : n × 60 + (n − 1) × 60 + 120 (les repos de chauffe de §9.15) ; séries de travail : séries × (60 + repos prévu ; 15 quand le repos est porté par l'autre exercice du superset) ; dégressive : 45. Affichée arrondie à la minute, toujours avec « (estimation) ». **Ces constantes sont des valeurs par défaut** — vérifiées sur les séances chronométrées d'Aurélien, pas réglées sur lui : la référence reste la fourchette personnelle (méta-règle du projet). Quand l'historique chronométré d'une personne le permettra, elles se liront sur ses propres séances, séparément pour chaque personne (noté, pas fait). Les cas de test figent les valeurs par défaut pour vérifier l'**algorithme**, pas pour dire combien de temps dure une série.
+
+**Raccourcir jusqu'à la cible**, dans cet ordre, en recalculant l'estimation à chaque pas et en s'arrêtant dès qu'elle tient :
+1. le **cardio de fin** (exercice sans muscle, après le premier rang) est mis à part ;
+2. le **cardio de début** (un exercice sans muscle au premier rang) passe à 3 minutes ;
+3. les **dégressives** tombent, dans l'ordre de la séance ;
+4. **une série de travail en moins**, à chaque tour, sur l'exercice de plus basse priorité — **1** isolation, **2** polyarticulaire (au moins 3 muscles principaux et secondaires), **3** le premier exercice qui travaille un muscle — puis celui qui a le plus de séries, puis le plus loin dans la séance ; **planchers** : 2 séries pour les priorités 2 et 3 (pour la force, environ 2 séries par séance portent presque tout le gain), 1 pour l'isolation ;
+5. **un exercice entier** ne tombe (avec ses chauffes) que si **chacun de ses muscles principaux** est muscle principal d'un autre exercice gardé — jamais le premier ; plus basse priorité, puis le plus loin, d'abord.
+**Les chauffes ne tombent jamais seules**, et **les charges ne changent pas** : les consignes des exercices gardés sont celles de la séance complète. **Une cible inatteignable** (les planchers atteints avant la cible) : la carte montre la version la plus courte possible, **sans prétendre tenir la cible** — « Au plus court : 35 min (estimation) » — et le bouton dit « Raccourcir à 35 min » ; la référence rend `tient = false`.
+
+**Avec le reste du coach** (précisé le 04/10/2026) :
+- **Une réduction s'applique une seule fois, sur la routine** (la règle du 02/10 pour le remplacement) : dans une séance raccourcie, la semaine allégée et la série de plus lisent **le nombre de séries de la routine complète**, jamais celui de la séance.
+- **Pendant une semaine allégée, « J'ai peu de temps » n'apparaît pas** : la séance est déjà plus courte, et la routine affiche à la place sa durée allégée — « Semaine allégée : environ 50 min (estimation) ».
+- **La question de fin de séance** (ECRAN-SAISIE §6.3) ne propose jamais de retirer de la routine un exercice enlevé par le raccourcissement.
+- **Dans l'estimation, un exercice retiré ou un cardio mis à part ne compte pas**, pas même son changement d'exercice.
+- Une séance raccourcie, faite à la charge proposée, compte comme suivie pour le compteur de stagnation (§12.9) : sans progrès, il avance d'une séance.
+
+
+**Invariant I32** : une séance raccourcie garde, pour chaque muscle principal de la routine, au moins une série de travail ; le premier exercice garde au moins 2 séries de travail et toutes ses chauffes ; aucune charge ne diffère de la consigne de la séance complète.
+
+**Référence** : `simu_raccourcir.py` (`duree`, `raccourcir`) ; cas `cas_raccourcir51.json`.
+
+
 ## 10. L'incrément
 
 ### 10.1 Règle

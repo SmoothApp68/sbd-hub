@@ -2611,6 +2611,8 @@
       if (f && !catalogue[slug]) {
         var gc = Modele.gabaritDe(f);
         catalogue[slug] = { equipement: Moteur.equipementEffectif(f) || null,
+                            // §9.20 — le nom, pour la carte de reprise.
+                            nom: f.nom || slug,
                             muscles_primaires: (f.muscles_primaires || []).slice(),
                             // §9.17 — la mesure (le plan la porte, I13/I28 la lisent) et
                             // la version lestée (la carte du lest ne promet que ce qu'elle livre).
@@ -2636,7 +2638,9 @@
       }
     }
     return {
-      seance: { id: seance.id, debut: seance.debut, edition: edition, exercices: exos },
+      seance: { id: seance.id, debut: seance.debut, edition: edition, exercices: exos,
+                // §9.20 — les choix de la carte de reprise, dans le brouillon.
+                reprises: seance.reprises || null },
       consignes: cs,
       // MOTEUR §9.16 — la phase GELÉE de la séance (lue après les consignes :
       // elle se fige avec elles).
@@ -3409,6 +3413,35 @@
     if (seance) rendreSeance();
   }
 
+  // MOTEUR §9.20 (51-3) — LA CARTE DE REPRISE, après une séance douloureuse.
+  // Trois choix, aucun calcul ici :
+  //   · « Comme avant » : la consigne normale ; le choix se range dans la
+  //     séance, la carte se retire ;
+  //   · « Plus léger, plus de reps » : la CORRECTION DE ZONE vers la zone
+  //     suivante (le geste de l'étiquette, `poserZone`) et le REPLI figé dans
+  //     la carte (§14.5) — le plan l'applique (`consigneRepli`), I35 le vérifie ;
+  //   · « Sans coach cette fois » : la marque, comme « J'ai mal ».
+  async function repondreReprise(iExo, cle) {
+    if (!seance || enEdition() || reponseEnCours) return;
+    var x = planDeLExercice(iExo);
+    var carte = x && x.carteReprise;
+    if (!carte) return;
+    reponseEnCours = true;
+    try {
+      if (cle === 'sans') {
+        seance = Seance.marquerDouleur(seance, iExo);
+      } else if (cle === 'leger' && carte.repli) {
+        seance = Seance.choisirReprise(seance, x.slug, { choix: 'leger', repli: carte.repli });
+        await poserZone(x.slug, carte.zone);
+      } else {
+        seance = Seance.choisirReprise(seance, x.slug, { choix: 'avant' });
+      }
+    } finally {
+      reponseEnCours = false;
+    }
+    await apresGeste();
+  }
+
   // §14.7 (delta 49-35) — LA LIGNE DE PLUS DE L'EXERCICE QU'ON VIENT D'AJOUTER,
   // et de lui SEUL : l'exercice nouveau (absent de `avantExos`, sans série
   // faite), s'il a une série de plus en cours. Le même geste qu'à l'ouverture
@@ -3960,6 +3993,14 @@
         return x && x.carteLest ? x.carteLest : null;
       },
       surLest: function (i, reponse) { return repondreLest(i, reponse); },
+      // MOTEUR §9.20 (51-3) — la carte de reprise : lue sur le plan ; ses trois
+      // gestes passent par les mécanismes existants.
+      propositionReprise: function (i) {
+        if (enEdition()) return null;
+        var x = planDeLExercice(i);
+        return x && x.carteReprise ? x.carteReprise : null;
+      },
+      surReprise: function (i, cle) { return repondreReprise(i, cle); },
       // §9.17 — l'exercice est en Entretenir PAR SON PROPRE choix : l'étiquette
       // devient « Entretien », la porte vers le mode (le profil n'y gagne rien).
       modeEntretien: function (slug) { return modeDe(slug) === 'entretien'; },
@@ -4317,6 +4358,30 @@
       return Rendu.rendreFeuilleMachinePrise(cible, vueMachinePrise(blocs, iBloc, cibleExo));
     }
 
+    // §9.20 — « J'ai mal » : la marque se pose AU CHOIX (51-3 bis, D4) — un
+    // « J'ai mal » touché par erreur, refermé sans choisir, ne change rien.
+    // « Un frère » marque, puis reprend la liste de §9.19.
+    if (quoiFeuille === 'douleur') {
+      return Rendu.rendreFeuilleDouleur(cible, {
+        textes: Moteur.feuilleDouleur(Modele.nommer(index, seance.exercices[cibleExo].exercise_slug)),
+        surChoix: function (cle) {
+          seance = Seance.marquerDouleur(seance, cibleExo);
+          if (cle === 'frere') {
+            feuille = { quoi: 'freres', iBloc: iBloc, cibleExo: cibleExo };
+            return apresGeste().then(rendreFeuille);
+          }
+          // « Alléger », « Changer de position », « Arrêter cet exercice » :
+          // la personne fait — rien n'est validé à sa place.
+          fermerVoile();
+          return apresGeste();
+        }
+      });
+    }
+    if (quoiFeuille === 'freres') {
+      return Rendu.rendreFeuilleMachinePrise(cible,
+        Object.assign(vueMachinePrise(blocs, iBloc, cibleExo), { tard: null, titre: 'Un frère' }));
+    }
+
     // §9.19 — « Machine prise » vise un EXERCICE : la branche tapée dans un
     // superset, l'exercice unique sinon. La feuille change dans le même voile.
     var machinePrise = function (iExo) {
@@ -4325,11 +4390,20 @@
         rendreFeuille();
       };
     };
+    // §9.20 — « J'ai mal » ouvre la feuille, dans le même voile ; la marque
+    // attend le choix (51-3 bis, D4).
+    var jaiMal = function (iExo) {
+      return function () {
+        feuille = { quoi: 'douleur', iBloc: iBloc, cibleExo: iExo };
+        rendreFeuille();
+      };
+    };
 
     if (quoiFeuille === 'exercice') {
       return Rendu.rendreFeuilleExercice(cible, {
         nom: Modele.nommer(index, seance.exercices[cibleExo].exercise_slug),
         surMachinePrise: machinePrise(cibleExo),
+        surJaiMal: jaiMal(cibleExo),
         surRemplacer: function () { demanderRemplacement(cibleExo); },
         surDegrouper: function () {
           var indices = indicesDe(bloc);
@@ -4350,6 +4424,7 @@
       noms: noms,
       peutGrouper: blocs.length > 1,
       surMachinePrise: bloc.superset ? null : machinePrise(indicesDe(bloc)[0]),
+      surJaiMal: bloc.superset ? null : jaiMal(indicesDe(bloc)[0]),
       surRemplacer: function () { demanderRemplacement(indicesDe(bloc)[0]); },
       surGrouper: function () {
         // §5.7 — on passe en SÉLECTION : les autres blocs s'allument et
@@ -4585,7 +4660,8 @@
       });
     }
     if (feuille.quoi === 'bloc' || feuille.quoi === 'exercice' ||
-        feuille.quoi === 'supprimer' || feuille.quoi === 'machine') return rendreFeuilleDeviation(cible, index);
+        feuille.quoi === 'supprimer' || feuille.quoi === 'machine' ||
+        feuille.quoi === 'douleur' || feuille.quoi === 'freres') return rendreFeuilleDeviation(cible, index);
 
     var exo = seance.exercices[feuille.iExo];
     if (!exo) return;

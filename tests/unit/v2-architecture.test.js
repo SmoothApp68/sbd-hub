@@ -428,6 +428,42 @@ const NOTIONS = [
     parAilleurs: { 'app.js': ['vueMachinePrise'] },
     raison: 'les frères pas encore dans la séance d’abord, l’historique le plus récent, puis par nom ; ' +
       'un frère déjà présent à la fin — une règle, que la feuille affiche sans la refaire.' },
+  { notion: 'la séance neutre (§7.6), déduite ou DÉCLARÉE par la marque « douleur » (MOTEUR §9.20)', pr: '51-U3',
+    module: 'moteur.js', fonction: 'sansPalierRetenues', lecteurs: [],
+    par: ['contratDe'],
+    raison: 'une séance marquée ne vote pas pour la charge et reste une présence pour le rythme : ' +
+      'le même chemin que la séance sans travail dans la zone, pas une seconde notion.' },
+  { notion: 'la séance-exercice douloureuse (une série marquée, dans le contrat)', pr: '51-U3',
+    module: 'moteur.js', fonction: 'seanceDouloureuse', lecteurs: [],
+    par: ['contratDe'],
+    raison: 'MOTEUR §9.20 : une seule série marquée rend la séance-exercice douloureuse ; le contrat ' +
+      'le lit une fois, et `sansPalierRetenues` en fait une séance neutre.' },
+  { notion: 'l’occurrence marquée « douleur » en séance (sans coach, I33)', pr: '51-U3',
+    module: 'seance.js', fonction: 'occurrenceDouloureuse', lecteurs: ['plan.js'],
+    par: ['lignes'],
+    parAilleurs: { 'plan.js': ['planDeSeance'] },
+    raison: 'le plan (sans coach), l’envoi (`sets.douleur` sur chaque série) et l’écran lisent la même ' +
+      'marque : posée sur l’occurrence, tenue de ses séries quand la séance est relue.' },
+  { notion: 'la reprise après une séance douloureuse (la carte, la zone suivante, le repli)', pr: '51-U3',
+    module: 'moteur.js', fonction: 'reprisePour', lecteurs: [],
+    par: ['consigneDExercice'],
+    raison: 'MOTEUR §9.20 : la carte se décide sur la dernière séance, figée avec la consigne ; « Plus ' +
+      'léger » passe par la zone suivante et le repli existant (§14.5), jamais une charge à part.' },
+  { notion: 'le repli de la reprise longue (§9.9 : le cran en dessous, 10 % au plus)', pr: '51-U3',
+    module: 'moteur.js', fonction: 'repliDeReprise', lecteurs: [],
+    par: ['consigneFigee', 'repliDeLaRepriseLongue'],
+    raison: '51-3 bis : « Plus léger » le réutilise quand le repli de §14.5 n’existe pas — la règle de ' +
+      '§9.9 appelée par sa fonction, jamais recopiée (une charge de repli calculée à part serait une seconde règle).' },
+  { notion: '« Plus léger, plus de reps » appliqué à la consigne (le repli de §14.5, sinon celui de §9.9)', pr: '51-U3',
+    module: 'moteur.js', fonction: 'consignePlusLegere', lecteurs: ['plan.js'],
+    parAilleurs: { 'plan.js': ['planDeSeance'] },
+    raison: 'le plan n’applique « Plus léger » que par elle : la ligne du repli choisi, sans ligne haute, ' +
+      'et le repli d’escalier par `consigneRepli` (qu’I22 vérifie).' },
+  { notion: 'la zone suivante en reps (« Plus léger, plus de reps »)', pr: '51-U3',
+    module: 'moteur.js', fonction: 'zonePlusDeReps', lecteurs: [],
+    par: ['reprisePour'],
+    raison: 'lourd → mix → hypertrophie → volume → séries longues, dans l’ordre de la table des ' +
+      'zones : une définition, que la carte et la correction de zone lisent.' },
   { notion: 'l’occurrence coachée d’un exercice (la première, ou celle qui porte ses paris)', pr: 'correctif 04/10/2026',
     module: 'seance.js', fonction: 'occurrenceCoachee', lecteurs: ['plan.js', 'app.js'],
     parAilleurs: { 'plan.js': ['planDeSeance'], 'app.js': ['occurrenceLibre'] },

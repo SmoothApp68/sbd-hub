@@ -339,6 +339,22 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
   // formateur la porte (`Modele.PHRASE_POIDS_DU_CORPS`), la garde la lit.
   noter('page d’exercice', 'poids du corps', [Modele.PHRASE_POIDS_DU_CORPS]);
 
+  // 51-3 (§9.20) — « J'ai mal » : la feuille, et la carte de reprise sur les 4
+  // cas réels, à la barre, avec et sans meilleur du compteur (le repli de
+  // §14.5, sinon celui de la reprise longue — « Plus de reps » au militaire).
+  const MAL = require('./fixtures/cas-51-3-j-ai-mal.json');
+  const fD = M.feuilleDouleur('Squat (Barre)');
+  noter('douleur', 'feuille', [fD.titre, fD.phrase, fD.securite].concat(fD.choix.map((q) => q.texte), fD.choix.map((q) => q.sous)));
+  MAL.neutralite.forEach((c) => {
+    const se = M.sansPalierRetenues(c.seances.map((x) => { const y = Object.assign({}, x); delete y.neutre; return y; }),
+      { equipement: 'barre' });
+    const k = M.consignePour(se, c.avant, { equipement: 'barre' });
+    [null, { palier: k.palier, niveau: k.niveau }].forEach((m) => {
+      const t = M.carteRepriseTextes('X', k, M.reprisePour(se, c.avant, k, m, { equipement: 'barre' }));
+      noter('douleur', 'cas-51-3 ' + c.id, [t.titre, t.phrase].concat(t.choix.map((q) => q.texte)));
+    });
+  });
+
   test('chaque famille est jouée, et la date relative l\'est vraiment', () => {
     const parFamille = {};
     vues.forEach((v) => { parFamille[v.famille] = (parFamille[v.famille] || 0) + 1; });
@@ -362,6 +378,10 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
     expect(parFamille['frères']).toBe(7);
     // 50-1 bis : une phrase, celle de la page d'un exercice au poids du corps.
     expect(parFamille['page d’exercice']).toBe(1);
+    // 51-3 : la feuille (3 phrases, 4 choix, 3 sous-titres) + 4 cas × 2 cartes ×
+    // (titre, phrase, 3 choix) ; « Plus de reps » au militaire, à charge égale.
+    expect(parFamille.douleur).toBe(10 + 40);
+    expect(vues.filter((v) => v.famille === 'douleur' && /^Plus de reps : 20/.test(v.phrase)).length).toBe(2);
     expect(vues.filter((v) => v.famille === 'frères' && / → /.test(v.phrase)).length).toBe(5);
     // La phrase « Je ne compte pas la dernière série » est bien jouée.
     expect(vues.filter((v) => v.famille === 'chute' && /Je ne compte pas la dernière série/.test(v.phrase)).length)

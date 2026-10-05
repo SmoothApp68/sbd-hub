@@ -41,7 +41,8 @@ describe('§9.13 bis — la version des règles du moteur (49-U6)', () => {
     // mois hors barre).
     // 6 depuis 50-1 (MOTEUR §9.17 : le poids du corps suit la consigne des
     // charges, la charge valant 0 ; la carte du lest, l'étirement, l'aide).
-    expect(Moteur.VERSION_CONSIGNE).toBe(6);
+    // 7 depuis 51-3 (MOTEUR §9.20 : une séance marquée « douleur » est neutre).
+    expect(Moteur.VERSION_CONSIGNE).toBe(7);
   });
 });
 

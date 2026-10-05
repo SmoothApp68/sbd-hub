@@ -267,7 +267,17 @@ const CATALOGUE = [
   { slug: 'voisin-u52', nom: 'Voisin Prise U52', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: [], muscles_secondaires: [] },
   { slug: 'ss-a-u52', nom: 'Alterné Un U52', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: [], muscles_secondaires: [] },
   { slug: 'ss-b-u52', nom: 'Alterné Deux U52', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: [], muscles_secondaires: [] },
-  { slug: 'fin-u52', nom: 'Dernier Prise U52', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: [], muscles_secondaires: [] }
+  { slug: 'fin-u52', nom: 'Dernier Prise U52', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: [], muscles_secondaires: [] },
+  // 51-3 (MOTEUR §9.20) — réservés à la section 7 G duovicies (« J'ai mal ») :
+  // un exercice coaché, avec un historique SOUS CONSIGNE (des paris : le
+  // compteur a un meilleur, donc un repli), son frère, et un voisin. Aucun
+  // muscle, et des noms qu'aucune autre recherche du banc ne trouve.
+  { slug: 'mal-u53', nom: 'Douleur U53 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: [], muscles_secondaires: [], mouvement: 'mal_u53' },
+  { slug: 'mal-frere-u53', nom: 'Frère Mal U53 (Haltères)', mesure: 'charge_reps', charge: 'externe', equipement: 'haltere', muscles_primaires: [], muscles_secondaires: [], mouvement: 'mal_u53' },
+  { slug: 'voisin-u53', nom: 'Voisin Mal U53', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: [], muscles_secondaires: [] },
+  // 51-3 bis — un second exercice SANS palier tenu dans la zone suivante :
+  // « Plus léger » y passe par le repli de la reprise longue (§9.9).
+  { slug: 'mal2-u53', nom: 'Douleur Deux U53 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: [], muscles_secondaires: [] }
 ];
 
 // ⚠️ UNE ROUTINE PORTE MAINTENANT SES LIGNES (chantier 43). `routine_sets`
@@ -11041,6 +11051,277 @@ const SETS_IMPORTES = [
     ok('[M52] la garde (C6) n’a rien signalé dans cette section', gardeBanc.violations === violationsAvant,
       JSON.stringify(gardeBanc.liste.slice(-2)));
     ok('[M52] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
+    await aller('/saisie');
+    await attendre(500);
+  }
+
+  console.log('\n══ 7 G duovicies. « J’AI MAL » : SANS COACH POUR LA SÉANCE, NEUTRE POUR LA SUITE, LA REPRISE AU CHOIX (51-3, MOTEUR §9.20) ══');
+  //
+  // En séance, ⋯ → « J'ai mal » : la marque sur l'occurrence (en base, sur les
+  // séries validées et à venir), l'exercice sans coach (I33), la phrase de
+  // sécurité telle quelle, « Un frère » par la liste de §9.19. À la séance
+  // suivante : la carte de reprise et ses trois choix — « Comme avant »,
+  // « Sans coach cette fois » (la marque), « Plus léger, plus de reps » (la
+  // correction de zone et le repli, §14.5). Et l'occurrence enregistrée : une
+  // séance relue sépare deux occurrences voisines.
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : un historique SOUS CONSIGNE (des paris),
+  // pour que le compteur ait un meilleur (120 kg) et le repli un palier tenu
+  // dans la zone suivante (110 kg × 6, à moins de 10 %) ; l'attendu se lit sur
+  // le plan que l'app calcule (`THPlan.dernier`) et dans la base du banc.
+  {
+    const tD = Date.now();
+    const sp = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    let graineD = 0;
+    const sessionD = (id, jours) => {
+      const debut = ilYa(jours * 86400000, tD).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'J’ai mal — ' + id, debut,
+        fin: finDe(debut, tD).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      return debut;
+    };
+    const serieD = (id, rang, kg, reps, debut) => base.sets.push({ id: id + '-s' + rang,
+      session_id: id, user_id: 'u-banc', exercise_slug: 'mal-u53', charge_kg: kg, reps, duree_s: null,
+      distance_m: null, type_serie: 'travail', rang, groupe_superset: null, validee_a: debut, rpe: null,
+      ressenti: null, repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null });
+    const pariD = (id, debut, compteur, kg, reps) => base.predictions.push({
+      id: '00000000-0000-5000-8053-' + String(++graineD).padStart(12, '0'),
+      user_id: 'u-banc', module: 'moteur.consigne', module_version: 6, emise_a: debut,
+      exercise_slug: 'mal-u53', grandeur: 'reps', horizon_jours: null, valeur_predite: reps,
+      borne_basse: 3, borne_haute: 5,
+      fondement: { rang: 1, charge: kg, etat: 'progression', zone: 'lourd', reglage: 'normal',
+                   palier: kg, niveau: reps, seance: id, role: 'ligne', phase: 'maintien', compteur },
+      valeur_observee: reps, observee_a: debut, set_observe: id + '-s1', created_at: debut });
+    [[24, 110, 6], [17, 120, 5], [10, 120, 5]].forEach(([j, kg, reps], i) => {
+      const id = 'd53-' + i;
+      const debut = sessionD(id, j);
+      [1, 2, 3, 4].forEach((r) => serieD(id, r, kg, reps, debut));
+      pariD(id, debut, i, kg, reps);
+    });
+    ROUTINES.push({ id: 'r-u53', nom: 'Mal U53', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [
+        { id: 'r-u53-a', routine_id: 'r-u53', exercise_slug: 'mal-u53', rang: 0,
+          routine_sets: progr(4, 5), repos_cible_s: 120, groupe_superset: null, note: null },
+        { id: 'r-u53-b', routine_id: 'r-u53', exercise_slug: 'voisin-u53', rang: 1,
+          routine_sets: progr(2, 10), repos_cible_s: 60, groupe_superset: null, note: null }] });
+    const violationsAvant = gardeBanc.violations;
+
+    const planD = () => page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      const x = d.plan.exercices.filter((q) => q.slug === 'mal-u53')[0] || null;
+      return { seance: d.plan.seance,
+        exos: d.entrees.seance.exercices.map((e) => e.exercise_slug),
+        mal: x && { douleur: !!x.douleur, consigne: x.consigne ? { charge: x.consigne.ligne && x.consigne.ligne.charge,
+          vise: x.consigne.ligne && x.consigne.ligne.vise, zone: x.consigne.zone } : null,
+          coach: x.lignes.filter((l) => l.role !== 'hors').length, paris: (x.paris || []).filter(Boolean).length,
+          carte: x.carteReprise ? { titre: x.carteReprise.titre, phrase: x.carteReprise.phrase,
+            choix: x.carteReprise.choix.map((q) => q.texte) } : null } };
+    });
+    const feuilleD = () => page.evaluate(() => {
+      const c = document.getElementById('feuille-contenu');
+      return { titre: (c.querySelector('.feuille-t') || {}).textContent || '',
+        phrase: (c.querySelector('.douleur-phrase') || {}).textContent || '',
+        choix: Array.from(c.querySelectorAll('.choix-mp .mp-titre')).map((n) => n.textContent),
+        sous: Array.from(c.querySelectorAll('.choix-mp .mp-sous')).map((n) => n.textContent),
+        securite: (c.querySelector('.douleur-securite') || {}).textContent || '' };
+    });
+    const validerD = async (iBloc, k) => {
+      await page.evaluate(([b, j]) => document.querySelectorAll('.bloc-seance')[b]
+        .querySelectorAll('.ligne-serie')[j].querySelector('.ok-serie').click(), [iBloc, k]);
+      await attendre(900);
+    };
+    const carteD = () => page.evaluate(() => {
+      const k = document.querySelector('.proposition-reprise');
+      return k ? { titre: k.querySelector('.pc-texte').textContent, phrase: (k.querySelector('.pc-detail') || {}).textContent,
+        boutons: Array.from(k.querySelectorAll('button')).map((b) => b.className.replace(/.*\bpr-/, '') + ':' + b.textContent) } : null;
+    });
+    const choisirD = async (cle) => {
+      await page.evaluate((c) => document.querySelector('.proposition-reprise .pr-' + c).click(), cle);
+      await attendre(1500);
+    };
+
+    // ── A. LA SÉANCE OÙ L'ON A MAL.
+    await aller('/saisie');
+    await demarrerRoutine('Mal U53');
+    await attendre(1200);
+    const a0 = await planD();
+    ok('[D53] prémisse : l’exercice est coaché, sans carte de reprise (aucune séance marquée)',
+      a0.mal && a0.mal.consigne && !a0.mal.douleur && a0.mal.carte === null, JSON.stringify(a0.mal));
+    const sidA = a0.seance;
+    await validerD(0, 0);
+    const malEnBase = () => base.sets.filter((x) => x.session_id === sidA && x.exercise_slug === 'mal-u53');
+    // 51-3 bis (D4) — OUVRIR PUIS FERMER NE MARQUE RIEN.
+    await menuBloc(0);
+    await entree('^J’ai mal$');
+    await attendre(800);
+    await fermerFeuille();
+    await attendre(1200);
+    const aFerme = await planD();
+    ok('[D53] DISCRIMINANT — « J’ai mal » ouvert puis refermé sans choisir : rien n’est marqué, le coach reste',
+      !aFerme.mal.douleur && aFerme.mal.consigne !== null && malEnBase().length === 1 && malEnBase()[0].douleur === false,
+      JSON.stringify([aFerme.mal, malEnBase().map((x) => x.douleur)]));
+    await menuBloc(0);
+    await entree('^J’ai mal$');
+    await attendre(800);
+    const fa = await feuilleD();
+    ok('[D53] la feuille : « {exercice} : tu as mal », la phrase, les quatre choix, de §9.20',
+      sp(fa.titre) === 'Douleur U53 (Barre) : tu as mal' &&
+        sp(fa.phrase) === 'Pour aujourd’hui, Douleur U53 (Barre) est sans coach : il ne comptera pas comme un recul.' &&
+        JSON.stringify(fa.choix) === JSON.stringify(['Alléger', 'Changer de position', 'Un frère', 'Arrêter cet exercice']),
+      JSON.stringify(fa));
+    ok('[D53] DISCRIMINANT — une seule phrase de sécurité, telle quelle ; aucun diagnostic',
+      fa.securite === 'Si la douleur dépasse 5 sur 10, ou ne redescend pas en 24 heures, demande l’avis d’un professionnel.' &&
+        !/tendin|entorse|inflamm|médecin|glace/i.test(JSON.stringify(fa)), fa.securite);
+    // La marque se pose AU CHOIX : « Arrêter cet exercice ».
+    await entree('^Arrêter cet exercice');
+    await attendre(1500);
+    const a1 = await planD();
+    ok('[D53] DISCRIMINANT — au choix, l’exercice passe sans coach pour la séance : ni consigne, ni ligne du coach, ni pari (I33)',
+      a1.mal.douleur && a1.mal.consigne === null && a1.mal.coach === 0 && a1.mal.paris === 0, JSON.stringify(a1.mal));
+    ok('[D53] DISCRIMINANT — la série déjà validée porte la marque en base (par la file), sa charge inchangée',
+      malEnBase().length === 1 && malEnBase()[0].douleur === true &&
+        /^[0-9a-f-]{36}$/.test(String(malEnBase()[0].occurrence)), JSON.stringify(malEnBase()));
+    ok('[D53] « Arrêter cet exercice » ferme la feuille et ne valide rien', malEnBase().length === 1,
+      String(malEnBase().length));
+
+    // « Un frère » : la liste de §9.19 (on ne la choisit pas ici).
+    await menuBloc(0);
+    await entree('^J’ai mal$');
+    await attendre(800);
+    await entree('^Un frère');
+    const ff = await page.evaluate(() => {
+      const c = document.getElementById('feuille-contenu');
+      return { titre: (c.querySelector('.feuille-t') || {}).textContent || '',
+        choix: Array.from(c.querySelectorAll('.choix-mp .mp-titre')).map((n) => n.textContent),
+        sous: Array.from(c.querySelectorAll('.choix-mp .mp-sous')).map((n) => n.textContent) };
+    });
+    ok('[D53] « Un frère » : la liste de §9.19, sans « Plus tard »',
+      /^Un frère/.test(sp(ff.titre)) && JSON.stringify(ff.choix) === JSON.stringify(['Un frère : Frère Mal U53 (Haltères)']) &&
+        ff.sous[0] === 'Première fois ici', JSON.stringify(ff));
+    await fermerFeuille();
+
+    // Une série à venir, validée APRÈS la marque : elle la porte aussi.
+    await validerD(0, 1);
+    await attendre(1200);
+    ok('[D53] DISCRIMINANT — la série validée après la marque la porte aussi, et la même occurrence',
+      malEnBase().length === 2 && malEnBase().every((x) => x.douleur === true) &&
+        malEnBase()[0].occurrence === malEnBase()[1].occurrence, JSON.stringify(malEnBase()));
+
+    // Deux occurrences VOISINES du voisin : en base, deux uuid ; relues, deux blocs.
+    await menuBloc(1);
+    await entree('Ajouter un exercice après');
+    await choisirCatalogue('Voisin Mal U53');
+    await attendre(900);
+    await validerD(1, 0);
+    await validerD(2, 0);
+    ok('[D53] la garde de l’app n’a rien vu pendant la séance', gardeBanc.violations === violationsAvant,
+      JSON.stringify(gardeBanc.liste.slice(-1)));
+    await terminer();
+    const voisins = base.sets.filter((x) => x.session_id === sidA && x.exercise_slug === 'voisin-u53');
+    ok('[D53] DISCRIMINANT — deux occurrences voisines : deux uuid d’occurrence en base, et pas de marque',
+      voisins.length === 2 && voisins[0].occurrence && voisins[1].occurrence && voisins[0].occurrence !== voisins[1].occurrence &&
+        voisins.every((x) => x.douleur === false), JSON.stringify(voisins.map((x) => [x.occurrence, x.douleur])));
+    await aller('/seance/' + sidA);
+    await attendre(900);
+    const noms = await page.evaluate(() => Array.from(document.querySelectorAll('.exos .nom')).map((n) => n.textContent));
+    ok('[D53] DISCRIMINANT — la séance relue sépare les deux occurrences voisines : deux blocs',
+      noms.filter((n) => /Voisin Mal U53/.test(n)).length === 2, JSON.stringify(noms));
+
+    // ── B. LA SÉANCE SUIVANTE : LA CARTE DE REPRISE, ET SES TROIS CHOIX.
+    const ouvrirB = async () => {
+      await aller('/saisie');
+      await attendre(600);
+      await demarrerRoutine('Mal U53');
+      await attendre(1500);
+    };
+    await ouvrirB();
+    const b0 = await planD();
+    const kb = await carteD();
+    ok('[D53] DISCRIMINANT — la dernière séance porte la marque : la carte, sans question',
+      kb && sp(kb.titre) === 'Ta dernière séance de Douleur U53 (Barre) était douloureuse.' &&
+        sp(kb.phrase) === 'On reprend comme tu veux. Tu peux toujours changer d’avis depuis l’étiquette de l’exercice.' &&
+        !/\?/.test(JSON.stringify(kb)), JSON.stringify(kb));
+    ok('[D53] DISCRIMINANT — trois choix : « Comme avant » dit la consigne, « Plus léger » le repli (110 kg × 6)',
+      kb && kb.boutons.length === 3 && sp(kb.boutons[0]) === sp('avant:' + b0.mal.carte.choix[0]) &&
+        /^avant:Comme avant : \d/.test(sp(kb.boutons[0])) &&
+        sp(kb.boutons[1]) === 'leger:Plus léger, plus de reps : 110 kg × 6' && sp(kb.boutons[2]) === 'sans:Sans coach cette fois',
+      JSON.stringify([kb, b0.mal]));
+    ok('[D53] DISCRIMINANT — « Comme avant » est la consigne calculée SANS la séance douloureuse (120 kg, pas 0)',
+      b0.mal.consigne && b0.mal.consigne.charge >= 120, JSON.stringify(b0.mal.consigne));
+    // « Comme avant ».
+    await choisirD('avant');
+    const b1 = await planD();
+    ok('[D53] « Comme avant » : la carte se retire, la consigne ne change pas',
+      (await carteD()) === null && JSON.stringify(b1.mal.consigne) === JSON.stringify(b0.mal.consigne), JSON.stringify(b1.mal));
+    await abandonner();
+    // « Sans coach cette fois ».
+    await ouvrirB();
+    ok('[D53] abandonnée, la séance ne compte pas : la carte revient', (await carteD()) !== null, '');
+    await choisirD('sans');
+    const b2 = await planD();
+    ok('[D53] DISCRIMINANT — « Sans coach cette fois » : l’exercice de nouveau marqué, sans coach',
+      b2.mal.douleur && b2.mal.consigne === null && b2.mal.coach === 0 && (await carteD()) === null, JSON.stringify(b2.mal));
+    await abandonner();
+    // « Plus léger, plus de reps ».
+    await ouvrirB();
+    const zonesAvant = base.zones.length;
+    await choisirD('leger');
+    await attendre(800);
+    const b3 = await planD();
+    const zoneEcrite = base.zones.slice(zonesAvant).filter((z) => z.exercise_slug === 'mal-u53');
+    ok('[D53] DISCRIMINANT — « Plus léger » : une correction de zone (la zone suivante, mix), comme un choix de l’étiquette',
+      zoneEcrite.length === 1 && zoneEcrite[0].zone === 'mix', JSON.stringify(zoneEcrite));
+    ok('[D53] DISCRIMINANT — et la charge du repli : 110 kg × 6, la carte retirée',
+      b3.mal.consigne && b3.mal.consigne.charge === 110 && b3.mal.consigne.vise === 6 && b3.mal.consigne.zone === 'mix' &&
+        (await carteD()) === null, JSON.stringify(b3.mal));
+    await abandonner();
+
+    // ── C. 51-3 bis (D3) — SANS PALIER TENU DANS LA ZONE SUIVANTE : « Plus
+    // léger » par le repli de la reprise longue (§9.9). Un historique à 100 et
+    // 95 kg × 5 (jamais 6 reps : pas de repli de §14.5 en Mix), la dernière
+    // séance marquée EN BASE (la marque relue, pas posée dans l'app).
+    const serieD2 = (id, rang, kg, reps, debut, douleur) => base.sets.push({ id: id + '-s' + rang,
+      session_id: id, user_id: 'u-banc', exercise_slug: 'mal2-u53', charge_kg: kg, reps, duree_s: null,
+      distance_m: null, type_serie: 'travail', rang, groupe_superset: null, validee_a: debut, rpe: null,
+      ressenti: null, repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null,
+      douleur: !!douleur, occurrence: null });
+    [[30, 95, 5], [23, 100, 5], [16, 100, 5], [9, 100, 5]].forEach(([j, kg, reps], i) => {
+      const id = 'd53b-' + i;
+      const debut = sessionD(id, j);
+      [1, 2, 3].forEach((r) => serieD2(id, r, kg, reps, debut));
+    });
+    const debutMal = sessionD('d53b-mal', 4);
+    [1, 2, 3].forEach((r) => serieD2('d53b-mal', r, 80, 8, debutMal, true));
+    ROUTINES.push({ id: 'r-u53b', nom: 'Mal Deux U53', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-u53b-a', routine_id: 'r-u53b', exercise_slug: 'mal2-u53', rang: 0,
+        routine_sets: progr(3, 5), repos_cible_s: 120, groupe_superset: null, note: null }] });
+    await aller('/saisie');
+    await attendre(600);
+    await demarrerRoutine('Mal Deux U53');
+    await attendre(1500);
+    const kc = await carteD();
+    const planC = () => page.evaluate(() => {
+      const x = window.THPlan.dernier.plan.exercices.filter((q) => q.slug === 'mal2-u53')[0];
+      return x && x.consigne ? { charge: x.consigne.ligne.charge, vise: x.consigne.ligne.vise, zone: x.consigne.zone,
+        haut: x.consigne.haut, repli: !!x.consigne.repli, plusLegere: x.consigne.plusLegere || null } : null;
+    });
+    const c0 = await planC();
+    ok('[D53] DISCRIMINANT — sans palier tenu en Mix, la marque relue de la base pose la carte, avec TROIS choix',
+      kc && kc.boutons.length === 3 && /^avant:Comme avant : 100/.test(sp(kc.boutons[0])) &&
+        sp(kc.boutons[1]) === 'leger:Plus léger, plus de reps : 95 kg × 6', JSON.stringify([kc, c0]));
+    ok('[D53] « Comme avant » ne lit pas la séance douloureuse (100 kg, pas 80)', c0 && c0.charge === 100, JSON.stringify(c0));
+    await choisirD('leger');
+    await attendre(800);
+    const c1 = await planC();
+    ok('[D53] DISCRIMINANT — « Plus léger » par le repli de la reprise longue : 95 kg × 6 en Mix, sans ligne haute, sans repli d’escalier',
+      c1 && c1.charge === 95 && c1.vise === 6 && c1.zone === 'mix' && c1.haut === null && !c1.repli &&
+        c1.plusLegere && c1.plusLegere.source === 'reprise_longue', JSON.stringify(c1));
+    ok('[D53] la garde de l’app (I22, I33 à I35) n’a rien signalé dans cette section', gardeBanc.violations === violationsAvant,
+      JSON.stringify(gardeBanc.liste.slice(-2)));
+    await abandonner();
+    ok('[D53] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
     await aller('/saisie');
     await attendre(500);
   }

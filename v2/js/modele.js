@@ -751,14 +751,16 @@
   // s'affichaient en UN bloc : huit lignes sous un en-tête, et le menu agissait
   // sur les deux. La séance en cours porte l'occurrence de chaque ligne
   // (`_iExo`, posé par `blocsDeSeance`) : deux occurrences, deux blocs. Les
-  // lignes lues en base n'ont pas d'occurrence (`sets` n'a pas de colonne pour
-  // elle) et gardent la règle par exercice.
+  // lignes lues en base portent la leur depuis 51-3 (`sets.occurrence`, MOTEUR
+  // §9.20) : une séance relue sépare aussi deux occurrences voisines. Sans
+  // elle (NULL : importée, ou d'avant la colonne), la règle par exercice.
   function memeBloc(a, b) {
     if (!a || !b) return false;
     var ga = a.groupe_superset, gb = b.groupe_superset;
     if (ga !== null && ga !== undefined) return ga === gb;
     if (gb !== null && gb !== undefined) return false;
     if (a._iExo !== undefined && b._iExo !== undefined && a._iExo !== b._iExo) return false;
+    if (a.occurrence && b.occurrence && a.occurrence !== b.occurrence) return false;
     return a.exercise_slug === b.exercise_slug;
   }
 

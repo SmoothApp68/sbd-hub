@@ -695,7 +695,8 @@ describe('50-1 — le contrat du poids du corps', () => {
     expect(r.palier).toBeNull();
   });
 
-  test('la version de la consigne a changé : 6', () => {
-    expect(M.VERSION_CONSIGNE).toBe(6);
+  // 6 en 50-1 ; 7 depuis 51-3 (MOTEUR §9.20, la séance douloureuse est neutre).
+  test('la version de la consigne a changé : 7 depuis (6 en 50-1)', () => {
+    expect(M.VERSION_CONSIGNE).toBe(7);
   });
 });

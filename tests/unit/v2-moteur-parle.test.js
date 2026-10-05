@@ -772,7 +772,8 @@ describe('la proposition n’est jamais écrite (§7 septendecies.3)', () => {
     // « ligne » — n'apparaissent nulle part. (`reps_visees` est une colonne de
     // routine d'avant le moteur, pas une trace du plan.)
     expect(JSON.stringify(s)).not.toMatch(/"(plan|propose|vise|haut|ligne|k)"/);
-    expect(Seance.COLONNES_SET).toHaveLength(17);
+    // 19 depuis 51-3 : `douleur` et `occurrence` (migration `v2_056`, MOTEUR §9.20).
+    expect(Seance.COLONNES_SET).toHaveLength(19);
   });
 });
 

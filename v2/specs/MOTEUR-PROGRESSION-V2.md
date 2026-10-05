@@ -1163,13 +1163,34 @@ Pas de chauffe ni de dégressive au poids du corps. Pas de repli ni de changemen
 
 **Où.** Dans les ⋯ d'un exercice en séance : « **Machine prise** ». Une feuille, deux sortes de choix :
 - « **Plus tard** » — « Il passe après {exercice suivant}. Ta consigne ne change pas. » Le bloc de l'exercice passe **juste après le bloc suivant** ; un superset bouge en entier ; le geste se répète. **Absent** pour le dernier bloc, et dès qu'un exercice du bloc a une série de travail validée (on ne coupe pas un exercice commencé ; alors seul le frère reste).
-- « **Un frère** : {nom} » — sous chaque frère, son dernier chiffre, **par la même fonction que « Dernière séance » de la page d'exercice** (« Dernière fois : 80 kg × 10, le 12 sept. »), ou « Première fois ici ». **Ordre** : d'abord les frères qui ne sont pas déjà dans la séance ; parmi eux, ceux qui ont un historique, le plus récent d'abord, puis les autres par nom ; un frère déjà dans la séance reste proposé, à la fin (il serait une seconde occurrence, libre, §9.13 bis). Choisir un frère est un **remplacement** (§9.13 bis : il reçoit les lignes restantes, avec sa propre consigne, sans rien hériter, §8.4). Sans frère au catalogue : « Pas de frère au catalogue pour cet exercice. » et le catalogue habituel.
+- « **Un frère** : {nom} » — sous chaque frère, son dernier chiffre, **par la même fonction que « Dernière séance » de la page d'exercice** (« Dernière fois : 80 kg × 10, le 12 sept. »), ou « Première fois ici ». **Ordre** : d'abord les frères qui ne sont pas déjà dans la séance ; parmi eux, ceux qui ont un historique, le plus récent d'abord, puis les autres par nom ; un frère déjà dans la séance reste proposé, à la fin (il serait une seconde occurrence, libre, §9.13 bis). Choisir un frère est un **remplacement** (§9.13 bis : il reçoit les lignes restantes, avec sa propre consigne, sans rien hériter, §8.4). Sans frère au catalogue : « Pas de frère au catalogue pour cet exercice. » et le bouton habituel « **Remplacer l'exercice** », qui ouvre le catalogue (précisé le 05/10/2026, #365).
 
 **Le coach ne change rien d'autre.** « Plus tard » ne modifie ni la consigne, ni les paris, ni le compteur : la charge ne dépend pas de la position (mesuré chez Aurélien, 2 089 cas) et §12 bis interdit une règle d'ordre sans mesure. Les paris de l'exercice décalé gardent leur fondement ; un effet de la fatigue sur les reps se lira dans leurs observations.
 
 **Deux occurrences voisines d'un même exercice s'affichent en deux blocs** (précisé le 05/10/2026) : un bloc est une occurrence, jamais un regroupement par exercice.
 
 **Référence** : `machine_prise51.py` (`plus_tard`, `freres_proposes`) ; cas `cas_machine_prise51.json`.
+
+
+### 9.20 « J'ai mal » — décidé le 04-05/10/2026 (chantier 51)
+
+> **Sans coach pour la séance, sans compter comme un recul, et jamais bloqué ensuite : la personne choisit comment reprendre.**
+
+**Où.** Dans les ⋯ d'un exercice en séance : « **J'ai mal** ». Une feuille : « {exercice} : tu as mal » ; « Pour aujourd'hui, {exercice} est sans coach : il ne comptera pas comme un recul. » ; quatre choix — « **Alléger** » (moins lourd, plus de reps : la personne choisit la charge), « **Changer de position** » (amplitude, écart, tempo : ce qui ne fait pas mal), « **Un frère** » (la liste de §9.19), « **Arrêter cet exercice** » (passer au suivant : les lignes restantes ne sont pas faites) ; et **une seule phrase de sécurité**, factuelle : « Si la douleur dépasse 5 sur 10, ou ne redescend pas en 24 heures, demande l'avis d'un professionnel. » **Jamais de diagnostic, de localisation, ni de conseil médical.**
+
+**Ce que fait la marque.** Elle se pose **quand la personne choisit** l'un des quatre choix, jamais à l'ouverture de la feuille : fermer la feuille sans choisir ne marque rien (précisé le 05/10/2026 : un « J'ai mal » touché par erreur ne change rien). Les séries de cette occurrence dans la séance — déjà validées et à venir — portent `douleur` (une donnée de la série ; la charge et les reps validées ne changent pas). L'exercice passe **sans coach pour la séance**, comme en Entretenir (I13, I31) : ni ligne du coach, ni pari, ni message pour ses lignes restantes. **La séance-exercice est neutre** (§7.6, déclarée) : elle ne vote pas pour la charge ; le compteur ne la compte ni ne la juge ; le test, la chute et la carte du lest se lisent sur la dernière séance non neutre ; **sa présence compte pour le rythme** (une reprise se lit avec elle). Les paris déjà écrits restent (table immuable) ; leurs observations aussi.
+
+**La reprise.** À la séance suivante de l'exercice, si **sa dernière séance porte la marque**, une carte, **sans question** (§20.2) : « Ta dernière séance de {exercice} était douloureuse. » ; « On reprend comme tu veux. Tu peux toujours changer d'avis depuis l'étiquette de l'exercice. » ; trois choix :
+- « **Comme avant : {consigne}** » — la consigne normale (calculée sans la séance douloureuse) ;
+- « **Plus léger, plus de reps : {repli}** » — par les mécanismes existants, **sans règle nouvelle** : une correction de zone vers **la zone suivante en reps** (lourd → mix → hypertrophie → volume → séries longues ; séries longues reste), et la charge par **le repli** (§14.5, 10 % au plus) ; **quand ce repli n'existe pas** (aucun palier tenu dans la zone suivante, ou un historique sans séance coachée), **le repli de la reprise longue** (§9.9 : le cran en dessous, 10 % au plus) — ce choix est donc **toujours proposé** (précisé le 05/10/2026 : « il ne faut pas se bloquer ») ; **quand la charge proposée n'est pas plus basse que celle de « Comme avant »**, le choix s'appelle « **Plus de reps : {charge} × {reps}** » — le coach ne dit pas « plus léger » sans l'être (précisé le 05/10/2026, §20 bis) ;
+- « **Sans coach cette fois** » — l'exercice est de nouveau marqué pour la séance.
+La carte revient tant que la dernière séance porte la marque ; elle disparaît dès une séance sans elle.
+
+**L'occurrence en base.** Chaque série saisie dans l'app porte l'identifiant de son **occurrence** (`sets.occurrence`) : une séance relue sépare deux occurrences voisines d'un même exercice (§9.19) ; les séances importées ou anciennes (NULL) gardent le regroupement par voisinage.
+
+**Invariants.** **I33** une occurrence marquée « douleur » : aucune ligne du coach, aucun pari, aucun message pour ses lignes restantes ; **I34** une consigne ne lit jamais une séance-exercice marquée pour sa charge (elle est neutre) ; **I35** la carte de reprise n'apparaît que si la dernière séance de l'exercice porte la marque, et n'a pas de point d'interrogation.
+
+**Référence** : `cas_douleur51.py` (`zone_plus_de_reps`, `carte_reprise`, la neutralité sur les séances d'Aurélien) ; cas `cas_douleur51.json`.
 
 
 ## 10. L'incrément

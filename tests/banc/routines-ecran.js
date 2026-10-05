@@ -1539,7 +1539,18 @@ const CATALOGUE = [
     JSON.stringify(await nomsBiblio()));
 
   // ④ LE GLISSEMENT À LA POIGNÉE, AU MILIEU.
+  // ⚠️ LA POIGNÉE AU MILIEU DE L'ÉCRAN AVANT DE GLISSER (51-1). La souris du
+  // banc n'a pas de capture du pointeur : un glissement qui finit SOUS le bas
+  // de l'écran perd son `pointerup`, la rangée reste déplacée à l'écran et
+  // l'ordre n'est jamais remonté. Le chantier 51-1 a ajouté une ligne à chaque
+  // carte (la durée estimée) : la page est passée de 765 à 893 px pour 760, et
+  // le second glissement vers le bas finissait hors de l'écran. Un doigt, lui,
+  // ne quitte pas l'écran — c'est le banc qu'on recentre, pas l'app.
   const glisserPoignee = async (i, dy) => {
+    await page.evaluate((k) => {
+      document.querySelectorAll('#liste-routines .poignee')[k].scrollIntoView({ block: 'center' });
+    }, i);
+    await attendre(150);
     const b = await page.evaluate((k) => {
       const p = document.querySelectorAll('#liste-routines .poignee')[k];
       const r = p.getBoundingClientRect();

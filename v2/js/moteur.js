@@ -2844,6 +2844,17 @@
 
   // « Nouvelle zone : Mix. Ta charge déjà tenue en Mix, le 8 déc. : 110 kg × 6. »
   // « Nouvelle zone : Mix. Estimée depuis ton 125 kg × 4, un peu en dessous pour démarrer. »
+  // « Nouvelle zone : Mix. Moins de reps, plus de charge : estimée depuis ton 52,5 kg × 10. »
+  //
+  // §9.10 (53-1 bis) — LA PHRASE DIT LE VRAI SENS : quand la charge estimée
+  // MONTE au-dessus du dernier palier (vers une zone de moins de reps), « un
+  // peu en dessous » sonnerait faux à côté d'une charge qui monte.
+  function reportMonte(c) {
+    var r = (c.fondement || {}).report || {};
+    var charge = c.ligne ? nombre(c.ligne.charge) : null;
+    var P = nombre(c.palier);
+    return r.origine === 'estimee' && charge !== null && P !== null && charge > P && !memeCharge(charge, P);
+  }
   function phraseNouvelleZone(c, reference) {
     var r = (c.fondement || {}).report || {};
     var d = r.depuis || {};
@@ -2853,6 +2864,9 @@
     if (r.origine === 'tenue') {
       return tete + 'Ta charge déjà tenue en ' + z.libelle + ', ' + quand(d.date, reference, false, cR) +
              DEUX_POINTS + chargeFois(d.palier, d.niveau, cR) + '.';
+    }
+    if (reportMonte(c)) {
+      return tete + 'Moins de reps, plus de charge' + DEUX_POINTS + 'estimée depuis ton ' + chargeFois(d.palier, d.niveau, cR) + '.';
     }
     return tete + 'Estimée depuis ton ' + chargeFois(d.palier, d.niveau, cR) + ', un peu en dessous pour démarrer.';
   }
@@ -3179,7 +3193,8 @@
                  ? 'je reprends la charge que tu y as déjà tenue, ' + chargeFois(dp.palier, dp.niveau, cR) +
                    ', plutôt qu\'une estimation.'
                  : 'j\'estime ta charge depuis ' + chargeFois(dp.palier, dp.niveau, cR) +
-                   ', et je la prends un peu en dessous pour démarrer.') +
+                   (reportMonte(c) ? DEUX_POINTS + 'moins de reps, plus de charge.'
+                                   : ', et je la prends un peu en dessous pour démarrer.')) +
                ' On vise le bas de ta zone, ' + nombreFr(z.bas, regle('zone.bas')) +
                ' reps ; la progression reprend à la séance suivante.';
 

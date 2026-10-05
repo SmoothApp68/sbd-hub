@@ -9710,6 +9710,13 @@ const SETS_IMPORTES = [
     ok('[RJ] 49-U18 — le militaire n’est plus en reprise, et ne vise rien au-dessus de 8 (Mix 6-8)',
       !/consigne reprise/.test(mil) && /zone mix/.test(mil) && visees(mil).length >= 4 && visees(mil).every((v) => v <= 8),
       JSON.stringify({ tete: mil.split('\n')[0], visees: visees(mil) }));
+    // 53-1 bis (MOTEUR §9.10, delta Z3) — Volume 52,5 × 10 → Mix : la charge
+    // reportée MONTE (57,5 kg × 6) ; la phrase le dit, sans « un peu en dessous ».
+    ok('[RJ] 53-1 bis — le militaire passe en Mix : « Moins de reps, plus de charge », 57,5 kg × 6',
+      /consigne nouvelle_zone · zone mix · palier 52,5 · niveau 10 · n 4 · ligne 57,5 × 6/.test(mil) &&
+        /en-tête \(gris\) : « Nouvelle zone.: Mix\. Moins de reps, plus de charge.: estimée depuis ton 52,5.kg.×.10\. »/.test(mil) &&
+        !/un peu en dessous/.test(mil),
+      (mil.split('\n').filter((l) => /gris|consigne/.test(l)).join(' | ')));
     ok('[RJ] 49-U18 — le couché n’a plus de ligne à 88 : sa 1re ligne prend la charge du coach',
       /#1 · travail · ligne · rang 1 · plan 92 × 11/.test(cou) && !/88 × 10/.test(cou) && !/travail · hors plan/.test(cou),
       cou.split('\n').filter((l) => /#\d/.test(l)).join(' | '));

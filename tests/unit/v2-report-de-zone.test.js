@@ -190,6 +190,8 @@ describe('53-1 — le câblage : la correction à l’étiquette (Lourd → Mix)
       g('2026-09-07T10:00:00Z', 100, [7, 7, 7])];
     const r = consigne(mix, choix('lourd', '2026-09-10T20:00:00Z'));
     expect([r.consigne.etat, r.consigne.zone, r.consigne.ligne]).toEqual(['nouvelle_zone', 'lourd', { charge: 110, vise: 3 }]);
+    // 53-1 bis (delta Z3) — la charge monte : la phrase le dit.
+    expect(norm(r.libelles.gris)).toBe('Nouvelle zone : Lourd. Moins de reps, plus de charge : estimée depuis ton 100 kg × 7.');
   });
 });
 
@@ -245,6 +247,37 @@ describe('53-1 — les phrases : d’où vient la charge, jamais un maximum', ()
     expect(textes.filter((t) => MAX.test(norm(t)))).toEqual([]);
     expect(MAX.test('ton max estimé')).toBe(true);
     expect(MAX.test('ton 1RM')).toBe(true);
+  });
+
+  // 53-1 bis (delta Z3) — LE MILITAIRE REJOUÉ (séance du 01/10) : 52,5 kg × 10
+  // en Volume, la zone choisie Mix. Le report MONTE (58,3 estimé, 57,5 au
+  // cran) : « un peu en dessous pour démarrer » sonnerait faux.
+  const MILITAIRE = [g('2026-09-20T10:00:00Z', 52.5, [10, 10, 10, 10]), g('2026-09-24T10:00:00Z', 52.5, [10, 10, 10, 10]),
+    g('2026-09-27T10:00:00Z', 52.5, [10, 10, 10, 10])];
+  const MIX_LE_30 = choix('mix', '2026-09-30T20:00:00Z');
+  const AVANT_MIL = '2026-10-01T10:00:00Z';
+
+  test('⚠️ DISCRIMINANT — le militaire rejoué : la charge monte, « Moins de reps, plus de charge »', () => {
+    const r = consigne(MILITAIRE, MIX_LE_30, AVANT_MIL);
+    expect([r.consigne.etat, r.consigne.zone, r.consigne.palier, r.consigne.ligne])
+      .toEqual(['nouvelle_zone', 'mix', 52.5, { charge: 57.5, vise: 6 }]);
+    expect(norm(r.libelles.gris)).toBe('Nouvelle zone : Mix. Moins de reps, plus de charge : estimée depuis ton 52,5 kg × 10.');
+    expect(norm(M.pourquoiConsigne(r.consigne, 'normal', AVANT_MIL).etat)).toBe(
+      'Ta zone passe de Volume à Mix : j\'estime ta charge depuis 52,5 kg × 10 : moins de reps, plus de charge. ' +
+      'On vise le bas de ta zone, 6 reps ; la progression reprend à la séance suivante.');
+  });
+
+  test('⚠️ « un peu en dessous » ne se dit jamais d’une charge qui monte, et se dit toujours d’une charge qui baisse', () => {
+    const lus = [[MILITAIRE, MIX_LE_30, AVANT_MIL], [LOURD, MIX_LE_10, AVANT],
+      [[g('2026-09-01T10:00:00Z', 100, [7, 7, 7]), g('2026-09-04T10:00:00Z', 100, [7, 7, 7]),
+        g('2026-09-07T10:00:00Z', 100, [7, 7, 7])], choix('lourd', '2026-09-10T20:00:00Z'), AVANT]];
+    const sens = lus.map(([gs, o, av]) => {
+      const r = consigne(gs, o, av);
+      const textes = [r.libelles.gris, M.pourquoiConsigne(r.consigne, 'normal', av).etat].map(norm);
+      return [r.consigne.ligne.charge > r.consigne.palier, textes.every((t) => /un peu en dessous/.test(t)),
+        textes.every((t) => /plus de charge/.test(t))];
+    });
+    expect(sens).toEqual([[true, false, true], [false, true, false], [true, false, true]]);
   });
 
   test('le constat de la première séance d’une nouvelle zone : un repère, pas un verdict contre l’ancienne', () => {

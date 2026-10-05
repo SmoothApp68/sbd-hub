@@ -744,11 +744,21 @@
 
   // Deux séries appartiennent au même bloc si elles se suivent par `rang` ET
   // partagent le même groupe de superset — ou, hors superset, le même exercice.
+  //
+  // ⚠️ UN BLOC EST UNE OCCURRENCE, JAMAIS UN REGROUPEMENT PAR EXERCICE (MOTEUR
+  // §9.19, précisé le 05/10/2026). Deux occurrences voisines d'un même
+  // exercice — le couché puis le couché, « Plus tard » l'ayant amené là —
+  // s'affichaient en UN bloc : huit lignes sous un en-tête, et le menu agissait
+  // sur les deux. La séance en cours porte l'occurrence de chaque ligne
+  // (`_iExo`, posé par `blocsDeSeance`) : deux occurrences, deux blocs. Les
+  // lignes lues en base n'ont pas d'occurrence (`sets` n'a pas de colonne pour
+  // elle) et gardent la règle par exercice.
   function memeBloc(a, b) {
     if (!a || !b) return false;
     var ga = a.groupe_superset, gb = b.groupe_superset;
     if (ga !== null && ga !== undefined) return ga === gb;
     if (gb !== null && gb !== undefined) return false;
+    if (a._iExo !== undefined && b._iExo !== undefined && a._iExo !== b._iExo) return false;
     return a.exercise_slug === b.exercise_slug;
   }
 

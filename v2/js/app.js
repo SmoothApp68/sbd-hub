@@ -4313,9 +4313,23 @@
       });
     }
 
+    if (quoiFeuille === 'machine') {
+      return Rendu.rendreFeuilleMachinePrise(cible, vueMachinePrise(blocs, iBloc, cibleExo));
+    }
+
+    // §9.19 — « Machine prise » vise un EXERCICE : la branche tapée dans un
+    // superset, l'exercice unique sinon. La feuille change dans le même voile.
+    var machinePrise = function (iExo) {
+      return function () {
+        feuille = { quoi: 'machine', iBloc: iBloc, cibleExo: iExo };
+        rendreFeuille();
+      };
+    };
+
     if (quoiFeuille === 'exercice') {
       return Rendu.rendreFeuilleExercice(cible, {
         nom: Modele.nommer(index, seance.exercices[cibleExo].exercise_slug),
+        surMachinePrise: machinePrise(cibleExo),
         surRemplacer: function () { demanderRemplacement(cibleExo); },
         surDegrouper: function () {
           var indices = indicesDe(bloc);
@@ -4335,6 +4349,7 @@
       superset: bloc.superset,
       noms: noms,
       peutGrouper: blocs.length > 1,
+      surMachinePrise: bloc.superset ? null : machinePrise(indicesDe(bloc)[0]),
       surRemplacer: function () { demanderRemplacement(indicesDe(bloc)[0]); },
       surGrouper: function () {
         // §5.7 — on passe en SÉLECTION : les autres blocs s'allument et
@@ -4387,6 +4402,72 @@
   function demanderRemplacement(iExo) {
     fermerVoile();
     ouvrirCatalogue(null, iExo);
+  }
+
+  // §5.2 — REMPLACER, c'est ajouter puis sauter en gardant la place. Le
+  // remplaçant reçoit les lignes restantes, avec sa propre consigne, sans rien
+  // hériter (§9.13 bis, §8.4) — sauf la routine de l'exercice remplacé
+  // (`heriterRoutine`). UN chemin pour le catalogue et pour le frère de
+  // « Machine prise » (§9.19) : un frère n'est qu'un remplaçant choisi plus vite.
+  // §14.7 (49-U17) — et sa ligne de plus, comme à l'ouverture.
+  function remplacerDansLaSeance(iExo, slug) {
+    var avant = seance.exercices;
+    heriterRoutine(iExo, slug);
+    seance = Seance.remplacerExercice(seance, iExo, slug, uuid);
+    return apresStructure().then(function () { return ligneDePlusPourAjout(avant, slug); });
+  }
+
+  // ── « MACHINE PRISE » (MOTEUR §9.19, chantier 51) ───────────────────────
+  //
+  // D'abord « Plus tard » : le bloc passe juste après le suivant, par
+  // `reordonnerBlocs` — le geste du mode Réorganiser. Sinon un frère, par le
+  // remplacement. Ce câblage ne décide rien : `Seance.plusTard` dit où va le
+  // bloc, `Seance.freresProposes` quels frères et dans quel ordre, et le fait
+  // sous chaque frère est « Dernière séance » de sa page (`derniereSeanceDe`).
+  // La consigne ne bouge pas : rien ici ne touche au plan, et I4 vérifie
+  // qu'aucune ligne figée n'a changé.
+  function blocsPourPlusTard(blocs) {
+    return blocs.map(function (b, k) {
+      return { id: k, exercices: b.exercices.map(function (e) {
+        return { slug: e.slug, travail_valide: e.series.some(function (s) { return s.estTravail && s.faite; }) };
+      }) };
+    });
+  }
+
+  function faitsDesFreres(index, slug) {
+    var faits = {};
+    Modele.freresDe(index, slug).forEach(function (s) {
+      var d = derniereSeanceDe(s);
+      if (d) faits[s] = d;
+    });
+    return faits;
+  }
+
+  function vueMachinePrise(blocs, iBloc, iExo) {
+    var index = Modele.indexerExercices(local.exercices);
+    var slug = seance.exercices[iExo].exercise_slug;
+    var plus = Seance.plusTard(blocsPourPlusTard(blocs), iBloc);
+    var suivant = blocs[iBloc + 1];
+    var presents = seance.exercices.map(function (e) { return e.exercise_slug; });
+    var freres = Seance.freresProposes(slug, index, faitsDesFreres(index, slug), presents);
+    return {
+      nom: Modele.nommer(index, slug),
+      tard: plus.possible ? {
+        apres: suivant.exercices.map(function (x) { return x.nom; }).join(' et '),
+        surChoisir: function () {
+          fermerVoile();
+          seance = Seance.reordonnerBlocs(seance, plus.ordre.map(function (k) { return indicesDe(blocs[k]); }));
+          apresStructure();
+        }
+      } : null,
+      freres: freres.map(function (f) {
+        return {
+          nom: Modele.nommer(index, f.slug), fait: f.fait,
+          surChoisir: function () { fermerVoile(); remplacerDansLaSeance(iExo, f.slug); }
+        };
+      }),
+      surCatalogue: function () { demanderRemplacement(iExo); }
+    };
   }
 
   // ── Les feuilles ────────────────────────────────────────────────────────
@@ -4504,7 +4585,7 @@
       });
     }
     if (feuille.quoi === 'bloc' || feuille.quoi === 'exercice' ||
-        feuille.quoi === 'supprimer') return rendreFeuilleDeviation(cible, index);
+        feuille.quoi === 'supprimer' || feuille.quoi === 'machine') return rendreFeuilleDeviation(cible, index);
 
     var exo = seance.exercices[feuille.iExo];
     if (!exo) return;
@@ -5516,11 +5597,7 @@
             return allegeePourAjout(avantAjout, exo.slug).then(puisLigneDePlus);
           };
           if (intentionCatalogue.remplace !== null) {
-            heriterRoutine(intentionCatalogue.remplace, exo.slug);
-            // §5.2 — remplacer, c'est ajouter puis sauter en gardant la place.
-            seance = Seance.remplacerExercice(seance, intentionCatalogue.remplace,
-              exo.slug, uuid);
-            return apresStructure().then(puisLigneDePlus);
+            return remplacerDansLaSeance(intentionCatalogue.remplace, exo.slug);
           }
           // §9.13 (49-C) — HORS ROUTINE, les séries de travail sont posées
           // d'emblée : l'habitude de l'exercice, sinon l'intention. Un
@@ -5750,6 +5827,20 @@
     }).filter(Boolean);
   }
 
+  // « DERNIÈRE SÉANCE » d'un exercice : la meilleure série de sa séance la plus
+  // récente, datée de cette séance ; `null` s'il n'a jamais été fait. La page
+  // d'exercice l'affiche, et « Machine prise » (MOTEUR §9.19) l'écrit sous
+  // chaque frère (« Dernière fois : 80 kg × 10, le 12 sept. ») — UNE fonction
+  // pour les deux, sinon le frère dirait un autre chiffre que sa propre page,
+  // à un tap. `groupes` est facultatif : la page les a déjà lus.
+  function derniereSeanceDe(slug, groupes) {
+    var g = groupes || seancesDeLExercice(slug);
+    if (!g.length) return null;
+    var d = Modele.meilleureSerieDe(slug, g[0].series, local.exercices, Palier, etatsExercices);
+    d.date = g[0].seance.debut;
+    return d;
+  }
+
   // `repos_s` est NULL sur les 28 103 séries importées : l'export Hevy ne porte
   // pas le repos. On ne moyenne donc que ce qui existe, et on ne rend rien
   // plutôt qu'un zéro — une séance sans repos mesuré n'est pas une séance sans
@@ -5801,11 +5892,7 @@
     // que Progression et que la carte de séance, à un tap de distance. Elle
     // affichait le palier sur `charge_reps` — deux nombres pour le même
     // exercice et la même date.
-    var derniere = null;
-    if (groupes.length) {
-      derniere = Modele.meilleureSerieDe(slug, groupes[0].series, local.exercices, Palier, etatsExercices);
-      derniere.date = groupes[0].seance.debut;
-    }
+    var derniere = derniereSeanceDe(slug, groupes);
 
     // PR 5 (décision du 02/10/2026) — « RECORD DE CHARGE » EST LA LIGNE LA
     // PLUS LOURDE DE LA TABLE : un record est un fait, en vraies barres,

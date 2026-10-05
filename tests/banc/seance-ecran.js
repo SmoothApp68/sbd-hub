@@ -207,6 +207,12 @@ const CATALOGUE = [
   { slug: 'cousin-u20', nom: 'Cousin U20 (Haltères)', mesure: 'charge_reps', charge: 'externe', equipement: 'haltere', muscles_primaires: ['haut_du_dos'], muscles_secondaires: [], mouvement: 'cousin_u20' },
   { slug: 'germain-u20', nom: 'Germain U20 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['grand_dorsal'], muscles_secondaires: [], mouvement: 'germain_u20' },
   { slug: 'germain-u20-m', nom: 'Germain U20 (Machine)', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['deltoide_lateral'], muscles_secondaires: [], mouvement: 'germain_u20' },
+  // 51-2 — LE DÉCOR PROPRE DE LA SECTION 7 VICIES : la table par reps de sa
+  // page d'exercice ne lit que ses propres séances. Sur `dc-barre`, elle lisait
+  // aussi ce que les sections précédentes y avaient laissé, et la cible de la
+  // consigne changeait de ligne selon l'ordre du banc (le contrôle [40], rouge
+  // en parallèle depuis #363). Un nom qu'aucune recherche du banc ne trouve.
+  { slug: 'presse-vicies', nom: 'Presse Vicies (Barre)', mesure: 'charge_reps', charge: 'externe', muscles_primaires: ['pectoraux'], muscles_secondaires: [] },
   // Correctif du 03/10/2026 — réservé à la section 7 G septdecies (une
   // assistance retouchée garde sa charge). Une assistance, notée en négatif
   // comme en base ; aucun muscle, pour ne peser sur le volume de personne.
@@ -248,7 +254,20 @@ const CATALOGUE = [
   { slug: 'iso-u51c-1', nom: 'Seul Délai U51c Un', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['u51_i1'], muscles_secondaires: [] },
   { slug: 'iso-u51c-2', nom: 'Seul Délai U51c Deux', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['u51_i2'], muscles_secondaires: [] },
   { slug: 'iso-u51c-3', nom: 'Seul Délai U51c Trois', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['u51_i3'], muscles_secondaires: [] },
-  { slug: 'iso-u51c-4', nom: 'Seul Délai U51c Quatre', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['u51_i4'], muscles_secondaires: [] }
+  { slug: 'iso-u51c-4', nom: 'Seul Délai U51c Quatre', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['u51_i4'], muscles_secondaires: [] },
+  // 51-2 (MOTEUR §9.19) — réservés à la section 7 G unvicies (« Machine
+  // prise ») : un exercice coaché et ses deux frères (même `mouvement`), l'un
+  // avec un historique, l'autre jamais fait — leurs noms s'ordonnent à
+  // l'inverse de l'historique, pour que « par nom seulement » se voie. Un
+  // voisin sans frère, un superset, un dernier bloc. Aucun muscle, et des noms
+  // qu'aucune autre recherche du banc ne trouve.
+  { slug: 'prise-u52', nom: 'Prise U52 (Machine)', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: [], muscles_secondaires: [], mouvement: 'prise_u52' },
+  { slug: 'frere-recent-u52', nom: 'Frère Récent U52 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: [], muscles_secondaires: [], mouvement: 'prise_u52' },
+  { slug: 'frere-neuf-u52', nom: 'Frère Neuf U52 (Haltères)', mesure: 'charge_reps', charge: 'externe', equipement: 'haltere', muscles_primaires: [], muscles_secondaires: [], mouvement: 'prise_u52' },
+  { slug: 'voisin-u52', nom: 'Voisin Prise U52', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: [], muscles_secondaires: [] },
+  { slug: 'ss-a-u52', nom: 'Alterné Un U52', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: [], muscles_secondaires: [] },
+  { slug: 'ss-b-u52', nom: 'Alterné Deux U52', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: [], muscles_secondaires: [] },
+  { slug: 'fin-u52', nom: 'Dernier Prise U52', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: [], muscles_secondaires: [] }
 ];
 
 // ⚠️ UNE ROUTINE PORTE MAINTENANT SES LIGNES (chantier 43). `routine_sets`
@@ -5195,9 +5214,9 @@ const SETS_IMPORTES = [
   };
 
   // ── §1 — LA SÉANCE MIXTE : 3 séries de musculation, 2 de tapis ──────────
-  const kg = (charge, reps) => ({ exercise_slug: 'dc-barre', charge_kg: charge, reps: reps });
+  const kg = (charge, reps) => ({ exercise_slug: 'presse-vicies', charge_kg: charge, reps: reps });
   poserSeance(ID_MIXTE, 'Quads tous terrains', jourExo(2), [
-    { exercise_slug: 'dc-barre', charge_kg: 60, reps: 10, type_serie: 'echauffement' },
+    { exercise_slug: 'presse-vicies', charge_kg: 60, reps: 10, type_serie: 'echauffement' },
     kg(120, 6), kg(110, 8), kg(42.5, 14),
     { exercise_slug: 'marche', duree_s: 900, distance_m: 2000 },
     { exercise_slug: 'marche', duree_s: 900, distance_m: 2000 }
@@ -5234,12 +5253,12 @@ const SETS_IMPORTES = [
     JSON.stringify(await nomsDetail()));
   await page.evaluate(() => {
     Array.from(document.querySelectorAll('.exos .nom'))
-      .filter((n) => /Couché/.test(n.textContent))[0].click();
+      .filter((n) => /Presse Vicies/.test(n.textContent))[0].click();
   });
   await attendre(900);
   const url = () => page.evaluate(() => location.pathname);
   ok('[40] taper le nom ouvre la page d’exercice, et l’URL la porte',
-    (await visible())[0] === 'vue-exercice' && (await url()) === '/exercice/dc-barre',
+    (await visible())[0] === 'vue-exercice' && (await url()) === '/exercice/presse-vicies',
     JSON.stringify(await visible()) + ' · ' + (await url()));
 
   // ── 7. LA TABLE PAR REPS : brut, lignes déduites grisées ────────────────
@@ -5249,6 +5268,13 @@ const SETS_IMPORTES = [
       (l.querySelector('.tr-charge') || {}).textContent +
       (l.classList.contains('deduit') ? '(déduit)' : '') +
       (l.classList.contains('cible') ? '(cible)' : '')));
+  // 51-2 — SON PROPRE DÉCOR : la table ne lit que les deux séances posées ici
+  // (6, 8, 14 et 15 reps ; la chauffe n'y entre pas). Une ligne de plus dirait
+  // qu'une autre section a écrit sur cet exercice, et le [40] redeviendrait
+  // dépendant de l'ordre du banc.
+  ok('[40] la table ne lit que les séances de cette section : 6, 8, 14 et 15 reps',
+    JSON.stringify((await tableExo()).map((t) => parseInt(t, 10))) === '[6,8,14,15]',
+    JSON.stringify(await tableExo()));
   ok('[40] la table par reps est triée par nombre de répétitions croissant',
     (await tableExo()).length >= 4 &&
     (await tableExo()).map((t) => parseInt(t, 10))
@@ -5276,7 +5302,7 @@ const SETS_IMPORTES = [
   });
   await attendre(900);
   ok('[40] l’Historique a SON URL',
-    (await url()) === '/exercice/dc-barre/historique' &&
+    (await url()) === '/exercice/presse-vicies/historique' &&
     (await compter('.exo-jour')) >= 2,
     (await url()) + ' · ' + (await compter('.exo-jour')) + ' jour(s)');
   ok('[40] et il montre les séries de chaque jour, chauffe comprise',
@@ -5289,12 +5315,12 @@ const SETS_IMPORTES = [
     (await texte('#page-exercice')).replace(/\s+/g, ' ').slice(0, 80));
 
   // ⚠️ LE RECHARGEMENT DIRECT — c'est lui qui distingue une URL d'un onglet.
-  await aller('/exercice/dc-barre/historique');
+  await aller('/exercice/presse-vicies/historique');
   ok('[40] LE RECHARGEMENT DIRECT ROUVRE L’HISTORIQUE, pas le Résumé',
     (await visible())[0] === 'vue-exercice' &&
     /Historique/.test(await texte('.sous-onglet.actif')),
     JSON.stringify(await visible()) + ' · onglet « ' + (await texte('.sous-onglet.actif')) + ' »');
-  await aller('/exercice/dc-barre');
+  await aller('/exercice/presse-vicies');
   ok('[40] et celui du Résumé rouvre le Résumé',
     /Résumé/.test(await texte('.sous-onglet.actif')),
     'onglet « ' + (await texte('.sous-onglet.actif')) + ' »');
@@ -5351,7 +5377,7 @@ const SETS_IMPORTES = [
   await aller('/seance/' + ID_MIXTE);
   await page.evaluate(() => {
     Array.from(document.querySelectorAll('.exos .nom'))
-      .filter((n) => /Couché/.test(n.textContent))[0].click();
+      .filter((n) => /Presse Vicies/.test(n.textContent))[0].click();
   });
   await attendre(900);
   await page.click('#btn-retour-exercice');
@@ -10537,8 +10563,8 @@ const SETS_IMPORTES = [
       b1.forgee.length === 1 && /charge/.test(b1.forgee[0]), JSON.stringify(b1.forgee));
 
     // ── C. LE MÊME EXERCICE UNE SECONDE FOIS : libre. Posé après le tiers, pour
-    // qu'il ne touche pas le premier (deux occurrences VOISINES s'affichent en
-    // un seul bloc — `construireBlocs`, d'avant ce chantier).
+    // qu'il ne touche pas le premier (deux occurrences VOISINES s'affichaient
+    // en un seul bloc ; corrigé en 51-2 et vérifié en 7 G unvicies).
     const sid = (await etatA()).seance;
     await menuBloc(2);
     await entree('Ajouter un exercice après');
@@ -10811,6 +10837,212 @@ const SETS_IMPORTES = [
     ok('[T51] la garde (C6) n’a rien signalé dans cette section', gardeBanc.violations === violationsAvant,
       JSON.stringify(gardeBanc.liste.slice(-2)));
     ok('[T51] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
+  }
+
+  console.log('\n══ 7 G unvicies. « MACHINE PRISE » : PLUS TARD D’ABORD, SINON UN FRÈRE ; UN BLOC PAR OCCURRENCE (51-2, MOTEUR §9.19) ══');
+  //
+  // Dans les ⋯ d'un exercice en séance, « Machine prise » : « Plus tard » (le
+  // bloc passe juste après le suivant, sa consigne ne change pas ; absent pour
+  // le dernier bloc et pour un exercice commencé), sinon un frère, avec son
+  // dernier chiffre — « Dernière séance » de sa page d'exercice — et le
+  // remplacement existant. Et deux occurrences voisines d'un même exercice
+  // s'affichent en deux blocs.
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : un exercice coaché (sa consigne se compare
+  // avant et après, sur le plan que l'app calcule, `THPlan.dernier`) ; deux
+  // frères dont l'ordre par nom est l'inverse de l'ordre par historique ; un
+  // superset au milieu ; un fait de frère comparé à sa propre page.
+  {
+    const tM = Date.now();
+    const sp = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const poserM = (id, jours, slug, lignes /* [[kg, reps], …] */) => {
+      const debut = ilYa(jours * 86400000, tM).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'Machine prise — ' + id, debut,
+        fin: finDe(debut, tM).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      lignes.forEach(([kg, reps], k) => base.sets.push({ id: id + '-s' + (k + 1), session_id: id, user_id: 'u-banc',
+        exercise_slug: slug, charge_kg: kg, reps, duree_s: null, distance_m: null, type_serie: 'travail',
+        rang: k + 1, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null, repos_s: null, note: null,
+        source: 'app', created_at: debut, modifie_a: null }));
+    };
+    poserM('m52-1', 21, 'prise-u52', [[60, 8], [60, 8], [60, 8], [60, 8]]);
+    poserM('m52-2', 14, 'prise-u52', [[60, 8], [60, 8], [60, 8], [60, 8]]);
+    poserM('m52-3', 7, 'prise-u52', [[62.5, 8], [62.5, 8], [62.5, 8], [62.5, 8]]);
+    // Le frère qui a un historique : sa meilleure série est 80 × 10, pas la
+    // dernière (70 × 12) — le fait doit être celui de sa page.
+    poserM('m52-4', 12, 'frere-recent-u52', [[80, 10], [70, 12]]);
+    ROUTINES.push({ id: 'r-u52', nom: 'Prise U52', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [
+        { id: 'r-u52-a', routine_id: 'r-u52', exercise_slug: 'prise-u52', rang: 0,
+          routine_sets: progr(4, 8), repos_cible_s: 90, groupe_superset: null, note: null },
+        { id: 'r-u52-b', routine_id: 'r-u52', exercise_slug: 'voisin-u52', rang: 1,
+          routine_sets: progr(2, 10), repos_cible_s: 90, groupe_superset: null, note: null },
+        { id: 'r-u52-c', routine_id: 'r-u52', exercise_slug: 'ss-a-u52', rang: 2,
+          routine_sets: progr(2, 10), repos_cible_s: null, groupe_superset: 1, note: null },
+        { id: 'r-u52-d', routine_id: 'r-u52', exercise_slug: 'ss-b-u52', rang: 3,
+          routine_sets: progr(2, 10), repos_cible_s: 60, groupe_superset: 1, note: null },
+        { id: 'r-u52-e', routine_id: 'r-u52', exercise_slug: 'fin-u52', rang: 4,
+          routine_sets: progr(2, 10), repos_cible_s: 90, groupe_superset: null, note: null }] });
+    const routineAvant = JSON.stringify(ROUTINES.filter((r) => r.id === 'r-u52'));
+    const patchsAvant = base.patchs.length;
+    const violationsAvant = gardeBanc.violations;
+
+    const etatM = () => page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      const x = d.plan.exercices.filter((q) => q.slug === 'prise-u52')[0] || null;
+      return {
+        exos: d.entrees.seance.exercices.map((e) => e.exercise_slug),
+        blocs: Array.from(document.querySelectorAll('.bloc-seance')).map((b) =>
+          Array.from(b.querySelectorAll('.legende-exo')).map((l) => l.getAttribute('data-exo')).join('+') +
+          ':' + b.querySelectorAll('.ligne-serie').length),
+        prise: x && { consigne: JSON.stringify(x.consigne),
+          lignes: x.lignes.map((l) => [l.role, l.charge, l.reps, !!l.figee].join('|')).join(' ; ') }
+      };
+    });
+    const feuilleM = () => page.evaluate(() => {
+      const c = document.getElementById('feuille-contenu');
+      return { titre: (c.querySelector('.feuille-t') || {}).textContent || '',
+        choix: Array.from(c.querySelectorAll('.choix-mp .mp-titre')).map((n) => n.textContent),
+        sous: Array.from(c.querySelectorAll('.choix-mp .mp-sous')).map((n) => n.textContent),
+        sansFrere: (c.querySelector('.sans-frere') || {}).textContent || '',
+        boutons: Array.from(c.querySelectorAll('.feuille-menu button')).map((b) => b.textContent) };
+    });
+    const validerM = async (iBloc, k) => {
+      await page.evaluate(([b, j]) => document.querySelectorAll('.bloc-seance')[b]
+        .querySelectorAll('.ligne-serie')[j].querySelector('.ok-serie').click(), [iBloc, k]);
+      await attendre(800);
+    };
+    const menuBranche = async (iBloc, k) => {
+      await page.evaluate(([b, x]) => document.querySelectorAll('.bloc-seance')[b]
+        .querySelectorAll('.legende-haut .menu-pts')[x].click(), [iBloc, k]);
+      await attendre(500);
+    };
+
+    // ── A. « PLUS TARD » AU MILIEU : il passe après le suivant, sa consigne non.
+    await aller('/saisie');
+    await demarrerRoutine('Prise U52');
+    await attendre(1200);
+    const a0 = await etatM();
+    ok('[M52] prémisse : la séance de la routine, l’exercice coaché en tête, un superset au milieu',
+      JSON.stringify(a0.blocs) === JSON.stringify(['prise-u52:4', 'voisin-u52:2', 'ss-a-u52+ss-b-u52:4', 'fin-u52:2']) &&
+        !!a0.prise && a0.prise.consigne !== 'null', JSON.stringify(a0));
+    await menuBloc(0);
+    await entree('^Machine prise$');
+    const fa = await feuilleM();
+    ok('[M52] « Machine prise » ouvre la feuille : « Plus tard » d’abord, avec la phrase de §9.19',
+      sp(fa.titre) === 'Machine prisePrise U52 (Machine)' && fa.choix[0] === 'Plus tard' &&
+        fa.sous[0] === 'Il passe après Voisin Prise U52. Ta consigne ne change pas.', JSON.stringify(fa));
+    ok('[M52] DISCRIMINANT — les frères : celui qui a un historique d’abord (le nom seul mettrait « Neuf » devant), puis « Première fois ici »',
+      JSON.stringify(fa.choix.slice(1)) === JSON.stringify(['Un frère : Frère Récent U52 (Barre)', 'Un frère : Frère Neuf U52 (Haltères)']) &&
+        /^Dernière fois : 80 kg × 10, le \d{1,2} \S+$/.test(sp(fa.sous[1])) && fa.sous[2] === 'Première fois ici',
+      JSON.stringify(fa));
+    const faitFrere = sp(fa.sous[1]);
+    await entree('^Plus tard');
+    await attendre(900);
+    const a1 = await etatM();
+    ok('[M52] DISCRIMINANT — « Plus tard » : le bloc passe juste après le suivant, rien d’autre ne bouge',
+      JSON.stringify(a1.blocs) === JSON.stringify(['voisin-u52:2', 'prise-u52:4', 'ss-a-u52+ss-b-u52:4', 'fin-u52:2']),
+      JSON.stringify(a1.blocs));
+    ok('[M52] DISCRIMINANT — et sa consigne ne change pas : mêmes lignes, mêmes charges, mêmes reps',
+      a1.prise.consigne === a0.prise.consigne && a1.prise.lignes === a0.prise.lignes,
+      JSON.stringify([a0.prise, a1.prise]));
+    ok('[M52] la garde de l’app (I4 compris) n’a rien vu', gardeBanc.violations === violationsAvant,
+      JSON.stringify(gardeBanc.liste.slice(-1)));
+
+    // ── B. UN SUPERSET BOUGE EN ENTIER (menu d'une de ses branches).
+    await menuBranche(2, 1);
+    await entree('^Machine prise$');
+    const fb = await feuilleM();
+    ok('[M52] sur une branche de superset : « Plus tard » nomme le bloc suivant',
+      fb.choix[0] === 'Plus tard' && fb.sous[0] === 'Il passe après Dernier Prise U52. Ta consigne ne change pas.',
+      JSON.stringify(fb));
+    await entree('^Plus tard');
+    await attendre(900);
+    const b1 = await etatM();
+    ok('[M52] DISCRIMINANT — le superset passe en entier après le suivant, et reste un superset',
+      JSON.stringify(b1.blocs) === JSON.stringify(['voisin-u52:2', 'prise-u52:4', 'fin-u52:2', 'ss-a-u52+ss-b-u52:4']),
+      JSON.stringify(b1.blocs));
+
+    // ── C. LE DERNIER BLOC : pas de « Plus tard ».
+    await menuBranche(3, 0);
+    await entree('^Machine prise$');
+    const fc = await feuilleM();
+    ok('[M52] DISCRIMINANT — le dernier bloc : pas de « Plus tard »', fc.choix.indexOf('Plus tard') < 0 &&
+      fc.boutons.every((t) => !/^Plus tard/.test(t)), JSON.stringify(fc));
+    await fermerFeuille();
+
+    // ── D. UN EXERCICE SANS FRÈRE : la phrase de §9.19, et le catalogue.
+    await menuBloc(0);
+    await entree('^Machine prise$');
+    const fd = await feuilleM();
+    ok('[M52] sans frère : « Pas de frère au catalogue pour cet exercice. », et le catalogue habituel',
+      fd.sansFrere === 'Pas de frère au catalogue pour cet exercice.' && fd.boutons.indexOf('Remplacer l’exercice') >= 0 &&
+        fd.choix[0] === 'Plus tard', JSON.stringify(fd));
+    await fermerFeuille();
+
+    // ── E. COMMENCÉ : pas de « Plus tard », seul le frère — par le remplacement.
+    await validerM(1, 0);
+    await menuBloc(1);
+    await entree('^Machine prise$');
+    const fe = await feuilleM();
+    ok('[M52] DISCRIMINANT — une série de travail validée : pas de « Plus tard », les frères restent',
+      fe.choix.indexOf('Plus tard') < 0 && fe.choix.length === 2, JSON.stringify(fe));
+    await entree('^Un frère : Frère Récent');
+    await attendre(1200);
+    const e1 = await etatM();
+    ok('[M52] DISCRIMINANT — le frère remplace : l’exercice garde sa série faite, le frère reçoit les 3 lignes restantes',
+      JSON.stringify(e1.blocs) === JSON.stringify(['voisin-u52:2', 'prise-u52:1', 'frere-recent-u52:3', 'fin-u52:2', 'ss-a-u52+ss-b-u52:4']),
+      JSON.stringify(e1.blocs));
+    ok('[M52] et la garde se tait', gardeBanc.violations === violationsAvant, JSON.stringify(gardeBanc.liste.slice(-1)));
+
+    // ── F. UN FRÈRE DÉJÀ DANS LA SÉANCE : proposé, à la fin.
+    await menuBloc(2);
+    await entree('^Machine prise$');
+    const ff = await feuilleM();
+    ok('[M52] DISCRIMINANT — un frère déjà dans la séance reste proposé, à la fin (même avec un historique)',
+      JSON.stringify(ff.choix.filter((t) => /^Un frère/.test(t))) ===
+        JSON.stringify(['Un frère : Frère Neuf U52 (Haltères)', 'Un frère : Prise U52 (Machine)']), JSON.stringify(ff));
+    await fermerFeuille();
+
+    // ── G. DEUX OCCURRENCES VOISINES : deux blocs, chacun son menu.
+    await menuBloc(0);
+    await entree('Ajouter un exercice après');
+    await choisirCatalogue('Voisin Prise U52');
+    await attendre(900);
+    const g1 = await etatM();
+    ok('[M52] DISCRIMINANT — deux occurrences voisines du même exercice : DEUX blocs, chacun ses lignes',
+      g1.exos[0] === 'voisin-u52' && g1.exos[1] === 'voisin-u52' &&
+        g1.blocs[0].indexOf('voisin-u52:') === 0 && g1.blocs[1].indexOf('voisin-u52:') === 0 &&
+        g1.blocs.length === e1.blocs.length + 1, JSON.stringify(g1.blocs));
+    const n0 = g1.blocs[0];
+    await menuBloc(1);
+    await entree('Supprimer l’exercice');
+    await attendre(900);
+    const g2 = await etatM();
+    ok('[M52] …et le menu du second n’agit que sur lui : le premier garde ses lignes',
+      JSON.stringify(g2.blocs) === JSON.stringify(e1.blocs) && g2.blocs[0] === n0, JSON.stringify([n0, g2.blocs]));
+    await abandonner();
+
+    // ── H. LE FAIT DU FRÈRE EST CELUI DE SA PAGE D'EXERCICE.
+    await aller('/exercice/frere-recent-u52');
+    const page1 = await page.evaluate(() => {
+      const li = Array.from(document.querySelectorAll('.exo-li'))
+        .filter((l) => /Dernière séance/.test(l.querySelector('.exo-li-k').textContent))[0];
+      return { quand: (li.querySelector('.exo-li-k em') || {}).textContent || '', valeur: li.querySelector('.exo-li-v').textContent };
+    });
+    const [jour, mois] = sp(page1.quand).split(' ');
+    ok('[M52] DISCRIMINANT — le fait sous le frère est « Dernière séance » de sa page : même valeur, même jour',
+      faitFrere === 'Dernière fois : ' + sp(page1.valeur) + ', le ' + String(Number(jour)) + ' ' + mois,
+      JSON.stringify([faitFrere, page1]));
+
+    ok('[M52] la routine n’a pas changé : aucune écriture', JSON.stringify(ROUTINES.filter((r) => r.id === 'r-u52')) === routineAvant &&
+      base.patchs.length === patchsAvant, JSON.stringify(base.patchs.length - patchsAvant));
+    ok('[M52] la garde (C6) n’a rien signalé dans cette section', gardeBanc.violations === violationsAvant,
+      JSON.stringify(gardeBanc.liste.slice(-2)));
+    ok('[M52] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
+    await aller('/saisie');
+    await attendre(500);
   }
 
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');

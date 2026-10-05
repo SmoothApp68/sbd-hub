@@ -300,7 +300,7 @@ const NOTIONS = [
       'l’exercice remplacé ; figer la routine aux lignes déjà allégées allégeait deux fois.' },
   { notion: 'la dernière séance d’un exercice (la meilleure série du jour)', pr: 'PR 5',
     module: 'modele.js', fonction: 'meilleureSerieDe', lecteurs: ['app.js'],
-    parAilleurs: { 'app.js': ['sommaireExercices', 'rendreExercice'] },
+    parAilleurs: { 'app.js': ['sommaireExercices', 'derniereSeanceDe'] },
     raison: 'décision du 02/10/2026 : la page d’exercice affichait le palier, Progression la ' +
       'meilleure série — deux nombres pour le même exercice et la même date, à un tap.' },
   { notion: 'le record de charge (la ligne la plus lourde de la table)', pr: 'PR 5',
@@ -367,8 +367,8 @@ const NOTIONS = [
     raison: 'le champ réaffiche une assistance avec le vrai signe moins (U+2212) que la copie de ' +
       '`seance.js` ne relisait pas : retoucher les reps d’une série à « −25 » effaçait sa charge.' },
   { notion: 'les frères d’un exercice (même `mouvement` au catalogue, MOTEUR §13.6)', pr: '49-U20',
-    module: 'modele.js', fonction: 'freresDe', lecteurs: ['app.js'],
-    parAilleurs: { 'app.js': ['freresPourLeMoteur'] },
+    module: 'modele.js', fonction: 'freresDe', lecteurs: ['app.js', 'seance.js'],
+    parAilleurs: { 'app.js': ['freresPourLeMoteur', 'faitsDesFreres'], 'seance.js': ['freresProposes'] },
     interditAilleurs: { motif: /\.\s*mouvement\b|\[\s*(['"`])mouvement\1\s*\]/,
                         raison: '`mouvement` lu ailleurs que dans `freresDe` : une seconde définition des frères' },
     raison: 'les frères sont les exercices de même `mouvement` — pas de même `famille`, plus large ; ' +
@@ -413,6 +413,21 @@ const NOTIONS = [
     parAilleurs: { 'app.js': ['montrerCarteRaccourci'] },
     raison: 'le coach coupe les dernières séries, pas les muscles : la carte et la séance raccourcie ' +
       'lisent le même résultat, jamais une seconde règle à l’écran.' },
+  { notion: 'la dernière séance d’un exercice, sur sa page et sous un frère de « Machine prise »', pr: '51-U2',
+    module: 'app.js', fonction: 'derniereSeanceDe', lecteurs: [],
+    par: ['rendreExercice', 'faitsDesFreres'],
+    raison: 'MOTEUR §9.19 : le fait sous un frère est « Dernière séance » de sa page d’exercice, par la ' +
+      'même fonction — un second calcul dirait un autre chiffre que la page, à un tap.' },
+  { notion: '« Plus tard » de « Machine prise » (le bloc passe après le suivant, MOTEUR §9.19)', pr: '51-U2',
+    module: 'seance.js', fonction: 'plusTard', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['vueMachinePrise'] },
+    raison: 'où va le bloc, et quand « Plus tard » est absent (dernier bloc, exercice commencé), se ' +
+      'décide une fois ; l’écran déplace par `reordonnerBlocs`, sans toucher à la consigne.' },
+  { notion: 'les frères proposés par « Machine prise » (et leur ordre, MOTEUR §9.19)', pr: '51-U2',
+    module: 'seance.js', fonction: 'freresProposes', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['vueMachinePrise'] },
+    raison: 'les frères pas encore dans la séance d’abord, l’historique le plus récent, puis par nom ; ' +
+      'un frère déjà présent à la fin — une règle, que la feuille affiche sans la refaire.' },
   { notion: 'l’occurrence coachée d’un exercice (la première, ou celle qui porte ses paris)', pr: 'correctif 04/10/2026',
     module: 'seance.js', fonction: 'occurrenceCoachee', lecteurs: ['plan.js', 'app.js'],
     parAilleurs: { 'plan.js': ['planDeSeance'], 'app.js': ['occurrenceLibre'] },

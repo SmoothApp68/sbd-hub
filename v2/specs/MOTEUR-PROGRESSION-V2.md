@@ -1157,6 +1157,21 @@ Pas de chauffe ni de dégressive au poids du corps. Pas de repli ni de changemen
 **Référence** : `simu_raccourcir.py` (`duree`, `raccourcir`) ; cas `cas_raccourcir51.json`.
 
 
+### 9.19 « Machine prise » — décidé le 04-05/10/2026 (chantier 51)
+
+> **D'abord « Plus tard » : l'exercice prévu, un peu plus loin. Sinon un frère, avec sa propre consigne.**
+
+**Où.** Dans les ⋯ d'un exercice en séance : « **Machine prise** ». Une feuille, deux sortes de choix :
+- « **Plus tard** » — « Il passe après {exercice suivant}. Ta consigne ne change pas. » Le bloc de l'exercice passe **juste après le bloc suivant** ; un superset bouge en entier ; le geste se répète. **Absent** pour le dernier bloc, et dès qu'un exercice du bloc a une série de travail validée (on ne coupe pas un exercice commencé ; alors seul le frère reste).
+- « **Un frère** : {nom} » — sous chaque frère, son dernier chiffre, **par la même fonction que « Dernière séance » de la page d'exercice** (« Dernière fois : 80 kg × 10, le 12 sept. »), ou « Première fois ici ». **Ordre** : d'abord les frères qui ne sont pas déjà dans la séance ; parmi eux, ceux qui ont un historique, le plus récent d'abord, puis les autres par nom ; un frère déjà dans la séance reste proposé, à la fin (il serait une seconde occurrence, libre, §9.13 bis). Choisir un frère est un **remplacement** (§9.13 bis : il reçoit les lignes restantes, avec sa propre consigne, sans rien hériter, §8.4). Sans frère au catalogue : « Pas de frère au catalogue pour cet exercice. » et le catalogue habituel.
+
+**Le coach ne change rien d'autre.** « Plus tard » ne modifie ni la consigne, ni les paris, ni le compteur : la charge ne dépend pas de la position (mesuré chez Aurélien, 2 089 cas) et §12 bis interdit une règle d'ordre sans mesure. Les paris de l'exercice décalé gardent leur fondement ; un effet de la fatigue sur les reps se lira dans leurs observations.
+
+**Deux occurrences voisines d'un même exercice s'affichent en deux blocs** (précisé le 05/10/2026) : un bloc est une occurrence, jamais un regroupement par exercice.
+
+**Référence** : `machine_prise51.py` (`plus_tard`, `freres_proposes`) ; cas `cas_machine_prise51.json`.
+
+
 ## 10. L'incrément
 
 ### 10.1 Règle

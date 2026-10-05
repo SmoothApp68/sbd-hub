@@ -75,8 +75,9 @@ describe('§12.9 — le compteur, lu par le plan', () => {
 
   // 4 pour le compteur (49-U13) ; 5 depuis 49-U18 (l'écart habituel sur les 8
   // derniers écarts, les reprises bornées à la zone, la charge plus lourde sur
-  // 12 mois hors barre) — le compteur lui-même n'a pas changé de règle.
-  test('VERSION_CONSIGNE vaut 5 (49-U18)', () => {
-    expect(M.VERSION_CONSIGNE).toBe(5);
+  // 12 mois hors barre) ; 6 depuis 50-1 (le poids du corps suit la consigne des
+  // charges, MOTEUR §9.17) — le compteur lui-même n'a pas changé de règle.
+  test('VERSION_CONSIGNE vaut 6 (50-1)', () => {
+    expect(M.VERSION_CONSIGNE).toBe(6);
   });
 });

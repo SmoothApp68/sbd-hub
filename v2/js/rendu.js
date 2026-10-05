@@ -257,11 +257,25 @@
   // UN CODE D'ERREUR (nuance posée au chantier 24, moteur au chantier 31). Une
   // planche n'a pas « échoué » à produire un palier : elle n'en aura jamais, et
   // `sans-charge` est un mot de moteur, pas une phrase pour quelqu'un.
+  //
+  // 50-1 bis (§9.17) — LE POIDS DU CORPS EST COACHÉ : la page d'un exercice en
+  // reps ne dit plus « pas de palier en kilos » (le coach suit ses reps, la
+  // charge vaut 0) ; sa phrase vient du formateur (`THModele`), la seule voix.
   var PHRASE_SANS_PALIER = {
-    reps: 'Cet exercice se compte en répétitions : il n’a pas de charge, donc pas de palier en kilos.',
+    reps: null,   // la phrase du formateur — voir `phraseSansPalier`
     temps: 'Cet exercice se mesure en durée : il n’a pas de charge, donc pas de palier en kilos.',
     distance_temps: 'Cet exercice se mesure en distance et en durée : il est hors du moteur.'
   };
+
+  // `undefined` pour une mesure qui n'en a pas (charge × reps). Le choix entre
+  // « a une phrase » et « n'en a pas » se lit ICI, jamais sur la table.
+  function phraseSansPalier(mesure) {
+    if (mesure === 'reps') return M().PHRASE_POIDS_DU_CORPS;
+    return PHRASE_SANS_PALIER[mesure];
+  }
+
+  // La barre d'une aide la plus forte : visible, jamais à zéro.
+  var JAUGE_MIN = 8;
 
   function texteMeilleure(m) {
     if (!m) return '';
@@ -325,7 +339,7 @@
     if (!vue.table || !vue.table.length) {
       // Deux absences distinctes, et on ne les confond pas : l'exercice n'a pas
       // de table par nature, ou il n'a rien encore à y mettre.
-      cible.appendChild(el('p', 'vide', PHRASE_SANS_PALIER[vue.mesure]
+      cible.appendChild(el('p', 'vide', phraseSansPalier(vue.mesure)
         ? 'Pas de table par répétitions pour cet exercice.'
         : 'Aucune série de travail enregistrée.'));
       return;
@@ -333,10 +347,22 @@
     var avecCharge = vue.mesure === 'charge_reps';
     var table = el('div', 'table-reps' + (avecCharge ? '' : ' sans-charge'));
     var plafond = 0, deduites = 0;
+    // 50-1 bis (§9.17) — LA JAUGE D'UNE AIDE SE LIT À L'ENVERS : moins d'aide, c'est
+    // monter (−25 → −22,5), donc la barre la plus LONGUE est la moins aidée. Une
+    // aide est une table dont les charges sont négatives ; l'échelle part alors
+    // de la plus forte aide (barre minimale, jamais vide : la ligne existe) et
+    // monte à pleine largeur vers « sans aide ».
+    var pire = 0;
     vue.table.forEach(function (l) {
       var kg = l.deduit && l.chargeDeduite !== undefined ? l.chargeDeduite : l.charge;
       if (kg > plafond) plafond = kg;
+      if (kg < 0 && -kg > pire) pire = -kg;
     });
+    var aide = plafond <= 0 && pire > 0;
+    var largeurDe = function (kg) {
+      if (aide) return Math.max(JAUGE_MIN, Math.round((1 - (-kg) / pire) * 100));
+      return plafond > 0 ? Math.round((kg / plafond) * 100) : 0;
+    };
 
     vue.table.forEach(function (l) {
       if (l.deduit) deduites++;
@@ -349,10 +375,12 @@
         // plus : elle rend la progression lisible d'un coup d'œil à 380 px.
         var jauge = el('span', 'tr-jauge');
         var barre = el('i');
-        barre.style.width = (plafond > 0 ? Math.round((kg / plafond) * 100) : 0) + '%';
+        barre.style.width = largeurDe(kg) + '%';
         jauge.appendChild(barre);
         ligne.appendChild(jauge);
-        ligne.appendChild(el('span', 'tr-charge num', nombreFr(kg)));
+        // §9.17 — une aide se lit « Aide 22,5 kg », jamais « −22,5 » : la même
+        // phrase que la séance et le journal (`chargeTexte`, le formateur).
+        ligne.appendChild(el('span', 'tr-charge num', kg < 0 ? M().formatMesure({ charge_kg: kg }) : nombreFr(kg)));
       }
       ligne.appendChild(el('span', 'tr-quand' + (l.deduit ? '' : ' num'),
         l.deduit ? 'déduit' : dateCourte(l.date)));
@@ -386,7 +414,7 @@
     cible.appendChild(fiche);
 
     // ⚠️ L'AFFICHAGE LIT LA MESURE, PAS LE CODE D'ERREUR DU MOTEUR.
-    var sansPalier = PHRASE_SANS_PALIER[vue.mesure];
+    var sansPalier = phraseSansPalier(vue.mesure);
     if (sansPalier) cible.appendChild(el('p', 'exo-note', sansPalier));
 
     rendreTableReps(cible, vue);
@@ -454,6 +482,11 @@
       var puce = puceZone(vue.etiquette, vue.zoneChoisie, vue.surZone);
       puce.classList.add('puce-seule');
       tete.appendChild(puce);
+    } else if (vue.modeEntretien) {
+      // §9.17 — « Entretien » : le coach se tait sur cet exercice, par choix.
+      var pe = puceZone('Entretien', true, vue.surZone);
+      pe.classList.add('puce-seule');
+      tete.appendChild(pe);
     }
     if (vue.sousTitre) tete.appendChild(el('div', 'exo-meta num', vue.sousTitre));
     cible.appendChild(tete);
@@ -1732,7 +1765,9 @@
     // à mesures mélangées, une seule ligne d'en-têtes mentirait sur la moitié
     // des rangées. On la tait plutôt que de nommer KG au-dessus d'une durée ; le
     // type de mesure reste écrit sous chaque nom, dans la légende.
-    var memeGabarit = gabarits.every(function (g) { return g.mesure === gabarits[0].mesure; });
+    var memeGabarit = gabarits.every(function (g) {
+      return g.mesure === gabarits[0].mesure && (g.nature || null) === (gabarits[0].nature || null);
+    });
     if (memeGabarit) noeud.appendChild(enTetesColonnes(gabarits[0], vue.programme));
 
     // §2.6 — l'éclairage porte sur le TOUR entier, pas sur une ligne isolée.
@@ -1749,6 +1784,11 @@
         proposees[s._iExo] = true;
         // MOTEUR §14.5 (49-U15) — la carte de schéma d'abord : la seule
         // question du coach sur cet exercice.
+        // MOTEUR §9.17 (50-1) — la carte du lest passe AVANT toute autre : elle est
+        // la seule question du coach quand elle se pose (une seule, en tête de
+        // l'exercice), et le plan ne la pose jamais avec une carte de schéma.
+        var pl = typeof vue.propositionLest === 'function' ? vue.propositionLest(s._iExo) : null;
+        if (pl) noeud.appendChild(propositionDeLest(pl, s._iExo, vue));
         var ps = typeof vue.propositionSchema === 'function' ? vue.propositionSchema(s._iExo) : null;
         if (ps) noeud.appendChild(propositionDeSchema(ps, s._iExo, vue));
         var pc = typeof vue.propositionChauffes === 'function' ? vue.propositionChauffes(s._iExo) : null;
@@ -1873,6 +1913,13 @@
       var eti = !vue.programme && vue.etiquette ? vue.etiquette(x.slug) : null;
       if (eti) nom.appendChild(puceZone(eti, vue.zoneChoisie && vue.zoneChoisie(x.slug),
         vue.surZone && function () { vue.surZone(x.slug); }));
+      // §9.17 — UN EXERCICE EN ENTRETENIR PAR SON PROPRE CHOIX n'a plus de
+      // consigne, donc plus de zone : sans cette puce, le seul chemin du retour
+      // à « Progresser » aurait disparu avec la zone. Elle ne se montre pas
+      // quand c'est le PROFIL qui entretient (le réglage général y est).
+      else if (!vue.programme && vue.modeEntretien && vue.modeEntretien(x.slug)) {
+        nom.appendChild(puceZone('Entretien', true, vue.surZone && function () { vue.surZone(x.slug); }));
+      }
       // §5.6 — le menu d'un EXERCICE n'existe que dans un bloc à plusieurs. Sur
       // un bloc d'un seul, le menu du bloc porte déjà ses gestes : deux boutons
       // pour le même objet dérouteraient.
@@ -2003,7 +2050,11 @@
       (programme ? ' programme' : ''));
     entetes.appendChild(el('span', '', ''));
     if (!programme) entetes.appendChild(el('span', 'droite', 'PRÉC.'));
-    champs.forEach(function (c) { entetes.appendChild(el('span', 'centre', c.entete)); });
+    champs.forEach(function (c, i) {
+      // §9.17 — la nature de la charge nomme la colonne (« LEST (KG) », « AIDE (KG) »).
+      var surcharge = g.entetes && g.entetes[g.champs[i]];
+      entetes.appendChild(el('span', 'centre', surcharge || c.entete));
+    });
     if (g.effort && !programme) entetes.appendChild(el('span', 'centre', 'EFFORT'));
     entetes.appendChild(el('span', 'centre', ''));
     return entetes;
@@ -2107,6 +2158,19 @@
       classe: 'proposition-chauffes', texte: pc.phrase, oui: 'Ajouter', non: 'Non merci',
       surOui: function () { vue.surAjouterChauffes(iExo); },
       surNon: function () { vue.surRefuserChauffes(iExo); }
+    }, iExo);
+  }
+
+  // MOTEUR §9.17 (50-1) — la carte du lest : le titre et le détail viennent du
+  // plan (le formateur, une fois), les deux boutons sont « J’ai du lest » et
+  // « Pas de lest ». Le MÊME composant que les chauffes et le schéma — aucune
+  // seconde carte.
+  function propositionDeLest(carte, iExo, vue) {
+    return propositionDExercice({
+      classe: 'proposition-lest', texte: carte.titre, detail: carte.detail,
+      oui: carte.oui, non: carte.non, classeOui: 'pl-oui', classeNon: 'pl-non',
+      surOui: function () { vue.surLest(iExo, 'oui'); },
+      surNon: function () { vue.surLest(iExo, 'non'); }
     }, iExo);
   }
 
@@ -2218,7 +2282,7 @@
     var ligneP = S().correspondant(seriesDeSonExercice(bloc, s), iSerie,
       vue.precedent(s.exercise_slug));
     if (!vue.programme) {
-      rangee.appendChild(el('div', 'prec num', M().formatPrecedent(ligneP, g.mesure)));
+      rangee.appendChild(el('div', 'prec num', M().formatPrecedent(ligneP, g.mesure, g.nature)));
     }
 
     // ⚠️ EN MODE PROGRAMME, LE GRIS EST CE QU'ON A RÉELLEMENT SOULEVÉ
@@ -2248,11 +2312,21 @@
       // reps n'ont que la fourchette pour indication.
       var fourchette = proposee && c.cle === 'reps' && reaction.fourchette
         ? reaction.fourchette[0] + '-' + reaction.fourchette[1] : null;
+      // §9.17 — UNE AIDE SE TAPE EN POSITIF ET SE RANGE EN NÉGATIF, par
+      // `rangerAide` et nulle part ailleurs : le champ montre la valeur absolue
+      // (« 22,5 »), la série garde −22,5. Une fonction, pas un signe à retenir.
+      //
+      // 50-1 bis — SAUF DANS L'ÉDITEUR DE ROUTINE (`vue.programme`) : la CIBLE d'une
+      // aide y reste POSITIVE (« 25 » sous « AIDE (KG) », `charge_cible_kg` est borné
+      // à 0..1000 et le brouillon garde le texte tapé). La conversion se fait plus
+      // tard, à la validation d'une série (`validerSerie`), par la même fonction.
+      var aide = g.nature === 'aide' && c.cle === 'charge_kg';
+      var versChamp = function (v) { return aide ? M().aideAffichee(v) : v; };
       rangee.appendChild(champSerie(classe + (proposee && c.cle === 'charge_kg' ? ' coach' : ''),
-        enUniteDeSaisie(s[c.cle], c.facteur),
-        enUniteDeSaisie(f[c.cle], c.facteur),
+        versChamp(enUniteDeSaisie(s[c.cle], c.facteur)),
+        versChamp(enUniteDeSaisie(f[c.cle], c.facteur)),
         c.unite,
-        function (v) { vue.surChamp(iExo, iSerie, nom, v); },
+        function (v) { vue.surChamp(iExo, iSerie, nom, aide && !vue.programme ? M().rangerAide(v) : v); },
         { indication: fourchette,
           surQuitte: typeof vue.surChampQuitte === 'function'
             ? function () { vue.surChampQuitte(iExo, iSerie); } : null }));
@@ -2564,6 +2638,31 @@
     vider(cible);
     cible.appendChild(el('div', 'feuille-t', 'Zone de travail'));
     cible.appendChild(el('div', 'feuille-sous', vue.nom + ', dans toutes tes routines'));
+    // §9.17 — LE MODE DE L'EXERCICE, en tête de la feuille : « Progresser »
+    // (le coach prescrit) ou « Entretenir » (il se tait, comme au profil). Le
+    // choix est à CET exercice seul. En Entretenir, la feuille ne montre que lui.
+    if (typeof vue.surMode === 'function') {
+      var modes = el('div', 'mode-exercice');
+      [['progresser', 'Progresser'], ['entretien', 'Entretenir']].forEach(function (m) {
+        var actif = vue.mode === m[0];
+        var b = el('button', 'option-mode' + (actif ? ' active' : ''), m[1]);
+        b.type = 'button';
+        b.setAttribute('aria-pressed', actif ? 'true' : 'false');
+        b.dataset.mode = m[0];
+        b.addEventListener('click', function () { if (!actif) vue.surMode(m[0]); });
+        modes.appendChild(b);
+      });
+      cible.appendChild(modes);
+      if (vue.mode === 'entretien') {
+        cible.appendChild(el('p', 'feuille-aide',
+          'Le coach se tait sur cet exercice : tu charges comme tu veux.'));
+        var fermerE = el('button', 'discret bloc-large', 'Fermer');
+        fermerE.type = 'button';
+        fermerE.addEventListener('click', vue.surFermer);
+        cible.appendChild(fermerE);
+        return cible;
+      }
+    }
     var d = vue.deduite || null;
     (vue.zones || []).forEach(function (z) {
       var actif = vue.choisie ? vue.choisie === z.cle : (d && d.zone === z.cle);

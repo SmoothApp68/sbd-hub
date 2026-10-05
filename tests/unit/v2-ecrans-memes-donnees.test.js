@@ -60,3 +60,62 @@ describe('PR 5 — « Dernière séance » : la meilleure série du jour', () =>
     });
   });
 });
+
+// ── 50-1 (MOTEUR §9.17) — LE POIDS DU CORPS ET L'AIDE SUR LA PAGE D'EXERCICE ──
+//
+// « Tous les écrans, mêmes données » valait pour une charge. Un exercice en
+// `reps` (le corps) n'a pas de charge, une aide en a une NÉGATIVE : la dernière
+// séance et le record doivent dire la même chose partout, sans « 0 kg » ni
+// signe moins. Le banc (7 G octodecies) le relit à l'écran.
+describe('50-1 — la page d’exercice : un exercice en reps et une aide', () => {
+  const EXOS2 = [
+    { slug: 'tr', nom: 'Corps', mesure: 'reps', charge: 'aucune' },
+    { slug: 'as', nom: 'Aide', mesure: 'charge_reps', charge: 'assistance', equipement: 'machine' }
+  ];
+  const s2 = (slug, id, kg, reps) => ({ id, exercise_slug: slug, type_serie: 'travail', charge_kg: kg, reps, rang: Number(id.slice(1)) });
+  const J2 = { a: '2026-09-10T10:00:00Z', b: '2026-09-17T10:00:00Z' };
+  const dateDe2 = (s) => J2[s.id[0]];
+  const REPS = [[s2('tr', 'a1', null, 8), s2('tr', 'a2', null, 9)], [s2('tr', 'b1', null, 10), s2('tr', 'b2', null, 8)]];
+  const AIDE = [[s2('as', 'a1', -30, 8), s2('as', 'a2', -30, 8)], [s2('as', 'b1', -25, 10), s2('as', 'b2', -25, 9)]];
+
+  test('en reps, la dernière séance dit les reps, jamais une charge', () => {
+    const m = Modele.meilleureSerieDe('tr', REPS[1], EXOS2, Palier, {});
+    expect(m.valeur).toBe('10');
+    expect(m.charge).toBeNull();
+  });
+
+  test('en reps, le record est le meilleur nombre de reps de tout l’historique', () => {
+    const r = Modele.meilleureSerieDeTout('tr', REPS.map((g, i) => ({ cle: 'ab'[i], series: g })), EXOS2, Palier, {});
+    expect(r.valeur).toBe('10');
+    expect(r.charge).toBeNull();
+  });
+
+  test('en reps, la table par reps n’a pas de charge à montrer', () => {
+    const t = Modele.tableParReps([].concat.apply([], REPS), 'reps', dateDe2);
+    expect(t.length).toBeGreaterThan(0);
+    t.forEach((l) => expect(l.charge === 0 || l.charge === undefined || l.charge === null).toBe(true));
+  });
+
+  test('⚠️ DISCRIMINANT — une aide : la meilleure série est la MOINS aidée (−25, pas −30)', () => {
+    const m = Modele.meilleureSerieDe('as', AIDE[1], EXOS2, Palier, {});
+    expect([m.charge, m.reps]).toEqual([-25, 10]);
+    expect(Modele.formatMesure({ charge_kg: m.charge, reps: m.reps }).replace(/[  ]/g, ' ')).toBe('Aide 25 kg × 10');
+  });
+
+  test('une aide : le record est la ligne la moins aidée de la table, et il se lit « Aide 25 kg × 10 »', () => {
+    const t = Modele.tableParReps([].concat.apply([], AIDE), 'charge_reps', dateDe2);
+    const r = Modele.recordDeLaTable(t);
+    expect([r.charge, r.reps]).toEqual([-25, 10]);
+    expect(Modele.formatMesure({ charge_kg: r.charge, reps: r.reps }).replace(/[  ]/g, ' ')).toBe('Aide 25 kg × 10');
+    expect(t.every((l) => l.charge <= r.charge)).toBe(true);
+  });
+
+  test('une aide : la table se lit sans signe moins, « Aide 25 kg »', () => {
+    // La page rend `formatMesure({ charge_kg })` pour une charge négative (rendu.js).
+    [-30, -25, -22.5].forEach((kg) => {
+      const t = Modele.formatMesure({ charge_kg: kg }).replace(/[  ]/g, ' ');
+      expect(t).toBe('Aide ' + String(Math.abs(kg)).replace('.', ',') + ' kg');
+      expect(t).not.toMatch(/[−-]/);
+    });
+  });
+});

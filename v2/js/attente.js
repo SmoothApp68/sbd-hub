@@ -63,6 +63,10 @@
   // lignes. C'est l'historique voulu — compresser par exercice n'enverrait que
   // le dernier choix et perdrait l'ordre de ceux faits hors ligne.
   var ZONES = 'zones_exercice';
+  // §9.17 (50-1) — la sixième, sur le MÊME patron : le mode de l'exercice
+  // (« Progresser » / « Entretenir ») se choisit en salle, et un identifiant
+  // neuf par choix garde l'ordre des gestes faits hors ligne.
+  var MODES = 'modes_exercice';
   // §9.11 (48c) — la cinquième. Ce que le moteur a proposé se note EN SALLE,
   // comme le reste.
   //
@@ -629,7 +633,7 @@
   }
 
   var api = {
-    SESSIONS: SESSIONS, SETS: SETS, ROUTINE_EXOS: ROUTINE_EXOS, ZONES: ZONES,
+    SESSIONS: SESSIONS, SETS: SETS, ROUTINE_EXOS: ROUTINE_EXOS, ZONES: ZONES, MODES: MODES,
     PREDICTIONS: PREDICTIONS,
     OBSERVATIONS: OBSERVATIONS,
     OBSERVER: OBSERVER,

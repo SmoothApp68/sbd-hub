@@ -210,7 +210,18 @@ const CATALOGUE = [
   // Correctif du 03/10/2026 — réservé à la section 7 G septdecies (une
   // assistance retouchée garde sa charge). Une assistance, notée en négatif
   // comme en base ; aucun muscle, pour ne peser sur le volume de personne.
-  { slug: 'assist-0310', nom: 'Assistée Correctif (Machine)', mesure: 'charge_reps', charge: 'assistance', equipement: 'machine', muscles_primaires: [], muscles_secondaires: [] }
+  { slug: 'assist-0310', nom: 'Assistée Correctif (Machine)', mesure: 'charge_reps', charge: 'assistance', equipement: 'machine', muscles_primaires: [], muscles_secondaires: [] },
+  // 50-1 (MOTEUR §9.17) — réservés à la section 7 G octodecies, et à elle seule :
+  // le poids du corps (reps), SA version lestée (`parent` = lui, charge
+  // ajoutée), un second corps libre pour Entretenir par exercice, et une aide.
+  // Leurs noms ne répondent à aucune recherche faite ailleurs. Un muscle que le
+  // banc ne travaille nulle part ailleurs (`ischio_jambiers`, la vraie clé — les
+  // autres exercices disent `ischios`) : Progression ne montre que les exercices
+  // d'un muscle, et la page doit pouvoir être comparée à Progression.
+  { slug: 'pdc-u50', nom: 'Corps Libre U50', mesure: 'reps', charge: 'aucune', muscles_primaires: ['ischio_jambiers'], muscles_secondaires: [] },
+  { slug: 'pdc-u50-l', nom: 'Corps Lesté U50', mesure: 'charge_reps', charge: 'ajoutee', parent: 'pdc-u50', muscles_primaires: ['ischio_jambiers'], muscles_secondaires: [] },
+  { slug: 'pdc-u50-e', nom: 'Corps Entretien U50', mesure: 'reps', charge: 'aucune', muscles_primaires: ['ischio_jambiers'], muscles_secondaires: [] },
+  { slug: 'aide-u50', nom: 'Aide Machine U50 (Machine)', mesure: 'charge_reps', charge: 'assistance', equipement: 'machine', muscles_primaires: ['ischio_jambiers'], muscles_secondaires: [] }
 ];
 
 // ⚠️ UNE ROUTINE PORTE MAINTENANT SES LIGNES (chantier 43). `routine_sets`
@@ -311,7 +322,9 @@ const PROFIL_BANC = {
   date_naissance: null, mode_entrainement: null, unites: null, anciennete: null,
   intention: 'progresser', rythme_progression: 'normal', materiel: null,
   niveau_declare: null, seances_par_semaine: null, jours_vises: null,
-  duree_seance_min: null, onboarding_completed: true
+  duree_seance_min: null, onboarding_completed: true,
+  // 50-1 — la réponse à la carte du lest : `oui`, `non`, ou NULL (pas encore).
+  lest_reponse: null, lest_reponse_le: null
 };
 
 // ⚠️ LE DÉCOR SE DATE DANS LA JOURNÉE EN COURS, JAMAIS DEPUIS UN JOUR DE LA
@@ -394,6 +407,7 @@ const SETS_IMPORTES = [
     sets: SETS_PASSES.concat(SETS_IMPORTES).map((s) => Object.assign({}, s)),
     profiles: [Object.assign({}, PROFIL_BANC)],
     zones: [],
+    modes: [],
     predictions: [],
     journal: [], patchs: [], reseau: true
   };
@@ -749,6 +763,27 @@ const SETS_IMPORTES = [
       }
     }
 
+    // §9.17 (50-1) — `modes_exercice`, le mode de chaque exercice : le MÊME
+    // patron que `zones_exercice`. En ajout seul, l'upsert par `id` rend un
+    // renvoi inoffensif, la politique réelle est celle du propriétaire.
+    if (table === 'modes_exercice') {
+      if (req.method() === 'GET') return json(projeter(base.modes, url));
+      if (req.method() === 'POST') {
+        const l = Array.isArray(corps) ? corps[0] : corps;
+        base.journal.push({ op: 'mode', id: l.id, slug: l.exercise_slug, mode: l.mode });
+        if (!l.id) return json(refus('23502', 'modes_exercice.id NOT NULL'), 400);
+        if (!l.user_id) return json(refus('23502', 'modes_exercice.user_id NOT NULL'), 400);
+        if (l.user_id !== MOI) return json(refus('42501', 'new row violates row-level security policy for table "modes_exercice"'), 400);
+        if (!CATALOGUE.some((e) => e.slug === l.exercise_slug)) return json(refus('23503', 'modes_exercice_exercise_slug_fkey'), 400);
+        if (['progresser', 'entretien'].indexOf(l.mode) < 0) return json(refus('23514', 'modes_exercice_mode_ok'), 400);
+        if (!l.choisi_a) return json(refus('23502', 'modes_exercice.choisi_a NOT NULL'), 400);
+        const i = base.modes.findIndex((x) => x.id === l.id);
+        const ligne = Object.assign({ created_at: l.choisi_a }, i >= 0 ? base.modes[i] : {}, l);
+        if (i >= 0) base.modes[i] = ligne; else base.modes.push(ligne);
+        return json(projeter([ligne], url), 201);
+      }
+    }
+
     // §9.11 (48c) — `predictions`, AVEC SON VERROU. C'est ce verrou qui fait
     // la valeur de ce décor : la vraie base porte le trigger
     // `predictions_immuable`, qui compare `to_jsonb(new)` moins les trois
@@ -847,6 +882,10 @@ const SETS_IMPORTES = [
       if (req.method() === 'POST') {
         const l = Array.isArray(corps) ? corps[0] : corps;
         base.journal.push({ op: 'profil', champs: Object.assign({}, l) });
+        // 50-1 — la contrainte réelle de `lest_reponse` : `oui`, `non`, ou NULL.
+        if (l.lest_reponse !== undefined && l.lest_reponse !== null && ['oui', 'non'].indexOf(l.lest_reponse) < 0) {
+          return json(refus('23514', 'profiles_lest_reponse_ok'), 400);
+        }
         const i = base.profiles.findIndex((x) => x.id === l.id);
         const ligne = Object.assign({}, i >= 0 ? base.profiles[i] : {}, l);
         if (i >= 0) base.profiles[i] = ligne; else base.profiles.push(ligne);
@@ -1281,11 +1320,11 @@ const SETS_IMPORTES = [
     process.exit(echecs ? 1 : 0);
   };
 
-  console.log('\n══ 0. LA MONTÉE D’INDEXEDDB, VERSION 4 → 5 ══');
+  console.log('\n══ 0. LA MONTÉE D’INDEXEDDB, VERSION 4 → 6 ══');
   //
   // ⚠️ CONFIGURATION DISCRIMINANTE (§2 quater) : UNE BASE QUI EXISTE DÉJÀ, en
   // version 4, AVEC DES DONNÉES DEDANS. Une base neuve ne distingue rien —
-  // elle se crée en version 5 et tous les magasins y sont d'emblée. Ce qu'on
+  // elle se crée en version 6 et tous les magasins y sont d'emblée. Ce qu'on
   // doit prouver, c'est qu'un téléphone qui a déjà tout (des séances, des
   // séries, son profil, une file d'attente non vidée) traverse la montée sans
   // rien perdre. Un magasin ajouté par une montée fautive — `deleteObjectStore`
@@ -1385,8 +1424,9 @@ const SETS_IMPORTES = [
       tx.onerror = () => rejeter(tx.error);
     };
   })).catch((e) => ({ erreur: String(e) }));
-  ok('[V] la base est montée en version 5, et `predictions` existe',
-    apresMontee.version === 5 && apresMontee.magasins.indexOf('predictions') >= 0,
+  ok('[V] la base est montée en version 6, et `predictions` et `modes` existent',
+    apresMontee.version === 6 && apresMontee.magasins.indexOf('predictions') >= 0 &&
+      apresMontee.magasins.indexOf('modes') >= 0,
     'version ' + apresMontee.version + ' · ' + JSON.stringify(apresMontee.magasins));
   ok('[V] les huit magasins d’avant sont TOUS encore là',
     ['seances', 'series', 'exercices', 'pesees', 'meta', 'brouillon', 'attente', 'zones']
@@ -5232,7 +5272,7 @@ const SETS_IMPORTES = [
     'onglet « ' + (await texte('.sous-onglet.actif')) + ' »');
 
   // ── 5. UN EXERCICE SANS CHARGE N'AFFICHE JAMAIS 0 kg ────────────────────
-  for (const [slug, mot] of [['planche', 'durée'], ['tractions', 'répétitions']]) {
+  for (const [slug, mot] of [['planche', 'durée'], ['tractions', 'poids du corps']]) {
     await aller('/exercice/' + slug);
     const p = (await texte('#page-exercice')).replace(/\s+/g, ' ');
     ok('[40] ' + slug + ' : pas de « 0 kg », et la phrase lit la MESURE',
@@ -9933,17 +9973,23 @@ const SETS_IMPORTES = [
     ok('[E] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
 
-  console.log('\n══ 7 G septdecies. UNE ASSISTANCE RETOUCHÉE GARDE SA CHARGE (correctif du 03/10/2026) ══');
+  console.log('\n══ 7 G septdecies. UNE ASSISTANCE RETOUCHÉE GARDE SA CHARGE (correctif du 03/10/2026, réécrite en 50-1) ══');
   //
-  // Le champ de charge réaffiche une assistance avec le VRAI signe moins
-  // (U+2212, le formateur) ; la relecture d'avant ne lisait que le trait
-  // d'union du clavier. Retoucher la charge affichée l'effaçait en silence.
+  // Le correctif du 03/10 : le champ de charge réaffichait une assistance avec
+  // le VRAI signe moins (U+2212), que la relecture d'avant ne lisait pas ;
+  // retoucher la charge affichée l'effaçait en silence.
   //
-  // ⚠️ CONFIGURATION DISCRIMINANTE : la retouche se fait AU CLAVIER, dans le
-  // champ tel qu'il est affiché (« −25 » → effacer le 5, taper 0), pas par un
-  // `fill` qui remplacerait le signe par celui du clavier. Retoucher les reps
-  // seules ne touchait pas la charge, même avant : c'est la prémisse, pas le
-  // discriminant.
+  // 50-1 (MOTEUR §9.17) A CHANGÉ LA PRÉMISSE, PAS LE RISQUE. La colonne s'appelle
+  // « AIDE (KG) » : on y TAPE « 25 » (jamais un moins), la série part en base à
+  // −25 (la convention de la base : 125 séries sur 129), et le champ réaffiche la
+  // valeur absolue, « 25 ». Le risque reste le même — retoucher la charge
+  // affichée ne doit rien effacer, et une aide ne doit jamais repartir en
+  // positif : sous « AIDE (KG) », un 25 rangé en +25 se lirait comme un lest.
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : la retouche se fait AU CLAVIER, dans le champ
+  // tel qu'il est affiché (« 25 » → effacer le 5, taper 0), pas par un `fill`.
+  // Retoucher les reps seules ne touchait pas la charge, même avant : c'est la
+  // prémisse, pas le discriminant.
   {
     ROUTINES.push({ id: 'r-0310', nom: 'Assistée 0310', note: null, archivee_a: null,
       created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
@@ -9960,13 +10006,17 @@ const SETS_IMPORTES = [
     await aller('/saisie');
     await demarrerRoutine('Assistée 0310');
     await attendre(600);
-    await saisirSerie(0, '-25', 8);
+    const entetes = await page.evaluate(() => Array.from(document.querySelectorAll('.cols-seance span'))
+      .map((e) => e.textContent.trim()).filter(Boolean));
+    ok('[0310] la colonne s’appelle « AIDE (KG) », pas « KG »', entetes.indexOf('AIDE (KG)') >= 0 && entetes.indexOf('KG') < 0,
+      JSON.stringify(entetes));
+    await saisirSerie(0, '25', 8);
     await attendre(1500);
-    ok('[0310] prémisse — la série part en base à −25 × 8', JSON.stringify(enBase()) === '{"charge":-25,"reps":8}',
-      JSON.stringify(enBase()));
+    ok('[0310] DISCRIMINANT — « 25 » tapé en POSITIF part en base à −25 × 8 (rangé par `rangerAide`)',
+      JSON.stringify(enBase()) === '{"charge":-25,"reps":8}', JSON.stringify(enBase()));
     const affichee = await valeurAffichee();
-    ok('[0310] prémisse — le champ réaffiche la charge avec le vrai signe moins (U+2212)', affichee === '\u221225',
-      JSON.stringify(affichee));
+    ok('[0310] le champ réaffiche la valeur absolue « 25 » : ni signe, ni « Aide » — l’en-tête le dit',
+      affichee === '25', JSON.stringify(affichee));
     const reps = (await (await ligne(0)).$$('input'))[1];
     await reps.fill('10');
     await reps.evaluate((e) => e.blur());
@@ -9980,11 +10030,355 @@ const SETS_IMPORTES = [
     await page.keyboard.type('0');
     await c.evaluate((e) => e.blur());
     await attendre(900);
-    ok('[0310] DISCRIMINANT — la charge retouchée au clavier dans le champ affiché (« −25 » → « −20 ») : −20 en base, pas rien',
+    ok('[0310] DISCRIMINANT — la charge retouchée au clavier dans le champ affiché (« 25 » → « 20 ») : −20 en base, pas rien, pas +20',
       JSON.stringify(enBase()) === '{"charge":-20,"reps":10}', JSON.stringify([enBase(), await valeurAffichee()]));
+    // Taper un moins reste toléré : `rangerAide` est idempotente, tous les signes moins.
+    const c2 = await champCharge();   // le champ a été redessiné à la sortie du précédent
+    await c2.fill('-22,5');
+    await c2.evaluate((e) => e.blur());
+    await attendre(900);
+    ok('[0310] un moins tapé quand même (« -22,5 ») donne −22,5, jamais +22,5',
+      JSON.stringify(enBase()) === '{"charge":-22.5,"reps":10}', JSON.stringify(enBase()));
+    const prec = await page.evaluate(() => {
+      const p = document.querySelector('.serie .prec');
+      return p ? p.textContent : null;
+    });
+    ok('[0310] la colonne PRÉC. ne montre pas de signe moins', prec === null || !/[−-]\s*\d/.test(prec),
+      JSON.stringify(prec));
+    await abandonner();
+    // 50-1 bis — LA CIBLE D'UNE AIDE RESTE POSITIVE DANS LA ROUTINE (« 25 » sous
+    // « AIDE (KG) »), et c'est la VALIDATION qui la range en négatif, par la même
+    // fonction : valider à vide écrit −25, jamais +25 (un lest).
+    ROUTINES.push({ id: 'r-0310c', nom: 'Assistée cible 0310', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [
+        { id: 'r-0310c-a', routine_id: 'r-0310c', exercise_slug: 'assist-0310', rang: 0,
+          routine_sets: progr(1, 8).map((l) => Object.assign({}, l, { charge_cible_kg: 25 })),
+          repos_cible_s: 90, groupe_superset: null, note: null }] });
+    await aller('/saisie');
+    await demarrerRoutine('Assistée cible 0310');
+    await attendre(600);
+    await page.evaluate(() => document.querySelector('.ok-serie').click());
+    await attendre(1500);
+    ok('[0310] DISCRIMINANT — la cible positive de la routine (25) est rangée −25 à la validation, jamais +25',
+      JSON.stringify(enBase()) === '{"charge":-25,"reps":8}', JSON.stringify(enBase()));
     await abandonner();
     await aller('/saisie');
     ok('[0310] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
+  }
+
+  console.log('\n══ 7 G octodecies. LE POIDS DU CORPS, L’AIDE ET LE LEST (50-1, MOTEUR §9.17) ══');
+  //
+  // Le poids du corps (`mesure = reps`) est COACHÉ : la charge vaut 0, l'en-tête
+  // dit « Poids du corps × N ». Au haut de la zone deux séances de suite, une
+  // CARTE DU LEST (une fois, sans point d'interrogation) ; « J'ai du lest » met
+  // la version lestée à la place, à 2,5 kg au bas de la zone ; « Pas de lest »
+  // étire les reps, et la carte ne revient plus. Une aide est coachée aussi, sans
+  // chauffes, et se tape en positif. Entretenir se choisit par exercice, depuis
+  // la même feuille que la zone. La démonstration (`?escalier=lest`) montre la
+  // carte sans rien écrire.
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : le banc lit le PLAN que l'app calcule
+  // (`THPlan.dernier`) ET l'écran, et compare au moteur réel — jamais à une
+  // valeur écrite à la main. La zone du poids du corps est CHOISIE (Mix, 6 à 8) :
+  // une habitude de 8 reps se rangerait en Hypertrophie, et l'exemple de la
+  // spec (« en revenant à 6 reps ») est celui de Mix.
+  {
+    const tP = Date.now();
+    require(path.join(R, 'v2/js/modele.js'));
+    require(path.join(R, 'v2/js/profil.js'));
+    require(path.join(R, 'v2/js/palier.js'));
+    const MoteurP = require(path.join(R, 'v2/js/moteur.js'));
+    const sp = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const poserP = (id, jours, slug, lignes /* [[kg|null, reps], …] */) => {
+      const debut = ilYa(jours * 86400000, tP).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'PDC — ' + id, debut,
+        fin: finDe(debut, tP).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      lignes.forEach(([kg, reps], k) => base.sets.push({ id: id + '-s' + (k + 1), session_id: id, user_id: 'u-banc',
+        exercise_slug: slug, charge_kg: kg, reps, duree_s: null, distance_m: null, type_serie: 'travail',
+        rang: k + 1, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null, repos_s: null, note: null,
+        source: 'app', created_at: debut, modifie_a: null }));
+    };
+    // Le poids du corps : trois séances de trois séries de 8 — les deux dernières
+    // sont au haut de la zone Mix (6 à 8), sans réponse. `charge_kg` NULL en base.
+    poserP('p50-1', 21, 'pdc-u50', [[null, 8], [null, 8], [null, 8]]);
+    poserP('p50-2', 14, 'pdc-u50', [[null, 8], [null, 8], [null, 8]]);
+    poserP('p50-3', 7, 'pdc-u50', [[null, 8], [null, 8], [null, 8]]);
+    // Le second corps libre (Entretenir par exercice) : trois séances de 3 × 10.
+    poserP('p50-e1', 21, 'pdc-u50-e', [[null, 10], [null, 10], [null, 10]]);
+    poserP('p50-e2', 14, 'pdc-u50-e', [[null, 10], [null, 10], [null, 10]]);
+    poserP('p50-e3', 7, 'pdc-u50-e', [[null, 10], [null, 10], [null, 10]]);
+    // L'aide : −30, −27,5, puis −25 deux fois, avec des reps qui montent.
+    poserP('p50-a1', 28, 'aide-u50', [[-30, 8], [-30, 8], [-30, 8]]);
+    poserP('p50-a2', 21, 'aide-u50', [[-27.5, 9], [-27.5, 9], [-27.5, 9]]);
+    poserP('p50-a3', 14, 'aide-u50', [[-25, 10], [-25, 10], [-25, 10]]);
+    poserP('p50-a4', 7, 'aide-u50', [[-25, 10], [-25, 10], [-25, 10]]);
+    // La zone du poids du corps est CHOISIE : Mix.
+    base.zones.push({ id: 'z-u50', user_id: 'u-banc', exercise_slug: 'pdc-u50', zone: 'mix',
+      corrigee_a: ilYa(30 * 86400000, tP).toISOString(), created_at: ilYa(30 * 86400000, tP).toISOString() });
+    const routineP = (id, nom, slug) => ROUTINES.push({ id, nom, note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: id + '-a', routine_id: id, exercise_slug: slug, rang: 0,
+        routine_sets: progr(3, 8), repos_cible_s: 90, groupe_superset: null, note: null }] });
+    routineP('r-u50', 'Corps U50', 'pdc-u50');
+    routineP('r-u50e', 'Entretien U50', 'pdc-u50-e');
+    routineP('r-u50a', 'Aide U50', 'aide-u50');
+
+    const rendu = (slug) => page.evaluate((sl) => {
+      const d = window.THPlan && window.THPlan.dernier;
+      const x = d && d.plan.exercices.filter((q) => q.slug === sl)[0];
+      // Sans consigne (Entretenir, mesure sans charge), le plan n'a pas d'en-tête.
+      return x ? { jaune: x.entete ? x.entete.jaune : [], gris: x.entete ? x.entete.gris : null,
+        etat: x.consigne ? x.consigne.etat : null, mode: x.mode, intention: x.intention, mesure: x.mesure,
+        carte: x.carteLest ? { titre: x.carteLest.titre, detail: x.carteLest.detail, oui: x.carteLest.oui,
+          non: x.carteLest.non, leste: x.carteLest.leste } : null,
+        chauffes: !!(x.chauffes || x.proposition), degressive: !!x.degressive,
+        lignes: x.lignes.map((l) => [l.role, l.charge, l.vise]) } : null;
+    }, slug);
+    const cartes = () => page.evaluate(() => Array.from(document.querySelectorAll('.proposition-lest')).map((c) => ({
+      texte: (c.querySelector('.pc-texte') || {}).textContent, detail: (c.querySelector('.pc-detail') || {}).textContent,
+      boutons: Array.from(c.querySelectorAll('button')).map((b) => b.textContent) })));
+    const entetesCols = () => page.evaluate(() => Array.from(document.querySelectorAll('.cols-seance span'))
+      .map((e) => e.textContent.trim()).filter(Boolean));
+    const blocSeance = () => page.evaluate(() => (document.querySelector('#vue-seance') || {}).textContent || '');
+    const jauneDom = () => page.evaluate(() => Array.from(document.querySelectorAll('.legende-exo'))
+      .map((l) => l.textContent));
+    const profilBase = () => base.profiles[0];
+    const violationsAvant = gardeBanc.violations;
+    const lestJournal = () => base.journal.filter((j) => j.op === 'profil' && j.champs && j.champs.lest_reponse !== undefined);
+    const titreAttendu = MoteurP.carteLestTitre({ niveau: 8, bas: 6 });
+    const detailAttendu = MoteurP.carteLestDetail({ niveau: 8, bas: 6 });
+    const repsSeul = async (i, reps) => {
+      const l = await ligne(i);
+      const champs = await l.$$('input');
+      await champs[0].fill(String(reps));
+      await l.$eval('.ok-serie', (b) => b.click());
+      await attendre(450);
+    };
+
+    // ── A. LA CARTE DU LEST : une, en tête, sans point d'interrogation.
+    await aller('/saisie');
+    await demarrerRoutine('Corps U50');
+    await attendre(900);
+    const a1 = await rendu('pdc-u50');
+    ok('[P50] DISCRIMINANT — le poids du corps est COACHÉ : « Poids du corps × 8 » (mesure en reps, charge 0), pas le silence d’avant',
+      !!a1 && a1.jaune.length === 1 && sp(a1.jaune[0]) === 'Poids du corps × 8' && a1.mesure === 'reps' && a1.etat === 'carte_lest',
+      JSON.stringify(a1));
+    ok('[P50] jamais « 0 kg » dans ce que le coach écrit', !/0\s?kg/.test(sp((a1 && a1.jaune.join(' ')) + ' ' + (a1 && a1.gris))),
+      JSON.stringify([a1 && a1.jaune, a1 && a1.gris]));
+    const carteA = await cartes();
+    ok('[P50] UNE SEULE carte du lest, avec le titre et le détail du formateur et ses deux boutons',
+      carteA.length === 1 && sp(carteA[0].texte) === sp(titreAttendu) && sp(carteA[0].detail) === sp(detailAttendu) &&
+        JSON.stringify(carteA[0].boutons.map(sp)) === JSON.stringify(['J’ai du lest', 'Pas de lest']),
+      JSON.stringify(carteA));
+    ok('[P50] la carte ne pose pas de question : aucun point d’interrogation',
+      !/\?/.test((carteA[0] && carteA[0].texte || '') + (carteA[0] && carteA[0].detail || '')), JSON.stringify(carteA));
+    ok('[P50] la ligne tient (pas de ligne haute), et le plan n’a ni chauffes ni test',
+      !!a1 && a1.lignes.every((l) => l[0] !== 'test' && l[0] !== 'coach') && !a1.chauffes && !a1.degressive,
+      JSON.stringify(a1 && a1.lignes));
+    ok('[P50] la grille d’un exercice en reps n’a pas de colonne de charge',
+      JSON.stringify(await entetesCols()) === '["PRÉC.","REPS","EFFORT"]', JSON.stringify(await entetesCols()));
+    ok('[P50] la zone choisie (Mix 6-8) est l’étiquette de l’exercice',
+      /Mix/.test(await texte('.puce-zone')), JSON.stringify(await texte('.puce-zone')));
+
+    // ── B. « PAS DE LEST » : les reps s'étirent, la carte ne revient plus.
+    const repereB = base.journal.length;
+    await page.evaluate(() => document.querySelector('.proposition-lest .pc-refuser').click());
+    await attendre(1500);
+    const b1 = await rendu('pdc-u50');
+    ok('[P50] DISCRIMINANT — « Pas de lest » s’écrit au profil : `lest_reponse = non`, datée',
+      profilBase().lest_reponse === 'non' && !!profilBase().lest_reponse_le && lestJournal().length >= 1,
+      JSON.stringify([profilBase().lest_reponse, profilBase().lest_reponse_le, lestJournal().length]));
+    ok('[P50] la carte a disparu, et la consigne ÉTIRE les reps au-delà de la zone : « Poids du corps × 9 »',
+      (await cartes()).length === 0 && !!b1 && b1.etat === 'etirement_reps' && sp(b1.jaune[0]) === 'Poids du corps × 9' &&
+        b1.carte === null,
+      JSON.stringify([await cartes(), b1]));
+    await abandonner();
+    await aller('/saisie');
+    await demarrerRoutine('Corps U50');
+    await attendre(900);
+    ok('[P50] la carte ne revient JAMAIS : séance suivante, aucune carte, toujours l’étirement',
+      (await cartes()).length === 0 && (await rendu('pdc-u50')).etat === 'etirement_reps',
+      JSON.stringify(await rendu('pdc-u50')));
+    await abandonner();
+
+    // ── C. « J'AI DU LEST » : la version lestée à la place, à 2,5 kg au bas de la zone.
+    profilBase().lest_reponse = null;
+    profilBase().lest_reponse_le = null;
+    await aller('/saisie');
+    await demarrerRoutine('Corps U50');
+    await attendre(900);
+    ok('[P50] sans réponse, la carte est de retour (la réponse se relit au profil)', (await cartes()).length === 1,
+      JSON.stringify(await cartes()));
+    await page.evaluate(() => document.querySelector('.proposition-lest .pc-ajouter').click());
+    await attendre(1800);
+    const c1 = await rendu('pdc-u50-l');
+    ok('[P50] « J’ai du lest » s’écrit au profil : `lest_reponse = oui`',
+      profilBase().lest_reponse === 'oui' && !!profilBase().lest_reponse_le, JSON.stringify(profilBase().lest_reponse));
+    ok('[P50] DISCRIMINANT — l’exercice libre est REMPLACÉ par sa version lestée, qui part de 2,5 kg au bas de la zone (« 2,5 kg × 6 »)',
+      !!c1 && sp(c1.jaune[0]) === '2,5 kg × 6' && /Corps Lesté U50/.test(await blocSeance()) &&
+        !/Corps Libre U50/.test(await blocSeance()),
+      JSON.stringify([c1, await jauneDom()]));
+    ok('[P50] la colonne s’appelle « LEST (KG) », et le lesté n’a ni chauffes ni dégressive',
+      (await entetesCols()).indexOf('LEST (KG)') >= 0 && !!c1 && !c1.chauffes && !c1.degressive,
+      JSON.stringify([await entetesCols(), c1 && c1.chauffes]));
+    await page.evaluate(() => document.querySelector('.ok-serie').click());
+    await attendre(1500);
+    const serieLeste = base.sets.filter((x) => x.exercise_slug === 'pdc-u50-l' && x.rang === 1)[0];
+    ok('[P50] la première série lestée, validée à vide, s’écrit 2,5 kg × 6 en base',
+      !!serieLeste && serieLeste.charge_kg === 2.5 && serieLeste.reps === 6,
+      JSON.stringify(serieLeste && [serieLeste.charge_kg, serieLeste.reps]));
+    await abandonner();
+    await aller('/saisie');
+    await demarrerRoutine('Corps U50');
+    await attendre(900);
+    ok('[P50] la carte ne revient pas après « J’ai du lest » non plus', (await cartes()).length === 0,
+      JSON.stringify(await cartes()));
+    await abandonner();
+
+    // ── D. ENTRETENIR PAR EXERCICE : choisi sur l'étiquette, comme le profil.
+    await aller('/saisie');
+    await demarrerRoutine('Entretien U50');
+    await attendre(900);
+    const d0 = await rendu('pdc-u50-e');
+    ok('[P50] avant le choix, l’exercice a sa consigne (« Poids du corps × 11 ») et son étiquette de zone',
+      !!d0 && sp(d0.jaune[0]) === 'Poids du corps × 11' && (await texte('.puce-zone')) !== '', JSON.stringify([d0, await texte('.puce-zone')]));
+    await page.click('.puce-zone');
+    await attendre(700);
+    const feuille = await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .option-mode'))
+      .map((b) => ({ mode: b.dataset.mode, actif: b.classList.contains('active'), t: b.textContent })));
+    ok('[P50] la feuille de zone porte « Progresser » (actif) et « Entretenir »',
+      JSON.stringify(feuille.map((f) => [f.mode, f.actif, f.t])) === JSON.stringify([['progresser', true, 'Progresser'], ['entretien', false, 'Entretenir']]),
+      JSON.stringify(feuille));
+    await page.evaluate(() => document.querySelector('#feuille-contenu .option-mode[data-mode="entretien"]').click());
+    await attendre(1800);
+    const d1 = await rendu('pdc-u50-e');
+    ok('[P50] DISCRIMINANT — « Entretenir » s’écrit en base (`modes_exercice`, ajout seul, user_id et choisi_a posés à l’appareil)',
+      base.modes.length === 1 && base.modes[0].exercise_slug === 'pdc-u50-e' && base.modes[0].mode === 'entretien' &&
+        base.modes[0].user_id === 'u-banc' && !!base.modes[0].choisi_a && !!base.modes[0].id,
+      JSON.stringify(base.modes));
+    const jauneE = await jauneDom();
+    ok('[P50] le coach se TAIT sur cet exercice : plus de ligne jaune, plus de zone — une puce « Entretien », la porte du retour',
+      !!d1 && d1.mode === 'entretien' && d1.intention === 'entretien' && d1.jaune.length === 0 && d1.etat === null &&
+        (await texte('.puce-zone')) === 'Entretien' && !/Poids du corps ×/.test(await blocSeance()),
+      JSON.stringify([d1, await texte('.puce-zone')]));
+    // EXACTEMENT comme Entretenir au profil : la même absence.
+    await abandonner();
+    profilBase().intention = 'entretien';
+    await aller('/saisie');
+    await demarrerRoutine('Entretien U50');
+    await attendre(900);
+    const jauneProfil = await jauneDom();
+    const d2 = await rendu('pdc-u50-e');
+    ok('[P50] DISCRIMINANT (I13) — Entretenir par exercice et Entretenir au profil rendent le MÊME en-tête, sans ligne du coach',
+      !!d2 && d2.jaune.length === 0 && sp(jauneProfil.join('|').replace(/Entretien/g, '')) === sp(jauneE.join('|').replace(/Entretien/g, '')),
+      JSON.stringify([jauneProfil, jauneE]));
+    await abandonner();
+    profilBase().intention = 'progresser';
+    // Le retour : par la même feuille. La ligne la plus récente fait foi.
+    await aller('/saisie');
+    await demarrerRoutine('Entretien U50');
+    await attendre(900);
+    ok('[P50] après rechargement, l’exercice reste en Entretenir (le choix est sur l’appareil et en base)',
+      (await rendu('pdc-u50-e')).mode === 'entretien', JSON.stringify(await rendu('pdc-u50-e')));
+    await page.click('.puce-zone');
+    await attendre(700);
+    await page.evaluate(() => document.querySelector('#feuille-contenu .option-mode[data-mode="progresser"]').click());
+    await attendre(1800);
+    const d3 = await rendu('pdc-u50-e');
+    ok('[P50] « Progresser » le rend au coach : la consigne revient, la puce « Entretien » part, deux lignes en base (ajout seul)',
+      !!d3 && d3.mode === 'progresser' && d3.jaune.length === 1 && sp(d3.jaune[0]) === 'Poids du corps × 11' &&
+        (await texte('.puce-zone')) !== 'Entretien' && base.modes.length === 2 &&
+        base.modes[0].mode === 'entretien' && base.modes[1].mode === 'progresser',
+      JSON.stringify([d3, base.modes.map((m) => m.mode)]));
+    await abandonner();
+
+    // ── E. L'AIDE, COACHÉE : sans chauffes, tapée en positif.
+    await aller('/saisie');
+    await demarrerRoutine('Aide U50');
+    await attendre(900);
+    const e1 = await rendu('aide-u50');
+    ok('[P50] DISCRIMINANT — l’aide est coachée et se dit « Aide 25 kg × 11 », jamais « −25 kg »',
+      !!e1 && sp(e1.jaune[0]) === 'Aide 25 kg × 11' && !/[−-]\s?25/.test(sp(e1.jaune[0])), JSON.stringify(e1));
+    ok('[P50] sur une aide : ni chauffes ni proposition ni dégressive, ni ligne du coach en plus',
+      !!e1 && !e1.chauffes && !e1.degressive && (await compter('.proposition-chauffes')) === 0 &&
+        e1.lignes.every((l) => l[0] !== 'test' && l[0] !== 'coach'),
+      JSON.stringify(e1 && [e1.chauffes, e1.degressive, e1.lignes]));
+    ok('[P50] la colonne s’appelle « AIDE (KG) »', (await entetesCols()).indexOf('AIDE (KG)') >= 0,
+      JSON.stringify(await entetesCols()));
+    // Valider à vide, d'abord : le fantôme (−25) s'écrit, jamais +25.
+    await page.evaluate(() => document.querySelectorAll('.ok-serie')[0].click());
+    await attendre(1400);
+    const enCours = (rang) => base.sets.filter((x) => x.exercise_slug === 'aide-u50' && x.rang === rang &&
+      base.sessions.some((q) => q.id === x.session_id && q.statut === 'en_cours'))[0];
+    const serieVide = enCours(1);
+    ok('[P50] valider à vide écrit l’aide du coach, en négatif : −25, jamais +25',
+      !!serieVide && serieVide.charge_kg === -25, JSON.stringify(serieVide && serieVide.charge_kg));
+    await saisirSerie(1, '22,5', 11);
+    await attendre(1400);
+    const serieAide = enCours(2);
+    ok('[P50] DISCRIMINANT — « 22,5 » tapé en positif part en base à −22,5 (UNE fonction range le signe)',
+      !!serieAide && serieAide.charge_kg === -22.5 && serieAide.reps === 11,
+      JSON.stringify(serieAide && [serieAide.charge_kg, serieAide.reps]));
+    await abandonner();
+
+    // ── F. LA PAGE D'EXERCICE, SUR UN EXERCICE EN REPS ET SUR UNE AIDE : la dernière
+    // séance et le record, sans « 0 kg » ni signe moins.
+    await aller('/exercice/pdc-u50');
+    await attendre(700);
+    const fichePdc = await page.evaluate(() => Array.from(document.querySelectorAll('#page-exercice .exo-li'))
+      .map((l) => [(l.querySelector('.exo-li-k') || {}).firstChild ? l.querySelector('.exo-li-k').firstChild.textContent : '',
+        (l.querySelector('.exo-li-v') || {}).textContent || '']));
+    const val = (fiche, motif) => ((fiche.filter((l) => motif.test(l[0]))[0]) || [null, null])[1];
+    ok('[P50] page d’exercice (reps) : « Dernière séance » et « Record » disent les reps, sans « kg »',
+      /^8\b/.test(sp(val(fichePdc, /Dernière séance/))) && /^8\b/.test(sp(val(fichePdc, /^Record/))) &&
+        !/kg/.test(sp(val(fichePdc, /Dernière séance/) + val(fichePdc, /^Record/))),
+      JSON.stringify(fichePdc));
+    await aller('/exercice/aide-u50');
+    await attendre(700);
+    const ficheAide = await page.evaluate(() => Array.from(document.querySelectorAll('#page-exercice .exo-li'))
+      .map((l) => [(l.querySelector('.exo-li-k') || {}).firstChild ? l.querySelector('.exo-li-k').firstChild.textContent : '',
+        (l.querySelector('.exo-li-v') || {}).textContent || '']));
+    const tableAide = await page.evaluate(() => Array.from(document.querySelectorAll('#page-exercice .tr-charge'))
+      .map((e) => e.textContent));
+    ok('[P50] page d’exercice (aide) : « Dernière séance » et « Record » se lisent « Aide 25 kg × 10 »',
+      sp(val(ficheAide, /Dernière séance/)) === 'Aide 25 kg × 10' && sp(val(ficheAide, /^Record/)) === 'Aide 25 kg × 10',
+      JSON.stringify(ficheAide));
+    ok('[P50] la table par reps d’une aide dit « Aide … kg », jamais un signe moins',
+      tableAide.length > 0 && tableAide.every((t) => /^Aide /.test(sp(t)) && !/[−-]/.test(t)), JSON.stringify(tableAide));
+
+    // ── G. LA DÉMONSTRATION : la carte du lest, sans rien écrire.
+    profilBase().lest_reponse = null;
+    profilBase().lest_reponse_le = null;
+    const journalAvantG = lestJournal().length;
+    const parisAvant = base.predictions.length;
+    await aller('/saisie?escalier=lest');
+    await demarrerRoutine('Aide U50');
+    await attendre(900);
+    const cartesG = await cartes();
+    ok('[P50] DISCRIMINANT — `?escalier=lest` montre la carte du lest (le vrai moteur, un historique inventé)',
+      cartesG.length === 1 && sp(cartesG[0].texte) === sp(titreAttendu) &&
+        JSON.stringify(cartesG[0].boutons.map(sp)) === JSON.stringify(['J’ai du lest', 'Pas de lest']),
+      JSON.stringify(cartesG));
+    await page.evaluate(() => document.querySelector('.proposition-lest .pc-ajouter').click());
+    await attendre(1200);
+    ok('[P50] répondre à la démonstration n’écrit RIEN : ni profil, ni pari, ni exercice remplacé',
+      (await cartes()).length === 0 && profilBase().lest_reponse === null && lestJournal().length === journalAvantG &&
+        base.predictions.length === parisAvant && /Aide Machine U50/.test(await blocSeance()) &&
+        !/Corps Lesté U50/.test(await blocSeance()),
+      JSON.stringify([profilBase().lest_reponse, lestJournal().length - journalAvantG, base.predictions.length - parisAvant]));
+    await abandonner();
+    await aller('/saisie?escalier=0');
+    await attendre(500);
+
+    // ── Le ménage : rien ne doit rester pour les sections suivantes.
+    profilBase().lest_reponse = null;
+    profilBase().lest_reponse_le = null;
+    profilBase().intention = 'progresser';
+    ok('[P50] la garde (C6) n’a rien signalé dans cette section', gardeBanc.violations === violationsAvant,
+      JSON.stringify(gardeBanc.liste.slice(-2)));
+    ok('[P50] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
 
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');

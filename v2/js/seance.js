@@ -96,8 +96,31 @@
   // Recopie la séance en ne clonant QUE la branche touchée. Une séance fait
   // quelques dizaines de séries : le coût est nul, et l'immuabilité vaut mieux
   // qu'une micro-économie sur un écran qu'on écrit sur disque à chaque geste.
+  // ── L'OCCURRENCE D'UN EXERCICE DANS LA SÉANCE ───────────────────────────
+  //
+  // Un même exercice peut figurer DEUX FOIS dans une séance — le tapis en
+  // échauffement puis en cardio, le couché en ouverture puis en finition
+  // (mesuré par Claude.ai : 151 séances sur 611 chez Aurélien). Chaque entrée
+  // de `seance.exercices` porte donc son identifiant d'occurrence,
+  // `occurrence`, posé UNE FOIS — à la première construction qui la voit, sur
+  // l'identifiant de sa première série (`o-<id>`) — puis gardé tel quel, quoi
+  // qu'on fasse de ses séries ou de sa place. Il vit dans le brouillon de
+  // l'appareil, jamais en base (`sets` n'a pas de colonne pour lui) : une
+  // séance reprise depuis la base en reçoit un neuf, et ses paris s'y
+  // rattachent par la série qu'ils observent (`parisDeLOccurrence`).
+  function avecOccurrences(exercices) {
+    var vu = false;
+    var sortie = (exercices || []).map(function (e, i) {
+      if (!e || e.occurrence) return e;
+      vu = true;
+      var s0 = (e.series || [])[0];
+      return Object.assign({}, e, { occurrence: 'o-' + (s0 && s0.id ? s0.id : (e.exercise_slug || 'x') + '-' + i) });
+    });
+    return vu ? sortie : exercices;
+  }
+
   function avecExercices(seance, exercices) {
-    return Object.assign({}, seance, { exercices: exercices });
+    return Object.assign({}, seance, { exercices: avecOccurrences(exercices) });
   }
 
   function avecSerie(seance, iExo, iSerie, champs) {
@@ -706,16 +729,22 @@
   //     lignes vides partent. On ne récrit pas du travail réellement fait sous
   //     un autre exercice : ce serait une donnée fausse, pas un raccourci.
   //
-  // Le nouveau hérite du SLOT — repos cible, groupe de superset, nombre de
-  // lignes — et de rien d'autre. Pas la note (« barre basse » ne veut rien dire
+  // Le nouveau hérite du SLOT — repos cible, groupe de superset — et des
+  // lignes que l'ancien N'A PAS ENCORE FAITES, avec leurs types (une chauffe non
+  // faite reste une chauffe), vides : rien de plus (prérequis d'« adapter »,
+  // 04/10/2026). Avant, il recevait autant de lignes que l'ancien en avait,
+  // faites et chauffes comprises, toutes en travail : 3 séries faites sur 4,
+  // et la séance passait de 4 à 7 lignes. « Faite » se lit comme partout
+  // (`partEnBase`, chantier 35) : une série importée est faite sans
+  // `validee_a`. Il hérite du reste de rien d'autre. Pas la note (« barre basse » ne veut rien dire
   // sur une presse), pas les reps visées (la routine les prescrivait pour
   // l'ancien mouvement), pas `routine_exercise_id` : ce n'est plus cette ligne
   // de routine.
   function remplacerExercice(seance, iExo, slug, idSerie) {
     var ancien = (seance.exercices || [])[iExo];
     if (!ancien || !slug) return seance;
-    var faites = (ancien.series || []).filter(function (s) { return !!s.validee_a; });
-    var n = Math.max(1, (ancien.series || []).length);
+    var faites = (ancien.series || []).filter(function (s) { return partEnBase(s); });
+    var restantes = (ancien.series || []).filter(function (s) { return !partEnBase(s); });
     var neuf = {
       exercise_slug: slug,
       routine_exercise_id: null,
@@ -724,7 +753,13 @@
       groupe_superset: ancien.groupe_superset === undefined ? null : ancien.groupe_superset,
       series: []
     };
-    for (var i = 0; i < n; i++) neuf.series.push(serieVide(idSerie));
+    restantes.forEach(function (s) {
+      var ligne = serieVide(idSerie);
+      ligne.type_serie = s.type_serie || 'travail';
+      neuf.series.push(ligne);
+    });
+    // Un exercice sans ligne ne se saisit pas : tout était fait, il en reçoit une.
+    if (!neuf.series.length) neuf.series.push(serieVide(idSerie));
 
     var exos = seance.exercices.slice();
     if (faites.length) {
@@ -1814,6 +1849,66 @@
   //
   // Un pari d'avant 49-C ne porte pas `role` : on le relit par l'ancienne
   // règle, celle qui l'avait écrit — les `k` derniers rangs au haut.
+  // ── L'OCCURRENCE COACHÉE ET LES PARIS D'UNE OCCURRENCE ──────────────────
+  //
+  // Le coach suit UNE occurrence d'un exercice dans la séance ; les autres sont
+  // libres — ni ligne du coach, ni pari, ni message —, leurs séries comptent
+  // comme d'habitude pour le volume et l'historique. Laquelle : la PREMIÈRE
+  // dans l'ordre de la séance, tant qu'aucune n'a de pari ; dès qu'une
+  // occurrence porte des paris de la séance, c'est ELLE, où qu'elle soit. Sans
+  // cette seconde moitié, poser le même exercice au-dessus de celui qu'on
+  // vient de commencer (ou l'y déplacer) passait le coach à l'autre : ses
+  // lignes figées se défigeaient (I4) et ses paris observés restaient sans
+  // ligne (I7). Rend l'indice, ou -1.
+  function occurrenceCoachee(seance, slug, paris) {
+    var exos = (seance && seance.exercices) || [];
+    var premiere = -1;
+    for (var i = 0; i < exos.length; i++) {
+      if (!exos[i] || exos[i].exercise_slug !== slug) continue;
+      if (premiere < 0) premiere = i;
+      if (parisDeLOccurrence(paris, seance, i).length) return i;
+    }
+    return premiere;
+  }
+
+  // La première dans l'ordre : celle à qui revient un pari d'avant la règle.
+  function premiereOccurrence(exercices, slug) {
+    var exos = exercices || [];
+    for (var i = 0; i < exos.length; i++) if (exos[i] && exos[i].exercise_slug === slug) return i;
+    return -1;
+  }
+
+  // Les paris de l'occurrence `iExo`, parmi ceux de la séance. Un pari porte
+  // l'occurrence qui l'a écrit (`fondement.occurrence`) :
+  //   · connue de la séance → il est à elle, et à elle seule ;
+  //   · inconnue (séance reprise depuis la base : ses occurrences ont un
+  //     identifiant neuf) ou absente (pari écrit avant cette règle) → la série
+  //     qu'il observe dit à qui il est ;
+  //   · sans série observée : un pari d'avant la règle appartient à la
+  //     première occurrence (il n'y en avait qu'une à coacher) ; un pari d'une
+  //     occurrence qui n'est plus dans la séance n'appartient à personne — il
+  //     ne doit pas figer les lignes d'une autre.
+  function parisDeLOccurrence(paris, seance, iExo) {
+    var exos = (seance && seance.exercices) || [];
+    var exo = exos[iExo];
+    if (!exo) return [];
+    var slug = exo.exercise_slug;
+    var connues = {}, serieA = {};
+    exos.forEach(function (e, k) {
+      if (!e) return;
+      if (e.occurrence) connues[e.occurrence] = true;
+      (e.series || []).forEach(function (s) { if (s && s.id) serieA[s.id] = k; });
+    });
+    var premiere = premiereOccurrence(exos, slug);
+    return (paris || []).filter(function (l) {
+      if (!l || l.exercise_slug !== slug || !l.fondement || l.fondement.seance !== seance.id) return false;
+      var o = l.fondement.occurrence;
+      if (o && connues[o]) return o === exo.occurrence;
+      if (l.set_observe && Object.prototype.hasOwnProperty.call(serieA, l.set_observe)) return serieA[l.set_observe] === iExo;
+      return !o && iExo === premiere;
+    });
+  }
+
   function figeesDe(paris, series, consigne) {
     var parSerie = {};
     (paris || []).forEach(function (l) {
@@ -2240,6 +2335,8 @@
     couvertureSeance: couvertureSeance,
     typeDe: typeDe,
     figeesDe: figeesDe,
+    occurrenceCoachee: occurrenceCoachee,
+    parisDeLOccurrence: parisDeLOccurrence,
     observationTenue: observationTenue,
     peutObserver: peutObserver,
     parisAObserver: parisAObserver,

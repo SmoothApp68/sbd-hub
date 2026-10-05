@@ -1626,9 +1626,14 @@
   // seconde ligne, et NE CONSTRUIT RIEN. Elle ne fait pas revenir la consigne
   // et ne crée pas un constat absent : le prochain vrai rendu s'en charge.
   // Toute envie de lui faire davantage est le signal qu'il faut un rendu.
-  function majConstat(racine, slug, constat) {
+  // Prérequis d'« adapter » — `iExo` (facultatif) désigne l'occurrence : un
+  // exercice présent deux fois a deux légendes, et seule celle que le coach
+  // suit porte un constat.
+  function majConstat(racine, slug, constat, iExo) {
     if (!racine || !slug) return;
-    var legende = racine.querySelector('.legende-exo[data-exo="' + slug + '"]');
+    var sel = '.legende-exo[data-exo="' + slug + '"]';
+    var legende = (iExo !== undefined && iExo !== null
+      ? racine.querySelector(sel + '[data-iexo="' + iExo + '"]') : null) || racine.querySelector(sel);
     if (!legende) return;
     var ligne = legende.querySelector('.constat');
     if (!ligne || !constat) return;
@@ -1877,6 +1882,7 @@
       // Le slug sur la légende : la SEULE chose dont `majConstat` a besoin
       // pour retrouver ses deux lignes (48b-6b-2).
       if (x.slug) entree.setAttribute('data-exo', x.slug);
+      if (x._iExo !== undefined && x._iExo !== null) entree.setAttribute('data-iexo', String(x._iExo));
 
       var ligne = el('div', 'legende-haut');
       var nom = el('div', 'exo-seance');
@@ -1910,7 +1916,7 @@
       // Elle ne paraît que si la consigne porte une zone : pas en silence, pas
       // sous 3 reps d'habitude, pas en Entretenir, pas sur une mesure sans
       // charge, jamais en mode programme.
-      var eti = !vue.programme && vue.etiquette ? vue.etiquette(x.slug) : null;
+      var eti = !vue.programme && vue.etiquette ? vue.etiquette(x.slug, x._iExo) : null;
       if (eti) nom.appendChild(puceZone(eti, vue.zoneChoisie && vue.zoneChoisie(x.slug),
         vue.surZone && function () { vue.surZone(x.slug); }));
       // §9.17 — UN EXERCICE EN ENTRETENIR PAR SON PROPRE CHOIX n'a plus de
@@ -1951,7 +1957,7 @@
       // ⚠️ ET JAMAIS EN JAUNE. Le jaune est la voix de la CONSIGNE — ce qu'il
       // reste à faire. Un constat en jaune se lirait comme une prescription
       // qu'on aurait déjà remplie.
-      var constat = !vue.programme && vue.constat ? vue.constat(x.slug) : null;
+      var constat = !vue.programme && vue.constat ? vue.constat(x.slug, x._iExo) : null;
       if (constat) {
         entree.appendChild(el('div', 'constat', constat.verdict));
         if (constat.suite) entree.appendChild(el('div', 'constat-suite', constat.suite));
@@ -1959,7 +1965,7 @@
         // compteur, une fois, dans le constat — sans alarme.
         if (constat.escalier) entree.appendChild(el('div', 'constat-suite constat-escalier', constat.escalier));
       }
-      var lib = constat ? null : (!vue.programme && vue.libelles ? vue.libelles(x.slug) : null);
+      var lib = constat ? null : (!vue.programme && vue.libelles ? vue.libelles(x.slug, x._iExo) : null);
       if (lib) {
         // §3.10 — TOUCHER LA CONSIGNE OUVRE LE CALCUL. Les lignes jaunes comme
         // la phrase grise, et le silence compris : « pourquoi rien ? » est la

@@ -396,7 +396,17 @@ const NOTIONS = [
     module: 'moteur.js', fonction: 'frereQuiProgresse', lecteurs: [],
     par: ['frereDuBlocage'],
     raison: 'la règle (un progrès après le dernier progrès de l’exercice bloqué, un meilleur en hausse, ' +
-      'la même zone pour la flèche) se décide une fois ; le plan ne lit que son résultat, figé avec la consigne.' }
+      'la même zone pour la flèche) se décide une fois ; le plan ne lit que son résultat, figé avec la consigne.' },
+  { notion: 'l’occurrence coachée d’un exercice (la première, ou celle qui porte ses paris)', pr: 'correctif 04/10/2026',
+    module: 'seance.js', fonction: 'occurrenceCoachee', lecteurs: ['plan.js', 'app.js'],
+    parAilleurs: { 'plan.js': ['planDeSeance'], 'app.js': ['occurrenceLibre'] },
+    raison: 'prérequis d’« adapter » : un exercice deux fois dans la séance, le coach en suit une ; ' +
+      'le plan et l’écran (en-tête, étiquette, constat) le décident par la même règle.' },
+  { notion: 'les paris d’une occurrence (un exercice deux fois, sans paris mélangés)', pr: 'correctif 04/10/2026',
+    module: 'seance.js', fonction: 'parisDeLOccurrence', lecteurs: ['plan.js', 'app.js'],
+    parAilleurs: { 'plan.js': ['planDeSeance', 'verifierPlan'], 'app.js': ['dejaNote', 'observerSerie'] },
+    raison: 'prérequis d’« adapter » : le plan, I7, « déjà noté » et l’observation lisaient les paris par ' +
+      '(séance, exercice) — la seconde occurrence se serait figée sur les paris de la première.' }
 ];
 
 const CONSEIL = 'Passe par `planDeSeance` (v2/js/plan.js), ou ajoute ce fichier à la liste ' +

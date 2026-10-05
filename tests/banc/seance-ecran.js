@@ -221,7 +221,15 @@ const CATALOGUE = [
   { slug: 'pdc-u50', nom: 'Corps Libre U50', mesure: 'reps', charge: 'aucune', muscles_primaires: ['ischio_jambiers'], muscles_secondaires: [] },
   { slug: 'pdc-u50-l', nom: 'Corps Lesté U50', mesure: 'charge_reps', charge: 'ajoutee', parent: 'pdc-u50', muscles_primaires: ['ischio_jambiers'], muscles_secondaires: [] },
   { slug: 'pdc-u50-e', nom: 'Corps Entretien U50', mesure: 'reps', charge: 'aucune', muscles_primaires: ['ischio_jambiers'], muscles_secondaires: [] },
-  { slug: 'aide-u50', nom: 'Aide Machine U50 (Machine)', mesure: 'charge_reps', charge: 'assistance', equipement: 'machine', muscles_primaires: ['ischio_jambiers'], muscles_secondaires: [] }
+  { slug: 'aide-u50', nom: 'Aide Machine U50 (Machine)', mesure: 'charge_reps', charge: 'assistance', equipement: 'machine', muscles_primaires: ['ischio_jambiers'], muscles_secondaires: [] },
+  // Prérequis d'« adapter » (correctif du 04/10/2026) — réservés à la section
+  // 7 G novodecies : un exercice coaché (son historique y est posé), son
+  // remplaçant et un voisin, sans historique. Aucun muscle, pour ne peser sur
+  // le volume de personne ; des noms qu'aucune autre recherche ne trouve.
+  { slug: 'adapt-u51', nom: 'Adapté U51 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: [], muscles_secondaires: [] },
+  { slug: 'rempl-u51', nom: 'Remplaçant U51 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: [], muscles_secondaires: [] },
+  { slug: 'voisin-u51', nom: 'Voisin U51 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: [], muscles_secondaires: [] },
+  { slug: 'tiers-u51', nom: 'Tiers U51 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: [], muscles_secondaires: [] }
 ];
 
 // ⚠️ UNE ROUTINE PORTE MAINTENANT SES LIGNES (chantier 43). `routine_sets`
@@ -3224,15 +3232,16 @@ const SETS_IMPORTES = [
   await menuExo(0, 0);            // Développé Couché — 1 série validée sur 3
   await entree('Remplacer');
   await choisirCatalogue('tractions');
-  // ⚠️ LE NOUVEAU HÉRITE DU SLOT, DONC DU NOMBRE DE LIGNES — trois, comme le
-  // Développé Couché en avait trois. L'ancien, lui, ne garde que sa ligne
-  // FAITE. Le bloc passe donc de 3+2 à 1+3+2 lignes, et l'entrelacement le dit :
-  // A n'a plus qu'un tour, B en a trois.
-  ok('l’ancien garde SES séries validées, le nouveau démarre vide à sa suite',
+  // ⚠️ LE NOUVEAU HÉRITE DU SLOT ET DES LIGNES QUE L'ANCIEN N'A PAS FAITES —
+  // deux, sur les trois du Développé Couché (prérequis d'« adapter »,
+  // 04/10/2026 : avant, il les reprenait toutes, la faite comprise). L'ancien,
+  // lui, ne garde que sa ligne FAITE. Le bloc passe donc de 3+2 à 1+2+2 lignes,
+  // et l'entrelacement le dit : A n'a plus qu'un tour, B en a deux.
+  ok('l’ancien garde SES séries validées, le nouveau démarre vide à sa suite, avec les lignes restantes',
     JSON.stringify((await formeEcran())[0]) ===
     JSON.stringify(['Développé Couché (Barre)', 'Tractions', 'Planche']) &&
     JSON.stringify(await etiquettes(0)) ===
-    JSON.stringify(['A1', 'B1', 'C1', 'B2', 'C2', 'B3']),
+    JSON.stringify(['A1', 'B1', 'C1', 'B2', 'C2']),
     JSON.stringify((await formeEcran())[0]) + ' · ' + JSON.stringify(await etiquettes(0)));
   ok('la série faite est intacte en base — aucune n’a changé d’exercice',
     setsSeance().filter((s) => s.exercise_slug === 'dc-barre').length === 1 &&
@@ -3321,7 +3330,7 @@ const SETS_IMPORTES = [
   ok('les bornes sont grisées : le premier ne monte pas, le dernier ne descend pas',
     JSON.stringify(bornes) === '[true,true]', JSON.stringify(bornes));
   ok('l’avancement remplace le palier : des faits, aucune prescription',
-    /2 \/ 6 séries/.test(await texte('.bloc-seance .replie-avancement')),
+    /2 \/ 5 séries/.test(await texte('.bloc-seance .replie-avancement')),
     (await texte('.bloc-seance .replie-avancement')).trim());
 
   // ⚠️ DÉPLACER UN SUPERSET ENTIER. C'est le bloc qui bouge, pas ses branches :
@@ -10379,6 +10388,203 @@ const SETS_IMPORTES = [
     ok('[P50] la garde (C6) n’a rien signalé dans cette section', gardeBanc.violations === violationsAvant,
       JSON.stringify(gardeBanc.liste.slice(-2)));
     ok('[P50] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
+  }
+
+  console.log('\n══ 7 G novodecies. LES PRÉREQUIS D’« ADAPTER » : REMPLACER, DÉPLACER, DEUX FOIS LE MÊME, SUPPRIMER (correctif du 04/10/2026) ══');
+  //
+  // Cinq défauts des gestes existants, avant « adapter la séance » :
+  //   · le remplaçant reçoit les lignes que l'ancien n'a pas faites, rien de
+  //     plus (3 séries faites sur 4 : 4 lignes au total, plus 7) ;
+  //   · I4 suit un exercice déplacé (par son identifiant d'occurrence) ;
+  //   · un même exercice deux fois : la seconde occurrence est libre — ni
+  //     ligne du coach, ni pari, ni message ;
+  //   · supprimer un exercice vide ses observations sur l'appareil, et ses
+  //     paris restent ;
+  //   · (la réponse au lest, qui ne recalcule que son exercice, se joue en
+  //     7 G octodecies : « Pas de lest » y étire les reps sans rien défiger.)
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : le banc lit le PLAN que l'app calcule
+  // (`THPlan.dernier`), la file et le magasin `predictions` de l'appareil, et
+  // vérifie I4 avec le vrai `THPlan.verifierPlan` sur un plan forgé.
+  {
+    const tA = Date.now();
+    const poserA = (id, jours, slug, lignes /* [[kg, reps], …] */) => {
+      const debut = ilYa(jours * 86400000, tA).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'Adapter — ' + id, debut,
+        fin: finDe(debut, tA).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      lignes.forEach(([kg, reps], k) => base.sets.push({ id: id + '-s' + (k + 1), session_id: id, user_id: 'u-banc',
+        exercise_slug: slug, charge_kg: kg, reps, duree_s: null, distance_m: null, type_serie: 'travail',
+        rang: k + 1, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null, repos_s: null, note: null,
+        source: 'app', created_at: debut, modifie_a: null }));
+    };
+    poserA('a51-1', 21, 'adapt-u51', [[60, 8], [60, 8], [60, 8], [60, 8]]);
+    poserA('a51-2', 14, 'adapt-u51', [[60, 8], [60, 8], [60, 8], [60, 8]]);
+    poserA('a51-3', 7, 'adapt-u51', [[60, 8], [60, 8], [60, 8], [60, 8]]);
+    ROUTINES.push({ id: 'r-u51', nom: 'Adapter U51', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [
+        { id: 'r-u51-a', routine_id: 'r-u51', exercise_slug: 'adapt-u51', rang: 0,
+          routine_sets: progr(4, 8), repos_cible_s: 90, groupe_superset: null, note: null },
+        { id: 'r-u51-b', routine_id: 'r-u51', exercise_slug: 'voisin-u51', rang: 1,
+          routine_sets: progr(2, 8), repos_cible_s: 90, groupe_superset: null, note: null },
+        { id: 'r-u51-c', routine_id: 'r-u51', exercise_slug: 'tiers-u51', rang: 2,
+          routine_sets: progr(2, 8), repos_cible_s: 90, groupe_superset: null, note: null }] });
+
+    const etatA = () => page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      return { seance: d.plan.seance,
+        exos: d.entrees.seance.exercices.map((e) => ({ slug: e.exercise_slug, occ: e.occurrence,
+          n: e.series.length, faites: e.series.filter((x) => !!x.validee_a).length })),
+        plan: d.plan.exercices.map((x) => ({ slug: x.slug, occ: x.occurrence, consigne: !!x.consigne,
+          roles: x.lignes.map((l) => l.role), figees: x.lignes.filter((l) => l.figee).length,
+          paris: (x.paris || []).filter(Boolean).length })) };
+    });
+    const validerDansBloc = async (iBloc, k) => {
+      await page.evaluate(([b, j]) => document.querySelectorAll('.bloc-seance')[b]
+        .querySelectorAll('.ligne-serie')[j].querySelector('.ok-serie').click(), [iBloc, k]);
+      await attendre(800);
+    };
+    const parisIdb = (sid) => page.evaluate((id) => new Promise((res) => {
+      const r = indexedDB.open('trainhub-v2');
+      r.onsuccess = () => {
+        const tx = r.result.transaction(['predictions'], 'readonly');
+        tx.objectStore('predictions').getAll().onsuccess = (e) => {
+          res((e.target.result || []).filter((l) => l && l.fondement && l.fondement.seance === id)
+            .map((l) => ({ id: l.id, occ: l.fondement.occurrence || null, set: l.set_observe || null })));
+        };
+        tx.oncomplete = () => r.result.close();
+      };
+    }), sid);
+    const parisBase = (sid) => base.predictions.filter((l) => l.fondement && l.fondement.seance === sid);
+    const violationsAvant = gardeBanc.violations;
+
+    // ── A. REMPLACER APRÈS 3 SÉRIES SUR 4.
+    await aller('/saisie');
+    await demarrerRoutine('Adapter U51');
+    await attendre(900);
+    const a0 = await etatA();
+    ok('[A51] prémisse : l’exercice est coaché, 4 lignes, et ses deux voisins en ont 2',
+      a0.plan[0].consigne && JSON.stringify(a0.exos.map((e) => [e.slug, e.n])) ===
+        JSON.stringify([['adapt-u51', 4], ['voisin-u51', 2], ['tiers-u51', 2]]), JSON.stringify(a0));
+    for (const k of [0, 1, 2]) await validerDansBloc(0, k);
+    await menuBloc(0);
+    await entree('Remplacer');
+    await choisirCatalogue('Remplaçant U51');
+    await attendre(900);
+    const a1 = await etatA();
+    ok('[A51] DISCRIMINANT — remplacé après 3 séries sur 4 : l’ancien garde ses 3 séries faites, le remplaçant reçoit LA ligne restante (4 lignes, plus 7)',
+      JSON.stringify(a1.exos.map((e) => [e.slug, e.n, e.faites])) ===
+        JSON.stringify([['adapt-u51', 3, 3], ['rempl-u51', 1, 0], ['voisin-u51', 2, 0], ['tiers-u51', 2, 0]]) &&
+        (await compter('.ligne-serie')) === 8,
+      JSON.stringify(a1.exos) + ' · ' + (await compter('.ligne-serie')) + ' ligne(s)');
+    await abandonner();
+
+    // ── B. DÉPLACER, PUIS I4. Le plan « avant » se lit DANS le mode Modifier
+    // (un rendu, les deux lignes faites déjà figées par leurs paris observés),
+    // juste avant la flèche.
+    await aller('/saisie');
+    await demarrerRoutine('Adapter U51');
+    await attendre(900);
+    await validerDansBloc(0, 0);
+    await validerDansBloc(0, 1);
+    await attendre(800);
+    await page.click('#bandeau-seance .bandeau-modifier');
+    await attendre(700);
+    const avantB = await page.evaluate(() => JSON.parse(JSON.stringify(window.THPlan.dernier.plan)));
+    const violB = gardeBanc.violations;
+    await page.evaluate(() => document.querySelectorAll('.bloc-seance.replie')[0]
+      .querySelector('.geste[aria-label="Descendre le bloc"]').click());
+    await attendre(700);
+    await page.click('#bandeau-seance .bandeau-modifier');
+    await attendre(900);
+    const b1 = await page.evaluate((avant) => {
+      const P = window.THPlan;
+      const apres = P.dernier.plan;
+      const i4 = (v) => v.erreurs.filter((e) => e.indexOf('I4 —') === 0);
+      const f = JSON.parse(JSON.stringify(apres));
+      const x = f.exercices.filter((q) => q.slug === 'adapt-u51')[0];
+      x.lignes[1].charge = (Number(x.lignes[1].charge) || 0) + 5;
+      const figeesDe = (p) => p.exercices.filter((q) => q.slug === 'adapt-u51')[0].lignes.filter((l) => l.figee).length;
+      return { ordre: apres.exercices.map((q) => q.slug), figeesAvant: figeesDe(avant), figees: figeesDe(apres),
+        juste: i4(P.verifierPlan(apres, undefined, avant)), forgee: i4(P.verifierPlan(f, undefined, avant)) };
+    }, avantB);
+    ok('[A51] prémisse : l’exercice est descendu sous le voisin, ses deux lignes faites figées avant ET après',
+      JSON.stringify(b1.ordre) === JSON.stringify(['voisin-u51', 'adapt-u51', 'tiers-u51']) &&
+        b1.figeesAvant === 2 && b1.figees === 2, JSON.stringify(b1));
+    ok('[A51] déplacer ne suspend plus I4 : le plan juste passe, et la garde de l’app n’a rien vu',
+      b1.juste.length === 0 && gardeBanc.violations === violB, JSON.stringify([b1.juste, gardeBanc.liste.slice(-1)]));
+    ok('[A51] DISCRIMINANT — une ligne figée modifiée APRÈS le déplacement : I4 la voit',
+      b1.forgee.length === 1 && /charge/.test(b1.forgee[0]), JSON.stringify(b1.forgee));
+
+    // ── C. LE MÊME EXERCICE UNE SECONDE FOIS : libre. Posé après le tiers, pour
+    // qu'il ne touche pas le premier (deux occurrences VOISINES s'affichent en
+    // un seul bloc — `construireBlocs`, d'avant ce chantier).
+    const sid = (await etatA()).seance;
+    await menuBloc(2);
+    await entree('Ajouter un exercice après');
+    await choisirCatalogue('Adapté U51');
+    await attendre(900);
+    const c0 = await etatA();
+    ok('[A51] ajouter une seconde fois un exercice déjà présent est accepté, avec son propre identifiant',
+      JSON.stringify(c0.exos.map((e) => e.slug)) === JSON.stringify(['voisin-u51', 'adapt-u51', 'tiers-u51', 'adapt-u51']) &&
+        !!c0.exos[1].occ && !!c0.exos[3].occ && c0.exos[1].occ !== c0.exos[3].occ &&
+        (await compter('.bloc-seance')) === 4, JSON.stringify(c0.exos));
+    await attendre(1200);
+    const parisAvantC = parisBase(sid).length;
+    const violC = gardeBanc.violations;
+    await validerDansBloc(3, 0);
+    await attendre(1500);
+    const c1 = await etatA();
+    const legende = (iBloc) => page.evaluate((b) => {
+      const l = document.querySelectorAll('.bloc-seance')[b].querySelector('.legende-exo');
+      return { consigne: !!l.querySelector('.consigne, .consigne-dit, .constat'), zone: !!l.querySelector('.puce-zone') };
+    }, iBloc);
+    ok('[A51] DISCRIMINANT — la seconde occurrence est LIBRE : pas de consigne, aucune ligne du coach, aucun pari',
+      !c1.plan[3].consigne && c1.plan[3].roles.every((r) => r === 'hors') && c1.plan[3].paris === 0 &&
+        c1.exos[3].faites === 1 && c1.plan[1].consigne, JSON.stringify(c1.plan));
+    ok('[A51] …sa série faite n’écrit aucun pari, ni sur l’appareil ni en base',
+      parisBase(sid).length === parisAvantC &&
+        (await parisIdb(sid)).every((l) => l.occ !== c1.exos[3].occ),
+      JSON.stringify([parisAvantC, parisBase(sid).length, await parisIdb(sid)]));
+    ok('[A51] …et aucun message du coach sur elle : ni en-tête, ni constat, ni étiquette de zone',
+      JSON.stringify(await legende(3)) === JSON.stringify({ consigne: false, zone: false }) && (await legende(1)).consigne,
+      JSON.stringify([await legende(1), await legende(3)]));
+    ok('[A51] les paris de la première disent SON occurrence', parisBase(sid).length === 2 &&
+      parisBase(sid).every((l) => l.fondement.occurrence === c1.exos[1].occ),
+      JSON.stringify(parisBase(sid).map((l) => l.fondement.occurrence)));
+
+    ok('[A51] la garde n’a rien vu pendant l’ajout et la validation', gardeBanc.violations === violC,
+      JSON.stringify(gardeBanc.liste.slice(-1)));
+
+    // ── D. SUPPRIMER LA PREMIÈRE : ses observations se vident sur l'appareil.
+    const occA = c1.exos[1].occ;
+    const d0 = await parisIdb(sid);
+    ok('[A51] prémisse : sur l’appareil, ses deux paris sont observés', d0.filter((l) => l.occ === occA && l.set).length === 2,
+      JSON.stringify(d0));
+    base.reseau = false;
+    await menuBloc(1);
+    await entree('Supprimer l’exercice');
+    await entree('Supprimer quand même');
+    await attendre(900);
+    const d1 = await parisIdb(sid);
+    ok('[A51] DISCRIMINANT — supprimer l’exercice vide ses observations SUR L’APPAREIL (hors ligne : sans écho du serveur), et ses paris restent',
+      d1.filter((l) => l.occ === occA).length === 2 && d1.filter((l) => l.occ === occA).every((l) => l.set === null),
+      JSON.stringify(d1));
+    base.reseau = true;
+    await attendre(2500);
+    const d2 = await etatA();
+    ok('[A51] l’autre occurrence reprend le coach : sans ligne figée par les paris partis, et la garde se tait',
+      JSON.stringify(d2.exos.map((e) => e.slug)) === JSON.stringify(['voisin-u51', 'tiers-u51', 'adapt-u51']) && d2.plan[2].consigne &&
+        d2.plan[2].figees === 0 && gardeBanc.violations === violC,
+      JSON.stringify([d2.plan, gardeBanc.liste.slice(-1)]));
+    ok('[A51] en base aussi, les paris restent, sans observation', parisBase(sid).length === 2 &&
+      parisBase(sid).every((l) => !l.set_observe), JSON.stringify(parisBase(sid).map((l) => l.set_observe)));
+    await abandonner();
+
+    ok('[A51] la garde (C6) n’a rien signalé dans cette section', gardeBanc.violations === violationsAvant,
+      JSON.stringify(gardeBanc.liste.slice(-2)));
+    ok('[A51] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
 
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');

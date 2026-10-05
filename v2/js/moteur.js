@@ -2846,10 +2846,17 @@
   // en base ne change (test à valeur figée). Seul un entier ≥ 1 ajoute un
   // quatrième fait ; `undefined`, `null` et 0 ne le font jamais, sans quoi
   // « |0 » changerait l'identifiant de tous les paris d'ouverture.
-  async function idDePrediction(seance, slug, rang, revision) {
+  // Prérequis d'« adapter » (04/10/2026) — L'OCCURRENCE ENTRE DANS LE NOM. Un
+  // même exercice peut figurer deux fois dans une séance : (séance, exercice,
+  // rang, révision) ne suffisait plus à dire QUEL pari. `occurrence`
+  // (l'identifiant de l'exercice dans la séance, `THSeance`) s'ajoute en
+  // dernier, `|o=…`. Sans elle, le nom est EXACTEMENT celui d'avant : un pari
+  // déjà en base garde son identifiant, et se recalcule à l'identique.
+  async function idDePrediction(seance, slug, rang, revision, occurrence) {
     var nom = String(seance) + '|' + String(slug) + '|' + String(rang);
     var rev = nombre(revision);
     if (rev !== null && rev >= 1 && Math.floor(rev) === rev) nom += '|' + String(rev);
+    if (occurrence) nom += '|o=' + String(occurrence);
     return uuidDuNom(nom);
   }
 

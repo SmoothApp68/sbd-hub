@@ -217,6 +217,10 @@
       // les paris des 7 jours, sans rejeu. Et la semaine allégée se dit.
       if (p.length && o.compteur !== undefined) p[0].fondement.compteur = o.compteur;
       if (p.length && o.allegee) p[0].fondement.allegee = true;
+      // Prérequis d'« adapter » — l'occurrence de l'exercice dans la séance :
+      // un même exercice peut y figurer deux fois, et chaque pari dit à QUELLE
+      // occurrence il appartient (`THSeance.parisDeLOccurrence`, l'identifiant).
+      if (p.length && o.occurrence) p[0].fondement.occurrence = o.occurrence;
       paris[l.iSerie] = p.length ? p[0] : null;
     });
 
@@ -602,7 +606,8 @@
     var S = Seance(), M = Moteur();
     var series = (exo && exo.series) || [];
     var c = consigneDuSlug && consigneDuSlug.consigne ? consigneDuSlug : null;
-    var base = { iExo: iExo, slug: exo ? exo.exercise_slug : null, consigne: null };
+    var base = { iExo: iExo, slug: exo ? exo.exercise_slug : null, consigne: null,
+                 occurrence: exo && exo.occurrence ? exo.occurrence : null };
     if (!c) {
       base.lignes = series.map(function (s, i) {
         return { iSerie: i, type: S.typeDe(s), role: 'hors', validee: S.partEnBase(s) };
@@ -652,7 +657,8 @@
     var r = planDesLignes(series, consigne, c.contexte || null, figees, {
       slug: base.slug, seance: seanceId === undefined ? null : seanceId,
       reglage: reglage === undefined ? null : reglage, phase: phase,
-      compteur: compteurOuverture, allegee: !!consigne.allegee
+      compteur: compteurOuverture, allegee: !!consigne.allegee,
+      occurrence: base.occurrence || undefined
     });
 
     // L'en-tête décrit la disposition de la consigne sur les lignes de la
@@ -787,7 +793,7 @@
     preremplir(exo, r.lignes, consigne, { reaction: r.reaction, figees: figees }, precedent);
 
     return {
-      iExo: iExo, slug: base.slug,
+      iExo: iExo, slug: base.slug, occurrence: base.occurrence,
       consigne: consigne, contexte: c.contexte || null,
       indices: r.indices, rangs: r.rangs, roles: r.roles, figees: figees,
       planInitial: r.planInitial, faites: r.faites, reaction: r.reaction,
@@ -1020,13 +1026,19 @@
       carte: esc.carte,
       exercices: exos.map(function (exo, i) {
         var slug = exo && exo.exercise_slug;
-        var c = Object.prototype.hasOwnProperty.call(consignes, slug) ? consignes[slug] : null;
+        // Prérequis d'« adapter » — LE COACH SUIT UNE OCCURRENCE de l'exercice
+        // dans la séance (`THSeance.occurrenceCoachee` : la première, ou celle
+        // qui porte déjà ses paris) ; les autres sont libres : ni ligne du
+        // coach, ni pari, ni message (elles comptent pour le volume et
+        // l'historique, comme d'habitude). Et chacune ne lit que SES paris.
+        var coachee = Seance().occurrenceCoachee(seance, slug, e.paris || []) === i;
+        var c = coachee && Object.prototype.hasOwnProperty.call(consignes, slug) ? consignes[slug] : null;
         var suites = e.suites || {};
         var suite = Object.prototype.hasOwnProperty.call(suites, slug) ? suites[slug] : null;
-        var m = Object.prototype.hasOwnProperty.call(isoles, slug) ? isoles[slug] : null;
+        var m = coachee && Object.prototype.hasOwnProperty.call(isoles, slug) ? isoles[slug] : null;
         if (m && portee[slug]) m = m.repli ? { marche: m.marche, repli: m.repli, copie: true } : null;
         if (m) portee[slug] = true;
-        var x = planDExercice(exo, i, c, e.paris || [], seance.id, e.reglage, suite, seance.debut,
+        var x = planDExercice(exo, i, c, Seance().parisDeLOccurrence(e.paris || [], seance, i), seance.id, e.reglage, suite, seance.debut,
           materielDe(exos, i, e.catalogue || null, c, e.refusChauffes || {}), phase,
           !!esc.allegee, Object.prototype.hasOwnProperty.call(seriesRoutine, slug) ? seriesRoutine[slug] : null, m,
           Object.prototype.hasOwnProperty.call(plus, slug) ? plus[slug] : null,
@@ -1797,10 +1809,26 @@
   // SÉRIE (son identifiant), pas sa position : une série ajoutée ou retirée
   // plus haut décale les positions, jamais une ligne figée. Une série
   // supprimée n'a plus de ligne : rien à comparer.
+  // Prérequis d'« adapter » — L'EXERCICE D'UN PLAN DANS UN AUTRE, PAR SON
+  // IDENTIFIANT D'OCCURRENCE (`THSeance`), plus par sa position : déplacer un
+  // exercice (flèches, Réorganiser) ou en insérer un au milieu décalait les
+  // positions, et I4 cessait de suivre les lignes figées pour ce plan. Sans
+  // identifiant (un plan d'avant la règle), la position et l'exercice, comme
+  // avant.
+  function homologue(plan, x, i) {
+    var exos = (plan && plan.exercices) || [];
+    if (x && x.occurrence) {
+      for (var k = 0; k < exos.length; k++) if (exos[k] && exos[k].occurrence === x.occurrence) return exos[k];
+      return null;
+    }
+    var y = exos[i];
+    return y && x && y.slug === x.slug ? y : null;
+  }
+
   function verifierSuite(avant, plan, erreurs) {
     ((avant && avant.exercices) || []).forEach(function (xa, i) {
-      var xp = ((plan && plan.exercices) || [])[i];
-      if (!xp || xp.slug !== xa.slug) return;
+      var xp = homologue(plan, xa, i);
+      if (!xp) return;
       var parId = {};
       (xp.lignes || []).forEach(function (l) { if (l.id) parId[l.id] = l; });
       (xa.lignes || []).forEach(function (la) {
@@ -2480,9 +2508,16 @@
     verifierEscalier(plan, entrees, erreurs);
     verifierMarches(plan, erreurs);
     verifierPoidsDuCorps(plan, erreurs);
+    // Prérequis d'« adapter » — LES PARIS D'UNE OCCURRENCE, et seulement d'elle
+    // (I7) : la seconde occurrence d'un exercice ne doit pas se voir reprocher
+    // les paris de la première.
+    var seanceEntree = entrees && entrees.seance && entrees.seance.exercices ? entrees.seance : null;
     ((plan && plan.exercices) || []).forEach(function (x, i) {
-      var xa = memeSeance ? (avant.exercices || [])[i] : null;
-      verifierExercice(x, erreurs, parisSeance, xa && xa.slug === x.slug ? xa : null);
+      var xa = memeSeance ? homologue(avant, x, i) : null;
+      var siens = parisSeance && seanceEntree
+        ? Seance().parisDeLOccurrence(parisSeance, seanceEntree, i)
+        : parisSeance;
+      verifierExercice(x, erreurs, siens, xa);
     });
     if (avant) verifierSuite(avant, plan, erreurs);
     if (entrees !== undefined) {

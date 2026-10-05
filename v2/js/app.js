@@ -1723,9 +1723,25 @@
   // de l'arithmétique sur trois entiers, pas le moteur.
   var consignes = null;   // { cle, index, parSlug }
 
+  // ⚠️ LA RÉPONSE AU LEST N'EST PLUS DANS LA CLÉ (prérequis d'« adapter »,
+  // 04/10/2026). Elle y était : répondre à la carte recalculait TOUTES les
+  // consignes de la séance — un geste sur un exercice défigeait les autres.
+  // Seule la consigne qui ATTENDAIT la réponse (`carte_lest`) en dépend : elle
+  // se recalcule seule (`consigneDe`), et la version lestée, absente du mémo,
+  // se calcule à son arrivée.
   function cleConsignes() {
     return (seance ? seance.id : '') + '|' + ((profil && profil.intention) || '') +
-      '|' + Profil.rythmeDe(profil) + '|' + lestReponseDe();
+      '|' + Profil.rythmeDe(profil);
+  }
+
+  // Une consigne sauvée sous l'ANCIENNE clé (avec la réponse au lest en
+  // dernier) vaut pour la nouvelle : une mise à jour de l'app en pleine séance
+  // ne défige rien. La consigne qui attendait la carte se recalcule de toute
+  // façon dès qu'une réponse existe.
+  function cleSauveeValable(sauvee, cle) {
+    if (sauvee === cle) return true;
+    return typeof sauvee === 'string' && /^\|(null|oui|non)$/.test(sauvee.slice(cle.length)) &&
+      sauvee.slice(0, cle.length) === cle;
   }
 
   // ⚠️ LA CONSIGNE EST FIGÉE POUR LA SÉANCE dès son premier calcul (MOTEUR
@@ -1938,10 +1954,23 @@
     var cle = cleConsignes();
     if (!consignes || consignes.cle !== cle) {
       var sauvees = consignesSauvees && consignesSauvees.seanceId === seance.id &&
-        consignesSauvees.cle === cle && consignesSauvees.parSlug ? consignesSauvees.parSlug : null;
+        cleSauveeValable(consignesSauvees.cle, cle) && consignesSauvees.parSlug ? consignesSauvees.parSlug : null;
       consignes = { cle: cle, index: Modele.indexerExercices(local.exercices),
                     parSlug: sauvees ? Object.assign({}, sauvees) : {} };
       versionConsignes++;
+    }
+    // §9.17 (prérequis d'« adapter ») — LA RÉPONSE AU LEST NE RECALCULE QUE
+    // L'EXERCICE QUI L'ATTENDAIT : une consigne figée en `carte_lest` (la seule
+    // que la réponse change — sans elle, comme avec « Pas de lest », le moteur
+    // étire les reps) se recalcule une fois qu'une réponse existe, qu'elle
+    // vienne de cet appareil ou d'un autre. Les séries de sa routine restent
+    // celles figées à l'ouverture. Les autres exercices ne bougent pas.
+    var seriesFigees;
+    var attendait = consignes.parSlug[slug];
+    if (attendait && attendait.consigne && attendait.consigne.etat === 'carte_lest' &&
+        lestReponseDe() !== null) {
+      seriesFigees = attendait.seriesRoutine;
+      delete consignes.parSlug[slug];
     }
     if (!Object.prototype.hasOwnProperty.call(consignes.parSlug, slug)) {
       var exo = consignes.index[slug];
@@ -1961,7 +1990,7 @@
       // §14.4 (49-U14) — les séries de travail de la routine, FIGÉES avec la
       // consigne : la semaine allégée en couvre 60 %, et « + Série » ne change
       // pas ce compte en cours de séance.
-      if (calculee) calculee.seriesRoutine = routineAFiger(slug);
+      if (calculee) calculee.seriesRoutine = seriesFigees !== undefined ? seriesFigees : routineAFiger(slug);
       consignes.parSlug[slug] = calculee;
       versionConsignes++;
       sauverConsignes();
@@ -2823,6 +2852,18 @@
     return plan;
   }
 
+  // Prérequis d'« adapter » (04/10/2026) — UNE OCCURRENCE LIBRE : un exercice
+  // présent deux fois dans la séance, sur l'occurrence que le coach ne suit
+  // pas (`Seance.occurrenceCoachee`, la même règle que le plan). Elle n'a ni
+  // en-tête, ni étiquette, ni constat — l'écran ne lui prête pas la voix de
+  // l'autre. Sans indice (la page d'exercice, le menu des zones), l'occurrence
+  // coachée, comme avant.
+  function occurrenceLibre(iExo) {
+    if (!seance || iExo === undefined || iExo === null) return false;
+    var exo = (seance.exercices || [])[iExo];
+    return !!exo && Seance.occurrenceCoachee(seance, exo.exercise_slug, local.predictions || []) !== iExo;
+  }
+
   function planDuSlug(slug) {
     var p = planActuel();
     if (!p) return null;
@@ -2847,7 +2888,8 @@
   // §3.12 (49-U1) — l'en-tête LU SUR LE PLAN : il décrit les lignes de la
   // séance, plus le `n` de la consigne brute. Sans exercice dans la séance
   // (la page d'exercice), la consigne seule.
-  function libellesDe(slug) {
+  function libellesDe(slug, iExo) {
+    if (occurrenceLibre(iExo)) return null;
     var c = consigneDe(slug);
     if (!c) return null;
     var x = planDuSlug(slug);
@@ -2857,7 +2899,8 @@
 
   // §3.8 et §3.10 — l'étiquette de zone et le calcul, tirés du MÊME mémo que
   // les phrases. Trois lectures d'une consigne calculée une fois à l'ouverture.
-  function etiquetteDe(slug) {
+  function etiquetteDe(slug, iExo) {
+    if (occurrenceLibre(iExo)) return null;
     var c = consigneDe(slug);
     return c ? c.etiquette : null;
   }
@@ -2990,8 +3033,8 @@
   // jour — et disait « Pas de palier aujourd'hui » juste après une montée du
   // coach annoncée « dans ta zone ». Il s'affiche, comme avant, quand le BLOC
   // est fini (superset compris).
-  function constatPour(slug) {
-    if (!seance || !blocFini(slug)) return null;
+  function constatPour(slug, iExo) {
+    if (!seance || occurrenceLibre(iExo) || !blocFini(slug)) return null;
     var x = planDuSlug(slug);
     return x && x.constat ? x.constat : null;
   }
@@ -3010,7 +3053,9 @@
       var slug = exo && exo.exercise_slug;
       if (!slug || vus[slug]) return;
       vus[slug] = true;
-      Rendu.majConstat(racine, slug, constatPour(slug));
+      // L'occurrence que le coach suit : c'est sa légende qui porte le constat.
+      var i = Seance.occurrenceCoachee(seance, slug, local.predictions || []);
+      Rendu.majConstat(racine, slug, constatPour(slug, i), i);
     });
   }
 
@@ -3048,17 +3093,22 @@
     return isFinite(r) && r >= 1 ? r : 0;
   }
 
-  function cleNote(slug, revision, rang) {
-    return seance.id + '|' + slug + '|' + (revision || 0) + '|' + rang;
+  // Prérequis d'« adapter » — L'OCCURRENCE FAIT PARTIE DE LA CLÉ. Un même
+  // exercice peut figurer deux fois dans la séance : « déjà noté » se demande
+  // aux paris de CETTE occurrence (`Seance.parisDeLOccurrence`), jamais à ceux
+  // de l'autre. Seule la première est coachée, mais une occurrence peut devenir
+  // la première (l'autre supprimée) : sa clé ne doit rien emprunter.
+  function cleNote(iExo, slug, revision, rang) {
+    var exo = (seance.exercices || [])[iExo];
+    return seance.id + '|' + slug + '|' + (revision || 0) + '|' + rang + '|' +
+      ((exo && exo.occurrence) || '');
   }
 
-  function dejaNote(slug, revision, rang) {
+  function dejaNote(iExo, slug, revision, rang) {
     var rev = revision || 0;
-    if (notesEnCours[cleNote(slug, rev, rang)]) return true;
-    return (local.predictions || []).some(function (l) {
-      return l && l.exercise_slug === slug && l.fondement &&
-        l.fondement.seance === seance.id && revisionDe(l) === rev &&
-        l.fondement.rang === rang;
+    if (notesEnCours[cleNote(iExo, slug, rev, rang)]) return true;
+    return Seance.parisDeLOccurrence(local.predictions || [], seance, iExo).some(function (l) {
+      return revisionDe(l) === rev && l.fondement.rang === rang;
     });
   }
 
@@ -3098,8 +3148,8 @@
     var slug = pari.exercise_slug;
     var rang = pari.fondement.rang;
     var rev = revisionDe(pari);
-    if (dejaNote(slug, rev, rang)) return null;
-    notesEnCours[cleNote(slug, rev, rang)] = true;
+    if (dejaNote(iExo, slug, rev, rang)) return null;
+    notesEnCours[cleNote(iExo, slug, rev, rang)] = true;
     // ⚠️ `emise_a` ET `user_id` SONT POSÉS ICI, comme pour une correction de
     // zone (§9.1.1) : laissés au défaut du serveur, deux séances notées hors
     // ligne remonteraient dans l'ordre du réseau, pas dans celui des gestes.
@@ -3126,8 +3176,11 @@
   // remplacée par la ligne identifiée — ajoutée si une synchronisation l'a
   // emportée entre-temps.
   async function finirPari(provisoire) {
+    // L'occurrence entre dans le nom (`Moteur.idDePrediction`) : sans elle — un
+    // pari d'une séance d'avant la règle —, l'identifiant d'avant, inchangé.
     var calcule = await Moteur.idDePrediction(seance.id, provisoire.exercise_slug,
-      provisoire.fondement.rang, revisionDe(provisoire)).catch(function () { return null; });
+      provisoire.fondement.rang, revisionDe(provisoire),
+      provisoire.fondement.occurrence).catch(function () { return null; });
     var ligne = Object.assign({}, provisoire, { id: calcule || uuid() });
     delete ligne._provisoire;
     var trouve = false;
@@ -3490,9 +3543,10 @@
     // provisoire (`enregistrerPari`, avant `finirPari`) est ignoré ici. Une
     // frappe qui croise la validation l'observait, et l'observation partait
     // vers `id = null` — deux paris du même rang, et aucun en base.
-    var paris = (local.predictions || []).filter(function (l) {
-      return l && l.id && l.exercise_slug === exo.exercise_slug && l.fondement &&
-        l.fondement.seance === seance.id;
+    // Prérequis d'« adapter » — et LES PARIS DE CETTE OCCURRENCE seulement : la
+    // seconde occurrence d'un exercice n'observe pas ceux de la première.
+    var paris = Seance.parisDeLOccurrence(local.predictions || [], seance, iExo).filter(function (l) {
+      return !!l.id;
     });
     var aLire = Seance.parisAObserver(paris, serie, rang, exo.series);
     for (var p = 0; p < aLire.length; p++) await observerPari(aLire[p], serie, exo.series);
@@ -3508,9 +3562,33 @@
     var s = exo && (exo.series || [])[iSerie];
     var id = s && s.id;
     if (!id) return;
+    var ids = {};
+    ids[id] = true;
+    return oublierObservationsDesSeries(ids);
+  }
+
+  // Prérequis d'« adapter » (04/10/2026) — SUPPRIMER UN EXERCICE EMPORTE LES
+  // OBSERVATIONS DE SES SÉRIES, comme une série supprimée emporte la sienne.
+  // Avant, seule la suppression d'une SÉRIE vidait l'observation sur
+  // l'appareil : un exercice supprimé laissait ses paris observés sur des
+  // séries disparues, quand la base, elle, les a déjà vidés (le déclencheur
+  // `sets_efface_observation`, v2_047). Les PARIS restent : ce que le coach a
+  // proposé a été proposé (table immuable). À appeler AVANT de retirer les exercices : les
+  // séries se lisent sur la séance. La partie synchrone (la copie locale) est
+  // faite dès l'appel, avant le redessin.
+  function oublierObservationsDesExercices(indices) {
+    var ids = {};
+    (indices || []).forEach(function (i) {
+      var exo = seance && (seance.exercices || [])[i];
+      ((exo && exo.series) || []).forEach(function (s) { if (s && s.id) ids[s.id] = true; });
+    });
+    return oublierObservationsDesSeries(ids);
+  }
+
+  async function oublierObservationsDesSeries(ids) {
     var maj = [];
     local.predictions = (local.predictions || []).map(function (l) {
-      if (!l || l.set_observe !== id) return l;
+      if (!l || !l.set_observe || !ids[l.set_observe]) return l;
       var m = Object.assign({}, l, { set_observe: null, valeur_observee: null, observee_a: null });
       maj.push(m);
       return m;
@@ -4196,6 +4274,7 @@
         surConfirmer: function () {
           var quoi = cibleExo === null ? indicesDe(bloc) : [cibleExo];
           fermerVoile();
+          oublierObservationsDesExercices(quoi).catch(function () {});
           seance = Seance.retirerExercices(seance, quoi);
           apresStructure();
         },
@@ -4265,6 +4344,7 @@
     var aEffacer = Seance.compterAEffacer(seance, quoi);
     if (!aEffacer.lignes) {
       fermerVoile();
+      oublierObservationsDesExercices(quoi).catch(function () {});
       seance = Seance.retirerExercices(seance, quoi);
       return apresStructure();
     }

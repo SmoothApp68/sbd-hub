@@ -2746,6 +2746,9 @@
     // l'exercice : il n'y a qu'un objet, et deux menus pour lui seraient un de
     // trop (§5.6 — « Sortir » est masqué, pas grisé, sur un bloc d'un seul).
     if (!vue.superset) {
+      // §9.19 — « Machine prise » en tête : c'est le geste du moment où l'on
+      // ouvre ce menu en pleine séance.
+      if (vue.surMachinePrise) entreeMenu(menu, 'Machine prise', { surClic: vue.surMachinePrise });
       entreeMenu(menu, 'Remplacer l’exercice', { surClic: vue.surRemplacer });
     }
     entreeMenu(menu, 'Grouper en superset…', {
@@ -2780,6 +2783,7 @@
     cible.appendChild(t);
 
     var menu = el('div', 'feuille-menu');
+    if (vue.surMachinePrise) entreeMenu(menu, 'Machine prise', { surClic: vue.surMachinePrise });
     entreeMenu(menu, 'Remplacer l’exercice', { surClic: vue.surRemplacer });
     // §5.8 — sortir agit sur UN exercice, jamais sur le bloc entier, et il se
     // pose JUSTE APRÈS son bloc d'origine : il ne remonte pas en fin de séance.
@@ -2791,6 +2795,58 @@
     var sup = el('div', 'feuille-menu');
     entreeMenu(sup, 'Supprimer l’exercice', { classe: 'danger', surClic: vue.surSupprimer });
     cible.appendChild(sup);
+    return cible;
+  }
+
+  // ── « MACHINE PRISE » (MOTEUR §9.19, chantier 51) ───────────────────────
+  //
+  // D'abord « Plus tard », sinon un frère. La feuille ne décide rien : l'ordre
+  // des frères, la présence de « Plus tard » et le fait de chaque frère
+  // arrivent tout faits (`THSeance.plusTard`, `THSeance.freresProposes`,
+  // « Dernière séance » de la page d'exercice). Elle écrit seulement leurs
+  // phrases, avec le formateur de la page d'exercice (`texteMeilleure`).
+  function texteFaitFrere(fait) {
+    if (!fait) return 'Première fois ici';
+    var d = new Date(fait.date);
+    var quand = M().jourMois(d, new Date().getFullYear());
+    var valeur = texteMeilleure(fait);
+    return valeur ? 'Dernière fois : ' + valeur + ', le ' + quand : 'Dernière fois le ' + quand;
+  }
+
+  function choixMachinePrise(menu, titre, sous, surClic) {
+    var b = el('button', 'choix-mp');
+    b.type = 'button';
+    b.appendChild(el('span', 'mp-titre', titre));
+    b.appendChild(el('span', 'mp-sous', sous));
+    b.addEventListener('click', surClic);
+    menu.appendChild(b);
+    return b;
+  }
+
+  function rendreFeuilleMachinePrise(cible, vue) {
+    vider(cible);
+    var t = el('div', 'feuille-t', 'Machine prise');
+    t.appendChild(el('em', '', vue.nom));
+    cible.appendChild(t);
+
+    if (vue.tard) {
+      var tard = el('div', 'feuille-menu machine-prise');
+      choixMachinePrise(tard, 'Plus tard',
+        'Il passe après ' + vue.tard.apres + '. Ta consigne ne change pas.',
+        vue.tard.surChoisir).classList.add('plus-tard');
+      cible.appendChild(tard);
+    }
+
+    var freres = el('div', 'feuille-menu machine-prise');
+    (vue.freres || []).forEach(function (f) {
+      choixMachinePrise(freres, 'Un frère : ' + f.nom, texteFaitFrere(f.fait), f.surChoisir)
+        .classList.add('frere');
+    });
+    if (!(vue.freres || []).length) {
+      cible.appendChild(el('p', 'feuille-aide sans-frere', 'Pas de frère au catalogue pour cet exercice.'));
+      entreeMenu(freres, 'Remplacer l’exercice', { surClic: vue.surCatalogue });
+    }
+    cible.appendChild(freres);
     return cible;
   }
 
@@ -3637,6 +3693,8 @@
     rendreFeuilleZone: rendreFeuilleZone,
     rendreFeuilleBloc: rendreFeuilleBloc,
     rendreFeuilleExercice: rendreFeuilleExercice,
+    rendreFeuilleMachinePrise: rendreFeuilleMachinePrise,
+    texteFaitFrere: texteFaitFrere,
     rendreFeuilleSupprimer: rendreFeuilleSupprimer,
     phraseEffacement: phraseEffacement,
     rendreFeuilleFin: rendreFeuilleFin,

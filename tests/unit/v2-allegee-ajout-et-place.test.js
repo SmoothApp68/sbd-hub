@@ -197,10 +197,14 @@ describe('PR 4 — l’app allège l’exercice qu’on vient d’ajouter', () =
 
   test('le catalogue : l’ajout et l’insertion passent par l’allégée ; le remplacement non', () => {
     const corps = extraire('rendreCatalogue');
-    const rempl = corps.slice(corps.indexOf('Seance.remplacerExercice'), corps.indexOf('Seance.insererExercice'));
-    const suite = corps.slice(corps.indexOf('Seance.insererExercice'));
-    expect(rempl).toMatch(/\.then\(puisLigneDePlus\)/);
+    // 51-2 — le remplacement est un chemin partagé avec le frère de « Machine
+    // prise » (`remplacerDansLaSeance`) : sa ligne de plus, jamais l'allégée.
+    expect(corps.slice(0, corps.indexOf('Seance.insererExercice')))
+      .toMatch(/return remplacerDansLaSeance\(intentionCatalogue\.remplace, exo\.slug\)/);
+    const rempl = extraire('remplacerDansLaSeance');
+    expect(rempl).toMatch(/Seance\.remplacerExercice\([\s\S]*ligneDePlusPourAjout\(avant, slug\)/);
     expect(rempl).not.toMatch(/Allegee/);
+    const suite = corps.slice(corps.indexOf('Seance.insererExercice'));
     expect((suite.match(/\.then\(puisAllegeeEtLigneDePlus\)/g) || [])).toHaveLength(2);
   });
 });

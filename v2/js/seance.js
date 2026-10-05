@@ -716,6 +716,68 @@
     return oublierRangsOrigine(normaliserGroupes(avecExercices(seance, exos)));
   }
 
+  // ══ « MACHINE PRISE » (MOTEUR §9.19, chantier 51) ═══════════════════════
+  //
+  // D'abord « Plus tard » : l'exercice prévu, un peu plus loin. Sinon un frère,
+  // avec sa propre consigne. Deux fonctions pures, comme les gestes ci-dessus :
+  // elles disent OÙ va le bloc et QUELS frères proposer ; le geste lui-même est
+  // `reordonnerBlocs` (déplacer) ou `remplacerExercice` (un frère), déjà là.
+  //
+  // `blocs` : `[{ id, exercices: [{ slug, travail_valide }] }]`, dans l'ordre
+  // de la séance. `travail_valide` : une série de travail du bloc est validée.
+  // Rend `{ possible: true, ordre: [id…] }`, ou `{ possible: false, raison }` —
+  // « dernier » (rien derrière lui) ou « commencé » (on ne coupe pas un
+  // exercice commencé : seul le frère reste).
+  //
+  // ⚠️ LE BLOC PASSE JUSTE APRÈS LE BLOC SUIVANT, ET C'EST TOUT. Un superset est
+  // un bloc : il bouge en entier, sans que cette fonction ait à le savoir. Le
+  // geste se répète — deux fois, il recule de deux. La consigne ne change pas :
+  // la charge ne dépend pas de la position (mesuré, 2 089 cas), et §12 bis
+  // interdit une règle d'ordre sans mesure.
+  function plusTard(blocs, i) {
+    var liste = blocs || [];
+    var bloc = liste[i];
+    if (!bloc || i >= liste.length - 1) return { possible: false, raison: 'dernier' };
+    var commence = (bloc.exercices || []).some(function (e) { return !!(e && e.travail_valide); });
+    if (commence) return { possible: false, raison: 'commencé' };
+    var ordre = liste.map(function (b) { return b.id; });
+    ordre[i] = liste[i + 1].id;
+    ordre[i + 1] = bloc.id;
+    return { possible: true, ordre: ordre };
+  }
+
+  // Les frères à proposer pour `slug` : même `mouvement` au catalogue
+  // (`THModele.freresDe`, la seule lecture de la colonne), lui excepté.
+  //
+  // `catalogue` : l'index du catalogue (`{ slug: { nom, mouvement } }`).
+  // `faits` : `{ slug: fait }`, le dernier chiffre de chaque frère — CE QUE DIT
+  // « Dernière séance » sur sa page d'exercice, calculé par l'appelant avec la
+  // même fonction (jamais ici : ce module ne lit pas l'historique). Un frère
+  // absent de `faits` n'a jamais été fait (« Première fois ici »).
+  // `presents` : les slugs déjà dans la séance.
+  //
+  // L'ORDRE : d'abord ceux qui ne sont pas déjà dans la séance ; parmi eux,
+  // ceux qui ont un historique, le plus récent d'abord, puis les autres par
+  // nom. Un frère déjà dans la séance reste proposé, à la fin : il y serait une
+  // seconde occurrence, libre (§9.13 bis).
+  function freresProposes(slug, catalogue, faits, presents) {
+    var index = catalogue || {};
+    var connus = faits || {};
+    var ici = {};
+    (presents || []).forEach(function (s) { ici[s] = true; });
+    var liste = racine.THModele.freresDe(index, slug).map(function (s) {
+      return { slug: s, fait: connus[s] || null, deja_dans_la_seance: !!ici[s] };
+    });
+    var nom = function (s) { return racine.THModele.nommer(index, s); };
+    var quand = function (f) { var t = new Date(f.date).getTime(); return isNaN(t) ? -Infinity : t; };
+    return liste.sort(function (a, b) {
+      if (a.deja_dans_la_seance !== b.deja_dans_la_seance) return a.deja_dans_la_seance ? 1 : -1;
+      if (!a.fait !== !b.fait) return a.fait ? -1 : 1;
+      if (a.fait && b.fait && quand(a.fait) !== quand(b.fait)) return quand(b.fait) - quand(a.fait);
+      return nom(a.slug).localeCompare(nom(b.slug), 'fr') || (a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0);
+    });
+  }
+
   // ── Remplacer (§5.2) ────────────────────────────────────────────────────
   //
   // « Remplacer est un ajouter suivi d'un sauter, en gardant la position. »
@@ -2349,6 +2411,8 @@
     reordonnerBlocs: reordonnerBlocs,
     grouperBlocs: grouperBlocs,
     degrouperExercice: degrouperExercice,
+    plusTard: plusTard,
+    freresProposes: freresProposes,
     remplacerExercice: remplacerExercice,
     insererExercice: insererExercice,
     retirerExercices: retirerExercices,

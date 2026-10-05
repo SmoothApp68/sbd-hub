@@ -1193,6 +1193,13 @@ La carte revient tant que la dernière séance porte la marque ; elle disparaît
 **Référence** : `cas_douleur51.py` (`zone_plus_de_reps`, `carte_reprise`, la neutralité sur les séances d'Aurélien) ; cas `cas_douleur51.json`.
 
 
+### 9.21 La charge de départ — décidée le 05/10/2026 (chantier 52)
+
+> **La routine donne un point de départ ; dès qu'il a des données, le coach décide seul — et le dit.**
+
+Un exercice **jamais fait** par la personne (aucune série de travail dans son historique) et dont la routine porte une **charge de départ** (`charge_cible_kg`, ECRAN-SAISIE §7 quindecies.3) : la consigne part de cette charge, aux reps de la routine, et la phrase grise le dit : « Première fois ici : on part de ta charge de départ, 60 kg. » (par le formateur unique). Sans charge de départ : « Première fois ici » comme aujourd'hui. **Dès la première série validée, l'historique existe : le coach décide seul.** Une charge de départ n'est ni un pari sur un palier, ni une règle : c'est la seule donnée disponible.
+
+
 ## 10. L'incrément
 
 ### 10.1 Règle

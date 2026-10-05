@@ -212,7 +212,10 @@
   // ⚠️ `rang` DEPUIS v2_043 (ch. 46). Sans elle dans cette liste, PostgREST ne
   // renvoie jamais la colonne — la bibliothèque trierait sur un champ absent et
   // retomberait silencieusement sur le nom.
-  var COLONNES_ROUTINE = 'id, nom, note, archivee_a, rang, created_at, modifiee_a';
+  // ⚠️ ET `dossier` DEPUIS v2_057 (ch. 52, §7 duodecies.3) : une étiquette,
+  // NULL pour « Sans dossier ». Même raison que `rang` : absente d'ici, la
+  // bibliothèque ne saurait jamais regrouper.
+  var COLONNES_ROUTINE = 'id, nom, note, archivee_a, rang, dossier, created_at, modifiee_a';
   // `note` est LUE et jamais écrite par l'éditeur de routine — c'est la fin de
   // séance qui la pose (§7 septies.1, « la note suit l'exercice quand on le
   // réutilise »). La tenir hors de `CHAMPS_EXERCICE` (routines.js) est ce qui

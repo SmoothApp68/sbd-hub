@@ -315,7 +315,9 @@ describe('49-U18 — la cible du constat : un seul calcul (« le coach ne fait q
       cleConsignes: () => 'k', empreinteValidations: () => 'e', exerciceFini: () => true,
       seriesDeTravailDe: () => [], seancesDeLExercice: () => [],
       zoneDe: () => 'mix', seancesSousConsigne: () => ['s1'],
-      periodesAllegees: () => [], periodesSerieDePlusDe: () => periodes, enEdition: () => false
+      periodesAllegees: () => [], periodesSerieDePlusDe: () => periodes, enEdition: () => false,
+      // 52-1 : la charge de départ de la routine (MOTEUR §9.21), lue par `optionsDeConsigne`.
+      chargeDeDepartDe: () => null
     };
     vm.createContext(ctx);
     ['optionsDeConsigne', 'suiteDe'].forEach((n) => vm.runInContext(extraire(n), ctx));

@@ -2089,8 +2089,7 @@ commencé.
 
 ### 7 quindecies.3 La charge cible — ce qu'elle est, et ce qu'elle n'est pas
 
-`routine_sets.charge_cible_kg` existe, et l'éditeur la saisit. **C'est une CIBLE, facultative,
-qui ne prime JAMAIS sur le moteur.** L'invariant « la routine ne porte aucune charge » se
+`routine_sets.charge_cible_kg` existe, et l'éditeur la saisit. **Depuis le 05/10/2026 (chantier 52), c'est une CHARGE DE DÉPART** : elle ne sert que **la première fois** que la personne fait l'exercice (aucune série de cet exercice dans son historique) ; ensuite, **le coach décide seul** (« uniquement le coach, les reps c'est la routine — on ne fige pas vraiment les poids », Aurélien). L'éditeur l'appelle « **Charge de départ** », avec « Le coach part d'ici la première fois, puis décide d'après tes séances. » ; pour un exercice déjà fait, il n'affiche plus de champ mais « Charge : le coach décide d'après tes séances (dernière fois : {fait}). » — **rien n'est ignoré sans être dit**. Dans la cascade du pré-remplissage, elle ne descend que sur un exercice jamais fait (plus « faute de séance au même rang »). Les charges déjà en base restent, sans effet sur un exercice déjà fait. L'invariant « la routine ne porte aucune charge » se
 précise, il ne se relâche pas : ce qui reste interdit, c'est une charge **observée**
 (`charge_kg`, un poids, un RM) — une valeur périmée dès qu'on progresse.
 
@@ -2308,11 +2307,18 @@ routines qui vont ensemble, mélangées au reste.
 > **À rouvrir quand le moteur parlera**, pas avant. Voir `CADRAGE-V2.md` §2 quinquies,
 > chantier 5 « construction de programmes ».
 
-> ⚠️ **NON LIVRÉ, et reporté explicitement** (chantier 41, §4 du prompt) : cinq routines
-> tiennent dans une liste, et un dossier demande une migration. Les dossiers viendront avec
-> les cycles.
+> ✅ **LIVRÉ au chantier 52 (05/10/2026), sans attendre les cycles** : l'import arrive, et avec lui les « six à huit routines qui vont ensemble ». `routines.dossier` (texte facultatif, 1 à 40 caractères, sans espace au bord ; migration `v2_057`). **Une étiquette, sans ordre ni cycle** (ceux-là restent l'étape 3). Le dossier se choisit dans l'éditeur ; la bibliothèque regroupe les routines par dossier, repliables, « Sans dossier » en dernier ; l'ordre dans un dossier est l'ordre global (`rang`), « Ranger » ne change pas ; le nom reste unique par personne, pas par dossier.
 
 ---
+
+## 7 quindecies.4 « En faire une routine » et « Dupliquer » — décidés le 05/10/2026 (chantier 52)
+
+**En faire une routine.** Dans le menu ⋯ du détail de **n'importe quelle séance** (importée ou saisie dans l'app) : « **En faire une routine** » → « Une nouvelle routine » ou « Mettre à jour une routine ». **Nouvelle** : un aperçu (nom, dossier, et pour chaque exercice ses séries, ses reps et son repos avec son origine), puis « Créer la routine ». **Mettre à jour** : la routine choisie, et **le chemin de la question de fin de séance** (§6.3 : les mêmes écarts, le même aperçu des ajouts, retraits et changements de séries, la même écriture) — pas un second mécanisme ; les repos et les notes de la routine restent les siens. **Ce qui est repris** : la **structure** — exercices dans l'ordre (une occurrence = un bloc ; dans un superset, les séries d'un même exercice forment un seul bloc), supersets, séries par type (un « échec » devient une série de travail), reps des séries comme **repères** (`reps_visees`), durée et distance du cardio. **Jamais de charge.** **Le repos** (absent de l'export Hevy) : celui de l'exercice dans la routine de la personne la plus récemment modifiée qui le contient, sinon un **défaut** — 180 s pour le premier gros mouvement (le premier polyarticulaire : au moins 3 muscles principaux et secondaires), 120 s pour les autres polyarticulaires, 90 s pour une isolation, rien pour un exercice sans muscle — et l'aperçu dit son origine (« par défaut » ou le nom de la routine) ; dans un superset, seul le dernier exercice porte le repos. **Ces repos sont des valeurs par défaut**, pas une règle du coach. **Le nom** : le titre de la séance, rendu unique par personne (« (2) », « (3) »…).
+
+**Dupliquer.** Dans l'en-tête de l'éditeur, à côté de « Ranger » et « Supprimer » (pas sur la carte de la bibliothèque, qui n'a volontairement pas de menu) : une copie complète (exercices, séries, repos, notes, charges de départ, dossier), nommée « … (copie) », puis « (copie 2) »… ; le rang suivant de la bibliothèque. C'est le geste pour faire la semaine 2 à partir de la semaine 1, ou une version lourde et légère d'un même jour.
+
+**Référence** : `organiser52.py` ; cas `cas_organiser52.json`.
+
 
 ## 7 decies. Un groupe de superset a toujours au moins deux exercices
 

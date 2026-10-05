@@ -355,6 +355,16 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
     });
   });
 
+  // 52-1 (§9.21) — la charge de départ, la première fois : l'en-tête (jaune
+  // et gris) et la feuille, sur trois charges dont une décimale et une sans
+  // reps de routine.
+  [[60, 10], [22.5, 8], [100, null]].forEach(([charge, reps]) => {
+    const r = M.consigneDExercice([], undefined, '2026-10-05T10:00:00Z', { mesure: 'charge_reps',
+      equipement: 'barre', intention: 'progresser', reglage: 'normal', depart: { charge, reps, n: 3 } });
+    noter('départ', 'charge de départ ' + charge, r.libelles.jaune.concat([r.libelles.gris]));
+    noter('départ', 'charge de départ ' + charge, textesDe(M.pourquoiConsigne(r.consigne, 'normal', '2026-10-05T10:00:00Z')));
+  });
+
   test('chaque famille est jouée, et la date relative l\'est vraiment', () => {
     const parFamille = {};
     vues.forEach((v) => { parFamille[v.famille] = (parFamille[v.famille] || 0) + 1; });
@@ -381,6 +391,10 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
     // 51-3 : la feuille (3 phrases, 4 choix, 3 sous-titres) + 4 cas × 2 cartes ×
     // (titre, phrase, 3 choix) ; « Plus de reps » au militaire, à charge égale.
     expect(parFamille.douleur).toBe(10 + 40);
+    // 52-1 : 3 charges de départ × (jaune, gris, puis la feuille : donc, état, réglage, fin).
+    expect(parFamille['départ']).toBe(3 * 6);
+    expect(vues.filter((v) => v.famille === 'départ' && /^Première fois ici : on part de ta charge de départ, 22,5 kg\.$/
+      .test(v.phrase.replace(/[\u00a0\u202f]/g, ' '))).length).toBe(1);
     expect(vues.filter((v) => v.famille === 'douleur' && /^Plus de reps : 20/.test(v.phrase)).length).toBe(2);
     expect(vues.filter((v) => v.famille === 'frères' && / → /.test(v.phrase)).length).toBe(5);
     // La phrase « Je ne compte pas la dernière série » est bien jouée.

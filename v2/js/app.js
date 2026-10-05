@@ -2100,7 +2100,9 @@
       periodesSerieDePlus: periodesSerieDePlusDe(slug),
       // §7 octies — une séance terminée rouverte est une séance FAITE : le
       // moteur n'y prescrit rien, ni en-tête ni plan.
-      edition: enEdition()
+      edition: enEdition(),
+      // §9.21 (52-1) — la charge de départ de la routine, la première fois.
+      depart: chargeDeDepartDe(slug)
     };
   }
 
@@ -4828,8 +4830,12 @@
   // jamais le nombre de séries fait ce jour-là. Par la FILE : la question se
   // pose en salle, là où le réseau n'est pas, et une réponse perdue parce que
   // la requête a échoué serait la perte silencieuse qu'on s'interdit.
-  async function reporterSurRoutine(verdict) {
-    var routine = routineDeLaSeance();
+  //
+  // ⚠️ DEUX APPELANTS, UN CHEMIN (chantier 52) : la question de fin de séance,
+  // et « Mettre à jour une routine » depuis une séance passée (§7 quindecies.4),
+  // qui passe la routine choisie. Même intention, même file, même vidange.
+  async function reporterSurRoutine(verdict, routineChoisie) {
+    var routine = routineChoisie || routineDeLaSeance();
     if (!routine || !verdict || !verdict.voulues.length) return;
 
     // ⚠️ CHAQUE LIGNE NEUVE PART AVEC SON IDENTIFIANT, FABRIQUÉ ICI.
@@ -4901,6 +4907,11 @@
       archivee_a: brute.archivee_a,
       // `rang` porte l'ordre de la bibliothèque depuis v2_043 (§7 vicies.4).
       rang: brute.rang === undefined ? null : brute.rang,
+      // §7 duodecies.3 (52-1) — le dossier, une étiquette (`null` : Sans dossier).
+      dossier: Routines.dossierPropre(brute.dossier),
+      // §7 quindecies.4 (52-1) — « En faire une routine » prend le repos d'un
+      // exercice dans la routine la plus récemment modifiée qui le contient.
+      modifiee_a: brute.modifiee_a === undefined ? null : brute.modifiee_a,
       exercices: exos.slice().sort(function (a, b) { return a.rang - b.rang; })
         .map(function (e) {
           return Object.assign({}, e, { series: seriesProgrammees(e) });
@@ -4965,6 +4976,14 @@
       // `apercu` compte les séries de TRAVAIL par `THSemaine.compteSeriesTravail`,
       // dont la règle du volume a besoin des muscles du catalogue.
       catalogue: local.exercices,
+      // §7 duodecies.3 (52-1) — les dossiers repliés, une commodité de CET
+      // appareil (rien n'est écrit en base).
+      replies: dossiersReplies,
+      surReplier: function (cle) {
+        dossiersReplies[cle] = !dossiersReplies[cle];
+        memoriserDossiersReplies();
+        rendreSaisie();
+      },
       surChoix: ouvrirRoutine,
       surNouvelle: function () { ouvrirRoutine(null); },
       surDemarrer: function (id) {
@@ -4981,6 +5000,24 @@
     brancherReorg('liste-routines');
     brancherAppuiLong('liste-routines');
     rendrePiedReorg();
+  }
+
+  // §7 duodecies.3 (52-1) — LES DOSSIERS REPLIÉS. Un confort de lecture, propre
+  // à cet appareil : il se retient (localStorage), et s'il ne se peut pas, tout
+  // reste déplié — la bibliothèque s'affiche quand même.
+  var CLE_DOSSIERS_REPLIES = 'th-v2-dossiers-replies';
+  var dossiersReplies = lireDossiersReplies();
+
+  function lireDossiersReplies() {
+    try {
+      var v = JSON.parse(racine.localStorage.getItem(CLE_DOSSIERS_REPLIES) || '{}');
+      return v && typeof v === 'object' ? v : {};
+    } catch (e) { return {}; }
+  }
+
+  function memoriserDossiersReplies() {
+    try { racine.localStorage.setItem(CLE_DOSSIERS_REPLIES, JSON.stringify(dossiersReplies)); }
+    catch (e) { /* stockage refusé : le repli vaut pour la session */ }
   }
 
   // ⚠️ IL NE DISPARAÎT PAS ET NE S'ENREGISTRE PAS TOUT SEUL (§7 octodecies.3).
@@ -5103,11 +5140,13 @@
   // et surtout empêcherait de calculer le plan de renumérotation d'un coup —
   // celui qui évite de heurter `routine_exos_rang_uniq`.
   function brouillonDe(routine) {
-    if (!routine) return { id: null, nom: '', exercices: [], existantes: [], nomChange: false };
+    if (!routine) return { id: null, nom: '', dossier: null, exercices: [], existantes: [], nomChange: false };
     return {
       id: routine.id,
       nom: routine.nom,
       nomChange: false,
+      // §7 duodecies.3 (52-1) — le dossier se choisit dans l'éditeur.
+      dossier: Routines.dossierPropre(routine.dossier),
       // Copie : on édite le brouillon, jamais la routine chargée. Sans ça, un
       // enregistrement raté laisserait la liste montrant des valeurs qui ne
       // sont pas en base.
@@ -5221,6 +5260,8 @@
     brouillon = reprise || brouillonDe(routine);
     $('champ-nom-routine').value = brouillon.nom;
     $('btn-supprimer-routine').hidden = !brouillon.id;
+    // §7 quindecies.4 (52-1) — Dupliquer : une routine enregistrée seulement.
+    $('btn-dupliquer-routine').hidden = !brouillon.id;
     $('erreur-routine').textContent = '';
     rendreEditeur();
   }
@@ -5274,6 +5315,13 @@
     var blocs = Modele.blocsDeSeance(brouillonCommeSeance(), local.exercices);
     var ranger = $('btn-ranger-routine');
     if (ranger) ranger.hidden = blocs.length < 2;
+    var chargesDuRendu = {};
+    // §7 duodecies.3 (52-1) — le dossier, sous le nom.
+    var dossier = $('dossier-routine');
+    if (dossier) {
+      while (dossier.firstChild) dossier.removeChild(dossier.firstChild);
+      dossier.appendChild(Rendu.champDossier(brouillon.dossier, ouvrirDossierRoutine));
+    }
     Rendu.rendreBlocsSeance($('exos-routine'), null, {
       programme: true,
       blocs: blocs,
@@ -5291,6 +5339,13 @@
       // (`Seance.precedent`), donc pas de seconde lecture d'historique ; c'est
       // `rangeeDeSerie` qui l'aligne par type et par rang (chantier 38).
       precedent: precedentDe,
+      // §7 quindecies.3 (52-1) — LA CHARGE DE DÉPART : un champ sur un exercice
+      // jamais fait, le coach seul sinon — et l'éditeur le dit.
+      chargeProgramme: function (slug) {
+        // Une lecture d'historique par exercice et par rendu, pas par ligne.
+        if (!Object.prototype.hasOwnProperty.call(chargesDuRendu, slug)) chargesDuRendu[slug] = chargeDansLEditeur(slug);
+        return chargesDuRendu[slug];
+      },
       // ⚠️ LE TAP EST REBRANCHÉ (§7 octodecies.4). Il avait été retiré au
       // chantier 43 parce que le brouillon n'était pas persisté : partir de
       // l'écran coûtait la routine en cours d'édition. Le raisonnement était
@@ -5495,6 +5550,10 @@
       ? routines.filter(function (r) { return r.id === brouillon.id; })[0] : null;
     brouillon.nomChange = !routineDOrigine ||
       Routines.nomPropre(brouillon.nom) !== Routines.nomPropre(routineDOrigine.nom);
+    // §7 duodecies.3 (52-1) — un brouillon d'avant le chantier ne porte pas de
+    // dossier (`undefined`) : il ne touche pas à celui de la routine.
+    brouillon.dossierChange = !!routineDOrigine && brouillon.dossier !== undefined &&
+      Routines.dossierPropre(brouillon.dossier) !== Routines.dossierPropre(routineDOrigine.dossier);
 
     var verdict = Routines.valider(brouillon, routines);
     if (!verdict.valide) { erreur.textContent = messageVerdict(verdict); return; }
@@ -5542,6 +5601,7 @@
     if (s.champ === 'nom' && s.raison === 'vide') return 'Donne un nom à ta routine.';
     if (s.champ === 'nom' && s.raison === 'trop-long') return 'Le nom fait plus de ' + Routines.NOM_MAX + ' caractères.';
     if (s.champ === 'nom' && s.raison === 'doublon') return Routines.MESSAGES.doublon;
+    if (s.champ === 'dossier') return 'Le nom du dossier fait plus de ' + Routines.DOSSIER_MAX + ' caractères.';
     // ⚠️ IL N'Y A PLUS DE BORNE SUR LE NOMBRE DE SÉRIES (chantier 43) : une
     // ligne par série, et `routine_sets` n'impose aucun minimum de lignes. Le
     // seul refus qui reste est l'exercice VIDE — qui démarrerait une séance
@@ -5599,6 +5659,134 @@
     } catch (e) {
       erreur.textContent = Routines.messageErreur({ erreur: Routines.classerErreur(e) });
     }
+  }
+
+  // ══ LE DOSSIER D'UNE ROUTINE (§7 duodecies.3, chantier 52) ══════════════
+  //
+  // Une étiquette, choisie dans l'éditeur : « Sans dossier », un dossier
+  // existant, ou un nouveau nom. Comme le reste du brouillon, rien ne part en
+  // base avant « Enregistrer ».
+  function ouvrirDossierRoutine(erreur) {
+    if (!brouillon) return;
+    Rendu.rendreFeuilleDossier($('feuille-contenu'), {
+      sujet: Routines.nomPropre($('champ-nom-routine').value) || 'Routine',
+      dossiers: Routines.dossiersDe(routines),
+      actuel: Routines.dossierPropre(brouillon.dossier),
+      erreur: typeof erreur === 'string' ? erreur : '',
+      surChoix: function (d) { brouillon.dossier = d; fermerVoile(); apresEditeur(); },
+      surNouveau: function (texte) {
+        var d = Routines.dossierPropre(texte);
+        if (d === null) return ouvrirDossierRoutine('Donne un nom au dossier.');
+        if (!Routines.dossierValide(d)) {
+          return ouvrirDossierRoutine('Le nom du dossier fait plus de ' + Routines.DOSSIER_MAX + ' caractères.');
+        }
+        brouillon.dossier = d; fermerVoile(); apresEditeur();
+      },
+      surAnnuler: fermerVoile
+    });
+    ouvrirVoile($('feuille-seance'));
+  }
+
+  // ══ DUPLIQUER (§7 quindecies.4, chantier 52) ═════════════════════════════
+  //
+  // ⚠️ PAR LE CHEMIN DE CRÉATION, PAS UN SECOND. La copie est un brouillon de
+  // routine NEUVE (`Routines.copieDeRoutine`) que `Routines.enregistrer` crée
+  // comme n'importe quelle autre : le rang suivant, et l'annulation si une
+  // écriture échoue en route. On copie la routine ENREGISTRÉE — celle de la
+  // bibliothèque —, jamais le brouillon : l'originale ne bouge pas, et la copie
+  // s'ouvre aussitôt dans l'éditeur, pour la modifier.
+  var duplication = null;   // { routine, nom, erreur }
+
+  function nomsReserves() {
+    return routines.filter(function (r) { return r && !r.archivee_a; }).map(function (r) { return r.nom; });
+  }
+
+  function demanderDuplication() {
+    var r = brouillon && brouillon.id ? routines.filter(function (x) { return x.id === brouillon.id; })[0] : null;
+    if (!r) return;
+    duplication = { routine: r, nom: Routines.nomLibre(r.nom, nomsReserves(), 'copie'), erreur: '' };
+    rendreFeuilleDuplication();
+    ouvrirVoile($('feuille-seance'));
+  }
+
+  function rendreFeuilleDuplication() {
+    Rendu.rendreFeuilleDupliquer($('feuille-contenu'), {
+      sujet: duplication.routine.nom,
+      nom: duplication.nom,
+      erreur: duplication.erreur,
+      surNom: function (v) { duplication.nom = v; },
+      surDupliquer: dupliquerRoutine,
+      surAnnuler: function () { duplication = null; fermerVoile(); }
+    });
+  }
+
+  async function dupliquerRoutine() {
+    if (!duplication || enregistrementEnCours) return;
+    var copie = Routines.copieDeRoutine(duplication.routine, duplication.nom);
+    var verdict = Routines.valider(copie, routines);
+    if (!verdict.valide) { duplication.erreur = messageVerdict(verdict); return rendreFeuilleDuplication(); }
+    enregistrementEnCours = true;
+    try {
+      var r = await Routines.enregistrer(copie, Donnees, {
+        userId: sessionActive && sessionActive.user && sessionActive.user.id,
+        uuid: uuid,
+        rangSuivant: rangSuivantBibliotheque()
+      });
+      if (!r.ok) { duplication.erreur = Routines.messageErreur(r); return rendreFeuilleDuplication(); }
+      duplication = null;
+      fermerVoile();
+      await chargerRoutines();
+      // La copie s'ouvre À LA PLACE de l'originale (on remplace l'entrée
+      // d'historique) : c'est elle qu'on vient faire, la semaine 2 à partir de
+      // la semaine 1, et le retour remonte à la bibliothèque.
+      allerA(Routeur.ROUTINE, { id: r.routine.id }, true);
+      await prepererEditeur(r.routine.id);
+    } finally {
+      enregistrementEnCours = false;
+    }
+  }
+
+  // ══ LA CHARGE DE DÉPART (§7 quindecies.3, MOTEUR §9.21 — chantier 52) ═══
+  //
+  // ⚠️ UNE DÉFINITION DE « JAMAIS FAIT » : aucune séance de l'historique ne
+  // porte l'exercice. L'éditeur, la charge passée au coach et la cascade du
+  // pré-remplissage (`Seance.fantome`, sur `precedent`) lisent la même chose.
+  function jamaisFait(slug) {
+    return derniereSeanceDe(slug) === null;
+  }
+
+  // Ce que l'éditeur dit de la charge d'un exercice : un champ « départ » sur un
+  // exercice jamais fait, le coach seul sinon — avec la dernière fois, par
+  // « Dernière séance » (#356). `null` : rien à en dire — pas de colonne de
+  // charge, ou une charge de NATURE (lest, aide : §9.17, leur départ a ses
+  // propres règles, et l'aide se tape en positif là où le coach la range en
+  // négatif).
+  function chargeSimple(slug) {
+    var exo = catalogueIndexe()[slug];
+    var g = exo ? Modele.gabaritDe(exo) : null;
+    return !!g && !g.inconnue && g.mesure === 'charge_reps' && !g.nature;
+  }
+
+  function chargeDansLEditeur(slug) {
+    if (!chargeSimple(slug)) return null;
+    if (jamaisFait(slug)) return { depart: true, fait: null };
+    return { depart: false, fait: derniereSeanceDe(slug) };
+  }
+
+  // La charge de départ telle que la séance ouverte la porte (les lignes
+  // viennent de la routine) : la première série de travail qui en a une, ses
+  // reps visées, et les séries de travail de l'exercice. Seulement sur un
+  // exercice jamais fait : déjà fait, le coach décide seul.
+  function chargeDeDepartDe(slug) {
+    if (!chargeSimple(slug)) return null;
+    var exo = ((seance && seance.exercices) || []).filter(function (x) { return x && x.exercise_slug === slug; })[0];
+    if (!exo) return null;
+    var travail = (exo.series || []).filter(function (x) { return Modele.estTravail(x); });
+    var avec = travail.filter(function (x) { return x.charge_cible_kg !== null && x.charge_cible_kg !== undefined; })[0];
+    // L'historique ne se lit que s'il y a une charge de départ à donner.
+    if (!avec || !jamaisFait(slug)) return null;
+    return { charge: avec.charge_cible_kg, reps: avec.reps_visees === undefined ? null : avec.reps_visees,
+             n: travail.length };
   }
 
   // ── Le catalogue ─────────────────────────────────────────────────────────
@@ -5866,7 +6054,8 @@
       surExercice: function (slug) { afficherExercice(slug); },
       surSupprimer: ligne ? function () { demanderSuppressionSeance(ligne); } : null,
       surModifier: ligne ? function () { modifierSeance(ligne, blocs); } : null,
-      surRefaire: ligne ? function () { refaireSeance(ligne, blocs); } : null
+      surRefaire: ligne ? function () { refaireSeance(ligne, blocs); } : null,
+      surEnFaireUneRoutine: ligne ? function () { enFaireUneRoutine(ligne); } : null
     });
   }
 
@@ -6090,10 +6279,174 @@
     Rendu.rendreFeuilleSeance($('feuille-contenu'), {
       titre: ligne.titre,
       surRefaire: function () { fermerVoile(); refaireSeance(ligne, blocs); },
+      surEnFaireUneRoutine: function () { enFaireUneRoutine(ligne); },
       surModifier: function () { fermerVoile(); modifierSeance(ligne, blocs); },
       surSupprimer: function () { fermerVoile(); demanderSuppressionSeance(ligne); }
     });
     ouvrirVoile($('feuille-seance'));
+  }
+
+  // ══ EN FAIRE UNE ROUTINE (ECRAN-SAISIE §7 quindecies.4, chantier 52) ══════
+  //
+  // Depuis n'importe quelle séance — importée de Hevy ou saisie dans l'app :
+  // « Une nouvelle routine » (un aperçu, puis la création par le chemin de
+  // l'éditeur) ou « Mettre à jour une routine » (le chemin de la question de
+  // fin de séance, §6.3). La STRUCTURE seulement : jamais une charge.
+  var enRoutine = null;   // { ligne, structure, nom, dossier, erreur }
+
+  function structureDeLaSeance(ligne) {
+    return Routines.routineDepuisSeance(seriesDe(ligne.id), {
+      titre: ligne.titre, exercices: local.exercices, routines: routines, existants: nomsReserves()
+    });
+  }
+
+  async function enFaireUneRoutine(ligne) {
+    if (!ligne) return;
+    // La même garde que « Modifier » : une séance dont les séries ne sont pas
+    // toutes arrivées donnerait une routine amputée.
+    if (seriesIncompletes(ligne.id)) {
+      Rendu.rendreFeuilleConfirmer($('feuille-contenu'), {
+        titre: 'Séance pas encore complète',
+        aide: 'Ses séries finissent d\u2019arriver. Réessaie dans un instant.',
+        libelle: 'Compris', surConfirmer: fermerVoile, surAnnuler: fermerVoile
+      });
+      ouvrirVoile($('feuille-seance'));
+      return;
+    }
+    // Le nom libre et les repos lisent la bibliothèque : on la charge si elle
+    // ne l'est pas encore (on vient des séances, pas de l'onglet Saisie).
+    if (etatRoutines.code !== 'ok') await chargerRoutines();
+    Rendu.rendreFeuilleEnFaireUneRoutine($('feuille-contenu'), {
+      sujet: ligne.titre || 'Séance',
+      surNouvelle: function () { ouvrirApercuRoutine(ligne); },
+      surMettreAJour: routines.length ? function () { choisirRoutineAMettreAJour(ligne); } : null,
+      surAnnuler: fermerVoile
+    });
+    ouvrirVoile($('feuille-seance'));
+  }
+
+  function ouvrirApercuRoutine(ligne) {
+    var st = structureDeLaSeance(ligne);
+    enRoutine = { ligne: ligne, structure: st, nom: st.nom, dossier: null, erreur: '' };
+    rendreApercuEnRoutine();
+  }
+
+  function rendreApercuEnRoutine() {
+    var index = catalogueIndexe();
+    Rendu.rendreApercuRoutine($('feuille-contenu'), {
+      nom: enRoutine.nom,
+      dossier: enRoutine.dossier,
+      erreur: enRoutine.erreur,
+      lignes: enRoutine.structure.exercices.map(function (e) {
+        return { nom: Modele.nommer(index, e.exercise_slug), series: e.series,
+                 repos: e.repos_cible_s, origine: e.repos_origine };
+      }),
+      surNom: function (v) { enRoutine.nom = v; },
+      surDossier: function () {
+        var poser = function (d) { enRoutine.dossier = d; rendreApercuEnRoutine(); };
+        var choisir = function (erreur) {
+          Rendu.rendreFeuilleDossier($('feuille-contenu'), {
+            sujet: Routines.nomPropre(enRoutine.nom) || 'Nouvelle routine',
+            dossiers: Routines.dossiersDe(routines),
+            actuel: enRoutine.dossier,
+            erreur: erreur || '',
+            surChoix: poser,
+            surNouveau: function (texte) {
+              var d = Routines.dossierPropre(texte);
+              if (d === null) return choisir('Donne un nom au dossier.');
+              if (!Routines.dossierValide(d)) return choisir('Le nom du dossier fait plus de ' + Routines.DOSSIER_MAX + ' caractères.');
+              poser(d);
+            },
+            surAnnuler: rendreApercuEnRoutine
+          });
+        };
+        choisir();
+      },
+      surCreer: creerRoutineDepuisSeance,
+      surAnnuler: function () { enRoutine = null; fermerVoile(); }
+    });
+  }
+
+  // ⚠️ LA CRÉATION EST CELLE DE L'ÉDITEUR (`Routines.enregistrer`) : le rang
+  // suivant, l'annulation en cas d'échec. Le brouillon porte la structure au
+  // vocabulaire de la saisie (`enSaisie`) — et aucune charge : la structure
+  // n'en a pas.
+  async function creerRoutineDepuisSeance() {
+    if (!enRoutine || enregistrementEnCours) return;
+    var b = {
+      id: null, nom: enRoutine.nom, nomChange: true, dossier: enRoutine.dossier, existantes: [],
+      exercices: Routines.renumeroter(enRoutine.structure.exercices.map(function (e) {
+        return { id: null, exercise_slug: e.exercise_slug, series: e.series.map(Routines.enSaisie),
+                 repos_cible_s: e.repos_cible_s, groupe_superset: e.groupe_superset, note: null };
+      }))
+    };
+    var verdict = Routines.valider(b, routines);
+    if (!verdict.valide) { enRoutine.erreur = messageVerdict(verdict); return rendreApercuEnRoutine(); }
+    enregistrementEnCours = true;
+    try {
+      var r = await Routines.enregistrer(b, Donnees, {
+        userId: sessionActive && sessionActive.user && sessionActive.user.id,
+        uuid: uuid,
+        rangSuivant: rangSuivantBibliotheque()
+      });
+      if (!r.ok) { enRoutine.erreur = Routines.messageErreur(r); return rendreApercuEnRoutine(); }
+      enRoutine = null;
+      fermerVoile();
+      await chargerRoutines();
+      await ouvrirRoutine(r.routine.id);
+    } finally {
+      enregistrementEnCours = false;
+    }
+  }
+
+  function choisirRoutineAMettreAJour(ligne) {
+    Rendu.rendreFeuilleChoixRoutine($('feuille-contenu'), {
+      sujet: ligne.titre || 'Séance',
+      routines: Routines.visibles(routines).map(function (r) { return { id: r.id, nom: r.nom }; }),
+      surChoix: function (id) { apercuMiseAJour(ligne, id); },
+      surAnnuler: fermerVoile
+    });
+  }
+
+  // ⚠️ LE CHEMIN DE §6.3, PAS UN SECOND (§7 quindecies.4). La séance est
+  // rattachée à la routine choisie (`Routines.seanceSurRoutine`), puis
+  // comparée par `Seance.ecartsRoutine` — la fonction de la question de fin de
+  // séance —, et l'écriture part par `reporterSurRoutine`, la même file.
+  // `series: true` : la personne a choisi cette séance comme modèle, et voit
+  // les séries qui changent avant d'écrire.
+  function apercuMiseAJour(ligne, id) {
+    var routine = routines.filter(function (r) { return r.id === id; })[0];
+    if (!routine) { fermerVoile(); return; }
+    var index = catalogueIndexe();
+    var st = structureDeLaSeance(ligne);
+    var verdict = Seance.ecartsRoutine(Routines.seanceSurRoutine(st, routine), routine, { series: true });
+    var touchees = {};
+    var ecarts = verdict.ecarts.map(function (e) {
+      if (e.type === 'series') touchees[e.i] = true;
+      var x = Object.assign({}, e, { nom: e.exercise_slug ? Modele.nommer(index, e.exercise_slug) : '' });
+      if (e.type === 'ajoute') {
+        var v = verdict.voulues[e.i], source = st.exercices[e.i];
+        x.series = v.series; x.repos = v.repos_cible_s; x.origine = source ? source.repos_origine : null;
+      }
+      return x;
+    });
+    var inchanges = verdict.voulues.filter(function (v, i) { return v.id && !touchees[i]; })
+      .map(function (v) { return Modele.nommer(index, v.exercise_slug); });
+    Rendu.rendreFeuilleMajRoutine($('feuille-contenu'), {
+      nom: routine.nom,
+      ecarts: ecarts,
+      inchanges: inchanges,
+      surMettreAJour: async function () {
+        await reporterSurRoutine(verdict, routine);
+        Rendu.rendreFeuilleConfirmer($('feuille-contenu'), {
+          titre: 'Routine mise à jour',
+          sujet: routine.nom,
+          aide: 'Les changements partent avec la file d\u2019envoi, comme après une séance.',
+          libelle: 'Compris', surConfirmer: fermerVoile, surAnnuler: fermerVoile
+        });
+      },
+      surAnnuler: fermerVoile
+    });
   }
 
   // ══ LES GESTES SUR UNE SÉANCE TERMINÉE (§7 octies) ═══════════════════════
@@ -7331,6 +7684,7 @@
     $('btn-ajouter-exo').addEventListener('click', function () { ouvrirCatalogue(); });
     $('btn-enregistrer-routine').addEventListener('click', enregistrerBrouillon);
     $('btn-supprimer-routine').addEventListener('click', demanderSuppressionRoutine);
+    $('btn-dupliquer-routine').addEventListener('click', demanderDuplication);
     $('btn-fermer-catalogue').addEventListener('click', fermerVoile);
     $('champ-recherche-exo').addEventListener('input', rendreCatalogue);
     $('btn-fermer-muscle').addEventListener('click', fermerVoile);

@@ -282,6 +282,10 @@ const CATALOGUE = [
   // sous consigne (des paris : un compteur qui n'est pas à zéro), dont on
   // change la zone à l'étiquette.
   { slug: 'report-u53', nom: 'Report U53 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: [], muscles_secondaires: [] },
+  // 55-1 (MOTEUR §9.23) — réservé à la section « progression » : une barre
+  // qui bat ses records. Un muscle inventé (`u55…`) : personne d'autre ne voit
+  // son volume ; un nom qu'aucune autre recherche du banc ne trouve.
+  { slug: 'record-u55', nom: 'Médaillé U55 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['u55_pecs'], muscles_secondaires: [] },
   // 52-1 (ECRAN-SAISIE §7 duodecies.3, §7 quindecies.3-4 ; MOTEUR §9.21) —
   // réservés à la section « organiser » : un cardio (sans muscle), un gros
   // mouvement (3 muscles : un polyarticulaire), deux isolations en superset,
@@ -12436,6 +12440,181 @@ const SETS_IMPORTES = [
     await page.clock.setSystemTime(new Date());
     await aller('/saisie');
     ok('[C53] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
+  }
+
+  console.log('\n══ progression. LA MÉDAILLE, LA FEUILLE « TERMINER », LE MOIS ET SES RECORDS (55-1, MOTEUR §9.23) ══');
+  //
+  // Une barre (120 × 5 il y a 20 jours, 125 × 4 et 120 × 5 il y a 13 jours).
+  // La série 1 à 125 × 5 bat un record — la médaille sous la rangée, avec le
+  // record d'avant et sa date ; dévalider la retire. La série 2 (100 × 5) ne bat
+  // rien ; la série 3 (100 × 5) fait dépasser le volume de la séance (1 625 kg
+  // contre 1 200). La feuille « Terminer » liste les deux ; Progression les
+  // porte en tête (le mois écoulé, le dernier record), le bilan du mois les
+  // compte, et chaque record mène à sa séance.
+  {
+    const tP = Date.now();
+    const sp = (t) => String(t || '').replace(/[\u00a0\u202f]/g, ' ').replace(/\s+/g, ' ').trim();
+    const erreursAvant = erreurs.length;
+    const violationsAvant = gardeBanc.violations;
+    [[20, [[120, 5], [120, 5]]], [13, [[125, 4], [120, 5]]]].forEach(([j, lignes], i) => {
+      const id = 'p55-' + i;
+      const debut = ilYa(j * 86400000, tP).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'Médaille — ' + id, debut,
+        fin: finDe(debut, tP).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      lignes.forEach(([kg, reps], r) => base.sets.push({ id: id + '-s' + (r + 1), session_id: id, user_id: 'u-banc',
+        exercise_slug: 'record-u55', charge_kg: kg, reps, duree_s: null, distance_m: null, type_serie: 'travail',
+        rang: r + 1, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null, repos_s: null, note: null,
+        source: 'app', created_at: debut, modifie_a: null }));
+    });
+    ROUTINES.push({ id: 'r-p55', nom: 'Médaille U55', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-p55-a', routine_id: 'r-p55', exercise_slug: 'record-u55', rang: 0,
+        routine_sets: progr(3, 5), repos_cible_s: 120, groupe_superset: null, note: null }] });
+
+    const medailles = () => page.evaluate(() => {
+      const b = Array.from(document.querySelectorAll('.bloc-seance')).filter((x) => /Médaillé U55/.test(x.textContent))[0];
+      if (!b) return null;
+      // L'ordre des enfants : la rangée, puis sa médaille (une sœur).
+      const out = [];
+      let i = -1;
+      Array.from(b.querySelectorAll('.ligne-serie, .record-serie')).forEach((n) => {
+        if (n.classList.contains('ligne-serie')) i++;
+        else out.push({ apres: i, gras: n.querySelector('b').textContent,
+                        gris: n.querySelector('.record-avant') ? n.querySelector('.record-avant').textContent : null });
+      });
+      return out;
+    });
+    // La séance n'a qu'un exercice : les lignes s'adressent par leur index.
+    const valider55 = async (k, kg, reps) => {
+      await saisirSerie(k, kg, reps);
+      await attendre(1000);
+    };
+    const avantJ13 = new Date(ilYa(13 * 86400000, tP));
+    const MOIS_C = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+    const dateJ13 = 'le ' + (avantJ13.getDate() === 1 ? '1er' : avantJ13.getDate()) + ' ' + MOIS_C[avantJ13.getMonth()] +
+      (avantJ13.getFullYear() !== new Date(tP).getFullYear() ? ' ' + avantJ13.getFullYear() : '');
+
+    // ── A. LA MÉDAILLE.
+    await aller('/saisie');
+    await attendre(600);
+    await demarrerRoutine('Médaille U55');
+    await attendre(1500);
+    ok('[P55] prémisse : aucune médaille avant la première validation', JSON.stringify(await medailles()) === '[]',
+      JSON.stringify(await medailles()));
+    await valider55(0, 125, 5);
+    const m1 = await medailles();
+    ok('[P55] DISCRIMINANT — 125 × 5 bat un record : la médaille SOUS la rangée 1, avec le record d’avant et sa date',
+      m1 && m1.length === 1 && m1[0].apres === 0 &&
+        sp(m1[0].gras) === 'Record à 125 kg : 5 reps. 1RM estimé : ≈ 146 kg.' &&
+        sp(m1[0].gris) === sp('Avant : 4 reps, ' + dateJ13 + (/\.$/.test(dateJ13) ? '' : '.')), JSON.stringify([m1, dateJ13]));
+    ok('[P55] la médaille ne s’écrit pas en base : aucune colonne, aucune table de plus',
+      base.sets.filter((x) => x.exercise_slug === 'record-u55').every((x) => !('records' in x) && !('medaille' in x)) &&
+        !Object.keys(base).some((k) => /record|medaille/i.test(k)), JSON.stringify(Object.keys(base)));
+
+    // ── B. DÉVALIDER LA RETIRE, REVALIDER LA REND.
+    await page.evaluate(() => {
+      const b = Array.from(document.querySelectorAll('.bloc-seance')).filter((x) => /Médaillé U55/.test(x.textContent))[0];
+      b.querySelectorAll('.ligne-serie')[0].querySelector('.ok-serie').click();
+    });
+    await attendre(1000);
+    ok('[P55] DISCRIMINANT — dévalider la série retire la médaille', JSON.stringify(await medailles()) === '[]',
+      JSON.stringify(await medailles()));
+    await page.evaluate(() => {
+      const b = Array.from(document.querySelectorAll('.bloc-seance')).filter((x) => /Médaillé U55/.test(x.textContent))[0];
+      b.querySelectorAll('.ligne-serie')[0].querySelector('.ok-serie').click();
+    });
+    await attendre(1000);
+    ok('[P55] revalider la rend', ((await medailles()) || []).length === 1, JSON.stringify(await medailles()));
+
+    // ── C. LA SÉRIE QUI NE BAT RIEN, PUIS CELLE QUI FAIT DÉPASSER LE VOLUME.
+    await valider55(1, 100, 5);
+    const m2 = await medailles();
+    ok('[P55] 100 × 5 ne bat rien : pas de médaille sous la rangée 2 (le volume, 1 125 kg, reste sous 1 200)',
+      m2 && m2.length === 1 && m2[0].apres === 0, JSON.stringify(m2));
+    await valider55(2, 100, 5);
+    const m3 = await medailles();
+    ok('[P55] DISCRIMINANT — la série 3 fait dépasser le volume de la séance (1 625 kg contre 1 200) : une médaille, une fois, sans « Avant »',
+      m3 && m3.length === 2 && m3[1].apres === 2 && sp(m3[1].gras) === 'Volume de la séance : 1625 kg.' && m3[1].gris === null,
+      JSON.stringify(m3));
+
+    // ── D. LA FEUILLE « TERMINER » : LES RECORDS DU JOUR, SOUS LE COMPTE.
+    await page.click('#bandeau-seance .bandeau-fin');
+    await attendre(700);
+    const fin = await page.evaluate(() => {
+      const r = document.querySelector('#feuille-contenu .records-fin');
+      const t = document.querySelector('#feuille-contenu .feuille-t');
+      return { avant: !!(t && r && (t.compareDocumentPosition(r) & Node.DOCUMENT_POSITION_FOLLOWING)),
+        tete: r ? r.querySelector('.records-fin-t').textContent : null,
+        lignes: r ? Array.from(r.querySelectorAll('.records-fin-l span')).map((x) => x.textContent) : [] };
+    });
+    ok('[P55] DISCRIMINANT — « Terminer » liste les records du jour sous « N séries de travail enregistrées »',
+      fin.avant && sp(fin.tete) === '2 records' &&
+        JSON.stringify(fin.lignes.map(sp)) === JSON.stringify(['Médaillé u55 125 kg × 5', 'Médaillé u55 100 kg × 5']),
+      JSON.stringify(fin));
+    await page.click('#feuille-contenu .principal');
+    await attendre(2600);
+
+    // ── E. PROGRESSION : DEUX BLOCS EN TÊTE, LES AUTRES NE BOUGENT PAS.
+    await onglet('progression');
+    await attendre(800);
+    const som = await page.evaluate(() => Array.from(document.querySelectorAll('#sommaire .bloc-som')).map((b) => ({
+      quoi: b.querySelector('.bloc-quoi').textContent, ligne: (b.querySelector('.bloc-ligne') || {}).textContent || null,
+      neuf: b.classList.contains('neuf') })));
+    const MOIS_L = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+    const ici = new Date(tP);
+    const ecoule = new Date(ici.getFullYear(), ici.getMonth() - 1, 1);
+    ok('[P55] DISCRIMINANT — en tête : le mois écoulé, puis les records ; Volume, Poids, Par exercice ensuite',
+      som.length === 5 && som[0].neuf && som[0].quoi === MOIS_L[ecoule.getMonth()] && som[1].neuf &&
+        /Records$/.test(som[1].quoi) && /^Volume par muscle/.test(som[2].quoi) && /^Poids de corps/.test(som[3].quoi) &&
+        /^Par exercice/.test(som[4].quoi), JSON.stringify(som));
+    ok('[P55] le bloc Records dit le dernier, « Médaillé u55 100 kg × 5 », daté d’aujourd’hui',
+      som[1] && sp(som[1].ligne) === sp('Le dernier : Médaillé u55 100 kg × 5, le ' + ici.getDate() + ' ' + MOIS_C[ici.getMonth()] + '.'),
+      JSON.stringify(som[1]));
+
+    // ── F. LE BILAN DU MOIS : le mois écoulé, puis le mois en cours (›).
+    await page.evaluate(() => document.querySelectorAll('#sommaire .bloc-som')[0].click());
+    await attendre(900);
+    const routeMois = await page.evaluate(() => location.pathname);
+    ok('[P55] le bloc du mois s’ouvre sur le bilan du mois écoulé (/progression/mois/AAAA-MM)',
+      routeMois === '/progression/mois/' + ecoule.getFullYear() + '-' + String(ecoule.getMonth() + 1).padStart(2, '0'),
+      routeMois);
+    await page.click('#bilan-mois .mois-suivant');
+    await attendre(900);
+    const bil = await page.evaluate(() => {
+      const c = document.querySelector('#bilan-mois');
+      return { titre: c.querySelector('.titre-vue').textContent,
+        tuiles: Array.from(c.querySelectorAll('.tuile-mois')).map((t) => t.querySelector('span').textContent),
+        barres: Array.from(c.querySelectorAll('.barre-mois')).map((b) => b.classList.contains('courant')),
+        aujourdhui: Array.from(c.querySelectorAll('.cal-mois .fait')).map((x) => x.textContent),
+        records: Array.from(c.querySelectorAll('.carte-mois .ligne-mois.lien')).map((x) => x.textContent),
+        suivant: c.querySelector('.mois-suivant').disabled,
+        rouge: Array.from(c.querySelectorAll('*')).some((x) => /rgb\(196, 86, 74\)/.test(getComputedStyle(x).color)) };
+    });
+    ok('[P55] le bilan du mois en cours : séances, séries de travail, volume, records — trois barres, la dernière en couleur du coach ; pas de mois après le mois en cours',
+      /^[A-ZÉ]/.test(bil.titre) && /^séances?$/.test(bil.tuiles[0]) && bil.tuiles[1] === 'séries de travail' &&
+        bil.tuiles[2] === 'volume soulevé' && /^records?$/.test(bil.tuiles[3]) &&
+        JSON.stringify(bil.barres) === '[false,false,true]' && bil.suivant === true, JSON.stringify(bil));
+    ok('[P55] le calendrier marque aujourd’hui ; les deux records y sont ; aucune couleur de jugement',
+      bil.aujourdhui.indexOf(String(ici.getDate())) >= 0 &&
+        bil.records.filter((x) => /Médaillé u55/.test(sp(x))).length >= 1 && !bil.rouge, JSON.stringify(bil));
+
+    // ── G. LES RECORDS DU MOIS : chacun mène à sa séance.
+    await page.evaluate(() => document.querySelector('#bilan-mois .tous-records').click());
+    await attendre(900);
+    const rec = await page.evaluate(() => Array.from(document.querySelectorAll('#records-mois .ligne-mois')).map((x) => x.textContent));
+    ok('[P55] la liste des records du mois porte les deux records de la séance',
+      rec.filter((x) => /Médaillé u55 125\s*kg\s*×\s*5/.test(sp(x))).length === 1 &&
+        rec.filter((x) => /Médaillé u55 100\s*kg\s*×\s*5/.test(sp(x))).length === 1, JSON.stringify(rec));
+    await page.evaluate(() => Array.from(document.querySelectorAll('#records-mois .ligne-mois'))
+      .filter((x) => /Médaillé u55 125/.test(x.textContent.replace(/\u00a0/g, ' ')))[0].click());
+    await attendre(1200);
+    ok('[P55] un record mène à sa séance (le détail)', JSON.stringify(await visible()) === '["vue-detail"]',
+      JSON.stringify(await visible()));
+    ok('[P55] la garde de l’app n’a rien signalé, aucune erreur de page',
+      gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant, JSON.stringify(erreurs.slice(erreursAvant)));
+    await aller('/saisie');
+    await attendre(500);
   }
 
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');

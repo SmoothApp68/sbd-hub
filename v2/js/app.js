@@ -21,7 +21,7 @@
   var Palier = racine.THPalier, Routines = racine.THRoutines;
   var Seance = racine.THSeance, Attente = racine.THAttente;
   var Profil = racine.THProfil, Moteur = racine.THMoteur, Plan = racine.THPlan;
-  var Rejeu = racine.THRejeu;
+  var Rejeu = racine.THRejeu, Bilan = racine.THBilan;
 
   var vues = {};
   var local = { seances: [], series: [], exercices: [], pesees: [], zones: [], modes: [],
@@ -980,7 +980,24 @@
   function rendreProgression() {
     montrer('progression', Routeur.PROGRESSION);
     var sem = semaineCourante();
+    // MOTEUR §9.23 (55-1) — deux blocs en tête : le mois écoulé, et le
+    // dernier record. Les blocs existants ne bougent pas.
+    var mois = Bilan.moisEcoule(new Date());
+    var b = bilanDe(mois);
+    var dernier = dernierRecord();
     Rendu.rendreSommaire($('sommaire'), {
+      mois: {
+        titre: nomDuMois(mois, false),
+        seances: b.seances,
+        records: recordsDuMois(mois).length,
+        paris: { verifies: b.paris_verifies, tenus: b.paris_tenus },
+        surChoix: function () { afficherMois(mois); }
+      },
+      records: {
+        dernier: dernier ? { texte: dernier.nom + ' ' + dernier.mesure,
+                             date: Modele.jourMois(new Date(dernier.debut), new Date().getFullYear()) } : null,
+        surChoix: dernier ? function () { afficherRecordsDuMois(Bilan.cleMois(dernier.debut)); } : null
+      },
       volume: {
         quand: Rendu.libelleSemaine(sem.bornes.lundi, sem.bornes.dimanche),
         zones: sem.zones,
@@ -991,6 +1008,150 @@
         surChoix: function () { allerA(Routeur.POIDS, {}); rendrePoids(); }
       },
       exercices: sommaireExercices(function (slug) { afficherExercice(slug); })
+    });
+  }
+
+  // ── MOTEUR §9.23 (55-1) — LE MOIS ET SES RECORDS ────────────────────────
+  //
+  // Les séances avec leurs séries, une fois par état du cache : le bilan, ses
+  // records et le dernier record les relisent.
+  var memoSeancesBilan = { cle: null, liste: [] };
+  function seancesAvecSeries() {
+    var cle = (local.seances || []).length + '|' + (local.series || []).length;
+    if (memoSeancesBilan.cle !== cle) {
+      memoSeancesBilan = { cle: cle, liste: (local.seances || []).filter(Boolean).map(function (s) {
+        return { id: s.id, debut: s.debut, fin: s.fin || null, series: Modele.trierParRang(seriesDe(s.id)) };
+      }) };
+    }
+    return memoSeancesBilan.liste;
+  }
+
+  // Toutes les séances qui portent un exercice (la séance en cours n'y est
+  // pas : elle n'est dans le cache qu'une fois terminée).
+  var memoParSlug = { cle: null, parSlug: {} };
+  function seancesDuSlug(slug) {
+    var cle = (local.seances || []).length + '|' + (local.series || []).length;
+    if (memoParSlug.cle !== cle) memoParSlug = { cle: cle, parSlug: {} };
+    if (!memoParSlug.parSlug[slug]) {
+      memoParSlug.parSlug[slug] = seancesAvecSeries().map(function (s) {
+        return { id: s.id, debut: s.debut, series: s.series.filter(function (x) { return x && x.exercise_slug === slug; }) };
+      }).filter(function (g) { return g.series.length > 0; });
+    }
+    return memoParSlug.parSlug[slug];
+  }
+
+  // Les séries médaillées d'une séance PASSÉE : chacune comparée aux séances
+  // d'avant et aux séries d'avant dans la séance — la même règle qu'en séance.
+  var memoRecordsSeance = { cle: null, parId: {} };
+  function recordsDeLaSeance(se) {
+    var cle = (local.seances || []).length + '|' + (local.series || []).length;
+    if (memoRecordsSeance.cle !== cle) memoRecordsSeance = { cle: cle, parId: {} };
+    if (memoRecordsSeance.parId[se.id]) return memoRecordsSeance.parId[se.id];
+    var index = catalogueIndexe(), out = [];
+    se.series.forEach(function (x, k) {
+      if (!x || !Modele.estTravail(x)) return;
+      var r = Modele.recordsBattus(seancesDuSlug(x.exercise_slug), se, k, Modele.optionsDeRecord(index[x.exercise_slug] || null));
+      if (!r.length) return;
+      var nom = Modele.nomCourt(index[x.exercise_slug] ? index[x.exercise_slug].nom : x.exercise_slug);
+      out.push({ seanceId: se.id, debut: se.debut, slug: x.exercise_slug,
+                 nom: nom.charAt(0).toUpperCase() + nom.slice(1), mesure: Modele.formatMesure(x), records: r });
+    });
+    memoRecordsSeance.parId[se.id] = out;
+    return out;
+  }
+
+  // Les records d'un mois, dans l'ordre des séances.
+  function recordsDuMois(mois) {
+    var out = [];
+    Bilan.seancesDuMois(seancesAvecSeries(), mois).slice().sort(function (a, b) {
+      return String(a.debut).localeCompare(String(b.debut));
+    }).forEach(function (se) { recordsDeLaSeance(se).forEach(function (r) { out.push(r); }); });
+    return out;
+  }
+
+  // Le dernier record : la dernière série médaillée de la séance la plus
+  // récente qui en a une (`local.seances` est rangée de la plus récente à la
+  // plus ancienne).
+  function dernierRecord() {
+    var liste = seancesAvecSeries();
+    for (var i = 0; i < liste.length; i++) {
+      var r = recordsDeLaSeance(liste[i]);
+      if (r.length) return r[r.length - 1];
+    }
+    return null;
+  }
+
+  function bilanDe(mois) {
+    return Bilan.bilanDuMois({ mois: mois, seances: seancesAvecSeries(),
+                               paris: parisDeConsigneConnus(), exercices: local.exercices });
+  }
+
+  // « Septembre », « septembre 2026 ».
+  function nomDuMois(mois, avecAnnee) {
+    var d = Bilan.premierJour(mois);
+    if (!d) return '';
+    var n = Modele.MOIS_LONGS[d.getMonth()];
+    return avecAnnee ? n + ' ' + d.getFullYear() : n.charAt(0).toUpperCase() + n.slice(1);
+  }
+
+  function afficherMois(mois) {
+    allerA(Routeur.MOIS, { mois: mois });
+    rendreMois(mois);
+  }
+  function afficherRecordsDuMois(mois) {
+    allerA(Routeur.RECORDS, { mois: mois });
+    rendreRecordsDuMois(mois);
+  }
+
+  // LE BILAN DU MOIS (ECRAN §7 bis.14, maquette « Le mois »).
+  function rendreMois(moisDemande) {
+    montrer('mois', Routeur.MOIS);
+    var mois = moisDemande || Bilan.moisEcoule(new Date());
+    var b = bilanDe(mois);
+    var recs = recordsDuMois(mois);
+    var index = catalogueIndexe();
+    var courant = Bilan.cleMois(new Date());
+    var trois = [Bilan.moisPrecedent(Bilan.moisPrecedent(mois)), Bilan.moisPrecedent(mois), mois];
+    var precedent = Bilan.moisPrecedent(mois);
+    Rendu.rendreBilanMois($('bilan-mois'), {
+      titre: nomDuMois(mois, true).replace(/^./, function (c) { return c.toUpperCase(); }),
+      bilan: b,
+      records: recs,
+      temps: b.temps_min === null ? null : Bilan.texteTemps(b.temps_min),
+      volume: b.volume_kg,
+      barres: trois.map(function (m) {
+        return { libelle: nomDuMois(m, false).toLowerCase(), series: m === mois ? b.series : bilanDe(m).series, courant: m === mois };
+      }),
+      premierJour: Bilan.premierJour(mois),
+      muscles: b.muscles.slice(0, 6),
+      moisAvant: nomDuMois(precedent, false).toLowerCase(),
+      exercices: b.exercices.map(function (e) {
+        var nom = index[e.slug] ? index[e.slug].nom : e.slug;
+        return { nom: nom, series: e.series };
+      }),
+      paris: b.paris_verifies ? { verifies: b.paris_verifies, tenus: b.paris_tenus,
+                                  phrase: Bilan.phraseParis(b.paris_verifies, b.paris_tenus) } : null,
+      surPrecedent: function () { afficherMois(precedent); },
+      surSuivant: mois < courant ? function () { afficherMois(Bilan.moisSuivant(mois)); } : null,
+      surRecords: function () { afficherRecordsDuMois(mois); },
+      surSeance: function (id) { afficherDetail(id); }
+    });
+  }
+
+  // LES RECORDS D'UN MOIS : chacun mène à sa séance.
+  function rendreRecordsDuMois(moisDemande) {
+    montrer('records', Routeur.RECORDS);
+    var mois = moisDemande || Bilan.moisEcoule(new Date());
+    var courant = Bilan.cleMois(new Date());
+    Rendu.rendreRecordsDuMois($('records-mois'), {
+      titre: nomDuMois(mois, true).replace(/^./, function (c) { return c.toUpperCase(); }),
+      records: recordsDuMois(mois).map(function (r) {
+        return { seanceId: r.seanceId, texte: r.nom + ' ' + r.mesure,
+                 date: Modele.jourMois(new Date(r.debut), new Date().getFullYear()) };
+      }),
+      surPrecedent: function () { afficherRecordsDuMois(Bilan.moisPrecedent(mois)); },
+      surSuivant: mois < courant ? function () { afficherRecordsDuMois(Bilan.moisSuivant(mois)); } : null,
+      surSeance: function (id) { afficherDetail(id); }
     });
   }
 
@@ -8003,6 +8164,8 @@
     if (cible.vue === Routeur.PROGRESSION) return rendreProgression();
     if (cible.vue === Routeur.VOLUME) return rendreVolume();
     if (cible.vue === Routeur.POIDS) return rendrePoids();
+    if (cible.vue === Routeur.MOIS) return rendreMois(cible.params.mois || null);
+    if (cible.vue === Routeur.RECORDS) return rendreRecordsDuMois(cible.params.mois || null);
     if (VUES_ONGLET[cible.vue]) return montrer(VUES_ONGLET[cible.vue], cible.vue);
     if (cible.vue === Routeur.EXERCICE) {
       return rendreExercice(cible.params.slug, cible.params.onglet);
@@ -8026,6 +8189,7 @@
       saisie: $('vue-saisie'), routine: $('vue-routine'), seance: $('vue-seance'),
       progression: $('vue-progression'), exercice: $('vue-exercice'),
       volume: $('vue-volume'), poids: $('vue-poids'), profil: $('vue-profil'),
+      mois: $('vue-mois'), records: $('vue-records'),
       exercices: $('vue-exercices')
     };
     sortie = Sortie.creer({
@@ -8076,7 +8240,7 @@
     // suivant n'atteigne l'ancre. Un appui invisible, contre une promesse tenue.
     $('btn-retour').addEventListener('click', function () { afficherSemaine(null, true); });
     $('btn-retour-exercice').addEventListener('click', function () { remonter(afficherSemaine); });
-    ['btn-retour-volume', 'btn-retour-poids'].forEach(function (id) {
+    ['btn-retour-volume', 'btn-retour-poids', 'btn-retour-mois', 'btn-retour-records'].forEach(function (id) {
       $(id).addEventListener('click', function () {
         allerA(Routeur.PROGRESSION, {});
         rendreProgression();

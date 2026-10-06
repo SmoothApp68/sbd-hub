@@ -986,12 +986,203 @@
     return bloc;
   }
 
+  // MOTEUR §9.23 (55-1) — LE MOIS ÉCOULÉ, en tête : « Septembre — 22 séances
+  // · 33 records · 27 paris tenus sur 30 ». Un compte, sans jugement : rien
+  // n'est dit d'un nombre nul, aucune couleur.
+  function pluriel(n, mot) { return n + ' ' + mot + (n > 1 ? 's' : ''); }
+  function blocMois(v) {
+    var bloc = coquilleBloc(v.titre, '', false);
+    bloc.classList.add('neuf');
+    var bouts = [];
+    bouts.push(v.seances ? pluriel(v.seances, 'séance') : 'Aucune séance');
+    if (v.records) bouts.push(pluriel(v.records, 'record'));
+    if (v.paris && v.paris.verifies) bouts.push(v.paris.tenus + ' pari' + (v.paris.tenus > 1 ? 's' : '') +
+      ' tenu' + (v.paris.tenus > 1 ? 's' : '') + ' sur ' + v.paris.verifies);
+    bloc.appendChild(el('div', 'bloc-ligne', bouts.join(' \u00b7 ')));
+    bloc.addEventListener('click', v.surChoix);
+    return bloc;
+  }
+  // LES RECORDS : « Le dernier : couché 130 kg × 4, le 22 sept. » Sans
+  // record, le bloc le dit et ne s'ouvre pas.
+  function blocRecords(v) {
+    var bloc = coquilleBloc('Records', '', !v.surChoix);
+    bloc.classList.add('neuf');
+    var haut = bloc.querySelector('.bloc-quoi');
+    if (haut) haut.insertBefore(pastilleMedaille(), haut.firstChild);
+    bloc.appendChild(el('div', 'bloc-ligne', v.dernier
+      ? 'Le dernier : ' + v.dernier.texte + ', le ' + v.dernier.date + '.'
+      : 'Aucun record pour l\u2019instant.'));
+    if (v.surChoix) bloc.addEventListener('click', v.surChoix);
+    return bloc;
+  }
+
   function rendreSommaire(cible, vue) {
     if (!cible) return;
     vider(cible);
+    if (vue.mois) cible.appendChild(blocMois(vue.mois));
+    if (vue.records) cible.appendChild(blocRecords(vue.records));
     cible.appendChild(blocVolume(vue.volume));
     cible.appendChild(blocPoids(vue.poids));
     cible.appendChild(blocExercices(vue.exercices));
+  }
+
+  // ── MOTEUR §9.23 (55-1) — LE BILAN D'UN MOIS (maquette « Le mois ») ─────
+  //
+  // Les chiffres du mois, les séries mois par mois (gris, le mois affiché en
+  // couleur du coach — quelle que soit sa hauteur), le calendrier des jours
+  // faits, les records, les séries par muscle à côté du mois d'avant, les
+  // exercices les plus faits, les paris du coach. Aucune couleur de jugement.
+  function navMois(vue, titre) {
+    var nav = el('div', 'mois-nav');
+    var av = el('button', 'discret mois-precedent', '\u2039');
+    av.type = 'button';
+    av.setAttribute('aria-label', 'Mois précédent');
+    av.addEventListener('click', vue.surPrecedent);
+    nav.appendChild(av);
+    nav.appendChild(el('h2', 'titre-vue', titre));
+    var ap = el('button', 'discret mois-suivant', '\u203a');
+    ap.type = 'button';
+    ap.setAttribute('aria-label', 'Mois suivant');
+    if (vue.surSuivant) ap.addEventListener('click', vue.surSuivant);
+    else ap.disabled = true;
+    nav.appendChild(ap);
+    return nav;
+  }
+  function carteMois(titre) {
+    var c = el('div', 'carte-mois');
+    if (titre) c.appendChild(el('h3', null, titre));
+    return c;
+  }
+  function ligneMois(gauche, droite, classe) {
+    var l = el('div', 'ligne-mois' + (classe ? ' ' + classe : ''));
+    l.appendChild(typeof gauche === 'string' ? el('span', null, gauche) : gauche);
+    l.appendChild(typeof droite === 'string' ? el('span', null, droite) : droite);
+    return l;
+  }
+  function tonnes(kg) {
+    var t = (Number(kg) || 0) / 1000;
+    return nombreFr(Math.round(t * (t < 10 ? 10 : 1)) / (t < 10 ? 10 : 1)) + '\u00a0t';
+  }
+  function rendreBilanMois(cible, vue) {
+    if (!cible) return;
+    vider(cible);
+    var b = vue.bilan;
+    cible.appendChild(navMois(vue, vue.titre));
+
+    var tuiles = el('div', 'tuiles-mois');
+    var tuile = function (valeur, libelle) {
+      var t = el('div', 'tuile-mois');
+      t.appendChild(el('b', null, valeur));
+      t.appendChild(el('span', null, libelle));
+      tuiles.appendChild(t);
+    };
+    tuile(String(b.seances), b.seances > 1 ? 'séances' : 'séance');
+    tuile(String(b.series), 'séries de travail');
+    tuile(tonnes(vue.volume), 'volume soulevé');
+    tuile(String(vue.records.length), vue.records.length > 1 ? 'records' : 'record');
+    // Le temps n'apparaît que si toutes les séances ont une heure de fin.
+    if (vue.temps) tuile(vue.temps, 'd\u2019entraînement');
+    cible.appendChild(tuiles);
+
+    // Les séries, mois par mois : gris, le mois affiché en couleur du coach.
+    var g = carteMois('Séries, mois par mois');
+    var max = 0;
+    vue.barres.forEach(function (x) { if (x.series > max) max = x.series; });
+    var barres = el('div', 'barres-mois');
+    var etiq = el('div', 'etiq-mois');
+    vue.barres.forEach(function (x) {
+      var col = el('div', 'barre-mois' + (x.courant ? ' courant' : ''));
+      col.style.height = (max ? Math.max(2, Math.round(x.series / max * 100)) : 2) + '%';
+      col.appendChild(el('i', null, String(x.series)));
+      barres.appendChild(col);
+      etiq.appendChild(el('span', null, x.libelle));
+    });
+    g.appendChild(barres);
+    g.appendChild(etiq);
+    cible.appendChild(g);
+
+    // Les jours faits : rien d'autre — ni « jour manqué », ni série.
+    var c = carteMois('Tes jours');
+    var cal = el('div', 'cal-mois');
+    ['L', 'M', 'M', 'J', 'V', 'S', 'D'].forEach(function (j) { cal.appendChild(el('span', 'j', j)); });
+    var premier = vue.premierJour;
+    var decalage = (premier.getDay() + 6) % 7;
+    for (var k = 0; k < decalage; k++) cal.appendChild(el('span'));
+    var nbJours = new Date(premier.getFullYear(), premier.getMonth() + 1, 0).getDate();
+    for (var d = 1; d <= nbJours; d++) {
+      cal.appendChild(el('span', b.jours.indexOf(d) >= 0 ? 'fait' : null, String(d)));
+    }
+    c.appendChild(cal);
+    cible.appendChild(c);
+
+    // Les records du mois : les trois premiers, puis « et N autres ».
+    if (vue.records.length) {
+      var r = carteMois('Tes records');
+      var t = r.querySelector('h3');
+      t.insertBefore(pastilleMedaille(), t.firstChild);
+      vue.records.slice(0, 3).forEach(function (x) {
+        var l = ligneMois(x.nom, x.mesure, 'lien');
+        l.addEventListener('click', function () { vue.surSeance(x.seanceId); });
+        r.appendChild(l);
+      });
+      var reste = vue.records.length - 3;
+      var tous = ligneMois(el('span', 'gris', reste > 0 ? 'et ' + reste + (reste > 1 ? ' autres' : ' autre') : 'Tous les records du mois'),
+        el('span', 'fleche', '\u203a'), 'lien tous-records');
+      tous.addEventListener('click', vue.surRecords);
+      r.appendChild(tous);
+      cible.appendChild(r);
+    }
+
+    // Les séries par muscle (principaux), à côté du mois d'avant.
+    if (vue.muscles.length) {
+      var m = carteMois('Séries par muscle');
+      vue.muscles.forEach(function (x) {
+        var droite = el('span');
+        droite.appendChild(doc.createTextNode(String(x.series) + ' '));
+        droite.appendChild(el('span', 'gris', '\u00b7 ' + vue.moisAvant + ' ' + x.avant));
+        m.appendChild(ligneMois(x.libelle, droite));
+      });
+      cible.appendChild(m);
+    }
+
+    if (vue.exercices.length) {
+      var e = carteMois('Les plus faits');
+      vue.exercices.forEach(function (x) {
+        e.appendChild(ligneMois(x.nom, x.series + (x.series > 1 ? ' séries' : ' série')));
+      });
+      cible.appendChild(e);
+    }
+
+    // Les paris du coach : vérifiés, tenus, et la phrase.
+    if (vue.paris) {
+      var p = carteMois('Le coach a fait ses paris');
+      p.appendChild(ligneMois('Paris vérifiés', String(vue.paris.verifies)));
+      var tenus = el('span');
+      tenus.appendChild(el('b', null, String(vue.paris.tenus)));
+      p.appendChild(ligneMois('Tenus', tenus));
+      if (vue.paris.phrase) p.appendChild(el('p', 'voix-paris', vue.paris.phrase));
+      cible.appendChild(p);
+    }
+  }
+
+  // LES RECORDS D'UN MOIS : une ligne par série médaillée, qui mène à sa
+  // séance.
+  function rendreRecordsDuMois(cible, vue) {
+    if (!cible) return;
+    vider(cible);
+    cible.appendChild(navMois(vue, 'Records \u2014 ' + vue.titre));
+    if (!vue.records.length) {
+      cible.appendChild(el('p', 'vide', 'Aucun record ce mois-ci.'));
+      return;
+    }
+    var c = carteMois(null);
+    vue.records.forEach(function (x) {
+      var droite = el('span', 'gris', x.date);
+      var l = ligneMois(x.texte, droite, 'lien');
+      l.addEventListener('click', function () { vue.surSeance(x.seanceId); });
+      c.appendChild(l);
+    });
+    cible.appendChild(c);
   }
 
   // ── Sélecteur de période, en pastilles ──────────────────────────────────
@@ -4298,6 +4489,8 @@
     rendreFenetreMuscle: rendreFenetreMuscle,
     rendreCalendrier: rendreCalendrier,
     rendreSommaire: rendreSommaire,
+    rendreBilanMois: rendreBilanMois,
+    rendreRecordsDuMois: rendreRecordsDuMois,
     rendrePeriodes: rendrePeriodes,
     rendreRadar: rendreRadar,
     rendreCartesPeriode: rendreCartesPeriode,

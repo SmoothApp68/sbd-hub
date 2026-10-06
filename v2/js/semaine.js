@@ -127,6 +127,28 @@
     });
   }
 
+  // MOTEUR §9.23 (55-1) — LES SÉRIES PAR MUSCLE PRINCIPAL, pour le bilan du
+  // mois : une série de travail compte UNE fois pour chacun de ses muscles
+  // principaux, rien pour les secondaires (« muscles principaux », §9.23). Le
+  // même catalogue et la même série de travail que `volumeParMuscle`, à côté
+  // de qui il vit : un nombre entier, qui se lit sans décimale.
+  function seriesParMusclePrincipal(series, exercices) {
+    var cat = {};
+    (exercices || []).forEach(function (e) { if (e && e.slug) cat[e.slug] = e; });
+    var total = {};
+    (series || []).forEach(function (s) {
+      if (!racine.THModele.estTravail(s)) return;
+      var exo = cat[s.exercise_slug];
+      if (!exo) return;
+      (exo.muscles_primaires || []).forEach(function (m) { if (m) total[m] = (total[m] || 0) + 1; });
+    });
+    return Object.keys(total).map(function (m) {
+      return { muscle: m, libelle: libelleMuscle(m), series: total[m] };
+    }).sort(function (a, b) {
+      return b.series - a.series || a.libelle.localeCompare(b.libelle);
+    });
+  }
+
   // MOTEUR §14.6 (49-U16) — LE VOLUME DE CHAQUE SEMAINE, PAR MUSCLE, sur tout
   // l'historique (importées comprises) : l'entrée de la règle de volume. Un
   // seul fil : chaque semaine passe par `volumeParMuscle`, aucun second calcul
@@ -356,6 +378,7 @@
     JOURS: JOURS,
     LIBELLES_MUSCLE: LIBELLES_MUSCLE,
     libelleMuscle: libelleMuscle,
+    seriesParMusclePrincipal: seriesParMusclePrincipal,
     ZONES: ZONES,
     zoneDuMuscle: zoneDuMuscle,
     volumeParZone: volumeParZone,

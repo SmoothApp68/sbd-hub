@@ -1481,3 +1481,40 @@ button.puce-zone{font:inherit;font-size:11px;font-weight:600;cursor:pointer;
   font:inherit;font-size:13.5px;text-align:left;cursor:pointer}
 .case-programme .cp-nom{flex:1;min-width:0;overflow-wrap:anywhere}
 .case-programme .cp-zone{color:var(--texte-2);white-space:nowrap}
+
+/* ── MOTEUR §9.23 (55-1) — LE MOIS ET SES RECORDS (maquette « L'onglet »,
+   « Le mois »). Descriptif : le mois affiché en couleur du coach, les autres
+   en gris, quelle que soit leur hauteur ; aucune couleur de jugement. */
+.bloc-som.neuf{border:1px solid rgba(242,183,5,.35)}
+.bloc-ligne{font-size:12.5px;line-height:1.5;color:var(--texte-2)}
+.bloc-quoi .medaille{margin-right:8px;vertical-align:-3px}
+.mois-nav{display:flex;align-items:center;justify-content:space-between;gap:var(--e2);margin:var(--e2) 0 var(--e3)}
+.mois-nav .titre-vue{margin:0;text-align:center;flex:1}
+.mois-nav button{font-size:22px;line-height:1;padding:6px 12px;min-width:44px}
+.mois-nav button:disabled{opacity:.3}
+.tuiles-mois{display:grid;grid-template-columns:1fr 1fr;gap:var(--e2);margin-bottom:var(--e3)}
+.tuile-mois{background:var(--panneau);border-radius:var(--r-grand);padding:10px 12px;font-variant-numeric:tabular-nums}
+.tuile-mois b{display:block;font-size:20px;font-weight:650}
+.tuile-mois span{color:var(--texte-2);font-size:12px}
+.carte-mois{background:var(--panneau);border-radius:var(--r-grand);padding:12px 14px;margin-bottom:var(--e3)}
+.carte-mois h3{margin:0 0 8px;font-size:14px;font-weight:600;display:flex;gap:8px;align-items:center}
+.ligne-mois{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--trait);
+  font-size:13.5px;font-variant-numeric:tabular-nums}
+.ligne-mois:last-child{border-bottom:0}
+.ligne-mois.lien{cursor:pointer}
+.ligne-mois .gris,.carte-mois .gris{color:var(--texte-2)}
+.ligne-mois .fleche{color:var(--texte-3);font-size:18px;line-height:1}
+.barres-mois{display:flex;align-items:flex-end;gap:14px;height:90px;margin:20px 0 2px;padding:0 6px;
+  border-bottom:1px solid var(--trait)}
+.barre-mois{flex:1;background:var(--panneau-2);border-radius:6px 6px 0 0;position:relative;min-height:2px}
+.barre-mois.courant{background:var(--accent)}
+.barre-mois i{position:absolute;top:-18px;left:0;right:0;text-align:center;font-style:normal;font-size:11px;
+  color:var(--texte-2);font-variant-numeric:tabular-nums}
+.etiq-mois{display:flex;gap:14px;padding:4px 6px 0}
+.etiq-mois span{flex:1;text-align:center;color:var(--texte-2);font-size:11px}
+.cal-mois{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center;font-size:12px;
+  font-variant-numeric:tabular-nums}
+.cal-mois .j{color:var(--texte-3);font-size:11px}
+.cal-mois span{padding:5px 0;border-radius:50%}
+.cal-mois .fait{background:var(--accent);color:#1A1205;font-weight:700}
+.voix-paris{color:var(--accent);font-weight:620;margin-top:8px;font-size:13.5px}

@@ -818,7 +818,7 @@ worker** : aucun CDN, l'app marche hors ligne. `font-display: swap`, repli syst�
 de séance fait au moins 2 px de plus qu'avant (kilos et reps 17 px).
 
 > **Règle de l'ambre — la plus importante.** L'ambre est **la voix du coach** : l'onglet actif, la suggestion du coach,
-> l'étiquette de zone, et **l'action principale d'un écran** (un seul bouton plein par écran ; quand une action se
+> l'étiquette de zone, et **l'action principale d'un écran** (un seul bouton plein par écran, sauf la réponse à une proposition du coach, une par proposition — « Ajouter » des chauffes ; quand une action se
 > répète, comme « Démarrer » sur chaque routine, l'ambre passe sur le texte, pas sur le fond). **L'or est réservé aux
 > records.** Si l'ambre est partout, plus rien ne ressort le jour où le coach dit « 122,5 kg, vise 6 ».
 
@@ -827,7 +827,7 @@ de séance fait au moins 2 px de plus qu'avant (kilos et reps 17 px).
 
 **Ce qui est proscrit** : cartes arrondies identiques partout avec la même ombre · dégradés **hors de la médaille et
 des boutons principaux** · animations à l'apparition de chaque élément · flèches dans les boutons · une couleur sans
-rôle. Les capitales espacées sont réservées aux boutons principaux, aux titres de section et à la barre d'onglets.
+rôle. Les capitales espacées sont réservées aux boutons principaux, aux titres de section, aux libellés de champ et aux en-têtes de colonnes (« TITRE », « SUPERSET », « PRÉC. »), et à la barre d'onglets.
 
 ### 7 bis.5 Résumé de séance — la carte dit ce qu'on a fait
 
@@ -1013,7 +1013,7 @@ janvier 2023, rien ne les affiche) · **Par exercice**.
 
 L'écran est utile **sans rien toucher**, et chaque bloc arrive quand il est prêt.
 
-**Deux blocs en tête — ajoutés le 06/10/2026 (chantier 55, MOTEUR §9.23).** **Le mois écoulé** (« Septembre — 22 séances · 33 records · 27 paris tenus sur 30 »), qui s'ouvre sur **le bilan du mois** ; il porte le mois écoulé jusqu'à la fin du mois suivant, et **tous les mois restent consultables** depuis ce bilan (chez Hevy, un bilan disparaît le mois d'après). **Les records** (« Le dernier : couché 130 kg × 4, le 22 sept. »), qui s'ouvre sur les records du mois, chacun menant à sa séance. Les blocs existants ne bougent pas. Le bilan reprend celui de Hevy (chiffres du mois, graphique mois par mois en gris avec le mois courant en couleur du coach, calendrier des jours faits, séries par muscle comparées au mois d'avant, exercices les plus faits) et y ajoute les paris du coach.
+**Deux blocs en tête — ajoutés le 06/10/2026 (chantier 55, MOTEUR §9.23).** **Le mois écoulé** (« Septembre — 22 séances · 33 records · 27 paris tenus sur 30 »), qui s'ouvre sur **le bilan du mois** ; il porte le mois écoulé jusqu'à la fin du mois suivant, et **tous les mois restent consultables** depuis ce bilan (chez Hevy, un bilan disparaît le mois d'après). **Les records** (« Le dernier : couché 130 kg × 4, le 22 sept. »), qui s'ouvre sur les records du mois, chacun menant à sa séance. Les blocs existants ne bougent pas. Le bilan reprend celui de Hevy (chiffres du mois, graphique mois par mois en gris avec le mois courant en couleur du coach, calendrier des jours faits, séries par muscle comparées au mois d'avant, exercices les plus faits — **chacun ouvre sa page d'exercice**, par la même porte que partout ailleurs (§7 quater ; précisé le 06/10/2026) — et y ajoute les paris du coach.
 
 
 **La barre de semaine n'appartient pas au sommaire** : le volume est hebdomadaire, le poids

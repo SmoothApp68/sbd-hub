@@ -1,19 +1,19 @@
 # Schéma réel — état au 6 octobre 2026
 
 **Régénéré depuis la base**, projet Supabase `swwygywahfdenyzotrce` (eu-west-1).
-Dernière migration appliquée : **`v2_058_blocs_programmes`**. Prochain numéro libre : **`v2_059`**.
+Dernière migration appliquée : **`v2_059_routine_exercises_retrait_series_reps`**. Prochain numéro libre : **`v2_060`**.
 
 > ⚠️ **Ce document remplace `SCHEMA-V2_2.md`**, qui décrivait un état antérieur aux
 > routines et n'a plus valeur de référence. En cas de doute, la base fait foi — pas ce
 > fichier. Il est régénéré, pas rédigé.
 
 > **Régénéré le 06/10/2026 depuis la base** (Claude.ai). Cette version reprend celle du 21/09 (`v2_047`) et
-> ajoute, juste en dessous, **tout ce qui a changé de `v2_048` à `v2_058`** : colonnes, table nouvelle, contraintes,
+> ajoute, juste en dessous, **tout ce qui a changé de `v2_048` à `v2_059`** : colonnes, table nouvelle, contraintes,
 > règles d'accès, volumétrie. Les sections par table plus bas datent du 21/09 ; quand elles divergent du bloc
 > « Depuis le 21/09 », **c'est ce bloc qui fait foi**.
 
 **Volumétrie régénérée le 06/10/2026 :** **1 260 séances · 29 036 séries** · 237 exercices (232 actifs, **100 avec un
-mouvement**) · 117 pesées · **5 profils** · **10 routines (0 rangée en dossier) · 78 exercices de routine · 269 séries
+mouvement**) · 117 pesées · **5 profils** · **10 routines (5 rangées dans le dossier « Sèche » depuis le 06/10 au soir) · 78 exercices de routine · 269 séries
 programmées** · **82 prédictions** (toutes `moteur.consigne`) · **17 zones corrigées** (0 posée par un bloc) ·
 **0 mode par exercice** · **0 bloc** · 0 série marquée douleur.
 
@@ -23,7 +23,7 @@ programmées** · **82 prédictions** (toutes `moteur.consigne`) · **17 zones c
 rattachement) — **la note « routine_id n'est pas rempli par les séances v2 » était fausse** : il l'est quand la séance
 part d'une routine. La séance importée de Hevy le 02/10 a été rattachée à sa routine à la main.
 
-## Depuis le 21/09 — migrations `v2_048` à `v2_058`
+## Depuis le 21/09 — migrations `v2_048` à `v2_059`
 
 | Migration | Date | Ce qu'elle fait |
 |---|---|---|
@@ -38,6 +38,7 @@ part d'une routine. La séance importée de Hevy le 02/10 a été rattachée à 
 | `v2_056_sets_douleur_occurrence` | 05/10 | `sets.douleur` (boolean NOT NULL, défaut false) et `sets.occurrence` (uuid, NULL pour les séances importées ou anciennes) (MOTEUR §9.20, §9.19) |
 | `v2_057_routines_dossier` | 05/10 | `routines.dossier` (text, NULL = hors dossier ; CHECK `routines_dossier_ok` : sans espace autour, 1 à 40 caractères) (ECRAN-SAISIE, Organiser) |
 | `v2_058_blocs_programmes` | 05/10 | **Table `blocs`** ; `zones_exercice.origine` (`personne` / `bloc`) et `zones_exercice.bloc_id` ; `predictions_observation_coherente` accepte aussi `module = 'programme'` (MOTEUR §9.22, §9.1.2, §19.2) |
+| `v2_059_routine_exercises_retrait_series_reps` | 06/10 | **Retire `routine_exercises.series` et `reps_visees`** et leurs contraintes `routine_exos_series_bornees`, `routine_exos_reps_bornees` : redondantes depuis `routine_sets` (`v2_042`), lues par aucun code v2 (relevé 54-0), aucune vue ni fonction. Lancée par Aurélien dans l'éditeur SQL (essai à blanc puis écriture, 78 lignes intactes), notée dans l'historique des migrations |
 
 **Données corrigées hors migration** (avec répétition à blanc) : 4 séries de `muscle_up_assiste` passées en négatif
 (l'aide se range en négatif : 129 séries sur 129 désormais) ; la séance Hevy du 02/10 importée (27 séries) et rattachée
@@ -79,10 +80,7 @@ même table, la déclaration la plus récente l'emporte (MOTEUR §9.1.2). Suppri
 - **L'alias abîmé de `developpe_couche_decline_barre` est volontaire — ne pas le supprimer.** Le texte
   « Développé Couch�� Décliné (Barre) » est celui de l'export Hevy, abîmé à la source ; l'alias (`hevy_corrompu`)
   permet de le reconnaître à l'import.
-- **`routine_exercises.series`** (integer NOT NULL = 3, remplie sur les 78 lignes) et **`routine_exercises.reps_visees`**
-  (integer, vide) sont **redondantes** depuis `routine_sets` (`v2_042`), qui fait foi pour la structure d'une routine.
-  Aucune vue ni fonction de la base n'en dépend ; la répétition à blanc de leur retrait a réussi le 06/10. **À retirer en
-  `v2_059` une fois vérifié qu'aucun code v2 ne les nomme.** D'ici là, le code ne doit ni les lire ni les écrire.
+- ~~`routine_exercises.series` et `reps_visees`~~ : **retirées le 06/10 par `v2_059`** (voir le tableau des migrations).
 
 ### Règles d'accès (état au 06/10)
 
@@ -362,7 +360,7 @@ RLS strictement propriétaire (voir la section RLS).
 | `equipement` | text | signature de parc, pas de lieu |
 | `actif` | boolean NOT NULL | |
 
-## `routines` / `routine_exercises` — 11 et 79 lignes
+## `routines` / `routine_exercises` — 10 et 78 lignes (06/10)
 
 **La routine porte la structure, jamais les charges.** Les charges viennent du moteur.
 
@@ -378,13 +376,9 @@ non-archivées).
 `groupe_superset` (même mécanisme que `sets`), **`repos_cible_s`** (`v2_040` — repos
 **prescrit**, 5 à 1800 s, **NULL = désactivé**, `ECRAN-SAISIE-V1` §7 sexdecies.3).
 
-> ⚠️ **`series` et `reps_visees` existent encore sur `routine_exercises` et NE SONT PLUS NI
-> LUES NI ÉCRITES** (chantier 43, `v2_042_routine_sets`). Deux entiers ne savaient dire qu'« il
-> y a N séries identiques » : ni une rampe d'échauffement, ni des reps qui varient, ni une
-> charge cible par série. `routine_sets` porte une ligne par série, avec son type. Elles restent
-> en base, avec leur `CHECK` et leur défaut, pour les lignes anciennes — le code les ignore.
-> **Ne pas les relire**, et les retirer un jour : deux sources pour la même information, ce que
-> le `CADRAGE-V2` §2 undecies interdit.
+> **`series` et `reps_visees` ont été retirées de `routine_exercises` le 06/10/2026 (`v2_059`).** `routine_sets`
+> porte une ligne par série, avec son type, ses reps visées et sa charge de départ : c'est la seule source de la
+> structure d'une routine (`CADRAGE-V2` §2 undecies).
 
 ## Autres tables
 

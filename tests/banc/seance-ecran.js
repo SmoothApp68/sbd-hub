@@ -288,6 +288,10 @@ const CATALOGUE = [
   // 55-1 bis (H1, #371) — une machine : son record se dit « sur 12 mois ».
   { slug: 'machine-u55', nom: 'Fenêtre U55 (Machine)', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: [], muscles_secondaires: [] },
   { slug: 'record-u55', nom: 'Médaillé U55 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['u55_pecs'], muscles_secondaires: [] },
+  // ⚠️ RÉSERVÉ AU CHANTIER 56-1 (la forge) : l'exercice de la section qui relève
+  // le texte visible, écran par écran. Son nom ne répond à aucune recherche faite
+  // ailleurs, et aucune autre section ne lui pose de séries.
+  { slug: 'forge-u56', nom: 'Développé Forge U56 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['u56_pecs'], muscles_secondaires: [] },
   // 52-1 (ECRAN-SAISIE §7 duodecies.3, §7 quindecies.3-4 ; MOTEUR §9.21) —
   // réservés à la section « organiser » : un cardio (sans muscle), un gros
   // mouvement (3 muscles : un polyarticulaire), deux isolations en superset,
@@ -605,7 +609,10 @@ const SETS_IMPORTES = [
     return null;
   }
 
-  const serveur = creer({ racine: path.join(R, 'v2') });
+  // `BANC_V2` sert un AUTRE dossier `v2/` avec ce même banc : c'est ce qui
+  // permet de relever le texte visible de l'app d'un commit de base
+  // (`texte-visible.js`, 56-1). Sans la variable, rien ne change.
+  const serveur = creer({ racine: process.env.BANC_V2 || path.join(R, 'v2') });
   await new Promise((r) => serveur.listen(PORT, r));
   const nav = await chromium.launch({ executablePath: CHROME, args: ['--no-sandbox'] });
   const ctx = await nav.newContext({ viewport: { width: 360, height: 760 } });
@@ -12726,6 +12733,255 @@ const SETS_IMPORTES = [
     ok('[P55] à la barre, jamais « sur 12 mois »', !/sur 12 mois/.test(barreP), '');
 
     ok('[P55] la garde de l’app n’a rien signalé, aucune erreur de page',
+      gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant, JSON.stringify(erreurs.slice(erreursAvant)));
+    await aller('/saisie');
+    await attendre(500);
+  }
+
+  console.log('\n══ forge. LA FORGE : LE TEXTE VISIBLE, ÉCRAN PAR ÉCRAN (56-1) ══');
+  //
+  // Un habillage ne retire rien : même information, même ordre, même
+  // visibilité, et une taille ne peut que rester égale ou grandir. Cette
+  // section parcourt les écrans — la séance (ligne jaune, ligne grise, séries
+  // validées, une médaille), ses feuilles, les routines, Progression, la page
+  // d'exercice, le profil, la semaine — et RELÈVE à chacun, à 360 et 390 px,
+  // chaque texte affiché : son texte, sa taille, son opacité, son contraste, et
+  // s'il est coupé.
+  //
+  // Le relevé se compare à celui d'un AUTRE commit avec `texte-visible.js`,
+  // qui joue cette même section contre le `v2/` de ce commit (`BANC_V2`) :
+  // c'est la preuve qu'un habillage n'a rien fait disparaître. `BANC_TEXTE`
+  // nomme le fichier du relevé, `BANC_CAPTURES` le dossier des captures à
+  // 390 px. Sans elles, la section joue ses propres contrôles et rien d'autre.
+  {
+    const tF = Date.now();
+    const erreursAvant = erreurs.length;
+    const violationsAvant = gardeBanc.violations;
+    // 100 × 8 il y a 24 jours, 102,5 × 8 il y a 12 jours : le coach propose, et
+    // 107,5 × 8 bat le record à 8 reps (la médaille).
+    [[24, 100], [12, 102.5]].forEach(([j, kg], i) => {
+      const id = 'f56-' + i;
+      const debut = ilYa(j * 86400000, tF).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'Forge — ' + id, debut,
+        fin: finDe(debut, tF).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      [1, 2, 3].forEach((r) => base.sets.push({ id: id + '-s' + r, session_id: id, user_id: 'u-banc',
+        exercise_slug: 'forge-u56', charge_kg: kg, reps: 8, duree_s: null, distance_m: null, type_serie: 'travail',
+        rang: r, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null, repos_s: null, note: null,
+        source: 'app', created_at: debut, modifie_a: null }));
+    });
+    ROUTINES.push({ id: 'r-f56', nom: 'Forge U56', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-f56-a', routine_id: 'r-f56', exercise_slug: 'forge-u56', rang: 0,
+        routine_sets: progr(3, 8), repos_cible_s: 120, groupe_superset: null, note: null }] });
+
+    // Ce qui change d'une exécution à l'autre sans rien dire de l'habillage :
+    // le chronomètre du repos, l'heure de la séance. Leurs chiffres sont masqués.
+    const MASQUES = ['.repos-g', '.repos-c', '.bandeau-ch', '.reprise-depuis'];
+    // LE RELEVÉ D'UN ÉCRAN. Chaque élément rendu qui porte du texte en propre (ses
+    // nœuds texte directs ; la valeur ou l'indication d'un champ), dans l'ordre
+    // du document.
+    const releverPage = () => page.evaluate(async (masques) => {
+      await document.fonts.ready;
+      const couleur = (s) => {
+        const m = /rgba?\(([^)]+)\)/.exec(s || '');
+        if (!m) return null;
+        const p = m[1].split(/[ ,/]+/).filter(Boolean).map(Number);
+        return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 };
+      };
+      const lin = (v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+      const lum = (c) => 0.2126 * lin(c.r) + 0.7152 * lin(c.g) + 0.0722 * lin(c.b);
+      const melange = (h, b) => ({ r: h.r * h.a + b.r * (1 - h.a), g: h.g * h.a + b.g * (1 - h.a), b: h.b * h.a + b.b * (1 - h.a), a: 1 });
+      // Le fond réel : les fonds des ancêtres, empilés depuis la page — ceux
+      // dont la boîte contient le texte (un libellé posé AU-DESSUS d'une barre,
+      // en position absolue, se lit sur la carte, pas sur la barre).
+      const fondDe = (el) => {
+        const pile = [];
+        const r0 = el.getBoundingClientRect();
+        const cx = r0.left + r0.width / 2, cy = r0.top + r0.height / 2;
+        for (let n = el; n; n = n.parentElement) {
+          const b = n.getBoundingClientRect();
+          if (n !== document.documentElement && n !== document.body &&
+              (cx < b.left || cx > b.right || cy < b.top || cy > b.bottom)) continue;
+          const c = couleur(getComputedStyle(n).backgroundColor);
+          if (c && c.a > 0) pile.push(c);
+          if (c && c.a >= 1) break;
+        }
+        let f = { r: 255, g: 255, b: 255, a: 1 };
+        for (let i = pile.length - 1; i >= 0; i--) f = melange(pile[i], f);
+        return f;
+      };
+      const opacite = (el) => { let o = 1; for (let n = el; n; n = n.parentElement) o *= Number(getComputedStyle(n).opacity); return o; };
+      // Coupé : l'élément ou l'un de ses deux ancêtres déborde là où le débord est
+      // caché (ou défile, en largeur) ; en hauteur, seulement s'il est caché.
+      const coupe = (el) => {
+        for (let n = el, k = 0; n && n !== document.body && k < 3; n = n.parentElement, k++) {
+          const s = getComputedStyle(n);
+          if (s.overflowX !== 'visible' && n.scrollWidth > n.clientWidth + 1) return true;
+          if ((s.overflowY === 'hidden' || s.overflowY === 'clip') && n.scrollHeight > n.clientHeight + 1) return true;
+        }
+        return false;
+      };
+      const masque = (el) => masques.some((m) => el.closest(m));
+      const sortie = [];
+      document.body.querySelectorAll('*').forEach((el) => {
+        if (/^(SCRIPT|STYLE|TEMPLATE|NOSCRIPT|OPTION)$/.test(el.tagName)) return;
+        let t;
+        if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+          if (el.type === 'hidden' || el.type === 'checkbox' || el.type === 'radio') return;
+          t = el.value ? el.value : (el.placeholder ? '⟨' + el.placeholder + '⟩' : '');
+        } else {
+          t = Array.from(el.childNodes).filter((n) => n.nodeType === 3).map((n) => n.nodeValue).join('');
+        }
+        t = t.replace(/[\s  ]+/g, ' ').trim();
+        if (!t) return;
+        const s = getComputedStyle(el);
+        if (!el.getClientRects().length || s.visibility !== 'visible') return;
+        if (masque(el)) t = t.replace(/\d/g, '#');
+        const svg = el instanceof SVGElement;
+        let c = null;
+        if (!svg) {
+          const f = fondDe(el);
+          // Un champ vide montre son indication, à la couleur de `::placeholder`.
+          const indication = (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') && !el.value;
+          const brut = couleur(indication ? getComputedStyle(el, '::placeholder').color : s.color);
+          const tx = brut ? melange(brut, f) : null;
+          if (tx) {
+            const a = lum(tx), b = lum(f);
+            c = Math.round((Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05) * 100) / 100;
+          }
+        }
+        sortie.push({ t: t, k: el.tagName.toLowerCase() + (el.classList.length ? '.' + Array.from(el.classList).join('.') : ''),
+          px: parseFloat(s.fontSize), w: Number(s.fontWeight), f: s.fontFamily.split(',')[0].replace(/"/g, '').trim(),
+          o: Math.round(opacite(el) * 100) / 100, c: c, coupe: coupe(el) });
+      });
+      return sortie;
+    }, MASQUES);
+    const releve = {};
+    const CAPTURES = process.env.BANC_CAPTURES;
+    const relever = async (nom, capturer) => {
+      for (const [l, h] of [[360, 760], [390, 844]]) {
+        await page.setViewportSize({ width: l, height: h });
+        await attendre(300);
+        releve[nom + '@' + l] = await releverPage();
+        if (l === 390 && capturer && CAPTURES) {
+          await page.screenshot({ path: require('path').join(CAPTURES, 'forge-' + capturer + '.png'), fullPage: true });
+        }
+      }
+      await page.setViewportSize({ width: 360, height: 760 });
+      await attendre(300);
+    };
+    const bloc56 = () => page.evaluate(() => {
+      const b = Array.from(document.querySelectorAll('.bloc-seance')).filter((x) => /Forge U56/.test(x.textContent))[0];
+      if (!b) return null;
+      const vu = (x) => !!x && x.getClientRects().length > 0;
+      return { jaune: Array.from(b.querySelectorAll('.consigne')).filter(vu).map((x) => x.textContent),
+        gris: Array.from(b.querySelectorAll('.consigne-dit')).filter(vu).map((x) => x.textContent),
+        validees: b.querySelectorAll('.ok-serie.cochee').length,
+        medailles: b.querySelectorAll('.record-serie').length,
+        zone: !!b.querySelector('.legende-exo .puce-zone, .exo-tete .puce-zone') };
+    });
+
+    // ── A. LA SÉANCE : la ligne jaune, la ligne grise, deux séries validées, une médaille.
+    await aller('/saisie');
+    await attendre(600);
+    await demarrerRoutine('Forge U56');
+    await attendre(1500);
+    const avant56 = await bloc56();
+    const lignes = await page.evaluate(() => {
+      const b = Array.from(document.querySelectorAll('.bloc-seance')).filter((x) => /Forge U56/.test(x.textContent))[0];
+      return b ? b.querySelectorAll('.ligne-serie').length : 0;
+    });
+    const indice = async (k) => page.evaluate((k) => {
+      const tous = Array.from(document.querySelectorAll('.ligne-serie'));
+      const b = Array.from(document.querySelectorAll('.bloc-seance')).filter((x) => /Forge U56/.test(x.textContent))[0];
+      return tous.indexOf(b.querySelectorAll('.ligne-serie')[k]);
+    }, k);
+    await saisirSerie(await indice(0), 107.5, 8);
+    await attendre(900);
+    await saisirSerie(await indice(1), 105, 8);
+    await attendre(900);
+    const seance56 = await bloc56();
+    ok('[forge] prémisse : la séance porte la ligne jaune, la ligne grise, deux séries validées et une médaille',
+      lignes === 3 && avant56 && avant56.jaune.length >= 1 && seance56 && seance56.jaune.length >= 1 &&
+        seance56.gris.length >= 1 && seance56.validees === 2 && seance56.medailles === 1,
+      JSON.stringify([lignes, avant56, seance56]));
+    await relever('seance', '1-seance');
+
+    // ── B. LES FEUILLES DE LA SÉANCE : la zone, le menu ⋯, le repos.
+    if (seance56 && seance56.zone) {
+      await page.evaluate(() => {
+        const b = Array.from(document.querySelectorAll('.bloc-seance')).filter((x) => /Forge U56/.test(x.textContent))[0];
+        b.querySelector('.legende-exo .puce-zone, .exo-tete .puce-zone').click();
+      });
+      await attendre(700);
+      await relever('feuille-zone');
+      await fermerFeuille();
+    }
+    await page.evaluate(() => {
+      const b = Array.from(document.querySelectorAll('.bloc-seance')).filter((x) => /Forge U56/.test(x.textContent))[0];
+      b.querySelector('.menu-pts').click();
+    });
+    await attendre(700);
+    await relever('feuille-menu');
+    await fermerFeuille();
+    await page.evaluate(() => {
+      const b = Array.from(document.querySelectorAll('.bloc-seance')).filter((x) => /Forge U56/.test(x.textContent))[0];
+      b.querySelector('.repos-cible').click();
+    });
+    await attendre(700);
+    await relever('feuille-repos');
+    await fermerFeuille();
+
+    // ── C. LA FEUILLE « TERMINER », puis la séance terminée.
+    await page.click('#bandeau-seance .bandeau-fin');
+    await attendre(700);
+    await relever('feuille-terminer', '6-terminer');
+    await page.click('#feuille-contenu .principal');
+    await attendre(2600);
+    await relever('apres-terminer');
+
+    // ── D. LES ROUTINES, PROGRESSION, LA PAGE D'EXERCICE, LE PROFIL, LA SEMAINE.
+    const ecrans = [['routines', '/saisie', '2-routines'], ['progression', '/progression', '3-progression'],
+      ['mois', '/progression/mois', null], ['records', '/progression/records', null],
+      ['exercice', '/exercice/forge-u56', '4-exercice'], ['exercice-historique', '/exercice/forge-u56/historique', null],
+      ['profil', '/profil', '5-profil'], ['semaine', '/', null]];
+    const vues = {};
+    for (const [nom, chemin, capture] of ecrans) {
+      await aller(chemin);
+      await attendre(600);
+      vues[nom] = await visible();
+      await relever(nom, capture);
+    }
+    ok('[forge] chaque écran est atteint et porte du texte',
+      Object.keys(releve).length >= 2 * (ecrans.length + 4) &&
+        Object.keys(releve).every((k) => releve[k].length > 0) &&
+        vues.routines.join() === 'vue-saisie' && vues.profil.join() === 'vue-profil' &&
+        vues.exercice.join() === 'vue-exercice' && vues.mois.join() === 'vue-mois',
+      JSON.stringify([Object.keys(releve).map((k) => k + ':' + releve[k].length), vues]));
+
+    // ── E. LA FORGE, CE QUI DOIT TENIR (ECRAN-SAISIE §7 bis.4, 56-1).
+    // Les polices : Barlow et Barlow Condensed, servies par l'app elle-même.
+    const polices = await page.evaluate(async () => {
+      await document.fonts.ready;
+      const faces = Array.from(document.fonts).filter((f) => /Barlow/.test(f.family));
+      await Promise.all(faces.map((f) => f.load().catch(() => null)));
+      return { faces: faces.map((f) => f.family.replace(/"/g, '') + ' ' + f.weight + ' ' + f.status).sort(),
+        dehors: performance.getEntriesByType('resource').map((e) => e.name)
+          .filter((u) => /\.woff2?(\?|$)|fonts\.(googleapis|gstatic)/.test(u) && u.indexOf(location.origin) !== 0) };
+    });
+    ok('[forge] les sept faces (Barlow 400-700, Barlow Condensed 600-800) se chargent, toutes depuis l’app',
+      polices.faces.length === 7 && polices.faces.every((f) => / loaded$/.test(f)) && polices.dehors.length === 0,
+      JSON.stringify(polices));
+    // Les chiffres de la grille de saisie grandissent de 2 px au moins (15 → 17).
+    const grille = (releve['seance@360'] || []).filter((x) => /^input/.test(x.k) && /^\d/.test(x.t));
+    ok('[forge] les chiffres de la grille de saisie font au moins 17 px',
+      grille.length >= 4 && grille.every((x) => x.px >= 17), JSON.stringify(grille.map((x) => x.t + ':' + x.px)));
+
+    if (process.env.BANC_TEXTE) {
+      require('fs').writeFileSync(process.env.BANC_TEXTE, JSON.stringify({ ecrans: releve }, null, 1));
+    }
+    ok('[forge] la garde de l’app n’a rien signalé, aucune erreur de page',
       gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant, JSON.stringify(erreurs.slice(erreursAvant)));
     await aller('/saisie');
     await attendre(500);

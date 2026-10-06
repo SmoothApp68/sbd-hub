@@ -1971,6 +1971,7 @@
     phraseDeRecord: phraseDeRecord,
     optionsDeRecord: optionsDeRecord,
     recordsDeLExercice: recordsDeLExercice,
+    seancesDuPerimetre: seancesDuPerimetre,
     tableauDesRecords: tableauDesRecords,
     REPS_DU_TABLEAU: REPS_DU_TABLEAU,
     nomCourt: nomCourt,

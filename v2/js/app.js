@@ -6736,7 +6736,20 @@
     groupes.forEach(function (g) {
       g.series.forEach(function (x) { debutDe[x.id] = g.seance.debut; });
     });
-    var table = Modele.tableParReps(toutes, mesure, function (x) { return debutDe[x.id] || null; });
+    // §9.23 (55-1) — LE PÉRIMÈTRE D'UN RECORD, une fois pour la page : celui de
+    // la médaille (12 mois pour un matériel de salle, toute la vie ailleurs).
+    var optionsRecords = Modele.optionsDeRecord(exo);
+    var pourRecords = groupes.map(function (g) { return { debut: g.seance.debut, series: g.series }; });
+    var maintenant = new Date();
+    // ECRAN §7 quater.3 (H3, #371) — LA TABLE PAR REPS SUIT CE PÉRIMÈTRE : une
+    // page ne montre jamais deux périmètres pour un même record (un 150 kg de
+    // février 2025 sous « Record sur 12 mois : 120 kg »). Les séances plus
+    // anciennes restent dans l'historique.
+    var dansLePerimetre = [];
+    Modele.seancesDuPerimetre(pourRecords, maintenant, optionsRecords).forEach(function (h) {
+      h.series.forEach(function (x) { dansLePerimetre.push(x); });
+    });
+    var table = Modele.tableParReps(dansLePerimetre, mesure, function (x) { return debutDe[x.id] || null; });
     // Un jour de record se DÉDUIT de la table, il ne se recalcule pas : ce sont
     // exactement les dates de ses lignes non déduites. On garde le plus grand
     // nombre de reps du jour — « record à 6 reps » dit de quoi il s'agit.
@@ -6762,9 +6775,6 @@
     // record (la médaille, le tableau des records, le bloc de Progression),
     // AVEC LE PÉRIMÈTRE DE LA MÉDAILLE : un matériel de salle (machines,
     // poulies, haltères, Smith) sur ses 12 derniers mois.
-    var optionsRecords = Modele.optionsDeRecord(exo);
-    var pourRecords = groupes.map(function (g) { return { debut: g.seance.debut, series: g.series }; });
-    var maintenant = new Date();
     var recordsExo = Modele.recordsDeLExercice(pourRecords, maintenant, optionsRecords);
     var record = mesure === 'charge_reps'
       ? Modele.recordDeLaTable(recordsExo.table)
@@ -6851,6 +6861,8 @@
         nbSeances: groupes.length
       },
       table: table,
+      // H3 — la table d'un matériel de salle se lit sur 12 mois, et le dit.
+      tableSurDouzeMois: recordsExo.douzeMois,
       cibleReps: cibleReps,
       historique: visibles.map(function (g) {
         return {

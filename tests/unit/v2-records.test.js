@@ -252,3 +252,21 @@ describe('§9.23 (H1, #371) — une machine : jamais de recul dans le tableau', 
     expect(b[0].valeurs.map((v) => (v ? v.charge : null))).toEqual([150, 150, 150]);
   });
 });
+
+describe('ECRAN §7 quater.3 (H3, #371) — la table par reps suit le périmètre du record', () => {
+  const se = [{ debut: '2025-02-13T18:00', series: [{ id: 'v', charge_kg: 150, reps: 8, type_serie: 'travail' }] },
+              { debut: '2026-08-07T18:00', series: [{ id: 'n', charge_kg: 120, reps: 8, type_serie: 'travail' }] }];
+  const table = (equipement) => {
+    const dans = [];
+    Mo.seancesDuPerimetre(se, '2026-10-06T12:00', { equipement }).forEach((h) => h.series.forEach((x) => dans.push(x)));
+    return Mo.tableParReps(dans, 'charge_reps', (x) => (x.id === 'v' ? '2025-02-13' : '2026-08-07'));
+  };
+  test('⚠️ DISCRIMINANT — une machine : le vieux 150 hors fenêtre ne paraît pas, et la page le dit (« sur 12 mois »)', () => {
+    expect(table('machine').map((l) => [l.reps, l.charge])).toEqual([[8, 120]]);
+    expect(Mo.recordsDeLExercice(se, '2026-10-06T12:00', { equipement: 'machine' }).douzeMois).toBe(true);
+  });
+  test('à la barre : la table de toujours, sans mention', () => {
+    expect(table('barre').map((l) => [l.reps, l.charge])).toEqual([[8, 150]]);
+    expect(Mo.recordsDeLExercice(se, '2026-10-06T12:00', { equipement: 'barre' }).douzeMois).toBe(false);
+  });
+});

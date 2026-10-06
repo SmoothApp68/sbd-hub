@@ -608,6 +608,12 @@ const NOTIONS = [
     parAilleurs: { 'app.js': ['rendreExercice'] },
     raison: 'MOTEUR §9.23 : le record de charge de la page, son 1RM estimé et le tableau des records lisent ' +
       'la même table cumulée, sur le même périmètre que la médaille (12 mois pour un matériel de salle).' },
+  { notion: 'le périmètre d’un record (12 mois pour un matériel de salle, toute la vie ailleurs)', pr: '55-U1',
+    module: 'modele.js', fonction: 'seancesDuPerimetre', lecteurs: ['app.js'],
+    par: ['recordsDeLExercice'],
+    parAilleurs: { 'app.js': ['rendreExercice'] },
+    raison: 'MOTEUR §9.23 et ECRAN §7 quater.3 (H3, #371) : le tableau des records, le record de charge et la ' +
+      'table par reps d’une page lisent le même périmètre — une page n’en montre jamais deux.' },
   { notion: 'le 1RM estimable (3 à 10 reps, une charge soulevée, jamais au poids du corps)', pr: '55-U1',
     module: 'modele.js', fonction: 'estimable1RM', lecteurs: [],
     par: ['recordsBattus', 'recordsDeLExercice'],

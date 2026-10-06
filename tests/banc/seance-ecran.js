@@ -12704,7 +12704,11 @@ const SETS_IMPORTES = [
         tete: Array.from(document.querySelectorAll('#page-exercice .tableau-records th')).map((x) => x.textContent),
         lignes: Array.from(document.querySelectorAll('#page-exercice .tableau-records tr')).slice(1).map((tr) =>
           Array.from(tr.querySelectorAll('td')).map((td) => td.textContent)),
-        plus: document.querySelectorAll('#page-exercice .plus-record').length };
+        plus: document.querySelectorAll('#page-exercice .plus-record').length,
+        // H3 — la table par nombre de répétitions (§7 quater.3).
+        titreReps: Array.from(document.querySelectorAll('#page-exercice .section-t'))
+          .filter((t) => /PAR NOMBRE DE RÉPÉTITIONS/.test(t.textContent)).map((t) => t.textContent)[0] || null,
+        reps: Array.from(document.querySelectorAll('#page-exercice .tr-ligne')).map((l) => l.textContent) };
     });
     await capturer55('6-machine');
     ok('[P55] DISCRIMINANT — une machine : le record de charge et la charge la plus lourde disent « sur 12 mois » (120 kg × 8, pas 150)',
@@ -12713,6 +12717,9 @@ const SETS_IMPORTES = [
     ok('[P55] DISCRIMINANT — le tableau d’une machine : « Record sur 12 mois », et jamais de recul (le vieux 150 ne paraît dans aucune colonne)',
       mach.tete[1] === 'Record sur 12 mois' && mach.lignes.length >= 1 && sp(mach.lignes[0][1]) === '120 kg' &&
         mach.plus === 0 && !mach.lignes.some((l) => /150|[−-]\d/.test(l.join(' '))), JSON.stringify(mach));
+    ok('[P55] DISCRIMINANT — H3 : la table par nombre de répétitions de la machine porte « sur 12 mois » et ne montre plus 150 kg',
+      mach.titreReps && /sur 12 mois/.test(mach.titreReps) && mach.reps.length >= 1 &&
+        mach.reps.every((l) => !/150/.test(l)) && mach.reps.some((l) => /120/.test(l)), JSON.stringify([mach.titreReps, mach.reps]));
     await aller('/exercice/record-u55');
     await attendre(600);
     const barreP = await page.evaluate(() => document.querySelector('#page-exercice').textContent);

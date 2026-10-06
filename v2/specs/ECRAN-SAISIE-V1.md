@@ -1408,6 +1408,11 @@ d'avoir quitté.
 
 ### 7 quater.3 La table par nombre de répétitions
 
+**Même périmètre que le record** (MOTEUR §9.23) : pour une machine, une poulie, des haltères ou la Smith, la table se
+lit sur les 12 derniers mois, avec la même fonction que la médaille, et l'affiche (« sur 12 mois ») ; à la barre et au
+poids du corps, depuis toujours. Une page ne montre jamais deux périmètres pour un même record (précisé le 06/10/2026,
+#371). Les séances plus anciennes restent dans l'historique.
+
 **C'est elle qui dit le niveau réel** — « mon record c'est 140 » ne veut rien dire sans le
 nombre de répétitions.
 

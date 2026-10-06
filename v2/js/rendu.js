@@ -345,7 +345,10 @@
   // ligne porte donc 80, grisée, en italique, marquée « déduit » à la place de
   // la date. Le brut n'est pas perdu — `tableParReps` le garde dans `charge`.
   function rendreTableReps(cible, vue) {
-    cible.appendChild(el('div', 'section-t', 'PAR NOMBRE DE RÉPÉTITIONS'));
+    // ECRAN §7 quater.3 (H3, #371) — le même périmètre que le record, dit.
+    var titre = el('div', 'section-t', 'PAR NOMBRE DE RÉPÉTITIONS');
+    if (vue.tableSurDouzeMois) titre.appendChild(el('span', 'section-sous', ' \u00b7 sur 12 mois'));
+    cible.appendChild(titre);
     if (!vue.table || !vue.table.length) {
       // Deux absences distinctes, et on ne les confond pas : l'exercice n'a pas
       // de table par nature, ou il n'a rien encore à y mettre.

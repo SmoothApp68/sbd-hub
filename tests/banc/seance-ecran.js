@@ -12010,6 +12010,11 @@ const SETS_IMPORTES = [
       [1, 2, 3].forEach((r) => serieC(id, 'cyc-terre-u53', r, 100, 5, debut));
       pariC(id, 'cyc-terre-u53', debut, i, 100, 5);
     });
+    // 53-2 ter — la barre de « Delta U53 » a une correction de la personne
+    // AVANT le programme (Lourd, comme le soulevé d'Aurélien depuis le 28/09) :
+    // l'arrêt doit la lui rendre, pas la zone d'après ses séances.
+    base.zones.push({ id: 'z-c53-avant', user_id: 'u-banc', exercise_slug: 'cyc-terre-u53', zone: 'lourd',
+      corrigee_a: ilYa(3 * JOUR_MS, T0).toISOString(), origine: 'personne', bloc_id: null });
     const ID_FORCE = '00000000-0000-4000-8532-000000000001', ID_TERRE = '00000000-0000-4000-8532-000000000002';
     ROUTINES.push({ id: ID_FORCE, nom: 'Alpha U53', note: null, archivee_a: null, rang: null, dossier: 'Alpha U53',
       created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
@@ -12325,14 +12330,25 @@ const SETS_IMPORTES = [
     await page.click('#feuille-contenu .arreter-programme');
     await attendre(2000);
     const arretL = base.zones.slice(zonesAvantL);
-    ok('[C53] DISCRIMINANT (D3) — l’arrêt en plein bloc : une ligne sans zone, origine « bloc », du bloc arrêté, datée de l’arrêt',
+    ok('[C53] DISCRIMINANT (53-2 ter) — l’arrêt pendant le deuxième bloc rend la zone d’avant le PROGRAMME (Lourd, la correction d’avant), origine « bloc », datée de l’arrêt',
       base.blocs.filter((b) => b.id === ajuste.id)[0].statut === 'arrete' && arretL.length === 1 &&
-        arretL[0].exercise_slug === 'cyc-terre-u53' && arretL[0].zone === null && arretL[0].origine === 'bloc' &&
+        arretL[0].exercise_slug === 'cyc-terre-u53' && arretL[0].zone === 'lourd' && arretL[0].origine === 'bloc' &&
         arretL[0].bloc_id === ajuste.id && Math.abs(Date.parse(arretL[0].corrigee_a) - (T0 + 31 * JOUR_MS)) < 10 * 60000,
       JSON.stringify(arretL));
     const l0 = await dossier('Delta U53');
     ok('[C53] après l’arrêt : ni badge, ni carte ; « Faire de ce dossier un programme » revient',
       l0 && l0.badge === null && l0.fin === null && l0.creer, JSON.stringify(l0));
+    await demarrerRoutine('Delta U53');
+    await attendre(1500);
+    const l1 = await planC('cyc-terre-u53');
+    const puceL = await page.evaluate(() => {
+      const n = document.querySelector('.legende-exo[data-exo="cyc-terre-u53"] .puce-zone');
+      return n ? { texte: n.textContent, choisie: n.classList.contains('choisie') } : null;
+    });
+    ok('[C53] DISCRIMINANT (53-2 ter) — en séance, la barre corrigée avant le programme retrouve SA zone (Lourd, choisie), sans « bloc »',
+      l1 && l1.x.zone === 'lourd' && puceL && puceL.texte === 'Lourd 3-5' && puceL.choisie,
+      JSON.stringify([l1 && l1.x, puceL]));
+    await abandonner();
 
     // ── M. L'ARRÊT AVEC UNE CORRECTION DE LA PERSONNE PENDANT LE BLOC (Alpha U53, bloc Lourd).
     await demarrerRoutine('Alpha U53');
@@ -12391,10 +12407,15 @@ const SETS_IMPORTES = [
     await demarrerRoutine('Delta U53');
     await attendre(1500);
     const n2 = await planC('cyc-terre-u53');
-    const etiqN2 = await puceC('cyc-terre-u53');
-    ok('[C53] DISCRIMINANT (D3) — le lundi passé, le bloc arrêté avant son début n’a toujours rien changé',
-      n2 && n2.x.zone !== 'mix' && !/bloc/.test(etiqN2 || '') && n2.enBloc && !n2.enBloc['cyc-terre-u53'],
-      JSON.stringify([n2 && n2.x, etiqN2]));
+    const etiqN2 = await page.evaluate(() => {
+      const n = document.querySelector('.legende-exo[data-exo="cyc-terre-u53"] .puce-zone');
+      return n ? { texte: n.textContent, choisie: n.classList.contains('choisie') } : null;
+    });
+    // 53-2 ter : la ligne du bloc arrêté est IGNORÉE, pas lue « sans zone » —
+    // la zone en vigueur reste celle que la personne a choisie (Lourd, choisie).
+    ok('[C53] DISCRIMINANT (D3, 53-2 ter) — le lundi passé, le bloc arrêté avant son début n’a rien changé : la zone choisie tient (Lourd, choisie)',
+      n2 && n2.x.zone === 'lourd' && etiqN2 && etiqN2.texte === 'Lourd 3-5' && etiqN2.choisie &&
+        n2.enBloc && !n2.enBloc['cyc-terre-u53'], JSON.stringify([n2 && n2.x, etiqN2]));
     await abandonner();
 
     ok('[C53] aucun refus du serveur pendant la section (le bloc monte avant ses lignes)',

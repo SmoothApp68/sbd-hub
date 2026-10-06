@@ -1217,13 +1217,14 @@ Un exercice **jamais fait** par la personne (aucune série de travail dans son h
 **Le début, la fin, l'arrêt — précisés le 06/10/2026 (#369).**
 - **Le début.** Le premier bloc commence par défaut **le lundi qui suit**, ou **aujourd'hui** si la personne le choisit ; le bloc suivant commence **le jour où elle l'accepte**. **Avant son début, un bloc ne change rien** : ses lignes de zone sont datées de son début, et le coach ne lit pas l'avenir (§9.12) ; le badge dit « dès le lundi 12 oct. ».
 - **Entre la fin et le choix.** Rien ne change sans la personne : les zones du bloc restent en vigueur, aucune décharge de plus n'est posée, le badge dit « Bloc Mix terminé » et la carte de fin reste jusqu'au choix.
-- **L'arrêt.** « Arrêter le programme » (pendant le bloc ou à sa fin) rend à chaque exercice du bloc **la zone d'après ses séances** : une ligne sans zone, `origine = 'bloc'`, datée de l'arrêt — **sauf** pour un exercice dont la personne a corrigé la zone pendant le bloc : sa correction reste. La charge suit (§9.10). Sans cela, les barres resteraient pour toujours dans la zone du dernier bloc.
+- **L'arrêt** (corrigé le 06/10/2026, delta 53-2 ter). « Arrêter le programme » **pendant le bloc ou à sa fin** rend à chaque exercice du bloc **la zone d'avant le programme** — celle qui était en vigueur juste avant le début de son **premier** bloc (en remontant `precedent`), y compris « d'après tes séances » s'il n'y en avait pas : une ligne datée de l'arrêt, `origine = 'bloc'`, `bloc_id` du bloc arrêté. **Sauf** pour un exercice dont la personne a corrigé la zone pendant le programme : rien n'est écrit, sa correction reste. La charge suit (§9.10). Sans cela, les barres resteraient pour toujours dans la zone du dernier bloc — et rendre la zone automatique effacerait une décision de la personne d'avant le programme.
+- **L'arrêt avant le début** n'écrit rien : les lignes de ce bloc, datées de son début, donc **après** son arrêt, sont **ignorées à la lecture, comme absentes** — jamais lues comme « sans zone ». Une seule lecture des zones le fait, pour tout le moteur.
 - **Le pari de programme** s'écrit **quand le bloc proposé commence tel quel** (« Commencer le bloc Lourd ») — jamais à l'affichage de la carte : afficher n'écrit rien. **Un bloc ajusté ne porte pas de pari** : le coach ne parie pas sur ce qu'il n'a pas proposé.
 - **L'étiquette de zone** d'un exercice de bloc porte l'origine : « Mix 6-8 · bloc ».
 
 **Invariants.** **I36** un bloc ne change que la zone de ses exercices (ni exercice, ni ordre, ni série, ni charge hors du report) ; **I37** une zone de bloc est Lourd ou Mix, et ne s'applique qu'à une barre ou un exercice coché ; **I38** jamais deux réductions à la fois (décharge planifiée et semaine allégée) ; **I39** « Changer de schéma » absent pour un exercice d'un bloc en cours.
 
-**Référence** : `cycles53.py` ; cas `cas_cycles53.json`.
+**Référence** : `cycles53.py` ; cas `cas_cycles53.json` ; l'arrêt : `arret53.py`, cas `cas_arret53.json`.
 
 
 ## 10. L'incrément

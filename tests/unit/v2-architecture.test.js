@@ -545,10 +545,10 @@ const NOTIONS = [
       'lues par `zoneEnVigueur` et `correctionAu` comme les autres ; jamais un troisième étage.' },
   { notion: 'la ligne de zone en vigueur à un instant (la déclaration la plus récente)', pr: '53-U2',
     module: 'moteur.js', fonction: 'ligneDeZoneAu', lecteurs: ['app.js'],
-    par: ['zoneEnVigueur', 'correctionAu'],
-    parAilleurs: { 'app.js': ['arreterProgramme'] },
+    par: ['zoneEnVigueur', 'correctionAu', 'lignesDArret'],
+    parAilleurs: { 'app.js': ['ligneDeZoneDe'] },
     raison: 'une seule lecture des lignes de zone : la séance d’aujourd’hui, une séance passée, et l’arrêt d’un ' +
-      'programme lisent la même ligne.' },
+      'programme (`lignesDArret`, 53-2 ter) lisent la même ligne.' },
   { notion: 'le bloc suivant (une règle fixe : Mix ↔ Lourd, mêmes durée et exercices, une décharge)', pr: '53-U2',
     module: 'moteur.js', fonction: 'blocSuivant', lecteurs: ['app.js'],
     par: ['carteFinDeBloc'],

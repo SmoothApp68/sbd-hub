@@ -216,11 +216,16 @@
   // §9.22 (53-2) — À L'INSTANT : une ligne de bloc datée de lundi n'est pas
   // encore en vigueur aujourd'hui.
   function zoneDe(slug) { return Moteur.zoneEnVigueur(zonesLues(), slug, new Date().toISOString()); }
-  // §9.10 (53-2 bis, D1) — la ligne qui pose cette zone : son origine fait dire
-  // « Nouveau bloc » et « · bloc » à l'étiquette.
-  function ligneDeZoneDe(slug) { return Moteur.ligneDeZoneAu(zonesLues(), slug, new Date().toISOString(), true); }
-  // §9.22 (53-2 bis) — les zones que l'app LIT : sans les lignes d'un bloc
-  // datées après son arrêt (un bloc arrêté avant son début ne change rien).
+  // §9.10 (53-2 bis, D1) — la ligne en vigueur QUAND elle commence un bloc
+  // (sinon `null`) : elle fait dire « Nouveau bloc » et « · bloc ». La ligne
+  // d'un arrêt porte l'origine « bloc » sans être un début de bloc (53-2 ter).
+  function ligneDeZoneDe(slug) {
+    return Moteur.ligneDeDebutDeBloc(Moteur.ligneDeZoneAu(zonesLues(), slug, new Date().toISOString(), true), local.blocs || []);
+  }
+  // §9.22 (53-2 bis, 53-2 ter) — LA SEULE LECTURE DES ZONES de l'app (le plan,
+  // le compteur, le report, l'étiquette, le rejeu) : les lignes d'un bloc
+  // datées après son arrêt sont IGNORÉES, comme absentes — jamais lues comme
+  // « sans zone ».
   function zonesLues() { return Moteur.lignesDeZoneValides(local.zones || [], local.blocs || []); }
 
   // ⚠️ L'APPAREIL D'ABORD, LE RÉSEAU ENSUITE. Le choix s'affiche tout de suite,
@@ -500,26 +505,18 @@
                       exercices: s.exercices, precedent: b, telQuel: true });
     rendreSaisie();
   }
-  // L'ARRÊT (§9.22, 53-2 bis D3) rend à chaque exercice du bloc la zone
-  // d'après ses séances : une ligne sans zone, `origine = 'bloc'`, datée de
-  // l'arrêt — sauf si sa dernière déclaration n'est plus celle du bloc (la
-  // personne l'a corrigée pendant le bloc : sa correction reste).
-  //
-  // Un bloc arrêté AVANT son début n'a encore rien changé : aucune ligne
-  // n'est en vigueur, rien ne s'écrit, et ses lignes à venir ne prendront
-  // jamais effet (`zonesLues`, rapporté dans #369).
+  // L'ARRÊT (§9.22, delta 53-2 ter) rend à chaque exercice du bloc LA ZONE
+  // D'AVANT LE PROGRAMME (celle d'avant le début de son premier bloc), dans une
+  // ligne datée de l'arrêt, origine « bloc » — sauf un exercice que la personne
+  // a corrigé pendant le programme. Avant le début, rien ne s'écrit : les
+  // lignes du bloc sont inertes (`zonesLues`). Tout est dans `lignesDArret`.
   async function arreterProgramme(dossier) {
     var b = Moteur.blocEnCours(local.blocs, dossier);
     if (!b) return;
     var fini = Moteur.blocTermine(b, jourDuJour());
     await terminerBloc(b, fini ? 'termine' : 'arrete', fini);
-    var t = instantDuJour();
-    var lignes = (b.exercices || []).map(function (slug) {
-      var l = Moteur.ligneDeZoneAu(zonesLues(), slug, t, true);
-      if (!l || l.bloc_id !== b.id || !l.zone) return null;
-      return { id: uuid(), user_id: idUtilisateur(), exercise_slug: slug, zone: null, corrigee_a: t,
-               origine: 'bloc', bloc_id: b.id };
-    }).filter(Boolean);
+    var arrete = (local.blocs || []).filter(function (x) { return x && x.id === b.id; })[0] || b;
+    var lignes = Moteur.lignesDArret(arrete, local.blocs || [], local.zones || [], instantDuJour(), uuid, idUtilisateur());
     await poserLignesDeZone(lignes, b.id);
     rendreSaisie();
   }

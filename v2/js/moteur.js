@@ -4429,11 +4429,15 @@
   // (00:00, l'heure locale), `origine = 'bloc'` (§9.1.2 amendé : la
   // déclaration la plus récente l'emporte). Une zone hors Lourd/Mix ne pose
   // rien (I37). `ids` : `fabriquer()` rend un identifiant neuf par ligne.
+  // Le début d'un bloc, à 00:00 heure locale : la date de ses lignes.
+  function minuitDuDebut(bloc) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec((bloc && jourCivil(bloc.debut)) || '');
+    return m ? new Date(+m[1], +m[2] - 1, +m[3], 0, 0, 0, 0).toISOString() : null;
+  }
   function zonesPosees(bloc, fabriquer, userId) {
     if (!bloc || ZONES_DE_BLOC.indexOf(bloc.zone) < 0) return [];
-    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(jourCivil(bloc.debut) || '');
-    if (!m) return [];
-    var minuit = new Date(+m[1], +m[2] - 1, +m[3], 0, 0, 0, 0).toISOString();
+    var minuit = minuitDuDebut(bloc);
+    if (!minuit) return [];
     var vus = {};
     return (bloc.exercices || []).filter(function (slug) {
       if (!slug || vus[slug]) return false;
@@ -4518,24 +4522,82 @@
     }).length;
   }
 
-  // §9.22 (53-2 bis) — LES LIGNES QU'UN ARRÊT A RENDUES SANS OBJET. Un bloc
-  // pose ses lignes datées de son début ; arrêté AVANT, il ne doit rien
-  // changer (« avant son début, un bloc ne change rien ») : une ligne qui
-  // pose une zone, d'un bloc arrêté (`arrete`), datée APRÈS l'arrêt
-  // (`modifie_a`), ne prend jamais effet. Les lignes d'un bloc arrêté en
-  // cours de route restent (elles ont valu jusqu'à l'arrêt), comme celles d'un
-  // bloc terminé. Pure : l'app lit ses zones à travers elle.
+  // §9.22 (53-2 bis, 53-2 ter) — LES LIGNES INERTES. Un bloc pose ses lignes
+  // datées de son début ; arrêté AVANT, il ne doit rien changer : une ligne
+  // POSÉE par un bloc arrêté (`arrete`), datée de son début, après l'arrêt
+  // (`modifie_a`), est IGNORÉE — retirée de la liste, comme absente, et jamais
+  // lue comme « sans zone » : la lecture retombe sur la ligne d'avant (une
+  // correction de la personne d'avant le programme tient). Les lignes d'un
+  // bloc arrêté en cours de route ont valu jusqu'à l'arrêt ; la ligne de
+  // l'arrêt elle-même (datée de l'arrêt, pas du début) reste. Pure : la seule
+  // lecture des zones de l'app passe par elle.
   function lignesDeZoneValides(lignes, blocs) {
     var arretes = {};
     (blocs || []).forEach(function (b) {
       var t = b && b.statut === 'arrete' ? instant(b.modifie_a) : null;
-      if (t !== null) arretes[b.id] = t;
+      var m = t !== null ? instant(minuitDuDebut(b)) : null;
+      if (m !== null) arretes[b.id] = { arret: t, debut: m };
     });
     return (lignes || []).filter(function (l) {
-      if (!l || l.origine !== LIGNE_BLOC || !l.zone || !Object.prototype.hasOwnProperty.call(arretes, l.bloc_id)) return true;
-      var t = instant(l.corrigee_a);
-      return t === null || t <= arretes[l.bloc_id];
+      if (!l || l.origine !== LIGNE_BLOC || !Object.prototype.hasOwnProperty.call(arretes, l.bloc_id)) return true;
+      var a = arretes[l.bloc_id], t = instant(l.corrigee_a);
+      return !(t !== null && t === a.debut && t > a.arret);
     });
+  }
+
+  // §9.22 (53-2 ter) — LE PROGRAMME D'UN BLOC : ses blocs, en remontant
+  // `precedent`, jusqu'au premier. Une boucle (une donnée abîmée) s'arrête.
+  function blocsDuProgramme(bloc, blocs) {
+    var parId = {};
+    (blocs || []).forEach(function (b) { if (b && b.id !== undefined) parId[b.id] = b; });
+    var chaine = [], vus = {}, b = bloc;
+    while (b && !vus[b.id]) {
+      vus[b.id] = true;
+      chaine.push(b);
+      b = b.precedent ? (parId[b.precedent] || null) : null;
+    }
+    return chaine;
+  }
+
+  // §9.22 (53-2 ter) — L'ARRÊT REND LA ZONE D'AVANT LE PROGRAMME. Pendant ou
+  // après le bloc : pour chaque exercice du bloc dont la ligne en vigueur à
+  // l'instant `a` vient d'un bloc de ce programme, une ligne datée de `a`,
+  // origine « bloc », `bloc_id` du bloc arrêté, avec la zone en vigueur juste
+  // avant le début du PREMIER bloc (nulle : « d'après tes séances »). Un
+  // exercice que la personne a corrigé pendant le programme : rien. Avant le
+  // début : rien non plus — aucune ligne du bloc n'est en vigueur, et ses
+  // lignes à venir sont inertes (`lignesDeZoneValides`). `blocs` : l'état
+  // APRÈS l'arrêt (le bloc arrêté porte son statut et `modifie_a`). Pure.
+  function lignesDArret(bloc, blocs, lignes, a, fabriquer, userId) {
+    if (!bloc || instant(a) === null) return [];
+    var programme = blocsDuProgramme(bloc, blocs);
+    var ids = {};
+    programme.forEach(function (b) { ids[b.id] = true; });
+    var avant = minuitDuDebut(programme[programme.length - 1]);
+    var lues = lignesDeZoneValides(lignes, blocs);
+    var vus = {};
+    return (bloc.exercices || []).map(function (slug) {
+      if (!slug || vus[slug]) return null;
+      vus[slug] = true;
+      var l = ligneDeZoneAu(lues, slug, a, true);
+      if (!l || l.origine !== LIGNE_BLOC || !l.zone || !ids[l.bloc_id]) return null;
+      var d = avant ? ligneDeZoneAu(lues, slug, avant, false) : null;
+      return { id: typeof fabriquer === 'function' ? fabriquer() : null, user_id: userId === undefined ? null : userId,
+               exercise_slug: slug, zone: d && d.zone ? d.zone : null, corrigee_a: a, origine: LIGNE_BLOC,
+               bloc_id: bloc.id };
+    }).filter(Boolean);
+  }
+
+  // §9.10 (53-2 bis, D1 ; 53-2 ter) — LA LIGNE QUI COMMENCE UN BLOC, ou `null` :
+  // une ligne de bloc qui pose la zone du bloc, datée de son début (00:00).
+  // La ligne d'un arrêt porte aussi l'origine « bloc » (et parfois une zone,
+  // celle d'avant le programme) : ce n'est pas un début de bloc.
+  function ligneDeDebutDeBloc(ligne, blocs) {
+    if (!ligne || ligne.origine !== LIGNE_BLOC || !ligne.zone) return null;
+    var b = (blocs || []).filter(function (x) { return x && x.id === ligne.bloc_id; })[0];
+    if (!b || b.zone !== ligne.zone) return null;
+    var m = minuitDuDebut(b);
+    return m && instant(m) === instant(ligne.corrigee_a) ? ligne : null;
   }
 
   // Le bloc en cours d'un dossier (un seul : l'index `blocs_un_en_cours`), et
@@ -5299,10 +5361,9 @@
   // l'estimation.
   var SANS_REPORT = { silence: true, bord: true, reprise_courte: true, reprise_longue: true };
   // §9.10 (53-2 bis, D1) — l'origine de la ligne de zone en vigueur, en
-  // paramètre de la phrase (`o.ligneDeZone`, la ligne en vigueur que l'app
-  // lit avec la zone) : `bloc` pour une ligne de bloc QUI POSE une zone
-  // (un début de bloc), `personne` sinon. La ligne vide de l'arrêt porte
-  // l'origine `bloc` mais ne pose aucune zone : ce n'est pas un début de bloc.
+  // paramètre de la phrase (`o.ligneDeZone` : la ligne en vigueur QUAND elle
+  // commence un bloc, `ligneDeDebutDeBloc` ; `null` sinon) : `bloc` pour une
+  // ligne de bloc qui pose une zone, `personne` sinon.
   var LIGNE_BLOC = 'bloc';
   function origineDeLaLigne(ligne) {
     return ligne && ligne.origine === LIGNE_BLOC && ligne.zone ? LIGNE_BLOC : 'personne';
@@ -5945,6 +6006,9 @@
     carteFinDeBloc: carteFinDeBloc,
     ligneDeZoneAu: ligneDeZoneAu,
     lignesDeZoneValides: lignesDeZoneValides,
+    lignesDArret: lignesDArret,
+    ligneDeDebutDeBloc: ligneDeDebutDeBloc,
+    blocsDuProgramme: blocsDuProgramme,
     correctionAu: correctionAu,
     ZONES_DE_BLOC: ZONES_DE_BLOC,
     SANS_CUMUL_JOURS: SANS_CUMUL_JOURS,

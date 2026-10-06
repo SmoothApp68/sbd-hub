@@ -1477,10 +1477,11 @@
   }
 
   // LES SÉANCES DU PÉRIMÈTRE D'UN RECORD, à une date : celles d'avant elle, et,
-  // pour un matériel de salle (§10.2), des 12 mois d'avant elle seulement.
-  function seancesDuPerimetre(seances, aDate, options) {
+  // pour un matériel de salle (§10.2), des 12 mois d'avant `ancre` seulement
+  // (`ancre` : la date elle-même par défaut).
+  function seancesDuPerimetre(seances, aDate, options, ancre) {
     var t = instantRecord(aDate);
-    var plancher = racine.THMoteur.plancherDuMateriel((options || {}).equipement, aDate);
+    var plancher = racine.THMoteur.plancherDuMateriel((options || {}).equipement, ancre || aDate);
     return (seances || []).filter(function (h) {
       var x = instantRecord(h && h.debut);
       return x !== null && (t === null || x < t) && (plancher === null || x >= plancher);
@@ -1494,10 +1495,10 @@
   // charge, reps, date }`, ou `null`) ; `douzeMois` : vrai pour un matériel de
   // salle — l'affichage le DIT (« sur 12 mois », §9.23 H1) : un vieux record
   // sorti de la fenêtre n'est jamais présenté comme un recul.
-  function recordsDeLExercice(seances, aDate, options) {
+  function recordsDeLExercice(seances, aDate, options, ancre) {
     var o = options || {};
     var series = [];
-    seancesDuPerimetre(seances, aDate, o).forEach(function (h) {
+    seancesDuPerimetre(seances, aDate, o, ancre).forEach(function (h) {
       (h.series || []).forEach(function (x) { series.push(Object.assign({}, x, { _debut: h.debut })); });
     });
     var table = tableCumulee(series, function (x) { return x._debut; }, { corps: o.corps });
@@ -1519,9 +1520,17 @@
   // LE TABLEAU DES RECORDS : la charge pour au moins 1, 3, 5, 8 et 10 reps, à
   // chacune des `dates` (aujourd'hui, il y a 6 mois, il y a 1 an).
   // `[{ reps, valeurs: [{ charge, date } | null, …] }]`.
+  //
+  // ⚠️ LA FENÊTRE D'UN MATÉRIEL DE SALLE EST CELLE D'AUJOURD'HUI, pour toutes
+  // les colonnes (§9.23 H1, #371) : « sur 12 mois » veut dire les 12 derniers
+  // mois. Ancrée sur chaque date, la colonne « il y a 1 an » montrait un vieux
+  // 150 kg à côté d'un record de 120 — un recul, ce que H1 interdit. Ancrée sur
+  // aujourd'hui, une colonne passée est un sous-ensemble : elle ne dépasse
+  // jamais le record d'aujourd'hui.
   var REPS_DU_TABLEAU = [1, 3, 5, 8, 10];
   function tableauDesRecords(seances, dates, options) {
-    var tables = (dates || []).map(function (d) { return recordsDeLExercice(seances, d, options).table; });
+    var ancre = (dates || [])[0];
+    var tables = (dates || []).map(function (d) { return recordsDeLExercice(seances, d, options, ancre).table; });
     return REPS_DU_TABLEAU.map(function (n) {
       return { reps: n, valeurs: tables.map(function (t) {
         var l = auMoinsDe(t, n);

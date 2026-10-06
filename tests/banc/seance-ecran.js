@@ -12710,9 +12710,9 @@ const SETS_IMPORTES = [
     ok('[P55] DISCRIMINANT — une machine : le record de charge et la charge la plus lourde disent « sur 12 mois » (120 kg × 8, pas 150)',
       mach.record && /sur 12 mois/.test(mach.record) && /120\s*kg\s*×\s*8/.test(sp(mach.record)) &&
         mach.lourde && /sur 12 mois/.test(mach.lourde) && !/150/.test(mach.record + mach.lourde), JSON.stringify(mach));
-    ok('[P55] le tableau d’une machine : « Record sur 12 mois » ; il y a 1 an, rien d’autre qu’un fait, aucun écart négatif',
+    ok('[P55] DISCRIMINANT — le tableau d’une machine : « Record sur 12 mois », et jamais de recul (le vieux 150 ne paraît dans aucune colonne)',
       mach.tete[1] === 'Record sur 12 mois' && mach.lignes.length >= 1 && sp(mach.lignes[0][1]) === '120 kg' &&
-        mach.plus === 0 && !mach.lignes.some((l) => /[−-]\d/.test(l.join(' '))), JSON.stringify(mach));
+        mach.plus === 0 && !mach.lignes.some((l) => /150|[−-]\d/.test(l.join(' '))), JSON.stringify(mach));
     await aller('/exercice/record-u55');
     await attendre(600);
     const barreP = await page.evaluate(() => document.querySelector('#page-exercice').textContent);

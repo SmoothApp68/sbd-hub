@@ -239,3 +239,16 @@ describe('§9.23 — le rapport au poids : la charge de travail ÷ une pesée de
     });
   });
 });
+
+describe('§9.23 (H1, #371) — une machine : jamais de recul dans le tableau', () => {
+  test('⚠️ DISCRIMINANT — la fenêtre est celle d\'aujourd\'hui pour toutes les colonnes : un vieux 150 ne paraît pas il y a 1 an', () => {
+    const se = [{ debut: '2025-02-13T18:00', series: [{ charge_kg: 150, reps: 8, type_serie: 'travail' }] },
+                { debut: '2026-08-07T18:00', series: [{ charge_kg: 120, reps: 8, type_serie: 'travail' }] }];
+    const t = Mo.tableauDesRecords(se, ['2026-10-06T12:00', '2026-04-06T12:00', '2025-10-06T12:00'], { equipement: 'machine' });
+    expect(t.map((l) => l.valeurs.map((v) => (v ? v.charge : null)))).toEqual([
+      [120, null, null], [120, null, null], [120, null, null], [120, null, null], [null, null, null]]);
+    // À la barre, toute la vie : le 150 reste le record, aucune fenêtre.
+    const b = Mo.tableauDesRecords(se, ['2026-10-06T12:00', '2026-04-06T12:00', '2025-10-06T12:00'], { equipement: 'barre' });
+    expect(b[0].valeurs.map((v) => (v ? v.charge : null))).toEqual([150, 150, 150]);
+  });
+});

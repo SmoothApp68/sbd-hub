@@ -6519,8 +6519,10 @@
     // exploration comprise. Il écartait les explorations (140 × 1 quand on
     // travaille à 10), et pouvait s'afficher sous la ligne « 1 rep » de la
     // table, sur la même page. Les autres mesures gardent leur meilleure série.
+    // §9.23 (55-1) — ET IL SE LIT SUR LA TABLE CUMULÉE, la source de tout
+    // record (la médaille, le tableau des records, le bloc de Progression).
     var record = mesure === 'charge_reps'
-      ? Modele.recordDeLaTable(table)
+      ? Modele.recordDeLaTable(Modele.tableCumulee(toutes, function (x) { return debutDe[x.id] || null; }))
       : Modele.meilleureSerieDeTout(slug, groupes.map(function (g) {
         return { cle: g.seance.debut, series: g.series };
       }), local.exercices, Palier, etatsExercices);

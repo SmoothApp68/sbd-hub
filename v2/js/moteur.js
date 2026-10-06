@@ -734,12 +734,7 @@
     // +0,2 kg. D'une salle à l'autre, les piles et les haltères changent ; à la
     // barre, les disques sont les mêmes partout (sans limite), et vers le bas
     // le repli a sa propre limite de 10 % (sans limite non plus).
-    var plancher = null;
-    if (dir > 0 && FENETRE_VOISINE_MATERIELS.indexOf(equipement) >= 0) {
-      var depuis = new Date(instant(avant));
-      depuis.setUTCMonth(depuis.getUTCMonth() - FENETRE_VOISINE_MOIS);
-      plancher = depuis.getTime();
-    }
+    var plancher = dir > 0 ? plancherDuMateriel(equipement, avant) : null;
     var voisine = null;
     anterieures(seances, avant).forEach(function (se) {
       if (plancher !== null && instant(se.debut) < plancher) return;
@@ -754,6 +749,20 @@
     if (repli !== null) return auCentieme(p + dir * repli);
 
     return null;
+  }
+
+  // §10.2 (delta 49-36) et §9.23 (55-1) — LE PLANCHER DES 12 MOIS d'un
+  // matériel dont la charge change d'une salle à l'autre (machines, poulies,
+  // haltères, Smith) ; `null` à la barre et au poids du corps (toute la vie).
+  // UN SEUL CÂBLAGE : la charge voisine du moteur et les records (`THModele.
+  // recordsBattus`) lisent la même liste et la même fenêtre, ici.
+  function plancherDuMateriel(equipement, avant) {
+    if (FENETRE_VOISINE_MATERIELS.indexOf(equipement) < 0) return null;
+    var t = instant(avant);
+    if (t === null) return null;
+    var depuis = new Date(t);
+    depuis.setUTCMonth(depuis.getUTCMonth() - FENETRE_VOISINE_MOIS);
+    return depuis.getTime();
   }
 
   // ── §12.6 / §9.9 — L'ÉCART HABITUEL, LA COUPURE ET LA REPRISE ────────────
@@ -5255,6 +5264,13 @@
   var REPORT_FENETRE_JOURS = 90;
   var REPORT_EPLEY = 30;
   var REPORT_MARCHE_MAX = 200;
+  // §9.10 et §9.23 (55-1) — LE 1RM ESTIMÉ, UNE FORMULE (Epley) : l'estimation
+  // du report (en coulisse) et le record « 1RM estimé » (dit « ≈ ») la lisent
+  // ici, jamais recopiée.
+  function unRMEpley(charge, reps) {
+    return charge * (1 + reps / REPORT_EPLEY);
+  }
+
   function reportDeZone(o) {
     var p = o || {};
     var z = zoneParCle(p.zone);
@@ -5275,7 +5291,7 @@
     if (P <= 0) return null;
     // La visée : le bas de la zone, d'où l'on remonte.
     var visee = z.bas;
-    var estimee = P * (1 + n / REPORT_EPLEY) / (1 + z.bas / REPORT_EPLEY);
+    var estimee = unRMEpley(P, n) / unRMEpley(1, z.bas);
     var charge = auCranInferieur(P, estimee, p.cran);
     // (a) la dernière charge tenue DANS la zone visée — son niveau validé
     // entre le bas et le haut —, dans les 90 jours.
@@ -5961,6 +5977,8 @@
     FENETRE_COUPLE: FENETRE_COUPLE,
     MAJORITE_COUPLE: MAJORITE_COUPLE,
     FENETRE_PAS_MOIS: FENETRE_PAS_MOIS,
+    plancherDuMateriel: plancherDuMateriel,
+    unRMEpley: unRMEpley,
     RECURRENCE_PAS: RECURRENCE_PAS,
     FACTEUR_COUPURE: FACTEUR_COUPURE,
     SEUIL_REPRISE_LONGUE: SEUIL_REPRISE_LONGUE,

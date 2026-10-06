@@ -586,6 +586,32 @@ const NOTIONS = [
     par: ['reprisePour'],
     raison: 'lourd → mix → hypertrophie → volume → séries longues, dans l’ordre de la table des ' +
       'zones : une définition, que la carte et la correction de zone lisent.' },
+  { notion: 'la table par reps cumulée (la charge la plus lourde pour au moins N reps)', pr: '55-U1',
+    module: 'modele.js', fonction: 'tableCumulee', lecteurs: ['app.js'],
+    par: ['tableParReps', 'recordsBattus'],
+    parAilleurs: { 'app.js': ['rendreExercice'] },
+    raison: 'MOTEUR §9.23, ECRAN §7 bis.16 (« cumulée, jamais brute ») : la médaille, le tableau des records, ' +
+      'le record de charge de la page et le chiffre d’une ligne déduite lisent la même table.' },
+  { notion: 'les records battus par une série (et l’ancien record, avec sa date)', pr: '55-U1',
+    module: 'modele.js', fonction: 'recordsBattus', lecteurs: [],
+    raison: 'MOTEUR §9.23 : un record est un fait ; une seule fonction décide ce qu’une série bat, ' +
+      'la médaille en séance, la feuille « Terminer » et Progression la lisent.' },
+  { notion: 'la phrase de la médaille ([gras, gris])', pr: '55-U1',
+    module: 'modele.js', fonction: 'phraseDeRecord', lecteurs: [],
+    raison: 'MOTEUR §9.23 : les mots de la médaille, une fois — le cap rond, la charge pour N reps, le 1RM ' +
+      'estimé, le volume, la durée, et le record d’avant avec sa date.' },
+  { notion: 'le 1RM estimé (Epley)', pr: '55-U1',
+    module: 'moteur.js', fonction: 'unRMEpley', lecteurs: ['modele.js'],
+    par: ['reportDeZone'],
+    parAilleurs: { 'modele.js': ['recordsBattus'] },
+    raison: 'MOTEUR §9.10 et §9.23 : l’estimation du report et le record « 1RM estimé » lisent la même ' +
+      'formule — jamais recopiée.' },
+  { notion: 'la fenêtre des 12 mois d’un matériel (machines, poulies, haltères, Smith)', pr: '55-U1',
+    module: 'moteur.js', fonction: 'plancherDuMateriel', lecteurs: ['modele.js'],
+    par: ['chargeVoisine'],
+    parAilleurs: { 'modele.js': ['recordsBattus'] },
+    raison: 'MOTEUR §10.2 et §9.23 : la charge voisine du coach et les records comparent sur la même ' +
+      'liste de matériels et la même fenêtre — un seul câblage.' },
   { notion: 'l’occurrence coachée d’un exercice (la première, ou celle qui porte ses paris)', pr: 'correctif 04/10/2026',
     module: 'seance.js', fonction: 'occurrenceCoachee', lecteurs: ['plan.js', 'app.js'],
     parAilleurs: { 'plan.js': ['planDeSeance'], 'app.js': ['occurrenceLibre'] },

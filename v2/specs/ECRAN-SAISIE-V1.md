@@ -999,6 +999,9 @@ janvier 2023, rien ne les affiche) · **Par exercice**.
 
 L'écran est utile **sans rien toucher**, et chaque bloc arrive quand il est prêt.
 
+**Deux blocs en tête — ajoutés le 06/10/2026 (chantier 55, MOTEUR §9.23).** **Le mois écoulé** (« Septembre — 22 séances · 33 records · 27 paris tenus sur 30 »), qui s'ouvre sur **le bilan du mois** ; il porte le mois écoulé jusqu'à la fin du mois suivant, et **tous les mois restent consultables** depuis ce bilan (chez Hevy, un bilan disparaît le mois d'après). **Les records** (« Le dernier : couché 130 kg × 4, le 22 sept. »), qui s'ouvre sur les records du mois, chacun menant à sa séance. Les blocs existants ne bougent pas. Le bilan reprend celui de Hevy (chiffres du mois, graphique mois par mois en gris avec le mois courant en couleur du coach, calendrier des jours faits, séries par muscle comparées au mois d'avant, exercices les plus faits) et y ajoute les paris du coach.
+
+
 **La barre de semaine n'appartient pas au sommaire** : le volume est hebdomadaire, le poids
 et les records ne le sont pas. Elle vit dans la vue Volume.
 
@@ -1019,6 +1022,9 @@ Cinq vues de courbe, sélecteur en pastilles, trois périodes (3 mois · 1 an ·
 > **57 exercices sont travaillés dans plusieurs formats** — ce que la littérature désigne
 > comme la première cause d'estimation fausse. Le banc l'avait déjà écarté comme prédicteur
 > (§9.5 du moteur). Il reste offert, avec sa réserve affichée.
+
+**En tête de la vue, les records — ajoutés le 06/10/2026 (chantier 55, MOTEUR §9.23)** : la charge la plus lourde, le 1RM estimé (dit « ≈ », depuis 3 à 10 reps), chacun avec sa date ; puis **le tableau des records** à 1, 3, 5, 8 et 10 reps, aujourd'hui, il y a 6 mois et il y a 1 an ; puis **le rapport au poids** si une pesée a moins de 14 jours. Le « record de charge avec sa date » des repères ci-dessous et ces records viennent de **la même fonction** (MOTEUR §9.23).
+
 
 **Trois repères sous la courbe**, tous vérifiables sans formule : dernière séance · record de
 charge avec sa date · meilleure série au palier courant.

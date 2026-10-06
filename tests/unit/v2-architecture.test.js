@@ -1056,6 +1056,35 @@ describe('architecture — le module des faits : un fait ne se déclare que dans
     expect(fautes).toEqual([]);
   });
 
+  // ⚠️ LE PIÈGE DU HISSAGE (trouvé par le banc des routines, 58-1). Un `var
+  // faits = 0;` local dans `rendreMesExercices` masquait l'instance du module :
+  // hissé, il valait `undefined` à l'appel de `faits.datesDesExercices(…)`, et
+  // « Tous mes exercices » restait vide. Dans app.js, `faits` et `corpus` ne se
+  // déclarent qu'une fois — ni variable locale, ni paramètre du même nom.
+  const MASQUES = (code, nom) => {
+    const re = new RegExp('\\b(?:var|let|const)\\s+' + nom + '\\b|\\bfunction\\s*\\w*\\s*\\(([^)]*)\\)', 'g');
+    let n = 0, m;
+    while ((m = re.exec(code)) !== null) {
+      if (m[1] === undefined) n++;
+      else if (new RegExp('\\b' + nom + '\\b').test(m[1])) n++;
+    }
+    return n;
+  };
+
+  test('⚠️ dans app.js, `faits` et `corpus` ne se redéclarent pas (aucun masque de l’instance)', () => {
+    const app = FICHIERS.filter((f) => f.nom === 'app.js')[0];
+    const code = nettoyer(app.src, false);
+    expect(MASQUES(code, 'faits')).toBe(1);
+    expect(MASQUES(code, 'corpus')).toBe(0);
+    expect(corpsDe(code, 'corpus')).not.toBeNull();
+  });
+
+  test('la garde du masque voit une variable locale et un paramètre', () => {
+    expect(MASQUES('var faits = THFaits.creer();\nfunction f() { var faits = 0; }', 'faits')).toBe(2);
+    expect(MASQUES('var faits = THFaits.creer();\nfunction f(a, faits) {}', 'faits')).toBe(2);
+    expect(MASQUES('var faits = THFaits.creer();\nfunction f() { return faits.dernierRecord(c); }', 'faits')).toBe(1);
+  });
+
   test('la garde voit vraiment une seconde déclaration', () => {
     const code = nettoyer('function dernierRecord() { return null; }\nvar x = faits.dernierRecord(c);', false);
     expect(corpsDe(code, 'dernierRecord')).not.toBeNull();

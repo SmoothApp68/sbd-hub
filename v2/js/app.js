@@ -4979,12 +4979,12 @@
   }
 
   function faitsDesFreres(index, slug) {
-    var faits = {};
+    var parSlug = {};
     Modele.freresDe(index, slug).forEach(function (s) {
       var d = derniereSeanceDe(s);
-      if (d) faits[s] = d;
+      if (d) parSlug[s] = d;
     });
-    return faits;
+    return parSlug;
   }
 
   function vueMachinePrise(blocs, iBloc, iExo) {
@@ -7865,11 +7865,11 @@
       return a.nom.localeCompare(b.nom, 'fr');
     });
 
-    var faits = 0;
-    lignes.forEach(function (l) { if (l.quandISO) faits++; });
+    var nbFaits = 0;
+    lignes.forEach(function (l) { if (l.quandISO) nbFaits++; });
     $('compte-mes-exos').textContent = lignes.length + ' exercice' +
-      (lignes.length > 1 ? 's' : '') + ' · ' + faits + ' déjà fait' +
-      (faits > 1 ? 's' : '');
+      (lignes.length > 1 ? 's' : '') + ' · ' + nbFaits + ' déjà fait' +
+      (nbFaits > 1 ? 's' : '');
 
     Rendu.rendreMesExercices($('liste-mes-exos'), {
       recherche: recherche,

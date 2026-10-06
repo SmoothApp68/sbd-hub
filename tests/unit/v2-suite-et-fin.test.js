@@ -109,7 +109,9 @@ describe('PR 2 — la suite du constat suit la zone en vigueur', () => {
       intentionDeLExercice: () => 'progresser', lestReponseDe: () => null,
       catalogueIndexe: () => ({ couche: { slug: 'couche', equipement: 'haltere' } }),
       cleConsignes: () => 'k', empreinteValidations: () => 'e', exerciceFini: () => true,
-      seriesDeTravailDe: () => [], seancesDeLExercice: () => [],
+      seriesDeTravailDe: () => [],
+      // 58-1 : les séances d'un exercice viennent du module des faits.
+      faits: { seancesDeLExercice: () => [] }, corpus: () => ({}),
       zoneDe: () => etat.zone, seancesSousConsigne: () => [],
       periodesAllegees: () => etat.periodes, periodesSerieDePlusDe: () => [], enEdition: () => false,
       // 52-1 : la charge de départ de la routine (MOTEUR §9.21), lue par `optionsDeConsigne`.

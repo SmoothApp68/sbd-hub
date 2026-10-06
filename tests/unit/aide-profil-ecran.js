@@ -34,7 +34,9 @@ function profilEcran(profil) {
     Poids: { resume: () => null },
     Modele: { nombreSigne: (n) => String(n), nombreGroupe: (n) => String(n) },
     Rendu: { rendreProfil: (cible, v) => { vue = v; }, dateCourte: (d) => String(d) },
-    montrer: () => {}, $: element, compterExercices: () => ({ total: 0, faits: 0 }),
+    montrer: () => {}, $: element,
+    // 58-1 : le compte des exercices faits vient du module des faits.
+    faits: { compterExercices: () => ({ total: 0, faits: 0 }) }, corpus: () => ({}),
     ecrireProfil: (champs) => { ecrits.push(champs); },
     nombreGroupe: (n) => String(n),
     ligneChoix: (cle, libelle) => ({ cle, libelle }),

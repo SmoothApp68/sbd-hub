@@ -381,7 +381,8 @@ describe('5 — répondre à la carte du lest ne recalcule que l’exercice qui 
       local: { exercices: [{ slug: 'squat' }, { slug: 'tractions' }] },
       Modele: { indexerExercices: (l) => { const r = {}; (l || []).forEach((e) => { r[e.slug] = e; }); return r; } },
       etatsExercices: {},
-      seancesDeLExercice: (slug) => ({ slug }),
+      // 58-1 : les séances d'un exercice viennent du module des faits.
+      faits: { seancesDeLExercice: (c, slug) => ({ slug }) }, corpus: () => ({}),
       routineAFiger: (slug) => { routines[slug] = (routines[slug] || 0) + 1; return routines[slug] === 1 ? 3 : 99; },
       sauverConsignes: () => {},
       freresPourLeMoteur: () => [],

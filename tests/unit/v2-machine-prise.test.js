@@ -241,8 +241,10 @@ describe('51-2 — le fait sous un frère est « Dernière séance », et le fr�
         { exercise_slug: 'x', charge_kg: 80, reps: 10, type_serie: 'travail' },
         { exercise_slug: 'x', charge_kg: 70, reps: 12, type_serie: 'travail' }] },
       { seance: { debut: '2026-09-01T08:00:00Z' }, series: [{ exercise_slug: 'x', charge_kg: 90, reps: 10, type_serie: 'travail' }] }];
-    const f = new Function('local', 'Modele', 'Palier', 'etatsExercices', 'seancesDeLExercice',
-      'return ' + extraire('derniereSeanceDe'))(local, Modele, require('../../v2/js/palier.js'), {}, () => groupes);
+    // 58-1 : les séances d'un exercice viennent du module des faits (`faits.seancesDeLExercice`).
+    const f = new Function('local', 'Modele', 'Palier', 'etatsExercices', 'faits', 'corpus',
+      'return ' + extraire('derniereSeanceDe'))(local, Modele, require('../../v2/js/palier.js'), {},
+      { seancesDeLExercice: () => groupes }, () => ({}));
     const d = f('x');
     expect([d.charge, d.reps, d.date]).toEqual([80, 10, '2026-09-12T08:00:00Z']);
     expect(f('x', [])).toBe(null);

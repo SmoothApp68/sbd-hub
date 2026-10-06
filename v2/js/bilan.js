@@ -17,7 +17,9 @@
 // Les définitions ne sont PAS refaites ici : la série de travail est
 // `THModele.estTravail`, le compte des séries de travail
 // `THSemaine.compteSeriesTravail` — celui de la barre et de la carte de
-// séance —, les séries par muscle `THSemaine.seriesParMusclePrincipal`.
+// séance —, les séries par muscle `THSemaine.volumeParMuscle`, celle du bloc
+// Volume (REGLE-VOLUME : un muscle principal compte la série entière, un
+// secondaire pour moitié — MOTEUR §9.23, H2, #371 : une seule définition).
 
 (function (racine) {
   'use strict';
@@ -134,9 +136,9 @@
     seancesDuMois(p.seances, moisPrecedent(p.mois)).forEach(function (s) {
       (s.series || []).forEach(function (x) { avant.push(x); });
     });
-    var ici = Se().seriesParMusclePrincipal(series, p.exercices);
+    var ici = Se().volumeParMuscle(series, p.exercices);
     var la = {};
-    Se().seriesParMusclePrincipal(avant, p.exercices).forEach(function (m) { la[m.muscle] = m.series; });
+    Se().volumeParMuscle(avant, p.exercices).forEach(function (m) { la[m.muscle] = m.series; });
     return {
       mois: p.mois,
       seances: du.length,

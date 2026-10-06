@@ -6786,6 +6786,7 @@
       Moteur.chargesDeTravailDe(seancesDeLExercice(slug), etatsExercices[slug], optionsDeConsigne(slug, exo))
         .forEach(function (x) { if (!travail || String(x.date) > String(travail.date)) travail = x; });
       teteRecords = {
+        douzeMois: recordsExo.douzeMois,
         lourde: record && record.charge !== null ? record : null,
         unRM: recordsExo.unRM,
         tableau: Modele.tableauDesRecords(pourRecords, [maintenant, il6, il12], optionsRecords),
@@ -6842,6 +6843,8 @@
       } : null,
       derniere: derniere,
       record: record,
+      // §9.23 (H1, #371) — le record d'un matériel de salle se dit « sur 12 mois ».
+      recordSurDouzeMois: mesure === 'charge_reps' && recordsExo.douzeMois,
       teteRecords: teteRecords,
       volume: {
         nbSeries: Semaine.compteSeriesTravail(toutes, local.exercices),

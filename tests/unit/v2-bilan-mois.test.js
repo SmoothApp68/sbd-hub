@@ -6,7 +6,7 @@
 //      séances, séries de travail, volume, jours, paris, temps ;
 //   2. la phrase des paris (« Sur 10 paris vérifiés, le coach en a tenu 9. ») ;
 //   3. le temps du mois n'apparaît que si TOUTES les séances ont une fin ;
-//   4. les séries par muscle principal, à côté du mois d'avant ;
+//   4. les séries par muscle (comme le bloc Volume), à côté du mois d'avant ;
 //   5. le mois écoulé, et les routes du bilan et des records.
 
 process.env.TZ = 'Europe/Paris';
@@ -59,7 +59,7 @@ describe('§9.23 — le temps du mois : toutes les séances ont une fin, sinon r
   });
 });
 
-describe('§9.23 — les séries par muscle principal, et le mois d\'avant', () => {
+describe('§9.23 (H2, #371) — les séries par muscle, comptées comme le bloc Volume, et le mois d\'avant', () => {
   const cat = [{ slug: 'couche', muscles_primaires: ['pectoraux'], muscles_secondaires: ['triceps'] },
                { slug: 'tirage', muscles_primaires: ['grand_dorsal'], muscles_secondaires: ['biceps'] }];
   const s = (slug, type) => ({ exercise_slug: slug, type_serie: type || 'travail', charge_kg: 50, reps: 10 });
@@ -67,10 +67,17 @@ describe('§9.23 — les séries par muscle principal, et le mois d\'avant', () 
     { debut: '2026-08-10T18:00', fin: '2026-08-10T19:00', series: [s('couche'), s('couche')] },
     { debut: '2026-09-10T18:00', fin: '2026-09-10T19:00', series: [s('couche'), s('couche'), s('couche'), s('tirage'), s('couche', 'echauffement')] }
   ];
-  test('une série compte pour ses muscles principaux seulement (jamais les secondaires), à côté du mois d\'avant', () => {
+  test('⚠️ DISCRIMINANT — un principal compte la série entière, un secondaire pour moitié, à côté du mois d\'avant', () => {
     const b = B.bilanDuMois({ mois: '2026-09', seances, paris: [], exercices: cat });
-    expect(b.muscles.map((m) => [m.muscle, m.series, m.avant])).toEqual([['pectoraux', 3, 2], ['grand_dorsal', 1, 0]]);
+    expect(b.muscles.map((m) => [m.muscle, m.series, m.avant])).toEqual(
+      [['pectoraux', 3, 2], ['triceps', 1.5, 1], ['grand_dorsal', 1, 0], ['biceps', 0.5, 0]]);
     expect(b.exercices).toEqual([{ slug: 'couche', series: 3 }, { slug: 'tirage', series: 1 }]);
+  });
+  test('la même fonction que le bloc Volume : les chiffres sont identiques', () => {
+    const S = require('../../v2/js/semaine.js');
+    const b = B.bilanDuMois({ mois: '2026-09', seances, paris: [], exercices: cat });
+    expect(b.muscles.map((m) => [m.muscle, m.series])).toEqual(
+      S.volumeParMuscle(seances[1].series, cat).map((m) => [m.muscle, m.series]));
   });
 });
 

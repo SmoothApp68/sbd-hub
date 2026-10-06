@@ -220,6 +220,12 @@ describe('§9.23 — le tableau des records de la page (aujourd\'hui, il y a 6 m
                 { debut: '2026-08-01T18:00', series: [{ charge_kg: 200, reps: 10, type_serie: 'travail' }] }];
     expect(Mo.recordsDeLExercice(se, '2026-09-08T18:00', { equipement: 'machine' }).lourde.charge).toBe(200);
     expect(Mo.recordsDeLExercice(se, '2026-09-08T18:00', { equipement: 'barre' }).lourde.charge).toBe(300);
+    // §9.23 (H1, #371) — et l'affichage le dit : « sur 12 mois », jamais à la barre.
+    expect(Mo.recordsDeLExercice(se, '2026-09-08T18:00', { equipement: 'machine' }).douzeMois).toBe(true);
+    expect(['poulie', 'haltere', 'machine_smith'].every((e) =>
+      Mo.recordsDeLExercice(se, '2026-09-08T18:00', { equipement: e }).douzeMois)).toBe(true);
+    expect(Mo.recordsDeLExercice(se, '2026-09-08T18:00', { equipement: 'barre' }).douzeMois).toBe(false);
+    expect(Mo.recordsDeLExercice(se, '2026-09-08T18:00', { equipement: 'aucun', corps: true }).douzeMois).toBe(false);
   });
 });
 

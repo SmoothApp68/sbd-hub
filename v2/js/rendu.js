@@ -414,13 +414,19 @@
     var e = Math.round((maintenant.charge - avant.charge) * 100) / 100;
     return e > 0 ? e : null;
   }
+  // « 06 oct. 2026 · sur 12 mois » : la date, et la fenêtre quand elle s'applique.
+  var SUR_DOUZE_MOIS = 'sur 12 mois';
+  function sousDouzeMois(date, douze) {
+    if (!douze) return date;
+    return date ? date + ' \u00b7 ' + SUR_DOUZE_MOIS : SUR_DOUZE_MOIS;
+  }
   function rendreTeteRecords(cible, t) {
     var carte = el('div', 'exo-records');
     var h = el('div', 'section-t', 'TES RECORDS');
     carte.appendChild(h);
     var fiche = el('div', 'exo-fiche');
     if (t.lourde) {
-      ligneFiche(fiche, 'Charge la plus lourde', t.lourde.date ? dateCourte(t.lourde.date) : null,
+      ligneFiche(fiche, 'Charge la plus lourde', sousDouzeMois(t.lourde.date ? dateCourte(t.lourde.date) : null, t.douzeMois),
         M().chargeFois(t.lourde.charge, t.lourde.reps));
     }
     if (t.unRM) {
@@ -433,7 +439,8 @@
     if (lignes.length) {
       var tab = el('table', 'tableau-records num');
       var tete = el('tr');
-      ['Au moins', 'Record', 'Le', 'Il y a 6 mois', 'Il y a 1 an'].forEach(function (x) { tete.appendChild(el('th', null, x)); });
+      ['Au moins', t.douzeMois ? 'Record ' + SUR_DOUZE_MOIS : 'Record', 'Le', 'Il y a 6 mois', 'Il y a 1 an']
+        .forEach(function (x) { tete.appendChild(el('th', null, x)); });
       tab.appendChild(tete);
       lignes.forEach(function (l) {
         var tr = el('tr');
@@ -484,8 +491,10 @@
     ligneFiche(fiche, 'Dernière séance', d ? dateCourte(d.date) : null,
       d ? texteMeilleure(d) : '');
     var r = vue.record;
+    // §9.23 (H1, #371) — un matériel de salle : le record se lit sur 12 mois,
+    // et l'écran le dit, à côté de lui.
     ligneFiche(fiche, vue.mesure === 'charge_reps' ? 'Record de charge' : 'Record',
-      r && r.date ? dateCourte(r.date) : null, r ? texteMeilleure(r) : '');
+      sousDouzeMois(r && r.date ? dateCourte(r.date) : null, vue.recordSurDouzeMois), r ? texteMeilleure(r) : '');
     var v = vue.volume || {};
     ligneFiche(fiche, 'Séries de travail',
       v.nbSeances ? 'sur ' + v.nbSeances + ' séance' + (v.nbSeances > 1 ? 's' : '') : null,
@@ -1207,8 +1216,9 @@
       var m = carteMois('Séries par muscle');
       vue.muscles.forEach(function (x) {
         var droite = el('span');
-        droite.appendChild(doc.createTextNode(String(x.series) + ' '));
-        droite.appendChild(el('span', 'gris', '\u00b7 ' + vue.moisAvant + ' ' + x.avant));
+        // Comme le bloc Volume : un secondaire compte pour moitié (« 1,5 »).
+        droite.appendChild(doc.createTextNode(nombreFr(x.series) + ' '));
+        droite.appendChild(el('span', 'gris', '\u00b7 ' + vue.moisAvant + ' ' + nombreFr(x.avant)));
         m.appendChild(ligneMois(x.libelle, droite));
       });
       cible.appendChild(m);

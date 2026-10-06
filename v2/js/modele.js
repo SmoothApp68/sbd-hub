@@ -1491,7 +1491,9 @@
   // même périmètre que la médaille. `seances` : `[{ debut, series }]` de cet
   // exercice. Rend `{ table, lourde, unRM }` — la table cumulée, la charge la
   // plus lourde (`recordDeLaTable`) et le meilleur 1RM estimé (`{ valeur,
-  // charge, reps, date }`, ou `null`).
+  // charge, reps, date }`, ou `null`) ; `douzeMois` : vrai pour un matériel de
+  // salle — l'affichage le DIT (« sur 12 mois », §9.23 H1) : un vieux record
+  // sorti de la fenêtre n'est jamais présenté comme un recul.
   function recordsDeLExercice(seances, aDate, options) {
     var o = options || {};
     var series = [];
@@ -1510,7 +1512,8 @@
         unRM = { valeur: e, charge: c, reps: r, date: x._debut };
       }
     });
-    return { table: table, lourde: recordDeLaTable(table), unRM: unRM };
+    return { table: table, lourde: recordDeLaTable(table), unRM: unRM,
+             douzeMois: racine.THMoteur.plancherDuMateriel(o.equipement, aDate) !== null };
   }
 
   // LE TABLEAU DES RECORDS : la charge pour au moins 1, 3, 5, 8 et 10 reps, à

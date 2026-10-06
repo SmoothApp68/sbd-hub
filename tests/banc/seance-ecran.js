@@ -285,6 +285,8 @@ const CATALOGUE = [
   // 55-1 (MOTEUR §9.23) — réservé à la section « progression » : une barre
   // qui bat ses records. Un muscle inventé (`u55…`) : personne d'autre ne voit
   // son volume ; un nom qu'aucune autre recherche du banc ne trouve.
+  // 55-1 bis (H1, #371) — une machine : son record se dit « sur 12 mois ».
+  { slug: 'machine-u55', nom: 'Fenêtre U55 (Machine)', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: [], muscles_secondaires: [] },
   { slug: 'record-u55', nom: 'Médaillé U55 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['u55_pecs'], muscles_secondaires: [] },
   // 52-1 (ECRAN-SAISIE §7 duodecies.3, §7 quindecies.3-4 ; MOTEUR §9.21) —
   // réservés à la section « organiser » : un cardio (sans muscle), un gros
@@ -12678,6 +12680,43 @@ const SETS_IMPORTES = [
     ok('[P55] sans pesée de moins de 14 jours : « Pèse-toi pour voir ce rapport. »',
       noteP && noteP.note === 'Pèse-toi pour voir ce rapport.' && noteP.fiches === 1, JSON.stringify(noteP));
     base.pesees.length = 0;
+
+    // ── I. UNE MACHINE : LE RECORD SE DIT « SUR 12 MOIS » (§9.23 H1, #371).
+    // 150 × 8 il y a 20 mois (hors fenêtre), 120 × 8 il y a 2 mois : le record
+    // est 120 kg × 8, sur 12 mois — jamais présenté comme un recul.
+    [[600, 150], [60, 120]].forEach(([j, kg], i) => {
+      const id = 'pm55-' + i;
+      const debut = ilYa(j * 86400000, tP).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'Fenêtre — ' + id, debut,
+        fin: finDe(debut, tP).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      base.sets.push({ id: id + '-s1', session_id: id, user_id: 'u-banc', exercise_slug: 'machine-u55',
+        charge_kg: kg, reps: 8, duree_s: null, distance_m: null, type_serie: 'travail', rang: 1,
+        groupe_superset: null, validee_a: debut, rpe: null, ressenti: null, repos_s: null, note: null,
+        source: 'app', created_at: debut, modifie_a: null });
+    });
+    await aller('/exercice/machine-u55');
+    await attendre(800);
+    const mach = await page.evaluate(() => {
+      const li = Array.from(document.querySelectorAll('#page-exercice .exo-li'));
+      const de = (re) => li.filter((l) => re.test(l.textContent)).map((l) => l.textContent)[0] || null;
+      return { record: de(/^Record de charge/), lourde: de(/^Charge la plus lourde/),
+        tete: Array.from(document.querySelectorAll('#page-exercice .tableau-records th')).map((x) => x.textContent),
+        lignes: Array.from(document.querySelectorAll('#page-exercice .tableau-records tr')).slice(1).map((tr) =>
+          Array.from(tr.querySelectorAll('td')).map((td) => td.textContent)),
+        plus: document.querySelectorAll('#page-exercice .plus-record').length };
+    });
+    await capturer55('6-machine');
+    ok('[P55] DISCRIMINANT — une machine : le record de charge et la charge la plus lourde disent « sur 12 mois » (120 kg × 8, pas 150)',
+      mach.record && /sur 12 mois/.test(mach.record) && /120\s*kg\s*×\s*8/.test(sp(mach.record)) &&
+        mach.lourde && /sur 12 mois/.test(mach.lourde) && !/150/.test(mach.record + mach.lourde), JSON.stringify(mach));
+    ok('[P55] le tableau d’une machine : « Record sur 12 mois » ; il y a 1 an, rien d’autre qu’un fait, aucun écart négatif',
+      mach.tete[1] === 'Record sur 12 mois' && mach.lignes.length >= 1 && sp(mach.lignes[0][1]) === '120 kg' &&
+        mach.plus === 0 && !mach.lignes.some((l) => /[−-]\d/.test(l.join(' '))), JSON.stringify(mach));
+    await aller('/exercice/record-u55');
+    await attendre(600);
+    const barreP = await page.evaluate(() => document.querySelector('#page-exercice').textContent);
+    ok('[P55] à la barre, jamais « sur 12 mois »', !/sur 12 mois/.test(barreP), '');
 
     ok('[P55] la garde de l’app n’a rien signalé, aucune erreur de page',
       gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant, JSON.stringify(erreurs.slice(erreursAvant)));

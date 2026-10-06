@@ -1924,6 +1924,8 @@ concurrence avec la colonne `précédent`, qui montre le passé et non une propo
 
 Pas de rang 2 bis : la consigne passe devant la dernière séance sur les lignes qu'elle couvre, et nulle part ailleurs.
 
+**La durée et la distance d'un cardio — précisé le 06/10/2026 (relevé 54-0).** Elles suivent les reps : **la routine d'abord** (`duree_cible_s`, `distance_cible_m`), puis la dernière séance. « Les reps, c'est la routine » (Aurélien, 05/10) : la durée d'un cardio est de même nature. Comme les reps visées, elles sont **lues, jamais écrites** dans la série.
+
 > ⚠️ **Elle est LUE, jamais écrite.** La ligne de séance la porte pour que le fantôme y accède ;
 > `sets` n'a pas cette colonne et `COLONNES_SET` ne la laisse pas partir. Une intention n'est
 > pas une observation.

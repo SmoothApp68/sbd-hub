@@ -123,6 +123,25 @@ describe('la coquille mise en cache à l’installation', () => {
     for (const url of SW.INDISPENSABLES) expect(SW.SHELL).toContain(url);
   });
 
+  // 56-1 (la forge) — hors ligne, l'app garde ses polices : chaque fichier de
+  // `v2/fonts/` est dans la coquille, et chaque police que la feuille de style
+  // appelle aussi. Une police oubliée ici retomberait sur la police système,
+  // sans bruit, à la première séance sans réseau.
+  test('les polices de la feuille de style sont toutes dans la coquille, servies par l’app', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const V2 = path.join(__dirname, '../../v2');
+    const fichiers = fs.readdirSync(path.join(V2, 'fonts')).filter((f) => /\.woff2$/.test(f));
+    const css = fs.readFileSync(path.join(V2, 'styles.css'), 'utf8');
+    const appelees = Array.from(css.matchAll(/url\(\s*["']?([^"')]+\.woff2)["']?\s*\)/g)).map((m) => m[1]);
+    expect(fichiers.length).toBe(7);
+    expect(appelees.slice().sort()).toEqual(fichiers.map((f) => '/fonts/' + f).sort());
+    for (const f of fichiers) expect(SW.SHELL).toContain('./fonts/' + f);
+    expect(fs.existsSync(path.join(V2, 'fonts/OFL.txt'))).toBe(true);
+    // Aucune police en ligne : ni Google Fonts, ni autre origine.
+    expect(css).not.toMatch(/fonts\.googleapis|fonts\.gstatic|@import/);
+  });
+
   test('la trappe de sortie reste courte et tapable à la main', () => {
     expect(SW.CHEMIN_SORTIE).toBe('/__sw-off');
     expect(SW.CHEMIN_SORTIE.startsWith('/')).toBe(true);

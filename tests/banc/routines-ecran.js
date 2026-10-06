@@ -513,7 +513,10 @@ const CATALOGUE = [
   await aller('/saisie');
   ok('la vue Saisie est celle qui s’affiche', JSON.stringify(await visible()) === '["vue-saisie"]', JSON.stringify(await visible()));
   const vide = await texte('#liste-routines');
-  ok('il dit qu’il n’y a rien, et quoi faire', /Aucune routine/.test(vide) && /Créer une routine/.test(vide), vide.replace(/\n+/g, ' | ').slice(0, 120));
+  // `texte` lit `innerText`, qui applique les capitales de la feuille de style :
+  // depuis la forge (56-1), le bouton principal s'AFFICHE « CRÉER UNE ROUTINE ».
+  // Son texte, lui, n'a pas changé (le contrôle 54-1 plus bas le lit tel quel).
+  ok('il dit qu’il n’y a rien, et quoi faire', /Aucune routine/.test(vide) && /Créer une routine/i.test(vide), vide.replace(/\n+/g, ' | ').slice(0, 120));
   ok('aucune excuse, aucun « oups »', !/oups|désolé|erreur/i.test(vide));
   // 54-1 — la phrase dit le vrai, et les trois chemins, dans cet ordre.
   const etatVide = await page.evaluate(() => {

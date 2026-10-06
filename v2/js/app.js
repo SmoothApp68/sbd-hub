@@ -25,7 +25,8 @@
 
   var vues = {};
   var local = { seances: [], series: [], exercices: [], pesees: [], zones: [], modes: [],
-                predictions: [], sousConsigne: {}, parisLegers: [], escalier: [], parSeance: null };
+                predictions: [], sousConsigne: {}, parisLegers: [], escalier: [], parSeance: null,
+                blocs: [], programme: [] };
   var etat = { code: 'vide', libelle: '', local: false };
   var syncEnCours = false;
   var lundiAffiche = null;   // le lundi de la semaine à l'écran
@@ -188,6 +189,21 @@
   // rien ne s'efface — donc la fusion est une UNION par identifiant, et la
   // ligne du serveur l'emporte sur sa copie locale (elle a traversé les
   // contraintes de la base).
+  // MOTEUR §9.22 (53-2) — LES BLOCS SE FONDENT PAR `id`, le plus récent par
+  // `modifie_a` l'emporte : un statut changé ici (terminé, arrêté), pas encore
+  // monté, ne revient pas à « en cours » parce que le serveur ne le sait pas.
+  function fondreBlocs(locaux, distants) {
+    var par = {};
+    (locaux || []).forEach(function (b) { if (b && b.id) par[b.id] = b; });
+    (distants || []).forEach(function (b) {
+      if (!b || !b.id) return;
+      var l = par[b.id];
+      var tb = Date.parse(b.modifie_a || '') || 0, tl = Date.parse((l && l.modifie_a) || '') || 0;
+      if (!l || tb >= tl) par[b.id] = b;
+    });
+    return Object.keys(par).map(function (k) { return par[k]; });
+  }
+
   function fondreZones(locales, distantes) {
     var par = {};
     (locales || []).forEach(function (l) { if (l && l.id) par[l.id] = l; });
@@ -197,7 +213,9 @@
 
   // La zone en vigueur d'un exercice. Le CALCUL vit dans le moteur (§9.1.1) —
   // l'app lui passe les lignes, elle ne les trie pas elle-même.
-  function zoneDe(slug) { return Moteur.zoneEnVigueur(local.zones, slug); }
+  // §9.22 (53-2) — À L'INSTANT : une ligne de bloc datée de lundi n'est pas
+  // encore en vigueur aujourd'hui.
+  function zoneDe(slug) { return Moteur.zoneEnVigueur(local.zones, slug, new Date().toISOString()); }
 
   // ⚠️ L'APPAREIL D'ABORD, LE RÉSEAU ENSUITE. Le choix s'affiche tout de suite,
   // même sans réseau, et part par la file. `user_id` et `corrigee_a` sont posés
@@ -227,6 +245,278 @@
     }
     await Cache.ecrireLot('zones', [ligne]).catch(function () {});
     await poser({ table: Attente.ZONES, op: Attente.UPSERT, id: id, donnees: ligne });
+  }
+
+  // ══ MOTEUR §9.22 (53-2) — LES PROGRAMMES À CYCLES ════════════════════════
+  //
+  // « Un programme fixe la zone de tes barres, la durée du bloc et sa
+  // décharge. » L'app écrit et lit ; chaque décision vient du moteur
+  // (`semaineDuBloc`, `zonesPosees`, `blocSuivant`, `bilanDuBloc`…). Un bloc
+  // part par la file (`blocs`), ses lignes de zone ensuite, qui en dépendent.
+  var VERSION_PROGRAMME = '1';
+  var programmeEnCours = null;   // la feuille « Faire de ce dossier un programme »
+
+  function jourDuJour() { return Moteur.jourCivil(new Date().toISOString()); }
+  function instantDuJour() { return new Date().toISOString(); }
+  function idUtilisateur() { return (sessionActive && sessionActive.user && sessionActive.user.id) || null; }
+  // Le lundi qui suit (strictement), au jour civil local.
+  function lundiQuiSuit(jour) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(jour || ''));
+    if (!m) return null;
+    var d = new Date(+m[1], +m[2] - 1, +m[3]);
+    d.setDate(d.getDate() + ((8 - d.getDay()) % 7 || 7));
+    return Moteur.jourCivil(d.toISOString());
+  }
+  function finsAllegeesConnues() {
+    return Moteur.cartesDesParis(parisEscalierConnus()).filter(function (c) {
+      return c.reponse === 'acceptee' && c.fin;
+    }).map(function (c) { return c.fin; });
+  }
+
+  async function poserBloc(bloc) {
+    local.blocs = (local.blocs || []).filter(function (b) { return b && b.id !== bloc.id; }).concat([bloc]);
+    await Cache.ecrireBrouillon(CLE_BLOCS, local.blocs).catch(function () {});
+    await poser({ table: Attente.BLOCS, op: Attente.UPSERT, id: bloc.id, donnees: bloc });
+  }
+
+  // Des lignes de zone posées par un bloc (ou à son arrêt) : sur l'appareil
+  // d'abord, puis par la file, APRÈS leur bloc (`depend`). Une ligne déjà en
+  // vigueur recalcule la consigne de son exercice, comme `poserZone`.
+  async function poserLignesDeZone(lignes, depend) {
+    if (!lignes.length) return;
+    local.zones = local.zones.concat(lignes);
+    var maintenant = Date.now();
+    if (consignes && consignes.parSlug) {
+      lignes.forEach(function (l) {
+        if (Date.parse(l.corrigee_a) <= maintenant) delete consignes.parSlug[l.exercise_slug];
+      });
+      versionConsignes++;
+      sauverConsignes();
+    }
+    await Cache.ecrireLot('zones', lignes).catch(function () {});
+    for (var i = 0; i < lignes.length; i++) {
+      await poser({ table: Attente.ZONES, op: Attente.UPSERT, id: lignes[i].id, depend: depend || null, donnees: lignes[i] });
+    }
+  }
+
+  // Les exercices des routines d'un dossier, dans l'ordre, sans doublon.
+  function exercicesDuDossier(dossier) {
+    var vus = {}, sortie = [];
+    Routines.visibles(routines).filter(function (r) { return Routines.dossierPropre(r.dossier) === dossier; })
+      .forEach(function (r) {
+        (r.exercices || []).forEach(function (e) {
+          var s = e && e.exercise_slug;
+          if (s && !vus[s]) { vus[s] = true; sortie.push(s); }
+        });
+      });
+    return sortie;
+  }
+  function nomsDuCatalogue() {
+    var noms = {}, index = catalogueIndexe();
+    Object.keys(index).forEach(function (s) { if (index[s] && index[s].nom) noms[s] = index[s].nom; });
+    return noms;
+  }
+
+  // Les paris de CONSIGNE connus (serveur et appareil, l'appareil l'emporte),
+  // observés : `[{ date, exercice, predite, observee }]` pour le bilan.
+  function parisDeConsigneConnus() {
+    var debutDe = {};
+    (local.seances || []).forEach(function (x) { if (x && x.id) debutDe[x.id] = x.debut; });
+    var parId = {};
+    (local.parisLegers || []).forEach(function (l) { if (l && l.id) parId[l.id] = { l: l, seance: l.session_id }; });
+    (local.predictions || []).forEach(function (l) {
+      if (l && l.id) parId[l.id] = { l: l, seance: l.fondement ? l.fondement.seance : null };
+    });
+    return Object.keys(parId).map(function (k) { return parId[k]; }).filter(function (x) {
+      return x.l.module === Moteur.MODULE_CONSIGNE && x.l.valeur_observee !== null && x.l.valeur_observee !== undefined &&
+        x.seance && debutDe[x.seance];
+    }).map(function (x) {
+      return { date: debutDe[x.seance], exercice: x.l.exercise_slug, predite: Number(x.l.valeur_predite),
+               observee: Number(x.l.valeur_observee) };
+    });
+  }
+
+  // LE BILAN D'UN BLOC : les charges de travail de chacun de ses exercices
+  // (la consigne les lit ainsi) et les paris de consigne — le moteur décide.
+  function bilanDe(bloc) {
+    var index = catalogueIndexe();
+    var parSlug = {};
+    (bloc.exercices || []).forEach(function (slug) {
+      parSlug[slug] = Moteur.chargesDeTravailDe(seancesDeLExercice(slug), etatsExercices[slug],
+        optionsDeConsigne(slug, index[slug]));
+    });
+    return Moteur.bilanDuBloc(bloc, parSlug, parisDeConsigneConnus());
+  }
+
+  // Les paris de programme connus (serveur et appareil), et celui d'un bloc.
+  function parisDeProgrammeConnus() {
+    var parId = {};
+    (local.programme || []).forEach(function (l) { if (l && l.id) parId[l.id] = l; });
+    (local.predictions || []).forEach(function (l) {
+      if (l && l.id && l.module === Moteur.MODULE_PROGRAMME) parId[l.id] = l;
+    });
+    return Object.keys(parId).map(function (k) { return parId[k]; });
+  }
+  function pariDuBloc(bloc) {
+    return parisDeProgrammeConnus().filter(function (l) { return l.fondement && l.fondement.bloc === bloc.id; })[0] || null;
+  }
+
+  // Ce que la bibliothèque montre d'un dossier : le badge, la carte de fin de
+  // bloc, ou « Faire de ce dossier un programme ». Rien n'est écrit ici.
+  function programmeDuDossier(dossier) {
+    if (dossier === null) return null;
+    var jour = jourDuJour();
+    var b = Moteur.blocEnCours(local.blocs, dossier);
+    if (!b) return { creer: exercicesDuDossier(dossier).length > 0 };
+    var badge = Moteur.badgeDuBloc(b, jour);
+    if (!Moteur.blocTermine(b, jour)) return { badge: badge };
+    var bilan = bilanDe(b);
+    var pari = pariDuBloc(b);
+    return { badge: badge, fin: Moteur.carteFinDeBloc(b, bilan, nomsDuCatalogue(),
+      pari ? { predite: pari.valeur_predite, observee: Moteur.progresDuBilan(bilan) } : null) };
+  }
+
+  // LA FEUILLE « FAIRE DE CE DOSSIER UN PROGRAMME » — ou celle qui AJUSTE le
+  // bloc suivant (`depuis` : le bloc fini). Les exercices du bloc : par
+  // défaut les barres polyarticulaires des routines du dossier, décochables.
+  function ouvrirProgramme(dossier, depuis) {
+    var slugs = exercicesDuDossier(dossier);
+    var suivant = depuis ? Moteur.blocSuivant(depuis) : null;
+    var coches = suivant ? suivant.exercices : Moteur.exercicesParDefaut(slugs, catalogueIndexe());
+    coches.forEach(function (s) { if (slugs.indexOf(s) < 0) slugs.push(s); });
+    var c = {};
+    coches.forEach(function (s) { c[s] = true; });
+    programmeEnCours = { dossier: dossier, precedent: depuis || null, zone: suivant ? suivant.zone : 'mix',
+      semaines: suivant ? suivant.semaines : Moteur.SEMAINES_BLOC_DEFAUT, decharge: suivant ? suivant.decharge : true,
+      debut: depuis ? 'aujourdhui' : 'lundi', slugs: slugs, coches: c, erreur: '' };
+    rendreFeuilleProgramme();
+    ouvrirVoile($('feuille-seance'));
+  }
+
+  function rendreFeuilleProgramme() {
+    var p = programmeEnCours;
+    if (!p) return;
+    var noms = nomsDuCatalogue();
+    var lundi = lundiQuiSuit(jourDuJour());
+    var maj = function (champ) { return function (v) { p[champ] = v; p.erreur = ''; rendreFeuilleProgramme(); }; };
+    Rendu.rendreFeuilleProgramme($('feuille-contenu'), {
+      dossier: p.dossier, suite: !!p.precedent, zone: p.zone, semaines: p.semaines, decharge: p.decharge, debut: p.debut,
+      semainesPossibles: [3, 4, 5, 6].filter(function (n) {
+        return n >= Moteur.SEMAINES_BLOC_MIN && n <= Moteur.SEMAINES_BLOC_MAX;
+      }),
+      debuts: [{ cle: 'lundi', texte: 'Lundi ' + Modele.jourCourt(lundi) }, { cle: 'aujourdhui', texte: 'Aujourd’hui' }],
+      exercices: p.slugs.map(function (s) { return { slug: s, nom: noms[s] || s, coche: !!p.coches[s] }; }),
+      erreur: p.erreur,
+      surZone: maj('zone'), surSemaines: maj('semaines'), surDecharge: maj('decharge'), surDebut: maj('debut'),
+      surCocher: function (slug) { p.coches[slug] = !p.coches[slug]; p.erreur = ''; rendreFeuilleProgramme(); },
+      surValider: validerProgramme,
+      surAnnuler: function () { programmeEnCours = null; fermerVoile(); }
+    });
+  }
+
+  async function validerProgramme() {
+    var p = programmeEnCours;
+    if (!p) return;
+    var exercices = p.slugs.filter(function (s) { return p.coches[s]; });
+    if (!exercices.length) { p.erreur = 'Coche au moins un exercice.'; return rendreFeuilleProgramme(); }
+    programmeEnCours = null;
+    fermerVoile();
+    await creerBloc({ dossier: p.dossier, zone: p.zone, semaines: p.semaines, decharge: p.decharge,
+      debut: p.debut === 'aujourdhui' ? jourDuJour() : lundiQuiSuit(jourDuJour()),
+      exercices: exercices, precedent: p.precedent });
+    rendreSaisie();
+  }
+
+  // UN BLOC NAÎT : le précédent se termine d'abord (un seul bloc en cours par
+  // dossier, l'index de la base), puis le bloc, ses lignes de zone, et — pour
+  // un bloc proposé à la fin d'un autre — son pari (§9.22).
+  async function creerBloc(o) {
+    var t = instantDuJour();
+    if (o.precedent) await terminerBloc(o.precedent, 'termine', true);
+    var bloc = { id: uuid(), user_id: idUtilisateur(), dossier: o.dossier, zone: o.zone, debut: o.debut,
+                 semaines: o.semaines, decharge: !!o.decharge, exercices: o.exercices.slice(), statut: 'en_cours',
+                 precedent: o.precedent ? o.precedent.id : null, created_at: t, modifie_a: t };
+    await poserBloc(bloc);
+    await poserLignesDeZone(Moteur.zonesPosees(bloc, uuid, idUtilisateur()), bloc.id);
+    if (o.precedent) await poserPariDeProgramme(bloc, o.precedent);
+    return bloc;
+  }
+
+  // Le bloc qui finit (`termine`) ou qu'on arrête (`arrete`). Fini, son pari
+  // de programme s'observe : combien de ses exercices ont progressé.
+  async function terminerBloc(bloc, statut, fini) {
+    if (fini) await observerPariDeProgramme(bloc);
+    await poserBloc(Object.assign({}, bloc, { statut: statut, modifie_a: instantDuJour() }));
+  }
+
+  async function poserPariDeProgramme(bloc, precedent) {
+    var pari = {
+      id: uuid(), user_id: idUtilisateur(), module: Moteur.MODULE_PROGRAMME, module_version: VERSION_PROGRAMME,
+      emise_a: instantDuJour(), exercise_slug: null, grandeur: Moteur.GRANDEUR_PROGRAMME,
+      horizon_jours: 7 * bloc.semaines, valeur_predite: bloc.exercices.length, borne_basse: null, borne_haute: null,
+      fondement: { bloc: bloc.id, precedent: precedent.id, dossier: bloc.dossier, zone: bloc.zone, debut: bloc.debut,
+                   semaines: bloc.semaines, exercices: bloc.exercices.slice() },
+      valeur_observee: null, observee_a: null, set_observe: null
+    };
+    local.predictions = (local.predictions || []).concat([pari]);
+    await Cache.ecrireLot('predictions', [pari]).catch(function () {});
+    await poser({ table: Attente.PREDICTIONS, op: Attente.UPSERT, id: pari.id, depend: pari.id, donnees: pari });
+  }
+
+  async function observerPariDeProgramme(bloc) {
+    var pari = pariDuBloc(bloc);
+    if (!pari || (pari.valeur_observee !== null && pari.valeur_observee !== undefined)) return;
+    var ligne = Object.assign({}, pari, { valeur_observee: Moteur.progresDuBilan(bilanDe(bloc)),
+                                          observee_a: instantDuJour(), set_observe: null });
+    var trouve = false;
+    local.predictions = (local.predictions || []).map(function (l) {
+      if (!l || l.id !== ligne.id) return l;
+      trouve = true;
+      return ligne;
+    });
+    if (!trouve) local.predictions = local.predictions.concat([ligne]);
+    await Cache.ecrireLot('predictions', [ligne]).catch(function () {});
+    await poser({ table: Attente.OBSERVATIONS, op: Attente.OBSERVER, id: ligne.id, depend: ligne.id, alaFin: true,
+                  donnees: { valeur_observee: ligne.valeur_observee, observee_a: ligne.observee_a, set_observe: null } });
+  }
+
+  // Les trois gestes de la fin du bloc, et l'arrêt en plein bloc.
+  async function commencerBlocSuivant(dossier) {
+    var b = Moteur.blocEnCours(local.blocs, dossier);
+    var s = b ? Moteur.blocSuivant(b) : null;
+    if (!s) return;
+    await creerBloc({ dossier: dossier, zone: s.zone, semaines: s.semaines, decharge: s.decharge, debut: jourDuJour(),
+                      exercices: s.exercices, precedent: b });
+    rendreSaisie();
+  }
+  // L'ARRÊT rend leur zone déduite aux exercices dont la dernière déclaration
+  // est encore celle du bloc (une ligne vide, posée par la personne : c'est
+  // son geste) ; une correction faite pendant le bloc reste.
+  async function arreterProgramme(dossier) {
+    var b = Moteur.blocEnCours(local.blocs, dossier);
+    if (!b) return;
+    var fini = Moteur.blocTermine(b, jourDuJour());
+    await terminerBloc(b, fini ? 'termine' : 'arrete', fini);
+    var t = instantDuJour();
+    var lignes = (b.exercices || []).filter(function (slug) {
+      var l = Moteur.ligneDeZoneAu(local.zones, slug, t, true);
+      return l && l.bloc_id === b.id;
+    }).map(function (slug) {
+      return { id: uuid(), user_id: idUtilisateur(), exercise_slug: slug, zone: null, corrigee_a: t };
+    });
+    await poserLignesDeZone(lignes, b.id);
+    rendreSaisie();
+  }
+  function ouvrirBlocEnCours(dossier) {
+    var b = Moteur.blocEnCours(local.blocs, dossier);
+    if (!b) return;
+    Rendu.rendreFeuilleBlocEnCours($('feuille-contenu'), {
+      dossier: dossier, badge: Moteur.badgeDuBloc(b, jourDuJour()),
+      exercices: (b.exercices || []).map(function (s) { return nomsDuCatalogue()[s] || s; }),
+      surArreter: function () { fermerVoile(); arreterProgramme(dossier); },
+      surFermer: fermerVoile
+    });
+    ouvrirVoile($('feuille-seance'));
   }
 
   // ── §9.17 — LE MODE DE CHAQUE EXERCICE ───────────────────────────────────
@@ -305,6 +595,13 @@
     catch (e) { local.parisLegers = []; }
     try { local.escalier = (await Cache.lireBrouillon(CLE_PARIS_ESCALIER)) || []; }
     catch (e) { local.escalier = []; }
+    // MOTEUR §9.22 (53-2) — les blocs des programmes et leurs paris, relus à la
+    // dernière synchronisation (et posés ici) : le badge, la décharge
+    // planifiée et la fin du bloc tiennent hors ligne.
+    try { local.blocs = (await Cache.lireBrouillon(CLE_BLOCS)) || []; }
+    catch (e) { local.blocs = []; }
+    try { local.programme = (await Cache.lireBrouillon(CLE_PARIS_PROGRAMME)) || []; }
+    catch (e) { local.programme = []; }
     rangerSeances();
     indexerParSeance();
     recalculerEtats();
@@ -377,6 +674,8 @@
     local.sousConsigne = {};
     local.parisLegers = [];
     local.escalier = [];
+    local.blocs = [];
+    local.programme = [];
     // Le profil aussi appartient au compte précédent — et son envoi en attente
     // avec lui. Le rejouer sur le compte suivant écrirait la taille de
     // quelqu'un d'autre dans sa ligne `profiles`.
@@ -473,6 +772,13 @@
       if (escalierDuCompte) {
         local.escalier = escalierDuCompte.filter(function (l) { return l && l.module === Moteur.MODULE_ESCALIER; });
       }
+      // MOTEUR §9.22 (53-2) — les blocs des programmes, et leurs paris.
+      // Accessoires comme les autres ; FONDUS, jamais remplacés : un bloc posé
+      // hors ligne n'est pas encore chez le serveur.
+      var blocsDuCompte = await essayer(Donnees.mesBlocs);
+      if (blocsDuCompte) local.blocs = fondreBlocs(local.blocs, blocsDuCompte);
+      var programmeDuCompte = await essayer(Donnees.parisProgramme);
+      if (programmeDuCompte) local.programme = fondreZones(local.programme, programmeDuCompte);
 
       // ⚠️ La liste du serveur ne contient PAS ce qui n'y est pas encore monté.
       // Sans cette garde, la première synchronisation réussie effacerait une
@@ -532,6 +838,8 @@
       if (escalierDuCompte) {
         await Cache.ecrireBrouillon(CLE_PARIS_ESCALIER, local.escalier).catch(function () {});
       }
+      if (blocsDuCompte) await Cache.ecrireBrouillon(CLE_BLOCS, local.blocs).catch(function () {});
+      if (programmeDuCompte) await Cache.ecrireBrouillon(CLE_PARIS_PROGRAMME, local.programme).catch(function () {});
       await Cache.supprimer('series', idsRetires(fusionnees, local.series));
       await Cache.ecrireLot('series', local.series);
 
@@ -863,6 +1171,8 @@
     // rend idempotente, sa date dit quand le choix a été fait.
     if (op.table === Attente.ZONES) return Donnees.enregistrerZone(op.donnees);
     if (op.table === Attente.MODES) return Donnees.enregistrerMode(op.donnees);
+    // §9.22 (53-2) — un bloc, créé ou changé de statut : `upsert` sur son id.
+    if (op.table === Attente.BLOCS) return Donnees.enregistrerBloc(op.donnees);
     // §9.11 — l'insertion IGNORE les doublons (le trigger refuserait un
     // upsert rejoué), et l'observation la suit par une mise à jour étroite.
     if (op.table === Attente.PREDICTIONS) return envoyerPrediction(op);
@@ -1861,6 +2171,9 @@
   var CLE_SOUS_CONSIGNE = 'sous-consigne';
   var CLE_PARIS_LEGERS = 'paris-legers';
   var CLE_PARIS_ESCALIER = 'paris-escalier';
+  // MOTEUR §9.22 (53-2).
+  var CLE_BLOCS = 'blocs';
+  var CLE_PARIS_PROGRAMME = 'paris-programme';
 
   // `{ [slug]: [identifiants de séance] }`, à partir de lignes `predictions` —
   // celles du serveur (`session_id`, colonne générée) ou celles de l'appareil
@@ -1940,7 +2253,10 @@
   function periodesAllegees() {
     return Moteur.cartesDesParis(parisEscalierConnus()).filter(function (c) {
       return c.reponse === 'acceptee' && c.debut && c.fin;
-    }).map(function (c) { return { debut: c.debut, fin: c.fin }; });
+    }).map(function (c) { return { debut: c.debut, fin: c.fin }; })
+      // §9.22 (53-2) — et les décharges planifiées : leurs séances, comme
+      // celles d'une semaine allégée, ne sont ni comptées ni jugées.
+      .concat(Moteur.periodesDecharge(local.blocs, finsAllegeesConnues()));
   }
 
   // Les séries de travail d'un exercice dans la séance ouverte : à l'ouverture,
@@ -2091,7 +2407,10 @@
       seancesSousConsigne: seancesSousConsigne(slug),
       // Et l'historique des zones choisies : chaque séance passée se rejoue
       // avec la zone en vigueur ce jour-là, pas celle d'aujourd'hui.
-      correctionsDeZone: (local.zones || []).filter(function (l) { return l && l.exercise_slug === slug; }),
+      // §9.22 (53-2) — sans les lignes pas encore en vigueur (un bloc à venir).
+      correctionsDeZone: (local.zones || []).filter(function (l) {
+        return l && l.exercise_slug === slug && !(Date.parse(l.corrigee_a) > Date.now());
+      }),
       // §14.4 (49-U14) — les semaines allégées acceptées : leurs séances ne
       // sont ni comptées ni jugées par le compteur.
       periodesAllegees: periodesAllegees(),
@@ -2659,6 +2978,9 @@
       intention: profil ? profil.intention : null,
       modes: modes,
       lestReponse: lestPlan,
+      // MOTEUR §9.22 (53-2) — les blocs des programmes (la décharge planifiée,
+      // « Changer de schéma ») et les lignes de zone (I36, I37).
+      programme: { blocs: local.blocs || [], lignes: local.zones || [] },
       suites: suites,
       precedents: precedents,
       paris: (local.predictions || []).filter(function (l) {
@@ -2872,13 +3194,14 @@
         planMemo.refus === refusChauffes && planMemo.escalier === local.escalier &&
         planMemo.legers === local.parisLegers && planMemo.seances === local.seances &&
         planMemo.demo === demoReponse && planMemo.demoMarches === demoMarches &&
-        planMemo.modes === local.modes && planMemo.lest === lestReponseDe() && planMemo.demoLest === demoLest) return planMemo.plan;
+        planMemo.modes === local.modes && planMemo.lest === lestReponseDe() && planMemo.demoLest === demoLest &&
+        planMemo.blocs === local.blocs) return planMemo.plan;
     var plan = Plan.planDeSeance(entrees);
     planMemo = { seance: seance, paris: local.predictions, version: versionConsignes,
                  edition: edition, constats: constats, catalogue: local.exercices,
                  refus: refusChauffes, escalier: local.escalier, legers: local.parisLegers,
                  seances: local.seances, demo: demoReponse, demoMarches: demoMarches,
-                 modes: local.modes, lest: lestReponseDe(), demoLest: demoLest, plan: plan };
+                 modes: local.modes, lest: lestReponseDe(), demoLest: demoLest, blocs: local.blocs, plan: plan };
     // Le banc lit le dernier plan et ses entrées pour vérifier les invariants
     // après chaque geste (§9.13 bis) ; rien d'autre ne le relit. Un plan du
     // REJEU (développement) n'y entre pas : il vérifie ses invariants lui-même.
@@ -4984,6 +5307,17 @@
         memoriserDossiersReplies();
         rendreSaisie();
       },
+      // MOTEUR §9.22 (53-2) — le programme d'un dossier : le badge, la carte de
+      // fin de bloc, ou « Faire de ce dossier un programme ».
+      programme: programmeDuDossier,
+      surProgramme: function (d) { ouvrirProgramme(d, null); },
+      surBadgeProgramme: ouvrirBlocEnCours,
+      surCommencerBloc: commencerBlocSuivant,
+      surAjusterBloc: function (d) {
+        var b = Moteur.blocEnCours(local.blocs, d);
+        if (b) ouvrirProgramme(d, b);
+      },
+      surArreterProgramme: arreterProgramme,
       surChoix: ouvrirRoutine,
       surNouvelle: function () { ouvrirRoutine(null); },
       surDemarrer: function (id) {
@@ -5072,8 +5406,10 @@
   var CIBLES_TEMPS = [45, 60];
 
   function semaineAllegeeEnCours() {
-    return !!Moteur.periodeAllegee(Moteur.cartesDesParis(parisEscalierConnus()),
-      Moteur.jourCivil(new Date().toISOString()));
+    var jour = Moteur.jourCivil(new Date().toISOString());
+    return !!Moteur.periodeAllegee(Moteur.cartesDesParis(parisEscalierConnus()), jour) ||
+      // §9.22 (53-2) — la décharge planifiée est une semaine allégée.
+      !!Moteur.dechargeDuJour(local.blocs, jour, finsAllegeesConnues());
   }
 
   // Les cibles plus courtes que la routine : sans elles, le geste n'a rien à

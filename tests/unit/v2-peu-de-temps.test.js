@@ -334,7 +334,9 @@ describe('51-1 ter — « J’ai peu de temps » se tait pendant une semaine all
   function bac(allegee) {
     const ctx = {
       Moteur: Object.assign({}, M, { periodeAllegee: () => (allegee ? { debut: '2026-10-01', fin: '2026-10-07' } : null) }),
-      parisEscalierConnus: () => [], catalogueIndexe: () => CATALOGUE
+      parisEscalierConnus: () => [], catalogueIndexe: () => CATALOGUE,
+      // 53-2 (§9.22) — la décharge planifiée est une semaine allégée : sans bloc, aucune.
+      local: { blocs: [] }, finsAllegeesConnues: () => []
     };
     vm.createContext(ctx);
     vm.runInContext('var CIBLES_TEMPS = [45, 60];', ctx);

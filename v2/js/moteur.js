@@ -224,20 +224,41 @@
   // appareils peuvent poser à la même seconde, et `corrigee_a` seul rendrait
   // alors une zone qui dépend de l'ordre d'arrivée des lignes. Deux lectures de
   // la même base donneraient deux consignes.
-  function zoneEnVigueur(lignes, slug) {
-    var gagnante = null;
-    (lignes || []).forEach(function (l) {
-      if (!l || l.exercise_slug !== slug) return;
-      var t = instant(l.corrigee_a);
-      if (t === null) return;
-      if (gagnante === null || t > gagnante.t ||
-          (t === gagnante.t && String(l.id) > String(gagnante.id))) {
-        gagnante = { t: t, id: l.id, zone: l.zone };
-      }
-    });
+  //
+  // §9.1.2 (amendé le 05/10/2026, chantier 53) — LA DÉCLARATION LA PLUS RÉCENTE
+  // L'EMPORTE : un bloc pose ses zones à son début, comme des lignes datées
+  // (`origine = 'bloc'`) ; une correction de la personne pendant le bloc est
+  // plus récente, donc elle l'emporte. Une seule lecture, `ligneDeZoneAu`.
+  // ⚠️ `a` (facultatif) : l'instant de la lecture. Une ligne datée APRÈS n'est
+  // pas encore en vigueur — un bloc qui commence lundi ne change rien
+  // aujourd'hui.
+  function zoneEnVigueur(lignes, slug, a) {
+    var l = ligneDeZoneAu(lignes, slug, a === undefined ? null : a, true);
     // Une zone vide, ou inconnue, vaut « pas de correction » : `zoneRetenue`
     // retombera sur l'habitude.
-    return gagnante && gagnante.zone ? gagnante.zone : null;
+    return l && l.zone ? l.zone : null;
+  }
+
+  // La ligne de zone EN VIGUEUR à l'instant `a` : la plus récente posée avant
+  // lui (jusqu'à l'identifiant, à la même seconde), pour l'exercice `slug`
+  // (`null` : toutes les lignes sont les siennes). `inclus` : une ligne posée
+  // à l'instant même compte (la lecture du présent) ; sinon, strictement avant
+  // (une séance passée, §9.1.1). Sans `a`, toutes les lignes.
+  function ligneDeZoneAu(lignes, slug, a, inclus) {
+    var t0 = a === null || a === undefined ? null : instant(a);
+    if (a !== null && a !== undefined && t0 === null) return null;
+    var gagnante = null;
+    (lignes || []).forEach(function (l) {
+      if (!l || (slug !== null && slug !== undefined && l.exercise_slug !== slug)) return;
+      var t = instant(l.corrigee_a);
+      if (t === null) return;
+      if (t0 !== null && (inclus ? t > t0 : t >= t0)) return;
+      if (gagnante === null || t > gagnante.t ||
+          (t === gagnante.t && String(l.id) > String(gagnante.id))) {
+        gagnante = { t: t, id: l.id, ligne: l };
+      }
+    });
+    return gagnante ? gagnante.ligne : null;
   }
 
   // ── §9.17 — LE MODE D'UN EXERCICE, LU SUR L'HISTORIQUE ───────────────────
@@ -3817,20 +3838,9 @@
   // récente des corrections posées strictement avant elle. Une zone choisie
   // aujourd'hui ne réécrit pas la consigne que les séances d'avant ont reçue.
   function correctionAu(corrections, debut) {
-    var t0 = instant(debut);
-    if (t0 === null) return null;
-    var avant = (corrections || []).filter(function (l) {
-      var t = instant(l && l.corrigee_a);
-      return t !== null && t < t0;
-    });
-    var gagnante = null;
-    avant.forEach(function (l) {
-      var t = instant(l.corrigee_a);
-      if (gagnante === null || t > gagnante.t || (t === gagnante.t && String(l.id) > String(gagnante.id))) {
-        gagnante = { t: t, id: l.id, zone: l.zone };
-      }
-    });
-    return gagnante && gagnante.zone ? gagnante.zone : null;
+    if (instant(debut) === null) return null;
+    var l = ligneDeZoneAu(corrections, null, debut, false);
+    return l && l.zone ? l.zone : null;
   }
 
   function chargeProposee(k) {
@@ -4265,8 +4275,11 @@
   // séance POSTÉRIEURE à la carte, plus bas que celui de la carte ; aucune
   // carte pendant une période allégée. `compteurs` : `[{ exercice, jour,
   // compteur }]`, lus dans les paris de consigne.
-  function carteAutorisee(declencheur, jour, cartes, compteurs) {
+  function carteAutorisee(declencheur, jour, cartes, compteurs, blocs) {
     if (periodeAllegee(cartes, jour)) return false;
+    // §9.22 (53-2) — PAS DE CUMUL : la carte se tait autour d'une décharge
+    // planifiée (des 14 jours qui la précèdent jusqu'à sa fin).
+    if (!carteAllegeeAutorisee(blocs, jour)) return false;
     var derniere = null;
     (cartes || []).forEach(function (c) {
       if (c && c.declencheur === declencheur && c.jour <= jour && (!derniere || c.jour > derniere.jour)) derniere = c;
@@ -4297,6 +4310,271 @@
       if (v >= prochain) return { valeur: 0, jour: apres[i].jour, seance: apres[i].seance || null, debut: apres[i].debut || null };
     }
     return null;
+  }
+
+  // ══ §9.22 (53-2) — LES PROGRAMMES À CYCLES ════════════════════════════════
+  //
+  // « Un programme fixe la zone de tes barres, la durée du bloc et sa
+  // décharge. Il ne choisit jamais un exercice, ne touche pas à leur ordre, et
+  // ne décide pas des charges : le coach continue de le faire. » Tout est pur
+  // ici ; une fonction par notion. Référence : `cycles53.py` ; cas
+  // `cas-53-2-cycles.json`. Un bloc : `{ id, dossier, zone, debut, semaines,
+  // decharge, exercices, statut, precedent }` (la table `blocs`, v2_058).
+  var ZONES_DE_BLOC = ['lourd', 'mix'];      // §19.2 amendé : la force seulement
+  var SANS_CUMUL_JOURS = 14;                 // §14.4 : une réduction s'applique une fois
+  var SEMAINES_BLOC_MIN = 3;
+  var SEMAINES_BLOC_MAX = 6;
+  var SEMAINES_BLOC_DEFAUT = 4;
+  var MODULE_PROGRAMME = 'programme';
+  var GRANDEUR_PROGRAMME = 'exercices_en_progres';
+  var BLOC_EN_COURS = 'en_cours';
+
+  // « Semaine k sur N » = (jour − début) ÷ 7 + 1, AU CALENDRIER — jamais en
+  // séances : le coach ne commente pas l'assiduité. `null` avant et après.
+  function semaineDuBloc(bloc, jour) {
+    var d = bloc ? numeroDuJour(jourCivil(bloc.debut)) : null;
+    var j = numeroDuJour(jourCivil(jour));
+    var n = bloc ? nombre(bloc.semaines) : null;
+    if (d === null || j === null || n === null || j < d) return null;
+    var k = Math.floor((j - d) / 7) + 1;
+    return k <= n ? k : null;
+  }
+
+  // Le premier jour de la dernière semaine : début + 7 × (semaines − 1).
+  function debutDecharge(bloc) {
+    var n = bloc ? nombre(bloc.semaines) : null;
+    if (n === null || n < 1) return null;
+    return ajouterJours(jourCivil(bloc.debut), 7 * (n - 1));
+  }
+  function finDuBloc(bloc) {
+    var n = bloc ? nombre(bloc.semaines) : null;
+    if (n === null || n < 1) return null;
+    return ajouterJours(jourCivil(bloc.debut), 7 * n - 1);
+  }
+
+  // LA DÉCHARGE PLANIFIÉE A LIEU : le bloc en prévoit une, et aucune semaine
+  // allégée ne s'est terminée moins de 14 jours avant son début (pas de cumul,
+  // §14.4) — ni pendant elle. `finsAllegees` : les derniers jours des semaines
+  // allégées acceptées.
+  function dechargePlanifiee(bloc, finsAllegees) {
+    if (!bloc || bloc.decharge !== true) return false;
+    var d = numeroDuJour(debutDecharge(bloc));
+    if (d === null) return false;
+    return !(finsAllegees || []).some(function (f) {
+      var k = numeroDuJour(jourCivil(f));
+      return k !== null && k > d - SANS_CUMUL_JOURS && k < d + 7;
+    });
+  }
+
+  // LA CARTE D'UNE SEMAINE ALLÉGÉE SE TAIT des 14 jours qui précèdent la
+  // décharge planifiée d'un bloc en cours JUSQU'À LA FIN de cette décharge
+  // (le défaut corrigé au rejeu de `cycles53.py` : elle restait possible
+  // pendant la décharge).
+  function carteAllegeeAutorisee(blocs, jour) {
+    var j = numeroDuJour(jourCivil(jour));
+    if (j === null) return true;
+    return !(blocs || []).some(function (b) {
+      if (!b || b.statut !== BLOC_EN_COURS || b.decharge !== true) return false;
+      var d = numeroDuJour(debutDecharge(b));
+      return d !== null && j >= d - SANS_CUMUL_JOURS && j <= d + 6;
+    });
+  }
+
+  // La période de la décharge planifiée en cours au jour `jour` : `{ debut,
+  // fin, semaine, semaines, bloc }`, ou `null`. Une décharge qui a sauté (pas
+  // de cumul) n'en a pas.
+  function dechargeDuJour(blocs, jour, finsAllegees) {
+    var j = numeroDuJour(jourCivil(jour));
+    if (j === null) return null;
+    var p = null;
+    (blocs || []).forEach(function (b) {
+      if (p || !b || b.statut !== BLOC_EN_COURS || !dechargePlanifiee(b, finsAllegees)) return;
+      var d = numeroDuJour(debutDecharge(b));
+      if (d !== null && j >= d && j <= d + 6) {
+        p = { debut: debutDecharge(b), fin: ajouterJours(debutDecharge(b), 6), semaine: nombre(b.semaines),
+              semaines: nombre(b.semaines), bloc: b.id === undefined ? null : b.id };
+      }
+    });
+    return p;
+  }
+
+  // Les périodes des décharges planifiées (blocs en cours et terminés) : le
+  // compteur ne compte ni ne juge leurs séances, comme une semaine allégée.
+  function periodesDecharge(blocs, finsAllegees) {
+    return (blocs || []).filter(function (b) {
+      return b && (b.statut === BLOC_EN_COURS || b.statut === 'termine') && dechargePlanifiee(b, finsAllegees);
+    }).map(function (b) { return { debut: debutDecharge(b), fin: ajouterJours(debutDecharge(b), 6) }; });
+  }
+
+  // AU DÉBUT D'UN BLOC, une ligne de zone par exercice du bloc, datée du début
+  // (00:00, l'heure locale), `origine = 'bloc'` (§9.1.2 amendé : la
+  // déclaration la plus récente l'emporte). Une zone hors Lourd/Mix ne pose
+  // rien (I37). `ids` : `fabriquer()` rend un identifiant neuf par ligne.
+  function zonesPosees(bloc, fabriquer, userId) {
+    if (!bloc || ZONES_DE_BLOC.indexOf(bloc.zone) < 0) return [];
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(jourCivil(bloc.debut) || '');
+    if (!m) return [];
+    var minuit = new Date(+m[1], +m[2] - 1, +m[3], 0, 0, 0, 0).toISOString();
+    var vus = {};
+    return (bloc.exercices || []).filter(function (slug) {
+      if (!slug || vus[slug]) return false;
+      vus[slug] = true;
+      return true;
+    }).map(function (slug) {
+      return { id: typeof fabriquer === 'function' ? fabriquer() : null, user_id: userId === undefined ? null : userId,
+               exercise_slug: slug, zone: bloc.zone, corrigee_a: minuit, origine: 'bloc',
+               bloc_id: bloc.id === undefined ? null : bloc.id };
+    });
+  }
+
+  // LE BLOC SUIVANT, PAR UNE RÈGLE FIXE (Mix → Lourd → Mix…, mêmes durée et
+  // exercices, une décharge à chaque fin) — JAMAIS DÉDUITE DU BLOC PASSÉ (§20.1).
+  function blocSuivant(bloc) {
+    if (!bloc || ZONES_DE_BLOC.indexOf(bloc.zone) < 0) return null;
+    return { zone: bloc.zone === 'mix' ? 'lourd' : 'mix', semaines: nombre(bloc.semaines),
+             decharge: true, exercices: (bloc.exercices || []).slice() };
+  }
+
+  // LES EXERCICES PAR DÉFAUT : les barres polyarticulaires (au moins 3 muscles
+  // principaux et secondaires, `estPolyarticulaire`) des routines du dossier,
+  // dans l'ordre, sans doublon. `catalogue` : `{ [slug]: { equipement,
+  // muscles_primaires, muscles_secondaires } }`.
+  function exercicesParDefaut(slugs, catalogue) {
+    var vus = {};
+    return (slugs || []).filter(function (slug) {
+      if (!slug || vus[slug]) return false;
+      var e = catalogue && Object.prototype.hasOwnProperty.call(catalogue, slug) ? catalogue[slug] : null;
+      if (!e || e.equipement !== 'barre' || e.charge === 'ajoutee') return false;
+      if (!estPolyarticulaire({ prim: e.muscles_primaires, sec: e.muscles_secondaires })) return false;
+      vus[slug] = true;
+      return true;
+    });
+  }
+
+  // LE BILAN, en faits, HORS SEMAINE DE DÉCHARGE : pour chaque exercice du bloc,
+  // sa première et sa dernière charge de travail (palier, niveau validé) ; et
+  // les paris de consigne sur les exercices du bloc, observés, et tenus
+  // (observée ≥ prédite). `seances` : `{ [slug]: [{ date, palier, niveau }] }` ;
+  // `paris` : `[{ date, exercice, predite, observee }]` (de consigne
+  // seulement : l'appelant écarte l'escalier et le programme).
+  function bilanDuBloc(bloc, seances, paris) {
+    var d = bloc ? numeroDuJour(jourCivil(bloc.debut)) : null;
+    var n = bloc ? nombre(bloc.semaines) : null;
+    var sortie = { exercices: {}, paris: 0, tenus: 0 };
+    if (d === null || n === null) return sortie;
+    var dd = bloc.decharge === true ? numeroDuJour(debutDecharge(bloc)) : null;
+    var dans = function (date) {
+      var j = numeroDuJour(jourCivil(date));
+      if (j === null || j < d || j >= d + 7 * n) return false;
+      return dd === null || j < dd;
+    };
+    var exos = bloc.exercices || [];
+    exos.forEach(function (slug) {
+      var l = ((seances || {})[slug] || []).filter(function (s) {
+        return s && dans(s.date) && nombre(s.palier) !== null && nombre(s.niveau) !== null;
+      }).slice().sort(function (a, b) { return avantAlpha(String(jourCivil(a.date)), String(jourCivil(b.date))); });
+      if (!l.length) return;
+      var a = l[0], b = l[l.length - 1];
+      var premiere = [nombre(a.palier), nombre(a.niveau)], derniere = [nombre(b.palier), nombre(b.niveau)];
+      sortie.exercices[slug] = { premiere: premiere, derniere: derniere,
+        change: !memeCharge(premiere[0], derniere[0]) || premiere[1] !== derniere[1] };
+    });
+    (paris || []).forEach(function (q) {
+      if (!q || exos.indexOf(q.exercice) < 0 || !dans(q.date)) return;
+      var pr = nombre(q.predite), ob = nombre(q.observee);
+      if (pr === null || ob === null) return;
+      sortie.paris++;
+      if (ob >= pr) sortie.tenus++;
+    });
+    return sortie;
+  }
+
+  // Les exercices du bilan qui ont PROGRESSÉ : la dernière charge plus lourde,
+  // ou la même avec plus de reps. L'observation du pari de programme.
+  function progresDuBilan(bilan) {
+    var x = (bilan && bilan.exercices) || {};
+    return Object.keys(x).filter(function (slug) {
+      var a = x[slug].premiere, b = x[slug].derniere;
+      return (b[0] > a[0] && !memeCharge(a[0], b[0])) || (memeCharge(a[0], b[0]) && b[1] > a[1]);
+    }).length;
+  }
+
+  // Le bloc en cours d'un dossier (un seul : l'index `blocs_un_en_cours`), et
+  // ceux d'un exercice au jour `jour` (I39 : « Changer de schéma » se tait).
+  function blocEnCours(blocs, dossier) {
+    return (blocs || []).filter(function (b) { return b && b.statut === BLOC_EN_COURS && b.dossier === dossier; })[0] || null;
+  }
+  function exercicesEnBloc(blocs, jour) {
+    var sortie = {};
+    (blocs || []).forEach(function (b) {
+      if (!b || b.statut !== BLOC_EN_COURS || semaineDuBloc(b, jour) === null) return;
+      (b.exercices || []).forEach(function (slug) { sortie[slug] = true; });
+    });
+    return sortie;
+  }
+
+  // ── Ce que le programme dit — par le formateur unique ──
+  function libelleZoneDeBloc(zone) {
+    var z = zoneParCle(zone);
+    return z ? z.libelle : '';
+  }
+  // « Bloc Mix · semaine 2 sur 4 » ; avant le début, « Bloc Mix · dès le 12 oct. » ;
+  // après la fin, « Bloc Mix terminé ».
+  function badgeDuBloc(bloc, jour) {
+    if (!bloc) return null;
+    var tete = 'Bloc ' + libelleZoneDeBloc(bloc.zone);
+    var k = semaineDuBloc(bloc, jour);
+    if (k !== null) {
+      return tete + ' · semaine ' + nombreFr(k, regle('bloc.semaine')) + ' sur ' +
+        nombreFr(nombre(bloc.semaines), regle('bloc.semaines'));
+    }
+    var j = numeroDuJour(jourCivil(jour)), d = numeroDuJour(jourCivil(bloc.debut));
+    if (j !== null && d !== null && j < d) return tete + ' · dès le ' + Modele().jourCourt(jourCivil(bloc.debut), regle('bloc.debut'));
+    return tete + ' terminé';
+  }
+  function blocTermine(bloc, jour) {
+    var j = numeroDuJour(jourCivil(jour)), f = numeroDuJour(finDuBloc(bloc));
+    return !!bloc && bloc.statut === BLOC_EN_COURS && j !== null && f !== null && j > f;
+  }
+  // Le bandeau de la décharge planifiée — jamais présentée comme
+  // scientifiquement requise.
+  var FIN_DECHARGE = 'Mêmes charges, moins de séries, loin de l’échec.';
+  function bandeauDecharge(semaine, semaines) {
+    return 'Semaine ' + nombreFr(semaine, regle('bloc.semaine')) + ' sur ' + nombreFr(semaines, regle('bloc.semaines')) +
+      DEUX_POINTS + 'la décharge prévue par ton programme. ' + FIN_DECHARGE;
+  }
+  // La carte de fin de bloc, en faits : le titre, une ligne par exercice, les
+  // paris, le pari de programme s'il y en avait un, et le bloc suivant.
+  // `noms` : `{ [slug]: nom }` ; `pari` : `{ predite, observee }` ou `null`.
+  function carteFinDeBloc(bloc, bilan, noms, pari) {
+    if (!bloc || !bilan) return null;
+    var nom = function (s) { return noms && noms[s] ? noms[s] : s; };
+    var cP = cite(FAIT, { quoi: 'bilan' });
+    var lignes = (bloc.exercices || []).filter(function (s) { return bilan.exercices[s]; }).map(function (s) {
+      var x = bilan.exercices[s];
+      return nom(s) + DEUX_POINTS + chargeFois(x.premiere[0], x.premiere[1], cP) +
+        (x.change ? ' → ' + chargeFois(x.derniere[0], x.derniere[1], cP) : ', inchangé');
+    });
+    var p = bilan.paris, t = bilan.tenus;
+    var phraseParis = p === 0 ? 'Le coach n’avait fait aucun pari sur ce bloc.'
+      : 'Le coach avait fait ' + nombreFr(p, regle('bilan.paris')) + (p > 1 ? ' paris' : ' pari') + ' sur ce bloc' +
+        DEUX_POINTS + nombreFr(t, regle('bilan.tenus')) + (t > 1 ? ' ont tenu.' : ' a tenu.');
+    var phrasePari = null;
+    if (pari && nombre(pari.predite) !== null && nombre(pari.observee) !== null) {
+      var pp = nombre(pari.predite), po = nombre(pari.observee);
+      phrasePari = 'Le coach avait parié que tes ' + nombreFr(pp, regle('programme.predite')) + ' exercices progresseraient' +
+        DEUX_POINTS + nombreFr(po, regle('programme.observee')) + (po > 1 ? ' ont progressé.' : ' a progressé.');
+    }
+    var suivant = blocSuivant(bloc);
+    return {
+      titre: 'Ton bloc ' + libelleZoneDeBloc(bloc.zone) + ' est terminé.',
+      lignes: lignes, paris: phraseParis, pari: phrasePari,
+      suivant: suivant ? 'Bloc suivant' + DEUX_POINTS + libelleZoneDeBloc(suivant.zone) + ', ' +
+        nombreFr(suivant.semaines, regle('bloc.semaines')) + ' semaines, la dernière en décharge.' : null,
+      commencer: suivant ? 'Commencer le bloc ' + libelleZoneDeBloc(suivant.zone) : null,
+      ajuster: 'Ajuster le bloc',
+      arreter: 'Arrêter le programme'
+    };
   }
 
   // ══ §14.5 (49-U15) — L'ESCALIER, DEUXIÈME MARCHE : LE BLOCAGE ISOLÉ ══════
@@ -4894,13 +5172,32 @@
   // ⚠️ PAS DE REPORT SUR UN LEST : la charge saisie n'est pas la masse levée
   // (le corps n'y est pas), et l'estimation n'aurait pas de sens. Le poids du
   // corps et l'aide sont écartés par `reportDeZone` (charge ≤ 0).
-  function reportSur(seances, avant, zoneAvant, zone, equipement) {
-    if (equipement === EQUIPEMENT_LEST) return null;
-    var vues = (seances || []).map(vueDeSeance);
-    var lues = anterieures(vues, avant).filter(function (v) { return !v.neutre; }).map(function (v) {
+  // LES CHARGES DE TRAVAIL D'UN EXERCICE, séance par séance : ses séances NON
+  // NEUTRES, leur palier et leur niveau validé, comme la consigne les lit. Le
+  // report (§9.10) et le bilan de fin de bloc (§9.22) les lisent ici.
+  function chargesDeTravail(vues) {
+    return (vues || []).filter(function (v) { return v && !v.neutre; }).map(function (v) {
       var A = seriesAuPalier(v);
       return { debut: v.debut, palier: nombre(v.palier), niveau: A.length ? niveauValide(A) : null };
     });
+  }
+
+  // §9.22 (53-2) — les charges de travail d'un exercice sur ses séances brutes
+  // (`groupes`, ceux de la consigne), pour le bilan de fin de bloc :
+  // `[{ date, palier, niveau }]`, celles qui ont un palier et un niveau.
+  function chargesDeTravailDe(groupes, etat, options) {
+    var o = options || {};
+    var seances = contratDe(groupes, etat, 'charge_reps',
+      { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null });
+    return chargesDeTravail(seances.map(vueDeSeance)).filter(function (x) {
+      return x.palier !== null && x.niveau !== null && instant(x.debut) !== null;
+    }).map(function (x) { return { date: x.debut, palier: x.palier, niveau: x.niveau }; });
+  }
+
+  function reportSur(seances, avant, zoneAvant, zone, equipement) {
+    if (equipement === EQUIPEMENT_LEST) return null;
+    var vues = (seances || []).map(vueDeSeance);
+    var lues = chargesDeTravail(anterieures(vues, avant));
     return reportDeZone({
       seances: lues, avant: avant, zoneAvant: zoneAvant, zone: zone,
       cran: function (charge, sens) { return chargeVoisine(vues, avant, charge, equipement, sens); }
@@ -5559,6 +5856,35 @@
     MODULE_CONSIGNE: MODULE_CONSIGNE,
     VERSION_CONSIGNE: VERSION_CONSIGNE,
     reportDeZone: reportDeZone,
+    // §9.22 (53-2) — les programmes à cycles
+    chargesDeTravailDe: chargesDeTravailDe,
+    semaineDuBloc: semaineDuBloc,
+    debutDecharge: debutDecharge,
+    finDuBloc: finDuBloc,
+    dechargePlanifiee: dechargePlanifiee,
+    carteAllegeeAutorisee: carteAllegeeAutorisee,
+    dechargeDuJour: dechargeDuJour,
+    periodesDecharge: periodesDecharge,
+    zonesPosees: zonesPosees,
+    blocSuivant: blocSuivant,
+    exercicesParDefaut: exercicesParDefaut,
+    bilanDuBloc: bilanDuBloc,
+    progresDuBilan: progresDuBilan,
+    blocEnCours: blocEnCours,
+    exercicesEnBloc: exercicesEnBloc,
+    badgeDuBloc: badgeDuBloc,
+    blocTermine: blocTermine,
+    bandeauDecharge: bandeauDecharge,
+    carteFinDeBloc: carteFinDeBloc,
+    ligneDeZoneAu: ligneDeZoneAu,
+    correctionAu: correctionAu,
+    ZONES_DE_BLOC: ZONES_DE_BLOC,
+    SANS_CUMUL_JOURS: SANS_CUMUL_JOURS,
+    SEMAINES_BLOC_MIN: SEMAINES_BLOC_MIN,
+    SEMAINES_BLOC_MAX: SEMAINES_BLOC_MAX,
+    SEMAINES_BLOC_DEFAUT: SEMAINES_BLOC_DEFAUT,
+    MODULE_PROGRAMME: MODULE_PROGRAMME,
+    GRANDEUR_PROGRAMME: GRANDEUR_PROGRAMME,
     REPORT_FENETRE_JOURS: REPORT_FENETRE_JOURS,
     idDePrediction: idDePrediction,
     idDEscalier: idDEscalier,

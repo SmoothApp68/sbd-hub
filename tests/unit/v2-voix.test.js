@@ -396,6 +396,23 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
     noter('nouvelle zone', 'constat', [M.constatDe(avant.consigne, apres.consigne, 'normal', 97.5, '2026-09-11T12:00:00Z').verdict]);
   }
 
+  // 53-2 (§9.22) — le programme : le badge (pendant, avant, après), le bandeau
+  // de la décharge, et la carte de fin de bloc (avec et sans pari de programme).
+  {
+    const CY = require('./fixtures/cas-53-2-cycles.json').cas;
+    const bloc = CY.semaine_du_bloc[0].bloc;
+    ['2026-10-19', '2026-10-08', '2026-11-09'].forEach((j) => noter('programme', 'badge ' + j, [M.badgeDuBloc(bloc, j)]));
+    noter('programme', 'bandeau', [M.bandeauDecharge(4, 4), M.bandeauDecharge(6, 6)]);
+    const b = CY.bilan[0];
+    const bilan = M.bilanDuBloc(b.bloc, b.seances, b.paris);
+    const noms = { squat_barre: 'Squat (Barre)', developpe_couche_barre: 'Développé Couché (Barre)' };
+    [null, { predite: 2, observee: 1 }, { predite: 2, observee: 2 }].forEach((pari, i) => {
+      const k = M.carteFinDeBloc(b.bloc, bilan, noms, pari);
+      noter('programme', 'fin de bloc ' + i, [k.titre].concat(k.lignes, [k.paris, k.pari, k.suivant, k.commencer, k.ajuster, k.arreter]));
+    });
+    noter('programme', 'sans pari', [M.carteFinDeBloc(b.bloc, { exercices: {}, paris: 0, tenus: 0 }, {}, null).paris]);
+  }
+
   test('chaque famille est jouée, et la date relative l\'est vraiment', () => {
     const parFamille = {};
     vues.forEach((v) => { parFamille[v.famille] = (parFamille[v.famille] || 0) + 1; });
@@ -428,6 +445,12 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
     // 3 séries de la séance — texte et rôle —, zone, charge de travail, état,
     // donc, réglage, fin) + le constat.
     expect(parFamille['nouvelle zone']).toBe(4 * (2 + 13) + 1);
+    // 53-2 : 3 badges + 2 bandeaux + 3 cartes de fin de bloc (titre, 2 lignes,
+    // paris, suivant, 3 gestes ; et le pari de programme sur 2 d'entre elles)
+    // + la phrase « aucun pari ».
+    expect(parFamille.programme).toBe(3 + 2 + 3 * 8 + 2 + 1);
+    expect(vues.filter((v) => v.famille === 'programme' && /^Le coach avait fait 4 paris sur ce bloc : 2 ont tenu\.$/
+      .test(v.phrase.replace(/[\u00a0\u202f]/g, ' '))).length).toBe(3);
     expect(vues.filter((v) => v.famille === 'nouvelle zone' && /^Nouvelle zone : Mix\. Ta charge déjà tenue en Mix, le 20 août : 90 kg × 7\.$/
       .test(v.phrase.replace(/[\u00a0\u202f]/g, ' '))).length).toBe(1);
     // 53-1 bis (Z3) — vers moins de reps, la charge monte : la phrase le dit,

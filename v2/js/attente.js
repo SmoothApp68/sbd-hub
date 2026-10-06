@@ -67,6 +67,11 @@
   // (« Progresser » / « Entretenir ») se choisit en salle, et un identifiant
   // neuf par choix garde l'ordre des gestes faits hors ligne.
   var MODES = 'modes_exercice';
+  // §9.22 (53-2) — la septième : les blocs d'un programme. Un bloc se crée,
+  // ou change de statut, par un `upsert` sur son identifiant (idempotent). Ses
+  // lignes de zone en DÉPENDENT (`depend`) : `bloc_id` référence `blocs`, une
+  // ligne montée avant son bloc échouerait en 23503 — un code définitif.
+  var BLOCS = 'blocs';
   // §9.11 (48c) — la cinquième. Ce que le moteur a proposé se note EN SALLE,
   // comme le reste.
   //
@@ -633,7 +638,7 @@
   }
 
   var api = {
-    SESSIONS: SESSIONS, SETS: SETS, ROUTINE_EXOS: ROUTINE_EXOS, ZONES: ZONES, MODES: MODES,
+    SESSIONS: SESSIONS, SETS: SETS, ROUTINE_EXOS: ROUTINE_EXOS, ZONES: ZONES, MODES: MODES, BLOCS: BLOCS,
     PREDICTIONS: PREDICTIONS,
     OBSERVATIONS: OBSERVATIONS,
     OBSERVER: OBSERVER,

@@ -658,7 +658,7 @@ En format force, **un progrès sur trois seulement passe par la charge** — moi
 
 Deux zones se chevauchent (8 appartient à Mix et à Hypertrophie) : c'est la table qui range, pas l'appartenance à l'intervalle. Une habitude de 8 range en Hypertrophie ; l'utilisateur peut toujours choisir Mix (ECRAN-SAISIE §3.8).
 
-**Corrigeable d'un geste.** L'utilisateur touche l'étiquette de zone dans l'en-tête du bloc (ECRAN-SAISIE §3.8) et choisit dans le menu, sans saisie libre. La correction vaut **pour l'exercice, toutes routines confondues**, et elle devient la vérité (§1.1). Elle s'écrit dans `zones_exercice` (append-only) ; une zone vide rend la main à la déduction. **Priorité : plan d'un programme > correction > déduction.** La zone par jour des programmes (`routine_exercises`) viendra avec eux (§9.10).
+**Corrigeable d'un geste.** L'utilisateur touche l'étiquette de zone dans l'en-tête du bloc (ECRAN-SAISIE §3.8) et choisit dans le menu, sans saisie libre. La correction vaut **pour l'exercice, toutes routines confondues**, et elle devient la vérité (§1.1). Elle s'écrit dans `zones_exercice` (append-only) ; une zone vide rend la main à la déduction. **Priorité (amendée le 05/10/2026, chantier 53) : la déclaration la plus récente l'emporte, puis la déduction.** Un bloc pose ses zones **à son début**, comme des lignes datées de `zones_exercice` (`origine = 'bloc'`) ; une correction de la personne pendant le bloc est plus récente, donc **elle l'emporte** — la personne décide (§1.1). Une seule notion, une seule lecture (`zoneEnVigueur`, `correctionAu`) : pas de troisième étage. Pas de zone par jour (`routine_exercises`) : l'ondulation (deux zones d'une même barre dans une semaine) reste notée pour plus tard.
 
 **15-20 reste une zone, pas une cible nue.** « Vise 15 » serait inatteignable après un gros saut ; avec un bas, le moteur repart de là où l'on atterrit.
 
@@ -1198,6 +1198,25 @@ La carte revient tant que la dernière séance porte la marque ; elle disparaît
 > **La routine donne un point de départ ; dès qu'il a des données, le coach décide seul — et le dit.**
 
 Un exercice **jamais fait** par la personne (aucune série de travail dans son historique) et dont la routine porte une **charge de départ** (`charge_cible_kg`, ECRAN-SAISIE §7 quindecies.3) : la consigne part de cette charge, aux reps de la routine, et la phrase grise le dit : « Première fois ici : on part de ta charge de départ, 60 kg. » (par le formateur unique). Sans charge de départ : « Première fois ici » comme aujourd'hui. **Dès la première série validée, l'historique existe : le coach décide seul.** Une charge de départ n'est ni un pari sur un palier, ni une règle : c'est la seule donnée disponible.
+
+
+### 9.22 Les programmes à cycles — décidés le 05/10/2026 (chantier 53)
+
+> **Un programme fixe la zone de tes barres, la durée du bloc et sa décharge. Il ne choisit jamais un exercice, ne touche pas à leur ordre, et ne décide pas des charges : le coach continue de le faire.**
+
+**Ce qu'est un programme.** Les **blocs** d'un même **dossier** (§7 duodecies.3 d'ECRAN-SAISIE : le dossier reste une étiquette), chaînés (`blocs.precedent`) ; un seul bloc en cours par dossier. « **Faire de ce dossier un programme** » : la zone du premier bloc (**Lourd ou Mix**, §19.2 amendé), sa durée (**4 semaines par défaut**, de 3 à 6), sa décharge (la dernière semaine, oui par défaut), son début (le lundi qui suit, réglable) ; **les exercices du bloc** : par défaut **les barres polyarticulaires** des routines du dossier (au moins 3 muscles principaux et secondaires), décochables ; les autres gardent leur zone.
+
+**La zone.** Au début du bloc, une ligne de zone par exercice du bloc, datée du début, `origine = 'bloc'` (§9.1.2 amendé) : **la charge suit** (§9.10, le report). Une correction de la personne pendant le bloc l'emporte. Le compteur repart à zéro (un changement de zone est un bloc, §12.2 bis). **« Changer de schéma »** (escalier isolé) se tait pour un exercice d'un bloc en cours : le bloc fixe déjà son schéma ; le repli et la série de plus restent.
+
+**Le calendrier.** « Semaine k sur N » = (jour − début) ÷ 7 + 1, **au calendrier** — jamais en séances : le coach ne commente pas l'assiduité. Une coupure en plein bloc ne le prolonge pas (la reprise gère la charge, §9.9).
+
+**La décharge planifiée.** La dernière semaine du bloc est **la semaine allégée** (§14.4 : mêmes charges, 60 % des séries, 2 reps de moins, même fréquence), posée par le programme, **sans carte** — un bandeau : « Semaine 4 sur 4 : la décharge prévue par ton programme. Mêmes charges, moins de séries, loin de l'échec. » ; ses séances sont traitées comme celles d'une semaine allégée (ni comptées ni jugées). **Pas de cumul** (§14.4, une réduction s'applique une fois) : elle saute si une semaine allégée s'est terminée **moins de 14 jours** avant son début ; et la carte d'une semaine allégée se tait des 14 jours qui précèdent la décharge **jusqu'à sa fin**. Ces mots ne la présentent jamais comme scientifiquement requise (la fréquence des décharges n'est pas tranchée par la science).
+
+**La fin du bloc.** Une carte : « Ton bloc Mix est terminé. » puis **le bilan**, en faits, hors semaine de décharge — chaque exercice du bloc, de sa première à sa dernière charge de travail (« Squat : 110 kg × 6 → 117,5 kg × 6 » ; « inchangé » se dit, sans jugement) — et **les paris du coach** sur les exercices du bloc : « Le coach avait fait 46 paris sur ce bloc : 39 ont tenu. » (tenu = observé ≥ prédit). Puis **le bloc suivant**, par **une règle fixe** tirée des programmes de force (Mix → Lourd → Mix…, mêmes durée et exercices, une décharge à chaque fin) — **jamais déduite du bloc passé** (§20.1) ; « Commencer le bloc Lourd » / « Ajuster le bloc » / « Arrêter le programme ». **La proposition est un pari** (`module = 'programme'`, `grandeur = 'exercices_en_progres'`, valeur prédite = le nombre d'exercices du bloc, observé à la fin du bloc suivant : combien ont progressé), qui entre dans le bilan suivant.
+
+**Invariants.** **I36** un bloc ne change que la zone de ses exercices (ni exercice, ni ordre, ni série, ni charge hors du report) ; **I37** une zone de bloc est Lourd ou Mix, et ne s'applique qu'à une barre ou un exercice coché ; **I38** jamais deux réductions à la fois (décharge planifiée et semaine allégée) ; **I39** « Changer de schéma » absent pour un exercice d'un bloc en cours.
+
+**Référence** : `cycles53.py` ; cas `cas_cycles53.json`.
 
 
 ## 10. L'incrément
@@ -1933,6 +1952,8 @@ Deux mécanismes restent vrais et suffisent :
 ### 19.2 Position retenue
 
 > **Pas de bascule en blocs. Une ancre lourde permanente, et une rotation d'exercices.**
+>
+> *Amendé le 05/10/2026 (chantier 53, §9.22)* : **des blocs, dans la force seulement** — un programme peut faire alterner les barres entre **Lourd (3-5) et Mix (6-8)**, jamais au-delà : l'ancre lourde n'est jamais quittée des semaines entières (la raison 2 ci-dessous tient), et la variation de volume et d'intensité qui aide la force des pratiquants entraînés (§9.10, Moesgaard) est là. Les accessoires ne sont pas périodisés (la périodisation n'aide pas le muscle). Sans programme, rien ne change.
 
 Trois raisons, dans l'ordre :
 

@@ -1422,3 +1422,24 @@ button.puce-zone{font:inherit;font-size:11px;font-weight:600;cursor:pointer;
 .feuille-menu button.accent-menu{color:var(--texte);font-weight:700}
 /* Dans l'éditeur, un exercice déjà fait n'a plus de champ de charge (§7 quindecies.3). */
 .grille.programme.g-charge_reps.sans-charge{grid-template-columns:30px 1fr 12px}
+
+/* ══ LES PROGRAMMES À CYCLES (chantier 53, MOTEUR §9.22) ══
+   Le badge du bloc sur la tête du dossier, la rangée du programme sous elle,
+   la carte de fin de bloc (la voix du coach : le même cadre que la carte de
+   l'escalier), et la feuille qui fait d'un dossier un programme. */
+.dossier-tete .dossier-badge{margin-left:auto;margin-right:var(--e2);font-weight:600;color:var(--texte);
+  font-size:12px;white-space:nowrap}
+.programme-dossier{margin:0 0 var(--e2)}
+.programme-en-cours{width:100%;text-align:left;padding:8px 10px;background:#141619;border:1px solid var(--trait);
+  border-radius:6px;color:var(--texte);font:inherit;font-size:13px;cursor:pointer}
+.programme-creer{width:100%;text-align:left}
+.carte-fin-bloc{padding:10px 12px;border:1px dashed var(--trait);border-radius:10px}
+.carte-fin-bloc .cfb-titre{margin:0;font-weight:600;line-height:1.35}
+.carte-fin-bloc .cfb-bilan{margin:6px 0 0;padding-left:18px;font-size:13.5px;line-height:1.45}
+.carte-fin-bloc .cfb-paris,.carte-fin-bloc .cfb-suivant{margin:6px 0 0;color:var(--texte-2);font-size:13.5px;line-height:1.4}
+.carte-fin-bloc .cfb-gestes{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.carte-fin-bloc button{min-height:40px;padding:0 14px;border-radius:8px;font:inherit;font-size:14px}
+.carte-fin-bloc .cfb-commencer{background:var(--accent);color:#111;border:0;font-weight:620}
+.carte-fin-bloc .cfb-ajuster,.carte-fin-bloc .cfb-arreter{background:transparent;color:var(--texte-2);border:1px solid var(--trait)}
+.choix-programme{margin:0 0 var(--e2)}
+.option-zone.case .oz-rond{border-radius:4px}

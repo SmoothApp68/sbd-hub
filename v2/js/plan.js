@@ -1024,6 +1024,8 @@
       lestReponse: lestReponse,
       allegee: esc.allegee,
       carte: esc.carte,
+      // §9.22 (53-2) — les exercices d'un bloc en cours ce jour-là (I39).
+      programme: { enBloc: enBlocDuJour(e, seance) },
       exercices: exos.map(function (exo, i) {
         var slug = exo && exo.exercise_slug;
         // Prérequis d'« adapter » — LE COACH SUIT UNE OCCURRENCE de l'exercice
@@ -1229,6 +1231,7 @@
     var compteurs = E.compteurs || [];
     var marches = E.marches || [];
     var pris = {};
+    var enBloc = M.exercicesEnBloc(blocsDuProgramme(e), jour);
     var prendre = function (l) { (l || []).forEach(function (s) { pris[s] = true; }); };
     if (esc.carte) prendre(esc.carte.cites);
     cartes.forEach(function (k) {
@@ -1247,6 +1250,10 @@
       var proposee = M.serieDePlusProposee(slug, jour, k, marches, compteurs);
       var marche = M.marcheIsolee(n, zone, phase, place, proposee, c.consigne.palier);
       if (!marche) return;
+      // §9.22 (53-2, I39) — « CHANGER DE SCHÉMA » SE TAIT pour un exercice d'un
+      // bloc en cours : le bloc fixe déjà son schéma. Le repli et la série de
+      // plus restent.
+      if (marche === M.MARCHE_SCHEMA && enBloc[slug]) marche = M.MARCHE_SILENCE;
       var declenche = M.estDeclenchement(k);
       if (!declenche && marche !== M.MARCHE_SILENCE) return;
       var m = { marche: marche, n: n, compteur: k, declenchement: declenche, zone: zone === undefined ? null : zone };
@@ -1327,6 +1334,20 @@
     return sortie;
   }
 
+  // §9.22 (53-2) — les blocs du programme (la table `blocs`, lue par l'app) et
+  // les derniers jours des semaines allégées acceptées.
+  var SOURCE_DECHARGE = 'decharge_planifiee';
+  function enBlocDuJour(e, seance) {
+    var M = Moteur();
+    var jour = M.jourCivil(seance && seance.debut);
+    return jour ? M.exercicesEnBloc(blocsDuProgramme(e), jour) : {};
+  }
+  function blocsDuProgramme(e) { return (e && e.programme && e.programme.blocs) || []; }
+  function finsAllegees(cartes) {
+    return (cartes || []).filter(function (c) { return c && c.reponse === 'acceptee' && c.fin; })
+      .map(function (c) { return c.fin; });
+  }
+
   function escalierDuPlan(e, seance, consignes) {
     var vide = { allegee: null, carte: null };
     var esc = e.escalier;
@@ -1340,6 +1361,16 @@
       return { allegee: { debut: p.debut, fin: p.fin, bandeau: M.bandeauAllegee(p.fin), declencheur: p.declencheur },
                carte: null };
     }
+    // §9.22 (53-2) — LA DÉCHARGE PLANIFIÉE : la semaine allégée, posée par le
+    // programme, SANS CARTE (un bandeau). Elle saute si une semaine allégée
+    // s'est terminée moins de 14 jours avant (pas de cumul, I38).
+    var blocs = blocsDuProgramme(e);
+    var dp = M.dechargeDuJour(blocs, jour, finsAllegees(cartes));
+    if (dp) {
+      return { allegee: { debut: dp.debut, fin: dp.fin, bandeau: M.bandeauDecharge(dp.semaine, dp.semaines),
+                          source: SOURCE_DECHARGE, semaine: dp.semaine, semaines: dp.semaines, bloc: dp.bloc },
+               carte: null };
+    }
     // Une carte à laquelle cette séance a déjà répondu ne revient pas.
     if (cartes.some(function (c) { return c && c.seance === seance.id; })) return vide;
     // La démonstration du blocage isolé (`?escalier=isole`, garde active
@@ -1348,7 +1379,7 @@
     if (esc.carteSuspendue === true) return vide;
     var J = joursDesCompteurs(esc, seance, consignes, jour);
     var b = M.blocageGeneralise(J.jours, jour, esc.noms || null, J.ouverts);
-    if (!b || !M.carteAutorisee(b.declencheur, jour, cartes, esc.compteurs || [])) return vide;
+    if (!b || !M.carteAutorisee(b.declencheur, jour, cartes, esc.compteurs || [], blocs)) return vide;
     var nom = function (s) { return esc.noms && esc.noms[s] ? esc.noms[s] : s; };
     return {
       allegee: null,
@@ -2248,6 +2279,83 @@
     });
   }
 
+  // ══ I36 à I39 — LES PROGRAMMES À CYCLES (MOTEUR §9.22, 53-2) ═══════════════
+  //
+  // Sur `entrees.programme` : `{ blocs, lignes }` — les blocs (table `blocs`) et
+  // les lignes de zone du compte (`zones_exercice`, celles d'origine « bloc »
+  // y sont lues).
+  //   · I36 — un bloc ne change que la zone de SES exercices : chaque ligne
+  //     d'origine « bloc » désigne un bloc, un de ses exercices, sa zone, et
+  //     son début (00:00) — ni exercice, ni ordre, ni série, ni charge ;
+  //   · I37 — une zone de bloc est Lourd ou Mix ;
+  //   · I38 — jamais deux réductions à la fois : une décharge planifiée qui
+  //     aurait lieu pendant (ou moins de 14 jours après) une semaine allégée
+  //     acceptée, ou une carte de semaine allégée pendant la décharge ;
+  //   · I39 — « Changer de schéma » absent pour un exercice d'un bloc en cours.
+  function verifierProgramme(plan, entrees, erreurs) {
+    if (!plan) return;
+    var M = Moteur();
+    var pr = (entrees && entrees.programme) || {};
+    var blocs = pr.blocs || [];
+    var parId = {};
+    blocs.forEach(function (b) {
+      if (!b) return;
+      if (b.id) parId[b.id] = b;
+      if (M.ZONES_DE_BLOC.indexOf(b.zone) < 0) erreurs.push('I37 — le bloc ' + (b.id || '?') + ' porte la zone « ' + b.zone + ' »');
+    });
+    (pr.lignes || []).forEach(function (l) {
+      if (!l || l.origine !== 'bloc') return;
+      var b = l.bloc_id ? parId[l.bloc_id] : null;
+      var dit = 'la ligne de zone ' + (l.id || '?') + ' (' + l.exercise_slug + ')';
+      if (M.ZONES_DE_BLOC.indexOf(l.zone) < 0) erreurs.push('I37 — ' + dit + ' pose « ' + l.zone + ' »');
+      if (!b) { erreurs.push('I36 — ' + dit + ' : d’origine « bloc » sans bloc connu'); return; }
+      if ((b.exercices || []).indexOf(l.exercise_slug) < 0) erreurs.push('I36 — ' + dit + ' : un exercice hors du bloc');
+      if (l.zone !== b.zone) erreurs.push('I36 — ' + dit + ' : « ' + l.zone + ' » pour un bloc ' + b.zone);
+      // Le début du bloc à 00:00, heure locale — compté ici, sans `zonesPosees`.
+      var md = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(M.jourCivil(b.debut) || ''));
+      var minuit = md ? new Date(+md[1], +md[2] - 1, +md[3]).getTime() : null;
+      if (minuit !== null && minuit !== new Date(l.corrigee_a).getTime()) {
+        erreurs.push('I36 — ' + dit + ' : datée ' + l.corrigee_a + ', le bloc commence ' + b.debut);
+      }
+    });
+    var cartes = ((entrees && entrees.escalier && entrees.escalier.cartes) || []).filter(function (c) {
+      return c && c.reponse === 'acceptee' && c.debut && c.fin;
+    });
+    // ⚠️ SANS RELIRE LA RÈGLE CONTRÔLÉE (ni `dechargePlanifiee`, ni
+    // `carteAllegeeAutorisee`) : les jours se comptent ici, à part.
+    var jour = M.jourCivil(entrees && entrees.seance && entrees.seance.debut);
+    var num = function (j) {
+      var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(M.jourCivil(j) || ''));
+      return m ? Math.round(Date.UTC(+m[1], +m[2] - 1, +m[3]) / 86400000) : null;
+    };
+    var a = plan.allegee;
+    if (a && a.source === SOURCE_DECHARGE) {
+      var d0 = num(a.debut);
+      cartes.forEach(function (c) {
+        var f = num(c.fin);
+        if (d0 !== null && f !== null && f > d0 - M.SANS_CUMUL_JOURS && f < d0 + 7) {
+          erreurs.push('I38 — la décharge planifiée du ' + a.debut + ' suit de moins de ' + M.SANS_CUMUL_JOURS +
+            ' jours la semaine allégée finie le ' + c.fin);
+        }
+      });
+    }
+    if (plan.carte && jour) {
+      blocs.forEach(function (b) {
+        if (!b || b.statut !== 'en_cours' || b.decharge !== true) return;
+        var d1 = num(b.debut) + 7 * (Number(b.semaines) - 1), j = num(jour);
+        if (j >= d1 - M.SANS_CUMUL_JOURS && j <= d1 + 6) {
+          erreurs.push('I38 — une carte de semaine allégée à ' + (d1 - j) + ' jour(s) d’une décharge planifiée');
+        }
+      });
+    }
+    var enBloc = (plan.programme && plan.programme.enBloc) || {};
+    (plan.exercices || []).forEach(function (x) {
+      if (x && x.escalier && x.escalier.marche === M.MARCHE_SCHEMA && enBloc[x.slug]) {
+        erreurs.push('I39 — exercice ' + x.iExo + ' (' + x.slug + ') : « Changer de schéma » dans un bloc en cours');
+      }
+    });
+  }
+
   // ══ I26 — LA COHÉRENCE DES PHRASES (MOTEUR §20 bis, 49-U19) ═════════════
   //
   // « Chaque chiffre que le coach écrit a une origine dans le plan ; et deux
@@ -2518,8 +2626,11 @@
     var queue = function (t) { var i = String(t).lastIndexOf(' : '); return i < 0 ? String(t) : String(t).slice(i); };
     if (plan && plan.allegee && plan.allegee.bandeau) {
       var b = plan.allegee.bandeau;
-      refaite('allegee.bandeau', b, function () { return Moteur().bandeauAllegee(plan.allegee.fin); },
-              function (t) { return t === b; });
+      refaite('allegee.bandeau', b, function () {
+        return plan.allegee.source === SOURCE_DECHARGE
+          ? Moteur().bandeauDecharge(plan.allegee.semaine, plan.allegee.semaines)
+          : Moteur().bandeauAllegee(plan.allegee.fin);
+      }, function (t) { return t === b; });
     }
     if (plan && plan.carte) {
       var ca = plan.carte;
@@ -2655,6 +2766,7 @@
     var memeSeance = !!(avant && plan && avant.seance === plan.seance);
     verifierPhase(plan, parisSeance, erreurs);
     verifierEscalier(plan, entrees, erreurs);
+    verifierProgramme(plan, entrees, erreurs);
     verifierMarches(plan, erreurs);
     verifierPoidsDuCorps(plan, erreurs);
     if (entrees && entrees.raccourci) verifierRaccourci(plan, entrees, erreurs);

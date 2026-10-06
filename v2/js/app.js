@@ -216,6 +216,9 @@
   // §9.22 (53-2) — À L'INSTANT : une ligne de bloc datée de lundi n'est pas
   // encore en vigueur aujourd'hui.
   function zoneDe(slug) { return Moteur.zoneEnVigueur(local.zones, slug, new Date().toISOString()); }
+  // §9.10 (53-2 bis, D1) — la ligne qui pose cette zone : son origine fait dire
+  // « Nouveau bloc » et « · bloc » à l'étiquette.
+  function ligneDeZoneDe(slug) { return Moteur.ligneDeZoneAu(local.zones, slug, new Date().toISOString(), true); }
 
   // ⚠️ L'APPAREIL D'ABORD, LE RÉSEAU ENSUITE. Le choix s'affiche tout de suite,
   // même sans réseau, et part par la file. `user_id` et `corrigee_a` sont posés
@@ -401,10 +404,13 @@
     var maj = function (champ) { return function (v) { p[champ] = v; p.erreur = ''; rendreFeuilleProgramme(); }; };
     Rendu.rendreFeuilleProgramme($('feuille-contenu'), {
       dossier: p.dossier, suite: !!p.precedent, zone: p.zone, semaines: p.semaines, decharge: p.decharge, debut: p.debut,
+      zones: Moteur.ZONES_DE_BLOC.map(function (z) { return { cle: z, texte: Moteur.libelleZoneDeBloc(z, true) }; }),
+      zoneCourte: Moteur.libelleZoneDeBloc(p.zone),
+      bornesSemaines: Moteur.SEMAINES_BLOC_MIN + ' à ' + Moteur.SEMAINES_BLOC_MAX,
       semainesPossibles: [3, 4, 5, 6].filter(function (n) {
         return n >= Moteur.SEMAINES_BLOC_MIN && n <= Moteur.SEMAINES_BLOC_MAX;
       }),
-      debuts: [{ cle: 'lundi', texte: 'Lundi ' + Modele.jourCourt(lundi) }, { cle: 'aujourdhui', texte: 'Aujourd’hui' }],
+      debuts: [{ cle: 'lundi', texte: Modele.jourNomme(lundi) }, { cle: 'aujourdhui', texte: 'aujourd’hui' }],
       exercices: p.slugs.map(function (s) { return { slug: s, nom: noms[s] || s, coche: !!p.coches[s] }; }),
       erreur: p.erreur,
       surZone: maj('zone'), surSemaines: maj('semaines'), surDecharge: maj('decharge'), surDebut: maj('debut'),
@@ -429,7 +435,9 @@
 
   // UN BLOC NAÎT : le précédent se termine d'abord (un seul bloc en cours par
   // dossier, l'index de la base), puis le bloc, ses lignes de zone, et — pour
-  // un bloc proposé à la fin d'un autre — son pari (§9.22).
+  // le bloc proposé, commencé TEL QUEL (`o.telQuel`, « Commencer le bloc
+  // Lourd ») — son pari (§9.22). Un bloc ajusté n'en porte pas : le coach ne
+  // parie pas sur ce qu'il n'a pas proposé (53-2 bis, D3).
   async function creerBloc(o) {
     var t = instantDuJour();
     if (o.precedent) await terminerBloc(o.precedent, 'termine', true);
@@ -438,7 +446,7 @@
                  precedent: o.precedent ? o.precedent.id : null, created_at: t, modifie_a: t };
     await poserBloc(bloc);
     await poserLignesDeZone(Moteur.zonesPosees(bloc, uuid, idUtilisateur()), bloc.id);
-    if (o.precedent) await poserPariDeProgramme(bloc, o.precedent);
+    if (o.precedent && o.telQuel === true) await poserPariDeProgramme(bloc, o.precedent);
     return bloc;
   }
 
@@ -486,24 +494,32 @@
     var s = b ? Moteur.blocSuivant(b) : null;
     if (!s) return;
     await creerBloc({ dossier: dossier, zone: s.zone, semaines: s.semaines, decharge: s.decharge, debut: jourDuJour(),
-                      exercices: s.exercices, precedent: b });
+                      exercices: s.exercices, precedent: b, telQuel: true });
     rendreSaisie();
   }
-  // L'ARRÊT rend leur zone déduite aux exercices dont la dernière déclaration
-  // est encore celle du bloc (une ligne vide, posée par la personne : c'est
-  // son geste) ; une correction faite pendant le bloc reste.
+  // L'ARRÊT (§9.22, 53-2 bis D3) rend à chaque exercice du bloc la zone
+  // d'après ses séances : une ligne sans zone, `origine = 'bloc'`, datée de
+  // l'arrêt — sauf si sa dernière déclaration n'est plus celle du bloc (la
+  // personne l'a corrigée pendant le bloc : sa correction reste).
+  //
+  // ⚠️ La dernière déclaration se lit À VENIR COMPRISE : un bloc arrêté avant
+  // son début a déjà posé ses lignes, datées de son début. Datée de l'arrêt,
+  // la ligne vide serait plus ancienne qu'elles et ne gagnerait jamais ; elle
+  // se date alors juste après elles (rapporté dans #369).
   async function arreterProgramme(dossier) {
     var b = Moteur.blocEnCours(local.blocs, dossier);
     if (!b) return;
     var fini = Moteur.blocTermine(b, jourDuJour());
     await terminerBloc(b, fini ? 'termine' : 'arrete', fini);
     var t = instantDuJour();
-    var lignes = (b.exercices || []).filter(function (slug) {
-      var l = Moteur.ligneDeZoneAu(local.zones, slug, t, true);
-      return l && l.bloc_id === b.id;
-    }).map(function (slug) {
-      return { id: uuid(), user_id: idUtilisateur(), exercise_slug: slug, zone: null, corrigee_a: t };
-    });
+    var lignes = (b.exercices || []).map(function (slug) {
+      var l = Moteur.ligneDeZoneAu(local.zones, slug, null);
+      if (!l || l.bloc_id !== b.id || !l.zone) return null;
+      var aVenir = Date.parse(l.corrigee_a) >= Date.parse(t);
+      return { id: uuid(), user_id: idUtilisateur(), exercise_slug: slug, zone: null,
+               corrigee_a: aVenir ? new Date(Date.parse(l.corrigee_a) + 1000).toISOString() : t,
+               origine: 'bloc', bloc_id: b.id };
+    }).filter(Boolean);
     await poserLignesDeZone(lignes, b.id);
     rendreSaisie();
   }
@@ -2400,6 +2416,9 @@
       // sa clé : `poserZone` le remet à zéro, et la synchronisation passe
       // par `recalculerEtats`, qui fait déjà de même.
       correction: zoneDe(slug),
+      // §9.10 (53-2 bis, D1) — la ligne qui pose cette zone : son origine
+      // fait dire « Nouveau bloc » au lieu de « Nouvelle zone ».
+      ligneDeZone: ligneDeZoneDe(slug),
       // §12.9 (49-U13) — les séances SOUS CONSIGNE de l'exercice : celles
       // qui portent au moins un pari sur lui. Le compteur de stagnation ne
       // compte qu'elles ; les séances importées ou d'avant le coach n'en

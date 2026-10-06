@@ -633,7 +633,7 @@
     // l'exercice est la consigne allégée : même charge, 2 reps de moins, 60 %
     // des séries de la routine, rien ne monte. C'est elle que lisent les
     // lignes, l'en-tête, les paris, les chauffes et les invariants.
-    if (allegee && consigne && consigne.etat !== 'silence') consigne = M.consigneAllegee(consigne, seriesRoutine);
+    if (allegee && consigne && consigne.etat !== 'silence') consigne = M.consigneAllegee(consigne, seriesRoutine, allegee.decharge === true);
     // MOTEUR §14.5 (49-U15) — LE REPLI (deuxième déclenchement isolé) : la
     // consigne de la séance devient celle du repli — la charge du dernier
     // palier tenu, sa visée bornée à la zone, sans ligne haute (I22). Les
@@ -687,7 +687,9 @@
       var capA = V.capturer(function () { return M.phraseAllegee(consigne); });
       entete = { jaune: [capA.texte], segments: entete.segments };
       citesJaune = capA.citations;
-      var capDA = V.capturer(function () { return M.detailAllegee(consigne); });
+      // §9.22 (53-2 bis) — la décharge du programme se nomme : « Semaine de
+      // décharge : mêmes charges, moins de séries. 2 séries au lieu de 4, cette semaine. »
+      var capDA = V.capturer(function () { return M.grisAllegee(consigne); });
       gris = capDA.texte;
       citesGris = capDA.citations;
     }
@@ -1057,7 +1059,7 @@
         if (m) portee[slug] = true;
         var x = planDExercice(exo, i, c, Seance().parisDeLOccurrence(e.paris || [], seance, i), seance.id, e.reglage, suite, seance.debut,
           materielDe(exos, i, e.catalogue || null, c, e.refusChauffes || {}), phase,
-          !!esc.allegee, Object.prototype.hasOwnProperty.call(seriesRoutine, slug) ? seriesRoutine[slug] : null, m,
+          esc.allegee ? { decharge: esc.allegee.source === SOURCE_DECHARGE } : null, Object.prototype.hasOwnProperty.call(seriesRoutine, slug) ? seriesRoutine[slug] : null, m,
           Object.prototype.hasOwnProperty.call(plus, slug) ? plus[slug] : null,
           Seance().exerciceFini(seance, slug),
           Object.prototype.hasOwnProperty.call(precedents, slug) ? precedents[slug] : null);
@@ -2307,13 +2309,24 @@
       if (!l || l.origine !== 'bloc') return;
       var b = l.bloc_id ? parId[l.bloc_id] : null;
       var dit = 'la ligne de zone ' + (l.id || '?') + ' (' + l.exercise_slug + ')';
-      if (M.ZONES_DE_BLOC.indexOf(l.zone) < 0) erreurs.push('I37 — ' + dit + ' pose « ' + l.zone + ' »');
+      // §9.22 (53-2 bis, D3) — L'ARRÊT : une ligne sans zone, d'origine
+      // « bloc », pour un exercice du bloc, après son début, et d'un bloc qui
+      // n'est plus en cours.
+      var arret = l.zone === null || l.zone === undefined;
+      if (!arret && M.ZONES_DE_BLOC.indexOf(l.zone) < 0) erreurs.push('I37 — ' + dit + ' pose « ' + l.zone + ' »');
       if (!b) { erreurs.push('I36 — ' + dit + ' : d’origine « bloc » sans bloc connu'); return; }
       if ((b.exercices || []).indexOf(l.exercise_slug) < 0) erreurs.push('I36 — ' + dit + ' : un exercice hors du bloc');
-      if (l.zone !== b.zone) erreurs.push('I36 — ' + dit + ' : « ' + l.zone + ' » pour un bloc ' + b.zone);
       // Le début du bloc à 00:00, heure locale — compté ici, sans `zonesPosees`.
       var md = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(M.jourCivil(b.debut) || ''));
       var minuit = md ? new Date(+md[1], +md[2] - 1, +md[3]).getTime() : null;
+      if (arret) {
+        if (b.statut === 'en_cours') erreurs.push('I36 — ' + dit + ' : l’arrêt d’un bloc encore en cours');
+        if (minuit !== null && !(new Date(l.corrigee_a).getTime() > minuit)) {
+          erreurs.push('I36 — ' + dit + ' : l’arrêt daté ' + l.corrigee_a + ', avant le début du bloc ' + b.debut);
+        }
+        return;
+      }
+      if (l.zone !== b.zone) erreurs.push('I36 — ' + dit + ' : « ' + l.zone + ' » pour un bloc ' + b.zone);
       if (minuit !== null && minuit !== new Date(l.corrigee_a).getTime()) {
         erreurs.push('I36 — ' + dit + ' : datée ' + l.corrigee_a + ', le bloc commence ' + b.debut);
       }

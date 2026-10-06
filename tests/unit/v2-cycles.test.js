@@ -185,7 +185,7 @@ describe('53-2 — ce que le programme dit', () => {
   const BLOC = F.cas.semaine_du_bloc[0].bloc;
   test('le badge : la semaine au calendrier, avant et après', () => {
     expect(norm(M.badgeDuBloc(BLOC, '2026-10-19'))).toBe('Bloc Mix · semaine 2 sur 4');
-    expect(norm(M.badgeDuBloc(BLOC, '2026-10-08'))).toBe('Bloc Mix · dès le 12 oct.');
+    expect(norm(M.badgeDuBloc(BLOC, '2026-10-08'))).toBe('Bloc Mix · dès le lundi 12 oct.');
     expect(norm(M.badgeDuBloc(BLOC, '2026-11-09'))).toBe('Bloc Mix terminé');
   });
   test('le bandeau de la décharge : sans carte, jamais « requise »', () => {
@@ -198,11 +198,17 @@ describe('53-2 — ce que le programme dit', () => {
     const k = M.carteFinDeBloc(c.bloc, M.bilanDuBloc(c.bloc, c.seances, c.paris),
       { squat_barre: 'Squat (Barre)', developpe_couche_barre: 'Développé Couché (Barre)' }, null);
     expect(norm(k.titre)).toBe('Ton bloc Mix est terminé.');
-    expect(k.lignes.map(norm)).toEqual(['Squat (Barre) : 110 kg × 6 → 112,5 kg × 6',
-      'Développé Couché (Barre) : 112,5 kg × 6, inchangé']);
+    // Deux colonnes (maquette cycles v1) : le nom, puis la première et la dernière charge.
+    expect(k.entete).toBe('Pendant ce bloc');
+    expect(k.lignes.map((l) => [l.nom, norm(l.valeur)])).toEqual([['Squat (Barre)', '110 kg × 6 → 112,5 kg × 6'],
+      ['Développé Couché (Barre)', '112,5 kg × 6, inchangé']]);
     expect(norm(k.paris)).toBe('Le coach avait fait 4 paris sur ce bloc : 2 ont tenu.');
     expect(k.pari).toBe(null);
-    expect(norm(k.suivant)).toBe('Bloc suivant : Lourd, 4 semaines, la dernière en décharge.');
+    // §9.22 (53-2 bis, D3) — la règle, sans jargon.
+    expect(norm(k.suivant)).toBe('Le suivant, comme le font les programmes de force : Lourd (3-5) sur tes mouvements ' +
+      'à la barre, 4 semaines, décharge la dernière semaine. Les autres exercices gardent leur zone.');
+    expect(k.suivantZone).toBe('Lourd (3-5)');
+    expect(/accumulation|transmutation|réalisation/i.test(k.suivant)).toBe(false);
     expect([k.commencer, k.ajuster, k.arreter]).toEqual(['Commencer le bloc Lourd', 'Ajuster le bloc', 'Arrêter le programme']);
     const avecPari = M.carteFinDeBloc(c.bloc, M.bilanDuBloc(c.bloc, c.seances, c.paris), {}, { predite: 2, observee: 1 });
     expect(norm(avecPari.pari)).toBe('Le coach avait parié que tes 2 exercices progresseraient : 1 a progressé.');
@@ -248,7 +254,10 @@ describe('53-2 — la décharge planifiée, dans le plan', () => {
     expect(norm(p.allegee.bandeau)).toBe('Semaine 4 sur 4 : la décharge prévue par ton programme. ' +
       'Mêmes charges, moins de séries, loin de l’échec.');
     const x = p.exercices[0];
-    expect(x.consigne.allegee).toEqual({ series: 2, routine: 4 });
+    expect(x.consigne.allegee).toEqual({ series: 2, routine: 4, decharge: true });
+    // La décharge du programme se nomme (maquette cycles v1, « Semaine de décharge »).
+    expect(norm(x.entete.gris)).toBe(
+      'Semaine de décharge : mêmes charges, moins de séries. 2 séries au lieu de 4, cette semaine.');
     expect(x.lignes.filter((l) => l.role !== 'hors').length).toBe(2);
     expect([x.consigne.ligne.charge, x.consigne.ligne.vise, x.consigne.haut]).toEqual([125, 3, null]);
     expect(T.verifierPlan(p, e).erreurs).toEqual([]);
@@ -310,5 +319,172 @@ describe('53-2 — I36 à I38 : violations forgées', () => {
     const h = JSON.parse(JSON.stringify(g.p));
     h.carte = { jour: '2026-10-23', declencheur: 'couche', compteur: 4, cites: ['couche'], phrase: 'x', detail: 'y' };
     expect(T.verifierPlan(h, g.e).erreurs.filter((x) => /^I38/.test(x)).length).toBe(1);
+  });
+});
+
+// ══ 53-2 bis (D3) — LE DÉBUT, LA FIN, L'ARRÊT ET LE PARI (§9.22, 06/10/2026) ══
+
+describe('53-2 bis — le début différé : avant son début, un bloc ne change rien', () => {
+  const BLOC = Object.assign({ id: 'b1', dossier: 'Force' }, F.cas.semaine_du_bloc[0].bloc);   // lundi 12 oct.
+  const AVANT = { id: 'p', exercise_slug: 'squat_barre', zone: 'lourd', corrigee_a: '2026-09-01T10:00:00', origine: 'personne' };
+  test('⚠️ DISCRIMINANT — le jeudi 8 : le badge « dès le lundi 12 oct. », la zone d’avant, aucun exercice en bloc', () => {
+    expect(norm(M.badgeDuBloc(BLOC, '2026-10-08'))).toBe('Bloc Mix · dès le lundi 12 oct.');
+    const lignes = [AVANT].concat(M.zonesPosees(BLOC, (() => { let n = 0; return () => 'z' + (++n); })(), 'u'));
+    expect(M.zoneEnVigueur(lignes, 'squat_barre', '2026-10-08T18:00:00')).toBe('lourd');
+    expect(M.zoneEnVigueur(lignes, 'squat_barre', '2026-10-12T08:00:00')).toBe('mix');
+    expect(M.exercicesEnBloc([BLOC], '2026-10-11')).toEqual({});
+    expect(M.exercicesEnBloc([BLOC], '2026-10-12')).toEqual({ squat_barre: true, developpe_couche_barre: true });
+    expect(M.dechargeDuJour([BLOC], '2026-10-08', [])).toBe(null);
+  });
+  test('dans le plan : avant le début, « Changer de schéma » reste proposé', () => {
+    const b = Object.assign({}, BLOC_PLAN, { debut: '2026-10-26' });
+    const { e, p } = decor({ compteur: 4, debut: '2026-10-20T10:00:00+00:00', blocs: [b] });
+    expect(p.programme.enBloc).toEqual({});
+    expect(p.exercices[0].escalier.marche).toBe('schema');
+    expect(p.allegee).toBe(null);
+    expect(T.verifierPlan(p, e).erreurs).toEqual([]);
+  });
+});
+
+describe('53-2 bis — entre la fin et le choix : rien ne change sans la personne', () => {
+  const BLOC = Object.assign({ id: 'b1', dossier: 'Force' }, F.cas.semaine_du_bloc[0].bloc);   // fini le 8 nov.
+  const lignes = M.zonesPosees(BLOC, (() => { let n = 0; return () => 'z' + (++n); })(), 'u');
+  test('⚠️ DISCRIMINANT — le 12 nov. : les zones du bloc tiennent, aucune décharge de plus, « Bloc Mix terminé »', () => {
+    expect(M.blocTermine(BLOC, '2026-11-12')).toBe(true);
+    expect(M.zoneEnVigueur(lignes, 'squat_barre', '2026-11-12T18:00:00')).toBe('mix');
+    expect(M.zoneEnVigueur(lignes, 'squat_barre', '2026-12-20T18:00:00')).toBe('mix');
+    expect(M.dechargeDuJour([BLOC], '2026-11-12', [])).toBe(null);
+    expect(M.dechargeDuJour([BLOC], '2026-11-30', [])).toBe(null);
+    expect(norm(M.badgeDuBloc(BLOC, '2026-11-12'))).toBe('Bloc Mix terminé');
+    // Le bloc compte jusqu'au choix : « Changer de schéma » se tait encore.
+    expect(M.exercicesEnBloc([BLOC], '2026-11-12')).toEqual({ squat_barre: true, developpe_couche_barre: true });
+    // Le choix fait (terminé, arrêté) : il ne compte plus.
+    expect(M.exercicesEnBloc([Object.assign({}, BLOC, { statut: 'termine' })], '2026-11-12')).toEqual({});
+    expect(M.exercicesEnBloc([Object.assign({}, BLOC, { statut: 'arrete' })], '2026-11-12')).toEqual({});
+  });
+  test('dans le plan, la semaine d’après la fin : ni décharge, ni « Changer de schéma »', () => {
+    const { e, p } = decor({ compteur: 4, debut: '2026-11-12T10:00:00+00:00' });
+    expect(p.allegee).toBe(null);
+    expect(p.carte).toBe(null);
+    expect(p.programme.enBloc).toEqual({ couche: true });
+    expect(p.exercices[0].escalier.marche).toBe('silence');
+    expect(T.verifierPlan(p, e).erreurs).toEqual([]);
+  });
+});
+
+// Les gestes de l'app (Commencer, Ajuster, Arrêter), rejoués dans un bac : les
+// vraies fonctions de `app.js`, le vrai moteur, la file remplacée par un relevé.
+describe('53-2 bis — les gestes : le pari, l’arrêt', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const vm = require('vm');
+  const APP = fs.readFileSync(path.join(__dirname, '../../v2/js/app.js'), 'utf8');
+  const extraire = (nom) => {
+    const m = APP.match(new RegExp('^  (async )?function ' + nom + '\\b[\\s\\S]*?^  }', 'm'));
+    if (!m) throw new Error('introuvable : ' + nom);
+    return m[0];
+  };
+  const minuit = (j) => { const [y, m, d] = j.split('-').map(Number); return new Date(y, m - 1, d).toISOString(); };
+  function bac(o) {
+    let n = 0;
+    const releve = { paris: [], blocs: [], lignes: [], observes: [] };
+    const ctx = {
+      Moteur: M, Date, Object, JSON,
+      local: { blocs: (o.blocs || []).slice(), zones: (o.zones || []).slice() },
+      programmeEnCours: o.programme || null,
+      uuid: () => 'id' + (++n), idUtilisateur: () => 'u',
+      instantDuJour: () => o.instant, jourDuJour: () => M.jourCivil(o.instant),
+      lundiQuiSuit: () => '2026-10-26',
+      poserBloc: async (b) => {
+        releve.blocs.push(b);
+        ctx.local.blocs = ctx.local.blocs.filter((x) => x.id !== b.id).concat([b]);
+      },
+      poserLignesDeZone: async (l, dep) => { releve.lignes.push.apply(releve.lignes, l.map((x) => Object.assign({ dep }, x))); ctx.local.zones = ctx.local.zones.concat(l); },
+      poserPariDeProgramme: async (b, p) => { releve.paris.push({ bloc: b.id, precedent: p.id }); },
+      observerPariDeProgramme: async (b) => { releve.observes.push(b.id); },
+      rendreSaisie: () => {}, fermerVoile: () => {}, rendreFeuilleProgramme: () => {}
+    };
+    vm.createContext(ctx);
+    ['creerBloc', 'terminerBloc', 'commencerBlocSuivant', 'validerProgramme', 'arreterProgramme']
+      .forEach((f) => vm.runInContext(extraire(f), ctx));
+    return { ctx, releve, run: (code) => vm.runInContext(code, ctx) };
+  }
+  const MIX = { id: 'b1', user_id: 'u', dossier: 'Force', zone: 'mix', debut: '2026-10-12', semaines: 4, decharge: true,
+    exercices: ['squat', 'couche'], statut: 'en_cours', precedent: null };
+  const lignesMix = [
+    { id: 'l1', exercise_slug: 'squat', zone: 'mix', corrigee_a: minuit('2026-10-12'), origine: 'bloc', bloc_id: 'b1' },
+    { id: 'l2', exercise_slug: 'couche', zone: 'mix', corrigee_a: minuit('2026-10-12'), origine: 'bloc', bloc_id: 'b1' }];
+
+  test('⚠️ DISCRIMINANT — « Commencer le bloc Lourd » : le bloc proposé, tel quel, porte un pari', async () => {
+    const b = bac({ blocs: [MIX], zones: lignesMix, instant: '2026-11-10T18:00:00.000Z' });
+    await b.run('commencerBlocSuivant("Force")');
+    expect(b.releve.paris).toEqual([{ bloc: 'id1', precedent: 'b1' }]);
+    expect(b.ctx.local.blocs.find((x) => x.id === 'id1').zone).toBe('lourd');
+    expect(b.ctx.local.blocs.find((x) => x.id === 'b1').statut).toBe('termine');
+  });
+  test('⚠️ DISCRIMINANT — « Ajuster le bloc » : un bloc ajusté ne porte pas de pari', async () => {
+    const programme = { dossier: 'Force', precedent: MIX, zone: 'lourd', semaines: 4, decharge: true, debut: 'aujourdhui',
+      slugs: ['squat', 'couche'], coches: { squat: true, couche: true }, erreur: '' };
+    const b = bac({ blocs: [MIX], zones: lignesMix, instant: '2026-11-10T18:00:00.000Z', programme });
+    await b.run('validerProgramme()');
+    expect(b.releve.paris).toEqual([]);
+    expect(b.ctx.local.blocs.filter((x) => x.statut === 'en_cours').map((x) => x.zone)).toEqual(['lourd']);
+    // Même ajusté sans rien changer : le geste est « Ajuster », pas « Commencer ».
+  });
+  test('le premier bloc : aucun pari', async () => {
+    const programme = { dossier: 'Force', precedent: null, zone: 'mix', semaines: 4, decharge: true, debut: 'lundi',
+      slugs: ['squat'], coches: { squat: true }, erreur: '' };
+    const b = bac({ instant: '2026-10-20T18:00:00.000Z', programme });
+    await b.run('validerProgramme()');
+    expect(b.releve.paris).toEqual([]);
+    expect(b.releve.blocs[0].debut).toBe('2026-10-26');
+  });
+
+  test('⚠️ DISCRIMINANT — l’arrêt en plein bloc : une ligne sans zone, origine « bloc », datée de l’arrêt ; la correction de la personne reste', async () => {
+    const correction = { id: 'p1', exercise_slug: 'couche', zone: 'lourd', corrigee_a: '2026-10-21T19:00:00.000Z', origine: 'personne' };
+    const b = bac({ blocs: [MIX], zones: lignesMix.concat([correction]), instant: '2026-10-27T18:00:00.000Z' });
+    await b.run('arreterProgramme("Force")');
+    expect(b.releve.lignes).toEqual([{ dep: 'b1', id: 'id1', user_id: 'u', exercise_slug: 'squat', zone: null,
+      corrigee_a: '2026-10-27T18:00:00.000Z', origine: 'bloc', bloc_id: 'b1' }]);
+    expect(b.ctx.local.blocs[0].statut).toBe('arrete');
+    expect(b.releve.observes).toEqual([]);
+    const z = b.ctx.local.zones;
+    expect(M.zoneEnVigueur(z, 'squat', '2026-10-28T10:00:00Z')).toBe(null);     // la zone d'après ses séances
+    expect(M.zoneEnVigueur(z, 'couche', '2026-10-28T10:00:00Z')).toBe('lourd'); // sa correction reste
+  });
+  test('sans correction de la personne : chaque exercice du bloc retrouve la zone d’après ses séances', async () => {
+    const b = bac({ blocs: [MIX], zones: lignesMix, instant: '2026-10-27T18:00:00.000Z' });
+    await b.run('arreterProgramme("Force")');
+    expect(b.releve.lignes.map((l) => [l.exercise_slug, l.zone, l.origine, l.bloc_id])).toEqual([
+      ['squat', null, 'bloc', 'b1'], ['couche', null, 'bloc', 'b1']]);
+    expect(['squat', 'couche'].map((s) => M.zoneEnVigueur(b.ctx.local.zones, s, '2026-10-28T10:00:00Z'))).toEqual([null, null]);
+  });
+  test('l’arrêt à la fin du bloc : le bloc se termine (son pari s’observe), les zones reviennent', async () => {
+    const b = bac({ blocs: [MIX], zones: lignesMix, instant: '2026-11-12T18:00:00.000Z' });
+    await b.run('arreterProgramme("Force")');
+    expect(b.ctx.local.blocs[0].statut).toBe('termine');
+    expect(b.releve.observes).toEqual(['b1']);
+    expect(b.releve.lignes.length).toBe(2);
+  });
+  test('l’arrêt AVANT le début : la ligne vide passe après les lignes du bloc, qui ne prennent jamais effet', async () => {
+    const avant = { id: 'p0', exercise_slug: 'squat', zone: 'lourd', corrigee_a: '2026-09-01T10:00:00.000Z', origine: 'personne' };
+    const b = bac({ blocs: [MIX], zones: lignesMix.concat([avant]), instant: '2026-10-08T18:00:00.000Z' });
+    await b.run('arreterProgramme("Force")');
+    expect(b.releve.lignes.map((l) => l.corrigee_a)).toEqual([1, 2].map(() => new Date(Date.parse(minuit('2026-10-12')) + 1000).toISOString()));
+    expect(M.zoneEnVigueur(b.ctx.local.zones, 'squat', '2026-10-13T10:00:00Z')).toBe(null);
+    expect(M.zoneEnVigueur(b.ctx.local.zones, 'couche', '2026-10-13T10:00:00Z')).toBe(null);
+  });
+
+  test('I36 — les lignes d’arrêt sont justes ; forgées : l’arrêt d’un bloc encore en cours, ou daté avant son début', () => {
+    const arret = { id: 'a1', exercise_slug: 'couche', zone: null, corrigee_a: '2026-10-27T18:00:00Z', origine: 'bloc', bloc_id: 'b1' };
+    const LIGNE = { id: 'z1', exercise_slug: 'couche', zone: 'lourd', corrigee_a: minuit('2026-10-12'), origine: 'bloc', bloc_id: 'b1' };
+    const arrete = Object.assign({}, BLOC_PLAN, { statut: 'arrete' });
+    const err = (o) => { const d = decor(Object.assign({ debut: '2026-10-28T10:00:00+00:00' }, o)); return T.verifierPlan(d.p, d.e).erreurs; };
+    expect(err({ blocs: [arrete], lignes: [LIGNE, arret] })).toEqual([]);
+    expect(err({ blocs: [BLOC_PLAN], lignes: [LIGNE, arret] }).filter((x) => /^I36/.test(x)).length).toBe(1);
+    expect(err({ blocs: [arrete], lignes: [LIGNE, Object.assign({}, arret, { corrigee_a: minuit('2026-10-11') })] })
+      .filter((x) => /^I36/.test(x)).length).toBe(1);
+    expect(err({ blocs: [arrete], lignes: [LIGNE, Object.assign({}, arret, { exercise_slug: 'squat' })] })
+      .filter((x) => /^I36/.test(x)).length).toBe(1);
   });
 });

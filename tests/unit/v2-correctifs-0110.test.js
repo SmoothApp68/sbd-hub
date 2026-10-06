@@ -317,7 +317,9 @@ describe('49-U18 — la cible du constat : un seul calcul (« le coach ne fait q
       zoneDe: () => 'mix', seancesSousConsigne: () => ['s1'],
       periodesAllegees: () => [], periodesSerieDePlusDe: () => periodes, enEdition: () => false,
       // 52-1 : la charge de départ de la routine (MOTEUR §9.21), lue par `optionsDeConsigne`.
-      chargeDeDepartDe: () => null
+      chargeDeDepartDe: () => null,
+      // 53-2 bis : la ligne de zone en vigueur (son origine, « Nouveau bloc »).
+      ligneDeZoneDe: () => null
     };
     vm.createContext(ctx);
     ['optionsDeConsigne', 'suiteDe'].forEach((n) => vm.runInContext(extraire(n), ctx));

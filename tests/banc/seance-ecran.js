@@ -11954,6 +11954,10 @@ const SETS_IMPORTES = [
   //   · « Changer de schéma » : proposé hors bloc, absent dans un bloc ;
   //   · la fin du bloc : le bilan, les paris tenus, le bloc suivant, et le pari
   //     de programme écrit ; l'arrêt d'un programme.
+  //   · (53-2 bis) entre la fin et le choix, rien ne change : la carte reste,
+  //     les zones du bloc tiennent, aucune décharge de plus ; « Ajuster le
+  //     bloc » n'écrit pas de pari ; « Arrêter le programme » pose des lignes
+  //     sans zone d'origine « bloc », et garde la correction de la personne.
   {
     const JOUR_MS = 86400000;
     const DEUX_HEURES = 2 * 3600 * 1000;
@@ -12028,41 +12032,64 @@ const SETS_IMPORTES = [
                  couvertes: x.lignes.filter((l) => l.role !== 'hors').length,
                  travail: x.lignes.filter((l) => l.type === 'travail').length } : null };
     }, slug);
+    // 53-2 bis (maquette cycles v1) : le badge à droite de la tête, à la place
+    // du compte ; la carte de fin EN TÊTE de l'écran, rangées en deux colonnes.
     const dossier = (nom) => page.evaluate((n) => {
-      const tetes = Array.from(document.querySelectorAll('#liste-routines .dossier-tete'));
-      const t = tetes.filter((x) => (x.querySelector('.dossier-nom') || {}).textContent.indexOf(n) >= 0)[0];
-      if (!t) return null;
-      const r = t.nextElementSibling && t.nextElementSibling.classList.contains('programme-dossier') ? t.nextElementSibling : null;
-      const k = r && r.querySelector('.carte-fin-bloc');
-      return { badge: (t.querySelector('.dossier-badge') || {}).textContent || null,
-        creer: !!(r && r.querySelector('.programme-creer')), enCours: r && r.querySelector('.programme-en-cours')
-          ? r.querySelector('.programme-en-cours').textContent : null,
-        fin: k ? { titre: k.querySelector('.cfb-titre').textContent,
-                   lignes: Array.from(k.querySelectorAll('.cfb-bilan li')).map((l) => l.textContent),
-                   paris: Array.from(k.querySelectorAll('.cfb-paris')).map((l) => l.textContent),
+      const lignes = Array.from(document.querySelectorAll('#liste-routines .dossier-ligne'));
+      const l = lignes.filter((x) => (x.querySelector('.dossier-nom') || {}).textContent.indexOf(n) >= 0)[0];
+      if (!l) return null;
+      const r = l.nextElementSibling && l.nextElementSibling.classList.contains('programme-dossier') ? l.nextElementSibling : null;
+      const k = document.querySelector('#liste-routines .carte-fin-bloc[data-dossier="' + n + '"]');
+      const premier = document.querySelector('#liste-routines').firstElementChild;
+      return { badge: (l.querySelector('.dossier-badge') || {}).textContent || null,
+        compte: !!l.querySelector('.dossier-compte'),
+        creer: !!(r && r.querySelector('.programme-creer')), rangee: !!r && !r.querySelector('.programme-creer'),
+        fin: k ? { enTete: premier === k || (premier && premier.classList.contains('carte-fin-bloc')),
+                   titre: k.querySelector('.cfb-titre').textContent,
+                   entete: (k.querySelector('.cfb-entete') || {}).textContent || null,
+                   lignes: Array.from(k.querySelectorAll('.cfb-ligne')).map((x) =>
+                     [x.querySelector('.cfb-nom').textContent, x.querySelector('.cfb-valeur').textContent]),
+                   paris: Array.from(k.querySelectorAll('.cfb-paris')).map((x) => x.textContent),
                    suivant: (k.querySelector('.cfb-suivant') || {}).textContent || null,
+                   gras: (k.querySelector('.cfb-suivant b') || {}).textContent || null,
                    gestes: Array.from(k.querySelectorAll('.cfb-gestes button')).map((b) => b.textContent) } : null };
     }, nom);
     const cliquerDossier = (nom, sel) => page.evaluate(([n, s]) => {
-      const tetes = Array.from(document.querySelectorAll('#liste-routines .dossier-tete'));
-      const t = tetes.filter((x) => (x.querySelector('.dossier-nom') || {}).textContent.indexOf(n) >= 0)[0];
-      t.nextElementSibling.querySelector(s).click();
+      if (/^\.cfb-/.test(s)) {
+        document.querySelector('#liste-routines .carte-fin-bloc[data-dossier="' + n + '"] ' + s).click();
+        return;
+      }
+      const lignes = Array.from(document.querySelectorAll('#liste-routines .dossier-ligne'));
+      const l = lignes.filter((x) => (x.querySelector('.dossier-nom') || {}).textContent.indexOf(n) >= 0)[0];
+      (l.querySelector(s) || l.nextElementSibling.querySelector(s)).click();
     }, [nom, sel]);
     const feuilleP = () => page.evaluate(() => {
       const c = document.getElementById('feuille-contenu');
-      const actifs = (sel) => Array.from(c.querySelectorAll(sel)).map((b) => ({ cle: b.getAttribute('data-cle') || b.getAttribute('data-slug'),
-        actif: b.classList.contains('active'), texte: (b.querySelector('.oz-nom') || {}).textContent }));
-      const groupes = Array.from(c.querySelectorAll('.choix-programme'));
-      return { titre: (c.querySelector('.feuille-t') || {}).textContent || '',
-        zone: actifs('.choix-programme:nth-of-type(1) .option-zone'), groupes: groupes.map((g) =>
-          Array.from(g.querySelectorAll('.option-zone')).map((b) => (b.classList.contains('active') ? '*' : '') +
-            ((b.querySelector('.oz-nom') || {}).textContent || ''))) };
+      const champs = {};
+      Array.from(c.querySelectorAll('select[data-champ]')).forEach((x) => {
+        champs[x.getAttribute('data-champ')] = { libelle: x.parentNode.querySelector('.cp-k').textContent,
+          choisi: x.options[x.selectedIndex].textContent, options: Array.from(x.options).map((o) => o.textContent) };
+      });
+      return { titre: (c.querySelector('.feuille-t') || {}).textContent || '', champs,
+        ordre: Array.from(c.querySelectorAll('select[data-champ]')).map((x) => x.getAttribute('data-champ')),
+        aide: (c.querySelector('.cp-aide') || {}).textContent || '',
+        cases: Array.from(c.querySelectorAll('.case-programme')).map((b) =>
+          b.querySelector('.cp-nom').textContent + '|' + b.querySelector('.cp-zone').textContent),
+        bouton: (c.querySelector('.valider-programme') || {}).textContent || '' };
     });
-    const choisirP = async (cle) => {
-      await page.evaluate((k) => Array.from(document.querySelectorAll('#feuille-contenu .choix-programme .option-zone'))
-        .filter((b) => b.getAttribute('data-cle') === k)[0].click(), cle);
+    const choisirP = async (champ, texte) => {
+      await page.evaluate(([k, t]) => {
+        const x = document.querySelector('#feuille-contenu select[data-champ="' + k + '"]');
+        const i = Array.from(x.options).findIndex((o) => o.textContent.indexOf(t) === 0);
+        x.value = String(i);
+        x.dispatchEvent(new Event('change'));
+      }, [champ, texte]);
       await attendre(300);
     };
+    const puceC = (slug) => page.evaluate((s) => {
+      const n = document.querySelector('.legende-exo[data-exo="' + s + '"] .puce-zone');
+      return n ? n.textContent : null;
+    }, slug);
     const validerP = async () => { await page.click('#feuille-contenu .valider-programme'); await attendre(2200); };
     const sauter = async (jours) => { await page.clock.setSystemTime(new Date(T0 + jours * JOUR_MS)); await aller('/saisie'); };
 
@@ -12083,15 +12110,22 @@ const SETS_IMPORTES = [
     await cliquerDossier('Alpha U53', '.programme-creer');
     await attendre(800);
     const fp = await feuilleP();
-    ok('[C53] la feuille : Mix, 4 semaines, la décharge la dernière semaine, lundi, et les barres polyarticulaires cochées',
-      /^Faire de ce dossier un programme/.test(sp(fp.titre)) && fp.groupes.length === 5 &&
-        JSON.stringify(fp.groupes[0]) === JSON.stringify(['Lourd', '*Mix']) &&
-        JSON.stringify(fp.groupes[1]) === JSON.stringify(['3 semaines', '*4 semaines', '5 semaines', '6 semaines']) &&
-        JSON.stringify(fp.groupes[2]) === JSON.stringify(['*La dernière semaine', 'Sans décharge']) &&
-        /^\*Lundi /.test(fp.groupes[3][0]) &&
-        JSON.stringify(fp.groupes[4]) === JSON.stringify(['*Alpha Cycle U53 (Barre)', '*Bêta Cycle U53 (Barre)', 'Gamma Cycle U53 (Barre)']),
+    const fc = fp.champs || {};
+    ok('[C53] la feuille (maquette) : quatre champs dans l’ordre — Mix (6-8), 4 semaines (3 à 6), « Oui, la dernière semaine », le lundi qui suit',
+      /^Faire de ce dossier un programme/.test(sp(fp.titre)) &&
+        JSON.stringify(fp.ordre) === JSON.stringify(['zone', 'semaines', 'decharge', 'debut']) &&
+        fc.zone.libelle === 'Premier bloc' && fc.zone.choisi === 'Mix (6-8)' &&
+        JSON.stringify(fc.zone.options) === JSON.stringify(['Lourd (3-5)', 'Mix (6-8)']) &&
+        fc.semaines.libelle === 'Durée du bloc' && fc.semaines.choisi === '4 semaines (3 à 6)' && fc.semaines.options.length === 4 &&
+        fc.decharge.libelle === 'Décharge à la fin' && fc.decharge.choisi === 'Oui, la dernière semaine' &&
+        fc.debut.libelle === 'Début' && /^lundi \d+ \S+$/.test(sp(fc.debut.choisi)) && sp(fc.debut.options[1]) === 'aujourd’hui',
       JSON.stringify(fp));
-    await choisirP('aujourdhui');
+    ok('[C53] la feuille (maquette) : les barres polyarticulaires cochées en « Mix », l’autre « sa zone », « Lancer le programme »',
+      sp(fp.aide) === 'Exercices du bloc — tes mouvements à la barre. Les autres gardent leur zone.' &&
+        JSON.stringify(fp.cases.map(sp)) === JSON.stringify(['☑ Alpha Cycle U53 (Barre)|Mix', '☑ Bêta Cycle U53 (Barre)|Mix',
+          '☐ Gamma Cycle U53 (Barre)|sa zone']) && fp.bouton === 'Lancer le programme',
+      JSON.stringify(fp));
+    await choisirP('debut', 'aujourd');
     const zonesAvantA = base.zones.length;
     await validerP();
     const blocA = base.blocs.filter((b) => b.dossier === 'Alpha U53')[0];
@@ -12106,7 +12140,8 @@ const SETS_IMPORTES = [
         base.journal.findIndex((j) => j.op === 'bloc' && j.id === blocA.id) < base.journal.findIndex((j) => j.op === 'zone' && j.id === lignesA[0].id),
       JSON.stringify(lignesA));
     const a1 = await dossier('Alpha U53');
-    ok('[C53] le badge sur le dossier : « Bloc Mix · semaine 1 sur 4 »', a1 && sp(a1.badge) === 'Bloc Mix · semaine 1 sur 4',
+    ok('[C53] le badge sur la tête du dossier, à la place du compte, sans rangée de plus : « Bloc Mix · semaine 1 sur 4 »',
+      a1 && sp(a1.badge) === 'Bloc Mix · semaine 1 sur 4' && !a1.compte && !a1.creer && !a1.rangee,
       JSON.stringify(a1));
 
     // ── B. EN SÉANCE : la zone du bloc, la charge reportée, sa phrase.
@@ -12116,8 +12151,11 @@ const SETS_IMPORTES = [
     const bCurl = await planC('cyc-curl-u53');
     ok('[C53] DISCRIMINANT — la zone suit (Mix) et la charge se reporte : 95 kg × 6, avec sa phrase',
       b0 && b0.x.etat === 'nouvelle_zone' && b0.x.zone === 'mix' && b0.x.charge === 95 && b0.x.vise === 6 &&
-        sp(b0.x.gris) === 'Nouvelle zone : Mix. Estimée depuis ton 100 kg × 5, un peu en dessous pour démarrer.',
+        sp(b0.x.gris) === 'Nouveau bloc : Mix. Estimée depuis ton 100 kg × 5, un peu en dessous pour démarrer.',
       JSON.stringify(b0 && b0.x));
+    const etiqB = [await puceC('cyc-squat-u53'), await puceC('cyc-curl-u53')];
+    ok('[C53] DISCRIMINANT (D3) — l’étiquette porte l’origine : « Mix 6-8 · bloc » ; l’exercice hors bloc, la sienne',
+      sp(etiqB[0]) === 'Mix 6-8 · bloc' && !!etiqB[1] && !/bloc/.test(etiqB[1]), JSON.stringify(etiqB));
     ok('[C53] l’exercice décoché garde sa zone (pas de report)', bCurl && bCurl.x.etat !== 'nouvelle_zone' && bCurl.x.zone !== 'mix',
       JSON.stringify(bCurl && bCurl.x));
     await abandonner();
@@ -12126,8 +12164,8 @@ const SETS_IMPORTES = [
     await aller('/saisie');
     await cliquerDossier('Delta U53', '.programme-creer');
     await attendre(800);
-    await choisirP('lourd');
-    await choisirP('aujourdhui');
+    await choisirP('zone', 'Lourd');
+    await choisirP('debut', 'aujourd');
     await validerP();
     await demarrerRoutine('Delta U53');
     await attendre(1500);
@@ -12188,6 +12226,9 @@ const SETS_IMPORTES = [
       JSON.stringify([e0 && e0.allegee, bandeau]));
     ok('[C53] DISCRIMINANT — 60 % des séries : 2 lignes sur 3, mêmes charges', e0 && e0.x.couvertes === 2 && e0.x.travail === 2,
       JSON.stringify(e0 && e0.x));
+    ok('[C53] la phrase de l’exercice nomme la décharge (maquette) : « Semaine de décharge : … 2 séries au lieu de 3, cette semaine. »',
+      e0 && sp(e0.x.gris) === 'Semaine de décharge : mêmes charges, moins de séries. 2 séries au lieu de 3, cette semaine.',
+      JSON.stringify(e0 && e0.x));
     await abandonner();
 
     // ── F. UNE SEMAINE ALLÉGÉE FINIE 5 JOURS AVANT : la décharge saute.
@@ -12211,16 +12252,38 @@ const SETS_IMPORTES = [
     // ── H. LA FIN DU BLOC : le bilan, les paris tenus, le bloc suivant.
     await sauter(28);
     const h0 = await dossier('Alpha U53');
-    ok('[C53] DISCRIMINANT — la fin du bloc : la carte, le bilan en faits (hors décharge), les paris tenus',
-      h0 && h0.fin && sp(h0.fin.titre) === 'Ton bloc Mix est terminé.' &&
-        JSON.stringify(h0.fin.lignes.map(sp)) === JSON.stringify(['Alpha Cycle U53 (Barre) : 95 kg × 6, inchangé',
-          'Bêta Cycle U53 (Barre) : 77,5 kg × 6, inchangé']) &&
+    ok('[C53] DISCRIMINANT — la fin du bloc : la carte EN TÊTE de l’écran, « Pendant ce bloc », le bilan en deux colonnes (hors décharge), les paris tenus',
+      h0 && h0.fin && h0.fin.enTete && sp(h0.fin.titre) === 'Ton bloc Mix est terminé.' && h0.fin.entete === 'Pendant ce bloc' &&
+        JSON.stringify(h0.fin.lignes.map((l) => l.map(sp))) === JSON.stringify([['Alpha Cycle U53 (Barre)', '95 kg × 6, inchangé'],
+          ['Bêta Cycle U53 (Barre)', '77,5 kg × 6, inchangé']]) &&
         sp(h0.fin.paris[0]) === 'Le coach avait fait 6 paris sur ce bloc : 6 ont tenu.',
       JSON.stringify(h0));
-    ok('[C53] le bloc suivant par la règle fixe, et ses trois gestes',
-      h0 && h0.fin && sp(h0.fin.suivant) === 'Bloc suivant : Lourd, 4 semaines, la dernière en décharge.' &&
+    ok('[C53] le bloc suivant par la règle fixe, sans jargon (sa zone en gras), et ses trois gestes',
+      h0 && h0.fin && sp(h0.fin.suivant) === 'Le suivant, comme le font les programmes de force : Lourd (3-5) sur tes ' +
+        'mouvements à la barre, 4 semaines, décharge la dernière semaine. Les autres exercices gardent leur zone.' &&
+        h0.fin.gras === 'Lourd (3-5)' &&
         JSON.stringify(h0.fin.gestes) === JSON.stringify(['Commencer le bloc Lourd', 'Ajuster le bloc', 'Arrêter le programme']),
       JSON.stringify(h0 && h0.fin));
+
+    // ── I (53-2 bis). ENTRE LA FIN ET LE CHOIX : rien ne change sans la personne.
+    ok('[C53] DISCRIMINANT (D3) — entre la fin et le choix : le badge « Bloc Mix terminé »',
+      h0 && sp(h0.badge) === 'Bloc Mix terminé', JSON.stringify(h0));
+    await demarrerRoutine('Alpha U53');
+    await attendre(1500);
+    const i0 = await planC('cyc-couche-u53');
+    const etiqI = await puceC('cyc-couche-u53');
+    ok('[C53] DISCRIMINANT (D3) — entre la fin et le choix : la zone du bloc tient (Mix · bloc), aucune décharge de plus',
+      i0 && i0.x.zone === 'mix' && sp(etiqI) === 'Mix 6-8 · bloc' && i0.allegee === null && i0.carte === null &&
+        i0.x.couvertes === 3 && i0.enBloc && i0.enBloc['cyc-couche-u53'] === true, JSON.stringify([i0, etiqI]));
+    await abandonner();
+    await sauter(31);
+    const i1 = await dossier('Alpha U53');
+    ok('[C53] DISCRIMINANT (D3) — trois jours plus tard, sans choix : la carte de fin est toujours là, le bloc toujours en cours',
+      i1 && i1.fin && sp(i1.fin.titre) === 'Ton bloc Mix est terminé.' && sp(i1.badge) === 'Bloc Mix terminé' &&
+        base.blocs.filter((b) => b.dossier === 'Alpha U53' && b.statut === 'en_cours').length === 1 &&
+        base.predictions.filter((l) => l.module === 'programme').length === 0, JSON.stringify(i1));
+
+    // ── J. LE CHOIX : « Commencer le bloc Lourd », le bloc proposé tel quel : un pari.
     await cliquerDossier('Alpha U53', '.cfb-commencer');
     await attendre(2400);
     const blocs53 = base.blocs.filter((b) => b.dossier === 'Alpha U53');
@@ -12230,20 +12293,74 @@ const SETS_IMPORTES = [
         nouveau.zone === 'lourd' && nouveau.precedent === blocA.id && nouveau.semaines === 4 &&
         JSON.stringify(nouveau.exercices) === JSON.stringify(blocA.exercices), JSON.stringify(blocs53));
     const pariP = base.predictions.filter((l) => l.module === 'programme');
-    ok('[C53] DISCRIMINANT — la proposition est un pari : module programme, 2 exercices prédits, le bloc suivant',
+    ok('[C53] DISCRIMINANT — le bloc proposé, commencé tel quel, est un pari : module programme, 2 exercices prédits',
       pariP.length === 1 && pariP[0].grandeur === 'exercices_en_progres' && Number(pariP[0].valeur_predite) === 2 &&
         pariP[0].fondement.bloc === (nouveau && nouveau.id) && pariP[0].exercise_slug === null, JSON.stringify(pariP));
     const h1 = await dossier('Alpha U53');
-    ok('[C53] le badge du nouveau bloc : « Bloc Lourd · semaine 1 sur 4 »', h1 && sp(h1.badge) === 'Bloc Lourd · semaine 1 sur 4',
-      JSON.stringify(h1));
-    // L'arrêt (le bloc de « Delta U53 », fini) : le statut, et la zone d'après les séances.
-    await cliquerDossier('Delta U53', '.cfb-arreter');
-    await attendre(2000);
+    ok('[C53] le badge du nouveau bloc : « Bloc Lourd · semaine 1 sur 4 », la carte partie',
+      h1 && sp(h1.badge) === 'Bloc Lourd · semaine 1 sur 4' && h1.fin === null, JSON.stringify(h1));
+
+    // ── K. « AJUSTER LE BLOC » (Delta U53) : le bloc commence, SANS pari.
     const terre = base.blocs.filter((b) => b.dossier === 'Delta U53')[0];
-    const vide = base.zones.filter((l) => l.exercise_slug === 'cyc-terre-u53').slice(-1)[0];
-    ok('[C53] « Arrêter le programme » : le bloc terminé, sans suivant ; la zone revient à celle des séances',
-      terre && terre.statut === 'termine' && base.blocs.filter((b) => b.dossier === 'Delta U53').length === 1 &&
-        vide && vide.zone === null && vide.origine === 'personne', JSON.stringify([terre, vide]));
+    await cliquerDossier('Delta U53', '.cfb-ajuster');
+    await attendre(800);
+    const fk = await feuilleP();
+    ok('[C53] « Ajuster le bloc » : la feuille du bloc suivant (Mix, proposé par la règle), réglable',
+      /^Ajuster le bloc/.test(sp(fk.titre)) && fk.champs.zone && fk.champs.zone.choisi === 'Mix (6-8)' &&
+        fk.champs.zone.libelle === 'Bloc' && fk.bouton === 'Commencer le bloc', JSON.stringify(fk));
+    await choisirP('semaines', '3 semaines');
+    await validerP();
+    const blocsK = base.blocs.filter((b) => b.dossier === 'Delta U53');
+    const ajuste = blocsK.filter((b) => b.statut === 'en_cours')[0];
+    ok('[C53] DISCRIMINANT (D3) — un bloc ajusté ne porte pas de pari : le bloc commence, aucun pari de programme de plus',
+      blocsK.length === 2 && !!ajuste && ajuste.zone === 'mix' && ajuste.semaines === 3 && ajuste.precedent === terre.id &&
+        base.blocs.filter((b) => b.id === terre.id)[0].statut === 'termine' &&
+        base.predictions.filter((l) => l.module === 'programme').length === 1, JSON.stringify([blocsK, base.predictions.filter((l) => l.module === 'programme')]));
+
+    // ── L. « ARRÊTER LE PROGRAMME » en plein bloc, sans correction (Delta U53).
+    const zonesAvantL = base.zones.length;
+    await cliquerDossier('Delta U53', '.dossier-badge');
+    await attendre(800);
+    await page.click('#feuille-contenu .arreter-programme');
+    await attendre(2000);
+    const arretL = base.zones.slice(zonesAvantL);
+    ok('[C53] DISCRIMINANT (D3) — l’arrêt en plein bloc : une ligne sans zone, origine « bloc », du bloc arrêté, datée de l’arrêt',
+      base.blocs.filter((b) => b.id === ajuste.id)[0].statut === 'arrete' && arretL.length === 1 &&
+        arretL[0].exercise_slug === 'cyc-terre-u53' && arretL[0].zone === null && arretL[0].origine === 'bloc' &&
+        arretL[0].bloc_id === ajuste.id && Math.abs(Date.parse(arretL[0].corrigee_a) - (T0 + 31 * JOUR_MS)) < 10 * 60000,
+      JSON.stringify(arretL));
+    const l0 = await dossier('Delta U53');
+    ok('[C53] après l’arrêt : ni badge, ni carte ; « Faire de ce dossier un programme » revient',
+      l0 && l0.badge === null && l0.fin === null && l0.creer, JSON.stringify(l0));
+
+    // ── M. L'ARRÊT AVEC UNE CORRECTION DE LA PERSONNE PENDANT LE BLOC (Alpha U53, bloc Lourd).
+    await demarrerRoutine('Alpha U53');
+    await attendre(1500);
+    await page.click('.legende-exo[data-exo="cyc-couche-u53"] .puce-zone');
+    await attendre(700);
+    await page.click('#feuille-contenu .option-zone[data-cle="mix"]');
+    await attendre(1600);
+    await abandonner();
+    const zonesAvantM = base.zones.length;
+    await cliquerDossier('Alpha U53', '.dossier-badge');
+    await attendre(800);
+    await page.click('#feuille-contenu .arreter-programme');
+    await attendre(2000);
+    const arretM = base.zones.slice(zonesAvantM);
+    const dernCouche = base.zones.filter((l) => l.exercise_slug === 'cyc-couche-u53').slice(-1)[0];
+    ok('[C53] DISCRIMINANT (D3) — l’arrêt garde la correction de la personne : une ligne pour la barre non corrigée, aucune pour l’autre',
+      arretM.length === 1 && arretM[0].exercise_slug === 'cyc-squat-u53' && arretM[0].zone === null &&
+        arretM[0].origine === 'bloc' && arretM[0].bloc_id === nouveau.id &&
+        dernCouche.origine === 'personne' && dernCouche.zone === 'mix', JSON.stringify([arretM, dernCouche]));
+    await demarrerRoutine('Alpha U53');
+    await attendre(1500);
+    const m1 = [await planC('cyc-couche-u53'), await planC('cyc-squat-u53')];
+    const etiqM = [await puceC('cyc-couche-u53'), await puceC('cyc-squat-u53')];
+    ok('[C53] après l’arrêt : la correction tient (Mix, sans « bloc »), l’autre barre retrouve sa zone d’après ses séances',
+      m1[0] && m1[0].x.zone === 'mix' && sp(etiqM[0]) === 'Mix 6-8' && m1[1] &&
+        !/bloc/.test(etiqM[1] || '') && m1[1].enBloc && Object.keys(m1[1].enBloc).length === 0,
+      JSON.stringify([m1.map((x) => x && x.x), etiqM]));
+    await abandonner();
     ok('[C53] aucun refus du serveur pendant la section (le bloc monte avant ses lignes)',
       base.journal.filter((j) => j.op === 'refus').length === refusAvant,
       JSON.stringify(base.journal.filter((j) => j.op === 'refus').slice(-3)));

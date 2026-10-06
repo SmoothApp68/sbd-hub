@@ -131,7 +131,7 @@ describe('53-1 — le câblage : la correction à l’étiquette (Lourd → Mix)
     expect([r.consigne.etat, r.consigne.zone, r.consigne.ligne, r.consigne.haut])
       .toEqual(['nouvelle_zone', 'mix', { charge: 95, vise: 6 }, null]);
     expect(r.consigne.fondement.report).toEqual({ origine: 'estimee', zoneAvant: 'lourd',
-      depuis: { date: '2026-09-08T10:00:00Z', palier: 100, niveau: 5 } });
+      depuis: { date: '2026-09-08T10:00:00Z', palier: 100, niveau: 5 }, ligne: 'personne' });
     expect(norm(r.libelles.gris)).toBe('Nouvelle zone : Mix. Estimée depuis ton 100 kg × 5, un peu en dessous pour démarrer.');
     expect(r.libelles.jaune.map(norm)).toEqual(['95 kg × 6']);
     // Avant 53-1 : 100 kg × 6 — le palier gardé, une rep de plus (le relevé du 05/10).
@@ -286,5 +286,48 @@ describe('53-1 — les phrases : d’où vient la charge, jamais un maximum', ()
     const apres = consigne(faite, MIX_LE_10, '2026-09-11T12:00:00Z');
     const c = M.constatDe(avant.consigne, apres.consigne, 'normal', 97.5, '2026-09-11T12:00:00Z');
     expect(norm(c.verdict)).toBe('Premier repère en Mix : 95 kg × 6, 6, 6.');
+  });
+});
+
+// ══ 53-2 bis (D1) — LA PHRASE D'UN DÉBUT DE BLOC ═════════════════════════════
+//
+// « Quand le changement vient d'un début de bloc (§9.22), la même phrase
+// commence par « Nouveau bloc : Mix. » au lieu de « Nouvelle zone : Mix. » —
+// même fonction, l'origine de la ligne de zone en paramètre. »
+describe('53-2 bis — D1 : « Nouveau bloc », la même phrase', () => {
+  const LIGNE_BLOC = { id: 'b-l', exercise_slug: 'squat', zone: 'mix', corrigee_a: '2026-09-10T00:00:00', origine: 'bloc', bloc_id: 'b1' };
+  const parBloc = { correction: 'mix', correctionsDeZone: [LIGNE_BLOC], ligneDeZone: LIGNE_BLOC };
+  test('⚠️ DISCRIMINANT — la ligne en vigueur vient d’un bloc : « Nouveau bloc : Mix. », le reste identique', () => {
+    const r = consigne(LOURD, parBloc);
+    const p = consigne(LOURD, MIX_LE_10);
+    expect(r.consigne.fondement.report.ligne).toBe('bloc');
+    expect(norm(r.libelles.gris)).toBe('Nouveau bloc : Mix. Estimée depuis ton 100 kg × 5, un peu en dessous pour démarrer.');
+    expect(norm(r.libelles.gris).replace('Nouveau bloc', 'Nouvelle zone')).toBe(norm(p.libelles.gris));
+    expect(r.consigne.ligne).toEqual(p.consigne.ligne);
+    // L'étiquette porte l'origine : « Mix 6-8 · bloc ».
+    expect(r.etiquette).toBe('Mix 6-8 · bloc');
+    expect(p.etiquette).toBe('Mix 6-8');
+  });
+  test('la charge déjà tenue, par un bloc : même phrase, « Nouveau bloc »', () => {
+    const r = consigne([g('2026-08-20T10:00:00Z', 90, [7, 7, 7])].concat(LOURD), parBloc);
+    expect(norm(r.libelles.gris)).toBe('Nouveau bloc : Mix. Ta charge déjà tenue en Mix, le 20 août : 90 kg × 7.');
+  });
+  test('⚠️ DISCRIMINANT — la ligne d’arrêt (sans zone, origine « bloc ») n’est pas un début de bloc : la charge suit, « Nouvelle zone »', () => {
+    // Lourd en août, puis deux séances du bloc Mix ; « Arrêter le programme »
+    // le 15/09 : la zone repart des séances (Lourd), la charge suit (§9.10).
+    const SEANCES = [g('2026-08-01T10:00:00Z', 100, [5, 5, 5]), g('2026-08-04T10:00:00Z', 100, [5, 5, 5]),
+      g('2026-08-08T10:00:00Z', 100, [5, 5, 5]), g('2026-09-11T10:00:00Z', 95, [6, 6, 6]), g('2026-09-14T10:00:00Z', 95, [7, 7, 7])];
+    const arret = Object.assign({}, LIGNE_BLOC, { id: 'b-a', zone: null, corrigee_a: '2026-09-15T20:00:00Z' });
+    const pendant = consigne(SEANCES, { correction: 'mix', correctionsDeZone: [LIGNE_BLOC], ligneDeZone: LIGNE_BLOC }, '2026-09-17T10:00:00Z');
+    expect([pendant.consigne.zone, pendant.etiquette]).toEqual(['mix', 'Mix 6-8 · bloc']);
+    const apres = consigne(SEANCES, { correction: null, correctionsDeZone: [LIGNE_BLOC, arret], ligneDeZone: arret }, '2026-09-17T10:00:00Z');
+    expect([apres.consigne.etat, apres.consigne.zone, apres.etiquette]).toEqual(['nouvelle_zone', 'lourd', 'Lourd 3-5']);
+    expect(apres.consigne.fondement.report.ligne).toBe('personne');
+    expect(norm(apres.libelles.gris)).toBe('Nouvelle zone : Lourd. Ta charge déjà tenue en Lourd, le 8 août : 100 kg × 5.');
+  });
+  test('une ligne de bloc qui ne pose pas la zone affichée : pas de « · bloc »', () => {
+    expect(M.etiquetteZone({ zone: 'lourd' }, LIGNE_BLOC)).toBe('Lourd 3-5');
+    expect(M.etiquetteZone({ zone: 'mix' }, LIGNE_BLOC)).toBe('Mix 6-8 · bloc');
+    expect(M.etiquetteZone({ zone: 'mix' }, null)).toBe('Mix 6-8');
   });
 });

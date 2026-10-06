@@ -3547,22 +3547,40 @@
     // dossier, rien ne change non plus — pas de « Sans dossier » seul en tête.
     var groupes = v.reorganiser ? null : R().parDossier(routines);
     if (groupes) {
-      groupes.forEach(function (g) {
+      // MOTEUR §9.22 (53-2) — le programme de chaque dossier, lu sur
+      // `vue.programme`. LA CARTE DE FIN DE BLOC passe EN TÊTE de l'écran
+      // (maquette cycles v1, « Fin ») : la voix du coach, au-dessus des
+      // dossiers, jusqu'au choix de la personne.
+      var programmes = groupes.map(function (g) {
+        return v.programme && g.dossier !== null ? v.programme(g.dossier) : null;
+      });
+      groupes.forEach(function (g, i) {
+        if (programmes[i] && programmes[i].fin) cible.appendChild(carteFinDeBloc(g.dossier, programmes[i].fin, v));
+      });
+      groupes.forEach(function (g, i) {
         var cle = g.dossier === null ? '' : g.dossier;
         var replie = !!(v.replies && v.replies[cle]);
+        var pr = programmes[i];
+        var ligne = el('div', 'dossier-ligne');
         var tete = el('button', 'dossier-tete' + (replie ? ' replie' : ''));
         tete.type = 'button';
         tete.setAttribute('aria-expanded', replie ? 'false' : 'true');
         tete.appendChild(el('span', 'dossier-nom',
           (replie ? '\u25b8 ' : '\u25be ') + (g.dossier === null ? 'Sans dossier' : g.dossier)));
-        // MOTEUR §9.22 (53-2) — le programme du dossier : son badge sur la tête
-        // (« Bloc Mix · semaine 2 sur 4 »), lu sur `vue.programme`.
-        var pr = v.programme && g.dossier !== null ? v.programme(g.dossier) : null;
-        if (pr && pr.badge) tete.appendChild(el('span', 'dossier-badge', pr.badge));
-        tete.appendChild(el('span', 'dossier-compte num', String(g.routines.length)));
+        // Le badge du bloc À LA PLACE du compte, à droite de la tête (« Bloc
+        // Mix · semaine 2 sur 4 ») : il ouvre le bloc en cours (ses
+        // exercices, « Arrêter le programme »). Aucune rangée de plus.
+        if (!(pr && pr.badge)) tete.appendChild(el('span', 'dossier-compte num', String(g.routines.length)));
         tete.addEventListener('click', function () { if (v.surReplier) v.surReplier(cle); });
-        cible.appendChild(tete);
-        if (!replie && pr) cible.appendChild(rangeeDeProgramme(g.dossier, pr, v));
+        ligne.appendChild(tete);
+        if (pr && pr.badge) {
+          var badge = el('button', 'dossier-badge', pr.badge);
+          badge.type = 'button';
+          badge.addEventListener('click', function () { if (v.surBadgeProgramme) v.surBadgeProgramme(g.dossier); });
+          ligne.appendChild(badge);
+        }
+        cible.appendChild(ligne);
+        if (!replie && pr && pr.creer) cible.appendChild(rangeeDeProgramme(g.dossier, v));
         if (!replie) g.routines.forEach(function (r) { cible.appendChild(rangeeDeRoutine(r, v)); });
       });
     } else {
@@ -3579,39 +3597,51 @@
     }
   }
 
-  // MOTEUR §9.22 (53-2) — LE PROGRAMME D'UN DOSSIER, sous sa tête : la carte de
-  // fin de bloc (le bilan, le bloc suivant, ses trois gestes), le bloc en cours
-  // (un bouton qui ouvre ses détails), ou « Faire de ce dossier un programme ».
-  // Aucune phrase n'est écrite ici : le moteur les rédige.
-  function rangeeDeProgramme(dossier, pr, v) {
+  // MOTEUR §9.22 (53-2) — « Faire de ce dossier un programme », sous la tête
+  // d'un dossier qui n'en a pas. Le bloc en cours n'a pas de rangée : son
+  // badge est sur la tête ; la carte de fin est en tête de l'écran.
+  function rangeeDeProgramme(dossier, v) {
     var r = el('div', 'programme-dossier');
-    if (pr.fin) {
-      r.appendChild(carteFinDeBloc(dossier, pr.fin, v));
-    } else if (pr.badge) {
-      var b = el('button', 'programme-en-cours', pr.badge);
-      b.type = 'button';
-      b.addEventListener('click', function () { if (v.surBadgeProgramme) v.surBadgeProgramme(dossier); });
-      r.appendChild(b);
-    } else if (pr.creer) {
-      var c = el('button', 'discret programme-creer', 'Faire de ce dossier un programme');
-      c.type = 'button';
-      c.addEventListener('click', function () { if (v.surProgramme) v.surProgramme(dossier); });
-      r.appendChild(c);
-    }
+    var c = el('button', 'discret programme-creer', 'Faire de ce dossier un programme');
+    c.type = 'button';
+    c.addEventListener('click', function () { if (v.surProgramme) v.surProgramme(dossier); });
+    r.appendChild(c);
     return r;
   }
 
+  // La carte de fin de bloc (maquette cycles v1, « Fin ») : le titre, « Pendant
+  // ce bloc », une rangée par exercice (le nom, puis sa première et sa dernière
+  // charge de travail), les paris, le bloc suivant (sa zone en gras), et trois
+  // gestes pleine largeur. Aucune phrase n'est écrite ici : le moteur les rédige.
   function carteFinDeBloc(dossier, k, v) {
     var c = el('div', 'carte-fin-bloc');
+    c.setAttribute('data-dossier', dossier);
     c.appendChild(el('p', 'cfb-titre', k.titre));
     if (k.lignes.length) {
-      var l = el('ul', 'cfb-bilan');
-      k.lignes.forEach(function (t) { l.appendChild(el('li', '', t)); });
+      c.appendChild(el('p', 'cfb-entete', k.entete));
+      var l = el('div', 'cfb-bilan');
+      k.lignes.forEach(function (x) {
+        var rg = el('div', 'cfb-ligne');
+        rg.appendChild(el('span', 'cfb-nom', x.nom));
+        rg.appendChild(el('span', 'cfb-valeur num', x.valeur));
+        l.appendChild(rg);
+      });
       c.appendChild(l);
     }
     c.appendChild(el('p', 'cfb-paris', k.paris));
     if (k.pari) c.appendChild(el('p', 'cfb-paris', k.pari));
-    if (k.suivant) c.appendChild(el('p', 'cfb-suivant', k.suivant));
+    if (k.suivant) {
+      var p = el('p', 'cfb-suivant');
+      var i = k.suivantZone ? k.suivant.indexOf(k.suivantZone) : -1;
+      if (i < 0) {
+        p.textContent = k.suivant;
+      } else {
+        p.appendChild(document.createTextNode(k.suivant.slice(0, i)));
+        p.appendChild(el('b', '', k.suivantZone));
+        p.appendChild(document.createTextNode(k.suivant.slice(i + k.suivantZone.length)));
+      }
+      c.appendChild(p);
+    }
     var gestes = el('div', 'cfb-gestes');
     var bouton = function (classe, texte, fn) {
       var b = el('button', classe, texte);
@@ -3626,59 +3656,61 @@
     return c;
   }
 
-  // LA FEUILLE « FAIRE DE CE DOSSIER UN PROGRAMME » (ou « Ajuster le bloc ») :
-  // la zone (Lourd ou Mix), la durée (3 à 6 semaines), la décharge, le début,
-  // les exercices du bloc. Rien n'est écrit avant « Commencer le bloc ».
+  // LA FEUILLE « FAIRE DE CE DOSSIER UN PROGRAMME » (ou « Ajuster le bloc »),
+  // maquette cycles v1, « Créer » : quatre champs (le bloc, sa durée, sa
+  // décharge, son début), puis les exercices du bloc — cochés, ils prennent
+  // la zone du bloc ; décochés, ils gardent la leur. Rien n'est écrit avant
+  // « Lancer le programme ».
   function rendreFeuilleProgramme(cible, vue) {
     vider(cible);
-    var t = el('div', 'feuille-t', vue.suite ? 'Le bloc suivant' : 'Faire de ce dossier un programme');
+    var t = el('div', 'feuille-t', vue.suite ? 'Ajuster le bloc' : 'Faire de ce dossier un programme');
     t.appendChild(el('em', '', vue.dossier));
     cible.appendChild(t);
-    cible.appendChild(el('p', 'feuille-aide', 'Le programme fixe la zone de tes barres, la durée du bloc et sa ' +
-      'décharge. Le coach continue de décider les charges.'));
-    var choix = function (titre, options, actuel, fn) {
-      cible.appendChild(el('div', 'pq-sec', titre));
-      var m = el('div', 'choix-programme');
-      options.forEach(function (o) {
-        var b = el('button', 'option-zone' + (o.valeur === actuel ? ' active' : ''));
-        b.type = 'button';
-        b.setAttribute('data-cle', String(o.valeur));
-        b.appendChild(el('span', 'oz-rond'));
-        b.appendChild(el('span', 'oz-nom', o.texte));
-        b.appendChild(el('span', 'oz-sous', o.sous || ''));
-        b.addEventListener('click', function () { fn(o.valeur); });
-        m.appendChild(b);
+    var champ = function (cle, titre, options, actuel, fn) {
+      var r = el('label', 'champ-programme');
+      r.appendChild(el('span', 'cp-k', titre));
+      var sel = el('select', 'cp-v');
+      sel.setAttribute('data-champ', cle);
+      options.forEach(function (o, i) {
+        var op = el('option', '', o.texte);
+        op.value = String(i);
+        if (o.valeur === actuel) op.selected = true;
+        sel.appendChild(op);
       });
-      cible.appendChild(m);
+      sel.addEventListener('change', function () { fn(options[Number(sel.value)].valeur); });
+      r.appendChild(sel);
+      cible.appendChild(r);
     };
-    choix('Zone de tes barres', [{ valeur: 'lourd', texte: 'Lourd', sous: '3-5 reps' },
-      { valeur: 'mix', texte: 'Mix', sous: '6-8 reps' }], vue.zone, vue.surZone);
-    choix('Durée', (vue.semainesPossibles || []).map(function (n) {
-      return { valeur: n, texte: n + ' semaines' };
+    champ('zone', vue.suite ? 'Bloc' : 'Premier bloc', (vue.zones || []).map(function (z) {
+      return { valeur: z.cle, texte: z.texte };
+    }), vue.zone, vue.surZone);
+    champ('semaines', 'Durée du bloc', (vue.semainesPossibles || []).map(function (n) {
+      return { valeur: n, texte: n + ' semaines' + (vue.bornesSemaines ? ' (' + vue.bornesSemaines + ')' : '') };
     }), vue.semaines, vue.surSemaines);
-    choix('Décharge', [{ valeur: true, texte: 'La dernière semaine' }, { valeur: false, texte: 'Sans décharge' }],
+    champ('decharge', 'Décharge à la fin', [{ valeur: true, texte: 'Oui, la dernière semaine' }, { valeur: false, texte: 'Non' }],
       vue.decharge, vue.surDecharge);
-    choix('Début', (vue.debuts || []).map(function (d) { return { valeur: d.cle, texte: d.texte }; }), vue.debut, vue.surDebut);
-    cible.appendChild(el('div', 'pq-sec', 'Exercices du bloc'));
-    var ex = el('div', 'choix-programme exercices-programme');
+    champ('debut', 'Début', (vue.debuts || []).map(function (d) { return { valeur: d.cle, texte: d.texte }; }),
+      vue.debut, vue.surDebut);
+    cible.appendChild(el('p', 'feuille-aide cp-aide',
+      'Exercices du bloc — tes mouvements à la barre. Les autres gardent leur zone.'));
+    var ex = el('div', 'exercices-programme');
     (vue.exercices || []).forEach(function (e) {
-      var b = el('button', 'option-zone case' + (e.coche ? ' active' : ''));
+      var b = el('button', 'case-programme' + (e.coche ? ' active' : ''));
       b.type = 'button';
       b.setAttribute('data-slug', e.slug);
       b.setAttribute('aria-pressed', e.coche ? 'true' : 'false');
-      b.appendChild(el('span', 'oz-rond'));
-      b.appendChild(el('span', 'oz-nom', e.nom));
-      b.appendChild(el('span', 'oz-sous', ''));
+      b.appendChild(el('span', 'cp-nom', (e.coche ? '\u2611 ' : '\u2610 ') + e.nom));
+      b.appendChild(el('span', 'cp-zone', e.coche ? vue.zoneCourte : 'sa zone'));
       b.addEventListener('click', function () { vue.surCocher(e.slug); });
       ex.appendChild(b);
     });
     cible.appendChild(ex);
-    cible.appendChild(el('p', 'feuille-aide', 'Les autres exercices gardent leur zone.'));
     var err = el('p', 'erreur', vue.erreur || '');
     err.setAttribute('role', 'alert');
     cible.appendChild(err);
     var pied = el('div', 'feuille-menu');
-    entreeMenu(pied, 'Commencer le bloc', { classe: 'principal valider-programme', surClic: vue.surValider });
+    entreeMenu(pied, vue.suite ? 'Commencer le bloc' : 'Lancer le programme',
+      { classe: 'principal valider-programme', surClic: vue.surValider });
     entreeMenu(pied, 'Annuler', { surClic: vue.surAnnuler });
     cible.appendChild(pied);
     return cible;

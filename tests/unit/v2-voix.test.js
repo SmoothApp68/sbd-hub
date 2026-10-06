@@ -408,9 +408,30 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
     const noms = { squat_barre: 'Squat (Barre)', developpe_couche_barre: 'Développé Couché (Barre)' };
     [null, { predite: 2, observee: 1 }, { predite: 2, observee: 2 }].forEach((pari, i) => {
       const k = M.carteFinDeBloc(b.bloc, bilan, noms, pari);
-      noter('programme', 'fin de bloc ' + i, [k.titre].concat(k.lignes, [k.paris, k.pari, k.suivant, k.commencer, k.ajuster, k.arreter]));
+      noter('programme', 'fin de bloc ' + i, [k.titre, k.entete].concat(k.lignes.map((l) => l.valeur),
+        [k.paris, k.pari, k.suivant, k.commencer, k.ajuster, k.arreter]));
     });
     noter('programme', 'sans pari', [M.carteFinDeBloc(b.bloc, { exercices: {}, paris: 0, tenus: 0 }, {}, null).paris]);
+    // 53-2 bis — la phrase grise d'un exercice pendant la décharge du programme.
+    noter('programme', 'décharge', [M.grisAllegee({ allegee: { series: 2, routine: 4, decharge: true } })]);
+  }
+
+  // 53-2 bis (D1) — le début d'un bloc : « Nouveau bloc : Mix. », la même
+  // phrase, estimée et tenue.
+  {
+    let rg = 0;
+    const g = (debut, charge, reps) => ({ seance: { id: debut, debut, fin: debut.replace('T10', 'T11') },
+      series: reps.map((r) => ({ id: 'y' + (++rg), rang: rg, charge_kg: charge, reps: r, type_serie: 'travail' })) });
+    const lourd = [g('2026-09-01T10:00:00Z', 100, [5, 5, 5]), g('2026-09-04T10:00:00Z', 100, [5, 5, 5]),
+      g('2026-09-08T10:00:00Z', 100, [5, 5, 5])];
+    const AV = '2026-09-11T10:00:00Z';
+    const ligne = { id: 'b', exercise_slug: 'x', zone: 'mix', corrigee_a: '2026-09-10T00:00:00', origine: 'bloc', bloc_id: 'b1' };
+    const o = { mesure: 'charge_reps', equipement: 'barre', intention: 'progresser', reglage: 'normal',
+      correction: 'mix', correctionsDeZone: [ligne], ligneDeZone: ligne };
+    [lourd, [g('2026-08-20T10:00:00Z', 90, [7, 7, 7])].concat(lourd)].forEach((gs, i) => {
+      const r = M.consigneDExercice(gs, undefined, AV, o);
+      noter('nouvelle zone', 'début de bloc ' + i, r.libelles.jaune.concat([r.libelles.gris]), gs.map((x) => x.seance.debut), AV);
+    });
   }
 
   test('chaque famille est jouée, et la date relative l\'est vraiment', () => {
@@ -444,11 +465,21 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
     // 53-1 : 3 reports × (jaune, gris, puis 13 textes de feuille : la date et les
     // 3 séries de la séance — texte et rôle —, zone, charge de travail, état,
     // donc, réglage, fin) + le constat.
-    expect(parFamille['nouvelle zone']).toBe(4 * (2 + 13) + 1);
-    // 53-2 : 3 badges + 2 bandeaux + 3 cartes de fin de bloc (titre, 2 lignes,
-    // paris, suivant, 3 gestes ; et le pari de programme sur 2 d'entre elles)
-    // + la phrase « aucun pari ».
-    expect(parFamille.programme).toBe(3 + 2 + 3 * 8 + 2 + 1);
+    // 53-2 bis (D1) : + 2 débuts de bloc × (jaune, gris).
+    expect(parFamille['nouvelle zone']).toBe(4 * (2 + 13) + 1 + 2 * 2);
+    expect(vues.filter((v) => v.famille === 'nouvelle zone' && /^Nouveau bloc : Mix\. /
+      .test(v.phrase.replace(/[\u00a0\u202f]/g, ' '))).map((v) => v.source)).toEqual(['début de bloc 0', 'début de bloc 1']);
+    // 53-2 : 3 badges + 2 bandeaux + 3 cartes de fin de bloc (titre, « Pendant
+    // ce bloc », 2 lignes, paris, suivant, 3 gestes ; et le pari de programme
+    // sur 2 d'entre elles) + la phrase « aucun pari » + (53-2 bis) le gris de
+    // la décharge.
+    expect(parFamille.programme).toBe(3 + 2 + 3 * 9 + 2 + 1 + 1);
+    const prog = vues.filter((v) => v.famille === 'programme').map((v) => v.phrase.replace(/[\u00a0\u202f]/g, ' '));
+    expect(prog).toContain('Bloc Mix · dès le lundi 12 oct.');
+    expect(prog).toContain('Bloc Mix terminé');
+    expect(prog.filter((t) => t === 'Le suivant, comme le font les programmes de force : Lourd (3-5) sur tes mouvements ' +
+      'à la barre, 4 semaines, décharge la dernière semaine. Les autres exercices gardent leur zone.').length).toBe(3);
+    expect(prog).toContain('Semaine de décharge : mêmes charges, moins de séries. 2 séries au lieu de 4, cette semaine.');
     expect(vues.filter((v) => v.famille === 'programme' && /^Le coach avait fait 4 paris sur ce bloc : 2 ont tenu\.$/
       .test(v.phrase.replace(/[\u00a0\u202f]/g, ' '))).length).toBe(3);
     expect(vues.filter((v) => v.famille === 'nouvelle zone' && /^Nouvelle zone : Mix\. Ta charge déjà tenue en Mix, le 20 août : 90 kg × 7\.$/
@@ -460,7 +491,7 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
     expect(vues.filter((v) => v.famille === 'nouvelle zone' && /^Nouvelle zone : Mix\. Moins de reps, plus de charge : estimée depuis ton 52,5 kg × 10\.$/
       .test(v.phrase.replace(/[\u00a0\u202f]/g, ' '))).length).toBe(1);
     expect(vues.filter((v) => v.famille === 'nouvelle zone' && /un peu en dessous/.test(v.phrase))
-      .map((v) => v.source).sort()).toEqual(['report 0', 'report 0']);
+      .map((v) => v.source).sort()).toEqual(['début de bloc 0', 'report 0', 'report 0']);
     expect(vues.filter((v) => v.famille === 'départ' && /^Première fois ici : on part de ta charge de départ, 22,5 kg\.$/
       .test(v.phrase.replace(/[\u00a0\u202f]/g, ' '))).length).toBe(1);
     expect(vues.filter((v) => v.famille === 'douleur' && /^Plus de reps : 20/.test(v.phrase)).length).toBe(2);

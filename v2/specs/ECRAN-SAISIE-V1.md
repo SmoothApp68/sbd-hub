@@ -786,34 +786,48 @@ chemin.** Un point par jour travaillé, lisible d'un coup d'œil.
 > série de jours rouges, pas de compteur de régularité. `CADRAGE-V2.md` §3.1 bis — le
 > système ne commente jamais l'assiduité. Un point, ou rien.
 
-### 7 bis.4 Jetons de design — validés le 11/09/2026
+### 7 bis.4 Jetons de design — « la forge », validés le 06/10/2026
 
-Maquette de référence : `maquette-A-validee.html`. **Les valeurs ci-dessous font foi** ; la
-maquette les illustre.
+Remplace les jetons du 11/09/2026 (graphite et jaune). Direction artistique choisie par Aurélien le 06/10/2026 (piste A
+« la forge », `maquette-da-forge-v1.html`), appliquée **en habillage seul** (#372) : aucune donnée retirée, aucun texte
+changé, même visibilité — garanti par le banc du texte visible (`tests/banc/texte-visible.js`), que toute passe
+d'habillage future doit passer. **Les valeurs ci-dessous font foi** ; les noms des variables restent ceux du code (la
+table « ancien nom → valeur » est dans la PR #372).
 
 | Rôle | Valeur | Usage |
 |---|---|---|
-| `--fond` | `#15171A` | fond d'écran. Graphite, **pas noir** — le noir pur vibre sur OLED |
-| `--panneau` | `#1D2025` | surfaces posées sur le fond |
-| `--panneau-2` | `#24272D` | surface au-dessus d'une surface |
-| `--trait` | `#2E323A` | séparations |
-| `--texte` / `--texte-2` / `--texte-3` | `#E8EAED` / `#959BA5` / `#676D77` | **trois niveaux, pas plus** |
-| `--accent` | `#F2B705` | voir la règle ci-dessous |
-| `--reussi` / `--manque` | `#5FA97A` / `#C4564A` | **sens uniquement**, jamais décoratif |
+| fond | `#0f1114` | fond d'écran, anthracite, pas noir |
+| surface | `#181b20` | cartes posées sur le fond |
+| surface 2 | `#21252c` | cases, champs, étiquettes |
+| trait | `#2c3139` | séparations |
+| texte / gris / 3ᵉ niveau | `#eceef2` / `#9aa1ac` / `#888e98` | **trois niveaux, pas plus** ; chacun ≥ 4,5:1 sur la surface |
+| **ambre** | `#f2b84b` (sombre `#b97a14`, texte dessus `#1a1305`) | **la voix du coach** et l'action principale — voir la règle |
+| **or** | `#ffd46b` (fond `#2e2410`, trait `#6b5420`) | **les records et les médailles**, rien d'autre |
+| rareté 1 à 4 | `#8b929c` · `#4f9be8` · `#a26ee8` · `#f2c14b` | le jeu seulement (badges), plus tard |
+| `--reussi` / `--manque` | `#5FA97A` / `#CD7167` | **sens uniquement**, jamais décoratif ; `--manque` sert aux actions destructives (« Abandonner et tout effacer »), **jamais à juger une performance** (« pas encore », jamais de rouge sur un chiffre) |
+
+Thème clair : aucun aujourd'hui ; s'il vient, ses valeurs sont celles de `PROMPT-CC-56-1` (mêmes rôles).
 
 **Espacements** : échelle de 4 — 4, 8, 12, 16, 24, 32.
-**Rayons** : deux valeurs hiérarchisées — 6 px dans une surface, 12 px pour une surface.
-**Type** : une seule famille, **pile système, aucun CDN**. Chiffres toujours en
-`font-variant-numeric: tabular-nums` pour que les colonnes s'alignent d'une ligne à l'autre.
+**Rayons** : cartes 14 px, cases 8 px, boutons 10 px, étiquettes de zone 6 px.
+**Type** : **Barlow Condensed** (600, 700, 800) pour les chiffres, les titres d'écran, les noms d'exercice et les
+boutons principaux (capitales, espacement 0,04 à 0,06 em) ; **Barlow** (400 à 700) pour tout le texte courant, dont la
+voix du coach. **Hébergées dans `v2/fonts/`** (woff2, licence SIL OFL jointe) et **mises en cache par le service
+worker** : aucun CDN, l'app marche hors ligne. `font-display: swap`, repli système. Chiffres toujours en
+`font-variant-numeric: tabular-nums`. Une police condensée paraît plus petite à taille égale : un chiffre de la grille
+de séance fait au moins 2 px de plus qu'avant (kilos et reps 17 px).
 
-> **Règle de l'accent — la plus importante.** Le jaune ne sert qu'à **deux** choses :
-> l'onglet actif, et **la suggestion du moteur**. Aucun bouton jaune ailleurs. Si l'accent
-> est partout, plus rien ne ressort le jour où le moteur dit « 122,5 kg, vise 6 » — et c'est
-> la seule voix qui doit percer.
+> **Règle de l'ambre — la plus importante.** L'ambre est **la voix du coach** : l'onglet actif, la suggestion du coach,
+> l'étiquette de zone, et **l'action principale d'un écran** (un seul bouton plein par écran ; quand une action se
+> répète, comme « Démarrer » sur chaque routine, l'ambre passe sur le texte, pas sur le fond). **L'or est réservé aux
+> records.** Si l'ambre est partout, plus rien ne ressort le jour où le coach dit « 122,5 kg, vise 6 ».
 
-**Ce qui est proscrit** : cartes arrondies identiques partout avec la même ombre · libellés
-en majuscules espacées · dégradés · animations à l'apparition de chaque élément · flèches
-dans les boutons.
+**Formes réservées** : l'**hexagone** au jeu (niveau, badges) ; le **disque or** à la médaille de record ; le
+**losange** à la puce de la voix du coach, quand une ligne du coach en porte une (aucune aujourd'hui).
+
+**Ce qui est proscrit** : cartes arrondies identiques partout avec la même ombre · dégradés **hors de la médaille et
+des boutons principaux** · animations à l'apparition de chaque élément · flèches dans les boutons · une couleur sans
+rôle. Les capitales espacées sont réservées aux boutons principaux, aux titres de section et à la barre d'onglets.
 
 ### 7 bis.5 Résumé de séance — la carte dit ce qu'on a fait
 

@@ -12612,7 +12612,16 @@ const SETS_IMPORTES = [
         aujourdhui: Array.from(c.querySelectorAll('.cal-mois .fait')).map((x) => x.textContent),
         records: Array.from(c.querySelectorAll('.carte-mois .ligne-mois.lien')).map((x) => x.textContent),
         suivant: c.querySelector('.mois-suivant').disabled,
-        rouge: Array.from(c.querySelectorAll('*')).some((x) => /rgb\(196, 86, 74\)/.test(getComputedStyle(x).color)) };
+        // Le rouge se lit sur le jeton (`--manque` a changé de valeur en 56-1) :
+        // une valeur écrite en dur ne prouverait plus rien le jour où il bouge.
+        rouge: (() => {
+          const sonde = document.createElement('i');
+          sonde.style.color = 'var(--manque)';
+          document.body.appendChild(sonde);
+          const r = getComputedStyle(sonde).color;
+          sonde.remove();
+          return Array.from(c.querySelectorAll('*')).some((x) => getComputedStyle(x).color === r);
+        })() };
     });
     await capturer55('4-bilan');
     ok('[P55] le bilan du mois en cours : séances, séries de travail, volume, records — trois barres, la dernière en couleur du coach ; pas de mois après le mois en cours',
@@ -12852,7 +12861,7 @@ const SETS_IMPORTES = [
           }
         }
         sortie.push({ t: t, k: el.tagName.toLowerCase() + (el.classList.length ? '.' + Array.from(el.classList).join('.') : ''),
-          px: parseFloat(s.fontSize), w: Number(s.fontWeight), f: s.fontFamily.split(',')[0].replace(/"/g, '').trim(),
+          px: parseFloat(s.fontSize), w: Number(s.fontWeight), lh: s.lineHeight, f: s.fontFamily.split(',')[0].replace(/"/g, '').trim(),
           o: Math.round(opacite(el) * 100) / 100, c: c, coupe: coupe(el) });
       });
       return sortie;

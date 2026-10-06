@@ -74,7 +74,9 @@
   --accent-sombre:#b97a14;
   --sur-accent:#1a1305;  /* le texte posé sur l'ambre */
   --reussi:#5FA97A;      /* sens uniquement, jamais décoratif */
-  --manque:#C4564A;
+  /* 56-1 (#372) : même teinte, remontée à 5,1:1 sur la surface et 4,5:1 sur la
+     surface 2. Le sens seulement (une action destructive), jamais un jugement. */
+  --manque:#CD7167;
   --chauffe:#5B8AC4;     /* §7 undecies.1 — la chauffe, et rien d'autre */
 
   /* La rareté, pour le jeu (plus tard) : déclarée, encore servie nulle part. */
@@ -646,7 +648,7 @@ button.bloc-exo:active{background:var(--panneau-2)}
   -ms-overflow-style:none;scrollbar-width:none;overscroll-behavior:contain}
 .molette .piste::-webkit-scrollbar{width:0}
 .molette .opt{height:48px;display:flex;align-items:center;justify-content:center;
-  scroll-snap-align:center;font:600 19px/1 inherit;font-family:inherit;
+  scroll-snap-align:center;font-size:16px;font-weight:400;line-height:normal;font-family:inherit;
   color:#4E545C;font-variant-numeric:tabular-nums;transition:color .12s}
 .molette .opt.sel{color:var(--texte);font-size:22px;font-weight:700}
 .molette .opt.pres{color:var(--texte-3)}
@@ -656,11 +658,11 @@ button.bloc-exo:active{background:var(--panneau-2)}
    c'est le geste rare, il garde la largeur de son texte. */
 .feuille-pied{display:flex;gap:var(--e2);padding:var(--e3) 0 0}
 .feuille-pied button{flex:1;height:46px;border-radius:var(--r-bouton);border:none;
-  font:700 13px/1 inherit;font-family:inherit}
+  font-size:13.333333px;font-weight:400;line-height:normal;font-family:inherit}
 .feuille-pied .sec{background:transparent;border:1px solid var(--trait);color:var(--texte-2)}
 .feuille-pied .pri{background:var(--accent);color:var(--sur-accent)}
 .feuille-pied .des{flex:0 0 auto;padding:0 var(--e3);background:transparent;
-  border:1px solid #4A3330;color:#C4564A;font-weight:600}
+  border:1px solid #4A3330;color:var(--manque);font-weight:600}
 
 /* ── Le catalogue ───────────────────────────────────────────────────────── */
 #champ-recherche-exo{
@@ -790,7 +792,7 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .reglages-exo{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .reglages-exo button{min-height:30px;padding:6px 10px;border-radius:var(--r-petit);
   border:1px solid var(--trait);background:transparent;color:var(--texte-3);
-  font:500 11.5px/1.3 inherit;font-family:inherit;text-align:left}
+  font-size:13.333333px;font-weight:400;line-height:normal;font-family:inherit;text-align:left}
 .repos-cible{flex:0 0 auto;white-space:nowrap}
 .note-exo{flex:1 1 140px;min-width:0;overflow:hidden;
   display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
@@ -802,9 +804,12 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
    grille s'affichaient à la taille par défaut d'un champ, 13,33 px, en graisse
    normale. Les trois règles ci-dessus le disent maintenant en propriétés
    séparées : 17 px pour les kilos et les reps, 16 px pour le numéro et
-   l'effort — au moins deux pixels de plus que ce qui s'affichait. Les dix-neuf
-   autres raccourcis de ce genre restent tels quels : les « réparer » à leur
-   valeur écrite ferait rapetisser des textes (rapport de la PR 56-1). */
+   l'effort — au moins deux pixels de plus que ce qui s'affichait. Les seize
+   autres raccourcis de ce genre sont réécrits, eux aussi, à la taille qu'ils
+   RENDAIENT (#372) : 13,333 px, graisse normale, interligne normal pour un
+   bouton ou un champ (la taille du navigateur) ; 16 px pour ce qui hérite du
+   corps de page. Les « réparer » à leur valeur écrite aurait fait rapetisser
+   des textes. Leur valeur écrite d'origine est dans la PR #372. */
 
 /* ── LES QUATRE GABARITS DE LIGNE (§3 ter.1) ───────────────────────────────
    Le catalogue définit quatre mesures ; la grille en avait une. Chaque gabarit
@@ -989,7 +994,7 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .ajout-serie{padding:var(--e2) var(--e3) var(--e3);display:flex;flex-wrap:wrap;gap:6px}
 .ajout-serie button{flex:1 1 120px;height:36px;border-radius:var(--r-bouton);
   border:1px dashed var(--trait);background:transparent;color:var(--texte-3);
-  font:600 12px/1 inherit;font-family:inherit}
+  font-size:13.333333px;font-weight:400;line-height:normal;font-family:inherit}
 
 /* ── LES MENUS DE DÉVIATION (§5 bis) ───────────────────────────────────────
    Le « ⋯ » du bloc, et celui de chaque branche d'un superset. Cible de 34 px :
@@ -1000,7 +1005,7 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .legende-haut .exo-seance{flex:1;min-width:0}
 .menu-pts{flex:0 0 auto;width:34px;height:26px;margin:-4px -6px 0 0;
   border:none;background:transparent;color:var(--texte-3);
-  font:700 16px/1 inherit;font-family:inherit;border-radius:var(--r-petit)}
+  font-size:13.333333px;font-weight:400;line-height:normal;font-family:inherit;border-radius:var(--r-petit)}
 
 /* Le mode SÉLECTION du §5.7 : les autres blocs s'allument et deviennent
    tapables. La source reste visible, en retrait — on doit savoir d'où l'on
@@ -1106,7 +1111,7 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
    la cible de tap fait 30 px de haut — on les vise entre deux séries. */
 .repos-b{min-width:34px;height:30px;padding:0 6px;border-radius:var(--r-petit);
   border:1px solid var(--trait);background:transparent;color:var(--texte-2);
-  font:600 11px/1 inherit;font-family:inherit;flex:0 0 auto}
+  font-size:13.333333px;font-weight:400;line-height:normal;font-family:inherit;flex:0 0 auto}
 .repos-b.coupe{color:var(--texte-3);border-style:dashed}
 .piste{height:3px;background:var(--panneau-2);border-radius:2px;overflow:hidden}
 .piste i{display:block;height:100%;background:var(--texte-3)}
@@ -1119,7 +1124,7 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 
 .feuille-menu button{width:100%;text-align:left;padding:13px var(--e2);
   background:transparent;border:none;border-top:1px solid #23262A;
-  color:var(--texte);font:500 14px/1 inherit;font-family:inherit}
+  color:var(--texte);font-size:13.333333px;font-weight:400;line-height:normal;font-family:inherit}
 .feuille-menu button.sel{color:var(--texte);font-weight:700}
 .feuille-menu button.danger,.danger{color:var(--manque)}
 /* Une entrée de menu INERTE se voit comme telle : « Voir la progression »
@@ -1152,7 +1157,7 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .champ-texte input,.champ-texte textarea{width:100%;box-sizing:border-box;
   border-radius:var(--r-petit);border:1px solid var(--trait);
   background:var(--panneau-2);color:var(--texte);
-  font:500 14px/1.4 inherit;font-family:inherit;padding:9px 10px;resize:none}
+  font-size:13.333333px;font-weight:400;line-height:normal;font-family:inherit;padding:9px 10px;resize:none}
 .champ-texte input{height:40px;padding-top:0;padding-bottom:0}
 /* La forge (56-1) : l'indication d'un champ libre était au gris du navigateur
    (3,3:1) ; elle prend le troisième niveau de texte (4,6:1). */
@@ -1170,7 +1175,7 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .choix-routine{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 .choix-routine button{min-height:40px;padding:8px;border-radius:var(--r-petit);
   border:1px solid var(--trait);background:transparent;color:var(--texte-2);
-  font:600 12px/1.3 inherit;font-family:inherit}
+  font-size:13.333333px;font-weight:400;line-height:normal;font-family:inherit}
 .choix-routine button.sel{background:var(--panneau-2);border-color:#3A4049;
   color:var(--texte)}
 
@@ -1186,7 +1191,7 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .grille-rpe{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
 .grille-rpe button{height:44px;border-radius:var(--r-petit);
   border:1px solid var(--trait);background:transparent;color:var(--texte-2);
-  font:700 14px/1 inherit;font-family:var(--pile-c)}
+  font-size:13.333333px;font-weight:400;line-height:normal;font-family:var(--pile-c)}
 
 .bascule{display:flex;align-items:center;gap:var(--e2);
   padding-top:var(--e3);margin-top:var(--e3);border-top:1px solid var(--trait)}
@@ -1197,14 +1202,14 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .routine-rangee .routine{flex:1;margin-bottom:0}
 .demarrer{flex:0 0 auto;padding:0 var(--e3);border-radius:var(--r-bouton);
   border:1px solid var(--trait);background:var(--panneau);color:var(--texte);
-  font:700 12px/1 inherit;font-family:inherit}
+  font-size:13.333333px;font-weight:400;line-height:normal;font-family:inherit}
 .demarrer:active{border-color:var(--texte-2)}
 /* §9.18 (51-1) — la durée estimée, et « J'ai peu de temps » sous « Démarrer ». */
 .routine-duree{font-size:12px;color:var(--texte-2);margin-top:2px;font-variant-numeric:tabular-nums}
 .routine-actions{display:flex;flex-direction:column;gap:6px;flex:0 0 auto}
 .routine-actions .demarrer{flex:1;min-height:40px}
 .peu-de-temps{padding:7px var(--e2);border-radius:var(--r-bouton);border:1px solid var(--trait);
-  background:none;color:var(--texte-2);font:600 11px/1.2 inherit;font-family:inherit}
+  background:none;color:var(--texte-2);font-size:13.333333px;font-weight:400;line-height:normal;font-family:inherit}
 .peu-de-temps:active{border-color:var(--texte-2)}
 .cr-lignes{margin:var(--e2) 0 0;padding-left:18px;font-size:14px;line-height:1.5;color:var(--texte)}
 .cr-phrase{margin-top:var(--e2)}
@@ -1213,8 +1218,7 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
    Un point, pas une alarme — le système ne commente jamais, il constate. */
 .onglet.en-cours{position:relative}
 .onglet.en-cours::after{content:"";position:absolute;top:6px;left:50%;
-  margin-left:7px;width:6px;height:6px;border-radius:1px;background:var(--accent);
-  transform:rotate(45deg)}
+  margin-left:7px;width:6px;height:6px;border-radius:50%;background:var(--accent)}
 
 /* ══ LA PAGE D'EXERCICE (§7 quater) ═══════════════════════════════════════
    Une seule page, atteinte de partout. Deux sous-onglets, pas quatre : ajouter
@@ -1227,15 +1231,14 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .exo-bandeau{display:flex;align-items:center;gap:var(--e2);
   background:var(--panneau-2);border-radius:var(--r-grand);
   padding:9px var(--e3);margin-bottom:var(--e3)}
-.exo-point{width:6px;height:6px;flex:none;border-radius:1px;background:var(--accent);
-  transform:rotate(45deg)}
-.exo-bandeau-t{flex:1;min-width:0;font:600 12px/1.3 inherit;color:var(--texte-2);
+.exo-point{width:6px;height:6px;flex:none;border-radius:50%;background:var(--accent)}
+.exo-bandeau-t{flex:1;min-width:0;font-size:16px;font-weight:400;line-height:normal;color:var(--texte-2);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .exo-bandeau-t em{font-style:normal;font-weight:400;color:var(--texte-3)}
 /* Le seul accent de la page avec l'onglet actif et la cible : il ramène à la
    séance, et rien d'autre ici n'a ce poids. */
 .exo-reprendre{flex:none;border:none;background:transparent;color:var(--accent);
-  font:600 12px/1 inherit;font-family:inherit;padding:0}
+  font-size:13.333333px;font-weight:400;line-height:normal;font-family:inherit;padding:0}
 
 .exo-tete{padding:var(--e1) 0 var(--e2)}
 .exo-tete h2{font-size:17px;font-weight:700;line-height:1.25;letter-spacing:-.01em;
@@ -1245,7 +1248,7 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .sous-onglets{display:flex;gap:var(--e4);
   border-bottom:1px solid var(--trait);margin-bottom:var(--e2)}
 .sous-onglet{border:none;background:transparent;color:var(--texte-3);
-  font:600 13px/1 inherit;font-family:inherit;
+  font-size:13.333333px;font-weight:400;line-height:normal;font-family:inherit;
   padding:11px 0;margin-bottom:-1px;border-bottom:2px solid transparent}
 /* L'accent ne sert qu'à l'onglet actif et à la suggestion du moteur. */
 .sous-onglet.actif{color:var(--texte);border-bottom-color:var(--accent)}
@@ -1294,7 +1297,7 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 /* Le titre mène au détail complet, pour qui veut le contexte des autres
    exercices (§7 quater.4). */
 .exo-jour-s{flex:1;min-width:0;border:none;background:transparent;padding:0;
-  text-align:left;font:400 11px/1.3 inherit;font-family:inherit;color:var(--texte-3);
+  text-align:left;font-size:13.333333px;font-weight:400;line-height:normal;font-family:inherit;color:var(--texte-3);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .exo-jour-s b{color:var(--accent);font-weight:500}
 /* Les blocs de l'historique sont ceux du détail de séance : posés DANS la carte

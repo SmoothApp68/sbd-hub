@@ -2094,8 +2094,11 @@
   // `nouvelle_zone`). 9 depuis 54-1 (la zone d'une séance se lit à sa fin pour
   // le compteur et le repli de l'escalier, comme pour le report — MOTEUR §12.2
   // bis : une zone changée en pleine séance change le compteur et le repli).
+  // 10 depuis 55-1 (une séance sans heure de fin finit 3 h au plus après son
+  // début — MOTEUR §12.2 bis, G2 : une zone changée entre deux séances ne
+  // compte plus pour la précédente).
   var MODULE_CONSIGNE = 'moteur.consigne';
-  var VERSION_CONSIGNE = 9;
+  var VERSION_CONSIGNE = 10;
 
   // ⚠️ LU TARDIVEMENT, SANS REPLI, comme `THPalier`. `modele.js` charge avant
   // `moteur.js` (index.html 325 puis 329), mais un repli « si THModele manque,
@@ -3891,16 +3894,33 @@
   // heure — se lit jusque-là. Rend la consigne que la séance a REÇUE : le
   // rythme d'aujourd'hui, la zone choisie en vigueur à sa fin (`o.corrections`,
   // l'historique des choix), sinon `o.correction`.
+  // §12.2 bis (55-1, G2) — LA FIN EFFECTIVE d'une séance : son heure de fin
+  // quand on la connaît ; SANS HEURE DE FIN (6 des 22 séances de septembre,
+  // importées de Hevy), 3 h au plus après son début. Jamais après le début de
+  // la suivante (`suivante`), ni après `avant` (la séance qu'on prescrit).
+  // Sans la borne des 3 h, une zone changée entre deux séances comptait pour
+  // la précédente. Rend un instant (ms), ou `null` sans aucune borne.
+  var FIN_SANS_HEURE_MAX = 3 * 3600 * 1000;
+  function finEffective(se, suivante, avant) {
+    var tL = instant(se && se.debut);
+    var borne = instant(avant);
+    var tS = suivante ? instant(suivante.debut) : null;
+    if (tS !== null && (tL === null || tS > tL) && (borne === null || tS < borne)) borne = tS;
+    var fin = instant(se && se.fin);
+    if (tL !== null && (fin === null || fin <= tL)) fin = tL + FIN_SANS_HEURE_MAX;
+    if (fin !== null && (borne === null || fin < borne)) borne = fin;
+    return borne;
+  }
+
   function consigneDeLaSeance(liste, i, avant, o) {
     var se = liste[i];
     var tL = instant(se.debut);
-    var borne = instant(avant);
+    var suivante = null;
     for (var k = i + 1; k < liste.length; k++) {
       var t = instant(liste[k].debut);
-      if (t !== null && t > tL && (borne === null || t < borne)) { borne = t; break; }
+      if (t !== null && t > tL) { suivante = liste[k]; break; }
     }
-    var fin = instant(se.fin);
-    if (fin !== null && fin > tL && (borne === null || fin < borne)) borne = fin;
+    var borne = finEffective(se, suivante, avant);
     var correction = o.corrections && borne !== null
       ? correctionAu(o.corrections, new Date(borne + 1).toISOString()) : (o.correction || null);
     return consignePour(liste.slice(0, i), se.debut,
@@ -5907,6 +5927,8 @@
     SEUIL_COMPTEUR: SEUIL_COMPTEUR,
     compteurDe: compteurDe,
     consigneDeLaSeance: consigneDeLaSeance,
+    finEffective: finEffective,
+    FIN_SANS_HEURE_MAX: FIN_SANS_HEURE_MAX,
     zoneDeLaSeance: zoneDeLaSeance,
     phraseCompteur: phraseCompteur,
     frereQuiProgresse: frereQuiProgresse,

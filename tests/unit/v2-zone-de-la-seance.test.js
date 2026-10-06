@@ -37,7 +37,8 @@ const O = { mesure: 'charge_reps', equipement: 'barre', intention: 'progresser',
 describe('54-1 — la zone d’une séance se lit à sa fin, une seule fois', () => {
   test('⚠️ DISCRIMINANT — la fonction unique : C est en Mix (changée à 10 h 30), pas en Lourd', () => {
     expect(M.zoneDeLaSeance(contrat, IC, AVANT, { reglage: 'normal', equipement: 'barre', corrections: LIGNES })).toBe('mix');
-    // Une séance SANS heure de fin se lit jusqu'au début de la suivante.
+    // Une séance SANS heure de fin se lit 3 h au plus après son début (55-1) :
+    // 10 h 30 y est encore.
     const sansFin = contrat.map((s) => Object.assign({}, s, { fin: undefined }));
     expect(M.zoneDeLaSeance(sansFin, IC, AVANT, { reglage: 'normal', equipement: 'barre', corrections: LIGNES })).toBe('mix');
   });
@@ -64,4 +65,30 @@ describe('54-1 — la zone d’une séance se lit à sa fin, une seule fois', ()
     expect(r.repli).not.toBe(null);
     expect([r.repli.palier, r.repli.debut]).toEqual([100, h(0, 10)]);
   });
+});
+
+// ══ 55-1 (G2) — UNE SÉANCE SANS HEURE DE FIN : 3 H AU PLUS ══════════════════
+describe('55-1 — une séance sans heure de fin finit 3 h au plus après son début (MOTEUR §12.2 bis, G2)', () => {
+  const F = require('./fixtures/cas-55-1-records.json');
+  const loc = (iso) => new Date(iso).getTime();
+  F.autres.fin_effective.forEach((c) => {
+    test('fin_effective — ' + c.titre, () => {
+      expect(M.finEffective(c.seance, c.suivante, null)).toBe(loc(c.attendu));
+    });
+  });
+
+  test('⚠️ DISCRIMINANT — une zone changée 5 h après une séance sans fin compte pour la SUIVANTE', () => {
+    // C (jour 0, 10 h) sans heure de fin ; la zone passe en Mix à 15 h, la
+    // séance d'après est au jour 3. Sans la borne, C se lisait jusqu'au jour 3.
+    const lignes = [{ id: 'y1', exercise_slug: 'x', zone: 'lourd', corrigee_a: h(-20, 9) },
+                    { id: 'y2', exercise_slug: 'x', zone: 'mix', corrigee_a: h(0, 15) }];
+    const sansFin = contrat.map((s, i) => Object.assign({}, s, { fin: i === IC ? null : s.fin }));
+    expect(M.zoneDeLaSeance(sansFin, IC, AVANT, { reglage: 'normal', equipement: 'barre', corrections: lignes })).toBe('lourd');
+    expect(M.zoneDeLaSeance(sansFin, IC + 1, AVANT, { reglage: 'normal', equipement: 'barre', corrections: lignes })).toBe('mix');
+    // Et à 12 h 30 (2 h 30 après le début), elle compte encore pour C.
+    const tot = [lignes[0], Object.assign({}, lignes[1], { corrigee_a: h(0, 12, 30) })];
+    expect(M.zoneDeLaSeance(sansFin, IC, AVANT, { reglage: 'normal', equipement: 'barre', corrections: tot })).toBe('mix');
+  });
+
+  test('la version de la consigne : 10 (55-1)', () => { expect(M.VERSION_CONSIGNE).toBe(10); });
 });

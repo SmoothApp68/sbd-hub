@@ -81,6 +81,6 @@ describe('§12.9 — le compteur, lu par le plan', () => {
   // de zone, MOTEUR §9.10) ; 9 depuis 54-1 (la zone d'une séance se lit à sa
   // fin pour le compteur et le repli, MOTEUR §12.2 bis).
   test('VERSION_CONSIGNE vaut 9 (54-1)', () => {
-    expect(M.VERSION_CONSIGNE).toBe(9);
+    expect(M.VERSION_CONSIGNE).toBe(10);
   });
 });

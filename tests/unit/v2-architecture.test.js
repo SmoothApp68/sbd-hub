@@ -586,6 +586,11 @@ const NOTIONS = [
     par: ['reprisePour'],
     raison: 'lourd → mix → hypertrophie → volume → séries longues, dans l’ordre de la table des ' +
       'zones : une définition, que la carte et la correction de zone lisent.' },
+  { notion: 'la fin effective d’une séance (sans heure de fin : 3 h au plus, jamais après la suivante)', pr: '55-U1',
+    module: 'moteur.js', fonction: 'finEffective', lecteurs: [],
+    par: ['consigneDeLaSeance'],
+    raison: 'MOTEUR §12.2 bis (G2) : la zone d’une séance se lit à sa fin ; sans heure de fin, une borne, ' +
+      'une fois — sinon une zone changée entre deux séances comptait pour la précédente.' },
   { notion: 'la table par reps cumulée (la charge la plus lourde pour au moins N reps)', pr: '55-U1',
     module: 'modele.js', fonction: 'tableCumulee', lecteurs: [],
     par: ['tableParReps', 'recordsBattus', 'recordsDeLExercice'],

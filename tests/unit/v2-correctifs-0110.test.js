@@ -342,7 +342,7 @@ describe('50-1 — la version', () => {
   // 8 depuis 53-1 (MOTEUR §9.10 : la charge se reporte au changement de zone) ;
   // 9 depuis 54-1 (MOTEUR §12.2 bis : la zone d'une séance se lit à sa fin).
   test('VERSION_CONSIGNE vaut 9', () => {
-    expect(M.VERSION_CONSIGNE).toBe(9);
+    expect(M.VERSION_CONSIGNE).toBe(10);
   });
 });
 

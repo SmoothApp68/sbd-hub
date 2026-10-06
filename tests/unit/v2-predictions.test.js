@@ -43,8 +43,9 @@ describe('§9.13 bis — la version des règles du moteur (49-U6)', () => {
     // charges, la charge valant 0 ; la carte du lest, l'étirement, l'aide).
     // 7 depuis 51-3 (MOTEUR §9.20 : une séance marquée « douleur » est neutre).
     // 8 depuis 53-1 (MOTEUR §9.10 : la charge se reporte au changement de zone) ;
-    // 9 depuis 54-1 (MOTEUR §12.2 bis : la zone d’une séance se lit à sa fin).
-    expect(Moteur.VERSION_CONSIGNE).toBe(9);
+    // 9 depuis 54-1 (MOTEUR §12.2 bis : la zone d’une séance se lit à sa fin) ;
+    // 10 depuis 55-1 (MOTEUR §12.2 bis : une séance sans fin finit 3 h au plus après son début).
+    expect(Moteur.VERSION_CONSIGNE).toBe(10);
   });
 });
 

@@ -11716,8 +11716,9 @@ const SETS_IMPORTES = [
     });
     const ouvrirEditeur = async (id) => { await aller('/routine/' + id); await attendre(600); };
     const enregistrerEditeur = async () => { await page.click('#btn-enregistrer-routine'); await attendre(2200); };
+    // 53-2 bis : la tête vit dans `.dossier-ligne`, à côté du badge d'un programme.
     const bibliotheque = () => page.evaluate(() => Array.from(document.querySelectorAll('#liste-routines > *')).map((n) =>
-      n.classList.contains('dossier-tete') ? 'T:' + n.textContent
+      n.classList.contains('dossier-ligne') ? 'T:' + n.querySelector('.dossier-tete').textContent
         : n.classList.contains('routine-rangee') ? 'R:' + n.querySelector('.routine-nom').textContent : null).filter(Boolean));
 
     // ── A. LE DOSSIER : choisi dans l'éditeur, une étiquette.

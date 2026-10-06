@@ -213,16 +213,36 @@ describe('Profil — « TA PHASE »', () => {
     expect(Profil.phaseDe({ phase: 'seche' })).toBe('seche');
   });
 
-  // ⚠️ GARDE DE BRANCHEMENT, ET ELLE LIT LE SOURCE — comme celle du rythme
-  // (`v2-profil-ecran`) : la déclaration des sections vit dans
-  // `rendreProfilEcran`, que rien ne peut rendre. La phase s'y écrit par
-  // `ecrireProfil` (local d'abord, puis la file du profil), et l'app la gèle
-  // par `phaseDeLaSeance`, pas en lisant le profil en direct.
-  test('GARDE — `app.js` branche la section sur `ecrireProfil` et gèle la phase du plan', () => {
-    const fs = require('fs');
-    const path = require('path');
-    const src = fs.readFileSync(path.join(__dirname, '..', '..', 'v2', 'js', 'app.js'), 'utf8');
-    expect(src).toContain('Profil.sectionPhase(p, ecrireProfil)');
-    expect(src).toMatch(/phase: phaseDeLaSeance\(\),/);
+  // 54-1 — LA GARDE NE LIT PLUS LE SOURCE : elle REJOUE `rendreProfilEcran`
+  // et `phaseDeLaSeance` (`app.js`, dans un bac, `aide-profil-ecran.js`). La
+  // section s'écrit par `ecrireProfil` (local d'abord, puis la file du profil),
+  // et la phase du plan est GELÉE pour la séance. Le branchement de bout en
+  // bout (profil → paris de la séance) est au banc, section [U11].
+  test('GARDE — la section « TA PHASE » écrit par `ecrireProfil`', () => {
+    const { profilEcran } = require('./aide-profil-ecran.js');
+    const e = profilEcran({ phase: 'maintien' });
+    const phase = e.section('TA PHASE');
+    expect(phase).not.toBe(null);
+    expect(phase.segment.valeur).toBe('maintien');
+    phase.segment.surChoix('seche');
+    expect(e.ecrits.map((c) => c.phase)).toEqual(['seche']);
+    expect(typeof e.ecrits[0].phase_depuis).toBe('string');
+  });
+
+  test('GARDE — `phaseDeLaSeance` gèle la phase pour la séance, le profil peut changer', () => {
+    const vm = require('vm');
+    const { extraire } = require('./aide-profil-ecran.js');
+    const ctx = { Profil, seance: { id: 'S1' }, consignesSauvees: null, phaseGelee: null,
+                  profil: { phase: 'seche' } };
+    vm.createContext(ctx);
+    vm.runInContext(extraire('phaseDeLaSeance'), ctx);
+    expect(vm.runInContext('phaseDeLaSeance()', ctx)).toBe('seche');
+    ctx.profil = { phase: 'prise_de_masse' };
+    expect(vm.runInContext('phaseDeLaSeance()', ctx)).toBe('seche');
+    // Une autre séance lit la phase du moment.
+    ctx.seance = { id: 'S2' };
+    expect(vm.runInContext('phaseDeLaSeance()', ctx)).toBe('prise_de_masse');
+    ctx.seance = null;
+    expect(vm.runInContext('phaseDeLaSeance()', ctx)).toBe(null);
   });
 });

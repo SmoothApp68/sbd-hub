@@ -8127,4 +8127,4 @@
 
   if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', demarrer);
   else demarrer();
-})(typeof self !== 'undefined' ? self : this);
+})(typeof self !== 'undefined' ? self : globalThis);

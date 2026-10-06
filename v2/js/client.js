@@ -32,4 +32,4 @@
   }
 
   racine.THClient = { obtenir: obtenir, CLE_AUTH: CLE_AUTH };
-})(typeof self !== 'undefined' ? self : this);
+})(typeof self !== 'undefined' ? self : globalThis);

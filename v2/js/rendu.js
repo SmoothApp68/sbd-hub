@@ -4269,4 +4269,4 @@
     rendreEntree: rendreEntree,
     message: message
   };
-})(typeof self !== 'undefined' ? self : this);
+})(typeof self !== 'undefined' ? self : globalThis);

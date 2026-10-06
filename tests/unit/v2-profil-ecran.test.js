@@ -575,26 +575,27 @@ describe('48b-4 — le réglage de rythme, dans Profil', () => {
     expect(ecrits).toEqual([{ rythme_progression: 'prudent' }]);
   });
 
-  // ⚠️ GARDE DE LIBELLÉ, ET ELLE LIT LE SOURCE — ce que ce dépôt reproche par
-  // ailleurs aux tests de la v1. Assumé ici, pour une raison précise : les
-  // TITRES de sections vivent dans `rendreProfilEcran`, que rien ne peut rendre
-  // (elle referme sur la moitié d'`app.js`), et le renommage est tout l'objet
-  // de ce commit. Sans cette garde, remettre « RYTHME VISÉ » ne fait tomber
-  // aucun test, et l'écran porte de nouveau deux sections « rythme » qui ne
-  // parlent pas de la même chose. À retirer le jour où la déclaration des
-  // sections deviendra testable.
-  test('GARDE — `app.js` dit « TA SEMAINE », et branche bien la section du rythme', () => {
-    const fs = require('fs');
-    const path = require('path');
-    const src = fs.readFileSync(path.join(__dirname, '..', '..', 'v2', 'js', 'app.js'), 'utf8');
+  // 54-1 — LA GARDE NE LIT PLUS LE SOURCE : elle REJOUE `rendreProfilEcran`
+  // (le vrai `profil.js`, `aide-profil-ecran.js`) et regarde les sections que
+  // l'écran reçoit. Remettre « RYTHME VISÉ », retirer la section du rythme, ou
+  // la brancher sur autre chose qu'`ecrireProfil` fait tomber ce test — y
+  // compris quand la ligne de code existe encore, morte.
+  test('GARDE — l’écran reçoit « TA SEMAINE », et la section du rythme écrit par `ecrireProfil`', () => {
+    const { profilEcran } = require('./aide-profil-ecran.js');
+    const e = profilEcran({ intention: 'progresser', rythme_progression: 'normal' });
+    const titres = e.vue.sections.filter(Boolean).map((x) => x.titre);
     // Le renommage — sans quoi l'écran porte de nouveau deux « rythme ».
-    expect(src).toContain("titre: 'TA SEMAINE'");
-    expect(src).not.toContain("titre: 'RYTHME VISÉ'");
-    // Et le BRANCHEMENT, avec le profil et l'écriture. C'est la seule ligne du
-    // chantier que rien n'exerce : retirée, la section disparaît de l'écran
-    // sans qu'un test tombe ; passée `null`, elle affiche Normal pour tout le
-    // monde. Le banc de mutation l'a montré — deux survivants, ces deux-là.
-    expect(src).toContain('Profil.sectionRythme(p, ecrireProfil)');
+    expect(titres).toContain('TA SEMAINE');
+    expect(titres).not.toContain('RYTHME VISÉ');
+    // Et le BRANCHEMENT : la section existe, et son choix part par l'écriture
+    // du profil (passée `null`, elle afficherait Normal pour tout le monde).
+    const rythme = e.section('TON RYTHME');
+    expect(rythme).not.toBe(null);
+    expect(rythme.segment.valeur).toBe('normal');
+    rythme.segment.surChoix('prudent');
+    expect(e.ecrits).toEqual([{ rythme_progression: 'prudent' }]);
+    // En Entretenir, elle n'est pas là (la règle vit dans `profil.js`).
+    expect(profilEcran({ intention: 'entretien' }).section('TON RYTHME')).toBe(null);
   });
 
   test('l’écran dit « TA SEMAINE », et plus jamais « RYTHME VISÉ »', () => {

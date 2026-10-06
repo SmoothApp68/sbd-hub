@@ -13,4 +13,4 @@
   };
   racine.THConfig = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
-})(typeof self !== 'undefined' ? self : this);
+})(typeof self !== 'undefined' ? self : globalThis);

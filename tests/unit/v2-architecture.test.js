@@ -321,7 +321,7 @@ const NOTIONS = [
     raison: 'aucun écran ne lit le palier brut : les faits passent par `Modele`, les mots du ' +
       'coach par la consigne. La page et Progression l’appelaient chacune à part.' },
   { notion: 'la série de travail (le type, `travail` quand il manque)', pr: 'PR 6',
-    module: 'modele.js', fonction: 'estTravail', lecteurs: ['seance.js', 'semaine.js', 'plan.js', 'app.js', 'bilan.js'],
+    module: 'modele.js', fonction: 'estTravail', lecteurs: ['seance.js', 'semaine.js', 'plan.js', 'app.js', 'bilan.js', 'faits.js'],
     motif: /\.\s*estTravail\s*\(/g,
     par: ['exercicesFaits', 'tableParReps', 'construireBlocs'],
     interditAilleurs: { motif: /type_serie\s*[!=]==?\s*(['"])travail\1|typeDe\([^()]*\)\s*[!=]==?\s*(['"])travail\2|\|\|\s*(['"])travail\3\s*\)\s*[!=]==?/,
@@ -335,9 +335,9 @@ const NOTIONS = [
     raison: 'décision du 02/10/2026 : la carte, la barre, la page, le détail (« de travail »), le ' +
       'bandeau, la feuille de fin et le profil disent le même nombre ; le tapis n’y entre pas.' },
   { notion: 'l’exercice fait (au moins une série de travail, cardio compris)', pr: 'PR 6',
-    module: 'modele.js', fonction: 'exercicesFaits', lecteurs: ['app.js'],
+    module: 'modele.js', fonction: 'exercicesFaits', lecteurs: ['app.js', 'faits.js'],
     par: ['resumerSeance'],
-    parAilleurs: { 'app.js': ['sommaireExercices', 'calculerDatesExercices'] },
+    parAilleurs: { 'app.js': ['sommaireExercices'], 'faits.js': ['datesDesExercices'] },
     raison: 'décision du 02/10/2026 : Progression, le profil et la carte comptaient les exercices ' +
       'de trois façons (une ligne de chauffe suffisait au profil).' },
   { notion: 'les séries hors chauffe (« monte en charge », §5.1) — PAS la série de travail', pr: 'PR 7',
@@ -620,8 +620,8 @@ const NOTIONS = [
     raison: 'ECRAN §7 bis.15 : hors de 3 à 10 reps, l’estimation n’est pas fiable ; la médaille et la page ' +
       'disent la même plage.' },
   { notion: 'les records battus par une série (et l’ancien record, avec sa date)', pr: '55-U1',
-    module: 'modele.js', fonction: 'recordsBattus', lecteurs: ['app.js'],
-    parAilleurs: { 'app.js': ['recordsDeLaSerie'] },
+    module: 'modele.js', fonction: 'recordsBattus', lecteurs: ['faits.js'],
+    parAilleurs: { 'faits.js': ['recordsDeLaSerie', 'recordsDeLaSeance'] },
     raison: 'MOTEUR §9.23 : un record est un fait ; une seule fonction décide ce qu’une série bat, ' +
       'la médaille en séance, la feuille « Terminer » et Progression la lisent.' },
   { notion: 'la phrase de la médaille ([gras, gris])', pr: '55-U1',
@@ -651,7 +651,83 @@ const NOTIONS = [
     parAilleurs: { 'plan.js': ['planDeSeance', 'verifierPlan'], 'app.js': ['dejaNote', 'observerSerie'] },
     raison: 'prérequis d’« adapter » : le plan, I7, « déjà noté » et l’observation lisaient les paris par ' +
       '(séance, exercice) — la seconde occurrence se serait figée sur les paris de la première.' }
+,
+  // ── 58-1 — LE MODULE DES FAITS (`faits.js`, « un seul fil ») ─────────────
+  // L'assemblage des faits quittait `app.js` : un écran les LIT, il ne les
+  // assemble plus (la garde « un fait ne se déclare que dans `faits.js` »,
+  // plus bas, refuse une seconde déclaration ailleurs).
+  { notion: 'les séances avec leurs séries (le cache groupé par séance, trié par rang)', pr: '58-U1',
+    module: 'faits.js', fonction: 'seancesAvecSeries', lecteurs: ['app.js'],
+    par: ['seancesDuSlug', 'recordsDuMois', 'dernierRecord'],
+    parAilleurs: { 'app.js': ['bilanDuMoisDe'] },
+    raison: 'UN-SEUL-FIL : le bilan du mois, ses records et le dernier record lisent le même groupement, ' +
+      'avec le même mémo — un second groupement dirait une autre séance.' },
+  { notion: 'les séances d’un exercice, pour ses records (`{ id, debut, series }`)', pr: '58-U1',
+    module: 'faits.js', fonction: 'seancesDuSlug', lecteurs: [],
+    par: ['recordsDeLaSeance'],
+    raison: 'MOTEUR §9.23 : une série passée se compare aux séances de son exercice, lues une fois ' +
+      'par état du cache ; seul le module des faits les assemble.' },
+  { notion: 'les séances d’un exercice, pour le coach et sa page (`{ seance, series }`)', pr: '58-U1',
+    module: 'faits.js', fonction: 'seancesDeLExercice', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['derniereSeanceDe', 'consigneDe', 'suiteDe', 'rendreExercice'] },
+    raison: 'la consigne, la suite, « Dernière séance » et la page d’exercice lisent le même historique ' +
+      'd’un exercice ; un second assemblage dans l’écran pourrait en oublier une séance.' },
+  { notion: 'les records d’une séance passée (ses séries médaillées)', pr: '58-U1',
+    module: 'faits.js', fonction: 'recordsDeLaSeance', lecteurs: [],
+    par: ['recordsDuMois', 'dernierRecord'],
+    raison: 'MOTEUR §9.23 : un record est un fait ; le mois et le dernier record lisent les records ' +
+      'd’une séance par la même fonction, au même mémo.' },
+  { notion: 'les records d’un mois (dans l’ordre des séances)', pr: '58-U1',
+    module: 'faits.js', fonction: 'recordsDuMois', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['rendreProgression', 'rendreMois', 'rendreRecordsDuMois'] },
+    raison: 'MOTEUR §9.23 : le bloc Records, le bilan du mois et la liste des records du mois disent ' +
+      'le même compte — le jeu les lira là aussi.' },
+  { notion: 'le dernier record (la dernière série médaillée)', pr: '58-U1',
+    module: 'faits.js', fonction: 'dernierRecord', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['rendreProgression'] },
+    raison: 'MOTEUR §9.23 : « Le dernier » du bloc Records est un fait, assemblé une fois.' },
+  { notion: 'l’historique d’un exercice pendant la séance (sans la séance en cours)', pr: '58-U1',
+    module: 'faits.js', fonction: 'historiqueDesRecords', lecteurs: [],
+    par: ['recordsDeLaSerie'],
+    raison: 'MOTEUR §9.23 : la médaille compare une série à l’historique sans la séance en cours, ' +
+      'lu une fois par exercice et par état.' },
+  { notion: 'la séance en cours telle que les records la lisent (ses séries validées)', pr: '58-U1',
+    module: 'faits.js', fonction: 'seanceDesRecords', lecteurs: [],
+    par: ['recordsDeLaSerie', 'recordsDuJour'],
+    raison: 'MOTEUR §9.23 : la médaille et la feuille « Terminer » lisent les mêmes séries validées, ' +
+      'dans le même ordre.' },
+  { notion: 'les records d’une série de la séance en cours (la médaille)', pr: '58-U1',
+    module: 'faits.js', fonction: 'recordsDeLaSerie', lecteurs: ['app.js'],
+    par: ['recordsDuJour'],
+    parAilleurs: { 'app.js': ['medailleSurLigne'] },
+    raison: 'MOTEUR §9.23 : la médaille sous une rangée et la feuille « Terminer » lisent le même ' +
+      'calcul.' },
+  { notion: 'les records du jour (la feuille « Terminer »)', pr: '58-U1',
+    module: 'faits.js', fonction: 'recordsDuJour', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['rendreFeuilleFin'] },
+    raison: 'MOTEUR §9.23 : les records d’une séance qu’on termine — le jeu les lira à « Terminer ».' },
+  { notion: 'la semaine affichée (ses jours, séances, séries, bilan, zones)', pr: '58-U1',
+    module: 'faits.js', fonction: 'semaineDe', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['semaineCourante'] },
+    raison: 'UN-SEUL-FIL : Séances, Progression et la vue Volume lisent la même semaine ; l’écran ne ' +
+      'retient que le lundi affiché.' },
+  { notion: 'les exercices faits et la date de leur dernière séance', pr: '58-U1',
+    module: 'faits.js', fonction: 'datesDesExercices', lecteurs: ['app.js'],
+    par: ['compterExercices'],
+    parAilleurs: { 'app.js': ['rendreMesExercices'] },
+    raison: 'PR 6 : « fait » a une définition (`exercicesFaits`) ; sa date et son compte s’assemblent ' +
+      'une fois, avec leur oubli explicite.' },
+  { notion: 'le compte des exercices faits (le profil)', pr: '58-U1',
+    module: 'faits.js', fonction: 'compterExercices', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['rendreProfilEcran'] },
+    raison: 'PR 6 : le profil dit « N déjà faits » par le même balayage que Mes exercices.' }
 ];
+
+// ── 58-1 — UN FAIT NE SE DÉCLARE QUE DANS `faits.js` ─────────────────────────
+// Les noms des faits assemblés par le module : aucun autre fichier servi ne
+// déclare une fonction de ce nom. Un écran qui reconstruirait « son »
+// `dernierRecord` à côté du module se voit ici, même s'il n'appelle rien.
+const FAITS = NOTIONS.filter((n) => n.module === 'faits.js').map((n) => n.fonction);
 
 const CONSEIL = 'Passe par `planDeSeance` (v2/js/plan.js), ou ajoute ce fichier à la liste ' +
   'AUTORISATIONS de tests/unit/v2-architecture.test.js, avec sa raison, dans une PR qui le justifie.';
@@ -949,6 +1025,41 @@ describe('architecture — le registre des notions : une source, des lecteurs', 
     expect(n.interdit.motif.test('\'Ta dernière série a chuté après des séries stables\'')).toBe(false);
     expect(appels('var p = Moteur.pourquoiConsigne(x.consigne);', { fn: 'pourquoiConsigne' })).toHaveLength(1);
     expect(corpsDe('function a(x) { return b(x, { y: 1 }); } function c() {}', 'a')).toBe('{ return b(x, { y: 1 }); }');
+  });
+});
+
+describe('architecture — le module des faits : un fait ne se déclare que dans faits.js (58-1)', () => {
+  const FICHIERS = perimetre();
+
+  test('les faits du module : treize, chacun déclaré et exporté par faits.js', () => {
+    global.self = global;
+    require('../../v2/js/modele.js');
+    require('../../v2/js/semaine.js');
+    require('../../v2/js/bilan.js');
+    require('../../v2/js/palier.js');
+    require('../../v2/js/moteur.js');
+    require('../../v2/js/seance.js');
+    const instance = require('../../v2/js/faits.js').creer();
+    expect(FAITS.length).toBe(13);
+    expect(FAITS.filter((fn) => typeof instance[fn] !== 'function')).toEqual([]);
+  });
+
+  test('⚠️ aucun autre fichier servi ne déclare une fonction d’un fait', () => {
+    const fautes = [];
+    FICHIERS.forEach((f) => {
+      if (f.nom === 'faits.js') return;
+      const code = nettoyer(f.src, false);
+      FAITS.forEach((fn) => {
+        if (corpsDe(code, fn) !== null) fautes.push('`' + fn + '` est déclarée dans ' + f.nom + ' : un fait s’assemble dans faits.js, l’écran le lit.');
+      });
+    });
+    expect(fautes).toEqual([]);
+  });
+
+  test('la garde voit vraiment une seconde déclaration', () => {
+    const code = nettoyer('function dernierRecord() { return null; }\nvar x = faits.dernierRecord(c);', false);
+    expect(corpsDe(code, 'dernierRecord')).not.toBeNull();
+    expect(corpsDe(nettoyer('var x = faits.dernierRecord(c);', false), 'dernierRecord')).toBeNull();
   });
 });
 

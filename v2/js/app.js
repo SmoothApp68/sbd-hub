@@ -22,6 +22,10 @@
   var Seance = racine.THSeance, Attente = racine.THAttente;
   var Profil = racine.THProfil, Moteur = racine.THMoteur, Plan = racine.THPlan;
   var Rejeu = racine.THRejeu, Bilan = racine.THBilan;
+  // 58-1 — LE MODULE DES FAITS : l'assemblage des faits (séances et séries,
+  // records, semaine, exercices faits) vit dans `faits.js`, avec ses mémos.
+  // L'écran lui passe son corpus (`corpus()`) et lit.
+  var faits = racine.THFaits.creer();
 
   var vues = {};
   var local = { seances: [], series: [], exercices: [], pesees: [], zones: [], modes: [],
@@ -181,6 +185,14 @@
     local.parSeance = index;
   }
   function seriesDe(sessionId) { return (local.parSeance && local.parSeance.get(sessionId)) || []; }
+
+  // LE CORPUS que lit le module des faits (58-1) : le cache de lecture, l'index
+  // des séries par séance et le catalogue indexé — l'état de l'écran, passé en
+  // argument plutôt que lu par fermeture.
+  function corpus() {
+    return { seances: local.seances, series: local.series, exercices: local.exercices,
+             seriesDe: seriesDe, catalogue: catalogueIndexe };
+  }
 
   // ── §9.1.1 — LES CORRECTIONS DE ZONE ─────────────────────────────────────
   //
@@ -353,7 +365,7 @@
     var index = catalogueIndexe();
     var parSlug = {};
     (bloc.exercices || []).forEach(function (slug) {
-      parSlug[slug] = Moteur.chargesDeTravailDe(seancesDeLExercice(slug), etatsExercices[slug],
+      parSlug[slug] = Moteur.chargesDeTravailDe(faits.seancesDeLExercice(corpus(), slug), etatsExercices[slug],
         optionsDeConsigne(slug, index[slug]));
     });
     return Moteur.bilanDuBloc(bloc, parSlug, parisDeConsigneConnus());
@@ -656,7 +668,7 @@
     // Le corpus a changé, donc les dernières dates par exercice aussi. Elles se
     // recalculent à la prochaine ouverture de la liste, pas ici : cet écran
     // n'est presque jamais celui qu'on regarde pendant une synchronisation.
-    datesExercices = null;
+    faits.oublierDates();
     // ⚠️ PLUS `consignes = null` (49-U1, D7) : la consigne est figée pour la
     // séance ; ce qui arrive en arrière-plan sert à la séance suivante.
     constats = null;
@@ -693,7 +705,7 @@
     // avec lui. Le rejouer sur le compte suivant écrirait la taille de
     // quelqu'un d'autre dans sa ligne `profiles`.
     profil = null; profilAEnvoyer = false; pseudoAInscrire = null;
-    datesExercices = null;
+    faits.oublierDates();
     await Cache.ecrireMeta('proprietaire', { userId: userId });
   }
 
@@ -912,17 +924,11 @@
   // pas aggraver le bouton retour d'Android, qui est un chantier à part.
   // Tout ce que les deux onglets lisent de la semaine affichée. Une seule
   // source : passer de Séances à Progression conserve la semaine.
+  // 58-1 — l'écran retient la semaine affichée ; ce qu'on en lit est un fait
+  // (`faits.semaineDe`).
   function semaineCourante() {
     if (!lundiAffiche) lundiAffiche = Semaine.bornesSemaine(new Date()).lundi;
-    var bornes = Semaine.bornesSemaine(lundiAffiche);
-    var jours = Semaine.repartirParJour(local.seances, bornes.lundi);
-    var seances = jours.reduce(function (acc, j) { return acc.concat(j.seances); }, []);
-    var series = seances.reduce(function (acc, s) { return acc.concat(seriesDe(s.id)); }, []);
-    return {
-      bornes: bornes, jours: jours, seances: seances, series: series,
-      bilan: Semaine.bilanSemaine(seances, series, local.exercices),
-      zones: Semaine.volumeParZone(series, local.exercices)
-    };
+    return faits.semaineDe(corpus(), lundiAffiche);
   }
 
   function barrePour(sem, avecSeances) {
@@ -984,12 +990,12 @@
     // dernier record. Les blocs existants ne bougent pas.
     var mois = Bilan.moisEcoule(new Date());
     var b = bilanDuMoisDe(mois);
-    var dernier = dernierRecord();
+    var dernier = faits.dernierRecord(corpus());
     Rendu.rendreSommaire($('sommaire'), {
       mois: {
         titre: nomDuMois(mois, false),
         seances: b.seances,
-        records: recordsDuMois(mois).length,
+        records: faits.recordsDuMois(corpus(), mois).length,
         paris: { verifies: b.paris_verifies, tenus: b.paris_tenus },
         surChoix: function () { afficherMois(mois); }
       },
@@ -1011,81 +1017,19 @@
     });
   }
 
-  // ── MOTEUR §9.23 (55-1) — LE MOIS ET SES RECORDS ────────────────────────
-  //
-  // Les séances avec leurs séries, une fois par état du cache : le bilan, ses
-  // records et le dernier record les relisent.
-  var memoSeancesBilan = { cle: null, liste: [] };
-  function seancesAvecSeries() {
-    var cle = (local.seances || []).length + '|' + (local.series || []).length;
-    if (memoSeancesBilan.cle !== cle) {
-      memoSeancesBilan = { cle: cle, liste: (local.seances || []).filter(Boolean).map(function (s) {
-        return { id: s.id, debut: s.debut, fin: s.fin || null, series: Modele.trierParRang(seriesDe(s.id)) };
-      }) };
-    }
-    return memoSeancesBilan.liste;
-  }
+  // 58-1 — LE MOIS ET SES RECORDS : les séances avec leurs séries, celles d'un
+  // exercice, les records d'une séance, d'un mois et le dernier record vivent
+  // dans le module des faits (`faits.js`) ; l'écran les lit (`faits.*`).
 
-  // Toutes les séances qui portent un exercice (la séance en cours n'y est
-  // pas : elle n'est dans le cache qu'une fois terminée).
-  var memoParSlug = { cle: null, parSlug: {} };
-  function seancesDuSlug(slug) {
-    var cle = (local.seances || []).length + '|' + (local.series || []).length;
-    if (memoParSlug.cle !== cle) memoParSlug = { cle: cle, parSlug: {} };
-    if (!memoParSlug.parSlug[slug]) {
-      memoParSlug.parSlug[slug] = seancesAvecSeries().map(function (s) {
-        return { id: s.id, debut: s.debut, series: s.series.filter(function (x) { return x && x.exercise_slug === slug; }) };
-      }).filter(function (g) { return g.series.length > 0; });
-    }
-    return memoParSlug.parSlug[slug];
-  }
 
-  // Les séries médaillées d'une séance PASSÉE : chacune comparée aux séances
-  // d'avant et aux séries d'avant dans la séance — la même règle qu'en séance.
-  var memoRecordsSeance = { cle: null, parId: {} };
-  function recordsDeLaSeance(se) {
-    var cle = (local.seances || []).length + '|' + (local.series || []).length;
-    if (memoRecordsSeance.cle !== cle) memoRecordsSeance = { cle: cle, parId: {} };
-    if (memoRecordsSeance.parId[se.id]) return memoRecordsSeance.parId[se.id];
-    var index = catalogueIndexe(), out = [];
-    se.series.forEach(function (x, k) {
-      if (!x || !Modele.estTravail(x)) return;
-      var r = Modele.recordsBattus(seancesDuSlug(x.exercise_slug), se, k, Modele.optionsDeRecord(index[x.exercise_slug] || null));
-      if (!r.length) return;
-      var nom = Modele.nomCourt(index[x.exercise_slug] ? index[x.exercise_slug].nom : x.exercise_slug);
-      out.push({ seanceId: se.id, debut: se.debut, slug: x.exercise_slug,
-                 nom: nom.charAt(0).toUpperCase() + nom.slice(1), mesure: Modele.formatMesure(x), records: r });
-    });
-    memoRecordsSeance.parId[se.id] = out;
-    return out;
-  }
 
-  // Les records d'un mois, dans l'ordre des séances.
-  function recordsDuMois(mois) {
-    var out = [];
-    Bilan.seancesDuMois(seancesAvecSeries(), mois).slice().sort(function (a, b) {
-      return String(a.debut).localeCompare(String(b.debut));
-    }).forEach(function (se) { recordsDeLaSeance(se).forEach(function (r) { out.push(r); }); });
-    return out;
-  }
 
-  // Le dernier record : la dernière série médaillée de la séance la plus
-  // récente qui en a une (`local.seances` est rangée de la plus récente à la
-  // plus ancienne).
-  function dernierRecord() {
-    var liste = seancesAvecSeries();
-    for (var i = 0; i < liste.length; i++) {
-      var r = recordsDeLaSeance(liste[i]);
-      if (r.length) return r[r.length - 1];
-    }
-    return null;
-  }
 
   // ⚠️ PAS `bilanDe` : ce nom est celui du bilan d'un BLOC (§9.22), plus haut.
   // Deux déclarations du même nom, et la seconde efface la première — la
   // carte de fin de bloc s'était vidée (banc « cycles », 55-1).
   function bilanDuMoisDe(mois) {
-    return Bilan.bilanDuMois({ mois: mois, seances: seancesAvecSeries(),
+    return Bilan.bilanDuMois({ mois: mois, seances: faits.seancesAvecSeries(corpus()),
                                paris: parisDeConsigneConnus(), exercices: local.exercices });
   }
 
@@ -1111,7 +1055,7 @@
     montrer('mois', Routeur.MOIS);
     var mois = moisDemande || Bilan.moisEcoule(new Date());
     var b = bilanDuMoisDe(mois);
-    var recs = recordsDuMois(mois);
+    var recs = faits.recordsDuMois(corpus(), mois);
     var index = catalogueIndexe();
     var courant = Bilan.cleMois(new Date());
     var trois = [Bilan.moisPrecedent(Bilan.moisPrecedent(mois)), Bilan.moisPrecedent(mois), mois];
@@ -1150,7 +1094,7 @@
     var courant = Bilan.cleMois(new Date());
     Rendu.rendreRecordsDuMois($('records-mois'), {
       titre: nomDuMois(mois, true).replace(/^./, function (c) { return c.toUpperCase(); }),
-      records: recordsDuMois(mois).map(function (r) {
+      records: faits.recordsDuMois(corpus(), mois).map(function (r) {
         return { seanceId: r.seanceId, texte: r.nom + ' ' + r.mesure,
                  date: Modele.jourMois(new Date(r.debut), new Date().getFullYear()) };
       }),
@@ -2508,7 +2452,7 @@
       // ni la suite du constat, ni la page d'exercice.
       if (exo) options.freres = function () { return freresPourLeMoteur(slug, consignes.index); };
       var calculee = Moteur.consigneDExercice(
-        seancesDeLExercice(slug), etatsExercices[slug], seance.debut, options);
+        faits.seancesDeLExercice(corpus(), slug), etatsExercices[slug], seance.debut, options);
       if (!exo) return calculee;
       // §14.4 (49-U14) — les séries de travail de la routine, FIGÉES avec la
       // consigne : la semaine allégée en couvre 60 %, et « + Série » ne change
@@ -2539,7 +2483,7 @@
   // les MÊMES entrées que leur propre consigne (`optionsDeConsigne`).
   function freresPourLeMoteur(slug, index) {
     return Modele.freresDe(index, slug).map(function (f) {
-      return { slug: f, nom: Modele.nommer(index, f), groupes: seancesDeLExercice(f),
+      return { slug: f, nom: Modele.nommer(index, f), groupes: faits.seancesDeLExercice(corpus(), f),
                etat: etatsExercices[f], options: optionsDeConsigne(f, index[f]) };
     });
   }
@@ -2570,7 +2514,7 @@
       // demande (le moteur ne le rejoue que pour une première fois lestée).
       libre: libreDuLeste ? function () {
         var px = index[libreDuLeste], pg = Modele.gabaritDe(px);
-        return { groupes: seancesDeLExercice(libreDuLeste), etat: etatsExercices[libreDuLeste],
+        return { groupes: faits.seancesDeLExercice(corpus(), libreDuLeste), etat: etatsExercices[libreDuLeste],
                  options: { mesure: pg.inconnue ? null : pg.mesure, equipement: Moteur.equipementEffectif(px),
                             reglage: Profil.rythmeDe(profil), correction: zoneDe(libreDuLeste) } };
       } : null,
@@ -3422,7 +3366,7 @@
   function consigneDeLExercice(slug) {
     if (seance && !enEdition()) return consigneDe(slug);
     var exo = Modele.indexerExercices(local.exercices)[slug] || null;
-    return Moteur.consigneDExercice(seancesDeLExercice(slug), etatsExercices[slug],
+    return Moteur.consigneDExercice(faits.seancesDeLExercice(corpus(), slug), etatsExercices[slug],
       seance ? seance.debut : new Date().toISOString(),
       Object.assign(optionsDeConsigne(slug, exo), { edition: false }));
   }
@@ -3554,7 +3498,7 @@
       // reprise des jours plus tard : les séances faites entre-temps ne sont
       // pas « aujourd'hui » (le constat racontait l'une d'elles).
       var debutDuJour = Date.parse(seance.debut);
-      var anterieures = seancesDeLExercice(slug).filter(function (g) {
+      var anterieures = faits.seancesDeLExercice(corpus(), slug).filter(function (g) {
         return g.seance.id === seance.id || !(Date.parse(g.seance.debut) > debutDuJour);
       });
       var r = Moteur.suiteDExercice(
@@ -4362,76 +4306,21 @@
     return sortie.message || sortie.proposee || sortie.ajoutee ? sortie : null;
   }
 
-  // ── MOTEUR §9.23 (55-1) — LA MÉDAILLE ───────────────────────────────────
-  //
-  // Les records d'une série VALIDÉE, sur l'historique SANS la séance en cours
-  // (`local.series` ne la porte pas encore — en correction, on l'écarte par
-  // son identifiant) plus les séries déjà validées de la séance. Rien n'est
-  // écrit en base : la médaille se RECALCULE à chaque rendu, donc dévalider
-  // la retire, et corriger une charge la refait.
-  //
-  // L'historique d'un exercice ne change pas pendant la séance : il se lit une
-  // fois par exercice, et se relit quand la séance ou le cache changent.
-  var memoRecords = { cle: null, parSlug: {} };
-  function historiqueDesRecords(slug) {
-    var cle = (seance ? seance.id : '') + '|' + (local.seances || []).length + '|' + (local.series || []).length;
-    if (memoRecords.cle !== cle) memoRecords = { cle: cle, parSlug: {} };
-    if (!memoRecords.parSlug[slug]) {
-      memoRecords.parSlug[slug] = (local.seances || []).filter(function (s) {
-        return s && (!seance || s.id !== seance.id);
-      }).map(function (s) {
-        return { debut: s.debut, series: seriesDe(s.id).filter(function (x) { return x && x.exercise_slug === slug; }) };
-      }).filter(function (g) { return g.series.length > 0; });
-    }
-    return memoRecords.parSlug[slug];
-  }
+  // 58-1 — les records de la séance EN COURS (l'historique d'un exercice, la
+  // séance telle que les records la lisent, les records d'une série, ceux du
+  // jour) vivent dans le module des faits (`faits.js`).
 
-  // La séance en cours telle que les records la lisent : ses séries VALIDÉES,
-  // dans l'ordre de la séance, et la position de chacune.
-  function seanceDesRecords() {
-    var series = [], positions = {};
-    (seance ? seance.exercices : []).forEach(function (exo, i) {
-      (exo.series || []).forEach(function (s, j) {
-        if (!Seance.partEnBase(s)) return;
-        positions[i + ':' + j] = series.length;
-        series.push(Object.assign({}, s, { exercise_slug: exo.exercise_slug }));
-      });
-    });
-    return { debut: seance ? seance.debut : null, series: series, positions: positions };
-  }
 
-  function recordsDeLaSerie(iExo, iSerie, lue) {
-    var v = lue || seanceDesRecords();
-    var k = v.positions[iExo + ':' + iSerie];
-    if (k === undefined) return [];
-    var slug = v.series[k].exercise_slug;
-    return Modele.recordsBattus(historiqueDesRecords(slug), v, k,
-      Modele.optionsDeRecord(catalogueIndexe()[slug] || null));
-  }
 
   // `[gras, gris]` sous la rangée d'une série, ou rien.
   function medailleSurLigne(iExo, iSerie) {
     if (!seance) return null;
-    var r = recordsDeLaSerie(iExo, iSerie);
+    var r = faits.recordsDeLaSerie(corpus(), seance, iExo, iSerie);
     if (!r.length) return null;
     var exo = catalogueIndexe()[seance.exercices[iExo].exercise_slug];
     return Modele.phraseDeRecord(r, Modele.nomCourt(exo ? exo.nom : ''), seance.debut);
   }
 
-  // Les records du jour, pour la feuille « Terminer » : une ligne par série
-  // médaillée, « Développé couché 130 kg × 4 ».
-  function recordsDuJour() {
-    if (!seance) return [];
-    var v = seanceDesRecords(), index = catalogueIndexe(), out = [];
-    seance.exercices.forEach(function (exo, i) {
-      (exo.series || []).forEach(function (s, j) {
-        if (!recordsDeLaSerie(i, j, v).length) return;
-        var nom = Modele.nomCourt(index[exo.exercise_slug] ? index[exo.exercise_slug].nom : exo.exercise_slug);
-        out.push({ nom: nom.charAt(0).toUpperCase() + nom.slice(1), mesure: Modele.formatMesure(s) });
-      });
-    });
-    return out;
-  }
 
   // ── L'écran ─────────────────────────────────────────────────────────────
   function rendreSeance() {
@@ -5382,7 +5271,7 @@
     Rendu.rendreFeuilleFin(cible, {
       compte: Seance.compter(seance, local.exercices),
       // MOTEUR §9.23 (55-1) — les records du jour ; sans record, rien.
-      records: recordsDuJour(),
+      records: faits.recordsDuJour(corpus(), seance),
       titre: seance.titre,
       note: seance.note,
       salle: seance.salle,
@@ -6676,17 +6565,7 @@
   // — un champ écrit que personne ne lit, exactement le défaut C1 du chantier 39.
   var exoAffiche = null;       // { slug, combien }
 
-  // Les séances qui portent cet exercice, de la plus récente à la plus
-  // ancienne : `local.seances` est déjà rangée ainsi (invariant de
-  // `rangerSeances`), on ne retrie pas ce qui est trié.
-  function seancesDeLExercice(slug) {
-    return local.seances.map(function (s) {
-      var siennes = seriesDe(s.id).filter(function (x) {
-        return x && x.exercise_slug === slug;
-      });
-      return siennes.length ? { seance: s, series: siennes } : null;
-    }).filter(Boolean);
-  }
+  // 58-1 — les séances d'un exercice (`faits.seancesDeLExercice`) : le module des faits.
 
   // « DERNIÈRE SÉANCE » d'un exercice : la meilleure série de sa séance la plus
   // récente, datée de cette séance ; `null` s'il n'a jamais été fait. La page
@@ -6695,7 +6574,7 @@
   // pour les deux, sinon le frère dirait un autre chiffre que sa propre page,
   // à un tap. `groupes` est facultatif : la page les a déjà lus.
   function derniereSeanceDe(slug, groupes) {
-    var g = groupes || seancesDeLExercice(slug);
+    var g = groupes || faits.seancesDeLExercice(corpus(), slug);
     if (!g.length) return null;
     var d = Modele.meilleureSerieDe(slug, g[0].series, local.exercices, Palier, etatsExercices);
     d.date = g[0].seance.debut;
@@ -6729,7 +6608,7 @@
     var index = Modele.indexerExercices(local.exercices);
     var exo = index[slug] || null;
     var mesure = exo ? exo.mesure : null;
-    var groupes = seancesDeLExercice(slug);
+    var groupes = faits.seancesDeLExercice(corpus(), slug);
     var toutes = [].concat.apply([], groupes.map(function (g) { return g.series; }));
 
     // La date d'un record est celle de la SÉANCE, pas `validee_a` : les séries
@@ -6795,7 +6674,7 @@
       var il6 = new Date(maintenant.getTime()); il6.setMonth(il6.getMonth() - 6);
       var il12 = new Date(maintenant.getTime()); il12.setFullYear(il12.getFullYear() - 1);
       var travail = null;
-      Moteur.chargesDeTravailDe(seancesDeLExercice(slug), etatsExercices[slug], optionsDeConsigne(slug, exo))
+      Moteur.chargesDeTravailDe(faits.seancesDeLExercice(corpus(), slug), etatsExercices[slug], optionsDeConsigne(slug, exo))
         .forEach(function (x) { if (!travail || String(x.date) > String(travail.date)) travail = x; });
       teteRecords = {
         douzeMois: recordsExo.douzeMois,
@@ -7433,7 +7312,7 @@
     // rejouer une modification de profil sur le compte suivant serait pire que
     // de la perdre.
     profil = null; profilAEnvoyer = false; pseudoAInscrire = null;
-    datesExercices = null;
+    faits.oublierDates();
     try { await Auth.deconnecter(); } catch (e) { /* le jeton part quand même */ }
     allerA(Routeur.CONNEXION, {}, true);
     rendreEntree('connexion');
@@ -7790,7 +7669,7 @@
     $('profil-sous').textContent =
       Profil.sousTitre(p, resumePoids ? resumePoids.poids : null, new Date());
 
-    var exos = compterExercices();
+    var exos = faits.compterExercices(corpus());
 
     Rendu.rendreProfil($('profil-corps'), {
       // « Contournable, obligatoirement » : le bandeau ne s'affiche QUE tant que
@@ -7952,33 +7831,13 @@
 
   // ── Tous mes exercices (§2.4 bis) ────────────────────────────────────────
   //
-  // Le tri se fait sur la DERNIÈRE séance où l'exercice apparaît. Un balayage
-  // des 28 000 séries, fait UNE FOIS à l'ouverture de l'écran et gardé : le
-  // refaire à chaque frappe de la recherche rendrait le champ poussif.
-  var datesExercices = null;
-
-  function calculerDatesExercices() {
-    var parSeance = {};
-    (local.seances || []).forEach(function (s) {
-      if (s && s.id && s.debut) parSeance[s.id] = s.debut;
-    });
-    // PR 6 — un exercice « fait » a au moins une SÉRIE DE TRAVAIL (cardio
-    // compris), pas une ligne de n'importe quel type : la définition unique
-    // (`Modele.exercicesFaits`), celle de Progression. Sa date est la plus
-    // récente de ces séances-là.
-    var dates = Modele.exercicesFaits(local.series, parSeance);
-    datesExercices = dates;
-    return dates;
-  }
-
-  function compterExercices() {
-    var dates = datesExercices || calculerDatesExercices();
-    return { total: (local.exercices || []).length, faits: Object.keys(dates).length };
-  }
+  // 58-1 — les exercices faits et leur date (`faits.datesDesExercices`,
+  // `faits.compterExercices`) : le module des faits, avec leur balayage gardé
+  // et leur oubli explicite (`faits.oublierDates`).
 
   function rendreMesExercices() {
     montrer('exercices', Routeur.EXERCICES);
-    var dates = calculerDatesExercices();
+    var dates = faits.datesDesExercices(corpus());
     var recherche = ($('champ-recherche-mes-exos').value || '').trim();
 
     // ⚠️ LA RECHERCHE DU CATALOGUE, PAS UNE SECONDE. `Routines.chercher` replie
@@ -8385,7 +8244,7 @@
       if (Auth.sessionPersistee()) return;
       sessionActive = null;
       entreeFaitePour = null;
-      profil = null; datesExercices = null;
+      profil = null; faits.oublierDates();
       allerA(Routeur.CONNEXION, {}, true);
       rendreEntree('connexion');
     });

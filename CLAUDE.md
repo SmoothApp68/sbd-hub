@@ -147,6 +147,10 @@ trappe `/__sw-off` pendrait avec lui.
   `AUTORISATIONS` **avec sa raison**. L'élargir est un geste conscient, dans une PR
   qui le justifie — jamais un contournement silencieux. Une entrée sans appel fait
   aussi échouer le test : la liste dit ce qui est.
+- **Le module des faits** (58-1) : l'assemblage des faits (séances et séries, records d'une séance,
+  d'un mois, du jour, le dernier record, la semaine affichée, les exercices faits) vit dans
+  `v2/js/faits.js`, avec ses mémos ; les écrans — et le jeu — le **lisent**, aucun autre fichier ne
+  déclare un de ces faits (garde « un fait ne se déclare que dans `faits.js` », registre `NOTIONS`).
 - **La garde de développement** (C6, `THPlan.creerGarde`) vérifie chaque plan que
   l'app calcule, hors production : `localhost`, les aperçus `*.pages.dev`, ou
   `?garde=1`. Le banc de saisie vérifie les invariants après chaque geste.

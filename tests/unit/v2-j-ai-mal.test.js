@@ -15,12 +15,11 @@
 //     le repli (I35) — et leurs violations forgées ;
 //   · les phrases : la feuille, la phrase de sécurité, la carte sans question.
 //
-// ⚠️ RAPPORTÉ, PAS CORRIGÉ : la CHARGE du test (`haut`) du fichier de cas
-// diffère de l'app sur N01 (attendu et sans la séance), N04 (attendu) et N02
-// (sans la marque) — y compris là où la douleur n'intervient pas
-// (`sans_la_seance_douloureuse` de N01). C'est le choix de la charge voisine
-// (§10.2), pas §9.20 : la zone, l'état, la ligne et la visée du test se
-// comparent ici ; la charge du test est dans la description de la PR.
+// 54-1 — LA CHARGE DU TEST SE COMPARE DE NOUVEAU. Le fichier n'emportait que
+// les 10 dernières séances de chaque cas ; le pas de salle se mesure sur 24
+// mois (§10.2), et le militaire n'avait plus son 25 kg. Le fichier porte
+// désormais les séances des 24 mois qui précèdent `avant`, et la consigne se
+// calcule avec l'équipement de l'exercice, comme l'app (`barre`).
 
 require('../../v2/js/modele.js');
 require('../../v2/js/semaine.js');
@@ -44,8 +43,6 @@ const forme = (k) => {
   return { zone: z === null ? null : [z.cle, z.bas, z.haut], etat: k.etat,
            ligne: tableau(k.ligne, false), haut: tableau(k.haut, true) };
 };
-// Sans la charge du test (rapportée, voir l'en-tête) : la visée et son rang.
-const sansChargeDuTest = (f) => Object.assign({}, f, { haut: f.haut === null ? null : [f.haut[1], f.haut[2]] });
 // Les séances du cas, telles que le contrat les donne AVANT la règle : la
 // neutralité se recalcule (`neutre` retiré), la marque reste.
 const contrat = (c, marque) => c.seances.map((s) => {
@@ -54,7 +51,15 @@ const contrat = (c, marque) => c.seances.map((s) => {
   if (marque === false) x.douleur = false;
   return x;
 });
-const consigneDe = (seances, avant) => M.consignePour(M.sansPalierRetenues(seances, {}), avant, {});
+// 54-1 — LES 10 DERNIÈRES SÉANCES, pour les deux scénarios écrits sur l'ancien
+// fichier : leur PRÉMISSE (aucun cran inférieur connu pour N03, aucun palier
+// tenu en Mix pour N02) n'est vraie que sur ce décor. Sur 24 mois, N03 connaît
+// 105 kg et N02 a tenu 110 × 6 en Mix le 05/12/2025 — le comportement juste,
+// pas un écart : la règle de ces scénarios se teste donc sur leur décor d'origine.
+const dixDernieres = (seances) => seances.slice(-10);
+// L'équipement de l'exercice, comme l'app le passe (les quatre cas sont à la barre).
+const OPTIONS = { equipement: 'barre' };
+const consigneDe = (seances, avant) => M.consignePour(M.sansPalierRetenues(seances, OPTIONS), avant, OPTIONS);
 
 // ══ 1. LA NEUTRALITÉ DÉCLARÉE ════════════════════════════════════════════════
 
@@ -72,9 +77,9 @@ describe('51-3 — une séance marquée est neutre (les 4 cas d’Aurélien)', (
       const avec = forme(consigneDe(contrat(c), c.avant));
       const sans = forme(consigneDe(contrat(c).filter((s) => !s.douleur), c.avant));
       const nonMarquee = forme(consigneDe(contrat(c, false), c.avant));
-      expect(sansChargeDuTest(avec)).toEqual(sansChargeDuTest(c.attendu));
-      expect(sansChargeDuTest(sans)).toEqual(sansChargeDuTest(c.sans_la_seance_douloureuse));
-      expect(sansChargeDuTest(nonMarquee)).toEqual(sansChargeDuTest(c.si_elle_n_etait_pas_marquee));
+      expect(avec).toEqual(c.attendu);
+      expect(sans).toEqual(c.sans_la_seance_douloureuse);
+      expect(nonMarquee).toEqual(c.si_elle_n_etait_pas_marquee);
       // LA PROPRIÉTÉ : la ligne avec la marque = la ligne sans la séance…
       expect(avec.ligne).toEqual(sans.ligne);
       // …et sans la marque, elle aurait reculé.
@@ -206,7 +211,7 @@ describe('51-3 — la zone suivante en reps et la condition de la carte', () => 
 
   test('sans cran connu, la charge ne s’invente pas : « le cran en dessous »', () => {
     const c = CAS.neutralite.find((x) => x.id === 'N03');
-    const se = M.sansPalierRetenues(contrat(c), {});
+    const se = M.sansPalierRetenues(dixDernieres(contrat(c)), {});
     const k = M.consignePour(se, c.avant, {});
     const r = M.reprisePour(se, c.avant, k, null);
     expect(r.repli.ligne).toEqual([null, 6]);
@@ -225,7 +230,7 @@ describe('51-3 — la zone suivante en reps et la condition de la carte', () => 
   // 120 × 4, au cran inférieur : 112,5 × 6 (avant 53-1 : 115 × 6, la reprise longue).
   test('⚠️ DISCRIMINANT — sans palier tenu dans la zone suivante (N02) : le report estimé, trois choix', () => {
     const c = CAS.neutralite.find((x) => x.id === 'N02');
-    const se = M.sansPalierRetenues(contrat(c), {});
+    const se = M.sansPalierRetenues(dixDernieres(contrat(c)), {});
     const k = M.consignePour(se, c.avant, {});
     const r = M.reprisePour(se, c.avant, k, { palier: 120, niveau: 5 });
     expect(M.repliEscalier(se, c.avant, { palier: 120, niveau: 5 }, 'mix')).toBe(null);

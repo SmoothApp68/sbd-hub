@@ -308,6 +308,17 @@ const SCENARIOS = [
       verifier('hors ligne ' + chemin, !v.erreur && v.sections > 0,
         v.erreur || v.sections + ' sections');
     }
+    // 56-1 (la forge) — hors ligne, les polices viennent du cache du service
+    // worker : chacune des sept faces se charge, serveur coupé. Une police
+    // absente du cache échouerait ici (et l'app retomberait, sans bruit, sur
+    // la police système).
+    const polices = await page.evaluate(async () => {
+      const faces = Array.from(document.fonts).filter((f) => /Barlow/.test(f.family));
+      await Promise.all(faces.map((f) => f.load().catch(() => null)));
+      return faces.map((f) => f.family.replace(/"/g, '') + ' ' + f.weight + ' ' + f.status);
+    }).catch((e) => [String(e).slice(0, 80)]);
+    verifier('hors ligne, les sept faces Barlow se chargent depuis le cache',
+      polices.length === 7 && polices.every((f) => / loaded$/.test(f)), JSON.stringify(polices));
     await new Promise((r) => serveur.listen(PORT, r));  // pour le `finally`
   })}
 ];

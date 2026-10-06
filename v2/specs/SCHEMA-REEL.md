@@ -1,28 +1,29 @@
-# Schéma réel — état au 5 octobre 2026
+# Schéma réel — état au 6 octobre 2026
 
 **Régénéré depuis la base**, projet Supabase `swwygywahfdenyzotrce` (eu-west-1).
-Dernière migration appliquée : **`v2_056_sets_douleur_occurrence`**. Prochain numéro libre : **`v2_057`**.
+Dernière migration appliquée : **`v2_058_blocs_programmes`**. Prochain numéro libre : **`v2_059`**.
 
 > ⚠️ **Ce document remplace `SCHEMA-V2_2.md`**, qui décrivait un état antérieur aux
 > routines et n'a plus valeur de référence. En cas de doute, la base fait foi — pas ce
 > fichier. Il est régénéré, pas rédigé.
 
-> **Régénéré le 05/10/2026 depuis la base** (Claude.ai). Cette version reprend celle du 21/09 (`v2_047`) et
-> ajoute, juste en dessous, **tout ce qui a changé de `v2_048` à `v2_056`** : colonnes, table nouvelle, contraintes,
+> **Régénéré le 06/10/2026 depuis la base** (Claude.ai). Cette version reprend celle du 21/09 (`v2_047`) et
+> ajoute, juste en dessous, **tout ce qui a changé de `v2_048` à `v2_058`** : colonnes, table nouvelle, contraintes,
 > règles d'accès, volumétrie. Les sections par table plus bas datent du 21/09 ; quand elles divergent du bloc
 > « Depuis le 21/09 », **c'est ce bloc qui fait foi**.
 
-**Volumétrie régénérée le 05/10/2026 :** **1 259 séances · 29 011 séries** · 237 exercices (232 actifs, **100 avec un
-mouvement**) · 117 pesées · **5 profils** · **10 routines · 78 exercices de routine · 269 séries programmées** ·
-**61 prédictions** (toutes `moteur.consigne`) · **17 zones corrigées** · **0 mode par exercice**.
+**Volumétrie régénérée le 06/10/2026 :** **1 260 séances · 29 036 séries** · 237 exercices (232 actifs, **100 avec un
+mouvement**) · 117 pesées · **5 profils** · **10 routines (0 rangée en dossier) · 78 exercices de routine · 269 séries
+programmées** · **82 prédictions** (toutes `moteur.consigne`) · **17 zones corrigées** (0 posée par un bloc) ·
+**0 mode par exercice** · **0 bloc** · 0 série marquée douleur.
 
 **Séries par type :** travail 26 861 · échauffement 1 588 · dégressive 434 · échec 128.
-**Séances par source :** hevy 1 249 · app 10. **Séries par source :** hevy 28 861 · app 150.
+**Séances par source :** hevy 1 249 · app 11. **Séries par source :** hevy 28 861 · app 175.
 **Séances saisies dans l'app avec `routine_id` :** 4 sur 10 (les autres sont des séances libres ou antérieures au
 rattachement) — **la note « routine_id n'est pas rempli par les séances v2 » était fausse** : il l'est quand la séance
 part d'une routine. La séance importée de Hevy le 02/10 a été rattachée à sa routine à la main.
 
-## Depuis le 21/09 — migrations `v2_048` à `v2_056`
+## Depuis le 21/09 — migrations `v2_048` à `v2_058`
 
 | Migration | Date | Ce qu'elle fait |
 |---|---|---|
@@ -35,6 +36,8 @@ part d'une routine. La séance importée de Hevy le 02/10 a été rattachée à 
 | `v2_054_poids_du_corps` | 04/10 | `profiles.lest_reponse` (`oui` / `non` / NULL) et `lest_reponse_le` ; **table `modes_exercice`** (MOTEUR §9.17) |
 | `v2_055_lest_pompes_et_regle_modes` | 04/10 | `pompes_lestees.parent = 'pompes'` ; la règle de `modes_exercice` réservée à `authenticated` |
 | `v2_056_sets_douleur_occurrence` | 05/10 | `sets.douleur` (boolean NOT NULL, défaut false) et `sets.occurrence` (uuid, NULL pour les séances importées ou anciennes) (MOTEUR §9.20, §9.19) |
+| `v2_057_routines_dossier` | 05/10 | `routines.dossier` (text, NULL = hors dossier ; CHECK `routines_dossier_ok` : sans espace autour, 1 à 40 caractères) (ECRAN-SAISIE, Organiser) |
+| `v2_058_blocs_programmes` | 05/10 | **Table `blocs`** ; `zones_exercice.origine` (`personne` / `bloc`) et `zones_exercice.bloc_id` ; `predictions_observation_coherente` accepte aussi `module = 'programme'` (MOTEUR §9.22, §9.1.2, §19.2) |
 
 **Données corrigées hors migration** (avec répétition à blanc) : 4 séries de `muscle_up_assiste` passées en négatif
 (l'aide se range en négatif : 129 séries sur 129 désormais) ; la séance Hevy du 02/10 importée (27 séries) et rattachée
@@ -47,6 +50,8 @@ part d'une routine. La séance importée de Hevy le 02/10 a été rattachée à 
 | `sets` | `douleur` boolean NOT NULL = false · `occurrence` uuid (déjà présentes et non décrites plus bas : `source` text NOT NULL = 'app', `repos_s`, `elastique`, `elastique_norme`, `tempo_descente`, `tempo_pause`, `tempo_montee`, `modifie_a`, `note`, `rpe`) |
 | `profiles` | `phase` text (CHECK) · `phase_depuis` timestamptz · `lest_reponse` text (CHECK `oui`/`non`) · `lest_reponse_le` timestamptz |
 | `exercises` | `mouvement` text |
+| `routines` | `dossier` text (CHECK `routines_dossier_ok`) |
+| `zones_exercice` | `origine` text NOT NULL = 'personne' (CHECK `personne`/`bloc`) · `bloc_id` uuid → `blocs(id)` ON DELETE SET NULL |
 
 ### Table nouvelle : `modes_exercice` — 0 ligne · créée par `v2_054`
 
@@ -56,10 +61,33 @@ NOT NULL → `exercises(slug)` · `mode` text NOT NULL CHECK (`progresser` / `en
 choisi_a DESC)`. **Patron de `zones_exercice`** : une ligne par changement, la dernière fait foi. RLS :
 `modes_exercice_owner` [authenticated, ALL] `user_id = (select auth.uid())`.
 
-### Règles d'accès (état au 05/10)
+### Table nouvelle : `blocs` — 0 ligne · créée par `v2_058`
+
+`id` uuid PK = gen_random_uuid() · `user_id` uuid NOT NULL → `profiles(id)` ON DELETE CASCADE · `dossier` text NOT NULL
+(CHECK `blocs_dossier_ok` : sans espace autour, 1 à 40 caractères) · `zone` text NOT NULL CHECK (`lourd` / `mix`) ·
+`debut` date NOT NULL · `semaines` integer NOT NULL CHECK 3..6 · `decharge` boolean NOT NULL = true · `exercices` text[]
+NOT NULL (au moins 1) · `statut` text NOT NULL = 'en_cours' CHECK (`en_cours` / `termine` / `arrete`) · `precedent` uuid
+→ `blocs(id)` ON DELETE SET NULL · `created_at`, `modifie_a` timestamptz NOT NULL = now().
+Index unique partiel **`blocs_un_en_cours (user_id, dossier) WHERE statut = 'en_cours'`** : un seul bloc en cours par
+dossier. RLS : `blocs_owner` [authenticated, ALL] `user_id = (select auth.uid())`.
+**Une zone posée par un bloc** s'écrit dans `zones_exercice` avec `origine = 'bloc'` et `bloc_id` : c'est toujours la
+même table, la déclaration la plus récente l'emporte (MOTEUR §9.1.2). Supprimer un bloc ne supprime pas ses zones
+(le lien passe à NULL).
+
+### Notes de ménage (06/10)
+
+- **L'alias abîmé de `developpe_couche_decline_barre` est volontaire — ne pas le supprimer.** Le texte
+  « Développé Couch�� Décliné (Barre) » est celui de l'export Hevy, abîmé à la source ; l'alias (`hevy_corrompu`)
+  permet de le reconnaître à l'import.
+- **`routine_exercises.series`** (integer NOT NULL = 3, remplie sur les 78 lignes) et **`routine_exercises.reps_visees`**
+  (integer, vide) sont **redondantes** depuis `routine_sets` (`v2_042`), qui fait foi pour la structure d'une routine.
+  Aucune vue ni fonction de la base n'en dépend ; la répétition à blanc de leur retrait a réussi le 06/10. **À retirer en
+  `v2_059` une fois vérifié qu'aucun code v2 ne les nomme.** D'ici là, le code ne doit ni les lire ni les écrire.
+
+### Règles d'accès (état au 06/10)
 
 - **En `authenticated`, propriétaire** : `sets`, `sessions`, `routines`, `routine_exercises`, **`routine_sets`** (n'est
-  plus en `public`), `predictions`, `zones_exercice`, `modes_exercice`, `body_weight_log`, `user_exercise_model`.
+  plus en `public`), `predictions`, `zones_exercice`, `modes_exercice`, **`blocs`**, `body_weight_log`, `user_exercise_model`.
 - **Encore en `public`** (rôle à resserrer à la passe sécurité, les conditions protègent déjà) : `profiles` (4 règles,
   `auth.uid() = id` — écrites sans `(select …)`), `exercises` (4 règles), et les tables v1 `sbd_profiles`,
   `workout_sessions`.

@@ -1864,6 +1864,12 @@
         ? vue.reaction(s._iExo, s._iSerie) : null;
       if (info && info.message) noeud.appendChild(phraseDeReaction(info.message, s.debutTour));
       noeud.appendChild(rangeeDeSerie(bloc, s, complets, vue, info));
+      // MOTEUR §9.23 (55-1) — LA MÉDAILLE, SOUS LA RANGÉE de la série qui bat
+      // un record. Une sœur de la ligne, comme la réaction (qui reste
+      // au-dessus de la ligne suivante : elle parle de la suite, la médaille
+      // de cette série). Lue sur l'app, jamais calculée ici.
+      var med = !vue.programme && typeof vue.medaille === 'function' ? vue.medaille(s._iExo, s._iSerie) : null;
+      if (med) noeud.appendChild(medailleDeSerie(med));
     });
 
     noeud.appendChild(boutonsAjoutSerie(bloc, vue));
@@ -2151,6 +2157,23 @@
       if (ser.length && ser[0]._iExo === s._iExo) return ser;
     }
     return null;
+  }
+
+  // MOTEUR §9.23 (55-1) — la médaille : le rond, le gras, le gris (maquette
+  // « La médaille »). Le texte vient de `phraseDeRecord`.
+  function pastilleMedaille() {
+    var m = el('span', 'medaille');
+    m.setAttribute('aria-hidden', 'true');
+    return m;
+  }
+  function medailleDeSerie(phrase) {
+    var n = el('div', 'record-serie');
+    n.appendChild(pastilleMedaille());
+    var t = el('div', 'record-texte');
+    t.appendChild(el('b', null, phrase[0]));
+    if (phrase[1]) t.appendChild(el('div', 'record-avant', phrase[1]));
+    n.appendChild(t);
+    return n;
   }
 
   // La phrase du coach. `propose` en couleur du coach ; `tenue` et `haut` en
@@ -3387,6 +3410,21 @@
     t.appendChild(el('em', '', nF + ' série' + (nF > 1 ? 's' : '') +
       ' de travail enregistrée' + (nF > 1 ? 's' : '')));
     cible.appendChild(t);
+
+    // MOTEUR §9.23 (55-1) — LES RECORDS DU JOUR, sous le compte. Sans record,
+    // la ligne n'apparaît pas : le coach ne commente pas ce qui n'est pas
+    // arrivé. Il n'y a pas d'écran de fin de séance, on n'en crée pas.
+    if (vue.records && vue.records.length) {
+      var rec = el('div', 'records-fin');
+      var gauche = el('span', 'records-fin-t');
+      gauche.appendChild(pastilleMedaille());
+      gauche.appendChild(doc.createTextNode(vue.records.length + ' record' + (vue.records.length > 1 ? 's' : '')));
+      rec.appendChild(gauche);
+      var droite = el('span', 'records-fin-l');
+      vue.records.forEach(function (r) { droite.appendChild(el('span', null, r.nom + ' ' + r.mesure)); });
+      rec.appendChild(droite);
+      cible.appendChild(rec);
+    }
 
     // §7 septies.4 — trois champs déclarés, pas déduits. La salle surtout :
     // elle se déclare, on ne la devine ni du réseau ni d'une position.

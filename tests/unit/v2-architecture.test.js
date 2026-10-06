@@ -593,11 +593,13 @@ const NOTIONS = [
     raison: 'MOTEUR §9.23, ECRAN §7 bis.16 (« cumulée, jamais brute ») : la médaille, le tableau des records, ' +
       'le record de charge de la page et le chiffre d’une ligne déduite lisent la même table.' },
   { notion: 'les records battus par une série (et l’ancien record, avec sa date)', pr: '55-U1',
-    module: 'modele.js', fonction: 'recordsBattus', lecteurs: [],
+    module: 'modele.js', fonction: 'recordsBattus', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['recordsDeLaSerie'] },
     raison: 'MOTEUR §9.23 : un record est un fait ; une seule fonction décide ce qu’une série bat, ' +
       'la médaille en séance, la feuille « Terminer » et Progression la lisent.' },
   { notion: 'la phrase de la médaille ([gras, gris])', pr: '55-U1',
-    module: 'modele.js', fonction: 'phraseDeRecord', lecteurs: [],
+    module: 'modele.js', fonction: 'phraseDeRecord', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['medailleSurLigne'] },
     raison: 'MOTEUR §9.23 : les mots de la médaille, une fois — le cap rond, la charge pour N reps, le 1RM ' +
       'estimé, le volume, la durée, et le record d’avant avec sa date.' },
   { notion: 'le 1RM estimé (Epley)', pr: '55-U1',

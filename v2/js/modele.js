@@ -1601,6 +1601,22 @@
     return out;
   }
 
+  // Les options d'un exercice pour ses records : son matériel (la fenêtre des
+  // 12 mois) et `corps` — au poids du corps, lesté ou non (§9.17) : une charge
+  // vide y est le corps, et jamais de 1RM estimé.
+  function optionsDeRecord(exo) {
+    var e = exo || {};
+    return { equipement: e.equipement || null,
+             corps: e.mesure === 'reps' || natureDeCharge(e) === 'lest' || e.equipement === 'aucun' };
+  }
+
+  // LE NOM COURT d'un exercice, celui qui suit « au » (« Premier 150 kg au
+  // squat. ») : le nom du catalogue sans sa précision entre parenthèses, en
+  // minuscules (« Squat (Barre) » → « squat »).
+  function nomCourt(nom) {
+    return String(nom || '').replace(/\s*\([^)]*\)\s*/g, ' ').trim().toLowerCase();
+  }
+
   // LA PHRASE DE LA MÉDAILLE : `[gras, gris]`, ou `null` sans record.
   //   `exercice`   : le nom court qui suit « au » dans le cap rond (« squat ») ;
   //   `aujourdhui` : la date de la séance — la référence des dates, jamais
@@ -1883,6 +1899,8 @@
     auMoinsDe: auMoinsDe,
     recordsBattus: recordsBattus,
     phraseDeRecord: phraseDeRecord,
+    optionsDeRecord: optionsDeRecord,
+    nomCourt: nomCourt,
     libelleAutres: libelleAutres
   };
 

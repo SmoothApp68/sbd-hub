@@ -175,3 +175,19 @@ describe('§9.23 — la table cumulée est la source (ECRAN §7 bis.16 : « cumu
     expect(Mo.auMoinsDe(Mo.tableCumulee(series, dateDe), 8)).toBeNull();
   });
 });
+
+// ══ 5. CE QUE L'APP DONNE AUX RECORDS ═══════════════════════════════════════
+describe('§9.23 — les options d\'un exercice et son nom court', () => {
+  test('`corps` : la mesure en reps, le lest, ou sans matériel ; jamais une barre ni une aide', () => {
+    expect(Mo.optionsDeRecord({ equipement: 'barre', mesure: 'charge_reps' })).toEqual({ equipement: 'barre', corps: false });
+    expect(Mo.optionsDeRecord({ equipement: 'aucun', mesure: 'reps' }).corps).toBe(true);
+    expect(Mo.optionsDeRecord({ equipement: 'disque', mesure: 'charge_reps', charge: 'ajoutee' }).corps).toBe(true);
+    expect(Mo.optionsDeRecord({ equipement: 'machine', mesure: 'charge_reps', charge: 'assistance' }).corps).toBe(false);
+    expect(Mo.optionsDeRecord(null)).toEqual({ equipement: null, corps: false });
+  });
+  test('le nom court suit « au » : sans parenthèses, en minuscules', () => {
+    expect(Mo.nomCourt('Squat (Barre)')).toBe('squat');
+    expect(Mo.nomCourt('Développé Couché (Barre)')).toBe('développé couché');
+    expect(Mo.nomCourt('Tractions')).toBe('tractions');
+  });
+});

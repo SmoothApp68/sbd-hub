@@ -824,6 +824,27 @@ button.puce-zone{font:inherit;font-size:11px;font-weight:600;cursor:pointer;
 .reaction-serie.tenue,.reaction-serie.haut{color:var(--texte);font-weight:560}
 .reaction-serie.pas_encore{color:var(--texte-2);font-weight:500}
 .reaction-serie.debut-tour{margin-top:11px}
+/* MOTEUR §9.23 (55-1) — LA MÉDAILLE (maquette-progression-v1, « La médaille »).
+   Un fait, pas la voix du coach : l'or de la médaille, jamais l'accent. Sous la
+   rangée de la série, la phrase en gras, le record d'avant en gris. */
+:root{--medaille:#E2B53E;--medaille-fond:#2A2513}
+.medaille{display:inline-block;width:18px;height:18px;border-radius:50%;background:var(--medaille);
+  position:relative;flex:none;box-shadow:inset 0 0 0 3px rgba(255,255,255,.28)}
+.medaille::after{content:"";position:absolute;left:5px;top:15px;border-left:4px solid transparent;
+  border-right:4px solid transparent;border-top:6px solid var(--medaille)}
+.record-serie{display:flex;gap:10px;align-items:flex-start;background:var(--medaille-fond);
+  border:1px solid rgba(226,181,62,.4);border-radius:var(--r-grand);padding:10px 12px;margin:2px 0 6px 35px;
+  font-size:13.5px;line-height:1.35}
+.record-serie b{color:var(--texte);font-weight:620}
+.record-serie .record-avant{color:var(--texte-2);font-size:13px;margin-top:2px}
+@media (prefers-reduced-motion: no-preference){
+  .record-serie{animation:pose-medaille .35s ease-out}
+  @keyframes pose-medaille{from{transform:translateY(-4px);opacity:.6}to{transform:none;opacity:1}}}
+/* La feuille « Terminer » : les records du jour, sous le compte. */
+.records-fin{display:flex;justify-content:space-between;gap:10px;padding:10px 0;margin-bottom:8px;
+  border-bottom:1px solid var(--trait);font-variant-numeric:tabular-nums}
+.records-fin-t{display:flex;gap:8px;align-items:center;font-weight:600}
+.records-fin-l{display:flex;flex-direction:column;align-items:flex-end;gap:2px;text-align:right}
 /* MOTEUR §9.15 (49-U10) — les chauffes et la dégressive : la voix du coach, en
    retrait (elles ne comptent pas), et la proposition de chauffes à accepter. */
 .reaction-serie.chauffe,.reaction-serie.degressive{color:var(--texte-2);font-weight:500}

@@ -4196,6 +4196,77 @@
     return sortie.message || sortie.proposee || sortie.ajoutee ? sortie : null;
   }
 
+  // ── MOTEUR §9.23 (55-1) — LA MÉDAILLE ───────────────────────────────────
+  //
+  // Les records d'une série VALIDÉE, sur l'historique SANS la séance en cours
+  // (`local.series` ne la porte pas encore — en correction, on l'écarte par
+  // son identifiant) plus les séries déjà validées de la séance. Rien n'est
+  // écrit en base : la médaille se RECALCULE à chaque rendu, donc dévalider
+  // la retire, et corriger une charge la refait.
+  //
+  // L'historique d'un exercice ne change pas pendant la séance : il se lit une
+  // fois par exercice, et se relit quand la séance ou le cache changent.
+  var memoRecords = { cle: null, parSlug: {} };
+  function historiqueDesRecords(slug) {
+    var cle = (seance ? seance.id : '') + '|' + (local.seances || []).length + '|' + (local.series || []).length;
+    if (memoRecords.cle !== cle) memoRecords = { cle: cle, parSlug: {} };
+    if (!memoRecords.parSlug[slug]) {
+      memoRecords.parSlug[slug] = (local.seances || []).filter(function (s) {
+        return s && (!seance || s.id !== seance.id);
+      }).map(function (s) {
+        return { debut: s.debut, series: seriesDe(s.id).filter(function (x) { return x && x.exercise_slug === slug; }) };
+      }).filter(function (g) { return g.series.length > 0; });
+    }
+    return memoRecords.parSlug[slug];
+  }
+
+  // La séance en cours telle que les records la lisent : ses séries VALIDÉES,
+  // dans l'ordre de la séance, et la position de chacune.
+  function seanceDesRecords() {
+    var series = [], positions = {};
+    (seance ? seance.exercices : []).forEach(function (exo, i) {
+      (exo.series || []).forEach(function (s, j) {
+        if (!Seance.partEnBase(s)) return;
+        positions[i + ':' + j] = series.length;
+        series.push(Object.assign({}, s, { exercise_slug: exo.exercise_slug }));
+      });
+    });
+    return { debut: seance ? seance.debut : null, series: series, positions: positions };
+  }
+
+  function recordsDeLaSerie(iExo, iSerie, lue) {
+    var v = lue || seanceDesRecords();
+    var k = v.positions[iExo + ':' + iSerie];
+    if (k === undefined) return [];
+    var slug = v.series[k].exercise_slug;
+    return Modele.recordsBattus(historiqueDesRecords(slug), v, k,
+      Modele.optionsDeRecord(catalogueIndexe()[slug] || null));
+  }
+
+  // `[gras, gris]` sous la rangée d'une série, ou rien.
+  function medailleSurLigne(iExo, iSerie) {
+    if (!seance) return null;
+    var r = recordsDeLaSerie(iExo, iSerie);
+    if (!r.length) return null;
+    var exo = catalogueIndexe()[seance.exercices[iExo].exercise_slug];
+    return Modele.phraseDeRecord(r, Modele.nomCourt(exo ? exo.nom : ''), seance.debut);
+  }
+
+  // Les records du jour, pour la feuille « Terminer » : une ligne par série
+  // médaillée, « Développé couché 130 kg × 4 ».
+  function recordsDuJour() {
+    if (!seance) return [];
+    var v = seanceDesRecords(), index = catalogueIndexe(), out = [];
+    seance.exercices.forEach(function (exo, i) {
+      (exo.series || []).forEach(function (s, j) {
+        if (!recordsDeLaSerie(i, j, v).length) return;
+        var nom = Modele.nomCourt(index[exo.exercise_slug] ? index[exo.exercise_slug].nom : exo.exercise_slug);
+        out.push({ nom: nom.charAt(0).toUpperCase() + nom.slice(1), mesure: Modele.formatMesure(s) });
+      });
+    });
+    return out;
+  }
+
   // ── L'écran ─────────────────────────────────────────────────────────────
   function rendreSeance() {
     montrer('seance', Routeur.SAISIE);
@@ -4286,6 +4357,8 @@
       surValider: validerSerie,
       // §9.14 (49-R2) — la phrase du coach et la ligne proposée.
       reaction: reactionSurLigne,
+      // MOTEUR §9.23 (55-1) — la médaille, sous la rangée d'une série validée.
+      medaille: medailleSurLigne,
       // ⚠️ CORRIGER AU CLAVIER UNE SÉRIE VALIDÉE REDESSINE LE BLOC (P10), mais
       // à la SORTIE du champ, pas à chaque frappe : redessiner à la frappe
       // volerait le focus au milieu de « 130 ». La réaction se refait alors sur
@@ -5142,6 +5215,8 @@
     var verdict = Seance.ecartsRoutine(seance, routine);
     Rendu.rendreFeuilleFin(cible, {
       compte: Seance.compter(seance, local.exercices),
+      // MOTEUR §9.23 (55-1) — les records du jour ; sans record, rien.
+      records: recordsDuJour(),
       titre: seance.titre,
       note: seance.note,
       salle: seance.salle,

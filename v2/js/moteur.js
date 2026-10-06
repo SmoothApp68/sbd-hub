@@ -2082,9 +2082,11 @@
   // 7 depuis 51-3 (une séance marquée « douleur » est neutre, déclarée — MOTEUR
   // §9.20 : la neutralité change une entrée de la consigne). 8 depuis 53-1 (la
   // charge se reporte au changement de zone — MOTEUR §9.10, l'état
-  // `nouvelle_zone`).
+  // `nouvelle_zone`). 9 depuis 54-1 (la zone d'une séance se lit à sa fin pour
+  // le compteur et le repli de l'escalier, comme pour le report — MOTEUR §12.2
+  // bis : une zone changée en pleine séance change le compteur et le repli).
   var MODULE_CONSIGNE = 'moteur.consigne';
-  var VERSION_CONSIGNE = 8;
+  var VERSION_CONSIGNE = 9;
 
   // ⚠️ LU TARDIVEMENT, SANS REPLI, comme `THPalier`. `modele.js` charge avant
   // `moteur.js` (index.html 325 puis 329), mais un repli « si THModele manque,
@@ -3865,6 +3867,41 @@
     return memeCharge(t.charge, mt.charge) && t.niveau > mt.niveau;
   }
 
+  // ── §12.2 bis (54-1, delta F1) — LA ZONE D'UNE SÉANCE, LUE À SA FIN ──────
+  //
+  // « La zone d'une séance se lit à sa fin — une seule fonction pour le report
+  // (§9.10), le compteur et le repli de l'escalier : une zone changée pendant
+  // la séance est celle de cette séance. » Le compteur et le repli la lisaient
+  // à son DÉBUT, le report à sa FIN : une zone changée en pleine séance faisait
+  // se contredire le coach (relevé 54-0).
+  //
+  // `liste` : les séances antérieures, dans l'ordre (`anterieures`) ; `i` : la
+  // séance ; `avant` : celle qu'on prescrit. La FIN est l'heure de fin de la
+  // séance quand on la connaît, bornée par le début de la séance suivante (ou
+  // de celle qu'on prescrit) : une séance sans fin — en cours, ou refermée sans
+  // heure — se lit jusque-là. Rend la consigne que la séance a REÇUE : le
+  // rythme d'aujourd'hui, la zone choisie en vigueur à sa fin (`o.corrections`,
+  // l'historique des choix), sinon `o.correction`.
+  function consigneDeLaSeance(liste, i, avant, o) {
+    var se = liste[i];
+    var tL = instant(se.debut);
+    var borne = instant(avant);
+    for (var k = i + 1; k < liste.length; k++) {
+      var t = instant(liste[k].debut);
+      if (t !== null && t > tL && (borne === null || t < borne)) { borne = t; break; }
+    }
+    var fin = instant(se.fin);
+    if (fin !== null && fin > tL && (borne === null || fin < borne)) borne = fin;
+    var correction = o.corrections && borne !== null
+      ? correctionAu(o.corrections, new Date(borne + 1).toISOString()) : (o.correction || null);
+    return consignePour(liste.slice(0, i), se.debut,
+      { reglage: o.reglage, equipement: o.equipement, correction: correction });
+  }
+  function zoneDeLaSeance(liste, i, avant, o) {
+    var k = consigneDeLaSeance(liste, i, avant, o);
+    return k && k.zone ? k.zone : null;
+  }
+
   function compteurDe(seances, avant, options) {
     var o = options || {};
     var liste = anterieures(seances || [], avant);
@@ -3880,12 +3917,9 @@
         if (!premiere && repriseDe(liste.slice(0, i), se.debut) !== AUCUNE_REPRISE) repriseEnAttente = true;
         return;
       }
-      // La consigne que la séance a REÇUE : le rythme d'aujourd'hui (aucun
-      // historique ne le garde hors des paris), mais la zone choisie en vigueur
-      // ce jour-là (`o.corrections`, l'historique des choix), sinon `o.correction`.
-      var opts = { reglage: o.reglage, equipement: o.equipement,
-                   correction: o.corrections ? correctionAu(o.corrections, se.debut) : (o.correction || null) };
-      var k = consignePour(liste.slice(0, i), se.debut, opts);
+      // La consigne que la séance a REÇUE, sa zone lue À SA FIN (§12.2 bis,
+      // 54-1) : la même lecture que le report et le repli.
+      var k = consigneDeLaSeance(liste, i, avant, o);
       var v = vueDeSeance(se);
       var P = nombre(v.palier);
       // Une séance NEUTRE (§7.6 : aucune série dans la zone), sans palier fait,
@@ -3954,9 +3988,10 @@
     // la dernière comptée vaut de même. Le meilleur reste ce qu'il était.
     if (!premiere) {
       var kOuverture = consignePour(liste, avant, { reglage: o.reglage, equipement: o.equipement,
-        // La zone EN VIGUEUR AUJOURD'HUI : la dernière choisie (l'historique des
-        // choix), sinon `o.correction` — dans l'app, les deux disent la même chose.
-        correction: o.corrections ? correctionAu(o.corrections, '9999-12-31T00:00:00Z') : (o.correction || null) });
+        // La zone EN VIGUEUR AUJOURD'HUI, pour la séance qui commence (§12.2 bis :
+        // une autre question) : la dernière choisie, par la fonction de la zone
+        // en vigueur, sinon `o.correction` — dans l'app, les deux disent la même chose.
+        correction: o.corrections ? zoneEnVigueur(o.corrections, null) : (o.correction || null) });
       if (repriseEnAttente || (kOuverture && (kOuverture.etat === 'reprise_courte' ||
           kOuverture.etat === 'reprise_longue' || kOuverture.zone !== zonePrecedente))) {
         compteur = 0;
@@ -5321,32 +5356,19 @@
     });
   }
 
-  // LA ZONE DE LA DERNIÈRE SÉANCE NON NEUTRE, LUE À DATE : celle de la consigne
-  // qu'elle a reçue (comme le compteur, `compteurDe`), avec la zone choisie EN
-  // VIGUEUR quand elle s'est faite.
-  // ⚠️ « QUAND ELLE S'EST FAITE » VA JUSQU'À SA FIN : une zone changée à
-  // l'étiquette PENDANT la séance est celle de la séance. Lue à son début, la
-  // séance d'après croirait la zone encore à changer, et reporterait une
-  // seconde fois. La fin est bornée par le début de la séance suivante (ou de
-  // celle qu'on prescrit) : une séance sans fin — en cours, ou refermée sans
-  // heure — se lit jusque-là.
+  // LA ZONE DE LA DERNIÈRE SÉANCE NON NEUTRE : celle de la consigne qu'elle a
+  // reçue, lue À SA FIN (§12.2 bis, 54-1) — la même fonction que le compteur
+  // et le repli (`zoneDeLaSeance`). Une zone changée à l'étiquette PENDANT la
+  // séance est celle de la séance : lue à son début, la séance d'après
+  // croirait la zone encore à changer, et reporterait une seconde fois.
   function zoneDeLaDerniere(seances, avant, o) {
-    var vues = anterieures((seances || []).map(vueDeSeance), avant);
-    var ant = vues.filter(function (v) { return !v.neutre; });
-    if (!ant.length) return null;
-    var L = ant[ant.length - 1];
-    var tL = instant(L.debut);
-    var borne = instant(avant);
-    vues.forEach(function (v) {
-      var t = instant(v.debut);
-      if (t > tL && t < borne) borne = t;
-    });
-    var fin = instant(L.fin);
-    if (fin !== null && fin > tL && fin < borne) borne = fin;
-    var correction = o.correctionsDeZone
-      ? correctionAu(o.correctionsDeZone, new Date(borne + 1).toISOString()) : (o.correction || null);
-    var k = consignePour(seances, L.debut, { reglage: o.reglage, equipement: o.equipement, correction: correction });
-    return k && k.zone ? k.zone : null;
+    var liste = anterieures(seances || [], avant);
+    for (var i = liste.length - 1; i >= 0; i--) {
+      if (liste[i].neutre === true) continue;
+      return zoneDeLaSeance(liste, i, avant, { reglage: o.reglage, equipement: o.equipement,
+        corrections: o.correctionsDeZone || null, correction: o.correction || null });
+    }
+    return null;
   }
 
   // LA CONSIGNE D'UNE NOUVELLE ZONE, sur la consigne calculée (une étape de
@@ -5460,10 +5482,11 @@
     var rejeu = rejeuDuCompteur(seances, groupes, avant, o);
     var marquees = rejeu.marquees;
     var compteur = compteurFige(rejeu.complet);
+    // §12.2 bis (54-1) — la zone d'une séance pour le repli de l'escalier :
+    // lue À SA FIN, par la même fonction que le report et le compteur.
     var zoneAu = function (liste, i) {
-      var k = consignePour(liste.slice(0, i), liste[i].debut, { reglage: o.reglage, equipement: o.equipement,
-        correction: o.correctionsDeZone ? correctionAu(o.correctionsDeZone, liste[i].debut) : (o.correction || null) });
-      return k ? (k.zone === undefined ? null : k.zone) : null;
+      return zoneDeLaSeance(liste, i, avant, { reglage: o.reglage, equipement: o.equipement,
+        corrections: o.correctionsDeZone || null, correction: o.correction || null });
     };
     // §20.2 — la référence des dates est `avant`, le début de la séance pour
     // laquelle la consigne est calculée : « mardi » se dit contre elle.
@@ -5867,6 +5890,8 @@
     chuteDe: chuteDe,
     SEUIL_COMPTEUR: SEUIL_COMPTEUR,
     compteurDe: compteurDe,
+    consigneDeLaSeance: consigneDeLaSeance,
+    zoneDeLaSeance: zoneDeLaSeance,
     phraseCompteur: phraseCompteur,
     frereQuiProgresse: frereQuiProgresse,
     phraseFrere: phraseFrere,
@@ -5943,7 +5968,6 @@
     REPRISE_COURTE: REPRISE_COURTE,
     REPRISE_LONGUE: REPRISE_LONGUE,
     REPLI_MATERIEL: REPLI_MATERIEL,
-    ZONES: ZONES,
     RANGEMENT: RANGEMENT,
     mediane: mediane,
     zoneParCle: zoneParCle,

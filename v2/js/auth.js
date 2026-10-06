@@ -113,4 +113,4 @@
     deconnecter: deconnecter,
     surChangement: surChangement
   };
-})(typeof self !== 'undefined' ? self : this);
+})(typeof self !== 'undefined' ? self : globalThis);

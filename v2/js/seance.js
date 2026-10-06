@@ -204,6 +204,10 @@
       // départ, sur un exercice JAMAIS FAIT seulement (plus « faute de séance
       // au même rang »). Le coach part d'elle la première fois (MOTEUR §9.21).
       ligne.charge_cible_kg = (!p || p.charge_kg === undefined) ? null : p.charge_kg;
+      // ECRAN-SAISIE §7 septendecies.3 (54-1) — la durée et la distance d'un
+      // cardio descendent aussi, en INTENTION : « tapis, 7 min / 600 m ».
+      ligne.duree_cible_s = (!p || p.duree_s === undefined) ? null : p.duree_s;
+      ligne.distance_cible_m = (!p || p.distance_m === undefined) ? null : p.distance_m;
       return ligne;
     });
     if (!series.length) series.push(serieVide(idSerie));
@@ -357,7 +361,11 @@
       type_serie: 'travail',
       charge_kg: null, reps: null, duree_s: null, distance_m: null,
       rpe: null, ressenti: null, note: null,
-      validee_a: null, repos_s: null, reps_visees: null, charge_cible_kg: null
+      validee_a: null, repos_s: null, reps_visees: null, charge_cible_kg: null,
+      // ECRAN-SAISIE §7 septendecies.3 (54-1) — la durée et la distance d'un
+      // cardio de routine : des INTENTIONS, comme `reps_visees`, lues par le
+      // fantôme et jamais écrites (`COLONNES_SET` ne les connaît pas).
+      duree_cible_s: null, distance_cible_m: null
     };
   }
 
@@ -2341,13 +2349,20 @@
     if (!aTaper && (reps === null || reps === undefined) && propre) reps = propre.reps_visees;
     if (!aTaper && (reps === null || reps === undefined) && ligne) reps = ligne.reps;
 
-    // La durée et la distance : ce qu'on vient de faire dans la séance, à
-    // défaut ce qu'on a fait au même rang la dernière fois. La routine porte
-    // `duree_cible_s` et `distance_cible_m`, mais elles ne descendent pas en
-    // séance (`exerciceDepuisRoutine`) : seule l'estimation de durée les lit.
+    // La durée et la distance suivent les reps (ECRAN-SAISIE §7 septendecies.3,
+    // 54-1) : ce qu'on vient de taper dans la séance, puis LA ROUTINE
+    // (`duree_cible_s`, `distance_cible_m`, descendues par
+    // `exerciceDepuisRoutine`), puis ce qu'on a fait au même rang la dernière
+    // fois. « Les reps, c'est la routine » : la durée d'un cardio est de même nature.
     var duree = derniereSaisie(exo, iSerie, 'duree_s', prec);
+    if (duree === null && propre && propre.duree_cible_s !== null && propre.duree_cible_s !== undefined) {
+      duree = propre.duree_cible_s;
+    }
     if (duree === null && ligne) duree = ligne.duree_s;
     var distance = derniereSaisie(exo, iSerie, 'distance_m', prec);
+    if (distance === null && propre && propre.distance_cible_m !== null && propre.distance_cible_m !== undefined) {
+      distance = propre.distance_cible_m;
+    }
     if (distance === null && ligne) distance = ligne.distance_m;
 
     return {

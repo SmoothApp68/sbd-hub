@@ -336,10 +336,16 @@ describe('test 6 — aucune surface ne promet un moteur au présent', () => {
   // donc on le lit dans le DOM plutôt que dans le fichier — et on ne dépend pas
   // de la façon dont l'apostrophe est échappée dans la source, ce qui est
   // exactement le genre de détail qui fait passer un grep pour une preuve.
-  test('l’état vide de la bibliothèque non plus', () => {
+  //
+  // 54-1 — le moteur parle désormais : la phrase validée le 06/10 dit « Le
+  // coach décide des charges à chaque séance. », au présent, et c'est vrai.
+  // Ce qu'elle ne dit plus : « pas ce que tu soulèves » (une routine porte une
+  // charge de départ, §9.21) ni « le moteur » (l'aperçu dit « le coach »).
+  test('l’état vide de la bibliothèque dit le vrai', () => {
     const c = cible();
     R().rendreListeRoutines(c, [], { etat: { code: 'ok' } });
-    expect(c.textContent).toMatch(/le moteur qui les décidera/);
-    expect(c.textContent).not.toMatch(/le moteur qui les décide\./);
+    expect(c.textContent).toMatch(/Une routine, c’est une liste d’exercices dans un ordre\. Le coach décide des charges à chaque séance\./);
+    expect(c.textContent).not.toMatch(/pas ce que tu soulèves/);
+    expect(c.textContent).not.toMatch(/le moteur/);
   });
 });

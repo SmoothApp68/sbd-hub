@@ -5345,7 +5345,10 @@
         var r = routines.filter(function (x) { return x.id === id; })[0];
         if (r) ouvrirPeuDeTemps(r);
       },
-      surSeanceVide: function () { demarrerSeance(null); }
+      surSeanceVide: function () { demarrerSeance(null); },
+      // 54-1 — l'état vide mène à l'historique des séances, comme l'onglet
+      // Séances : c'est là que vit « En faire une routine ».
+      surDepuisSeance: function () { afficherSemaine(Semaine.bornesSemaine(new Date()).lundi); }
     });
     brancherReorg('liste-routines');
     brancherAppuiLong('liste-routines');
@@ -8127,4 +8130,4 @@
 
   if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', demarrer);
   else demarrer();
-})(typeof self !== 'undefined' ? self : this);
+})(typeof self !== 'undefined' ? self : globalThis);

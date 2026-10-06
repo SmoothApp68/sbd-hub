@@ -549,6 +549,19 @@ const NOTIONS = [
     parAilleurs: { 'app.js': ['ligneDeZoneDe'] },
     raison: 'une seule lecture des lignes de zone : la séance d’aujourd’hui, une séance passée, et l’arrêt d’un ' +
       'programme (`lignesDArret`, 53-2 ter) lisent la même ligne.' },
+  { notion: 'la consigne d’une séance passée, lue à sa fin (la zone qu’elle a vraiment eue)', pr: '54-U1',
+    module: 'moteur.js', fonction: 'consigneDeLaSeance', lecteurs: [],
+    par: ['zoneDeLaSeance', 'compteurDe'],
+    interdit: { motif: /correctionAu\([^)]*\.debut\b/,
+                raison: 'la zone d’une séance passée relue à son début (une zone changée pendant la séance ' +
+                  'n’y serait pas, 54-0 E)' },
+    raison: 'MOTEUR §12.2 bis : une zone changée à l’étiquette pendant la séance est celle de la séance — ' +
+      'le compteur et la zone d’une séance la lisent au même instant, sa fin.' },
+  { notion: 'la zone d’une séance passée (report, compteur, repli de l’escalier)', pr: '54-U1',
+    module: 'moteur.js', fonction: 'zoneDeLaSeance', lecteurs: [],
+    par: ['zoneDeLaDerniere', 'consigneDExercice'],
+    raison: 'le report de §9.10 et le repli de §14.5 lisaient la zone au début, le compteur à la fin : ' +
+      'trois lectures, une règle à deux endroits — une seule fonction désormais.' },
   { notion: 'le bloc suivant (une règle fixe : Mix ↔ Lourd, mêmes durée et exercices, une décharge)', pr: '53-U2',
     module: 'moteur.js', fonction: 'blocSuivant', lecteurs: ['app.js'],
     par: ['carteFinDeBloc'],

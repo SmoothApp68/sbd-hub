@@ -5575,7 +5575,9 @@ const SETS_IMPORTES = [
   // l'assertion ne dit rien du défaut — il dit ce que la fixture contenait le
   // jour où on l'a écrit, et il se périme au premier ajout. L'invariante, elle,
   // est « rien n'a bougé », et elle vaut quelle que soit la fixture.
-  const setsAvant47 = base.sets.length;
+  // 54-1 : les IDENTIFIANTS, pas le compte — une série effacée puis une autre
+  // ajoutée laisseraient le même nombre.
+  const setsAvant47 = base.sets.map((x) => x.id).sort().join('|');
   await aller('/semaine/' + isoL(L_EXO));
 
   const carteVide = () => page.evaluate((id) => {
@@ -5612,9 +5614,9 @@ const SETS_IMPORTES = [
   // ⚠️ ET RIEN N'EST PARTI. C'est la mesure qui compte : le défaut ne se voyait
   // pas à l'écran, il se voyait en base. Aucune séance du banc ne doit avoir
   // perdu de séries pendant tout ce qui précède.
-  ok('[47] et aucune série n’a été effacée en base',
-    base.sets.length === setsAvant47,
-    setsAvant47 + ' → ' + base.sets.length + ' série(s) en base');
+  ok('[47] et aucune série n’a été effacée en base (les mêmes identifiants)',
+    base.sets.map((x) => x.id).sort().join('|') === setsAvant47,
+    setsAvant47.split('|').length + ' → ' + base.sets.length + ' série(s) en base');
 
   // NON-RÉGRESSION DU CHANTIER 29 : une séance COMPLÈTE garde ses trois gestes.
   await aller('/seance/' + ID_MIXTE);
@@ -5628,6 +5630,11 @@ const SETS_IMPORTES = [
   // arrivent sur la liste : celle qui EMPILE y arrive en ajoutant une entrée,
   // et c'est l'entrée de trop qui obligeait à trois retours pour sortir — dont
   // un qui ROUVRAIT le détail qu'on venait de quitter.
+  //
+  // ⚠️ 54-1 — SUR UNE PAGE NEUVE, comme la section 49 : la page du banc a
+  // saturé `history.length` (Chrome le plafonne à 50), et la comparaison des
+  // longueurs y était vraie par saturation (50 = 50), jamais par correction.
+  await page.close(); page = await ctx.newPage(); brancher(page);
   await aller('/semaine/' + isoL(L_EXO));
   const longueurAvant = await page.evaluate(() => history.length);
   await page.evaluate(() => {
@@ -5643,7 +5650,7 @@ const SETS_IMPORTES = [
   const longueurApres = await page.evaluate(() => history.length);
   ok('[47] « ← Séances » ramène aux séances SANS empiler une entrée de plus',
     surDetail === '["vue-detail"]' && JSON.stringify(await visible()) === '["vue-liste"]' &&
-    longueurApres === longueurDetail,
+    longueurDetail < 50 && longueurApres === longueurDetail,
     surDetail + ' · ' + longueurAvant + ' → ' + longueurDetail + ' → ' + longueurApres);
 
   // ⚠️ LA MOITIÉ QUI COMPTE VRAIMENT : le retour d'Android, juste après. Avec
@@ -5651,8 +5658,10 @@ const SETS_IMPORTES = [
   // sortir » du relevé, et c'est ce qu'aucune mesure d'écran seule ne montre.
   await page.goBack().catch(() => {});
   await attendre(900);
-  ok('[47] …et le retour d’Android ne ROUVRE PAS le détail qu’on vient de quitter',
-    JSON.stringify(await visible()) !== '["vue-detail"]',
+  // 54-1 : l'écran attendu est NOMMÉ (la liste), pas « tout sauf le détail » —
+  // un écran vide ou une sortie de l'app passaient.
+  ok('[47] …et le retour d’Android ne ROUVRE PAS le détail : il reste sur la liste',
+    JSON.stringify(await visible()) === '["vue-liste"]',
     JSON.stringify(await visible()));
 
   // ⚠️ ET LE REPLI, QUI EST LA MOITIÉ QU'ON N'AURAIT PAS TESTÉE. Après un

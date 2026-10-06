@@ -629,10 +629,27 @@ describe('50-1 — Entretenir se choisit aussi par exercice (modes_exercice)', (
     expect(cache).toMatch(/createObjectStore\('modes', \{ keyPath: 'id' \}\)/);
     // La file d'envoi sait où poser une ligne de `modes_exercice` — sans cette
     // branche, un choix fait hors ligne resterait dans la file pour toujours.
-    const app = fs.readFileSync(path.join(__dirname, '../../v2/js/app.js'), 'utf8');
-    expect(app).toMatch(/op\.table === Attente\.MODES\) return Donnees\.enregistrerMode\(op\.donnees\)/);
-    // Et la synchronisation FOND les lignes par identifiant (jamais de remplacement).
-    expect(app).toMatch(/local\.modes = fondreModes\(local\.modes, modes\)/);
+    // 54-1 : REJOUÉ (`executer`, `fondreModes` dans un bac), plus cherché dans
+    // le texte d'`app.js` : une branche morte ou mal câblée fait tomber le test.
+    const vm = require('vm');
+    const { extraire } = require('./aide-profil-ecran.js');
+    const envoyes = [];
+    const ctx = {
+      Attente,
+      Donnees: { enregistrerMode: (d) => { envoyes.push(d); return Promise.resolve('ok'); } }
+    };
+    vm.createContext(ctx);
+    ['executer', 'fondreZones', 'fondreModes'].forEach((f) => vm.runInContext(extraire(f), ctx));
+    const ligne = { id: 'm1', exercise_slug: 'pdc', mode: 'entretien', choisi_a: '2026-10-03T10:00:00Z' };
+    ctx.op = { table: Attente.MODES, op: Attente.UPSERT, id: 'm1', donnees: ligne };
+    expect(vm.runInContext('executer(op)', ctx)).toBeInstanceOf(Object);
+    expect(envoyes).toEqual([ligne]);
+    // Et la synchronisation FOND les lignes par identifiant (jamais de
+    // remplacement) : une ligne locale pas encore montée survit à la relecture.
+    ctx.locales = [{ id: 'm1', mode: 'progresser' }, { id: 'm2', mode: 'entretien' }];
+    ctx.distantes = [{ id: 'm1', mode: 'entretien' }, { id: 'm3', mode: 'progresser' }];
+    expect(vm.runInContext('fondreModes(locales, distantes)', ctx)
+      .map((l) => l.id + ':' + l.mode).sort()).toEqual(['m1:entretien', 'm2:entretien', 'm3:progresser']);
     const src = fs.readFileSync(path.join(__dirname, '../../v2/js/donnees.js'), 'utf8');
     expect(src).toMatch(/from\('modes_exercice'\)/);
     expect(src).toMatch(/COLONNES_MODE = 'id, user_id, exercise_slug, mode, choisi_a, created_at'/);
@@ -696,8 +713,9 @@ describe('50-1 — le contrat du poids du corps', () => {
   });
 
   // 6 en 50-1 ; 7 depuis 51-3 (MOTEUR §9.20, la séance douloureuse est neutre) ;
-  // 8 depuis 53-1 (MOTEUR §9.10, le report de charge au changement de zone).
-  test('la version de la consigne a changé : 8 depuis (6 en 50-1)', () => {
-    expect(M.VERSION_CONSIGNE).toBe(8);
+  // 8 depuis 53-1 (MOTEUR §9.10, le report de charge au changement de zone) ;
+  // 9 depuis 54-1 (MOTEUR §12.2 bis, la zone d’une séance lue à sa fin).
+  test('la version de la consigne a changé : 9 depuis (6 en 50-1)', () => {
+    expect(M.VERSION_CONSIGNE).toBe(9);
   });
 });

@@ -3524,12 +3524,24 @@
     if (!liste.length) {
       var vide = el('div', 'vide-routines');
       vide.appendChild(el('p', 'vide', 'Aucune routine pour l\u2019instant.'));
+      // 54-1 (relevé 54-0) — la phrase dit le vrai : une routine peut porter
+      // une charge de départ, et c'est le COACH (le mot de l'aperçu) qui décide
+      // des charges. Et elle montre le chemin le plus utile avec un historique
+      // importé : en faire une depuis une séance passée.
       vide.appendChild(el('p', 'vide-aide',
-        'Une routine, ce sont des exercices dans un ordre : ce que tu fais, pas ce que tu soulèves. Les charges, c\u2019est le moteur qui les décidera.'));
+        'Une routine, c\u2019est une liste d\u2019exercices dans un ordre. Le coach décide des charges à chaque séance.'));
       var b = el('button', 'principal', 'Créer une routine');
       b.type = 'button';
       b.addEventListener('click', function () { if (v.surNouvelle) v.surNouvelle(); });
       vide.appendChild(b);
+      // L'historique des séances, où vit « En faire une routine » (le ⋯ d'une
+      // carte, le détail d'une séance).
+      if (v.surDepuisSeance) {
+        var ds = el('button', 'discret bloc-large depuis-seance', 'En faire une depuis une séance passée');
+        ds.type = 'button';
+        ds.addEventListener('click', v.surDepuisSeance);
+        vide.appendChild(ds);
+      }
       if (v.surSeanceVide) {
         var sv = el('button', 'discret bloc-large', 'Ou commencer une séance vide');
         sv.type = 'button';
@@ -4269,4 +4281,4 @@
     rendreEntree: rendreEntree,
     message: message
   };
-})(typeof self !== 'undefined' ? self : this);
+})(typeof self !== 'undefined' ? self : globalThis);

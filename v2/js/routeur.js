@@ -14,6 +14,8 @@
 //   /progression            onglet Progression — le SOMMAIRE
 //   /progression/volume     le volume par muscle d'une semaine, et le radar
 //   /progression/poids      le poids de corps
+//   /progression/mois[/AAAA-MM]     le bilan d'un mois (le mois écoulé par défaut)
+//   /progression/records[/AAAA-MM]  les records d'un mois
 //   /profil                 onglet Profil
 //   /profil/exercices       tous mes exercices, et leur dernière séance
 //   /connexion              l'écran de connexion
@@ -41,6 +43,11 @@
   var RACINE = 'racine', SEMAINE = 'semaine', SEANCE = 'seance', CONNEXION = 'connexion';
   var SAISIE = 'saisie', PROGRESSION = 'progression', PROFIL = 'profil';
   var VOLUME = 'volume', POIDS = 'poids';
+  // MOTEUR §9.23 (55-1) — le bilan d'un mois et ses records, sous Progression.
+  // Le mois est un segment de plus (« /progression/mois/2026-09 ») : tous les
+  // mois restent consultables, et un rechargement rouvre le même.
+  var MOIS = 'mois', RECORDS = 'records';
+  var RE_MOIS = /^(\d{4})-(0[1-9]|1[0-2])$/;
   // L'inscription est une VUE, pas un repli de la connexion : un rechargement
   // direct la rouvre, et le retour d'Android ramène à la connexion sans qu'on
   // ait à l'écrire. Même règle que partout ailleurs — un écran, une URL.
@@ -66,6 +73,10 @@
   // et l'onglet allumé reste Progression.
   var SOUS_PROGRESSION = {};
   SOUS_PROGRESSION[VOLUME] = true; SOUS_PROGRESSION[POIDS] = true;
+  SOUS_PROGRESSION[MOIS] = true; SOUS_PROGRESSION[RECORDS] = true;
+  // Celles qui portent un mois.
+  var AVEC_MOIS = {};
+  AVEC_MOIS[MOIS] = true; AVEC_MOIS[RECORDS] = true;
 
   // Et celles qui vivent SOUS Profil. Le chemin est « /profil/<clé> » et
   // l'onglet allumé reste Profil.
@@ -118,6 +129,12 @@
       // surprenant pour un lien qui a vieilli.
       if (!SOUS_PROGRESSION[bouts[1]]) return { vue: PROGRESSION, params: {}, repli: 'sous-vue-inconnue' };
       return { vue: bouts[1], params: {} };
+    }
+
+    if (bouts[0] === PROGRESSION && bouts.length === 3 && AVEC_MOIS[bouts[1]]) {
+      // Un mois malformé retombe sur la même vue, sans mois : le mois écoulé.
+      if (!RE_MOIS.test(bouts[2])) return { vue: bouts[1], params: {}, repli: 'mois-invalide' };
+      return { vue: bouts[1], params: { mois: bouts[2] } };
     }
 
     if (bouts[0] === PROFIL && bouts.length === 2) {
@@ -175,6 +192,7 @@
       if (p.neuve) return '/' + ROUTINE + '/' + ROUTINE_NEUVE;
       return p.id && RE_UUID.test(p.id) ? '/' + ROUTINE + '/' + p.id : '/' + SAISIE;
     }
+    if (AVEC_MOIS[vue] && p.mois && RE_MOIS.test(p.mois)) return '/' + PROGRESSION + '/' + vue + '/' + p.mois;
     if (SOUS_PROGRESSION[vue]) return '/' + PROGRESSION + '/' + vue;
     if (SOUS_PROFIL[vue]) return '/' + PROFIL + '/' + vue;
     if (SEGMENTS[vue]) return '/' + vue;
@@ -252,7 +270,7 @@
     ROUTINE: ROUTINE,
     EXERCICE: EXERCICE,
     EXO_HISTORIQUE: EXO_HISTORIQUE, ROUTINE_NEUVE: ROUTINE_NEUVE,
-    VOLUME: VOLUME, POIDS: POIDS,
+    VOLUME: VOLUME, POIDS: POIDS, MOIS: MOIS, RECORDS: RECORDS,
     SOUS_PROGRESSION: SOUS_PROGRESSION,
     SOUS_PROFIL: SOUS_PROFIL,
     versDate: versDate,

@@ -21,7 +21,7 @@
   var Palier = racine.THPalier, Routines = racine.THRoutines;
   var Seance = racine.THSeance, Attente = racine.THAttente;
   var Profil = racine.THProfil, Moteur = racine.THMoteur, Plan = racine.THPlan;
-  var Rejeu = racine.THRejeu;
+  var Rejeu = racine.THRejeu, Bilan = racine.THBilan;
 
   var vues = {};
   var local = { seances: [], series: [], exercices: [], pesees: [], zones: [], modes: [],
@@ -980,7 +980,24 @@
   function rendreProgression() {
     montrer('progression', Routeur.PROGRESSION);
     var sem = semaineCourante();
+    // MOTEUR §9.23 (55-1) — deux blocs en tête : le mois écoulé, et le
+    // dernier record. Les blocs existants ne bougent pas.
+    var mois = Bilan.moisEcoule(new Date());
+    var b = bilanDuMoisDe(mois);
+    var dernier = dernierRecord();
     Rendu.rendreSommaire($('sommaire'), {
+      mois: {
+        titre: nomDuMois(mois, false),
+        seances: b.seances,
+        records: recordsDuMois(mois).length,
+        paris: { verifies: b.paris_verifies, tenus: b.paris_tenus },
+        surChoix: function () { afficherMois(mois); }
+      },
+      records: {
+        dernier: dernier ? { texte: dernier.nom + ' ' + dernier.mesure,
+                             date: Modele.jourMois(new Date(dernier.debut), new Date().getFullYear()) } : null,
+        surChoix: dernier ? function () { afficherRecordsDuMois(Bilan.cleMois(dernier.debut)); } : null
+      },
       volume: {
         quand: Rendu.libelleSemaine(sem.bornes.lundi, sem.bornes.dimanche),
         zones: sem.zones,
@@ -991,6 +1008,153 @@
         surChoix: function () { allerA(Routeur.POIDS, {}); rendrePoids(); }
       },
       exercices: sommaireExercices(function (slug) { afficherExercice(slug); })
+    });
+  }
+
+  // ── MOTEUR §9.23 (55-1) — LE MOIS ET SES RECORDS ────────────────────────
+  //
+  // Les séances avec leurs séries, une fois par état du cache : le bilan, ses
+  // records et le dernier record les relisent.
+  var memoSeancesBilan = { cle: null, liste: [] };
+  function seancesAvecSeries() {
+    var cle = (local.seances || []).length + '|' + (local.series || []).length;
+    if (memoSeancesBilan.cle !== cle) {
+      memoSeancesBilan = { cle: cle, liste: (local.seances || []).filter(Boolean).map(function (s) {
+        return { id: s.id, debut: s.debut, fin: s.fin || null, series: Modele.trierParRang(seriesDe(s.id)) };
+      }) };
+    }
+    return memoSeancesBilan.liste;
+  }
+
+  // Toutes les séances qui portent un exercice (la séance en cours n'y est
+  // pas : elle n'est dans le cache qu'une fois terminée).
+  var memoParSlug = { cle: null, parSlug: {} };
+  function seancesDuSlug(slug) {
+    var cle = (local.seances || []).length + '|' + (local.series || []).length;
+    if (memoParSlug.cle !== cle) memoParSlug = { cle: cle, parSlug: {} };
+    if (!memoParSlug.parSlug[slug]) {
+      memoParSlug.parSlug[slug] = seancesAvecSeries().map(function (s) {
+        return { id: s.id, debut: s.debut, series: s.series.filter(function (x) { return x && x.exercise_slug === slug; }) };
+      }).filter(function (g) { return g.series.length > 0; });
+    }
+    return memoParSlug.parSlug[slug];
+  }
+
+  // Les séries médaillées d'une séance PASSÉE : chacune comparée aux séances
+  // d'avant et aux séries d'avant dans la séance — la même règle qu'en séance.
+  var memoRecordsSeance = { cle: null, parId: {} };
+  function recordsDeLaSeance(se) {
+    var cle = (local.seances || []).length + '|' + (local.series || []).length;
+    if (memoRecordsSeance.cle !== cle) memoRecordsSeance = { cle: cle, parId: {} };
+    if (memoRecordsSeance.parId[se.id]) return memoRecordsSeance.parId[se.id];
+    var index = catalogueIndexe(), out = [];
+    se.series.forEach(function (x, k) {
+      if (!x || !Modele.estTravail(x)) return;
+      var r = Modele.recordsBattus(seancesDuSlug(x.exercise_slug), se, k, Modele.optionsDeRecord(index[x.exercise_slug] || null));
+      if (!r.length) return;
+      var nom = Modele.nomCourt(index[x.exercise_slug] ? index[x.exercise_slug].nom : x.exercise_slug);
+      out.push({ seanceId: se.id, debut: se.debut, slug: x.exercise_slug,
+                 nom: nom.charAt(0).toUpperCase() + nom.slice(1), mesure: Modele.formatMesure(x), records: r });
+    });
+    memoRecordsSeance.parId[se.id] = out;
+    return out;
+  }
+
+  // Les records d'un mois, dans l'ordre des séances.
+  function recordsDuMois(mois) {
+    var out = [];
+    Bilan.seancesDuMois(seancesAvecSeries(), mois).slice().sort(function (a, b) {
+      return String(a.debut).localeCompare(String(b.debut));
+    }).forEach(function (se) { recordsDeLaSeance(se).forEach(function (r) { out.push(r); }); });
+    return out;
+  }
+
+  // Le dernier record : la dernière série médaillée de la séance la plus
+  // récente qui en a une (`local.seances` est rangée de la plus récente à la
+  // plus ancienne).
+  function dernierRecord() {
+    var liste = seancesAvecSeries();
+    for (var i = 0; i < liste.length; i++) {
+      var r = recordsDeLaSeance(liste[i]);
+      if (r.length) return r[r.length - 1];
+    }
+    return null;
+  }
+
+  // ⚠️ PAS `bilanDe` : ce nom est celui du bilan d'un BLOC (§9.22), plus haut.
+  // Deux déclarations du même nom, et la seconde efface la première — la
+  // carte de fin de bloc s'était vidée (banc « cycles », 55-1).
+  function bilanDuMoisDe(mois) {
+    return Bilan.bilanDuMois({ mois: mois, seances: seancesAvecSeries(),
+                               paris: parisDeConsigneConnus(), exercices: local.exercices });
+  }
+
+  // « Septembre », « septembre 2026 ».
+  function nomDuMois(mois, avecAnnee) {
+    var d = Bilan.premierJour(mois);
+    if (!d) return '';
+    var n = Modele.MOIS_LONGS[d.getMonth()];
+    return avecAnnee ? n + ' ' + d.getFullYear() : n.charAt(0).toUpperCase() + n.slice(1);
+  }
+
+  function afficherMois(mois) {
+    allerA(Routeur.MOIS, { mois: mois });
+    rendreMois(mois);
+  }
+  function afficherRecordsDuMois(mois) {
+    allerA(Routeur.RECORDS, { mois: mois });
+    rendreRecordsDuMois(mois);
+  }
+
+  // LE BILAN DU MOIS (ECRAN §7 bis.14, maquette « Le mois »).
+  function rendreMois(moisDemande) {
+    montrer('mois', Routeur.MOIS);
+    var mois = moisDemande || Bilan.moisEcoule(new Date());
+    var b = bilanDuMoisDe(mois);
+    var recs = recordsDuMois(mois);
+    var index = catalogueIndexe();
+    var courant = Bilan.cleMois(new Date());
+    var trois = [Bilan.moisPrecedent(Bilan.moisPrecedent(mois)), Bilan.moisPrecedent(mois), mois];
+    var precedent = Bilan.moisPrecedent(mois);
+    Rendu.rendreBilanMois($('bilan-mois'), {
+      titre: nomDuMois(mois, true).replace(/^./, function (c) { return c.toUpperCase(); }),
+      bilan: b,
+      records: recs,
+      temps: b.temps_min === null ? null : Bilan.texteTemps(b.temps_min),
+      volume: b.volume_kg,
+      barres: trois.map(function (m) {
+        return { libelle: nomDuMois(m, false).toLowerCase(), series: m === mois ? b.series : bilanDuMoisDe(m).series, courant: m === mois };
+      }),
+      premierJour: Bilan.premierJour(mois),
+      muscles: b.muscles.slice(0, 6),
+      moisAvant: nomDuMois(precedent, false).toLowerCase(),
+      exercices: b.exercices.map(function (e) {
+        var nom = index[e.slug] ? index[e.slug].nom : e.slug;
+        return { nom: nom, series: e.series };
+      }),
+      paris: b.paris_verifies ? { verifies: b.paris_verifies, tenus: b.paris_tenus,
+                                  phrase: Bilan.phraseParis(b.paris_verifies, b.paris_tenus) } : null,
+      surPrecedent: function () { afficherMois(precedent); },
+      surSuivant: mois < courant ? function () { afficherMois(Bilan.moisSuivant(mois)); } : null,
+      surRecords: function () { afficherRecordsDuMois(mois); },
+      surSeance: function (id) { afficherDetail(id); }
+    });
+  }
+
+  // LES RECORDS D'UN MOIS : chacun mène à sa séance.
+  function rendreRecordsDuMois(moisDemande) {
+    montrer('records', Routeur.RECORDS);
+    var mois = moisDemande || Bilan.moisEcoule(new Date());
+    var courant = Bilan.cleMois(new Date());
+    Rendu.rendreRecordsDuMois($('records-mois'), {
+      titre: nomDuMois(mois, true).replace(/^./, function (c) { return c.toUpperCase(); }),
+      records: recordsDuMois(mois).map(function (r) {
+        return { seanceId: r.seanceId, texte: r.nom + ' ' + r.mesure,
+                 date: Modele.jourMois(new Date(r.debut), new Date().getFullYear()) };
+      }),
+      surPrecedent: function () { afficherRecordsDuMois(Bilan.moisPrecedent(mois)); },
+      surSuivant: mois < courant ? function () { afficherRecordsDuMois(Bilan.moisSuivant(mois)); } : null,
+      surSeance: function (id) { afficherDetail(id); }
     });
   }
 
@@ -4196,6 +4360,77 @@
     return sortie.message || sortie.proposee || sortie.ajoutee ? sortie : null;
   }
 
+  // ── MOTEUR §9.23 (55-1) — LA MÉDAILLE ───────────────────────────────────
+  //
+  // Les records d'une série VALIDÉE, sur l'historique SANS la séance en cours
+  // (`local.series` ne la porte pas encore — en correction, on l'écarte par
+  // son identifiant) plus les séries déjà validées de la séance. Rien n'est
+  // écrit en base : la médaille se RECALCULE à chaque rendu, donc dévalider
+  // la retire, et corriger une charge la refait.
+  //
+  // L'historique d'un exercice ne change pas pendant la séance : il se lit une
+  // fois par exercice, et se relit quand la séance ou le cache changent.
+  var memoRecords = { cle: null, parSlug: {} };
+  function historiqueDesRecords(slug) {
+    var cle = (seance ? seance.id : '') + '|' + (local.seances || []).length + '|' + (local.series || []).length;
+    if (memoRecords.cle !== cle) memoRecords = { cle: cle, parSlug: {} };
+    if (!memoRecords.parSlug[slug]) {
+      memoRecords.parSlug[slug] = (local.seances || []).filter(function (s) {
+        return s && (!seance || s.id !== seance.id);
+      }).map(function (s) {
+        return { debut: s.debut, series: seriesDe(s.id).filter(function (x) { return x && x.exercise_slug === slug; }) };
+      }).filter(function (g) { return g.series.length > 0; });
+    }
+    return memoRecords.parSlug[slug];
+  }
+
+  // La séance en cours telle que les records la lisent : ses séries VALIDÉES,
+  // dans l'ordre de la séance, et la position de chacune.
+  function seanceDesRecords() {
+    var series = [], positions = {};
+    (seance ? seance.exercices : []).forEach(function (exo, i) {
+      (exo.series || []).forEach(function (s, j) {
+        if (!Seance.partEnBase(s)) return;
+        positions[i + ':' + j] = series.length;
+        series.push(Object.assign({}, s, { exercise_slug: exo.exercise_slug }));
+      });
+    });
+    return { debut: seance ? seance.debut : null, series: series, positions: positions };
+  }
+
+  function recordsDeLaSerie(iExo, iSerie, lue) {
+    var v = lue || seanceDesRecords();
+    var k = v.positions[iExo + ':' + iSerie];
+    if (k === undefined) return [];
+    var slug = v.series[k].exercise_slug;
+    return Modele.recordsBattus(historiqueDesRecords(slug), v, k,
+      Modele.optionsDeRecord(catalogueIndexe()[slug] || null));
+  }
+
+  // `[gras, gris]` sous la rangée d'une série, ou rien.
+  function medailleSurLigne(iExo, iSerie) {
+    if (!seance) return null;
+    var r = recordsDeLaSerie(iExo, iSerie);
+    if (!r.length) return null;
+    var exo = catalogueIndexe()[seance.exercices[iExo].exercise_slug];
+    return Modele.phraseDeRecord(r, Modele.nomCourt(exo ? exo.nom : ''), seance.debut);
+  }
+
+  // Les records du jour, pour la feuille « Terminer » : une ligne par série
+  // médaillée, « Développé couché 130 kg × 4 ».
+  function recordsDuJour() {
+    if (!seance) return [];
+    var v = seanceDesRecords(), index = catalogueIndexe(), out = [];
+    seance.exercices.forEach(function (exo, i) {
+      (exo.series || []).forEach(function (s, j) {
+        if (!recordsDeLaSerie(i, j, v).length) return;
+        var nom = Modele.nomCourt(index[exo.exercise_slug] ? index[exo.exercise_slug].nom : exo.exercise_slug);
+        out.push({ nom: nom.charAt(0).toUpperCase() + nom.slice(1), mesure: Modele.formatMesure(s) });
+      });
+    });
+    return out;
+  }
+
   // ── L'écran ─────────────────────────────────────────────────────────────
   function rendreSeance() {
     montrer('seance', Routeur.SAISIE);
@@ -4286,6 +4521,8 @@
       surValider: validerSerie,
       // §9.14 (49-R2) — la phrase du coach et la ligne proposée.
       reaction: reactionSurLigne,
+      // MOTEUR §9.23 (55-1) — la médaille, sous la rangée d'une série validée.
+      medaille: medailleSurLigne,
       // ⚠️ CORRIGER AU CLAVIER UNE SÉRIE VALIDÉE REDESSINE LE BLOC (P10), mais
       // à la SORTIE du champ, pas à chaque frappe : redessiner à la frappe
       // volerait le focus au milieu de « 130 ». La réaction se refait alors sur
@@ -5142,6 +5379,8 @@
     var verdict = Seance.ecartsRoutine(seance, routine);
     Rendu.rendreFeuilleFin(cible, {
       compte: Seance.compter(seance, local.exercices),
+      // MOTEUR §9.23 (55-1) — les records du jour ; sans record, rien.
+      records: recordsDuJour(),
       titre: seance.titre,
       note: seance.note,
       salle: seance.salle,
@@ -6497,7 +6736,20 @@
     groupes.forEach(function (g) {
       g.series.forEach(function (x) { debutDe[x.id] = g.seance.debut; });
     });
-    var table = Modele.tableParReps(toutes, mesure, function (x) { return debutDe[x.id] || null; });
+    // §9.23 (55-1) — LE PÉRIMÈTRE D'UN RECORD, une fois pour la page : celui de
+    // la médaille (12 mois pour un matériel de salle, toute la vie ailleurs).
+    var optionsRecords = Modele.optionsDeRecord(exo);
+    var pourRecords = groupes.map(function (g) { return { debut: g.seance.debut, series: g.series }; });
+    var maintenant = new Date();
+    // ECRAN §7 quater.3 (H3, #371) — LA TABLE PAR REPS SUIT CE PÉRIMÈTRE : une
+    // page ne montre jamais deux périmètres pour un même record (un 150 kg de
+    // février 2025 sous « Record sur 12 mois : 120 kg »). Les séances plus
+    // anciennes restent dans l'historique.
+    var dansLePerimetre = [];
+    Modele.seancesDuPerimetre(pourRecords, maintenant, optionsRecords).forEach(function (h) {
+      h.series.forEach(function (x) { dansLePerimetre.push(x); });
+    });
+    var table = Modele.tableParReps(dansLePerimetre, mesure, function (x) { return debutDe[x.id] || null; });
     // Un jour de record se DÉDUIT de la table, il ne se recalcule pas : ce sont
     // exactement les dates de ses lignes non déduites. On garde le plus grand
     // nombre de reps du jour — « record à 6 reps » dit de quoi il s'agit.
@@ -6519,12 +6771,40 @@
     // exploration comprise. Il écartait les explorations (140 × 1 quand on
     // travaille à 10), et pouvait s'afficher sous la ligne « 1 rep » de la
     // table, sur la même page. Les autres mesures gardent leur meilleure série.
+    // §9.23 (55-1) — ET IL SE LIT SUR LA TABLE CUMULÉE, la source de tout
+    // record (la médaille, le tableau des records, le bloc de Progression),
+    // AVEC LE PÉRIMÈTRE DE LA MÉDAILLE : un matériel de salle (machines,
+    // poulies, haltères, Smith) sur ses 12 derniers mois.
+    var recordsExo = Modele.recordsDeLExercice(pourRecords, maintenant, optionsRecords);
     var record = mesure === 'charge_reps'
-      ? Modele.recordDeLaTable(table)
+      ? Modele.recordDeLaTable(recordsExo.table)
       : Modele.meilleureSerieDeTout(slug, groupes.map(function (g) {
         return { cle: g.seance.debut, series: g.series };
       }), local.exercices, Palier, etatsExercices);
     if (mesure !== 'charge_reps') record.date = record.cle || null;
+
+    // MOTEUR §9.23 (55-1), ECRAN §7 bis.15 — LES RECORDS EN TÊTE : la charge
+    // la plus lourde et le 1RM estimé (« ≈ », 3 à 10 reps), avec leur date ;
+    // le tableau à 1, 3, 5, 8, 10 reps — aujourd'hui, il y a 6 mois, il y a
+    // 1 an ; le rapport au poids (la charge de travail du coach, divisée par
+    // une pesée de moins de 14 jours).
+    var teteRecords = null;
+    if (mesure === 'charge_reps' && groupes.length) {
+      var il6 = new Date(maintenant.getTime()); il6.setMonth(il6.getMonth() - 6);
+      var il12 = new Date(maintenant.getTime()); il12.setFullYear(il12.getFullYear() - 1);
+      var travail = null;
+      Moteur.chargesDeTravailDe(seancesDeLExercice(slug), etatsExercices[slug], optionsDeConsigne(slug, exo))
+        .forEach(function (x) { if (!travail || String(x.date) > String(travail.date)) travail = x; });
+      teteRecords = {
+        douzeMois: recordsExo.douzeMois,
+        lourde: record && record.charge !== null ? record : null,
+        unRM: recordsExo.unRM,
+        tableau: Modele.tableauDesRecords(pourRecords, [maintenant, il6, il12], optionsRecords),
+        travail: travail && travail.palier > 0 && !optionsRecords.corps ? travail : null,
+        rapport: travail && travail.palier > 0 && !optionsRecords.corps
+          ? Poids.rapportAuPoids(travail.palier, local.pesees, maintenant) : null
+      };
+    }
 
     var visibles = groupes.slice(0, exoAffiche.combien);
     // §7 quater — L'ÉTIQUETTE DE ZONE SUR LA PAGE D'EXERCICE. La zone
@@ -6573,11 +6853,16 @@
       } : null,
       derniere: derniere,
       record: record,
+      // §9.23 (H1, #371) — le record d'un matériel de salle se dit « sur 12 mois ».
+      recordSurDouzeMois: mesure === 'charge_reps' && recordsExo.douzeMois,
+      teteRecords: teteRecords,
       volume: {
         nbSeries: Semaine.compteSeriesTravail(toutes, local.exercices),
         nbSeances: groupes.length
       },
       table: table,
+      // H3 — la table d'un matériel de salle se lit sur 12 mois, et le dit.
+      tableSurDouzeMois: recordsExo.douzeMois,
       cibleReps: cibleReps,
       historique: visibles.map(function (g) {
         return {
@@ -7926,6 +8211,8 @@
     if (cible.vue === Routeur.PROGRESSION) return rendreProgression();
     if (cible.vue === Routeur.VOLUME) return rendreVolume();
     if (cible.vue === Routeur.POIDS) return rendrePoids();
+    if (cible.vue === Routeur.MOIS) return rendreMois(cible.params.mois || null);
+    if (cible.vue === Routeur.RECORDS) return rendreRecordsDuMois(cible.params.mois || null);
     if (VUES_ONGLET[cible.vue]) return montrer(VUES_ONGLET[cible.vue], cible.vue);
     if (cible.vue === Routeur.EXERCICE) {
       return rendreExercice(cible.params.slug, cible.params.onglet);
@@ -7949,6 +8236,7 @@
       saisie: $('vue-saisie'), routine: $('vue-routine'), seance: $('vue-seance'),
       progression: $('vue-progression'), exercice: $('vue-exercice'),
       volume: $('vue-volume'), poids: $('vue-poids'), profil: $('vue-profil'),
+      mois: $('vue-mois'), records: $('vue-records'),
       exercices: $('vue-exercices')
     };
     sortie = Sortie.creer({
@@ -7999,7 +8287,7 @@
     // suivant n'atteigne l'ancre. Un appui invisible, contre une promesse tenue.
     $('btn-retour').addEventListener('click', function () { afficherSemaine(null, true); });
     $('btn-retour-exercice').addEventListener('click', function () { remonter(afficherSemaine); });
-    ['btn-retour-volume', 'btn-retour-poids'].forEach(function (id) {
+    ['btn-retour-volume', 'btn-retour-poids', 'btn-retour-mois', 'btn-retour-records'].forEach(function (id) {
       $(id).addEventListener('click', function () {
         allerA(Routeur.PROGRESSION, {});
         rendreProgression();

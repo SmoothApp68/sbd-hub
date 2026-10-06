@@ -1227,6 +1227,40 @@ Un exercice **jamais fait** par la personne (aucune série de travail dans son h
 **Référence** : `cycles53.py` ; cas `cas_cycles53.json` ; l'arrêt : `arret53.py`, cas `cas_arret53.json`.
 
 
+### 9.23 Les records — décidés le 06/10/2026 (chantier 55)
+
+> **Un record est un fait : une série que rien de ton passé ne dépasse. La médaille le dit à la validation, avec le record d'avant et sa date. Jamais un « bravo ».**
+
+**Les records médaillés** (ceux de Hevy, plus l'ancien record) :
+- **la charge pour au moins N reps** (N = les reps de la série) : battue si aucune série passée n'a fait cette charge ou plus pour N reps ou plus. Quand la même charge a déjà été faite, le record se dit en reps (« Record à 130 kg : 5 reps. Avant : 4 reps, le 22 nov. 2025. ») ; sinon en charge (« Record à 4 reps : 130 kg. Avant : 125 kg à 4 reps, le 15 sept. »). Au poids du corps : « Record au poids du corps : 9 reps. » ; avec une aide (charge négative) : « 50 kg d'aide » ; moins d'aide est un record ;
+- **la charge la plus lourde**, toutes reps confondues ; à la barre, quand elle est un multiple de 10 kg : **le cap rond** (« Premier 150 kg au soulevé. ») ;
+- **le 1RM estimé** (Epley, la même formule que l'estimation du report §9.10), seulement depuis une série de **3 à 10 reps** et jamais au poids du corps (ECRAN-SAISIE §7 bis.15 : hors de cette plage, l'estimation n'est pas fiable) ; dit « estimé » : « 1RM estimé : ≈ 147 kg. » ;
+- **le volume de l'exercice dans la séance** (charge × reps ; au poids du corps, le total de reps), sur la série qui le fait dépasser, une fois, et seulement s'il y a déjà eu une série de cet exercice dans la séance ;
+- **la plus longue durée, la plus longue distance** (cardio, gainage).
+
+**Pas de « meilleure série » (charge × reps)** : elle récompense les séries légères et longues (celle d'Aurélien au couché : 60 kg × 20, en 2024) ; en septembre 2026, elle n'ajoutait aucune médaille.
+
+**Ce qui compte.** Seulement les séries **de travail validées** : ni chauffe, ni dégressive, ni échec. Une série se compare aux séances antérieures **et** aux séries déjà validées de la même séance.
+
+**Deux garde-fous.**
+- **Pas de médaille à la première séance d'un exercice** : il n'y a rien à battre.
+- **Machines, poulies, haltères et Smith** : comparés sur **les 12 derniers mois** — la même liste de matériels et la même fenêtre que §10.2 (un seul câblage) : d'une salle à l'autre, les piles et les haltères changent. La salle ne sert pas : elle ne se déclare qu'à la fin de la séance (relevé 55-0). À la barre et au poids du corps, toute la vie ; la durée et la distance, toute la vie.
+
+**Une médaille par série**, même si elle bat plusieurs records : la phrase les nomme tous, dans cet ordre — le cap rond ou la charge pour N reps, la charge la plus lourde (si elle n'est pas déjà dite), le 1RM estimé, le volume de la séance, la durée et la distance. La ligne grise dit le record d'avant et sa date (« le 15 sept. », l'année si elle diffère).
+
+**Où.** À la validation de la série, **sous la rangée de la série** (la phrase de réaction, au-dessus de la ligne suivante, parle de la suite ; la médaille parle de cette série : les deux cohabitent). Dans la feuille « Terminer la séance », sous « N séries de travail enregistrées », la liste des records du jour (sans record, la ligne n'apparaît pas : le coach ne commente pas ce qui n'est pas arrivé) ; il n'y a pas d'écran de fin de séance, on n'en crée pas. Dans l'onglet Progression et la vue d'un exercice (ECRAN-SAISIE §7 bis.14 et §7 bis.15).
+
+**Une seule source.** La charge pour au moins N reps se lit sur **la table par reps cumulée** (ECRAN-SAISIE §7 bis.16 : « cumulée, jamais brute ») ; la médaille, le tableau des records, le « record de charge » de la vue d'exercice et le bloc Records de l'onglet lisent tous la même fonction. L'ancien record se lit sur l'historique sans la séance en cours, plus les séries déjà validées de la séance. La date d'un record est le début de sa séance. Les explorations comptent (décision du 02/10/2026).
+
+**Le tableau des records d'un exercice** : la charge pour au moins 1, 3, 5, 8 et 10 reps, à une date donnée, avec le même périmètre que la médaille ; affiché aujourd'hui, il y a 6 mois et il y a 1 an. **Un record ne baisse jamais** : le tableau ne montre jamais de recul, même en sèche ; l'écart s'écrit en couleur du coach quand il monte, rien quand il est nul. Pas de rouge. **Sauf la fenêtre de 12 mois** des machines, poulies, haltères et Smith : leurs records (le tableau, le « record de charge » de la vue d'exercice) se lisent sur 12 mois, et l'affichage le dit (« sur 12 mois ») — un vieux record peut en sortir ; on ne le présente jamais comme un recul (précisé le 06/10/2026, #371).
+
+**Le rapport au poids** : la charge de travail (§8) divisée par la pesée la plus récente **de moins de 14 jours**, au centième ; sinon rien (« Pèse-toi pour voir ce rapport. »).
+
+**Le bilan du mois** : séances, séries de travail, volume (charges positives), jours d'entraînement, records, séries par muscle comparées au mois d'avant — **comptées comme le bloc Volume** (REGLE-VOLUME : un muscle principal compte la série entière, un secondaire pour moitié ; une seule fonction, précisé le 06/10/2026, #371), exercices les plus faits, et **les paris du coach** vérifiés et tenus (tenu = observé ≥ prédit), dits en « Sur 10 paris vérifiés, le coach en a tenu 9. » — ramenés à 10 dès 10 paris vérifiés (arrondi au plus proche), sinon les chiffres tels quels (« Sur 7 paris vérifiés, le coach en a tenu 6. »), rien sans pari vérifié. **Le temps d'entraînement** n'apparaît que si toutes les séances du mois ont une heure de fin. Aucune couleur de jugement, aucune phrase sur l'assiduité (CADRAGE).
+
+**Référence** : `records55.py` ; cas `cas_records55.json`.
+
+
 ## 10. L'incrément
 
 ### 10.1 Règle
@@ -1319,7 +1353,7 @@ Le §12.2 a été écrit avant le moteur du chantier 48 : il compte la meilleure
 
 **Quelles séances comptent.** Seulement celles qui ont reçu une consigne **et** où elle a été suivie : les séries au palier proposé faites à la charge proposée, ou au-dessus. Une séance faite sous la charge proposée n'est **ni un progrès ni une stagnation** : le compteur se tait. Faire plus que demandé sans progresser, c'est avoir essayé ; faire moins, c'est une consigne non tentée, qui ne dit rien de la méthode. Cette frontière n'est pas celle de l'observation (§9.11), qui ne compte les reps qu'à la charge exacte : les deux répondent à deux questions différentes — « le pari du moteur a-t-il été vérifié ? » et « la personne a-t-elle au moins tenté la consigne ? ».
 
-**Par exercice et par zone**, pas par format. Le format n'a que trois cases : des séries de 11 et de 15 tombaient dans la même, et un 66 × 11 bloquait tout ce qui suivait à 15 reps (extension jambes d'Aurélien : 41 séances de stagnation fictive, 13 par zone). Un changement de zone est un bloc (§9.10) et remet le compteur à zéro. **La zone d'une séance se lit à sa fin** — une seule fonction pour le report (§9.10), le compteur et le repli de l'escalier : une zone changée pendant la séance est celle de cette séance (précisé le 06/10/2026, relevé 54-0 : le compteur et le repli la lisaient au début, le report à la fin). La zone **d'aujourd'hui**, pour la séance qui commence, reste la zone en vigueur maintenant.
+**Par exercice et par zone**, pas par format. Le format n'a que trois cases : des séries de 11 et de 15 tombaient dans la même, et un 66 × 11 bloquait tout ce qui suivait à 15 reps (extension jambes d'Aurélien : 41 séances de stagnation fictive, 13 par zone). Un changement de zone est un bloc (§9.10) et remet le compteur à zéro. **La zone d'une séance se lit à sa fin** — une seule fonction pour le report (§9.10), le compteur et le repli de l'escalier : une zone changée pendant la séance est celle de cette séance (précisé le 06/10/2026, relevé 54-0 : le compteur et le repli la lisaient au début, le report à la fin). La zone **d'aujourd'hui**, pour la séance qui commence, reste la zone en vigueur maintenant. **Une séance sans heure de fin** (6 des 22 séances d'Aurélien en septembre 2026, importées de Hevy) **finit 3 h au plus après son début, et jamais après le début de la suivante** (précisé le 06/10/2026) : sans cette borne, une zone changée entre deux séances comptait pour la précédente.
 
 **Remises à zéro** : une reprise après coupure (§9.9, la même règle que la consigne), un changement de zone.
 

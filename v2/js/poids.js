@@ -181,7 +181,28 @@
     return out;
   }
 
+  // MOTEUR §9.23 (55-1) — LE RAPPORT AU POIDS : la charge de travail divisée
+  // par la pesée la plus récente, si elle a MOINS DE 14 JOURS (au jour du
+  // calendrier) ; au centième. `null` sinon — sans charge, sans pesée, ou
+  // pesée trop vieille : l'écran dit alors « Pèse-toi pour voir ce rapport. »
+  var RAPPORT_JOURS = 14;
+  function rapportAuPoids(charge, lignes, jour) {
+    var c = Number(charge);
+    if (charge === null || charge === undefined || !isFinite(c) || c <= 0) return null;
+    var liste = normaliser(lignes);
+    if (!liste.length) return null;
+    var p = liste[liste.length - 1];
+    var j = jour instanceof Date ? jour : (depuisJour(jour) || new Date(jour));
+    if (!(j instanceof Date) || isNaN(j.getTime())) return null;
+    var ecart = Math.round((Date.UTC(j.getFullYear(), j.getMonth(), j.getDate()) -
+      Date.UTC(p.date.getFullYear(), p.date.getMonth(), p.date.getDate())) / 86400000);
+    if (ecart < 0 || ecart >= RAPPORT_JOURS) return null;
+    return { rapport: Math.round(c / p.poids * 100) / 100, pesee: { date: p.date, poids: p.poids } };
+  }
+
   var api = {
+    RAPPORT_JOURS: RAPPORT_JOURS,
+    rapportAuPoids: rapportAuPoids,
     MARGE: MARGE,
     PERIODES: PERIODES,
     PERIODE_DEFAUT: PERIODE_DEFAUT,

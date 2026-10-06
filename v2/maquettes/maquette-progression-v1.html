@@ -1,0 +1,194 @@
+<title>Progression TrainHub</title>
+<style>
+/* Mise en page : le téléphone à gauche (l'écran de l'app), les décisions à droite ; une rangée sur mobile. */
+:root{--fond:#f4f5f7;--carte:#fff;--ligne:#e3e5ea;--texte:#16181d;--gris:#5e6470;--coach:#b86e00;--coach-fond:#fff4e2;--bouton:#eceef2;--medaille:#b8860b;--medaille-fond:#fbf3d9;
+ --texte-sur-coach:#1a1205}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--fond:#0e0f12;--carte:#17191e;--ligne:#262931;--texte:#eceef2;--gris:#9aa0ab;--coach:#ffb648;--coach-fond:#2a2214;--bouton:#22252c;--medaille:#f0c84a;--medaille-fond:#2b2610;color-scheme:dark}}
+:root[data-theme="dark"]{--fond:#0e0f12;--carte:#17191e;--ligne:#262931;--texte:#eceef2;--gris:#9aa0ab;--coach:#ffb648;--coach-fond:#2a2214;--bouton:#22252c;--medaille:#f0c84a;--medaille-fond:#2b2610;color-scheme:dark}
+body{margin:0;background:var(--fond);color:var(--texte);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.page{max-width:1040px;margin:0 auto;padding-inline:16px;padding-block:16px;display:grid;gap:20px;grid-template-columns:minmax(0,1fr)}
+@media(min-width:820px){.page{grid-template-columns:390px minmax(0,1fr)}}
+h1{font-size:18px;margin:0 0 8px;text-wrap:balance} h2{font-size:15px;margin:16px 0 4px}
+.puces{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.puce{border:1px solid var(--ligne);background:var(--bouton);color:var(--texte);border-radius:999px;padding:7px 12px;font-size:13px;cursor:pointer;font-family:inherit}
+.puce[aria-pressed="true"]{border-color:var(--coach);color:var(--coach)}
+.puce:focus-visible{outline:2px solid var(--coach);outline-offset:2px}
+#tel{border:1px solid var(--ligne);border-radius:28px;background:var(--fond);overflow:hidden;max-width:390px;padding-bottom:12px}
+.barre{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--ligne);gap:8px}
+.barre b{font-size:17px} .petit{color:var(--gris);font-size:12px}
+.ex{padding:12px 16px}
+.titre{display:flex;align-items:center;gap:8px;font-weight:700;font-size:16px;flex-wrap:wrap}
+.etq{font-size:12px;font-weight:600;border-radius:999px;padding:2px 8px;background:var(--bouton);border:1px solid var(--ligne)}
+.grille{display:grid;grid-template-columns:28px 1fr 1fr 34px;gap:6px 8px;align-items:center;margin-top:8px;font-variant-numeric:tabular-nums}
+.grille .h{color:var(--gris);font-size:12px}
+.case{border:1px solid var(--ligne);border-radius:8px;padding:6px 8px;background:var(--carte);text-align:center}
+.ok{width:28px;height:28px;border-radius:8px;background:var(--coach);color:var(--texte-sur-coach);display:grid;place-items:center;font-weight:800;font-size:14px}
+.medaille{display:inline-block;width:18px;height:18px;border-radius:50%;background:var(--medaille);position:relative;flex:none;box-shadow:inset 0 0 0 3px color-mix(in srgb,var(--medaille) 60%,#fff)}
+.medaille::after{content:"";position:absolute;left:5px;top:15px;border-left:4px solid transparent;border-right:4px solid transparent;border-top:6px solid var(--medaille)}
+.record{grid-column:1/-1;display:flex;gap:10px;align-items:flex-start;background:var(--medaille-fond);border:1px solid color-mix(in srgb,var(--medaille) 40%,transparent);border-radius:12px;padding:10px 12px;margin:2px 0 4px}
+.record b{color:var(--texte)} .record .s{color:var(--gris);font-size:13px}
+.carte{margin:12px 16px;border-radius:14px;background:var(--carte);padding:14px;border:1px solid var(--ligne)}
+.carte h3{margin:0 0 8px;font-size:16px}
+.ligne{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--ligne);font-variant-numeric:tabular-nums}
+.ligne:last-child{border-bottom:0}
+.ligne .g{color:var(--gris)}
+.tableau{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:14px}
+.tableau th{color:var(--gris);font-weight:600;font-size:12px;text-align:right;padding:6px 4px;border-bottom:1px solid var(--ligne)}
+.tableau th:first-child,.tableau td:first-child{text-align:left}
+.tableau td{text-align:right;padding:8px 4px;border-bottom:1px solid var(--ligne)}
+.tableau td.d{color:var(--gris);font-size:12px}
+.plus{color:var(--coach);font-weight:700}
+.voix{color:var(--coach);font-weight:700;margin-top:8px}
+.oui{display:block;width:100%;text-align:center;border:0;background:var(--coach);color:var(--texte-sur-coach);border-radius:12px;padding:12px;margin-top:10px;font:700 15px system-ui,sans-serif}
+.explic p{margin:6px 0;color:var(--gris)} .explic b{color:var(--texte)}
+.explic ul{margin:6px 0;padding-left:18px;color:var(--gris)} .explic li{margin:4px 0}
+.compare{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}
+.compare th,.compare td{border-bottom:1px solid var(--ligne);padding:6px 4px;text-align:left;vertical-align:top}
+.compare th{color:var(--gris);font-weight:600}
+.defile{overflow-x:auto}
+@media (prefers-reduced-motion: no-preference){.record{animation:pose .35s ease-out}@keyframes pose{from{transform:translateY(-4px);opacity:.6}to{transform:none;opacity:1}}}
+</style>
+
+<style>
+.tuiles{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 16px}
+.tuile{background:var(--carte);border:1px solid var(--ligne);border-radius:12px;padding:10px 12px;font-variant-numeric:tabular-nums}
+.tuile b{display:block;font-size:20px} .tuile span{color:var(--gris);font-size:12px}
+.barres{display:flex;align-items:flex-end;gap:14px;height:90px;margin:8px 0 2px;padding:0 6px;border-bottom:1px solid var(--ligne)}
+.barres div{flex:1;background:color-mix(in srgb,var(--gris) 45%,transparent);border-radius:6px 6px 0 0;position:relative}
+.barres div.now{background:var(--coach)}
+.barres div i{position:absolute;top:-18px;left:0;right:0;text-align:center;font-style:normal;font-size:11px;color:var(--gris);font-variant-numeric:tabular-nums}
+.etiq{display:flex;gap:14px;padding:4px 6px 0}.etiq span{flex:1;text-align:center;color:var(--gris);font-size:11px}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center;font-size:12px;font-variant-numeric:tabular-nums}
+.cal .j{color:var(--gris);font-size:11px}
+.cal span{padding:5px 0;border-radius:50%}
+.cal .fait{background:var(--coach);color:var(--texte-sur-coach);font-weight:700}
+.bloc{margin:10px 16px;border:1px solid var(--ligne);border-radius:14px;background:var(--carte);padding:12px 14px;display:flex;justify-content:space-between;gap:10px;align-items:center}
+.bloc .t{font-weight:700}.bloc .s{color:var(--gris);font-size:13px}
+.bloc.neuf{border-color:color-mix(in srgb,var(--coach) 50%,var(--ligne))}
+.fleche{color:var(--gris);font-size:18px}
+.onglets{display:flex;justify-content:space-around;border-top:1px solid var(--ligne);padding:10px 0 2px;margin-top:10px;font-size:12px;color:var(--gris)}
+.onglets b{color:var(--coach)}
+</style>
+<div class="page">
+<div>
+<h1>Progression — maquette v2</h1>
+<div class="puces" id="puces">
+<button class="puce" data-s="seance" aria-pressed="true">La médaille</button>
+<button class="puce" data-s="fin" aria-pressed="false">Fin de séance</button>
+<button class="puce" data-s="onglet" aria-pressed="false">L'onglet</button>
+<button class="puce" data-s="mois" aria-pressed="false">Le mois</button>
+<button class="puce" data-s="records" aria-pressed="false">Un exercice</button>
+</div>
+<div id="tel"></div>
+<p class="petit" style="margin-top:8px">Chiffres tirés de ton historique réel (couché du 22 sept., septembre 2026).</p>
+</div>
+<div class="explic" id="explic"></div>
+</div>
+
+<script>
+const n=' ';
+const cal=()=>{const faits=[1,2,3,4,5,7,8,10,11,12,14,15,17,18,19,22,23,24,25,26,28,29];let h='<div class="cal">'+['L','M','M','J','V','S','D'].map(j=>`<span class="j">${j}</span>`).join('')+'<span></span>';for(let d=1;d<=30;d++)h+=`<span class="${faits.includes(d)?'fait':''}">${d}</span>`;return h+'</div>'};
+const S={
+seance:()=>`<div class="barre"><b>Mardi — Haut A</b><span class="petit">48 min</span></div>
+<div class="ex"><div class="titre">Développé couché (barre) <span class="etq">Lourd 3-5</span></div>
+<div class="grille">
+<span class="h"></span><span class="h">Charge</span><span class="h">Reps</span><span class="h"></span>
+<span class="petit">1</span><span class="case">125${n}kg</span><span class="case">5</span><span class="ok">✓</span>
+<span class="petit">2</span><span class="case">125${n}kg</span><span class="case">5</span><span class="ok">✓</span>
+<span class="petit">3</span><span class="case">125${n}kg</span><span class="case">5</span><span class="ok">✓</span>
+<span class="petit">4</span><span class="case">130${n}kg</span><span class="case">4</span><span class="ok">✓</span>
+<div class="record"><span class="medaille" aria-hidden="true"></span><div><b>Record à 4 reps : 130${n}kg. 1RM estimé : ≈${n}147${n}kg.</b><div class="s">Avant : 125${n}kg à 4 reps, le 15 sept.</div></div></div>
+</div></div>`,
+fin:()=>`<div class="barre"><b>Séance terminée</b><span class="petit">mardi 22 sept.</span></div>
+<div class="carte"><h3>Mardi — Haut A</h3>
+<div class="ligne"><span>Séries de travail</span><span>17</span></div>
+<div class="ligne"><span style="display:flex;gap:8px;align-items:center"><span class="medaille" aria-hidden="true"></span>1 record</span><span>Couché 130${n}kg × 4</span></div>
+</div>`,
+onglet:()=>`<div class="barre"><b>Progression</b><span></span></div>
+<div class="bloc neuf"><div><div class="t">Septembre</div><div class="s">22 séances · 33 records · 27 paris tenus sur 30</div></div><span class="fleche">›</span></div>
+<div class="bloc neuf"><div><div class="t" style="display:flex;gap:8px;align-items:center"><span class="medaille" aria-hidden="true"></span>Records</div><div class="s">Le dernier : couché 130${n}kg × 4, le 22 sept.</div></div><span class="fleche">›</span></div>
+<div class="bloc"><div><div class="t">Volume par muscle</div><div class="s">Cette semaine : pectoraux 18 séries</div></div><span class="fleche">›</span></div>
+<div class="bloc"><div><div class="t">Poids de corps</div><div class="s">96,8${n}kg, le 29 sept.</div></div><span class="fleche">›</span></div>
+<div class="bloc"><div><div class="t">Par exercice</div><div class="s">Courbes et records de chaque exercice</div></div><span class="fleche">›</span></div>
+<div class="onglets"><span>Séances</span><span>Routines</span><b>Progression</b><span>Profil</span></div>`,
+mois:()=>`<div class="barre"><b>Septembre 2026</b><span class="petit">Ton mois</span></div>
+<div class="tuiles">
+<div class="tuile"><b>22</b><span>séances</span></div>
+<div class="tuile"><b>410</b><span>séries de travail</span></div>
+<div class="tuile"><b>265${n}t</b><span>volume soulevé</span></div>
+<div class="tuile"><b>33</b><span>records</span></div>
+</div>
+<div class="carte"><h3>Séries, mois par mois</h3>
+<div class="barres"><div style="height:${360/410*100}%"><i>360</i></div><div style="height:${274/410*100}%"><i>274</i></div><div class="now" style="height:100%"><i>410</i></div></div>
+<div class="etiq"><span>juillet</span><span>août</span><span>septembre</span></div></div>
+<div class="carte"><h3>Tes jours</h3>${cal()}</div>
+<div class="carte"><h3 style="display:flex;gap:8px;align-items:center"><span class="medaille" aria-hidden="true"></span>Tes records</h3>
+<div class="ligne"><span>Couché</span><span>130${n}kg × 4</span></div>
+<div class="ligne"><span>Squat</span><span>130${n}kg × 5</span></div>
+<div class="ligne"><span>Soulevé de terre</span><span>145${n}kg × 10</span></div>
+<div class="ligne"><span class="g">et 30 autres</span><span class="fleche">›</span></div></div>
+<div class="carte"><h3>Séries par muscle</h3>
+<div class="ligne"><span>Pectoraux</span><span>71 <span class="g">· août 50</span></span></div>
+<div class="ligne"><span>Grand dorsal</span><span>68 <span class="g">· août 45</span></span></div>
+<div class="ligne"><span>Ischio-jambiers</span><span>37 <span class="g">· août 23</span></span></div>
+<div class="ligne"><span>Quadriceps</span><span>36 <span class="g">· août 56</span></span></div>
+<div class="ligne"><span>Abdominaux</span><span>33 <span class="g">· août 9</span></span></div></div>
+<div class="carte"><h3>Le coach a fait ses paris</h3>
+<div class="ligne"><span>Paris vérifiés</span><span>30</span></div>
+<div class="ligne"><span>Tenus</span><span><b>27</b></span></div>
+<p class="voix">Sur 10 paris vérifiés, le coach en a tenu 9.</p></div>`,
+records:()=>`<div class="barre"><b>Développé couché (barre)</b><span class="petit">Lourd 3-5</span></div>
+<div class="carte"><h3>Tes records</h3>
+<div class="ligne"><span>Charge la plus lourde</span><span>140${n}kg × 1 <span class="g">· 10 janv.</span></span></div>
+<div class="ligne"><span>Meilleure série (charge × reps)</span><span>60${n}kg × 20 <span class="g">· 30 août 2024</span></span></div>
+<div class="ligne"><span>1RM estimé</span><span>≈${n}147${n}kg <span class="g">· 22 sept.</span></span></div>
+<div class="defile" style="margin-top:8px"><table class="tableau">
+<tr><th>Au moins</th><th>Record</th><th>Le</th><th>Il y a 6 mois</th><th>Il y a 1 an</th></tr>
+<tr><td>1 rep</td><td><b>140${n}kg</b></td><td class="d">10 janv.</td><td>140</td><td>120 <span class="plus">+20</span></td></tr>
+<tr><td>3 reps</td><td><b>130${n}kg</b></td><td class="d">5 oct.</td><td>125 <span class="plus">+5</span></td><td>120 <span class="plus">+10</span></td></tr>
+<tr><td>5 reps</td><td><b>125${n}kg</b></td><td class="d">29 sept.</td><td>120 <span class="plus">+5</span></td><td>115 <span class="plus">+10</span></td></tr>
+<tr><td>8 reps</td><td><b>110${n}kg</b></td><td class="d">22 nov. 2025</td><td>110</td><td>100 <span class="plus">+10</span></td></tr>
+<tr><td>10 reps</td><td><b>100${n}kg</b></td><td class="d">3 juil. 2025</td><td>100</td><td>100</td></tr>
+</table></div></div>
+<div class="carte"><h3>Rapporté à ton poids</h3>
+<div class="ligne"><span>Ta charge de travail</span><span>125${n}kg × 5</span></div>
+<div class="ligne"><span>Ton poids (pesée du 29 sept.)</span><span>96,8${n}kg</span></div>
+<div class="ligne"><span><b>Rapport</b></span><span><b>1,29</b></span></div>
+<div class="ligne"><span class="g">Au début de ta sèche, le 29 sept.</span><span class="g">1,29</span></div></div>`
+};
+const E={
+seance:`<h2>La médaille, comme Hevy, plus l'ancien record</h2>
+<p><b>Les records médaillés</b>, repris de Hevy :</p>
+<ul><li><b>la charge pour au moins N reps</b> (la charge la plus lourde en est le cas à 1 rep) ;</li>
+<li><b>la meilleure série</b>, charge × reps (voir le désaccord plus bas) ;</li>
+<li><b>le volume de l'exercice dans la séance</b> ;</li>
+<li><b>le 1RM estimé</b>, seulement depuis une série de 3 à 10 reps (là où l'estimation est fiable, ECRAN-SAISIE §7 bis.15), et dit « estimé » ;</li>
+<li><b>poids du corps</b> : le plus de reps en une série et dans la séance ; le lest compte comme la charge, moins d'aide est un record ;</li>
+<li><b>cardio</b> : la plus longue durée, la plus longue distance.</li></ul>
+<p><b>Une seule médaille par série</b>, même si elle bat plusieurs records : la phrase les nomme tous (« Record à 4 reps et meilleure série »). <b>En plus de Hevy</b> : l'ancien record et sa date.</p>
+<p><b>Mesuré sur septembre</b> : 33 séries médaillées, que l'on compte les records de Hevy ou non. Chaque meilleure série et chaque 1RM estimé battu l'était <b>aussi</b> en record à N reps. 16 séances sur 21 ont eu une médaille. Les records de Hevy ne gonflent pas la médaille : ils enrichissent la phrase.</p>
+<p><b>Un désaccord</b> : <b>la meilleure série</b> (charge × reps) récompense les séries légères et longues. Ton meilleur au couché est un <b>60 kg × 20</b> de 2024. En septembre, elle n'a ajouté aucune médaille. Je recommande de la retirer ; dis-moi si tu y tiens.</p>
+<h2>Deux garde-fous, pas plus</h2>
+<ul><li><b>Pas de médaille à la première séance d'un exercice</b> : il n'y a rien à battre. Dès la deuxième, oui.</li>
+<li><b>Machines, poulies et haltères : seulement dans la même salle.</b> Une pile plus légère dans une autre salle ferait des records faux. C'est déjà la règle du coach pour ses charges (§10.2) : un seul câblage.</li></ul>`,
+fin:`<h2>Fin de séance</h2>
+<p>Le résumé ajoute la liste des records. Sans record, la ligne n'apparaît pas : le coach ne commente pas ce qui n'est pas arrivé.</p>`,
+onglet:`<h2>L'onglet Progression</h2>
+<p>Il existe déjà : un sommaire de blocs (ECRAN-SAISIE §7 bis.14). <b>Deux blocs s'ajoutent en tête</b> : le mois écoulé et les records. Les blocs existants ne bougent pas.</p>
+<p>Le bloc du mois porte le mois écoulé jusqu'au dernier jour du mois suivant, puis cède la place. Chez Hevy, le bilan d'un mois disparaît le mois d'après ; ici, <b>tous les mois restent consultables</b> depuis ce bloc.</p>`,
+mois:`<h2>Le bilan du mois, sur le modèle de Hevy</h2>
+<p>Repris de Hevy : séances, séries, volume, records, le graphique mois par mois, le calendrier, les séries par muscle comparées au mois d'avant.</p>
+<p><b>Ce qu'on ajoute</b> : les paris du coach. <b>Ce qu'on adapte</b> à nos règles :</p>
+<ul><li>aucune couleur de jugement : le mois courant est en couleur du coach, les autres en gris, quelle que soit la hauteur ;</li>
+<li>le calendrier montre les jours faits, sans série, sans « jours manqués », sans phrase sur l'assiduité ;</li>
+<li>le volume en tonnes, et jamais comparé d'un exercice à l'autre.</li></ul>
+<p><b>Le temps d'entraînement n'apparaît pas encore</b> : en septembre, 6 de tes 22 séances (importées de Hevy) n'ont pas d'heure de fin. Un total faux serait pire qu'aucun. Il arrivera quand la règle « fin inconnue » sera tranchée (notée pour plus tard).</p>`,
+records:`<h2>Les records d'un exercice</h2>
+<p>En tête de la vue de l'exercice : les records médaillés, avec leur date. Puis le <b>tableau à reps égales</b> (Hevy l'appelle « Set Records »), avec le recul à 6 mois et à 1 an. Un record ne baisse jamais : pas de rouge, même en sèche.</p>
+<p><b>Rapporté à ton poids</b> : la charge de travail divisée par une pesée de moins de 14 jours ; sinon « Pèse-toi pour voir ce rapport ».</p>
+<p><b>Les caps ronds</b> : la phrase de la médaille dit « Premier 150 kg au soulevé » quand un record passe un multiple de 10 kg à la barre pour la première fois.</p>`
+};
+function r(s){document.getElementById('tel').innerHTML=S[s]();document.getElementById('explic').innerHTML=E[s];document.querySelectorAll('.puce').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.s===s)));}
+document.getElementById('puces').addEventListener('click',e=>{const b=e.target.closest('.puce');if(b)r(b.dataset.s);});
+r('seance');
+</script>

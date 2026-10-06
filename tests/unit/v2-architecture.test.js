@@ -321,7 +321,7 @@ const NOTIONS = [
     raison: 'aucun écran ne lit le palier brut : les faits passent par `Modele`, les mots du ' +
       'coach par la consigne. La page et Progression l’appelaient chacune à part.' },
   { notion: 'la série de travail (le type, `travail` quand il manque)', pr: 'PR 6',
-    module: 'modele.js', fonction: 'estTravail', lecteurs: ['seance.js', 'semaine.js', 'plan.js', 'app.js'],
+    module: 'modele.js', fonction: 'estTravail', lecteurs: ['seance.js', 'semaine.js', 'plan.js', 'app.js', 'bilan.js'],
     motif: /\.\s*estTravail\s*\(/g,
     par: ['exercicesFaits', 'tableParReps', 'construireBlocs'],
     interditAilleurs: { motif: /type_serie\s*[!=]==?\s*(['"])travail\1|typeDe\([^()]*\)\s*[!=]==?\s*(['"])travail\2|\|\|\s*(['"])travail\3\s*\)\s*[!=]==?/,
@@ -329,8 +329,8 @@ const NOTIONS = [
     raison: 'cinq définitions : une série sans type était du travail pour le moteur et le plan, ' +
       'pas pour les écrans ; la base dit `travail` par défaut.' },
   { notion: 'le compte des séries de travail (la règle du volume)', pr: 'PR 6',
-    module: 'semaine.js', fonction: 'compteSeriesTravail', lecteurs: ['modele.js', 'seance.js', 'profil.js', 'routines.js', 'app.js'],
-    parAilleurs: { 'modele.js': ['resumerSeance', 'construireBlocs'], 'seance.js': ['compter'],
+    module: 'semaine.js', fonction: 'compteSeriesTravail', lecteurs: ['modele.js', 'seance.js', 'profil.js', 'routines.js', 'app.js', 'bilan.js'],
+    parAilleurs: { 'modele.js': ['resumerSeance', 'construireBlocs'], 'seance.js': ['compter'], 'bilan.js': ['bilanDuMois'],
                    'profil.js': ['statsDe'], 'app.js': ['rendreExercice'] },
     raison: 'décision du 02/10/2026 : la carte, la barre, la page, le détail (« de travail »), le ' +
       'bandeau, la feuille de fin et le profil disent le même nombre ; le tapis n’y entre pas.' },
@@ -586,6 +586,61 @@ const NOTIONS = [
     par: ['reprisePour'],
     raison: 'lourd → mix → hypertrophie → volume → séries longues, dans l’ordre de la table des ' +
       'zones : une définition, que la carte et la correction de zone lisent.' },
+  { notion: 'les séries par muscle (un principal la série entière, un secondaire pour moitié)', pr: '55-U1',
+    module: 'semaine.js', fonction: 'volumeParMuscle', lecteurs: ['bilan.js'],
+    par: ['semainesDeVolume', 'volumeParZone'],
+    parAilleurs: { 'bilan.js': ['bilanDuMois'] },
+    raison: 'REGLE-VOLUME et MOTEUR §9.23 (H2, #371) : le bloc Volume et le bilan du mois comptent les séries ' +
+      'par muscle par la même fonction — deux définitions d’une même grandeur, c’est ce que UN-SEUL-FIL interdit.' },
+  { notion: 'la fin effective d’une séance (sans heure de fin : 3 h au plus, jamais après la suivante)', pr: '55-U1',
+    module: 'moteur.js', fonction: 'finEffective', lecteurs: [],
+    par: ['consigneDeLaSeance'],
+    raison: 'MOTEUR §12.2 bis (G2) : la zone d’une séance se lit à sa fin ; sans heure de fin, une borne, ' +
+      'une fois — sinon une zone changée entre deux séances comptait pour la précédente.' },
+  { notion: 'la table par reps cumulée (la charge la plus lourde pour au moins N reps)', pr: '55-U1',
+    module: 'modele.js', fonction: 'tableCumulee', lecteurs: [],
+    par: ['tableParReps', 'recordsBattus', 'recordsDeLExercice'],
+    raison: 'MOTEUR §9.23, ECRAN §7 bis.16 (« cumulée, jamais brute ») : la médaille, le tableau des records, ' +
+      'le record de charge de la page et le chiffre d’une ligne déduite lisent la même table.' },
+  { notion: 'les records d’un exercice à une date (le périmètre de la médaille)', pr: '55-U1',
+    module: 'modele.js', fonction: 'recordsDeLExercice', lecteurs: ['app.js'],
+    par: ['tableauDesRecords'],
+    parAilleurs: { 'app.js': ['rendreExercice'] },
+    raison: 'MOTEUR §9.23 : le record de charge de la page, son 1RM estimé et le tableau des records lisent ' +
+      'la même table cumulée, sur le même périmètre que la médaille (12 mois pour un matériel de salle).' },
+  { notion: 'le périmètre d’un record (12 mois pour un matériel de salle, toute la vie ailleurs)', pr: '55-U1',
+    module: 'modele.js', fonction: 'seancesDuPerimetre', lecteurs: ['app.js'],
+    par: ['recordsDeLExercice'],
+    parAilleurs: { 'app.js': ['rendreExercice'] },
+    raison: 'MOTEUR §9.23 et ECRAN §7 quater.3 (H3, #371) : le tableau des records, le record de charge et la ' +
+      'table par reps d’une page lisent le même périmètre — une page n’en montre jamais deux.' },
+  { notion: 'le 1RM estimable (3 à 10 reps, une charge soulevée, jamais au poids du corps)', pr: '55-U1',
+    module: 'modele.js', fonction: 'estimable1RM', lecteurs: [],
+    par: ['recordsBattus', 'recordsDeLExercice'],
+    raison: 'ECRAN §7 bis.15 : hors de 3 à 10 reps, l’estimation n’est pas fiable ; la médaille et la page ' +
+      'disent la même plage.' },
+  { notion: 'les records battus par une série (et l’ancien record, avec sa date)', pr: '55-U1',
+    module: 'modele.js', fonction: 'recordsBattus', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['recordsDeLaSerie'] },
+    raison: 'MOTEUR §9.23 : un record est un fait ; une seule fonction décide ce qu’une série bat, ' +
+      'la médaille en séance, la feuille « Terminer » et Progression la lisent.' },
+  { notion: 'la phrase de la médaille ([gras, gris])', pr: '55-U1',
+    module: 'modele.js', fonction: 'phraseDeRecord', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['medailleSurLigne'] },
+    raison: 'MOTEUR §9.23 : les mots de la médaille, une fois — le cap rond, la charge pour N reps, le 1RM ' +
+      'estimé, le volume, la durée, et le record d’avant avec sa date.' },
+  { notion: 'le 1RM estimé (Epley)', pr: '55-U1',
+    module: 'moteur.js', fonction: 'unRMEpley', lecteurs: ['modele.js'],
+    par: ['reportDeZone'],
+    parAilleurs: { 'modele.js': ['recordsBattus', 'recordsDeLExercice'] },
+    raison: 'MOTEUR §9.10 et §9.23 : l’estimation du report et le record « 1RM estimé » lisent la même ' +
+      'formule — jamais recopiée.' },
+  { notion: 'la fenêtre des 12 mois d’un matériel (machines, poulies, haltères, Smith)', pr: '55-U1',
+    module: 'moteur.js', fonction: 'plancherDuMateriel', lecteurs: ['modele.js'],
+    par: ['chargeVoisine'],
+    parAilleurs: { 'modele.js': ['recordsBattus', 'seancesDuPerimetre'] },
+    raison: 'MOTEUR §10.2 et §9.23 : la charge voisine du coach et les records comparent sur la même ' +
+      'liste de matériels et la même fenêtre — un seul câblage.' },
   { notion: 'l’occurrence coachée d’un exercice (la première, ou celle qui porte ses paris)', pr: 'correctif 04/10/2026',
     module: 'seance.js', fonction: 'occurrenceCoachee', lecteurs: ['plan.js', 'app.js'],
     parAilleurs: { 'plan.js': ['planDeSeance'], 'app.js': ['occurrenceLibre'] },
@@ -933,5 +988,37 @@ describe('architecture — la lecture du source', () => {
     expect(v[0]).toContain('lignes 12, 40');
     expect(v[0]).toContain('planDeSeance');
     expect(v[0]).toContain('AUTORISATIONS');
+  });
+});
+
+// ── 55-1 — UNE FONCTION, UN NOM, PAR MODULE ─────────────────────────────────
+//
+// Deux déclarations du même nom dans un même module : la seconde efface la
+// première, en silence. Le 06/10/2026, `bilanDe(mois)` (le bilan du mois) a
+// effacé `bilanDe(bloc)` (le bilan de fin de bloc) dans `app.js` — la carte
+// de fin de bloc s'est vidée, et seul le banc « cycles » l'a vu.
+describe('architecture — aucune fonction de premier niveau déclarée deux fois dans un module', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const dossier = path.join(__dirname, '../../v2/js');
+  test('chaque module v2 : un nom, une déclaration', () => {
+    const fautes = [];
+    fs.readdirSync(dossier).filter((f) => f.endsWith('.js')).forEach((f) => {
+      const src = fs.readFileSync(path.join(dossier, f), 'utf8');
+      const vus = {};
+      const re = /^  (?:async )?function (\w+)\s*\(/gm;
+      let m;
+      while ((m = re.exec(src))) vus[m[1]] = (vus[m[1]] || 0) + 1;
+      Object.keys(vus).filter((k) => vus[k] > 1).forEach((k) => fautes.push(f + ' : ' + k + ' (' + vus[k] + ' fois)'));
+    });
+    expect(fautes).toEqual([]);
+  });
+  test('la garde voit vraiment un doublon', () => {
+    const re = /^  (?:async )?function (\w+)\s*\(/gm;
+    const src = '  function a() {}\n  function a(x) {}\n    function b() {}\n';
+    const noms = [];
+    let m;
+    while ((m = re.exec(src))) noms.push(m[1]);
+    expect(noms).toEqual(['a', 'a']);
   });
 });

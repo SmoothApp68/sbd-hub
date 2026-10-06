@@ -1358,17 +1358,401 @@
     // une comparaison de charges ne déduirait JAMAIS rien alors que tout est
     // déduit : on ne fait pas 15 répétitions sans pouvoir en faire 14. La table
     // d'un exercice en `reps` a donc une seule ligne pleine, la plus haute.
-    var maxADroite = null;
+    //
+    // §9.23 (55-1) — SUR `charge_reps`, LE CHIFFRE REVENDIQUÉ EST CELUI DE LA
+    // TABLE CUMULÉE (`tableCumulee`, ECRAN §7 bis.16 : « cumulée, jamais
+    // brute »). La table brute garde son affichage — ce qui a été fait, et ce
+    // qui s'en déduit, grisé —, mais le chiffre d'une ligne déduite se LIT sur
+    // la cumulée : une seule source pour « au moins N reps ».
+    var cumulee = mesure === 'charge_reps' ? tableCumulee(series, quand) : [];
     for (var i = lignes.length - 1; i >= 0; i--) {
-      lignes[i].deduit = mesure === 'reps'
-        ? i < lignes.length - 1
-        : (maxADroite !== null && maxADroite > lignes[i].charge);
+      if (mesure === 'reps') {
+        lignes[i].deduit = i < lignes.length - 1;
+        continue;
+      }
+      var c = auMoinsDe(cumulee, lignes[i].reps);
+      lignes[i].deduit = c !== null && c.charge > lignes[i].charge + EPS_RECORD;
       // Ce qu'on pourrait revendiquer ne s'écrit que s'il y a quelque chose à
       // revendiquer : sur `reps`, la charge déduite serait un zéro trompeur.
-      if (lignes[i].deduit && mesure === 'charge_reps') lignes[i].chargeDeduite = maxADroite;
-      if (maxADroite === null || lignes[i].charge > maxADroite) maxADroite = lignes[i].charge;
+      if (lignes[i].deduit) lignes[i].chargeDeduite = c.charge;
     }
     return lignes;
+  }
+
+  // ══ LES RECORDS (MOTEUR §9.23, chantier 55) ═════════════════════════════
+  //
+  // « Un record est un fait : une série que rien de ton passé ne dépasse. »
+  // Trois fonctions pures, une seule source : la TABLE CUMULÉE (la charge la
+  // plus lourde faite pour N reps OU PLUS), les RECORDS BATTUS par une série,
+  // et la PHRASE de la médaille. La médaille, le tableau des records, le
+  // « record de charge » de la page d'exercice et le bloc Records de
+  // Progression lisent les mêmes.
+  //
+  // La fenêtre des 12 mois (machines, poulies, haltères, Smith) et le 1RM
+  // estimé (Epley) ne sont PAS écrits ici : `THMoteur.plancherDuMateriel` et
+  // `THMoteur.unRMEpley`, ceux du §10.2 et du report (§9.10). Lecture TARDIVE,
+  // comme `THSeance` plus bas : `moteur.js` se charge après `modele.js`.
+  var EPS_RECORD = 1e-6;
+  var UN_RM_REPS_MIN = 3;
+  var UN_RM_REPS_MAX = 10;
+  var CAP_ROND = 10;
+
+  function instantRecord(iso) {
+    if (iso === null || iso === undefined || iso === '') return null;
+    var t = new Date(iso).getTime();
+    return isNaN(t) ? null : t;
+  }
+  // `a` est-il strictement plus tôt que `b` ? Une date absente vient en dernier.
+  function plusTot(a, b) {
+    var ta = instantRecord(a), tb = instantRecord(b);
+    if (ta === null) return false;
+    return tb === null || ta < tb;
+  }
+
+  // La charge d'une série POUR UN RECORD. `corps` (un exercice au poids du
+  // corps, lesté ou non) : une charge vide est le corps, 0. Ailleurs, une
+  // charge vide n'est pas un fait — une aide non saisie n'est pas « sans
+  // aide » —, et la série ne compte pas.
+  function chargeDeRecord(serie, corps) {
+    var c = valeurNumerique(serie, 'charge_kg');
+    if (c === null) return corps ? 0 : null;
+    return c;
+  }
+
+  // LA TABLE CUMULÉE : pour chaque nombre de reps fait, la charge la plus
+  // lourde faite pour CE nombre OU PLUS, et la date de la première fois (une
+  // série de travail seulement). Qui a fait 150 × 7 a pu faire 150 × 5 : la
+  // table brute de Hevy paraît trouée (ECRAN §7 bis.16).
+  // Rend `[{ reps, charge, date }]`, par reps croissantes.
+  function tableCumulee(series, dateDe, options) {
+    var quand = dateDe || function (s) { return s && s.validee_a; };
+    var corps = !!(options && options.corps);
+    var faites = [];
+    (series || []).forEach(function (s) {
+      if (!estTravail(s)) return;
+      var r = valeurNumerique(s, 'reps');
+      if (r === null || r <= 0) return;
+      var c = chargeDeRecord(s, corps);
+      if (c === null) return;
+      faites.push({ reps: r, charge: c, date: quand(s) });
+    });
+    var vues = {};
+    faites.forEach(function (f) { vues[f.reps] = true; });
+    return Object.keys(vues).map(Number).sort(function (a, b) { return a - b; }).map(function (n) {
+      var best = null;
+      faites.forEach(function (f) {
+        if (f.reps < n) return;
+        if (!best || f.charge > best.charge + EPS_RECORD ||
+            (Math.abs(f.charge - best.charge) <= EPS_RECORD && plusTot(f.date, best.date))) best = f;
+      });
+      return { reps: n, charge: best.charge, date: best.date };
+    });
+  }
+
+  // La ligne « au moins `n` reps » d'une table cumulée : la première ligne à
+  // `n` reps ou plus. `null` si rien n'a été fait à `n` reps ou plus.
+  function auMoinsDe(table, n) {
+    var t = table || [];
+    for (var i = 0; i < t.length; i++) if (t[i].reps >= n) return t[i];
+    return null;
+  }
+
+  // Le plus grand d'une liste `{ v, date }`, et la PREMIÈRE fois qu'il a été
+  // atteint. `null` sur une liste vide.
+  function plusGrand(liste) {
+    var best = null;
+    (liste || []).forEach(function (x) {
+      if (x.v === null || x.v === undefined) return;
+      if (!best || x.v > best.v + EPS_RECORD ||
+          (Math.abs(x.v - best.v) <= EPS_RECORD && plusTot(x.date, best.date))) best = x;
+    });
+    return best;
+  }
+
+  // Le 1RM estimé n'est fiable qu'entre 3 et 10 reps (ECRAN §7 bis.15), sur
+  // une charge qu'on soulève, jamais au poids du corps. Une règle, ici : la
+  // médaille et la page d'exercice la lisent.
+  function estimable1RM(reps, charge, corps) {
+    return !corps && charge > 0 && reps >= UN_RM_REPS_MIN && reps <= UN_RM_REPS_MAX;
+  }
+
+  // LES SÉANCES DU PÉRIMÈTRE D'UN RECORD, à une date : celles d'avant elle, et,
+  // pour un matériel de salle (§10.2), des 12 mois d'avant `ancre` seulement
+  // (`ancre` : la date elle-même par défaut).
+  function seancesDuPerimetre(seances, aDate, options, ancre) {
+    var t = instantRecord(aDate);
+    var plancher = racine.THMoteur.plancherDuMateriel((options || {}).equipement, ancre || aDate);
+    return (seances || []).filter(function (h) {
+      var x = instantRecord(h && h.debut);
+      return x !== null && (t === null || x < t) && (plancher === null || x >= plancher);
+    });
+  }
+
+  // LES RECORDS D'UN EXERCICE À UNE DATE (MOTEUR §9.23, ECRAN §7 bis.15) : le
+  // même périmètre que la médaille. `seances` : `[{ debut, series }]` de cet
+  // exercice. Rend `{ table, lourde, unRM }` — la table cumulée, la charge la
+  // plus lourde (`recordDeLaTable`) et le meilleur 1RM estimé (`{ valeur,
+  // charge, reps, date }`, ou `null`) ; `douzeMois` : vrai pour un matériel de
+  // salle — l'affichage le DIT (« sur 12 mois », §9.23 H1) : un vieux record
+  // sorti de la fenêtre n'est jamais présenté comme un recul.
+  function recordsDeLExercice(seances, aDate, options, ancre) {
+    var o = options || {};
+    var series = [];
+    seancesDuPerimetre(seances, aDate, o, ancre).forEach(function (h) {
+      (h.series || []).forEach(function (x) { series.push(Object.assign({}, x, { _debut: h.debut })); });
+    });
+    var table = tableCumulee(series, function (x) { return x._debut; }, { corps: o.corps });
+    var unRM = null;
+    series.forEach(function (x) {
+      if (!estTravail(x)) return;
+      var r = valeurNumerique(x, 'reps'), c = valeurNumerique(x, 'charge_kg');
+      if (r === null || c === null || !estimable1RM(r, c, !!o.corps)) return;
+      var e = racine.THMoteur.unRMEpley(c, r);
+      if (!unRM || e > unRM.valeur + EPS_RECORD ||
+          (Math.abs(e - unRM.valeur) <= EPS_RECORD && plusTot(x._debut, unRM.date))) {
+        unRM = { valeur: e, charge: c, reps: r, date: x._debut };
+      }
+    });
+    return { table: table, lourde: recordDeLaTable(table), unRM: unRM,
+             douzeMois: racine.THMoteur.plancherDuMateriel(o.equipement, aDate) !== null };
+  }
+
+  // LE TABLEAU DES RECORDS : la charge pour au moins 1, 3, 5, 8 et 10 reps, à
+  // chacune des `dates` (aujourd'hui, il y a 6 mois, il y a 1 an).
+  // `[{ reps, valeurs: [{ charge, date } | null, …] }]`.
+  //
+  // ⚠️ LA FENÊTRE D'UN MATÉRIEL DE SALLE EST CELLE D'AUJOURD'HUI, pour toutes
+  // les colonnes (§9.23 H1, #371) : « sur 12 mois » veut dire les 12 derniers
+  // mois. Ancrée sur chaque date, la colonne « il y a 1 an » montrait un vieux
+  // 150 kg à côté d'un record de 120 — un recul, ce que H1 interdit. Ancrée sur
+  // aujourd'hui, une colonne passée est un sous-ensemble : elle ne dépasse
+  // jamais le record d'aujourd'hui.
+  var REPS_DU_TABLEAU = [1, 3, 5, 8, 10];
+  function tableauDesRecords(seances, dates, options) {
+    var ancre = (dates || [])[0];
+    var tables = (dates || []).map(function (d) { return recordsDeLExercice(seances, d, options, ancre).table; });
+    return REPS_DU_TABLEAU.map(function (n) {
+      return { reps: n, valeurs: tables.map(function (t) {
+        var l = auMoinsDe(t, n);
+        return l ? { charge: l.charge, date: l.date } : null;
+      }) };
+    });
+  }
+
+  // LES RECORDS BATTUS PAR UNE SÉRIE (MOTEUR §9.23).
+  //
+  //   `historique` : les séances `{ debut, series }` — toutes, la séance en
+  //                  cours exclue (elle n'est comparée qu'à ses séries d'AVANT
+  //                  `indice`) ; seules les antérieures comptent ;
+  //   `seance`     : la séance de la série, `{ debut, series }` ;
+  //   `indice`     : la position de la série dans `seance.series` ;
+  //   `options`    : `{ equipement, corps }` — le matériel de l'exercice (la
+  //                  fenêtre des 12 mois) et `corps` (au poids du corps, lesté
+  //                  ou non : une charge vide vaut 0, et jamais de 1RM).
+  //
+  // Rend la liste des records battus, dans l'ordre du §9.23 : `charge_a_reps`
+  // (ou `reps_a_charge` quand la même charge a déjà été faite), `charge_max`,
+  // `cap`, `un_rm_estime`, `volume_seance`, `duree_s`, `distance_m`. Chacun
+  // porte `valeur`, l'ancien record `ancien` et sa date `ancien_le` (le début
+  // de sa séance) ; `[]` sans record.
+  function recordsBattus(historique, seance, indice, options) {
+    var o = options || {};
+    var se = seance || {};
+    var series = se.series || [];
+    var s = series[indice];
+    if (!s || !estTravail(s)) return [];
+    var slug = s.exercise_slug;
+    var t0 = instantRecord(se.debut);
+    if (t0 === null) return [];
+    var corps = !!o.corps;
+    var M = racine.THMoteur;
+    var siennes = function (liste) {
+      return (liste || []).filter(function (x) { return x && x.exercise_slug === slug && estTravail(x); });
+    };
+    // Les séances antérieures qui ont fait cet exercice — toute la vie (la
+    // durée, la distance) et dans la fenêtre du matériel (les charges).
+    var passees = (historique || []).filter(function (h) {
+      var t = instantRecord(h && h.debut);
+      return t !== null && t < t0 && siennes(h.series).length > 0;
+    });
+    var plancher = M.plancherDuMateriel(o.equipement, se.debut);
+    var fenetre = passees.filter(function (h) { return plancher === null || instantRecord(h.debut) >= plancher; });
+    var avant = siennes(series.slice(0, indice));
+    var dater = function (seances) {
+      var out = [];
+      seances.forEach(function (h) { siennes(h.series).forEach(function (x) { out.push({ s: x, date: h.debut }); }); });
+      avant.forEach(function (x) { out.push({ s: x, date: se.debut }); });
+      return out;
+    };
+    var out = [];
+
+    // ── Les charges : pas de médaille à la première séance de l'exercice
+    // (dans la fenêtre de son matériel) — il n'y a rien à battre.
+    var r = valeurNumerique(s, 'reps');
+    var c = chargeDeRecord(s, corps);
+    if (fenetre.length && r !== null && r > 0 && c !== null) {
+      var faites = [];
+      dater(fenetre).forEach(function (x) {
+        var rx = valeurNumerique(x.s, 'reps');
+        var cx = chargeDeRecord(x.s, corps);
+        if (rx !== null && rx > 0 && cx !== null) faites.push({ reps: rx, charge: cx, date: x.date });
+      });
+      var cumulee = tableCumulee(faites.map(function (f) {
+        return { charge_kg: f.charge, reps: f.reps, _date: f.date };
+      }), function (x) { return x._date; });
+      var T = auMoinsDe(cumulee, r);
+      if (T === null || c > T.charge + EPS_RECORD) {
+        var meme = plusGrand(faites.filter(function (f) { return Math.abs(f.charge - c) <= EPS_RECORD; })
+          .map(function (f) { return { v: f.reps, date: f.date }; }));
+        if (meme) out.push({ type: 'reps_a_charge', valeur: r, charge: c, ancien: meme.v, ancien_le: meme.date });
+        else out.push({ type: 'charge_a_reps', valeur: c, reps: r, ancien: T ? T.charge : null, ancien_le: T ? T.date : null });
+      }
+      // La charge la plus lourde — une charge qu'on soulève : ni le corps, ni
+      // une aide. À la barre, un multiple de 10 kg est un cap rond.
+      if (c > 0) {
+        var lourde = plusGrand(faites.map(function (f) { return { v: f.charge, date: f.date }; }));
+        if (lourde === null || c > lourde.v + EPS_RECORD) {
+          out.push({ type: 'charge_max', valeur: c, ancien: lourde ? lourde.v : null, ancien_le: lourde ? lourde.date : null });
+          if (o.equipement === 'barre' && Math.abs(c / CAP_ROND - Math.round(c / CAP_ROND)) <= EPS_RECORD) {
+            out.push({ type: 'cap', valeur: c });
+          }
+        }
+      }
+      // Le 1RM estimé : de 3 à 10 reps seulement (ECRAN §7 bis.15), jamais au
+      // poids du corps, la formule du report (`THMoteur.unRMEpley`).
+      var estimable = function (rx, cx) { return estimable1RM(rx, cx, corps); };
+      if (estimable(r, c)) {
+        var e = M.unRMEpley(c, r);
+        var meilleur = plusGrand(faites.filter(function (f) { return estimable(f.reps, f.charge); })
+          .map(function (f) { return { v: M.unRMEpley(f.charge, f.reps), date: f.date }; }));
+        if (meilleur === null || e > meilleur.v + EPS_RECORD) {
+          out.push({ type: 'un_rm_estime', valeur: e, ancien: meilleur ? meilleur.v : null, ancien_le: meilleur ? meilleur.date : null });
+        }
+      }
+      // Le volume de l'exercice dans la séance : sur la série qui fait
+      // dépasser, une fois, et seulement après une première série. En kg
+      // (charge × reps) ; au poids du corps ou avec une aide, en reps.
+      if (avant.length) {
+        var unite = c > 0 ? 'kg' : 'reps';
+        var volumeDe = function (liste) {
+          var v = 0;
+          liste.forEach(function (x) {
+            var rx = valeurNumerique(x, 'reps');
+            if (rx === null || rx <= 0) return;
+            if (unite === 'reps') { v += rx; return; }
+            var cx = chargeDeRecord(x, corps);
+            if (cx !== null && cx > 0) v += cx * rx;
+          });
+          return v;
+        };
+        var cumulAvant = volumeDe(avant);
+        var cumul = cumulAvant + volumeDe([s]);
+        var plusGros = plusGrand(fenetre.map(function (h) { return { v: volumeDe(siennes(h.series)), date: h.debut }; }));
+        if (plusGros !== null && cumul > plusGros.v + EPS_RECORD && cumulAvant <= plusGros.v + EPS_RECORD) {
+          out.push({ type: 'volume_seance', valeur: cumul, ancien: plusGros.v, ancien_le: plusGros.date, unite: unite });
+        }
+      }
+    }
+
+    // ── La durée et la distance : toute la vie.
+    if (passees.length) {
+      ['duree_s', 'distance_m'].forEach(function (champ) {
+        var v = valeurNumerique(s, champ);
+        if (v === null || v <= 0) return;
+        var avantLui = plusGrand(dater(passees).map(function (x) {
+          var vx = valeurNumerique(x.s, champ);
+          return { v: vx !== null && vx > 0 ? vx : null, date: x.date };
+        }));
+        if (avantLui === null || v > avantLui.v + EPS_RECORD) {
+          out.push({ type: champ, valeur: v, ancien: avantLui ? avantLui.v : null, ancien_le: avantLui ? avantLui.date : null });
+        }
+      });
+    }
+    return out;
+  }
+
+  // Les options d'un exercice pour ses records : son matériel (la fenêtre des
+  // 12 mois) et `corps` — au poids du corps, lesté ou non (§9.17) : une charge
+  // vide y est le corps, et jamais de 1RM estimé.
+  function optionsDeRecord(exo) {
+    var e = exo || {};
+    return { equipement: e.equipement || null,
+             corps: e.mesure === 'reps' || natureDeCharge(e) === 'lest' || e.equipement === 'aucun' };
+  }
+
+  // LE NOM COURT d'un exercice, celui qui suit « au » (« Premier 150 kg au
+  // squat. ») : le nom du catalogue sans sa précision entre parenthèses, en
+  // minuscules (« Squat (Barre) » → « squat »).
+  function nomCourt(nom) {
+    return String(nom || '').replace(/\s*\([^)]*\)\s*/g, ' ').trim().toLowerCase();
+  }
+
+  // LA PHRASE DE LA MÉDAILLE : `[gras, gris]`, ou `null` sans record.
+  //   `exercice`   : le nom court qui suit « au » dans le cap rond (« squat ») ;
+  //   `aujourdhui` : la date de la séance — la référence des dates, jamais
+  //                  l'horloge (§20.2).
+  // Le gras nomme tous les records, dans l'ordre du §9.23 ; le gris dit le
+  // record d'avant et sa date, celui de la charge (ou des reps), sinon de la
+  // durée, sinon de la distance. Un 1RM estimé ou un volume ne disent pas
+  // d'« Avant » : ce sont des agrégats, pas une série que l'on refait.
+  function chargeDeLaMedaille(kg) {
+    var n = Number(kg);
+    if (n === 0) return 'poids du corps';
+    if (n < 0) return nombreTexte(-n) + INSECABLE + 'kg d\'aide';
+    return nombreTexte(n) + INSECABLE + 'kg';
+  }
+  function repsDeLaMedaille(n) { return nombreTexte(n) + (Number(n) > 1 ? ' reps' : ' rep'); }
+  // « le 1er sept. », « le 6 août 2025 » ; de 0 à 6 jours de la référence,
+  // le jour relatif (§20.2 : « mardi », « aujourd'hui »).
+  function dateDeLaMedaille(iso, reference) {
+    var d = jourLocal(iso);
+    if (d === null) return '';
+    var r = jourLocal(reference);
+    if (r !== null) {
+      var ecart = Math.round((Date.UTC(r.getFullYear(), r.getMonth(), r.getDate()) -
+                              Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())) / 86400000);
+      if (ecart >= 0 && ecart <= JOURS_NOMMES) return quandTexte(iso, reference);
+    }
+    var t = 'le ' + (d.getDate() === 1 ? '1er' : d.getDate()) + ' ' + MOIS_COURTS[d.getMonth()];
+    return r !== null && d.getFullYear() === r.getFullYear() ? t : t + ' ' + d.getFullYear();
+  }
+  function phraseDeRecord(records, exercice, aujourdhui) {
+    var liste = records || [];
+    if (!liste.length) return null;
+    var de = function (type) { return liste.filter(function (x) { return x.type === type; })[0] || null; };
+    var cap = de('cap'), car = de('charge_a_reps'), rac = de('reps_a_charge'), lourde = de('charge_max');
+    var rm = de('un_rm_estime'), vol = de('volume_seance'), duree = de('duree_s'), distance = de('distance_m');
+    var gras = [];
+    if (cap) gras.push('Premier ' + chargeDeLaMedaille(cap.valeur) + ' au ' + exercice + '.');
+    else if (car) gras.push('Record à ' + repsDeLaMedaille(car.reps) + ' : ' + chargeDeLaMedaille(car.valeur) + '.');
+    else if (rac) {
+      gras.push(Number(rac.charge) === 0
+        ? 'Record au poids du corps : ' + repsDeLaMedaille(rac.valeur) + '.'
+        : 'Record à ' + chargeDeLaMedaille(rac.charge) + ' : ' + repsDeLaMedaille(rac.valeur) + '.');
+    }
+    if (lourde && !cap && !(car && Math.abs(car.valeur - lourde.valeur) <= EPS_RECORD)) {
+      gras.push('Charge la plus lourde : ' + chargeDeLaMedaille(lourde.valeur) + '.');
+    }
+    if (rm) gras.push('1RM estimé : \u2248' + INSECABLE + nombreTexte(rm.valeur, 0) + INSECABLE + 'kg.');
+    if (vol) gras.push('Volume de la séance : ' + nombreTexte(vol.valeur, 0) + INSECABLE + (vol.unite === 'reps' ? 'reps' : 'kg') + '.');
+    if (duree) gras.push('Plus longue durée : ' + formatChrono(duree.valeur) + '.');
+    if (distance) gras.push('Plus longue distance : ' + nombreTexte(distance.valeur, 0) + INSECABLE + 'm.');
+    var quandAvant = function (x) { return dateDeLaMedaille(x.ancien_le, aujourdhui); };
+    // Le point final, une fois : « le 1er sept. », jamais « sept.. ».
+    var fin = function (t) { return /\.$/.test(t) ? t : t + '.'; };
+    var gris = null;
+    if (car) {
+      if (car.ancien !== null && car.ancien !== undefined) {
+        gris = 'Avant : ' + chargeDeLaMedaille(car.ancien) + ' à ' + repsDeLaMedaille(car.reps) + ', ' + fin(quandAvant(car));
+      }
+    } else if (rac) {
+      gris = 'Avant : ' + repsDeLaMedaille(rac.ancien) + ', ' + fin(quandAvant(rac));
+    } else if (duree) {
+      if (duree.ancien !== null) gris = 'Avant : ' + formatChrono(duree.ancien) + ', ' + fin(quandAvant(duree));
+    } else if (distance) {
+      if (distance.ancien !== null) gris = 'Avant : ' + nombreTexte(distance.ancien, 0) + INSECABLE + 'm, ' + fin(quandAvant(distance));
+    }
+    return [gras.join(' '), gris];
   }
 
   // ── LE RECORD DE CHARGE (§7 quater, PR 5 de la consolidation) ────────────
@@ -1581,6 +1965,16 @@
     meilleureSerieDeTout: meilleureSerieDeTout,
     tableParReps: tableParReps,
     recordDeLaTable: recordDeLaTable,
+    tableCumulee: tableCumulee,
+    auMoinsDe: auMoinsDe,
+    recordsBattus: recordsBattus,
+    phraseDeRecord: phraseDeRecord,
+    optionsDeRecord: optionsDeRecord,
+    recordsDeLExercice: recordsDeLExercice,
+    seancesDuPerimetre: seancesDuPerimetre,
+    tableauDesRecords: tableauDesRecords,
+    REPS_DU_TABLEAU: REPS_DU_TABLEAU,
+    nomCourt: nomCourt,
     libelleAutres: libelleAutres
   };
 

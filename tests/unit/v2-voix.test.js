@@ -91,7 +91,11 @@ function reglesViolees(phrase, famille, dates, reference) {
   if (/le moteur/i.test(t)) v.push('« le moteur »');
   // 53-1 (MOTEUR §9.10, CLAUDE.md §7) — un maximum estimé ne se dit jamais :
   // l'estimation du report reste en coulisse.
-  if (/\b1\s?RM\b|\bmax(?:imum|imale?)?\b/i.test(t)) v.push('un maximum (« 1RM », « max »)');
+  // 55-1 (MOTEUR §9.23) — la seule exception : la médaille dit le 1RM
+  // ESTIMÉ, avec « ≈ », jamais un maximum nu. Toute autre famille, et toute
+  // autre forme, reste fautive.
+  const sans1RM = famille === 'record' ? t.replace(/1RM estimé : ≈[\s\u00a0]\d+[\s\u00a0]kg\./g, '') : t;
+  if (/\b1\s?RM\b|\bmax(?:imum|imale?)?\b/i.test(sans1RM)) v.push('un maximum (« 1RM », « max »)');
   if (t.indexOf('?') >= 0 && !(famille === 'réaction' && SECONDE_CHARGE.test(t) &&
       t.indexOf('?') === t.length - 1)) v.push('un « ? » hors du choix entre deux charges');
   for (let i = t.indexOf('×'); i >= 0; i = t.indexOf('×', i + 1)) {
@@ -434,6 +438,32 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
     });
   }
 
+  // 55-1 (MOTEUR §9.23) — la médaille : toutes les phrases du fichier de cas
+  // (le rejeu et les synthétiques), avec la date de l'ancien record et celle de
+  // la séance comme référence ; puis un record d'il y a 2 jours, dit « mardi ».
+  {
+    const RC = require('./fixtures/cas-55-1-records.json');
+    const col = RC.colonnes_serie;
+    const serieDe = (t) => ({ exercise_slug: t[col.indexOf('slug')], type_serie: t[col.indexOf('type')],
+      charge_kg: t[col.indexOf('kg')], reps: t[col.indexOf('reps')], duree_s: t[col.indexOf('duree_s')],
+      distance_m: t[col.indexOf('distance_m')], _equip: t[col.indexOf('equip')] });
+    const seanceDe = (se) => ({ debut: se.debut, series: se.series.map(serieDe) });
+    const medaille = (historique, se, i, source) => {
+      const x = se.series[i];
+      const r = Modele.recordsBattus(historique, se, i, { equipement: x._equip, corps: x._equip === 'aucun' });
+      const p = Modele.phraseDeRecord(r, 'squat', se.debut);
+      if (p) noter('record', source, p, r.map((q) => q.ancien_le).filter(Boolean), se.debut);
+    };
+    const toutes = RC.rejeu.seances.map(seanceDe);
+    const parDebut = {};
+    toutes.forEach((x) => { parDebut[x.debut] = x; });
+    RC.rejeu.attendus.forEach((a) => medaille(toutes, parDebut[a.seance], a.indice, 'rejeu ' + a.seance));
+    RC.synthetiques.forEach((c) => medaille(c.historique.map(seanceDe), seanceDe(c.seance), c.indice, c.titre));
+    const h = [{ debut: '2026-09-15T18:00:00+02:00', series: [{ exercise_slug: 'x', type_serie: 'travail', charge_kg: 100, reps: 5 }] }];
+    medaille(h, { debut: '2026-09-17T18:00:00+02:00',
+      series: [{ exercise_slug: 'x', type_serie: 'travail', charge_kg: 100, reps: 6, _equip: 'barre' }] }, 0, 'avant-hier');
+  }
+
   test('chaque famille est jouée, et la date relative l\'est vraiment', () => {
     const parFamille = {};
     vues.forEach((v) => { parFamille[v.famille] = (parFamille[v.famille] || 0) + 1; });
@@ -467,6 +497,12 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
     // donc, réglage, fin) + le constat.
     // 53-2 bis (D1) : + 2 débuts de bloc × (jaune, gris).
     expect(parFamille['nouvelle zone']).toBe(4 * (2 + 13) + 1 + 2 * 2);
+    // 55-1 : 7 médailles du rejeu (dont 1 sans ligne grise : le volume) + 13
+    // synthétiques (dont 3 sans ligne grise : deux volumes, et un record à
+    // 10 reps sans précédent) + celle d'avant-hier.
+    expect(parFamille.record).toBe((7 * 2 - 1) + (13 * 2 - 3) + 2);
+    expect(vues.filter((v) => v.famille === 'record' && /^Avant : 5 reps, mardi\.$/.test(v.phrase)).length).toBe(1);
+    expect(vues.filter((v) => v.famille === 'record' && /1RM estimé : ≈/.test(v.phrase)).length).toBeGreaterThan(5);
     expect(vues.filter((v) => v.famille === 'nouvelle zone' && /^Nouveau bloc : Mix\. /
       .test(v.phrase.replace(/[\u00a0\u202f]/g, ' '))).map((v) => v.source)).toEqual(['début de bloc 0', 'début de bloc 1']);
     // 53-2 : 3 badges + 2 bandeaux + 3 cartes de fin de bloc (titre, « Pendant
@@ -529,6 +565,10 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
     expect(reglesViolees('130 × 2 : pas encore.', 'constat')).toContain('un « × » sans « kg » devant');
     expect(reglesViolees('130 kg × 2 : pas encore.', 'constat')).toEqual([]);
     expect(reglesViolees('Le cran au-dessus × 10', 'en-tête')).toEqual([]);
+    // 55-1 — le 1RM estimé n'est permis qu'à la médaille, et sous sa forme.
+    expect(reglesViolees('1RM estimé : ≈' + NB + '147' + NB + 'kg.', 'record')).toEqual([]);
+    expect(reglesViolees('1RM estimé : ≈' + NB + '147' + NB + 'kg.', 'feuille')).toContain('un maximum (« 1RM », « max »)');
+    expect(reglesViolees('Ton 1RM : 147 kg.', 'record')).toContain('un maximum (« 1RM », « max »)');
     expect(reglesViolees('Le 15' + NB + 'sept.' + NB + ': 125 kg × 5.', 'en-tête',
       ['2026-09-15T10:00:00+02:00'], ref)).toContain('la date absolue « 15' + NB + 'sept. » pour une séance à 5 jour(s)');
     expect(reglesViolees('Le 13' + NB + 'sept.' + NB + ': 125 kg × 5.', 'en-tête',

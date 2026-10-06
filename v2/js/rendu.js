@@ -404,7 +404,76 @@
     }
   }
 
+  // MOTEUR §9.23 (55-1), ECRAN §7 bis.15 — LES RECORDS EN TÊTE DE LA VUE
+  // (maquette « Un exercice ») : la charge la plus lourde, le 1RM estimé
+  // (« ≈ »), le tableau à reps égales avec son recul (6 mois, 1 an — l'écart
+  // en couleur du coach quand il monte, rien sinon : un record ne baisse
+  // jamais, pas de rouge), puis le rapport au poids.
+  function ecartRecord(maintenant, avant) {
+    if (!maintenant || !avant) return null;
+    var e = Math.round((maintenant.charge - avant.charge) * 100) / 100;
+    return e > 0 ? e : null;
+  }
+  function rendreTeteRecords(cible, t) {
+    var carte = el('div', 'exo-records');
+    var h = el('div', 'section-t', 'TES RECORDS');
+    carte.appendChild(h);
+    var fiche = el('div', 'exo-fiche');
+    if (t.lourde) {
+      ligneFiche(fiche, 'Charge la plus lourde', t.lourde.date ? dateCourte(t.lourde.date) : null,
+        M().chargeFois(t.lourde.charge, t.lourde.reps));
+    }
+    if (t.unRM) {
+      ligneFiche(fiche, '1RM estimé', t.unRM.date ? dateCourte(t.unRM.date) : null,
+        '\u2248\u00a0' + nombreFr(Math.round(t.unRM.valeur)) + '\u00a0kg');
+    }
+    carte.appendChild(fiche);
+
+    var lignes = (t.tableau || []).filter(function (l) { return l.valeurs[0]; });
+    if (lignes.length) {
+      var tab = el('table', 'tableau-records num');
+      var tete = el('tr');
+      ['Au moins', 'Record', 'Le', 'Il y a 6 mois', 'Il y a 1 an'].forEach(function (x) { tete.appendChild(el('th', null, x)); });
+      tab.appendChild(tete);
+      lignes.forEach(function (l) {
+        var tr = el('tr');
+        var v = l.valeurs;
+        tr.appendChild(el('td', null, l.reps === 1 ? '1 rep' : l.reps + ' reps'));
+        var rec = el('td');
+        rec.appendChild(el('b', null, M().charge(v[0].charge)));
+        tr.appendChild(rec);
+        tr.appendChild(el('td', 'tr-date', v[0].date ? jour(new Date(v[0].date)) : ''));
+        [v[1], v[2]].forEach(function (avant) {
+          var td = el('td', null, avant ? nombreFr(avant.charge) : '\u2014');
+          var e = ecartRecord(v[0], avant);
+          if (e !== null) td.appendChild(el('span', 'plus-record', ' +' + nombreFr(e)));
+          tr.appendChild(td);
+        });
+        tab.appendChild(tr);
+      });
+      var defile = el('div', 'defile-records');
+      defile.appendChild(tab);
+      carte.appendChild(defile);
+    }
+
+    if (t.travail) {
+      carte.appendChild(el('div', 'section-t', 'RAPPORTÉ À TON POIDS'));
+      if (t.rapport) {
+        var r = el('div', 'exo-fiche');
+        ligneFiche(r, 'Ta charge de travail', null, M().chargeFois(t.travail.palier, t.travail.niveau));
+        ligneFiche(r, 'Ton poids', 'pesée du ' + dateCourte(t.rapport.pesee.date),
+          nombreFr(t.rapport.pesee.poids) + '\u00a0kg');
+        ligneFiche(r, 'Rapport', null, nombreFr(t.rapport.rapport));
+        carte.appendChild(r);
+      } else {
+        carte.appendChild(el('p', 'exo-note', 'Pèse-toi pour voir ce rapport.'));
+      }
+    }
+    cible.appendChild(carte);
+  }
+
   function rendreResumeExo(cible, vue) {
+    if (vue.teteRecords) rendreTeteRecords(cible, vue.teteRecords);
     cible.appendChild(el('div', 'section-t', 'RECORDS'));
     var fiche = el('div', 'exo-fiche');
 
@@ -1010,7 +1079,7 @@
     var haut = bloc.querySelector('.bloc-quoi');
     if (haut) haut.insertBefore(pastilleMedaille(), haut.firstChild);
     bloc.appendChild(el('div', 'bloc-ligne', v.dernier
-      ? 'Le dernier : ' + v.dernier.texte + ', le ' + v.dernier.date + '.'
+      ? 'Le dernier : ' + v.dernier.texte + ', le ' + v.dernier.date + (/\.$/.test(v.dernier.date) ? '' : '.')
       : 'Aucun record pour l\u2019instant.'));
     if (v.surChoix) bloc.addEventListener('click', v.surChoix);
     return bloc;

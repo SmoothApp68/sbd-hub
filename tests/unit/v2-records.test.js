@@ -191,3 +191,45 @@ describe('§9.23 — les options d\'un exercice et son nom court', () => {
     expect(Mo.nomCourt('Tractions')).toBe('tractions');
   });
 });
+
+// ══ 6. LA VUE D'UN EXERCICE : LE TABLEAU, LE 1RM, LE RAPPORT AU POIDS ═══════
+describe('§9.23 — le tableau des records de la page (aujourd\'hui, il y a 6 mois, il y a 1 an)', () => {
+  const seances = F.rejeu.seances.map(seanceDe).map((se) => ({ debut: se.debut,
+    series: se.series.filter((x) => x.exercise_slug === 'developpe_couche_barre') })).filter((se) => se.series.length);
+  test('`tableauDesRecords` rend les trois dates du fichier, aux reps 1, 3, 5, 8, 10', () => {
+    const dates = F.autres.tableau_records.map((c) => c.a_date);
+    const t = Mo.tableauDesRecords(seances, dates, { equipement: 'barre', corps: false });
+    expect(t.map((l) => l.reps)).toEqual([1, 3, 5, 8, 10]);
+    F.autres.tableau_records.forEach((c, i) => {
+      const obtenu = {};
+      t.forEach((l) => { obtenu[l.reps] = l.valeurs[i] ? l.valeurs[i].charge : null; });
+      expect([c.a_date, obtenu]).toEqual([c.a_date, c.attendu]);
+    });
+  });
+  test('un record ne baisse jamais à la barre : chaque ligne monte ou reste d\'une date à la suivante', () => {
+    const t = Mo.tableauDesRecords(seances, ['2026-09-16T00:00', '2026-03-16T00:00', '2025-09-16T00:00'], { equipement: 'barre' });
+    expect(t.every((l) => l.valeurs[0].charge >= l.valeurs[1].charge && l.valeurs[1].charge >= l.valeurs[2].charge)).toBe(true);
+  });
+  test('le 1RM estimé de la page : le meilleur Epley de 3 à 10 reps (122,5 × 6 → 147), avec sa date', () => {
+    const r = Mo.recordsDeLExercice(seances, '2026-09-16T00:00', { equipement: 'barre', corps: false });
+    expect([Math.round(r.unRM.valeur), r.unRM.charge, r.unRM.reps, r.unRM.date]).toEqual([147, 122.5, 6, '2026-09-08T17:03']);
+    expect([r.lourde.charge, r.lourde.reps, r.lourde.date]).toEqual([140, 1, '2025-11-28T15:45']);
+  });
+  test('le même périmètre que la médaille : une machine sur ses 12 derniers mois', () => {
+    const se = [{ debut: '2024-01-10T18:00', series: [{ charge_kg: 300, reps: 10, type_serie: 'travail' }] },
+                { debut: '2026-08-01T18:00', series: [{ charge_kg: 200, reps: 10, type_serie: 'travail' }] }];
+    expect(Mo.recordsDeLExercice(se, '2026-09-08T18:00', { equipement: 'machine' }).lourde.charge).toBe(200);
+    expect(Mo.recordsDeLExercice(se, '2026-09-08T18:00', { equipement: 'barre' }).lourde.charge).toBe(300);
+  });
+});
+
+describe('§9.23 — le rapport au poids : la charge de travail ÷ une pesée de moins de 14 jours', () => {
+  const P = require('../../v2/js/poids.js');
+  F.autres.rapport_au_poids.forEach((c) => {
+    test(c.titre, () => {
+      const r = P.rapportAuPoids(c.charge_travail, c.pesees.map((p) => ({ date: p.date, poids_kg: p.poids })), c.jour);
+      const jour = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      expect(r === null ? null : { rapport: r.rapport, pesee: { date: jour(r.pesee.date), poids: r.pesee.poids } }).toEqual(c.attendu);
+    });
+  });
+});

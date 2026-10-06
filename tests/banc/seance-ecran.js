@@ -495,6 +495,8 @@ const SETS_IMPORTES = [
     predictions: [],
     // 53-2 (v2_058) — les blocs des programmes à cycles.
     blocs: [],
+    // 55-1 — `body_weight_log` : vide, sauf pour la section « progression ».
+    pesees: [],
     journal: [], patchs: [], reseau: true,
     // 52-1 — l'identifiant d'une routine créée par l'app (« En faire une
     // routine », « Dupliquer »).
@@ -1039,6 +1041,8 @@ const SETS_IMPORTES = [
         const sid = (url.searchParams.get('session_id') || '').replace('eq.', '');
         return json(projeter(sid ? base.sets.filter((s) => s.session_id === sid) : base.sets, url));
       }
+      // 55-1 — les pesées (le rapport au poids de la page d'exercice).
+      if (table === 'body_weight_log') return json(projeter(base.pesees, url));
       return json([]);
     }
 
@@ -12485,6 +12489,12 @@ const SETS_IMPORTES = [
       });
       return out;
     });
+    // Les captures, pour comparer à la maquette : seulement si
+    // `BANC_CAPTURES` nomme un dossier. Sans elle, rien ne change.
+    const capturer55 = async (nom) => {
+      if (!process.env.BANC_CAPTURES) return;
+      await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES, 'p55-' + nom + '.png'), fullPage: true });
+    };
     // La séance n'a qu'un exercice : les lignes s'adressent par leur index.
     const valider55 = async (k, kg, reps) => {
       await saisirSerie(k, kg, reps);
@@ -12508,6 +12518,7 @@ const SETS_IMPORTES = [
       m1 && m1.length === 1 && m1[0].apres === 0 &&
         sp(m1[0].gras) === 'Record à 125 kg : 5 reps. 1RM estimé : ≈ 146 kg.' &&
         sp(m1[0].gris) === sp('Avant : 4 reps, ' + dateJ13 + (/\.$/.test(dateJ13) ? '' : '.')), JSON.stringify([m1, dateJ13]));
+    await capturer55('1-medaille');
     ok('[P55] la médaille ne s’écrit pas en base : aucune colonne, aucune table de plus',
       base.sets.filter((x) => x.exercise_slug === 'record-u55').every((x) => !('records' in x) && !('medaille' in x)) &&
         !Object.keys(base).some((k) => /record|medaille/i.test(k)), JSON.stringify(Object.keys(base)));
@@ -12548,6 +12559,7 @@ const SETS_IMPORTES = [
         tete: r ? r.querySelector('.records-fin-t').textContent : null,
         lignes: r ? Array.from(r.querySelectorAll('.records-fin-l span')).map((x) => x.textContent) : [] };
     });
+    await capturer55('2-terminer');
     ok('[P55] DISCRIMINANT — « Terminer » liste les records du jour sous « N séries de travail enregistrées »',
       fin.avant && sp(fin.tete) === '2 records' &&
         JSON.stringify(fin.lignes.map(sp)) === JSON.stringify(['Médaillé u55 125 kg × 5', 'Médaillé u55 100 kg × 5']),
@@ -12564,12 +12576,14 @@ const SETS_IMPORTES = [
     const MOIS_L = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
     const ici = new Date(tP);
     const ecoule = new Date(ici.getFullYear(), ici.getMonth() - 1, 1);
+    await capturer55('3-sommaire');
     ok('[P55] DISCRIMINANT — en tête : le mois écoulé, puis les records ; Volume, Poids, Par exercice ensuite',
       som.length === 5 && som[0].neuf && som[0].quoi === MOIS_L[ecoule.getMonth()] && som[1].neuf &&
         /Records$/.test(som[1].quoi) && /^Volume par muscle/.test(som[2].quoi) && /^Poids de corps/.test(som[3].quoi) &&
         /^Par exercice/.test(som[4].quoi), JSON.stringify(som));
     ok('[P55] le bloc Records dit le dernier, « Médaillé u55 100 kg × 5 », daté d’aujourd’hui',
-      som[1] && sp(som[1].ligne) === sp('Le dernier : Médaillé u55 100 kg × 5, le ' + ici.getDate() + ' ' + MOIS_C[ici.getMonth()] + '.'),
+      som[1] && sp(som[1].ligne) === sp('Le dernier : Médaillé u55 100 kg × 5, le ' + ici.getDate() + ' ' + MOIS_C[ici.getMonth()] +
+        (/\.$/.test(MOIS_C[ici.getMonth()]) ? '' : '.')),
       JSON.stringify(som[1]));
 
     // ── F. LE BILAN DU MOIS : le mois écoulé, puis le mois en cours (›).
@@ -12591,6 +12605,7 @@ const SETS_IMPORTES = [
         suivant: c.querySelector('.mois-suivant').disabled,
         rouge: Array.from(c.querySelectorAll('*')).some((x) => /rgb\(196, 86, 74\)/.test(getComputedStyle(x).color)) };
     });
+    await capturer55('4-bilan');
     ok('[P55] le bilan du mois en cours : séances, séries de travail, volume, records — trois barres, la dernière en couleur du coach ; pas de mois après le mois en cours',
       /^[A-ZÉ]/.test(bil.titre) && /^séances?$/.test(bil.tuiles[0]) && bil.tuiles[1] === 'séries de travail' &&
         bil.tuiles[2] === 'volume soulevé' && /^records?$/.test(bil.tuiles[3]) &&
@@ -12611,6 +12626,57 @@ const SETS_IMPORTES = [
     await attendre(1200);
     ok('[P55] un record mène à sa séance (le détail)', JSON.stringify(await visible()) === '["vue-detail"]',
       JSON.stringify(await visible()));
+    // ── H. LA VUE D'UN EXERCICE : LES RECORDS EN TÊTE (ECRAN §7 bis.15).
+    // Une pesée d'il y a 3 jours : le rapport au poids paraît.
+    const jourP = new Date(ilYa(3 * 86400000, tP));
+    base.pesees.push({ id: 'pz55', date: jourP.getFullYear() + '-' + String(jourP.getMonth() + 1).padStart(2, '0') + '-' +
+      String(jourP.getDate()).padStart(2, '0'), poids_kg: 96.8, source: 'manuel' });
+    await aller('/exercice/record-u55');
+    await attendre(800);
+    const exoP = await page.evaluate(() => {
+      const c = document.querySelector('#page-exercice .exo-records');
+      if (!c) return null;
+      return { fiche: Array.from(c.querySelectorAll('.exo-fiche')[0].querySelectorAll('.exo-li')).map((l) => l.textContent),
+        tete: Array.from(c.querySelectorAll('.tableau-records th')).map((x) => x.textContent),
+        lignes: Array.from(c.querySelectorAll('.tableau-records tr')).slice(1).map((tr) =>
+          Array.from(tr.querySelectorAll('td')).map((td) => td.textContent)),
+        plus: c.querySelectorAll('.plus-record').length,
+        rapport: Array.from(c.querySelectorAll('.exo-fiche')).slice(1).map((f) =>
+          Array.from(f.querySelectorAll('.exo-li')).map((l) => l.textContent)),
+        note: (c.querySelector('.exo-note') || {}).textContent || null,
+        record: Array.from(document.querySelectorAll('#page-exercice .exo-fiche .exo-li'))
+          .filter((l) => /^Record de charge/.test(l.textContent)).map((l) => l.textContent) };
+    });
+    await capturer55('5-exercice');
+    ok('[P55] DISCRIMINANT — en tête de la vue : la charge la plus lourde (125 kg × 5) et le 1RM estimé (≈ 146 kg)',
+      exoP && exoP.fiche.length === 2 && /^Charge la plus lourde/.test(exoP.fiche[0]) && /125\s*kg\s*×\s*5/.test(sp(exoP.fiche[0])) &&
+        /^1RM estimé/.test(exoP.fiche[1]) && /≈\s*146\s*kg/.test(sp(exoP.fiche[1])), JSON.stringify(exoP));
+    ok('[P55] le tableau à reps égales : 1, 3, 5 reps à 125 kg (8 et 10 reps jamais faits) ; rien il y a 6 mois ni 1 an, aucun écart',
+      exoP && exoP.tete.join('|') === 'Au moins|Record|Le|Il y a 6 mois|Il y a 1 an' &&
+        JSON.stringify(exoP.lignes.map((l) => [l[0], sp(l[1]), l[3], l[4]])) ===
+          JSON.stringify([['1 rep', '125 kg', '—', '—'], ['3 reps', '125 kg', '—', '—'], ['5 reps', '125 kg', '—', '—']]) &&
+        exoP.plus === 0, JSON.stringify(exoP));
+    ok('[P55] le « record de charge » des repères lit la même fonction : 125 kg × 5',
+      exoP && exoP.record.length === 1 && /125\s*kg\s*×\s*5/.test(sp(exoP.record[0])), JSON.stringify(exoP && exoP.record));
+    const rap = exoP && exoP.rapport[0];
+    const travailP = rap && /([\d,]+)\s*kg\s*×/.exec(sp(rap[0]));
+    const attenduRap = travailP ? (Math.round(Number(travailP[1].replace(',', '.')) / 96.8 * 100) / 100) : null;
+    ok('[P55] DISCRIMINANT — le rapport au poids : la charge de travail ÷ la pesée d’il y a 3 jours (96,8 kg), au centième',
+      rap && rap.length === 3 && /^Ta charge de travail/.test(rap[0]) && /96,8\s*kg/.test(sp(rap[1])) &&
+        sp(rap[2]) === 'Rapport' + String(attenduRap).replace('.', ','), JSON.stringify([rap, attenduRap]));
+    base.pesees.length = 0;
+    base.pesees.push({ id: 'pz55b', date: '2026-01-02', poids_kg: 97.5, source: 'manuel' });
+    // Au rechargement, les pesées se resynchronisent (`Sync.remplacer`).
+    await aller('/exercice/record-u55');
+    await attendre(1200);
+    const noteP = await page.evaluate(() => {
+      const c = document.querySelector('#page-exercice .exo-records');
+      return c ? { note: (c.querySelector('.exo-note') || {}).textContent || null, fiches: c.querySelectorAll('.exo-fiche').length } : null;
+    });
+    ok('[P55] sans pesée de moins de 14 jours : « Pèse-toi pour voir ce rapport. »',
+      noteP && noteP.note === 'Pèse-toi pour voir ce rapport.' && noteP.fiches === 1, JSON.stringify(noteP));
+    base.pesees.length = 0;
+
     ok('[P55] la garde de l’app n’a rien signalé, aucune erreur de page',
       gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant, JSON.stringify(erreurs.slice(erreursAvant)));
     await aller('/saisie');

@@ -6756,13 +6756,41 @@
     // travaille à 10), et pouvait s'afficher sous la ligne « 1 rep » de la
     // table, sur la même page. Les autres mesures gardent leur meilleure série.
     // §9.23 (55-1) — ET IL SE LIT SUR LA TABLE CUMULÉE, la source de tout
-    // record (la médaille, le tableau des records, le bloc de Progression).
+    // record (la médaille, le tableau des records, le bloc de Progression),
+    // AVEC LE PÉRIMÈTRE DE LA MÉDAILLE : un matériel de salle (machines,
+    // poulies, haltères, Smith) sur ses 12 derniers mois.
+    var optionsRecords = Modele.optionsDeRecord(exo);
+    var pourRecords = groupes.map(function (g) { return { debut: g.seance.debut, series: g.series }; });
+    var maintenant = new Date();
+    var recordsExo = Modele.recordsDeLExercice(pourRecords, maintenant, optionsRecords);
     var record = mesure === 'charge_reps'
-      ? Modele.recordDeLaTable(Modele.tableCumulee(toutes, function (x) { return debutDe[x.id] || null; }))
+      ? Modele.recordDeLaTable(recordsExo.table)
       : Modele.meilleureSerieDeTout(slug, groupes.map(function (g) {
         return { cle: g.seance.debut, series: g.series };
       }), local.exercices, Palier, etatsExercices);
     if (mesure !== 'charge_reps') record.date = record.cle || null;
+
+    // MOTEUR §9.23 (55-1), ECRAN §7 bis.15 — LES RECORDS EN TÊTE : la charge
+    // la plus lourde et le 1RM estimé (« ≈ », 3 à 10 reps), avec leur date ;
+    // le tableau à 1, 3, 5, 8, 10 reps — aujourd'hui, il y a 6 mois, il y a
+    // 1 an ; le rapport au poids (la charge de travail du coach, divisée par
+    // une pesée de moins de 14 jours).
+    var teteRecords = null;
+    if (mesure === 'charge_reps' && groupes.length) {
+      var il6 = new Date(maintenant.getTime()); il6.setMonth(il6.getMonth() - 6);
+      var il12 = new Date(maintenant.getTime()); il12.setFullYear(il12.getFullYear() - 1);
+      var travail = null;
+      Moteur.chargesDeTravailDe(seancesDeLExercice(slug), etatsExercices[slug], optionsDeConsigne(slug, exo))
+        .forEach(function (x) { if (!travail || String(x.date) > String(travail.date)) travail = x; });
+      teteRecords = {
+        lourde: record && record.charge !== null ? record : null,
+        unRM: recordsExo.unRM,
+        tableau: Modele.tableauDesRecords(pourRecords, [maintenant, il6, il12], optionsRecords),
+        travail: travail && travail.palier > 0 && !optionsRecords.corps ? travail : null,
+        rapport: travail && travail.palier > 0 && !optionsRecords.corps
+          ? Poids.rapportAuPoids(travail.palier, local.pesees, maintenant) : null
+      };
+    }
 
     var visibles = groupes.slice(0, exoAffiche.combien);
     // §7 quater — L'ÉTIQUETTE DE ZONE SUR LA PAGE D'EXERCICE. La zone
@@ -6811,6 +6839,7 @@
       } : null,
       derniere: derniere,
       record: record,
+      teteRecords: teteRecords,
       volume: {
         nbSeries: Semaine.compteSeriesTravail(toutes, local.exercices),
         nbSeances: groupes.length

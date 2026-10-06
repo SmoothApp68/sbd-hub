@@ -1469,6 +1469,64 @@
     return best;
   }
 
+  // Le 1RM estimé n'est fiable qu'entre 3 et 10 reps (ECRAN §7 bis.15), sur
+  // une charge qu'on soulève, jamais au poids du corps. Une règle, ici : la
+  // médaille et la page d'exercice la lisent.
+  function estimable1RM(reps, charge, corps) {
+    return !corps && charge > 0 && reps >= UN_RM_REPS_MIN && reps <= UN_RM_REPS_MAX;
+  }
+
+  // LES SÉANCES DU PÉRIMÈTRE D'UN RECORD, à une date : celles d'avant elle, et,
+  // pour un matériel de salle (§10.2), des 12 mois d'avant elle seulement.
+  function seancesDuPerimetre(seances, aDate, options) {
+    var t = instantRecord(aDate);
+    var plancher = racine.THMoteur.plancherDuMateriel((options || {}).equipement, aDate);
+    return (seances || []).filter(function (h) {
+      var x = instantRecord(h && h.debut);
+      return x !== null && (t === null || x < t) && (plancher === null || x >= plancher);
+    });
+  }
+
+  // LES RECORDS D'UN EXERCICE À UNE DATE (MOTEUR §9.23, ECRAN §7 bis.15) : le
+  // même périmètre que la médaille. `seances` : `[{ debut, series }]` de cet
+  // exercice. Rend `{ table, lourde, unRM }` — la table cumulée, la charge la
+  // plus lourde (`recordDeLaTable`) et le meilleur 1RM estimé (`{ valeur,
+  // charge, reps, date }`, ou `null`).
+  function recordsDeLExercice(seances, aDate, options) {
+    var o = options || {};
+    var series = [];
+    seancesDuPerimetre(seances, aDate, o).forEach(function (h) {
+      (h.series || []).forEach(function (x) { series.push(Object.assign({}, x, { _debut: h.debut })); });
+    });
+    var table = tableCumulee(series, function (x) { return x._debut; }, { corps: o.corps });
+    var unRM = null;
+    series.forEach(function (x) {
+      if (!estTravail(x)) return;
+      var r = valeurNumerique(x, 'reps'), c = valeurNumerique(x, 'charge_kg');
+      if (r === null || c === null || !estimable1RM(r, c, !!o.corps)) return;
+      var e = racine.THMoteur.unRMEpley(c, r);
+      if (!unRM || e > unRM.valeur + EPS_RECORD ||
+          (Math.abs(e - unRM.valeur) <= EPS_RECORD && plusTot(x._debut, unRM.date))) {
+        unRM = { valeur: e, charge: c, reps: r, date: x._debut };
+      }
+    });
+    return { table: table, lourde: recordDeLaTable(table), unRM: unRM };
+  }
+
+  // LE TABLEAU DES RECORDS : la charge pour au moins 1, 3, 5, 8 et 10 reps, à
+  // chacune des `dates` (aujourd'hui, il y a 6 mois, il y a 1 an).
+  // `[{ reps, valeurs: [{ charge, date } | null, …] }]`.
+  var REPS_DU_TABLEAU = [1, 3, 5, 8, 10];
+  function tableauDesRecords(seances, dates, options) {
+    var tables = (dates || []).map(function (d) { return recordsDeLExercice(seances, d, options).table; });
+    return REPS_DU_TABLEAU.map(function (n) {
+      return { reps: n, valeurs: tables.map(function (t) {
+        var l = auMoinsDe(t, n);
+        return l ? { charge: l.charge, date: l.date } : null;
+      }) };
+    });
+  }
+
   // LES RECORDS BATTUS PAR UNE SÉRIE (MOTEUR §9.23).
   //
   //   `historique` : les séances `{ debut, series }` — toutes, la séance en
@@ -1550,7 +1608,7 @@
       }
       // Le 1RM estimé : de 3 à 10 reps seulement (ECRAN §7 bis.15), jamais au
       // poids du corps, la formule du report (`THMoteur.unRMEpley`).
-      var estimable = function (rx, cx) { return !corps && cx > 0 && rx >= UN_RM_REPS_MIN && rx <= UN_RM_REPS_MAX; };
+      var estimable = function (rx, cx) { return estimable1RM(rx, cx, corps); };
       if (estimable(r, c)) {
         var e = M.unRMEpley(c, r);
         var meilleur = plusGrand(faites.filter(function (f) { return estimable(f.reps, f.charge); })
@@ -1900,6 +1958,9 @@
     recordsBattus: recordsBattus,
     phraseDeRecord: phraseDeRecord,
     optionsDeRecord: optionsDeRecord,
+    recordsDeLExercice: recordsDeLExercice,
+    tableauDesRecords: tableauDesRecords,
+    REPS_DU_TABLEAU: REPS_DU_TABLEAU,
     nomCourt: nomCourt,
     libelleAutres: libelleAutres
   };

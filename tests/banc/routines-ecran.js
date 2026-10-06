@@ -515,6 +515,25 @@ const CATALOGUE = [
   const vide = await texte('#liste-routines');
   ok('il dit qu’il n’y a rien, et quoi faire', /Aucune routine/.test(vide) && /Créer une routine/.test(vide), vide.replace(/\n+/g, ' | ').slice(0, 120));
   ok('aucune excuse, aucun « oups »', !/oups|désolé|erreur/i.test(vide));
+  // 54-1 — la phrase dit le vrai, et les trois chemins, dans cet ordre.
+  const etatVide = await page.evaluate(() => {
+    const c = document.querySelector('#liste-routines .vide-routines');
+    return c ? { phrases: Array.from(c.querySelectorAll('p')).map((p) => p.textContent),
+                 boutons: Array.from(c.querySelectorAll('button')).map((b) => b.textContent) } : null;
+  });
+  ok('[54-1] la phrase : « Une routine, c’est une liste d’exercices dans un ordre. Le coach décide des charges à chaque séance. »',
+    !!etatVide && JSON.stringify(etatVide.phrases) === JSON.stringify(['Aucune routine pour l’instant.',
+      'Une routine, c’est une liste d’exercices dans un ordre. Le coach décide des charges à chaque séance.']),
+    JSON.stringify(etatVide && etatVide.phrases));
+  ok('[54-1] trois boutons, dans cet ordre : créer, depuis une séance passée, séance vide',
+    !!etatVide && JSON.stringify(etatVide.boutons) === JSON.stringify(['Créer une routine',
+      'En faire une depuis une séance passée', 'Ou commencer une séance vide']),
+    JSON.stringify(etatVide && etatVide.boutons));
+  await page.click('#liste-routines .depuis-seance');
+  await attendre(500);
+  ok('[54-1] « En faire une depuis une séance passée » ouvre l’historique des séances',
+    JSON.stringify(await visible()) === '["vue-liste"]', JSON.stringify(await visible()));
+  await aller('/saisie');
 
   console.log('\n══ 2. CRÉER UNE ROUTINE DE TROIS EXERCICES ══');
   await page.click('#liste-routines .principal');

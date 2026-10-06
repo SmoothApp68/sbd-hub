@@ -78,8 +78,9 @@ describe('§12.9 — le compteur, lu par le plan', () => {
   // 12 mois hors barre) ; 6 depuis 50-1 (le poids du corps suit la consigne des
   // charges, MOTEUR §9.17) ; 7 depuis 51-3 (une séance marquée « douleur » est
   // neutre, MOTEUR §9.20) ; 8 depuis 53-1 (la charge se reporte au changement
-  // de zone, MOTEUR §9.10) — le compteur lui-même n'a pas changé de règle.
-  test('VERSION_CONSIGNE vaut 8 (53-1)', () => {
-    expect(M.VERSION_CONSIGNE).toBe(8);
+  // de zone, MOTEUR §9.10) ; 9 depuis 54-1 (la zone d'une séance se lit à sa
+  // fin pour le compteur et le repli, MOTEUR §12.2 bis).
+  test('VERSION_CONSIGNE vaut 9 (54-1)', () => {
+    expect(M.VERSION_CONSIGNE).toBe(9);
   });
 });

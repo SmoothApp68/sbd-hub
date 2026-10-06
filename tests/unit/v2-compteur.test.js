@@ -72,6 +72,12 @@ const seance = (n, palier, reps, extra) => Object.assign({
 const PLATEAU = [seance(0, 25, [12, 12, 12]), seance(3, 25, [12, 12, 12]), seance(6, 25, [12, 12, 12]),
   seance(9, 25, [12, 12, 12]), seance(12, 25, [12, 12, 12]), seance(15, 25, [12, 12, 12])];
 const AVANT = jour(18);
+// 54-1 (§12.2 bis) — la zone d'une séance se lit À SA FIN : « choisie APRÈS
+// la dernière séance » suppose une séance qui a une fin, comme toutes celles
+// de l'app. Sans heure de fin, une séance se lit jusqu'au début de la suivante
+// (ou de celle qu'on prescrit), et un choix fait entre les deux serait le sien.
+const finie = (s) => Object.assign({}, s, { fin: new Date(Date.parse(s.debut) + 3600000).toISOString() });
+const PLATEAU_FINI = PLATEAU.map(finie);
 const OPTS = { reglage: 'normal', equipement: 'barre', correction: null };
 
 describe('§12.9 — quelles séances comptent', () => {
@@ -122,12 +128,12 @@ describe('§12.9 — quelles séances comptent', () => {
     // Choisie après toutes les séances : le rejeu les garde dans leur zone
     // (4 séances suivies sans progrès)… mais la séance qui s'ouvre change de
     // zone, et la remise à zéro vaut dès l'ouverture (§12.9, 49-29) → 0.
-    const tard = M.compteurDe(PLATEAU, AVANT, Object.assign({ corrections: choix(jour(17), 'lourd') }, toutes));
+    const tard = M.compteurDe(PLATEAU_FINI, AVANT, Object.assign({ corrections: choix(jour(17), 'lourd') }, toutes));
     expect(tard.verdicts.map((v) => v.zone)).toEqual(['volume', 'volume', 'volume', 'volume', 'volume']);
     expect(tard.compteur).toBe(0);
     // Choisie le jour 8, avant la séance du jour 9 (la 3ᵉ comptée) : elle
     // change de zone → remise à zéro ; les deux suivantes repartent de là.
-    const r = M.compteurDe(PLATEAU, AVANT, Object.assign({ corrections: choix(jour(8), 'lourd') }, toutes));
+    const r = M.compteurDe(PLATEAU_FINI, AVANT, Object.assign({ corrections: choix(jour(8), 'lourd') }, toutes));
     expect(r.verdicts.map((v) => [v.zone, v.remise_a_zero])).toEqual(
       [['volume', true], ['volume', false], ['lourd', true], ['lourd', false], ['lourd', false]]);
     expect(r.compteur).toBe(2);
@@ -232,7 +238,7 @@ describe('§12.9 (49-29) — la remise à zéro vaut dès l’ouverture', () => 
     expect(avantTout.verdicts.every((v) => v.zone === 'lourd')).toBe(true);
     expect(avantTout.compteur).toBe(4);
     // Lourd choisi APRÈS la dernière séance : rejeu en Volume, ouverture en Lourd → 0.
-    const apres = M.compteurDe(PLATEAU, AVANT, Object.assign({ corrections: choix(jour(17)) }, toutes));
+    const apres = M.compteurDe(PLATEAU_FINI, AVANT, Object.assign({ corrections: choix(jour(17)) }, toutes));
     expect(apres.verdicts.every((v) => v.zone === 'volume')).toBe(true);
     expect(apres.compteur).toBe(0);
     expect(M.phraseCompteur(apres)).toBeNull();

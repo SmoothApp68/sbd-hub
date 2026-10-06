@@ -332,6 +332,16 @@
     declarer(cite, { date: jour }, t);
     return t;
   }
+  // « lundi 12 oct. » : le jour civil avec son nom (§9.22, le badge d'un bloc
+  // pas encore commencé), déclaré comme une date.
+  function jourNomme(jour, cite) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(jour || ''));
+    if (!m) return '';
+    var j = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]))).getUTCDay();
+    var t = JOURS[j] + ' ' + Number(m[3]) + ' ' + MOIS_COURTS[Number(m[2]) - 1];
+    declarer(cite, { date: jour }, t);
+    return t;
+  }
   // « septembre 2026 ».
   function moisAnnee(d) {
     if (!(d instanceof Date) || isNaN(d.getTime())) return '';
@@ -1539,6 +1549,7 @@
     dateLongue: dateLongue,
     jourMois: jourMois,
     jourCourt: jourCourt,
+    jourNomme: jourNomme,
     serieFaite: serieFaite,
     moisAnnee: moisAnnee,
     heureParis: heureParis,

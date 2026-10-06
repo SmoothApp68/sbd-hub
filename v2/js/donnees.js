@@ -431,7 +431,10 @@
   // ligne, la plus récente par `corrigee_a` fait foi, une zone vide ramène à la
   // déduction. La politique du propriétaire est `(select auth.uid())` : la
   // lecture ne ramène que les siennes, on ne filtre donc pas par `user_id`.
-  var COLONNES_ZONE = 'id, user_id, exercise_slug, zone, corrigee_a, created_at';
+  // §9.22 (53-2, v2_058) — `origine` (`personne` | `bloc`) et `bloc_id` : un bloc
+  // pose ses zones comme des lignes datées, lues comme les autres (§9.1.2
+  // amendé). Absentes, `origine` vaut `personne` en base (défaut).
+  var COLONNES_ZONE = 'id, user_id, exercise_slug, zone, corrigee_a, created_at, origine, bloc_id';
 
   function mesZones() {
     return paginerParCle(trancheur(function () {
@@ -496,7 +499,10 @@
   // champ du fondement qui descend (`fondement->compteur`).
   function seancesAvecPari() {
     return paginerParCle(trancheur(function () {
-      return client().from('predictions').select('id, exercise_slug, session_id, compteur:fondement->compteur');
+      // §9.22 (53-2) — plus `module`, et la valeur prédite et observée : le
+      // bilan de fin de bloc compte les paris de consigne tenus.
+      return client().from('predictions').select('id, exercise_slug, session_id, compteur:fondement->compteur, ' +
+        'module, valeur_predite, valeur_observee');
     }, 'id'), 'id');
   }
 
@@ -506,6 +512,35 @@
     return paginerParCle(trancheur(function () {
       return client().from('predictions').select(COLONNES_PREDICTION).eq('module', 'escalier');
     }, 'id'), 'id');
+  }
+
+  // §9.22 (53-2) — les paris de PROGRAMME, en entier (un par bloc : peu).
+  function parisProgramme() {
+    return paginerParCle(trancheur(function () {
+      return client().from('predictions').select(COLONNES_PREDICTION).eq('module', 'programme');
+    }, 'id'), 'id');
+  }
+
+  // ══ LES BLOCS D'UN PROGRAMME (MOTEUR §9.22, 53-2, v2_058) ══════════════════
+  //
+  // Un bloc : un dossier, une zone (Lourd ou Mix), un début, une durée, une
+  // décharge, ses exercices, un statut. La politique du propriétaire : la
+  // lecture ne ramène que les siens. L'identifiant vient de l'appareil et
+  // l'écriture est un `upsert` sur `id` : la file peut la rejouer sans doubler
+  // (le statut change par la même porte).
+  var COLONNES_BLOC = 'id, user_id, dossier, zone, debut, semaines, decharge, exercices, statut, precedent, ' +
+    'created_at, modifie_a';
+
+  function mesBlocs() {
+    return paginerParCle(trancheur(function () {
+      return client().from('blocs').select(COLONNES_BLOC);
+    }, 'id'), 'id');
+  }
+
+  async function enregistrerBloc(ligne) {
+    var r = await client().from('blocs').upsert(ligne, { onConflict: 'id' }).select(COLONNES_BLOC).single();
+    if (r.error) throw r.error;
+    return r.data;
   }
 
   // L'outil de rejeu (développement seulement, `rejeu.js`) — les paris d'UNE
@@ -661,6 +696,9 @@
     parisDeSeance: parisDeSeance,
     seancesAvecPari: seancesAvecPari,
     parisEscalier: parisEscalier,
+    parisProgramme: parisProgramme,
+    mesBlocs: mesBlocs,
+    enregistrerBloc: enregistrerBloc,
     enregistrerPrediction: enregistrerPrediction,
     observerPrediction: observerPrediction,
     mesRoutines: mesRoutines,

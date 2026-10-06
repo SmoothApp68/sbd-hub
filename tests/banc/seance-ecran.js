@@ -293,7 +293,15 @@ const CATALOGUE = [
   { slug: 'org-isoa-u52', nom: 'Isolé Un Rangé U52', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['u52_bi'], muscles_secondaires: [] },
   { slug: 'org-isob-u52', nom: 'Isolé Deux Rangé U52', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['u52_tri'], muscles_secondaires: [] },
   { slug: 'org-retire-u52', nom: 'Retiré Rangé U52', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['u52_mol'], muscles_secondaires: [] },
-  { slug: 'org-neuf-u52', nom: 'Neuf Rangé U52 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['u52_dos'], muscles_secondaires: ['u52_bi2', 'u52_lomb'] }
+  { slug: 'org-neuf-u52', nom: 'Neuf Rangé U52 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['u52_dos'], muscles_secondaires: ['u52_bi2', 'u52_lomb'] },
+  // 53-2 (MOTEUR §9.22) — réservés à la section « cycles » : deux barres
+  // polyarticulaires (3 muscles, cochées par défaut), une barre d'isolation
+  // (décochée), et une barre qui stagne sous consigne (« Changer de schéma »).
+  // Des muscles inventés (`u53…`) : personne d'autre ne voit leur volume.
+  { slug: 'cyc-squat-u53', nom: 'Alpha Cycle U53 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['u53_quad'], muscles_secondaires: ['u53_fess', 'u53_isch'] },
+  { slug: 'cyc-couche-u53', nom: 'Bêta Cycle U53 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['u53_pec'], muscles_secondaires: ['u53_tri', 'u53_delt'] },
+  { slug: 'cyc-curl-u53', nom: 'Gamma Cycle U53 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['u53_bi'], muscles_secondaires: [] },
+  { slug: 'cyc-terre-u53', nom: 'Delta Cycle U53 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['u53_isch2'], muscles_secondaires: ['u53_fess2', 'u53_lomb2'] }
 ];
 
 // ⚠️ UNE ROUTINE PORTE MAINTENANT SES LIGNES (chantier 43). `routine_sets`
@@ -481,6 +489,8 @@ const SETS_IMPORTES = [
     zones: [],
     modes: [],
     predictions: [],
+    // 53-2 (v2_058) — les blocs des programmes à cycles.
+    blocs: [],
     journal: [], patchs: [], reseau: true,
     // 52-1 — l'identifiant d'une routine créée par l'app (« En faire une
     // routine », « Dupliquer »).
@@ -831,9 +841,54 @@ const SETS_IMPORTES = [
           return json(refus('23514', 'zones_exercice_zone_ok'), 400);
         }
         if (!l.corrigee_a) return json(refus('23502', 'zones_exercice.corrigee_a NOT NULL'), 400);
+        // 53-2 (v2_058) — `origine` (personne | bloc, défaut personne) et
+        // `bloc_id`, qui référence `blocs` : une ligne montée avant son bloc
+        // échoue en 23503 — l'ordre de la file doit le tenir.
+        if (l.origine !== undefined && l.origine !== null && ['personne', 'bloc'].indexOf(l.origine) < 0) {
+          return json(refus('23514', 'zones_exercice_origine_ok'), 400);
+        }
+        if (l.bloc_id && !base.blocs.some((b) => b.id === l.bloc_id)) {
+          return json(refus('23503', 'zones_exercice_bloc_id_fkey'), 400);
+        }
+        if (l.origine === undefined || l.origine === null) l.origine = 'personne';
+        if (l.bloc_id === undefined) l.bloc_id = null;
         const i = base.zones.findIndex((x) => x.id === l.id);
         const ligne = Object.assign({ created_at: l.corrigee_a }, i >= 0 ? base.zones[i] : {}, l);
         if (i >= 0) base.zones[i] = ligne; else base.zones.push(ligne);
+        return json(projeter([ligne], url), 201);
+      }
+    }
+
+    // 53-2 (v2_058) — `blocs`, les blocs des programmes à cycles, AVEC LEURS
+    // CONTRAINTES : zone Lourd ou Mix, de 3 à 6 semaines, au moins un
+    // exercice, un dossier propre, un statut connu, et UN SEUL bloc en cours
+    // par dossier (`blocs_un_en_cours`). L'upsert par `id` rend un renvoi
+    // inoffensif ; la politique est celle du propriétaire.
+    if (table === 'blocs') {
+      if (req.method() === 'GET') return json(projeter(base.blocs, url));
+      if (req.method() === 'POST') {
+        const l = Array.isArray(corps) ? corps[0] : corps;
+        base.journal.push({ op: 'bloc', id: l.id, dossier: l.dossier, zone: l.zone, statut: l.statut });
+        if (!l.id) return json(refus('23502', 'blocs.id NOT NULL'), 400);
+        if (!l.user_id) return json(refus('23502', 'blocs.user_id NOT NULL'), 400);
+        if (l.user_id !== MOI) return json(refus('42501', 'new row violates row-level security policy for table "blocs"'), 400);
+        if (typeof l.dossier !== 'string' || l.dossier !== l.dossier.trim() || l.dossier.length < 1 || l.dossier.length > 40) {
+          return json(refus('23514', 'blocs_dossier_ok'), 400);
+        }
+        if (['lourd', 'mix'].indexOf(l.zone) < 0) return json(refus('23514', 'blocs_zone_ok'), 400);
+        if (!(l.semaines >= 3 && l.semaines <= 6)) return json(refus('23514', 'blocs_semaines_ok'), 400);
+        if (!Array.isArray(l.exercices) || !l.exercices.length) return json(refus('23514', 'blocs_exercices_ok'), 400);
+        const statut = l.statut || 'en_cours';
+        if (['en_cours', 'termine', 'arrete'].indexOf(statut) < 0) return json(refus('23514', 'blocs_statut_ok'), 400);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(String(l.debut || ''))) return json(refus('22007', 'blocs.debut : date invalide'), 400);
+        if (l.precedent && !base.blocs.some((b) => b.id === l.precedent)) return json(refus('23503', 'blocs_precedent_fkey'), 400);
+        if (statut === 'en_cours' && base.blocs.some((b) => b.id !== l.id && b.user_id === l.user_id &&
+            b.dossier === l.dossier && b.statut === 'en_cours')) {
+          return json(refus('23505', 'duplicate key value violates unique constraint "blocs_un_en_cours"'), 409);
+        }
+        const i = base.blocs.findIndex((x) => x.id === l.id);
+        const ligne = Object.assign({ decharge: true, statut: 'en_cours', precedent: null }, i >= 0 ? base.blocs[i] : {}, l);
+        if (i >= 0) base.blocs[i] = ligne; else base.blocs.push(ligne);
         return json(projeter([ligne], url), 201);
       }
     }
@@ -931,10 +986,11 @@ const SETS_IMPORTES = [
         if (fusion.set_observe && !base.sets.some((x) => x.id === fusion.set_observe)) {
           return json(refus('23503', 'predictions_set_observe_fkey'), 400);
         }
-        // `predictions_observation_coherente` (v2_052) : une observation exige
-        // `set_observe`, sauf pour `module = 'escalier'` ; `observee_a` la suit.
+        // `predictions_observation_coherente` (v2_052, v2_058) : une observation
+        // exige `set_observe`, sauf pour `module = 'escalier'` ou `'programme'` ;
+        // `observee_a` la suit.
         if ((fusion.valeur_observee !== null && fusion.valeur_observee !== undefined &&
-             !fusion.set_observe && fusion.module !== 'escalier') ||
+             !fusion.set_observe && fusion.module !== 'escalier' && fusion.module !== 'programme') ||
             ((fusion.valeur_observee === null || fusion.valeur_observee === undefined) !==
              (fusion.observee_a === null || fusion.observee_a === undefined))) {
           return json(refus('23514', 'predictions_observation_coherente'), 400);
@@ -11660,8 +11716,9 @@ const SETS_IMPORTES = [
     });
     const ouvrirEditeur = async (id) => { await aller('/routine/' + id); await attendre(600); };
     const enregistrerEditeur = async () => { await page.click('#btn-enregistrer-routine'); await attendre(2200); };
+    // 53-2 bis : la tête vit dans `.dossier-ligne`, à côté du badge d'un programme.
     const bibliotheque = () => page.evaluate(() => Array.from(document.querySelectorAll('#liste-routines > *')).map((n) =>
-      n.classList.contains('dossier-tete') ? 'T:' + n.textContent
+      n.classList.contains('dossier-ligne') ? 'T:' + n.querySelector('.dossier-tete').textContent
         : n.classList.contains('routine-rangee') ? 'R:' + n.querySelector('.routine-nom').textContent : null).filter(Boolean));
 
     // ── A. LE DOSSIER : choisi dans l'éditeur, une étiquette.
@@ -11880,6 +11937,496 @@ const SETS_IMPORTES = [
     await page.evaluate(() => { try { localStorage.removeItem('th-v2-dossiers-replies'); } catch (e) { /* rien */ } });
     await aller('/saisie');
     await attendre(500);
+  }
+
+  console.log('\n══ cycles. LES PROGRAMMES À CYCLES : LE BLOC, LA ZONE, LA DÉCHARGE PLANIFIÉE, LE BILAN (53-2, MOTEUR §9.22) ══');
+  //
+  // Une HORLOGE FORGÉE (`page.clock`) traverse les semaines du bloc : elle part
+  // 35 jours avant aujourd'hui, pour que tout ce que la section écrit (le bloc,
+  // ses lignes de zone, la séance de la semaine 2) reste dans le passé réel des
+  // sections qui suivent, et revient à l'heure à la fin.
+  //   · « Faire de ce dossier un programme » : le bloc et ses lignes de zone en
+  //     base (le bloc d'abord), le badge ; en séance, la zone et la charge
+  //     reportée avec sa phrase ;
+  //   · « semaine 2 sur 4 » au calendrier ; la séance d'après progresse ; une
+  //     correction de la personne en plein bloc l'emporte ;
+  //   · la semaine 4 : la décharge (bandeau, 60 % des séries, aucune carte) ;
+  //     une semaine allégée récente la fait sauter ;
+  //   · « Changer de schéma » : proposé hors bloc, absent dans un bloc ;
+  //   · la fin du bloc : le bilan, les paris tenus, le bloc suivant, et le pari
+  //     de programme écrit ; l'arrêt d'un programme.
+  //   · (53-2 bis) entre la fin et le choix, rien ne change : la carte reste,
+  //     les zones du bloc tiennent, aucune décharge de plus ; « Ajuster le
+  //     bloc » n'écrit pas de pari ; « Arrêter le programme » pose des lignes
+  //     sans zone d'origine « bloc », et garde la correction de la personne.
+  {
+    const JOUR_MS = 86400000;
+    const DEUX_HEURES = 2 * 3600 * 1000;
+    const T0 = ilYa(35 * JOUR_MS).getTime();
+    const sp = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const violationsAvant = gardeBanc.violations;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    await page.clock.install({ time: new Date(T0) });
+    const jourLocal = (t) => { const d = new Date(t); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+    const J0 = jourLocal(T0);
+    let graineC = 0;
+    const seanceC = (id, t) => {
+      const debut = new Date(t).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'Cycle — ' + id, debut,
+        fin: finDe(debut, T0).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      return debut;
+    };
+    const serieC = (id, slug, rang, kg, reps, debut) => base.sets.push({ id: id + '-' + slug + '-s' + rang,
+      session_id: id, user_id: 'u-banc', exercise_slug: slug, charge_kg: kg, reps, duree_s: null,
+      distance_m: null, type_serie: 'travail', rang, groupe_superset: null, validee_a: debut, rpe: null,
+      ressenti: null, repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null });
+    const pariC = (id, slug, debut, compteur, kg, reps) => base.predictions.push({
+      id: '00000000-0000-5000-8532-' + String(++graineC).padStart(12, '0'),
+      user_id: 'u-banc', module: 'moteur.consigne', module_version: 7, emise_a: debut,
+      exercise_slug: slug, grandeur: 'reps', horizon_jours: null, valeur_predite: reps,
+      borne_basse: 3, borne_haute: 5,
+      fondement: { rang: 1, charge: kg, etat: 'progression', zone: 'lourd', reglage: 'normal',
+                   palier: kg, niveau: reps, seance: id, role: 'ligne', phase: 'maintien', compteur },
+      valeur_observee: reps, observee_a: debut, set_observe: id + '-' + slug + '-s1', created_at: debut });
+    // Le dossier « Alpha U53 » : trois séances en Lourd, une par semaine.
+    [21, 14, 7].forEach((j, i) => {
+      const id = 'c53-' + i;
+      const debut = seanceC(id, ilYa(j * JOUR_MS, T0).getTime());
+      // Le rang est unique DANS la séance (`sets_rang_unique`) : 1-3, 4-6, 7-9.
+      [1, 2, 3].forEach((r) => {
+        serieC(id, 'cyc-squat-u53', r, 100, 5, debut);
+        serieC(id, 'cyc-couche-u53', r + 3, 80, 5, debut);
+        serieC(id, 'cyc-curl-u53', r + 6, 30, 10, debut);
+      });
+    });
+    // Le dossier « Delta U53 » : une barre qui stagne, six séances SOUS
+    // CONSIGNE (des paris) à 100 kg × 5 — son compteur est à 4 à l'ouverture
+    // (la première remet à zéro, les cinq suivantes comptent… une de moins à
+    // l'ouverture : 0, 1, 2, 3, 4).
+    [42, 35, 28, 21, 14, 7].forEach((j, i) => {
+      const id = 't53-' + i;
+      const debut = seanceC(id, ilYa(j * JOUR_MS - DEUX_HEURES, T0).getTime());
+      [1, 2, 3].forEach((r) => serieC(id, 'cyc-terre-u53', r, 100, 5, debut));
+      pariC(id, 'cyc-terre-u53', debut, i, 100, 5);
+    });
+    // 53-2 ter — la barre de « Delta U53 » a une correction de la personne
+    // AVANT le programme (Lourd, comme le soulevé d'Aurélien depuis le 28/09) :
+    // l'arrêt doit la lui rendre, pas la zone d'après ses séances.
+    base.zones.push({ id: 'z-c53-avant', user_id: 'u-banc', exercise_slug: 'cyc-terre-u53', zone: 'lourd',
+      corrigee_a: ilYa(3 * JOUR_MS, T0).toISOString(), origine: 'personne', bloc_id: null });
+    const ID_FORCE = '00000000-0000-4000-8532-000000000001', ID_TERRE = '00000000-0000-4000-8532-000000000002';
+    ROUTINES.push({ id: ID_FORCE, nom: 'Alpha U53', note: null, archivee_a: null, rang: null, dossier: 'Alpha U53',
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: ['cyc-squat-u53', 'cyc-couche-u53', 'cyc-curl-u53'].map((slug, i) => ({
+        id: ID_FORCE.slice(0, -2) + '1' + i, routine_id: ID_FORCE, exercise_slug: slug, rang: i,
+        routine_sets: progr(3, slug === 'cyc-curl-u53' ? 10 : 5), repos_cible_s: 120, groupe_superset: null, note: null })) });
+    ROUTINES.push({ id: ID_TERRE, nom: 'Delta U53', note: null, archivee_a: null, rang: null, dossier: 'Delta U53',
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: ID_TERRE.slice(0, -2) + '20', routine_id: ID_TERRE, exercise_slug: 'cyc-terre-u53', rang: 0,
+        routine_sets: progr(3, 5), repos_cible_s: 120, groupe_superset: null, note: null }] });
+
+    const planC = (slug) => page.evaluate((s) => {
+      const d = window.THPlan && window.THPlan.dernier;
+      if (!d) return null;
+      const x = d.plan.exercices.filter((q) => q.slug === s)[0];
+      return { allegee: d.plan.allegee, carte: d.plan.carte, enBloc: d.plan.programme ? d.plan.programme.enBloc : null,
+        x: x ? { etat: x.consigne && x.consigne.etat, zone: x.consigne && x.consigne.zone,
+                 charge: x.consigne && x.consigne.ligne && x.consigne.ligne.charge,
+                 vise: x.consigne && x.consigne.ligne && x.consigne.ligne.vise, gris: x.entete && x.entete.gris,
+                 marche: x.escalier ? x.escalier.marche : null, compteur: x.compteur ? x.compteur.compteur : null,
+                 couvertes: x.lignes.filter((l) => l.role !== 'hors').length,
+                 travail: x.lignes.filter((l) => l.type === 'travail').length } : null };
+    }, slug);
+    // 53-2 bis (maquette cycles v1) : le badge à droite de la tête, à la place
+    // du compte ; la carte de fin EN TÊTE de l'écran, rangées en deux colonnes.
+    const dossier = (nom) => page.evaluate((n) => {
+      const lignes = Array.from(document.querySelectorAll('#liste-routines .dossier-ligne'));
+      const l = lignes.filter((x) => (x.querySelector('.dossier-nom') || {}).textContent.indexOf(n) >= 0)[0];
+      if (!l) return null;
+      const r = l.nextElementSibling && l.nextElementSibling.classList.contains('programme-dossier') ? l.nextElementSibling : null;
+      const k = document.querySelector('#liste-routines .carte-fin-bloc[data-dossier="' + n + '"]');
+      const premier = document.querySelector('#liste-routines').firstElementChild;
+      return { badge: (l.querySelector('.dossier-badge') || {}).textContent || null,
+        compte: !!l.querySelector('.dossier-compte'),
+        creer: !!(r && r.querySelector('.programme-creer')), rangee: !!r && !r.querySelector('.programme-creer'),
+        fin: k ? { enTete: premier === k || (premier && premier.classList.contains('carte-fin-bloc')),
+                   titre: k.querySelector('.cfb-titre').textContent,
+                   entete: (k.querySelector('.cfb-entete') || {}).textContent || null,
+                   lignes: Array.from(k.querySelectorAll('.cfb-ligne')).map((x) =>
+                     [x.querySelector('.cfb-nom').textContent, x.querySelector('.cfb-valeur').textContent]),
+                   paris: Array.from(k.querySelectorAll('.cfb-paris')).map((x) => x.textContent),
+                   suivant: (k.querySelector('.cfb-suivant') || {}).textContent || null,
+                   gras: (k.querySelector('.cfb-suivant b') || {}).textContent || null,
+                   gestes: Array.from(k.querySelectorAll('.cfb-gestes button')).map((b) => b.textContent) } : null };
+    }, nom);
+    const cliquerDossier = (nom, sel) => page.evaluate(([n, s]) => {
+      if (/^\.cfb-/.test(s)) {
+        document.querySelector('#liste-routines .carte-fin-bloc[data-dossier="' + n + '"] ' + s).click();
+        return;
+      }
+      const lignes = Array.from(document.querySelectorAll('#liste-routines .dossier-ligne'));
+      const l = lignes.filter((x) => (x.querySelector('.dossier-nom') || {}).textContent.indexOf(n) >= 0)[0];
+      (l.querySelector(s) || l.nextElementSibling.querySelector(s)).click();
+    }, [nom, sel]);
+    const feuilleP = () => page.evaluate(() => {
+      const c = document.getElementById('feuille-contenu');
+      const champs = {};
+      Array.from(c.querySelectorAll('select[data-champ]')).forEach((x) => {
+        champs[x.getAttribute('data-champ')] = { libelle: x.parentNode.querySelector('.cp-k').textContent,
+          choisi: x.options[x.selectedIndex].textContent, options: Array.from(x.options).map((o) => o.textContent) };
+      });
+      return { titre: (c.querySelector('.feuille-t') || {}).textContent || '', champs,
+        ordre: Array.from(c.querySelectorAll('select[data-champ]')).map((x) => x.getAttribute('data-champ')),
+        aide: (c.querySelector('.cp-aide') || {}).textContent || '',
+        cases: Array.from(c.querySelectorAll('.case-programme')).map((b) =>
+          b.querySelector('.cp-nom').textContent + '|' + b.querySelector('.cp-zone').textContent),
+        bouton: (c.querySelector('.valider-programme') || {}).textContent || '' };
+    });
+    const choisirP = async (champ, texte) => {
+      await page.evaluate(([k, t]) => {
+        const x = document.querySelector('#feuille-contenu select[data-champ="' + k + '"]');
+        const i = Array.from(x.options).findIndex((o) => o.textContent.indexOf(t) === 0);
+        x.value = String(i);
+        x.dispatchEvent(new Event('change'));
+      }, [champ, texte]);
+      await attendre(300);
+    };
+    const puceC = (slug) => page.evaluate((s) => {
+      const n = document.querySelector('.legende-exo[data-exo="' + s + '"] .puce-zone');
+      return n ? n.textContent : null;
+    }, slug);
+    const validerP = async () => { await page.click('#feuille-contenu .valider-programme'); await attendre(2200); };
+    const sauter = async (jours) => { await page.clock.setSystemTime(new Date(T0 + jours * JOUR_MS)); await aller('/saisie'); };
+
+    await aller('/saisie');
+    // ── G (1). HORS BLOC, la barre qui stagne : « Changer de schéma ».
+    await demarrerRoutine('Delta U53');
+    await attendre(1500);
+    const g0 = await planC('cyc-terre-u53');
+    ok('[C53] prémisse : hors bloc, la barre qui stagne (compteur 4, Lourd) propose « Changer de schéma »',
+      g0 && g0.x && g0.x.marche === 'schema' && g0.x.zone === 'lourd', JSON.stringify(g0 && g0.x));
+    await abandonner();
+
+    // ── A. « FAIRE DE CE DOSSIER UN PROGRAMME ».
+    await aller('/saisie');
+    const a0 = await dossier('Alpha U53');
+    ok('[C53] le dossier sans programme : pas de badge, « Faire de ce dossier un programme »',
+      a0 && a0.badge === null && a0.creer, JSON.stringify(a0));
+    await cliquerDossier('Alpha U53', '.programme-creer');
+    await attendre(800);
+    const fp = await feuilleP();
+    const fc = fp.champs || {};
+    ok('[C53] la feuille (maquette) : quatre champs dans l’ordre — Mix (6-8), 4 semaines (3 à 6), « Oui, la dernière semaine », le lundi qui suit',
+      /^Faire de ce dossier un programme/.test(sp(fp.titre)) &&
+        JSON.stringify(fp.ordre) === JSON.stringify(['zone', 'semaines', 'decharge', 'debut']) &&
+        fc.zone.libelle === 'Premier bloc' && fc.zone.choisi === 'Mix (6-8)' &&
+        JSON.stringify(fc.zone.options) === JSON.stringify(['Lourd (3-5)', 'Mix (6-8)']) &&
+        fc.semaines.libelle === 'Durée du bloc' && fc.semaines.choisi === '4 semaines (3 à 6)' && fc.semaines.options.length === 4 &&
+        fc.decharge.libelle === 'Décharge à la fin' && fc.decharge.choisi === 'Oui, la dernière semaine' &&
+        fc.debut.libelle === 'Début' && /^lundi \d+ \S+$/.test(sp(fc.debut.choisi)) && sp(fc.debut.options[1]) === 'aujourd’hui',
+      JSON.stringify(fp));
+    ok('[C53] la feuille (maquette) : les barres polyarticulaires cochées en « Mix », l’autre « sa zone », « Lancer le programme »',
+      sp(fp.aide) === 'Exercices du bloc — tes mouvements à la barre. Les autres gardent leur zone.' &&
+        JSON.stringify(fp.cases.map(sp)) === JSON.stringify(['☑ Alpha Cycle U53 (Barre)|Mix', '☑ Bêta Cycle U53 (Barre)|Mix',
+          '☐ Gamma Cycle U53 (Barre)|sa zone']) && fp.bouton === 'Lancer le programme',
+      JSON.stringify(fp));
+    await choisirP('debut', 'aujourd');
+    const zonesAvantA = base.zones.length;
+    await validerP();
+    const blocA = base.blocs.filter((b) => b.dossier === 'Alpha U53')[0];
+    ok('[C53] DISCRIMINANT — le bloc en base : Mix, 4 semaines, décharge, aujourd’hui, les deux barres cochées',
+      !!blocA && blocA.zone === 'mix' && blocA.semaines === 4 && blocA.decharge === true && blocA.debut === J0 &&
+        blocA.statut === 'en_cours' && JSON.stringify(blocA.exercices) === JSON.stringify(['cyc-squat-u53', 'cyc-couche-u53']),
+      JSON.stringify(base.blocs));
+    const lignesA = base.zones.slice(zonesAvantA);
+    ok('[C53] DISCRIMINANT — une ligne de zone par exercice du bloc, origine « bloc », datée du début (00:00), après le bloc',
+      lignesA.length === 2 && lignesA.every((l) => l.origine === 'bloc' && l.bloc_id === blocA.id && l.zone === 'mix' &&
+        new Date(l.corrigee_a).getTime() === new Date(J0 + 'T00:00:00').getTime()) &&
+        base.journal.findIndex((j) => j.op === 'bloc' && j.id === blocA.id) < base.journal.findIndex((j) => j.op === 'zone' && j.id === lignesA[0].id),
+      JSON.stringify(lignesA));
+    const a1 = await dossier('Alpha U53');
+    ok('[C53] le badge sur la tête du dossier, à la place du compte, sans rangée de plus : « Bloc Mix · semaine 1 sur 4 »',
+      a1 && sp(a1.badge) === 'Bloc Mix · semaine 1 sur 4' && !a1.compte && !a1.creer && !a1.rangee,
+      JSON.stringify(a1));
+
+    // ── B. EN SÉANCE : la zone du bloc, la charge reportée, sa phrase.
+    await demarrerRoutine('Alpha U53');
+    await attendre(1500);
+    const b0 = await planC('cyc-squat-u53');
+    const bCurl = await planC('cyc-curl-u53');
+    ok('[C53] DISCRIMINANT — la zone suit (Mix) et la charge se reporte : 95 kg × 6, avec sa phrase',
+      b0 && b0.x.etat === 'nouvelle_zone' && b0.x.zone === 'mix' && b0.x.charge === 95 && b0.x.vise === 6 &&
+        sp(b0.x.gris) === 'Nouveau bloc : Mix. Estimée depuis ton 100 kg × 5, un peu en dessous pour démarrer.',
+      JSON.stringify(b0 && b0.x));
+    const etiqB = [await puceC('cyc-squat-u53'), await puceC('cyc-curl-u53')];
+    ok('[C53] DISCRIMINANT (D3) — l’étiquette porte l’origine : « Mix 6-8 · bloc » ; l’exercice hors bloc, la sienne',
+      sp(etiqB[0]) === 'Mix 6-8 · bloc' && !!etiqB[1] && !/bloc/.test(etiqB[1]), JSON.stringify(etiqB));
+    ok('[C53] l’exercice décoché garde sa zone (pas de report)', bCurl && bCurl.x.etat !== 'nouvelle_zone' && bCurl.x.zone !== 'mix',
+      JSON.stringify(bCurl && bCurl.x));
+    await abandonner();
+
+    // ── G (2). DANS UN BLOC (Lourd, sa zone ne change pas) : le schéma se tait.
+    await aller('/saisie');
+    await cliquerDossier('Delta U53', '.programme-creer');
+    await attendre(800);
+    await choisirP('zone', 'Lourd');
+    await choisirP('debut', 'aujourd');
+    await validerP();
+    await demarrerRoutine('Delta U53');
+    await attendre(1500);
+    const g1 = await planC('cyc-terre-u53');
+    ok('[C53] DISCRIMINANT — dans un bloc en cours, « Changer de schéma » est absent (I39) ; la zone reste Lourd, sans report',
+      g1 && g1.x.marche !== 'schema' && g1.x.zone === 'lourd' && g1.x.etat !== 'nouvelle_zone' &&
+        g1.enBloc && g1.enBloc['cyc-terre-u53'] === true, JSON.stringify(g1));
+    await abandonner();
+
+    // ── C. SEMAINE 2, AU CALENDRIER ; la séance faite à la charge reportée.
+    await sauter(7);
+    const c0 = await dossier('Alpha U53');
+    ok('[C53] DISCRIMINANT — une semaine plus tard (aucune séance entre-temps) : « Bloc Mix · semaine 2 sur 4 »',
+      c0 && sp(c0.badge) === 'Bloc Mix · semaine 2 sur 4', JSON.stringify(c0));
+    await demarrerRoutine('Alpha U53');
+    await attendre(1500);
+    const c1 = await planC('cyc-squat-u53');
+    for (let k = 0; k < 9; k++) {
+      await page.evaluate((j) => document.querySelectorAll('.ligne-serie .ok-serie')[j].click(), k);
+      await attendre(700);
+    }
+    await terminer();
+    ok('[C53] la séance de la semaine 2 part de la charge reportée (95 kg × 6)', c1 && c1.x.charge === 95 && c1.x.vise === 6,
+      JSON.stringify(c1 && c1.x));
+
+    // ── D. LA SÉANCE D'APRÈS PROGRESSE ; la personne change la zone : elle l'emporte.
+    await aller('/saisie');
+    await demarrerRoutine('Alpha U53');
+    await attendre(1500);
+    const d0 = await planC('cyc-squat-u53');
+    ok('[C53] DISCRIMINANT — la séance d’après progresse : 95 kg × 7 en Mix, sans second report',
+      d0 && d0.x.etat === 'progression' && d0.x.zone === 'mix' && d0.x.charge === 95 && d0.x.vise === 7, JSON.stringify(d0 && d0.x));
+    await page.click('.legende-exo .puce-zone');
+    await attendre(700);
+    await page.click('#feuille-contenu .option-zone[data-cle="lourd"]');
+    await attendre(1600);
+    const d1 = await planC('cyc-squat-u53');
+    const puceD = await page.evaluate(() => {
+      const n = document.querySelector('.legende-exo .puce-zone');
+      return n ? { texte: n.textContent, choisie: n.classList.contains('choisie') } : null;
+    });
+    ok('[C53] DISCRIMINANT — une correction de la personne en plein bloc l’emporte (la plus récente) : Lourd',
+      d1 && d1.x.zone === 'lourd' && puceD && puceD.texte === 'Lourd 3-5' && puceD.choisie &&
+        base.zones[base.zones.length - 1].origine === 'personne', JSON.stringify([d1 && d1.x, puceD]));
+    await abandonner();
+    const d2 = await dossier('Alpha U53');
+    ok('[C53] le bloc continue : toujours « semaine 2 sur 4 »', d2 && sp(d2.badge) === 'Bloc Mix · semaine 2 sur 4', JSON.stringify(d2));
+
+    // ── E. SEMAINE 4 : LA DÉCHARGE PLANIFIÉE, sans carte.
+    await sauter(21);
+    await demarrerRoutine('Alpha U53');
+    await attendre(1500);
+    const e0 = await planC('cyc-couche-u53');
+    const bandeau = await texte('#escalier-seance');
+    ok('[C53] DISCRIMINANT — la semaine 4 : la décharge prévue par le programme, son bandeau, aucune carte',
+      e0 && e0.allegee && e0.allegee.source === 'decharge_planifiee' && e0.carte === null &&
+        sp(bandeau) === 'Semaine 4 sur 4 : la décharge prévue par ton programme. Mêmes charges, moins de séries, loin de l’échec.',
+      JSON.stringify([e0 && e0.allegee, bandeau]));
+    ok('[C53] DISCRIMINANT — 60 % des séries : 2 lignes sur 3, mêmes charges', e0 && e0.x.couvertes === 2 && e0.x.travail === 2,
+      JSON.stringify(e0 && e0.x));
+    ok('[C53] la phrase de l’exercice nomme la décharge (maquette) : « Semaine de décharge : … 2 séries au lieu de 3, cette semaine. »',
+      e0 && sp(e0.x.gris) === 'Semaine de décharge : mêmes charges, moins de séries. 2 séries au lieu de 3, cette semaine.',
+      JSON.stringify(e0 && e0.x));
+    await abandonner();
+
+    // ── F. UNE SEMAINE ALLÉGÉE FINIE 5 JOURS AVANT : la décharge saute.
+    const ID_ALLEGEE = '00000000-0000-5000-8533-000000000001';
+    base.predictions.push({ id: ID_ALLEGEE, user_id: 'u-banc', module: 'escalier', module_version: '1',
+      emise_a: new Date(T0 + 10 * JOUR_MS).toISOString(), exercise_slug: null, grandeur: 'progres', horizon_jours: null,
+      valeur_predite: 1, borne_basse: null, borne_haute: null,
+      fondement: { seance: 'x53', jour: jourLocal(T0 + 10 * JOUR_MS), marche: 'semaine_allegee', reponse: 'acceptee',
+                   declencheur: 'cyc-curl-u53', compteur: 4, cites: ['cyc-curl-u53'],
+                   debut: jourLocal(T0 + 10 * JOUR_MS), fin: jourLocal(T0 + 16 * JOUR_MS), phase: 'maintien' },
+      valeur_observee: null, observee_a: null, set_observe: null });
+    await aller('/saisie');
+    await demarrerRoutine('Alpha U53');
+    await attendre(1500);
+    const f0 = await planC('cyc-couche-u53');
+    ok('[C53] DISCRIMINANT — une semaine allégée finie 5 jours avant : pas de décharge (pas de cumul, I38)',
+      f0 && f0.allegee === null && f0.x.couvertes === 3, JSON.stringify(f0 && [f0.allegee, f0.x]));
+    await abandonner();
+    base.predictions = base.predictions.filter((l) => l.id !== ID_ALLEGEE);
+
+    // ── H. LA FIN DU BLOC : le bilan, les paris tenus, le bloc suivant.
+    await sauter(28);
+    const h0 = await dossier('Alpha U53');
+    ok('[C53] DISCRIMINANT — la fin du bloc : la carte EN TÊTE de l’écran, « Pendant ce bloc », le bilan en deux colonnes (hors décharge), les paris tenus',
+      h0 && h0.fin && h0.fin.enTete && sp(h0.fin.titre) === 'Ton bloc Mix est terminé.' && h0.fin.entete === 'Pendant ce bloc' &&
+        JSON.stringify(h0.fin.lignes.map((l) => l.map(sp))) === JSON.stringify([['Alpha Cycle U53 (Barre)', '95 kg × 6, inchangé'],
+          ['Bêta Cycle U53 (Barre)', '77,5 kg × 6, inchangé']]) &&
+        sp(h0.fin.paris[0]) === 'Le coach avait fait 6 paris sur ce bloc : 6 ont tenu.',
+      JSON.stringify(h0));
+    ok('[C53] le bloc suivant par la règle fixe, sans jargon (sa zone en gras), et ses trois gestes',
+      h0 && h0.fin && sp(h0.fin.suivant) === 'Le suivant, comme le font les programmes de force : Lourd (3-5) sur tes ' +
+        'mouvements à la barre, 4 semaines, décharge la dernière semaine. Les autres exercices gardent leur zone.' &&
+        h0.fin.gras === 'Lourd (3-5)' &&
+        JSON.stringify(h0.fin.gestes) === JSON.stringify(['Commencer le bloc Lourd', 'Ajuster le bloc', 'Arrêter le programme']),
+      JSON.stringify(h0 && h0.fin));
+
+    // ── I (53-2 bis). ENTRE LA FIN ET LE CHOIX : rien ne change sans la personne.
+    ok('[C53] DISCRIMINANT (D3) — entre la fin et le choix : le badge « Bloc Mix terminé »',
+      h0 && sp(h0.badge) === 'Bloc Mix terminé', JSON.stringify(h0));
+    await demarrerRoutine('Alpha U53');
+    await attendre(1500);
+    const i0 = await planC('cyc-couche-u53');
+    const etiqI = await puceC('cyc-couche-u53');
+    ok('[C53] DISCRIMINANT (D3) — entre la fin et le choix : la zone du bloc tient (Mix · bloc), aucune décharge de plus',
+      i0 && i0.x.zone === 'mix' && sp(etiqI) === 'Mix 6-8 · bloc' && i0.allegee === null && i0.carte === null &&
+        i0.x.couvertes === 3 && i0.enBloc && i0.enBloc['cyc-couche-u53'] === true, JSON.stringify([i0, etiqI]));
+    await abandonner();
+    await sauter(31);
+    const i1 = await dossier('Alpha U53');
+    ok('[C53] DISCRIMINANT (D3) — trois jours plus tard, sans choix : la carte de fin est toujours là, le bloc toujours en cours',
+      i1 && i1.fin && sp(i1.fin.titre) === 'Ton bloc Mix est terminé.' && sp(i1.badge) === 'Bloc Mix terminé' &&
+        base.blocs.filter((b) => b.dossier === 'Alpha U53' && b.statut === 'en_cours').length === 1 &&
+        base.predictions.filter((l) => l.module === 'programme').length === 0, JSON.stringify(i1));
+
+    // ── J. LE CHOIX : « Commencer le bloc Lourd », le bloc proposé tel quel : un pari.
+    await cliquerDossier('Alpha U53', '.cfb-commencer');
+    await attendre(2400);
+    const blocs53 = base.blocs.filter((b) => b.dossier === 'Alpha U53');
+    const nouveau = blocs53.filter((b) => b.statut === 'en_cours')[0];
+    ok('[C53] DISCRIMINANT — « Commencer le bloc Lourd » : l’ancien terminé, le nouveau chaîné (Lourd, mêmes exercices)',
+      blocs53.length === 2 && blocs53.filter((b) => b.statut === 'termine').length === 1 && !!nouveau &&
+        nouveau.zone === 'lourd' && nouveau.precedent === blocA.id && nouveau.semaines === 4 &&
+        JSON.stringify(nouveau.exercices) === JSON.stringify(blocA.exercices), JSON.stringify(blocs53));
+    const pariP = base.predictions.filter((l) => l.module === 'programme');
+    ok('[C53] DISCRIMINANT — le bloc proposé, commencé tel quel, est un pari : module programme, 2 exercices prédits',
+      pariP.length === 1 && pariP[0].grandeur === 'exercices_en_progres' && Number(pariP[0].valeur_predite) === 2 &&
+        pariP[0].fondement.bloc === (nouveau && nouveau.id) && pariP[0].exercise_slug === null, JSON.stringify(pariP));
+    const h1 = await dossier('Alpha U53');
+    ok('[C53] le badge du nouveau bloc : « Bloc Lourd · semaine 1 sur 4 », la carte partie',
+      h1 && sp(h1.badge) === 'Bloc Lourd · semaine 1 sur 4' && h1.fin === null, JSON.stringify(h1));
+
+    // ── K. « AJUSTER LE BLOC » (Delta U53) : le bloc commence, SANS pari.
+    const terre = base.blocs.filter((b) => b.dossier === 'Delta U53')[0];
+    await cliquerDossier('Delta U53', '.cfb-ajuster');
+    await attendre(800);
+    const fk = await feuilleP();
+    ok('[C53] « Ajuster le bloc » : la feuille du bloc suivant (Mix, proposé par la règle), réglable',
+      /^Ajuster le bloc/.test(sp(fk.titre)) && fk.champs.zone && fk.champs.zone.choisi === 'Mix (6-8)' &&
+        fk.champs.zone.libelle === 'Bloc' && fk.bouton === 'Commencer le bloc', JSON.stringify(fk));
+    await choisirP('semaines', '3 semaines');
+    await validerP();
+    const blocsK = base.blocs.filter((b) => b.dossier === 'Delta U53');
+    const ajuste = blocsK.filter((b) => b.statut === 'en_cours')[0];
+    ok('[C53] DISCRIMINANT (D3) — un bloc ajusté ne porte pas de pari : le bloc commence, aucun pari de programme de plus',
+      blocsK.length === 2 && !!ajuste && ajuste.zone === 'mix' && ajuste.semaines === 3 && ajuste.precedent === terre.id &&
+        base.blocs.filter((b) => b.id === terre.id)[0].statut === 'termine' &&
+        base.predictions.filter((l) => l.module === 'programme').length === 1, JSON.stringify([blocsK, base.predictions.filter((l) => l.module === 'programme')]));
+
+    // ── L. « ARRÊTER LE PROGRAMME » en plein bloc, sans correction (Delta U53).
+    const zonesAvantL = base.zones.length;
+    await cliquerDossier('Delta U53', '.dossier-badge');
+    await attendre(800);
+    await page.click('#feuille-contenu .arreter-programme');
+    await attendre(2000);
+    const arretL = base.zones.slice(zonesAvantL);
+    ok('[C53] DISCRIMINANT (53-2 ter) — l’arrêt pendant le deuxième bloc rend la zone d’avant le PROGRAMME (Lourd, la correction d’avant), origine « bloc », datée de l’arrêt',
+      base.blocs.filter((b) => b.id === ajuste.id)[0].statut === 'arrete' && arretL.length === 1 &&
+        arretL[0].exercise_slug === 'cyc-terre-u53' && arretL[0].zone === 'lourd' && arretL[0].origine === 'bloc' &&
+        arretL[0].bloc_id === ajuste.id && Math.abs(Date.parse(arretL[0].corrigee_a) - (T0 + 31 * JOUR_MS)) < 10 * 60000,
+      JSON.stringify(arretL));
+    const l0 = await dossier('Delta U53');
+    ok('[C53] après l’arrêt : ni badge, ni carte ; « Faire de ce dossier un programme » revient',
+      l0 && l0.badge === null && l0.fin === null && l0.creer, JSON.stringify(l0));
+    await demarrerRoutine('Delta U53');
+    await attendre(1500);
+    const l1 = await planC('cyc-terre-u53');
+    const puceL = await page.evaluate(() => {
+      const n = document.querySelector('.legende-exo[data-exo="cyc-terre-u53"] .puce-zone');
+      return n ? { texte: n.textContent, choisie: n.classList.contains('choisie') } : null;
+    });
+    ok('[C53] DISCRIMINANT (53-2 ter) — en séance, la barre corrigée avant le programme retrouve SA zone (Lourd, choisie), sans « bloc »',
+      l1 && l1.x.zone === 'lourd' && puceL && puceL.texte === 'Lourd 3-5' && puceL.choisie,
+      JSON.stringify([l1 && l1.x, puceL]));
+    await abandonner();
+
+    // ── M. L'ARRÊT AVEC UNE CORRECTION DE LA PERSONNE PENDANT LE BLOC (Alpha U53, bloc Lourd).
+    await demarrerRoutine('Alpha U53');
+    await attendre(1500);
+    await page.click('.legende-exo[data-exo="cyc-couche-u53"] .puce-zone');
+    await attendre(700);
+    await page.click('#feuille-contenu .option-zone[data-cle="mix"]');
+    await attendre(1600);
+    await abandonner();
+    const zonesAvantM = base.zones.length;
+    await cliquerDossier('Alpha U53', '.dossier-badge');
+    await attendre(800);
+    await page.click('#feuille-contenu .arreter-programme');
+    await attendre(2000);
+    const arretM = base.zones.slice(zonesAvantM);
+    const dernCouche = base.zones.filter((l) => l.exercise_slug === 'cyc-couche-u53').slice(-1)[0];
+    ok('[C53] DISCRIMINANT (D3) — l’arrêt garde la correction de la personne : une ligne pour la barre non corrigée, aucune pour l’autre',
+      arretM.length === 1 && arretM[0].exercise_slug === 'cyc-squat-u53' && arretM[0].zone === null &&
+        arretM[0].origine === 'bloc' && arretM[0].bloc_id === nouveau.id &&
+        dernCouche.origine === 'personne' && dernCouche.zone === 'mix', JSON.stringify([arretM, dernCouche]));
+    await demarrerRoutine('Alpha U53');
+    await attendre(1500);
+    const m1 = [await planC('cyc-couche-u53'), await planC('cyc-squat-u53')];
+    const etiqM = [await puceC('cyc-couche-u53'), await puceC('cyc-squat-u53')];
+    ok('[C53] après l’arrêt : la correction tient (Mix, sans « bloc »), l’autre barre retrouve sa zone d’après ses séances',
+      m1[0] && m1[0].x.zone === 'mix' && sp(etiqM[0]) === 'Mix 6-8' && m1[1] &&
+        !/bloc/.test(etiqM[1] || '') && m1[1].enBloc && Object.keys(m1[1].enBloc).length === 0,
+      JSON.stringify([m1.map((x) => x && x.x), etiqM]));
+    await abandonner();
+    // ── N (53-2 bis). L'ARRÊT AVANT LE DÉBUT (Delta U53) : rien ne change, ni avant ni après le lundi.
+    await aller('/saisie');
+    await cliquerDossier('Delta U53', '.programme-creer');
+    await attendre(800);
+    await validerP();
+    const avantN = base.blocs.filter((b) => b.dossier === 'Delta U53' && b.statut === 'en_cours')[0];
+    const n0 = await dossier('Delta U53');
+    ok('[C53] DISCRIMINANT (D3) — le début différé : « Bloc Mix · dès le lundi … », le bloc daté du lundi qui suit',
+      !!avantN && /^Bloc Mix · dès le lundi \d+ \S+$/.test(sp(n0 && n0.badge)) && avantN.debut > jourLocal(T0 + 31 * JOUR_MS),
+      JSON.stringify([n0, avantN]));
+    await demarrerRoutine('Delta U53');
+    await attendre(1500);
+    const n1 = await planC('cyc-terre-u53');
+    const etiqN1 = await puceC('cyc-terre-u53');
+    ok('[C53] DISCRIMINANT (D3) — avant son début, le bloc ne change rien (pas de « · bloc », pas en bloc)',
+      n1 && !/bloc/.test(etiqN1 || '') && n1.enBloc && !n1.enBloc['cyc-terre-u53'], JSON.stringify([n1 && n1.x, etiqN1]));
+    await abandonner();
+    const zonesAvantN = base.zones.length;
+    await cliquerDossier('Delta U53', '.dossier-badge');
+    await attendre(800);
+    await page.click('#feuille-contenu .arreter-programme');
+    await attendre(2000);
+    ok('[C53] l’arrêt avant le début : le bloc arrêté, aucune ligne de zone écrite',
+      base.blocs.filter((b) => b.id === avantN.id)[0].statut === 'arrete' && base.zones.length === zonesAvantN,
+      JSON.stringify(base.zones.slice(zonesAvantN)));
+    await sauter(39);
+    await demarrerRoutine('Delta U53');
+    await attendre(1500);
+    const n2 = await planC('cyc-terre-u53');
+    const etiqN2 = await page.evaluate(() => {
+      const n = document.querySelector('.legende-exo[data-exo="cyc-terre-u53"] .puce-zone');
+      return n ? { texte: n.textContent, choisie: n.classList.contains('choisie') } : null;
+    });
+    // 53-2 ter : la ligne du bloc arrêté est IGNORÉE, pas lue « sans zone » —
+    // la zone en vigueur reste celle que la personne a choisie (Lourd, choisie).
+    ok('[C53] DISCRIMINANT (D3, 53-2 ter) — le lundi passé, le bloc arrêté avant son début n’a rien changé : la zone choisie tient (Lourd, choisie)',
+      n2 && n2.x.zone === 'lourd' && etiqN2 && etiqN2.texte === 'Lourd 3-5' && etiqN2.choisie &&
+        n2.enBloc && !n2.enBloc['cyc-terre-u53'], JSON.stringify([n2 && n2.x, etiqN2]));
+    await abandonner();
+
+    ok('[C53] aucun refus du serveur pendant la section (le bloc monte avant ses lignes)',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant,
+      JSON.stringify(base.journal.filter((j) => j.op === 'refus').slice(-3)));
+    ok('[C53] la garde de l’app (I36 à I39 compris) n’a rien signalé', gardeBanc.violations === violationsAvant,
+      JSON.stringify(gardeBanc.liste.slice(-2)));
+    // L'heure revient : les sections suivantes jouent au présent.
+    await page.clock.setSystemTime(new Date());
+    await aller('/saisie');
+    ok('[C53] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
 
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');

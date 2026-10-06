@@ -1230,7 +1230,16 @@
     if (vue.exercices.length) {
       var e = carteMois('Les plus faits');
       vue.exercices.forEach(function (x) {
-        e.appendChild(ligneMois(x.nom, x.series + (x.series > 1 ? ' séries' : ' série')));
+        // 57-1 (ECRAN §7 bis.14) — LE NOM OUVRE SA PAGE, par la même porte que
+        // partout ailleurs (§7 quater) : le même bouton `nom-exo lien` que dans
+        // la séance, le même `surExercice`, par l'identifiant de l'exercice.
+        var nom = x.nom;
+        if (vue.surExercice && x.slug) {
+          nom = el('button', 'nom-exo lien', x.nom);
+          nom.type = 'button';
+          nom.addEventListener('click', function () { vue.surExercice(x.slug); });
+        }
+        e.appendChild(ligneMois(nom, x.series + (x.series > 1 ? ' séries' : ' série')));
       });
       cible.appendChild(e);
     }

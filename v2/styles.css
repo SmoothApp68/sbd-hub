@@ -847,8 +847,10 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .cols-seance .droite{text-align:right}
 
 /* La ligne porte le fond de glissement ; la rangée glisse par-dessus. */
+/* 57-1 : le fond, même teinte, assombri juste assez pour que « Supprimer »
+   tienne 4,5:1 (il était à 4,23:1, #3A2422). */
 .ligne-serie{position:relative;overflow:hidden;touch-action:pan-y}
-.glisse-fond{position:absolute;inset:0;background:#3A2422;display:flex;
+.glisse-fond{position:absolute;inset:0;background:#33201e;display:flex;
   align-items:center;justify-content:flex-end;padding-right:var(--e3);
   color:var(--manque);font-size:12px;font-weight:700;z-index:0}
 .serie.grille{position:relative;z-index:1;align-items:center;
@@ -872,7 +874,11 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
    et coûte plus qu'elle ne rapporte. */
 .no-serie.c{border-color:#3A4A5E;color:var(--chauffe);background:#1B2129;font-weight:700}
 .no-serie.d{border-color:#4A4033;color:#B08F3C}
-.no-serie.x{border-color:#4A3330;color:var(--manque)}
+/* 57-1 — LA SÉRIE « ÉCHEC » DIT SON TYPE, ELLE NE JUGE PAS. Le « ✕ » était
+   rouge, et le rouge jugeait une performance (ECRAN : « Aucun rouge, aucun
+   échec ») ; il passe au gris du texte, sur le cadre de toutes les séries :
+   même forme, même taille, c'est le signe qui distingue. */
+.no-serie.x{border-color:var(--trait);color:var(--texte-2)}
 /* Une note propre à CETTE série (§7 septies.1) : un point, pas un libellé —
    30 px de large ne portent pas un mot, et le numéro doit rester lisible. */
 .no-serie.a-note{position:relative}

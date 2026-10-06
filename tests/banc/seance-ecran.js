@@ -12634,6 +12634,30 @@ const SETS_IMPORTES = [
     ok('[P55] le calendrier marque aujourd’hui ; la carte des records est là ; aucune couleur de jugement',
       bil.aujourdhui.indexOf(String(ici.getDate())) >= 0 && bil.records.length >= 1 && !bil.rouge, JSON.stringify(bil));
 
+    // ── F bis (57-1). UN EXERCICE « LE PLUS FAIT » OUVRE SA PAGE, PAR SON
+    // IDENTIFIANT, et le retour rend le bilan (ECRAN §7 bis.14, §7 quater).
+    const avantExo = await page.evaluate(() => location.pathname);
+    const plusFaits = await page.evaluate(() => Array.from(document.querySelectorAll('#bilan-mois .carte-mois'))
+      .filter((c) => /Les plus faits/.test(c.textContent))
+      .map((c) => Array.from(c.querySelectorAll('.ligne-mois')).map((l) => ({
+        texte: l.textContent, bouton: !!l.querySelector('button.nom-exo.lien') })))[0] || []);
+    await page.evaluate(() => {
+      const b = Array.from(document.querySelectorAll('#bilan-mois .carte-mois button.nom-exo.lien'))
+        .filter((x) => /Médaillé U55/.test(x.textContent))[0];
+      if (b) b.click();
+    });
+    await attendre(900);
+    const versExo = { route: await page.evaluate(() => location.pathname), vues: await visible() };
+    ok('[57-1] DISCRIMINANT — dans le bilan, chaque exercice « le plus fait » est un nom touchable, et « Médaillé U55 » ouvre SA page (/exercice/record-u55)',
+      plusFaits.length >= 1 && plusFaits.every((l) => l.bouton) &&
+        versExo.route === '/exercice/record-u55' && JSON.stringify(versExo.vues) === '["vue-exercice"]',
+      JSON.stringify([plusFaits, versExo]));
+    await page.click('#btn-retour-exercice');
+    await attendre(900);
+    ok('[57-1] le retour rend le bilan du même mois',
+      (await page.evaluate(() => location.pathname)) === avantExo && JSON.stringify(await visible()) === '["vue-mois"]',
+      JSON.stringify([avantExo, await page.evaluate(() => location.pathname), await visible()]));
+
     // ── G. LES RECORDS DU MOIS : chacun mène à sa séance.
     await page.evaluate(() => document.querySelector('#bilan-mois .tous-records').click());
     await attendre(900);

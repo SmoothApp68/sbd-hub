@@ -1130,14 +1130,16 @@
       moisAvant: nomDuMois(precedent, false).toLowerCase(),
       exercices: b.exercices.map(function (e) {
         var nom = index[e.slug] ? index[e.slug].nom : e.slug;
-        return { nom: nom, series: e.series };
+        return { slug: e.slug, nom: nom, series: e.series };
       }),
       paris: b.paris_verifies ? { verifies: b.paris_verifies, tenus: b.paris_tenus,
                                   phrase: Bilan.phraseParis(b.paris_verifies, b.paris_tenus) } : null,
       surPrecedent: function () { afficherMois(precedent); },
       surSuivant: mois < courant ? function () { afficherMois(Bilan.moisSuivant(mois)); } : null,
       surRecords: function () { afficherRecordsDuMois(mois); },
-      surSeance: function (id) { afficherDetail(id); }
+      surSeance: function (id) { afficherDetail(id); },
+      // 57-1 — un exercice « le plus fait » ouvre sa page : la porte commune.
+      surExercice: function (slug) { afficherExercice(slug); }
     });
   }
 

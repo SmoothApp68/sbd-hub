@@ -4518,6 +4518,26 @@
     }).length;
   }
 
+  // §9.22 (53-2 bis) — LES LIGNES QU'UN ARRÊT A RENDUES SANS OBJET. Un bloc
+  // pose ses lignes datées de son début ; arrêté AVANT, il ne doit rien
+  // changer (« avant son début, un bloc ne change rien ») : une ligne qui
+  // pose une zone, d'un bloc arrêté (`arrete`), datée APRÈS l'arrêt
+  // (`modifie_a`), ne prend jamais effet. Les lignes d'un bloc arrêté en
+  // cours de route restent (elles ont valu jusqu'à l'arrêt), comme celles d'un
+  // bloc terminé. Pure : l'app lit ses zones à travers elle.
+  function lignesDeZoneValides(lignes, blocs) {
+    var arretes = {};
+    (blocs || []).forEach(function (b) {
+      var t = b && b.statut === 'arrete' ? instant(b.modifie_a) : null;
+      if (t !== null) arretes[b.id] = t;
+    });
+    return (lignes || []).filter(function (l) {
+      if (!l || l.origine !== LIGNE_BLOC || !l.zone || !Object.prototype.hasOwnProperty.call(arretes, l.bloc_id)) return true;
+      var t = instant(l.corrigee_a);
+      return t === null || t <= arretes[l.bloc_id];
+    });
+  }
+
   // Le bloc en cours d'un dossier (un seul : l'index `blocs_un_en_cours`), et
   // ceux d'un exercice au jour `jour` (I39 : « Changer de schéma » se tait).
   // §9.22 (53-2 bis) — DE SON DÉBUT JUSQU'AU CHOIX : entre la fin du bloc et
@@ -5924,6 +5944,7 @@
     bandeauDecharge: bandeauDecharge,
     carteFinDeBloc: carteFinDeBloc,
     ligneDeZoneAu: ligneDeZoneAu,
+    lignesDeZoneValides: lignesDeZoneValides,
     correctionAu: correctionAu,
     ZONES_DE_BLOC: ZONES_DE_BLOC,
     SANS_CUMUL_JOURS: SANS_CUMUL_JOURS,

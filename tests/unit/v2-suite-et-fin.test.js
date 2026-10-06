@@ -115,7 +115,9 @@ describe('PR 2 — la suite du constat suit la zone en vigueur', () => {
       // 52-1 : la charge de départ de la routine (MOTEUR §9.21), lue par `optionsDeConsigne`.
       chargeDeDepartDe: () => null,
       // 53-2 bis : la ligne de zone en vigueur (son origine, « Nouveau bloc »).
-      ligneDeZoneDe: () => null
+      ligneDeZoneDe: () => null,
+      // 53-2 bis : les zones lues (`local.zones` sans les lignes rendues sans objet par un arrêt).
+      zonesLues: () => []
     };
     vm.createContext(ctx);
     ['optionsDeConsigne', 'suiteDe'].forEach((n) => vm.runInContext(extraire(n), ctx));

@@ -215,10 +215,13 @@
   // l'app lui passe les lignes, elle ne les trie pas elle-même.
   // §9.22 (53-2) — À L'INSTANT : une ligne de bloc datée de lundi n'est pas
   // encore en vigueur aujourd'hui.
-  function zoneDe(slug) { return Moteur.zoneEnVigueur(local.zones, slug, new Date().toISOString()); }
+  function zoneDe(slug) { return Moteur.zoneEnVigueur(zonesLues(), slug, new Date().toISOString()); }
   // §9.10 (53-2 bis, D1) — la ligne qui pose cette zone : son origine fait dire
   // « Nouveau bloc » et « · bloc » à l'étiquette.
-  function ligneDeZoneDe(slug) { return Moteur.ligneDeZoneAu(local.zones, slug, new Date().toISOString(), true); }
+  function ligneDeZoneDe(slug) { return Moteur.ligneDeZoneAu(zonesLues(), slug, new Date().toISOString(), true); }
+  // §9.22 (53-2 bis) — les zones que l'app LIT : sans les lignes d'un bloc
+  // datées après son arrêt (un bloc arrêté avant son début ne change rien).
+  function zonesLues() { return Moteur.lignesDeZoneValides(local.zones || [], local.blocs || []); }
 
   // ⚠️ L'APPAREIL D'ABORD, LE RÉSEAU ENSUITE. Le choix s'affiche tout de suite,
   // même sans réseau, et part par la file. `user_id` et `corrigee_a` sont posés
@@ -502,10 +505,9 @@
   // l'arrêt — sauf si sa dernière déclaration n'est plus celle du bloc (la
   // personne l'a corrigée pendant le bloc : sa correction reste).
   //
-  // ⚠️ La dernière déclaration se lit À VENIR COMPRISE : un bloc arrêté avant
-  // son début a déjà posé ses lignes, datées de son début. Datée de l'arrêt,
-  // la ligne vide serait plus ancienne qu'elles et ne gagnerait jamais ; elle
-  // se date alors juste après elles (rapporté dans #369).
+  // Un bloc arrêté AVANT son début n'a encore rien changé : aucune ligne
+  // n'est en vigueur, rien ne s'écrit, et ses lignes à venir ne prendront
+  // jamais effet (`zonesLues`, rapporté dans #369).
   async function arreterProgramme(dossier) {
     var b = Moteur.blocEnCours(local.blocs, dossier);
     if (!b) return;
@@ -513,11 +515,9 @@
     await terminerBloc(b, fini ? 'termine' : 'arrete', fini);
     var t = instantDuJour();
     var lignes = (b.exercices || []).map(function (slug) {
-      var l = Moteur.ligneDeZoneAu(local.zones, slug, null);
+      var l = Moteur.ligneDeZoneAu(zonesLues(), slug, t, true);
       if (!l || l.bloc_id !== b.id || !l.zone) return null;
-      var aVenir = Date.parse(l.corrigee_a) >= Date.parse(t);
-      return { id: uuid(), user_id: idUtilisateur(), exercise_slug: slug, zone: null,
-               corrigee_a: aVenir ? new Date(Date.parse(l.corrigee_a) + 1000).toISOString() : t,
+      return { id: uuid(), user_id: idUtilisateur(), exercise_slug: slug, zone: null, corrigee_a: t,
                origine: 'bloc', bloc_id: b.id };
     }).filter(Boolean);
     await poserLignesDeZone(lignes, b.id);
@@ -2427,7 +2427,7 @@
       // Et l'historique des zones choisies : chaque séance passée se rejoue
       // avec la zone en vigueur ce jour-là, pas celle d'aujourd'hui.
       // §9.22 (53-2) — sans les lignes pas encore en vigueur (un bloc à venir).
-      correctionsDeZone: (local.zones || []).filter(function (l) {
+      correctionsDeZone: zonesLues().filter(function (l) {
         return l && l.exercise_slug === slug && !(Date.parse(l.corrigee_a) > Date.now());
       }),
       // §14.4 (49-U14) — les semaines allégées acceptées : leurs séances ne
@@ -2621,7 +2621,7 @@
     paris.filter(function (l) { return l.module === Moteur.MODULE_ESCALIER && l.emise_a; }).forEach(function (l) {
       evts.push({ a: l.emise_a, ordre: 1, quoi: 'escalier', pari: l });
     });
-    (local.zones || []).forEach(function (z) {
+    zonesLues().forEach(function (z) {
       var t = z && Date.parse(z.corrigee_a);
       if (isFinite(t) && t > debutMs && t <= finMs) evts.push({ a: z.corrigee_a, ordre: 0, quoi: 'zone', zone: z });
     });
@@ -2675,7 +2675,7 @@
       var tMs = Date.parse(t);
       var loc = {
         seances: seances, series: series, exercices: local.exercices, pesees: local.pesees,
-        zones: (local.zones || []).filter(function (z) { return z && Date.parse(z.corrigee_a) <= tMs; }),
+        zones: zonesLues().filter(function (z) { return z && Date.parse(z.corrigee_a) <= tMs; }),
         modes: (local.modes || []).filter(function (m) { return m && Date.parse(m.choisi_a) <= tMs; }),
         // Les paris de la séance déjà écrits à cet instant : celui d'une série
         // validée (sa série observée) ; sans série observée, par son heure

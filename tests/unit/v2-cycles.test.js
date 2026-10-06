@@ -405,7 +405,7 @@ describe('53-2 bis — les gestes : le pari, l’arrêt', () => {
       rendreSaisie: () => {}, fermerVoile: () => {}, rendreFeuilleProgramme: () => {}
     };
     vm.createContext(ctx);
-    ['creerBloc', 'terminerBloc', 'commencerBlocSuivant', 'validerProgramme', 'arreterProgramme']
+    ['creerBloc', 'terminerBloc', 'commencerBlocSuivant', 'validerProgramme', 'arreterProgramme', 'zonesLues']
       .forEach((f) => vm.runInContext(extraire(f), ctx));
     return { ctx, releve, run: (code) => vm.runInContext(code, ctx) };
   }
@@ -466,13 +466,38 @@ describe('53-2 bis — les gestes : le pari, l’arrêt', () => {
     expect(b.releve.observes).toEqual(['b1']);
     expect(b.releve.lignes.length).toBe(2);
   });
-  test('l’arrêt AVANT le début : la ligne vide passe après les lignes du bloc, qui ne prennent jamais effet', async () => {
+  test('⚠️ DISCRIMINANT — l’arrêt AVANT le début : rien ne s’écrit, et les lignes du bloc ne prennent jamais effet', async () => {
     const avant = { id: 'p0', exercise_slug: 'squat', zone: 'lourd', corrigee_a: '2026-09-01T10:00:00.000Z', origine: 'personne' };
     const b = bac({ blocs: [MIX], zones: lignesMix.concat([avant]), instant: '2026-10-08T18:00:00.000Z' });
     await b.run('arreterProgramme("Force")');
-    expect(b.releve.lignes.map((l) => l.corrigee_a)).toEqual([1, 2].map(() => new Date(Date.parse(minuit('2026-10-12')) + 1000).toISOString()));
-    expect(M.zoneEnVigueur(b.ctx.local.zones, 'squat', '2026-10-13T10:00:00Z')).toBe(null);
-    expect(M.zoneEnVigueur(b.ctx.local.zones, 'couche', '2026-10-13T10:00:00Z')).toBe(null);
+    expect(b.releve.lignes).toEqual([]);
+    expect(b.ctx.local.blocs[0].statut).toBe('arrete');
+    const lues = b.run('zonesLues()');
+    expect(M.zoneEnVigueur(lues, 'squat', '2026-10-13T10:00:00Z')).toBe('lourd');   // la zone d'avant, toujours
+    expect(M.zoneEnVigueur(lues, 'couche', '2026-10-13T10:00:00Z')).toBe(null);
+    // Sans la lecture des lignes valides, le bloc arrêté aurait pris effet le lundi.
+    expect(M.zoneEnVigueur(b.ctx.local.zones, 'squat', '2026-10-13T10:00:00Z')).toBe('mix');
+  });
+  test('les lignes valides : un bloc arrêté en cours garde ses lignes d’avant l’arrêt ; terminé, toutes', () => {
+    const arrete = Object.assign({}, MIX, { statut: 'arrete', modifie_a: '2026-10-20T18:00:00.000Z' });
+    expect(M.lignesDeZoneValides(lignesMix, [arrete]).map((l) => l.id)).toEqual(['l1', 'l2']);
+    const avantDebut = Object.assign({}, arrete, { modifie_a: '2026-10-08T18:00:00.000Z' });
+    expect(M.lignesDeZoneValides(lignesMix, [avantDebut])).toEqual([]);
+    const termine = Object.assign({}, avantDebut, { statut: 'termine' });
+    expect(M.lignesDeZoneValides(lignesMix, [termine]).length).toBe(2);
+    // Une ligne d'arrêt (sans zone) et une ligne de la personne ne sont jamais écartées.
+    const vide = { id: 'v', exercise_slug: 'squat', zone: null, corrigee_a: '2026-10-21T10:00:00Z', origine: 'bloc', bloc_id: 'b1' };
+    expect(M.lignesDeZoneValides([vide], [avantDebut])).toEqual([vide]);
+  });
+  test('après un arrêt avant le début, un nouveau bloc « aujourd’hui » prend effet normalement', async () => {
+    const b = bac({ blocs: [MIX], zones: lignesMix, instant: '2026-10-08T18:00:00.000Z' });
+    await b.run('arreterProgramme("Force")');
+    b.ctx.programmeEnCours = { dossier: 'Force', precedent: null, zone: 'lourd', semaines: 4, decharge: true, debut: 'aujourdhui',
+      slugs: ['squat', 'couche'], coches: { squat: true, couche: true }, erreur: '' };
+    await b.run('validerProgramme()');
+    const lues = b.run('zonesLues()');
+    expect(['2026-10-09T10:00:00Z', '2026-10-13T10:00:00Z', '2026-11-20T10:00:00Z'].map((t) => M.zoneEnVigueur(lues, 'squat', t)))
+      .toEqual(['lourd', 'lourd', 'lourd']);
   });
 
   test('I36 — les lignes d’arrêt sont justes ; forgées : l’arrêt d’un bloc encore en cours, ou daté avant son début', () => {

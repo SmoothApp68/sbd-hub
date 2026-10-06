@@ -12362,6 +12362,41 @@ const SETS_IMPORTES = [
         !/bloc/.test(etiqM[1] || '') && m1[1].enBloc && Object.keys(m1[1].enBloc).length === 0,
       JSON.stringify([m1.map((x) => x && x.x), etiqM]));
     await abandonner();
+    // ── N (53-2 bis). L'ARRÊT AVANT LE DÉBUT (Delta U53) : rien ne change, ni avant ni après le lundi.
+    await aller('/saisie');
+    await cliquerDossier('Delta U53', '.programme-creer');
+    await attendre(800);
+    await validerP();
+    const avantN = base.blocs.filter((b) => b.dossier === 'Delta U53' && b.statut === 'en_cours')[0];
+    const n0 = await dossier('Delta U53');
+    ok('[C53] DISCRIMINANT (D3) — le début différé : « Bloc Mix · dès le lundi … », le bloc daté du lundi qui suit',
+      !!avantN && /^Bloc Mix · dès le lundi \d+ \S+$/.test(sp(n0 && n0.badge)) && avantN.debut > jourLocal(T0 + 31 * JOUR_MS),
+      JSON.stringify([n0, avantN]));
+    await demarrerRoutine('Delta U53');
+    await attendre(1500);
+    const n1 = await planC('cyc-terre-u53');
+    const etiqN1 = await puceC('cyc-terre-u53');
+    ok('[C53] DISCRIMINANT (D3) — avant son début, le bloc ne change rien (pas de « · bloc », pas en bloc)',
+      n1 && !/bloc/.test(etiqN1 || '') && n1.enBloc && !n1.enBloc['cyc-terre-u53'], JSON.stringify([n1 && n1.x, etiqN1]));
+    await abandonner();
+    const zonesAvantN = base.zones.length;
+    await cliquerDossier('Delta U53', '.dossier-badge');
+    await attendre(800);
+    await page.click('#feuille-contenu .arreter-programme');
+    await attendre(2000);
+    ok('[C53] l’arrêt avant le début : le bloc arrêté, aucune ligne de zone écrite',
+      base.blocs.filter((b) => b.id === avantN.id)[0].statut === 'arrete' && base.zones.length === zonesAvantN,
+      JSON.stringify(base.zones.slice(zonesAvantN)));
+    await sauter(39);
+    await demarrerRoutine('Delta U53');
+    await attendre(1500);
+    const n2 = await planC('cyc-terre-u53');
+    const etiqN2 = await puceC('cyc-terre-u53');
+    ok('[C53] DISCRIMINANT (D3) — le lundi passé, le bloc arrêté avant son début n’a toujours rien changé',
+      n2 && n2.x.zone !== 'mix' && !/bloc/.test(etiqN2 || '') && n2.enBloc && !n2.enBloc['cyc-terre-u53'],
+      JSON.stringify([n2 && n2.x, etiqN2]));
+    await abandonner();
+
     ok('[C53] aucun refus du serveur pendant la section (le bloc monte avant ses lignes)',
       base.journal.filter((j) => j.op === 'refus').length === refusAvant,
       JSON.stringify(base.journal.filter((j) => j.op === 'refus').slice(-3)));

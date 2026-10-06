@@ -978,3 +978,35 @@ describe('architecture — la lecture du source', () => {
     expect(v[0]).toContain('AUTORISATIONS');
   });
 });
+
+// ── 55-1 — UNE FONCTION, UN NOM, PAR MODULE ─────────────────────────────────
+//
+// Deux déclarations du même nom dans un même module : la seconde efface la
+// première, en silence. Le 06/10/2026, `bilanDe(mois)` (le bilan du mois) a
+// effacé `bilanDe(bloc)` (le bilan de fin de bloc) dans `app.js` — la carte
+// de fin de bloc s'est vidée, et seul le banc « cycles » l'a vu.
+describe('architecture — aucune fonction de premier niveau déclarée deux fois dans un module', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const dossier = path.join(__dirname, '../../v2/js');
+  test('chaque module v2 : un nom, une déclaration', () => {
+    const fautes = [];
+    fs.readdirSync(dossier).filter((f) => f.endsWith('.js')).forEach((f) => {
+      const src = fs.readFileSync(path.join(dossier, f), 'utf8');
+      const vus = {};
+      const re = /^  (?:async )?function (\w+)\s*\(/gm;
+      let m;
+      while ((m = re.exec(src))) vus[m[1]] = (vus[m[1]] || 0) + 1;
+      Object.keys(vus).filter((k) => vus[k] > 1).forEach((k) => fautes.push(f + ' : ' + k + ' (' + vus[k] + ' fois)'));
+    });
+    expect(fautes).toEqual([]);
+  });
+  test('la garde voit vraiment un doublon', () => {
+    const re = /^  (?:async )?function (\w+)\s*\(/gm;
+    const src = '  function a() {}\n  function a(x) {}\n    function b() {}\n';
+    const noms = [];
+    let m;
+    while ((m = re.exec(src))) noms.push(m[1]);
+    expect(noms).toEqual(['a', 'a']);
+  });
+});

@@ -1058,7 +1058,7 @@
   // MOTEUR §9.23 (55-1) — LE MOIS ÉCOULÉ, en tête : « Septembre — 22 séances
   // · 33 records · 27 paris tenus sur 30 ». Un compte, sans jugement : rien
   // n'est dit d'un nombre nul, aucune couleur.
-  function pluriel(n, mot) { return n + ' ' + mot + (n > 1 ? 's' : ''); }
+  // (`pluriel` est déclarée plus bas, une fois pour le module.)
   function blocMois(v) {
     var bloc = coquilleBloc(v.titre, '', false);
     bloc.classList.add('neuf');

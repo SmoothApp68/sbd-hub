@@ -983,7 +983,7 @@
     // MOTEUR §9.23 (55-1) — deux blocs en tête : le mois écoulé, et le
     // dernier record. Les blocs existants ne bougent pas.
     var mois = Bilan.moisEcoule(new Date());
-    var b = bilanDe(mois);
+    var b = bilanDuMoisDe(mois);
     var dernier = dernierRecord();
     Rendu.rendreSommaire($('sommaire'), {
       mois: {
@@ -1081,7 +1081,10 @@
     return null;
   }
 
-  function bilanDe(mois) {
+  // ⚠️ PAS `bilanDe` : ce nom est celui du bilan d'un BLOC (§9.22), plus haut.
+  // Deux déclarations du même nom, et la seconde efface la première — la
+  // carte de fin de bloc s'était vidée (banc « cycles », 55-1).
+  function bilanDuMoisDe(mois) {
     return Bilan.bilanDuMois({ mois: mois, seances: seancesAvecSeries(),
                                paris: parisDeConsigneConnus(), exercices: local.exercices });
   }
@@ -1107,7 +1110,7 @@
   function rendreMois(moisDemande) {
     montrer('mois', Routeur.MOIS);
     var mois = moisDemande || Bilan.moisEcoule(new Date());
-    var b = bilanDe(mois);
+    var b = bilanDuMoisDe(mois);
     var recs = recordsDuMois(mois);
     var index = catalogueIndexe();
     var courant = Bilan.cleMois(new Date());
@@ -1120,7 +1123,7 @@
       temps: b.temps_min === null ? null : Bilan.texteTemps(b.temps_min),
       volume: b.volume_kg,
       barres: trois.map(function (m) {
-        return { libelle: nomDuMois(m, false).toLowerCase(), series: m === mois ? b.series : bilanDe(m).series, courant: m === mois };
+        return { libelle: nomDuMois(m, false).toLowerCase(), series: m === mois ? b.series : bilanDuMoisDe(m).series, courant: m === mois };
       }),
       premierJour: Bilan.premierJour(mois),
       muscles: b.muscles.slice(0, 6),

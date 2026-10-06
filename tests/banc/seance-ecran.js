@@ -12610,9 +12610,11 @@ const SETS_IMPORTES = [
       /^[A-ZÉ]/.test(bil.titre) && /^séances?$/.test(bil.tuiles[0]) && bil.tuiles[1] === 'séries de travail' &&
         bil.tuiles[2] === 'volume soulevé' && /^records?$/.test(bil.tuiles[3]) &&
         JSON.stringify(bil.barres) === '[false,false,true]' && bil.suivant === true, JSON.stringify(bil));
-    ok('[P55] le calendrier marque aujourd’hui ; les deux records y sont ; aucune couleur de jugement',
-      bil.aujourdhui.indexOf(String(ici.getDate())) >= 0 &&
-        bil.records.filter((x) => /Médaillé u55/.test(sp(x))).length >= 1 && !bil.rouge, JSON.stringify(bil));
+    // Les records du mois (les trois premiers, puis « et N autres ») : d'autres
+    // sections du même groupe en posent aussi ; la liste complète se lit plus
+    // bas (G).
+    ok('[P55] le calendrier marque aujourd’hui ; la carte des records est là ; aucune couleur de jugement',
+      bil.aujourdhui.indexOf(String(ici.getDate())) >= 0 && bil.records.length >= 1 && !bil.rouge, JSON.stringify(bil));
 
     // ── G. LES RECORDS DU MOIS : chacun mène à sa séance.
     await page.evaluate(() => document.querySelector('#bilan-mois .tous-records').click());

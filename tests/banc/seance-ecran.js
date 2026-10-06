@@ -278,6 +278,10 @@ const CATALOGUE = [
   // 51-3 bis — un second exercice SANS palier tenu dans la zone suivante :
   // « Plus léger » y passe par le repli de la reprise longue (§9.9).
   { slug: 'mal2-u53', nom: 'Douleur Deux U53 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: [], muscles_secondaires: [] },
+  // 53-1 (MOTEUR §9.10) — réservé à la section « report » : une barre en Lourd,
+  // sous consigne (des paris : un compteur qui n'est pas à zéro), dont on
+  // change la zone à l'étiquette.
+  { slug: 'report-u53', nom: 'Report U53 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: [], muscles_secondaires: [] },
   // 52-1 (ECRAN-SAISIE §7 duodecies.3, §7 quindecies.3-4 ; MOTEUR §9.21) —
   // réservés à la section « organiser » : un cardio (sans muscle), un gros
   // mouvement (3 muscles : un polyarticulaire), deux isolations en superset,
@@ -9706,6 +9710,13 @@ const SETS_IMPORTES = [
     ok('[RJ] 49-U18 — le militaire n’est plus en reprise, et ne vise rien au-dessus de 8 (Mix 6-8)',
       !/consigne reprise/.test(mil) && /zone mix/.test(mil) && visees(mil).length >= 4 && visees(mil).every((v) => v <= 8),
       JSON.stringify({ tete: mil.split('\n')[0], visees: visees(mil) }));
+    // 53-1 bis (MOTEUR §9.10, delta Z3) — Volume 52,5 × 10 → Mix : la charge
+    // reportée MONTE (57,5 kg × 6) ; la phrase le dit, sans « un peu en dessous ».
+    ok('[RJ] 53-1 bis — le militaire passe en Mix : « Moins de reps, plus de charge », 57,5 kg × 6',
+      /consigne nouvelle_zone · zone mix · palier 52,5 · niveau 10 · n 4 · ligne 57,5 × 6/.test(mil) &&
+        /en-tête \(gris\) : « Nouvelle zone.: Mix\. Moins de reps, plus de charge.: estimée depuis ton 52,5.kg.×.10\. »/.test(mil) &&
+        !/un peu en dessous/.test(mil),
+      (mil.split('\n').filter((l) => /gris|consigne/.test(l)).join(' | ')));
     ok('[RJ] 49-U18 — le couché n’a plus de ligne à 88 : sa 1re ligne prend la charge du coach',
       /#1 · travail · ligne · rang 1 · plan 92 × 11/.test(cou) && !/88 × 10/.test(cou) && !/travail · hors plan/.test(cou),
       cou.split('\n').filter((l) => /#\d/.test(l)).join(' | '));
@@ -9716,9 +9727,12 @@ const SETS_IMPORTES = [
       cur.split('\n').filter((l) => /degressive/.test(l)).join(' | '));
     // 49-U18 bis (02/10/2026) — la phrase des chauffes disparaît dès qu'une
     // chauffe est validée (le militaire : 40 × 6 à l'étape 1).
+    // 53-1 (MOTEUR §9.10) — la zone du militaire passe de Volume (52,5 × 10) à
+    // Mix : la charge se reporte, 57,5 kg × 6 (estimée, 58,3), et les chauffes
+    // se calent sur elle (avant 53-1 : 52,5, « 20 · 45 kg »).
     const etape1 = (t1.split('── Étape 1 ')[1] || '').split('── Étape 2 ')[0];
     ok('[RJ] 49-U18 bis — la phrase des chauffes du militaire disparaît après la chauffe à 40 × 6',
-      /chauffes : « Chauffes calées sur 52,5.kg.: 20 · 45.kg\. »/.test(mil) &&
+      /chauffes : « Chauffes calées sur 57,5.kg.: 20 · 50.kg\. »/.test(mil) &&
       /chauffes : \(sans phrase\)/.test(etape1) && !/Chauffes calées/.test(etape1),
       (etape1.split('\n').filter((l) => /chauffes/.test(l))[0] || ''));
     ok('[RJ] 49-U18 bis — le couché : « Ta première série à 88 kg passe à 92 kg. » (une montée)',
@@ -11371,7 +11385,7 @@ const SETS_IMPORTES = [
     const zoneEcrite = base.zones.slice(zonesAvant).filter((z) => z.exercise_slug === 'mal-u53');
     ok('[D53] DISCRIMINANT — « Plus léger » : une correction de zone (la zone suivante, mix), comme un choix de l’étiquette',
       zoneEcrite.length === 1 && zoneEcrite[0].zone === 'mix', JSON.stringify(zoneEcrite));
-    ok('[D53] DISCRIMINANT — et la charge du repli : 110 kg × 6, la carte retirée',
+    ok('[D53] DISCRIMINANT — et la charge du report (§9.10, 53-1 : la charge déjà tenue en Mix) : 110 kg × 6, la carte retirée',
       b3.mal.consigne && b3.mal.consigne.charge === 110 && b3.mal.consigne.vise === 6 && b3.mal.consigne.zone === 'mix' &&
         (await carteD()) === null, JSON.stringify(b3.mal));
     await abandonner();
@@ -11414,13 +11428,153 @@ const SETS_IMPORTES = [
     await choisirD('leger');
     await attendre(800);
     const c1 = await planC();
-    ok('[D53] DISCRIMINANT — « Plus léger » par le repli de la reprise longue : 95 kg × 6 en Mix, sans ligne haute, sans repli d’escalier',
+    // 53-1 (MOTEUR §9.10) — « Plus léger » est un changement de zone : la charge
+    // se REPORTE, par la même fonction que l'étiquette (avant 53-1 : le repli de
+    // la reprise longue, ici au même chiffre). 100 × 5 → Mix : 97,2 estimé, au
+    // cran inférieur, 95 — déjà fait.
+    ok('[D53] DISCRIMINANT — « Plus léger » par le REPORT (§9.10) : 95 kg × 6 en Mix, sans ligne haute, sans repli d’escalier',
       c1 && c1.charge === 95 && c1.vise === 6 && c1.zone === 'mix' && c1.haut === null && !c1.repli &&
-        c1.plusLegere && c1.plusLegere.source === 'reprise_longue', JSON.stringify(c1));
+        c1.plusLegere && c1.plusLegere.source === 'report', JSON.stringify(c1));
     ok('[D53] la garde de l’app (I22, I33 à I35) n’a rien signalé dans cette section', gardeBanc.violations === violationsAvant,
       JSON.stringify(gardeBanc.liste.slice(-2)));
     await abandonner();
     ok('[D53] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
+    await aller('/saisie');
+    await attendre(500);
+  }
+
+  console.log('\n══ report. LE REPORT DE CHARGE AU CHANGEMENT DE ZONE : LA PLUS BASSE, AU BAS DE LA ZONE (53-1, MOTEUR §9.10) ══');
+  //
+  // Une barre en Lourd (100 kg × 5, trois séances sous consigne), sa zone
+  // changée à l'étiquette pour Mix : la ligne repart de la charge reportée — la
+  // plus basse de la charge déjà tenue en Mix (aucune) et de l'estimation
+  // depuis 100 × 5 (97,2), au cran inférieur : 95 kg × 6 —, avec sa phrase ; le
+  // compteur repart à zéro. La séance faite à 95 × 6, la suivante progresse
+  // (95 × 7), sans second report. Puis « Revenir à celle d'après tes séances »
+  // (Lourd) : la vérification d'Aurélien, le report dans l'autre sens — la
+  // charge déjà tenue en Lourd, 100 kg, plus basse que l'estimation.
+  // « Plus léger » passe par la même fonction : la section 7 G duovicies.
+  {
+    const tR = Date.now();
+    const sp = (t) => String(t || '').replace(/[\u00a0\u202f]/g, ' ').replace(/\s+/g, ' ').trim();
+    let graineR = 0;
+    const violationsAvant = gardeBanc.violations;
+    [[10, 100, 5], [7, 100, 5], [3, 100, 5]].forEach(([j, kg, reps], i) => {
+      const id = 'r53-' + i;
+      const debut = ilYa(j * 86400000, tR).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'Report — ' + id, debut,
+        fin: finDe(debut, tR).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      [1, 2, 3].forEach((r) => base.sets.push({ id: id + '-s' + r, session_id: id, user_id: 'u-banc',
+        exercise_slug: 'report-u53', charge_kg: kg, reps, duree_s: null, distance_m: null, type_serie: 'travail',
+        rang: r, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null, repos_s: null, note: null,
+        source: 'app', created_at: debut, modifie_a: null }));
+      base.predictions.push({ id: '00000000-0000-5000-8531-' + String(++graineR).padStart(12, '0'),
+        user_id: 'u-banc', module: 'moteur.consigne', module_version: 7, emise_a: debut,
+        exercise_slug: 'report-u53', grandeur: 'reps', horizon_jours: null, valeur_predite: reps,
+        borne_basse: 3, borne_haute: 5,
+        fondement: { rang: 1, charge: kg, etat: 'progression', zone: 'lourd', reglage: 'normal',
+                     palier: kg, niveau: reps, seance: id, role: 'ligne', phase: 'maintien', compteur: i },
+        valeur_observee: reps, observee_a: debut, set_observe: id + '-s1', created_at: debut });
+    });
+    ROUTINES.push({ id: 'r-r53', nom: 'Report U53', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-r53-a', routine_id: 'r-r53', exercise_slug: 'report-u53', rang: 0,
+        routine_sets: progr(3, 5), repos_cible_s: 120, groupe_superset: null, note: null }] });
+
+    const planR = () => page.evaluate(() => {
+      const x = window.THPlan.dernier.plan.exercices.filter((q) => q.slug === 'report-u53')[0];
+      return x && x.consigne ? { etat: x.consigne.etat, zone: x.consigne.zone, charge: x.consigne.ligne && x.consigne.ligne.charge,
+        vise: x.consigne.ligne && x.consigne.ligne.vise, haut: x.consigne.haut,
+        report: x.consigne.fondement && x.consigne.fondement.report || null,
+        lignes: x.lignes.filter((l) => l.role !== 'hors').map((l) => [l.charge, l.vise]),
+        gris: x.entete && x.entete.gris, jaune: x.entete && x.entete.jaune,
+        compteur: x.compteur ? x.compteur.compteur : null } : null;
+    });
+    const ecranR = () => page.evaluate(() => {
+      const b = document.querySelectorAll('.bloc-seance')[0];
+      const n = document.querySelector('.legende-exo .puce-zone');
+      return { dit: Array.from(b.querySelectorAll('.consigne-dit')).map((e) => e.textContent),
+        puce: n ? { texte: n.textContent, choisie: n.classList.contains('choisie') } : null };
+    });
+    const zoneR = async (cle) => {
+      await page.click('.legende-exo .puce-zone');
+      await attendre(700);
+      if (cle === null) {
+        await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu button'))
+          .filter((b) => /Revenir/.test(b.textContent))[0].click());
+      } else {
+        await page.click('#feuille-contenu .option-zone[data-cle="' + cle + '"]');
+      }
+      await attendre(1600);
+    };
+    const validerR = async (k) => {
+      await page.evaluate((j) => document.querySelectorAll('.bloc-seance')[0]
+        .querySelectorAll('.ligne-serie')[j].querySelector('.ok-serie').click(), k);
+      await attendre(900);
+    };
+
+    // ── A. LOURD, SANS CHANGEMENT : la consigne d'avant 53-1.
+    await aller('/saisie');
+    await attendre(600);
+    await demarrerRoutine('Report U53');
+    await attendre(1500);
+    const a0 = await planR();
+    ok('[R53] prémisse : Lourd déduit, 100 kg × 5 et le test au-dessus ; le compteur n’est pas à zéro',
+      a0 && a0.zone === 'lourd' && a0.etat === 'test_propose' && a0.charge === 100 && a0.vise === 5 && a0.compteur >= 1,
+      JSON.stringify(a0));
+
+    // ── B. L'ÉTIQUETTE : Lourd → Mix.
+    const zonesAvant = base.zones.length;
+    await zoneR('mix');
+    const b0 = await planR();
+    const eb = await ecranR();
+    ok('[R53] la correction est une ligne de zones_exercice, comme tout choix de l’étiquette',
+      base.zones.length === zonesAvant + 1 && base.zones[base.zones.length - 1].exercise_slug === 'report-u53' &&
+        base.zones[base.zones.length - 1].zone === 'mix', JSON.stringify(base.zones.slice(zonesAvant)));
+    ok('[R53] DISCRIMINANT — la ligne repart de la charge reportée, AU BAS de la zone : 95 kg × 6, sans test (pas 100 × 6)',
+      b0 && b0.etat === 'nouvelle_zone' && b0.zone === 'mix' && b0.charge === 95 && b0.vise === 6 && b0.haut === null &&
+        b0.lignes.length === 3 && b0.lignes.every((l) => l[0] === 95 && l[1] === 6), JSON.stringify(b0));
+    ok('[R53] DISCRIMINANT — l’estimation, jamais un maximum : la séance citée, « un peu en dessous pour démarrer »',
+      b0 && b0.report && b0.report.origine === 'estimee' && b0.report.zoneAvant === 'lourd' &&
+        sp(b0.gris) === 'Nouvelle zone : Mix. Estimée depuis ton 100 kg × 5, un peu en dessous pour démarrer.' &&
+        eb.dit.map(sp).indexOf(sp(b0.gris)) >= 0 && !/\b1\s?RM\b|\bmax/i.test(JSON.stringify(eb)), JSON.stringify([b0, eb]));
+    ok('[R53] l’étiquette dit Mix, choisie ; le jaune dit la ligne',
+      eb.puce && eb.puce.texte === 'Mix 6-8' && eb.puce.choisie && JSON.stringify((b0.jaune || []).map(sp)) === JSON.stringify(['95 kg × 6']),
+      JSON.stringify([eb.puce, b0.jaune]));
+    ok('[R53] DISCRIMINANT — le compteur repart à zéro (§12.2 bis, déjà câblé)', b0.compteur === 0, String(b0.compteur));
+
+    // ── C. LA SÉANCE FAITE À LA CHARGE REPORTÉE.
+    await validerR(0);
+    await validerR(1);
+    await validerR(2);
+    ok('[R53] la garde de l’app n’a rien vu pendant la séance', gardeBanc.violations === violationsAvant,
+      JSON.stringify(gardeBanc.liste.slice(-1)));
+    await terminer();
+    await attendre(800);
+
+    // ── D. LA SÉANCE SUIVANTE PROGRESSE NORMALEMENT, SANS SECOND REPORT.
+    await aller('/saisie');
+    await attendre(600);
+    await demarrerRoutine('Report U53');
+    await attendre(1500);
+    const d0 = await planR();
+    ok('[R53] DISCRIMINANT — la séance d’après progresse : 95 kg × 7 en Mix, une rep de plus (la zone choisie pendant la séance était la sienne)',
+      d0 && d0.etat === 'progression' && d0.zone === 'mix' && d0.charge === 95 && d0.vise === 7, JSON.stringify(d0));
+
+    // ── E. « REVENIR À CELLE D'APRÈS TES SÉANCES » : Lourd, le report dans
+    // l'autre sens — la charge déjà tenue en Lourd (100 kg × 5), plus basse
+    // que l'estimation depuis 95 × 6 (103,6).
+    await zoneR(null);
+    const e0 = await planR();
+    ok('[R53] DISCRIMINANT — revenue à la zone déduite (Lourd) : la charge déjà tenue, 100 kg, au bas de Lourd (× 3)',
+      e0 && e0.etat === 'nouvelle_zone' && e0.zone === 'lourd' && e0.charge === 100 && e0.vise === 3 &&
+        e0.report && e0.report.origine === 'tenue' && e0.report.depuis.palier === 100 && e0.report.depuis.niveau === 5 &&
+        /^Nouvelle zone : Lourd\. Ta charge déjà tenue en Lourd, .+ : 100 kg × 5\.$/.test(sp(e0.gris)), JSON.stringify(e0));
+    ok('[R53] la garde de l’app (I26 compris) n’a rien signalé dans cette section', gardeBanc.violations === violationsAvant,
+      JSON.stringify(gardeBanc.liste.slice(-2)));
+    await abandonner();
+    ok('[R53] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
     await aller('/saisie');
     await attendre(500);
   }

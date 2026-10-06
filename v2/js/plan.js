@@ -2373,6 +2373,10 @@
     }
     if (f.test) fait.test = { charge: f.test.charge, reps: [f.test.reps], date: f.test.date || null, niveau: f.test.niveau };
     if (f.zoneFigee) fait.zone_figee = { date: f.zoneFigee.date || null };
+    // §9.10 (53-1) — la séance d'où la charge se reporte (tenue, ou estimée).
+    if (f.report && f.report.depuis) {
+      fait.report = { charge: f.report.depuis.palier, reps: [f.report.depuis.niveau], date: f.report.depuis.date || null };
+    }
     // La dernière séance, série par série (la feuille « Pourquoi ») : par charge.
     var seanceParCharge = [];
     (f.seance || []).forEach(function (sr) {

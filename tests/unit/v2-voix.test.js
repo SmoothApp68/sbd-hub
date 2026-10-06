@@ -89,6 +89,9 @@ function reglesViolees(phrase, famille, dates, reference) {
   const v = [];
   if (/palier/i.test(t)) v.push('« palier »');
   if (/le moteur/i.test(t)) v.push('« le moteur »');
+  // 53-1 (MOTEUR §9.10, CLAUDE.md §7) — un maximum estimé ne se dit jamais :
+  // l'estimation du report reste en coulisse.
+  if (/\b1\s?RM\b|\bmax(?:imum|imale?)?\b/i.test(t)) v.push('un maximum (« 1RM », « max »)');
   if (t.indexOf('?') >= 0 && !(famille === 'réaction' && SECONDE_CHARGE.test(t) &&
       t.indexOf('?') === t.length - 1)) v.push('un « ? » hors du choix entre deux charges');
   for (let i = t.indexOf('×'); i >= 0; i = t.indexOf('×', i + 1)) {
@@ -365,6 +368,34 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
     noter('départ', 'charge de départ ' + charge, textesDe(M.pourquoiConsigne(r.consigne, 'normal', '2026-10-05T10:00:00Z')));
   });
 
+  // 53-1 (§9.10) — le report au changement de zone : la ligne, la phrase grise
+  // et la feuille, estimée et tenue, vers Mix et vers Lourd ; et le constat.
+  {
+    let rg = 0;
+    const g = (debut, charge, reps) => ({ seance: { id: debut, debut, fin: debut.replace('T10', 'T11') },
+      series: reps.map((r) => ({ id: 'z' + (++rg), rang: rg, charge_kg: charge, reps: r, type_serie: 'travail' })) });
+    const lourd = [g('2026-09-01T10:00:00Z', 100, [5, 5, 5]), g('2026-09-04T10:00:00Z', 100, [5, 5, 5]),
+      g('2026-09-08T10:00:00Z', 100, [5, 5, 5])];
+    const mix = [g('2026-09-01T10:00:00Z', 100, [7, 7, 7]), g('2026-09-04T10:00:00Z', 100, [7, 7, 7]),
+      g('2026-09-07T10:00:00Z', 100, [7, 7, 7])];
+    const AV = '2026-09-11T10:00:00Z';
+    const o = (zone) => ({ mesure: 'charge_reps', equipement: 'barre', intention: 'progresser', reglage: 'normal',
+      correction: zone, correctionsDeZone: [{ id: '1', exercise_slug: 'x', zone, corrigee_a: '2026-09-10T20:00:00Z' }] });
+    // 53-1 bis (Z3) — le militaire du 01/10 : Volume 52,5 × 10 → Mix, la charge monte.
+    const militaire = [g('2026-09-01T10:00:00Z', 52.5, [10, 10, 10]), g('2026-09-04T10:00:00Z', 52.5, [10, 10, 10]),
+      g('2026-09-08T10:00:00Z', 52.5, [10, 10, 10])];
+    [[lourd, 'mix'], [[g('2026-08-20T10:00:00Z', 90, [7, 7, 7])].concat(lourd), 'mix'], [mix, 'lourd'],
+     [militaire, 'mix']].forEach(([gs, zone], i) => {
+      const r = M.consigneDExercice(gs, undefined, AV, o(zone));
+      const dates = gs.map((x) => x.seance.debut);
+      noter('nouvelle zone', 'report ' + i, r.libelles.jaune.concat([r.libelles.gris]), dates, AV);
+      noter('nouvelle zone', 'report ' + i, textesDe(M.pourquoiConsigne(r.consigne, 'normal', AV)), dates, AV);
+    });
+    const avant = M.consigneDExercice(lourd, undefined, AV, o('mix'));
+    const apres = M.consigneDExercice(lourd.concat([g('2026-09-11T10:00:00Z', 95, [6, 6, 6])]), undefined, '2026-09-11T12:00:00Z', o('mix'));
+    noter('nouvelle zone', 'constat', [M.constatDe(avant.consigne, apres.consigne, 'normal', 97.5, '2026-09-11T12:00:00Z').verdict]);
+  }
+
   test('chaque famille est jouée, et la date relative l\'est vraiment', () => {
     const parFamille = {};
     vues.forEach((v) => { parFamille[v.famille] = (parFamille[v.famille] || 0) + 1; });
@@ -393,6 +424,20 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
     expect(parFamille.douleur).toBe(10 + 40);
     // 52-1 : 3 charges de départ × (jaune, gris, puis la feuille : donc, état, réglage, fin).
     expect(parFamille['départ']).toBe(3 * 6);
+    // 53-1 : 3 reports × (jaune, gris, puis 13 textes de feuille : la date et les
+    // 3 séries de la séance — texte et rôle —, zone, charge de travail, état,
+    // donc, réglage, fin) + le constat.
+    expect(parFamille['nouvelle zone']).toBe(4 * (2 + 13) + 1);
+    expect(vues.filter((v) => v.famille === 'nouvelle zone' && /^Nouvelle zone : Mix\. Ta charge déjà tenue en Mix, le 20 août : 90 kg × 7\.$/
+      .test(v.phrase.replace(/[\u00a0\u202f]/g, ' '))).length).toBe(1);
+    // 53-1 bis (Z3) — vers moins de reps, la charge monte : la phrase le dit,
+    // et « un peu en dessous » ne s'écrit plus que pour une charge qui baisse.
+    expect(vues.filter((v) => v.famille === 'nouvelle zone' && /^Nouvelle zone : Lourd\. Moins de reps, plus de charge : estimée depuis ton 100 kg × 7\.$/
+      .test(v.phrase.replace(/[\u00a0\u202f]/g, ' '))).length).toBe(1);
+    expect(vues.filter((v) => v.famille === 'nouvelle zone' && /^Nouvelle zone : Mix\. Moins de reps, plus de charge : estimée depuis ton 52,5 kg × 10\.$/
+      .test(v.phrase.replace(/[\u00a0\u202f]/g, ' '))).length).toBe(1);
+    expect(vues.filter((v) => v.famille === 'nouvelle zone' && /un peu en dessous/.test(v.phrase))
+      .map((v) => v.source).sort()).toEqual(['report 0', 'report 0']);
     expect(vues.filter((v) => v.famille === 'départ' && /^Première fois ici : on part de ta charge de départ, 22,5 kg\.$/
       .test(v.phrase.replace(/[\u00a0\u202f]/g, ' '))).length).toBe(1);
     expect(vues.filter((v) => v.famille === 'douleur' && /^Plus de reps : 20/.test(v.phrase)).length).toBe(2);

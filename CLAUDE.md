@@ -190,6 +190,12 @@ trappe `/__sw-off` pendrait avec lui.
   le banc par le découpeur, chaque section protégée (`sectionResistante`) ;
   une exception devient un contrôle en échec « [exception] … », la section
   suivante joue, et le résumé liste **tous** les échecs à la fin.
+- **Aucun test ne parle à la vraie base** (59-4, 07/10/2026). Tout navigateur de test
+  s'ouvre par `Garde.lancer(chromium, …)` (`tests/banc/garde-reseau.js`) : une requête
+  ou un WebSocket vers `*.supabase.co` que le faux serveur du banc n'a pas pris en charge
+  est coupé et fait échouer le banc, avec son URL. `tests/unit/v2-garde-reseau.test.js`
+  refuse tout fichier hors `archive/` qui lance un navigateur autrement. Les tests
+  navigateur v1 sont dans `archive/v1/` : **ne pas les lancer**.
 - **Les mutations** : banc réduit et tests ciblés, jamais le banc complet,
   chacune dans son worktree, lancées ensemble :
   `node tests/banc/muter.js --lot mutations.json` (format dans l'en-tête du

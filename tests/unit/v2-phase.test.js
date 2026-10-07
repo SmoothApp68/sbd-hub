@@ -190,15 +190,16 @@ describe('Profil — « TA PHASE »', () => {
     expect(c.querySelector('.p-aide').textContent).toMatch(/^Ce que tu vises en ce moment/);
   });
 
-  test('DISCRIMINANT — un toucher écrit `phase` ET `phase_depuis` (maintenant), par `ecrire`', () => {
+  test('DISCRIMINANT — un toucher écrit `phase`, `phase_depuis` ET `phase_confirmee_le` (maintenant), par `ecrire`', () => {
     const ecrits = [];
     const c = cible();
     window.THRendu.rendreProfil(c, vue(Profil.sectionPhase({ phase: 'seche' }, (x) => ecrits.push(x), MAINTENANT)));
     Array.from(c.querySelectorAll('.p-seg button')).find((b) => b.textContent === 'Maintien ou recomposition').click();
     Array.from(c.querySelectorAll('.p-seg button')).find((b) => b.textContent === 'Je ne sais pas').click();
+    // 60-2b : toute réponse sur la phase est une confirmation (le rappel de phase compte depuis elle).
     expect(ecrits).toEqual([
-      { phase: 'maintien', phase_depuis: '2026-09-30T08:15:00.000Z' },
-      { phase: null, phase_depuis: '2026-09-30T08:15:00.000Z' }
+      { phase: 'maintien', phase_depuis: '2026-09-30T08:15:00.000Z', phase_confirmee_le: '2026-09-30T08:15:00.000Z' },
+      { phase: null, phase_depuis: '2026-09-30T08:15:00.000Z', phase_confirmee_le: '2026-09-30T08:15:00.000Z' }
     ]);
   });
 

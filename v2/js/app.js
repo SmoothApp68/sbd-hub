@@ -5870,6 +5870,7 @@
     // 60-2a — AVANT les retours anticipés ci-dessous : « Ton questionnaire n'est
     // pas terminé » ne dépend pas du chargement des routines.
     rendreBandeauQuestionnaire();
+    rendreBandeauPhase();
     var cible = $('liste-routines');
     // ⚠️ « Je ne sais pas encore » n'est PAS « il n'y en a pas ». Tant qu'un
     // chargement n'a pas abouti, on ne montre pas l'état vide : hors ligne, il
@@ -7919,6 +7920,7 @@
     // Le bandeau de Saisie suit la ligne qui vient d'arriver (il ne s'ouvre pas toujours :
     // séance, feuille ou « Ranger » en cours).
     rendreBandeauQuestionnaire();
+    rendreBandeauPhase();
     // 60-2a — LA LIGNE DE PROFIL EST CONNUE : c'est ICI que la décision d'ouvrir le
     // questionnaire se reprend, au premier démarrage d'un compte neuf comme aux
     // suivants. Prise sur le seul cache, elle ne routait un compte neuf qu'au
@@ -8216,6 +8218,58 @@
       libelleReprendre: 'Le terminer',
       surReprendre: ouvrirQuestionnaire
     });
+  }
+
+  // 60-2b — LE RAPPEL DE PHASE (MOTEUR §9.16) : « Sèche depuis le 28 sept. », 6
+  // semaines après la dernière réponse sur la phase. Le composant des bandeaux de
+  // Saisie ; « C'est toujours ça » à droite (le geste principal), « Changer » à
+  // gauche. Pas de question (§20.2). Il se TAIT pendant une séance (l'onglet est la
+  // séance) et en « Juste un carnet » — par LE fait du silence du coach, pas par un
+  // second test de l'intention. Il ne dépend pas de l'état du questionnaire : s'ils
+  // coexistent, le questionnaire est au-dessus (l'ordre du DOM). Rien n'est écrit au
+  // rendu : seuls les deux boutons écrivent.
+  function rendreBandeauPhase() {
+    var noeud = $('bandeau-phase');
+    if (!noeud) return;
+    if (seance || Moteur.coachSeTait(profil && profil.intention) || !Profil.rappelDePhase(profil, new Date())) {
+      Rendu.rendreBandeauReprise(noeud, null);
+      return;
+    }
+    Rendu.rendreBandeauReprise(noeud, {
+      quoi: Profil.phraseRappelDePhase(profil),
+      depuis: 'Ta phase règle la série de plus et entre dans chaque pari du coach.',
+      libelleQuitter: 'Changer',
+      surQuitter: ouvrirPhaseDuRappel,
+      libelleReprendre: 'C’est toujours ça',
+      surReprendre: function () { repondrePhaseDuRappel(Profil.phaseDe(profil)); }
+    });
+  }
+
+  // La réponse au rappel, par la MÊME préparation des champs que le questionnaire et
+  // le Profil (`Profil.preparerChamps`) : la phase inchangée n'écrit que sa date de
+  // confirmation, une autre phase écrit aussi la phase et son « depuis ». `poserProfil`
+  // et non `ecrireProfil` : celui-ci ouvrirait l'écran du Profil, et on est sur Saisie.
+  function repondrePhaseDuRappel(phase) {
+    var champs = Profil.preparerChamps(profil, { phase: phase }, new Date());
+    if (Object.keys(champs).length) poserProfil(champs).catch(function () {});
+    rendreBandeauPhase();
+  }
+
+  // « Changer » : la feuille de la phase — les trois phases, sans « Je ne sais pas »
+  // (on vient de confirmer qu'on en a une). Choisir la phase en cours la confirme.
+  function ouvrirPhaseDuRappel() {
+    feuilleProfil = function (cible) {
+      Rendu.rendreFeuilleChoix(cible, {
+        titre: 'Ta phase',
+        aide: null,
+        options: Profil.PHASES.filter(function (o) { return o.cle !== 'inconnue'; }),
+        valeur: Profil.phaseDe(profil),
+        surChoix: function (v) { fermerVoile(); repondrePhaseDuRappel(v); },
+        surEffacer: null,
+        surAnnuler: fermerVoile
+      });
+    };
+    ouvrirFeuilleProfil();
   }
 
   // ── La déclaration des champs ─────────────────────────────────────

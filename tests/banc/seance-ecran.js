@@ -14401,6 +14401,178 @@ const SETS_IMPORTES = [
       JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
   }
 
+  console.log('\n══ rappel. LE RAPPEL DE PHASE : LE BANDEAU DE SAISIE, 42 JOURS APRÈS LA DERNIÈRE RÉPONSE (60-2b, MOTEUR §9.16) ══');
+  //
+  // ⚠️ DATES FORGÉES, côté Node, à 20 / 50 / 60 jours — jamais 41 ou 43 : le banc tourne
+  // à l'heure réelle, et à cheval sur un changement d'heure 42 jours calendaires ne font
+  // pas 42 × 24 h. La frontière (41 / 42 / 43, et le changement d'heure) se prouve en
+  // unitaire (`v2-rappel-de-phase`). Le profil du banc est rendu comme il était.
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const profilAvant = Object.assign({}, base.profiles[0]);
+    const JOUR = 86400000;
+    const iso = (jours) => ilYa(jours * JOUR).toISOString();
+    const profilBase = () => base.profiles[0];
+    const ecritsProfil = () => base.journal.filter((j) => j.op === 'profil').length;
+    const esp = (t) => String(t || '').replace(/[\u00a0\u202f]/g, ' ');
+    const FAIT_LE = '2026-10-01T08:00:00.000Z';
+    // Le point de départ de chaque scénario : le questionnaire rempli, une sèche déclarée
+    // il y a 60 jours et confirmée il y a 50 (donc DUE), le coach en Progresser.
+    const DUE = { questionnaire_fait_le: FAIT_LE, intention: 'progresser', phase: 'seche',
+      phase_depuis: iso(60), phase_confirmee_le: iso(50) };
+    const rouvrir = async (champs) => {
+      Object.keys(DUE).forEach((k) => { delete profilBase()[k]; });
+      Object.assign(profilBase(), DUE, champs || {});
+      await aller('/saisie');
+      await attendre(900);
+    };
+    const bandeauPh = () => page.evaluate(() => {
+      const b = document.querySelector('#bandeau-phase');
+      const q = document.querySelector('#bandeau-questionnaire');
+      const t = (sel) => { const n = b && b.querySelector(sel); return n ? n.textContent : null; };
+      // « Visible » : réellement à l'écran (le nœud peut garder son contenu dans une vue cachée).
+      const affiche = (n) => !!n && !n.hidden && n.offsetParent !== null;
+      return { visible: affiche(b), quoi: t('.reprise-quoi'), gris: t('.reprise-depuis'),
+        boutons: b ? Array.from(b.querySelectorAll('button')).map((x) => x.textContent) : [],
+        questionnaireVisible: affiche(q),
+        apresQuestionnaire: b && q ? !!(q.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) : null };
+    });
+    const feuilleP = () => page.evaluate(() => ({
+      ouverte: !document.querySelector('#feuille-seance').hidden,
+      titre: (document.querySelector('#feuille-contenu .feuille-t') || {}).textContent || null,
+      options: Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button[data-cle]')).map((b) => b.dataset.cle),
+      coches: Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button.choisi')).map((b) => b.dataset.cle),
+      pied: Array.from(document.querySelectorAll('#feuille-contenu .feuille-pied button')).map((b) => b.textContent) }));
+    const recent = (v) => !!v && Math.abs(Date.now() - new Date(v).getTime()) < 120000;
+    const saisieSeule = JSON.stringify(['vue-saisie']);
+
+    // 1. DUE : la phrase, la ligne grise, les deux boutons dans l'ordre.
+    await rouvrir();
+    let b = await bandeauPh();
+    ok('[PH60] DISCRIMINANT — une phase déclarée dont la confirmation date de 50 jours : le bandeau « Sèche depuis le … », sa ligne grise, « Changer » puis « C’est toujours ça »',
+      b.visible && /^Sèche depuis le \d+ \S+$/.test(esp(b.quoi)) &&
+        esp(b.gris) === 'Ta phase règle la série de plus et entre dans chaque pari du coach.' &&
+        JSON.stringify(b.boutons) === '["Changer","C’est toujours ça"]' && !b.questionnaireVisible &&
+        JSON.stringify(await visible()) === saisieSeule, JSON.stringify(b));
+    const ecritsAvantRendu = ecritsProfil();
+    await aller('/saisie');
+    await attendre(900);
+    ok('[PH60] le rendu n’écrit rien : recharger Saisie ne confirme pas la phase d’office',
+      ecritsProfil() === ecritsAvantRendu && profilBase().phase_confirmee_le === DUE.phase_confirmee_le, JSON.stringify([ecritsProfil() - ecritsAvantRendu, profilBase().phase_confirmee_le]));
+
+    // 2. PAS DUE, SANS PHASE, REPLI.
+    await rouvrir({ phase_confirmee_le: iso(20) });
+    ok('[PH60] DISCRIMINANT — confirmée il y a 20 jours (déclarée il y a 60) : pas de bandeau — la confirmation prime',
+      !(await bandeauPh()).visible, JSON.stringify(await bandeauPh()));
+    await rouvrir({ phase_confirmee_le: null, phase_depuis: iso(60) });
+    ok('[PH60] sans `phase_confirmee_le`, le bandeau retombe sur `phase_depuis` (60 jours) : visible',
+      (await bandeauPh()).visible, JSON.stringify(await bandeauPh()));
+    await rouvrir({ phase_confirmee_le: null, phase_depuis: iso(20) });
+    ok('[PH60] … et pas visible à 20 jours', !(await bandeauPh()).visible, JSON.stringify(await bandeauPh()));
+    await rouvrir({ phase: null });
+    ok('[PH60] DISCRIMINANT — sans phase déclarée (vide), même vieille de 60 jours : pas de bandeau (le maintien par défaut n’a rien à confirmer)',
+      !(await bandeauPh()).visible, JSON.stringify(await bandeauPh()));
+
+    // 3. « JUSTE UN CARNET » ET SÉANCE OUVERTE.
+    await rouvrir({ intention: 'entretien' });
+    ok('[PH60] DISCRIMINANT — en « Juste un carnet » (le profil) : pas de bandeau',
+      !(await bandeauPh()).visible, JSON.stringify(await bandeauPh()));
+    await rouvrir({ intention: 'progresser' });
+    ok('[PH60] … et il revient en Progresser, rien n’a été effacé', (await bandeauPh()).visible, JSON.stringify(await bandeauPh()));
+    await demarrerRoutine('Push');
+    await attendre(900);
+    const pendant = await bandeauPh();
+    ok('[PH60] DISCRIMINANT — pendant une séance ouverte : la vue est celle de la séance, le bandeau est caché',
+      !pendant.visible && JSON.stringify(await visible()) !== saisieSeule, JSON.stringify([pendant, await visible()]));
+    await abandonner();
+    await aller('/saisie');
+    await attendre(900);
+    ok('[PH60] la séance abandonnée, Saisie le montre de nouveau', (await bandeauPh()).visible, JSON.stringify(await bandeauPh()));
+
+    // 4. AVEC LE BANDEAU DU QUESTIONNAIRE : les deux, le questionnaire au-dessus.
+    await rouvrir({ questionnaire_fait_le: null });
+    // Au premier démarrage d'un questionnaire pas rempli, il s'ouvre ; « Plus tard » ramène sur Saisie.
+    if ((await visible()).indexOf('vue-questionnaire') >= 0) {
+      await page.click('.q-plus-tard');
+      await attendre(800);
+    }
+    b = await bandeauPh();
+    ok('[PH60] DISCRIMINANT — le questionnaire pas terminé ET le rappel dû : les deux bandeaux, celui du questionnaire AU-DESSUS',
+      b.visible && b.questionnaireVisible && b.apresQuestionnaire === true, JSON.stringify(b));
+
+    // 5. « C'EST TOUJOURS ÇA ».
+    await rouvrir();
+    const phaseAvant = profilBase().phase, depuisAvant = profilBase().phase_depuis;
+    const ecritsAvant = ecritsProfil();
+    await page.click('#bandeau-phase .principal');
+    await attendre(1200);
+    b = await bandeauPh();
+    ok('[PH60] DISCRIMINANT — « C’est toujours ça » : `phase_confirmee_le` est écrit (maintenant), la phase et son « depuis » ne bougent pas, une seule écriture',
+      recent(profilBase().phase_confirmee_le) && profilBase().phase === phaseAvant && profilBase().phase_depuis === depuisAvant &&
+        ecritsProfil() === ecritsAvant + 1, JSON.stringify([profilBase().phase_confirmee_le, profilBase().phase, profilBase().phase_depuis, ecritsProfil() - ecritsAvant]));
+    ok('[PH60] le bandeau s’éteint tout de suite, on reste sur Saisie',
+      !b.visible && JSON.stringify(await visible()) === saisieSeule, JSON.stringify([b, await visible()]));
+    await aller('/saisie');
+    await attendre(900);
+    ok('[PH60] au rechargement il ne revient pas (la confirmation est en base)', !(await bandeauPh()).visible, JSON.stringify(await bandeauPh()));
+
+    // 6. « CHANGER ».
+    await rouvrir();
+    const ecritsAvant2 = ecritsProfil();
+    await page.click('#bandeau-phase .discret');
+    await attendre(600);
+    let f = await feuilleP();
+    ok('[PH60] « Changer » ouvre la feuille de la phase : les trois phases, la sèche cochée, ni « Je ne sais pas » ni « Effacer » ; on reste sur Saisie',
+      f.ouverte && f.titre === 'Ta phase' && JSON.stringify(f.options) === '["prise_de_masse","maintien","seche"]' &&
+        JSON.stringify(f.coches) === '["seche"]' && JSON.stringify(f.pied) === '["Annuler"]' &&
+        JSON.stringify(await visible()) === saisieSeule && ecritsProfil() === ecritsAvant2, JSON.stringify([f, await visible()]));
+    await page.click('#feuille-contenu .feuille-menu button[data-cle="maintien"]');
+    await attendre(1200);
+    b = await bandeauPh();
+    ok('[PH60] DISCRIMINANT — choisir une AUTRE phase écrit la phase, son « depuis » ET la confirmation ; le bandeau s’éteint, toujours sur Saisie',
+      profilBase().phase === 'maintien' && recent(profilBase().phase_depuis) && recent(profilBase().phase_confirmee_le) &&
+        !b.visible && JSON.stringify(await visible()) === saisieSeule && !(await feuilleP()).ouverte,
+      JSON.stringify([profilBase().phase, profilBase().phase_depuis, profilBase().phase_confirmee_le, b, await visible()]));
+    await rouvrir();
+    await page.click('#bandeau-phase .discret');
+    await attendre(500);
+    await page.click('#feuille-contenu .feuille-menu button[data-cle="seche"]');
+    await attendre(1200);
+    ok('[PH60] choisir la phase EN COURS la confirme sans redater son « depuis »',
+      profilBase().phase === 'seche' && profilBase().phase_depuis === DUE.phase_depuis && recent(profilBase().phase_confirmee_le) &&
+        !(await bandeauPh()).visible, JSON.stringify([profilBase().phase, profilBase().phase_depuis, profilBase().phase_confirmee_le]));
+    await rouvrir();
+    await page.click('#bandeau-phase .discret');
+    await attendre(500);
+    const ecritsAvant3 = ecritsProfil();
+    await page.click('#feuille-contenu .feuille-pied .sec');
+    await attendre(600);
+    ok('[PH60] « Annuler » ferme la feuille sans rien écrire, le bandeau reste',
+      !(await feuilleP()).ouverte && ecritsProfil() === ecritsAvant3 && (await bandeauPh()).visible, JSON.stringify([await feuilleP(), await bandeauPh()]));
+
+    // 7. LE SEGMENT DU PROFIL POSE AUSSI LA CONFIRMATION : changer de phase au Profil n'allume pas le rappel.
+    await rouvrir({ phase: 'maintien', phase_depuis: iso(60), phase_confirmee_le: iso(50) });
+    ok('[PH60] prémisse : maintien confirmé il y a 50 jours, le bandeau est dû', (await bandeauPh()).visible, JSON.stringify(await bandeauPh()));
+    await onglet('profil');
+    await page.click('.p-seg button[data-cle="prise_de_masse"]');
+    await attendre(1200);
+    ok('[PH60] DISCRIMINANT — le segment « TA PHASE » du Profil écrit aussi `phase_confirmee_le` (maintenant)',
+      profilBase().phase === 'prise_de_masse' && recent(profilBase().phase_depuis) && recent(profilBase().phase_confirmee_le),
+      JSON.stringify([profilBase().phase, profilBase().phase_depuis, profilBase().phase_confirmee_le]));
+    await aller('/saisie');
+    await attendre(900);
+    ok('[PH60] … donc Saisie ne montre pas de rappel juste après le changement', !(await bandeauPh()).visible, JSON.stringify(await bandeauPh()));
+
+    // LA REMISE EN ÉTAT.
+    Object.keys(DUE).concat(['phase', 'phase_depuis', 'phase_confirmee_le']).forEach((k) => { delete profilBase()[k]; });
+    Object.assign(profilBase(), profilAvant);
+    await aller('/saisie');
+    ok('[PH60] aucun refus du faux serveur, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,
+      JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
+  }
+
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');
   // Le compte vit dans `garde-compte.js` : le lanceur parallèle refait les
   // mêmes contrôles sur le compte fusionné de ses groupes.

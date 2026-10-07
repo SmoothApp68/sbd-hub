@@ -259,6 +259,50 @@
     return q ? 'Depuis ' + q : null;
   }
 
+  // ══ LE RAPPEL DE PHASE (MOTEUR §9.16, 60-2b) ═════════════════════════════
+  //
+  // Une phase se déclare, puis elle dure : la plupart vont de 8 à 16 semaines. Au
+  // bout de 6 semaines, on la redemande — par un bandeau, sans question (§20.2).
+  // `phase_confirmee_le` est la date de la dernière réponse (le questionnaire, le
+  // Profil, le bandeau lui-même) ; à défaut, `phase_depuis`. Sans phase déclarée
+  // (`profiles.phase` vide : « maintien » par défaut), rien à confirmer.
+  var RAPPEL_PHASE_JOURS = 42;
+
+  // Le numéro du jour CALENDRIER LOCAL d'un instant (Date, ISO complet ou date
+  // seule `AAAA-MM-JJ`), ou `null` s'il est illisible. Comme `quand` : l'écart se
+  // compte en jours du calendrier, pas en heures — 42 jours à cheval sur un
+  // changement d'heure valent 42 jours, pas 41 jours et 23 h.
+  function jourCalendaire(v) {
+    if (v === null || v === undefined || v === '') return null;
+    var d = v instanceof Date ? v : new Date(/^\d{4}-\d{2}-\d{2}$/.test(String(v)) ? String(v) + 'T00:00:00' : v);
+    if (isNaN(d.getTime())) return null;
+    return Math.round(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000);
+  }
+
+  // Vrai quand une phase est DÉCLARÉE et que sa dernière confirmation date de
+  // 42 jours calendaires ou plus. Faux sans date lisible, avec une date dans le
+  // futur, ou sans phase déclarée. `aujourdhui` : l'horloge, passée pour les tests.
+  function rappelDePhase(profil, aujourdhui) {
+    var p = profil || {};
+    if (PHASES_EN_BASE.indexOf(p.phase) < 0) return false;
+    var depuis = jourCalendaire(p.phase_confirmee_le || p.phase_depuis);
+    var auj = jourCalendaire(aujourdhui === undefined ? new Date() : aujourdhui);
+    if (depuis === null || auj === null) return false;
+    return auj - depuis >= RAPPEL_PHASE_JOURS;
+  }
+
+  // « Sèche depuis le 28 sept. » : la phase, puis la date où elle a été déclarée
+  // (`phase_depuis`, par le formateur de la voix `quand`). Sans cette date — une
+  // phase posée par le questionnaire sur un profil qui n'en avait pas —, la phase
+  // seule : on ne ment pas sur un « depuis ».
+  function phraseRappelDePhase(profil) {
+    var p = profil || {};
+    if (PHASES_EN_BASE.indexOf(p.phase) < 0) return null;
+    var nom = libelleDe(PHASES, p.phase);
+    var q = p.phase_depuis && racine.THModele ? racine.THModele.quand(p.phase_depuis) : '';
+    return q ? nom + ' depuis ' + q : nom + '.';
+  }
+
   // LE GEL (MOTEUR §9.16) : la phase d'une séance se lit UNE fois et ne bouge
   // plus. `gel` : `{ seanceId, phase }`, le gel en cours ou `null` ; `sauvee` :
   // la phase gelée relue du disque pour cette séance (rechargement), ou `null`.
@@ -294,7 +338,7 @@
   // Le même composant et la même écriture que « Ton rythme » (`ecrire` =
   // `ecrireProfil`, local d'abord puis la file du profil). Elle existe aussi
   // en Entretenir : la phase est un fait sur l'utilisateur, pas un réglage du
-  // moteur de charge. Choisir écrit `phase` ET `phase_depuis` (maintenant).
+  // moteur de charge. Choisir écrit `phase`, `phase_depuis` ET `phase_confirmee_le` (maintenant).
   // `maintenant` : l'horloge, passée pour les tests.
   function sectionPhase(profil, ecrire, maintenant) {
     var p = profil || {};
@@ -308,7 +352,11 @@
         deuxColonnes: true,
         surChoix: function (v) {
           var quand = typeof maintenant === 'function' ? maintenant() : new Date();
-          ecrire({ phase: v === 'inconnue' ? null : v, phase_depuis: quand.toISOString() });
+          // 60-2b : TOUTE réponse sur la phase est une confirmation — le rappel de
+          // phase (`rappelDePhase`) compte depuis `phase_confirmee_le`, comme le fait
+          // le questionnaire (`preparerChamps`).
+          ecrire({ phase: v === 'inconnue' ? null : v, phase_depuis: quand.toISOString(),
+                   phase_confirmee_le: quand.toISOString() });
         }
       },
       pied: depuisPhase(p)
@@ -909,7 +957,8 @@
     sectionIntention: sectionIntention,
     RYTHMES: RYTHMES, RYTHME_DEFAUT: RYTHME_DEFAUT,
     rythmeDe: rythmeDe, phraseRythme: phraseRythme, sectionRythme: sectionRythme,
-    PHASES: PHASES, PHASE_DEFAUT: PHASE_DEFAUT, phaseDe: phaseDe, phaseGelee: phaseGelee, sectionPhase: sectionPhase,
+    PHASES: PHASES, RAPPEL_PHASE_JOURS: RAPPEL_PHASE_JOURS,
+    rappelDePhase: rappelDePhase, phraseRappelDePhase: phraseRappelDePhase, PHASE_DEFAUT: PHASE_DEFAUT, phaseDe: phaseDe, phaseGelee: phaseGelee, sectionPhase: sectionPhase,
     objectifDe: objectifDe, objectifGele: objectifGele,
     prioritesDe: prioritesDe, prioritesGelees: prioritesGelees,
     DUREES: DUREES, SEANCES_MIN: SEANCES_MIN, SEANCES_MAX: SEANCES_MAX,

@@ -751,7 +751,7 @@ const NOTIONS = [
   { notion: 'le silence du coach au profil (« Juste un carnet », MOTEUR I13 : le plan, la semaine allégée annoncée, le badge et la carte de fin de bloc)', pr: '60-U2',
     module: 'moteur.js', fonction: 'coachSeTait', lecteurs: ['plan.js', 'app.js'],
     parAilleurs: { 'plan.js': ['planDeSeance', 'verifierSilenceDuProgramme'],
-                   'app.js': ['semaineAllegeeEnCours', 'programmeDuDossierCalcule'] },
+                   'app.js': ['semaineAllegeeEnCours', 'programmeDuDossierCalcule', 'rendreBandeauPhase'] },
     // La forme écrite à la main, hors du moteur : l'intention du PROFIL comparée à
     // « entretien » (`profil.intention === 'entretien'`), ou `intentionDe` appelée
     // avec le profil seul (`intentionDe(profil && profil.intention, null)`).
@@ -781,7 +781,12 @@ const NOTIONS = [
     module: 'profil.js', fonction: 'prioritesGelees', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['prioritesDeLaSeance'] },
     raison: 'MOTEUR §14.6 (60-2b) : jumelle de la phase gelée. Lues en direct, cocher une priorité dans Profil en ' +
-      'pleine séance ferait apparaître ou disparaître une carte de série de plus (I12 : le mémo du plan ne voit pas le profil).' }
+      'pleine séance ferait apparaître ou disparaître une carte de série de plus (I12 : le mémo du plan ne voit pas le profil).' },
+  { notion: 'le rappel de phase (une phase déclarée dont la dernière réponse date de 42 jours ou plus)', pr: '60-U7',
+    module: 'profil.js', fonction: 'rappelDePhase', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['rendreBandeauPhase'] },
+    raison: 'MOTEUR §9.16 (60-2b) : le seuil des 42 jours et le choix de la date (`phase_confirmee_le`, sinon ' +
+      '`phase_depuis`) vivent dans une règle pure ; le bandeau de Saisie la lit, il ne recalcule pas l’âge d’une phase.' }
 ];
 
 // ── 58-1 — UN FAIT NE SE DÉCLARE QUE DANS `faits.js` ─────────────────────────

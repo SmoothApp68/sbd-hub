@@ -786,10 +786,15 @@ const SETS_IMPORTES = [
       await attendre(base.lenteur);
       base.lentesServies = (base.lentesServies || []).concat([Date.now()]);
     }
-    // 59-5 — une LENTEUR sur la lecture du journal des records seule : la
-    // synchronisation passe, et c'est `synchroniserJournal` qui est en vol.
+    // 59-5 — une LENTEUR sur la lecture du journal des records seule, UNE
+    // fois : la synchronisation passe, et c'est `synchroniserJournal` qui est
+    // en vol. Une seule lecture retenue — la relecture complète qui suit
+    // (le compte ne tombe pas juste) répond aussitôt, et ce qu'elle écrirait
+    // se voit avant la mesure.
     if (base.lenteurRecords && req.method() === 'GET' && table === 'records') {
-      await attendre(base.lenteurRecords);
+      const retenue = base.lenteurRecords;
+      base.lenteurRecords = 0;
+      await attendre(retenue);
       base.lentesServies = (base.lentesServies || []).concat([Date.now()]);
     }
 
@@ -13205,7 +13210,7 @@ const SETS_IMPORTES = [
     await aller('/profil');
     const quitteA = Date.now();
     await quitterQ();
-    await attendre(LENTEUR_Q);
+    await attendre(LENTEUR_Q + 2000);
     base.lenteur = 0;
     ok('[Q59] prémisse — la synchronisation était EN VOL pendant « Quitter » (la lecture retenue a répondu après)',
       base.lentesServies.some((t) => t > quitteA), JSON.stringify({ quitteA, servies: base.lentesServies }));
@@ -13246,7 +13251,7 @@ const SETS_IMPORTES = [
     await attendre(500);
     await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
       .filter((b) => b.textContent === 'Supprimer définitivement')[0].click());
-    await attendre(LENTEUR_Q);
+    await attendre(LENTEUR_Q + 2000);
     base.lenteurRecords = 0;
     ok('[Q59] E — prémisse : le journal des records était EN VOL pendant la suppression',
       base.lentesServies.some((t) => t > supprimeA), JSON.stringify({ supprimeA, servies: base.lentesServies }));

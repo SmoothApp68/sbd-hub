@@ -259,3 +259,63 @@ describe('compterMagasin — la preuve vient du disque', () => {
     expect(n).toBe(4242);                  // et il rend ce que le magasin répond
   });
 });
+
+// ── 58-2 — le journal des records : un magasin à lui, vidé par « Quitter » ──
+//
+// Le relevé de sécurité 59-0 a montré qu'un magasin oublié par `viderTout`
+// (`predictions`) survit à « Quitter » et se relit sous le compte suivant. Le
+// journal ne reproduit pas l'erreur : on vérifie le GESTE, pas une liste.
+describe('le magasin `records` (58-2)', () => {
+  function fausseBase(journal, existants) {
+    const magasin = (nom) => ({
+      clear() { journal.push({ op: 'clear', magasin: nom }); },
+      put(e) { journal.push({ op: 'put', magasin: nom, e }); },
+      createIndex(n, k) { journal.push({ op: 'index', magasin: nom, n, k }); return {}; }
+    });
+    const db = {
+      objectStoreNames: { contains: (n) => existants.indexOf(n) >= 0 },
+      createObjectStore(nom, opts) { journal.push({ op: 'creer', magasin: nom, opts }); return magasin(nom); },
+      transaction(noms) {
+        journal.push({ op: 'tx', noms: noms.slice() });
+        const t = { objectStore: (nom) => magasin(nom) };
+        setTimeout(() => { t.oncomplete && t.oncomplete(); }, 0);
+        return t;
+      }
+    };
+    return {
+      open() {
+        const req = {};
+        setTimeout(() => {
+          req.result = db;
+          req.onupgradeneeded && req.onupgradeneeded({ target: { result: db } });
+          req.onsuccess && req.onsuccess({ target: { result: db } });
+        }, 0);
+        return req;
+      }
+    };
+  }
+
+  test('⚠️ « Quitter » (`viderTout`) vide aussi le journal des records', async () => {
+    jest.resetModules();
+    const journal = [];
+    global.indexedDB = fausseBase(journal, ['seances', 'series', 'exercices', 'pesees', 'meta', 'zones',
+      'modes', 'brouillon', 'attente', 'predictions', 'records']);
+    require('../../v2/js/cache.js');
+    await global.THCache.viderTout();
+    const vides = journal.filter((j) => j.op === 'clear').map((j) => j.magasin);
+    expect(vides).toContain('records');
+    expect(vides).toContain('series');   // le même geste que pour le reste
+  });
+
+  test('la montée crée le magasin, clé (set_id, type) — celle de l’unicité en base —, sans toucher aux autres', async () => {
+    jest.resetModules();
+    const journal = [];
+    global.indexedDB = fausseBase(journal, ['seances', 'series', 'exercices', 'pesees', 'meta', 'zones',
+      'modes', 'brouillon', 'attente', 'predictions']);
+    require('../../v2/js/cache.js');
+    await global.THCache.lireTout('records').catch(() => {});
+    const crees = journal.filter((j) => j.op === 'creer');
+    expect(crees.map((c) => c.magasin)).toEqual(['records']);
+    expect(crees[0].opts).toEqual({ keyPath: ['set_id', 'type'] });
+  });
+});

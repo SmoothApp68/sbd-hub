@@ -1554,7 +1554,8 @@
   // (ou `reps_a_charge` quand la même charge a déjà été faite), `charge_max`,
   // `cap`, `un_rm_estime`, `volume_seance`, `duree_s`, `distance_m`. Chacun
   // porte `valeur`, l'ancien record `ancien` et sa date `ancien_le` (le début
-  // de sa séance) ; `[]` sans record.
+  // de sa séance), et `douzeMois` (lu dans la fenêtre des 12 mois d'un matériel
+  // de salle) ; `[]` sans record.
   function recordsBattus(historique, seance, indice, options) {
     var o = options || {};
     var se = seance || {};
@@ -1668,6 +1669,12 @@
         }
       });
     }
+    // 58-2 — LA FENÊTRE OÙ LE RECORD A ÉTÉ LU, dite par la fonction qui l'a
+    // lu : 12 mois pour les charges d'un matériel de salle, toute la vie pour
+    // la durée et la distance. Le journal la garde telle quelle (« sur 12
+    // mois », §9.23 H1) ; la médaille ne la lit pas.
+    var douzeMois = plancher !== null;
+    out.forEach(function (x) { x.douzeMois = douzeMois && x.type !== 'duree_s' && x.type !== 'distance_m'; });
     return out;
   }
 

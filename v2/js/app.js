@@ -30,7 +30,7 @@
   var vues = {};
   var local = { seances: [], series: [], exercices: [], pesees: [], zones: [], modes: [],
                 predictions: [], sousConsigne: {}, parisLegers: [], escalier: [], parSeance: null,
-                blocs: [], programme: [] };
+                blocs: [], programme: [], records: [] };
   var etat = { code: 'vide', libelle: '', local: false };
   var syncEnCours = false;
   var lundiAffiche = null;   // le lundi de la semaine à l'écran
@@ -191,7 +191,7 @@
   // argument plutôt que lu par fermeture.
   function corpus() {
     return { seances: local.seances, series: local.series, exercices: local.exercices,
-             seriesDe: seriesDe, catalogue: catalogueIndexe };
+             seriesDe: seriesDe, catalogue: catalogueIndexe, journal: local.records };
   }
 
   // ── §9.1.1 — LES CORRECTIONS DE ZONE ─────────────────────────────────────
@@ -627,6 +627,11 @@
     catch (e) { local.blocs = []; }
     try { local.programme = (await Cache.lireBrouillon(CLE_PARIS_PROGRAMME)) || []; }
     catch (e) { local.programme = []; }
+    // 58-2 — le journal des records, et où en est son remplissage.
+    try { local.records = await Cache.lireTout('records'); }
+    catch (e) { local.records = []; }
+    try { journalDecide = !!(await Cache.lireMeta(CLE_JOURNAL)); }
+    catch (e) { journalDecide = false; }
     rangerSeances();
     indexerParSeance();
     recalculerEtats();
@@ -701,6 +706,11 @@
     local.escalier = [];
     local.blocs = [];
     local.programme = [];
+    // 58-2 — le journal des records aussi (son magasin vient d'être vidé), et
+    // son remplissage : il se décidera pour le compte qui arrive.
+    local.records = [];
+    journalDecide = false;
+    remplissage = null;
     // Le profil aussi appartient au compte précédent — et son envoi en attente
     // avec lui. Le rejouer sur le compte suivant écrirait la taille de
     // quelqu'un d'autre dans sa ligne `profiles`.
@@ -880,6 +890,9 @@
         if (resync) await Cache.ecrireMeta('formeSync', { version: Sync.VERSION_SYNC });
         if (commit.attendu !== null) await Cache.ecrireMeta('attendu', { series: commit.attendu });
       }
+
+      // 58-2 — le journal des records : accessoire, il n'emporte rien s'il échoue.
+      await synchroniserJournal(listeComplete);
 
       etat = Sync.deciderEtat({
         syncOk: true, aDesDonnees: true, manquantes: commit.manquantes
@@ -1222,7 +1235,7 @@
     try {
       var garde = 200;   // une file qui ne rétrécit pas ne doit pas tourner sans fin
       while (garde-- > 0) {
-        var op = Attente.prochaine(attente);
+        var op = Attente.prochaine(fileEnvoyable(attente));
         if (!op) break;
         // ⚠️ LE CONFLIT « UNE SEULE EN COURS » SE RÉSOUT DANS L'ENVOI
         // (26/09/2026) : une autre séance encore ouverte en base est refermée
@@ -1268,6 +1281,21 @@
       vidangeEnCours = false;
       rendreEtatSync();
     }
+    // 58-2 — tous les lots du remplissage sont montés : le journal est rempli.
+    constaterJournalRempli().catch(function () {});
+  }
+
+  // ⚠️ 58-2 — LE JOURNAL DES RECORDS ATTEND QUE SON REMPLISSAGE SOIT DÉCIDÉ.
+  // Le remplissage de l'historique se décide sur « le journal du serveur est
+  // vide pour ce compte » (`deciderJournal`). Une ligne écrite à « Terminer »
+  // et montée AVANT cette décision — l'app ouverte hors ligne, le réseau qui
+  // revient par l'événement `online`, une vidange sans synchronisation — ferait
+  // dire « pas vide » au compte, et l'historique ne serait jamais rempli. Ses
+  // entrées restent donc dans la file, sans rien retenir d'autre (rien ne
+  // dépend d'elles), jusqu'à la décision.
+  function fileEnvoyable(file) {
+    if (journalDecide) return file;
+    return (file || []).filter(function (e) { return e && e.table !== Attente.RECORDS; });
   }
 
   // Referme en base toutes les séances `en_cours` sauf celle-ci. UPDATE ciblé
@@ -1300,6 +1328,9 @@
     // upsert rejoué), et l'observation la suit par une mise à jour étroite.
     if (op.table === Attente.PREDICTIONS) return envoyerPrediction(op);
     if (op.table === Attente.OBSERVATIONS) return Donnees.observerPrediction(op.id, op.donnees || {});
+    // 58-2 — le journal des records : un AJOUT qui ignore les lignes déjà là,
+    // jamais une modification (`records_immuable`).
+    if (op.table === Attente.RECORDS) return Donnees.ajouterRecords(op.donnees || []);
     // §6 — l'intention porte l'ÉTAT VOULU de la routine, pas un chemin pour y
     // aller : le plan d'écritures se calcule à la vidange, contre ce que la
     // routine est devenue entre-temps. C'est de là que vient l'idempotence.
@@ -1604,11 +1635,241 @@
     catch (e) { consignesSauvees = null; }
   }
 
+  // ══ LE JOURNAL DES RECORDS (MOTEUR §9.23, 58-2) ═══════════════════════════
+  //
+  // Chaque record battu s'écrit UNE fois dans la table `records`. Le journal
+  // ne calcule rien : ses lignes viennent du module des faits (`journalDuJour`
+  // à « Terminer » et en Édition — la fonction de la feuille « Terminer » —,
+  // `journalDeLaSeance` pour l'historique), et ne partent que par la file.
+  // Les écrans (médaille, « Terminer », Progression, bilan) n'en lisent rien :
+  // ils calculent comme avant. Le journal est pour le jeu, qui viendra.
+  //
+  //   « Terminer »  → les lignes de la séance, une entrée de file (après ses séries) ;
+  //   Édition       → les lignes de la séance corrigée, la même entrée, reposée en fin de file ;
+  //   remplissage   → l'historique, une fois, par lots, en tranches qui rendent la main.
+  var CLE_JOURNAL = 'journalRecords';           // meta : { etat: commence | pose | rempli }
+  var CLE_CURSEUR_RECORDS = 'curseurRecords';   // meta : le dernier `created_at` reçu
+  var journalDecide = false;   // le remplissage est-il décidé pour ce compte ?
+  var remplissage = null;      // le remplissage en cours (ou le dernier), pour la mesure
+  // Une tranche : au plus 10 séances, et pas plus de 25 ms au-delà de la
+  // première — puis la main revient à l'écran. Un lot : 500 lignes, une requête.
+  var SEANCES_PAR_TRANCHE = 10, BUDGET_TRANCHE_MS = 25, LIGNES_PAR_LOT = 500;
+  var PREFIXE_LOT = 'remplissage-';
+
+  // ⚠️ LE SEUL CHEMIN D'ÉCRITURE DU JOURNAL. Les lignes entrent dans la copie
+  // locale comme la base les prendra (`ON CONFLICT DO NOTHING` : une ligne déjà
+  // là reste), puis partent par la file. `id` : la séance, ou le lot ;
+  // `depend` : la séance (ses séries montent avant). Reposée EN FIN DE FILE à
+  // chaque fois : derrière les séries qu'elle désigne. Sans ligne, l'entrée de
+  // cette séance qui attendait encore est retirée — elle porterait des records
+  // que la correction vient d'effacer.
+  async function poserJournal(lignes, id, depend) {
+    if (!lignes || !lignes.length) {
+      var avant = attente.length;
+      attente = Attente.retirer(attente, Attente.cleDe(Attente.RECORDS, id));
+      if (attente.length !== avant) await Cache.ecrireAttente(attente).catch(function () {});
+      return;
+    }
+    var r = Sync.ajouterAuJournal(local.records, lignes);
+    local.records = r.journal;
+    if (r.ajoutees.length) await Cache.ecrireLot('records', r.ajoutees).catch(function () {});
+    await poser({ table: Attente.RECORDS, op: Attente.AJOUTER, id: id, depend: depend || null,
+                  donnees: lignes, alaFin: true });
+  }
+
+  // « Terminer », et l'enregistrement d'une Édition : les records de CETTE
+  // séance, et d'elle seule — un record est un record à sa date, rien d'autre
+  // ne se recalcule. `avant` (Édition) : ses séries telles qu'elles étaient.
+  // Celles qui changent sur un champ qui fait un record perdent leurs lignes
+  // ici comme en base (`sets_efface_records`), et l'ajout qui suit les réécrit.
+  async function ecrireJournalDeSeance(s, avant) {
+    var lignes = faits.journalDuJour(corpus(), s, s.user_id || userId());
+    if (avant) {
+      var effacees = Sync.seriesQuiEffacent(avant, Seance.lignes(s));
+      if (effacees.length) {
+        var partent = local.records.filter(function (l) { return effacees.indexOf(l.set_id) >= 0; });
+        local.records = Sync.retirerDuJournal(local.records, effacees);
+        if (partent.length) {
+          await Cache.supprimer('records', partent.map(function (l) { return [l.set_id, l.type]; }))
+            .catch(function () {});
+        }
+      }
+    }
+    await poserJournal(lignes, s.id, s.id);
+  }
+
+  // Les lignes encore dans la file (pas encore en base), par clé.
+  function lignesEnFile() {
+    var out = {};
+    (attente || []).forEach(function (e) {
+      if (!e || e.table !== Attente.RECORDS) return;
+      (e.donnees || []).forEach(function (l) { out[Sync.cleJournal(l)] = l; });
+    });
+    return out;
+  }
+
+  // ── La synchronisation du journal ───────────────────────────────────────
+  //
+  // ACCESSOIRE, comme les zones : un échec garde ce qu'on a et n'emporte rien.
+  // INCRÉMENTALE sur `created_at` (une ligne ne se modifie jamais). Ce qui
+  // DISPARAÎT en base — une série corrigée ou supprimée sur un autre appareil —
+  // ne revient pas par l'incrément : c'est le COMPTE qui le révèle. Les lignes
+  // hors file doivent être exactement celles que le serveur compte ; sinon on
+  // relit le journal en entier, et la file garde les siennes.
+  async function synchroniserJournal(listeComplete) {
+    try {
+      var compte = await Donnees.compterRecords();
+      var curseur = await Cache.lireMeta(CLE_CURSEUR_RECORDS);
+      var nouvelles = await Donnees.recordsDepuis(curseur);
+      var avant = local.records;
+      var journal = Sync.purgerJournal(Sync.fondreJournal(avant, nouvelles), local.series, listeComplete);
+      var enFile = lignesEnFile();
+      var horsFile = journal.filter(function (l) { return !enFile[Sync.cleJournal(l)]; }).length;
+      var relu = false;
+      if (typeof compte === 'number' && horsFile !== compte) {
+        var tout = await Donnees.recordsDepuis(null);
+        journal = Sync.fondreJournal(Object.keys(enFile).map(function (k) { return enFile[k]; }), tout);
+        relu = true;
+      }
+      local.records = journal;
+      if (relu) {
+        await Cache.remplacerTout('records', journal);
+      } else {
+        var restent = {};
+        journal.forEach(function (l) { restent[Sync.cleJournal(l)] = true; });
+        var parties = (avant || []).filter(function (l) { return !restent[Sync.cleJournal(l)]; });
+        if (parties.length) await Cache.supprimer('records', parties.map(function (l) { return [l.set_id, l.type]; }));
+        await Cache.ecrireLot('records', nouvelles);
+      }
+      // LE COMPTE AUTORISE le curseur, comme pour les séries.
+      if (typeof compte === 'number') {
+        var avance = Sync.curseurDe(journal, ['created_at']);
+        if (avance) await Cache.ecrireMeta(CLE_CURSEUR_RECORDS, avance);
+      }
+      await deciderJournal(compte);
+    } catch (e) {
+      console.warn('Journal des records : synchronisation impossible :', texteErreur(e));
+    }
+  }
+
+  // ── Le remplissage de l'historique, une fois ────────────────────────────
+  //
+  // Décidé UNE fois par compte, sur le compte du serveur : vide, et des séances
+  // à remplir → on remplit ; sinon le journal est réputé rempli (un autre
+  // appareil l'a fait, ou il n'y a rien). Un compte illisible ne décide rien.
+  // Reprise : `commence` relance tout (l'unicité absorbe les renvois) ; `pose`
+  // attend que la file ait tout monté ; `rempli` ne se pose qu'alors.
+  async function deciderJournal(compte) {
+    var m = await Cache.lireMeta(CLE_JOURNAL).catch(function () { return null; });
+    if (m && m.etat === 'rempli') { journalDecide = true; return; }
+    if (m && m.etat === 'pose') { journalDecide = true; vidanger(); return; }
+    if (m && m.etat === 'commence') {
+      journalDecide = true;
+      remplirJournal().catch(function (e) { console.warn('Remplissage du journal :', texteErreur(e)); });
+      return;
+    }
+    if (typeof compte !== 'number') return;
+    if (compte > 0 || !seancesARemplir().length) {
+      await Cache.ecrireMeta(CLE_JOURNAL, { etat: 'rempli', le: new Date().toISOString(), lignes: 0 });
+      journalDecide = true;
+      vidanger();
+      return;
+    }
+    await Cache.ecrireMeta(CLE_JOURNAL, { etat: 'commence', le: new Date().toISOString() });
+    journalDecide = true;
+    remplirJournal().catch(function (e) { console.warn('Remplissage du journal :', texteErreur(e)); });
+  }
+
+  // Les séances à remplir : toutes les terminées, de la plus ancienne à la
+  // plus récente.
+  function seancesARemplir() {
+    return faits.seancesAvecSeries(corpus()).filter(Boolean).slice()
+      .sort(function (a, b) { return String(a.debut).localeCompare(String(b.debut)); });
+  }
+
+  function laisserLaMain() { return new Promise(function (r) { setTimeout(r, 0); }); }
+
+  // ⚠️ EN TRANCHES, ET LA MAIN REVIENT À L'ÉCRAN ENTRE DEUX. Rejouer les records
+  // d'une vie prend des secondes (relevé 58-0) : d'un bloc, l'app serait figée
+  // pendant tout ce temps. Chaque tranche est bornée (`SEANCES_PAR_TRANCHE`,
+  // `BUDGET_TRANCHE_MS`) ; entre deux, un `setTimeout` rend la main — un geste,
+  // un rendu, la vidange passent. Un lot plein part aussitôt par la file.
+  async function remplirJournal() {
+    if (remplissage && !remplissage.fin) return;
+    var uid = userId();
+    if (!uid) return;
+    var c = corpus();
+    var liste = seancesARemplir();
+    var enAttente = Attente.seancesEnAttente(attente);
+    var etatR = remplissage = { debut: Date.now(), fin: null, total: liste.length, seances: 0,
+      tranches: 0, lignes: 0, lots: 0, plusLongueTranche: 0 };
+    var lot = [];
+    var poserLot = function (lignes) {
+      etatR.lots++;
+      etatR.lignes += lignes.length;
+      return poserJournal(lignes, PREFIXE_LOT + etatR.lots, null);
+    };
+    var i = 0;
+    while (i < liste.length) {
+      var t0 = Date.now(), n = 0;
+      var aPart = [];
+      while (i < liste.length && n < SEANCES_PAR_TRANCHE && (n === 0 || Date.now() - t0 < BUDGET_TRANCHE_MS)) {
+        var lignes = faits.journalDeLaSeance(c, liste[i], uid);
+        // ⚠️ UNE SÉANCE QUI ATTEND ENCORE DANS LA FILE (terminée hors ligne,
+        // peut-être avant cette version) : ses séries ne sont peut-être pas en
+        // base. Ses lignes partent dans SON entrée, derrière elle — jamais dans
+        // un lot, qu'une clé étrangère manquante bloquerait tout entier.
+        if (enAttente[liste[i].id]) aPart.push({ id: liste[i].id, lignes: lignes });
+        else lignes.forEach(function (l) { lot.push(l); });
+        i++; n++;
+      }
+      etatR.tranches++;
+      etatR.seances = i;
+      etatR.plusLongueTranche = Math.max(etatR.plusLongueTranche, Date.now() - t0);
+      for (var k = 0; k < aPart.length; k++) {
+        etatR.lignes += aPart[k].lignes.length;
+        await poserJournal(aPart[k].lignes, aPart[k].id, aPart[k].id);
+      }
+      while (lot.length >= LIGNES_PAR_LOT) await poserLot(lot.splice(0, LIGNES_PAR_LOT));
+      if (i < liste.length) {
+        await laisserLaMain();
+        // Le compte est parti (« Quitter », un autre compte) : on s'arrête là.
+        if (remplissage !== etatR || userId() !== uid) return;
+      }
+    }
+    if (lot.length) await poserLot(lot);
+    await Cache.ecrireMeta(CLE_JOURNAL, { etat: 'pose', le: new Date().toISOString(),
+      lots: etatR.lots, lignes: etatR.lignes });
+    etatR.fin = Date.now();
+    vidanger();
+  }
+
+  // Le journal est rempli quand tous ses lots sont montés — pas avant.
+  async function constaterJournalRempli() {
+    if (!sessionActive) return;
+    var m = await Cache.lireMeta(CLE_JOURNAL);
+    if (!m || m.etat !== 'pose') return;
+    var reste = (attente || []).some(function (e) {
+      return e && e.table === Attente.RECORDS && String(e.id).indexOf(PREFIXE_LOT) === 0;
+    });
+    if (reste) return;
+    await Cache.ecrireMeta(CLE_JOURNAL, Object.assign({}, m, { etat: 'rempli', rempli_le: new Date().toISOString() }));
+  }
+
+  // Ce que le banc (et un relevé sur l'appareil) lit du journal : rien d'affiché.
+  function etatDuJournal() {
+    return { decide: journalDecide, lignes: (local.records || []).length,
+             remplissage: remplissage ? Object.assign({}, remplissage) : null };
+  }
+
   async function terminerSeance(verdict) {
     seance = Seance.terminer(seance, new Date());
     await sauverSeance();
     await poserSeries();
     await poserSeance(false);
+    // 58-2 — les records de la séance, ceux que la feuille vient d'afficher :
+    // dans la file, derrière la séance et ses séries.
+    await ecrireJournalDeSeance(seance, null);
     // §9.11 (27/09/2026) — LE RATTRAPAGE, en filet : chaque pari dont la copie
     // locale porte une observation sur une série encore validée la renvoie,
     // derrière les séries. Idempotent ; il répare toute divergence restante
@@ -7035,6 +7296,15 @@
     recalculerEtats();
     await Cache.remplacerTout('seances', local.seances).catch(function () {});
     if (partantes.length) await Cache.supprimer('series', partantes).catch(function () {});
+    // 58-2 — ses records partent avec elle (la cascade, en base) : la copie
+    // locale, et l'entrée du journal qui attendait encore.
+    var recordsPartants = (local.records || []).filter(function (l) { return l && l.session_id === id; });
+    local.records = (local.records || []).filter(function (l) { return l && l.session_id !== id; });
+    if (recordsPartants.length) {
+      await Cache.supprimer('records', recordsPartants.map(function (l) { return [l.set_id, l.type]; }))
+        .catch(function () {});
+    }
+    attente = Attente.retirer(attente, Attente.cleDe(Attente.RECORDS, id));
     await poser({ table: Attente.SESSIONS, op: Attente.SUPPRIMER, id: id });
     afficherSemaine(lundiAffiche);
   }
@@ -7097,8 +7367,12 @@
   // depuis longtemps, et la routine d'aujourd'hui n'est plus celle du jour-là.
   async function enregistrerEdition() {
     var id = seance.id;
+    // 58-2 — les séries telles qu'elles étaient, AVANT que le cache n'adopte la
+    // correction : celles qui changent perdent leurs records.
+    var seriesAvant = seriesDe(id).slice();
     await poserSeries();
     await poserSeance(false);
+    await ecrireJournalDeSeance(seance, seriesAvant);
     adopterLocalement(seance);
     seance = null; chrono = null;
     arreterMinuteur();
@@ -7302,7 +7576,9 @@
     entreeFaitePour = null;
     try { await Cache.viderTout(); } catch (e) { /* rien à garder de toute façon */ }
     local = { seances: [], series: [], exercices: [], pesees: [], zones: [], modes: [],
-              predictions: [], sousConsigne: {}, parisLegers: [], escalier: [], parSeance: null };
+              predictions: [], sousConsigne: {}, parisLegers: [], escalier: [], parSeance: null,
+              records: [] };
+    journalDecide = false;
     notesEnCours = {};
     // Les routines vivent en mémoire, pas dans le cache — mais elles
     // appartiennent quand même au compte qui part.
@@ -7313,6 +7589,7 @@
     // de la perdre.
     profil = null; profilAEnvoyer = false; pseudoAInscrire = null;
     faits.oublierDates();
+    remplissage = null;
     try { await Auth.deconnecter(); } catch (e) { /* le jeton part quand même */ }
     allerA(Routeur.CONNEXION, {}, true);
     rendreEntree('connexion');
@@ -8275,7 +8552,7 @@
 
   // Exposé pour l'écran de saisie à venir : une vue déclare ici qu'elle refuse
   // la sortie, et fournit sa propre question. Rien ne s'en sert encore.
-  racine.THApp = { ajouterGarde: ajouterGarde, retirerGarde: retirerGarde };
+  racine.THApp = { ajouterGarde: ajouterGarde, retirerGarde: retirerGarde, journal: etatDuJournal };
 
   if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', demarrer);
   else demarrer();

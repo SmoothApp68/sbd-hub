@@ -12,8 +12,9 @@
 // en argument, et c'est tout ce qui a changé :
 //
 //   · `c` — LE CORPUS : `{ seances, series, exercices, seriesDe(id),
-//     catalogue() }` — ce que `app.js` appelait `local.seances`,
+//     catalogue(), journal }` — ce que `app.js` appelait `local.seances`,
 //     `local.series`, `local.exercices`, `seriesDe` et `catalogueIndexe` ;
+//     `journal` (58-2) : les lignes du journal des records (`local.records`) ;
 //   · `seance` — la séance EN COURS (ou `null`), là où une fonction la lisait ;
 //   · `lundi` — la semaine affichée, pour la semaine.
 //
@@ -93,7 +94,8 @@
         var r = Modele.recordsBattus(seancesDuSlug(c, x.exercise_slug), se, k, Modele.optionsDeRecord(index[x.exercise_slug] || null));
         if (!r.length) return;
         var nom = Modele.nomCourt(index[x.exercise_slug] ? index[x.exercise_slug].nom : x.exercise_slug);
-        out.push({ seanceId: se.id, debut: se.debut, slug: x.exercise_slug,
+        // 58-2 — `serieId` : le journal écrit une ligne par série et par type.
+        out.push({ seanceId: se.id, serieId: x.id, debut: se.debut, slug: x.exercise_slug,
                    nom: nom.charAt(0).toUpperCase() + nom.slice(1), mesure: Modele.formatMesure(x), records: r });
       });
       memoRecordsSeance.parId[se.id] = out;
@@ -180,6 +182,96 @@
       return out;
     }
 
+    // ── Le journal des records (MOTEUR §9.23, 58-2) ─────────────────────────
+    //
+    // Chaque record battu s'écrit UNE fois dans la table `records` (v2_061,
+    // v2_062) : une ligne par série et par type. ⚠️ LE JOURNAL NE CALCULE RIEN.
+    // Une ligne est ce que `recordsBattus` a constaté, recopié aux colonnes de
+    // la table : la valeur, l'ancien record et sa date, les reps d'une « charge
+    // pour N reps », la charge d'un « reps à charge », l'unité d'un volume, la
+    // fenêtre des 12 mois. Aucun champ n'est déduit ici d'autre chose que de ce
+    // record-là, de sa série et de sa séance.
+    //
+    // Les trois champs propres à un type (`reps`, `charge`, `unite`) sont à
+    // `null` ailleurs : un lot part en UNE requête, et PostgREST veut les mêmes
+    // colonnes sur chaque ligne.
+    function ligneDuJournal(r, serie, seance, userId) {
+      var vide = function (v) { return v === undefined ? null : v; };
+      return {
+        user_id: userId || null,
+        set_id: serie.id,
+        session_id: seance.id,
+        exercise_slug: serie.exercise_slug,
+        type: r.type,
+        valeur: r.valeur,
+        reps: vide(r.reps),
+        charge: vide(r.charge),
+        unite: vide(r.unite),
+        ancien: vide(r.ancien),
+        ancien_le: vide(r.ancien_le),
+        sur_douze_mois: !!r.douzeMois,
+        battu_le: seance.debut
+      };
+    }
+
+    // Les lignes de la séance qu'on TERMINE — ou qu'on corrige en Édition : les
+    // records de chaque série par `recordsDeLaSerie`, la fonction de la médaille
+    // et de la feuille « Terminer ». Aucun recalcul à part : la feuille affiche
+    // ce que le journal garde.
+    function journalDuJour(c, seance, userId) {
+      if (!seance) return [];
+      var v = seanceDesRecords(seance), out = [];
+      seance.exercices.forEach(function (exo, i) {
+        (exo.series || []).forEach(function (s, j) {
+          recordsDeLaSerie(c, seance, i, j, v).forEach(function (r) {
+            out.push(ligneDuJournal(r, { id: s.id, exercise_slug: exo.exercise_slug }, seance, userId));
+          });
+        });
+      });
+      return out;
+    }
+
+    // Les lignes d'une séance PASSÉE (le remplissage de l'historique, une fois) :
+    // `recordsDeLaSeance`, la fonction du bilan du mois et du dernier record.
+    function journalDeLaSeance(c, se, userId) {
+      var out = [];
+      recordsDeLaSeance(c, se).forEach(function (m) {
+        m.records.forEach(function (r) {
+          out.push(ligneDuJournal(r, { id: m.serieId, exercise_slug: m.slug }, se, userId));
+        });
+      });
+      return out;
+    }
+
+    // ⚠️ LA LECTURE DU JOURNAL — la seule. Le jeu (et plus tard le social) lit
+    // le journal ICI, jamais un recalcul ; il ne s'écrit que par la file
+    // d'envoi (`app.js`, `poserJournal`). `c.journal` : les lignes du magasin
+    // local `records`. `filtre` : `{ slug, seance, type, depuis, jusqua }`,
+    // tous facultatifs (`depuis`/`jusqua` bornent `battu_le`, comparés comme
+    // des instants). Rend des copies, de la plus ancienne à la plus récente ;
+    // à date égale, dans l'ordre de la phrase de la médaille (§9.23).
+    var ORDRE_DES_TYPES = ['charge_a_reps', 'reps_a_charge', 'charge_max', 'cap', 'un_rm_estime',
+                           'volume_seance', 'duree_s', 'distance_m'];
+    function recordsDuJournal(c, filtre) {
+      var f = filtre || {};
+      var instant = function (x) { var t = Date.parse(x); return isNaN(t) ? null : t; };
+      var depuis = f.depuis ? instant(f.depuis) : null, jusqua = f.jusqua ? instant(f.jusqua) : null;
+      return (c.journal || []).filter(function (l) {
+        if (!l) return false;
+        if (f.slug && l.exercise_slug !== f.slug) return false;
+        if (f.seance && l.session_id !== f.seance) return false;
+        if (f.type && l.type !== f.type) return false;
+        var t = instant(l.battu_le);
+        if (depuis !== null && (t === null || t < depuis)) return false;
+        if (jusqua !== null && (t === null || t > jusqua)) return false;
+        return true;
+      }).map(function (l) { return Object.assign({}, l); }).sort(function (a, b) {
+        var ta = instant(a.battu_le) || 0, tb = instant(b.battu_le) || 0;
+        if (ta !== tb) return ta - tb;
+        return ORDRE_DES_TYPES.indexOf(a.type) - ORDRE_DES_TYPES.indexOf(b.type);
+      });
+    }
+
     // ── La semaine affichée (`app.js` `semaineCourante`) ────────────────────
     //
     // Tout ce que les deux onglets lisent de la semaine affichée. Une seule
@@ -236,6 +328,9 @@
       seanceDesRecords: seanceDesRecords,
       recordsDeLaSerie: recordsDeLaSerie,
       recordsDuJour: recordsDuJour,
+      journalDuJour: journalDuJour,
+      journalDeLaSeance: journalDeLaSeance,
+      recordsDuJournal: recordsDuJournal,
       semaineDe: semaineDe,
       datesDesExercices: datesDesExercices,
       compterExercices: compterExercices,

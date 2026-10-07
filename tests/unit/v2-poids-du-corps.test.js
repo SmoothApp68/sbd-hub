@@ -624,7 +624,8 @@ describe('50-1 — Entretenir se choisit aussi par exercice (modes_exercice)', (
     // Le cache n'a pas d'export (une IIFE sur `self`) : on lit le source, comme
     // le fait `v2-cache-integrite`.
     const cache = fs.readFileSync(path.join(__dirname, '../../v2/js/cache.js'), 'utf8');
-    expect(cache).toMatch(/var VERSION = 6;/);
+    // Au moins 6 : la montée qui crée `modes` (58-2 en ajoute une, `records`).
+    expect(Number(/var VERSION = (\d+);/.exec(cache)[1])).toBeGreaterThanOrEqual(6);
     expect(cache).toMatch(/var MAGASINS = \[[^\]]*'modes'/);
     expect(cache).toMatch(/createObjectStore\('modes', \{ keyPath: 'id' \}\)/);
     // La file d'envoi sait où poser une ligne de `modes_exercice` — sans cette

@@ -189,6 +189,18 @@ const avant = (function () {
 
 const faits = Faits.creer();
 const slugs = Object.keys(equipDe);
+// 58-2 — `recordsDeLaSeance` porte en plus l'identifiant de la série médaillée
+// (`serieId`, pour le journal). L'oracle d'avant ne l'a pas : on le retire pour
+// comparer le reste à l'identique, et on vérifie à part qu'il désigne bien une
+// série de la séance, de l'exercice annoncé.
+const sansSerie = (r) => {
+  if (Array.isArray(r)) return r.map(sansSerie);
+  if (!r) return r;
+  const c = Object.assign({}, r);
+  delete c.serieId;
+  return c;
+};
+const serieDuRecord = (r) => seriesDe(r.seanceId).filter((x) => x.id === r.serieId)[0];
 const moisDuCorpus = Array.from(new Set(local.seances.map((s) => Bilan.cleMois(s.debut))));
 
 describe('58-1 — le module des faits rend exactement ce que rendait app.js', () => {
@@ -208,9 +220,17 @@ describe('58-1 — le module des faits rend exactement ce que rendait app.js', (
   });
 
   test('⚠️ les records d’une séance — toutes les séances du corpus', () => {
+    let designees = 0;
     faits.seancesAvecSeries(corpus()).forEach((se, i) => {
-      expect([i, faits.recordsDeLaSeance(corpus(), se)]).toEqual([i, avant.recordsDeLaSeance(avant.seancesAvecSeries()[i])]);
+      const r = faits.recordsDeLaSeance(corpus(), se);
+      expect([i, sansSerie(r)]).toEqual([i, avant.recordsDeLaSeance(avant.seancesAvecSeries()[i])]);
+      r.forEach((m) => {
+        const x = serieDuRecord(m);
+        expect([m.serieId, !!x && x.exercise_slug === m.slug]).toEqual([m.serieId, true]);
+        designees++;
+      });
     });
+    expect(designees).toBeGreaterThan(20);
   });
 
   test('⚠️ les records d’un mois — chaque mois du corpus — et le dernier record', () => {
@@ -219,12 +239,13 @@ describe('58-1 — le module des faits rend exactement ce que rendait app.js', (
     moisDuCorpus.forEach((m) => {
       const r = faits.recordsDuMois(corpus(), m);
       total += r.length;
-      expect([m, r]).toEqual([m, avant.recordsDuMois(m)]);
+      expect([m, sansSerie(r)]).toEqual([m, avant.recordsDuMois(m)]);
     });
     expect(total).toBeGreaterThan(20);
     const d = faits.dernierRecord(corpus());
     expect(d).not.toBeNull();
-    expect(d).toEqual(avant.dernierRecord());
+    expect(sansSerie(d)).toEqual(avant.dernierRecord());
+    expect(serieDuRecord(d)).toBeDefined();
   });
 
   test('⚠️ la séance en cours : les records de chaque série (la médaille) et ceux du jour (« Terminer »)', () => {
@@ -269,5 +290,146 @@ describe('58-1 — le module des faits rend exactement ce que rendait app.js', (
     expect(g.compterExercices(corpus()).faits).toBe(0);
     g.oublierDates();
     expect(g.compterExercices(corpus()).faits).toBe(Object.keys(dates).length);
+  });
+});
+
+// ══ 58-2 — LE JOURNAL DES RECORDS (MOTEUR §9.23) ═════════════════════════════
+//
+// Une ligne de `records` par série et par type : ce que la fonction des
+// records a constaté, aux colonnes de la table (v2_061, v2_062). Le journal ne
+// calcule rien — ces tests le vérifient champ par champ, sur le même corpus.
+const COLONNES_RECORDS = ['user_id', 'set_id', 'session_id', 'exercise_slug', 'type', 'valeur', 'reps',
+  'charge', 'unite', 'ancien', 'ancien_le', 'sur_douze_mois', 'battu_le'].sort();
+const TYPES_RECORDS = ['charge_a_reps', 'reps_a_charge', 'charge_max', 'cap', 'un_rm_estime',
+  'volume_seance', 'duree_s', 'distance_m'];
+const rouvrir = (s) => {
+  const exercices = [];
+  seriesDe(s.id).forEach((x) => {
+    let e = exercices[exercices.length - 1];
+    if (!e || e.exercise_slug !== x.exercise_slug) { e = { exercise_slug: x.exercise_slug, series: [] }; exercices.push(e); }
+    e.series.push(Object.assign({}, x, { validee_a: s.debut }));
+  });
+  return { id: s.id, debut: s.debut, user_id: 'u1', exercices: exercices };
+};
+
+describe('58-2 — le journal des records : ce que la fonction des records a constaté, aux colonnes de la table', () => {
+  const f = Faits.creer();
+  const toutes = f.seancesAvecSeries(corpus());
+  const journal = [];
+  toutes.forEach((se) => { f.journalDeLaSeance(corpus(), se, 'u1').forEach((l) => journal.push(l)); });
+
+  test('le remplissage couvre le corpus : chaque record d’une séance passée devient une ligne, une seule', () => {
+    const attendu = toutes.reduce((n, se) =>
+      n + f.recordsDeLaSeance(corpus(), se).reduce((k, m) => k + m.records.length, 0), 0);
+    expect(journal.length).toBe(attendu);
+    expect(journal.length).toBeGreaterThan(50);
+    const cles = new Set(journal.map((l) => l.set_id + '|' + l.type));
+    expect(cles.size).toBe(journal.length);   // l'unicité (set_id, type) de la table
+  });
+
+  test('chaque ligne a exactement les colonnes de la table, et des valeurs que la base accepte', () => {
+    const fautes = [];
+    journal.forEach((l) => {
+      if (JSON.stringify(Object.keys(l).sort()) !== JSON.stringify(COLONNES_RECORDS)) fautes.push('colonnes : ' + Object.keys(l));
+      Object.keys(l).forEach((k) => { if (l[k] === undefined) fautes.push(k + ' indéfini'); });
+      if (TYPES_RECORDS.indexOf(l.type) < 0) fautes.push('type ' + l.type);
+      if (typeof l.valeur !== 'number' || !isFinite(l.valeur)) fautes.push('valeur ' + l.valeur);
+      if ((l.reps !== null) !== (l.type === 'charge_a_reps')) fautes.push('reps sur ' + l.type);
+      if ((l.charge !== null) !== (l.type === 'reps_a_charge')) fautes.push('charge sur ' + l.type);
+      if ((l.unite !== null) !== (l.type === 'volume_seance')) fautes.push('unite sur ' + l.type);
+      if (l.unite !== null && ['kg', 'reps'].indexOf(l.unite) < 0) fautes.push('unite ' + l.unite);
+      if (l.reps !== null && !Number.isInteger(l.reps)) fautes.push('reps non entier ' + l.reps);
+      if (typeof l.sur_douze_mois !== 'boolean') fautes.push('sur_douze_mois');
+      if (l.user_id !== 'u1') fautes.push('user_id');
+    });
+    expect(fautes).toEqual([]);
+  });
+
+  test('⚠️ chaque ligne est le record constaté, champ par champ — rien de déduit', () => {
+    const fautes = [];
+    let vues = 0;
+    toutes.forEach((se) => {
+      const lignes = journal.filter((l) => l.session_id === se.id);
+      f.recordsDeLaSeance(corpus(), se).forEach((m) => {
+        m.records.forEach((r) => {
+          const l = lignes.filter((x) => x.set_id === m.serieId && x.type === r.type)[0];
+          vues++;
+          if (!l) { fautes.push('ligne absente ' + m.serieId + ' ' + r.type); return; }
+          if (l.valeur !== r.valeur) fautes.push('valeur');
+          if (l.ancien !== (r.ancien === undefined ? null : r.ancien)) fautes.push('ancien');
+          if (l.ancien_le !== (r.ancien_le === undefined ? null : r.ancien_le)) fautes.push('ancien_le');
+          if (r.type === 'charge_a_reps' && l.reps !== r.reps) fautes.push('reps');
+          if (r.type === 'reps_a_charge' && l.charge !== r.charge) fautes.push('charge');
+          if (r.type === 'volume_seance' && l.unite !== r.unite) fautes.push('unite');
+          if (l.sur_douze_mois !== r.douzeMois) fautes.push('douze mois');
+          if (l.battu_le !== se.debut || l.exercise_slug !== m.slug) fautes.push('séance');
+        });
+      });
+    });
+    expect(vues).toBe(journal.length);
+    expect(fautes).toEqual([]);
+  });
+
+  test('le corpus exerce les types qui portent un champ propre (sinon les contrôles ne prouveraient rien)', () => {
+    const vus = new Set(journal.map((l) => l.type));
+    ['charge_a_reps', 'reps_a_charge', 'charge_max', 'un_rm_estime', 'volume_seance'].forEach((t) => {
+      expect([t, vus.has(t)]).toEqual([t, true]);
+    });
+    // La fenêtre des 12 mois : vraie pour un matériel de salle, fausse à la barre.
+    expect(journal.some((l) => l.sur_douze_mois)).toBe(true);
+    expect(journal.some((l) => !l.sur_douze_mois)).toBe(true);
+    journal.forEach((l) => {
+      if (equipDe[l.exercise_slug] === 'barre') expect([l.set_id, l.sur_douze_mois]).toEqual([l.set_id, false]);
+    });
+  });
+
+  test('⚠️ « Terminer » et le remplissage écrivent les MÊMES lignes pour la même séance', () => {
+    // La séance la plus récente qui porte des records, rouverte « en cours » :
+    // la feuille « Terminer » (et la médaille) passent par `recordsDeLaSerie`,
+    // le remplissage par `recordsDeLaSeance`. Deux chemins, une seule vérité.
+    let comparees = 0;
+    local.seances.slice(0, 40).forEach((s) => {
+      const se = toutes.filter((x) => x.id === s.id)[0];
+      const passe = f.journalDeLaSeance(corpus(), se, 'u1');
+      if (!passe.length) return;
+      const terminee = f.journalDuJour(corpus(), rouvrir(s), 'u1');
+      const tri = (l) => l.slice().sort((a, b) => (a.set_id + a.type).localeCompare(b.set_id + b.type));
+      expect([s.id, tri(terminee)]).toEqual([s.id, tri(passe)]);
+      comparees++;
+    });
+    expect(comparees).toBeGreaterThan(3);
+    // La feuille « Terminer » montre une ligne par série médaillée : le journal
+    // en a au moins autant, et ses séries sont exactement celles-là.
+    const s = local.seances.filter((x) => f.journalDeLaSeance(corpus(),
+      toutes.filter((y) => y.id === x.id)[0], 'u1').length)[0];
+    const r = rouvrir(s);
+    const series = new Set(f.journalDuJour(corpus(), r, 'u1').map((l) => l.set_id));
+    expect(series.size).toBe(f.recordsDuJour(corpus(), r).length);
+    expect(f.journalDuJour(corpus(), null, 'u1')).toEqual([]);
+  });
+
+  test('la lecture du journal : filtres, ordre chronologique, copies', () => {
+    const c = Object.assign(corpus(), { journal: journal.slice().reverse() });
+    const tout = f.recordsDuJournal(c);
+    expect(tout.length).toBe(journal.length);
+    for (let i = 1; i < tout.length; i++) {
+      expect(Date.parse(tout[i - 1].battu_le) <= Date.parse(tout[i].battu_le)).toBe(true);
+    }
+    const slug = journal[0].exercise_slug;
+    const duSlug = f.recordsDuJournal(c, { slug: slug });
+    expect(duSlug.length).toBe(journal.filter((l) => l.exercise_slug === slug).length);
+    const se = journal[0].session_id;
+    expect(f.recordsDuJournal(c, { seance: se }).every((l) => l.session_id === se)).toBe(true);
+    expect(f.recordsDuJournal(c, { type: 'charge_max' }).every((l) => l.type === 'charge_max')).toBe(true);
+    const milieu = tout[Math.floor(tout.length / 2)].battu_le;
+    const apres = f.recordsDuJournal(c, { depuis: milieu });
+    expect(apres.length).toBeGreaterThan(0);
+    expect(apres.every((l) => Date.parse(l.battu_le) >= Date.parse(milieu))).toBe(true);
+    expect(f.recordsDuJournal(c, { jusqua: milieu }).length + apres.length)
+      .toBe(tout.length + tout.filter((l) => l.battu_le === milieu).length);
+    // Des copies : modifier ce qu'on lit ne touche pas au journal.
+    tout[0].valeur = -1;
+    expect(f.recordsDuJournal(c)[0].valeur).not.toBe(-1);
+    expect(f.recordsDuJournal({ journal: undefined })).toEqual([]);
   });
 });

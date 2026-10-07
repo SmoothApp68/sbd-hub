@@ -32,6 +32,8 @@
 const path = require('path');
 const R = path.join(__dirname, '../..');
 const { chromium } = require(path.join(R, 'node_modules/playwright-core'));
+// 59-4 — tout navigateur de test passe par la garde réseau (aucune requête vers la vraie base).
+const Garde = require(path.join(R, 'tests/banc/garde-reseau.js'));
 const { creer } = require(path.join(R, 'v2-atelier/banc/serveur-pages.js'));
 const CHROME = process.env.CHROME_BIN || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 const PORT = Number(process.env.BANC_PORT || 8872), BASE = 'http://127.0.0.1:' + PORT;
@@ -162,7 +164,7 @@ const CATALOGUE = [
 
   const serveur = creer({ racine: path.join(R, 'v2') });
   await new Promise((r) => serveur.listen(PORT, r));
-  const nav = await chromium.launch({ executablePath: CHROME, args: ['--no-sandbox'] });
+  const nav = await Garde.lancer(chromium, { executablePath: CHROME, args: ['--no-sandbox'] });
   const ctx = await nav.newContext({ viewport: { width: 360, height: 760 } });
 
   // Le jeton du banc est VERROUILLÉ : le SDK Supabase purge un jeton qu'il ne

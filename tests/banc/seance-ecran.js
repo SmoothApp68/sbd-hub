@@ -13106,6 +13106,93 @@ const SETS_IMPORTES = [
     await attendre(500);
   }
 
+  console.log('\n══ quitter. « QUITTER » NE PERD PLUS RIEN EN SILENCE (59-2) ══');
+  //
+  // Le branchement dans l'app réelle (la logique, elle, est testée dans
+  // `v2-quitter.test.js`) : une séance terminée sans réseau → « Quitter » →
+  // l'envoi échoue → la fenêtre de la maquette ; « Rester » ne touche à rien ;
+  // le réseau revient, la séance part ; « Quitter » sort alors sans fenêtre, et
+  // l'appareil est vidé (magasins, clés th-v2… — sauf le jeton, que le banc
+  // garde exprès pour les sections suivantes : voir `SCRIPT_JETON`).
+  {
+    const erreursAvant = erreurs.length;
+    const fileQ = () => page.evaluate(() => THCache.lireAttente().then((f) => (f || []).map((e) => e.table + ':' + e.id)));
+    const feuilleQ = () => page.evaluate(() => ({
+      ouverte: !document.querySelector('#feuille-seance').hidden,
+      titre: (document.querySelector('#feuille-contenu .feuille-t') || {}).textContent || null,
+      aide: (document.querySelector('#feuille-contenu .feuille-aide') || {}).textContent || null,
+      boutons: Array.from(document.querySelectorAll('#feuille-contenu .sortie-actions button'))
+        .map((b) => [b.className, b.textContent, getComputedStyle(b).color]) }));
+    const rougeQ = () => page.evaluate(() => {
+      const i = document.createElement('i'); i.style.color = 'var(--manque)'; document.body.appendChild(i);
+      const c = getComputedStyle(i).color; i.remove(); return c;
+    });
+    const quitterQ = async () => {
+      await page.click('#btn-deconnexion');
+      await attendre(500);
+      await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
+        .filter((b) => b.textContent === 'Quitter')[0].click());
+      await attendre(2500);
+    };
+
+    // ── A. UNE SÉANCE TERMINÉE SANS RÉSEAU.
+    await aller('/saisie');
+    base.reseau = false;
+    await demarrerRoutine('Push');
+    await attendre(1200);
+    await saisirSerie(0, 60, 5);
+    await terminer();
+    const enFile = await fileQ();
+    ok('[Q59] prémisse : la séance terminée attend dans la file (pas de réseau)',
+      enFile.some((x) => /^sessions:/.test(x)) && enFile.some((x) => /^sets:/.test(x)), JSON.stringify(enFile));
+
+    // ── B. « QUITTER » : l'envoi échoue, la fenêtre de la maquette.
+    await page.evaluate(() => localStorage.setItem('th-v2-sourdine', '1'));
+    await aller('/profil');
+    base.reseau = false;
+    await quitterQ();
+    const fen = await feuilleQ();
+    const rouge = await rougeQ();
+    ok('[Q59] DISCRIMINANT — la fenêtre : « 1 séance pas encore envoyée. », « Si tu quittes maintenant, elle est perdue. », [Rester] [Quitter quand même]',
+      fen.ouverte && fen.titre === '1 séance pas encore envoyée.' && fen.aide === 'Si tu quittes maintenant, elle est perdue.' &&
+        fen.boutons.length === 2 && /principal/.test(fen.boutons[0][0]) && fen.boutons[0][1] === 'Rester' &&
+        fen.boutons[1][1] === 'Quitter quand même' && fen.boutons[1][2] === rouge, JSON.stringify([fen, rouge]));
+    await page.click('#feuille-contenu .sortie-rester');
+    await attendre(800);
+    const apresRester = await fileQ();
+    ok('[Q59] DISCRIMINANT — « Rester » : rien n’est perdu (la file intacte, toujours connecté, sur le profil)',
+      JSON.stringify(apresRester.slice().sort()) === JSON.stringify(enFile.slice().sort()) &&
+        JSON.stringify(await visible()) === '["vue-profil"]' && !(await feuilleQ()).ouverte,
+      JSON.stringify([apresRester, await visible()]));
+
+    // ── C. LE RÉSEAU REVIENT : la séance part.
+    base.reseau = true;
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    let vide = false;
+    for (let t = 0; t < 40 && !vide; t++) { await attendre(250); vide = (await fileQ()).length === 0; }
+    const idQ = (enFile.filter((x) => /^sessions:/.test(x))[0] || '').split(':')[1];
+    ok('[Q59] le réseau revenu, la séance part : la file se vide, la séance est en base',
+      vide && base.sessions.some((x) => x.id === idQ && x.statut === 'terminee'), JSON.stringify([await fileQ(), idQ]));
+
+    // ── D. « QUITTER » SORT SANS FENÊTRE, ET L'APPAREIL EST VIDÉ.
+    await quitterQ();
+    const sortie = await page.evaluate(async () => ({
+      vues: Array.from(document.querySelectorAll('main > section')).filter((s) => !s.hidden).map((s) => s.id),
+      seances: (await THCache.lireTout('seances')).length, series: (await THCache.lireTout('series')).length,
+      predictions: (await THCache.lireTout('predictions')).length, records: (await THCache.lireTout('records')).length,
+      file: (await THCache.lireAttente() || []).length,
+      cles: Object.keys(localStorage).filter((k) => k.indexOf('th-v2') === 0) }));
+    ok('[Q59] DISCRIMINANT — la file vide : « Quitter » sort sans fenêtre, sur l’écran de connexion',
+      JSON.stringify(sortie.vues) === '["vue-connexion"]', JSON.stringify(sortie));
+    ok('[Q59] l’appareil est vidé : séances, séries, paris, journal, file — et les clés th-v2… (le jeton, gardé par le banc, mis à part)',
+      sortie.seances === 0 && sortie.series === 0 && sortie.predictions === 0 && sortie.records === 0 && sortie.file === 0 &&
+        JSON.stringify(sortie.cles) === '["th-v2-auth"]', JSON.stringify(sortie));
+    ok('[Q59] aucune erreur de page', erreurs.length === erreursAvant, JSON.stringify(erreurs.slice(erreursAvant)));
+    // Les sections suivantes repartent connectées (le jeton est gardé par le banc).
+    await aller('/saisie');
+    await attendre(800);
+  }
+
   console.log('\n══ forge. LA FORGE : LE TEXTE VISIBLE, ÉCRAN PAR ÉCRAN (56-1) ══');
   //
   // Un habillage ne retire rien : même information, même ordre, même

@@ -59,10 +59,7 @@ function vueProfil(p, options) {
     ],
     sections: [
       { titre: 'CE QUE JE FAIS', lignes: [
-        { libelle: 'Discipline', valeur: lib(Profil.DISCIPLINES_CONNUES, 'mode_entrainement'),
-          surChoix: () => {} },
-        { libelle: 'Matériel', sous: 'Décide des exercices proposés',
-          valeur: lib(Profil.MATERIELS, 'materiel'), surChoix: () => {} }
+        { libelle: 'Matériel', valeur: lib(Profil.MATERIELS, 'materiel'), surChoix: () => {} }
       ] },
       // ⚠️ LA VRAIE FONCTION AUSSI (60-1) : « Progresser » / « Juste un
       // carnet » et sa phrase se construisent dans `profil.js`, pour l'écran
@@ -76,8 +73,6 @@ function vueProfil(p, options) {
       Profil.sectionRythme(p, o.surRythme || (() => {})),
       { titre: 'DEPUIS QUAND', lignes: [
         { libelle: 'Entraînement régulier', valeur: lib(Profil.ANCIENNETES, 'anciennete'),
-          surChoix: () => {} },
-        { libelle: 'Niveau déclaré', valeur: lib(Profil.NIVEAUX, 'niveau_declare'),
           surChoix: () => {} }
       ] },
       { titre: 'MON CORPS', lignes: [
@@ -87,7 +82,6 @@ function vueProfil(p, options) {
       ] },
       { titre: 'TA SEMAINE', lignes: [
         { libelle: 'Séances par semaine', valeur: p.seances_par_semaine || null, surChoix: () => {} },
-        { libelle: 'Jours', valeur: Profil.libelleJours(p.jours_vises), surChoix: () => {} },
         { libelle: 'Durée d’une séance',
           valeur: p.duree_seance_min ? p.duree_seance_min + ' min' : null, surChoix: () => {} }
       ] }
@@ -108,8 +102,10 @@ const valeurs = (c) => lignes(c).map((l) => {
 // ════════════════════════════════════════════════════════════════════════════
 
 describe('test 6 — profil vide : tous les champs « à renseigner »', () => {
-  // Ce que la base rend pour un compte tout neuf : quatre colonnes NOT NULL à
-  // leur défaut, tout le reste à null. Pas un objet vide inventé pour le test.
+  // Ce que la base rend pour un compte tout neuf : les colonnes NOT NULL à leur
+  // défaut, tout le reste à null. Pas un objet vide inventé pour le test. Les
+  // quatre colonnes qui ont quitté l'écran (60-1) y sont encore, comme en base :
+  // l'écran ne doit pas les montrer pour autant.
   const NEUF = {
     username: null, bio: '', sexe: 'non_precise', taille_cm: null,
     date_naissance: null, mode_entrainement: 'musculation', unites: 'kg',
@@ -122,9 +118,9 @@ describe('test 6 — profil vide : tous les champs « à renseigner »', () => {
     const c = cible();
     R().rendreProfil(c, vueProfil(NEUF));
     const vides = lignes(c).filter((l) => l.querySelector('.p-val.vide'));
-    // Les cinq champs vraiment vides : matériel, ancienneté, niveau, taille,
-    // naissance, séances/semaine, jours, durée.
-    expect(vides.length).toBe(8);
+    // Les six champs vraiment vides : matériel, ancienneté, taille, naissance,
+    // séances par semaine, durée.
+    expect(vides.length).toBe(6);
     vides.forEach((l) => expect(l.querySelector('.p-val').textContent).toBe('à renseigner'));
   });
 
@@ -142,8 +138,10 @@ describe('test 6 — profil vide : tous les champs « à renseigner »', () => {
   test('ce qui a un défaut en base s’affiche, il ne se dit pas vide', () => {
     const c = cible();
     R().rendreProfil(c, vueProfil(NEUF));
-    expect(valeurs(c)).toContain('Musculation');
     expect(valeurs(c)).toContain('Non précisé');
+    // 60-1 — la discipline et les unités ont un défaut en base, et ne se montrent plus.
+    expect(valeurs(c)).not.toContain('Musculation');
+    expect(valeurs(c)).not.toContain('Kilogrammes');
   });
 
   test('un profil PLEIN n’affiche plus aucun « à renseigner »', () => {
@@ -157,12 +155,59 @@ describe('test 6 — profil vide : tous les champs « à renseigner »', () => {
     const c = cible();
     R().rendreProfil(c, vueProfil(plein));
     expect(c.querySelectorAll('.p-val.vide').length).toBe(0);
-    expect(valeurs(c)).toContain('Powerbuilding');
     expect(valeurs(c)).toContain('Salle complète');
     expect(valeurs(c)).toContain('3 à 5 ans');
-    expect(valeurs(c)).toContain('Avancé');
-    expect(valeurs(c)).toContain('Lu · Ma · Je · Ve · Sa');
     expect(valeurs(c)).toContain('90 min');
+    // 60-1 — ce qui a quitté l'écran n'y revient pas, même renseigné en base.
+    ['Powerbuilding', 'Avancé', 'Lu · Ma · Je · Ve · Sa'].forEach((v) => expect(valeurs(c)).not.toContain(v));
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// 60-1 — L'ÉCRAN RÉEL : QUATRE LIGNES EN MOINS, DES PHRASES QUI DISENT LE VRAI
+// ════════════════════════════════════════════════════════════════════════════
+//
+// `vueProfil` ci-dessus REPRODUIT la déclaration d'`app.js` : elle ne prouve
+// rien sur l'écran réel. Cette garde lit donc `rendreProfilEcran` et les
+// feuilles d'`app.js` (le test de la forge, `texte-visible.js`, joue l'écran
+// lui-même contre `main`). Restaurer une ligne retirée, ou une phrase qui
+// promet un effet absent, échoue ici.
+describe('60-1 — le profil réel (app.js)', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const APP = fs.readFileSync(path.join(__dirname, '../../v2/js/app.js'), 'utf8');
+  const bloc = (nom) => {
+    const m = APP.match(new RegExp('^  (async )?function ' + nom + '\\b[\\s\\S]*?^  }', 'm'));
+    if (!m) throw new Error('introuvable : ' + nom);
+    return m[0];
+  };
+  const ECRAN = bloc('rendreProfilEcran') + '\n' + bloc('ligneChoix');
+  const SHEETS = APP.slice(APP.indexOf('  var CHOIX = {'), APP.indexOf('  function ouvrirChoixProfil'));
+
+  test('⚠️ Discipline, Niveau déclaré, Jours et Unités ont quitté l’écran', () => {
+    ["ligneChoix('mode_entrainement'", "ligneChoix('niveau_declare'", "ligneChoix('unites'",
+     "'Discipline'", "'Niveau déclaré'", "'Unités'", "libelle: 'Jours'", 'libelleJours', 'DISCIPLINES']
+      .forEach((x) => expect(ECRAN).not.toContain(x));
+    ['mode_entrainement', 'niveau_declare', 'unites'].forEach((c) => expect(SHEETS).not.toContain(c + ':'));
+    expect(APP).not.toContain('ouvrirJoursProfil');
+  });
+
+  test('témoin : les lignes qui restent y sont (Matériel, Entraînement régulier, Séances par semaine, Durée)', () => {
+    ["ligneChoix('materiel', 'Matériel')", "ligneChoix('anciennete', 'Entraînement régulier')",
+     "libelle: 'Séances par semaine'", "libelle: 'Durée d’une séance'"].forEach((x) => expect(ECRAN).toContain(x));
+  });
+
+  test('les phrases du matériel et de la durée sont les nouvelles', () => {
+    expect(APP).toContain('Je range les exercices selon ton matériel : ce que tu n’as pas passe après, jamais caché.');
+    expect(APP).toContain('Quand ta routine dépasse ce temps, je te propose de la raccourcir.');
+  });
+
+  test('⚠️ aucune phrase du profil n’annonce un générateur, un référentiel ou un effet non branché', () => {
+    // Toute la région du profil : les feuilles de choix, de nombre et de saisie, et l'écran.
+    const REGION = APP.slice(APP.indexOf('  function listeDe'), APP.indexOf('  function demanderDeconnexion'));
+    expect(REGION.length).toBeGreaterThan(5000);
+    ['générateur', 'référentiel', 'chantier 5', 'Décide des exercices', 'Il décide quels exercices',
+     'Elle décide de ce que le moteur'].forEach((x) => expect(REGION).not.toContain(x));
   });
 });
 
@@ -407,27 +452,6 @@ describe('la feuille de saisie', () => {
     expect(n).not.toBe(null);
     expect(n.rows).toBe(3);
     expect(n.maxLength).toBe(280);
-  });
-});
-
-describe('la feuille des jours', () => {
-  // ⚠️ MULTI-CHOIX : on coche, PUIS on valide. Une fermeture au premier doigt
-  // rendrait impossible d'en choisir cinq.
-  test('cocher n’enregistre pas ; valider rend la semaine entière', () => {
-    const c = cible();
-    let rendu = null;
-    R().rendreFeuilleJours(c, {
-      jours: Profil.JOURS, valeur: ['lun'],
-      surValider: (l) => { rendu = l; }, surAnnuler: () => {}
-    });
-    const b = Array.from(c.querySelectorAll('.p-jours button'));
-    expect(b.length).toBe(7);
-    expect(b[0].className).toBe('on');
-    b[3].click();          // jeudi
-    b[0].click();          // lundi décoché
-    expect(rendu).toBe(null);
-    c.querySelector('.feuille-pied .pri').click();
-    expect(Profil.joursValides(rendu)).toEqual(['jeu']);
   });
 });
 

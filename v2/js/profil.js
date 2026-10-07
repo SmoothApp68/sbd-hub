@@ -6,10 +6,10 @@
 // testent sans navigateur.
 //
 // ⚠️ LES LISTES SONT CELLES DE LA BASE, RELEVÉES SUR LES CONTRAINTES — pas
-// supposées. `profiles_mode_ok`, `profiles_materiel_ok`, `profiles_anciennete_ok`,
-// `profiles_niveau_ok`, `profiles_sexe_ok`, `profiles_unites_ok`,
-// `profiles_intention_ok` : une valeur hors liste est refusée par Postgres, donc
-// une faute de frappe ici devient un 23514 à l'écriture, pas un défaut visible.
+// supposées. `profiles_materiel_ok`, `profiles_anciennete_ok`,
+// `profiles_sexe_ok`, `profiles_intention_ok` : une valeur hors liste est
+// refusée par Postgres, donc une faute de frappe ici devient un 23514 à
+// l'écriture, pas un défaut visible.
 //
 // UN SEUL CRITÈRE GOUVERNE CHAQUE CHAMP (ECRAN-PROFIL-V1) : quelque chose le
 // lit, ou le lira au chantier 1. Rien n'est demandé « au cas où ». C'est
@@ -21,20 +21,11 @@
 
   // ── Référentiels ─────────────────────────────────────────────────────────
 
-  // ⚠️ `bien_etre` EST ACCEPTÉ PAR LA BASE ET N'EST PAS PROPOSÉ (§2.3).
-  // « Bien-être n'est pas une discipline » : quelqu'un qui s'entraîne pour se
-  // maintenir fait la même musculation, il ne veut simplement pas qu'on le
-  // pousse — et c'est l'INTENTION qui le dit. On garde quand même son libellé :
-  // une ligne qui le porte déjà doit s'afficher, pas se vider.
-  var DISCIPLINES = [
-    { cle: 'musculation', libelle: 'Musculation' },
-    { cle: 'powerbuilding', libelle: 'Powerbuilding' },
-    { cle: 'powerlifting', libelle: 'Powerlifting' },
-    { cle: 'calisthenics', libelle: 'Calisthénie' }
-  ];
-  var DISCIPLINES_CONNUES = DISCIPLINES.concat([
-    { cle: 'bien_etre', libelle: 'Bien-être' }
-  ]);
+  // 60-1 (QUESTIONNAIRE-COACH-V2 §6) — LA DISCIPLINE, LE NIVEAU DÉCLARÉ, LES JOURS
+  // VISÉS ET LES UNITÉS ONT QUITTÉ L'ÉCRAN : aucune règle ne les lit (relevé
+  // 60-0), et la discipline est absorbée par l'objectif (60-2). Leurs valeurs
+  // restent en base ; ce module n'en porte plus la liste, et ils ne sont plus
+  // écrits (`CHAMPS_ECRITS`) ni relus (`COLONNES_PROFIL`).
 
   var MATERIELS = [
     { cle: 'salle_complete', libelle: 'Salle complète', sous: 'Barres, machines, poulies' },
@@ -103,22 +94,10 @@
     { cle: 'plus_5_ans', libelle: 'Plus de 5 ans' }
   ];
 
-  var NIVEAUX = [
-    { cle: 'debutant', libelle: 'Débutant' },
-    { cle: 'intermediaire', libelle: 'Intermédiaire' },
-    { cle: 'avance', libelle: 'Avancé' },
-    { cle: 'expert', libelle: 'Expert' }
-  ];
-
   var SEXES = [
     { cle: 'homme', libelle: 'Homme' },
     { cle: 'femme', libelle: 'Femme' },
     { cle: 'non_precise', libelle: 'Non précisé' }
-  ];
-
-  var UNITES = [
-    { cle: 'kg', libelle: 'Kilogrammes' },
-    { cle: 'lb', libelle: 'Livres' }
   ];
 
   // DEUX CRANS, ET C'EST UNE INTENTION (§2.3). En Entretenir, la double
@@ -316,18 +295,6 @@
     };
   }
 
-  // Lundi en tête : la semaine de l'app commence le lundi (THSemaine), et les
-  // deux listes doivent se lire dans le même ordre.
-  var JOURS = [
-    { cle: 'lun', libelle: 'Lundi', court: 'Lu' },
-    { cle: 'mar', libelle: 'Mardi', court: 'Ma' },
-    { cle: 'mer', libelle: 'Mercredi', court: 'Me' },
-    { cle: 'jeu', libelle: 'Jeudi', court: 'Je' },
-    { cle: 'ven', libelle: 'Vendredi', court: 'Ve' },
-    { cle: 'sam', libelle: 'Samedi', court: 'Sa' },
-    { cle: 'dim', libelle: 'Dimanche', court: 'Di' }
-  ];
-
   // `profiles_rythme_borne` : 1 à 14 séances, 10 à 300 minutes. Les durées
   // proposées sont un sous-ensemble sensé de l'intervalle — une durée VISÉE ne
   // se règle pas à la minute.
@@ -431,9 +398,9 @@
   // erreur, c'est un état » (§4). La liste sert à DIRE combien il en reste,
   // une fois, sur l'écran d'accueil d'un compte neuf.
   //
-  // `sexe`, `mode_entrainement`, `unites` et `intention` sont NOT NULL avec un
-  // défaut en base : ils ne peuvent pas manquer, donc ils n'y figurent pas.
-  var A_RENSEIGNER = ['materiel', 'anciennete', 'niveau_declare', 'taille_cm',
+  // `sexe` et `intention` sont NOT NULL avec un défaut en base : ils ne peuvent
+  // pas manquer, donc ils n'y figurent pas.
+  var A_RENSEIGNER = ['materiel', 'anciennete', 'taille_cm',
                       'date_naissance', 'seances_par_semaine', 'duree_seance_min'];
 
   function vide(v) {
@@ -473,10 +440,10 @@
   // ment sur son effet. Elle porte aussi `xp_high_water_mark`, `friend_code` et
   // les six réglages de visibilité : c'est du social, et rien ici ne les touche.
   var CHAMPS_ECRITS = ['username', 'bio', 'sexe', 'taille_cm', 'date_naissance',
-                       'mode_entrainement', 'unites', 'anciennete', 'intention',
+                       'anciennete', 'intention',
                        'rythme_progression', 'phase', 'phase_depuis', 'lest_reponse', 'lest_reponse_le',
-                       'materiel', 'niveau_declare',
-                       'seances_par_semaine', 'jours_vises', 'duree_seance_min',
+                       'materiel',
+                       'seances_par_semaine', 'duree_seance_min',
                        'onboarding_completed'];
 
   function champsEcrits(champs) {
@@ -504,26 +471,6 @@
     if (!/^\d{4}-\d{2}-\d{2}$/.test(String(txt))) return null;
     var a = age(txt, aujourdhui);
     return a !== null && a >= 10 && a <= 120 ? String(txt) : null;
-  }
-
-  function joursValides(liste) {
-    var vus = {}, sortie = [];
-    (liste || []).forEach(function (j) {
-      if (vus[j]) return;
-      for (var i = 0; i < JOURS.length; i++) {
-        if (JOURS[i].cle === j) { vus[j] = true; sortie.push(j); return; }
-      }
-    });
-    // Rendus dans l'ordre de la semaine, quel que soit l'ordre des clics :
-    // « Lu · Ma · Je » se lit, « Je · Lu · Ma » ne se lit pas.
-    return JOURS.map(function (j) { return j.cle; }).filter(function (c) { return vus[c]; });
-  }
-
-  function libelleJours(liste) {
-    var choisis = joursValides(liste);
-    if (!choisis.length) return null;
-    return JOURS.filter(function (j) { return choisis.indexOf(j.cle) >= 0; })
-      .map(function (j) { return j.court; }).join(' · ');
   }
 
   // ══ LE PSEUDO ════════════════════════════════════════════════════════════
@@ -658,9 +605,8 @@
   }
 
   var api = {
-    DISCIPLINES: DISCIPLINES, DISCIPLINES_CONNUES: DISCIPLINES_CONNUES,
-    MATERIELS: MATERIELS, ANCIENNETES: ANCIENNETES, NIVEAUX: NIVEAUX,
-    SEXES: SEXES, UNITES: UNITES, INTENTIONS: INTENTIONS, JOURS: JOURS,
+    MATERIELS: MATERIELS, ANCIENNETES: ANCIENNETES,
+    SEXES: SEXES, INTENTIONS: INTENTIONS,
     sectionIntention: sectionIntention,
     RYTHMES: RYTHMES, RYTHME_DEFAUT: RYTHME_DEFAUT,
     rythmeDe: rythmeDe, phraseRythme: phraseRythme, sectionRythme: sectionRythme,
@@ -682,8 +628,6 @@
     champsEcrits: champsEcrits,
     tailleValide: tailleValide,
     naissanceValide: naissanceValide,
-    joursValides: joursValides,
-    libelleJours: libelleJours,
     normaliserPseudo: normaliserPseudo,
     alternatives: alternatives,
     verdictPseudo: verdictPseudo,

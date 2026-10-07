@@ -407,10 +407,24 @@
   // Ce que la bibliothèque montre d'un dossier : le badge, la carte de fin de
   // bloc, ou « Faire de ce dossier un programme ». Rien n'est écrit ici.
   function programmeDuDossier(dossier) {
+    var vue = programmeDuDossierCalcule(dossier);
+    // Hors production, I13 se vérifie sur ce que la bibliothèque va montrer (la
+    // garde du coach, comme pour chaque plan) ; en production, rien.
+    garde.verifierProgramme(profil && profil.intention, dossier, vue);
+    return vue;
+  }
+
+  function programmeDuDossierCalcule(dossier) {
     if (dossier === null) return null;
     var jour = jourDuJour();
     var b = Moteur.blocEnCours(local.blocs, dossier);
     if (!b) return { creer: exercicesDuDossier(dossier).length > 0 };
+    // 60-2a (MOTEUR I13, précisé le 07/10/2026) — « JUSTE UN CARNET » : ni le
+    // badge ni la carte de fin de bloc d'un programme en cours. Ce sont des
+    // faits du programme ENTIER : l'Entretenir d'un seul exercice n'y touche
+    // pas. Le MÊME fait que le plan lit (`Moteur.coachSeTait`) ; rien n'est
+    // écrit, et le retour en Progresser les ramène (le bloc, lui, n'a pas bougé).
+    if (Moteur.coachSeTait(profil && profil.intention)) return {};
     var badge = Moteur.badgeDuBloc(b, jour);
     if (!Moteur.blocTermine(b, jour)) return { badge: badge };
     var bilan = bilanDe(b);
@@ -5931,7 +5945,7 @@
     // 60-1 — « JUSTE UN CARNET » : en Entretenir le plan n'applique ni la
     // décharge planifiée ni la semaine allégée (I13) ; la routine ne dirait pas
     // « Semaine allégée : environ 50 min » pour une séance qui ne l'est pas.
-    if (Moteur.intentionDe(profil && profil.intention, null) === 'entretien') return false;
+    if (Moteur.coachSeTait(profil && profil.intention)) return false;
     var jour = Moteur.jourCivil(new Date().toISOString());
     return !!Moteur.periodeAllegee(Moteur.cartesDesParis(parisEscalierConnus()), jour) ||
       // §9.22 (53-2) — la décharge planifiée est une semaine allégée.

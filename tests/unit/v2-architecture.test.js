@@ -745,7 +745,20 @@ const NOTIONS = [
     module: 'faits.js', fonction: 'ceQueJeSais', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['actualiserFaitsDuQuestionnaire'] },
     raison: 'QUESTIONNAIRE-COACH-V2 §1.2 : rien de ce que les séries savent n’est demandé, c’est montré — ' +
-      'l’écran « Ce que je sais » et la durée habituelle de l’écran « Temps » lisent ce fait, aucun ne recompte.' }
+      'l’écran « Ce que je sais » et la durée habituelle de l’écran « Temps » lisent ce fait, aucun ne recompte.' },
+  // ── 60-2a — « JUSTE UN CARNET » SE TAIT PARTOUT, D'UNE SEULE VOIX ─────────
+  { notion: 'le silence du coach au profil (« Juste un carnet », MOTEUR I13 : le plan, la semaine allégée annoncée, le badge et la carte de fin de bloc)', pr: '60-U2',
+    module: 'moteur.js', fonction: 'coachSeTait', lecteurs: ['plan.js', 'app.js'],
+    parAilleurs: { 'plan.js': ['planDeSeance', 'verifierSilenceDuProgramme'],
+                   'app.js': ['semaineAllegeeEnCours', 'programmeDuDossierCalcule'] },
+    // La forme écrite à la main, hors du moteur : l'intention du PROFIL comparée à
+    // « entretien » (`profil.intention === 'entretien'`), ou `intentionDe` appelée
+    // avec le profil seul (`intentionDe(profil && profil.intention, null)`).
+    interditAilleurs: { motif: /\bprofil\s*(?:&&\s*profil\s*)?\.\s*intention\s*[!=]==?\s*(['"])entretien\1|\bintentionDe\s*\(\s*profil\b[^()]*,\s*null\s*\)/,
+      raison: 'le silence du coach au profil se lit par `Moteur.coachSeTait`, jamais par un second test de `intention` écrit à la main' },
+    raison: 'MOTEUR I13 (précisé le 07/10/2026, 60-2a) : au profil « Juste un carnet », le plan, la semaine ' +
+      'allégée annoncée sur une routine, le badge de bloc et la carte de fin de bloc lisent le MÊME fait. ' +
+      'Le badge et la carte vivent hors de `planDeSeance` : un second test de l’intention les aurait fait diverger.' }
 ];
 
 // ── 58-1 — UN FAIT NE SE DÉCLARE QUE DANS `faits.js` ─────────────────────────
@@ -1032,6 +1045,17 @@ describe('architecture — le registre des notions : une source, des lecteurs', 
     expect(voit("'\\u2212' + x")).toBe(true);
     expect(voit("var MOIS = ['janv.', 'févr.'];")).toBe(true);
     expect(voit("Modele.nombreSigne(p)")).toBe(false);
+  });
+
+  test('l’interdit du silence du coach se lit vraiment : un second test de l’intention se voit, l’appel au fait non', () => {
+    const n = NOTIONS.filter((x) => x.fonction === 'coachSeTait')[0];
+    const voit = (t) => n.interditAilleurs.motif.test(t);
+    expect(voit("if (profil && profil.intention === 'entretien') return {};")).toBe(true);
+    expect(voit("if (profil.intention !== \"entretien\") return;")).toBe(true);
+    expect(voit("if (Moteur.intentionDe(profil && profil.intention, null) === 'entretien') return false;")).toBe(true);
+    expect(voit('if (Moteur.coachSeTait(profil && profil.intention)) return {};')).toBe(false);
+    expect(voit("var i = Moteur.intentionDe(profil && profil.intention, modeDe(slug));")).toBe(false);
+    expect(voit("if (plan.intention === 'entretien') {")).toBe(false);   // le VÉRIFICATEUR lit le plan, pas le profil
   });
 
   test('l’interdit se lit vraiment : les trois formes écrites en dur se voient, l’appel non', () => {

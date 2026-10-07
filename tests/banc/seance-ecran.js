@@ -12513,6 +12513,25 @@ const SETS_IMPORTES = [
         base.blocs.filter((b) => b.dossier === 'Alpha U53' && b.statut === 'en_cours').length === 1 &&
         base.predictions.filter((l) => l.module === 'programme').length === 0, JSON.stringify(i1));
 
+    // ── I ter (60-2a, MOTEUR I13 précisé le 07/10/2026). « JUSTE UN CARNET »
+    // ÉTEINT AUSSI LE BADGE ET LA CARTE DE FIN DE BLOC — au profil seulement, par
+    // le même fait que le plan (`Moteur.coachSeTait`). Le bloc, lui, ne bouge pas :
+    // rien n'est écrit, et le retour en Progresser les ramène.
+    const avantCarnet = { blocs: JSON.stringify(base.blocs), paris: base.predictions.length, zones: base.zones.length };
+    await choisirIntention('entretien');
+    await aller('/saisie');
+    const iC = await dossier('Alpha U53');
+    ok('[C53] DISCRIMINANT (60-2a, I13) — au profil « Juste un carnet », le bloc fini : ni badge ni carte de fin (le compte des routines reprend la place, le bloc reste en cours en base)',
+      iC && iC.badge === null && iC.fin === null && iC.compte === true &&
+        base.blocs.filter((b) => b.dossier === 'Alpha U53' && b.statut === 'en_cours').length === 1, JSON.stringify(iC));
+    await choisirIntention('progresser');
+    await aller('/saisie');
+    const iR = await dossier('Alpha U53');
+    ok('[C53] DISCRIMINANT (60-2a) — le retour en Progresser ramène la carte « Ton bloc Mix est terminé. » et le badge « Bloc Mix terminé », sans écriture de bloc, de pari ni de zone',
+      iR && iR.fin && sp(iR.fin.titre) === 'Ton bloc Mix est terminé.' && sp(iR.badge) === 'Bloc Mix terminé' &&
+        JSON.stringify(base.blocs) === avantCarnet.blocs && base.predictions.length === avantCarnet.paris &&
+        base.zones.length === avantCarnet.zones, JSON.stringify([iR, base.predictions.length - avantCarnet.paris, base.zones.length - avantCarnet.zones]));
+
     // ── J. LE CHOIX : « Commencer le bloc Lourd », le bloc proposé tel quel : un pari.
     await cliquerDossier('Alpha U53', '.cfb-commencer');
     await attendre(2400);

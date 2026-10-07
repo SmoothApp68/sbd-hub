@@ -1,14 +1,14 @@
 # Schéma réel — état au 7 octobre 2026
 
 **Régénéré depuis la base**, projet Supabase `swwygywahfdenyzotrce` (eu-west-1).
-Dernière migration appliquée : **`v2_064_verrous_acces`**. Prochain numéro libre : **`v2_065`**.
+Dernière migration appliquée : **`v2_065_questionnaire`**. Prochain numéro libre : **`v2_066`**.
 
 > ⚠️ **Ce document remplace `SCHEMA-V2_2.md`**, qui décrivait un état antérieur aux
 > routines et n'a plus valeur de référence. En cas de doute, la base fait foi — pas ce
 > fichier. Il est régénéré, pas rédigé.
 
 > **Régénéré le 07/10/2026 depuis la base** (Claude.ai). Cette version reprend celle du 21/09 (`v2_047`) et
-> ajoute, juste en dessous, **tout ce qui a changé de `v2_048` à `v2_064`** : colonnes, tables nouvelles, contraintes,
+> ajoute, juste en dessous, **tout ce qui a changé de `v2_048` à `v2_065`** : colonnes, tables nouvelles, contraintes,
 > règles d'accès, volumétrie. Les sections par table plus bas datent du 21/09 ; quand elles divergent du bloc
 > « Depuis le 21/09 », **c'est ce bloc qui fait foi**.
 
@@ -21,7 +21,7 @@ l'app après #377) · 0 série marquée douleur. Archive v1 : `workout_sessions`
 **Séances par source :** hevy 1 249 · app 12.
 **Séances saisies dans l'app avec `routine_id` :** elle est remplie quand la séance part d'une routine.
 
-## Depuis le 21/09 — migrations `v2_048` à `v2_064`
+## Depuis le 21/09 — migrations `v2_048` à `v2_065`
 
 | Migration | Date | Ce qu'elle fait |
 |---|---|---|
@@ -42,6 +42,7 @@ l'app après #377) · 0 série marquée douleur. Archive v1 : `workout_sessions`
 | `v2_062_records_charge_unite` | 07/10 | `records.charge` (numeric, pour `reps_a_charge` : la charge, 0 au poids du corps) et `records.unite` (text, `kg` ou `reps`, pour `volume_seance`) |
 | `v2_063_supprimer_compte` | 07/10 | **`delete_user_complete_data(target_user_id)` réécrite** (SECURITY DEFINER, `search_path = ''`, garde inchangée : soi-même ou un admin). Avant, elle échouait **toujours** (elle effaçait `backup_ws_nomenclature_20260709`, supprimée le 15/09). Elle efface désormais `records`, `predictions`, `user_exercise_model`, `sets`, `sessions`, `routines` (exercices et séries de routine en cascade), `zones_exercice`, `modes_exercice`, `blocs`, `body_weight_log`, l'archive v1 (schéma `archive`, commentaires anonymisés, journaux d'erreur détachés), `workout_sessions`, `sbd_profiles`, `profiles`, les exercices personnels (`exercises.proprietaire`), **puis le compte de connexion `auth.users`** |
 | `v2_064_verrous_acces` | 07/10 | **Sécurité, règles d'accès** (décision d'Aurélien) : voir « Règles d'accès » ci-dessous |
+| `v2_065_questionnaire` | 07/10 | **Questionnaire du coach** (QUESTIONNAIRE-COACH-V2) : onze colonnes sur `profiles`, toutes NULL tant que la personne n'a pas répondu — `objectif` (`force` · `muscle` · `les_deux` · `forme`) et `objectif_depuis` ; `priorites` (text[], au plus 3 ; `{}` = « Pas de priorité », NULL = pas répondu) ; `temps_reponse` (`max` · `marge` · `moins` · `varie`) ; `historique_declare` (`import` · `non_note` · `debutant`) ; `phase_confirmee_le` ; `questionnaire_fait_le` (timestamptz, **vide = jamais rempli** : c'est lui qui décide d'ouvrir le questionnaire, pas `onboarding_completed`) ; et quatre colonnes réservées à 60-2b et 60-3, **ni écrites ni lues avant elles** : `programme_choix`, `zones_a_menager` (text[]), `zone_force_reponse` et `zone_force_reponse_le`. Appliquée et vérifiée par Claude.ai le 07/10. *(Ligne ajoutée par Claude Code d'après les faits du prompt 60-2a : les types de `objectif_depuis`, `phase_confirmee_le`, `programme_choix` et `zone_force_reponse*` sont déduits de leurs noms, et les contraintes de `programme_choix` et de `zone_force_reponse` ne sont pas relevées ici — la prochaine régénération par Claude.ai fait foi.)* |
 
 **Données corrigées hors migration** (avec répétition à blanc) : 4 séries de `muscle_up_assiste` passées en négatif ;
 la séance Hevy du 02/10 importée (27 séries) et rattachée à « Vendredi — Bas B (Soulevé) » ; **07/10 : 862 comptes de
@@ -61,7 +62,7 @@ contre la vraie base ; aucune donnée v2 ; suite archivée par #380).
 | Table | Colonnes |
 |---|---|
 | `sets` | `douleur` boolean NOT NULL = false · `occurrence` uuid (déjà présentes et non décrites plus bas : `source` text NOT NULL = 'app', `repos_s`, `elastique`, `elastique_norme`, `tempo_descente`, `tempo_pause`, `tempo_montee`, `modifie_a`, `note`, `rpe`) |
-| `profiles` | `phase` text (CHECK) · `phase_depuis` timestamptz · `lest_reponse` text (CHECK `oui`/`non`) · `lest_reponse_le` timestamptz |
+| `profiles` | `phase` text (CHECK) · `phase_depuis` timestamptz · `lest_reponse` text (CHECK `oui`/`non`) · `lest_reponse_le` timestamptz · **`v2_065`** : `objectif` · `objectif_depuis` · `priorites` text[] · `temps_reponse` · `historique_declare` · `programme_choix` · `zones_a_menager` text[] · `zone_force_reponse` · `zone_force_reponse_le` · `phase_confirmee_le` · `questionnaire_fait_le` timestamptz |
 | `exercises` | `mouvement` text |
 | `routines` | `dossier` text (CHECK `routines_dossier_ok`) |
 | `zones_exercice` | `origine` text NOT NULL = 'personne' (CHECK `personne`/`bloc`) · `bloc_id` uuid → `blocs(id)` ON DELETE SET NULL |

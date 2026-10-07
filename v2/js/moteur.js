@@ -298,6 +298,17 @@
     return modeExercice === 'entretien' ? 'entretien' : 'progresser';
   }
 
+  // LE SILENCE DU COACH AU PROFIL (« Juste un carnet », MOTEUR I13, 60-2a) : LE
+  // fait que lisent le plan (`planDeSeance`) et tout ce qui vit hors de lui —
+  // la semaine allégée annoncée sur une routine, le badge et la carte de fin
+  // de bloc d'un programme. Vrai quand l'intention du PROFIL est Entretenir ;
+  // le mode d'UN exercice (`modes_exercice`) n'y touche pas : ce sont des faits
+  // du programme entier, pas d'un exercice. Aucun appelant n'écrit un second
+  // test de `intention` — ils passent ici.
+  function coachSeTait(intentionProfil) {
+    return intentionDe(intentionProfil, null) === 'entretien';
+  }
+
   function zoneRetenue(correction, habitude) {
     // `zoneParCle` ne lit que les cinq clés de la table : une valeur inventée,
     // ou `constructor` venu d'une ligne de base, n'y trouve rien et retombe sur
@@ -6227,6 +6238,7 @@
     MODES: MODES,
     modeEnVigueur: modeEnVigueur,
     intentionDe: intentionDe,
+    coachSeTait: coachSeTait,
     SAUT_LEST: SAUT_LEST,
     EQUIPEMENT_LEST: EQUIPEMENT_LEST,
     equipementEffectif: equipementEffectif,

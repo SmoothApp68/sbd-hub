@@ -632,6 +632,23 @@
     if (r.error) throw r.error;
   }
 
+  // ══ LA PESÉE (60-2a, QUESTIONNAIRE-COACH-V2 §3, écran « Toi ») ═══════════
+  //
+  // L'ÉCRIVAIN UNIQUE de `body_weight_log` (le garde d'architecture le dit :
+  // la table ne s'écrit que dans cette fonction, et elle ne s'appelle que depuis
+  // `executer`, `app.js`). Jusqu'ici la table n'était que lue.
+  //
+  // UN UPSERT SUR (`user_id`, `date`), QUI FUSIONNE : deux pesées le même jour
+  // ne font qu'une, la DERNIÈRE l'emporte. À l'inverse du journal des records,
+  // une pesée se corrige — le contraire d'`ignoreDuplicates`. Le SDK pose
+  // `on_conflict=user_id,date` et `Prefer: resolution=merge-duplicates` ; la
+  // règle d'accès est `FOR ALL` propriétaire, donc `ligne.user_id` est celui de
+  // la session. L'identifiant n'est pas envoyé : la base le tire.
+  async function enregistrerPesee(ligne) {
+    var r = await client().from('body_weight_log').upsert(ligne, { onConflict: 'user_id,date' });
+    if (r.error) throw r.error;
+  }
+
   // ══ LE PROFIL (chantier 46 §2) ═══════════════════════════════════════════
   //
   // Une ligne, la sienne. `profiles_select_own` est `auth.uid() = id` : ce
@@ -659,6 +676,13 @@
     'anciennete, intention, rythme_progression, phase, phase_depuis, materiel, ' +
     'lest_reponse, lest_reponse_le, ' +
     'seances_par_semaine, duree_seance_min, ' +
+    // 60-2a (`v2_065`) — le questionnaire du coach. Omises ici, elles seraient
+    // écrites mais jamais relues, et `profil = rendu` les effacerait de l'état
+    // local après le premier envoi : le piège de `rythme_progression` et de
+    // `phase`. `programme_choix`, `zones_a_menager` et `zone_force_reponse*`
+    // n'y sont PAS : ni écrites ni lues avant 60-2b et 60-3.
+    'objectif, objectif_depuis, priorites, temps_reponse, historique_declare, ' +
+    'phase_confirmee_le, questionnaire_fait_le, ' +
     'onboarding_completed';
 
   async function monProfil(id) {
@@ -729,6 +753,7 @@
     seriesDepuis: seriesDepuis,
     tousLesExercices: tousLesExercices,
     toutesLesPesees: toutesLesPesees,
+    enregistrerPesee: enregistrerPesee,
     mesZones: mesZones,
     enregistrerZone: enregistrerZone,
     mesModes: mesModes,

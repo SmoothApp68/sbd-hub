@@ -1,0 +1,210 @@
+<title>Questionnaire du coach</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700;800&display=swap">
+<style>
+/* Mise en page : le téléphone (l'app, en forge sombre) à gauche, ce que chaque réponse change à droite ; une colonne sur mobile. */
+:root{
+  --anthracite:#0f1114; --surface:#181b20; --surface2:#21252c; --trait:#2c3139;
+  --texte:#eceef2; --gris:#9aa0ab; --ambre:#f2b84b; --ambre-fond:#2a2214; --or:#ffd46b; --sur-ambre:#1a1406;
+  --f-chiffres:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-texte:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--anthracite);color:var(--texte);font:15px/1.45 var(--f-texte)}
+.page{max-width:1080px;margin:0 auto;padding-inline:16px;padding-block:20px 40px;display:grid;gap:24px;grid-template-columns:minmax(0,1fr)}
+@media(min-width:860px){.page{grid-template-columns:392px minmax(0,1fr)}}
+h1{font:700 26px/1.1 var(--f-chiffres);letter-spacing:.02em;margin:0 0 4px;text-wrap:balance}
+.sous{color:var(--gris);font-size:13px;margin:0 0 12px;max-width:60ch}
+#tel{border:1px solid var(--trait);border-radius:30px;background:var(--anthracite);overflow:hidden;max-width:392px;display:flex;flex-direction:column;min-height:700px}
+.haut{display:flex;align-items:center;gap:10px;padding:14px 16px 10px}
+.retour{background:none;border:0;color:var(--gris);font:600 14px var(--f-texte);cursor:pointer;padding:4px 0}
+.prog{flex:1;height:4px;background:var(--surface2);border-radius:9px;overflow:hidden}
+.prog i{display:block;height:100%;background:var(--ambre)}
+.plus-tard{background:none;border:0;color:var(--gris);font:500 13px var(--f-texte);cursor:pointer}
+.corps{flex:1;padding:6px 18px 12px;overflow:auto}
+.etape{font:700 12px var(--f-texte);letter-spacing:.1em;text-transform:uppercase;color:var(--gris);margin:4px 0 6px}
+.q{font:700 24px/1.15 var(--f-chiffres);letter-spacing:.01em;margin:0 0 6px;text-wrap:balance}
+.voix{display:flex;gap:8px;color:var(--ambre);font-size:14px;margin:0 0 14px}
+.voix::before{content:"";flex:none;width:8px;height:8px;margin-top:6px;background:var(--ambre);transform:rotate(45deg)}
+.opts{display:flex;flex-direction:column;gap:8px}
+.opt{text-align:left;background:var(--surface);border:1.5px solid var(--trait);border-radius:12px;padding:11px 13px;color:var(--texte);font:600 15px var(--f-texte);cursor:pointer}
+.opt span{display:block;font-weight:400;font-size:13px;color:var(--gris);margin-top:2px}
+.opt[aria-pressed="true"]{border-color:var(--ambre);background:var(--ambre-fond)}
+.opt:focus-visible,.puce:focus-visible,.suivant:focus-visible{outline:2px solid var(--ambre);outline-offset:2px}
+.puces{display:flex;flex-wrap:wrap;gap:8px}
+.puce{background:var(--surface);border:1.5px solid var(--trait);border-radius:999px;padding:8px 13px;color:var(--texte);font:500 14px var(--f-texte);cursor:pointer}
+.puce[aria-pressed="true"]{border-color:var(--ambre);background:var(--ambre-fond)}
+.champ{display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center;background:var(--surface);border:1px solid var(--trait);border-radius:12px;padding:10px 13px;margin-bottom:8px}
+.champ b{font-weight:600}
+.champ .v{font:700 20px var(--f-chiffres);font-variant-numeric:tabular-nums}
+.champ small{grid-column:1/-1;color:var(--gris);font-size:12.5px}
+.sait{background:var(--surface);border:1px solid var(--trait);border-radius:12px;padding:4px 13px;margin-bottom:10px}
+.ligne{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--trait);font-size:14px}
+.ligne:last-child{border-bottom:0}
+.ligne .g{color:var(--gris)}
+.ligne .c{font:700 17px var(--f-chiffres);font-variant-numeric:tabular-nums;text-align:right}
+.sous-titre{font:700 12px var(--f-texte);letter-spacing:.08em;text-transform:uppercase;color:var(--gris);margin:14px 0 6px}
+.routine{background:var(--surface);border:1px solid var(--trait);border-radius:12px;padding:10px 13px;margin-bottom:8px}
+.routine b{display:block}
+.routine span{color:var(--gris);font-size:13px}
+.bas{padding:12px 18px 18px;border-top:1px solid var(--trait)}
+.suivant{width:100%;height:50px;border-radius:12px;border:0;background:var(--ambre);color:var(--sur-ambre);font:700 16px var(--f-texte);cursor:pointer}
+.suivant[disabled]{background:var(--surface2);color:var(--gris);cursor:default}
+.mod{background:none;border:0;color:var(--gris);text-decoration:underline;text-underline-offset:3px;font:500 12.5px var(--f-texte);cursor:pointer;padding:0}
+.explic{min-width:0}
+.explic h2{font:700 20px var(--f-chiffres);letter-spacing:.02em;margin:0 0 6px}
+.explic p{margin:8px 0;color:#c9cdd4;max-width:62ch}
+.explic b{color:var(--texte)}
+.tab{width:100%;border-collapse:collapse;font-size:13.5px;margin:8px 0}
+.tab td,.tab th{border-bottom:1px solid var(--trait);padding:7px 6px;text-align:left;vertical-align:top}
+.tab th{color:var(--gris);font-weight:600;font-size:12px}
+.valider{margin-top:14px;border:1px solid var(--trait);border-radius:12px;padding:12px 14px;background:var(--surface)}
+.valider h3{margin:0 0 6px;font:700 12px var(--f-texte);text-transform:uppercase;letter-spacing:.08em;color:var(--ambre)}
+.valider ol{margin:0;padding-left:20px;color:#c9cdd4}
+.valider li{margin:6px 0}
+.plan{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.plan button{background:var(--surface2);border:1px solid var(--trait);border-radius:8px;color:var(--gris);font:500 12px var(--f-texte);padding:5px 8px;cursor:pointer}
+.plan button[aria-current="step"]{color:var(--texte);border-color:var(--ambre)}
+.note{color:var(--gris);font-size:12px;margin-top:10px;max-width:392px}
+</style>
+
+<div class="page">
+  <div>
+    <h1>Le questionnaire du coach — maquette v4</h1>
+    <p class="sous">Le parcours complet, dans le style de la forge, avec Alexis comme exemple (ses vraies données au 07/10). Réponds comme dans l'app, ou saute directement à un écran.</p>
+    <div id="tel"></div>
+    <div class="plan" id="plan" aria-label="Aller à un écran"></div>
+    <p class="note">Chiffres réels d'Alexis : 164 séances depuis mai 2025, 5,6 séances par semaine sur 12 semaines (randonnées et escalade comprises), 74 min, ses maximums aux barres, ses séances qui reviennent. Le programme construit (« construis-le-moi ») est un exemple : ses règles sont à écrire.</p>
+  </div>
+  <div class="explic" id="explic"></div>
+</div>
+
+<script>
+const S={sexe:'Homme',age:27,taille:178,poids:84,histo:'import',sait:'ok',objectif:null,phase:null,prios:[],temps:null,materiel:'Salle complète',prog:null,jours:5,coach:null};
+const ns=' ';
+const opt=(k,v,t,d)=>`<button class="opt" data-k="${k}" data-v="${v}" aria-pressed="${S[k]===v}">${t}${d?`<span>${d}</span>`:''}</button>`;
+const ECR=[
+{id:'bienvenue',nom:'Bienvenue',pret:()=>true,html:()=>`
+ <p class="etape">Bienvenue</p><h2 class="q">Je suis ton coach. Deux minutes pour te connaître.</h2>
+ <p class="voix">Je te propose la charge de chaque série et je te dis pourquoi. Tu décides toujours.</p>
+ <div class="sait"><div class="ligne"><span>Tes données</span><span class="g">ce que je sais déjà</span></div>
+ <div class="ligne"><span>Toi</span><span class="g">4 réponses, facultatives</span></div>
+ <div class="ligne"><span>Ton but</span><span class="g">objectif, phase, priorités</span></div>
+ <div class="ligne"><span>Ton programme</span><span class="g">le tien, ou je le construis</span></div>
+ <div class="ligne"><span>Ton coach</span><span class="g">comment je te parle</span></div></div>
+ <p class="sous" style="margin:0">Tout se change ensuite dans Profil.</p>`},
+{id:'donnees',nom:'Tes données',pret:()=>!!S.histo,html:()=>`
+ <p class="etape">Tes données</p><h2 class="q">Tu as déjà un historique d'entraînement ?</h2>
+ <p class="voix">C'est lui qui me dit le plus de choses sur toi.</p>
+ <div class="opts">${opt('histo','import','Oui, dans une autre app','Hevy, Strong : envoie ton export, je le lis en deux minutes')}${opt('histo','tete','Oui, mais je ne l\'ai pas noté','Trois questions de plus')}${opt('histo','debut','Non, je débute','Je pars de zéro avec toi, prudemment')}</div>`},
+{id:'sait',nom:'Ce que je sais',saut:()=>S.histo!=='import',pret:()=>!!S.sait,html:()=>`
+ <p class="etape">Tes données</p><h2 class="q">Voici ce que tes séances me disent.</h2>
+ <div class="sait">
+ <div class="ligne"><span class="g">Historique</span><span class="c">164 séances · depuis mai 2025</span></div>
+ <div class="ligne"><span class="g">Rythme (12 dernières semaines)</span><span class="c">5 à 6 par semaine</span></div>
+ <div class="ligne"><span class="g">Durée habituelle</span><span class="c">≈ 75 min</span></div>
+ <div class="ligne"><span class="g">Couché · squat · soulevé · militaire</span><span class="c">95 · 125 · 140 · 60${ns}kg</span></div>
+ <div class="ligne"><span class="g">Autres activités</span><span class="c">randonnée, escalade</span></div></div>
+ <div class="opts">${opt('sait','ok','C\'est juste')}${opt('sait','corriger','Je corrige quelque chose')}</div>`},
+{id:'tete',nom:'Sans historique',saut:()=>S.histo==='import',pret:()=>true,html:()=>`
+ <p class="etape">Tes données</p><h2 class="q">Depuis quand t'entraînes-tu régulièrement ?</h2>
+ <div class="opts">${opt('anc','6m','Moins de 6 mois')}${opt('anc','2a','6 mois à 2 ans')}${opt('anc','plus','Plus de 2 ans')}</div>
+ <p class="sous-titre">Combien de séances par semaine ?</p>
+ <div class="puces">${['2','3','4','5','6+'].map(v=>`<button class="puce" data-k="jours" data-v="${v}" aria-pressed="${String(S.jours)===v}">${v}</button>`).join('')}</div>
+ <p class="sous-titre">Combien de temps par séance ?</p>
+ <div class="puces">${['45 min','60 min','75 min','90 min','Plus'].map(v=>`<button class="puce" data-k="duree" data-v="${v}" aria-pressed="${S.duree===v}">${v}</button>`).join('')}</div>`},
+{id:'toi',nom:'Toi',pret:()=>true,html:()=>`
+ <p class="etape">Toi · facultatif</p><h2 class="q">Qui es-tu ?</h2>
+ <p class="voix">Ce que tu m'as déjà donné est rempli : vérifie seulement.</p>
+ <div class="puces" style="margin-bottom:10px">${['Homme','Femme','Préfère ne pas dire'].map(v=>`<button class="puce" data-k="sexe" data-v="${v}" aria-pressed="${S.sexe===v}">${v}</button>`).join('')}</div>
+ <div class="champ"><b>Âge</b><span class="v">${S.age} ans</span><small>Sans historique, il règle la prudence de tes charges de départ.</small></div>
+ <div class="champ"><b>Taille</b><span class="v">${S.taille} cm</span><small>Avec ton poids, ta corpulence : elle aide à choisir tes charges de départ.</small></div>
+ <div class="champ"><b>Poids</b><span class="v">${String(S.poids).replace('.',',')}${ns}kg</span><small>Tractions, dips et pompes, et ta force rapportée à ton poids.</small></div>`},
+{id:'but',nom:'Ton but',pret:()=>S.objectif&&S.phase,html:()=>`
+ <p class="etape">Ton but</p><h2 class="q">Ton objectif principal ?</h2>
+ <div class="puces">${['Force','Muscle','Les deux','Forme et santé'].map(v=>`<button class="puce" data-k="objectif" data-v="${v}" aria-pressed="${S.objectif===v}">${v}</button>`).join('')}</div>
+ <p class="sous-titre">Et en ce moment, côté alimentation ?</p>
+ <div class="opts">${opt('phase','masse','Prise de masse')}${opt('phase','maintien','Maintien ou recomposition')}${opt('phase','seche','Sèche')}${opt('phase','nsp','Je ne sais pas','Je compte comme maintien')}</div>`},
+{id:'prios',nom:'Priorités',pret:()=>S.prios.length>0,html:()=>`
+ <p class="etape">Ton but</p><h2 class="q">Où veux-tu progresser en priorité ?</h2>
+ <p class="voix">${S.phase==='seche'?'En sèche, je garde surtout tes charges : une priorité musculaire attendra ta prochaine prise de masse. Un exercice prioritaire, oui.':'Jusqu\'à trois. Je les reverrai avec toi à la fin de chaque bloc.'}</p>
+ <p class="sous-titre">Des exercices</p>
+ <div class="puces">${['Squat','Couché','Soulevé','Militaire','Tractions'].map(v=>`<button class="puce" data-p="${v}" aria-pressed="${S.prios.includes(v)}">${v}</button>`).join('')}</div>
+ <p class="sous-titre">Ou des muscles</p>
+ <div class="puces">${['Poitrine','Dos','Épaules','Bras','Jambes','Tronc'].map(v=>`<button class="puce" data-p="${v}" aria-pressed="${S.prios.includes(v)}">${v}</button>`).join('')}</div>
+ <div class="puces" style="margin-top:10px"><button class="puce" data-p="Aucune" aria-pressed="${S.prios.includes('Aucune')}">Pas de priorité</button></div>`},
+{id:'temps',nom:'Temps et matériel',pret:()=>!!S.temps,html:()=>`
+ <p class="etape">Ton programme</p><h2 class="q">Tes séances durent environ 75 min.</h2>
+ <div class="opts">${opt('temps','max','C\'est mon maximum')}${opt('temps','marge','J\'ai de la marge pour en faire plus')}${opt('temps','moins','J\'ai moins de temps en ce moment','Je te proposerai des séances plus courtes')}${opt('temps','varie','Ça varie beaucoup','Je te demanderai ton temps avant les longues séances')}</div>
+ <p class="sous-titre">Où t'entraînes-tu ?</p>
+ <div class="puces">${['Salle complète','Salle basique','Maison équipée','Maison minimale','Poids du corps'].map(v=>`<button class="puce" data-k="materiel" data-v="${v}" aria-pressed="${S.materiel===v}">${v}</button>`).join('')}</div>`},
+{id:'programme',nom:'Ton programme',pret:()=>!!S.prog,html:()=>`
+ <p class="etape">Ton programme</p><h2 class="q">Comment veux-tu t'entraîner ?</h2>
+ <div class="opts">${opt('prog','deduit','Garder ce que je fais','Je retrouve tes séances qui reviennent et j\'en fais tes routines')}${opt('prog','moi','Je crée mes routines moi-même','L\'éditeur de routines, à ton rythme')}${opt('prog','construis','Construis-le-moi','Quelques questions de plus, et je te propose un programme')}</div>`},
+{id:'deduit',nom:'Programme déduit',saut:()=>S.prog!=='deduit',pret:()=>true,html:()=>`
+ <p class="etape">Ton programme</p><h2 class="q">Tes séances qui reviennent, sur 12 semaines.</h2>
+ <div class="routine"><b>Épaules et bras</b><span>12 fois · développé militaire, élévations, curls, extensions</span></div>
+ <div class="routine"><b>Haut du corps</b><span>10 fois · couché haltères, rowing machine, écarté, tirage un bras</span></div>
+ <div class="routine"><b>Couché</b><span>9 fois · couché barre, rowing poulie, incliné haltères, tractions</span></div>
+ <div class="routine"><b>Squat</b><span>7 fois · squat, presse, extension jambes, adduction</span></div>
+ <div class="routine"><b>Ischios et fessiers</b><span>8 fois · soulevé, leg curl assis et allongé, abduction</span></div>
+ <p class="voix">J'en fais tes cinq routines, avec tes séries, tes reps et tes repos habituels. Tu pourras tout changer.</p>`},
+{id:'construis',nom:'Programme construit',saut:()=>S.prog!=='construis',pret:()=>true,html:()=>`
+ <p class="etape">Ton programme</p><h2 class="q">Combien de jours par semaine, réalistement ?</h2>
+ <div class="puces">${[2,3,4,5,6].map(v=>`<button class="puce" data-k="jours" data-v="${v}" aria-pressed="${S.jours==v}">${v}</button>`).join('')}</div>
+ <p class="sous-titre">Je te propose</p>
+ ${constr()}
+ <p class="sous-titre">Des exercices que tu aimes, ou jamais ?</p>
+ <div class="puces"><button class="puce">+ J'aime</button><button class="puce">+ Jamais</button></div>`},
+{id:'coach',nom:'Ton coach',pret:()=>!!S.coach,html:()=>`
+ <p class="etape">Ton coach</p><h2 class="q">Comment veux-tu être coaché ?</h2>
+ <div class="opts">${opt('coach','menager','Me ménager','Je monte les charges plus doucement')}${opt('coach','normal','Normal','Je monte quand tes séries le montrent')}${opt('coach','pousser','Me pousser','Je monte dès qu\'une série le permet')}${opt('coach','carnet','Juste un carnet','Je me tais : aucune proposition, aucune phrase')}</div>`},
+{id:'recap',nom:'Ce que j\'ai compris',pret:()=>true,html:()=>`
+ <p class="etape">C'est noté</p><h2 class="q">Voici ce que j'ai compris.</h2>
+ <div class="sait">${[['Objectif',S.objectif||'—'],['Phase',{masse:'Prise de masse',maintien:'Maintien ou recomposition',seche:'Sèche',nsp:'Maintien'}[S.phase]||'—'],['Priorités',S.prios.join(', ')||'—'],['Temps',{max:'≈ 75 min, ton maximum',marge:'≈ 75 min, avec de la marge',moins:'moins en ce moment',varie:'ça varie'}[S.temps]||'—'],['Matériel',S.materiel],['Programme',{deduit:'tes 5 séances qui reviennent',moi:'tes routines',construis:S.jours+' jours, construit par moi'}[S.prog]||'—'],['Coach',{menager:'Me ménager',normal:'Normal',pousser:'Me pousser',carnet:'Juste un carnet'}[S.coach]||'—']].map(([a,b])=>`<div class="ligne"><span class="g">${a}</span><span>${b} <button class="mod">changer</button></span></div>`).join('')}</div>
+ <p class="voix">${S.coach==='carnet'?'Je me tais. Un geste dans Profil si tu veux mes propositions.':'À ta première séance, je te propose tes charges. Tu peux toujours taper autre chose.'}</p>`}
+];
+function constr(){
+ const P={2:[['Corps entier A','squat, couché, rowing, élévations'],['Corps entier B','soulevé, militaire, tractions, fentes']],
+  3:[['Corps entier A','squat, couché, rowing'],['Corps entier B','soulevé, militaire, tractions'],['Corps entier C','presse, incliné, tirage, bras']],
+  4:[['Haut A','couché, rowing, élévations, bras'],['Bas A','squat, leg curl, mollets'],['Haut B','militaire, tractions, incliné'],['Bas B','soulevé, presse, fessiers']],
+  5:[['Haut A','couché, tractions, incliné'],['Bas A','squat, presse, leg curl'],['Haut B','militaire, couché haltères, bras'],['Bas B','soulevé, squat avec pause, fessiers'],['Haut du corps','dos, épaules, bras']],
+  6:[['Poussée A','couché, militaire, triceps'],['Tirage A','tractions, rowing, biceps'],['Jambes A','squat, leg curl'],['Poussée B','incliné, élévations'],['Tirage B','rowing barre, tirage'],['Jambes B','soulevé, presse']]};
+ return (P[S.jours]||P[6]).map(([a,b])=>`<div class="routine"><b>${a}</b><span>${b}</span></div>`).join('')+`<p class="voix">Chaque muscle 2 fois par semaine, environ 75 min par séance. Tes priorités passent en premier.</p>`;
+}
+const E={
+bienvenue:`<h2>Bienvenue</h2><p>Le questionnaire s'ouvre <b>pour tout le monde qui ne l'a jamais rempli</b>, comptes existants compris (Aurélien aussi, décidé le 07/10). Ce que la personne a déjà donné (phase, rythme, poids d'une pesée) est <b>pré-rempli</b> : elle vérifie, elle ne retape pas. « Plus tard » le repousse, sans rien perdre : il reste proposé dans Profil.</p><p>Il est fait des <b>sections du profil, dans l'ordre</b> : un seul chemin d'écriture (ECRAN-PROFIL §4), et tout se modifie ensuite dans Profil.</p><p>Le losange ambre est la voix du coach : il explique, il ne juge pas.</p>`,
+toi:`<h2>Toi</h2><p>Placé <b>après</b> « ce que je sais » : on montre d'abord ce que l'app apporte, puis on demande. Le poids vient de la dernière pesée s'il y en a une.</p><table class="tab"><tr><th>Réponse</th><th>Ce que le coach en fait</th></tr><tr><td>Sexe</td><td>repères de force au poids du corps, classement force</td></tr><tr><td>Âge</td><td>sans historique : prudence des charges de départ</td></tr><tr><td>Taille + poids</td><td>sans historique : charges de départ ; avec le poids : tractions, dips, pompes, force rapportée au poids</td></tr></table><p>Chaque champ dit <b>pourquoi on le demande</b>. Tout est facultatif : sans réponse, le coach décrit sans comparer.</p><p>La taille ne dit pas tes proportions (fémurs, bras) : ce sont tes séries qui les révèlent.</p>`,
+donnees:`<h2>Tes données</h2><p>La question qui aiguille tout. <b>Un import</b> : le coach te connaît en deux minutes et ne te redemande rien de ce que tes séances savent. <b>Pas noté</b> ou <b>je débute</b> : trois questions de plus, et des charges de départ prudentes et annoncées comme telles.</p><div class="valider"><h3>À valider</h3><ol><li>L'import dans l'app (Hevy, Strong) est <b>un chantier à part</b> : en attendant, « envoie ton export » passe par toi et moi.</li></ol></div>`,
+sait:`<h2>Ce que je sais</h2><p><b>Rien de ce que les séries savent n'est demandé</b> : c'est montré, pour confirmation. Les autres activités (randonnée, escalade) sont lues dans l'historique, pas demandées.</p><p>« Je corrige » ouvre la ligne concernée.</p>`,
+tete:`<h2>Sans historique</h2><p>Seulement si l'historique manque : depuis quand, combien de séances et de temps. Le coach démarre par des <b>séances de calage</b> (« une charge que tu pourrais soulever 12 fois, fais-en 10 »), puis ses chiffres remplacent les repères.</p>`,
+but:`<h2>Ton but</h2><table class="tab"><tr><th>Réponse</th><th>Lue par</th></tr><tr><td>Objectif</td><td>la zone par défaut d'un programme (Lourd pour Force et Les deux), la carte « zone de force », le programme construit (reps), le contexte des paris</td></tr><tr><td>Phase</td><td>déjà branchée : série de plus, phrases, paris ; rappel toutes les 6 semaines</td></tr></table><p>Remplace la « discipline » du profil, que rien ne lisait.</p>`,
+prios:`<h2>Priorités</h2><p>En sèche, le coach le dit : on garde ses charges, on spécialise en prise de masse (RP : « l'alimentation et l'entraînement vont dans le même sens »).</p><p>Un exercice prioritaire : en début de séance, en zone de force si l'objectif le permet (proposé une fois). Un muscle prioritaire : la <b>première série de plus</b> de l'escalier, et plus de volume dans un programme construit.</p><p>Revues à la fin de chaque bloc.</p>`,
+temps:`<h2>Temps et matériel</h2><p><b>Le temps est montré</b> (lu dans tes séances) ; la réponse dit ce que tu veux en faire. « Moins de temps » : « J'ai peu de temps » proposé d'office ; « ça varie » : le temps demandé avant les longues séances.</p><p><b>Le matériel range les exercices, jamais il ne les cache</b> : catalogue, « Machine prise », programme construit.</p>`,
+programme:`<h2>Ton programme</h2><p>Trois chemins, décidés par Aurélien le 07/10 : <b>garder ce qu'on fait</b> (déduit de l'historique : <b>aucune autre app ne le fait</b>), <b>créer soi-même</b>, ou <b>construis-le-moi</b>.</p><p>Dans les trois cas, le coach décide des charges séance par séance ; un programme n'est qu'un point de départ.</p>`,
+deduit:`<h2>Programme déduit</h2><p>Les séances qui reviennent sur 12 semaines, regroupées par leurs exercices (pas par leur titre : « Ischio fessier » et « Ischio fessiers » sont la même). Chez Alexis : ses 5 séances habituelles avant qu'il prenne tes routines le 05/10.</p><p>Chaque routine reprend ses séries, reps et repos <b>médians</b>. C'est « En faire une routine » (chantier 52), en automatique.</p><div class="valider"><h3>À valider</h3><ol><li>Une séance doit revenir au moins 4 fois en 12 semaines pour devenir une routine (randos et escalade exclues).</li></ol></div>`,
+construis:`<h2>Programme construit</h2><p>Le split découle des <b>jours réalistes</b> (2-3 : corps entier ; 4 : haut / bas ; 5 : haut / bas + haut ; 6 : poussée / tirage / jambes), chaque muscle environ 2 fois par semaine (Schoenfeld 2016 ; Pelland 2024). L'objectif fixe les reps, les priorités le volume, le matériel les exercices, le temps la longueur.</p><p>Exemple pour 5 jours : ce que tu fais toi-même.</p><div class="valider"><h3>À valider</h3><ol><li>Le générateur est un chantier : ses règles (exercices, séries, ordre) s'écrivent, se simulent sur les cinq historiques, puis se valident avec toi avant le code.</li></ol></div>`,
+coach:`<h2>Ton coach</h2><p>Me ménager · Normal · Me pousser = le réglage existant (<b>l'ampleur des montées</b>, rien d'autre). <b>Juste un carnet</b> = « Entretenir » rendu vraiment silencieux (décidé le 07/10).</p>`,
+recap:`<h2>Ce que j'ai compris</h2><p>Le coach dit ce qu'il a retenu ; chaque ligne se change d'un tap. Toutes les réponses sont datées, et l'objectif et la phase entrent dans le contexte de chaque pari.</p>`
+};
+let i=0;
+const vis=()=>ECR.map((e,k)=>k).filter(k=>!(ECR[k].saut&&ECR[k].saut()));
+function rendre(){
+ const v=vis(); if(!v.includes(i)) i=v.find(k=>k>i)??v[v.length-1];
+ const e=ECR[i], pos=v.indexOf(i);
+ document.getElementById('tel').innerHTML=`<div class="haut">${pos>0?'<button class="retour" id="ret">‹ Retour</button>':'<span style="width:52px"></span>'}<div class="prog"><i style="width:${Math.round(100*pos/(v.length-1))}%"></i></div><button class="plus-tard">Plus tard</button></div>
+ <div class="corps">${e.html()}</div><div class="bas"><button class="suivant" id="suiv" ${e.pret()?'':'disabled'}>${pos===v.length-1?'Commencer':pos===0?'C\'est parti':'Continuer'}</button></div>`;
+ document.getElementById('explic').innerHTML=E[e.id];
+ document.getElementById('plan').innerHTML=v.map(k=>`<button data-i="${k}" ${k===i?'aria-current="step"':''}>${ECR[k].nom}</button>`).join('');
+}
+document.getElementById('tel').addEventListener('click',ev=>{
+ const b=ev.target.closest('button'); if(!b) return;
+ if(b.id==='ret'){const v=vis();i=v[Math.max(0,v.indexOf(i)-1)];return rendre();}
+ if(b.id==='suiv'){const v=vis();const p=v.indexOf(i);if(p<v.length-1)i=v[p+1];return rendre();}
+ if(b.dataset.k){S[b.dataset.k]=isNaN(+b.dataset.v)?b.dataset.v:+b.dataset.v;return rendre();}
+ if(b.dataset.p){const p=b.dataset.p;if(p==='Aucune')S.prios=['Aucune'];else{S.prios=S.prios.filter(x=>x!=='Aucune');S.prios=S.prios.includes(p)?S.prios.filter(x=>x!==p):(S.prios.length<3?[...S.prios,p]:S.prios);}return rendre();}
+});
+document.getElementById('plan').addEventListener('click',ev=>{const b=ev.target.closest('button');if(b){i=+b.dataset.i;rendre();}});
+rendre();
+</script>

@@ -200,12 +200,63 @@
     return { rapport: Math.round(c / p.poids * 100) / 100, pesee: { date: p.date, poids: p.poids } };
   }
 
+  // ── La pesée qu'on ÉCRIT (60-2a, QUESTIONNAIRE-COACH-V2 §3, écran « Toi ») ──
+  //
+  // Jusqu'ici une pesée ne se LISAIT que (Hevy, l'import) ; le questionnaire en
+  // pose une, et les règles qui disent QUAND vivent ici, pures.
+  //
+  // `body_weight_log.poids_kg` : 20 < p < 400, un CHECK de la base (relevé par
+  // Claude.ai le 07/10/2026). Un refus serveur serait un 23514, que la file
+  // classe DÉFINITIF : on refuse avant, ici, à la précision d'une pesée (le
+  // dixième de kilo).
+  var POIDS_MIN = 20, POIDS_MAX = 400;
+
+  // Le poids d'un nombre déjà lu (`Modele.lireNombre`, côté écran), ou `null`.
+  function poidsValide(v) {
+    if (v === null || v === undefined || v === '') return null;
+    var n = Number(v);
+    if (!isFinite(n)) return null;
+    n = arrondi(n, 1);
+    return n > POIDS_MIN && n < POIDS_MAX ? n : null;
+  }
+
+  // La pesée À ÉCRIRE, ou `null`. « Écrite seulement si la valeur diffère de la
+  // dernière pesée, ou s'il n'y en a aucune » : confirmer son poids ne fait pas
+  // une pesée de plus. `jour` : « AAAA-MM-JJ », le jour de la personne (le
+  // fuseau de l'appareil, jamais l'UTC) ; passé, parce qu'un module pur ne lit
+  // pas l'horloge.
+  function peseeAEcrire(lignes, poids, jour) {
+    var p = poidsValide(poids);
+    if (p === null || !RE_JOUR.test(String(jour || ''))) return null;
+    var derniere = resume(lignes);
+    if (derniere && derniere.poids === p) return null;
+    return { date: String(jour).slice(0, 10), poids_kg: p };
+  }
+
+  // Les pesées du serveur, PLUS celles que la file n'a pas encore envoyées.
+  // `Sync.remplacer` écraserait une pesée posée hors ligne au premier rafraîchis-
+  // sement réussi : la liste du serveur ne la connaît pas encore. Une pesée en
+  // attente REMPLACE celle que le serveur a pour le même jour — la file la
+  // fusionnera dessus (unicité `user_id, date`) —, sinon la courbe porterait
+  // deux points ce jour-là. `enAttente` : `{ [id]: true }`, ce que
+  // `Attente.protegees` rend pour cette table.
+  function fondreEnAttente(distantes, locales, enAttente) {
+    var gardees = (locales || []).filter(function (l) { return l && l.id && enAttente && enAttente[l.id]; });
+    var jours = {};
+    gardees.forEach(function (l) { jours[l.date] = true; });
+    return (distantes || []).filter(function (d) { return !(d && jours[d.date]); }).concat(gardees);
+  }
+
   var api = {
     RAPPORT_JOURS: RAPPORT_JOURS,
     rapportAuPoids: rapportAuPoids,
     MARGE: MARGE,
     PERIODES: PERIODES,
     PERIODE_DEFAUT: PERIODE_DEFAUT,
+    POIDS_MIN: POIDS_MIN, POIDS_MAX: POIDS_MAX,
+    poidsValide: poidsValide,
+    peseeAEcrire: peseeAEcrire,
+    fondreEnAttente: fondreEnAttente,
     depuisJour: depuisJour,
     normaliser: normaliser,
     resume: resume,

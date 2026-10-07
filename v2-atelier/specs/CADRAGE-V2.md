@@ -81,7 +81,7 @@ toujours que le test tourne dans un environnement plus clément.
 
 ## 2 sexies. Les specs ne s'envoient plus, elles se lisent — arrêté le 12/09/2026
 
-Les specs vivent dans `v2/specs/`. **Un prompt Claude Code n'en joint plus le corps** : il
+Les specs vivent dans `v2-atelier/specs/` (`v2/specs/` jusqu'au 07/10/2026, 59-1). **Un prompt Claude Code n'en joint plus le corps** : il
 donne le **delta daté** de la section qui change, et Claude Code va lire le reste dans le
 dépôt.
 
@@ -92,7 +92,7 @@ dépôt.
 Conséquences, dans les deux sens :
 
 - **Le prompt** ne porte que ce qui est nouveau, daté, et dit où l'insérer.
-- **Claude Code** commence par lire la spec dans `v2/specs/`, y intègre le delta, et
+- **Claude Code** commence par lire la spec dans `v2-atelier/specs/`, y intègre le delta, et
   **signale tout écart** entre ce que le prompt suppose et ce que le dépôt contient. Une
   section citée qui n'existe pas est un écart à rapporter, pas un détail à contourner.
 
@@ -390,7 +390,7 @@ un passage précédent — « tue » tous les mutants sans rien mesurer. La camp
 
 Posée le 15/09/2026, **tranchée le 19/09/2026** au chantier 48 (MOTEUR §9.8, ECRAN-PROFIL §2.3) :
 
-- **l'intention** (Progresser · Entretenir) décide si le moteur parle de charge ;
+- **l'intention** (Progresser · Juste un carnet — « Entretenir » jusqu'au 07/10/2026) décide si le coach parle : en « Juste un carnet », il se tait entièrement (MOTEUR I13, précisé le 07/10/2026) ;
 - **le rythme**, en Progresser, a trois crans — *prudent · normal · franc*, défaut normal — et agit sur trois choses : quand la charge monte, de combien, et ce que devient un test réussi. Jamais sur le vocabulaire.
 
 Les mots d'Aurélien : Entretenir, « pour ceux qui s'en fichent et ne veulent pas de coach » ; Prudent, « pour ceux qui sont un peu frileux » ; Franc, « le plus fort ; je le prendrais, perso, pour aller plus vite dans ma progression ». La suite de cette section garde la réflexion qui y a mené.
@@ -414,7 +414,8 @@ le nombre de séances de confirmation, jamais sur le vocabulaire.
 
 **Un mode entretien**, séparé. Quelqu'un qui ne cherche pas à progresser rend la double
 progression sans objet : **le moteur doit se taire sur la charge** et ne garder que le repos,
-la structure et le suivi. Ce n'est pas un cran de plus sur la même échelle — c'est le moteur
+la structure et le suivi. *Précisé le 07/10/2026 (#382)* : il se tait sur tout le reste aussi — ni phrase, ni
+dégressive, ni chauffes, ni décharge : c'est « Juste un carnet ». Ce n'est pas un cran de plus sur la même échelle — c'est le moteur
 qui s'éteint sur sa fonction principale.
 
 ### Discipline ≠ intention
@@ -427,6 +428,10 @@ comme des sorties (§2 ter). Léa en a dans son historique.
 
 **« Bien-être » n'est pas une discipline, c'est une intention.** D'où deux champs : *ce que tu
 fais*, et *pourquoi*.
+
+*Révisé le 07/10/2026 (chantier 60)* : la discipline n'est plus un champ de l'écran, rien ne la lisait. *Ce que tu
+fais* se lit dans tes séances ; *pourquoi*, c'est l'intention (Progresser · Juste un carnet) et l'**objectif** du
+questionnaire (force, muscle, les deux, forme ; QUESTIONNAIRE-COACH-V2).
 
 ### Comment on en change — tranché le 15/09
 

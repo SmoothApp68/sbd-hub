@@ -73,11 +73,11 @@ const CATALOGUE = [
                  // sections écrivent : voir le commentaire de la route `sessions`.
                  corpusSeances: [], corpusSeries: [],
                  graine: 0, envois: [],
-                 // ⚠️ UN COMPTE QUI A DÉJÀ VU SON PROFIL — c'est le cas de 4
-                 // des 5 comptes réels, et c'est celui que testent les sections
-                 // 1 à 10. Sans ça, la règle d'onboarding du §2 s'appliquerait à
-                 // toutes : un profil jamais vu ouvre sur le PROFIL, donc le banc
-                 // mesurerait cet écran-là au lieu de celui qu'il vise.
+                 // ⚠️ UN COMPTE QUI A DÉJÀ REMPLI SON QUESTIONNAIRE (60-2a) — c'est
+                 // celui que testent les sections 1 à 10. Sans ça, la règle du
+                 // questionnaire s'appliquerait à toutes : un questionnaire jamais
+                 // rempli s'ouvre de lui-même, donc le banc mesurerait cet écran-là
+                 // au lieu de celui qu'il vise.
                  //
                  // La section 11, elle, remet `profil` à null : un compte neuf
                  // n'a PAS de ligne `profiles` — relevé sur `pg_trigger`, il n'y
@@ -90,7 +90,10 @@ const CATALOGUE = [
                    mode_entrainement: 'musculation', unites: 'kg', anciennete: null,
                    intention: 'progresser', materiel: null, niveau_declare: null,
                    seances_par_semaine: null, jours_vises: null,
-                   duree_seance_min: null, onboarding_completed: true } };
+                   duree_seance_min: null, onboarding_completed: true,
+                   questionnaire_fait_le: '2026-10-01T09:00:00.000Z', objectif: null,
+                   objectif_depuis: null, priorites: null, temps_reponse: null,
+                   historique_declare: null, phase_confirmee_le: null } };
   // Les CHECK de `profiles`, relevés sur `pg_constraint` le 18/09/2026. Sans
   // eux le banc serait plus permissif que Postgres, et écrire « Entretenir » au
   // lieu de « entretien » monterait vert ici pour rendre 23514 sur l'appareil.
@@ -101,7 +104,11 @@ const CATALOGUE = [
     intention: ['progresser', 'entretien'],
     materiel: ['salle_complete', 'salle_basique', 'maison_equipee', 'maison_minimal', 'poids_du_corps'],
     anciennete: ['moins_1_an', '1_a_3_ans', '3_a_5_ans', 'plus_5_ans'],
-    niveau_declare: ['debutant', 'intermediaire', 'avance', 'expert']
+    niveau_declare: ['debutant', 'intermediaire', 'avance', 'expert'],
+    // 60-2a (`v2_065`, valeurs relevées par Claude.ai le 07/10/2026).
+    objectif: ['force', 'muscle', 'les_deux', 'forme'],
+    temps_reponse: ['max', 'marge', 'moins', 'varie'],
+    historique_declare: ['import', 'non_note', 'debutant']
   };
   const bornesProfil = (l) => {
     for (const col of Object.keys(CHECKS_PROFIL)) {
@@ -122,6 +129,10 @@ const CATALOGUE = [
         !(l.seances_par_semaine >= 1 && l.seances_par_semaine <= 14)) return 'profiles_rythme_borne';
     if (l.duree_seance_min !== undefined && l.duree_seance_min !== null &&
         !(l.duree_seance_min >= 10 && l.duree_seance_min <= 300)) return 'profiles_rythme_borne';
+    // `priorites` : une liste de trois au plus (`{}` = « Pas de priorité », NULL =
+    // pas répondu) — ce que la base refuserait en 23514 sinon.
+    if (l.priorites !== undefined && l.priorites !== null &&
+        !(Array.isArray(l.priorites) && l.priorites.length <= 3)) return 'profiles_priorites_ok';
     // ⚠️ LE TRIGGER `protect_privileged_profile_columns`. Il ne REFUSE pas ces
     // colonnes, il les remet en place — donc un client qui les enverrait ne
     // verrait rien. Le banc, lui, le DIT : c'est la seule façon de savoir que la
@@ -385,7 +396,10 @@ const CATALOGUE = [
         date_naissance: null, mode_entrainement: 'musculation', unites: 'kg',
         anciennete: null, intention: 'progresser', materiel: null,
         niveau_declare: null, seances_par_semaine: null, jours_vises: null,
-        duree_seance_min: null, onboarding_completed: false };
+        duree_seance_min: null, onboarding_completed: false,
+        // 60-2a — la base les crée à NULL : « jamais rempli » est un état de la ligne.
+        questionnaire_fait_le: null, objectif: null, objectif_depuis: null, priorites: null,
+        temps_reponse: null, historique_declare: null, phase_confirmee_le: null };
       base.profil = Object.assign({}, defauts, base.profil || {}, l);
       return json(projeter([base.profil], url), 201);
     }
@@ -1887,20 +1901,40 @@ const CATALOGUE = [
     Array.from(document.querySelectorAll('main > section')).filter((s) => !s.hidden).map((s) => s.id));
   const txt3 = (sel) => page3.evaluate((x) => (document.querySelector(x) || {}).textContent || '', sel);
 
-  // ── L'ONBOARDING EST UNE RÈGLE DE ROUTAGE ────────────────────────────────
+  // ── LE QUESTIONNAIRE EST UNE RÈGLE DE ROUTAGE (60-2a) ────────────────────
   // On demande « / » — la racine, l'onglet Séances. Un compte jamais réglé doit
-  // atterrir sur le PROFIL quand même. Demander « /profil » ne prouverait rien.
+  // voir le questionnaire DÈS LE PREMIER démarrage, quand la ligne de profil
+  // arrive : relevé 60-0, la décision ne se prenait que sur le CACHE, et un
+  // compte neuf n'était routé qu'au second démarrage.
   await page3.goto(BASE + '/', { waitUntil: 'networkidle' }).catch(() => {});
   await attendre(3500);
-  // La première ouverture n'a pas encore le profil en cache : c'est le SECOND
-  // démarrage qui exerce la règle, exactement comme sur l'appareil.
+  ok('[60-2a] un compte neuf voit le questionnaire dès le PREMIER démarrage, quand la ligne de profil arrive',
+    JSON.stringify(await vue3()) === '["vue-questionnaire"]', JSON.stringify(await vue3()));
+  ok('[60-2a] …sur la bienvenue, sans barre d’onglets, avec ses deux sorties (« Plus tard », la barre)',
+    /Je suis ton coach/.test(await txt3('#questionnaire-corps')) &&
+    await page3.evaluate(() => document.getElementById('onglets').hidden &&
+      !!document.querySelector('#questionnaire-corps .q-plus-tard') &&
+      !!document.querySelector('#questionnaire-corps .q-prog')),
+    (await txt3('#questionnaire-corps')).replace(/\s+/g, ' ').slice(0, 80));
+  ok('[60-2a] la ligne a été créée avec `questionnaire_fait_le` à NULL — « jamais rempli » est un état de la ligne',
+    !!base.profil && base.profil.questionnaire_fait_le === null, JSON.stringify(base.profil && base.profil.questionnaire_fait_le));
+  await page3.click('#questionnaire-corps .q-plus-tard');
+  await attendre(1500);
+  ok('[60-2a] « Plus tard » mène à Saisie, et Saisie propose de le terminer — sans « Abandonner »',
+    JSON.stringify(await vue3()) === '["vue-saisie"]' &&
+    /Ton questionnaire n’est pas terminé\./.test(await txt3('#bandeau-questionnaire')) &&
+    await page3.evaluate(() => !!document.querySelector('#bandeau-questionnaire .principal') &&
+      !document.querySelector('#bandeau-questionnaire .discret')),
+    JSON.stringify(await vue3()) + ' · ' + (await txt3('#bandeau-questionnaire')).replace(/\s+/g, ' ').slice(0, 60));
+  // ⚠️ UNE FOIS PAR APPAREIL. Au démarrage suivant, le questionnaire ne se rouvre
+  // PAS de lui-même (le bandeau et la ligne du Profil restent) — un questionnaire
+  // qui reviendrait à chaque ouverture recréerait l'obstacle qu'on vient d'enlever.
   await page3.goto(BASE + '/', { waitUntil: 'networkidle' }).catch(() => {});
   await attendre(3500);
-  ok('[46 §2] un compte jamais réglé ouvre sur le profil, même en demandant « / »',
-    JSON.stringify(await vue3()) === '["vue-profil"]', JSON.stringify(await vue3()));
-  ok('[46 §2] …et l’URL suit, pour qu’un rechargement ne reparte pas ailleurs',
-    (await page3.evaluate(() => location.pathname)) === '/profil',
-    await page3.evaluate(() => location.pathname));
+  ok('[60-2a] …et il ne se rouvre pas de lui-même : l’app rouvre sur les séances',
+    JSON.stringify(await vue3()) === '["vue-liste"]', JSON.stringify(await vue3()));
+  await page3.goto(BASE + '/profil', { waitUntil: 'networkidle' }).catch(() => {});
+  await attendre(3000);
 
   // ── TEST 6 — tous les champs « à renseigner » ────────────────────────────
   const videsProfil = await page3.evaluate(() =>
@@ -1919,38 +1953,22 @@ const CATALOGUE = [
   ok('[46 §2] les trois chiffres disent le corpus, pas le profil',
     /^2séances/.test(kpisProfil[0] || '') && /^3séries/.test(kpisProfil[1] || ''), JSON.stringify(kpisProfil));
 
-  // ── TEST 7 — « plus tard » envoie vers la saisie ─────────────────────────
-  const bandeauAccueil = await txt3('#profil-corps .p-accueil');
-  ok('[46 §2 · test 7] le bandeau de bienvenue dit que rien n’est obligatoire',
-    /Rien n’est obligatoire/.test(bandeauAccueil), bandeauAccueil.replace(/\s+/g, ' ').slice(0, 80));
-  // ⚠️ UNE SOUS-VUE DU PROFIL N'EST PAS UNE SORTIE DU PROFIL. Ouvrir « Tous mes
-  // exercices » depuis un profil encore jamais réglé, puis revenir, doit
-  // retrouver le bandeau : « vu » veut dire « quitté », pas « exploré ». C'est
-  // le SEUL moment où le bandeau existe encore — après « Plus tard », il ne
-  // revient plus, et la vérification ne prouverait plus rien.
-  await page3.evaluate(() =>
-    Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
-      .find((l) => /^Tous mes exercices/.test(l.textContent)).click());
-  await attendre(1200);
-  const passeParExos = JSON.stringify(await vue3());
-  await page3.evaluate(() => document.querySelector('#btn-retour-mes-exos').click());
-  await attendre(1200);
-  ok('[46 §2 · test 7] une sous-vue du profil n’est pas une sortie : le bandeau reste',
-    passeParExos === '["vue-exercices"]' &&
-    await page3.evaluate(() => !!document.querySelector('#profil-corps .p-accueil')) &&
-    JSON.stringify(await vue3()) === '["vue-profil"]',
-    passeParExos + ' → ' + JSON.stringify(await vue3()));
-
-  await page3.click('#profil-corps .p-plus-tard');
-  await attendre(1200);
-  ok('[46 §2 · test 7] « Plus tard » envoie vers la saisie — contournable, obligatoirement',
-    JSON.stringify(await vue3()) === '["vue-saisie"]', JSON.stringify(await vue3()));
-  // ⚠️ ET IL NE REVIENT PAS. Un bandeau qui se rouvrirait à chaque démarrage
-  // recréerait l'obstacle qu'on vient d'enlever.
-  await page3.goto(BASE + '/', { waitUntil: 'networkidle' }).catch(() => {});
-  await attendre(3500);
-  ok('[46 §2 · test 7] …et l’app rouvre sur les séances, plus sur le profil',
-    JSON.stringify(await vue3()) === '["vue-liste"]', JSON.stringify(await vue3()));
+  // ── TEST 7 — le bandeau d'accueil du profil est RETIRÉ (60-2a) ─────────────
+  // C'est le questionnaire qui accueille. Le profil d'un compte jamais réglé n'a
+  // plus de « Bienvenue » ni de « Plus tard — voir mes séances ».
+  ok('[60-2a · test 7] le profil d’un compte neuf n’a plus de bandeau de bienvenue',
+    await page3.evaluate(() => !document.querySelector('#profil-corps .p-accueil') &&
+      !document.querySelector('#profil-corps .p-plus-tard') &&
+      !/Rien n’est obligatoire/.test(document.getElementById('profil-corps').textContent)),
+    'ni bandeau ni sortie');
+  // ⚠️ `onboarding_completed` reste ÉCRIT (quitter le profil vaut « vu »), mais il
+  // ne route plus rien : seul `questionnaire_fait_le` décide.
+  await page3.evaluate(() => document.querySelector('.onglet[data-vue="saisie"]').click());
+  await attendre(1500);
+  ok('[60-2a · test 7] quitter le profil pose toujours `onboarding_completed` (il ne route plus)',
+    !!base.profil && base.profil.onboarding_completed === true, JSON.stringify(base.profil && base.profil.onboarding_completed));
+  await page3.goto(BASE + '/profil', { waitUntil: 'networkidle' }).catch(() => {});
+  await attendre(3000);
 
   // ── TEST 9 — l’intention, et la CLÉ qui part en base ─────────────────────
   await page3.goto(BASE + '/profil', { waitUntil: 'networkidle' }).catch(() => {});

@@ -53,10 +53,10 @@ légères, et le plus petit saut est le plus prudent.
 
 | Champ | Note |
 |---|---|
-| Discipline | musculation · powerbuilding · powerlifting · **calisthénie** (`coef_pdc` la couvre déjà). **Pas yoga ni pilates** — ni charge ni progression à décrire, traités comme des sorties |
-| Matériel | décide quels exercices peuvent être proposés |
+| ~~Discipline~~ | **Retirée de l'écran le 07/10/2026** (#382) : rien ne la lisait. L'**objectif** du questionnaire la remplace (QUESTIONNAIRE-COACH-V2). La valeur reste en base, lue par personne |
+| Matériel | **range les exercices, ne les cache jamais** (#382) : dans le catalogue et dans « Machine prise », ce que le matériel n'a pas passe après ; un exercice déjà fait n'est jamais rétrogradé. Phrase : « Je range les exercices selon ton matériel : ce que tu n'as pas passe après, jamais caché. » |
 | Ancienneté | **en fourchette**, pas une date — « depuis quand régulièrement ». On peut s'entraîner depuis cinq ans et rester débutant |
-| Niveau déclaré | saisi |
+| ~~Niveau déclaré~~ | **Retiré de l'écran le 07/10/2026** (#382) : rien ne le lisait. La valeur reste en base |
 | Niveau mesuré | **retiré le 18/09** — voir §2.4 ter. Un percentile de force sur une population de compétiteurs n'est pas transposable ; à rouvrir au chantier 1 |
 
 ### 2.3 Progresser ou entretenir — une intention, pas une discipline
@@ -64,8 +64,11 @@ légères, et le plus petit saut est le plus prudent.
 > **« Bien-être » n'est pas une discipline.** Quelqu'un qui s'entraîne pour se maintenir fait
 > la même musculation — il ne veut simplement pas qu'on le pousse.
 
-Deux crans : **Progresser · Entretenir**. En Entretenir, la double progression n'a rien à
-dire : **le moteur se tait sur la charge** et garde le repos, la structure, le suivi.
+Deux crans : **Progresser · Juste un carnet** (« Entretenir » jusqu'au 07/10/2026 ; la valeur en base reste
+`entretien`). Avec « Juste un carnet », **le coach se tait entièrement** : ni proposition, ni phrase, ni dégressive,
+ni chauffes, ni bandeau de décharge, ni semaine allégée, ni fin de bloc (MOTEUR I13). Phrase du POURQUOI : « Je me
+tais : aucune proposition, aucune phrase. Tes séries restent pré-remplies avec ta routine et ta dernière séance. »
+Le repos, la structure, les records et le suivi restent.
 
 **Un réglage explicite, dans le profil, et rien d'autre pour l'instant** — les alternatives
 sont écartées dans `CADRAGE-V2` §2 terdecies.
@@ -81,7 +84,7 @@ chacun avec sa phrase :
 | Franc | « Dès qu'une série touche le haut de ta zone, la charge monte, et deux crans d'un coup quand tu dépasses nettement. » |
 
 Dessous : « La prochaine consigne en tient compte. » Aucun argument chiffré à l'écran.
-En **Entretenir**, le bloc disparaît, comme les étiquettes de zone et les consignes.
+En **« Juste un carnet »**, le bloc disparaît, comme les étiquettes de zone et les consignes.
 Colonne : `profiles.rythme_progression` (`v2_046`).
 
 **Présentation — tranchée le 19/09/2026** : le même sélecteur à boutons que l'intention, juste
@@ -94,9 +97,10 @@ langage. Sans valeur en base, le choix affiché est Normal.
 
 *Renommé le 19/09/2026 : « rythme » désigne désormais le réglage de progression (§2.3). Libellé à l'écran : « Ta semaine ».*
 
-Séances par semaine, jours, durée. Entrées d'un générateur de programme qui n'existe pas.
-**Demandés quand même** : simples, sans calcul, et un profil qui dit « cinq séances de 90 min
-le lundi, mardi, jeudi, vendredi, samedi » se lit sans moteur.
+Séances par semaine et durée. **Les jours sont retirés de l'écran le 07/10/2026** (#382 : rien ne les lisait ; la
+valeur reste en base). **La durée a un lecteur** : quand l'estimation d'une routine la dépasse, « J'ai peu de temps »
+propose de tenir en cette durée (MOTEUR §9.18). Phrase : « Quand ta routine dépasse ce temps, je te propose de la
+raccourcir. » Les séances par semaine attendent le générateur de programme.
 
 ### 2.4 bis Mes exercices — le vrai manque
 
@@ -149,7 +153,8 @@ mouvement et intermédiaire sur un autre.
 
 ### 2.5 L'app
 
-Unités, bio, e-mail de connexion. **Quitter**, qui n'existe nulle part.
+Bio, e-mail de connexion. **Quitter**, qui n'existe nulle part. *(Les **unités**, que rien ne lisait, sont retirées
+de l'écran le 07/10/2026, #382 ; la valeur reste en base.)*
 
 **Supprimer mon compte** — obligatoire, discret sous Quitter. La fonction
 `delete_user_complete_data` existe en base depuis la v1.
@@ -223,6 +228,24 @@ sont là, il compare. Un profil incomplet n'est pas une erreur, c'est un état.
 
 **Reste à concevoir** : l'ordre des champs quand ils sont présentés une première fois, et ce
 que l'app dit pour expliquer pourquoi chacun compte. À faire le 16/09.
+
+### 4 bis. Le questionnaire du coach — décidé le 07/10/2026 (chantier 60)
+
+Le « reste à concevoir » ci-dessus est conçu : c'est le **questionnaire du coach** (`QUESTIONNAIRE-COACH-V2`,
+maquette `maquette-questionnaire-v4.html`).
+
+> **Le questionnaire est l'ordre et la mise en avant des sections du profil, pas un second profil.** Il écrit par la
+> même fonction que le profil, chaque réponse a un lecteur et dit pourquoi on la demande, et tout se change ensuite
+> dans Profil.
+
+- **Le déclencheur** est `profiles.questionnaire_fait_le` vide, décidé quand la ligne de profil est connue — plus
+  `onboarding_completed` (§5.5, remplacé). Il concerne aussi les comptes existants.
+- **Il s'ouvre de lui-même une fois par appareil** ; « Plus tard » le ferme, puis un bandeau discret sur Saisie et une
+  ligne en tête de Profil (« Terminer mon questionnaire ») le proposent jusqu'à ce qu'il soit rempli. Jamais bloquant.
+- **Rempli** = « Commencer » sur le récapitulatif. Chaque écran validé est écrit au fur et à mesure ; rouvert, il
+  repart du début avec les réponses déjà données.
+- **Nouveaux champs du profil** (v2_065) : l'objectif et les priorités (« Ton but »), ce que la personne veut faire de
+  son temps (avec la durée). Ce que les séries savent n'y figure pas.
 
 ---
 
@@ -317,6 +340,11 @@ marquage s'écrit depuis `montrer()`, au moment précis où l'on quitte l'écran
 passait par le rendu, il rappellerait `montrer('profil')` et **ramènerait l'écran
 qu'on vient de quitter**.
 
+> **Remplacé le 07/10/2026 (chantier 60, §4 bis).** Le routage vers le profil sur `onboarding_completed` est retiré :
+> c'est le questionnaire qui s'ouvre, sur `questionnaire_fait_le` vide, quand la ligne de profil est connue (relevé
+> 60-0 : un compte neuf n'était routé qu'au second démarrage, la décision se prenant sur le seul cache). Le principe
+> reste : on n'ouvre rien sur une supposition. `onboarding_completed` n'est plus lu pour router.
+
 ### 5.6 Le mot de passe est une ligne du profil
 
 La maquette d'inscription promet « Tu le changeras depuis ton profil ». La ligne
@@ -336,11 +364,12 @@ vivent dans le **même voile** que les feuilles de séance, donc le retour
 d'Android les ferme sans qu'on l'écrive.
 
 - **Le choix VALIDE ET FERME** : une liste fermée n'a pas de « Valider » à part,
-  le doigt a déjà dit ce qu'il voulait. Les jours, eux, sont un multi-choix :
-  on coche, **puis** on valide.
-- **« Effacer » n'est offert que sur une colonne qui accepte `NULL`.** `sexe`,
-  `mode_entrainement`, `unites` et `intention` sont `NOT NULL` : le proposer
-  promettrait une écriture que Postgres refuserait en 23502.
+  le doigt a déjà dit ce qu'il voulait. *(La feuille des jours, un multi-choix, est
+  retirée avec les jours le 07/10/2026, #382 : il reste deux feuilles.)*
+- **« Effacer » n'est offert que sur une colonne qui accepte `NULL`.** `sexe` et
+  `intention` sont `NOT NULL` (`mode_entrainement` et `unites` aussi, sans écran
+  depuis le 07/10/2026) : le proposer promettrait une écriture que Postgres
+  refuserait en 23502.
 - **Un refus ne ferme pas la feuille.** Les bornes de saisie doublent les CHECK
   de la base — un refus serveur arrive en 23514, code que la file classe
   DÉFINITIF. On refuse **avant**, avec une phrase, plutôt qu'après, avec une
@@ -353,7 +382,7 @@ d'Android les ferme sans qu'on l'écrive.
 | **La molette** (§7 sexdecies) pour les séances/semaine et la durée | Elle est faite pour un repos : un petit nombre de valeurs de 5 en 5. Quatorze séances et huit durées se voient mieux d'un coup, dans une liste — et on sait alors laquelle est la sienne |
 | **Un `series`/`reps_visees` de profil**, un « pas de progression » saisi | §2.1 : le pas dépend du matériel, pas de la personne, et il se lit dans les charges. On ne demande pas ce qu'on peut observer |
 | **Bloquer l'inscription sur un pseudo non vérifié** | Cf. §5.2 — la base ne peut pas répondre, donc ce serait bloquer tout le monde |
-| **Un écran d'onboarding séparé** | §4. C'est une règle de routage, pas un écran. Le v1 avait un ordonnanceur d'entrée de plusieurs centaines de lignes pour tenir un tunnel ; ici il n'y a pas de tunnel |
+| **Un écran d'onboarding séparé** | §4. C'est une règle de routage, pas un écran. Le v1 avait un ordonnanceur d'entrée de plusieurs centaines de lignes pour tenir un tunnel ; ici il n'y a pas de tunnel. *Le questionnaire du 07/10/2026 (§4 bis) n'en est pas un : il présente les champs du profil dans un ordre, écrit par la même fonction, se quitte à tout moment, et tout se change ensuite dans Profil* |
 
 ### 5.9 Le niveau MESURÉ reste retiré
 

@@ -31,6 +31,7 @@
 //   { table: 'sets',              op: 'remplacer',            id: <id de séance> }
 //   { table: 'routine_exercises', op: 'plan',                 id: <id de routine> }
 //   { table: 'records',           op: 'ajouter',              id: <séance ou lot> }  (58-2)
+//   { table: 'body_weight_log',  op: 'upsert',               id: <pesée du jour> }    (60-2a)
 //
 // La troisième est arrivée au chantier 26, et pour une raison précise : la
 // question de fin « met-on à jour la routine ? » (§6) se pose EN SALLE, là où
@@ -129,6 +130,11 @@
   // (`sets_efface_records`).
   var RECORDS = 'records';
   var AJOUTER = 'ajouter';
+  // 60-2a — LA PESÉE du questionnaire (`body_weight_log`). Un `upsert` sur
+  // (`user_id`, `date`) qui FUSIONNE : l'identifiant d'entrée est celui de la
+  // pesée locale (un par jour), donc deux pesées le même jour se compressent en
+  // une, la dernière gagne. Rien n'en dépend et elle ne dépend de rien.
+  var PESEES = 'body_weight_log';
 
   function cleDe(table, id) { return String(table) + ':' + String(id); }
 
@@ -673,6 +679,7 @@
     PREDICTIONS: PREDICTIONS,
     OBSERVATIONS: OBSERVATIONS,
     RECORDS: RECORDS, AJOUTER: AJOUTER,
+    PESEES: PESEES,
     OBSERVER: OBSERVER,
     attendSaSerie: attendSaSerie,
     AUCUNE_LIGNE: AUCUNE_LIGNE,

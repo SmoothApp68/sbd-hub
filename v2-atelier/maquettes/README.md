@@ -14,6 +14,7 @@ plutôt que de mémoire.
 | `grouper-degrouper.html` | Grouper en superset par désignation (« tape le bloc à joindre »), ouvrir un bloc pour atteindre ses exercices, **Sortir du superset**. Un superset retombé à un exercice redevient un bloc simple. |
 | `maquette-moteur-parle-v2.html` | **Le moteur qui parle** (chantier 48) — étiquette de zone, consigne à deux charges, règle du test, menu des zones, feuille « Pourquoi », constats, rythme dans Profil, reprise, et le dictionnaire complet des phrases. Remplace la v1, jamais commitée. |
 | `maquette-reaction-serie-v1.html` | **La réaction série par série** (chantier 49, MOTEUR §9.14, ECRAN-SAISIE §3.2) — variante A : la phrase du coach dans la grille, au-dessus de la série qu'elle concerne ; la ligne proposée avec son filet et sa charge en couleur du coach, les reps à taper ; « tenue », « le haut de ta zone », « pas encore » ; le refus qui fait taire le bloc. |
+| `maquette-questionnaire-v4.html` | **Le questionnaire du coach** (chantier 60, QUESTIONNAIRE-COACH-V2 §3) — le parcours complet, écran par écran, avec ce que chaque réponse change à droite. Elle fait foi pour l'apparence et les textes, **sauf** ses écarts décidés le 07/10 : pas d'écran « Ton programme » (60-3), un seul bouton sur « Ce que je sais », ancienneté à quatre valeurs, année de naissance, libellés du profil pour le coach, « Jusqu'à trois. ». Les panneaux d'explication et le sommaire sont pour Aurélien, pas pour l'app. Remplace les versions précédentes, jamais commitées. |
 
 ## Ce qu'elles ne fixent pas
 

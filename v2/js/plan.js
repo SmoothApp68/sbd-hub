@@ -1001,7 +1001,7 @@
     // (`modes`, l'historique `modes_exercice` lu par l'app), l'intention qui en
     // résulte avec celle du profil, et la réponse à la carte du lest. Le plan
     // ne décide rien de nouveau : il recopie ce qu'il a reçu, et le dit.
-    var intentionProfil = e.intention === 'entretien' ? 'entretien' : 'progresser';
+    var intentionProfil = Moteur().coachSeTait(e.intention) ? 'entretien' : 'progresser';
     var modes = e.modes || {};
     var lestReponse = e.lestReponse === 'oui' || e.lestReponse === 'non' ? e.lestReponse : null;
     var carteLestPosee = false;
@@ -2804,6 +2804,18 @@
     while ((m2 = nombres.exec(reste))) ajouter(x, p, m2[2], 'un chiffre écrit par le formateur', 'hors_formateur');
   }
 
+  // I13, ce que la BIBLIOTHÈQUE montre d'un dossier (60-2a, précisé le
+  // 07/10/2026) : au profil « Juste un carnet », ni badge de bloc ni carte de
+  // fin de bloc — des faits du programme entier, que le plan n'a pas. `vue` : ce
+  // que rend `programmeDuDossier` (`{ badge?, fin?, creer? }`, ou `null`).
+  function verifierSilenceDuProgramme(intentionProfil, vue) {
+    var erreurs = [];
+    if (!vue || !Moteur().coachSeTait(intentionProfil)) return erreurs;
+    if (vue.badge) erreurs.push('I13 — Entretenir (profil) : un badge de bloc (' + vue.badge + ')');
+    if (vue.fin) erreurs.push('I13 — Entretenir (profil) : une carte de fin de bloc');
+    return erreurs;
+  }
+
   // `entrees` (facultatif) : I7 — les paris de la séance face aux lignes ;
   // I12 — mêmes entrées, même plan, et les entrées ne sont pas modifiées par
   // le calcul. `avant` (facultatif) : le plan précédent, pour I4.
@@ -2931,10 +2943,23 @@
       if (graves.length && e.marquer) e.marquer(violations.slice());
       return { violations: graves, rapports: rapports };
     }
+    // I13 sur ce que la bibliothèque montre d'un dossier (60-2a) : même registre
+    // de violations, même console, même marqueur ; en production, rien.
+    function verifierProgramme(intentionProfil, dossier, vue) {
+      if (!active) return null;
+      var graves = verifierSilenceDuProgramme(intentionProfil, vue);
+      var j = e.journal || null;
+      if (graves.length) {
+        violations = violations.concat(graves);
+        if (j && j.error) j.error('[garde du coach] ' + graves.length + ' violation(s)', graves, { dossier: dossier, vue: vue });
+        if (e.marquer) e.marquer(violations.slice());
+      }
+      return { violations: graves };
+    }
     // Ce que la garde a vu : le banc le lit pour s'assurer que chacune de ses
     // sections a été vérifiée.
     function etat() { return { active: active, plans: plans, violations: violations.slice() }; }
-    return { active: active, verifier: verifier, etat: etat };
+    return { active: active, verifier: verifier, verifierProgramme: verifierProgramme, etat: etat };
   }
 
   var api = {
@@ -2944,6 +2969,7 @@
     planDesLignes: planDesLignes,
     rejouer: rejouer,
     verifierPlan: verifierPlan,
+    verifierSilenceDuProgramme: verifierSilenceDuProgramme,
     verifierPhrases: verifierPhrases,
     gardeActive: gardeActive,
     creerGarde: creerGarde,

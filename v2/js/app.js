@@ -21,6 +21,7 @@
   var Palier = racine.THPalier, Routines = racine.THRoutines;
   var Seance = racine.THSeance, Attente = racine.THAttente;
   var Profil = racine.THProfil, Moteur = racine.THMoteur, Plan = racine.THPlan;
+  var Questionnaire = racine.THQuestionnaire;
   var Rejeu = racine.THRejeu, Bilan = racine.THBilan;
   // 59-2 — « Quitter » : la fenêtre des séances pas encore envoyées, et ce qu'on efface.
   var Quitter = racine.THQuitter;
@@ -159,6 +160,12 @@
     // un défaut plus ancien : le mode ne se refermait JAMAIS, pas même en
     // terminant une séance.
     if (ecranCourant !== nom) fermerReorganisation();
+    // ⚠️ LE QUESTIONNAIRE NE SURVIT PAS À SA VUE (60-2a). Un autre écran posé par-dessus
+    // — le bouton « Rafraîchir », une session perdue, n'importe quel rendu — le laissait
+    // « ouvert » sans qu'on le voie : « Le terminer » devenait inerte (`ouvrirQuestionnaire`
+    // sort si l'état existe), le retour d'Android s'y adressait encore. Une seule porte,
+    // comme `fermerReorganisation` : changer d'écran le ferme, ce qui est validé est déjà écrit.
+    if (nom !== 'questionnaire' && questionnaire) fermerQuestionnaire();
     var onglet = Routeur.ongletDe(vue || nom);
     // ⚠️ MÊME PORTE, MÊME RAISON (§2, ch. 46). Quitter le profil vaut « vu » :
     // sans ça, quelqu'un qui remplit tout puis touche un onglet retrouverait le
@@ -406,10 +413,24 @@
   // Ce que la bibliothèque montre d'un dossier : le badge, la carte de fin de
   // bloc, ou « Faire de ce dossier un programme ». Rien n'est écrit ici.
   function programmeDuDossier(dossier) {
+    var vue = programmeDuDossierCalcule(dossier);
+    // Hors production, I13 se vérifie sur ce que la bibliothèque va montrer (la
+    // garde du coach, comme pour chaque plan) ; en production, rien.
+    garde.verifierProgramme(profil && profil.intention, dossier, vue);
+    return vue;
+  }
+
+  function programmeDuDossierCalcule(dossier) {
     if (dossier === null) return null;
     var jour = jourDuJour();
     var b = Moteur.blocEnCours(local.blocs, dossier);
     if (!b) return { creer: exercicesDuDossier(dossier).length > 0 };
+    // 60-2a (MOTEUR I13, précisé le 07/10/2026) — « JUSTE UN CARNET » : ni le
+    // badge ni la carte de fin de bloc d'un programme en cours. Ce sont des
+    // faits du programme ENTIER : l'Entretenir d'un seul exercice n'y touche
+    // pas. Le MÊME fait que le plan lit (`Moteur.coachSeTait`) ; rien n'est
+    // écrit, et le retour en Progresser les ramène (le bloc, lui, n'a pas bougé).
+    if (Moteur.coachSeTait(profil && profil.intention)) return {};
     var badge = Moteur.badgeDuBloc(b, jour);
     if (!Moteur.blocTermine(b, jour)) return { badge: badge };
     var bilan = bilanDe(b);
@@ -588,6 +609,27 @@
     return v === 'oui' || v === 'non' ? v : null;
   }
 
+  // 60-2a — LA PESÉE du questionnaire (écran « Toi »). Sur l'appareil d'abord :
+  // la courbe, le profil et le rapport au poids la voient tout de suite ; puis
+  // par la file. UN identifiant par jour — deux pesées le même jour se
+  // compressent en une (la dernière gagne), et la base fusionne sur
+  // (`user_id`, `date`). La ligne locale REMPLACE celle du serveur pour ce jour,
+  // en mémoire comme au cache : sinon la courbe porterait deux points.
+  async function poserPesee(pesee) {
+    var id = 'pesee-' + pesee.date;
+    var ligne = { id: id, date: pesee.date, poids_kg: pesee.poids_kg, source: 'app' };
+    var remplacees = (local.pesees || []).filter(function (l) {
+      return l && l.date === pesee.date && l.id !== id;
+    }).map(function (l) { return l.id; });
+    local.pesees = (local.pesees || []).filter(function (l) {
+      return l && l.date !== pesee.date;
+    }).concat([ligne]);
+    if (remplacees.length) await Cache.supprimer('pesees', remplacees).catch(function () {});
+    await Cache.ecrireLot('pesees', [ligne]).catch(function () {});
+    await poser({ table: Attente.PESEES, op: Attente.UPSERT, id: id,
+                  donnees: { user_id: idUtilisateur(), date: pesee.date, poids_kg: pesee.poids_kg, source: 'app' } });
+  }
+
   async function poserMode(slug, mode) {
     var id = uuid();
     var ligne = {
@@ -740,6 +782,7 @@
     // avec lui. Le rejouer sur le compte suivant écrirait la taille de
     // quelqu'un d'autre dans sa ligne `profiles`.
     profil = null; profilAEnvoyer = false; pseudoAInscrire = null;
+    fermerQuestionnaire(); envoiProfil = null; versionProfil = 0;
     faits.oublierDates();
     await Cache.ecrireMeta('proprietaire', { userId: userId });
   }
@@ -883,7 +926,10 @@
       await Cache.remplacerTout('exercices', local.exercices);
       if (!generationValide(g)) return;
       if (pesees) {
-        local.pesees = Sync.remplacer(pesees);
+        // 60-2a — une pesée posée hors ligne n'est pas encore chez le serveur :
+        // la liste qu'il envoie ne la contient pas. On la garde, par-dessus
+        // celle du serveur pour le même jour.
+        local.pesees = Poids.fondreEnAttente(pesees, local.pesees, Attente.protegees(attente, Attente.PESEES));
         await Cache.remplacerTout('pesees', local.pesees);
         if (!generationValide(g)) return;
       }
@@ -1380,6 +1426,11 @@
     // 58-2 — le journal des records : un AJOUT qui ignore les lignes déjà là,
     // jamais une modification (`records_immuable`).
     if (op.table === Attente.RECORDS) return Donnees.ajouterRecords(op.donnees || []);
+    // 60-2a — la pesée du questionnaire : un `upsert` sur (user_id, date) qui
+    // FUSIONNE. ⚠️ SANS CETTE BRANCHE, une entrée `body_weight_log` serait vidée
+    // par le dernier `return` sans rien écrire — la perte silencieuse que la
+    // file existe pour empêcher.
+    if (op.table === Attente.PESEES) return Donnees.enregistrerPesee(op.donnees);
     // §6 — l'intention porte l'ÉTAT VOULU de la routine, pas un chemin pour y
     // aller : le plan d'écritures se calcule à la vidange, contre ce que la
     // routine est devenue entre-temps. C'est de là que vient l'idempotence.
@@ -5754,6 +5805,9 @@
     // rouverte — on retombe toujours dedans, sans rien chercher.
     if (seance) return rendreSeance();
     montrer('saisie', Routeur.SAISIE);
+    // 60-2a — AVANT les retours anticipés ci-dessous : « Ton questionnaire n'est
+    // pas terminé » ne dépend pas du chargement des routines.
+    rendreBandeauQuestionnaire();
     var cible = $('liste-routines');
     // ⚠️ « Je ne sais pas encore » n'est PAS « il n'y en a pas ». Tant qu'un
     // chargement n'a pas abouti, on ne montre pas l'état vide : hors ligne, il
@@ -5897,7 +5951,7 @@
     // 60-1 — « JUSTE UN CARNET » : en Entretenir le plan n'applique ni la
     // décharge planifiée ni la semaine allégée (I13) ; la routine ne dirait pas
     // « Semaine allégée : environ 50 min » pour une séance qui ne l'est pas.
-    if (Moteur.intentionDe(profil && profil.intention, null) === 'entretien') return false;
+    if (Moteur.coachSeTait(profil && profil.intention)) return false;
     var jour = Moteur.jourCivil(new Date().toISOString());
     return !!Moteur.periodeAllegee(Moteur.cartesDesParis(parisEscalierConnus()), jour) ||
       // §9.22 (53-2) — la décharge planifiée est une semaine allégée.
@@ -7550,8 +7604,9 @@
     vidanger();
     rendreEtatSync();
     // Comme à la fin de l'entrée complète : une synchronisation de fond ne
-    // reprend jamais la main sur un écran en cours d'édition.
-    if (!vues.detail.hidden || !vues.routine.hidden || !vues.seance.hidden) return;
+    // reprend jamais la main sur un écran en cours d'édition — le questionnaire
+    // compris (60-2a) : il perdrait l'écran où l'on en est.
+    if (!vues.detail.hidden || !vues.routine.hidden || !vues.seance.hidden || !vues.questionnaire.hidden) return;
     rendreRoute(Routeur.analyser(racine.location.pathname));
   }
 
@@ -7597,15 +7652,13 @@
       allerA(Routeur.RACINE, {}, true);
     }
 
-    // ⚠️ L'ONBOARDING EST UNE RÈGLE DE ROUTAGE, PAS UN ÉCRAN (§4). Un profil
-    // jamais vu ouvre sur le profil ; tout le reste ouvre où l'URL dit. La
-    // décision se prend sur ce qu'on a EN LOCAL, donc sans attendre le réseau —
-    // et un profil inconnu (cache vide, premier démarrage hors ligne) ne
-    // déclenche rien : on n'ouvre pas un formulaire sur une supposition.
-    if (Profil.doitOuvrirProfil(profil)) {
-      routeInitiale = { vue: Routeur.PROFIL, params: {} };
-      allerA(Routeur.PROFIL, {}, true);
-    }
+    // ⚠️ LE QUESTIONNAIRE EST UNE RÈGLE DE ROUTAGE, PAS UN ÉCRAN DE PLUS (60-2a,
+    // ECRAN-PROFIL §4 bis). Il remplace l'ancienne redirection vers le profil
+    // (`onboarding_completed`). Ici, la décision ne lit que le CACHE : un profil
+    // connu et jamais rempli l'ouvre tout de suite ; un profil inconnu (cache
+    // vide, premier démarrage hors ligne) ne déclenche rien — on n'ouvre pas un
+    // questionnaire sur une supposition — et `chargerProfil` reprendra la
+    // décision quand la ligne arrive.
 
     etat = Sync.deciderEtat({ syncOk: false, aDesDonnees: local.seances.length > 0 });
 
@@ -7636,7 +7689,8 @@
     // quand même face à une autre ouverte, la vidange résout le conflit.
     verificationSeance = resoudreSeanceEnCoursDistante().catch(function () {});
 
-    if (seance || local.seances.length) rendreRoute(routeInitiale);
+    if (ouvrirQuestionnaireSiDu()) { /* l'écran est posé : rien d'autre à rendre */ }
+    else if (seance || local.seances.length) rendreRoute(routeInitiale);
     else { montrer('liste', Routeur.RACINE); Rendu.message($('liste-seances'), 'Première synchronisation…'); }
 
     // L'ancre s'installe dès l'ouverture, QUELLE QUE SOIT la vue d'entrée :
@@ -7664,7 +7718,7 @@
     // L'utilisateur est parti ailleurs pendant la synchro. Re-rendre écraserait
     // son écran — et, sur l'éditeur de routine, le brouillon qu'il est en train
     // de remplir. Une synchronisation de fond ne reprend jamais la main.
-    if (!vues.detail.hidden || !vues.routine.hidden || !vues.seance.hidden) return;
+    if (!vues.detail.hidden || !vues.routine.hidden || !vues.seance.hidden || !vues.questionnaire.hidden) return;
     rendreRoute(Routeur.analyser(racine.location.pathname));
   }
 
@@ -7696,6 +7750,7 @@
     // rejouer une modification de profil sur le compte suivant serait pire que
     // de la perdre.
     profil = null; profilAEnvoyer = false; pseudoAInscrire = null;
+    fermerQuestionnaire(); envoiProfil = null; versionProfil = 0;
     faits.oublierDates();
     remplissage = null;
     // 59-2 — le jeton part même hors ligne (`Auth.deconnecter` l'efface
@@ -7773,10 +7828,14 @@
     var id = userId();
     if (!id) return;
     var g = generation;
+    var version = versionProfil;
     var distant = null;
     try { distant = await Donnees.monProfil(id); }
     catch (e) { return; }   // hors réseau : ce qu'on a en cache fait l'affaire
     if (!generationValide(g)) return;
+    // Un geste posé pendant la lecture est plus récent qu'elle : elle ne le remplace pas
+    // (comme la réponse d'un envoi, `envoyerProfilMaintenant`).
+    if (version !== versionProfil) return;
 
     if (!distant) {
       try {
@@ -7795,15 +7854,43 @@
     profil = distant;
     await sauverProfilLocal();
     if (ecranCourant === 'profil') rendreProfilEcran();
+    // Le bandeau de Saisie suit la ligne qui vient d'arriver (il ne s'ouvre pas toujours :
+    // séance, feuille ou « Ranger » en cours).
+    rendreBandeauQuestionnaire();
+    // 60-2a — LA LIGNE DE PROFIL EST CONNUE : c'est ICI que la décision d'ouvrir le
+    // questionnaire se reprend, au premier démarrage d'un compte neuf comme aux
+    // suivants. Prise sur le seul cache, elle ne routait un compte neuf qu'au
+    // SECOND démarrage (relevé 60-0).
+    ouvrirQuestionnaireSiDu();
   }
 
-  async function envoyerProfil() {
+  // ⚠️ UN SEUL ENVOI À LA FOIS, ET UNE RÉPONSE NE REMPLACE JAMAIS UN GESTE PLUS
+  // RÉCENT (60-2a). Le questionnaire écrit à chaque écran validé, et chaque envoi
+  // porte la LIGNE ENTIÈRE telle qu'elle était à son départ. Deux défauts, qu'un
+  // seul tap rapide suffisait à déclencher :
+  //   · deux envois en parallèle, traités dans l'autre sens par le serveur, font
+  //     revenir une colonne à sa valeur d'avant (`priorites` repasserait à null) ;
+  //   · la réponse du premier (`profil = rendu`) EFFAÇAIT le geste posé entre-temps
+  //     — le second envoi partait alors sans lui, et il était perdu pour de bon.
+  // D'où : chaque envoi lit `profil` QUAND IL PART, derrière le précédent ; et une
+  // réponse n'est adoptée que si aucune pose n'est venue depuis son départ
+  // (`versionProfil`) — sinon le geste plus récent a son propre envoi, derrière.
+  var envoiProfil = null;
+  var versionProfil = 0;
+  function envoyerProfil() {
+    envoiProfil = (envoiProfil || Promise.resolve()).then(envoyerProfilMaintenant, envoyerProfilMaintenant);
+    return envoiProfil;
+  }
+
+  async function envoyerProfilMaintenant() {
     var id = userId();
     if (!id || !profil) return;
     var g = generation;
+    var version = versionProfil;
     try {
       var rendu = await Donnees.enregistrerProfil(id, Profil.champsEcrits(profil));
       if (!generationValide(g)) return;
+      if (version !== versionProfil) return;   // un geste plus récent attend son envoi : on ne le remplace pas
       profil = rendu;
       profilAEnvoyer = false;
       await sauverProfilLocal();
@@ -7828,6 +7915,7 @@
   // en sort est exactement le genre de défaut qu'aucun test unitaire ne voit.
   async function poserProfil(champs) {
     profil = Object.assign({}, profil || {}, Profil.champsEcrits(champs));
+    versionProfil++;
     profilAEnvoyer = true;
     await sauverProfilLocal();
     await envoyerProfil();
@@ -7837,6 +7925,235 @@
     var promesse = poserProfil(champs);   // `profil` est à jour avant le 1er await
     rendreProfilEcran();
     return promesse;
+  }
+
+  // ══ LE QUESTIONNAIRE DU COACH (60-2a, QUESTIONNAIRE-COACH-V2) ═════════════
+  //
+  // Une VUE de l'app, pas un module à part : les écrans, leurs règles et leurs
+  // textes vivent dans `questionnaire.js` (pur), le dessin dans `rendu.js`, et
+  // ici ne restent que les GESTES et l'état de l'écran ouvert.
+  //
+  // ⚠️ IL ÉCRIT PAR LE CHEMIN DU PROFIL — `poserProfil`, pas `ecrireProfil`. C'est
+  // le même chemin (local d'abord, la ligne partie sur le réseau, rejouée au
+  // retour de la connexion), SANS le re-rendu : `ecrireProfil` appelle
+  // `rendreProfilEcran`, qui ramènerait l'écran Profil par-dessus le
+  // questionnaire à chaque « Continuer ». Le profil n'a pas de file d'envoi à
+  // lui : son « hors ligne » est `profilAEnvoyer`.
+  //
+  // UNE ÉCRITURE PAR ÉCRAN VALIDÉ ; « ‹ Retour » n'écrit rien. Rouvert avant la
+  // fin, il repart du début, chaque écran pré-rempli depuis la base.
+  //
+  // ⚠️ JAMAIS PAR-DESSUS UNE SÉANCE OUVERTE : on ne coupe pas quelqu'un en pleine
+  // saisie pour lui poser des questions. Il reste alors le bandeau de Saisie.
+  var CLE_QUESTIONNAIRE_VU = 'th-v2-questionnaire-vu-';   // + l'identifiant du compte
+  var questionnaire = null;      // l'écran ouvert : { ecran, rep, faits, aDesSeances, textes, erreurs, retourRecap }
+  var gardeQuestionnaire = null;
+
+  // « Ouvert sur cet appareil » : une clé locale PAR COMPTE, dans le préfixe que
+  // « Quitter » efface — un retour de connexion le remontre une fois, c'est voulu.
+  // Un stockage refusé se lit « déjà vu » : on n'ouvre pas à chaque démarrage une
+  // chose qu'on ne saurait pas dire qu'on a déjà montrée.
+  function questionnaireDejaVuIci() {
+    var id = userId();
+    if (!id) return true;
+    try { return racine.localStorage.getItem(CLE_QUESTIONNAIRE_VU + id) === '1'; }
+    catch (e) { return true; }
+  }
+
+  function marquerQuestionnaireVuIci() {
+    var id = userId();
+    if (!id) return;
+    try { racine.localStorage.setItem(CLE_QUESTIONNAIRE_VU + id, '1'); }
+    catch (e) { /* stockage refusé : il ne se rouvrira pas de lui-même, le bandeau reste */ }
+  }
+
+  // L'ouverture de lui-même : la ligne de profil est connue, le questionnaire n'a
+  // jamais été rempli, il ne s'est pas encore ouvert ici — et rien n'est en cours.
+  function ouvrirQuestionnaireSiDu() {
+    if (questionnaire || !userId()) return false;
+    if (seance || voileOuvert) return false;
+    // Un ordre « Ranger » non enregistré ne se jette pas : changer d'écran ferait `fermerReorganisation`.
+    if (modeModifier) return false;
+    if (!vues.detail.hidden || !vues.routine.hidden || !vues.seance.hidden) return false;
+    if (!Profil.doitOuvrirQuestionnaire(profil, questionnaireDejaVuIci())) return false;
+    ouvrirQuestionnaire();
+    return true;
+  }
+
+  // Ce que les séances savent, relu à chaque arrivée sur un écran qui le montre :
+  // une synchronisation a pu apporter des séances depuis l'ouverture.
+  function actualiserFaitsDuQuestionnaire() {
+    questionnaire.aDesSeances = local.seances.length > 0;
+    questionnaire.faits = faits.ceQueJeSais(corpus(), new Date(), Questionnaire.BARRES);
+  }
+
+  function ecransDuQuestionnaire() {
+    return Questionnaire.ecransVisibles({ aDesSeances: questionnaire.aDesSeances,
+                                          historique: questionnaire.rep.historique });
+  }
+
+  function ouvrirQuestionnaire() {
+    if (questionnaire) return;
+    var pesee = Poids.resume(local.pesees);
+    questionnaire = {
+      ecran: Questionnaire.BIENVENUE,
+      rep: Questionnaire.reponsesInitiales(profil, { poids: pesee ? pesee.poids : null }),
+      faits: null, aDesSeances: false, textes: {}, erreurs: {}, retourRecap: false
+    };
+    actualiserFaitsDuQuestionnaire();
+    marquerQuestionnaireVuIci();
+    // Le retour d'Android recule d'un écran (au premier : « Plus tard »). Une
+    // feuille ouverte par-dessus (la durée visée) garde SON retour.
+    gardeQuestionnaire = function () {
+      if (!questionnaire || voileOuvert) return null;
+      return { raison: 'questionnaire', afficher: reculerQuestionnaire };
+    };
+    ajouterGarde(gardeQuestionnaire);
+    rendreQuestionnaire();
+  }
+
+  function fermerQuestionnaire() {
+    questionnaire = null;
+    if (gardeQuestionnaire) { retirerGarde(gardeQuestionnaire); gardeQuestionnaire = null; }
+  }
+
+  function rendreQuestionnaire() {
+    var q = questionnaire;
+    if (!q) return;
+    montrer('questionnaire');
+    var vue = Questionnaire.vueDe(q.ecran, { rep: q.rep, faits: q.faits, aDesSeances: q.aDesSeances,
+      textes: q.textes, erreurs: q.erreurs, visibles: ecransDuQuestionnaire() });
+    Rendu.rendreQuestionnaire($('questionnaire-corps'), vue, {
+      surChoix: choisirDansQuestionnaire,
+      surSaisie: saisirDansQuestionnaire,
+      surLigne: ouvrirDureeDuQuestionnaire,
+      surChanger: changerDepuisLeRecap,
+      surContinuer: continuerQuestionnaire,
+      surRetour: reculerQuestionnaire,
+      surPlusTard: plusTardQuestionnaire
+    });
+  }
+
+  function choisirDansQuestionnaire(cle, valeur) {
+    if (!questionnaire) return;
+    questionnaire.rep = Questionnaire.appliquerChoix(questionnaire.rep, cle, valeur);
+    rendreQuestionnaire();
+  }
+
+  // Un champ tapé : la réponse et son erreur se mettent à jour, l'écran NE se
+  // redessine PAS (le champ perdrait le clavier). On rend la phrase d'erreur.
+  function saisirDansQuestionnaire(cle, texte) {
+    var q = questionnaire;
+    if (!q) return null;
+    var r = Questionnaire.lireChamp(cle, texte, Modele.lireNombre, new Date());
+    q.textes[cle] = texte;
+    q.rep[cle] = r.valeur;
+    q.erreurs[cle] = r.erreur;
+    return r.erreur;
+  }
+
+  // La durée visée : la feuille de choix du Profil, mais la réponse reste un
+  // brouillon de l'écran « Temps et matériel » (écrite à « Continuer », et
+  // seulement si elle a changé), pas une écriture immédiate.
+  function ouvrirDureeDuQuestionnaire() {
+    var q = questionnaire;
+    if (!q) return;
+    feuilleProfil = function (cible) {
+      Rendu.rendreFeuilleChoix(cible, {
+        titre: 'Durée d’une séance',
+        aide: null,
+        options: optionsNombre(Profil.DUREES, ' min'),
+        valeur: Questionnaire.dureeMontree(q.rep, q.faits),
+        surChoix: function (v) {
+          fermerVoile();
+          q.rep = Questionnaire.appliquerChoix(q.rep, 'duree', v);
+          rendreQuestionnaire();
+        },
+        surEffacer: null,
+        surAnnuler: fermerVoile
+      });
+    };
+    ouvrirFeuilleProfil();
+  }
+
+  // « changer », au récapitulatif : l'écran concerné, puis on REVIENT au récapitulatif.
+  function changerDepuisLeRecap(ecran) {
+    if (!questionnaire) return;
+    questionnaire.ecran = ecran;
+    questionnaire.retourRecap = true;
+    rendreQuestionnaire();
+  }
+
+  function continuerQuestionnaire() {
+    var q = questionnaire;
+    if (!q || !Questionnaire.ecranPret(q.ecran, q.rep)) return;
+    var ecrit = Questionnaire.champsDeLEcran(q.ecran, q.rep, profil, {
+      pesees: local.pesees, jour: jourDuJour(), maintenant: new Date() });
+    // Une écriture par écran. `poserProfil` met `profil` à jour AVANT son premier
+    // `await` : l'écran suivant lit déjà la réponse. Aucun n'attend le réseau.
+    if (Object.keys(ecrit.champs).length) poserProfil(ecrit.champs).catch(function () {});
+    if (ecrit.pesee) poserPesee(ecrit.pesee).catch(function () {});
+    if (q.ecran === Questionnaire.RECAP) return terminerQuestionnaire();
+    var suivant = q.retourRecap ? Questionnaire.RECAP
+      : (Questionnaire.ecranSuivant(ecransDuQuestionnaire(), q.ecran) || Questionnaire.RECAP);
+    q.retourRecap = false;
+    q.ecran = suivant;
+    if (suivant === Questionnaire.SAIT || suivant === Questionnaire.TEMPS || suivant === Questionnaire.RECAP) {
+      actualiserFaitsDuQuestionnaire();
+    }
+    // Le poids pré-rempli est la DERNIÈRE pesée — relue à l'arrivée sur « Toi » tant que la
+    // personne n'a rien tapé : ouvert depuis le cache, le questionnaire peut précéder une
+    // synchronisation qui apporte une pesée plus récente, et confirmer l'ancienne valeur
+    // l'écrirait comme pesée du jour.
+    if (suivant === Questionnaire.TOI && q.textes.poids === undefined) {
+      var derniere = Poids.resume(local.pesees);
+      q.rep.poids = derniere ? derniere.poids : null;
+    }
+    rendreQuestionnaire();
+  }
+
+  // « ‹ Retour » : l'écran d'avant, sans rien écrire ; au premier écran, le
+  // retour d'Android vaut « Plus tard ».
+  function reculerQuestionnaire() {
+    var q = questionnaire;
+    if (!q) return;
+    if (q.retourRecap) {
+      q.retourRecap = false;
+      q.ecran = Questionnaire.RECAP;
+      return rendreQuestionnaire();
+    }
+    var avant = Questionnaire.ecranPrecedent(ecransDuQuestionnaire(), q.ecran);
+    if (!avant) return plusTardQuestionnaire();
+    q.ecran = avant;
+    rendreQuestionnaire();
+  }
+
+  // « Plus tard » ferme sans rien perdre — ce qui est validé est déjà écrit — et
+  // mène à Saisie, où le bandeau le propose jusqu'à ce qu'il soit rempli.
+  function plusTardQuestionnaire() {
+    fermerQuestionnaire();
+    afficherSaisie();
+  }
+
+  // « Commencer », sur le récapitulatif : `questionnaire_fait_le` vient d'être
+  // posé par `continuerQuestionnaire`. Saisie, où l'on commence.
+  function terminerQuestionnaire() {
+    fermerQuestionnaire();
+    afficherSaisie();
+  }
+
+  // Le bandeau de Saisie : « Ton questionnaire n'est pas terminé. », tant qu'il
+  // ne l'est pas. Le composant du « brouillon oublié », sans « Abandonner » : il
+  // ne se ferme qu'en le remplissant.
+  function rendreBandeauQuestionnaire() {
+    var noeud = $('bandeau-questionnaire');
+    if (!noeud) return;
+    if (!Profil.questionnaireAFaire(profil)) { Rendu.rendreBandeauReprise(noeud, null); return; }
+    Rendu.rendreBandeauReprise(noeud, {
+      quoi: 'Ton questionnaire n’est pas terminé.',
+      libelleReprendre: 'Le terminer',
+      surReprendre: ouvrirQuestionnaire
+    });
   }
 
   // ── La déclaration des champs ─────────────────────────────────────
@@ -7919,6 +8236,57 @@
         valeur: valeurProfil(cle),
         surChoix: function (v) { fermerVoile(); ecrireProfil(defObjet(cle, v)); },
         surEffacer: function () { fermerVoile(); ecrireProfil(defObjet(cle, null)); },
+        surAnnuler: fermerVoile
+      });
+    };
+    ouvrirFeuilleProfil();
+  }
+
+  // ── « TON BUT » ET « TON TEMPS » (60-2a) ─────────────────────────────────
+  //
+  // Une réponse du Profil s'écrit par `Profil.preparerChamps` — la MÊME fonction
+  // que le questionnaire : `objectif_depuis` suit un objectif qui change, et une
+  // réponse inchangée n'écrit rien (elle ferme la feuille, c'est tout).
+  function ecrireReponse(entrees) {
+    var champs = Profil.preparerChamps(profil, entrees, new Date());
+    if (Object.keys(champs).length) ecrireProfil(champs);
+  }
+
+  function ouvrirReponseProfil(cle) {
+    if (cle === 'priorites') return ouvrirPrioritesProfil();
+    var objectif = cle === 'objectif';
+    feuilleProfil = function (cible) {
+      Rendu.rendreFeuilleChoix(cible, {
+        titre: objectif ? 'Objectif' : 'Ton temps',
+        aide: null,
+        options: objectif ? Profil.OBJECTIFS : Profil.TEMPS_REPONSES,
+        valeur: valeurProfil(cle),
+        surChoix: function (v) { fermerVoile(); ecrireReponse(defObjet(cle, v)); },
+        surEffacer: null,
+        surAnnuler: fermerVoile
+      });
+    };
+    ouvrirFeuilleProfil();
+  }
+
+  // Les priorités : une feuille à cocher, trois au plus. Le brouillon est celui
+  // de la feuille — rien n'est écrit avant « Valider ». `null` : pas répondu ;
+  // `[]` : « Pas de priorité », une réponse.
+  function ouvrirPrioritesProfil() {
+    var liste = Array.isArray(profil && profil.priorites) ? profil.priorites.slice() : null;
+    var redessiner = function () { feuilleProfil($('feuille-contenu')); };
+    feuilleProfil = function (cible) {
+      Rendu.rendreFeuilleChoixMultiple(cible, {
+        titre: 'Priorités',
+        aide: null,
+        groupes: [{ titre: 'Des exercices', options: Profil.EXERCICES_PRIORITAIRES },
+                  { titre: 'Ou des muscles', options: Profil.musclesPrioritaires() }],
+        valeurs: liste || [],
+        max: Profil.PRIORITES_MAX,
+        aucune: { libelle: 'Pas de priorité', actif: Array.isArray(liste) && liste.length === 0 },
+        surBasculer: function (c) { liste = Profil.basculerPriorite(liste, c); redessiner(); },
+        surAucune: function () { liste = []; redessiner(); },
+        surValider: function () { fermerVoile(); ecrireReponse({ priorites: liste }); },
         surAnnuler: fermerVoile
       });
     };
@@ -8058,10 +8426,8 @@
     var exos = faits.compterExercices(corpus());
 
     Rendu.rendreProfil($('profil-corps'), {
-      // « Contournable, obligatoirement » : le bandeau ne s'affiche QUE tant que
-      // le profil n'a pas été vu une première fois, et il porte sa propre sortie.
-      accueil: p.onboarding_completed === false
-        ? { surPlusTard: function () { marquerProfilVu(); afficherSaisie(); } } : null,
+      // 60-2a — « Terminer mon questionnaire › » en tête, tant qu'il n'est pas rempli.
+      questionnaire: Profil.ligneQuestionnaire(p, ouvrirQuestionnaire),
       kpis: [
         { valeur: nombreGroupe(stats.seances), libelle: 'séances' },
         { valeur: nombreGroupe(stats.series), libelle: 'séries' },
@@ -8085,6 +8451,9 @@
         // ici, rien ne les exercerait (`rendreProfilEcran` n'est pas testable).
         // `null` en Entretenir, et `rendreProfil` saute les sections absentes.
         Profil.sectionRythme(p, ecrireProfil),
+        // 60-2a — « TON BUT » (l'objectif, les priorités), après le réglage du coach :
+        // les réponses du questionnaire, une ligne à la fois. Sans phrase d'aide.
+        Profil.sectionBut(p, ouvrirReponseProfil),
         // MOTEUR §9.16 (49-U11) — « TA PHASE », à côté du rythme : le même
         // sélecteur, la même écriture (`ecrireProfil`, par la file du profil).
         Profil.sectionPhase(p, ecrireProfil),
@@ -8120,7 +8489,9 @@
             surChoix: function () { ouvrirRythmeProfil('seances_par_semaine'); } },
           { libelle: 'Durée d’une séance',
             valeur: p.duree_seance_min ? p.duree_seance_min + ' min' : null,
-            surChoix: function () { ouvrirRythmeProfil('duree_seance_min'); } }
+            surChoix: function () { ouvrirRythmeProfil('duree_seance_min'); } },
+          // 60-2a — les quatre réponses de l'écran « Temps », sans phrase d'aide.
+          Profil.ligneTemps(p, ouvrirReponseProfil)
         ] },
         { titre: 'L’APP', lignes: [
           { libelle: 'Pseudo', valeur: p.username || null,
@@ -8517,7 +8888,7 @@
       progression: $('vue-progression'), exercice: $('vue-exercice'),
       volume: $('vue-volume'), poids: $('vue-poids'), profil: $('vue-profil'),
       mois: $('vue-mois'), records: $('vue-records'),
-      exercices: $('vue-exercices')
+      exercices: $('vue-exercices'), questionnaire: $('vue-questionnaire')
     };
     sortie = Sortie.creer({
       history: racine.history,
@@ -8586,7 +8957,10 @@
 
     // Le réseau revient : on vide la file sans rien demander à personne — et le
     // profil modifié hors ligne repart avec elle.
-    racine.addEventListener('online', function () { vidanger(); envoyerProfil(); });
+    // Le profil ne repart que s'il y a quelque chose à envoyer : le renvoyer en entier à
+    // chaque retour du réseau écraserait, avec un cache périmé, ce qu'un autre appareil
+    // a répondu entre-temps (`questionnaire_fait_le`, objectif, priorités).
+    racine.addEventListener('online', function () { vidanger(); if (profilAEnvoyer) envoyerProfil(); });
     // Rotation, clavier logiciel, changement de taille : les barres changent de
     // hauteur, la réserve les suit. Mesuré une première fois au démarrage pour
     // que `--h-onglets` existe avant le premier rendu de séance.
@@ -8632,7 +9006,8 @@
       Rendu.rendreEtat($('etat-sync'), { code: 'sync', libelle: 'Synchronisation…', local: false });
       await synchroniser();
       await chargerProfil();
-      afficherSemaine();
+      // La ligne de profil a pu ouvrir le questionnaire : on ne le recouvre pas.
+      if (vues.questionnaire.hidden) afficherSemaine();
     });
 
     // Chaque onglet est une VUE du routeur, avec son URL — pas un basculement
@@ -8663,6 +9038,7 @@
       if (Auth.sessionPersistee()) return;
       sessionActive = null;
       entreeFaitePour = null;
+      fermerQuestionnaire(); envoiProfil = null; versionProfil = 0;
       profil = null; faits.oublierDates();
       allerA(Routeur.CONNEXION, {}, true);
       rendreEntree('connexion');

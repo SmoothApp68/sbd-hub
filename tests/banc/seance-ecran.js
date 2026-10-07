@@ -409,11 +409,15 @@ const ROUTINE_TERRE_LIBRE = {
   ]
 };
 
-// ⚠️ LE PROFIL DU BANC, DÉJÀ VU (48b-5b-3). Sans ligne `profiles`, l'app en
-// crée une à `onboarding_completed: false` et le démarrage suivant s'ouvre sur
-// le profil (`doitOuvrirProfil`) : chaque `aller('/saisie')` tomberait sur le
+// ⚠️ LE PROFIL DU BANC, DÉJÀ VU (48b-5b-3), ET SON QUESTIONNAIRE DÉJÀ REMPLI
+// (60-2a). Sans ligne `profiles`, l'app en crée une et le démarrage suivant
+// s'ouvre sur le questionnaire : chaque `aller('/saisie')` tomberait sur le
 // mauvais écran. Un profil existant, comme sur l'appareil, et l'intention
 // fait l'aller-retour serveur — c'est ce que le §7 duovicies mesure.
+//
+// `questionnaire_fait_le` porte une DATE : c'est lui qui décide d'ouvrir le
+// questionnaire (`null` = jamais rempli, la section « questionnaire » le pose
+// pour ses scénarios), et il vaut `null` à la création d'un profil neuf.
 const PROFIL_BANC = {
   id: 'u-banc', username: 'banc', bio: null, sexe: null, taille_cm: null,
   date_naissance: null, mode_entrainement: null, unites: null, anciennete: null,
@@ -421,7 +425,11 @@ const PROFIL_BANC = {
   niveau_declare: null, seances_par_semaine: null, jours_vises: null,
   duree_seance_min: null, onboarding_completed: true,
   // 50-1 — la réponse à la carte du lest : `oui`, `non`, ou NULL (pas encore).
-  lest_reponse: null, lest_reponse_le: null
+  lest_reponse: null, lest_reponse_le: null,
+  // 60-2a (`v2_065`) — le questionnaire du coach.
+  objectif: null, objectif_depuis: null, priorites: null, temps_reponse: null,
+  historique_declare: null, phase_confirmee_le: null,
+  questionnaire_fait_le: '2026-10-01T08:00:00.000Z'
 };
 
 // ⚠️ LE DÉCOR SE DATE DANS LA JOURNÉE EN COURS, JAMAIS DEPUIS UN JOUR DE LA
@@ -509,7 +517,8 @@ const SETS_IMPORTES = [
     // 53-2 (v2_058) — les blocs des programmes à cycles.
     blocs: [],
     // 55-1 — `body_weight_log` : vide, sauf pour la section « progression ».
-    pesees: [],
+    // 60-2a — et ce que l'app y a ÉCRIT (`ecrituresPesees`, un relevé à part).
+    pesees: [], ecrituresPesees: [], graineDesPesees: 0,
     // 58-2 (v2_061, v2_062) — le journal des records, et ce que l'app y a
     // envoyé (un relevé à part : `journal` garde ses refus, qui comptent).
     records: [], ecrituresRecords: [], graineRecords: 0,
@@ -796,6 +805,15 @@ const SETS_IMPORTES = [
       base.lenteurRecords = 0;
       await attendre(retenue);
       base.lentesServies = (base.lentesServies || []).concat([Date.now()]);
+    }
+
+    // 60-2a — une LENTEUR sur la lecture du PROFIL seule, UNE fois : l'app est
+    // déjà sur Saisie quand la ligne arrive — c'est le moment où le questionnaire
+    // se décide (il ne s'ouvre jamais sur une ligne qu'on ne connaît pas encore).
+    if (base.lenteurProfil && req.method() === 'GET' && table === 'profiles') {
+      const retenue = base.lenteurProfil;
+      base.lenteurProfil = 0;
+      await attendre(retenue);
     }
 
     // PR 8 de la consolidation — LA COURSE DE LA SYNCHRONISATION, FORCÉE
@@ -1106,6 +1124,38 @@ const SETS_IMPORTES = [
       return json(refus('42501', 'records : ni modification ni suppression par l’app (' + req.method() + ')'), 403);
     }
 
+    // ⚠️ 60-2a — `body_weight_log` EN ÉCRITURE, avec les contraintes de la vraie
+    // table : l'unicité (`user_id`, `date`) — un upsert FUSIONNE (la dernière
+    // pesée du jour l'emporte, contrairement au journal des records) —, le RLS
+    // (ses lignes), le CHECK du poids (20 < p < 400) et les colonnes connues.
+    // Sans cette branche, l'envoi tombait dans le `json([])` final et
+    // « réussissait » sans rien écrire : « la pesée est en base » aurait été
+    // vrai de toute implémentation, y compris d'une qui n'écrit rien.
+    const COLONNES_PESEES = ['id', 'user_id', 'date', 'poids_kg', 'source', 'created_at'];
+    if (table === 'body_weight_log' && req.method() === 'POST') {
+      const prefer = req.headers()['prefer'] || '';
+      const conflit = url.searchParams.get('on_conflict');
+      const fusionner = conflit === 'user_id,date' && /resolution=merge-duplicates/.test(prefer);
+      const lignes = Array.isArray(corps) ? corps : [corps];
+      base.ecrituresPesees.push({ n: lignes.length, fusionner, conflit, lignes: lignes.map((x) => Object.assign({}, x)) });
+      for (const l of lignes) {
+        const inconnue = Object.keys(l).filter((k) => COLONNES_PESEES.indexOf(k) < 0)[0];
+        if (inconnue) return json(refus('PGRST204', 'body_weight_log : colonne inconnue « ' + inconnue + ' »'), 400);
+        if (!l.user_id) return json(refus('23502', 'body_weight_log.user_id NOT NULL'), 400);
+        if (l.user_id !== MOI) return json(refus('42501', 'new row violates row-level security policy for table "body_weight_log"'), 400);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(String(l.date || ''))) return json(refus('23502', 'body_weight_log.date NOT NULL (AAAA-MM-JJ)'), 400);
+        if (!(l.poids_kg > 20 && l.poids_kg < 400)) return json(refus('23514', 'body_weight_log_poids_check'), 400);
+      }
+      for (const l of lignes) {
+        const i = base.pesees.findIndex((x) => x.user_id === l.user_id && x.date === l.date);
+        if (i >= 0 && !fusionner) return json(refus('23505', 'duplicate key value violates unique constraint "body_weight_log_user_id_date_key"'), 409);
+        if (i >= 0) base.pesees[i] = Object.assign({}, base.pesees[i], l);
+        else base.pesees.push(Object.assign({ id: '00000000-0000-4000-8060-' + String(++base.graineDesPesees).padStart(12, '0'),
+          created_at: new Date().toISOString() }, l));
+      }
+      return json([], 201);
+    }
+
     if (table === 'profiles') {
       if (req.method() === 'GET') {
         const lignesProfil = projeter(base.profiles, url);
@@ -1123,8 +1173,20 @@ const SETS_IMPORTES = [
         if (l.lest_reponse !== undefined && l.lest_reponse !== null && ['oui', 'non'].indexOf(l.lest_reponse) < 0) {
           return json(refus('23514', 'profiles_lest_reponse_ok'), 400);
         }
+        // 60-2a (`v2_065`) — les contraintes du questionnaire : une valeur hors
+        // liste est un 23514, DÉFINITIF pour la file mais pas pour le profil
+        // (qui rejoue sa ligne entière sans fin) — d'où le refus côté app.
+        const horsListe = (col, liste) => l[col] !== undefined && l[col] !== null && liste.indexOf(l[col]) < 0;
+        if (horsListe('objectif', ['force', 'muscle', 'les_deux', 'forme'])) return json(refus('23514', 'profiles_objectif_ok'), 400);
+        if (horsListe('temps_reponse', ['max', 'marge', 'moins', 'varie'])) return json(refus('23514', 'profiles_temps_reponse_ok'), 400);
+        if (horsListe('historique_declare', ['import', 'non_note', 'debutant'])) return json(refus('23514', 'profiles_historique_declare_ok'), 400);
+        if (l.priorites !== undefined && l.priorites !== null &&
+            (!Array.isArray(l.priorites) || l.priorites.length > 3)) return json(refus('23514', 'profiles_priorites_max3'), 400);
         const i = base.profiles.findIndex((x) => x.id === l.id);
-        const ligne = Object.assign({}, i >= 0 ? base.profiles[i] : {}, l);
+        // Un profil NEUF : le questionnaire n'est pas rempli (colonnes NULL par défaut).
+        const neuf = { objectif: null, objectif_depuis: null, priorites: null, temps_reponse: null,
+          historique_declare: null, phase_confirmee_le: null, questionnaire_fait_le: null };
+        const ligne = Object.assign({}, i >= 0 ? base.profiles[i] : neuf, l);
         if (i >= 0) base.profiles[i] = ligne; else base.profiles.push(ligne);
         return json(projeter([ligne], url), 201);
       }
@@ -12451,6 +12513,25 @@ const SETS_IMPORTES = [
         base.blocs.filter((b) => b.dossier === 'Alpha U53' && b.statut === 'en_cours').length === 1 &&
         base.predictions.filter((l) => l.module === 'programme').length === 0, JSON.stringify(i1));
 
+    // ── I ter (60-2a, MOTEUR I13 précisé le 07/10/2026). « JUSTE UN CARNET »
+    // ÉTEINT AUSSI LE BADGE ET LA CARTE DE FIN DE BLOC — au profil seulement, par
+    // le même fait que le plan (`Moteur.coachSeTait`). Le bloc, lui, ne bouge pas :
+    // rien n'est écrit, et le retour en Progresser les ramène.
+    const avantCarnet = { blocs: JSON.stringify(base.blocs), paris: base.predictions.length, zones: base.zones.length };
+    await choisirIntention('entretien');
+    await aller('/saisie');
+    const iC = await dossier('Alpha U53');
+    ok('[C53] DISCRIMINANT (60-2a, I13) — au profil « Juste un carnet », le bloc fini : ni badge ni carte de fin (le compte des routines reprend la place, le bloc reste en cours en base)',
+      iC && iC.badge === null && iC.fin === null && iC.compte === true &&
+        base.blocs.filter((b) => b.dossier === 'Alpha U53' && b.statut === 'en_cours').length === 1, JSON.stringify(iC));
+    await choisirIntention('progresser');
+    await aller('/saisie');
+    const iR = await dossier('Alpha U53');
+    ok('[C53] DISCRIMINANT (60-2a) — le retour en Progresser ramène la carte « Ton bloc Mix est terminé. » et le badge « Bloc Mix terminé », sans écriture de bloc, de pari ni de zone',
+      iR && iR.fin && sp(iR.fin.titre) === 'Ton bloc Mix est terminé.' && sp(iR.badge) === 'Bloc Mix terminé' &&
+        JSON.stringify(base.blocs) === avantCarnet.blocs && base.predictions.length === avantCarnet.paris &&
+        base.zones.length === avantCarnet.zones, JSON.stringify([iR, base.predictions.length - avantCarnet.paris, base.zones.length - avantCarnet.zones]));
+
     // ── J. LE CHOIX : « Commencer le bloc Lourd », le bloc proposé tel quel : un pari.
     await cliquerDossier('Alpha U53', '.cfb-commencer');
     await attendre(2400);
@@ -13543,6 +13624,534 @@ const SETS_IMPORTES = [
       gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant, JSON.stringify(erreurs.slice(erreursAvant)));
     await aller('/saisie');
     await attendre(500);
+  }
+
+  console.log('\n══ questionnaire. LE QUESTIONNAIRE DU COACH : LE DÉCLENCHEUR, « PLUS TARD », LA REPRISE, LES ÉCRITURES (60-2a) ══');
+  //
+  // Le branchement dans l'app réelle (les règles pures, elles, sont testées dans
+  // `v2-questionnaire*.test.js`) : le questionnaire s'ouvre de lui-même quand
+  // `questionnaire_fait_le` est VIDE sur la ligne de profil — pas sur
+  // `onboarding_completed` —, jamais sur une ligne qu'on ne connaît pas, jamais
+  // par-dessus une séance ouverte ; « Plus tard » ne perd rien ; une pesée
+  // inchangée n'écrit rien ; une année inchangée ne réécrit pas la date entière.
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const profilAvant = Object.assign({}, base.profiles[0]);
+    const peseesAvant = base.pesees;
+    base.pesees = [];
+    const ecrituresAvant = base.ecrituresPesees.length;
+    const NON_REMPLI = { objectif: null, objectif_depuis: null, priorites: null, temps_reponse: null,
+      historique_declare: null, phase_confirmee_le: null, questionnaire_fait_le: null };
+    const FAIT_LE = '2026-10-01T08:00:00.000Z';
+    // ⚠️ LE PROFIL EST PARTAGÉ AVEC LES SECTIONS D'AVANT (même groupe, même base de
+    // papier) : « TA PHASE », « POURQUOI », le matériel… peuvent y avoir laissé une
+    // réponse. Joué en banc complet, `phase = maintien` allumait « Continuer » dès
+    // l'objectif choisi. Chaque scénario part donc d'un profil dont TOUT ce qu'il
+    // suppose vide l'est — jamais de l'état laissé par une autre section.
+    const VIERGE = Object.assign({}, NON_REMPLI, {
+      phase: null, phase_depuis: null, sexe: null, taille_cm: null, date_naissance: null,
+      anciennete: null, seances_par_semaine: null, duree_seance_min: null, materiel: null,
+      intention: 'progresser', rythme_progression: 'normal' });
+    const SEL = '#questionnaire-corps ';
+    const profilBase = () => base.profiles[0];
+    const ecritsProfil = () => base.journal.filter((j) => j.op === 'profil').length;
+
+    // L'écran ouvert, tel qu'on le voit.
+    const ecranQ = () => page.evaluate(() => {
+      const c = document.querySelector('#questionnaire-corps .q-corps');
+      const txt = (s) => { const n = document.querySelector(s); return n ? n.textContent : null; };
+      const barre = document.querySelector('#questionnaire-corps .q-prog');
+      return {
+        vues: Array.from(document.querySelectorAll('main > section')).filter((s) => !s.hidden).map((s) => s.id),
+        onglets: !document.querySelector('#onglets').hidden,
+        ecran: c ? c.dataset.ecran : null,
+        etape: txt('#questionnaire-corps .q-etape'), titre: txt('#questionnaire-corps .q-titre'),
+        voix: txt('#questionnaire-corps .q-voix'),
+        bouton: txt('#questionnaire-corps .q-continuer'),
+        actif: !!document.querySelector('#questionnaire-corps .q-continuer') && !document.querySelector('#questionnaire-corps .q-continuer').disabled,
+        retour: !!document.querySelector('#questionnaire-corps .q-retour:not(.vide)'),
+        plusTard: txt('#questionnaire-corps .q-plus-tard'),
+        progression: barre ? [barre.getAttribute('aria-valuenow'), barre.getAttribute('aria-valuemax')] : null,
+        choisis: Array.from(document.querySelectorAll('#questionnaire-corps .on')).map((n) => n.dataset.cle),
+        lignes: Array.from(document.querySelectorAll('#questionnaire-corps .q-ligne')).map((l) => l.textContent),
+        champs: Array.from(document.querySelectorAll('#questionnaire-corps .q-champ-in')).map((i) => i.id.replace('q-champ-', '') + '=' + i.value)
+      };
+    });
+    const bandeauQ = () => page.evaluate(() => {
+      const b = document.querySelector('#bandeau-questionnaire');
+      return { visible: !!b && !b.hidden, texte: b ? b.textContent : '',
+        boutons: Array.from(document.querySelectorAll('#bandeau-questionnaire button')).map((x) => x.textContent) };
+    });
+    const clesVues = () => page.evaluate(() => Object.keys(localStorage).filter((k) => k.indexOf('th-v2-questionnaire-vu-') === 0));
+    const effacerVu = () => page.evaluate(() => Object.keys(localStorage)
+      .filter((k) => k.indexOf('th-v2-questionnaire-vu-') === 0).forEach((k) => localStorage.removeItem(k)));
+    const cliquerQ = async (sel, pause) => { await page.click(SEL + sel); await attendre(pause || 350); };
+    // L'ouverture de lui-même se décide quand la ligne de profil ARRIVE, après la
+    // synchronisation : plus elle porte de séances, plus c'est tard (un compte sans
+    // cache, après une section qui en a laissé beaucoup, dépasse largement 5 s).
+    // On attend l'événement, pas un délai ; les contrôles « rien ne s'ouvre »,
+    // eux, gardent leur instant.
+    const attendreOuverture = async (max) => {
+      for (let n = 0; n < (max || 60); n++) {
+        if ((await visible()).indexOf('vue-questionnaire') >= 0) return true;
+        await attendre(250);
+      }
+      return false;
+    };
+    const continuerQ = async () => { await cliquerQ('.q-continuer', 500); };
+    const aujourdhuiLocal = () => page.evaluate(() => {
+      const d = new Date(), p = (n) => String(n).padStart(2, '0');
+      return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+    });
+    // Le Profil, tel qu'on le voit.
+    const titresP = () => page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-sect')).map((n) => n.textContent));
+    const enTeteP = () => page.evaluate(() => {
+      const g = document.querySelector('#profil-corps').firstElementChild;
+      return g && g.classList.contains('p-questionnaire') ? g.textContent : null;
+    });
+    const ligneP = (libelle) => page.evaluate((l) => {
+      const n = Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
+        .filter((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf(l) === 0)[0];
+      return n ? { valeur: (n.querySelector('.p-val') || {}).textContent || null, vide: !!n.querySelector('.p-val.vide'),
+                   aide: !!n.querySelector('small') } : null;
+    }, libelle);
+    const toucherP = async (libelle) => {
+      await page.evaluate((l) => {
+        Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
+          .filter((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf(l) === 0)[0].click();
+      }, libelle);
+      await attendre(500);
+    };
+    const feuilleChoixP = () => page.evaluate(() => ({
+      ouverte: !document.querySelector('#feuille-seance').hidden,
+      titre: (document.querySelector('#feuille-contenu .feuille-t') || {}).textContent || null,
+      aide: !!document.querySelector('#feuille-contenu .feuille-aide'),
+      groupes: Array.from(document.querySelectorAll('#feuille-contenu .choix-groupe')).map((n) => n.textContent),
+      options: Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button[data-cle]')).map((b) => b.dataset.cle),
+      coches: Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button.choisi')).map((b) => b.dataset.cle),
+      eteintes: Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button.inerte')).map((b) => b.dataset.cle),
+      pied: Array.from(document.querySelectorAll('#feuille-contenu .feuille-pied button')).map((b) => b.textContent)
+    }));
+    const cliquerFeuille = async (sel, pause) => { await page.click('#feuille-contenu ' + sel); await attendre(pause || 450); };
+    const rouvrir = async (champs) => {        // l'appareil redémarre sur CETTE ligne de profil
+      await effacerVu();
+      Object.assign(profilBase(), champs);
+      await aller('/saisie');
+    };
+
+    // ── 0. LA RÉFÉRENCE : un compte dont le questionnaire est rempli ouvre Saisie.
+    await aller('/saisie');
+    const saisie = await visible();
+    ok('[Q60] prémisse : le profil du banc est « rempli » — l’app ouvre Saisie, sans questionnaire ni bandeau',
+      saisie.length === 1 && saisie[0] !== 'vue-questionnaire' && !(await bandeauQ()).visible, JSON.stringify([saisie, await bandeauQ()]));
+
+    // ── A. L'OUVERTURE DE LUI-MÊME : `questionnaire_fait_le` VIDE (et
+    // `onboarding_completed` à VRAI : c'est lui qui ne décide plus).
+    await rouvrir(Object.assign({}, VIERGE, { date_naissance: '1990-06-15', onboarding_completed: true }));
+    await attendreOuverture(40);
+    let e = await ecranQ();
+    ok('[Q60] A — DISCRIMINANT : `questionnaire_fait_le` vide (onboarding_completed vrai) → le questionnaire s’ouvre de lui-même, seul à l’écran, barre d’onglets cachée',
+      JSON.stringify(e.vues) === '["vue-questionnaire"]' && e.onglets === false && e.ecran === 'bienvenue', JSON.stringify(e));
+    ok('[Q60] A — l’écran 1, mot pour mot : étape, titre, voix, « C’est parti », « Plus tard », pas de retour, progression 1 sur 9',
+      e.etape === 'Bienvenue' && e.titre === 'Je suis ton coach. Deux minutes pour te connaître.' &&
+        e.voix === 'Je te propose la charge de chaque série et je te dis pourquoi. Tu décides toujours.' &&
+        e.bouton === 'C’est parti' && e.plusTard === 'Plus tard' && e.retour === false && e.actif === true &&
+        JSON.stringify(e.progression) === '["1","9"]', JSON.stringify(e));
+    ok('[Q60] A — marqué « ouvert sur cet appareil » : une clé locale, par compte',
+      (await clesVues()).length === 1, JSON.stringify(await clesVues()));
+
+    // ── Les écrans 1 → 2 : « Continuer » est éteint tant que l'historique n'est pas répondu.
+    let ecritsAvant = ecritsProfil();
+    await continuerQ();
+    e = await ecranQ();
+    ok('[Q60] écran 2 — « Tu as déjà un historique d’entraînement ? » : « Continuer » éteint tant que rien n’est choisi ; rien n’a été écrit',
+      e.ecran === 'donnees' && e.titre === 'Tu as déjà un historique d’entraînement ?' && e.actif === false && e.retour === true &&
+        ecritsProfil() === ecritsAvant, JSON.stringify([e, ecritsProfil() - ecritsAvant]));
+    await cliquerQ('.q-opt[data-cle="import"]');
+    e = await ecranQ();
+    ok('[Q60] écran 2 — « Importer » choisi : « Continuer » s’allume (rien n’est encore écrit : c’est « Continuer » qui écrit)',
+      e.actif === true && e.choisis.indexOf('import') >= 0 && ecritsProfil() === ecritsAvant, JSON.stringify([e.choisis, e.actif]));
+    await continuerQ();
+    await attendre(600);
+    ok('[Q60] écran 2 — « Continuer » écrit UNE fois, par le chemin du profil : `historique_declare` = import',
+      ecritsProfil() === ecritsAvant + 1 && profilBase().historique_declare === 'import' && profilBase().questionnaire_fait_le === null,
+      JSON.stringify([ecritsProfil() - ecritsAvant, profilBase().historique_declare, profilBase().questionnaire_fait_le]));
+
+    // ── L'écran 3a : des chiffres RÉELS, ceux des séances de la base.
+    e = await ecranQ();
+    const seancesBase = base.sessions.filter((s) => s.debut).length;
+    const histo = (e.lignes.filter((l) => /^Historique/.test(l))[0] || '').replace(/\s/g, ' ');
+    const mHisto = /^Historique(\d+) séances? · depuis \S+ 20\d\d$/.exec(histo);
+    ok('[Q60] écran 3a — « Voici ce que tes séances me disent. », « Historique » = le nombre de séances de la base (' + seancesBase + ')',
+      e.ecran === 'sait' && e.titre === 'Voici ce que tes séances me disent.' && !!mHisto && Number(mHisto[1]) === seancesBase,
+      JSON.stringify([e.lignes, seancesBase]));
+    ecritsAvant = ecritsProfil();
+    await continuerQ();
+    ok('[Q60] écran 3a — « Continuer » n’écrit rien (c’est une lecture)', ecritsProfil() === ecritsAvant, JSON.stringify(ecritsProfil() - ecritsAvant));
+
+    // ── L'écran 4 : « Toi ». Tout est pré-rempli ; l'année ne réécrit pas la date entière.
+    e = await ecranQ();
+    ok('[Q60] écran 4 — « Qui es-tu ? », facultatif : l’année déjà connue (1990) est pré-remplie',
+      e.ecran === 'toi' && e.titre === 'Qui es-tu ?' && e.etape === 'Toi · facultatif' && e.champs.indexOf('annee=1990') >= 0 && e.actif === true,
+      JSON.stringify(e));
+    await page.fill(SEL + '#q-champ-annee', '1850');
+    await attendre(250);
+    const erreurAnnee = await page.evaluate(() => { const n = document.querySelector('#questionnaire-corps .q-err:not([hidden])'); return n ? n.textContent : null; });
+    ok('[Q60] écran 4 — une année absurde (1850) est dite, pas écrite', erreurAnnee === 'Une année de naissance plausible.', JSON.stringify(erreurAnnee));
+    await page.fill(SEL + '#q-champ-annee', '1990');
+    await cliquerQ('.q-puce[data-cle="homme"]');
+    await page.fill(SEL + '#q-champ-taille', '182');
+    await page.fill(SEL + '#q-champ-poids', '98,4');
+    await attendre(250);
+    await continuerQ();
+    await attendre(1500);
+    const jour = await aujourdhuiLocal();
+    const p1 = profilBase();
+    ok('[Q60] écran 4 — « Continuer » écrit le profil : sexe, taille ; DISCRIMINANT : l’année 1990 inchangée NE RÉÉCRIT PAS la date entière (1990-06-15 reste 1990-06-15)',
+      p1.sexe === 'homme' && p1.taille_cm === 182 && p1.date_naissance === '1990-06-15', JSON.stringify([p1.sexe, p1.taille_cm, p1.date_naissance]));
+    const unePesee = base.ecrituresPesees.slice(ecrituresAvant);
+    ok('[Q60] écran 4 — la pesée part par la FILE, une ligne : (user_id, date du jour, 98,4 kg, source app), un upsert qui FUSIONNE sur (user_id, date)',
+      unePesee.length === 1 && unePesee[0].fusionner === true && unePesee[0].conflit === 'user_id,date' &&
+        JSON.stringify(unePesee[0].lignes) === JSON.stringify([{ user_id: 'u-banc', date: jour, poids_kg: 98.4, source: 'app' }]) &&
+        base.pesees.length === 1 && base.pesees[0].poids_kg === 98.4,
+      JSON.stringify([unePesee, base.pesees]));
+
+    // ── L'écran 5 : « Ton but » — puis « Plus tard ».
+    e = await ecranQ();
+    ok('[Q60] écran 5 — « Ton objectif principal ? » : « Continuer » éteint (objectif ET phase sont obligatoires)',
+      e.ecran === 'but' && e.titre === 'Ton objectif principal ?' && e.actif === false, JSON.stringify(e));
+    ecritsAvant = ecritsProfil();
+    await cliquerQ('.q-plus-tard', 900);
+    e = await ecranQ();
+    const bq = await bandeauQ();
+    ok('[Q60] B — « Plus tard » : on arrive sur Saisie, le questionnaire est fermé, rien n’est écrit de plus',
+      JSON.stringify(await visible()) === JSON.stringify(saisie) && ecritsProfil() === ecritsAvant,
+      JSON.stringify([await visible(), ecritsProfil() - ecritsAvant]));
+    ok('[Q60] B — le bandeau de Saisie : « Ton questionnaire n’est pas terminé. » et un seul bouton, « Le terminer »',
+      bq.visible && bq.texte.indexOf('Ton questionnaire n’est pas terminé.') >= 0 && JSON.stringify(bq.boutons) === '["Le terminer"]', JSON.stringify(bq));
+    ok('[Q60] B — ce qui était validé est écrit (historique, sexe, taille) ; `questionnaire_fait_le` reste vide',
+      profilBase().historique_declare === 'import' && profilBase().sexe === 'homme' && profilBase().questionnaire_fait_le === null,
+      JSON.stringify(profilBase()));
+
+    // ── B'. UN RECHARGEMENT NE LE ROUVRE PAS : il s'est déjà ouvert ici. Le bandeau reste.
+    await aller('/saisie');
+    const bq2 = await bandeauQ();
+    ok('[Q60] B — DISCRIMINANT : au rechargement il ne se rouvre pas de lui-même (déjà ouvert sur cet appareil) ; le bandeau reste',
+      JSON.stringify(await visible()) === JSON.stringify(saisie) && bq2.visible, JSON.stringify([await visible(), bq2]));
+
+    // ── B''. LA LIGNE EN TÊTE DE PROFIL : « Terminer mon questionnaire › ».
+    await onglet('profil');
+    const teteP = await enTeteP();
+    ok('[Q60] B — la ligne « Terminer mon questionnaire › » est en TÊTE de Profil, tant qu’il n’est pas rempli',
+      !!teteP && teteP.indexOf('Terminer mon questionnaire') === 0, JSON.stringify([teteP, await titresP()]));
+    await page.click('#profil-corps .p-questionnaire .p-ligne');
+    await attendre(600);
+    e = await ecranQ();
+    ok('[Q60] B — la ligne rouvre le questionnaire au PREMIER écran, déjà répondu (import) ; « Plus tard » ramène sur Saisie',
+      e.ecran === 'bienvenue' && JSON.stringify(e.vues) === '["vue-questionnaire"]', JSON.stringify(e));
+    await cliquerQ('.q-plus-tard', 700);
+    ok('[Q60] B — « Plus tard » depuis la ligne du Profil : Saisie, bandeau toujours là',
+      JSON.stringify(await visible()) === JSON.stringify(saisie) && (await bandeauQ()).visible, JSON.stringify([await visible(), await bandeauQ()]));
+
+    // ── C. LA REPRISE : « Le terminer » repart du début, tout pré-rempli depuis la base.
+    await page.click('#bandeau-questionnaire .principal');
+    await attendre(600);
+    e = await ecranQ();
+    ok('[Q60] C — « Le terminer » rouvre au PREMIER écran', e.ecran === 'bienvenue' && e.retour === false, JSON.stringify(e));
+    await continuerQ();
+    e = await ecranQ();
+    ok('[Q60] C — écran 2 : la réponse déjà donnée (import) est pré-remplie', e.ecran === 'donnees' && e.choisis.indexOf('import') >= 0 && e.actif === true, JSON.stringify(e));
+    // Le retour d'Android recule d'UN écran (il ne quitte pas l'app, il ne recharge rien).
+    await page.goBack().catch(() => {});
+    await attendre(900);
+    e = await ecranQ();
+    ok('[Q60] C — le retour d’Android recule d’un écran (2 → 1), sans quitter le questionnaire',
+      e.ecran === 'bienvenue' && JSON.stringify(e.vues) === '["vue-questionnaire"]', JSON.stringify(e));
+    await continuerQ();
+    await continuerQ();
+    await continuerQ();
+    e = await ecranQ();
+    ok('[Q60] C — écran 4 : sexe, année, taille et POIDS pré-remplis (98,4 : la dernière pesée)',
+      e.ecran === 'toi' && e.choisis.indexOf('homme') >= 0 &&
+        ['annee=1990', 'taille=182', 'poids=98,4'].every((c) => e.champs.indexOf(c) >= 0), JSON.stringify(e));
+    const ecrituresPesee1 = base.ecrituresPesees.length;
+    await page.fill(SEL + '#q-champ-annee', '1985');
+    await attendre(250);
+    await continuerQ();
+    await attendre(1500);
+    ok('[Q60] C — DISCRIMINANT : le poids inchangé (98,4) n’écrit AUCUNE pesée de plus ; l’année changée (1985) réécrit la date (1985-01-01)',
+      base.ecrituresPesees.length === ecrituresPesee1 && base.pesees.length === 1 && profilBase().date_naissance === '1985-01-01',
+      JSON.stringify([base.ecrituresPesees.length - ecrituresPesee1, base.pesees.length, profilBase().date_naissance]));
+
+    // ── L'objectif, la phase, les priorités (trois au plus).
+    await cliquerQ('.q-puce[data-cle="muscle"]');
+    e = await ecranQ();
+    ok('[Q60] écran 5 — l’objectif seul ne suffit pas : « Continuer » reste éteint', e.actif === false, JSON.stringify(e));
+    await cliquerQ('.q-opt[data-cle="maintien"]');
+    e = await ecranQ();
+    ok('[Q60] écran 5 — objectif ET phase : « Continuer » s’allume', e.actif === true, JSON.stringify(e));
+    await continuerQ();
+    await attendre(500);
+    ok('[Q60] écran 5 — écrit : objectif = muscle (et sa date), phase = maintien (et sa date de confirmation)',
+      profilBase().objectif === 'muscle' && !!profilBase().objectif_depuis && profilBase().phase === 'maintien' && !!profilBase().phase_confirmee_le,
+      JSON.stringify([profilBase().objectif, profilBase().objectif_depuis, profilBase().phase, profilBase().phase_confirmee_le]));
+    e = await ecranQ();
+    ok('[Q60] écran 6 — « Où veux-tu progresser en priorité ? », « Jusqu’à trois. »',
+      e.ecran === 'priorites' && e.titre === 'Où veux-tu progresser en priorité ?' && e.voix === 'Jusqu’à trois.', JSON.stringify(e));
+    const puces = await page.evaluate(() => Array.from(document.querySelectorAll('#questionnaire-corps .q-puce')).map((n) => n.dataset.cle));
+    for (const c of puces.slice(0, 4)) await cliquerQ('.q-puce[data-cle="' + c + '"]', 200);
+    e = await ecranQ();
+    ok('[Q60] écran 6 — quatre touchées, TROIS retenues (la quatrième est sans effet)',
+      e.choisis.length === 3 && JSON.stringify(e.choisis) === JSON.stringify(puces.slice(0, 3)), JSON.stringify([puces.slice(0, 4), e.choisis]));
+    await continuerQ();
+    await attendre(500);
+    ok('[Q60] écran 6 — écrit : trois priorités, dans l’ordre touché',
+      JSON.stringify(profilBase().priorites) === JSON.stringify(puces.slice(0, 3)), JSON.stringify(profilBase().priorites));
+
+    // ── Temps et matériel : la durée montrée n'est pas une réponse.
+    e = await ecranQ();
+    ok('[Q60] écran 7 — « Temps et matériel »', e.ecran === 'temps' && e.etape === 'Temps et matériel', JSON.stringify(e));
+    const dureeAvant = profilBase().duree_seance_min;
+    await cliquerQ('.q-opt[data-cle="marge"]');
+    await cliquerQ('.q-puce[data-cle="salle_complete"]');
+    await continuerQ();
+    await attendre(500);
+    ok('[Q60] écran 7 — écrit : temps_reponse = marge, matériel = salle complète ; DISCRIMINANT : la durée MONTRÉE (la médiane des séances) n’est pas écrite comme une réponse',
+      profilBase().temps_reponse === 'marge' && profilBase().materiel === 'salle_complete' && profilBase().duree_seance_min === dureeAvant,
+      JSON.stringify([profilBase().temps_reponse, profilBase().materiel, profilBase().duree_seance_min, dureeAvant]));
+
+    // ── Ton coach, puis le récapitulatif.
+    e = await ecranQ();
+    ok('[Q60] écran 8 — « Comment veux-tu être coaché ? » : le rythme du profil (normal) est pré-choisi, « Continuer » allumé',
+      e.ecran === 'coach' && e.titre === 'Comment veux-tu être coaché ?' && e.actif === true && e.choisis.indexOf('normal') >= 0, JSON.stringify(e));
+    await cliquerQ('.q-opt[data-cle="franc"]');
+    await continuerQ();
+    await attendre(500);
+    ok('[Q60] écran 8 — écrit : intention = progresser, rythme = franc',
+      profilBase().intention === 'progresser' && profilBase().rythme_progression === 'franc', JSON.stringify([profilBase().intention, profilBase().rythme_progression]));
+    e = await ecranQ();
+    ok('[Q60] écran 9 — « Voici ce que j’ai compris. » : les six lignes, avec ce qui vient d’être répondu ; « Commencer »',
+      e.ecran === 'recap' && e.bouton === 'Commencer' && e.lignes.length === 6 &&
+        /Objectif.*Muscle/.test(e.lignes[0]) && /Phase.*Maintien/.test(e.lignes[1]) && /Matériel.*Salle complète/.test(e.lignes[4]) &&
+        /Coach.*Franc/.test(e.lignes[5]), JSON.stringify(e));
+    ok('[Q60] écran 9 — rien ne dit « fait » avant « Commencer » : `questionnaire_fait_le` est encore vide',
+      profilBase().questionnaire_fait_le === null, JSON.stringify(profilBase().questionnaire_fait_le));
+    await cliquerQ('.q-mod[data-ecran="but"]', 500);
+    e = await ecranQ();
+    ok('[Q60] écran 9 — « changer » mène à l’écran concerné', e.ecran === 'but', JSON.stringify(e));
+    await continuerQ();
+    e = await ecranQ();
+    ok('[Q60] écran 9 — et « Continuer » y REVIENT au récapitulatif (pas à l’écran suivant)', e.ecran === 'recap', JSON.stringify(e));
+    // La durée VISÉE se change depuis le récapitulatif : la ligne et le récapitulatif
+    // disent ce qui a été choisi (90), le titre garde le fait (la médiane des séances).
+    const titreTemps0 = (await ecranQ()).lignes.filter((l) => /^Temps/.test(l))[0];
+    await cliquerQ('.q-mod[data-ecran="temps"]', 500);
+    e = await ecranQ();
+    const titreMed = e.titre;
+    await cliquerQ('.q-ligne-choix[data-cle="duree"]', 600);
+    await cliquerFeuille('.feuille-menu button[data-cle="90"]', 700);
+    const apresDuree = await page.evaluate(() => ({
+      titre: (document.querySelector('#questionnaire-corps .q-titre') || {}).textContent,
+      visee: (document.querySelector('#questionnaire-corps .q-lc-val') || {}).textContent }));
+    ok('[Q60] écran 7 — DISCRIMINANT : la durée choisie dans la feuille SE VOIT (« Durée visée 90 min »), le titre garde le fait (la médiane)',
+      e.ecran === 'temps' && /^Tes séances durent environ \d+.min\.$/.test(titreMed) && titreMed === apresDuree.titre &&
+        /^90.min$/.test(apresDuree.visee), JSON.stringify([titreMed, apresDuree]));
+    await continuerQ();
+    await attendre(500);
+    e = await ecranQ();
+    ok('[Q60] écran 9 — et le récapitulatif la dit (90 min), `duree_seance_min` est écrit une fois changée',
+      e.ecran === 'recap' && e.lignes.filter((l) => /^Temps/.test(l))[0] !== titreTemps0 &&
+        /^Temps90.min/.test(e.lignes.filter((l) => /^Temps/.test(l))[0]) && profilBase().duree_seance_min === 90,
+      JSON.stringify([e.lignes, profilBase().duree_seance_min]));
+    const peseesAvantFin = base.ecrituresPesees.length;
+    await continuerQ();
+    await attendre(1200);
+    ok('[Q60] « Commencer » : on arrive sur Saisie, `questionnaire_fait_le` est posé, le bandeau a disparu, aucune pesée de plus',
+      JSON.stringify(await visible()) === JSON.stringify(saisie) && !!profilBase().questionnaire_fait_le && !(await bandeauQ()).visible &&
+        base.ecrituresPesees.length === peseesAvantFin, JSON.stringify([await visible(), profilBase().questionnaire_fait_le, await bandeauQ()]));
+    await aller('/saisie');
+    ok('[Q60] rempli, il ne se rouvre plus — au rechargement, Saisie sans questionnaire ni bandeau',
+      JSON.stringify(await visible()) === JSON.stringify(saisie) && !(await bandeauQ()).visible, JSON.stringify([await visible(), await bandeauQ()]));
+
+    // ── P. LE PROFIL, REMPLI : « Ton but », « Ton temps », sans ligne en tête ni phrase d'aide.
+    await onglet('profil');
+    const titresRempli = await titresP();
+    ok('[Q60] P — plus de ligne en tête ; « TON BUT » vient après « TON RYTHME » (le réglage du coach), avant « TA PHASE »',
+      (await enTeteP()) === null && titresRempli.indexOf('TON BUT') === titresRempli.indexOf('TON RYTHME') + 1 &&
+        titresRempli.indexOf('TA PHASE') === titresRempli.indexOf('TON BUT') + 1, JSON.stringify(titresRempli));
+    const [pObj, pPri, pTps] = [await ligneP('Objectif'), await ligneP('Priorités'), await ligneP('Ton temps')];
+    ok('[Q60] P — les réponses du questionnaire sont là : Objectif Muscle, Priorités Squat · Couché · Soulevé, Ton temps « J’ai de la marge… » ; aucune phrase d’aide sous ces lignes',
+      pObj && pObj.valeur === 'Muscle' && pPri && pPri.valeur === 'Squat, Couché, Soulevé' &&
+        pTps && pTps.valeur === 'J’ai de la marge pour en faire plus' && !pObj.aide && !pPri.aide && !pTps.aide,
+      JSON.stringify([pObj, pPri, pTps]));
+    const ecritsP0 = ecritsProfil();
+    const depuisP0 = profilBase().objectif_depuis;
+    await toucherP('Objectif');
+    let fp = await feuilleChoixP();
+    ok('[Q60] P — « Objectif » : la feuille des quatre objectifs, Muscle coché, ni phrase d’aide ni « Effacer »',
+      fp.ouverte && fp.titre === 'Objectif' && JSON.stringify(fp.options) === '["force","muscle","les_deux","forme"]' &&
+        JSON.stringify(fp.coches) === '["muscle"]' && fp.aide === false && fp.pied.indexOf('Effacer') < 0, JSON.stringify(fp));
+    await cliquerFeuille('.feuille-menu button[data-cle="muscle"]', 900);
+    ok('[Q60] P — DISCRIMINANT : choisir le MÊME objectif n’écrit rien (ni valeur ni date)',
+      ecritsProfil() === ecritsP0 && profilBase().objectif_depuis === depuisP0, JSON.stringify([ecritsProfil() - ecritsP0, profilBase().objectif_depuis, depuisP0]));
+    await toucherP('Objectif');
+    await cliquerFeuille('.feuille-menu button[data-cle="force"]', 1500);
+    ok('[Q60] P — un objectif CHANGÉ s’écrit comme au questionnaire : la valeur ET sa date (`objectif_depuis`)',
+      profilBase().objectif === 'force' && profilBase().objectif_depuis !== depuisP0 && !!profilBase().objectif_depuis &&
+        ecritsProfil() === ecritsP0 + 1 && (await ligneP('Objectif')).valeur === 'Force', JSON.stringify([profilBase().objectif, profilBase().objectif_depuis, depuisP0, ecritsProfil() - ecritsP0]));
+    await toucherP('Priorités');
+    fp = await feuilleChoixP();
+    ok('[Q60] P — « Priorités » : « Des exercices » / « Ou des muscles », « Pas de priorité », trois cochées → les autres s’éteignent (sans un mot) ; Annuler · Valider',
+      fp.ouverte && fp.titre === 'Priorités' && JSON.stringify(fp.groupes) === '["Des exercices","Ou des muscles"]' &&
+        JSON.stringify(fp.coches) === '["squat_barre","developpe_couche_barre","souleve_de_terre_barre"]' &&
+        fp.options.indexOf('aucune') >= 0 && fp.eteintes.length === fp.options.length - 1 - fp.coches.length &&
+        fp.aide === false && JSON.stringify(fp.pied) === '["Annuler","Valider"]', JSON.stringify(fp));
+    await cliquerFeuille('.feuille-menu button[data-cle="squat_barre"]');
+    fp = await feuilleChoixP();
+    ok('[Q60] P — une décochée : les lignes se rallument (deux cochées, plus rien d’éteint)',
+      fp.coches.length === 2 && fp.eteintes.length === 0, JSON.stringify(fp));
+    await cliquerFeuille('.feuille-menu button[data-cle="aucune"]');
+    fp = await feuilleChoixP();
+    ok('[Q60] P — « Pas de priorité » vide la liste et se coche', JSON.stringify(fp.coches) === '["aucune"]', JSON.stringify(fp));
+    const ecritsP1 = ecritsProfil();
+    await cliquerFeuille('.feuille-pied .pri', 1500);
+    ok('[Q60] P — « Valider » écrit `priorites = {}` (une RÉPONSE, pas un trou) ; la ligne dit « Pas de priorité »',
+      Array.isArray(profilBase().priorites) && profilBase().priorites.length === 0 && ecritsProfil() === ecritsP1 + 1 &&
+        (await ligneP('Priorités')).valeur === 'Pas de priorité', JSON.stringify([profilBase().priorites, ecritsProfil() - ecritsP1]));
+    await toucherP('Priorités');
+    await cliquerFeuille('.feuille-menu button[data-cle="tractions"]');
+    await cliquerFeuille('.feuille-pied .sec', 600);
+    ok('[Q60] P — « Annuler » après avoir coché n’écrit rien', ecritsProfil() === ecritsP1 + 1 && (await ligneP('Priorités')).valeur === 'Pas de priorité',
+      JSON.stringify([ecritsProfil() - ecritsP1, await ligneP('Priorités')]));
+    await toucherP('Ton temps');
+    fp = await feuilleChoixP();
+    ok('[Q60] P — « Ton temps » : les quatre réponses, « marge » cochée, sans phrase d’aide',
+      fp.ouverte && fp.titre === 'Ton temps' && JSON.stringify(fp.options) === '["max","marge","moins","varie"]' &&
+        JSON.stringify(fp.coches) === '["marge"]' && fp.aide === false, JSON.stringify(fp));
+    await cliquerFeuille('.feuille-menu button[data-cle="varie"]', 1500);
+    ok('[Q60] P — le choix écrit `temps_reponse` ; la ligne le dit',
+      profilBase().temps_reponse === 'varie' && (await ligneP('Ton temps')).valeur === 'Ça varie beaucoup', JSON.stringify([profilBase().temps_reponse, await ligneP('Ton temps')]));
+    await aller('/saisie');
+
+    // ── E. UNE LIGNE QU'ON NE CONNAÎT PAS N'OUVRE RIEN : la colonne ABSENTE de la
+    // réponse (pas `null`) se lit « je ne sais pas », jamais « jamais rempli ».
+    await effacerVu();
+    delete profilBase().questionnaire_fait_le;
+    await aller('/saisie');
+    ok('[Q60] E — DISCRIMINANT : `questionnaire_fait_le` ABSENT de la ligne reçue → rien ne s’ouvre, pas de bandeau (on ne devine pas)',
+      JSON.stringify(await visible()) === JSON.stringify(saisie) && !(await bandeauQ()).visible && (await clesVues()).length === 0,
+      JSON.stringify([await visible(), await bandeauQ(), await clesVues()]));
+
+    // ── F. `onboarding_completed` NE DÉCIDE PLUS : à FAUX avec un questionnaire rempli, rien.
+    await rouvrir({ questionnaire_fait_le: FAIT_LE, onboarding_completed: false });
+    ok('[Q60] F — DISCRIMINANT : `onboarding_completed` faux, `questionnaire_fait_le` posé → Saisie, pas de questionnaire',
+      JSON.stringify(await visible()) === JSON.stringify(saisie) && !(await bandeauQ()).visible, JSON.stringify([await visible(), await bandeauQ()]));
+
+    // ── H. LA LIGNE ARRIVE APRÈS L'OUVERTURE DE SAISIE : la décision se prend à son arrivée.
+    base.lenteurProfil = 3500;
+    await rouvrir(Object.assign({}, VIERGE, { onboarding_completed: true }));
+    const avantLigne = await visible();
+    ok('[Q60] H — prémisse : la ligne de profil est en vol, l’app est déjà sur Saisie (rien n’est ouvert sur une ligne inconnue)',
+      JSON.stringify(avantLigne) === JSON.stringify(saisie), JSON.stringify(avantLigne));
+    await attendreOuverture();
+    e = await ecranQ();
+    ok('[Q60] H — la ligne arrive (questionnaire vide) : il s’ouvre alors, une fois', e.ecran === 'bienvenue' && JSON.stringify(e.vues) === '["vue-questionnaire"]', JSON.stringify(e));
+    base.lenteurProfil = 0;
+
+    // ── H'. UN COMPTE NEUF, SANS RIEN SUR L'APPAREIL : il s'ouvre au PREMIER
+    // démarrage, quand la ligne arrive (ni cache du profil, ni clé « ouvert ici »).
+    await page.goto(BASE + '/styles.css', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await page.evaluate(() => new Promise((ok2) => {
+      Object.keys(localStorage).filter((k) => k.indexOf('th-v2-questionnaire-vu-') === 0).forEach((k) => localStorage.removeItem(k));
+      const r = indexedDB.deleteDatabase('trainhub-v2');
+      r.onsuccess = r.onerror = r.onblocked = () => ok2();
+    }));
+    Object.assign(profilBase(), VIERGE, { onboarding_completed: false });
+    base.lenteurProfil = 3500;
+    await aller('/saisie');
+    const neufAvant = await visible();
+    ok('[Q60] H — compte neuf sans cache : tant que la ligne n’est pas arrivée, rien ne s’ouvre',
+      neufAvant.indexOf('vue-questionnaire') < 0, JSON.stringify(neufAvant));
+    await attendreOuverture();
+    e = await ecranQ();
+    ok('[Q60] H — DISCRIMINANT : la ligne arrive (questionnaire vide, `onboarding_completed` faux) : il s’ouvre au premier démarrage, au premier écran',
+      JSON.stringify(e.vues) === '["vue-questionnaire"]' && e.ecran === 'bienvenue', JSON.stringify(e));
+    base.lenteurProfil = 0;
+
+    // ── K. HORS LIGNE : les écritures ATTENDENT (le profil dans sa copie locale, la
+    // pesée dans la file) et PARTENT au retour du réseau.
+    base.reseau = false;
+    const ecrituresK0 = base.ecrituresPesees.length;
+    const peseesK0 = JSON.stringify(base.pesees);
+    await continuerQ();
+    await cliquerQ('.q-opt[data-cle="import"]');
+    await continuerQ();
+    await continuerQ();
+    e = await ecranQ();
+    ok('[Q60] K — hors ligne, on avance quand même : l’écran « Toi » est atteint', e.ecran === 'toi', JSON.stringify(e));
+    await cliquerQ('.q-puce[data-cle="femme"]');
+    await page.fill(SEL + '#q-champ-poids', '71,3');
+    await attendre(250);
+    await continuerQ();
+    await attendre(900);
+    const fileK = await page.evaluate(() => THCache.lireAttente().then((f) => (f || []).map((x) => x.table + ':' + x.id)));
+    const aEnvoyerK = await page.evaluate(() => THCache.lireMeta('profil-a-envoyer'));
+    ok('[Q60] K — hors ligne : rien n’est arrivé en base ; la pesée attend dans la file (un identifiant par jour), le profil est marqué « à envoyer »',
+      profilBase().historique_declare === null && profilBase().sexe !== 'femme' && base.ecrituresPesees.length === ecrituresK0 &&
+        JSON.stringify(base.pesees) === peseesK0 && fileK.indexOf('body_weight_log:pesee-' + (await aujourdhuiLocal())) >= 0 && aEnvoyerK === true,
+      JSON.stringify([fileK, aEnvoyerK, profilBase().historique_declare]));
+    base.reseau = true;
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    let partiK = false;
+    for (let n = 0; n < 40 && !partiK; n++) {
+      await attendre(250);
+      partiK = profilBase().historique_declare === 'import' && base.pesees.some((x) => x.poids_kg === 71.3);
+    }
+    const fileK2 = await page.evaluate(() => THCache.lireAttente().then((f) => (f || []).length));
+    ok('[Q60] K — le réseau revient : le profil (historique, sexe) et la pesée du jour partent ; la file se vide ; la pesée FUSIONNE (une ligne par jour)',
+      partiK && profilBase().sexe === 'femme' && fileK2 === 0 && base.pesees.filter((x) => x.date === jour).length === 1,
+      JSON.stringify([profilBase().historique_declare, profilBase().sexe, base.pesees, fileK2]));
+
+    // ── K'. LE RETOUR DU RÉSEAU NE RENVOIE PAS UN PROFIL QUI N'A RIEN À ENVOYER :
+    // le renvoyer en entier, avec un cache périmé, écraserait ce qu'un autre appareil
+    // a répondu entre-temps (`questionnaire_fait_le`, l'objectif, les priorités).
+    const ecritsK = ecritsProfil();
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    await attendre(1500);
+    ok('[Q60] K — DISCRIMINANT : « online » sans rien en attente n’écrit pas le profil', ecritsProfil() === ecritsK, JSON.stringify(ecritsProfil() - ecritsK));
+
+    // ── G. JAMAIS PAR-DESSUS UNE SÉANCE OUVERTE.
+    // L'appareil connaît d'abord une ligne REMPLIE (la clé « ouvert ici » est encore
+    // posée : rien ne s'ouvre, et le cache du profil se met à jour), on y démarre une
+    // séance, puis la ligne redevient vide et l'appareil redémarre.
+    Object.assign(profilBase(), { questionnaire_fait_le: FAIT_LE });
+    await aller('/saisie');
+    await demarrerRoutine('Push');
+    await attendre(900);
+    await effacerVu();
+    Object.assign(profilBase(), NON_REMPLI);
+    await aller('/saisie');
+    const enSeance = await visible();
+    ok('[Q60] G — une séance ouverte, le questionnaire vide : on rouvre sur la séance, le questionnaire ne s’ouvre PAS par-dessus',
+      enSeance.indexOf('vue-questionnaire') < 0 && enSeance.length === 1, JSON.stringify(enSeance));
+    ok('[Q60] G — et il n’est PAS marqué « ouvert ici » (il pourra s’ouvrir plus tard)', (await clesVues()).length === 0, JSON.stringify(await clesVues()));
+    await abandonner();
+    await aller('/saisie');
+    await attendreOuverture(40);
+    e = await ecranQ();
+    ok('[Q60] G — la séance abandonnée, l’app rouvre sur un compte sans séance ouverte : le questionnaire s’ouvre',
+      e.ecran === 'bienvenue', JSON.stringify(e));
+
+    // ── LA REMISE EN ÉTAT, pour les sections suivantes.
+    await effacerVu();
+    Object.keys(profilBase()).forEach((k) => { delete profilBase()[k]; });
+    Object.assign(profilBase(), profilAvant);
+    base.pesees = peseesAvant;
+    await aller('/saisie');
+    ok('[Q60] aucun refus du faux serveur (CHECK de la base, RLS), aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,
+      JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
   }
 
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');

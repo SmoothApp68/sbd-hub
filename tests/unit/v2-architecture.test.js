@@ -346,7 +346,7 @@ const NOTIONS = [
     raison: 'le travail, les dégressives et les échecs : le compte du Python qui a produit le §5.1. ' +
       'Une autre notion que `estTravail` ; elle portait un nom (`trav`) qui la faisait passer pour elle.' },
   { notion: 'le formateur des nombres et des dates (un seul)', pr: 'PR 7',
-    module: 'modele.js', fonction: 'nombreSigne', lecteurs: ['rendu.js', 'app.js', 'profil.js'],
+    module: 'modele.js', fonction: 'nombreSigne', lecteurs: ['rendu.js', 'app.js', 'profil.js', 'questionnaire.js'],
     motif: /\.\s*nombreSigne\s*\(/g,
     interditAilleurs: {
       motif: /\.replace\(\s*(['"])\.\1\s*,\s*(['"]),\2\s*\)|toLocale(?:Date|Time)?String\s*\(|\\u2212|(['"])janv\.?\3|(['"])janvier\4/,
@@ -603,11 +603,12 @@ const NOTIONS = [
     raison: 'MOTEUR §9.23, ECRAN §7 bis.16 (« cumulée, jamais brute ») : la médaille, le tableau des records, ' +
       'le record de charge de la page et le chiffre d’une ligne déduite lisent la même table.' },
   { notion: 'les records d’un exercice à une date (le périmètre de la médaille)', pr: '55-U1',
-    module: 'modele.js', fonction: 'recordsDeLExercice', lecteurs: ['app.js'],
+    module: 'modele.js', fonction: 'recordsDeLExercice', lecteurs: ['app.js', 'faits.js'],
     par: ['tableauDesRecords'],
-    parAilleurs: { 'app.js': ['rendreExercice'] },
+    parAilleurs: { 'app.js': ['rendreExercice'], 'faits.js': ['ceQueJeSais'] },
     raison: 'MOTEUR §9.23 : le record de charge de la page, son 1RM estimé et le tableau des records lisent ' +
-      'la même table cumulée, sur le même périmètre que la médaille (12 mois pour un matériel de salle).' },
+      'la même table cumulée, sur le même périmètre que la médaille (12 mois pour un matériel de salle). ' +
+      '60-2a : « Ce que je sais » montre le maximum de chaque barre par cette même fonction — jamais une seconde.' },
   { notion: 'le périmètre d’un record (12 mois pour un matériel de salle, toute la vie ailleurs)', pr: '55-U1',
     module: 'modele.js', fonction: 'seancesDuPerimetre', lecteurs: ['app.js'],
     par: ['recordsDeLExercice'],
@@ -738,7 +739,32 @@ const NOTIONS = [
   { notion: 'la lecture du journal des records (le jeu, plus tard le social)', pr: '58-U2',
     module: 'faits.js', fonction: 'recordsDuJournal', lecteurs: [],
     raison: 'MOTEUR §9.23 (58-2) : les lecteurs lisent le journal, jamais un recalcul — et le lisent ' +
-      'ici. Aucun écran ne le lit encore : le jeu viendra.' }
+      'ici. Aucun écran ne le lit encore : le jeu viendra.' },
+  // ── 60-2a — LE QUESTIONNAIRE DU COACH MONTRE, IL NE DEMANDE PAS ───────────
+  { notion: 'ce que les séances savent de la personne (historique, rythme, durée habituelle, maximums, autres activités)', pr: '60-U1',
+    module: 'faits.js', fonction: 'ceQueJeSais', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['actualiserFaitsDuQuestionnaire'] },
+    raison: 'QUESTIONNAIRE-COACH-V2 §1.2 : rien de ce que les séries savent n’est demandé, c’est montré — ' +
+      'l’écran « Ce que je sais » et la durée habituelle de l’écran « Temps » lisent ce fait, aucun ne recompte.' },
+  // ── 60-2a — « JUSTE UN CARNET » SE TAIT PARTOUT, D'UNE SEULE VOIX ─────────
+  { notion: 'le silence du coach au profil (« Juste un carnet », MOTEUR I13 : le plan, la semaine allégée annoncée, le badge et la carte de fin de bloc)', pr: '60-U2',
+    module: 'moteur.js', fonction: 'coachSeTait', lecteurs: ['plan.js', 'app.js'],
+    parAilleurs: { 'plan.js': ['planDeSeance', 'verifierSilenceDuProgramme'],
+                   'app.js': ['semaineAllegeeEnCours', 'programmeDuDossierCalcule'] },
+    // La forme écrite à la main, hors du moteur : l'intention du PROFIL comparée à
+    // « entretien » (`profil.intention === 'entretien'`), ou `intentionDe` appelée
+    // avec le profil seul (`intentionDe(profil && profil.intention, null)`).
+    interditAilleurs: { motif: /\bprofil\s*(?:&&\s*profil\s*)?\.\s*intention\s*[!=]==?\s*(['"])entretien\1|\bintentionDe\s*\(\s*profil\b[^()]*,\s*null\s*\)/,
+      raison: 'le silence du coach au profil se lit par `Moteur.coachSeTait`, jamais par un second test de `intention` écrit à la main' },
+    raison: 'MOTEUR I13 (précisé le 07/10/2026, 60-2a) : au profil « Juste un carnet », le plan, la semaine ' +
+      'allégée annoncée sur une routine, le badge de bloc et la carte de fin de bloc lisent le MÊME fait. ' +
+      'Le badge et la carte vivent hors de `planDeSeance` : un second test de l’intention les aurait fait diverger.' },
+  { notion: 'la préparation des champs d’une réponse du profil (objectif daté, phase datée, année, priorités, « fait »)', pr: '60-U3',
+    module: 'profil.js', fonction: 'preparerChamps', lecteurs: ['questionnaire.js', 'app.js'],
+    parAilleurs: { 'questionnaire.js': ['champsDeLEcran'], 'app.js': ['ecrireReponse'] },
+    raison: 'QUESTIONNAIRE-COACH-V2 §6 : le questionnaire (un écran à la fois) et le Profil (une ligne à la ' +
+      'fois) écrivent la même chose — `objectif_depuis` suit un objectif qui change, une réponse inchangée ' +
+      'n’écrit rien. Deux préparations auraient fini par dater différemment.' }
 ];
 
 // ── 58-1 — UN FAIT NE SE DÉCLARE QUE DANS `faits.js` ─────────────────────────
@@ -1027,6 +1053,17 @@ describe('architecture — le registre des notions : une source, des lecteurs', 
     expect(voit("Modele.nombreSigne(p)")).toBe(false);
   });
 
+  test('l’interdit du silence du coach se lit vraiment : un second test de l’intention se voit, l’appel au fait non', () => {
+    const n = NOTIONS.filter((x) => x.fonction === 'coachSeTait')[0];
+    const voit = (t) => n.interditAilleurs.motif.test(t);
+    expect(voit("if (profil && profil.intention === 'entretien') return {};")).toBe(true);
+    expect(voit("if (profil.intention !== \"entretien\") return;")).toBe(true);
+    expect(voit("if (Moteur.intentionDe(profil && profil.intention, null) === 'entretien') return false;")).toBe(true);
+    expect(voit('if (Moteur.coachSeTait(profil && profil.intention)) return {};')).toBe(false);
+    expect(voit("var i = Moteur.intentionDe(profil && profil.intention, modeDe(slug));")).toBe(false);
+    expect(voit("if (plan.intention === 'entretien') {")).toBe(false);   // le VÉRIFICATEUR lit le plan, pas le profil
+  });
+
   test('l’interdit se lit vraiment : les trois formes écrites en dur se voient, l’appel non', () => {
     const n = NOTIONS.filter((x) => x.interditAilleurs)[0];
     const voit = (t) => n.interditAilleurs.motif.test(t);
@@ -1049,7 +1086,7 @@ describe('architecture — le registre des notions : une source, des lecteurs', 
 describe('architecture — le module des faits : un fait ne se déclare que dans faits.js (58-1)', () => {
   const FICHIERS = perimetre();
 
-  test('les faits du module : seize (treize en 58-1, trois du journal en 58-2), chacun déclaré et exporté par faits.js', () => {
+  test('les faits du module : dix-sept (treize en 58-1, trois du journal en 58-2, un du questionnaire en 60-2a), chacun déclaré et exporté par faits.js', () => {
     global.self = global;
     require('../../v2/js/modele.js');
     require('../../v2/js/semaine.js');
@@ -1057,8 +1094,9 @@ describe('architecture — le module des faits : un fait ne se déclare que dans
     require('../../v2/js/palier.js');
     require('../../v2/js/moteur.js');
     require('../../v2/js/seance.js');
+    require('../../v2/js/periode.js');
     const instance = require('../../v2/js/faits.js').creer();
-    expect(FAITS.length).toBe(16);
+    expect(FAITS.length).toBe(17);
     expect(FAITS.filter((fn) => typeof instance[fn] !== 'function')).toEqual([]);
   });
 
@@ -1248,5 +1286,84 @@ describe('architecture — le journal des records : un seul écrivain (58-2)', (
     const code = nettoyer("client().from('records').upsert(l);\nclient().from('records').select('id');", true);
     expect(compter(code, ECRITURE_RECORDS)).toBe(1);
     expect(compter(nettoyer("client().from(\"records\")\n  .delete().eq('id', x);", true), ECRITURE_RECORDS)).toBe(1);
+  });
+});
+
+// ── 60-2a — LA PESÉE : ÉCRITE PAR LA SEULE FILE, ET CE QUI LA FUSIONNE ────────
+//
+// `body_weight_log` n'était que lue ; le questionnaire en écrit une. L'écriture a
+// UN chemin, comme le journal des records, et cette garde refuse un second
+// écrivain :
+//   · en base, une seule fonction touche la table en écriture —
+//     `THDonnees.enregistrerPesee`, un upsert sur (`user_id`, `date`) qui
+//     FUSIONNE (deux pesées le même jour n'en font qu'une, la dernière l'emporte) ;
+//   · elle n'est appelée que par la vidange de la file (`app.js`, `executer`) ;
+//   · une entrée de la file ne se pose que par `poserPesee` (`app.js`).
+describe('architecture — la pesée : un seul écrivain (60-2a)', () => {
+  const FICHIERS = perimetre();
+  const parNom = {};
+  FICHIERS.forEach((f) => { parNom[f.nom] = f; });
+  const ECRITURE_PESEES = /from\(\s*(['"])body_weight_log\1\s*\)[\s\S]{0,120}?\.\s*(insert|upsert|update|delete)\s*\(/g;
+  const compter = (texte, re) => (texte.match(new RegExp(re.source, 'g')) || []).length;
+
+  test('⚠️ en base, `body_weight_log` ne s’écrit que dans `enregistrerPesee` (donnees.js)', () => {
+    const fautes = [];
+    FICHIERS.forEach((f) => {
+      const code = nettoyer(f.src, true);
+      const n = compter(code, ECRITURE_PESEES);
+      if (f.nom !== 'donnees.js') { if (n) fautes.push(f.nom + ' écrit `body_weight_log` (' + n + ')'); return; }
+      const corps = corpsDe(code, 'enregistrerPesee');
+      if (!corps) { fautes.push('enregistrerPesee absente de donnees.js'); return; }
+      if (compter(corps, ECRITURE_PESEES) !== 1 || n !== 1) {
+        fautes.push('donnees.js : ' + n + ' écriture(s) de `body_weight_log`, dont ' + compter(corps, ECRITURE_PESEES) + ' dans enregistrerPesee');
+      }
+    });
+    expect(fautes).toEqual([]);
+  });
+
+  test('⚠️ et c’est un upsert qui FUSIONNE sur (user_id, date) — jamais un ajout qui ignore les doublons', () => {
+    const corps = corpsDe(nettoyer(parNom['donnees.js'].src, true), 'enregistrerPesee');
+    expect(corps).toMatch(/onConflict:\s*'user_id,date'/);
+    expect(corps).not.toMatch(/ignoreDuplicates/);
+  });
+
+  test('⚠️ `enregistrerPesee` n’est appelée que par la vidange (`executer`, app.js)', () => {
+    const fautes = [];
+    FICHIERS.forEach((f) => {
+      if (f.nom === 'donnees.js') return;
+      const a = appels(f.src, { fn: 'enregistrerPesee' });
+      if (!a.length) return;
+      if (f.nom !== 'app.js') { fautes.push(f.nom + ' appelle enregistrerPesee'); return; }
+      const corps = corpsDe(nettoyer(f.src, false), 'executer');
+      const dedans = corps ? (corps.match(/\.\s*enregistrerPesee\s*\(/g) || []).length : 0;
+      if (dedans !== a.length) fautes.push('app.js appelle enregistrerPesee hors d’executer');
+    });
+    expect(fautes).toEqual([]);
+    expect(appels(parNom['app.js'].src, { fn: 'enregistrerPesee' }).length).toBe(1);
+  });
+
+  test('⚠️ une entrée de la file pour une pesée ne se pose que par `poserPesee` (app.js)', () => {
+    const fautes = [];
+    FICHIERS.forEach((f) => {
+      if (f.nom === 'attente.js') return;
+      const code = nettoyer(f.src, false);
+      // `Attente.PESEES` se lit aussi à l'exécution (`executer`) et à la
+      // synchronisation (`protegees`) : ce qui est interdit, c'est de POSER
+      // une entrée de cette table ailleurs que dans `poserPesee`.
+      const poses = (code.match(/table:\s*Attente\.PESEES\b/g) || []).length;
+      if (!poses) return;
+      const corps = f.nom === 'app.js' ? corpsDe(code, 'poserPesee') : null;
+      const dedans = corps ? (corps.match(/table:\s*Attente\.PESEES\b/g) || []).length : 0;
+      if (dedans !== poses) fautes.push(f.nom + ' pose une entrée de pesée hors de poserPesee');
+    });
+    expect(fautes).toEqual([]);
+    expect(corpsDe(nettoyer(parNom['app.js'].src, false), 'poserPesee')).toMatch(/table:\s*Attente\.PESEES\b/);
+  });
+
+  test('la garde se lit vraiment : un second écrivain se voit, une lecture non', () => {
+    const code = nettoyer("client().from('body_weight_log').upsert(l);\nclient().from('body_weight_log').select('id');", true);
+    expect(compter(code, ECRITURE_PESEES)).toBe(1);
+    expect(compter(nettoyer("client().from(\"body_weight_log\")\n  .delete().eq('id', x);", true), ECRITURE_PESEES)).toBe(1);
+    expect(compter(nettoyer("return client().from('body_weight_log').select('id, date, poids_kg, source');", true), ECRITURE_PESEES)).toBe(0);
   });
 });

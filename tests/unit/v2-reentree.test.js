@@ -43,11 +43,13 @@ function bac() {
     sessionActive: null, profil: null, etat: null, verificationSeance: null,
     entreeEnCours: null, entreeFaitePour: null,
     CLE_CONSIGNES: 'consignes', CLE_BROUILLON: 'brouillon-routine',
-    vues: { detail: vue, routine: vue, seance: vue },
+    vues: { detail: vue, routine: vue, seance: vue, questionnaire: vue },
     Seance: { verifierColonnes: () => {} },
     Routeur: { analyser: () => ({ vue: 'liste', params: {} }), interditAvecSession: () => false,
                RACINE: 'liste', PROFIL: 'profil' },
-    Profil: { doitOuvrirProfil: () => false },
+    // 60-2a — le questionnaire : rien à ouvrir ici (sa règle a ses tests), mais la
+    // ré-entrée ne doit jamais reprendre la main sur lui.
+    ouvrirQuestionnaireSiDu: () => false, fermerQuestionnaire: () => {}, envoiProfil: null,
     Sync: { deciderEtat: () => ({}) },
     Rendu: { message: () => {} },
     sortie: { apresNavigation: () => {} },

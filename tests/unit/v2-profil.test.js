@@ -273,31 +273,44 @@ describe('les trois chiffres', () => {
   });
 });
 
-// ── TEST 7 (sa moitié pure) — quand le profil s'ouvre d'office ────────────
-describe('test 7 — l’onboarding est une règle de routage', () => {
-  test('un profil que la base dit jamais vu ouvre le profil', () => {
-    expect(Profil.doitOuvrirProfil({ onboarding_completed: false })).toBe(true);
+// ── TEST 7 (sa moitié pure) — quand le questionnaire s'ouvre d'office ──────
+//
+// 60-2a — L'ancienne règle (`doitOuvrirProfil`, sur `onboarding_completed`) est
+// REMPLACÉE : c'est le questionnaire du coach qui accueille, sur
+// `questionnaire_fait_le` (ECRAN-PROFIL §4 bis). La leçon des trois états est
+// gardée, tout entière.
+describe('test 7 — le questionnaire est une règle de routage', () => {
+  test('l’ancienne règle n’existe plus : le profil ne s’ouvre plus d’office', () => {
+    expect(Profil.doitOuvrirProfil).toBeUndefined();
   });
 
-  test('un profil déjà vu n’ouvre rien : l’URL demandée gagne', () => {
-    expect(Profil.doitOuvrirProfil({ onboarding_completed: true })).toBe(false);
+  test('un profil dont le questionnaire n’a jamais été rempli l’ouvre', () => {
+    expect(Profil.doitOuvrirQuestionnaire({ questionnaire_fait_le: null }, false)).toBe(true);
+    expect(Profil.questionnaireAFaire({ questionnaire_fait_le: null })).toBe(true);
   });
 
-  // ⚠️ LE TROISIÈME CAS, ET C'EST LUI QUI COMPTE. « Absent » n'est pas « faux ».
-  // Un profil pas encore chargé, un cache vide, un premier démarrage hors ligne,
-  // une ligne partielle écrite sans réseau : dans tous ces cas la colonne
-  // manque. Une lecture lâche (`!p.onboarding_completed`) les confondrait avec
-  // « jamais vu » — et un compte qui a trois ans d'historique rouvrirait sur son
-  // profil à chaque démarrage hors ligne.
+  test('un questionnaire rempli n’ouvre rien : l’URL demandée gagne', () => {
+    expect(Profil.doitOuvrirQuestionnaire({ questionnaire_fait_le: '2026-10-07T09:00:00.000Z' }, false)).toBe(false);
+    expect(Profil.questionnaireAFaire({ questionnaire_fait_le: '2026-10-07T09:00:00.000Z' })).toBe(false);
+  });
+
+  // ⚠️ LE TROISIÈME CAS, ET C'EST LUI QUI COMPTE. « Absent » n'est pas « vide ».
+  // Un profil pas encore chargé, un cache d'avant la colonne, un premier
+  // démarrage hors ligne, une ligne partielle écrite sans réseau : dans tous ces
+  // cas la colonne manque. Une lecture lâche (`!p.questionnaire_fait_le`) les
+  // confondrait avec « jamais rempli » — et un compte qui a trois ans
+  // d'historique rouvrirait le questionnaire à chaque démarrage hors ligne.
   test('« on ne sait pas » n’ouvre RIEN — on ne suppose pas', () => {
-    expect(Profil.doitOuvrirProfil(null)).toBe(false);
-    expect(Profil.doitOuvrirProfil(undefined)).toBe(false);
-    expect(Profil.doitOuvrirProfil({})).toBe(false);
-    expect(Profil.doitOuvrirProfil({ onboarding_completed: undefined })).toBe(false);
-    expect(Profil.doitOuvrirProfil({ onboarding_completed: null })).toBe(false);
-    // Une ligne partielle, telle que `poserProfil` la fabrique sur un profil
-    // encore inconnu : elle porte le champ modifié et rien d'autre.
-    expect(Profil.doitOuvrirProfil({ intention: 'entretien' })).toBe(false);
+    [null, undefined, {}, { questionnaire_fait_le: undefined }, { onboarding_completed: false },
+      { intention: 'entretien' }].forEach((p) => {
+      expect(Profil.doitOuvrirQuestionnaire(p, false)).toBe(false);
+      expect(Profil.questionnaireAFaire(p)).toBe(false);
+    });
+  });
+
+  test('« déjà ouvert sur cet appareil » le ferme, mais le bandeau et la ligne le proposent encore', () => {
+    expect(Profil.doitOuvrirQuestionnaire({ questionnaire_fait_le: null }, true)).toBe(false);
+    expect(Profil.questionnaireAFaire({ questionnaire_fait_le: null })).toBe(true);
   });
 });
 

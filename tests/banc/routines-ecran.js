@@ -32,6 +32,8 @@
 const path = require('path');
 const R = path.join(__dirname, '../..');
 const { chromium } = require(path.join(R, 'node_modules/playwright-core'));
+// 59-4 — tout navigateur de test passe par la garde réseau (aucune requête vers la vraie base).
+const Garde = require(path.join(R, 'tests/banc/garde-reseau.js'));
 const { creer } = require(path.join(R, 'v2-atelier/banc/serveur-pages.js'));
 const CHROME = process.env.CHROME_BIN || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 const PORT = Number(process.env.BANC_PORT || 8872), BASE = 'http://127.0.0.1:' + PORT;
@@ -162,7 +164,7 @@ const CATALOGUE = [
 
   const serveur = creer({ racine: path.join(R, 'v2') });
   await new Promise((r) => serveur.listen(PORT, r));
-  const nav = await chromium.launch({ executablePath: CHROME, args: ['--no-sandbox'] });
+  const nav = await Garde.lancer(chromium, { executablePath: CHROME, args: ['--no-sandbox'] });
   const ctx = await nav.newContext({ viewport: { width: 360, height: 760 } });
 
   // Le jeton du banc est VERROUILLÉ : le SDK Supabase purge un jeton qu'il ne
@@ -177,7 +179,12 @@ const CATALOGUE = [
     localStorage.setItem('th-v2-auth', JETON);
     const vraiRemove = Storage.prototype.removeItem;
     const vraiSet = Storage.prototype.setItem;
-    Storage.prototype.removeItem = function (c) { if (c === 'th-v2-auth') return; return vraiRemove.call(this, c); };
+    // 59-4 — `window.__jetonLibre` lève le verrou : le banc de « Supprimer mon
+    // compte » doit voir le jeton PARTIR.
+    Storage.prototype.removeItem = function (c) {
+      if (c === 'th-v2-auth' && !window.__jetonLibre) return;
+      return vraiRemove.call(this, c);
+    };
     Storage.prototype.setItem = function (c, v) { return vraiSet.call(this, c, c === 'th-v2-auth' ? JETON : v); };
   };
   await ctx.addInitScript(SCRIPT_JETON);
@@ -359,6 +366,10 @@ const CATALOGUE = [
         'Could not find the function public.pseudo_libre(nom) in the schema cache' }, 404);
     }
     if (req.method() === 'POST' && table === 'delete_user_complete_data') {
+      // 59-4 — la base REFUSE (le chemin d'échec) : rien ne part.
+      if (base.refuserSuppression) {
+        return json({ code: 'P0001', message: 'refus du banc', details: null, hint: null }, 400);
+      }
       base.profil = null; base.routines = []; base.exos = [];
       base.series = []; base.sessions = []; base.sets = [];
       base.corpusSeances = []; base.corpusSeries = [];
@@ -2082,6 +2093,48 @@ const CATALOGUE = [
   ok('[46 §2 · test 11] « Annuler » ne supprime rien',
     base.compteSupprime === false && base.corpusSeances.length === 2, 'rien n’est parti');
 
+  // 59-4 — CE QUE L'APPAREIL GARDE : les magasins remplis, les clés `th-v2…`,
+  // le jeton, l'écran affiché. Le verrou du jeton est levé : à partir d'ici,
+  // un jeton qui part se voit.
+  const etatAppareil = () => page3.evaluate(() => new Promise((fin) => {
+    const cles = (st) => { const k = []; for (let i = 0; i < st.length; i++) k.push(st.key(i)); return k; };
+    const th = cles(localStorage).concat(cles(sessionStorage)).filter((k) => k.indexOf('th-v2') === 0).sort();
+    const vues = Array.from(document.querySelectorAll('main > section')).filter((x) => !x.hidden).map((x) => x.id);
+    const req = indexedDB.open('trainhub-v2');
+    req.onsuccess = () => {
+      const db = req.result;
+      const noms = Array.from(db.objectStoreNames);
+      const remplis = [];
+      if (!noms.length) { db.close(); return fin({ remplis, th, jeton: localStorage.getItem('th-v2-auth'), vues }); }
+      const t = db.transaction(noms, 'readonly');
+      noms.forEach((n) => { const c = t.objectStore(n).count(); c.onsuccess = () => { if (c.result) remplis.push(n); }; });
+      t.oncomplete = () => { db.close(); fin({ remplis: remplis.sort(), th, jeton: localStorage.getItem('th-v2-auth'), vues }); };
+    };
+    req.onerror = () => fin({ erreur: String(req.error) });
+  }));
+  await page3.evaluate(() => { window.__jetonLibre = true; });
+
+  // L'ÉCHEC D'ABORD (la base refuse) : rien n'est effacé, et l'écran le dit.
+  const avantEchec = await etatAppareil();
+  base.refuserSuppression = true;
+  await page3.click('#btn-supprimer-compte');
+  await attendre(600);
+  await page3.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
+    .find((b) => b.textContent === 'Supprimer définitivement').click());
+  await attendre(2000);
+  const apresEchec = await etatAppareil();
+  const messageEchec = await page3.evaluate(() =>
+    ((document.querySelector('#profil-corps .feuille-err') || {}).textContent || ''));
+  ok('[59-4] la base refuse : « Suppression impossible : … » s’affiche',
+    /^Suppression impossible : refus du banc$/.test(messageEchec), '« ' + messageEchec + ' »');
+  ok('[59-4] la base refuse : RIEN n’est effacé — magasins, clés, jeton, écran',
+    avantEchec.remplis.indexOf('seances') >= 0 && JSON.stringify(apresEchec.remplis) === JSON.stringify(avantEchec.remplis) &&
+    JSON.stringify(apresEchec.th) === JSON.stringify(avantEchec.th) && !!apresEchec.jeton &&
+    JSON.stringify(apresEchec.vues) === JSON.stringify(avantEchec.vues) &&
+    base.compteSupprime === false && base.corpusSeances.length === 2,
+    JSON.stringify({ avant: avantEchec.remplis, apres: apresEchec.remplis, cles: apresEchec.th, vues: apresEchec.vues }));
+  base.refuserSuppression = false;
+
   const avantSuppression = base.envois.length;
   await page3.click('#btn-supprimer-compte');
   await attendre(600);
@@ -2097,6 +2150,16 @@ const CATALOGUE = [
     depuis.filter((e) => e.table === 'delete_user_complete_data').length === 1 &&
     depuis.filter((e) => e.methode === 'DELETE').length === 0,
     depuis.map((e) => e.methode + ' ' + e.table).join(', ') || '(aucun envoi)');
+
+  // 59-4 — APRÈS LE SUCCÈS, L'APPAREIL EST VIDE : aucun magasin rempli, aucune
+  // clé `th-v2…`, plus de jeton, et l'écran de connexion.
+  const apresSucces = await etatAppareil();
+  ok('[59-4] supprimé : plus aucun magasin local rempli',
+    Array.isArray(apresSucces.remplis) && apresSucces.remplis.length === 0, JSON.stringify(apresSucces.remplis));
+  ok('[59-4] supprimé : aucune clé th-v2…, plus de jeton',
+    apresSucces.th.length === 0 && apresSucces.jeton === null, JSON.stringify(apresSucces.th));
+  ok('[59-4] supprimé : l’écran de connexion',
+    JSON.stringify(apresSucces.vues) === '["vue-connexion"]', JSON.stringify(apresSucces.vues));
 
   // ── L'ÉCRAN D'ENTRÉE ─────────────────────────────────────────────────────
   //
@@ -2147,6 +2210,18 @@ const CATALOGUE = [
     '« ' + await page4.evaluate(() => (document.querySelector('#aide-pseudo') || {}).textContent || '') + ' »');
   ok('[46 §2 ter] …et elle ne retient personne : le bouton s’allume',
     await page4.evaluate(() => !document.querySelector('#btn-connexion').disabled), 'allumé');
+
+  // 59-4 — L'INSCRIPTION PASSE SON ADRESSE DE RETOUR : le lien de confirmation
+  // (s'il y en a un) revient sur CETTE app, l'origine de la page. On observe la
+  // vraie requête du SDK (`redirect_to`) ; le faux serveur la refuse, peu importe.
+  const inscriptions = [];
+  page4.on('request', (r) => { if (/\/auth\/v1\/signup/.test(r.url())) inscriptions.push(r.url()); });
+  await page4.click('#btn-connexion');
+  await attendre(1500);
+  const retourInscription = inscriptions.length ? new URL(inscriptions[0]).searchParams.get('redirect_to') : null;
+  ok('[59-4] l’inscription demande au lien de confirmation de revenir sur l’origine de l’app',
+    inscriptions.length === 1 && retourInscription === BASE + '/',
+    inscriptions.length + ' inscription(s) · redirect_to = ' + retourInscription);
   await page4.fill('#champ-pseudo', 'me');
   await attendre(700);
   ok('[46 §2 ter] un pseudo trop court, lui, est refusé tout de suite — et localement',

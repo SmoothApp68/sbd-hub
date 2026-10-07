@@ -10,5 +10,5 @@ module.exports = {
   },
   globalSetup: "<rootDir>/jest.globalSetup.js",
   setupFilesAfterEnv: ["<rootDir>/jest.setup.js"],
-  testPathIgnorePatterns: ["<rootDir>/tests/playwright/"]
+  testPathIgnorePatterns: ["<rootDir>/archive/"]
 };

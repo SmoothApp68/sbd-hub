@@ -65,8 +65,14 @@
   // La spec tranche par ailleurs que la confirmation NE DOIT PAS BLOQUER la
   // première séance (§3.3) : si ce réglage est un jour activé, c'est là qu'il
   // faudra revenir, pas dans l'écran.
-  async function inscrire(email, motDePasse) {
-    var r = await client().auth.signUp({ email: email, password: motDePasse });
+  //
+  // 59-4 — `retour` : l'adresse où ramène le lien de confirmation, s'il y en a
+  // un. Construite par l'appelant depuis l'origine de la page, comme pour la
+  // réinitialisation — jamais en dur. Sans elle, le lien ramenait à l'« adresse
+  // du site » réglée sur le projet, qui peut viser une app qui n'existe plus.
+  async function inscrire(email, motDePasse, retour) {
+    var r = await client().auth.signUp({ email: email, password: motDePasse,
+      options: retour ? { emailRedirectTo: retour } : undefined });
     if (r.error) throw r.error;
     return { session: (r.data && r.data.session) || null, user: (r.data && r.data.user) || null };
   }

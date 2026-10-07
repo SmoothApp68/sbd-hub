@@ -25,6 +25,8 @@
 const path = require('path');
 const R = path.join(__dirname, '../..');
 const { chromium } = require(path.join(R, 'node_modules/playwright-core'));
+// 59-4 — tout navigateur de test passe par la garde réseau (aucune requête vers la vraie base).
+const Garde = require(path.join(R, 'tests/banc/garde-reseau.js'));
 const { creer } = require(path.join(R, 'v2-atelier/banc/serveur-pages.js'));
 const { compteDeLaGarde } = require(path.join(__dirname, 'garde-compte.js'));
 const CHROME = process.env.CHROME_BIN || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
@@ -622,7 +624,7 @@ const SETS_IMPORTES = [
   // (`texte-visible.js`, 56-1). Sans la variable, rien ne change.
   const serveur = creer({ racine: process.env.BANC_V2 || path.join(R, 'v2') });
   await new Promise((r) => serveur.listen(PORT, r));
-  const nav = await chromium.launch({ executablePath: CHROME, args: ['--no-sandbox'] });
+  const nav = await Garde.lancer(chromium, { executablePath: CHROME, args: ['--no-sandbox'] });
   const ctx = await nav.newContext({ viewport: { width: 360, height: 760 } });
 
   const SCRIPT_JETON = () => {
@@ -1613,6 +1615,10 @@ const SETS_IMPORTES = [
   const clore = async () => {
     const fin = rapport.sections[rapport.sections.length - 1];
     if (fin && fin.fin === null) fin.fin = Date.now();
+    // 59-4 — une requête vers la vraie base que le faux serveur n'a pas prise
+    // en charge est une erreur du banc : elle part dans le rapport, donc dans
+    // le verdict du lanceur parallèle, avec son URL.
+    Garde.fuites().forEach((f) => erreurs.push('[garde réseau] ' + f));
     console.log('\nerreurs de page : ' + (erreurs.length ? erreurs.join(' | ') : 'aucune'));
     if (erreurs.length) echecs++;
     if (process.env.BANC_RAPPORT) {

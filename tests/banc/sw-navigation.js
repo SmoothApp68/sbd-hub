@@ -26,6 +26,8 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { chromium } = require(path.join(__dirname, '../../node_modules/playwright-core'));
+// 59-4 — tout navigateur de test passe par la garde réseau (aucune requête vers la vraie base).
+const Garde = require(path.join(__dirname, 'garde-reseau.js'));
 const { creer } = require(path.join(__dirname, '../../v2-atelier/banc/serveur-pages.js'));
 
 const CHROME = process.env.CHROME_BIN || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
@@ -73,7 +75,7 @@ async function session(fn, options) {
   const opts = options || {};
   const serveur = creer({ racine: opts.racine || RACINE, canonicalise: opts.canonicalise !== false });
   await new Promise((r) => serveur.listen(PORT, r));
-  const nav = await chromium.launch({ executablePath: CHROME, args: ['--no-sandbox'] });
+  const nav = await Garde.lancer(chromium, { executablePath: CHROME, args: ['--no-sandbox'] });
   const ctx = await nav.newContext({ viewport: { width: 360, height: 760 } });
   const page = await ctx.newPage();
   try { await fn(page, ctx, serveur); }

@@ -13644,6 +13644,15 @@ const SETS_IMPORTES = [
     const NON_REMPLI = { objectif: null, objectif_depuis: null, priorites: null, temps_reponse: null,
       historique_declare: null, phase_confirmee_le: null, questionnaire_fait_le: null };
     const FAIT_LE = '2026-10-01T08:00:00.000Z';
+    // ⚠️ LE PROFIL EST PARTAGÉ AVEC LES SECTIONS D'AVANT (même groupe, même base de
+    // papier) : « TA PHASE », « POURQUOI », le matériel… peuvent y avoir laissé une
+    // réponse. Joué en banc complet, `phase = maintien` allumait « Continuer » dès
+    // l'objectif choisi. Chaque scénario part donc d'un profil dont TOUT ce qu'il
+    // suppose vide l'est — jamais de l'état laissé par une autre section.
+    const VIERGE = Object.assign({}, NON_REMPLI, {
+      phase: null, phase_depuis: null, sexe: null, taille_cm: null, date_naissance: null,
+      anciennete: null, seances_par_semaine: null, duree_seance_min: null, materiel: null,
+      intention: 'progresser', rythme_progression: 'normal' });
     const SEL = '#questionnaire-corps ';
     const profilBase = () => base.profiles[0];
     const ecritsProfil = () => base.journal.filter((j) => j.op === 'profil').length;
@@ -13678,6 +13687,18 @@ const SETS_IMPORTES = [
     const effacerVu = () => page.evaluate(() => Object.keys(localStorage)
       .filter((k) => k.indexOf('th-v2-questionnaire-vu-') === 0).forEach((k) => localStorage.removeItem(k)));
     const cliquerQ = async (sel, pause) => { await page.click(SEL + sel); await attendre(pause || 350); };
+    // L'ouverture de lui-même se décide quand la ligne de profil ARRIVE, après la
+    // synchronisation : plus elle porte de séances, plus c'est tard (un compte sans
+    // cache, après une section qui en a laissé beaucoup, dépasse largement 5 s).
+    // On attend l'événement, pas un délai ; les contrôles « rien ne s'ouvre »,
+    // eux, gardent leur instant.
+    const attendreOuverture = async (max) => {
+      for (let n = 0; n < (max || 60); n++) {
+        if ((await visible()).indexOf('vue-questionnaire') >= 0) return true;
+        await attendre(250);
+      }
+      return false;
+    };
     const continuerQ = async () => { await cliquerQ('.q-continuer', 500); };
     const aujourdhuiLocal = () => page.evaluate(() => {
       const d = new Date(), p = (n) => String(n).padStart(2, '0');
@@ -13727,7 +13748,8 @@ const SETS_IMPORTES = [
 
     // ── A. L'OUVERTURE DE LUI-MÊME : `questionnaire_fait_le` VIDE (et
     // `onboarding_completed` à VRAI : c'est lui qui ne décide plus).
-    await rouvrir(Object.assign({}, NON_REMPLI, { date_naissance: '1990-06-15', onboarding_completed: true }));
+    await rouvrir(Object.assign({}, VIERGE, { date_naissance: '1990-06-15', onboarding_completed: true }));
+    await attendreOuverture(40);
     let e = await ecranQ();
     ok('[Q60] A — DISCRIMINANT : `questionnaire_fait_le` vide (onboarding_completed vrai) → le questionnaire s’ouvre de lui-même, seul à l’écran, barre d’onglets cachée',
       JSON.stringify(e.vues) === '["vue-questionnaire"]' && e.onglets === false && e.ecran === 'bienvenue', JSON.stringify(e));
@@ -14007,11 +14029,11 @@ const SETS_IMPORTES = [
 
     // ── H. LA LIGNE ARRIVE APRÈS L'OUVERTURE DE SAISIE : la décision se prend à son arrivée.
     base.lenteurProfil = 3500;
-    await rouvrir(Object.assign({}, NON_REMPLI, { onboarding_completed: true }));
+    await rouvrir(Object.assign({}, VIERGE, { onboarding_completed: true }));
     const avantLigne = await visible();
     ok('[Q60] H — prémisse : la ligne de profil est en vol, l’app est déjà sur Saisie (rien n’est ouvert sur une ligne inconnue)',
       JSON.stringify(avantLigne) === JSON.stringify(saisie), JSON.stringify(avantLigne));
-    await attendre(2800);
+    await attendreOuverture();
     e = await ecranQ();
     ok('[Q60] H — la ligne arrive (questionnaire vide) : il s’ouvre alors, une fois', e.ecran === 'bienvenue' && JSON.stringify(e.vues) === '["vue-questionnaire"]', JSON.stringify(e));
     base.lenteurProfil = 0;
@@ -14024,13 +14046,13 @@ const SETS_IMPORTES = [
       const r = indexedDB.deleteDatabase('trainhub-v2');
       r.onsuccess = r.onerror = r.onblocked = () => ok2();
     }));
-    Object.assign(profilBase(), NON_REMPLI, { onboarding_completed: false });
+    Object.assign(profilBase(), VIERGE, { onboarding_completed: false });
     base.lenteurProfil = 3500;
     await aller('/saisie');
     const neufAvant = await visible();
     ok('[Q60] H — compte neuf sans cache : tant que la ligne n’est pas arrivée, rien ne s’ouvre',
       neufAvant.indexOf('vue-questionnaire') < 0, JSON.stringify(neufAvant));
-    await attendre(2800);
+    await attendreOuverture();
     e = await ecranQ();
     ok('[Q60] H — DISCRIMINANT : la ligne arrive (questionnaire vide, `onboarding_completed` faux) : il s’ouvre au premier démarrage, au premier écran',
       JSON.stringify(e.vues) === '["vue-questionnaire"]' && e.ecran === 'bienvenue', JSON.stringify(e));
@@ -14087,6 +14109,7 @@ const SETS_IMPORTES = [
     ok('[Q60] G — et il n’est PAS marqué « ouvert ici » (il pourra s’ouvrir plus tard)', (await clesVues()).length === 0, JSON.stringify(await clesVues()));
     await abandonner();
     await aller('/saisie');
+    await attendreOuverture(40);
     e = await ecranQ();
     ok('[Q60] G — la séance abandonnée, l’app rouvre sur un compte sans séance ouverte : le questionnaire s’ouvre',
       e.ecran === 'bienvenue', JSON.stringify(e));

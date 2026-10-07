@@ -55,11 +55,11 @@ du coach ») ; recherche `RECHERCHE-QUESTIONNAIRE-2026-10-07.md` ; relevé du d�
 | Réponse | Lue par | Quand |
 |---|---|---|
 | Phase | escalier, série de plus, phrases, paris (déjà) ; **rappel à 6 semaines** (bandeau sur Saisie, lu depuis `phase_confirmee_le`, sinon `phase_depuis`) | 60-2b (précisé le 07/10/2026 : il lit `phase_confirmee_le`, ajoutée par v2_065) |
-| Temps | « J'ai peu de temps » : `duree_seance_min` devient la cible proposée (à la place de 45 / 60 en dur) ; « Moins en ce moment » : la carte proposée d'office quand l'estimation dépasse ; « Ça varie » : le temps demandé avant une séance qui dépasse | 60-1 (la cible, #382) ; 60-2b (« Moins en ce moment », « Ça varie ») |
+| Temps | « J'ai peu de temps » : `duree_seance_min` devient la cible proposée (à la place de 45 / 60 en dur) ; « Moins en ce moment » : la carte proposée d'office quand l'estimation dépasse ; « Ça varie » : l'estimation en couleur du coach à côté de « J'ai peu de temps » — **pas de question avant « Démarrer »** (décidé le 08/10/2026 ; MOTEUR §9.18) | 60-1 (la cible, #382) ; 60-2b (« Moins en ce moment », « Ça varie ») |
 | Matériel | **range, ne cache jamais** : catalogue, « Machine prise », générateur. Salle complète : tout · Salle basique : tout sauf machines guidées et Smith · Maison équipée : barre, haltères, disques, kettlebell, élastique, poids du corps · Maison minimale : haltères, kettlebell, élastique, poids du corps · Poids du corps : poids du corps, élastique. Un exercice déjà dans l'historique n'est jamais rétrogradé | 60-1 |
 | Juste un carnet | `intention = 'entretien'` : **aucune** phrase, proposition, carte ni bandeau du coach (dégressive et décharge comprises) ; l'invariant I13 le garde (`sansCoach`) | 60-1 |
-| Objectif | zone du premier bloc d'un programme (Force, Les deux : Lourd ; Muscle, Forme : Mix) ; carte « zone de force » (avec les priorités) ; générateur (reps) ; fondement des paris (gelé pour la séance, invariant jumeau d'I18) | 60-2 |
-| Priorités | escalier : un muscle prioritaire passe la série de plus en premier (hors sèche) ; un exercice prioritaire + objectif Force ou Les deux, habitude en Volume : **la carte « zone de force », une fois** (patron du lest, mémoire en base, et une ligne de Profil pour changer d'avis) ; exercices par défaut d'un programme ; générateur | 60-2 |
+| Objectif | zone proposée pour le premier bloc d'un programme (Force, Les deux : Lourd ; Muscle, Forme : Mix) ; générateur (reps) ; fondement des paris (gelé pour la séance, I40) | 60-2b |
+| Priorités | un **exercice prioritaire** est coché d'office dans « Faire de ce dossier un programme » (MOTEUR §9.22) ; un **muscle prioritaire**, hors sèche, a de la place pour la série de plus jusqu'à son plus haut volume (MOTEUR §14.6) ; générateur. *La carte « zone de force » est abandonnée le 08/10/2026 : simulée sur les cinq historiques, aucune barre n'est travaillée à 10-12 reps d'habitude, elle ne se serait déclenchée chez personne — notée pour le générateur* | 60-2b |
 | Âge, taille, poids, ancienneté, sexe | sans historique : prudence des charges de départ (générateur, séances de calage) ; poids : poids du corps, force rapportée au poids ; sexe : repères de force, classement | générateur, jeu |
 | Historique déclaré | le parcours (3a ou 3b) ; « Oui, dans une autre app » sans séances en base : l'écran 3b, avec « L'import dans l'app arrive plus tard. Ces trois réponses suffisent pour commencer. » (import dans l'app : chantier à part) | 60-2a |
 | Programme | 8a, 8b, ou l'éditeur | 60-3, générateur |
@@ -86,13 +86,13 @@ l'écran (les valeurs restent en base, aucune n'est lue). Les quatre phrases qui
 |---|---|---|
 | **60-1** (#382) | brancher l'existant : temps (la cible), matériel, « Juste un carnet » silencieux ; nettoyage du profil | non |
 | **60-2a** | l'écran du questionnaire (§2, §3 sauf 8, 8a, 8b), son déclencheur, « Plus tard », les nouveaux champs dans Profil ; « Juste un carnet » éteint aussi la fin de bloc | `v2_065` (appliquée le 07/10/2026) |
-| **60-2b** | les lecteurs : objectif (zone du premier bloc, fondement des paris), priorités (escalier, carte « zone de force »), rappel de phase à 6 semaines, « Moins en ce moment » et « Ça varie » — chacun simulé sur les vraies séances avant le prompt | non |
+| **60-2b** | les lecteurs : objectif (zone du premier bloc, fondement des paris, I40), priorités (exercice coché dans un programme, plafond de volume d'un muscle prioritaire), rappel de phase à 6 semaines, « Moins en ce moment » et « Ça varie » ; la rangée « programme » éteinte en carnet ; le 403 à la création du profil | non |
 | **60-3** | le programme déduit (8a), et « Remplacer » dans l'éditeur de routine | non |
 | **60-4…** | le générateur (8b) : règles écrites, simulées sur les cinq historiques, validées, puis codées | à voir |
 
 **Ouverture à Alexis : après 60-2b** (le questionnaire complet et branché, hors programme). 60-3 peut suivre.
 
-## 8. Amendements — faits le 07/10/2026 (deltas 60-2a), sauf §9.16 (avec 60-2b)
+## 8. Amendements — faits le 07/10/2026 (deltas 60-2a) et le 08/10/2026 (60-2b, MOTEUR §9.16)
 
 - MOTEUR §1.1 (« ne jamais demander, toujours déduire — une seule exception ») : déjà dépassé par le réglage, la phase
   et le lest ; le questionnaire le remplace par « on ne demande que ce que les séries ne savent pas, et ce qui est

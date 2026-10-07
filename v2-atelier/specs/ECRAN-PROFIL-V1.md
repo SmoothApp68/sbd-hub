@@ -247,6 +247,14 @@ maquette `maquette-questionnaire-v4.html`).
 - **Nouveaux champs du profil** (v2_065) : l'objectif et les priorités (« Ton but »), ce que la personne veut faire de
   son temps (avec la durée). Ce que les séries savent n'y figure pas.
 
+- **Leurs phrases, avec leurs lecteurs (08/10/2026, 60-2b)** — Objectif : « Il choisit la zone de ton premier bloc
+  de programme : Lourd pour la force, Mix pour le muscle. » ; Priorités : « Un exercice prioritaire est coché d'office
+  dans un programme. Un muscle prioritaire peut recevoir une série de plus jusqu'à ton plus haut volume, hors
+  sèche. » ; Temps, selon la réponse : « Moins en ce moment » → « Quand ta routine dépasse ta durée visée, je te
+  propose de la raccourcir dès son ouverture. » ; « Ça varie » → « Quand ta routine dépasse ta durée visée, je te le
+  montre à côté de « J'ai peu de temps ». » ; « C'est mon maximum », « J'ai de la marge » : pas de phrase, rien ne
+  les lit encore.
+
 ---
 
 ## 5. Ce que l'implémentation a précisé — chantier 46 §2, 18/09/2026

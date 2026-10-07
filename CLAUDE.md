@@ -151,6 +151,11 @@ trappe `/__sw-off` pendrait avec lui.
   d'un mois, du jour, le dernier record, la semaine affichée, les exercices faits) vit dans
   `v2/js/faits.js`, avec ses mémos ; les écrans — et le jeu — le **lisent**, aucun autre fichier ne
   déclare un de ces faits (garde « un fait ne se déclare que dans `faits.js` », registre `NOTIONS`).
+- **Le journal des records** (58-2, MOTEUR §9.23, table `records`) : il ne calcule rien — ses lignes
+  sortent de `faits.js` (`journalDuJour`, `journalDeLaSeance`) et il se **lit** par `recordsDuJournal`.
+  Il ne s'**écrit** que par la file (`poserJournal` → `executer` → `THDonnees.ajouterRecords`, un ajout
+  `ON CONFLICT DO NOTHING`, jamais un upsert qui modifie : `records_immuable`) ; la garde « un seul
+  écrivain » (`v2-architecture.test.js`) refuse tout autre chemin.
 - **La garde de développement** (C6, `THPlan.creerGarde`) vérifie chaque plan que
   l'app calcule, hors production : `localhost`, les aperçus `*.pages.dev`, ou
   `?garde=1`. Le banc de saisie vérifie les invariants après chaque geste.

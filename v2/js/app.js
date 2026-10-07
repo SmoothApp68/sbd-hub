@@ -35,6 +35,23 @@
                 blocs: [], programme: [], records: [] };
   var etat = { code: 'vide', libelle: '', local: false };
   var syncEnCours = false;
+  // ⚠️ 59-5 — LA GÉNÉRATION DE L'APPAREIL. « Quitter » (et « Supprimer mon
+  // compte », qui passe par lui) l'incrémente AVANT de vider quoi que ce soit.
+  // Tout écrivain asynchrone — une synchronisation, le journal des records,
+  // son remplissage, la vidange de la file, le profil — note la génération au
+  // départ et abandonne sans écrire dès qu'elle a changé : sinon, la synchro
+  // lancée au retour du réseau reprenait après « Quitter » et réécrivait les
+  // séries et les records du compte parti dans le cache qu'on venait de vider
+  // (banc séquentiel, Q59 : 493 séries et 344 records restés sur l'appareil).
+  var generation = 0;
+  function generationValide(g) { return g === generation; }
+  // Le cache va être vidé : ce qui était en vol n'écrira plus, et les verrous
+  // des tâches en vol sont libérés pour le compte qui suit.
+  function nouvelleGeneration() {
+    generation++;
+    syncEnCours = false;
+    vidangeEnCours = false;
+  }
   var lundiAffiche = null;   // le lundi de la semaine à l'écran
   var gardes = [];           // vues qui peuvent refuser la sortie (§ écran de saisie)
   var sortie = null;         // mécanisme du bouton retour (v2/js/sortie.js)
@@ -692,6 +709,9 @@
   async function garantirProprietaire(userId) {
     var meta = await Cache.lireMeta('proprietaire');
     if (Sync.cacheAppartientA(meta, userId)) return;
+    // 59-5 — un autre compte entre : ce qui était en vol pour le précédent
+    // n'écrira plus (même règle que « Quitter »).
+    nouvelleGeneration();
     await Cache.viderTout();
     // Les routines ne sont pas dans le cache, mais elles appartiennent au
     // compte précédent : les laisser en mémoire montrerait la bibliothèque de
@@ -748,6 +768,7 @@
   async function synchroniser() {
     if (syncEnCours) return;
     syncEnCours = true;
+    var g = generation;
     try {
       var resync = await armerResynchronisation();
       var curseur = await Cache.lireMeta('curseurSeries');
@@ -801,6 +822,7 @@
       // doit déjà les voir.
       //
       var parisDuCompte = await essayer(Donnees.seancesAvecPari);
+      if (!generationValide(g)) return;
       if (parisDuCompte) {
         local.sousConsigne = seancesAvecPari(parisDuCompte);
         // §14.4 (49-U14) — et le compteur figé dans chacun (`compteur`).
@@ -809,6 +831,7 @@
       // MOTEUR §14.4 (49-U14) — LES PARIS DE L'ESCALIER, en entier : peu de
       // lignes (une par carte), lues à part. Accessoires comme les autres.
       var escalierDuCompte = await essayer(Donnees.parisEscalier);
+      if (!generationValide(g)) return;
       if (escalierDuCompte) {
         local.escalier = escalierDuCompte.filter(function (l) { return l && l.module === Moteur.MODULE_ESCALIER; });
       }
@@ -816,8 +839,10 @@
       // Accessoires comme les autres ; FONDUS, jamais remplacés : un bloc posé
       // hors ligne n'est pas encore chez le serveur.
       var blocsDuCompte = await essayer(Donnees.mesBlocs);
+      if (!generationValide(g)) return;
       if (blocsDuCompte) local.blocs = fondreBlocs(local.blocs, blocsDuCompte);
       var programmeDuCompte = await essayer(Donnees.parisProgramme);
+      if (!generationValide(g)) return;
       if (programmeDuCompte) local.programme = fondreZones(local.programme, programmeDuCompte);
 
       // ⚠️ La liste du serveur ne contient PAS ce qui n'y est pas encore monté.
@@ -852,11 +877,15 @@
       // Séances et exercices : petits, rafraîchis en entier, vider-puis-écrire
       // dans UNE transaction. Séries : on n'efface plus rien d'abord — `put`
       // est un upsert, et ce que la purge a retiré se supprime explicitement.
+      if (!generationValide(g)) return;
       await Cache.remplacerTout('seances', local.seances);
+      if (!generationValide(g)) return;
       await Cache.remplacerTout('exercices', local.exercices);
+      if (!generationValide(g)) return;
       if (pesees) {
         local.pesees = Sync.remplacer(pesees);
         await Cache.remplacerTout('pesees', local.pesees);
+        if (!generationValide(g)) return;
       }
       // ⚠️ FUSION, JAMAIS REMPLACEMENT. Une correction posée hors ligne n'est
       // pas encore chez le serveur : la liste qu'il envoie ne la contient pas,
@@ -866,10 +895,12 @@
       if (zones) {
         local.zones = fondreZones(local.zones, zones);
         await Cache.ecrireLot('zones', local.zones);
+        if (!generationValide(g)) return;
       }
       if (modes) {
         local.modes = fondreModes(local.modes, modes);
         await Cache.ecrireLot('modes', local.modes);
+        if (!generationValide(g)) return;
       }
       if (parisDuCompte) {
         await Cache.ecrireBrouillon(CLE_SOUS_CONSIGNE, local.sousConsigne).catch(function () {});
@@ -880,7 +911,9 @@
       }
       if (blocsDuCompte) await Cache.ecrireBrouillon(CLE_BLOCS, local.blocs).catch(function () {});
       if (programmeDuCompte) await Cache.ecrireBrouillon(CLE_PARIS_PROGRAMME, local.programme).catch(function () {});
+      if (!generationValide(g)) return;
       await Cache.supprimer('series', idsRetires(fusionnees, local.series));
+      if (!generationValide(g)) return;
       await Cache.ecrireLot('series', local.series);
 
       // LE COMPTE AUTORISE. On relit le MAGASIN — une variable en mémoire ne
@@ -888,6 +921,7 @@
       // curseur reste vide : la synchro suivante recommence au lieu de se
       // croire finie, et le cache ne peut plus se figer amputé.
       var enMagasin = await Cache.compterMagasin('series');
+      if (!generationValide(g)) return;
       var commit = Sync.decisionDeCommit(enMagasin, compteSeries);
       if (commit.autorise) {
         var avance = Sync.curseurDe(nouvellesSeries);
@@ -898,6 +932,7 @@
 
       // 58-2 — le journal des records : accessoire, il n'emporte rien s'il échoue.
       await synchroniserJournal(listeComplete);
+      if (!generationValide(g)) return;
 
       etat = Sync.deciderEtat({
         syncOk: true, aDesDonnees: true, manquantes: commit.manquantes
@@ -909,7 +944,9 @@
       etat = Sync.deciderEtat({ syncOk: false, aDesDonnees: local.seances.length > 0 });
       console.warn('Synchronisation impossible :', texteErreur(e));
     } finally {
-      syncEnCours = false;
+      // Une synchro d'une génération passée ne libère pas le verrou d'une
+      // synchro d'aujourd'hui (`deconnecter` l'a déjà libéré).
+      if (generationValide(g)) syncEnCours = false;
     }
   }
 
@@ -1237,6 +1274,7 @@
   async function vidanger() {
     if (vidangeEnCours || !sessionActive) return;
     vidangeEnCours = true;
+    var g = generation;
     try {
       var garde = 200;   // une file qui ne rétrécit pas ne doit pas tourner sans fin
       while (garde-- > 0) {
@@ -1250,6 +1288,9 @@
         // renvoi échoue encore, l'entrée reste EN ÉCHEC, à retenter comme une
         // coupure : jamais bloquée, jamais abandonnée en silence.
         var echec = await Attente.envoyer(op, executer, refermerSeancesSauf);
+        // « Quitter » pendant l'aller-retour : la file de ce compte est déjà
+        // vidée, on n'y réécrit rien.
+        if (!generationValide(g)) return;
         // §9.11 — ce que devient un envoi refusé se décide dans `attente.js`
         // (`apresEchec`). Une observation dont la série (23503) ou le pari
         // (`TH000`, 29/09/2026) n'est pas en base ATTEND : elle ne bloque
@@ -1283,9 +1324,12 @@
         if (op.table === Attente.OBSERVATIONS) await confirmerObservation(op);
       }
     } finally {
-      vidangeEnCours = false;
-      rendreEtatSync();
+      if (generationValide(g)) {
+        vidangeEnCours = false;
+        rendreEtatSync();
+      }
     }
+    if (!generationValide(g)) return;
     // 58-2 — tous les lots du remplissage sont montés : le journal est rempli.
     constaterJournalRempli().catch(function () {});
   }
@@ -1568,6 +1612,7 @@
   // échoue, on ne bloque rien et on retentera au prochain démarrage.
   async function resoudreSeanceEnCoursDistante() {
     if (!sessionActive) return;
+    var g = generation;
     var ouvertes;
     try { ouvertes = await Donnees.seancesEnCours(); }
     catch (e) {
@@ -1575,6 +1620,7 @@
       console.warn('Séances en cours illisibles :', texteErreur(e));
       return;
     }
+    if (!generationValide(g)) return;
     // ⚠️ TOUTES CELLES QUI NE SONT PAS LA NÔTRE, pas « la première ». L'index
     // n'en autorise qu'une à la fois, mais il a pu être créé APRÈS que
     // plusieurs se soient installées — et surtout, si la première rendue est la
@@ -1609,6 +1655,7 @@
 
     try {
       var series = await Donnees.seriesDeSeance(distante.id);
+      if (!generationValide(g)) return;
       seance = Seance.reprendre(distante, Modele.construireBlocs(series, local.exercices));
       // Les tours se recalculent depuis ce qu'on vient de lire : `sessions` ne
       // les porte pas, et sans ça un superset repris repartirait au tour 0.
@@ -1722,10 +1769,12 @@
   // hors file doivent être exactement celles que le serveur compte ; sinon on
   // relit le journal en entier, et la file garde les siennes.
   async function synchroniserJournal(listeComplete) {
+    var g = generation;
     try {
       var compte = await Donnees.compterRecords();
       var curseur = await Cache.lireMeta(CLE_CURSEUR_RECORDS);
       var nouvelles = await Donnees.recordsDepuis(curseur);
+      if (!generationValide(g)) return;
       var avant = local.records;
       var journal = Sync.purgerJournal(Sync.fondreJournal(avant, nouvelles), local.series, listeComplete);
       var enFile = lignesEnFile();
@@ -1733,6 +1782,7 @@
       var relu = false;
       if (typeof compte === 'number' && horsFile !== compte) {
         var tout = await Donnees.recordsDepuis(null);
+        if (!generationValide(g)) return;
         journal = Sync.fondreJournal(Object.keys(enFile).map(function (k) { return enFile[k]; }), tout);
         relu = true;
       }
@@ -1744,13 +1794,16 @@
         journal.forEach(function (l) { restent[Sync.cleJournal(l)] = true; });
         var parties = (avant || []).filter(function (l) { return !restent[Sync.cleJournal(l)]; });
         if (parties.length) await Cache.supprimer('records', parties.map(function (l) { return [l.set_id, l.type]; }));
+        if (!generationValide(g)) return;
         await Cache.ecrireLot('records', nouvelles);
       }
+      if (!generationValide(g)) return;
       // LE COMPTE AUTORISE le curseur, comme pour les séries.
       if (typeof compte === 'number') {
         var avance = Sync.curseurDe(journal, ['created_at']);
         if (avance) await Cache.ecrireMeta(CLE_CURSEUR_RECORDS, avance);
       }
+      if (!generationValide(g)) return;
       await deciderJournal(compte);
     } catch (e) {
       console.warn('Journal des records : synchronisation impossible :', texteErreur(e));
@@ -1765,7 +1818,9 @@
   // Reprise : `commence` relance tout (l'unicité absorbe les renvois) ; `pose`
   // attend que la file ait tout monté ; `rempli` ne se pose qu'alors.
   async function deciderJournal(compte) {
+    var g = generation;
     var m = await Cache.lireMeta(CLE_JOURNAL).catch(function () { return null; });
+    if (!generationValide(g)) return;
     if (m && m.etat === 'rempli') { journalDecide = true; return; }
     if (m && m.etat === 'pose') { journalDecide = true; vidanger(); return; }
     if (m && m.etat === 'commence') {
@@ -1814,6 +1869,7 @@
       etatR.lignes += lignes.length;
       return poserJournal(lignes, PREFIXE_LOT + etatR.lots, null);
     };
+    var g = generation;
     var i = 0;
     while (i < liste.length) {
       var t0 = Date.now(), n = 0;
@@ -1833,16 +1889,23 @@
       etatR.plusLongueTranche = Math.max(etatR.plusLongueTranche, Date.now() - t0);
       for (var k = 0; k < aPart.length; k++) {
         etatR.lignes += aPart[k].lignes.length;
+        if (!generationValide(g)) return;
         await poserJournal(aPart[k].lignes, aPart[k].id, aPart[k].id);
       }
-      while (lot.length >= LIGNES_PAR_LOT) await poserLot(lot.splice(0, LIGNES_PAR_LOT));
+      while (lot.length >= LIGNES_PAR_LOT) {
+        if (!generationValide(g)) return;
+        await poserLot(lot.splice(0, LIGNES_PAR_LOT));
+      }
       if (i < liste.length) {
         await laisserLaMain();
-        // Le compte est parti (« Quitter », un autre compte) : on s'arrête là.
-        if (remplissage !== etatR || userId() !== uid) return;
+        // Le compte est parti (« Quitter », « Supprimer mon compte ») : on
+        // s'arrête là, sans rien écrire de plus.
+        if (!generationValide(g)) return;
       }
     }
+    if (!generationValide(g)) return;
     if (lot.length) await poserLot(lot);
+    if (!generationValide(g)) return;
     await Cache.ecrireMeta(CLE_JOURNAL, { etat: 'pose', le: new Date().toISOString(),
       lots: etatR.lots, lignes: etatR.lignes });
     etatR.fin = Date.now();
@@ -1852,7 +1915,9 @@
   // Le journal est rempli quand tous ses lots sont montés — pas avant.
   async function constaterJournalRempli() {
     if (!sessionActive) return;
+    var g = generation;
     var m = await Cache.lireMeta(CLE_JOURNAL);
+    if (!generationValide(g)) return;
     if (!m || m.etat !== 'pose') return;
     var reste = (attente || []).some(function (e) {
       return e && e.table === Attente.RECORDS && String(e.id).indexOf(PREFIXE_LOT) === 0;
@@ -7574,6 +7639,11 @@
   // qui expire toute seule, en revanche, ne doit rien effacer — on revient à
   // l'écran de connexion et les données restent là pour la prochaine ouverture.
   async function deconnecter() {
+    // 59-5 — AVANT DE VIDER QUOI QUE CE SOIT : une nouvelle génération. Tout
+    // écrivain asynchrone encore en vol (synchro, journal, remplissage,
+    // vidange, profil) abandonnera sans écrire ; les verrous des tâches en
+    // vol sont libérés pour le compte suivant.
+    nouvelleGeneration();
     // Avant toute chose : plus de session, donc plus aucune vue authentifiée
     // rendue — y compris par un retour qui atterrirait sur une ancienne entrée.
     sessionActive = null;
@@ -7669,9 +7739,11 @@
   async function chargerProfil() {
     var id = userId();
     if (!id) return;
+    var g = generation;
     var distant = null;
     try { distant = await Donnees.monProfil(id); }
     catch (e) { return; }   // hors réseau : ce qu'on a en cache fait l'affaire
+    if (!generationValide(g)) return;
 
     if (!distant) {
       try {
@@ -7680,6 +7752,7 @@
           onboarding_completed: false
         }));
       } catch (e) { return; }
+      if (!generationValide(g)) return;
     }
     pseudoAInscrire = null;
     // Une modification locale non envoyée PRIME sur ce que le serveur rend :
@@ -7694,8 +7767,10 @@
   async function envoyerProfil() {
     var id = userId();
     if (!id || !profil) return;
+    var g = generation;
     try {
       var rendu = await Donnees.enregistrerProfil(id, Profil.champsEcrits(profil));
+      if (!generationValide(g)) return;
       profil = rendu;
       profilAEnvoyer = false;
       await sauverProfilLocal();
@@ -7704,6 +7779,7 @@
       // Elle repartira : à la prochaine synchronisation, au prochain démarrage,
       // ou au retour du réseau. Rien n'est perdu — la valeur est en local et
       // l'intention est sur disque.
+      if (!generationValide(g)) return;
       profilAEnvoyer = true;
       await sauverProfilLocal();
     }

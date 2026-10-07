@@ -468,7 +468,9 @@ séances, un fond plein avec un point quand c'est le choix de l'utilisateur.
   `zones_exercice`. La consigne se recalcule aussitôt.
 - L'étiquette est aussi visible sur la page d'exercice (§7 quater). L'éditeur de
   routine n'en parle pas.
-- En Entretenir, ni étiquette ni consigne.
+- En Entretenir (« Juste un carnet » au profil, ou l'exercice), ni étiquette ni consigne, ni dégressive ni chauffes
+  du coach ; au profil, ni bandeau de décharge, ni semaine allégée, ni badge ni carte de fin de bloc (MOTEUR I13,
+  précisé le 07/10/2026).
 
 **Précisé le 20/09/2026 (48b-6a).** Jusqu'à la correction (48b-7), l'étiquette s'affiche **sans réagir au toucher** : un geste qui ne fait rien serait une promesse. Elle ne paraît que si la consigne porte une zone — ni en silence du moteur, ni sous 3 reps d'habitude ; pendant un étirement, c'est la zone figée. Seul l'état « déduite », au contour, existe avant 48b-7.
 
@@ -2783,7 +2785,7 @@ caractères, non vide) et `salle_norme` text généré, qui replie en plus les t
 d'union et apostrophes en espaces par rapport au patron `elastique_norme` — pour
 que « Basic-Fit » et « Basic Fit » donnent la même pastille.
 
-**Prochain numéro libre : `v2_037`.** La numérotation a déraillé historiquement
+**Prochain numéro libre : il ne se recopie pas** (`v2_037` le jour où cette section a été écrite ; `SCHEMA-REEL.md` et `list_migrations` font foi, précisé le 07/10/2026). La numérotation a déraillé historiquement
 (deux `v2_025`, deux `v2_026`) — toujours `list_migrations` avant de nommer.
 
 ---

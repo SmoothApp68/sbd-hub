@@ -33,7 +33,7 @@
 // Parce que servir la coquille en cache sans la vérifier a rendu l'app
 // INACCESSIBLE EN LIGNE (chantier 19). Voir `utilisable` et `desempoisonner`.
 
-const CACHE_V2 = 'trainhub-v2-149';
+const CACHE_V2 = 'trainhub-v2-151';
 
 // Le chemin de la trappe de sortie. Tapé à la main dans la barre d'adresse
 // quand tout le reste est cassé : il doit rester court et mémorisable.
@@ -72,6 +72,7 @@ const SHELL = [
   './js/periode.js',
   './js/poids.js',
   './js/bilan.js',
+  './js/faits.js',
   './js/calendrier.js',
   './js/profil.js',
   './js/routeur.js',

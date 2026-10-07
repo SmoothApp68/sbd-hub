@@ -28,11 +28,13 @@
   // VERSION 7 : ajout de `records` (le journal des records, 58-2 ; MOTEUR
   //   §9.23, `v2_061`). Sans perte, comme les autres.
   var VERSION = 7;
-  // ⚠️ `records` EST DANS CETTE LISTE, et c'est elle que « Quitter » vide
-  // (`viderTout`) : un journal qui survivrait à la déconnexion serait relu par
-  // le compte suivant.
+  // ⚠️ C'EST CETTE LISTE QUE « QUITTER » VIDE (`viderTout`) : un magasin qui
+  // n'y est pas survit à la déconnexion et se relit sous le compte suivant.
+  // `records` (58-2) y est ; `predictions` y manquait (relevé de sécurité 59-0)
+  // et y est depuis 59-2. Tout magasin créé plus bas doit y figurer — le test
+  // `v2-cache-integrite` le vérifie, magasin par magasin.
   var MAGASINS = ['seances', 'series', 'exercices', 'pesees', 'meta', 'zones', 'modes',
-                  'brouillon', 'attente', 'records'];
+                  'brouillon', 'attente', 'records', 'predictions'];
   var LOT = 500;
   var _db = null;
 

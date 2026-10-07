@@ -80,6 +80,7 @@ const SHELL = [
   './js/cache.js',
   './js/rendu.js',
   './js/rejeu.js',
+  './js/quitter.js',
   './js/app.js'
 ];
 

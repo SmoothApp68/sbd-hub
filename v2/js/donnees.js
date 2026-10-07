@@ -650,11 +650,15 @@
   // rechargement — sans une erreur, sans une trace. Même piège pour `phase` et
   // `phase_depuis` (49-U11, `v2_051`) : omises, la phase serait toujours lue
   // « maintien ».
+  //
+  // 60-1 — `mode_entrainement`, `unites`, `niveau_declare` et `jours_vises` ne
+  // sont plus lues : aucune règle ne les lit, l'écran ne les montre plus et
+  // `THProfil.CHAMPS_ECRITS` ne les écrit plus (leurs valeurs restent en base).
   var COLONNES_PROFIL =
-    'id, username, bio, sexe, taille_cm, date_naissance, mode_entrainement, ' +
-    'unites, anciennete, intention, rythme_progression, phase, phase_depuis, materiel, ' +
+    'id, username, bio, sexe, taille_cm, date_naissance, ' +
+    'anciennete, intention, rythme_progression, phase, phase_depuis, materiel, ' +
     'lest_reponse, lest_reponse_le, ' +
-    'niveau_declare, seances_par_semaine, jours_vises, duree_seance_min, ' +
+    'seances_par_semaine, duree_seance_min, ' +
     'onboarding_completed';
 
   async function monProfil(id) {

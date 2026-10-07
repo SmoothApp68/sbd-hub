@@ -4422,37 +4422,6 @@
     return cible;
   }
 
-  // La semaine visée. Multi-choix, donc ni validation implicite ni fermeture au
-  // premier doigt : on coche, puis on valide.
-  function rendreFeuilleJours(cible, vue) {
-    vider(cible);
-    teteFeuille(cible, 'Jours visés', null, vue.aide);
-    var choisis = {};
-    (vue.valeur || []).forEach(function (j) { choisis[j] = true; });
-    var grille = el('div', 'p-jours');
-    (vue.jours || []).forEach(function (j) {
-      var b = el('button', choisis[j.cle] ? 'on' : '', j.court);
-      b.type = 'button';
-      b.dataset.cle = j.cle;
-      b.setAttribute('aria-label', j.libelle);
-      b.setAttribute('aria-pressed', choisis[j.cle] ? 'true' : 'false');
-      b.addEventListener('click', function () {
-        choisis[j.cle] = !choisis[j.cle];
-        b.className = choisis[j.cle] ? 'on' : '';
-        b.setAttribute('aria-pressed', choisis[j.cle] ? 'true' : 'false');
-      });
-      grille.appendChild(b);
-    });
-    cible.appendChild(grille);
-    piedFeuille(cible, [
-      { classe: 'sec', texte: 'Annuler', surClic: vue.surAnnuler },
-      { classe: 'pri', texte: 'Valider', surClic: function () {
-        vue.surValider(Object.keys(choisis).filter(function (k) { return choisis[k]; }));
-      } }
-    ]);
-    return cible;
-  }
-
   // ── Tous mes exercices (§2.4 bis) ────────────────────────────────────────
   //
   // Tri par dernière utilisation, recherche par nom, et un tap ouvre la page de
@@ -4621,7 +4590,6 @@
     rendreProfil: rendreProfil,
     rendreFeuilleChoix: rendreFeuilleChoix,
     rendreFeuilleSaisie: rendreFeuilleSaisie,
-    rendreFeuilleJours: rendreFeuilleJours,
     rendreMesExercices: rendreMesExercices,
     rendreEntree: rendreEntree,
     message: message

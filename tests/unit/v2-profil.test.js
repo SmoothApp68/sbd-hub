@@ -38,15 +38,12 @@ describe('les référentiels suivent les CHECK de la base', () => {
   const EN_BASE = {
     materiel: ['salle_complete', 'salle_basique', 'maison_equipee', 'maison_minimal', 'poids_du_corps'],
     anciennete: ['moins_1_an', '1_a_3_ans', '3_a_5_ans', 'plus_5_ans'],
-    niveau_declare: ['debutant', 'intermediaire', 'avance', 'expert'],
     sexe: ['homme', 'femme', 'non_precise'],
-    unites: ['kg', 'lb'],
     intention: ['progresser', 'entretien']
   };
   const LISTES = {
     materiel: Profil.MATERIELS, anciennete: Profil.ANCIENNETES,
-    niveau_declare: Profil.NIVEAUX, sexe: Profil.SEXES,
-    unites: Profil.UNITES, intention: Profil.INTENTIONS
+    sexe: Profil.SEXES, intention: Profil.INTENTIONS
   };
 
   Object.keys(EN_BASE).forEach((col) => {
@@ -55,18 +52,16 @@ describe('les référentiels suivent les CHECK de la base', () => {
     });
   });
 
-  test('la discipline proposée est un sous-ensemble de ce que la base accepte', () => {
-    const accepte = ['bien_etre', 'musculation', 'powerbuilding', 'powerlifting', 'calisthenics'];
-    Profil.DISCIPLINES.forEach((o) => expect(accepte).toContain(o.cle));
-  });
-
-  // §2.3 — « Bien-être n'est pas une discipline » : la base l'accepte, l'écran
-  // ne le propose pas. Mais une ligne qui le porte DÉJÀ doit s'afficher, pas se
-  // vider : c'est pour ça que `DISCIPLINES_CONNUES` existe à côté.
-  test('« bien-être » n’est pas proposé mais reste lisible', () => {
-    expect(Profil.DISCIPLINES.map((o) => o.cle)).not.toContain('bien_etre');
-    expect(Profil.libelleDe(Profil.DISCIPLINES, 'bien_etre')).toBe(null);
-    expect(Profil.libelleDe(Profil.DISCIPLINES_CONNUES, 'bien_etre')).toBe('Bien-être');
+  // 60-1 (QUESTIONNAIRE-COACH-V2 §6) — la discipline, le niveau déclaré, les
+  // unités et les jours visés ont quitté l'écran : leurs listes n'existent plus
+  // ici, et aucune n'est écrite.
+  test('⚠️ la discipline, le niveau déclaré, les unités et les jours visés ne sont ni listés ni écrits', () => {
+    ['DISCIPLINES', 'DISCIPLINES_CONNUES', 'NIVEAUX', 'UNITES', 'JOURS', 'joursValides', 'libelleJours']
+      .forEach((k) => expect(Profil[k]).toBeUndefined());
+    ['mode_entrainement', 'niveau_declare', 'unites', 'jours_vises']
+      .forEach((c) => expect(Profil.CHAMPS_ECRITS).not.toContain(c));
+    expect(Profil.champsEcrits({ mode_entrainement: 'powerlifting', niveau_declare: 'expert', unites: 'lb', jours_vises: ['lun'] }))
+      .toEqual({});
   });
 
   // `profiles_rythme_borne` : 1..14 séances, 10..300 minutes.
@@ -321,32 +316,20 @@ describe('les bornes doublées de la base', () => {
     expect(Profil.naissanceValide('1820-01-01', AUJ)).toBe(null);
     expect(Profil.naissanceValide('12/03/1998', AUJ)).toBe(null);
   });
-
-  // ⚠️ L'ORDRE DE LA SEMAINE, PAS L'ORDRE DES CLICS. Une fixture déjà triée ne
-  // distinguerait pas « je trie » de « je recopie ».
-  test('les jours se rangent dans l’ordre de la semaine, quel que soit l’ordre des clics', () => {
-    expect(Profil.joursValides(['sam', 'lun', 'jeu'])).toEqual(['lun', 'jeu', 'sam']);
-    expect(Profil.libelleJours(['sam', 'lun', 'jeu'])).toBe('Lu · Je · Sa');
-  });
-
-  test('un jour inventé ou répété ne passe pas', () => {
-    expect(Profil.joursValides(['lun', 'lun', 'lundi', 'octidi'])).toEqual(['lun']);
-    expect(Profil.libelleJours([])).toBe(null);
-    expect(Profil.libelleJours(null)).toBe(null);
-  });
 });
 
 // ── TEST 6 (sa moitié pure) — ce qui reste à renseigner ────────────────────
 describe('test 6 — un profil vide est un ÉTAT, pas une erreur', () => {
-  test('un profil neuf a sept champs à renseigner', () => {
+  test('un profil neuf a six champs à renseigner', () => {
     expect(Profil.manquants({})).toEqual(Profil.A_RENSEIGNER);
   });
 
-  // ⚠️ LES NOT NULL N'Y FIGURENT PAS. `sexe`, `mode_entrainement`, `unites` et
-  // `intention` ont un DÉFAUT en base : ils ne peuvent pas manquer. Les compter
-  // comme « à renseigner » afficherait un manque qui n'existe pas.
-  test('ce qui a un défaut en base n’est jamais « manquant »', () => {
-    ['sexe', 'mode_entrainement', 'unites', 'intention']
+  // ⚠️ LES NOT NULL N'Y FIGURENT PAS. `sexe` et `intention` ont un DÉFAUT en
+  // base : ils ne peuvent pas manquer. Les compter comme « à renseigner »
+  // afficherait un manque qui n'existe pas. Et ce qui n'est plus demandé
+  // (60-1) ne manque pas non plus.
+  test('ce qui a un défaut en base, ou n’est plus demandé, n’est jamais « manquant »', () => {
+    ['sexe', 'intention', 'mode_entrainement', 'unites', 'niveau_declare', 'jours_vises']
       .forEach((c) => expect(Profil.A_RENSEIGNER).not.toContain(c));
   });
 
@@ -357,7 +340,7 @@ describe('test 6 — un profil vide est un ÉTAT, pas une erreur', () => {
   // Une chaîne vide et un tableau vide sont des champs vides, pas des valeurs.
   test('« » et [] comptent comme vides', () => {
     expect(Profil.manquants({ materiel: '' })).toContain('materiel');
-    expect(Profil.manquants({ niveau_declare: null })).toContain('niveau_declare');
+    expect(Profil.manquants({ anciennete: [] })).toContain('anciennete');
   });
 });
 

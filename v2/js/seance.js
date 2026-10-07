@@ -775,14 +775,23 @@
   //
   // L'ORDRE : d'abord ceux qui ne sont pas déjà dans la séance ; parmi eux,
   // ceux qui ont un historique, le plus récent d'abord, puis les autres par
-  // nom. Un frère déjà dans la séance reste proposé, à la fin : il y serait une
-  // seconde occurrence, libre (§9.13 bis).
-  function freresProposes(slug, catalogue, faits, presents) {
+  // nom — ceux que le matériel de la personne n'a pas (`horsMateriel(slug)`,
+  // facultatif, 60-1) passant APRÈS les autres, jamais retirés. Un frère déjà
+  // dans la séance reste proposé, à la fin : il y serait une seconde
+  // occurrence, libre (§9.13 bis).
+  function freresProposes(slug, catalogue, faits, presents, horsMateriel) {
     var index = catalogue || {};
     var connus = faits || {};
     var ici = {};
     (presents || []).forEach(function (s) { ici[s] = true; });
+    // 60-1 — LE MATÉRIEL RANGE : un frère que le matériel de la personne n'a
+    // pas passe après les autres, jamais retiré. Un frère qu'elle a déjà fait
+    // n'est jamais rétrogradé : c'est son historique qui parle. À côté de la
+    // liste, pas dedans : la forme `{ slug, fait, deja_dans_la_seance }` est
+    // celle des cas de référence (`cas-51-2`).
+    var hors = {};
     var liste = racine.THModele.freresDe(index, slug).map(function (s) {
+      hors[s] = !connus[s] && typeof horsMateriel === 'function' && !!horsMateriel(s);
       return { slug: s, fait: connus[s] || null, deja_dans_la_seance: !!ici[s] };
     });
     var nom = function (s) { return racine.THModele.nommer(index, s); };
@@ -790,6 +799,7 @@
     return liste.sort(function (a, b) {
       if (a.deja_dans_la_seance !== b.deja_dans_la_seance) return a.deja_dans_la_seance ? 1 : -1;
       if (!a.fait !== !b.fait) return a.fait ? -1 : 1;
+      if (hors[a.slug] !== hors[b.slug]) return hors[a.slug] ? 1 : -1;
       if (a.fait && b.fait && quand(a.fait) !== quand(b.fait)) return quand(b.fait) - quand(a.fait);
       return nom(a.slug).localeCompare(nom(b.slug), 'fr') || (a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0);
     });

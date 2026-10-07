@@ -44,6 +44,7 @@ Les autres fixent les bornes chiffrées.
 | `MODIFICATEURS-SERIE-V1.md` | Tempo et élastique. Liste fermée |
 | `ECRAN-SAISIE-V1.md` | Blocs, tours, routines, grille de saisie, déviation, page d'exercice |
 | `ECRAN-PROFIL-V1.md` | Profil, connexion, inscription, et pourquoi l'onboarding EST le profil |
+| `QUESTIONNAIRE-COACH-V2.md` | Le questionnaire du coach : parcours, lecteur de chaque réponse, découpage 60-1 à 60-4 (remplace la V1, jamais commitée) |
 | `BANC-ESSAI-V1.md` | Méthode de validation et **pistes rejetées** |
 
 ## Trois choses à savoir avant de s'en servir

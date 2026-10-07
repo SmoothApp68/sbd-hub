@@ -1068,13 +1068,18 @@
       .normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
   }
 
-  function chercher(exercices, requete, limite) {
+  // `ordre` (facultatif, 60-1) : une fonction qui RÉORDONNE la liste trouvée
+  // AVANT la limite — le matériel range (`Profil.rangerParMateriel`), il ne
+  // coupe pas : rangé après la limite, un exercice du matériel au-delà de la
+  // trentième place resterait invisible derrière ce qui n'en est pas.
+  function chercher(exercices, requete, limite, ordre) {
     var q = replier(requete);
     var max = limite || 30;
     var liste = (exercices || []).filter(function (e) { return e && e.slug; });
-    if (!q) return liste.slice(0, max);
+    var rangee = function (l) { return typeof ordre === 'function' ? ordre(l) : l; };
+    if (!q) return rangee(liste).slice(0, max);
     var mots = q.split(/\s+/).filter(Boolean);
-    return liste
+    var trouves = liste
       .map(function (e) {
         var nom = replier(e.nom || e.slug);
         // Tous les mots doivent apparaître : « couche halt » trouve
@@ -1086,8 +1091,8 @@
       })
       .filter(Boolean)
       .sort(function (a, b) { return a.score - b.score || a.nom.localeCompare(b.nom, 'fr'); })
-      .slice(0, max)
       .map(function (r) { return r.exo; });
+    return rangee(trouves).slice(0, max);
   }
 
   // ── L'enregistrement, séquencé ──────────────────────────────────────────

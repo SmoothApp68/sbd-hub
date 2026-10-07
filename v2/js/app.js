@@ -5318,13 +5318,22 @@
     return parSlug;
   }
 
+  // 60-1 (QUESTIONNAIRE-COACH-V2 §4) — LE MATÉRIEL RANGE, IL NE CACHE JAMAIS.
+  // Le prédicat « ce frère sort du matériel du profil » : `null` sans matériel
+  // renseigné (rien ne change). La règle est `Profil.estHorsMateriel`.
+  function horsDuMateriel(index) {
+    var autorises = Profil.equipementsDe(profil && profil.materiel);
+    if (!autorises) return null;
+    return function (s) { return Profil.estHorsMateriel(index[s] && index[s].equipement, autorises); };
+  }
+
   function vueMachinePrise(blocs, iBloc, iExo) {
     var index = Modele.indexerExercices(local.exercices);
     var slug = seance.exercices[iExo].exercise_slug;
     var plus = Seance.plusTard(blocsPourPlusTard(blocs), iBloc);
     var suivant = blocs[iBloc + 1];
     var presents = seance.exercices.map(function (e) { return e.exercise_slug; });
-    var freres = Seance.freresProposes(slug, index, faitsDesFreres(index, slug), presents);
+    var freres = Seance.freresProposes(slug, index, faitsDesFreres(index, slug), presents, horsDuMateriel(index));
     return {
       nom: Modele.nommer(index, slug),
       tard: plus.possible ? {
@@ -5883,9 +5892,12 @@
   // « temps » (terminer plus tôt suffit). Pendant une semaine allégée, pas de
   // « J'ai peu de temps » : la séance est déjà plus courte, et la routine dit
   // sa durée allégée (51-1 ter).
-  var CIBLES_TEMPS = [45, 60];
 
   function semaineAllegeeEnCours() {
+    // 60-1 — « JUSTE UN CARNET » : en Entretenir le plan n'applique ni la
+    // décharge planifiée ni la semaine allégée (I13) ; la routine ne dirait pas
+    // « Semaine allégée : environ 50 min » pour une séance qui ne l'est pas.
+    if (Moteur.intentionDe(profil && profil.intention, null) === 'entretien') return false;
     var jour = Moteur.jourCivil(new Date().toISOString());
     return !!Moteur.periodeAllegee(Moteur.cartesDesParis(parisEscalierConnus()), jour) ||
       // §9.22 (53-2) — la décharge planifiée est une semaine allégée.
@@ -5894,8 +5906,11 @@
 
   // Les cibles plus courtes que la routine : sans elles, le geste n'a rien à
   // proposer et ne s'affiche pas.
+  // 60-1 — la durée déclarée au profil est la cible quand la routine la dépasse
+  // (`Moteur.ciblesDeTemps`) ; sinon 45 et 60. Un seul endroit : ni cette
+  // fonction ni l'écran ne comparent quoi que ce soit.
   function ciblesPlusCourtes(dureeS) {
-    return CIBLES_TEMPS.filter(function (m) { return m * 60 < dureeS; });
+    return Moteur.ciblesDeTemps(dureeS, profil ? profil.duree_seance_min : null);
   }
 
   function tempsDeLaRoutine(routine) {
@@ -5916,8 +5931,8 @@
     Rendu.rendreFeuilleTemps($('feuille-contenu'), {
       sujet: routine.nom || 'Sans nom',
       aide: t.texte,
-      choix: ciblesPlusCourtes(d).map(function (m) {
-        return { libelle: m + ' min', surClic: function () { montrerCarteRaccourci(routine, m); } };
+      choix: ciblesPlusCourtes(d).map(function (c) {
+        return { libelle: Moteur.libelleCibleTemps(c), surClic: function () { montrerCarteRaccourci(routine, c.min); } };
       }),
       surAnnuler: fermerVoile
     });
@@ -6643,10 +6658,28 @@
 
   function ouvrirCatalogue(apres, remplace) {
     intentionCatalogue = { apres: indiceOuNul(apres), remplace: indiceOuNul(remplace) };
+    // 60-1 — les exercices déjà faits, relevés UNE FOIS à l'ouverture : la
+    // recherche se relance à chaque frappe, et le balayage des séries est le
+    // coût que `faits` garde déjà hors de la saisie.
+    faitsDuCatalogue = null;
     $('champ-recherche-exo').value = '';
     rendreCatalogue();
     ouvrirVoile($('catalogue'));
     $('champ-recherche-exo').focus();
+  }
+
+  var faitsDuCatalogue = null;
+
+  // 60-1 — LE MATÉRIEL RANGE, IL NE CACHE JAMAIS : les exercices que le
+  // matériel du profil n'a pas passent après, tous les autres gardent l'ordre
+  // de la recherche ; un exercice déjà fait n'est jamais rétrogradé. Appliqué
+  // AVANT la limite de la liste (`Routines.chercher`, 4ᵉ argument), sinon un
+  // exercice du matériel au-delà de la trentième place resterait invisible.
+  function ordreDuCatalogue() {
+    var materiel = profil && profil.materiel;
+    if (!Profil.equipementsDe(materiel)) return null;
+    if (faitsDuCatalogue === null) faitsDuCatalogue = faits.datesDesExercices(corpus());
+    return function (liste) { return Profil.rangerParMateriel(liste, materiel, faitsDuCatalogue); };
   }
 
   function rendreCatalogue() {
@@ -6660,7 +6693,7 @@
     // cours. C'est la séance qui gagne quand elle est ouverte — on y est.
     var pourSeance = !!seance && !vues.seance.hidden;
     Rendu.rendreResultatsExo($('resultats-exo'),
-      Routines.chercher(local.exercices, $('champ-recherche-exo').value),
+      Routines.chercher(local.exercices, $('champ-recherche-exo').value, undefined, ordreDuCatalogue()),
       function (exo) {
         fermerVoile();
         if (pourSeance) {
@@ -7806,7 +7839,7 @@
     return promesse;
   }
 
-  // ── La déclaration des quinze champs ─────────────────────────────────────
+  // ── La déclaration des champs ─────────────────────────────────────
   //
   // ⚠️ UNE TABLE, PAS QUINZE FONCTIONS. Chaque entrée dit sa colonne, sa
   // feuille et comment se lit sa valeur ; `rendreProfil` ne connaît aucune de
@@ -7814,32 +7847,31 @@
   // champ, c'est une ligne ici — pas une ligne dans le rendu, une dans le
   // routeur et une dans le HTML.
   function listeDe(cle) {
-    if (cle === 'mode_entrainement') return Profil.DISCIPLINES;
     if (cle === 'materiel') return Profil.MATERIELS;
     if (cle === 'anciennete') return Profil.ANCIENNETES;
-    if (cle === 'niveau_declare') return Profil.NIVEAUX;
     if (cle === 'sexe') return Profil.SEXES;
-    if (cle === 'unites') return Profil.UNITES;
     return [];
   }
 
   function valeurProfil(cle) { return profil ? profil[cle] : null; }
 
-  // Les listes fermées. `effacable` dit si la colonne accepte NULL : `sexe`,
-  // `mode_entrainement` et `unites` sont NOT NULL en base — leur proposer
-  // « Effacer » serait promettre une écriture que Postgres refuserait en 23502.
+  // Les listes fermées. `effacable` dit si la colonne accepte NULL : `sexe` est
+  // NOT NULL en base — lui proposer « Effacer » serait promettre une écriture que
+  // Postgres refuserait en 23502.
+  //
+  // ⚠️ 60-1 (QUESTIONNAIRE-COACH-V2 §6) — CHAQUE PHRASE DIT CE QUI EST BRANCHÉ.
+  // « Matériel » range, il ne décide de rien : il passe après ce que tu n'as
+  // pas, jamais caché. Discipline, niveau déclaré et unités ont quitté l'écran
+  // (rien ne les lit), et la phrase qui faisait de « Sexe », de la taille et de
+  // l'âge les entrées d'un calcul de force a quitté leurs feuilles : aucun
+  // calcul de ce genre n'est lu dans l'app.
   var CHOIX = {
-    mode_entrainement: { titre: 'Discipline', effacable: false,
-      aide: 'Elle décide de ce que le moteur cherchera à faire progresser.' },
     materiel: { titre: 'Matériel', effacable: true,
-      aide: 'Il décide quels exercices peuvent être proposés.' },
+      aide: 'Je range les exercices selon ton matériel : ce que tu n’as pas passe après, jamais caché.' },
     anciennete: { titre: 'Entraînement régulier', effacable: true,
       aide: 'Depuis quand tu t’entraînes RÉGULIÈREMENT — pas depuis ta première séance. On peut s’entraîner depuis cinq ans et rester débutant.' },
-    niveau_declare: { titre: 'Niveau déclaré', effacable: true,
-      aide: 'Ce que tu en dis. Rien ne le vérifie et rien ne le contredit.' },
     sexe: { titre: 'Sexe', effacable: false,
-      aide: 'Entrée du référentiel de force. « Non précisé » est une réponse, pas un trou.' },
-    unites: { titre: 'Unités', effacable: false, aide: null }
+      aide: '« Non précisé » est une réponse, pas un trou.' }
   };
 
   function ouvrirChoixProfil(cle) {
@@ -7882,28 +7914,11 @@
         titre: seances ? 'Séances par semaine' : 'Durée d’une séance',
         aide: seances
           ? 'Ce que tu VISES, pas ce que tu fais — le compte réel, lui, se lit dans tes séances.'
-          : 'Une durée visée, pour un générateur de programme qui arrive au chantier 5.',
+          : 'Quand ta routine dépasse ce temps, je te propose de la raccourcir.',
         options: optionsNombre(valeurs, seances ? '' : ' min'),
         valeur: valeurProfil(cle),
         surChoix: function (v) { fermerVoile(); ecrireProfil(defObjet(cle, v)); },
         surEffacer: function () { fermerVoile(); ecrireProfil(defObjet(cle, null)); },
-        surAnnuler: fermerVoile
-      });
-    };
-    ouvrirFeuilleProfil();
-  }
-
-  function ouvrirJoursProfil() {
-    feuilleProfil = function (cible) {
-      Rendu.rendreFeuilleJours(cible, {
-        jours: Profil.JOURS,
-        valeur: Profil.joursValides(valeurProfil('jours_vises')),
-        aide: 'Les jours où tu comptes t’entraîner. Aucune alarme si tu t’en écartes.',
-        surValider: function (liste) {
-          fermerVoile();
-          var propres = Profil.joursValides(liste);
-          ecrireProfil({ jours_vises: propres.length ? propres : null });
-        },
         surAnnuler: fermerVoile
       });
     };
@@ -7915,7 +7930,7 @@
   var SAISIES = {
     taille_cm: {
       titre: 'Taille', type: 'text', inputMode: 'numeric', etiquette: 'En centimètres',
-      aide: 'Entrée du référentiel de force, avec l’âge, le sexe et le poids.',
+      aide: null,
       lire: function (p) { return p.taille_cm; },
       valider: function (v) {
         if (!String(v).trim()) return { champs: { taille_cm: null } };
@@ -7929,7 +7944,7 @@
     },
     date_naissance: {
       titre: 'Date de naissance', type: 'date', etiquette: 'Jour de naissance',
-      aide: 'L’âge change les bornes du référentiel. Il n’est jamais affiché à personne d’autre.',
+      aide: 'Il n’est jamais affiché à personne d’autre.',
       lire: function (p) { return p.date_naissance; },
       valider: function (v) {
         if (!String(v).trim()) return { champs: { date_naissance: null } };
@@ -8025,8 +8040,7 @@
 
   function ligneChoix(cle, libelle, sous) {
     return { libelle: libelle, sous: sous,
-      valeur: Profil.libelleDe(cle === 'mode_entrainement'
-        ? Profil.DISCIPLINES_CONNUES : listeDe(cle), valeurProfil(cle)),
+      valeur: Profil.libelleDe(listeDe(cle), valeurProfil(cle)),
       surChoix: function () { ouvrirChoixProfil(cle); } };
   }
 
@@ -8055,18 +8069,11 @@
       ],
       sections: [
         { titre: 'CE QUE JE FAIS', lignes: [
-          ligneChoix('mode_entrainement', 'Discipline'),
-          ligneChoix('materiel', 'Matériel', 'Décide des exercices proposés')
+          ligneChoix('materiel', 'Matériel')
         ] },
-        { titre: 'POURQUOI',
-          segment: {
-            options: Profil.INTENTIONS,
-            valeur: p.intention || 'progresser',
-            surChoix: function (v) { ecrireProfil({ intention: v }); }
-          },
-          note: { fort: 'Le moteur propose des charges',
-                  reste: 'en mode Progresser. En Entretenir, il se tait sur la ' +
-                         'charge et garde le repos et la structure.' } },
+        // 60-1 — « Progresser » ou « Juste un carnet » : la section se construit
+        // dans `profil.js`, comme « Ton rythme » (la phrase dépend du choix).
+        Profil.sectionIntention(p, ecrireProfil),
         // ── MOTEUR §9.8 / ECRAN-PROFIL §2.3 — « TON RYTHME » ───────────────
         //
         // Le MÊME sélecteur que l'intention juste au-dessus (§2.3, tranché le
@@ -8082,8 +8089,7 @@
         // sélecteur, la même écriture (`ecrireProfil`, par la file du profil).
         Profil.sectionPhase(p, ecrireProfil),
         { titre: 'DEPUIS QUAND', lignes: [
-          ligneChoix('anciennete', 'Entraînement régulier'),
-          ligneChoix('niveau_declare', 'Niveau déclaré')
+          ligneChoix('anciennete', 'Entraînement régulier')
         ] },
         { titre: 'MES EXERCICES', lignes: [
           { libelle: 'Tous mes exercices', sansValeur: true,
@@ -8112,14 +8118,11 @@
         { titre: 'TA SEMAINE', lignes: [
           { libelle: 'Séances par semaine', valeur: p.seances_par_semaine || null,
             surChoix: function () { ouvrirRythmeProfil('seances_par_semaine'); } },
-          { libelle: 'Jours', valeur: Profil.libelleJours(p.jours_vises),
-            surChoix: ouvrirJoursProfil },
           { libelle: 'Durée d’une séance',
             valeur: p.duree_seance_min ? p.duree_seance_min + ' min' : null,
             surChoix: function () { ouvrirRythmeProfil('duree_seance_min'); } }
         ] },
         { titre: 'L’APP', lignes: [
-          ligneChoix('unites', 'Unités'),
           { libelle: 'Pseudo', valeur: p.username || null,
             surChoix: function () { ouvrirSaisieProfil('username'); } },
           { libelle: 'Bio', valeur: p.bio || null,

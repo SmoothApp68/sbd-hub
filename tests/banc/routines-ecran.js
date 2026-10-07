@@ -1959,16 +1959,25 @@ const CATALOGUE = [
     await page3.evaluate(() => !document.querySelector('#profil-corps .p-accueil')), 'plus de bandeau');
   await page3.evaluate(() =>
     Array.from(document.querySelectorAll('#profil-corps .p-seg button'))
-      .find((b) => b.textContent === 'Entretenir').click());
+      .find((b) => b.textContent === 'Juste un carnet').click());
   await attendre(1500);
-  ok('[46 §2 · test 9] « Entretenir » est enregistré — et c’est la CLÉ de la base',
+  ok('[46 §2 · test 9 · 60-1] « Juste un carnet » est enregistré — et c’est la CLÉ de la base, « entretien »',
     base.profil && base.profil.intention === 'entretien',
     'base.intention = ' + (base.profil && base.profil.intention));
   ok('[46 §2 · test 9] …et l’écran le marque tout de suite',
     await page3.evaluate(() => {
       const b = Array.from(document.querySelectorAll('#profil-corps .p-seg button'));
       return b[1].className === 'on' && b[0].className === '';
-    }), 'Entretenir marqué');
+    }), '« Juste un carnet » marqué');
+
+  // ── 60-1 — QUATRE LIGNES EN MOINS, ET RIEN QUI PROMETTE CE QUI N'EST PAS BRANCHÉ ──
+  const lignesProfil = await page3.evaluate(() =>
+    Array.from(document.querySelectorAll('#profil-corps .p-ligne')).map((l) => l.textContent));
+  ok('[60-1] le profil n’a plus Discipline, Niveau déclaré, Jours ni Unités ; Matériel reste, sans promesse sous son nom',
+    !lignesProfil.some((t) => /^(Discipline|Niveau déclaré|Jours|Unités)/.test(t)) &&
+    lignesProfil.some((t) => /^Matériel/.test(t)) && !lignesProfil.some((t) => /Décide des exercices/.test(t)) &&
+    lignesProfil.some((t) => /^Durée d’une séance/.test(t)),
+    JSON.stringify(lignesProfil.map((t) => t.slice(0, 22))));
 
   // ── Une feuille de choix, bout en bout ───────────────────────────────────
   await page3.evaluate(() =>
@@ -1979,6 +1988,9 @@ const CATALOGUE = [
     await page3.evaluate(() =>
       document.querySelectorAll('#feuille-contenu .feuille-menu button').length === 5),
     await txt3('#feuille-contenu .feuille-t'));
+  ok('[60-1] l’aide du matériel dit ce qu’il fait : il range, il ne cache jamais',
+    (await txt3('#feuille-contenu .feuille-aide')) === 'Je range les exercices selon ton matériel : ce que tu n’as pas passe après, jamais caché.',
+    await txt3('#feuille-contenu .feuille-aide'));
   await page3.evaluate(() =>
     document.querySelector('#feuille-contenu .feuille-menu button[data-cle="salle_complete"]').click());
   await attendre(1500);
@@ -1987,6 +1999,21 @@ const CATALOGUE = [
     await page3.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
       .find((l) => /^Matériel/.test(l.textContent)).querySelector('.p-val').textContent === 'Salle complète'),
     'base.materiel = ' + (base.profil && base.profil.materiel));
+
+  // ── 60-1 — LA DURÉE : sa phrase dit ce qui est branché, et le choix part en base ──
+  await page3.evaluate(() =>
+    Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
+      .find((l) => /^Durée d’une séance/.test(l.textContent)).click());
+  await attendre(500);
+  ok('[60-1] l’aide de la durée : « Quand ta routine dépasse ce temps, je te propose de la raccourcir. » — plus de générateur',
+    (await txt3('#feuille-contenu .feuille-aide')) === 'Quand ta routine dépasse ce temps, je te propose de la raccourcir.',
+    await txt3('#feuille-contenu .feuille-aide'));
+  await page3.evaluate(() =>
+    Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
+      .find((b) => b.textContent === '60 min').click());
+  await attendre(1500);
+  ok('[60-1] 60 min part en base sous `duree_seance_min`',
+    base.profil && base.profil.duree_seance_min === 60, 'base.duree_seance_min = ' + (base.profil && base.profil.duree_seance_min));
 
   // ⚠️ UNE BORNE REFUSÉE RESTE DANS LA FEUILLE. Le CHECK `profiles_taille_ok`
   // refuse hors 100–250 en 23514 — code DÉFINITIF. On refuse AVANT, avec une

@@ -1450,13 +1450,6 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
   border:1px solid transparent;background:transparent;color:var(--texte-3);
   font-family:inherit;font-size:13px;font-weight:500}
 
-/* Les jours visés, en pastilles. `aria-pressed` porte l'état ; la classe le montre. */
-.p-jours{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;padding:var(--e2) 0}
-.p-jours button{height:44px;border-radius:var(--r-petit);border:1px solid var(--trait);
-  background:transparent;color:var(--texte-3);font-family:inherit;
-  font-size:12px;font-weight:600}
-.p-jours button.on{background:var(--panneau-2);border-color:#4A5058;color:var(--texte)}
-
 /* La feuille de choix : la même que le menu de séance, plus une coche et un
    sous-titre. C'est `.feuille-menu` qui porte le reste. */
 .feuille-menu.choix button{display:flex;align-items:center;gap:var(--e2)}

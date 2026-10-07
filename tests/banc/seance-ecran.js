@@ -11147,6 +11147,34 @@ const SETS_IMPORTES = [
     await aller('/saisie');
     await attendre(500);
 
+    // ── F. 60-1 (QUESTIONNAIRE-COACH-V2 §4) — LA DURÉE DÉCLARÉE EST LA CIBLE.
+    // `duree_seance_min` n'était lue par rien : réglée à 60 au profil, elle
+    // devient la cible proposée (« Tenir en 60 min »), à la place de 45 et 60.
+    // Retirée, les cibles d'avant reviennent — le profil du banc l'a vide.
+    base.profiles[0].duree_seance_min = 60;
+    await aller('/saisie');
+    await attendre(1800);
+    await peuDeTemps('Peu de temps U51');
+    const f1 = await feuilleR();
+    ok('[60-1] DISCRIMINANT — durée déclarée 60 min : la feuille propose « Tenir en 60 min », et plus 45 ni 60',
+      JSON.stringify(f1.boutons.map(sp)) === JSON.stringify(['Tenir en 60 min', 'Annuler']), JSON.stringify(f1));
+    await entree('^Tenir en 60 min$');
+    const f2 = await feuilleR();
+    ok('[60-1] …et la carte part de 60 min : « Pour tenir en 60 min (estimation) », ou « Au plus court » si elle n’y arrive pas',
+      /^(Pour tenir en 60 min|Au plus court : \d+ min) \(estimation\)$/.test(sp(f2.titre)), JSON.stringify(f2));
+    await entree('^Garder la séance$');
+    await attendre(900);
+    await abandonner();
+    base.profiles[0].duree_seance_min = null;
+    await aller('/saisie');
+    await attendre(1800);
+    await peuDeTemps('Peu de temps U51');
+    const f3 = await feuilleR();
+    ok('[60-1] témoin : sans durée déclarée, les cibles d’avant (45 et 60 min)',
+      JSON.stringify(f3.boutons) === JSON.stringify(['45 min', '60 min', 'Annuler']), JSON.stringify(f3));
+    await entree('^Annuler$');
+    await attendre(300);
+
     ok('[T51] la garde (C6) n’a rien signalé dans cette section', gardeBanc.violations === violationsAvant,
       JSON.stringify(gardeBanc.liste.slice(-2)));
     ok('[T51] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));

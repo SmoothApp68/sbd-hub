@@ -3,7 +3,8 @@
 //
 //   node tests/banc/seance-rapide.js                         le banc COMPLET, en parallèle (6 groupes)
 //   node tests/banc/seance-rapide.js --sections 7-G-sexies   un banc RÉDUIT (les sections nommées)
-//   node tests/banc/seance-rapide.js --sequentiel            le banc complet, en séquentiel (la référence)
+//   node tests/banc/seance-rapide.js --sequentiel            le banc complet, en séquentiel (la référence ;
+//                                                            une section qui plante n'arrête plus le banc)
 //   node tests/banc/seance-rapide.js --comparer              les deux, et la preuve qu'ils disent la même chose (~33 min)
 //   node tests/banc/seance-rapide.js --contre seq.json       ce banc, comparé à un rapport écrit par --rapport
 //   node tests/banc/seance-rapide.js --lister                les sections, leurs chaînes, leur durée, les groupes
@@ -324,11 +325,17 @@ async function reduit(ids, options) {
 }
 
 // ── Le banc séquentiel : la référence, le fichier tel quel ──────────────────
+// ⚠️ LE SÉQUENTIEL NE S'ARRÊTE PLUS À LA PREMIÈRE EXCEPTION (07/10/2026). Il
+// joue le banc entier par le découpeur, chaque section RÉSISTANTE
+// (`seance-sections.js`, `sectionResistante`) : une section qui plante compte
+// un contrôle en échec, « [exception] … », et la suivante joue. Le résumé
+// liste alors TOUS les échecs, à la fin — plus seulement le premier. Avant,
+// une exception au contrôle [57-1] taisait `forge` et `8` (séquentiel de 58-1).
 async function sequentiel(options) {
   const o = options || {};
   const banc = Sections.lireBanc(o.banc);
   const debut = Date.now();
-  const r = await jouer(banc.fichier, o);
+  const r = await jouer(Sections.ecrireProgramme(banc, banc.sections, null, { resistant: true }), o);
   const groupes = [{ membres: banc.sections.map((s) => s.id), prealables: [] }];
   const couverture = verifierCouverture(banc, groupes, [r]);
   const f = fusionner(banc, groupes, [r], false);

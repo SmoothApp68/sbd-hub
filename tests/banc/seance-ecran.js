@@ -292,6 +292,11 @@ const CATALOGUE = [
   // le texte visible, écran par écran. Son nom ne répond à aucune recherche faite
   // ailleurs, et aucune autre section ne lui pose de séries.
   { slug: 'forge-u56', nom: 'Développé Forge U56 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['u56_pecs'], muscles_secondaires: [] },
+  // 58-2 (MOTEUR §9.23) — réservés à la section « journal » : une barre qui bat
+  // ses records séance après séance, et une machine (son record se lit sur 12
+  // mois). Aucun muscle, des noms qu'aucune autre recherche du banc ne trouve.
+  { slug: 'journal-u58', nom: 'Journal U58 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: [], muscles_secondaires: [] },
+  { slug: 'journal-m58', nom: 'Journal Machine U58', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: [], muscles_secondaires: [] },
   // 52-1 (ECRAN-SAISIE §7 duodecies.3, §7 quindecies.3-4 ; MOTEUR §9.21) —
   // réservés à la section « organiser » : un cardio (sans muscle), un gros
   // mouvement (3 muscles : un polyarticulaire), deux isolations en superset,
@@ -503,6 +508,9 @@ const SETS_IMPORTES = [
     blocs: [],
     // 55-1 — `body_weight_log` : vide, sauf pour la section « progression ».
     pesees: [],
+    // 58-2 (v2_061, v2_062) — le journal des records, et ce que l'app y a
+    // envoyé (un relevé à part : `journal` garde ses refus, qui comptent).
+    records: [], ecrituresRecords: [], graineRecords: 0,
     journal: [], patchs: [], reseau: true,
     // 52-1 — l'identifiant d'une routine créée par l'app (« En faire une
     // routine », « Dupliquer »).
@@ -815,7 +823,8 @@ const SETS_IMPORTES = [
     // cours pendant qu'on s'entraînait.
     if (/count=exact/.test(req.headers()['prefer'] || '')) {
       const n = table === 'sessions' ? base.sessions.length
-              : table === 'sets' ? base.sets.length : 0;
+              : table === 'sets' ? base.sets.length
+              : table === 'records' ? base.records.length : 0;
       // ⚠️ `access-control-expose-headers` n'est pas une politesse : sans lui,
       // le navigateur laisse passer la réponse mais INTERDIT au JavaScript de
       // lire `content-range`, qui n'est pas dans la liste sûre du CORS. Le
@@ -1013,6 +1022,74 @@ const SETS_IMPORTES = [
         base.predictions[i] = fusion;
         return json(projeter([fusion], url), 200);
       }
+    }
+
+    // ⚠️ 58-2 (MOTEUR §9.23) — `records`, LE JOURNAL DES RECORDS, avec les
+    // contraintes de la vraie table (v2_061, v2_062) : l'unicité (set_id,
+    // type), les clés étrangères, le CHECK des types et de l'unité, le RLS
+    // (ses lignes, en lecture et en ajout seulement) — et `records_immuable` :
+    // une ligne écrite ne se modifie JAMAIS. Un upsert qui FUSIONNE une ligne
+    // déjà là est refusé (P0001), comme le ferait le déclencheur ; seul
+    // l'ajout qui IGNORE les doublons (`resolution=ignore-duplicates`,
+    // `on_conflict=set_id,type`) passe sans rien toucher. Sans cette branche,
+    // l'envoi tombait dans le `json([])` final et « réussissait » sans rien
+    // écrire — le banc plus permissif que la base.
+    const COLONNES_RECORDS = ['id', 'user_id', 'set_id', 'session_id', 'exercise_slug', 'type', 'valeur', 'reps',
+      'charge', 'unite', 'ancien', 'ancien_le', 'sur_douze_mois', 'battu_le', 'created_at'];
+    const TYPES_RECORDS = ['charge_a_reps', 'reps_a_charge', 'charge_max', 'cap', 'un_rm_estime',
+      'volume_seance', 'duree_s', 'distance_m'];
+    if (table === 'records') {
+      if (req.method() === 'GET') {
+        let l = base.records.slice();
+        const ca = url.searchParams.get('created_at') || '';
+        if (ca.startsWith('gt.')) l = l.filter((x) => String(x.created_at) > ca.slice(3));
+        const idGt = url.searchParams.get('id') || '';
+        if (idGt.startsWith('gt.')) l = l.filter((x) => String(x.id) > idGt.slice(3));
+        l.sort((a, b) => String(a.id).localeCompare(String(b.id)));
+        const lim = Number(url.searchParams.get('limit') || 0);
+        if (lim) l = l.slice(0, lim);
+        return json(projeter(l, url));
+      }
+      if (req.method() === 'POST') {
+        const prefer = req.headers()['prefer'] || '';
+        const conflit = url.searchParams.get('on_conflict');
+        const ignorer = conflit === 'set_id,type' && /resolution=ignore-duplicates/.test(prefer);
+        const fusionner = conflit === 'set_id,type' && /resolution=merge-duplicates/.test(prefer);
+        const lignes = Array.isArray(corps) ? corps : [corps];
+        base.ecrituresRecords.push({ n: lignes.length, ignorer, fusionner, conflit });
+        const ajouts = [];
+        const meme = (a, b) => a.set_id === b.set_id && a.type === b.type;
+        // UNE transaction : un refus n'écrit rien du lot.
+        for (const l of lignes) {
+          const inconnue = Object.keys(l).filter((k) => COLONNES_RECORDS.indexOf(k) < 0)[0];
+          if (inconnue) return json(refus('PGRST204', 'records : colonne inconnue « ' + inconnue + ' »'), 400);
+          if (!l.user_id) return json(refus('23502', 'records.user_id NOT NULL'), 400);
+          if (l.user_id !== MOI) return json(refus('42501', 'new row violates row-level security policy for table "records"'), 400);
+          if (!base.sets.some((x) => x.id === l.set_id)) return json(refus('23503', 'records_set_id_fkey'), 400);
+          if (!base.sessions.some((x) => x.id === l.session_id)) return json(refus('23503', 'records_session_id_fkey'), 400);
+          if (!CATALOGUE.some((e) => e.slug === l.exercise_slug)) return json(refus('23503', 'records_exercise_slug_fkey'), 400);
+          if (TYPES_RECORDS.indexOf(l.type) < 0) return json(refus('23514', 'records_type_check'), 400);
+          if (l.valeur === null || l.valeur === undefined) return json(refus('23502', 'records.valeur NOT NULL'), 400);
+          if (!l.battu_le) return json(refus('23502', 'records.battu_le NOT NULL'), 400);
+          if (l.sur_douze_mois === null) return json(refus('23502', 'records.sur_douze_mois NOT NULL'), 400);
+          if (l.unite !== null && l.unite !== undefined && ['kg', 'reps'].indexOf(l.unite) < 0) {
+            return json(refus('23514', 'records_unite_check'), 400);
+          }
+          if (l.reps !== null && l.reps !== undefined && !Number.isInteger(l.reps)) return json(refus('22P02', 'records.reps : entier'), 400);
+          if (base.records.some((x) => meme(x, l)) || ajouts.some((x) => meme(x, l))) {
+            if (ignorer) continue;
+            if (fusionner) return json(refus('P0001', 'records : une ligne écrite ne se modifie jamais (v2_061)'), 400);
+            return json(refus('23505', 'duplicate key value violates unique constraint "records_set_id_type_key"'), 409);
+          }
+          ajouts.push(Object.assign({}, l, {
+            id: '00000000-0000-4000-8058-' + String(++base.graineRecords).padStart(12, '0'),
+            created_at: new Date().toISOString() }));
+        }
+        ajouts.forEach((a) => base.records.push(a));
+        return json([], 201);
+      }
+      // Ni modification, ni suppression par l'app : la politique ne le permet pas.
+      return json(refus('42501', 'records : ni modification ni suppression par l’app (' + req.method() + ')'), 403);
     }
 
     if (table === 'profiles') {
@@ -1325,6 +1402,16 @@ const SETS_IMPORTES = [
         if (vus.has(c)) { base.sets = avant; return json(refus('23505', 'sets_rang_unique'), 409); }
         vus.add(c);
       }
+      // 58-2 — `sets_efface_records` (v2_061) : AFTER UPDATE OF type_serie,
+      // charge_kg, reps, duree_s, distance_m, quand l'un d'eux est DISTINCT de
+      // l'ancien — les records de la série corrigée partent ; l'app les réécrit.
+      const distinct = (a, b) => (a === undefined ? null : a) !== (b === undefined ? null : b);
+      for (const l of lignes) {
+        const ancienne = avant.filter((x) => x.id === l.id)[0];
+        if (ancienne && ['type_serie', 'charge_kg', 'reps', 'duree_s', 'distance_m'].some((c) => distinct(ancienne[c], l[c]))) {
+          base.records = base.records.filter((r) => r.set_id !== l.id);
+        }
+      }
       return json(lignes, 201);
     }
 
@@ -1365,8 +1452,10 @@ const SETS_IMPORTES = [
         base.journal.push({ op: 'suppression', ids: ids });
         base.sessions = base.sessions.filter((s) => ids.indexOf(s.id) < 0);
         base.sets = base.sets.filter((s) => ids.indexOf(s.session_id) < 0);   // CASCADE
+        base.records = base.records.filter((r) => ids.indexOf(r.session_id) < 0);   // CASCADE (58-2)
       } else {
         base.sets = base.sets.filter((s) => ids.indexOf(s.id) < 0);
+        base.records = base.records.filter((r) => ids.indexOf(r.set_id) < 0);   // CASCADE (58-2)
         // `sets_efface_observation` (v2_047, BEFORE DELETE ON sets) : une série
         // supprimée emporte l'observation des prédictions qui la désignent.
         // Sans lui, le banc garderait des reps comptées sur une série disparue
@@ -12528,9 +12617,16 @@ const SETS_IMPORTES = [
         sp(m1[0].gras) === 'Record à 125 kg : 5 reps. 1RM estimé : ≈ 146 kg.' &&
         sp(m1[0].gris) === sp('Avant : 4 reps, ' + dateJ13 + (/\.$/.test(dateJ13) ? '' : '.')), JSON.stringify([m1, dateJ13]));
     await capturer55('1-medaille');
-    ok('[P55] la médaille ne s’écrit pas en base : aucune colonne, aucune table de plus',
+    // 58-2 — le journal des records existe désormais (`records`), mais il ne
+    // s'écrit qu'à « Terminer » : la médaille, en séance, n'écrit toujours rien.
+    // Les séances PASSÉES du décor peuvent y être (le remplissage de
+    // l'historique) ; la séance EN COURS, jamais.
+    const enCours55 = (sessions().filter((x) => x.statut === 'en_cours')[0] || {}).id;
+    ok('[P55] la médaille ne s’écrit pas en base : aucune colonne, et rien au journal pour la séance en cours',
       base.sets.filter((x) => x.exercise_slug === 'record-u55').every((x) => !('records' in x) && !('medaille' in x)) &&
-        !Object.keys(base).some((k) => /record|medaille/i.test(k)), JSON.stringify(Object.keys(base)));
+        !Object.keys(base).some((k) => /medaille/i.test(k)) && !!enCours55 &&
+        !base.records.some((x) => x.session_id === enCours55),
+      JSON.stringify([Object.keys(base), enCours55, base.records.filter((x) => x.session_id === enCours55)]));
 
     // ── B. DÉVALIDER LA RETIRE, REVALIDER LA REND.
     await page.evaluate(() => {
@@ -12767,6 +12863,216 @@ const SETS_IMPORTES = [
 
     ok('[P55] la garde de l’app n’a rien signalé, aucune erreur de page',
       gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant, JSON.stringify(erreurs.slice(erreursAvant)));
+    await aller('/saisie');
+    await attendre(500);
+  }
+
+  console.log('\n══ journal. LE JOURNAL DES RECORDS : LE REMPLISSAGE, « TERMINER », LE RENVOI, L’ÉDITION (58-2, MOTEUR §9.23) ══');
+  //
+  // Le journal (`records`) garde chaque record UNE fois : une ligne par série
+  // et par type. Le décor : 36 séances d'une barre, une série chacune, de plus
+  // en plus lourde (60 + 2,5 k kg × 5) — chaque séance après la première bat
+  // la charge pour 5 reps, la charge la plus lourde et le 1RM estimé, et un cap
+  // rond tous les 10 kg ; et 4 séances d'une machine (record « sur 12 mois »).
+  // L'ORACLE EST ÉCRIT ICI, à la main, depuis le décor — jamais relu dans l'app.
+  //
+  //   A. LE REMPLISSAGE : le journal du serveur vide, l'app le remplit une fois,
+  //      en tranches qui rendent la main ;
+  //   B. « TERMINER » : 150 × 2, 100 × 5, 147,5 × 6 → six lignes, une par
+  //      (série, type) — rien avant « Terminer » ;
+  //   C. LE RENVOI : enregistrer sans rien changer renvoie les mêmes lignes —
+  //      aucun doublon, aucun refus (`records_immuable`) ;
+  //   D. L'ÉDITION : 150 → 152,5 sur la série 1 — ses lignes sont réécrites,
+  //      les autres restent (un record est un record à sa date).
+  {
+    const tJ = Date.now();
+    const erreursAvant = erreurs.length;
+    const violationsAvant = gardeBanc.violations;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const N58 = 36;
+    const chargeDe = (k) => 60 + 2.5 * k;
+    const debutsJ = [];
+    for (let k = 0; k < N58; k++) {
+      const id = 'j58-' + k;
+      const debut = ilYa((N58 + 6 - k) * 86400000, tJ).toISOString();
+      debutsJ.push(debut);
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'Décor journal ' + k, debut,
+        fin: finDe(debut, tJ).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      base.sets.push({ id: id + '-s1', session_id: id, user_id: 'u-banc', exercise_slug: 'journal-u58',
+        charge_kg: chargeDe(k), reps: 5, duree_s: null, distance_m: null, type_serie: 'travail', rang: 1,
+        groupe_superset: null, validee_a: debut, rpe: null, ressenti: null, repos_s: null, note: null,
+        source: 'app', created_at: debut, modifie_a: null });
+    }
+    for (let k = 0; k < 4; k++) {
+      const id = 'jm58-' + k;
+      const debut = ilYa((40 - k * 9) * 86400000 + 3600000, tJ).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'Décor machine ' + k, debut,
+        fin: finDe(debut, tJ).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      base.sets.push({ id: id + '-s1', session_id: id, user_id: 'u-banc', exercise_slug: 'journal-m58',
+        charge_kg: 40 + 5 * k, reps: 8, duree_s: null, distance_m: null, type_serie: 'travail', rang: 1,
+        groupe_superset: null, validee_a: debut, rpe: null, ressenti: null, repos_s: null, note: null,
+        source: 'app', created_at: debut, modifie_a: null });
+    }
+    ROUTINES.push({ id: 'r-j58', nom: 'Journal U58', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-j58-a', routine_id: 'r-j58', exercise_slug: 'journal-u58', rang: 0,
+        routine_sets: progr(3, 5), repos_cible_s: 120, groupe_superset: null, note: null }] });
+
+    const presDe = (a, b) => typeof a === 'number' && Math.abs(a - b) < 1e-6;
+    const lignesDe = (setId) => base.records.filter((r) => r.set_id === setId);
+    const typesDe = (setId) => lignesDe(setId).map((r) => r.type).sort().join(',');
+    const fileJ = () => page.evaluate(() => THCache.lireAttente().then((f) => (f || []).map((e) => e.table + ':' + e.id)));
+    const etatJ = () => page.evaluate(() => window.THApp && THApp.journal ? THApp.journal() : null);
+    const metaJ = () => page.evaluate(() => THCache.lireMeta('journalRecords'));
+    const attendreQue = async (cond, ms) => {
+      for (let t = 0; t < (ms || 15000); t += 250) { if (await cond()) return true; await attendre(250); }
+      return false;
+    };
+
+    // ── A. LE REMPLISSAGE : le journal du serveur VIDE, et l'appareil n'a
+    // rien décidé — l'état d'un compte au premier démarrage de cette version.
+    base.records.length = 0;
+    await page.evaluate(async () => {
+      await THCache.ecrireMeta('journalRecords', null);
+      await THCache.ecrireMeta('curseurRecords', null);
+      await THCache.remplacerTout('records', []);
+    });
+    const ecrituresAvantA = base.ecrituresRecords.length;
+    await aller('/');
+    const fini = await attendreQue(async () => {
+      const e = await etatJ();
+      return !!(e && e.remplissage && e.remplissage.fin) &&
+        (await fileJ()).filter((x) => /^records:/.test(x)).length === 0 &&
+        ((await metaJ()) || {}).etat === 'rempli';
+    }, 20000);
+    const eA = await etatJ();
+    const r = (eA && eA.remplissage) || {};
+    ok('[J58] prémisse : le remplissage est allé au bout, la file est vide, le journal se dit « rempli »',
+      fini, JSON.stringify([eA, await fileJ(), await metaJ()]));
+    // L'oracle : pour chaque séance k ≥ 1 du décor, la charge pour 5 reps, la
+    // charge la plus lourde, le 1RM estimé (et le cap rond tous les 10 kg) ;
+    // aucune à la première (rien à battre).
+    const fautesA = [];
+    for (let k = 0; k < N58; k++) {
+      const c = chargeDe(k), set = 'j58-' + k + '-s1';
+      const attendu = k === 0 ? '' : ['charge_a_reps', 'charge_max', 'un_rm_estime']
+        .concat(c % 10 === 0 ? ['cap'] : []).sort().join(',');
+      if (typesDe(set) !== attendu) fautesA.push(k + ' : ' + typesDe(set) + ' ≠ ' + attendu);
+      if (!k) continue;
+      const l = (t) => lignesDe(set).filter((x) => x.type === t)[0] || {};
+      const car = l('charge_a_reps'), cm = l('charge_max'), um = l('un_rm_estime');
+      if (!(presDe(car.valeur, c) && car.reps === 5 && presDe(car.ancien, chargeDe(k - 1)) &&
+            car.ancien_le === debutsJ[k - 1] && car.battu_le === debutsJ[k] && car.charge === null &&
+            car.unite === null && car.sur_douze_mois === false && car.session_id === 'j58-' + k &&
+            car.exercise_slug === 'journal-u58' && car.user_id === 'u-banc')) fautesA.push(k + ' charge_a_reps ' + JSON.stringify(car));
+      if (!(presDe(cm.valeur, c) && presDe(cm.ancien, chargeDe(k - 1)) && cm.reps === null)) fautesA.push(k + ' charge_max ' + JSON.stringify(cm));
+      if (!(presDe(um.valeur, c * (1 + 5 / 30)) && presDe(um.ancien, chargeDe(k - 1) * (1 + 5 / 30)))) fautesA.push(k + ' 1RM ' + JSON.stringify(um));
+    }
+    ok('[J58] DISCRIMINANT — le remplissage écrit, pour chaque séance du décor, exactement les records de l’oracle, champ par champ',
+      fautesA.length === 0, JSON.stringify(fautesA.slice(0, 4)));
+    const mach = base.records.filter((x) => x.exercise_slug === 'journal-m58');
+    ok('[J58] une machine : ses records se lisent sur 12 mois (`sur_douze_mois`), une barre jamais',
+      mach.length > 0 && mach.every((x) => x.sur_douze_mois === true) &&
+        base.records.filter((x) => x.exercise_slug === 'journal-u58').every((x) => x.sur_douze_mois === false),
+      JSON.stringify(mach.slice(0, 2)));
+    const cles = new Set(base.records.map((x) => x.set_id + '|' + x.type));
+    ok('[J58] une ligne par (série, type) sur tout le journal, et toutes les séances terminées ont été lues',
+      cles.size === base.records.length && r.seances === r.total && r.total >= N58 + 4,
+      JSON.stringify({ lignes: base.records.length, cles: cles.size, r }));
+    // ⚠️ L'ÉCRAN N'EST PAS BLOQUÉ : le remplissage rend la main entre deux
+    // tranches. D'un seul bloc (une tranche), l'app serait figée le temps de
+    // rejouer toute une vie de records — des secondes sur un téléphone.
+    ok('[J58] DISCRIMINANT — le remplissage se fait en tranches qui rendent la main (≥ 2, aucune de plus de 250 ms)',
+      r.tranches >= 2 && r.tranches >= Math.ceil(r.total / 10) && r.plusLongueTranche < 250,
+      JSON.stringify(r));
+    ok('[J58] il part par lots, par la file : tout ce que l’app a écrit est en base, par un ajout qui ignore les doublons',
+      base.ecrituresRecords.length > ecrituresAvantA &&
+        base.ecrituresRecords.slice(ecrituresAvantA).every((x) => x.ignorer) &&
+        eA.lignes === base.records.length, JSON.stringify([base.ecrituresRecords.slice(ecrituresAvantA), eA]));
+
+    // ── B. « TERMINER » : une ligne par (série, type), rien avant.
+    await aller('/saisie');
+    await attendre(600);
+    await demarrerRoutine('Journal U58');
+    await attendre(1500);
+    await saisirSerie(0, 150, 2);
+    await saisirSerie(1, 100, 5);
+    await saisirSerie(2, 147.5, 6);
+    await attendre(800);
+    const enCoursJ = (sessions().filter((x) => x.statut === 'en_cours')[0] || {}).id;
+    ok('[J58] rien au journal avant « Terminer » : la médaille, en séance, n’écrit rien',
+      !!enCoursJ && !base.records.some((x) => x.session_id === enCoursJ), JSON.stringify(enCoursJ));
+    const setsJ = base.sets.filter((x) => x.session_id === enCoursJ).sort((a, b) => a.rang - b.rang).map((x) => x.id);
+    await page.click('#bandeau-seance .bandeau-fin');
+    await attendre(700);
+    const finJ = await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .records-fin-l span'))
+      .map((x) => x.textContent.replace(/[  ]/g, ' ')));
+    await page.click('#feuille-contenu .principal');
+    await attendreQue(async () => (await fileJ()).length === 0, 10000);
+    const derniere = debutsJ[N58 - 1];
+    const lJ = (i, t) => lignesDe(setsJ[i]).filter((x) => x.type === t)[0] || {};
+    const debutJ = (base.sessions.filter((x) => x.id === enCoursJ)[0] || {}).debut;
+    ok('[J58] DISCRIMINANT — « Terminer » écrit une ligne par série et par type : 150 × 2 (charge pour 2 reps, la plus lourde, cap rond), 100 × 5 (volume), 147,5 × 6 (reps à charge, 1RM estimé)',
+      setsJ.length === 3 && typesDe(setsJ[0]) === 'cap,charge_a_reps,charge_max' &&
+        typesDe(setsJ[1]) === 'volume_seance' && typesDe(setsJ[2]) === 'reps_a_charge,un_rm_estime' &&
+        base.records.filter((x) => x.session_id === enCoursJ).length === 6,
+      JSON.stringify(base.records.filter((x) => x.session_id === enCoursJ).map((x) => [x.set_id, x.type])));
+    ok('[J58] chaque ligne porte ce que la médaille a constaté : la charge d’un « reps à charge », l’unité d’un volume, l’ancien record et sa date',
+      presDe(lJ(0, 'charge_a_reps').valeur, 150) && lJ(0, 'charge_a_reps').reps === 2 &&
+        presDe(lJ(0, 'charge_a_reps').ancien, 147.5) && lJ(0, 'charge_a_reps').ancien_le === derniere &&
+        presDe(lJ(1, 'volume_seance').valeur, 800) && lJ(1, 'volume_seance').unite === 'kg' &&
+        presDe(lJ(1, 'volume_seance').ancien, 737.5) &&
+        presDe(lJ(2, 'reps_a_charge').valeur, 6) && presDe(lJ(2, 'reps_a_charge').charge, 147.5) &&
+        presDe(lJ(2, 'reps_a_charge').ancien, 5) &&
+        presDe(lJ(2, 'un_rm_estime').valeur, 177) && presDe(lJ(2, 'un_rm_estime').ancien, 147.5 * (1 + 5 / 30)) &&
+        base.records.filter((x) => x.session_id === enCoursJ).every((x) => x.battu_le === debutJ && x.sur_douze_mois === false),
+      JSON.stringify(base.records.filter((x) => x.session_id === enCoursJ)));
+    ok('[J58] la feuille « Terminer » montrait ces trois séries — le journal garde ce qu’elle affichait',
+      JSON.stringify(finJ) === JSON.stringify(['Journal u58 150 kg × 2', 'Journal u58 100 kg × 5', 'Journal u58 147,5 kg × 6']),
+      JSON.stringify(finJ));
+
+    // ── C. LE RENVOI : enregistrer sans rien changer renvoie les six lignes.
+    const ecrituresAvantC = base.ecrituresRecords.length;
+    await ouvrirMenuDe('Journal U58');
+    await entree('Modifier');
+    await page.click('#bandeau-seance .bandeau-fin');
+    await attendreQue(async () => (await fileJ()).length === 0, 10000);
+    const renvoi = base.ecrituresRecords.slice(ecrituresAvantC);
+    ok('[J58] DISCRIMINANT — le renvoi : les mêmes lignes repartent, AUCUN doublon, AUCUN refus (un ajout qui ignore, jamais un upsert qui modifie)',
+      renvoi.length >= 1 && renvoi.every((x) => x.ignorer && !x.fusionner) && renvoi.some((x) => x.n === 6) &&
+        base.records.filter((x) => x.session_id === enCoursJ).length === 6 &&
+        base.journal.filter((j) => j.op === 'refus').length === refusAvant,
+      JSON.stringify([renvoi, base.journal.filter((j) => j.op === 'refus').slice(refusAvant)]));
+
+    // ── D. L'ÉDITION : 150 → 152,5 sur la série 1. La base efface ses lignes
+    // (`sets_efface_records`), l'app les réécrit ; la série 2 garde son
+    // volume de 800 kg — un record est un record à sa date.
+    const avantD = JSON.stringify(lignesDe(setsJ[1]).concat(lignesDe(setsJ[2])));
+    await ouvrirMenuDe('Journal U58');
+    await entree('Modifier');
+    const champsD = await (await ligne(0)).$$('input');
+    await champsD[0].fill('152.5');
+    await attendre(600);
+    await page.click('#bandeau-seance .bandeau-fin');
+    await attendreQue(async () => (await fileJ()).length === 0, 10000);
+    ok('[J58] DISCRIMINANT — l’Édition réécrit les lignes de la série corrigée : 152,5 kg pour 2 reps, la plus lourde ; plus de cap rond',
+      typesDe(setsJ[0]) === 'charge_a_reps,charge_max' && presDe(lJ(0, 'charge_a_reps').valeur, 152.5) &&
+        presDe(lJ(0, 'charge_max').valeur, 152.5) && presDe(lJ(0, 'charge_max').ancien, 147.5),
+      JSON.stringify(lignesDe(setsJ[0])));
+    ok('[J58] et rien d’autre ne bouge : les lignes des séries 2 et 3 sont celles d’avant, à l’identique',
+      JSON.stringify(lignesDe(setsJ[1]).concat(lignesDe(setsJ[2]))) === avantD, avantD);
+    const local58 = await page.evaluate((id) => THCache.lireTout('records').then((l) =>
+      l.filter((x) => x.session_id === id).map((x) => x.set_id + '|' + x.type + '|' + x.valeur).sort()), enCoursJ);
+    ok('[J58] la copie locale dit la même chose que la base',
+      JSON.stringify(local58) === JSON.stringify(base.records.filter((x) => x.session_id === enCoursJ)
+        .map((x) => x.set_id + '|' + x.type + '|' + x.valeur).sort()), JSON.stringify(local58));
+
+    ok('[J58] aucun refus du serveur, la garde de l’app n’a rien signalé, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant &&
+        gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
+      JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
     await aller('/saisie');
     await attendre(500);
   }

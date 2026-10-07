@@ -139,11 +139,13 @@ describe('§9.11 — l’identifiant d’une prédiction est calculé, pas tiré
     });
   });
 
-  test('sans `crypto.subtle`, il rend null — et l’appelant retombe sur l’aléatoire', () => {
+  // 59-5 — plus de repli aléatoire : sans `crypto.subtle`, le SHA-256 pur rend
+  // LE MÊME identifiant (le détail : v2-id-pur.test.js).
+  test('sans `crypto.subtle`, le même identifiant — jamais null, jamais tiré au hasard', () => {
     const pose = window.crypto;
     Object.defineProperty(window, 'crypto', { value: {}, configurable: true });
-    return Moteur.idDePrediction('s-1', 'squat-barre', 1)
-      .then((x) => expect(x).toBeNull())
+    return Moteur.idDePrediction('00000000-0000-4000-8000-000000000049', 'squat_barre', 2)
+      .then((x) => expect(x).toBe('b9b7a693-794e-5b79-86f6-8194e29043ee'))
       .finally(() => Object.defineProperty(window, 'crypto',
         { value: pose, configurable: true }));
   });

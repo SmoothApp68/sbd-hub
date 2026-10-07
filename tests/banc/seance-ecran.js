@@ -784,6 +784,18 @@ const SETS_IMPORTES = [
     if (base.enCoursEnPanne && lectureEnCours) return route.abort('failed');
     if (base.lenteur && req.method() === 'GET' && table === 'sessions' && !lectureEnCours) {
       await attendre(base.lenteur);
+      base.lentesServies = (base.lentesServies || []).concat([Date.now()]);
+    }
+    // 59-5 — une LENTEUR sur la lecture du journal des records seule, UNE
+    // fois : la synchronisation passe, et c'est `synchroniserJournal` qui est
+    // en vol. Une seule lecture retenue — la relecture complète qui suit
+    // (le compte ne tombe pas juste) répond aussitôt, et ce qu'elle écrirait
+    // se voit avant la mesure.
+    if (base.lenteurRecords && req.method() === 'GET' && table === 'records') {
+      const retenue = base.lenteurRecords;
+      base.lenteurRecords = 0;
+      await attendre(retenue);
+      base.lentesServies = (base.lentesServies || []).concat([Date.now()]);
     }
 
     // PR 8 de la consolidation — LA COURSE DE LA SYNCHRONISATION, FORCÉE
@@ -13180,19 +13192,76 @@ const SETS_IMPORTES = [
     ok('[Q59] le réseau revenu, la séance part : la file se vide, la séance est en base',
       vide && base.sessions.some((x) => x.id === idQ && x.statut === 'terminee'), JSON.stringify([await fileQ(), idQ]));
 
-    // ── D. « QUITTER » SORT SANS FENÊTRE, ET L'APPAREIL EST VIDÉ.
-    await quitterQ();
-    const sortie = await page.evaluate(async () => ({
+    // ── D. « QUITTER » SORT SANS FENÊTRE, ET L'APPAREIL EST VIDÉ — MÊME
+    // QUAND UNE SYNCHRONISATION EST EN VOL (59-5). Le faux serveur retient la
+    // liste des séances : la synchro de l'entrée attend encore quand on
+    // quitte. Sans la génération, elle reprenait après « Quitter » et
+    // réécrivait séances, séries et records dans le cache vidé (le banc
+    // séquentiel du 07/10 : 493 séries et 344 records restés).
+    const etatAppareilQ = () => page.evaluate(async () => ({
       vues: Array.from(document.querySelectorAll('main > section')).filter((s) => !s.hidden).map((s) => s.id),
       seances: (await THCache.lireTout('seances')).length, series: (await THCache.lireTout('series')).length,
       predictions: (await THCache.lireTout('predictions')).length, records: (await THCache.lireTout('records')).length,
       file: (await THCache.lireAttente() || []).length,
       cles: Object.keys(localStorage).filter((k) => k.indexOf('th-v2') === 0) }));
+    const LENTEUR_Q = 8000;
+    base.lentesServies = [];
+    base.lenteur = LENTEUR_Q;
+    await aller('/profil');
+    const quitteA = Date.now();
+    await quitterQ();
+    await attendre(LENTEUR_Q + 2000);
+    base.lenteur = 0;
+    ok('[Q59] prémisse — la synchronisation était EN VOL pendant « Quitter » (la lecture retenue a répondu après)',
+      base.lentesServies.some((t) => t > quitteA), JSON.stringify({ quitteA, servies: base.lentesServies }));
+    const sortie = await etatAppareilQ();
     ok('[Q59] DISCRIMINANT — la file vide : « Quitter » sort sans fenêtre, sur l’écran de connexion',
       JSON.stringify(sortie.vues) === '["vue-connexion"]', JSON.stringify(sortie));
     ok('[Q59] l’appareil est vidé : séances, séries, paris, journal, file — et les clés th-v2… (le jeton, gardé par le banc, mis à part)',
       sortie.seances === 0 && sortie.series === 0 && sortie.predictions === 0 && sortie.records === 0 && sortie.file === 0 &&
         JSON.stringify(sortie.cles) === '["th-v2-auth"]', JSON.stringify(sortie));
+
+    // ── E. « SUPPRIMER MON COMPTE » PASSE PAR `deconnecter` : il en profite.
+    // Cette fois, c'est le journal des records qui est en vol
+    // (`synchroniserJournal`) quand le compte part.
+    // Joué seul, le banc n'a encore aucun record en base : on en pose un,
+    // réel (une série de travail de la base), et on le retire à la fin.
+    let recordPose = null;
+    if (!base.records.length) {
+      const st = base.sets.filter((x) => x.type_serie === 'travail' && x.reps)[0];
+      if (st) {
+        recordPose = { id: '00000000-0000-4000-8000-0000000059e5', user_id: st.user_id, set_id: st.id,
+          session_id: st.session_id, exercise_slug: st.exercise_slug, type: 'charge_max', valeur: st.charge_kg || 0,
+          reps: st.reps, charge: null, unite: null, ancien: null, ancien_le: null, sur_douze_mois: false,
+          battu_le: st.validee_a || new Date().toISOString(), created_at: new Date().toISOString() };
+        base.records.push(recordPose);
+      }
+    }
+    await aller('/saisie');            // l'entrée resynchronise tout (le jeton est gardé par le banc)
+    await attendre(1500);
+    const avantE = await etatAppareilQ();
+    ok('[Q59] E — prémisse : l’appareil est rempli, et la base a des records à renvoyer',
+      avantE.seances > 0 && avantE.series > 0 && base.records.length > 0,
+      JSON.stringify({ seances: avantE.seances, series: avantE.series, records: base.records.length }));
+    base.lentesServies = [];
+    base.lenteurRecords = LENTEUR_Q;
+    await aller('/profil');
+    const supprimeA = Date.now();
+    await page.click('#btn-supprimer-compte');
+    await attendre(500);
+    await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
+      .filter((b) => b.textContent === 'Supprimer définitivement')[0].click());
+    await attendre(LENTEUR_Q + 2000);
+    base.lenteurRecords = 0;
+    ok('[Q59] E — prémisse : le journal des records était EN VOL pendant la suppression',
+      base.lentesServies.some((t) => t > supprimeA), JSON.stringify({ supprimeA, servies: base.lentesServies }));
+    const apresE = await etatAppareilQ();
+    ok('[Q59] E — DISCRIMINANT : supprimé avec le journal en vol, l’appareil reste vide (séances, séries, paris, records, file)',
+      JSON.stringify(apresE.vues) === '["vue-connexion"]' &&
+        apresE.seances === 0 && apresE.series === 0 && apresE.predictions === 0 && apresE.records === 0 && apresE.file === 0 &&
+        JSON.stringify(apresE.cles) === '["th-v2-auth"]', JSON.stringify(apresE));
+    if (recordPose) base.records = base.records.filter((x) => x !== recordPose);
+
     ok('[Q59] aucune erreur de page', erreurs.length === erreursAvant, JSON.stringify(erreurs.slice(erreursAvant)));
     // Les sections suivantes repartent connectées (le jeton est gardé par le banc).
     await aller('/saisie');

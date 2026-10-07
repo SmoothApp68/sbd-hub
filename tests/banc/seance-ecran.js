@@ -8975,6 +8975,122 @@ const SETS_IMPORTES = [
     ok('[U11] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
 
+  console.log('\n══ objectif. L’OBJECTIF, GELÉ POUR LA SÉANCE ET ENREGISTRÉ AVEC CHAQUE PARI (60-2b, MOTEUR §9.16, I40) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE, jumelle de celle de la phase (7 G octies) :
+  // l'objectif CHANGÉ EN PLEINE SÉANCE. Un objectif lu en direct et un objectif
+  // gelé donnent les mêmes paris tant que personne ne touche au Profil ; seul le
+  // troisième pari, posé après le changement, les sépare. Puis la séance SUIVANTE,
+  // qui prend le nouveau. Et « sans réponse » : la clé est écrite, à `null`.
+  {
+    const tO = Date.now();
+    [21, 14, 7].forEach((j) => {
+      const id = 'u60b-' + j;
+      const debut = ilYa(j * 86400000, tO).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'O60 — ' + id, debut,
+        fin: finDe(debut, tO).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      [1, 2, 3].forEach((rang) => base.sets.push({ id: id + '-s' + rang, session_id: id, user_id: 'u-banc',
+        exercise_slug: 'presse-u11', charge_kg: 100, reps: 10, duree_s: null, distance_m: null,
+        type_serie: 'travail', rang, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null,
+        repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+    });
+    ROUTINES.push({ id: 'r-o60', nom: 'Objectif O60', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-o60-e', routine_id: 'r-o60', exercise_slug: 'presse-u11', rang: 0,
+        routine_sets: progr(3, 10), repos_cible_s: 90, groupe_superset: null, note: null }] });
+    const depart = base.predictions.length;
+    // Les paris posés par CETTE section, par séance, dans l'ordre : [{ cle?, objectif }]
+    const parisO = () => base.predictions.slice(depart).filter((q) => q.exercise_slug === 'presse-u11' && q.fondement && q.fondement.seance);
+    const objectifs = () => parisO().map((q) => (Object.prototype.hasOwnProperty.call(q.fondement, 'objectif') ? q.fondement.objectif : 'ABSENT'));
+    const parSeanceO = () => {
+      const m = {}, ordre = [];
+      parisO().forEach((q) => {
+        const k = q.fondement.seance;
+        if (!m[k]) { m[k] = []; ordre.push(k); }
+        m[k].push(Object.prototype.hasOwnProperty.call(q.fondement, 'objectif') ? q.fondement.objectif : 'ABSENT');
+      });
+      return ordre.map((k) => m[k]);
+    };
+    const choisirObjectif = async (cle) => {
+      await onglet('profil');
+      await page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
+        .filter((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf('Objectif') === 0)[0].click());
+      await attendre(500);
+      await page.click('#feuille-contenu .feuille-menu button[data-cle="' + cle + '"]');
+      await attendre(1200);
+    };
+    const violationsAvant = gardeBanc.violations;
+    const erreursAvant = erreurs.length;
+
+    // 1. Le profil porte « Les deux » ; une séance, deux séries validées : deux paris à `les_deux`.
+    base.profiles[0].objectif = 'les_deux';
+    await aller('/saisie');
+    await demarrerRoutine('Objectif O60');
+    await attendre(900);
+    await saisirSerie(0, 100, 10);
+    await saisirSerie(1, 100, 10);
+    await attendre(1500);
+    ok('[O60] deux paris posés, tous deux à `les_deux` (la clé est dans le fondement)',
+      JSON.stringify(objectifs()) === '["les_deux","les_deux"]', JSON.stringify(objectifs()));
+
+    // 2. En pleine séance, l'objectif change dans Profil.
+    await choisirObjectif('muscle');
+    ok('[O60] le profil passe à « Muscle » (la même écriture que le questionnaire : l’objectif ET sa date)',
+      base.profiles[0].objectif === 'muscle' && !!base.profiles[0].objectif_depuis, JSON.stringify([base.profiles[0].objectif, base.profiles[0].objectif_depuis]));
+    await onglet('saisie');
+    await attendre(600);
+    // 3. Une troisième série : son pari reste à `les_deux`.
+    await saisirSerie(2, 100, 10);
+    await attendre(1500);
+    ok('[O60] DISCRIMINANT — le troisième pari, posé après le changement, reste à `les_deux` (gelé pour la séance)',
+      JSON.stringify(objectifs()) === '["les_deux","les_deux","les_deux"]', JSON.stringify(objectifs()));
+    await terminer();
+
+    // 4. La séance SUIVANTE prend le nouvel objectif.
+    await aller('/saisie');
+    await demarrerRoutine('Objectif O60');
+    await attendre(900);
+    await saisirSerie(0, 100, 10);
+    await attendre(1500);
+    const ps = parSeanceO();
+    ok('[O60] la séance suivante prend le nouvel objectif : `muscle`',
+      ps.length === 2 && JSON.stringify(ps.map((l) => l.join(','))) === '["les_deux,les_deux,les_deux","muscle"]', JSON.stringify(ps));
+    await abandonner();
+
+    // 5. Rechargée en pleine séance, l'objectif gelé tient (relu avec les consignes).
+    base.profiles[0].objectif = 'force';
+    await aller('/saisie');
+    await demarrerRoutine('Objectif O60');
+    await attendre(900);
+    await saisirSerie(0, 100, 10);
+    await attendre(1500);
+    base.profiles[0].objectif = 'forme';
+    await aller('/saisie');
+    await attendre(1200);
+    await saisirSerie(1, 100, 10);
+    await attendre(1500);
+    const apresRecharge = parSeanceO().slice(-1)[0];
+    ok('[O60] DISCRIMINANT — la séance rechargée au milieu garde l’objectif gelé (`force`), pas celui du profil (`forme`)',
+      JSON.stringify(apresRecharge) === '["force","force"]', JSON.stringify(parSeanceO()));
+    await abandonner();
+
+    // 6. Sans réponse : la clé est écrite, à `null` (jamais absente).
+    base.profiles[0].objectif = null;
+    await aller('/saisie');
+    await demarrerRoutine('Objectif O60');
+    await attendre(900);
+    await saisirSerie(0, 100, 10);
+    await attendre(1500);
+    const sans = parSeanceO().slice(-1)[0];
+    ok('[O60] DISCRIMINANT — sans réponse : le pari porte `objectif: null` (la clé est là, pas « absente »)',
+      JSON.stringify(sans) === '[null]', JSON.stringify(parSeanceO()));
+    await abandonner();
+    ok('[O60] la garde (C6) n’a rien signalé dans cette section (I40 compris), aucune erreur de page',
+      gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant, JSON.stringify(gardeBanc.liste.slice(-2)));
+    await aller('/saisie');
+  }
+
   console.log('\n══ 7 G nonies. LA CHUTE DE FIN DE SÉANCE NE TIRE PLUS LE NIVEAU ET BLOQUE LE TEST (49-U12, MOTEUR §9.2 bis) ══');
   //
   // ⚠️ CONFIGURATION DISCRIMINANTE : la séance du 29/09 d'Aurélien, 80 × 10,
@@ -12337,6 +12453,26 @@ const SETS_IMPORTES = [
     const a0 = await dossier('Alpha U53');
     ok('[C53] le dossier sans programme : pas de badge, « Faire de ce dossier un programme »',
       a0 && a0.badge === null && a0.creer, JSON.stringify(a0));
+    // ── A bis (60-2b, MOTEUR §9.22). LA ZONE PROPOSÉE DU PREMIER BLOC SUIT L'OBJECTIF
+    // (Force, Les deux → Lourd ; Muscle, Forme, sans réponse → Mix), toujours modifiable.
+    // Le profil du banc part sans objectif : la suite de la section (Mix) ne bouge pas.
+    const zoneProposee = async (objectif) => {
+      base.profiles[0].objectif = objectif;
+      await aller('/saisie');
+      await cliquerDossier('Alpha U53', '.programme-creer');
+      await attendre(800);
+      const f = await feuilleP();
+      await page.click('#btn-fermer-feuille');
+      await attendre(500);
+      return f.champs && f.champs.zone ? f.champs.zone.choisi : null;
+    };
+    const proposees = {};
+    for (const o of ['force', 'les_deux', 'muscle', 'forme', null]) proposees[String(o)] = await zoneProposee(o);
+    ok('[O60] DISCRIMINANT — premier bloc : Force et Les deux proposent « Lourd (3-5) » ; Muscle, Forme et sans réponse, « Mix (6-8) »',
+      proposees.force === 'Lourd (3-5)' && proposees.les_deux === 'Lourd (3-5)' && proposees.muscle === 'Mix (6-8)' &&
+        proposees.forme === 'Mix (6-8)' && proposees['null'] === 'Mix (6-8)', JSON.stringify(proposees));
+    base.profiles[0].objectif = null;
+    await aller('/saisie');
     await cliquerDossier('Alpha U53', '.programme-creer');
     await attendre(800);
     const fp = await feuilleP();

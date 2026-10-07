@@ -269,6 +269,26 @@
     return { seanceId: seanceId, phase: PHASES_EN_BASE.indexOf(sauvee) >= 0 ? sauvee : phaseDe(profil) };
   }
 
+  // L'OBJECTIF EFFECTIF d'un profil (MOTEUR §9.16, 60-2b) : l'une des quatre
+  // valeurs de la contrainte `profiles_objectif_ok`, sinon `null` — « sans
+  // réponse ». PAS de défaut, contrairement à la phase : un vide est une réponse
+  // (rien n'est supposé), et le fondement des paris le dit tel quel.
+  function objectifDe(profil) {
+    var v = profil && profil.objectif;
+    return dansLaListe(OBJECTIFS, v) ? v : null;
+  }
+
+  // LE GEL de l'objectif, jumeau de `phaseGelee` : lu UNE fois et gelé pour la
+  // séance (MOTEUR §9.16, I40). `gel` : `{ seanceId, objectif }` ou `null` ;
+  // `sauvee` : l'objectif gelé relu du disque pour cette séance. ⚠️ `null` est une
+  // valeur LÉGITIME (« sans réponse ») : `undefined` seul veut dire « rien de
+  // sauvé » (séance gelée avant 60-2b) — alors, l'objectif du profil maintenant.
+  function objectifGele(gel, seanceId, sauvee, profil) {
+    if (gel && gel.seanceId === seanceId) return gel;
+    var gardee = sauvee === null || (sauvee !== undefined && dansLaListe(OBJECTIFS, sauvee));
+    return { seanceId: seanceId, objectif: gardee ? sauvee : objectifDe(profil) };
+  }
+
   // ── LA SECTION « TA PHASE », À CÔTÉ DU RYTHME ────────────────────────────
   //
   // Le même composant et la même écriture que « Ton rythme » (`ecrire` =
@@ -867,6 +887,7 @@
     RYTHMES: RYTHMES, RYTHME_DEFAUT: RYTHME_DEFAUT,
     rythmeDe: rythmeDe, phraseRythme: phraseRythme, sectionRythme: sectionRythme,
     PHASES: PHASES, PHASE_DEFAUT: PHASE_DEFAUT, phaseDe: phaseDe, phaseGelee: phaseGelee, sectionPhase: sectionPhase,
+    objectifDe: objectifDe, objectifGele: objectifGele,
     DUREES: DUREES, SEANCES_MIN: SEANCES_MIN, SEANCES_MAX: SEANCES_MAX,
     TAILLE_MIN: TAILLE_MIN, TAILLE_MAX: TAILLE_MAX,
     PSEUDO_MIN: PSEUDO_MIN, PSEUDO_MAX: PSEUDO_MAX, MDP_MIN: MDP_MIN,

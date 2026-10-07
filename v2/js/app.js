@@ -449,7 +449,11 @@
     coches.forEach(function (s) { if (slugs.indexOf(s) < 0) slugs.push(s); });
     var c = {};
     coches.forEach(function (s) { c[s] = true; });
-    programmeEnCours = { dossier: dossier, precedent: depuis || null, zone: suivant ? suivant.zone : 'mix',
+    // MOTEUR §9.22 (60-2b) : le PREMIER bloc propose la zone de l'objectif (Force, Les deux :
+    // Lourd ; sinon Mix), lu en direct dans le profil — hors séance, rien à geler. Le bloc
+    // suivant garde sa règle fixe. Toujours modifiable dans la feuille.
+    programmeEnCours = { dossier: dossier, precedent: depuis || null,
+      zone: suivant ? suivant.zone : Moteur.zoneDuPremierBloc(profil && profil.objectif),
       semaines: suivant ? suivant.semaines : Moteur.SEMAINES_BLOC_DEFAUT, decharge: suivant ? suivant.decharge : true,
       debut: depuis ? 'aujourdhui' : 'lundi', slugs: slugs, coches: c, erreur: '' };
     rendreFeuilleProgramme();
@@ -2621,7 +2625,7 @@
     // L'outil de rejeu (développement) ne fige rien sur le disque.
     if (!seance || !consignes || rejeuEnCours) return;
     consignesSauvees = { seanceId: seance.id, cle: consignes.cle, parSlug: consignes.parSlug,
-                         phase: phaseDeLaSeance() };
+                         phase: phaseDeLaSeance(), objectif: objectifDeLaSeance() };
     Cache.ecrireBrouillon(CLE_CONSIGNES, consignesSauvees)
       .catch(function (e) { console.warn('Consignes non sauvées :', texteErreur(e)); });
   }
@@ -2629,6 +2633,7 @@
   async function oublierConsignes() {
     consignesSauvees = null;
     phaseGelee = null;
+    objectifGele = null;
     await Cache.ecrireBrouillon(CLE_CONSIGNES, null).catch(function () {});
   }
 
@@ -2642,6 +2647,11 @@
   // elle ne dépend que de la séance. Elle survit au rechargement avec les
   // consignes (`consignesSauvees.phase`). Jamais vide : `Profil.phaseDe`.
   var phaseGelee = null;   // { seanceId, phase }
+  // MOTEUR §9.16 (60-2b, I40) — L'OBJECTIF, gelé de la même façon, au même moment,
+  // avec la même durée de vie : lu une fois dans le profil, il ne change ni la séance
+  // en cours ni ses paris. Il ne change AUCUNE consigne — il n'entre que dans le
+  // fondement des paris. `null` est une valeur (« sans réponse »).
+  var objectifGele = null;   // { seanceId, objectif }
 
   // MOTEUR §14.6 (49-U16) — LA RÈGLE DE VOLUME, UNE FOIS PAR SÉANCE, à côté
   // de la phase : le volume de chaque semaine par muscle sur TOUT l'historique
@@ -2666,6 +2676,16 @@
       ? consignesSauvees.phase : null;
     phaseGelee = Profil.phaseGelee(phaseGelee, seance.id, sauvee, profil);
     return phaseGelee.phase;
+  }
+
+  // `undefined` : rien de sauvé pour cette séance (gelée avant 60-2b) — le gel
+  // retombe alors sur le profil d'aujourd'hui ; `null` est un objectif sauvé.
+  function objectifDeLaSeance() {
+    if (!seance) return null;
+    var sauvee = consignesSauvees && consignesSauvees.seanceId === seance.id
+      ? consignesSauvees.objectif : undefined;
+    objectifGele = Profil.objectifGele(objectifGele, seance.id, sauvee, profil);
+    return objectifGele.objectif;
   }
 
   // §12.9 (49-U13) — « sous consigne », dans l'app : une séance qui porte au
@@ -3019,21 +3039,21 @@
   // (`memo`) : la consigne se fige à l'ouverture, comme dans la séance.
   function avecEtatDeRejeu(e, fn) {
     var avant = { seance: seance, local: local, consignes: consignes, sauvees: consignesSauvees,
-                  version: versionConsignes, phaseGelee: phaseGelee, volumeGele: volumeGele,
+                  version: versionConsignes, phaseGelee: phaseGelee, objectifGele: objectifGele, volumeGele: volumeGele,
                   constats: constats, planMemo: planMemo, etats: etatsExercices, dernier: Plan.dernier };
     seance = e.seance; local = e.local;
     consignes = e.memo.consignes; consignesSauvees = null; versionConsignes = e.memo.version;
-    phaseGelee = e.memo.phaseGelee; volumeGele = e.memo.volumeGele; constats = null;
+    phaseGelee = e.memo.phaseGelee; objectifGele = e.memo.objectifGele; volumeGele = e.memo.volumeGele; constats = null;
     planMemo = null; etatsExercices = e.etats;
     rejeuEnCours = { instant: e.instant };
     try {
       return fn();
     } finally {
       e.memo.consignes = consignes; e.memo.version = versionConsignes;
-      e.memo.phaseGelee = phaseGelee; e.memo.volumeGele = volumeGele;
+      e.memo.phaseGelee = phaseGelee; e.memo.objectifGele = objectifGele; e.memo.volumeGele = volumeGele;
       seance = avant.seance; local = avant.local; consignes = avant.consignes;
       consignesSauvees = avant.sauvees; versionConsignes = avant.version;
-      phaseGelee = avant.phaseGelee; volumeGele = avant.volumeGele; constats = avant.constats;
+      phaseGelee = avant.phaseGelee; objectifGele = avant.objectifGele; volumeGele = avant.volumeGele; constats = avant.constats;
       planMemo = avant.planMemo; etatsExercices = avant.etats; Plan.dernier = avant.dernier;
       rejeuEnCours = null;
     }
@@ -3101,6 +3121,14 @@
     var deConsigne = paris.filter(function (l) { return l.module !== Moteur.MODULE_ESCALIER && l.exercise_slug; });
     var phaseLue = null;
     deConsigne.forEach(function (l) { if (!phaseLue && l.fondement && l.fondement.phase) phaseLue = l.fondement.phase; });
+    // L'objectif gelé (60-2b) : la CLÉ présente, `null` compris (« sans réponse ») ; un pari
+    // d'avant 60-2b n'en porte pas — alors celui du profil actuel, et une note.
+    var objectifLu, objectifTrouve = false;
+    deConsigne.forEach(function (l) {
+      if (!objectifTrouve && l.fondement && Object.prototype.hasOwnProperty.call(l.fondement, 'objectif')) {
+        objectifLu = l.fondement.objectif; objectifTrouve = true;
+      }
+    });
     var reglageLu = null;
     deConsigne.forEach(function (l) { if (!reglageLu && l.fondement && l.fondement.reglage) reglageLu = l.fondement.reglage; });
 
@@ -3152,7 +3180,8 @@
     };
 
     var memo = { consignes: null, version: 0, volumeGele: null,
-                 phaseGelee: phaseLue ? { seanceId: id, phase: phaseLue } : null };
+                 phaseGelee: phaseLue ? { seanceId: id, phase: phaseLue } : null,
+                 objectifGele: objectifTrouve ? { seanceId: id, objectif: objectifLu } : null };
     var validees = {};
     var zonesVues = {};
     var resultat = [];
@@ -3215,6 +3244,7 @@
         lus.serveur + ' du serveur, ' + lus.appareil + ' de l’appareil seulement)',
       'historique lu : ' + seances.length + ' séance(s) terminée(s) avant le début, ' + series.length + ' série(s)',
       'phase gelée : ' + (phaseLue ? phaseLue + ' (lue dans les paris)' : (Profil.phaseDe(profil) + ' (profil actuel : aucun pari ne la porte)')),
+      'objectif gelé : ' + (objectifTrouve ? (objectifLu || 'sans réponse') + ' (lu dans les paris)' : ((Profil.objectifDe(profil) || 'sans réponse') + ' (profil actuel : aucun pari ne le porte)')),
       'rythme : ' + Profil.rythmeDe(profil) + ' (profil actuel)' +
         (reglageLu ? (reglageLu === Profil.rythmeDe(profil) ? ' = celui des paris ✓' : ' ≠ celui des paris (' + reglageLu + ') ✗') : ''),
       'intention : ' + ((profil && profil.intention) || '–') + ' (profil actuel)',
@@ -3237,6 +3267,7 @@
     notes.push('« pré-rempli » est le fantôme recalculé ; une valeur tapée puis effacée avant validation ne se voit pas');
     notes.push('les « Non merci » aux chauffes vivent sur l’appareil de la séance : supposés aucun');
     if (!phaseLue) notes.push('la phase est celle du profil actuel, pas celle gelée ce jour-là');
+    if (!objectifTrouve) notes.push('l’objectif est celui du profil actuel, pas celui gelé ce jour-là');
     notes.push('le rythme et l’intention sont ceux du profil actuel');
     return Rejeu.texte({ seance: { id: id, titre: ligne.titre, debut: ligne.debut, fin: ligne.fin },
                          entete: entete, notes: notes, etapes: resultat });
@@ -3474,6 +3505,8 @@
       // MOTEUR §9.16 — la phase GELÉE de la séance (lue après les consignes :
       // elle se fige avec elles).
       phase: phaseDeLaSeance(),
+      // MOTEUR §9.16 (60-2b) — l'objectif GELÉ, avec la phase (I40).
+      objectif: objectifDeLaSeance(),
       // MOTEUR §14.6 (49-U16) — la règle de volume, gelée pour la séance.
       volume: volumeDeDemo(volumeDeLaSeance(), catalogue),
       catalogue: catalogue,
@@ -4120,7 +4153,7 @@
           reponse: acceptee ? 'acceptee' : 'refusee',
           declencheur: carte.declencheur, compteur: carte.compteur, cites: carte.cites.slice(),
           debut: acceptee ? carte.jour : null, fin: acceptee ? Moteur.finAllegee(carte.jour) : null,
-          phase: p.phase
+          phase: p.phase, objectif: p.objectif
         },
         valeur_observee: null, observee_a: null, set_observe: null
       };
@@ -4143,7 +4176,7 @@
   // prennent un pari portant `exercise_slug` pour un pari de CONSIGNE — les
   // lignes figées du plan, I7, `dejaNote`, l'observation d'une série, et
   // « sous consigne » côté serveur (`seancesAvecPari`).
-  function pariDeMarche(id, x, marche, reponse, phase, extra) {
+  function pariDeMarche(id, x, marche, reponse, plan, extra) {
     return {
       id: id,
       user_id: (sessionActive && sessionActive.user && sessionActive.user.id) || null,
@@ -4154,7 +4187,9 @@
       fondement: Object.assign({
         seance: seance.id, jour: Moteur.jourCivil(seance.debut), exercice: x.slug,
         marche: marche, reponse: reponse, compteur: x.escalier.compteur, n: x.escalier.n,
-        zone: x.escalier.zone, phase: phase
+        zone: x.escalier.zone, phase: plan.phase,
+        // MOTEUR §9.16 (60-2b, I40) — l'objectif gelé, jumeau de la phase.
+        objectif: plan.objectif
       }, extra || {}),
       valeur_observee: null, observee_a: null, set_observe: null
     };
@@ -4194,7 +4229,7 @@
           compteur: m.compteur, debut: seance.debut, n: nRoutine }]);
       } else {
         var id = await Moteur.idDEscalier(seance.id, x.slug, marche);
-        await ecrirePariDeMarche(pariDeMarche(id, x, marche, acceptee ? 'acceptee' : 'refusee', p.phase,
+        await ecrirePariDeMarche(pariDeMarche(id, x, marche, acceptee ? 'acceptee' : 'refusee', p,
           plus ? { n_routine: nRoutine, debut: seance.debut } : { nouvelle_zone: m.carte.nouvelle_zone }));
         if (acceptee && !plus) await poserZone(x.slug, m.carte.nouvelle_zone);
       }
@@ -4347,7 +4382,7 @@
       var id = await Moteur.idDEscalier(seance.id, x.slug, Moteur.MARCHE_REPLI);
       if (parisEscalierConnus().some(function (l) { return l && l.id === id; })) continue;
       var r = x.escalier.repli;
-      await ecrirePariDeMarche(pariDeMarche(id, x, Moteur.MARCHE_REPLI, 'appliquee', p.phase,
+      await ecrirePariDeMarche(pariDeMarche(id, x, Moteur.MARCHE_REPLI, 'appliquee', p,
         { repli: { palier: r.palier, niveau: r.niveau, debut: r.debut } }));
     }
   }

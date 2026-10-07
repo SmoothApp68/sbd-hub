@@ -212,6 +212,10 @@
       // de chaque pari (I18). `rejouer` ne la passe pas : les cas du simulateur
       // gardent leur fondement tel quel.
       if (p.length && o.phase !== undefined) p[0].fondement.phase = o.phase;
+      // MOTEUR §9.16 (60-2b) — l'OBJECTIF gelé, jumeau de la phase (I40). `null` est
+      // une valeur (« sans réponse ») : la clé s'écrit, d'où `!== undefined`.
+      // `rejouer` ne le passe pas : sans clé, comme pour la phase.
+      if (p.length && o.objectif !== undefined) p[0].fondement.objectif = o.objectif;
       // MOTEUR §14.4 (49-U14) — le compteur de l'exercice À L'OUVERTURE, figé
       // dans le fondement de chaque pari : le blocage généralisé se lit dans
       // les paris des 7 jours, sans rejeu. Et la semaine allégée se dit.
@@ -602,7 +606,7 @@
   }
 
   // ── LE PLAN D'UN EXERCICE ───────────────────────────────────────────────
-  function planDExercice(exo, iExo, consigneDuSlug, paris, seanceId, reglage, suite, debut, materiel, phase, allegee, seriesRoutine, marche, routinePlus, fini, precedent) {
+  function planDExercice(exo, iExo, consigneDuSlug, paris, seanceId, reglage, suite, debut, materiel, phase, allegee, seriesRoutine, marche, routinePlus, fini, precedent, objectif) {
     var S = Seance(), M = Moteur();
     var series = (exo && exo.series) || [];
     var c = consigneDuSlug && consigneDuSlug.consigne ? consigneDuSlug : null;
@@ -656,7 +660,7 @@
     var compteurOuverture = c.compteur && typeof c.compteur.compteur === 'number' ? c.compteur.compteur : undefined;
     var r = planDesLignes(series, consigne, c.contexte || null, figees, {
       slug: base.slug, seance: seanceId === undefined ? null : seanceId,
-      reglage: reglage === undefined ? null : reglage, phase: phase,
+      reglage: reglage === undefined ? null : reglage, phase: phase, objectif: objectif,
       compteur: compteurOuverture, allegee: !!consigne.allegee,
       occurrence: base.occurrence || undefined
     });
@@ -963,6 +967,11 @@
   var PHASES_DU_PLAN = ['prise_de_masse', 'maintien', 'seche'];
   function phaseDuPlan(v) { return PHASES_DU_PLAN.indexOf(v) >= 0 ? v : 'maintien'; }
 
+  // MOTEUR §9.16 (60-2b) — les objectifs qu'un pari peut porter. Vide ou inconnu :
+  // `null`, SANS défaut — contrairement à la phase, « sans réponse » est une réponse.
+  var OBJECTIFS_DU_PLAN = ['force', 'muscle', 'les_deux', 'forme'];
+  function objectifDuPlan(v) { return OBJECTIFS_DU_PLAN.indexOf(v) >= 0 ? v : null; }
+
   // ══ LE PLAN DE SÉANCE ═══════════════════════════════════════════════════
   //
   // `entrees` :
@@ -985,6 +994,10 @@
   //     retirée (« Non merci » dans la séance, ou trois refus d'affilée) ;
   //   · `phase` — la phase GELÉE de la séance (MOTEUR §9.16, 49-U11), lue dans
   //     le profil par l'app quand la consigne se fige ; vide = `maintien` ;
+  //   · `objectif` — l'objectif GELÉ de la séance (MOTEUR §9.16, 60-2b, I40), lu
+  //     avec la phase ; `force`, `muscle`, `les_deux`, `forme`, ou `null` (vide ou
+  //     inconnu : pas de défaut). Il ne change AUCUNE consigne : il n'entre que dans
+  //     le fondement des paris ;
   //   · `volume` — MOTEUR §14.6 (49-U16) : `{ [muscle]: { place, moyenne,
   //     seuil, fenetres } | null }`, la règle de volume calculée UNE FOIS par
   //     séance sur tout l'historique (`Moteur.placeDeVolume`) ; facultatif.
@@ -996,6 +1009,7 @@
     var consignes = e.consignes || {};
     var exos = seance.exercices || [];
     var phase = phaseDuPlan(e.phase);
+    var objectif = objectifDuPlan(e.objectif);
     // §9.17 (50-1) — CE QUE LE PLAN PORTE, pour qu'I13 et I28 à I31 se vérifient
     // sur lui seul : la mesure de chaque exercice (`catalogue`), son mode
     // (`modes`, l'historique `modes_exercice` lu par l'app), l'intention qui en
@@ -1023,6 +1037,7 @@
     return {
       seance: seance.id === undefined ? null : seance.id,
       phase: phase,
+      objectif: objectif,
       // §9.17 — l'Édition d'une séance passée, l'intention du profil et la
       // réponse du lest : trois faits que les invariants relisent (I13, I29).
       edition: !!seance.edition,
@@ -1071,7 +1086,7 @@
           esc.allegee ? { decharge: esc.allegee.source === SOURCE_DECHARGE } : null, Object.prototype.hasOwnProperty.call(seriesRoutine, slug) ? seriesRoutine[slug] : null, m,
           Object.prototype.hasOwnProperty.call(plus, slug) ? plus[slug] : null,
           Seance().exerciceFini(seance, slug),
-          Object.prototype.hasOwnProperty.call(precedents, slug) ? precedents[slug] : null);
+          Object.prototype.hasOwnProperty.call(precedents, slug) ? precedents[slug] : null, objectif);
         if (x.escalier && x.escalier.copie) x.escalier = null;
         // MOTEUR §14.6 (49-U16) — LA PLACE POUR UNE SÉRIE DE PLUS : de la place
         // sur CHACUN des muscles primaires de l'exercice (catalogue), lue dans
@@ -1922,6 +1937,33 @@
         if (nombre(lp.vise) !== nombre(la.vise)) erreurs.push(nom + 'visée ' + la.vise + ' → ' + lp.vise);
       });
     });
+  }
+
+  // I40 (MOTEUR §9.16, 60-2b) — chaque pari de la séance porte dans son
+  // fondement l'objectif GELÉ du plan (une des quatre valeurs, ou `null` sans
+  // réponse), le même pour tous : ceux que le plan écrira (`x.paris`) comme ceux
+  // déjà posés (`entrees.paris`). ⚠️ `null` est LÉGITIME : l'invariant exige la
+  // PRÉSENCE de la clé (un pari sans clé n'a pas été écrit par ce plan) puis
+  // l'égalité — la valeur seule laisserait passer `undefined` pour « sans réponse ».
+  function verifierObjectif(plan, parisSeance, erreurs) {
+    if (!plan) return;
+    var objectif = plan.objectif;
+    if (objectif !== null && OBJECTIFS_DU_PLAN.indexOf(objectif) < 0) {
+      erreurs.push('I40 — l\'objectif du plan est absent ou inconnu (' + objectif + ')');
+    }
+    var voir = function (q, ou) {
+      var f = q && q.fondement;
+      if (!f) return;
+      if (!Object.prototype.hasOwnProperty.call(f, 'objectif')) {
+        erreurs.push('I40 — ' + ou + ' : un pari sans objectif');
+      } else if (f.objectif !== objectif) {
+        erreurs.push('I40 — ' + ou + ' : un pari à l\'objectif ' + f.objectif + ' dans une séance à ' + objectif);
+      }
+    };
+    (plan.exercices || []).forEach(function (x) {
+      (x.paris || []).forEach(function (q, i) { voir(q, 'exercice ' + x.iExo + ' (' + x.slug + '), série ' + i); });
+    });
+    (parisSeance || []).forEach(function (q) { voir(q, 'pari posé ' + (q.exercise_slug || '') + ' rang ' + (q.fondement && q.fondement.rang)); });
   }
 
   // I18 (MOTEUR §9.16, 49-U11) — chaque pari de la séance porte dans son
@@ -2826,6 +2868,7 @@
     }) : null;
     var memeSeance = !!(avant && plan && avant.seance === plan.seance);
     verifierPhase(plan, parisSeance, erreurs);
+    verifierObjectif(plan, parisSeance, erreurs);
     verifierEscalier(plan, entrees, erreurs);
     verifierProgramme(plan, entrees, erreurs);
     verifierMarches(plan, erreurs);

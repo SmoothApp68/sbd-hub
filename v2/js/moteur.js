@@ -4651,6 +4651,16 @@
     });
   }
 
+  // LA ZONE PROPOSÉE POUR LE PREMIER BLOC (MOTEUR §9.22, 60-2b) : elle suit
+  // l'OBJECTIF du questionnaire — Force ou Les deux → Lourd (la force se travaille
+  // lourde) ; Muscle, Forme ou sans réponse → Mix (le défaut d'avant). Une
+  // PROPOSITION : la feuille du programme la laisse modifiable. Elle ne vaut que pour
+  // un premier bloc ; le suivant garde sa règle fixe (`blocSuivant`). Pure, sans
+  // lire le profil : l'appelant passe l'objectif.
+  function zoneDuPremierBloc(objectif) {
+    return objectif === 'force' || objectif === 'les_deux' ? 'lourd' : 'mix';
+  }
+
   // LE BLOC SUIVANT, PAR UNE RÈGLE FIXE (Mix → Lourd → Mix…, mêmes durée et
   // exercices, une décharge à chaque fin) — JAMAIS DÉDUITE DU BLOC PASSÉ (§20.1).
   function blocSuivant(bloc) {
@@ -6197,6 +6207,7 @@
     dechargeDuJour: dechargeDuJour,
     periodesDecharge: periodesDecharge,
     zonesPosees: zonesPosees,
+    zoneDuPremierBloc: zoneDuPremierBloc,
     blocSuivant: blocSuivant,
     exercicesParDefaut: exercicesParDefaut,
     bilanDuBloc: bilanDuBloc,

@@ -764,7 +764,18 @@ const NOTIONS = [
     parAilleurs: { 'questionnaire.js': ['champsDeLEcran'], 'app.js': ['ecrireReponse'] },
     raison: 'QUESTIONNAIRE-COACH-V2 §6 : le questionnaire (un écran à la fois) et le Profil (une ligne à la ' +
       'fois) écrivent la même chose — `objectif_depuis` suit un objectif qui change, une réponse inchangée ' +
-      'n’écrit rien. Deux préparations auraient fini par dater différemment.' }
+      'n’écrit rien. Deux préparations auraient fini par dater différemment.' },
+  // ── 60-2b — LES LECTEURS DE L'OBJECTIF ────────────────────────────────────
+  { notion: 'la zone proposée pour le premier bloc d’un programme (elle suit l’objectif, MOTEUR §9.22)', pr: '60-U4',
+    module: 'moteur.js', fonction: 'zoneDuPremierBloc', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['ouvrirProgramme'] },
+    raison: 'MOTEUR §9.22 (60-2b) : Force et Les deux proposent Lourd, le reste Mix. `ouvrirProgramme` écrivait ' +
+      'Mix d’office ; la règle vit dans le moteur, l’écran ne la recopie pas.' },
+  { notion: 'l’objectif gelé de la séance (lu une fois, avec la phase ; entre dans le fondement des paris, I40)', pr: '60-U5',
+    module: 'profil.js', fonction: 'objectifGele', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['objectifDeLaSeance'] },
+    raison: 'MOTEUR §9.16 (60-2b) : jumeau de la phase gelée. Lu en direct, un changement d’objectif dans Profil ' +
+      'en pleine séance ferait dériver les paris d’une même séance (I40) ; `null` est une valeur, pas une absence.' }
 ];
 
 // ── 58-1 — UN FAIT NE SE DÉCLARE QUE DANS `faits.js` ─────────────────────────

@@ -2149,6 +2149,18 @@ const CATALOGUE = [
     '« ' + await page4.evaluate(() => (document.querySelector('#aide-pseudo') || {}).textContent || '') + ' »');
   ok('[46 §2 ter] …et elle ne retient personne : le bouton s’allume',
     await page4.evaluate(() => !document.querySelector('#btn-connexion').disabled), 'allumé');
+
+  // 59-4 — L'INSCRIPTION PASSE SON ADRESSE DE RETOUR : le lien de confirmation
+  // (s'il y en a un) revient sur CETTE app, l'origine de la page. On observe la
+  // vraie requête du SDK (`redirect_to`) ; le faux serveur la refuse, peu importe.
+  const inscriptions = [];
+  page4.on('request', (r) => { if (/\/auth\/v1\/signup/.test(r.url())) inscriptions.push(r.url()); });
+  await page4.click('#btn-connexion');
+  await attendre(1500);
+  const retourInscription = inscriptions.length ? new URL(inscriptions[0]).searchParams.get('redirect_to') : null;
+  ok('[59-4] l’inscription demande au lien de confirmation de revenir sur l’origine de l’app',
+    inscriptions.length === 1 && retourInscription === BASE + '/',
+    inscriptions.length + ' inscription(s) · redirect_to = ' + retourInscription);
   await page4.fill('#champ-pseudo', 'me');
   await attendre(700);
   ok('[46 §2 ter] un pseudo trop court, lui, est refusé tout de suite — et localement',

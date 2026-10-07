@@ -8311,7 +8311,8 @@
         // `signUp` ne rende la main : si le pseudo n'était posé qu'après, le
         // chargement du profil créerait la ligne sans lui.
         pseudoAInscrire = Profil.normaliserPseudo(etat.pseudo);
-        var r = await Auth.inscrire(etat.email, etat.mdp);
+        // 59-4 — le lien de confirmation (s'il y en a un) revient sur CETTE app.
+        var r = await Auth.inscrire(etat.email, etat.mdp, racine.location.origin + '/');
         if (!r.session) {
           erreur.className = 'erreur ok';
           erreur.textContent = 'Compte créé. Confirme ton e-mail, puis connecte-toi.';

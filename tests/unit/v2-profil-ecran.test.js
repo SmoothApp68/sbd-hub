@@ -49,8 +49,7 @@ function vueProfil(p, options) {
   const o = options || {};
   const lib = (liste, cle) => Profil.libelleDe(liste, p[cle]);
   return {
-    accueil: p.onboarding_completed === false
-      ? { surPlusTard: o.surPlusTard || (() => {}) } : null,
+    questionnaire: o.questionnaire || null,
     kpis: [
       { valeur: String(o.seances || 0), libelle: 'séances' },
       { valeur: String(o.series || 0), libelle: 'séries' },
@@ -212,46 +211,44 @@ describe('60-1 — le profil réel (app.js)', () => {
 });
 
 // ════════════════════════════════════════════════════════════════════════════
-// TEST 7 — LE BANDEAU D'ACCUEIL ET SA SORTIE
+// TEST 7 — LE BANDEAU D'ACCUEIL EST RETIRÉ, LE QUESTIONNAIRE ACCUEILLE (60-2a)
 // ════════════════════════════════════════════════════════════════════════════
 
-describe('test 7 — l’onboarding EST le profil, et il est contournable', () => {
-  test('un compte neuf voit le bandeau, et sa sortie', () => {
-    const c = cible();
-    let sorti = false;
-    R().rendreProfil(c, vueProfil({ onboarding_completed: false },
-      { surPlusTard: () => { sorti = true; } }));
-    const bandeau = c.querySelector('.p-accueil');
-    expect(bandeau).not.toBe(null);
-    const plus = bandeau.querySelector('.p-plus-tard');
-    expect(plus.textContent).toContain('Plus tard');
-    plus.click();
-    expect(sorti).toBe(true);
+describe('test 7 — le questionnaire accueille ; le profil n’a plus de bandeau de bienvenue', () => {
+  test('aucun profil n’affiche plus le bandeau « Bienvenue » ni « Plus tard — voir mes séances »', () => {
+    [{ onboarding_completed: false }, { onboarding_completed: true }, {}].forEach((p) => {
+      const c = cible();
+      R().rendreProfil(c, vueProfil(p));
+      expect(c.querySelector('.p-accueil')).toBe(null);
+      expect(c.querySelector('.p-plus-tard')).toBe(null);
+      expect(c.textContent).not.toMatch(/Bienvenue|Rien n’est obligatoire/);
+    });
   });
 
-  // ⚠️ CONTOURNABLE, OBLIGATOIREMENT. La sortie est un VRAI bouton, pas un lien
-  // discret : « un utilisateur avec 138 séances d'historique n'a aucune raison
-  // de répondre à cinq questions avant de voir ce qu'il a fait » (§4).
-  test('la sortie est un bouton, pas un lien qu’on cherche', () => {
+  test('une vue qui porte `accueil` n’en affiche rien : le rendu ne connaît plus le bandeau', () => {
     const c = cible();
-    R().rendreProfil(c, vueProfil({ onboarding_completed: false }));
-    const plus = c.querySelector('.p-plus-tard');
-    expect(plus.tagName).toBe('BUTTON');
-    expect(plus.disabled).toBe(false);
-  });
-
-  test('un compte déjà vu n’a plus de bandeau', () => {
-    const c = cible();
-    R().rendreProfil(c, vueProfil({ onboarding_completed: true }));
+    R().rendreProfil(c, Object.assign(vueProfil({}), { accueil: { surPlusTard: () => {} } }));
     expect(c.querySelector('.p-accueil')).toBe(null);
   });
 
-  // `undefined` — le cas d'un profil pas encore chargé — ne déclenche RIEN :
-  // on n'ouvre pas un formulaire de bienvenue sur une supposition.
-  test('un profil inconnu ne déclenche pas la bienvenue', () => {
+  test('la ligne « Terminer mon questionnaire » (60-2a) est la PREMIÈRE chose du profil, un vrai bouton, sans valeur', () => {
+    const c = cible();
+    let ouvert = 0;
+    R().rendreProfil(c, vueProfil({}, { questionnaire: { libelle: 'Terminer mon questionnaire', surChoix: () => { ouvert++; } } }));
+    expect(c.firstChild.classList.contains('p-questionnaire')).toBe(true);
+    const ligne = c.querySelector('.p-questionnaire .p-ligne');
+    expect(ligne.tagName).toBe('BUTTON');
+    expect(ligne.textContent).toContain('Terminer mon questionnaire');
+    expect(ligne.querySelector('.p-val')).toBe(null);
+    expect(ligne.querySelector('.p-fl').textContent).toBe('›');
+    ligne.click();
+    expect(ouvert).toBe(1);
+  });
+
+  test('sans `questionnaire`, la ligne n’existe pas', () => {
     const c = cible();
     R().rendreProfil(c, vueProfil({}));
-    expect(c.querySelector('.p-accueil')).toBe(null);
+    expect(c.querySelector('.p-questionnaire')).toBe(null);
   });
 });
 

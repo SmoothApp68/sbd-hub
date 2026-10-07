@@ -181,6 +181,47 @@
     return l;
   }
 
+  // Un choix touché, appliqué aux réponses en cours (une COPIE) : les noms de
+  // réponse que l'écran connaît, et rien d'autre — un geste qui vise une clé
+  // inconnue est sans effet.
+  var CHOIX = ['historique', 'anciennete', 'seances', 'duree', 'sexe', 'objectif', 'phase',
+               'temps', 'materiel', 'coach'];
+
+  function appliquerChoix(rep, cle, valeur) {
+    var r = Object.assign({}, rep);
+    if (cle === 'priorite') r.priorites = basculerPriorite(r.priorites, valeur);
+    else if (cle === 'aucune') r.priorites = [];
+    else if (CHOIX.indexOf(cle) >= 0) r[cle] = valeur;
+    return r;
+  }
+
+  // Un champ tapé (l'année, la taille, le poids) lu en nombre. `lireNombre` est
+  // passée (le lecteur unique des nombres tapés, `modele.js`, vit chez l'écran) ;
+  // `aujourdhui` borne l'année. Rend `{ valeur, erreur }` : un champ vide n'est
+  // pas une erreur (tout est facultatif), un nombre hors bornes n'est pas une
+  // réponse — la phrase le dit, et la valeur reste `null`. Les bornes sont celles
+  // du Profil et de la base, jamais d'autres.
+  function lireChamp(cle, texte, lireNombre, aujourdhui) {
+    var t = String(texte === null || texte === undefined ? '' : texte).trim();
+    if (t === '') return { valeur: null, erreur: null };
+    var n = lireNombre(t);
+    var P = Profil();
+    if (cle === 'annee') {
+      var annee = n !== null && Math.floor(n) === n && P.naissanceValide(n + '-01-01', aujourdhui) !== null ? n : null;
+      return { valeur: annee, erreur: annee === null ? 'Une année de naissance plausible.' : null };
+    }
+    if (cle === 'taille') {
+      var taille = n === null ? null : P.tailleValide(n);
+      return { valeur: taille, erreur: taille === null ? 'Une taille entre ' + P.TAILLE_MIN + ' et ' + P.TAILLE_MAX + ' cm.' : null };
+    }
+    if (cle === 'poids') {
+      var W = Poids();
+      var poids = n === null ? null : W.poidsValide(n);
+      return { valeur: poids, erreur: poids === null ? 'Un poids entre ' + W.POIDS_MIN + ' et ' + W.POIDS_MAX + ' kg.' : null };
+    }
+    return { valeur: null, erreur: null };
+  }
+
   // ── Les chiffres montrés ─────────────────────────────────────────────────
 
   function en(n, unite) { return n + INSECABLE + unite; }
@@ -490,6 +531,8 @@
     coachEnChamps: coachEnChamps,
     champsDeLEcran: champsDeLEcran,
     basculerPriorite: basculerPriorite,
+    appliquerChoix: appliquerChoix,
+    lireChamp: lireChamp,
     lignesDeCeQueJeSais: lignesDeCeQueJeSais,
     dureeMontree: dureeMontree,
     vueDe: vueDe

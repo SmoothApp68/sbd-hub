@@ -410,7 +410,7 @@
 
   // ── LE QUESTIONNAIRE EST UNE RÈGLE DE ROUTAGE (ECRAN-PROFIL §4 bis) ──────
   //
-  // 60-2a — IL REMPLACE `doitOuvrirProfil`. Ce n'est plus `onboarding_completed`
+  // 60-2a — IL REMPLACE L'ANCIENNE RÈGLE (`doitOuvrirProfil`, retirée). Ce n'est plus `onboarding_completed`
   // (« profil vu », déjà vrai chez les quatre comptes existants) qui décide,
   // mais `questionnaire_fait_le` : vide tant que la personne n'est pas arrivée
   // au récapitulatif (QUESTIONNAIRE-COACH-V2 §2).
@@ -432,17 +432,15 @@
   // de Saisie et la ligne du Profil prennent le relais, jusqu'à ce qu'il soit
   // rempli.
   function doitOuvrirQuestionnaire(profil, dejaVuIci) {
-    if (dejaVuIci) return false;
-    return !!profil && Object.prototype.hasOwnProperty.call(profil, 'questionnaire_fait_le') &&
-      profil.questionnaire_fait_le === null;
+    return !dejaVuIci && questionnaireAFaire(profil);
   }
 
-  // ── L'ancienne règle, JUSQU'AU BRANCHEMENT DE L'ÉCRAN (60-2a, commit 3) ──
-  //
-  // `=== false`, PAS « pas vrai » : trois états — `false` (jamais vu), `true`
-  // (vu), ABSENT (on ne sait pas, on n'ouvre rien).
-  function doitOuvrirProfil(profil) {
-    return !!profil && profil.onboarding_completed === false;
+  // Le questionnaire n'est pas terminé — ce que le bandeau de Saisie et la ligne
+  // du Profil lisent, tant qu'il ne l'est pas : la même règle à trois états, sans
+  // la mémoire de l'appareil.
+  function questionnaireAFaire(profil) {
+    return !!profil && Object.prototype.hasOwnProperty.call(profil, 'questionnaire_fait_le') &&
+      profil.questionnaire_fait_le === null;
   }
 
   function manquants(profil) {
@@ -829,8 +827,8 @@
     musclesPrioritaires: musclesPrioritaires, prioritesValides: prioritesValides,
     DUREE_MIN: DUREE_MIN, DUREE_MAX: DUREE_MAX,
     preparerChamps: preparerChamps,
-    doitOuvrirProfil: doitOuvrirProfil,
     doitOuvrirQuestionnaire: doitOuvrirQuestionnaire,
+    questionnaireAFaire: questionnaireAFaire,
     champsEcrits: champsEcrits,
     tailleValide: tailleValide,
     naissanceValide: naissanceValide,

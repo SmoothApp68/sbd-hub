@@ -123,11 +123,12 @@ describe('59-2 — après « Quitter », rien ne reste sur l’appareil', () => 
 
   test('toutes les clés th-v2… partent, et seulement elles', () => {
     const ls = stockage({ 'th-v2-auth': '{}', 'th-v2-sourdine': '1', 'th-v2-effort': 'rpe',
-      'th-v2-refus-chauffes': '{}', 'th-v2-dossiers-replies': '{}', 'th-v2-garde': '1', 'autre-site': 'x' });
+      'th-v2-refus-chauffes': '{}', 'th-v2-dossiers-replies': '{}', 'th-v2-garde': '1',
+      'th-v2-questionnaire-vu-u1': '1', 'autre-site': 'x' });
     const ss = stockage({ 'th-v2-escalier-demo': 'demo' });
     const retirees = Quitter.effacerStockages([ls, ss, null]);
     expect(retirees.sort()).toEqual(['th-v2-auth', 'th-v2-dossiers-replies', 'th-v2-effort', 'th-v2-escalier-demo',
-      'th-v2-garde', 'th-v2-refus-chauffes', 'th-v2-sourdine']);
+      'th-v2-garde', 'th-v2-questionnaire-vu-u1', 'th-v2-refus-chauffes', 'th-v2-sourdine']);
     expect(ls.cles()).toEqual(['autre-site']);
     expect(ss.cles()).toEqual([]);
   });

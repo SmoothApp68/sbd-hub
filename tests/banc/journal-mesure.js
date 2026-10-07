@@ -150,8 +150,10 @@ async function passe(h, ralenti) {
         if (table === 'sets') return json(pagine(h.series, url, 'id'));
         if (table === 'exercises') return json(pagine(h.exos, url, 'slug'));
         if (table === 'records') return json(pagine(base.records, url, 'id'));
+        // 60-2a — `questionnaire_fait_le` posé : le questionnaire ne s'ouvre pas
+        // par-dessus la mesure (il s'ouvre sur une ligne dont la colonne est VIDE).
         if (table === 'profiles') return json([{ id: 'u-mesure', username: 'mesure', onboarding_completed: true,
-          intention: 'progresser', rythme_progression: 'normal' }]);
+          intention: 'progresser', rythme_progression: 'normal', questionnaire_fait_le: '2026-10-01T08:00:00.000Z' }]);
         return json([]);
       }
       if (req.method() === 'POST' && table === 'records') {

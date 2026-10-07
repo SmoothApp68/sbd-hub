@@ -121,6 +121,10 @@
         <button id="btn-nouvelle-routine" type="button" class="discret">Nouvelle routine</button>
       </div>
     </header>
+    <!-- 60-2a — « Ton questionnaire n'est pas terminé. » : le même composant que le
+         bandeau de reprise, dans SON conteneur (un seul nœud ne tient pas deux
+         bandeaux). Il ne se ferme qu'en remplissant le questionnaire. -->
+    <div id="bandeau-questionnaire" hidden></div>
     <!-- Le bandeau de reprise (§7 octodecies.3) : il ne s'affiche que s'il y a
          quelque chose d'ouvert. Le même composant servira à la séance en cours
          (§7 nonies), qui n'est pas encore branchée. -->
@@ -276,6 +280,14 @@
            aria-label="Chercher un exercice">
     <div id="compte-mes-exos" class="p-compte"></div>
     <div id="liste-mes-exos" class="exo-liste"></div>
+  </section>
+
+  <!-- 60-2a — LE QUESTIONNAIRE DU COACH. Une vue plein écran, sans barre d'onglets
+       (`ongletDe` ne la connaît pas), construite en JS par `rendreQuestionnaire`
+       depuis la vue que `THQuestionnaire` décrit. Pas de route : il s'ouvre une
+       fois, de lui-même, ou depuis le bandeau de Saisie et la ligne du Profil. -->
+  <section id="vue-questionnaire" hidden>
+    <div id="questionnaire-corps"></div>
   </section>
 
 </main>

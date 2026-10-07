@@ -3822,10 +3822,15 @@
     if (vue.depuis) b.appendChild(el('div', 'reprise-depuis', vue.depuis));
 
     var actions = el('div', 'reprise-actions');
-    var quitter = el('button', 'discret', vue.libelleQuitter || 'Abandonner');
-    quitter.type = 'button';
-    quitter.addEventListener('click', function () { vue.surQuitter(); });
-    actions.appendChild(quitter);
+    // 60-2a — « Abandonner » est FACULTATIF : le bandeau du questionnaire ne se
+    // ferme qu'en le remplissant (QUESTIONNAIRE-COACH-V2 §2), il n'a donc que
+    // « Le terminer ». Un bandeau de brouillon, lui, garde les deux boutons.
+    if (typeof vue.surQuitter === 'function') {
+      var quitter = el('button', 'discret', vue.libelleQuitter || 'Abandonner');
+      quitter.type = 'button';
+      quitter.addEventListener('click', function () { vue.surQuitter(); });
+      actions.appendChild(quitter);
+    }
     var reprendre = el('button', 'principal', vue.libelleReprendre || 'Reprendre');
     reprendre.type = 'button';
     reprendre.addEventListener('click', function () { vue.surReprendre(); });
@@ -4263,21 +4268,15 @@
     if (!cible) return;
     vider(cible);
 
-    // Le bandeau d'accueil d'un compte neuf. Il dit ce qui reste et OFFRE LA
-    // SORTIE — « contournable, obligatoirement » (§4) : un utilisateur avec 138
-    // séances d'historique n'a aucune raison de répondre à cinq questions avant
-    // de voir ce qu'il a fait.
-    if (vue.accueil) {
-      var acc = el('div', 'p-accueil');
-      acc.appendChild(el('div', 'p-accueil-t', 'Bienvenue.'));
-      acc.appendChild(el('p', '',
-        'Ces réglages affinent ce que le moteur te proposera. ' +
-        'Rien n’est obligatoire, et tu peux y revenir quand tu veux.'));
-      var plus = el('button', 'p-plus-tard', 'Plus tard — voir mes séances');
-      plus.type = 'button';
-      plus.addEventListener('click', vue.accueil.surPlusTard);
-      acc.appendChild(plus);
-      cible.appendChild(acc);
+    // 60-2a — LE BANDEAU D'ACCUEIL EST RETIRÉ. C'est le questionnaire du coach qui
+    // accueille un compte neuf (ECRAN-PROFIL §4 bis), sur `questionnaire_fait_le`
+    // et non plus sur `onboarding_completed` : il s'ouvre de lui-même, et « Plus
+    // tard » laisse une ligne en tête de ce profil (`vue.questionnaire`).
+    if (vue.questionnaire) {
+      var qu = el('div', 'p-groupe p-questionnaire');
+      qu.appendChild(ligneProfil({ libelle: vue.questionnaire.libelle, sansValeur: true,
+                                   surChoix: vue.questionnaire.surChoix }));
+      cible.appendChild(qu);
     }
 
     var chiffres = el('div', 'p-chiffres');
@@ -4328,6 +4327,176 @@
     sup.id = 'btn-supprimer-compte';
     sup.addEventListener('click', vue.surSupprimer);
     cible.appendChild(sup);
+    return cible;
+  }
+
+  // ══ LE QUESTIONNAIRE DU COACH (60-2a, QUESTIONNAIRE-COACH-V2 §3) ═══════════
+  //
+  // ⚠️ LE RENDU NE CONNAÎT NI RÈGLE NI TEXTE. Il dessine la vue que
+  // `THQuestionnaire.vueDe` lui donne — le titre, la voix, les blocs, le bouton —
+  // et rend les gestes à l'appelant (`actions`). Aucune colonne, aucune valeur
+  // de liste, aucun libellé n'est écrit ici : un texte recopié dans le rendu
+  // finirait par dire autre chose que le Profil.
+  //
+  //   `actions.surChoix(cle, valeur)`  une option, une puce touchée ;
+  //   `actions.surSaisie(cle, texte)`  un champ tapé — rend l'ERREUR à afficher
+  //                                    (ou `null`) : le champ n'est PAS redessiné,
+  //                                    sans quoi il perdrait le focus et le clavier ;
+  //   `actions.surLigne(cle)`          une ligne qui ouvre une feuille ;
+  //   `actions.surChanger(ecran)`      « changer » au récapitulatif ;
+  //   `actions.surContinuer()`, `surRetour()`, `surPlusTard()`.
+  function blocPuces(b, a) {
+    var g = el('div', 'q-puces');
+    var valeurs = b.multiple ? (b.valeurs || []) : [b.valeur];
+    b.options.forEach(function (o) {
+      var on = valeurs.indexOf(o.cle) >= 0;
+      var n = el('button', 'q-puce' + (on ? ' on' : ''), o.libelle);
+      n.type = 'button';
+      n.dataset.cle = o.cle;
+      n.setAttribute('aria-pressed', on ? 'true' : 'false');
+      n.addEventListener('click', function () { a.surChoix(b.cle, o.cle); });
+      g.appendChild(n);
+    });
+    return g;
+  }
+
+  function blocOptions(b, a) {
+    var g = el('div', 'q-options');
+    b.options.forEach(function (o) {
+      var on = o.cle === b.valeur;
+      var n = el('button', 'q-opt' + (on ? ' on' : ''));
+      n.type = 'button';
+      n.dataset.cle = o.cle;
+      n.setAttribute('aria-pressed', on ? 'true' : 'false');
+      n.appendChild(el('span', 'q-opt-t', o.libelle));
+      if (o.sous) n.appendChild(el('span', 'q-sous', o.sous));
+      n.addEventListener('click', function () { a.surChoix(b.cle, o.cle); });
+      g.appendChild(n);
+    });
+    return g;
+  }
+
+  function blocChamps(b, a) {
+    var g = el('div', 'q-champs');
+    b.champs.forEach(function (c) {
+      var f = el('div', 'q-champ');
+      var lib = el('label', 'q-champ-lib', c.libelle);
+      var id = 'q-champ-' + c.cle;
+      lib.setAttribute('for', id);
+      f.appendChild(lib);
+      var saisie = el('div', 'q-champ-saisie');
+      var champ = el('input', 'q-champ-in');
+      champ.id = id;
+      champ.type = 'text';
+      champ.value = c.valeur === null || c.valeur === undefined ? '' : c.valeur;
+      champ.setAttribute('inputmode', c.mode === 'decimal' ? 'decimal' : 'numeric');
+      champ.setAttribute('autocomplete', 'off');
+      champ.setAttribute('enterkeyhint', 'done');
+      saisie.appendChild(champ);
+      if (c.unite) saisie.appendChild(el('span', 'q-champ-unite', c.unite));
+      f.appendChild(saisie);
+      var err = el('small', 'q-err', c.erreur || '');
+      err.hidden = !c.erreur;
+      champ.addEventListener('input', function () {
+        var e = a.surSaisie(c.cle, champ.value);
+        err.textContent = e || '';
+        err.hidden = !e;
+      });
+      if (c.aide) f.appendChild(el('small', 'q-champ-aide', c.aide));
+      f.appendChild(err);
+      g.appendChild(f);
+    });
+    return g;
+  }
+
+  function blocResume(b, a) {
+    var g = el('div', 'q-faits q-resume');
+    b.lignes.forEach(function (l) {
+      var r = el('div', 'q-ligne');
+      r.appendChild(el('span', 'q-g', l.libelle));
+      var v = el('span', 'q-c');
+      v.appendChild(el('span', 'q-c-v', l.valeur));
+      var m = el('button', 'q-mod', 'changer');
+      m.type = 'button';
+      m.dataset.ecran = l.ecran;
+      m.addEventListener('click', function () { a.surChanger(l.ecran); });
+      v.appendChild(m);
+      r.appendChild(v);
+      g.appendChild(r);
+    });
+    return g;
+  }
+
+  function rendreQuestionnaire(cible, vue, actions) {
+    if (!cible || !vue) return cible;
+    vider(cible);
+    var a = actions || {};
+    var page = el('div', 'q-page');
+
+    var haut = el('div', 'q-haut');
+    if (vue.retour) {
+      var retour = el('button', 'q-retour', '‹ Retour');
+      retour.type = 'button';
+      retour.addEventListener('click', a.surRetour);
+      haut.appendChild(retour);
+    } else haut.appendChild(el('span', 'q-retour vide'));
+    var barre = el('div', 'q-prog');
+    barre.setAttribute('role', 'progressbar');
+    barre.setAttribute('aria-valuemin', '1');
+    barre.setAttribute('aria-valuemax', String(vue.progression.total));
+    barre.setAttribute('aria-valuenow', String(vue.progression.rang + 1));
+    var rempli = el('i');
+    rempli.style.width = vue.progression.pourcent + '%';
+    barre.appendChild(rempli);
+    haut.appendChild(barre);
+    var plus = el('button', 'q-plus-tard', 'Plus tard');
+    plus.type = 'button';
+    plus.addEventListener('click', a.surPlusTard);
+    haut.appendChild(plus);
+    page.appendChild(haut);
+
+    var corps = el('div', 'q-corps');
+    corps.dataset.ecran = vue.id;
+    corps.appendChild(el('p', 'q-etape', vue.etape));
+    corps.appendChild(el('h2', 'q-titre', vue.titre));
+    if (vue.voix) corps.appendChild(el('p', 'q-voix', vue.voix));
+    (vue.blocs || []).forEach(function (b) {
+      if (b.titre) corps.appendChild(el('div', 'q-sous-titre', b.titre));
+      if (b.type === 'options') corps.appendChild(blocOptions(b, a));
+      else if (b.type === 'puces') corps.appendChild(blocPuces(b, a));
+      else if (b.type === 'champs') corps.appendChild(blocChamps(b, a));
+      else if (b.type === 'resume') corps.appendChild(blocResume(b, a));
+      else if (b.type === 'faits') {
+        var f = el('div', 'q-faits');
+        b.lignes.forEach(function (l) {
+          var r = el('div', 'q-ligne');
+          r.appendChild(el('span', 'q-g', l.libelle));
+          r.appendChild(el('span', 'q-c', l.valeur));
+          f.appendChild(r);
+        });
+        corps.appendChild(f);
+      } else if (b.type === 'ligne') {
+        var ligne = el('button', 'q-ligne-choix');
+        ligne.type = 'button';
+        ligne.dataset.cle = b.cle;
+        ligne.appendChild(el('span', 'q-lc-lib', b.libelle));
+        ligne.appendChild(el('span', 'q-lc-val', b.valeur));
+        ligne.appendChild(el('span', 'q-lc-fl', '›'));
+        ligne.addEventListener('click', function () { a.surLigne(b.cle); });
+        corps.appendChild(ligne);
+      } else if (b.type === 'note') corps.appendChild(el('p', 'q-note', b.texte));
+    });
+    page.appendChild(corps);
+
+    var bas = el('div', 'q-bas');
+    var continuer = el('button', 'principal q-continuer', vue.bouton.libelle);
+    continuer.type = 'button';
+    continuer.disabled = !vue.bouton.actif;
+    continuer.addEventListener('click', a.surContinuer);
+    bas.appendChild(continuer);
+    page.appendChild(bas);
+
+    cible.appendChild(page);
     return cible;
   }
 
@@ -4588,6 +4757,7 @@
     rendreDetail: rendreDetail,
     rendrePageExercice: rendrePageExercice,
     rendreProfil: rendreProfil,
+    rendreQuestionnaire: rendreQuestionnaire,
     rendreFeuilleChoix: rendreFeuilleChoix,
     rendreFeuilleSaisie: rendreFeuilleSaisie,
     rendreMesExercices: rendreMesExercices,

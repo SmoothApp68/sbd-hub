@@ -32,7 +32,7 @@
 const path = require('path');
 const R = path.join(__dirname, '../..');
 const { chromium } = require(path.join(R, 'node_modules/playwright-core'));
-const { creer } = require(path.join(R, 'v2/banc/serveur-pages.js'));
+const { creer } = require(path.join(R, 'v2-atelier/banc/serveur-pages.js'));
 const CHROME = process.env.CHROME_BIN || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 const PORT = Number(process.env.BANC_PORT || 8872), BASE = 'http://127.0.0.1:' + PORT;
 const attendre = (ms) => new Promise((r) => setTimeout(r, ms));

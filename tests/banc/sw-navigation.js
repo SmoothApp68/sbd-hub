@@ -26,7 +26,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { chromium } = require(path.join(__dirname, '../../node_modules/playwright-core'));
-const { creer } = require(path.join(__dirname, '../../v2/banc/serveur-pages.js'));
+const { creer } = require(path.join(__dirname, '../../v2-atelier/banc/serveur-pages.js'));
 
 const CHROME = process.env.CHROME_BIN || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 const RACINE = path.join(__dirname, '../../v2');

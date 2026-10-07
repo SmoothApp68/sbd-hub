@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 //
-// v2/banc/serveur-pages.js — un serveur qui IMITE Cloudflare Pages.
+// v2-atelier/banc/serveur-pages.js — un serveur qui IMITE Cloudflare Pages.
 //
 // ══ POURQUOI CE FICHIER EXISTE ═════════════════════════════════════════════
 //
@@ -31,7 +31,7 @@
 //
 // ══ USAGE ══════════════════════════════════════════════════════════════════
 //
-//   node v2/banc/serveur-pages.js [racine] [port] [--sans-canonicalisation]
+//   node v2-atelier/banc/serveur-pages.js [racine] [port] [--sans-canonicalisation]
 //
 // `--sans-canonicalisation` sert de TÉMOIN : c'est la configuration dans
 // laquelle la garde `redirected` et son absence sont indistinguables. Un banc
@@ -64,7 +64,9 @@ const TYPES = {
 
 function creer(options) {
   const opts = options || {};
-  const racine = path.resolve(opts.racine || path.join(__dirname, '..'));
+  // La racine par défaut est l'APP PUBLIÉE (`v2/`), pas le dossier voisin :
+  // ce fichier vit dans `v2-atelier/banc/` depuis 59-1, hors du dossier publié.
+  const racine = path.resolve(opts.racine || path.join(__dirname, '../../v2'));
   const canonicalise = opts.canonicalise !== false;
   const journal = [];
 

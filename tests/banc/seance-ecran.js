@@ -25,7 +25,7 @@
 const path = require('path');
 const R = path.join(__dirname, '../..');
 const { chromium } = require(path.join(R, 'node_modules/playwright-core'));
-const { creer } = require(path.join(R, 'v2/banc/serveur-pages.js'));
+const { creer } = require(path.join(R, 'v2-atelier/banc/serveur-pages.js'));
 const { compteDeLaGarde } = require(path.join(__dirname, 'garde-compte.js'));
 const CHROME = process.env.CHROME_BIN || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 const PORT = Number(process.env.BANC_PORT || 8874), BASE = 'http://127.0.0.1:' + PORT;

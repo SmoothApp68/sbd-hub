@@ -12738,18 +12738,35 @@ const SETS_IMPORTES = [
       .filter((c) => /Les plus faits/.test(c.textContent))
       .map((c) => Array.from(c.querySelectorAll('.ligne-mois')).map((l) => ({
         texte: l.textContent, bouton: !!l.querySelector('button.nom-exo.lien') })))[0] || []);
-    await page.evaluate(() => {
-      const b = Array.from(document.querySelectorAll('#bilan-mois .carte-mois button.nom-exo.lien'))
-        .filter((x) => /Médaillé U55/.test(x.textContent))[0];
-      if (b) b.click();
+    // ⚠️ LE PREMIER DE LA LISTE, QUEL QU'IL SOIT (07/10/2026). Le contrôle
+    // touchait « Médaillé U55 » et le supposait dans les cinq « plus faits » :
+    // vrai dans son groupe parallèle, faux en séquentiel, où les séances des
+    // autres sections le font sortir du top 5 (ses séances d'il y a 13 et 20
+    // jours sont le mois d'avant). On touche le premier nom, et on attend SA
+    // page : son nom en titre, et son identifiant dans l'URL quand le catalogue
+    // du banc le connaît. Le discriminant « le deuxième, pas le premier » vit
+    // dans `tests/unit/v2-bilan-mois-exercice.test.js`.
+    const touche = await page.evaluate(() => {
+      const carte = Array.from(document.querySelectorAll('#bilan-mois .carte-mois'))
+        .filter((c) => /Les plus faits/.test(c.textContent))[0];
+      const b = carte ? carte.querySelector('.ligne-mois button.nom-exo.lien') : null;
+      if (!b) return null;
+      const nom = b.textContent;
+      b.click();
+      return nom;
     });
     await attendre(900);
-    const versExo = { route: await page.evaluate(() => location.pathname), vues: await visible() };
-    ok('[57-1] DISCRIMINANT — dans le bilan, chaque exercice « le plus fait » est un nom touchable, et « Médaillé U55 » ouvre SA page (/exercice/record-u55)',
-      plusFaits.length >= 1 && plusFaits.every((l) => l.bouton) &&
-        versExo.route === '/exercice/record-u55' && JSON.stringify(versExo.vues) === '["vue-exercice"]',
+    const slugTouche = (CATALOGUE.filter((x) => x.nom === touche)[0] || {}).slug || null;
+    const versExo = { touche, slug: slugTouche, route: await page.evaluate(() => location.pathname), vues: await visible(),
+      titre: await page.evaluate(() => { const h = document.querySelector('#page-exercice h2'); return h ? h.textContent : null; }) };
+    ok('[57-1] DISCRIMINANT — dans le bilan, chaque exercice « le plus fait » est un nom touchable, et le premier ouvre SA page',
+      plusFaits.length >= 1 && plusFaits.every((l) => l.bouton) && touche === plusFaits[0].texte.replace(/\d+ séries?$/, '') &&
+        JSON.stringify(versExo.vues) === '["vue-exercice"]' && versExo.titre === touche &&
+        (slugTouche ? versExo.route === '/exercice/' + slugTouche : /^\/exercice\/[^/]+$/.test(versExo.route)),
       JSON.stringify([plusFaits, versExo]));
-    await page.click('#btn-retour-exercice');
+    // Le retour, seulement si la page s'est ouverte : sinon le clic attendrait
+    // 30 s un bouton caché, et le contrôle suivant dit déjà l'échec.
+    if (JSON.stringify(versExo.vues) === '["vue-exercice"]') await page.click('#btn-retour-exercice');
     await attendre(900);
     ok('[57-1] le retour rend le bilan du même mois',
       (await page.evaluate(() => location.pathname)) === avantExo && JSON.stringify(await visible()) === '["vue-mois"]',

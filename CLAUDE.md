@@ -182,6 +182,10 @@ trappe `/__sw-off` pendrait avec lui.
   `tout.js` ne lance que le parallèle : le séquentiel était cassé depuis la
   PR 6 de la consolidation (`plan.js` chargé sans `modele.js` en 7 sexdecies)
   sans que personne le voie. Règle du 02/10/2026 (49-U20).
+  **Une section qui plante n'arrête plus le séquentiel** (07/10/2026) : il joue
+  le banc par le découpeur, chaque section protégée (`sectionResistante`) ;
+  une exception devient un contrôle en échec « [exception] … », la section
+  suivante joue, et le résumé liste **tous** les échecs à la fin.
 - **Les mutations** : banc réduit et tests ciblés, jamais le banc complet,
   chacune dans son worktree, lancées ensemble :
   `node tests/banc/muter.js --lot mutations.json` (format dans l'en-tête du

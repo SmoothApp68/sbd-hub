@@ -1,0 +1,205 @@
+/** @jest-environment node */
+//
+// 59-2 — « QUITTER » NE PERD PLUS RIEN EN SILENCE, ET N'OUBLIE RIEN SUR
+// L'APPAREIL.
+//
+//   1. La fenêtre : le texte de la maquette du 07/10/2026, mot pour mot, et le
+//      nombre de SÉANCES distinctes de la file.
+//   2. L'enchaînement (`THQuitter.quitter`) : envoyer d'abord si le réseau est
+//      là ; quitter sans rien demander si la file s'est vidée ; sinon la
+//      fenêtre — et seul « Quitter quand même » vide la file.
+//   3. Après « Quitter » : plus aucun magasin rempli, aucune clé `th-v2…`,
+//      aucun jeton — même hors ligne.
+
+global.self = global;
+const Attente = require('../../v2/js/attente.js');
+const Quitter = require('../../v2/js/quitter.js');
+
+// ── Une file de papier ──────────────────────────────────────────────────────
+const seance = (id) => [
+  { table: Attente.SESSIONS, op: Attente.UPSERT, id: id, donnees: {} },
+  { table: Attente.SETS, op: Attente.REMPLACER, id: id, donnees: [] },
+  { table: Attente.RECORDS, op: Attente.AJOUTER, id: id, depend: id, donnees: [] }
+];
+const file = (ops) => ops.reduce((f, op) => Attente.poser(f, op), []);
+
+describe('59-2 — la fenêtre : la maquette, mot pour mot', () => {
+  test('deux séances (la séance, ses séries et son journal comptent pour une)', () => {
+    const f = file(seance('A').concat(seance('B')));
+    expect(Quitter.enAttente(f)).toEqual({ seances: 2, autres: 0 });
+    expect(Quitter.fenetreDeSortie(f)).toEqual({
+      titre: '2 séances pas encore envoyées.',
+      aide: 'Si tu quittes maintenant, elles sont perdues.',
+      rester: 'Rester', quitter: 'Quitter quand même'
+    });
+  });
+
+  test('une séance : au singulier', () => {
+    const f = file([{ table: Attente.SETS, op: Attente.REMPLACER, id: 'A', donnees: [] }]);
+    const v = Quitter.fenetreDeSortie(f);
+    expect(v.titre).toBe('1 séance pas encore envoyée.');
+    expect(v.aide).toBe('Si tu quittes maintenant, elle est perdue.');
+  });
+
+  test('aucune séance, mais un choix fait hors ligne : la fenêtre le dit, sans nombre', () => {
+    const f = file([{ table: Attente.ZONES, op: Attente.UPSERT, id: 'z1', donnees: {} }]);
+    expect(Quitter.enAttente(f)).toEqual({ seances: 0, autres: 1 });
+    expect(Quitter.fenetreDeSortie(f).titre).toBe('Des changements pas encore envoyés.');
+  });
+
+  test('une file vide : pas de fenêtre', () => {
+    expect(Quitter.fenetreDeSortie([])).toBeNull();
+    expect(Quitter.fenetreDeSortie(null)).toBeNull();
+  });
+
+  test('aucun « bravo », aucun commentaire d’assiduité', () => {
+    const v = Quitter.fenetreDeSortie(file(seance('A')));
+    expect(JSON.stringify(v)).not.toMatch(/bravo|super|bien joué|assidu|!/i);
+  });
+});
+
+describe('59-2 — l’enchaînement de « Quitter »', () => {
+  // `etat.file` est la file de l'app ; `envoyer` la vide si le réseau « passe ».
+  function scenario(o) {
+    const etat = { file: o.file, envois: 0, fenetres: [], deconnexions: 0 };
+    const d = {
+      file: () => etat.file,
+      enLigne: () => o.enLigne,
+      envoyer: async () => { etat.envois++; if (o.envoiPasse) etat.file = []; },
+      fenetre: async (vue) => { etat.fenetres.push(vue); return o.choix; },
+      deconnecter: async () => { etat.deconnexions++; etat.file = []; }
+    };
+    return { etat, d };
+  }
+
+  test('rien n’attend : on quitte, sans envoi ni fenêtre', async () => {
+    const { etat, d } = scenario({ file: [], enLigne: true });
+    expect(await Quitter.quitter(d)).toBe('quitte');
+    expect([etat.envois, etat.fenetres.length, etat.deconnexions]).toEqual([0, 0, 1]);
+  });
+
+  test('en ligne, l’envoi vide la file : on quitte, sans fenêtre', async () => {
+    const { etat, d } = scenario({ file: file(seance('A')), enLigne: true, envoiPasse: true });
+    expect(await Quitter.quitter(d)).toBe('quitte');
+    expect([etat.envois, etat.fenetres.length, etat.deconnexions]).toEqual([1, 0, 1]);
+  });
+
+  test('⚠️ hors ligne, deux séances : la fenêtre ; « Rester » ne touche à rien', async () => {
+    const f = file(seance('A').concat(seance('B')));
+    const { etat, d } = scenario({ file: f, enLigne: false, choix: 'rester' });
+    expect(await Quitter.quitter(d)).toBe('reste');
+    expect(etat.envois).toBe(0);
+    expect(etat.fenetres.map((v) => v.titre)).toEqual(['2 séances pas encore envoyées.']);
+    expect(etat.deconnexions).toBe(0);
+    expect(etat.file).toBe(f);          // la file intacte, la même
+  });
+
+  test('⚠️ en ligne mais l’envoi échoue : la fenêtre quand même', async () => {
+    const { etat, d } = scenario({ file: file(seance('A')), enLigne: true, envoiPasse: false, choix: 'rester' });
+    d.envoyer = async () => { etat.envois++; throw new Error('réseau'); };
+    expect(await Quitter.quitter(d)).toBe('reste');
+    expect([etat.envois, etat.fenetres.length, etat.deconnexions]).toEqual([1, 1, 0]);
+  });
+
+  test('« Quitter quand même » : alors seulement la file est vidée', async () => {
+    const { etat, d } = scenario({ file: file(seance('A')), enLigne: false, choix: 'quitter' });
+    expect(await Quitter.quitter(d)).toBe('quitte');
+    expect([etat.fenetres.length, etat.deconnexions, etat.file.length]).toEqual([1, 1, 0]);
+  });
+});
+
+describe('59-2 — après « Quitter », rien ne reste sur l’appareil', () => {
+  function stockage(init) {
+    const m = new Map(Object.entries(init || {}));
+    return {
+      get length() { return m.size; },
+      key: (i) => Array.from(m.keys())[i] || null,
+      getItem: (k) => (m.has(k) ? m.get(k) : null),
+      setItem: (k, v) => m.set(k, String(v)),
+      removeItem: (k) => m.delete(k),
+      cles: () => Array.from(m.keys()).sort()
+    };
+  }
+
+  test('toutes les clés th-v2… partent, et seulement elles', () => {
+    const ls = stockage({ 'th-v2-auth': '{}', 'th-v2-sourdine': '1', 'th-v2-effort': 'rpe',
+      'th-v2-refus-chauffes': '{}', 'th-v2-dossiers-replies': '{}', 'th-v2-garde': '1', 'autre-site': 'x' });
+    const ss = stockage({ 'th-v2-escalier-demo': 'demo' });
+    const retirees = Quitter.effacerStockages([ls, ss, null]);
+    expect(retirees.sort()).toEqual(['th-v2-auth', 'th-v2-dossiers-replies', 'th-v2-effort', 'th-v2-escalier-demo',
+      'th-v2-garde', 'th-v2-refus-chauffes', 'th-v2-sourdine']);
+    expect(ls.cles()).toEqual(['autre-site']);
+    expect(ss.cles()).toEqual([]);
+  });
+
+  test('un stockage fermé (mode privé) ne fait pas échouer la sortie', () => {
+    const ferme = { get length() { throw new Error('SecurityError'); } };
+    expect(() => Quitter.effacerStockages([ferme])).not.toThrow();
+  });
+
+  describe('le jeton', () => {
+    let Auth, ls, appels;
+    function charger(signOut) {
+      jest.resetModules();
+      appels = [];
+      ls = stockage({ 'th-v2-auth': '{"user":{"id":"u"}}', 'th-v2-auth-code-verifier': 'v', 'th-v2-auth-user': '{}' });
+      global.localStorage = ls;
+      global.THClient = { CLE_AUTH: 'th-v2-auth', obtenir: () => ({ auth: {
+        signOut: async (o) => { appels.push(['signOut', o]); return signOut(); },
+        stopAutoRefresh: async () => { appels.push(['stopAutoRefresh']); }
+      } }) };
+      require('../../v2/js/auth.js');
+      Auth = global.THAuth;
+    }
+    afterEach(() => { delete global.THClient; delete global.localStorage; });
+
+    test('⚠️ hors ligne (le serveur ne répond pas) : le jeton est effacé quand même, et rien ne le réécrit', async () => {
+      charger(() => ({ error: { name: 'AuthRetryableFetchError', message: 'Failed to fetch' } }));
+      const r = await Auth.deconnecter();
+      expect(r.local).toBe(true);
+      expect(ls.cles()).toEqual([]);
+      expect(appels.map((a) => a[0])).toEqual(['signOut', 'stopAutoRefresh']);
+    });
+
+    test('une exception du SDK : même chose, et « Quitter » n’échoue pas', async () => {
+      charger(() => { throw new Error('réseau'); });
+      await expect(Auth.deconnecter()).resolves.toEqual(expect.objectContaining({ local: true }));
+      expect(ls.cles()).toEqual([]);
+    });
+
+    test('en ligne : le SDK révoque et efface lui-même ; on ne touche à rien', async () => {
+      charger(() => ({ error: null }));
+      const r = await Auth.deconnecter();
+      expect(r.local).toBe(false);
+      expect(appels.map((a) => a[0])).toEqual(['signOut']);
+    });
+  });
+
+  test('⚠️ chaque magasin que l’app CRÉE est vidé par « Quitter » — predictions et records compris', async () => {
+    jest.resetModules();
+    const journal = [];
+    const magasin = (nom) => ({
+      clear() { journal.push({ op: 'clear', magasin: nom }); },
+      put() {}, createIndex() { return {}; }
+    });
+    const db = {
+      objectStoreNames: { contains: () => false },
+      createObjectStore(nom) { journal.push({ op: 'creer', magasin: nom }); return magasin(nom); },
+      transaction() { const t = { objectStore: (nom) => magasin(nom) }; setTimeout(() => t.oncomplete && t.oncomplete(), 0); return t; }
+    };
+    global.indexedDB = { open() {
+      const req = {};
+      setTimeout(() => { req.result = db; req.onupgradeneeded && req.onupgradeneeded({ target: { result: db } });
+        req.onsuccess && req.onsuccess({ target: { result: db } }); }, 0);
+      return req;
+    } };
+    require('../../v2/js/cache.js');
+    await global.THCache.viderTout();
+    const crees = journal.filter((j) => j.op === 'creer').map((j) => j.magasin).sort();
+    const vides = journal.filter((j) => j.op === 'clear').map((j) => j.magasin).sort();
+    expect(crees).toContain('predictions');
+    expect(crees).toContain('records');
+    expect(vides).toEqual(crees);
+    delete global.indexedDB;
+  });
+});

@@ -22,6 +22,8 @@
   var Seance = racine.THSeance, Attente = racine.THAttente;
   var Profil = racine.THProfil, Moteur = racine.THMoteur, Plan = racine.THPlan;
   var Rejeu = racine.THRejeu, Bilan = racine.THBilan;
+  // 59-2 — « Quitter » : la fenêtre des séances pas encore envoyées, et ce qu'on efface.
+  var Quitter = racine.THQuitter;
   // 58-1 — LE MODULE DES FAITS : l'assemblage des faits (séances et séries,
   // records, semaine, exercices faits) vit dans `faits.js`, avec ses mémos.
   // L'écran lui passe son corpus (`corpus()`) et lit.
@@ -709,6 +711,9 @@
     // 58-2 — le journal des records aussi (son magasin vient d'être vidé), et
     // son remplissage : il se décidera pour le compte qui arrive.
     local.records = [];
+    // 59-2 — les paris du compte précédent : leur magasin est désormais vidé
+    // avec les autres (`MAGASINS`), la mémoire le suit.
+    local.predictions = [];
     journalDecide = false;
     remplissage = null;
     // Le profil aussi appartient au compte précédent — et son envoi en attente
@@ -7590,9 +7595,23 @@
     profil = null; profilAEnvoyer = false; pseudoAInscrire = null;
     faits.oublierDates();
     remplissage = null;
+    // 59-2 — le jeton part même hors ligne (`Auth.deconnecter` l'efface
+    // localement quand le serveur ne répond pas).
     try { await Auth.deconnecter(); } catch (e) { /* le jeton part quand même */ }
+    // 59-2 — PUIS toutes les clés `th-v2…` de l'appareil : le jeton s'il en
+    // restait, et les réglages retenus pour ce compte (le son du repos, la
+    // bascule effort, les « non merci » des chauffes, les dossiers repliés, la
+    // garde de développement). Après le jeton, jamais avant : effacé d'abord,
+    // `signOut` ne trouverait plus de session à révoquer côté serveur. La
+    // mémoire revient aux valeurs d'un appareil neuf.
+    Quitter.effacerStockages([stockageSur('localStorage'), stockageSur('sessionStorage')]);
+    sourdine = false; modeRPE = false; refusChauffes = null; dossiersReplies = {};
     allerA(Routeur.CONNEXION, {}, true);
     rendreEntree('connexion');
+  }
+
+  function stockageSur(nom) {
+    try { return racine[nom] || null; } catch (e) { return null; }
   }
 
   function enregistrerSW() {
@@ -8057,11 +8076,54 @@
         aide: 'Tes données restent en ligne. Elles reviendront à la prochaine ' +
               'connexion — mais cet appareil les oublie, donc il te faudra du réseau.',
         libelle: 'Quitter',
-        surConfirmer: function () { fermerVoile(); deconnecter(); },
+        surConfirmer: function () { fermerVoile(); quitterSansRienPerdre(); },
         surAnnuler: fermerVoile
       });
     };
     ouvrirFeuilleProfil();
+  }
+
+  // ⚠️ 59-2 — « QUITTER » NE PERD PLUS RIEN EN SILENCE. Il vidait la file
+  // d'envoi sans prévenir : une séance saisie hors ligne et pas encore montée
+  // était perdue. L'enchaînement vit dans `THQuitter.quitter` (testé) : envoyer
+  // d'abord si le réseau est là, puis quitter si la file s'est vidée, sinon la
+  // fenêtre. Seul « Quitter quand même » vide la file (`deconnecter`).
+  function quitterSansRienPerdre() {
+    return Quitter.quitter({
+      file: function () { return attente; },
+      enLigne: function () { return !(racine.navigator && racine.navigator.onLine === false); },
+      envoyer: envoyerAvantDeQuitter,
+      fenetre: montrerFenetreDeSortie,
+      deconnecter: deconnecter
+    });
+  }
+
+  // La vidange HABITUELLE, attendue jusqu'au bout : une vidange déjà en cours
+  // est attendue, puis on en lance une. Bornée à 15 s : un réseau qui ne répond
+  // pas ne fige pas « Quitter » — ce qui n'est pas parti, la fenêtre le dira.
+  async function envoyerAvantDeQuitter() {
+    var fin = Date.now() + 15000;
+    var attendre = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
+    while (vidangeEnCours && Date.now() < fin) await attendre(100);
+    await Promise.race([vidanger(), attendre(Math.max(0, fin - Date.now()))]);
+  }
+
+  // La fenêtre des séances pas encore envoyées (la maquette du 07/10/2026).
+  // Rend 'rester' ou 'quitter'. Fermée sans choisir (retour, tap à côté), elle
+  // vaut « Rester » : on ne perd jamais rien sans l'avoir demandé.
+  function montrerFenetreDeSortie(vue) {
+    return new Promise(function (resoudre) {
+      var tranche = false;
+      var choisir = function (c) { if (tranche) return; tranche = true; resoudre(c); };
+      feuilleProfil = function (cible) {
+        Rendu.rendreFeuilleSortie(cible, Object.assign({}, vue, {
+          surRester: function () { choisir('rester'); fermerVoile(); },
+          surQuitter: function () { choisir('quitter'); fermerVoile(); }
+        }));
+      };
+      feuilleProfil($('feuille-contenu'));
+      ouvrirVoile($('feuille-seance'), function () { feuilleProfil = null; choisir('rester'); });
+    });
   }
 
   // ⚠️ LA CONFIRMATION DIT CE QUI PART, en chiffres réels. « Es-tu sûr ? » ne

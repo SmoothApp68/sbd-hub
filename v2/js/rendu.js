@@ -606,6 +606,28 @@
     return cible;
   }
 
+  // 59-2 — LA FENÊTRE DE SORTIE : des séances pas encore envoyées. Elle
+  // n'écrit aucune phrase : le titre, l'aide et les deux libellés viennent de
+  // `THQuitter.fenetreDeSortie`. « Rester » est le bouton principal ; « Quitter
+  // quand même » prend le rouge (`--manque`), seul usage permis : une action
+  // destructive.
+  function rendreFeuilleSortie(cible, vue) {
+    vider(cible);
+    cible.appendChild(el('div', 'feuille-t', vue.titre));
+    cible.appendChild(el('p', 'feuille-aide', vue.aide));
+    var actions = el('div', 'sortie-actions');
+    var rester = el('button', 'principal sortie-rester', vue.rester);
+    rester.type = 'button';
+    rester.addEventListener('click', function () { vue.surRester(); });
+    actions.appendChild(rester);
+    var quitter = el('button', 'sortie-quitter', vue.quitter);
+    quitter.type = 'button';
+    quitter.addEventListener('click', function () { vue.surQuitter(); });
+    actions.appendChild(quitter);
+    cible.appendChild(actions);
+    return cible;
+  }
+
   // §9.18 (51-1) — LE CHOIX DE DURÉE (45 ou 60 min), avant la carte.
   function rendreFeuilleTemps(cible, vue) {
     vider(cible);
@@ -4529,6 +4551,7 @@
     rendreFeuilleRepos: rendreFeuilleRepos,
     VALEURS_REPOS: VALEURS_REPOS,
     rendreFeuilleConfirmer: rendreFeuilleConfirmer,
+    rendreFeuilleSortie: rendreFeuilleSortie,
     rendreFeuilleTemps: rendreFeuilleTemps,
     rendreCarteRaccourci: rendreCarteRaccourci,
     rendreFeuilleSeance: rendreFeuilleSeance,

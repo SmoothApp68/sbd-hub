@@ -1133,6 +1133,13 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
   color:var(--texte);font-size:13.333333px;font-weight:400;line-height:normal;font-family:inherit}
 .feuille-menu button.sel{color:var(--texte);font-weight:700}
 .feuille-menu button.danger,.danger{color:var(--manque)}
+/* 59-2 — la fenêtre de sortie : « Rester » (principal) et « Quitter quand
+   même » côte à côte. Le rouge (`--manque`) ne sert qu'à l'action destructive. */
+.sortie-actions{display:flex;gap:10px;margin-top:var(--e2)}
+.sortie-actions button{flex:1;height:42px;margin-top:0}
+.sortie-quitter{background:transparent;color:var(--manque);border:1px solid var(--manque);
+  border-radius:var(--r-bouton);font-size:14px;font-weight:700;font-family:var(--pile-c);
+  text-transform:uppercase;letter-spacing:.05em}
 /* Une entrée de menu INERTE se voit comme telle : « Voir la progression »
    attend la page d'exercice (§7 quater), et un bouton qui ne répond pas sans le
    dire vaut moins qu'un bouton absent. */

@@ -92,9 +92,36 @@
     return r.data.session;
   }
 
+  // ⚠️ LE JETON PART MÊME HORS LIGNE (59-2). `signOut()` révoque la session
+  // côté serveur PUIS l'efface localement — mais si le serveur ne répond pas
+  // (hors ligne, coupure), le SDK rend l'erreur SANS rien effacer, et cela
+  // vaut aussi pour `signOut({ scope: 'local' })` (supabase-js 2.105.1 :
+  // `_signOut` rend l'erreur réseau avant `_removeSession`). Le jeton restait
+  // alors dans le stockage, et l'app se rouvrait connectée.
+  //
+  // On efface donc la session LOCALE nous-mêmes quand le serveur n'a pas pu :
+  // le rafraîchissement automatique s'arrête (sinon il réécrirait le jeton),
+  // puis les clés du jeton partent. Le SDK relit la session dans le stockage à
+  // chaque appel (`__loadSession`) : sans la clé, il n'y a plus de session.
+  // L'erreur est rendue (`{ local: true, erreur }`), jamais levée : quitter
+  // n'échoue pas.
+  async function oublierSessionLocale() {
+    try { await client().auth.stopAutoRefresh(); } catch (e) { /* déjà arrêté */ }
+    try {
+      var cle = racine.THClient.CLE_AUTH;
+      [cle, cle + '-code-verifier', cle + '-user'].forEach(function (k) { racine.localStorage.removeItem(k); });
+    } catch (e) { /* stockage fermé : rien à retirer */ }
+  }
+
   async function deconnecter() {
-    var r = await client().auth.signOut();
-    if (r && r.error) throw r.error;
+    var r;
+    try { r = await client().auth.signOut(); }
+    catch (e) { r = { error: e }; }
+    if (r && r.error) {
+      await oublierSessionLocale();
+      return { local: true, erreur: r.error };
+    }
+    return { local: false, erreur: null };
   }
 
   // Rejoue l'état d'authentification à chaque changement (connexion, refresh,

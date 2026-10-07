@@ -3923,17 +3923,18 @@
   // ⚠️ L'IDENTIFIANT EST CALCULÉ, PAS TIRÉ (48c-2). Deux instances de l'app
   // qui notent la même consigne calculent le même identifiant, et l'insert
   // qui ignore les doublons fait du second envoi un non-événement. C'est ce
-  // qui a manqué le 21/09 : six lignes au lieu de trois. `uuid()` reste le
-  // repli quand `crypto.subtle` n'existe pas. La ligne provisoire est
-  // remplacée par la ligne identifiée — ajoutée si une synchronisation l'a
-  // emportée entre-temps.
+  // qui a manqué le 21/09 : six lignes au lieu de trois. 59-5 : plus aucun
+  // repli aléatoire — sans `crypto.subtle`, le moteur calcule le même SHA-256
+  // en JavaScript pur (`Moteur.idDePrediction` ne rend jamais `null`). La
+  // ligne provisoire est remplacée par la ligne identifiée — ajoutée si une
+  // synchronisation l'a emportée entre-temps.
   async function finirPari(provisoire) {
     // L'occurrence entre dans le nom (`Moteur.idDePrediction`) : sans elle — un
     // pari d'une séance d'avant la règle —, l'identifiant d'avant, inchangé.
     var calcule = await Moteur.idDePrediction(seance.id, provisoire.exercise_slug,
       provisoire.fondement.rang, revisionDe(provisoire),
-      provisoire.fondement.occurrence).catch(function () { return null; });
-    var ligne = Object.assign({}, provisoire, { id: calcule || uuid() });
+      provisoire.fondement.occurrence);
+    var ligne = Object.assign({}, provisoire, { id: calcule });
     delete ligne._provisoire;
     var trouve = false;
     local.predictions = (local.predictions || []).map(function (l) {
@@ -3990,10 +3991,9 @@
         if (acceptee) await appliquerAllegee();
         return;
       }
-      var id = await Moteur.idDEscalier(seance.id, null, Moteur.MARCHE_SEMAINE_ALLEGEE)
-        .catch(function () { return null; });
+      var id = await Moteur.idDEscalier(seance.id, null, Moteur.MARCHE_SEMAINE_ALLEGEE);
       var pari = {
-        id: id || uuid(),
+        id: id,
         user_id: (sessionActive && sessionActive.user && sessionActive.user.id) || null,
         module: Moteur.MODULE_ESCALIER, module_version: VERSION_ESCALIER,
         emise_a: new Date().toISOString(),
@@ -4029,7 +4029,7 @@
   // « sous consigne » côté serveur (`seancesAvecPari`).
   function pariDeMarche(id, x, marche, reponse, phase, extra) {
     return {
-      id: id || uuid(),
+      id: id,
       user_id: (sessionActive && sessionActive.user && sessionActive.user.id) || null,
       module: Moteur.MODULE_ESCALIER, module_version: VERSION_ESCALIER,
       emise_a: new Date().toISOString(),
@@ -4077,7 +4077,7 @@
           exercice: x.slug, marche: marche, reponse: acceptee ? 'acceptee' : 'refusee',
           compteur: m.compteur, debut: seance.debut, n: nRoutine }]);
       } else {
-        var id = await Moteur.idDEscalier(seance.id, x.slug, marche).catch(function () { return null; });
+        var id = await Moteur.idDEscalier(seance.id, x.slug, marche);
         await ecrirePariDeMarche(pariDeMarche(id, x, marche, acceptee ? 'acceptee' : 'refusee', p.phase,
           plus ? { n_routine: nRoutine, debut: seance.debut } : { nouvelle_zone: m.carte.nouvelle_zone }));
         if (acceptee && !plus) await poserZone(x.slug, m.carte.nouvelle_zone);
@@ -4228,8 +4228,8 @@
     for (var i = 0; i < aEcrire.length; i++) {
       var x = aEcrire[i];
       replisEcrits[seance.id + '|' + x.slug] = true;
-      var id = await Moteur.idDEscalier(seance.id, x.slug, Moteur.MARCHE_REPLI).catch(function () { return null; });
-      if (id && parisEscalierConnus().some(function (l) { return l && l.id === id; })) continue;
+      var id = await Moteur.idDEscalier(seance.id, x.slug, Moteur.MARCHE_REPLI);
+      if (parisEscalierConnus().some(function (l) { return l && l.id === id; })) continue;
       var r = x.escalier.repli;
       await ecrirePariDeMarche(pariDeMarche(id, x, Moteur.MARCHE_REPLI, 'appliquee', p.phase,
         { repli: { palier: r.palier, niveau: r.niveau, debut: r.debut } }));

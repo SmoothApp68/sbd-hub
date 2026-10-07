@@ -1,0 +1,15 @@
+# Cloudflare Pages — les en-têtes de sécurité, sur tous les chemins (59-1).
+#
+# La CSP de la page vit dans `index.html` (<meta>) et y reste : une CSP en
+# <meta> ne peut pas porter `frame-ancestors`, qui ne vaut qu'en en-tête. Les
+# deux politiques s'additionnent (le navigateur applique les deux).
+#
+# Permissions-Policy : l'app n'utilise ni la caméra, ni le micro, ni la
+# position, ni le paiement. La vibration et le son du minuteur ne sont pas
+# concernés.
+/*
+  Content-Security-Policy: frame-ancestors 'none'
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()

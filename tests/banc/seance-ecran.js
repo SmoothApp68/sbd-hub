@@ -1629,7 +1629,7 @@ const SETS_IMPORTES = [
     process.exit(echecs ? 1 : 0);
   };
 
-  console.log('\n══ 0. LA MONTÉE D’INDEXEDDB, VERSION 4 → 6 ══');
+  console.log('\n══ 0. LA MONTÉE D’INDEXEDDB, VERSION 4 → 7 ══');
   //
   // ⚠️ CONFIGURATION DISCRIMINANTE (§2 quater) : UNE BASE QUI EXISTE DÉJÀ, en
   // version 4, AVEC DES DONNÉES DEDANS. Une base neuve ne distingue rien —
@@ -1733,9 +1733,10 @@ const SETS_IMPORTES = [
       tx.onerror = () => rejeter(tx.error);
     };
   })).catch((e) => ({ erreur: String(e) }));
-  ok('[V] la base est montée en version 6, et `predictions` et `modes` existent',
-    apresMontee.version === 6 && apresMontee.magasins.indexOf('predictions') >= 0 &&
-      apresMontee.magasins.indexOf('modes') >= 0,
+  // 58-2 — la version 7 ajoute `records` (le journal des records), sans perte.
+  ok('[V] la base est montée en version 7, et `predictions`, `modes` et `records` existent',
+    apresMontee.version === 7 && apresMontee.magasins.indexOf('predictions') >= 0 &&
+      apresMontee.magasins.indexOf('modes') >= 0 && apresMontee.magasins.indexOf('records') >= 0,
     'version ' + apresMontee.version + ' · ' + JSON.stringify(apresMontee.magasins));
   ok('[V] les huit magasins d’avant sont TOUS encore là',
     ['seances', 'series', 'exercices', 'pesees', 'meta', 'brouillon', 'attente', 'zones']
@@ -12906,7 +12907,7 @@ const SETS_IMPORTES = [
     }
     for (let k = 0; k < 4; k++) {
       const id = 'jm58-' + k;
-      const debut = ilYa((40 - k * 9) * 86400000 + 3600000, tJ).toISOString();
+      const debut = ilYa((40 - k * 9) * 86400000, tJ).toISOString();
       base.sessions.push({ id, user_id: 'u-banc', titre: 'Décor machine ' + k, debut,
         fin: finDe(debut, tJ).toISOString(), statut: 'terminee', note: null,
         salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });

@@ -1959,16 +1959,16 @@ const CATALOGUE = [
     await page3.evaluate(() => !document.querySelector('#profil-corps .p-accueil')), 'plus de bandeau');
   await page3.evaluate(() =>
     Array.from(document.querySelectorAll('#profil-corps .p-seg button'))
-      .find((b) => b.textContent === 'Entretenir').click());
+      .find((b) => b.textContent === 'Juste un carnet').click());
   await attendre(1500);
-  ok('[46 §2 · test 9] « Entretenir » est enregistré — et c’est la CLÉ de la base',
+  ok('[46 §2 · test 9 · 60-1] « Juste un carnet » est enregistré — et c’est la CLÉ de la base, « entretien »',
     base.profil && base.profil.intention === 'entretien',
     'base.intention = ' + (base.profil && base.profil.intention));
   ok('[46 §2 · test 9] …et l’écran le marque tout de suite',
     await page3.evaluate(() => {
       const b = Array.from(document.querySelectorAll('#profil-corps .p-seg button'));
       return b[1].className === 'on' && b[0].className === '';
-    }), 'Entretenir marqué');
+    }), '« Juste un carnet » marqué');
 
   // ── Une feuille de choix, bout en bout ───────────────────────────────────
   await page3.evaluate(() =>

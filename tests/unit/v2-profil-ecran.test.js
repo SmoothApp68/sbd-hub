@@ -48,7 +48,6 @@ function cible() {
 function vueProfil(p, options) {
   const o = options || {};
   const lib = (liste, cle) => Profil.libelleDe(liste, p[cle]);
-  const intention = p.intention || 'progresser';
   return {
     accueil: p.onboarding_completed === false
       ? { surPlusTard: o.surPlusTard || (() => {}) } : null,
@@ -65,11 +64,10 @@ function vueProfil(p, options) {
         { libelle: 'Matériel', sous: 'Décide des exercices proposés',
           valeur: lib(Profil.MATERIELS, 'materiel'), surChoix: () => {} }
       ] },
-      { titre: 'POURQUOI',
-        segment: { options: Profil.INTENTIONS, valeur: intention,
-                   surChoix: o.surIntention || (() => {}) },
-        note: { fort: 'Le moteur propose des charges',
-                reste: 'en mode Progresser. En Entretenir, il se tait sur la charge.' } },
+      // ⚠️ LA VRAIE FONCTION AUSSI (60-1) : « Progresser » / « Juste un
+      // carnet » et sa phrase se construisent dans `profil.js`, pour l'écran
+      // comme pour ce test.
+      Profil.sectionIntention(p, o.surIntention || (() => {})),
       // ⚠️ LA VRAIE FONCTION, PAS UNE COPIE. Tout le reste de cette vue
       // reproduit la déclaration d'`app.js` ; la section du rythme, elle,
       // porte une règle et une colonne écrite, et `profil.js` la construit
@@ -234,22 +232,23 @@ describe('test 9 — l’intention se règle, et ce qui part est la clé de la b
     const seg = segIntention(c);
     expect(seg.length).toBe(2);
     expect(seg[0].textContent).toBe('Progresser');
-    expect(seg[1].textContent).toBe('Entretenir');
+    expect(seg[1].textContent).toBe('Juste un carnet');
     expect(seg[0].className).toBe('on');
     expect(seg[0].getAttribute('aria-pressed')).toBe('true');
     expect(seg[1].getAttribute('aria-pressed')).toBe('false');
   });
 
-  // ⚠️ CE QUI PART EST « entretien », PAS « Entretenir ». `profiles_intention_ok`
+  // ⚠️ CE QUI PART EST « entretien », PAS « Juste un carnet ». `profiles_intention_ok`
   // n'accepte que `progresser` et `entretien` — envoyer le libellé partirait en
-  // 23514, code que la file classe DÉFINITIF.
-  test('choisir Entretenir enregistre la clé, pas le libellé', () => {
+  // 23514, code que la file classe DÉFINITIF. `ecrire` reçoit l'objet COMPLET,
+  // comme pour « Ton rythme ».
+  test('choisir « Juste un carnet » enregistre la clé, pas le libellé', () => {
     const c = cible();
     let ecrit = null;
     R().rendreProfil(c, vueProfil({ intention: 'progresser' },
       { surIntention: (v) => { ecrit = v; } }));
     segIntention(c)[1].click();
-    expect(ecrit).toBe('entretien');
+    expect(ecrit).toEqual({ intention: 'entretien' });
   });
 
   test('une fois en Entretenir, c’est lui qui est marqué', () => {
@@ -268,7 +267,16 @@ describe('test 9 — l’intention se règle, et ce qui part est la clé de la b
     const t = Array.from(c.querySelectorAll('.p-sect')).find((n) => n.textContent === 'POURQUOI');
     const note = t.nextElementSibling.querySelector('.p-note').textContent;
     expect(note).toContain('propose des charges');
-    expect(note).toContain('se tait sur la charge');
+    expect(note).toContain('Juste un carnet');
+  });
+
+  test('en « Juste un carnet », la note dit ce qu’il se passe : je me tais, les séries restent pré-remplies', () => {
+    const c = cible();
+    R().rendreProfil(c, vueProfil({ intention: 'entretien' }));
+    const t = Array.from(c.querySelectorAll('.p-sect')).find((n) => n.textContent === 'POURQUOI');
+    const note = t.nextElementSibling.querySelector('.p-note').textContent;
+    expect(note).toContain('Je me tais');
+    expect(note).toContain('pré-remplies');
   });
 });
 

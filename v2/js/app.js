@@ -5886,6 +5886,10 @@
   var CIBLES_TEMPS = [45, 60];
 
   function semaineAllegeeEnCours() {
+    // 60-1 — « JUSTE UN CARNET » : en Entretenir le plan n'applique ni la
+    // décharge planifiée ni la semaine allégée (I13) ; la routine ne dirait pas
+    // « Semaine allégée : environ 50 min » pour une séance qui ne l'est pas.
+    if (Moteur.intentionDe(profil && profil.intention, null) === 'entretien') return false;
     var jour = Moteur.jourCivil(new Date().toISOString());
     return !!Moteur.periodeAllegee(Moteur.cartesDesParis(parisEscalierConnus()), jour) ||
       // §9.22 (53-2) — la décharge planifiée est une semaine allégée.
@@ -8058,15 +8062,9 @@
           ligneChoix('mode_entrainement', 'Discipline'),
           ligneChoix('materiel', 'Matériel', 'Décide des exercices proposés')
         ] },
-        { titre: 'POURQUOI',
-          segment: {
-            options: Profil.INTENTIONS,
-            valeur: p.intention || 'progresser',
-            surChoix: function (v) { ecrireProfil({ intention: v }); }
-          },
-          note: { fort: 'Le moteur propose des charges',
-                  reste: 'en mode Progresser. En Entretenir, il se tait sur la ' +
-                         'charge et garde le repos et la structure.' } },
+        // 60-1 — « Progresser » ou « Juste un carnet » : la section se construit
+        // dans `profil.js`, comme « Ton rythme » (la phrase dépend du choix).
+        Profil.sectionIntention(p, ecrireProfil),
         // ── MOTEUR §9.8 / ECRAN-PROFIL §2.3 — « TON RYTHME » ───────────────
         //
         // Le MÊME sélecteur que l'intention juste au-dessus (§2.3, tranché le

@@ -1005,7 +1005,11 @@
     var modes = e.modes || {};
     var lestReponse = e.lestReponse === 'oui' || e.lestReponse === 'non' ? e.lestReponse : null;
     var carteLestPosee = false;
-    var esc = escalierDuPlan(e, seance, consignes);
+    // 60-1 (QUESTIONNAIRE-COACH-V2 §4) — « JUSTE UN CARNET » : en Entretenir
+    // (le profil), aucun bandeau de décharge planifiée, aucune fenêtre de
+    // semaine allégée, aucune carte. Le coach ne dit rien, il ne propose rien ;
+    // la séance reste celle que la personne a posée. I13 le garde.
+    var esc = intentionProfil === 'entretien' ? { allegee: null, carte: null } : escalierDuPlan(e, seance, consignes);
     var seriesRoutine = (e.escalier && e.escalier.seriesRoutine) || {};
     var isoles = marchesIsolees(e, seance, consignes, esc, phase);
     // PR 3 (relevé du 01/10) — la dernière séance de chaque exercice, pour le
@@ -1057,8 +1061,13 @@
         var m = coachee && Object.prototype.hasOwnProperty.call(isoles, slug) ? isoles[slug] : null;
         if (m && portee[slug]) m = m.repli ? { marche: m.marche, repli: m.repli, copie: true } : null;
         if (m) portee[slug] = true;
+        // 60-1 — « JUSTE UN CARNET » : un exercice en Entretenir (le profil, ou
+        // son propre mode) n'a ni chauffes calculées ni dégressive proposée. Sans
+        // matériel, `chauffesEtDegressive` se tait : une seule porte, ici.
+        var modeX = Object.prototype.hasOwnProperty.call(modes, slug) && modes[slug] ? modes[slug] : null;
+        var intentionX = Moteur().intentionDe(intentionProfil, modeX);
         var x = planDExercice(exo, i, c, Seance().parisDeLOccurrence(e.paris || [], seance, i), seance.id, e.reglage, suite, seance.debut,
-          materielDe(exos, i, e.catalogue || null, c, e.refusChauffes || {}), phase,
+          intentionX === 'entretien' ? null : materielDe(exos, i, e.catalogue || null, c, e.refusChauffes || {}), phase,
           esc.allegee ? { decharge: esc.allegee.source === SOURCE_DECHARGE } : null, Object.prototype.hasOwnProperty.call(seriesRoutine, slug) ? seriesRoutine[slug] : null, m,
           Object.prototype.hasOwnProperty.call(plus, slug) ? plus[slug] : null,
           Seance().exerciceFini(seance, slug),
@@ -1071,8 +1080,8 @@
         x.placeSerieDePlus = placeDeLExercice(e, slug);
         var cat = e.catalogue && slug && Object.prototype.hasOwnProperty.call(e.catalogue, slug) ? e.catalogue[slug] : null;
         x.mesure = cat && cat.mesure !== undefined ? cat.mesure : null;
-        x.mode = Object.prototype.hasOwnProperty.call(modes, slug) && modes[slug] ? modes[slug] : null;
-        x.intention = Moteur().intentionDe(intentionProfil, x.mode);
+        x.mode = modeX;
+        x.intention = intentionX;
         // §9.17 — LA CARTE DU LEST : UNE SEULE, en tête de l'exercice (le composant
         // des propositions d'exercice). Quand le moteur la dit (`carte_lest`) et
         // qu'aucune autre carte du lest n'est déjà posée dans la séance : deux
@@ -2041,12 +2050,30 @@
   //   I30  sur une aide (charge négative) : ni chauffes, ni dégressive, ni repli,
   //        ni seconde charge, ni double saut.
   //   I31  un exercice en Entretenir (`modes_exercice`) : ce que dit I13.
-  function sansCoach(x) {
+  //
+  // 60-1 (« JUSTE UN CARNET », QUESTIONNAIRE-COACH-V2 §4) — `jusquaLaVoix` : en
+  // Entretenir, le coach ne dit RIEN, pas seulement rien sur la charge. Tout
+  // ce que le plan porte d'une voix du coach compte alors : la dégressive (sa
+  // phrase, son fantôme), les chauffes et leur proposition, une marche de
+  // l'escalier, la carte du lest ou de reprise, une phrase. Les autres causes
+  // de silence (Édition, mesure sans charge, « J'ai mal ») gardent le contrat
+  // d'avant : elles ne disent pas que la dégressive se tait.
+  function sansCoach(x, jusquaLaVoix) {
     var raisons = [];
     if (x.consigne) raisons.push('une consigne (' + (x.consigne.etat || '?') + ')');
     if ((x.lignes || []).some(function (l) { return l.role !== 'hors'; })) raisons.push('une ligne du coach');
     if ((x.paris || []).some(Boolean)) raisons.push('un pari');
     if (x.message) raisons.push('un message');
+    if (jusquaLaVoix) {
+      if (x.degressive) raisons.push('une dégressive');
+      if ((x.lignes || []).some(function (l) { return l.fantome && l.fantome.source; })) raisons.push('un fantôme du coach');
+      if (x.chauffes) raisons.push('des chauffes calculées');
+      if (x.proposition) raisons.push('une proposition de chauffes');
+      if (x.escalier) raisons.push('une marche de l’escalier');
+      if (x.carteLest) raisons.push('la carte du lest');
+      if (x.carteReprise) raisons.push('la carte de reprise');
+      if ((x.phrases || []).length) raisons.push('une phrase du coach');
+    }
     return raisons;
   }
 
@@ -2177,10 +2204,10 @@
       if (plan.edition === true) causes.push('Édition');
       if (horsMesure) causes.push('une mesure en ' + (x.mesure === 'temps' ? 'durée' : 'distance'));
       if (causes.length) {
-        sansCoach(x).forEach(function (r) { err('I13', causes.join(', ') + ' : ' + r); });
+        sansCoach(x, plan.intention === 'entretien').forEach(function (r) { err('I13', causes.join(', ') + ' : ' + r); });
       }
       if (x.mode === 'entretien') {
-        sansCoach(x).forEach(function (r) { err('I31', 'Entretenir (cet exercice) : ' + r); });
+        sansCoach(x, true).forEach(function (r) { err('I31', 'Entretenir (cet exercice) : ' + r); });
       }
 
       // I28 — au poids du corps, jamais une ligne haute avec une charge.
@@ -2242,6 +2269,12 @@
       }
     });
     if (cartes > 1) erreurs.push('I29 — ' + cartes + ' cartes du lest dans la même séance : au plus une');
+    // I13, le plan lui-même (60-1, « Juste un carnet ») : en Entretenir, ni
+    // bandeau de décharge planifiée, ni fenêtre de semaine allégée, ni carte.
+    if (plan.intention === 'entretien') {
+      if (plan.allegee) erreurs.push('I13 — Entretenir (profil) : un bandeau de semaine allégée ou de décharge');
+      if (plan.carte) erreurs.push('I13 — Entretenir (profil) : une carte de semaine allégée');
+    }
   }
 
   function verifierEscalier(plan, entrees, erreurs) {

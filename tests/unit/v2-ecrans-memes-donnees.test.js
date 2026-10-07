@@ -142,7 +142,7 @@ describe('51-1 — la durée estimée : la routine, la feuille et la carte disen
   const ROUTINE = { id: 'r', nom: 'R', exercices: [
     { id: 'x', exercise_slug: 'a', series: lignes(5, 3), repos_cible_s: 240, groupe_superset: null },
     { id: 'y', exercise_slug: 'b', series: lignes(5), repos_cible_s: 180, groupe_superset: null }] };
-  const ctx = { Moteur: M, parisEscalierConnus: () => [], catalogueIndexe: () => CAT,
+  const ctx = { Moteur: M, profil: null, parisEscalierConnus: () => [], catalogueIndexe: () => CAT,
     // 53-2 (§9.22) — sans bloc, aucune décharge planifiée.
     local: { blocs: [] }, finsAllegeesConnues: () => [] };
   vm.createContext(ctx);

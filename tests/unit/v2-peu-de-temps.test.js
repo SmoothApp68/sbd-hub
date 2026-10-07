@@ -331,9 +331,11 @@ describe('51-1 ter — la question de fin ne propose jamais de retirer un exerci
 });
 
 describe('51-1 ter — « J’ai peu de temps » se tait pendant une semaine allégée (app.js)', () => {
-  function bac(allegee) {
+  function bac(allegee, profil) {
     const ctx = {
       Moteur: Object.assign({}, M, { periodeAllegee: () => (allegee ? { debut: '2026-10-01', fin: '2026-10-07' } : null) }),
+      // 60-1 — le profil que lit `semaineAllegeeEnCours` (Entretenir) et les cibles de temps.
+      profil: profil || null,
       parisEscalierConnus: () => [], catalogueIndexe: () => CATALOGUE,
       // 53-2 (§9.22) — la décharge planifiée est une semaine allégée : sans bloc, aucune.
       local: { blocs: [] }, finsAllegeesConnues: () => []
@@ -344,6 +346,20 @@ describe('51-1 ter — « J’ai peu de temps » se tait pendant une semaine all
     return ctx;
   }
   const sp = (t) => String(t).replace(/[\u00a0\u202f]/g, ' ');
+
+  // 60-1 — « JUSTE UN CARNET » : le plan n'applique ni la fenêtre allégée ni la
+  // décharge planifiée (I13) ; la routine ne dit donc pas « Semaine allégée »
+  // pour une séance qui ne l'est pas, et le geste reste offert.
+  test('⚠️ 60-1 — en Entretenir, une fenêtre allégée n’est pas dite : durée normale, et le geste', () => {
+    const attendu = sp(M.texteDureeEstimee(M.dureeEstimee(M.structureDeRoutine(ROUTINE.exercices, CATALOGUE))));
+    // Le témoin : le même bac, en Progresser, dit bien la durée allégée.
+    const parle = vm.runInContext('tempsDeLaRoutine(r)', Object.assign(bac(true, { intention: 'progresser' }), { r: ROUTINE }));
+    expect(sp(parle.texte)).toMatch(/^Semaine allégée/);
+    const c = bac(true, { intention: 'entretien' });
+    const t = vm.runInContext('tempsDeLaRoutine(r)', Object.assign(c, { r: ROUTINE }));
+    expect(sp(t.texte)).toBe(attendu);
+    expect(t.peuDeTemps).toBe(true);
+  });
 
   test('hors semaine allégée : la durée estimée, et le geste', () => {
     const c = bac(false);

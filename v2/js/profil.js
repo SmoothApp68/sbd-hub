@@ -75,10 +75,41 @@
   // DEUX CRANS, ET C'EST UNE INTENTION (§2.3). En Entretenir, la double
   // progression n'a rien à dire : le moteur se tait sur la charge et garde le
   // repos, la structure, le suivi.
+  //
+  // 60-1 (QUESTIONNAIRE-COACH-V2 §4) — « JUSTE UN CARNET » est le nom, à
+  // l'écran, d'Entretenir RENDU SILENCIEUX : la valeur en base reste
+  // `entretien` (la contrainte `profiles_intention_ok` n'en connaît pas
+  // d'autre), et le plan ne dit plus rien — ni charge, ni dégressive, ni
+  // bandeau (I13, `sansCoach`). Le nom d'un EXERCICE en Entretenir (sa feuille
+  // de zone) ne change pas : ce n'est pas le choix du profil.
   var INTENTIONS = [
     { cle: 'progresser', libelle: 'Progresser' },
-    { cle: 'entretien', libelle: 'Entretenir' }
+    { cle: 'entretien', libelle: 'Juste un carnet' }
   ];
+
+  // La section « POURQUOI » en entier, au même endroit que « Ton rythme » : la
+  // phrase dépend du choix, et l'écran n'en écrit aucune. ⚠️ « Tes séries
+  // restent pré-remplies » dit ce que fait la cascade du fantôme
+  // (`Seance.fantome`) sans consigne : la charge de la dernière séance, les
+  // reps de la routine d'abord, puis celles de la dernière séance. « Avec ta
+  // dernière séance » seul serait faux pour les reps d'une routine qui en vise.
+  // `ecrire` reçoit l'objet COMPLET : le nom de la colonne vit ici.
+  function sectionIntention(profil, ecrire) {
+    var intention = (profil && profil.intention) === 'entretien' ? 'entretien' : 'progresser';
+    return {
+      titre: 'POURQUOI',
+      segment: {
+        options: INTENTIONS,
+        valeur: intention,
+        surChoix: function (v) { ecrire({ intention: v }); }
+      },
+      note: intention === 'entretien'
+        ? { fort: 'Je me tais :',
+            reste: 'aucune proposition, aucune phrase. Tes séries restent pré-remplies avec ta routine et ta dernière séance.' }
+        : { fort: 'Je propose des charges',
+            reste: 'en mode Progresser. Avec « Juste un carnet », je me tais.' }
+    };
+  }
 
   // ── MOTEUR §9.8 — LE RÉGLAGE DE RYTHME ───────────────────────────────────
   //
@@ -581,6 +612,7 @@
     DISCIPLINES: DISCIPLINES, DISCIPLINES_CONNUES: DISCIPLINES_CONNUES,
     MATERIELS: MATERIELS, ANCIENNETES: ANCIENNETES, NIVEAUX: NIVEAUX,
     SEXES: SEXES, UNITES: UNITES, INTENTIONS: INTENTIONS, JOURS: JOURS,
+    sectionIntention: sectionIntention,
     RYTHMES: RYTHMES, RYTHME_DEFAUT: RYTHME_DEFAUT,
     rythmeDe: rythmeDe, phraseRythme: phraseRythme, sectionRythme: sectionRythme,
     PHASES: PHASES, PHASE_DEFAUT: PHASE_DEFAUT, phaseDe: phaseDe, phaseGelee: phaseGelee, sectionPhase: sectionPhase,

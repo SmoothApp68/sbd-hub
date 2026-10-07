@@ -33,11 +33,15 @@ algorithmes et le scope de lancement qui y figurent ne pilotent plus rien.
 
 ## 1. IDENTITÉ
 
-**TrainHub** = nom **produit**. **SBD Hub** = nom du **repo** (`SmoothApp68/sbd-hub`, **public**). Ne pas les opposer.
+**TrainHub** = nom **produit**. **SBD Hub** = nom du **repo** (`SmoothApp68/sbd-hub`, **privé**). Ne pas les opposer.
 
 PWA fitness de powerlifting/powerbuilding (français), pour Aurélien et un petit groupe d'utilisateurs réels.
 - Hébergement : **Cloudflare Pages**, à la racine du domaine, avec **`v2/` comme dossier publié**.
   Le préfixe `/sbd-hub/` de GitHub Pages n'a plus lieu d'être, et **le v1 n'est plus servi du tout**.
+- **Le dossier publié ne contient que l'app** (59-1) ; specs, maquettes et banc vivent dans
+  **`v2-atelier/`** (`specs/`, `maquettes/`, `banc/`). La garde de publication
+  (`tests/unit/v2-publication.test.js`) refuse tout autre fichier dans `v2/`. Les en-têtes de sécurité
+  sont dans `v2/_headers`.
   Cible : Android Chrome, PWA installée, 380 px (l'appareil est peut-être à 360).
 - Positionnement : « Data-Driven Powerbuilding — l'algorithme de force piloté par votre physiologie ».
 - Modèle : Freemium + Premium (gate IA en place, Stripe à venir).

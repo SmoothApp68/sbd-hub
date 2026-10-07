@@ -7,6 +7,23 @@ Ils vivent ici, et non hors du dépôt, pour une raison précise : une spec join
 à la main à un instant donné diverge de celle qui continue d'évoluer ailleurs.
 **Deux vérités concurrentes, c'est ce qui produit les audits qui dérivent.**
 
+**Dans le dépôt, mais pas dans le dossier publié** (59-1, 07/10/2026). Cloudflare
+Pages publie `v2/`, et `v2/` ne contient que l'app : ces specs vivent dans
+`v2-atelier/specs/`, avec les maquettes (`v2-atelier/maquettes/`) et le banc
+(`v2-atelier/banc/`). Elles portent des données d'entraînement nominatives et le
+plan de la base — rien de cela n'est servi.
+
+Les chemins `v2/specs/…`, `v2/maquettes/…` et `v2/banc/…` cités DANS le texte des
+specs (notamment l'état des lieux du 18/09) sont ceux d'avant ce déplacement : ils
+ne changent qu'avec un delta, jamais à la main.
+
+**Appliquer un delta de spec :**
+
+```
+python3 v2-atelier/specs/appliquer_deltas.py DELTAS.md v2-atelier/specs --verifier
+python3 v2-atelier/specs/appliquer_deltas.py DELTAS.md v2-atelier/specs --appliquer
+```
+
 ## Préséance
 
 > **`CADRAGE-V2.md` prime sur tous les autres en cas de contradiction.**

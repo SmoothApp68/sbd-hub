@@ -19,7 +19,8 @@ exports Hevy des cinq profils, **avant** qu'il soit porté en JavaScript.
 
 Les trois premiers lisent un export Hevy (`workout_data_*.csv`) qui **n'est pas
 versé au dépôt** : il contient les données d'entraînement de cinq personnes
-réelles, et ce dépôt est public.
+réelles. Le dépôt est privé, mais ces exports n'y entrent pas pour autant — et
+ce dossier n'est pas publié (`v2-atelier/`, hors de `v2/`, depuis 59-1).
 
 ## Le portage JavaScript
 
@@ -56,7 +57,7 @@ restent alignées.
 `index.html` en 200 (la règle `/* /index.html 200` de `v2/_redirects`).
 
 ```
-node v2/banc/serveur-pages.js [racine] [port] [--sans-canonicalisation]
+node v2-atelier/banc/serveur-pages.js [racine] [port] [--sans-canonicalisation]
 ```
 
 **Pourquoi il existe.** Le banc du chantier 18 servait `/index.html` avec un

@@ -126,7 +126,7 @@
   //
   // `echec` NE VOTE PAS, comme le dit le tableau du §4. `banc_etage1.py`
   // n'écartait que `warmup` et `dropset` : c'était un oubli du banc, arbitré le
-  // 11/09/2026, et `v2/banc/banc_etage1.py` porte la correction.
+  // 11/09/2026, et `v2-atelier/banc/banc_etage1.py` porte la correction.
   //
   // La mesure tranche : sur les 97 séance-exercices contenant un `echec`,
   // **93 ont cet échec au-dessus de la plus lourde série de travail** — c'est

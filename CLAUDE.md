@@ -19,11 +19,11 @@ Le risque est concret et s'est déjà matérialisé : un prompt qui demande de c
 motif fait remonter du code mort, des surfaces non câblées et des gestionnaires à moitié
 écrits — et donne l'impression qu'il faut les réparer.
 
-**La source de vérité de l'implémentation v2, ce sont les specs de [`v2/specs/`](v2/specs/)**,
+**La source de vérité de l'implémentation v2, ce sont les specs de [`v2-atelier/specs/`](v2-atelier/specs/)**,
 pas ce fichier et pas le code v1. Quand le code et une spec divergent, c'est le code qui a
-tort. Lis [`v2/specs/README.md`](v2/specs/README.md) avant d'écrire dans `v2/`.
+tort. Lis [`v2-atelier/specs/README.md`](v2-atelier/specs/README.md) avant d'écrire dans `v2/`.
 
-> **`v2/specs/CADRAGE-V2.md` prime sur toutes les autres specs en cas de contradiction.**
+> **`v2-atelier/specs/CADRAGE-V2.md` prime sur toutes les autres specs en cas de contradiction.**
 
 ⚠️ **Tout ce qui suit (§4 à §18) décrit le v1 et vaut à titre d'archive.** Les valeurs, les
 algorithmes et le scope de lancement qui y figurent ne pilotent plus rien.
@@ -50,7 +50,7 @@ Deux Claude, rôles séparés :
 1. **Claude.ai (chat + MCP Supabase)** — fait **TOUT** ce qui touche Supabase : SQL, migrations, vérif des données, RLS. Diagnostics data + décisions coaching (avec Gemini) vivent là.
 2. **Toi, Claude Code** — fais **TOUT** le travail repo : commits, PR, tests, refactors.
    **Écriture, migration et RLS sur Supabase : jamais.** En revanche la **lecture du schéma
-   est autorisée** (`v2/specs/SCHEMA-REEL.md`, « Règle de travail »), précisément pour ne jamais
+   est autorisée** (`v2-atelier/specs/SCHEMA-REEL.md`, « Règle de travail »), précisément pour ne jamais
    coder sur des noms de colonnes non vérifiés.
 
 **Conséquence** : si une tâche exige une **écriture**, une migration ou une vérification de RLS, **signale-le explicitement** dans ton rapport et route cette partie via Claude.ai. Lire le schéma pour vérifier un nom de colonne est autorisé et attendu ; lire des données personnelles ne l'est pas. Les prompts de tâche arrivent en `.md` (préparés côté Claude.ai) — ton rôle : les exécuter avec rigueur.
@@ -114,7 +114,7 @@ node tests/banc/sw-navigation.js        # 7 scénarios, navigateur réel, code d
 npx jest tests/unit/v2-service-worker.test.js
 ```
 
-- Le serveur de banc `v2/banc/serveur-pages.js` **imite Cloudflare Pages**, la
+- Le serveur de banc `v2-atelier/banc/serveur-pages.js` **imite Cloudflare Pages**, la
   canonicalisation comprise. Un banc qui sert les fichiers « normalement » teste
   un hébergeur qui n'existe pas.
 - `tests/banc/fixtures/sw-chantier-18.js` est **le défaut, gardé exprès** : le
@@ -136,7 +136,7 @@ trappe `/__sw-off` pendrait avec lui.
 ## 4 ter. UN SEUL COACH, UN SEUL CÂBLAGE (v2)
 
 > **Règle permanente** (29/09/2026). Le détail vit dans
-> [MOTEUR §9.13 bis](v2/specs/MOTEUR-PROGRESSION-V2.md) — ne le recopie pas ici.
+> [MOTEUR §9.13 bis](v2-atelier/specs/MOTEUR-PROGRESSION-V2.md) — ne le recopie pas ici.
 
 - **Toute nouvelle règle du coach se branche sur `planDeSeance`** (`v2/js/plan.js`)
   et passe les invariants de `verifierPlan` (I1 à I15). **Aucun écran ne calcule une
@@ -454,7 +454,7 @@ Délègue architecture/coaching (« c'est toi le coach ») **mais** attend une *
 >
 > La section est conservée telle quelle, comme le reste du v1, parce qu'elle documente des
 > défauts réels et la méthode qui les a trouvés. **Elle ne décrit plus un travail à faire.**
-> Le scope de la v2 vit dans [`v2/specs/`](v2/specs/).
+> Le scope de la v2 vit dans [`v2-atelier/specs/`](v2-atelier/specs/).
 
 > **Règle : le scope est GELÉ.** Les 6 fixes ci-dessous, et rien d'autre, avant la bêta.
 > Tout le reste (~60 findings consolidés + le backlog produit) attend l'après-bêta — **y compris

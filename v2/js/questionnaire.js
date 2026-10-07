@@ -246,12 +246,21 @@
     return lignes;
   }
 
-  // La durée que l'écran « Temps et matériel » montre : la durée habituelle
-  // des séances (`faits.ceQueJeSais`), sinon celle que la personne a déjà
-  // donnée — jamais les deux. `null` : on la lui demande.
+  // Deux durées, qu'il ne faut pas confondre (relevé de la relecture du 07/10) :
+  //   · l'HABITUELLE — la médiane des séances (`faits.dureeMin`) : un FAIT, celui du
+  //     titre « Tes séances durent environ 75 min. » ; la personne ne le corrige pas ;
+  //   · la VISÉE — `duree_seance_min` : ce que la ligne « Durée visée » montre, ce que
+  //     la feuille coche, ce que le récapitulatif dit. La réponse de la personne
+  //     (ou celle déjà en base) d'abord, sinon l'habituelle. Montrer l'habituelle
+  //     par-dessus une réponse faisait dire « 75 min » à l'écran pendant que la
+  //     base écrivait 60.
+  // `null` : on la lui demande.
+  function dureeHabituelle(faits) {
+    return faits && faits.dureeMin ? faits.dureeMin : null;
+  }
   function dureeMontree(rep, faits) {
-    if (faits && faits.dureeMin) return faits.dureeMin;
-    return rep && rep.duree ? rep.duree : null;
+    if (rep && rep.duree) return rep.duree;
+    return dureeHabituelle(faits);
   }
 
   // ── Les textes et la forme de chaque écran ───────────────────────────────
@@ -408,20 +417,23 @@
 
   function ecranTemps(etat) {
     var rep = etat.rep;
-    var duree = dureeMontree(rep, etat.faits);
+    var habituelle = dureeHabituelle(etat.faits);
+    var visee = dureeMontree(rep, etat.faits);
     var blocs = [];
     var titre;
-    if (duree) {
-      titre = 'Tes séances durent environ ' + en(duree, 'min') + '.';
+    if (habituelle || visee) {
+      // Avec des séances, le titre dit ce qu'elles montrent ; sans, ce que la
+      // personne a déjà répondu (« jamais les deux »).
+      titre = 'Tes séances durent environ ' + en(habituelle || visee, 'min') + '.';
     } else {
       titre = 'Combien de temps dure une séance, en général ?';
       blocs.push({ type: 'puces', cle: 'duree', valeur: rep.duree, options: PUCES_DUREES });
     }
     blocs.push({ type: 'options', cle: 'temps', valeur: rep.temps,
                  options: avecSous(Profil().TEMPS_REPONSES, SOUS_TEMPS) });
-    // La durée VISÉE : celle du Profil (`duree_seance_min`), ou la durée
-    // habituelle qu'on vient de montrer. Elle ouvre la feuille du Profil.
-    if (duree) blocs.push({ type: 'ligne', cle: 'duree', libelle: 'Durée visée', valeur: en(duree, 'min') });
+    // La durée VISÉE : celle du Profil (`duree_seance_min`), ou l'habituelle tant
+    // que la personne n'a rien dit. Elle ouvre la feuille du Profil.
+    if (visee) blocs.push({ type: 'ligne', cle: 'duree', libelle: 'Durée visée', valeur: en(visee, 'min') });
     blocs.push({ type: 'puces', cle: 'materiel', titre: 'Où t’entraînes-tu ?',
                  valeur: rep.materiel, options: Profil().MATERIELS.map(function (m) {
                    return { cle: m.cle, libelle: m.libelle };
@@ -445,7 +457,9 @@
   // elle se répond), et on y REVIENT.
   function ecranRecap(etat) {
     var rep = etat.rep, P = Profil();
-    var phase = rep.phase ? P.libelleDe(P.PHASES, rep.phase) : null;
+    // « Je ne sais pas » vaut « maintien » : le récapitulatif dit « Maintien » (maquette),
+    // comme ce qui s'écrit — pas « Je ne sais pas ».
+    var phase = rep.phase === 'inconnue' ? 'Maintien' : (rep.phase ? P.libelleDe(P.PHASES, rep.phase) : null);
     var priorites = Array.isArray(rep.priorites)
       ? (rep.priorites.length ? rep.priorites.map(function (c) { return libelleDePriorite(c); }).join(', ') : 'Pas de priorité')
       : null;
@@ -524,7 +538,7 @@
     appliquerChoix: appliquerChoix,
     lireChamp: lireChamp,
     lignesDeCeQueJeSais: lignesDeCeQueJeSais,
-    dureeMontree: dureeMontree,
+    dureeMontree: dureeMontree, dureeHabituelle: dureeHabituelle,
     vueDe: vueDe
   };
 

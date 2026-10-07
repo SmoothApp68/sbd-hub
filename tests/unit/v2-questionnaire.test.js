@@ -501,9 +501,42 @@ describe('60-2a — les TEXTES des écrans (la maquette v4, avec ses écarts dé
     const rep = Object.assign(Q.reponsesInitiales({}, {}), { duree: 60 });
     const profil = vue('temps', { faits: { dureeMin: null }, rep });
     expect(profil.titre).toBe('Tes séances durent environ 60 min.');
-    expect(Q.dureeMontree(rep, { dureeMin: 75 })).toBe(75);
+    // La durée VISÉE (la ligne, la feuille, le récapitulatif) : la réponse de la personne
+    // d'abord, sinon la médiane. (Inversé le 07/10 : la médiane masquait la réponse.)
+    expect(Q.dureeMontree(rep, { dureeMin: 75 })).toBe(60);
     expect(Q.dureeMontree(rep, null)).toBe(60);
+    expect(Q.dureeMontree(Q.reponsesInitiales({}, {}), { dureeMin: 75 })).toBe(75);
     expect(Q.dureeMontree(Q.reponsesInitiales({}, {}), null)).toBeNull();
+    expect(Q.dureeHabituelle({ dureeMin: 75 })).toBe(75);
+    expect(Q.dureeHabituelle({ dureeMin: null })).toBeNull();
+    expect(Q.dureeHabituelle(null)).toBeNull();
+  });
+
+  const sp = (t) => String(t).replace(/[\u00a0\u202f]/g, ' ');
+  test('⚠️ DISCRIMINANT — temps : la durée choisie dans la feuille se VOIT (la ligne, le récapitulatif) ; le titre garde le fait (la médiane)', () => {
+    // Avec 75 min de médiane et 45 min déjà en base : la ligne dit 45, le titre 75.
+    const rep45 = Object.assign(Q.reponsesInitiales({ duree_seance_min: 45 }, {}), {});
+    const v = vue('temps', { faits: { dureeMin: 75 }, rep: rep45 });
+    expect(sp(v.titre)).toBe('Tes séances durent environ 75 min.');
+    expect(sp(blocs(v, 'ligne')[0].valeur)).toBe('45 min');
+    // La personne choisit 60 : la ligne et le récapitulatif disent 60, jamais 75.
+    const rep60 = Q.appliquerChoix(rep45, 'duree', 60);
+    const v2 = vue('temps', { faits: { dureeMin: 75 }, rep: rep60 });
+    expect(sp(v2.titre)).toBe('Tes séances durent environ 75 min.');
+    expect(sp(blocs(v2, 'ligne')[0].valeur)).toBe('60 min');
+    const lignes = blocs(vue('recap', { faits: { dureeMin: 75 }, rep: Object.assign({}, rep60, { temps: 'max' }) }), 'resume')[0].lignes;
+    expect(sp(lignes[3].valeur)).toBe('60 min · c’est mon maximum');
+    // Rien de répondu ni en base : la ligne reprend la médiane.
+    const vide = vue('temps', { faits: { dureeMin: 75 } });
+    expect(sp(blocs(vide, 'ligne')[0].valeur)).toBe('75 min');
+  });
+
+  test('ce que j’ai compris : « Je ne sais pas » est dit « Maintien » (maquette) — c’est ce qui s’écrit', () => {
+    const rep = Object.assign(Q.reponsesInitiales({}, {}), { objectif: 'force', phase: 'inconnue' });
+    const lignes = blocs(vue('recap', { rep }), 'resume')[0].lignes;
+    expect(lignes[1]).toMatchObject({ libelle: 'Phase', valeur: 'Maintien', ecran: 'but' });
+    const maintien = blocs(vue('recap', { rep: Object.assign({}, rep, { phase: 'maintien' }) }), 'resume')[0].lignes[1];
+    expect(maintien.valeur).toBe('Maintien ou recomposition');
   });
 
   test('ton coach : les libellés et les phrases du PROFIL, puis « Juste un carnet »', () => {

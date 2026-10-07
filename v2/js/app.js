@@ -160,6 +160,12 @@
     // un défaut plus ancien : le mode ne se refermait JAMAIS, pas même en
     // terminant une séance.
     if (ecranCourant !== nom) fermerReorganisation();
+    // ⚠️ LE QUESTIONNAIRE NE SURVIT PAS À SA VUE (60-2a). Un autre écran posé par-dessus
+    // — le bouton « Rafraîchir », une session perdue, n'importe quel rendu — le laissait
+    // « ouvert » sans qu'on le voie : « Le terminer » devenait inerte (`ouvrirQuestionnaire`
+    // sort si l'état existe), le retour d'Android s'y adressait encore. Une seule porte,
+    // comme `fermerReorganisation` : changer d'écran le ferme, ce qui est validé est déjà écrit.
+    if (nom !== 'questionnaire' && questionnaire) fermerQuestionnaire();
     var onglet = Routeur.ongletDe(vue || nom);
     // ⚠️ MÊME PORTE, MÊME RAISON (§2, ch. 46). Quitter le profil vaut « vu » :
     // sans ça, quelqu'un qui remplit tout puis touche un onglet retrouverait le
@@ -7822,10 +7828,14 @@
     var id = userId();
     if (!id) return;
     var g = generation;
+    var version = versionProfil;
     var distant = null;
     try { distant = await Donnees.monProfil(id); }
     catch (e) { return; }   // hors réseau : ce qu'on a en cache fait l'affaire
     if (!generationValide(g)) return;
+    // Un geste posé pendant la lecture est plus récent qu'elle : elle ne le remplace pas
+    // (comme la réponse d'un envoi, `envoyerProfilMaintenant`).
+    if (version !== versionProfil) return;
 
     if (!distant) {
       try {
@@ -7844,6 +7854,9 @@
     profil = distant;
     await sauverProfilLocal();
     if (ecranCourant === 'profil') rendreProfilEcran();
+    // Le bandeau de Saisie suit la ligne qui vient d'arriver (il ne s'ouvre pas toujours :
+    // séance, feuille ou « Ranger » en cours).
+    rendreBandeauQuestionnaire();
     // 60-2a — LA LIGNE DE PROFIL EST CONNUE : c'est ICI que la décision d'ouvrir le
     // questionnaire se reprend, au premier démarrage d'un compte neuf comme aux
     // suivants. Prise sur le seul cache, elle ne routait un compte neuf qu'au
@@ -7959,6 +7972,8 @@
   function ouvrirQuestionnaireSiDu() {
     if (questionnaire || !userId()) return false;
     if (seance || voileOuvert) return false;
+    // Un ordre « Ranger » non enregistré ne se jette pas : changer d'écran ferait `fermerReorganisation`.
+    if (modeModifier) return false;
     if (!vues.detail.hidden || !vues.routine.hidden || !vues.seance.hidden) return false;
     if (!Profil.doitOuvrirQuestionnaire(profil, questionnaireDejaVuIci())) return false;
     ouvrirQuestionnaire();
@@ -8085,6 +8100,14 @@
     q.ecran = suivant;
     if (suivant === Questionnaire.SAIT || suivant === Questionnaire.TEMPS || suivant === Questionnaire.RECAP) {
       actualiserFaitsDuQuestionnaire();
+    }
+    // Le poids pré-rempli est la DERNIÈRE pesée — relue à l'arrivée sur « Toi » tant que la
+    // personne n'a rien tapé : ouvert depuis le cache, le questionnaire peut précéder une
+    // synchronisation qui apporte une pesée plus récente, et confirmer l'ancienne valeur
+    // l'écrirait comme pesée du jour.
+    if (suivant === Questionnaire.TOI && q.textes.poids === undefined) {
+      var derniere = Poids.resume(local.pesees);
+      q.rep.poids = derniere ? derniere.poids : null;
     }
     rendreQuestionnaire();
   }
@@ -8934,7 +8957,10 @@
 
     // Le réseau revient : on vide la file sans rien demander à personne — et le
     // profil modifié hors ligne repart avec elle.
-    racine.addEventListener('online', function () { vidanger(); envoyerProfil(); });
+    // Le profil ne repart que s'il y a quelque chose à envoyer : le renvoyer en entier à
+    // chaque retour du réseau écraserait, avec un cache périmé, ce qu'un autre appareil
+    // a répondu entre-temps (`questionnaire_fait_le`, objectif, priorités).
+    racine.addEventListener('online', function () { vidanger(); if (profilAEnvoyer) envoyerProfil(); });
     // Rotation, clavier logiciel, changement de taille : les barres changent de
     // hauteur, la réserve les suit. Mesuré une première fois au démarrage pour
     // que `--h-onglets` existe avant le premier rendu de séance.
@@ -8980,7 +9006,8 @@
       Rendu.rendreEtat($('etat-sync'), { code: 'sync', libelle: 'Synchronisation…', local: false });
       await synchroniser();
       await chargerProfil();
-      afficherSemaine();
+      // La ligne de profil a pu ouvrir le questionnaire : on ne le recouvre pas.
+      if (vues.questionnaire.hidden) afficherSemaine();
     });
 
     // Chaque onglet est une VUE du routeur, avec son URL — pas un basculement
@@ -9011,6 +9038,7 @@
       if (Auth.sessionPersistee()) return;
       sessionActive = null;
       entreeFaitePour = null;
+      fermerQuestionnaire(); envoiProfil = null; versionProfil = 0;
       profil = null; faits.oublierDates();
       allerA(Routeur.CONNEXION, {}, true);
       rendreEntree('connexion');

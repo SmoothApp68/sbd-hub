@@ -1404,6 +1404,8 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .p-sect{font-size:10px;font-weight:600;line-height:1;color:var(--texte-3);
   padding:var(--e4) var(--e3) var(--e2)}
 .p-groupe{background:var(--panneau);border-radius:var(--r-grand);overflow:hidden}
+/* 60-2a — « Terminer mon questionnaire » : sa propre carte, au-dessus des compteurs. */
+.p-questionnaire{margin-bottom:var(--e3)}
 
 .p-ligne{display:flex;align-items:center;gap:var(--e3);width:100%;
   padding:13px var(--e3);min-height:50px;border:none;border-top:1px solid #212529;

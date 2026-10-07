@@ -52,6 +52,7 @@ function bac(options) {
     profil: o.profil === undefined ? { id: 'u1', questionnaire_fait_le: null } : o.profil,
     seance: o.seance || null,
     voileOuvert: o.voile || null,
+    modeModifier: !!o.ranger,
     vues: { detail: Object.assign({}, vue, o.detailVisible ? { hidden: false } : {}), routine: vue, seance: vue, questionnaire: vue },
     local: { seances: o.seances === undefined ? [{ id: 's1', debut: '2026-10-01T10:00:00Z' }] : o.seances, pesees: o.pesees || [] },
     faits: { ceQueJeSais: () => o.faits || { seances: 1, depuis: new Date(2026, 9, 1), rythme: null, dureeMin: null, maximums: [], autres: [] } },
@@ -117,6 +118,13 @@ describe('60-2a — QUAND il s’ouvre de lui-même', () => {
 
   test('⚠️ JAMAIS PAR-DESSUS UNE SÉANCE OUVERTE — et la clé reste libre pour plus tard', () => {
     const b = bac({ seance: { id: 'en-cours' } });
+    expect(b.appel('ouvrirQuestionnaireSiDu()')).toBe(false);
+    expect(b.stockage).toEqual({});
+    expect(b.journal.montres).toEqual([]);
+  });
+
+  test('⚠️ ni par-dessus un ordre « Ranger » non enregistré (changer d’écran le jetterait) — la clé reste libre', () => {
+    const b = bac({ ranger: true });
     expect(b.appel('ouvrirQuestionnaireSiDu()')).toBe(false);
     expect(b.stockage).toEqual({});
     expect(b.journal.montres).toEqual([]);
@@ -295,6 +303,29 @@ describe('60-2a — la pesée de l’écran « Toi »', () => {
     expect(b.journal.pesees).toEqual([{ date: '2026-10-07', poids_kg: 98.4 }]);
   });
 
+  test('⚠️ DISCRIMINANT — le poids pré-rempli est RELU à l’arrivée sur « Toi » : une pesée apportée entre-temps par la synchronisation n’est pas écrasée', () => {
+    const b = bac({ pesees: [{ id: 'a', date: '2026-09-01', poids_kg: 84 }] });
+    b.appel('ouvrirQuestionnaireSiDu()');                               // ouvert depuis le cache : 84
+    b.ctx.local.pesees = [{ id: 'a', date: '2026-09-01', poids_kg: 84 }, { id: 'b', date: '2026-10-06', poids_kg: 82.5 }];   // la synchro apporte 82,5
+    b.actions().surContinuer();
+    b.actions().surChoix('historique', 'import'); b.actions().surContinuer();
+    b.actions().surContinuer();                                         // 3a → « Toi »
+    expect(b.ecran()).toBe('toi');
+    expect(b.ctx.questionnaire.rep.poids).toBe(82.5);
+    b.actions().surContinuer();                                         // rien de tapé : rien d'écrit
+    expect(b.journal.pesees).toEqual([]);
+  });
+
+  test('ce que la personne a TAPÉ n’est jamais relu : le champ garde son texte', () => {
+    const b = bac({ pesees: [{ id: 'a', date: '2026-09-01', poids_kg: 84 }] });
+    versToi(b);
+    b.actions().surSaisie('poids', '85,5');
+    b.actions().surRetour();                                            // 3a
+    b.ctx.local.pesees = [{ id: 'b', date: '2026-10-06', poids_kg: 82.5 }];
+    b.actions().surContinuer();                                         // « Toi » de nouveau
+    expect(b.ctx.questionnaire.rep.poids).toBe(85.5);
+  });
+
   test('DISCRIMINANT — le poids inchangé (le champ était pré-rempli de la dernière pesée) n’écrit RIEN', () => {
     const b = bac({ pesees: [{ id: 'a', date: '2026-09-20', poids_kg: 98 }] });
     versToi(b);
@@ -398,7 +429,8 @@ describe('60-2a — la décision se reprend quand la ligne de profil ARRIVE', ()
     const ctx = {
       userId: () => 'u1', generation: 1, generationValide: () => true,
       Donnees: { monProfil: () => Promise.resolve(ligneDistante), enregistrerProfil: (id, c) => Promise.resolve(Object.assign({ id }, c, { questionnaire_fait_le: null })) },
-      Profil, profil: avant === undefined ? null : avant, profilAEnvoyer: false, pseudoAInscrire: null,
+      Profil, profil: avant === undefined ? null : avant, profilAEnvoyer: false, pseudoAInscrire: null, versionProfil: 0,
+      rendreBandeauQuestionnaire: () => { ctx.bandeaux = (ctx.bandeaux || 0) + 1; },
       sauverProfilLocal: () => Promise.resolve(), ecranCourant: 'semaine', rendreProfilEcran: () => {},
       envoyerProfil: () => Promise.resolve(),
       ouvrirQuestionnaireSiDu: () => { ouvertures.push(ctx.profil); return false; }
@@ -419,6 +451,20 @@ describe('60-2a — la décision se reprend quand la ligne de profil ARRIVE', ()
     await vm.runInContext('chargerProfil()', ctx);
     expect(ouvertures).toHaveLength(1);
     expect(ouvertures[0].questionnaire_fait_le).toBeNull();
+  });
+
+  test('⚠️ DISCRIMINANT — un geste posé PENDANT la lecture est plus récent qu’elle : la ligne lue ne le remplace pas', async () => {
+    const { ctx, ouvertures } = bacChargement({ id: 'u1', questionnaire_fait_le: null, objectif: null }, { id: 'u1' });
+    ctx.Donnees.monProfil = () => { ctx.versionProfil += 1; ctx.profil = { id: 'u1', objectif: 'muscle' }; return Promise.resolve({ id: 'u1', questionnaire_fait_le: null, objectif: null }); };
+    await vm.runInContext('chargerProfil()', ctx);
+    expect(ctx.profil.objectif).toBe('muscle');
+    expect(ouvertures).toEqual([]);
+  });
+
+  test('le bandeau de Saisie suit la ligne qui vient d’arriver (même quand le questionnaire ne s’ouvre pas)', async () => {
+    const { ctx } = bacChargement({ id: 'u1', questionnaire_fait_le: null }, null);
+    await vm.runInContext('chargerProfil()', ctx);
+    expect(ctx.bandeaux).toBe(1);
   });
 
   test('une modification locale en attente prime : la décision n’est pas reprise sur une ligne qu’on n’adopte pas', async () => {
@@ -502,6 +548,40 @@ describe('60-2a — le routage d’entrée et la vue', () => {
 
   test('« Quitter » efface la clé « déjà vu ici » (le préfixe `th-v2`), un retour de connexion le remontre une fois', () => {
     expect(APP).toMatch(/CLE_QUESTIONNAIRE_VU = 'th-v2-questionnaire-vu-'/);
+  });
+
+  test('⚠️ DISCRIMINANT — `montrer` : un AUTRE écran posé par-dessus ferme le questionnaire (l’état suit sa vue) ; le sien ne le ferme pas', () => {
+    function bacMontrer(ouvert) {
+      const fermes = [];
+      const ctx = {
+        ecranCourant: 'questionnaire', questionnaire: ouvert ? { ecran: 'toi' } : null,
+        fermerReorganisation: () => {}, fermerQuestionnaire: () => { fermes.push(true); ctx.questionnaire = null; },
+        Routeur: { ongletDe: () => null, PROFIL: 'profil', SAISIE: 'saisie' },
+        vues: { liste: { hidden: true }, questionnaire: { hidden: false } },
+        $: () => null, Rendu: { rendreOnglets: () => {} }, doc: { querySelector: () => null },
+        seance: null, mesurerBarres: () => {}, marquerProfilVu: () => {}
+      };
+      vm.createContext(ctx);
+      vm.runInContext(extraire('montrer'), ctx);
+      return { ctx, fermes };
+    }
+    const a = bacMontrer(true);
+    vm.runInContext("montrer('liste')", a.ctx);
+    expect(a.fermes).toHaveLength(1);
+    expect(a.ctx.questionnaire).toBeNull();
+    const b = bacMontrer(true);
+    vm.runInContext("montrer('questionnaire')", b.ctx);
+    expect(b.fermes).toEqual([]);
+    expect(b.ctx.questionnaire).not.toBeNull();
+  });
+
+  test('la session perdue ferme le questionnaire et oublie l’envoi en vol ; « Rafraîchir » ne recouvre pas un questionnaire qu’il vient d’ouvrir', () => {
+    expect(APP).toMatch(/entreeFaitePour = null;\s*fermerQuestionnaire\(\); envoiProfil = null; versionProfil = 0;\s*profil = null; faits\.oublierDates\(\);\s*allerA\(Routeur\.CONNEXION/);
+    expect(APP).toMatch(/await chargerProfil\(\);[^}]*if \(vues\.questionnaire\.hidden\) afficherSemaine\(\);/);
+  });
+
+  test('le retour du réseau ne renvoie le profil que s’il y a quelque chose à envoyer (un cache périmé n’écrase pas un autre appareil)', () => {
+    expect(APP).toMatch(/addEventListener\('online', function \(\) \{ vidanger\(\); if \(profilAEnvoyer\) envoyerProfil\(\); \}\)/);
   });
 
   test('la déconnexion ferme le questionnaire et oublie l’envoi en vol', () => {

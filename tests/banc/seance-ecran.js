@@ -13943,6 +13943,27 @@ const SETS_IMPORTES = [
     await continuerQ();
     e = await ecranQ();
     ok('[Q60] écran 9 — et « Continuer » y REVIENT au récapitulatif (pas à l’écran suivant)', e.ecran === 'recap', JSON.stringify(e));
+    // La durée VISÉE se change depuis le récapitulatif : la ligne et le récapitulatif
+    // disent ce qui a été choisi (90), le titre garde le fait (la médiane des séances).
+    const titreTemps0 = (await ecranQ()).lignes.filter((l) => /^Temps/.test(l))[0];
+    await cliquerQ('.q-mod[data-ecran="temps"]', 500);
+    e = await ecranQ();
+    const titreMed = e.titre;
+    await cliquerQ('.q-ligne-choix[data-cle="duree"]', 600);
+    await cliquerFeuille('.feuille-menu button[data-cle="90"]', 700);
+    const apresDuree = await page.evaluate(() => ({
+      titre: (document.querySelector('#questionnaire-corps .q-titre') || {}).textContent,
+      visee: (document.querySelector('#questionnaire-corps .q-lc-val') || {}).textContent }));
+    ok('[Q60] écran 7 — DISCRIMINANT : la durée choisie dans la feuille SE VOIT (« Durée visée 90 min »), le titre garde le fait (la médiane)',
+      e.ecran === 'temps' && /^Tes séances durent environ \d+.min\.$/.test(titreMed) && titreMed === apresDuree.titre &&
+        /^90.min$/.test(apresDuree.visee), JSON.stringify([titreMed, apresDuree]));
+    await continuerQ();
+    await attendre(500);
+    e = await ecranQ();
+    ok('[Q60] écran 9 — et le récapitulatif la dit (90 min), `duree_seance_min` est écrit une fois changée',
+      e.ecran === 'recap' && e.lignes.filter((l) => /^Temps/.test(l))[0] !== titreTemps0 &&
+        /^Temps90.min/.test(e.lignes.filter((l) => /^Temps/.test(l))[0]) && profilBase().duree_seance_min === 90,
+      JSON.stringify([e.lignes, profilBase().duree_seance_min]));
     const peseesAvantFin = base.ecrituresPesees.length;
     await continuerQ();
     await attendre(1200);
@@ -14091,6 +14112,14 @@ const SETS_IMPORTES = [
     ok('[Q60] K — le réseau revient : le profil (historique, sexe) et la pesée du jour partent ; la file se vide ; la pesée FUSIONNE (une ligne par jour)',
       partiK && profilBase().sexe === 'femme' && fileK2 === 0 && base.pesees.filter((x) => x.date === jour).length === 1,
       JSON.stringify([profilBase().historique_declare, profilBase().sexe, base.pesees, fileK2]));
+
+    // ── K'. LE RETOUR DU RÉSEAU NE RENVOIE PAS UN PROFIL QUI N'A RIEN À ENVOYER :
+    // le renvoyer en entier, avec un cache périmé, écraserait ce qu'un autre appareil
+    // a répondu entre-temps (`questionnaire_fait_le`, l'objectif, les priorités).
+    const ecritsK = ecritsProfil();
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    await attendre(1500);
+    ok('[Q60] K — DISCRIMINANT : « online » sans rien en attente n’écrit pas le profil', ecritsProfil() === ecritsK, JSON.stringify(ecritsProfil() - ecritsK));
 
     // ── G. JAMAIS PAR-DESSUS UNE SÉANCE OUVERTE.
     // L'appareil connaît d'abord une ligne REMPLIE (la clé « ouvert ici » est encore

@@ -341,7 +341,6 @@ describe('51-1 ter — « J’ai peu de temps » se tait pendant une semaine all
       local: { blocs: [] }, finsAllegeesConnues: () => []
     };
     vm.createContext(ctx);
-    vm.runInContext('var CIBLES_TEMPS = [45, 60];', ctx);
     ['semaineAllegeeEnCours', 'ciblesPlusCourtes', 'tempsDeLaRoutine'].forEach((n) => vm.runInContext(extraire(APP, n), ctx));
     return ctx;
   }
@@ -379,7 +378,7 @@ describe('51-1 ter — « J’ai peu de temps » se tait pendant une semaine all
     const c = bac(false);
     const courte = { id: 'c', exercices: [ROUTINE.exercices[3]] };
     expect(vm.runInContext('tempsDeLaRoutine(r).peuDeTemps', Object.assign(c, { r: courte }))).toBe(false);
-    expect(vm.runInContext('ciblesPlusCourtes(3000)', c)).toEqual([45]);
+    expect(vm.runInContext('ciblesPlusCourtes(3000)', c)).toEqual([{ min: 45, declaree: false }]);
   });
 });
 

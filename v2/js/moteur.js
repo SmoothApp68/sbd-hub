@@ -2408,6 +2408,45 @@
     };
   }
 
+  // ── LES CIBLES DE « J'AI PEU DE TEMPS » (60-1, QUESTIONNAIRE-COACH-V2 §4) ──
+  //
+  // La durée DÉCLARÉE au profil (`duree_seance_min`) devient la cible proposée
+  // quand la routine la dépasse : « Tenir en 60 min ». Sinon, les deux cibles
+  // d'avant (45 et 60), celles qui sont plus courtes que la routine. Une seule
+  // fonction, une seule règle : l'app lui passe la durée estimée (en secondes)
+  // et la valeur du profil, elle ne compare rien elle-même.
+  //
+  // ⚠️ UNE DURÉE DÉCLARÉE QUI NE TIENT PAS (vide, hors de l'intervalle de la
+  // base, pas un entier) N'EST PAS UNE CIBLE : on retombe sur les deux d'avant,
+  // jamais sur une cible inventée. Les bornes sont celles de
+  // `profiles_rythme_borne` (10 à 300 minutes) — une valeur hors bornes ne vient
+  // pas du profil, elle vient d'un cache ou d'un test.
+  // Et une durée déclarée qui ne dépasse pas la routine ne propose RIEN de
+  // plus : la routine tient dans le temps que la personne a dit avoir.
+  var CIBLES_TEMPS_PAR_DEFAUT = Object.freeze([45, 60]);
+  var DUREE_DECLAREE_MIN = 10, DUREE_DECLAREE_MAX = 300;
+
+  function dureeDeclaree(v) {
+    if (v === null || v === undefined || v === '') return null;
+    var n = Number(v);
+    return Math.floor(n) === n && n >= DUREE_DECLAREE_MIN && n <= DUREE_DECLAREE_MAX ? n : null;
+  }
+
+  // Rend `[{ min, declaree }]`, de la plus courte à la plus longue.
+  function ciblesDeTemps(dureeS, declareeMin) {
+    var d = dureeDeclaree(declareeMin);
+    if (d !== null && d * SECONDES_PAR_MINUTE < dureeS) return [{ min: d, declaree: true }];
+    return CIBLES_TEMPS_PAR_DEFAUT.filter(function (m) { return m * SECONDES_PAR_MINUTE < dureeS; })
+      .map(function (m) { return { min: m, declaree: false }; });
+  }
+
+  // Le libellé d'une cible, dans la feuille « J'ai peu de temps » : « 45 min »,
+  // ou « Tenir en 60 min » quand c'est la durée de la personne.
+  function libelleCibleTemps(cible) {
+    var n = nombreFr(cible.min, regle('cible')) + ' min';
+    return cible.declaree ? 'Tenir en ' + n : n;
+  }
+
   // ══ §9.20 « J'AI MAL » (51-3) ═══════════════════════════════════════════
   //
   // Sans coach pour la séance, sans compter comme un recul, et jamais bloqué
@@ -6008,6 +6047,9 @@
     structureAllegee: structureAllegee,
     appliquerRaccourci: appliquerRaccourci,
     texteDureeEstimee: texteDureeEstimee,
+    ciblesDeTemps: ciblesDeTemps,
+    libelleCibleTemps: libelleCibleTemps,
+    CIBLES_TEMPS_PAR_DEFAUT: CIBLES_TEMPS_PAR_DEFAUT,
     texteDureeAllegee: texteDureeAllegee,
     carteRaccourcir: carteRaccourcir,
     chuteDe: chuteDe,

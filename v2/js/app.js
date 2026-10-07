@@ -5883,7 +5883,6 @@
   // « temps » (terminer plus tôt suffit). Pendant une semaine allégée, pas de
   // « J'ai peu de temps » : la séance est déjà plus courte, et la routine dit
   // sa durée allégée (51-1 ter).
-  var CIBLES_TEMPS = [45, 60];
 
   function semaineAllegeeEnCours() {
     // 60-1 — « JUSTE UN CARNET » : en Entretenir le plan n'applique ni la
@@ -5898,8 +5897,11 @@
 
   // Les cibles plus courtes que la routine : sans elles, le geste n'a rien à
   // proposer et ne s'affiche pas.
+  // 60-1 — la durée déclarée au profil est la cible quand la routine la dépasse
+  // (`Moteur.ciblesDeTemps`) ; sinon 45 et 60. Un seul endroit : ni cette
+  // fonction ni l'écran ne comparent quoi que ce soit.
   function ciblesPlusCourtes(dureeS) {
-    return CIBLES_TEMPS.filter(function (m) { return m * 60 < dureeS; });
+    return Moteur.ciblesDeTemps(dureeS, profil ? profil.duree_seance_min : null);
   }
 
   function tempsDeLaRoutine(routine) {
@@ -5920,8 +5922,8 @@
     Rendu.rendreFeuilleTemps($('feuille-contenu'), {
       sujet: routine.nom || 'Sans nom',
       aide: t.texte,
-      choix: ciblesPlusCourtes(d).map(function (m) {
-        return { libelle: m + ' min', surClic: function () { montrerCarteRaccourci(routine, m); } };
+      choix: ciblesPlusCourtes(d).map(function (c) {
+        return { libelle: Moteur.libelleCibleTemps(c), surClic: function () { montrerCarteRaccourci(routine, c.min); } };
       }),
       surAnnuler: fermerVoile
     });

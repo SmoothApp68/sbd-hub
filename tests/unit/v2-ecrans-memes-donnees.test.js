@@ -146,7 +146,6 @@ describe('51-1 — la durée estimée : la routine, la feuille et la carte disen
     // 53-2 (§9.22) — sans bloc, aucune décharge planifiée.
     local: { blocs: [] }, finsAllegeesConnues: () => [] };
   vm.createContext(ctx);
-  vm.runInContext('var CIBLES_TEMPS = [45, 60];', ctx);
   ['semaineAllegeeEnCours', 'ciblesPlusCourtes', 'tempsDeLaRoutine'].forEach((n) => vm.runInContext(extraire(n), ctx));
 
   test('la carte de la routine (et l’aide de la feuille) disent l’estimation du moteur sur la même structure', () => {

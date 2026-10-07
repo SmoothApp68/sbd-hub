@@ -44,6 +44,55 @@
     { cle: 'poids_du_corps', libelle: 'Poids du corps', sous: 'Rien d’autre' }
   ];
 
+  // ── LE MATÉRIEL RANGE, IL NE CACHE JAMAIS (60-1, QUESTIONNAIRE-COACH-V2 §4) ──
+  //
+  // `exercises.equipement`, relevé en base le 07/10/2026 : aucun 58 · machine 54
+  // · barre 50 · poulie 31 · haltere 30 · machine_smith 5 · elastique 5 ·
+  // kettlebell 2 · disque 2. Une valeur que cette liste ne connaît pas (ou
+  // l'absence de valeur) n'est JAMAIS « hors matériel » : on ne devine pas.
+  var EQUIPEMENTS = ['aucun', 'barre', 'haltere', 'machine', 'machine_smith', 'poulie',
+                     'elastique', 'kettlebell', 'disque'];
+
+  // La table, exacte. `null` : tout le matériel (Salle complète), et aussi
+  // « pas renseigné » — dans les deux cas, rien ne change d'ordre. `poulie` :
+  // salle seulement.
+  var EQUIPEMENTS_DU_MATERIEL = {
+    salle_complete: null,
+    salle_basique: ['aucun', 'barre', 'haltere', 'poulie', 'elastique', 'kettlebell', 'disque'],
+    maison_equipee: ['barre', 'haltere', 'disque', 'kettlebell', 'elastique', 'aucun'],
+    maison_minimal: ['haltere', 'kettlebell', 'elastique', 'aucun'],
+    poids_du_corps: ['aucun', 'elastique']
+  };
+
+  // Les équipements du matériel, ou `null` quand rien n'est à ranger.
+  function equipementsDe(materiel) {
+    if (!Object.prototype.hasOwnProperty.call(EQUIPEMENTS_DU_MATERIEL, materiel)) return null;
+    var liste = EQUIPEMENTS_DU_MATERIEL[materiel];
+    return liste === null ? null : liste.slice();
+  }
+
+  // Un équipement connu, que le matériel n'a pas.
+  function estHorsMateriel(equipement, autorises) {
+    if (!autorises || EQUIPEMENTS.indexOf(equipement) < 0) return false;
+    return autorises.indexOf(equipement) < 0;
+  }
+
+  // Range une liste d'exercices du catalogue (`{ slug, equipement }`) : ce qui
+  // sort du matériel passe APRÈS, dans le même ordre ; rien n'est retiré. Un
+  // exercice déjà fait par la personne (`faits` : `{ [slug]: … }`) n'est jamais
+  // rétrogradé — c'est son historique, pas son matériel qui parle. Sans
+  // matériel renseigné, la liste rendue est celle reçue.
+  function rangerParMateriel(liste, materiel, faits) {
+    var autorises = equipementsDe(materiel);
+    if (!autorises) return liste;
+    var dans = [], apres = [];
+    (liste || []).forEach(function (x) {
+      var fait = !!(faits && x && Object.prototype.hasOwnProperty.call(faits, x.slug));
+      (!fait && x && estHorsMateriel(x.equipement, autorises) ? apres : dans).push(x);
+    });
+    return dans.concat(apres);
+  }
+
   // EN FOURCHETTE, PAS UNE DATE (§2.2). « Depuis quand régulièrement » — on peut
   // s'entraîner depuis cinq ans et rester débutant, et une date exacte
   // demanderait une précision que personne n'a.
@@ -620,6 +669,8 @@
     TAILLE_MIN: TAILLE_MIN, TAILLE_MAX: TAILLE_MAX,
     PSEUDO_MIN: PSEUDO_MIN, PSEUDO_MAX: PSEUDO_MAX, MDP_MIN: MDP_MIN,
     CHAMPS_ECRITS: CHAMPS_ECRITS, A_RENSEIGNER: A_RENSEIGNER,
+    EQUIPEMENTS: EQUIPEMENTS, equipementsDe: equipementsDe, estHorsMateriel: estHorsMateriel,
+    rangerParMateriel: rangerParMateriel,
     libelleDe: libelleDe,
     initiale: initiale,
     age: age,

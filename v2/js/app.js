@@ -5318,13 +5318,22 @@
     return parSlug;
   }
 
+  // 60-1 (QUESTIONNAIRE-COACH-V2 §4) — LE MATÉRIEL RANGE, IL NE CACHE JAMAIS.
+  // Le prédicat « ce frère sort du matériel du profil » : `null` sans matériel
+  // renseigné (rien ne change). La règle est `Profil.estHorsMateriel`.
+  function horsDuMateriel(index) {
+    var autorises = Profil.equipementsDe(profil && profil.materiel);
+    if (!autorises) return null;
+    return function (s) { return Profil.estHorsMateriel(index[s] && index[s].equipement, autorises); };
+  }
+
   function vueMachinePrise(blocs, iBloc, iExo) {
     var index = Modele.indexerExercices(local.exercices);
     var slug = seance.exercices[iExo].exercise_slug;
     var plus = Seance.plusTard(blocsPourPlusTard(blocs), iBloc);
     var suivant = blocs[iBloc + 1];
     var presents = seance.exercices.map(function (e) { return e.exercise_slug; });
-    var freres = Seance.freresProposes(slug, index, faitsDesFreres(index, slug), presents);
+    var freres = Seance.freresProposes(slug, index, faitsDesFreres(index, slug), presents, horsDuMateriel(index));
     return {
       nom: Modele.nommer(index, slug),
       tard: plus.possible ? {
@@ -6649,10 +6658,28 @@
 
   function ouvrirCatalogue(apres, remplace) {
     intentionCatalogue = { apres: indiceOuNul(apres), remplace: indiceOuNul(remplace) };
+    // 60-1 — les exercices déjà faits, relevés UNE FOIS à l'ouverture : la
+    // recherche se relance à chaque frappe, et le balayage des séries est le
+    // coût que `faits` garde déjà hors de la saisie.
+    faitsDuCatalogue = null;
     $('champ-recherche-exo').value = '';
     rendreCatalogue();
     ouvrirVoile($('catalogue'));
     $('champ-recherche-exo').focus();
+  }
+
+  var faitsDuCatalogue = null;
+
+  // 60-1 — LE MATÉRIEL RANGE, IL NE CACHE JAMAIS : les exercices que le
+  // matériel du profil n'a pas passent après, tous les autres gardent l'ordre
+  // de la recherche ; un exercice déjà fait n'est jamais rétrogradé. Appliqué
+  // AVANT la limite de la liste (`Routines.chercher`, 4ᵉ argument), sinon un
+  // exercice du matériel au-delà de la trentième place resterait invisible.
+  function ordreDuCatalogue() {
+    var materiel = profil && profil.materiel;
+    if (!Profil.equipementsDe(materiel)) return null;
+    if (faitsDuCatalogue === null) faitsDuCatalogue = faits.datesDesExercices(corpus());
+    return function (liste) { return Profil.rangerParMateriel(liste, materiel, faitsDuCatalogue); };
   }
 
   function rendreCatalogue() {
@@ -6666,7 +6693,7 @@
     // cours. C'est la séance qui gagne quand elle est ouverte — on y est.
     var pourSeance = !!seance && !vues.seance.hidden;
     Rendu.rendreResultatsExo($('resultats-exo'),
-      Routines.chercher(local.exercices, $('champ-recherche-exo').value),
+      Routines.chercher(local.exercices, $('champ-recherche-exo').value, undefined, ordreDuCatalogue()),
       function (exo) {
         fermerVoile();
         if (pourSeance) {

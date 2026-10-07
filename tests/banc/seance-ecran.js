@@ -13219,6 +13219,19 @@ const SETS_IMPORTES = [
     // ── E. « SUPPRIMER MON COMPTE » PASSE PAR `deconnecter` : il en profite.
     // Cette fois, c'est le journal des records qui est en vol
     // (`synchroniserJournal`) quand le compte part.
+    // Joué seul, le banc n'a encore aucun record en base : on en pose un,
+    // réel (une série de travail de la base), et on le retire à la fin.
+    let recordPose = null;
+    if (!base.records.length) {
+      const st = base.sets.filter((x) => x.type_serie === 'travail' && x.reps)[0];
+      if (st) {
+        recordPose = { id: '00000000-0000-4000-8000-0000000059e5', user_id: st.user_id, set_id: st.id,
+          session_id: st.session_id, exercise_slug: st.exercise_slug, type: 'charge_max', valeur: st.charge_kg || 0,
+          reps: st.reps, charge: null, unite: null, ancien: null, ancien_le: null, sur_douze_mois: false,
+          battu_le: st.validee_a || new Date().toISOString(), created_at: new Date().toISOString() };
+        base.records.push(recordPose);
+      }
+    }
     await aller('/saisie');            // l'entrée resynchronise tout (le jeton est gardé par le banc)
     await attendre(1500);
     const avantE = await etatAppareilQ();
@@ -13242,6 +13255,7 @@ const SETS_IMPORTES = [
       JSON.stringify(apresE.vues) === '["vue-connexion"]' &&
         apresE.seances === 0 && apresE.series === 0 && apresE.predictions === 0 && apresE.records === 0 && apresE.file === 0 &&
         JSON.stringify(apresE.cles) === '["th-v2-auth"]', JSON.stringify(apresE));
+    if (recordPose) base.records = base.records.filter((x) => x !== recordPose);
 
     ok('[Q59] aucune erreur de page', erreurs.length === erreursAvant, JSON.stringify(erreurs.slice(erreursAvant)));
     // Les sections suivantes repartent connectées (le jeton est gardé par le banc).

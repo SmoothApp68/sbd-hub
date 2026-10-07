@@ -12934,6 +12934,8 @@ const SETS_IMPORTES = [
 
     // ── A. LE REMPLISSAGE : le journal du serveur VIDE, et l'appareil n'a
     // rien décidé — l'état d'un compte au premier démarrage de cette version.
+    // La section doit se jouer SEULE : l'app d'abord ouverte, son cache avec.
+    await aller('/');
     base.records.length = 0;
     await page.evaluate(async () => {
       await THCache.ecrireMeta('journalRecords', null);

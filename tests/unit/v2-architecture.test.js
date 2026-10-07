@@ -117,6 +117,7 @@ const GARDEES = [
   // moteur.js — la règle de volume, la place pour une série de plus (§14.6, 49-U16)
   { fn: 'placeDeVolume', module: 'moteur.js' },
   { fn: 'placePourExercice', module: 'moteur.js' },
+  { fn: 'musclesParPriorite', module: 'moteur.js' },
   // moteur.js — l'escalier, la série de plus (§14.7, 49-U17)
   { fn: 'marcheProposee', module: 'moteur.js' },
   { fn: 'serieDePlusProposee', module: 'moteur.js' },
@@ -775,7 +776,12 @@ const NOTIONS = [
     module: 'profil.js', fonction: 'objectifGele', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['objectifDeLaSeance'] },
     raison: 'MOTEUR §9.16 (60-2b) : jumeau de la phase gelée. Lu en direct, un changement d’objectif dans Profil ' +
-      'en pleine séance ferait dériver les paris d’une même séance (I40) ; `null` est une valeur, pas une absence.' }
+      'en pleine séance ferait dériver les paris d’une même séance (I40) ; `null` est une valeur, pas une absence.' },
+  { notion: 'les priorités gelées de la séance (lues une fois, avec la phase ; décident la place d’un muscle prioritaire)', pr: '60-U6',
+    module: 'profil.js', fonction: 'prioritesGelees', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['prioritesDeLaSeance'] },
+    raison: 'MOTEUR §14.6 (60-2b) : jumelle de la phase gelée. Lues en direct, cocher une priorité dans Profil en ' +
+      'pleine séance ferait apparaître ou disparaître une carte de série de plus (I12 : le mémo du plan ne voit pas le profil).' }
 ];
 
 // ── 58-1 — UN FAIT NE SE DÉCLARE QUE DANS `faits.js` ─────────────────────────

@@ -441,11 +441,13 @@
 
   // LA FEUILLE « FAIRE DE CE DOSSIER UN PROGRAMME » — ou celle qui AJUSTE le
   // bloc suivant (`depuis` : le bloc fini). Les exercices du bloc : par
-  // défaut les barres polyarticulaires des routines du dossier, décochables.
+  // défaut les barres polyarticulaires des routines du dossier, plus les
+  // exercices prioritaires du questionnaire qui s'y trouvent (60-2b) ; décochables.
   function ouvrirProgramme(dossier, depuis) {
     var slugs = exercicesDuDossier(dossier);
     var suivant = depuis ? Moteur.blocSuivant(depuis) : null;
-    var coches = suivant ? suivant.exercices : Moteur.exercicesParDefaut(slugs, catalogueIndexe());
+    var coches = suivant ? suivant.exercices
+      : Moteur.exercicesParDefaut(slugs, catalogueIndexe(), Profil.prioritesDe(profil));
     coches.forEach(function (s) { if (slugs.indexOf(s) < 0) slugs.push(s); });
     var c = {};
     coches.forEach(function (s) { c[s] = true; });
@@ -2625,7 +2627,8 @@
     // L'outil de rejeu (développement) ne fige rien sur le disque.
     if (!seance || !consignes || rejeuEnCours) return;
     consignesSauvees = { seanceId: seance.id, cle: consignes.cle, parSlug: consignes.parSlug,
-                         phase: phaseDeLaSeance(), objectif: objectifDeLaSeance() };
+                         phase: phaseDeLaSeance(), objectif: objectifDeLaSeance(),
+                         priorites: prioritesDeLaSeance() };
     Cache.ecrireBrouillon(CLE_CONSIGNES, consignesSauvees)
       .catch(function (e) { console.warn('Consignes non sauvées :', texteErreur(e)); });
   }
@@ -2634,6 +2637,7 @@
     consignesSauvees = null;
     phaseGelee = null;
     objectifGele = null;
+    prioritesGelees = null;
     await Cache.ecrireBrouillon(CLE_CONSIGNES, null).catch(function () {});
   }
 
@@ -2652,6 +2656,12 @@
   // en cours ni ses paris. Il ne change AUCUNE consigne — il n'entre que dans le
   // fondement des paris. `null` est une valeur (« sans réponse »).
   var objectifGele = null;   // { seanceId, objectif }
+  // MOTEUR §14.6 (60-2b) — LES PRIORITÉS, gelées de la même façon, au même moment :
+  // elles décident si un muscle a de la place pour une série de plus (jusqu'à son plus
+  // haut volume) — une carte ne doit ni apparaître ni disparaître parce qu'on a
+  // coché autre chose dans Profil en pleine séance (I12 : le mémo du plan ne voit
+  // pas le profil).
+  var prioritesGelees = null;   // { seanceId, priorites }
 
   // MOTEUR §14.6 (49-U16) — LA RÈGLE DE VOLUME, UNE FOIS PAR SÉANCE, à côté
   // de la phase : le volume de chaque semaine par muscle sur TOUT l'historique
@@ -2686,6 +2696,16 @@
       ? consignesSauvees.objectif : undefined;
     objectifGele = Profil.objectifGele(objectifGele, seance.id, sauvee, profil);
     return objectifGele.objectif;
+  }
+
+  // `undefined` à la relecture : rien de sauvé pour cette séance (gelée avant
+  // 60-2b) — les priorités du profil d'aujourd'hui ; `[]` est une liste sauvée.
+  function prioritesDeLaSeance() {
+    if (!seance) return [];
+    var sauvee = consignesSauvees && consignesSauvees.seanceId === seance.id
+      ? consignesSauvees.priorites : undefined;
+    prioritesGelees = Profil.prioritesGelees(prioritesGelees, seance.id, sauvee, profil);
+    return prioritesGelees.priorites;
   }
 
   // §12.9 (49-U13) — « sous consigne », dans l'app : une séance qui porte au
@@ -3039,21 +3059,25 @@
   // (`memo`) : la consigne se fige à l'ouverture, comme dans la séance.
   function avecEtatDeRejeu(e, fn) {
     var avant = { seance: seance, local: local, consignes: consignes, sauvees: consignesSauvees,
-                  version: versionConsignes, phaseGelee: phaseGelee, objectifGele: objectifGele, volumeGele: volumeGele,
+                  version: versionConsignes, phaseGelee: phaseGelee, objectifGele: objectifGele,
+                  prioritesGelees: prioritesGelees, volumeGele: volumeGele,
                   constats: constats, planMemo: planMemo, etats: etatsExercices, dernier: Plan.dernier };
     seance = e.seance; local = e.local;
     consignes = e.memo.consignes; consignesSauvees = null; versionConsignes = e.memo.version;
-    phaseGelee = e.memo.phaseGelee; objectifGele = e.memo.objectifGele; volumeGele = e.memo.volumeGele; constats = null;
+    phaseGelee = e.memo.phaseGelee; objectifGele = e.memo.objectifGele;
+    prioritesGelees = e.memo.prioritesGelees; volumeGele = e.memo.volumeGele; constats = null;
     planMemo = null; etatsExercices = e.etats;
     rejeuEnCours = { instant: e.instant };
     try {
       return fn();
     } finally {
       e.memo.consignes = consignes; e.memo.version = versionConsignes;
-      e.memo.phaseGelee = phaseGelee; e.memo.objectifGele = objectifGele; e.memo.volumeGele = volumeGele;
+      e.memo.phaseGelee = phaseGelee; e.memo.objectifGele = objectifGele;
+      e.memo.prioritesGelees = prioritesGelees; e.memo.volumeGele = volumeGele;
       seance = avant.seance; local = avant.local; consignes = avant.consignes;
       consignesSauvees = avant.sauvees; versionConsignes = avant.version;
-      phaseGelee = avant.phaseGelee; objectifGele = avant.objectifGele; volumeGele = avant.volumeGele; constats = avant.constats;
+      phaseGelee = avant.phaseGelee; objectifGele = avant.objectifGele;
+      prioritesGelees = avant.prioritesGelees; volumeGele = avant.volumeGele; constats = avant.constats;
       planMemo = avant.planMemo; etatsExercices = avant.etats; Plan.dernier = avant.dernier;
       rejeuEnCours = null;
     }
@@ -3179,7 +3203,7 @@
       return Object.assign({}, finale, { exercices: exos });
     };
 
-    var memo = { consignes: null, version: 0, volumeGele: null,
+    var memo = { consignes: null, version: 0, volumeGele: null, prioritesGelees: null,
                  phaseGelee: phaseLue ? { seanceId: id, phase: phaseLue } : null,
                  objectifGele: objectifTrouve ? { seanceId: id, objectif: objectifLu } : null };
     var validees = {};
@@ -3245,6 +3269,7 @@
       'historique lu : ' + seances.length + ' séance(s) terminée(s) avant le début, ' + series.length + ' série(s)',
       'phase gelée : ' + (phaseLue ? phaseLue + ' (lue dans les paris)' : (Profil.phaseDe(profil) + ' (profil actuel : aucun pari ne la porte)')),
       'objectif gelé : ' + (objectifTrouve ? (objectifLu || 'sans réponse') + ' (lu dans les paris)' : ((Profil.objectifDe(profil) || 'sans réponse') + ' (profil actuel : aucun pari ne le porte)')),
+      'priorités : ' + (Profil.prioritesDe(profil).join(', ') || 'aucune') + ' (profil actuel : aucun pari ne les porte)',
       'rythme : ' + Profil.rythmeDe(profil) + ' (profil actuel)' +
         (reglageLu ? (reglageLu === Profil.rythmeDe(profil) ? ' = celui des paris ✓' : ' ≠ celui des paris (' + reglageLu + ') ✗') : ''),
       'intention : ' + ((profil && profil.intention) || '–') + ' (profil actuel)',
@@ -3507,6 +3532,8 @@
       phase: phaseDeLaSeance(),
       // MOTEUR §9.16 (60-2b) — l'objectif GELÉ, avec la phase (I40).
       objectif: objectifDeLaSeance(),
+      // MOTEUR §14.6 (60-2b) — les priorités GELÉES, avec la phase.
+      priorites: prioritesDeLaSeance(),
       // MOTEUR §14.6 (49-U16) — la règle de volume, gelée pour la séance.
       volume: volumeDeDemo(volumeDeLaSeance(), catalogue),
       catalogue: catalogue,

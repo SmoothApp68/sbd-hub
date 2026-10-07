@@ -593,6 +593,29 @@
     return sortie;
   }
 
+  // LES PRIORITÉS EFFECTIVES d'un profil (MOTEUR §14.6, 60-2b) : la liste de
+  // chaînes que la base donne, sinon aucune — `null` (jamais répondu) et `[]`
+  // (« Pas de priorité ») valent la même chose pour le coach. Elle se LIT sans se
+  // valider (`prioritesValides` garde l'ÉCRITURE) : une valeur ancienne ou inconnue
+  // (un exercice retiré du catalogue, une zone renommée) ne correspond à rien, ni
+  // routine ni zone, donc n'a aucun effet — inoffensive sans qu'on la filtre.
+  function prioritesDe(profil) {
+    var l = profil && profil.priorites;
+    return Array.isArray(l) ? l.filter(function (x) { return typeof x === 'string'; }) : [];
+  }
+
+  // LE GEL des priorités, jumeau de `phaseGelee` : lues UNE fois, gelées pour la
+  // séance — changer une priorité dans Profil en pleine séance ne fait ni
+  // apparaître ni disparaître une carte de série de plus (I12 : le mémo du plan
+  // ne voit pas les priorités). `gel` : `{ seanceId, priorites }` ou `null` ;
+  // `sauvee` : la liste gelée relue du disque (rechargement) — ⚠️ `[]` est une
+  // valeur LÉGITIME ; ce qui n'est pas une liste veut dire « rien de sauvé »
+  // (séance gelée avant 60-2b) : alors, les priorités du profil maintenant.
+  function prioritesGelees(gel, seanceId, sauvee, profil) {
+    if (gel && gel.seanceId === seanceId) return gel;
+    return { seanceId: seanceId, priorites: Array.isArray(sauvee) ? prioritesDe({ priorites: sauvee }) : prioritesDe(profil) };
+  }
+
   // Une priorité qu'on touche : on l'ajoute, ou on la retire ; trois au plus (la
   // quatrième est sans effet). Le questionnaire et la feuille du Profil la
   // partagent : un seul geste, une seule règle.
@@ -888,6 +911,7 @@
     rythmeDe: rythmeDe, phraseRythme: phraseRythme, sectionRythme: sectionRythme,
     PHASES: PHASES, PHASE_DEFAUT: PHASE_DEFAUT, phaseDe: phaseDe, phaseGelee: phaseGelee, sectionPhase: sectionPhase,
     objectifDe: objectifDe, objectifGele: objectifGele,
+    prioritesDe: prioritesDe, prioritesGelees: prioritesGelees,
     DUREES: DUREES, SEANCES_MIN: SEANCES_MIN, SEANCES_MAX: SEANCES_MAX,
     TAILLE_MIN: TAILLE_MIN, TAILLE_MAX: TAILLE_MAX,
     PSEUDO_MIN: PSEUDO_MIN, PSEUDO_MAX: PSEUDO_MAX, MDP_MIN: MDP_MIN,

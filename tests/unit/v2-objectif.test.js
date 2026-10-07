@@ -52,7 +52,7 @@ describe('§9.22 — la zone PROPOSÉE du premier bloc suit l’objectif', () =>
   describe('`ouvrirProgramme` (app.js, rejoué)', () => {
     function bac(profil) {
       const ctx = {
-        Moteur: M, profil,
+        Moteur: M, Profil, profil,
         exercicesDuDossier: () => ['squat_barre'],
         catalogueIndexe: () => ({}),
         rendreFeuilleProgramme: () => {}, ouvrirVoile: () => {}, $: () => ({}),

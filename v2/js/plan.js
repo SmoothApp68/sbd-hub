@@ -972,6 +972,14 @@
   var OBJECTIFS_DU_PLAN = ['force', 'muscle', 'les_deux', 'forme'];
   function objectifDuPlan(v) { return OBJECTIFS_DU_PLAN.indexOf(v) >= 0 ? v : null; }
 
+  // MOTEUR §14.6 (60-2b) — les priorités du questionnaire (`profiles.priorites` :
+  // des slugs d'exercice ET des clés de zone), GELÉES pour la séance avec la phase.
+  // Le champ vient de la base : `null` (jamais répondu), `[]` (« Pas de priorité »)
+  // et tout ce qui n'est pas une liste de chaînes valent la même chose — aucune.
+  function prioritesDuPlan(v) {
+    return Array.isArray(v) ? v.filter(function (x) { return typeof x === 'string'; }) : [];
+  }
+
   // ══ LE PLAN DE SÉANCE ═══════════════════════════════════════════════════
   //
   // `entrees` :
@@ -998,8 +1006,12 @@
   //     avec la phase ; `force`, `muscle`, `les_deux`, `forme`, ou `null` (vide ou
   //     inconnu : pas de défaut). Il ne change AUCUNE consigne : il n'entre que dans
   //     le fondement des paris ;
+  //   · `priorites` — MOTEUR §14.6 (60-2b) : les priorités du questionnaire,
+  //     GELÉES pour la séance avec la phase (des slugs d'exercice et des clés de
+  //     zone ; `null`, `[]` ou toute valeur étrangère : aucune). Un muscle dont la
+  //     zone y figure a de la place jusqu'à son plus haut volume — hors sèche ;
   //   · `volume` — MOTEUR §14.6 (49-U16) : `{ [muscle]: { place, moyenne,
-  //     seuil, fenetres } | null }`, la règle de volume calculée UNE FOIS par
+  //     seuil, max, fenetres } | null }`, la règle de volume calculée UNE FOIS par
   //     séance sur tout l'historique (`Moteur.placeDeVolume`) ; facultatif.
   //
   // Pure : mêmes entrées, même plan ; les entrées ne sont jamais modifiées.
@@ -1010,6 +1022,7 @@
     var exos = seance.exercices || [];
     var phase = phaseDuPlan(e.phase);
     var objectif = objectifDuPlan(e.objectif);
+    var priorites = prioritesDuPlan(e.priorites);
     // §9.17 (50-1) — CE QUE LE PLAN PORTE, pour qu'I13 et I28 à I31 se vérifient
     // sur lui seul : la mesure de chaque exercice (`catalogue`), son mode
     // (`modes`, l'historique `modes_exercice` lu par l'app), l'intention qui en
@@ -1038,6 +1051,7 @@
       seance: seance.id === undefined ? null : seance.id,
       phase: phase,
       objectif: objectif,
+      priorites: priorites,
       // §9.17 — l'Édition d'une séance passée, l'intention du profil et la
       // réponse du lest : trois faits que les invariants relisent (I13, I29).
       edition: !!seance.edition,
@@ -1092,7 +1106,7 @@
         // sur CHACUN des muscles primaires de l'exercice (catalogue), lue dans
         // `entrees.volume`. Un fait, rien d'affiché : la série de plus (PR 2c)
         // le lira. `null` sans entrée de volume.
-        x.placeSerieDePlus = placeDeLExercice(e, slug);
+        x.placeSerieDePlus = placeDeLExercice(e, slug, phase);
         var cat = e.catalogue && slug && Object.prototype.hasOwnProperty.call(e.catalogue, slug) ? e.catalogue[slug] : null;
         x.mesure = cat && cat.mesure !== undefined ? cat.mesure : null;
         x.mode = modeX;
@@ -1272,7 +1286,7 @@
       var n = M.nIsole(k, M.declenchementsRepondus(slug, jour, k, cartes, compteurs));
       // §14.7 (49-U17) — la place sur chacun des muscles primaires (§14.6), et
       // une série de plus déjà proposée depuis le dernier progrès.
-      var place = placeDeLExercice(e, slug);
+      var place = placeDeLExercice(e, slug, phase);
       var proposee = M.serieDePlusProposee(slug, jour, k, marches, compteurs);
       var marche = M.marcheIsolee(n, zone, phase, place, proposee, c.consigne.palier);
       if (!marche) return;
@@ -1305,7 +1319,8 @@
           var capCarte = Voix().capturer(function () {
             return marche === M.MARCHE_SCHEMA
               ? M.carteSchema(zone, c.compteur.meilleur, k, avancent)
-              : M.carteSerieDePlus(c.compteur.meilleur, k, avancent, musclesPrimaires(e, slug));
+              : M.carteSerieDePlus(c.compteur.meilleur, k, avancent, musclesPrimaires(e, slug),
+                  musclesParPriorite(e, slug, phase));
           });
           m.carte = capCarte.texte;
           if (!m.carte) return;
@@ -1319,11 +1334,39 @@
 
   // §14.6, §14.7 — la place pour une série de plus sur CHACUN des muscles
   // primaires de l'exercice (catalogue), lue dans `entrees.volume` ; `null`
-  // sans entrée de volume.
-  function placeDeLExercice(e, slug) {
+  // sans entrée de volume. Un muscle PRIORITAIRE (60-2b) a de la place jusqu'à
+  // son plus haut volume (`Moteur.placePourExercice`).
+  function placeDeLExercice(e, slug, phase) {
     if (!e.volume) return null;
     var cat = e.catalogue && slug && Object.prototype.hasOwnProperty.call(e.catalogue, slug) ? e.catalogue[slug] : null;
-    return Moteur().placePourExercice(e.volume, cat ? cat.muscles_primaires : null);
+    return Moteur().placePourExercice(e.volume, cat ? cat.muscles_primaires : null,
+      musclesPrioritairesDe(e, slug, phase));
+  }
+
+  // 60-2b — LES MUSCLES PRIORITAIRES d'un exercice : ceux de ses muscles
+  // primaires dont la ZONE (`THSemaine.zoneDuMuscle`, la seule table muscle →
+  // zone) est dans les priorités gelées de la séance. EN SÈCHE, aucun : la série
+  // de plus n'y est jamais proposée (§9.16), et rien ne change.
+  function musclesPrioritairesDe(e, slug, phase) {
+    if (phase === 'seche') return [];
+    var prio = prioritesDuPlan(e.priorites);
+    var Sm = Semaine();
+    if (!prio.length || !Sm || !Sm.zoneDuMuscle) return [];
+    var cat = e.catalogue && slug && Object.prototype.hasOwnProperty.call(e.catalogue, slug) ? e.catalogue[slug] : null;
+    return ((cat && cat.muscles_primaires) || []).filter(function (m) {
+      var z = Sm.zoneDuMuscle(m);
+      return !!z && prio.indexOf(z.cle) >= 0;
+    });
+  }
+
+  // 60-2b — les muscles de l'exercice (avec leur nom au catalogue) dont la
+  // place ne vient QUE de la priorité : la carte le dit à sa façon.
+  function musclesParPriorite(e, slug, phase) {
+    if (!e.volume) return [];
+    var cat = e.catalogue && slug && Object.prototype.hasOwnProperty.call(e.catalogue, slug) ? e.catalogue[slug] : null;
+    var cles = Moteur().musclesParPriorite(e.volume, cat ? cat.muscles_primaires : null,
+      musclesPrioritairesDe(e, slug, phase));
+    return musclesPrimaires(e, slug).filter(function (m) { return cles.indexOf(m.cle) >= 0; });
   }
 
   // Les muscles primaires de l'exercice, avec leur nom au catalogue

@@ -8975,7 +8975,7 @@ const SETS_IMPORTES = [
     ok('[U11] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
 
-  console.log('\n══ objectif. L’OBJECTIF, GELÉ POUR LA SÉANCE ET ENREGISTRÉ AVEC CHAQUE PARI (60-2b, MOTEUR §9.16, I40) ══');
+  console.log('\n══ objectif. L’OBJECTIF ET LES PRIORITÉS, GELÉS POUR LA SÉANCE ; L’OBJECTIF ENREGISTRÉ AVEC CHAQUE PARI (60-2b, MOTEUR §9.16, §14.6, I40) ══');
   //
   // ⚠️ CONFIGURATION DISCRIMINANTE, jumelle de celle de la phase (7 G octies) :
   // l'objectif CHANGÉ EN PLEINE SÉANCE. Un objectif lu en direct et un objectif
@@ -9088,6 +9088,77 @@ const SETS_IMPORTES = [
     await abandonner();
     ok('[O60] la garde (C6) n’a rien signalé dans cette section (I40 compris), aucune erreur de page',
       gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant, JSON.stringify(gardeBanc.liste.slice(-2)));
+    await aller('/saisie');
+
+    // ── [P60] LES PRIORITÉS, GELÉES COMME LA PHASE (60-2b, MOTEUR §14.6). Elles décident si un
+    // muscle prioritaire a de la place pour une série de plus : lues UNE fois par séance, une
+    // priorité cochée dans Profil en pleine séance ne fait ni apparaître ni disparaître une
+    // carte. L'entrée du plan (`THPlan.dernier.entrees.priorites`) est la preuve.
+    const prioritesLues = () => page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      return d ? { entrees: d.entrees.priorites, plan: d.plan.priorites } : null;
+    });
+    const choisirPriorite = async (decocher, cocher) => {
+      await onglet('profil');
+      await page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
+        .filter((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf('Priorités') === 0)[0].click());
+      await attendre(500);
+      for (const cle of decocher.concat(cocher)) {
+        await page.click('#feuille-contenu .feuille-menu button[data-cle="' + cle + '"]');
+        await attendre(150);
+      }
+      await page.click('#feuille-contenu .feuille-pied .pri');
+      await attendre(1200);
+    };
+    const violationsP = gardeBanc.violations;
+    base.profiles[0].priorites = ['poitrine'];
+    await aller('/saisie');
+    await demarrerRoutine('Objectif O60');
+    await attendre(900);
+    await saisirSerie(0, 100, 10);
+    await attendre(1200);
+    const p1 = await prioritesLues();
+    ok('[P60] la séance part avec les priorités du profil : l’entrée du plan porte `["poitrine"]`',
+      !!p1 && JSON.stringify(p1.entrees) === '["poitrine"]' && JSON.stringify(p1.plan) === '["poitrine"]', JSON.stringify(p1));
+    await choisirPriorite(['poitrine'], ['dos']);
+    ok('[P60] le profil passe à « Dos » (écrit en base)', JSON.stringify(base.profiles[0].priorites) === '["dos"]', JSON.stringify(base.profiles[0].priorites));
+    await onglet('saisie');
+    await attendre(600);
+    await saisirSerie(1, 100, 10);
+    await attendre(1200);
+    const p2 = await prioritesLues();
+    ok('[P60] DISCRIMINANT — en pleine séance, l’entrée du plan reste `["poitrine"]` (gelée), pas `["dos"]`',
+      !!p2 && JSON.stringify(p2.entrees) === '["poitrine"]' && JSON.stringify(p2.plan) === '["poitrine"]', JSON.stringify(p2));
+    base.profiles[0].priorites = ['bras'];
+    await aller('/saisie');
+    await attendre(1200);
+    await saisirSerie(2, 100, 10);
+    await attendre(1200);
+    const p3 = await prioritesLues();
+    ok('[P60] DISCRIMINANT — la séance rechargée au milieu garde les priorités gelées (`["poitrine"]`), pas celles du profil (`["bras"]`)',
+      !!p3 && JSON.stringify(p3.entrees) === '["poitrine"]', JSON.stringify(p3));
+    await terminer();
+    await aller('/saisie');
+    await demarrerRoutine('Objectif O60');
+    await attendre(900);
+    await saisirSerie(0, 100, 10);
+    await attendre(1200);
+    const p4 = await prioritesLues();
+    ok('[P60] la séance SUIVANTE prend les nouvelles priorités du profil (`["bras"]`)',
+      !!p4 && JSON.stringify(p4.entrees) === '["bras"]', JSON.stringify(p4));
+    await abandonner();
+    base.profiles[0].priorites = null;
+    await aller('/saisie');
+    await demarrerRoutine('Objectif O60');
+    await attendre(900);
+    await saisirSerie(0, 100, 10);
+    await attendre(1200);
+    const p5 = await prioritesLues();
+    ok('[P60] jamais répondu (`null`) : aucune priorité, une liste vide, sans erreur',
+      !!p5 && JSON.stringify(p5.entrees) === '[]' && JSON.stringify(p5.plan) === '[]', JSON.stringify(p5));
+    await abandonner();
+    ok('[P60] la garde (C6) n’a rien signalé dans cette section, aucune erreur de page',
+      gardeBanc.violations === violationsP && erreurs.length === erreursAvant, JSON.stringify(gardeBanc.liste.slice(-2)));
     await aller('/saisie');
   }
 
@@ -12471,6 +12542,46 @@ const SETS_IMPORTES = [
     ok('[O60] DISCRIMINANT — premier bloc : Force et Les deux proposent « Lourd (3-5) » ; Muscle, Forme et sans réponse, « Mix (6-8) »',
       proposees.force === 'Lourd (3-5)' && proposees.les_deux === 'Lourd (3-5)' && proposees.muscle === 'Mix (6-8)' &&
         proposees.forme === 'Mix (6-8)' && proposees['null'] === 'Mix (6-8)', JSON.stringify(proposees));
+    // ── A ter (60-2b, MOTEUR §9.22). L'EXERCICE PRIORITAIRE EST COCHÉ D'OFFICE, même hors
+    // barre polyarticulaire (ici « Gamma », un curl à 1 muscle, décoché sinon) ; un exercice
+    // prioritaire absent des routines du dossier ne fait rien ; une zone de muscle non plus.
+    // Les priorités se LISENT sans se valider : le slug du banc n'est pas l'un des cinq du
+    // questionnaire, ce qui ne change rien à la lecture.
+    const casesAvec = async (priorites) => {
+      base.profiles[0].priorites = priorites;
+      await aller('/saisie');
+      await cliquerDossier('Alpha U53', '.programme-creer');
+      await attendre(800);
+      const f = await feuilleP();
+      await page.click('#btn-fermer-feuille');
+      await attendre(500);
+      return (f.cases || []).map(sp);
+    };
+    const defaut = ['☑ Alpha Cycle U53 (Barre)|Mix', '☑ Bêta Cycle U53 (Barre)|Mix', '☐ Gamma Cycle U53 (Barre)|sa zone'];
+    const prio = {};
+    for (const [k, v] of [['sans', null], ['vide', []], ['curl', ['cyc-curl-u53']], ['absent', ['tractions']], ['zone', ['bras', 'dos']],
+      ['curl+', ['poitrine', 'cyc-curl-u53']]]) prio[k] = await casesAvec(v);
+    ok('[P60] DISCRIMINANT — « Faire de ce dossier un programme » : l’exercice prioritaire (Gamma) est coché d’office ; sans priorité, une priorité absente des routines ou une zone de muscle, rien ne change',
+      JSON.stringify(prio.sans) === JSON.stringify(defaut) && JSON.stringify(prio.vide) === JSON.stringify(defaut) &&
+        JSON.stringify(prio.absent) === JSON.stringify(defaut) && JSON.stringify(prio.zone) === JSON.stringify(defaut) &&
+        JSON.stringify(prio.curl) === JSON.stringify(['☑ Alpha Cycle U53 (Barre)|Mix', '☑ Bêta Cycle U53 (Barre)|Mix', '☑ Gamma Cycle U53 (Barre)|Mix']) &&
+        JSON.stringify(prio['curl+']) === JSON.stringify(prio.curl), JSON.stringify(prio));
+    base.profiles[0].priorites = ['cyc-curl-u53'];
+    await aller('/saisie');
+    await cliquerDossier('Alpha U53', '.programme-creer');
+    await attendre(800);
+    await page.evaluate(() => {
+      const c = Array.from(document.querySelectorAll('#feuille-contenu .case-programme')).filter((x) => /Gamma/.test(x.textContent))[0];
+      if (c) c.click();
+    });
+    await attendre(400);
+    const decochee = (await feuilleP()).cases.map(sp);
+    await page.click('#btn-fermer-feuille');
+    await attendre(500);
+    ok('[P60] la coche d’office reste décochable (le geste décoche Gamma sans toucher aux autres)',
+      JSON.stringify(decochee) === JSON.stringify(defaut), JSON.stringify(decochee));
+    base.profiles[0].priorites = null;
+
     base.profiles[0].objectif = null;
     await aller('/saisie');
     await cliquerDossier('Alpha U53', '.programme-creer');

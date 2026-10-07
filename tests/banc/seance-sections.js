@@ -233,15 +233,77 @@ function declarationsGardees(banc, garder) {
   return gardees;
 }
 
+// ── UNE SECTION QUI PLANTE N'ARRÊTE PLUS LE BANC (07/10/2026) ───────────────
+//
+// Le banc est UN script : une exception dans une section (un `page.click` qui
+// attend 30 s un élément absent) le tuait d'un bloc, et toutes les sections
+// suivantes disparaissaient du compte. C'est arrivé au séquentiel de 58-1 : il
+// s'arrêtait au contrôle [57-1], sans rien dire de `forge` ni de `8`.
+//
+// Rendue RÉSISTANTE, une section devient :
+//
+//   console.log('\n══ NOM ══');          ← la marque, telle quelle
+//   let a, b;                              ← ses noms, déclarés AVANT le try
+//   try { …corps, `const a = x` devenu `(a = x);`… }
+//   catch (e) { ok('[exception] NOM — …', false, pile) }
+//
+// Les noms restent visibles des sections suivantes (le banc les partage), une
+// exception devient un contrôle EN ÉCHEC — compté, listé à la fin — et la
+// section suivante joue. Le corps n'est pas réécrit autrement : mêmes
+// instructions, mêmes commentaires, dans le même ordre.
+//
+// ⚠️ Une forme de premier niveau que la réécriture ne sait pas traiter (une
+// classe) est une ERREUR, pas un passage en silence.
+function sectionResistante(src, s) {
+  const marque = s.instructions[0];
+  const corps = s.instructions.slice(1);
+  if (!corps.length) return src.slice(s.debut, s.fin);
+  const lets = [], vars = [], fonctions = [], edits = [];
+  corps.forEach((st) => {
+    if (st.type === 'ClassDeclaration') {
+      throw new Error('banc : section « ' + s.id + ' » — une classe au premier niveau, que la réécriture résistante ne sait pas traiter');
+    }
+    if (st.type === 'FunctionDeclaration') {
+      // Hissée hors du try : une déclaration de fonction l'est déjà dans la
+      // fonction principale, elle le reste.
+      fonctions.push(src.slice(st.start, st.end));
+      edits.push({ debut: st.start, fin: st.end, texte: '' });
+      return;
+    }
+    if (st.type !== 'VariableDeclaration') return;
+    (st.kind === 'var' ? vars : lets).push.apply(st.kind === 'var' ? vars : lets, nomsDeclares(st));
+    const affectations = st.declarations.filter((d) => d.init)
+      .map((d) => src.slice(d.id.start, d.id.end) + ' = ' + src.slice(d.init.start, d.init.end));
+    edits.push({ debut: st.start, fin: st.end, texte: affectations.length ? '(' + affectations.join(', ') + ');' : '' });
+  });
+  let texte = src.slice(marque.end, s.fin);
+  edits.sort((a, b) => b.debut - a.debut).forEach((e) => {
+    texte = texte.slice(0, e.debut - marque.end) + e.texte + texte.slice(e.fin - marque.end);
+  });
+  return [
+    '  ' + src.slice(marque.start, marque.end),
+    lets.length ? '  let ' + lets.join(', ') + ';' : '',
+    vars.length ? '  var ' + vars.join(', ') + ';' : '',
+    fonctions.map((f) => '  ' + f).join('\n'),
+    '  try {' + texte,
+    '  } catch (exceptionDuBanc) {',
+    '    ok(' + JSON.stringify('[exception] ' + s.nom + ' — la section s’arrête là, le banc continue') + ', false,',
+    '      String((exceptionDuBanc && exceptionDuBanc.stack) || exceptionDuBanc).split(\'\\n\').slice(0, 4).join(\' | \'));',
+    '  }'
+  ].filter((l) => l !== '').join('\n');
+}
+
 // Le programme : préambule, sections choisies, déclarations des autres, fin.
-function programme(banc, choisies) {
+// `options.resistant` : chaque section jouée est protégée (ci-dessus).
+function programme(banc, choisies, options) {
+  const o = options || {};
   const src = banc.source;
   const garder = new Set(choisies.map((s) => s.id));
   const gardees = declarationsGardees(banc, garder);
   const morceaux = [src.slice(banc.tete[0], banc.tete[1]), src.slice(banc.preambule[0], banc.preambule[1])];
   banc.sections.forEach((s) => {
     if (garder.has(s.id)) {
-      morceaux.push(src.slice(s.debut, s.fin));
+      morceaux.push(o.resistant ? sectionResistante(src, s) : src.slice(s.debut, s.fin));
     } else if (gardees.get(s.id).length) {
       morceaux.push('  // — ' + s.id + ' : non jouée, ses déclarations seules —');
       gardees.get(s.id).forEach((st) => morceaux.push('  ' + src.slice(st.start, st.end)));
@@ -254,11 +316,11 @@ function programme(banc, choisies) {
 }
 
 // Écrit le programme dans un fichier à part et rend son chemin.
-function ecrireProgramme(banc, choisies, dossier) {
+function ecrireProgramme(banc, choisies, dossier, options) {
   const d = dossier || fs.mkdtempSync(path.join(os.tmpdir(), 'banc-sections-'));
   const f = path.join(d, 'banc-' + (choisies.length === banc.sections.length ? 'complet'
-    : choisies.map((s) => s.id).join('_').slice(0, 80)) + '.js');
-  fs.writeFileSync(f, programme(banc, choisies));
+    : choisies.map((s) => s.id).join('_').slice(0, 80)) + ((options || {}).resistant ? '-resistant' : '') + '.js');
+  fs.writeFileSync(f, programme(banc, choisies, options));
   return f;
 }
 

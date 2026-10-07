@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // tests/banc/fixtures/banc-factice.js — un banc de trois sections, sans
 // navigateur, pour tester l'outillage (`seance-sections.js`, `seance-rapide.js`).
+// (Quatre depuis le 07/10/2026 : D suit C, qui peut planter.)
 //
 // Même forme que le vrai : un préambule, des sections ouvertes par
 // `console.log('\n══ NOM ══')`, `await clore()`, un rapport JSON dans
@@ -62,6 +63,12 @@ const pause = (ms) => new Promise((r) => setTimeout(r, ms));
   if (plante === 'C') throw new Error('la section C plante');
   ok('C — se sert du helper de A', doubler(3) === 6);
   ok('C — deux', echoue !== 'C');
+
+  // D vient APRÈS une section qui peut planter : le séquentiel résistant doit
+  // la jouer quand même (07/10/2026).
+  console.log('\n══ D. LA QUATRIÈME ══');
+  const triple = doubler(1) + 1;
+  ok('D — après C', triple === 3 && echoue !== 'D');
 
   await clore();
 })().catch((e) => { console.error(String(e)); process.exit(3); });

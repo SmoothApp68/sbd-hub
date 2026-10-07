@@ -1,29 +1,27 @@
-# Schéma réel — état au 6 octobre 2026
+# Schéma réel — état au 7 octobre 2026
 
 **Régénéré depuis la base**, projet Supabase `swwygywahfdenyzotrce` (eu-west-1).
-Dernière migration appliquée : **`v2_059_routine_exercises_retrait_series_reps`**. Prochain numéro libre : **`v2_060`**.
+Dernière migration appliquée : **`v2_064_verrous_acces`**. Prochain numéro libre : **`v2_065`**.
 
 > ⚠️ **Ce document remplace `SCHEMA-V2_2.md`**, qui décrivait un état antérieur aux
 > routines et n'a plus valeur de référence. En cas de doute, la base fait foi — pas ce
 > fichier. Il est régénéré, pas rédigé.
 
-> **Régénéré le 06/10/2026 depuis la base** (Claude.ai). Cette version reprend celle du 21/09 (`v2_047`) et
-> ajoute, juste en dessous, **tout ce qui a changé de `v2_048` à `v2_059`** : colonnes, table nouvelle, contraintes,
+> **Régénéré le 07/10/2026 depuis la base** (Claude.ai). Cette version reprend celle du 21/09 (`v2_047`) et
+> ajoute, juste en dessous, **tout ce qui a changé de `v2_048` à `v2_064`** : colonnes, tables nouvelles, contraintes,
 > règles d'accès, volumétrie. Les sections par table plus bas datent du 21/09 ; quand elles divergent du bloc
 > « Depuis le 21/09 », **c'est ce bloc qui fait foi**.
 
-**Volumétrie régénérée le 06/10/2026 :** **1 260 séances · 29 036 séries** · 237 exercices (232 actifs, **100 avec un
-mouvement**) · 117 pesées · **5 profils** · **10 routines (5 rangées dans le dossier « Sèche » depuis le 06/10 au soir) · 78 exercices de routine · 269 séries
-programmées** · **82 prédictions** (toutes `moteur.consigne`) · **17 zones corrigées** (0 posée par un bloc) ·
-**0 mode par exercice** · **0 bloc** · 0 série marquée douleur.
+**Volumétrie régénérée le 07/10/2026 :** **1 261 séances · 29 063 séries** · 237 exercices (232 actifs, **100 avec un
+mouvement**) · 117 pesées · **5 profils pour 5 comptes de connexion** · **10 routines (5 rangées dans le dossier
+« Sèche ») · 78 exercices de routine · 269 séries programmées** · **103 prédictions** · **17 zones corrigées** (0 posée
+par un bloc) · **0 mode par exercice** · **0 bloc** · **0 record** (le journal se remplit à la première ouverture de
+l'app après #377) · 0 série marquée douleur. Archive v1 : `workout_sessions` 891, `sbd_profiles` 4.
 
-**Séries par type :** travail 26 861 · échauffement 1 588 · dégressive 434 · échec 128.
-**Séances par source :** hevy 1 249 · app 11. **Séries par source :** hevy 28 861 · app 175.
-**Séances saisies dans l'app avec `routine_id` :** 4 sur 10 (les autres sont des séances libres ou antérieures au
-rattachement) — **la note « routine_id n'est pas rempli par les séances v2 » était fausse** : il l'est quand la séance
-part d'une routine. La séance importée de Hevy le 02/10 a été rattachée à sa routine à la main.
+**Séances par source :** hevy 1 249 · app 12.
+**Séances saisies dans l'app avec `routine_id` :** elle est remplie quand la séance part d'une routine.
 
-## Depuis le 21/09 — migrations `v2_048` à `v2_059`
+## Depuis le 21/09 — migrations `v2_048` à `v2_064`
 
 | Migration | Date | Ce qu'elle fait |
 |---|---|---|
@@ -38,11 +36,25 @@ part d'une routine. La séance importée de Hevy le 02/10 a été rattachée à 
 | `v2_056_sets_douleur_occurrence` | 05/10 | `sets.douleur` (boolean NOT NULL, défaut false) et `sets.occurrence` (uuid, NULL pour les séances importées ou anciennes) (MOTEUR §9.20, §9.19) |
 | `v2_057_routines_dossier` | 05/10 | `routines.dossier` (text, NULL = hors dossier ; CHECK `routines_dossier_ok` : sans espace autour, 1 à 40 caractères) (ECRAN-SAISIE, Organiser) |
 | `v2_058_blocs_programmes` | 05/10 | **Table `blocs`** ; `zones_exercice.origine` (`personne` / `bloc`) et `zones_exercice.bloc_id` ; `predictions_observation_coherente` accepte aussi `module = 'programme'` (MOTEUR §9.22, §9.1.2, §19.2) |
-| `v2_059_routine_exercises_retrait_series_reps` | 06/10 | **Retire `routine_exercises.series` et `reps_visees`** et leurs contraintes `routine_exos_series_bornees`, `routine_exos_reps_bornees` : redondantes depuis `routine_sets` (`v2_042`), lues par aucun code v2 (relevé 54-0), aucune vue ni fonction. Lancée par Aurélien dans l'éditeur SQL (essai à blanc puis écriture, 78 lignes intactes), notée dans l'historique des migrations |
+| `v2_059_routine_exercises_retrait_series_reps` | 06/10 | **Retire `routine_exercises.series` et `reps_visees`** et leurs contraintes : redondantes depuis `routine_sets` (`v2_042`), lues par aucun code v2 (relevé 54-0) |
+| `v2_060_profils_verrou_admin` | 07/10 | **Sécurité** : le déclencheur `protect_privileged_profile_columns` protège aussi la **création** d'un profil (hors admin : `is_admin = false`, `tier = 'member'`, `tier_awarded_at` vide ; déclencheur `trg_protect_privileged_profile_columns_insert`) ; la règle `profiles_delete` est **retirée** (un profil ne s'efface plus que par `delete_user_complete_data`) |
+| `v2_061_journal_records` | 07/10 | **Table `records`** (journal des records, MOTEUR §9.23) : `user_id` → `profiles`, `set_id` → `sets`, `session_id` → `sessions` (cascade), `exercise_slug`, `type` (8 types), `valeur`, `reps`, `ancien`, `ancien_le`, `sur_douze_mois`, `battu_le` ; **unique (`set_id`, `type`)** ; RLS `records_lecture` (SELECT) et `records_ajout` (INSERT), `user_id = (select auth.uid())` ; déclencheur `records_immuable` (refuse UPDATE) ; déclencheur `sets_efface_records` sur `sets` (type, charge, reps, durée ou distance corrigés → records de la série effacés) |
+| `v2_062_records_charge_unite` | 07/10 | `records.charge` (numeric, pour `reps_a_charge` : la charge, 0 au poids du corps) et `records.unite` (text, `kg` ou `reps`, pour `volume_seance`) |
+| `v2_063_supprimer_compte` | 07/10 | **`delete_user_complete_data(target_user_id)` réécrite** (SECURITY DEFINER, `search_path = ''`, garde inchangée : soi-même ou un admin). Avant, elle échouait **toujours** (elle effaçait `backup_ws_nomenclature_20260709`, supprimée le 15/09). Elle efface désormais `records`, `predictions`, `user_exercise_model`, `sets`, `sessions`, `routines` (exercices et séries de routine en cascade), `zones_exercice`, `modes_exercice`, `blocs`, `body_weight_log`, l'archive v1 (schéma `archive`, commentaires anonymisés, journaux d'erreur détachés), `workout_sessions`, `sbd_profiles`, `profiles`, les exercices personnels (`exercises.proprietaire`), **puis le compte de connexion `auth.users`** |
+| `v2_064_verrous_acces` | 07/10 | **Sécurité, règles d'accès** (décision d'Aurélien) : voir « Règles d'accès » ci-dessous |
 
-**Données corrigées hors migration** (avec répétition à blanc) : 4 séries de `muscle_up_assiste` passées en négatif
-(l'aide se range en négatif : 129 séries sur 129 désormais) ; la séance Hevy du 02/10 importée (27 séries) et rattachée
-à « Vendredi — Bas B (Soulevé) ».
+**Données corrigées hors migration** (avec répétition à blanc) : 4 séries de `muscle_up_assiste` passées en négatif ;
+la séance Hevy du 02/10 importée (27 séries) et rattachée à « Vendredi — Bas B (Soulevé) » ; **07/10 : 862 comptes de
+connexion anonymes et 625 lignes `sbd_profiles` « Test User » effacés** (créés le 06/10 par la suite Playwright v1 lancée
+contre la vraie base ; aucune donnée v2 ; suite archivée par #380).
+
+### Authentification (réglages du tableau de bord, 07/10)
+
+- **Connexions anonymes coupées.**
+- **Site URL** `https://sbd-hub.pages.dev` (était l'ancienne adresse GitHub Pages) ; **Redirect URLs**
+  `https://sbd-hub.pages.dev/**` et `https://*.sbd-hub.pages.dev/**` (prévisualisations des PR).
+- Protection contre les mots de passe compromis : offre payante seulement, désactivée. Captcha : désactivé (demande une
+  PR côté app ; à faire avant toute ouverture au-delà des amis).
 
 ### Colonnes ajoutées
 
@@ -53,6 +65,21 @@ part d'une routine. La séance importée de Hevy le 02/10 a été rattachée à 
 | `exercises` | `mouvement` text |
 | `routines` | `dossier` text (CHECK `routines_dossier_ok`) |
 | `zones_exercice` | `origine` text NOT NULL = 'personne' (CHECK `personne`/`bloc`) · `bloc_id` uuid → `blocs(id)` ON DELETE SET NULL |
+
+### Table nouvelle : `records` — 0 ligne · créée par `v2_061`, complétée par `v2_062`
+
+`id` uuid PK = gen_random_uuid() · `user_id` uuid NOT NULL → `profiles(id)` ON DELETE CASCADE · `set_id` uuid NOT NULL
+→ `sets(id)` ON DELETE CASCADE · `session_id` uuid NOT NULL → `sessions(id)` ON DELETE CASCADE · `exercise_slug` text
+NOT NULL → `exercises(slug)` · `type` text NOT NULL CHECK (`charge_a_reps`, `reps_a_charge`, `charge_max`, `cap`,
+`un_rm_estime`, `volume_seance`, `duree_s`, `distance_m`) · `valeur` numeric NOT NULL · `reps` integer · `ancien`
+numeric · `ancien_le` timestamptz · `sur_douze_mois` boolean NOT NULL = false · `battu_le` timestamptz NOT NULL ·
+`charge` numeric · `unite` text CHECK (`kg`/`reps`) · `created_at` timestamptz NOT NULL = now().
+Contrainte `records_un_par_serie_et_type` UNIQUE (`set_id`, `type`) : un envoi répété ne crée pas de doublon.
+Index `records_user_battu_idx (user_id, battu_le)`, `records_user_exercice_idx (user_id, exercise_slug)`.
+**Immuable** : déclencheur `records_immuable` (BEFORE UPDATE, refuse). **Effacé avec sa série** : suppression (cascade)
+ou correction (déclencheur `sets_efface_records`, AFTER UPDATE OF `type_serie`, `charge_kg`, `reps`, `duree_s`,
+`distance_m` ; l'app réécrit ensuite les records de la séance). Écrit à « Terminer » par la file d'envoi ; l'historique
+est rempli une fois par l'app (58-2).
 
 ### Table nouvelle : `modes_exercice` — 0 ligne · créée par `v2_054`
 
@@ -80,19 +107,31 @@ même table, la déclaration la plus récente l'emporte (MOTEUR §9.1.2). Suppri
 - **L'alias abîmé de `developpe_couche_decline_barre` est volontaire — ne pas le supprimer.** Le texte
   « Développé Couch�� Décliné (Barre) » est celui de l'export Hevy, abîmé à la source ; l'alias (`hevy_corrompu`)
   permet de le reconnaître à l'import.
-- ~~`routine_exercises.series` et `reps_visees`~~ : **retirées le 06/10 par `v2_059`** (voir le tableau des migrations).
+- ~~`routine_exercises.series` et `reps_visees`~~ : **retirées le 06/10 par `v2_059`**.
 
-### Règles d'accès (état au 06/10)
+### Règles d'accès (état au 07/10, après `v2_064`)
 
-- **En `authenticated`, propriétaire** : `sets`, `sessions`, `routines`, `routine_exercises`, **`routine_sets`** (n'est
-  plus en `public`), `predictions`, `zones_exercice`, `modes_exercice`, **`blocs`**, `body_weight_log`, `user_exercise_model`.
-- **Encore en `public`** (rôle à resserrer à la passe sécurité, les conditions protègent déjà) : `profiles` (4 règles,
-  `auth.uid() = id` — écrites sans `(select …)`), `exercises` (4 règles), et les tables v1 `sbd_profiles`,
-  `workout_sessions`.
-- **Le catalogue n'est pas modifiable par un utilisateur** (vérifié le 05/10) : les droits de colonne `INSERT` /
-  `UPDATE` existent, mais `exercises_modif`, `exercises_suppression` et `exercises_creation` exigent `proprietaire =
-  auth.uid()` ; un exercice partagé (`proprietaire` NULL) est lisible par tous et modifiable par personne. **Le point
-  « catalogue modifiable » de la passe sécurité tombe.**
+**Toutes les règles de `public` sont en `authenticated` et écrites en `(select auth.uid())`.** Aucune règle `public` ne
+reste ; aucune règle de suppression sur `profiles`.
+
+| Table | Règles |
+|---|---|
+| `sets`, `sessions`, `routines`, `routine_sets`, `predictions`, `zones_exercice`, `modes_exercice`, `blocs`, `body_weight_log`, `user_exercise_model` | une règle `FOR ALL`, propriétaire |
+| `routine_exercises` | `FOR ALL`, propriété héritée de `routines` par un `EXISTS` |
+| `profiles` | `profiles_lecture` (SELECT), `profiles_creation` (INSERT), `profiles_modif` (UPDATE) : `id = (select auth.uid())` ; colonnes `is_admin`, `tier`, `tier_awarded_at` protégées à la création et à la modification par `protect_privileged_profile_columns` |
+| `records` | `records_lecture` (SELECT), `records_ajout` (INSERT) ; ni modification ni suppression |
+| `exercises` | lecture du catalogue (`proprietaire IS NULL`) et de ses exercices ; création, modification, suppression de **ses** exercices seulement. **Plus lisible sans connexion.** Le catalogue partagé n'est modifiable par personne |
+| `exercise_alias` | lecture par les comptes connectés |
+| `sbd_profiles`, `workout_sessions` (v1) | **lecture seule de ses lignes** (`sbd_profiles_lecture`, `workout_sessions_lecture`) ; `INSERT`, `UPDATE`, `DELETE`, `TRUNCATE` retirés à `anon` et `authenticated` ; la règle « amis » v1 est retirée |
+
+**Fonctions** :
+- `pseudo_libre(nom)` (SECURITY DEFINER) : appelable **sans connexion**, voulu (l'inscription vérifie le pseudo avant
+  de créer le compte) ; elle ne dit que « libre » ou « pris ».
+- `delete_user_complete_data(uuid)` (SECURITY DEFINER) : comptes connectés ; sa garde n'accepte que soi-même ou un admin.
+- `derniere_perf(text[])` : comptes connectés seulement (SECURITY INVOKER, le RLS s'applique).
+- Les fonctions de déclencheur (`sets_efface_records`, `records_immuable`, `predictions_refuse_modification`,
+  `sets_efface_observation`, `sets_efface_observation_type`, `sets_marque_modification`,
+  `protect_privileged_profile_columns`) ne sont **plus appelables par l'API** ; les déclencheurs fonctionnent toujours.
 
 ## Pièges à connaître avant d'écrire du code
 
@@ -151,11 +190,12 @@ routine orpheline. Ce qui a été fait :
 
 - **`backup_ws_nomenclature_20260709` supprimée** — 881 séances, toutes présentes dans
   `workout_sessions` qui en a 891. **Sous-ensemble strict : elle ne protégeait rien.**
+  (Elle restait citée par `delete_user_complete_data`, qui échouait donc toujours : corrigé par `v2_063`.)
 - **Compte `alex` supprimé** — 0 séance, 0 série, 0 routine. 5 profils pour 5 comptes auth.
 - **Routine de test « Test 1 » supprimée.**
 - **Les 12 tables portent désormais un commentaire.** Les v1 sont marquées
   `ARCHIVE — FIGÉE, ne plus écrire` avec leur date de dernière écriture (22/07/2026) ; les v2
-  disent ce qu'elles remplacent.
+  disent ce qu'elles remplacent. Depuis `v2_064`, la base l'impose : les tables v1 sont en lecture seule.
 
 > **Conservé délibérément** : `workout_sessions` (891 séances) et `sbd_profiles`, 3,6 Mo.
 > Elles ne disent **pas** la même chose que la v2 — 891 séances d'origine contre 1 234 après
@@ -213,15 +253,15 @@ changement d'app :
   `predictions_session_fk` → `sessions(id)` **ON DELETE CASCADE**, index
   `predictions_session_idx`.
   > ⚠️ **La cascade ne tient que si le fondement porte la clé `seance`.** Une prédiction écrite
-  > sans elle a `session_id` vide et **survit à la suppression de sa séance**. Non vérifiable
-  > au 21/09 (table vide) : à contrôler sur la première vraie séance.
+  > sans elle a `session_id` vide et **survit à la suppression de sa séance**.
 - **Une série supprimée emporte toute son observation.** Trigger **`sets_efface_observation`**
   (`BEFORE DELETE ON sets`) : remet `set_observe`, `valeur_observee` et `observee_a` à NULL sur
   les prédictions qui la désignent — sauf celles dont la séance est déjà supprimée, que la
   cascade emporte.
 - **Une observation comptée sans série est impossible.** Contrainte
   **`predictions_observation_coherente`** : `valeur_observee` NULL ou `set_observe` renseigné,
-  et `valeur_observee` NULL **si et seulement si** `observee_a` NULL.
+  et `valeur_observee` NULL **si et seulement si** `observee_a` NULL (assouplie pour `escalier`
+  par `v2_052` et pour `programme` par `v2_058`).
 
 **La répétition à blanc (9 tests) a trouvé deux pièges avant d'écrire.** PostgreSQL calcule
 une colonne générée **après** les déclencheurs `BEFORE` : `predictions_immuable` voyait
@@ -230,11 +270,9 @@ de la comparaison. Et l'ordre des cascades à la suppression d'une séance : les
 avec elle, et `sets_efface_observation` ne doit pas écrire sur une prédiction que la cascade
 emporte déjà.
 
-Les 24 prédictions orphelines ont été emportées : **`predictions` est vide au 21/09.**
-
 ---
 
-## `predictions` — 0 ligne · créée par `v2_006`, verrouillée par `v2_046`, intègre depuis `v2_047`
+## `predictions` — 103 lignes au 07/10 · créée par `v2_006`, verrouillée par `v2_046`, intègre depuis `v2_047`
 
 **Étage 3 : ce que le moteur affirme.** Une ligne par série de travail proposée (MOTEUR §9.11).
 
@@ -262,14 +300,13 @@ Index : `predictions_en_attente_idx` (non observées), `predictions_user_module_
 > dans la prochaine migration qui touche la table — la base fait foi pour les colonnes, pas
 > pour ses commentaires.
 
-## `zones_exercice` — 6 lignes · créée par `v2_046`
+## `zones_exercice` — 17 lignes au 07/10 · créée par `v2_046`
 
 **Étage 1 : déclaré, ajout seulement.** Une ligne = une correction datée de la zone d'un
 exercice ; la dernière par (`user_id`, `exercise_slug`) fait foi, une zone vide rend la main
-à la déduction. **Pas d'unicité** : c'est voulu. Contenu au 21/09 : 6 corrections de
-`aurel_br`, sur deux exercices, toutes du 20/09 (essais de 48b).
+à la déduction. **Pas d'unicité** : c'est voulu.
 
-## `routine_sets` — 280 lignes · créée par `v2_042` le 15/09/2026
+## `routine_sets` — 269 lignes au 07/10 · créée par `v2_042` le 15/09/2026
 
 **Miroir de `sets` pour les routines.** Une ligne par série programmée. La symétrie est le
 point : l'éditeur de routine et l'écran de séance lisent la même forme, donc le même code de
@@ -282,7 +319,7 @@ rendu (`CADRAGE-V2` §2 undecies).
 | `rang` | NOT NULL, **≥ 1** — ⚠️ pas ≥ 0 comme `routine_exercises.rang` |
 | `type_serie` | défaut `'travail'` · `travail` \| `echauffement` \| `degressive` \| `echec`, les quatre types de `sets` |
 | `reps_visees` | NULL ou 1–100 |
-| `charge_cible_kg` | `numeric` NULL — **une CIBLE, jamais une charge observée**, facultative : le moteur propose la charge en séance (`ECRAN-SAISIE-V1` §7 quindecies.3) |
+| `charge_cible_kg` | `numeric` NULL — **une charge de départ, lue seulement la première fois** (MOTEUR §9.21), jamais une charge observée |
 | `duree_cible_s` | NULL ou 1–35999 |
 | `distance_cible_m` | NULL ou 0–100000 |
 | `created_at` | NOT NULL, défaut `now()` |
@@ -292,57 +329,50 @@ différée** — contrairement à l'unicité de `routine_exercises`. C'est ce qu
 les lignes d'un exercice en bloc (DELETE puis INSERT), ou de réordonner par des positions en
 collision, plutôt que de les renuméroter en place.
 
-RLS strictement propriétaire (voir la section RLS).
-
-**Contenu au 19/09** : **11 routines · 79 exercices · 280 séries programmées**, dont
-**33 échauffements** — ce que `routine_exercises.series` (un entier) ne pouvait pas décrire.
-
-- `aurel_br` : 6 routines · 44 exercices · 152 séries · 18 chauffes
-- `alexis` : 5 routines · 35 exercices · 128 séries · 15 chauffes
-
 ---
 
-## `sessions` — 1 249 lignes
+## `sessions` — 1 261 lignes au 07/10
 
 | Colonne | Type | Notes |
 |---|---|---|
 | `id` | uuid NOT NULL | `gen_random_uuid()` |
-| `user_id` | uuid NOT NULL | |
+| `user_id` | uuid NOT NULL | → `auth.users`, CASCADE |
 | `debut` | timestamptz NOT NULL | **attention au fuseau** pour tout regroupement par jour ou semaine |
-| `fin` | timestamptz | renseignée sur les 1 249 |
+| `fin` | timestamptz | une séance sans fin finit 3 h au plus après son début (MOTEUR §12.2 bis) |
 | `titre`, `note` | text | texte utilisateur — **jamais interpolé dans du HTML** |
-| `source` | text NOT NULL | `'app'` |
+| `source` | text NOT NULL | `'app'` ou `'hevy'` |
 | `source_ref` | text | référence d'import |
-| `statut` | text NOT NULL | `'terminee'` |
-| `visibilite` | text NOT NULL | défaut `'private'` ; **l'import a écrit `'mutuels'`** sur les séances Hevy. Inerte — aucune policy ne lit cette colonne |
-| `routine_id` | uuid | → `routines(id)`, `ON DELETE SET NULL`. Ex-`program_day_id`, jamais alimentée |
+| `statut` | text NOT NULL | `'terminee'` par défaut, ou `'en_cours'` |
+| `visibilite` | text NOT NULL | défaut `'private'` ; **l'import a écrit `'mutuels'`** sur les séances Hevy. Inerte — aucune règle ne lit cette colonne |
+| `routine_id` | uuid | → `routines(id)`, `ON DELETE SET NULL` ; remplie quand la séance part d'une routine |
 | `fc_moyenne`, `fc_max`, `calories` | integer | **0 renseignée** — aucune source |
-| `salle` | text | 1–60 caractères, non vide. **2 séances renseignées** — l'écran de fin existe depuis le chantier 26 |
+| `salle` | text | 1–60 caractères, non vide ; rare |
 | `salle_norme` | text | **GÉNÉRÉE** |
 
-## `sets` — 28 768 lignes
+## `sets` — 29 063 lignes au 07/10
 
 | Colonne | Type | Notes |
 |---|---|---|
-| `id`, `session_id`, `user_id` | uuid NOT NULL | |
+| `id`, `session_id`, `user_id` | uuid NOT NULL | `user_id` → `auth.users`, CASCADE |
 | `exercise_slug` | text NOT NULL | → `exercises(slug)` |
-| `charge_kg` | numeric | |
+| `charge_kg` | numeric | négatif = aide (assistance) |
 | `reps` | integer | |
-| `duree_s` | integer | 1 799 renseignées (gainages, randos) |
+| `duree_s` | integer | gainages, cardio, randos |
 | `distance_m` | numeric | randos |
-| `type_serie` | text NOT NULL | `travail` 26 665 · `echauffement` 1 550 · `degressive` 425 · `echec` 128 |
+| `type_serie` | text NOT NULL | `travail` · `echauffement` · `degressive` · `echec` |
 | `validee_a` | timestamptz | **aucun défaut** — voir ci-dessus |
 | `rang` | integer NOT NULL | ordre d'affichage |
 | `groupe_superset` | integer | bloc |
 | `poids_corps_kg` | numeric | |
-| `ressenti` | text | **6 renseignées**, toutes venues de l'app |
-| `rpe` | numeric(3,1) | **288 renseignées** |
+| `ressenti` | text | très rare |
+| `rpe` | numeric(3,1) | **288 renseignées** environ |
 | `note` | text | texte utilisateur |
 | `modifie_a` | timestamptz | |
 | `elastique` | text | |
 | `elastique_norme` | text | **GÉNÉRÉE** |
 | `tempo_descente`, `tempo_pause`, `tempo_montee` | smallint | |
-| `repos_s` | integer | **`v2_040`** — repos RÉEL avant cette série, 0 à 3600 s. Mesuré par le chronomètre **à partir de la validation** de la série précédente, donc le temps d'exécution n'y entre pas. **NULL sur 28 693 séries** : l'export Hevy ne porte pas le repos |
+| `repos_s` | integer | **`v2_040`** — repos RÉEL avant cette série, 0 à 3600 s, mesuré à partir de la validation de la série précédente. NULL sur les séries importées : l'export Hevy ne porte pas le repos |
+| `douleur`, `occurrence` | | voir « Colonnes ajoutées » |
 
 ## `exercises` — 237 lignes
 
@@ -353,55 +383,48 @@ RLS strictement propriétaire (voir la section RLS).
 | `famille` | text NOT NULL | **niveau de repli** quand l'exercice seul est trop rare |
 | `charge`, `mesure` | text NOT NULL | nature de la charge et de la mesure |
 | `parent` | text | variante d'un exercice |
+| `mouvement` | text | les frères (MOTEUR §13.6), `v2_053` |
 | `muscles_primaires` | text[] NOT NULL | **pondération 1** dans le volume |
 | `muscles_secondaires` | text[] NOT NULL | **pondération 0,5** |
 | `coef_pdc`, `masse_depart_kg`, `masse_depart_reglable` | | poids de corps et masse machine |
 | `compte_tonnage` | boolean NOT NULL | `false` par défaut |
 | `equipement` | text | signature de parc, pas de lieu |
 | `actif` | boolean NOT NULL | |
+| `proprietaire` | uuid | NULL = catalogue partagé ; sinon exercice personnel, effacé avec le compte |
 
-## `routines` / `routine_exercises` — 10 et 78 lignes (06/10)
+## `routines` / `routine_exercises` — 10 et 78 lignes (07/10)
 
 **La routine porte la structure, jamais les charges.** Les charges viennent du moteur.
 
 `routines` : `user_id`, `nom` (1–60 car., unique par utilisateur parmi les non archivées),
-`note`, `archivee_a`, **`rang`** (`v2_043`, avec `routines_user_rang_uniq` sur les
-non-archivées).
+`note`, `archivee_a`, **`rang`** (`v2_043`), **`dossier`** (`v2_057`).
 
 > ⚠️ **L'archivage est abandonné** (`ECRAN-SAISIE-V1` §7 duodecies.1) : la suppression le
-> remplace depuis le chantier 41. `archivee_a` reste en base mais **n'est plus écrite**, et
-> **aucune routine ne la porte** au 19/09.
+> remplace depuis le chantier 41. `archivee_a` reste en base mais **n'est plus écrite**.
 
 `routine_exercises` : `routine_id`, `exercise_slug`, `rang` (unique par routine, ≥ 0),
 `groupe_superset` (même mécanisme que `sets`), **`repos_cible_s`** (`v2_040` — repos
-**prescrit**, 5 à 1800 s, **NULL = désactivé**, `ECRAN-SAISIE-V1` §7 sexdecies.3).
+**prescrit**, 5 à 1800 s, **NULL = désactivé**).
 
 > **`series` et `reps_visees` ont été retirées de `routine_exercises` le 06/10/2026 (`v2_059`).** `routine_sets`
-> porte une ligne par série, avec son type, ses reps visées et sa charge de départ : c'est la seule source de la
-> structure d'une routine (`CADRAGE-V2` §2 undecies).
+> porte une ligne par série : c'est la seule source de la structure d'une routine (`CADRAGE-V2` §2 undecies).
 
 ## Autres tables
 
-`profiles` (5) · `body_weight_log` (116) · `exercise_alias` (255) ·
+`profiles` (5) · `body_weight_log` (117) · `exercise_alias` (255) ·
 `user_exercise_model` (59, un seul calcul du 23/08, **append-only par doctrine**) ·
-`predictions`, `zones_exercice` et `routine_sets` : voir leurs sections · `sbd_profiles` et `workout_sessions`
-(**archive v1, ne pas toucher**).
+`records`, `blocs`, `modes_exercice` : voir leurs sections · `sbd_profiles` (4) et `workout_sessions` (891)
+(**archive v1, en lecture seule depuis `v2_064`**).
 
 ---
 
 ## RLS
 
-**Toutes les tables l'ont actif.** Motif dominant : une policy unique `FOR ALL` sur le rôle
-`authenticated`, `USING` = `WITH CHECK`, avec `auth.uid()` enveloppé dans un `SELECT`
-(évite la réévaluation par ligne).
+**Toutes les tables l'ont actif.** Motif unique depuis `v2_064` : rôle `authenticated`, `auth.uid()` enveloppé dans
+un `SELECT` (évite la réévaluation par ligne). Détail : « Règles d'accès (état au 07/10) » plus haut.
 
-> ⚠️ **Contredit par l'advisor Supabase le 19/09/2026** : 66 politiques sont signalées pour
-> réévaluer `auth.uid()` à chaque ligne. **Recompté le 21/09 par schéma** : 52 dans `archive`
-> (tables v1), 2 dans `storage`, **14 dans `public`** — dont 9 sur les tables v1 archivées
-> (`sbd_profiles`, `workout_sessions`) et **5 seulement sur des tables v2** : les quatre de
-> `profiles` (`profiles_select_own`, `_insert`, `_update`, `_delete`) et `routine_sets_owner`.
-> À corriger à la passe sécurité. Les politiques de `v2_046` et `predictions_owner` suivent le
-> motif.
+> ✅ **Point de l'advisor du 19/09 réglé côté `public`** par `v2_064` (les 5 règles v2 et les 9 règles v1 signalées).
+> Restent signalées dans le schéma `archive` (tables v1, 52 règles) : hors API de l'app, sans objet pour la v2.
 
 `routine_exercises` n'a pas de `user_id` : sa propriété est héritée de `routines` via un
 `EXISTS`, avec le même `WITH CHECK` — c'est lui qui empêche de rattacher une ligne à la
@@ -415,9 +438,11 @@ renseigner à l'écriture (il n'a pas de défaut).
 
 ## Règle de travail
 
-**Claude.ai fait tout le Supabase** — migrations, RLS, vérification de données — via MCP.
-**Lecture du schéma autorisée** pour Claude Code, afin de ne jamais coder sur des noms non
-vérifiés. **Écriture, migration et RLS : jamais.**
+**Claude.ai fait tout le Supabase** : lectures via MCP ; **toute écriture** (données, migrations, RLS) par un script
+`DO $do$ … $do$` à deux passages (`essai := true` puis `false`) qu'Aurélien lance dans l'éditeur SQL — les écritures
+par l'outil de Claude.ai sont annulées d'office depuis le 06/10. Une migration s'inscrit elle-même dans
+`supabase_migrations.schema_migrations`. **Lecture du schéma autorisée** pour Claude Code, afin de ne jamais coder sur
+des noms non vérifiés. **Écriture, migration et RLS : jamais.** Aucun test du dépôt ne parle à la vraie base (garde
+réseau des bancs, #380).
 
-Toujours `list_migrations` avant de nommer une migration : la numérotation a historiquement
-déraillé. Prochain numéro libre au 21/09/2026 : **`v2_048`**.
+Toujours `list_migrations` avant de nommer une migration. Prochain numéro libre au 07/10/2026 : **`v2_065`**.

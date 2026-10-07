@@ -588,6 +588,27 @@
     return v === 'oui' || v === 'non' ? v : null;
   }
 
+  // 60-2a — LA PESÉE du questionnaire (écran « Toi »). Sur l'appareil d'abord :
+  // la courbe, le profil et le rapport au poids la voient tout de suite ; puis
+  // par la file. UN identifiant par jour — deux pesées le même jour se
+  // compressent en une (la dernière gagne), et la base fusionne sur
+  // (`user_id`, `date`). La ligne locale REMPLACE celle du serveur pour ce jour,
+  // en mémoire comme au cache : sinon la courbe porterait deux points.
+  async function poserPesee(pesee) {
+    var id = 'pesee-' + pesee.date;
+    var ligne = { id: id, date: pesee.date, poids_kg: pesee.poids_kg, source: 'app' };
+    var remplacees = (local.pesees || []).filter(function (l) {
+      return l && l.date === pesee.date && l.id !== id;
+    }).map(function (l) { return l.id; });
+    local.pesees = (local.pesees || []).filter(function (l) {
+      return l && l.date !== pesee.date;
+    }).concat([ligne]);
+    if (remplacees.length) await Cache.supprimer('pesees', remplacees).catch(function () {});
+    await Cache.ecrireLot('pesees', [ligne]).catch(function () {});
+    await poser({ table: Attente.PESEES, op: Attente.UPSERT, id: id,
+                  donnees: { user_id: idUtilisateur(), date: pesee.date, poids_kg: pesee.poids_kg, source: 'app' } });
+  }
+
   async function poserMode(slug, mode) {
     var id = uuid();
     var ligne = {
@@ -883,7 +904,10 @@
       await Cache.remplacerTout('exercices', local.exercices);
       if (!generationValide(g)) return;
       if (pesees) {
-        local.pesees = Sync.remplacer(pesees);
+        // 60-2a — une pesée posée hors ligne n'est pas encore chez le serveur :
+        // la liste qu'il envoie ne la contient pas. On la garde, par-dessus
+        // celle du serveur pour le même jour.
+        local.pesees = Poids.fondreEnAttente(pesees, local.pesees, Attente.protegees(attente, Attente.PESEES));
         await Cache.remplacerTout('pesees', local.pesees);
         if (!generationValide(g)) return;
       }
@@ -1380,6 +1404,11 @@
     // 58-2 — le journal des records : un AJOUT qui ignore les lignes déjà là,
     // jamais une modification (`records_immuable`).
     if (op.table === Attente.RECORDS) return Donnees.ajouterRecords(op.donnees || []);
+    // 60-2a — la pesée du questionnaire : un `upsert` sur (user_id, date) qui
+    // FUSIONNE. ⚠️ SANS CETTE BRANCHE, une entrée `body_weight_log` serait vidée
+    // par le dernier `return` sans rien écrire — la perte silencieuse que la
+    // file existe pour empêcher.
+    if (op.table === Attente.PESEES) return Donnees.enregistrerPesee(op.donnees);
     // §6 — l'intention porte l'ÉTAT VOULU de la routine, pas un chemin pour y
     // aller : le plan d'écritures se calcule à la vidange, contre ce que la
     // routine est devenue entre-temps. C'est de là que vient l'idempotence.

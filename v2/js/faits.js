@@ -3,7 +3,9 @@
 // Les FAITS que les écrans lisent — et que le jeu lira — assemblés à UN
 // endroit : les séances avec leurs séries, celles d'un exercice, les records
 // d'une séance, d'un mois, de la séance en cours, le dernier record, la
-// semaine affichée, les exercices faits et leur date. Ils vivaient dans
+// semaine affichée, les exercices faits et leur date — et, depuis 60-2a, ce que
+// les séances savent de la personne (`ceQueJeSais`), que le questionnaire du coach
+// MONTRE au lieu de le demander. Ils vivaient dans
 // `app.js`, au milieu de l'état de l'écran : le jeu n'aurait pu les lire qu'en
 // les recopiant.
 //
@@ -36,6 +38,7 @@
 
   function creer() {
     var Modele = racine.THModele, Semaine = racine.THSemaine, Bilan = racine.THBilan, Seance = racine.THSeance;
+    var Periode = racine.THPeriode, Moteur = racine.THMoteur;
 
     // ── Les séances et leurs séries (55-1, `app.js` `seancesAvecSeries`) ────
     //
@@ -289,6 +292,93 @@
       };
     }
 
+    // ── Ce que les séances savent de la personne (60-2a) ────────────────────
+    //
+    // QUESTIONNAIRE-COACH-V2 §1 : « rien de ce que les séries savent n'est
+    // DEMANDÉ : c'est MONTRÉ ». L'écran « Ce que je sais » et l'écran « Temps et
+    // matériel » (la durée habituelle) lisent ce fait-ci, une fois : aucun écran
+    // ne recompte ses séances.
+    //
+    //   · `seances`, `depuis` : toutes les séances terminées (une randonnée est
+    //     une séance) et la date de la première ;
+    //   · `rythme` : les séances des 84 derniers jours ÷ 12 semaines, arrondi au
+    //     plus proche — `null` sous 1 par semaine ;
+    //   · `dureeMin` : la MÉDIANE des durées (fin − début) des séances des 84
+    //     derniers jours qui ONT une heure de fin, arrondie à 5 min — `null`
+    //     sans durée. Les séances importées n'en ont pas toujours : on ne leur
+    //     en invente pas (`Moteur.finEffective` est une borne de zone, pas une
+    //     durée) ;
+    //   · `maximums` : la charge la plus lourde de chacune des barres demandées
+    //     (`barres` : des slugs, dans l'ordre voulu), par la fonction des records
+    //     (MOTEUR §9.23) — celle de la page d'exercice ; seulement les barres
+    //     faites ;
+    //   · `autres` : les noms (catalogue, en minuscules) des SORTIES — sans
+    //     charge, mesurées en durée ou en distance, hors gainage et planches, qui
+    //     portent un muscle — faites dans ces 84 jours, trois au plus, les plus
+    //     fréquentes d'abord.
+    //
+    // `aujourdhui` : le jour de l'ouverture, passé (jamais l'horloge).
+    var JOURS_DU_RYTHME = 84, SEMAINES_DU_RYTHME = 12, PAS_DE_DUREE = 5, AUTRES_MAX = 3;
+    var MS_PAR_MINUTE = 60000;
+    function ceQueJeSais(c, aujourdhui, barres) {
+      var index = c.catalogue();
+      var seances = (c.seances || []).filter(function (s) {
+        return s && s.debut && !isNaN(new Date(s.debut).getTime());
+      });
+      var premiere = null;
+      seances.forEach(function (s) {
+        var d = new Date(s.debut);
+        if (!premiere || d < premiere) premiere = d;
+      });
+
+      var fenetre = Periode.fenetres(JOURS_DU_RYTHME, aujourdhui).courante;
+      var recentes = seances.filter(function (s) { return Periode.dans(s.debut, fenetre); });
+      var parSemaine = Math.round(recentes.length / SEMAINES_DU_RYTHME);
+
+      var durees = [];
+      recentes.forEach(function (s) {
+        if (!s.fin) return;
+        var minutes = (new Date(s.fin) - new Date(s.debut)) / MS_PAR_MINUTE;
+        if (isFinite(minutes) && minutes > 0) durees.push(minutes);
+      });
+      var mediane = Moteur.mediane(durees);
+      var arrondie = mediane === null ? null : Math.round(mediane / PAS_DE_DUREE) * PAS_DE_DUREE;
+
+      var maximums = [];
+      (barres || []).forEach(function (slug) {
+        var pour = seancesDuSlug(c, slug);
+        if (!pour.length) return;
+        var lourde = Modele.recordsDeLExercice(pour, aujourdhui, Modele.optionsDeRecord(index[slug] || null)).lourde;
+        if (lourde && lourde.charge > 0) maximums.push({ slug: slug, charge: lourde.charge });
+      });
+
+      var comptes = {};
+      recentes.forEach(function (s) {
+        var deja = {};
+        c.seriesDe(s.id).forEach(function (x) {
+          if (!x || !Modele.estTravail(x) || deja[x.exercise_slug]) return;
+          var exo = index[x.exercise_slug];
+          if (!Modele.estExerciceSortie(exo) || Semaine.porteDuVolume(exo)) return;
+          deja[x.exercise_slug] = true;
+          comptes[x.exercise_slug] = (comptes[x.exercise_slug] || 0) + 1;
+        });
+      });
+      var autres = Object.keys(comptes).map(function (slug) {
+        return { nom: Modele.nomCourt(Modele.nommer(index, slug)), fois: comptes[slug] };
+      }).sort(function (a, b) {
+        return b.fois - a.fois || a.nom.localeCompare(b.nom, 'fr');
+      }).slice(0, AUTRES_MAX).map(function (a) { return a.nom; });
+
+      return {
+        seances: seances.length,
+        depuis: premiere,
+        rythme: parSemaine >= 1 ? parSemaine : null,
+        dureeMin: arrondie !== null && arrondie >= PAS_DE_DUREE ? arrondie : null,
+        maximums: maximums,
+        autres: autres
+      };
+    }
+
     // ── Les exercices faits et leur date (`app.js` `calculerDatesExercices`) ──
     //
     // Le tri se fait sur la DERNIÈRE séance où l'exercice apparaît. Un balayage
@@ -334,6 +424,7 @@
       semaineDe: semaineDe,
       datesDesExercices: datesDesExercices,
       compterExercices: compterExercices,
+      ceQueJeSais: ceQueJeSais,
       oublierDates: oublierDates
     };
   }

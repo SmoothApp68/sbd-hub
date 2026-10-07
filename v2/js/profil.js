@@ -408,19 +408,39 @@
     return Array.isArray(v) && v.length === 0;
   }
 
-  // ── L'onboarding est une règle de ROUTAGE (§4) ───────────────────────────
+  // ── LE QUESTIONNAIRE EST UNE RÈGLE DE ROUTAGE (ECRAN-PROFIL §4 bis) ──────
   //
-  // ⚠️ `=== false`, PAS « pas vrai ». Trois valeurs, pas deux :
-  //   `false`     → la base dit que ce profil n'a jamais été vu → on l'ouvre ;
-  //   `true`      → il a été vu → on ouvre ce que l'URL demande ;
-  //   ABSENT      → on ne sait pas — profil pas encore chargé, cache vide,
-  //                 premier démarrage hors ligne, ou ligne partielle écrite
-  //                 sans réseau. **On n'ouvre pas un formulaire de bienvenue
-  //                 sur une supposition.**
+  // 60-2a — IL REMPLACE `doitOuvrirProfil`. Ce n'est plus `onboarding_completed`
+  // (« profil vu », déjà vrai chez les quatre comptes existants) qui décide,
+  // mais `questionnaire_fait_le` : vide tant que la personne n'est pas arrivée
+  // au récapitulatif (QUESTIONNAIRE-COACH-V2 §2).
   //
-  // Une lecture lâche (`!profil.onboarding_completed`) confondrait le troisième
+  // ⚠️ TROIS ÉTATS, PAS DEUX — la leçon de l'ancienne règle, gardée :
+  //   `null`      → la base dit qu'il n'a jamais été rempli → on l'ouvre ;
+  //   une date    → rempli → on ouvre ce que l'URL demande ;
+  //   ABSENT      → on ne sait pas : profil pas encore chargé, cache d'avant la
+  //                 colonne, premier démarrage hors ligne, ligne partielle écrite
+  //                 sans réseau. **On n'ouvre pas un questionnaire sur une
+  //                 supposition.**
+  //
+  // Une lecture lâche (`!profil.questionnaire_fait_le`) confondrait le troisième
   // cas avec le premier, et un compte qui a trois ans d'historique rouvrirait
-  // sur son profil à chaque démarrage hors ligne.
+  // le questionnaire à chaque démarrage hors ligne.
+  //
+  // `dejaVuIci` : il s'est déjà ouvert de lui-même sur CET appareil (une clé
+  // locale par compte). « Plus tard » le repousse sans rien perdre : le bandeau
+  // de Saisie et la ligne du Profil prennent le relais, jusqu'à ce qu'il soit
+  // rempli.
+  function doitOuvrirQuestionnaire(profil, dejaVuIci) {
+    if (dejaVuIci) return false;
+    return !!profil && Object.prototype.hasOwnProperty.call(profil, 'questionnaire_fait_le') &&
+      profil.questionnaire_fait_le === null;
+  }
+
+  // ── L'ancienne règle, JUSQU'AU BRANCHEMENT DE L'ÉCRAN (60-2a, commit 3) ──
+  //
+  // `=== false`, PAS « pas vrai » : trois états — `false` (jamais vu), `true`
+  // (vu), ABSENT (on ne sait pas, on n'ouvre rien).
   function doitOuvrirProfil(profil) {
     return !!profil && profil.onboarding_completed === false;
   }
@@ -444,6 +464,12 @@
                        'rythme_progression', 'phase', 'phase_depuis', 'lest_reponse', 'lest_reponse_le',
                        'materiel',
                        'seances_par_semaine', 'duree_seance_min',
+                       // 60-2a (v2_065) — le questionnaire du coach. Écrites, pas encore
+                       // lues par une règle (60-2b) ; `programme_choix`, `zones_a_menager`
+                       // et `zone_force_reponse*` n'y sont PAS : ni écrites ni lues avant
+                       // 60-2b et 60-3 (SCHEMA-REEL).
+                       'objectif', 'objectif_depuis', 'priorites', 'temps_reponse',
+                       'historique_declare', 'phase_confirmee_le', 'questionnaire_fait_le',
                        'onboarding_completed'];
 
   function champsEcrits(champs) {
@@ -471,6 +497,180 @@
     if (!/^\d{4}-\d{2}-\d{2}$/.test(String(txt))) return null;
     var a = age(txt, aujourdhui);
     return a !== null && a >= 10 && a <= 120 ? String(txt) : null;
+  }
+
+  // ══ LE QUESTIONNAIRE DU COACH (60-2a, QUESTIONNAIRE-COACH-V2 §3 et §4) ══════
+  //
+  // Les LISTES du questionnaire vivent ici, avec celles du profil : un libellé
+  // par valeur, pour l'écran du questionnaire et pour la ligne du Profil (60-2a
+  // §4.1). Les CLÉS sont celles des contraintes de la base (`v2_065`, relevées
+  // par Claude.ai le 07/10/2026) : une valeur hors liste y devient un 23514 —
+  // et le profil ne classe pas les refus (`profilAEnvoyer` reste vrai, l'envoi
+  // de TOUTE la ligne est retenté sans fin). On refuse donc ICI, avant.
+  var OBJECTIFS = [
+    { cle: 'force', libelle: 'Force' },
+    { cle: 'muscle', libelle: 'Muscle' },
+    { cle: 'les_deux', libelle: 'Les deux' },
+    { cle: 'forme', libelle: 'Forme et santé' }
+  ];
+
+  // Les quatre réponses de l'écran « Temps et matériel ». Les phrases qui les
+  // accompagnent à l'écran (« Je te proposerai des séances plus courtes »)
+  // vivent dans le questionnaire : au Profil, aucune phrase promettrait un effet
+  // que rien ne lit encore (60-2b).
+  var TEMPS_REPONSES = [
+    { cle: 'max', libelle: 'C’est mon maximum' },
+    { cle: 'marge', libelle: 'J’ai de la marge pour en faire plus' },
+    { cle: 'moins', libelle: 'J’ai moins de temps en ce moment' },
+    { cle: 'varie', libelle: 'Ça varie beaucoup' }
+  ];
+
+  var HISTORIQUES = [
+    { cle: 'import', libelle: 'Oui, dans une autre app' },
+    { cle: 'non_note', libelle: 'Oui, mais je ne l’ai pas noté' },
+    { cle: 'debutant', libelle: 'Non, je débute' }
+  ];
+
+  // LES PRIORITÉS (QUESTIONNAIRE §3, écran 6) : jusqu'à trois, des EXERCICES
+  // ou des MUSCLES. Les cinq exercices sont des slugs du catalogue, relevés sur
+  // les fixtures tirées de la base (`cas-51-1-peu-de-temps.json` les porte
+  // tous) — pas dans un catalogue statique, qui n'existe pas côté client : un
+  // slug absent du catalogue d'une personne est simplement sans effet. Les six
+  // muscles sont les ZONES de `semaine.js` (par leur `cle`), dans l'ordre du
+  // radar (`periode.js`) : lus là, jamais recopiés — un libellé par zone.
+  var EXERCICES_PRIORITAIRES = [
+    { cle: 'squat_barre', libelle: 'Squat' },
+    { cle: 'developpe_couche_barre', libelle: 'Couché' },
+    { cle: 'souleve_de_terre_barre', libelle: 'Soulevé' },
+    { cle: 'developpe_militaire_barre', libelle: 'Militaire' },
+    { cle: 'tractions', libelle: 'Tractions' }
+  ];
+  var PRIORITES_MAX = 3;
+
+  function musclesPrioritaires() {
+    var zones = (racine.THSemaine && racine.THSemaine.ZONES) || [];
+    var ordre = (racine.THPeriode && racine.THPeriode.ORDRE) ||
+      zones.map(function (z) { return z.cle; });
+    var sortie = [];
+    ordre.forEach(function (cle) {
+      zones.forEach(function (z) { if (z.cle === cle) sortie.push({ cle: z.cle, libelle: z.libelle }); });
+    });
+    return sortie;
+  }
+
+  // Une liste de priorités telle que la base la veut : connues, sans doublon,
+  // trois au plus (dans l'ordre où on les a choisies). `[]` est une RÉPONSE
+  // (« Pas de priorité »), pas un trou ; ce qui n'est pas une liste n'en est pas
+  // une (`null`).
+  function prioritesValides(liste) {
+    if (!Array.isArray(liste)) return null;
+    var connues = {};
+    EXERCICES_PRIORITAIRES.concat(musclesPrioritaires()).forEach(function (x) { connues[x.cle] = true; });
+    var vues = {}, sortie = [];
+    liste.forEach(function (c) {
+      if (sortie.length >= PRIORITES_MAX || !connues[c] || vues[c]) return;
+      vues[c] = true;
+      sortie.push(c);
+    });
+    return sortie;
+  }
+
+  function memeListe(a, b) {
+    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+    for (var i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+    return true;
+  }
+
+  function dansLaListe(liste, cle) {
+    for (var i = 0; i < liste.length; i++) if (liste[i].cle === cle) return true;
+    return false;
+  }
+
+  function entierDans(v, min, max) {
+    if (v === null || v === undefined || v === '') return null;
+    var n = Number(v);
+    return isFinite(n) && Math.floor(n) === n && n >= min && n <= max ? n : null;
+  }
+
+  // `profiles_rythme_borne` : 10 à 300 minutes (les durées PROPOSÉES au profil
+  // en sont un sous-ensemble ; celles du questionnaire vont jusqu'à 120).
+  var DUREE_MIN = 10, DUREE_MAX = 300;
+
+  // ══ LA PRÉPARATION DES CHAMPS — UNE FOIS, POUR LE QUESTIONNAIRE ET LE PROFIL ═
+  //
+  // Une réponse devient les colonnes à écrire. Le questionnaire (un écran à la
+  // fois) et le Profil (une ligne à la fois) appellent CETTE fonction : une
+  // valeur changée écrit la même chose partout, et les dates qui la datent
+  // aussi.
+  //
+  //   · RIEN QUI N'AIT CHANGÉ N'EST ÉCRIT — comparé au profil tel qu'on le
+  //     connaît. Une réponse vide ne vide rien (le questionnaire ne sait pas
+  //     effacer) ; une valeur hors liste ou hors bornes ne part pas.
+  //   · `objectif_depuis` : QUAND l'objectif change, et seulement alors.
+  //   · `phase_depuis` : quand la phase EFFECTIVE change (un vide vaut
+  //     « maintien », `phaseDe`). `phase_confirmee_le` : à CHAQUE réponse sur la
+  //     phase, changée ou non — c'est la date que lira le rappel de phase
+  //     (60-2b). « Je ne sais pas » vaut « maintien » (QUESTIONNAIRE §3).
+  //   · L'ANNÉE ne réécrit `date_naissance` que si elle change : le 1er
+  //     janvier de l'année tapée. Une date complète déjà saisie est gardée.
+  //   · `fait: true` pose `questionnaire_fait_le`.
+  //
+  // `entrees` : `{ historique_declare, anciennete, seances_par_semaine,
+  // duree_seance_min, sexe, annee_naissance, taille_cm, objectif, phase,
+  // priorites, temps_reponse, materiel, rythme_progression, intention, fait }`,
+  // tous facultatifs. `maintenant` : l'horloge, passée pour les tests.
+  function preparerChamps(profil, entrees, maintenant) {
+    var p = profil || {}, e = entrees || {}, sortie = {};
+    var quand = (maintenant instanceof Date ? maintenant : new Date()).toISOString();
+    var present = function (v) { return v !== undefined && v !== null && v !== ''; };
+    var differe = function (cle, v) { return v !== p[cle]; };
+
+    function fermee(cle, liste) {
+      if (present(e[cle]) && dansLaListe(liste, e[cle]) && differe(cle, e[cle])) sortie[cle] = e[cle];
+    }
+    fermee('historique_declare', HISTORIQUES);
+    fermee('anciennete', ANCIENNETES);
+    fermee('sexe', SEXES);
+    fermee('materiel', MATERIELS);
+    fermee('temps_reponse', TEMPS_REPONSES);
+    fermee('rythme_progression', RYTHMES);
+    fermee('intention', INTENTIONS);
+
+    var seances = entierDans(e.seances_par_semaine, SEANCES_MIN, SEANCES_MAX);
+    if (seances !== null && differe('seances_par_semaine', seances)) sortie.seances_par_semaine = seances;
+    var duree = entierDans(e.duree_seance_min, DUREE_MIN, DUREE_MAX);
+    if (duree !== null && differe('duree_seance_min', duree)) sortie.duree_seance_min = duree;
+    var taille = present(e.taille_cm) ? tailleValide(e.taille_cm) : null;
+    if (taille !== null && differe('taille_cm', taille)) sortie.taille_cm = taille;
+
+    if (present(e.annee_naissance)) {
+      var an = entierDans(e.annee_naissance, 1000, 9999);
+      var avant = p.date_naissance ? Number(String(p.date_naissance).slice(0, 4)) : null;
+      var jour = an !== null ? naissanceValide(an + '-01-01', maintenant instanceof Date ? maintenant : new Date()) : null;
+      if (jour !== null && avant !== an) sortie.date_naissance = jour;
+    }
+
+    if (present(e.objectif) && dansLaListe(OBJECTIFS, e.objectif) && differe('objectif', e.objectif)) {
+      sortie.objectif = e.objectif;
+      sortie.objectif_depuis = quand;
+    }
+
+    if (present(e.phase)) {
+      var phase = e.phase === 'inconnue' ? PHASE_DEFAUT : e.phase;
+      if (PHASES_EN_BASE.indexOf(phase) >= 0) {
+        if (differe('phase', phase)) sortie.phase = phase;
+        if (phaseDe(p) !== phase) sortie.phase_depuis = quand;
+        sortie.phase_confirmee_le = quand;
+      }
+    }
+
+    if (e.priorites !== undefined && e.priorites !== null) {
+      var liste = prioritesValides(e.priorites);
+      if (liste !== null && !memeListe(liste, p.priorites)) sortie.priorites = liste;
+    }
+
+    if (e.fait === true) sortie.questionnaire_fait_le = quand;
+    return sortie;
   }
 
   // ══ LE PSEUDO ════════════════════════════════════════════════════════════
@@ -624,7 +824,13 @@
     statsDe: statsDe,
     libelleAnciennete: libelleAnciennete,
     manquants: manquants,
+    OBJECTIFS: OBJECTIFS, TEMPS_REPONSES: TEMPS_REPONSES, HISTORIQUES: HISTORIQUES,
+    EXERCICES_PRIORITAIRES: EXERCICES_PRIORITAIRES, PRIORITES_MAX: PRIORITES_MAX,
+    musclesPrioritaires: musclesPrioritaires, prioritesValides: prioritesValides,
+    DUREE_MIN: DUREE_MIN, DUREE_MAX: DUREE_MAX,
+    preparerChamps: preparerChamps,
     doitOuvrirProfil: doitOuvrirProfil,
+    doitOuvrirQuestionnaire: doitOuvrirQuestionnaire,
     champsEcrits: champsEcrits,
     tailleValide: tailleValide,
     naissanceValide: naissanceValide,

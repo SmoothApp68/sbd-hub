@@ -172,14 +172,7 @@
   // Une priorité qu'on touche : on l'ajoute, ou on la retire ; trois au plus
   // (la quatrième est sans effet) ; « Pas de priorité » (`[]`) est une réponse
   // qui vide la liste.
-  function basculerPriorite(liste, cle) {
-    var l = Array.isArray(liste) ? liste.slice() : [];
-    var i = l.indexOf(cle);
-    if (i >= 0) { l.splice(i, 1); return l; }
-    if (l.length >= Profil().PRIORITES_MAX) return l;
-    l.push(cle);
-    return l;
-  }
+  function basculerPriorite(liste, cle) { return Profil().basculerPriorite(liste, cle); }
 
   // Un choix touché, appliqué aux réponses en cours (une COPIE) : les noms de
   // réponse que l'écran connaît, et rien d'autre — un geste qui vise une clé
@@ -479,10 +472,7 @@
     };
   }
 
-  function libelleDePriorite(cle) {
-    var P = Profil();
-    return P.libelleDe(P.EXERCICES_PRIORITAIRES, cle) || P.libelleDe(P.musclesPrioritaires(), cle) || cle;
-  }
+  function libelleDePriorite(cle) { return Profil().libelleDePriorite(cle); }
 
   var FABRIQUES = {};
   FABRIQUES[BIENVENUE] = ecranBienvenue;

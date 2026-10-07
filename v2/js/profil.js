@@ -573,6 +573,29 @@
     return sortie;
   }
 
+  // Une priorité qu'on touche : on l'ajoute, ou on la retire ; trois au plus (la
+  // quatrième est sans effet). Le questionnaire et la feuille du Profil la
+  // partagent : un seul geste, une seule règle.
+  function basculerPriorite(liste, cle) {
+    var l = Array.isArray(liste) ? liste.slice() : [];
+    var i = l.indexOf(cle);
+    if (i >= 0) { l.splice(i, 1); return l; }
+    if (l.length >= PRIORITES_MAX) return l;
+    l.push(cle);
+    return l;
+  }
+
+  function libelleDePriorite(cle) {
+    return libelleDe(EXERCICES_PRIORITAIRES, cle) || libelleDe(musclesPrioritaires(), cle) || cle;
+  }
+
+  // Ce que la ligne « Priorités » montre : `null` (pas répondu → « à renseigner »),
+  // « Pas de priorité » (`[]`, une réponse), ou les libellés dans l'ordre choisi.
+  function resumeDesPriorites(liste) {
+    if (!Array.isArray(liste)) return null;
+    return liste.length ? liste.map(libelleDePriorite).join(', ') : 'Pas de priorité';
+  }
+
   function memeListe(a, b) {
     if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
     for (var i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
@@ -669,6 +692,41 @@
 
     if (e.fait === true) sortie.questionnaire_fait_le = quand;
     return sortie;
+  }
+
+  // ══ « TON BUT » ET « TON TEMPS », AU PROFIL (60-2a, QUESTIONNAIRE-COACH-V2 §6) ═
+  //
+  // Les mêmes réponses que le questionnaire, une ligne à la fois : elles s'écrivent
+  // par `preparerChamps` (ci-dessus), donc `objectif_depuis` suit un objectif qui
+  // change, et une réponse inchangée n'écrit rien. SANS PHRASE D'AIDE : les
+  // phrases qui promettaient un effet absent ont été retirées (#382) ; elles
+  // reviendront avec leurs lecteurs (60-2b). `ouvrir(cle)` ouvre la feuille de la
+  // ligne (`objectif`, `priorites`, `temps_reponse`) : le voile vit chez l'appelant.
+  function sectionBut(profil, ouvrir) {
+    var p = profil || {};
+    return {
+      titre: 'TON BUT',
+      lignes: [
+        { libelle: 'Objectif', valeur: libelleDe(OBJECTIFS, p.objectif),
+          surChoix: function () { ouvrir('objectif'); } },
+        { libelle: 'Priorités', valeur: resumeDesPriorites(p.priorites),
+          surChoix: function () { ouvrir('priorites'); } }
+      ]
+    };
+  }
+
+  // La ligne « Ton temps », sous la durée d'une séance (« Ta semaine »).
+  function ligneTemps(profil, ouvrir) {
+    return { libelle: 'Ton temps', valeur: libelleDe(TEMPS_REPONSES, (profil || {}).temps_reponse),
+             surChoix: function () { ouvrir('temps_reponse'); } };
+  }
+
+  // « Terminer mon questionnaire › », en tête du Profil tant qu'il n'est pas rempli
+  // (QUESTIONNAIRE §2) ; `null` sinon — y compris pour une ligne qu'on ne connaît
+  // pas (même règle que l'ouverture : on ne devine pas).
+  function ligneQuestionnaire(profil, ouvrir) {
+    if (!questionnaireAFaire(profil)) return null;
+    return { libelle: 'Terminer mon questionnaire', surChoix: ouvrir };
   }
 
   // ══ LE PSEUDO ════════════════════════════════════════════════════════════
@@ -827,6 +885,8 @@
     musclesPrioritaires: musclesPrioritaires, prioritesValides: prioritesValides,
     DUREE_MIN: DUREE_MIN, DUREE_MAX: DUREE_MAX,
     preparerChamps: preparerChamps,
+    basculerPriorite: basculerPriorite, libelleDePriorite: libelleDePriorite, resumeDesPriorites: resumeDesPriorites,
+    sectionBut: sectionBut, ligneTemps: ligneTemps, ligneQuestionnaire: ligneQuestionnaire,
     doitOuvrirQuestionnaire: doitOuvrirQuestionnaire,
     questionnaireAFaire: questionnaireAFaire,
     champsEcrits: champsEcrits,

@@ -8219,6 +8219,57 @@
     ouvrirFeuilleProfil();
   }
 
+  // ── « TON BUT » ET « TON TEMPS » (60-2a) ─────────────────────────────────
+  //
+  // Une réponse du Profil s'écrit par `Profil.preparerChamps` — la MÊME fonction
+  // que le questionnaire : `objectif_depuis` suit un objectif qui change, et une
+  // réponse inchangée n'écrit rien (elle ferme la feuille, c'est tout).
+  function ecrireReponse(entrees) {
+    var champs = Profil.preparerChamps(profil, entrees, new Date());
+    if (Object.keys(champs).length) ecrireProfil(champs);
+  }
+
+  function ouvrirReponseProfil(cle) {
+    if (cle === 'priorites') return ouvrirPrioritesProfil();
+    var objectif = cle === 'objectif';
+    feuilleProfil = function (cible) {
+      Rendu.rendreFeuilleChoix(cible, {
+        titre: objectif ? 'Objectif' : 'Ton temps',
+        aide: null,
+        options: objectif ? Profil.OBJECTIFS : Profil.TEMPS_REPONSES,
+        valeur: valeurProfil(cle),
+        surChoix: function (v) { fermerVoile(); ecrireReponse(defObjet(cle, v)); },
+        surEffacer: null,
+        surAnnuler: fermerVoile
+      });
+    };
+    ouvrirFeuilleProfil();
+  }
+
+  // Les priorités : une feuille à cocher, trois au plus. Le brouillon est celui
+  // de la feuille — rien n'est écrit avant « Valider ». `null` : pas répondu ;
+  // `[]` : « Pas de priorité », une réponse.
+  function ouvrirPrioritesProfil() {
+    var liste = Array.isArray(profil && profil.priorites) ? profil.priorites.slice() : null;
+    var redessiner = function () { feuilleProfil($('feuille-contenu')); };
+    feuilleProfil = function (cible) {
+      Rendu.rendreFeuilleChoixMultiple(cible, {
+        titre: 'Priorités',
+        aide: null,
+        groupes: [{ titre: 'Des exercices', options: Profil.EXERCICES_PRIORITAIRES },
+                  { titre: 'Ou des muscles', options: Profil.musclesPrioritaires() }],
+        valeurs: liste || [],
+        max: Profil.PRIORITES_MAX,
+        aucune: { libelle: 'Pas de priorité', actif: Array.isArray(liste) && liste.length === 0 },
+        surBasculer: function (c) { liste = Profil.basculerPriorite(liste, c); redessiner(); },
+        surAucune: function () { liste = []; redessiner(); },
+        surValider: function () { fermerVoile(); ecrireReponse({ priorites: liste }); },
+        surAnnuler: fermerVoile
+      });
+    };
+    ouvrirFeuilleProfil();
+  }
+
   // Les saisies libres. Chacune rend une PHRASE quand elle refuse — jamais un
   // silence, jamais une fermeture. La borne doublée ici est un CHECK de la base.
   var SAISIES = {
@@ -8352,6 +8403,8 @@
     var exos = faits.compterExercices(corpus());
 
     Rendu.rendreProfil($('profil-corps'), {
+      // 60-2a — « Terminer mon questionnaire › » en tête, tant qu'il n'est pas rempli.
+      questionnaire: Profil.ligneQuestionnaire(p, ouvrirQuestionnaire),
       kpis: [
         { valeur: nombreGroupe(stats.seances), libelle: 'séances' },
         { valeur: nombreGroupe(stats.series), libelle: 'séries' },
@@ -8375,6 +8428,9 @@
         // ici, rien ne les exercerait (`rendreProfilEcran` n'est pas testable).
         // `null` en Entretenir, et `rendreProfil` saute les sections absentes.
         Profil.sectionRythme(p, ecrireProfil),
+        // 60-2a — « TON BUT » (l'objectif, les priorités), après le réglage du coach :
+        // les réponses du questionnaire, une ligne à la fois. Sans phrase d'aide.
+        Profil.sectionBut(p, ouvrirReponseProfil),
         // MOTEUR §9.16 (49-U11) — « TA PHASE », à côté du rythme : le même
         // sélecteur, la même écriture (`ecrireProfil`, par la file du profil).
         Profil.sectionPhase(p, ecrireProfil),
@@ -8410,7 +8466,9 @@
             surChoix: function () { ouvrirRythmeProfil('seances_par_semaine'); } },
           { libelle: 'Durée d’une séance',
             valeur: p.duree_seance_min ? p.duree_seance_min + ' min' : null,
-            surChoix: function () { ouvrirRythmeProfil('duree_seance_min'); } }
+            surChoix: function () { ouvrirRythmeProfil('duree_seance_min'); } },
+          // 60-2a — les quatre réponses de l'écran « Temps », sans phrase d'aide.
+          Profil.ligneTemps(p, ouvrirReponseProfil)
         ] },
         { titre: 'L’APP', lignes: [
           { libelle: 'Pseudo', valeur: p.username || null,

@@ -758,7 +758,13 @@ const NOTIONS = [
       raison: 'le silence du coach au profil se lit par `Moteur.coachSeTait`, jamais par un second test de `intention` écrit à la main' },
     raison: 'MOTEUR I13 (précisé le 07/10/2026, 60-2a) : au profil « Juste un carnet », le plan, la semaine ' +
       'allégée annoncée sur une routine, le badge de bloc et la carte de fin de bloc lisent le MÊME fait. ' +
-      'Le badge et la carte vivent hors de `planDeSeance` : un second test de l’intention les aurait fait diverger.' }
+      'Le badge et la carte vivent hors de `planDeSeance` : un second test de l’intention les aurait fait diverger.' },
+  { notion: 'la préparation des champs d’une réponse du profil (objectif daté, phase datée, année, priorités, « fait »)', pr: '60-U3',
+    module: 'profil.js', fonction: 'preparerChamps', lecteurs: ['questionnaire.js', 'app.js'],
+    parAilleurs: { 'questionnaire.js': ['champsDeLEcran'], 'app.js': ['ecrireReponse'] },
+    raison: 'QUESTIONNAIRE-COACH-V2 §6 : le questionnaire (un écran à la fois) et le Profil (une ligne à la ' +
+      'fois) écrivent la même chose — `objectif_depuis` suit un objectif qui change, une réponse inchangée ' +
+      'n’écrit rien. Deux préparations auraient fini par dater différemment.' }
 ];
 
 // ── 58-1 — UN FAIT NE SE DÉCLARE QUE DANS `faits.js` ─────────────────────────

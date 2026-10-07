@@ -13683,6 +13683,36 @@ const SETS_IMPORTES = [
       const d = new Date(), p = (n) => String(n).padStart(2, '0');
       return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
     });
+    // Le Profil, tel qu'on le voit.
+    const titresP = () => page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-sect')).map((n) => n.textContent));
+    const enTeteP = () => page.evaluate(() => {
+      const g = document.querySelector('#profil-corps').firstElementChild;
+      return g && g.classList.contains('p-questionnaire') ? g.textContent : null;
+    });
+    const ligneP = (libelle) => page.evaluate((l) => {
+      const n = Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
+        .filter((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf(l) === 0)[0];
+      return n ? { valeur: (n.querySelector('.p-val') || {}).textContent || null, vide: !!n.querySelector('.p-val.vide'),
+                   aide: !!n.querySelector('small') } : null;
+    }, libelle);
+    const toucherP = async (libelle) => {
+      await page.evaluate((l) => {
+        Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
+          .filter((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf(l) === 0)[0].click();
+      }, libelle);
+      await attendre(500);
+    };
+    const feuilleChoixP = () => page.evaluate(() => ({
+      ouverte: !document.querySelector('#feuille-seance').hidden,
+      titre: (document.querySelector('#feuille-contenu .feuille-t') || {}).textContent || null,
+      aide: !!document.querySelector('#feuille-contenu .feuille-aide'),
+      groupes: Array.from(document.querySelectorAll('#feuille-contenu .choix-groupe')).map((n) => n.textContent),
+      options: Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button[data-cle]')).map((b) => b.dataset.cle),
+      coches: Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button.choisi')).map((b) => b.dataset.cle),
+      eteintes: Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button.inerte')).map((b) => b.dataset.cle),
+      pied: Array.from(document.querySelectorAll('#feuille-contenu .feuille-pied button')).map((b) => b.textContent)
+    }));
+    const cliquerFeuille = async (sel, pause) => { await page.click('#feuille-contenu ' + sel); await attendre(pause || 450); };
     const rouvrir = async (champs) => {        // l'appareil redémarre sur CETTE ligne de profil
       await effacerVu();
       Object.assign(profilBase(), champs);
@@ -13788,6 +13818,20 @@ const SETS_IMPORTES = [
     ok('[Q60] B — DISCRIMINANT : au rechargement il ne se rouvre pas de lui-même (déjà ouvert sur cet appareil) ; le bandeau reste',
       JSON.stringify(await visible()) === JSON.stringify(saisie) && bq2.visible, JSON.stringify([await visible(), bq2]));
 
+    // ── B''. LA LIGNE EN TÊTE DE PROFIL : « Terminer mon questionnaire › ».
+    await onglet('profil');
+    const teteP = await enTeteP();
+    ok('[Q60] B — la ligne « Terminer mon questionnaire › » est en TÊTE de Profil, tant qu’il n’est pas rempli',
+      !!teteP && teteP.indexOf('Terminer mon questionnaire') === 0, JSON.stringify([teteP, await titresP()]));
+    await page.click('#profil-corps .p-questionnaire .p-ligne');
+    await attendre(600);
+    e = await ecranQ();
+    ok('[Q60] B — la ligne rouvre le questionnaire au PREMIER écran, déjà répondu (import) ; « Plus tard » ramène sur Saisie',
+      e.ecran === 'bienvenue' && JSON.stringify(e.vues) === '["vue-questionnaire"]', JSON.stringify(e));
+    await cliquerQ('.q-plus-tard', 700);
+    ok('[Q60] B — « Plus tard » depuis la ligne du Profil : Saisie, bandeau toujours là',
+      JSON.stringify(await visible()) === JSON.stringify(saisie) && (await bandeauQ()).visible, JSON.stringify([await visible(), await bandeauQ()]));
+
     // ── C. LA REPRISE : « Le terminer » repart du début, tout pré-rempli depuis la base.
     await page.click('#bandeau-questionnaire .principal');
     await attendre(600);
@@ -13887,6 +13931,66 @@ const SETS_IMPORTES = [
     ok('[Q60] rempli, il ne se rouvre plus — au rechargement, Saisie sans questionnaire ni bandeau',
       JSON.stringify(await visible()) === JSON.stringify(saisie) && !(await bandeauQ()).visible, JSON.stringify([await visible(), await bandeauQ()]));
 
+    // ── P. LE PROFIL, REMPLI : « Ton but », « Ton temps », sans ligne en tête ni phrase d'aide.
+    await onglet('profil');
+    const titresRempli = await titresP();
+    ok('[Q60] P — plus de ligne en tête ; « TON BUT » vient après « TON RYTHME » (le réglage du coach), avant « TA PHASE »',
+      (await enTeteP()) === null && titresRempli.indexOf('TON BUT') === titresRempli.indexOf('TON RYTHME') + 1 &&
+        titresRempli.indexOf('TA PHASE') === titresRempli.indexOf('TON BUT') + 1, JSON.stringify(titresRempli));
+    const [pObj, pPri, pTps] = [await ligneP('Objectif'), await ligneP('Priorités'), await ligneP('Ton temps')];
+    ok('[Q60] P — les réponses du questionnaire sont là : Objectif Muscle, Priorités Squat · Couché · Soulevé, Ton temps « J’ai de la marge… » ; aucune phrase d’aide sous ces lignes',
+      pObj && pObj.valeur === 'Muscle' && pPri && pPri.valeur === 'Squat, Couché, Soulevé' &&
+        pTps && pTps.valeur === 'J’ai de la marge pour en faire plus' && !pObj.aide && !pPri.aide && !pTps.aide,
+      JSON.stringify([pObj, pPri, pTps]));
+    const ecritsP0 = ecritsProfil();
+    const depuisP0 = profilBase().objectif_depuis;
+    await toucherP('Objectif');
+    let fp = await feuilleChoixP();
+    ok('[Q60] P — « Objectif » : la feuille des quatre objectifs, Muscle coché, ni phrase d’aide ni « Effacer »',
+      fp.ouverte && fp.titre === 'Objectif' && JSON.stringify(fp.options) === '["force","muscle","les_deux","forme"]' &&
+        JSON.stringify(fp.coches) === '["muscle"]' && fp.aide === false && fp.pied.indexOf('Effacer') < 0, JSON.stringify(fp));
+    await cliquerFeuille('.feuille-menu button[data-cle="muscle"]', 900);
+    ok('[Q60] P — DISCRIMINANT : choisir le MÊME objectif n’écrit rien (ni valeur ni date)',
+      ecritsProfil() === ecritsP0 && profilBase().objectif_depuis === depuisP0, JSON.stringify([ecritsProfil() - ecritsP0, profilBase().objectif_depuis, depuisP0]));
+    await toucherP('Objectif');
+    await cliquerFeuille('.feuille-menu button[data-cle="force"]', 1500);
+    ok('[Q60] P — un objectif CHANGÉ s’écrit comme au questionnaire : la valeur ET sa date (`objectif_depuis`)',
+      profilBase().objectif === 'force' && profilBase().objectif_depuis !== depuisP0 && !!profilBase().objectif_depuis &&
+        ecritsProfil() === ecritsP0 + 1 && (await ligneP('Objectif')).valeur === 'Force', JSON.stringify([profilBase().objectif, profilBase().objectif_depuis, depuisP0, ecritsProfil() - ecritsP0]));
+    await toucherP('Priorités');
+    fp = await feuilleChoixP();
+    ok('[Q60] P — « Priorités » : « Des exercices » / « Ou des muscles », « Pas de priorité », trois cochées → les autres s’éteignent (sans un mot) ; Annuler · Valider',
+      fp.ouverte && fp.titre === 'Priorités' && JSON.stringify(fp.groupes) === '["Des exercices","Ou des muscles"]' &&
+        JSON.stringify(fp.coches) === '["squat_barre","developpe_couche_barre","souleve_de_terre_barre"]' &&
+        fp.options.indexOf('aucune') >= 0 && fp.eteintes.length === fp.options.length - 1 - fp.coches.length &&
+        fp.aide === false && JSON.stringify(fp.pied) === '["Annuler","Valider"]', JSON.stringify(fp));
+    await cliquerFeuille('.feuille-menu button[data-cle="squat_barre"]');
+    fp = await feuilleChoixP();
+    ok('[Q60] P — une décochée : les lignes se rallument (deux cochées, plus rien d’éteint)',
+      fp.coches.length === 2 && fp.eteintes.length === 0, JSON.stringify(fp));
+    await cliquerFeuille('.feuille-menu button[data-cle="aucune"]');
+    fp = await feuilleChoixP();
+    ok('[Q60] P — « Pas de priorité » vide la liste et se coche', JSON.stringify(fp.coches) === '["aucune"]', JSON.stringify(fp));
+    const ecritsP1 = ecritsProfil();
+    await cliquerFeuille('.feuille-pied .pri', 1500);
+    ok('[Q60] P — « Valider » écrit `priorites = {}` (une RÉPONSE, pas un trou) ; la ligne dit « Pas de priorité »',
+      Array.isArray(profilBase().priorites) && profilBase().priorites.length === 0 && ecritsProfil() === ecritsP1 + 1 &&
+        (await ligneP('Priorités')).valeur === 'Pas de priorité', JSON.stringify([profilBase().priorites, ecritsProfil() - ecritsP1]));
+    await toucherP('Priorités');
+    await cliquerFeuille('.feuille-menu button[data-cle="tractions"]');
+    await cliquerFeuille('.feuille-pied .sec', 600);
+    ok('[Q60] P — « Annuler » après avoir coché n’écrit rien', ecritsProfil() === ecritsP1 + 1 && (await ligneP('Priorités')).valeur === 'Pas de priorité',
+      JSON.stringify([ecritsProfil() - ecritsP1, await ligneP('Priorités')]));
+    await toucherP('Ton temps');
+    fp = await feuilleChoixP();
+    ok('[Q60] P — « Ton temps » : les quatre réponses, « marge » cochée, sans phrase d’aide',
+      fp.ouverte && fp.titre === 'Ton temps' && JSON.stringify(fp.options) === '["max","marge","moins","varie"]' &&
+        JSON.stringify(fp.coches) === '["marge"]' && fp.aide === false, JSON.stringify(fp));
+    await cliquerFeuille('.feuille-menu button[data-cle="varie"]', 1500);
+    ok('[Q60] P — le choix écrit `temps_reponse` ; la ligne le dit',
+      profilBase().temps_reponse === 'varie' && (await ligneP('Ton temps')).valeur === 'Ça varie beaucoup', JSON.stringify([profilBase().temps_reponse, await ligneP('Ton temps')]));
+    await aller('/saisie');
+
     // ── E. UNE LIGNE QU'ON NE CONNAÎT PAS N'OUVRE RIEN : la colonne ABSENTE de la
     // réponse (pas `null`) se lit « je ne sais pas », jamais « jamais rempli ».
     await effacerVu();
@@ -13911,6 +14015,60 @@ const SETS_IMPORTES = [
     e = await ecranQ();
     ok('[Q60] H — la ligne arrive (questionnaire vide) : il s’ouvre alors, une fois', e.ecran === 'bienvenue' && JSON.stringify(e.vues) === '["vue-questionnaire"]', JSON.stringify(e));
     base.lenteurProfil = 0;
+
+    // ── H'. UN COMPTE NEUF, SANS RIEN SUR L'APPAREIL : il s'ouvre au PREMIER
+    // démarrage, quand la ligne arrive (ni cache du profil, ni clé « ouvert ici »).
+    await page.goto(BASE + '/styles.css', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await page.evaluate(() => new Promise((ok2) => {
+      Object.keys(localStorage).filter((k) => k.indexOf('th-v2-questionnaire-vu-') === 0).forEach((k) => localStorage.removeItem(k));
+      const r = indexedDB.deleteDatabase('trainhub-v2');
+      r.onsuccess = r.onerror = r.onblocked = () => ok2();
+    }));
+    Object.assign(profilBase(), NON_REMPLI, { onboarding_completed: false });
+    base.lenteurProfil = 3500;
+    await aller('/saisie');
+    const neufAvant = await visible();
+    ok('[Q60] H — compte neuf sans cache : tant que la ligne n’est pas arrivée, rien ne s’ouvre',
+      neufAvant.indexOf('vue-questionnaire') < 0, JSON.stringify(neufAvant));
+    await attendre(2800);
+    e = await ecranQ();
+    ok('[Q60] H — DISCRIMINANT : la ligne arrive (questionnaire vide, `onboarding_completed` faux) : il s’ouvre au premier démarrage, au premier écran',
+      JSON.stringify(e.vues) === '["vue-questionnaire"]' && e.ecran === 'bienvenue', JSON.stringify(e));
+    base.lenteurProfil = 0;
+
+    // ── K. HORS LIGNE : les écritures ATTENDENT (le profil dans sa copie locale, la
+    // pesée dans la file) et PARTENT au retour du réseau.
+    base.reseau = false;
+    const ecrituresK0 = base.ecrituresPesees.length;
+    const peseesK0 = JSON.stringify(base.pesees);
+    await continuerQ();
+    await cliquerQ('.q-opt[data-cle="import"]');
+    await continuerQ();
+    await continuerQ();
+    e = await ecranQ();
+    ok('[Q60] K — hors ligne, on avance quand même : l’écran « Toi » est atteint', e.ecran === 'toi', JSON.stringify(e));
+    await cliquerQ('.q-puce[data-cle="femme"]');
+    await page.fill(SEL + '#q-champ-poids', '71,3');
+    await attendre(250);
+    await continuerQ();
+    await attendre(900);
+    const fileK = await page.evaluate(() => THCache.lireAttente().then((f) => (f || []).map((x) => x.table + ':' + x.id)));
+    const aEnvoyerK = await page.evaluate(() => THCache.lireMeta('profil-a-envoyer'));
+    ok('[Q60] K — hors ligne : rien n’est arrivé en base ; la pesée attend dans la file (un identifiant par jour), le profil est marqué « à envoyer »',
+      profilBase().historique_declare === null && profilBase().sexe !== 'femme' && base.ecrituresPesees.length === ecrituresK0 &&
+        JSON.stringify(base.pesees) === peseesK0 && fileK.indexOf('body_weight_log:pesee-' + (await aujourdhuiLocal())) >= 0 && aEnvoyerK === true,
+      JSON.stringify([fileK, aEnvoyerK, profilBase().historique_declare]));
+    base.reseau = true;
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    let partiK = false;
+    for (let n = 0; n < 40 && !partiK; n++) {
+      await attendre(250);
+      partiK = profilBase().historique_declare === 'import' && base.pesees.some((x) => x.poids_kg === 71.3);
+    }
+    const fileK2 = await page.evaluate(() => THCache.lireAttente().then((f) => (f || []).length));
+    ok('[Q60] K — le réseau revient : le profil (historique, sexe) et la pesée du jour partent ; la file se vide ; la pesée FUSIONNE (une ligne par jour)',
+      partiK && profilBase().sexe === 'femme' && fileK2 === 0 && base.pesees.filter((x) => x.date === jour).length === 1,
+      JSON.stringify([profilBase().historique_declare, profilBase().sexe, base.pesees, fileK2]));
 
     // ── G. JAMAIS PAR-DESSUS UNE SÉANCE OUVERTE.
     // L'appareil connaît d'abord une ligne REMPLIE (la clé « ouvert ici » est encore

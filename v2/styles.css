@@ -1448,6 +1448,9 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
   margin-top:2px;font-weight:400}
 .feuille-menu button.choisi{color:var(--texte);font-weight:700}
 .choix-coche{color:var(--accent);font-size:14px;line-height:1;flex:0 0 auto}
+/* 60-2a — les priorités : deux groupes de lignes à cocher dans la même feuille. */
+.choix-groupe{margin:var(--e3) 0 var(--e1);font-size:10px;font-weight:600;line-height:1;
+  letter-spacing:.08em;text-transform:uppercase;color:var(--texte-3)}
 .feuille-err{font-size:11.5px;line-height:1.5;color:var(--manque);min-height:1em;
   padding-top:4px}
 

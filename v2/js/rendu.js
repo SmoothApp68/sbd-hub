@@ -4556,6 +4556,56 @@
     return cible;
   }
 
+  // Plusieurs réponses dans une liste fermée (les priorités, jusqu'à `max`). Le
+  // choix se COCHE et se décoche, « Valider » ferme. Une fois `max` atteint, les
+  // lignes non cochées s'éteignent — sans un mot : la quatrième n'est pas
+  // refusée après coup, elle n'est pas offerte. « Pas de priorité » est une
+  // réponse à part (`aucune`), qui vide la liste.
+  //   vue : { titre, aide, groupes: [{ titre, options: [{ cle, libelle }] }],
+  //           valeurs, max, aucune: { libelle, actif }, surBasculer(cle),
+  //           surAucune(), surValider(), surAnnuler() }
+  function rendreFeuilleChoixMultiple(cible, vue) {
+    vider(cible);
+    teteFeuille(cible, vue.titre, null, vue.aide);
+    var valeurs = vue.valeurs || [];
+    var plein = valeurs.length >= vue.max;
+    (vue.groupes || []).forEach(function (g) {
+      if (g.titre) cible.appendChild(el('div', 'choix-groupe', g.titre));
+      var menu = el('div', 'feuille-menu choix');
+      g.options.forEach(function (o) {
+        var coche = valeurs.indexOf(o.cle) >= 0;
+        var eteint = plein && !coche;
+        var b = el('button', (coche ? 'choisi' : '') + (eteint ? ' inerte' : ''), '');
+        b.type = 'button';
+        b.dataset.cle = String(o.cle);
+        b.setAttribute('aria-pressed', coche ? 'true' : 'false');
+        if (eteint) b.setAttribute('aria-disabled', 'true');
+        b.appendChild(el('span', 'choix-t', o.libelle));
+        if (coche) b.appendChild(el('span', 'choix-coche', '✓'));
+        b.addEventListener('click', function () { vue.surBasculer(o.cle); });
+        menu.appendChild(b);
+      });
+      cible.appendChild(menu);
+    });
+    if (vue.aucune) {
+      var menuA = el('div', 'feuille-menu choix');
+      var a = el('button', vue.aucune.actif ? 'choisi' : '', '');
+      a.type = 'button';
+      a.dataset.cle = 'aucune';
+      a.setAttribute('aria-pressed', vue.aucune.actif ? 'true' : 'false');
+      a.appendChild(el('span', 'choix-t', vue.aucune.libelle));
+      if (vue.aucune.actif) a.appendChild(el('span', 'choix-coche', '✓'));
+      a.addEventListener('click', vue.surAucune);
+      menuA.appendChild(a);
+      cible.appendChild(menuA);
+    }
+    piedFeuille(cible, [
+      { classe: 'sec', texte: 'Annuler', surClic: vue.surAnnuler },
+      { classe: 'pri', texte: 'Valider', surClic: vue.surValider }
+    ]);
+    return cible;
+  }
+
   // Une saisie libre : taille, date de naissance, bio, pseudo, mot de passe.
   // `type` est celui de l'input — `date` et `number` ouvrent le bon clavier sur
   // Android, ce qu'aucun `text` ne fait.
@@ -4759,6 +4809,7 @@
     rendreProfil: rendreProfil,
     rendreQuestionnaire: rendreQuestionnaire,
     rendreFeuilleChoix: rendreFeuilleChoix,
+    rendreFeuilleChoixMultiple: rendreFeuilleChoixMultiple,
     rendreFeuilleSaisie: rendreFeuilleSaisie,
     rendreMesExercices: rendreMesExercices,
     rendreEntree: rendreEntree,

@@ -25,9 +25,14 @@
   // VERSION 5 : ajout de `predictions` (§9.11).
   // VERSION 6 : ajout de `modes` (le mode de chaque exercice, §9.17 — Progresser
   //   ou Entretenir ; `modes_exercice` en base). Sans perte, comme les autres.
-  var VERSION = 6;
+  // VERSION 7 : ajout de `records` (le journal des records, 58-2 ; MOTEUR
+  //   §9.23, `v2_061`). Sans perte, comme les autres.
+  var VERSION = 7;
+  // ⚠️ `records` EST DANS CETTE LISTE, et c'est elle que « Quitter » vide
+  // (`viderTout`) : un journal qui survivrait à la déconnexion serait relu par
+  // le compte suivant.
   var MAGASINS = ['seances', 'series', 'exercices', 'pesees', 'meta', 'zones', 'modes',
-                  'brouillon', 'attente'];
+                  'brouillon', 'attente', 'records'];
   var LOT = 500;
   var _db = null;
 
@@ -88,6 +93,14 @@
           // code définitif). L'index lit donc dans le fondement.
           db.createObjectStore('predictions', { keyPath: 'id' })
             .createIndex('seance', 'fondement.seance');
+        }
+        // 58-2 — LE JOURNAL DES RECORDS. La clé est celle de l'unicité en base,
+        // (`set_id`, `type`) — pas `id` : une ligne écrite ici à « Terminer »
+        // n'a pas encore d'identifiant (la base le tire), et la même ligne
+        // revenue du serveur doit tomber sur elle, pas à côté.
+        if (!db.objectStoreNames.contains('records')) {
+          db.createObjectStore('records', { keyPath: ['set_id', 'type'] })
+            .createIndex('session_id', 'session_id');
         }
       };
       req.onsuccess = function () { _db = req.result; resoudre(_db); };

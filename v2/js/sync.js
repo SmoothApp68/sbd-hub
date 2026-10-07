@@ -244,8 +244,95 @@
     return { code: 'vide', libelle: 'Pas de réseau', local: false };
   }
 
+  // ══ LE JOURNAL DES RECORDS SUR L'APPAREIL (58-2, MOTEUR §9.23) ═══════════
+  //
+  // Le magasin local `records` est À L'IMAGE DE LA BASE, et la base a trois
+  // règles : l'app AJOUTE en ignorant les doublons, une ligne ne se modifie
+  // jamais, et une ligne disparaît avec sa série (cascade, ou correction). Ces
+  // fonctions les rejouent sur la copie locale — rien d'autre.
+  //
+  // La clé est celle de l'unicité en base : (`set_id`, `type`).
+  function cleJournal(l) { return l ? String(l.set_id) + '|' + String(l.type) : ''; }
+
+  // L'AJOUT DE L'APP, comme `ON CONFLICT (set_id, type) DO NOTHING` : une ligne
+  // déjà là reste telle quelle — même si celle qu'on ajoute dit autre chose —,
+  // seule une ligne neuve entre. Rend `{ journal, ajoutees }`.
+  function ajouterAuJournal(journal, lignes) {
+    var vus = {};
+    (journal || []).forEach(function (l) { if (l) vus[cleJournal(l)] = true; });
+    var ajoutees = [];
+    (lignes || []).forEach(function (l) {
+      var k = cleJournal(l);
+      if (!l || vus[k]) return;
+      vus[k] = true;
+      ajoutees.push(l);
+    });
+    return { journal: (journal || []).concat(ajoutees), ajoutees: ajoutees };
+  }
+
+  // CE QUE LE SERVEUR REND : sa ligne remplace la copie locale de même clé —
+  // elle porte l'identifiant et la date d'écriture que la base a tirés.
+  function fondreJournal(journal, duServeur) {
+    return fusionner((journal || []).map(function (l) { return Object.assign({ _cle: cleJournal(l) }, l); }),
+      (duServeur || []).map(function (l) { return Object.assign({ _cle: cleJournal(l) }, l); }), '_cle')
+      .map(function (l) { var c = Object.assign({}, l); delete c._cle; return c; });
+  }
+
+  // ⚠️ À L'IMAGE DE `sets_efface_records` (v2_061) : une série corrigée sur
+  // l'un des champs qui font un record — `type_serie`, `charge_kg`, `reps`,
+  // `duree_s`, `distance_m`, comparés comme `IS DISTINCT FROM` — perd ses
+  // lignes ; une série supprimée aussi (la cascade). Les autres lignes de la
+  // séance RESTENT, même si on les recalculerait autrement aujourd'hui : en
+  // base, l'ajout qui suit les ignorera (un record est un record à sa date).
+  // `avant` : les séries de la séance telles qu'elles étaient ; `apres` :
+  // telles qu'elles partent. Rend les identifiants des séries qui perdent
+  // leurs lignes.
+  var CHAMPS_DU_RECORD = ['type_serie', 'charge_kg', 'reps', 'duree_s', 'distance_m'];
+  function distincts(a, b) {
+    var va = (a === undefined || a === null) ? null : a;
+    var vb = (b === undefined || b === null) ? null : b;
+    if (va === null || vb === null) return va !== vb;
+    if (typeof va === 'number' || typeof vb === 'number') return Number(va) !== Number(vb);
+    return String(va) !== String(vb);
+  }
+  function seriesQuiEffacent(avant, apres) {
+    var parId = {};
+    (apres || []).forEach(function (s) { if (s && s.id) parId[s.id] = s; });
+    var out = [];
+    (avant || []).forEach(function (s) {
+      if (!s || !s.id) return;
+      var n = parId[s.id];
+      if (!n || CHAMPS_DU_RECORD.some(function (c) { return distincts(s[c], n[c]); })) out.push(s.id);
+    });
+    return out;
+  }
+
+  // Retire du journal les lignes de ces séries.
+  function retirerDuJournal(journal, idsSeries) {
+    var partent = {};
+    (idsSeries || []).forEach(function (id) { partent[id] = true; });
+    return (journal || []).filter(function (l) { return l && !partent[l.set_id]; });
+  }
+
+  // La CASCADE vue d'ici : une ligne dont la série n'existe plus part avec
+  // elle. Seulement quand la liste des séries est COMPLÈTE (la même condition
+  // que `purgerSeriesOrphelines`) : sinon « absente » voudrait dire « pas
+  // encore reçue ».
+  function purgerJournal(journal, series, listeComplete) {
+    if (listeComplete !== true) return (journal || []).slice();
+    var vivantes = new Set((series || []).map(function (s) { return s && s.id; }));
+    return (journal || []).filter(function (l) { return l && vivantes.has(l.set_id); });
+  }
+
   var api = {
     VERSION_SYNC: VERSION_SYNC,
+    cleJournal: cleJournal,
+    ajouterAuJournal: ajouterAuJournal,
+    fondreJournal: fondreJournal,
+    CHAMPS_DU_RECORD: CHAMPS_DU_RECORD,
+    seriesQuiEffacent: seriesQuiEffacent,
+    retirerDuJournal: retirerDuJournal,
+    purgerJournal: purgerJournal,
     doitResynchroniser: doitResynchroniser,
     verifierCompletude: verifierCompletude,
     decisionDeCommit: decisionDeCommit,

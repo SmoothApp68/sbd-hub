@@ -674,7 +674,7 @@ const NOTIONS = [
       'd’un exercice ; un second assemblage dans l’écran pourrait en oublier une séance.' },
   { notion: 'les records d’une séance passée (ses séries médaillées)', pr: '58-U1',
     module: 'faits.js', fonction: 'recordsDeLaSeance', lecteurs: [],
-    par: ['recordsDuMois', 'dernierRecord'],
+    par: ['recordsDuMois', 'dernierRecord', 'journalDeLaSeance'],
     raison: 'MOTEUR §9.23 : un record est un fait ; le mois et le dernier record lisent les records ' +
       'd’une séance par la même fonction, au même mémo.' },
   { notion: 'les records d’un mois (dans l’ordre des séances)', pr: '58-U1',
@@ -698,7 +698,7 @@ const NOTIONS = [
       'dans le même ordre.' },
   { notion: 'les records d’une série de la séance en cours (la médaille)', pr: '58-U1',
     module: 'faits.js', fonction: 'recordsDeLaSerie', lecteurs: ['app.js'],
-    par: ['recordsDuJour'],
+    par: ['recordsDuJour', 'journalDuJour'],
     parAilleurs: { 'app.js': ['medailleSurLigne'] },
     raison: 'MOTEUR §9.23 : la médaille sous une rangée et la feuille « Terminer » lisent le même ' +
       'calcul.' },
@@ -720,7 +720,25 @@ const NOTIONS = [
   { notion: 'le compte des exercices faits (le profil)', pr: '58-U1',
     module: 'faits.js', fonction: 'compterExercices', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['rendreProfilEcran'] },
-    raison: 'PR 6 : le profil dit « N déjà faits » par le même balayage que Mes exercices.' }
+    raison: 'PR 6 : le profil dit « N déjà faits » par le même balayage que Mes exercices.' },
+  // ── 58-2 — LE JOURNAL DES RECORDS (MOTEUR §9.23, `v2_061`, `v2_062`) ──────
+  // Le journal ne calcule rien : ses lignes sortent des deux fonctions des
+  // records d'une séance, et il se LIT ici, nulle part ailleurs. Il s'écrit
+  // par la file seule (garde « un seul écrivain », plus bas).
+  { notion: 'les lignes du journal de la séance qu’on termine ou qu’on corrige', pr: '58-U2',
+    module: 'faits.js', fonction: 'journalDuJour', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['ecrireJournalDeSeance'] },
+    raison: 'MOTEUR §9.23 (58-2) : le journal garde ce que la feuille « Terminer » affiche — la même ' +
+      'fonction (`recordsDeLaSerie`), aucun recalcul à part, à « Terminer » comme en Édition.' },
+  { notion: 'les lignes du journal d’une séance passée (le remplissage de l’historique)', pr: '58-U2',
+    module: 'faits.js', fonction: 'journalDeLaSeance', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['remplirJournal'] },
+    raison: 'MOTEUR §9.23 (58-2) : l’historique se remplit une fois, avec la fonction des records ' +
+      'd’une séance passée — celle du bilan et du dernier record.' },
+  { notion: 'la lecture du journal des records (le jeu, plus tard le social)', pr: '58-U2',
+    module: 'faits.js', fonction: 'recordsDuJournal', lecteurs: [],
+    raison: 'MOTEUR §9.23 (58-2) : les lecteurs lisent le journal, jamais un recalcul — et le lisent ' +
+      'ici. Aucun écran ne le lit encore : le jeu viendra.' }
 ];
 
 // ── 58-1 — UN FAIT NE SE DÉCLARE QUE DANS `faits.js` ─────────────────────────
@@ -1031,7 +1049,7 @@ describe('architecture — le registre des notions : une source, des lecteurs', 
 describe('architecture — le module des faits : un fait ne se déclare que dans faits.js (58-1)', () => {
   const FICHIERS = perimetre();
 
-  test('les faits du module : treize, chacun déclaré et exporté par faits.js', () => {
+  test('les faits du module : seize (treize en 58-1, trois du journal en 58-2), chacun déclaré et exporté par faits.js', () => {
     global.self = global;
     require('../../v2/js/modele.js');
     require('../../v2/js/semaine.js');
@@ -1040,7 +1058,7 @@ describe('architecture — le module des faits : un fait ne se déclare que dans
     require('../../v2/js/moteur.js');
     require('../../v2/js/seance.js');
     const instance = require('../../v2/js/faits.js').creer();
-    expect(FAITS.length).toBe(13);
+    expect(FAITS.length).toBe(16);
     expect(FAITS.filter((fn) => typeof instance[fn] !== 'function')).toEqual([]);
   });
 
@@ -1160,5 +1178,75 @@ describe('architecture — aucune fonction de premier niveau déclarée deux foi
     let m;
     while ((m = re.exec(src))) noms.push(m[1]);
     expect(noms).toEqual(['a', 'a']);
+  });
+});
+
+// ── 58-2 — LE JOURNAL DES RECORDS : LU DANS `faits.js`, ÉCRIT PAR LA SEULE FILE ──
+//
+// La lecture est au registre (`recordsDuJournal`, lecteurs : aucun hors du
+// module). L'écriture a UN chemin, et cette garde refuse un second écrivain :
+//   · en base, une seule fonction touche `records` en écriture —
+//     `THDonnees.ajouterRecords`, un ajout qui ignore les doublons ;
+//   · elle n'est appelée que par la vidange de la file (`app.js`, `executer`) ;
+//   · une entrée du journal ne se pose que par `poserJournal` (`app.js`).
+describe('architecture — le journal des records : un seul écrivain (58-2)', () => {
+  const FICHIERS = perimetre();
+  const parNom = {};
+  FICHIERS.forEach((f) => { parNom[f.nom] = f; });
+  const ECRITURE_RECORDS = /from\(\s*(['"])records\1\s*\)[\s\S]{0,120}?\.\s*(insert|upsert|update|delete)\s*\(/g;
+  const compter = (texte, re) => (texte.match(new RegExp(re.source, 'g')) || []).length;
+
+  test('⚠️ en base, `records` ne s’écrit que dans `ajouterRecords` (donnees.js)', () => {
+    const fautes = [];
+    FICHIERS.forEach((f) => {
+      const code = nettoyer(f.src, true);
+      const n = compter(code, ECRITURE_RECORDS);
+      if (f.nom !== 'donnees.js') { if (n) fautes.push(f.nom + ' écrit `records` (' + n + ')'); return; }
+      const corps = corpsDe(code, 'ajouterRecords');
+      if (!corps) { fautes.push('ajouterRecords absente de donnees.js'); return; }
+      if (compter(corps, ECRITURE_RECORDS) !== 1 || n !== 1) fautes.push('donnees.js : ' + n + ' écriture(s) de `records`, dont ' + compter(corps, ECRITURE_RECORDS) + ' dans ajouterRecords');
+    });
+    expect(fautes).toEqual([]);
+  });
+
+  test('⚠️ et c’est un ajout qui IGNORE les doublons — jamais un upsert qui modifie', () => {
+    const corps = corpsDe(nettoyer(parNom['donnees.js'].src, true), 'ajouterRecords');
+    expect(corps).toMatch(/onConflict:\s*'set_id,type'/);
+    expect(corps).toMatch(/ignoreDuplicates:\s*true/);
+  });
+
+  test('⚠️ `ajouterRecords` n’est appelée que par la vidange (`executer`, app.js)', () => {
+    const fautes = [];
+    FICHIERS.forEach((f) => {
+      if (f.nom === 'donnees.js') return;
+      const a = appels(f.src, { fn: 'ajouterRecords' });
+      if (!a.length) return;
+      if (f.nom !== 'app.js') { fautes.push(f.nom + ' appelle ajouterRecords'); return; }
+      const corps = corpsDe(nettoyer(f.src, false), 'executer');
+      const dedans = corps ? (corps.match(/\.\s*ajouterRecords\s*\(/g) || []).length : 0;
+      if (dedans !== a.length) fautes.push('app.js appelle ajouterRecords hors d’executer');
+    });
+    expect(fautes).toEqual([]);
+    expect(appels(parNom['app.js'].src, { fn: 'ajouterRecords' }).length).toBe(1);
+  });
+
+  test('⚠️ une entrée du journal ne se pose que par `poserJournal` (app.js)', () => {
+    const fautes = [];
+    FICHIERS.forEach((f) => {
+      if (f.nom === 'attente.js') return;
+      const code = nettoyer(f.src, false);
+      const n = (code.match(/\bAJOUTER\b/g) || []).length;
+      if (!n) return;
+      const corps = f.nom === 'app.js' ? corpsDe(code, 'poserJournal') : null;
+      const dedans = corps ? (corps.match(/\bAJOUTER\b/g) || []).length : 0;
+      if (dedans !== n) fautes.push(f.nom + ' pose une entrée du journal hors de poserJournal');
+    });
+    expect(fautes).toEqual([]);
+  });
+
+  test('la garde se lit vraiment : un second écrivain se voit', () => {
+    const code = nettoyer("client().from('records').upsert(l);\nclient().from('records').select('id');", true);
+    expect(compter(code, ECRITURE_RECORDS)).toBe(1);
+    expect(compter(nettoyer("client().from(\"records\")\n  .delete().eq('id', x);", true), ECRITURE_RECORDS)).toBe(1);
   });
 });

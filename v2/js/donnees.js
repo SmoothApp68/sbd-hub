@@ -595,6 +595,43 @@
     return true;
   }
 
+  // ══ LE JOURNAL DES RECORDS (MOTEUR §9.23, 58-2 ; v2_061, v2_062) ══════════
+  //
+  // Chaque record battu, une fois : une ligne par série et par type. La
+  // politique du propriétaire ne permet que de LIRE et d'AJOUTER ses lignes ;
+  // `records_immuable` refuse toute modification, et une ligne ne disparaît
+  // qu'avec sa série (cascade, ou `sets_efface_records` quand la série est
+  // corrigée). Aucune suppression par l'app.
+  var COLONNES_RECORD = 'id, user_id, set_id, session_id, exercise_slug, type, valeur, reps, charge, ' +
+    'unite, ancien, ancien_le, sur_douze_mois, battu_le, created_at';
+
+  // INCRÉMENTAL sur `created_at` : une ligne ne se modifie jamais, une neuve
+  // est la seule nouveauté possible. Ce qui DISPARAÎT ne revient pas par ici —
+  // c'est le compte (`compterRecords`) qui le révèle (`app.js`, `synchroniserJournal`).
+  function recordsDepuis(curseur) {
+    return paginerParCle(trancheur(function () {
+      var q = client().from('records').select(COLONNES_RECORD);
+      if (curseur) q = q.gt('created_at', curseur);
+      return q;
+    }, 'id'), 'id');
+  }
+
+  function compterRecords() { return compter('records'); }
+
+  // ⚠️ LE SEUL ÉCRIVAIN DU JOURNAL, et il n'est appelé que par la vidange de la
+  // file (`app.js`, `executer`). UN AJOUT QUI IGNORE LES DOUBLONS, JAMAIS UN
+  // UPSERT QUI MODIFIE : `ON CONFLICT (set_id, type) DO NOTHING`. Un envoi
+  // rejoué — la file après une coupure, le remplissage repris, une Édition qui
+  // réécrit toute la séance — ne touche pas aux lignes déjà là ; un upsert qui
+  // fusionne les réécrirait, et `records_immuable` le refuserait.
+  // L'identifiant n'est pas envoyé : la base le tire (`gen_random_uuid()`).
+  async function ajouterRecords(lignes) {
+    if (!lignes || !lignes.length) return;
+    var r = await client().from('records')
+      .upsert(lignes, { onConflict: 'set_id,type', ignoreDuplicates: true });
+    if (r.error) throw r.error;
+  }
+
   // ══ LE PROFIL (chantier 46 §2) ═══════════════════════════════════════════
   //
   // Une ligne, la sienne. `profiles_select_own` est `auth.uid() = id` : ce
@@ -700,6 +737,9 @@
     mesBlocs: mesBlocs,
     enregistrerBloc: enregistrerBloc,
     enregistrerPrediction: enregistrerPrediction,
+    recordsDepuis: recordsDepuis,
+    compterRecords: compterRecords,
+    ajouterRecords: ajouterRecords,
     observerPrediction: observerPrediction,
     mesRoutines: mesRoutines,
     creerRoutine: creerRoutine,

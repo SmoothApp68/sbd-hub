@@ -30,6 +30,7 @@
 //   { table: 'sessions',          op: 'upsert' | 'supprimer', id }
 //   { table: 'sets',              op: 'remplacer',            id: <id de séance> }
 //   { table: 'routine_exercises', op: 'plan',                 id: <id de routine> }
+//   { table: 'records',           op: 'ajouter',              id: <séance ou lot> }  (58-2)
 //
 // La troisième est arrivée au chantier 26, et pour une raison précise : la
 // question de fin « met-on à jour la routine ? » (§6) se pose EN SALLE, là où
@@ -110,6 +111,24 @@
   //     elle ATTEND (`attend`), sans arrêter la file, et repart dès que les
   //     séries de sa séance sont montées (`libererObservations`).
   var OBSERVATIONS = 'observations';
+  // 58-2 (MOTEUR §9.23) — LE JOURNAL DES RECORDS. Une entrée par séance
+  // (`id` : la séance, `depend` : la séance) à « Terminer » et à
+  // l'enregistrement d'une Édition, ou par lot pour le remplissage de
+  // l'historique (`id` : le lot, sans dépendance — ses séances sont déjà en
+  // base). `donnees` : les lignes, toutes celles de la séance.
+  //
+  // ⚠️ UNE OPÉRATION À PART, `ajouter`, ET JAMAIS UN UPSERT QUI MODIFIE. Le
+  // déclencheur `records_immuable` refuse toute modification de ligne : un
+  // envoi rejoué doit IGNORER la ligne déjà là (unicité `set_id, type`), pas
+  // la réécrire — sinon une erreur, et une entrée qui ne passe jamais.
+  //
+  // ⚠️ ELLE PART APRÈS SES SÉRIES. `set_id` référence `sets` : posée après la
+  // séance et ses séries, et reposée EN FIN DE FILE (`alaFin`) à chaque
+  // Édition, elle monte derrière les séries qu'elle désigne ; une série
+  // corrigée après elle effacerait la ligne qu'elle vient d'écrire
+  // (`sets_efface_records`).
+  var RECORDS = 'records';
+  var AJOUTER = 'ajouter';
 
   function cleDe(table, id) { return String(table) + ':' + String(id); }
 
@@ -600,8 +619,20 @@
   // TROIS ÉTATS, PAS DEUX : en attente (rien n'a encore été tenté), en échec
   // (tenté, refusé, on réessaiera), refusé définitivement (on ne réessaiera
   // pas). Le deuxième était invisible, et c'est celui qui trompe.
+  // ⚠️ LE JOURNAL DES RECORDS NE SE COMPTE PAS TANT QU'IL N'A PAS ÉCHOUÉ (58-2).
+  // Il part derrière sa séance, dans la même vidange : le compter ferait dire
+  // « 3 à envoyer » là où l'écran disait « 2 » — et le remplissage de
+  // l'historique, en tâche de fond, afficherait des dizaines d'envois que
+  // personne n'a faits. Un envoi du journal qui ÉCHOUE, lui, se compte et se
+  // dit, comme les autres : rien ne reste en attente sans que l'écran le sache.
+  function compteALEcran(e) {
+    if (!e) return false;
+    if (e.table !== RECORDS) return true;
+    return !!e.bloquee || (e.essais || 0) > 0;
+  }
+
   function resume(file) {
-    var liste = file || [];
+    var liste = (file || []).filter(compteALEcran);
     if (!liste.length) return { enAttente: 0, bloquees: 0, enEchec: 0, libelle: '' };
     var bloquees = liste.filter(function (e) { return !!e.bloquee; }).length;
     var enEchec = liste.filter(function (e) { return !e.bloquee && (e.essais || 0) > 0; }).length;
@@ -641,6 +672,7 @@
     SESSIONS: SESSIONS, SETS: SETS, ROUTINE_EXOS: ROUTINE_EXOS, ZONES: ZONES, MODES: MODES, BLOCS: BLOCS,
     PREDICTIONS: PREDICTIONS,
     OBSERVATIONS: OBSERVATIONS,
+    RECORDS: RECORDS, AJOUTER: AJOUTER,
     OBSERVER: OBSERVER,
     attendSaSerie: attendSaSerie,
     AUCUNE_LIGNE: AUCUNE_LIGNE,

@@ -1248,6 +1248,16 @@ Un exercice **jamais fait** par la personne (aucune série de travail dans son h
 
 **Une médaille par série**, même si elle bat plusieurs records : la phrase les nomme tous, dans cet ordre — le cap rond ou la charge pour N reps, la charge la plus lourde (si elle n'est pas déjà dite), le 1RM estimé, le volume de la séance, la durée et la distance. La ligne grise dit le record d'avant et sa date (« le 15 sept. », l'année si elle diffère).
 
+**Le journal des records** (chantier 58, 07/10/2026 ; migrations `v2_061` et `v2_062`). Chaque record battu s'écrit **une fois**
+dans la table `records` : une ligne par série et par type (§9.23 : charge pour au moins N reps ou reps à charge, charge
+la plus lourde, cap rond, 1RM estimé, volume de la séance, durée, distance), avec sa valeur, la charge d'un record « reps à charge »,
+l'unité d'un record de volume (kg ou reps), l'ancien record et sa date, « sur 12 mois » pour un matériel de salle, et la date où il a été battu. **La règle reste celle de la médaille** : le
+journal ne calcule rien, il garde ce que la fonction des records (le module des faits) a constaté. Il s'écrit **à
+« Terminer »**, par la file d'envoi, pour les séries de la séance ; un envoi répété ne crée pas de doublon. L'historique
+d'avant le journal est **rempli une seule fois par l'app**, avec la même fonction, au premier démarrage qui trouve le
+journal vide pour ce compte. Une ligne écrite **ne se modifie jamais** ; elle disparaît avec sa série (supprimée, ou
+corrigée en Édition : type, charge, reps, durée ou distance) ; l'app réécrit alors les records de cette séance. Les lecteurs (le jeu, plus tard le social) lisent le journal, jamais un recalcul.
+
 **Où.** À la validation de la série, **sous la rangée de la série** (la phrase de réaction, au-dessus de la ligne suivante, parle de la suite ; la médaille parle de cette série : les deux cohabitent). Dans la feuille « Terminer la séance », sous « N séries de travail enregistrées », la liste des records du jour (sans record, la ligne n'apparaît pas : le coach ne commente pas ce qui n'est pas arrivé) ; il n'y a pas d'écran de fin de séance, on n'en crée pas. Dans l'onglet Progression et la vue d'un exercice (ECRAN-SAISIE §7 bis.14 et §7 bis.15).
 
 **Une seule source.** La charge pour au moins N reps se lit sur **la table par reps cumulée** (ECRAN-SAISIE §7 bis.16 : « cumulée, jamais brute ») ; la médaille, le tableau des records, le « record de charge » de la vue d'exercice et le bloc Records de l'onglet lisent tous la même fonction. L'ancien record se lit sur l'historique sans la séance en cours, plus les séries déjà validées de la séance. La date d'un record est le début de sa séance. Les explorations comptent (décision du 02/10/2026).

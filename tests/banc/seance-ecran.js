@@ -13029,8 +13029,16 @@ const SETS_IMPORTES = [
     await attendre(700);
     const finJ = await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .records-fin-l span'))
       .map((x) => x.textContent.replace(/[  ]/g, ' ')));
+    // ⚠️ ATTENDRE L'ENVOI, PAS SEULEMENT UNE FILE VIDE (59-2). Juste après le
+    // clic, l'app n'a pas encore posé ses envois : une file lue vide à cet
+    // instant ne prouve rien, et la navigation suivante interrompait l'envoi
+    // en vol (`ERR_ABORTED`, instable un passage sur deux). On attend que la
+    // séance soit terminée EN BASE, que le journal ait reçu un envoi, et que
+    // la file soit vide.
+    const ecrituresAvantB = base.ecrituresRecords.length;
     await page.click('#feuille-contenu .principal');
-    await attendreQue(async () => (await fileJ()).length === 0, 10000);
+    await attendreQue(async () => (base.sessions.filter((x) => x.id === enCoursJ)[0] || {}).statut === 'terminee' &&
+      base.ecrituresRecords.length > ecrituresAvantB && (await fileJ()).length === 0, 15000);
     const derniere = debutsJ[N58 - 1];
     const lJ = (i, t) => lignesDe(setsJ[i]).filter((x) => x.type === t)[0] || {};
     const debutJ = (base.sessions.filter((x) => x.id === enCoursJ)[0] || {}).debut;
@@ -13058,7 +13066,7 @@ const SETS_IMPORTES = [
     await ouvrirMenuDe('Journal U58');
     await entree('Modifier');
     await page.click('#bandeau-seance .bandeau-fin');
-    await attendreQue(async () => (await fileJ()).length === 0, 10000);
+    await attendreQue(async () => base.ecrituresRecords.length > ecrituresAvantC && (await fileJ()).length === 0, 15000);
     const renvoi = base.ecrituresRecords.slice(ecrituresAvantC);
     ok('[J58] DISCRIMINANT — le renvoi : les mêmes lignes repartent, AUCUN doublon, AUCUN refus (un ajout qui ignore, jamais un upsert qui modifie)',
       renvoi.length >= 1 && renvoi.every((x) => x.ignorer && !x.fusionner) && renvoi.some((x) => x.n === 6) &&
@@ -13075,8 +13083,9 @@ const SETS_IMPORTES = [
     const champsD = await (await ligne(0)).$$('input');
     await champsD[0].fill('152.5');
     await attendre(600);
+    const ecrituresAvantD = base.ecrituresRecords.length;
     await page.click('#bandeau-seance .bandeau-fin');
-    await attendreQue(async () => (await fileJ()).length === 0, 10000);
+    await attendreQue(async () => base.ecrituresRecords.length > ecrituresAvantD && (await fileJ()).length === 0, 15000);
     ok('[J58] DISCRIMINANT — l’Édition réécrit les lignes de la série corrigée : 152,5 kg pour 2 reps, la plus lourde ; plus de cap rond',
       typesDe(setsJ[0]) === 'charge_a_reps,charge_max' && presDe(lJ(0, 'charge_a_reps').valeur, 152.5) &&
         presDe(lJ(0, 'charge_max').valeur, 152.5) && presDe(lJ(0, 'charge_max').ancien, 147.5),

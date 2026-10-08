@@ -679,10 +679,10 @@
     // 60-2a (`v2_065`) — le questionnaire du coach. Omises ici, elles seraient
     // écrites mais jamais relues, et `profil = rendu` les effacerait de l'état
     // local après le premier envoi : le piège de `rythme_progression` et de
-    // `phase`. `programme_choix`, `zones_a_menager` et `zone_force_reponse*`
-    // n'y sont PAS : ni écrites ni lues avant 60-2b et 60-3.
+    // `phase`. `programme_choix` depuis 60-3 (l'écran 8) ; `zones_a_menager` et
+    // `zone_force_reponse*` n'y sont PAS : ni écrites ni lues avant le générateur.
     'objectif, objectif_depuis, priorites, temps_reponse, historique_declare, ' +
-    'phase_confirmee_le, questionnaire_fait_le, ' +
+    'phase_confirmee_le, questionnaire_fait_le, programme_choix, ' +
     'onboarding_completed';
 
   async function monProfil(id) {

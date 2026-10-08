@@ -19,8 +19,11 @@
 // FAIT (« Moins » ouvre la carte de « J'ai peu de temps » ; « Ça varie » montre
 // la durée des longues séances).
 //
-// L'ÉCRAN « TON PROGRAMME » (8, 8a, 8b) N'EXISTE PAS ICI : sans programme déduit
-// ni générateur, sa réponse n'aurait pas de lecteur (60-3).
+// L'ÉCRAN « TON PROGRAMME » (8) existe depuis 60-3, SEULEMENT pour qui n'a aucune
+// routine (QUESTIONNAIRE §3) : « Garder ce que je fais » ouvre, après « Commencer »,
+// la feuille « Tes séances qui reviennent » (8a, ECRAN-SAISIE §7 quindecies.7) ;
+// « Je crée mes routines moi-même » mène à la bibliothèque. 8b (« Construis-le-moi »)
+// attend le générateur (60-4).
 
 (function (racine) {
   'use strict';
@@ -33,13 +36,21 @@
 
   // ── Les écrans, dans l'ordre ─────────────────────────────────────────────
   var BIENVENUE = 'bienvenue', DONNEES = 'donnees', SAIT = 'sait', SANS_HISTORIQUE = 'sans_historique';
-  var TOI = 'toi', BUT = 'but', PRIORITES = 'priorites', TEMPS = 'temps', COACH = 'coach', RECAP = 'recap';
-  var ECRANS = [BIENVENUE, DONNEES, SAIT, SANS_HISTORIQUE, TOI, BUT, PRIORITES, TEMPS, COACH, RECAP];
+  var TOI = 'toi', BUT = 'but', PRIORITES = 'priorites', TEMPS = 'temps', PROGRAMME = 'programme';
+  var COACH = 'coach', RECAP = 'recap';
+  var ECRANS = [BIENVENUE, DONNEES, SAIT, SANS_HISTORIQUE, TOI, BUT, PRIORITES, TEMPS, PROGRAMME, COACH, RECAP];
 
   // L'écran 3a (« Ce que je sais ») ET l'écran 3b (« Sans historique ») : l'un
   // OU l'autre. 3a si la personne a au moins une séance en base et n'a pas
   // répondu « je débute » ; 3b sinon. `contexte` :
-  // `{ aDesSeances: bool, historique: 'import' | 'non_note' | 'debutant' | null }`.
+  // `{ aDesSeances: bool, historique: 'import' | 'non_note' | 'debutant' | null,
+  //    aDesRoutines: bool | null }`.
+  //
+  // L'écran 8 (« Ton programme », 60-3) : SEULEMENT quand on SAIT que la personne
+  // n'a aucune routine (`aDesRoutines === false`). Les routines vivent en ligne :
+  // tant qu'on ne les a pas lues (`null`, hors ligne), l'écran n'existe pas — qui
+  // a déjà ses routines ne se voit jamais proposer ses anciennes séances, et la
+  // ligne de Routines sert à tout le monde.
   function aUnHistorique(contexte) {
     var c = contexte || {};
     return !!c.aDesSeances && c.historique !== 'debutant';
@@ -50,6 +61,7 @@
     return ECRANS.filter(function (id) {
       if (id === SAIT) return avec;
       if (id === SANS_HISTORIQUE) return !avec;
+      if (id === PROGRAMME) return contexte ? contexte.aDesRoutines === false : false;
       return true;
     });
   }
@@ -116,17 +128,20 @@
       priorites: Array.isArray(p.priorites) ? p.priorites.slice() : null,
       temps: nul(p.temps_reponse),
       materiel: nul(p.materiel),
+      programme: Profil().libelleDe(Profil().PROGRAMMES, p.programme_choix) ? p.programme_choix : null,
       coach: coachDe(p)
     };
   }
 
   // « Continuer » : actif partout, SAUF aux écrans qui ont une réponse
-  // obligatoire — 2 (l'historique), 5 (l'objectif ET la phase) et 9 (le coach).
-  // Tout le reste est facultatif (§1.3) : sans réponse, rien n'est écrit.
+  // obligatoire — 2 (l'historique), 5 (l'objectif ET la phase), 8 (le chemin du
+  // programme, §1.3 : « tout est facultatif sauf le chemin du programme ») et 9
+  // (le coach). Tout le reste est facultatif : sans réponse, rien n'est écrit.
   function ecranPret(id, rep) {
     var r = rep || {};
     if (id === DONNEES) return !!r.historique;
     if (id === BUT) return !!r.objectif && !!r.phase;
+    if (id === PROGRAMME) return !!r.programme;
     if (id === COACH) return !!r.coach;
     return true;
   }
@@ -170,7 +185,8 @@
       // (même colonne, même écriture) ; sans puce, la durée reste ce qu'elle était.
       entrees = { temps_reponse: r.temps, materiel: r.materiel,
                   duree_seance_min: r.temps === 'moins' && r.dureeMoins ? r.dureeMoins : r.duree };
-    } else if (id === COACH) entrees = coachEnChamps(r.coach);
+    } else if (id === PROGRAMME) entrees = { programme_choix: r.programme };
+    else if (id === COACH) entrees = coachEnChamps(r.coach);
     else if (id === RECAP) entrees = { fait: true };
     return {
       champs: entrees ? Profil().preparerChamps(profil, entrees, c.maintenant) : {},
@@ -198,7 +214,7 @@
   // réponse que l'écran connaît, et rien d'autre — un geste qui vise une clé
   // inconnue est sans effet.
   var CHOIX = ['historique', 'anciennete', 'seances', 'duree', 'dureeMoins', 'sexe', 'objectif', 'phase',
-               'temps', 'materiel', 'coach'];
+               'temps', 'materiel', 'programme', 'coach'];
 
   function appliquerChoix(rep, cle, valeur) {
     var r = Object.assign({}, rep);
@@ -303,6 +319,11 @@
     varie: 'Je te montrerai la durée des longues séances'
   };
   var SOUS_PHASE = { inconnue: 'Je compte comme maintien' };
+  // L'écran 8 : les sous-lignes de la maquette v4, ce que le code fait de la réponse.
+  var SOUS_PROGRAMME = {
+    deduit: 'Je retrouve tes séances qui reviennent et j’en fais tes routines',
+    moi: 'L’éditeur de routines, à ton rythme'
+  };
 
   function avecSous(liste, sous) {
     return liste.map(function (o) {
@@ -469,6 +490,20 @@
     return { id: TEMPS, etape: 'Temps et matériel', titre: titre, voix: null, blocs: blocs };
   }
 
+  // L'écran 8 (60-3) : « Garder ce que je fais » seulement avec au moins une
+  // séance en base — sans séance, rien à retrouver.
+  function ecranProgramme(etat) {
+    var options = avecSous(Profil().PROGRAMMES, SOUS_PROGRAMME).filter(function (o) {
+      return o.cle !== 'deduit' || !!etat.aDesSeances;
+    });
+    return {
+      id: PROGRAMME, etape: 'Ton programme',
+      titre: 'Comment veux-tu t’entraîner ?',
+      voix: null,
+      blocs: [{ type: 'options', cle: 'programme', valeur: etat.rep.programme, options: options }]
+    };
+  }
+
   function ecranCoach(etat) {
     var options = Profil().RYTHMES.map(function (r) { return { cle: r.cle, libelle: r.libelle, sous: r.phrase }; });
     options.push({ cle: 'carnet', libelle: Profil().libelleDe(Profil().INTENTIONS, 'entretien'),
@@ -499,6 +534,11 @@
       .filter(Boolean).join(' · ');
     var coach = rep.coach === 'carnet' ? P.libelleDe(P.INTENTIONS, 'entretien') : P.libelleDe(P.RYTHMES, rep.coach);
     var tiret = '—';
+    // La ligne « Programme » : seulement si l'écran 8 est du parcours (60-3).
+    var visibles = etat.visibles || ecransVisibles({ aDesSeances: etat.aDesSeances, historique: rep.historique });
+    var programme = visibles.indexOf(PROGRAMME) >= 0
+      ? [{ libelle: 'Programme', valeur: (rep.programme && P.libelleDe(P.PROGRAMMES, rep.programme)) || tiret, ecran: PROGRAMME }]
+      : [];
     return {
       id: RECAP, etape: 'C’est noté',
       titre: 'Voici ce que j’ai compris.',
@@ -510,9 +550,10 @@
         { libelle: 'Phase', valeur: phase || tiret, ecran: BUT },
         { libelle: 'Priorités', valeur: priorites || tiret, ecran: PRIORITES },
         { libelle: 'Temps', valeur: tempsTexte || tiret, ecran: TEMPS },
-        { libelle: 'Matériel', valeur: (rep.materiel && P.libelleDe(P.MATERIELS, rep.materiel)) || tiret, ecran: TEMPS },
+        { libelle: 'Matériel', valeur: (rep.materiel && P.libelleDe(P.MATERIELS, rep.materiel)) || tiret, ecran: TEMPS }
+      ].concat(programme, [
         { libelle: 'Coach', valeur: coach || tiret, ecran: COACH }
-      ] }]
+      ]) }]
     };
   }
 
@@ -527,6 +568,7 @@
   FABRIQUES[BUT] = ecranBut;
   FABRIQUES[PRIORITES] = ecranPriorites;
   FABRIQUES[TEMPS] = ecranTemps;
+  FABRIQUES[PROGRAMME] = ecranProgramme;
   FABRIQUES[COACH] = ecranCoach;
   FABRIQUES[RECAP] = ecranRecap;
 
@@ -552,7 +594,7 @@
 
   var api = {
     ECRANS: ECRANS, BIENVENUE: BIENVENUE, DONNEES: DONNEES, SAIT: SAIT, SANS_HISTORIQUE: SANS_HISTORIQUE,
-    TOI: TOI, BUT: BUT, PRIORITES: PRIORITES, TEMPS: TEMPS, COACH: COACH, RECAP: RECAP,
+    TOI: TOI, BUT: BUT, PRIORITES: PRIORITES, TEMPS: TEMPS, PROGRAMME: PROGRAMME, COACH: COACH, RECAP: RECAP,
     BARRES: BARRES, PUCES_SEANCES: PUCES_SEANCES, PUCES_DUREES: PUCES_DUREES,
     aUnHistorique: aUnHistorique,
     ecransVisibles: ecransVisibles,

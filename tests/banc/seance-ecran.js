@@ -429,7 +429,9 @@ const PROFIL_BANC = {
   // 60-2a (`v2_065`) — le questionnaire du coach.
   objectif: null, objectif_depuis: null, priorites: null, temps_reponse: null,
   historique_declare: null, phase_confirmee_le: null,
-  questionnaire_fait_le: '2026-10-01T08:00:00.000Z'
+  questionnaire_fait_le: '2026-10-01T08:00:00.000Z',
+  // 60-3 — l'écran 8 (« Ton programme ») : `deduit`, `moi` (ou `construis`, au générateur).
+  programme_choix: null
 };
 
 // ⚠️ LE DÉCOR SE DATE DANS LA JOURNÉE EN COURS, JAMAIS DEPUIS UN JOUR DE LA
@@ -1180,12 +1182,14 @@ const SETS_IMPORTES = [
         if (horsListe('objectif', ['force', 'muscle', 'les_deux', 'forme'])) return json(refus('23514', 'profiles_objectif_ok'), 400);
         if (horsListe('temps_reponse', ['max', 'marge', 'moins', 'varie'])) return json(refus('23514', 'profiles_temps_reponse_ok'), 400);
         if (horsListe('historique_declare', ['import', 'non_note', 'debutant'])) return json(refus('23514', 'profiles_historique_declare_ok'), 400);
+        // 60-3 — l'écran 8 : la contrainte relevée au schéma le 08/10.
+        if (horsListe('programme_choix', ['deduit', 'moi', 'construis'])) return json(refus('23514', 'profiles_programme_choix_ok'), 400);
         if (l.priorites !== undefined && l.priorites !== null &&
             (!Array.isArray(l.priorites) || l.priorites.length > 3)) return json(refus('23514', 'profiles_priorites_max3'), 400);
         const i = base.profiles.findIndex((x) => x.id === l.id);
         // Un profil NEUF : le questionnaire n'est pas rempli (colonnes NULL par défaut).
         const neuf = { objectif: null, objectif_depuis: null, priorites: null, temps_reponse: null,
-          historique_declare: null, phase_confirmee_le: null, questionnaire_fait_le: null };
+          historique_declare: null, phase_confirmee_le: null, questionnaire_fait_le: null, programme_choix: null };
         const ligne = Object.assign({}, i >= 0 ? base.profiles[i] : neuf, l);
         if (i >= 0) base.profiles[i] = ligne; else base.profiles.push(ligne);
         return json(projeter([ligne], url), 201);
@@ -14936,6 +14940,233 @@ const SETS_IMPORTES = [
     Object.assign(profilBase(), profilAvant);
     await aller('/saisie');
     ok('[PH60] aucun refus du faux serveur, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,
+      JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
+  }
+
+  console.log('\n══ retrouver. « TES SÉANCES QUI REVIENNENT » : L’ÉCRAN 8 SANS ROUTINE, LA FEUILLE, « MON PROGRAMME » (60-3, ES §7 quindecies.7) ══');
+  //
+  // Le câblage dans l'app réelle (la règle et les gestes ont leurs tests :
+  // `v2-programme-deduit`, `v2-seances-qui-reviennent`, `v2-questionnaire*`) :
+  //   · un compte SANS routine : le questionnaire montre l'écran 8 ; « Garder ce
+  //     que je fais » → « Commencer » → la feuille par-dessus Saisie → « En faire
+  //     mes routines (2) » → deux routines dans « Mon programme », sans charge ;
+  //   · un compte AVEC routines : pas d'écran 8 ; la ligne de Routines ouvre la
+  //     même feuille.
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : deux séances qui reviennent chacune quatre
+  // fois, sur six exercices À ELLES — aucune autre séance du banc ne peut se
+  // mêler à leurs groupes (Jaccard nul). D'autres routines déduites des séances
+  // du banc peuvent apparaître : on les décoche, et le bouton dit alors « (2) ».
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const profilAvant = Object.assign({}, base.profiles[0]);
+    const routinesAvant = ROUTINES.splice(0, ROUTINES.length);
+    const tR = Date.now(), JOUR = 86400000;
+    const EXOS = [
+      ['r60-dev-u603', 'Développé R60 (Haltères)', ['u603_pec'], ['u603_tri', 'u603_epa']],
+      ['r60-row-u603', 'Rowing R60 (Poulie)', ['u603_dos'], ['u603_bic', 'u603_epa']],
+      ['r60-cur-u603', 'Curl R60 (Machine)', ['u603_bic'], []],
+      ['r60-squ-u603', 'Squat R60 (Machine)', ['u603_quad'], ['u603_fess', 'u603_isch']],
+      ['r60-ext-u603', 'Extension R60 (Machine)', ['u603_quad'], []],
+      ['r60-mol-u603', 'Mollets R60 (Machine)', ['u603_mol'], []]
+    ];
+    const catalogueAvant = CATALOGUE.length;
+    EXOS.forEach(([slug, nom, prim, sec]) => CATALOGUE.push({ slug, nom, mesure: 'charge_reps', charge: 'externe',
+      equipement: 'machine', muscles_primaires: prim, muscles_secondaires: sec }));
+    // Haut : il y a 30, 26, 22 et 18 jours ; Bas : 29, 25, 21 et 17 jours. Rien
+    // dans la semaine en cours. Les séries sont datées d'aujourd'hui : la
+    // synchronisation par curseur les prend.
+    const SEANCES = [];
+    const poser = (titre, jours, series) => {
+      const id = '00000000-0000-4000-8603-' + String(SEANCES.length + 1).padStart(12, '0');
+      const debut = ilYa(jours * JOUR, tR).toISOString();
+      SEANCES.push(id);
+      base.sessions.push({ id, user_id: 'u-banc', titre, debut, fin: finDe(debut, tR).toISOString(),
+        statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: null, source: 'hevy', created_at: new Date(tR).toISOString() });
+      series.forEach(([slug, type, kg, reps], i) => base.sets.push({ id: 'r60-' + id.slice(-4) + '-' + (i + 1), session_id: id,
+        user_id: 'u-banc', exercise_slug: slug, charge_kg: kg, reps, duree_s: null, distance_m: null, type_serie: type,
+        rang: i + 1, groupe_superset: null, validee_a: null, rpe: null, ressenti: null, repos_s: null, note: null,
+        source: 'hevy', created_at: new Date(tR).toISOString(), modifie_a: null, douleur: false, occurrence: null }));
+    };
+    const fois = (n, l) => Array.from({ length: n }, () => l);
+    const HAUT = [['r60-dev-u603', 'echauffement', 20, 12]].concat(fois(3, ['r60-dev-u603', 'travail', 30, 10]),
+      fois(3, ['r60-row-u603', 'travail', 50, 10]), fois(3, ['r60-cur-u603', 'travail', 20, 12]));
+    const BAS = fois(4, ['r60-squ-u603', 'travail', 80, 8]).concat(fois(3, ['r60-ext-u603', 'travail', 40, 12]),
+      fois(3, ['r60-mol-u603', 'travail', 60, 15]));
+    [30, 26, 22, 18].forEach((j) => poser('Haut U603', j, HAUT));
+    [29, 25, 21, 17].forEach((j) => poser('Bas U603', j, BAS));
+
+    const profilBase = () => base.profiles[0];
+    const SEL = '#questionnaire-corps ';
+    const ecranR = () => page.evaluate(() => {
+      const c = document.querySelector('#questionnaire-corps .q-corps');
+      const barre = document.querySelector('#questionnaire-corps .q-prog');
+      return { ecran: c ? c.dataset.ecran : null,
+        titre: (document.querySelector('#questionnaire-corps .q-titre') || {}).textContent || null,
+        options: Array.from(document.querySelectorAll('#questionnaire-corps .q-opt')).map((b) => b.dataset.cle),
+        sous: Array.from(document.querySelectorAll('#questionnaire-corps .q-opt .q-sous')).map((n) => n.textContent),
+        actif: !!document.querySelector('#questionnaire-corps .q-continuer') && !document.querySelector('#questionnaire-corps .q-continuer').disabled,
+        total: barre ? barre.getAttribute('aria-valuemax') : null,
+        recap: Array.from(document.querySelectorAll('#questionnaire-corps .q-resume-ligne, #questionnaire-corps .q-ligne'))
+          .map((l) => l.textContent.replace(/[  ]/g, ' ')) };
+    });
+    const cliquerR = async (sel, pause) => { await page.click(SEL + sel); await attendre(pause || 450); };
+    const continuerR = () => cliquerR('.q-continuer', 550);
+    const ouvrirLeQuestionnaire = async () => {
+      // Joué seul, le banc n'a pas encore de page : le stockage local n'existe qu'une fois l'app ouverte.
+      if (!/^https?:/.test(page.url())) await aller('/saisie');
+      await page.evaluate(() => Object.keys(localStorage).filter((k) => k.indexOf('th-v2-questionnaire-vu-') === 0)
+        .forEach((k) => localStorage.removeItem(k)));
+      Object.assign(profilBase(), { questionnaire_fait_le: null, objectif: null, phase: null, historique_declare: null,
+        programme_choix: null, intention: 'progresser', rythme_progression: 'normal' });
+      await aller('/saisie');
+      for (let n = 0; n < 60; n++) {
+        if ((await visible()).indexOf('vue-questionnaire') >= 0) return true;
+        await attendre(250);
+      }
+      return false;
+    };
+    // Jusqu'à l'écran « Temps » : les réponses obligatoires, rien d'autre.
+    const jusquAuTemps = async () => {
+      await continuerR();
+      await cliquerR('.q-opt[data-cle="import"]'); await continuerR();
+      for (let n = 0; n < 4 && (await ecranR()).ecran !== 'but'; n++) await continuerR();
+      await cliquerR('.q-puce[data-cle="force"]'); await cliquerR('.q-opt[data-cle="maintien"]'); await continuerR();
+      for (let n = 0; n < 3 && (await ecranR()).ecran !== 'temps'; n++) await continuerR();
+      return ecranR();
+    };
+    const sp = (t) => (t || '').replace(/[  ]/g, ' ');
+    const feuilleR = () => page.evaluate(() => {
+      const c = document.getElementById('feuille-contenu');
+      const t = (n) => n ? n.textContent.replace(/[  ]/g, ' ') : null;
+      return { ouverte: !document.getElementById('feuille-seance').hidden,
+        titre: t(c.querySelector('.feuille-t')),
+        cartes: Array.from(c.querySelectorAll('.retrouver-carte')).map((k) => ({ nom: t(k.querySelector('.rc-nom')),
+          ligne: t(k.querySelector('.rc-ligne')), exos: t(k.querySelector('.rc-exos')), ancienne: t(k.querySelector('.rc-ancienne')),
+          cochee: k.getAttribute('aria-pressed') === 'true' })),
+        voix: t(c.querySelector('.q-voix')),
+        boutons: Array.from(c.querySelectorAll('.feuille-menu button')).map((b) => [t(b), b.disabled]) };
+    });
+    const MIENNES = ['Haut U603', 'Bas U603'];
+    const decocherLesAutres = async () => {
+      for (let n = 0; n < 30; n++) {
+        const f = await feuilleR();
+        const i = f.cartes.findIndex((c) => c.cochee && MIENNES.indexOf(c.nom) < 0);
+        if (i < 0) return f;
+        await page.evaluate((k) => document.querySelectorAll('#feuille-contenu .retrouver-carte')[k].click(), i);
+        await attendre(150);
+      }
+      return feuilleR();
+    };
+
+    // ── A. UN COMPTE SANS ROUTINE : l'écran 8, entre « Temps » et « Coach ».
+    const ouvert = await ouvrirLeQuestionnaire();
+    let e = await jusquAuTemps();
+    ok('[R60] prémisse : aucune routine en base, le questionnaire s’ouvre et arrive à « Temps et matériel »',
+      ouvert && ROUTINES.length === 0 && e.ecran === 'temps', JSON.stringify([ouvert, ROUTINES.length, e.ecran]));
+    ok('[R60] A — sans routine, la barre compte l’écran 8 : 10 écrans', e.total === '10', JSON.stringify(e.total));
+    await continuerR();
+    e = await ecranR();
+    ok('[R60] A — « Temps » mène à « Ton programme » : « Comment veux-tu t’entraîner ? », deux chemins et leurs sous-lignes, « Continuer » éteint',
+      e.ecran === 'programme' && e.titre === 'Comment veux-tu t’entraîner ?' && JSON.stringify(e.options) === '["deduit","moi"]' &&
+        JSON.stringify(e.sous) === JSON.stringify(['Je retrouve tes séances qui reviennent et j’en fais tes routines', 'L’éditeur de routines, à ton rythme']) &&
+        e.actif === false, JSON.stringify(e));
+    await cliquerR('.q-opt[data-cle="deduit"]');
+    await continuerR();
+    await attendre(500);
+    e = await ecranR();
+    ok('[R60] A — « Garder ce que je fais » s’écrit (`programme_choix` = deduit), puis « Ton coach »',
+      profilBase().programme_choix === 'deduit' && e.ecran === 'coach', JSON.stringify([profilBase().programme_choix, e.ecran]));
+    await cliquerR('.q-opt[data-cle="normal"]');
+    await continuerR();
+    e = await ecranR();
+    ok('[R60] A — le récapitulatif porte la ligne « Programme » : « Garder ce que je fais »',
+      e.ecran === 'recap' && e.recap.some((l) => /^Programme\s*Garder ce que je fais/.test(l)), JSON.stringify(e.recap));
+    ok('[R60] A — rien n’est encore créé, et la feuille n’est pas ouverte avant « Commencer »',
+      ROUTINES.length === 0 && !(await feuilleR()).ouverte, JSON.stringify(ROUTINES.length));
+    await continuerR();
+    await attendre(1500);
+    let f = await feuilleR();
+    const vues = await visible();
+    ok('[R60] B — « Commencer » : le questionnaire se termine, Saisie s’ouvre, et la feuille arrive PAR-DESSUS',
+      vues.indexOf('vue-saisie') >= 0 && vues.indexOf('vue-questionnaire') < 0 && f.ouverte &&
+        f.titre === 'Tes séances qui reviennent, sur tes 12 dernières semaines.', JSON.stringify([vues, f.ouverte, f.titre]));
+    const haut = f.cartes.filter((c) => c.nom === 'Haut U603')[0], bas = f.cartes.filter((c) => c.nom === 'Bas U603')[0];
+    ok('[R60] B — les deux séances qui reviennent, cochées, avec leur compte et leurs exercices (séries × reps)',
+      !!haut && !!bas && haut.cochee && bas.cochee && /^4 fois · dernière fois /.test(haut.ligne) &&
+        haut.exos === 'Développé R60 (Haltères) 3 × 10 · Rowing R60 (Poulie) 3 × 10 · Curl R60 (Machine) 3 × 12' &&
+        bas.exos === 'Squat R60 (Machine) 4 × 8 · Extension R60 (Machine) 3 × 12 · Mollets R60 (Machine) 3 × 15' &&
+        haut.ancienne === null && f.cartes.indexOf(haut) < f.cartes.indexOf(bas), JSON.stringify(f.cartes));
+    ok('[R60] B — la voix du coach : « Tu pourras tout changer ensuite : exercices, séries, repos. »',
+      f.voix === 'Tu pourras tout changer ensuite : exercices, séries, repos.', JSON.stringify(f.voix));
+    f = await decocherLesAutres();
+    ok('[R60] B — les autres décochées : « En faire mes routines (2) », actif ; « Pas maintenant »',
+      JSON.stringify(f.boutons) === JSON.stringify([['En faire mes routines (2)', false], ['Pas maintenant', false]]), JSON.stringify(f.boutons));
+    // Deux taps, dans le même instant : une seule écriture par routine.
+    await page.evaluate(() => { const b = document.querySelector('#feuille-contenu .retrouver-creer'); b.click(); b.click(); });
+    for (let n = 0; n < 40 && (await feuilleR()).ouverte; n++) await attendre(250);
+    await attendre(1500);
+    const creees = ROUTINES.filter((r) => MIENNES.indexOf(r.nom) >= 0);
+    ok('[R60] C — « En faire mes routines (2) » : DEUX routines (deux taps n’écrivent pas deux fois), dans « Mon programme », dans l’ordre de la feuille',
+      ROUTINES.length === 2 && creees.length === 2 && creees.every((r) => r.dossier === 'Mon programme') &&
+        JSON.stringify(creees.slice().sort((a, b) => a.rang - b.rang).map((r) => r.nom)) === '["Haut U603","Bas U603"]',
+      JSON.stringify(ROUTINES.map((r) => [r.nom, r.dossier, r.rang])));
+    const formeR = (nom) => {
+      const r = ROUTINES.filter((x) => x.nom === nom)[0];
+      return r ? r.routine_exercises.slice().sort((a, b) => a.rang - b.rang).map((x) => [x.exercise_slug, x.repos_cible_s,
+        (x.routine_sets || []).slice().sort((a, b) => a.rang - b.rang).map((l) => [l.type_serie, l.reps_visees, l.charge_cible_kg])]) : null;
+    };
+    ok('[R60] C — la structure de « En faire une routine » : chauffe puis séries de travail aux reps visées, le repos par défaut, JAMAIS de charge',
+      JSON.stringify(formeR('Haut U603')) === JSON.stringify([
+        ['r60-dev-u603', 180, [['echauffement', null, null], ['travail', 10, null], ['travail', 10, null], ['travail', 10, null]]],
+        ['r60-row-u603', 120, [['travail', 10, null], ['travail', 10, null], ['travail', 10, null]]],
+        ['r60-cur-u603', 90, [['travail', 12, null], ['travail', 12, null], ['travail', 12, null]]]]),
+      JSON.stringify(formeR('Haut U603')));
+    const biblio = await page.evaluate(() => ({
+      vues: Array.from(document.querySelectorAll('main > section')).filter((s) => !s.hidden).map((s) => s.id),
+      dossiers: Array.from(document.querySelectorAll('#liste-routines .dossier-ligne')).map((l) => l.getAttribute('data-dossier')),
+      routines: Array.from(document.querySelectorAll('#liste-routines .routine-nom')).map((n) => n.textContent),
+      ligne: (document.querySelector('#liste-routines .retrouver-seances') || {}).textContent || null }));
+    ok('[R60] C — puis la bibliothèque s’ouvre sur « Mon programme », déplié, avec ses deux routines',
+      biblio.vues.indexOf('vue-saisie') >= 0 && biblio.dossiers.indexOf('Mon programme') >= 0 &&
+        biblio.routines.indexOf('Haut U603') >= 0 && biblio.routines.indexOf('Bas U603') >= 0, JSON.stringify(biblio));
+
+    // ── D. UN COMPTE AVEC ROUTINES : la ligne de Routines ouvre la même feuille.
+    ok('[R60] D — la ligne « Retrouver mes séances qui reviennent » est en tête de la bibliothèque',
+      biblio.ligne === 'Retrouver mes séances qui reviennent', JSON.stringify(biblio.ligne));
+    await page.click('#liste-routines .retrouver-seances');
+    await attendre(900);
+    f = await feuilleR();
+    ok('[R60] D — elle ouvre la MÊME feuille, sur les mêmes séances qui reviennent (rien n’est écrit à l’ouverture)',
+      f.ouverte && f.titre === 'Tes séances qui reviennent, sur tes 12 dernières semaines.' &&
+        f.cartes.some((c) => c.nom === 'Haut U603') && f.cartes.some((c) => c.nom === 'Bas U603') && ROUTINES.length === 2,
+      JSON.stringify([f.titre, f.cartes.map((c) => c.nom), ROUTINES.length]));
+    await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
+      .filter((b) => b.textContent === 'Pas maintenant')[0].click());
+    await attendre(400);
+    ok('[R60] D — « Pas maintenant » ferme, rien n’est écrit', !(await feuilleR()).ouverte && ROUTINES.length === 2,
+      JSON.stringify(ROUTINES.length));
+    await ouvrirLeQuestionnaire();
+    e = await jusquAuTemps();
+    ok('[R60] D — ⚠️ DISCRIMINANT : avec des routines, la barre ne compte PAS l’écran 8 (9 écrans)', e.total === '9', JSON.stringify(e.total));
+    await continuerR();
+    e = await ecranR();
+    ok('[R60] D — ⚠️ DISCRIMINANT : avec des routines, « Temps » mène directement à « Ton coach »', e.ecran === 'coach', JSON.stringify(e.ecran));
+
+    // ── LA REMISE EN ÉTAT, pour les sections suivantes.
+    await page.evaluate(() => Object.keys(localStorage).filter((k) => k.indexOf('th-v2-questionnaire-vu-') === 0)
+      .forEach((k) => localStorage.removeItem(k)));
+    ROUTINES.splice(0, ROUTINES.length);
+    routinesAvant.forEach((r) => ROUTINES.push(r));
+    base.sessions = base.sessions.filter((s) => SEANCES.indexOf(s.id) < 0);
+    base.sets = base.sets.filter((x) => SEANCES.indexOf(x.session_id) < 0);
+    CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
+    Object.keys(profilBase()).forEach((k) => { delete profilBase()[k]; });
+    Object.assign(profilBase(), profilAvant);
+    await aller('/saisie');
+    ok('[R60] aucun refus du faux serveur (CHECK de la base, RLS), aucune erreur de page',
       base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,
       JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
   }

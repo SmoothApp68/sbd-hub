@@ -442,13 +442,13 @@ describe('12. la liste de lecture est DÉRIVÉE, jamais recopiée', () => {
   // seraient lues vides, et `profil = rendu` (la réponse de l'envoi) les
   // EFFACERAIT de l'état local : le questionnaire se rouvrirait à chaque
   // démarrage, sans une erreur.
-  test('le `select` du profil demande les sept colonnes du questionnaire — et PAS celles de 60-2b et 60-3', async () => {
+  test('le `select` du profil demande les sept colonnes du questionnaire et `programme_choix` (60-3) — et PAS celles du générateur', async () => {
     const Donnees = charger();
     await Donnees.monProfil('u-1');
     const demandees = requetes[0].colonnes.split(',').map((c) => c.trim());
     ['objectif', 'objectif_depuis', 'priorites', 'temps_reponse', 'historique_declare',
-      'phase_confirmee_le', 'questionnaire_fait_le'].forEach((c) => expect(demandees).toContain(c));
-    ['programme_choix', 'zones_a_menager', 'zone_force_reponse', 'zone_force_reponse_le']
+      'phase_confirmee_le', 'questionnaire_fait_le', 'programme_choix'].forEach((c) => expect(demandees).toContain(c));
+    ['zones_a_menager', 'zone_force_reponse', 'zone_force_reponse_le']
       .forEach((c) => expect(demandees).not.toContain(c));
   });
 

@@ -1573,6 +1573,23 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .case-programme .cp-nom{flex:1;min-width:0;overflow-wrap:anywhere}
 .case-programme .cp-zone{color:var(--texte-2);white-space:nowrap}
 
+/* 60-3 (ES §7 quindecies.7) — « Tes séances qui reviennent » : une carte par
+   routine trouvée, sa case à gauche (le glyphe de « Faire de ce dossier un
+   programme »), une ancienne dite en gris. La ligne de la bibliothèque est un
+   `.discret.bloc-large`, comme « Séance vide ». */
+.retrouver-seances{margin-bottom:var(--e2)}
+.retrouver-liste{margin:0 0 var(--e3)}
+.retrouver-carte{display:flex;align-items:flex-start;gap:var(--e2);width:100%;padding:11px 2px;
+  background:none;border:0;border-bottom:1px solid var(--trait);color:var(--texte);
+  font:inherit;font-size:13.5px;text-align:left;cursor:pointer}
+.retrouver-carte .rc-case{flex:none;line-height:1.35}
+.retrouver-carte .rc-corps{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.retrouver-carte .rc-nom{font-weight:650;overflow-wrap:anywhere}
+.retrouver-carte .rc-ligne{font-size:12px;color:var(--texte-2)}
+.retrouver-carte .rc-exos{font-size:12px;line-height:1.4;color:var(--texte-2);overflow-wrap:anywhere}
+.retrouver-carte .rc-ancienne{font-size:12px;color:var(--texte-3)}
+.retrouver-rien{font-size:13.5px;line-height:1.45;color:var(--texte-2);margin:0 0 var(--e2)}
+
 /* ── MOTEUR §9.23 (55-1) — LE MOIS ET SES RECORDS (maquette « L'onglet »,
    « Le mois »). Descriptif : le mois affiché en couleur du coach, les autres
    en gris, quelle que soit leur hauteur ; aucune couleur de jugement. */

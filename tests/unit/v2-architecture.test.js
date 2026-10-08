@@ -800,11 +800,13 @@ const NOTIONS = [
     raison: 'QUESTIONNAIRE-COACH-V2 §5 (60-3) : le portage de `deduire()` (`deduit60b.py`), prouvé par ses cas. ' +
       'Une seule règle : l’écran 8 et la ligne de Routines ouvrent la même feuille, sur les mêmes routines.' },
   { notion: 'les faits du programme déduit (les séances, leur titre, leurs séries, la mesure de chaque exercice)', pr: '60-U9',
-    module: 'faits.js', fonction: 'programmeDeduit', lecteurs: [],
+    module: 'faits.js', fonction: 'programmeDeduit', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['ouvrirSeancesQuiReviennent'] },
     raison: 'UN-SEUL-FIL (60-3) : la règle reçoit ses faits du module des faits, le groupement du bilan ; ' +
       'un écran qui assemblerait ses séances à part pourrait en oublier une.' },
   { notion: 'la structure d’une routine déduite (celle de « En faire une routine »)', pr: '60-U9',
-    module: 'routines.js', fonction: 'routineDeduite', lecteurs: [],
+    module: 'routines.js', fonction: 'routineDeduite', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['creerRoutinesDeduites'] },
     raison: 'ECRAN-SAISIE §7 quindecies.7 (60-3) : chaque routine cochée devient la structure de « En faire une ' +
       'routine » — les mêmes blocs, les mêmes repos et leur origine, jamais une charge. Pas une seconde règle des repos.' }
 ];

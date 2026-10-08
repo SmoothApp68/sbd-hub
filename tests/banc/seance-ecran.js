@@ -15654,12 +15654,12 @@ const SETS_IMPORTES = [
 
     // Un débutant qui a déjà fait les tractions les garde : une séance d'il y a 5 jours avec des tractions.
     const idT = '00000000-0000-4000-8606-000000000001';
-    const debutT = new Date(Date.now() - 5 * JOUR).toISOString();
-    base.sessions.push({ id: idT, user_id: 'u-banc', titre: 'Tirage', debut: debutT, fin: finDe(debutT, Date.now()).toISOString(),
-      statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: new Date().toISOString() });
+    const debutT = ilYa(5 * JOUR, tR).toISOString();
+    base.sessions.push({ id: idT, user_id: 'u-banc', titre: 'Tirage', debut: debutT, fin: finDe(debutT, tR).toISOString(),
+      statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: new Date(tR).toISOString() });
     for (let k = 0; k < 3; k++) base.sets.push({ id: 'r60-j-' + k, session_id: idT, user_id: 'u-banc', exercise_slug: 'tractions',
       charge_kg: 0, reps: 8, duree_s: null, distance_m: null, type_serie: 'travail', rang: k + 1, groupe_superset: null,
-      validee_a: null, rpe: null, ressenti: null, repos_s: null, note: null, source: 'app', created_at: new Date().toISOString(),
+      validee_a: null, rpe: null, ressenti: null, repos_s: null, note: null, source: 'app', created_at: new Date(tR).toISOString(),
       modifie_a: null, douleur: false, occurrence: null });
     ap = await apercuDe({ anciennete: 'moins_1_an' }, 3);
     nomsJ = tousLesNoms(ap);

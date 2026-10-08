@@ -8391,7 +8391,8 @@
 
   // 60-3 — l'écran 8 (« Ton programme ») seulement quand on SAIT qu'il n'y a
   // aucune routine : tant que la bibliothèque n'est pas lue (hors ligne), `null`,
-  // et l'écran n'existe pas.
+  // et l'écran n'existe pas. 60-3b : et seulement avec au moins une séance en base
+  // (`aDesSeances`, plus bas) — la règle est dans `Questionnaire.ecransVisibles`.
   function aDesRoutinesConnu() {
     return etatRoutines.code === 'ok' ? routines.length > 0 : null;
   }

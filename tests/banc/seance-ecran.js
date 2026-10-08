@@ -15155,6 +15155,27 @@ const SETS_IMPORTES = [
     e = await ecranR();
     ok('[R60] D — ⚠️ DISCRIMINANT : avec des routines, « Temps » mène directement à « Ton coach »', e.ecran === 'coach', JSON.stringify(e.ecran));
 
+    // ── E. 60-3b : AUCUNE ROUTINE ET AUCUNE SÉANCE → pas d'écran 8 (une question à un seul choix
+    // n'apprend rien) ; `programme_choix` n'est pas écrit.
+    ROUTINES.splice(0, ROUTINES.length);
+    const sessionsAvantE = base.sessions, setsAvantE = base.sets;
+    base.sessions = []; base.sets = [];
+    // L'appareil connaît d'abord la base VIDE : un cache qui garde encore des séances ferait croire à
+    // l'app qu'il y en a, jusqu'à ce que la synchronisation le vide (au milieu du parcours).
+    Object.assign(profilBase(), { questionnaire_fait_le: profilAvant.questionnaire_fait_le });
+    await aller('/saisie');
+    await attendre(1500);
+    await ouvrirLeQuestionnaire();
+    e = await jusquAuTemps();
+    ok('[R60] E — ⚠️ DISCRIMINANT (60-3b) : aucune routine et AUCUNE séance : la barre ne compte pas l’écran 8 (9 écrans)',
+      e.ecran === 'temps' && e.total === '9', JSON.stringify(e));
+    await continuerR();
+    e = await ecranR();
+    ok('[R60] E — ⚠️ DISCRIMINANT (60-3b) : « Temps » mène directement à « Ton coach » ; `programme_choix` reste vide',
+      e.ecran === 'coach' && (profilBase().programme_choix === null || profilBase().programme_choix === undefined),
+      JSON.stringify([e.ecran, profilBase().programme_choix]));
+    base.sessions = sessionsAvantE; base.sets = setsAvantE;
+
     // ── LA REMISE EN ÉTAT, pour les sections suivantes.
     await page.evaluate(() => Object.keys(localStorage).filter((k) => k.indexOf('th-v2-questionnaire-vu-') === 0)
       .forEach((k) => localStorage.removeItem(k)));

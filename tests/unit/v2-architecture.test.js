@@ -322,7 +322,7 @@ const NOTIONS = [
     raison: 'aucun écran ne lit le palier brut : les faits passent par `Modele`, les mots du ' +
       'coach par la consigne. La page et Progression l’appelaient chacune à part.' },
   { notion: 'la série de travail (le type, `travail` quand il manque)', pr: 'PR 6',
-    module: 'modele.js', fonction: 'estTravail', lecteurs: ['seance.js', 'semaine.js', 'plan.js', 'app.js', 'bilan.js', 'faits.js'],
+    module: 'modele.js', fonction: 'estTravail', lecteurs: ['seance.js', 'semaine.js', 'plan.js', 'app.js', 'bilan.js', 'faits.js', 'routines.js'],
     motif: /\.\s*estTravail\s*\(/g,
     par: ['exercicesFaits', 'tableParReps', 'construireBlocs'],
     interditAilleurs: { motif: /type_serie\s*[!=]==?\s*(['"])travail\1|typeDe\([^()]*\)\s*[!=]==?\s*(['"])travail\2|\|\|\s*(['"])travail\3\s*\)\s*[!=]==?/,
@@ -460,6 +460,7 @@ const NOTIONS = [
       '§9.9 appelée par sa fonction, jamais recopiée (une charge de repli calculée à part serait une seconde règle).' },
   { notion: 'la structure d’une séance en routine (« En faire une routine », ECRAN-SAISIE §7 quindecies.4)', pr: '52-U1',
     module: 'routines.js', fonction: 'routineDepuisSeance', lecteurs: ['app.js'],
+    par: ['routineDeduite'],
     parAilleurs: { 'app.js': ['structureDeLaSeance'] },
     raison: 'la nouvelle routine et la mise à jour lisent la même structure (blocs du détail, supersets, ' +
       'reps repères, repos et leur origine, jamais une charge) : un second découpage dirait une autre routine.' },
@@ -660,7 +661,7 @@ const NOTIONS = [
   // plus bas, refuse une seconde déclaration ailleurs).
   { notion: 'les séances avec leurs séries (le cache groupé par séance, trié par rang)', pr: '58-U1',
     module: 'faits.js', fonction: 'seancesAvecSeries', lecteurs: ['app.js'],
-    par: ['seancesDuSlug', 'recordsDuMois', 'dernierRecord'],
+    par: ['seancesDuSlug', 'recordsDuMois', 'dernierRecord', 'programmeDeduit'],
     parAilleurs: { 'app.js': ['bilanDuMoisDe'] },
     raison: 'UN-SEUL-FIL : le bilan du mois, ses records et le dernier record lisent le même groupement, ' +
       'avec le même mémo — un second groupement dirait une autre séance.' },
@@ -791,7 +792,21 @@ const NOTIONS = [
     module: 'moteur.js', fonction: 'reponseDeTemps', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['tempsDeLaRoutine'] },
     raison: 'MOTEUR §9.18 (60-2b) : la condition (durée visée déclarée, estimation au-dessus, pas de carnet) et ce que chaque ' +
-      'réponse en fait vivent dans le moteur ; `tempsDeLaRoutine` la lit, ni l’écran ni la rangée ne comparent une durée à la main.' }
+      'réponse en fait vivent dans le moteur ; `tempsDeLaRoutine` la lit, ni l’écran ni la rangée ne comparent une durée à la main.' },
+  // ── 60-3 — LE PROGRAMME DÉDUIT (QUESTIONNAIRE-COACH-V2 §5) ────────────────
+  { notion: 'les séances qui reviennent (la règle du programme déduit : fenêtre, signature, regroupement, médianes, nom, récence)', pr: '60-U9',
+    module: 'routines.js', fonction: 'seancesQuiReviennent', lecteurs: ['faits.js'],
+    parAilleurs: { 'faits.js': ['programmeDeduit'] },
+    raison: 'QUESTIONNAIRE-COACH-V2 §5 (60-3) : le portage de `deduire()` (`deduit60b.py`), prouvé par ses cas. ' +
+      'Une seule règle : l’écran 8 et la ligne de Routines ouvrent la même feuille, sur les mêmes routines.' },
+  { notion: 'les faits du programme déduit (les séances, leur titre, leurs séries, la mesure de chaque exercice)', pr: '60-U9',
+    module: 'faits.js', fonction: 'programmeDeduit', lecteurs: [],
+    raison: 'UN-SEUL-FIL (60-3) : la règle reçoit ses faits du module des faits, le groupement du bilan ; ' +
+      'un écran qui assemblerait ses séances à part pourrait en oublier une.' },
+  { notion: 'la structure d’une routine déduite (celle de « En faire une routine »)', pr: '60-U9',
+    module: 'routines.js', fonction: 'routineDeduite', lecteurs: [],
+    raison: 'ECRAN-SAISIE §7 quindecies.7 (60-3) : chaque routine cochée devient la structure de « En faire une ' +
+      'routine » — les mêmes blocs, les mêmes repos et leur origine, jamais une charge. Pas une seconde règle des repos.' }
 ];
 
 // ── 58-1 — UN FAIT NE SE DÉCLARE QUE DANS `faits.js` ─────────────────────────
@@ -1113,7 +1128,7 @@ describe('architecture — le registre des notions : une source, des lecteurs', 
 describe('architecture — le module des faits : un fait ne se déclare que dans faits.js (58-1)', () => {
   const FICHIERS = perimetre();
 
-  test('les faits du module : dix-sept (treize en 58-1, trois du journal en 58-2, un du questionnaire en 60-2a), chacun déclaré et exporté par faits.js', () => {
+  test('les faits du module : dix-huit (treize en 58-1, trois du journal en 58-2, un du questionnaire en 60-2a, un du programme déduit en 60-3), chacun déclaré et exporté par faits.js', () => {
     global.self = global;
     require('../../v2/js/modele.js');
     require('../../v2/js/semaine.js');
@@ -1123,7 +1138,7 @@ describe('architecture — le module des faits : un fait ne se déclare que dans
     require('../../v2/js/seance.js');
     require('../../v2/js/periode.js');
     const instance = require('../../v2/js/faits.js').creer();
-    expect(FAITS.length).toBe(17);
+    expect(FAITS.length).toBe(18);
     expect(FAITS.filter((fn) => typeof instance[fn] !== 'function')).toEqual([]);
   });
 

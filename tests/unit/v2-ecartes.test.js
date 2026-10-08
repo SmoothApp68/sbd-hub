@@ -355,3 +355,98 @@ describe('les gestes : le catalogue et « Machine prise » rangent les écartés
       ['Développé couché (machine)', false], ['Développé couché (Smith)', false], ['Développé couché (haltères)', true]]);
   });
 });
+
+// ═══ LA REVUE ADVERSE DE 60-4 : les trous de test ═══════════════════════════
+describe('revue adverse — « Je n’en veux pas » : ce que les tests ne tenaient pas', () => {
+  test('⚠️ DISCRIMINANT — tous les frères sont DÉJÀ dans la routine : aucun n’est pris, la feuille de « Remplacer » s’ouvre (le garde `deja_dans_la_seance`)', () => {
+    const b = bac({ exercices: [
+      exo('e0', 'dc-barre', [ligne('travail', 8, 80)]), exo('e1', 'dc-halteres', [ligne('travail', 8, 30)]),
+      exo('e2', 'dc-machine', [ligne('travail', 8, 70)]), exo('e3', 'dc-smith', [ligne('travail', 8, 60)]) ] });
+    b.appel('neVeutPasDansLEditeur(0)');
+    expect(b.slugs()).toEqual(['dc-barre', 'dc-halteres', 'dc-machine', 'dc-smith']);       // rien n'est remplacé
+    expect(b.ctx.__feuille.titre).toBe('Remplacer');
+    expect(b.noeud.hidden).toBe(true);
+    expect(b.journal.profil).toEqual([{ exercices_ecartes: ['dc-barre'] }]);                // écarté quand même
+  });
+
+  test('⚠️ DISCRIMINANT — « Je n’en veux pas » n’est dans AUCUN menu de séance (le bloc, le bloc d’un superset, l’exercice d’un superset)', () => {
+    const menus = [
+      (c) => Rendu().rendreFeuilleBloc(c, { superset: false, noms: 'Squat', surMachinePrise: () => {}, surJaiMal: () => {}, surRemplacer: () => {},
+        surGrouper: () => {}, peutGrouper: true, surAjouterApres: () => {}, surReorganiser: () => {}, surProgression: () => {}, surSupprimer: () => {} }),
+      (c) => Rendu().rendreFeuilleBloc(c, { superset: true, noms: 'Squat · Curl', surGrouper: () => {}, peutGrouper: false, surAjouterApres: () => {},
+        surReorganiser: () => {}, surProgression: () => {}, surSupprimer: () => {} }),
+      (c) => Rendu().rendreFeuilleExercice(c, { nom: 'Squat', surMachinePrise: () => {}, surJaiMal: () => {}, surRemplacer: () => {},
+        surDegrouper: () => {}, surProgression: () => {}, surSupprimer: () => {} })
+    ];
+    menus.forEach((rendre) => {
+      const cible = document.createElement('div');
+      rendre(cible);
+      expect(cible.querySelectorAll('button').length).toBeGreaterThan(3);
+      expect(texte(cible)).not.toMatch(/n’en veux pas/);
+    });
+  });
+
+  test('la phrase d’un geste précédent s’efface à l’ouverture du menu d’un exercice (elle ne reste pas sur un état qui a changé)', () => {
+    const b = bac();
+    b.appel('neVeutPasDansLEditeur(1)');
+    expect(b.noeud.hidden).toBe(false);
+    b.appel('ouvrirFeuilleExoRoutine(2)');
+    expect(b.noeud.textContent).toBe('');
+    expect(b.noeud.hidden).toBe(true);
+  });
+
+  test('la phrase est AU-DESSUS des exercices et collante (sous une longue routine, elle resterait hors de l’écran)', () => {
+    const html = fs.readFileSync(path.join(__dirname, '../../v2/index.html'), 'utf8');
+    expect(html.indexOf('id="voix-routine"')).toBeGreaterThan(0);
+    expect(html.indexOf('id="voix-routine"')).toBeLessThan(html.indexOf('id="exos-routine"'));
+    expect(html).toMatch(/id="voix-routine" class="q-voix voix-collante"/);
+    const css = fs.readFileSync(path.join(__dirname, '../../v2/styles.css'), 'utf8');
+    expect(css).toMatch(/\.voix-collante\{position:sticky;/);
+  });
+});
+
+describe('revue adverse — le catalogue : la mention, la limite de 30, la remise à zéro', () => {
+  const CAT = [];
+  for (let i = 1; i <= 35; i++) CAT.push({ slug: 'curl' + i, nom: 'Curl ' + (i < 10 ? '0' : '') + i, equipement: 'haltere' });
+
+  function bacCat(profil) {
+    const rendus = [];
+    const ctx = {
+      Profil, Routines, profil, local: { exercices: CAT }, seance: null, vues: { seance: { hidden: true } },
+      faits: { datesDesExercices: () => ({ frais: true }) }, corpus: () => ({}),
+      $: () => ({ value: '', focus: () => {} }),
+      Rendu: { rendreResultatsExo: (c, liste, choisir, ecartes) => rendus.push({ slugs: liste.map((x) => x.slug), ecartes }), message: () => {} },
+      fermerVoile: () => {}, ouvrirVoile: () => {}, faitsDuCatalogue: { vieux: 1 }, intentionCatalogue: null, rendus,
+      indiceOuNul: (v) => (v === undefined || v === null ? null : v)
+    };
+    vm.createContext(ctx);
+    ['ordreDuCatalogue', 'rendreCatalogue', 'ouvrirCatalogue'].forEach((n) => vm.runInContext(extraire(n), ctx));
+    return ctx;
+  }
+
+  test('⚠️ DISCRIMINANT — le catalogue passe la liste des écartés au rendu (la mention « écarté » en dépend)', () => {
+    const c = bacCat({ exercices_ecartes: ['curl3', 'curl9'] });
+    vm.runInContext('rendreCatalogue()', c);
+    expect(c.rendus[0].ecartes).toEqual(['curl3', 'curl9']);
+    expect(c.rendus[0].slugs.slice(-0)).toBeDefined();
+    expect(c.rendus[0].slugs.indexOf('curl3')).toBe(-1);                   // rangé en fin de liste, donc hors des 30 premiers…
+    expect(c.rendus[0].slugs.length).toBe(30);
+  });
+
+  test('⚠️ DISCRIMINANT — la limite de 30 s’applique APRÈS le rangement : un écarté reste TROUVABLE en tapant son nom, et sans écarté la liste d’avant', () => {
+    expect(slugs(Routines.chercher(CAT, 'curl', undefined, (l) => l.slice().reverse()))[0]).toBe('curl35');   // l'ordre précède la limite
+    const ordre = (l) => Profil.ecartesALaFin(l, ['curl3']);
+    const trente = Routines.chercher(CAT, 'curl', undefined, ordre);
+    expect(trente.length).toBe(30);
+    expect(slugs(trente)).not.toContain('curl3');                              // en fin de liste : hors des 30
+    expect(slugs(Routines.chercher(CAT, 'Curl 03', undefined, ordre))).toContain('curl3');   // …mais trouvable par son nom
+    expect(slugs(Routines.chercher(CAT, 'curl', undefined, null)).slice(0, 3)).toEqual(['curl1', 'curl2', 'curl3']);
+  });
+
+  test('l’ouverture du catalogue remet à zéro les exercices faits relevés (un balayage UNE FOIS par ouverture)', () => {
+    const c = bacCat({ exercices_ecartes: ['curl3'] });
+    vm.runInContext('ouvrirCatalogue(null, null)', c);
+    // Remis à zéro puis relevé de nouveau (ici par la liste de l'ouverture) : jamais le relevé de la fois d'avant.
+    expect(c.faitsDuCatalogue).toEqual({ frais: true });
+  });
+});

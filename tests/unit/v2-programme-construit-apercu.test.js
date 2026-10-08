@@ -941,3 +941,19 @@ describe('revue adverse — la phrase de zone ne ment pas, le motif suit l’exe
     expect(v.voix[v.voix.length - 1]).toBe(ancien + ' sort de ton programme. Je ne te le proposerai plus.');
   });
 });
+
+describe('revue adverse — « Remplacer » dans l’aperçu range les écartés en fin de liste, avec leur mention', () => {
+  test('⚠️ DISCRIMINANT — la VRAIE liste (`freresDe`) : le frère écarté passe en dernier et porte `ecarte`, les autres non', async () => {
+    const b = bac({ freres: [{ slug: 'developpe_couche_haltere', fait: null }, { slug: 'chest_press_machine', fait: null },
+                             { slug: 'pompes', fait: null }],
+                    profil: { exercices_ecartes: ['developpe_couche_haltere'] } });
+    await b.appel('ouvrirApercuProgramme()');
+    b.vue().surExercice(0, 0);
+    b.ctx.__choix.surChoix('remplacer');
+    const freres = b.ctx.__machine.freres;
+    expect(freres.map((f) => [f.nom, !!f.ecarte])).toEqual([
+      [nom('chest_press_machine'), false], [nom('pompes'), false], [nom('developpe_couche_haltere'), true]]);
+    freres[2].surChoisir();                                              // un écarté se choisit encore : jamais caché
+    expect(b.vue().routines[0].exercices[0].nom).toBe(nom('developpe_couche_haltere'));
+  });
+});

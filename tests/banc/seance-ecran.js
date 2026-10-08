@@ -15725,10 +15725,11 @@ const SETS_IMPORTES = [
     const avantD = JSON.stringify(formeR());
     await entreeE('Je n’en veux pas');
     const nomsD = await nomsEditeur();
-    const voixD = await page.evaluate(() => { const n = document.getElementById('voix-routine');
-      return { texte: n.textContent.replace(/[\u00a0\u202f]/g, ' '), cache: n.hidden }; });
-    ok('[RP60] D — « Je n’en veux pas » : le PREMIER FRÈRE prend la place, la phrase du coach le dit',
-      /Remp A U603/.test(nomsD[0]) && nomsD.length === 3 && voixD.cache === false &&
+    const voixD = await page.evaluate(() => { const n = document.getElementById('voix-routine'); const r = n.getBoundingClientRect();
+      return { texte: n.textContent.replace(/[\u00a0\u202f]/g, ' '), cache: n.hidden,
+               dansEcran: r.top >= 0 && r.bottom <= window.innerHeight }; });
+    ok('[RP60] D — « Je n’en veux pas » : le PREMIER FRÈRE prend la place, la phrase du coach le dit, DANS l’écran',
+      /Remp A U603/.test(nomsD[0]) && nomsD.length === 3 && voixD.cache === false && voixD.dansEcran === true &&
         voixD.texte === 'Remp Frère U603 (Haltères) est remplacé par Remp A U603 (Barre). Je ne te le proposerai plus.',
       JSON.stringify([nomsD, voixD]));
     await attendre(900);
@@ -15768,6 +15769,13 @@ const SETS_IMPORTES = [
     await attendre(2400);
     ok('[RP60] D — « Enregistrer » écrit le remplacement (à sa place, sa charge retirée)',
       formeR()[0][0] === 'remp-a-u603' && formeR()[0][1] === 1, JSON.stringify(formeR()));
+    // La phrase ne fuit pas d'une routine à l'autre.
+    await aller('/routine/nouvelle');
+    await attendre(900);
+    const voixFuite = await page.evaluate(() => { const n = document.getElementById('voix-routine');
+      return { texte: n.textContent, cache: n.hidden }; });
+    ok('[RP60] D — la phrase du coach ne reste pas sur la routine suivante (vide et cachée)',
+      voixFuite.texte === '' && voixFuite.cache === true, JSON.stringify(voixFuite));
     base.profiles[0].exercices_ecartes = ecartesAvantD;
 
     // ── LA REMISE EN ÉTAT, pour les sections suivantes.

@@ -6502,6 +6502,7 @@
   // redécide pas tout seul ce qu'est un groupe.
   function ouvrirFeuilleExoRoutine(i) {
     if (!brouillon.exercices[i]) return;
+    annoncerDansLEditeur('');          // la phrase d'un geste précédent ne reste pas affichée sur un état qui a changé
     Rendu.rendreFeuilleExoRoutine($('feuille-contenu'), {
       nom: nomExoBrouillon(i),
       surRemplacer: function () { ouvrirRemplacerDansLEditeur(i); },

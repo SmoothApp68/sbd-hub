@@ -16190,6 +16190,15 @@ const SETS_IMPORTES = [
       enBas.sousLeRepos.length === 0 && enBas.sousLesOnglets.length === 0 && enBas.basDuDernier <= enBas.hautRepos &&
         enBas.barresSeChevauchent === false, JSON.stringify(enBas));
 
+    // Les captures de l'écran (360 × 760), si on les demande : en haut, au milieu, tout en bas.
+    if (process.env.BANC_CAPTURES) {
+      for (const [nom, y] of [['haut', 0], ['milieu', Math.round(max0 / 2)], ['bas', await maxDefilement()]]) {
+        await defiler(y);
+        await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES, 'barre-' + nom + '.png') });
+      }
+      await defiler(0);
+    }
+
     // ── I. UN CHAMP QUI PREND LE FOCUS NE SE POSE PAS SOUS LA BARRE.
     // On amène un champ du 3ᵉ bloc À MOITIÉ sous la barre (donc « dans l'écran » pour le
     // navigateur), on le focalise : il doit remonter se poser SOUS la barre. Sans

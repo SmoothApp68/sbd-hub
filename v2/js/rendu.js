@@ -3242,7 +3242,9 @@
 
     var freres = el('div', 'feuille-menu machine-prise');
     (vue.freres || []).forEach(function (f) {
-      choixMachinePrise(freres, 'Un frère : ' + f.nom, texteFaitFrere(f.fait), f.surChoisir)
+      // 60-4 — un frère ÉCARTÉ reste proposé, tout à la fin, avec la mention « écarté » (MOTEUR §9.19).
+      choixMachinePrise(freres, 'Un frère : ' + f.nom,
+        f.ecarte ? 'écarté \u00b7 ' + texteFaitFrere(f.fait) : texteFaitFrere(f.fait), f.surChoisir)
         .classList.add('frere');
     });
     if (!(vue.freres || []).length) {
@@ -4292,6 +4294,8 @@
     var menu = el('div', 'feuille-menu');
     // ES §7 quindecies.8 (60-3) — la feuille de « Machine prise », sans « Plus tard ».
     if (vue.surRemplacer) entreeMenu(menu, 'Remplacer', { surClic: vue.surRemplacer });
+    // 60-4 (ES §7 quindecies.9) — à côté de « Remplacer » : refuser l'exercice, c'est le dire une fois.
+    if (vue.surNeVeuxPas) entreeMenu(menu, 'Je n\u2019en veux pas', { surClic: vue.surNeVeuxPas });
     entreeMenu(menu, 'Grouper avec le suivant',
       { surClic: vue.surGrouper, desactive: !vue.peutGrouper });
     entreeMenu(menu, 'Dégrouper',
@@ -4330,15 +4334,19 @@
   // Les résultats du catalogue. 237 entrées, des noms qui vont jusqu'à
   // « Curl Poignets Paumes vers le Haut Assis » : le nom passe sur deux lignes
   // plutôt que d'être tronqué (ECRAN-SAISIE §7 bis.2).
-  function rendreResultatsExo(cible, exercices, surChoix) {
+  // 60-4 — `ecartes` (des slugs) : un exercice écarté porte la mention « écarté » (ES §7 quindecies.9) ; l'app l'a
+  // déjà rangé en fin de liste.
+  function rendreResultatsExo(cible, exercices, surChoix, ecartes) {
     vider(cible);
     var liste = exercices || [];
+    var ecarte = ecartes || [];
     if (!liste.length) {
       cible.appendChild(el('p', 'vide', 'Aucun exercice ne correspond.'));
       return;
     }
     liste.forEach(function (e) {
       var b = el('button', 'resultat', e.nom || e.slug);
+      if (ecarte.indexOf(e.slug) >= 0) b.appendChild(el('small', 'resultat-mention', 'écarté'));
       b.type = 'button';
       b.addEventListener('click', function () { surChoix(e); });
       cible.appendChild(b);

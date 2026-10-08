@@ -5449,13 +5449,26 @@
     return function (s) { return Profil.estHorsMateriel(index[s] && index[s].equipement, autorises); };
   }
 
+  // 60-4 (ES §7 quindecies.9, MOTEUR §9.19) — LES FRÈRES D'UN EXERCICE, UNE SEULE LISTE : celle de « Machine prise »,
+  // de « Remplacer » (l'éditeur et l'aperçu du programme) et de « Je n'en veux pas ». `Seance.freresProposes` pour
+  // l'ordre (le déjà fait d'abord, le hors matériel après, ceux déjà là à la fin), PUIS les exercices ÉCARTÉS tout à
+  // la fin — rangés, jamais cachés — avec `ecarte` pour la mention. `presents` : les slugs déjà dans la séance,
+  // la routine ou la séance du programme.
+  function freresDe(slug, presents) {
+    var index = Modele.indexerExercices(local.exercices);
+    var ecartes = Profil.ecartesDe(profil);
+    return Profil.ecartesALaFin(
+      Seance.freresProposes(slug, index, faitsDesFreres(index, slug), presents, horsDuMateriel(index)), ecartes)
+      .map(function (f) { return Object.assign({}, f, { ecarte: ecartes.indexOf(f.slug) >= 0 }); });
+  }
+
   function vueMachinePrise(blocs, iBloc, iExo) {
     var index = Modele.indexerExercices(local.exercices);
     var slug = seance.exercices[iExo].exercise_slug;
     var plus = Seance.plusTard(blocsPourPlusTard(blocs), iBloc);
     var suivant = blocs[iBloc + 1];
     var presents = seance.exercices.map(function (e) { return e.exercise_slug; });
-    var freres = Seance.freresProposes(slug, index, faitsDesFreres(index, slug), presents, horsDuMateriel(index));
+    var freres = freresDe(slug, presents);
     return {
       nom: Modele.nommer(index, slug),
       tard: plus.possible ? {
@@ -5468,7 +5481,7 @@
       } : null,
       freres: freres.map(function (f) {
         return {
-          nom: Modele.nommer(index, f.slug), fait: f.fait,
+          nom: Modele.nommer(index, f.slug), fait: f.fait, ecarte: f.ecarte,
           surChoisir: function () { fermerVoile(); remplacerDansLaSeance(iExo, f.slug); }
         };
       }),
@@ -6281,6 +6294,7 @@
     // §7 quindecies.4 (52-1) — Dupliquer : une routine enregistrée seulement.
     $('btn-dupliquer-routine').hidden = !brouillon.id;
     $('erreur-routine').textContent = '';
+    annoncerDansLEditeur('');
     rendreEditeur();
   }
 
@@ -6490,6 +6504,7 @@
     Rendu.rendreFeuilleExoRoutine($('feuille-contenu'), {
       nom: nomExoBrouillon(i),
       surRemplacer: function () { ouvrirRemplacerDansLEditeur(i); },
+      surNeVeuxPas: function () { fermerVoile(); neVeutPasDansLEditeur(i); },
       peutGrouper: Routines.peutGrouper(brouillon.exercices, i),
       estGroupe: Routines.estGroupe(brouillon.exercices, i),
       // Le lien avec le voisin du dessous : c'est lui, et lui seul, qui fait un
@@ -6531,14 +6546,13 @@
     if (!e) return;
     var index = Modele.indexerExercices(local.exercices);
     var presents = brouillon.exercices.map(function (x) { return x.exercise_slug; });
-    var freres = Seance.freresProposes(e.exercise_slug, index, faitsDesFreres(index, e.exercise_slug),
-      presents, horsDuMateriel(index));
+    var freres = freresDe(e.exercise_slug, presents);
     Rendu.rendreFeuilleMachinePrise($('feuille-contenu'), {
       titre: 'Remplacer',
       nom: Modele.nommer(index, e.exercise_slug),
       tard: null,
       freres: freres.map(function (f) {
-        return { nom: Modele.nommer(index, f.slug), fait: f.fait,
+        return { nom: Modele.nommer(index, f.slug), fait: f.fait, ecarte: f.ecarte,
                  surChoisir: function () { fermerVoile(); remplacerDansLEditeur(i, f.slug); } };
       }),
       chercher: 'Chercher dans le catalogue',
@@ -6551,6 +6565,37 @@
     if (!brouillon || !brouillon.exercices[i] || !slug) return;
     brouillon.exercices[i] = Routines.exerciceRemplace(brouillon.exercices[i], slug);
     renumeroterBrouillon();
+  }
+
+  // ES §7 quindecies.9 (60-4) — « JE N'EN VEUX PAS », dans le menu ⋯ d'un exercice de l'éditeur, à côté de « Remplacer ».
+  // Le remplaçant est LE PREMIER FRÈRE de la feuille de « Remplacer » (`freresDe` : la même fonction, le même ordre)
+  // qui n'est ni écarté ni déjà dans la routine ; aucun : la feuille de « Remplacer » s'ouvre. L'exercice est écarté
+  // AU GESTE (le profil), même sans remplaçant ; le remplacement, lui, suit les règles de « Remplacer » et ne
+  // s'écrit qu'avec « Enregistrer ». Jamais en séance : là, un refus est souvent passager (« Machine prise »).
+  function neVeutPasDansLEditeur(i) {
+    var e = brouillon && brouillon.exercices[i];
+    if (!e) return;
+    var slug = e.exercise_slug;
+    var ecartes = Profil.ecartesDe(profil);
+    if (ecartes.indexOf(slug) < 0) {
+      var champs = Profil.preparerChamps(profil, { exercices_ecartes: ecartes.concat([slug]) }, new Date());
+      if (Object.keys(champs).length) poserProfil(champs).catch(function () {});
+    }
+    var presents = brouillon.exercices.map(function (x) { return x.exercise_slug; });
+    var premier = freresDe(slug, presents).filter(function (f) { return !f.deja_dans_la_seance && !f.ecarte; })[0];
+    if (!premier) return ouvrirRemplacerDansLEditeur(i);
+    var ancien = nomExoBrouillon(i);
+    remplacerDansLEditeur(i, premier.slug);
+    annoncerDansLEditeur(ancien + ' est remplacé par ' + Modele.nommer(Modele.indexerExercices(local.exercices), premier.slug) +
+      '. Je ne te le proposerai plus.');
+  }
+
+  // La voix du coach sous les exercices de l'éditeur : une phrase, effacée à l'ouverture d'une routine.
+  function annoncerDansLEditeur(texte) {
+    var n = $('voix-routine');
+    if (!n) return;
+    n.textContent = texte || '';
+    n.hidden = !texte;
   }
 
   // ⚠️ DÉPLACER RELIT LES LIENS DE LA NOUVELLE ADJACENCE. Sortir un exercice
@@ -6901,9 +6946,11 @@
   // exercice du matériel au-delà de la trentième place resterait invisible.
   function ordreDuCatalogue() {
     var materiel = profil && profil.materiel;
-    if (!Profil.equipementsDe(materiel)) return null;
+    // 60-4 — les ÉCARTÉS passent en fin de liste (ES §7 quindecies.9), même sans matériel renseigné.
+    var ecartes = Profil.ecartesDe(profil);
+    if (!Profil.equipementsDe(materiel) && !ecartes.length) return null;
     if (faitsDuCatalogue === null) faitsDuCatalogue = faits.datesDesExercices(corpus());
-    return function (liste) { return Profil.rangerParMateriel(liste, materiel, faitsDuCatalogue); };
+    return function (liste) { return Profil.rangerParMateriel(liste, materiel, faitsDuCatalogue, ecartes); };
   }
 
   function rendreCatalogue() {
@@ -6972,7 +7019,8 @@
           repos_cible_s: null, groupe_superset: null, note: null
         });
         apresEditeur();
-      });
+      },
+      Profil.ecartesDe(profil));
   }
 
   // ── Vue Volume : la semaine, le relevé, puis le radar ────────────────────
@@ -7876,14 +7924,13 @@
     if (!l) return;
     var index = catalogueIndexe();
     var presents = rt.exercices.map(function (x) { return x.exercise_slug; });
-    var freres = Seance.freresProposes(l.exercise_slug, index, faitsDesFreres(index, l.exercise_slug), presents,
-      horsDuMateriel(index));
+    var freres = freresDe(l.exercise_slug, presents);
     Rendu.rendreFeuilleMachinePrise($('feuille-contenu'), {
       titre: 'Remplacer',
       nom: Modele.nommer(index, l.exercise_slug),
       tard: null,
       freres: freres.map(function (f) {
-        return { nom: Modele.nommer(index, f.slug), fait: f.fait,
+        return { nom: Modele.nommer(index, f.slug), fait: f.fait, ecarte: f.ecarte,
                  surChoisir: function () { poserDansLeProgramme(i, k, f.slug); } };
       }),
       chercher: 'Chercher dans le catalogue',

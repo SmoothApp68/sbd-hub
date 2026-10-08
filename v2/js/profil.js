@@ -68,20 +68,37 @@
     return autorises.indexOf(equipement) < 0;
   }
 
+  // LES ÉCARTÉS, EN FIN DE LISTE (ECRAN-SAISIE §7 quindecies.9, MOTEUR §9.19) : un exercice que la personne a refusé
+  // n'est jamais caché — il passe APRÈS tout le reste, dans l'ordre où il était. Une partition stable, comme le
+  // matériel : la même règle « range, ne cache jamais ». `liste` : des éléments qui portent `.slug` ; `ecartes` : des
+  // slugs. Sans écarté, la liste reçue (la même référence).
+  function ecartesALaFin(liste, ecartes) {
+    var e = Array.isArray(ecartes) ? ecartes : [];
+    if (!e.length) return liste;
+    var dans = [], fin = [];
+    (liste || []).forEach(function (x) { (x && e.indexOf(x.slug) >= 0 ? fin : dans).push(x); });
+    return dans.concat(fin);
+  }
+
   // Range une liste d'exercices du catalogue (`{ slug, equipement }`) : ce qui
   // sort du matériel passe APRÈS, dans le même ordre ; rien n'est retiré. Un
   // exercice déjà fait par la personne (`faits` : `{ [slug]: … }`) n'est jamais
   // rétrogradé — c'est son historique, pas son matériel qui parle. Sans
-  // matériel renseigné, la liste rendue est celle reçue.
-  function rangerParMateriel(liste, materiel, faits) {
+  // matériel renseigné, la liste rendue est celle reçue. 60-4 : les ÉCARTÉS
+  // (`ecartes`, des slugs) passent en tout dernier, fait ou non — c'est le même
+  // rangement, pas un second tri.
+  function rangerParMateriel(liste, materiel, faits, ecartes) {
     var autorises = equipementsDe(materiel);
-    if (!autorises) return liste;
-    var dans = [], apres = [];
-    (liste || []).forEach(function (x) {
-      var fait = !!(faits && x && Object.prototype.hasOwnProperty.call(faits, x.slug));
-      (!fait && x && estHorsMateriel(x.equipement, autorises) ? apres : dans).push(x);
-    });
-    return dans.concat(apres);
+    var rangee = liste;
+    if (autorises) {
+      var dans = [], apres = [];
+      (liste || []).forEach(function (x) {
+        var fait = !!(faits && x && Object.prototype.hasOwnProperty.call(faits, x.slug));
+        (!fait && x && estHorsMateriel(x.equipement, autorises) ? apres : dans).push(x);
+      });
+      rangee = dans.concat(apres);
+    }
+    return ecartesALaFin(rangee, ecartes);
   }
 
   // EN FOURCHETTE, PAS UNE DATE (§2.2). « Depuis quand régulièrement » — on peut
@@ -669,6 +686,9 @@
     return sortie.length > ECARTES_MAX ? sortie.slice(sortie.length - ECARTES_MAX) : sortie;
   }
 
+  // Les écartés EFFECTIFS d'un profil : la liste valide, sinon aucun.
+  function ecartesDe(profil) { return ecartesValides(profil && profil.exercices_ecartes) || []; }
+
   // LE DOSSIER DU PROGRAMME CONSTRUIT (`profiles.programme_construit_dossier`) : la borne de `routines.dossier`
   // (`routines_dossier_ok`) — 1 à 40 caractères, SANS espace autour. Il ne se tronque pas : c'est le NOM RÉEL du
   // dossier créé, un nom coupé ne désignerait plus rien (la carte « Passer en cycles » compte les séances de ce
@@ -1176,7 +1196,7 @@
     manquants: manquants,
     OBJECTIFS: OBJECTIFS, TEMPS_REPONSES: TEMPS_REPONSES, HISTORIQUES: HISTORIQUES, PROGRAMMES: PROGRAMMES,
     ZONES_A_MENAGER: ZONES_A_MENAGER, zonesAMenagerValides: zonesAMenagerValides, basculerZone: basculerZone,
-    ECARTES_MAX: ECARTES_MAX, ecartesValides: ecartesValides,
+    ECARTES_MAX: ECARTES_MAX, ecartesValides: ecartesValides, ecartesDe: ecartesDe, ecartesALaFin: ecartesALaFin,
     DOSSIER_PROGRAMME_MAX: DOSSIER_PROGRAMME_MAX, dossierDuProgrammeValide: dossierDuProgrammeValide,
     PHRASE_PSEUDO_PRIS: PHRASE_PSEUDO_PRIS, pseudoDeLInscription: pseudoDeLInscription, lignePseudo: lignePseudo,
     EXERCICES_PRIORITAIRES: EXERCICES_PRIORITAIRES, PRIORITES_MAX: PRIORITES_MAX,

@@ -224,7 +224,7 @@ function extraire(n) {
   if (!m) throw new Error('introuvable dans v2/js/app.js : ' + n);
   return m[0];
 }
-const FONCTIONS = ['brouillonDeStructure', 'creerRoutineNeuve', 'creerDansUnDossier', 'ouvrirBibliothequeSur',
+const FONCTIONS = ['freresDe', 'brouillonDeStructure', 'creerRoutineNeuve', 'creerDansUnDossier', 'ouvrirBibliothequeSur',
   'rangSuivantBibliotheque', 'nomsReserves', 'messageVerdict',
   'entreeDuProgramme', 'deduiteDuProgramme', 'fondreLesVoisins', 'raccourcirLeProgramme', 'lectureDuProgramme',
   'seriesFois', 'rendreApercuDuProgramme', 'ouvrirApercuProgramme', 'ouvrirExerciceDuProgramme',
@@ -251,7 +251,7 @@ function bac(options) {
     intention: 'progresser' }, o.profil || {});
   const ctx = {
     Routines, Modele, Moteur, Profil, Generateur, Donnees,
-    Seance: o.freres ? { freresProposes: () => o.freres } : { freresProposes: () => [] },
+    Seance: o.freres ? { freresProposes: () => o.freres.map((f) => Object.assign({ deja_dans_la_seance: false }, f)) } : { freresProposes: () => [] },
     Rendu: {
       rendreApercuProgramme: (c, v) => { journal.feuilles.push(v); ctx.__vue = v; },
       rendreFeuilleChoix: (c, v) => { journal.choix.push(v); ctx.__choix = v; },

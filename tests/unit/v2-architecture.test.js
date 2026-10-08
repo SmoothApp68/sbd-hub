@@ -455,9 +455,10 @@ const NOTIONS = [
       'décide une fois ; l’écran déplace par `reordonnerBlocs`, sans toucher à la consigne.' },
   { notion: 'les frères proposés par « Machine prise » (et leur ordre, MOTEUR §9.19)', pr: '51-U2',
     module: 'seance.js', fonction: 'freresProposes', lecteurs: ['app.js'],
-    parAilleurs: { 'app.js': ['vueMachinePrise', 'ouvrirRemplacerDansLEditeur'] },
+    parAilleurs: { 'app.js': ['freresDe'] },
     raison: 'les frères pas encore dans la séance d’abord, l’historique le plus récent, puis par nom ; ' +
-      'un frère déjà présent à la fin — une règle, que la feuille affiche sans la refaire.' },
+      'un frère déjà présent à la fin — une règle, que la feuille affiche sans la refaire. 60-4 : UNE liste pour ' +
+      '« Machine prise », « Remplacer » (l’éditeur et l’aperçu du programme) et « Je n’en veux pas » (`freresDe`).' },
   { notion: 'la séance neutre (§7.6), déduite ou DÉCLARÉE par la marque « douleur » (MOTEUR §9.20)', pr: '51-U3',
     module: 'moteur.js', fonction: 'sansPalierRetenues', lecteurs: [],
     par: ['contratDe'],
@@ -865,6 +866,13 @@ const NOTIONS = [
     parAilleurs: { 'app.js': ['entreeDuProgramme'] },
     raison: 'QUESTIONNAIRE-COACH-V2 §5 bis (60-4) : le générateur ordonne ses candidats par ce que la personne fait ' +
       'le plus ; le fait vit dans le module des faits (58-1) et le générateur le REÇOIT, il ne relit pas les séances.' },
+  { notion: 'les exercices écartés en fin de liste (le catalogue, les frères de « Machine prise » et de « Remplacer »)', pr: '60-U14',
+    module: 'profil.js', fonction: 'ecartesALaFin', lecteurs: ['app.js'],
+    par: ['rangerParMateriel'],
+    parAilleurs: { 'app.js': ['freresDe'] },
+    raison: 'ECRAN-SAISIE §7 quindecies.9 (60-4) : un exercice écarté passe en fin de liste, jamais caché, avec la mention ' +
+      '« écarté » — la règle « range, ne cache jamais » du matériel, composée, pas un second tri : le catalogue passe par ' +
+      '`rangerParMateriel`, les frères par `freresDe`.' },
   { notion: 'la durée que le programme construit doit tenir (la durée déclarée, avec « C’est mon maximum », « Moins en ce moment » ou « Ça varie »)', pr: '60-U13',
     module: 'moteur.js', fonction: 'cibleDuProgramme', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['raccourcirLeProgramme'] },

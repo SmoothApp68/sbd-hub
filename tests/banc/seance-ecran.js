@@ -15529,6 +15529,62 @@ const SETS_IMPORTES = [
     ok('[RP60] C — « Enregistrer » : le repos et les séries restent, la charge part',
       JSON.stringify(formeR()[2]) === JSON.stringify(['remp-d-u603', null, 120, null, [['travail', 15, null]]]), JSON.stringify(formeR()));
 
+    // ── D. 60-4 (ES §7 quindecies.9) : « JE N'EN VEUX PAS » dans le menu ⋯, et les écartés EN FIN DE LISTE.
+    const ecartesAvantD = base.profiles[0].exercices_ecartes;
+    await aller('/routine/' + ID_R);
+    for (let n = 0; n < 60 && JSON.stringify(await nomsEditeur()).indexOf('Remp Frère U603') < 0; n++) await attendre(250);
+    await menuExo(0);
+    f = await feuilleE();
+    ok('[RP60] D — le menu ⋯ porte « Je n’en veux pas », juste après « Remplacer »',
+      f.boutons[0] === 'Remplacer' && f.boutons[1] === 'Je n’en veux pas', JSON.stringify(f.boutons));
+    const avantD = JSON.stringify(formeR());
+    await entreeE('Je n’en veux pas');
+    const nomsD = await nomsEditeur();
+    const voixD = await page.evaluate(() => { const n = document.getElementById('voix-routine');
+      return { texte: n.textContent.replace(/[\u00a0\u202f]/g, ' '), cache: n.hidden }; });
+    ok('[RP60] D — « Je n’en veux pas » : le PREMIER FRÈRE prend la place, la phrase du coach le dit',
+      /Remp A U603/.test(nomsD[0]) && nomsD.length === 3 && voixD.cache === false &&
+        voixD.texte === 'Remp Frère U603 (Haltères) est remplacé par Remp A U603 (Barre). Je ne te le proposerai plus.',
+      JSON.stringify([nomsD, voixD]));
+    await attendre(900);
+    ok('[RP60] D — l’exercice est écarté AU GESTE (le profil) ; le remplacement, lui, n’est pas écrit avant « Enregistrer »',
+      JSON.stringify(base.profiles[0].exercices_ecartes) === '["remp-frere-u603"]' && JSON.stringify(formeR()) === avantD,
+      JSON.stringify([base.profiles[0].exercices_ecartes, JSON.stringify(formeR()) === avantD]));
+    await menuExo(0);
+    await entreeE('Remplacer');
+    f = await feuilleE();
+    ok('[RP60] D — « Remplacer » montre le frère écarté, avec la mention « écarté » (rangé, jamais caché)',
+      f.titre === 'Remplacer' && JSON.stringify(f.boutons) === JSON.stringify(['Un frère : Remp Frère U603 (Haltères)', 'Chercher dans le catalogue']) &&
+        JSON.stringify(f.sous) === '["écarté · Première fois ici"]', JSON.stringify(f));
+    await page.click('#btn-fermer-feuille');
+    await attendre(300);
+    // Le seul frère est écarté : « Je n'en veux pas » n'a personne à mettre — la feuille de « Remplacer » s'ouvre.
+    await menuExo(0);
+    await entreeE('Je n’en veux pas');
+    f = await feuilleE();
+    const nomsD2 = await nomsEditeur();
+    ok('[RP60] D — aucun frère possible : la feuille de « Remplacer » s’ouvre, l’exercice reste, et il est écarté quand même',
+      f.ouverte && f.titre === 'Remplacer' && /Remp A U603/.test(nomsD2[0]) &&
+        JSON.stringify(base.profiles[0].exercices_ecartes) === '["remp-frere-u603","remp-a-u603"]',
+      JSON.stringify([f.titre, nomsD2, base.profiles[0].exercices_ecartes]));
+    await entreeE('Chercher dans le catalogue');
+    await page.fill('#champ-recherche-exo', 'Remp');
+    await attendre(500);
+    const resultats = await page.evaluate(() => Array.from(document.querySelectorAll('#resultats-exo .resultat')).map((b) => ({
+      nom: b.firstChild.textContent, mention: b.querySelector('.resultat-mention') ? b.querySelector('.resultat-mention').textContent : null })));
+    ok('[RP60] D — le catalogue range les écartés EN FIN DE LISTE, avec la mention « écarté » ; rien n’est caché',
+      resultats.length >= 5 && resultats.slice(-2).every((r) => r.mention === 'écarté') &&
+        resultats.slice(0, -2).every((r) => r.mention === null) &&
+        resultats.slice(-2).map((r) => r.nom).join('|') === 'Remp A U603 (Barre)|Remp Frère U603 (Haltères)',
+      JSON.stringify(resultats));
+    await page.click('#btn-fermer-catalogue');
+    await attendre(500);
+    await page.click('#btn-enregistrer-routine');
+    await attendre(2400);
+    ok('[RP60] D — « Enregistrer » écrit le remplacement (à sa place, sa charge retirée)',
+      formeR()[0][0] === 'remp-a-u603' && formeR()[0][1] === 1, JSON.stringify(formeR()));
+    base.profiles[0].exercices_ecartes = ecartesAvantD;
+
     // ── LA REMISE EN ÉTAT, pour les sections suivantes.
     const i = ROUTINES.findIndex((r) => r.id === ID_R);
     if (i >= 0) ROUTINES.splice(i, 1);

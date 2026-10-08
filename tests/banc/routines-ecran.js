@@ -1050,19 +1050,21 @@ const CATALOGUE = [
   // ⚠️ QUATRE DEPUIS LE CHANTIER 46 : « Monter » et « Descendre » ont fusionné
   // en « Réorganiser… » (§7 vicies.1). Réordonner n'est presque jamais un geste
   // isolé ; deux entrées qui bougeaient d'un cran chacune ne le disaient pas.
-  // 60-3 (ES §7 quindecies.8) — « Remplacer » en tête : cinq entrées.
-  ok('[46] le menu porte « Remplacer » (60-3) et QUATRE gestes — Monter/Descendre ont fusionné',
-    (await entreesMenu()).length === 5 &&
+  // 60-3 (ES §7 quindecies.8) — « Remplacer » en tête : cinq entrées. 60-4 (ES §7 quindecies.9) — « Je n'en veux pas »
+  // juste après : six.
+  ok('[46] le menu porte « Remplacer » (60-3), « Je n’en veux pas » (60-4) et QUATRE gestes — Monter/Descendre ont fusionné',
+    (await entreesMenu()).length === 6 &&
     (await entreesMenu())[0] === 'Remplacer' &&
-    /Grouper avec le suivant/.test((await entreesMenu())[1]) &&
-    /Réorganiser/.test((await entreesMenu())[3]) &&
-    /Supprimer l/.test((await entreesMenu())[4]) &&
+    (await entreesMenu())[1] === 'Je n’en veux pas' &&
+    /Grouper avec le suivant/.test((await entreesMenu())[2]) &&
+    /Réorganiser/.test((await entreesMenu())[4]) &&
+    /Supprimer l/.test((await entreesMenu())[5]) &&
     !(await entreesMenu()).some((e) => /param/i.test(e)) &&
     !(await entreesMenu()).some((e) => /^Monter|^Descendre/.test(e)),
     (await entreesMenu()).join(' | '));
   ok('[41] et il grise ce qui n’a pas de sens sur le premier : Dégrouper',
-    (await entreesMenu())[2] === 'Dégrouper (inerte)' &&
-    (await entreesMenu())[3] === 'Réorganiser…',
+    (await entreesMenu())[3] === 'Dégrouper (inerte)' &&
+    (await entreesMenu())[4] === 'Réorganiser…',
     (await entreesMenu()).join(' | '));
   await page.click('#btn-fermer-feuille');
   await attendre(300);
@@ -1075,8 +1077,8 @@ const CATALOGUE = [
     JSON.stringify(await lettresEditeur()));
   await menuCarte(1);
   ok('[41] une fois groupé, « Grouper » se grise et « Dégrouper » s’ouvre',
-    (await entreesMenu())[1] === 'Grouper avec le suivant (inerte)' &&
-    (await entreesMenu())[2] === 'Dégrouper',
+    (await entreesMenu())[2] === 'Grouper avec le suivant (inerte)' &&
+    (await entreesMenu())[3] === 'Dégrouper',
     (await entreesMenu()).join(' | '));
   await page.click('#btn-fermer-feuille');
   await attendre(300);

@@ -52,6 +52,37 @@ describe('59-2 — la fenêtre : la maquette, mot pour mot', () => {
     expect(Quitter.fenetreDeSortie(null)).toBeNull();
   });
 
+  // ── 60-2c — UNE RÉPONSE DE PROFIL PAS ENCORE ENVOYÉE compte comme « un autre changement ».
+  // Le profil ne passe pas par la file : son drapeau (`profilAEnvoyer`) est le seul témoin.
+  test('⚠️ DISCRIMINANT — le profil en attente, file vide : un changement de plus, et la MÊME phrase', () => {
+    expect(Quitter.enAttente([], true)).toEqual({ seances: 0, autres: 1 });
+    expect(Quitter.fenetreDeSortie([], true)).toEqual({
+      titre: 'Des changements pas encore envoyés.',
+      aide: 'Si tu quittes maintenant, ils sont perdus.',
+      rester: 'Rester', quitter: 'Quitter quand même'
+    });
+    // Le même résultat que pour un choix de zone fait hors ligne : une seule phrase.
+    const zone = file([{ table: Attente.ZONES, op: Attente.UPSERT, id: 'z1', donnees: {} }]);
+    expect(Quitter.fenetreDeSortie([], true)).toEqual(Quitter.fenetreDeSortie(zone));
+  });
+
+  test('sans profil en attente, rien ne change : un seul argument, ou `false`, ou `undefined`', () => {
+    const f = file(seance('A').concat(seance('B')));
+    expect(Quitter.enAttente(f)).toEqual({ seances: 2, autres: 0 });
+    expect(Quitter.enAttente(f, false)).toEqual({ seances: 2, autres: 0 });
+    expect(Quitter.enAttente(f, undefined)).toEqual({ seances: 2, autres: 0 });
+    expect(Quitter.fenetreDeSortie([], false)).toBeNull();
+    expect(Quitter.fenetreDeSortie([], undefined)).toBeNull();
+  });
+
+  test('le profil s’AJOUTE aux autres changements, et ne change pas le compte des séances', () => {
+    const zone = file([{ table: Attente.ZONES, op: Attente.UPSERT, id: 'z1', donnees: {} }]);
+    expect(Quitter.enAttente(zone, true)).toEqual({ seances: 0, autres: 2 });
+    expect(Quitter.enAttente(file(seance('A')), true)).toEqual({ seances: 1, autres: 1 });
+    // Séance + profil : la fenêtre parle des séances (la maquette ne prévoit pas de phrase mixte).
+    expect(Quitter.fenetreDeSortie(file(seance('A')), true).titre).toBe('1 séance pas encore envoyée.');
+  });
+
   test('aucun « bravo », aucun commentaire d’assiduité', () => {
     const v = Quitter.fenetreDeSortie(file(seance('A')));
     expect(JSON.stringify(v)).not.toMatch(/bravo|super|bien joué|assidu|!/i);
@@ -105,6 +136,91 @@ describe('59-2 — l’enchaînement de « Quitter »', () => {
     const { etat, d } = scenario({ file: file(seance('A')), enLigne: false, choix: 'quitter' });
     expect(await Quitter.quitter(d)).toBe('quitte');
     expect([etat.fenetres.length, etat.deconnexions, etat.file.length]).toEqual([1, 1, 0]);
+  });
+});
+
+describe('60-2c — l’enchaînement de « Quitter » compte la réponse de profil pas encore envoyée', () => {
+  // `profil` : le drapeau de l'app (`profilAEnvoyer`). `envoyer` le baisse si le réseau « passe ».
+  function scenario(o) {
+    const etat = { file: o.file || [], profil: !!o.profil, envois: 0, fenetres: [], deconnexions: 0, lectures: [] };
+    const d = {
+      file: () => etat.file,
+      enLigne: () => o.enLigne,
+      envoyer: async () => {
+        etat.envois++;
+        if (o.lance) throw new Error('réseau');
+        if (o.envoiPasse) { etat.file = []; etat.profil = false; }
+      },
+      fenetre: async (vue) => { etat.fenetres.push(vue); return o.choix; },
+      deconnecter: async () => { etat.deconnexions++; etat.file = []; etat.profil = false; }
+    };
+    if (o.sansProfil !== true) d.profil = () => { etat.lectures.push(etat.envois); return etat.profil; };
+    return { etat, d };
+  }
+  const TITRE = 'Des changements pas encore envoyés.';
+
+  test('⚠️ DISCRIMINANT — profil seul, file vide, en ligne : l’envoi PART, il baisse le drapeau, on quitte sans fenêtre', async () => {
+    const { etat, d } = scenario({ profil: true, enLigne: true, envoiPasse: true });
+    expect(await Quitter.quitter(d)).toBe('quitte');
+    expect([etat.envois, etat.fenetres.length, etat.deconnexions]).toEqual([1, 0, 1]);
+  });
+
+  test('⚠️ DISCRIMINANT — profil seul, hors ligne : aucun envoi, la fenêtre ; « Rester » ne perd rien', async () => {
+    const { etat, d } = scenario({ profil: true, enLigne: false, choix: 'rester' });
+    expect(await Quitter.quitter(d)).toBe('reste');
+    expect(etat.envois).toBe(0);
+    expect(etat.fenetres.map((v) => v.titre)).toEqual([TITRE]);
+    expect([etat.deconnexions, etat.profil]).toEqual([0, true]);        // rien n'est touché, le drapeau reste levé
+  });
+
+  test('profil seul, hors ligne : « Quitter quand même » quitte (la réponse part avec l’appareil, voulu)', async () => {
+    const { etat, d } = scenario({ profil: true, enLigne: false, choix: 'quitter' });
+    expect(await Quitter.quitter(d)).toBe('quitte');
+    expect([etat.fenetres.length, etat.deconnexions]).toEqual([1, 1]);
+  });
+
+  test('⚠️ en ligne mais l’envoi ne baisse pas le drapeau (l’envoi du profil avale ses échecs) : la fenêtre', async () => {
+    const { etat, d } = scenario({ profil: true, enLigne: true, envoiPasse: false, choix: 'rester' });
+    expect(await Quitter.quitter(d)).toBe('reste');
+    expect([etat.envois, etat.fenetres.length, etat.deconnexions]).toEqual([1, 1, 0]);
+    expect(etat.fenetres[0].titre).toBe(TITRE);
+  });
+
+  test('en ligne et l’envoi LÈVE : la fenêtre quand même', async () => {
+    const { etat, d } = scenario({ profil: true, enLigne: true, lance: true, choix: 'rester' });
+    expect(await Quitter.quitter(d)).toBe('reste');
+    expect([etat.envois, etat.fenetres.length, etat.deconnexions]).toEqual([1, 1, 0]);
+  });
+
+  test('le drapeau est relu APRÈS l’envoi (jamais avant) — et jamais après la déconnexion', async () => {
+    const { etat, d } = scenario({ profil: true, enLigne: true, envoiPasse: true });
+    await Quitter.quitter(d);
+    // 1re lecture : avant l'envoi (0 envoi), 2e : après (1 envoi) ; aucune après la déconnexion.
+    expect(etat.lectures).toEqual([0, 1]);
+  });
+
+  test('séance ET profil en attente, en ligne : un seul envoi pour les deux', async () => {
+    const { etat, d } = scenario({ file: file(seance('A')), profil: true, enLigne: true, envoiPasse: true });
+    expect(await Quitter.quitter(d)).toBe('quitte');
+    expect([etat.envois, etat.fenetres.length, etat.deconnexions]).toEqual([1, 0, 1]);
+  });
+
+  test('séance ET profil, hors ligne : la fenêtre parle des séances', async () => {
+    const { etat, d } = scenario({ file: file(seance('A')), profil: true, enLigne: false, choix: 'rester' });
+    expect(await Quitter.quitter(d)).toBe('reste');
+    expect(etat.fenetres.map((v) => v.titre)).toEqual(['1 séance pas encore envoyée.']);
+  });
+
+  test('rien en attente (ni file ni profil) : on quitte sans envoi ni fenêtre, comme avant', async () => {
+    const { etat, d } = scenario({ profil: false, enLigne: true });
+    expect(await Quitter.quitter(d)).toBe('quitte');
+    expect([etat.envois, etat.fenetres.length, etat.deconnexions]).toEqual([0, 0, 1]);
+  });
+
+  test('COMPATIBILITÉ — un appelant sans `profil` se comporte comme avant 60-2c', async () => {
+    const { etat, d } = scenario({ profil: true, enLigne: true, envoiPasse: true, sansProfil: true });
+    expect(await Quitter.quitter(d)).toBe('quitte');
+    expect([etat.envois, etat.fenetres.length, etat.deconnexions]).toEqual([0, 0, 1]);
   });
 });
 

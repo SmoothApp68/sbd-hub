@@ -8957,6 +8957,22 @@ const SETS_IMPORTES = [
       JSON.stringify(phases()) === '["seche","seche","seche"]', JSON.stringify(phases()));
     await terminer();
 
+    // 4 bis (60-2c). La séance TERMINÉE à `seche` se rouvre en ÉDITION alors que le profil dit `maintien` : ses
+    // paris déjà posés portent `seche`, le plan d'une correction lit la phase d'aujourd'hui (la phase gelée de
+    // cette séance n'existe plus) — I18 ne doit pas les lui comparer.
+    ok('[U11] prémisse — le profil dit `maintien`, la séance terminée porte trois paris à `seche`',
+      base.profiles[0].phase === 'maintien' && JSON.stringify(phases()) === '["seche","seche","seche"]',
+      JSON.stringify([base.profiles[0].phase, phases()]));
+    const violationsEdition = gardeBanc.violations;
+    await ouvrirMenuDe('Phase U11');
+    await entree('Modifier');
+    await attendre(900);
+    ok('[U11] DISCRIMINANT (60-2c) — corriger la séance terminée à `seche` (le profil dit `maintien`) : la garde se tait (I18 en Édition)',
+      JSON.stringify(await visible()) === '["vue-seance"]' && gardeBanc.violations === violationsEdition,
+      JSON.stringify([await visible(), gardeBanc.violations - violationsEdition, gardeBanc.liste.slice(-2)]));
+    await page.click('#bandeau-seance .bandeau-fin');   // « Enregistrer » : en Édition, aucune feuille
+    await attendre(1800);
+
     // 5. La séance SUIVANTE prend la nouvelle phase.
     await aller('/saisie');
     await demarrerRoutine('Phase U11');
@@ -13689,6 +13705,59 @@ const SETS_IMPORTES = [
     ok('[Q59] le réseau revenu, la séance part : la file se vide, la séance est en base',
       vide && base.sessions.some((x) => x.id === idQ && x.statut === 'terminee'), JSON.stringify([await fileQ(), idQ]));
 
+    // ── F. UNE RÉPONSE DE PROFIL PAS ENCORE ENVOYÉE (60-2c). Le profil ne passe pas par la file : son
+    // drapeau (`profilAEnvoyer`) est le seul témoin, et « Quitter » ne le regardait pas — une réponse
+    // donnée hors ligne partait avec l'appareil, sans un mot. La file est vide ici (C l'a vidée).
+    const profilQAvant = JSON.parse(JSON.stringify(base.profiles[0]));
+    const tempsQ = () => base.profiles[0].temps_reponse;
+    const repondreTempsQ = async (cle) => {
+      await page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
+        .filter((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf('Ton temps') === 0)[0].click());
+      await attendre(500);
+      await page.click('#feuille-contenu .feuille-menu button[data-cle="' + cle + '"]');
+      await attendre(1500);
+    };
+    const reponses = ['max', 'marge', 'varie'].filter((c) => c !== profilQAvant.temps_reponse);
+    // F1. Hors ligne : la fenêtre, « Rester » ne perd rien, le réseau revient et la réponse part.
+    await aller('/profil');
+    await attendre(800);
+    base.reseau = false;
+    await repondreTempsQ(reponses[0]);
+    ok('[Q60c] prémisse — hors ligne, la réponse de profil n’est PAS partie (la base garde l’ancienne) et la file est vide',
+      tempsQ() === profilQAvant.temps_reponse && (await fileQ()).length === 0, JSON.stringify([tempsQ(), profilQAvant.temps_reponse, await fileQ()]));
+    await quitterQ();
+    const fenF1 = await feuilleQ();
+    ok('[Q60c] DISCRIMINANT — « Quitter » avec une réponse de profil pas partie : la fenêtre « Des changements pas encore envoyés. » (la file est pourtant vide)',
+      fenF1.ouverte && fenF1.titre === 'Des changements pas encore envoyés.' && fenF1.aide === 'Si tu quittes maintenant, ils sont perdus.' &&
+        fenF1.boutons.length === 2 && fenF1.boutons[0][1] === 'Rester' && fenF1.boutons[1][1] === 'Quitter quand même', JSON.stringify(fenF1));
+    await page.click('#feuille-contenu .sortie-rester');
+    await attendre(800);
+    ok('[Q60c] DISCRIMINANT — « Rester » ne perd rien : toujours connecté sur le profil, la fenêtre fermée, la réponse toujours là',
+      JSON.stringify(await visible()) === '["vue-profil"]' && !(await feuilleQ()).ouverte && tempsQ() === profilQAvant.temps_reponse,
+      JSON.stringify([await visible(), await feuilleQ(), tempsQ()]));
+    base.reseau = true;
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    let partie = false;
+    for (let t = 0; t < 40 && !partie; t++) { await attendre(250); partie = tempsQ() === reponses[0]; }
+    ok('[Q60c] le réseau revenu, la réponse part (le drapeau l’avait gardée)', partie, JSON.stringify([tempsQ(), reponses[0]]));
+    // F2. Le réseau revient SANS l'évènement `online` : c'est la vidange de « Quitter » qui envoie la réponse.
+    base.reseau = false;
+    await repondreTempsQ(reponses[1]);
+    ok('[Q60c] prémisse — la deuxième réponse n’est pas partie non plus', tempsQ() === reponses[0], JSON.stringify([tempsQ(), reponses[0]]));
+    base.reseau = true;
+    await quitterQ();
+    const sortieF2 = await page.evaluate(() => ({
+      vues: Array.from(document.querySelectorAll('main > section')).filter((x) => !x.hidden).map((x) => x.id),
+      fenetre: !document.querySelector('#feuille-seance').hidden }));
+    ok('[Q60c] DISCRIMINANT — la vidange de « Quitter » ENVOIE la réponse de profil : elle est en base, et l’on quitte SANS fenêtre',
+      tempsQ() === reponses[1] && sortieF2.fenetre === false && JSON.stringify(sortieF2.vues) === '["vue-connexion"]',
+      JSON.stringify([tempsQ(), reponses[1], sortieF2]));
+    // On remet le profil du banc comme il était, et on repart connecté pour D (le jeton est gardé par le banc).
+    Object.keys(base.profiles[0]).forEach((k) => { delete base.profiles[0][k]; });
+    Object.assign(base.profiles[0], profilQAvant);
+    await aller('/saisie');
+    await attendre(1500);
+
     // ── D. « QUITTER » SORT SANS FENÊTRE, ET L'APPAREIL EST VIDÉ — MÊME
     // QUAND UNE SYNCHRONISATION EST EN VOL (59-5). Le faux serveur retient la
     // liste des séances : la synchro de l'entrée attend encore quand on
@@ -14305,6 +14374,37 @@ const SETS_IMPORTES = [
     e = await ecranQ();
     ok('[Q60] écran 7 — « Temps et matériel »', e.ecran === 'temps' && e.etape === 'Temps et matériel', JSON.stringify(e));
     const dureeAvant = profilBase().duree_seance_min;
+    // ── 60-2c : « Moins en ce moment » DEMANDE COMBIEN — quatre durées JUSTE DESSOUS, rien d'écrit en les touchant.
+    const colonneQ = () => page.evaluate(() => Array.from(document.querySelectorAll('#questionnaire-corps .q-options > *'))
+      .map((n) => n.className.split(' ')[0] + (n.dataset.cle ? ':' + n.dataset.cle : '')));
+    const dureesQ = () => page.evaluate(() => ({
+      libelles: Array.from(document.querySelectorAll('#questionnaire-corps .q-options .q-puce')).map((n) => n.textContent),
+      cochees: Array.from(document.querySelectorAll('#questionnaire-corps .q-options .q-puce.on')).map((n) => n.dataset.cle),
+      question: (document.querySelector('#questionnaire-corps .q-options .q-sous-titre') || {}).textContent || null,
+      ligneDuree: !!document.querySelector('#questionnaire-corps .q-ligne-choix[data-cle="duree"]')
+    }));
+    const tempsAvant = profilBase().temps_reponse;
+    const colAvant = await colonneQ();
+    await cliquerQ('.q-opt[data-cle="moins"]');
+    const colMoins = await colonneQ();
+    const dMoins = await dureesQ();
+    e = await ecranQ();
+    ok('[Q60c] DISCRIMINANT — « Moins en ce moment » fait apparaître JUSTE DESSOUS sa question et ses quatre durées (45 · 60 · 75 · 90 min) ; la ligne « Durée visée » s’efface ; « Continuer » reste actif',
+      JSON.stringify(colAvant) === '["q-opt:max","q-opt:marge","q-opt:moins","q-opt:varie"]' &&
+        JSON.stringify(colMoins) === '["q-opt:max","q-opt:marge","q-opt:moins","q-sous-titre","q-puces","q-opt:varie"]' &&
+        JSON.stringify(dMoins.libelles) === '["45 min","60 min","75 min","90 min"]' &&
+        dMoins.question === 'Combien de temps par séance ?' && dMoins.ligneDuree === false && e.actif === true,
+      JSON.stringify([colAvant, colMoins, dMoins, e.actif]));
+    await cliquerQ('.q-options .q-puce[data-cle="45"]');
+    const d45 = await dureesQ();
+    ok('[Q60c] toucher une durée la coche — et n’écrit RIEN (ni la réponse, ni la durée, avant « Continuer »)',
+      JSON.stringify(d45.cochees) === '["45"]' && profilBase().duree_seance_min === dureeAvant && profilBase().temps_reponse === tempsAvant,
+      JSON.stringify([d45.cochees, profilBase().duree_seance_min, dureeAvant, profilBase().temps_reponse, tempsAvant]));
+    await cliquerQ('.q-opt[data-cle="marge"]');
+    const dMarge = await dureesQ();
+    ok('[Q60c] DISCRIMINANT — une autre réponse : les durées de « Moins » repartent, la ligne « Durée visée » revient',
+      dMarge.libelles.length === 0 && dMarge.ligneDuree === true && JSON.stringify(await colonneQ()) === JSON.stringify(colAvant),
+      JSON.stringify([dMarge, await colonneQ()]));
     await cliquerQ('.q-opt[data-cle="marge"]');
     await cliquerQ('.q-puce[data-cle="salle_complete"]');
     await continuerQ();
@@ -14335,6 +14435,45 @@ const SETS_IMPORTES = [
     await continuerQ();
     e = await ecranQ();
     ok('[Q60] écran 9 — et « Continuer » y REVIENT au récapitulatif (pas à l’écran suivant)', e.ecran === 'recap', JSON.stringify(e));
+    // ── 60-2c : « Je ne sais pas » écrit le VIDE (jamais `maintien`), et le récapitulatif le dit « Maintien (par défaut) ».
+    await cliquerQ('.q-mod[data-ecran="but"]', 500);
+    await cliquerQ('.q-opt[data-cle="inconnue"]');
+    await continuerQ();
+    await attendre(600);
+    e = await ecranQ();
+    ok('[Q60c] DISCRIMINANT — « Je ne sais pas » (écran 5) écrit une phase VIDE (`null`, jamais `maintien`), datée de sa confirmation ; le récapitulatif dit « Maintien (par défaut) »',
+      e.ecran === 'recap' && profilBase().phase === null && !!profilBase().phase_confirmee_le &&
+        /Phase.*Maintien \(par défaut\)/.test(e.lignes[1].replace(/[\u00a0\u202f]/g, ' ')),
+      JSON.stringify([e.ecran, profilBase().phase, profilBase().phase_confirmee_le, e.lignes[1]]));
+    // ── 60-2c : « Moins » + une durée, changés depuis le récapitulatif : les deux s'écrivent ensemble, le récapitulatif dit la durée.
+    await cliquerQ('.q-mod[data-ecran="temps"]', 500);
+    await cliquerQ('.q-opt[data-cle="moins"]');
+    await cliquerQ('.q-options .q-puce[data-cle="60"]');
+    await continuerQ();
+    await attendre(600);
+    e = await ecranQ();
+    const ligneTemps = (e.lignes.filter((l) => /^Temps/.test(l))[0] || '').replace(/[\u00a0\u202f]/g, ' ');
+    ok('[Q60c] DISCRIMINANT — « Moins » + la durée 60 s’écrivent ENSEMBLE (`temps_reponse` ET `duree_seance_min`), et le récapitulatif dit « 60 min · j’ai moins de temps en ce moment »',
+      e.ecran === 'recap' && profilBase().temps_reponse === 'moins' && profilBase().duree_seance_min === 60 &&
+        ligneTemps.indexOf('Temps60 min · j’ai moins de temps en ce moment') === 0,
+      JSON.stringify([e.ecran, profilBase().temps_reponse, profilBase().duree_seance_min, ligneTemps]));
+    // On repart comme avant pour la suite du récapitulatif : « marge ». (Relecture adverse : la durée ÉCRITE est
+    // la durée visée du brouillon — après « changer » et une autre réponse, la ligne dit 60 min, pas l'habituelle.)
+    await cliquerQ('.q-mod[data-ecran="temps"]', 500);
+    await cliquerQ('.q-opt[data-cle="marge"]');
+    e = await ecranQ();
+    const ligneVisee = await page.evaluate(() => ((document.querySelector('#questionnaire-corps .q-ligne-choix[data-cle="duree"] .q-lc-val') || {})
+      .textContent || '').replace(/[\u00a0\u202f]/g, ' '));
+    // Le décor du banc n'a pas de durée habituelle (aucune séance avec heure de fin) : sans le rapatriement, la
+    // ligne « Durée visée » n'existerait pas du tout ici, et l'écran redemanderait la durée. La base, elle,
+    // n'avait pas 60 avant « Moins » + 60 — sinon rien ne se prouverait.
+    ok('[Q60c] prémisse — avant « Moins » + 60, la base n’avait pas 60 pour durée visée', dureeAvant !== 60, JSON.stringify([dureeAvant]));
+    ok('[Q60c] DISCRIMINANT — « Moins » + 60 écrit, puis « changer » et une autre réponse : la ligne « Durée visée » dit « 60 min » (ce que la base porte), pas l’habituelle',
+      ligneVisee === '60 min', JSON.stringify([ligneVisee, e.titre, profilBase().duree_seance_min]));
+    await continuerQ();
+    await attendre(600);
+    ok('[Q60c] … et « Continuer » ne remet pas une autre durée : la base garde 60 avec la réponse « marge »',
+      profilBase().temps_reponse === 'marge' && profilBase().duree_seance_min === 60, JSON.stringify([profilBase().temps_reponse, profilBase().duree_seance_min]));
     // La durée VISÉE se change depuis le récapitulatif : la ligne et le récapitulatif
     // disent ce qui a été choisi (90), le titre garde le fait (la médiane des séances).
     const titreTemps0 = (await ecranQ()).lignes.filter((l) => /^Temps/.test(l))[0];
@@ -14431,6 +14570,41 @@ const SETS_IMPORTES = [
     await cliquerFeuille('.feuille-menu button[data-cle="varie"]', 1500);
     ok('[Q60] P — le choix écrit `temps_reponse` ; la ligne le dit',
       profilBase().temps_reponse === 'varie' && (await ligneP('Ton temps')).valeur === 'Ça varie beaucoup', JSON.stringify([profilBase().temps_reponse, await ligneP('Ton temps')]));
+    // ── 60-2c : la feuille « Ton temps » fait la même chose pour « Moins » — la feuille RESTE ouverte, demande combien, écrit à « Valider ».
+    const ecritsT0 = ecritsProfil();
+    const dureeT0 = profilBase().duree_seance_min;
+    await toucherP('Ton temps');
+    await cliquerFeuille('.feuille-menu button[data-cle="moins"]', 600);
+    fp = await feuilleChoixP();
+    const pucesFeuille = await page.evaluate(() => ({
+      libelles: Array.from(document.querySelectorAll('#feuille-contenu .choix-puces .q-puce')).map((n) => n.textContent),
+      question: (document.querySelector('#feuille-contenu .choix-puces .choix-groupe') || {}).textContent || null,
+      horsMenu: document.querySelectorAll('#feuille-contenu .feuille-menu .q-puce').length === 0
+    }));
+    ok('[Q60c] DISCRIMINANT — « Moins » dans « Ton temps » : la feuille RESTE ouverte, rien n’est écrit, les quatre durées s’ouvrent sous « Moins » (hors du menu), « Annuler · Valider »',
+      fp.ouverte && ecritsProfil() === ecritsT0 && profilBase().temps_reponse === 'varie' &&
+        JSON.stringify(pucesFeuille.libelles) === '["45 min","60 min","75 min","90 min"]' && pucesFeuille.horsMenu &&
+        pucesFeuille.question === 'Combien de temps par séance ?' && JSON.stringify(fp.options) === '["max","marge","moins","varie"]' &&
+        JSON.stringify(fp.coches) === '["moins"]' && JSON.stringify(fp.pied) === '["Annuler","Valider"]',
+      JSON.stringify([fp, pucesFeuille, ecritsProfil() - ecritsT0, profilBase().temps_reponse]));
+    await cliquerFeuille('.choix-puces .q-puce[data-cle="90"]', 500);
+    await cliquerFeuille('.feuille-pied .sec', 600);
+    ok('[Q60c] « Annuler » après avoir touché une durée n’écrit rien',
+      !(await feuilleChoixP()).ouverte && ecritsProfil() === ecritsT0 && profilBase().temps_reponse === 'varie' && profilBase().duree_seance_min === dureeT0,
+      JSON.stringify([ecritsProfil() - ecritsT0, profilBase().temps_reponse, profilBase().duree_seance_min, dureeT0]));
+    await toucherP('Ton temps');
+    await cliquerFeuille('.feuille-menu button[data-cle="moins"]', 600);
+    await cliquerFeuille('.choix-puces .q-puce[data-cle="45"]', 500);
+    await cliquerFeuille('.feuille-pied .pri', 1500);
+    ok('[Q60c] DISCRIMINANT — « Valider » écrit la réponse ET la durée en UNE écriture ; la ligne le dit',
+      !(await feuilleChoixP()).ouverte && profilBase().temps_reponse === 'moins' && profilBase().duree_seance_min === 45 &&
+        ecritsProfil() === ecritsT0 + 1 && /^J’ai moins/.test((await ligneP('Ton temps')).valeur),
+      JSON.stringify([profilBase().temps_reponse, profilBase().duree_seance_min, ecritsProfil() - ecritsT0, await ligneP('Ton temps')]));
+    await toucherP('Ton temps');
+    await cliquerFeuille('.feuille-menu button[data-cle="moins"]', 600);
+    await cliquerFeuille('.feuille-pied .pri', 1500);
+    ok('[Q60c] « Valider » sans durée touchée : rien de plus (la réponse et la durée sont déjà celles de la base)',
+      ecritsProfil() === ecritsT0 + 1 && profilBase().duree_seance_min === 45, JSON.stringify([ecritsProfil() - ecritsT0, profilBase().duree_seance_min]));
     await aller('/saisie');
 
     // ── E. UNE LIGNE QU'ON NE CONNAÎT PAS N'OUVRE RIEN : la colonne ABSENTE de la
@@ -14730,6 +14904,32 @@ const SETS_IMPORTES = [
     await aller('/saisie');
     await attendre(900);
     ok('[PH60] … donc Saisie ne montre pas de rappel juste après le changement', !(await bandeauPh()).visible, JSON.stringify(await bandeauPh()));
+
+    // 8. « JE NE SAIS PAS » (60-2c) : le VIDE, au Profil comme au questionnaire. Depuis une phase DÉCLARÉE
+    // (la fixture déclenche le chemin) : la phase s'efface, le pied dit « Maintien (par défaut) », et le
+    // rappel ne revient pas — ni juste après, ni 60 jours plus tard.
+    await rouvrir({ phase: 'seche', phase_depuis: iso(60), phase_confirmee_le: iso(50) });
+    ok('[PH60c] prémisse : sèche confirmée il y a 50 jours, le bandeau est dû', (await bandeauPh()).visible, JSON.stringify(await bandeauPh()));
+    await onglet('profil');
+    await page.click('.p-seg button[data-cle="inconnue"]');
+    await attendre(1200);
+    const piedVide = await page.evaluate(() => {
+      const t = Array.from(document.querySelectorAll('#profil-corps .p-sect')).filter((n) => n.textContent === 'TA PHASE')[0];
+      const p = t && t.nextElementSibling && t.nextElementSibling.querySelector('.p-pied');
+      return p ? p.textContent : null;
+    });
+    ok('[PH60c] DISCRIMINANT — « Je ne sais pas » au Profil écrit une phase VIDE (`null`, jamais `maintien`), datée de sa confirmation ; le pied dit « Maintien (par défaut) »',
+      profilBase().phase === null && recent(profilBase().phase_confirmee_le) && esp(piedVide) === 'Maintien (par défaut)',
+      JSON.stringify([profilBase().phase, profilBase().phase_confirmee_le, piedVide]));
+    await aller('/saisie');
+    await attendre(900);
+    ok('[PH60c] … et Saisie n’affiche aucun rappel', !(await bandeauPh()).visible, JSON.stringify(await bandeauPh()));
+    await rouvrir({ phase: null, phase_depuis: iso(60), phase_confirmee_le: iso(60) });
+    // ⚠️ État FORGÉ (aucun écrivain n'est joué) : ce contrôle passait déjà avant 60-2c (`rappelDePhase` ne lit que
+    // les phases déclarées). Ce qui prouve que « Je ne sais pas » écrit le vide, ce sont les contrôles ci-dessus
+    // ([PH60c] sur `phase === null`) et le test unitaire de `v2-rappel-de-phase`, qui passe par `preparerChamps`.
+    ok('[PH60c] non-régression — une phase vide dont la confirmation a 60 jours (état forgé) n’a pas de rappel',
+      !(await bandeauPh()).visible, JSON.stringify(await bandeauPh()));
 
     // LA REMISE EN ÉTAT.
     Object.keys(DUE).concat(['phase', 'phase_depuis', 'phase_confirmee_le']).forEach((k) => { delete profilBase()[k]; });

@@ -89,9 +89,13 @@
     return m ? Number(m[1]) : null;
   }
 
+  // La phase telle qu'on la RELIT à l'écran. « Je ne sais pas » écrit le vide (60-2c) : une phase
+  // vide AVEC une date de confirmation est une réponse, « Je ne sais pas » — sans elle, rouvrir le
+  // questionnaire la ferait passer pour « jamais répondu » et « Continuer » resterait éteint.
   function phaseSaisie(profil) {
     var v = profil && profil.phase;
-    return v === 'prise_de_masse' || v === 'maintien' || v === 'seche' ? v : null;
+    if (v === 'prise_de_masse' || v === 'maintien' || v === 'seche') return v;
+    return profil && profil.phase_confirmee_le ? 'inconnue' : null;
   }
 
   // `contexte.poids` : la dernière pesée (un nombre), ou `null`.
@@ -162,13 +166,27 @@
     else if (id === TEMPS) {
       // `duree_seance_min` : seulement si la personne l'a CHANGÉE — la médiane
       // qu'on lui montre n'est pas une réponse.
-      entrees = { temps_reponse: r.temps, materiel: r.materiel, duree_seance_min: r.duree };
+      // 60-2c : « Moins en ce moment » demande combien — la puce touchée EST la durée visée
+      // (même colonne, même écriture) ; sans puce, la durée reste ce qu'elle était.
+      entrees = { temps_reponse: r.temps, materiel: r.materiel,
+                  duree_seance_min: r.temps === 'moins' && r.dureeMoins ? r.dureeMoins : r.duree };
     } else if (id === COACH) entrees = coachEnChamps(r.coach);
     else if (id === RECAP) entrees = { fait: true };
     return {
       champs: entrees ? Profil().preparerChamps(profil, entrees, c.maintenant) : {},
       pesee: pesee
     };
+  }
+
+  // Ce qui vient d'être ÉCRIT est la durée visée : le brouillon la rejoint (60-2c). « Moins en ce moment »
+  // l'écrit depuis `dureeMoins`, que `rep.duree` ne connaît pas — sans cela, « Retour » puis une autre
+  // réponse montrerait l'habituelle (ou l'ancienne durée) pendant que la base garde la puce, et la
+  // prochaine écriture la remplacerait en silence. Une COPIE, comme `appliquerChoix`.
+  function apresEcriture(rep, champs) {
+    var r = Object.assign({}, rep);
+    var d = champs ? champs.duree_seance_min : undefined;
+    if (d !== undefined && d !== null) r.duree = d;
+    return r;
   }
 
   // Une priorité qu'on touche : on l'ajoute, ou on la retire ; trois au plus
@@ -179,7 +197,7 @@
   // Un choix touché, appliqué aux réponses en cours (une COPIE) : les noms de
   // réponse que l'écran connaît, et rien d'autre — un geste qui vise une clé
   // inconnue est sans effet.
-  var CHOIX = ['historique', 'anciennete', 'seances', 'duree', 'sexe', 'objectif', 'phase',
+  var CHOIX = ['historique', 'anciennete', 'seances', 'duree', 'dureeMoins', 'sexe', 'objectif', 'phase',
                'temps', 'materiel', 'coach'];
 
   function appliquerChoix(rep, cle, valeur) {
@@ -431,11 +449,19 @@
       titre = 'Combien de temps dure une séance, en général ?';
       blocs.push({ type: 'puces', cle: 'duree', valeur: rep.duree, options: PUCES_DUREES });
     }
-    blocs.push({ type: 'options', cle: 'temps', valeur: rep.temps,
-                 options: avecSous(Profil().TEMPS_REPONSES, SOUS_TEMPS) });
+    // 60-2c : « Moins en ce moment », choisi, demande combien JUSTE DESSOUS — quatre puces, la
+    // même fonction que la feuille du Profil. Les autres réponses gardent la ligne « Durée visée ».
+    var options = avecSous(Profil().TEMPS_REPONSES, SOUS_TEMPS);
+    var moins = rep.temps === 'moins';
+    if (moins) {
+      options.forEach(function (o) {
+        if (o.cle === 'moins') o.apres = Profil().pucesDeMoins(rep.duree, habituelle, rep.dureeMoins);
+      });
+    }
+    blocs.push({ type: 'options', cle: 'temps', valeur: rep.temps, options: options });
     // La durée VISÉE : celle du Profil (`duree_seance_min`), ou l'habituelle tant
     // que la personne n'a rien dit. Elle ouvre la feuille du Profil.
-    if (visee) blocs.push({ type: 'ligne', cle: 'duree', libelle: 'Durée visée', valeur: en(visee, 'min') });
+    if (visee && !moins) blocs.push({ type: 'ligne', cle: 'duree', libelle: 'Durée visée', valeur: en(visee, 'min') });
     blocs.push({ type: 'puces', cle: 'materiel', titre: 'Où t’entraînes-tu ?',
                  valeur: rep.materiel, options: Profil().MATERIELS.map(function (m) {
                    return { cle: m.cle, libelle: m.libelle };
@@ -459,13 +485,15 @@
   // elle se répond), et on y REVIENT.
   function ecranRecap(etat) {
     var rep = etat.rep, P = Profil();
-    // « Je ne sais pas » vaut « maintien » : le récapitulatif dit « Maintien » (maquette),
-    // comme ce qui s'écrit — pas « Je ne sais pas ».
-    var phase = rep.phase === 'inconnue' ? 'Maintien' : (rep.phase ? P.libelleDe(P.PHASES, rep.phase) : null);
+    // « Je ne sais pas » écrit une phase vide que le coach compte « maintien » : le récapitulatif
+    // le dit (« Maintien (par défaut) »), au mot près comme le Profil — pas « Je ne sais pas ».
+    var phase = rep.phase === 'inconnue' ? P.LIBELLE_PHASE_VIDE : (rep.phase ? P.libelleDe(P.PHASES, rep.phase) : null);
     var priorites = Array.isArray(rep.priorites)
       ? (rep.priorites.length ? rep.priorites.map(function (c) { return libelleDePriorite(c); }).join(', ') : 'Pas de priorité')
       : null;
-    var duree = dureeMontree(rep, etat.faits);
+    // « Moins en ce moment » : la durée dite est la puce touchée (ou la durée déjà déclarée) — jamais
+    // l'habituelle, qui est un fait et que rien n'écrit.
+    var duree = rep.temps === 'moins' ? (rep.dureeMoins || rep.duree || null) : dureeMontree(rep, etat.faits);
     var temps = rep.temps ? P.libelleDe(P.TEMPS_REPONSES, rep.temps) : null;
     var tempsTexte = [duree ? en(duree, 'min') : null, temps ? temps.charAt(0).toLowerCase() + temps.slice(1) : null]
       .filter(Boolean).join(' · ');
@@ -537,7 +565,7 @@
     coachEnChamps: coachEnChamps,
     champsDeLEcran: champsDeLEcran,
     basculerPriorite: basculerPriorite,
-    appliquerChoix: appliquerChoix,
+    appliquerChoix: appliquerChoix, apresEcriture: apresEcriture,
     lireChamp: lireChamp,
     lignesDeCeQueJeSais: lignesDeCeQueJeSais,
     dureeMontree: dureeMontree, dureeHabituelle: dureeHabituelle,

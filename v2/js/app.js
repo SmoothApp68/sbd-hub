@@ -790,7 +790,12 @@
     // Le profil aussi appartient au compte précédent — et son envoi en attente
     // avec lui. Le rejouer sur le compte suivant écrirait la taille de
     // quelqu'un d'autre dans sa ligne `profiles`.
-    profil = null; profilAEnvoyer = false; pseudoAInscrire = null;
+    // ⚠️ MAIS PAS LE PSEUDO À INSCRIRE (60-2c). Il n'est pas l'état du compte précédent : c'est celui du
+    // compte QUI ENTRE, posé par `soumettreEntree` juste avant `signUp` — et un compte neuf n'est jamais
+    // propriétaire du cache, donc cette branche s'exécute à CHAQUE inscription. Le remettre à zéro ici
+    // faisait naître la ligne de profil sans pseudo. Il tombe ailleurs : « Quitter » (`deconnecter`),
+    // l'échec d'une inscription, une connexion (`soumettreEntree`) et la création de la ligne (`chargerProfil`).
+    profil = null; profilAEnvoyer = false;
     fermerQuestionnaire(); envoiProfil = null; versionProfil = 0;
     faits.oublierDates();
     await Cache.ecrireMeta('proprietaire', { userId: userId });
@@ -8014,11 +8019,21 @@
     if (version !== versionProfil) return;
 
     if (!distant) {
+      var creer = function (pseudo) {
+        return Donnees.enregistrerProfil(id, Profil.champsEcrits({ username: pseudo || null, onboarding_completed: false }));
+      };
       try {
-        distant = await Donnees.enregistrerProfil(id, Profil.champsEcrits({
-          username: pseudoAInscrire || null,
-          onboarding_completed: false
-        }));
+        try { distant = await creer(pseudoAInscrire); }
+        catch (e1) {
+          // 60-2c — le pseudo arrive enfin jusqu'ici, et peut heurter l'unicité (23505) : la sonde de
+          // disponibilité n'est qu'indicative. Sans cette sortie, la création échouerait à l'identique à
+          // chaque chargement — pas de ligne, pas de questionnaire. Elle se crée SANS le pseudo ; le Profil
+          // dit « à renseigner » et le choisir se fait là, avec sa propre vérification.
+          if (!(pseudoAInscrire && e1 && e1.code === '23505')) throw e1;
+          if (generationValide(g)) console.warn('Pseudo déjà pris, la ligne est créée sans lui :', texteErreur(e1));
+          pseudoAInscrire = null;
+          distant = await creer(null);
+        }
       } catch (e) {
         // 60-2b — une création qui échoue ne se perd plus en silence : elle se dit (console,
         // donc le journal des erreurs), et elle se REJOUE au prochain chargement du profil —
@@ -8171,6 +8186,14 @@
     questionnaire.faits = faits.ceQueJeSais(corpus(), new Date(), Questionnaire.BARRES);
   }
 
+  // La durée HABITUELLE (un fait : la médiane des séances, `null` sans heure de fin), pour les puces de
+  // « Moins en ce moment » dans la feuille « Ton temps » du Profil (60-2c) — lue quand elle sert,
+  // jamais au rendu de l'écran.
+  function dureeHabituelleDesSeances() {
+    var f = faits.ceQueJeSais(corpus(), new Date(), Questionnaire.BARRES);
+    return f && f.dureeMin ? f.dureeMin : null;
+  }
+
   function ecransDuQuestionnaire() {
     return Questionnaire.ecransVisibles({ aDesSeances: questionnaire.aDesSeances,
                                           historique: questionnaire.rep.historique });
@@ -8276,6 +8299,7 @@
     // Une écriture par écran. `poserProfil` met `profil` à jour AVANT son premier
     // `await` : l'écran suivant lit déjà la réponse. Aucun n'attend le réseau.
     if (Object.keys(ecrit.champs).length) poserProfil(ecrit.champs).catch(function () {});
+    q.rep = Questionnaire.apresEcriture(q.rep, ecrit.champs);   // la durée écrite est la durée visée
     if (ecrit.pesee) poserPesee(ecrit.pesee).catch(function () {});
     if (q.ecran === Questionnaire.RECAP) return terminerQuestionnaire();
     var suivant = q.retourRecap ? Questionnaire.RECAP
@@ -8491,15 +8515,44 @@
   function ouvrirReponseProfil(cle) {
     if (cle === 'priorites') return ouvrirPrioritesProfil();
     var objectif = cle === 'objectif';
+    // 60-2c — « Moins en ce moment » DEMANDE COMBIEN. Le toucher ne ferme pas la feuille : il ouvre
+    // juste dessous les quatre durées (`Profil.pucesDeMoins`, la fonction de l'écran 7 du
+    // questionnaire), et la feuille gagne un « Valider ». Rien ne s'écrit avant lui — « Annuler »
+    // laisse tout comme c'était. Sans puce touchée, « Valider » n'écrit que la réponse de temps.
+    var moinsOuvert = false, dureeChoisie = null, habituelle = null;
+    var redessiner = function () { feuilleProfil($('feuille-contenu')); };
     feuilleProfil = function (cible) {
+      var options = objectif ? Profil.OBJECTIFS : Profil.optionsTemps();
+      if (moinsOuvert) {
+        options = options.map(function (o) {
+          if (o.cle !== 'moins') return o;
+          return { cle: o.cle, libelle: o.libelle, sous: o.sous,
+                   apres: Profil.pucesDeMoins(profil && profil.duree_seance_min, habituelle, dureeChoisie) };
+        });
+      }
       Rendu.rendreFeuilleChoix(cible, {
         titre: objectif ? 'Objectif' : 'Ton temps',
         // 60-2b : ce que le coach fait de la réponse — une phrase pour l'objectif, une
         // sous-ligne par réponse de temps qu'il lit (`Profil.optionsTemps`).
         aide: objectif ? Profil.AIDE_OBJECTIF : null,
-        options: objectif ? Profil.OBJECTIFS : Profil.optionsTemps(),
-        valeur: valeurProfil(cle),
-        surChoix: function (v) { fermerVoile(); ecrireReponse(defObjet(cle, v)); },
+        options: options,
+        valeur: moinsOuvert ? 'moins' : valeurProfil(cle),
+        surChoix: function (v) {
+          if (!objectif && v === 'moins') {
+            habituelle = dureeHabituelleDesSeances();
+            moinsOuvert = true;
+            redessiner();
+            return;
+          }
+          fermerVoile();
+          ecrireReponse(defObjet(cle, v));
+        },
+        surPuce: function (n) { dureeChoisie = n; redessiner(); },
+        surValider: moinsOuvert ? function () {
+          fermerVoile();
+          ecrireReponse(dureeChoisie ? { temps_reponse: 'moins', duree_seance_min: dureeChoisie }
+                                     : { temps_reponse: 'moins' });
+        } : null,
         surEffacer: null,
         surAnnuler: fermerVoile
       });
@@ -8779,6 +8832,8 @@
   function quitterSansRienPerdre() {
     return Quitter.quitter({
       file: function () { return attente; },
+      // 60-2c : une réponse de profil pas encore envoyée (hors file) compte aussi.
+      profil: function () { return profilAEnvoyer; },
       enLigne: function () { return !(racine.navigator && racine.navigator.onLine === false); },
       envoyer: envoyerAvantDeQuitter,
       fenetre: montrerFenetreDeSortie,
@@ -8789,11 +8844,18 @@
   // La vidange HABITUELLE, attendue jusqu'au bout : une vidange déjà en cours
   // est attendue, puis on en lance une. Bornée à 15 s : un réseau qui ne répond
   // pas ne fige pas « Quitter » — ce qui n'est pas parti, la fenêtre le dira.
+  // 60-2c : le PROFIL part avec elle (`envoyerProfil`, derrière un envoi déjà en
+  // vol), dans la MÊME course de 15 s — jamais un `await` nu qui figerait « Quitter ».
   async function envoyerAvantDeQuitter() {
     var fin = Date.now() + 15000;
     var attendre = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
+    // Le profil ne dépend pas de la vidange (sa propre chaîne d'envoi) : il PART TOUT DE SUITE, pendant
+    // qu'on attend la vidange en cours — sinon une vidange lente lui mangeait tout son budget de 15 s.
+    var profilEnvoye = profilAEnvoyer ? envoyerProfil().catch(function () {}) : null;
     while (vidangeEnCours && Date.now() < fin) await attendre(100);
-    await Promise.race([vidanger(), attendre(Math.max(0, fin - Date.now()))]);
+    var envois = [vidanger()];
+    if (profilEnvoye) envois.push(profilEnvoye);
+    await Promise.race([Promise.all(envois), attendre(Math.max(0, fin - Date.now()))]);
   }
 
   // La fenêtre des séances pas encore envoyées (la maquette du 07/10/2026).
@@ -9006,6 +9068,9 @@
           erreur.textContent = 'Compte créé. Confirme ton e-mail, puis connecte-toi.';
         }
       } else {
+        // Une connexion n'inscrit personne : un pseudo resté en mémoire (une création échouée, un autre
+        // compte) ne doit pas partir dans la ligne d'un compte qui n'en a pas encore.
+        pseudoAInscrire = null;
         await Auth.connecter($('champ-email').value.trim(), $('champ-mdp').value);
       }
     } catch (err) {

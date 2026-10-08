@@ -463,7 +463,7 @@ if (require.main === module) {
     const s = resumer(r);
     console.log(s.texte);
     // `--contre RAPPORT` : compare cette exécution à une autre, déjà écrite par
-    // `--rapport` (le séquentiel dure 25 min : on le joue une fois, on compare
+    // `--rapport` (le séquentiel dure ~50 min : on le joue une fois, on compare
     // ensuite autant de parallèles qu'il faut).
     const contre = val('--contre');
     if (contre) {

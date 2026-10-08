@@ -165,6 +165,48 @@ describe('I18 — les violations forgées sont attrapées', () => {
     f.phase = null;
     expect(T.verifierPlan(f).erreurs.join('\n')).toMatch(/^I18 — la phase du plan est vide/m);
   });
+
+  // ── 60-2c — jumeau d'I40 (9acf4de) : en ÉDITION, les paris déjà posés ne se comparent pas ───────────
+  test('⚠️ DISCRIMINANT — en ÉDITION, les paris déjà posés ne se comparent pas à la phase d’aujourd’hui : une séance terminée avant 49-U11 n’en porte pas, une autre l’a posée à la phase d’alors', () => {
+    let se = seanceDe();
+    const q = T.planDeSeance(entreesDe(se, 'seche')).exercices[0].paris[0];
+    se = valider(se, 0, 125, 5);
+    const sansPhase = clone(q);
+    delete sansPhase.fondement.phase;
+    const poses = [Object.assign({}, sansPhase, { id: 'p0', set_observe: se.exercices[0].series[0].id }),
+      Object.assign({}, q, { id: 'p1', set_observe: se.exercices[0].series[0].id })];
+    const verifier = (edition) => {
+      const e = entreesDe(se, 'maintien', poses);
+      e.seance.edition = edition;
+      return T.verifierPlan(T.planDeSeance(e), e).erreurs.filter((m) => /^I18/.test(m));
+    };
+    expect(verifier(true)).toEqual([]);
+    // Même état hors édition : la garde parle (sans phase, et à une autre phase).
+    const hors = verifier(false).join('\n');
+    expect(hors).toMatch(/un pari sans phase/);
+    expect(hors).toMatch(/seche dans une séance à maintien/);
+  });
+
+  test('en ÉDITION, la garde reste entière sur ce que le plan écrit lui-même et sur la phase du plan', () => {
+    const { p } = base();
+    const f = clone(p);
+    f.edition = true;
+    f.exercices[0].paris[2].fondement.phase = 'maintien';
+    expect(T.verifierPlan(f).erreurs.join('\n')).toMatch(/^I18 — .*à la phase maintien dans une séance à seche/m);
+    f.phase = null;
+    expect(T.verifierPlan(f).erreurs.join('\n')).toMatch(/^I18 — la phase du plan est vide/m);
+  });
+
+  test('un plan forgé SANS la clé `edition` reste vérifié (défaut strict : seul `true` lève la garde)', () => {
+    let se = seanceDe();
+    const q = T.planDeSeance(entreesDe(se, 'seche')).exercices[0].paris[0];
+    se = valider(se, 0, 125, 5);
+    const pose = Object.assign({}, q, { id: 'p0', set_observe: se.exercices[0].series[0].id });
+    const e = entreesDe(se, 'maintien', [pose]);
+    const f = clone(T.planDeSeance(e));
+    delete f.edition;
+    expect(T.verifierPlan(f, e).erreurs.join('\n')).toMatch(/^I18 — pari posé .*seche dans une séance à maintien/m);
+  });
 });
 
 describe('Profil — « TA PHASE »', () => {
@@ -178,7 +220,33 @@ describe('Profil — « TA PHASE »', () => {
       .toEqual(['Prise de masse', 'Maintien ou recomposition', 'Sèche', 'Je ne sais pas']);
     expect(sec.segment.valeur).toBe('inconnue');
     expect(sec.aide).toBe('Ce que tu vises en ce moment. Je l’enregistre avec chaque séance.');
-    expect(sec.pied).toBeNull();
+    // 60-2c : une phase vide ne dit pas « depuis », elle dit ce que le coach en fait.
+    expect(sec.pied).toBe('Maintien (par défaut)');
+    expect(sec.pied).toBe(Profil.LIBELLE_PHASE_VIDE);
+  });
+
+  test('⚠️ DISCRIMINANT (60-2c) — une phase vide n’affiche jamais « Depuis le … », même avec un `phase_depuis` ancien', () => {
+    const sec = Profil.sectionPhase({ phase: null, phase_depuis: '2026-09-01T00:00:00.000Z' }, () => {}, MAINTENANT);
+    expect(sec.pied).toBe('Maintien (par défaut)');
+    // Une phase déclarée garde son « Depuis … ».
+    expect(Profil.sectionPhase({ phase: 'seche', phase_depuis: '2026-09-01T00:00:00.000Z' }, () => {}, MAINTENANT).pied)
+      .toMatch(/^Depuis /);
+  });
+
+  test('⚠️ DISCRIMINANT (60-2c) — le segment du Profil écrit EXACTEMENT ce que le questionnaire écrit (une seule préparation)', () => {
+    const profils = [{}, { phase: null }, { phase: 'seche', phase_depuis: '2026-09-01T00:00:00.000Z' },
+      { phase: 'maintien' }, { phase: 'prise_de_masse', phase_depuis: '2026-08-01T00:00:00.000Z' }];
+    ['prise_de_masse', 'maintien', 'seche', 'inconnue'].forEach((choix) => {
+      profils.forEach((p) => {
+        const ecrits = [];
+        Profil.sectionPhase(p, (c) => ecrits.push(c), MAINTENANT).segment.surChoix(choix);
+        expect([JSON.stringify(p), choix, ecrits]).toEqual([JSON.stringify(p), choix, [Profil.preparerChamps(p, { phase: choix }, MAINTENANT())]]);
+      });
+    });
+    // Et « Je ne sais pas » est bien le vide, au Profil comme ailleurs.
+    const e = [];
+    Profil.sectionPhase({ phase: 'seche' }, (c) => e.push(c), MAINTENANT).segment.surChoix('inconnue');
+    expect(e[0].phase).toBeNull();
   });
 
   test('« Depuis le 29 sept. » sous le réglage, et Sèche sélectionnée', () => {

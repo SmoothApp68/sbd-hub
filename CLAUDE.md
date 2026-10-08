@@ -181,9 +181,9 @@ trappe `/__sw-off` pendrait avec lui.
   `npm test` et les trois autres bancs (routines, service worker, création du profil —
   `tests/banc/profil-creation.js`, 60-2b), tous en même temps :
   `node tests/banc/tout.js`. Le banc de séance y tourne en parallèle
-  (6 groupes, ~5 min au lieu de 25) ; `--sequentiel` rejoue la référence historique.
+  (6 groupes, ~5 min au lieu de ~50) ; `--sequentiel` rejoue la référence historique.
 - **Et, à la fin de chaque CHANTIER, un banc séquentiel complet** sur l'état
-  commité : `node tests/banc/seance-rapide.js --sequentiel` (~30 min).
+  commité : `node tests/banc/seance-rapide.js --sequentiel` (~50 min).
   `tout.js` ne lance que le parallèle : le séquentiel était cassé depuis la
   PR 6 de la consolidation (`plan.js` chargé sans `modele.js` en 7 sexdecies)
   sans que personne le voie. Règle du 02/10/2026 (49-U20).
@@ -205,7 +205,7 @@ trappe `/__sw-off` pendrait avec lui.
   spec, description de PR) ou de tests unitaires seuls. Il reste obligatoire
   dès qu'un fichier servi (`v2/`) ou un banc change.
 - **Changer les groupes ou les chaînes** se prouve : `--sequentiel --rapport seq.json`
-  une fois (25 min), puis `node tests/banc/seance-rapide.js --contre seq.json` —
+  une fois (~50 min), puis `node tests/banc/seance-rapide.js --contre seq.json` —
   mêmes contrôles, un par un.
 - **Une section ajoutée au banc** qui lit l'état laissé par une autre s'inscrit
   dans une chaîne (`tests/banc/seance-chaines.json`) : sinon, en parallèle ou

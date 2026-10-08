@@ -744,7 +744,7 @@ const NOTIONS = [
   // ── 60-2a — LE QUESTIONNAIRE DU COACH MONTRE, IL NE DEMANDE PAS ───────────
   { notion: 'ce que les séances savent de la personne (historique, rythme, durée habituelle, maximums, autres activités)', pr: '60-U1',
     module: 'faits.js', fonction: 'ceQueJeSais', lecteurs: ['app.js'],
-    parAilleurs: { 'app.js': ['actualiserFaitsDuQuestionnaire'] },
+    parAilleurs: { 'app.js': ['actualiserFaitsDuQuestionnaire', 'dureeHabituelleDesSeances'] },
     raison: 'QUESTIONNAIRE-COACH-V2 §1.2 : rien de ce que les séries savent n’est demandé, c’est montré — ' +
       'l’écran « Ce que je sais » et la durée habituelle de l’écran « Temps » lisent ce fait, aucun ne recompte.' },
   // ── 60-2a — « JUSTE UN CARNET » SE TAIT PARTOUT, D'UNE SEULE VOIX ─────────

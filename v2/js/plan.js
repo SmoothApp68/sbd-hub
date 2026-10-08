@@ -2006,7 +2006,13 @@
     (plan.exercices || []).forEach(function (x) {
       (x.paris || []).forEach(function (q, i) { voir(q, 'exercice ' + x.iExo + ' (' + x.slug + '), série ' + i); });
     });
-    (parisSeance || []).forEach(function (q) { voir(q, 'pari posé ' + (q.exercise_slug || '') + ' rang ' + (q.fondement && q.fondement.rang)); });
+    // ⚠️ En ÉDITION, les paris déjà posés sont ceux d'une séance TERMINÉE, écrits avant 60-2b
+    // (sans clé `objectif`) ou à l'objectif d'alors : ils ne témoignent pas de l'objectif d'aujourd'hui,
+    // et le plan d'une correction ne les réécrit pas. Les comparer ferait échouer la garde de
+    // développement sur toute correction d'une séance ancienne.
+    if (plan.edition !== true) {
+      (parisSeance || []).forEach(function (q) { voir(q, 'pari posé ' + (q.exercise_slug || '') + ' rang ' + (q.fondement && q.fondement.rang)); });
+    }
   }
 
   // I18 (MOTEUR §9.16, 49-U11) — chaque pari de la séance porte dans son

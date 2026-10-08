@@ -130,6 +130,23 @@ describe('§9.16 — TOUTE écriture de la phase pose `phase_confirmee_le`', () 
     ]);
   });
 
+  test('⚠️ DISCRIMINANT — re-toucher la phase DÉJÀ choisie la confirme SEULEMENT : `phase_depuis` ne repart pas de zéro', () => {
+    const depuis = il_y_a(80);
+    const ecrits = [];
+    const sec = Profil.sectionPhase({ phase: 'seche', phase_depuis: depuis, phase_confirmee_le: il_y_a(50) },
+      (c) => ecrits.push(c), () => MAINT);
+    sec.segment.surChoix('seche');
+    expect(ecrits).toEqual([{ phase_confirmee_le: MAINT.toISOString() }]);
+    // Le rappel s'éteint (la confirmation est neuve) sans effacer l'ancienneté de la phase.
+    const apres = Object.assign({ phase: 'seche', phase_depuis: depuis }, ecrits[0]);
+    expect(Profil.rappelDePhase(apres, AUJ)).toBe(false);
+    expect(apres.phase_depuis).toBe(depuis);
+    // Une phase non choisie (« Je ne sais pas » vaut `inconnue`) se confirme de même.
+    const sans = [];
+    Profil.sectionPhase({ phase: null }, (c) => sans.push(c), () => MAINT).segment.surChoix('inconnue');
+    expect(sans).toEqual([{ phase_confirmee_le: MAINT.toISOString() }]);
+  });
+
   test('le questionnaire (`preparerChamps`) la pose à chaque réponse, changée ou non', () => {
     expect(Profil.preparerChamps({ phase: 'seche' }, { phase: 'seche' }, MAINT))
       .toEqual({ phase_confirmee_le: MAINT.toISOString() });

@@ -355,6 +355,9 @@
           // 60-2b : TOUTE réponse sur la phase est une confirmation — le rappel de
           // phase (`rappelDePhase`) compte depuis `phase_confirmee_le`, comme le fait
           // le questionnaire (`preparerChamps`).
+          // Re-toucher la phase DÉJÀ choisie la confirme seulement : `phase_depuis` (le début de
+          // cette phase, que « depuis N semaines » lit) ne repart pas de zéro.
+          if (v === valeur) { ecrire({ phase_confirmee_le: quand.toISOString() }); return; }
           ecrire({ phase: v === 'inconnue' ? null : v, phase_depuis: quand.toISOString(),
                    phase_confirmee_le: quand.toISOString() });
         }

@@ -2467,6 +2467,9 @@
     if (coachSeTait(intentionProfil)) return rien;
     var cibles = ciblesDeTemps(dureeS, declareeMin);
     if (!cibles.length || !cibles[0].declaree) return rien;
+    // L'ESTIMATION AFFICHÉE (arrondie à la minute) doit dépasser la durée visée : 3 610 s
+    // s'écrit « 60 min » — ni carte « tenir en 60 min » ni ambre pour une durée qui ne dépasse pas.
+    if (minutesDe(dureeS) <= cibles[0].min) return rien;
     if (tempsReponse === 'moins') return { ouvrir: cibles[0].min, ambre: false };
     if (tempsReponse === 'varie') return { ouvrir: null, ambre: true };
     return rien;

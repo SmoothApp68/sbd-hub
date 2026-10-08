@@ -65,6 +65,19 @@ describe('§9.18 — `reponseDeTemps` : ce que chaque réponse déclenche', () =
     expect(M.reponseDeTemps('varie', D75, 75, 'progresser')).toEqual({ ouvrir: null, ambre: false });
   });
 
+  test('⚠️ DISCRIMINANT — l’estimation AFFICHÉE (arrondie à la minute) doit dépasser la durée visée : « 60 min » ne dépasse pas 60', () => {
+    // 3 610 s s'écrit « Environ 60 min » : une carte « Tenir en 60 min » ou de l'ambre n'auraient pas de sens.
+    expect(M.texteDureeEstimee(3610)).toMatch(/60 min/);
+    ['moins', 'varie'].forEach((v) => {
+      expect(M.reponseDeTemps(v, 3610, 60, 'progresser')).toEqual({ ouvrir: null, ambre: false });
+      expect(M.reponseDeTemps(v, 3629, 60, 'progresser')).toEqual({ ouvrir: null, ambre: false });
+    });
+    // 3 630 s s'écrit « Environ 61 min » : là, oui.
+    expect(M.texteDureeEstimee(3630)).toMatch(/61 min/);
+    expect(M.reponseDeTemps('moins', 3630, 60, 'progresser')).toEqual({ ouvrir: 60, ambre: false });
+    expect(M.reponseDeTemps('varie', 3630, 60, 'progresser')).toEqual({ ouvrir: null, ambre: true });
+  });
+
   test('une durée déclarée hors des bornes de la base (9, 301, 59,5) n’est pas une cible', () => {
     [9, 301, 59.5, -60, 'x'].forEach((d) => {
       expect(M.reponseDeTemps('moins', 400 * MIN, d, 'progresser')).toEqual({ ouvrir: null, ambre: false });
@@ -101,7 +114,7 @@ describe('§9.18 — app.js, rejoué', () => {
     return {
       m,
       getItem: (k) => { if (opt.refuse) throw new Error('refusé'); return Object.prototype.hasOwnProperty.call(m, k) ? m[k] : null; },
-      setItem: (k, v) => { if (opt.refuse) throw new Error('refusé'); m[k] = String(v); }
+      setItem: (k, v) => { if (opt.refuse || opt.refuseEcriture) throw new Error('refusé'); m[k] = String(v); }
     };
   }
 
@@ -212,10 +225,17 @@ describe('§9.18 — app.js, rejoué', () => {
     expect(Object.keys(st.m).every((k) => k.indexOf('th-v2') === 0)).toBe(true);
   });
 
-  test('⚠️ DISCRIMINANT — stockage refusé, clé illisible, ou pas de compte : « déjà vu », elle ne s’ouvre pas', () => {
+  test('⚠️ DISCRIMINANT — stockage refusé (en lecture, ou en ÉCRITURE seule : quota), clé illisible, ou pas de compte : « déjà vu », elle ne s’ouvre pas', () => {
     const refuse = bac({ stockage: stockage({ refuse: true }) });
     refuse.r = ROUTINE;
     expect(refuse.appel('ouvrirPeuDeTempsDOffice(r)')).toBe(false);
+    // Lecture permise, écriture refusée : la marque ne se pose pas — sans ce garde, la carte
+    // s'ouvrirait à CHAQUE « Démarrer » (la lecture suivante ne la verrait jamais « vue »).
+    const ecriture = bac({ stockage: stockage({ refuseEcriture: true }) });
+    ecriture.r = ROUTINE;
+    expect(ecriture.appel('ouvrirPeuDeTempsDOffice(r)')).toBe(false);
+    expect(ecriture.appel('ouvrirPeuDeTempsDOffice(r)')).toBe(false);
+    expect(ecriture.journal.voiles).toBe(0);
     const st = stockage();
     st.m['th-v2-peu-de-temps-vu-u1'] = '{pas du json';
     const illisible = bac({ stockage: st });
@@ -229,7 +249,7 @@ describe('§9.18 — app.js, rejoué', () => {
     const sansCompte = bac({ compte: null });
     sansCompte.r = ROUTINE;
     expect(sansCompte.appel('ouvrirPeuDeTempsDOffice(r)')).toBe(false);
-    [refuse, illisible, mal, sansCompte].forEach((c) => expect(c.journal.cartes).toEqual([]));
+    [refuse, ecriture, illisible, mal, sansCompte].forEach((c) => expect(c.journal.cartes).toEqual([]));
   });
 
   test('⚠️ DISCRIMINANT — rien à faire : « varie », « marge », « max », sans durée déclarée, routine qui tient, semaine allégée, carnet', () => {

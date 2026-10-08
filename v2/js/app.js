@@ -6075,17 +6075,18 @@
     return vus === null || vus[routineId] === jourDuJour();
   }
 
+  // Rend vrai quand la marque est POSÉE : sans elle, la carte s'ouvrirait à chaque « Démarrer ».
   function marquerPeuDeTempsVu(routineId) {
     var id = userId();
-    if (!id) return;
+    if (!id) return false;
     var jour = jourDuJour();
     var vus = peuDeTempsVus() || {};
     var gardes = {};
     // Les jours passés s'élaguent : la clé ne grossit pas d'une entrée par routine et par jour.
     Object.keys(vus).forEach(function (k) { if (vus[k] === jour) gardes[k] = jour; });
     gardes[routineId] = jour;
-    try { racine.localStorage.setItem(CLE_PEU_DE_TEMPS_VU + id, JSON.stringify(gardes)); }
-    catch (e) { /* stockage refusé : la lecture suivante dira « déjà vu » */ }
+    try { racine.localStorage.setItem(CLE_PEU_DE_TEMPS_VU + id, JSON.stringify(gardes)); return true; }
+    catch (e) { return false; }   // stockage refusé en écriture seule : on n'ouvre pas une carte qu'on ne saurait pas dire montrée
   }
 
   // « Démarrer » sur une routine dont la personne a dit « moins de temps » : la carte de
@@ -6096,7 +6097,7 @@
     var t = tempsDeLaRoutine(routine);
     if (!t || !t.peuDeTemps || t.ouvrir === null || t.ouvrir === undefined) return false;
     if (peuDeTempsDejaVu(routine.id)) return false;
-    marquerPeuDeTempsVu(routine.id);
+    if (!marquerPeuDeTempsVu(routine.id)) return false;
     montrerCarteRaccourci(routine, t.ouvrir);
     ouvrirVoile($('feuille-seance'));
     return true;
@@ -7722,6 +7723,7 @@
   // refusait (403). Désormais la session d'un AUTRE compte attend la fin de l'entrée en vol
   // puis entre à son tour ; celle du MÊME compte remplace l'objet de session (le jeton neuf).
   var entreeEnCoursPour = null;
+  var departs = 0;   // « Quitter » : une entrée qui attendait son tour n'entre plus
 
   function entrer(session) {
     var uid = idDeSession(session);
@@ -7730,7 +7732,16 @@
         if (uid && idDeSession(sessionActive) === uid) sessionActive = session;
         return entreeEnCours;
       }
-      return entreeEnCours.catch(function () {}).then(function () { return entrer(session); });
+      // Elle attend son tour, mais le tour peut ne plus être le sien : un « Quitter » entre-temps
+      // (le compteur de départs a bougé), ou un stockage qui ne la porte plus (un autre compte a
+      // pris la place) — alors elle n'entre pas. La génération ne sert pas ici : l'entrée en vol
+      // la change elle-même quand le cache change de propriétaire (`garantirProprietaire`).
+      var parti = departs;
+      return entreeEnCours.catch(function () {}).then(function () {
+        if (parti !== departs) return;
+        if (idDeSession(Auth.sessionPersistee()) !== uid) return;
+        return entrer(session);
+      });
     }
     entreeEnCoursPour = uid;
     entreeEnCours = uid && uid === entreeFaitePour ? reentrer(session) : entrerVraiment(session);
@@ -7866,6 +7877,7 @@
   // qui expire toute seule, en revanche, ne doit rien effacer — on revient à
   // l'écran de connexion et les données restent là pour la prochaine ouverture.
   async function deconnecter() {
+    departs++;
     // 59-5 — AVANT DE VIDER QUOI QUE CE SOIT : une nouvelle génération. Tout
     // écrivain asynchrone encore en vol (synchro, journal, remplissage,
     // vidange, profil) abandonnera sans écrire ; les verrous des tâches en
@@ -7974,9 +7986,13 @@
   //     on n'écrit pas un identifiant deviné — la ligne attend (`profilAEnvoyer`) ;
   //   · le client est sur un AUTRE compte que l'app : `null` aussi — on n'écrit JAMAIS la ligne
   //     de l'un sous l'identifiant de l'autre — et la session du client entre (`entrer`).
+  //   · l'app a changé de compte PENDANT la lecture de la session (Quitter, autre compte) : le
+  //     verdict est périmé — `null`, et surtout pas de ré-entrée dans un compte qu'on vient de quitter.
   async function identifiantDuProfil() {
+    var g = generation;
     var s = null;
     try { s = await Auth.sessionCourante(); } catch (e) { s = null; }
+    if (!generationValide(g) || !userId()) return null;
     var id = idDeSession(s);
     if (!id) return null;
     if (id !== userId()) { entrer(s); return null; }

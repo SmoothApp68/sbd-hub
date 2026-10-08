@@ -49,7 +49,9 @@ describe('`entrer` : une entrée en vol n’absorbe que la session de SON compte
                lireAttente: () => Promise.resolve([]), lireMeta: () => Promise.resolve(null) },
       local: {}, seance: null, attente: [], consignesSauvees: null, brouillonLocal: null,
       sessionActive: null, profil: null, etat: null, verificationSeance: null,
-      entreeEnCours: null, entreeFaitePour: null,
+      entreeEnCours: null, entreeFaitePour: null, entreeEnCoursPour: null, departs: 0,
+      // Le stockage porte la session reçue en dernier (l'évènement du SDK l'a écrite avant de nous l'envoyer).
+      persistee: null, Auth: { sessionPersistee: () => ctx.persistee },
       CLE_CONSIGNES: 'consignes', CLE_BROUILLON: 'brouillon-routine',
       vues: { detail: {}, routine: {}, seance: {}, questionnaire: {} },
       Seance: { verifierColonnes: () => {} },
@@ -77,7 +79,7 @@ describe('`entrer` : une entrée en vol n’absorbe que la session de SON compte
     return { ctx, journal,
       // La synchronisation en vol se libère quand elle a commencé (l'entrée enchaîne plusieurs `await`).
       liberer: async () => { for (let i = 0; i < 50 && !liberer; i++) await tic(); if (liberer) liberer(); },
-      entrer: (s) => { ctx.__s = s; return vm.runInContext('entrer(__s)', ctx); } };
+      entrer: (s) => { ctx.__s = s; ctx.persistee = s; return vm.runInContext('entrer(__s)', ctx); } };
   }
 
   test('⚠️ DISCRIMINANT — la session du compte B reçue PENDANT l’entrée de A entre à son tour : la mémoire finit sur B', async () => {
@@ -119,16 +121,49 @@ describe('`entrer` : une entrée en vol n’absorbe que la session de SON compte
     await pA;
   });
 
-  test('l’entrée en vol qui échoue ne bloque pas la session suivante', async () => {
+  test('l’entrée en vol qui ÉCHOUE ne bloque pas la session suivante', async () => {
     const b = bac();
-    b.ctx.chargerCache = () => Promise.reject(new Error('disque'));
+    // `chargerCache` est dans un try/catch de `entrerVraiment` : seule la lecture de la séance
+    // locale fait vraiment rejeter l'entrée. Elle échoue pour A, pas pour B.
+    let n = 0;
+    b.ctx.chargerSeanceLocale = () => (++n === 1 ? Promise.reject(new Error('disque')) : Promise.resolve());
     const pA = b.entrer(session('A'));
     await tic();
     const pB = b.entrer(session('B'));
+    await expect(pA).rejects.toThrow('disque');
     await b.liberer();
-    await pA.catch(() => {});
-    await pB.catch(() => {});
+    await pB;
     expect(b.ctx.sessionActive.user.id).toBe('B');
+    expect(b.ctx.entreeFaitePour).toBe('B');
+    expect(b.ctx.entreeEnCours).toBeNull();
+  });
+
+  test('⚠️ DISCRIMINANT — « Quitter » entre la mise en file et le tour de B : B n’entre pas, la mémoire ne revient pas sur un compte parti', async () => {
+    const b = bac();
+    const pA = b.entrer(session('A'));
+    await tic();
+    const pB = b.entrer(session('B'));
+    b.ctx.departs += 1;                                      // « Quitter » (deconnecter) pendant l'attente
+    b.ctx.sessionActive = null;
+    await b.liberer();
+    await pA;
+    await pB;
+    expect(b.ctx.sessionActive).toBeNull();
+    expect(b.journal.syncs).toEqual(['A']);                  // B n'a jamais synchronisé
+    expect(b.ctx.entreeFaitePour).toBe('A');                 // et n'a rien posé comme fait
+  });
+
+  test('⚠️ DISCRIMINANT — le stockage ne porte plus B à son tour (un autre compte a pris sa place) : B n’entre pas', async () => {
+    const b = bac();
+    const pA = b.entrer(session('A'));
+    await tic();
+    const pB = b.entrer(session('B'));
+    b.ctx.persistee = session('C');
+    await b.liberer();
+    await pA;
+    await pB;
+    expect(b.journal.syncs).toEqual(['A']);
+    expect(b.ctx.sessionActive.user.id).toBe('A');
   });
 
   test('sans entrée en vol, le comportement est celui d’avant : deux entrées simultanées du même compte partagent la promesse', async () => {
@@ -248,6 +283,20 @@ describe('l’identifiant d’une écriture de profil est celui de la session du
     await p;
     expect(b.base.posts).toEqual([]);
     expect(b.base.gets).toEqual([]);
+  });
+
+  test('⚠️ DISCRIMINANT — « Quitter » pendant la lecture de la session : aucune ré-entrée dans le compte quitté', async () => {
+    // Le jeton est encore là quand la lecture aboutit (`signOut` n'a pas fini) : sans la garde, la
+    // session de A, lue après le départ, ENTRERAIT de nouveau (`id` ≠ `userId()` qui est `null`).
+    const b = bac({ client: 'A', memoire: 'A' });
+    b.ctx.Auth.sessionCourante = () => { b.ctx.generation += 1; b.etat.memoire = null; return Promise.resolve(session('A')); };
+    const id = await vm.runInContext('identifiantDuProfil()', b.ctx);
+    expect(id).toBeNull();
+    expect(b.etat.entrees).toEqual([]);
+    // Sans départ, la même situation (l'app est sur A, le client porte B) entre bien sur B.
+    const c = bac({ client: 'B', memoire: 'A' });
+    expect(await vm.runInContext('identifiantDuProfil()', c.ctx)).toBeNull();
+    expect(c.etat.entrees).toEqual(['B']);
   });
 
   // ── La création qui échoue ne se perd plus en silence ──────────────────────

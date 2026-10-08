@@ -289,6 +289,26 @@ describe('I40 — les violations forgées sont attrapées', () => {
     expect(T.verifierPlan(T.planDeSeance(e), e).erreurs.join('\n')).toMatch(/^I40 — pari posé .*force dans une séance à muscle/m);
   });
 
+  test('⚠️ DISCRIMINANT — en ÉDITION, les paris déjà posés ne se comparent pas : une séance terminée avant 60-2b n\'en porte pas la clé', () => {
+    let se = seanceDe();
+    const q = T.planDeSeance(entreesDe(se, 'force')).exercices[0].paris[0];
+    se = valider(se, 0, 125, 5);
+    const sansCle = JSON.parse(JSON.stringify(q));
+    delete sansCle.fondement.objectif;
+    const poses = [Object.assign({}, sansCle, { id: 'p0', set_observe: se.exercices[0].series[0].id }),
+      Object.assign({}, q, { id: 'p1', set_observe: se.exercices[0].series[0].id })];
+    const verifier = (edition) => {
+      const e = entreesDe(se, 'muscle', poses);
+      e.seance.edition = edition;
+      return T.verifierPlan(T.planDeSeance(e), e).erreurs.filter((m) => /^I40/.test(m));
+    };
+    expect(verifier(true)).toEqual([]);
+    // Même état hors édition : la garde parle (sans clé, et à un autre objectif).
+    const hors = verifier(false).join('\n');
+    expect(hors).toMatch(/un pari sans objectif/);
+    expect(hors).toMatch(/force dans une séance à muscle/);
+  });
+
   test('un objectif de plan absent ou inconnu', () => {
     const { p } = base();
     const f = clone(p);

@@ -16,13 +16,18 @@
 // Le vrai navigateur, la vraie app (`v2/`), un faux Supabase en mémoire. Quatre
 // scénarios, chacun dans son contexte (stockage vierge) :
 //   1. « compte A, Quitter, inscription du compte B » — la ligne de B se crée du
-//      premier coup, sans un seul refus, et celle de A n'est pas touchée ;
+//      premier coup, sans un seul refus, et celle de A n'est pas touchée. ⚠️ NON-RÉGRESSION,
+//      pas une preuve : ce scénario passe aussi sur le code d'avant (l'inscription de B
+//      vide le cache et la génération écarte l'entrée de A) ;
 //   2. « le lien de confirmation de B ouvre une page dont le stockage porte encore
 //      A » — la course du constat : la sonde synchrone lit A, le SDK absorbe B ;
-//      sans le correctif, `chargerProfil` créait la ligne avec l'identifiant de A ;
-//   3. « la création échoue » — elle se dit, puis se rejoue au chargement suivant ;
+//      sans le correctif, `chargerProfil` créait la ligne avec l'identifiant de A (403) ;
+//   3. « la création échoue » — elle se dit (le code d'avant l'avalait), puis se rejoue
+//      au chargement suivant ;
 //   4. « le jeton change sous l'app, sans évènement » (un autre onglet) — un geste du Profil
-//      ne part pas sous l'identifiant de l'ancien compte avec le jeton du nouveau.
+//      ne part pas sous l'identifiant de l'ancien compte avec le jeton du nouveau (403 sans
+//      le correctif).
+// SEULS LES SCÉNARIOS 2 ET 4 REPRODUISENT LE 403 SUR LE CODE D'AVANT.
 //
 //   node tests/banc/profil-creation.js
 
@@ -201,8 +206,8 @@ function ok(nom, cond, detail) {
       await attendreQue(page, () => page.evaluate(() => !document.querySelector('#btn-connexion').disabled), 5000);
       await page.click('#btn-connexion');
       const cree = await attendreQue(page, () => !!bd.profils[B], 15000);
-      ok('DISCRIMINANT — la ligne de B est créée', cree, JSON.stringify(Object.keys(bd.profils)));
-      ok('DISCRIMINANT — du PREMIER coup : aucune écriture de profil refusée par la base',
+      ok('non-régression — la ligne de B est créée', cree, JSON.stringify(Object.keys(bd.profils)));
+      ok('non-régression — du PREMIER coup : aucune écriture de profil refusée par la base',
         bd.refus.length === 0, JSON.stringify(bd.refus));
       // ⚠️ RELEVÉ, HORS PÉRIMÈTRE (noté, non corrigé) : le pseudo saisi à l'inscription ne suit pas quand
       // elle vient APRÈS un « Quitter » dans la même page — `garantirProprietaire` (le cache n'appartient

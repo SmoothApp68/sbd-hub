@@ -1211,7 +1211,31 @@
              sous: pseudoPris && !p.username ? PHRASE_PSEUDO_PRIS : null, surChoix: surChoix };
   }
 
+  // ── 60-5 — UN PSEUDO REFUSÉ NE BLOQUE JAMAIS LE RESTE DU PROFIL (ECRAN-PROFIL §3.1) ─────────────
+  //
+  // Le profil n'a pas de file : une ligne entière part en un `upsert`, et un envoi refusé reste en attente
+  // (`profilAEnvoyer`) pour repartir à l'identique. Un pseudo refusé par l'unicité (`23505`) ne changera pas
+  // au rejeu : il bloquerait, avec lui, TOUTES les colonnes — les réponses du questionnaire comprises.
+  //
+  // `estRefusDePseudo` : l'erreur est-elle le refus d'unicité du pseudo, sur une ligne qui en portait un ?
+  // Une contrainte NOMMÉE qui n'est pas celle du pseudo (une clé primaire) n'en est pas un : elle reste une
+  // erreur ordinaire, et l'envoi repartira comme avant. Sans nom (une erreur réduite), le code seul décide —
+  // c'est la lecture de `chargerProfil` depuis 60-2c. `sansPseudo` : la même ligne, sans la colonne.
+  function estRefusDePseudo(erreur, champs) {
+    if (!erreur || String(erreur.code || '') !== '23505') return false;
+    if (!champs || typeof champs.username !== 'string' || !champs.username) return false;
+    var nom = /constraint "([^"]+)"/.exec(String(erreur.message || '') + ' ' + String(erreur.details || ''));
+    return !nom || /username/i.test(nom[1]);
+  }
+
+  function sansPseudo(champs) {
+    var sortie = {};
+    Object.keys(champs || {}).forEach(function (c) { if (c !== 'username') sortie[c] = champs[c]; });
+    return sortie;
+  }
+
   var api = {
+    estRefusDePseudo: estRefusDePseudo, sansPseudo: sansPseudo,
     MATERIELS: MATERIELS, ANCIENNETES: ANCIENNETES,
     SEXES: SEXES, INTENTIONS: INTENTIONS,
     sectionIntention: sectionIntention,

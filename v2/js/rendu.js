@@ -4813,12 +4813,25 @@
     piedFeuille(cible, [
       vue.surEffacer ? { classe: 'des', texte: 'Effacer', surClic: vue.surEffacer } : null,
       { classe: 'sec', texte: 'Annuler', surClic: vue.surAnnuler },
-      { classe: 'pri', texte: 'Valider', surClic: function () {
+      { classe: 'pri', texte: 'Valider', surClic: function (ev) {
         // ⚠️ LE REFUS RESTE DANS LA FEUILLE. Fermer sur une valeur invalide
         // perdrait la saisie sans rien dire — et la borne qu'on double ici est
         // un CHECK de la base, dont le refus part en 23514, code DÉFINITIF dans
         // la file. Mieux vaut une phrase tout de suite qu'une ligne morte.
         var verdict = vue.surValider(n.value);
+        // 60-5 — une validation peut ATTENDRE une réponse (le pseudo est vérifié avant la fermeture) : le
+        // bouton se grise le temps de la question, pour qu'un second tap n'en pose pas une deuxième. Le refus
+        // qui arrive se lit comme les autres ; la feuille fermée entre-temps n'a plus rien à dire.
+        if (verdict && typeof verdict.then === 'function') {
+          var bouton = ev && ev.currentTarget;
+          if (bouton) bouton.disabled = true;
+          var fin = function (refus) {
+            if (bouton) bouton.disabled = false;
+            if (refus) { err.textContent = refus; n.focus(); }
+          };
+          verdict.then(fin, function () { fin(null); });
+          return;
+        }
         if (verdict) { err.textContent = verdict; n.focus(); }
       } }
     ]);

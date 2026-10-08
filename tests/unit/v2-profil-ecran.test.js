@@ -441,6 +441,49 @@ describe('la feuille de saisie', () => {
     expect(valide).toBe(2);
   });
 
+  // 60-5 — UNE VALIDATION QUI ATTEND (le pseudo est vérifié avant la fermeture) : le bouton se grise le temps
+  // de la question, le refus qui arrive se lit comme les autres, et un second tap n'en pose pas une deuxième.
+  test('une validation qui attend : bouton grisé, un seul appel, le refus arrivé s’affiche et rend la main', async () => {
+    const c = cible();
+    let appels = 0, liberer;
+    R().rendreFeuilleSaisie(c, {
+      titre: 'Pseudo', valeur: '',
+      surValider: () => { appels++; return new Promise((r) => { liberer = r; }); },
+      surAnnuler: () => {}
+    });
+    const valider = c.querySelector('.feuille-pied .pri');
+    c.querySelector('.champ-texte input').value = 'melodie';
+    valider.click();
+    expect(valider.disabled).toBe(true);
+    valider.click();                                   // un bouton grisé ne répond pas
+    expect(appels).toBe(1);
+    expect(c.querySelector('.feuille-err').textContent).toBe('');
+    liberer('Déjà pris.');
+    await Promise.resolve(); await Promise.resolve();
+    expect(c.querySelector('.feuille-err').textContent).toBe('Déjà pris.');
+    expect(valider.disabled).toBe(false);
+  });
+
+  test('une validation qui attend et ne refuse pas : aucune phrase, le bouton rendu', async () => {
+    const c = cible();
+    R().rendreFeuilleSaisie(c, { titre: 'Pseudo', valeur: '', surValider: () => Promise.resolve(null), surAnnuler: () => {} });
+    const valider = c.querySelector('.feuille-pied .pri');
+    valider.click();
+    await Promise.resolve(); await Promise.resolve();
+    expect(c.querySelector('.feuille-err').textContent).toBe('');
+    expect(valider.disabled).toBe(false);
+  });
+
+  test('une validation qui attend puis échoue : le bouton est rendu, sans phrase inventée', async () => {
+    const c = cible();
+    R().rendreFeuilleSaisie(c, { titre: 'Pseudo', valeur: '', surValider: () => Promise.reject(new Error('x')), surAnnuler: () => {} });
+    const valider = c.querySelector('.feuille-pied .pri');
+    valider.click();
+    await Promise.resolve(); await Promise.resolve();
+    expect(valider.disabled).toBe(false);
+    expect(c.querySelector('.feuille-err').textContent).toBe('');
+  });
+
   test('un textarea quand on demande plusieurs lignes', () => {
     const c = cible();
     R().rendreFeuilleSaisie(c, { titre: 'Bio', lignes: 3, max: 280, valeur: 'salut',

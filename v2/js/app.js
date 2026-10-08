@@ -8703,7 +8703,25 @@
     var id = await identifiantDuProfil();
     if (!id || !generationValide(g)) return;
     try {
-      var rendu = await Donnees.enregistrerProfil(id, Profil.champsEcrits(profil));
+      var champs = Profil.champsEcrits(profil);
+      var rendu;
+      try { rendu = await Donnees.enregistrerProfil(id, champs); }
+      catch (e1) {
+        // 60-5 — UN PSEUDO REFUSÉ NE BLOQUE JAMAIS LE RESTE DU PROFIL (ECRAN-PROFIL §3.1). Le pseudo est
+        // pris entre la vérification de la feuille (ou son silence, hors ligne) et cet envoi : le refus est
+        // DÉFINITIF pour lui seul — rejoué à l'identique, il bloquerait toutes les colonnes. DEUX ENVOIS :
+        // le premier, refusé en bloc par la base (un `upsert` est une seule instruction : un `23505` n'écrit
+        // RIEN de la ligne) ; le second, la MÊME ligne moins `username`, rejouée UNE fois. Il ne peut pas
+        // heurter l'unicité (le pseudo n'y est pas), perd aucun autre champ (même ligne) et ne boucle pas (pas
+        // de nouvel essai ici : un échec du second retombe dans le chemin ordinaire, et repart au prochain
+        // départ — démarrage, retour du réseau, geste — comme tout envoi). La réponse porte la ligne telle
+        // que la base la tient : le pseudo refusé en sort, l'ancien (ou aucun) y revient.
+        if (!Profil.estRefusDePseudo(e1, champs)) throw e1;
+        if (!generationValide(g)) return;
+        console.warn('Pseudo déjà pris, il quitte l’envoi du profil :', texteErreur(e1));
+        retenirPseudoPris(id);
+        rendu = await Donnees.enregistrerProfil(id, Profil.sansPseudo(champs));
+      }
       if (!generationValide(g)) return;
       if (version !== versionProfil) return;   // un geste plus récent attend son envoi : on ne le remplace pas
       profil = rendu;
@@ -9417,13 +9435,28 @@
         if (verdict.code === 'vide') return { erreur: 'Un pseudo, même court.' };
         if (verdict.message) return { erreur: verdict.message };
         return { champs: { username: verdict.pseudo } };
+      },
+      // 60-5 — LA FEUILLE VÉRIFIE AVANT DE SE FERMER (ECRAN-PROFIL §3.1), par la vérification de
+      // l'inscription (`Donnees.pseudoPris`, les trois états de §5.2). Pris : un refus, avec ses deux
+      // alternatives (celles de l'e-mail du compte), la feuille reste ouverte et RIEN n'est écrit. Libre,
+      // ou « on ne sait pas » (hors ligne, la fonction absente) : `null`, la feuille se ferme et l'envoi
+      // part — la base reste l'autorité (`envoyerProfilMaintenant`). Son propre pseudo n'est « pris » que
+      // par lui-même : il ne se redemande pas.
+      verifier: async function (champs) {
+        var nom = champs.username;
+        if (profil && Profil.normaliserPseudo(profil.username) === nom) return null;
+        var pris = null;
+        try { pris = await Donnees.pseudoPris(nom); } catch (e) { pris = null; }
+        var email = (sessionActive && sessionActive.user && sessionActive.user.email) || '';
+        var verdict = Profil.verdictPseudo(nom, pris, { email: email });
+        return verdict.code === 'pris' ? verdict.message : null;
       }
     }
   };
 
   function ouvrirSaisieProfil(cle) {
     var def = SAISIES[cle];
-    feuilleProfil = function (cible) {
+    var cetteFeuille = function (cible) {
       Rendu.rendreFeuilleSaisie(cible, {
         titre: def.titre, aide: def.aide, etiquette: def.etiquette,
         type: def.type, inputMode: def.inputMode, lignes: def.lignes,
@@ -9432,13 +9465,19 @@
         surValider: function (v) {
           var r = def.valider(v);
           if (r.erreur) return r.erreur;
-          fermerVoile();
-          ecrireProfil(r.champs);
-          return null;
+          var poser = function () { fermerVoile(); ecrireProfil(r.champs); return null; };
+          if (!def.verifier) return poser();
+          // 60-5 — la saisie qui se vérifie attend la réponse, feuille ouverte. Fermée entre-temps
+          // (« Annuler », le retour d'Android), elle n'écrit RIEN : la personne est partie.
+          return def.verifier(r.champs).then(function (refus) {
+            if (feuilleProfil !== cetteFeuille) return null;
+            return refus || poser();
+          });
         },
         surAnnuler: fermerVoile
       });
     };
+    feuilleProfil = cetteFeuille;
     ouvrirFeuilleProfil();
   }
 

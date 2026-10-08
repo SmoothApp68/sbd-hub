@@ -178,6 +178,17 @@
     };
   }
 
+  // Ce qui vient d'être ÉCRIT est la durée visée : le brouillon la rejoint (60-2c). « Moins en ce moment »
+  // l'écrit depuis `dureeMoins`, que `rep.duree` ne connaît pas — sans cela, « Retour » puis une autre
+  // réponse montrerait l'habituelle (ou l'ancienne durée) pendant que la base garde la puce, et la
+  // prochaine écriture la remplacerait en silence. Une COPIE, comme `appliquerChoix`.
+  function apresEcriture(rep, champs) {
+    var r = Object.assign({}, rep);
+    var d = champs ? champs.duree_seance_min : undefined;
+    if (d !== undefined && d !== null) r.duree = d;
+    return r;
+  }
+
   // Une priorité qu'on touche : on l'ajoute, ou on la retire ; trois au plus
   // (la quatrième est sans effet) ; « Pas de priorité » (`[]`) est une réponse
   // qui vide la liste.
@@ -554,7 +565,7 @@
     coachEnChamps: coachEnChamps,
     champsDeLEcran: champsDeLEcran,
     basculerPriorite: basculerPriorite,
-    appliquerChoix: appliquerChoix,
+    appliquerChoix: appliquerChoix, apresEcriture: apresEcriture,
     lireChamp: lireChamp,
     lignesDeCeQueJeSais: lignesDeCeQueJeSais,
     dureeMontree: dureeMontree, dureeHabituelle: dureeHabituelle,

@@ -14457,11 +14457,23 @@ const SETS_IMPORTES = [
       e.ecran === 'recap' && profilBase().temps_reponse === 'moins' && profilBase().duree_seance_min === 60 &&
         ligneTemps.indexOf('Temps60 min · j’ai moins de temps en ce moment') === 0,
       JSON.stringify([e.ecran, profilBase().temps_reponse, profilBase().duree_seance_min, ligneTemps]));
-    // On repart comme avant pour la suite du récapitulatif : « marge ».
+    // On repart comme avant pour la suite du récapitulatif : « marge ». (Relecture adverse : la durée ÉCRITE est
+    // la durée visée du brouillon — après « changer » et une autre réponse, la ligne dit 60 min, pas l'habituelle.)
     await cliquerQ('.q-mod[data-ecran="temps"]', 500);
     await cliquerQ('.q-opt[data-cle="marge"]');
+    e = await ecranQ();
+    const ligneVisee = await page.evaluate(() => ((document.querySelector('#questionnaire-corps .q-ligne-choix[data-cle="duree"] .q-lc-val') || {})
+      .textContent || '').replace(/[\u00a0\u202f]/g, ' '));
+    // Le décor du banc n'a pas de durée habituelle (aucune séance avec heure de fin) : sans le rapatriement, la
+    // ligne « Durée visée » n'existerait pas du tout ici, et l'écran redemanderait la durée. La base, elle,
+    // n'avait pas 60 avant « Moins » + 60 — sinon rien ne se prouverait.
+    ok('[Q60c] prémisse — avant « Moins » + 60, la base n’avait pas 60 pour durée visée', dureeAvant !== 60, JSON.stringify([dureeAvant]));
+    ok('[Q60c] DISCRIMINANT — « Moins » + 60 écrit, puis « changer » et une autre réponse : la ligne « Durée visée » dit « 60 min » (ce que la base porte), pas l’habituelle',
+      ligneVisee === '60 min', JSON.stringify([ligneVisee, e.titre, profilBase().duree_seance_min]));
     await continuerQ();
     await attendre(600);
+    ok('[Q60c] … et « Continuer » ne remet pas une autre durée : la base garde 60 avec la réponse « marge »',
+      profilBase().temps_reponse === 'marge' && profilBase().duree_seance_min === 60, JSON.stringify([profilBase().temps_reponse, profilBase().duree_seance_min]));
     // La durée VISÉE se change depuis le récapitulatif : la ligne et le récapitulatif
     // disent ce qui a été choisi (90), le titre garde le fait (la médiane des séances).
     const titreTemps0 = (await ecranQ()).lignes.filter((l) => /^Temps/.test(l))[0];
@@ -14913,7 +14925,10 @@ const SETS_IMPORTES = [
     await attendre(900);
     ok('[PH60c] … et Saisie n’affiche aucun rappel', !(await bandeauPh()).visible, JSON.stringify(await bandeauPh()));
     await rouvrir({ phase: null, phase_depuis: iso(60), phase_confirmee_le: iso(60) });
-    ok('[PH60c] DISCRIMINANT — qui a répondu « Je ne sais pas » il y a 60 jours (phase vide, confirmation ancienne) n’a pas de rappel',
+    // ⚠️ État FORGÉ (aucun écrivain n'est joué) : ce contrôle passait déjà avant 60-2c (`rappelDePhase` ne lit que
+    // les phases déclarées). Ce qui prouve que « Je ne sais pas » écrit le vide, ce sont les contrôles ci-dessus
+    // ([PH60c] sur `phase === null`) et le test unitaire de `v2-rappel-de-phase`, qui passe par `preparerChamps`.
+    ok('[PH60c] non-régression — une phase vide dont la confirmation a 60 jours (état forgé) n’a pas de rappel',
       !(await bandeauPh()).visible, JSON.stringify(await bandeauPh()));
 
     // LA REMISE EN ÉTAT.

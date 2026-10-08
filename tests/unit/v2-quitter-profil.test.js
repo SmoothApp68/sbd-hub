@@ -179,6 +179,35 @@ describe('`envoyerAvantDeQuitter` : le profil part avec la vidange, dans la mêm
   });
 });
 
+describe('`envoyerAvantDeQuitter` : le profil ne dépend pas de la vidange (relecture adverse de 60-2c)', () => {
+  test('⚠️ DISCRIMINANT — une vidange LENTE (déjà en cours) ne mange pas le budget du profil : il part tout de suite', async () => {
+    jest.useFakeTimers();
+    try {
+      const b = bac({});
+      b.ctx.vidangeEnCours = true;                       // une vidange tient le verrou, longtemps
+      b.ctx.profilAEnvoyer = true;
+      let fini = false;
+      const p = b.envoyerAvant().then(() => { fini = true; });
+      await jest.advanceTimersByTimeAsync(300);          // 0,3 s : bien avant la fin du budget de 15 s
+      expect(b.etat.posts).toHaveLength(1);              // le profil est PARTI, pendant qu'on attend la vidange
+      expect(b.ctx.profilAEnvoyer).toBe(false);
+      expect(fini).toBe(false);                          // et « Quitter » attend toujours la vidange
+      b.ctx.vidangeEnCours = false;
+      await jest.advanceTimersByTimeAsync(200);
+      await p;
+      expect(fini).toBe(true);
+    } finally { jest.useRealTimers(); }
+  });
+
+  test('un envoi de profil qui échoue n’empêche pas la vidange, et ne laisse aucun rejet non géré', async () => {
+    const b = bac({ reseau: false });
+    b.ctx.profilAEnvoyer = true;
+    await b.envoyerAvant();
+    expect(b.etat.vidanges).toBe(1);
+    expect(b.ctx.profilAEnvoyer).toBe(true);             // jamais confirmé : la fenêtre le dira
+  });
+});
+
 describe('GARDES — le branchement', () => {
   test('`quitterSansRienPerdre` donne le drapeau du profil à « Quitter »', () => {
     expect(extraire('quitterSansRienPerdre')).toMatch(/profil:\s*function\s*\(\)\s*\{\s*return profilAEnvoyer;\s*\}/);
@@ -188,6 +217,8 @@ describe('GARDES — le branchement', () => {
     const f = extraire('envoyerAvantDeQuitter');
     expect(f).toMatch(/envoyerProfil\(\)/);
     expect(f).toMatch(/Promise\.race\(\[Promise\.all\(envois\)/);
+    // … et il part AVANT l'attente de la vidange en cours.
+    expect(f.indexOf('envoyerProfil()')).toBeLessThan(f.indexOf('while (vidangeEnCours'));
     expect(f).not.toMatch(/await envoyerProfil\(\)/);
   });
 

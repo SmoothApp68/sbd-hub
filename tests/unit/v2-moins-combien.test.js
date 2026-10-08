@@ -187,6 +187,53 @@ describe('l’écriture : une puce écrit `duree_seance_min` avec `temps_reponse
   });
 });
 
+// ── 3 bis. CE QUI A ÉTÉ ÉCRIT EST LA DURÉE VISÉE (relecture adverse de 60-2c) ──
+describe('la puce écrite devient la durée visée du brouillon : « Retour » puis une autre réponse ne la contredit pas', () => {
+  const MAINTENANT = new Date('2026-10-08T10:00:00.000Z');
+  const vueTemps = (rep, faits) => Q.vueDe('temps', { rep: Object.assign(Q.reponsesInitiales({}, {}), rep), aDesSeances: true, faits });
+  const ecrit = (rep, profil) => Q.champsDeLEcran('temps', rep, profil || {}, { pesees: [], jour: '2026-10-08', maintenant: MAINTENANT }).champs;
+
+  test('`apresEcriture` : la durée écrite rejoint `duree` ; sans durée écrite, rien ne bouge ; le brouillon d’origine est intact', () => {
+    const rep = { temps: 'moins', dureeMoins: 45, duree: null };
+    const apres = Q.apresEcriture(rep, { temps_reponse: 'moins', duree_seance_min: 45 });
+    expect(apres.duree).toBe(45);
+    expect(rep.duree).toBeNull();                                  // une COPIE
+    expect(Q.apresEcriture(rep, { temps_reponse: 'moins' }).duree).toBeNull();
+    expect(Q.apresEcriture(rep, {}).duree).toBeNull();
+    expect(Q.apresEcriture(rep, null).duree).toBeNull();
+    expect(Q.apresEcriture(rep, { duree_seance_min: null }).duree).toBeNull();
+    expect(Q.apresEcriture({ duree: 60 }, { materiel: 'salle_complete' }).duree).toBe(60);
+  });
+
+  test('⚠️ DISCRIMINANT — Moins + 45 écrit, puis « Retour » et « Ça varie » : la ligne « Durée visée » dit 45 (pas l’habituelle 75), et « Continuer » n’écrit pas autre chose', () => {
+    // Profil vierge côté durée, habituelle 75.
+    let rep = Object.assign(Q.reponsesInitiales({}, {}), { temps: 'moins', dureeMoins: 45 });
+    const champs = ecrit(rep);
+    expect(champs).toEqual({ temps_reponse: 'moins', duree_seance_min: 45 });
+    rep = Q.apresEcriture(rep, champs);
+    // « Retour », puis une autre réponse : le même écran, relu.
+    rep = Q.appliquerChoix(rep, 'temps', 'varie');
+    const ligne = vueTemps(rep, { dureeMin: 75 }).blocs.filter((b) => b.type === 'ligne')[0];
+    expect(sp(ligne.valeur)).toBe('45 min');
+    // Le profil porte maintenant 45 : « Continuer » n'écrit que la réponse, la durée ne bouge pas.
+    expect(ecrit(rep, { duree_seance_min: 45 })).toEqual({ temps_reponse: 'varie' });
+    // Et le récapitulatif dit ce que la base porte.
+    const recap = Q.vueDe('recap', { rep, aDesSeances: true, faits: { dureeMin: 75 } }).blocs[0].lignes.find((l) => l.libelle === 'Temps').valeur;
+    expect(sp(recap)).toBe('45 min · ça varie beaucoup');
+  });
+
+  test('⚠️ DISCRIMINANT — une durée DÉJÀ déclarée (60) : Moins + 45 écrit 45, et revenir à « C’est mon maximum » ne REMET PAS 60', () => {
+    let rep = Object.assign(Q.reponsesInitiales({ duree_seance_min: 60 }, {}), { temps: 'moins', dureeMoins: 45 });
+    expect(rep.duree).toBe(60);
+    const champs = ecrit(rep, { duree_seance_min: 60 });
+    expect(champs).toEqual({ temps_reponse: 'moins', duree_seance_min: 45 });
+    rep = Q.apresEcriture(rep, champs);
+    rep = Q.appliquerChoix(rep, 'temps', 'max');
+    // Sans le rapatriement, `rep.duree` valait encore 60 et « Continuer » réécrivait 60 sur le 45 choisi.
+    expect(ecrit(rep, { duree_seance_min: 45 })).toEqual({ temps_reponse: 'max' });
+  });
+});
+
 // ── 4. LE RENDU : JUSTE DESSOUS ──────────────────────────────────────────────
 describe('le rendu : les puces s’ouvrent juste sous la réponse, dans la même colonne', () => {
   test('questionnaire : la colonne est « Max · Marge · Moins · [question + puces] · Varie »', () => {

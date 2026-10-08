@@ -363,7 +363,7 @@ describe('le pseudo saisi à l’inscription traverse l’entrée du compte jusq
     const journal = { vide: 0, meta: [], generations: 0 };
     const etat = { client: 'B', memoire: 'B' };
     const ctx = {
-      console: { warn: () => {} },
+      console: { warn: (...a) => { ctx.avertissements.push(a.join(' ')); } },
       avertissements: [],
       generation: 1, generationValide: (g) => g === ctx.generation,
       nouvelleGeneration: () => { ctx.generation++; journal.generations++; },
@@ -383,6 +383,7 @@ describe('le pseudo saisi à l’inscription traverse l’entrée du compte jusq
         monProfil: (id) => Promise.resolve(id === etat.client ? (base.lignes[id] || null) : null),
         enregistrerProfil: (id, champs) => {
           base.posts.push([id, champs]);
+          if (opt.echecs && opt.echecs > 0) { opt.echecs -= 1; return Promise.reject(new Error('réseau')); }
           if (id !== etat.client) { base.refus.push(id); return Promise.reject(new Error('42501')); }
           base.lignes[id] = Object.assign({ id }, champs);
           return Promise.resolve(base.lignes[id]);
@@ -450,6 +451,47 @@ describe('le pseudo saisi à l’inscription traverse l’entrée du compte jusq
     await b.garantir('B');
     await b.charger();
     expect(b.base.lignes.B.username == null).toBe(true);
+  });
+
+  // ── Un pseudo pris entre-temps (relecture adverse de 60-2c) ───────────────
+  test('⚠️ DISCRIMINANT — le pseudo heurte l’unicité (23505) : la ligne se crée QUAND MÊME, sans pseudo, du même chargement', async () => {
+    const b = bac({ meta: null, pseudo: 'deja_pris' });
+    const posts = b.base.posts;
+    b.ctx.Donnees.enregistrerProfil = (id, champs) => {
+      posts.push([id, champs]);
+      if (champs.username === 'deja_pris') {
+        const e = new Error('duplicate key value violates unique constraint "profiles_username_uniq"'); e.code = '23505';
+        return Promise.reject(e);
+      }
+      b.base.lignes[id] = Object.assign({ id }, champs);
+      return Promise.resolve(b.base.lignes[id]);
+    };
+    await b.garantir('B');
+    await b.charger();
+    expect(posts.map((p) => p[1].username || null)).toEqual(['deja_pris', null]);   // une tentative avec, une sans
+    expect(b.base.lignes.B).toBeDefined();                                           // la ligne existe
+    expect(b.base.lignes.B.username == null).toBe(true);
+    expect(b.ctx.pseudoAInscrire).toBeNull();                                        // plus rien en attente
+    expect(b.ctx.avertissements.join(' ')).toMatch(/Pseudo déjà pris/);               // dit, dans le journal
+    expect(b.ctx.avertissements.join(' ')).not.toMatch(/Profil non créé/);            // mais la ligne, elle, est créée
+  });
+
+  test('une AUTRE erreur de création garde le pseudo et se rejoue, comme avant (pas de repli sans pseudo)', async () => {
+    const b = bac({ meta: null, pseudo: 'bob_21', echecs: 1 });
+    await b.garantir('B');
+    await b.charger();
+    expect(b.ctx.pseudoAInscrire).toBe('bob_21');
+    expect(b.base.lignes.B).toBeUndefined();
+    await b.charger();
+    expect(b.base.lignes.B.username).toBe('bob_21');
+  });
+
+  test('une collision SANS pseudo en attente n’est pas rattrapée (rien à retirer) : elle se dit', async () => {
+    const b = bac({ meta: null, pseudo: null });
+    b.ctx.Donnees.enregistrerProfil = () => { const e = new Error('unique'); e.code = '23505'; return Promise.reject(e); };
+    await b.garantir('B');
+    await b.charger();
+    expect(b.ctx.avertissements.join(' ')).toMatch(/Profil non créé/);
   });
 
   // ── Ce qui reste remis à zéro, et par qui ─────────────────────────────────

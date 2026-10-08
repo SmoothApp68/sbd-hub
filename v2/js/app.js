@@ -8019,11 +8019,21 @@
     if (version !== versionProfil) return;
 
     if (!distant) {
+      var creer = function (pseudo) {
+        return Donnees.enregistrerProfil(id, Profil.champsEcrits({ username: pseudo || null, onboarding_completed: false }));
+      };
       try {
-        distant = await Donnees.enregistrerProfil(id, Profil.champsEcrits({
-          username: pseudoAInscrire || null,
-          onboarding_completed: false
-        }));
+        try { distant = await creer(pseudoAInscrire); }
+        catch (e1) {
+          // 60-2c — le pseudo arrive enfin jusqu'ici, et peut heurter l'unicité (23505) : la sonde de
+          // disponibilité n'est qu'indicative. Sans cette sortie, la création échouerait à l'identique à
+          // chaque chargement — pas de ligne, pas de questionnaire. Elle se crée SANS le pseudo ; le Profil
+          // dit « à renseigner » et le choisir se fait là, avec sa propre vérification.
+          if (!(pseudoAInscrire && e1 && e1.code === '23505')) throw e1;
+          if (generationValide(g)) console.warn('Pseudo déjà pris, la ligne est créée sans lui :', texteErreur(e1));
+          pseudoAInscrire = null;
+          distant = await creer(null);
+        }
       } catch (e) {
         // 60-2b — une création qui échoue ne se perd plus en silence : elle se dit (console,
         // donc le journal des erreurs), et elle se REJOUE au prochain chargement du profil —
@@ -8289,6 +8299,7 @@
     // Une écriture par écran. `poserProfil` met `profil` à jour AVANT son premier
     // `await` : l'écran suivant lit déjà la réponse. Aucun n'attend le réseau.
     if (Object.keys(ecrit.champs).length) poserProfil(ecrit.champs).catch(function () {});
+    q.rep = Questionnaire.apresEcriture(q.rep, ecrit.champs);   // la durée écrite est la durée visée
     if (ecrit.pesee) poserPesee(ecrit.pesee).catch(function () {});
     if (q.ecran === Questionnaire.RECAP) return terminerQuestionnaire();
     var suivant = q.retourRecap ? Questionnaire.RECAP
@@ -8838,9 +8849,12 @@
   async function envoyerAvantDeQuitter() {
     var fin = Date.now() + 15000;
     var attendre = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
+    // Le profil ne dépend pas de la vidange (sa propre chaîne d'envoi) : il PART TOUT DE SUITE, pendant
+    // qu'on attend la vidange en cours — sinon une vidange lente lui mangeait tout son budget de 15 s.
+    var profilEnvoye = profilAEnvoyer ? envoyerProfil().catch(function () {}) : null;
     while (vidangeEnCours && Date.now() < fin) await attendre(100);
     var envois = [vidanger()];
-    if (profilAEnvoyer) envois.push(envoyerProfil());
+    if (profilEnvoye) envois.push(profilEnvoye);
     await Promise.race([Promise.all(envois), attendre(Math.max(0, fin - Date.now()))]);
   }
 

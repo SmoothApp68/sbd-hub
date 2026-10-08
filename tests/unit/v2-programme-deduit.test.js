@@ -126,6 +126,54 @@ describe('seancesQuiReviennent — une règle pure', () => {
   });
 });
 
+// ═══ LES BORNES DU §5, AU MOT PRÈS (revue adverse, constat #11) ════════════
+// Les trois cas ne départagent pas ces bornes (aucun Jaccard à 0,35 juste,
+// aucun groupe à 28 jours juste, aucune séance au 84ᵉ jour) : ces tests figent
+// le TEXTE de QUESTIONNAIRE §5. Jours du calendrier local, à midi.
+describe('seancesQuiReviennent — les bornes du §5', () => {
+  const FIN = new Date(2026, 8, 30, 12);   // la dernière séance : le 30/09, midi local
+  const jour = (avant) => new Date(FIN.getFullYear(), FIN.getMonth(), FIN.getDate() - avant, 12).toISOString();
+  const seance = (avant, series, titre) => ({ debut: jour(avant), titre: titre || 'T',
+    series: series.map((x, i) => ({ rang: i + 1, exercise_slug: x[0], type_serie: x[1] || 'travail', reps: 8 })) });
+  const mesures = new Proxy({}, { get: () => 'charge_reps' });
+  const exos = (prefixe, n) => Array.from({ length: n }, (_, i) => [prefixe + String(i).padStart(2, '0')]);
+
+  test('« s’il atteint 0,35 » : un Jaccard de 0,35 JUSTE rejoint le groupe', () => {
+    // S1 : 13 exercices (e×7, f×6) ; S2 : e×7 et g×7 — 7 en commun sur 20 = 0,35.
+    const S1 = exos('e', 7).concat(exos('f', 6)), S2 = exos('e', 7).concat(exos('g', 7));
+    const liste = [seance(9, S1), seance(6, S2), seance(3, S1), seance(0, S1)];
+    expect(R.seancesQuiReviennent(liste, mesures).map((r) => r.fois)).toEqual([4]);
+  });
+
+  test('« plus de 28 jours » : 28 jours juste, cochée ; 29, décochée', () => {
+    const A = [['a1'], ['a2']], B = [['b1'], ['b2']];
+    const avec = (ecart) => [ecart + 30, ecart + 20, ecart + 10, ecart].map((j) => seance(j, A, 'A'))
+      .concat([30, 20, 10, 0].map((j) => seance(j, B, 'B')));
+    expect(R.seancesQuiReviennent(avec(28), mesures).filter((r) => r.nom === 'A')[0].cochee).toBe(true);
+    expect(R.seancesQuiReviennent(avec(29), mesures).filter((r) => r.nom === 'A')[0].cochee).toBe(false);
+  });
+
+  test('« les 84 jours qui finissent à la dernière séance » : le jour −83 compte, le jour −84 non', () => {
+    const X = [['x1'], ['x2']];
+    const avec = (premier) => [premier, 60, 30, 0].map((j) => seance(j, X));
+    expect(R.seancesQuiReviennent(avec(83), mesures).map((r) => r.fois)).toEqual([4]);
+    expect(R.seancesQuiReviennent(avec(84), mesures)).toEqual([]);
+  });
+
+  test('« une série de travail ou d’échec » : un exercice fait seulement en échec signe la séance, et compte ses séries', () => {
+    const liste = [9, 6, 3, 0].map((j) => seance(j, [['a'], ['b', 'echec']]));
+    const r = R.seancesQuiReviennent(liste, mesures);
+    expect(r.map((x) => x.exercices.map((e) => [e.exercise_slug, e.series]))).toEqual([[['a', 1], ['b', 1]]]);
+  });
+
+  test('« égalité : par slug » : deux positions médianes égales se rangent par slug', () => {
+    // y-… et a-… alternent en tête : leurs médianes sont égales.
+    const un = [['y-ex'], ['a-ex'], ['m-ex']], deux = [['a-ex'], ['y-ex'], ['m-ex']];
+    const liste = [seance(9, un), seance(6, deux), seance(3, un), seance(0, deux)];
+    expect(R.seancesQuiReviennent(liste, mesures)[0].exercices.map((e) => e.exercise_slug)).toEqual(['a-ex', 'y-ex', 'm-ex']);
+  });
+});
+
 // ═══ LA STRUCTURE : celle de « En faire une routine » ══════════════════════
 describe('routineDeduite — la structure de « En faire une routine »', () => {
   const CATALOGUE = [

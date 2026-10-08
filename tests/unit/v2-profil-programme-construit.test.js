@@ -129,3 +129,12 @@ describe('60-4 — programme_construit_le et carte_cycles_le : des instants', ()
       .toEqual({ programme_construit_dossier: 'Mon programme', programme_construit_le: '2026-10-08T10:00:00.000Z' });
   });
 });
+
+describe('revue adverse — ecartesValides sans prototype', () => {
+  test('« constructor », « toString », « __proto__ » sont des slugs comme les autres (ni refusés ni dédoublonnés à tort)', () => {
+    const P = require('../../v2/js/profil.js');
+    expect(P.ecartesValides(['constructor', 'toString', '__proto__', 'hasOwnProperty', 'ok']))
+      .toEqual(['constructor', 'toString', '__proto__', 'hasOwnProperty', 'ok']);
+    expect(P.ecartesValides(['constructor', 'constructor'])).toEqual(['constructor']);
+  });
+});

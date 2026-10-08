@@ -3254,6 +3254,9 @@
     }
     // ES §7 quindecies.8 (60-3) — après les frères, le sélecteur d'exercices.
     if (vue.chercher) entreeMenu(freres, vue.chercher, { classe: 'chercher-catalogue', surClic: vue.surCatalogue });
+    // 60-4 — depuis l'aperçu du programme construit, « Annuler » revient à l'aperçu (sans lui, la seule sortie était de
+    // tout fermer, et l'aperçu avec).
+    if (vue.surAnnuler) entreeMenu(freres, 'Annuler', { classe: 'annuler-remplacer', surClic: vue.surAnnuler });
     cible.appendChild(freres);
     return cible;
   }

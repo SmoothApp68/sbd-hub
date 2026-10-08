@@ -7657,16 +7657,30 @@
   // feuille « Tes séances qui reviennent ») et « Créer ces N routines » (l'aperçu du programme construit) passent
   // ICI : une structure (`routineDeduite`) → un brouillon (`brouillonDeStructure`) → la création de l'éditeur
   // (`creerRoutineNeuve`), dans l'ordre, des noms rendus uniques, jamais de charge. `f` est l'état de la feuille
-  // (`dossier`, `erreur`, `enCours`) ; `choisies` : `[{ deduite, faite }]` ; `redessiner` montre « Création… ».
-  // Rend le nombre de routines créées ; `x.faite` dit lesquelles.
+  // (`dossier`, `erreur`, `enCours`, `orphelines`) ; `choisies` : `[{ deduite, faite, surFaite? }]` — `surFaite` court
+  // dès qu'UNE routine est écrite ; `redessiner` montre « Création… ». Rend le nombre de routines créées.
+  //
+  // ⚠️ L'ÉTAT RESTE « EN COURS » JUSQU'À LA FIN DU RECHARGEMENT (revue adverse de 60-4) : tant que la bibliothèque n'est
+  // pas relue, l'écran montrerait un bouton « Créer » actif sur des routines déjà écrites.
+  // ⚠️ UNE ROUTINE ORPHELINE (créée, mais ses exercices ou ses séries ne sont pas partis, et l'annulation non plus : le
+  // réseau était mort) est DÉFAITE avant toute reprise, puis la bibliothèque est relue — sinon la reprise bute sur son
+  // propre nom (« doublon ») sans fin.
   async function creerDansUnDossier(f, choisies, nomDuDossier, redessiner) {
     f.enCours = true;
     f.erreur = '';
     enregistrementEnCours = true;
     redessiner();
-    var creees = 0;
+    var creees = 0, echec = false;
     try {
-      if (etatRoutines.code !== 'ok') await chargerRoutines();
+      var orphelines = f.orphelines || [];
+      f.orphelines = [];
+      for (var k = 0; k < orphelines.length; k++) {
+        try { await Donnees.supprimerRoutine(orphelines[k]); } catch (e) { f.orphelines.push(orphelines[k]); }
+      }
+      if (orphelines.length || etatRoutines.code !== 'ok') await chargerRoutines();
+      // Hors ligne dès le départ : ni noms, ni repos, ni rang ne se calculent sur une bibliothèque vide. Rien n'est
+      // écrit, et le dossier n'est pas encore figé.
+      if (etatRoutines.code !== 'ok') { f.erreur = Routines.MESSAGES.reseau; return 0; }
       // Le dossier, une fois : une reprise après une panne reste dans le même.
       if (!f.dossier) f.dossier = Routines.nomLibre(nomDuDossier, Routines.dossiersDe(routines));
       var rang = rangSuivantBibliotheque(), noms = nomsReserves(), dejaLa = routines.slice();
@@ -7675,20 +7689,30 @@
         var st = Routines.routineDeduite(x.deduite, { exercices: local.exercices, routines: routines, existants: noms });
         var b = brouillonDeStructure(st, st.nom, f.dossier);
         var verdict = Routines.valider(b, dejaLa);
-        if (!verdict.valide) { f.erreur = messageVerdict(verdict); break; }
+        if (!verdict.valide) { f.erreur = messageVerdict(verdict); echec = true; break; }
         var r = await creerRoutineNeuve(b, rang);
-        if (!r.ok) { f.erreur = Routines.messageErreur(r); break; }
+        if (!r.ok) {
+          echec = true;
+          if (r.orpheline) {
+            // L'écriture a coupé en route : la routine existe en base, incomplète. On la défera à la reprise ; le
+            // message ne ment pas (« rouvre la routine » n'a pas de sens depuis ici).
+            f.orphelines.push(r.orpheline);
+            f.erreur = Routines.MESSAGES[r.erreur] || Routines.MESSAGES.inconnue;
+          } else f.erreur = Routines.messageErreur(r);
+          break;
+        }
         x.faite = true;
+        if (typeof x.surFaite === 'function') x.surFaite();
         creees++;
         rang++;
         noms.push(st.nom);
         dejaLa.push({ nom: st.nom, archivee_a: null });
       }
+      if (creees || echec) await chargerRoutines();
     } finally {
       enregistrementEnCours = false;
       f.enCours = false;
     }
-    if (creees) await chargerRoutines();
     return creees;
   }
 
@@ -7793,7 +7817,8 @@
       var lignes = [];
       rt.exercices.forEach(function (l, j) {
         var tr = r.exercices[j] ? r.exercices[j].tr : l.series;
-        if (tr > 0) lignes.push(Object.assign({}, l, { series: tr }));
+        // `raccourcie` : cet exercice a perdu des séries pour tenir la durée (l'aperçu ne promet plus « toutes leurs séries »).
+        if (tr > 0) lignes.push(Object.assign({}, l, { series: tr }, tr < l.series ? { raccourcie: true } : {}));
       });
       return { nom: rt.nom, exercices: lignes };
     });
@@ -7834,7 +7859,7 @@
         return { nom: lecture[i].nom, duree: lecture[i].duree, pourquoi: lecture[i].pourquoi,
           exercices: c.routines[i].exercices.map(function (l, k) {
             return { nom: nommer(l.exercise_slug), series: seriesFois(l), mentions: Generateur.mentionsDeLigne(l, c.entree),
-                     neuf: !!c.neuf[i + '-' + k] };
+                     neuf: !!c.neuf[i + ':' + l.exercise_slug] };
           }) };
       }),
       erreur: c.erreur,
@@ -7851,7 +7876,7 @@
     if (etatRoutines.code !== 'ok') await chargerRoutines();
     var entree = entreeDuProgramme();
     var rts = local.exercices.length
-      ? raccourcirLeProgramme(fondreLesVoisins(Generateur.generer(catalogueIndexe(), entree)))
+      ? fondreLesVoisins(raccourcirLeProgramme(fondreLesVoisins(Generateur.generer(catalogueIndexe(), entree))))
           .filter(function (rt) { return rt.exercices.length; })
       : [];
     if (!rts.length) {
@@ -7881,7 +7906,7 @@
     var index = catalogueIndexe();
     Rendu.rendreFeuilleChoix($('feuille-contenu'), {
       titre: Modele.nommer(index, l.exercise_slug),
-      aide: rt.nom + ' \u00b7 ' + seriesFois(l),
+      aide: lectureDuProgramme(c)[i].nom + ' \u00b7 ' + seriesFois(l),
       options: [
         { cle: 'refuser', libelle: 'Je n\u2019en veux pas',
           sous: 'Je le remplace par un exercice du même mouvement, et je ne te le proposerai plus.' },
@@ -7903,6 +7928,9 @@
     var c = construit, rt = c && c.routines[i], vieux = rt && rt.exercices[k];
     if (!vieux) return;
     var index = catalogueIndexe();
+    // Les écartés VIVANTS du profil d'abord (un autre appareil a pu en ajouter depuis l'ouverture de l'aperçu) :
+    // l'écriture ne les efface jamais, et le remplaçant ne les reprend pas.
+    Profil.ecartesDe(profil).forEach(function (sl) { if (c.entree.ecartes.indexOf(sl) < 0) c.entree.ecartes.push(sl); });
     var res = Generateur.neVeuxPas(index, c.routines, c.entree, i, k);
     var retiree = res.routines[i].exercices.length < rt.exercices.length;
     c.routines = fondreLesVoisins(res.routines);
@@ -7910,11 +7938,15 @@
     var champs = Profil.preparerChamps(profil, { exercices_ecartes: res.ecartes }, new Date());
     if (Object.keys(champs).length) poserProfil(champs).catch(function () {});
     var ancien = Modele.nommer(index, vieux.exercise_slug);
-    var neuve = !retiree && c.routines[i].exercices[k];
-    c.neuf = neuve ? (function () { var o = {}; o[i + '-' + k] = true; return o; })() : {};
+    // Le remplaçant RÉEL, lu avant la fusion des voisins (un remplaçant déjà dans la séance y absorbe ses séries).
+    var neuve = !retiree && res.routines[i].exercices[k];
+    c.neuf = neuve ? (function () { var o = {}; o[i + ':' + neuve.exercise_slug] = true; return o; })() : {};
+    // Une séance vidée par les refus n'a plus rien à écrire : elle sort du programme (et de `faites`, qui la suit).
+    if (!c.routines[i].exercices.length) { c.routines.splice(i, 1); c.faites.splice(i, 1); c.neuf = {}; }
+    if (!c.routines.length) { fermerVoile(); return; }
     c.annonce = neuve
       ? ancien + ' est remplacé par ' + Modele.nommer(index, neuve.exercise_slug) + '. Je ne te le proposerai plus.'
-      : ancien + ' est retiré. Je ne te le proposerai plus.';
+      : ancien + ' sort de ton programme. Je ne te le proposerai plus.';
     c.erreur = '';
     rendreApercuDuProgramme();
   }
@@ -7935,16 +7967,25 @@
                  surChoisir: function () { poserDansLeProgramme(i, k, f.slug); } };
       }),
       chercher: 'Chercher dans le catalogue',
-      surCatalogue: function () { versLeCatalogueDuProgramme(i, k); }
+      surCatalogue: function () { versLeCatalogueDuProgramme(i, k); },
+      surAnnuler: rendreApercuDuProgramme
     });
   }
 
   function poserDansLeProgramme(i, k, slug) {
     var c = construit;
     if (!c || !c.routines[i] || !c.routines[i].exercices[k] || !slug) return;
+    // Un exercice déjà dans CETTE séance ne la prend pas deux fois (les voisins identiques n'en feraient qu'un bloc, et
+    // les séries s'additionneraient en silence) : le coach le dit, rien ne change.
+    var dejaLa = c.routines[i].exercices.some(function (x, j) { return j !== k && x.exercise_slug === slug; });
+    if (dejaLa) {
+      c.neuf = {};
+      c.annonce = Modele.nommer(catalogueIndexe(), slug) + ' est déjà dans cette séance.';
+      return rendreApercuDuProgramme();
+    }
     c.routines = fondreLesVoisins(Generateur.remplacePar(catalogueIndexe(), c.routines, c.entree, i, k, slug));
     var o = {};
-    o[i + '-' + k] = true;
+    o[i + ':' + slug] = true;
     c.neuf = o;
     c.annonce = null;
     c.erreur = '';
@@ -7971,24 +8012,26 @@
   }
 
   // « Créer ces N routines » : le chemin de la feuille de 8a. ⚠️ DEUX TAPS N'ÉCRIVENT PAS DEUX FOIS, une panne au
-  // milieu garde le MÊME dossier et ne recrée pas ce qui l'est déjà (`faites`). Quand tout est créé : le nom RÉEL du
-  // dossier et la date s'écrivent au profil (la carte « Passer en cycles » les lit), puis la bibliothèque s'ouvre dessus.
+  // milieu garde le MÊME dossier et ne recrée pas ce qui l'est déjà (`faites`, posé routine par routine). Le nom RÉEL
+  // du dossier et la date s'écrivent au profil dès la PREMIÈRE routine créée (la carte « Passer en cycles » les lit) :
+  // un programme à moitié écrit, abandonné, garde sa trace. Puis la bibliothèque s'ouvre sur le dossier.
   async function creerLeProgramme() {
     var c = construit;
     if (!c || c.enCours || enregistrementEnCours) return;
     var choisies = [];
     c.routines.forEach(function (rt, i) {
-      if (!c.faites[i]) choisies.push({ deduite: deduiteDuProgramme(rt), faite: false, i: i });
+      if (c.faites[i]) return;
+      choisies.push({ deduite: deduiteDuProgramme(rt), faite: false, i: i, surFaite: function () {
+        c.faites[i] = true;
+        if (c.profilEcrit) return;
+        c.profilEcrit = true;
+        var champs = Profil.preparerChamps(profil, { programme_construit_dossier: c.dossier, programme_construit_le: new Date() },
+          new Date());
+        if (Object.keys(champs).length) poserProfil(champs).catch(function () {});
+      } });
     });
     if (!choisies.length) return;
     var creees = await creerDansUnDossier(c, choisies, DOSSIER_DU_PROGRAMME, rendreApercuDuProgramme);
-    choisies.forEach(function (x) { if (x.faite) c.faites[x.i] = true; });
-    var toutes = c.routines.every(function (rt, i) { return c.faites[i]; });
-    if (toutes) {
-      var champs = Profil.preparerChamps(profil, { programme_construit_dossier: c.dossier, programme_construit_le: new Date() },
-        new Date());
-      if (Object.keys(champs).length) poserProfil(champs).catch(function () {});
-    }
     var ouverte = construit === c;
     if (!ouverte) { if (!vues.saisie.hidden && !seance) rendreSaisie(); return; }
     if (c.erreur) {

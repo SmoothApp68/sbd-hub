@@ -234,7 +234,7 @@ const FONCTIONS = ['freresDe', 'brouillonDeStructure', 'creerRoutineNeuve', 'cre
 function bac(options) {
   const o = options || {};
   const journal = { routines: [], exercices: [], series: [], feuilles: [], voile: 0, ferme: 0, saisie: 0, chargements: 0,
-                    profil: [], catalogue: [], confirmer: [], choix: [], machine: [], rendreSaisie: 0, seriesDe: {} };
+                    profil: [], catalogue: [], confirmer: [], choix: [], machine: [], rendreSaisie: 0, seriesDe: {}, supprimees: [] };
   let n = 0;
   const Donnees = {
     creerRoutine: async (ligne) => {
@@ -242,15 +242,22 @@ function bac(options) {
       journal.routines.push(ligne);
       return Object.assign({ id: 'r' + (++n) }, ligne);
     },
-    insererExercices: async (lignes) => { journal.exercices.push(lignes); },
+    insererExercices: async (lignes) => {
+      if (o.panneExercices && o.panneExercices(journal.exercices.length)) throw new Error('Failed to fetch');
+      journal.exercices.push(lignes);
+    },
     remplacerSeriesRoutine: async (id, lignes) => { journal.series.push(lignes); journal.seriesDe[id] = lignes; },
-    supprimerExercices: async () => {}, majExercice: async () => {}, supprimerRoutine: async () => {}
+    supprimerExercices: async () => {}, majExercice: async () => {},
+    supprimerRoutine: async (id) => {
+      if (o.suppressionHS && o.suppressionHS()) throw new Error('Failed to fetch');
+      journal.supprimees.push(id);
+    }
   };
   const profil = Object.assign({ seances_par_semaine: 4, objectif: 'les_deux', phase: null, materiel: 'salle_complete',
     priorites: null, zones_a_menager: null, exercices_ecartes: null, temps_reponse: null, duree_seance_min: null,
     intention: 'progresser' }, o.profil || {});
   const ctx = {
-    Routines, Modele, Moteur, Profil, Generateur, Donnees,
+    Routines, Modele, Moteur, Profil, Generateur: o.generateur || Generateur, Donnees,
     Seance: o.freres ? { freresProposes: () => o.freres.map((f) => Object.assign({ deja_dans_la_seance: false }, f)) } : { freresProposes: () => [] },
     Rendu: {
       rendreApercuProgramme: (c, v) => { journal.feuilles.push(v); ctx.__vue = v; },
@@ -263,16 +270,24 @@ function bac(options) {
     catalogueIndexe: () => INDEX,
     local: { exercices: o.catalogueVide ? [] : CATALOGUE },
     profil,
+    // Le vrai `poserProfil` met `profil` à jour AVANT son premier `await` et ne rejette jamais : hors ligne, l'envoi
+    // échoue et le drapeau reste levé, mais l'état local garde le geste.
     poserProfil: (champs) => {
       journal.profil.push(clone(champs));
-      if (o.profilHorsLigne) return Promise.reject(new Error('Failed to fetch'));
       Object.assign(ctx.profil, champs);
       return Promise.resolve();
     },
-    routines: (o.routines || []).slice(),
-    etatRoutines: { code: 'ok' },
-    chargerRoutines: async () => { journal.chargements++;
-      ctx.routines = (o.routines || []).concat(journal.routines.map((l, i) => Object.assign({ id: 'r' + (i + 1), exercices: [] }, l))); return true; },
+    routines: o.nonLues ? [] : (o.routines || []).slice(),
+    etatRoutines: o.nonLues ? { code: 'echec', message: 'Pas de réseau.' } : { code: 'ok' },
+    chargerRoutines: async () => {
+      journal.chargements++;
+      if (o.chargementHS && o.chargementHS()) { ctx.etatRoutines = { code: 'echec', message: 'Pas de réseau.' }; return false; }
+      if (o.retenirRechargement && journal.chargements > 0) await new Promise((r) => { ctx.__lacher = r; });
+      ctx.etatRoutines = { code: 'ok' };
+      ctx.routines = (o.routines || []).concat(journal.routines.map((l, i) => Object.assign({ id: 'r' + (i + 1), exercices: [] }, l))
+        .filter((r) => journal.supprimees.indexOf(r.id) < 0));
+      return true;
+    },
     sessionActive: { user: { id: 'u1' } },
     uuid: () => 'id-' + Math.random().toString(16).slice(2),
     enregistrementEnCours: false,
@@ -471,12 +486,11 @@ describe('les gestes : « Je n’en veux pas »', () => {
     expect(b.journal.profil[1].exercices_ecartes[0]).toBe('developpe_couche_barre');
   });
 
-  test('hors ligne : l’écart reste dans l’aperçu et le geste ne plante pas (le profil l’enverra plus tard)', async () => {
-    const b = await ouvrir({ profilHorsLigne: true });
+  test('le geste est gardé dans le profil LOCAL au moment du geste (le vrai `poserProfil` ne rejette jamais ; hors ligne, seul l’envoi attend)', async () => {
+    const b = await ouvrir();
     b.vue().surExercice(0, 0);
-    expect(() => b.ctx.__choix.surChoix('refuser')).not.toThrow();
-    await new Promise((r) => setTimeout(r, 0));
-    expect(b.journal.profil.length).toBe(1);
+    b.ctx.__choix.surChoix('refuser');
+    expect(b.ctx.profil.exercices_ecartes).toEqual(['developpe_couche_barre']);       // le profil local est à jour sans attendre l'envoi
     expect(b.vue().routines[0].exercices[0].nom).not.toBe(nom('developpe_couche_barre'));
   });
 
@@ -628,14 +642,17 @@ describe('les gestes : « Créer ces N routines »', () => {
     expect(v.titre).toBe('4 séances par semaine.');               // le programme reste de 4 séances
     expect(v.libelleCreer).toBe('Créer ces 2 routines');
     expect(b.journal.ferme).toBe(0);
-    expect(b.journal.profil).toEqual([]);                          // le programme n'est pas complet : rien au profil
+    // Le dossier et la date partent dès la PREMIÈRE routine créée : un programme à moitié écrit, abandonné, garde sa trace.
+    expect(b.journal.profil.length).toBe(1);
+    expect(b.journal.profil[0].programme_construit_dossier).toBe('Mon programme');
+    const dateDuProfil = b.journal.profil[0].programme_construit_le;
     expect(b.journal.rendreSaisie).toBe(1);                        // la bibliothèque derrière montre déjà ce qui est créé
     coupe = false;
     await b.vue().surCreer();
     expect(creees(b).map((c) => [c[0], c[1]])).toEqual([['Haut A', 'Mon programme'], ['Bas A', 'Mon programme'],
       ['Haut B', 'Mon programme'], ['Bas B', 'Mon programme']]);
-    expect(b.journal.profil.length).toBe(1);
-    expect(b.journal.profil[0].programme_construit_dossier).toBe('Mon programme');
+    expect(b.journal.profil.length).toBe(1);                       // pas réécrit à la reprise : la date reste celle de la création
+    expect(b.ctx.profil.programme_construit_le).toBe(dateDuProfil);
     expect(b.journal.ferme).toBe(1);
   });
 
@@ -671,5 +688,256 @@ describe('les gestes : « Créer ces N routines »', () => {
     expect(b.journal.routines.length).toBe(4);
     expect(b.journal.profil.length).toBe(1);
     expect(b.journal.saisie).toBe(0);                              // on n'a ramené personne dans la bibliothèque
+  });
+});
+
+// ═══ LA REVUE ADVERSE DE 60-4 ═══════════════════════════════════════════════
+describe('revue adverse — la fenêtre du rechargement final', () => {
+  const tic = () => new Promise((r) => setTimeout(r, 0));
+
+  test('⚠️ DISCRIMINANT — pendant le rechargement, l’aperçu reste « en cours » : ni second « Créer », ni exercice touchable, rien écrit deux fois', async () => {
+    const b = bac({ retenirRechargement: true });
+    await b.appel('ouvrirApercuProgramme()');
+    const creer = b.vue().surCreer;
+    const p = creer();
+    for (let n = 0; n < 80 && !b.ctx.__lacher; n++) await tic();
+    expect(b.ctx.__lacher).toBeDefined();                            // les quatre routines sont écrites, la bibliothèque se relit
+    expect(b.ctx.construit.enCours).toBe(true);
+    expect(b.ctx.construit.faites.filter(Boolean).length).toBe(4);   // posées routine par routine, pas après le retour
+    const choix = b.journal.choix.length;
+    b.vue().surExercice(0, 0);                                       // ignoré
+    expect(b.journal.choix.length).toBe(choix);
+    await creer();                                                   // ignoré : rien ne s'écrit une seconde fois
+    expect(b.journal.routines.length).toBe(4);
+    b.ctx.__lacher();
+    await p;
+    expect(b.journal.routines.length).toBe(4);
+    expect(b.journal.ferme).toBe(1);
+  });
+});
+
+describe('revue adverse — une routine ORPHELINE est défaite à la reprise', () => {
+  test('⚠️ DISCRIMINANT — la coupure tombe après la routine, l’annulation échoue aussi : la reprise la défait, puis recrée sous les noms d’origine', async () => {
+    let coupe = true;
+    const b = bac({ panneExercices: (n) => coupe && n === 0, suppressionHS: () => coupe });
+    await b.appel('ouvrirApercuProgramme()');
+    await b.vue().surCreer();
+    expect(b.journal.routines.length).toBe(1);                       // « Haut A » existe en base, incomplète
+    expect(b.journal.supprimees).toEqual([]);
+    // Le message ne se contredit pas : l'orpheline se défait toute seule à la reprise.
+    expect(b.vue().erreur).toBe('Pas de réseau : rien n’a été enregistré.');
+    expect(b.vue().routines.length).toBe(4);
+    expect(b.ctx.construit.faites.filter(Boolean).length).toBe(0);
+    coupe = false;
+    await b.vue().surCreer();
+    expect(b.journal.supprimees).toEqual(['r1']);                    // l'orpheline est défaite…
+    expect(b.journal.routines.slice(1).map((l) => l.nom)).toEqual(['Haut A', 'Bas A', 'Haut B', 'Bas B']);   // …donc aucun « (2) »
+    expect(b.journal.routines.slice(1).every((l) => l.dossier === 'Mon programme')).toBe(true);
+    expect(b.journal.ferme).toBe(1);
+  });
+
+  test('l’orpheline ne peut toujours pas être défaite (réseau mort) : elle reste à défaire, rien n’avance, aucun doublon', async () => {
+    const b = bac({ panneExercices: (n) => n === 0, suppressionHS: () => true, chargementHS: () => b.journal.chargements > 1 });
+    await b.appel('ouvrirApercuProgramme()');
+    await b.vue().surCreer();
+    const avant = b.journal.routines.length;
+    await b.vue().surCreer();
+    expect(b.journal.routines.length).toBe(avant);                   // rien de recréé tant que l'orpheline vit
+    expect(b.ctx.construit.orphelines).toEqual(['r1']);
+    expect(b.vue().erreur).toBe('Pas de réseau : rien n’a été enregistré.');
+  });
+});
+
+describe('revue adverse — le dossier et le profil', () => {
+  test('⚠️ DISCRIMINANT — hors ligne dès l’ouverture : rien n’est écrit, le dossier n’est pas figé sur une bibliothèque vide', async () => {
+    let hs = true;
+    const existante = { id: 'x', nom: 'Haut A', dossier: 'Mon programme', rang: 0, exercices: [] };
+    const b = bac({ nonLues: true, routines: [existante], chargementHS: () => hs });
+    await b.appel('ouvrirApercuProgramme()');
+    await b.vue().surCreer();
+    expect(b.journal.routines).toEqual([]);
+    expect(b.vue().erreur).toBe('Pas de réseau : rien n’a été enregistré.');
+    expect(b.ctx.construit.dossier).toBeNull();                      // pas figé sur « Mon programme »
+    hs = false;
+    await b.vue().surCreer();
+    expect(b.journal.routines.every((l) => l.dossier === 'Mon programme (2)')).toBe(true);   // l'existant est vu : un NOUVEAU dossier
+    expect(b.journal.routines.map((l) => l.nom)).toEqual(['Haut A (2)', 'Bas A', 'Haut B', 'Bas B']);
+    expect(b.ctx.profil.programme_construit_dossier).toBe('Mon programme (2)');
+  });
+
+  test('le profil reçoit le dossier dès la première routine créée, avant la fin de l’écriture', async () => {
+    const b = bac({ panne: (deja) => deja === 1 });
+    await b.appel('ouvrirApercuProgramme()');
+    await b.vue().surCreer();
+    expect(b.journal.routines.length).toBe(1);
+    expect(b.ctx.profil.programme_construit_dossier).toBe('Mon programme');
+    expect(b.ctx.profil.programme_construit_le).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+});
+
+describe('revue adverse — l’aperçu : sorties, séances vidées, remplaçant déjà là, écartés vivants', () => {
+  test('« Remplacer » a un « Annuler » qui revient à l’aperçu, tel quel', async () => {
+    const b = bac();
+    await b.appel('ouvrirApercuProgramme()');
+    b.vue().surExercice(0, 0);
+    b.ctx.__choix.surChoix('remplacer');
+    expect(typeof b.ctx.__machine.surAnnuler).toBe('function');
+    const rendus = b.journal.feuilles.length;
+    b.ctx.__machine.surAnnuler();
+    expect(b.journal.feuilles.length).toBe(rendus + 1);
+    expect(b.vue().titre).toBe('4 séances par semaine.');
+    expect(b.journal.profil).toEqual([]);
+  });
+
+  test('⚠️ DISCRIMINANT — une séance VIDÉE par les refus sort du programme : jamais « ≈ 0 min », jamais une routine vide écrite', async () => {
+    const vide = Object.assign({}, Generateur, {
+      neVeuxPas: (cat, rts, e, r, k) => { const res = Generateur.neVeuxPas(cat, rts, e, r, k); if (r === 0) res.routines[0].exercices = []; return res; }
+    });
+    const b = bac({ generateur: vide });
+    await b.appel('ouvrirApercuProgramme()');
+    b.vue().surExercice(0, 0);
+    b.ctx.__choix.surChoix('refuser');
+    const v = b.vue();
+    expect(v.routines.map((r) => r.nom)).toEqual(['Bas A', 'Haut B', 'Bas B']);
+    expect(v.titre).toBe('3 séances par semaine.');
+    expect(v.routines.every((r) => r.exercices.length > 0 && !/≈\u00a00\u00a0min/.test(r.duree))).toBe(true);
+    expect(v.libelleCreer).toBe('Créer ces 3 routines');
+    await v.surCreer();
+    expect(b.journal.routines.map((l) => l.nom)).toEqual(['Bas A', 'Haut B', 'Bas B']);
+  });
+
+  test('toutes les séances vidées, une à une : l’aperçu se ferme au dernier refus, rien n’est écrit', async () => {
+    const vide = Object.assign({}, Generateur, {
+      neVeuxPas: (cat, rts, e, r, k) => { const res = Generateur.neVeuxPas(cat, rts, e, r, k); res.routines[r].exercices = []; return res; }
+    });
+    const b = bac({ generateur: vide });
+    await b.appel('ouvrirApercuProgramme()');
+    for (let n = 0; n < 3; n++) {
+      b.vue().surExercice(0, 0);
+      b.ctx.__choix.surChoix('refuser');
+      expect(b.journal.ferme).toBe(0);
+    }
+    expect(b.vue().routines.length).toBe(1);
+    b.vue().surExercice(0, 0);
+    b.ctx.__choix.surChoix('refuser');
+    expect(b.journal.ferme).toBe(1);
+    expect(b.journal.routines).toEqual([]);
+  });
+
+  test('⚠️ DISCRIMINANT — « Remplacer » par un exercice DÉJÀ dans la séance : rien ne change (pas de séries additionnées), le coach le dit', async () => {
+    const b = bac();
+    await b.appel('ouvrirApercuProgramme()');
+    const avant = clone(b.vue().routines);
+    const autre = b.ctx.construit.routines[0].exercices[1].exercise_slug;
+    b.appel("poserDansLeProgramme(0, 0, '" + autre + "')");
+    const apres = b.vue();
+    expect(apres.routines[0].exercices.map((x) => [x.nom, x.series])).toEqual(avant[0].exercices.map((x) => [x.nom, x.series]));
+    expect(apres.voix[apres.voix.length - 1]).toBe(nom(autre) + ' est déjà dans cette séance.');
+    expect(apres.routines[0].exercices.every((x) => !x.neuf)).toBe(true);
+  });
+
+  test('⚠️ DISCRIMINANT — un écarté ajouté au profil depuis l’ouverture (un autre appareil) n’est PAS effacé par un refus', async () => {
+    const b = bac();
+    await b.appel('ouvrirApercuProgramme()');
+    b.ctx.profil.exercices_ecartes = ['curl_marteau_haltere'];       // arrivé après l'ouverture
+    b.vue().surExercice(0, 0);
+    b.ctx.__choix.surChoix('refuser');
+    expect(b.journal.profil).toEqual([{ exercices_ecartes: ['curl_marteau_haltere', 'developpe_couche_barre'] }]);
+  });
+});
+
+describe('revue adverse — la phrase de zone ne ment pas, le motif suit l’exercice', () => {
+  const entree = () => Object.assign({ faits: {}, priorites: [], menager: [], ecartes: [] }, clone(cas('neuf_4j_les_deux').entree));
+
+  test('⚠️ DISCRIMINANT — un exercice ménagé dont le raccourci a coupé des séries : « Toutes leurs séries restent » n’est plus dite', () => {
+    const c = cat(), e = Object.assign(entree(), { menager: ['genou'] });
+    const rts = Generateur.generer(c, e);
+    const entier = Generateur.phrasesDeLApercu(rts, e, nom).zones[0];
+    expect(entier).toMatch(/Toutes leurs séries restent\.$/);
+    // Une des lignes ménagées perd des séries (le raccourci de la durée).
+    const coupe = clone(rts);
+    coupe.forEach((rt) => rt.exercices.forEach((x) => { if (x.motif === 'quad_iso') { x.raccourcie = true; x.series = 1; } }));
+    const phrase = Generateur.phrasesDeLApercu(coupe, e, nom).zones[0];
+    expect(phrase).toMatch(/^Tu ménages ton genou : .+, sans série lourde\.$/);
+    expect(phrase).not.toMatch(/Toutes/);
+  });
+
+  test('la limite du soulevé reste dite quand les séries sont coupées', () => {
+    const c = cat(), e = Object.assign(entree(), { menager: ['dos'] });
+    const rts = clone(Generateur.generer(c, e));
+    rts.forEach((rt) => rt.exercices.forEach((x) => { if (x.motif === 'rowing') x.raccourcie = true; }));
+    const phrase = Generateur.phrasesDeLApercu(rts, e, nom).zones[0];
+    expect(phrase).toMatch(/sans série lourde\. 8 répétitions au plus au soulevé\.$/);
+  });
+
+  test('un seul exercice ménagé : « Toutes ses séries restent » (l’accord)', () => {
+    const e = { menager: ['coude'] };
+    const rts = [{ nom: 'A', exercices: [{ exercise_slug: 'extension_triceps_poulie_haute', motif: 'triceps' }] }];
+    expect(Generateur.phrasesDeLApercu(rts, e, nom).zones[0]).toBe(
+      'Tu ménages ton coude : ' + nom('extension_triceps_poulie_haute') + ', sans série lourde. Toutes ses séries restent.');
+  });
+
+  test('⚠️ DISCRIMINANT — « Remplacer » : le motif SUIT l’exercice (la mention se lit sur ce qu’il charge, pas sur la place)', () => {
+    const c = cat(), e = Object.assign(entree(), { menager: ['genou'] });
+    const rts = Generateur.generer(c, e);
+    // Un développé couché posé sur la place du squat : plus de mention « genou ».
+    const iSquat = rts[1].exercices.findIndex((x) => x.motif === 'squat');
+    const sansGenou = Generateur.remplacePar(c, rts, e, 1, iSquat, 'developpe_couche_barre');
+    expect(sansGenou[1].exercices[iSquat].motif).toBe('couche');
+    expect(sansGenou[1].exercices[iSquat].menage).toBe(false);
+    expect(Generateur.mentionsDeLigne(sansGenou[1].exercices[iSquat], e)).toEqual([]);
+    // Un squat posé sur la place du couché : la mention « genou » apparaît.
+    const iCouche = rts[0].exercices.findIndex((x) => x.motif === 'couche');
+    const avecGenou = Generateur.remplacePar(c, rts, e, 0, iCouche, 'squat_barre');
+    expect(avecGenou[0].exercices[iCouche].motif).toBe('squat');
+    expect(Generateur.mentionsDeLigne(avecGenou[0].exercices[iCouche], e)).toEqual(['sans série lourde · ton genou']);
+    // Un candidat de la place reste sur la place (le haltère reste « couche »).
+    expect(Generateur.remplacePar(c, rts, e, 0, iCouche, 'developpe_couche_haltere')[0].exercices[iCouche].motif).toBe('couche');
+  });
+
+  test('l’aperçu : G8 + zone — la phrase du haut dépend des séries VRAIMENT coupées, et le drapeau survit à « Je n’en veux pas »', async () => {
+    const b = bac({ profil: { zones_a_menager: ['genou'], objectif: 'force', temps_reponse: 'max', duree_seance_min: 30 } });
+    await b.appel('ouvrirApercuProgramme()');
+    const coupees = b.ctx.construit.routines.some((rt) => rt.exercices.some((x) => x.raccourcie && ['squat', 'presse', 'quad_iso'].indexOf(x.motif) >= 0));
+    const phrase = b.vue().voix[1];
+    expect(/Toutes (leurs|ses) séries restent/.test(phrase)).toBe(!coupees);
+    if (coupees) {
+      const [r, k] = (() => { for (let i = 0; i < b.ctx.construit.routines.length; i++) {
+        const j = b.ctx.construit.routines[i].exercices.findIndex((x) => x.raccourcie && ['squat', 'presse', 'quad_iso'].indexOf(x.motif) >= 0);
+        if (j >= 0) return [i, j]; } return [0, 0]; })();
+      b.vue().surExercice(r, k);
+      b.ctx.__choix.surChoix('refuser');
+      expect(b.ctx.construit.routines[r].exercices.some((x) => x.raccourcie)).toBe(true);
+    }
+  });
+
+  test('le marqueur « neuf » suit le SLUG, pas l’indice (une fusion de voisins ne le déplace pas)', async () => {
+    const b = bac();
+    await b.appel('ouvrirApercuProgramme()');
+    b.vue().surExercice(0, 0);
+    b.ctx.__choix.surChoix('refuser');
+    const neuf = b.vue().routines[0].exercices.filter((x) => x.neuf);
+    expect(neuf.length).toBe(1);
+    expect(Object.keys(b.ctx.construit.neuf)[0]).toMatch(/^0:[a-z_]+$/);
+  });
+
+  test('le nom de la feuille d’un exercice est le nom ÉCRIT de la séance (« Haut A (2) » quand « Haut A » existe)', async () => {
+    const b = bac({ routines: [{ id: 'x', nom: 'Haut A', dossier: null, rang: 0, exercices: [] }] });
+    await b.appel('ouvrirApercuProgramme()');
+    b.vue().surExercice(0, 0);
+    expect(b.ctx.__choix.aide).toMatch(/^Haut A \(2\) · /);
+  });
+
+  test('« Je n’en veux pas » sans remplaçant : une phrase sans genre (« sort de ton programme »)', async () => {
+    const aucun = Object.assign({}, Generateur, {
+      neVeuxPas: (cat2, rts, e2, r, k) => { const res = Generateur.neVeuxPas(cat2, rts, e2, r, k); res.routines[r].exercices.splice(k, 1); return res; }
+    });
+    const b = bac({ generateur: aucun });
+    await b.appel('ouvrirApercuProgramme()');
+    const ancien = b.vue().routines[0].exercices[0].nom;
+    b.vue().surExercice(0, 0);
+    b.ctx.__choix.surChoix('refuser');
+    const v = b.vue();
+    expect(v.voix[v.voix.length - 1]).toBe(ancien + ' sort de ton programme. Je ne te le proposerai plus.');
   });
 });

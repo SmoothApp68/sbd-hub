@@ -686,7 +686,7 @@
   var ECARTES_MAX = 200, SLUG_MAX = 120;
   function ecartesValides(liste) {
     if (!Array.isArray(liste)) return null;
-    var vus = {}, sortie = [];
+    var vus = Object.create(null), sortie = [];     // sans prototype : « constructor » est un slug comme un autre
     liste.forEach(function (x) {
       if (typeof x !== 'string' || x === '' || x.length > SLUG_MAX || x !== x.trim() || vus[x]) return;
       vus[x] = true;

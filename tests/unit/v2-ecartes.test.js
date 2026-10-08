@@ -285,11 +285,10 @@ describe('les gestes : « Je n’en veux pas » dans l’éditeur', () => {
     expect(b.slugs()[1]).toBe('dc-machine');
   });
 
-  test('hors ligne, le profil refuse : le remplacement a lieu quand même (l’écart repartira avec le profil)', async () => {
+  test('le geste est dans le profil LOCAL tout de suite (le vrai `poserProfil` met `profil` à jour avant son premier `await` et ne rejette jamais)', () => {
     const b = bac();
-    b.ctx.poserProfil = () => Promise.reject(new Error('Failed to fetch'));
-    expect(() => b.appel('neVeutPasDansLEditeur(1)')).not.toThrow();
-    await new Promise((r) => setTimeout(r, 0));
+    b.appel('neVeutPasDansLEditeur(1)');
+    expect(b.ctx.profil.exercices_ecartes).toEqual(['dc-barre']);
     expect(b.slugs()[1]).toBe('dc-machine');
   });
 

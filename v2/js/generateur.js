@@ -296,9 +296,19 @@
     } else {
       var neuve = ligne(catalogue, s, vieux.motif, vieux.role, p);
       neuve.series = vieux.series;
+      if (vieux.raccourcie) neuve.raccourcie = true;                // la place a perdu des séries pour tenir la durée
       nouveau[r].exercices[k] = neuve;
     }
     return { routines: nouveau, ecartes: ecartes };
+  }
+
+  // Le motif d'un exercice : `prefere` s'il en est un candidat, sinon le premier de la table qui le contient, sinon `null`
+  // (un exercice hors de tout motif ne charge aucune zone et n'a pas de reps de tronc ou de petit muscle).
+  function motifDe(slug, prefere) {
+    if (prefere && possede(MOTIFS, prefere) && contient(MOTIFS[prefere], slug)) return prefere;
+    var trouve = null;
+    Object.keys(MOTIFS).some(function (m) { if (contient(MOTIFS[m], slug)) { trouve = m; return true; } return false; });
+    return trouve;
   }
 
   // ── « Remplacer » dans l'aperçu ──────────────────────────────────────────────────
@@ -314,8 +324,11 @@
     });
     var vieux = nouveau[r] && nouveau[r].exercices[k];
     if (!vieux || !possede(catalogue, slug)) return nouveau;
-    var neuve = ligne(catalogue, slug, vieux.motif, vieux.role, p);
+    // Le MOTIF suit l'exercice choisi (la zone à ménager se lit sur ce que l'exercice charge, pas sur la place qu'il
+    // prend) : celui de la place si l'exercice en est un candidat, sinon le premier motif qui le contient, sinon aucun.
+    var neuve = ligne(catalogue, slug, motifDe(slug, vieux.motif), vieux.role, p);
     neuve.series = vieux.series;
+    if (vieux.raccourcie) neuve.raccourcie = true;
     nouveau[r].exercices[k] = neuve;
     return nouveau;
   }
@@ -385,8 +398,15 @@
         .map(function (l) { return nommer(l.exercise_slug); }));
       if (!noms.length) return;
       var souleve = z === 'dos' && lignes.some(function (l) { return l.motif === 'charniere'; });
-      zones.push('Tu ménages ' + POSSESSIF[z] + ' : ' + noms.join(', ') + ', sans série lourde. Toutes leurs séries restent' +
-        (souleve ? ' ; ' + CHARNIERE_MAX + ' répétitions au plus au soulevé' : '') + '.');
+      // Le raccourci de la durée (MOTEUR §9.18) peut avoir coupé des séries d'un exercice ménagé : la phrase ne le
+      // contredit pas (elle ne promet plus « toutes leurs séries »). Une zone à un seul exercice dit « ses séries ».
+      var coupees = lignes.some(function (l) { return l.raccourcie && contient(CHARGE_ZONE[z], l.motif); });
+      var phrase = 'Tu ménages ' + POSSESSIF[z] + ' : ' + noms.join(', ') + ', sans série lourde.';
+      if (!coupees) {
+        phrase += ' Toutes ' + (noms.length > 1 ? 'leurs' : 'ses') + ' séries restent' +
+          (souleve ? ' ; ' + CHARNIERE_MAX + ' répétitions au plus au soulevé' : '') + '.';
+      } else if (souleve) phrase += ' ' + CHARNIERE_MAX + ' répétitions au plus au soulevé.';
+      zones.push(phrase);
     });
     var barre = '';
     if (e.materiel === CORPS) {

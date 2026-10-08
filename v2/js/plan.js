@@ -2035,7 +2035,14 @@
     (plan.exercices || []).forEach(function (x) {
       (x.paris || []).forEach(function (q, i) { voir(q, 'exercice ' + x.iExo + ' (' + x.slug + '), série ' + i); });
     });
-    (parisSeance || []).forEach(function (q) { voir(q, 'pari posé ' + (q.exercise_slug || '') + ' rang ' + (q.fondement && q.fondement.rang)); });
+    // ⚠️ En ÉDITION, les paris déjà posés sont ceux d'une séance TERMINÉE : écrits à la phase d'alors
+    // (ou, avant 49-U11, sans phase), ils ne témoignent pas de la phase d'aujourd'hui — la phase gelée de
+    // cette séance n'existe plus, le plan lit celle du profil — et le plan d'une correction ne les réécrit
+    // pas. Les comparer ferait échouer la garde de développement sur toute correction d'une séance
+    // ancienne (jumeau d'I40, `verifierObjectif`, 9acf4de). Ce que le plan écrit lui-même, lui, reste vérifié.
+    if (plan.edition !== true) {
+      (parisSeance || []).forEach(function (q) { voir(q, 'pari posé ' + (q.exercise_slug || '') + ' rang ' + (q.fondement && q.fondement.rang)); });
+    }
   }
 
   // I19, I20 (MOTEUR §14.4, 49-U14) — la semaine allégée et sa carte.

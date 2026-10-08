@@ -8957,6 +8957,22 @@ const SETS_IMPORTES = [
       JSON.stringify(phases()) === '["seche","seche","seche"]', JSON.stringify(phases()));
     await terminer();
 
+    // 4 bis (60-2c). La séance TERMINÉE à `seche` se rouvre en ÉDITION alors que le profil dit `maintien` : ses
+    // paris déjà posés portent `seche`, le plan d'une correction lit la phase d'aujourd'hui (la phase gelée de
+    // cette séance n'existe plus) — I18 ne doit pas les lui comparer.
+    ok('[U11] prémisse — le profil dit `maintien`, la séance terminée porte trois paris à `seche`',
+      base.profiles[0].phase === 'maintien' && JSON.stringify(phases()) === '["seche","seche","seche"]',
+      JSON.stringify([base.profiles[0].phase, phases()]));
+    const violationsEdition = gardeBanc.violations;
+    await ouvrirMenuDe('Phase U11');
+    await entree('Modifier');
+    await attendre(900);
+    ok('[U11] DISCRIMINANT (60-2c) — corriger la séance terminée à `seche` (le profil dit `maintien`) : la garde se tait (I18 en Édition)',
+      JSON.stringify(await visible()) === '["vue-seance"]' && gardeBanc.violations === violationsEdition,
+      JSON.stringify([await visible(), gardeBanc.violations - violationsEdition, gardeBanc.liste.slice(-2)]));
+    await page.click('#bandeau-seance .bandeau-fin');   // « Enregistrer » : en Édition, aucune feuille
+    await attendre(1800);
+
     // 5. La séance SUIVANTE prend la nouvelle phase.
     await aller('/saisie');
     await demarrerRoutine('Phase U11');

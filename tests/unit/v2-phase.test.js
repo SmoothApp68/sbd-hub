@@ -165,6 +165,48 @@ describe('I18 — les violations forgées sont attrapées', () => {
     f.phase = null;
     expect(T.verifierPlan(f).erreurs.join('\n')).toMatch(/^I18 — la phase du plan est vide/m);
   });
+
+  // ── 60-2c — jumeau d'I40 (9acf4de) : en ÉDITION, les paris déjà posés ne se comparent pas ───────────
+  test('⚠️ DISCRIMINANT — en ÉDITION, les paris déjà posés ne se comparent pas à la phase d’aujourd’hui : une séance terminée avant 49-U11 n’en porte pas, une autre l’a posée à la phase d’alors', () => {
+    let se = seanceDe();
+    const q = T.planDeSeance(entreesDe(se, 'seche')).exercices[0].paris[0];
+    se = valider(se, 0, 125, 5);
+    const sansPhase = clone(q);
+    delete sansPhase.fondement.phase;
+    const poses = [Object.assign({}, sansPhase, { id: 'p0', set_observe: se.exercices[0].series[0].id }),
+      Object.assign({}, q, { id: 'p1', set_observe: se.exercices[0].series[0].id })];
+    const verifier = (edition) => {
+      const e = entreesDe(se, 'maintien', poses);
+      e.seance.edition = edition;
+      return T.verifierPlan(T.planDeSeance(e), e).erreurs.filter((m) => /^I18/.test(m));
+    };
+    expect(verifier(true)).toEqual([]);
+    // Même état hors édition : la garde parle (sans phase, et à une autre phase).
+    const hors = verifier(false).join('\n');
+    expect(hors).toMatch(/un pari sans phase/);
+    expect(hors).toMatch(/seche dans une séance à maintien/);
+  });
+
+  test('en ÉDITION, la garde reste entière sur ce que le plan écrit lui-même et sur la phase du plan', () => {
+    const { p } = base();
+    const f = clone(p);
+    f.edition = true;
+    f.exercices[0].paris[2].fondement.phase = 'maintien';
+    expect(T.verifierPlan(f).erreurs.join('\n')).toMatch(/^I18 — .*à la phase maintien dans une séance à seche/m);
+    f.phase = null;
+    expect(T.verifierPlan(f).erreurs.join('\n')).toMatch(/^I18 — la phase du plan est vide/m);
+  });
+
+  test('un plan forgé SANS la clé `edition` reste vérifié (défaut strict : seul `true` lève la garde)', () => {
+    let se = seanceDe();
+    const q = T.planDeSeance(entreesDe(se, 'seche')).exercices[0].paris[0];
+    se = valider(se, 0, 125, 5);
+    const pose = Object.assign({}, q, { id: 'p0', set_observe: se.exercices[0].series[0].id });
+    const e = entreesDe(se, 'maintien', [pose]);
+    const f = clone(T.planDeSeance(e));
+    delete f.edition;
+    expect(T.verifierPlan(f, e).erreurs.join('\n')).toMatch(/^I18 — pari posé .*seche dans une séance à maintien/m);
+  });
 });
 
 describe('Profil — « TA PHASE »', () => {

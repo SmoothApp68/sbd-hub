@@ -15607,6 +15607,105 @@ const SETS_IMPORTES = [
     ok('[R60] I — « Juste un carnet » : la carte se tait', !carte.visible, JSON.stringify(carte));
     profilBase().intention = 'progresser';
 
+    // ── J. 60-6 : LE NIVEAU, LES 2 JOURS ET LA PRIORITÉ « TRONC » — le câblage de l'app réelle (le Profil → « Refaire mon
+    // programme » → l'aperçu), sur un compte dont le profil est posé directement. La règle et ses 32 programmes ont
+    // leurs tests (`v2-generateur`) ; ici on prouve que l'ANCIENNETÉ ARRIVE au générateur, que les 2 jours sont ceux de
+    // la référence, que la priorité passe, et que « Je n'en veux pas » garde le niveau. Rien n'est créé : chaque
+    // aperçu se ferme par « Pas maintenant ».
+    const nomDe = (slug) => (CATALOGUE.filter((c) => c.slug === slug)[0] || {}).nom;
+    const profilDeBase = { objectif: 'forme', materiel: 'salle_complete', anciennete: 'moins_1_an', priorites: null,
+      zones_a_menager: null, exercices_ecartes: null, temps_reponse: null, duree_seance_min: null };
+    const apercuDe = async (champs, jours) => {
+      Object.assign(profilBase(), profilDeBase, champs);
+      await aller('/profil');
+      await attendre(1200);
+      await toucherH('Refaire mon programme');
+      const pressee = await page.evaluate((j) => !!document.querySelector('#questionnaire-corps .q-puce[data-cle="' + j + '"][aria-pressed="true"]'), String(jours));
+      if (!pressee) await cliquerR('.q-puce[data-cle="' + jours + '"]');
+      await continuerR();
+      await attendre(2200);
+      return apercuR();
+    };
+    const fermerApercu = async () => {
+      await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
+        .filter((b) => b.textContent === 'Pas maintenant')[0].click());
+      await attendre(500);
+    };
+    const tousLesNoms = (a) => [].concat.apply([], a.cartes.map((k) => k.exos.map((x) => x.nom)));
+    const routinesAvantJ = ROUTINES.length;
+
+    ap = await apercuDe({ anciennete: 'moins_1_an' }, 3);
+    let nomsJ = tousLesNoms(ap);
+    ok('[R60] J — ⚠️ « Moins d’un an », Forme, 3 jours, salle complète : ni tractions ni relevé de genoux suspendu',
+      ap.ouverte && ap.cartes.length === 3 && nomsJ.indexOf(nomDe('tractions')) < 0 && nomsJ.indexOf(nomDe('releve_de_genoux_suspendu')) < 0,
+      JSON.stringify(nomsJ));
+    // Le tirage du débutant, pour le refus plus bas : sa place et son nom.
+    const tirageD = nomDe('tirage_poitrine_poulie');
+    const iD = ap.cartes.findIndex((k) => k.exos.some((x) => x.nom === tirageD));
+    const kD = iD < 0 ? -1 : ap.cartes[iD].exos.findIndex((x) => x.nom === tirageD);
+    ok('[R60] J — le débutant a la poulie à la place des tractions (le tirage vertical est au programme)', iD >= 0 && kD >= 0, JSON.stringify([iD, kD, nomsJ]));
+    await fermerApercu();
+
+    ap = await apercuDe({ anciennete: '1_a_3_ans' }, 3);
+    nomsJ = tousLesNoms(ap);
+    ok('[R60] J — ⚠️ le même profil en « 1 à 3 ans » : les tractions et le relevé de genoux suspendu reviennent',
+      ap.ouverte && nomsJ.indexOf(nomDe('tractions')) >= 0 && nomsJ.indexOf(nomDe('releve_de_genoux_suspendu')) >= 0, JSON.stringify(nomsJ));
+    await fermerApercu();
+
+    // Un débutant qui a déjà fait les tractions les garde : une séance d'il y a 5 jours avec des tractions.
+    const idT = '00000000-0000-4000-8606-000000000001';
+    const debutT = new Date(Date.now() - 5 * JOUR).toISOString();
+    base.sessions.push({ id: idT, user_id: 'u-banc', titre: 'Tirage', debut: debutT, fin: finDe(debutT, Date.now()).toISOString(),
+      statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: new Date().toISOString() });
+    for (let k = 0; k < 3; k++) base.sets.push({ id: 'r60-j-' + k, session_id: idT, user_id: 'u-banc', exercise_slug: 'tractions',
+      charge_kg: 0, reps: 8, duree_s: null, distance_m: null, type_serie: 'travail', rang: k + 1, groupe_superset: null,
+      validee_a: null, rpe: null, ressenti: null, repos_s: null, note: null, source: 'app', created_at: new Date().toISOString(),
+      modifie_a: null, douleur: false, occurrence: null });
+    ap = await apercuDe({ anciennete: 'moins_1_an' }, 3);
+    nomsJ = tousLesNoms(ap);
+    ok('[R60] J — ⚠️ « Moins d’un an » avec des tractions déjà faites : elles restent (l’historique l’emporte) ; le relevé de genoux, jamais fait, non',
+      ap.ouverte && nomsJ.indexOf(nomDe('tractions')) >= 0 && nomsJ.indexOf(nomDe('releve_de_genoux_suspendu')) < 0, JSON.stringify(nomsJ));
+    await fermerApercu();
+    base.sessions = base.sessions.filter((x) => x.id !== idT);
+    base.sets = base.sets.filter((x) => x.session_id !== idT);
+
+    ap = await apercuDe({ anciennete: '1_a_3_ans', objectif: 'force' }, 2);
+    // (Les noms déjà pris par le programme de la section H reçoivent leur « (2) » : le nom de base est celui du gabarit.)
+    ok('[R60] J — 2 jours : deux routines « Corps entier A » et « Corps entier B », du couché dans les deux',
+      ap.ouverte && ap.cartes.map((k) => k.nom.replace(/ \(\d+\)$/, '')).join('|') === 'Corps entier A|Corps entier B' &&
+        ap.cartes.every((k) => k.exos.some((x) => /^Developpe couche /.test(x.nom) && !/incline/i.test(x.nom))),
+      JSON.stringify(ap.cartes.map((k) => [k.nom, k.exos.map((x) => x.nom)])));
+    ok('[R60] J — 2 jours : des mollets, ni élévations latérales ni triceps en direct',
+      tousLesNoms(ap).some((n) => /mollets/i.test(n)) && !tousLesNoms(ap).some((n) => /elevation laterale|triceps/i.test(n)),
+      JSON.stringify(tousLesNoms(ap)));
+    await fermerApercu();
+
+    const abdosDuBas = (a) => { const k = a.cartes[1]; const x = k && k.exos.filter((y) => y.nom === nomDe('releve_de_genoux_suspendu') || y.nom === nomDe('crunch_poulie'))[0];
+      return x ? x.series : null; };
+    ap = await apercuDe({ anciennete: '1_a_3_ans', objectif: 'muscle' }, 4);
+    const sansTronc = abdosDuBas(ap);
+    await fermerApercu();
+    ap = await apercuDe({ anciennete: '1_a_3_ans', objectif: 'muscle', priorites: ['tronc'] }, 4);
+    const avecTronc = abdosDuBas(ap);
+    ok('[R60] J — ⚠️ priorité « Tronc » : la séance du bas porte 3 séries d’abdos (2 sans la priorité)',
+      ap.ouverte && sansTronc === '2 × 15' && avecTronc === '3 × 15', JSON.stringify([sansTronc, avecTronc]));
+    await fermerApercu();
+
+    // « Je n'en veux pas » sur le tirage d'un débutant : jamais des tractions.
+    ap = await apercuDe({ anciennete: 'moins_1_an', objectif: 'forme', priorites: null }, 3);
+    await toucher(iD, kD);
+    await page.click('#feuille-contenu button[data-cle="refuser"]');
+    await attendre(900);
+    ap = await apercuR();
+    nomsJ = tousLesNoms(ap);
+    ok('[R60] J — ⚠️ « Je n’en veux pas » sur le tirage d’un débutant : jamais des tractions, la place a un autre tirage',
+      ap.ouverte && ap.cartes[iD].exos[kD].nom !== tirageD && ap.cartes[iD].exos[kD].neuf === true &&
+        nomsJ.indexOf(nomDe('tractions')) < 0, JSON.stringify([ap.cartes[iD].exos[kD], nomsJ]));
+    await fermerApercu();
+    ok('[R60] J — rien n’a été créé (aucune routine de plus) ; seul le refus est écrit (l’écarté)',
+      ROUTINES.length === routinesAvantJ && JSON.stringify(profilBase().exercices_ecartes) === '["tirage_poitrine_poulie"]',
+      JSON.stringify([ROUTINES.length - routinesAvantJ, profilBase().exercices_ecartes]));
+
     base.sessions = sessionsAvantE; base.sets = setsAvantE;
 
     // ── LA REMISE EN ÉTAT, pour les sections suivantes.

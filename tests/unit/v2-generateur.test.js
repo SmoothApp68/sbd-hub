@@ -277,6 +277,23 @@ describe('60-6 — chaque règle des défauts G1 à G4 est jouée par un cas du 
     expect(noms).not.toContain('step_up');
   });
 
+  test('G2/S6 — le repli de « Je n’en veux pas » n’accepte pas un exercice de la séance : la place saute (rien ne se répète)', () => {
+    // Aucun des 78 gestes du fichier n'atteint ce repli (la mutation « neVeuxPas reprend un exercice de la séance » y
+    // survivait) : le cas est donc construit, et il est celui de la référence (`gen60b.py ne_veux_pas`, rejoué à la main :
+    // la séance perd la place, l'exercice rejoint les écartés). Le seul candidat du motif est déjà dans la séance.
+    const mini = { pompes: cat.pompes, developpe_couche_haltere: cat.developpe_couche_haltere };
+    const ligneDe = (slug, role) => ({ exercise_slug: slug, motif: 'couche', role, series: 3, reps: 9, prioritaire: false,
+      menage: false, barre_fixe: false });
+    const routines = [{ nom: 'S', exercices: [ligneDe('pompes', 'P'), ligneDe('developpe_couche_haltere', 'S')] }];
+    const sortie = G.neVeuxPas(mini, routines, { jours: 2, materiel: null, ecartes: [] }, 0, 1);
+    expect(sortie.routines[0].exercices.map((x) => x.exercise_slug)).toEqual(['pompes']);
+    expect(sortie.ecartes).toEqual(['developpe_couche_haltere']);
+    // Hors de la séance, le même candidat est repris : c'est bien la séance qui l'exclut, pas le catalogue.
+    const autre = [{ nom: 'S', exercices: [ligneDe('developpe_couche_haltere', 'S')] }, { nom: 'T', exercices: [ligneDe('pompes', 'P')] }];
+    const ailleurs = G.neVeuxPas(mini, autre, { jours: 2, materiel: null, ecartes: [] }, 0, 0);
+    expect(ailleurs.routines[0].exercices.map((x) => x.exercise_slug)).toEqual(['pompes']);
+  });
+
   test('G3 — débutant : ni tractions ni relevé de genoux suspendu d’emblée ; le même profil à « 1 à 3 ans » les a', () => {
     const debutant = slugs(programme('debutant_3j_forme_salle_complete'));
     const un_an = slugs(programme('un_an_3j_forme_salle_complete'));

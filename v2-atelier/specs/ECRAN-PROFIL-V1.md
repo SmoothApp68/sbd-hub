@@ -197,6 +197,13 @@ le dépose dans les données du compte (`options.data.pseudo` de `signUp`), et l
 reprend de là quand la mémoire de la page ne l'a plus. **Pris entre-temps** : la ligne se crée sans lui, et la ligne
 « Pseudo » du Profil dit « Ce pseudo vient d'être pris : choisis-en un autre. » jusqu'à ce qu'un pseudo soit posé.
 
+**Précisé le 08/10/2026 (60-5).** Depuis le Profil aussi, **un pseudo pris ne se pose pas** : la feuille le vérifie
+avant de se fermer ; pris, elle reste ouverte avec le refus et ses deux alternatives, et rien n'est écrit. Sans réponse
+(hors ligne, §5.2 : « on ne sait pas »), la feuille se ferme et l'envoi part. **Si la base le refuse quand même**
+(pris entre la vérification et l'envoi) : le refus est **définitif pour le pseudo seul** — il quitte l'envoi en
+attente, la ligne « Pseudo » dit « Ce pseudo vient d'être pris : choisis-en un autre. », et **tous les autres champs
+du profil partent** (une réponse du questionnaire n'attend jamais un pseudo).
+
 ### 3.2 Hors ligne
 
 Une session déjà ouverte survit sans réseau — **l'app ne redemande jamais le mot de passe en

@@ -13689,6 +13689,59 @@ const SETS_IMPORTES = [
     ok('[Q59] le réseau revenu, la séance part : la file se vide, la séance est en base',
       vide && base.sessions.some((x) => x.id === idQ && x.statut === 'terminee'), JSON.stringify([await fileQ(), idQ]));
 
+    // ── F. UNE RÉPONSE DE PROFIL PAS ENCORE ENVOYÉE (60-2c). Le profil ne passe pas par la file : son
+    // drapeau (`profilAEnvoyer`) est le seul témoin, et « Quitter » ne le regardait pas — une réponse
+    // donnée hors ligne partait avec l'appareil, sans un mot. La file est vide ici (C l'a vidée).
+    const profilQAvant = JSON.parse(JSON.stringify(base.profiles[0]));
+    const tempsQ = () => base.profiles[0].temps_reponse;
+    const repondreTempsQ = async (cle) => {
+      await page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
+        .filter((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf('Ton temps') === 0)[0].click());
+      await attendre(500);
+      await page.click('#feuille-contenu .feuille-menu button[data-cle="' + cle + '"]');
+      await attendre(1500);
+    };
+    const reponses = ['max', 'marge', 'varie'].filter((c) => c !== profilQAvant.temps_reponse);
+    // F1. Hors ligne : la fenêtre, « Rester » ne perd rien, le réseau revient et la réponse part.
+    await aller('/profil');
+    await attendre(800);
+    base.reseau = false;
+    await repondreTempsQ(reponses[0]);
+    ok('[Q60c] prémisse — hors ligne, la réponse de profil n’est PAS partie (la base garde l’ancienne) et la file est vide',
+      tempsQ() === profilQAvant.temps_reponse && (await fileQ()).length === 0, JSON.stringify([tempsQ(), profilQAvant.temps_reponse, await fileQ()]));
+    await quitterQ();
+    const fenF1 = await feuilleQ();
+    ok('[Q60c] DISCRIMINANT — « Quitter » avec une réponse de profil pas partie : la fenêtre « Des changements pas encore envoyés. » (la file est pourtant vide)',
+      fenF1.ouverte && fenF1.titre === 'Des changements pas encore envoyés.' && fenF1.aide === 'Si tu quittes maintenant, ils sont perdus.' &&
+        fenF1.boutons.length === 2 && fenF1.boutons[0][1] === 'Rester' && fenF1.boutons[1][1] === 'Quitter quand même', JSON.stringify(fenF1));
+    await page.click('#feuille-contenu .sortie-rester');
+    await attendre(800);
+    ok('[Q60c] DISCRIMINANT — « Rester » ne perd rien : toujours connecté sur le profil, la fenêtre fermée, la réponse toujours là',
+      JSON.stringify(await visible()) === '["vue-profil"]' && !(await feuilleQ()).ouverte && tempsQ() === profilQAvant.temps_reponse,
+      JSON.stringify([await visible(), await feuilleQ(), tempsQ()]));
+    base.reseau = true;
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    let partie = false;
+    for (let t = 0; t < 40 && !partie; t++) { await attendre(250); partie = tempsQ() === reponses[0]; }
+    ok('[Q60c] le réseau revenu, la réponse part (le drapeau l’avait gardée)', partie, JSON.stringify([tempsQ(), reponses[0]]));
+    // F2. Le réseau revient SANS l'évènement `online` : c'est la vidange de « Quitter » qui envoie la réponse.
+    base.reseau = false;
+    await repondreTempsQ(reponses[1]);
+    ok('[Q60c] prémisse — la deuxième réponse n’est pas partie non plus', tempsQ() === reponses[0], JSON.stringify([tempsQ(), reponses[0]]));
+    base.reseau = true;
+    await quitterQ();
+    const sortieF2 = await page.evaluate(() => ({
+      vues: Array.from(document.querySelectorAll('main > section')).filter((x) => !x.hidden).map((x) => x.id),
+      fenetre: !document.querySelector('#feuille-seance').hidden }));
+    ok('[Q60c] DISCRIMINANT — la vidange de « Quitter » ENVOIE la réponse de profil : elle est en base, et l’on quitte SANS fenêtre',
+      tempsQ() === reponses[1] && sortieF2.fenetre === false && JSON.stringify(sortieF2.vues) === '["vue-connexion"]',
+      JSON.stringify([tempsQ(), reponses[1], sortieF2]));
+    // On remet le profil du banc comme il était, et on repart connecté pour D (le jeton est gardé par le banc).
+    Object.keys(base.profiles[0]).forEach((k) => { delete base.profiles[0][k]; });
+    Object.assign(base.profiles[0], profilQAvant);
+    await aller('/saisie');
+    await attendre(1500);
+
     // ── D. « QUITTER » SORT SANS FENÊTRE, ET L'APPAREIL EST VIDÉ — MÊME
     // QUAND UNE SYNCHRONISATION EST EN VOL (59-5). Le faux serveur retient la
     // liste des séances : la synchro de l'entrée attend encore quand on

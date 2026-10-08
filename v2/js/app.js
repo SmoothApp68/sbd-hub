@@ -8816,6 +8816,8 @@
   function quitterSansRienPerdre() {
     return Quitter.quitter({
       file: function () { return attente; },
+      // 60-2c : une réponse de profil pas encore envoyée (hors file) compte aussi.
+      profil: function () { return profilAEnvoyer; },
       enLigne: function () { return !(racine.navigator && racine.navigator.onLine === false); },
       envoyer: envoyerAvantDeQuitter,
       fenetre: montrerFenetreDeSortie,
@@ -8826,11 +8828,15 @@
   // La vidange HABITUELLE, attendue jusqu'au bout : une vidange déjà en cours
   // est attendue, puis on en lance une. Bornée à 15 s : un réseau qui ne répond
   // pas ne fige pas « Quitter » — ce qui n'est pas parti, la fenêtre le dira.
+  // 60-2c : le PROFIL part avec elle (`envoyerProfil`, derrière un envoi déjà en
+  // vol), dans la MÊME course de 15 s — jamais un `await` nu qui figerait « Quitter ».
   async function envoyerAvantDeQuitter() {
     var fin = Date.now() + 15000;
     var attendre = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
     while (vidangeEnCours && Date.now() < fin) await attendre(100);
-    await Promise.race([vidanger(), attendre(Math.max(0, fin - Date.now()))]);
+    var envois = [vidanger()];
+    if (profilAEnvoyer) envois.push(envoyerProfil());
+    await Promise.race([Promise.all(envois), attendre(Math.max(0, fin - Date.now()))]);
   }
 
   // La fenêtre des séances pas encore envoyées (la maquette du 07/10/2026).

@@ -205,10 +205,23 @@ describe('le générateur : « Remplacer », les mentions et les phrases', () =>
         nom('rowing_inverse') + ' et ' + nom('tractions') + ' demandent une barre fixe. Sans barre : touche-le, puis Remplacer.');
     });
 
-    test('matériel non renseigné : la règle est celle de tout matériel qui n’est pas une salle — la phrase se dit', () => {
+    test('⚠️ DISCRIMINANT (60-6, S5) — matériel non renseigné avec une traction : PAS de phrase, pas de mention', () => {
+      [null, '', undefined].forEach((vide) => {
+        const { e, rts } = avec(vide);
+        expect(fixes(rts)).toEqual(['tractions']);                      // la traction est bien au programme : le chemin est joué
+        expect(Generateur.phrasesDeLApercu(rts, e, nom).barreFixe).toBe('');
+        [].concat.apply([], rts.map((rt) => rt.exercices)).forEach((x) => expect(Generateur.mentionsDeLigne(x, e)).toEqual([]));
+      });
+    });
+
+    test('⚠️ DISCRIMINANT (60-6, S5) — les MÊMES routines avec « maison équipée » au lieu de « non renseigné » : la phrase se dit', () => {
       const { e, rts } = avec(null);
-      expect(fixes(rts)).toEqual(['tractions']);
-      expect(Generateur.phrasesDeLApercu(rts, e, nom).barreFixe).toContain('demande une barre fixe');
+      expect(Generateur.phrasesDeLApercu(rts, e, nom).barreFixe).toBe('');
+      const maison = Object.assign({}, e, { materiel: 'maison_equipee' });
+      expect(Generateur.phrasesDeLApercu(rts, maison, nom).barreFixe).toContain('demande une barre fixe');
+      const ligne = [].concat.apply([], rts.map((rt) => rt.exercices)).find((x) => x.exercise_slug === 'tractions');
+      expect(Generateur.mentionsDeLigne(ligne, e)).toEqual([]);
+      expect(Generateur.mentionsDeLigne(ligne, maison)).toEqual(['demande une barre fixe']);
     });
 
     test('une traction posée par « Remplacer » en maison équipée : la mention suit (l’exercice, pas la place)', () => {

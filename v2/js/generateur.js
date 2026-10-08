@@ -409,10 +409,15 @@
   // Des phrases, pas des décisions : l'écran les pose telles quelles. `nommer(slug)` donne le nom de l'exercice
   // (celui de l'app, `THModele.nommer`) ; `entree` est celle qui a construit le programme.
   var POSSESSIF = { epaule: 'ton épaule', dos: 'ton dos', genou: 'ton genou', coude: 'ton coude', hanche: 'ta hanche' };
-  // Les salles ont une barre fixe (R3, 60-5) ; ailleurs — maison équipée, maison minimale, poids du corps, matériel
-  // non renseigné — « maison équipée » ne la garantit pas. La condition est l'EXERCICE présent (`barre_fixe`), jamais
-  // l'étiquette du matériel : celle-ci ne fait que dire où la phrase ne se dit pas.
+  // Les salles ont une barre fixe (R3, 60-5) ; ailleurs — maison équipée, maison minimale, poids du corps — rien ne la
+  // garantit. La condition est l'EXERCICE présent (`barre_fixe`), jamais l'étiquette du matériel : celle-ci ne fait que
+  // dire où la phrase ne se dit pas. Un matériel NON RENSEIGNÉ (`null`, '' ou absent) vaut la salle complète — c'est
+  // ainsi que `faisable` le traite (aucune restriction) — donc pas de phrase (60-6, S5).
   var SALLES = ['salle_complete', 'salle_basique'];
+
+  function barreFixeAVerifier(materiel) {
+    return typeof materiel === 'string' && materiel !== '' && !contient(SALLES, materiel);
+  }
 
   function joindre(noms) {
     if (noms.length < 2) return noms.join('');
@@ -435,7 +440,7 @@
     var e = entree || {}, m = [];
     var zones = zonesDeLigne(l, e.menager);
     if (zones.length) m.push('sans série lourde \u00b7 ' + joindre(zones.map(function (z) { return POSSESSIF[z]; })));
-    if (l.barre_fixe && !contient(SALLES, e.materiel)) m.push('demande une barre fixe');
+    if (l.barre_fixe && barreFixeAVerifier(e.materiel)) m.push('demande une barre fixe');
     return m;
   }
 
@@ -465,7 +470,7 @@
       zones.push(phrase);
     });
     var barre = '';
-    if (!contient(SALLES, e.materiel)) {
+    if (barreFixeAVerifier(e.materiel)) {
       var fixes = uniques(lignes.filter(function (l) { return l.barre_fixe; }).map(function (l) { return nommer(l.exercise_slug); }));
       if (fixes.length) {
         barre = joindre(fixes) + (fixes.length > 1 ? ' demandent' : ' demande') +

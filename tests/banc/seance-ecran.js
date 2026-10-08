@@ -15228,8 +15228,12 @@ const SETS_IMPORTES = [
       await attendre(600);
     };
 
+    // Les noms viennent du catalogue, que la synchronisation apporte, et l'éditeur ne se redessine
+    // pas quand elle finit : on laisse d'abord Saisie synchroniser (les cinq exercices du banc
+    // entrent dans le cache), puis on ouvre l'éditeur.
+    await aller('/saisie');
     await aller('/routine/' + ID_R);
-    await attendre(600);
+    for (let n = 0; n < 60 && JSON.stringify(await nomsEditeur()).indexOf('Remp A U603') < 0; n++) await attendre(250);
     const avant = JSON.stringify(formeR());
     ok('[RP60] prémisse : l’éditeur montre les trois exercices de la routine',
       JSON.stringify(await nomsEditeur()).indexOf('Remp A U603') >= 0, JSON.stringify(await nomsEditeur()));
@@ -15259,7 +15263,7 @@ const SETS_IMPORTES = [
 
     // ── C. « Chercher dans le catalogue » : le choix remplace à sa place.
     await aller('/routine/' + ID_R);
-    await attendre(600);
+    for (let n = 0; n < 60 && JSON.stringify(await nomsEditeur()).indexOf('Remp Frère U603') < 0; n++) await attendre(250);
     await menuExo(2);
     await entreeE('Remplacer');
     f = await feuilleE();

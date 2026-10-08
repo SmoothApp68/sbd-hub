@@ -6,7 +6,8 @@
 //   · `Profil.joursDepuis` : des jours CALENDAIRES (le changement d'heure ne les change pas) ;
 //   · les 30 cas du fichier de cas (`cas-60-4-generateur.json`), rejoués PAR LE CÂBLAGE DE L'APP : chaque cas devient un
 //     profil, des routines, des séances et des blocs, et la carte s'affiche si et seulement si le cas l'attend ;
-//   · le rendu : « Ton programme tourne depuis 3 semaines. » et le reste au mot près ; il n'écrit RIEN ; « Pas maintenant »
+//   · le rendu : « Tu as fait {N} séances de ton programme. » (R5, 60-5 : des séances, jamais le calendrier des 21 jours)
+//     et le reste au mot près ; il n'écrit RIEN ; « Pas maintenant »
 //     écrit `carte_cycles_le` une fois ; « Passer en cycles » ouvre « Faire de ce dossier un programme » sur ce dossier.
 //
 // Environnement jsdom (PAS de docblock `node`) : `rendu.js` se termine par `this`.
@@ -178,7 +179,13 @@ describe('les 30 cas du fichier de cas, rejoués par le câblage de l’app', ()
       const b = bac(m);
       b.appel('rendreCarteCycles()');
       expect(!!b.vue()).toBe(c.attendu);
-      expect(b.appel('carteCyclesDuProfil()')).toBe(c.attendu ? DOSSIER : null);
+      const r = b.appel('carteCyclesDuProfil()');
+      expect(r ? r.dossier : null).toBe(c.attendu ? DOSSIER : null);
+      // 60-5 : la carte dit les séances FAITES depuis le dossier — le fait même qui porte son seuil de 6.
+      if (c.attendu) {
+        expect(r.seances).toBe(c.seances_du_dossier);
+        expect(b.vue().quoi).toBe('Tu as fait ' + c.seances_du_dossier + ' séances de ton programme.');
+      }
     });
   });
 
@@ -214,7 +221,7 @@ describe('ce que le câblage lit, hors du fichier de cas', () => {
   test('un bloc d’un AUTRE dossier ne la tait pas', () => {
     const m = monde();
     m.blocs.push({ id: 'b9', dossier: 'Ailleurs', statut: 'en_cours' });
-    expect(bac(m).appel('carteCyclesDuProfil()')).toBe(DOSSIER);
+    expect(bac(m).appel('carteCyclesDuProfil()').dossier).toBe(DOSSIER);
   });
 
   test('pas de dossier au profil, ou pas de date : pas de carte', () => {
@@ -236,10 +243,26 @@ describe('la carte : ses mots, ses deux boutons, et rien d’écrit au rendu', (
     const b = bac(monde());
     b.appel('rendreCarteCycles()');
     const v = b.vue();
-    expect(v.quoi).toBe('Ton programme tourne depuis 3 semaines.');
+    expect(v.quoi).toBe('Tu as fait 6 séances de ton programme.');
     expect(v.sujet).toBe('Un bloc de 4 semaines en Lourd sur tes barres, la dernière plus légère : c’est là que la force se gagne. On passe en cycles ?');
     expect(v.libelleReprendre).toBe('Passer en cycles');
     expect(v.libelleQuitter).toBe('Pas maintenant');
+  });
+
+  test('⚠️ DISCRIMINANT (R5, 60-5) — le chiffre est le COMPTE des séances du dossier, pas le seuil ; et le calendrier des 21 jours n’est jamais dit', () => {
+    [7, 9, 14].forEach((n) => {
+      const b = bac(monde({ seances: n }));
+      b.appel('rendreCarteCycles()');
+      expect(b.vue().quoi).toBe('Tu as fait ' + n + ' séances de ton programme.');
+      expect(b.vue().quoi).not.toMatch(/semaine|jour|depuis|\b21\b/);
+      expect(b.vue().sujet).not.toMatch(/\b21\b|jours/);
+    });
+    // Un jour de plus ou de moins ne change pas la phrase : elle ne lit pas le calendrier.
+    [21, 22, 40, 90].forEach((j) => {
+      const b = bac(monde({ jours: j }));
+      b.appel('rendreCarteCycles()');
+      expect(b.vue().quoi).toBe('Tu as fait 6 séances de ton programme.');
+    });
   });
 
   test('ce que la carte promet est ce que « Faire de ce dossier un programme » propose : Lourd, 4 semaines (Force et Les deux)', () => {

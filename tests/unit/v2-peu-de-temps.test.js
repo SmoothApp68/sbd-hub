@@ -82,6 +82,100 @@ describe('51-1 — la durée estimée et le raccourci, sur les 25 cas de la réf
   });
 });
 
+// ══ 1 bis. 60-5 (R6) — LES EXEMPTÉS : UN EXERCICE MÉNAGÉ N'EST JAMAIS RACCOURCI ═══════════════════════════════
+
+describe('60-5 (R6) — raccourcirRoutine(structure, cible, exemptes) : les exercices exemptés ne sont jamais touchés', () => {
+  const ex = (slug, o) => Object.assign({ slug, mesure: 'charge_reps', repos: 90, ch: 0, tr: 4, deg: 0, duree: null, prim: [], sec: [] }, o);
+  // Un genou à ménager : le squat et la presse (mêmes muscles principaux) sont exemptés ; le reste se coupe.
+  const GENOU = () => [
+    ex('squat', { prim: ['quadriceps', 'fessiers'], sec: ['ischio_jambiers'], ch: 2, tr: 4 }),
+    ex('presse', { prim: ['quadriceps', 'fessiers'], sec: ['ischio_jambiers'], tr: 3 }),
+    ex('leg_curl', { prim: ['ischio_jambiers'], tr: 3 }),
+    ex('mollets', { prim: ['mollets'], tr: 3 }),
+    ex('abdos', { prim: ['abdominaux'], tr: 3 })
+  ];
+  const EXEMPTES = ['squat', 'presse'];
+  const intact = (r, slugs) => slugs.every((s) => {
+    const avant = GENOU().find((e) => e.slug === s), apres = r.exercices.find((e) => e.slug === s);
+    return apres.ch === avant.ch && apres.tr === avant.tr && apres.deg === avant.deg && apres.duree === avant.duree;
+  });
+
+  test('prémisse — la séance complète dure 48 min : sans exemption, le raccourci à 30 min coupe la presse', () => {
+    expect(Math.round(M.dureeEstimee(GENOU()) / 60)).toBe(48);
+    const sans = M.raccourcirRoutine(GENOU(), 30);
+    expect(sans.exercices.find((e) => e.slug === 'presse').tr).toBeLessThan(3);
+  });
+
+  test('⚠️ DISCRIMINANT — durée visée courte : le squat et la presse gardent TOUTES leurs séries, les autres coupent', () => {
+    const r = M.raccourcirRoutine(GENOU(), 40, EXEMPTES);
+    expect(intact(r, EXEMPTES)).toBe(true);
+    expect(r.exercices.map((e) => [e.slug, e.tr])).toEqual([['squat', 4], ['presse', 3], ['leg_curl', 2], ['mollets', 2], ['abdos', 2]]);
+    expect(r.tient).toBe(true);
+    expect(r.duree_s).toBeLessThanOrEqual(40 * 60);
+  });
+
+  test('⚠️ DISCRIMINANT — la cible inatteignable (il ne reste que les exemptés) : `tient = false`, la durée RÉELLE', () => {
+    const r = M.raccourcirRoutine(GENOU(), 30, EXEMPTES);
+    expect(intact(r, EXEMPTES)).toBe(true);
+    expect(r.tient).toBe(false);
+    expect(r.duree_s).toBe(M.dureeEstimee(r.exercices));            // la durée rendue est celle de la structure, pas la cible
+    expect(r.duree_s).toBeGreaterThan(30 * 60);
+    // Les autres sont coupées jusqu'à leurs planchers (1 série pour une isolation).
+    expect(r.exercices.filter((e) => EXEMPTES.indexOf(e.slug) < 0).map((e) => e.tr)).toEqual([1, 1, 1]);
+    // Une cible encore plus basse ne change rien de plus.
+    expect(vue(M.raccourcirRoutine(GENOU(), 10, EXEMPTES).exercices)).toEqual(vue(r.exercices));
+  });
+
+  test('un exempté n’est jamais dans le journal : ni une série, ni un retrait, ni une dégressive', () => {
+    [45, 40, 30, 20].forEach((cible) => {
+      const r = M.raccourcirRoutine(GENOU(), cible, EXEMPTES);
+      expect(r.journal.filter((j) => EXEMPTES.indexOf(j.slug) >= 0)).toEqual([]);
+    });
+  });
+
+  test('un exempté peut COUVRIR le muscle d’un autre : l’autre se retire, l’exempté reste entier', () => {
+    // Le squat (exempté) a les quadriceps pour muscle principal ; l’extension de jambes n'en a que lui : retirable.
+    const s = [ex('squat', { prim: ['quadriceps'], ch: 1, tr: 4 }), ex('extension', { prim: ['quadriceps'], tr: 1 }),
+               ex('curl', { prim: ['biceps'], tr: 3 })];
+    const r = M.raccourcirRoutine(s, 10, ['squat']);
+    expect(r.exercices[0]).toMatchObject({ slug: 'squat', ch: 1, tr: 4 });
+    expect(r.exercices[1].tr).toBe(0);                                // retiré (couvert par l'exempté)
+    expect(r.tient).toBe(false);
+  });
+
+  test('par défaut (rien, `undefined`, `null`, `[]`, autre chose qu’une liste) : le comportement de TOUJOURS, cas par cas', () => {
+    CAS.cas.filter((c) => c.cible_min !== null).forEach((c) => {
+      const ref = M.raccourcirRoutine(c.routine, c.cible_min);
+      [undefined, null, [], 'squat', {}, 7].forEach((vide) => {
+        expect(M.raccourcirRoutine(c.routine, c.cible_min, vide)).toEqual(ref);
+      });
+    });
+  });
+
+  test('⚠️ sur les 20 cas de la référence : tout exempté sort identique, quel que soit le sous-ensemble exempté', () => {
+    CAS.cas.filter((c) => c.cible_min !== null).forEach((c) => {
+      const slugs = c.routine.map((e) => e.slug);
+      [slugs, slugs.filter((_, i) => i % 2 === 0), slugs.filter((_, i) => i % 2 === 1), slugs.slice(0, 1)].forEach((exempt) => {
+        const r = M.raccourcirRoutine(c.routine, c.cible_min, exempt);
+        c.routine.forEach((avant, i) => {
+          if (exempt.indexOf(avant.slug) < 0) return;
+          const e = r.exercices[i];
+          expect([e.ch, e.tr, e.deg, e.duree]).toEqual([avant.ch, avant.tr, avant.deg, avant.duree === undefined ? null : avant.duree]);
+        });
+        expect(r.duree_s).toBe(M.dureeEstimee(r.exercices));
+        expect(r.tient).toBe(r.duree_s <= c.cible_min * 60);
+      });
+    });
+  });
+
+  test('pure : la structure et la liste des exemptés reçues ne sont jamais modifiées', () => {
+    const st = GENOU(), liste = ['squat', 'presse'];
+    const avant = JSON.stringify([st, liste]);
+    M.raccourcirRoutine(st, 30, liste);
+    expect(JSON.stringify([st, liste])).toBe(avant);
+  });
+});
+
 // ══ 2. LES CONSTANTES : DES VALEURS PAR DÉFAUT, UNE SEULE FOIS ══════════════
 
 describe('51-1 bis — les constantes de l’estimation sont des valeurs par défaut, définies une fois', () => {

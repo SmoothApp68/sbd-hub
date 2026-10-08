@@ -7806,6 +7806,10 @@
   // « C'est mon maximum », « Moins en ce moment », « Ça varie » + une durée déclarée : chaque séance passe par
   // `raccourcirRoutine`, qui coupe les dernières séries (jamais un muscle). Une seule fois, à l'ouverture : les
   // séries restent ensuite celles de la place, que la personne change ou non l'exercice.
+  //
+  // R4/R6 (60-5) : les exercices dont la place charge une zone à ménager sont EXEMPTÉS (`exemptsDuRaccourci`) — leurs
+  // séries ne sont jamais coupées, le temps se prend sur les autres ; s'il ne reste qu'eux, la cible n'est pas tenue
+  // et l'aperçu montre la durée réelle (`lectureDuProgramme` la lit sur la structure écrite, jamais sur la cible).
   function raccourcirLeProgramme(routinesDuProgramme) {
     var cible = Moteur.cibleDuProgramme(profil && profil.temps_reponse, profil && profil.duree_seance_min,
       profil && profil.intention);
@@ -7814,7 +7818,7 @@
     return routinesDuProgramme.map(function (rt) {
       var st = Routines.routineDeduite(deduiteDuProgramme(rt), { exercices: local.exercices, routines: routines, existants: noms });
       var S = Moteur.structureDeRoutine(brouillonDeStructure(st, st.nom, null).exercices, index);
-      var r = Moteur.raccourcirRoutine(S, cible);
+      var r = Moteur.raccourcirRoutine(S, cible, Generateur.exemptsDuRaccourci(rt));
       var lignes = [];
       rt.exercices.forEach(function (l, j) {
         var tr = r.exercices[j] ? r.exercices[j].tr : l.series;
@@ -9076,6 +9080,10 @@
   //
   // Le dossier est le NOM RÉEL écrit à la création (`programme_construit_dossier`) ; « déjà un programme » compte aussi
   // un bloc arrêté ou terminé : la personne a déjà fait ce choix pour ce dossier, la carte ne revient pas.
+  //
+  // Elle rend `{ dossier, seances }` : les séances FAITES depuis les routines du dossier — le fait même qui porte son
+  // seuil de 6, et le seul chiffre qu'elle DIT (« Tu as fait N séances de ton programme. », R5, 60-5). Le calendrier
+  // des 21 jours n'est jamais dit (MOTEUR §9.22) : il ne sert qu'à décider.
   function carteCyclesDuProfil() {
     var p = profil || {};
     var dossier = Profil.dossierDuProgrammeValide(p.programme_construit_dossier);
@@ -9083,24 +9091,26 @@
     var ids = Routines.visibles(routines).filter(function (r) { return Routines.dossierPropre(r.dossier) === dossier; })
       .map(function (r) { return r.id; });
     if (!ids.length) return null;                                      // le dossier a disparu : rien à passer en cycles
+    var seances = faits.seancesDesRoutines(corpus(), ids, p.programme_construit_le);
     var affichee = Generateur.carteCycles({
       objectif: Profil.objectifDe(p),
       joursDepuisCreation: Profil.joursDepuis(p.programme_construit_le, new Date()),
-      seancesDuDossier: faits.seancesDesRoutines(corpus(), ids, p.programme_construit_le),
+      seancesDuDossier: seances,
       estProgramme: (local.blocs || []).some(function (b) { return b && b.dossier === dossier; }),
       carnet: Moteur.coachSeTait(p.intention),
       dejaVue: !!p.carte_cycles_le
     });
-    return affichee ? dossier : null;
+    return affichee ? { dossier: dossier, seances: seances } : null;
   }
 
   function rendreCarteCycles() {
     var noeud = $('carte-cycles');
     if (!noeud) return;
-    var dossier = seance ? null : carteCyclesDuProfil();
-    if (!dossier) { Rendu.rendreBandeauReprise(noeud, null); return; }
+    var carte = seance ? null : carteCyclesDuProfil();
+    if (!carte) { Rendu.rendreBandeauReprise(noeud, null); return; }
+    var dossier = carte.dossier;
     Rendu.rendreBandeauReprise(noeud, {
-      quoi: 'Ton programme tourne depuis ' + (Generateur.CARTE_JOURS / 7) + ' semaines.',
+      quoi: 'Tu as fait ' + carte.seances + ' séances de ton programme.',
       sujet: 'Un bloc de ' + Moteur.SEMAINES_BLOC_DEFAUT + ' semaines en Lourd sur tes barres, la dernière plus légère : ' +
         'c\u2019est là que la force se gagne. On passe en cycles ?',
       libelleQuitter: 'Pas maintenant',

@@ -15542,8 +15542,8 @@ const SETS_IMPORTES = [
     await aller('/saisie');
     await attendre(2200);
     let carte = await carteI();
-    ok('[R60] I — la carte « Passer en cycles » est sur Saisie : le titre et le corps au mot près, deux boutons',
-      carte.visible && carte.quoi === 'Ton programme tourne depuis 3 semaines.' &&
+    ok('[R60] I — la carte « Passer en cycles » est sur Saisie : « Tu as fait 6 séances de ton programme. » (R5), le corps au mot près, deux boutons',
+      carte.visible && carte.quoi === 'Tu as fait 6 séances de ton programme.' &&
         carte.sujet === 'Un bloc de 4 semaines en Lourd sur tes barres, la dernière plus légère : c’est là que la force se gagne. On passe en cycles ?' &&
         JSON.stringify(carte.boutons) === JSON.stringify(['Pas maintenant', 'Passer en cycles']), JSON.stringify(carte));
     const opsAvantRendu = opsProfil();

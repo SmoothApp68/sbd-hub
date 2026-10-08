@@ -359,7 +359,10 @@
   // Des phrases, pas des décisions : l'écran les pose telles quelles. `nommer(slug)` donne le nom de l'exercice
   // (celui de l'app, `THModele.nommer`) ; `entree` est celle qui a construit le programme.
   var POSSESSIF = { epaule: 'ton épaule', dos: 'ton dos', genou: 'ton genou', coude: 'ton coude', hanche: 'ta hanche' };
-  var CORPS = 'poids_du_corps';          // le seul matériel où une barre fixe n'est pas acquise
+  // Les salles ont une barre fixe (R3, 60-5) ; ailleurs — maison équipée, maison minimale, poids du corps, matériel
+  // non renseigné — « maison équipée » ne la garantit pas. La condition est l'EXERCICE présent (`barre_fixe`), jamais
+  // l'étiquette du matériel : celle-ci ne fait que dire où la phrase ne se dit pas.
+  var SALLES = ['salle_complete', 'salle_basique'];
 
   function joindre(noms) {
     if (noms.length < 2) return noms.join('');
@@ -382,7 +385,7 @@
     var e = entree || {}, m = [];
     var zones = zonesDeLigne(l, e.menager);
     if (zones.length) m.push('sans série lourde \u00b7 ' + joindre(zones.map(function (z) { return POSSESSIF[z]; })));
-    if (e.materiel === CORPS && l.barre_fixe) m.push('demande une barre fixe');
+    if (l.barre_fixe && !contient(SALLES, e.materiel)) m.push('demande une barre fixe');
     return m;
   }
 
@@ -398,8 +401,11 @@
         .map(function (l) { return nommer(l.exercise_slug); }));
       if (!noms.length) return;
       var souleve = z === 'dos' && lignes.some(function (l) { return l.motif === 'charniere'; });
-      // Le raccourci de la durée (MOTEUR §9.18) peut avoir coupé des séries d'un exercice ménagé : la phrase ne le
-      // contredit pas (elle ne promet plus « toutes leurs séries »). Une zone à un seul exercice dit « ses séries ».
+      // Le raccourci de la durée (MOTEUR §9.18) ne coupe JAMAIS une série d'un exercice ménagé (60-5, R4/R6 : il en
+      // est exempté). Cette branche n'est pourtant pas morte : « Remplacer » donne à une place déjà raccourcie un
+      // exercice qui, lui, charge la zone (le motif suit l'exercice, `remplacePar`) — la ligne arrive avec ses séries
+      // coupées, `raccourcie` en tête, et la phrase ne promet pas « toutes ses séries ». Une zone à un seul exercice
+      // dit « ses séries ».
       var coupees = lignes.some(function (l) { return l.raccourcie && contient(CHARGE_ZONE[z], l.motif); });
       var phrase = 'Tu ménages ' + POSSESSIF[z] + ' : ' + noms.join(', ') + ', sans série lourde.';
       if (!coupees) {
@@ -409,7 +415,7 @@
       zones.push(phrase);
     });
     var barre = '';
-    if (e.materiel === CORPS) {
+    if (!contient(SALLES, e.materiel)) {
       var fixes = uniques(lignes.filter(function (l) { return l.barre_fixe; }).map(function (l) { return nommer(l.exercise_slug); }));
       if (fixes.length) {
         barre = joindre(fixes) + (fixes.length > 1 ? ' demandent' : ' demande') +
@@ -418,6 +424,14 @@
     }
     // `total` : le nombre de séances du programme, quand toutes ne sont pas encore à créer (une reprise après panne).
     return { titre: (total === undefined ? rts.length : total) + ' séances par semaine.', zones: zones, barreFixe: barre };
+  }
+
+  // ── Ce que le raccourci de la durée ne touche pas (R4/R6, 60-5) ──────────────────────
+  // Les exercices d'une séance dont la place charge une zone à ménager (`menage`, posé par `ligne()` d'après
+  // `CHARGE_ZONE`) : `Moteur.raccourcirRoutine(structure, cible, exemptes)` ne leur coupe aucune série.
+  function exemptsDuRaccourci(routine) {
+    return liste(routine && routine.exercices).filter(function (l) { return l.menage; })
+      .map(function (l) { return l.exercise_slug; });
   }
 
   // ── La carte « Passer en cycles » ────────────────────────────────────────────────
@@ -453,6 +467,7 @@
     pourquoi: pourquoi,
     mentionsDeLigne: mentionsDeLigne,
     phrasesDeLApercu: phrasesDeLApercu,
+    exemptsDuRaccourci: exemptsDuRaccourci,
     carteCycles: carteCycles
   };
 

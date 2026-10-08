@@ -2227,10 +2227,18 @@
   // si la cible tient — une cible inatteignable rend la version la plus courte
   // avec `tient = false` (51-1 bis, T4). Pure ; la structure reçue n'est jamais
   // modifiée.
-  function raccourcirRoutine(structure, cibleMin) {
+  //
+  // `exemptes` (60-5, R6) : des slugs d'exercices que le raccourci ne touche JAMAIS — ni une série, ni la ligne
+  // (le programme construit y met les exercices d'une zone à ménager : « toutes leurs séries gardées », le temps
+  // se prend ailleurs). Sans lui (le défaut), rien n'est exempté : le comportement est celui de toujours. Quand
+  // il ne reste que des exemptés à couper, la cible n'est pas atteinte : `tient = false`, la durée rendue est la
+  // durée RÉELLE.
+  function raccourcirRoutine(structure, cibleMin, exemptes) {
     var r = copieStructure(structure);
     var max = Number(cibleMin) * SECONDES_PAR_MINUTE;
     var journal = [];
+    var libres = Array.isArray(exemptes) ? exemptes : [];
+    var intouchable = function (e) { return libres.indexOf(e.slug) >= 0; };
     var tient = function () { return dureeEstimee(r) <= max; };
     var fin = function () { return { exercices: r, journal: journal, duree_s: dureeEstimee(r), tient: tient() }; };
     var premier = -1;
@@ -2243,7 +2251,7 @@
 
     // 1. le cardio de fin (sans muscle, après le premier rang) : mis à part.
     r.forEach(function (e, i) {
-      if (i === 0 || aDesMuscles(e) || e.ch + e.tr + e.deg === 0) return;
+      if (i === 0 || aDesMuscles(e) || e.ch + e.tr + e.deg === 0 || intouchable(e)) return;
       journal.push({ quoi: 'cardio_fin', i: i, slug: e.slug });
       e.ch = 0; e.tr = 0; e.deg = 0; e.duree = 0;
     });
@@ -2251,7 +2259,7 @@
 
     // 2. le cardio de début (sans muscle, au premier rang) : 3 minutes.
     var e0 = r[0];
-    if (e0 && !aDesMuscles(e0) && enDuree(e0) && e0.tr > 0 && Number(e0.duree) > DUREE_PAR_DEFAUT.cardioDebut) {
+    if (e0 && !intouchable(e0) && !aDesMuscles(e0) && enDuree(e0) && e0.tr > 0 && Number(e0.duree) > DUREE_PAR_DEFAUT.cardioDebut) {
       journal.push({ quoi: 'cardio_debut', i: 0, slug: e0.slug, avant: Number(e0.duree), apres: DUREE_PAR_DEFAUT.cardioDebut });
       e0.duree = DUREE_PAR_DEFAUT.cardioDebut;
     }
@@ -2259,6 +2267,7 @@
 
     // 3. les dégressives, dans l'ordre de la séance.
     for (var k = 0; k < r.length; k++) {
+      if (intouchable(r[k])) continue;
       while (r[k].deg > 0 && !tient()) {
         r[k].deg--;
         journal.push({ quoi: 'degressive', i: k, slug: r[k].slug });
@@ -2273,7 +2282,7 @@
       if (tient()) return fin();
       var choix = -1, cle = null;
       r.forEach(function (e, i) {
-        if (!aDesMuscles(e)) return;
+        if (!aDesMuscles(e) || intouchable(e)) return;
         var p = priorite(e, i);
         if (e.tr <= (p === PRIORITE_ISOLATION ? PLANCHER_ISOLATION : PLANCHER_COMPOSE)) return;
         var c = [p, -e.tr, -i];
@@ -2291,7 +2300,7 @@
       if (tient()) return fin();
       var retire = -1, cleR = null;
       r.forEach(function (e, i) {
-        if (i === premier || !e.prim.length || e.ch + e.tr + e.deg === 0) return;
+        if (i === premier || !e.prim.length || e.ch + e.tr + e.deg === 0 || intouchable(e)) return;
         var couvert = e.prim.every(function (m) {
           return r.some(function (f, j) { return j !== i && f.tr > 0 && f.prim.indexOf(m) >= 0; });
         });

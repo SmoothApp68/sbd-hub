@@ -184,6 +184,75 @@ describe('seancesQuiReviennent — les bornes du §5', () => {
   });
 });
 
+// ═══ 60-5 : LA RÉFÉRENCE FAIT FOI ══════════════════════════════════════════
+// Deux écarts entre le portage et `deduit60b.py`, relevés par un rejeu de 6 000 jeux aléatoires (#387) :
+//   · la médiane des reps ne lit que les séries qui ont AU MOINS UNE répétition (`if x['reps']`) — un échec à
+//     0 rep compte comme série, pas comme « 0 reps » ;
+//   · l'entrée est triée par date PUIS identifiant : deux séances au même instant ne dépendent plus de l'ordre
+//     d'arrivée.
+describe('seancesQuiReviennent — la référence fait foi (60-5)', () => {
+  const mesures = { a: 'charge_reps', b: 'charge_reps' };
+  const seance = (j, series) => ({ id: 's' + j, debut: '2026-09-0' + j + 'T10:00:00Z', titre: 'X',
+    series: series.map((x, i) => ({ rang: i + 1, exercise_slug: x[0], type_serie: x[1], reps: x[2] })) });
+  const cinq = (series) => [1, 2, 3, 4, 5].map((j) => seance(j, series));
+  const exo = (r, slug) => r[0].exercices.filter((e) => e.exercise_slug === slug)[0];
+
+  test('un échec à 0 rep compte comme série et ne fait pas la médiane des reps', () => {
+    // a : une série de travail à 10 reps, puis deux échecs à 0 rep — par séance. Avec les 0 dans la médiane des
+    // reps, 10 valeurs sur 15 sont des 0 : la médiane serait 0.
+    const r = R.seancesQuiReviennent(
+      cinq([['a', 'travail', 10], ['a', 'echec', 0], ['a', 'echec', 0], ['b', 'travail', 8]]), mesures);
+    expect(r).toHaveLength(1);
+    expect(exo(r, 'a')).toEqual({ exercise_slug: 'a', series: 3, reps: 10, chauffes: 0 });   // 3 séries, 10 reps
+    expect(exo(r, 'b')).toEqual({ exercise_slug: 'b', series: 1, reps: 8, chauffes: 0 });
+  });
+
+  test('un exercice dont aucune série n’a de répétition : ses séries comptent, ses reps sont nulles', () => {
+    const r = R.seancesQuiReviennent(
+      cinq([['a', 'travail', 10], ['b', 'echec', 0], ['b', 'echec', '0'], ['b', 'echec', null]]), mesures);
+    expect(exo(r, 'b')).toEqual({ exercise_slug: 'b', series: 3, reps: null, chauffes: 0 });
+    expect(exo(r, 'a').reps).toBe(10);
+  });
+
+  // Le plus petit jeu trouvé par le rejeu (jeu 1373, minimisé) : deux séances au MÊME instant (…-003 et …-005),
+  // arrivées dans l'ordre 005, 003. La référence les trie par identifiant (003, 005) et rend une routine ;
+  // le portage d'avant, qui gardait l'ordre d'arrivée, n'en rendait aucune — et l'inverse dans l'autre sens.
+  const T = (id, debut, titre, series) => ({ id: id, debut: debut, titre: titre,
+    series: series.map((x, i) => ({ rang: i + 1, exercise_slug: x[0], type_serie: x[1] || 'travail', reps: null })) });
+  const EGALITE = [
+    T('c1373-000', '2026-02-12T09:17:00+00:00', 'B', [['e1'], ['e2']]),
+    T('c1373-005', '2026-01-07T13:37:19+00:00', 'A', [['e4'], ['e1'], ['e2'], ['e6']]),
+    T('c1373-003', '2026-01-07T13:37:19+00:00', 'A', [['e4'], ['e2']]),
+    T('c1373-004', '2026-01-01T17:10:00+00:00', 'A', [['e1'], ['e2', 'echec'], ['e3'], ['e4'], ['e5']])
+  ];
+  const MESURES_EGALITE = { e1: 'charge_reps', e2: 'charge_reps', e3: 'reps', e4: 'charge_reps', e5: 'charge_reps', e6: 'charge_reps' };
+  // La sortie de `deduit60b.py` sur ce jeu (rejouée avec la référence, les deux ordres d'arrivée).
+  const ATTENDU_EGALITE = [{ nom: 'A', fois: 4, derniere: '2026-02-12', cochee: true, exercices: [
+    { exercise_slug: 'e1', series: 1, reps: null, chauffes: 0 },
+    { exercise_slug: 'e4', series: 1, reps: null, chauffes: 0 },
+    { exercise_slug: 'e2', series: 1, reps: null, chauffes: 0 }] }];
+
+  test('deux séances au même instant : le même résultat dans les deux ordres d’arrivée, celui de la référence', () => {
+    const copie = () => JSON.parse(JSON.stringify(EGALITE));
+    expect(R.seancesQuiReviennent(copie(), MESURES_EGALITE)).toStrictEqual(ATTENDU_EGALITE);
+    expect(R.seancesQuiReviennent(copie().reverse(), MESURES_EGALITE)).toStrictEqual(ATTENDU_EGALITE);
+  });
+
+  test('l’identifiant ne départage que des séances au même instant : la date reste première', () => {
+    // 'z' est plus ancienne que 'a' : la date l'emporte sur l'identifiant.
+    const x = [T('z', '2026-01-01T10:00:00Z', 'T', [['e1'], ['e2']]), T('a', '2026-01-02T10:00:00Z', 'T', [['e1'], ['e2']]),
+               T('b', '2026-01-03T10:00:00Z', 'T', [['e1'], ['e2']]), T('c', '2026-01-04T10:00:00Z', 'T', [['e1'], ['e2']])];
+    const attendu = R.seancesQuiReviennent(x, MESURES_EGALITE);
+    expect(attendu.map((r) => r.derniere)).toEqual(['2026-01-04']);
+    expect(R.seancesQuiReviennent(x.slice().reverse(), MESURES_EGALITE)).toStrictEqual(attendu);
+  });
+
+  test('une séance sans identifiant ne casse pas le tri (les faits en portent toujours un)', () => {
+    const sans = EGALITE.map((s) => ({ debut: s.debut, titre: s.titre, series: s.series }));
+    expect(() => R.seancesQuiReviennent(sans, MESURES_EGALITE)).not.toThrow();
+  });
+});
+
 // ═══ LA STRUCTURE : celle de « En faire une routine » ══════════════════════
 describe('routineDeduite — la structure de « En faire une routine »', () => {
   const CATALOGUE = [

@@ -4116,7 +4116,8 @@
     // une semaine allégée, sa durée allégée. Lue sur `vue.temps`, jamais
     // calculée ici.
     var temps = v.temps ? v.temps(r) : null;
-    if (temps && temps.texte) carte.appendChild(el('div', 'routine-duree', temps.texte));
+    // 60-2b — « Ça varie » : l'estimation qui dépasse la durée visée s'écrit en couleur du coach.
+    if (temps && temps.texte) carte.appendChild(el('div', 'routine-duree' + (temps.ambre ? ' depasse' : ''), temps.texte));
     carte.disabled = !!v.reorganiser;
     carte.addEventListener('click', function () { if (!v.reorganiser && v.surChoix) v.surChoix(r.id); });
 

@@ -117,6 +117,7 @@ const GARDEES = [
   // moteur.js — la règle de volume, la place pour une série de plus (§14.6, 49-U16)
   { fn: 'placeDeVolume', module: 'moteur.js' },
   { fn: 'placePourExercice', module: 'moteur.js' },
+  { fn: 'musclesParPriorite', module: 'moteur.js' },
   // moteur.js — l'escalier, la série de plus (§14.7, 49-U17)
   { fn: 'marcheProposee', module: 'moteur.js' },
   { fn: 'serieDePlusProposee', module: 'moteur.js' },
@@ -750,7 +751,7 @@ const NOTIONS = [
   { notion: 'le silence du coach au profil (« Juste un carnet », MOTEUR I13 : le plan, la semaine allégée annoncée, le badge et la carte de fin de bloc)', pr: '60-U2',
     module: 'moteur.js', fonction: 'coachSeTait', lecteurs: ['plan.js', 'app.js'],
     parAilleurs: { 'plan.js': ['planDeSeance', 'verifierSilenceDuProgramme'],
-                   'app.js': ['semaineAllegeeEnCours', 'programmeDuDossierCalcule'] },
+                   'app.js': ['semaineAllegeeEnCours', 'programmeDuDossierCalcule', 'rendreBandeauPhase'] },
     // La forme écrite à la main, hors du moteur : l'intention du PROFIL comparée à
     // « entretien » (`profil.intention === 'entretien'`), ou `intentionDe` appelée
     // avec le profil seul (`intentionDe(profil && profil.intention, null)`).
@@ -764,7 +765,33 @@ const NOTIONS = [
     parAilleurs: { 'questionnaire.js': ['champsDeLEcran'], 'app.js': ['ecrireReponse'] },
     raison: 'QUESTIONNAIRE-COACH-V2 §6 : le questionnaire (un écran à la fois) et le Profil (une ligne à la ' +
       'fois) écrivent la même chose — `objectif_depuis` suit un objectif qui change, une réponse inchangée ' +
-      'n’écrit rien. Deux préparations auraient fini par dater différemment.' }
+      'n’écrit rien. Deux préparations auraient fini par dater différemment.' },
+  // ── 60-2b — LES LECTEURS DE L'OBJECTIF ────────────────────────────────────
+  { notion: 'la zone proposée pour le premier bloc d’un programme (elle suit l’objectif, MOTEUR §9.22)', pr: '60-U4',
+    module: 'moteur.js', fonction: 'zoneDuPremierBloc', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['ouvrirProgramme'] },
+    raison: 'MOTEUR §9.22 (60-2b) : Force et Les deux proposent Lourd, le reste Mix. `ouvrirProgramme` écrivait ' +
+      'Mix d’office ; la règle vit dans le moteur, l’écran ne la recopie pas.' },
+  { notion: 'l’objectif gelé de la séance (lu une fois, avec la phase ; entre dans le fondement des paris, I40)', pr: '60-U5',
+    module: 'profil.js', fonction: 'objectifGele', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['objectifDeLaSeance'] },
+    raison: 'MOTEUR §9.16 (60-2b) : jumeau de la phase gelée. Lu en direct, un changement d’objectif dans Profil ' +
+      'en pleine séance ferait dériver les paris d’une même séance (I40) ; `null` est une valeur, pas une absence.' },
+  { notion: 'les priorités gelées de la séance (lues une fois, avec la phase ; décident la place d’un muscle prioritaire)', pr: '60-U6',
+    module: 'profil.js', fonction: 'prioritesGelees', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['prioritesDeLaSeance'] },
+    raison: 'MOTEUR §14.6 (60-2b) : jumelle de la phase gelée. Lues en direct, cocher une priorité dans Profil en ' +
+      'pleine séance ferait apparaître ou disparaître une carte de série de plus (I12 : le mémo du plan ne voit pas le profil).' },
+  { notion: 'le rappel de phase (une phase déclarée dont la dernière réponse date de 42 jours ou plus)', pr: '60-U7',
+    module: 'profil.js', fonction: 'rappelDePhase', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['rendreBandeauPhase'] },
+    raison: 'MOTEUR §9.16 (60-2b) : le seuil des 42 jours et le choix de la date (`phase_confirmee_le`, sinon ' +
+      '`phase_depuis`) vivent dans une règle pure ; le bandeau de Saisie la lit, il ne recalcule pas l’âge d’une phase.' },
+  { notion: 'ce que la réponse « temps » déclenche sur une routine (la carte d’office pour « moins », l’ambre pour « varie »)', pr: '60-U8',
+    module: 'moteur.js', fonction: 'reponseDeTemps', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['tempsDeLaRoutine'] },
+    raison: 'MOTEUR §9.18 (60-2b) : la condition (durée visée déclarée, estimation au-dessus, pas de carnet) et ce que chaque ' +
+      'réponse en fait vivent dans le moteur ; `tempsDeLaRoutine` la lit, ni l’écran ni la rangée ne comparent une durée à la main.' }
 ];
 
 // ── 58-1 — UN FAIT NE SE DÉCLARE QUE DANS `faits.js` ─────────────────────────

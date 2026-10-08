@@ -2451,6 +2451,30 @@
       .map(function (m) { return { min: m, declaree: false }; });
   }
 
+  // CE QUE LA PERSONNE A DIT DE SON TEMPS, lu sur une routine (MOTEUR §9.18, 60-2b).
+  // Seulement quand une durée visée est DÉCLARÉE et que l'estimation la dépasse
+  // (`ciblesDeTemps` : la cible déclarée existe) — la semaine allégée est écartée
+  // avant, par l'appelant ; « Juste un carnet » se tait ici (le coach ne propose rien).
+  //   · `moins` (« J'ai moins de temps en ce moment ») : la carte de « J'ai peu de temps »
+  //     s'ouvre d'elle-même à la durée visée — `ouvrir` donne cette durée, en minutes ;
+  //   · `varie` (« Ça varie beaucoup ») : AUCUNE question avant « Démarrer » (un geste de
+  //     plus à chaque séance, qu'on finit par fermer sans lire) ; l'estimation se montre
+  //     en couleur du coach, pour que le dépassement se voie — `ambre` ;
+  //   · `max`, `marge`, vide : rien en séance (le générateur de programme les lira).
+  // Rend `{ ouvrir: minutes | null, ambre: booléen }`.
+  function reponseDeTemps(tempsReponse, dureeS, declareeMin, intentionProfil) {
+    var rien = { ouvrir: null, ambre: false };
+    if (coachSeTait(intentionProfil)) return rien;
+    var cibles = ciblesDeTemps(dureeS, declareeMin);
+    if (!cibles.length || !cibles[0].declaree) return rien;
+    // L'ESTIMATION AFFICHÉE (arrondie à la minute) doit dépasser la durée visée : 3 610 s
+    // s'écrit « 60 min » — ni carte « tenir en 60 min » ni ambre pour une durée qui ne dépasse pas.
+    if (minutesDe(dureeS) <= cibles[0].min) return rien;
+    if (tempsReponse === 'moins') return { ouvrir: cibles[0].min, ambre: false };
+    if (tempsReponse === 'varie') return { ouvrir: null, ambre: true };
+    return rien;
+  }
+
   // Le libellé d'une cible, dans la feuille « J'ai peu de temps » : « 45 min »,
   // ou « Tenir en 60 min » quand c'est la durée de la personne.
   function libelleCibleTemps(cible) {
@@ -4651,6 +4675,16 @@
     });
   }
 
+  // LA ZONE PROPOSÉE POUR LE PREMIER BLOC (MOTEUR §9.22, 60-2b) : elle suit
+  // l'OBJECTIF du questionnaire — Force ou Les deux → Lourd (la force se travaille
+  // lourde) ; Muscle, Forme ou sans réponse → Mix (le défaut d'avant). Une
+  // PROPOSITION : la feuille du programme la laisse modifiable. Elle ne vaut que pour
+  // un premier bloc ; le suivant garde sa règle fixe (`blocSuivant`). Pure, sans
+  // lire le profil : l'appelant passe l'objectif.
+  function zoneDuPremierBloc(objectif) {
+    return objectif === 'force' || objectif === 'les_deux' ? 'lourd' : 'mix';
+  }
+
   // LE BLOC SUIVANT, PAR UNE RÈGLE FIXE (Mix → Lourd → Mix…, mêmes durée et
   // exercices, une décharge à chaque fin) — JAMAIS DÉDUITE DU BLOC PASSÉ (§20.1).
   function blocSuivant(bloc) {
@@ -4661,12 +4695,24 @@
 
   // LES EXERCICES PAR DÉFAUT : les barres polyarticulaires (au moins 3 muscles
   // principaux et secondaires, `estPolyarticulaire`) des routines du dossier,
-  // dans l'ordre, sans doublon. `catalogue` : `{ [slug]: { equipement,
-  // muscles_primaires, muscles_secondaires } }`.
-  function exercicesParDefaut(slugs, catalogue) {
+  // dans l'ordre, sans doublon — PLUS les exercices prioritaires du
+  // questionnaire (MOTEUR §9.22, 60-2b) qui sont dans ces routines, même hors
+  // barre : la force se travaille lourde sur l'exercice qu'on veut améliorer.
+  // `catalogue` : `{ [slug]: { equipement, muscles_primaires,
+  // muscles_secondaires } }` ; `priorites` : `profiles.priorites` tel que la
+  // base le donne (des slugs d'exercice ET des clés de zone — seuls les slugs
+  // des routines comptent ; une priorité absente des routines ne fait rien, une
+  // valeur qui n'est pas une liste non plus). Toujours décochable : ce n'est
+  // qu'une coche de départ.
+  function exercicesParDefaut(slugs, catalogue, priorites) {
     var vus = {};
+    var voulus = {};
+    (Array.isArray(priorites) ? priorites : []).forEach(function (p) {
+      if (typeof p === 'string') voulus[p] = true;
+    });
     return (slugs || []).filter(function (slug) {
       if (!slug || vus[slug]) return false;
+      if (Object.prototype.hasOwnProperty.call(voulus, slug)) { vus[slug] = true; return true; }
       var e = catalogue && Object.prototype.hasOwnProperty.call(catalogue, slug) ? catalogue[slug] : null;
       if (!e || e.equipement !== 'barre' || e.charge === 'ajoutee') return false;
       if (!estPolyarticulaire({ prim: e.muscles_primaires, sec: e.muscles_secondaires })) return false;
@@ -5209,10 +5255,12 @@
     return sortie;
   }
 
-  // « Tes pectoraux restent », « ton grand dorsal reste », « tes biceps et ton
-  // grand dorsal restent ». `muscles` : `[{ cle, libelle }]` (le libellé du
-  // catalogue), dans l'ordre de l'exercice.
-  function sujetDesMuscles(muscles) {
+  // Les noms des muscles, accordés : « tes pectoraux », « ton grand dorsal »,
+  // « tes biceps et ton grand dorsal » (la première lettre en majuscule, le
+  // début d'une phrase). `muscles` : `[{ cle, libelle }]` (le libellé du
+  // catalogue), dans l'ordre de l'exercice. `pluriel` : le verbe qui suit
+  // s'accorde au pluriel ; `plusieurs` : il y a plus d'un muscle.
+  function motsDesMuscles(muscles) {
     var l = (muscles || []).map(function (m) {
       var lib = String(m.libelle || m.cle || '');
       var sing = MUSCLES_SINGULIERS.indexOf(m.cle) >= 0;
@@ -5222,17 +5270,40 @@
     var liste = l.length > 1
       ? l.slice(0, -1).map(function (x) { return x.mots; }).join(', ') + ' et ' + l[l.length - 1].mots
       : l[0].mots;
-    var pluriel = l.length > 1 || !l[0].sing;
-    return liste.charAt(0).toUpperCase() + liste.slice(1) +
-      (pluriel ? ' restent sous leur volume habituel.' : ' reste sous son volume habituel.');
+    return { texte: liste.charAt(0).toUpperCase() + liste.slice(1),
+             pluriel: l.length > 1 || !l[0].sing, plusieurs: l.length > 1 };
+  }
+
+  // « Tes pectoraux restent », « ton grand dorsal reste », « tes biceps et ton
+  // grand dorsal restent ».
+  function sujetDesMuscles(muscles) {
+    var s = motsDesMuscles(muscles);
+    if (!s) return null;
+    return s.texte + (s.pluriel ? ' restent sous leur volume habituel.' : ' reste sous son volume habituel.');
+  }
+
+  // LA PHRASE DE LA PRIORITÉ (MOTEUR §14.7, 60-2b) : quand un muscle n'a de
+  // place que parce qu'il est prioritaire — au-dessus de son troisième quartile,
+  // sous son plus haut volume. « Tes pectoraux sont ta priorité : je te laisse
+  // aller jusqu'à ton plus haut volume. » ; au singulier « Ton grand dorsal est
+  // ta priorité » ; plusieurs muscles prioritaires, « sont tes priorités ».
+  // `muscles` : ceux dont la place ne vient que de la priorité.
+  function sujetDesPriorites(muscles) {
+    var s = motsDesMuscles(muscles);
+    if (!s) return null;
+    return s.texte + (s.plusieurs ? ' sont tes priorités' : (s.pluriel ? ' sont ta priorité' : ' est ta priorité')) +
+      ' : je te laisse aller jusqu\'à ton plus haut volume.';
   }
 
   // LA CARTE DE LA SÉRIE DE PLUS, sous l'exercice : la phrase du meilleur (avec
   // « et tes autres exercices avancent » ou un point), le détail, les deux
-  // boutons, et le gris qui suivra l'acceptation.
-  function carteSerieDePlus(meilleur, compteur, avancent, muscles) {
+  // boutons, et le gris qui suivra l'acceptation. `parPriorite` : les muscles
+  // de l'exercice dont la place ne vient QUE de la priorité (60-2b) — s'il y
+  // en a, le détail le dit à la place de « restent sous leur volume habituel ».
+  function carteSerieDePlus(meilleur, compteur, avancent, muscles, parPriorite) {
     if (!meilleur || meilleur.niveau === null || meilleur.niveau === undefined) return null;
-    var sujet = sujetDesMuscles(muscles);
+    var sujet = (parPriorite && parPriorite.length ? sujetDesPriorites(parPriorite) : null) ||
+      sujetDesMuscles(muscles);
     return {
       type: MARCHE_SERIE_DE_PLUS,
       phrase: meilleurDepuis(meilleur, compteur) + (avancent ? ', et tes autres exercices avancent.' : '.'),
@@ -5270,8 +5341,9 @@
   // à chaque semaine active, sur les 3 dernières semaines actives de la même
   // époque (une semaine vide ne compte pas et ne casse pas la fenêtre) ; la
   // dernière est celle d'aujourd'hui, les précédentes de l'époque sont la
-  // référence. Rend `{ place, moyenne, seuil, fenetres }` (`fenetres` : le
-  // nombre de fenêtres de référence), ou `null` : pas de base — moins de 6
+  // référence. Rend `{ place, moyenne, seuil, max, fenetres }` (`fenetres` : le
+  // nombre de fenêtres de référence ; `max` : la plus haute d'entre elles, le
+  // plafond d'un muscle prioritaire — 60-2b), ou `null` : pas de base — moins de 6
   // fenêtres de référence, ou une époque qui n'a pas encore 3 semaines actives
   // (4 semaines vides juste avant la séance en ouvrent une).
   function placeDeVolume(semaines) {
@@ -5290,20 +5362,51 @@
     if (vides >= VIDES_NOUVELLE_EPOQUE || derniere === null || ref.length < FENETRES_DE_BASE) return null;
     var tri = ref.slice().sort(function (x, y) { return x - y; });
     var seuil = tri[Math.ceil(QUARTILE_VOLUME * tri.length) - 1];
-    return { place: derniere <= seuil + 1e-9, moyenne: derniere, seuil: seuil, fenetres: ref.length };
+    return { place: derniere <= seuil + 1e-9, moyenne: derniere, seuil: seuil, max: tri[tri.length - 1],
+             fenetres: ref.length };
+  }
+
+  // LA PLACE D'UN MUSCLE (§14.6) : `'normale'` (la dernière fenêtre ne dépasse
+  // pas le troisième quartile), `'priorite'` (elle le dépasse mais pas le plus
+  // haut volume de la même époque, et le muscle est prioritaire — 60-2b : jamais
+  // au-delà de ce que la personne a déjà fait), ou `null`. Sans base (`null`) ou
+  // sans `max` (le démonstrateur n'en fabrique pas), pas de place par priorité.
+  function placeDuMuscle(v, prioritaire) {
+    if (!v) return null;
+    if (v.place === true) return 'normale';
+    var m = nombre(v.moyenne);
+    var x = nombre(v.max);
+    return prioritaire && m !== null && x !== null && m <= x + 1e-9 ? 'priorite' : null;
   }
 
   // POUR UN EXERCICE : de la place sur CHACUN de ses muscles primaires. Un seul
   // muscle sans base (`null`, absent) ou sans place, et pas de place — se taire
   // faute de donnée, comme le repli (§14.2). Sans muscle primaire connu : non.
-  // `volume` : `{ [muscle]: placeDeVolume(...) | null }`.
-  function placePourExercice(volume, primaires) {
+  // `volume` : `{ [muscle]: placeDeVolume(...) | null }` ; `prioritaires` : ceux
+  // des muscles primaires qui sont prioritaires (60-2b) — leur place va jusqu'au
+  // plus haut volume (`max`), pas au troisième quartile.
+  function placeDesMuscles(volume, primaires, prioritaires) {
     var p = primaires || [];
-    if (!volume || !p.length) return false;
-    return p.every(function (m) {
+    var pr = prioritaires || [];
+    if (!volume || !p.length) return null;
+    return p.map(function (m) {
       var v = Object.prototype.hasOwnProperty.call(volume, m) ? volume[m] : null;
-      return !!v && v.place === true;
+      return placeDuMuscle(v, pr.indexOf(m) >= 0);
     });
+  }
+
+  function placePourExercice(volume, primaires, prioritaires) {
+    var l = placeDesMuscles(volume, primaires, prioritaires);
+    return !!l && l.every(function (x) { return x !== null; });
+  }
+
+  // Les muscles primaires dont la place ne vient QUE de la priorité — pour la
+  // phrase de la carte. Vide quand l'exercice n'a pas de place (la carte n'existe
+  // pas) ou quand aucun muscle n'en a besoin.
+  function musclesParPriorite(volume, primaires, prioritaires) {
+    if (!placePourExercice(volume, primaires, prioritaires)) return [];
+    var l = placeDesMuscles(volume, primaires, prioritaires);
+    return (primaires || []).filter(function (m, i) { return l[i] === 'priorite'; });
   }
 
   // ══ §9.17 — LE LEST : SON DÉPART, ET LA CARTE QUI Y MÈNE ═════════════════════
@@ -6058,7 +6161,7 @@
     structureAllegee: structureAllegee,
     appliquerRaccourci: appliquerRaccourci,
     texteDureeEstimee: texteDureeEstimee,
-    ciblesDeTemps: ciblesDeTemps,
+    ciblesDeTemps: ciblesDeTemps, reponseDeTemps: reponseDeTemps,
     libelleCibleTemps: libelleCibleTemps,
     CIBLES_TEMPS_PAR_DEFAUT: CIBLES_TEMPS_PAR_DEFAUT,
     texteDureeAllegee: texteDureeAllegee,
@@ -6132,6 +6235,7 @@
     carteSerieDePlus: carteSerieDePlus,
     consigneSerieDePlus: consigneSerieDePlus,
     placePourExercice: placePourExercice,
+    musclesParPriorite: musclesParPriorite,
     situationChauffe: situationChauffe,
     chauffesDe: chauffesDe,
     degressiveDe: degressiveDe,
@@ -6197,6 +6301,7 @@
     dechargeDuJour: dechargeDuJour,
     periodesDecharge: periodesDecharge,
     zonesPosees: zonesPosees,
+    zoneDuPremierBloc: zoneDuPremierBloc,
     blocSuivant: blocSuivant,
     exercicesParDefaut: exercicesParDefaut,
     bilanDuBloc: bilanDuBloc,

@@ -259,6 +259,50 @@
     return q ? 'Depuis ' + q : null;
   }
 
+  // ══ LE RAPPEL DE PHASE (MOTEUR §9.16, 60-2b) ═════════════════════════════
+  //
+  // Une phase se déclare, puis elle dure : la plupart vont de 8 à 16 semaines. Au
+  // bout de 6 semaines, on la redemande — par un bandeau, sans question (§20.2).
+  // `phase_confirmee_le` est la date de la dernière réponse (le questionnaire, le
+  // Profil, le bandeau lui-même) ; à défaut, `phase_depuis`. Sans phase déclarée
+  // (`profiles.phase` vide : « maintien » par défaut), rien à confirmer.
+  var RAPPEL_PHASE_JOURS = 42;
+
+  // Le numéro du jour CALENDRIER LOCAL d'un instant (Date, ISO complet ou date
+  // seule `AAAA-MM-JJ`), ou `null` s'il est illisible. Comme `quand` : l'écart se
+  // compte en jours du calendrier, pas en heures — 42 jours à cheval sur un
+  // changement d'heure valent 42 jours, pas 41 jours et 23 h.
+  function jourCalendaire(v) {
+    if (v === null || v === undefined || v === '') return null;
+    var d = v instanceof Date ? v : new Date(/^\d{4}-\d{2}-\d{2}$/.test(String(v)) ? String(v) + 'T00:00:00' : v);
+    if (isNaN(d.getTime())) return null;
+    return Math.round(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000);
+  }
+
+  // Vrai quand une phase est DÉCLARÉE et que sa dernière confirmation date de
+  // 42 jours calendaires ou plus. Faux sans date lisible, avec une date dans le
+  // futur, ou sans phase déclarée. `aujourdhui` : l'horloge, passée pour les tests.
+  function rappelDePhase(profil, aujourdhui) {
+    var p = profil || {};
+    if (PHASES_EN_BASE.indexOf(p.phase) < 0) return false;
+    var depuis = jourCalendaire(p.phase_confirmee_le || p.phase_depuis);
+    var auj = jourCalendaire(aujourdhui === undefined ? new Date() : aujourdhui);
+    if (depuis === null || auj === null) return false;
+    return auj - depuis >= RAPPEL_PHASE_JOURS;
+  }
+
+  // « Sèche depuis le 28 sept. » : la phase, puis la date où elle a été déclarée
+  // (`phase_depuis`, par le formateur de la voix `quand`). Sans cette date — une
+  // phase posée par le questionnaire sur un profil qui n'en avait pas —, la phase
+  // seule : on ne ment pas sur un « depuis ».
+  function phraseRappelDePhase(profil) {
+    var p = profil || {};
+    if (PHASES_EN_BASE.indexOf(p.phase) < 0) return null;
+    var nom = libelleDe(PHASES, p.phase);
+    var q = p.phase_depuis && racine.THModele ? racine.THModele.quand(p.phase_depuis) : '';
+    return q ? nom + ' depuis ' + q : nom + '.';
+  }
+
   // LE GEL (MOTEUR §9.16) : la phase d'une séance se lit UNE fois et ne bouge
   // plus. `gel` : `{ seanceId, phase }`, le gel en cours ou `null` ; `sauvee` :
   // la phase gelée relue du disque pour cette séance (rechargement), ou `null`.
@@ -269,12 +313,32 @@
     return { seanceId: seanceId, phase: PHASES_EN_BASE.indexOf(sauvee) >= 0 ? sauvee : phaseDe(profil) };
   }
 
+  // L'OBJECTIF EFFECTIF d'un profil (MOTEUR §9.16, 60-2b) : l'une des quatre
+  // valeurs de la contrainte `profiles_objectif_ok`, sinon `null` — « sans
+  // réponse ». PAS de défaut, contrairement à la phase : un vide est une réponse
+  // (rien n'est supposé), et le fondement des paris le dit tel quel.
+  function objectifDe(profil) {
+    var v = profil && profil.objectif;
+    return dansLaListe(OBJECTIFS, v) ? v : null;
+  }
+
+  // LE GEL de l'objectif, jumeau de `phaseGelee` : lu UNE fois et gelé pour la
+  // séance (MOTEUR §9.16, I40). `gel` : `{ seanceId, objectif }` ou `null` ;
+  // `sauvee` : l'objectif gelé relu du disque pour cette séance. ⚠️ `null` est une
+  // valeur LÉGITIME (« sans réponse ») : `undefined` seul veut dire « rien de
+  // sauvé » (séance gelée avant 60-2b) — alors, l'objectif du profil maintenant.
+  function objectifGele(gel, seanceId, sauvee, profil) {
+    if (gel && gel.seanceId === seanceId) return gel;
+    var gardee = sauvee === null || (sauvee !== undefined && dansLaListe(OBJECTIFS, sauvee));
+    return { seanceId: seanceId, objectif: gardee ? sauvee : objectifDe(profil) };
+  }
+
   // ── LA SECTION « TA PHASE », À CÔTÉ DU RYTHME ────────────────────────────
   //
   // Le même composant et la même écriture que « Ton rythme » (`ecrire` =
   // `ecrireProfil`, local d'abord puis la file du profil). Elle existe aussi
   // en Entretenir : la phase est un fait sur l'utilisateur, pas un réglage du
-  // moteur de charge. Choisir écrit `phase` ET `phase_depuis` (maintenant).
+  // moteur de charge. Choisir écrit `phase`, `phase_depuis` ET `phase_confirmee_le` (maintenant).
   // `maintenant` : l'horloge, passée pour les tests.
   function sectionPhase(profil, ecrire, maintenant) {
     var p = profil || {};
@@ -288,7 +352,14 @@
         deuxColonnes: true,
         surChoix: function (v) {
           var quand = typeof maintenant === 'function' ? maintenant() : new Date();
-          ecrire({ phase: v === 'inconnue' ? null : v, phase_depuis: quand.toISOString() });
+          // 60-2b : TOUTE réponse sur la phase est une confirmation — le rappel de
+          // phase (`rappelDePhase`) compte depuis `phase_confirmee_le`, comme le fait
+          // le questionnaire (`preparerChamps`).
+          // Re-toucher la phase DÉJÀ choisie la confirme seulement : `phase_depuis` (le début de
+          // cette phase, que « depuis N semaines » lit) ne repart pas de zéro.
+          if (v === valeur) { ecrire({ phase_confirmee_le: quand.toISOString() }); return; }
+          ecrire({ phase: v === 'inconnue' ? null : v, phase_depuis: quand.toISOString(),
+                   phase_confirmee_le: quand.toISOString() });
         }
       },
       pied: depuisPhase(p)
@@ -512,10 +583,10 @@
     { cle: 'forme', libelle: 'Forme et santé' }
   ];
 
-  // Les quatre réponses de l'écran « Temps et matériel ». Les phrases qui les
-  // accompagnent à l'écran (« Je te proposerai des séances plus courtes »)
-  // vivent dans le questionnaire : au Profil, aucune phrase promettrait un effet
-  // que rien ne lit encore (60-2b).
+  // Les quatre réponses de l'écran « Temps et matériel ». Les sous-lignes du
+  // questionnaire (« Je te proposerai des séances plus courtes ») vivent dans le
+  // questionnaire ; celles de la feuille du Profil (`AIDE_TEMPS`, `optionsTemps`)
+  // disent ce que le coach fait de la réponse, maintenant que quelque chose la lit.
   var TEMPS_REPONSES = [
     { cle: 'max', libelle: 'C’est mon maximum' },
     { cle: 'marge', libelle: 'J’ai de la marge pour en faire plus' },
@@ -571,6 +642,29 @@
       sortie.push(c);
     });
     return sortie;
+  }
+
+  // LES PRIORITÉS EFFECTIVES d'un profil (MOTEUR §14.6, 60-2b) : la liste de
+  // chaînes que la base donne, sinon aucune — `null` (jamais répondu) et `[]`
+  // (« Pas de priorité ») valent la même chose pour le coach. Elle se LIT sans se
+  // valider (`prioritesValides` garde l'ÉCRITURE) : une valeur ancienne ou inconnue
+  // (un exercice retiré du catalogue, une zone renommée) ne correspond à rien, ni
+  // routine ni zone, donc n'a aucun effet — inoffensive sans qu'on la filtre.
+  function prioritesDe(profil) {
+    var l = profil && profil.priorites;
+    return Array.isArray(l) ? l.filter(function (x) { return typeof x === 'string'; }) : [];
+  }
+
+  // LE GEL des priorités, jumeau de `phaseGelee` : lues UNE fois, gelées pour la
+  // séance — changer une priorité dans Profil en pleine séance ne fait ni
+  // apparaître ni disparaître une carte de série de plus (I12 : le mémo du plan
+  // ne voit pas les priorités). `gel` : `{ seanceId, priorites }` ou `null` ;
+  // `sauvee` : la liste gelée relue du disque (rechargement) — ⚠️ `[]` est une
+  // valeur LÉGITIME ; ce qui n'est pas une liste veut dire « rien de sauvé »
+  // (séance gelée avant 60-2b) : alors, les priorités du profil maintenant.
+  function prioritesGelees(gel, seanceId, sauvee, profil) {
+    if (gel && gel.seanceId === seanceId) return gel;
+    return { seanceId: seanceId, priorites: Array.isArray(sauvee) ? prioritesDe({ priorites: sauvee }) : prioritesDe(profil) };
   }
 
   // Une priorité qu'on touche : on l'ajoute, ou on la retire ; trois au plus (la
@@ -698,10 +792,10 @@
   //
   // Les mêmes réponses que le questionnaire, une ligne à la fois : elles s'écrivent
   // par `preparerChamps` (ci-dessus), donc `objectif_depuis` suit un objectif qui
-  // change, et une réponse inchangée n'écrit rien. SANS PHRASE D'AIDE : les
-  // phrases qui promettaient un effet absent ont été retirées (#382) ; elles
-  // reviendront avec leurs lecteurs (60-2b). `ouvrir(cle)` ouvre la feuille de la
-  // ligne (`objectif`, `priorites`, `temps_reponse`) : le voile vit chez l'appelant.
+  // change, et une réponse inchangée n'écrit rien. Les phrases d'aide (#382 les avait
+  // retirées : elles promettaient un effet absent) sont revenues avec leurs lecteurs
+  // (60-2b) : voir `AIDE_OBJECTIF`, `AIDE_PRIORITES`, `optionsTemps`. `ouvrir(cle)` ouvre
+  // la feuille de la ligne (`objectif`, `priorites`, `temps_reponse`) : le voile vit chez l'appelant.
   function sectionBut(profil, ouvrir) {
     var p = profil || {};
     return {
@@ -713,6 +807,28 @@
           surChoix: function () { ouvrir('priorites'); } }
       ]
     };
+  }
+
+  // LES PHRASES D'AIDE de « Ton but » et « Ton temps » (ECRAN-PROFIL §4 bis, 08/10/2026,
+  // 60-2b) : chaque réponse dit ce que le coach en fait — maintenant que quelque chose la
+  // lit. Elles s'écrivent ICI, une fois : l'écran ne compose aucun mot.
+  //   · Objectif et Priorités : une phrase sous le titre de la feuille ;
+  //   · Ton temps : une sous-ligne par réponse, et seulement pour celles que quelque chose
+  //     lit en séance — « C'est mon maximum » et « J'ai de la marge » n'ont pas de phrase.
+  var AIDE_OBJECTIF = 'Il choisit la zone de ton premier bloc de programme : Lourd pour la force, Mix pour le muscle.';
+  var AIDE_PRIORITES = 'Un exercice prioritaire est coché d’office dans un programme. Un muscle prioritaire peut ' +
+    'recevoir une série de plus jusqu’à ton plus haut volume, hors sèche.';
+  var AIDE_TEMPS = {
+    moins: 'Quand ta routine dépasse ta durée visée, je te propose de la raccourcir dès son ouverture.',
+    varie: 'Quand ta routine dépasse ta durée visée, je te le montre à côté de « J’ai peu de temps ».'
+  };
+
+  // Les quatre réponses de « Ton temps », celles qui ont une phrase la portant en sous-ligne.
+  function optionsTemps() {
+    return TEMPS_REPONSES.map(function (o) {
+      return Object.prototype.hasOwnProperty.call(AIDE_TEMPS, o.cle)
+        ? { cle: o.cle, libelle: o.libelle, sous: AIDE_TEMPS[o.cle] } : { cle: o.cle, libelle: o.libelle };
+    });
   }
 
   // La ligne « Ton temps », sous la durée d'une séance (« Ta semaine »).
@@ -866,7 +982,10 @@
     sectionIntention: sectionIntention,
     RYTHMES: RYTHMES, RYTHME_DEFAUT: RYTHME_DEFAUT,
     rythmeDe: rythmeDe, phraseRythme: phraseRythme, sectionRythme: sectionRythme,
-    PHASES: PHASES, PHASE_DEFAUT: PHASE_DEFAUT, phaseDe: phaseDe, phaseGelee: phaseGelee, sectionPhase: sectionPhase,
+    PHASES: PHASES, RAPPEL_PHASE_JOURS: RAPPEL_PHASE_JOURS,
+    rappelDePhase: rappelDePhase, phraseRappelDePhase: phraseRappelDePhase, PHASE_DEFAUT: PHASE_DEFAUT, phaseDe: phaseDe, phaseGelee: phaseGelee, sectionPhase: sectionPhase,
+    objectifDe: objectifDe, objectifGele: objectifGele,
+    prioritesDe: prioritesDe, prioritesGelees: prioritesGelees,
     DUREES: DUREES, SEANCES_MIN: SEANCES_MIN, SEANCES_MAX: SEANCES_MAX,
     TAILLE_MIN: TAILLE_MIN, TAILLE_MAX: TAILLE_MAX,
     PSEUDO_MIN: PSEUDO_MIN, PSEUDO_MAX: PSEUDO_MAX, MDP_MIN: MDP_MIN,
@@ -886,6 +1005,7 @@
     DUREE_MIN: DUREE_MIN, DUREE_MAX: DUREE_MAX,
     preparerChamps: preparerChamps,
     basculerPriorite: basculerPriorite, libelleDePriorite: libelleDePriorite, resumeDesPriorites: resumeDesPriorites,
+    AIDE_OBJECTIF: AIDE_OBJECTIF, AIDE_PRIORITES: AIDE_PRIORITES, optionsTemps: optionsTemps,
     sectionBut: sectionBut, ligneTemps: ligneTemps, ligneQuestionnaire: ligneQuestionnaire,
     doitOuvrirQuestionnaire: doitOuvrirQuestionnaire,
     questionnaireAFaire: questionnaireAFaire,

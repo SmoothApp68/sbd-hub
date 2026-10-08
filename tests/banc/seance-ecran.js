@@ -8975,6 +8975,193 @@ const SETS_IMPORTES = [
     ok('[U11] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
 
+  console.log('\n══ objectif. L’OBJECTIF ET LES PRIORITÉS, GELÉS POUR LA SÉANCE ; L’OBJECTIF ENREGISTRÉ AVEC CHAQUE PARI (60-2b, MOTEUR §9.16, §14.6, I40) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE, jumelle de celle de la phase (7 G octies) :
+  // l'objectif CHANGÉ EN PLEINE SÉANCE. Un objectif lu en direct et un objectif
+  // gelé donnent les mêmes paris tant que personne ne touche au Profil ; seul le
+  // troisième pari, posé après le changement, les sépare. Puis la séance SUIVANTE,
+  // qui prend le nouveau. Et « sans réponse » : la clé est écrite, à `null`.
+  {
+    const tO = Date.now();
+    [21, 14, 7].forEach((j) => {
+      const id = 'u60b-' + j;
+      const debut = ilYa(j * 86400000, tO).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'O60 — ' + id, debut,
+        fin: finDe(debut, tO).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      [1, 2, 3].forEach((rang) => base.sets.push({ id: id + '-s' + rang, session_id: id, user_id: 'u-banc',
+        exercise_slug: 'presse-u11', charge_kg: 100, reps: 10, duree_s: null, distance_m: null,
+        type_serie: 'travail', rang, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null,
+        repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+    });
+    ROUTINES.push({ id: 'r-o60', nom: 'Objectif O60', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-o60-e', routine_id: 'r-o60', exercise_slug: 'presse-u11', rang: 0,
+        routine_sets: progr(3, 10), repos_cible_s: 90, groupe_superset: null, note: null }] });
+    const depart = base.predictions.length;
+    // Les paris posés par CETTE section, par séance, dans l'ordre : [{ cle?, objectif }]
+    const parisO = () => base.predictions.slice(depart).filter((q) => q.exercise_slug === 'presse-u11' && q.fondement && q.fondement.seance);
+    const objectifs = () => parisO().map((q) => (Object.prototype.hasOwnProperty.call(q.fondement, 'objectif') ? q.fondement.objectif : 'ABSENT'));
+    const parSeanceO = () => {
+      const m = {}, ordre = [];
+      parisO().forEach((q) => {
+        const k = q.fondement.seance;
+        if (!m[k]) { m[k] = []; ordre.push(k); }
+        m[k].push(Object.prototype.hasOwnProperty.call(q.fondement, 'objectif') ? q.fondement.objectif : 'ABSENT');
+      });
+      return ordre.map((k) => m[k]);
+    };
+    const choisirObjectif = async (cle) => {
+      await onglet('profil');
+      await page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
+        .filter((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf('Objectif') === 0)[0].click());
+      await attendre(500);
+      await page.click('#feuille-contenu .feuille-menu button[data-cle="' + cle + '"]');
+      await attendre(1200);
+    };
+    const violationsAvant = gardeBanc.violations;
+    const erreursAvant = erreurs.length;
+
+    // 1. Le profil porte « Les deux » ; une séance, deux séries validées : deux paris à `les_deux`.
+    base.profiles[0].objectif = 'les_deux';
+    await aller('/saisie');
+    await demarrerRoutine('Objectif O60');
+    await attendre(900);
+    await saisirSerie(0, 100, 10);
+    await saisirSerie(1, 100, 10);
+    await attendre(1500);
+    ok('[O60] deux paris posés, tous deux à `les_deux` (la clé est dans le fondement)',
+      JSON.stringify(objectifs()) === '["les_deux","les_deux"]', JSON.stringify(objectifs()));
+
+    // 2. En pleine séance, l'objectif change dans Profil.
+    await choisirObjectif('muscle');
+    ok('[O60] le profil passe à « Muscle » (la même écriture que le questionnaire : l’objectif ET sa date)',
+      base.profiles[0].objectif === 'muscle' && !!base.profiles[0].objectif_depuis, JSON.stringify([base.profiles[0].objectif, base.profiles[0].objectif_depuis]));
+    await onglet('saisie');
+    await attendre(600);
+    // 3. Une troisième série : son pari reste à `les_deux`.
+    await saisirSerie(2, 100, 10);
+    await attendre(1500);
+    ok('[O60] DISCRIMINANT — le troisième pari, posé après le changement, reste à `les_deux` (gelé pour la séance)',
+      JSON.stringify(objectifs()) === '["les_deux","les_deux","les_deux"]', JSON.stringify(objectifs()));
+    await terminer();
+
+    // 4. La séance SUIVANTE prend le nouvel objectif.
+    await aller('/saisie');
+    await demarrerRoutine('Objectif O60');
+    await attendre(900);
+    await saisirSerie(0, 100, 10);
+    await attendre(1500);
+    const ps = parSeanceO();
+    ok('[O60] la séance suivante prend le nouvel objectif : `muscle`',
+      ps.length === 2 && JSON.stringify(ps.map((l) => l.join(','))) === '["les_deux,les_deux,les_deux","muscle"]', JSON.stringify(ps));
+    await abandonner();
+
+    // 5. Rechargée en pleine séance, l'objectif gelé tient (relu avec les consignes).
+    base.profiles[0].objectif = 'force';
+    await aller('/saisie');
+    await demarrerRoutine('Objectif O60');
+    await attendre(900);
+    await saisirSerie(0, 100, 10);
+    await attendre(1500);
+    base.profiles[0].objectif = 'forme';
+    await aller('/saisie');
+    await attendre(1200);
+    await saisirSerie(1, 100, 10);
+    await attendre(1500);
+    const apresRecharge = parSeanceO().slice(-1)[0];
+    ok('[O60] DISCRIMINANT — la séance rechargée au milieu garde l’objectif gelé (`force`), pas celui du profil (`forme`)',
+      JSON.stringify(apresRecharge) === '["force","force"]', JSON.stringify(parSeanceO()));
+    await abandonner();
+
+    // 6. Sans réponse : la clé est écrite, à `null` (jamais absente).
+    base.profiles[0].objectif = null;
+    await aller('/saisie');
+    await demarrerRoutine('Objectif O60');
+    await attendre(900);
+    await saisirSerie(0, 100, 10);
+    await attendre(1500);
+    const sans = parSeanceO().slice(-1)[0];
+    ok('[O60] DISCRIMINANT — sans réponse : le pari porte `objectif: null` (la clé est là, pas « absente »)',
+      JSON.stringify(sans) === '[null]', JSON.stringify(parSeanceO()));
+    await abandonner();
+    ok('[O60] la garde (C6) n’a rien signalé dans cette section (I40 compris), aucune erreur de page',
+      gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant, JSON.stringify(gardeBanc.liste.slice(-2)));
+    await aller('/saisie');
+
+    // ── [P60] LES PRIORITÉS, GELÉES COMME LA PHASE (60-2b, MOTEUR §14.6). Elles décident si un
+    // muscle prioritaire a de la place pour une série de plus : lues UNE fois par séance, une
+    // priorité cochée dans Profil en pleine séance ne fait ni apparaître ni disparaître une
+    // carte. L'entrée du plan (`THPlan.dernier.entrees.priorites`) est la preuve.
+    const prioritesLues = () => page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      return d ? { entrees: d.entrees.priorites, plan: d.plan.priorites } : null;
+    });
+    const choisirPriorite = async (decocher, cocher) => {
+      await onglet('profil');
+      await page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
+        .filter((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf('Priorités') === 0)[0].click());
+      await attendre(500);
+      for (const cle of decocher.concat(cocher)) {
+        await page.click('#feuille-contenu .feuille-menu button[data-cle="' + cle + '"]');
+        await attendre(150);
+      }
+      await page.click('#feuille-contenu .feuille-pied .pri');
+      await attendre(1200);
+    };
+    const violationsP = gardeBanc.violations;
+    base.profiles[0].priorites = ['poitrine'];
+    await aller('/saisie');
+    await demarrerRoutine('Objectif O60');
+    await attendre(900);
+    await saisirSerie(0, 100, 10);
+    await attendre(1200);
+    const p1 = await prioritesLues();
+    ok('[P60] la séance part avec les priorités du profil : l’entrée du plan porte `["poitrine"]`',
+      !!p1 && JSON.stringify(p1.entrees) === '["poitrine"]' && JSON.stringify(p1.plan) === '["poitrine"]', JSON.stringify(p1));
+    await choisirPriorite(['poitrine'], ['dos']);
+    ok('[P60] le profil passe à « Dos » (écrit en base)', JSON.stringify(base.profiles[0].priorites) === '["dos"]', JSON.stringify(base.profiles[0].priorites));
+    await onglet('saisie');
+    await attendre(600);
+    await saisirSerie(1, 100, 10);
+    await attendre(1200);
+    const p2 = await prioritesLues();
+    ok('[P60] DISCRIMINANT — en pleine séance, l’entrée du plan reste `["poitrine"]` (gelée), pas `["dos"]`',
+      !!p2 && JSON.stringify(p2.entrees) === '["poitrine"]' && JSON.stringify(p2.plan) === '["poitrine"]', JSON.stringify(p2));
+    base.profiles[0].priorites = ['bras'];
+    await aller('/saisie');
+    await attendre(1200);
+    await saisirSerie(2, 100, 10);
+    await attendre(1200);
+    const p3 = await prioritesLues();
+    ok('[P60] DISCRIMINANT — la séance rechargée au milieu garde les priorités gelées (`["poitrine"]`), pas celles du profil (`["bras"]`)',
+      !!p3 && JSON.stringify(p3.entrees) === '["poitrine"]', JSON.stringify(p3));
+    await terminer();
+    await aller('/saisie');
+    await demarrerRoutine('Objectif O60');
+    await attendre(900);
+    await saisirSerie(0, 100, 10);
+    await attendre(1200);
+    const p4 = await prioritesLues();
+    ok('[P60] la séance SUIVANTE prend les nouvelles priorités du profil (`["bras"]`)',
+      !!p4 && JSON.stringify(p4.entrees) === '["bras"]', JSON.stringify(p4));
+    await abandonner();
+    base.profiles[0].priorites = null;
+    await aller('/saisie');
+    await demarrerRoutine('Objectif O60');
+    await attendre(900);
+    await saisirSerie(0, 100, 10);
+    await attendre(1200);
+    const p5 = await prioritesLues();
+    ok('[P60] jamais répondu (`null`) : aucune priorité, une liste vide, sans erreur',
+      !!p5 && JSON.stringify(p5.entrees) === '[]' && JSON.stringify(p5.plan) === '[]', JSON.stringify(p5));
+    await abandonner();
+    ok('[P60] la garde (C6) n’a rien signalé dans cette section, aucune erreur de page',
+      gardeBanc.violations === violationsP && erreurs.length === erreursAvant, JSON.stringify(gardeBanc.liste.slice(-2)));
+    await aller('/saisie');
+  }
+
   console.log('\n══ 7 G nonies. LA CHUTE DE FIN DE SÉANCE NE TIRE PLUS LE NIVEAU ET BLOQUE LE TEST (49-U12, MOTEUR §9.2 bis) ══');
   //
   // ⚠️ CONFIGURATION DISCRIMINANTE : la séance du 29/09 d'Aurélien, 80 × 10,
@@ -11237,6 +11424,130 @@ const SETS_IMPORTES = [
     await entree('^Annuler$');
     await attendre(300);
 
+    // ── G. 60-2b (MOTEUR §9.18) — CE QUE LA PERSONNE A DIT DE SON TEMPS. Une durée visée de 60 min est
+    // déclarée (« Peu de temps U51 » la dépasse) ; la réponse du questionnaire décide de la suite.
+    //   · « Ça varie » : l'estimation s'écrit en ambre, « Démarrer » démarre tout de suite (aucune question) ;
+    //   · « Moins en ce moment » : « Démarrer » ouvre d'abord la carte, UNE fois par routine et par jour ;
+    //   · « marge », « Juste un carnet », pas de durée déclarée : rien.
+    const spG = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const AMBRE = 'rgb(242, 184, 75)';
+    const dureeCouleur = (nom) => page.evaluate((n) => {
+      const r = Array.from(document.querySelectorAll('.routine-rangee'))
+        .filter((x) => (x.querySelector('.routine-nom') || {}).textContent === n)[0];
+      const d = r && r.querySelector('.routine-duree');
+      return d ? { classes: d.className, couleur: getComputedStyle(d).color, texte: d.textContent } : null;
+    }, nom);
+    const cliquerDemarrer = async (nom) => {
+      await page.evaluate((n) => {
+        const r = Array.from(document.querySelectorAll('.routine-rangee'))
+          .filter((x) => (x.querySelector('.routine-nom') || {}).textContent === n)[0];
+        r.querySelector('.demarrer').click();
+      }, nom);
+      await attendre(900);
+    };
+    const voileOuvert = () => page.evaluate(() => !document.querySelector('#feuille-seance').hidden);
+    const clesVuesG = () => page.evaluate(() => Object.keys(localStorage).filter((k) => k.indexOf('th-v2-peu-de-temps-vu-') === 0));
+    const effacerVuesG = () => page.evaluate(() => Object.keys(localStorage)
+      .filter((k) => k.indexOf('th-v2-peu-de-temps-vu-') === 0).forEach((k) => localStorage.removeItem(k)));
+    // ⚠️ Le profil arrive APRÈS le premier rendu de Saisie (le cache d'abord, la ligne ensuite) et les
+    // rangées ne se redessinent pas à son arrivée : un second chargement montre la réponse de temps
+    // posée côté serveur — comme sur un appareil qui a déjà synchronisé le changement d'un autre.
+    const reglerTemps = async (champs) => {
+      Object.assign(base.profiles[0], { duree_seance_min: 60, temps_reponse: null, intention: 'progresser' }, champs);
+      await effacerVuesG();
+      await aller('/saisie');
+      await attendre(1500);
+      await aller('/saisie');
+      await attendre(900);
+    };
+    const saisieSeule = JSON.stringify(['vue-saisie']);
+
+    // « Ça varie » : l'ambre, et pas de question.
+    await reglerTemps({ temps_reponse: 'varie' });
+    const vari = await dureeCouleur('Peu de temps U51');
+    ok('[60-2b] DISCRIMINANT — « Ça varie » + durée visée 60 min : l’estimation de la routine qui la dépasse s’écrit en AMBRE (la couleur du coach), le texte ne change pas',
+      !!vari && /depasse/.test(vari.classes) && vari.couleur === AMBRE && /^Environ \d+ min \(estimation\)$/.test(spG(vari.texte)), JSON.stringify(vari));
+    await cliquerDemarrer('Peu de temps U51');
+    ok('[60-2b] DISCRIMINANT — « Ça varie » : « Démarrer » démarre tout de suite — aucune feuille, aucune question',
+      JSON.stringify(await visible()) === JSON.stringify(['vue-seance']) && !(await voileOuvert()), JSON.stringify([await visible(), await voileOuvert()]));
+    await abandonner();
+    await aller('/saisie');
+    await attendre(900);
+
+    // « marge » : rien.
+    await reglerTemps({ temps_reponse: 'marge' });
+    const marge = await dureeCouleur('Peu de temps U51');
+    ok('[60-2b] « J’ai de la marge » : l’estimation reste grise, et « Démarrer » démarre',
+      !!marge && !/depasse/.test(marge.classes) && marge.couleur !== AMBRE, JSON.stringify(marge));
+    await cliquerDemarrer('Peu de temps U51');
+    ok('[60-2b] … « Démarrer » démarre sans carte', JSON.stringify(await visible()) === JSON.stringify(['vue-seance']) && !(await voileOuvert()), JSON.stringify(await visible()));
+    await abandonner();
+
+    // « Moins en ce moment » : la carte d'office, une fois par routine et par jour.
+    await reglerTemps({ temps_reponse: 'moins' });
+    const grise = await dureeCouleur('Peu de temps U51');
+    ok('[60-2b] « Moins » : l’estimation reste grise (l’ambre est celui de « Ça varie »)', !!grise && !/depasse/.test(grise.classes), JSON.stringify(grise));
+    await cliquerDemarrer('Peu de temps U51');
+    const carte1 = await feuilleR();
+    ok('[60-2b] DISCRIMINANT — « Moins » : « Démarrer » ouvre d’abord la carte, à la durée visée (60 min), et la séance ne démarre pas',
+      (await voileOuvert()) && JSON.stringify(await visible()) === saisieSeule &&
+        /^(Pour tenir en 60 min|Au plus court : \d+ min) \(estimation\)$/.test(spG(carte1.titre)) &&
+        carte1.boutons.map(spG).some((b) => /^Garder la séance$/.test(b)), JSON.stringify([carte1, await visible()]));
+    const cles = await clesVuesG();
+    ok('[60-2b] la mémoire du jour est posée à l’OUVERTURE : une clé locale par compte, dans le préfixe que « Quitter » efface',
+      cles.length === 1 && /^th-v2-peu-de-temps-vu-.+/.test(cles[0]), JSON.stringify(cles));
+    await entree('^Garder la séance$');
+    await attendre(900);
+    ok('[60-2b] « Garder la séance » démarre la séance complète', JSON.stringify(await visible()) === JSON.stringify(['vue-seance']), JSON.stringify(await visible()));
+    await abandonner();
+    await aller('/saisie');
+    await attendre(900);
+    await cliquerDemarrer('Peu de temps U51');
+    ok('[60-2b] DISCRIMINANT — UNE fois par routine et par jour : le second « Démarrer » du jour démarre tout de suite',
+      JSON.stringify(await visible()) === JSON.stringify(['vue-seance']) && !(await voileOuvert()), JSON.stringify([await visible(), await voileOuvert()]));
+    await abandonner();
+    await aller('/saisie');
+    await attendre(900);
+    await cliquerDemarrer('Trop long U51');
+    const carte2 = await feuilleR();
+    ok('[60-2b] … mais une AUTRE routine ouvre la sienne (« Trop long U51 » : sa propre carte, à la même durée visée)',
+      (await voileOuvert()) && JSON.stringify(await visible()) === saisieSeule &&
+        /^(Pour tenir en 60 min|Au plus court : \d+ min) \(estimation\)$/.test(spG(carte2.titre)), JSON.stringify(carte2));
+    await entree('^Annuler$|^Garder la séance$');
+    await attendre(700);
+    await abandonner();
+    // Le lendemain : la mémoire du jour passé ne compte plus.
+    await page.evaluate(() => Object.keys(localStorage).filter((k) => k.indexOf('th-v2-peu-de-temps-vu-') === 0).forEach((k) => {
+      const v = JSON.parse(localStorage.getItem(k));
+      Object.keys(v).forEach((r) => { v[r] = '2020-01-01'; });
+      localStorage.setItem(k, JSON.stringify(v));
+    }));
+    await aller('/saisie');
+    await attendre(900);
+    await cliquerDemarrer('Peu de temps U51');
+    ok('[60-2b] DISCRIMINANT — le lendemain, la carte se rouvre', (await voileOuvert()) && JSON.stringify(await visible()) === saisieSeule, JSON.stringify([await voileOuvert(), await visible()]));
+    await page.click('#btn-fermer-feuille').catch(() => {});
+    await attendre(500);
+
+    // « Juste un carnet », et pas de durée déclarée : rien.
+    await reglerTemps({ temps_reponse: 'moins', intention: 'entretien' });
+    const carnetDuree = await dureeCouleur('Peu de temps U51');
+    await cliquerDemarrer('Peu de temps U51');
+    ok('[60-2b] DISCRIMINANT — « Juste un carnet » : ni carte d’office ni ambre, « Démarrer » démarre',
+      JSON.stringify(await visible()) === JSON.stringify(['vue-seance']) && !(await voileOuvert()) && !/depasse/.test(carnetDuree.classes), JSON.stringify([await visible(), carnetDuree]));
+    await abandonner();
+    await reglerTemps({ temps_reponse: 'moins', duree_seance_min: null });
+    await cliquerDemarrer('Peu de temps U51');
+    ok('[60-2b] DISCRIMINANT — « Moins » sans durée visée déclarée : rien ne s’ouvre (la médiane montrée n’est pas une réponse)',
+      JSON.stringify(await visible()) === JSON.stringify(['vue-seance']) && !(await voileOuvert()), JSON.stringify([await visible(), await voileOuvert()]));
+    await abandonner();
+    base.profiles[0].duree_seance_min = null;
+    base.profiles[0].temps_reponse = null;
+    base.profiles[0].intention = 'progresser';
+    await effacerVuesG();
+    await aller('/saisie');
+    await attendre(900);
+
     ok('[T51] la garde (C6) n’a rien signalé dans cette section', gardeBanc.violations === violationsAvant,
       JSON.stringify(gardeBanc.liste.slice(-2)));
     ok('[T51] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
@@ -12337,6 +12648,66 @@ const SETS_IMPORTES = [
     const a0 = await dossier('Alpha U53');
     ok('[C53] le dossier sans programme : pas de badge, « Faire de ce dossier un programme »',
       a0 && a0.badge === null && a0.creer, JSON.stringify(a0));
+    // ── A bis (60-2b, MOTEUR §9.22). LA ZONE PROPOSÉE DU PREMIER BLOC SUIT L'OBJECTIF
+    // (Force, Les deux → Lourd ; Muscle, Forme, sans réponse → Mix), toujours modifiable.
+    // Le profil du banc part sans objectif : la suite de la section (Mix) ne bouge pas.
+    const zoneProposee = async (objectif) => {
+      base.profiles[0].objectif = objectif;
+      await aller('/saisie');
+      await cliquerDossier('Alpha U53', '.programme-creer');
+      await attendre(800);
+      const f = await feuilleP();
+      await page.click('#btn-fermer-feuille');
+      await attendre(500);
+      return f.champs && f.champs.zone ? f.champs.zone.choisi : null;
+    };
+    const proposees = {};
+    for (const o of ['force', 'les_deux', 'muscle', 'forme', null]) proposees[String(o)] = await zoneProposee(o);
+    ok('[O60] DISCRIMINANT — premier bloc : Force et Les deux proposent « Lourd (3-5) » ; Muscle, Forme et sans réponse, « Mix (6-8) »',
+      proposees.force === 'Lourd (3-5)' && proposees.les_deux === 'Lourd (3-5)' && proposees.muscle === 'Mix (6-8)' &&
+        proposees.forme === 'Mix (6-8)' && proposees['null'] === 'Mix (6-8)', JSON.stringify(proposees));
+    // ── A ter (60-2b, MOTEUR §9.22). L'EXERCICE PRIORITAIRE EST COCHÉ D'OFFICE, même hors
+    // barre polyarticulaire (ici « Gamma », un curl à 1 muscle, décoché sinon) ; un exercice
+    // prioritaire absent des routines du dossier ne fait rien ; une zone de muscle non plus.
+    // Les priorités se LISENT sans se valider : le slug du banc n'est pas l'un des cinq du
+    // questionnaire, ce qui ne change rien à la lecture.
+    const casesAvec = async (priorites) => {
+      base.profiles[0].priorites = priorites;
+      await aller('/saisie');
+      await cliquerDossier('Alpha U53', '.programme-creer');
+      await attendre(800);
+      const f = await feuilleP();
+      await page.click('#btn-fermer-feuille');
+      await attendre(500);
+      return (f.cases || []).map(sp);
+    };
+    const defaut = ['☑ Alpha Cycle U53 (Barre)|Mix', '☑ Bêta Cycle U53 (Barre)|Mix', '☐ Gamma Cycle U53 (Barre)|sa zone'];
+    const prio = {};
+    for (const [k, v] of [['sans', null], ['vide', []], ['curl', ['cyc-curl-u53']], ['absent', ['tractions']], ['zone', ['bras', 'dos']],
+      ['curl+', ['poitrine', 'cyc-curl-u53']]]) prio[k] = await casesAvec(v);
+    ok('[P60] DISCRIMINANT — « Faire de ce dossier un programme » : l’exercice prioritaire (Gamma) est coché d’office ; sans priorité, une priorité absente des routines ou une zone de muscle, rien ne change',
+      JSON.stringify(prio.sans) === JSON.stringify(defaut) && JSON.stringify(prio.vide) === JSON.stringify(defaut) &&
+        JSON.stringify(prio.absent) === JSON.stringify(defaut) && JSON.stringify(prio.zone) === JSON.stringify(defaut) &&
+        JSON.stringify(prio.curl) === JSON.stringify(['☑ Alpha Cycle U53 (Barre)|Mix', '☑ Bêta Cycle U53 (Barre)|Mix', '☑ Gamma Cycle U53 (Barre)|Mix']) &&
+        JSON.stringify(prio['curl+']) === JSON.stringify(prio.curl), JSON.stringify(prio));
+    base.profiles[0].priorites = ['cyc-curl-u53'];
+    await aller('/saisie');
+    await cliquerDossier('Alpha U53', '.programme-creer');
+    await attendre(800);
+    await page.evaluate(() => {
+      const c = Array.from(document.querySelectorAll('#feuille-contenu .case-programme')).filter((x) => /Gamma/.test(x.textContent))[0];
+      if (c) c.click();
+    });
+    await attendre(400);
+    const decochee = (await feuilleP()).cases.map(sp);
+    await page.click('#btn-fermer-feuille');
+    await attendre(500);
+    ok('[P60] la coche d’office reste décochable (le geste décoche Gamma sans toucher aux autres)',
+      JSON.stringify(decochee) === JSON.stringify(defaut), JSON.stringify(decochee));
+    base.profiles[0].priorites = null;
+
+    base.profiles[0].objectif = null;
+    await aller('/saisie');
     await cliquerDossier('Alpha U53', '.programme-creer');
     await attendre(800);
     const fp = await feuilleP();
@@ -12581,6 +12952,23 @@ const SETS_IMPORTES = [
     const l0 = await dossier('Delta U53');
     ok('[C53] après l’arrêt : ni badge, ni carte ; « Faire de ce dossier un programme » revient',
       l0 && l0.badge === null && l0.fin === null && l0.creer, JSON.stringify(l0));
+    // 60-2b (MOTEUR I13, précisé le 08/10/2026) — « JUSTE UN CARNET » n'offre pas non plus la rangée
+    // « Faire de ce dossier un programme » : un bloc créé en carnet serait invisible (pas de badge) et
+    // impossible à arrêter. « Delta U53 » n'a plus de bloc (on vient de l'arrêter) et offre la rangée en
+    // Progresser (contrôle ci-dessus) ; en carnet, plus de rangée ; de retour en Progresser, elle revient,
+    // sans rien écrire.
+    const avantRangee = { blocs: JSON.stringify(base.blocs), paris: base.predictions.length, zones: base.zones.length };
+    await choisirIntention('entretien');
+    await aller('/saisie');
+    const rC = await dossier('Delta U53');
+    ok('[C53] DISCRIMINANT (60-2b, I13) — au profil « Juste un carnet », le dossier SANS bloc n’offre pas « Faire de ce dossier un programme » (le compte des routines reprend la place)',
+      rC && rC.creer === false && rC.rangee === false && rC.compte === true && rC.badge === null, JSON.stringify(rC));
+    await choisirIntention('progresser');
+    await aller('/saisie');
+    const rP = await dossier('Delta U53');
+    ok('[C53] DISCRIMINANT (60-2b) — le retour en Progresser ramène la rangée, sans écriture (aucun bloc, pari ni zone de plus)',
+      rP && rP.creer === true && JSON.stringify(base.blocs) === avantRangee.blocs && base.predictions.length === avantRangee.paris &&
+        base.zones.length === avantRangee.zones, JSON.stringify([rP, base.predictions.length - avantRangee.paris]));
     await demarrerRoutine('Delta U53');
     await attendre(1500);
     const l1 = await planC('cyc-terre-u53');
@@ -13727,6 +14115,10 @@ const SETS_IMPORTES = [
       ouverte: !document.querySelector('#feuille-seance').hidden,
       titre: (document.querySelector('#feuille-contenu .feuille-t') || {}).textContent || null,
       aide: !!document.querySelector('#feuille-contenu .feuille-aide'),
+      aideTexte: ((document.querySelector('#feuille-contenu .feuille-aide') || {}).textContent || '').replace(/[\u00a0\u202f]/g, ' '),
+      sous: Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button[data-cle]'))
+        .map((b) => [b.dataset.cle, ((b.querySelector('small') || {}).textContent || '').replace(/[\u00a0\u202f]/g, ' ')])
+        .filter((x) => x[1]),
       groupes: Array.from(document.querySelectorAll('#feuille-contenu .choix-groupe')).map((n) => n.textContent),
       options: Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button[data-cle]')).map((b) => b.dataset.cle),
       coches: Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button.choisi')).map((b) => b.dataset.cle),
@@ -13974,14 +14366,15 @@ const SETS_IMPORTES = [
     ok('[Q60] rempli, il ne se rouvre plus — au rechargement, Saisie sans questionnaire ni bandeau',
       JSON.stringify(await visible()) === JSON.stringify(saisie) && !(await bandeauQ()).visible, JSON.stringify([await visible(), await bandeauQ()]));
 
-    // ── P. LE PROFIL, REMPLI : « Ton but », « Ton temps », sans ligne en tête ni phrase d'aide.
+    // ── P. LE PROFIL, REMPLI : « Ton but », « Ton temps », sans ligne en tête. Leurs phrases d'aide
+    // (60-2b) sont dans les FEUILLES, pas sous les lignes.
     await onglet('profil');
     const titresRempli = await titresP();
     ok('[Q60] P — plus de ligne en tête ; « TON BUT » vient après « TON RYTHME » (le réglage du coach), avant « TA PHASE »',
       (await enTeteP()) === null && titresRempli.indexOf('TON BUT') === titresRempli.indexOf('TON RYTHME') + 1 &&
         titresRempli.indexOf('TA PHASE') === titresRempli.indexOf('TON BUT') + 1, JSON.stringify(titresRempli));
     const [pObj, pPri, pTps] = [await ligneP('Objectif'), await ligneP('Priorités'), await ligneP('Ton temps')];
-    ok('[Q60] P — les réponses du questionnaire sont là : Objectif Muscle, Priorités Squat · Couché · Soulevé, Ton temps « J’ai de la marge… » ; aucune phrase d’aide sous ces lignes',
+    ok('[Q60] P — les réponses du questionnaire sont là : Objectif Muscle, Priorités Squat · Couché · Soulevé, Ton temps « J’ai de la marge… » ; aucune phrase sous ces lignes (elles sont dans les feuilles)',
       pObj && pObj.valeur === 'Muscle' && pPri && pPri.valeur === 'Squat, Couché, Soulevé' &&
         pTps && pTps.valeur === 'J’ai de la marge pour en faire plus' && !pObj.aide && !pPri.aide && !pTps.aide,
       JSON.stringify([pObj, pPri, pTps]));
@@ -13989,9 +14382,11 @@ const SETS_IMPORTES = [
     const depuisP0 = profilBase().objectif_depuis;
     await toucherP('Objectif');
     let fp = await feuilleChoixP();
-    ok('[Q60] P — « Objectif » : la feuille des quatre objectifs, Muscle coché, ni phrase d’aide ni « Effacer »',
+    ok('[Q60] P — « Objectif » : la feuille des quatre objectifs, Muscle coché, sa phrase d’aide (60-2b), sans « Effacer »',
       fp.ouverte && fp.titre === 'Objectif' && JSON.stringify(fp.options) === '["force","muscle","les_deux","forme"]' &&
-        JSON.stringify(fp.coches) === '["muscle"]' && fp.aide === false && fp.pied.indexOf('Effacer') < 0, JSON.stringify(fp));
+        JSON.stringify(fp.coches) === '["muscle"]' && fp.aide === true &&
+        fp.aideTexte === 'Il choisit la zone de ton premier bloc de programme : Lourd pour la force, Mix pour le muscle.' &&
+        fp.pied.indexOf('Effacer') < 0, JSON.stringify(fp));
     await cliquerFeuille('.feuille-menu button[data-cle="muscle"]', 900);
     ok('[Q60] P — DISCRIMINANT : choisir le MÊME objectif n’écrit rien (ni valeur ni date)',
       ecritsProfil() === ecritsP0 && profilBase().objectif_depuis === depuisP0, JSON.stringify([ecritsProfil() - ecritsP0, profilBase().objectif_depuis, depuisP0]));
@@ -14002,11 +14397,12 @@ const SETS_IMPORTES = [
         ecritsProfil() === ecritsP0 + 1 && (await ligneP('Objectif')).valeur === 'Force', JSON.stringify([profilBase().objectif, profilBase().objectif_depuis, depuisP0, ecritsProfil() - ecritsP0]));
     await toucherP('Priorités');
     fp = await feuilleChoixP();
-    ok('[Q60] P — « Priorités » : « Des exercices » / « Ou des muscles », « Pas de priorité », trois cochées → les autres s’éteignent (sans un mot) ; Annuler · Valider',
+    ok('[Q60] P — « Priorités » : sa phrase d’aide (60-2b), « Des exercices » / « Ou des muscles », « Pas de priorité », trois cochées → les autres s’éteignent (sans un mot) ; Annuler · Valider',
       fp.ouverte && fp.titre === 'Priorités' && JSON.stringify(fp.groupes) === '["Des exercices","Ou des muscles"]' &&
         JSON.stringify(fp.coches) === '["squat_barre","developpe_couche_barre","souleve_de_terre_barre"]' &&
         fp.options.indexOf('aucune') >= 0 && fp.eteintes.length === fp.options.length - 1 - fp.coches.length &&
-        fp.aide === false && JSON.stringify(fp.pied) === '["Annuler","Valider"]', JSON.stringify(fp));
+        fp.aide === true && fp.aideTexte === 'Un exercice prioritaire est coché d’office dans un programme. Un muscle prioritaire peut recevoir une série de plus jusqu’à ton plus haut volume, hors sèche.' &&
+        JSON.stringify(fp.pied) === '["Annuler","Valider"]', JSON.stringify(fp));
     await cliquerFeuille('.feuille-menu button[data-cle="squat_barre"]');
     fp = await feuilleChoixP();
     ok('[Q60] P — une décochée : les lignes se rallument (deux cochées, plus rien d’éteint)',
@@ -14026,9 +14422,12 @@ const SETS_IMPORTES = [
       JSON.stringify([ecritsProfil() - ecritsP1, await ligneP('Priorités')]));
     await toucherP('Ton temps');
     fp = await feuilleChoixP();
-    ok('[Q60] P — « Ton temps » : les quatre réponses, « marge » cochée, sans phrase d’aide',
+    ok('[Q60] P — « Ton temps » : les quatre réponses, « marge » cochée ; une phrase sous « moins » et sous « varie » seulement (60-2b), aucune sous « maximum » ni « marge »',
       fp.ouverte && fp.titre === 'Ton temps' && JSON.stringify(fp.options) === '["max","marge","moins","varie"]' &&
-        JSON.stringify(fp.coches) === '["marge"]' && fp.aide === false, JSON.stringify(fp));
+        JSON.stringify(fp.coches) === '["marge"]' && fp.aide === false &&
+        JSON.stringify(fp.sous) === JSON.stringify([
+          ['moins', 'Quand ta routine dépasse ta durée visée, je te propose de la raccourcir dès son ouverture.'],
+          ['varie', 'Quand ta routine dépasse ta durée visée, je te le montre à côté de « J’ai peu de temps ».']]), JSON.stringify(fp));
     await cliquerFeuille('.feuille-menu button[data-cle="varie"]', 1500);
     ok('[Q60] P — le choix écrit `temps_reponse` ; la ligne le dit',
       profilBase().temps_reponse === 'varie' && (await ligneP('Ton temps')).valeur === 'Ça varie beaucoup', JSON.stringify([profilBase().temps_reponse, await ligneP('Ton temps')]));
@@ -14064,8 +14463,23 @@ const SETS_IMPORTES = [
     await page.goto(BASE + '/styles.css', { waitUntil: 'domcontentloaded' }).catch(() => {});
     await page.evaluate(() => new Promise((ok2) => {
       Object.keys(localStorage).filter((k) => k.indexOf('th-v2-questionnaire-vu-') === 0).forEach((k) => localStorage.removeItem(k));
-      const r = indexedDB.deleteDatabase('trainhub-v2');
-      r.onsuccess = r.onerror = r.onblocked = () => ok2();
+      // ⚠️ ON VIDE LES MAGASINS, ON NE SUPPRIME PAS LA BASE. `deleteDatabase` est BLOQUÉE tant que
+      // l'ancien document tient sa connexion — et Chromium garde cet ancien document gelé (bfcache)
+      // un temps qu'on ne maîtrise pas : la page suivante relisait alors l'ancien cache (le profil du
+      // scénario H, `questionnaire_fait_le` vide) et ouvrait le questionnaire sur LUI. Constaté le
+      // 08/10/2026 : 1 échec sur 8 passages parallèles, sur le code d'avant comme sur celui d'après.
+      // Vider les magasins ne demande aucune version : rien ne bloque, et l'appareil est bien « neuf ».
+      const o = indexedDB.open('trainhub-v2');
+      o.onerror = () => ok2();
+      o.onsuccess = () => {
+        const db = o.result;
+        const noms = Array.from(db.objectStoreNames);
+        if (!noms.length) { db.close(); ok2(); return; }
+        const tx = db.transaction(noms, 'readwrite');
+        noms.forEach((n) => tx.objectStore(n).clear());
+        tx.oncomplete = tx.onerror = tx.onabort = () => { db.close(); ok2(); };
+      };
+      setTimeout(ok2, 10000);
     }));
     Object.assign(profilBase(), VIERGE, { onboarding_completed: false });
     base.lenteurProfil = 3500;
@@ -14150,6 +14564,178 @@ const SETS_IMPORTES = [
     base.pesees = peseesAvant;
     await aller('/saisie');
     ok('[Q60] aucun refus du faux serveur (CHECK de la base, RLS), aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,
+      JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
+  }
+
+  console.log('\n══ rappel. LE RAPPEL DE PHASE : LE BANDEAU DE SAISIE, 42 JOURS APRÈS LA DERNIÈRE RÉPONSE (60-2b, MOTEUR §9.16) ══');
+  //
+  // ⚠️ DATES FORGÉES, côté Node, à 20 / 50 / 60 jours — jamais 41 ou 43 : le banc tourne
+  // à l'heure réelle, et à cheval sur un changement d'heure 42 jours calendaires ne font
+  // pas 42 × 24 h. La frontière (41 / 42 / 43, et le changement d'heure) se prouve en
+  // unitaire (`v2-rappel-de-phase`). Le profil du banc est rendu comme il était.
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const profilAvant = Object.assign({}, base.profiles[0]);
+    const JOUR = 86400000;
+    const iso = (jours) => ilYa(jours * JOUR).toISOString();
+    const profilBase = () => base.profiles[0];
+    const ecritsProfil = () => base.journal.filter((j) => j.op === 'profil').length;
+    const esp = (t) => String(t || '').replace(/[\u00a0\u202f]/g, ' ');
+    const FAIT_LE = '2026-10-01T08:00:00.000Z';
+    // Le point de départ de chaque scénario : le questionnaire rempli, une sèche déclarée
+    // il y a 60 jours et confirmée il y a 50 (donc DUE), le coach en Progresser.
+    const DUE = { questionnaire_fait_le: FAIT_LE, intention: 'progresser', phase: 'seche',
+      phase_depuis: iso(60), phase_confirmee_le: iso(50) };
+    const rouvrir = async (champs) => {
+      Object.keys(DUE).forEach((k) => { delete profilBase()[k]; });
+      Object.assign(profilBase(), DUE, champs || {});
+      await aller('/saisie');
+      await attendre(900);
+    };
+    const bandeauPh = () => page.evaluate(() => {
+      const b = document.querySelector('#bandeau-phase');
+      const q = document.querySelector('#bandeau-questionnaire');
+      const t = (sel) => { const n = b && b.querySelector(sel); return n ? n.textContent : null; };
+      // « Visible » : réellement à l'écran (le nœud peut garder son contenu dans une vue cachée).
+      const affiche = (n) => !!n && !n.hidden && n.offsetParent !== null;
+      return { visible: affiche(b), quoi: t('.reprise-quoi'), gris: t('.reprise-depuis'),
+        boutons: b ? Array.from(b.querySelectorAll('button')).map((x) => x.textContent) : [],
+        questionnaireVisible: affiche(q),
+        apresQuestionnaire: b && q ? !!(q.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) : null };
+    });
+    const feuilleP = () => page.evaluate(() => ({
+      ouverte: !document.querySelector('#feuille-seance').hidden,
+      titre: (document.querySelector('#feuille-contenu .feuille-t') || {}).textContent || null,
+      options: Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button[data-cle]')).map((b) => b.dataset.cle),
+      coches: Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button.choisi')).map((b) => b.dataset.cle),
+      pied: Array.from(document.querySelectorAll('#feuille-contenu .feuille-pied button')).map((b) => b.textContent) }));
+    const recent = (v) => !!v && Math.abs(Date.now() - new Date(v).getTime()) < 120000;
+    const saisieSeule = JSON.stringify(['vue-saisie']);
+
+    // 1. DUE : la phrase, la ligne grise, les deux boutons dans l'ordre.
+    await rouvrir();
+    let b = await bandeauPh();
+    ok('[PH60] DISCRIMINANT — une phase déclarée dont la confirmation date de 50 jours : le bandeau « Sèche depuis le … », sa ligne grise, « Changer » puis « C’est toujours ça »',
+      b.visible && /^Sèche depuis le \d+ \S+$/.test(esp(b.quoi)) &&
+        esp(b.gris) === 'Ta phase règle la série de plus et entre dans chaque pari du coach.' &&
+        JSON.stringify(b.boutons) === '["Changer","C’est toujours ça"]' && !b.questionnaireVisible &&
+        JSON.stringify(await visible()) === saisieSeule, JSON.stringify(b));
+    const ecritsAvantRendu = ecritsProfil();
+    await aller('/saisie');
+    await attendre(900);
+    ok('[PH60] le rendu n’écrit rien : recharger Saisie ne confirme pas la phase d’office',
+      ecritsProfil() === ecritsAvantRendu && profilBase().phase_confirmee_le === DUE.phase_confirmee_le, JSON.stringify([ecritsProfil() - ecritsAvantRendu, profilBase().phase_confirmee_le]));
+
+    // 2. PAS DUE, SANS PHASE, REPLI.
+    await rouvrir({ phase_confirmee_le: iso(20) });
+    ok('[PH60] DISCRIMINANT — confirmée il y a 20 jours (déclarée il y a 60) : pas de bandeau — la confirmation prime',
+      !(await bandeauPh()).visible, JSON.stringify(await bandeauPh()));
+    await rouvrir({ phase_confirmee_le: null, phase_depuis: iso(60) });
+    ok('[PH60] sans `phase_confirmee_le`, le bandeau retombe sur `phase_depuis` (60 jours) : visible',
+      (await bandeauPh()).visible, JSON.stringify(await bandeauPh()));
+    await rouvrir({ phase_confirmee_le: null, phase_depuis: iso(20) });
+    ok('[PH60] … et pas visible à 20 jours', !(await bandeauPh()).visible, JSON.stringify(await bandeauPh()));
+    await rouvrir({ phase: null });
+    ok('[PH60] DISCRIMINANT — sans phase déclarée (vide), même vieille de 60 jours : pas de bandeau (le maintien par défaut n’a rien à confirmer)',
+      !(await bandeauPh()).visible, JSON.stringify(await bandeauPh()));
+
+    // 3. « JUSTE UN CARNET » ET SÉANCE OUVERTE.
+    await rouvrir({ intention: 'entretien' });
+    ok('[PH60] DISCRIMINANT — en « Juste un carnet » (le profil) : pas de bandeau',
+      !(await bandeauPh()).visible, JSON.stringify(await bandeauPh()));
+    await rouvrir({ intention: 'progresser' });
+    ok('[PH60] … et il revient en Progresser, rien n’a été effacé', (await bandeauPh()).visible, JSON.stringify(await bandeauPh()));
+    await demarrerRoutine('Push');
+    await attendre(900);
+    const pendant = await bandeauPh();
+    ok('[PH60] DISCRIMINANT — pendant une séance ouverte : la vue est celle de la séance, le bandeau est caché',
+      !pendant.visible && JSON.stringify(await visible()) !== saisieSeule, JSON.stringify([pendant, await visible()]));
+    await abandonner();
+    await aller('/saisie');
+    await attendre(900);
+    ok('[PH60] la séance abandonnée, Saisie le montre de nouveau', (await bandeauPh()).visible, JSON.stringify(await bandeauPh()));
+
+    // 4. AVEC LE BANDEAU DU QUESTIONNAIRE : les deux, le questionnaire au-dessus.
+    await rouvrir({ questionnaire_fait_le: null });
+    // Au premier démarrage d'un questionnaire pas rempli, il s'ouvre ; « Plus tard » ramène sur Saisie.
+    if ((await visible()).indexOf('vue-questionnaire') >= 0) {
+      await page.click('.q-plus-tard');
+      await attendre(800);
+    }
+    b = await bandeauPh();
+    ok('[PH60] DISCRIMINANT — le questionnaire pas terminé ET le rappel dû : les deux bandeaux, celui du questionnaire AU-DESSUS',
+      b.visible && b.questionnaireVisible && b.apresQuestionnaire === true, JSON.stringify(b));
+
+    // 5. « C'EST TOUJOURS ÇA ».
+    await rouvrir();
+    const phaseAvant = profilBase().phase, depuisAvant = profilBase().phase_depuis;
+    const ecritsAvant = ecritsProfil();
+    await page.click('#bandeau-phase .principal');
+    await attendre(1200);
+    b = await bandeauPh();
+    ok('[PH60] DISCRIMINANT — « C’est toujours ça » : `phase_confirmee_le` est écrit (maintenant), la phase et son « depuis » ne bougent pas, une seule écriture',
+      recent(profilBase().phase_confirmee_le) && profilBase().phase === phaseAvant && profilBase().phase_depuis === depuisAvant &&
+        ecritsProfil() === ecritsAvant + 1, JSON.stringify([profilBase().phase_confirmee_le, profilBase().phase, profilBase().phase_depuis, ecritsProfil() - ecritsAvant]));
+    ok('[PH60] le bandeau s’éteint tout de suite, on reste sur Saisie',
+      !b.visible && JSON.stringify(await visible()) === saisieSeule, JSON.stringify([b, await visible()]));
+    await aller('/saisie');
+    await attendre(900);
+    ok('[PH60] au rechargement il ne revient pas (la confirmation est en base)', !(await bandeauPh()).visible, JSON.stringify(await bandeauPh()));
+
+    // 6. « CHANGER ».
+    await rouvrir();
+    const ecritsAvant2 = ecritsProfil();
+    await page.click('#bandeau-phase .discret');
+    await attendre(600);
+    let f = await feuilleP();
+    ok('[PH60] « Changer » ouvre la feuille de la phase : les trois phases, la sèche cochée, ni « Je ne sais pas » ni « Effacer » ; on reste sur Saisie',
+      f.ouverte && f.titre === 'Ta phase' && JSON.stringify(f.options) === '["prise_de_masse","maintien","seche"]' &&
+        JSON.stringify(f.coches) === '["seche"]' && JSON.stringify(f.pied) === '["Annuler"]' &&
+        JSON.stringify(await visible()) === saisieSeule && ecritsProfil() === ecritsAvant2, JSON.stringify([f, await visible()]));
+    await page.click('#feuille-contenu .feuille-menu button[data-cle="maintien"]');
+    await attendre(1200);
+    b = await bandeauPh();
+    ok('[PH60] DISCRIMINANT — choisir une AUTRE phase écrit la phase, son « depuis » ET la confirmation ; le bandeau s’éteint, toujours sur Saisie',
+      profilBase().phase === 'maintien' && recent(profilBase().phase_depuis) && recent(profilBase().phase_confirmee_le) &&
+        !b.visible && JSON.stringify(await visible()) === saisieSeule && !(await feuilleP()).ouverte,
+      JSON.stringify([profilBase().phase, profilBase().phase_depuis, profilBase().phase_confirmee_le, b, await visible()]));
+    await rouvrir();
+    await page.click('#bandeau-phase .discret');
+    await attendre(500);
+    await page.click('#feuille-contenu .feuille-menu button[data-cle="seche"]');
+    await attendre(1200);
+    ok('[PH60] choisir la phase EN COURS la confirme sans redater son « depuis »',
+      profilBase().phase === 'seche' && profilBase().phase_depuis === DUE.phase_depuis && recent(profilBase().phase_confirmee_le) &&
+        !(await bandeauPh()).visible, JSON.stringify([profilBase().phase, profilBase().phase_depuis, profilBase().phase_confirmee_le]));
+    await rouvrir();
+    await page.click('#bandeau-phase .discret');
+    await attendre(500);
+    const ecritsAvant3 = ecritsProfil();
+    await page.click('#feuille-contenu .feuille-pied .sec');
+    await attendre(600);
+    ok('[PH60] « Annuler » ferme la feuille sans rien écrire, le bandeau reste',
+      !(await feuilleP()).ouverte && ecritsProfil() === ecritsAvant3 && (await bandeauPh()).visible, JSON.stringify([await feuilleP(), await bandeauPh()]));
+
+    // 7. LE SEGMENT DU PROFIL POSE AUSSI LA CONFIRMATION : changer de phase au Profil n'allume pas le rappel.
+    await rouvrir({ phase: 'maintien', phase_depuis: iso(60), phase_confirmee_le: iso(50) });
+    ok('[PH60] prémisse : maintien confirmé il y a 50 jours, le bandeau est dû', (await bandeauPh()).visible, JSON.stringify(await bandeauPh()));
+    await onglet('profil');
+    await page.click('.p-seg button[data-cle="prise_de_masse"]');
+    await attendre(1200);
+    ok('[PH60] DISCRIMINANT — le segment « TA PHASE » du Profil écrit aussi `phase_confirmee_le` (maintenant)',
+      profilBase().phase === 'prise_de_masse' && recent(profilBase().phase_depuis) && recent(profilBase().phase_confirmee_le),
+      JSON.stringify([profilBase().phase, profilBase().phase_depuis, profilBase().phase_confirmee_le]));
+    await aller('/saisie');
+    await attendre(900);
+    ok('[PH60] … donc Saisie ne montre pas de rappel juste après le changement', !(await bandeauPh()).visible, JSON.stringify(await bandeauPh()));
+
+    // LA REMISE EN ÉTAT.
+    Object.keys(DUE).concat(['phase', 'phase_depuis', 'phase_confirmee_le']).forEach((k) => { delete profilBase()[k]; });
+    Object.assign(profilBase(), profilAvant);
+    await aller('/saisie');
+    ok('[PH60] aucun refus du faux serveur, aucune erreur de page',
       base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,
       JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
   }

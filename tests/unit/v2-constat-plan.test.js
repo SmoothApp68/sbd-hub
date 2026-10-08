@@ -44,7 +44,7 @@ const pari = (sid, rang, role, charge, vise, extra) => Object.assign({
   id: 'p-' + sid, exercise_slug: 'terre', set_observe: sid, valeur_predite: vise, borne_basse: 3, borne_haute: 5,
   // 49-U11 (I18) : un pari posé porte la phase gelée de sa séance ; ces
   // plans n'en reçoivent pas, donc `maintien`.
-  fondement: Object.assign({ rang, charge, role, seance: 'S', phase: 'maintien' }, extra || {})
+  fondement: Object.assign({ rang, charge, role, seance: 'S', phase: 'maintien', objectif: null }, extra || {})
 });
 
 // ── LE DÉCOR DU 26/09 ───────────────────────────────────────────────────────

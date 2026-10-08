@@ -212,6 +212,10 @@
       // de chaque pari (I18). `rejouer` ne la passe pas : les cas du simulateur
       // gardent leur fondement tel quel.
       if (p.length && o.phase !== undefined) p[0].fondement.phase = o.phase;
+      // MOTEUR §9.16 (60-2b) — l'OBJECTIF gelé, jumeau de la phase (I40). `null` est
+      // une valeur (« sans réponse ») : la clé s'écrit, d'où `!== undefined`.
+      // `rejouer` ne le passe pas : sans clé, comme pour la phase.
+      if (p.length && o.objectif !== undefined) p[0].fondement.objectif = o.objectif;
       // MOTEUR §14.4 (49-U14) — le compteur de l'exercice À L'OUVERTURE, figé
       // dans le fondement de chaque pari : le blocage généralisé se lit dans
       // les paris des 7 jours, sans rejeu. Et la semaine allégée se dit.
@@ -602,7 +606,7 @@
   }
 
   // ── LE PLAN D'UN EXERCICE ───────────────────────────────────────────────
-  function planDExercice(exo, iExo, consigneDuSlug, paris, seanceId, reglage, suite, debut, materiel, phase, allegee, seriesRoutine, marche, routinePlus, fini, precedent) {
+  function planDExercice(exo, iExo, consigneDuSlug, paris, seanceId, reglage, suite, debut, materiel, phase, allegee, seriesRoutine, marche, routinePlus, fini, precedent, objectif) {
     var S = Seance(), M = Moteur();
     var series = (exo && exo.series) || [];
     var c = consigneDuSlug && consigneDuSlug.consigne ? consigneDuSlug : null;
@@ -656,7 +660,7 @@
     var compteurOuverture = c.compteur && typeof c.compteur.compteur === 'number' ? c.compteur.compteur : undefined;
     var r = planDesLignes(series, consigne, c.contexte || null, figees, {
       slug: base.slug, seance: seanceId === undefined ? null : seanceId,
-      reglage: reglage === undefined ? null : reglage, phase: phase,
+      reglage: reglage === undefined ? null : reglage, phase: phase, objectif: objectif,
       compteur: compteurOuverture, allegee: !!consigne.allegee,
       occurrence: base.occurrence || undefined
     });
@@ -963,6 +967,19 @@
   var PHASES_DU_PLAN = ['prise_de_masse', 'maintien', 'seche'];
   function phaseDuPlan(v) { return PHASES_DU_PLAN.indexOf(v) >= 0 ? v : 'maintien'; }
 
+  // MOTEUR §9.16 (60-2b) — les objectifs qu'un pari peut porter. Vide ou inconnu :
+  // `null`, SANS défaut — contrairement à la phase, « sans réponse » est une réponse.
+  var OBJECTIFS_DU_PLAN = ['force', 'muscle', 'les_deux', 'forme'];
+  function objectifDuPlan(v) { return OBJECTIFS_DU_PLAN.indexOf(v) >= 0 ? v : null; }
+
+  // MOTEUR §14.6 (60-2b) — les priorités du questionnaire (`profiles.priorites` :
+  // des slugs d'exercice ET des clés de zone), GELÉES pour la séance avec la phase.
+  // Le champ vient de la base : `null` (jamais répondu), `[]` (« Pas de priorité »)
+  // et tout ce qui n'est pas une liste de chaînes valent la même chose — aucune.
+  function prioritesDuPlan(v) {
+    return Array.isArray(v) ? v.filter(function (x) { return typeof x === 'string'; }) : [];
+  }
+
   // ══ LE PLAN DE SÉANCE ═══════════════════════════════════════════════════
   //
   // `entrees` :
@@ -985,8 +1002,16 @@
   //     retirée (« Non merci » dans la séance, ou trois refus d'affilée) ;
   //   · `phase` — la phase GELÉE de la séance (MOTEUR §9.16, 49-U11), lue dans
   //     le profil par l'app quand la consigne se fige ; vide = `maintien` ;
+  //   · `objectif` — l'objectif GELÉ de la séance (MOTEUR §9.16, 60-2b, I40), lu
+  //     avec la phase ; `force`, `muscle`, `les_deux`, `forme`, ou `null` (vide ou
+  //     inconnu : pas de défaut). Il ne change AUCUNE consigne : il n'entre que dans
+  //     le fondement des paris ;
+  //   · `priorites` — MOTEUR §14.6 (60-2b) : les priorités du questionnaire,
+  //     GELÉES pour la séance avec la phase (des slugs d'exercice et des clés de
+  //     zone ; `null`, `[]` ou toute valeur étrangère : aucune). Un muscle dont la
+  //     zone y figure a de la place jusqu'à son plus haut volume — hors sèche ;
   //   · `volume` — MOTEUR §14.6 (49-U16) : `{ [muscle]: { place, moyenne,
-  //     seuil, fenetres } | null }`, la règle de volume calculée UNE FOIS par
+  //     seuil, max, fenetres } | null }`, la règle de volume calculée UNE FOIS par
   //     séance sur tout l'historique (`Moteur.placeDeVolume`) ; facultatif.
   //
   // Pure : mêmes entrées, même plan ; les entrées ne sont jamais modifiées.
@@ -996,6 +1021,8 @@
     var consignes = e.consignes || {};
     var exos = seance.exercices || [];
     var phase = phaseDuPlan(e.phase);
+    var objectif = objectifDuPlan(e.objectif);
+    var priorites = prioritesDuPlan(e.priorites);
     // §9.17 (50-1) — CE QUE LE PLAN PORTE, pour qu'I13 et I28 à I31 se vérifient
     // sur lui seul : la mesure de chaque exercice (`catalogue`), son mode
     // (`modes`, l'historique `modes_exercice` lu par l'app), l'intention qui en
@@ -1023,6 +1050,8 @@
     return {
       seance: seance.id === undefined ? null : seance.id,
       phase: phase,
+      objectif: objectif,
+      priorites: priorites,
       // §9.17 — l'Édition d'une séance passée, l'intention du profil et la
       // réponse du lest : trois faits que les invariants relisent (I13, I29).
       edition: !!seance.edition,
@@ -1071,13 +1100,13 @@
           esc.allegee ? { decharge: esc.allegee.source === SOURCE_DECHARGE } : null, Object.prototype.hasOwnProperty.call(seriesRoutine, slug) ? seriesRoutine[slug] : null, m,
           Object.prototype.hasOwnProperty.call(plus, slug) ? plus[slug] : null,
           Seance().exerciceFini(seance, slug),
-          Object.prototype.hasOwnProperty.call(precedents, slug) ? precedents[slug] : null);
+          Object.prototype.hasOwnProperty.call(precedents, slug) ? precedents[slug] : null, objectif);
         if (x.escalier && x.escalier.copie) x.escalier = null;
         // MOTEUR §14.6 (49-U16) — LA PLACE POUR UNE SÉRIE DE PLUS : de la place
         // sur CHACUN des muscles primaires de l'exercice (catalogue), lue dans
         // `entrees.volume`. Un fait, rien d'affiché : la série de plus (PR 2c)
         // le lira. `null` sans entrée de volume.
-        x.placeSerieDePlus = placeDeLExercice(e, slug);
+        x.placeSerieDePlus = placeDeLExercice(e, slug, phase);
         var cat = e.catalogue && slug && Object.prototype.hasOwnProperty.call(e.catalogue, slug) ? e.catalogue[slug] : null;
         x.mesure = cat && cat.mesure !== undefined ? cat.mesure : null;
         x.mode = modeX;
@@ -1257,7 +1286,7 @@
       var n = M.nIsole(k, M.declenchementsRepondus(slug, jour, k, cartes, compteurs));
       // §14.7 (49-U17) — la place sur chacun des muscles primaires (§14.6), et
       // une série de plus déjà proposée depuis le dernier progrès.
-      var place = placeDeLExercice(e, slug);
+      var place = placeDeLExercice(e, slug, phase);
       var proposee = M.serieDePlusProposee(slug, jour, k, marches, compteurs);
       var marche = M.marcheIsolee(n, zone, phase, place, proposee, c.consigne.palier);
       if (!marche) return;
@@ -1290,7 +1319,8 @@
           var capCarte = Voix().capturer(function () {
             return marche === M.MARCHE_SCHEMA
               ? M.carteSchema(zone, c.compteur.meilleur, k, avancent)
-              : M.carteSerieDePlus(c.compteur.meilleur, k, avancent, musclesPrimaires(e, slug));
+              : M.carteSerieDePlus(c.compteur.meilleur, k, avancent, musclesPrimaires(e, slug),
+                  musclesParPriorite(e, slug, phase));
           });
           m.carte = capCarte.texte;
           if (!m.carte) return;
@@ -1304,11 +1334,39 @@
 
   // §14.6, §14.7 — la place pour une série de plus sur CHACUN des muscles
   // primaires de l'exercice (catalogue), lue dans `entrees.volume` ; `null`
-  // sans entrée de volume.
-  function placeDeLExercice(e, slug) {
+  // sans entrée de volume. Un muscle PRIORITAIRE (60-2b) a de la place jusqu'à
+  // son plus haut volume (`Moteur.placePourExercice`).
+  function placeDeLExercice(e, slug, phase) {
     if (!e.volume) return null;
     var cat = e.catalogue && slug && Object.prototype.hasOwnProperty.call(e.catalogue, slug) ? e.catalogue[slug] : null;
-    return Moteur().placePourExercice(e.volume, cat ? cat.muscles_primaires : null);
+    return Moteur().placePourExercice(e.volume, cat ? cat.muscles_primaires : null,
+      musclesPrioritairesDe(e, slug, phase));
+  }
+
+  // 60-2b — LES MUSCLES PRIORITAIRES d'un exercice : ceux de ses muscles
+  // primaires dont la ZONE (`THSemaine.zoneDuMuscle`, la seule table muscle →
+  // zone) est dans les priorités gelées de la séance. EN SÈCHE, aucun : la série
+  // de plus n'y est jamais proposée (§9.16), et rien ne change.
+  function musclesPrioritairesDe(e, slug, phase) {
+    if (phase === 'seche') return [];
+    var prio = prioritesDuPlan(e.priorites);
+    var Sm = Semaine();
+    if (!prio.length || !Sm || !Sm.zoneDuMuscle) return [];
+    var cat = e.catalogue && slug && Object.prototype.hasOwnProperty.call(e.catalogue, slug) ? e.catalogue[slug] : null;
+    return ((cat && cat.muscles_primaires) || []).filter(function (m) {
+      var z = Sm.zoneDuMuscle(m);
+      return !!z && prio.indexOf(z.cle) >= 0;
+    });
+  }
+
+  // 60-2b — les muscles de l'exercice (avec leur nom au catalogue) dont la
+  // place ne vient QUE de la priorité : la carte le dit à sa façon.
+  function musclesParPriorite(e, slug, phase) {
+    if (!e.volume) return [];
+    var cat = e.catalogue && slug && Object.prototype.hasOwnProperty.call(e.catalogue, slug) ? e.catalogue[slug] : null;
+    var cles = Moteur().musclesParPriorite(e.volume, cat ? cat.muscles_primaires : null,
+      musclesPrioritairesDe(e, slug, phase));
+    return musclesPrimaires(e, slug).filter(function (m) { return cles.indexOf(m.cle) >= 0; });
   }
 
   // Les muscles primaires de l'exercice, avec leur nom au catalogue
@@ -1922,6 +1980,39 @@
         if (nombre(lp.vise) !== nombre(la.vise)) erreurs.push(nom + 'visée ' + la.vise + ' → ' + lp.vise);
       });
     });
+  }
+
+  // I40 (MOTEUR §9.16, 60-2b) — chaque pari de la séance porte dans son
+  // fondement l'objectif GELÉ du plan (une des quatre valeurs, ou `null` sans
+  // réponse), le même pour tous : ceux que le plan écrira (`x.paris`) comme ceux
+  // déjà posés (`entrees.paris`). ⚠️ `null` est LÉGITIME : l'invariant exige la
+  // PRÉSENCE de la clé (un pari sans clé n'a pas été écrit par ce plan) puis
+  // l'égalité — la valeur seule laisserait passer `undefined` pour « sans réponse ».
+  function verifierObjectif(plan, parisSeance, erreurs) {
+    if (!plan) return;
+    var objectif = plan.objectif;
+    if (objectif !== null && OBJECTIFS_DU_PLAN.indexOf(objectif) < 0) {
+      erreurs.push('I40 — l\'objectif du plan est absent ou inconnu (' + objectif + ')');
+    }
+    var voir = function (q, ou) {
+      var f = q && q.fondement;
+      if (!f) return;
+      if (!Object.prototype.hasOwnProperty.call(f, 'objectif')) {
+        erreurs.push('I40 — ' + ou + ' : un pari sans objectif');
+      } else if (f.objectif !== objectif) {
+        erreurs.push('I40 — ' + ou + ' : un pari à l\'objectif ' + f.objectif + ' dans une séance à ' + objectif);
+      }
+    };
+    (plan.exercices || []).forEach(function (x) {
+      (x.paris || []).forEach(function (q, i) { voir(q, 'exercice ' + x.iExo + ' (' + x.slug + '), série ' + i); });
+    });
+    // ⚠️ En ÉDITION, les paris déjà posés sont ceux d'une séance TERMINÉE, écrits avant 60-2b
+    // (sans clé `objectif`) ou à l'objectif d'alors : ils ne témoignent pas de l'objectif d'aujourd'hui,
+    // et le plan d'une correction ne les réécrit pas. Les comparer ferait échouer la garde de
+    // développement sur toute correction d'une séance ancienne.
+    if (plan.edition !== true) {
+      (parisSeance || []).forEach(function (q) { voir(q, 'pari posé ' + (q.exercise_slug || '') + ' rang ' + (q.fondement && q.fondement.rang)); });
+    }
   }
 
   // I18 (MOTEUR §9.16, 49-U11) — chaque pari de la séance porte dans son
@@ -2806,13 +2897,16 @@
 
   // I13, ce que la BIBLIOTHÈQUE montre d'un dossier (60-2a, précisé le
   // 07/10/2026) : au profil « Juste un carnet », ni badge de bloc ni carte de
-  // fin de bloc — des faits du programme entier, que le plan n'a pas. `vue` : ce
-  // que rend `programmeDuDossier` (`{ badge?, fin?, creer? }`, ou `null`).
+  // fin de bloc — des faits du programme entier, que le plan n'a pas — ni, depuis le
+  // 08/10/2026 (60-2b), la rangée « Faire de ce dossier un programme » : un bloc créé en
+  // carnet serait invisible et impossible à arrêter. `vue` : ce que rend
+  // `programmeDuDossier` (`{ badge?, fin?, creer? }`, ou `null`).
   function verifierSilenceDuProgramme(intentionProfil, vue) {
     var erreurs = [];
     if (!vue || !Moteur().coachSeTait(intentionProfil)) return erreurs;
     if (vue.badge) erreurs.push('I13 — Entretenir (profil) : un badge de bloc (' + vue.badge + ')');
     if (vue.fin) erreurs.push('I13 — Entretenir (profil) : une carte de fin de bloc');
+    if (vue.creer) erreurs.push('I13 — Entretenir (profil) : la rangée « Faire de ce dossier un programme »');
     return erreurs;
   }
 
@@ -2826,6 +2920,7 @@
     }) : null;
     var memeSeance = !!(avant && plan && avant.seance === plan.seance);
     verifierPhase(plan, parisSeance, erreurs);
+    verifierObjectif(plan, parisSeance, erreurs);
     verifierEscalier(plan, entrees, erreurs);
     verifierProgramme(plan, entrees, erreurs);
     verifierMarches(plan, erreurs);

@@ -1219,6 +1219,8 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .demarrer:active{border-color:var(--texte-2)}
 /* §9.18 (51-1) — la durée estimée, et « J'ai peu de temps » sous « Démarrer ». */
 .routine-duree{font-size:12px;color:var(--texte-2);margin-top:2px;font-variant-numeric:tabular-nums}
+/* 60-2b — « Ça varie » : l'estimation qui dépasse la durée visée, en ambre (la voix du coach, 9,65:1 sur le panneau). */
+.routine-duree.depasse{color:var(--accent)}
 .routine-actions{display:flex;flex-direction:column;gap:6px;flex:0 0 auto}
 .routine-actions .demarrer{flex:1;min-height:40px}
 .peu-de-temps{padding:7px var(--e2);border-radius:var(--r-bouton);border:1px solid var(--trait);

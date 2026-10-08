@@ -178,7 +178,8 @@ trappe `/__sw-off` pendrait avec lui.
   Il se déclare « BANC RÉDUIT : N section(s) sur M » et n'est jamais le banc
   complet. `--lister` donne les sections, leurs chaînes et leur durée.
 - **Le banc complet, une seule fois, à la fin**, sur l'état commité, avec
-  `npm test` et les deux autres bancs, tous en même temps :
+  `npm test` et les trois autres bancs (routines, service worker, création du profil —
+  `tests/banc/profil-creation.js`, 60-2b), tous en même temps :
   `node tests/banc/tout.js`. Le banc de séance y tourne en parallèle
   (6 groupes, ~5 min au lieu de 25) ; `--sequentiel` rejoue la référence historique.
 - **Et, à la fin de chaque CHANTIER, un banc séquentiel complet** sur l'état

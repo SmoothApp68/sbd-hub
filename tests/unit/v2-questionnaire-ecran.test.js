@@ -428,15 +428,18 @@ describe('60-2a — la décision se reprend quand la ligne de profil ARRIVE', ()
     const ouvertures = [];
     const ctx = {
       userId: () => 'u1', generation: 1, generationValide: () => true,
+      // 60-2b — l'identifiant d'une écriture de profil est celui de la session du CLIENT.
+      Auth: { sessionCourante: () => Promise.resolve({ user: { id: 'u1' } }) }, entrer: () => {},
       Donnees: { monProfil: () => Promise.resolve(ligneDistante), enregistrerProfil: (id, c) => Promise.resolve(Object.assign({ id }, c, { questionnaire_fait_le: null })) },
       Profil, profil: avant === undefined ? null : avant, profilAEnvoyer: false, pseudoAInscrire: null, versionProfil: 0,
       rendreBandeauQuestionnaire: () => { ctx.bandeaux = (ctx.bandeaux || 0) + 1; },
+      rendreBandeauPhase: () => { ctx.bandeauxPhase = (ctx.bandeauxPhase || 0) + 1; },
       sauverProfilLocal: () => Promise.resolve(), ecranCourant: 'semaine', rendreProfilEcran: () => {},
       envoyerProfil: () => Promise.resolve(),
       ouvrirQuestionnaireSiDu: () => { ouvertures.push(ctx.profil); return false; }
     };
     vm.createContext(ctx);
-    vm.runInContext(extraire('chargerProfil'), ctx);
+    ['idDeSession', 'identifiantDuProfil', 'chargerProfil'].forEach((f) => vm.runInContext(extraire(f), ctx));
     return { ctx, ouvertures };
   }
 
@@ -480,6 +483,7 @@ describe('60-2a — l’envoi du profil : UN SEUL À LA FOIS, et une réponse n�
     const departs = [], attentes = [];
     const ctx = {
       userId: () => 'u1', generation: 1, generationValide: () => true,
+      Auth: { sessionCourante: () => Promise.resolve({ user: { id: 'u1' } }) }, entrer: () => {},
       Profil, profil: { id: 'u1', objectif: null }, profilAEnvoyer: false, ecranCourant: 'saisie',
       Donnees: { enregistrerProfil: (id, champs) => new Promise((ok) => {
         departs.push(JSON.parse(JSON.stringify(champs)));
@@ -488,7 +492,8 @@ describe('60-2a — l’envoi du profil : UN SEUL À LA FOIS, et une réponse n�
       sauverProfilLocal: () => Promise.resolve(), rendreProfilEcran: () => {}, envoiProfil: null, versionProfil: 0
     };
     vm.createContext(ctx);
-    ['poserProfil', 'envoyerProfil', 'envoyerProfilMaintenant'].forEach((f) => vm.runInContext(extraire(f), ctx));
+    ['idDeSession', 'identifiantDuProfil', 'poserProfil', 'envoyerProfil', 'envoyerProfilMaintenant']
+      .forEach((f) => vm.runInContext(extraire(f), ctx));
     return { ctx, departs, attentes };
   }
   const tour = () => new Promise((ok) => setImmediate(ok));

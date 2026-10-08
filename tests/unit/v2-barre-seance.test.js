@@ -445,11 +445,31 @@ describe('UN SEUL réveil de durée, jamais un second intervalle', () => {
     });
   });
 
-  // L'unique porte de sortie d'écran coupe le réveil (elle ne se teste pas sans le DOM
-  // de l'app : le banc le joue pour de vrai — « hors de l'écran de séance : aucun réveil »).
-  test('`montrer` coupe le réveil pour tout autre écran que la séance', () => {
-    const montrer = extraire('montrer');
-    expect(montrer).toMatch(/if \(nom !== 'seance'\) arreterDuree\(\);/);
+  // L'unique porte de sortie d'écran coupe le réveil : `montrer` est le VRAI code d'app.js,
+  // extrait ; ce qui n'est pas dans son contexte n'existe pas. Le banc le rejoue pour de vrai
+  // (« hors de l'écran de séance : aucun réveil » après un onglet, Terminer, Abandonner).
+  test('`montrer` coupe le réveil pour tout autre écran que la séance — et pas pour elle', () => {
+    function bacMontrer() {
+      const ctx = {
+        ecranCourant: 'seance', questionnaire: null, arrets: 0,
+        fermerReorganisation: () => {}, fermerQuestionnaire: () => {}, marquerProfilVu: () => {},
+        arreterDuree: () => { ctx.arrets += 1; }, mesurerBarres: () => {},
+        Routeur: { ongletDe: () => null, PROFIL: 'profil', SAISIE: 'saisie' },
+        vues: { seance: { hidden: false }, saisie: { hidden: true }, progression: { hidden: true }, connexion: { hidden: true } },
+        $: () => null, Rendu: { rendreOnglets: () => {} }, doc: { querySelector: () => null }, seance: null
+      };
+      vm.createContext(ctx);
+      vm.runInContext(extraire('montrer'), ctx);
+      return ctx;
+    }
+    ['saisie', 'progression', 'connexion'].forEach((ecran) => {
+      const c = bacMontrer();
+      vm.runInContext("montrer('" + ecran + "')", c);
+      expect([ecran, c.arrets]).toEqual([ecran, 1]);
+    });
+    const s = bacMontrer();
+    vm.runInContext("montrer('seance')", s);
+    expect(s.arrets).toBe(0);
   });
 
   test('`rendreSeance` arme le réveil et mesure la barre APRÈS l’avoir dessinée', () => {

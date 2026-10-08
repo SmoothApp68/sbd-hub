@@ -16300,11 +16300,15 @@ const SETS_IMPORTES = [
     await attendre(900);
     m = await minuteurs();
     const horsSeance = m.durees;
+    const jetonHors = await jeton();
     await page.click('.onglet[data-vue="saisie"]');
     await attendre(900);
     m = await minuteurs();
     ok('[barre] hors de l’écran de séance : aucun réveil de durée ; de retour : UN seul',
       horsSeance === 0 && m.durees === 1 && m.intervalles === 0, 'hors séance ' + horsSeance + ' · de retour ' + JSON.stringify(m));
+    ok('[barre] hors de la séance la réserve du haut retombe à zéro (rien n’est réservé pour une barre absente) ; de retour elle est remesurée',
+      jetonHors === '0px' && parseInt(await jeton(), 10) === Math.ceil((await barre()).h),
+      'hors séance ' + jetonHors + ' · de retour ' + (await jeton()));
 
     // ── N. TERMINER : PLUS AUCUN MINUTEUR, D'AUCUNE SORTE.
     await terminer();

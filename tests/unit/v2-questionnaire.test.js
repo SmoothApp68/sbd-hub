@@ -486,7 +486,7 @@ describe('60-2a — les TEXTES des écrans (la maquette v4, avec ses écarts dé
       ['C’est mon maximum', null],
       ['J’ai de la marge pour en faire plus', null],
       ['J’ai moins de temps en ce moment', 'Je te proposerai des séances plus courtes'],
-      ['Ça varie beaucoup', 'Je te demanderai ton temps avant les longues séances']]);
+      ['Ça varie beaucoup', 'Je te montrerai la durée des longues séances']]);
     expect(blocs(v, 'ligne')).toEqual([{ type: 'ligne', cle: 'duree', libelle: 'Durée visée', valeur: '75 min' }]);
     expect(blocs(v, 'puces').map((b) => b.cle)).toEqual(['materiel']);
     expect(blocs(v, 'puces')[0].options.map((o) => o.libelle)).toEqual(

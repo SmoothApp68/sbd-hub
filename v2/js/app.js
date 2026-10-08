@@ -5924,7 +5924,11 @@
       surChoix: ouvrirRoutine,
       surNouvelle: function () { ouvrirRoutine(null); },
       surDemarrer: function (id) {
-        demarrerSeance(routines.filter(function (r) { return r.id === id; })[0] || null);
+        var r = routines.filter(function (x) { return x.id === id; })[0] || null;
+        // 60-2b (MOTEUR §9.18) — « J'ai moins de temps en ce moment » : la carte de « J'ai
+        // peu de temps » s'ouvre d'elle-même AVANT la séance, une fois par routine et par jour.
+        if (r && ouvrirPeuDeTempsDOffice(r)) return;
+        demarrerSeance(r);
       },
       // §9.18 (51-1) — la durée estimée, et « J'ai peu de temps ».
       temps: tempsDeLaRoutine,
@@ -6038,7 +6042,61 @@
                peuDeTemps: false };
     }
     var d = Moteur.dureeEstimee(structure);
-    return { texte: Moteur.texteDureeEstimee(d), peuDeTemps: ciblesPlusCourtes(d).length > 0 };
+    // 60-2b (MOTEUR §9.18) — ce que la personne a dit de son temps : `ambre` (« Ça varie » :
+    // l'estimation se montre en couleur du coach) et `ouvrir` (« Moins en ce moment » : la
+    // durée visée, en minutes, à laquelle la carte s'ouvre d'elle-même). Une seule règle, au moteur.
+    var rep = Moteur.reponseDeTemps(profil && profil.temps_reponse, d,
+      profil && profil.duree_seance_min, profil && profil.intention);
+    return { texte: Moteur.texteDureeEstimee(d), peuDeTemps: ciblesPlusCourtes(d).length > 0,
+             ambre: rep.ambre, ouvrir: rep.ouvrir };
+  }
+
+  // 60-2b — « UNE FOIS PAR ROUTINE ET PAR JOUR » : une clé locale PAR COMPTE, dans le
+  // préfixe que « Quitter » efface, `{ [routine]: 'AAAA-MM-JJ' }` (jour civil local). Posée
+  // à l'OUVERTURE de la carte : la fermer autrement que par « Garder la séance » (retour,
+  // fond) ne la rouvre pas dans la journée. Un stockage refusé ou illisible se lit « déjà
+  // vu » : on n'ouvre pas à chaque « Démarrer » une carte qu'on ne saurait pas dire montrée.
+  var CLE_PEU_DE_TEMPS_VU = 'th-v2-peu-de-temps-vu-';   // + l'identifiant du compte
+
+  function peuDeTempsVus() {
+    var id = userId();
+    if (!id) return null;
+    try {
+      var v = JSON.parse(racine.localStorage.getItem(CLE_PEU_DE_TEMPS_VU + id) || '{}');
+      return v && typeof v === 'object' && !Array.isArray(v) ? v : null;
+    } catch (e) { return null; }
+  }
+
+  function peuDeTempsDejaVu(routineId) {
+    var vus = peuDeTempsVus();
+    return vus === null || vus[routineId] === jourDuJour();
+  }
+
+  function marquerPeuDeTempsVu(routineId) {
+    var id = userId();
+    if (!id) return;
+    var jour = jourDuJour();
+    var vus = peuDeTempsVus() || {};
+    var gardes = {};
+    // Les jours passés s'élaguent : la clé ne grossit pas d'une entrée par routine et par jour.
+    Object.keys(vus).forEach(function (k) { if (vus[k] === jour) gardes[k] = jour; });
+    gardes[routineId] = jour;
+    try { racine.localStorage.setItem(CLE_PEU_DE_TEMPS_VU + id, JSON.stringify(gardes)); }
+    catch (e) { /* stockage refusé : la lecture suivante dira « déjà vu » */ }
+  }
+
+  // « Démarrer » sur une routine dont la personne a dit « moins de temps » : la carte de
+  // « J'ai peu de temps », à sa durée visée, d'abord — c'est toujours une carte à accepter
+  // (« Raccourcir » ou « Garder la séance »). Rend vrai quand elle s'est ouverte (la séance
+  // ne démarre pas encore). Ce n'est PAS le rendu qui l'ouvre : un geste de la personne.
+  function ouvrirPeuDeTempsDOffice(routine) {
+    var t = tempsDeLaRoutine(routine);
+    if (!t || !t.peuDeTemps || t.ouvrir === null || t.ouvrir === undefined) return false;
+    if (peuDeTempsDejaVu(routine.id)) return false;
+    marquerPeuDeTempsVu(routine.id);
+    montrerCarteRaccourci(routine, t.ouvrir);
+    ouvrirVoile($('feuille-seance'));
+    return true;
   }
 
   function ouvrirPeuDeTemps(routine) {

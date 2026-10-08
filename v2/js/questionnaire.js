@@ -15,7 +15,9 @@
 //
 // ⚠️ AUCUNE RÉPONSE SANS LECTEUR… OU SANS SON NOM (§1.3). Ce que 60-2a ÉCRIT sans
 // que rien le lise encore (objectif, priorités, temps) est dit au futur à
-// l'écran. 60-2b ajoute les lecteurs.
+// l'écran. 60-2b a ajouté les lecteurs : les sous-lignes disent ce que le code
+// FAIT (« Moins » ouvre la carte de « J'ai peu de temps » ; « Ça varie » montre
+// la durée des longues séances).
 //
 // L'ÉCRAN « TON PROGRAMME » (8, 8a, 8b) N'EXISTE PAS ICI : sans programme déduit
 // ni générateur, sa réponse n'aurait pas de lecteur (60-3).
@@ -280,7 +282,7 @@
   };
   var SOUS_TEMPS = {
     moins: 'Je te proposerai des séances plus courtes',
-    varie: 'Je te demanderai ton temps avant les longues séances'
+    varie: 'Je te montrerai la durée des longues séances'
   };
   var SOUS_PHASE = { inconnue: 'Je compte comme maintien' };
 

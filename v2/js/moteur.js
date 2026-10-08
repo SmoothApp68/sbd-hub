@@ -2451,6 +2451,27 @@
       .map(function (m) { return { min: m, declaree: false }; });
   }
 
+  // CE QUE LA PERSONNE A DIT DE SON TEMPS, lu sur une routine (MOTEUR §9.18, 60-2b).
+  // Seulement quand une durée visée est DÉCLARÉE et que l'estimation la dépasse
+  // (`ciblesDeTemps` : la cible déclarée existe) — la semaine allégée est écartée
+  // avant, par l'appelant ; « Juste un carnet » se tait ici (le coach ne propose rien).
+  //   · `moins` (« J'ai moins de temps en ce moment ») : la carte de « J'ai peu de temps »
+  //     s'ouvre d'elle-même à la durée visée — `ouvrir` donne cette durée, en minutes ;
+  //   · `varie` (« Ça varie beaucoup ») : AUCUNE question avant « Démarrer » (un geste de
+  //     plus à chaque séance, qu'on finit par fermer sans lire) ; l'estimation se montre
+  //     en couleur du coach, pour que le dépassement se voie — `ambre` ;
+  //   · `max`, `marge`, vide : rien en séance (le générateur de programme les lira).
+  // Rend `{ ouvrir: minutes | null, ambre: booléen }`.
+  function reponseDeTemps(tempsReponse, dureeS, declareeMin, intentionProfil) {
+    var rien = { ouvrir: null, ambre: false };
+    if (coachSeTait(intentionProfil)) return rien;
+    var cibles = ciblesDeTemps(dureeS, declareeMin);
+    if (!cibles.length || !cibles[0].declaree) return rien;
+    if (tempsReponse === 'moins') return { ouvrir: cibles[0].min, ambre: false };
+    if (tempsReponse === 'varie') return { ouvrir: null, ambre: true };
+    return rien;
+  }
+
   // Le libellé d'une cible, dans la feuille « J'ai peu de temps » : « 45 min »,
   // ou « Tenir en 60 min » quand c'est la durée de la personne.
   function libelleCibleTemps(cible) {
@@ -6137,7 +6158,7 @@
     structureAllegee: structureAllegee,
     appliquerRaccourci: appliquerRaccourci,
     texteDureeEstimee: texteDureeEstimee,
-    ciblesDeTemps: ciblesDeTemps,
+    ciblesDeTemps: ciblesDeTemps, reponseDeTemps: reponseDeTemps,
     libelleCibleTemps: libelleCibleTemps,
     CIBLES_TEMPS_PAR_DEFAUT: CIBLES_TEMPS_PAR_DEFAUT,
     texteDureeAllegee: texteDureeAllegee,

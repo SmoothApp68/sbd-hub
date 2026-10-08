@@ -786,7 +786,12 @@ const NOTIONS = [
     module: 'profil.js', fonction: 'rappelDePhase', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['rendreBandeauPhase'] },
     raison: 'MOTEUR §9.16 (60-2b) : le seuil des 42 jours et le choix de la date (`phase_confirmee_le`, sinon ' +
-      '`phase_depuis`) vivent dans une règle pure ; le bandeau de Saisie la lit, il ne recalcule pas l’âge d’une phase.' }
+      '`phase_depuis`) vivent dans une règle pure ; le bandeau de Saisie la lit, il ne recalcule pas l’âge d’une phase.' },
+  { notion: 'ce que la réponse « temps » déclenche sur une routine (la carte d’office pour « moins », l’ambre pour « varie »)', pr: '60-U8',
+    module: 'moteur.js', fonction: 'reponseDeTemps', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['tempsDeLaRoutine'] },
+    raison: 'MOTEUR §9.18 (60-2b) : la condition (durée visée déclarée, estimation au-dessus, pas de carnet) et ce que chaque ' +
+      'réponse en fait vivent dans le moteur ; `tempsDeLaRoutine` la lit, ni l’écran ni la rangée ne comparent une durée à la main.' }
 ];
 
 // ── 58-1 — UN FAIT NE SE DÉCLARE QUE DANS `faits.js` ─────────────────────────

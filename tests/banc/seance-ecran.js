@@ -11424,6 +11424,130 @@ const SETS_IMPORTES = [
     await entree('^Annuler$');
     await attendre(300);
 
+    // ── G. 60-2b (MOTEUR §9.18) — CE QUE LA PERSONNE A DIT DE SON TEMPS. Une durée visée de 60 min est
+    // déclarée (« Peu de temps U51 » la dépasse) ; la réponse du questionnaire décide de la suite.
+    //   · « Ça varie » : l'estimation s'écrit en ambre, « Démarrer » démarre tout de suite (aucune question) ;
+    //   · « Moins en ce moment » : « Démarrer » ouvre d'abord la carte, UNE fois par routine et par jour ;
+    //   · « marge », « Juste un carnet », pas de durée déclarée : rien.
+    const spG = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const AMBRE = 'rgb(242, 184, 75)';
+    const dureeCouleur = (nom) => page.evaluate((n) => {
+      const r = Array.from(document.querySelectorAll('.routine-rangee'))
+        .filter((x) => (x.querySelector('.routine-nom') || {}).textContent === n)[0];
+      const d = r && r.querySelector('.routine-duree');
+      return d ? { classes: d.className, couleur: getComputedStyle(d).color, texte: d.textContent } : null;
+    }, nom);
+    const cliquerDemarrer = async (nom) => {
+      await page.evaluate((n) => {
+        const r = Array.from(document.querySelectorAll('.routine-rangee'))
+          .filter((x) => (x.querySelector('.routine-nom') || {}).textContent === n)[0];
+        r.querySelector('.demarrer').click();
+      }, nom);
+      await attendre(900);
+    };
+    const voileOuvert = () => page.evaluate(() => !document.querySelector('#feuille-seance').hidden);
+    const clesVuesG = () => page.evaluate(() => Object.keys(localStorage).filter((k) => k.indexOf('th-v2-peu-de-temps-vu-') === 0));
+    const effacerVuesG = () => page.evaluate(() => Object.keys(localStorage)
+      .filter((k) => k.indexOf('th-v2-peu-de-temps-vu-') === 0).forEach((k) => localStorage.removeItem(k)));
+    // ⚠️ Le profil arrive APRÈS le premier rendu de Saisie (le cache d'abord, la ligne ensuite) et les
+    // rangées ne se redessinent pas à son arrivée : un second chargement montre la réponse de temps
+    // posée côté serveur — comme sur un appareil qui a déjà synchronisé le changement d'un autre.
+    const reglerTemps = async (champs) => {
+      Object.assign(base.profiles[0], { duree_seance_min: 60, temps_reponse: null, intention: 'progresser' }, champs);
+      await effacerVuesG();
+      await aller('/saisie');
+      await attendre(1500);
+      await aller('/saisie');
+      await attendre(900);
+    };
+    const saisieSeule = JSON.stringify(['vue-saisie']);
+
+    // « Ça varie » : l'ambre, et pas de question.
+    await reglerTemps({ temps_reponse: 'varie' });
+    const vari = await dureeCouleur('Peu de temps U51');
+    ok('[60-2b] DISCRIMINANT — « Ça varie » + durée visée 60 min : l’estimation de la routine qui la dépasse s’écrit en AMBRE (la couleur du coach), le texte ne change pas',
+      !!vari && /depasse/.test(vari.classes) && vari.couleur === AMBRE && /^Environ \d+ min \(estimation\)$/.test(spG(vari.texte)), JSON.stringify(vari));
+    await cliquerDemarrer('Peu de temps U51');
+    ok('[60-2b] DISCRIMINANT — « Ça varie » : « Démarrer » démarre tout de suite — aucune feuille, aucune question',
+      JSON.stringify(await visible()) === JSON.stringify(['vue-seance']) && !(await voileOuvert()), JSON.stringify([await visible(), await voileOuvert()]));
+    await abandonner();
+    await aller('/saisie');
+    await attendre(900);
+
+    // « marge » : rien.
+    await reglerTemps({ temps_reponse: 'marge' });
+    const marge = await dureeCouleur('Peu de temps U51');
+    ok('[60-2b] « J’ai de la marge » : l’estimation reste grise, et « Démarrer » démarre',
+      !!marge && !/depasse/.test(marge.classes) && marge.couleur !== AMBRE, JSON.stringify(marge));
+    await cliquerDemarrer('Peu de temps U51');
+    ok('[60-2b] … « Démarrer » démarre sans carte', JSON.stringify(await visible()) === JSON.stringify(['vue-seance']) && !(await voileOuvert()), JSON.stringify(await visible()));
+    await abandonner();
+
+    // « Moins en ce moment » : la carte d'office, une fois par routine et par jour.
+    await reglerTemps({ temps_reponse: 'moins' });
+    const grise = await dureeCouleur('Peu de temps U51');
+    ok('[60-2b] « Moins » : l’estimation reste grise (l’ambre est celui de « Ça varie »)', !!grise && !/depasse/.test(grise.classes), JSON.stringify(grise));
+    await cliquerDemarrer('Peu de temps U51');
+    const carte1 = await feuilleR();
+    ok('[60-2b] DISCRIMINANT — « Moins » : « Démarrer » ouvre d’abord la carte, à la durée visée (60 min), et la séance ne démarre pas',
+      (await voileOuvert()) && JSON.stringify(await visible()) === saisieSeule &&
+        /^(Pour tenir en 60 min|Au plus court : \d+ min) \(estimation\)$/.test(spG(carte1.titre)) &&
+        carte1.boutons.map(spG).some((b) => /^Garder la séance$/.test(b)), JSON.stringify([carte1, await visible()]));
+    const cles = await clesVuesG();
+    ok('[60-2b] la mémoire du jour est posée à l’OUVERTURE : une clé locale par compte, dans le préfixe que « Quitter » efface',
+      cles.length === 1 && /^th-v2-peu-de-temps-vu-.+/.test(cles[0]), JSON.stringify(cles));
+    await entree('^Garder la séance$');
+    await attendre(900);
+    ok('[60-2b] « Garder la séance » démarre la séance complète', JSON.stringify(await visible()) === JSON.stringify(['vue-seance']), JSON.stringify(await visible()));
+    await abandonner();
+    await aller('/saisie');
+    await attendre(900);
+    await cliquerDemarrer('Peu de temps U51');
+    ok('[60-2b] DISCRIMINANT — UNE fois par routine et par jour : le second « Démarrer » du jour démarre tout de suite',
+      JSON.stringify(await visible()) === JSON.stringify(['vue-seance']) && !(await voileOuvert()), JSON.stringify([await visible(), await voileOuvert()]));
+    await abandonner();
+    await aller('/saisie');
+    await attendre(900);
+    await cliquerDemarrer('Trop long U51');
+    const carte2 = await feuilleR();
+    ok('[60-2b] … mais une AUTRE routine ouvre la sienne (« Trop long U51 » : sa propre carte, à la même durée visée)',
+      (await voileOuvert()) && JSON.stringify(await visible()) === saisieSeule &&
+        /^(Pour tenir en 60 min|Au plus court : \d+ min) \(estimation\)$/.test(spG(carte2.titre)), JSON.stringify(carte2));
+    await entree('^Annuler$|^Garder la séance$');
+    await attendre(700);
+    await abandonner();
+    // Le lendemain : la mémoire du jour passé ne compte plus.
+    await page.evaluate(() => Object.keys(localStorage).filter((k) => k.indexOf('th-v2-peu-de-temps-vu-') === 0).forEach((k) => {
+      const v = JSON.parse(localStorage.getItem(k));
+      Object.keys(v).forEach((r) => { v[r] = '2020-01-01'; });
+      localStorage.setItem(k, JSON.stringify(v));
+    }));
+    await aller('/saisie');
+    await attendre(900);
+    await cliquerDemarrer('Peu de temps U51');
+    ok('[60-2b] DISCRIMINANT — le lendemain, la carte se rouvre', (await voileOuvert()) && JSON.stringify(await visible()) === saisieSeule, JSON.stringify([await voileOuvert(), await visible()]));
+    await page.click('#btn-fermer-feuille').catch(() => {});
+    await attendre(500);
+
+    // « Juste un carnet », et pas de durée déclarée : rien.
+    await reglerTemps({ temps_reponse: 'moins', intention: 'entretien' });
+    const carnetDuree = await dureeCouleur('Peu de temps U51');
+    await cliquerDemarrer('Peu de temps U51');
+    ok('[60-2b] DISCRIMINANT — « Juste un carnet » : ni carte d’office ni ambre, « Démarrer » démarre',
+      JSON.stringify(await visible()) === JSON.stringify(['vue-seance']) && !(await voileOuvert()) && !/depasse/.test(carnetDuree.classes), JSON.stringify([await visible(), carnetDuree]));
+    await abandonner();
+    await reglerTemps({ temps_reponse: 'moins', duree_seance_min: null });
+    await cliquerDemarrer('Peu de temps U51');
+    ok('[60-2b] DISCRIMINANT — « Moins » sans durée visée déclarée : rien ne s’ouvre (la médiane montrée n’est pas une réponse)',
+      JSON.stringify(await visible()) === JSON.stringify(['vue-seance']) && !(await voileOuvert()), JSON.stringify([await visible(), await voileOuvert()]));
+    await abandonner();
+    base.profiles[0].duree_seance_min = null;
+    base.profiles[0].temps_reponse = null;
+    base.profiles[0].intention = 'progresser';
+    await effacerVuesG();
+    await aller('/saisie');
+    await attendre(900);
+
     ok('[T51] la garde (C6) n’a rien signalé dans cette section', gardeBanc.violations === violationsAvant,
       JSON.stringify(gardeBanc.liste.slice(-2)));
     ok('[T51] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));

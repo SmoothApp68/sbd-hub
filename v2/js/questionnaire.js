@@ -648,6 +648,14 @@
       libelle: rang === 0 ? 'C’est parti' : rang === visibles.length - 1 ? 'Commencer' : 'Continuer',
       actif: ecranPret(id, e.rep)
     };
+    // 60-4 — « Refaire mon programme » (Profil) rejoue l'écran 8b SEUL : pas de barre, pas de « Plus tard », un
+    // retour qui ramène au Profil, et un bouton qui dit où il mène (le même que sur la maquette de l'écran).
+    if (e.refaire && id === CONSTRUIT) {
+      vue.progression = null;
+      vue.sansPlusTard = true;
+      vue.retour = true;
+      vue.bouton.libelle = 'Voir mon programme';
+    }
     return vue;
   }
 

@@ -1002,6 +1002,38 @@
     return { libelle: 'Terminer mon questionnaire', surChoix: ouvrir };
   }
 
+  // ══ LE PROGRAMME CONSTRUIT, AU PROFIL (60-4, ECRAN-PROFIL §4 bis, G10) ════════
+  //
+  // Trois lignes dans la section du matériel : « Zone à ménager » (une feuille à puces), « Exercices écartés » (la
+  // liste, « Reprendre » sur chacun ; vide : la ligne ne s'affiche pas) et « Refaire mon programme » (les deux
+  // questions de l'écran 8b, puis l'aperçu ; un NOUVEAU dossier, l'ancien reste). Chaque phrase dit ce qui est
+  // branché : le programme construit lit la zone et les écartés, rien d'autre.
+  var PHRASE_ZONES = 'Ton programme construit la garde sans série lourde. Rien ne change en séance.';
+  var PHRASE_ECARTES = 'Un exercice écarté n\u2019est plus proposé dans tes programmes. Il reste au catalogue, en fin de liste.';
+  var PHRASE_REFAIRE = 'Je te pose deux questions et je te construis un nouveau dossier. Le tien reste tel quel.';
+
+  // « Genou, Dos » — dans l'ordre de la liste ; « Aucune » quand il n'y en a pas (une réponse, pas un trou).
+  function libelleDesZones(profil) {
+    var zones = zonesAMenagerValides(profil && profil.zones_a_menager) || [];
+    if (!zones.length) return 'Aucune';
+    return ZONES_A_MENAGER.filter(function (z) { return zones.indexOf(z.cle) >= 0; })
+      .map(function (z) { return z.libelle; }).join(', ');
+  }
+
+  // `ouvrir(quoi)` : 'zones', 'ecartes' ou 'refaire'. Les lignes sont rendues par `rendreProfil` comme les autres.
+  function lignesProgramme(profil, ouvrir) {
+    var lignes = [{ libelle: 'Zone à ménager', sous: PHRASE_ZONES, valeur: libelleDesZones(profil),
+                    surChoix: function () { ouvrir('zones'); } }];
+    var ecartes = ecartesDe(profil);
+    if (ecartes.length) {
+      lignes.push({ libelle: 'Exercices écartés', sous: PHRASE_ECARTES, valeur: String(ecartes.length),
+                    surChoix: function () { ouvrir('ecartes'); } });
+    }
+    lignes.push({ libelle: 'Refaire mon programme', sous: PHRASE_REFAIRE, sansValeur: true,
+                  surChoix: function () { ouvrir('refaire'); } });
+    return lignes;
+  }
+
   // ══ LE PSEUDO ════════════════════════════════════════════════════════════
 
   var PSEUDO_MIN = 3, PSEUDO_MAX = 20;
@@ -1206,6 +1238,8 @@
     basculerPriorite: basculerPriorite, libelleDePriorite: libelleDePriorite, resumeDesPriorites: resumeDesPriorites,
     AIDE_OBJECTIF: AIDE_OBJECTIF, AIDE_PRIORITES: AIDE_PRIORITES, optionsTemps: optionsTemps,
     sectionBut: sectionBut, ligneTemps: ligneTemps, ligneQuestionnaire: ligneQuestionnaire,
+    lignesProgramme: lignesProgramme, libelleDesZones: libelleDesZones,
+    PHRASE_ZONES: PHRASE_ZONES, PHRASE_ECARTES: PHRASE_ECARTES, PHRASE_REFAIRE: PHRASE_REFAIRE,
     doitOuvrirQuestionnaire: doitOuvrirQuestionnaire,
     questionnaireAFaire: questionnaireAFaire,
     champsEcrits: champsEcrits,

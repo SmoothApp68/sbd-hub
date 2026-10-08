@@ -8774,22 +8774,32 @@
   }
 
   function ecransDuQuestionnaire() {
+    if (questionnaire.refaire) return [Questionnaire.CONSTRUIT];
     return Questionnaire.ecransVisibles({ aDesSeances: questionnaire.aDesSeances,
                                           historique: questionnaire.rep.historique,
                                           programme: questionnaire.rep.programme,
                                           aDesRoutines: aDesRoutinesConnu() });
   }
 
-  function ouvrirQuestionnaire() {
+  function ouvrirQuestionnaire(options) {
     if (questionnaire) return;
+    // 60-4 — « Refaire mon programme » (Profil) rejoue l'écran 8b SEUL : le même écran, les mêmes écritures, puis
+    // l'aperçu. Ce n'est pas le questionnaire : il ne se marque pas « vu ici ».
+    var refaire = !!(options && options.refaire);
     var pesee = Poids.resume(local.pesees);
     questionnaire = {
-      ecran: Questionnaire.BIENVENUE,
+      ecran: refaire ? Questionnaire.CONSTRUIT : Questionnaire.BIENVENUE,
       rep: Questionnaire.reponsesInitiales(profil, { poids: pesee ? pesee.poids : null }),
-      faits: null, aDesSeances: false, textes: {}, erreurs: {}, retourRecap: false
+      faits: null, aDesSeances: false, textes: {}, erreurs: {}, retourRecap: false, refaire: refaire
     };
     actualiserFaitsDuQuestionnaire();
-    marquerQuestionnaireVuIci();
+    if (refaire) {
+      // Les jours déjà dits (bornés), sinon le rythme que les séances montrent, comme à l'écran 8b.
+      if (!Questionnaire.joursValides(questionnaire.rep.seances)) {
+        var jours = Questionnaire.joursPrecoches(questionnaire.rep, questionnaire.faits);
+        if (jours !== null) questionnaire.rep.seances = jours;
+      }
+    } else marquerQuestionnaireVuIci();
     // 60-3 — les routines vivent en ligne et ne sont pas dans le cache : on les
     // lit dès l'ouverture, pour savoir avant l'écran 8 s'il a lieu d'être.
     if (etatRoutines.code === 'jamais' || etatRoutines.code === 'echec') chargerRoutines().catch(function () {});
@@ -8813,7 +8823,7 @@
     if (!q) return;
     montrer('questionnaire');
     var vue = Questionnaire.vueDe(q.ecran, { rep: q.rep, faits: q.faits, aDesSeances: q.aDesSeances,
-      textes: q.textes, erreurs: q.erreurs, visibles: ecransDuQuestionnaire() });
+      textes: q.textes, erreurs: q.erreurs, visibles: ecransDuQuestionnaire(), refaire: !!q.refaire });
     Rendu.rendreQuestionnaire($('questionnaire-corps'), vue, {
       surChoix: choisirDansQuestionnaire,
       surSaisie: saisirDansQuestionnaire,
@@ -8878,6 +8888,7 @@
   function continuerQuestionnaire() {
     var q = questionnaire;
     if (!q || !Questionnaire.ecranPret(q.ecran, q.rep)) return;
+    if (q.refaire) return validerRefaire();
     var ecrit = Questionnaire.champsDeLEcran(q.ecran, q.rep, profil, {
       pesees: local.pesees, jour: jourDuJour(), maintenant: new Date() });
     // Une écriture par écran. `poserProfil` met `profil` à jour AVANT son premier
@@ -8920,6 +8931,8 @@
   function reculerQuestionnaire() {
     var q = questionnaire;
     if (!q) return;
+    // 60-4 — « Refaire mon programme » : le retour ramène au Profil, sans rien écrire.
+    if (q.refaire) { fermerQuestionnaire(); return rendreProfilEcran(); }
     if (q.retourRecap) {
       q.retourRecap = false;
       q.ecran = Questionnaire.RECAP;
@@ -8955,6 +8968,25 @@
     await afficherSaisie();
     if (garder && !seance && !vues.saisie.hidden && !voileOuvert) await ouvrirSeancesQuiReviennent();
     else if (construire && !seance && !vues.saisie.hidden && !voileOuvert) await ouvrirApercuProgramme();
+  }
+
+  // 60-4 (ECRAN-PROFIL §4 bis) — « REFAIRE MON PROGRAMME » : les deux questions de l'écran 8b (les jours, une zone à
+  // ménager), puis l'aperçu. Un NOUVEAU dossier (« Mon programme (2) » s'il existe) — l'ancien reste tel quel, une
+  // décision ne s'efface jamais en silence — et `programme_construit_*` pointent le nouveau à la création.
+  function refaireMonProgramme() {
+    if (questionnaire || seance || voileOuvert) return;
+    ouvrirQuestionnaire({ refaire: true });
+  }
+
+  async function validerRefaire() {
+    var q = questionnaire;
+    if (!q || !q.refaire) return;
+    var ecrit = Questionnaire.champsDeLEcran(q.ecran, q.rep, profil, {
+      pesees: local.pesees, jour: jourDuJour(), maintenant: new Date() });
+    if (Object.keys(ecrit.champs).length) poserProfil(ecrit.champs).catch(function () {});
+    fermerQuestionnaire();
+    await afficherSaisie();
+    if (!seance && !vues.saisie.hidden && !voileOuvert) await ouvrirApercuProgramme();
   }
 
   // Le bandeau de Saisie : « Ton questionnaire n'est pas terminé. », tant qu'il
@@ -9191,6 +9223,60 @@
     ouvrirFeuilleProfil();
   }
 
+  // ── LE PROGRAMME CONSTRUIT, AU PROFIL (60-4, ECRAN-PROFIL §4 bis) ───────────
+  function ouvrirProgrammeProfil(quoi) {
+    if (quoi === 'zones') return ouvrirZonesProfil();
+    if (quoi === 'ecartes') return ouvrirEcartesProfil();
+    if (quoi === 'refaire') return refaireMonProgramme();
+  }
+
+  // « Zone à ménager » : une feuille à puces (une ou plusieurs, ou « Aucune »), la MÊME que l'écran 8b
+  // (`Profil.basculerZone`). Rien ne s'écrit avant « Valider » ; « Aucune » écrit le vide (`NULL`).
+  function ouvrirZonesProfil() {
+    var liste = Profil.zonesAMenagerValides(profil && profil.zones_a_menager) || [];
+    var redessiner = function () { feuilleProfil($('feuille-contenu')); };
+    feuilleProfil = function (cible) {
+      Rendu.rendreFeuilleChoixMultiple(cible, {
+        titre: 'Zone à ménager',
+        aide: Profil.PHRASE_ZONES,
+        groupes: [{ options: Profil.ZONES_A_MENAGER }],
+        valeurs: liste,
+        aucune: { libelle: 'Aucune', actif: liste.length === 0 },
+        surBasculer: function (c) { liste = Profil.basculerZone(liste, c); redessiner(); },
+        surAucune: function () { liste = []; redessiner(); },
+        surValider: function () { fermerVoile(); ecrireReponse({ zones_a_menager: liste }); },
+        surAnnuler: fermerVoile
+      });
+    };
+    ouvrirFeuilleProfil();
+  }
+
+  // « Exercices écartés » : la liste, « Reprendre » sur chacun. La feuille reste ouverte entre deux reprises ; le
+  // dernier repris la ferme (la ligne du Profil s'efface, puisqu'elle ne s'affiche pas à vide).
+  function ouvrirEcartesProfil() {
+    var index = Modele.indexerExercices(local.exercices);
+    feuilleProfil = function (cible) {
+      var ecartes = Profil.ecartesDe(profil);
+      Rendu.rendreFeuilleEcartes(cible, {
+        titre: 'Exercices écartés',
+        aide: Profil.PHRASE_ECARTES,
+        exercices: ecartes.map(function (slug) {
+          return { nom: Modele.nommer(index, slug), surReprendre: function () { reprendreEcarte(slug); } };
+        }),
+        surFermer: fermerVoile
+      });
+    };
+    ouvrirFeuilleProfil();
+  }
+
+  function reprendreEcarte(slug) {
+    var restants = Profil.ecartesDe(profil).filter(function (s) { return s !== slug; });
+    var champs = Profil.preparerChamps(profil, { exercices_ecartes: restants }, new Date());
+    if (Object.keys(champs).length) ecrireProfil(champs);
+    if (!restants.length) return fermerVoile();
+    if (feuilleProfil) feuilleProfil($('feuille-contenu'));
+  }
+
   // Les saisies libres. Chacune rend une PHRASE quand elle refuse — jamais un
   // silence, jamais une fermeture. La borne doublée ici est un CHECK de la base.
   var SAISIES = {
@@ -9332,9 +9418,11 @@
         { valeur: Profil.libelleAnciennete(stats.annees), libelle: 'd’historique' }
       ],
       sections: [
+        // 60-4 (ECRAN-PROFIL §4 bis) — le programme construit : la zone à ménager, les exercices écartés (la ligne
+        // s'efface quand il n'y en a plus), « Refaire mon programme ».
         { titre: 'CE QUE JE FAIS', lignes: [
           ligneChoix('materiel', 'Matériel')
-        ] },
+        ].concat(Profil.lignesProgramme(p, ouvrirProgrammeProfil)) },
         // 60-1 — « Progresser » ou « Juste un carnet » : la section se construit
         // dans `profil.js`, comme « Ton rythme » (la phrase dépend du choix).
         Profil.sectionIntention(p, ecrireProfil),

@@ -4579,19 +4579,25 @@
       retour.addEventListener('click', a.surRetour);
       haut.appendChild(retour);
     } else haut.appendChild(el('span', 'q-retour vide'));
-    var barre = el('div', 'q-prog');
-    barre.setAttribute('role', 'progressbar');
-    barre.setAttribute('aria-valuemin', '1');
-    barre.setAttribute('aria-valuemax', String(vue.progression.total));
-    barre.setAttribute('aria-valuenow', String(vue.progression.rang + 1));
-    var rempli = el('i');
-    rempli.style.width = vue.progression.pourcent + '%';
-    barre.appendChild(rempli);
-    haut.appendChild(barre);
-    var plus = el('button', 'q-plus-tard', 'Plus tard');
-    plus.type = 'button';
-    plus.addEventListener('click', a.surPlusTard);
-    haut.appendChild(plus);
+    // 60-4 — « Refaire mon programme » (Profil) rejoue l'écran 8b SEUL : pas de barre (il n'y a qu'un écran), pas de
+    // « Plus tard » (le retour ramène au Profil). Un espace garde la tête en place.
+    if (vue.progression) {
+      var barre = el('div', 'q-prog');
+      barre.setAttribute('role', 'progressbar');
+      barre.setAttribute('aria-valuemin', '1');
+      barre.setAttribute('aria-valuemax', String(vue.progression.total));
+      barre.setAttribute('aria-valuenow', String(vue.progression.rang + 1));
+      var rempli = el('i');
+      rempli.style.width = vue.progression.pourcent + '%';
+      barre.appendChild(rempli);
+      haut.appendChild(barre);
+    } else haut.appendChild(el('span', 'q-prog vide'));
+    if (!vue.sansPlusTard) {
+      var plus = el('button', 'q-plus-tard', 'Plus tard');
+      plus.type = 'button';
+      plus.addEventListener('click', a.surPlusTard);
+      haut.appendChild(plus);
+    }
     page.appendChild(haut);
 
     var corps = el('div', 'q-corps');
@@ -4760,6 +4766,27 @@
     return cible;
   }
 
+  // 60-4 (ECRAN-PROFIL §4 bis, G10) — « Exercices écartés » : la liste, « Reprendre » sur chacun. Rien n'est caché
+  // ni perdu : un exercice repris revient dans les programmes et en tête du catalogue. `vue` : `{ titre, aide,
+  // exercices: [{ nom, surReprendre }], surFermer }`.
+  function rendreFeuilleEcartes(cible, vue) {
+    vider(cible);
+    teteFeuille(cible, vue.titre, null, vue.aide);
+    var liste = el('div', 'ecartes-liste');
+    (vue.exercices || []).forEach(function (x) {
+      var ligne = el('div', 'ecarte-ligne');
+      ligne.appendChild(el('span', 'ecarte-nom', x.nom));
+      var b = el('button', 'discret ecarte-reprendre', 'Reprendre');
+      b.type = 'button';
+      b.addEventListener('click', x.surReprendre);
+      ligne.appendChild(b);
+      liste.appendChild(ligne);
+    });
+    cible.appendChild(liste);
+    piedFeuille(cible, [{ classe: 'sec', texte: 'Fermer', surClic: vue.surFermer }]);
+    return cible;
+  }
+
   // Une saisie libre : taille, date de naissance, bio, pseudo, mot de passe.
   // `type` est celui de l'input — `date` et `number` ouvrent le bon clavier sur
   // Android, ce qu'aucun `text` ne fait.
@@ -4905,6 +4932,7 @@
     rendreFeuilleProgramme: rendreFeuilleProgramme,
     rendreFeuilleSeancesQuiReviennent: rendreFeuilleSeancesQuiReviennent,
     rendreApercuProgramme: rendreApercuProgramme,
+    rendreFeuilleEcartes: rendreFeuilleEcartes,
     rendreFeuilleBlocEnCours: rendreFeuilleBlocEnCours,
     rendreFeuilleDupliquer: rendreFeuilleDupliquer,
     champDossier: champDossier,

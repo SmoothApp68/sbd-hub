@@ -15400,6 +15400,119 @@ const SETS_IMPORTES = [
     ok('[R60] G — puis la bibliothèque s’ouvre sur « Mon programme », avec ses quatre routines',
       biblioG.vues.indexOf('vue-saisie') >= 0 && biblioG.dossiers.indexOf('Mon programme') >= 0 &&
         ['Haut A', 'Bas A', 'Haut B', 'Bas B'].every((n) => biblioG.routines.indexOf(n) >= 0), JSON.stringify(biblioG));
+
+    // ── H. 60-4 (6/7, ECRAN-PROFIL §4 bis) : LE PROGRAMME CONSTRUIT AU PROFIL — zone à ménager, exercices écartés,
+    // « Refaire mon programme ».
+    const t2 = (n) => (n ? n.textContent.replace(/[\u00a0\u202f]/g, ' ') : null);
+    const sectionH = () => page.evaluate(() => {
+      const t = (n) => (n ? n.textContent.replace(/[\u00a0\u202f]/g, ' ') : null);
+      const titre = Array.from(document.querySelectorAll('#profil-corps .p-sect')).filter((n) => n.textContent === 'CE QUE JE FAIS')[0];
+      const bloc = titre ? titre.nextElementSibling : null;
+      return bloc ? Array.from(bloc.querySelectorAll('.p-ligne')).map((l) => ({ lib: t(l.querySelector('.p-lib').firstChild),
+        sous: t(l.querySelector('.p-lib small')), val: l.querySelector('.p-val') ? t(l.querySelector('.p-val')) : null })) : null;
+    });
+    const toucherH = async (libelle) => {
+      await page.evaluate((x) => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
+        .filter((l) => l.querySelector('.p-lib').firstChild.textContent === x)[0].click(), libelle);
+      await attendre(600);
+    };
+    await aller('/profil');
+    await attendre(1200);
+    let sh = await sectionH();
+    ok('[R60] H — « CE QUE JE FAIS » : Matériel, puis Zone à ménager (Dos), Exercices écartés (1), Refaire mon programme',
+      !!sh && sh.map((l) => l.lib).join('|') === 'Matériel|Zone à ménager|Exercices écartés|Refaire mon programme' &&
+        sh[1].val === 'Dos' && sh[2].val === '1' && sh[3].val === null, JSON.stringify(sh));
+    ok('[R60] H — les phrases de la spec (G10), au mot près',
+      !!sh && sh[1].sous === 'Ton programme construit la garde sans série lourde. Rien ne change en séance.' &&
+        sh[2].sous === 'Un exercice écarté n’est plus proposé dans tes programmes. Il reste au catalogue, en fin de liste.' &&
+        sh[3].sous === 'Je te pose deux questions et je te construis un nouveau dossier. Le tien reste tel quel.', JSON.stringify(sh));
+    // Zone à ménager : une feuille à puces.
+    await toucherH('Zone à ménager');
+    const puces = () => page.evaluate(() => ({ titre: ((document.querySelector('#feuille-contenu .feuille-t') || {}).textContent || ''),
+      cochees: Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu.choix button[aria-pressed="true"]')).map((b) => b.dataset.cle),
+      toutes: Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu.choix button')).map((b) => b.dataset.cle) }));
+    let pu = await puces();
+    ok('[R60] H — « Zone à ménager » : les cinq zones et « Aucune », « Dos » cochée',
+      pu.titre === 'Zone à ménager' && pu.toutes.join('|') === 'epaule|dos|genou|coude|hanche|aucune' && pu.cochees.join('|') === 'dos', JSON.stringify(pu));
+    await page.click('#feuille-contenu button[data-cle="genou"]');
+    await attendre(250);
+    ok('[R60] H — rien n’est écrit avant « Valider »', JSON.stringify(profilBase().zones_a_menager) === '["dos"]', JSON.stringify(profilBase().zones_a_menager));
+    await page.click('#feuille-contenu .feuille-pied .pri');
+    await attendre(900);
+    sh = await sectionH();
+    ok('[R60] H — « Valider » : Dos et Genou écrits (dans l’ordre de la liste), la ligne dit « Dos, Genou »',
+      JSON.stringify(profilBase().zones_a_menager) === '["dos","genou"]' && sh[1].val === 'Dos, Genou',
+      JSON.stringify([profilBase().zones_a_menager, sh[1].val]));
+    await toucherH('Zone à ménager');
+    await page.click('#feuille-contenu button[data-cle="aucune"]');
+    await page.click('#feuille-contenu .feuille-pied .pri');
+    await attendre(900);
+    sh = await sectionH();
+    ok('[R60] H — « Aucune » écrit le vide (NULL) ; la ligne dit « Aucune »',
+      profilBase().zones_a_menager === null && sh[1].val === 'Aucune', JSON.stringify([profilBase().zones_a_menager, sh[1].val]));
+    // Exercices écartés : la liste, « Reprendre ».
+    await toucherH('Exercices écartés');
+    const liste = () => page.evaluate(() => ({ titre: ((document.querySelector('#feuille-contenu .feuille-t') || {}).textContent || ''),
+      noms: Array.from(document.querySelectorAll('#feuille-contenu .ecarte-nom')).map((n) => n.textContent),
+      ouverte: !document.getElementById('feuille-seance').hidden }));
+    let li = await liste();
+    ok('[R60] H — « Exercices écartés » : la liste (le couché barre refusé plus haut), « Reprendre » sur chacun',
+      li.ouverte && li.titre === 'Exercices écartés' && li.noms.join('|') === 'Developpe couche barre', JSON.stringify(li));
+    await page.click('#feuille-contenu .ecarte-reprendre');
+    await attendre(900);
+    li = await liste();
+    sh = await sectionH();
+    ok('[R60] H — « Reprendre » : l’exercice n’est plus écarté (NULL), la feuille se ferme, la ligne « Exercices écartés » s’efface',
+      !profilBase().exercices_ecartes && !li.ouverte && sh.map((l) => l.lib).join('|') === 'Matériel|Zone à ménager|Refaire mon programme',
+      JSON.stringify([profilBase().exercices_ecartes, li.ouverte, sh && sh.map((l) => l.lib)]));
+    // Refaire mon programme : « Retour » ramène au Profil sans rien écrire.
+    const avantRefaire = JSON.stringify([profilBase().seances_par_semaine, profilBase().zones_a_menager, ROUTINES.length]);
+    await toucherH('Refaire mon programme');
+    const huit = () => page.evaluate(() => ({
+      ecran: (document.querySelector('#questionnaire-corps .q-corps') || {}).dataset ? document.querySelector('#questionnaire-corps .q-corps').dataset.ecran : null,
+      barre: !!document.querySelector('#questionnaire-corps [role="progressbar"]'),
+      plusTard: !!document.querySelector('#questionnaire-corps .q-plus-tard'),
+      retour: !!document.querySelector('#questionnaire-corps .q-retour:not(.vide)'),
+      bouton: ((document.querySelector('#questionnaire-corps .q-continuer') || {}).textContent || null),
+      actif: !!document.querySelector('#questionnaire-corps .q-continuer') && !document.querySelector('#questionnaire-corps .q-continuer').disabled,
+      jours: Array.from(document.querySelectorAll('#questionnaire-corps .q-puces')[0].querySelectorAll('.q-puce'))
+        .filter((b) => b.getAttribute('aria-pressed') === 'true').map((b) => b.dataset.cle) }));
+    let hb = await huit();
+    ok('[R60] H — « Refaire mon programme » rejoue l’écran 8b SEUL : pas de barre, pas de « Plus tard », un retour, « Voir mon programme », les 4 jours déjà dits cochés',
+      hb.ecran === 'construit' && !hb.barre && !hb.plusTard && hb.retour && hb.bouton === 'Voir mon programme' && hb.actif &&
+        hb.jours.join('|') === '4', JSON.stringify(hb));
+    await page.click('#questionnaire-corps .q-retour');
+    await attendre(700);
+    const vuesRetour = await visible();
+    ok('[R60] H — « Retour » : le Profil, rien d’écrit, aucun aperçu',
+      vuesRetour.indexOf('vue-profil') >= 0 && vuesRetour.indexOf('vue-questionnaire') < 0 && !(await apercuR()).ouverte &&
+        JSON.stringify([profilBase().seances_par_semaine, profilBase().zones_a_menager, ROUTINES.length]) === avantRefaire,
+      JSON.stringify([vuesRetour, avantRefaire]));
+    // Refaire : 3 jours, genou → l'aperçu → « Créer » : un NOUVEAU dossier, l'ancien reste.
+    await toucherH('Refaire mon programme');
+    await cliquerR('.q-puce[data-cle="3"]');
+    await cliquerR('.q-puce[data-cle="genou"]');
+    ok('[R60] H — rien n’est écrit avant « Voir mon programme »',
+      profilBase().seances_par_semaine === 4 && profilBase().zones_a_menager === null, JSON.stringify([profilBase().seances_par_semaine, profilBase().zones_a_menager]));
+    await continuerR();
+    await attendre(2000);
+    ap = await apercuR();
+    ok('[R60] H — « Voir mon programme » : 3 jours et Genou écrits, puis l’aperçu de 3 séances par-dessus Saisie',
+      profilBase().seances_par_semaine === 3 && JSON.stringify(profilBase().zones_a_menager) === '["genou"]' &&
+        ap.ouverte && ap.titre === '3 séances par semaine.' && ap.cartes.length === 3 && /^Tu ménages ton genou/.test(ap.voix[1] || ''),
+      JSON.stringify([profilBase().seances_par_semaine, profilBase().zones_a_menager, ap.titre, ap.cartes.length]));
+    await page.evaluate(() => document.querySelector('#feuille-contenu .apercu-creer').click());
+    for (let n = 0; n < 60 && (await apercuR()).ouverte; n++) await attendre(250);
+    await attendre(1800);
+    const parDossier = {};
+    ROUTINES.forEach((r) => { parDossier[r.dossier] = (parDossier[r.dossier] || 0) + 1; });
+    ok('[R60] H — « Créer » : un NOUVEAU dossier « Mon programme (2) » (3 routines), l’ancien « Mon programme » reste (4)',
+      JSON.stringify(parDossier) === '{"Mon programme":4,"Mon programme (2)":3}', JSON.stringify(parDossier));
+    ok('[R60] H — `programme_construit_*` pointent le NOUVEAU dossier',
+      profilBase().programme_construit_dossier === 'Mon programme (2)' &&
+        Math.abs(Date.now() - new Date(profilBase().programme_construit_le).getTime()) < 300000,
+      JSON.stringify([profilBase().programme_construit_dossier, profilBase().programme_construit_le]));
+
     base.sessions = sessionsAvantE; base.sets = setsAvantE;
 
     // ── LA REMISE EN ÉTAT, pour les sections suivantes.

@@ -1610,6 +1610,13 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .ap-ex-mention{font-size:12px;color:var(--texte-2)}
 .ap-ex-series{flex:none;font-weight:650;font-variant-numeric:tabular-nums;white-space:nowrap}
 
+/* 60-4 (ECRAN-PROFIL §4 bis) — « Exercices écartés » : une ligne par exercice, « Reprendre » à droite. */
+.ecartes-liste{margin:0 0 var(--e2)}
+.ecarte-ligne{display:flex;align-items:center;justify-content:space-between;gap:var(--e2);
+  padding:10px 2px;border-bottom:1px solid var(--trait);font-size:14px}
+.ecarte-nom{flex:1;min-width:0;overflow-wrap:anywhere}
+.ecarte-reprendre{flex:none}
+
 /* ── MOTEUR §9.23 (55-1) — LE MOIS ET SES RECORDS (maquette « L'onglet »,
    « Le mois »). Descriptif : le mois affiché en couleur du coach, les autres
    en gris, quelle que soit leur hauteur ; aucune couleur de jugement. */
@@ -1691,6 +1698,7 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
   min-width:64px;padding:var(--e1) 0;text-align:left}
 .q-retour.vide{display:inline-block}
 .q-prog{flex:1;height:4px;background:var(--panneau-2);border-radius:9px;overflow:hidden}
+.q-prog.vide{background:transparent}
 .q-prog i{display:block;height:100%;background:var(--accent)}
 .q-plus-tard{background:none;border:0;color:var(--texte-2);font-size:13px;font-weight:500;
   padding:var(--e1) 0}

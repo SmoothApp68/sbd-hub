@@ -887,8 +887,9 @@
   //     le plus haut de la séance ; égalité : par slug), sur les séances du
   //     groupe où ils paraissent. Séries (travail et échec), reps et chauffes :
   //     les médianes, arrondies au plus proche, .5 vers le haut ;
-  //   · LE NOM : le titre le plus fréquent (égalité : le plus récent) ; deux
-  //     routines au même nom — la comparaison de l'index, `normaliserNom` —
+  //   · LE NOM : le titre le plus fréquent (égalité : le plus récent ; sans
+  //     titre, « Routine ») ; deux routines au même nom — la comparaison de
+  //     l'index, `normaliserNom` —
   //     deviennent « … A », « … B » dans l'ordre d'affichage : le plus de
   //     séances d'abord, puis la plus ancienne dernière séance ;
   //   · `cochee` : faux quand la dernière séance du groupe précède de plus de
@@ -1021,6 +1022,10 @@
         if (nom === null || titres[t].fois > titres[nom].fois ||
             (titres[t].fois === titres[nom].fois && titres[t].dernier > titres[nom].dernier)) nom = t;
       });
+      // Sans titre (une séance libre de l'app n'en a pas) : « Routine », le repli de
+      // `nomLibre` — AVANT les lettres, pour que deux groupes sans titre se lisent
+      // « Routine A » et « Routine B » sur la feuille comme à la création.
+      if (nom === null) nom = 'Routine';
       var derniere = new Date(ss[ss.length - 1].debut);
       routines.push({
         nom: nom, fois: ss.length, derniere: jourCle(derniere),
@@ -1031,11 +1036,11 @@
 
     routines.sort(function (a, b) { return b.fois - a.fois || a.instant - b.instant; });
     var memes = {}, vus = {};
-    routines.forEach(function (r) { if (r.nom !== null) memes[normaliserNom(r.nom)] = (memes[normaliserNom(r.nom)] || 0) + 1; });
+    routines.forEach(function (r) { memes[normaliserNom(r.nom)] = (memes[normaliserNom(r.nom)] || 0) + 1; });
     return routines.map(function (r) {
-      var cle = r.nom === null ? null : normaliserNom(r.nom);
+      var cle = normaliserNom(r.nom);
       var nom = r.nom;
-      if (cle !== null && memes[cle] > 1) {
+      if (memes[cle] > 1) {
         nom = r.nom + ' ' + LETTRES_DEDUIT.charAt(vus[cle] || 0);
         vus[cle] = (vus[cle] || 0) + 1;
       }
@@ -1077,6 +1082,9 @@
   // n'est écrit ici : l'éditeur enregistre.
   function exerciceRemplace(exo, slug) {
     var e = exo || {};
+    // Le même exercice choisi (le catalogue, ou un aller-retour) : rien ne change —
+    // ni sa ligne, ni sa charge de départ.
+    if (e.exercise_slug === slug) return e;
     return Object.assign({}, e, {
       id: null,
       exercise_slug: slug,

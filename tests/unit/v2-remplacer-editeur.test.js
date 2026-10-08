@@ -54,6 +54,11 @@ describe('Routines.exerciceRemplace — à sa place, sans la charge de départ',
     expect(avant.exercise_slug).toBe('dc-barre');
   });
 
+  test('le même exercice choisi : rien ne change, sa charge de départ reste', () => {
+    expect(Routines.exerciceRemplace(avant, 'dc-barre')).toBe(avant);
+    expect(avant.series[1].charge_kg).toBe(80);
+  });
+
   test('la durée et la distance du cardio restent', () => {
     const tapis = exo('re-2', 'tapis', null, [ligne('travail', null, null, 600, 1500)]);
     const r = Routines.exerciceRemplace(tapis, 'velo');
@@ -144,15 +149,18 @@ const CATALOGUE = [
   { slug: 'curl', nom: 'Curl', mesure: 'charge_reps', mouvement: null, equipement: 'halteres' }
 ];
 
-function bac() {
+function bac(options) {
+  const o = options || {};
   const journal = { ecritures: 0, voile: 0, ferme: 0, rendus: 0, sauves: 0, catalogue: 0 };
   const ctx = {
     Routines, Seance, Modele,
-    local: { exercices: CATALOGUE },
-    profil: { materiel: null },
-    Profil: { equipementsDe: () => null, estHorsMateriel: () => false },
+    local: { exercices: o.catalogue || CATALOGUE },
+    profil: { materiel: o.equipements ? 'banc' : null },
+    // 60-1 — le matériel du profil RANGE les frères (`horsDuMateriel`) : `o.equipements` le pose.
+    Profil: { equipementsDe: () => o.equipements || null,
+              estHorsMateriel: (eq, autorises) => autorises.indexOf(eq) < 0 },
     // `derniereSeanceDe` : le fait du frère, la fonction de « Dernière séance ».
-    derniereSeanceDe: (slug) => (slug === 'dc-machine' ? { charge_kg: 70, reps: 8, date: '2026-09-30T10:00:00Z' } : null),
+    derniereSeanceDe: (slug) => (!o.jamaisFait && slug === 'dc-machine' ? { charge_kg: 70, reps: 8, date: '2026-09-30T10:00:00Z' } : null),
     brouillon: { id: 'r1', nom: 'Push', exercices: [
       exo('e0', 'squat-barre', null, [ligne('travail', 5, 100)]),
       exo('e1', 'dc-barre', 1, [ligne('echauffement', 10, 40), ligne('travail', 8, 80)], { repos_cible_s: null, note: 'Pause' }),
@@ -227,10 +235,31 @@ describe('les gestes : « Remplacer » dans l’éditeur', () => {
     expect(b.journal.ecritures).toBe(0);
   });
 
-  test('DISCRIMINANT — « Ajouter un exercice » (le catalogue sans « Remplacer ») ajoute toujours en fin', () => {
+  test('⚠️ DISCRIMINANT — « Ajouter un exercice » après un « Remplacer » abandonné : l’intention ne colle pas, il ajoute en fin', () => {
     const b = bac();
-    b.appel('ouvrirCatalogue()');
+    b.appel('ouvrirRemplacerDansLEditeur(1)');
+    b.ctx.__feuille.surCatalogue();          // le catalogue s'ouvre en remplacement… et se ferme sans choix
+    expect(b.ctx.intentionCatalogue.remplace).toBe(1);
+    b.appel('ouvrirCatalogue()');            // « Ajouter un exercice »
     b.ctx.__choisir({ slug: 'curl' });
     expect(b.ctx.brouillon.exercices.map((e) => e.exercise_slug)).toEqual(['squat-barre', 'dc-barre', 'rowing-barre', 'curl']);
+  });
+
+  test('le même exercice choisi dans le catalogue : sa ligne et sa charge restent', () => {
+    const b = bac();
+    b.appel('ouvrirRemplacerDansLEditeur(1)');
+    b.ctx.__feuille.surCatalogue();
+    b.ctx.__choisir({ slug: 'dc-barre' });
+    expect(b.ctx.brouillon.exercices[1].id).toBe('e1');
+    expect(b.ctx.brouillon.exercices[1].series[1].charge_kg).toBe(80);
+  });
+
+  test('le matériel du profil RANGE les frères, comme « Machine prise » : celui qu’on n’a pas passe après', () => {
+    const sans = bac({ jamaisFait: true });
+    sans.appel('ouvrirRemplacerDansLEditeur(1)');
+    expect(sans.ctx.__feuille.freres.map((f) => f.nom)).toEqual(['Développé couché (haltères)', 'Développé couché (machine)']);
+    const avec = bac({ jamaisFait: true, equipements: ['barre', 'machine'] });
+    avec.appel('ouvrirRemplacerDansLEditeur(1)');
+    expect(avec.ctx.__feuille.freres.map((f) => f.nom)).toEqual(['Développé couché (machine)', 'Développé couché (haltères)']);
   });
 });

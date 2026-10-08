@@ -384,10 +384,11 @@
     //
     // Les séances qui reviennent : la RÈGLE vit dans `routines.js`
     // (`seancesQuiReviennent`) ; ce module lui assemble ses faits — les séances
-    // avec leurs séries (`seancesAvecSeries`, le même groupement que le bilan),
-    // leur titre, et la mesure du catalogue de chaque exercice. Pas de mémo :
-    // la feuille le lit une fois, à l'ouverture, et un titre changé ne bouge
-    // pas la clé des autres mémos.
+    // avec leurs séries (`seancesAvecSeries`, le même groupement que le bilan,
+    // AVEC SON MÉMO : une correction qui garde le nombre de séances et de séries
+    // n'y entre qu'au prochain chargement, comme pour le bilan), leur titre (lu
+    // à chaque appel), et la mesure du catalogue de chaque exercice. La règle
+    // elle-même n'a pas de mémo : la feuille la lit une fois, à l'ouverture.
     function programmeDeduit(c) {
       var index = c.catalogue() || {}, mesures = {}, titres = {};
       Object.keys(index).forEach(function (slug) { mesures[slug] = index[slug] ? index[slug].mesure || null : null; });

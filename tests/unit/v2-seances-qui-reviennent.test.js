@@ -279,6 +279,8 @@ describe('les gestes : « En faire mes routines (N) »', () => {
     expect(b.vue().erreur).toBe('Pas de réseau : rien n’a été enregistré.');
     expect(b.vue().routines.map((r) => r.nom)).toEqual(['DOS A', 'BOOTY B', 'DOS B']);
     expect(b.journal.ferme).toBe(0);
+    // La bibliothèque derrière la feuille montre déjà la routine créée.
+    expect(b.journal.rendreSaisie).toBe(1);
     coupe = false;
     await b.vue().surCreer();
     expect(b.journal.routines.map((l) => [l.nom, l.dossier])).toEqual([
@@ -293,6 +295,7 @@ describe('les gestes : « En faire mes routines (N) »', () => {
     expect(b.journal.routines).toEqual([]);
     expect(b.vue().erreur).toBe('Pas de réseau : rien n’a été enregistré.');
     expect(b.vue().routines.length).toBe(4);
+    expect(b.journal.rendreSaisie).toBeUndefined();   // rien de créé : rien à redessiner
   });
 
   test('la bibliothèque s’ouvre sur le dossier, déplié', async () => {

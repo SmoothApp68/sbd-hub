@@ -114,6 +114,16 @@ describe('seancesQuiReviennent — une règle pure', () => {
     // 5 séances d'abord : « push A » ; puis la routine de 4 séances : « Push B ».
     expect(R.seancesQuiReviennent(liste, mesures).map((r) => r.nom)).toEqual(['push A', 'Push B']);
   });
+
+  test('des séances sans titre (une séance libre de l’app) : « Routine », et « A », « B » s’il y en a deux', () => {
+    const mesures = { a: 'charge_reps', b: 'charge_reps', c: 'charge_reps', d: 'charge_reps' };
+    const seance = (jour, exos) => ({ debut: '2026-09-' + jour + 'T10:00:00Z', titre: null,
+      series: exos.map((s, i) => ({ rang: i + 1, exercise_slug: s, type_serie: 'travail', reps: 8 })) });
+    const deux = ['01', '02', '03', '04'].map((j) => seance(j, ['a', 'b']))
+      .concat(['05', '06', '07', '08', '09'].map((j) => seance(j, ['c', 'd'])));
+    expect(R.seancesQuiReviennent(deux, mesures).map((r) => r.nom)).toEqual(['Routine A', 'Routine B']);
+    expect(R.seancesQuiReviennent(deux.slice(0, 4), mesures).map((r) => r.nom)).toEqual(['Routine']);
+  });
 });
 
 // ═══ LA STRUCTURE : celle de « En faire une routine » ══════════════════════

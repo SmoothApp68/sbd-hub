@@ -7639,7 +7639,11 @@
     // ramène alors personne nulle part, on rafraîchit Saisie si on y est.
     var ouverte = retrouver === f;
     if (!ouverte) { if (!vues.saisie.hidden && !seance) rendreSaisie(); return; }
-    if (f.erreur) return rendreFeuilleRetrouver();
+    if (f.erreur) {
+      // Une création partielle : la bibliothèque derrière la feuille montre déjà ce qui est créé.
+      if (creees && !vues.saisie.hidden && !seance) rendreSaisie();
+      return rendreFeuilleRetrouver();
+    }
     fermerVoile();
     await ouvrirBibliothequeSur(f.dossier);
   }

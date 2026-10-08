@@ -27,6 +27,7 @@ const vm = require('vm');
 require('../../v2/js/modele.js');
 require('../../v2/js/semaine.js');
 const Profil = require('../../v2/js/profil.js');
+const Sync = require('../../v2/js/sync.js');
 
 const APP = fs.readFileSync(path.join(__dirname, '../../v2/js/app.js'), 'utf8');
 const extraire = (nom) => {
@@ -345,3 +346,164 @@ describe('l’identifiant d’une écriture de profil est celui de la session du
     expect(APP).not.toMatch(/Donnees\.(enregistrerProfil|monProfil)\(\s*userId\(\)/);
   });
 });
+
+// ── 3. Le pseudo saisi à l'inscription traverse l'entrée du compte (60-2c) ───
+//
+// LE DÉFAUT (relevé par 60-2b) : « Quitter », puis une inscription dans la même page → la ligne de
+// profil naissait SANS pseudo. Où il se perdait : `garantirProprietaire` — appelée par l'entrée du
+// compte, entre la pose du pseudo par `soumettreEntree` et sa lecture par `chargerProfil` — remettait
+// `pseudoAInscrire` à zéro dans sa branche « le cache n'appartient pas au compte qui entre ». Or un
+// compte NEUF n'est jamais propriétaire du cache (appareil vierge, après « Quitter », après un autre
+// compte) : cette branche s'exécutait à CHAQUE inscription à session immédiate, pas seulement après
+// « Quitter ». Aucun test ne jouait la chaîne entière : `chargerProfil` seule posait un pseudo à la main.
+describe('le pseudo saisi à l’inscription traverse l’entrée du compte jusqu’à la ligne de profil', () => {
+  function bac(o) {
+    const opt = o || {};
+    const base = { lignes: {}, refus: [], posts: [], gets: [] };
+    const journal = { vide: 0, meta: [], generations: 0 };
+    const etat = { client: 'B', memoire: 'B' };
+    const ctx = {
+      console: { warn: () => {} },
+      avertissements: [],
+      generation: 1, generationValide: (g) => g === ctx.generation,
+      nouvelleGeneration: () => { ctx.generation++; journal.generations++; },
+      userId: () => etat.memoire,
+      Auth: { sessionCourante: () => Promise.resolve(session(etat.client)) },
+      entrer: () => {},
+      Sync,
+      Cache: {
+        lireMeta: () => Promise.resolve(opt.meta === undefined ? null : opt.meta),
+        viderTout: () => { journal.vide++; return Promise.resolve(); },
+        ecrireMeta: (cle, v) => { journal.meta.push([cle, v]); return Promise.resolve(); }
+      },
+      routines: ['x'], brouillon: {}, etatRoutines: {}, seance: {}, attente: [1], chrono: {},
+      local: {}, journalDecide: true, remplissage: {},
+      fermerQuestionnaire: () => {}, faits: { oublierDates: () => {} },
+      Donnees: {
+        monProfil: (id) => Promise.resolve(id === etat.client ? (base.lignes[id] || null) : null),
+        enregistrerProfil: (id, champs) => {
+          base.posts.push([id, champs]);
+          if (id !== etat.client) { base.refus.push(id); return Promise.reject(new Error('42501')); }
+          base.lignes[id] = Object.assign({ id }, champs);
+          return Promise.resolve(base.lignes[id]);
+        }
+      },
+      Profil, profil: opt.profil === undefined ? null : opt.profil, profilAEnvoyer: false,
+      pseudoAInscrire: opt.pseudo === undefined ? 'test_0710' : opt.pseudo,
+      versionProfil: 0, envoiProfil: null, ecranCourant: 'saisie',
+      rendreBandeauQuestionnaire: () => {}, rendreBandeauPhase: () => {}, ouvrirQuestionnaireSiDu: () => false,
+      sauverProfilLocal: () => Promise.resolve(), rendreProfilEcran: () => {},
+      texteErreur: (e) => String(e && e.message || e)
+    };
+    vm.createContext(ctx);
+    ['idDeSession', 'garantirProprietaire', 'identifiantDuProfil', 'chargerProfil', 'envoyerProfil', 'envoyerProfilMaintenant']
+      .forEach((n) => vm.runInContext(extraire(n), ctx));
+    return { ctx, base, journal, etat,
+      garantir: (id) => { ctx.__i = id; return vm.runInContext('garantirProprietaire(__i)', ctx); },
+      charger: () => vm.runInContext('chargerProfil()', ctx) };
+  }
+
+  test('⚠️ DISCRIMINANT — appareil vierge ou après « Quitter » (le cache n’a plus de propriétaire) : le pseudo SURVIT à l’entrée, le reste est remis à zéro', async () => {
+    const b = bac({ meta: null, profil: { id: 'A', objectif: 'force' } });
+    b.ctx.profilAEnvoyer = true;
+    await b.garantir('B');
+    expect(b.ctx.pseudoAInscrire).toBe('test_0710');
+    // Tout ce qui appartenait au compte précédent est parti, comme avant.
+    expect([b.ctx.profil, b.ctx.profilAEnvoyer, b.ctx.attente, b.ctx.routines]).toEqual([null, false, [], []]);
+    expect(b.journal.vide).toBe(1);
+    expect(b.journal.meta).toEqual([['proprietaire', { userId: 'B' }]]);
+  });
+
+  test('⚠️ DISCRIMINANT — le cache est celui d’un AUTRE compte (A, sans « Quitter ») : le pseudo de l’inscription de B survit aussi', async () => {
+    const b = bac({ meta: { userId: 'A' }, profil: { id: 'A' } });
+    await b.garantir('B');
+    expect(b.ctx.pseudoAInscrire).toBe('test_0710');
+    expect([b.journal.vide, b.ctx.profil]).toEqual([1, null]);
+  });
+
+  test('le cache est déjà celui du compte qui entre : rien n’est touché, le pseudo non plus', async () => {
+    const b = bac({ meta: { userId: 'B' }, profil: { id: 'B' } });
+    await b.garantir('B');
+    expect(b.ctx.pseudoAInscrire).toBe('test_0710');
+    expect([b.journal.vide, b.journal.meta, b.ctx.profil]).toEqual([0, [], { id: 'B' }]);
+  });
+
+  test('⚠️ DISCRIMINANT — LA CHAÎNE : l’entrée de B (cache vidé) puis le chargement du profil créent la ligne AVEC le pseudo tapé', async () => {
+    const b = bac({ meta: null });
+    await b.garantir('B');
+    await b.charger();
+    expect(b.base.refus).toEqual([]);
+    expect(b.base.posts).toHaveLength(1);                        // du premier coup, une seule écriture
+    expect(b.base.lignes.B.username).toBe('test_0710');
+    expect(b.ctx.pseudoAInscrire).toBeNull();                    // posé : plus rien en attente
+  });
+
+  test('la chaîne après un autre compte : la ligne de B porte son pseudo, pas celui de personne', async () => {
+    const b = bac({ meta: { userId: 'A' }, profil: { id: 'A', username: 'compte_a' }, pseudo: 'bob_21' });
+    await b.garantir('B');
+    await b.charger();
+    expect(b.base.lignes.B.username).toBe('bob_21');
+  });
+
+  test('sans pseudo tapé (connexion, lien de confirmation) : la ligne naît sans pseudo, comme avant', async () => {
+    const b = bac({ meta: null, pseudo: null });
+    await b.garantir('B');
+    await b.charger();
+    expect(b.base.lignes.B.username == null).toBe(true);
+  });
+
+  // ── Ce qui reste remis à zéro, et par qui ─────────────────────────────────
+  test('GARDE — `garantirProprietaire` n’écrit plus le pseudo ; « Quitter » (`deconnecter`) le remet toujours à zéro', () => {
+    expect(extraire('garantirProprietaire')).not.toMatch(/pseudoAInscrire\s*=/);
+    expect(extraire('deconnecter')).toMatch(/pseudoAInscrire = null/);
+    // L'échec d'une inscription, et la lecture qui le pose dans la ligne, le remettent aussi à zéro.
+    expect(extraire('soumettreEntree')).toMatch(/catch \(err\) \{\s*pseudoAInscrire = null;/);
+    expect(extraire('chargerProfil')).toMatch(/pseudoAInscrire = null;/);
+  });
+});
+
+describe('`soumettreEntree` : le pseudo est posé AVANT l’inscription, et une CONNEXION n’en garde aucun', () => {
+  function bac(mode, pseudoRestant) {
+    const appels = [];
+    const ctx = {
+      modeEntree: mode,
+      pseudoAInscrire: pseudoRestant === undefined ? null : pseudoRestant,
+      racine: { location: { origin: 'https://exemple.test' } },
+      $: (id) => ({ textContent: '', className: '', disabled: false, value: id === 'champ-email' ? 'b@banc.test' : 'motdepasse123' }),
+      etatEntree: () => ({ pseudo: 'Test 0710', email: 'b@banc.test', mdp: 'motdepasse123' }),
+      majBoutonEntree: () => {},
+      texteErreur: (e) => String(e && e.message || e),
+      Profil,
+      Auth: {
+        // Ce que `pseudoAInscrire` valait AU MOMENT de l'appel : c'est l'ordre qui compte.
+        inscrire: async () => { appels.push(['inscrire', ctx.pseudoAInscrire]); return { session: { user: { id: 'B' } } }; },
+        connecter: async () => { appels.push(['connecter', ctx.pseudoAInscrire]); }
+      }
+    };
+    vm.createContext(ctx);
+    vm.runInContext(extraire('soumettreEntree'), ctx);
+    return { ctx, appels, soumettre: () => vm.runInContext('soumettreEntree({ preventDefault: function () {} })', ctx) };
+  }
+
+  test('⚠️ DISCRIMINANT — l’inscription : le pseudo normalisé est posé AVANT `signUp` (l’évènement d’auth peut partir avant sa réponse)', async () => {
+    const b = bac('inscription');
+    await b.soumettre();
+    expect(b.appels).toEqual([['inscrire', 'test_0710']]);
+    expect(b.ctx.pseudoAInscrire).toBe('test_0710');             // en attente de la création de la ligne
+  });
+
+  test('⚠️ DISCRIMINANT — une CONNEXION n’emporte aucun pseudo resté en mémoire (celui d’une création échouée, d’un autre compte)', async () => {
+    const b = bac('connexion', 'reste_de_a');
+    await b.soumettre();
+    expect(b.appels).toEqual([['connecter', null]]);
+    expect(b.ctx.pseudoAInscrire).toBeNull();
+  });
+
+  test('l’échec de l’inscription remet le pseudo à zéro, comme avant', async () => {
+    const b = bac('inscription');
+    b.ctx.Auth.inscrire = async () => { throw new Error('refusé'); };
+    await b.soumettre();
+    expect(b.ctx.pseudoAInscrire).toBeNull();
+  });
+});
+

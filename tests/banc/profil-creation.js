@@ -13,12 +13,13 @@
 // confirmation (`#access_token=…`) en appelant `GET /auth/v1/user`, puis écrit la
 // session dans le stockage et émet `SIGNED_IN`.
 //
-// Le vrai navigateur, la vraie app (`v2/`), un faux Supabase en mémoire. Quatre
+// Le vrai navigateur, la vraie app (`v2/`), un faux Supabase en mémoire. Cinq
 // scénarios, chacun dans son contexte (stockage vierge) :
 //   1. « compte A, Quitter, inscription du compte B » — la ligne de B se crée du
-//      premier coup, sans un seul refus, et celle de A n'est pas touchée. ⚠️ NON-RÉGRESSION,
-//      pas une preuve : ce scénario passe aussi sur le code d'avant (l'inscription de B
-//      vide le cache et la génération écarte l'entrée de A) ;
+//      premier coup, sans un seul refus, et celle de A n'est pas touchée. ⚠️ NON-RÉGRESSION
+//      pour le 403 : ce scénario passe aussi sur le code d'avant (l'inscription de B vide le
+//      cache et la génération écarte l'entrée de A). Mais (60-2c) la ligne de B porte le
+//      PSEUDO tapé : ce contrôle-là échoue sur le code d'avant ;
 //   2. « le lien de confirmation de B ouvre une page dont le stockage porte encore
 //      A » — la course du constat : la sonde synchrone lit A, le SDK absorbe B ;
 //      sans le correctif, `chargerProfil` créait la ligne avec l'identifiant de A (403) ;
@@ -26,8 +27,11 @@
 //      au chargement suivant ;
 //   4. « le jeton change sous l'app, sans évènement » (un autre onglet) — un geste du Profil
 //      ne part pas sous l'identifiant de l'ancien compte avec le jeton du nouveau (403 sans
-//      le correctif).
-// SEULS LES SCÉNARIOS 2 ET 4 REPRODUISENT LE 403 SUR LE CODE D'AVANT.
+//      le correctif) ;
+//   5. « inscription sur une page vierge » (60-2c) — la ligne naît avec le pseudo tapé : le
+//      pseudo se perdait à CHAQUE inscription à session immédiate, pas seulement après « Quitter ».
+// SEULS LES SCÉNARIOS 2 ET 4 REPRODUISENT LE 403 SUR LE CODE D'AVANT ; les contrôles du pseudo
+// (1 et 5) échouent sur le code d'avant 60-2c.
 //
 //   node tests/banc/profil-creation.js
 
@@ -209,10 +213,10 @@ function ok(nom, cond, detail) {
       ok('non-régression — la ligne de B est créée', cree, JSON.stringify(Object.keys(bd.profils)));
       ok('non-régression — du PREMIER coup : aucune écriture de profil refusée par la base',
         bd.refus.length === 0, JSON.stringify(bd.refus));
-      // ⚠️ RELEVÉ, HORS PÉRIMÈTRE (noté, non corrigé) : le pseudo saisi à l'inscription ne suit pas quand
-      // elle vient APRÈS un « Quitter » dans la même page — `garantirProprietaire` (le cache n'appartient
-      // plus à personne, B entre) remet `pseudoAInscrire` à zéro, et la ligne de B naît sans `username`.
-      // Le banc ne le contrôle donc pas : il dirait faux sur le code d'avant comme sur celui d'après.
+      // 60-2c : le pseudo tapé à l'inscription est celui de la ligne. `garantirProprietaire` (le cache
+      // n'appartient plus à personne, B entre) le remettait à zéro entre sa pose et sa lecture.
+      ok('DISCRIMINANT (60-2c) — la ligne de B porte le PSEUDO tapé à l’inscription, dans la même page, juste après « Quitter »',
+        !!bd.profils[B] && bd.profils[B].username === 'test_0710', JSON.stringify(bd.profils[B]));
       ok('les écritures de B sont sous l’identifiant de B, et seulement celui-là',
         bd.requetes.slice(avantB).every((q) => q.id === B && q.sub === B && q.statut === 201), JSON.stringify(bd.requetes.slice(avantB)));
       ok('la ligne de A n’a pas bougé', bd.profils[A].username === 'compte_a' && bd.profils[A].intention === 'progresser');
@@ -295,6 +299,35 @@ function ok(nom, cond, detail) {
       const rejouee = await attendreQue(page, () => !!bd.profils[B], 15000);
       ok('DISCRIMINANT — au chargement suivant du profil, la création est REJOUÉE et réussit', rejouee, JSON.stringify(bd.requetes));
       ok('aucune écriture refusée par la base', bd.refus.length === 0, JSON.stringify(bd.refus));
+      await ctx.close();
+    }
+
+    // ══ 5. L'INSCRIPTION SUR UNE PAGE VIERGE : LE PSEUDO N'A PAS BESOIN DE « QUITTER » POUR SE PERDRE ═══
+    // Un compte NEUF n'est jamais propriétaire du cache : `garantirProprietaire` s'exécute à chaque
+    // inscription à session immédiate, sur un appareil vierge comme après « Quitter ».
+    console.log('\n══ 5. inscription sur une page vierge : la ligne naît avec le pseudo tapé ══');
+    {
+      const bd = neuveBase();
+      const ctx = await contexte(nav, bd, {});
+      const page = await ctx.newPage();
+      const erreurs = [];
+      page.on('pageerror', (e) => erreurs.push(String(e).slice(0, 160)));
+      await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
+      const surConnexion = await attendreQue(page, () => page.evaluate(() => {
+        const v = document.querySelector('#vue-connexion'); return !!v && !v.hidden; }), 15000);
+      ok('prémisse — page vierge : l’écran de connexion s’affiche, personne n’est connecté', surConnexion);
+      await page.click('#btn-bascule-entree');
+      await attendre(300);
+      await page.fill('#champ-pseudo', 'test_0710');
+      await page.fill('#champ-email', 'b@banc.test');
+      await page.fill('#champ-mdp', 'motdepasse123');
+      await attendreQue(page, () => page.evaluate(() => !document.querySelector('#btn-connexion').disabled), 5000);
+      await page.click('#btn-connexion');
+      const cree = await attendreQue(page, () => !!bd.profils[B], 15000);
+      ok('la ligne de B est créée, du premier coup, sans refus', cree && bd.refus.length === 0, JSON.stringify([Object.keys(bd.profils), bd.refus]));
+      ok('DISCRIMINANT (60-2c) — la ligne de B porte le PSEUDO tapé à l’inscription (page vierge, sans « Quitter »)',
+        !!bd.profils[B] && bd.profils[B].username === 'test_0710', JSON.stringify(bd.profils[B]));
+      ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
       await ctx.close();
     }
   } finally {

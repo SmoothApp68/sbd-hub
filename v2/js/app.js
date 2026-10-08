@@ -790,7 +790,12 @@
     // Le profil aussi appartient au compte précédent — et son envoi en attente
     // avec lui. Le rejouer sur le compte suivant écrirait la taille de
     // quelqu'un d'autre dans sa ligne `profiles`.
-    profil = null; profilAEnvoyer = false; pseudoAInscrire = null;
+    // ⚠️ MAIS PAS LE PSEUDO À INSCRIRE (60-2c). Il n'est pas l'état du compte précédent : c'est celui du
+    // compte QUI ENTRE, posé par `soumettreEntree` juste avant `signUp` — et un compte neuf n'est jamais
+    // propriétaire du cache, donc cette branche s'exécute à CHAQUE inscription. Le remettre à zéro ici
+    // faisait naître la ligne de profil sans pseudo. Il tombe ailleurs : « Quitter » (`deconnecter`),
+    // l'échec d'une inscription, une connexion (`soumettreEntree`) et la création de la ligne (`chargerProfil`).
+    profil = null; profilAEnvoyer = false;
     fermerQuestionnaire(); envoiProfil = null; versionProfil = 0;
     faits.oublierDates();
     await Cache.ecrireMeta('proprietaire', { userId: userId });
@@ -9049,6 +9054,9 @@
           erreur.textContent = 'Compte créé. Confirme ton e-mail, puis connecte-toi.';
         }
       } else {
+        // Une connexion n'inscrit personne : un pseudo resté en mémoire (une création échouée, un autre
+        // compte) ne doit pas partir dans la ligne d'un compte qui n'en a pas encore.
+        pseudoAInscrire = null;
         await Auth.connecter($('champ-email').value.trim(), $('champ-mdp').value);
       }
     } catch (err) {

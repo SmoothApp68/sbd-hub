@@ -301,6 +301,25 @@
     return { routines: nouveau, ecartes: ecartes };
   }
 
+  // ── « Remplacer » dans l'aperçu ──────────────────────────────────────────────────
+  // La personne choisit elle-même l'exercice (un frère de la feuille, ou le catalogue) : SEULE la place touchée change,
+  // comme pour « Je n'en veux pas » — le motif, le rôle et les séries de la place restent, les reps suivent le nouvel
+  // exercice (lourd seulement à la barre). Rien ne s'écarte. Rend les routines ; rien n'est modifié en place.
+  function remplacePar(catalogue, routines, entree, r, k, slug) {
+    var p = entree || {};
+    var nouveau = liste(routines).map(function (rt) {
+      return { nom: rt.nom, exercices: liste(rt.exercices).map(function (x) {
+        var c = {}; Object.keys(x).forEach(function (cle) { c[cle] = x[cle]; }); return c;
+      }) };
+    });
+    var vieux = nouveau[r] && nouveau[r].exercices[k];
+    if (!vieux || !possede(catalogue, slug)) return nouveau;
+    var neuve = ligne(catalogue, slug, vieux.motif, vieux.role, p);
+    neuve.series = vieux.series;
+    nouveau[r].exercices[k] = neuve;
+    return nouveau;
+  }
+
   // ── La ligne « pourquoi » ──────────────────────────────────────────────────────
   // Les séries par zone du radar, chaque exercice compté dans la zone de son PREMIER muscle principal, la plus grosse
   // d'abord, à égalité l'ordre du radar : « Poitrine 10 · Dos 6 · Bras 3 · Épaules 3 séries ».
@@ -321,6 +340,64 @@
     var cles = trier(Object.keys(g), function (x, y) { return (g[y] - g[x]) || (ordre[x] - ordre[y]); });
     if (!cles.length) return '';
     return cles.map(function (cle) { return libelles[cle] + ' ' + g[cle]; }).join(' · ') + ' séries';
+  }
+
+  // ── Ce que le coach DIT de l'aperçu (QUESTIONNAIRE §5 bis) ───────────────────────
+  // Des phrases, pas des décisions : l'écran les pose telles quelles. `nommer(slug)` donne le nom de l'exercice
+  // (celui de l'app, `THModele.nommer`) ; `entree` est celle qui a construit le programme.
+  var POSSESSIF = { epaule: 'ton épaule', dos: 'ton dos', genou: 'ton genou', coude: 'ton coude', hanche: 'ta hanche' };
+  var CORPS = 'poids_du_corps';          // le seul matériel où une barre fixe n'est pas acquise
+
+  function joindre(noms) {
+    if (noms.length < 2) return noms.join('');
+    return noms.slice(0, -1).join(', ') + ' et ' + noms[noms.length - 1];
+  }
+
+  function uniques(noms) {
+    var vus = {}, sortie = [];
+    noms.forEach(function (n) { if (!possede(vus, n)) { vus[n] = true; sortie.push(n); } });
+    return sortie;
+  }
+
+  // Les zones à ménager que charge la place de cette ligne (son motif), dans l'ordre de `menager`.
+  function zonesDeLigne(l, menager) {
+    return liste(menager).filter(function (z) { return possede(CHARGE_ZONE, z) && contient(CHARGE_ZONE[z], l.motif); });
+  }
+
+  // Sous un exercice : « sans série lourde · ton genou », « demande une barre fixe ». Une liste (parfois les deux).
+  function mentionsDeLigne(l, entree) {
+    var e = entree || {}, m = [];
+    var zones = zonesDeLigne(l, e.menager);
+    if (zones.length) m.push('sans série lourde \u00b7 ' + joindre(zones.map(function (z) { return POSSESSIF[z]; })));
+    if (e.materiel === CORPS && l.barre_fixe) m.push('demande une barre fixe');
+    return m;
+  }
+
+  // Le haut de l'aperçu : « {N} séances par semaine. », une phrase par zone à ménager, et la barre fixe.
+  function phrasesDeLApercu(routines, entree, nommer, total) {
+    var e = entree || {}, rts = liste(routines);
+    var lignes = [];
+    rts.forEach(function (rt) { liste(rt.exercices).forEach(function (l) { lignes.push(l); }); });
+    var zones = [];
+    liste(e.menager).forEach(function (z) {
+      if (!possede(CHARGE_ZONE, z)) return;
+      var noms = uniques(lignes.filter(function (l) { return contient(CHARGE_ZONE[z], l.motif); })
+        .map(function (l) { return nommer(l.exercise_slug); }));
+      if (!noms.length) return;
+      var souleve = z === 'dos' && lignes.some(function (l) { return l.motif === 'charniere'; });
+      zones.push('Tu ménages ' + POSSESSIF[z] + ' : ' + noms.join(', ') + ', sans série lourde. Toutes leurs séries restent' +
+        (souleve ? ' ; ' + CHARNIERE_MAX + ' répétitions au plus au soulevé' : '') + '.');
+    });
+    var barre = '';
+    if (e.materiel === CORPS) {
+      var fixes = uniques(lignes.filter(function (l) { return l.barre_fixe; }).map(function (l) { return nommer(l.exercise_slug); }));
+      if (fixes.length) {
+        barre = joindre(fixes) + (fixes.length > 1 ? ' demandent' : ' demande') +
+          ' une barre fixe. Sans barre : touche-le, puis Remplacer.';
+      }
+    }
+    // `total` : le nombre de séances du programme, quand toutes ne sont pas encore à créer (une reprise après panne).
+    return { titre: (total === undefined ? rts.length : total) + ' séances par semaine.', zones: zones, barreFixe: barre };
   }
 
   // ── La carte « Passer en cycles » ────────────────────────────────────────────────
@@ -352,7 +429,10 @@
     bornerJours: bornerJours,
     generer: generer,
     neVeuxPas: neVeuxPas,
+    remplacePar: remplacePar,
     pourquoi: pourquoi,
+    mentionsDeLigne: mentionsDeLigne,
+    phrasesDeLApercu: phrasesDeLApercu,
     carteCycles: carteCycles
   };
 

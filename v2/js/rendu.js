@@ -4030,6 +4030,54 @@
     return cible;
   }
 
+  // ══ L'APERÇU DU PROGRAMME CONSTRUIT (QUESTIONNAIRE §5 bis, 60-4) ═════════
+  //
+  // « {N} séances par semaine. », la voix du coach (ce qu'il propose, ce qu'il ménage, ce qu'il vient de
+  // changer), puis UNE CARTE PAR SÉANCE : son nom, « ≈ 69 min », la ligne « pourquoi » (les séries par zone), et
+  // chaque exercice avec séries × reps — un bouton, qui ouvre « Je n'en veux pas / Remplacer / Annuler ». RIEN
+  // n'est écrit avant « Créer ces N routines ». Les textes viennent de l'app (les phrases de `THGenerateur`, la
+  // durée de `THMoteur`) : ici on pose des nœuds. `vue` : `{ titre, voix: [texte], routines: [{ nom, duree,
+  // pourquoi, exercices: [{ nom, series, mentions: [texte], neuf }] }], erreur, enCours, libelleCreer,
+  // surExercice(r, k), surCreer, surPasMaintenant }`.
+  function rendreApercuProgramme(cible, vue) {
+    vider(cible);
+    var v = vue || {};
+    cible.appendChild(el('div', 'feuille-t', v.titre || ''));
+    (v.voix || []).forEach(function (t) { cible.appendChild(el('p', 'q-voix apercu-voix', t)); });
+    var liste = el('div', 'apercu-programme');
+    (v.routines || []).forEach(function (r, i) {
+      var carte = el('div', 'ap-routine');
+      var tete = el('div', 'ap-tete');
+      tete.appendChild(el('span', 'ap-nom', r.nom));
+      tete.appendChild(el('span', 'ap-duree', r.duree));
+      carte.appendChild(tete);
+      if (r.pourquoi) carte.appendChild(el('p', 'ap-pourquoi', r.pourquoi));
+      (r.exercices || []).forEach(function (x, k) {
+        var b = el('button', 'ap-ex' + (x.neuf ? ' neuf' : ''));
+        b.type = 'button';
+        var corps = el('span', 'ap-ex-corps');
+        corps.appendChild(el('span', 'ap-ex-nom', x.nom));
+        (x.mentions || []).forEach(function (m) { corps.appendChild(el('small', 'ap-ex-mention', m)); });
+        b.appendChild(corps);
+        b.appendChild(el('span', 'ap-ex-series', x.series));
+        b.addEventListener('click', function () { if (v.surExercice) v.surExercice(i, k); });
+        carte.appendChild(b);
+      });
+      liste.appendChild(carte);
+    });
+    cible.appendChild(liste);
+    var err = el('p', 'erreur', v.erreur || '');
+    err.setAttribute('role', 'alert');
+    cible.appendChild(err);
+    var pied = el('div', 'feuille-menu');
+    entreeMenu(pied, v.enCours ? 'Création\u2026' : v.libelleCreer, {
+      classe: 'principal apercu-creer', desactive: !!v.enCours, surClic: v.surCreer
+    });
+    entreeMenu(pied, 'Pas maintenant', { surClic: v.surPasMaintenant });
+    cible.appendChild(pied);
+    return cible;
+  }
+
   // MOTEUR §9.22 (53-2) — « Faire de ce dossier un programme », sous la tête
   // d'un dossier qui n'en a pas. Le bloc en cours n'a pas de rangée : son
   // badge est sur la tête ; la carte de fin est en tête de l'écran.
@@ -4848,6 +4896,7 @@
     rendreFeuilleDossier: rendreFeuilleDossier,
     rendreFeuilleProgramme: rendreFeuilleProgramme,
     rendreFeuilleSeancesQuiReviennent: rendreFeuilleSeancesQuiReviennent,
+    rendreApercuProgramme: rendreApercuProgramme,
     rendreFeuilleBlocEnCours: rendreFeuilleBlocEnCours,
     rendreFeuilleDupliquer: rendreFeuilleDupliquer,
     champDossier: champDossier,

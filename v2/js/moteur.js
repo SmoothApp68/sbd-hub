@@ -2377,6 +2377,9 @@
   function minutesFr(s, cle) { return nombreFr(minutesDe(s), regle(cle || 'estimation')); }
   function texteDureeEstimee(s) { return 'Environ ' + minutesFr(s) + ' min (estimation)'; }
   function texteDureeAllegee(s) { return 'Semaine allégée : environ ' + minutesFr(s) + ' min (estimation)'; }
+  // 60-4 — la durée d'une routine du PROGRAMME CONSTRUIT, sur sa carte : « ≈ 69 min » (insécables). La même
+  // minute que les phrases ci-dessus (`minutesDe`) : l'aperçu ne l'arrondit pas à part.
+  function texteDureeCourte(s) { return '\u2248\u00a0' + minutesFr(s) + '\u00a0min'; }
 
   // LA CARTE (§9.18 ; maquette `maquette-adapter-v1.html`). `avant` : la
   // structure complète ; `resultat` : `raccourcirRoutine` ; `nommer(slug)`.
@@ -2473,6 +2476,16 @@
     if (tempsReponse === 'moins') return { ouvrir: cibles[0].min, ambre: false };
     if (tempsReponse === 'varie') return { ouvrir: null, ambre: true };
     return rien;
+  }
+
+  // 60-4 (G8, MOTEUR §9.18) — LA CIBLE DU PROGRAMME CONSTRUIT. Le programme passe par `raccourcirRoutine` pour tenir
+  // la durée que la personne a DÉCLARÉE, et seulement avec « C'est mon maximum », « Moins en ce moment » ou « Ça
+  // varie » ; avec « J'ai de la marge » (ou sans réponse) il n'est pas raccourci, et « Juste un carnet » se tait.
+  // Rend la durée visée en minutes, ou `null` : pas de raccourci. Les bornes sont celles de la durée déclarée.
+  function cibleDuProgramme(tempsReponse, declareeMin, intentionProfil) {
+    if (coachSeTait(intentionProfil)) return null;
+    if (tempsReponse !== 'max' && tempsReponse !== 'moins' && tempsReponse !== 'varie') return null;
+    return dureeDeclaree(declareeMin);
   }
 
   // Le libellé d'une cible, dans la feuille « J'ai peu de temps » : « 45 min »,
@@ -6160,8 +6173,8 @@
     aDesMuscles: aDesMuscles,
     structureAllegee: structureAllegee,
     appliquerRaccourci: appliquerRaccourci,
-    texteDureeEstimee: texteDureeEstimee,
-    ciblesDeTemps: ciblesDeTemps, reponseDeTemps: reponseDeTemps,
+    texteDureeEstimee: texteDureeEstimee, texteDureeCourte: texteDureeCourte,
+    ciblesDeTemps: ciblesDeTemps, reponseDeTemps: reponseDeTemps, cibleDuProgramme: cibleDuProgramme,
     libelleCibleTemps: libelleCibleTemps,
     CIBLES_TEMPS_PAR_DEFAUT: CIBLES_TEMPS_PAR_DEFAUT,
     texteDureeAllegee: texteDureeAllegee,

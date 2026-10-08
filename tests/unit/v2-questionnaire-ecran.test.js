@@ -62,6 +62,7 @@ function bac(options) {
     routines: o.routines || [],
     chargerRoutines: () => { journal.chargements = (journal.chargements || 0) + 1; return Promise.resolve(true); },
     ouvrirSeancesQuiReviennent: () => { journal.retrouver = (journal.retrouver || 0) + 1; return Promise.resolve(); },
+    ouvrirApercuProgramme: () => { journal.apercu = (journal.apercu || 0) + 1; return Promise.resolve(); },
     local: { seances: o.seances === undefined ? [{ id: 's1', debut: '2026-10-01T10:00:00Z' }] : o.seances, pesees: o.pesees || [] },
     faits: { ceQueJeSais: () => o.faits || { seances: 1, depuis: new Date(2026, 9, 1), rythme: null, dureeMin: null, maximums: [], autres: [] } },
     corpus: () => ({}),
@@ -773,6 +774,22 @@ describe('60-3 — l’écran 8, seulement sans routine, et la feuille après «
     await b.actions().surContinuer();
     expect(b.ctx.questionnaire).toBeNull();
     expect(b.journal.retrouver).toBeUndefined();                           // « Garder ce que je fais » seul ouvre la feuille
+    expect(b.journal.apercu).toBe(1);                                      // « Construis-le-moi » ouvre l'aperçu du programme, par-dessus Saisie
+  });
+
+  test('⚠️ 60-4 — « Garder ce que je fais » n’ouvre PAS l’aperçu, « Construis-le-moi » n’ouvre PAS la feuille 8a, « Je crée mes routines moi-même » aucune', async () => {
+    for (const [choixProgramme, retrouver, apercu] of [['deduit', 1, undefined], ['construis', undefined, 1], ['moi', undefined, undefined]]) {
+      const b = bac({ routines: [], faits: faitsAvecRythme(3), seances: [{ id: 's1' }] });
+      b.appel('ouvrirQuestionnaireSiDu()');
+      const { cont, choix } = jusquAuTemps(b);
+      cont();
+      choix('programme', choixProgramme); cont();
+      if (b.ecran() === 'construit') { choix('seances', 3); cont(); }
+      choix('coach', 'normal'); cont();
+      expect(b.ecran()).toBe('recap');
+      await b.actions().surContinuer();
+      expect([b.journal.retrouver, b.journal.apercu]).toEqual([retrouver, apercu]);
+    }
   });
 
   test('les jours déjà en base priment sur le rythme ; inchangés, ils ne sont pas réécrits', () => {

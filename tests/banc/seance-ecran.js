@@ -14995,6 +14995,16 @@ const SETS_IMPORTES = [
     const catalogueAvant = CATALOGUE.length;
     EXOS.forEach(([slug, nom, prim, sec]) => CATALOGUE.push({ slug, nom, mesure: 'charge_reps', charge: 'externe',
       equipement: 'machine', muscles_primaires: prim, muscles_secondaires: sec }));
+    // 60-4 — le catalogue du générateur (celui du fichier de cas : slug → [équipement, principaux, secondaires]),
+    // pour que l'aperçu du programme construit ait de quoi choisir. Un slug déjà au banc n'est pas touché.
+    const CAS_GEN = JSON.parse(require('fs').readFileSync(path.join(__dirname, '../unit/fixtures/cas-60-4-generateur.json'), 'utf8'));
+    Object.keys(CAS_GEN.catalogue).forEach((slug) => {
+      if (CATALOGUE.some((c) => c.slug === slug)) return;
+      const [equipement, prim, sec] = CAS_GEN.catalogue[slug];
+      const nomGen = slug.replace(/_/g, ' ').replace(/^./, (x) => x.toUpperCase());
+      CATALOGUE.push({ slug, nom: nomGen, mesure: 'charge_reps', charge: 'externe', equipement,
+        muscles_primaires: prim.slice(), muscles_secondaires: sec.slice() });
+    });
     // Haut : il y a 30, 26, 22 et 18 jours ; Bas : 29, 25, 21 et 17 jours. Rien
     // dans la semaine en cours. Les séries sont datées d'aujourd'hui : la
     // synchronisation par curseur les prend.
@@ -15040,7 +15050,8 @@ const SETS_IMPORTES = [
       await page.evaluate(() => Object.keys(localStorage).filter((k) => k.indexOf('th-v2-questionnaire-vu-') === 0)
         .forEach((k) => localStorage.removeItem(k)));
       Object.assign(profilBase(), { questionnaire_fait_le: null, objectif: null, phase: null, historique_declare: null,
-        programme_choix: null, seances_par_semaine: null, zones_a_menager: null,
+        programme_choix: null, seances_par_semaine: null, zones_a_menager: null, exercices_ecartes: null,
+        programme_construit_dossier: null, programme_construit_le: null,
         intention: 'progresser', rythme_progression: 'normal' });
       await aller('/saisie');
       for (let n = 0; n < 60; n++) {
@@ -15242,6 +15253,153 @@ const SETS_IMPORTES = [
     e = await ecranR();
     ok('[R60] F — le récapitulatif : « Programme — Construis-le-moi · 4 jours »',
       e.ecran === 'recap' && e.recap.some((l) => /^Programme\s*Construis-le-moi · 4 jours/.test(l)), JSON.stringify(e.recap));
+
+    // ── G. 60-4 : L'APERÇU DU PROGRAMME CONSTRUIT, par-dessus Saisie, après « Commencer ».
+    const apercuR = () => page.evaluate(() => {
+      const c = document.getElementById('feuille-contenu');
+      const t = (n) => n ? n.textContent.replace(/[\u00a0\u202f]/g, ' ') : null;
+      return { ouverte: !document.getElementById('feuille-seance').hidden,
+        titre: t(c.querySelector('.feuille-t')),
+        voix: Array.from(c.querySelectorAll('.q-voix')).map(t),
+        cartes: Array.from(c.querySelectorAll('.ap-routine')).map((k) => ({ nom: t(k.querySelector('.ap-nom')),
+          duree: t(k.querySelector('.ap-duree')),
+          pourquoi: t(k.querySelector('.ap-pourquoi')),
+          exos: Array.from(k.querySelectorAll('.ap-ex')).map((x) => ({ nom: t(x.querySelector('.ap-ex-nom')),
+            series: t(x.querySelector('.ap-ex-series')), mentions: Array.from(x.querySelectorAll('.ap-ex-mention')).map(t),
+            neuf: x.classList.contains('neuf') })) })),
+        boutons: Array.from(c.querySelectorAll('.feuille-menu button')).map((b) => [t(b), b.disabled]),
+        erreur: t(c.querySelector('.erreur')) };
+    });
+    ROUTINES.splice(0, ROUTINES.length);
+    await continuerR();                                                // « Commencer »
+    await attendre(2000);
+    let ap = await apercuR();
+    const vuesG = await visible();
+    ok('[R60] G — « Commencer » : le questionnaire se termine, Saisie s’ouvre, et l’aperçu arrive PAR-DESSUS',
+      vuesG.indexOf('vue-saisie') >= 0 && vuesG.indexOf('vue-questionnaire') < 0 && ap.ouverte && ap.titre === '4 séances par semaine.',
+      JSON.stringify([vuesG, ap.ouverte, ap.titre]));
+    ok('[R60] G — la voix du coach : « Je te propose tes charges à chaque séance. Touche un exercice pour le changer. » puis la phrase du dos',
+      ap.voix[0] === 'Je te propose tes charges à chaque séance. Touche un exercice pour le changer.' &&
+        /^Tu ménages ton dos : .+, sans série lourde\. Toutes leurs séries restent ; 8 répétitions au plus au soulevé\.$/.test(ap.voix[1] || ''),
+      JSON.stringify(ap.voix));
+    ok('[R60] G — quatre séances, chacune avec son nom, « ≈ N min », sa ligne « pourquoi » (séries par zone) et ses exercices en séries × reps',
+      ap.cartes.map((k) => k.nom).join('|') === 'Haut A|Bas A|Haut B|Bas B' &&
+        ap.cartes.every((k) => /^≈ \d+ min$/.test(k.duree) && /séries$/.test(k.pourquoi || '') && k.exos.length >= 4 &&
+          k.exos.every((x) => /^\d+ × \d+$/.test(x.series))), JSON.stringify(ap.cartes.map((k) => [k.nom, k.duree, k.pourquoi, k.exos.length])));
+    const menage = [].concat.apply([], ap.cartes.map((k) => k.exos.filter((x) => x.mentions.indexOf('sans série lourde · ton dos') >= 0)));
+    ok('[R60] G — sous un exercice qui charge le dos : « sans série lourde · ton dos »', menage.length >= 2, JSON.stringify(menage.map((x) => x.nom)));
+    ok('[R60] G — « Créer ces 4 routines » actif, « Pas maintenant » ; RIEN n’est écrit (aucune routine, aucun écarté)',
+      JSON.stringify(ap.boutons) === JSON.stringify([['Créer ces 4 routines', false], ['Pas maintenant', false]]) &&
+        ROUTINES.length === 0 && !profilBase().exercices_ecartes && !profilBase().programme_construit_dossier,
+      JSON.stringify([ap.boutons, ROUTINES.length, profilBase().exercices_ecartes]));
+
+    // « Je n'en veux pas » sur le premier exercice de Haut A (le couché barre).
+    const premierNom = ap.cartes[0].exos[0].nom, autresHautB = JSON.stringify(ap.cartes[2]);
+    const toucher = async (i, k) => { await page.evaluate(([a, b]) => document.querySelectorAll('#feuille-contenu .ap-routine')[a]
+      .querySelectorAll('.ap-ex')[b].click(), [i, k]); await attendre(400); };
+    const feuilleChoix = () => page.evaluate(() => ({
+      titre: ((document.querySelector('#feuille-contenu .feuille-t') || {}).textContent || '').replace(/[\u00a0\u202f]/g, ' '),
+      aide: ((document.querySelector('#feuille-contenu .feuille-aide') || {}).textContent || '').replace(/[\u00a0\u202f]/g, ' '),
+      options: Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button')).map((b) => [b.dataset.cle || null,
+        b.textContent.replace(/[\u00a0\u202f]/g, ' ')]),
+      pied: Array.from(document.querySelectorAll('#feuille-contenu .feuille-pied button')).map((b) => b.textContent) }));
+    await toucher(0, 0);
+    let fc = await feuilleChoix();
+    ok('[R60] G — toucher un exercice ouvre sa feuille : « Je n’en veux pas » (et sa phrase), « Remplacer », « Annuler »',
+      fc.titre.indexOf(premierNom) === 0 && /^Haut A · \d+ × \d+$/.test(fc.aide) &&
+        fc.options.length === 2 && fc.options[0][0] === 'refuser' &&
+        fc.options[0][1] === 'Je n’en veux pasJe le remplace par un exercice du même mouvement, et je ne te le proposerai plus.' &&
+        fc.options[1][0] === 'remplacer' && fc.options[1][1] === 'RemplacerTu choisis dans le catalogue. La ligne de la séance se met à jour.' &&
+        fc.pied.join('|') === 'Annuler', JSON.stringify(fc));
+    await page.click('#feuille-contenu .feuille-pied .sec');            // Annuler
+    await attendre(300);
+    ap = await apercuR();
+    ok('[R60] G — « Annuler » revient à l’aperçu, rien n’a changé ni n’est écrit',
+      ap.titre === '4 séances par semaine.' && ap.cartes[0].exos[0].nom === premierNom && !profilBase().exercices_ecartes,
+      JSON.stringify([ap.titre, ap.cartes[0].exos[0].nom]));
+    await toucher(0, 0);
+    await page.click('#feuille-contenu button[data-cle="refuser"]');
+    await attendre(900);
+    ap = await apercuR();
+    const neuvNom = ap.cartes[0].exos[0].nom;
+    ok('[R60] G — « Je n’en veux pas » : SEULE la place touchée change, la phrase du coach le dit, l’exercice neuf est marqué',
+      neuvNom !== premierNom && ap.cartes[0].exos[0].neuf === true && ap.cartes[0].exos.slice(1).every((x) => !x.neuf) &&
+        ap.voix[ap.voix.length - 1] === premierNom + ' est remplacé par ' + neuvNom + '. Je ne te le proposerai plus.' &&
+        JSON.stringify(ap.cartes[2]) === autresHautB, JSON.stringify([premierNom, neuvNom, ap.voix[ap.voix.length - 1]]));
+    ok('[R60] G — l’écarté est écrit AU GESTE (le profil, `exercices_ecartes`), rien d’autre n’est écrit',
+      JSON.stringify(profilBase().exercices_ecartes) === '["developpe_couche_barre"]' && ROUTINES.length === 0,
+      JSON.stringify([profilBase().exercices_ecartes, ROUTINES.length]));
+
+    // « Remplacer » → « Chercher dans le catalogue » : le catalogue est un autre voile ; l'aperçu y reste en mémoire.
+    await toucher(1, 0);
+    await page.click('#feuille-contenu button[data-cle="remplacer"]');
+    await attendre(500);
+    const machine = await page.evaluate(() => ({
+      titre: ((document.querySelector('#feuille-contenu .feuille-t') || {}).textContent || '').replace(/[\u00a0\u202f]/g, ' '),
+      boutons: Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button')).map((b) => b.textContent.replace(/[\u00a0\u202f]/g, ' ')) }));
+    ok('[R60] G — « Remplacer » : la feuille de l’éditeur, avec « Chercher dans le catalogue »',
+      /^Remplacer/.test(machine.titre) && machine.boutons.indexOf('Chercher dans le catalogue') >= 0, JSON.stringify(machine));
+    await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
+      .filter((b) => b.textContent === 'Chercher dans le catalogue')[0].click());
+    await attendre(600);
+    const cat1 = await page.evaluate(() => ({ cat: !document.getElementById('catalogue').hidden, feuille: !document.getElementById('feuille-seance').hidden }));
+    ok('[R60] G — le catalogue s’ouvre (l’aperçu n’est plus affiché derrière)', cat1.cat && !cat1.feuille, JSON.stringify(cat1));
+    await page.click('#btn-fermer-catalogue');
+    await attendre(600);
+    ap = await apercuR();
+    ok('[R60] G — fermer le catalogue sans choisir ROUVRE l’aperçu, tel quel (le même nom d’exercice neuf, la même phrase)',
+      ap.ouverte && ap.titre === '4 séances par semaine.' && ap.cartes[0].exos[0].nom === neuvNom && ap.cartes.length === 4,
+      JSON.stringify([ap.ouverte, ap.titre, ap.cartes.length]));
+    await toucher(1, 0);
+    const avantRemp = ap.cartes[1].exos[0];
+    await page.click('#feuille-contenu button[data-cle="remplacer"]');
+    await attendre(400);
+    await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
+      .filter((b) => b.textContent === 'Chercher dans le catalogue')[0].click());
+    await attendre(500);
+    await page.fill('#champ-recherche-exo', 'Hip thrust machine');
+    await attendre(500);
+    await page.click('#resultats-exo .resultat');
+    await attendre(800);
+    ap = await apercuR();
+    ok('[R60] G — choisir un exercice dans le catalogue : il prend la place (mêmes séries), l’aperçu est rouvert, marqué',
+      ap.ouverte && ap.cartes[1].exos[0].nom === 'Hip thrust machine' && ap.cartes[1].exos[0].neuf === true &&
+        /^\d+ × \d+$/.test(ap.cartes[1].exos[0].series) && ap.cartes[1].exos[0].series.split(' × ')[0] === avantRemp.series.split(' × ')[0],
+      JSON.stringify([avantRemp, ap.cartes[1].exos[0]]));
+    ok('[R60] G — « Remplacer » n’écarte rien : la liste des écartés est toujours celle du seul refus',
+      JSON.stringify(profilBase().exercices_ecartes) === '["developpe_couche_barre"]', JSON.stringify(profilBase().exercices_ecartes));
+
+    // « Créer ces 4 routines » : le chemin de la feuille de 8a. Deux taps dans le même instant.
+    const nomsApercu = ap.cartes.map((k) => [k.nom, k.exos.map((x) => x.nom)]);
+    await page.evaluate(() => { const b = document.querySelector('#feuille-contenu .apercu-creer'); b.click(); b.click(); });
+    for (let n = 0; n < 60 && (await apercuR()).ouverte; n++) await attendre(250);
+    await attendre(1800);
+    const formeG = (r) => r.routine_exercises.slice().sort((a, b) => a.rang - b.rang)
+      .map((x) => [x.exercise_slug, x.repos_cible_s, (x.routine_sets || []).map((l) => [l.type_serie, l.charge_cible_kg === null])]);
+    const rg = ROUTINES.slice().sort((a, b) => a.rang - b.rang);
+    ok('[R60] G — « Créer ces 4 routines » : QUATRE routines (deux taps n’écrivent pas deux fois), dans « Mon programme », dans l’ordre',
+      rg.length === 4 && rg.every((r) => r.dossier === 'Mon programme') && rg.map((r) => r.nom).join('|') === 'Haut A|Bas A|Haut B|Bas B',
+      JSON.stringify(ROUTINES.map((r) => [r.nom, r.dossier, r.rang])));
+    ok('[R60] G — la forme écrite : des séries de travail seulement (ni chauffe, ni charge), le premier exercice à 180 s de repos',
+      rg.every((r) => formeG(r).every((x) => x[2].length >= 2 && x[2].every((l) => l[0] === 'travail' && l[1] === true))) &&
+        formeG(rg[0])[0][1] === 180, JSON.stringify(formeG(rg[0])));
+    ok('[R60] G — ce qui est écrit est ce qui était montré (les exercices, dans l’ordre) ; l’écarté n’y est pas',
+      rg.every((r, i) => JSON.stringify(r.routine_exercises.slice().sort((a, b) => a.rang - b.rang)
+        .map((x) => (CATALOGUE.filter((c) => c.slug === x.exercise_slug)[0] || {}).nom)) === JSON.stringify(nomsApercu[i][1])) &&
+        !rg.some((r) => r.routine_exercises.some((x) => x.exercise_slug === 'developpe_couche_barre')),
+      JSON.stringify([nomsApercu, rg.map((r) => r.routine_exercises.map((x) => x.exercise_slug))]));
+    ok('[R60] G — le profil porte le dossier réel et la date de création ; les écartés sont intacts',
+      profilBase().programme_construit_dossier === 'Mon programme' && !!profilBase().programme_construit_le &&
+        Math.abs(Date.now() - new Date(profilBase().programme_construit_le).getTime()) < 300000 &&
+        JSON.stringify(profilBase().exercices_ecartes) === '["developpe_couche_barre"]',
+      JSON.stringify([profilBase().programme_construit_dossier, profilBase().programme_construit_le]));
+    const biblioG = await page.evaluate(() => ({
+      vues: Array.from(document.querySelectorAll('main > section')).filter((x) => !x.hidden).map((x) => x.id),
+      dossiers: Array.from(document.querySelectorAll('#liste-routines .dossier-ligne')).map((l) => l.getAttribute('data-dossier')),
+      routines: Array.from(document.querySelectorAll('#liste-routines .routine-nom')).map((n) => n.textContent) }));
+    ok('[R60] G — puis la bibliothèque s’ouvre sur « Mon programme », avec ses quatre routines',
+      biblioG.vues.indexOf('vue-saisie') >= 0 && biblioG.dossiers.indexOf('Mon programme') >= 0 &&
+        ['Haut A', 'Bas A', 'Haut B', 'Bas B'].every((n) => biblioG.routines.indexOf(n) >= 0), JSON.stringify(biblioG));
     base.sessions = sessionsAvantE; base.sets = setsAvantE;
 
     // ── LA REMISE EN ÉTAT, pour les sections suivantes.

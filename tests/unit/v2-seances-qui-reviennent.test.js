@@ -147,7 +147,7 @@ function extraire(nom) {
   if (!m) throw new Error('introuvable dans v2/js/app.js : ' + nom);
   return m[0];
 }
-const FONCTIONS = ['brouillonDeStructure', 'creerRoutineNeuve', 'ouvrirSeancesQuiReviennent', 'carteDeduite',
+const FONCTIONS = ['brouillonDeStructure', 'creerRoutineNeuve', 'creerDansUnDossier', 'ouvrirSeancesQuiReviennent', 'carteDeduite',
   'rendreFeuilleRetrouver', 'creerRoutinesDeduites', 'ouvrirBibliothequeSur', 'rangSuivantBibliotheque',
   'nomsReserves', 'messageVerdict'];
 

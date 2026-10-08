@@ -141,6 +141,7 @@ const GARDEES = [
   { fn: 'generer', module: 'generateur.js',
     motif: /(?:\bGenerateur|\bGenerateur\(\)|racine\.THGenerateur)\s*\.\s*generer\b/g },
   { fn: 'neVeuxPas', module: 'generateur.js' },
+  { fn: 'remplacePar', module: 'generateur.js' },
   { fn: 'pourquoi', module: 'generateur.js',
     motif: /(?:\bGenerateur|\bGenerateur\(\)|racine\.THGenerateur)\s*\.\s*pourquoi\b/g },
   { fn: 'carteCycles', module: 'generateur.js' }
@@ -228,6 +229,24 @@ const AUTORISATIONS = {
   },
   observationsARenvoyer: {
     'app.js': 'les observations à renvoyer à la reprise d’une séance : de la persistance (app.js).'
+  },
+  // ── 60-4 — LE PROGRAMME CONSTRUIT (QUESTIONNAIRE-COACH-V2 §5 bis) ─────────
+  generer: {
+    'app.js': 'QUESTIONNAIRE-COACH-V2 §5 bis (60-4) : le générateur est un calcul du PROGRAMME, avant toute séance — ' +
+      'donc sans plan. L’app compose (`entreeDuProgramme` lit le profil et les faits, `ouvrirApercuProgramme` appelle ' +
+      'le générateur une fois) ; elle ne décide ni un exercice, ni une série, ni des reps.'
+  },
+  neVeuxPas: {
+    'app.js': 'ECRAN-SAISIE §7 quindecies.9 (60-4) : « Je n’en veux pas » dans l’aperçu change SEULE la place touchée, ' +
+      'par la règle du générateur (`ecarterDansLeProgramme`) ; l’écran n’invente pas le remplaçant.'
+  },
+  remplacePar: {
+    'app.js': 'QUESTIONNAIRE-COACH-V2 §5 bis (60-4) : « Remplacer » dans l’aperçu — l’exercice choisi prend la place ' +
+      '(`poserDansLeProgramme`) avec les séries de la place et les reps que la règle du générateur donne à CET exercice.'
+  },
+  pourquoi: {
+    'app.js': 'QUESTIONNAIRE-COACH-V2 §5 bis (60-4) : la ligne « pourquoi » d’une carte de l’aperçu est un fait du ' +
+      'générateur, recalculé après chaque changement (`lectureDuProgramme`) ; l’écran n’additionne aucune série.'
   }
 };
 
@@ -814,7 +833,7 @@ const NOTIONS = [
       'un écran qui assemblerait ses séances à part pourrait en oublier une.' },
   { notion: 'la structure d’une routine déduite (celle de « En faire une routine »)', pr: '60-U9',
     module: 'routines.js', fonction: 'routineDeduite', lecteurs: ['app.js'],
-    parAilleurs: { 'app.js': ['creerRoutinesDeduites'] },
+    parAilleurs: { 'app.js': ['creerDansUnDossier'] },
     raison: 'ECRAN-SAISIE §7 quindecies.7 (60-3) : chaque routine cochée devient la structure de « En faire une ' +
       'routine » — les mêmes blocs, les mêmes repos et leur origine, jamais une charge. Pas une seconde règle des repos.' },
   // ── 60-3 — « REMPLACER » DANS L'ÉDITEUR (ECRAN-SAISIE §7 quindecies.8) ───
@@ -843,8 +862,14 @@ const NOTIONS = [
       'lisent la MÊME fenêtre ; deux fenêtres écrites à la main finiraient par ne plus se recouvrir.' },
   { notion: 'l’historique du programme construit (par exercice, le nombre de séances de travail sur la fenêtre de la personne)', pr: '60-U12',
     module: 'faits.js', fonction: 'historiqueDesExercices', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['entreeDuProgramme'] },
     raison: 'QUESTIONNAIRE-COACH-V2 §5 bis (60-4) : le générateur ordonne ses candidats par ce que la personne fait ' +
-      'le plus ; le fait vit dans le module des faits (58-1) et le générateur le REÇOIT, il ne relit pas les séances.' }
+      'le plus ; le fait vit dans le module des faits (58-1) et le générateur le REÇOIT, il ne relit pas les séances.' },
+  { notion: 'la durée que le programme construit doit tenir (la durée déclarée, avec « C’est mon maximum », « Moins en ce moment » ou « Ça varie »)', pr: '60-U13',
+    module: 'moteur.js', fonction: 'cibleDuProgramme', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['raccourcirLeProgramme'] },
+    raison: 'MOTEUR §9.18 (G8, 60-4) : quelles réponses de temps font raccourcir le programme, et à quelle durée, se décide ' +
+      'une fois dans le moteur ; l’app lit le résultat et passe par `raccourcirRoutine`, elle ne teste pas `temps_reponse`.' }
 ];
 
 // ── 58-1 — UN FAIT NE SE DÉCLARE QUE DANS `faits.js` ─────────────────────────

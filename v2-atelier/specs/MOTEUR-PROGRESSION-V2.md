@@ -1086,7 +1086,7 @@ Quand l'exercice a une ligne **dégressive** (routine ou saisie) **et qu'il n'es
 
 > **La phase est une entrée du plan unique, lue une fois et gelée pour la séance avec la consigne. Elle ne se définit qu'à un seul endroit (`QUESTIONNAIRE-COACH-V1` §3.2), et tout ce qui en dépend la lit là.**
 
-**Les valeurs** : prise de masse, maintien ou recomposition, sèche (`profiles.phase` : `prise_de_masse`, `maintien`, `seche`). **Vide = maintien** (« je ne sais pas »). `profiles.phase_depuis` date la dernière déclaration.
+**Les valeurs** : prise de masse, maintien ou recomposition, sèche (`profiles.phase` : `prise_de_masse`, `maintien`, `seche`). **Vide = maintien** (« je ne sais pas » ; le questionnaire et le Profil écrivent tous deux une phase vide pour cette réponse, précisé le 08/10/2026). `profiles.phase_depuis` date la dernière déclaration.
 
 **Style et phase ne se recouvrent pas.** Le style (Prudent, Normal, Franc — « Me ménager, Normal, Me pousser ») règle **l'ampleur** des montées, rien d'autre. La phase règle **ce que le coach attend et quand il intervient**. Aucune règle ne lit l'un pour l'autre.
 

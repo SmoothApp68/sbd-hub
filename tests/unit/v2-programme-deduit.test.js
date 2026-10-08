@@ -42,6 +42,16 @@ describe('le fichier de cas', () => {
     expect(F.reference).toBe('deduit60b.py');
     expect(F.cas.map((c) => c.profil)).toEqual(['jordan', 'lea', 'melodie']);
   });
+
+  // 60-3b — LA RÉFÉRENCE, oubliée du prompt 60-3 : `deduit60b.py`, rangée à côté du fichier de cas. Une trace,
+  // pas un test à lancer : elle lit `catalogue.json` et `seances12s.json`, qui ne sont pas au dépôt. Son
+  // empreinte est celle du fichier reçu de Claude.ai, comme celle du fichier de cas.
+  test('la référence deduit60b.py est celle reçue de Claude.ai', () => {
+    const brut = fs.readFileSync(path.join(__dirname, 'fixtures/deduit60b.py'));
+    expect(brut.length).toBe(6673);
+    expect(crypto.createHash('sha256').update(brut).digest('hex'))
+      .toBe('e7a0da86c312b4c74b5b51f9e5e1f2aaaedab028ed004c6f2100d1a1b6040b7b');
+  });
 });
 
 describe('seancesQuiReviennent — les cas, à l’égalité stricte', () => {

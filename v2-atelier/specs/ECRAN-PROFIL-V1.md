@@ -191,6 +191,12 @@ se connecter, et sa conception appartient au chantier social.
 **Le pseudo** est unique, vérifié à la frappe, et le refus **propose deux alternatives**. Il
 sert d'identifiant lisible partout ; l'e-mail reste privé.
 
+**Précisé le 08/10/2026 (60-3b).** La confirmation d'e-mail est activée sur le projet : le lien s'ouvre souvent dans
+une autre page, où la mémoire de l'inscription n'existe plus. Le pseudo voyage donc **avec le compte** : l'inscription
+le dépose dans les données du compte (`options.data.pseudo` de `signUp`), et la création de la ligne de profil le
+reprend de là quand la mémoire de la page ne l'a plus. **Pris entre-temps** : la ligne se crée sans lui, et la ligne
+« Pseudo » du Profil dit « Ce pseudo vient d'être pris : choisis-en un autre. » jusqu'à ce qu'un pseudo soit posé.
+
 ### 3.2 Hors ligne
 
 Une session déjà ouverte survit sans réseau — **l'app ne redemande jamais le mot de passe en

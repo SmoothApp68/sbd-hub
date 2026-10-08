@@ -427,6 +427,25 @@
       return compte;
     }
 
+    // ── 60-4 — Les séances faites depuis les routines d'un dossier (la carte « Passer en cycles », MOTEUR §9.22) ──
+    //
+    // Le nombre de séances TERMINÉES, commencées à partir de `depuis` (la date de création du programme), qui portent
+    // l'une des routines de `idsRoutines` (`routine_id`) et au moins une série de travail. Le dossier n'est pas dans la
+    // séance : l'appartenance se lit sur les routines d'AUJOURD'HUI (supprimer une routine fait perdre le lien à ses
+    // séances, `ON DELETE SET NULL`). Sans date lisible ou sans routine, zéro.
+    function seancesDesRoutines(c, idsRoutines, depuis) {
+      var ids = {};
+      (idsRoutines || []).forEach(function (id) { if (id) ids[id] = true; });
+      // `new Date(null)` est le 1ᵉʳ janvier 1970 : une date absente ne veut pas dire « depuis toujours ».
+      var t0 = depuis === null || depuis === undefined || depuis === '' ? NaN : new Date(depuis).getTime();
+      if (isNaN(t0)) return 0;
+      return (c.seances || []).filter(function (s) {
+        if (!s || !s.routine_id || !ids[s.routine_id] || !s.debut) return false;
+        if (new Date(s.debut).getTime() < t0) return false;
+        return (c.seriesDe(s.id) || []).some(function (x) { return Modele.estTravail(x); });
+      }).length;
+    }
+
     // ── Les exercices faits et leur date (`app.js` `calculerDatesExercices`) ──
     //
     // Le tri se fait sur la DERNIÈRE séance où l'exercice apparaît. Un balayage
@@ -475,6 +494,7 @@
       ceQueJeSais: ceQueJeSais,
       programmeDeduit: programmeDeduit,
       historiqueDesExercices: historiqueDesExercices,
+      seancesDesRoutines: seancesDesRoutines,
       oublierDates: oublierDates
     };
   }

@@ -5893,6 +5893,7 @@
     // pas terminé » ne dépend pas du chargement des routines.
     rendreBandeauQuestionnaire();
     rendreBandeauPhase();
+    rendreCarteCycles();
     var cible = $('liste-routines');
     // ⚠️ « Je ne sais pas encore » n'est PAS « il n'y en a pas ». Tant qu'un
     // chargement n'a pas abouti, on ne montre pas l'état vide : hors ligne, il
@@ -8625,6 +8626,7 @@
     // séance, feuille ou « Ranger » en cours).
     rendreBandeauQuestionnaire();
     rendreBandeauPhase();
+    rendreCarteCycles();                       // 60-4 : la carte « Passer en cycles » lit le même profil
     // 60-2a — LA LIGNE DE PROFIL EST CONNUE : c'est ICI que la décision d'ouvrir le
     // questionnaire se reprend, au premier démarrage d'un compte neuf comme aux
     // suivants. Prise sur le seul cache, elle ne routait un compte neuf qu'au
@@ -9001,6 +9003,56 @@
       libelleReprendre: 'Le terminer',
       surReprendre: ouvrirQuestionnaire
     });
+  }
+
+  // 60-4 — LA CARTE « PASSER EN CYCLES » (MOTEUR §9.22, décidée le 08/10/2026). Le programme construit est fait de
+  // routines simples ; pour Force et Les deux, UNE FOIS, 21 jours après sa création et après au moins 6 séances faites
+  // depuis ses routines, ni en « Juste un carnet », ni si le dossier est déjà un programme. La règle est celle du
+  // générateur (`Generateur.carteCycles`) ; ici on LIT l'état, on ne le compte pas à la main. Rien n'est écrit au rendu :
+  // seuls les deux boutons écrivent, et seul « Pas maintenant » écrit (`carte_cycles_le`) — « Passer en cycles » ouvre
+  // « Faire de ce dossier un programme » sur ce dossier, et annuler cette feuille laisse la carte où elle est.
+  //
+  // Le dossier est le NOM RÉEL écrit à la création (`programme_construit_dossier`) ; « déjà un programme » compte aussi
+  // un bloc arrêté ou terminé : la personne a déjà fait ce choix pour ce dossier, la carte ne revient pas.
+  function carteCyclesDuProfil() {
+    var p = profil || {};
+    var dossier = Profil.dossierDuProgrammeValide(p.programme_construit_dossier);
+    if (!dossier || !p.programme_construit_le) return null;
+    var ids = Routines.visibles(routines).filter(function (r) { return Routines.dossierPropre(r.dossier) === dossier; })
+      .map(function (r) { return r.id; });
+    if (!ids.length) return null;                                      // le dossier a disparu : rien à passer en cycles
+    var affichee = Generateur.carteCycles({
+      objectif: Profil.objectifDe(p),
+      joursDepuisCreation: Profil.joursDepuis(p.programme_construit_le, new Date()),
+      seancesDuDossier: faits.seancesDesRoutines(corpus(), ids, p.programme_construit_le),
+      estProgramme: (local.blocs || []).some(function (b) { return b && b.dossier === dossier; }),
+      carnet: Moteur.coachSeTait(p.intention),
+      dejaVue: !!p.carte_cycles_le
+    });
+    return affichee ? dossier : null;
+  }
+
+  function rendreCarteCycles() {
+    var noeud = $('carte-cycles');
+    if (!noeud) return;
+    var dossier = seance ? null : carteCyclesDuProfil();
+    if (!dossier) { Rendu.rendreBandeauReprise(noeud, null); return; }
+    Rendu.rendreBandeauReprise(noeud, {
+      quoi: 'Ton programme tourne depuis ' + (Generateur.CARTE_JOURS / 7) + ' semaines.',
+      sujet: 'Un bloc de ' + Moteur.SEMAINES_BLOC_DEFAUT + ' semaines en Lourd sur tes barres, la dernière plus légère : ' +
+        'c\u2019est là que la force se gagne. On passe en cycles ?',
+      libelleQuitter: 'Pas maintenant',
+      surQuitter: reporterLaCarteCycles,
+      libelleReprendre: 'Passer en cycles',
+      surReprendre: function () { ouvrirProgramme(dossier, null); }
+    });
+  }
+
+  // « Pas maintenant » : la carte ne revient jamais (`carte_cycles_le`). Le bouton du dossier, lui, reste.
+  function reporterLaCarteCycles() {
+    var champs = Profil.preparerChamps(profil, { carte_cycles_le: new Date() }, new Date());
+    if (Object.keys(champs).length) poserProfil(champs).catch(function () {});
+    rendreCarteCycles();
   }
 
   // 60-2b — LE RAPPEL DE PHASE (MOTEUR §9.16) : « Sèche depuis le 28 sept. », 6

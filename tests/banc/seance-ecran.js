@@ -15513,6 +15513,78 @@ const SETS_IMPORTES = [
         Math.abs(Date.now() - new Date(profilBase().programme_construit_le).getTime()) < 300000,
       JSON.stringify([profilBase().programme_construit_dossier, profilBase().programme_construit_le]));
 
+
+    // ── I. 60-4 (7/7, MOTEUR §9.22) : LA CARTE « PASSER EN CYCLES » sur Saisie. État FORGÉ (aucun écrivain n'est joué) :
+    // le programme a 25 jours, six séances l'ont fait depuis ses routines, l'objectif est Force.
+    const nouveauDossier = 'Mon programme (2)';
+    const routinesDuProgramme = ROUTINES.filter((r) => r.dossier === nouveauDossier);
+    const t0I = Date.now();
+    profilBase().programme_construit_le = new Date(t0I - 25 * JOUR).toISOString();
+    profilBase().carte_cycles_le = null;
+    for (let k = 0; k < 6; k++) {
+      const id = '00000000-0000-4000-8604-' + String(k + 1).padStart(12, '0');
+      const debut = new Date(t0I - (22 - 2 * k) * JOUR).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'Séance du programme', debut, fin: finDe(debut, t0I).toISOString(),
+        statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: routinesDuProgramme[k % routinesDuProgramme.length].id,
+        source: 'app', created_at: new Date(t0I).toISOString() });
+      base.sets.push({ id: 'r60-i-' + k, session_id: id, user_id: 'u-banc', exercise_slug: 'squat_barre', charge_kg: 100, reps: 5,
+        duree_s: null, distance_m: null, type_serie: 'travail', rang: 1, groupe_superset: null, validee_a: null, rpe: null,
+        ressenti: null, repos_s: null, note: null, source: 'app', created_at: new Date(t0I).toISOString(), modifie_a: null,
+        douleur: false, occurrence: null });
+    }
+    const carteI = () => page.evaluate(() => {
+      const n = document.getElementById('carte-cycles');
+      const t = (x) => (x ? x.textContent.replace(/[\u00a0\u202f]/g, ' ') : null);
+      return { visible: !!n && !n.hidden && !!n.querySelector('.bandeau-reprise'), quoi: t(n && n.querySelector('.reprise-quoi')),
+        sujet: t(n && n.querySelector('.reprise-sujet')), boutons: n ? Array.from(n.querySelectorAll('button')).map(t) : [] };
+    });
+    const opsProfil = () => base.journal.filter((j) => j.op === 'profil').length;
+    await aller('/saisie');
+    await attendre(2200);
+    let carte = await carteI();
+    ok('[R60] I — la carte « Passer en cycles » est sur Saisie : le titre et le corps au mot près, deux boutons',
+      carte.visible && carte.quoi === 'Ton programme tourne depuis 3 semaines.' &&
+        carte.sujet === 'Un bloc de 4 semaines en Lourd sur tes barres, la dernière plus légère : c’est là que la force se gagne. On passe en cycles ?' &&
+        JSON.stringify(carte.boutons) === JSON.stringify(['Pas maintenant', 'Passer en cycles']), JSON.stringify(carte));
+    const opsAvantRendu = opsProfil();
+    await aller('/saisie');
+    await attendre(1500);
+    ok('[R60] I — ⚠️ le rendu n’écrit RIEN : un rechargement de Saisie ne produit aucune écriture du profil',
+      opsProfil() === opsAvantRendu && profilBase().carte_cycles_le === null, JSON.stringify([opsProfil() - opsAvantRendu, profilBase().carte_cycles_le]));
+    // « Passer en cycles » : « Faire de ce dossier un programme », sur CE dossier.
+    await page.evaluate(() => Array.from(document.querySelectorAll('#carte-cycles button')).filter((b) => b.textContent === 'Passer en cycles')[0].click());
+    await attendre(700);
+    const feuilleI = await page.evaluate(() => ({ ouverte: !document.getElementById('feuille-seance').hidden,
+      titre: ((document.querySelector('#feuille-contenu .feuille-t') || {}).firstChild || {}).textContent || null,
+      dossier: ((document.querySelector('#feuille-contenu .feuille-t em') || {}).textContent) || null }));
+    ok('[R60] I — « Passer en cycles » ouvre « Faire de ce dossier un programme » sur le dossier du programme construit, sans rien écrire',
+      feuilleI.ouverte && feuilleI.titre === 'Faire de ce dossier un programme' && feuilleI.dossier === nouveauDossier &&
+        profilBase().carte_cycles_le === null, JSON.stringify([feuilleI, profilBase().carte_cycles_le]));
+    await page.click('#btn-fermer-feuille');
+    await attendre(500);
+    carte = await carteI();
+    ok('[R60] I — annuler cette feuille laisse la carte où elle est (seul « Pas maintenant » la ferme)',
+      carte.visible && profilBase().carte_cycles_le === null, JSON.stringify([carte.visible, profilBase().carte_cycles_le]));
+    // « Pas maintenant » : écrit `carte_cycles_le`, la carte ne revient pas.
+    await page.evaluate(() => Array.from(document.querySelectorAll('#carte-cycles button')).filter((b) => b.textContent === 'Pas maintenant')[0].click());
+    await attendre(1200);
+    carte = await carteI();
+    ok('[R60] I — « Pas maintenant » : `carte_cycles_le` est écrit, la carte disparaît',
+      !carte.visible && !!profilBase().carte_cycles_le && Math.abs(Date.now() - new Date(profilBase().carte_cycles_le).getTime()) < 300000,
+      JSON.stringify([carte.visible, profilBase().carte_cycles_le]));
+    await aller('/saisie');
+    await attendre(1800);
+    carte = await carteI();
+    ok('[R60] I — et elle ne revient JAMAIS : un rechargement de Saisie ne la remontre pas', !carte.visible, JSON.stringify(carte));
+    // « Juste un carnet » : même remise à zéro, la carte se tait.
+    profilBase().carte_cycles_le = null;
+    profilBase().intention = 'entretien';
+    await aller('/saisie');
+    await attendre(1800);
+    carte = await carteI();
+    ok('[R60] I — « Juste un carnet » : la carte se tait', !carte.visible, JSON.stringify(carte));
+    profilBase().intention = 'progresser';
+
     base.sessions = sessionsAvantE; base.sets = setsAvantE;
 
     // ── LA REMISE EN ÉTAT, pour les sections suivantes.

@@ -247,6 +247,11 @@ const AUTORISATIONS = {
   pourquoi: {
     'app.js': 'QUESTIONNAIRE-COACH-V2 §5 bis (60-4) : la ligne « pourquoi » d’une carte de l’aperçu est un fait du ' +
       'générateur, recalculé après chaque changement (`lectureDuProgramme`) ; l’écran n’additionne aucune série.'
+  },
+  carteCycles: {
+    'app.js': 'MOTEUR §9.22 (60-4) : la carte « Passer en cycles » de Saisie lit la règle du générateur ' +
+      '(`carteCyclesDuProfil`) : l’objectif, les jours depuis la création, les séances du dossier, un dossier déjà ' +
+      'programme, « Juste un carnet », « Pas maintenant » — l’écran ne compte et ne compare rien lui-même.'
   }
 };
 
@@ -873,6 +878,21 @@ const NOTIONS = [
     raison: 'ECRAN-SAISIE §7 quindecies.9 (60-4) : un exercice écarté passe en fin de liste, jamais caché, avec la mention ' +
       '« écarté » — la règle « range, ne cache jamais » du matériel, composée, pas un second tri : le catalogue passe par ' +
       '`rangerParMateriel`, les frères par `freresDe`.' },
+  { notion: 'la carte « Passer en cycles » (Force ou Les deux, 21 jours, 6 séances du dossier, une seule fois)', pr: '60-U15',
+    module: 'generateur.js', fonction: 'carteCycles', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['carteCyclesDuProfil'] },
+    raison: 'MOTEUR §9.22 (60-4) : les seuils (21 jours, 6 séances), l’objectif et les silences se décident une fois, dans le ' +
+      'générateur ; la carte de Saisie lit son verdict, comme le rappel de phase lit `rappelDePhase`.' },
+  { notion: 'les séances faites depuis les routines d’un dossier (le compte de la carte « Passer en cycles »)', pr: '60-U15',
+    module: 'faits.js', fonction: 'seancesDesRoutines', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['carteCyclesDuProfil'] },
+    raison: 'UN-SEUL-FIL (60-4) : l’appartenance d’une séance à un dossier se lit sur `routine_id`, dans le module des faits ; ' +
+      'un écran qui compterait à part pourrait compter une séance importée ou une séance d’avant la création.' },
+  { notion: 'les jours calendaires écoulés depuis la création du programme construit', pr: '60-U15',
+    module: 'profil.js', fonction: 'joursDepuis', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['carteCyclesDuProfil'] },
+    raison: 'MOTEUR §9.22 (60-4) : 21 jours CALENDAIRES (le changement d’heure ne les change pas), la même arithmétique que ' +
+      'le rappel de phase (`jourCalendaire`) — pas une soustraction de millisecondes à l’écran.' },
   { notion: 'la durée que le programme construit doit tenir (la durée déclarée, avec « C’est mon maximum », « Moins en ce moment » ou « Ça varie »)', pr: '60-U13',
     module: 'moteur.js', fonction: 'cibleDuProgramme', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['raccourcirLeProgramme'] },
@@ -1210,7 +1230,7 @@ describe('architecture — le module des faits : un fait ne se déclare que dans
     require('../../v2/js/seance.js');
     require('../../v2/js/periode.js');
     const instance = require('../../v2/js/faits.js').creer();
-    expect(FAITS.length).toBe(19);
+    expect(FAITS.length).toBe(20);
     expect(FAITS.filter((fn) => typeof instance[fn] !== 'function')).toEqual([]);
   });
 

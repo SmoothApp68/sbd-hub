@@ -299,6 +299,15 @@
     return Math.round(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000);
   }
 
+  // 60-4 — Les jours CALENDAIRES écoulés depuis un instant (Date, ISO ou date seule) jusqu'à `aujourdhui` : la carte
+  // « Passer en cycles » compte 21 jours après la création du programme (`programme_construit_le`). `null` si l'un
+  // des deux est illisible ; négatif si `depuis` est dans le futur.
+  function joursDepuis(depuis, aujourdhui) {
+    var d = jourCalendaire(depuis);
+    var a = jourCalendaire(aujourdhui === undefined ? new Date() : aujourdhui);
+    return d === null || a === null ? null : a - d;
+  }
+
   // Vrai quand une phase est DÉCLARÉE et que sa dernière confirmation date de
   // 42 jours calendaires ou plus. Faux sans date lisible, avec une date dans le
   // futur, ou sans phase déclarée. `aujourdhui` : l'horloge, passée pour les tests.
@@ -1238,7 +1247,7 @@
     basculerPriorite: basculerPriorite, libelleDePriorite: libelleDePriorite, resumeDesPriorites: resumeDesPriorites,
     AIDE_OBJECTIF: AIDE_OBJECTIF, AIDE_PRIORITES: AIDE_PRIORITES, optionsTemps: optionsTemps,
     sectionBut: sectionBut, ligneTemps: ligneTemps, ligneQuestionnaire: ligneQuestionnaire,
-    lignesProgramme: lignesProgramme, libelleDesZones: libelleDesZones,
+    lignesProgramme: lignesProgramme, libelleDesZones: libelleDesZones, joursDepuis: joursDepuis,
     PHRASE_ZONES: PHRASE_ZONES, PHRASE_ECARTES: PHRASE_ECARTES, PHRASE_REFAIRE: PHRASE_REFAIRE,
     doitOuvrirQuestionnaire: doitOuvrirQuestionnaire,
     questionnaireAFaire: questionnaireAFaire,

@@ -85,7 +85,10 @@ fréquent du groupe, modifiable. Rien n'est écrit avant « En faire mes routine
   Égalité : le groupe le plus ancien.
 - **Une routine** : un groupe d'**au moins 4 séances**. Ses exercices : ceux du profil, dans l'ordre de leur **position
   médiane** (rang de la première série de l'exercice ÷ rang le plus haut de la séance ; égalité : par slug) ; séries de
-  travail, reps et chauffes : les **médianes**, arrondies au plus proche (.5 vers le haut). Repos : la règle de « En
+  travail, reps et chauffes : les **médianes**, arrondies au plus proche (.5 vers le haut) ; la médiane des reps ne
+  lit que les séries qui ont **au moins une répétition** (un échec à 0 rep compte comme série, pas comme « 0 reps » :
+  36 en base, dont 9 dans les fenêtres de 12 semaines ; précisé le 08/10/2026, 60-5) ; deux séances au même instant
+  se départagent par leur identifiant. Repos : la règle de « En
   faire une routine » (ECRAN-SAISIE §7 quindecies.4). Jamais de charge.
 - **Le nom** : le titre le plus fréquent du groupe (égalité : le plus récent) ; deux routines au même nom deviennent
   « … A », « … B », dans l'ordre d'affichage (le plus de séances d'abord, puis la plus ancienne dernière séance).
@@ -132,7 +135,10 @@ L'exercice prioritaire passe en tête de sa séance.
 **Zone à ménager** (décidé le 08/10/2026). Une place dont le motif charge la zone (genou : squat, presse, extension ;
 dos : charnière, jambes tendues, squat, rowing ; épaule : militaire, couché, élévations ; coude : triceps, curl ;
 hanche : hip thrust, squat, charnière) **garde son exercice et toutes ses séries, sans série lourde** (un principal
-prend les reps d'un secondaire). La variante plus tolérée seulement dans les cas évidents : **dos** → belt squat,
+prend les reps d'un secondaire). **Le raccourci de la durée (MOTEUR §9.18) ne coupe jamais une série d'un exercice
+ménagé** (précisé le 08/10/2026, 60-5 : « toutes ses séries gardées » est la règle, le temps se prend ailleurs ; si la
+cible n'est alors pas atteignable, l'aperçu affiche la durée réelle, sans prétendre la tenir). La variante plus tolérée
+seulement dans les cas évidents : **dos** → belt squat,
 soulevé de terre à la barre hexagonale (Swinton 2011), rowing poitrine appuyée. Une charnière ne dépasse **jamais 8
 reps** (la fatigue défait la technique). Pourquoi pas moins de séries : le levier d'une articulation sensible est
 l'intensité, et retirer des séries coûte du progrès sans bénéfice prouvé (modèle de surveillance de la douleur).
@@ -141,6 +147,9 @@ l'intensité, et retirer des séries coûte du progrès sans bénéfice prouvé 
 exercice pour le changer. » ; une phrase par zone à ménager (« Tu ménages ton genou : Squat (Barre), Presse à Cuisses,
 Extension Jambes, sans série lourde. Toutes leurs séries restent. ») et, si des exercices demandent une barre fixe
 (tractions, rowing inversé) : « {exercices} demande(nt) une barre fixe. Sans barre : touche-le, puis Remplacer. ».
+**La phrase se dit dès qu'une de ces lignes est dans le programme, pour tout matériel sauf la salle complète et la
+salle basique** (précisé le 08/10/2026, 60-5 : « maison équipée » ne garantit pas une barre fixe ; la condition est
+l'exercice, jamais l'étiquette du matériel).
 Une carte par séance : le nom, « ≈ 69 min » (l'estimation de §9.18, sur la structure), **la ligne « pourquoi »** —
 les séries par zone du radar, chaque exercice compté dans la zone de son **premier muscle principal**, la plus grosse
 d'abord, à égalité l'ordre du radar (« Poitrine 10 · Dos 6 · Bras 3 · Épaules 3 séries ») — puis chaque exercice avec
@@ -163,7 +172,8 @@ décision ne s'efface jamais en silence.
 **La carte « Passer en cycles »** (décidée le 08/10/2026, question 4 ; MOTEUR §9.22). Le générateur crée des routines
 simples. Pour **Force** et **Les deux** seulement : **une fois**, **21 jours** après la création du programme et
 après **au moins 6 séances** faites depuis ses routines, ni en « Juste un carnet », ni si le dossier est déjà un
-programme : « Ton programme tourne depuis 3 semaines. » ; « Un bloc de 4 semaines en Lourd sur tes barres, la dernière
+programme : « Tu as fait {N} séances de ton programme. » ({N} : les séances faites depuis ses routines, le fait de
+`faits.js` ; le calendrier des 21 jours n'est jamais dit, MOTEUR §9.22, précisé le 08/10/2026, 60-5) ; « Un bloc de 4 semaines en Lourd sur tes barres, la dernière
 plus légère : c'est là que la force se gagne. On passe en cycles ? » ; « **Passer en cycles** » ouvre « Faire de ce
 dossier un programme » (Lourd, 4 semaines, décharge la dernière) ; « **Pas maintenant** » la ferme pour toujours (le
 bouton du dossier reste). La période (Williams 2017 ; Moesgaard 2022 : la périodisation aide surtout la force) ; les

@@ -69,8 +69,17 @@ describe('60-3b — Profil.lignePseudo : « pris entre-temps »', () => {
     expect(l.surChoix).toBe(surChoix);
   });
 
-  test('un pseudo est posé : plus de phrase, même si l’état est encore retenu', () => {
+  // 60-5 : `lignePseudo` ne décide plus SI l'état parle encore de cette ligne — c'est `app.js` (`pseudoPrisSignale`, qui
+  // compare au pseudo que la ligne portait au refus). Quand on lui dit que l'état se tient, elle le dit, avec ou sans
+  // pseudo posé : un ancien pseudo qui est revenu sans un mot était le défaut relevé à la relecture.
+  test('(60-5) l’état se tient ET un pseudo est posé (l’ancien est revenu) : la ligne montre ce pseudo ET la phrase', () => {
     const l = Profil.lignePseudo({ username: 'melodie' }, true, surChoix);
+    expect(l.valeur).toBe('melodie');
+    expect(l.sous).toBe(Profil.PHRASE_PSEUDO_PRIS);
+  });
+
+  test('un pseudo posé, l’état ne se tient pas : plus de phrase', () => {
+    const l = Profil.lignePseudo({ username: 'melodie' }, false, surChoix);
     expect(l.valeur).toBe('melodie');
     expect(l.sous).toBeNull();
   });
@@ -96,10 +105,13 @@ describe('60-3b — la ligne « Pseudo » de l’écran Profil', () => {
     expect(typeof ligne(e).surChoix).toBe('function');
   });
 
-  test('un pseudo posé : l’écran montre le pseudo, sans la phrase', () => {
+  test('un pseudo posé et l’état qui se tient (l’ancien est revenu) : l’écran montre le pseudo ET la phrase ; sinon, le pseudo seul', () => {
     const e = profilEcran({ id: 'B', username: 'melodie' }, { pseudoPris: true });
     expect(ligne(e).valeur).toBe('melodie');
-    expect(ligne(e).sous).toBeNull();
+    expect(ligne(e).sous).toBe('Ce pseudo vient d’être pris : choisis-en un autre.');
+    const sans = profilEcran({ id: 'B', username: 'melodie' }, { pseudoPris: false });
+    expect(ligne(sans).valeur).toBe('melodie');
+    expect(ligne(sans).sous).toBeNull();
   });
 
   test('sans l’état retenu : « à renseigner », sans la phrase', () => {
@@ -122,15 +134,55 @@ function stockage() {
   };
 }
 
-function retention(stock, idCourant) {
-  const ctx = { racine: { localStorage: stock }, userId: () => idCourant };
+function retention(stock, idCourant, profilCourant) {
+  const ctx = { racine: { localStorage: stock }, userId: () => idCourant, profil: profilCourant || null };
   vm.createContext(ctx);
   const src = fs.readFileSync(path.join(__dirname, '../../v2/js/app.js'), 'utf8');
   const cle = src.match(/^ {2}var CLE_PSEUDO_PRIS = [^\n]+/m);
   if (!cle) throw new Error('introuvable : CLE_PSEUDO_PRIS');
-  vm.runInContext(cle[0] + '\n' + extraire('retenirPseudoPris') + '\n' + extraire('pseudoPrisSignale'), ctx);
+  vm.runInContext(cle[0] + '\n' + extraire('retenirPseudoPris') + '\n' + extraire('effacerPseudoPris') + '\n' + extraire('pseudoPrisSignale'), ctx);
   return ctx;
 }
+
+// 60-5 — L'ÉTAT SE RETIENT AVEC LE PSEUDO QUE LA LIGNE PORTAIT AU REFUS : aucun (`'1'`, la forme de 60-3b) ou l'ancien
+// (`'p:' + pseudo`). La phrase ne parle que de CETTE ligne-là.
+describe('60-5 — « pris entre-temps » parle de la ligne qui a été refusée, pas d’une autre', () => {
+  test('aucun pseudo au refus : la phrase se dit tant qu’aucun pseudo n’est posé, et s’en va dès qu’il y en a un (60-3b, inchangé)', () => {
+    const st = stockage();
+    retention(st, 'A').retenirPseudoPris('A');                                  // aucun pseudo tenu
+    expect(retention(st, 'A', { username: null }).pseudoPrisSignale()).toBe(true);
+    expect(retention(st, 'A', { username: '' }).pseudoPrisSignale()).toBe(true);
+    expect(retention(st, 'A', { username: 'bob' }).pseudoPrisSignale()).toBe(false);   // posé depuis (ici ou ailleurs)
+    expect(st._m.get('th-v2-pseudo-pris-A')).toBe('1');
+  });
+
+  test('⚠️ DISCRIMINANT — l’ancien pseudo est revenu : la phrase se dit tant que la ligne porte CE pseudo-là', () => {
+    const st = stockage();
+    retention(st, 'A').retenirPseudoPris('A', 'alice');
+    expect(st._m.get('th-v2-pseudo-pris-A')).toBe('p:alice');
+    expect(retention(st, 'A', { username: 'alice' }).pseudoPrisSignale()).toBe(true);
+    expect(retention(st, 'A', { username: 'carol' }).pseudoPrisSignale()).toBe(false);  // un autre pseudo, accepté depuis
+    expect(retention(st, 'A', { username: null }).pseudoPrisSignale()).toBe(false);
+  });
+
+  test('l’état de 60-3b (`1`) ne parle pas d’un pseudo posé : même clé, même comportement qu’avant', () => {
+    const st = stockage();
+    st.setItem('th-v2-pseudo-pris-A', '1');
+    expect(retention(st, 'A', { username: 'alice' }).pseudoPrisSignale()).toBe(false);
+    expect(retention(st, 'A', { username: null }).pseudoPrisSignale()).toBe(true);
+  });
+
+  test('`effacerPseudoPris` : l’état est retiré (choisir un pseudo remet à zéro) ; sans compte ou stockage refusé, rien ne casse', () => {
+    const st = stockage();
+    const r = retention(st, 'A');
+    r.retenirPseudoPris('A', 'alice');
+    r.effacerPseudoPris('A');
+    expect(st._m.size).toBe(0);
+    expect(() => r.effacerPseudoPris(null)).not.toThrow();
+    const casse = { getItem: () => { throw new Error('bloqué'); }, removeItem: () => { throw new Error('bloqué'); } };
+    expect(() => retention(casse, 'A').effacerPseudoPris('A')).not.toThrow();
+  });
+});
 
 describe('60-3b — « pris entre-temps » se retient en local, par compte', () => {
   test('⚠️ retenu pour UN compte : l’autre compte du même appareil ne le voit pas', () => {

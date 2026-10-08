@@ -15288,6 +15288,28 @@ const SETS_IMPORTES = [
           k.exos.every((x) => /^\d+ × \d+$/.test(x.series))), JSON.stringify(ap.cartes.map((k) => [k.nom, k.duree, k.pourquoi, k.exos.length])));
     const menage = [].concat.apply([], ap.cartes.map((k) => k.exos.filter((x) => x.mentions.indexOf('sans série lourde · ton dos') >= 0)));
     ok('[R60] G — sous un exercice qui charge le dos : « sans série lourde · ton dos »', menage.length >= 2, JSON.stringify(menage.map((x) => x.nom)));
+    // 60-5 — LE BOUTON PRINCIPAL EST À L'AMBRE DE LA FORGE (constat d'Aurélien : il passait inaperçu). Le style CALCULÉ,
+    // comparé aux jetons eux-mêmes (`--accent`, `--sur-accent`) lus dans la page — jamais une valeur recopiée ici — ;
+    // le contraste du texte sur le fond, calculé dans la page (WCAG), ≥ 4,5:1 ; « Pas maintenant » reste une ligne de menu.
+    const creerStyle = await page.evaluate(() => {
+      const b = document.querySelector('#feuille-contenu .apercu-creer');
+      const autre = Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button')).filter((x) => x.textContent === 'Pas maintenant')[0];
+      const jeton = (nom) => { const t = document.createElement('i'); t.style.color = 'var(' + nom + ')'; document.body.appendChild(t);
+        const c = getComputedStyle(t).color; t.remove(); return c; };
+      const rgb = (c) => (/rgba?\((\d+), (\d+), (\d+)/.exec(c) || []).slice(1, 4).map(Number);
+      const lum = (c) => { const [r, g, v] = rgb(c).map((x) => { x /= 255; return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); });
+        return 0.2126 * r + 0.7152 * g + 0.0722 * v; };
+      const cs = getComputedStyle(b), ca = getComputedStyle(autre);
+      const l1 = lum(cs.color), l2 = lum(cs.backgroundColor);
+      return { fond: cs.backgroundColor, texte: cs.color, accent: jeton('--accent'), surAccent: jeton('--sur-accent'),
+        align: cs.textAlign, haut: b.getBoundingClientRect().height, famille: cs.fontFamily, casse: cs.textTransform,
+        contraste: (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05), autreFond: ca.backgroundColor, autreAlign: ca.textAlign };
+    });
+    ok('[R60] G — ⚠️ « Créer ces 4 routines » est à l’AMBRE de la forge (`--accent`), texte `--sur-accent`, centré, capitales condensées, 44 px',
+      creerStyle.fond === creerStyle.accent && creerStyle.texte === creerStyle.surAccent && creerStyle.align === 'center' &&
+        creerStyle.haut >= 44 && creerStyle.casse === 'uppercase' && /Barlow Condensed/.test(creerStyle.famille), JSON.stringify(creerStyle));
+    ok('[R60] G — le contraste du texte du bouton est d’au moins 4,5:1, et « Pas maintenant » reste une ligne de menu (fond transparent, à gauche)',
+      creerStyle.contraste >= 4.5 && creerStyle.autreFond === 'rgba(0, 0, 0, 0)' && creerStyle.autreAlign === 'left', JSON.stringify(creerStyle));
     ok('[R60] G — « Créer ces 4 routines » actif, « Pas maintenant » ; RIEN n’est écrit (aucune routine, aucun écarté)',
       JSON.stringify(ap.boutons) === JSON.stringify([['Créer ces 4 routines', false], ['Pas maintenant', false]]) &&
         ROUTINES.length === 0 && !profilBase().exercices_ecartes && !profilBase().programme_construit_dossier,
@@ -15542,8 +15564,8 @@ const SETS_IMPORTES = [
     await aller('/saisie');
     await attendre(2200);
     let carte = await carteI();
-    ok('[R60] I — la carte « Passer en cycles » est sur Saisie : le titre et le corps au mot près, deux boutons',
-      carte.visible && carte.quoi === 'Ton programme tourne depuis 3 semaines.' &&
+    ok('[R60] I — la carte « Passer en cycles » est sur Saisie : « Tu as fait 6 séances de ton programme. » (R5), le corps au mot près, deux boutons',
+      carte.visible && carte.quoi === 'Tu as fait 6 séances de ton programme.' &&
         carte.sujet === 'Un bloc de 4 semaines en Lourd sur tes barres, la dernière plus légère : c’est là que la force se gagne. On passe en cycles ?' &&
         JSON.stringify(carte.boutons) === JSON.stringify(['Pas maintenant', 'Passer en cycles']), JSON.stringify(carte));
     const opsAvantRendu = opsProfil();

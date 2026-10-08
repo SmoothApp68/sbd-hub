@@ -277,11 +277,19 @@ describe('60-4 — le module lit la table du matériel et les zones du radar, il
 
   test('la table du matériel de 60-1 est lue (`equipementsDe`), pas recopiée', () => {
     expect(src).toMatch(/THProfil\.equipementsDe\(/);
-    ['salle_basique', 'maison_equipee', 'poids_du_corps'].forEach((m) => {
+    ['maison_equipee', 'poids_du_corps'].forEach((m) => {
       // `poids_du_corps` apparaît pour l’élastique d’abord ; les autres valeurs de la table n’ont rien à faire ici.
+      // (60-5, R3 : `salle_complete` et `salle_basique` y sont nommées — c'est le texte de la règle de la barre fixe,
+      // pas la table du matériel ; leur existence au profil est gardée juste après.)
       if (m !== 'poids_du_corps') expect(src).not.toContain("'" + m + "'");
     });
     expect(src).not.toMatch(/'machine_smith'|'kettlebell'|'disque'/);
+  });
+
+  test('60-5 (R3) — les deux salles que la règle de la barre fixe nomme sont des matériels du profil', () => {
+    const cles = Profil.MATERIELS.map((m) => m.cle);
+    ['salle_complete', 'salle_basique'].forEach((m) => expect(cles).toContain(m));
+    expect(src).toContain("var SALLES = ['salle_complete', 'salle_basique'];");
   });
 
   test('les zones et leurs libellés sont ceux du radar (`THSemaine.ZONES`), pas une liste à part', () => {

@@ -105,7 +105,7 @@ describe('le générateur : « Remplacer », les mentions et les phrases', () =>
     expect(Generateur.remplacePar(c, avant, e, 0, 99, 'developpe_couche_haltere')).toEqual(avant);
   });
 
-  test('les mentions sous un exercice : « sans série lourde · ton genou », « demande une barre fixe » (poids du corps seulement)', () => {
+  test('les mentions sous un exercice : « sans série lourde · ton genou », « demande une barre fixe » (hors des salles)', () => {
     const genou = { menager: ['genou'], materiel: 'salle_complete' };
     expect(Generateur.mentionsDeLigne({ motif: 'squat', barre_fixe: false }, genou)).toEqual(['sans série lourde · ton genou']);
     expect(Generateur.mentionsDeLigne({ motif: 'couche', barre_fixe: false }, genou)).toEqual([]);
@@ -117,6 +117,12 @@ describe('le générateur : « Remplacer », les mentions et les phrases', () =>
     expect(Generateur.mentionsDeLigne({ motif: 'tirage_vertical', barre_fixe: true }, { materiel: 'salle_complete' })).toEqual([]);
     expect(Generateur.mentionsDeLigne({ motif: 'rowing', barre_fixe: true }, { menager: ['dos'], materiel: 'poids_du_corps' }))
       .toEqual(['sans série lourde · ton dos', 'demande une barre fixe']);
+    // R3 (60-5) : la condition est l'EXERCICE, jamais l'étiquette du matériel.
+    expect(Generateur.mentionsDeLigne({ motif: 'tirage_vertical', barre_fixe: true }, { materiel: 'maison_equipee' })).toEqual(['demande une barre fixe']);
+    expect(Generateur.mentionsDeLigne({ motif: 'tirage_vertical', barre_fixe: true }, { materiel: 'maison_minimal' })).toEqual(['demande une barre fixe']);
+    expect(Generateur.mentionsDeLigne({ motif: 'tirage_vertical', barre_fixe: true }, { materiel: 'salle_basique' })).toEqual([]);
+    expect(Generateur.mentionsDeLigne({ motif: 'rowing', barre_fixe: false }, { materiel: 'maison_equipee' })).toEqual([]);
+    expect(Generateur.mentionsDeLigne({ motif: 'rowing', barre_fixe: false }, { materiel: 'poids_du_corps' })).toEqual([]);
   });
 
   test('les phrases du haut : le nombre de séances, une phrase par zone, la barre fixe — au mot près', () => {
@@ -139,7 +145,7 @@ describe('le générateur : « Remplacer », les mentions et les phrases', () =>
     expect(Generateur.phrasesDeLApercu(rts.slice(2), e, nom, 4).titre).toBe('4 séances par semaine.');
   });
 
-  test('la barre fixe : une phrase, au poids du corps seulement, « demande » / « demandent »', () => {
+  test('la barre fixe : une phrase quand le programme contient une traction ou un rowing inversé, « demande » / « demandent »', () => {
     const c = cat();
     const e = Object.assign(clone(cas('neuf_3j_poids_du_corps').entree), { faits: {}, priorites: [], menager: [], ecartes: [] });
     const rts = Generateur.generer(c, e);
@@ -153,6 +159,66 @@ describe('le générateur : « Remplacer », les mentions et les phrases', () =>
       expect(p.barreFixe).toBe('');
     }
     expect(Generateur.phrasesDeLApercu(rts, Object.assign({}, e, { materiel: 'salle_complete' }), nom).barreFixe).toBe('');
+  });
+
+  // ═══ R3 (60-5) : LA BARRE FIXE SE DIT SELON L'EXERCICE, PAS SELON LE MATÉRIEL ══════════════════════════════
+  // « tractions » et « rowing_inverse » (`BARRE_FIXE`) : la phrase et la mention s'affichent dès que le programme en
+  // contient un, pour tout matériel sauf les deux salles.
+  describe('la barre fixe : l’exercice présent décide, jamais l’étiquette du matériel (R3)', () => {
+    const avec = (materiel, extra) => {
+      const e = Object.assign(clone(cas('neuf_4j_les_deux').entree), { faits: {}, priorites: [], menager: [], ecartes: [] }, extra || {}, { materiel });
+      return { e, rts: Generateur.generer(cat(), e) };
+    };
+    const fixes = (rts) => [].concat.apply([], rts.map((rt) => rt.exercices.filter((x) => x.barre_fixe).map((x) => x.exercise_slug)));
+
+    test('⚠️ DISCRIMINANT — maison équipée avec une traction : la phrase, et la mention sous la ligne', () => {
+      const { e, rts } = avec('maison_equipee');
+      expect(fixes(rts)).toEqual(['tractions']);
+      const p = Generateur.phrasesDeLApercu(rts, e, nom);
+      expect(p.barreFixe).toBe(nom('tractions') + ' demande une barre fixe. Sans barre : touche-le, puis Remplacer.');
+      const ligne = [].concat.apply([], rts.map((rt) => rt.exercices)).find((x) => x.exercise_slug === 'tractions');
+      expect(Generateur.mentionsDeLigne(ligne, e)).toEqual(['demande une barre fixe']);
+    });
+
+    test('⚠️ DISCRIMINANT — maison équipée SANS traction (rowing aux haltères) : pas de phrase, pas de mention', () => {
+      const { e, rts } = avec('maison_equipee', { ecartes: ['tractions', 'rowing_inverse'] });
+      expect(fixes(rts)).toEqual([]);
+      expect(Generateur.phrasesDeLApercu(rts, e, nom).barreFixe).toBe('');
+      rts.forEach((rt) => rt.exercices.forEach((x) => expect(Generateur.mentionsDeLigne(x, e)).toEqual([])));
+      const noms = [].concat.apply([], rts.map((rt) => rt.exercices.map((x) => x.exercise_slug)));
+      expect(noms).toContain('rowing_haltere');
+    });
+
+    test('les salles : jamais, même avec une traction au programme', () => {
+      ['salle_complete', 'salle_basique'].forEach((m) => {
+        const { e, rts } = avec(m);
+        expect(fixes(rts)).toContain('tractions');
+        expect(Generateur.phrasesDeLApercu(rts, e, nom).barreFixe).toBe('');
+        [].concat.apply([], rts.map((rt) => rt.exercices)).forEach((x) => expect(Generateur.mentionsDeLigne(x, e)).toEqual([]));
+      });
+    });
+
+    test('poids du corps (rowing inversé + tractions) : « demandent », au pluriel — comme avant', () => {
+      const { e, rts } = avec('poids_du_corps');
+      expect(fixes(rts).sort()).toEqual(['rowing_inverse', 'tractions']);
+      expect(Generateur.phrasesDeLApercu(rts, e, nom).barreFixe).toBe(
+        nom('rowing_inverse') + ' et ' + nom('tractions') + ' demandent une barre fixe. Sans barre : touche-le, puis Remplacer.');
+    });
+
+    test('matériel non renseigné : la règle est celle de tout matériel qui n’est pas une salle — la phrase se dit', () => {
+      const { e, rts } = avec(null);
+      expect(fixes(rts)).toEqual(['tractions']);
+      expect(Generateur.phrasesDeLApercu(rts, e, nom).barreFixe).toContain('demande une barre fixe');
+    });
+
+    test('une traction posée par « Remplacer » en maison équipée : la mention suit (l’exercice, pas la place)', () => {
+      const { e, rts } = avec('maison_equipee', { ecartes: ['tractions'] });
+      const i = rts[0].exercices.findIndex((x) => x.motif === 'tirage_vertical');
+      const apres = Generateur.remplacePar(cat(), rts, e, 0, i, 'tractions');
+      expect(apres[0].exercices[i].barre_fixe).toBe(true);
+      expect(Generateur.mentionsDeLigne(apres[0].exercices[i], e)).toEqual(['demande une barre fixe']);
+      expect(Generateur.phrasesDeLApercu(apres, e, nom).barreFixe).toContain(nom('tractions') + ' demande une barre fixe');
+    });
   });
 });
 
@@ -849,7 +915,7 @@ describe('revue adverse — l’aperçu : sorties, séances vidées, remplaçant
 describe('revue adverse — la phrase de zone ne ment pas, le motif suit l’exercice', () => {
   const entree = () => Object.assign({ faits: {}, priorites: [], menager: [], ecartes: [] }, clone(cas('neuf_4j_les_deux').entree));
 
-  test('⚠️ DISCRIMINANT — un exercice ménagé dont le raccourci a coupé des séries : « Toutes leurs séries restent » n’est plus dite', () => {
+  test('⚠️ DISCRIMINANT — une ligne ménagée qui porte des séries coupées (posée par « Remplacer » sur une place raccourcie) : « Toutes leurs séries restent » n’est pas dite', () => {
     const c = cat(), e = Object.assign(entree(), { menager: ['genou'] });
     const rts = Generateur.generer(c, e);
     const entier = Generateur.phrasesDeLApercu(rts, e, nom).zones[0];
@@ -895,20 +961,76 @@ describe('revue adverse — la phrase de zone ne ment pas, le motif suit l’exe
     expect(Generateur.remplacePar(c, rts, e, 0, iCouche, 'developpe_couche_haltere')[0].exercices[iCouche].motif).toBe('couche');
   });
 
-  test('l’aperçu : G8 + zone — la phrase du haut dépend des séries VRAIMENT coupées, et le drapeau survit à « Je n’en veux pas »', async () => {
-    const b = bac({ profil: { zones_a_menager: ['genou'], objectif: 'force', temps_reponse: 'max', duree_seance_min: 30 } });
-    await b.appel('ouvrirApercuProgramme()');
-    const coupees = b.ctx.construit.routines.some((rt) => rt.exercices.some((x) => x.raccourcie && ['squat', 'presse', 'quad_iso'].indexOf(x.motif) >= 0));
-    const phrase = b.vue().voix[1];
-    expect(/Toutes (leurs|ses) séries restent/.test(phrase)).toBe(!coupees);
-    if (coupees) {
-      const [r, k] = (() => { for (let i = 0; i < b.ctx.construit.routines.length; i++) {
-        const j = b.ctx.construit.routines[i].exercices.findIndex((x) => x.raccourcie && ['squat', 'presse', 'quad_iso'].indexOf(x.motif) >= 0);
-        if (j >= 0) return [i, j]; } return [0, 0]; })();
-      b.vue().surExercice(r, k);
-      b.ctx.__choix.surChoix('refuser');
-      expect(b.ctx.construit.routines[r].exercices.some((x) => x.raccourcie)).toBe(true);
-    }
+  // ═══ R4/R6 (60-5) : LE RACCOURCI DE LA DURÉE NE COUPE JAMAIS UN EXERCICE MÉNAGÉ ═════════════════════════════
+  describe('l’aperçu : G8 + zone à ménager — le temps se prend ailleurs', () => {
+    const PROFIL = { zones_a_menager: ['genou'], objectif: 'force', temps_reponse: 'max', duree_seance_min: 30 };
+    const lignes = (rts) => [].concat.apply([], rts.map((rt) => rt.exercices));
+    const ouvrir = async (profil) => { const b = bac({ profil }); await b.appel('ouvrirApercuProgramme()'); return b; };
+    // Le programme TEL QUE LE GÉNÉRATEUR L'ÉCRIT, avant le raccourci : la référence des séries.
+    const complet = (b) => Generateur.generer(cat(), b.ctx.construit.entree);
+    const seriesDe = (rts) => { const m = {}; rts.forEach((rt, i) => rt.exercices.forEach((x) => { m[i + ':' + x.exercise_slug] = x.series; })); return m; };
+
+    test('⚠️ DISCRIMINANT — genou ménagé, durée visée courte : le squat et la presse gardent leurs séries, les autres coupent', async () => {
+      const b = await ouvrir(PROFIL);
+      const ref = seriesDe(complet(b)), apres = seriesDe(b.ctx.construit.routines);
+      const menages = [], autres = [];
+      b.ctx.construit.routines.forEach((rt, i) => rt.exercices.forEach((x) => (x.menage ? menages : autres).push([i + ':' + x.exercise_slug, x])));
+      expect(menages.length).toBeGreaterThan(0);
+      expect(menages.map(([k]) => k).some((k) => /squat|presse/.test(k))).toBe(true);
+      menages.forEach(([k]) => expect(apres[k]).toBe(ref[k]));                        // aucune série d'un ménagé n'est coupée
+      expect(autres.some(([k]) => apres[k] < ref[k])).toBe(true);                     // le temps se prend sur les autres
+      // Sans zone à ménager, les mêmes lignes SERAIENT coupées : le test discrimine.
+      const sans = await ouvrir(Object.assign({}, PROFIL, { zones_a_menager: null }));
+      const refSans = seriesDe(complet(sans)), apresSans = seriesDe(sans.ctx.construit.routines);
+      expect(Object.keys(apresSans).some((k) => /squat|presse|extension/.test(k) && apresSans[k] < refSans[k])).toBe(true);
+    });
+
+    test('la phrase du haut dit « Toutes leurs séries restent » — avec raison — et aucune ligne ménagée n’est marquée coupée', async () => {
+      const b = await ouvrir(PROFIL);
+      expect(b.vue().voix[1]).toMatch(/^Tu ménages ton genou : .+, sans série lourde\. Toutes leurs séries restent\.$/);
+      expect(lignes(b.ctx.construit.routines).filter((x) => x.menage && x.raccourcie)).toEqual([]);
+    });
+
+    test('⚠️ la cible inatteignable (20 min) : les ménagés restent entiers, la durée AFFICHÉE est la durée réelle, jamais la cible', async () => {
+      const b = await ouvrir(Object.assign({}, PROFIL, { duree_seance_min: 20 }));
+      const ref = seriesDe(complet(b)), apres = seriesDe(b.ctx.construit.routines);
+      b.ctx.construit.routines.forEach((rt, i) => rt.exercices.forEach((x) => { if (x.menage) expect(apres[i + ':' + x.exercise_slug]).toBe(ref[i + ':' + x.exercise_slug]); }));
+      const minutes = b.vue().routines.map((r) => Number(/(\d+)/.exec(r.duree)[1]));
+      // Une séance de jambes avec squat, presse et leur travail entier ne tient pas en 20 min : la carte le dit.
+      expect(Math.max.apply(null, minutes)).toBeGreaterThan(20);
+      b.vue().routines.forEach((r) => expect(r.duree).toMatch(/^≈[\u00a0 ]\d+[\u00a0 ]min$/));
+    });
+
+    test('une zone qui ne touche aucun exercice du programme : le raccourci est celui de toujours', async () => {
+      const coude = await ouvrir(Object.assign({}, PROFIL, { zones_a_menager: ['coude'] }));
+      const sans = await ouvrir(Object.assign({}, PROFIL, { zones_a_menager: null }));
+      const pris = (b) => b.ctx.construit.routines.map((rt) => rt.exercices.filter((x) => !x.menage).map((x) => [x.exercise_slug, x.series]));
+      expect(coude.ctx.construit.routines.some((rt) => rt.exercices.some((x) => x.menage))).toBe(true);
+      // Sur les lignes que la zone « coude » ne charge pas, rien ne diffère d'une personne sans zone, hors le temps rendu aux ménagées.
+      expect(pris(coude).length).toBe(pris(sans).length);
+    });
+
+    test('« J’ai de la marge » : aucun raccourci, aucune exemption à faire — rien ne change', async () => {
+      const b = await ouvrir(Object.assign({}, PROFIL, { temps_reponse: 'marge' }));
+      expect(seriesDe(b.ctx.construit.routines)).toEqual(seriesDe(complet(b)));
+    });
+
+    test('⚠️ « Remplacer » met sur une place DÉJÀ raccourcie un exercice ménagé : la ligne garde ses séries coupées, la phrase ne promet plus « toutes »', async () => {
+      const b = await ouvrir(PROFIL);
+      // Une place non ménagée dont les séries ont été coupées pour le temps.
+      let r = -1, k = -1;
+      b.ctx.construit.routines.forEach((rt, i) => rt.exercices.forEach((x, j) => { if (r < 0 && x.raccourcie && !x.menage) { r = i; k = j; } }));
+      expect(r).toBeGreaterThanOrEqual(0);
+      const coupees = b.ctx.construit.routines[r].exercices[k].series;
+      b.appel("poserDansLeProgramme(" + r + ", " + k + ", 'extension_jambes')");
+      const nouvelle = b.ctx.construit.routines[r].exercices[k];
+      expect(nouvelle.exercise_slug).toBe('extension_jambes');
+      expect(nouvelle.menage).toBe(true);                                             // le motif suit l'exercice : il charge le genou
+      expect(nouvelle.series).toBe(coupees);                                          // elle garde les séries de la place, coupées
+      expect(nouvelle.raccourcie).toBe(true);
+      expect(b.vue().voix[1]).not.toMatch(/Toutes/);
+      expect(b.vue().voix[1]).toMatch(/^Tu ménages ton genou : .+, sans série lourde\.$/);
+    });
   });
 
   test('le marqueur « neuf » suit le SLUG, pas l’indice (une fusion de voisins ne le déplace pas)', async () => {

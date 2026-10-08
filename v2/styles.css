@@ -661,6 +661,8 @@ button.bloc-exo:active{background:var(--panneau-2)}
   font-size:13.333333px;font-weight:400;line-height:normal;font-family:inherit}
 .feuille-pied .sec{background:transparent;border:1px solid var(--trait);color:var(--texte-2)}
 .feuille-pied .pri{background:var(--accent);color:var(--sur-accent)}
+/* 60-5 — « Valider » grisé pendant qu'une réponse est attendue (la vérification du pseudo) : il n'avait aucun état désactivé. */
+.feuille-pied .pri:disabled{opacity:.6;cursor:default}
 .feuille-pied .des{flex:0 0 auto;padding:0 var(--e3);background:transparent;
   border:1px solid #4A3330;color:var(--manque);font-weight:600}
 
@@ -1609,6 +1611,16 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .ap-ex-nom{overflow-wrap:anywhere}
 .ap-ex-mention{font-size:12px;color:var(--texte-2)}
 .ap-ex-series{flex:none;font-weight:650;font-variant-numeric:tabular-nums;white-space:nowrap}
+/* 60-5 — « Créer ces N routines », l'action principale de l'aperçu (constat d'Aurélien, sur téléphone : elle passait
+   inaperçue). Elle portait déjà `.principal`, mais `.feuille-menu button` (fond transparent, texte à gauche, police
+   héritée — plus spécifique) l'aplatissait en ligne de menu. On rend ICI ce que `.principal` dit : l'ambre de la forge
+   (la voix du coach ET l'action principale), ses capitales condensées — par les jetons, jamais une valeur recopiée.
+   Contraste : `--sur-accent` sur `--accent`, 10,3:1 ; « Création… » (désactivé) à .65, 5:1 (la règle `.inerte` du menu
+   le laisserait à .38, 2,6:1). Même emplacement, même libellé : seul l'habillage change. */
+.feuille-menu button.principal.apercu-creer{text-align:center;height:44px;margin:var(--e3) 0 var(--e2);padding:0 var(--e3);
+  background:var(--accent);color:var(--sur-accent);border:1px solid var(--accent);border-radius:var(--r-bouton);
+  font-family:var(--pile-c);font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.feuille-menu button.principal.apercu-creer.inerte{opacity:.65}
 
 /* 60-4 (ECRAN-PROFIL §4 bis) — « Exercices écartés » : une ligne par exercice, « Reprendre » à droite. */
 .ecartes-liste{margin:0 0 var(--e2)}

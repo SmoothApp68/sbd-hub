@@ -876,7 +876,8 @@
   //   · LA SIGNATURE d'une séance : ses exercices mesurés en reps (`charge_reps`
   //     ou `reps`) avec au moins une série de travail ou d'échec ; moins de 2,
   //     la séance ne compte pas ;
-  //   · LE REGROUPEMENT, dans l'ordre chronologique : le groupe dont le profil
+  //   · LE REGROUPEMENT, dans l'ordre chronologique (deux séances au même instant :
+  //     par identifiant, 60-5) : le groupe dont le profil
   //     ressemble le plus (Jaccard), s'il atteint 0,35, sinon un groupe neuf ;
   //     à égalité, le plus ancien. Le profil : les exercices présents dans au
   //     moins la moitié des séances du groupe. Puis deux passages de
@@ -886,7 +887,8 @@
   //     profil, rangés par position médiane (rang de leur première série ÷ rang
   //     le plus haut de la séance ; égalité : par slug), sur les séances du
   //     groupe où ils paraissent. Séries (travail et échec), reps et chauffes :
-  //     les médianes, arrondies au plus proche, .5 vers le haut ;
+  //     les médianes, arrondies au plus proche, .5 vers le haut ; la médiane
+  //     des reps ne lit que les séries qui ont au moins une répétition (60-5) ;
   //   · LE NOM : le titre le plus fréquent (égalité : le plus récent ; sans
   //     titre, « Routine ») ; deux routines au même nom — la comparaison de
   //     l'index, `normaliserNom` —
@@ -940,12 +942,19 @@
     return racine.THPeriode.fenetres(DEDUIT.jours, new Date(derniere)).courante;
   }
 
+  // Deux séances au même instant se départagent par leur identifiant (la référence trie sur `(debut, id)`) : sans
+  // cela, l'ordre d'arrivée — celui du cache, de la plus récente à la plus ancienne — décidait du regroupement.
+  function comparerIds(a, b) {
+    var x = a === undefined || a === null ? '' : String(a), y = b === undefined || b === null ? '' : String(b);
+    return x < y ? -1 : x > y ? 1 : 0;
+  }
+
   function seancesQuiReviennent(seances, mesures) {
     var M = racine.THModele, Mo = racine.THMoteur, P = racine.THPeriode;
     var m = mesures || {};
     var datees = (seances || []).filter(function (s) {
       return s && s.debut && !isNaN(new Date(s.debut).getTime());
-    }).slice().sort(function (a, b) { return new Date(a.debut) - new Date(b.debut); });
+    }).slice().sort(function (a, b) { return new Date(a.debut) - new Date(b.debut) || comparerIds(a.id, b.id); });
     if (!datees.length) return [];
     var finale = new Date(datees[datees.length - 1].debut);
     var fenetre = fenetreDeLaPersonne(finale);
@@ -1005,9 +1014,11 @@
           var travail = siennes.filter(compte);
           series.push(travail.length);
           chauffes.push(siennes.filter(function (x) { return M.typeDe(x) === 'echauffement'; }).length);
+          // La médiane des reps ne lit que les séries qui ont AU MOINS UNE répétition (la référence : `if x['reps']`) :
+          // un échec à 0 rep compte comme série (`travail.length` ci-dessus), pas comme « 0 reps ».
           travail.forEach(function (x) {
             var r = M.lireNombre(x.reps);
-            if (r !== null) reps.push(r);
+            if (r !== null && r !== 0) reps.push(r);
           });
         });
         return { position: Mo.mediane(positions), exercise_slug: slug,

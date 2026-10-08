@@ -7806,6 +7806,10 @@
   // « C'est mon maximum », « Moins en ce moment », « Ça varie » + une durée déclarée : chaque séance passe par
   // `raccourcirRoutine`, qui coupe les dernières séries (jamais un muscle). Une seule fois, à l'ouverture : les
   // séries restent ensuite celles de la place, que la personne change ou non l'exercice.
+  //
+  // R4/R6 (60-5) : les exercices dont la place charge une zone à ménager sont EXEMPTÉS (`exemptsDuRaccourci`) — leurs
+  // séries ne sont jamais coupées, le temps se prend sur les autres ; s'il ne reste qu'eux, la cible n'est pas tenue
+  // et l'aperçu montre la durée réelle (`lectureDuProgramme` la lit sur la structure écrite, jamais sur la cible).
   function raccourcirLeProgramme(routinesDuProgramme) {
     var cible = Moteur.cibleDuProgramme(profil && profil.temps_reponse, profil && profil.duree_seance_min,
       profil && profil.intention);
@@ -7814,7 +7818,7 @@
     return routinesDuProgramme.map(function (rt) {
       var st = Routines.routineDeduite(deduiteDuProgramme(rt), { exercices: local.exercices, routines: routines, existants: noms });
       var S = Moteur.structureDeRoutine(brouillonDeStructure(st, st.nom, null).exercices, index);
-      var r = Moteur.raccourcirRoutine(S, cible);
+      var r = Moteur.raccourcirRoutine(S, cible, Generateur.exemptsDuRaccourci(rt));
       var lignes = [];
       rt.exercices.forEach(function (l, j) {
         var tr = r.exercices[j] ? r.exercices[j].tr : l.series;
@@ -8593,19 +8597,32 @@
 
   // 60-3b — « PRIS ENTRE-TEMPS » : un ÉTAT DE L'ÉCRAN, pas une colonne (ECRAN-PROFIL §3.1). Retenu en
   // local, PAR COMPTE (`th-v2-…` + id : « Quitter » l'efface avec les autres clés de l'appareil, et
-  // un autre compte ne le voit pas) ; le Profil ne le montre que tant qu'aucun pseudo n'est posé.
+  // un autre compte ne le voit pas).
+  //
+  // 60-5 : il se retient AVEC LE PSEUDO QUE LA LIGNE PORTAIT quand le refus est tombé — `'1'` quand elle n'en portait
+  // aucun (la forme de 60-3b), `'p:' + pseudo` quand l'ancien pseudo est revenu (« alice » → « bob » refusé : la ligne
+  // redit « alice », et la phrase le dit aussi). Le Profil ne le montre que tant que la ligne est CELLE-LÀ : un pseudo
+  // posé ailleurs (un autre appareil) ou accepté depuis, et la phrase s'en va ; une saisie de pseudo l'efface aussi
+  // (`poserProfil`) — le prochain refus le reposera.
   var CLE_PSEUDO_PRIS = 'th-v2-pseudo-pris-';
 
-  function retenirPseudoPris(id) {
+  function retenirPseudoPris(id, tenu) {
     if (!id) return;
-    try { racine.localStorage.setItem(CLE_PSEUDO_PRIS + id, '1'); }
+    try { racine.localStorage.setItem(CLE_PSEUDO_PRIS + id, tenu ? 'p:' + tenu : '1'); }
     catch (e) { /* stockage refusé : la ligne dit « à renseigner », sans la phrase */ }
+  }
+
+  function effacerPseudoPris(id) {
+    if (!id) return;
+    try { racine.localStorage.removeItem(CLE_PSEUDO_PRIS + id); }
+    catch (e) { /* stockage refusé : la phrase se taira d'elle-même dès que la ligne change */ }
   }
 
   function pseudoPrisSignale() {
     var id = userId();
     if (!id) return false;
-    try { return racine.localStorage.getItem(CLE_PSEUDO_PRIS + id) === '1'; }
+    var tenu = profil && profil.username ? 'p:' + profil.username : '1';
+    try { return racine.localStorage.getItem(CLE_PSEUDO_PRIS + id) === tenu; }
     catch (e) { return false; }
   }
 
@@ -8703,11 +8720,42 @@
     var id = await identifiantDuProfil();
     if (!id || !generationValide(g)) return;
     try {
-      var rendu = await Donnees.enregistrerProfil(id, Profil.champsEcrits(profil));
+      var champs = Profil.champsEcrits(profil);
+      var rendu;
+      try { rendu = await Donnees.enregistrerProfil(id, champs); }
+      catch (e1) {
+        // 60-5 — UN PSEUDO REFUSÉ NE BLOQUE JAMAIS LE RESTE DU PROFIL (ECRAN-PROFIL §3.1). Le pseudo est
+        // pris entre la vérification de la feuille (ou son silence, hors ligne) et cet envoi : le refus est
+        // DÉFINITIF pour lui seul — rejoué à l'identique, il bloquerait toutes les colonnes. DEUX ENVOIS :
+        // le premier, refusé en bloc par la base (un `upsert` est une seule instruction : un `23505` n'écrit
+        // RIEN de la ligne) ; le second, la MÊME ligne moins `username`, rejouée UNE fois. Il ne peut pas
+        // heurter l'unicité (le pseudo n'y est pas), perd aucun autre champ (même ligne) et ne boucle pas (pas
+        // de nouvel essai ici : un échec du second retombe dans le chemin ordinaire, et repart au prochain
+        // départ — démarrage, retour du réseau, geste — comme tout envoi). La réponse porte la ligne telle
+        // que la base la tient : le pseudo refusé en sort, l'ancien (ou aucun) y revient.
+        if (!Profil.estRefusDePseudo(e1, champs)) throw e1;
+        if (!generationValide(g)) return;
+        console.warn('Pseudo déjà pris, il quitte l’envoi du profil :', texteErreur(e1));
+        rendu = await Donnees.enregistrerProfil(id, Profil.sansPseudo(champs));
+        // L'état « pris entre-temps » se retient avec le pseudo que la base tient maintenant (aucun, ou l'ancien).
+        retenirPseudoPris(id, rendu.username);
+        // Le pseudo refusé sort de la ligne LOCALE dès que la base a répondu — même si le reste de la réponse n'est
+        // pas adopté ci-dessous (un geste plus récent attend son envoi) : il ne repart plus avec lui, et l'écran ne
+        // le montre plus comme posé. Seul le champ refusé est corrigé, et seulement s'il n'a pas été retapé depuis.
+        if (generationValide(g) && profil && profil.username === champs.username) {
+          profil = Object.assign({}, profil, { username: rendu.username === undefined ? null : rendu.username });
+          await sauverProfilLocal();
+        }
+      }
       if (!generationValide(g)) return;
       if (version !== versionProfil) return;   // un geste plus récent attend son envoi : on ne le remplace pas
       profil = rendu;
       profilAEnvoyer = false;
+      // Une adoption est un CHANGEMENT D'ÉTAT : une lecture (`chargerProfil`) partie AVANT elle, mais traitée par la
+      // base avant l'écriture, rendrait une valeur plus ancienne que `rendu` et la remettrait en local — puis le
+      // geste suivant, qui envoie la ligne entière, l'écrirait en base (relevé à la relecture de 60-5). La version
+      // bouge, `chargerProfil` jette cette lecture (`version !== versionProfil`).
+      versionProfil++;
       await sauverProfilLocal();
       if (ecranCourant === 'profil') rendreProfilEcran();
     } catch (e) {
@@ -8731,6 +8779,8 @@
   async function poserProfil(champs) {
     profil = Object.assign({}, profil || {}, Profil.champsEcrits(champs));
     versionProfil++;
+    // Un pseudo choisi remet l'état « pris entre-temps » à zéro : le prochain refus, s'il y en a un, le reposera.
+    if (champs && Object.prototype.hasOwnProperty.call(champs, 'username')) effacerPseudoPris(userId());
     profilAEnvoyer = true;
     await sauverProfilLocal();
     await envoyerProfil();
@@ -9058,6 +9108,10 @@
   //
   // Le dossier est le NOM RÉEL écrit à la création (`programme_construit_dossier`) ; « déjà un programme » compte aussi
   // un bloc arrêté ou terminé : la personne a déjà fait ce choix pour ce dossier, la carte ne revient pas.
+  //
+  // Elle rend `{ dossier, seances }` : les séances FAITES depuis les routines du dossier — le fait même qui porte son
+  // seuil de 6, et le seul chiffre qu'elle DIT (« Tu as fait N séances de ton programme. », R5, 60-5). Le calendrier
+  // des 21 jours n'est jamais dit (MOTEUR §9.22) : il ne sert qu'à décider.
   function carteCyclesDuProfil() {
     var p = profil || {};
     var dossier = Profil.dossierDuProgrammeValide(p.programme_construit_dossier);
@@ -9065,24 +9119,26 @@
     var ids = Routines.visibles(routines).filter(function (r) { return Routines.dossierPropre(r.dossier) === dossier; })
       .map(function (r) { return r.id; });
     if (!ids.length) return null;                                      // le dossier a disparu : rien à passer en cycles
+    var seances = faits.seancesDesRoutines(corpus(), ids, p.programme_construit_le);
     var affichee = Generateur.carteCycles({
       objectif: Profil.objectifDe(p),
       joursDepuisCreation: Profil.joursDepuis(p.programme_construit_le, new Date()),
-      seancesDuDossier: faits.seancesDesRoutines(corpus(), ids, p.programme_construit_le),
+      seancesDuDossier: seances,
       estProgramme: (local.blocs || []).some(function (b) { return b && b.dossier === dossier; }),
       carnet: Moteur.coachSeTait(p.intention),
       dejaVue: !!p.carte_cycles_le
     });
-    return affichee ? dossier : null;
+    return affichee ? { dossier: dossier, seances: seances } : null;
   }
 
   function rendreCarteCycles() {
     var noeud = $('carte-cycles');
     if (!noeud) return;
-    var dossier = seance ? null : carteCyclesDuProfil();
-    if (!dossier) { Rendu.rendreBandeauReprise(noeud, null); return; }
+    var carte = seance ? null : carteCyclesDuProfil();
+    if (!carte) { Rendu.rendreBandeauReprise(noeud, null); return; }
+    var dossier = carte.dossier;
     Rendu.rendreBandeauReprise(noeud, {
-      quoi: 'Ton programme tourne depuis ' + (Generateur.CARTE_JOURS / 7) + ' semaines.',
+      quoi: 'Tu as fait ' + carte.seances + ' séances de ton programme.',
       sujet: 'Un bloc de ' + Moteur.SEMAINES_BLOC_DEFAUT + ' semaines en Lourd sur tes barres, la dernière plus légère : ' +
         'c\u2019est là que la force se gagne. On passe en cycles ?',
       libelleQuitter: 'Pas maintenant',
@@ -9375,6 +9431,11 @@
 
   // Les saisies libres. Chacune rend une PHRASE quand elle refuse — jamais un
   // silence, jamais une fermeture. La borne doublée ici est un CHECK de la base.
+  // La vérification du pseudo, depuis le Profil, ne retient pas la personne plus longtemps : sans réponse au bout de ce
+  // délai (un réseau connecté mais sans données), c'est « on ne sait pas » (ECRAN-PROFIL §5.2) — la feuille se ferme et
+  // l'envoi part ; la base reste l'autorité (`envoyerProfilMaintenant`).
+  var DELAI_PSEUDO_MS = 4000;
+
   var SAISIES = {
     taille_cm: {
       titre: 'Taille', type: 'text', inputMode: 'numeric', etiquette: 'En centimètres',
@@ -9417,13 +9478,30 @@
         if (verdict.code === 'vide') return { erreur: 'Un pseudo, même court.' };
         if (verdict.message) return { erreur: verdict.message };
         return { champs: { username: verdict.pseudo } };
+      },
+      // 60-5 — LA FEUILLE VÉRIFIE AVANT DE SE FERMER (ECRAN-PROFIL §3.1), par la vérification de
+      // l'inscription (`Donnees.pseudoPris`, les trois états de §5.2). Pris : un refus, avec ses deux
+      // alternatives (celles de l'e-mail du compte), la feuille reste ouverte et RIEN n'est écrit. Libre,
+      // ou « on ne sait pas » (hors ligne, la fonction absente) : `null`, la feuille se ferme et l'envoi
+      // part — la base reste l'autorité (`envoyerProfilMaintenant`). Son propre pseudo n'est « pris » que
+      // par lui-même : il ne se redemande pas.
+      verifier: async function (champs) {
+        var nom = champs.username;
+        if (profil && Profil.normaliserPseudo(profil.username) === nom) return null;
+        var pris = null, minuteur = null;
+        var silence = new Promise(function (resolve) { minuteur = racine.setTimeout(function () { resolve(null); }, DELAI_PSEUDO_MS); });
+        try { pris = await Promise.race([Donnees.pseudoPris(nom), silence]); } catch (e) { pris = null; }
+        racine.clearTimeout(minuteur);
+        var email = (sessionActive && sessionActive.user && sessionActive.user.email) || '';
+        var verdict = Profil.verdictPseudo(nom, pris, { email: email });
+        return verdict.code === 'pris' ? verdict.message : null;
       }
     }
   };
 
   function ouvrirSaisieProfil(cle) {
     var def = SAISIES[cle];
-    feuilleProfil = function (cible) {
+    var cetteFeuille = function (cible) {
       Rendu.rendreFeuilleSaisie(cible, {
         titre: def.titre, aide: def.aide, etiquette: def.etiquette,
         type: def.type, inputMode: def.inputMode, lignes: def.lignes,
@@ -9432,13 +9510,19 @@
         surValider: function (v) {
           var r = def.valider(v);
           if (r.erreur) return r.erreur;
-          fermerVoile();
-          ecrireProfil(r.champs);
-          return null;
+          var poser = function () { fermerVoile(); ecrireProfil(r.champs); return null; };
+          if (!def.verifier) return poser();
+          // 60-5 — la saisie qui se vérifie attend la réponse, feuille ouverte. Fermée entre-temps
+          // (« Annuler », le retour d'Android), elle n'écrit RIEN : la personne est partie.
+          return def.verifier(r.champs).then(function (refus) {
+            if (feuilleProfil !== cetteFeuille) return null;
+            return refus || poser();
+          });
         },
         surAnnuler: fermerVoile
       });
     };
+    feuilleProfil = cetteFeuille;
     ouvrirFeuilleProfil();
   }
 

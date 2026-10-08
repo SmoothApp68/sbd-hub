@@ -88,7 +88,7 @@ function bacEnvoi(o) {
     console: { warn: (...a) => etat.avertissements.push(a.join(' ')) },
     Promise, Date, Object, Array, Math, String,
     Profil,
-    racine: { localStorage: { getItem: (k) => (k in stock ? stock[k] : null), setItem: (k, v) => { stock[k] = String(v); } } },
+    racine: { localStorage: { getItem: (k) => (k in stock ? stock[k] : null), setItem: (k, v) => { stock[k] = String(v); }, removeItem: (k) => { delete stock[k]; } } },
     CLE_PSEUDO_PRIS,
     texteErreur: (e) => String(e && e.message || e),
     profil: Object.assign({ id: 'u1', username: null }, opt.profil || {}), profilAEnvoyer: true, envoiProfil: null, versionProfil: 0,
@@ -98,7 +98,11 @@ function bacEnvoi(o) {
     identifiantDuProfil: async () => 'u1',
     sauverProfilLocal: async () => {},
     userEmail: () => null,
+    pseudoAInscrire: null, metadonneesDuCompte: async () => null,
+    rendreBandeauQuestionnaire: () => {}, rendreBandeauPhase: () => {}, rendreCarteCycles: () => {},
+    ouvrirQuestionnaireSiDu: () => {},
     Donnees: {
+      monProfil: async () => (opt.lecture ? opt.lecture(ctx, etat) : Object.assign({}, etat.ligne)),
       enregistrerProfil: async (id, champs) => {
         etat.posts.push(Object.assign({}, champs));
         if (opt.apresPost) opt.apresPost(etat.posts.length, ctx);
@@ -112,9 +116,11 @@ function bacEnvoi(o) {
     }
   };
   vm.createContext(ctx);
-  ['retenirPseudoPris', 'pseudoPrisSignale', 'envoyerProfil', 'envoyerProfilMaintenant']
-    .forEach((n) => vm.runInContext(extraire(n), ctx));
+  ['retenirPseudoPris', 'effacerPseudoPris', 'pseudoPrisSignale', 'envoyerProfil', 'envoyerProfilMaintenant', 'poserProfil',
+    'chargerProfil'].forEach((n) => vm.runInContext(extraire(n), ctx));
   return { ctx, etat, stock, envoyer: () => vm.runInContext('envoyerProfil()', ctx),
+           poser: (champs) => { ctx.__c = champs; return vm.runInContext('poserProfil(__c)', ctx); },
+           charger: () => vm.runInContext('chargerProfil()', ctx),
            signal: () => vm.runInContext('pseudoPrisSignale()', ctx) };
 }
 
@@ -155,6 +161,40 @@ describe('envoyerProfilMaintenant — un pseudo refusé par la base', () => {
     expect(b.etat.ligne.username).toBe('ancien');
     expect(b.ctx.profil.username).toBe('ancien');
     expect(b.etat.ligne).toMatchObject(REPONSES);
+  });
+
+  test('⚠️ DISCRIMINANT (revue, 3 relecteurs sur 3) — l’ancien pseudo est REVENU : la ligne le montre ET dit la phrase, pas un silence', async () => {
+    const b = bacEnvoi({ pris: ['deja_pris'], ligne: { username: 'ancien' },
+      profil: Object.assign({ username: 'deja_pris' }, REPONSES) });
+    await b.envoyer();
+    expect(b.stock[CLE_PSEUDO_PRIS + 'u1']).toBe('p:ancien');          // retenu AVEC le pseudo que la ligne porte
+    expect(b.signal()).toBe(true);
+    const ligne = Profil.lignePseudo(b.ctx.profil, b.signal(), () => {});
+    expect(ligne.valeur).toBe('ancien');
+    expect(ligne.sous).toBe('Ce pseudo vient d’être pris : choisis-en un autre.');
+  });
+
+  test('(revue) choisir ensuite un pseudo remet l’état à zéro ; une autre réponse n’y touche pas', async () => {
+    const b = bacEnvoi({ pris: ['deja_pris'], ligne: { username: 'ancien' },
+      profil: Object.assign({ username: 'deja_pris' }, REPONSES) });
+    await b.envoyer();
+    expect(b.signal()).toBe(true);
+    await b.poser({ intention: 'entretenir' });                        // une réponse du questionnaire : l'état reste
+    expect(b.signal()).toBe(true);
+    await b.poser({ username: 'nouveau_pseudo' });                     // un pseudo choisi : l'état est effacé
+    expect(b.stock[CLE_PSEUDO_PRIS + 'u1']).toBeUndefined();
+    expect(b.signal()).toBe(false);
+    expect(b.etat.ligne.username).toBe('nouveau_pseudo');
+  });
+
+  test('(revue) le pseudo choisi est refusé à son tour, après un premier refus : l’état est reposé, pour l’ancien pseudo', async () => {
+    const b = bacEnvoi({ pris: ['deja_pris', 'autre_pris'], ligne: { username: 'ancien' },
+      profil: Object.assign({ username: 'deja_pris' }, REPONSES) });
+    await b.envoyer();
+    await b.poser({ username: 'autre_pris' });
+    expect(b.ctx.profil.username).toBe('ancien');
+    expect(b.stock[CLE_PSEUDO_PRIS + 'u1']).toBe('p:ancien');
+    expect(b.signal()).toBe(true);
   });
 
   test('l’état « pris entre-temps » de 60-3b est posé : la même mémoire locale, la même phrase', async () => {
@@ -231,6 +271,36 @@ describe('envoyerProfilMaintenant — un pseudo refusé par la base', () => {
     expect(b.ctx.profil.intention).toBe('entretenir');               // le geste plus récent est intact
     expect(b.ctx.profilAEnvoyer).toBe(true);                         // et son propre envoi l'attend
     expect(b.signal()).toBe(true);                                   // le refus, lui, est un fait : retenu
+  });
+
+  test('⚠️ DISCRIMINANT (revue) — une adoption est un changement d’état : une lecture PARTIE AVANT ne remet pas une valeur plus ancienne', async () => {
+    // Le geste « objectif = force » est posé ; l'envoi part ; un `chargerProfil` lancé APRÈS le geste lit la base AVANT que
+    // le second envoi n'y écrive — et sa réponse arrive APRÈS l'adoption du second envoi : valeur périmée (objectif nul).
+    let rendreLecture;
+    const lectureTenue = new Promise((r) => { rendreLecture = r; });
+    const b = bacEnvoi({ pris: ['deja_pris'], profil: { username: 'deja_pris' }, ligne: { objectif: null },
+      lecture: async (ctx, etat) => { const vue = Object.assign({}, etat.ligne); await lectureTenue; return vue; } });
+    const geste = b.poser({ objectif: 'force' });                     // version +1, l'envoi part
+    const lecture = b.charger();                                      // capte la version, lit l'état d'AVANT l'écriture
+    await geste;
+    expect(b.etat.ligne.objectif).toBe('force');                      // le second envoi a écrit
+    expect(b.ctx.profilAEnvoyer).toBe(false);
+    rendreLecture();                                                  // la lecture, périmée, arrive maintenant
+    await lecture;
+    expect(b.ctx.profil.objectif).toBe('force');                      // elle n'a PAS remis l'ancienne valeur
+    // Et le geste suivant, qui envoie la ligne entière, n'écrase donc rien en base.
+    await b.poser({ temps_reponse: 'max' });
+    expect(b.etat.ligne.objectif).toBe('force');
+  });
+
+  test('(revue) la version bouge à l’adoption — et seulement à l’adoption', async () => {
+    const b = bacEnvoi({ profil: { username: 'libre_ici' } });
+    expect(b.ctx.versionProfil).toBe(0);
+    await b.envoyer();
+    expect(b.ctx.versionProfil).toBe(1);
+    const c = bacEnvoi({ reseau: false, profil: { username: 'libre_ici' } });
+    await c.envoyer();                                                 // pas de réponse : rien n'est adopté
+    expect(c.ctx.versionProfil).toBe(0);
   });
 
   test('⚠️ (revue) le pseudo refusé sort de la ligne LOCALE même quand la réponse n’est pas adoptée — l’envoi qui suit ne le porte plus', async () => {

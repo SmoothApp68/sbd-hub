@@ -36,6 +36,7 @@
 //      9   hors ligne, la feuille se ferme (on ne sait pas), les réponses attendent, et au retour du réseau
 //          la base refuse le pseudo : DEUX envois, les réponses arrivent, la phrase s'affiche ;
 //      9 bis  la même chose en ligne, quand la vérification dit « libre » et que la base refuse quand même ;
+//      9 ter  un compte qui a DÉJÀ un pseudo : l'ancien revient, et la ligne le dit (pas un silence) ;
 //      10  hors ligne avec un pseudo LIBRE : l'envoi attend, puis se résout ;
 //      11  la vérification qui PEND (réseau connecté mais sans données) : la feuille attend, le bouton est grisé et le
 //          champ figé, puis au bout du délai « on ne sait pas » — elle se ferme et l'envoi part.
@@ -697,6 +698,42 @@ function ok(nom, cond, detail) {
       await attendre(500);
       const l2 = await lignePseudoDuProfil(page);
       ok('un pseudo libre se pose ensuite : la phrase s’en va', pose && !!l2 && l2.val === 'melodie_b' && l2.lib.indexOf('pris') < 0, JSON.stringify(l2));
+      ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
+      await ctx.close();
+    }
+
+    // ══ 9 ter. UN COMPTE QUI A DÉJÀ UN PSEUDO : L'ANCIEN REVIENT, LA LIGNE LE DIT ═══
+    console.log('\n══ 9 ter. hors ligne, un compte qui a déjà un pseudo : l’ancien revient, avec la phrase ══');
+    {
+      const bd = baseSansPseudo();
+      bd.profils[B].username = 'ancien';
+      const { ctx, page, erreurs } = await ouvrirProfilDe(nav, bd);
+      bd.reseauCoupe = true;
+      await taperPseudo(page, 'Deja_Pris');
+      await attendre(1200);
+      const l1 = await lignePseudoDuProfil(page);
+      ok('prémisse — hors ligne, la ligne montre le nouveau pseudo, posé en local', !!l1 && l1.val === 'deja_pris', JSON.stringify(l1));
+      bd.reseauCoupe = false;
+      const avant = bd.requetes.length;
+      await page.evaluate(() => window.dispatchEvent(new Event('online')));
+      const resolu = await attendreQue(page, () => bd.requetes.length - avant >= 2, 12000);
+      await attendre(800);
+      ok('DEUX envois au retour : 409 avec le pseudo, puis 201 sans lui ; la base garde l’ancien pseudo',
+        resolu && JSON.stringify(bd.requetes.slice(avant).map((q) => [q.statut, q.aPseudo])) === '[[409,true],[201,false]]' &&
+          bd.profils[B].username === 'ancien', JSON.stringify([bd.requetes.slice(avant), bd.profils[B]]));
+      const l2 = await lignePseudoDuProfil(page);
+      ok('DISCRIMINANT (revue) — la ligne montre l’ANCIEN pseudo ET dit « Ce pseudo vient d’être pris : choisis-en un autre. » (pas un silence)',
+        !!l2 && l2.val === 'ancien' && l2.lib.indexOf(PHRASE_PRIS) >= 0, JSON.stringify(l2));
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await attendreQue(page, () => page.evaluate(() => !!document.querySelector('#profil-corps .p-ligne')), 15000);
+      await attendre(800);
+      const l3 = await lignePseudoDuProfil(page);
+      ok('la phrase est retenue d’une ouverture à l’autre', !!l3 && l3.val === 'ancien' && l3.lib.indexOf(PHRASE_PRIS) >= 0, JSON.stringify(l3));
+      await taperPseudo(page, 'nouveau_pseudo');
+      const pose = await attendreQue(page, () => bd.profils[B].username === 'nouveau_pseudo', 12000);
+      await attendre(500);
+      const l4 = await lignePseudoDuProfil(page);
+      ok('choisir un pseudo libre : la base le porte, la phrase s’en va', pose && !!l4 && l4.val === 'nouveau_pseudo' && l4.lib.indexOf('pris') < 0, JSON.stringify([bd.profils[B], l4]));
       ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
       await ctx.close();
     }

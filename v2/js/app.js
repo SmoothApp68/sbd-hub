@@ -8597,19 +8597,32 @@
 
   // 60-3b — « PRIS ENTRE-TEMPS » : un ÉTAT DE L'ÉCRAN, pas une colonne (ECRAN-PROFIL §3.1). Retenu en
   // local, PAR COMPTE (`th-v2-…` + id : « Quitter » l'efface avec les autres clés de l'appareil, et
-  // un autre compte ne le voit pas) ; le Profil ne le montre que tant qu'aucun pseudo n'est posé.
+  // un autre compte ne le voit pas).
+  //
+  // 60-5 : il se retient AVEC LE PSEUDO QUE LA LIGNE PORTAIT quand le refus est tombé — `'1'` quand elle n'en portait
+  // aucun (la forme de 60-3b), `'p:' + pseudo` quand l'ancien pseudo est revenu (« alice » → « bob » refusé : la ligne
+  // redit « alice », et la phrase le dit aussi). Le Profil ne le montre que tant que la ligne est CELLE-LÀ : un pseudo
+  // posé ailleurs (un autre appareil) ou accepté depuis, et la phrase s'en va ; une saisie de pseudo l'efface aussi
+  // (`poserProfil`) — le prochain refus le reposera.
   var CLE_PSEUDO_PRIS = 'th-v2-pseudo-pris-';
 
-  function retenirPseudoPris(id) {
+  function retenirPseudoPris(id, tenu) {
     if (!id) return;
-    try { racine.localStorage.setItem(CLE_PSEUDO_PRIS + id, '1'); }
+    try { racine.localStorage.setItem(CLE_PSEUDO_PRIS + id, tenu ? 'p:' + tenu : '1'); }
     catch (e) { /* stockage refusé : la ligne dit « à renseigner », sans la phrase */ }
+  }
+
+  function effacerPseudoPris(id) {
+    if (!id) return;
+    try { racine.localStorage.removeItem(CLE_PSEUDO_PRIS + id); }
+    catch (e) { /* stockage refusé : la phrase se taira d'elle-même dès que la ligne change */ }
   }
 
   function pseudoPrisSignale() {
     var id = userId();
     if (!id) return false;
-    try { return racine.localStorage.getItem(CLE_PSEUDO_PRIS + id) === '1'; }
+    var tenu = profil && profil.username ? 'p:' + profil.username : '1';
+    try { return racine.localStorage.getItem(CLE_PSEUDO_PRIS + id) === tenu; }
     catch (e) { return false; }
   }
 
@@ -8723,8 +8736,9 @@
         if (!Profil.estRefusDePseudo(e1, champs)) throw e1;
         if (!generationValide(g)) return;
         console.warn('Pseudo déjà pris, il quitte l’envoi du profil :', texteErreur(e1));
-        retenirPseudoPris(id);
         rendu = await Donnees.enregistrerProfil(id, Profil.sansPseudo(champs));
+        // L'état « pris entre-temps » se retient avec le pseudo que la base tient maintenant (aucun, ou l'ancien).
+        retenirPseudoPris(id, rendu.username);
         // Le pseudo refusé sort de la ligne LOCALE dès que la base a répondu — même si le reste de la réponse n'est
         // pas adopté ci-dessous (un geste plus récent attend son envoi) : il ne repart plus avec lui, et l'écran ne
         // le montre plus comme posé. Seul le champ refusé est corrigé, et seulement s'il n'a pas été retapé depuis.
@@ -8737,6 +8751,11 @@
       if (version !== versionProfil) return;   // un geste plus récent attend son envoi : on ne le remplace pas
       profil = rendu;
       profilAEnvoyer = false;
+      // Une adoption est un CHANGEMENT D'ÉTAT : une lecture (`chargerProfil`) partie AVANT elle, mais traitée par la
+      // base avant l'écriture, rendrait une valeur plus ancienne que `rendu` et la remettrait en local — puis le
+      // geste suivant, qui envoie la ligne entière, l'écrirait en base (relevé à la relecture de 60-5). La version
+      // bouge, `chargerProfil` jette cette lecture (`version !== versionProfil`).
+      versionProfil++;
       await sauverProfilLocal();
       if (ecranCourant === 'profil') rendreProfilEcran();
     } catch (e) {
@@ -8760,6 +8779,8 @@
   async function poserProfil(champs) {
     profil = Object.assign({}, profil || {}, Profil.champsEcrits(champs));
     versionProfil++;
+    // Un pseudo choisi remet l'état « pris entre-temps » à zéro : le prochain refus, s'il y en a un, le reposera.
+    if (champs && Object.prototype.hasOwnProperty.call(champs, 'username')) effacerPseudoPris(userId());
     profilAEnvoyer = true;
     await sauverProfilLocal();
     await envoyerProfil();

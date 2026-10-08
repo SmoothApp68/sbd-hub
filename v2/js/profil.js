@@ -1199,16 +1199,17 @@
     return null;
   }
 
-  // La ligne « Pseudo » du Profil. « Pris entre-temps » : la ligne s'est créée SANS pseudo parce
-  // que celui de l'inscription venait d'être pris (le 23505 de `chargerProfil`) ; elle le dit,
-  // tant qu'aucun pseudo n'est posé. `pseudoPris` est un ÉTAT DE L'ÉCRAN, retenu en local par
-  // compte (`app.js`), pas une colonne.
+  // La ligne « Pseudo » du Profil. « Pris entre-temps » : un pseudo a été refusé par la base (celui de l'inscription,
+  // le 23505 de `chargerProfil` ; ou un pseudo choisi depuis le Profil, 60-5) ; la ligne le dit tant que `pseudoPris`
+  // se tient. `pseudoPris` est un ÉTAT DE L'ÉCRAN, retenu en local par compte (`app.js`), pas une colonne — et c'est
+  // `app.js` qui sait s'il parle encore de CETTE ligne (le pseudo que la ligne portait au refus : aucun, ou l'ancien,
+  // qui est alors revenu sans un mot — ECRAN-PROFIL §3.1) ; ici on ne fait que le dire.
   var PHRASE_PSEUDO_PRIS = 'Ce pseudo vient d’être pris : choisis-en un autre.';
 
   function lignePseudo(profil, pseudoPris, surChoix) {
     var p = profil || {};
     return { libelle: 'Pseudo', valeur: p.username || null,
-             sous: pseudoPris && !p.username ? PHRASE_PSEUDO_PRIS : null, surChoix: surChoix };
+             sous: pseudoPris ? PHRASE_PSEUDO_PRIS : null, surChoix: surChoix };
   }
 
   // ── 60-5 — UN PSEUDO REFUSÉ NE BLOQUE JAMAIS LE RESTE DU PROFIL (ECRAN-PROFIL §3.1) ─────────────

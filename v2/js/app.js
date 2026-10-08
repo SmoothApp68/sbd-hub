@@ -116,6 +116,7 @@
   var vidangeEnCours = false;
   var chrono = null;         // { depuis, cible, sonne, exo } — le repos en cours
   var minuteur = null;       // l'intervalle d'affichage du chronomètre
+  var dureeTimer = null;     // le réveil de la durée de la barre de séance (62) — un SEUL, voir `armerDuree`
   var sourdine = false;      // le son du repos, coupé et retenu (§3 bis.8)
   var audio = null;          // le contexte Web Audio, né au premier geste
   var modeRPE = false;       // la bascule effort, retenue d'une fois sur l'autre
@@ -178,6 +179,11 @@
     // de plus soit oubliée le jour où on l'ajoute — `ongletDe` le sait déjà.
     if (ecranCourant === 'profil' && onglet !== Routeur.PROFIL) marquerProfilVu();
     ecranCourant = nom;
+    // ⚠️ LA DURÉE DE LA BARRE N'A DE SENS QUE SOUS LES YEUX (62). Une seule porte,
+    // comme pour le mode Réorganiser : quitter l'écran de séance — par un onglet,
+    // par « Terminer », par « Annuler » — coupe le réveil, et `rendreSeance` le
+    // réarme au retour. Rien à penser à arrêter à chaque sortie.
+    if (nom !== 'seance') arreterDuree();
     Object.keys(vues).forEach(function (k) { vues[k].hidden = (k !== nom); });
     var barre = $('onglets');
     if (barre) barre.hidden = !onglet;
@@ -2147,6 +2153,44 @@
     return Math.max(0, Math.round((Date.now() - chrono.depuis) / 1000));
   }
 
+  // ══ LA DURÉE DE LA BARRE DE SÉANCE (62, ECRAN-SAISIE §7 octies bis) ═════════
+  //
+  // ⚠️ UN SEUL RÉVEIL, ET IL N'EST PAS UN `setInterval`. Le chronomètre de repos a
+  // le sien (`minuteur`, une seconde, seulement tant qu'il y a un repos) et sa règle
+  // écrite : « deux endroits qui lancent des `setInterval` finissent toujours par en
+  // laisser un derrière ». La durée à la minute n'en ajoute donc pas un second : un
+  // `setTimeout` posé exactement sur le prochain changement du texte, qui se rearme
+  // lui-même — donc qui ne peut pas tourner à vide quand plus rien ne l'arme.
+  //
+  //   · ARMÉ par `rendreSeance` (et par le retour d'arrière-plan), jamais ailleurs ;
+  //   · COUPÉ par `montrer` dès qu'un autre écran s'affiche (Terminer, Annuler, un
+  //     onglet, la déconnexion y passent tous), et par sa propre garde si la séance
+  //     n'existe plus ou se corrige (`enEdition` : pas de durée écoulée à montrer) ;
+  //   · il RÉÉCRIT LE TEXTE DU NŒUD (`Rendu.majDureeBandeau`), il ne rappelle jamais
+  //     `rendreSeance` : celle-ci reconstruirait les blocs, ferait perdre le focus d'un
+  //     champ en cours de saisie et rejouerait les mesures.
+  //   · et la durée se RECALCULE depuis `seance.debut` à chaque réveil, jamais par un
+  //     compteur : une app endormie deux minutes affiche le bon chiffre au réveil.
+  function arreterDuree() {
+    if (dureeTimer !== null) { racine.clearTimeout(dureeTimer); dureeTimer = null; }
+  }
+
+  function rafraichirDuree() {
+    if (!seance || enEdition()) return;
+    Rendu.majDureeBandeau($('bandeau-seance'), seance.debut, Date.now());
+  }
+
+  function armerDuree() {
+    arreterDuree();
+    if (!seance || enEdition()) return;
+    dureeTimer = racine.setTimeout(function () {
+      dureeTimer = null;
+      if (!seance || enEdition() || ecranCourant !== 'seance') return;
+      rafraichirDuree();
+      armerDuree();
+    }, Seance.delaiProchaineMinute(seance.debut, Date.now()));
+  }
+
   // ══ RIEN D'INTERACTIF NE DOIT RESTER SOUS UNE BARRE FIXE ════════════════
   //
   // Constaté sur device au chantier 24 : la barre de repos RECOUVRAIT
@@ -2164,7 +2208,7 @@
   // On MESURE les deux barres et on réserve exactement ce qu'elles occupent.
   // Une hauteur mesurée suit tout : l'encoche, le repli des commandes à 360 px,
   // une barre qu'on rendrait plus haute demain.
-  var barresMesurees = { onglets: null, repos: null, pied: null };
+  var barresMesurees = { onglets: null, repos: null, pied: null, seance: null };
 
   function mesurerBarres() {
     var style = doc.documentElement.style;
@@ -2186,6 +2230,12 @@
     // de défilement — ce qu'il couvre est perdu si la réserve ne le compte pas.
     var hRepos = (repos && !repos.hidden) ? Math.ceil(repos.getBoundingClientRect().height) : 0;
     var hPied = (pied && !pied.hidden) ? Math.ceil(pied.getBoundingClientRect().height) : 0;
+    // 62 — la barre de séance, collée EN HAUT. Elle ne couvre rien tant qu'elle est
+    // dans le flux, mais un champ qui prend le focus ou un bloc amené en vue peut
+    // glisser SOUS elle : `scroll-padding-top` (styles.css) se règle sur cette hauteur.
+    // Cachée avec sa vue, elle rend un rectangle nul — le bon zéro.
+    var barreS = $('bandeau-seance');
+    var hBarreS = barreS ? Math.ceil(barreS.getBoundingClientRect().height) : 0;
     // On n'écrit QUE ce qui change. `rendreChrono` passe ici chaque seconde ;
     // réécrire la même valeur salirait le style pour rien, et une mesure suivie
     // d'une écriture qui change la mise en page est le début d'une boucle.
@@ -2200,6 +2250,10 @@
     if (hPied !== barresMesurees.pied) {
       barresMesurees.pied = hPied;
       style.setProperty('--h-pied', hPied + 'px');
+    }
+    if (hBarreS !== barresMesurees.seance) {
+      barresMesurees.seance = hBarreS;
+      style.setProperty('--h-barre-seance', hBarreS + 'px');
     }
   }
 
@@ -4804,6 +4858,10 @@
       surAnnulerSelection: function () { selectionGroupe = null; rendreSeance(); },
       surTerminer: function () { if (enEdition()) return enregistrerEdition(); confirmerFin(); }
     });
+    // 62 — la barre vient d'être (re)dessinée : sa hauteur est définitive, et la
+    // durée repart de l'heure juste.
+    mesurerBarres();
+    armerDuree();
     // MOTEUR §14.4 (49-U14) — l'escalier en tête de la séance, lu sur le plan.
     var planEsc = planActuel();
     Rendu.rendreEscalier($('escalier-seance'), {
@@ -10147,6 +10205,14 @@
     // que `--h-onglets` existe avant le premier rendu de séance.
     racine.addEventListener('resize', mesurerBarres);
     racine.addEventListener('orientationchange', mesurerBarres);
+    // 62 — app mise en veille puis rouverte : le réveil de la durée a pu être
+    // suspendu ou retardé. On recalcule TOUT DE SUITE depuis `seance.debut` (jamais
+    // un compteur qui aurait dérivé) et on repose le réveil sur la bonne minute.
+    doc.addEventListener('visibilitychange', function () {
+      if (doc.visibilityState === 'hidden' || !seance || ecranCourant !== 'seance') return;
+      rafraichirDuree();
+      armerDuree();
+    });
     mesurerBarres();
     $('btn-retour-routine').addEventListener('click', function () {
       allerA(Routeur.SAISIE, {});

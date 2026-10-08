@@ -1472,6 +1472,41 @@
     };
   }
 
+  // ══ LA DURÉE DE LA BARRE DE SÉANCE (62, ECRAN-SAISIE §7 octies bis) ══════
+  //
+  // ⚠️ ELLE SE RECALCULE TOUJOURS DEPUIS `debut`, JAMAIS PAR UN COMPTEUR QU'ON
+  // INCRÉMENTE. Une app mise en veille puis rouverte, un minuteur du navigateur
+  // retardé de deux minutes : un compteur aurait dérivé, une soustraction ne le
+  // peut pas. C'est la règle du chronomètre de repos (`depuis`), appliquée ici.
+  //
+  // Les minutes sont ARRONDIES, comme l'était le bandeau avant la barre (le
+  // texte « N min » ne change pas d'un octet) : une date invalide ou une date
+  // d'avant le départ — horloge réglée à la main — valent zéro, jamais un
+  // nombre négatif ni « NaN min ».
+  function minutesEcoulees(debut, maintenant) {
+    var d = debut ? new Date(debut) : null;
+    if (!d || isNaN(d.getTime())) return 0;
+    var t = maintenant === undefined ? Date.now() : Number(maintenant);
+    if (!isFinite(t)) return 0;
+    return Math.max(0, Math.round((t - d.getTime()) / 60000));
+  }
+
+  // Dans combien de millisecondes `minutesEcoulees` change-t-elle de valeur ?
+  // Le rafraîchissement se pose EXACTEMENT là : ni une seconde trop tôt (un
+  // réveil pour rien), ni une demi-minute trop tard (une durée qui retarde).
+  // Borné à une seconde par le bas — une horloge étrange ne fait pas tourner le
+  // minuteur à vide — et à une minute et demie par le haut.
+  var MARGE_MINUTE_MS = 50;
+  function delaiProchaineMinute(debut, maintenant) {
+    var d = debut ? new Date(debut) : null;
+    var t = maintenant === undefined ? Date.now() : Number(maintenant);
+    if (!d || isNaN(d.getTime()) || !isFinite(t)) return 60000;
+    var ecoule = t - d.getTime();
+    var m = Math.max(0, Math.round(ecoule / 60000));
+    var delai = (m + 0.5) * 60000 - ecoule + MARGE_MINUTE_MS;
+    return Math.min(90000, Math.max(1000, delai));
+  }
+
   // ── Ce qui part en base ─────────────────────────────────────────────────
   //
   // ⚠️ « VALIDÉE » N'EST PAS LE BON CRITÈRE, ET ÇA A COÛTÉ LE CORPUS ENTIER.
@@ -2591,6 +2626,8 @@
     semerIdentifiants: semerIdentifiants,
     toutesLesSeries: toutesLesSeries,
     compter: compter,
+    minutesEcoulees: minutesEcoulees,
+    delaiProchaineMinute: delaiProchaineMinute,
     lignes: lignes,
     ligneSession: ligneSession,
     precedent: precedent,

@@ -20,6 +20,7 @@ const Semaine = require('../../v2/js/semaine.js');
 const Periode = require('../../v2/js/periode.js');
 const Poids = require('../../v2/js/poids.js');
 const Profil = require('../../v2/js/profil.js');
+require('../../v2/js/generateur.js');
 const Q = require('../../v2/js/questionnaire.js');
 const FIXTURE = require('./fixtures/cas-51-1-peu-de-temps.json');
 
@@ -77,12 +78,15 @@ describe('60-2a — les LISTES sont celles de la base (relevées par Claude.ai l
     m.forEach((x) => expect(x.libelle).toBe(Semaine.ZONES.filter((z) => z.cle === x.cle)[0].libelle));
   });
 
-  test('la liste blanche porte les 7 colonnes écrites, `programme_choix` depuis 60-3… et PAS celles du générateur', () => {
+  test('la liste blanche porte les 7 colonnes écrites, `programme_choix` depuis 60-3, les 5 du programme construit depuis 60-4… et PAS les autres', () => {
     ['objectif', 'objectif_depuis', 'priorites', 'temps_reponse', 'historique_declare',
       'phase_confirmee_le', 'questionnaire_fait_le', 'programme_choix'].forEach((c) => expect(Profil.CHAMPS_ECRITS).toContain(c));
-    ['zones_a_menager', 'zone_force_reponse', 'zone_force_reponse_le', 'is_admin', 'tier']
+    ['zones_a_menager', 'exercices_ecartes', 'programme_construit_dossier', 'programme_construit_le', 'carte_cycles_le']
+      .forEach((c) => expect(Profil.CHAMPS_ECRITS).toContain(c));
+    ['zone_force_reponse', 'zone_force_reponse_le', 'is_admin', 'tier']
       .forEach((c) => expect(Profil.CHAMPS_ECRITS).not.toContain(c));
-    expect(Profil.champsEcrits({ objectif: 'force', is_admin: true, zones_a_menager: ['dos'] })).toEqual({ objectif: 'force' });
+    expect(Profil.champsEcrits({ objectif: 'force', is_admin: true, zone_force_reponse: 'x', zones_a_menager: ['dos'] }))
+      .toEqual({ objectif: 'force', zones_a_menager: ['dos'] });
   });
 });
 
@@ -266,7 +270,7 @@ describe('60-2a — les ÉCRANS visibles, dans l’ordre', () => {
     expect(ids({ aDesSeances: true, historique: 'debutant' })).not.toContain('sait');
   });
   test('60-3 — l’écran 8 (« Ton programme ») seulement quand on SAIT qu’il n’y a aucune routine', () => {
-    expect(Q.ECRANS.join(',')).toMatch(/temps,programme,coach/);
+    expect(Q.ECRANS.join(',')).toMatch(/temps,programme,construit,coach/);
     // Les routines pas encore lues (hors ligne) : l'écran n'existe pas.
     expect(ids({ aDesSeances: true, historique: 'import' })).toHaveLength(9);
     expect(ids({ aDesSeances: true, historique: 'import', aDesRoutines: null })).not.toContain('programme');
@@ -280,24 +284,39 @@ describe('60-2a — les ÉCRANS visibles, dans l’ordre', () => {
     expect(Q.ecranSuivant(v, 'temps')).toBe('programme');
     expect(Q.ecranPrecedent(v, 'coach')).toBe('programme');
   });
-  test('⚠️ 60-3b — les TROIS cas de QUESTIONNAIRE §3 : une routine · aucune routine et aucune séance · aucune routine et des séances', () => {
+  test('⚠️ 60-4 — les TROIS cas de QUESTIONNAIRE §3 : une routine · aucune routine et aucune séance · aucune routine et des séances', () => {
     const programme = (ctx) => ids(ctx).indexOf('programme') >= 0;
     // (1) une routine : l'écran n'existe pas, séances ou non.
     expect(programme({ aDesSeances: true, historique: 'import', aDesRoutines: true })).toBe(false);
     expect(programme({ aDesSeances: false, historique: 'debutant', aDesRoutines: true })).toBe(false);
-    // (2) aucune routine ET aucune séance : une question à un seul choix, elle n'existe pas — ni pour
-    // « je débute », ni pour « dans une autre app » (la personne a déclaré un historique qu'on ne voit pas).
-    expect(programme({ aDesSeances: false, historique: 'debutant', aDesRoutines: false })).toBe(false);
-    expect(programme({ aDesSeances: false, historique: 'import', aDesRoutines: false })).toBe(false);
-    expect(programme({ aDesSeances: false, historique: null, aDesRoutines: false })).toBe(false);
-    // (3) aucune routine ET des séances : l'écran existe — même pour qui répond « je débute » avec des séances.
+    // (2) aucune routine ET aucune séance : l'écran EXISTE (60-4) — « Construis-le-moi » lui donne deux choix,
+    // « Garder ce que je fais » n'y est pas (voir l'écran) ; la barre le compte.
+    expect(programme({ aDesSeances: false, historique: 'debutant', aDesRoutines: false })).toBe(true);
+    expect(programme({ aDesSeances: false, historique: 'import', aDesRoutines: false })).toBe(true);
+    expect(programme({ aDesSeances: false, historique: null, aDesRoutines: false })).toBe(true);
+    // (3) aucune routine ET des séances : l'écran existe, comme avant.
     expect(programme({ aDesSeances: true, historique: 'import', aDesRoutines: false })).toBe(true);
     expect(programme({ aDesSeances: true, historique: 'debutant', aDesRoutines: false })).toBe(true);
-    // La barre ne compte pas l'écran sans séance : 9 écrans, 100 % au récapitulatif.
     const sans = ids({ aDesSeances: false, historique: 'import', aDesRoutines: false });
-    expect(sans).toEqual(['bienvenue', 'donnees', 'sans_historique', 'toi', 'but', 'priorites', 'temps', 'coach', 'recap']);
-    expect(Q.progression(sans, 'recap')).toEqual({ rang: 8, total: 9, pourcent: 100 });
-    expect(Q.ecranSuivant(sans, 'temps')).toBe('coach');
+    expect(sans).toEqual(['bienvenue', 'donnees', 'sans_historique', 'toi', 'but', 'priorites', 'temps', 'programme', 'coach', 'recap']);
+    expect(Q.progression(sans, 'recap')).toEqual({ rang: 9, total: 10, pourcent: 100 });
+    expect(Q.ecranSuivant(sans, 'temps')).toBe('programme');
+    // Les routines pas encore lues (hors ligne) : l'écran n'existe toujours pas.
+    expect(programme({ aDesSeances: false, historique: 'import', aDesRoutines: null })).toBe(false);
+  });
+  test('60-4 — l’écran 8b ne vient qu’avec « Construis-le-moi », juste après l’écran 8', () => {
+    const base = { aDesSeances: true, historique: 'import', aDesRoutines: false };
+    ['deduit', 'moi', null, undefined].forEach((programme) => {
+      expect(ids(Object.assign({ programme }, base))).not.toContain('construit');
+    });
+    const v = ids(Object.assign({ programme: 'construis' }, base));
+    expect(v).toEqual(['bienvenue', 'donnees', 'sait', 'toi', 'but', 'priorites', 'temps', 'programme', 'construit', 'coach', 'recap']);
+    expect(Q.ecranSuivant(v, 'programme')).toBe('construit');
+    expect(Q.ecranSuivant(v, 'construit')).toBe('coach');
+    expect(Q.progression(v, 'recap')).toEqual({ rang: 10, total: 11, pourcent: 100 });
+    // Une routine : ni l'écran 8 ni le 8b, quel que soit le choix déjà en base.
+    expect(ids(Object.assign({}, base, { programme: 'construis', aDesRoutines: true }))).not.toContain('construit');
+    expect(ids(Object.assign({}, base, { programme: 'construis', aDesRoutines: null }))).not.toContain('construit');
   });
   test('la barre compte les écrans visibles : 0 % au premier, 100 % au dernier', () => {
     const v = ids({ aDesSeances: true, historique: 'import' });
@@ -405,7 +424,7 @@ describe('60-2a — les réponses de départ sont ce qui est DÉJÀ en base', ()
     expect(rep).toEqual({
       historique: 'import', anciennete: '3_a_5_ans', seances: 5, duree: 90, sexe: 'homme', annee: 1997,
       taille: 182, poids: 98, objectif: 'force', phase: 'seche', priorites: ['squat_barre'], temps: 'max',
-      materiel: 'salle_complete', coach: 'franc' });
+      materiel: 'salle_complete', menager: [], coach: 'franc' });
   });
   test('un profil neuf : rien de répondu, sauf le rythme par défaut et la phase vide', () => {
     const rep = Q.reponsesInitiales({}, {});
@@ -679,20 +698,23 @@ describe('60-3 — l’écran 8 : « Ton programme », sans routine', () => {
   const vue = (id, etat) => Q.vueDe(id, Object.assign({ rep: Q.reponsesInitiales({}, {}), aDesSeances: true, faits: null,
     visibles: Q.ecransVisibles({ aDesSeances: true, historique: 'import', aDesRoutines: false }) }, etat || {}));
 
-  test('le titre, les deux chemins et leurs sous-lignes (maquette v4) ; « Construis-le-moi » attend le générateur', () => {
+  test('le titre, les trois chemins et leurs sous-lignes (maquette v4)', () => {
     const v = vue('programme');
     expect(v.etape).toBe('Ton programme');
     expect(v.titre).toBe('Comment veux-tu t’entraîner ?');
     expect(v.blocs[0].cle).toBe('programme');
     expect(v.blocs[0].options).toEqual([
       { cle: 'deduit', libelle: 'Garder ce que je fais', sous: 'Je retrouve tes séances qui reviennent et j’en fais tes routines' },
-      { cle: 'moi', libelle: 'Je crée mes routines moi-même', sous: 'L’éditeur de routines, à ton rythme' }
+      { cle: 'moi', libelle: 'Je crée mes routines moi-même', sous: 'L’éditeur de routines, à ton rythme' },
+      { cle: 'construis', libelle: 'Construis-le-moi', sous: 'Quelques questions de plus, et je te propose un programme' }
     ]);
   });
 
-  test('60-3b — l’écran porte toujours les deux chemins : il n’existe que pour qui a des séances (plus de question à un seul choix)', () => {
-    expect(vue('programme').blocs[0].options.map((o) => o.cle)).toEqual(['deduit', 'moi']);
-    expect(vue('programme', { aDesSeances: false }).blocs[0].options.map((o) => o.cle)).toEqual(['deduit', 'moi']);
+  test('⚠️ 60-4 — « Garder ce que je fais » n’est proposé qu’avec au moins une séance : sans, deux choix, et jamais un seul', () => {
+    expect(vue('programme').blocs[0].options.map((o) => o.cle)).toEqual(['deduit', 'moi', 'construis']);
+    const sans = vue('programme', { aDesSeances: false }).blocs[0].options;
+    expect(sans.map((o) => o.cle)).toEqual(['moi', 'construis']);
+    expect(sans.length).toBeGreaterThanOrEqual(2);
   });
 
   test('« Continuer » attend un chemin : « tout est facultatif sauf le chemin du programme » (§1.3)', () => {
@@ -708,13 +730,15 @@ describe('60-3 — l’écran 8 : « Ton programme », sans routine', () => {
     expect(Q.champsDeLEcran('programme', { programme: 'moi' }, {}, { maintenant: MAINTENANT }).champs).toEqual({ programme_choix: 'moi' });
     // Inchangé : rien n'est écrit.
     expect(Q.champsDeLEcran('programme', { programme: 'moi' }, { programme_choix: 'moi' }, { maintenant: MAINTENANT }).champs).toEqual({});
-    // `construis` est permis par la base, pas encore proposé : il ne part pas.
-    expect(Profil.preparerChamps({}, { programme_choix: 'construis' }, MAINTENANT)).toEqual({});
+    // `construis` (60-4) est permis par la base et proposé : il s'écrit.
+    expect(Profil.preparerChamps({}, { programme_choix: 'construis' }, MAINTENANT)).toEqual({ programme_choix: 'construis' });
+    expect(Profil.preparerChamps({}, { programme_choix: 'autre' }, MAINTENANT)).toEqual({});
   });
 
   test('rouvert, l’écran repart de ce qui est en base', () => {
     expect(Q.reponsesInitiales({ programme_choix: 'deduit' }, {}).programme).toBe('deduit');
-    expect(Q.reponsesInitiales({ programme_choix: 'construis' }, {}).programme).toBeNull();
+    expect(Q.reponsesInitiales({ programme_choix: 'construis' }, {}).programme).toBe('construis');
+    expect(Q.reponsesInitiales({ programme_choix: 'inconnu' }, {}).programme).toBeNull();
   });
 
   test('le récapitulatif ajoute « Programme » quand l’écran est du parcours — et seulement alors', () => {
@@ -725,8 +749,98 @@ describe('60-3 — l’écran 8 : « Ton programme », sans routine', () => {
     expect(avec[5]).toEqual({ libelle: 'Programme', valeur: 'Garder ce que je fais', ecran: 'programme' });
     const sans = lignes(Q.ecransVisibles({ aDesSeances: true, historique: 'import', aDesRoutines: true }));
     expect(sans.map((l) => l.libelle)).not.toContain('Programme');
-    // 60-3b — aucune routine mais aucune séance : pas de ligne « Programme » non plus.
+    // 60-4 — aucune routine et aucune séance : l'écran 8 est du parcours, la ligne « Programme » aussi.
     const sansSeance = lignes(Q.ecransVisibles({ aDesSeances: false, historique: 'import', aDesRoutines: false }));
-    expect(sansSeance.map((l) => l.libelle)).not.toContain('Programme');
+    expect(sansSeance.map((l) => l.libelle)).toContain('Programme');
+  });
+});
+
+// ═══ 60-4 — L'ÉCRAN 8b (« Construis-le-moi »), QUESTIONNAIRE §3 et §5 bis ═══════
+describe('60-4 — l’écran 8b : les jours et la zone à ménager', () => {
+  const ctx = { aDesSeances: true, historique: 'import', aDesRoutines: false, programme: 'construis' };
+  const rep0 = (profil) => Q.reponsesInitiales(profil || {}, {});
+  const vue = (rep, etat) => Q.vueDe('construit', Object.assign({ rep, aDesSeances: true, faits: null, visibles: Q.ecransVisibles(ctx) }, etat || {}));
+
+  test('le titre, les cinq jours, les six puces de zone, la voix du coach (maquette)', () => {
+    const v = vue(rep0());
+    expect(v.etape).toBe('Ton programme');
+    expect(v.titre).toBe('Combien de jours par semaine, réalistement ?');
+    expect(v.blocs[0]).toMatchObject({ type: 'puces', cle: 'seances' });
+    expect(v.blocs[0].options).toEqual([2, 3, 4, 5, 6].map((n) => ({ cle: n, libelle: String(n) })));
+    expect(v.blocs[1]).toMatchObject({ type: 'puces', cle: 'zone', titre: 'Une zone à ménager ?', multiple: true });
+    expect(v.blocs[1].options.map((o) => o.libelle)).toEqual(['Épaule', 'Dos', 'Genou', 'Coude', 'Hanche', 'Aucune']);
+    expect(v.blocs[2]).toEqual({ type: 'voix',
+      texte: 'Je garde l’exercice et toutes ses séries, sans série lourde. Rien en séance : si ça fait mal, « J’ai mal » est là.' });
+    expect(v.bouton).toEqual({ libelle: 'Continuer', actif: false });
+  });
+
+  test('« Aucune » est cochée tant qu’aucune zone ne l’est ; en choisir une la décoche, « Aucune » les retire toutes', () => {
+    expect(vue(rep0()).blocs[1].valeurs).toEqual(['aucune']);
+    let r = Q.appliquerChoix(rep0(), 'zone', 'genou');
+    expect(r.menager).toEqual(['genou']);
+    expect(vue(r).blocs[1].valeurs).toEqual(['genou']);
+    r = Q.appliquerChoix(r, 'zone', 'dos');
+    expect(r.menager).toEqual(['dos', 'genou']);                          // l'ordre de la liste, pas celui des touches
+    r = Q.appliquerChoix(r, 'zone', 'genou');
+    expect(r.menager).toEqual(['dos']);                                   // retoucher retire
+    r = Q.appliquerChoix(r, 'zone', 'aucune');
+    expect(r.menager).toEqual([]);
+    expect(vue(r).blocs[1].valeurs).toEqual(['aucune']);
+    expect(Q.appliquerChoix(rep0(), 'zone', 'nuque').menager).toEqual([]); // une zone inconnue est sans effet
+  });
+
+  test('les zones en base se relisent ; une valeur hors liste n’en est pas une', () => {
+    expect(rep0({ zones_a_menager: ['hanche', 'genou'] }).menager).toEqual(['genou', 'hanche']);
+    expect(rep0({ zones_a_menager: ['nuque', 'dos'] }).menager).toEqual(['dos']);
+    expect(rep0({ zones_a_menager: null }).menager).toEqual([]);
+    expect(rep0({}).menager).toEqual([]);
+  });
+
+  test('« Continuer » attend les jours : 2 à 6, les bornes du générateur', () => {
+    [null, undefined, 1, 7, 3.5, '4'].forEach((v) => expect(Q.ecranPret('construit', { seances: v })).toBe(false));
+    [2, 3, 4, 5, 6].forEach((v) => expect(Q.ecranPret('construit', { seances: v })).toBe(true));
+    expect(Q.joursValides(4)).toBe(true);
+  });
+
+  test('⚠️ les jours sont pré-cochés : ceux déjà dits (bornés), sinon le rythme de l’écran 3a (arrondi, borné), sinon rien', () => {
+    expect(Q.joursPrecoches({ seances: 5 }, null)).toBe(5);
+    expect(Q.joursPrecoches({ seances: 1 }, null)).toBe(2);                // 1 séance déclarée : bornée à 2
+    expect(Q.joursPrecoches({ seances: 9 }, null)).toBe(6);                // 9 déclarées : bornées à 6
+    expect(Q.joursPrecoches({ seances: null }, { rythme: 3.4 })).toBe(3);  // le rythme montré, arrondi
+    expect(Q.joursPrecoches({ seances: null }, { rythme: 3.6 })).toBe(4);
+    expect(Q.joursPrecoches({ seances: null }, { rythme: 0.6 })).toBeNull(); // moins d'une séance par semaine : rien
+    expect(Q.joursPrecoches({ seances: null }, { rythme: 12 })).toBe(6);
+    expect(Q.joursPrecoches({ seances: 4 }, { rythme: 2 })).toBe(4);        // la réponse prime sur le rythme
+    expect(Q.joursPrecoches({ seances: null }, null)).toBeNull();
+    expect(Q.joursPrecoches({}, {})).toBeNull();
+  });
+
+  test('⚠️ l’écran écrit `seances_par_semaine` et `zones_a_menager` (vide = NULL), par preparerChamps — rien d’inchangé', () => {
+    const ecrit = (rep, profil) => Q.champsDeLEcran('construit', rep, profil || {}, { maintenant: MAINTENANT }).champs;
+    expect(ecrit({ seances: 4, menager: ['genou'] })).toEqual({ seances_par_semaine: 4, zones_a_menager: ['genou'] });
+    expect(ecrit({ seances: 4, menager: [] })).toEqual({ seances_par_semaine: 4 });          // aucune sur colonne vide : rien
+    // Aucune zone sur une zone déjà en base : le VIDE s'écrit NULL.
+    expect(ecrit({ seances: 4, menager: [] }, { seances_par_semaine: 4, zones_a_menager: ['dos'] }))
+      .toEqual({ zones_a_menager: null });
+    expect(ecrit({ seances: 4, menager: ['dos'] }, { seances_par_semaine: 4, zones_a_menager: ['dos'] })).toEqual({});
+    // NULL et [] se valent : aucune écriture pour rien.
+    expect(ecrit({ seances: 4, menager: [] }, { seances_par_semaine: 4, zones_a_menager: [] })).toEqual({});
+  });
+
+  test('le récapitulatif dit « Construis-le-moi · 4 jours » ; sans l’écran 8b, le choix seul', () => {
+    const recap = (rep, ctxe) => Q.vueDe('recap', { rep, aDesSeances: true, faits: null,
+      visibles: Q.ecransVisibles(ctxe) }).blocs[0].lignes.filter((l) => l.libelle === 'Programme')[0];
+    const rep = Object.assign(rep0(), { programme: 'construis', seances: 4 });
+    expect(recap(rep, ctx)).toEqual({ libelle: 'Programme', valeur: 'Construis-le-moi · 4\u00a0jours', ecran: 'programme' });
+    // Les jours viennent de l'écran 8b : sans jours valides, on ne les invente pas.
+    expect(recap(Object.assign({}, rep, { seances: null }), ctx).valeur).toBe('Construis-le-moi');
+    // Un autre chemin ne dit pas de jours, même si `seances` est rempli.
+    expect(recap(Object.assign({}, rep, { programme: 'moi' }), Object.assign({}, ctx, { programme: 'moi' })).valeur)
+      .toBe('Je crée mes routines moi-même');
+  });
+
+  test('« Construis-le-moi » s’écrit dans `programme_choix`', () => {
+    expect(Q.champsDeLEcran('programme', { programme: 'construis' }, {}, { maintenant: MAINTENANT }).champs)
+      .toEqual({ programme_choix: 'construis' });
   });
 });

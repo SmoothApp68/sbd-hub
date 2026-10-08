@@ -294,9 +294,7 @@ describe('60-4 — le module lit la table du matériel et les zones du radar, il
   test('les zones à ménager que le générateur charge sont les cinq du profil', () => {
     expect(Object.keys(G.CHARGE_ZONE).sort()).toEqual(['coude', 'dos', 'epaule', 'genou', 'hanche']);
     // Le profil les valide : `zones_a_menager` ⊆ ces cinq clés (v2_065).
-    if (Profil.ZONES_A_MENAGER) {
-      expect(Profil.ZONES_A_MENAGER.map((z) => z.cle || z).sort()).toEqual(Object.keys(G.CHARGE_ZONE).sort());
-    }
+    expect(Profil.ZONES_A_MENAGER.map((z) => z.cle).sort()).toEqual(Object.keys(G.CHARGE_ZONE).sort());
   });
 
   test('le module ne touche ni au DOM, ni au réseau, ni au stockage', () => {

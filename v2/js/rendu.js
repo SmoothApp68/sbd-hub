@@ -4568,6 +4568,7 @@
         ligne.addEventListener('click', function () { a.surLigne(b.cle); });
         corps.appendChild(ligne);
       } else if (b.type === 'note') corps.appendChild(el('p', 'q-note', b.texte));
+      else if (b.type === 'voix') corps.appendChild(el('p', 'q-voix', b.texte));
     });
     page.appendChild(corps);
 

@@ -442,14 +442,16 @@ describe('12. la liste de lecture est DÉRIVÉE, jamais recopiée', () => {
   // seraient lues vides, et `profil = rendu` (la réponse de l'envoi) les
   // EFFACERAIT de l'état local : le questionnaire se rouvrirait à chaque
   // démarrage, sans une erreur.
-  test('le `select` du profil demande les sept colonnes du questionnaire et `programme_choix` (60-3) — et PAS celles du générateur', async () => {
+  test('le `select` du profil demande les sept colonnes du questionnaire, `programme_choix` (60-3) et les cinq du programme construit (60-4)', async () => {
     const Donnees = charger();
     await Donnees.monProfil('u-1');
     const demandees = requetes[0].colonnes.split(',').map((c) => c.trim());
     ['objectif', 'objectif_depuis', 'priorites', 'temps_reponse', 'historique_declare',
       'phase_confirmee_le', 'questionnaire_fait_le', 'programme_choix'].forEach((c) => expect(demandees).toContain(c));
-    ['zones_a_menager', 'zone_force_reponse', 'zone_force_reponse_le']
-      .forEach((c) => expect(demandees).not.toContain(c));
+    // 60-4 (v2_066) : écrites, donc relues — sinon `profil = rendu` les effacerait après le premier envoi.
+    ['zones_a_menager', 'exercices_ecartes', 'programme_construit_dossier', 'programme_construit_le', 'carte_cycles_le']
+      .forEach((c) => expect(demandees).toContain(c));
+    ['zone_force_reponse', 'zone_force_reponse_le'].forEach((c) => expect(demandees).not.toContain(c));
   });
 
   // Le lien qui manquait : `COLONNES_PROFIL` est une chaîne recopiée à la main, et

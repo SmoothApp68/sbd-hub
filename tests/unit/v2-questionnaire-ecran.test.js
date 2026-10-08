@@ -21,6 +21,7 @@ require('../../v2/js/semaine.js');
 require('../../v2/js/periode.js');
 const Poids = require('../../v2/js/poids.js');
 const Profil = require('../../v2/js/profil.js');
+require('../../v2/js/generateur.js');
 const Questionnaire = require('../../v2/js/questionnaire.js');
 
 const APP = fs.readFileSync(path.join(__dirname, '../../v2/js/app.js'), 'utf8');
@@ -671,7 +672,7 @@ describe('60-3 — l’écran 8, seulement sans routine, et la feuille après «
     expect(b.vueCourante().progression.total).toBe(10);
     cont();
     expect(b.ecran()).toBe('programme');
-    expect(b.vueCourante().blocs[0].options.map((o) => o.cle)).toEqual(['deduit', 'moi']);
+    expect(b.vueCourante().blocs[0].options.map((o) => o.cle)).toEqual(['deduit', 'moi', 'construis']);
     cont();                                                          // « Continuer » éteint sans chemin
     expect(b.ecran()).toBe('programme');
     choix('programme', 'deduit'); cont();
@@ -714,21 +715,128 @@ describe('60-3 — l’écran 8, seulement sans routine, et la feuille après «
     expect(b.journal.retrouver).toBeUndefined();
   });
 
-  test('⚠️ 60-3b DISCRIMINANT — aucune routine MAIS aucune séance : pas d’écran 8 (la barre ne le compte pas), `programme_choix` jamais écrit, pas de feuille', async () => {
+  test('⚠️ 60-4 DISCRIMINANT — aucune routine ET aucune séance : l’écran 8 existe (la barre le compte), avec deux choix, jamais « Garder ce que je fais »', async () => {
     const b = bac({ routines: [], seances: [] });
     b.appel('ouvrirQuestionnaireSiDu()');
     const { cont, choix } = jusquAuTemps(b);
-    expect(b.vueCourante().progression.total).toBe(9);
+    expect(b.vueCourante().progression.total).toBe(10);
     cont();
-    expect(b.ecran()).toBe('coach');
+    expect(b.ecran()).toBe('programme');
+    expect(b.vueCourante().blocs[0].options.map((o) => o.cle)).toEqual(['moi', 'construis']);
+    choix('programme', 'moi'); cont();
+    expect(b.journal.profil.pop()).toEqual({ programme_choix: 'moi' });
     choix('coach', 'normal'); cont();
     expect(b.ecran()).toBe('recap');
-    expect(b.vueCourante().blocs[0].lignes.map((l) => l.libelle)).not.toContain('Programme');
-    // Un état hérité (« Garder ce que je fais » répondu quand il y avait des séances) ne rouvre rien.
+    expect(b.vueCourante().blocs[0].lignes.map((l) => l.libelle)).toContain('Programme');
+    await b.actions().surContinuer();
+    expect(b.journal.retrouver).toBeUndefined();
+  });
+
+  test('⚠️ 60-4 — un « deduit » hérité d’avant, sans aucune séance maintenant : la feuille ne s’ouvre pas', async () => {
+    const b = bac({ routines: [], seances: [] });
+    b.appel('ouvrirQuestionnaireSiDu()');
+    const { cont, choix } = jusquAuTemps(b);
+    cont();
+    choix('programme', 'moi'); cont();
+    choix('coach', 'normal'); cont();
     b.ctx.questionnaire.rep.programme = 'deduit';
     await b.actions().surContinuer();
     expect(b.journal.retrouver).toBeUndefined();
-    expect(b.journal.profil.some((champs) => 'programme_choix' in champs)).toBe(false);
+  });
+
+  // ═══ 60-4 — « Construis-le-moi » : l'écran 8b dans le parcours ═══════════════
+  const faitsAvecRythme = (rythme) => ({ seances: 30, depuis: new Date(2026, 4, 1), rythme, dureeMin: null, maximums: [], autres: [] });
+
+  test('⚠️ 60-4 — « Construis-le-moi » ouvre l’écran 8b : jours pré-cochés par le rythme, zone, écriture, récapitulatif', async () => {
+    const b = bac({ routines: [], faits: faitsAvecRythme(3.4) });
+    b.appel('ouvrirQuestionnaireSiDu()');
+    const { cont, choix } = jusquAuTemps(b);
+    cont();
+    expect(b.ecran()).toBe('programme');
+    expect(b.vueCourante().progression.total).toBe(10);
+    choix('programme', 'construis');
+    expect(b.vueCourante().progression.total).toBe(11);                    // la barre compte 8b dès le choix
+    cont();
+    expect(b.journal.profil.pop()).toEqual({ programme_choix: 'construis' });
+    expect(b.ecran()).toBe('construit');
+    expect(b.ctx.questionnaire.rep.seances).toBe(3);                       // le rythme montré à l'écran 3a, arrondi
+    expect(b.vueCourante().bouton.actif).toBe(true);
+    choix('zone', 'genou');
+    choix('seances', 4);
+    cont();
+    expect(b.journal.profil.pop()).toEqual({ seances_par_semaine: 4, zones_a_menager: ['genou'] });
+    expect(b.ecran()).toBe('coach');
+    choix('coach', 'normal'); cont();
+    expect(b.ecran()).toBe('recap');
+    const programme = b.vueCourante().blocs[0].lignes.filter((l) => l.libelle === 'Programme')[0];
+    expect(programme.valeur).toBe('Construis-le-moi · 4\u00a0jours');
+    await b.actions().surContinuer();
+    expect(b.ctx.questionnaire).toBeNull();
+    expect(b.journal.retrouver).toBeUndefined();                           // « Garder ce que je fais » seul ouvre la feuille
+  });
+
+  test('les jours déjà en base priment sur le rythme ; inchangés, ils ne sont pas réécrits', () => {
+    const b = bac({ routines: [], faits: faitsAvecRythme(2),
+                    profil: { id: 'u1', questionnaire_fait_le: null, seances_par_semaine: 5 } });
+    b.appel('ouvrirQuestionnaireSiDu()');
+    const { cont, choix } = jusquAuTemps(b);
+    cont();
+    choix('programme', 'construis'); cont();
+    expect(b.ecran()).toBe('construit');
+    expect(b.ctx.questionnaire.rep.seances).toBe(5);
+    const avant = b.journal.profil.length;
+    cont();
+    expect(b.ecran()).toBe('coach');
+    expect(b.journal.profil).toHaveLength(avant);                          // jours inchangés, aucune zone : rien à écrire
+  });
+
+  test('sans jours déclarés ni rythme : rien n’est pré-coché, « Continuer » attend', () => {
+    const b = bac({ routines: [], seances: [], faits: faitsAvecRythme(null) });
+    b.appel('ouvrirQuestionnaireSiDu()');
+    const { cont, choix } = jusquAuTemps(b);
+    cont();
+    choix('programme', 'construis'); cont();
+    expect(b.ecran()).toBe('construit');
+    expect(b.ctx.questionnaire.rep.seances).toBeNull();
+    expect(b.vueCourante().bouton.actif).toBe(false);
+    cont();
+    expect(b.ecran()).toBe('construit');                                   // éteint : le geste ne passe pas
+    choix('seances', 6);
+    expect(b.vueCourante().bouton.actif).toBe(true);
+  });
+
+  test('« Retour » depuis l’écran 8b ramène à l’écran 8 sans rien écrire', () => {
+    const b = bac({ routines: [], faits: faitsAvecRythme(3) });
+    b.appel('ouvrirQuestionnaireSiDu()');
+    const { cont, choix } = jusquAuTemps(b);
+    cont();
+    choix('programme', 'construis'); cont();
+    const avant = b.journal.profil.length;
+    b.actions().surRetour();
+    expect(b.ecran()).toBe('programme');
+    expect(b.journal.profil).toHaveLength(avant);
+  });
+
+  test('⚠️ 60-4 — changer « Programme » vers « Construis-le-moi » depuis le récapitulatif : l’écran 8b d’abord, PUIS le récapitulatif', () => {
+    const b = bac({ routines: [], faits: faitsAvecRythme(3) });
+    b.appel('ouvrirQuestionnaireSiDu()');
+    const { cont, choix } = jusquAuTemps(b);
+    cont();
+    choix('programme', 'moi'); cont();
+    choix('coach', 'normal'); cont();
+    expect(b.ecran()).toBe('recap');
+    b.actions().surChanger('programme');
+    expect(b.ecran()).toBe('programme');
+    choix('programme', 'construis'); cont();
+    expect(b.ecran()).toBe('construit');                                   // pas directement le récapitulatif
+    cont();
+    expect(b.ecran()).toBe('recap');
+    const ligne = b.vueCourante().blocs[0].lignes.filter((l) => l.libelle === 'Programme')[0];
+    expect(ligne.valeur).toBe('Construis-le-moi · 3\u00a0jours');
+    // Et un autre chemin depuis le récapitulatif y retourne directement.
+    b.actions().surChanger('programme');
+    choix('programme', 'moi'); cont();
+    expect(b.ecran()).toBe('recap');
   });
 
   test('les routines inconnues (hors ligne) : pas d’écran 8', () => {

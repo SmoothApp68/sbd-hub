@@ -8431,8 +8431,9 @@
 
   // 60-3 — l'écran 8 (« Ton programme ») seulement quand on SAIT qu'il n'y a
   // aucune routine : tant que la bibliothèque n'est pas lue (hors ligne), `null`,
-  // et l'écran n'existe pas. 60-3b : et seulement avec au moins une séance en base
-  // (`aDesSeances`, plus bas) — la règle est dans `Questionnaire.ecransVisibles`.
+  // et l'écran n'existe pas. 60-4 : avec ou sans séance (« Construis-le-moi » lui donne
+  // toujours deux choix), et l'écran 8b le suit quand ce choix est fait — la règle est
+  // dans `Questionnaire.ecransVisibles`.
   function aDesRoutinesConnu() {
     return etatRoutines.code === 'ok' ? routines.length > 0 : null;
   }
@@ -8440,6 +8441,7 @@
   function ecransDuQuestionnaire() {
     return Questionnaire.ecransVisibles({ aDesSeances: questionnaire.aDesSeances,
                                           historique: questionnaire.rep.historique,
+                                          programme: questionnaire.rep.programme,
                                           aDesRoutines: aDesRoutinesConnu() });
   }
 
@@ -8549,10 +8551,21 @@
     q.rep = Questionnaire.apresEcriture(q.rep, ecrit.champs);   // la durée écrite est la durée visée
     if (ecrit.pesee) poserPesee(ecrit.pesee).catch(function () {});
     if (q.ecran === Questionnaire.RECAP) return terminerQuestionnaire();
-    var suivant = q.retourRecap ? Questionnaire.RECAP
-      : (Questionnaire.ecranSuivant(ecransDuQuestionnaire(), q.ecran) || Questionnaire.RECAP);
-    q.retourRecap = false;
+    var visibles = ecransDuQuestionnaire();
+    // 60-4 — « Programme », changé depuis le récapitulatif vers « Construis-le-moi » : l'écran 8b d'abord
+    // (les jours, la zone), PUIS le récapitulatif — sans lui, la ligne dirait « Construis-le-moi » sans
+    // ses jours et l'aperçu n'aurait rien à construire.
+    var vers8b = q.retourRecap && q.ecran === Questionnaire.PROGRAMME &&
+      visibles.indexOf(Questionnaire.CONSTRUIT) >= 0;
+    var suivant = vers8b ? Questionnaire.CONSTRUIT : q.retourRecap ? Questionnaire.RECAP
+      : (Questionnaire.ecranSuivant(visibles, q.ecran) || Questionnaire.RECAP);
+    q.retourRecap = vers8b;
     q.ecran = suivant;
+    // Les jours de l'écran 8b sont pré-cochés : ceux déjà dits (bornés), sinon le rythme de l'écran 3a.
+    if (suivant === Questionnaire.CONSTRUIT && !Questionnaire.joursValides(q.rep.seances)) {
+      var jours = Questionnaire.joursPrecoches(q.rep, q.faits);
+      if (jours !== null) q.rep.seances = jours;
+    }
     if (suivant === Questionnaire.SAIT || suivant === Questionnaire.TEMPS || suivant === Questionnaire.RECAP) {
       actualiserFaitsDuQuestionnaire();
     }
@@ -8596,7 +8609,9 @@
   // puis la feuille « Tes séances qui reviennent » arrive par-dessus Saisie.
   async function terminerQuestionnaire() {
     var q = questionnaire;
-    var garder = !!q && q.rep.programme === 'deduit' &&
+    // « Garder ce que je fais » n'a de sens qu'avec des séances : sans elles (60-4, l'écran 8 existe quand
+    // même), un « deduit » hérité d'avant n'ouvre rien.
+    var garder = !!q && q.rep.programme === 'deduit' && q.aDesSeances &&
       ecransDuQuestionnaire().indexOf(Questionnaire.PROGRAMME) >= 0;
     fermerQuestionnaire();
     await afficherSaisie();

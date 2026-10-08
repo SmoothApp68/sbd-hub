@@ -535,14 +535,20 @@
                        'rythme_progression', 'phase', 'phase_depuis', 'lest_reponse', 'lest_reponse_le',
                        'materiel',
                        'seances_par_semaine', 'duree_seance_min',
-                       // 60-2a (v2_065) — le questionnaire du coach. `zones_a_menager` et
-                       // `zone_force_reponse*` n'y sont PAS : ni écrites ni lues avant le
-                       // générateur (SCHEMA-REEL).
+                       // 60-2a (v2_065) — le questionnaire du coach. `zone_force_reponse*` n'y
+                       // est PAS : ni écrite ni lue (SCHEMA-REEL).
                        'objectif', 'objectif_depuis', 'priorites', 'temps_reponse',
                        'historique_declare', 'phase_confirmee_le', 'questionnaire_fait_le',
-                       // 60-3 — l'écran 8 (« Ton programme ») : `deduit` ou `moi`
-                       // (CHECK `deduit` · `moi` · `construis`, relevé au schéma le 08/10).
+                       // 60-3 — l'écran 8 (« Ton programme ») : `deduit`, `moi`, et depuis 60-4
+                       // `construis` (CHECK `deduit` · `moi` · `construis`, relevé au schéma le 08/10).
                        'programme_choix',
+                       // 60-4 (v2_066) — le programme construit (QUESTIONNAIRE-COACH-V2 §5 bis) : la
+                       // zone à ménager (lue par le générateur seulement), les exercices écartés, le
+                       // dossier du programme construit et sa date, la date de la carte « Passer en
+                       // cycles ». Leurs bornes sont celles des CHECK (`preparerChamps`) : un 23514
+                       // bloquerait l'envoi de TOUT le profil.
+                       'zones_a_menager', 'exercices_ecartes', 'programme_construit_dossier',
+                       'programme_construit_le', 'carte_cycles_le',
                        'onboarding_completed'];
 
   function champsEcrits(champs) {
@@ -604,13 +610,74 @@
     { cle: 'debutant', libelle: 'Non, je débute' }
   ];
 
-  // L'écran 8 (« Ton programme », 60-3) : deux chemins. « Construis-le-moi »
-  // (`construis`, permis par la base) attend le générateur (60-4) : sans lui, la
-  // réponse n'aurait pas de lecteur — elle n'est ni proposée ni écrite.
+  // L'écran 8 (« Ton programme », 60-3) : trois chemins. « Construis-le-moi »
+  // (`construis`, permis par la base) a son lecteur depuis 60-4 : le générateur
+  // (QUESTIONNAIRE-COACH-V2 §5 bis).
   var PROGRAMMES = [
     { cle: 'deduit', libelle: 'Garder ce que je fais' },
-    { cle: 'moi', libelle: 'Je crée mes routines moi-même' }
+    { cle: 'moi', libelle: 'Je crée mes routines moi-même' },
+    { cle: 'construis', libelle: 'Construis-le-moi' }
   ];
+
+  // ── LE PROGRAMME CONSTRUIT : zones à ménager, exercices écartés, dossier (60-4) ──
+  //
+  // LES ZONES À MÉNAGER (`profiles.zones_a_menager`, v2_065) : cinq clés, celles du CHECK de la base
+  // (`profiles_zones_a_menager_ok`) ET celles que le générateur charge (`Generateur.CHARGE_ZONE`, un test les
+  // rapproche). « Aucune » n'est pas une valeur : c'est la liste vide, écrite `NULL` (vide = NULL). Le
+  // générateur seul les lit ; rien n'en change en séance (« J'ai mal » reste là).
+  var ZONES_A_MENAGER = [
+    { cle: 'epaule', libelle: 'Épaule' },
+    { cle: 'dos', libelle: 'Dos' },
+    { cle: 'genou', libelle: 'Genou' },
+    { cle: 'coude', libelle: 'Coude' },
+    { cle: 'hanche', libelle: 'Hanche' }
+  ];
+
+  // Une liste de zones telle que la base la veut : connues, sans doublon, dans l'ordre de `ZONES_A_MENAGER`
+  // (une même sélection s'écrit toujours pareil). `[]` est valide (« aucune ») ; ce qui n'est pas une liste
+  // n'en est pas une (`null`).
+  function zonesAMenagerValides(liste) {
+    if (!Array.isArray(liste)) return null;
+    return ZONES_A_MENAGER.filter(function (z) { return liste.indexOf(z.cle) >= 0; })
+      .map(function (z) { return z.cle; });
+  }
+
+  // Une zone qu'on touche : on l'ajoute, ou on la retire ; « aucune » les retire toutes. L'écran 8b et la
+  // feuille du Profil la partagent : un seul geste, une seule règle.
+  function basculerZone(liste, cle) {
+    if (cle === 'aucune') return [];
+    var l = zonesAMenagerValides(liste) || [];
+    if (ZONES_A_MENAGER.every(function (z) { return z.cle !== cle; })) return l;
+    var i = l.indexOf(cle);
+    if (i >= 0) l.splice(i, 1);
+    else l.push(cle);
+    return zonesAMenagerValides(l);
+  }
+
+  // LES EXERCICES ÉCARTÉS (`profiles.exercices_ecartes`, ECRAN-SAISIE §7 quindecies.9) : des slugs du catalogue,
+  // sans doublon, dans l'ordre où on les a écartés ; deux cents au plus (le CHECK de la base) — au-delà, les plus
+  // anciens s'effacent. `[]` est valide ; ce qui n'est pas une liste n'en est pas une (`null`).
+  var ECARTES_MAX = 200, SLUG_MAX = 120;
+  function ecartesValides(liste) {
+    if (!Array.isArray(liste)) return null;
+    var vus = {}, sortie = [];
+    liste.forEach(function (x) {
+      if (typeof x !== 'string' || x === '' || x.length > SLUG_MAX || x !== x.trim() || vus[x]) return;
+      vus[x] = true;
+      sortie.push(x);
+    });
+    return sortie.length > ECARTES_MAX ? sortie.slice(sortie.length - ECARTES_MAX) : sortie;
+  }
+
+  // LE DOSSIER DU PROGRAMME CONSTRUIT (`profiles.programme_construit_dossier`) : la borne de `routines.dossier`
+  // (`routines_dossier_ok`) — 1 à 40 caractères, SANS espace autour. Il ne se tronque pas : c'est le NOM RÉEL du
+  // dossier créé, un nom coupé ne désignerait plus rien (la carte « Passer en cycles » compte les séances de ce
+  // dossier).
+  var DOSSIER_PROGRAMME_MAX = 40;
+  function dossierDuProgrammeValide(nom) {
+    return typeof nom === 'string' && nom === nom.trim() && nom.length >= 1 && nom.length <= DOSSIER_PROGRAMME_MAX
+      ? nom : null;
+  }
 
   // LES PRIORITÉS (QUESTIONNAIRE §3, écran 6) : jusqu'à trois, des EXERCICES
   // ou des MUSCLES. Les cinq exercices sont des slugs du catalogue, relevés sur
@@ -801,6 +868,31 @@
       var liste = prioritesValides(e.priorites);
       if (liste !== null && !memeListe(liste, p.priorites)) sortie.priorites = liste;
     }
+
+    // 60-4 — le programme construit. Les listes vides s'écrivent `NULL` (vide = NULL) et se comparent
+    // comme telles : « aucune zone » sur une colonne vide n'écrit rien. Un dossier hors des bornes, une date
+    // illisible ne partent pas (un 23514 bloquerait l'envoi de tout le profil).
+    if (e.zones_a_menager !== undefined && e.zones_a_menager !== null) {
+      var zones = zonesAMenagerValides(e.zones_a_menager);
+      if (zones !== null && !memeListe(zones, zonesAMenagerValides(p.zones_a_menager) || [])) {
+        sortie.zones_a_menager = zones.length ? zones : null;
+      }
+    }
+    if (e.exercices_ecartes !== undefined && e.exercices_ecartes !== null) {
+      var ecartes = ecartesValides(e.exercices_ecartes);
+      if (ecartes !== null && !memeListe(ecartes, ecartesValides(p.exercices_ecartes) || [])) {
+        sortie.exercices_ecartes = ecartes.length ? ecartes : null;
+      }
+    }
+    if (present(e.programme_construit_dossier)) {
+      var dossier = dossierDuProgrammeValide(e.programme_construit_dossier);
+      if (dossier !== null && differe('programme_construit_dossier', dossier)) sortie.programme_construit_dossier = dossier;
+    }
+    ['programme_construit_le', 'carte_cycles_le'].forEach(function (cle) {
+      if (!present(e[cle])) return;
+      var t = e[cle] instanceof Date ? e[cle] : new Date(e[cle]);
+      if (!isNaN(t.getTime()) && differe(cle, t.toISOString())) sortie[cle] = t.toISOString();
+    });
 
     if (e.fait === true) sortie.questionnaire_fait_le = quand;
     return sortie;
@@ -1083,6 +1175,9 @@
     libelleAnciennete: libelleAnciennete,
     manquants: manquants,
     OBJECTIFS: OBJECTIFS, TEMPS_REPONSES: TEMPS_REPONSES, HISTORIQUES: HISTORIQUES, PROGRAMMES: PROGRAMMES,
+    ZONES_A_MENAGER: ZONES_A_MENAGER, zonesAMenagerValides: zonesAMenagerValides, basculerZone: basculerZone,
+    ECARTES_MAX: ECARTES_MAX, ecartesValides: ecartesValides,
+    DOSSIER_PROGRAMME_MAX: DOSSIER_PROGRAMME_MAX, dossierDuProgrammeValide: dossierDuProgrammeValide,
     PHRASE_PSEUDO_PRIS: PHRASE_PSEUDO_PRIS, pseudoDeLInscription: pseudoDeLInscription, lignePseudo: lignePseudo,
     EXERCICES_PRIORITAIRES: EXERCICES_PRIORITAIRES, PRIORITES_MAX: PRIORITES_MAX,
     musclesPrioritaires: musclesPrioritaires, prioritesValides: prioritesValides,

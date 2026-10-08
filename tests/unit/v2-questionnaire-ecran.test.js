@@ -213,6 +213,23 @@ describe('60-2a — une ÉCRITURE par écran validé, par le chemin du Profil', 
     expect(b.journal.pesees).toEqual([]);
   });
 
+  test('⚠️ DISCRIMINANT (60-2c) — « Je ne sais pas » à l’écran 5 écrit une phase VIDE (jamais `maintien`), avec sa confirmation', () => {
+    const b = bac({ profil: { id: 'u1', questionnaire_fait_le: null, intention: 'progresser', phase: 'seche',
+                              phase_depuis: '2026-09-01T00:00:00Z' } });
+    b.appel('ouvrirQuestionnaireSiDu()');
+    const cont = () => b.actions().surContinuer();
+    const choix = (c, v) => b.actions().surChoix(c, v);
+    cont(); choix('historique', 'import'); cont(); cont(); choix('sexe', 'homme'); cont();
+    expect(b.ecran()).toBe('but');
+    b.journal.profil.length = 0;
+    choix('objectif', 'force'); choix('phase', 'inconnue'); cont();
+    const but = b.journal.profil.pop();
+    expect(but.phase).toBeNull();
+    expect(Object.keys(but).sort()).toEqual(['objectif', 'objectif_depuis', 'phase', 'phase_confirmee_le', 'phase_depuis']);
+    expect(JSON.stringify(but)).not.toContain('maintien');
+    expect(JSON.stringify(but)).not.toContain('inconnue');
+  });
+
   test('DISCRIMINANT — « ‹ Retour » n’écrit RIEN, et au premier écran il vaut « Plus tard »', () => {
     const b = bac();
     b.appel('ouvrirQuestionnaireSiDu()');

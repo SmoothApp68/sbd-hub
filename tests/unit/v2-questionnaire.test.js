@@ -120,14 +120,29 @@ describe('60-2a — la préparation des champs (une fois, pour le questionnaire 
       expect(prep({ phase: 'seche', phase_depuis: '2026-09-01T00:00:00Z' }, { phase: 'seche' }))
         .toEqual({ phase_confirmee_le: ISO });
     });
-    test('« Je ne sais pas » vaut maintien : la clé `inconnue` ne part jamais', () => {
+    test('⚠️ DISCRIMINANT (60-2c) — « Je ne sais pas » écrit le VIDE, jamais `maintien` : la clé `inconnue` ne part jamais', () => {
       const c = prep({ phase: 'seche', phase_depuis: '2026-09-01T00:00:00Z' }, { phase: 'inconnue' });
-      expect(c).toEqual({ phase: 'maintien', phase_depuis: ISO, phase_confirmee_le: ISO });
+      // La phase EFFECTIVE change (sèche → maintien par défaut) : elle se date.
+      expect(c).toEqual({ phase: null, phase_depuis: ISO, phase_confirmee_le: ISO });
+      expect(c.phase).toBeNull();
       expect(JSON.stringify(c)).not.toContain('inconnue');
+      expect(JSON.stringify(c)).not.toContain('maintien');
+    });
+    test('« Je ne sais pas » sur une phase déjà vide : seule la confirmation s’écrit (la base est déjà NULL)', () => {
+      expect(prep({}, { phase: 'inconnue' })).toEqual({ phase_confirmee_le: ISO });
+      expect(prep({ phase: null }, { phase: 'inconnue' })).toEqual({ phase_confirmee_le: ISO });
+      expect(prep({ phase: '' }, { phase: 'inconnue' })).toEqual({ phase_confirmee_le: ISO });
+    });
+    test('« Je ne sais pas » sur un « maintien » DÉCLARÉ : le vide s’écrit, la phase effective ne change pas (pas de `phase_depuis`)', () => {
+      expect(prep({ phase: 'maintien', phase_depuis: '2026-09-01T00:00:00Z' }, { phase: 'inconnue' }))
+        .toEqual({ phase: null, phase_confirmee_le: ISO });
     });
     test('un vide valait déjà maintien : répondre maintien écrit la phase mais ne date pas un changement', () => {
       expect(prep({ phase: null }, { phase: 'maintien' })).toEqual({ phase: 'maintien', phase_confirmee_le: ISO });
-      expect(prep({}, { phase: 'inconnue' })).toEqual({ phase: 'maintien', phase_confirmee_le: ISO });
+    });
+    test('une réponse vide (`null`) en ENTRÉE ne vide rien ; seule la clé `inconnue` est « Je ne sais pas »', () => {
+      expect(prep({ phase: 'seche' }, { phase: null })).toEqual({});
+      expect(prep({ phase: 'seche' }, { phase: '' })).toEqual({});
     });
   });
 
@@ -306,8 +321,16 @@ describe('60-2a — ce que chaque écran ÉCRIT', () => {
     expect(r).toEqual({ champs: {}, pesee: null });
   });
   test('5 → objectif (+ date) et phase (+ dates)', () => {
+    expect(ecrit('but', { objectif: 'force', phase: 'seche' }).champs).toEqual({
+      objectif: 'force', objectif_depuis: ISO, phase: 'seche', phase_depuis: ISO, phase_confirmee_le: ISO });
+  });
+  test('⚠️ DISCRIMINANT (60-2c) — 5 → « Je ne sais pas » : la phase écrite est le VIDE, jamais `maintien`', () => {
+    const champs = ecrit('but', { objectif: 'force', phase: 'inconnue' }, { phase: 'seche' }).champs;
+    expect(champs).toEqual({ objectif: 'force', objectif_depuis: ISO, phase: null, phase_depuis: ISO, phase_confirmee_le: ISO });
+    expect(champs.phase).toBeNull();
+    // Sur un profil neuf, seule la confirmation part pour la phase.
     expect(ecrit('but', { objectif: 'force', phase: 'inconnue' }).champs).toEqual({
-      objectif: 'force', objectif_depuis: ISO, phase: 'maintien', phase_confirmee_le: ISO });
+      objectif: 'force', objectif_depuis: ISO, phase_confirmee_le: ISO });
   });
   test('6 → priorités ; « Pas de priorité » → []', () => {
     expect(ecrit('priorites', { priorites: ['squat_barre'] }).champs).toEqual({ priorites: ['squat_barre'] });
@@ -363,9 +386,21 @@ describe('60-2a — les réponses de départ sont ce qui est DÉJÀ en base', ()
     expect(Q.reponsesInitiales({ intention: 'entretien', priorites: [] }).coach).toBe('carnet');
     expect(Q.reponsesInitiales({ priorites: [] }).priorites).toEqual([]);
   });
-  test('une phase en base se lit ; « inconnue » n’est jamais une phase de départ', () => {
+  test('une phase en base se lit ; une valeur hors liste, jamais répondue, n’est pas une phase de départ', () => {
     expect(Q.reponsesInitiales({ phase: 'prise_de_masse' }).phase).toBe('prise_de_masse');
     expect(Q.reponsesInitiales({ phase: 'peu importe' }).phase).toBeNull();
+    expect(Q.reponsesInitiales({ phase: null }).phase).toBeNull();
+  });
+  test('⚠️ DISCRIMINANT (60-2c) — « Je ne sais pas » se RELIT : phase vide + date de confirmation = `inconnue`, sinon « Continuer » reste éteint', () => {
+    const profil = { phase: null, phase_confirmee_le: '2026-10-08T10:00:00.000Z' };
+    const rep = Q.reponsesInitiales(profil, {});
+    expect(rep.phase).toBe('inconnue');
+    expect(Q.ecranPret('but', Object.assign({}, rep, { objectif: 'force' }))).toBe(true);
+    // Sans confirmation, rien n'a été répondu.
+    expect(Q.reponsesInitiales({ phase: null }, {}).phase).toBeNull();
+    expect(Q.reponsesInitiales({}, {}).phase).toBeNull();
+    // Une phase déclarée se lit telle quelle, confirmation ou non.
+    expect(Q.reponsesInitiales({ phase: 'seche', phase_confirmee_le: profil.phase_confirmee_le }, {}).phase).toBe('seche');
   });
 });
 
@@ -531,10 +566,11 @@ describe('60-2a — les TEXTES des écrans (la maquette v4, avec ses écarts dé
     expect(sp(blocs(vide, 'ligne')[0].valeur)).toBe('75 min');
   });
 
-  test('ce que j’ai compris : « Je ne sais pas » est dit « Maintien » (maquette) — c’est ce qui s’écrit', () => {
+  test('ce que j’ai compris : « Je ne sais pas » est dit « Maintien (par défaut) » — le même mot que le Profil', () => {
     const rep = Object.assign(Q.reponsesInitiales({}, {}), { objectif: 'force', phase: 'inconnue' });
     const lignes = blocs(vue('recap', { rep }), 'resume')[0].lignes;
-    expect(lignes[1]).toMatchObject({ libelle: 'Phase', valeur: 'Maintien', ecran: 'but' });
+    expect(lignes[1]).toMatchObject({ libelle: 'Phase', valeur: 'Maintien (par défaut)', ecran: 'but' });
+    expect(lignes[1].valeur).toBe(Profil.LIBELLE_PHASE_VIDE);
     const maintien = blocs(vue('recap', { rep: Object.assign({}, rep, { phase: 'maintien' }) }), 'resume')[0].lignes[1];
     expect(maintien.valeur).toBe('Maintien ou recomposition');
   });

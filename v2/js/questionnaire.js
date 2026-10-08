@@ -89,9 +89,13 @@
     return m ? Number(m[1]) : null;
   }
 
+  // La phase telle qu'on la RELIT à l'écran. « Je ne sais pas » écrit le vide (60-2c) : une phase
+  // vide AVEC une date de confirmation est une réponse, « Je ne sais pas » — sans elle, rouvrir le
+  // questionnaire la ferait passer pour « jamais répondu » et « Continuer » resterait éteint.
   function phaseSaisie(profil) {
     var v = profil && profil.phase;
-    return v === 'prise_de_masse' || v === 'maintien' || v === 'seche' ? v : null;
+    if (v === 'prise_de_masse' || v === 'maintien' || v === 'seche') return v;
+    return profil && profil.phase_confirmee_le ? 'inconnue' : null;
   }
 
   // `contexte.poids` : la dernière pesée (un nombre), ou `null`.
@@ -459,9 +463,9 @@
   // elle se répond), et on y REVIENT.
   function ecranRecap(etat) {
     var rep = etat.rep, P = Profil();
-    // « Je ne sais pas » vaut « maintien » : le récapitulatif dit « Maintien » (maquette),
-    // comme ce qui s'écrit — pas « Je ne sais pas ».
-    var phase = rep.phase === 'inconnue' ? 'Maintien' : (rep.phase ? P.libelleDe(P.PHASES, rep.phase) : null);
+    // « Je ne sais pas » écrit une phase vide que le coach compte « maintien » : le récapitulatif
+    // le dit (« Maintien (par défaut) »), au mot près comme le Profil — pas « Je ne sais pas ».
+    var phase = rep.phase === 'inconnue' ? P.LIBELLE_PHASE_VIDE : (rep.phase ? P.libelleDe(P.PHASES, rep.phase) : null);
     var priorites = Array.isArray(rep.priorites)
       ? (rep.priorites.length ? rep.priorites.map(function (c) { return libelleDePriorite(c); }).join(', ') : 'Pas de priorité')
       : null;

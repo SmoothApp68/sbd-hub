@@ -59,6 +59,21 @@ describe('§9.16 — la règle : 42 jours ou plus depuis la dernière réponse',
     });
   });
 
+  test('⚠️ DISCRIMINANT (60-2c) — qui a répondu « Je ne sais pas » n’a PAS de rappel, ni 42 jours après, ni 200 : la phase écrite est vide', () => {
+    [42, 60, 200].forEach((jours) => {
+      // La réponse, écrite par la préparation unique (questionnaire ET Profil), il y a `jours` jours.
+      const quand = new Date(2026, 10, 18 - jours, 12, 0);
+      const champs = Profil.preparerChamps({ phase: 'seche', phase_depuis: il_y_a(300) }, { phase: 'inconnue' }, quand);
+      expect(champs.phase).toBeNull();
+      const apres = Object.assign({ phase: 'seche', phase_depuis: il_y_a(300) }, champs);
+      expect([jours, Profil.rappelDePhase(apres, AUJ)]).toEqual([jours, false]);
+      expect(Profil.phraseRappelDePhase(apres)).toBeNull();
+      // Le même âge de confirmation sur une phase DÉCLARÉE, lui, rappelle (la fixture déclenche le chemin).
+      const declaree = Object.assign({}, apres, { phase: 'maintien' });
+      expect([jours, Profil.rappelDePhase(declaree, AUJ)]).toEqual([jours, true]);
+    });
+  });
+
   test('sans date, avec une date illisible ou dans le futur : non', () => {
     expect(Profil.rappelDePhase(avec({}), AUJ)).toBe(false);
     expect(Profil.rappelDePhase(avec({ phase_confirmee_le: 'pas une date' }), AUJ)).toBe(false);

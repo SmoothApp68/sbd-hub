@@ -178,7 +178,33 @@ describe('Profil — « TA PHASE »', () => {
       .toEqual(['Prise de masse', 'Maintien ou recomposition', 'Sèche', 'Je ne sais pas']);
     expect(sec.segment.valeur).toBe('inconnue');
     expect(sec.aide).toBe('Ce que tu vises en ce moment. Je l’enregistre avec chaque séance.');
-    expect(sec.pied).toBeNull();
+    // 60-2c : une phase vide ne dit pas « depuis », elle dit ce que le coach en fait.
+    expect(sec.pied).toBe('Maintien (par défaut)');
+    expect(sec.pied).toBe(Profil.LIBELLE_PHASE_VIDE);
+  });
+
+  test('⚠️ DISCRIMINANT (60-2c) — une phase vide n’affiche jamais « Depuis le … », même avec un `phase_depuis` ancien', () => {
+    const sec = Profil.sectionPhase({ phase: null, phase_depuis: '2026-09-01T00:00:00.000Z' }, () => {}, MAINTENANT);
+    expect(sec.pied).toBe('Maintien (par défaut)');
+    // Une phase déclarée garde son « Depuis … ».
+    expect(Profil.sectionPhase({ phase: 'seche', phase_depuis: '2026-09-01T00:00:00.000Z' }, () => {}, MAINTENANT).pied)
+      .toMatch(/^Depuis /);
+  });
+
+  test('⚠️ DISCRIMINANT (60-2c) — le segment du Profil écrit EXACTEMENT ce que le questionnaire écrit (une seule préparation)', () => {
+    const profils = [{}, { phase: null }, { phase: 'seche', phase_depuis: '2026-09-01T00:00:00.000Z' },
+      { phase: 'maintien' }, { phase: 'prise_de_masse', phase_depuis: '2026-08-01T00:00:00.000Z' }];
+    ['prise_de_masse', 'maintien', 'seche', 'inconnue'].forEach((choix) => {
+      profils.forEach((p) => {
+        const ecrits = [];
+        Profil.sectionPhase(p, (c) => ecrits.push(c), MAINTENANT).segment.surChoix(choix);
+        expect([JSON.stringify(p), choix, ecrits]).toEqual([JSON.stringify(p), choix, [Profil.preparerChamps(p, { phase: choix }, MAINTENANT())]]);
+      });
+    });
+    // Et « Je ne sais pas » est bien le vide, au Profil comme ailleurs.
+    const e = [];
+    Profil.sectionPhase({ phase: 'seche' }, (c) => e.push(c), MAINTENANT).segment.surChoix('inconnue');
+    expect(e[0].phase).toBeNull();
   });
 
   test('« Depuis le 29 sept. » sous le réglage, et Sèche sélectionnée', () => {

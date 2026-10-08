@@ -14335,6 +14335,16 @@ const SETS_IMPORTES = [
     await continuerQ();
     e = await ecranQ();
     ok('[Q60] écran 9 — et « Continuer » y REVIENT au récapitulatif (pas à l’écran suivant)', e.ecran === 'recap', JSON.stringify(e));
+    // ── 60-2c : « Je ne sais pas » écrit le VIDE (jamais `maintien`), et le récapitulatif le dit « Maintien (par défaut) ».
+    await cliquerQ('.q-mod[data-ecran="but"]', 500);
+    await cliquerQ('.q-opt[data-cle="inconnue"]');
+    await continuerQ();
+    await attendre(600);
+    e = await ecranQ();
+    ok('[Q60c] DISCRIMINANT — « Je ne sais pas » (écran 5) écrit une phase VIDE (`null`, jamais `maintien`), datée de sa confirmation ; le récapitulatif dit « Maintien (par défaut) »',
+      e.ecran === 'recap' && profilBase().phase === null && !!profilBase().phase_confirmee_le &&
+        /Phase.*Maintien \(par défaut\)/.test(e.lignes[1].replace(/[\u00a0\u202f]/g, ' ')),
+      JSON.stringify([e.ecran, profilBase().phase, profilBase().phase_confirmee_le, e.lignes[1]]));
     // La durée VISÉE se change depuis le récapitulatif : la ligne et le récapitulatif
     // disent ce qui a été choisi (90), le titre garde le fait (la médiane des séances).
     const titreTemps0 = (await ecranQ()).lignes.filter((l) => /^Temps/.test(l))[0];
@@ -14730,6 +14740,29 @@ const SETS_IMPORTES = [
     await aller('/saisie');
     await attendre(900);
     ok('[PH60] … donc Saisie ne montre pas de rappel juste après le changement', !(await bandeauPh()).visible, JSON.stringify(await bandeauPh()));
+
+    // 8. « JE NE SAIS PAS » (60-2c) : le VIDE, au Profil comme au questionnaire. Depuis une phase DÉCLARÉE
+    // (la fixture déclenche le chemin) : la phase s'efface, le pied dit « Maintien (par défaut) », et le
+    // rappel ne revient pas — ni juste après, ni 60 jours plus tard.
+    await rouvrir({ phase: 'seche', phase_depuis: iso(60), phase_confirmee_le: iso(50) });
+    ok('[PH60c] prémisse : sèche confirmée il y a 50 jours, le bandeau est dû', (await bandeauPh()).visible, JSON.stringify(await bandeauPh()));
+    await onglet('profil');
+    await page.click('.p-seg button[data-cle="inconnue"]');
+    await attendre(1200);
+    const piedVide = await page.evaluate(() => {
+      const t = Array.from(document.querySelectorAll('#profil-corps .p-sect')).filter((n) => n.textContent === 'TA PHASE')[0];
+      const p = t && t.nextElementSibling && t.nextElementSibling.querySelector('.p-pied');
+      return p ? p.textContent : null;
+    });
+    ok('[PH60c] DISCRIMINANT — « Je ne sais pas » au Profil écrit une phase VIDE (`null`, jamais `maintien`), datée de sa confirmation ; le pied dit « Maintien (par défaut) »',
+      profilBase().phase === null && recent(profilBase().phase_confirmee_le) && esp(piedVide) === 'Maintien (par défaut)',
+      JSON.stringify([profilBase().phase, profilBase().phase_confirmee_le, piedVide]));
+    await aller('/saisie');
+    await attendre(900);
+    ok('[PH60c] … et Saisie n’affiche aucun rappel', !(await bandeauPh()).visible, JSON.stringify(await bandeauPh()));
+    await rouvrir({ phase: null, phase_depuis: iso(60), phase_confirmee_le: iso(60) });
+    ok('[PH60c] DISCRIMINANT — qui a répondu « Je ne sais pas » il y a 60 jours (phase vide, confirmation ancienne) n’a pas de rappel',
+      !(await bandeauPh()).visible, JSON.stringify(await bandeauPh()));
 
     // LA REMISE EN ÉTAT.
     Object.keys(DUE).concat(['phase', 'phase_depuis', 'phase_confirmee_le']).forEach((k) => { delete profilBase()[k]; });

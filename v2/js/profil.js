@@ -231,8 +231,9 @@
   //
   // Les CLÉS sont celles de la contrainte `profiles_phase_valeurs`
   // (`v2_051_profil_phase`) : `prise_de_masse`, `maintien`, `seche`, ou vide.
-  // « Je ne sais pas » écrit le VIDE, et le vide se lit « maintien » : c'est
-  // `phaseDe` qui le dit, une fois, pour l'écran comme pour le plan.
+  // « Je ne sais pas » écrit le VIDE — au questionnaire comme au Profil, par la même
+  // `preparerChamps` (60-2c) — et le vide se lit « maintien » : c'est `phaseDe` qui le
+  // dit, une fois, pour l'écran comme pour le plan.
   var PHASES = [
     { cle: 'prise_de_masse', libelle: 'Prise de masse' },
     { cle: 'maintien', libelle: 'Maintien ou recomposition' },
@@ -241,6 +242,8 @@
   ];
   var PHASES_EN_BASE = ['prise_de_masse', 'maintien', 'seche'];
   var PHASE_DEFAUT = 'maintien';
+  // Ce que le récapitulatif du questionnaire et le Profil disent d'une phase vide.
+  var LIBELLE_PHASE_VIDE = 'Maintien (par défaut)';
 
   // La phase EFFECTIVE d'un profil : sa valeur si elle est connue, sinon
   // « maintien » (MOTEUR §9.16 : vide = maintien). Jamais vide.
@@ -352,17 +355,16 @@
         deuxColonnes: true,
         surChoix: function (v) {
           var quand = typeof maintenant === 'function' ? maintenant() : new Date();
-          // 60-2b : TOUTE réponse sur la phase est une confirmation — le rappel de
-          // phase (`rappelDePhase`) compte depuis `phase_confirmee_le`, comme le fait
-          // le questionnaire (`preparerChamps`).
-          // Re-toucher la phase DÉJÀ choisie la confirme seulement : `phase_depuis` (le début de
-          // cette phase, que « depuis N semaines » lit) ne repart pas de zéro.
-          if (v === valeur) { ecrire({ phase_confirmee_le: quand.toISOString() }); return; }
-          ecrire({ phase: v === 'inconnue' ? null : v, phase_depuis: quand.toISOString(),
-                   phase_confirmee_le: quand.toISOString() });
+          // 60-2c : la MÊME préparation que le questionnaire — un seul endroit dit ce
+          // qu'une réponse sur la phase écrit. TOUTE réponse est une confirmation
+          // (`phase_confirmee_le`, que lit le rappel de phase) ; re-toucher la phase déjà
+          // choisie ne fait que cela (`phase_depuis`, le début de cette phase, ne repart pas
+          // de zéro) ; « Je ne sais pas » écrit le vide.
+          ecrire(preparerChamps(p, { phase: v }, quand));
         }
       },
-      pied: depuisPhase(p)
+      // Une phase vide ne dit pas « depuis » : elle dit ce que le coach en fait.
+      pied: PHASES_EN_BASE.indexOf(p.phase) >= 0 ? depuisPhase(p) : LIBELLE_PHASE_VIDE
     };
   }
 
@@ -725,7 +727,7 @@
   //   · `phase_depuis` : quand la phase EFFECTIVE change (un vide vaut
   //     « maintien », `phaseDe`). `phase_confirmee_le` : à CHAQUE réponse sur la
   //     phase, changée ou non — c'est la date que lira le rappel de phase
-  //     (60-2b). « Je ne sais pas » vaut « maintien » (QUESTIONNAIRE §3).
+  //     (60-2b). « Je ne sais pas » écrit une phase VIDE (QUESTIONNAIRE §3, 60-2c).
   //   · L'ANNÉE ne réécrit `date_naissance` que si elle change : le 1er
   //     janvier de l'année tapée. Une date complète déjà saisie est gardée.
   //   · `fait: true` pose `questionnaire_fait_le`.
@@ -770,11 +772,16 @@
       sortie.objectif_depuis = quand;
     }
 
+    // « Je ne sais pas » (`'inconnue'`) écrit le VIDE (60-2c) : la colonne reste NULL, le coach
+    // la compte « maintien » (`phaseDe`) et le rappel de phase ne la voit pas. Le vide se compare
+    // à ce que la base porte (`declaree`), pas à un `undefined` : jamais d'écriture pour rien.
     if (present(e.phase)) {
-      var phase = e.phase === 'inconnue' ? PHASE_DEFAUT : e.phase;
-      if (PHASES_EN_BASE.indexOf(phase) >= 0) {
-        if (differe('phase', phase)) sortie.phase = phase;
-        if (phaseDe(p) !== phase) sortie.phase_depuis = quand;
+      var vide = e.phase === 'inconnue';
+      var cible = vide ? null : e.phase;
+      if (vide || PHASES_EN_BASE.indexOf(cible) >= 0) {
+        var declaree = PHASES_EN_BASE.indexOf(p.phase) >= 0 ? p.phase : null;
+        if (declaree !== cible) sortie.phase = cible;
+        if (phaseDe(p) !== (cible || PHASE_DEFAUT)) sortie.phase_depuis = quand;
         sortie.phase_confirmee_le = quand;
       }
     }
@@ -983,7 +990,7 @@
     RYTHMES: RYTHMES, RYTHME_DEFAUT: RYTHME_DEFAUT,
     rythmeDe: rythmeDe, phraseRythme: phraseRythme, sectionRythme: sectionRythme,
     PHASES: PHASES, RAPPEL_PHASE_JOURS: RAPPEL_PHASE_JOURS,
-    rappelDePhase: rappelDePhase, phraseRappelDePhase: phraseRappelDePhase, PHASE_DEFAUT: PHASE_DEFAUT, phaseDe: phaseDe, phaseGelee: phaseGelee, sectionPhase: sectionPhase,
+    rappelDePhase: rappelDePhase, phraseRappelDePhase: phraseRappelDePhase, PHASE_DEFAUT: PHASE_DEFAUT, LIBELLE_PHASE_VIDE: LIBELLE_PHASE_VIDE, phaseDe: phaseDe, phaseGelee: phaseGelee, sectionPhase: sectionPhase,
     objectifDe: objectifDe, objectifGele: objectifGele,
     prioritesDe: prioritesDe, prioritesGelees: prioritesGelees,
     DUREES: DUREES, SEANCES_MIN: SEANCES_MIN, SEANCES_MAX: SEANCES_MAX,

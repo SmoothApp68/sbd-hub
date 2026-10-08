@@ -3,10 +3,13 @@
 // 60-2a (commit 5) — LE PROFIL : « TON BUT », « TON TEMPS », « TERMINER MON QUESTIONNAIRE ».
 //
 // QUESTIONNAIRE-COACH-V2 §6 : les réponses du questionnaire se changent ensuite
-// dans Profil, une ligne à la fois, SANS PHRASE D'AIDE (elles reviendront avec
-// leurs lecteurs, 60-2b), et par la MÊME fonction de préparation des champs que
-// le questionnaire (`Profil.preparerChamps`) : un objectif qui change date
-// `objectif_depuis`, une réponse inchangée n'écrit rien.
+// dans Profil, une ligne à la fois, et par la MÊME fonction de préparation des
+// champs que le questionnaire (`Profil.preparerChamps`) : un objectif qui change
+// date `objectif_depuis`, une réponse inchangée n'écrit rien. Leurs PHRASES D'AIDE,
+// retirées en 60-2a (elles promettaient un effet absent), sont revenues avec leurs
+// lecteurs (60-2b, ECRAN-PROFIL §4 bis) : une phrase sous le titre de la feuille de
+// l'objectif et de celle des priorités, une sous-ligne par réponse de temps qu'une
+// règle lit (« moins », « varie » ; ni « maximum » ni « marge »).
 //
 // ⚠️ L'écran (`rendreProfilEcran`) et les feuilles (`ouvrirReponseProfil`,
 // `ouvrirPrioritesProfil`, `ecrireReponse`) se REJOUENT dans un bac `vm` — les
@@ -167,12 +170,12 @@ describe('60-2a — les feuilles : une réponse du Profil s’écrit comme celle
              ecrire: (e) => { ctx.e = e; vm.runInContext('ecrireReponse(e)', ctx); }, rendus: () => rendus };
   }
 
-  test('« Objectif » : la feuille des quatre objectifs, sans aide ni « Effacer » ; le choix écrit l’objectif ET sa date', () => {
+  test('« Objectif » : la feuille des quatre objectifs, sa phrase d’aide, sans « Effacer » ; le choix écrit l’objectif ET sa date', () => {
     const b = bac({ id: 'u1', objectif: null });
     b.ouvrir('objectif');
     const v = b.vues.choix;
     expect(v.titre).toBe('Objectif');
-    expect(v.aide).toBe(null);
+    expect(v.aide).toBe('Il choisit la zone de ton premier bloc de programme : Lourd pour la force, Mix pour le muscle.');
     expect(v.surEffacer).toBe(null);
     expect(v.options.map((o) => o.libelle)).toEqual(['Force', 'Muscle', 'Les deux', 'Forme et santé']);
     v.surChoix('muscle');
@@ -192,24 +195,32 @@ describe('60-2a — les feuilles : une réponse du Profil s’écrit comme celle
     expect(b.ecrits[0].objectif).toBe('force');
   });
 
-  test('« Ton temps » : les quatre réponses, sans aide ; le choix écrit `temps_reponse` seul', () => {
+  test('« Ton temps » : les quatre réponses, une phrase pour « moins » et « varie » seulement ; le choix écrit `temps_reponse` seul', () => {
     const b = bac({ id: 'u1', temps_reponse: null });
     b.ouvrir('temps_reponse');
     const v = b.vues.choix;
     expect(v.titre).toBe('Ton temps');
     expect(v.aide).toBe(null);
     expect(v.options.map((o) => o.cle)).toEqual(['max', 'marge', 'moins', 'varie']);
-    expect(v.options.every((o) => o.sous === undefined)).toBe(true);
+    expect(v.aide).toBe(null);
+    const sous = {};
+    v.options.forEach((o) => { sous[o.cle] = o.sous === undefined ? null : o.sous; });
+    expect(sous).toEqual({
+      max: null, marge: null,
+      moins: 'Quand ta routine dépasse ta durée visée, je te propose de la raccourcir dès son ouverture.',
+      varie: 'Quand ta routine dépasse ta durée visée, je te le montre à côté de « J’ai peu de temps ».'
+    });
     v.surChoix('varie');
     expect(b.ecrits).toEqual([{ temps_reponse: 'varie' }]);
   });
 
-  test('« Priorités » : la feuille à cocher (exercices, muscles, « Pas de priorité »), trois au plus, sans aide', () => {
+  test('« Priorités » : la feuille à cocher (exercices, muscles, « Pas de priorité »), trois au plus, sa phrase d’aide', () => {
     const b = bac({ id: 'u1', priorites: null });
     b.ouvrir('priorites');
     let v = b.vues.multiple;
     expect(v.titre).toBe('Priorités');
-    expect(v.aide).toBe(null);
+    expect(v.aide).toBe('Un exercice prioritaire est coché d’office dans un programme. Un muscle prioritaire peut recevoir ' +
+      'une série de plus jusqu’à ton plus haut volume, hors sèche.');
     expect(v.max).toBe(3);
     expect(v.groupes.map((g) => g.titre)).toEqual(['Des exercices', 'Ou des muscles']);
     expect(v.groupes[0].options.map((o) => o.cle)).toContain('squat_barre');
@@ -269,5 +280,23 @@ describe('60-2a — les feuilles : une réponse du Profil s’écrit comme celle
     // Rouverte, la feuille repart de ce qui est en base, pas du brouillon d'avant.
     b.ouvrir('priorites');
     expect(b.vues.multiple.valeurs).toEqual(['tractions']);
+  });
+});
+
+describe('60-2b — les phrases d\'aide, écrites une fois dans profil.js', () => {
+  test('⚠️ DISCRIMINANT — les trois phrases sont celles d’ECRAN-PROFIL §4 bis, au mot près', () => {
+    expect(Profil.AIDE_OBJECTIF).toBe('Il choisit la zone de ton premier bloc de programme : Lourd pour la force, Mix pour le muscle.');
+    expect(Profil.AIDE_PRIORITES).toBe('Un exercice prioritaire est coché d’office dans un programme. Un muscle prioritaire peut ' +
+      'recevoir une série de plus jusqu’à ton plus haut volume, hors sèche.');
+    const o = {};
+    Profil.optionsTemps().forEach((x) => { o[x.cle] = x.sous || null; });
+    expect(o.moins).toBe('Quand ta routine dépasse ta durée visée, je te propose de la raccourcir dès son ouverture.');
+    expect(o.varie).toBe('Quand ta routine dépasse ta durée visée, je te le montre à côté de « J’ai peu de temps ».');
+    expect([o.max, o.marge]).toEqual([null, null]);
+  });
+
+  test('les libellés et l\'ordre des quatre réponses ne bougent pas (le questionnaire les partage)', () => {
+    expect(Profil.optionsTemps().map((x) => [x.cle, x.libelle])).toEqual(Profil.TEMPS_REPONSES.map((x) => [x.cle, x.libelle]));
+    expect(Profil.TEMPS_REPONSES.every((x) => x.sous === undefined)).toBe(true);
   });
 });

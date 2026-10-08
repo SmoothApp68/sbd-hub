@@ -422,15 +422,18 @@
 
   function programmeDuDossierCalcule(dossier) {
     if (dossier === null) return null;
-    var jour = jourDuJour();
-    var b = Moteur.blocEnCours(local.blocs, dossier);
-    if (!b) return { creer: exercicesDuDossier(dossier).length > 0 };
     // 60-2a (MOTEUR I13, précisé le 07/10/2026) — « JUSTE UN CARNET » : ni le
     // badge ni la carte de fin de bloc d'un programme en cours. Ce sont des
     // faits du programme ENTIER : l'Entretenir d'un seul exercice n'y touche
     // pas. Le MÊME fait que le plan lit (`Moteur.coachSeTait`) ; rien n'est
     // écrit, et le retour en Progresser les ramène (le bloc, lui, n'a pas bougé).
+    // 60-2b (précisé le 08/10/2026) — et PAS DE RANGÉE « Faire de ce dossier un programme » :
+    // un bloc créé en carnet serait invisible (pas de badge) et impossible à arrêter. La
+    // porte vient donc AVANT la rangée, que la personne retrouve en repassant en Progresser.
     if (Moteur.coachSeTait(profil && profil.intention)) return {};
+    var jour = jourDuJour();
+    var b = Moteur.blocEnCours(local.blocs, dossier);
+    if (!b) return { creer: exercicesDuDossier(dossier).length > 0 };
     var badge = Moteur.badgeDuBloc(b, jour);
     if (!Moteur.blocTermine(b, jour)) return { badge: badge };
     var bilan = bilanDe(b);
@@ -8432,8 +8435,10 @@
     feuilleProfil = function (cible) {
       Rendu.rendreFeuilleChoix(cible, {
         titre: objectif ? 'Objectif' : 'Ton temps',
-        aide: null,
-        options: objectif ? Profil.OBJECTIFS : Profil.TEMPS_REPONSES,
+        // 60-2b : ce que le coach fait de la réponse — une phrase pour l'objectif, une
+        // sous-ligne par réponse de temps qu'il lit (`Profil.optionsTemps`).
+        aide: objectif ? Profil.AIDE_OBJECTIF : null,
+        options: objectif ? Profil.OBJECTIFS : Profil.optionsTemps(),
         valeur: valeurProfil(cle),
         surChoix: function (v) { fermerVoile(); ecrireReponse(defObjet(cle, v)); },
         surEffacer: null,
@@ -8452,7 +8457,7 @@
     feuilleProfil = function (cible) {
       Rendu.rendreFeuilleChoixMultiple(cible, {
         titre: 'Priorités',
-        aide: null,
+        aide: Profil.AIDE_PRIORITES,
         groupes: [{ titre: 'Des exercices', options: Profil.EXERCICES_PRIORITAIRES },
                   { titre: 'Ou des muscles', options: Profil.musclesPrioritaires() }],
         valeurs: liste || [],
@@ -8626,7 +8631,7 @@
         // `null` en Entretenir, et `rendreProfil` saute les sections absentes.
         Profil.sectionRythme(p, ecrireProfil),
         // 60-2a — « TON BUT » (l'objectif, les priorités), après le réglage du coach :
-        // les réponses du questionnaire, une ligne à la fois. Sans phrase d'aide.
+        // les réponses du questionnaire, une ligne à la fois. Leurs phrases d'aide sont dans les feuilles.
         Profil.sectionBut(p, ouvrirReponseProfil),
         // MOTEUR §9.16 (49-U11) — « TA PHASE », à côté du rythme : le même
         // sélecteur, la même écriture (`ecrireProfil`, par la file du profil).
@@ -8664,7 +8669,7 @@
           { libelle: 'Durée d’une séance',
             valeur: p.duree_seance_min ? p.duree_seance_min + ' min' : null,
             surChoix: function () { ouvrirRythmeProfil('duree_seance_min'); } },
-          // 60-2a — les quatre réponses de l'écran « Temps », sans phrase d'aide.
+          // 60-2a — les quatre réponses de l'écran « Temps » (leurs phrases sont dans la feuille).
           Profil.ligneTemps(p, ouvrirReponseProfil)
         ] },
         { titre: 'L’APP', lignes: [

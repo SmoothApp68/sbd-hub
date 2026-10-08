@@ -12952,6 +12952,23 @@ const SETS_IMPORTES = [
     const l0 = await dossier('Delta U53');
     ok('[C53] après l’arrêt : ni badge, ni carte ; « Faire de ce dossier un programme » revient',
       l0 && l0.badge === null && l0.fin === null && l0.creer, JSON.stringify(l0));
+    // 60-2b (MOTEUR I13, précisé le 08/10/2026) — « JUSTE UN CARNET » n'offre pas non plus la rangée
+    // « Faire de ce dossier un programme » : un bloc créé en carnet serait invisible (pas de badge) et
+    // impossible à arrêter. « Delta U53 » n'a plus de bloc (on vient de l'arrêter) et offre la rangée en
+    // Progresser (contrôle ci-dessus) ; en carnet, plus de rangée ; de retour en Progresser, elle revient,
+    // sans rien écrire.
+    const avantRangee = { blocs: JSON.stringify(base.blocs), paris: base.predictions.length, zones: base.zones.length };
+    await choisirIntention('entretien');
+    await aller('/saisie');
+    const rC = await dossier('Delta U53');
+    ok('[C53] DISCRIMINANT (60-2b, I13) — au profil « Juste un carnet », le dossier SANS bloc n’offre pas « Faire de ce dossier un programme » (le compte des routines reprend la place)',
+      rC && rC.creer === false && rC.rangee === false && rC.compte === true && rC.badge === null, JSON.stringify(rC));
+    await choisirIntention('progresser');
+    await aller('/saisie');
+    const rP = await dossier('Delta U53');
+    ok('[C53] DISCRIMINANT (60-2b) — le retour en Progresser ramène la rangée, sans écriture (aucun bloc, pari ni zone de plus)',
+      rP && rP.creer === true && JSON.stringify(base.blocs) === avantRangee.blocs && base.predictions.length === avantRangee.paris &&
+        base.zones.length === avantRangee.zones, JSON.stringify([rP, base.predictions.length - avantRangee.paris]));
     await demarrerRoutine('Delta U53');
     await attendre(1500);
     const l1 = await planC('cyc-terre-u53');
@@ -14098,6 +14115,10 @@ const SETS_IMPORTES = [
       ouverte: !document.querySelector('#feuille-seance').hidden,
       titre: (document.querySelector('#feuille-contenu .feuille-t') || {}).textContent || null,
       aide: !!document.querySelector('#feuille-contenu .feuille-aide'),
+      aideTexte: ((document.querySelector('#feuille-contenu .feuille-aide') || {}).textContent || '').replace(/[\u00a0\u202f]/g, ' '),
+      sous: Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button[data-cle]'))
+        .map((b) => [b.dataset.cle, ((b.querySelector('small') || {}).textContent || '').replace(/[\u00a0\u202f]/g, ' ')])
+        .filter((x) => x[1]),
       groupes: Array.from(document.querySelectorAll('#feuille-contenu .choix-groupe')).map((n) => n.textContent),
       options: Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button[data-cle]')).map((b) => b.dataset.cle),
       coches: Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button.choisi')).map((b) => b.dataset.cle),
@@ -14345,14 +14366,15 @@ const SETS_IMPORTES = [
     ok('[Q60] rempli, il ne se rouvre plus — au rechargement, Saisie sans questionnaire ni bandeau',
       JSON.stringify(await visible()) === JSON.stringify(saisie) && !(await bandeauQ()).visible, JSON.stringify([await visible(), await bandeauQ()]));
 
-    // ── P. LE PROFIL, REMPLI : « Ton but », « Ton temps », sans ligne en tête ni phrase d'aide.
+    // ── P. LE PROFIL, REMPLI : « Ton but », « Ton temps », sans ligne en tête. Leurs phrases d'aide
+    // (60-2b) sont dans les FEUILLES, pas sous les lignes.
     await onglet('profil');
     const titresRempli = await titresP();
     ok('[Q60] P — plus de ligne en tête ; « TON BUT » vient après « TON RYTHME » (le réglage du coach), avant « TA PHASE »',
       (await enTeteP()) === null && titresRempli.indexOf('TON BUT') === titresRempli.indexOf('TON RYTHME') + 1 &&
         titresRempli.indexOf('TA PHASE') === titresRempli.indexOf('TON BUT') + 1, JSON.stringify(titresRempli));
     const [pObj, pPri, pTps] = [await ligneP('Objectif'), await ligneP('Priorités'), await ligneP('Ton temps')];
-    ok('[Q60] P — les réponses du questionnaire sont là : Objectif Muscle, Priorités Squat · Couché · Soulevé, Ton temps « J’ai de la marge… » ; aucune phrase d’aide sous ces lignes',
+    ok('[Q60] P — les réponses du questionnaire sont là : Objectif Muscle, Priorités Squat · Couché · Soulevé, Ton temps « J’ai de la marge… » ; aucune phrase sous ces lignes (elles sont dans les feuilles)',
       pObj && pObj.valeur === 'Muscle' && pPri && pPri.valeur === 'Squat, Couché, Soulevé' &&
         pTps && pTps.valeur === 'J’ai de la marge pour en faire plus' && !pObj.aide && !pPri.aide && !pTps.aide,
       JSON.stringify([pObj, pPri, pTps]));
@@ -14360,9 +14382,11 @@ const SETS_IMPORTES = [
     const depuisP0 = profilBase().objectif_depuis;
     await toucherP('Objectif');
     let fp = await feuilleChoixP();
-    ok('[Q60] P — « Objectif » : la feuille des quatre objectifs, Muscle coché, ni phrase d’aide ni « Effacer »',
+    ok('[Q60] P — « Objectif » : la feuille des quatre objectifs, Muscle coché, sa phrase d’aide (60-2b), sans « Effacer »',
       fp.ouverte && fp.titre === 'Objectif' && JSON.stringify(fp.options) === '["force","muscle","les_deux","forme"]' &&
-        JSON.stringify(fp.coches) === '["muscle"]' && fp.aide === false && fp.pied.indexOf('Effacer') < 0, JSON.stringify(fp));
+        JSON.stringify(fp.coches) === '["muscle"]' && fp.aide === true &&
+        fp.aideTexte === 'Il choisit la zone de ton premier bloc de programme : Lourd pour la force, Mix pour le muscle.' &&
+        fp.pied.indexOf('Effacer') < 0, JSON.stringify(fp));
     await cliquerFeuille('.feuille-menu button[data-cle="muscle"]', 900);
     ok('[Q60] P — DISCRIMINANT : choisir le MÊME objectif n’écrit rien (ni valeur ni date)',
       ecritsProfil() === ecritsP0 && profilBase().objectif_depuis === depuisP0, JSON.stringify([ecritsProfil() - ecritsP0, profilBase().objectif_depuis, depuisP0]));
@@ -14373,11 +14397,12 @@ const SETS_IMPORTES = [
         ecritsProfil() === ecritsP0 + 1 && (await ligneP('Objectif')).valeur === 'Force', JSON.stringify([profilBase().objectif, profilBase().objectif_depuis, depuisP0, ecritsProfil() - ecritsP0]));
     await toucherP('Priorités');
     fp = await feuilleChoixP();
-    ok('[Q60] P — « Priorités » : « Des exercices » / « Ou des muscles », « Pas de priorité », trois cochées → les autres s’éteignent (sans un mot) ; Annuler · Valider',
+    ok('[Q60] P — « Priorités » : sa phrase d’aide (60-2b), « Des exercices » / « Ou des muscles », « Pas de priorité », trois cochées → les autres s’éteignent (sans un mot) ; Annuler · Valider',
       fp.ouverte && fp.titre === 'Priorités' && JSON.stringify(fp.groupes) === '["Des exercices","Ou des muscles"]' &&
         JSON.stringify(fp.coches) === '["squat_barre","developpe_couche_barre","souleve_de_terre_barre"]' &&
         fp.options.indexOf('aucune') >= 0 && fp.eteintes.length === fp.options.length - 1 - fp.coches.length &&
-        fp.aide === false && JSON.stringify(fp.pied) === '["Annuler","Valider"]', JSON.stringify(fp));
+        fp.aide === true && fp.aideTexte === 'Un exercice prioritaire est coché d’office dans un programme. Un muscle prioritaire peut recevoir une série de plus jusqu’à ton plus haut volume, hors sèche.' &&
+        JSON.stringify(fp.pied) === '["Annuler","Valider"]', JSON.stringify(fp));
     await cliquerFeuille('.feuille-menu button[data-cle="squat_barre"]');
     fp = await feuilleChoixP();
     ok('[Q60] P — une décochée : les lignes se rallument (deux cochées, plus rien d’éteint)',
@@ -14397,9 +14422,12 @@ const SETS_IMPORTES = [
       JSON.stringify([ecritsProfil() - ecritsP1, await ligneP('Priorités')]));
     await toucherP('Ton temps');
     fp = await feuilleChoixP();
-    ok('[Q60] P — « Ton temps » : les quatre réponses, « marge » cochée, sans phrase d’aide',
+    ok('[Q60] P — « Ton temps » : les quatre réponses, « marge » cochée ; une phrase sous « moins » et sous « varie » seulement (60-2b), aucune sous « maximum » ni « marge »',
       fp.ouverte && fp.titre === 'Ton temps' && JSON.stringify(fp.options) === '["max","marge","moins","varie"]' &&
-        JSON.stringify(fp.coches) === '["marge"]' && fp.aide === false, JSON.stringify(fp));
+        JSON.stringify(fp.coches) === '["marge"]' && fp.aide === false &&
+        JSON.stringify(fp.sous) === JSON.stringify([
+          ['moins', 'Quand ta routine dépasse ta durée visée, je te propose de la raccourcir dès son ouverture.'],
+          ['varie', 'Quand ta routine dépasse ta durée visée, je te le montre à côté de « J’ai peu de temps ».']]), JSON.stringify(fp));
     await cliquerFeuille('.feuille-menu button[data-cle="varie"]', 1500);
     ok('[Q60] P — le choix écrit `temps_reponse` ; la ligne le dit',
       profilBase().temps_reponse === 'varie' && (await ligneP('Ton temps')).valeur === 'Ça varie beaucoup', JSON.stringify([profilBase().temps_reponse, await ligneP('Ton temps')]));

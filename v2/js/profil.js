@@ -580,10 +580,10 @@
     { cle: 'forme', libelle: 'Forme et santé' }
   ];
 
-  // Les quatre réponses de l'écran « Temps et matériel ». Les phrases qui les
-  // accompagnent à l'écran (« Je te proposerai des séances plus courtes »)
-  // vivent dans le questionnaire : au Profil, aucune phrase promettrait un effet
-  // que rien ne lit encore (60-2b).
+  // Les quatre réponses de l'écran « Temps et matériel ». Les sous-lignes du
+  // questionnaire (« Je te proposerai des séances plus courtes ») vivent dans le
+  // questionnaire ; celles de la feuille du Profil (`AIDE_TEMPS`, `optionsTemps`)
+  // disent ce que le coach fait de la réponse, maintenant que quelque chose la lit.
   var TEMPS_REPONSES = [
     { cle: 'max', libelle: 'C’est mon maximum' },
     { cle: 'marge', libelle: 'J’ai de la marge pour en faire plus' },
@@ -789,10 +789,10 @@
   //
   // Les mêmes réponses que le questionnaire, une ligne à la fois : elles s'écrivent
   // par `preparerChamps` (ci-dessus), donc `objectif_depuis` suit un objectif qui
-  // change, et une réponse inchangée n'écrit rien. SANS PHRASE D'AIDE : les
-  // phrases qui promettaient un effet absent ont été retirées (#382) ; elles
-  // reviendront avec leurs lecteurs (60-2b). `ouvrir(cle)` ouvre la feuille de la
-  // ligne (`objectif`, `priorites`, `temps_reponse`) : le voile vit chez l'appelant.
+  // change, et une réponse inchangée n'écrit rien. Les phrases d'aide (#382 les avait
+  // retirées : elles promettaient un effet absent) sont revenues avec leurs lecteurs
+  // (60-2b) : voir `AIDE_OBJECTIF`, `AIDE_PRIORITES`, `optionsTemps`. `ouvrir(cle)` ouvre
+  // la feuille de la ligne (`objectif`, `priorites`, `temps_reponse`) : le voile vit chez l'appelant.
   function sectionBut(profil, ouvrir) {
     var p = profil || {};
     return {
@@ -804,6 +804,28 @@
           surChoix: function () { ouvrir('priorites'); } }
       ]
     };
+  }
+
+  // LES PHRASES D'AIDE de « Ton but » et « Ton temps » (ECRAN-PROFIL §4 bis, 08/10/2026,
+  // 60-2b) : chaque réponse dit ce que le coach en fait — maintenant que quelque chose la
+  // lit. Elles s'écrivent ICI, une fois : l'écran ne compose aucun mot.
+  //   · Objectif et Priorités : une phrase sous le titre de la feuille ;
+  //   · Ton temps : une sous-ligne par réponse, et seulement pour celles que quelque chose
+  //     lit en séance — « C'est mon maximum » et « J'ai de la marge » n'ont pas de phrase.
+  var AIDE_OBJECTIF = 'Il choisit la zone de ton premier bloc de programme : Lourd pour la force, Mix pour le muscle.';
+  var AIDE_PRIORITES = 'Un exercice prioritaire est coché d’office dans un programme. Un muscle prioritaire peut ' +
+    'recevoir une série de plus jusqu’à ton plus haut volume, hors sèche.';
+  var AIDE_TEMPS = {
+    moins: 'Quand ta routine dépasse ta durée visée, je te propose de la raccourcir dès son ouverture.',
+    varie: 'Quand ta routine dépasse ta durée visée, je te le montre à côté de « J’ai peu de temps ».'
+  };
+
+  // Les quatre réponses de « Ton temps », celles qui ont une phrase la portant en sous-ligne.
+  function optionsTemps() {
+    return TEMPS_REPONSES.map(function (o) {
+      return Object.prototype.hasOwnProperty.call(AIDE_TEMPS, o.cle)
+        ? { cle: o.cle, libelle: o.libelle, sous: AIDE_TEMPS[o.cle] } : { cle: o.cle, libelle: o.libelle };
+    });
   }
 
   // La ligne « Ton temps », sous la durée d'une séance (« Ta semaine »).
@@ -980,6 +1002,7 @@
     DUREE_MIN: DUREE_MIN, DUREE_MAX: DUREE_MAX,
     preparerChamps: preparerChamps,
     basculerPriorite: basculerPriorite, libelleDePriorite: libelleDePriorite, resumeDesPriorites: resumeDesPriorites,
+    AIDE_OBJECTIF: AIDE_OBJECTIF, AIDE_PRIORITES: AIDE_PRIORITES, optionsTemps: optionsTemps,
     sectionBut: sectionBut, ligneTemps: ligneTemps, ligneQuestionnaire: ligneQuestionnaire,
     doitOuvrirQuestionnaire: doitOuvrirQuestionnaire,
     questionnaireAFaire: questionnaireAFaire,

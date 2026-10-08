@@ -2891,13 +2891,16 @@
 
   // I13, ce que la BIBLIOTHÈQUE montre d'un dossier (60-2a, précisé le
   // 07/10/2026) : au profil « Juste un carnet », ni badge de bloc ni carte de
-  // fin de bloc — des faits du programme entier, que le plan n'a pas. `vue` : ce
-  // que rend `programmeDuDossier` (`{ badge?, fin?, creer? }`, ou `null`).
+  // fin de bloc — des faits du programme entier, que le plan n'a pas — ni, depuis le
+  // 08/10/2026 (60-2b), la rangée « Faire de ce dossier un programme » : un bloc créé en
+  // carnet serait invisible et impossible à arrêter. `vue` : ce que rend
+  // `programmeDuDossier` (`{ badge?, fin?, creer? }`, ou `null`).
   function verifierSilenceDuProgramme(intentionProfil, vue) {
     var erreurs = [];
     if (!vue || !Moteur().coachSeTait(intentionProfil)) return erreurs;
     if (vue.badge) erreurs.push('I13 — Entretenir (profil) : un badge de bloc (' + vue.badge + ')');
     if (vue.fin) erreurs.push('I13 — Entretenir (profil) : une carte de fin de bloc');
+    if (vue.creer) erreurs.push('I13 — Entretenir (profil) : la rangée « Faire de ce dossier un programme »');
     return erreurs;
   }
 

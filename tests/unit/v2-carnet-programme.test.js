@@ -9,6 +9,9 @@
 // `Moteur.coachSeTait`, jamais un second test de `intention` écrit à la main
 // (la garde d'architecture le refuse : `tests/unit/v2-architecture.test.js`).
 //
+// 60-2b (précisé le 08/10/2026) : la rangée « Faire de ce dossier un programme » s'éteint
+// aussi — un bloc créé en carnet serait invisible (pas de badge) et impossible à arrêter.
+//
 // ⚠️ `programmeDuDossier`, `programmeDuDossierCalcule` et `semaineAllegeeEnCours`
 // se REJOUENT dans un bac `vm` (les fonctions d'`app.js`, extraites, avec le vrai
 // moteur) : un test qui chercherait leur TEXTE ne verrait pas une branche morte.
@@ -58,10 +61,18 @@ describe('60-2a — I13 sur la bibliothèque : `verifierSilenceDuProgramme`', ()
     expect(Plan.verifierSilenceDuProgramme('entretien', { badge: 'Bloc Mix terminé', fin: { titre: 'x' } })).toHaveLength(2);
   });
 
-  test('en carnet, rien n’est une violation : une vue vide, nulle, ou « Faire de ce dossier un programme »', () => {
+  test('en carnet, une vue vide ou nulle n’est pas une violation', () => {
     expect(Plan.verifierSilenceDuProgramme('entretien', {})).toEqual([]);
     expect(Plan.verifierSilenceDuProgramme('entretien', null)).toEqual([]);
-    expect(Plan.verifierSilenceDuProgramme('entretien', { creer: true })).toEqual([]);
+  });
+
+  test('⚠️ DISCRIMINANT — 60-2b : la rangée « Faire de ce dossier un programme » EST une violation en carnet', () => {
+    expect(Plan.verifierSilenceDuProgramme('entretien', { creer: true }))
+      .toEqual(['I13 — Entretenir (profil) : la rangée « Faire de ce dossier un programme »']);
+    expect(Plan.verifierSilenceDuProgramme('entretien', { creer: false })).toEqual([]);
+    // En Progresser, la rangée est la règle.
+    expect(Plan.verifierSilenceDuProgramme('progresser', { creer: true })).toEqual([]);
+    expect(Plan.verifierSilenceDuProgramme(null, { creer: true })).toEqual([]);
   });
 
   test('en Progresser (ou profil inconnu), le badge et la carte sont la règle, pas une faute', () => {
@@ -117,7 +128,7 @@ describe('60-2a — `programmeDuDossier` : programme en cours, profil en carnet 
       profil: o.profil,
       local: { blocs: [BLOC], modes: o.modes || [] },
       jourDuJour: () => o.jour,
-      exercicesDuDossier: () => ['squat_barre'],
+      exercicesDuDossier: o.exercicesDuDossier || (() => ['squat_barre']),
       bilanDe: (b) => M.bilanDuBloc(b, {}, []),
       pariDuBloc: () => null,
       nomsDuCatalogue: () => ({}),
@@ -177,9 +188,30 @@ describe('60-2a — `programmeDuDossier` : programme en cours, profil en carnet 
     expect(norm(b.vue('Force').badge)).toBe('Bloc Mix · semaine 2 sur 4');
   });
 
-  test('« Faire de ce dossier un programme » reste : c’est un geste de la personne, pas une phrase du coach', () => {
+  test('⚠️ DISCRIMINANT — 60-2b : « Faire de ce dossier un programme » n’est PAS offerte en carnet (un dossier sans bloc rend une vue vide)', () => {
     const b = bac({ profil: { intention: 'entretien' }, jour: '2026-10-19' });
+    expect(b.vue('Autre')).toEqual({});
+    expect(b.releve.ecritures).toBe(0);
+  });
+
+  test('la porte est AVANT tout calcul du dossier : en carnet, on ne lit même pas ses exercices', () => {
+    const b = bac({ profil: { intention: 'entretien' }, jour: '2026-10-19', exercicesDuDossier: () => { throw new Error('lu'); } });
+    expect(() => b.vue('Autre')).not.toThrow();
+    expect(b.vue('Autre')).toEqual({});
+  });
+
+  test('en Progresser (ou profil pas encore lu), la rangée est offerte comme avant, et revient en repassant du carnet à Progresser sans rien écrire', () => {
+    expect(bac({ profil: { intention: 'progresser' }, jour: '2026-10-19' }).vue('Autre')).toEqual({ creer: true });
+    expect(bac({ profil: null, jour: '2026-10-19' }).vue('Autre')).toEqual({ creer: true });
+    const b = bac({ profil: { intention: 'entretien' }, jour: '2026-10-19' });
+    expect(b.vue('Autre')).toEqual({});
+    b.ctx.profil = { intention: 'progresser' };
     expect(b.vue('Autre')).toEqual({ creer: true });
+    expect(b.releve.ecritures).toBe(0);
+  });
+
+  test('un dossier sans exercice n’a toujours pas de rangée en Progresser', () => {
+    expect(bac({ profil: { intention: 'progresser' }, jour: '2026-10-19', exercicesDuDossier: () => [] }).vue('Autre')).toEqual({ creer: false });
   });
 
   test('la bibliothèque passe sa vue à la garde de développement — vue de carnet comprise', () => {

@@ -62,7 +62,7 @@ contre la vraie base ; aucune donnée v2 ; suite archivée par #380).
 | Table | Colonnes |
 |---|---|
 | `sets` | `douleur` boolean NOT NULL = false · `occurrence` uuid (déjà présentes et non décrites plus bas : `source` text NOT NULL = 'app', `repos_s`, `elastique`, `elastique_norme`, `tempo_descente`, `tempo_pause`, `tempo_montee`, `modifie_a`, `note`, `rpe`) |
-| `profiles` | `phase` text (CHECK) · `phase_depuis` timestamptz · `lest_reponse` text (CHECK `oui`/`non`) · `lest_reponse_le` timestamptz · **`v2_065`** : `objectif` · `objectif_depuis` · `priorites` text[] · `temps_reponse` · `historique_declare` · `programme_choix` · `zones_a_menager` text[] · `zone_force_reponse` · `zone_force_reponse_le` · `phase_confirmee_le` · `questionnaire_fait_le` timestamptz |
+| `profiles` | `phase` text (CHECK) · `phase_depuis` timestamptz · `lest_reponse` text (CHECK `oui`/`non`) · `lest_reponse_le` timestamptz · **`v2_065`** : `objectif` · `objectif_depuis` · `priorites` text[] · `temps_reponse` · `historique_declare` · `programme_choix` (CHECK `deduit` · `moi` · `construis` — relevé au schéma par Claude Code le 08/10/2026, 60-3) · `zones_a_menager` text[] · `zone_force_reponse` · `zone_force_reponse_le` · `phase_confirmee_le` · `questionnaire_fait_le` timestamptz |
 | `exercises` | `mouvement` text |
 | `routines` | `dossier` text (CHECK `routines_dossier_ok`) |
 | `zones_exercice` | `origine` text NOT NULL = 'personne' (CHECK `personne`/`bloc`) · `bloc_id` uuid → `blocs(id)` ON DELETE SET NULL |

@@ -77,12 +77,12 @@ describe('60-2a — les LISTES sont celles de la base (relevées par Claude.ai l
     m.forEach((x) => expect(x.libelle).toBe(Semaine.ZONES.filter((z) => z.cle === x.cle)[0].libelle));
   });
 
-  test('la liste blanche porte les 7 colonnes écrites… et PAS celles de 60-2b et 60-3', () => {
+  test('la liste blanche porte les 7 colonnes écrites, `programme_choix` depuis 60-3… et PAS celles du générateur', () => {
     ['objectif', 'objectif_depuis', 'priorites', 'temps_reponse', 'historique_declare',
-      'phase_confirmee_le', 'questionnaire_fait_le'].forEach((c) => expect(Profil.CHAMPS_ECRITS).toContain(c));
-    ['programme_choix', 'zones_a_menager', 'zone_force_reponse', 'zone_force_reponse_le', 'is_admin', 'tier']
+      'phase_confirmee_le', 'questionnaire_fait_le', 'programme_choix'].forEach((c) => expect(Profil.CHAMPS_ECRITS).toContain(c));
+    ['zones_a_menager', 'zone_force_reponse', 'zone_force_reponse_le', 'is_admin', 'tier']
       .forEach((c) => expect(Profil.CHAMPS_ECRITS).not.toContain(c));
-    expect(Profil.champsEcrits({ objectif: 'force', is_admin: true, programme_choix: 'x' })).toEqual({ objectif: 'force' });
+    expect(Profil.champsEcrits({ objectif: 'force', is_admin: true, zones_a_menager: ['dos'] })).toEqual({ objectif: 'force' });
   });
 });
 
@@ -265,9 +265,21 @@ describe('60-2a — les ÉCRANS visibles, dans l’ordre', () => {
     expect(ids({ aDesSeances: true, historique: 'debutant' })).toContain('sans_historique');
     expect(ids({ aDesSeances: true, historique: 'debutant' })).not.toContain('sait');
   });
-  test('l’écran du programme (8, 8a, 8b) n’existe pas', () => {
-    expect(Q.ECRANS.join(',')).not.toMatch(/programme/);
+  test('60-3 — l’écran 8 (« Ton programme ») seulement quand on SAIT qu’il n’y a aucune routine', () => {
+    expect(Q.ECRANS.join(',')).toMatch(/temps,programme,coach/);
+    // Les routines pas encore lues (hors ligne) : l'écran n'existe pas.
     expect(ids({ aDesSeances: true, historique: 'import' })).toHaveLength(9);
+    expect(ids({ aDesSeances: true, historique: 'import', aDesRoutines: null })).not.toContain('programme');
+    // ⚠️ DISCRIMINANT — une routine, et l'écran n'existe pas.
+    expect(ids({ aDesSeances: true, historique: 'import', aDesRoutines: true })).not.toContain('programme');
+    expect(ids({ aDesSeances: true, historique: 'import', aDesRoutines: false })).toEqual(
+      ['bienvenue', 'donnees', 'sait', 'toi', 'but', 'priorites', 'temps', 'programme', 'coach', 'recap']);
+    expect(ids({ aDesSeances: false, historique: 'debutant', aDesRoutines: false })).toContain('programme');
+    // La barre le compte quand il est là, et seulement alors.
+    const v = ids({ aDesSeances: true, historique: 'import', aDesRoutines: false });
+    expect(Q.progression(v, 'recap')).toEqual({ rang: 9, total: 10, pourcent: 100 });
+    expect(Q.ecranSuivant(v, 'temps')).toBe('programme');
+    expect(Q.ecranPrecedent(v, 'coach')).toBe('programme');
   });
   test('la barre compte les écrans visibles : 0 % au premier, 100 % au dernier', () => {
     const v = ids({ aDesSeances: true, historique: 'import' });
@@ -370,6 +382,8 @@ describe('60-2a — les réponses de départ sont ce qui est DÉJÀ en base', ()
       sexe: 'homme', date_naissance: '1997-10-28', taille_cm: 182, objectif: 'force', phase: 'seche',
       priorites: ['squat_barre'], temps_reponse: 'max', materiel: 'salle_complete',
       intention: 'progresser', rythme_progression: 'franc' }, { poids: 98 });
+    expect(rep.programme).toBeNull();
+    delete rep.programme;
     expect(rep).toEqual({
       historique: 'import', anciennete: '3_a_5_ans', seances: 5, duree: 90, sexe: 'homme', annee: 1997,
       taille: 182, poids: 98, objectif: 'force', phase: 'seche', priorites: ['squat_barre'], temps: 'max',
@@ -639,5 +653,59 @@ describe('60-2a — « Ce que je sais » : les faits mis en mots', () => {
   });
   test('les barres montrées sont des exercices prioritaires du catalogue', () => {
     Q.BARRES.forEach((slug) => expect(Profil.EXERCICES_PRIORITAIRES.map((x) => x.cle)).toContain(slug));
+  });
+});
+
+// ═══ 60-3 — L'ÉCRAN 8 (« Ton programme »), QUESTIONNAIRE §3 ═════════════════
+describe('60-3 — l’écran 8 : « Ton programme », sans routine', () => {
+  const vue = (id, etat) => Q.vueDe(id, Object.assign({ rep: Q.reponsesInitiales({}, {}), aDesSeances: true, faits: null,
+    visibles: Q.ecransVisibles({ aDesSeances: true, historique: 'import', aDesRoutines: false }) }, etat || {}));
+
+  test('le titre, les deux chemins et leurs sous-lignes (maquette v4) ; « Construis-le-moi » attend le générateur', () => {
+    const v = vue('programme');
+    expect(v.etape).toBe('Ton programme');
+    expect(v.titre).toBe('Comment veux-tu t’entraîner ?');
+    expect(v.blocs[0].cle).toBe('programme');
+    expect(v.blocs[0].options).toEqual([
+      { cle: 'deduit', libelle: 'Garder ce que je fais', sous: 'Je retrouve tes séances qui reviennent et j’en fais tes routines' },
+      { cle: 'moi', libelle: 'Je crée mes routines moi-même', sous: 'L’éditeur de routines, à ton rythme' }
+    ]);
+  });
+
+  test('DISCRIMINANT — sans séance en base, « Garder ce que je fais » n’est pas proposé', () => {
+    const v = vue('programme', { aDesSeances: false });
+    expect(v.blocs[0].options.map((o) => o.cle)).toEqual(['moi']);
+  });
+
+  test('« Continuer » attend un chemin : « tout est facultatif sauf le chemin du programme » (§1.3)', () => {
+    expect(Q.ecranPret('programme', {})).toBe(false);
+    expect(Q.ecranPret('programme', { programme: 'moi' })).toBe(true);
+    expect(vue('programme').bouton).toEqual({ libelle: 'Continuer', actif: false });
+  });
+
+  test('le choix s’écrit dans `programme_choix`, par `preparerChamps` ; une valeur hors liste ne part pas', () => {
+    const rep = Q.appliquerChoix(Q.reponsesInitiales({}, {}), 'programme', 'deduit');
+    expect(rep.programme).toBe('deduit');
+    expect(Q.champsDeLEcran('programme', rep, {}, { maintenant: MAINTENANT }).champs).toEqual({ programme_choix: 'deduit' });
+    expect(Q.champsDeLEcran('programme', { programme: 'moi' }, {}, { maintenant: MAINTENANT }).champs).toEqual({ programme_choix: 'moi' });
+    // Inchangé : rien n'est écrit.
+    expect(Q.champsDeLEcran('programme', { programme: 'moi' }, { programme_choix: 'moi' }, { maintenant: MAINTENANT }).champs).toEqual({});
+    // `construis` est permis par la base, pas encore proposé : il ne part pas.
+    expect(Profil.preparerChamps({}, { programme_choix: 'construis' }, MAINTENANT)).toEqual({});
+  });
+
+  test('rouvert, l’écran repart de ce qui est en base', () => {
+    expect(Q.reponsesInitiales({ programme_choix: 'deduit' }, {}).programme).toBe('deduit');
+    expect(Q.reponsesInitiales({ programme_choix: 'construis' }, {}).programme).toBeNull();
+  });
+
+  test('le récapitulatif ajoute « Programme » quand l’écran est du parcours — et seulement alors', () => {
+    const rep = Object.assign(Q.reponsesInitiales({}, {}), { programme: 'deduit' });
+    const lignes = (visibles) => vue('recap', { rep, visibles }).blocs[0].lignes;
+    const avec = lignes(Q.ecransVisibles({ aDesSeances: true, historique: 'import', aDesRoutines: false }));
+    expect(avec.map((l) => l.libelle)).toEqual(['Objectif', 'Phase', 'Priorités', 'Temps', 'Matériel', 'Programme', 'Coach']);
+    expect(avec[5]).toEqual({ libelle: 'Programme', valeur: 'Garder ce que je fais', ecran: 'programme' });
+    const sans = lignes(Q.ecransVisibles({ aDesSeances: true, historique: 'import', aDesRoutines: true }));
+    expect(sans.map((l) => l.libelle)).not.toContain('Programme');
   });
 });

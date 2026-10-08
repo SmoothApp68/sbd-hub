@@ -5931,6 +5931,8 @@
       surArreterProgramme: arreterProgramme,
       surChoix: ouvrirRoutine,
       surNouvelle: function () { ouvrirRoutine(null); },
+      // 60-3 (ES §7 quindecies.7) — « Retrouver mes séances qui reviennent ».
+      surRetrouver: ouvrirSeancesQuiReviennent,
       surDemarrer: function (id) {
         var r = routines.filter(function (x) { return x.id === id; })[0] || null;
         // 60-2b (MOTEUR §9.18) — « J'ai moins de temps en ce moment » : la carte de « J'ai
@@ -6486,6 +6488,7 @@
     if (!brouillon.exercices[i]) return;
     Rendu.rendreFeuilleExoRoutine($('feuille-contenu'), {
       nom: nomExoBrouillon(i),
+      surRemplacer: function () { ouvrirRemplacerDansLEditeur(i); },
       peutGrouper: Routines.peutGrouper(brouillon.exercices, i),
       estGroupe: Routines.estGroupe(brouillon.exercices, i),
       // Le lien avec le voisin du dessous : c'est lui, et lui seul, qui fait un
@@ -6513,6 +6516,40 @@
       }
     });
     ouvrirVoile($('feuille-seance'));
+  }
+
+  // ES §7 quindecies.8 (60-3) — « REMPLACER » DANS L'ÉDITEUR : la feuille de
+  // « Machine prise » en séance (MOTEUR §9.19) SANS « Plus tard ». Les frères
+  // par `Seance.freresProposes` — LA MÊME FONCTION : le même ordre, le même
+  // rangement par matériel, le même « Dernière fois… » (`faitsDesFreres`) —,
+  // puis « Chercher dans le catalogue », le sélecteur de l'éditeur. Le
+  // remplaçant prend la place (`Routines.exerciceRemplace`) ; rien n'est écrit
+  // avant « Enregistrer », comme tout geste de l'éditeur.
+  function ouvrirRemplacerDansLEditeur(i) {
+    var e = brouillon && brouillon.exercices[i];
+    if (!e) return;
+    var index = Modele.indexerExercices(local.exercices);
+    var presents = brouillon.exercices.map(function (x) { return x.exercise_slug; });
+    var freres = Seance.freresProposes(e.exercise_slug, index, faitsDesFreres(index, e.exercise_slug),
+      presents, horsDuMateriel(index));
+    Rendu.rendreFeuilleMachinePrise($('feuille-contenu'), {
+      titre: 'Remplacer',
+      nom: Modele.nommer(index, e.exercise_slug),
+      tard: null,
+      freres: freres.map(function (f) {
+        return { nom: Modele.nommer(index, f.slug), fait: f.fait,
+                 surChoisir: function () { fermerVoile(); remplacerDansLEditeur(i, f.slug); } };
+      }),
+      chercher: 'Chercher dans le catalogue',
+      surCatalogue: function () { fermerVoile(); ouvrirCatalogue(null, i); }
+    });
+    ouvrirVoile($('feuille-seance'));
+  }
+
+  function remplacerDansLEditeur(i, slug) {
+    if (!brouillon || !brouillon.exercices[i] || !slug) return;
+    brouillon.exercices[i] = Routines.exerciceRemplace(brouillon.exercices[i], slug);
+    renumeroterBrouillon();
   }
 
   // ⚠️ DÉPLACER RELIT LES LIENS DE LA NOUVELLE ADJACENCE. Sortir un exercice
@@ -6917,6 +6954,12 @@
         //
         // Ni reps ni repos par défaut : une valeur inventée se lirait comme une
         // prescription, et serait pire qu'une absence.
+        //
+        // 60-3 (ES §7 quindecies.8) — « Chercher dans le catalogue » depuis
+        // « Remplacer » : le choix prend la place, il ne s'ajoute pas.
+        if (intentionCatalogue.remplace !== null && brouillon.exercices[intentionCatalogue.remplace]) {
+          return remplacerDansLEditeur(intentionCatalogue.remplace, exo.slug);
+        }
         brouillon.exercices.push({
           id: null, exercise_slug: exo.slug,
           series: [Routines.enSaisie(null)],
@@ -7439,25 +7482,34 @@
   // ⚠️ LA CRÉATION EST CELLE DE L'ÉDITEUR (`Routines.enregistrer`) : le rang
   // suivant, l'annulation en cas d'échec. Le brouillon porte la structure au
   // vocabulaire de la saisie (`enSaisie`) — et aucune charge : la structure
-  // n'en a pas.
-  async function creerRoutineDepuisSeance() {
-    if (!enRoutine || enregistrementEnCours) return;
-    var b = {
-      id: null, nom: enRoutine.nom, nomChange: true, dossier: enRoutine.dossier, existantes: [],
-      exercices: Routines.renumeroter(enRoutine.structure.exercices.map(function (e) {
+  // n'en a pas. 60-3 — « En faire mes routines (N) » (la feuille « Tes séances
+  // qui reviennent ») passe par ces deux mêmes fonctions : un seul chemin.
+  function brouillonDeStructure(structure, nom, dossier) {
+    return {
+      id: null, nom: nom, nomChange: true, dossier: dossier, existantes: [],
+      exercices: Routines.renumeroter(structure.exercices.map(function (e) {
         return { id: null, exercise_slug: e.exercise_slug, series: e.series.map(Routines.enSaisie),
                  repos_cible_s: e.repos_cible_s, groupe_superset: e.groupe_superset, note: null };
       }))
     };
+  }
+
+  function creerRoutineNeuve(b, rang) {
+    return Routines.enregistrer(b, Donnees, {
+      userId: sessionActive && sessionActive.user && sessionActive.user.id,
+      uuid: uuid,
+      rangSuivant: rang
+    });
+  }
+
+  async function creerRoutineDepuisSeance() {
+    if (!enRoutine || enregistrementEnCours) return;
+    var b = brouillonDeStructure(enRoutine.structure, enRoutine.nom, enRoutine.dossier);
     var verdict = Routines.valider(b, routines);
     if (!verdict.valide) { enRoutine.erreur = messageVerdict(verdict); return rendreApercuEnRoutine(); }
     enregistrementEnCours = true;
     try {
-      var r = await Routines.enregistrer(b, Donnees, {
-        userId: sessionActive && sessionActive.user && sessionActive.user.id,
-        uuid: uuid,
-        rangSuivant: rangSuivantBibliotheque()
-      });
+      var r = await creerRoutineNeuve(b, rangSuivantBibliotheque());
       if (!r.ok) { enRoutine.erreur = Routines.messageErreur(r); return rendreApercuEnRoutine(); }
       enRoutine = null;
       fermerVoile();
@@ -7465,6 +7517,149 @@
       await ouvrirRoutine(r.routine.id);
     } finally {
       enregistrementEnCours = false;
+    }
+  }
+
+  // ══ « TES SÉANCES QUI REVIENNENT » (ECRAN-SAISIE §7 quindecies.7, 60-3) ══════
+  //
+  // Deux entrées, UNE feuille : la ligne de la bibliothèque (pour tout le monde)
+  // et « Garder ce que je fais » (l'écran 8 du questionnaire), après
+  // « Commencer ». Les routines viennent de la règle (`faits.programmeDeduit`,
+  // QUESTIONNAIRE §5). RIEN N'EST ÉCRIT avant « En faire mes routines (N) », qui
+  // crée chaque routine cochée PAR LE CHEMIN DE « Créer la routine » (§7
+  // quindecies.4 : la même structure, les mêmes repos et leur origine, des noms
+  // rendus uniques, jamais de charge), dans un dossier « Mon programme »
+  // (« Mon programme (2) » s'il existe déjà), dans l'ordre de la feuille. Pas de
+  // second éditeur ici : tout se modifie ensuite, comme toute routine.
+  //
+  // ⚠️ LA CRÉATION D'UNE ROUTINE VIT EN LIGNE, comme « Créer la routine » : hors
+  // ligne, le message de l'éditeur (« Pas de réseau : rien n'a été enregistré. »)
+  // et la feuille reste ouverte. Une panne au milieu : les routines déjà créées
+  // quittent la feuille, les autres restent cochées, et « En faire mes routines »
+  // reprend dans le MÊME dossier.
+  var DOSSIER_DU_PROGRAMME = 'Mon programme';
+  var retrouver = null;   // { routines: [{ deduite, cochee, faite }], dossier, erreur, enCours }
+
+  async function ouvrirSeancesQuiReviennent() {
+    // Les noms uniques, les repos et le rang lisent la bibliothèque : on la
+    // charge si elle ne l'est pas encore.
+    if (etatRoutines.code !== 'ok') await chargerRoutines();
+    retrouver = {
+      routines: faits.programmeDeduit(corpus()).map(function (d) {
+        return { deduite: d, cochee: d.cochee, faite: false };
+      }),
+      dossier: null, erreur: '', enCours: false
+    };
+    rendreFeuilleRetrouver();
+    var ouverte = retrouver;
+    ouvrirVoile($('feuille-seance'), function () { if (retrouver === ouverte) retrouver = null; });
+  }
+
+  // Ce qu'une carte dit : « 12 fois · dernière fois mardi », les exercices avec
+  // séries × reps, et pour une ancienne « Pas faite depuis le 9 mai. ».
+  function carteDeduite(x, index, aujourdhui) {
+    var d = x.deduite;
+    var j = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d.derniere || '');
+    var jour = j ? new Date(Number(j[1]), Number(j[2]) - 1, Number(j[3]), 12) : null;
+    return {
+      nom: d.nom || 'Routine',
+      ligne: d.fois + ' fois' + (jour ? ' \u00b7 dernière fois ' + Modele.quand(jour, aujourdhui) : ''),
+      exercices: d.exercices.map(function (e) {
+        var nom = Modele.nommer(index, e.exercise_slug);
+        return e.reps === null
+          ? nom + ' ' + e.series + (e.series > 1 ? ' séries' : ' série')
+          : nom + ' ' + e.series + '\u00a0\u00d7\u00a0' + e.reps;
+      }).join(' \u00b7 '),
+      // « le 26 juil. » porte déjà son point : la phrase n'en ajoute pas un second.
+      ancienne: !d.cochee && jour ? ('Pas faite depuis ' + Modele.quand(jour)).replace(/\.?$/, '.') : null,
+      cochee: x.cochee
+    };
+  }
+
+  function rendreFeuilleRetrouver() {
+    var f = retrouver;
+    if (!f) return;
+    var index = catalogueIndexe(), aujourdhui = new Date();
+    var restantes = f.routines.filter(function (x) { return !x.faite; });
+    Rendu.rendreFeuilleSeancesQuiReviennent($('feuille-contenu'), {
+      routines: restantes.map(function (x) { return carteDeduite(x, index, aujourdhui); }),
+      erreur: f.erreur,
+      enCours: f.enCours,
+      surCocher: function (i) {
+        var x = restantes[i];
+        if (!x || f.enCours) return;
+        x.cochee = !x.cochee;
+        f.erreur = '';
+        rendreFeuilleRetrouver();
+      },
+      surCreer: creerRoutinesDeduites,
+      surPasMaintenant: fermerVoile,
+      surNouvelle: function () { fermerVoile(); ouvrirRoutine(null); }
+    });
+  }
+
+  // « En faire mes routines (N) ». ⚠️ DEUX TAPS N'ÉCRIVENT PAS DEUX FOIS : la
+  // garde des créations de routine (`enregistrementEnCours`), plus `enCours` qui
+  // éteint le bouton pendant l'écriture.
+  async function creerRoutinesDeduites() {
+    var f = retrouver;
+    if (!f || f.enCours || enregistrementEnCours) return;
+    var choisies = f.routines.filter(function (x) { return x.cochee && !x.faite; });
+    if (!choisies.length) return;
+    f.enCours = true;
+    f.erreur = '';
+    enregistrementEnCours = true;
+    rendreFeuilleRetrouver();
+    var creees = 0;
+    try {
+      if (etatRoutines.code !== 'ok') await chargerRoutines();
+      // Le dossier, une fois : une reprise après une panne reste dans le même.
+      if (!f.dossier) f.dossier = Routines.nomLibre(DOSSIER_DU_PROGRAMME, Routines.dossiersDe(routines));
+      var rang = rangSuivantBibliotheque(), noms = nomsReserves(), dejaLa = routines.slice();
+      for (var i = 0; i < choisies.length; i++) {
+        var x = choisies[i];
+        var st = Routines.routineDeduite(x.deduite, { exercices: local.exercices, routines: routines, existants: noms });
+        var b = brouillonDeStructure(st, st.nom, f.dossier);
+        var verdict = Routines.valider(b, dejaLa);
+        if (!verdict.valide) { f.erreur = messageVerdict(verdict); break; }
+        var r = await creerRoutineNeuve(b, rang);
+        if (!r.ok) { f.erreur = Routines.messageErreur(r); break; }
+        x.faite = true;
+        creees++;
+        rang++;
+        noms.push(st.nom);
+        dejaLa.push({ nom: st.nom, archivee_a: null });
+      }
+    } finally {
+      enregistrementEnCours = false;
+      f.enCours = false;
+    }
+    if (creees) await chargerRoutines();
+    // La feuille a pu être fermée pendant l'écriture (« Fermer ») : on ne
+    // ramène alors personne nulle part, on rafraîchit Saisie si on y est.
+    var ouverte = retrouver === f;
+    if (!ouverte) { if (!vues.saisie.hidden && !seance) rendreSaisie(); return; }
+    if (f.erreur) {
+      // Une création partielle : la bibliothèque derrière la feuille montre déjà ce qui est créé.
+      if (creees && !vues.saisie.hidden && !seance) rendreSaisie();
+      return rendreFeuilleRetrouver();
+    }
+    fermerVoile();
+    await ouvrirBibliothequeSur(f.dossier);
+  }
+
+  // « La bibliothèque s'ouvre ensuite sur ce dossier » : déplié (le repli est une
+  // commodité de l'appareil), et amené en vue.
+  async function ouvrirBibliothequeSur(dossier) {
+    if (dossiersReplies[dossier]) { delete dossiersReplies[dossier]; memoriserDossiersReplies(); }
+    await afficherSaisie();
+    if (vues.saisie.hidden) return;
+    var lignes = $('liste-routines').querySelectorAll('.dossier-ligne');
+    for (var i = 0; i < lignes.length; i++) {
+      if (lignes[i].getAttribute('data-dossier') === dossier) {
+        if (lignes[i].scrollIntoView) lignes[i].scrollIntoView({ block: 'start' });
+        return;
+      }
     }
   }
 
@@ -8194,9 +8389,17 @@
     return f && f.dureeMin ? f.dureeMin : null;
   }
 
+  // 60-3 — l'écran 8 (« Ton programme ») seulement quand on SAIT qu'il n'y a
+  // aucune routine : tant que la bibliothèque n'est pas lue (hors ligne), `null`,
+  // et l'écran n'existe pas.
+  function aDesRoutinesConnu() {
+    return etatRoutines.code === 'ok' ? routines.length > 0 : null;
+  }
+
   function ecransDuQuestionnaire() {
     return Questionnaire.ecransVisibles({ aDesSeances: questionnaire.aDesSeances,
-                                          historique: questionnaire.rep.historique });
+                                          historique: questionnaire.rep.historique,
+                                          aDesRoutines: aDesRoutinesConnu() });
   }
 
   function ouvrirQuestionnaire() {
@@ -8209,6 +8412,9 @@
     };
     actualiserFaitsDuQuestionnaire();
     marquerQuestionnaireVuIci();
+    // 60-3 — les routines vivent en ligne et ne sont pas dans le cache : on les
+    // lit dès l'ouverture, pour savoir avant l'écran 8 s'il a lieu d'être.
+    if (etatRoutines.code === 'jamais' || etatRoutines.code === 'echec') chargerRoutines().catch(function () {});
     // Le retour d'Android recule d'un écran (au premier : « Plus tard »). Une
     // feuille ouverte par-dessus (la durée visée) garde SON retour.
     gardeQuestionnaire = function () {
@@ -8344,10 +8550,16 @@
   }
 
   // « Commencer », sur le récapitulatif : `questionnaire_fait_le` vient d'être
-  // posé par `continuerQuestionnaire`. Saisie, où l'on commence.
-  function terminerQuestionnaire() {
+  // posé par `continuerQuestionnaire`. Saisie, où l'on commence. 60-3 —
+  // « Garder ce que je fais » (l'écran 8) : le questionnaire se termine D'ABORD,
+  // puis la feuille « Tes séances qui reviennent » arrive par-dessus Saisie.
+  async function terminerQuestionnaire() {
+    var q = questionnaire;
+    var garder = !!q && q.rep.programme === 'deduit' &&
+      ecransDuQuestionnaire().indexOf(Questionnaire.PROGRAMME) >= 0;
     fermerQuestionnaire();
-    afficherSaisie();
+    await afficherSaisie();
+    if (garder && !seance && !vues.saisie.hidden && !voileOuvert) await ouvrirSeancesQuiReviennent();
   }
 
   // Le bandeau de Saisie : « Ton questionnaire n'est pas terminé. », tant qu'il

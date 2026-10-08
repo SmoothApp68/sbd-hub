@@ -3247,8 +3247,11 @@
     });
     if (!(vue.freres || []).length) {
       cible.appendChild(el('p', 'feuille-aide sans-frere', 'Pas de frère au catalogue pour cet exercice.'));
-      entreeMenu(freres, 'Remplacer l’exercice', { surClic: vue.surCatalogue });
+      // 60-3 — l'éditeur (« Remplacer ») dit « Chercher dans le catalogue », frères ou pas.
+      if (!vue.chercher) entreeMenu(freres, 'Remplacer l’exercice', { surClic: vue.surCatalogue });
     }
+    // ES §7 quindecies.8 (60-3) — après les frères, le sélecteur d'exercices.
+    if (vue.chercher) entreeMenu(freres, vue.chercher, { classe: 'chercher-catalogue', surClic: vue.surCatalogue });
     cible.appendChild(freres);
     return cible;
   }
@@ -3881,6 +3884,8 @@
       b.type = 'button';
       b.addEventListener('click', function () { if (v.surNouvelle) v.surNouvelle(); });
       vide.appendChild(b);
+      // 60-3 (ES §7 quindecies.7) — à côté de la création : retrouver ses séances.
+      if (v.surRetrouver) vide.appendChild(ligneRetrouver(v));
       // L'historique des séances, où vit « En faire une routine » (le ⋯ d'une
       // carte, le détail d'une séance).
       if (v.surDepuisSeance) {
@@ -3916,11 +3921,14 @@
       groupes.forEach(function (g, i) {
         if (programmes[i] && programmes[i].fin) cible.appendChild(carteFinDeBloc(g.dossier, programmes[i].fin, v));
       });
+      if (!v.reorganiser && v.surRetrouver) cible.appendChild(ligneRetrouver(v));
       groupes.forEach(function (g, i) {
         var cle = g.dossier === null ? '' : g.dossier;
         var replie = !!(v.replies && v.replies[cle]);
         var pr = programmes[i];
         var ligne = el('div', 'dossier-ligne');
+        // 60-3 — la bibliothèque s'ouvre sur un dossier (« Mon programme ») : on le retrouve par ici.
+        ligne.setAttribute('data-dossier', cle);
         var tete = el('button', 'dossier-tete' + (replie ? ' replie' : ''));
         tete.type = 'button';
         tete.setAttribute('aria-expanded', replie ? 'false' : 'true');
@@ -3943,6 +3951,7 @@
         if (!replie) g.routines.forEach(function (r) { cible.appendChild(rangeeDeRoutine(r, v)); });
       });
     } else {
+      if (!v.reorganiser && v.surRetrouver) cible.appendChild(ligneRetrouver(v));
       liste.forEach(function (r) { cible.appendChild(rangeeDeRoutine(r, v)); });
     }
 
@@ -3954,6 +3963,71 @@
       vide2.addEventListener('click', v.surSeanceVide);
       cible.appendChild(vide2);
     }
+  }
+
+  // 60-3 (ECRAN-SAISIE §7 quindecies.7) — « Retrouver mes séances qui
+  // reviennent » : une ligne pour tout le monde, en tête de la bibliothèque —
+  // sous « Nouvelle routine » de l'en-tête —, ou à côté de « Créer une routine »
+  // quand elle est vide. Elle ouvre la feuille « Tes séances qui reviennent ».
+  function ligneRetrouver(v) {
+    var b = el('button', 'discret bloc-large retrouver-seances', 'Retrouver mes séances qui reviennent');
+    b.type = 'button';
+    b.addEventListener('click', function () { v.surRetrouver(); });
+    return b;
+  }
+
+  // ══ « TES SÉANCES QUI REVIENNENT » (ES §7 quindecies.7, 60-3) ═══════════
+  //
+  // Une carte par routine trouvée : sa case (cochée, ou décochée si elle est
+  // ancienne), son nom, « 12 fois · dernière fois mardi », ses exercices avec
+  // séries × reps, et en gris « Pas faite depuis le 9 mai. » pour une ancienne.
+  // La voix du coach dessous. RIEN N'EST ÉCRIT avant « En faire mes routines
+  // (N) » — inactif à zéro —, et pas de second éditeur ici : tout se modifie
+  // ensuite, comme toute routine. `vue` : `{ routines: [{ nom, ligne,
+  // exercices, ancienne, cochee }], erreur, enCours, surCocher(i), surCreer,
+  // surPasMaintenant, surNouvelle }` — les textes viennent de l'app.
+  function rendreFeuilleSeancesQuiReviennent(cible, vue) {
+    vider(cible);
+    var v = vue || {};
+    cible.appendChild(el('div', 'feuille-t', 'Tes séances qui reviennent, sur tes 12 dernières semaines.'));
+    var routines = v.routines || [];
+    if (!routines.length) {
+      cible.appendChild(el('p', 'retrouver-rien',
+        'Je ne trouve pas encore de séances qui reviennent assez souvent. Tu peux créer tes routines toi-même.'));
+      var menuVide = el('div', 'feuille-menu');
+      entreeMenu(menuVide, 'Nouvelle routine', { classe: 'principal retrouver-nouvelle', surClic: v.surNouvelle });
+      cible.appendChild(menuVide);
+      return cible;
+    }
+    var liste = el('div', 'retrouver-liste');
+    var cochees = 0;
+    routines.forEach(function (r, i) {
+      if (r.cochee) cochees++;
+      var carte = el('button', 'retrouver-carte' + (r.cochee ? ' active' : ''));
+      carte.type = 'button';
+      carte.setAttribute('aria-pressed', r.cochee ? 'true' : 'false');
+      carte.appendChild(el('span', 'rc-case', r.cochee ? '\u2611' : '\u2610'));
+      var corps = el('span', 'rc-corps');
+      corps.appendChild(el('span', 'rc-nom', r.nom));
+      corps.appendChild(el('span', 'rc-ligne', r.ligne));
+      corps.appendChild(el('span', 'rc-exos', r.exercices));
+      if (r.ancienne) corps.appendChild(el('span', 'rc-ancienne', r.ancienne));
+      carte.appendChild(corps);
+      carte.addEventListener('click', function () { if (v.surCocher) v.surCocher(i); });
+      liste.appendChild(carte);
+    });
+    cible.appendChild(liste);
+    cible.appendChild(el('p', 'q-voix retrouver-voix', 'Tu pourras tout changer ensuite : exercices, séries, repos.'));
+    var err = el('p', 'erreur', v.erreur || '');
+    err.setAttribute('role', 'alert');
+    cible.appendChild(err);
+    var pied = el('div', 'feuille-menu');
+    entreeMenu(pied, v.enCours ? 'Création\u2026' : 'En faire mes routines (' + cochees + ')', {
+      classe: 'principal retrouver-creer', desactive: v.enCours || cochees === 0, surClic: v.surCreer
+    });
+    entreeMenu(pied, 'Pas maintenant', { surClic: v.surPasMaintenant });
+    cible.appendChild(pied);
+    return cible;
   }
 
   // MOTEUR §9.22 (53-2) — « Faire de ce dossier un programme », sous la tête
@@ -4168,6 +4242,8 @@
     cible.appendChild(t);
 
     var menu = el('div', 'feuille-menu');
+    // ES §7 quindecies.8 (60-3) — la feuille de « Machine prise », sans « Plus tard ».
+    if (vue.surRemplacer) entreeMenu(menu, 'Remplacer', { surClic: vue.surRemplacer });
     entreeMenu(menu, 'Grouper avec le suivant',
       { surClic: vue.surGrouper, desactive: !vue.peutGrouper });
     entreeMenu(menu, 'Dégrouper',
@@ -4770,6 +4846,7 @@
     rendreFeuilleMajRoutine: rendreFeuilleMajRoutine,
     rendreFeuilleDossier: rendreFeuilleDossier,
     rendreFeuilleProgramme: rendreFeuilleProgramme,
+    rendreFeuilleSeancesQuiReviennent: rendreFeuilleSeancesQuiReviennent,
     rendreFeuilleBlocEnCours: rendreFeuilleBlocEnCours,
     rendreFeuilleDupliquer: rendreFeuilleDupliquer,
     champDossier: champDossier,

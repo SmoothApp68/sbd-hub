@@ -863,6 +863,235 @@
     return { nom: nomLibre(o.titre, o.existants), exercices: exercices };
   }
 
+  // ══ LES SÉANCES QUI REVIENNENT (QUESTIONNAIRE §5, ES §7 quindecies.7, 60-3) ══
+  //
+  // ⚠️ LE PORTAGE DE `deduire()` (`deduit60b.py`), PROUVÉ PAR LES CAS
+  // `cas-60-3-deduit.json` (Jordan, Léa, Mélodie) rejoués à l'égalité stricte.
+  // Un cas qui semble faux se rapporte, il ne se corrige pas ici.
+  //
+  //   · LA FENÊTRE : les 84 jours qui finissent à la DERNIÈRE SÉANCE de la
+  //     personne — jours du calendrier local, celui-ci compris
+  //     (`THPeriode.fenetres`, la fenêtre de Progression), jamais l'horloge :
+  //     un historique arrêté en juin se lit sur ses 12 dernières semaines ;
+  //   · LA SIGNATURE d'une séance : ses exercices mesurés en reps (`charge_reps`
+  //     ou `reps`) avec au moins une série de travail ou d'échec ; moins de 2,
+  //     la séance ne compte pas ;
+  //   · LE REGROUPEMENT, dans l'ordre chronologique : le groupe dont le profil
+  //     ressemble le plus (Jaccard), s'il atteint 0,35, sinon un groupe neuf ;
+  //     à égalité, le plus ancien. Le profil : les exercices présents dans au
+  //     moins la moitié des séances du groupe. Puis deux passages de
+  //     réaffectation sur les profils stabilisés — une séance qu'aucun profil
+  //     n'atteint reste dans son groupe ;
+  //   · UNE ROUTINE : un groupe d'au moins 4 séances. Ses exercices, ceux du
+  //     profil, rangés par position médiane (rang de leur première série ÷ rang
+  //     le plus haut de la séance ; égalité : par slug), sur les séances du
+  //     groupe où ils paraissent. Séries (travail et échec), reps et chauffes :
+  //     les médianes, arrondies au plus proche, .5 vers le haut ;
+  //   · LE NOM : le titre le plus fréquent (égalité : le plus récent ; sans
+  //     titre, « Routine ») ; deux routines au même nom — la comparaison de
+  //     l'index, `normaliserNom` —
+  //     deviennent « … A », « … B » dans l'ordre d'affichage : le plus de
+  //     séances d'abord, puis la plus ancienne dernière séance ;
+  //   · `cochee` : faux quand la dernière séance du groupe précède de plus de
+  //     28 jours la dernière séance de la personne.
+  //
+  // `seances` : `[{ debut, titre, series: [{ rang, exercise_slug, type_serie,
+  // reps }] }]` — les faits de `faits.js`. `mesures` : `{ slug: mesure }`, la
+  // mesure du catalogue. Rend `[{ nom, fois, derniere ('AAAA-MM-JJ', jour
+  // local), cochee, exercices: [{ exercise_slug, series, reps, chauffes }] }]`.
+  // Pur : ni DOM, ni base, ni horloge.
+  var DEDUIT = { jours: 84, seuil: 0.35, exercicesMin: 2, seancesMin: 4, passes: 2, ancienneJours: 28 };
+  var LETTRES_DEDUIT = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+  function jaccard(a, b) {
+    var inter = 0, union = 0, k;
+    for (k in a) { union++; if (b[k]) inter++; }
+    for (k in b) { if (!a[k]) union++; }
+    return union ? inter / union : 0;
+  }
+
+  // Le plus proche des profils, à égalité le plus ancien (le premier rencontré).
+  function plusProche(sig, profils) {
+    var g = -1, j = -1;
+    profils.forEach(function (p, i) {
+      if (!p) return;
+      var x = jaccard(sig, p);
+      if (x > j) { j = x; g = i; }
+    });
+    return { groupe: g, jaccard: j };
+  }
+
+  function arrondiDeduit(v) { return v === null ? null : Math.floor(v + 0.5); }
+
+  function jourCle(d) {
+    var deux = function (n) { return (n < 10 ? '0' : '') + n; };
+    return d.getFullYear() + '-' + deux(d.getMonth() + 1) + '-' + deux(d.getDate());
+  }
+
+  function joursDuCalendrier(avant, apres) {
+    return Math.round((Date.UTC(apres.getFullYear(), apres.getMonth(), apres.getDate()) -
+                       Date.UTC(avant.getFullYear(), avant.getMonth(), avant.getDate())) / 86400000);
+  }
+
+  function seancesQuiReviennent(seances, mesures) {
+    var M = racine.THModele, Mo = racine.THMoteur, P = racine.THPeriode;
+    var m = mesures || {};
+    var datees = (seances || []).filter(function (s) {
+      return s && s.debut && !isNaN(new Date(s.debut).getTime());
+    }).slice().sort(function (a, b) { return new Date(a.debut) - new Date(b.debut); });
+    if (!datees.length) return [];
+    var finale = new Date(datees[datees.length - 1].debut);
+    var fenetre = P.fenetres(DEDUIT.jours, finale).courante;
+    var compte = function (x) { return M.estTravail(x) || M.typeDe(x) === 'echec'; };
+
+    var items = [];
+    datees.forEach(function (s) {
+      if (!P.dans(s.debut, fenetre)) return;
+      var sig = {}, n = 0;
+      (s.series || []).forEach(function (x) {
+        if (!x || sig[x.exercise_slug]) return;
+        var mesure = m[x.exercise_slug];
+        if ((mesure === 'charge_reps' || mesure === 'reps') && compte(x)) { sig[x.exercise_slug] = true; n++; }
+      });
+      if (n >= DEDUIT.exercicesMin) items.push({ seance: s, sig: sig });
+    });
+
+    var profilDe = function (membres) {
+      if (!membres.length) return null;
+      var vus = {}, p = {};
+      membres.forEach(function (i) { for (var k in items[i].sig) vus[k] = (vus[k] || 0) + 1; });
+      for (var k in vus) if (vus[k] * 2 >= membres.length) p[k] = true;
+      return p;
+    };
+
+    var groupes = [];
+    items.forEach(function (it, i) {
+      var pp = plusProche(it.sig, groupes.map(profilDe));
+      if (pp.groupe >= 0 && pp.jaccard >= DEDUIT.seuil) groupes[pp.groupe].push(i);
+      else groupes.push([i]);
+    });
+    for (var passe = 0; passe < DEDUIT.passes; passe++) {
+      var profils = groupes.map(profilDe), ou = {};
+      groupes.forEach(function (membres, g) { membres.forEach(function (i) { ou[i] = g; }); });
+      var nouveaux = groupes.map(function () { return []; });
+      items.forEach(function (it, i) {
+        var pp = plusProche(it.sig, profils);
+        nouveaux[pp.groupe >= 0 && pp.jaccard >= DEDUIT.seuil ? pp.groupe : ou[i]].push(i);
+      });
+      groupes = nouveaux;
+    }
+
+    var routines = [];
+    groupes.forEach(function (membres) {
+      if (membres.length < DEDUIT.seancesMin) return;
+      var ss = membres.map(function (i) { return items[i].seance; });
+      var profil = profilDe(membres);
+      var exercices = Object.keys(profil).map(function (slug) {
+        var positions = [], series = [], reps = [], chauffes = [];
+        ss.forEach(function (s) {
+          var toutes = (s.series || []).filter(Boolean);
+          var siennes = toutes.filter(function (x) { return x.exercise_slug === slug; });
+          if (!siennes.length) return;
+          var haut = Math.max.apply(null, toutes.map(function (x) { return Number(x.rang) || 0; }));
+          var premier = Math.min.apply(null, siennes.map(function (x) { return Number(x.rang) || 0; }));
+          positions.push(haut > 0 ? premier / haut : 0);
+          var travail = siennes.filter(compte);
+          series.push(travail.length);
+          chauffes.push(siennes.filter(function (x) { return M.typeDe(x) === 'echauffement'; }).length);
+          travail.forEach(function (x) {
+            var r = M.lireNombre(x.reps);
+            if (r !== null) reps.push(r);
+          });
+        });
+        return { position: Mo.mediane(positions), exercise_slug: slug,
+                 series: arrondiDeduit(Mo.mediane(series)), reps: arrondiDeduit(Mo.mediane(reps)),
+                 chauffes: arrondiDeduit(Mo.mediane(chauffes)) };
+      }).sort(function (a, b) {
+        return a.position - b.position || (a.exercise_slug < b.exercise_slug ? -1 : a.exercise_slug > b.exercise_slug ? 1 : 0);
+      }).map(function (e) {
+        return { exercise_slug: e.exercise_slug, series: e.series, reps: e.reps, chauffes: e.chauffes };
+      });
+
+      var titres = {}, nom = null;
+      ss.forEach(function (s, k) {
+        var t = nomPropre(s.titre);
+        if (!t) return;
+        titres[t] = { fois: ((titres[t] && titres[t].fois) || 0) + 1, dernier: k };
+      });
+      Object.keys(titres).forEach(function (t) {
+        if (nom === null || titres[t].fois > titres[nom].fois ||
+            (titres[t].fois === titres[nom].fois && titres[t].dernier > titres[nom].dernier)) nom = t;
+      });
+      // Sans titre (une séance libre de l'app n'en a pas) : « Routine », le repli de
+      // `nomLibre` — AVANT les lettres, pour que deux groupes sans titre se lisent
+      // « Routine A » et « Routine B » sur la feuille comme à la création.
+      if (nom === null) nom = 'Routine';
+      var derniere = new Date(ss[ss.length - 1].debut);
+      routines.push({
+        nom: nom, fois: ss.length, derniere: jourCle(derniere),
+        cochee: joursDuCalendrier(derniere, finale) <= DEDUIT.ancienneJours,
+        exercices: exercices, instant: derniere.getTime()
+      });
+    });
+
+    routines.sort(function (a, b) { return b.fois - a.fois || a.instant - b.instant; });
+    var memes = {}, vus = {};
+    routines.forEach(function (r) { memes[normaliserNom(r.nom)] = (memes[normaliserNom(r.nom)] || 0) + 1; });
+    return routines.map(function (r) {
+      var cle = normaliserNom(r.nom);
+      var nom = r.nom;
+      if (memes[cle] > 1) {
+        nom = r.nom + ' ' + LETTRES_DEDUIT.charAt(vus[cle] || 0);
+        vus[cle] = (vus[cle] || 0) + 1;
+      }
+      return { nom: nom, fois: r.fois, derniere: r.derniere, cochee: r.cochee, exercices: r.exercices };
+    });
+  }
+
+  // Une routine déduite devient LA MÊME STRUCTURE que « En faire une routine »
+  // (§7 quindecies.4) : on lui donne la forme d'une séance — `chauffes` séries
+  // d'échauffement puis `series` séries de travail à `reps` — et c'est
+  // `routineDepuisSeance` qui la construit. Un exercice, un bloc ; le repos par
+  // `reposDansLesRoutines`, puis le défaut, avec leur origine ; jamais de
+  // charge. Pas une seconde règle des repos. `options` : celles de
+  // `routineDepuisSeance` (`exercices`, `routines`, `existants`).
+  function routineDeduite(deduite, options) {
+    var d = deduite || {};
+    var lignes = [], rang = 0;
+    (d.exercices || []).forEach(function (e) {
+      var k;
+      for (k = 0; k < (e.chauffes || 0); k++) {
+        lignes.push({ exercise_slug: e.exercise_slug, rang: ++rang, type_serie: 'echauffement', reps: null });
+      }
+      for (k = 0; k < (e.series || 0); k++) {
+        lignes.push({ exercise_slug: e.exercise_slug, rang: ++rang, type_serie: 'travail', reps: e.reps });
+      }
+    });
+    return routineDepuisSeance(lignes, Object.assign({}, options, { titre: d.nom }));
+  }
+
+  // ══ « REMPLACER » DANS L'ÉDITEUR (ECRAN-SAISIE §7 quindecies.8, 60-3) ═════
+  //
+  // Le remplaçant prend la place de l'exercice : même position (donc même
+  // rang), même groupe de superset (§7 decies reste vrai : le groupe ne perd
+  // personne), mêmes séries — types, reps visées, durée, distance —, même
+  // repos, même note. ⚠️ LA CHARGE DE DÉPART EST RETIRÉE : elle valait pour
+  // l'ancien exercice (MOTEUR §9.21). C'est une LIGNE NEUVE de la routine
+  // (`id: null`) : un autre exercice n'hérite pas de la ligne d'un autre —
+  // comme en séance, où le remplaçant n'a pas de `routine_exercise_id`. Rien
+  // n'est écrit ici : l'éditeur enregistre.
+  function exerciceRemplace(exo, slug) {
+    var e = exo || {};
+    // Le même exercice choisi (le catalogue, ou un aller-retour) : rien ne change —
+    // ni sa ligne, ni sa charge de départ.
+    if (e.exercise_slug === slug) return e;
+    return Object.assign({}, e, {
+      id: null,
+      exercise_slug: slug,
+      series: (e.series || []).map(function (l) { return Object.assign({}, l, { id: null, charge_kg: null }); })
+    });
+  }
+
   // ══ METTRE À JOUR UNE ROUTINE DEPUIS UNE SÉANCE (§7 quindecies.4) ═══════
   //
   // ⚠️ PAS UN SECOND MÉCANISME : le chemin de la question de fin de séance
@@ -1257,6 +1486,10 @@
     nomLibre: nomLibre,
     copieDeRoutine: copieDeRoutine,
     routineDepuisSeance: routineDepuisSeance,
+    seancesQuiReviennent: seancesQuiReviennent,
+    routineDeduite: routineDeduite,
+    exerciceRemplace: exerciceRemplace,
+    DEDUIT: DEDUIT,
     seanceSurRoutine: seanceSurRoutine,
     ligneRoutine: ligneRoutine,
     normaliserNom: normaliserNom,

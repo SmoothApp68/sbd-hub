@@ -553,9 +553,10 @@ const CATALOGUE = [
     !!etatVide && JSON.stringify(etatVide.phrases) === JSON.stringify(['Aucune routine pour l’instant.',
       'Une routine, c’est une liste d’exercices dans un ordre. Le coach décide des charges à chaque séance.']),
     JSON.stringify(etatVide && etatVide.phrases));
-  ok('[54-1] trois boutons, dans cet ordre : créer, depuis une séance passée, séance vide',
+  // 60-3 (ES §7 quindecies.7) — « Retrouver mes séances qui reviennent », à côté de la création.
+  ok('[54-1] les boutons, dans cet ordre : créer, retrouver ses séances qui reviennent (60-3), depuis une séance passée, séance vide',
     !!etatVide && JSON.stringify(etatVide.boutons) === JSON.stringify(['Créer une routine',
-      'En faire une depuis une séance passée', 'Ou commencer une séance vide']),
+      'Retrouver mes séances qui reviennent', 'En faire une depuis une séance passée', 'Ou commencer une séance vide']),
     JSON.stringify(etatVide && etatVide.boutons));
   await page.click('#liste-routines .depuis-seance');
   await attendre(500);
@@ -1049,17 +1050,19 @@ const CATALOGUE = [
   // ⚠️ QUATRE DEPUIS LE CHANTIER 46 : « Monter » et « Descendre » ont fusionné
   // en « Réorganiser… » (§7 vicies.1). Réordonner n'est presque jamais un geste
   // isolé ; deux entrées qui bougeaient d'un cran chacune ne le disaient pas.
-  ok('[46] le menu porte QUATRE gestes — Monter/Descendre ont fusionné',
-    (await entreesMenu()).length === 4 &&
-    /Grouper avec le suivant/.test((await entreesMenu())[0]) &&
-    /Réorganiser/.test((await entreesMenu())[2]) &&
-    /Supprimer l/.test((await entreesMenu())[3]) &&
+  // 60-3 (ES §7 quindecies.8) — « Remplacer » en tête : cinq entrées.
+  ok('[46] le menu porte « Remplacer » (60-3) et QUATRE gestes — Monter/Descendre ont fusionné',
+    (await entreesMenu()).length === 5 &&
+    (await entreesMenu())[0] === 'Remplacer' &&
+    /Grouper avec le suivant/.test((await entreesMenu())[1]) &&
+    /Réorganiser/.test((await entreesMenu())[3]) &&
+    /Supprimer l/.test((await entreesMenu())[4]) &&
     !(await entreesMenu()).some((e) => /param/i.test(e)) &&
     !(await entreesMenu()).some((e) => /^Monter|^Descendre/.test(e)),
     (await entreesMenu()).join(' | '));
   ok('[41] et il grise ce qui n’a pas de sens sur le premier : Dégrouper',
-    (await entreesMenu())[1] === 'Dégrouper (inerte)' &&
-    (await entreesMenu())[2] === 'Réorganiser…',
+    (await entreesMenu())[2] === 'Dégrouper (inerte)' &&
+    (await entreesMenu())[3] === 'Réorganiser…',
     (await entreesMenu()).join(' | '));
   await page.click('#btn-fermer-feuille');
   await attendre(300);
@@ -1072,8 +1075,8 @@ const CATALOGUE = [
     JSON.stringify(await lettresEditeur()));
   await menuCarte(1);
   ok('[41] une fois groupé, « Grouper » se grise et « Dégrouper » s’ouvre',
-    (await entreesMenu())[0] === 'Grouper avec le suivant (inerte)' &&
-    (await entreesMenu())[1] === 'Dégrouper',
+    (await entreesMenu())[1] === 'Grouper avec le suivant (inerte)' &&
+    (await entreesMenu())[2] === 'Dégrouper',
     (await entreesMenu()).join(' | '));
   await page.click('#btn-fermer-feuille');
   await attendre(300);

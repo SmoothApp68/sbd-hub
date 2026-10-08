@@ -5,7 +5,8 @@
 // d'une séance, d'un mois, de la séance en cours, le dernier record, la
 // semaine affichée, les exercices faits et leur date — et, depuis 60-2a, ce que
 // les séances savent de la personne (`ceQueJeSais`), que le questionnaire du coach
-// MONTRE au lieu de le demander. Ils vivaient dans
+// MONTRE au lieu de le demander ; depuis 60-3, les faits du programme déduit
+// (`programmeDeduit`). Ils vivaient dans
 // `app.js`, au milieu de l'état de l'écran : le jeu n'aurait pu les lire qu'en
 // les recopiant.
 //
@@ -379,6 +380,25 @@
       };
     }
 
+    // ── Le programme déduit (60-3, QUESTIONNAIRE-COACH-V2 §5) ────────────────
+    //
+    // Les séances qui reviennent : la RÈGLE vit dans `routines.js`
+    // (`seancesQuiReviennent`) ; ce module lui assemble ses faits — les séances
+    // avec leurs séries (`seancesAvecSeries`, le même groupement que le bilan,
+    // AVEC SON MÉMO : une correction qui garde le nombre de séances et de séries
+    // n'y entre qu'au prochain chargement, comme pour le bilan), leur titre (lu
+    // à chaque appel), et la mesure du catalogue de chaque exercice. La règle
+    // elle-même n'a pas de mémo : la feuille la lit une fois, à l'ouverture.
+    function programmeDeduit(c) {
+      var index = c.catalogue() || {}, mesures = {}, titres = {};
+      Object.keys(index).forEach(function (slug) { mesures[slug] = index[slug] ? index[slug].mesure || null : null; });
+      (c.seances || []).forEach(function (s) { if (s && s.id) titres[s.id] = s.titre === undefined ? null : s.titre; });
+      var seances = seancesAvecSeries(c).map(function (s) {
+        return { id: s.id, debut: s.debut, titre: titres[s.id] === undefined ? null : titres[s.id], series: s.series };
+      });
+      return racine.THRoutines.seancesQuiReviennent(seances, mesures);
+    }
+
     // ── Les exercices faits et leur date (`app.js` `calculerDatesExercices`) ──
     //
     // Le tri se fait sur la DERNIÈRE séance où l'exercice apparaît. Un balayage
@@ -425,6 +445,7 @@
       datesDesExercices: datesDesExercices,
       compterExercices: compterExercices,
       ceQueJeSais: ceQueJeSais,
+      programmeDeduit: programmeDeduit,
       oublierDates: oublierDates
     };
   }

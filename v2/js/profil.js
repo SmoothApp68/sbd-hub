@@ -535,12 +535,14 @@
                        'rythme_progression', 'phase', 'phase_depuis', 'lest_reponse', 'lest_reponse_le',
                        'materiel',
                        'seances_par_semaine', 'duree_seance_min',
-                       // 60-2a (v2_065) — le questionnaire du coach. Écrites, pas encore
-                       // lues par une règle (60-2b) ; `programme_choix`, `zones_a_menager`
-                       // et `zone_force_reponse*` n'y sont PAS : ni écrites ni lues avant
-                       // 60-2b et 60-3 (SCHEMA-REEL).
+                       // 60-2a (v2_065) — le questionnaire du coach. `zones_a_menager` et
+                       // `zone_force_reponse*` n'y sont PAS : ni écrites ni lues avant le
+                       // générateur (SCHEMA-REEL).
                        'objectif', 'objectif_depuis', 'priorites', 'temps_reponse',
                        'historique_declare', 'phase_confirmee_le', 'questionnaire_fait_le',
+                       // 60-3 — l'écran 8 (« Ton programme ») : `deduit` ou `moi`
+                       // (CHECK `deduit` · `moi` · `construis`, relevé au schéma le 08/10).
+                       'programme_choix',
                        'onboarding_completed'];
 
   function champsEcrits(champs) {
@@ -600,6 +602,14 @@
     { cle: 'import', libelle: 'Oui, dans une autre app' },
     { cle: 'non_note', libelle: 'Oui, mais je ne l’ai pas noté' },
     { cle: 'debutant', libelle: 'Non, je débute' }
+  ];
+
+  // L'écran 8 (« Ton programme », 60-3) : deux chemins. « Construis-le-moi »
+  // (`construis`, permis par la base) attend le générateur (60-4) : sans lui, la
+  // réponse n'aurait pas de lecteur — elle n'est ni proposée ni écrite.
+  var PROGRAMMES = [
+    { cle: 'deduit', libelle: 'Garder ce que je fais' },
+    { cle: 'moi', libelle: 'Je crée mes routines moi-même' }
   ];
 
   // LES PRIORITÉS (QUESTIONNAIRE §3, écran 6) : jusqu'à trois, des EXERCICES
@@ -752,6 +762,7 @@
     fermee('temps_reponse', TEMPS_REPONSES);
     fermee('rythme_progression', RYTHMES);
     fermee('intention', INTENTIONS);
+    fermee('programme_choix', PROGRAMMES);
 
     var seances = entierDans(e.seances_par_semaine, SEANCES_MIN, SEANCES_MAX);
     if (seances !== null && differe('seances_par_semaine', seances)) sortie.seances_par_semaine = seances;
@@ -1034,7 +1045,7 @@
     statsDe: statsDe,
     libelleAnciennete: libelleAnciennete,
     manquants: manquants,
-    OBJECTIFS: OBJECTIFS, TEMPS_REPONSES: TEMPS_REPONSES, HISTORIQUES: HISTORIQUES,
+    OBJECTIFS: OBJECTIFS, TEMPS_REPONSES: TEMPS_REPONSES, HISTORIQUES: HISTORIQUES, PROGRAMMES: PROGRAMMES,
     EXERCICES_PRIORITAIRES: EXERCICES_PRIORITAIRES, PRIORITES_MAX: PRIORITES_MAX,
     musclesPrioritaires: musclesPrioritaires, prioritesValides: prioritesValides,
     DUREE_MIN: DUREE_MIN, DUREE_MAX: DUREE_MAX,

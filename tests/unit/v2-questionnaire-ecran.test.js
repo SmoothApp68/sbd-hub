@@ -31,7 +31,7 @@ function extraire(nom) {
 }
 
 const FONCTIONS = ['questionnaireDejaVuIci', 'marquerQuestionnaireVuIci', 'ouvrirQuestionnaireSiDu',
-  'actualiserFaitsDuQuestionnaire', 'ecransDuQuestionnaire', 'ouvrirQuestionnaire', 'fermerQuestionnaire',
+  'actualiserFaitsDuQuestionnaire', 'aDesRoutinesConnu', 'ecransDuQuestionnaire', 'ouvrirQuestionnaire', 'fermerQuestionnaire',
   'rendreQuestionnaire', 'choisirDansQuestionnaire', 'saisirDansQuestionnaire', 'ouvrirDureeDuQuestionnaire',
   'changerDepuisLeRecap', 'continuerQuestionnaire', 'reculerQuestionnaire', 'plusTardQuestionnaire',
   'terminerQuestionnaire', 'rendreBandeauQuestionnaire'];
@@ -53,7 +53,14 @@ function bac(options) {
     seance: o.seance || null,
     voileOuvert: o.voile || null,
     modeModifier: !!o.ranger,
-    vues: { detail: Object.assign({}, vue, o.detailVisible ? { hidden: false } : {}), routine: vue, seance: vue, questionnaire: vue },
+    vues: { detail: Object.assign({}, vue, o.detailVisible ? { hidden: false } : {}), routine: vue, seance: vue, questionnaire: vue,
+            saisie: { hidden: false } },
+    // 60-3 — la bibliothèque : pas encore lue (« jamais ») par défaut ; `o.routines`
+    // (une liste) la dit lue. Le chargement est un faux qui compte ses appels.
+    etatRoutines: { code: o.routines === undefined ? 'jamais' : 'ok' },
+    routines: o.routines || [],
+    chargerRoutines: () => { journal.chargements = (journal.chargements || 0) + 1; return Promise.resolve(true); },
+    ouvrirSeancesQuiReviennent: () => { journal.retrouver = (journal.retrouver || 0) + 1; return Promise.resolve(); },
     local: { seances: o.seances === undefined ? [{ id: 's1', debut: '2026-10-01T10:00:00Z' }] : o.seances, pesees: o.pesees || [] },
     faits: { ceQueJeSais: () => o.faits || { seances: 1, depuis: new Date(2026, 9, 1), rythme: null, dureeMin: null, maximums: [], autres: [] } },
     corpus: () => ({}),
@@ -628,5 +635,87 @@ describe('60-2a — le routage d’entrée et la vue', () => {
 
   test('la déconnexion ferme le questionnaire et oublie l’envoi en vol', () => {
     expect(extraire('deconnecter')).toMatch(/fermerQuestionnaire\(\);\s*envoiProfil = null/);
+  });
+});
+
+// ═══ 60-3 — L'ÉCRAN 8 ET LA FEUILLE « TES SÉANCES QUI REVIENNENT » ══════════
+describe('60-3 — l’écran 8, seulement sans routine, et la feuille après « Commencer »', () => {
+  // Jusqu'à l'écran « Temps » : les réponses obligatoires, rien d'autre.
+  const jusquAuTemps = (b) => {
+    const cont = () => b.actions().surContinuer();
+    const choix = (c, v) => b.actions().surChoix(c, v);
+    cont();
+    choix('historique', 'import'); cont();
+    while (b.ecran() !== 'but') cont();
+    choix('objectif', 'force'); choix('phase', 'maintien'); cont();
+    while (b.ecran() !== 'temps') cont();
+    return { cont, choix };
+  };
+
+  test('les routines pas encore lues : elles se chargent à l’ouverture', () => {
+    const b = bac();
+    b.appel('ouvrirQuestionnaireSiDu()');
+    expect(b.journal.chargements).toBe(1);
+    const lue = bac({ routines: [] });
+    lue.appel('ouvrirQuestionnaireSiDu()');
+    expect(lue.journal.chargements).toBeUndefined();
+  });
+
+  test('aucune routine : « Temps » mène à « Ton programme » ; « Garder ce que je fais » s’écrit, puis la feuille s’ouvre APRÈS « Commencer »', async () => {
+    const b = bac({ routines: [] });
+    b.appel('ouvrirQuestionnaireSiDu()');
+    const { cont, choix } = jusquAuTemps(b);
+    expect(b.vueCourante().progression.total).toBe(10);
+    cont();
+    expect(b.ecran()).toBe('programme');
+    expect(b.vueCourante().blocs[0].options.map((o) => o.cle)).toEqual(['deduit', 'moi']);
+    cont();                                                          // « Continuer » éteint sans chemin
+    expect(b.ecran()).toBe('programme');
+    choix('programme', 'deduit'); cont();
+    expect(b.journal.profil.pop()).toEqual({ programme_choix: 'deduit' });
+    expect(b.ecran()).toBe('coach');
+    choix('coach', 'normal'); cont();
+    expect(b.ecran()).toBe('recap');
+    expect(b.vueCourante().blocs[0].lignes.map((l) => l.libelle)).toContain('Programme');
+    expect(b.journal.retrouver).toBeUndefined();                     // rien avant « Commencer »
+    await b.actions().surContinuer();
+    expect(b.ctx.questionnaire).toBeNull();
+    expect(b.journal.saisie).toBe(1);
+    expect(b.journal.retrouver).toBe(1);
+  });
+
+  test('« Je crée mes routines moi-même » : Saisie (la bibliothèque), pas de feuille', async () => {
+    const b = bac({ routines: [] });
+    b.appel('ouvrirQuestionnaireSiDu()');
+    const { cont, choix } = jusquAuTemps(b);
+    cont();
+    choix('programme', 'moi'); cont();
+    expect(b.journal.profil.pop()).toEqual({ programme_choix: 'moi' });
+    choix('coach', 'normal'); cont();
+    await b.actions().surContinuer();
+    expect(b.journal.saisie).toBe(1);
+    expect(b.journal.retrouver).toBeUndefined();
+  });
+
+  test('⚠️ DISCRIMINANT — une routine : pas d’écran 8, la barre ne le compte pas, pas de feuille même si la base dit « deduit »', async () => {
+    const b = bac({ routines: [{ id: 'r1', nom: 'Push' }],
+                    profil: { id: 'u1', questionnaire_fait_le: null, programme_choix: 'deduit' } });
+    b.appel('ouvrirQuestionnaireSiDu()');
+    const { cont, choix } = jusquAuTemps(b);
+    expect(b.vueCourante().progression.total).toBe(9);
+    cont();
+    expect(b.ecran()).toBe('coach');
+    choix('coach', 'normal'); cont();
+    expect(b.vueCourante().blocs[0].lignes.map((l) => l.libelle)).not.toContain('Programme');
+    await b.actions().surContinuer();
+    expect(b.journal.retrouver).toBeUndefined();
+  });
+
+  test('les routines inconnues (hors ligne) : pas d’écran 8', () => {
+    const b = bac();
+    b.appel('ouvrirQuestionnaireSiDu()');
+    const { cont } = jusquAuTemps(b);
+    cont();
+    expect(b.ecran()).toBe('coach');
   });
 });

@@ -44,7 +44,7 @@ du coach ») ; recherche `RECHERCHE-QUESTIONNAIRE-2026-10-07.md` ; relevé du d�
 | 5 | **Ton but** | objectif (Force · Muscle · Les deux · Forme et santé) ; phase (Prise de masse · Maintien ou recomposition · Sèche · Je ne sais pas = **phase vide**, que le coach compte comme maintien ; le récapitulatif dit « Maintien (par défaut) » — décidé le 08/10/2026 : un seul état pour une même réponse, et pas de rappel de phase à qui n'en a pas déclaré) | `profiles.objectif` (nouvelle) ; `phase`, `phase_depuis` (existantes) |
 | 6 | **Priorités** | jusqu'à 3 : exercices (squat, couché, soulevé, militaire, tractions) ou muscles (les 6 groupes du radar) · Pas de priorité. **En sèche**, le coach dit : « En sèche, je garde surtout tes charges : une priorité musculaire attendra ta prochaine prise de masse. Un exercice prioritaire, oui. » | `profiles.priorites` (text[], slugs d'exercice ou groupes de `ZONE_DE`, nouvelle) |
 | 7 | **Temps et matériel** | le temps est montré (« environ 75 min ») : C'est mon maximum · J'ai de la marge · Moins en ce moment (choisi, il fait apparaître juste dessous les durées 45 · 60 · 75 · 90 min, pré-cochée sur la durée visée si elle est déclarée et sous l'estimation ; sans durée choisie, « Continuer » reste actif mais rien n'est écrit pour la durée — décidé le 08/10/2026 : sans durée, la réponse n'a pas de lecteur) · Ça varie ; matériel : Salle complète · Salle basique · Maison équipée · Maison minimale · Poids du corps | `profiles.temps_reponse` (nouvelle) ; `duree_seance_min` (montrée, modifiable) ; `materiel` (existante) |
-| 8 | **Ton programme** | Garder ce que je fais · Je crée mes routines · Construis-le-moi | `profiles.programme_choix` (nouvelle) — **écran absent jusqu'à 60-3** : sans programme déduit ni générateur, la réponse n'aurait pas de lecteur (§1.3 ; précisé le 07/10/2026). À 60-3, il est proposé une fois, par une carte, à qui a déjà rempli le questionnaire |
+| 8 | **Ton programme** | Garder ce que je fais · Je crée mes routines · Construis-le-moi | `profiles.programme_choix` (nouvelle) — **décidé le 08/10/2026 (60-3)** : l'écran n'apparaît **que si la personne n'a aucune routine** (qui a déjà ses routines les garde : lui proposer ses anciennes séances serait du bruit — la simulation retrouvait les routines d'avant le programme actuel d'Aurélien et d'Alexis). Deux choix : « **Garder ce que je fais** » (seulement avec au moins une séance en base ; ouvre l'écran 8a) et « **Je crée mes routines moi-même** » ; « Construis-le-moi » attend le générateur (60-4). Pas de carte pour qui a déjà rempli le questionnaire : le bouton de Routines (ECRAN-SAISIE §7 quindecies.7) sert à tout le monde |
 | 8a | Programme déduit | les séances qui reviennent → routines proposées | routines (§5) |
 | 8b | Construis-le-moi | jours réalistes (2 à 6) ; **une zone à ménager ?** (épaule · dos · genou · coude · hanche · aucune) ; exercices aimés / jamais | `seances_par_semaine` ; `profiles.zones_a_menager` (text[], nouvelle) ; aimés / jamais : au chantier du générateur |
 | 9 | **Ton coach** | Me ménager · Normal · Me pousser · Juste un carnet | `rythme_progression` (prudent / normal / franc) ; « Juste un carnet » = `intention = 'entretien'` rendu silencieux (§4) |
@@ -62,7 +62,7 @@ du coach ») ; recherche `RECHERCHE-QUESTIONNAIRE-2026-10-07.md` ; relevé du d�
 | Priorités | un **exercice prioritaire** est coché d'office dans « Faire de ce dossier un programme » (MOTEUR §9.22) ; un **muscle prioritaire**, hors sèche, a de la place pour la série de plus jusqu'à son plus haut volume (MOTEUR §14.6) ; générateur. *La carte « zone de force » est abandonnée le 08/10/2026 : simulée sur les cinq historiques, aucune barre n'est travaillée à 10-12 reps d'habitude, elle ne se serait déclenchée chez personne — notée pour le générateur* | 60-2b |
 | Âge, taille, poids, ancienneté, sexe | sans historique : prudence des charges de départ (générateur, séances de calage) ; poids : poids du corps, force rapportée au poids ; sexe : repères de force, classement | générateur, jeu |
 | Historique déclaré | le parcours (3a ou 3b) ; « Oui, dans une autre app » sans séances en base : l'écran 3b, avec « L'import dans l'app arrive plus tard. Ces trois réponses suffisent pour commencer. » (import dans l'app : chantier à part) | 60-2a |
-| Programme | 8a, 8b, ou l'éditeur | 60-3, générateur |
+| Programme | 8a (la feuille « Tes séances qui reviennent », ECRAN-SAISIE §7 quindecies.7), ou l'éditeur ; 8b au générateur | 60-3, générateur |
 | Zones à ménager | générateur seulement : les exercices qui chargent la zone passent en dernier choix, jamais interdits ; jamais de diagnostic, rien en séance (« J'ai mal » reste là) | générateur |
 
 ## 5. Le programme déduit (8a)
@@ -71,8 +71,28 @@ Sur les 12 dernières semaines : les séances avec au moins une série de travai
 exclues) ; **regroupées par leurs exercices, pas par leur titre** ; un groupe qui revient **au moins 4 fois** devient
 une routine : ses exercices présents dans au moins la moitié des séances du groupe, dans leur ordre médian ; séries,
 reps et chauffes médianes ; repos par défaut (§9.21) ; supersets s'ils reviennent. Nom proposé : le titre le plus
-fréquent du groupe, modifiable. Rien n'est écrit avant « En faire mes routines ». Règles exactes (seuil de
-ressemblance, ordre) : simulées sur les cinq historiques avant le prompt.
+fréquent du groupe, modifiable. Rien n'est écrit avant « En faire mes routines ».
+
+**La règle exacte — simulée sur les cinq historiques et décidée le 08/10/2026** (`deduit60b.py`, cas
+`cas_deduit60.json`) :
+- **La fenêtre** : les 84 jours qui finissent à **la dernière séance de la personne** (un historique arrêté en juin se
+  lit sur ses 12 dernières semaines, pas sur un vide).
+- **La signature** d'une séance : l'ensemble de ses exercices mesurés en reps (charge et reps, ou reps seules) avec au
+  moins une série de travail ou d'échec ; moins de 2 exercices : la séance ne compte pas.
+- **Le regroupement**, dans l'ordre chronologique : une séance rejoint le groupe dont le profil lui ressemble le plus
+  (indice de Jaccard), s'il atteint **0,35** ; sinon elle ouvre un groupe. Le profil d'un groupe : les exercices
+  présents dans au moins la moitié de ses séances. Puis **deux passages** de réaffectation avec les profils stabilisés.
+  Égalité : le groupe le plus ancien.
+- **Une routine** : un groupe d'**au moins 4 séances**. Ses exercices : ceux du profil, dans l'ordre de leur **position
+  médiane** (rang de la première série de l'exercice ÷ rang le plus haut de la séance ; égalité : par slug) ; séries de
+  travail, reps et chauffes : les **médianes**, arrondies au plus proche (.5 vers le haut). Repos : la règle de « En
+  faire une routine » (ECRAN-SAISIE §7 quindecies.4). Jamais de charge.
+- **Le nom** : le titre le plus fréquent du groupe (égalité : le plus récent) ; deux routines au même nom deviennent
+  « … A », « … B », dans l'ordre d'affichage (le plus de séances d'abord, puis la plus ancienne dernière séance).
+- **Récence** : une routine dont la dernière séance précède de **plus de 28 jours** la dernière séance de la personne
+  est proposée **décochée**, avec « Pas faite depuis le 9 mai. ». La personne décide.
+- **Supersets** : pas dans cette version (chaque exercice est un bloc) ; noté pour plus tard.
+- Simulation (au 06/10) : Jordan 3 routines (2 cochées), Léa 4 (3), Mélodie 2 (1), Alexis 6 (5), aurel_br 5 (5).
 
 ## 6. Retiré de l'écran du profil
 
@@ -88,7 +108,7 @@ l'écran (les valeurs restent en base, aucune n'est lue). Les quatre phrases qui
 | **60-2a** | l'écran du questionnaire (§2, §3 sauf 8, 8a, 8b), son déclencheur, « Plus tard », les nouveaux champs dans Profil ; « Juste un carnet » éteint aussi la fin de bloc | `v2_065` (appliquée le 07/10/2026) |
 | **60-2b** | les lecteurs : objectif (zone du premier bloc, fondement des paris, I40), priorités (exercice coché dans un programme, plafond de volume d'un muscle prioritaire), rappel de phase à 6 semaines, « Moins en ce moment » et « Ça varie » ; la rangée « programme » éteinte en carnet ; le 403 à la création du profil | non |
 | **60-2c** | avant l'ouverture : « Je ne sais pas » écrit une phase vide partout, « Moins » demande combien, « Quitter » compte les réponses de profil non envoyées, le pseudo gardé après « Quitter », la garde I18 en Édition | non |
-| **60-3** | le programme déduit (8a), et « Remplacer » dans l'éditeur de routine | non |
+| **60-3** | le programme déduit (8a) : l'écran 8 sans routines, la feuille « Tes séances qui reviennent » et son bouton dans Routines ; « Remplacer » dans l'éditeur de routine | non |
 | **60-4…** | le générateur (8b) : règles écrites, simulées sur les cinq historiques, validées, puis codées | à voir |
 
 **Ouverture à Alexis : après 60-2b** (le questionnaire complet et branché, hors programme). 60-3 peut suivre.

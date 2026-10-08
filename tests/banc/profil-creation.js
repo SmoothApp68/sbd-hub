@@ -13,14 +13,16 @@
 // confirmation (`#access_token=…`) en appelant `GET /auth/v1/user`, puis écrit la
 // session dans le stockage et émet `SIGNED_IN`.
 //
-// Le vrai navigateur, la vraie app (`v2/`), un faux Supabase en mémoire. Trois
+// Le vrai navigateur, la vraie app (`v2/`), un faux Supabase en mémoire. Quatre
 // scénarios, chacun dans son contexte (stockage vierge) :
 //   1. « compte A, Quitter, inscription du compte B » — la ligne de B se crée du
 //      premier coup, sans un seul refus, et celle de A n'est pas touchée ;
 //   2. « le lien de confirmation de B ouvre une page dont le stockage porte encore
 //      A » — la course du constat : la sonde synchrone lit A, le SDK absorbe B ;
 //      sans le correctif, `chargerProfil` créait la ligne avec l'identifiant de A ;
-//   3. « la création échoue » — elle se dit, puis se rejoue au chargement suivant.
+//   3. « la création échoue » — elle se dit, puis se rejoue au chargement suivant ;
+//   4. « le jeton change sous l'app, sans évènement » (un autre onglet) — un geste du Profil
+//      ne part pas sous l'identifiant de l'ancien compte avec le jeton du nouveau.
 //
 //   node tests/banc/profil-creation.js
 
@@ -233,6 +235,40 @@ function ok(nom, cond, detail) {
         try { return JSON.parse(localStorage.getItem('th-v2-auth')).user.id; } catch (e) { return null; }
       });
       ok('le SDK a bien absorbé le lien : la session stockée est celle de B', jeton === B, String(jeton));
+      ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
+      await ctx.close();
+    }
+
+    // ══ 4. LE JETON CHANGE SOUS L'APP, SANS ÉVÈNEMENT : L'ÉCRITURE SUIT LE CLIENT ═══
+    // Un autre onglet (ou un lien) a posé la session de B dans le stockage commun ; cet onglet-ci n'a
+    // reçu aucun évènement et garde A en mémoire. Un geste du Profil part alors : l'`id` du corps ne
+    // doit pas être celui de A sous le jeton de B (403), ni la ligne de A s'écrire dans celle de B.
+    console.log('\n══ 4. le jeton change sous l’app, sans évènement : l’écriture suit le client ══');
+    {
+      const bd = neuveBase();
+      const ctx = await contexte(nav, bd, { stockage: sessionDe(A) });
+      const page = await ctx.newPage();
+      const erreurs = [];
+      page.on('pageerror', (e) => erreurs.push(String(e).slice(0, 160)));
+      await page.goto(BASE + '/profil', { waitUntil: 'domcontentloaded' });
+      const surProfil = await attendreQue(page, () => page.evaluate(() => !!document.querySelector('#profil-corps .p-ligne')), 15000);
+      ok('prémisse — A est connecté, son profil s’affiche', surProfil);
+      await attendre(1500);     // l'entrée de A va jusqu'au bout
+      const avant = bd.requetes.length;
+      await page.evaluate((s) => localStorage.setItem('th-v2-auth', s), JSON.stringify(sessionDe(B)));
+      await page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
+        .filter((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf('Objectif') === 0)[0].click());
+      await attendre(500);
+      await page.click('#feuille-contenu .feuille-menu button[data-cle="force"]');
+      await attendreQue(page, () => !!bd.profils[B], 12000);
+      await attendre(1500);
+      const apres = bd.requetes.slice(avant);
+      ok('DISCRIMINANT — aucune écriture de profil sous l’identifiant de A avec le jeton de B (pas de 403)',
+        bd.refus.length === 0 && apres.every((q) => q.id === q.sub), JSON.stringify(apres));
+      ok('DISCRIMINANT — la ligne de A n’a pas reçu le geste (il n’a pas été envoyé sous un autre identifiant)',
+        bd.profils[A].objectif === undefined || bd.profils[A].objectif === null, JSON.stringify(bd.profils[A]));
+      ok('la ligne de B n’a pas reçu le geste de A non plus', !bd.profils[B] || !bd.profils[B].objectif, JSON.stringify(bd.profils[B]));
+      ok('le client entre sur SON compte : la ligne de B existe', !!bd.profils[B], JSON.stringify(Object.keys(bd.profils)));
       ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
       await ctx.close();
     }

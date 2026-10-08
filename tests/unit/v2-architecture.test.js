@@ -135,7 +135,15 @@ const GARDEES = [
   { fn: 'observationTenue', module: 'seance.js' },
   { fn: 'peutObserver', module: 'seance.js' },
   { fn: 'parisAObserver', module: 'seance.js' },
-  { fn: 'observationsARenvoyer', module: 'seance.js' }
+  { fn: 'observationsARenvoyer', module: 'seance.js' },
+  // generateur.js — le programme construit (QUESTIONNAIRE-COACH-V2 §5 bis, 60-4). `generer` et `pourquoi` sont des
+  // noms courants : on ne garde que l'appel qualifié par le module.
+  { fn: 'generer', module: 'generateur.js',
+    motif: /(?:\bGenerateur|\bGenerateur\(\)|racine\.THGenerateur)\s*\.\s*generer\b/g },
+  { fn: 'neVeuxPas', module: 'generateur.js' },
+  { fn: 'pourquoi', module: 'generateur.js',
+    motif: /(?:\bGenerateur|\bGenerateur\(\)|racine\.THGenerateur)\s*\.\s*pourquoi\b/g },
+  { fn: 'carteCycles', module: 'generateur.js' }
 ];
 
 // ── LA LISTE D'AUTORISATIONS ────────────────────────────────────────────────
@@ -826,7 +834,17 @@ const NOTIONS = [
     module: 'profil.js', fonction: 'lignePseudo', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['rendreProfilEcran'] },
     raison: 'ECRAN-PROFIL §3.1 (60-3b) : la phrase « Ce pseudo vient d’être pris » se dit tant qu’aucun pseudo n’est ' +
-      'posé ; elle vit avec la ligne, l’écran ne la compose pas.' }
+      'posé ; elle vit avec la ligne, l’écran ne la compose pas.' },
+  // ── 60-4 — LE PROGRAMME CONSTRUIT (QUESTIONNAIRE-COACH-V2 §5 bis) ─────────
+  { notion: 'la fenêtre de la personne (les 84 jours qui finissent à SA dernière séance, pas aujourd’hui)', pr: '60-U12',
+    module: 'routines.js', fonction: 'fenetreDeLaPersonne', lecteurs: ['faits.js'],
+    par: ['seancesQuiReviennent'],
+    raison: 'QUESTIONNAIRE-COACH-V2 §5 (60-3) : le programme déduit et l’historique du programme construit (60-4) ' +
+      'lisent la MÊME fenêtre ; deux fenêtres écrites à la main finiraient par ne plus se recouvrir.' },
+  { notion: 'l’historique du programme construit (par exercice, le nombre de séances de travail sur la fenêtre de la personne)', pr: '60-U12',
+    module: 'faits.js', fonction: 'historiqueDesExercices', lecteurs: ['app.js'],
+    raison: 'QUESTIONNAIRE-COACH-V2 §5 bis (60-4) : le générateur ordonne ses candidats par ce que la personne fait ' +
+      'le plus ; le fait vit dans le module des faits (58-1) et le générateur le REÇOIT, il ne relit pas les séances.' }
 ];
 
 // ── 58-1 — UN FAIT NE SE DÉCLARE QUE DANS `faits.js` ─────────────────────────
@@ -956,7 +974,8 @@ describe('architecture — un seul coach, un seul câblage', () => {
     global.self = global;
     require('../../v2/js/modele.js');
     require('../../v2/js/palier.js');
-    const modules = { 'moteur.js': require('../../v2/js/moteur.js'), 'seance.js': require('../../v2/js/seance.js') };
+    const modules = { 'moteur.js': require('../../v2/js/moteur.js'), 'seance.js': require('../../v2/js/seance.js'),
+      'generateur.js': require('../../v2/js/generateur.js') };
     const absentes = GARDEES.filter((g) => typeof modules[g.module][g.fn] !== 'function')
       .map((g) => g.module + ' n’exporte plus `' + g.fn + '` : mets la liste GARDEES à jour.');
     expect(absentes).toEqual([]);
@@ -1148,7 +1167,7 @@ describe('architecture — le registre des notions : une source, des lecteurs', 
 describe('architecture — le module des faits : un fait ne se déclare que dans faits.js (58-1)', () => {
   const FICHIERS = perimetre();
 
-  test('les faits du module : dix-huit (treize en 58-1, trois du journal en 58-2, un du questionnaire en 60-2a, un du programme déduit en 60-3), chacun déclaré et exporté par faits.js', () => {
+  test('les faits du module : dix-neuf (treize en 58-1, trois du journal en 58-2, un du questionnaire en 60-2a, un du programme déduit en 60-3, un de l’historique du programme construit en 60-4), chacun déclaré et exporté par faits.js', () => {
     global.self = global;
     require('../../v2/js/modele.js');
     require('../../v2/js/semaine.js');
@@ -1158,7 +1177,7 @@ describe('architecture — le module des faits : un fait ne se déclare que dans
     require('../../v2/js/seance.js');
     require('../../v2/js/periode.js');
     const instance = require('../../v2/js/faits.js').creer();
-    expect(FAITS.length).toBe(18);
+    expect(FAITS.length).toBe(19);
     expect(FAITS.filter((fn) => typeof instance[fn] !== 'function')).toEqual([]);
   });
 

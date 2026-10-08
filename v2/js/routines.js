@@ -933,6 +933,13 @@
                        Date.UTC(avant.getFullYear(), avant.getMonth(), avant.getDate())) / 86400000);
   }
 
+  // LA FENÊTRE DE LA PERSONNE (QUESTIONNAIRE-COACH-V2 §5) : les `DEDUIT.jours` jours qui finissent à SA dernière
+  // séance — pas aujourd'hui, un historique arrêté en juin se lit sur ses 12 dernières semaines. Une seule fonction :
+  // le programme déduit et l'historique du programme construit (60-4, `Faits.historiqueDesExercices`) la partagent.
+  function fenetreDeLaPersonne(derniere) {
+    return racine.THPeriode.fenetres(DEDUIT.jours, new Date(derniere)).courante;
+  }
+
   function seancesQuiReviennent(seances, mesures) {
     var M = racine.THModele, Mo = racine.THMoteur, P = racine.THPeriode;
     var m = mesures || {};
@@ -941,7 +948,7 @@
     }).slice().sort(function (a, b) { return new Date(a.debut) - new Date(b.debut); });
     if (!datees.length) return [];
     var finale = new Date(datees[datees.length - 1].debut);
-    var fenetre = P.fenetres(DEDUIT.jours, finale).courante;
+    var fenetre = fenetreDeLaPersonne(finale);
     var compte = function (x) { return M.estTravail(x) || M.typeDe(x) === 'echec'; };
 
     var items = [];
@@ -1487,6 +1494,7 @@
     copieDeRoutine: copieDeRoutine,
     routineDepuisSeance: routineDepuisSeance,
     seancesQuiReviennent: seancesQuiReviennent,
+    fenetreDeLaPersonne: fenetreDeLaPersonne,
     routineDeduite: routineDeduite,
     exerciceRemplace: exerciceRemplace,
     DEDUIT: DEDUIT,

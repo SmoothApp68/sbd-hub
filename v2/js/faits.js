@@ -6,7 +6,8 @@
 // semaine affichée, les exercices faits et leur date — et, depuis 60-2a, ce que
 // les séances savent de la personne (`ceQueJeSais`), que le questionnaire du coach
 // MONTRE au lieu de le demander ; depuis 60-3, les faits du programme déduit
-// (`programmeDeduit`). Ils vivaient dans
+// (`programmeDeduit`) ; depuis 60-4, l'historique du programme construit
+// (`historiqueDesExercices`). Ils vivaient dans
 // `app.js`, au milieu de l'état de l'écran : le jeu n'aurait pu les lire qu'en
 // les recopiant.
 //
@@ -399,6 +400,33 @@
       return racine.THRoutines.seancesQuiReviennent(seances, mesures);
     }
 
+    // ── L'historique du programme construit (60-4, QUESTIONNAIRE-COACH-V2 §5 bis) ──
+    //
+    // Par exercice, le nombre de SÉANCES où il a au moins une série de travail, sur la fenêtre de la personne : les
+    // 84 jours qui finissent à SA dernière séance (`Routines.fenetreDeLaPersonne`, la même que le programme déduit —
+    // jamais « aujourd'hui »). Le générateur (`Generateur.generer`) en tire l'ordre de ses candidats : le plus fait
+    // d'abord, et un exercice déjà fait n'est jamais rétrogradé par le matériel. Les séances sont celles du bilan
+    // (`seancesAvecSeries`, avec son mémo) ; la série de travail, la définition unique (`Modele.estTravail`).
+    function historiqueDesExercices(c) {
+      var datees = seancesAvecSeries(c).filter(function (s) {
+        return s && s.debut && !isNaN(new Date(s.debut).getTime());
+      });
+      if (!datees.length) return {};
+      var derniere = datees.reduce(function (m, s) { return new Date(s.debut) > new Date(m) ? s.debut : m; }, datees[0].debut);
+      var fenetre = racine.THRoutines.fenetreDeLaPersonne(derniere);
+      var compte = {};
+      datees.forEach(function (s) {
+        if (!Periode.dans(s.debut, fenetre)) return;
+        var vus = {};
+        (s.series || []).forEach(function (x) {
+          if (!x || !x.exercise_slug || vus[x.exercise_slug] || !Modele.estTravail(x)) return;
+          vus[x.exercise_slug] = true;
+          compte[x.exercise_slug] = (compte[x.exercise_slug] || 0) + 1;
+        });
+      });
+      return compte;
+    }
+
     // ── Les exercices faits et leur date (`app.js` `calculerDatesExercices`) ──
     //
     // Le tri se fait sur la DERNIÈRE séance où l'exercice apparaît. Un balayage
@@ -446,6 +474,7 @@
       compterExercices: compterExercices,
       ceQueJeSais: ceQueJeSais,
       programmeDeduit: programmeDeduit,
+      historiqueDesExercices: historiqueDesExercices,
       oublierDates: oublierDates
     };
   }

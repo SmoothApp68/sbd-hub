@@ -464,6 +464,27 @@ describe('la feuille de saisie', () => {
     expect(valider.disabled).toBe(false);
   });
 
+  test('(revue) pendant l’attente : le refus de l’essai d’avant est effacé, le champ ne bouge pas ; après, il est rendu', async () => {
+    const c = cible();
+    let liberer, essais = 0;
+    R().rendreFeuilleSaisie(c, {
+      titre: 'Pseudo', valeur: '',
+      surValider: () => (++essais === 1 ? 'Déjà pris.' : new Promise((r) => { liberer = r; })),
+      surAnnuler: () => {}
+    });
+    const valider = c.querySelector('.feuille-pied .pri'), champ = c.querySelector('.champ-texte input'), err = c.querySelector('.feuille-err');
+    valider.click();
+    expect(err.textContent).toBe('Déjà pris.');
+    champ.value = 'autre';
+    valider.click();                                   // un second essai, qui attend
+    expect(err.textContent).toBe('');                  // le refus d'avant ne parle plus de ce qu'on vérifie
+    expect(champ.readOnly).toBe(true);                 // et le champ ne bouge pas pendant la question
+    liberer(null);
+    await Promise.resolve(); await Promise.resolve();
+    expect(champ.readOnly).toBe(false);
+    expect(valider.disabled).toBe(false);
+  });
+
   test('une validation qui attend et ne refuse pas : aucune phrase, le bouton rendu', async () => {
     const c = cible();
     R().rendreFeuilleSaisie(c, { titre: 'Pseudo', valeur: '', surValider: () => Promise.resolve(null), surAnnuler: () => {} });

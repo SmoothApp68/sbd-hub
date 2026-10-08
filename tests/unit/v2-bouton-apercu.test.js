@@ -67,6 +67,13 @@ describe('« Créer ces N routines » : l’ambre de la forge, par les jetons', 
     expect(contraste(m(jeton('sur-accent'), fond), m(jeton('accent'), fond))).toBeGreaterThanOrEqual(4.5);
   });
 
+  test('(revue 60-5) « Valider » d’une feuille de saisie a un état désactivé visible (il attend la vérification du pseudo)', () => {
+    const r = regle('.feuille-pied .pri:disabled');
+    expect(r).not.toBeNull();
+    expect(r).toContain('opacity:.6');
+    expect(r).not.toMatch(/#[0-9a-fA-F]{3,8}\b|rgba?\(/);
+  });
+
   test('le bouton du rendu porte bien les deux classes (`principal apercu-creer`) dans un `.feuille-menu`', () => {
     const RENDU = fs.readFileSync(path.join(__dirname, '../../v2/js/rendu.js'), 'utf8');
     expect(RENDU).toMatch(/classe: 'principal apercu-creer'/);

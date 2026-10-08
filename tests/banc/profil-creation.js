@@ -36,7 +36,9 @@
 //      9   hors ligne, la feuille se ferme (on ne sait pas), les réponses attendent, et au retour du réseau
 //          la base refuse le pseudo : DEUX envois, les réponses arrivent, la phrase s'affiche ;
 //      9 bis  la même chose en ligne, quand la vérification dit « libre » et que la base refuse quand même ;
-//      10  hors ligne avec un pseudo LIBRE : l'envoi attend, puis se résout.
+//      10  hors ligne avec un pseudo LIBRE : l'envoi attend, puis se résout ;
+//      11  la vérification qui PEND (réseau connecté mais sans données) : la feuille attend, le bouton est grisé et le
+//          champ figé, puis au bout du délai « on ne sait pas » — elle se ferme et l'envoi part.
 // SEULS LES SCÉNARIOS 2 ET 4 REPRODUISENT LE 403 SUR LE CODE D'AVANT ; les contrôles du pseudo
 // (1 et 5) échouent sur le code d'avant 60-2c ; ceux de 8 à 10, sur le code d'avant 60-5.
 //
@@ -89,7 +91,7 @@ function neuveBase() {
     // 60-5 — `reseauCoupe` : toute requête vers la base échoue (le téléphone hors ligne) ; `tentatives` compte les
     // écritures de profil tentées, aboutes ou non ; `rpcToujoursLibre` : la vérification du pseudo répond « libre »
     // même quand un tiers le tient (il l'a pris entre-temps) ; `questions` : les pseudos demandés à `pseudo_libre`.
-    reseauCoupe: false, tentatives: 0, rpcToujoursLibre: false, questions: [],
+    reseauCoupe: false, tentatives: 0, rpcToujoursLibre: false, questions: [], rpcPend: false,
     // 60-3b — la confirmation d'e-mail : `signUp` ne rend alors PAS de session (le projet réel l'exige) ;
     // ce qu'il a reçu est gardé (`inscriptions`), et les données du compte reviennent avec l'utilisateur
     // (`/auth/v1/user`, le jeton rafraîchi), comme chez Supabase.
@@ -196,6 +198,7 @@ async function contexte(nav, bd, o) {
       // 60-5 — comme la vraie fonction (SECURITY DEFINER) : « libre » si AUCUNE ligne, la sienne comprise, ne le tient.
       const nom = String((JSON.parse(req.postData() || '{}')).nom || '').toLowerCase();
       bd.questions.push(nom);
+      if (bd.rpcPend) return new Promise(() => {});          // 60-5 : connecté, mais la réponse ne vient jamais
       const tenu = Object.keys(bd.profils).some((k) => bd.profils[k].username && String(bd.profils[k].username).toLowerCase() === nom);
       return json(bd.rpcToujoursLibre ? true : !tenu);
     }
@@ -602,10 +605,14 @@ function ok(nom, cond, detail) {
       const l1 = await lignePseudoDuProfil(page);
       ok('et la ligne « Pseudo » n’a pas bougé : « à renseigner », sans phrase de refus',
         !!l1 && /à renseigner/.test(l1.val) && l1.lib.indexOf('pris') < 0, JSON.stringify(l1));
-      // Un pseudo libre passe, dans la même feuille.
-      await page.fill('#feuille-contenu input', 'melodie_b');
-      await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu button'))
-        .filter((b) => b.textContent === 'Valider')[0].click());
+      // Un pseudo libre passe, dans la même feuille (si elle est encore ouverte : sinon le refus ci-dessus a déjà échoué).
+      if (f.ouverte) {
+        await page.fill('#feuille-contenu input', 'melodie_b');
+        await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu button'))
+          .filter((b) => b.textContent === 'Valider')[0].click());
+      } else {
+        await taperPseudo(page, 'melodie_b');
+      }
       const pose = await attendreQue(page, () => bd.profils[B].username === 'melodie_b', 12000);
       await attendre(500);
       const f2 = await feuilleSaisie(page), l2 = await lignePseudoDuProfil(page);
@@ -656,7 +663,7 @@ function ok(nom, cond, detail) {
       await attendreQue(page, () => page.evaluate(() => !!document.querySelector('#profil-corps .p-ligne')), 15000);
       await attendre(800);
       const l3 = await lignePseudoDuProfil(page);
-      ok('la phrase est retenue d’une ouverture à l’autre (rechargement), et la réponse y est',
+      ok('la phrase est retenue d’une ouverture à l’autre (rechargement)',
         !!l3 && l3.lib.indexOf(PHRASE_PRIS) >= 0, JSON.stringify(l3));
       ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
       await ctx.close();
@@ -717,6 +724,38 @@ function ok(nom, cond, detail) {
         JSON.stringify(envois.map((q) => [q.statut, q.aPseudo])) === '[[201,true]]', JSON.stringify([bd.profils[B], envois]));
       const l2 = await lignePseudoDuProfil(page);
       ok('la ligne montre le pseudo, sans phrase', !!l2 && l2.val === 'melodie_b' && l2.lib.indexOf('pris') < 0, JSON.stringify(l2));
+      ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
+      await ctx.close();
+    }
+
+    // ══ 11. LA VÉRIFICATION QUI PEND : ELLE NE RETIENT PAS LA PERSONNE ═══
+    console.log('\n══ 11. la vérification du pseudo ne répond pas : la feuille attend visiblement, puis se ferme ══');
+    {
+      const bd = baseSansPseudo();
+      const { ctx, page, erreurs } = await ouvrirProfilDe(nav, bd);
+      bd.rpcPend = true;
+      await cliquerLigne(page, 'Pseudo');
+      await attendre(400);
+      await page.fill('#feuille-contenu input', 'melodie_b');
+      const t0 = Date.now();
+      await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu button'))
+        .filter((b) => b.textContent === 'Valider')[0].click());
+      await attendre(1200);
+      const attente = await page.evaluate(() => {
+        const b = Array.from(document.querySelectorAll('#feuille-contenu button')).filter((x) => x.textContent === 'Valider')[0];
+        const champ = document.querySelector('#feuille-contenu .champ-texte input');
+        return { desactive: b.disabled, opacite: getComputedStyle(b).opacity, figé: champ.readOnly,
+                 phrase: (document.querySelector('#feuille-contenu .feuille-err') || {}).textContent || '' };
+      });
+      ok('pendant l’attente — « Valider » est grisé (désactivé ET visiblement : opacité réduite), le champ est figé, aucune phrase périmée',
+        attente.desactive === true && Number(attente.opacite) < 1 && attente.figé === true && attente.phrase === '', JSON.stringify(attente));
+      ok('rien n’est écrit tant que la question est en vol', bd.tentatives === 0 && (await feuilleSaisie(page)).ouverte, 'tentatives ' + bd.tentatives);
+      const ferme = await attendreQue(page, async () => !(await feuilleSaisie(page)).ouverte, 9000);
+      const delai = Date.now() - t0;
+      ok('DISCRIMINANT — au bout du délai (≈ 4 s) la feuille se ferme : « on ne sait pas » ne retient personne',
+        ferme && delai >= 3500 && delai < 8000, 'fermée après ' + delai + ' ms');
+      const pose = await attendreQue(page, () => bd.profils[B].username === 'melodie_b', 12000);
+      ok('et l’envoi part : le pseudo arrive en base (UN envoi, accepté)', pose && JSON.stringify(bd.requetes.map((q) => [q.statut, q.aPseudo])) === '[[201,true]]', JSON.stringify([bd.profils[B], bd.requetes]));
       ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
       await ctx.close();
     }

@@ -36,6 +36,7 @@ const extraire = (nom) => {
 };
 const SAISIES = APP.match(/^  var SAISIES = \{[\s\S]*?^  \};/m)[0];
 const CLE_PSEUDO_PRIS = /var CLE_PSEUDO_PRIS = '([^']+)'/.exec(APP)[1];
+const DELAI_PSEUDO_MS = Number(/var DELAI_PSEUDO_MS = (\d+);/.exec(APP)[1]);
 const tic = () => new Promise((r) => setImmediate(r));
 
 const erreur23505 = (nom, contrainte) => Object.assign(new Error('duplicate key value violates unique constraint "' + (contrainte || 'profiles_username_uniq') + '"'),
@@ -231,6 +232,27 @@ describe('envoyerProfilMaintenant — un pseudo refusé par la base', () => {
     expect(b.ctx.profilAEnvoyer).toBe(true);                         // et son propre envoi l'attend
     expect(b.signal()).toBe(true);                                   // le refus, lui, est un fait : retenu
   });
+
+  test('⚠️ (revue) le pseudo refusé sort de la ligne LOCALE même quand la réponse n’est pas adoptée — l’envoi qui suit ne le porte plus', async () => {
+    const b = bacEnvoi({ pris: ['deja_pris'], profil: Object.assign({ username: 'deja_pris' }, REPONSES),
+      apresPost: (n, ctx) => { if (n === 2) { ctx.versionProfil++; ctx.profil = Object.assign({}, ctx.profil, { intention: 'entretenir' }); } } });
+    await b.envoyer();
+    expect(b.ctx.profil.username).toBe(null);                        // il ne reste pas « posé » à l'écran
+    expect(b.ctx.profil.intention).toBe('entretenir');
+    await b.envoyer();                                               // l'envoi du geste plus récent : UN seul, sans le pseudo refusé
+    expect(b.etat.posts).toHaveLength(3);
+    expect(b.etat.posts[2].username).toBe(null);
+    expect(b.ctx.profilAEnvoyer).toBe(false);
+    expect(b.etat.ligne.intention).toBe('entretenir');
+  });
+
+  test('(revue) un pseudo RETAPÉ pendant l’envoi n’est pas écrasé par la correction locale', async () => {
+    const b = bacEnvoi({ pris: ['deja_pris'], profil: Object.assign({ username: 'deja_pris' }, REPONSES),
+      apresPost: (n, ctx) => { if (n === 2) { ctx.versionProfil++; ctx.profil = Object.assign({}, ctx.profil, { username: 'autre_pseudo' }); } } });
+    await b.envoyer();
+    expect(b.ctx.profil.username).toBe('autre_pseudo');
+    expect(b.ctx.profilAEnvoyer).toBe(true);
+  });
 });
 
 // ═══ 3. LA FEUILLE : ELLE VÉRIFIE AVANT DE SE FERMER ═══════════════════════
@@ -239,6 +261,9 @@ function bacFeuille(o) {
   const etat = { ecrits: [], fermetures: 0, questions: [], vue: null, ouvertures: 0 };
   const ctx = {
     Promise, Date, Object, Array, Math, String, console,
+    // Les minuteurs passent par `racine` (comme dans l'app) : les faux minuteurs de jest les voient.
+    racine: { setTimeout: (f, ms) => setTimeout(f, ms), clearTimeout: (h) => clearTimeout(h) },
+    DELAI_PSEUDO_MS,
     Profil, Modele: global.THModele,
     profil: opt.profil === undefined ? { id: 'u1', username: null } : opt.profil,
     sessionActive: { user: { email: opt.email === undefined ? 'melodie.dupont@exemple.fr' : opt.email } },
@@ -345,6 +370,32 @@ describe('la feuille « Pseudo » du Profil', () => {
     liberer();
     await verdict;
     expect(b.etat.ecrits).toEqual([]);
+  });
+
+  test('⚠️ (revue) une vérification qui PEND : au bout du délai, « on ne sait pas » — la feuille se ferme, le pseudo s’écrit', async () => {
+    jest.useFakeTimers();
+    try {
+      const b = bacFeuille({ differe: new Promise(() => {}), pris: true });     // la question ne répond jamais
+      const verdict = b.ouvrir('username').surValider('melodie_b');
+      await Promise.resolve(); await Promise.resolve();
+      expect(b.etat.ecrits).toEqual([]);                                         // elle attend
+      jest.advanceTimersByTime(DELAI_PSEUDO_MS - 1);
+      await Promise.resolve(); await Promise.resolve();
+      expect(b.etat.ecrits).toEqual([]);                                         // pas avant le délai
+      jest.advanceTimersByTime(1);
+      expect(await verdict).toBe(null);
+      expect(b.etat.ecrits).toEqual([{ username: 'melodie_b' }]);
+      expect(b.etat.fermetures).toBe(1);
+    } finally { jest.useRealTimers(); }
+  });
+
+  test('(revue) une réponse qui arrive à temps annule le minuteur : aucun minuteur ne reste en route', async () => {
+    jest.useFakeTimers();
+    try {
+      const b = bacFeuille({ pris: true });
+      await b.ouvrir('username').surValider('melodie_b');
+      expect(jest.getTimerCount()).toBe(0);
+    } finally { jest.useRealTimers(); }
   });
 
   test('non-régression — la taille, la bio : validation SYNCHRONE, écriture immédiate, aucune question à la base', () => {

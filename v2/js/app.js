@@ -8725,6 +8725,13 @@
         console.warn('Pseudo déjà pris, il quitte l’envoi du profil :', texteErreur(e1));
         retenirPseudoPris(id);
         rendu = await Donnees.enregistrerProfil(id, Profil.sansPseudo(champs));
+        // Le pseudo refusé sort de la ligne LOCALE dès que la base a répondu — même si le reste de la réponse n'est
+        // pas adopté ci-dessous (un geste plus récent attend son envoi) : il ne repart plus avec lui, et l'écran ne
+        // le montre plus comme posé. Seul le champ refusé est corrigé, et seulement s'il n'a pas été retapé depuis.
+        if (generationValide(g) && profil && profil.username === champs.username) {
+          profil = Object.assign({}, profil, { username: rendu.username === undefined ? null : rendu.username });
+          await sauverProfilLocal();
+        }
       }
       if (!generationValide(g)) return;
       if (version !== versionProfil) return;   // un geste plus récent attend son envoi : on ne le remplace pas
@@ -9403,6 +9410,11 @@
 
   // Les saisies libres. Chacune rend une PHRASE quand elle refuse — jamais un
   // silence, jamais une fermeture. La borne doublée ici est un CHECK de la base.
+  // La vérification du pseudo, depuis le Profil, ne retient pas la personne plus longtemps : sans réponse au bout de ce
+  // délai (un réseau connecté mais sans données), c'est « on ne sait pas » (ECRAN-PROFIL §5.2) — la feuille se ferme et
+  // l'envoi part ; la base reste l'autorité (`envoyerProfilMaintenant`).
+  var DELAI_PSEUDO_MS = 4000;
+
   var SAISIES = {
     taille_cm: {
       titre: 'Taille', type: 'text', inputMode: 'numeric', etiquette: 'En centimètres',
@@ -9455,8 +9467,10 @@
       verifier: async function (champs) {
         var nom = champs.username;
         if (profil && Profil.normaliserPseudo(profil.username) === nom) return null;
-        var pris = null;
-        try { pris = await Donnees.pseudoPris(nom); } catch (e) { pris = null; }
+        var pris = null, minuteur = null;
+        var silence = new Promise(function (resolve) { minuteur = racine.setTimeout(function () { resolve(null); }, DELAI_PSEUDO_MS); });
+        try { pris = await Promise.race([Donnees.pseudoPris(nom), silence]); } catch (e) { pris = null; }
+        racine.clearTimeout(minuteur);
         var email = (sessionActive && sessionActive.user && sessionActive.user.email) || '';
         var verdict = Profil.verdictPseudo(nom, pris, { email: email });
         return verdict.code === 'pris' ? verdict.message : null;

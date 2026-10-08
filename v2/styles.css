@@ -661,6 +661,8 @@ button.bloc-exo:active{background:var(--panneau-2)}
   font-size:13.333333px;font-weight:400;line-height:normal;font-family:inherit}
 .feuille-pied .sec{background:transparent;border:1px solid var(--trait);color:var(--texte-2)}
 .feuille-pied .pri{background:var(--accent);color:var(--sur-accent)}
+/* 60-5 — « Valider » grisé pendant qu'une réponse est attendue (la vérification du pseudo) : il n'avait aucun état désactivé. */
+.feuille-pied .pri:disabled{opacity:.6;cursor:default}
 .feuille-pied .des{flex:0 0 auto;padding:0 var(--e3);background:transparent;
   border:1px solid #4A3330;color:var(--manque);font-weight:600}
 

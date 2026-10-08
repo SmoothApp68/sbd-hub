@@ -4825,8 +4825,13 @@
         if (verdict && typeof verdict.then === 'function') {
           var bouton = ev && ev.currentTarget;
           if (bouton) bouton.disabled = true;
+          // Le refus de l'essai d'AVANT ne parle plus de ce qu'on vérifie ; et le champ ne bouge pas pendant
+          // l'attente (le pseudo écrit est celui qui est demandé, pas un autre).
+          err.textContent = '';
+          n.readOnly = true;
           var fin = function (refus) {
             if (bouton) bouton.disabled = false;
+            n.readOnly = false;
             if (refus) { err.textContent = refus; n.focus(); }
           };
           verdict.then(fin, function () { fin(null); });

@@ -14305,6 +14305,37 @@ const SETS_IMPORTES = [
     e = await ecranQ();
     ok('[Q60] écran 7 — « Temps et matériel »', e.ecran === 'temps' && e.etape === 'Temps et matériel', JSON.stringify(e));
     const dureeAvant = profilBase().duree_seance_min;
+    // ── 60-2c : « Moins en ce moment » DEMANDE COMBIEN — quatre durées JUSTE DESSOUS, rien d'écrit en les touchant.
+    const colonneQ = () => page.evaluate(() => Array.from(document.querySelectorAll('#questionnaire-corps .q-options > *'))
+      .map((n) => n.className.split(' ')[0] + (n.dataset.cle ? ':' + n.dataset.cle : '')));
+    const dureesQ = () => page.evaluate(() => ({
+      libelles: Array.from(document.querySelectorAll('#questionnaire-corps .q-options .q-puce')).map((n) => n.textContent),
+      cochees: Array.from(document.querySelectorAll('#questionnaire-corps .q-options .q-puce.on')).map((n) => n.dataset.cle),
+      question: (document.querySelector('#questionnaire-corps .q-options .q-sous-titre') || {}).textContent || null,
+      ligneDuree: !!document.querySelector('#questionnaire-corps .q-ligne-choix[data-cle="duree"]')
+    }));
+    const tempsAvant = profilBase().temps_reponse;
+    const colAvant = await colonneQ();
+    await cliquerQ('.q-opt[data-cle="moins"]');
+    const colMoins = await colonneQ();
+    const dMoins = await dureesQ();
+    e = await ecranQ();
+    ok('[Q60c] DISCRIMINANT — « Moins en ce moment » fait apparaître JUSTE DESSOUS sa question et ses quatre durées (45 · 60 · 75 · 90 min) ; la ligne « Durée visée » s’efface ; « Continuer » reste actif',
+      JSON.stringify(colAvant) === '["q-opt:max","q-opt:marge","q-opt:moins","q-opt:varie"]' &&
+        JSON.stringify(colMoins) === '["q-opt:max","q-opt:marge","q-opt:moins","q-sous-titre","q-puces","q-opt:varie"]' &&
+        JSON.stringify(dMoins.libelles) === '["45 min","60 min","75 min","90 min"]' &&
+        dMoins.question === 'Combien de temps par séance ?' && dMoins.ligneDuree === false && e.actif === true,
+      JSON.stringify([colAvant, colMoins, dMoins, e.actif]));
+    await cliquerQ('.q-options .q-puce[data-cle="45"]');
+    const d45 = await dureesQ();
+    ok('[Q60c] toucher une durée la coche — et n’écrit RIEN (ni la réponse, ni la durée, avant « Continuer »)',
+      JSON.stringify(d45.cochees) === '["45"]' && profilBase().duree_seance_min === dureeAvant && profilBase().temps_reponse === tempsAvant,
+      JSON.stringify([d45.cochees, profilBase().duree_seance_min, dureeAvant, profilBase().temps_reponse, tempsAvant]));
+    await cliquerQ('.q-opt[data-cle="marge"]');
+    const dMarge = await dureesQ();
+    ok('[Q60c] DISCRIMINANT — une autre réponse : les durées de « Moins » repartent, la ligne « Durée visée » revient',
+      dMarge.libelles.length === 0 && dMarge.ligneDuree === true && JSON.stringify(await colonneQ()) === JSON.stringify(colAvant),
+      JSON.stringify([dMarge, await colonneQ()]));
     await cliquerQ('.q-opt[data-cle="marge"]');
     await cliquerQ('.q-puce[data-cle="salle_complete"]');
     await continuerQ();
@@ -14345,6 +14376,23 @@ const SETS_IMPORTES = [
       e.ecran === 'recap' && profilBase().phase === null && !!profilBase().phase_confirmee_le &&
         /Phase.*Maintien \(par défaut\)/.test(e.lignes[1].replace(/[\u00a0\u202f]/g, ' ')),
       JSON.stringify([e.ecran, profilBase().phase, profilBase().phase_confirmee_le, e.lignes[1]]));
+    // ── 60-2c : « Moins » + une durée, changés depuis le récapitulatif : les deux s'écrivent ensemble, le récapitulatif dit la durée.
+    await cliquerQ('.q-mod[data-ecran="temps"]', 500);
+    await cliquerQ('.q-opt[data-cle="moins"]');
+    await cliquerQ('.q-options .q-puce[data-cle="60"]');
+    await continuerQ();
+    await attendre(600);
+    e = await ecranQ();
+    const ligneTemps = (e.lignes.filter((l) => /^Temps/.test(l))[0] || '').replace(/[\u00a0\u202f]/g, ' ');
+    ok('[Q60c] DISCRIMINANT — « Moins » + la durée 60 s’écrivent ENSEMBLE (`temps_reponse` ET `duree_seance_min`), et le récapitulatif dit « 60 min · j’ai moins de temps en ce moment »',
+      e.ecran === 'recap' && profilBase().temps_reponse === 'moins' && profilBase().duree_seance_min === 60 &&
+        ligneTemps.indexOf('Temps60 min · j’ai moins de temps en ce moment') === 0,
+      JSON.stringify([e.ecran, profilBase().temps_reponse, profilBase().duree_seance_min, ligneTemps]));
+    // On repart comme avant pour la suite du récapitulatif : « marge ».
+    await cliquerQ('.q-mod[data-ecran="temps"]', 500);
+    await cliquerQ('.q-opt[data-cle="marge"]');
+    await continuerQ();
+    await attendre(600);
     // La durée VISÉE se change depuis le récapitulatif : la ligne et le récapitulatif
     // disent ce qui a été choisi (90), le titre garde le fait (la médiane des séances).
     const titreTemps0 = (await ecranQ()).lignes.filter((l) => /^Temps/.test(l))[0];
@@ -14441,6 +14489,41 @@ const SETS_IMPORTES = [
     await cliquerFeuille('.feuille-menu button[data-cle="varie"]', 1500);
     ok('[Q60] P — le choix écrit `temps_reponse` ; la ligne le dit',
       profilBase().temps_reponse === 'varie' && (await ligneP('Ton temps')).valeur === 'Ça varie beaucoup', JSON.stringify([profilBase().temps_reponse, await ligneP('Ton temps')]));
+    // ── 60-2c : la feuille « Ton temps » fait la même chose pour « Moins » — la feuille RESTE ouverte, demande combien, écrit à « Valider ».
+    const ecritsT0 = ecritsProfil();
+    const dureeT0 = profilBase().duree_seance_min;
+    await toucherP('Ton temps');
+    await cliquerFeuille('.feuille-menu button[data-cle="moins"]', 600);
+    fp = await feuilleChoixP();
+    const pucesFeuille = await page.evaluate(() => ({
+      libelles: Array.from(document.querySelectorAll('#feuille-contenu .choix-puces .q-puce')).map((n) => n.textContent),
+      question: (document.querySelector('#feuille-contenu .choix-puces .choix-groupe') || {}).textContent || null,
+      horsMenu: document.querySelectorAll('#feuille-contenu .feuille-menu .q-puce').length === 0
+    }));
+    ok('[Q60c] DISCRIMINANT — « Moins » dans « Ton temps » : la feuille RESTE ouverte, rien n’est écrit, les quatre durées s’ouvrent sous « Moins » (hors du menu), « Annuler · Valider »',
+      fp.ouverte && ecritsProfil() === ecritsT0 && profilBase().temps_reponse === 'varie' &&
+        JSON.stringify(pucesFeuille.libelles) === '["45 min","60 min","75 min","90 min"]' && pucesFeuille.horsMenu &&
+        pucesFeuille.question === 'Combien de temps par séance ?' && JSON.stringify(fp.options) === '["max","marge","moins","varie"]' &&
+        JSON.stringify(fp.coches) === '["moins"]' && JSON.stringify(fp.pied) === '["Annuler","Valider"]',
+      JSON.stringify([fp, pucesFeuille, ecritsProfil() - ecritsT0, profilBase().temps_reponse]));
+    await cliquerFeuille('.choix-puces .q-puce[data-cle="90"]', 500);
+    await cliquerFeuille('.feuille-pied .sec', 600);
+    ok('[Q60c] « Annuler » après avoir touché une durée n’écrit rien',
+      !(await feuilleChoixP()).ouverte && ecritsProfil() === ecritsT0 && profilBase().temps_reponse === 'varie' && profilBase().duree_seance_min === dureeT0,
+      JSON.stringify([ecritsProfil() - ecritsT0, profilBase().temps_reponse, profilBase().duree_seance_min, dureeT0]));
+    await toucherP('Ton temps');
+    await cliquerFeuille('.feuille-menu button[data-cle="moins"]', 600);
+    await cliquerFeuille('.choix-puces .q-puce[data-cle="45"]', 500);
+    await cliquerFeuille('.feuille-pied .pri', 1500);
+    ok('[Q60c] DISCRIMINANT — « Valider » écrit la réponse ET la durée en UNE écriture ; la ligne le dit',
+      !(await feuilleChoixP()).ouverte && profilBase().temps_reponse === 'moins' && profilBase().duree_seance_min === 45 &&
+        ecritsProfil() === ecritsT0 + 1 && /^J’ai moins/.test((await ligneP('Ton temps')).valeur),
+      JSON.stringify([profilBase().temps_reponse, profilBase().duree_seance_min, ecritsProfil() - ecritsT0, await ligneP('Ton temps')]));
+    await toucherP('Ton temps');
+    await cliquerFeuille('.feuille-menu button[data-cle="moins"]', 600);
+    await cliquerFeuille('.feuille-pied .pri', 1500);
+    ok('[Q60c] « Valider » sans durée touchée : rien de plus (la réponse et la durée sont déjà celles de la base)',
+      ecritsProfil() === ecritsT0 + 1 && profilBase().duree_seance_min === 45, JSON.stringify([ecritsProfil() - ecritsT0, profilBase().duree_seance_min]));
     await aller('/saisie');
 
     // ── E. UNE LIGNE QU'ON NE CONNAÎT PAS N'OUVRE RIEN : la colonne ABSENTE de la

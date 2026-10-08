@@ -838,6 +838,33 @@
     });
   }
 
+  // ── « MOINS EN CE MOMENT » DEMANDE COMBIEN (60-2c, QUESTIONNAIRE §3) ──────────
+  //
+  // Choisir « Moins en ce moment » fait apparaître JUSTE DESSOUS quatre durées, 45 · 60 · 75 ·
+  // 90 min : sans durée, la réponse n'a pas de lecteur (`Moteur.reponseDeTemps` ne lit que
+  // `duree_seance_min`). UNE SEULE fonction compose ces puces pour l'écran 7 du questionnaire
+  // ET pour la feuille « Ton temps » du Profil — elle ne dessine rien et ne lit rien :
+  //   · `declaree`   — `duree_seance_min` (la durée visée, déclarée), ou `null` ;
+  //   · `habituelle` — la durée habituelle MONTRÉE (la médiane des séances, un nombre), ou `null` ;
+  //   · `choisie`    — la puce que la personne vient de toucher, ou `null`.
+  // `valeur` (la puce cochée) : celle qu'on vient de toucher ; sinon la durée visée, SI elle est
+  // l'une des quatre ET plus courte que l'habituelle (« moins » que d'habitude) ; sinon aucune.
+  // L'écriture reste `preparerChamps` : `duree_seance_min` avec `temps_reponse`, et rien du tout
+  // tant qu'aucune puce n'est touchée.
+  var DUREES_DE_MOINS = [45, 60, 75, 90];
+  var TITRE_DUREES_DE_MOINS = 'Combien de temps par séance ?';
+
+  function pucesDeMoins(declaree, habituelle, choisie) {
+    var dedans = function (v) { return DUREES_DE_MOINS.indexOf(Number(v)) >= 0; };
+    var valeur = null;
+    if (dedans(choisie)) valeur = Number(choisie);
+    else if (dedans(declaree) && typeof habituelle === 'number' && Number(declaree) < habituelle) valeur = Number(declaree);
+    return {
+      cle: 'dureeMoins', titre: TITRE_DUREES_DE_MOINS, valeur: valeur,
+      options: DUREES_DE_MOINS.map(function (n) { return { cle: n, libelle: n + ' min' }; })
+    };
+  }
+
   // La ligne « Ton temps », sous la durée d'une séance (« Ta semaine »).
   function ligneTemps(profil, ouvrir) {
     return { libelle: 'Ton temps', valeur: libelleDe(TEMPS_REPONSES, (profil || {}).temps_reponse),
@@ -990,7 +1017,8 @@
     RYTHMES: RYTHMES, RYTHME_DEFAUT: RYTHME_DEFAUT,
     rythmeDe: rythmeDe, phraseRythme: phraseRythme, sectionRythme: sectionRythme,
     PHASES: PHASES, RAPPEL_PHASE_JOURS: RAPPEL_PHASE_JOURS,
-    rappelDePhase: rappelDePhase, phraseRappelDePhase: phraseRappelDePhase, PHASE_DEFAUT: PHASE_DEFAUT, LIBELLE_PHASE_VIDE: LIBELLE_PHASE_VIDE, phaseDe: phaseDe, phaseGelee: phaseGelee, sectionPhase: sectionPhase,
+    rappelDePhase: rappelDePhase, phraseRappelDePhase: phraseRappelDePhase, PHASE_DEFAUT: PHASE_DEFAUT, LIBELLE_PHASE_VIDE: LIBELLE_PHASE_VIDE,
+    DUREES_DE_MOINS: DUREES_DE_MOINS, pucesDeMoins: pucesDeMoins, phaseDe: phaseDe, phaseGelee: phaseGelee, sectionPhase: sectionPhase,
     objectifDe: objectifDe, objectifGele: objectifGele,
     prioritesDe: prioritesDe, prioritesGelees: prioritesGelees,
     DUREES: DUREES, SEANCES_MIN: SEANCES_MIN, SEANCES_MAX: SEANCES_MAX,

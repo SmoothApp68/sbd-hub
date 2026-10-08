@@ -4373,6 +4373,12 @@
       if (o.sous) n.appendChild(el('span', 'q-sous', o.sous));
       n.addEventListener('click', function () { a.surChoix(b.cle, o.cle); });
       g.appendChild(n);
+      // Une réponse qui DEMANDE combien (60-2c, « Moins en ce moment ») : ses puces s'ouvrent
+      // JUSTE DESSOUS, dans la même colonne, avec leur question.
+      if (o.apres) {
+        if (o.apres.titre) g.appendChild(el('div', 'q-sous-titre', o.apres.titre));
+        g.appendChild(blocPuces(o.apres, a));
+      }
     });
     return g;
   }
@@ -4532,6 +4538,11 @@
   // Une liste fermée : discipline, matériel, ancienneté, niveau, sexe, unités,
   // séances par semaine, durée. Le choix VALIDE ET FERME — une liste fermée n'a
   // pas de « Valider » à part, le doigt a déjà dit ce qu'il voulait.
+  //
+  // 60-2c : une réponse peut DEMANDER COMBIEN (`o.apres`, des puces, « Moins en ce moment »). Ses
+  // puces s'ouvrent juste dessous, HORS du `.feuille-menu` (qui met en forme des lignes, pas des
+  // puces) ; le toucher d'une puce n'écrit rien (`vue.surPuce(cle)`), et la feuille a alors un
+  // « Valider » (`vue.surValider`) en plus d'« Annuler ».
   function rendreFeuilleChoix(cible, vue) {
     vider(cible);
     teteFeuille(cible, vue.titre, null, vue.aide);
@@ -4548,11 +4559,20 @@
       if (o.cle === vue.valeur) b.appendChild(el('span', 'choix-coche', '✓'));
       b.addEventListener('click', function () { vue.surChoix(o.cle); });
       menu.appendChild(b);
+      if (o.apres) {
+        cible.appendChild(menu);
+        var q = el('div', 'choix-puces');
+        if (o.apres.titre) q.appendChild(el('div', 'choix-groupe', o.apres.titre));
+        q.appendChild(blocPuces(o.apres, { surChoix: function (c, v) { vue.surPuce(v); } }));
+        cible.appendChild(q);
+        menu = el('div', 'feuille-menu choix');
+      }
     });
-    cible.appendChild(menu);
+    if (menu.childNodes.length) cible.appendChild(menu);
     piedFeuille(cible, [
       vue.surEffacer ? { classe: 'des', texte: 'Effacer', surClic: vue.surEffacer } : null,
-      { classe: 'sec', texte: 'Annuler', surClic: vue.surAnnuler }
+      { classe: 'sec', texte: 'Annuler', surClic: vue.surAnnuler },
+      vue.surValider ? { classe: 'pri', texte: 'Valider', surClic: vue.surValider } : null
     ]);
     return cible;
   }

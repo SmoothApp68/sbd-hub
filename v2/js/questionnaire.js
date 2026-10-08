@@ -166,7 +166,10 @@
     else if (id === TEMPS) {
       // `duree_seance_min` : seulement si la personne l'a CHANGÉE — la médiane
       // qu'on lui montre n'est pas une réponse.
-      entrees = { temps_reponse: r.temps, materiel: r.materiel, duree_seance_min: r.duree };
+      // 60-2c : « Moins en ce moment » demande combien — la puce touchée EST la durée visée
+      // (même colonne, même écriture) ; sans puce, la durée reste ce qu'elle était.
+      entrees = { temps_reponse: r.temps, materiel: r.materiel,
+                  duree_seance_min: r.temps === 'moins' && r.dureeMoins ? r.dureeMoins : r.duree };
     } else if (id === COACH) entrees = coachEnChamps(r.coach);
     else if (id === RECAP) entrees = { fait: true };
     return {
@@ -183,7 +186,7 @@
   // Un choix touché, appliqué aux réponses en cours (une COPIE) : les noms de
   // réponse que l'écran connaît, et rien d'autre — un geste qui vise une clé
   // inconnue est sans effet.
-  var CHOIX = ['historique', 'anciennete', 'seances', 'duree', 'sexe', 'objectif', 'phase',
+  var CHOIX = ['historique', 'anciennete', 'seances', 'duree', 'dureeMoins', 'sexe', 'objectif', 'phase',
                'temps', 'materiel', 'coach'];
 
   function appliquerChoix(rep, cle, valeur) {
@@ -435,11 +438,19 @@
       titre = 'Combien de temps dure une séance, en général ?';
       blocs.push({ type: 'puces', cle: 'duree', valeur: rep.duree, options: PUCES_DUREES });
     }
-    blocs.push({ type: 'options', cle: 'temps', valeur: rep.temps,
-                 options: avecSous(Profil().TEMPS_REPONSES, SOUS_TEMPS) });
+    // 60-2c : « Moins en ce moment », choisi, demande combien JUSTE DESSOUS — quatre puces, la
+    // même fonction que la feuille du Profil. Les autres réponses gardent la ligne « Durée visée ».
+    var options = avecSous(Profil().TEMPS_REPONSES, SOUS_TEMPS);
+    var moins = rep.temps === 'moins';
+    if (moins) {
+      options.forEach(function (o) {
+        if (o.cle === 'moins') o.apres = Profil().pucesDeMoins(rep.duree, habituelle, rep.dureeMoins);
+      });
+    }
+    blocs.push({ type: 'options', cle: 'temps', valeur: rep.temps, options: options });
     // La durée VISÉE : celle du Profil (`duree_seance_min`), ou l'habituelle tant
     // que la personne n'a rien dit. Elle ouvre la feuille du Profil.
-    if (visee) blocs.push({ type: 'ligne', cle: 'duree', libelle: 'Durée visée', valeur: en(visee, 'min') });
+    if (visee && !moins) blocs.push({ type: 'ligne', cle: 'duree', libelle: 'Durée visée', valeur: en(visee, 'min') });
     blocs.push({ type: 'puces', cle: 'materiel', titre: 'Où t’entraînes-tu ?',
                  valeur: rep.materiel, options: Profil().MATERIELS.map(function (m) {
                    return { cle: m.cle, libelle: m.libelle };
@@ -469,7 +480,9 @@
     var priorites = Array.isArray(rep.priorites)
       ? (rep.priorites.length ? rep.priorites.map(function (c) { return libelleDePriorite(c); }).join(', ') : 'Pas de priorité')
       : null;
-    var duree = dureeMontree(rep, etat.faits);
+    // « Moins en ce moment » : la durée dite est la puce touchée (ou la durée déjà déclarée) — jamais
+    // l'habituelle, qui est un fait et que rien n'écrit.
+    var duree = rep.temps === 'moins' ? (rep.dureeMoins || rep.duree || null) : dureeMontree(rep, etat.faits);
     var temps = rep.temps ? P.libelleDe(P.TEMPS_REPONSES, rep.temps) : null;
     var tempsTexte = [duree ? en(duree, 'min') : null, temps ? temps.charAt(0).toLowerCase() + temps.slice(1) : null]
       .filter(Boolean).join(' · ');

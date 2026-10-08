@@ -8171,6 +8171,14 @@
     questionnaire.faits = faits.ceQueJeSais(corpus(), new Date(), Questionnaire.BARRES);
   }
 
+  // La durée HABITUELLE (un fait : la médiane des séances, `null` sans heure de fin), pour les puces de
+  // « Moins en ce moment » dans la feuille « Ton temps » du Profil (60-2c) — lue quand elle sert,
+  // jamais au rendu de l'écran.
+  function dureeHabituelleDesSeances() {
+    var f = faits.ceQueJeSais(corpus(), new Date(), Questionnaire.BARRES);
+    return f && f.dureeMin ? f.dureeMin : null;
+  }
+
   function ecransDuQuestionnaire() {
     return Questionnaire.ecransVisibles({ aDesSeances: questionnaire.aDesSeances,
                                           historique: questionnaire.rep.historique });
@@ -8491,15 +8499,44 @@
   function ouvrirReponseProfil(cle) {
     if (cle === 'priorites') return ouvrirPrioritesProfil();
     var objectif = cle === 'objectif';
+    // 60-2c — « Moins en ce moment » DEMANDE COMBIEN. Le toucher ne ferme pas la feuille : il ouvre
+    // juste dessous les quatre durées (`Profil.pucesDeMoins`, la fonction de l'écran 7 du
+    // questionnaire), et la feuille gagne un « Valider ». Rien ne s'écrit avant lui — « Annuler »
+    // laisse tout comme c'était. Sans puce touchée, « Valider » n'écrit que la réponse de temps.
+    var moinsOuvert = false, dureeChoisie = null, habituelle = null;
+    var redessiner = function () { feuilleProfil($('feuille-contenu')); };
     feuilleProfil = function (cible) {
+      var options = objectif ? Profil.OBJECTIFS : Profil.optionsTemps();
+      if (moinsOuvert) {
+        options = options.map(function (o) {
+          if (o.cle !== 'moins') return o;
+          return { cle: o.cle, libelle: o.libelle, sous: o.sous,
+                   apres: Profil.pucesDeMoins(profil && profil.duree_seance_min, habituelle, dureeChoisie) };
+        });
+      }
       Rendu.rendreFeuilleChoix(cible, {
         titre: objectif ? 'Objectif' : 'Ton temps',
         // 60-2b : ce que le coach fait de la réponse — une phrase pour l'objectif, une
         // sous-ligne par réponse de temps qu'il lit (`Profil.optionsTemps`).
         aide: objectif ? Profil.AIDE_OBJECTIF : null,
-        options: objectif ? Profil.OBJECTIFS : Profil.optionsTemps(),
-        valeur: valeurProfil(cle),
-        surChoix: function (v) { fermerVoile(); ecrireReponse(defObjet(cle, v)); },
+        options: options,
+        valeur: moinsOuvert ? 'moins' : valeurProfil(cle),
+        surChoix: function (v) {
+          if (!objectif && v === 'moins') {
+            habituelle = dureeHabituelleDesSeances();
+            moinsOuvert = true;
+            redessiner();
+            return;
+          }
+          fermerVoile();
+          ecrireReponse(defObjet(cle, v));
+        },
+        surPuce: function (n) { dureeChoisie = n; redessiner(); },
+        surValider: moinsOuvert ? function () {
+          fermerVoile();
+          ecrireReponse(dureeChoisie ? { temps_reponse: 'moins', duree_seance_min: dureeChoisie }
+                                     : { temps_reponse: 'moins' });
+        } : null,
         surEffacer: null,
         surAnnuler: fermerVoile
       });

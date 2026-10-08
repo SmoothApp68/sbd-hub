@@ -2381,6 +2381,29 @@ Choisir remplace l'exercice **à sa place** : même rang, même groupe de supers
 (types, reps visées, durée, distance), même repos, même note ; **la charge de départ est retirée** (elle valait pour
 l'ancien exercice, MOTEUR §9.21). Rien n'est écrit avant « Enregistrer », comme tout geste de l'éditeur.
 
+## 7 quindecies.9 « Je n'en veux pas » et les exercices écartés — décidé le 08/10/2026 (chantier 60-4)
+
+> **Refuser un exercice, c'est le dire une fois : le coach le remplace par un exercice du même mouvement, et ne te le
+> propose plus. Tu peux toujours le reprendre.**
+
+**Où.** Dans l'aperçu du programme construit (QUESTIONNAIRE-COACH-V2 §5 bis) et dans le menu ⋯ d'un exercice de
+l'éditeur de routine, à côté de « Remplacer ». **Pas en séance** : là, un refus est souvent passager (machine prise,
+mal ce jour-là), et « Machine prise » ou « J'ai mal » y répondent.
+
+**Ce qu'il fait.** Dans l'aperçu, le remplaçant est celui du générateur pour la place (le suivant du même motif,
+sinon le voisin, en évitant ce qui est déjà dans la séance). Dans l'éditeur, pour n'importe quelle routine (une routine
+ne garde pas le motif de sa place), c'est **le premier frère** de la feuille de « Remplacer » qui n'est ni écarté ni
+déjà dans la routine (la même fonction, le même ordre) ; aucun : la feuille de « Remplacer » s'ouvre, et l'exercice est
+écarté quand même. Le remplacement suit les règles de « Remplacer » (§7
+quindecies.8 : même place, mêmes séries, charge de départ retirée). L'exercice rejoint `profiles.exercices_ecartes` et
+une phrase le confirme en voix du coach : « {ancien} est remplacé par {nouveau}. Je ne te le proposerai plus. ».
+**L'écarté s'écrit au geste** (par la file, comme tout champ du profil) ; le remplacement, lui, s'écrit avec la routine.
+
+**Un exercice écarté** n'est plus proposé par le générateur ni par « Je n'en veux pas ». Il n'est **jamais caché** :
+dans le catalogue, les frères et « Remplacer », il passe **en fin de liste**, avec la mention « écarté » (la règle du
+matériel, « range, ne cache jamais »). Il se reprend dans Profil (« Exercices écartés », « Reprendre »). Une routine qui
+le contient déjà le garde : écarter ne touche à rien d'existant.
+
 
 ## 7 decies. Un groupe de superset a toujours au moins deux exercices
 

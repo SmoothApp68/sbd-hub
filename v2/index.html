@@ -130,6 +130,8 @@
          questionnaire (le questionnaire passe d'abord). Jamais pendant une séance,
          jamais en « Juste un carnet ». -->
     <div id="bandeau-phase" hidden></div>
+    <!-- 60-4 (MOTEUR §9.22) — la carte « Passer en cycles » : une seule fois, 21 jours après un programme construit. -->
+    <div id="carte-cycles" hidden></div>
     <!-- Le bandeau de reprise (§7 octodecies.3) : il ne s'affiche que s'il y a
          quelque chose d'ouvert. Le même composant servira à la séance en cours
          (§7 nonies), qui n'est pas encore branchée. -->
@@ -160,6 +162,10 @@
       <!-- §7 duodecies.3 (52-1) — le dossier, une étiquette. -->
       <div id="dossier-routine"></div>
     </div>
+    <!-- 60-4 (ES §7 quindecies.9) — la voix du coach après « Je n'en veux pas » : « {ancien} est remplacé par
+         {nouveau}. Je ne te le proposerai plus. » Au-dessus des exercices et COLLANTE : sous une longue routine, elle
+         serait restée hors de l'écran (revue adverse). -->
+    <p id="voix-routine" class="q-voix voix-collante" role="status" aria-live="polite" hidden></p>
     <div id="exos-routine"></div>
     <button id="btn-ajouter-exo" type="button" class="discret bloc-large">Ajouter un exercice</button>
     <!-- ⚠️ CE TEXTE NE PROMET RIEN QUE LE CODE NE FASSE (chantier 47, réécrit
@@ -385,6 +391,7 @@
 <script src="/js/faits.js"></script>
 <script src="/js/calendrier.js"></script>
 <script src="/js/profil.js"></script>
+<script src="/js/generateur.js"></script>
 <script src="/js/questionnaire.js"></script>
 <script src="/js/routeur.js"></script>
 <script src="/js/sortie.js"></script>

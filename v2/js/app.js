@@ -22,6 +22,7 @@
   var Seance = racine.THSeance, Attente = racine.THAttente;
   var Profil = racine.THProfil, Moteur = racine.THMoteur, Plan = racine.THPlan;
   var Questionnaire = racine.THQuestionnaire;
+  var Generateur = racine.THGenerateur;
   var Rejeu = racine.THRejeu, Bilan = racine.THBilan;
   // 59-2 — « Quitter » : la fenêtre des séances pas encore envoyées, et ce qu'on efface.
   var Quitter = racine.THQuitter;
@@ -5448,13 +5449,26 @@
     return function (s) { return Profil.estHorsMateriel(index[s] && index[s].equipement, autorises); };
   }
 
+  // 60-4 (ES §7 quindecies.9, MOTEUR §9.19) — LES FRÈRES D'UN EXERCICE, UNE SEULE LISTE : celle de « Machine prise »,
+  // de « Remplacer » (l'éditeur et l'aperçu du programme) et de « Je n'en veux pas ». `Seance.freresProposes` pour
+  // l'ordre (le déjà fait d'abord, le hors matériel après, ceux déjà là à la fin), PUIS les exercices ÉCARTÉS tout à
+  // la fin — rangés, jamais cachés — avec `ecarte` pour la mention. `presents` : les slugs déjà dans la séance,
+  // la routine ou la séance du programme.
+  function freresDe(slug, presents) {
+    var index = Modele.indexerExercices(local.exercices);
+    var ecartes = Profil.ecartesDe(profil);
+    return Profil.ecartesALaFin(
+      Seance.freresProposes(slug, index, faitsDesFreres(index, slug), presents, horsDuMateriel(index)), ecartes)
+      .map(function (f) { return Object.assign({}, f, { ecarte: ecartes.indexOf(f.slug) >= 0 }); });
+  }
+
   function vueMachinePrise(blocs, iBloc, iExo) {
     var index = Modele.indexerExercices(local.exercices);
     var slug = seance.exercices[iExo].exercise_slug;
     var plus = Seance.plusTard(blocsPourPlusTard(blocs), iBloc);
     var suivant = blocs[iBloc + 1];
     var presents = seance.exercices.map(function (e) { return e.exercise_slug; });
-    var freres = Seance.freresProposes(slug, index, faitsDesFreres(index, slug), presents, horsDuMateriel(index));
+    var freres = freresDe(slug, presents);
     return {
       nom: Modele.nommer(index, slug),
       tard: plus.possible ? {
@@ -5467,7 +5481,7 @@
       } : null,
       freres: freres.map(function (f) {
         return {
-          nom: Modele.nommer(index, f.slug), fait: f.fait,
+          nom: Modele.nommer(index, f.slug), fait: f.fait, ecarte: f.ecarte,
           surChoisir: function () { fermerVoile(); remplacerDansLaSeance(iExo, f.slug); }
         };
       }),
@@ -5879,6 +5893,7 @@
     // pas terminé » ne dépend pas du chargement des routines.
     rendreBandeauQuestionnaire();
     rendreBandeauPhase();
+    rendreCarteCycles();
     var cible = $('liste-routines');
     // ⚠️ « Je ne sais pas encore » n'est PAS « il n'y en a pas ». Tant qu'un
     // chargement n'a pas abouti, on ne montre pas l'état vide : hors ligne, il
@@ -6280,6 +6295,7 @@
     // §7 quindecies.4 (52-1) — Dupliquer : une routine enregistrée seulement.
     $('btn-dupliquer-routine').hidden = !brouillon.id;
     $('erreur-routine').textContent = '';
+    annoncerDansLEditeur('');
     rendreEditeur();
   }
 
@@ -6486,9 +6502,11 @@
   // redécide pas tout seul ce qu'est un groupe.
   function ouvrirFeuilleExoRoutine(i) {
     if (!brouillon.exercices[i]) return;
+    annoncerDansLEditeur('');          // la phrase d'un geste précédent ne reste pas affichée sur un état qui a changé
     Rendu.rendreFeuilleExoRoutine($('feuille-contenu'), {
       nom: nomExoBrouillon(i),
       surRemplacer: function () { ouvrirRemplacerDansLEditeur(i); },
+      surNeVeuxPas: function () { fermerVoile(); neVeutPasDansLEditeur(i); },
       peutGrouper: Routines.peutGrouper(brouillon.exercices, i),
       estGroupe: Routines.estGroupe(brouillon.exercices, i),
       // Le lien avec le voisin du dessous : c'est lui, et lui seul, qui fait un
@@ -6530,14 +6548,13 @@
     if (!e) return;
     var index = Modele.indexerExercices(local.exercices);
     var presents = brouillon.exercices.map(function (x) { return x.exercise_slug; });
-    var freres = Seance.freresProposes(e.exercise_slug, index, faitsDesFreres(index, e.exercise_slug),
-      presents, horsDuMateriel(index));
+    var freres = freresDe(e.exercise_slug, presents);
     Rendu.rendreFeuilleMachinePrise($('feuille-contenu'), {
       titre: 'Remplacer',
       nom: Modele.nommer(index, e.exercise_slug),
       tard: null,
       freres: freres.map(function (f) {
-        return { nom: Modele.nommer(index, f.slug), fait: f.fait,
+        return { nom: Modele.nommer(index, f.slug), fait: f.fait, ecarte: f.ecarte,
                  surChoisir: function () { fermerVoile(); remplacerDansLEditeur(i, f.slug); } };
       }),
       chercher: 'Chercher dans le catalogue',
@@ -6550,6 +6567,37 @@
     if (!brouillon || !brouillon.exercices[i] || !slug) return;
     brouillon.exercices[i] = Routines.exerciceRemplace(brouillon.exercices[i], slug);
     renumeroterBrouillon();
+  }
+
+  // ES §7 quindecies.9 (60-4) — « JE N'EN VEUX PAS », dans le menu ⋯ d'un exercice de l'éditeur, à côté de « Remplacer ».
+  // Le remplaçant est LE PREMIER FRÈRE de la feuille de « Remplacer » (`freresDe` : la même fonction, le même ordre)
+  // qui n'est ni écarté ni déjà dans la routine ; aucun : la feuille de « Remplacer » s'ouvre. L'exercice est écarté
+  // AU GESTE (le profil), même sans remplaçant ; le remplacement, lui, suit les règles de « Remplacer » et ne
+  // s'écrit qu'avec « Enregistrer ». Jamais en séance : là, un refus est souvent passager (« Machine prise »).
+  function neVeutPasDansLEditeur(i) {
+    var e = brouillon && brouillon.exercices[i];
+    if (!e) return;
+    var slug = e.exercise_slug;
+    var ecartes = Profil.ecartesDe(profil);
+    if (ecartes.indexOf(slug) < 0) {
+      var champs = Profil.preparerChamps(profil, { exercices_ecartes: ecartes.concat([slug]) }, new Date());
+      if (Object.keys(champs).length) poserProfil(champs).catch(function () {});
+    }
+    var presents = brouillon.exercices.map(function (x) { return x.exercise_slug; });
+    var premier = freresDe(slug, presents).filter(function (f) { return !f.deja_dans_la_seance && !f.ecarte; })[0];
+    if (!premier) return ouvrirRemplacerDansLEditeur(i);
+    var ancien = nomExoBrouillon(i);
+    remplacerDansLEditeur(i, premier.slug);
+    annoncerDansLEditeur(ancien + ' est remplacé par ' + Modele.nommer(Modele.indexerExercices(local.exercices), premier.slug) +
+      '. Je ne te le proposerai plus.');
+  }
+
+  // La voix du coach sous les exercices de l'éditeur : une phrase, effacée à l'ouverture d'une routine.
+  function annoncerDansLEditeur(texte) {
+    var n = $('voix-routine');
+    if (!n) return;
+    n.textContent = texte || '';
+    n.hidden = !texte;
   }
 
   // ⚠️ DÉPLACER RELIT LES LIENS DE LA NOUVELLE ADJACENCE. Sortir un exercice
@@ -6849,7 +6897,7 @@
   // Le catalogue sert trois intentions, et c'est lui qui les distingue :
   // ajouter en fin de séance (rien), insérer APRÈS un bloc (`apres`), ou
   // REMPLACER un exercice (`remplace`).
-  var intentionCatalogue = { apres: null, remplace: null };
+  var intentionCatalogue = { apres: null, remplace: null, apercu: null };
 
   // ⚠️ DEUX INDICES, ET RIEN D'AUTRE (chantier 33). Les deux boutons généraux
   // étaient câblés `addEventListener('click', ouvrirCatalogue)` : le gestionnaire
@@ -6877,15 +6925,17 @@
     return Plan.seriesDeDepart(c ? c.consigne : null, precedentDe(slug), intentionDeLExercice(slug));
   }
 
-  function ouvrirCatalogue(apres, remplace) {
-    intentionCatalogue = { apres: indiceOuNul(apres), remplace: indiceOuNul(remplace) };
+  function ouvrirCatalogue(apres, remplace, apercu) {
+    // 60-4 — `apercu` : le catalogue ouvert depuis « Remplacer » de l'aperçu du programme construit
+    // (`{ i, k, retour }`) : le choix prend la place de CETTE ligne, et `retour` rouvre l'aperçu à la fermeture.
+    intentionCatalogue = { apres: indiceOuNul(apres), remplace: indiceOuNul(remplace), apercu: apercu || null };
     // 60-1 — les exercices déjà faits, relevés UNE FOIS à l'ouverture : la
     // recherche se relance à chaque frappe, et le balayage des séries est le
     // coût que `faits` garde déjà hors de la saisie.
     faitsDuCatalogue = null;
     $('champ-recherche-exo').value = '';
     rendreCatalogue();
-    ouvrirVoile($('catalogue'));
+    ouvrirVoile($('catalogue'), apercu ? apercu.retour : undefined);
     $('champ-recherche-exo').focus();
   }
 
@@ -6898,9 +6948,11 @@
   // exercice du matériel au-delà de la trentième place resterait invisible.
   function ordreDuCatalogue() {
     var materiel = profil && profil.materiel;
-    if (!Profil.equipementsDe(materiel)) return null;
+    // 60-4 — les ÉCARTÉS passent en fin de liste (ES §7 quindecies.9), même sans matériel renseigné.
+    var ecartes = Profil.ecartesDe(profil);
+    if (!Profil.equipementsDe(materiel) && !ecartes.length) return null;
     if (faitsDuCatalogue === null) faitsDuCatalogue = faits.datesDesExercices(corpus());
-    return function (liste) { return Profil.rangerParMateriel(liste, materiel, faitsDuCatalogue); };
+    return function (liste) { return Profil.rangerParMateriel(liste, materiel, faitsDuCatalogue, ecartes); };
   }
 
   function rendreCatalogue() {
@@ -6916,7 +6968,10 @@
     Rendu.rendreResultatsExo($('resultats-exo'),
       Routines.chercher(local.exercices, $('champ-recherche-exo').value, undefined, ordreDuCatalogue()),
       function (exo) {
+        // `fermerVoile` rouvre l'aperçu du programme construit (son `retour`) ; le choix prend alors la place.
+        var versApercu = intentionCatalogue.apercu;
         fermerVoile();
+        if (versApercu) return poserDansLeProgramme(versApercu.i, versApercu.k, exo.slug);
         if (pourSeance) {
           // §14.7 (49-U17, delta 49-35) — l'exercice ajouté dont la série de
           // plus est active reçoit sa ligne de plus, comme à l'ouverture.
@@ -6966,7 +7021,8 @@
           repos_cible_s: null, groupe_superset: null, note: null
         });
         apresEditeur();
-      });
+      },
+      Profil.ecartesDe(profil));
   }
 
   // ── Vue Volume : la semaine, le relevé, puis le radar ────────────────────
@@ -7598,6 +7654,69 @@
     });
   }
 
+  // ⚠️ LE CHEMIN COMMUN DE « CRÉER N ROUTINES DANS UN DOSSIER » (60-3, 60-4). « En faire mes routines (N) » (la
+  // feuille « Tes séances qui reviennent ») et « Créer ces N routines » (l'aperçu du programme construit) passent
+  // ICI : une structure (`routineDeduite`) → un brouillon (`brouillonDeStructure`) → la création de l'éditeur
+  // (`creerRoutineNeuve`), dans l'ordre, des noms rendus uniques, jamais de charge. `f` est l'état de la feuille
+  // (`dossier`, `erreur`, `enCours`, `orphelines`) ; `choisies` : `[{ deduite, faite, surFaite? }]` — `surFaite` court
+  // dès qu'UNE routine est écrite ; `redessiner` montre « Création… ». Rend le nombre de routines créées.
+  //
+  // ⚠️ L'ÉTAT RESTE « EN COURS » JUSQU'À LA FIN DU RECHARGEMENT (revue adverse de 60-4) : tant que la bibliothèque n'est
+  // pas relue, l'écran montrerait un bouton « Créer » actif sur des routines déjà écrites.
+  // ⚠️ UNE ROUTINE ORPHELINE (créée, mais ses exercices ou ses séries ne sont pas partis, et l'annulation non plus : le
+  // réseau était mort) est DÉFAITE avant toute reprise, puis la bibliothèque est relue — sinon la reprise bute sur son
+  // propre nom (« doublon ») sans fin.
+  async function creerDansUnDossier(f, choisies, nomDuDossier, redessiner) {
+    f.enCours = true;
+    f.erreur = '';
+    enregistrementEnCours = true;
+    redessiner();
+    var creees = 0, echec = false;
+    try {
+      var orphelines = f.orphelines || [];
+      f.orphelines = [];
+      for (var k = 0; k < orphelines.length; k++) {
+        try { await Donnees.supprimerRoutine(orphelines[k]); } catch (e) { f.orphelines.push(orphelines[k]); }
+      }
+      if (orphelines.length || etatRoutines.code !== 'ok') await chargerRoutines();
+      // Hors ligne dès le départ : ni noms, ni repos, ni rang ne se calculent sur une bibliothèque vide. Rien n'est
+      // écrit, et le dossier n'est pas encore figé.
+      if (etatRoutines.code !== 'ok') { f.erreur = Routines.MESSAGES.reseau; return 0; }
+      // Le dossier, une fois : une reprise après une panne reste dans le même.
+      if (!f.dossier) f.dossier = Routines.nomLibre(nomDuDossier, Routines.dossiersDe(routines));
+      var rang = rangSuivantBibliotheque(), noms = nomsReserves(), dejaLa = routines.slice();
+      for (var i = 0; i < choisies.length; i++) {
+        var x = choisies[i];
+        var st = Routines.routineDeduite(x.deduite, { exercices: local.exercices, routines: routines, existants: noms });
+        var b = brouillonDeStructure(st, st.nom, f.dossier);
+        var verdict = Routines.valider(b, dejaLa);
+        if (!verdict.valide) { f.erreur = messageVerdict(verdict); echec = true; break; }
+        var r = await creerRoutineNeuve(b, rang);
+        if (!r.ok) {
+          echec = true;
+          if (r.orpheline) {
+            // L'écriture a coupé en route : la routine existe en base, incomplète. On la défera à la reprise ; le
+            // message ne ment pas (« rouvre la routine » n'a pas de sens depuis ici).
+            f.orphelines.push(r.orpheline);
+            f.erreur = Routines.MESSAGES[r.erreur] || Routines.MESSAGES.inconnue;
+          } else f.erreur = Routines.messageErreur(r);
+          break;
+        }
+        x.faite = true;
+        if (typeof x.surFaite === 'function') x.surFaite();
+        creees++;
+        rang++;
+        noms.push(st.nom);
+        dejaLa.push({ nom: st.nom, archivee_a: null });
+      }
+      if (creees || echec) await chargerRoutines();
+    } finally {
+      enregistrementEnCours = false;
+      f.enCours = false;
+    }
+    return creees;
+  }
+
   // « En faire mes routines (N) ». ⚠️ DEUX TAPS N'ÉCRIVENT PAS DEUX FOIS : la
   // garde des créations de routine (`enregistrementEnCours`), plus `enCours` qui
   // éteint le bouton pendant l'écriture.
@@ -7606,35 +7725,7 @@
     if (!f || f.enCours || enregistrementEnCours) return;
     var choisies = f.routines.filter(function (x) { return x.cochee && !x.faite; });
     if (!choisies.length) return;
-    f.enCours = true;
-    f.erreur = '';
-    enregistrementEnCours = true;
-    rendreFeuilleRetrouver();
-    var creees = 0;
-    try {
-      if (etatRoutines.code !== 'ok') await chargerRoutines();
-      // Le dossier, une fois : une reprise après une panne reste dans le même.
-      if (!f.dossier) f.dossier = Routines.nomLibre(DOSSIER_DU_PROGRAMME, Routines.dossiersDe(routines));
-      var rang = rangSuivantBibliotheque(), noms = nomsReserves(), dejaLa = routines.slice();
-      for (var i = 0; i < choisies.length; i++) {
-        var x = choisies[i];
-        var st = Routines.routineDeduite(x.deduite, { exercices: local.exercices, routines: routines, existants: noms });
-        var b = brouillonDeStructure(st, st.nom, f.dossier);
-        var verdict = Routines.valider(b, dejaLa);
-        if (!verdict.valide) { f.erreur = messageVerdict(verdict); break; }
-        var r = await creerRoutineNeuve(b, rang);
-        if (!r.ok) { f.erreur = Routines.messageErreur(r); break; }
-        x.faite = true;
-        creees++;
-        rang++;
-        noms.push(st.nom);
-        dejaLa.push({ nom: st.nom, archivee_a: null });
-      }
-    } finally {
-      enregistrementEnCours = false;
-      f.enCours = false;
-    }
-    if (creees) await chargerRoutines();
+    var creees = await creerDansUnDossier(f, choisies, DOSSIER_DU_PROGRAMME, rendreFeuilleRetrouver);
     // La feuille a pu être fermée pendant l'écriture (« Fermer ») : on ne
     // ramène alors personne nulle part, on rafraîchit Saisie si on y est.
     var ouverte = retrouver === f;
@@ -7661,6 +7752,295 @@
         return;
       }
     }
+  }
+
+  // ══ LE PROGRAMME CONSTRUIT (QUESTIONNAIRE-COACH-V2 §5 bis, 60-4) ══════════════
+  //
+  // « Construis-le-moi » : le coach propose un point de départ, la personne le regarde et refuse ce qu'elle ne
+  // veut pas, puis « Créer ces N routines ». Ce câblage NE DÉCIDE RIEN : `Generateur` choisit les exercices, leur
+  // ordre, les séries et les reps (jamais une charge, une chauffe, un repos, une durée) ; les repos viennent du
+  // chemin de « Créer la routine » (`routineDeduite`), la durée de `Moteur.dureeEstimee` sur la MÊME structure,
+  // et le raccourci de `Moteur.raccourcirRoutine` seulement si `Moteur.cibleDuProgramme` y trouve une durée à tenir
+  // (MOTEUR §9.18, G8). RIEN n'est écrit avant « Créer », sauf les exercices écartés (au geste, par le profil).
+  //
+  // ⚠️ SEULE LA PLACE TOUCHÉE CHANGE (§7 quindecies.9) : « Je n'en veux pas » et « Remplacer » ne regénèrent pas le
+  // programme, ils changent une ligne de l'état `construit.routines` — et l'aperçu est recalculé de cet état.
+  var construit = null;   // { entree, routines, faites, dossier, erreur, enCours, annonce, neuf, versCatalogue }
+
+  // L'entrée du générateur : le profil et ce que les séances ont fait, rien d'autre.
+  function entreeDuProgramme() {
+    var p = profil || {};
+    return {
+      jours: Generateur.bornerJours(p.seances_par_semaine),
+      objectif: Profil.objectifDe(p),
+      phase: Profil.phaseDe(p),
+      materiel: p.materiel,
+      priorites: Profil.prioritesDe(p),
+      menager: Profil.zonesAMenagerValides(p.zones_a_menager) || [],
+      ecartes: Profil.ecartesValides(p.exercices_ecartes) || [],
+      faits: faits.historiqueDesExercices(corpus())
+    };
+  }
+
+  // La séance du générateur, au vocabulaire de `routineDeduite` : jamais de chauffe.
+  function deduiteDuProgramme(rt) {
+    return { nom: rt.nom, exercices: rt.exercices.map(function (l) {
+      return { exercise_slug: l.exercise_slug, series: l.series, reps: l.reps, chauffes: 0 };
+    }) };
+  }
+
+  // Deux lignes voisines du même exercice n'en feraient qu'un bloc à l'écriture (`memeBloc`) : on les fond ICI,
+  // pour que l'aperçu montre ce qui sera écrit.
+  function fondreLesVoisins(routinesDuProgramme) {
+    return routinesDuProgramme.map(function (rt) {
+      var sortie = [];
+      rt.exercices.forEach(function (l) {
+        var avant = sortie[sortie.length - 1];
+        if (avant && avant.exercise_slug === l.exercise_slug) avant.series += l.series;
+        else sortie.push(Object.assign({}, l));
+      });
+      return { nom: rt.nom, exercices: sortie };
+    });
+  }
+
+  // « C'est mon maximum », « Moins en ce moment », « Ça varie » + une durée déclarée : chaque séance passe par
+  // `raccourcirRoutine`, qui coupe les dernières séries (jamais un muscle). Une seule fois, à l'ouverture : les
+  // séries restent ensuite celles de la place, que la personne change ou non l'exercice.
+  function raccourcirLeProgramme(routinesDuProgramme) {
+    var cible = Moteur.cibleDuProgramme(profil && profil.temps_reponse, profil && profil.duree_seance_min,
+      profil && profil.intention);
+    if (cible === null) return routinesDuProgramme;
+    var index = catalogueIndexe(), noms = nomsReserves();
+    return routinesDuProgramme.map(function (rt) {
+      var st = Routines.routineDeduite(deduiteDuProgramme(rt), { exercices: local.exercices, routines: routines, existants: noms });
+      var S = Moteur.structureDeRoutine(brouillonDeStructure(st, st.nom, null).exercices, index);
+      var r = Moteur.raccourcirRoutine(S, cible);
+      var lignes = [];
+      rt.exercices.forEach(function (l, j) {
+        var tr = r.exercices[j] ? r.exercices[j].tr : l.series;
+        // `raccourcie` : cet exercice a perdu des séries pour tenir la durée (l'aperçu ne promet plus « toutes leurs séries »).
+        if (tr > 0) lignes.push(Object.assign({}, l, { series: tr }, tr < l.series ? { raccourcie: true } : {}));
+      });
+      return { nom: rt.nom, exercices: lignes };
+    });
+  }
+
+  // Ce que l'aperçu dit de chaque séance qui reste à créer : le nom qui sera ÉCRIT (rendu unique), la durée de la
+  // structure qui sera écrite (les repos de la création, `routineDeduite`), la ligne « pourquoi ».
+  function lectureDuProgramme(c) {
+    var index = catalogueIndexe(), noms = nomsReserves();
+    return c.routines.map(function (rt, i) {
+      if (c.faites[i]) return null;
+      var st = Routines.routineDeduite(deduiteDuProgramme(rt), { exercices: local.exercices, routines: routines, existants: noms });
+      noms.push(st.nom);
+      var S = Moteur.structureDeRoutine(brouillonDeStructure(st, st.nom, null).exercices, index);
+      return { nom: st.nom, duree: Moteur.texteDureeCourte(Moteur.dureeEstimee(S)), pourquoi: Generateur.pourquoi(index, rt) };
+    });
+  }
+
+  function seriesFois(l) { return l.series + '\u00a0\u00d7\u00a0' + l.reps; }
+
+  function rendreApercuDuProgramme() {
+    var c = construit;
+    if (!c) return;
+    var index = catalogueIndexe();
+    var nommer = function (slug) { return Modele.nommer(index, slug); };
+    var lecture = lectureDuProgramme(c);
+    var restantes = [];
+    c.routines.forEach(function (rt, i) { if (!c.faites[i]) restantes.push(i); });
+    var phrases = Generateur.phrasesDeLApercu(restantes.map(function (i) { return c.routines[i]; }), c.entree, nommer,
+      c.routines.length);
+    var voix = ['Je te propose tes charges à chaque séance. Touche un exercice pour le changer.'].concat(phrases.zones);
+    if (phrases.barreFixe) voix.push(phrases.barreFixe);
+    if (c.annonce) voix.push(c.annonce);
+    Rendu.rendreApercuProgramme($('feuille-contenu'), {
+      titre: phrases.titre,
+      voix: voix,
+      routines: restantes.map(function (i) {
+        return { nom: lecture[i].nom, duree: lecture[i].duree, pourquoi: lecture[i].pourquoi,
+          exercices: c.routines[i].exercices.map(function (l, k) {
+            return { nom: nommer(l.exercise_slug), series: seriesFois(l), mentions: Generateur.mentionsDeLigne(l, c.entree),
+                     neuf: !!c.neuf[i + ':' + l.exercise_slug] };
+          }) };
+      }),
+      erreur: c.erreur,
+      enCours: c.enCours,
+      libelleCreer: restantes.length === 1 ? 'Créer cette routine' : 'Créer ces ' + restantes.length + ' routines',
+      surExercice: function (iAffichee, k) { if (!c.enCours) ouvrirExerciceDuProgramme(restantes[iAffichee], k); },
+      surCreer: creerLeProgramme,
+      surPasMaintenant: fermerVoile
+    });
+  }
+
+  // Ouvre l'aperçu sur un programme construit : de l'état de la personne, jamais d'un second calcul. Rien en base.
+  async function ouvrirApercuProgramme() {
+    if (etatRoutines.code !== 'ok') await chargerRoutines();
+    var entree = entreeDuProgramme();
+    var rts = local.exercices.length
+      ? fondreLesVoisins(raccourcirLeProgramme(fondreLesVoisins(Generateur.generer(catalogueIndexe(), entree))))
+          .filter(function (rt) { return rt.exercices.length; })
+      : [];
+    if (!rts.length) {
+      // Le catalogue n'est pas arrivé (la place ne trouve rien) : on ne montre pas un programme vide.
+      Rendu.rendreFeuilleConfirmer($('feuille-contenu'), {
+        titre: 'Le catalogue arrive',
+        aide: 'Il est enregistré sur l\u2019appareil à la première synchronisation. Réessaie dans un instant.',
+        libelle: 'Compris', surConfirmer: fermerVoile, surAnnuler: fermerVoile
+      });
+      ouvrirVoile($('feuille-seance'));
+      return;
+    }
+    construit = { entree: entree, routines: rts, faites: [], dossier: null, erreur: '', enCours: false,
+                  annonce: null, neuf: {}, versCatalogue: false };
+    rendreApercuDuProgramme();
+    var ouvert = construit;
+    ouvrirVoile($('feuille-seance'), function () {
+      if (construit === ouvert && !ouvert.versCatalogue) construit = null;
+    });
+  }
+
+  // Toucher un exercice : « Je n'en veux pas » (l'écarter et le remplacer, une phrase le dit), « Remplacer » (le
+  // choix de l'éditeur), « Annuler ».
+  function ouvrirExerciceDuProgramme(i, k) {
+    var c = construit, rt = c && c.routines[i], l = rt && rt.exercices[k];
+    if (!l) return;
+    var index = catalogueIndexe();
+    Rendu.rendreFeuilleChoix($('feuille-contenu'), {
+      titre: Modele.nommer(index, l.exercise_slug),
+      aide: lectureDuProgramme(c)[i].nom + ' \u00b7 ' + seriesFois(l),
+      options: [
+        { cle: 'refuser', libelle: 'Je n\u2019en veux pas',
+          sous: 'Je le remplace par un exercice du même mouvement, et je ne te le proposerai plus.' },
+        { cle: 'remplacer', libelle: 'Remplacer', sous: 'Tu choisis dans le catalogue. La ligne de la séance se met à jour.' }
+      ],
+      valeur: null,
+      surChoix: function (cle) {
+        if (cle === 'refuser') return ecarterDansLeProgramme(i, k);
+        remplacerDansLeProgramme(i, k);
+      },
+      surEffacer: null,
+      surAnnuler: rendreApercuDuProgramme
+    });
+  }
+
+  // « Je n'en veux pas » : SEULE la place touchée change (`Generateur.neVeuxPas`), et l'exercice rejoint
+  // `exercices_ecartes` AU GESTE, par le chemin du profil (local d'abord, envoyé dès que possible).
+  function ecarterDansLeProgramme(i, k) {
+    var c = construit, rt = c && c.routines[i], vieux = rt && rt.exercices[k];
+    if (!vieux) return;
+    var index = catalogueIndexe();
+    // Les écartés VIVANTS du profil d'abord (un autre appareil a pu en ajouter depuis l'ouverture de l'aperçu) :
+    // l'écriture ne les efface jamais, et le remplaçant ne les reprend pas.
+    Profil.ecartesDe(profil).forEach(function (sl) { if (c.entree.ecartes.indexOf(sl) < 0) c.entree.ecartes.push(sl); });
+    var res = Generateur.neVeuxPas(index, c.routines, c.entree, i, k);
+    var retiree = res.routines[i].exercices.length < rt.exercices.length;
+    c.routines = fondreLesVoisins(res.routines);
+    c.entree.ecartes = res.ecartes;
+    var champs = Profil.preparerChamps(profil, { exercices_ecartes: res.ecartes }, new Date());
+    if (Object.keys(champs).length) poserProfil(champs).catch(function () {});
+    var ancien = Modele.nommer(index, vieux.exercise_slug);
+    // Le remplaçant RÉEL, lu avant la fusion des voisins (un remplaçant déjà dans la séance y absorbe ses séries).
+    var neuve = !retiree && res.routines[i].exercices[k];
+    c.neuf = neuve ? (function () { var o = {}; o[i + ':' + neuve.exercise_slug] = true; return o; })() : {};
+    // Une séance vidée par les refus n'a plus rien à écrire : elle sort du programme (et de `faites`, qui la suit).
+    if (!c.routines[i].exercices.length) { c.routines.splice(i, 1); c.faites.splice(i, 1); c.neuf = {}; }
+    if (!c.routines.length) { fermerVoile(); return; }
+    c.annonce = neuve
+      ? ancien + ' est remplacé par ' + Modele.nommer(index, neuve.exercise_slug) + '. Je ne te le proposerai plus.'
+      : ancien + ' sort de ton programme. Je ne te le proposerai plus.';
+    c.erreur = '';
+    rendreApercuDuProgramme();
+  }
+
+  // « Remplacer » : la feuille de l'éditeur (les frères, puis le catalogue) ; le choix prend la place, rien ne s'écarte.
+  function remplacerDansLeProgramme(i, k) {
+    var c = construit, rt = c && c.routines[i], l = rt && rt.exercices[k];
+    if (!l) return;
+    var index = catalogueIndexe();
+    var presents = rt.exercices.map(function (x) { return x.exercise_slug; });
+    var freres = freresDe(l.exercise_slug, presents);
+    Rendu.rendreFeuilleMachinePrise($('feuille-contenu'), {
+      titre: 'Remplacer',
+      nom: Modele.nommer(index, l.exercise_slug),
+      tard: null,
+      freres: freres.map(function (f) {
+        return { nom: Modele.nommer(index, f.slug), fait: f.fait, ecarte: f.ecarte,
+                 surChoisir: function () { poserDansLeProgramme(i, k, f.slug); } };
+      }),
+      chercher: 'Chercher dans le catalogue',
+      surCatalogue: function () { versLeCatalogueDuProgramme(i, k); },
+      surAnnuler: rendreApercuDuProgramme
+    });
+  }
+
+  function poserDansLeProgramme(i, k, slug) {
+    var c = construit;
+    if (!c || !c.routines[i] || !c.routines[i].exercices[k] || !slug) return;
+    // Un exercice déjà dans CETTE séance ne la prend pas deux fois (les voisins identiques n'en feraient qu'un bloc, et
+    // les séries s'additionneraient en silence) : le coach le dit, rien ne change.
+    var dejaLa = c.routines[i].exercices.some(function (x, j) { return j !== k && x.exercise_slug === slug; });
+    if (dejaLa) {
+      c.neuf = {};
+      c.annonce = Modele.nommer(catalogueIndexe(), slug) + ' est déjà dans cette séance.';
+      return rendreApercuDuProgramme();
+    }
+    c.routines = fondreLesVoisins(Generateur.remplacePar(catalogueIndexe(), c.routines, c.entree, i, k, slug));
+    var o = {};
+    o[i + ':' + slug] = true;
+    c.neuf = o;
+    c.annonce = null;
+    c.erreur = '';
+    rendreApercuDuProgramme();
+  }
+
+  // Le catalogue est un autre voile : l'aperçu y reste en mémoire (`versCatalogue`) et se rouvre à sa fermeture,
+  // qu'un exercice ait été choisi ou non.
+  function versLeCatalogueDuProgramme(i, k) {
+    var c = construit;
+    if (!c) return;
+    c.versCatalogue = true;
+    ouvrirCatalogue(null, null, {
+      i: i, k: k,
+      retour: function () {
+        if (construit !== c) return;
+        c.versCatalogue = false;
+        rendreApercuDuProgramme();
+        ouvrirVoile($('feuille-seance'), function () {
+          if (construit === c && !c.versCatalogue) construit = null;
+        });
+      }
+    });
+  }
+
+  // « Créer ces N routines » : le chemin de la feuille de 8a. ⚠️ DEUX TAPS N'ÉCRIVENT PAS DEUX FOIS, une panne au
+  // milieu garde le MÊME dossier et ne recrée pas ce qui l'est déjà (`faites`, posé routine par routine). Le nom RÉEL
+  // du dossier et la date s'écrivent au profil dès la PREMIÈRE routine créée (la carte « Passer en cycles » les lit) :
+  // un programme à moitié écrit, abandonné, garde sa trace. Puis la bibliothèque s'ouvre sur le dossier.
+  async function creerLeProgramme() {
+    var c = construit;
+    if (!c || c.enCours || enregistrementEnCours) return;
+    var choisies = [];
+    c.routines.forEach(function (rt, i) {
+      if (c.faites[i]) return;
+      choisies.push({ deduite: deduiteDuProgramme(rt), faite: false, i: i, surFaite: function () {
+        c.faites[i] = true;
+        if (c.profilEcrit) return;
+        c.profilEcrit = true;
+        var champs = Profil.preparerChamps(profil, { programme_construit_dossier: c.dossier, programme_construit_le: new Date() },
+          new Date());
+        if (Object.keys(champs).length) poserProfil(champs).catch(function () {});
+      } });
+    });
+    if (!choisies.length) return;
+    var creees = await creerDansUnDossier(c, choisies, DOSSIER_DU_PROGRAMME, rendreApercuDuProgramme);
+    var ouverte = construit === c;
+    if (!ouverte) { if (!vues.saisie.hidden && !seance) rendreSaisie(); return; }
+    if (c.erreur) {
+      if (creees && !vues.saisie.hidden && !seance) rendreSaisie();
+      return rendreApercuDuProgramme();
+    }
+    fermerVoile();
+    await ouvrirBibliothequeSur(c.dossier);
   }
 
   function choisirRoutineAMettreAJour(ligne) {
@@ -8290,6 +8670,7 @@
     // séance, feuille ou « Ranger » en cours).
     rendreBandeauQuestionnaire();
     rendreBandeauPhase();
+    rendreCarteCycles();                       // 60-4 : la carte « Passer en cycles » lit le même profil
     // 60-2a — LA LIGNE DE PROFIL EST CONNUE : c'est ICI que la décision d'ouvrir le
     // questionnaire se reprend, au premier démarrage d'un compte neuf comme aux
     // suivants. Prise sur le seul cache, elle ne routait un compte neuf qu'au
@@ -8431,28 +8812,40 @@
 
   // 60-3 — l'écran 8 (« Ton programme ») seulement quand on SAIT qu'il n'y a
   // aucune routine : tant que la bibliothèque n'est pas lue (hors ligne), `null`,
-  // et l'écran n'existe pas. 60-3b : et seulement avec au moins une séance en base
-  // (`aDesSeances`, plus bas) — la règle est dans `Questionnaire.ecransVisibles`.
+  // et l'écran n'existe pas. 60-4 : avec ou sans séance (« Construis-le-moi » lui donne
+  // toujours deux choix), et l'écran 8b le suit quand ce choix est fait — la règle est
+  // dans `Questionnaire.ecransVisibles`.
   function aDesRoutinesConnu() {
     return etatRoutines.code === 'ok' ? routines.length > 0 : null;
   }
 
   function ecransDuQuestionnaire() {
+    if (questionnaire.refaire) return [Questionnaire.CONSTRUIT];
     return Questionnaire.ecransVisibles({ aDesSeances: questionnaire.aDesSeances,
                                           historique: questionnaire.rep.historique,
+                                          programme: questionnaire.rep.programme,
                                           aDesRoutines: aDesRoutinesConnu() });
   }
 
-  function ouvrirQuestionnaire() {
+  function ouvrirQuestionnaire(options) {
     if (questionnaire) return;
+    // 60-4 — « Refaire mon programme » (Profil) rejoue l'écran 8b SEUL : le même écran, les mêmes écritures, puis
+    // l'aperçu. Ce n'est pas le questionnaire : il ne se marque pas « vu ici ».
+    var refaire = !!(options && options.refaire);
     var pesee = Poids.resume(local.pesees);
     questionnaire = {
-      ecran: Questionnaire.BIENVENUE,
+      ecran: refaire ? Questionnaire.CONSTRUIT : Questionnaire.BIENVENUE,
       rep: Questionnaire.reponsesInitiales(profil, { poids: pesee ? pesee.poids : null }),
-      faits: null, aDesSeances: false, textes: {}, erreurs: {}, retourRecap: false
+      faits: null, aDesSeances: false, textes: {}, erreurs: {}, retourRecap: false, refaire: refaire
     };
     actualiserFaitsDuQuestionnaire();
-    marquerQuestionnaireVuIci();
+    if (refaire) {
+      // Les jours déjà dits (bornés), sinon le rythme que les séances montrent, comme à l'écran 8b.
+      if (!Questionnaire.joursValides(questionnaire.rep.seances)) {
+        var jours = Questionnaire.joursPrecoches(questionnaire.rep, questionnaire.faits);
+        if (jours !== null) questionnaire.rep.seances = jours;
+      }
+    } else marquerQuestionnaireVuIci();
     // 60-3 — les routines vivent en ligne et ne sont pas dans le cache : on les
     // lit dès l'ouverture, pour savoir avant l'écran 8 s'il a lieu d'être.
     if (etatRoutines.code === 'jamais' || etatRoutines.code === 'echec') chargerRoutines().catch(function () {});
@@ -8476,7 +8869,7 @@
     if (!q) return;
     montrer('questionnaire');
     var vue = Questionnaire.vueDe(q.ecran, { rep: q.rep, faits: q.faits, aDesSeances: q.aDesSeances,
-      textes: q.textes, erreurs: q.erreurs, visibles: ecransDuQuestionnaire() });
+      textes: q.textes, erreurs: q.erreurs, visibles: ecransDuQuestionnaire(), refaire: !!q.refaire });
     Rendu.rendreQuestionnaire($('questionnaire-corps'), vue, {
       surChoix: choisirDansQuestionnaire,
       surSaisie: saisirDansQuestionnaire,
@@ -8541,6 +8934,7 @@
   function continuerQuestionnaire() {
     var q = questionnaire;
     if (!q || !Questionnaire.ecranPret(q.ecran, q.rep)) return;
+    if (q.refaire) return validerRefaire();
     var ecrit = Questionnaire.champsDeLEcran(q.ecran, q.rep, profil, {
       pesees: local.pesees, jour: jourDuJour(), maintenant: new Date() });
     // Une écriture par écran. `poserProfil` met `profil` à jour AVANT son premier
@@ -8549,10 +8943,21 @@
     q.rep = Questionnaire.apresEcriture(q.rep, ecrit.champs);   // la durée écrite est la durée visée
     if (ecrit.pesee) poserPesee(ecrit.pesee).catch(function () {});
     if (q.ecran === Questionnaire.RECAP) return terminerQuestionnaire();
-    var suivant = q.retourRecap ? Questionnaire.RECAP
-      : (Questionnaire.ecranSuivant(ecransDuQuestionnaire(), q.ecran) || Questionnaire.RECAP);
-    q.retourRecap = false;
+    var visibles = ecransDuQuestionnaire();
+    // 60-4 — « Programme », changé depuis le récapitulatif vers « Construis-le-moi » : l'écran 8b d'abord
+    // (les jours, la zone), PUIS le récapitulatif — sans lui, la ligne dirait « Construis-le-moi » sans
+    // ses jours et l'aperçu n'aurait rien à construire.
+    var vers8b = q.retourRecap && q.ecran === Questionnaire.PROGRAMME &&
+      visibles.indexOf(Questionnaire.CONSTRUIT) >= 0;
+    var suivant = vers8b ? Questionnaire.CONSTRUIT : q.retourRecap ? Questionnaire.RECAP
+      : (Questionnaire.ecranSuivant(visibles, q.ecran) || Questionnaire.RECAP);
+    q.retourRecap = vers8b;
     q.ecran = suivant;
+    // Les jours de l'écran 8b sont pré-cochés : ceux déjà dits (bornés), sinon le rythme de l'écran 3a.
+    if (suivant === Questionnaire.CONSTRUIT && !Questionnaire.joursValides(q.rep.seances)) {
+      var jours = Questionnaire.joursPrecoches(q.rep, q.faits);
+      if (jours !== null) q.rep.seances = jours;
+    }
     if (suivant === Questionnaire.SAIT || suivant === Questionnaire.TEMPS || suivant === Questionnaire.RECAP) {
       actualiserFaitsDuQuestionnaire();
     }
@@ -8572,6 +8977,8 @@
   function reculerQuestionnaire() {
     var q = questionnaire;
     if (!q) return;
+    // 60-4 — « Refaire mon programme » : le retour ramène au Profil, sans rien écrire.
+    if (q.refaire) { fermerQuestionnaire(); return rendreProfilEcran(); }
     if (q.retourRecap) {
       q.retourRecap = false;
       q.ecran = Questionnaire.RECAP;
@@ -8596,11 +9003,36 @@
   // puis la feuille « Tes séances qui reviennent » arrive par-dessus Saisie.
   async function terminerQuestionnaire() {
     var q = questionnaire;
-    var garder = !!q && q.rep.programme === 'deduit' &&
+    // « Garder ce que je fais » n'a de sens qu'avec des séances : sans elles (60-4, l'écran 8 existe quand
+    // même), un « deduit » hérité d'avant n'ouvre rien.
+    var garder = !!q && q.rep.programme === 'deduit' && q.aDesSeances &&
+      ecransDuQuestionnaire().indexOf(Questionnaire.PROGRAMME) >= 0;
+    // 60-4 — « Construis-le-moi » : l'aperçu du programme arrive de la même façon, par-dessus Saisie.
+    var construire = !!q && q.rep.programme === 'construis' &&
       ecransDuQuestionnaire().indexOf(Questionnaire.PROGRAMME) >= 0;
     fermerQuestionnaire();
     await afficherSaisie();
     if (garder && !seance && !vues.saisie.hidden && !voileOuvert) await ouvrirSeancesQuiReviennent();
+    else if (construire && !seance && !vues.saisie.hidden && !voileOuvert) await ouvrirApercuProgramme();
+  }
+
+  // 60-4 (ECRAN-PROFIL §4 bis) — « REFAIRE MON PROGRAMME » : les deux questions de l'écran 8b (les jours, une zone à
+  // ménager), puis l'aperçu. Un NOUVEAU dossier (« Mon programme (2) » s'il existe) — l'ancien reste tel quel, une
+  // décision ne s'efface jamais en silence — et `programme_construit_*` pointent le nouveau à la création.
+  function refaireMonProgramme() {
+    if (questionnaire || seance || voileOuvert) return;
+    ouvrirQuestionnaire({ refaire: true });
+  }
+
+  async function validerRefaire() {
+    var q = questionnaire;
+    if (!q || !q.refaire) return;
+    var ecrit = Questionnaire.champsDeLEcran(q.ecran, q.rep, profil, {
+      pesees: local.pesees, jour: jourDuJour(), maintenant: new Date() });
+    if (Object.keys(ecrit.champs).length) poserProfil(ecrit.champs).catch(function () {});
+    fermerQuestionnaire();
+    await afficherSaisie();
+    if (!seance && !vues.saisie.hidden && !voileOuvert) await ouvrirApercuProgramme();
   }
 
   // Le bandeau de Saisie : « Ton questionnaire n'est pas terminé. », tant qu'il
@@ -8615,6 +9047,56 @@
       libelleReprendre: 'Le terminer',
       surReprendre: ouvrirQuestionnaire
     });
+  }
+
+  // 60-4 — LA CARTE « PASSER EN CYCLES » (MOTEUR §9.22, décidée le 08/10/2026). Le programme construit est fait de
+  // routines simples ; pour Force et Les deux, UNE FOIS, 21 jours après sa création et après au moins 6 séances faites
+  // depuis ses routines, ni en « Juste un carnet », ni si le dossier est déjà un programme. La règle est celle du
+  // générateur (`Generateur.carteCycles`) ; ici on LIT l'état, on ne le compte pas à la main. Rien n'est écrit au rendu :
+  // seuls les deux boutons écrivent, et seul « Pas maintenant » écrit (`carte_cycles_le`) — « Passer en cycles » ouvre
+  // « Faire de ce dossier un programme » sur ce dossier, et annuler cette feuille laisse la carte où elle est.
+  //
+  // Le dossier est le NOM RÉEL écrit à la création (`programme_construit_dossier`) ; « déjà un programme » compte aussi
+  // un bloc arrêté ou terminé : la personne a déjà fait ce choix pour ce dossier, la carte ne revient pas.
+  function carteCyclesDuProfil() {
+    var p = profil || {};
+    var dossier = Profil.dossierDuProgrammeValide(p.programme_construit_dossier);
+    if (!dossier || !p.programme_construit_le) return null;
+    var ids = Routines.visibles(routines).filter(function (r) { return Routines.dossierPropre(r.dossier) === dossier; })
+      .map(function (r) { return r.id; });
+    if (!ids.length) return null;                                      // le dossier a disparu : rien à passer en cycles
+    var affichee = Generateur.carteCycles({
+      objectif: Profil.objectifDe(p),
+      joursDepuisCreation: Profil.joursDepuis(p.programme_construit_le, new Date()),
+      seancesDuDossier: faits.seancesDesRoutines(corpus(), ids, p.programme_construit_le),
+      estProgramme: (local.blocs || []).some(function (b) { return b && b.dossier === dossier; }),
+      carnet: Moteur.coachSeTait(p.intention),
+      dejaVue: !!p.carte_cycles_le
+    });
+    return affichee ? dossier : null;
+  }
+
+  function rendreCarteCycles() {
+    var noeud = $('carte-cycles');
+    if (!noeud) return;
+    var dossier = seance ? null : carteCyclesDuProfil();
+    if (!dossier) { Rendu.rendreBandeauReprise(noeud, null); return; }
+    Rendu.rendreBandeauReprise(noeud, {
+      quoi: 'Ton programme tourne depuis ' + (Generateur.CARTE_JOURS / 7) + ' semaines.',
+      sujet: 'Un bloc de ' + Moteur.SEMAINES_BLOC_DEFAUT + ' semaines en Lourd sur tes barres, la dernière plus légère : ' +
+        'c\u2019est là que la force se gagne. On passe en cycles ?',
+      libelleQuitter: 'Pas maintenant',
+      surQuitter: reporterLaCarteCycles,
+      libelleReprendre: 'Passer en cycles',
+      surReprendre: function () { ouvrirProgramme(dossier, null); }
+    });
+  }
+
+  // « Pas maintenant » : la carte ne revient jamais (`carte_cycles_le`). Le bouton du dossier, lui, reste.
+  function reporterLaCarteCycles() {
+    var champs = Profil.preparerChamps(profil, { carte_cycles_le: new Date() }, new Date());
+    if (Object.keys(champs).length) poserProfil(champs).catch(function () {});
+    rendreCarteCycles();
   }
 
   // 60-2b — LE RAPPEL DE PHASE (MOTEUR §9.16) : « Sèche depuis le 28 sept. », 6
@@ -8837,6 +9319,60 @@
     ouvrirFeuilleProfil();
   }
 
+  // ── LE PROGRAMME CONSTRUIT, AU PROFIL (60-4, ECRAN-PROFIL §4 bis) ───────────
+  function ouvrirProgrammeProfil(quoi) {
+    if (quoi === 'zones') return ouvrirZonesProfil();
+    if (quoi === 'ecartes') return ouvrirEcartesProfil();
+    if (quoi === 'refaire') return refaireMonProgramme();
+  }
+
+  // « Zone à ménager » : une feuille à puces (une ou plusieurs, ou « Aucune »), la MÊME que l'écran 8b
+  // (`Profil.basculerZone`). Rien ne s'écrit avant « Valider » ; « Aucune » écrit le vide (`NULL`).
+  function ouvrirZonesProfil() {
+    var liste = Profil.zonesAMenagerValides(profil && profil.zones_a_menager) || [];
+    var redessiner = function () { feuilleProfil($('feuille-contenu')); };
+    feuilleProfil = function (cible) {
+      Rendu.rendreFeuilleChoixMultiple(cible, {
+        titre: 'Zone à ménager',
+        aide: Profil.PHRASE_ZONES,
+        groupes: [{ options: Profil.ZONES_A_MENAGER }],
+        valeurs: liste,
+        aucune: { libelle: 'Aucune', actif: liste.length === 0 },
+        surBasculer: function (c) { liste = Profil.basculerZone(liste, c); redessiner(); },
+        surAucune: function () { liste = []; redessiner(); },
+        surValider: function () { fermerVoile(); ecrireReponse({ zones_a_menager: liste }); },
+        surAnnuler: fermerVoile
+      });
+    };
+    ouvrirFeuilleProfil();
+  }
+
+  // « Exercices écartés » : la liste, « Reprendre » sur chacun. La feuille reste ouverte entre deux reprises ; le
+  // dernier repris la ferme (la ligne du Profil s'efface, puisqu'elle ne s'affiche pas à vide).
+  function ouvrirEcartesProfil() {
+    var index = Modele.indexerExercices(local.exercices);
+    feuilleProfil = function (cible) {
+      var ecartes = Profil.ecartesDe(profil);
+      Rendu.rendreFeuilleEcartes(cible, {
+        titre: 'Exercices écartés',
+        aide: Profil.PHRASE_ECARTES,
+        exercices: ecartes.map(function (slug) {
+          return { nom: Modele.nommer(index, slug), surReprendre: function () { reprendreEcarte(slug); } };
+        }),
+        surFermer: fermerVoile
+      });
+    };
+    ouvrirFeuilleProfil();
+  }
+
+  function reprendreEcarte(slug) {
+    var restants = Profil.ecartesDe(profil).filter(function (s) { return s !== slug; });
+    var champs = Profil.preparerChamps(profil, { exercices_ecartes: restants }, new Date());
+    if (Object.keys(champs).length) ecrireProfil(champs);
+    if (!restants.length) return fermerVoile();
+    if (feuilleProfil) feuilleProfil($('feuille-contenu'));
+  }
+
   // Les saisies libres. Chacune rend une PHRASE quand elle refuse — jamais un
   // silence, jamais une fermeture. La borne doublée ici est un CHECK de la base.
   var SAISIES = {
@@ -8978,9 +9514,11 @@
         { valeur: Profil.libelleAnciennete(stats.annees), libelle: 'd’historique' }
       ],
       sections: [
+        // 60-4 (ECRAN-PROFIL §4 bis) — le programme construit : la zone à ménager, les exercices écartés (la ligne
+        // s'efface quand il n'y en a plus), « Refaire mon programme ».
         { titre: 'CE QUE JE FAIS', lignes: [
           ligneChoix('materiel', 'Matériel')
-        ] },
+        ].concat(Profil.lignesProgramme(p, ouvrirProgrammeProfil)) },
         // 60-1 — « Progresser » ou « Juste un carnet » : la section se construit
         // dans `profil.js`, comme « Ton rythme » (la phrase dépend du choix).
         Profil.sectionIntention(p, ecrireProfil),

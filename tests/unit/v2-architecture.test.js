@@ -135,7 +135,16 @@ const GARDEES = [
   { fn: 'observationTenue', module: 'seance.js' },
   { fn: 'peutObserver', module: 'seance.js' },
   { fn: 'parisAObserver', module: 'seance.js' },
-  { fn: 'observationsARenvoyer', module: 'seance.js' }
+  { fn: 'observationsARenvoyer', module: 'seance.js' },
+  // generateur.js — le programme construit (QUESTIONNAIRE-COACH-V2 §5 bis, 60-4). `generer` et `pourquoi` sont des
+  // noms courants : on ne garde que l'appel qualifié par le module.
+  { fn: 'generer', module: 'generateur.js',
+    motif: /(?:\bGenerateur|\bGenerateur\(\)|racine\.THGenerateur)\s*\.\s*generer\b/g },
+  { fn: 'neVeuxPas', module: 'generateur.js' },
+  { fn: 'remplacePar', module: 'generateur.js' },
+  { fn: 'pourquoi', module: 'generateur.js',
+    motif: /(?:\bGenerateur|\bGenerateur\(\)|racine\.THGenerateur)\s*\.\s*pourquoi\b/g },
+  { fn: 'carteCycles', module: 'generateur.js' }
 ];
 
 // ── LA LISTE D'AUTORISATIONS ────────────────────────────────────────────────
@@ -220,6 +229,29 @@ const AUTORISATIONS = {
   },
   observationsARenvoyer: {
     'app.js': 'les observations à renvoyer à la reprise d’une séance : de la persistance (app.js).'
+  },
+  // ── 60-4 — LE PROGRAMME CONSTRUIT (QUESTIONNAIRE-COACH-V2 §5 bis) ─────────
+  generer: {
+    'app.js': 'QUESTIONNAIRE-COACH-V2 §5 bis (60-4) : le générateur est un calcul du PROGRAMME, avant toute séance — ' +
+      'donc sans plan. L’app compose (`entreeDuProgramme` lit le profil et les faits, `ouvrirApercuProgramme` appelle ' +
+      'le générateur une fois) ; elle ne décide ni un exercice, ni une série, ni des reps.'
+  },
+  neVeuxPas: {
+    'app.js': 'ECRAN-SAISIE §7 quindecies.9 (60-4) : « Je n’en veux pas » dans l’aperçu change SEULE la place touchée, ' +
+      'par la règle du générateur (`ecarterDansLeProgramme`) ; l’écran n’invente pas le remplaçant.'
+  },
+  remplacePar: {
+    'app.js': 'QUESTIONNAIRE-COACH-V2 §5 bis (60-4) : « Remplacer » dans l’aperçu — l’exercice choisi prend la place ' +
+      '(`poserDansLeProgramme`) avec les séries de la place et les reps que la règle du générateur donne à CET exercice.'
+  },
+  pourquoi: {
+    'app.js': 'QUESTIONNAIRE-COACH-V2 §5 bis (60-4) : la ligne « pourquoi » d’une carte de l’aperçu est un fait du ' +
+      'générateur, recalculé après chaque changement (`lectureDuProgramme`) ; l’écran n’additionne aucune série.'
+  },
+  carteCycles: {
+    'app.js': 'MOTEUR §9.22 (60-4) : la carte « Passer en cycles » de Saisie lit la règle du générateur ' +
+      '(`carteCyclesDuProfil`) : l’objectif, les jours depuis la création, les séances du dossier, un dossier déjà ' +
+      'programme, « Juste un carnet », « Pas maintenant » — l’écran ne compte et ne compare rien lui-même.'
   }
 };
 
@@ -428,9 +460,10 @@ const NOTIONS = [
       'décide une fois ; l’écran déplace par `reordonnerBlocs`, sans toucher à la consigne.' },
   { notion: 'les frères proposés par « Machine prise » (et leur ordre, MOTEUR §9.19)', pr: '51-U2',
     module: 'seance.js', fonction: 'freresProposes', lecteurs: ['app.js'],
-    parAilleurs: { 'app.js': ['vueMachinePrise', 'ouvrirRemplacerDansLEditeur'] },
+    parAilleurs: { 'app.js': ['freresDe'] },
     raison: 'les frères pas encore dans la séance d’abord, l’historique le plus récent, puis par nom ; ' +
-      'un frère déjà présent à la fin — une règle, que la feuille affiche sans la refaire.' },
+      'un frère déjà présent à la fin — une règle, que la feuille affiche sans la refaire. 60-4 : UNE liste pour ' +
+      '« Machine prise », « Remplacer » (l’éditeur et l’aperçu du programme) et « Je n’en veux pas » (`freresDe`).' },
   { notion: 'la séance neutre (§7.6), déduite ou DÉCLARÉE par la marque « douleur » (MOTEUR §9.20)', pr: '51-U3',
     module: 'moteur.js', fonction: 'sansPalierRetenues', lecteurs: [],
     par: ['contratDe'],
@@ -806,7 +839,7 @@ const NOTIONS = [
       'un écran qui assemblerait ses séances à part pourrait en oublier une.' },
   { notion: 'la structure d’une routine déduite (celle de « En faire une routine »)', pr: '60-U9',
     module: 'routines.js', fonction: 'routineDeduite', lecteurs: ['app.js'],
-    parAilleurs: { 'app.js': ['creerRoutinesDeduites'] },
+    parAilleurs: { 'app.js': ['creerDansUnDossier'] },
     raison: 'ECRAN-SAISIE §7 quindecies.7 (60-3) : chaque routine cochée devient la structure de « En faire une ' +
       'routine » — les mêmes blocs, les mêmes repos et leur origine, jamais une charge. Pas une seconde règle des repos.' },
   // ── 60-3 — « REMPLACER » DANS L'ÉDITEUR (ECRAN-SAISIE §7 quindecies.8) ───
@@ -826,7 +859,45 @@ const NOTIONS = [
     module: 'profil.js', fonction: 'lignePseudo', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['rendreProfilEcran'] },
     raison: 'ECRAN-PROFIL §3.1 (60-3b) : la phrase « Ce pseudo vient d’être pris » se dit tant qu’aucun pseudo n’est ' +
-      'posé ; elle vit avec la ligne, l’écran ne la compose pas.' }
+      'posé ; elle vit avec la ligne, l’écran ne la compose pas.' },
+  // ── 60-4 — LE PROGRAMME CONSTRUIT (QUESTIONNAIRE-COACH-V2 §5 bis) ─────────
+  { notion: 'la fenêtre de la personne (les 84 jours qui finissent à SA dernière séance, pas aujourd’hui)', pr: '60-U12',
+    module: 'routines.js', fonction: 'fenetreDeLaPersonne', lecteurs: ['faits.js'],
+    par: ['seancesQuiReviennent'],
+    raison: 'QUESTIONNAIRE-COACH-V2 §5 (60-3) : le programme déduit et l’historique du programme construit (60-4) ' +
+      'lisent la MÊME fenêtre ; deux fenêtres écrites à la main finiraient par ne plus se recouvrir.' },
+  { notion: 'l’historique du programme construit (par exercice, le nombre de séances de travail sur la fenêtre de la personne)', pr: '60-U12',
+    module: 'faits.js', fonction: 'historiqueDesExercices', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['entreeDuProgramme'] },
+    raison: 'QUESTIONNAIRE-COACH-V2 §5 bis (60-4) : le générateur ordonne ses candidats par ce que la personne fait ' +
+      'le plus ; le fait vit dans le module des faits (58-1) et le générateur le REÇOIT, il ne relit pas les séances.' },
+  { notion: 'les exercices écartés en fin de liste (le catalogue, les frères de « Machine prise » et de « Remplacer »)', pr: '60-U14',
+    module: 'profil.js', fonction: 'ecartesALaFin', lecteurs: ['app.js'],
+    par: ['rangerParMateriel'],
+    parAilleurs: { 'app.js': ['freresDe'] },
+    raison: 'ECRAN-SAISIE §7 quindecies.9 (60-4) : un exercice écarté passe en fin de liste, jamais caché, avec la mention ' +
+      '« écarté » — la règle « range, ne cache jamais » du matériel, composée, pas un second tri : le catalogue passe par ' +
+      '`rangerParMateriel`, les frères par `freresDe`.' },
+  { notion: 'la carte « Passer en cycles » (Force ou Les deux, 21 jours, 6 séances du dossier, une seule fois)', pr: '60-U15',
+    module: 'generateur.js', fonction: 'carteCycles', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['carteCyclesDuProfil'] },
+    raison: 'MOTEUR §9.22 (60-4) : les seuils (21 jours, 6 séances), l’objectif et les silences se décident une fois, dans le ' +
+      'générateur ; la carte de Saisie lit son verdict, comme le rappel de phase lit `rappelDePhase`.' },
+  { notion: 'les séances faites depuis les routines d’un dossier (le compte de la carte « Passer en cycles »)', pr: '60-U15',
+    module: 'faits.js', fonction: 'seancesDesRoutines', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['carteCyclesDuProfil'] },
+    raison: 'UN-SEUL-FIL (60-4) : l’appartenance d’une séance à un dossier se lit sur `routine_id`, dans le module des faits ; ' +
+      'un écran qui compterait à part pourrait compter une séance importée ou une séance d’avant la création.' },
+  { notion: 'les jours calendaires écoulés depuis la création du programme construit', pr: '60-U15',
+    module: 'profil.js', fonction: 'joursDepuis', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['carteCyclesDuProfil'] },
+    raison: 'MOTEUR §9.22 (60-4) : 21 jours CALENDAIRES (le changement d’heure ne les change pas), la même arithmétique que ' +
+      'le rappel de phase (`jourCalendaire`) — pas une soustraction de millisecondes à l’écran.' },
+  { notion: 'la durée que le programme construit doit tenir (la durée déclarée, avec « C’est mon maximum », « Moins en ce moment » ou « Ça varie »)', pr: '60-U13',
+    module: 'moteur.js', fonction: 'cibleDuProgramme', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['raccourcirLeProgramme'] },
+    raison: 'MOTEUR §9.18 (G8, 60-4) : quelles réponses de temps font raccourcir le programme, et à quelle durée, se décide ' +
+      'une fois dans le moteur ; l’app lit le résultat et passe par `raccourcirRoutine`, elle ne teste pas `temps_reponse`.' }
 ];
 
 // ── 58-1 — UN FAIT NE SE DÉCLARE QUE DANS `faits.js` ─────────────────────────
@@ -956,7 +1027,8 @@ describe('architecture — un seul coach, un seul câblage', () => {
     global.self = global;
     require('../../v2/js/modele.js');
     require('../../v2/js/palier.js');
-    const modules = { 'moteur.js': require('../../v2/js/moteur.js'), 'seance.js': require('../../v2/js/seance.js') };
+    const modules = { 'moteur.js': require('../../v2/js/moteur.js'), 'seance.js': require('../../v2/js/seance.js'),
+      'generateur.js': require('../../v2/js/generateur.js') };
     const absentes = GARDEES.filter((g) => typeof modules[g.module][g.fn] !== 'function')
       .map((g) => g.module + ' n’exporte plus `' + g.fn + '` : mets la liste GARDEES à jour.');
     expect(absentes).toEqual([]);
@@ -1148,7 +1220,7 @@ describe('architecture — le registre des notions : une source, des lecteurs', 
 describe('architecture — le module des faits : un fait ne se déclare que dans faits.js (58-1)', () => {
   const FICHIERS = perimetre();
 
-  test('les faits du module : dix-huit (treize en 58-1, trois du journal en 58-2, un du questionnaire en 60-2a, un du programme déduit en 60-3), chacun déclaré et exporté par faits.js', () => {
+  test('les faits du module : dix-neuf (treize en 58-1, trois du journal en 58-2, un du questionnaire en 60-2a, un du programme déduit en 60-3, un de l’historique du programme construit en 60-4), chacun déclaré et exporté par faits.js', () => {
     global.self = global;
     require('../../v2/js/modele.js');
     require('../../v2/js/semaine.js');
@@ -1158,7 +1230,7 @@ describe('architecture — le module des faits : un fait ne se déclare que dans
     require('../../v2/js/seance.js');
     require('../../v2/js/periode.js');
     const instance = require('../../v2/js/faits.js').creer();
-    expect(FAITS.length).toBe(18);
+    expect(FAITS.length).toBe(20);
     expect(FAITS.filter((fn) => typeof instance[fn] !== 'function')).toEqual([]);
   });
 

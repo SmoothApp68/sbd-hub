@@ -26,6 +26,7 @@ function profilEcran(profil, options) {
   const ecrits = [];
   const ouverts = [];
   const questionnairesOuverts = [];
+  const programmesOuverts = [];
   let vue = null;
   const element = () => ({ textContent: '' });
   const ctx = {
@@ -51,13 +52,15 @@ function profilEcran(profil, options) {
     // l'écran ouvre, relevé (`ouverts`), et le questionnaire (`questionnairesOuverts`).
     ouvrirReponseProfil: (cle) => { ouverts.push(cle); },
     ouvrirQuestionnaire: () => { questionnairesOuverts.push(true); },
+    // 60-4 — le programme construit : « Zone à ménager », « Exercices écartés », « Refaire mon programme ».
+    ouvrirProgrammeProfil: (quoi) => { programmesOuverts.push(quoi); },
     // 60-3b — « pris entre-temps » : l'état retenu en local par compte (`pseudoPrisSignale`, app.js).
     pseudoPrisSignale: () => !!opt.pseudoPris
   };
   vm.createContext(ctx);
   vm.runInContext(extraire('rendreProfilEcran'), ctx);
   vm.runInContext('rendreProfilEcran()', ctx);
-  return { vue, ecrits, ouverts, questionnairesOuverts, section: (titre) => (vue.sections || []).filter((s) => s && s.titre === titre)[0] || null };
+  return { vue, ecrits, ouverts, questionnairesOuverts, programmesOuverts, section: (titre) => (vue.sections || []).filter((s) => s && s.titre === titre)[0] || null };
 }
 
 module.exports = { profilEcran, extraire };

@@ -677,6 +677,7 @@ button.bloc-exo:active{background:var(--panneau-2)}
   color:var(--texte);font-family:inherit;font-size:14px;line-height:1.4;
   padding:11px var(--e1)}
 .resultat:active{background:var(--panneau-2)}
+.resultat .resultat-mention{display:block;font-size:12px;color:var(--texte-3);margin-top:2px}
 
 /* ══ LA SÉANCE EN COURS (chantier 22) ════════════════════════════════════════
    Six colonnes, vérifiées à 360 px : 30 · 62 · 1fr · 44 · 40 · 40 plus les
@@ -1590,6 +1591,32 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .retrouver-carte .rc-ancienne{font-size:12px;color:var(--texte-3)}
 .retrouver-rien{font-size:13.5px;line-height:1.45;color:var(--texte-2);margin:0 0 var(--e2)}
 
+/* 60-4 (QUESTIONNAIRE §5 bis) — L'aperçu du programme construit : une carte par séance (nom, « ≈ 69 min »,
+   ligne « pourquoi »), puis chaque exercice en bouton, séries × reps à droite. L'exercice qui vient de
+   changer porte la couleur du coach (`.neuf`). */
+.apercu-programme{margin:0 0 var(--e3)}
+.ap-routine{background:var(--panneau-2);border:1px solid var(--trait);border-radius:var(--r-petit);
+  margin-bottom:var(--e2);overflow:hidden}
+.ap-tete{display:flex;justify-content:space-between;align-items:baseline;gap:var(--e2);padding:10px 12px 2px}
+.ap-nom{font-weight:700;font-size:15px;overflow-wrap:anywhere}
+.ap-duree{color:var(--texte-2);font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.ap-pourquoi{margin:0;padding:0 12px 6px;font-size:12.5px;color:var(--texte-2)}
+.ap-ex{display:flex;justify-content:space-between;align-items:flex-start;gap:var(--e2);width:100%;
+  padding:9px 12px;background:none;border:0;border-top:1px solid var(--trait);color:var(--texte);
+  font:inherit;font-size:13.5px;text-align:left;cursor:pointer}
+.ap-ex.neuf{background:rgba(242,184,75,.10)}
+.ap-ex-corps{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.ap-ex-nom{overflow-wrap:anywhere}
+.ap-ex-mention{font-size:12px;color:var(--texte-2)}
+.ap-ex-series{flex:none;font-weight:650;font-variant-numeric:tabular-nums;white-space:nowrap}
+
+/* 60-4 (ECRAN-PROFIL §4 bis) — « Exercices écartés » : une ligne par exercice, « Reprendre » à droite. */
+.ecartes-liste{margin:0 0 var(--e2)}
+.ecarte-ligne{display:flex;align-items:center;justify-content:space-between;gap:var(--e2);
+  padding:10px 2px;border-bottom:1px solid var(--trait);font-size:14px}
+.ecarte-nom{flex:1;min-width:0;overflow-wrap:anywhere}
+.ecarte-reprendre{flex:none}
+
 /* ── MOTEUR §9.23 (55-1) — LE MOIS ET SES RECORDS (maquette « L'onglet »,
    « Le mois »). Descriptif : le mois affiché en couleur du coach, les autres
    en gris, quelle que soit leur hauteur ; aucune couleur de jugement. */
@@ -1671,6 +1698,9 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
   min-width:64px;padding:var(--e1) 0;text-align:left}
 .q-retour.vide{display:inline-block}
 .q-prog{flex:1;height:4px;background:var(--panneau-2);border-radius:9px;overflow:hidden}
+.q-prog.vide{background:transparent}
+.voix-collante{position:sticky;top:var(--e2);z-index:5;margin:0 0 var(--e3);padding:var(--e2) var(--e3);
+  background:var(--panneau);border:1px solid var(--trait);border-radius:var(--r-petit)}
 .q-prog i{display:block;height:100%;background:var(--accent)}
 .q-plus-tard{background:none;border:0;color:var(--texte-2);font-size:13px;font-weight:500;
   padding:var(--e1) 0}

@@ -68,20 +68,37 @@
     return autorises.indexOf(equipement) < 0;
   }
 
+  // LES ÉCARTÉS, EN FIN DE LISTE (ECRAN-SAISIE §7 quindecies.9, MOTEUR §9.19) : un exercice que la personne a refusé
+  // n'est jamais caché — il passe APRÈS tout le reste, dans l'ordre où il était. Une partition stable, comme le
+  // matériel : la même règle « range, ne cache jamais ». `liste` : des éléments qui portent `.slug` ; `ecartes` : des
+  // slugs. Sans écarté, la liste reçue (la même référence).
+  function ecartesALaFin(liste, ecartes) {
+    var e = Array.isArray(ecartes) ? ecartes : [];
+    if (!e.length) return liste;
+    var dans = [], fin = [];
+    (liste || []).forEach(function (x) { (x && e.indexOf(x.slug) >= 0 ? fin : dans).push(x); });
+    return dans.concat(fin);
+  }
+
   // Range une liste d'exercices du catalogue (`{ slug, equipement }`) : ce qui
   // sort du matériel passe APRÈS, dans le même ordre ; rien n'est retiré. Un
   // exercice déjà fait par la personne (`faits` : `{ [slug]: … }`) n'est jamais
   // rétrogradé — c'est son historique, pas son matériel qui parle. Sans
-  // matériel renseigné, la liste rendue est celle reçue.
-  function rangerParMateriel(liste, materiel, faits) {
+  // matériel renseigné, la liste rendue est celle reçue. 60-4 : les ÉCARTÉS
+  // (`ecartes`, des slugs) passent en tout dernier, fait ou non — c'est le même
+  // rangement, pas un second tri.
+  function rangerParMateriel(liste, materiel, faits, ecartes) {
     var autorises = equipementsDe(materiel);
-    if (!autorises) return liste;
-    var dans = [], apres = [];
-    (liste || []).forEach(function (x) {
-      var fait = !!(faits && x && Object.prototype.hasOwnProperty.call(faits, x.slug));
-      (!fait && x && estHorsMateriel(x.equipement, autorises) ? apres : dans).push(x);
-    });
-    return dans.concat(apres);
+    var rangee = liste;
+    if (autorises) {
+      var dans = [], apres = [];
+      (liste || []).forEach(function (x) {
+        var fait = !!(faits && x && Object.prototype.hasOwnProperty.call(faits, x.slug));
+        (!fait && x && estHorsMateriel(x.equipement, autorises) ? apres : dans).push(x);
+      });
+      rangee = dans.concat(apres);
+    }
+    return ecartesALaFin(rangee, ecartes);
   }
 
   // EN FOURCHETTE, PAS UNE DATE (§2.2). « Depuis quand régulièrement » — on peut
@@ -280,6 +297,15 @@
     var d = v instanceof Date ? v : new Date(/^\d{4}-\d{2}-\d{2}$/.test(String(v)) ? String(v) + 'T00:00:00' : v);
     if (isNaN(d.getTime())) return null;
     return Math.round(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000);
+  }
+
+  // 60-4 — Les jours CALENDAIRES écoulés depuis un instant (Date, ISO ou date seule) jusqu'à `aujourdhui` : la carte
+  // « Passer en cycles » compte 21 jours après la création du programme (`programme_construit_le`). `null` si l'un
+  // des deux est illisible ; négatif si `depuis` est dans le futur.
+  function joursDepuis(depuis, aujourdhui) {
+    var d = jourCalendaire(depuis);
+    var a = jourCalendaire(aujourdhui === undefined ? new Date() : aujourdhui);
+    return d === null || a === null ? null : a - d;
   }
 
   // Vrai quand une phase est DÉCLARÉE et que sa dernière confirmation date de
@@ -535,14 +561,20 @@
                        'rythme_progression', 'phase', 'phase_depuis', 'lest_reponse', 'lest_reponse_le',
                        'materiel',
                        'seances_par_semaine', 'duree_seance_min',
-                       // 60-2a (v2_065) — le questionnaire du coach. `zones_a_menager` et
-                       // `zone_force_reponse*` n'y sont PAS : ni écrites ni lues avant le
-                       // générateur (SCHEMA-REEL).
+                       // 60-2a (v2_065) — le questionnaire du coach. `zone_force_reponse*` n'y
+                       // est PAS : ni écrite ni lue (SCHEMA-REEL).
                        'objectif', 'objectif_depuis', 'priorites', 'temps_reponse',
                        'historique_declare', 'phase_confirmee_le', 'questionnaire_fait_le',
-                       // 60-3 — l'écran 8 (« Ton programme ») : `deduit` ou `moi`
-                       // (CHECK `deduit` · `moi` · `construis`, relevé au schéma le 08/10).
+                       // 60-3 — l'écran 8 (« Ton programme ») : `deduit`, `moi`, et depuis 60-4
+                       // `construis` (CHECK `deduit` · `moi` · `construis`, relevé au schéma le 08/10).
                        'programme_choix',
+                       // 60-4 (v2_066) — le programme construit (QUESTIONNAIRE-COACH-V2 §5 bis) : la
+                       // zone à ménager (lue par le générateur seulement), les exercices écartés, le
+                       // dossier du programme construit et sa date, la date de la carte « Passer en
+                       // cycles ». Leurs bornes sont celles des CHECK (`preparerChamps`) : un 23514
+                       // bloquerait l'envoi de TOUT le profil.
+                       'zones_a_menager', 'exercices_ecartes', 'programme_construit_dossier',
+                       'programme_construit_le', 'carte_cycles_le',
                        'onboarding_completed'];
 
   function champsEcrits(champs) {
@@ -604,13 +636,77 @@
     { cle: 'debutant', libelle: 'Non, je débute' }
   ];
 
-  // L'écran 8 (« Ton programme », 60-3) : deux chemins. « Construis-le-moi »
-  // (`construis`, permis par la base) attend le générateur (60-4) : sans lui, la
-  // réponse n'aurait pas de lecteur — elle n'est ni proposée ni écrite.
+  // L'écran 8 (« Ton programme », 60-3) : trois chemins. « Construis-le-moi »
+  // (`construis`, permis par la base) a son lecteur depuis 60-4 : le générateur
+  // (QUESTIONNAIRE-COACH-V2 §5 bis).
   var PROGRAMMES = [
     { cle: 'deduit', libelle: 'Garder ce que je fais' },
-    { cle: 'moi', libelle: 'Je crée mes routines moi-même' }
+    { cle: 'moi', libelle: 'Je crée mes routines moi-même' },
+    { cle: 'construis', libelle: 'Construis-le-moi' }
   ];
+
+  // ── LE PROGRAMME CONSTRUIT : zones à ménager, exercices écartés, dossier (60-4) ──
+  //
+  // LES ZONES À MÉNAGER (`profiles.zones_a_menager`, v2_065) : cinq clés, celles du CHECK de la base
+  // (`profiles_zones_a_menager_ok`) ET celles que le générateur charge (`Generateur.CHARGE_ZONE`, un test les
+  // rapproche). « Aucune » n'est pas une valeur : c'est la liste vide, écrite `NULL` (vide = NULL). Le
+  // générateur seul les lit ; rien n'en change en séance (« J'ai mal » reste là).
+  var ZONES_A_MENAGER = [
+    { cle: 'epaule', libelle: 'Épaule' },
+    { cle: 'dos', libelle: 'Dos' },
+    { cle: 'genou', libelle: 'Genou' },
+    { cle: 'coude', libelle: 'Coude' },
+    { cle: 'hanche', libelle: 'Hanche' }
+  ];
+
+  // Une liste de zones telle que la base la veut : connues, sans doublon, dans l'ordre de `ZONES_A_MENAGER`
+  // (une même sélection s'écrit toujours pareil). `[]` est valide (« aucune ») ; ce qui n'est pas une liste
+  // n'en est pas une (`null`).
+  function zonesAMenagerValides(liste) {
+    if (!Array.isArray(liste)) return null;
+    return ZONES_A_MENAGER.filter(function (z) { return liste.indexOf(z.cle) >= 0; })
+      .map(function (z) { return z.cle; });
+  }
+
+  // Une zone qu'on touche : on l'ajoute, ou on la retire ; « aucune » les retire toutes. L'écran 8b et la
+  // feuille du Profil la partagent : un seul geste, une seule règle.
+  function basculerZone(liste, cle) {
+    if (cle === 'aucune') return [];
+    var l = zonesAMenagerValides(liste) || [];
+    if (ZONES_A_MENAGER.every(function (z) { return z.cle !== cle; })) return l;
+    var i = l.indexOf(cle);
+    if (i >= 0) l.splice(i, 1);
+    else l.push(cle);
+    return zonesAMenagerValides(l);
+  }
+
+  // LES EXERCICES ÉCARTÉS (`profiles.exercices_ecartes`, ECRAN-SAISIE §7 quindecies.9) : des slugs du catalogue,
+  // sans doublon, dans l'ordre où on les a écartés ; deux cents au plus (le CHECK de la base) — au-delà, les plus
+  // anciens s'effacent. `[]` est valide ; ce qui n'est pas une liste n'en est pas une (`null`).
+  var ECARTES_MAX = 200, SLUG_MAX = 120;
+  function ecartesValides(liste) {
+    if (!Array.isArray(liste)) return null;
+    var vus = Object.create(null), sortie = [];     // sans prototype : « constructor » est un slug comme un autre
+    liste.forEach(function (x) {
+      if (typeof x !== 'string' || x === '' || x.length > SLUG_MAX || x !== x.trim() || vus[x]) return;
+      vus[x] = true;
+      sortie.push(x);
+    });
+    return sortie.length > ECARTES_MAX ? sortie.slice(sortie.length - ECARTES_MAX) : sortie;
+  }
+
+  // Les écartés EFFECTIFS d'un profil : la liste valide, sinon aucun.
+  function ecartesDe(profil) { return ecartesValides(profil && profil.exercices_ecartes) || []; }
+
+  // LE DOSSIER DU PROGRAMME CONSTRUIT (`profiles.programme_construit_dossier`) : la borne de `routines.dossier`
+  // (`routines_dossier_ok`) — 1 à 40 caractères, SANS espace autour. Il ne se tronque pas : c'est le NOM RÉEL du
+  // dossier créé, un nom coupé ne désignerait plus rien (la carte « Passer en cycles » compte les séances de ce
+  // dossier).
+  var DOSSIER_PROGRAMME_MAX = 40;
+  function dossierDuProgrammeValide(nom) {
+    return typeof nom === 'string' && nom === nom.trim() && nom.length >= 1 && nom.length <= DOSSIER_PROGRAMME_MAX
+      ? nom : null;
+  }
 
   // LES PRIORITÉS (QUESTIONNAIRE §3, écran 6) : jusqu'à trois, des EXERCICES
   // ou des MUSCLES. Les cinq exercices sont des slugs du catalogue, relevés sur
@@ -802,6 +898,31 @@
       if (liste !== null && !memeListe(liste, p.priorites)) sortie.priorites = liste;
     }
 
+    // 60-4 — le programme construit. Les listes vides s'écrivent `NULL` (vide = NULL) et se comparent
+    // comme telles : « aucune zone » sur une colonne vide n'écrit rien. Un dossier hors des bornes, une date
+    // illisible ne partent pas (un 23514 bloquerait l'envoi de tout le profil).
+    if (e.zones_a_menager !== undefined && e.zones_a_menager !== null) {
+      var zones = zonesAMenagerValides(e.zones_a_menager);
+      if (zones !== null && !memeListe(zones, zonesAMenagerValides(p.zones_a_menager) || [])) {
+        sortie.zones_a_menager = zones.length ? zones : null;
+      }
+    }
+    if (e.exercices_ecartes !== undefined && e.exercices_ecartes !== null) {
+      var ecartes = ecartesValides(e.exercices_ecartes);
+      if (ecartes !== null && !memeListe(ecartes, ecartesValides(p.exercices_ecartes) || [])) {
+        sortie.exercices_ecartes = ecartes.length ? ecartes : null;
+      }
+    }
+    if (present(e.programme_construit_dossier)) {
+      var dossier = dossierDuProgrammeValide(e.programme_construit_dossier);
+      if (dossier !== null && differe('programme_construit_dossier', dossier)) sortie.programme_construit_dossier = dossier;
+    }
+    ['programme_construit_le', 'carte_cycles_le'].forEach(function (cle) {
+      if (!present(e[cle])) return;
+      var t = e[cle] instanceof Date ? e[cle] : new Date(e[cle]);
+      if (!isNaN(t.getTime()) && differe(cle, t.toISOString())) sortie[cle] = t.toISOString();
+    });
+
     if (e.fait === true) sortie.questionnaire_fait_le = quand;
     return sortie;
   }
@@ -888,6 +1009,38 @@
   function ligneQuestionnaire(profil, ouvrir) {
     if (!questionnaireAFaire(profil)) return null;
     return { libelle: 'Terminer mon questionnaire', surChoix: ouvrir };
+  }
+
+  // ══ LE PROGRAMME CONSTRUIT, AU PROFIL (60-4, ECRAN-PROFIL §4 bis, G10) ════════
+  //
+  // Trois lignes dans la section du matériel : « Zone à ménager » (une feuille à puces), « Exercices écartés » (la
+  // liste, « Reprendre » sur chacun ; vide : la ligne ne s'affiche pas) et « Refaire mon programme » (les deux
+  // questions de l'écran 8b, puis l'aperçu ; un NOUVEAU dossier, l'ancien reste). Chaque phrase dit ce qui est
+  // branché : le programme construit lit la zone et les écartés, rien d'autre.
+  var PHRASE_ZONES = 'Ton programme construit la garde sans série lourde. Rien ne change en séance.';
+  var PHRASE_ECARTES = 'Un exercice écarté n\u2019est plus proposé dans tes programmes. Il reste au catalogue, en fin de liste.';
+  var PHRASE_REFAIRE = 'Je te pose deux questions et je te construis un nouveau dossier. Le tien reste tel quel.';
+
+  // « Genou, Dos » — dans l'ordre de la liste ; « Aucune » quand il n'y en a pas (une réponse, pas un trou).
+  function libelleDesZones(profil) {
+    var zones = zonesAMenagerValides(profil && profil.zones_a_menager) || [];
+    if (!zones.length) return 'Aucune';
+    return ZONES_A_MENAGER.filter(function (z) { return zones.indexOf(z.cle) >= 0; })
+      .map(function (z) { return z.libelle; }).join(', ');
+  }
+
+  // `ouvrir(quoi)` : 'zones', 'ecartes' ou 'refaire'. Les lignes sont rendues par `rendreProfil` comme les autres.
+  function lignesProgramme(profil, ouvrir) {
+    var lignes = [{ libelle: 'Zone à ménager', sous: PHRASE_ZONES, valeur: libelleDesZones(profil),
+                    surChoix: function () { ouvrir('zones'); } }];
+    var ecartes = ecartesDe(profil);
+    if (ecartes.length) {
+      lignes.push({ libelle: 'Exercices écartés', sous: PHRASE_ECARTES, valeur: String(ecartes.length),
+                    surChoix: function () { ouvrir('ecartes'); } });
+    }
+    lignes.push({ libelle: 'Refaire mon programme', sous: PHRASE_REFAIRE, sansValeur: true,
+                  surChoix: function () { ouvrir('refaire'); } });
+    return lignes;
   }
 
   // ══ LE PSEUDO ════════════════════════════════════════════════════════════
@@ -1083,6 +1236,9 @@
     libelleAnciennete: libelleAnciennete,
     manquants: manquants,
     OBJECTIFS: OBJECTIFS, TEMPS_REPONSES: TEMPS_REPONSES, HISTORIQUES: HISTORIQUES, PROGRAMMES: PROGRAMMES,
+    ZONES_A_MENAGER: ZONES_A_MENAGER, zonesAMenagerValides: zonesAMenagerValides, basculerZone: basculerZone,
+    ECARTES_MAX: ECARTES_MAX, ecartesValides: ecartesValides, ecartesDe: ecartesDe, ecartesALaFin: ecartesALaFin,
+    DOSSIER_PROGRAMME_MAX: DOSSIER_PROGRAMME_MAX, dossierDuProgrammeValide: dossierDuProgrammeValide,
     PHRASE_PSEUDO_PRIS: PHRASE_PSEUDO_PRIS, pseudoDeLInscription: pseudoDeLInscription, lignePseudo: lignePseudo,
     EXERCICES_PRIORITAIRES: EXERCICES_PRIORITAIRES, PRIORITES_MAX: PRIORITES_MAX,
     musclesPrioritaires: musclesPrioritaires, prioritesValides: prioritesValides,
@@ -1091,6 +1247,8 @@
     basculerPriorite: basculerPriorite, libelleDePriorite: libelleDePriorite, resumeDesPriorites: resumeDesPriorites,
     AIDE_OBJECTIF: AIDE_OBJECTIF, AIDE_PRIORITES: AIDE_PRIORITES, optionsTemps: optionsTemps,
     sectionBut: sectionBut, ligneTemps: ligneTemps, ligneQuestionnaire: ligneQuestionnaire,
+    lignesProgramme: lignesProgramme, libelleDesZones: libelleDesZones, joursDepuis: joursDepuis,
+    PHRASE_ZONES: PHRASE_ZONES, PHRASE_ECARTES: PHRASE_ECARTES, PHRASE_REFAIRE: PHRASE_REFAIRE,
     doitOuvrirQuestionnaire: doitOuvrirQuestionnaire,
     questionnaireAFaire: questionnaireAFaire,
     champsEcrits: champsEcrits,

@@ -24,6 +24,7 @@ require('../../v2/js/palier.js');
 require('../../v2/js/moteur.js');
 const Routines = require('../../v2/js/routines.js');
 const Seance = require('../../v2/js/seance.js');
+const ProfilReel = require('../../v2/js/profil.js');
 require('../../v2/js/rendu.js');
 const Rendu = () => window.THRendu;
 
@@ -138,7 +139,7 @@ function extraire(nom) {
   return m[0];
 }
 const FONCTIONS = ['ouvrirFeuilleExoRoutine', 'ouvrirRemplacerDansLEditeur', 'remplacerDansLEditeur', 'renumeroterBrouillon',
-  'faitsDesFreres', 'horsDuMateriel', 'nomExoBrouillon', 'rendreCatalogue', 'ouvrirCatalogue', 'indiceOuNul'];
+  'freresDe', 'neVeutPasDansLEditeur', 'annoncerDansLEditeur', 'faitsDesFreres', 'horsDuMateriel', 'nomExoBrouillon', 'rendreCatalogue', 'ouvrirCatalogue', 'indiceOuNul'];
 
 const CATALOGUE = [
   { slug: 'dc-barre', nom: 'Développé couché (barre)', mesure: 'charge_reps', mouvement: 'developpe_couche', equipement: 'barre' },
@@ -158,7 +159,9 @@ function bac(options) {
     profil: { materiel: o.equipements ? 'banc' : null },
     // 60-1 — le matériel du profil RANGE les frères (`horsDuMateriel`) : `o.equipements` le pose.
     Profil: { equipementsDe: () => o.equipements || null,
-              estHorsMateriel: (eq, autorises) => autorises.indexOf(eq) < 0 },
+              estHorsMateriel: (eq, autorises) => autorises.indexOf(eq) < 0,
+              // 60-4 — les écartés en fin de liste : les VRAIES fonctions du profil.
+              ecartesDe: ProfilReel.ecartesDe, ecartesALaFin: ProfilReel.ecartesALaFin, preparerChamps: ProfilReel.preparerChamps },
     // `derniereSeanceDe` : le fait du frère, la fonction de « Dernière séance ».
     derniereSeanceDe: (slug) => (!o.jamaisFait && slug === 'dc-machine' ? { charge_kg: 70, reps: 8, date: '2026-09-30T10:00:00Z' } : null),
     brouillon: { id: 'r1', nom: 'Push', exercices: [

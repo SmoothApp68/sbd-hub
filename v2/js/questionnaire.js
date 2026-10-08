@@ -20,11 +20,13 @@
 // la durée des longues séances).
 //
 // L'ÉCRAN « TON PROGRAMME » (8) existe depuis 60-3, SEULEMENT pour qui n'a aucune
-// routine ET au moins une séance en base (QUESTIONNAIRE §3, 60-3b : sans séance, c'est
-// une question à un seul choix, elle n'apprend rien) : « Garder ce que je fais » ouvre, après « Commencer »,
-// la feuille « Tes séances qui reviennent » (8a, ECRAN-SAISIE §7 quindecies.7) ;
-// « Je crée mes routines moi-même » mène à la bibliothèque. 8b (« Construis-le-moi »)
-// attend le générateur (60-4).
+// routine (QUESTIONNAIRE §3). Trois choix : « Garder ce que je fais » (seulement avec au moins
+// une séance en base — sans séance, il n'a rien à retrouver) ouvre, après « Commencer », la
+// feuille « Tes séances qui reviennent » (8a, ECRAN-SAISIE §7 quindecies.7) ; « Je crée mes
+// routines moi-même » mène à la bibliothèque ; « Construis-le-moi » (60-4) ouvre l'écran 8b
+// (les jours, la zone à ménager) puis, après « Commencer », l'aperçu du programme construit
+// (QUESTIONNAIRE §5 bis). L'écran 8 a donc toujours deux choix au moins : il n'est plus
+// caché sans séance (60-3b le cachait).
 
 (function (racine) {
   'use strict';
@@ -32,14 +34,17 @@
   function Profil() { return racine.THProfil; }
   function Poids() { return racine.THPoids; }
   function Modele() { return racine.THModele; }
+  function Generateur() { return racine.THGenerateur; }
 
   var INSECABLE = ' ';
 
   // ── Les écrans, dans l'ordre ─────────────────────────────────────────────
   var BIENVENUE = 'bienvenue', DONNEES = 'donnees', SAIT = 'sait', SANS_HISTORIQUE = 'sans_historique';
   var TOI = 'toi', BUT = 'but', PRIORITES = 'priorites', TEMPS = 'temps', PROGRAMME = 'programme';
+  var CONSTRUIT = 'construit';   // l'écran 8b (60-4) : « Construis-le-moi »
   var COACH = 'coach', RECAP = 'recap';
-  var ECRANS = [BIENVENUE, DONNEES, SAIT, SANS_HISTORIQUE, TOI, BUT, PRIORITES, TEMPS, PROGRAMME, COACH, RECAP];
+  var ECRANS = [BIENVENUE, DONNEES, SAIT, SANS_HISTORIQUE, TOI, BUT, PRIORITES, TEMPS, PROGRAMME, CONSTRUIT,
+                COACH, RECAP];
 
   // L'écran 3a (« Ce que je sais ») ET l'écran 3b (« Sans historique ») : l'un
   // OU l'autre. 3a si la personne a au moins une séance en base et n'a pas
@@ -48,13 +53,12 @@
   //    aDesRoutines: bool | null }`.
   //
   // L'écran 8 (« Ton programme », 60-3) : SEULEMENT quand on SAIT que la personne
-  // n'a aucune routine (`aDesRoutines === false`) ET qu'elle a au moins une séance en
-  // base (60-3b). Les routines vivent en ligne : tant qu'on ne les a pas lues (`null`,
-  // hors ligne), l'écran n'existe pas — qui a déjà ses routines ne se voit jamais
+  // n'a aucune routine (`aDesRoutines === false`), avec ou sans séance (60-4 : « Construis-le-moi »
+  // lui donne toujours deux choix). Les routines vivent en ligne : tant qu'on ne les a pas lues
+  // (`null`, hors ligne), l'écran n'existe pas — qui a déjà ses routines ne se voit jamais
   // proposer ses anciennes séances, et la ligne de Routines sert à tout le monde.
-  // Sans séance, « Garder ce que je fais » n'aurait rien à retrouver et l'écran n'aurait
-  // qu'un seul choix : il n'existe pas (barre de progression comprise), et
-  // `programme_choix` n'est pas écrit.
+  // L'écran 8b (« Construis-le-moi », 60-4) suit l'écran 8 quand ce choix est fait
+  // (`contexte.programme === 'construis'`) : la barre de progression le compte alors.
   function aUnHistorique(contexte) {
     var c = contexte || {};
     return !!c.aDesSeances && c.historique !== 'debutant';
@@ -65,7 +69,8 @@
     return ECRANS.filter(function (id) {
       if (id === SAIT) return avec;
       if (id === SANS_HISTORIQUE) return !avec;
-      if (id === PROGRAMME) return !!contexte && contexte.aDesRoutines === false && !!contexte.aDesSeances;
+      if (id === PROGRAMME) return !!contexte && contexte.aDesRoutines === false;
+      if (id === CONSTRUIT) return !!contexte && contexte.aDesRoutines === false && contexte.programme === 'construis';
       return true;
     });
   }
@@ -133,19 +138,37 @@
       temps: nul(p.temps_reponse),
       materiel: nul(p.materiel),
       programme: Profil().libelleDe(Profil().PROGRAMMES, p.programme_choix) ? p.programme_choix : null,
+      menager: Profil().zonesAMenagerValides(p.zones_a_menager) || [],
       coach: coachDe(p)
     };
   }
 
+  // LES JOURS DE « CONSTRUIS-LE-MOI » (60-4) : 2 à 6, les bornes du générateur (jamais recopiées). Ceux que
+  // la personne a déjà dits (`seances_par_semaine`, par 3b ou le Profil) d'abord, bornés ; sinon le rythme que
+  // l'écran 3a lui a montré (`faits.rythme`), arrondi et borné ; sinon rien — elle choisit.
+  function joursValides(n) {
+    var G = Generateur();
+    return typeof n === 'number' && Math.floor(n) === n && n >= G.JOURS_MIN && n <= G.JOURS_MAX;
+  }
+  function joursPrecoches(rep, faits) {
+    var G = Generateur();
+    var borne = function (x) { return Math.max(G.JOURS_MIN, Math.min(G.JOURS_MAX, Math.round(x))); };
+    var declares = rep && Number(rep.seances);
+    if (declares >= 1) return borne(declares);
+    var rythme = faits && Number(faits.rythme);
+    return rythme >= 1 ? borne(rythme) : null;
+  }
+
   // « Continuer » : actif partout, SAUF aux écrans qui ont une réponse
   // obligatoire — 2 (l'historique), 5 (l'objectif ET la phase), 8 (le chemin du
-  // programme, §1.3 : « tout est facultatif sauf le chemin du programme ») et 9
-  // (le coach). Tout le reste est facultatif : sans réponse, rien n'est écrit.
+  // programme, §1.3 : « tout est facultatif sauf le chemin du programme »), 8b (les jours de
+  // « Construis-le-moi ») et 9 (le coach). Tout le reste est facultatif : sans réponse, rien n'est écrit.
   function ecranPret(id, rep) {
     var r = rep || {};
     if (id === DONNEES) return !!r.historique;
     if (id === BUT) return !!r.objectif && !!r.phase;
     if (id === PROGRAMME) return !!r.programme;
+    if (id === CONSTRUIT) return joursValides(r.seances);
     if (id === COACH) return !!r.coach;
     return true;
   }
@@ -190,6 +213,7 @@
       entrees = { temps_reponse: r.temps, materiel: r.materiel,
                   duree_seance_min: r.temps === 'moins' && r.dureeMoins ? r.dureeMoins : r.duree };
     } else if (id === PROGRAMME) entrees = { programme_choix: r.programme };
+    else if (id === CONSTRUIT) entrees = { seances_par_semaine: r.seances, zones_a_menager: r.menager };
     else if (id === COACH) entrees = coachEnChamps(r.coach);
     else if (id === RECAP) entrees = { fait: true };
     return {
@@ -224,6 +248,7 @@
     var r = Object.assign({}, rep);
     if (cle === 'priorite') r.priorites = basculerPriorite(r.priorites, valeur);
     else if (cle === 'aucune') r.priorites = [];
+    else if (cle === 'zone') r.menager = Profil().basculerZone(r.menager, valeur);
     else if (CHOIX.indexOf(cle) >= 0) r[cle] = valeur;
     return r;
   }
@@ -326,7 +351,8 @@
   // L'écran 8 : les sous-lignes de la maquette v4, ce que le code fait de la réponse.
   var SOUS_PROGRAMME = {
     deduit: 'Je retrouve tes séances qui reviennent et j’en fais tes routines',
-    moi: 'L’éditeur de routines, à ton rythme'
+    moi: 'L’éditeur de routines, à ton rythme',
+    construis: 'Quelques questions de plus, et je te propose un programme'
   };
 
   function avecSous(liste, sous) {
@@ -494,15 +520,38 @@
     return { id: TEMPS, etape: 'Temps et matériel', titre: titre, voix: null, blocs: blocs };
   }
 
-  // L'écran 8 (60-3) : les deux chemins. Il n'est du parcours que pour qui a au moins une séance
-  // (`ecransVisibles`, 60-3b) : « Garder ce que je fais » a toujours quelque chose à retrouver.
+  // L'écran 8 (60-3) : les trois chemins. « Garder ce que je fais » n'est proposé qu'avec au moins une
+  // séance en base (60-4) : sans elle, il n'aurait rien à retrouver ; les deux autres le sont toujours.
   function ecranProgramme(etat) {
+    var options = avecSous(Profil().PROGRAMMES, SOUS_PROGRAMME).filter(function (o) {
+      return o.cle !== 'deduit' || !!etat.aDesSeances;
+    });
     return {
       id: PROGRAMME, etape: 'Ton programme',
       titre: 'Comment veux-tu t’entraîner ?',
       voix: null,
-      blocs: [{ type: 'options', cle: 'programme', valeur: etat.rep.programme,
-                options: avecSous(Profil().PROGRAMMES, SOUS_PROGRAMME) }]
+      blocs: [{ type: 'options', cle: 'programme', valeur: etat.rep.programme, options: options }]
+    };
+  }
+
+  // L'écran 8b (60-4, QUESTIONNAIRE §3 et §5 bis) : « Construis-le-moi ». Deux questions : les jours (2 à 6,
+  // pré-cochés) et une zone à ménager (une ou plusieurs, ou aucune). La voix dit ce que le coach en fait.
+  function ecranConstruit(etat) {
+    var rep = etat.rep, G = Generateur(), jours = [];
+    for (var n = G.JOURS_MIN; n <= G.JOURS_MAX; n++) jours.push({ cle: n, libelle: String(n) });
+    var zones = Profil().ZONES_A_MENAGER.concat([{ cle: 'aucune', libelle: 'Aucune' }]);
+    var choisies = Array.isArray(rep.menager) ? rep.menager : [];
+    return {
+      id: CONSTRUIT, etape: 'Ton programme',
+      titre: 'Combien de jours par semaine, réalistement ?',
+      voix: null,
+      blocs: [
+        { type: 'puces', cle: 'seances', valeur: rep.seances, options: jours },
+        { type: 'puces', cle: 'zone', titre: 'Une zone à ménager ?', multiple: true,
+          valeurs: choisies.length ? choisies : ['aucune'], options: zones },
+        { type: 'voix', texte: 'Je garde l’exercice et toutes ses séries, sans série lourde. Rien en séance : ' +
+                                'si ça fait mal, « J’ai mal » est là.' }
+      ]
     };
   }
 
@@ -537,9 +586,15 @@
     var coach = rep.coach === 'carnet' ? P.libelleDe(P.INTENTIONS, 'entretien') : P.libelleDe(P.RYTHMES, rep.coach);
     var tiret = '—';
     // La ligne « Programme » : seulement si l'écran 8 est du parcours (60-3).
-    var visibles = etat.visibles || ecransVisibles({ aDesSeances: etat.aDesSeances, historique: rep.historique });
+    var visibles = etat.visibles || ecransVisibles({ aDesSeances: etat.aDesSeances, historique: rep.historique,
+                                                    programme: rep.programme });
+    var choixProgramme = (rep.programme && P.libelleDe(P.PROGRAMMES, rep.programme)) || tiret;
+    // « Construis-le-moi · 4 jours » : les jours de l'écran 8b suivent le choix.
+    if (rep.programme === 'construis' && visibles.indexOf(CONSTRUIT) >= 0 && joursValides(rep.seances)) {
+      choixProgramme += ' · ' + en(rep.seances, 'jours');
+    }
     var programme = visibles.indexOf(PROGRAMME) >= 0
-      ? [{ libelle: 'Programme', valeur: (rep.programme && P.libelleDe(P.PROGRAMMES, rep.programme)) || tiret, ecran: PROGRAMME }]
+      ? [{ libelle: 'Programme', valeur: choixProgramme, ecran: PROGRAMME }]
       : [];
     return {
       id: RECAP, etape: 'C’est noté',
@@ -571,6 +626,7 @@
   FABRIQUES[PRIORITES] = ecranPriorites;
   FABRIQUES[TEMPS] = ecranTemps;
   FABRIQUES[PROGRAMME] = ecranProgramme;
+  FABRIQUES[CONSTRUIT] = ecranConstruit;
   FABRIQUES[COACH] = ecranCoach;
   FABRIQUES[RECAP] = ecranRecap;
 
@@ -583,7 +639,8 @@
     var fabrique = FABRIQUES[id];
     if (!fabrique) return null;
     var vue = fabrique(e);
-    var visibles = e.visibles || ecransVisibles({ aDesSeances: e.aDesSeances, historique: e.rep && e.rep.historique });
+    var visibles = e.visibles || ecransVisibles({ aDesSeances: e.aDesSeances, historique: e.rep && e.rep.historique,
+                                                 programme: e.rep && e.rep.programme });
     var rang = visibles.indexOf(id);
     vue.progression = progression(visibles, id);
     vue.retour = rang > 0;
@@ -591,14 +648,24 @@
       libelle: rang === 0 ? 'C’est parti' : rang === visibles.length - 1 ? 'Commencer' : 'Continuer',
       actif: ecranPret(id, e.rep)
     };
+    // 60-4 — « Refaire mon programme » (Profil) rejoue l'écran 8b SEUL : pas de barre, pas de « Plus tard », un
+    // retour qui ramène au Profil, et un bouton qui dit où il mène (le même que sur la maquette de l'écran).
+    if (e.refaire && id === CONSTRUIT) {
+      vue.progression = null;
+      vue.sansPlusTard = true;
+      vue.retour = true;
+      vue.bouton.libelle = 'Voir mon programme';
+    }
     return vue;
   }
 
   var api = {
     ECRANS: ECRANS, BIENVENUE: BIENVENUE, DONNEES: DONNEES, SAIT: SAIT, SANS_HISTORIQUE: SANS_HISTORIQUE,
-    TOI: TOI, BUT: BUT, PRIORITES: PRIORITES, TEMPS: TEMPS, PROGRAMME: PROGRAMME, COACH: COACH, RECAP: RECAP,
+    TOI: TOI, BUT: BUT, PRIORITES: PRIORITES, TEMPS: TEMPS, PROGRAMME: PROGRAMME, CONSTRUIT: CONSTRUIT,
+    COACH: COACH, RECAP: RECAP,
     BARRES: BARRES, PUCES_SEANCES: PUCES_SEANCES, PUCES_DUREES: PUCES_DUREES,
     aUnHistorique: aUnHistorique,
+    joursValides: joursValides, joursPrecoches: joursPrecoches,
     ecransVisibles: ecransVisibles,
     progression: progression,
     ecranSuivant: ecranSuivant,

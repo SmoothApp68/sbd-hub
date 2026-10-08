@@ -3242,7 +3242,9 @@
 
     var freres = el('div', 'feuille-menu machine-prise');
     (vue.freres || []).forEach(function (f) {
-      choixMachinePrise(freres, 'Un frère : ' + f.nom, texteFaitFrere(f.fait), f.surChoisir)
+      // 60-4 — un frère ÉCARTÉ reste proposé, tout à la fin, avec la mention « écarté » (MOTEUR §9.19).
+      choixMachinePrise(freres, 'Un frère : ' + f.nom,
+        f.ecarte ? 'écarté \u00b7 ' + texteFaitFrere(f.fait) : texteFaitFrere(f.fait), f.surChoisir)
         .classList.add('frere');
     });
     if (!(vue.freres || []).length) {
@@ -3252,6 +3254,9 @@
     }
     // ES §7 quindecies.8 (60-3) — après les frères, le sélecteur d'exercices.
     if (vue.chercher) entreeMenu(freres, vue.chercher, { classe: 'chercher-catalogue', surClic: vue.surCatalogue });
+    // 60-4 — depuis l'aperçu du programme construit, « Annuler » revient à l'aperçu (sans lui, la seule sortie était de
+    // tout fermer, et l'aperçu avec).
+    if (vue.surAnnuler) entreeMenu(freres, 'Annuler', { classe: 'annuler-remplacer', surClic: vue.surAnnuler });
     cible.appendChild(freres);
     return cible;
   }
@@ -4030,6 +4035,54 @@
     return cible;
   }
 
+  // ══ L'APERÇU DU PROGRAMME CONSTRUIT (QUESTIONNAIRE §5 bis, 60-4) ═════════
+  //
+  // « {N} séances par semaine. », la voix du coach (ce qu'il propose, ce qu'il ménage, ce qu'il vient de
+  // changer), puis UNE CARTE PAR SÉANCE : son nom, « ≈ 69 min », la ligne « pourquoi » (les séries par zone), et
+  // chaque exercice avec séries × reps — un bouton, qui ouvre « Je n'en veux pas / Remplacer / Annuler ». RIEN
+  // n'est écrit avant « Créer ces N routines ». Les textes viennent de l'app (les phrases de `THGenerateur`, la
+  // durée de `THMoteur`) : ici on pose des nœuds. `vue` : `{ titre, voix: [texte], routines: [{ nom, duree,
+  // pourquoi, exercices: [{ nom, series, mentions: [texte], neuf }] }], erreur, enCours, libelleCreer,
+  // surExercice(r, k), surCreer, surPasMaintenant }`.
+  function rendreApercuProgramme(cible, vue) {
+    vider(cible);
+    var v = vue || {};
+    cible.appendChild(el('div', 'feuille-t', v.titre || ''));
+    (v.voix || []).forEach(function (t) { cible.appendChild(el('p', 'q-voix apercu-voix', t)); });
+    var liste = el('div', 'apercu-programme');
+    (v.routines || []).forEach(function (r, i) {
+      var carte = el('div', 'ap-routine');
+      var tete = el('div', 'ap-tete');
+      tete.appendChild(el('span', 'ap-nom', r.nom));
+      tete.appendChild(el('span', 'ap-duree', r.duree));
+      carte.appendChild(tete);
+      if (r.pourquoi) carte.appendChild(el('p', 'ap-pourquoi', r.pourquoi));
+      (r.exercices || []).forEach(function (x, k) {
+        var b = el('button', 'ap-ex' + (x.neuf ? ' neuf' : ''));
+        b.type = 'button';
+        var corps = el('span', 'ap-ex-corps');
+        corps.appendChild(el('span', 'ap-ex-nom', x.nom));
+        (x.mentions || []).forEach(function (m) { corps.appendChild(el('small', 'ap-ex-mention', m)); });
+        b.appendChild(corps);
+        b.appendChild(el('span', 'ap-ex-series', x.series));
+        b.addEventListener('click', function () { if (v.surExercice) v.surExercice(i, k); });
+        carte.appendChild(b);
+      });
+      liste.appendChild(carte);
+    });
+    cible.appendChild(liste);
+    var err = el('p', 'erreur', v.erreur || '');
+    err.setAttribute('role', 'alert');
+    cible.appendChild(err);
+    var pied = el('div', 'feuille-menu');
+    entreeMenu(pied, v.enCours ? 'Création\u2026' : v.libelleCreer, {
+      classe: 'principal apercu-creer', desactive: !!v.enCours, surClic: v.surCreer
+    });
+    entreeMenu(pied, 'Pas maintenant', { surClic: v.surPasMaintenant });
+    cible.appendChild(pied);
+    return cible;
+  }
+
   // MOTEUR §9.22 (53-2) — « Faire de ce dossier un programme », sous la tête
   // d'un dossier qui n'en a pas. Le bloc en cours n'a pas de rangée : son
   // badge est sur la tête ; la carte de fin est en tête de l'écran.
@@ -4244,6 +4297,8 @@
     var menu = el('div', 'feuille-menu');
     // ES §7 quindecies.8 (60-3) — la feuille de « Machine prise », sans « Plus tard ».
     if (vue.surRemplacer) entreeMenu(menu, 'Remplacer', { surClic: vue.surRemplacer });
+    // 60-4 (ES §7 quindecies.9) — à côté de « Remplacer » : refuser l'exercice, c'est le dire une fois.
+    if (vue.surNeVeuxPas) entreeMenu(menu, 'Je n\u2019en veux pas', { surClic: vue.surNeVeuxPas });
     entreeMenu(menu, 'Grouper avec le suivant',
       { surClic: vue.surGrouper, desactive: !vue.peutGrouper });
     entreeMenu(menu, 'Dégrouper',
@@ -4282,15 +4337,19 @@
   // Les résultats du catalogue. 237 entrées, des noms qui vont jusqu'à
   // « Curl Poignets Paumes vers le Haut Assis » : le nom passe sur deux lignes
   // plutôt que d'être tronqué (ECRAN-SAISIE §7 bis.2).
-  function rendreResultatsExo(cible, exercices, surChoix) {
+  // 60-4 — `ecartes` (des slugs) : un exercice écarté porte la mention « écarté » (ES §7 quindecies.9) ; l'app l'a
+  // déjà rangé en fin de liste.
+  function rendreResultatsExo(cible, exercices, surChoix, ecartes) {
     vider(cible);
     var liste = exercices || [];
+    var ecarte = ecartes || [];
     if (!liste.length) {
       cible.appendChild(el('p', 'vide', 'Aucun exercice ne correspond.'));
       return;
     }
     liste.forEach(function (e) {
       var b = el('button', 'resultat', e.nom || e.slug);
+      if (ecarte.indexOf(e.slug) >= 0) b.appendChild(el('small', 'resultat-mention', 'écarté'));
       b.type = 'button';
       b.addEventListener('click', function () { surChoix(e); });
       cible.appendChild(b);
@@ -4523,19 +4582,25 @@
       retour.addEventListener('click', a.surRetour);
       haut.appendChild(retour);
     } else haut.appendChild(el('span', 'q-retour vide'));
-    var barre = el('div', 'q-prog');
-    barre.setAttribute('role', 'progressbar');
-    barre.setAttribute('aria-valuemin', '1');
-    barre.setAttribute('aria-valuemax', String(vue.progression.total));
-    barre.setAttribute('aria-valuenow', String(vue.progression.rang + 1));
-    var rempli = el('i');
-    rempli.style.width = vue.progression.pourcent + '%';
-    barre.appendChild(rempli);
-    haut.appendChild(barre);
-    var plus = el('button', 'q-plus-tard', 'Plus tard');
-    plus.type = 'button';
-    plus.addEventListener('click', a.surPlusTard);
-    haut.appendChild(plus);
+    // 60-4 — « Refaire mon programme » (Profil) rejoue l'écran 8b SEUL : pas de barre (il n'y a qu'un écran), pas de
+    // « Plus tard » (le retour ramène au Profil). Un espace garde la tête en place.
+    if (vue.progression) {
+      var barre = el('div', 'q-prog');
+      barre.setAttribute('role', 'progressbar');
+      barre.setAttribute('aria-valuemin', '1');
+      barre.setAttribute('aria-valuemax', String(vue.progression.total));
+      barre.setAttribute('aria-valuenow', String(vue.progression.rang + 1));
+      var rempli = el('i');
+      rempli.style.width = vue.progression.pourcent + '%';
+      barre.appendChild(rempli);
+      haut.appendChild(barre);
+    } else haut.appendChild(el('span', 'q-prog vide'));
+    if (!vue.sansPlusTard) {
+      var plus = el('button', 'q-plus-tard', 'Plus tard');
+      plus.type = 'button';
+      plus.addEventListener('click', a.surPlusTard);
+      haut.appendChild(plus);
+    }
     page.appendChild(haut);
 
     var corps = el('div', 'q-corps');
@@ -4568,6 +4633,7 @@
         ligne.addEventListener('click', function () { a.surLigne(b.cle); });
         corps.appendChild(ligne);
       } else if (b.type === 'note') corps.appendChild(el('p', 'q-note', b.texte));
+      else if (b.type === 'voix') corps.appendChild(el('p', 'q-voix', b.texte));
     });
     page.appendChild(corps);
 
@@ -4700,6 +4766,27 @@
       { classe: 'sec', texte: 'Annuler', surClic: vue.surAnnuler },
       { classe: 'pri', texte: 'Valider', surClic: vue.surValider }
     ]);
+    return cible;
+  }
+
+  // 60-4 (ECRAN-PROFIL §4 bis, G10) — « Exercices écartés » : la liste, « Reprendre » sur chacun. Rien n'est caché
+  // ni perdu : un exercice repris revient dans les programmes et en tête du catalogue. `vue` : `{ titre, aide,
+  // exercices: [{ nom, surReprendre }], surFermer }`.
+  function rendreFeuilleEcartes(cible, vue) {
+    vider(cible);
+    teteFeuille(cible, vue.titre, null, vue.aide);
+    var liste = el('div', 'ecartes-liste');
+    (vue.exercices || []).forEach(function (x) {
+      var ligne = el('div', 'ecarte-ligne');
+      ligne.appendChild(el('span', 'ecarte-nom', x.nom));
+      var b = el('button', 'discret ecarte-reprendre', 'Reprendre');
+      b.type = 'button';
+      b.addEventListener('click', x.surReprendre);
+      ligne.appendChild(b);
+      liste.appendChild(ligne);
+    });
+    cible.appendChild(liste);
+    piedFeuille(cible, [{ classe: 'sec', texte: 'Fermer', surClic: vue.surFermer }]);
     return cible;
   }
 
@@ -4847,6 +4934,8 @@
     rendreFeuilleDossier: rendreFeuilleDossier,
     rendreFeuilleProgramme: rendreFeuilleProgramme,
     rendreFeuilleSeancesQuiReviennent: rendreFeuilleSeancesQuiReviennent,
+    rendreApercuProgramme: rendreApercuProgramme,
+    rendreFeuilleEcartes: rendreFeuilleEcartes,
     rendreFeuilleBlocEnCours: rendreFeuilleBlocEnCours,
     rendreFeuilleDupliquer: rendreFeuilleDupliquer,
     champDossier: champDossier,

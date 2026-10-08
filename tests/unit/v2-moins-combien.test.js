@@ -181,8 +181,8 @@ describe('l’écriture : une puce écrit `duree_seance_min` avec `temps_reponse
   test('le brouillon de la puce se range avec les autres réponses de l’écran (`appliquerChoix`)', () => {
     const rep = Q.appliquerChoix(Q.reponsesInitiales({}, {}), 'dureeMoins', 60);
     expect(rep.dureeMoins).toBe(60);
-    // L'état de départ n'a pas de clé de plus (14 réponses, et `programme` depuis 60-3).
-    expect(Object.keys(Q.reponsesInitiales({}, {})).length).toBe(15);
+    // L'état de départ n'a pas de clé de plus (14 réponses, `programme` depuis 60-3, `menager` depuis 60-4).
+    expect(Object.keys(Q.reponsesInitiales({}, {})).length).toBe(16);
     expect('dureeMoins' in Q.reponsesInitiales({}, {})).toBe(false);
   });
 });

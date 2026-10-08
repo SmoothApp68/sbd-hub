@@ -274,12 +274,30 @@ describe('60-2a — les ÉCRANS visibles, dans l’ordre', () => {
     expect(ids({ aDesSeances: true, historique: 'import', aDesRoutines: true })).not.toContain('programme');
     expect(ids({ aDesSeances: true, historique: 'import', aDesRoutines: false })).toEqual(
       ['bienvenue', 'donnees', 'sait', 'toi', 'but', 'priorites', 'temps', 'programme', 'coach', 'recap']);
-    expect(ids({ aDesSeances: false, historique: 'debutant', aDesRoutines: false })).toContain('programme');
     // La barre le compte quand il est là, et seulement alors.
     const v = ids({ aDesSeances: true, historique: 'import', aDesRoutines: false });
     expect(Q.progression(v, 'recap')).toEqual({ rang: 9, total: 10, pourcent: 100 });
     expect(Q.ecranSuivant(v, 'temps')).toBe('programme');
     expect(Q.ecranPrecedent(v, 'coach')).toBe('programme');
+  });
+  test('⚠️ 60-3b — les TROIS cas de QUESTIONNAIRE §3 : une routine · aucune routine et aucune séance · aucune routine et des séances', () => {
+    const programme = (ctx) => ids(ctx).indexOf('programme') >= 0;
+    // (1) une routine : l'écran n'existe pas, séances ou non.
+    expect(programme({ aDesSeances: true, historique: 'import', aDesRoutines: true })).toBe(false);
+    expect(programme({ aDesSeances: false, historique: 'debutant', aDesRoutines: true })).toBe(false);
+    // (2) aucune routine ET aucune séance : une question à un seul choix, elle n'existe pas — ni pour
+    // « je débute », ni pour « dans une autre app » (la personne a déclaré un historique qu'on ne voit pas).
+    expect(programme({ aDesSeances: false, historique: 'debutant', aDesRoutines: false })).toBe(false);
+    expect(programme({ aDesSeances: false, historique: 'import', aDesRoutines: false })).toBe(false);
+    expect(programme({ aDesSeances: false, historique: null, aDesRoutines: false })).toBe(false);
+    // (3) aucune routine ET des séances : l'écran existe — même pour qui répond « je débute » avec des séances.
+    expect(programme({ aDesSeances: true, historique: 'import', aDesRoutines: false })).toBe(true);
+    expect(programme({ aDesSeances: true, historique: 'debutant', aDesRoutines: false })).toBe(true);
+    // La barre ne compte pas l'écran sans séance : 9 écrans, 100 % au récapitulatif.
+    const sans = ids({ aDesSeances: false, historique: 'import', aDesRoutines: false });
+    expect(sans).toEqual(['bienvenue', 'donnees', 'sans_historique', 'toi', 'but', 'priorites', 'temps', 'coach', 'recap']);
+    expect(Q.progression(sans, 'recap')).toEqual({ rang: 8, total: 9, pourcent: 100 });
+    expect(Q.ecranSuivant(sans, 'temps')).toBe('coach');
   });
   test('la barre compte les écrans visibles : 0 % au premier, 100 % au dernier', () => {
     const v = ids({ aDesSeances: true, historique: 'import' });
@@ -672,9 +690,9 @@ describe('60-3 — l’écran 8 : « Ton programme », sans routine', () => {
     ]);
   });
 
-  test('DISCRIMINANT — sans séance en base, « Garder ce que je fais » n’est pas proposé', () => {
-    const v = vue('programme', { aDesSeances: false });
-    expect(v.blocs[0].options.map((o) => o.cle)).toEqual(['moi']);
+  test('60-3b — l’écran porte toujours les deux chemins : il n’existe que pour qui a des séances (plus de question à un seul choix)', () => {
+    expect(vue('programme').blocs[0].options.map((o) => o.cle)).toEqual(['deduit', 'moi']);
+    expect(vue('programme', { aDesSeances: false }).blocs[0].options.map((o) => o.cle)).toEqual(['deduit', 'moi']);
   });
 
   test('« Continuer » attend un chemin : « tout est facultatif sauf le chemin du programme » (§1.3)', () => {
@@ -707,5 +725,8 @@ describe('60-3 — l’écran 8 : « Ton programme », sans routine', () => {
     expect(avec[5]).toEqual({ libelle: 'Programme', valeur: 'Garder ce que je fais', ecran: 'programme' });
     const sans = lignes(Q.ecransVisibles({ aDesSeances: true, historique: 'import', aDesRoutines: true }));
     expect(sans.map((l) => l.libelle)).not.toContain('Programme');
+    // 60-3b — aucune routine mais aucune séance : pas de ligne « Programme » non plus.
+    const sansSeance = lignes(Q.ecransVisibles({ aDesSeances: false, historique: 'import', aDesRoutines: false }));
+    expect(sansSeance.map((l) => l.libelle)).not.toContain('Programme');
   });
 });

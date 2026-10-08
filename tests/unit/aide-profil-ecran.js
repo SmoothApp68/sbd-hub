@@ -18,7 +18,8 @@ function extraire(nom) {
   return m[0];
 }
 
-function profilEcran(profil) {
+function profilEcran(profil, options) {
+  const opt = options || {};
   require('../../v2/js/modele.js');
   require('../../v2/js/semaine.js');
   const Profil = require('../../v2/js/profil.js');
@@ -49,7 +50,9 @@ function profilEcran(profil) {
     // 60-2a — « Ton but », « Ton temps » et « Terminer mon questionnaire » : ce que
     // l'écran ouvre, relevé (`ouverts`), et le questionnaire (`questionnairesOuverts`).
     ouvrirReponseProfil: (cle) => { ouverts.push(cle); },
-    ouvrirQuestionnaire: () => { questionnairesOuverts.push(true); }
+    ouvrirQuestionnaire: () => { questionnairesOuverts.push(true); },
+    // 60-3b — « pris entre-temps » : l'état retenu en local par compte (`pseudoPrisSignale`, app.js).
+    pseudoPrisSignale: () => !!opt.pseudoPris
   };
   vm.createContext(ctx);
   vm.runInContext(extraire('rendreProfilEcran'), ctx);

@@ -35,7 +35,16 @@ const extraire = (nom) => {
   if (!m) throw new Error('introuvable : ' + nom);
   return m[0];
 };
-const session = (id, jeton) => ({ user: { id }, access_token: jeton || 'j-' + id });
+const session = (id, jeton, metadonnees) => ({
+  user: Object.assign({ id }, metadonnees === undefined ? {} : { user_metadata: metadonnees }),
+  access_token: jeton || 'j-' + id });
+// 60-3b — le stockage local d'un bac : de vraies lectures et écritures, relevées.
+const stockageFactice = () => {
+  const cles = {};
+  return { cles, getItem: (k) => (k in cles ? cles[k] : null), setItem: (k, v) => { cles[k] = String(v); },
+           removeItem: (k) => { delete cles[k]; } };
+};
+const CLE_PSEUDO_PRIS = /var CLE_PSEUDO_PRIS = '([^']+)'/.exec(APP)[1];
 const tic = () => new Promise((r) => setImmediate(r));
 
 // ── 1. `entrer` : la session d'un autre compte n'est plus jetée ─────────────
@@ -191,7 +200,8 @@ describe('l’identifiant d’une écriture de profil est celui de la session du
       avertissements: [],
       generation: 1, generationValide: (g) => g === ctx.generation,
       userId: () => etat.memoire,
-      Auth: { sessionCourante: () => (etat.client ? Promise.resolve(session(etat.client)) : Promise.resolve(null)) },
+      Auth: { sessionCourante: () => (etat.client ? Promise.resolve(session(etat.client, undefined, opt.metadonnees)) : Promise.resolve(null)) },
+      racine: { localStorage: stockageFactice() }, CLE_PSEUDO_PRIS,
       entrer: (s) => { etat.entrees.push(s.user.id); },
       Donnees: {
         monProfil: (id) => { base.gets.push(id); return Promise.resolve(id === etat.client ? (base.lignes[id] || null) : null); },
@@ -214,7 +224,8 @@ describe('l’identifiant d’une écriture de profil est celui de la session du
       envoyerProfil: () => vm.runInContext('envoyerProfil()', ctx), texteErreur: (e) => String(e && e.message || e)
     };
     vm.createContext(ctx);
-    ['idDeSession', 'identifiantDuProfil', 'chargerProfil', 'envoyerProfil', 'envoyerProfilMaintenant', 'poserProfil']
+    ['idDeSession', 'identifiantDuProfil', 'metadonneesDuCompte', 'retenirPseudoPris', 'chargerProfil', 'envoyerProfil',
+      'envoyerProfilMaintenant', 'poserProfil']
       .forEach((n) => vm.runInContext(extraire(n), ctx));
     // `chargerProfil` appelle `envoyerProfil` du bac (la vraie) — on la laisse faire.
     delete ctx.envoyerProfil;
@@ -368,7 +379,8 @@ describe('le pseudo saisi à l’inscription traverse l’entrée du compte jusq
       generation: 1, generationValide: (g) => g === ctx.generation,
       nouvelleGeneration: () => { ctx.generation++; journal.generations++; },
       userId: () => etat.memoire,
-      Auth: { sessionCourante: () => Promise.resolve(session(etat.client)) },
+      Auth: { sessionCourante: () => Promise.resolve(session(etat.client, undefined, opt.metadonnees)) },
+      racine: { localStorage: stockageFactice() }, CLE_PSEUDO_PRIS,
       entrer: () => {},
       Sync,
       Cache: {
@@ -397,9 +409,11 @@ describe('le pseudo saisi à l’inscription traverse l’entrée du compte jusq
       texteErreur: (e) => String(e && e.message || e)
     };
     vm.createContext(ctx);
-    ['idDeSession', 'garantirProprietaire', 'identifiantDuProfil', 'chargerProfil', 'envoyerProfil', 'envoyerProfilMaintenant']
+    ['idDeSession', 'garantirProprietaire', 'identifiantDuProfil', 'metadonneesDuCompte', 'retenirPseudoPris', 'chargerProfil',
+      'envoyerProfil', 'envoyerProfilMaintenant']
       .forEach((n) => vm.runInContext(extraire(n), ctx));
-    return { ctx, base, journal, etat,
+    return { ctx, base, journal, etat, stockage: ctx.racine.localStorage.cles,
+      metadonnees: (id) => { ctx.__i = id; return vm.runInContext('metadonneesDuCompte(__i)', ctx); },
       garantir: (id) => { ctx.__i = id; return vm.runInContext('garantirProprietaire(__i)', ctx); },
       charger: () => vm.runInContext('chargerProfil()', ctx) };
   }
@@ -505,8 +519,9 @@ describe('le pseudo saisi à l’inscription traverse l’entrée du compte jusq
 });
 
 describe('`soumettreEntree` : le pseudo est posé AVANT l’inscription, et une CONNEXION n’en garde aucun', () => {
-  function bac(mode, pseudoRestant) {
+  function bac(mode, pseudoRestant, options) {
     const appels = [];
+    const opt = options || {};
     const ctx = {
       modeEntree: mode,
       pseudoAInscrire: pseudoRestant === undefined ? null : pseudoRestant,
@@ -518,7 +533,11 @@ describe('`soumettreEntree` : le pseudo est posé AVANT l’inscription, et une 
       Profil,
       Auth: {
         // Ce que `pseudoAInscrire` valait AU MOMENT de l'appel : c'est l'ordre qui compte.
-        inscrire: async () => { appels.push(['inscrire', ctx.pseudoAInscrire]); return { session: { user: { id: 'B' } } }; },
+        inscrire: async (email, mdp, retour, pseudo) => {
+          appels.push(['inscrire', ctx.pseudoAInscrire]);
+          ctx.__args = [email, mdp, retour, pseudo];
+          return opt.sansSession ? { session: null, user: { id: 'B' } } : { session: { user: { id: 'B' } } };
+        },
         connecter: async () => { appels.push(['connecter', ctx.pseudoAInscrire]); }
       }
     };
@@ -546,6 +565,185 @@ describe('`soumettreEntree` : le pseudo est posé AVANT l’inscription, et une 
     b.ctx.Auth.inscrire = async () => { throw new Error('refusé'); };
     await b.soumettre();
     expect(b.ctx.pseudoAInscrire).toBeNull();
+  });
+
+  // 60-3b — le pseudo PART AVEC LE COMPTE (`options.data.pseudo` de `signUp`, par `Auth.inscrire`).
+  test('⚠️ 60-3b DISCRIMINANT — l’inscription donne à `Auth.inscrire` le pseudo NORMALISÉ (« Test 0710 » → « test_0710 »), avec l’adresse de retour', async () => {
+    const b = bac('inscription');
+    await b.soumettre();
+    expect(b.ctx.__args).toEqual(['b@banc.test', 'motdepasse123', 'https://exemple.test/', 'test_0710']);
+  });
+
+  test('60-3b — confirmation d’e-mail requise (pas de session) : le message le dit, le pseudo reste en mémoire de CETTE page', async () => {
+    const b = bac('inscription', undefined, { sansSession: true });
+    await b.soumettre();
+    expect(b.ctx.__args[3]).toBe('test_0710');
+    expect(b.ctx.pseudoAInscrire).toBe('test_0710');             // l'autre page, elle, le reprendra des données du compte
+  });
+
+  test('60-3b — une CONNEXION n’inscrit personne : aucun pseudo ne part', async () => {
+    const b = bac('connexion', 'reste_de_a');
+    await b.soumettre();
+    expect(b.ctx.__args).toBeUndefined();
+  });
+});
+
+// ── 4. 60-3b — le pseudo traverse la confirmation d'e-mail ──────────────────
+//
+// La confirmation d'e-mail est activée sur le projet : le lien s'ouvre souvent dans une AUTRE page, où
+// `pseudoAInscrire` n'existe plus. L'inscription a déposé le pseudo dans les données du compte
+// (`user_metadata.pseudo`) ; la création de la ligne de profil le reprend de là. Un seul endroit choisit
+// (`Profil.pseudoDeLInscription`) : la page d'abord, puis le compte. « Pris entre-temps » : la ligne se crée
+// sans lui, et l'état est retenu en local, par compte, pour la ligne « Pseudo » du Profil.
+describe('60-3b — le pseudo des données du compte, repris à la création de la ligne', () => {
+  function bac(o) {
+    const opt = o || {};
+    const base = { lignes: {}, posts: [] };
+    const etat = { client: 'B', memoire: 'B' };
+    const ctx = {
+      console: { warn: (...a) => { ctx.avertissements.push(a.join(' ')); } },
+      avertissements: [],
+      generation: 1, generationValide: (g) => g === ctx.generation,
+      userId: () => etat.memoire,
+      Auth: { sessionCourante: () => Promise.resolve(session(etat.client, undefined, opt.metadonnees)) },
+      racine: { localStorage: stockageFactice() }, CLE_PSEUDO_PRIS,
+      entrer: () => {},
+      Donnees: {
+        monProfil: (id) => Promise.resolve(id === etat.client ? (base.lignes[id] || null) : null),
+        enregistrerProfil: (id, champs) => {
+          base.posts.push([id, champs]);
+          if (opt.echecs && opt.echecs > 0) { opt.echecs -= 1; return Promise.reject(new Error('réseau')); }
+          if (champs.username && (opt.pris || []).indexOf(champs.username) >= 0) {
+            const e = new Error('duplicate key value violates unique constraint "profiles_username_uniq"'); e.code = '23505';
+            return Promise.reject(e);
+          }
+          base.lignes[id] = Object.assign({ id }, champs);
+          return Promise.resolve(base.lignes[id]);
+        }
+      },
+      Profil, profil: null, profilAEnvoyer: false,
+      pseudoAInscrire: opt.pseudo === undefined ? null : opt.pseudo,
+      versionProfil: 0, envoiProfil: null, ecranCourant: 'saisie',
+      rendreBandeauQuestionnaire: () => {}, rendreBandeauPhase: () => {}, ouvrirQuestionnaireSiDu: () => false,
+      sauverProfilLocal: () => Promise.resolve(), rendreProfilEcran: () => {},
+      texteErreur: (e) => String(e && e.message || e)
+    };
+    vm.createContext(ctx);
+    ['idDeSession', 'identifiantDuProfil', 'metadonneesDuCompte', 'retenirPseudoPris', 'chargerProfil', 'envoyerProfil', 'envoyerProfilMaintenant']
+      .forEach((n) => vm.runInContext(extraire(n), ctx));
+    return { ctx, base, etat, stockage: ctx.racine.localStorage.cles,
+      charger: () => vm.runInContext('chargerProfil()', ctx),
+      metadonnees: (id) => { ctx.__i = id; return vm.runInContext('metadonneesDuCompte(__i)', ctx); } };
+  }
+  const usernameCree = (b) => (b.base.lignes.B ? (b.base.lignes.B.username === undefined ? null : b.base.lignes.B.username) : 'AUCUNE LIGNE');
+
+  test('⚠️ DISCRIMINANT — LE LIEN DANS UNE AUTRE PAGE : plus de mémoire, le pseudo vient des données du compte', async () => {
+    const b = bac({ pseudo: null, metadonnees: { pseudo: 'test_0710' } });
+    await b.charger();
+    expect(usernameCree(b)).toBe('test_0710');
+    expect(b.base.posts).toHaveLength(1);                      // du premier coup
+  });
+
+  test('⚠️ DISCRIMINANT — la mémoire de la page passe AVANT les données du compte (le choix est à un seul endroit)', async () => {
+    const b = bac({ pseudo: 'bob_21', metadonnees: { pseudo: 'autre_pseudo' } });
+    await b.charger();
+    expect(usernameCree(b)).toBe('bob_21');
+  });
+
+  test('les données du compte sont NORMALISÉES à nouveau, par la même fonction (accents, espaces, majuscules)', async () => {
+    const b = bac({ pseudo: null, metadonnees: { pseudo: '  Mélodie Dupont ' } });
+    await b.charger();
+    expect(usernameCree(b)).toBe('melodie_dupont');
+  });
+
+  test('des données qui ne valent pas un pseudo sont IGNORÉES : la ligne naît sans lui, comme avant (aucune valeur de confiance)', async () => {
+    for (const valeur of ['ab', '1abc', '___', '', 42, null, { a: 1 }, ['x_y_z']]) {
+      const b = bac({ pseudo: null, metadonnees: { pseudo: valeur } });
+      await b.charger();
+      expect([JSON.stringify(valeur), usernameCree(b)]).toEqual([JSON.stringify(valeur), null]);
+    }
+    for (const metadonnees of [undefined, null, {}, 'texte']) {
+      const b = bac({ pseudo: null, metadonnees });
+      await b.charger();
+      expect(usernameCree(b)).toBeNull();
+    }
+  });
+
+  test('les données d’un AUTRE compte que celui de la ligne ne se lisent pas', async () => {
+    const b = bac({ pseudo: null, metadonnees: { pseudo: 'pseudo_de_b' } });
+    expect(await b.metadonnees('B')).toEqual({ pseudo: 'pseudo_de_b' });
+    expect(await b.metadonnees('A')).toBeNull();
+    expect(await b.metadonnees(null)).toBeNull();
+    b.etat.client = null;
+    b.ctx.Auth.sessionCourante = () => Promise.resolve(null);
+    expect(await b.metadonnees('B')).toBeNull();
+    b.ctx.Auth.sessionCourante = () => Promise.reject(new Error('réseau'));
+    expect(await b.metadonnees('B')).toBeNull();
+  });
+
+  test('⚠️ DISCRIMINANT — HORS LIGNE : la création échoue, la page est rechargée (la mémoire part), la reprise retrouve le pseudo dans le compte', async () => {
+    const b = bac({ pseudo: 'test_0710', metadonnees: { pseudo: 'test_0710' }, echecs: 1 });
+    await b.charger();
+    expect(b.base.lignes.B).toBeUndefined();
+    expect(b.ctx.avertissements.join(' ')).toMatch(/Profil non créé/);
+    b.ctx.pseudoAInscrire = null;                              // « la page est rechargée »
+    await b.charger();
+    expect(usernameCree(b)).toBe('test_0710');
+  });
+
+  // ── Pris entre-temps ────────────────────────────────────────────────────
+  test('⚠️ DISCRIMINANT — le pseudo des données du compte est PRIS entre-temps (23505) : la ligne se crée sans lui, et l’état est retenu pour le Profil', async () => {
+    const b = bac({ pseudo: null, metadonnees: { pseudo: 'deja_pris' }, pris: ['deja_pris'] });
+    await b.charger();
+    expect(b.base.posts.map((p) => p[1].username || null)).toEqual(['deja_pris', null]);
+    expect(usernameCree(b)).toBeNull();
+    expect(b.stockage[CLE_PSEUDO_PRIS + 'B']).toBe('1');       // en local, PAR COMPTE
+    expect(Object.keys(b.stockage)).toEqual([CLE_PSEUDO_PRIS + 'B']);
+    expect(b.ctx.avertissements.join(' ')).toMatch(/Pseudo déjà pris/);
+  });
+
+  test('le pseudo de la page, pris entre-temps, est retenu de même', async () => {
+    const b = bac({ pseudo: 'deja_pris', pris: ['deja_pris'] });
+    await b.charger();
+    expect(b.stockage[CLE_PSEUDO_PRIS + 'B']).toBe('1');
+    expect(b.ctx.pseudoAInscrire).toBeNull();
+  });
+
+  test('rien n’est retenu quand le pseudo n’est pas pris : ni création réussie, ni échec réseau, ni collision SANS pseudo', async () => {
+    const libre = bac({ pseudo: 'libre_21', metadonnees: { pseudo: 'libre_21' } });
+    await libre.charger();
+    expect(libre.stockage).toEqual({});
+    const reseau = bac({ pseudo: 'libre_21', echecs: 1 });
+    await reseau.charger();
+    expect(reseau.stockage).toEqual({});
+    const sans = bac({ pseudo: null });
+    sans.ctx.Donnees.enregistrerProfil = () => { const e = new Error('unique'); e.code = '23505'; return Promise.reject(e); };
+    await sans.charger();
+    expect(sans.stockage).toEqual({});
+    expect(sans.ctx.avertissements.join(' ')).toMatch(/Profil non créé/);
+  });
+
+  test('le compte est parti pendant la création (déconnexion) : rien n’est retenu — « Quitter » a déjà tout effacé', async () => {
+    const b = bac({ pseudo: 'deja_pris', pris: ['deja_pris'] });
+    const enregistrer = b.ctx.Donnees.enregistrerProfil;
+    b.ctx.Donnees.enregistrerProfil = (id, champs) => { b.ctx.generation++; return enregistrer(id, champs); };
+    await b.charger();
+    expect(b.stockage).toEqual({});
+  });
+
+  test('le stockage refusé (mode privé) ne casse pas la création : la ligne se crée, la phrase ne s’affichera pas', async () => {
+    const b = bac({ pseudo: 'deja_pris', pris: ['deja_pris'] });
+    b.ctx.racine.localStorage.setItem = () => { throw new Error('refusé'); };
+    await b.charger();
+    expect(usernameCree(b)).toBeNull();
+  });
+
+  test('GARDE — `chargerProfil` choisit par `Profil.pseudoDeLInscription` (un seul endroit) et ne passe plus `pseudoAInscrire` tel quel', () => {
+    const src = extraire('chargerProfil');
+    expect(src).toMatch(/Profil\.pseudoDeLInscription\(pseudoAInscrire, await metadonneesDuCompte\(id\)\)/);
+    expect(src).not.toMatch(/creer\(pseudoAInscrire\)/);
+    // Les données du compte se lisent sur la session du CLIENT, jamais sur `sessionActive` (forme réduite).
+    expect(extraire('metadonneesDuCompte')).not.toMatch(/sessionActive/);
   });
 });
 

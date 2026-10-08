@@ -20,7 +20,8 @@
 // la durée des longues séances).
 //
 // L'ÉCRAN « TON PROGRAMME » (8) existe depuis 60-3, SEULEMENT pour qui n'a aucune
-// routine (QUESTIONNAIRE §3) : « Garder ce que je fais » ouvre, après « Commencer »,
+// routine ET au moins une séance en base (QUESTIONNAIRE §3, 60-3b : sans séance, c'est
+// une question à un seul choix, elle n'apprend rien) : « Garder ce que je fais » ouvre, après « Commencer »,
 // la feuille « Tes séances qui reviennent » (8a, ECRAN-SAISIE §7 quindecies.7) ;
 // « Je crée mes routines moi-même » mène à la bibliothèque. 8b (« Construis-le-moi »)
 // attend le générateur (60-4).
@@ -47,10 +48,13 @@
   //    aDesRoutines: bool | null }`.
   //
   // L'écran 8 (« Ton programme », 60-3) : SEULEMENT quand on SAIT que la personne
-  // n'a aucune routine (`aDesRoutines === false`). Les routines vivent en ligne :
-  // tant qu'on ne les a pas lues (`null`, hors ligne), l'écran n'existe pas — qui
-  // a déjà ses routines ne se voit jamais proposer ses anciennes séances, et la
-  // ligne de Routines sert à tout le monde.
+  // n'a aucune routine (`aDesRoutines === false`) ET qu'elle a au moins une séance en
+  // base (60-3b). Les routines vivent en ligne : tant qu'on ne les a pas lues (`null`,
+  // hors ligne), l'écran n'existe pas — qui a déjà ses routines ne se voit jamais
+  // proposer ses anciennes séances, et la ligne de Routines sert à tout le monde.
+  // Sans séance, « Garder ce que je fais » n'aurait rien à retrouver et l'écran n'aurait
+  // qu'un seul choix : il n'existe pas (barre de progression comprise), et
+  // `programme_choix` n'est pas écrit.
   function aUnHistorique(contexte) {
     var c = contexte || {};
     return !!c.aDesSeances && c.historique !== 'debutant';
@@ -61,7 +65,7 @@
     return ECRANS.filter(function (id) {
       if (id === SAIT) return avec;
       if (id === SANS_HISTORIQUE) return !avec;
-      if (id === PROGRAMME) return contexte ? contexte.aDesRoutines === false : false;
+      if (id === PROGRAMME) return !!contexte && contexte.aDesRoutines === false && !!contexte.aDesSeances;
       return true;
     });
   }
@@ -490,17 +494,15 @@
     return { id: TEMPS, etape: 'Temps et matériel', titre: titre, voix: null, blocs: blocs };
   }
 
-  // L'écran 8 (60-3) : « Garder ce que je fais » seulement avec au moins une
-  // séance en base — sans séance, rien à retrouver.
+  // L'écran 8 (60-3) : les deux chemins. Il n'est du parcours que pour qui a au moins une séance
+  // (`ecransVisibles`, 60-3b) : « Garder ce que je fais » a toujours quelque chose à retrouver.
   function ecranProgramme(etat) {
-    var options = avecSous(Profil().PROGRAMMES, SOUS_PROGRAMME).filter(function (o) {
-      return o.cle !== 'deduit' || !!etat.aDesSeances;
-    });
     return {
       id: PROGRAMME, etape: 'Ton programme',
       titre: 'Comment veux-tu t’entraîner ?',
       voix: null,
-      blocs: [{ type: 'options', cle: 'programme', valeur: etat.rep.programme, options: options }]
+      blocs: [{ type: 'options', cle: 'programme', valeur: etat.rep.programme,
+                options: avecSous(Profil().PROGRAMMES, SOUS_PROGRAMME) }]
     };
   }
 

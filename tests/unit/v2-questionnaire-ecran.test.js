@@ -480,10 +480,13 @@ describe('60-2a — la décision se reprend quand la ligne de profil ARRIVE', ()
       rendreBandeauPhase: () => { ctx.bandeauxPhase = (ctx.bandeauxPhase || 0) + 1; },
       sauverProfilLocal: () => Promise.resolve(), ecranCourant: 'semaine', rendreProfilEcran: () => {},
       envoyerProfil: () => Promise.resolve(),
-      ouvrirQuestionnaireSiDu: () => { ouvertures.push(ctx.profil); return false; }
+      ouvrirQuestionnaireSiDu: () => { ouvertures.push(ctx.profil); return false; },
+      // 60-3b — la création de la ligne lit les données du compte (`metadonneesDuCompte`) ; « pris entre-temps » est retenu en local.
+      racine: { localStorage: { getItem: () => null, setItem: () => {} } }, CLE_PSEUDO_PRIS: 'th-v2-pseudo-pris-'
     };
     vm.createContext(ctx);
-    ['idDeSession', 'identifiantDuProfil', 'chargerProfil'].forEach((f) => vm.runInContext(extraire(f), ctx));
+    ['idDeSession', 'identifiantDuProfil', 'metadonneesDuCompte', 'retenirPseudoPris', 'chargerProfil']
+      .forEach((f) => vm.runInContext(extraire(f), ctx));
     return { ctx, ouvertures };
   }
 
@@ -709,6 +712,23 @@ describe('60-3 — l’écran 8, seulement sans routine, et la feuille après «
     expect(b.vueCourante().blocs[0].lignes.map((l) => l.libelle)).not.toContain('Programme');
     await b.actions().surContinuer();
     expect(b.journal.retrouver).toBeUndefined();
+  });
+
+  test('⚠️ 60-3b DISCRIMINANT — aucune routine MAIS aucune séance : pas d’écran 8 (la barre ne le compte pas), `programme_choix` jamais écrit, pas de feuille', async () => {
+    const b = bac({ routines: [], seances: [] });
+    b.appel('ouvrirQuestionnaireSiDu()');
+    const { cont, choix } = jusquAuTemps(b);
+    expect(b.vueCourante().progression.total).toBe(9);
+    cont();
+    expect(b.ecran()).toBe('coach');
+    choix('coach', 'normal'); cont();
+    expect(b.ecran()).toBe('recap');
+    expect(b.vueCourante().blocs[0].lignes.map((l) => l.libelle)).not.toContain('Programme');
+    // Un état hérité (« Garder ce que je fais » répondu quand il y avait des séances) ne rouvre rien.
+    b.ctx.questionnaire.rep.programme = 'deduit';
+    await b.actions().surContinuer();
+    expect(b.journal.retrouver).toBeUndefined();
+    expect(b.journal.profil.some((champs) => 'programme_choix' in champs)).toBe(false);
   });
 
   test('les routines inconnues (hors ligne) : pas d’écran 8', () => {

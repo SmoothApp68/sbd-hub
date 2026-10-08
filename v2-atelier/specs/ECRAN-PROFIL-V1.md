@@ -258,8 +258,14 @@ maquette `maquette-questionnaire-v4.html`).
   dans un programme. Un muscle prioritaire peut recevoir une série de plus jusqu'à ton plus haut volume, hors
   sèche. » ; Temps, selon la réponse : « Moins en ce moment » → « Quand ta routine dépasse ta durée visée, je te
   propose de la raccourcir dès son ouverture. » ; « Ça varie » → « Quand ta routine dépasse ta durée visée, je te le
-  montre à côté de « J'ai peu de temps ». » ; « C'est mon maximum », « J'ai de la marge » : pas de phrase, rien ne
-  les lit encore.
+  montre à côté de « J'ai peu de temps ». » ; « C'est mon maximum », « J'ai de la marge » : pas de phrase (le
+  programme construit les lit, QUESTIONNAIRE-COACH-V2 §5 bis).
+- **Le programme construit (08/10/2026, 60-4)** — trois lignes, dans la section du matériel : « **Zone à ménager** »
+  (épaule · dos · genou · coude · hanche · aucune ; phrase : « Ton programme construit la garde sans série lourde.
+  Rien ne change en séance. ») ; « **Exercices écartés** » (la liste, « Reprendre » sur chacun ; vide : la ligne ne
+  s'affiche pas ; phrase : « Un exercice écarté n'est plus proposé dans tes programmes. Il reste au catalogue, en fin
+  de liste. ») ; « **Refaire mon programme** » (« Je te pose deux questions et je te construis un nouveau dossier.
+  Le tien reste tel quel. »).
 
 ---
 

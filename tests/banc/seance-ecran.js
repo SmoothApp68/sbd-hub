@@ -15171,6 +15171,123 @@ const SETS_IMPORTES = [
       JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
   }
 
+  console.log('\n══ remplacer. « REMPLACER » DANS L’ÉDITEUR DE ROUTINE : LA FEUILLE DE « MACHINE PRISE » SANS « PLUS TARD » (60-3, ES §7 quindecies.8) ══');
+  //
+  // Le câblage dans l'app réelle (la règle et les gestes ont leurs tests :
+  // `v2-remplacer-editeur`). ⚠️ CONFIGURATION DISCRIMINANTE : l'exercice
+  // remplacé est dans un superset À DEUX (sur trois, un groupe amputé resterait
+  // un groupe) et porte une charge de départ, une chauffe et une note ; le
+  // frère est d'un autre matériel. Rien ne doit partir avant « Enregistrer ».
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const catalogueAvant = CATALOGUE.length;
+    [['remp-a-u603', 'Remp A U603 (Barre)', 'barre', 'remp_u603'],
+     ['remp-frere-u603', 'Remp Frère U603 (Haltères)', 'haltere', 'remp_u603'],
+     ['remp-b-u603', 'Remp B U603 (Machine)', 'machine', null],
+     ['remp-c-u603', 'Remp C U603 (Machine)', 'machine', null],
+     ['remp-d-u603', 'Remp D U603 (Poulie)', 'poulie', null]
+    ].forEach(([slug, nom, equipement, mouvement]) => CATALOGUE.push({ slug, nom, mesure: 'charge_reps', charge: 'externe',
+      equipement, muscles_primaires: ['u603_rem'], muscles_secondaires: [], mouvement }));
+    const ID_R = '00000000-0000-4000-8603-000000000500';
+    let grainePr = 0;
+    const ligneR = (rang, type, reps, charge) => ({ id: 'remp-rs-' + (++grainePr), rang, type_serie: type,
+      reps_visees: reps, charge_cible_kg: charge === undefined ? null : charge, duree_cible_s: null, distance_cible_m: null });
+    ROUTINES.push({ id: ID_R, nom: 'Remplacer U603', note: null, archivee_a: null, rang: null, dossier: null,
+      created_at: '2026-09-01T10:00:00.000Z', modifiee_a: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [
+        { id: 'remp-e0', routine_id: ID_R, exercise_slug: 'remp-a-u603', rang: 0, groupe_superset: 1, repos_cible_s: null, note: 'Note R603',
+          routine_sets: [ligneR(1, 'echauffement', 10, 30), ligneR(2, 'travail', 8, 60), ligneR(3, 'travail', 8, 60)] },
+        { id: 'remp-e1', routine_id: ID_R, exercise_slug: 'remp-b-u603', rang: 1, groupe_superset: 1, repos_cible_s: 90, note: null,
+          routine_sets: [ligneR(1, 'travail', 12), ligneR(2, 'travail', 12)] },
+        { id: 'remp-e2', routine_id: ID_R, exercise_slug: 'remp-c-u603', rang: 2, groupe_superset: null, repos_cible_s: 120, note: null,
+          routine_sets: [ligneR(1, 'travail', 15, 40)] }] });
+    const routineR = () => ROUTINES.filter((r) => r.id === ID_R)[0];
+    const formeR = () => routineR().routine_exercises.slice().sort((a, b) => a.rang - b.rang).map((e) => [e.exercise_slug,
+      e.groupe_superset, e.repos_cible_s, e.note,
+      (e.routine_sets || []).slice().sort((a, b) => a.rang - b.rang).map((l) => [l.type_serie, l.reps_visees, l.charge_cible_kg])]);
+    const ecritsR = () => base.patchs.length;
+    const feuilleE = () => page.evaluate(() => {
+      const c = document.getElementById('feuille-contenu');
+      const t = (n) => n ? n.textContent : null;
+      return { ouverte: !document.getElementById('feuille-seance').hidden,
+        titre: c.querySelector('.feuille-t') ? c.querySelector('.feuille-t').firstChild.textContent : null,
+        sujet: t(c.querySelector('.feuille-t em')),
+        boutons: Array.from(c.querySelectorAll('.feuille-menu button')).map((b) => t(b.querySelector('.mp-titre')) || t(b)),
+        sous: Array.from(c.querySelectorAll('.choix-mp .mp-sous')).map((n) => n.textContent) };
+    });
+    const nomsEditeur = () => page.evaluate(() => Array.from(document.querySelectorAll('#exos-routine .nom-exo'))
+      .map((n) => n.textContent.replace(/\s+/g, ' ').trim()));
+    const menuExo = async (i) => {
+      await page.evaluate((k) => document.querySelectorAll('#exos-routine .menu-pts')[k].click(), i);
+      await attendre(450);
+    };
+    const entreeE = async (texte) => {
+      await page.evaluate((x) => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
+        .filter((b) => ((b.querySelector('.mp-titre') || b).textContent) === x)[0].click(), texte);
+      await attendre(600);
+    };
+
+    await aller('/routine/' + ID_R);
+    await attendre(600);
+    const avant = JSON.stringify(formeR());
+    ok('[RP60] prémisse : l’éditeur montre les trois exercices de la routine',
+      JSON.stringify(await nomsEditeur()).indexOf('Remp A U603') >= 0, JSON.stringify(await nomsEditeur()));
+    await menuExo(0);
+    let f = await feuilleE();
+    ok('[RP60] A — le menu ⋯ d’un exercice (dans un superset) porte « Remplacer », en tête',
+      f.ouverte && f.titre === 'Exercice' && f.boutons[0] === 'Remplacer', JSON.stringify(f));
+    await entreeE('Remplacer');
+    f = await feuilleE();
+    ok('[RP60] A — la feuille de « Machine prise » SANS « Plus tard » : le frère et son « Première fois ici », puis « Chercher dans le catalogue »',
+      f.ouverte && f.titre === 'Remplacer' && f.sujet === 'Remp A U603 (Barre)' &&
+        JSON.stringify(f.boutons) === JSON.stringify(['Un frère : Remp Frère U603 (Haltères)', 'Chercher dans le catalogue']) &&
+        JSON.stringify(f.sous) === '["Première fois ici"]', JSON.stringify(f));
+    const ecritsAvant = ecritsR();
+    await entreeE('Un frère : Remp Frère U603 (Haltères)');
+    const noms = await nomsEditeur();
+    ok('[RP60] B — le frère prend la PLACE (premier, toujours dans le superset) ; rien n’est écrit avant « Enregistrer »',
+      noms.length === 3 && /Remp Frère U603/.test(noms[0]) && /Remp B U603/.test(noms[1]) && ecritsR() === ecritsAvant &&
+        JSON.stringify(formeR()) === avant, JSON.stringify([noms, ecritsR() - ecritsAvant]));
+    await page.click('#btn-enregistrer-routine');
+    await attendre(2400);
+    ok('[RP60] B — « Enregistrer » : à sa place, son superset À DEUX (§7 decies), ses séries, sa note — la charge de départ RETIRÉE ; les autres intactes',
+      JSON.stringify(formeR()) === JSON.stringify([
+        ['remp-frere-u603', 1, null, 'Note R603', [['echauffement', 10, null], ['travail', 8, null], ['travail', 8, null]]],
+        ['remp-b-u603', 1, 90, null, [['travail', 12, null], ['travail', 12, null]]],
+        ['remp-c-u603', null, 120, null, [['travail', 15, 40]]]]), JSON.stringify(formeR()));
+
+    // ── C. « Chercher dans le catalogue » : le choix remplace à sa place.
+    await aller('/routine/' + ID_R);
+    await attendre(600);
+    await menuExo(2);
+    await entreeE('Remplacer');
+    f = await feuilleE();
+    ok('[RP60] C — sans frère : la phrase, puis « Chercher dans le catalogue »',
+      JSON.stringify(f.boutons) === '["Chercher dans le catalogue"]', JSON.stringify(f));
+    await entreeE('Chercher dans le catalogue');
+    await page.fill('#champ-recherche-exo', 'Remp D U603');
+    await attendre(400);
+    await page.click('#resultats-exo .resultat');
+    await attendre(800);
+    const nomsC = await nomsEditeur();
+    ok('[RP60] C — le catalogue remplace à sa place (troisième), il n’ajoute pas',
+      nomsC.length === 3 && /Remp D U603/.test(nomsC[2]), JSON.stringify(nomsC));
+    await page.click('#btn-enregistrer-routine');
+    await attendre(2400);
+    ok('[RP60] C — « Enregistrer » : le repos et les séries restent, la charge part',
+      JSON.stringify(formeR()[2]) === JSON.stringify(['remp-d-u603', null, 120, null, [['travail', 15, null]]]), JSON.stringify(formeR()));
+
+    // ── LA REMISE EN ÉTAT, pour les sections suivantes.
+    const i = ROUTINES.findIndex((r) => r.id === ID_R);
+    if (i >= 0) ROUTINES.splice(i, 1);
+    CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
+    await aller('/saisie');
+    ok('[RP60] aucun refus du faux serveur, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,
+      JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
+  }
+
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');
   // Le compte vit dans `garde-compte.js` : le lanceur parallèle refait les
   // mêmes contrôles sur le compte fusionné de ses groupes.

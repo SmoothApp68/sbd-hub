@@ -3247,8 +3247,11 @@
     });
     if (!(vue.freres || []).length) {
       cible.appendChild(el('p', 'feuille-aide sans-frere', 'Pas de frère au catalogue pour cet exercice.'));
-      entreeMenu(freres, 'Remplacer l’exercice', { surClic: vue.surCatalogue });
+      // 60-3 — l'éditeur (« Remplacer ») dit « Chercher dans le catalogue », frères ou pas.
+      if (!vue.chercher) entreeMenu(freres, 'Remplacer l’exercice', { surClic: vue.surCatalogue });
     }
+    // ES §7 quindecies.8 (60-3) — après les frères, le sélecteur d'exercices.
+    if (vue.chercher) entreeMenu(freres, vue.chercher, { classe: 'chercher-catalogue', surClic: vue.surCatalogue });
     cible.appendChild(freres);
     return cible;
   }
@@ -4239,6 +4242,8 @@
     cible.appendChild(t);
 
     var menu = el('div', 'feuille-menu');
+    // ES §7 quindecies.8 (60-3) — la feuille de « Machine prise », sans « Plus tard ».
+    if (vue.surRemplacer) entreeMenu(menu, 'Remplacer', { surClic: vue.surRemplacer });
     entreeMenu(menu, 'Grouper avec le suivant',
       { surClic: vue.surGrouper, desactive: !vue.peutGrouper });
     entreeMenu(menu, 'Dégrouper',

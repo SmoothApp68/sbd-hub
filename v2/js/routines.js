@@ -1065,6 +1065,25 @@
     return routineDepuisSeance(lignes, Object.assign({}, options, { titre: d.nom }));
   }
 
+  // ══ « REMPLACER » DANS L'ÉDITEUR (ECRAN-SAISIE §7 quindecies.8, 60-3) ═════
+  //
+  // Le remplaçant prend la place de l'exercice : même position (donc même
+  // rang), même groupe de superset (§7 decies reste vrai : le groupe ne perd
+  // personne), mêmes séries — types, reps visées, durée, distance —, même
+  // repos, même note. ⚠️ LA CHARGE DE DÉPART EST RETIRÉE : elle valait pour
+  // l'ancien exercice (MOTEUR §9.21). C'est une LIGNE NEUVE de la routine
+  // (`id: null`) : un autre exercice n'hérite pas de la ligne d'un autre —
+  // comme en séance, où le remplaçant n'a pas de `routine_exercise_id`. Rien
+  // n'est écrit ici : l'éditeur enregistre.
+  function exerciceRemplace(exo, slug) {
+    var e = exo || {};
+    return Object.assign({}, e, {
+      id: null,
+      exercise_slug: slug,
+      series: (e.series || []).map(function (l) { return Object.assign({}, l, { id: null, charge_kg: null }); })
+    });
+  }
+
   // ══ METTRE À JOUR UNE ROUTINE DEPUIS UNE SÉANCE (§7 quindecies.4) ═══════
   //
   // ⚠️ PAS UN SECOND MÉCANISME : le chemin de la question de fin de séance
@@ -1461,6 +1480,7 @@
     routineDepuisSeance: routineDepuisSeance,
     seancesQuiReviennent: seancesQuiReviennent,
     routineDeduite: routineDeduite,
+    exerciceRemplace: exerciceRemplace,
     DEDUIT: DEDUIT,
     seanceSurRoutine: seanceSurRoutine,
     ligneRoutine: ligneRoutine,

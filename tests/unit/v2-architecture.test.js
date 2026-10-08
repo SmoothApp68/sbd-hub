@@ -428,7 +428,7 @@ const NOTIONS = [
       'décide une fois ; l’écran déplace par `reordonnerBlocs`, sans toucher à la consigne.' },
   { notion: 'les frères proposés par « Machine prise » (et leur ordre, MOTEUR §9.19)', pr: '51-U2',
     module: 'seance.js', fonction: 'freresProposes', lecteurs: ['app.js'],
-    parAilleurs: { 'app.js': ['vueMachinePrise'] },
+    parAilleurs: { 'app.js': ['vueMachinePrise', 'ouvrirRemplacerDansLEditeur'] },
     raison: 'les frères pas encore dans la séance d’abord, l’historique le plus récent, puis par nom ; ' +
       'un frère déjà présent à la fin — une règle, que la feuille affiche sans la refaire.' },
   { notion: 'la séance neutre (§7.6), déduite ou DÉCLARÉE par la marque « douleur » (MOTEUR §9.20)', pr: '51-U3',
@@ -808,7 +808,13 @@ const NOTIONS = [
     module: 'routines.js', fonction: 'routineDeduite', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['creerRoutinesDeduites'] },
     raison: 'ECRAN-SAISIE §7 quindecies.7 (60-3) : chaque routine cochée devient la structure de « En faire une ' +
-      'routine » — les mêmes blocs, les mêmes repos et leur origine, jamais une charge. Pas une seconde règle des repos.' }
+      'routine » — les mêmes blocs, les mêmes repos et leur origine, jamais une charge. Pas une seconde règle des repos.' },
+  // ── 60-3 — « REMPLACER » DANS L'ÉDITEUR (ECRAN-SAISIE §7 quindecies.8) ───
+  { notion: 'le remplaçant d’un exercice de routine (à sa place, son groupe, ses séries, sans la charge de départ)', pr: '60-U10',
+    module: 'routines.js', fonction: 'exerciceRemplace', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['remplacerDansLEditeur'] },
+    raison: 'ES §7 quindecies.8 (60-3) : le frère et le catalogue remplacent par la même fonction — même rang, même ' +
+      'superset (§7 decies), mêmes séries et repos, la charge de départ retirée (MOTEUR §9.21).' }
 ];
 
 // ── 58-1 — UN FAIT NE SE DÉCLARE QUE DANS `faits.js` ─────────────────────────

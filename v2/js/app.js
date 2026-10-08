@@ -6488,6 +6488,7 @@
     if (!brouillon.exercices[i]) return;
     Rendu.rendreFeuilleExoRoutine($('feuille-contenu'), {
       nom: nomExoBrouillon(i),
+      surRemplacer: function () { ouvrirRemplacerDansLEditeur(i); },
       peutGrouper: Routines.peutGrouper(brouillon.exercices, i),
       estGroupe: Routines.estGroupe(brouillon.exercices, i),
       // Le lien avec le voisin du dessous : c'est lui, et lui seul, qui fait un
@@ -6515,6 +6516,40 @@
       }
     });
     ouvrirVoile($('feuille-seance'));
+  }
+
+  // ES §7 quindecies.8 (60-3) — « REMPLACER » DANS L'ÉDITEUR : la feuille de
+  // « Machine prise » en séance (MOTEUR §9.19) SANS « Plus tard ». Les frères
+  // par `Seance.freresProposes` — LA MÊME FONCTION : le même ordre, le même
+  // rangement par matériel, le même « Dernière fois… » (`faitsDesFreres`) —,
+  // puis « Chercher dans le catalogue », le sélecteur de l'éditeur. Le
+  // remplaçant prend la place (`Routines.exerciceRemplace`) ; rien n'est écrit
+  // avant « Enregistrer », comme tout geste de l'éditeur.
+  function ouvrirRemplacerDansLEditeur(i) {
+    var e = brouillon && brouillon.exercices[i];
+    if (!e) return;
+    var index = Modele.indexerExercices(local.exercices);
+    var presents = brouillon.exercices.map(function (x) { return x.exercise_slug; });
+    var freres = Seance.freresProposes(e.exercise_slug, index, faitsDesFreres(index, e.exercise_slug),
+      presents, horsDuMateriel(index));
+    Rendu.rendreFeuilleMachinePrise($('feuille-contenu'), {
+      titre: 'Remplacer',
+      nom: Modele.nommer(index, e.exercise_slug),
+      tard: null,
+      freres: freres.map(function (f) {
+        return { nom: Modele.nommer(index, f.slug), fait: f.fait,
+                 surChoisir: function () { fermerVoile(); remplacerDansLEditeur(i, f.slug); } };
+      }),
+      chercher: 'Chercher dans le catalogue',
+      surCatalogue: function () { fermerVoile(); ouvrirCatalogue(null, i); }
+    });
+    ouvrirVoile($('feuille-seance'));
+  }
+
+  function remplacerDansLEditeur(i, slug) {
+    if (!brouillon || !brouillon.exercices[i] || !slug) return;
+    brouillon.exercices[i] = Routines.exerciceRemplace(brouillon.exercices[i], slug);
+    renumeroterBrouillon();
   }
 
   // ⚠️ DÉPLACER RELIT LES LIENS DE LA NOUVELLE ADJACENCE. Sortir un exercice
@@ -6919,6 +6954,12 @@
         //
         // Ni reps ni repos par défaut : une valeur inventée se lirait comme une
         // prescription, et serait pire qu'une absence.
+        //
+        // 60-3 (ES §7 quindecies.8) — « Chercher dans le catalogue » depuis
+        // « Remplacer » : le choix prend la place, il ne s'ajoute pas.
+        if (intentionCatalogue.remplace !== null && brouillon.exercices[intentionCatalogue.remplace]) {
+          return remplacerDansLEditeur(intentionCatalogue.remplace, exo.slug);
+        }
         brouillon.exercices.push({
           id: null, exercise_slug: exo.slug,
           series: [Routines.enSaisie(null)],

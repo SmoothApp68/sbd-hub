@@ -42,3 +42,44 @@ describe('60-4 — les fichiers embarqués, octet pour octet', () => {
     expect(C.catalogue.tirage_vertical_elastique[0]).toBe('elastique');
   });
 });
+
+// ── 60-6 : la référence et les cas après l'audit des profils ───────────────────
+// `gen60b.py` = `gen60.py` + quatre règles ; `cas-60-6-generateur.json` remplacera `cas-60-4-generateur.json` quand le
+// générateur le rejoue (même commit : la suite reste verte à chaque commit).
+describe('60-6 — les fichiers embarqués, octet pour octet', () => {
+  test('la référence gen60b.py est celle reçue de Claude.ai', () => {
+    const brut = lire('tests/unit/fixtures/gen60b.py');
+    expect(brut.length).toBe(16095);
+    expect(sha(brut)).toBe('9aa3051a21a26c9864ec03275cec321fdd9e61381768d4e921be5e678f7f40a3');
+  });
+
+  test('le fichier de cas cas-60-6-generateur.json est celui reçu de Claude.ai', () => {
+    const brut = lire('tests/unit/fixtures/cas-60-6-generateur.json');
+    expect(brut.length).toBe(123175);
+    expect(sha(brut)).toBe('bf617bbf6c99c4943e1601200b201b6fc759494022a34b6e6cbe30daa66da7e9');
+    expect(brut[brut.length - 1]).not.toBe(10);                             // une seule ligne, sans saut de ligne final
+  });
+
+  test('le fichier de cas porte ce que la spec (§5 bis) en dit : 32 programmes, 78 gestes, 30 cartes', () => {
+    const C = JSON.parse(lire('tests/unit/fixtures/cas-60-6-generateur.json').toString('utf8'));
+    expect(C.generer).toHaveLength(32);
+    expect(C.ne_veux_pas).toHaveLength(78);
+    expect(C.carte_cycles).toHaveLength(30);
+    expect(C.format_exercice).toEqual(['exercise_slug', 'motif', 'role', 'series', 'reps', 'prioritaire', 'menage', 'barre_fixe']);
+    // Les nouveautés d'entrée : l'ancienneté et le matériel non renseigné.
+    expect(C.generer.filter((c) => c.entree.anciennete === 'moins_1_an').length).toBeGreaterThan(0);
+    expect(C.generer.filter((c) => c.entree.materiel === null).length).toBeGreaterThan(0);
+  });
+
+  test('quinze programmes de 60-4 sortent à l’identique, deux changent exprès (les 2 jours)', () => {
+    const vieux = JSON.parse(lire('tests/unit/fixtures/cas-60-4-generateur.json').toString('utf8'));
+    const neuf = JSON.parse(lire('tests/unit/fixtures/cas-60-6-generateur.json').toString('utf8'));
+    const change = [];
+    vieux.generer.forEach((c) => {
+      const n = neuf.generer.filter((x) => x.id === c.id)[0];
+      expect(n).toBeDefined();
+      if (JSON.stringify(n.attendu) !== JSON.stringify(c.attendu)) change.push(c.id);
+    });
+    expect(change.sort()).toEqual(['jours_1_borne_2', 'neuf_2j_poids_du_corps']);
+  });
+});

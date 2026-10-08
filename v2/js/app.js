@@ -7714,11 +7714,27 @@
     return (session && session.user && session.user.id) || null;
   }
 
+  // ⚠️ 60-2b — UNE ENTRÉE EN VOL N'ABSORBE QUE LA SESSION DE SON COMPTE. Avant, `entrer`
+  // rendait l'entrée en cours sans regarder la session reçue : le lien de confirmation du
+  // compte B, absorbé par le SDK PENDANT l'entrée de l'ancien compte A (la sonde synchrone
+  // avait lu A dans le stockage avant), était jeté. L'app gardait A en mémoire sous le jeton
+  // de B, et `chargerProfil` créait la ligne de B avec l'identifiant de A : `profiles_creation`
+  // refusait (403). Désormais la session d'un AUTRE compte attend la fin de l'entrée en vol
+  // puis entre à son tour ; celle du MÊME compte remplace l'objet de session (le jeton neuf).
+  var entreeEnCoursPour = null;
+
   function entrer(session) {
-    if (entreeEnCours) return entreeEnCours;
     var uid = idDeSession(session);
+    if (entreeEnCours) {
+      if (!uid || uid === entreeEnCoursPour) {
+        if (uid && idDeSession(sessionActive) === uid) sessionActive = session;
+        return entreeEnCours;
+      }
+      return entreeEnCours.catch(function () {}).then(function () { return entrer(session); });
+    }
+    entreeEnCoursPour = uid;
     entreeEnCours = uid && uid === entreeFaitePour ? reentrer(session) : entrerVraiment(session);
-    entreeEnCours.catch(function () {}).then(function () { entreeEnCours = null; });
+    entreeEnCours.catch(function () {}).then(function () { entreeEnCours = null; entreeEnCoursPour = null; });
     return entreeEnCours;
   }
 
@@ -7948,11 +7964,31 @@
   // Le profil distant. S'il n'existe pas, ON LE CRÉE — relevé sur `pg_trigger` :
   // AUCUN trigger ne pose la ligne à la création du compte, donc un compte tout
   // neuf n'a pas de profil et personne ne le posera à notre place.
+  // 60-2b — L'IDENTIFIANT D'UNE ÉCRITURE DE PROFIL : celui de la session du CLIENT à
+  // l'instant d'écrire — la session que le SDK relira pour le jeton —, jamais celui que
+  // l'app a en mémoire. Les deux peuvent diverger (le compte change sous l'app : lien de
+  // confirmation, autre onglet) ; `profiles_creation` et `profiles_modif` exigent
+  // `id = auth.uid()`, et l'objet de session de la mémoire est le seul des deux qu'on
+  // peut laisser périmé. UN SEUL ENDROIT, pour la lecture, la création et l'envoi de la ligne.
+  //   · pas de session lisible (hors ligne avec un jeton à renouveler, stockage fermé) : `null`,
+  //     on n'écrit pas un identifiant deviné — la ligne attend (`profilAEnvoyer`) ;
+  //   · le client est sur un AUTRE compte que l'app : `null` aussi — on n'écrit JAMAIS la ligne
+  //     de l'un sous l'identifiant de l'autre — et la session du client entre (`entrer`).
+  async function identifiantDuProfil() {
+    var s = null;
+    try { s = await Auth.sessionCourante(); } catch (e) { s = null; }
+    var id = idDeSession(s);
+    if (!id) return null;
+    if (id !== userId()) { entrer(s); return null; }
+    return id;
+  }
+
   async function chargerProfil() {
-    var id = userId();
-    if (!id) return;
+    if (!userId()) return;
     var g = generation;
     var version = versionProfil;
+    var id = await identifiantDuProfil();
+    if (!id || !generationValide(g)) return;
     var distant = null;
     try { distant = await Donnees.monProfil(id); }
     catch (e) { return; }   // hors réseau : ce qu'on a en cache fait l'affaire
@@ -7967,7 +8003,13 @@
           username: pseudoAInscrire || null,
           onboarding_completed: false
         }));
-      } catch (e) { return; }
+      } catch (e) {
+        // 60-2b — une création qui échoue ne se perd plus en silence : elle se dit (console,
+        // donc le journal des erreurs), et elle se REJOUE au prochain chargement du profil —
+        // `pseudoAInscrire` reste posé, `monProfil` rendra encore « pas de ligne ».
+        if (generationValide(g)) console.warn('Profil non créé, il sera retenté :', texteErreur(e));
+        return;
+      }
       if (!generationValide(g)) return;
     }
     pseudoAInscrire = null;
@@ -8008,10 +8050,11 @@
   }
 
   async function envoyerProfilMaintenant() {
-    var id = userId();
-    if (!id || !profil) return;
+    if (!userId() || !profil) return;
     var g = generation;
     var version = versionProfil;
+    var id = await identifiantDuProfil();
+    if (!id || !generationValide(g)) return;
     try {
       var rendu = await Donnees.enregistrerProfil(id, Profil.champsEcrits(profil));
       if (!generationValide(g)) return;

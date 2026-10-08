@@ -1,11 +1,12 @@
 #!/usr/bin/env node
-// tests/banc/tout.js — `npm test` et les trois bancs, en même temps.
+// tests/banc/tout.js — `npm test` et les quatre bancs, en même temps.
 //
 //   node tests/banc/tout.js                 npm test + banc des routines + banc du service worker
+//                                           + banc de la création du profil (60-2b)
 //                                           + banc d'écran de séance (complet, parallèle)
 //   node tests/banc/tout.js --sequentiel    le banc d'écran en séquentiel (la référence)
 //
-// Chacun sur son port, chacun dans son journal ; on attend les quatre, on dit
+// Chacun sur son port, chacun dans son journal ; on attend les cinq, on dit
 // lequel a échoué et où lire pourquoi. À lancer sur l'état COMMITÉ.
 
 const fs = require('fs');
@@ -41,6 +42,7 @@ if (require.main === module) {
     lancer('npm test', [path.join(RACINE, 'node_modules/jest/bin/jest.js')]),
     lancer('banc des routines', [path.join(__dirname, 'routines-ecran.js')]),
     lancer('banc du service worker', [path.join(__dirname, 'sw-navigation.js')]),
+    lancer('banc de la création du profil', [path.join(__dirname, 'profil-creation.js')]),
     lancer('banc d’écran de séance', [path.join(__dirname, 'seance-rapide.js')].concat(seq ? ['--sequentiel'] : []))
   ]).then((r) => {
     console.log('\n══ TOUT (sur l’état commité) ══');

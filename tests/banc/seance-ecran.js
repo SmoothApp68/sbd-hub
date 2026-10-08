@@ -14463,8 +14463,23 @@ const SETS_IMPORTES = [
     await page.goto(BASE + '/styles.css', { waitUntil: 'domcontentloaded' }).catch(() => {});
     await page.evaluate(() => new Promise((ok2) => {
       Object.keys(localStorage).filter((k) => k.indexOf('th-v2-questionnaire-vu-') === 0).forEach((k) => localStorage.removeItem(k));
-      const r = indexedDB.deleteDatabase('trainhub-v2');
-      r.onsuccess = r.onerror = r.onblocked = () => ok2();
+      // ⚠️ ON VIDE LES MAGASINS, ON NE SUPPRIME PAS LA BASE. `deleteDatabase` est BLOQUÉE tant que
+      // l'ancien document tient sa connexion — et Chromium garde cet ancien document gelé (bfcache)
+      // un temps qu'on ne maîtrise pas : la page suivante relisait alors l'ancien cache (le profil du
+      // scénario H, `questionnaire_fait_le` vide) et ouvrait le questionnaire sur LUI. Constaté le
+      // 08/10/2026 : 1 échec sur 8 passages parallèles, sur le code d'avant comme sur celui d'après.
+      // Vider les magasins ne demande aucune version : rien ne bloque, et l'appareil est bien « neuf ».
+      const o = indexedDB.open('trainhub-v2');
+      o.onerror = () => ok2();
+      o.onsuccess = () => {
+        const db = o.result;
+        const noms = Array.from(db.objectStoreNames);
+        if (!noms.length) { db.close(); ok2(); return; }
+        const tx = db.transaction(noms, 'readwrite');
+        noms.forEach((n) => tx.objectStore(n).clear());
+        tx.oncomplete = tx.onerror = tx.onabort = () => { db.close(); ok2(); };
+      };
+      setTimeout(ok2, 10000);
     }));
     Object.assign(profilBase(), VIERGE, { onboarding_completed: false });
     base.lenteurProfil = 3500;

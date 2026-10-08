@@ -2348,6 +2348,39 @@ routines qui vont ensemble, mélangées au reste.
 
 **Référence** : `organiser52.py` ; cas `cas_organiser52.json`.
 
+## 7 quindecies.7 « Retrouver mes séances qui reviennent » — décidé le 08/10/2026 (chantier 60-3)
+
+> **Le coach retrouve dans tes séances celles qui reviennent, et t'en propose les routines. Rien n'est écrit avant ton
+> geste, et tout se modifie ensuite.** La règle : QUESTIONNAIRE-COACH-V2 §5.
+
+**Où.** Deux entrées, **une seule feuille** : l'écran 8a du questionnaire (« Garder ce que je fais », sans routine) ; et
+dans la bibliothèque de Routines, une ligne **« Retrouver mes séances qui reviennent »** (pour tout le monde, à côté de
+« Nouvelle routine »).
+
+**La feuille.** « Tes séances qui reviennent, sur tes 12 dernières semaines. » Puis une carte par routine trouvée :
+une case (cochée, ou décochée si elle est ancienne), le nom, « 12 fois · dernière fois mardi » (date par le formateur
+`quand`), la liste de ses exercices avec séries × reps (« Squat 4 × 5 · Presse 3 × 12… ») ; une routine ancienne
+porte en gris « Pas faite depuis le 9 mai. ». En voix du coach, sous la liste : « Tu pourras tout changer ensuite :
+exercices, séries, repos. » Boutons : « **En faire mes routines (3)** » (le nombre de cases cochées ; inactif à zéro)
+et « Pas maintenant ». **Rien trouvé** : « Je ne trouve pas encore de séances qui reviennent assez souvent. Tu peux
+créer tes routines toi-même. » et « Nouvelle routine ».
+
+**Ce qui s'écrit.** Chaque routine cochée est créée **par le même chemin que « Créer la routine »** de « En faire une
+routine » (§7 quindecies.4 : même structure, mêmes repos et leur origine, noms rendus uniques, jamais de charge), dans
+un **dossier « Mon programme »** (« Mon programme (2) » s'il existe déjà), dans l'ordre de la feuille. La bibliothèque
+s'ouvre ensuite sur ce dossier — d'où « Faire de ce dossier un programme » est à un geste. Une routine se modifie
+ensuite dans l'éditeur, comme toutes (dont « Remplacer », §7 quindecies.8) ; on ne crée **pas** de second éditeur dans
+la feuille.
+
+## 7 quindecies.8 « Remplacer » dans l'éditeur de routine — décidé le 08/10/2026 (chantier 60-3)
+
+Dans le menu ⋯ d'un exercice de l'éditeur : « **Remplacer** ». La feuille est celle de « Machine prise » en séance
+(MOTEUR §9.19) **sans « Plus tard »** : les frères, avec leur dernier chiffre, dans le même ordre et le même rangement
+par matériel (une seule fonction), puis « **Chercher dans le catalogue** » (le sélecteur d'exercices de l'éditeur).
+Choisir remplace l'exercice **à sa place** : même rang, même groupe de superset (§7 decies reste vrai), mêmes séries
+(types, reps visées, durée, distance), même repos, même note ; **la charge de départ est retirée** (elle valait pour
+l'ancien exercice, MOTEUR §9.21). Rien n'est écrit avant « Enregistrer », comme tout geste de l'éditeur.
+
 
 ## 7 decies. Un groupe de superset a toujours au moins deux exercices
 

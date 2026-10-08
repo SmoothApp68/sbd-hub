@@ -14997,7 +14997,7 @@ const SETS_IMPORTES = [
       equipement: 'machine', muscles_primaires: prim, muscles_secondaires: sec }));
     // 60-4 — le catalogue du générateur (celui du fichier de cas : slug → [équipement, principaux, secondaires]),
     // pour que l'aperçu du programme construit ait de quoi choisir. Un slug déjà au banc n'est pas touché.
-    const CAS_GEN = JSON.parse(require('fs').readFileSync(path.join(__dirname, '../unit/fixtures/cas-60-4-generateur.json'), 'utf8'));
+    const CAS_GEN = JSON.parse(require('fs').readFileSync(path.join(__dirname, '../unit/fixtures/cas-60-6-generateur.json'), 'utf8'));
     Object.keys(CAS_GEN.catalogue).forEach((slug) => {
       if (CATALOGUE.some((c) => c.slug === slug)) return;
       const [equipement, prim, sec] = CAS_GEN.catalogue[slug];

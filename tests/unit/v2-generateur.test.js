@@ -1,9 +1,9 @@
 /** @jest-environment node */
 //
-// 60-4 — LE GÉNÉRATEUR « CONSTRUIS-LE-MOI » (QUESTIONNAIRE-COACH-V2 §5 bis), rejoué contre ses cas.
+// 60-4 / 60-6 — LE GÉNÉRATEUR « CONSTRUIS-LE-MOI » (QUESTIONNAIRE-COACH-V2 §5 bis), rejoué contre ses cas.
 //
-// Le fichier de cas `tests/unit/fixtures/cas-60-4-generateur.json` fait foi (référence `gen60.py`) : 17 programmes,
-// 64 « Je n'en veux pas » (dont un geste deux fois de suite sur une place aux séries changées), 30 cartes. Un cas qui
+// Le fichier de cas `tests/unit/fixtures/cas-60-6-generateur.json` fait foi (référence `gen60b.py`) : 32 programmes,
+// 78 « Je n'en veux pas » (dont un geste deux fois de suite sur une place aux séries changées), 30 cartes. Un cas qui
 // semble faux se rapporte ; il ne se corrige pas ici en silence.
 //
 // La forme du catalogue du cas — slug → [équipement, principaux, secondaires] — est celle de la base ; le module lit
@@ -11,7 +11,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const CAS = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/cas-60-4-generateur.json'), 'utf8'));
+const CAS = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/cas-60-6-generateur.json'), 'utf8'));
 
 let G, Profil;
 beforeAll(() => {
@@ -37,6 +37,7 @@ const clone = (o) => JSON.parse(JSON.stringify(o));
 
 // Ce que le fichier de cas décrit par `entree` : les noms de l'app (menager, ecartes, priorites, faits).
 const entreeDe = (c) => clone(c.entree);
+const entreeDeSans = (id) => entreeDe(CAS.generer.filter((x) => x.id === id)[0]);
 
 describe('60-4 — le format du fichier de cas', () => {
   test('les 8 champs sont ceux que le module rend, dans cet ordre', () => {
@@ -44,7 +45,7 @@ describe('60-4 — le format du fichier de cas', () => {
   });
 });
 
-describe('60-4 — generer : les 17 programmes du fichier de cas, à l’identique', () => {
+describe('60-6 — generer : les 32 programmes du fichier de cas, à l’identique', () => {
   CAS.generer.forEach((c) => {
     test(c.id + ' — l’ordre des routines et des exercices, les 8 champs, la ligne « pourquoi »', () => {
       const cat = catalogue();
@@ -54,7 +55,7 @@ describe('60-4 — generer : les 17 programmes du fichier de cas, à l’identiq
   });
 });
 
-describe('60-4 — neVeuxPas : les 64 gestes du fichier de cas', () => {
+describe('60-6 — neVeuxPas : les 78 gestes du fichier de cas', () => {
   const programmes = {};
   const base = (id) => {
     if (!programmes[id]) {
@@ -213,6 +214,154 @@ describe('60-4 — chaque chemin de la règle est joué par un cas du fichier', 
     const seche = G.generer(cat, Object.assign({ phase: 'seche' }, entree));
     const incline = (rs) => exercices(rs).filter((x) => x.motif === 'incline')[0];
     expect(incline(hors).series).toBe(incline(seche).series + 1);
+  });
+});
+
+// ── 60-6 : LES QUATRE RÈGLES, CHACUNE SUR UN CAS DU FICHIER ────────────────────
+// (Un test qui ne teste pas ce qu'il prétend est pire qu'aucun : chaque règle se prouve par une DIFFÉRENCE — le même
+// profil avec et sans la condition — ou sur un cas qui ne s'explique que par elle.)
+describe('60-6 — chaque règle des défauts G1 à G4 est jouée par un cas du fichier', () => {
+  const cat = catalogue();
+  const cas = (id) => CAS.generer.filter((x) => x.id === id)[0];
+  const programme = (id, surcharge) => G.generer(cat, Object.assign(entreeDe(cas(id)), surcharge || {}));
+  const exercices = (rs) => [].concat.apply([], rs.map((rt) => rt.exercices));
+  const slugs = (rs) => exercices(rs).map((x) => x.exercise_slug);
+  const sans = (id, ...cles) => { const e = entreeDe(cas(id)); cles.forEach((k) => { delete e[k]; }); return e; };
+
+  test('G1 — le gabarit de 2 jours : le couché dans les DEUX séances, des mollets, ni élévations ni triceps en direct', () => {
+    const rs = programme('deux_jours_force_salle_complete');
+    expect(rs.map((rt) => rt.nom)).toEqual(['Corps entier A', 'Corps entier B']);
+    rs.forEach((rt) => expect(rt.exercices.map((x) => x.motif)).toContain('couche'));
+    const motifs = exercices(rs).map((x) => x.motif);
+    expect(motifs).toContain('mollets');
+    expect(motifs).not.toContain('elev_lat');
+    expect(motifs).not.toContain('triceps');
+    expect(G.GABARITS[2].map((rt) => rt[1].map((pl) => pl[0] + ':' + pl[1]))).toEqual([
+      ['squat:P', 'couche:P', 'rowing:S', 'jambes_tendues:S', 'mollets:I', 'abdos:T'],
+      ['charniere:P', 'militaire:P', 'tirage_vertical:S', 'presse:S', 'couche:S', 'curl:I']]);
+  });
+
+  test('G2 — jamais deux fois le même exercice dans une séance : la place saute (maison minimale)', () => {
+    const rs = programme('maison_minimale_4j_muscle_sans_doublon');
+    rs.forEach((rt) => {
+      const noms = rt.exercices.map((x) => x.exercise_slug);
+      expect(new Set(noms).size).toBe(noms.length);
+    });
+    // Le chemin est vraiment pris : « Bas A » a perdu des places, et le roumain n'y est qu'une fois (il était le
+    // dernier recours des places « jambes tendues » ET « leg curl »).
+    const bas = rs[1];
+    expect(bas.exercices.length).toBeLessThan(G.GABARITS[4][1][1].length);
+    expect(bas.exercices.filter((x) => x.exercise_slug === 'souleve_de_terre_roumain_haltere')).toHaveLength(1);
+    // Le même exercice peut, lui, revenir dans la semaine (ailleurs) plutôt qu'un muscle sans travail.
+    expect(slugs(rs).filter((x) => x === 'souleve_de_terre_roumain_haltere').length).toBeGreaterThan(1);
+  });
+
+  test('G2/S6 — « Je n’en veux pas » ne reprend jamais un exercice de la séance : les 78 gestes du fichier', () => {
+    let touches = 0;
+    CAS.ne_veux_pas.forEach((c) => {
+      if (c.series_avant) return;
+      const noms = c.attendu_routine.exercices.map((x) => x[0]);
+      expect(new Set(noms).size).toBe(noms.length);
+      touches++;
+    });
+    expect(touches).toBeGreaterThan(70);
+  });
+
+  test('G2/S6 — la place saute quand son seul remplaçant est déjà dans la séance (rien ne se répète)', () => {
+    const c = CAS.ne_veux_pas.filter((x) => x.id === 'maison_minimale_4j_muscle_sans_doublon/1-2')[0];
+    const rs = programme('maison_minimale_4j_muscle_sans_doublon');
+    const p = entreeDeSans(c.programme);
+    const sortie = G.neVeuxPas(cat, rs, p, c.routine, c.exercice);
+    const noms = sortie.routines[c.routine].exercices.map((x) => x.exercise_slug);
+    expect(new Set(noms).size).toBe(noms.length);
+    expect(noms).not.toContain('step_up');
+  });
+
+  test('G3 — débutant : ni tractions ni relevé de genoux suspendu d’emblée ; le même profil à « 1 à 3 ans » les a', () => {
+    const debutant = slugs(programme('debutant_3j_forme_salle_complete'));
+    const un_an = slugs(programme('un_an_3j_forme_salle_complete'));
+    G.PDC_LOURD.forEach((s) => expect(debutant).not.toContain(s));
+    expect(un_an).toEqual(expect.arrayContaining(['tractions', 'releve_de_genoux_suspendu']));
+    // Le reste est le même profil : la seule différence est l'ancienneté.
+    expect(entreeDe(cas('debutant_3j_forme_salle_complete'))).toEqual(Object.assign(entreeDe(cas('un_an_3j_forme_salle_complete')), { anciennete: 'moins_1_an' }));
+  });
+
+  test('G3 — un débutant qui a DÉJÀ fait les tractions les garde (l’historique l’emporte) ; pas le relevé de genoux', () => {
+    const e = slugs(programme('debutant_4j_muscle_avec_tractions_faites'));
+    expect(e).toContain('tractions');
+    expect(e).not.toContain('releve_de_genoux_suspendu');
+    // Sans l’historique, les mêmes jours et le même objectif n’auraient pas de tractions.
+    expect(slugs(programme('debutant_4j_muscle_avec_tractions_faites', { faits: {} }))).not.toContain('tractions');
+  });
+
+  test('G3 — ancienneté absente, null ou inconnue : pas débutant (le programme est celui d’un assidu)', () => {
+    const assidu = programme('un_an_3j_forme_salle_complete');
+    [undefined, null, '', 'inconnue', '3_a_5_ans', 'plus_5_ans'].forEach((a) => {
+      expect(programme('un_an_3j_forme_salle_complete', { anciennete: a })).toEqual(assidu);
+    });
+    expect(programme('un_an_3j_forme_salle_complete', { anciennete: 'moins_1_an' })).not.toEqual(assidu);
+  });
+
+  test('G3 — le dernier recours : quand rien d’autre n’existe, le débutant a les tractions (la place ne reste pas vide)', () => {
+    const peu = {};
+    ['squat_barre', 'developpe_couche_barre', 'souleve_de_terre_barre', 'developpe_militaire_barre', 'presse_a_cuisses',
+     'tractions', 'souleve_de_terre_roumain_barre', 'developpe_couche_haltere'].forEach((slug) => { peu[slug] = cat[slug]; });
+    const rs = G.generer(peu, { jours: 2, objectif: 'muscle', materiel: 'salle_complete', anciennete: 'moins_1_an' });
+    expect(slugs(rs)).toContain('tractions');
+    // Dès qu’un autre tirage existe au catalogue, il passe devant.
+    const avec = Object.assign({ tirage_poitrine_poulie: cat.tirage_poitrine_poulie }, peu);
+    expect(slugs(G.generer(avec, { jours: 2, objectif: 'muscle', materiel: 'salle_complete', anciennete: 'moins_1_an' })))
+      .not.toContain('tractions');
+  });
+
+  test('G3/S6 — « Je n’en veux pas » sur le tirage d’un débutant ne donne jamais des tractions', () => {
+    const c = CAS.ne_veux_pas.filter((x) => x.id === 'debutant_3j_forme_salle_complete/1-2')[0];
+    const rs = programme('debutant_3j_forme_salle_complete');
+    const p = entreeDe(cas('debutant_3j_forme_salle_complete'));
+    expect(rs[1].exercices[2].exercise_slug).toBe('tirage_poitrine_poulie');
+    const sortie = G.neVeuxPas(cat, rs, p, 1, 2);
+    expect(sortie.routines[1].exercices[2].exercise_slug).not.toBe('tractions');
+    expect(sortie.routines[1].exercices.map((x) => x.exercise_slug)).toEqual(c.attendu_routine.exercices.map((x) => x[0]));
+    // Le niveau de l'ENTRÉE est ce qui décide : le même geste, sur le même programme, avec une autre ancienneté,
+    // tombe sur les tractions (premier choix du motif).
+    const assidu = G.neVeuxPas(cat, rs, Object.assign({}, p, { anciennete: '1_a_3_ans' }), 1, 2);
+    expect(assidu.routines[1].exercices[2].exercise_slug).toBe('tractions');
+  });
+
+  test('G4 — la priorité « Tronc » donne une série d’abdos de plus (3 au lieu de 2)', () => {
+    const avec = exercices(programme('quatre_jours_muscle_prio_tronc')).filter((x) => x.role === 'T');
+    const base = exercices(G.generer(cat, sans('quatre_jours_muscle_prio_tronc', 'priorites'))).filter((x) => x.role === 'T');
+    expect(avec.length).toBeGreaterThan(0);
+    expect(avec.map((x) => x.series)).toEqual(base.map((x) => x.series + 1));
+    expect(avec.map((x) => x.series)).toEqual([3, 3]);
+  });
+
+  test('G4 — « Épaules » à 2 jours : le militaire, seul principal de sa zone, gagne sa série (3 → 4)', () => {
+    const militaire = (rs) => exercices(rs).filter((x) => x.motif === 'militaire')[0];
+    const base = G.generer(cat, sans('deux_jours_muscle_prio_epaules', 'priorites'));
+    expect(militaire(base).series).toBe(3);
+    expect(militaire(programme('deux_jours_muscle_prio_epaules')).series).toBe(4);
+  });
+
+  test('G4 — « Jambes » à 3 jours : le squat (principal) ne monte pas, sa zone a d’autres places ; les secondaires et isolations, si', () => {
+    const avec = exercices(programme('trois_jours_force_prio_jambes'));
+    const base = exercices(G.generer(cat, sans('trois_jours_force_prio_jambes', 'priorites')));
+    const ligne = (xs, slug) => xs.filter((x) => x.exercise_slug === slug)[0];
+    expect(ligne(avec, 'squat_barre').series).toBe(ligne(base, 'squat_barre').series);
+    expect(ligne(avec, 'souleve_de_terre_barre').series).toBe(ligne(base, 'souleve_de_terre_barre').series);
+    expect(ligne(avec, 'presse_a_cuisses').series).toBe(ligne(base, 'presse_a_cuisses').series + 1);
+    expect(ligne(avec, 'extension_jambes').series).toBe(ligne(base, 'extension_jambes').series + 1);
+  });
+
+  test('G4 — en sèche, une priorité de ZONE ne change rien ; celle d’un EXERCICE donne toujours sa série', () => {
+    const zone = programme('quatre_jours_muscle_seche_prio_bras');
+    expect(zone).toEqual(G.generer(cat, sans('quatre_jours_muscle_seche_prio_bras', 'priorites')));
+    const curl = exercices(programme('quatre_jours_muscle_seche_prio_exercice')).filter((x) => x.exercise_slug === 'curl_biceps_barre_ez')[0];
+    expect(curl.prioritaire).toBe(true);
+    expect(curl.series).toBe(4);
+    // Hors sèche, la même priorité de zone, elle, change le programme (le test ci-dessus ne serait pas discriminant sinon).
+    expect(G.generer(cat, Object.assign(sans('quatre_jours_muscle_seche_prio_bras'), { priorites: ['bras'], phase: 'maintien' })))
+      .not.toEqual(zone);
   });
 });
 

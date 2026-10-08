@@ -27,7 +27,7 @@ const Generateur = require('../../v2/js/generateur.js');
 require('../../v2/js/rendu.js');
 const Rendu = () => window.THRendu;
 
-const CAS = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/cas-60-4-generateur.json'), 'utf8'));
+const CAS = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/cas-60-6-generateur.json'), 'utf8'));
 const cas = (id) => CAS.generer.find((c) => c.id === id);
 const clone = (o) => JSON.parse(JSON.stringify(o));
 const texte = (n) => n.textContent.replace(/\s+/g, ' ').trim();
@@ -440,6 +440,61 @@ describe('les gestes : ouvrir l’aperçu', () => {
     expect(b.ctx.construit).toBeNull();
     expect(b.journal.routines).toEqual([]);
     expect(b.journal.profil).toEqual([]);
+  });
+});
+
+describe('les gestes : le niveau, les 2 jours et la priorité « Tronc » (60-6)', () => {
+  const noms = (b) => [].concat.apply([], b.vue().routines.map((r) => r.exercices.map((x) => x.nom)));
+  const ouvrir = async (profil) => {
+    const b = bac({ profil });
+    await b.appel('ouvrirApercuProgramme()');
+    return b;
+  };
+
+  test('⚠️ DISCRIMINANT — « moins d’un an » : ni tractions ni relevé de genoux suspendu ; « 1 à 3 ans » : ils reviennent', async () => {
+    const debutant = noms(await ouvrir({ seances_par_semaine: 3, objectif: 'forme', anciennete: 'moins_1_an' }));
+    expect(debutant).not.toContain(nom('tractions'));
+    expect(debutant).not.toContain(nom('releve_de_genoux_suspendu'));
+    const assidu = noms(await ouvrir({ seances_par_semaine: 3, objectif: 'forme', anciennete: '1_a_3_ans' }));
+    expect(assidu).toContain(nom('tractions'));
+    expect(assidu).toContain(nom('releve_de_genoux_suspendu'));
+  });
+
+  test('l’ancienneté non répondue n’est pas « débutant »', async () => {
+    const nulle = noms(await ouvrir({ seances_par_semaine: 3, objectif: 'forme', anciennete: null }));
+    expect(nulle).toContain(nom('tractions'));
+  });
+
+  test('un débutant qui a déjà fait les tractions les garde', async () => {
+    const b = bac({ profil: { seances_par_semaine: 4, objectif: 'muscle', anciennete: 'moins_1_an' }, faits: { tractions: 20 } });
+    await b.appel('ouvrirApercuProgramme()');
+    expect(noms(b)).toContain(nom('tractions'));
+  });
+
+  test('« Je n’en veux pas » sur le tirage d’un débutant ne donne jamais des tractions', async () => {
+    const b = await ouvrir({ seances_par_semaine: 3, objectif: 'forme', anciennete: 'moins_1_an' });
+    const r = b.vue().routines.findIndex((rt) => rt.exercices.some((x) => x.nom === nom('tirage_poitrine_poulie')));
+    const k = b.vue().routines[r].exercices.findIndex((x) => x.nom === nom('tirage_poitrine_poulie'));
+    expect(r).toBeGreaterThanOrEqual(0);
+    b.vue().surExercice(r, k);
+    b.ctx.__choix.surChoix('refuser');
+    expect(noms(b)).not.toContain(nom('tractions'));
+    expect(b.vue().routines[r].exercices[k].nom).not.toBe(nom('tirage_poitrine_poulie'));
+  });
+
+  test('2 jours : « Corps entier A » et « Corps entier B », du couché dans les deux', async () => {
+    const b = await ouvrir({ seances_par_semaine: 2, objectif: 'force' });
+    const rts = b.vue().routines;
+    expect(rts.map((r) => r.nom)).toEqual(['Corps entier A', 'Corps entier B']);
+    rts.forEach((r) => expect(r.exercices.some((x) => /developpe couche/.test(x.nom) && !/incline/.test(x.nom))).toBe(true));
+  });
+
+  test('la priorité « Tronc » : 3 séries d’abdos dans la séance du bas (2 sans elle)', async () => {
+    const abdos = (b) => b.vue().routines[1].exercices.filter((x) => x.nom === nom('releve_de_genoux_suspendu') || x.nom === nom('crunch_poulie'))[0];
+    const avec = await ouvrir({ seances_par_semaine: 4, objectif: 'muscle', priorites: ['tronc'] });
+    const sans = await ouvrir({ seances_par_semaine: 4, objectif: 'muscle' });
+    expect(abdos(avec).series).toBe('3' + NBSP + '×' + NBSP + '15');
+    expect(abdos(sans).series).toBe('2' + NBSP + '×' + NBSP + '15');
   });
 });
 

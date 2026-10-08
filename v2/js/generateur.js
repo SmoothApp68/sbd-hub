@@ -18,9 +18,9 @@
 //   · l'historique  — un fait (`THFaits`), passé en entrée : `faits` = { slug : séances sur 12 semaines } ;
 //   · le catalogue  — celui que l'app a déjà chargé : { slug : { equipement, muscles_primaires, muscles_secondaires } }.
 //
-// La référence est `tests/unit/fixtures/gen60.py` (Claude.ai, 08/10/2026) ; ses cas, `cas-60-4-generateur.json`,
-// sont rejoués à l'identique par `tests/unit/v2-generateur.test.js`. Un cas qui semble faux se rapporte : il ne se
-// corrige pas ici en silence.
+// La référence est `tests/unit/fixtures/gen60b.py` (Claude.ai, 08/10/2026 : `gen60.py` de 60-4 + les règles de 60-6) ;
+// ses cas, `cas-60-6-generateur.json`, sont rejoués à l'identique par `tests/unit/v2-generateur.test.js`. Un cas qui
+// semble faux se rapporte : il ne se corrige pas ici en silence.
 
 (function (racine) {
   'use strict';
@@ -69,10 +69,12 @@
   var B_B = ['Bas B', [['charniere', 'P'], ['presse', 'S'], ['hip_thrust', 'S'], ['leg_curl', 'I'], ['mollets', 'I'],
                        ['abdos', 'T']]];
   var GABARITS = {
-    2: [['Corps entier A', [['squat', 'P'], ['couche', 'P'], ['rowing', 'S'], ['jambes_tendues', 'S'], ['elev_lat', 'I'],
+    // 2 jours (60-6, S1) : le couché dans les DEUX séances (deux principaux « poussée » et un secondaire), les mollets
+    // à la place des élévations latérales, plus de triceps en direct.
+    2: [['Corps entier A', [['squat', 'P'], ['couche', 'P'], ['rowing', 'S'], ['jambes_tendues', 'S'], ['mollets', 'I'],
                             ['abdos', 'T']]],
         ['Corps entier B', [['charniere', 'P'], ['militaire', 'P'], ['tirage_vertical', 'S'], ['presse', 'S'],
-                            ['curl', 'I'], ['triceps', 'I']]]],
+                            ['couche', 'S'], ['curl', 'I']]]],
     3: [['Corps entier A', [['squat', 'P'], ['couche', 'P'], ['rowing', 'S'], ['leg_curl', 'I'], ['elev_lat', 'I'],
                             ['abdos', 'T']]],
         ['Corps entier B', [['charniere', 'P'], ['militaire', 'P'], ['tirage_vertical', 'S'], ['presse', 'S'],
@@ -94,6 +96,13 @@
 
   // Les exercices qui demandent une barre fixe : la maison minimale n'en a pas.
   var BARRE_FIXE = ['tractions', 'rowing_inverse'];
+
+  // Le poids du corps lourd (60-6, S3) : pour qui a moins d'un an de pratique et ne l'a jamais fait, ces trois exercices
+  // ne sont proposés qu'en dernier recours — quand ni le motif, ni son voisin, ni un exercice déjà pris ailleurs dans la
+  // semaine ne donne autre chose (jamais retirés pour de bon : la place ne reste pas vide à cause d'eux).
+  var PDC_LOURD = ['tractions', 'releve_de_genoux_suspendu', 'rowing_inverse'];
+  // Débutant = `anciennete === 'moins_1_an'` (la clé du profil) ; absente ou inconnue : pas débutant.
+  var DEBUTANT = 'moins_1_an';
 
   // Les deux élastiques passent avant tout au poids du corps (décidé le 08/10/2026, question 3).
   var ELASTIQUES = ['rowing_elastique', 'tirage_vertical_elastique'];
@@ -172,10 +181,23 @@
   // Le motif ; sinon son voisin ; sinon un exercice déjà pris (plutôt qu'un muscle sans travail). Tri : la variante
   // plus tolérée d'une zone à ménager, puis l'HISTORIQUE (le plus fait d'abord), puis l'élastique d'abord au poids du
   // corps, puis l'ordre du motif.
-  function choisir(motif, ok, ecartes, pris, menager, faits, materiel) {
+  //
+  // `session` : les exercices DÉJÀ DANS cette séance (60-6, S2/S6). Le repli « un exercice déjà pris » les exclut : le
+  // même exercice deux fois dans une séance n'a pas de sens, la place saute plutôt. `debutant` (S3) : on cherche
+  // d'abord SANS les trois exercices de poids du corps lourd qui ne sont pas dans l'historique, puis, si rien, avec.
+  function choisir(motif, ok, ecartes, pris, menager, faits, materiel, debutant, session) {
+    if (debutant) {
+      var sans = function (s) { return !(contient(PDC_LOURD, s) && !(possede(faits, s) ? Number(faits[s]) || 0 : 0)); };
+      var r = choisirBrut(motif, function (s) { return ok(s) && sans(s); }, ecartes, pris, menager, faits, materiel, session);
+      if (r) return r;
+    }
+    return choisirBrut(motif, ok, ecartes, pris, menager, faits, materiel, session);
+  }
+
+  function choisirBrut(motif, ok, ecartes, pris, menager, faits, materiel, session) {
     function candidats(src, sansPris) {
       return src.filter(function (s) {
-        return !contient(ecartes, s) && ok(s) && !(sansPris && possede(pris, s));
+        return !contient(ecartes, s) && ok(s) && !(sansPris && possede(pris, s)) && !(!sansPris && possede(session, s));
       });
     }
     var src = MOTIFS[motif];
@@ -210,7 +232,14 @@
   // ── Une ligne : séries et reps de la place ──────────────────────────────────
   function zoneDe(muscle) { return racine.THSemaine.zoneDuMuscle(muscle); }
 
-  function ligne(catalogue, slug, motif, role, p) {
+  // La zone d'un exercice = celle de son PREMIER muscle principal ; hors du radar, la zone à part (jamais rattachée au hasard).
+  function cleDeZone(fiche) {
+    var z = zoneDe(liste(fiche && fiche.muscles_primaires)[0]);
+    return z ? z.cle : ZONE_INCONNUE.cle;
+  }
+
+  // `solo` : les zones dont TOUTES les places du programme sont des principaux (60-6, S4) — { cleDeZone : true }.
+  function ligne(catalogue, slug, motif, role, p, solo) {
     var objectif = p.objectif, phase = p.phase;
     var priorites = liste(p.priorites), menager = liste(p.menager);
     var r = possede(REPS, objectif) ? REPS[objectif] : REPS_DEFAUT;
@@ -221,12 +250,15 @@
       (contient(PETITS, motif) && (role === 'I' || role === 'T') ? 3 : 0);
     var n = seriesDe(role, objectif);
     var prioEx = contient(priorites, slug);
-    // Un muscle prioritaire : sur un secondaire ou une isolation, hors sèche (un exercice prioritaire l'est toujours).
+    // Un muscle prioritaire, hors sèche (un exercice prioritaire l'est toujours, sèche comprise) : +1 série sur un
+    // secondaire, une isolation ou le tronc ; sur un principal seulement quand sa zone n'a aucune autre place dans le
+    // programme (`solo`) — sinon la priorité passe par les autres places de la zone (60-6, S4).
     var prioMu = phase !== 'seche' && liste(fiche.muscles_primaires).some(function (m) {
       var z = zoneDe(m);
       return !!z && contient(priorites, z.cle);
     });
-    if (prioEx || (prioMu && (role === 'S' || role === 'I'))) n += 1;
+    if (prioEx || (prioMu && (role === 'S' || role === 'I' || role === 'T' ||
+                              (role === 'P' && possede(solo, cleDeZone(fiche)))))) n += 1;
     var menage = menager.some(function (z) { return possede(CHARGE_ZONE, z) && contient(CHARGE_ZONE[z], motif); });
     if (menage && role === 'P') reps = r[1];               // pas de série lourde ; toutes les séries gardées
     if (motif === 'charniere') reps = Math.min(reps, CHARNIERE_MAX);
@@ -235,13 +267,14 @@
   }
 
   // ── Le programme ────────────────────────────────────────────────────────────
-  // `entree` : { jours, objectif, phase, materiel, priorites, menager, ecartes, faits }. Rend des routines
+  // `entree` : { jours, objectif, phase, materiel, anciennete, priorites, menager, ecartes, faits }. Rend des routines
   // { nom, exercices: [{ exercise_slug, motif, role, series, reps, prioritaire, menage, barre_fixe }] }.
   function generer(catalogue, entree) {
     var p = entree || {};
     var faits = p.faits || {};
     var ecartes = liste(p.ecartes);
     var ok = faisable(catalogue, p.materiel, faits);
+    var debutant = p.anciennete === DEBUTANT;
     var gabarit = GABARITS[bornerJours(p.jours)];
     // Les principaux de la semaine d'abord (ils prennent la barre), puis les secondaires, puis le reste ; un exercice
     // n'est pris qu'une fois dans la semaine tant qu'il y a le choix.
@@ -254,14 +287,29 @@
     });
     var pris = {}, choix = {};
     places.forEach(function (pl) {
-      var s = choisir(pl.motif, ok, ecartes, pris, p.menager, faits, p.materiel);
+      // Les exercices déjà choisis DANS cette séance (les places plus prioritaires) : jamais deux fois le même.
+      var session = {};
+      gabarit[pl.r][1].forEach(function (autre, jj) {
+        var deja = choix[pl.r + '-' + jj];
+        if (deja) session[deja] = true;
+      });
+      var s = choisir(pl.motif, ok, ecartes, pris, p.menager, faits, p.materiel, debutant, session);
       if (s) { choix[pl.r + '-' + pl.j] = s; pris[s] = true; }
     });
+    // Les zones dont toutes les places du programme sont des principaux : la priorité de zone n'y aurait aucun effet.
+    var zonesP = {}, zonesAutres = {}, solo = {};
+    Object.keys(choix).forEach(function (cle) {
+      var parts = cle.split('-');
+      var fiche = catalogue[choix[cle]];
+      if (!fiche) return;
+      (gabarit[Number(parts[0])][1][Number(parts[1])][1] === 'P' ? zonesP : zonesAutres)[cleDeZone(fiche)] = true;
+    });
+    Object.keys(zonesP).forEach(function (cle) { if (!possede(zonesAutres, cle)) solo[cle] = true; });
     return gabarit.map(function (rt, r) {
       var ex = [];
       rt[1].forEach(function (pl, j) {
         var s = choix[r + '-' + j];
-        if (s) ex.push(ligne(catalogue, s, pl[0], pl[1], p));
+        if (s) ex.push(ligne(catalogue, s, pl[0], pl[1], p, solo));
       });
       // Stable : l'exercice prioritaire d'abord, puis par rôle.
       ex = trier(ex, function (x, y) {
@@ -290,7 +338,9 @@
     var faits = p.faits || {};
     var pris = {};
     nouveau[r].exercices.forEach(function (x) { pris[x.exercise_slug] = true; });
-    var s = choisir(vieux.motif, faisable(catalogue, p.materiel, faits), ecartes, pris, p.menager, faits, p.materiel);
+    // `pris` = les exercices de CETTE séance : le repli ne les reprend jamais (60-6, S6) ; le débutant reste débutant.
+    var s = choisir(vieux.motif, faisable(catalogue, p.materiel, faits), ecartes, pris, p.menager, faits, p.materiel,
+                    p.anciennete === DEBUTANT, pris);
     if (s === null) {
       nouveau[r].exercices.splice(k, 1);                    // rien au catalogue : la place disparaît
     } else {
@@ -452,6 +502,7 @@
     GABARITS: GABARITS,
     VOISIN: VOISIN,
     BARRE_FIXE: BARRE_FIXE,
+    PDC_LOURD: PDC_LOURD,
     CHARGE_ZONE: CHARGE_ZONE,
     DOUX: DOUX,
     REPS: REPS,

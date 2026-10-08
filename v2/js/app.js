@@ -7775,6 +7775,7 @@
       objectif: Profil.objectifDe(p),
       phase: Profil.phaseDe(p),
       materiel: p.materiel,
+      anciennete: p.anciennete,               // 60-6 : « moins d'un an » = débutant (le profil en cache, rien de lu en plus)
       priorites: Profil.prioritesDe(p),
       menager: Profil.zonesAMenagerValides(p.zones_a_menager) || [],
       ecartes: Profil.ecartesValides(p.exercices_ecartes) || [],

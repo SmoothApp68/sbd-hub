@@ -342,6 +342,25 @@ const progr = (n, reps) => {
   return lignes;
 };
 
+// ⚠️ RÉSERVÉ AU CHANTIER 62 (la barre de la séance en cours) et à lui seul : HUIT
+// exercices, parce que « descendre » n'a de sens que sur un écran plus haut que
+// l'écran — et que la séance de 8 exercices est celle où la barre sert (Aurélien,
+// 08/10/2026). Leurs noms ne répondent à aucune des recherches faites ailleurs, et
+// chacun a son muscle : aucun n'est « premier sur ses muscles » de personne d'autre.
+// La section « barre » et l'écran « séance de 8 exercices » de la forge les posent
+// dans le catalogue le temps de leur passage, puis les retirent.
+const EXOS_U62 = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'].map((l, i) => ({
+  slug: 'barre-u62-' + l, nom: 'Barre ' + l.toUpperCase() + ' U62 (Machine)', mesure: 'charge_reps',
+  charge: 'externe', equipement: 'machine', muscles_primaires: ['u62_m' + i], muscles_secondaires: [] }));
+// Trois séries de travail par exercice, un repos prescrit de 90 s : valider une
+// série ARME le chronomètre, donc la barre du bas — la configuration où les deux
+// barres (haut et bas) sont affichées ensemble.
+const ID_ROUTINE_U62 = '00000000-0000-4000-8620-000000000001';
+const routineU62 = () => ({ id: ID_ROUTINE_U62, nom: 'Barre U62', note: null, archivee_a: null, rang: null, dossier: null,
+  created_at: '2026-09-01T10:00:00.000Z', modifiee_a: '2026-09-01T10:00:00.000Z',
+  routine_exercises: EXOS_U62.map((e, i) => ({ id: 'u62-e' + i, routine_id: ID_ROUTINE_U62, exercise_slug: e.slug, rang: i,
+    routine_sets: progr(3, 8), repos_cible_s: 90, groupe_superset: null, note: null })) });
+
 const ROUTINE = {
   id: 'r-banc', nom: 'Push', note: null, archivee_a: null,
   created_at: '2026-09-01T08:00:00Z', modifiee_a: '2026-09-01T08:00:00Z',
@@ -14061,6 +14080,31 @@ const SETS_IMPORTES = [
     await attendre(2600);
     await relever('apres-terminer');
 
+    // ── C bis. LA SÉANCE DE HUIT EXERCICES, PENDANT UN REPOS (62, la barre de la séance).
+    // Aucune information perdue à l'écran (Aurélien, 08/10/2026) : la séance où la barre
+    // sert — huit blocs, la barre de repos du bas affichée — relevée avant/après comme
+    // les autres. Abandonnée aussitôt : elle ne laisse aucune trace pour les écrans qui
+    // suivent, et le catalogue comme la bibliothèque reviennent à ce qu'ils étaient.
+    {
+      const catalogueU62 = CATALOGUE.length;
+      EXOS_U62.forEach((e) => CATALOGUE.push(e));
+      ROUTINES.push(routineU62());
+      await aller('/saisie');
+      await demarrerRoutine('Barre U62');
+      await attendre(1200);
+      await saisirSerie(0, 50, 8);
+      await attendre(600);
+      const huit = await page.evaluate(() => ({ blocs: document.querySelectorAll('.bloc-seance').length,
+        repos: !document.querySelector('#repos').hidden }));
+      ok('[forge] prémisse : huit exercices, et le repos du bas est affiché',
+        huit.blocs === 8 && huit.repos === true, JSON.stringify(huit));
+      await relever('seance8-repos', '1b-seance8-repos');
+      await abandonner();
+      const iU62 = ROUTINES.findIndex((r) => r.id === ID_ROUTINE_U62);
+      if (iU62 >= 0) ROUTINES.splice(iU62, 1);
+      CATALOGUE.splice(catalogueU62, CATALOGUE.length - catalogueU62);
+    }
+
     // ── D. LES ROUTINES, PROGRESSION, LA PAGE D'EXERCICE, LE PROFIL, LA SEMAINE.
     const ecrans = [['routines', '/saisie', '2-routines'], ['progression', '/progression', '3-progression'],
       ['mois', '/progression/mois', null], ['records', '/progression/records', null],
@@ -14074,7 +14118,7 @@ const SETS_IMPORTES = [
       await relever(nom, capture);
     }
     ok('[forge] chaque écran est atteint et porte du texte',
-      Object.keys(releve).length >= 2 * (ecrans.length + 4) &&
+      Object.keys(releve).length >= 2 * (ecrans.length + 5) &&
         Object.keys(releve).every((k) => releve[k].length > 0) &&
         vues.routines.join() === 'vue-saisie' && vues.profil.join() === 'vue-profil' &&
         vues.exercice.join() === 'vue-exercice' && vues.mois.join() === 'vue-mois',
@@ -15907,6 +15951,402 @@ const SETS_IMPORTES = [
     ok('[RP60] aucun refus du faux serveur, aucune erreur de page',
       base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,
       JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
+  }
+
+  console.log('\n══ barre. LA BARRE DE LA SÉANCE EN COURS : COLLÉE EN HAUT, LA DURÉE AVANCE SEULE, RIEN DE RECOUVERT (62, ECRAN-SAISIE §7 octies bis) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : UNE SÉANCE DE HUIT EXERCICES, DESCENDUE, AVEC
+  // UN REPOS EN COURS. Sur une séance qui tient dans l'écran, « collée en haut » et
+  // « dans le flux » donnent exactement le même écran — rien ne défile, rien ne
+  // disparaît. Il faut un écran plus haut que l'écran, un défilement réel, et la barre
+  // du BAS affichée en même temps : c'est là que la leçon du chantier 24 se rejoue
+  // (une barre posée par-dessus ce qu'on veut toucher).
+  //
+  // Les minutes se mesurent sur une horloge DÉCALÉE (`window.__decalage`, ajouté à
+  // `Date.now()`), jamais en attendant : le banc ne dort pas 47 minutes. Le réveil de
+  // la durée, lui, est le vrai — celui du navigateur — et un test l'attend pour de bon.
+  {
+    const erreursAvant = erreurs.length;
+    const violationsAvant = gardeBanc.violations;
+    const catalogueAvant = CATALOGUE.length;
+    const tB = Date.now();
+    const MIN = 60000;
+    EXOS_U62.forEach((e) => CATALOGUE.push(e));
+    ROUTINES.push(routineU62());
+    // Une séance PASSÉE à corriger (« Modification », sans durée écoulée).
+    const ID_PASSEE_U62 = '00000000-0000-4000-8620-000000000002';
+    const debutPassee = ilYa(3 * 86400000, tB).toISOString();
+    base.sessions.push({ id: ID_PASSEE_U62, user_id: 'u-banc', titre: 'Barre passée U62', debut: debutPassee,
+      fin: finDe(debutPassee, tB).toISOString(), statut: 'terminee', note: null,
+      salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debutPassee });
+    [1, 2].forEach((r) => base.sets.push({ id: 'b62-p-s' + r, session_id: ID_PASSEE_U62, user_id: 'u-banc',
+      exercise_slug: 'barre-u62-a', charge_kg: 60, reps: 8, duree_s: null, distance_m: null, type_serie: 'travail',
+      rang: r, groupe_superset: null, validee_a: debutPassee, rpe: null, ressenti: null, repos_s: null, note: null,
+      source: 'app', created_at: debutPassee, modifie_a: null }));
+
+    // Les mouchards, posés AVANT que l'app ne charge (ils survivent aux `aller`) :
+    //   · l'horloge décalée — seulement `Date.now()`, ce que lit la barre ;
+    //   · les minuteurs actifs. Les intervalles de l'app sont comptés tels quels ; les réveils
+    //     (`setTimeout`) sont reconnus à leur pile d'appel : seuls ceux posés par
+    //     `armerDuree` comptent comme « la durée ».
+    await ctx.addInitScript(() => {
+      if (window.__suivi) return;
+      window.__decalage = 0;
+      const vraiNow = Date.now.bind(Date);
+      Date.now = () => vraiNow() + (window.__decalage || 0);
+      const suivi = window.__suivi = { intervalles: new Map(), reveils: new Map() };
+      const vSI = window.setInterval, vCI = window.clearInterval, vST = window.setTimeout, vCT = window.clearTimeout;
+      window.setInterval = function (f, d) {
+        const id = vSI.apply(window, arguments);
+        // Le SDK Supabase pose le sien (renouvellement du jeton, 30 s) : il n'est pas de l'app.
+        const appelant = (String(new Error().stack || '').split('\n')[2] || '').trim();
+        suivi.intervalles.set(id, { delai: d, appli: !/\/vendor\//.test(appelant), pile: appelant.slice(0, 90) });
+        return id;
+      };
+      window.clearInterval = function (id) { suivi.intervalles.delete(id); return vCI.call(window, id); };
+      window.setTimeout = function (f, d) {
+        const pile = String(new Error().stack || '');
+        const reste = Array.prototype.slice.call(arguments, 2);
+        const id = vST.call(window, function () {
+          suivi.reveils.delete(id);
+          return typeof f === 'function' ? f.apply(this, reste) : undefined;
+        }, d);
+        suivi.reveils.set(id, { delai: d, duree: /armerDuree/.test(pile) });
+        return id;
+      };
+      window.clearTimeout = function (id) { suivi.reveils.delete(id); return vCT.call(window, id); };
+    });
+
+    const decaler = (ms) => page.evaluate((v) => { window.__decalage = v; }, ms);
+    // « L'app revient d'arrière-plan » : le seul événement que la barre écoute.
+    const revenir = async () => {
+      await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+      await attendre(150);
+    };
+    const barre = () => page.evaluate(() => {
+      const b = document.querySelector('#bandeau-seance');
+      const r = b.getBoundingClientRect(), s = getComputedStyle(b);
+      const fin = b.querySelector('.bandeau-fin');
+      const rf = fin ? fin.getBoundingClientRect() : null;
+      return { position: s.position, fond: s.backgroundColor, z: s.zIndex,
+        haut: Math.round(r.top * 10) / 10, bas: Math.round(r.bottom * 10) / 10, h: Math.round(r.height * 10) / 10,
+        texte: b.innerText.replace(/\s+/g, ' ').trim(),
+        duree: (b.querySelector('.bandeau-ch') || {}).textContent || '',
+        porteSuite: !!b.querySelector('.bandeau-ch[data-suite]'),
+        fin: fin ? { texte: fin.textContent, h: Math.round(rf.height * 10) / 10, haut: Math.round(rf.top), bas: Math.round(rf.bottom) } : null,
+        y: Math.round(window.scrollY), fenetre: window.innerHeight };
+    });
+    const jeton = () => page.evaluate(() =>
+      getComputedStyle(document.documentElement).getPropertyValue('--h-barre-seance').trim());
+    const minuteurs = () => page.evaluate(() => ({
+      intervalles: Array.from(window.__suivi.intervalles.values()).filter((x) => x.appli).length,
+      durees: Array.from(window.__suivi.reveils.values()).filter((x) => x.duree).length }));
+    const defiler = async (y) => {
+      await page.evaluate((v) => window.scrollTo(0, v), y);
+      await attendre(300);
+    };
+    const maxDefilement = () => page.evaluate(() =>
+      document.documentElement.scrollHeight - window.innerHeight);
+    const lireDuree = async () => (await barre()).duree.replace(/\s+/g, ' ').trim();
+    const ecouleReel = () => base.sessions.filter((s) => s.statut === 'en_cours')
+      .map((s) => Date.now() - new Date(s.debut).getTime())[0];
+
+    // ── A. LA SÉANCE, HUIT EXERCICES.
+    await aller('/saisie');
+    await demarrerRoutine('Barre U62');
+    await attendre(1200);
+    const nBlocs = await compter('.bloc-seance');
+    const hauteurs = await page.evaluate(() => ({ page: document.documentElement.scrollHeight, fenetre: window.innerHeight }));
+    ok('[barre] prémisse : huit blocs, et une page bien plus haute que l’écran',
+      nBlocs === 8 && hauteurs.page > hauteurs.fenetre * 2, JSON.stringify([nBlocs, hauteurs]));
+
+    // ── B. COLLÉE EN HAUT, OPAQUE, SOUS LES FEUILLES.
+    const b0 = await barre();
+    ok('[barre] la barre est `sticky` (dans le flux), jamais `fixed`', b0.position === 'sticky', b0.position);
+    ok('[barre] son fond est OPAQUE (--fond) : les blocs ne défilent pas à travers',
+      b0.fond === 'rgb(15, 17, 20)', b0.fond);
+    ok('[barre] elle est au-dessus des lignes de saisie et sous la rangée prise, les onglets, le repos et les feuilles',
+      Number(b0.z) > 1 && Number(b0.z) < 9, 'z-index ' + b0.z);
+    ok('[barre] elle porte le titre, la durée, les séries de travail, Modifier et Terminer — rien d’autre',
+      /^Barre U62 \d+ min · 0 série de travail Modifier Terminer$/.test(b0.texte), b0.texte);
+    ok('[barre] « Terminer » est un bouton neutre, de 40 px de haut au moins',
+      !!b0.fin && b0.fin.h >= 40, JSON.stringify(b0.fin));
+    const jetonRepos = await jeton();
+    ok('[barre] sa hauteur est MESURÉE (--h-barre-seance), comme celles du bas',
+      /^\d+px$/.test(jetonRepos) && parseInt(jetonRepos, 10) === Math.ceil(b0.h),
+      jetonRepos + ' pour une barre de ' + b0.h + ' px');
+
+    // ── C. ELLE RESTE EN HAUT QUAND ON DESCEND — au tiers, au milieu, tout en bas.
+    const max0 = await maxDefilement();
+    const haltes = [];
+    for (const y of [Math.round(max0 / 3), Math.round(max0 / 2), max0]) {
+      await defiler(y);
+      const b = await barre();
+      const couverture = await page.evaluate(() => {
+        const f = document.querySelector('#bandeau-seance .bandeau-fin').getBoundingClientRect();
+        const n = document.elementFromPoint(f.left + f.width / 2, f.top + f.height / 2);
+        return n ? n.className + '/' + n.tagName : null;
+      });
+      haltes.push({ voulu: y, y: b.y, haut: b.haut, finVisible: !!b.fin && b.fin.haut >= 0 && b.fin.bas <= b.fenetre, sous: couverture });
+    }
+    ok('[barre] après avoir descendu (tiers, milieu, tout en bas), elle est toujours collée au bord haut de l’écran',
+      haltes.every((h) => h.y > 0 && Math.abs(h.haut) <= 1), JSON.stringify(haltes));
+    ok('[barre] et « Terminer » est toujours à l’écran, atteignable (rien ne le recouvre)',
+      haltes.every((h) => h.finVisible && /bandeau-fin/.test(h.sous || '')), JSON.stringify(haltes));
+    await defiler(0);
+
+    // ── D. LA DURÉE AVANCE TOUTE SEULE — avec le vrai réveil du navigateur.
+    // L'horloge de la page est décalée pour que la prochaine minute tombe dans ~4 s ;
+    // le retour d'arrière-plan repose le réveil sur cette échéance, SANS re-rendre.
+    const ecoule0 = ecouleReel();
+    await decaler(26000 - ecoule0);
+    await revenir();
+    ok('[barre] prémisse : à 26 s la durée dit « 0 min »', /^0 min · /.test(await lireDuree()), await lireDuree());
+    // Un champ en cours de saisie, une marque sur un bloc : un re-rendu perdrait les deux.
+    await page.evaluate(() => {
+      document.querySelector('.bloc-seance').setAttribute('data-marque62', 'ici');
+      const i = document.querySelector('.ligne-serie input');
+      i.focus();
+    });
+    await page.keyboard.type('12');
+    const avantMinute = await page.evaluate(() => ({ valeur: document.activeElement.value,
+      n: document.querySelectorAll('.bloc-seance').length }));
+    await attendre(5200);
+    const apresMinute = await page.evaluate(() => {
+      const a = document.activeElement;
+      return { valeur: a.value, champ: a.tagName === 'INPUT' && !!a.closest('.ligne-serie'),
+        marque: document.querySelector('.bloc-seance').getAttribute('data-marque62'),
+        n: document.querySelectorAll('.bloc-seance').length };
+    });
+    ok('[barre] la minute passe d’elle-même : « 0 min » devient « 1 min » sans aucun geste',
+      /^1 min · /.test(await lireDuree()), await lireDuree());
+    ok('[barre] sans redessiner la séance : le bloc marqué est le même, le champ garde le focus et sa valeur',
+      avantMinute.valeur === '12' && apresMinute.valeur === '12' && apresMinute.champ === true &&
+        apresMinute.marque === 'ici' && apresMinute.n === 8,
+      JSON.stringify([avantMinute, apresMinute]));
+    await page.evaluate(() => document.activeElement.blur());
+
+    // ── E. LE FORMAT : « 47 min » sous une heure, « 1 h 12 » au-delà.
+    const formats = [];
+    for (const [minutes, attendu] of [[47, /^47 min · /], [59, /^59 min · /], [60, /^1 h 00 · /],
+      [72, /^1 h 12 · /], [125, /^2 h 05 · /]]) {
+      await decaler(minutes * MIN - ecouleReel());
+      await revenir();
+      const d = await lireDuree();
+      formats.push([minutes, d, attendu.test(d) && !/\b72 min\b/.test(d)]);
+    }
+    ok('[barre] 47 → « 47 min », 59 → « 59 min », 60 → « 1 h 00 », 72 → « 1 h 12 » (jamais « 72 min »), 125 → « 2 h 05 »',
+      formats.every((f) => f[2]), JSON.stringify(formats));
+
+    // ── F. LE RETOUR D'ARRIÈRE-PLAN : recalculé depuis le départ, pas un compteur.
+    await decaler(0);
+    await revenir();
+    const avantVeille = await lireDuree();
+    const attenduAvant = Math.round(ecouleReel() / MIN) + ' min · ';
+    await decaler(2 * MIN - ecouleReel());       // l'app dort, puis se rouvre 2 minutes après le départ
+    await revenir();
+    const apresVeille = await lireDuree();
+    ok('[barre] l’app rouverte après une veille affiche le bon chiffre tout de suite (« 2 min »), sans attendre un réveil',
+      avantVeille.indexOf(attenduAvant) === 0 && /^2 min · /.test(apresVeille), avantVeille + ' → ' + apresVeille);
+    await decaler(0);
+    await revenir();
+
+    // ── G. UN SEUL MINUTEUR.
+    let m = await minuteurs();
+    ok('[barre] sans repos : aucun intervalle, UN seul réveil de durée',
+      m.intervalles === 0 && m.durees === 1, JSON.stringify(m));
+    await saisirSerie(0, 50, 8);
+    await attendre(500);
+    m = await minuteurs();
+    ok('[barre] avec un repos en cours : un intervalle (le repos), toujours UN seul réveil de durée',
+      m.intervalles === 1 && m.durees === 1, JSON.stringify(m));
+    const reposOuvert = await page.evaluate(() => !document.querySelector('#repos').hidden);
+    ok('[barre] prémisse : la barre de repos du bas est affichée', reposOuvert === true, String(reposOuvert));
+
+    // ── H. LES DEUX BARRES ENSEMBLE : RIEN D'INTERACTIF NE RESTE RECOUVERT, HAUT ET BAS.
+    const recouvert = (y) => page.evaluate((hauteurDemandee) => {
+      window.scrollTo(0, hauteurDemandee);
+      const bar = document.querySelector('#bandeau-seance'), repos = document.querySelector('#repos'),
+        onglets = document.querySelector('.onglets');
+      const chevauche = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+      const rb = bar.getBoundingClientRect(), rr = repos.getBoundingClientRect(), ro = onglets.getBoundingClientRect();
+      const cibles = Array.from(document.querySelectorAll('#vue-seance button, #vue-seance input, #vue-seance a, #vue-seance [role="button"]'))
+        .filter((n) => !bar.contains(n) && !repos.contains(n) && !onglets.contains(n) && n.offsetParent !== null);
+      const nom = (n) => (n.className || n.tagName) + '';
+      return { nCibles: cibles.length, y: Math.round(window.scrollY),
+        sousLaBarre: cibles.filter((n) => chevauche(n.getBoundingClientRect(), rb)).map(nom),
+        sousLeRepos: cibles.filter((n) => chevauche(n.getBoundingClientRect(), rr)).map(nom),
+        sousLesOnglets: cibles.filter((n) => chevauche(n.getBoundingClientRect(), ro)).map(nom),
+        basDuDernier: Math.round(document.querySelector('#btn-ajouter-exo-seance').getBoundingClientRect().bottom),
+        hautRepos: Math.round(rr.top), repos: rr.height > 0, barresSeChevauchent: chevauche(rb, rr) || chevauche(rb, ro) };
+    }, y);
+    await attendre(300);
+    const enHaut = await recouvert(0);
+    await attendre(300);
+    const enBas = await recouvert(await maxDefilement());
+    ok('[barre] en haut de la séance, repos ouvert : rien d’interactif ne passe sous la barre du haut',
+      enHaut.repos && enHaut.nCibles >= 8 && enHaut.sousLaBarre.length === 0, JSON.stringify(enHaut));
+    ok('[barre] tout en bas, repos ouvert : rien sous le repos ni sous les onglets, et « Ajouter un exercice » finit au-dessus',
+      enBas.sousLeRepos.length === 0 && enBas.sousLesOnglets.length === 0 && enBas.basDuDernier <= enBas.hautRepos &&
+        enBas.barresSeChevauchent === false, JSON.stringify(enBas));
+
+    // ── I. UN CHAMP QUI PREND LE FOCUS NE SE POSE PAS SOUS LA BARRE.
+    // On amène un champ du 3ᵉ bloc À MOITIÉ sous la barre (donc « dans l'écran » pour le
+    // navigateur), on le focalise : il doit remonter se poser SOUS la barre. Sans
+    // `scroll-margin-top`, le navigateur le juge déjà visible et ne bouge pas.
+    const hBarre = Math.ceil((await barre()).h);
+    const sous = await page.evaluate((h) => {
+      const i = document.querySelectorAll('.bloc-seance')[2].querySelector('.ligne-serie input');
+      const haut = i.getBoundingClientRect().top + window.scrollY;
+      window.scrollTo(0, haut - Math.round(h / 2));      // le champ démarre au milieu de la barre
+      const r = i.getBoundingClientRect();
+      const n = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return { topAvant: Math.round(r.top), recouvertAvant: !!n && !!n.closest('#bandeau-seance') };
+    }, hBarre);
+    await attendre(300);
+    await page.evaluate(() => document.querySelectorAll('.bloc-seance')[2].querySelector('.ligne-serie input').focus());
+    await attendre(500);
+    const apresFocus = await page.evaluate(() => {
+      const i = document.querySelectorAll('.bloc-seance')[2].querySelector('.ligne-serie input');
+      const r = i.getBoundingClientRect(), b = document.querySelector('#bandeau-seance').getBoundingClientRect();
+      const n = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return { top: Math.round(r.top), basBarre: Math.round(b.bottom),
+        recouvert: !n || n === document.querySelector('#bandeau-seance') || !!n.closest('#bandeau-seance') };
+    });
+    ok('[barre] prémisse : le champ est bien À MOITIÉ SOUS la barre avant le focus',
+      sous.recouvertAvant === true && sous.topAvant < hBarre, JSON.stringify(sous));
+    ok('[barre] focalisé, il remonte se poser SOUS la barre : visible, pas recouvert',
+      apresFocus.recouvert === false && apresFocus.top >= apresFocus.basBarre - 1, JSON.stringify(apresFocus));
+    await page.evaluate(() => document.activeElement.blur());
+    await defiler(0);
+
+    // ── I bis. UN BLOC AMENÉ EN VUE SE POSE SOUS LA BARRE, AVEC DE L'AIR.
+    // `scrollIntoView` honore les DEUX réglages : la réserve du défileur (la hauteur de
+    // la barre, mesurée) et la marge de l'élément (12 px d'air). Sans la réserve, le bloc
+    // passerait sous la barre ; sans la marge, il lui serait collé.
+    const amene = await page.evaluate(() => {
+      const bloc = document.querySelectorAll('.bloc-seance')[4];
+      bloc.scrollIntoView({ block: 'start' });
+      const r = bloc.getBoundingClientRect(), b = document.querySelector('#bandeau-seance').getBoundingClientRect();
+      return { top: Math.round(r.top), basBarre: Math.round(b.bottom) };
+    });
+    ok('[barre] un bloc amené en vue (scrollIntoView) se pose SOUS la barre, à 12 px d’elle — ni dessous, ni collé',
+      amene.top === amene.basBarre + 12, JSON.stringify(amene));
+    await defiler(0);
+
+    // ── J. LE REPOS S'ÉTEINT : plus d'intervalle, la durée garde son réveil.
+    await page.evaluate(() => Array.from(document.querySelectorAll('#repos button'))
+      .filter((b) => /Passer/.test(b.textContent))[0].click());
+    await attendre(500);
+    m = await minuteurs();
+    ok('[barre] repos passé : plus aucun intervalle, UN réveil de durée',
+      m.intervalles === 0 && m.durees === 1, JSON.stringify(m));
+
+    // ── K. « TERMINER » OUVRE LA FEUILLE ; ON LA REFERME, LA BARRE EST INTACTE.
+    const avantFeuille = await barre();
+    await page.click('#bandeau-seance .bandeau-fin');
+    await attendre(600);
+    const feuilleOuverte = /Terminer la séance/.test(await texte('#feuille-contenu'));
+    await fermerFeuille();
+    const apresFeuille = await barre();
+    ok('[barre] un tap sur « Terminer » ouvre la feuille de confirmation (comme avant)', feuilleOuverte === true,
+      (await texte('#feuille-contenu')).replace(/\s+/g, ' ').slice(0, 50));
+    ok('[barre] refermée, la barre est intacte : mêmes titre, durée, séries, boutons, et toujours collée',
+      apresFeuille.texte === avantFeuille.texte && apresFeuille.position === 'sticky' &&
+        apresFeuille.fin && apresFeuille.fin.texte === 'Terminer', JSON.stringify([avantFeuille.texte, apresFeuille.texte]));
+    ok('[barre] la feuille est AU-DESSUS de la barre (elle la voile)',
+      await page.evaluate(() => {
+        const v = document.querySelector('#feuille-seance');
+        return !!v && Number(getComputedStyle(v).zIndex) > Number(getComputedStyle(document.querySelector('#bandeau-seance')).zIndex);
+      }), 'z-index de la feuille contre celui de la barre');
+
+    // ── L. MODIFIER, PUIS « GROUPER AVEC… » : LA BARRE NE MONTRE JAMAIS « TERMINER » PENDANT LA SÉLECTION.
+    await page.click('#bandeau-seance .bandeau-modifier');
+    await attendre(500);
+    const enModifier = await barre();
+    await page.click('#bandeau-seance .bandeau-modifier');
+    await attendre(500);
+    ok('[barre] en mode Modifier la barre reste collée et garde ses boutons (« Terminé » bascule, comme avant)',
+      enModifier.position === 'sticky' && /Terminé/.test(enModifier.texte), enModifier.texte);
+    await page.evaluate(() => document.querySelectorAll('.bloc-seance')[1].querySelector('.tete-haut .menu-pts').click());
+    await attendre(500);
+    await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
+      .filter((x) => /Grouper en superset/.test(x.textContent))[0].click());
+    await attendre(700);
+    const selection = await barre();
+    ok('[barre] pendant « Grouper avec… » : la consigne et « Annuler », JAMAIS « Terminer », et la barre reste collée',
+      /Grouper avec/.test(selection.texte) && /Annuler/.test(selection.texte) && selection.fin === null &&
+        (await compter('#bandeau-seance .bandeau-fin')) === 0 && selection.position === 'sticky' && !selection.porteSuite,
+      selection.texte);
+    await page.evaluate(() => Array.from(document.querySelectorAll('#bandeau-seance button'))
+      .filter((x) => /Annuler/.test(x.textContent))[0].click());
+    await attendre(600);
+    const apresSelection = await barre();
+    ok('[barre] « Annuler » rend la barre entière : durée, séries, « Terminer »',
+      /\d+ min · \d+ séries? de travail/.test(apresSelection.texte) && apresSelection.fin !== null && apresSelection.porteSuite,
+      apresSelection.texte);
+
+    // ── M. QUITTER L'ÉCRAN COUPE LE RÉVEIL, Y REVENIR LE REPOSE.
+    await page.click('.onglet[data-vue="progression"]');
+    await attendre(900);
+    m = await minuteurs();
+    const horsSeance = m.durees;
+    await page.click('.onglet[data-vue="saisie"]');
+    await attendre(900);
+    m = await minuteurs();
+    ok('[barre] hors de l’écran de séance : aucun réveil de durée ; de retour : UN seul',
+      horsSeance === 0 && m.durees === 1 && m.intervalles === 0, 'hors séance ' + horsSeance + ' · de retour ' + JSON.stringify(m));
+
+    // ── N. TERMINER : PLUS AUCUN MINUTEUR, D'AUCUNE SORTE.
+    await terminer();
+    m = await minuteurs();
+    ok('[barre] après « Terminer » : plus aucun intervalle, plus aucun réveil de durée',
+      m.intervalles === 0 && m.durees === 0, JSON.stringify(m));
+
+    // ── O. ANNULER (ABANDONNER) : PAREIL.
+    await aller('/saisie');
+    await demarrerRoutine('Barre U62');
+    await attendre(800);
+    await saisirSerie(0, 50, 8);
+    await attendre(500);
+    m = await minuteurs();
+    const avantAbandon = JSON.stringify(m);
+    await abandonner();
+    m = await minuteurs();
+    ok('[barre] après « Abandonner » (repos en cours au moment du geste) : plus aucun intervalle, plus aucun réveil',
+      avantAbandon === JSON.stringify({ intervalles: 1, durees: 1 }) && m.intervalles === 0 && m.durees === 0,
+      'avant ' + avantAbandon + ' · après ' + JSON.stringify(m));
+
+    // ── P. ÉDITER UNE SÉANCE PASSÉE : « Modification », pas de durée, pas de réveil.
+    await aller('/seance/' + ID_PASSEE_U62);
+    await page.evaluate(() => Array.from(document.querySelectorAll('#vue-detail .detail-gestes button'))
+      .filter((b) => /Modifier/.test(b.textContent))[0].click());
+    await attendre(1200);
+    const edition = await barre();
+    m = await minuteurs();
+    ok('[barre] en correction : « Modification · N séries de travail », « Enregistrer », aucune durée écoulée',
+      /^Barre passée U62 Modification · 2 séries de travail Modifier Enregistrer$/.test(edition.texte) &&
+        !/\bmin\b/.test(edition.duree) && !edition.porteSuite && edition.fin && edition.fin.texte === 'Enregistrer',
+      edition.texte);
+    ok('[barre] et aucun réveil de durée ne tourne en correction (la barre reste collée)',
+      m.durees === 0 && m.intervalles === 0 && edition.position === 'sticky', JSON.stringify(m));
+    await page.click('#bandeau-seance .bandeau-fin');
+    await attendre(2600);
+
+    // ── LA REMISE EN ÉTAT, pour les sections suivantes.
+    await decaler(0);
+    const iR = ROUTINES.findIndex((r) => r.id === ID_ROUTINE_U62);
+    if (iR >= 0) ROUTINES.splice(iR, 1);
+    CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
+    for (let k = base.sets.length - 1; k >= 0; k--) {
+      if (/^barre-u62-/.test(base.sets[k].exercise_slug)) base.sets.splice(k, 1);
+    }
+    for (let k = base.sessions.length - 1; k >= 0; k--) {
+      if (base.sessions[k].id === ID_PASSEE_U62 || /^Barre U62/.test(base.sessions[k].titre || '')) base.sessions.splice(k, 1);
+    }
+    await aller('/saisie');
+    ok('[barre] la garde de l’app n’a rien signalé, aucune erreur de page',
+      gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant, JSON.stringify(erreurs.slice(erreursAvant)));
   }
 
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');

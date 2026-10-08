@@ -47,6 +47,7 @@ const PORT = Number(process.env.BANC_PORT || 8893), BASE = 'http://127.0.0.1:' +
 
 const A = '00000000-0000-4000-8000-0000000000aa';
 const B = '00000000-0000-4000-8000-0000000000bb';
+const C = '00000000-0000-4000-8000-0000000000cc';   // 60-3b — un tiers : il prend le pseudo de B « entre-temps »
 const attendre = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // ── Le faux jeton : un JWT dont seul le `sub` compte ────────────────────────
@@ -59,11 +60,12 @@ const subDe = (auth) => {
   try { return JSON.parse(Buffer.from(m[1].split('.')[1], 'base64url').toString('utf8')).sub || null; }
   catch (e) { return null; }
 };
-const utilisateur = (id) => ({ id, aud: 'authenticated', role: 'authenticated', email: id + '@banc.test',
-  email_confirmed_at: '2026-10-08T08:00:00.000Z', app_metadata: { provider: 'email' }, user_metadata: {},
+// 60-3b — `meta` : les données du compte (`user_metadata`), celles que `signUp` a reçues en `options.data`.
+const utilisateur = (id, meta) => ({ id, aud: 'authenticated', role: 'authenticated', email: id + '@banc.test',
+  email_confirmed_at: '2026-10-08T08:00:00.000Z', app_metadata: { provider: 'email' }, user_metadata: meta || {},
   created_at: '2026-10-08T08:00:00.000Z' });
-const sessionDe = (id) => ({ access_token: jwt(id), token_type: 'bearer', expires_in: 3600,
-  expires_at: 4102444800, refresh_token: 'r-' + id, user: utilisateur(id) });
+const sessionDe = (id, meta) => ({ access_token: jwt(id), token_type: 'bearer', expires_in: 3600,
+  expires_at: 4102444800, refresh_token: 'r-' + id, user: utilisateur(id, meta) });
 
 // ── La base de papier ───────────────────────────────────────────────────────
 function neuveBase() {
@@ -76,7 +78,13 @@ function neuveBase() {
     refus: [],           // les écritures refusées par la « RLS »
     inscrits: 0,
     echecsCreation: 0,   // des échecs 500 à servir avant d'accepter une création
-    avertissements: []
+    avertissements: [],
+    // 60-3b — la confirmation d'e-mail : `signUp` ne rend alors PAS de session (le projet réel l'exige) ;
+    // ce qu'il a reçu est gardé (`inscriptions`), et les données du compte reviennent avec l'utilisateur
+    // (`/auth/v1/user`, le jeton rafraîchi), comme chez Supabase.
+    confirmationEmail: false,
+    inscriptions: [],    // { email, data, redirect_to } — ce que `signUp` a reçu
+    metadonnees: {}      // id → user_metadata
   };
 }
 
@@ -101,18 +109,25 @@ async function contexte(nav, bd, o) {
     if (chemin === '/auth/v1/signup' && req.method() === 'POST') {
       bd.inscrits++;
       const id = B;      // le seul compte qui s'inscrit au banc
-      return json(sessionDe(id));
+      const corps = JSON.parse(req.postData() || '{}');
+      bd.inscriptions.push({ email: corps.email, data: corps.data, redirect_to: url.searchParams.get('redirect_to') });
+      bd.metadonnees[id] = corps.data || {};
+      // Confirmation d'e-mail : l'utilisateur à plat, SANS jeton (le SDK en tire `session: null`).
+      return bd.confirmationEmail ? json(utilisateur(id, bd.metadonnees[id])) : json(sessionDe(id, bd.metadonnees[id]));
     }
     if (chemin === '/auth/v1/token' && req.method() === 'POST') {
       const g = url.searchParams.get('grant_type');
       if (g === 'refresh_token') {
         const r = JSON.parse(req.postData() || '{}').refresh_token || '';
-        return json(sessionDe(r.replace(/^r-/, '')));
+        const qui = r.replace(/^r-/, '');
+        return json(sessionDe(qui, bd.metadonnees[qui]));
       }
-      return json(sessionDe(A));
+      // Connexion par mot de passe : le compte qui s'est inscrit (60-3b), sinon A.
+      const qui = bd.inscriptions.some((i) => i.email === (JSON.parse(req.postData() || '{}').email)) ? B : A;
+      return json(sessionDe(qui, bd.metadonnees[qui]));
     }
     if (chemin === '/auth/v1/user' && req.method() === 'GET') {
-      return sub ? json(utilisateur(sub)) : json({ message: 'jeton absent' }, 401);
+      return sub ? json(utilisateur(sub, bd.metadonnees[sub])) : json({ message: 'jeton absent' }, 401);
     }
     if (chemin === '/auth/v1/logout') return route.fulfill({ status: 204, body: '' });
     if (chemin.indexOf('/auth/') === 0) return json({ error: 'x' }, 400);
@@ -138,6 +153,14 @@ async function contexte(nav, bd, o) {
           bd.refus.push({ id: l.id, sub });
           return json({ code: '42501', details: null, hint: null,
             message: 'new row violates row-level security policy for table "profiles"' }, 403);
+        }
+        // 60-3b — `profiles_username_uniq` : index unique sur lower(username), toutes lignes confondues
+        // (l'index ignore la RLS : B ne VOIT pas la ligne qui lui prend son pseudo, la base la voit).
+        if (l.username && Object.keys(bd.profils).some((k) => bd.profils[k].id !== l.id && bd.profils[k].username &&
+            String(bd.profils[k].username).toLowerCase() === String(l.username).toLowerCase())) {
+          enregistre(409);
+          return json({ code: '23505', details: 'Key (lower(username::text))=(' + String(l.username).toLowerCase() + ') already exists.',
+            hint: null, message: 'duplicate key value violates unique constraint "profiles_username_uniq"' }, 409);
         }
         if (!bd.profils[l.id] && bd.echecsCreation > 0) {
           bd.echecsCreation--;
@@ -170,6 +193,49 @@ async function attendreQue(page, cond, ms) {
   }
   return false;
 }
+
+// ── 60-3b — l'inscription AVEC confirmation d'e-mail ────────────────────────
+// Le pseudo tapé n'est pas déjà normalisé : le contrôle de la ligne discrimine aussi la normalisation.
+const PSEUDO_TAPE = 'Mélodie Dupont', PSEUDO_NORMALISE = 'melodie_dupont';
+
+// Page vierge → écran d'inscription → les trois champs → « Créer » : ce que fait la personne avant de
+// quitter son navigateur pour ouvrir le lien reçu par e-mail.
+async function inscrireSansSession(nav, bd) {
+  const ctx = await contexte(nav, bd, {});
+  const page = await ctx.newPage();
+  const erreurs = [];
+  page.on('pageerror', (e) => erreurs.push(String(e).slice(0, 160)));
+  await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
+  await attendreQue(page, () => page.evaluate(() => {
+    const v = document.querySelector('#vue-connexion'); return !!v && !v.hidden; }), 15000);
+  await page.click('#btn-bascule-entree');
+  await attendre(300);
+  await page.fill('#champ-pseudo', PSEUDO_TAPE);
+  await page.fill('#champ-email', 'b@banc.test');
+  await page.fill('#champ-mdp', 'motdepasse123');
+  await attendreQue(page, () => page.evaluate(() => !document.querySelector('#btn-connexion').disabled), 5000);
+  await page.click('#btn-connexion');
+  await attendreQue(page, () => bd.inscriptions.length > 0, 15000);
+  await attendre(800);     // laisse le message s'écrire
+  const message = await page.evaluate(() => document.querySelector('#erreur-connexion').textContent);
+  const jeton = await page.evaluate(() => localStorage.getItem('th-v2-auth'));
+  await ctx.close();       // « l'autre navigateur » : la mémoire de la page (`pseudoAInscrire`) disparaît avec elle
+  return { erreurs, message, jeton };
+}
+
+// La page NEUVE « qui s'ouvre avec la session du lien » : le stockage porte la session de B, avec les
+// données de son compte (`user_metadata`) telles que le serveur les a reçues à l'inscription.
+const pageDuLien = async (nav, bd) => {
+  const ctx = await contexte(nav, bd, { stockage: sessionDe(B, bd.metadonnees[B]) });
+  return { ctx, page: await ctx.newPage() };
+};
+
+// La ligne « Pseudo » de l'écran Profil, telle qu'elle se lit.
+const lignePseudoDuProfil = (page) => page.evaluate(() => {
+  const l = Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
+    .filter((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf('Pseudo') === 0)[0];
+  return l ? { lib: l.querySelector('.p-lib').textContent, val: (l.querySelector('.p-val') || {}).textContent || '' } : null;
+});
 
 const rapport = { controles: 0, echecs: [] };
 function ok(nom, cond, detail) {
@@ -328,6 +394,124 @@ function ok(nom, cond, detail) {
       ok('DISCRIMINANT (60-2c) — la ligne de B porte le PSEUDO tapé à l’inscription (page vierge, sans « Quitter »)',
         !!bd.profils[B] && bd.profils[B].username === 'test_0710', JSON.stringify(bd.profils[B]));
       ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
+      await ctx.close();
+    }
+
+    // ══ 6. INSCRIPTION AVEC CONFIRMATION D'E-MAIL : LE PSEUDO VOYAGE AVEC LE COMPTE ═══
+    // `signUp` ne rend pas de session ; la page d'inscription se ferme (avec elle, sa mémoire
+    // `pseudoAInscrire`) ; une PAGE NEUVE s'ouvre avec la session du lien. La ligne doit naître avec le pseudo.
+    console.log('\n══ 6. inscription avec confirmation : une page neuve s’ouvre avec la session du lien ══');
+    {
+      const bd = neuveBase();
+      bd.confirmationEmail = true;
+      const p1 = await inscrireSansSession(nav, bd);
+      ok('prémisse — `signUp` a été appelé une fois, sans session : la page dit de confirmer l’e-mail',
+        bd.inscriptions.length === 1 && /Confirme ton e-mail/.test(p1.message) && !p1.jeton, JSON.stringify([bd.inscriptions, p1.message, p1.jeton]));
+      ok('DISCRIMINANT — le pseudo NORMALISÉ part dans les données du compte (`options.data.pseudo`)',
+        !!bd.inscriptions[0] && JSON.stringify(bd.inscriptions[0].data) === JSON.stringify({ pseudo: PSEUDO_NORMALISE }),
+        JSON.stringify(bd.inscriptions[0]));
+      ok('non-régression — l’adresse de retour est celle de la page (`emailRedirectTo`)',
+        !!bd.inscriptions[0] && bd.inscriptions[0].redirect_to === BASE + '/', JSON.stringify(bd.inscriptions[0]));
+      ok('sans session, aucune ligne de profil n’est écrite avant le lien', !bd.profils[B] && bd.requetes.length === 0, JSON.stringify(bd.requetes));
+
+      const { ctx, page } = await pageDuLien(nav, bd);     // stockage vierge de l'inscription, mémoire vide
+      const erreurs = [];
+      page.on('pageerror', (e) => erreurs.push(String(e).slice(0, 160)));
+      await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
+      const cree = await attendreQue(page, () => !!bd.profils[B], 15000);
+      await attendre(1000);
+      ok('la ligne de B est créée par la page neuve', cree, JSON.stringify(bd.requetes));
+      ok('DISCRIMINANT — la ligne de B porte le PSEUDO de l’inscription, repris des données du compte',
+        !!bd.profils[B] && bd.profils[B].username === PSEUDO_NORMALISE, JSON.stringify(bd.profils[B]));
+      ok('du premier coup : une seule écriture, créée (201), sous l’identifiant de B',
+        bd.requetes.length === 1 && bd.requetes[0].statut === 201 && bd.requetes[0].id === B && bd.requetes[0].sub === B && bd.refus.length === 0,
+        JSON.stringify(bd.requetes));
+      ok('aucune erreur de page', p1.erreurs.length === 0 && erreurs.length === 0, JSON.stringify([p1.erreurs, erreurs]));
+      await ctx.close();
+    }
+
+    // ══ 6 bis. LE LIEN N'A PAS OUVERT DE SESSION : CONNEXION À LA MAIN, SUR UNE PAGE VIERGE ═══
+    // Le même compte, la même mémoire perdue ; la personne tape son e-mail et son mot de passe. La ligne se
+    // crée alors (première connexion) : le pseudo est toujours celui des données du compte.
+    console.log('\n══ 6 bis. connexion à la main sur une page vierge, après la confirmation ══');
+    {
+      const bd = neuveBase();
+      bd.confirmationEmail = true;
+      const p1 = await inscrireSansSession(nav, bd);
+      const ctx = await contexte(nav, bd, {});
+      const page = await ctx.newPage();
+      const erreurs = [];
+      page.on('pageerror', (e) => erreurs.push(String(e).slice(0, 160)));
+      await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
+      await attendreQue(page, () => page.evaluate(() => {
+        const v = document.querySelector('#vue-connexion'); return !!v && !v.hidden; }), 15000);
+      await page.fill('#champ-email', 'b@banc.test');
+      await page.fill('#champ-mdp', 'motdepasse123');
+      await attendreQue(page, () => page.evaluate(() => !document.querySelector('#btn-connexion').disabled), 5000);
+      await page.click('#btn-connexion');
+      const cree = await attendreQue(page, () => !!bd.profils[B], 15000);
+      await attendre(1000);
+      ok('la ligne de B est créée à la première connexion', cree, JSON.stringify(bd.requetes));
+      ok('DISCRIMINANT — elle porte le PSEUDO de l’inscription, repris des données du compte',
+        !!bd.profils[B] && bd.profils[B].username === PSEUDO_NORMALISE, JSON.stringify(bd.profils[B]));
+      ok('aucune écriture refusée, aucune erreur de page', bd.refus.length === 0 && p1.erreurs.length === 0 && erreurs.length === 0,
+        JSON.stringify([bd.refus, p1.erreurs, erreurs]));
+      await ctx.close();
+    }
+
+    // ══ 7. « PRIS ENTRE-TEMPS » : LA LIGNE NAÎT SANS LE PSEUDO, ET LE PROFIL LE DIT ═══
+    console.log('\n══ 7. pris entre-temps : la ligne naît sans pseudo, la ligne « Pseudo » du Profil le dit ══');
+    {
+      const bd = neuveBase();
+      bd.confirmationEmail = true;
+      const p1 = await inscrireSansSession(nav, bd);
+      // Pendant que le courriel dormait, quelqu'un d'autre a pris le pseudo (la sonde disait « libre » à la frappe).
+      bd.profils[C] = { id: C, username: PSEUDO_NORMALISE.toUpperCase() };    // l'index est sur lower(username)
+      const { ctx, page } = await pageDuLien(nav, bd);
+      const erreurs = [], avertissements = [];
+      page.on('pageerror', (e) => erreurs.push(String(e).slice(0, 160)));
+      page.on('console', (m) => { if (m.type() === 'warning' && /Pseudo déjà pris/.test(m.text())) avertissements.push(m.text().slice(0, 200)); });
+      await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
+      const cree = await attendreQue(page, () => !!bd.profils[B], 15000);
+      await attendre(1000);
+      ok('prémisse — l’inscription a bien déposé le pseudo dans les données du compte',
+        !!bd.inscriptions[0] && bd.inscriptions[0].data && bd.inscriptions[0].data.pseudo === PSEUDO_NORMALISE, JSON.stringify(bd.inscriptions));
+      ok('DISCRIMINANT — la ligne de B est créée quand même, SANS pseudo (le 23505 est repris, pas avalé)',
+        cree && (bd.profils[B].username === null || bd.profils[B].username === undefined), JSON.stringify(bd.profils[B]));
+      ok('l’ordre : la création avec le pseudo est refusée (409), puis celle sans pseudo passe (201) — aucun refus de la « RLS »',
+        JSON.stringify(bd.requetes.map((q) => q.statut)) === '[409,201]' && bd.refus.length === 0, JSON.stringify(bd.requetes));
+      ok('le pseudo pris se DIT (console), il n’est pas avalé', avertissements.length > 0, JSON.stringify(avertissements));
+      ok('la ligne du tiers n’a pas bougé', bd.profils[C].username === PSEUDO_NORMALISE.toUpperCase() && !bd.profils[C].questionnaire_fait_le);
+
+      await page.goto(BASE + '/profil', { waitUntil: 'domcontentloaded' });
+      await attendreQue(page, () => page.evaluate(() => !!document.querySelector('#profil-corps .p-ligne')), 15000);
+      await attendre(500);
+      const l1 = await lignePseudoDuProfil(page);
+      ok('DISCRIMINANT — la ligne « Pseudo » du Profil dit « Ce pseudo vient d’être pris : choisis-en un autre. »',
+        !!l1 && l1.lib.indexOf('Ce pseudo vient d’être pris : choisis-en un autre.') >= 0, JSON.stringify(l1));
+      ok('et elle reste « à renseigner » (aucun pseudo n’est posé)', !!l1 && /à renseigner/.test(l1.val), JSON.stringify(l1));
+
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await attendreQue(page, () => page.evaluate(() => !!document.querySelector('#profil-corps .p-ligne')), 15000);
+      await attendre(500);
+      const l2 = await lignePseudoDuProfil(page);
+      ok('la phrase est retenue d’une ouverture à l’autre (rechargement)',
+        !!l2 && l2.lib.indexOf('Ce pseudo vient d’être pris') >= 0, JSON.stringify(l2));
+
+      // Un pseudo se pose : la phrase s'en va.
+      await page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
+        .filter((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf('Pseudo') === 0)[0].click());
+      await attendre(500);
+      await page.fill('#feuille-contenu input', 'melodie_b');
+      await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu button'))
+        .filter((b) => b.textContent === 'Valider')[0].click());
+      const pose = await attendreQue(page, () => bd.profils[B] && bd.profils[B].username === 'melodie_b', 12000);
+      await attendre(500);
+      const l3 = await lignePseudoDuProfil(page);
+      ok('un autre pseudo se pose depuis le Profil : la ligne de B le porte', pose, JSON.stringify(bd.profils[B]));
+      ok('DISCRIMINANT — la phrase disparaît une fois un pseudo posé, la ligne montre le pseudo',
+        !!l3 && l3.lib.indexOf('pris') < 0 && l3.val === 'melodie_b', JSON.stringify(l3));
+      ok('aucune erreur de page', p1.erreurs.length === 0 && erreurs.length === 0, JSON.stringify([p1.erreurs, erreurs]));
       await ctx.close();
     }
   } finally {

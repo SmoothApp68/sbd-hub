@@ -70,9 +70,20 @@
   // un. Construite par l'appelant depuis l'origine de la page, comme pour la
   // réinitialisation — jamais en dur. Sans elle, le lien ramenait à l'« adresse
   // du site » réglée sur le projet, qui peut viser une app qui n'existe plus.
-  async function inscrire(email, motDePasse, retour) {
+  //
+  // 60-3b — `pseudo` : LE PSEUDO VOYAGE AVEC LE COMPTE. La confirmation d'e-mail est activée sur
+  // le projet : le lien s'ouvre souvent dans une AUTRE page, où la mémoire de l'inscription
+  // (`pseudoAInscrire`, `app.js`) n'existe plus. Le pseudo est donc déposé dans les données du
+  // compte (`options.data.pseudo` → `user_metadata.pseudo`), d'où la création de la ligne de
+  // profil le reprend (ECRAN-PROFIL §3.1). L'appelant le donne DÉJÀ NORMALISÉ
+  // (`Profil.normaliserPseudo`, une seule fonction) ; vide, il n'est pas déposé. `emailRedirectTo`
+  // est inchangé.
+  async function inscrire(email, motDePasse, retour, pseudo) {
+    var options = {};
+    if (retour) options.emailRedirectTo = retour;
+    if (typeof pseudo === 'string' && pseudo) options.data = { pseudo: pseudo };
     var r = await client().auth.signUp({ email: email, password: motDePasse,
-      options: retour ? { emailRedirectTo: retour } : undefined });
+      options: options.emailRedirectTo || options.data ? options : undefined });
     if (r.error) throw r.error;
     return { session: (r.data && r.data.session) || null, user: (r.data && r.data.user) || null };
   }

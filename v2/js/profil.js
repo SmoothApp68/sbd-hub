@@ -1021,6 +1021,43 @@
     return mdpValide(e.mdp);
   }
 
+  // ── 60-3b — LE PSEUDO TRAVERSE LA CONFIRMATION D'E-MAIL (ECRAN-PROFIL §3.1) ──────────────────
+  //
+  // La confirmation d'e-mail est activée sur le projet : le lien s'ouvre souvent dans une AUTRE
+  // page, où la mémoire de l'inscription (`pseudoAInscrire`, `app.js`) n'existe plus. Le pseudo
+  // voyage donc avec le compte : l'inscription le dépose dans `user_metadata.pseudo`, et la
+  // création de la ligne de profil le reprend de là.
+  //
+  // ⚠️ UN SEUL ENDROIT CHOISIT, et c'est ici. Le pseudo de la page d'abord ; sinon celui des
+  // données du compte. Les deux sont NORMALISÉS (par la même fonction) et doivent valoir un pseudo
+  // (3 caractères au moins, une lettre en tête, les bornes de l'inscription) : les données d'un
+  // compte sont modifiables par son propriétaire, ce ne sont pas une valeur de confiance — un
+  // pseudo qui n'en est pas un est ignoré, la ligne naît sans lui, comme avant. `null` : aucun.
+  function pseudoPosable(p) { return p.length >= PSEUDO_MIN && /^[a-z]/.test(p); }
+
+  function pseudoDeLInscription(enMemoire, metadonnees) {
+    var meta = metadonnees && typeof metadonnees === 'object' ? metadonnees.pseudo : null;
+    var candidats = [enMemoire, meta];
+    for (var i = 0; i < candidats.length; i++) {
+      if (typeof candidats[i] !== 'string') continue;
+      var p = normaliserPseudo(candidats[i]);
+      if (pseudoPosable(p)) return p;
+    }
+    return null;
+  }
+
+  // La ligne « Pseudo » du Profil. « Pris entre-temps » : la ligne s'est créée SANS pseudo parce
+  // que celui de l'inscription venait d'être pris (le 23505 de `chargerProfil`) ; elle le dit,
+  // tant qu'aucun pseudo n'est posé. `pseudoPris` est un ÉTAT DE L'ÉCRAN, retenu en local par
+  // compte (`app.js`), pas une colonne.
+  var PHRASE_PSEUDO_PRIS = 'Ce pseudo vient d’être pris : choisis-en un autre.';
+
+  function lignePseudo(profil, pseudoPris, surChoix) {
+    var p = profil || {};
+    return { libelle: 'Pseudo', valeur: p.username || null,
+             sous: pseudoPris && !p.username ? PHRASE_PSEUDO_PRIS : null, surChoix: surChoix };
+  }
+
   var api = {
     MATERIELS: MATERIELS, ANCIENNETES: ANCIENNETES,
     SEXES: SEXES, INTENTIONS: INTENTIONS,
@@ -1046,6 +1083,7 @@
     libelleAnciennete: libelleAnciennete,
     manquants: manquants,
     OBJECTIFS: OBJECTIFS, TEMPS_REPONSES: TEMPS_REPONSES, HISTORIQUES: HISTORIQUES, PROGRAMMES: PROGRAMMES,
+    PHRASE_PSEUDO_PRIS: PHRASE_PSEUDO_PRIS, pseudoDeLInscription: pseudoDeLInscription, lignePseudo: lignePseudo,
     EXERCICES_PRIORITAIRES: EXERCICES_PRIORITAIRES, PRIORITES_MAX: PRIORITES_MAX,
     musclesPrioritaires: musclesPrioritaires, prioritesValides: prioritesValides,
     DUREE_MIN: DUREE_MIN, DUREE_MAX: DUREE_MAX,

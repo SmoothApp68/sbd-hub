@@ -480,10 +480,13 @@ describe('60-2a — la décision se reprend quand la ligne de profil ARRIVE', ()
       rendreBandeauPhase: () => { ctx.bandeauxPhase = (ctx.bandeauxPhase || 0) + 1; },
       sauverProfilLocal: () => Promise.resolve(), ecranCourant: 'semaine', rendreProfilEcran: () => {},
       envoyerProfil: () => Promise.resolve(),
-      ouvrirQuestionnaireSiDu: () => { ouvertures.push(ctx.profil); return false; }
+      ouvrirQuestionnaireSiDu: () => { ouvertures.push(ctx.profil); return false; },
+      // 60-3b — la création de la ligne lit les données du compte (`metadonneesDuCompte`) ; « pris entre-temps » est retenu en local.
+      racine: { localStorage: { getItem: () => null, setItem: () => {} } }, CLE_PSEUDO_PRIS: 'th-v2-pseudo-pris-'
     };
     vm.createContext(ctx);
-    ['idDeSession', 'identifiantDuProfil', 'chargerProfil'].forEach((f) => vm.runInContext(extraire(f), ctx));
+    ['idDeSession', 'identifiantDuProfil', 'metadonneesDuCompte', 'retenirPseudoPris', 'chargerProfil']
+      .forEach((f) => vm.runInContext(extraire(f), ctx));
     return { ctx, ouvertures };
   }
 

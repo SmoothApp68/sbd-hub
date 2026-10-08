@@ -8199,6 +8199,36 @@
     return id;
   }
 
+  // 60-3b — LES DONNÉES QUE LE COMPTE PORTE (`user_metadata`, où l'inscription a déposé le pseudo),
+  // lues sur la session du CLIENT — la même que celle de `identifiantDuProfil` —, jamais sur
+  // `sessionActive` : la sonde synchrone du démarrage n'en rend qu'une forme réduite (`{ id, email }`).
+  // Celles d'un AUTRE compte que `id` ne se lisent pas. `null` : rien.
+  async function metadonneesDuCompte(id) {
+    var s = null;
+    try { s = await Auth.sessionCourante(); } catch (e) { s = null; }
+    if (!s || !id || idDeSession(s) !== id) return null;
+    var meta = s.user && s.user.user_metadata;
+    return meta && typeof meta === 'object' ? meta : null;
+  }
+
+  // 60-3b — « PRIS ENTRE-TEMPS » : un ÉTAT DE L'ÉCRAN, pas une colonne (ECRAN-PROFIL §3.1). Retenu en
+  // local, PAR COMPTE (`th-v2-…` + id : « Quitter » l'efface avec les autres clés de l'appareil, et
+  // un autre compte ne le voit pas) ; le Profil ne le montre que tant qu'aucun pseudo n'est posé.
+  var CLE_PSEUDO_PRIS = 'th-v2-pseudo-pris-';
+
+  function retenirPseudoPris(id) {
+    if (!id) return;
+    try { racine.localStorage.setItem(CLE_PSEUDO_PRIS + id, '1'); }
+    catch (e) { /* stockage refusé : la ligne dit « à renseigner », sans la phrase */ }
+  }
+
+  function pseudoPrisSignale() {
+    var id = userId();
+    if (!id) return false;
+    try { return racine.localStorage.getItem(CLE_PSEUDO_PRIS + id) === '1'; }
+    catch (e) { return false; }
+  }
+
   async function chargerProfil() {
     if (!userId()) return;
     var g = generation;
@@ -8217,15 +8247,25 @@
       var creer = function (pseudo) {
         return Donnees.enregistrerProfil(id, Profil.champsEcrits({ username: pseudo || null, onboarding_completed: false }));
       };
+      // 60-3b — LE PSEUDO DE LA LIGNE : UN SEUL ENDROIT CHOISIT (`Profil.pseudoDeLInscription`). Celui de la
+      // page d'abord ; sinon celui que l'inscription a déposé dans les données du compte — le lien de
+      // confirmation d'e-mail s'ouvre souvent dans une autre page, où `pseudoAInscrire` n'existe plus.
+      var pseudo = Profil.pseudoDeLInscription(pseudoAInscrire, await metadonneesDuCompte(id));
+      if (!generationValide(g)) return;
       try {
-        try { distant = await creer(pseudoAInscrire); }
+        try { distant = await creer(pseudo); }
         catch (e1) {
           // 60-2c — le pseudo arrive enfin jusqu'ici, et peut heurter l'unicité (23505) : la sonde de
           // disponibilité n'est qu'indicative. Sans cette sortie, la création échouerait à l'identique à
           // chaque chargement — pas de ligne, pas de questionnaire. Elle se crée SANS le pseudo ; le Profil
           // dit « à renseigner » et le choisir se fait là, avec sa propre vérification.
-          if (!(pseudoAInscrire && e1 && e1.code === '23505')) throw e1;
-          if (generationValide(g)) console.warn('Pseudo déjà pris, la ligne est créée sans lui :', texteErreur(e1));
+          // 60-3b — « pris entre-temps » est retenu (en local, par compte) : la ligne « Pseudo » du Profil
+          // le dit tant qu'aucun pseudo n'est posé.
+          if (!(pseudo && e1 && e1.code === '23505')) throw e1;
+          if (generationValide(g)) {
+            console.warn('Pseudo déjà pris, la ligne est créée sans lui :', texteErreur(e1));
+            retenirPseudoPris(id);
+          }
           pseudoAInscrire = null;
           distant = await creer(null);
         }
@@ -8998,8 +9038,8 @@
           Profil.ligneTemps(p, ouvrirReponseProfil)
         ] },
         { titre: 'L’APP', lignes: [
-          { libelle: 'Pseudo', valeur: p.username || null,
-            surChoix: function () { ouvrirSaisieProfil('username'); } },
+          // 60-3b — et, « pris entre-temps », la phrase qui le dit tant qu'aucun pseudo n'est posé.
+          Profil.lignePseudo(p, pseudoPrisSignale(), function () { ouvrirSaisieProfil('username'); }),
           { libelle: 'Bio', valeur: p.bio || null,
             surChoix: function () { ouvrirSaisieProfil('bio'); } },
           // L'e-mail se LIT, il ne se change pas d'ici : le changer demande une
@@ -9275,7 +9315,9 @@
         // chargement du profil créerait la ligne sans lui.
         pseudoAInscrire = Profil.normaliserPseudo(etat.pseudo);
         // 59-4 — le lien de confirmation (s'il y en a un) revient sur CETTE app.
-        var r = await Auth.inscrire(etat.email, etat.mdp, racine.location.origin + '/');
+        // 60-3b — le pseudo (normalisé) part AVEC le compte, dans ses données : le lien de confirmation
+        // s'ouvre souvent dans une autre page, où `pseudoAInscrire` n'existe plus.
+        var r = await Auth.inscrire(etat.email, etat.mdp, racine.location.origin + '/', pseudoAInscrire);
         if (!r.session) {
           erreur.className = 'erreur ok';
           erreur.textContent = 'Compte créé. Confirme ton e-mail, puis connecte-toi.';

@@ -814,7 +814,19 @@ const NOTIONS = [
     module: 'routines.js', fonction: 'exerciceRemplace', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['remplacerDansLEditeur'] },
     raison: 'ES §7 quindecies.8 (60-3) : le frère et le catalogue remplacent par la même fonction — même rang, même ' +
-      'superset (§7 decies), mêmes séries et repos, la charge de départ retirée (MOTEUR §9.21).' }
+      'superset (§7 decies), mêmes séries et repos, la charge de départ retirée (MOTEUR §9.21).' },
+  // ── 60-3b — LE PSEUDO TRAVERSE LA CONFIRMATION D'E-MAIL (ECRAN-PROFIL §3.1) ─
+  { notion: 'le pseudo posé à la création de la ligne de profil (celui de la page, sinon celui des données du compte)', pr: '60-U11',
+    module: 'profil.js', fonction: 'pseudoDeLInscription', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['chargerProfil'] },
+    raison: 'ECRAN-PROFIL §3.1 (60-3b) : le lien de confirmation s’ouvre souvent dans une autre page, où la mémoire ' +
+      'de l’inscription n’existe plus. UN SEUL ENDROIT choisit — et valide : les données d’un compte sont modifiables ' +
+      'par son propriétaire, un pseudo qui n’en est pas un est ignoré.' },
+  { notion: 'la ligne « Pseudo » du Profil (et sa phrase « pris entre-temps »)', pr: '60-U11',
+    module: 'profil.js', fonction: 'lignePseudo', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['rendreProfilEcran'] },
+    raison: 'ECRAN-PROFIL §3.1 (60-3b) : la phrase « Ce pseudo vient d’être pris » se dit tant qu’aucun pseudo n’est ' +
+      'posé ; elle vit avec la ligne, l’écran ne la compose pas.' }
 ];
 
 // ── 58-1 — UN FAIT NE SE DÉCLARE QUE DANS `faits.js` ─────────────────────────

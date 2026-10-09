@@ -354,7 +354,7 @@ const NOTIONS = [
     raison: 'aucun écran ne lit le palier brut : les faits passent par `Modele`, les mots du ' +
       'coach par la consigne. La page et Progression l’appelaient chacune à part.' },
   { notion: 'la série de travail (le type, `travail` quand il manque)', pr: 'PR 6',
-    module: 'modele.js', fonction: 'estTravail', lecteurs: ['seance.js', 'semaine.js', 'plan.js', 'app.js', 'bilan.js', 'faits.js', 'routines.js'],
+    module: 'modele.js', fonction: 'estTravail', lecteurs: ['seance.js', 'semaine.js', 'plan.js', 'app.js', 'bilan.js', 'faits.js', 'routines.js', 'jeu.js'],
     motif: /\.\s*estTravail\s*\(/g,
     par: ['exercicesFaits', 'tableParReps', 'construireBlocs'],
     interditAilleurs: { motif: /type_serie\s*[!=]==?\s*(['"])travail\1|typeDe\([^()]*\)\s*[!=]==?\s*(['"])travail\2|\|\|\s*(['"])travail\3\s*\)\s*[!=]==?/,
@@ -369,6 +369,9 @@ const NOTIONS = [
       'bandeau, la feuille de fin et le profil disent le même nombre ; le tapis n’y entre pas.' },
   { notion: 'l’exercice fait (au moins une série de travail, cardio compris)', pr: 'PR 6',
     module: 'modele.js', fonction: 'exercicesFaits', lecteurs: ['app.js', 'faits.js'],
+    // 64A : l'APPEL, pas le champ — `entree.exercicesFaits` (JEU-V1 §8) est un nombre que le jeu lit, pas un
+    // second calcul (même forme que `estTravail`).
+    motif: /\.\s*exercicesFaits\s*\(/g,
     par: ['resumerSeance'],
     parAilleurs: { 'app.js': ['sommaireExercices'], 'faits.js': ['datesDesExercices'] },
     raison: 'décision du 02/10/2026 : Progression, le profil et la carte comptaient les exercices ' +
@@ -897,7 +900,16 @@ const NOTIONS = [
     module: 'moteur.js', fonction: 'cibleDuProgramme', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['raccourcirLeProgramme'] },
     raison: 'MOTEUR §9.18 (G8, 60-4) : quelles réponses de temps font raccourcir le programme, et à quelle durée, se décide ' +
-      'une fois dans le moteur ; l’app lit le résultat et passe par `raccourcirRoutine`, elle ne teste pas `temps_reponse`.' }
+      'une fois dans le moteur ; l’app lit le résultat et passe par `raccourcirRoutine`, elle ne teste pas `temps_reponse`.' },
+  // ── 64A — LE JEU (JEU-V1) : il lit les faits, le coach ne le lit jamais ───
+  { notion: 'les faits du jeu (séances, séries de travail, catalogue, journal, maximums des barres, exercices faits)', pr: '64-U1',
+    module: 'faits.js', fonction: 'faitsDuJeu', lecteurs: [],
+    raison: 'JEU-V1 §8 (64A) : le jeu lit les faits, il ne les recompte pas — son entrée s’assemble une fois, dans le ' +
+      'module des faits, avec les fonctions qu’il a déjà (le journal, les maximums, les exercices faits). Aucun écran ne la lit encore.' },
+  { notion: 'l’état du jeu (série et gels, muscles, XP, niveau, succès, titres, cadres, le plus proche)', pr: '64-U1',
+    module: 'jeu.js', fonction: 'etatDuJeu', lecteurs: [],
+    raison: 'JEU-V1 (64A) : un seul calcul du jeu, pur, depuis l’historique ; aucun écran ne le refait. Aucun écran ne ' +
+      'le lit encore : l’onglet et le bloc de fin de séance viendront en 64B.' }
 ];
 
 // ── 58-1 — UN FAIT NE SE DÉCLARE QUE DANS `faits.js` ─────────────────────────
@@ -1220,7 +1232,7 @@ describe('architecture — le registre des notions : une source, des lecteurs', 
 describe('architecture — le module des faits : un fait ne se déclare que dans faits.js (58-1)', () => {
   const FICHIERS = perimetre();
 
-  test('les faits du module : dix-neuf (treize en 58-1, trois du journal en 58-2, un du questionnaire en 60-2a, un du programme déduit en 60-3, un de l’historique du programme construit en 60-4), chacun déclaré et exporté par faits.js', () => {
+  test('les faits du module : vingt et un (treize en 58-1, trois du journal en 58-2, un du questionnaire en 60-2a, un du programme déduit en 60-3, deux du programme construit en 60-4, un du jeu en 64A), chacun déclaré et exporté par faits.js', () => {
     global.self = global;
     require('../../v2/js/modele.js');
     require('../../v2/js/semaine.js');
@@ -1230,7 +1242,7 @@ describe('architecture — le module des faits : un fait ne se déclare que dans
     require('../../v2/js/seance.js');
     require('../../v2/js/periode.js');
     const instance = require('../../v2/js/faits.js').creer();
-    expect(FAITS.length).toBe(20);
+    expect(FAITS.length).toBe(21);
     expect(FAITS.filter((fn) => typeof instance[fn] !== 'function')).toEqual([]);
   });
 
@@ -1279,6 +1291,65 @@ describe('architecture — le module des faits : un fait ne se déclare que dans
     const code = nettoyer('function dernierRecord() { return null; }\nvar x = faits.dernierRecord(c);', false);
     expect(corpsDe(code, 'dernierRecord')).not.toBeNull();
     expect(corpsDe(nettoyer('var x = faits.dernierRecord(c);', false), 'dernierRecord')).toBeNull();
+  });
+});
+
+// ── 64A — LE COACH NE LIT JAMAIS LE JEU (JEU-V1 §1) ─────────────────────────
+// Un seul fil, sans boucle : les faits nourrissent le coach ET le jeu ; le coach
+// ne lit jamais le jeu, le jeu ne lit jamais le coach (ni plan, ni consigne, ni
+// pari). `THJeu` n'apparaît que chez les lecteurs du jeu — son module seul en
+// 64A ; 64B y inscrira l'écran, avec sa raison. Le source est lu commentaires
+// retirés, chaînes GARDÉES (`racine['THJeu']` se voit).
+const LECTEURS_DU_JEU = ['jeu.js'];
+const LE_JEU_NE_NOMME_PAS = /\b(?:THPlan|THMoteur|THPalier|planDeSeance|prediction)\b/;
+const nommeLeJeu = (src) => {
+  const code = nettoyer(src, true);
+  const lignes = [];
+  const re = /\bTHJeu\b/g;
+  let m;
+  while ((m = re.exec(code)) !== null) lignes.push(ligneDe(code, m.index));
+  return lignes;
+};
+const nommeLeCoach = (src) => LE_JEU_NE_NOMME_PAS.exec(nettoyer(src, true));
+
+describe('architecture — le coach ne lit jamais le jeu, le jeu ne lit jamais le coach (64A)', () => {
+  const FICHIERS = perimetre();
+  const parNom = {};
+  FICHIERS.forEach((f) => { parNom[f.nom] = f; });
+
+  test('⚠️ `THJeu` n’apparaît que chez les lecteurs du jeu', () => {
+    const fautes = [];
+    FICHIERS.forEach((f) => {
+      if (LECTEURS_DU_JEU.indexOf(f.nom) >= 0) return;
+      const l = nommeLeJeu(f.src);
+      if (l.length) fautes.push('`THJeu` nommé dans ' + f.nom + ', ligne(s) ' + l.join(', ') + ' : le coach ne lit ' +
+        'jamais le jeu. Un écran qui l’affiche s’inscrit dans LECTEURS_DU_JEU, avec sa raison.');
+    });
+    expect(fautes).toEqual([]);
+  });
+
+  test('⚠️ le jeu ne nomme rien du coach (plan, moteur, palier, prédiction)', () => {
+    const m = nommeLeCoach(parNom['jeu.js'].src);
+    expect(m ? '`' + m[0] + '` nommé dans jeu.js' : null).toBeNull();
+  });
+
+  test('la garde lit le vrai câblage : le module du jeu existe et se nomme lui-même', () => {
+    expect(nommeLeJeu(parNom['jeu.js'].src).length).toBeGreaterThan(0);
+    expect(LECTEURS_DU_JEU.every((f) => !!parNom[f])).toBe(true);
+  });
+
+  test('l’interdit se lit vraiment : un `THJeu` glissé dans plan.js et un `THMoteur` glissé dans jeu.js se voient', () => {
+    const plan = parNom['plan.js'].src;
+    expect(nommeLeJeu(plan)).toEqual([]);
+    expect(nommeLeJeu(plan + '\nvar etat = racine.THJeu.etatDuJeu(e);\n').length).toBe(1);
+    expect(nommeLeJeu(plan + '\nvar j = racine[\'THJeu\'];\n').length).toBe(1);
+    expect(nommeLeJeu(plan + '\n// racine.THJeu, en commentaire\n')).toEqual([]);
+    const jeu = parNom['jeu.js'].src;
+    expect(nommeLeCoach(jeu)).toBeNull();
+    expect(nommeLeCoach(jeu + '\nvar M = racine.THMoteur;\n')).not.toBeNull();
+    ['THPlan.x', 'THPalier.y', 'planDeSeance(a)', 'Moteur.prediction(b)'].forEach((x) =>
+      expect([x, nommeLeCoach(jeu + '\n' + x + ';\n') !== null]).toEqual([x, true]));
+    expect(nommeLeCoach(jeu + '\n/* THMoteur, en commentaire */\n')).toBeNull();
   });
 });
 

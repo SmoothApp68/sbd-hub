@@ -893,7 +893,7 @@
   //     titre, « Routine ») ; deux routines au même nom — la comparaison de
   //     l'index, `normaliserNom` —
   //     deviennent « … A », « … B » dans l'ordre d'affichage : le plus de
-  //     séances d'abord, puis la plus ancienne dernière séance ;
+  //     séances d'abord, puis la dernière séance la plus récente (60-7c) ;
   //   · `cochee` : faux quand la dernière séance du groupe précède de plus de
   //     28 jours la dernière séance de la personne.
   //
@@ -1052,7 +1052,9 @@
       });
     });
 
-    routines.sort(function (a, b) { return b.fois - a.fois || a.instant - b.instant; });
+    // Le plus de séances d'abord ; à égalité, la dernière séance la plus RÉCENTE (60-7c, décidé le 09/10/2026 — ce
+    // fut la plus ancienne). Le tri est stable : deux routines qui finissent au même instant restent dans l'ordre des groupes.
+    routines.sort(function (a, b) { return b.fois - a.fois || b.instant - a.instant; });
     var memes = {}, vus = {};
     routines.forEach(function (r) { memes[normaliserNom(r.nom)] = (memes[normaliserNom(r.nom)] || 0) + 1; });
     return routines.map(function (r) {

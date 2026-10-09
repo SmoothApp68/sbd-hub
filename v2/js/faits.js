@@ -7,7 +7,7 @@
 // les séances savent de la personne (`ceQueJeSais`), que le questionnaire du coach
 // MONTRE au lieu de le demander ; depuis 60-3, les faits du programme déduit
 // (`programmeDeduit`) ; depuis 60-4, l'historique du programme construit
-// (`historiqueDesExercices`). Ils vivaient dans
+// (`historiqueDesExercices`) ; depuis 64A, les faits du jeu (`faitsDuJeu`). Ils vivaient dans
 // `app.js`, au milieu de l'état de l'écran : le jeu n'aurait pu les lire qu'en
 // les recopiant.
 //
@@ -474,6 +474,37 @@
     }
     function oublierDates() { datesExercices = null; }
 
+    // ── Les faits du jeu (64A, JEU-V1 §8) ───────────────────────────────────
+    //
+    // L'entrée de `THJeu.etatDuJeu`, assemblée avec ce que ce module sait déjà :
+    // les séances terminées (`{ id, debut }`), leurs séries — SEULEMENT celles
+    // des séances de `c.seances` (le cache peut porter les séries d'une séance
+    // en cours ou orpheline ; `seriesDe` et les exercices faits filtrent déjà
+    // ainsi) —, le catalogue, le journal des records, les maximums des barres
+    // (`ceQueJeSais`) et le compte des exercices faits.
+    //
+    // ⚠️ UN SEUL FIL : les faits nourrissent le jeu, ils ne le lisent pas — ce
+    // module n'appelle pas le jeu. Les barres des caps ronds sont nommées ICI,
+    // une fois (JEU-V1 §5) ; le jeu traite les maximums qu'il reçoit.
+    var BARRES_DU_JEU = ['developpe_couche_barre', 'squat_barre', 'souleve_de_terre_barre', 'developpe_militaire_barre'];
+    function faitsDuJeu(c, aujourdhui) {
+      var seances = (c.seances || []).filter(Boolean).map(function (s) { return { id: s.id, debut: s.debut }; });
+      var ids = {};
+      seances.forEach(function (s) { ids[s.id] = true; });
+      var series = (c.series || []).filter(function (x) {
+        return x && Object.prototype.hasOwnProperty.call(ids, x.session_id);
+      });
+      return {
+        aujourdhui: aujourdhui,
+        seances: seances,
+        series: series,
+        catalogue: c.catalogue(),
+        journal: recordsDuJournal(c),
+        maximums: ceQueJeSais(c, aujourdhui, BARRES_DU_JEU).maximums,
+        exercicesFaits: compterExercices(c).faits
+      };
+    }
+
     return {
       seancesAvecSeries: seancesAvecSeries,
       seancesDuSlug: seancesDuSlug,
@@ -495,7 +526,9 @@
       programmeDeduit: programmeDeduit,
       historiqueDesExercices: historiqueDesExercices,
       seancesDesRoutines: seancesDesRoutines,
-      oublierDates: oublierDates
+      oublierDates: oublierDates,
+      faitsDuJeu: faitsDuJeu,
+      BARRES_DU_JEU: BARRES_DU_JEU
     };
   }
 

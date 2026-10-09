@@ -91,7 +91,7 @@ fréquent du groupe, modifiable. Rien n'est écrit avant « En faire mes routine
   se départagent par leur identifiant. Repos : la règle de « En
   faire une routine » (ECRAN-SAISIE §7 quindecies.4). Jamais de charge.
 - **Le nom** : le titre le plus fréquent du groupe (égalité : le plus récent) ; deux routines au même nom deviennent
-  « … A », « … B », dans l'ordre d'affichage (le plus de séances d'abord, puis la plus ancienne dernière séance).
+  « … A », « … B », dans l'ordre d'affichage (le plus de séances d'abord, puis la dernière séance la plus récente).
 - **Récence** : une routine dont la dernière séance précède de **plus de 28 jours** la dernière séance de la personne
   est proposée **décochée**, avec « Pas faite depuis le 9 mai. ». La personne décide.
 - **Supersets** : pas dans cette version (chaque exercice est un bloc) ; noté pour plus tard.

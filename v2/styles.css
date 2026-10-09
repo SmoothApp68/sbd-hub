@@ -690,6 +690,35 @@ button.bloc-exo:active{background:var(--panneau-2)}
 
 .bandeau-seance{display:flex;align-items:center;gap:var(--e2);
   padding:var(--e3) 0;border-bottom:1px solid var(--trait);margin-bottom:var(--e3)}
+/* 62 (ECRAN-SAISIE §7 octies bis) — LA BARRE DE LA SÉANCE EN COURS EST COLLÉE EN HAUT.
+   Le temps et « Terminer » restent sous les yeux pendant qu'on descend. `sticky`,
+   jamais `fixed` : elle reste DANS le flux et ne recouvre rien tant qu'on est en
+   haut — la leçon du chantier 24 (la barre de repos recouvrait « + Série »).
+   · fond OPAQUE (`--fond`) : sans lui les blocs défilent à travers elle, illisibles ;
+   · z-index 8 : au-dessus des lignes de saisie (1) et de la voix collante du
+     questionnaire (5), sous la rangée prise au glissement (9), la barre d'onglets
+     (10), le repos (50), le pied de réorganisation (51) et toutes les feuilles (60) ;
+   · elle déborde des 12 px de gouttière (marge négative, même retrait en dedans) :
+     le texte ne bouge pas d'un pixel, mais rien ne passe plus à côté d'elle ;
+   · aucun jaune : l'ambre reste la voix du coach (§3.1) — « Terminer » garde son
+     contour neutre ; sa cible fait 40 px de haut, comme les autres boutons de la barre. */
+#bandeau-seance{position:sticky;top:0;z-index:8;background:var(--fond);
+  margin:0 -12px var(--e3);padding:var(--e2) 12px}
+#bandeau-seance .discret{min-height:40px}
+/* « Rien d'interactif sous une barre » (chantier 24, étendu à la barre du HAUT) : un
+   champ qui prend le focus, un bloc amené en vue ou « + Série » s'arrêtent SOUS la barre,
+   pas derrière elle. `--h-barre-seance` est mesurée (`mesurerBarres`, app.js) comme
+   celles du bas, et vaut zéro quand la séance n'est pas à l'écran.
+   ⚠️ MESURÉ DANS CHROMIUM (banc « barre ») : `scroll-margin-top` SEUL ne suffit pas. Un
+   champ à moitié sous la barre est « dans l'écran » pour le navigateur, qui ne le
+   déplace pas au focus ; seule la RÉSERVE DU DÉFILEUR (`scroll-padding-top`, sur
+   `html`) lui fait voir la zone de la barre comme hors de l'écran. La hauteur
+   mesurée va donc dans `scroll-padding-top` ; `scroll-margin-top` ne garde que l'air
+   (12 px) entre la barre et ce qu'on amène en vue. Les deux additionnés, un
+   `scrollIntoView({block:'start'})` poserait l'élément à deux fois la barre. */
+html{scroll-padding-top:var(--h-barre-seance, 0px)}
+#vue-seance :is(.bloc-seance, .ligne-serie, input, textarea, button, #escalier-seance){
+  scroll-margin-top:var(--e3)}
 .bandeau-t{flex:1;min-width:0}
 .bandeau-nom{font-size:15px;font-weight:700;line-height:1.2;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

@@ -1476,6 +1476,22 @@
 
   function S() { return racine.THSeance; }
 
+  // « 47 min » sous une heure, « 1 h 12 » au-delà (« 1 h 00 » à l'heure pile).
+  // C'est le format du bilan du mois (`Bilan.texteTemps`), pas un second : « 72 min »
+  // ne se lit pas d'un coup d'œil entre deux séries.
+  function libelleDuree(minutes) { return racine.THBilan.texteTemps(minutes); }
+
+  // La durée de la barre, réécrite SUR PLACE : le texte du nœud, rien d'autre. On
+  // ne touche au DOM que si la valeur change (un nœud réécrit pour rien fait
+  // clignoter un lecteur d'écran). Renvoie vrai si la barre portait une durée.
+  function majDureeBandeau(cible, debut, maintenant) {
+    var ch = cible && cible.querySelector ? cible.querySelector('.bandeau-ch[data-suite]') : null;
+    if (!ch) return false;
+    var texte = libelleDuree(S().minutesEcoulees(debut, maintenant)) + ch.getAttribute('data-suite');
+    if (ch.textContent !== texte) ch.textContent = texte;
+    return true;
+  }
+
   function rendreBandeauSeance(cible, vue) {
     vider(cible);
 
@@ -1497,20 +1513,31 @@
 
     var t = el('div', 'bandeau-t');
     t.appendChild(el('div', 'bandeau-nom', vue.titre));
-    var debut = vue.debut ? new Date(vue.debut) : null;
-    var minutes = debut && !isNaN(debut.getTime())
-      ? Math.max(0, Math.round((Date.now() - debut.getTime()) / 60000)) : 0;
+    // ⚠️ ECRAN-SAISIE §7 octies bis (62) — LA DURÉE AVANCE SEULE, SANS REDESSINER.
+    // Le texte reste UN SEUL nœud (« 12 min · 3 séries de travail », comme avant la
+    // barre : le relevé du texte visible n'y voit rien changer) ; `data-suite` garde
+    // la fin de la phrase, et `majDureeBandeau` réécrit le seul début, à la minute,
+    // sans rappeler le rendu de la séance — qui reconstruirait les blocs et ferait
+    // perdre le focus d'un champ en cours de saisie.
+    //
     // §7 octies.2 — en modification, le temps écoulé n'a plus de sens : la
-    // séance date d'avant-hier, et « 3 240 min » ne dirait rien à personne.
+    // séance date d'avant-hier, et « 3 240 min » ne dirait rien à personne. Pas de
+    // `data-suite` : rien à rafraîchir.
     // ⚠️ `travail`, PAS `validees` (chantier 39, C1). Le même mot portait trois
     // comptes sur cinq écrans : 4 chauffes + 2 séries de travail s'affichaient
     // « 6 » ici et sur l'écran de fin, « 2 » sur la carte et la barre. Les
     // chauffes ne sont pas des séries de travail — et `Seance.compter().travail`
     // existe depuis le chantier 22 sans que personne le lise.
     var nT = vue.compte.travail;
-    t.appendChild(el('div', 'bandeau-ch num', (vue.edition
-      ? 'Modification · ' : minutes + ' min · ') +
-      nT + ' série' + (nT > 1 ? 's' : '') + ' de travail'));
+    var suite = nT + ' série' + (nT > 1 ? 's' : '') + ' de travail';
+    var ch = el('div', 'bandeau-ch num');
+    if (vue.edition) {
+      ch.textContent = 'Modification \u00b7 ' + suite;
+    } else {
+      ch.setAttribute('data-suite', ' \u00b7 ' + suite);
+      ch.textContent = libelleDuree(S().minutesEcoulees(vue.debut, Date.now())) + ' \u00b7 ' + suite;
+    }
+    t.appendChild(ch);
     cible.appendChild(t);
 
     // §5.3 — Modifier replie la séance sur une ligne par bloc. Il ne remplace
@@ -4932,6 +4959,8 @@
 
   racine.THRendu = {
     rendreBandeauSeance: rendreBandeauSeance,
+    majDureeBandeau: majDureeBandeau,
+    libelleDuree: libelleDuree,
     rendreBlocsSeance: rendreBlocsSeance,
     majConstat: majConstat,
     demanderReps: demanderReps,

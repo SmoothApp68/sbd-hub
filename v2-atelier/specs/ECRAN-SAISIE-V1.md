@@ -1486,6 +1486,26 @@ qui mène au détail complet pour qui veut le contexte des autres exercices.
 Conséquence utile : comme c'est un **démarrage**, il reprend la structure et **les notes**,
 jamais les charges. Même règle qu'une routine — le moteur décide des charges (§1, §7 septies.1).
 
+### 7 octies bis. La barre de la séance en cours — décidé le 08/10/2026
+
+> **Pendant la séance, le temps et « Terminer » restent sous les yeux.** Le bandeau du haut de la séance (titre,
+> durée, séries de travail, « Terminer ») était dans le flux de la page : il disparaissait dès qu'on descendait, et
+> ses minutes ne se rafraîchissaient qu'à la prochaine mise en page. Il devient une **barre collée en haut** de
+> l'écran de séance (`position: sticky`, jamais `fixed` : elle reste dans le flux et ne couvre rien).
+
+- **Contenu, rien d'autre** : le titre ; la **durée écoulée**, qui **avance seule** (rafraîchie à la minute, sans
+  second minuteur concurrent de celui du repos) ; le **nombre de séries de travail** (`compte.travail`, jamais les chauffes : chantier 39, C1) ;
+  « Terminer ». Au-delà d'une heure : « 1 h 12 ». Le chronomètre de repos reste en bas, inchangé.
+- **« Terminer » ne change pas de comportement** : un tap ouvre la feuille de confirmation existante. Ni appui long,
+  ni confirmation retirée. En correction d'une séance passée, la barre dit « Modification » et n'a pas de durée.
+- **Rien d'interactif sous la barre** (la règle du chantier 24, mesurée à l'écran) : un champ qui prend le focus, un
+  exercice déplacé, « + Série » ou « Ajouter un exercice » ne passent jamais sous elle (`scroll-margin-top`
+  mesuré sur la barre, comme les barres du bas).
+- **Aucune information n'est retirée de l'écran** : tout le texte visible de la séance avant la barre l'est après.
+  Le mode sélection (« Grouper avec… ») et le mode « Modifier » gardent leur remplacement du bandeau (§5.3, §5.7) :
+  la barre ne contient jamais « Terminer » pendant qu'on choisit avec qui grouper.
+- Les autres onglets gardent leur signalement de séance en cours (§7 nonies) : cette barre n'y est pas.
+
 ---
 
 ## 7 nonies. Le bandeau de séance en cours — décidé, COMPOSANT ÉCRIT, non branché

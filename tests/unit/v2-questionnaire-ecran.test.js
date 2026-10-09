@@ -614,7 +614,7 @@ describe('60-2a — le routage d’entrée et la vue', () => {
         Routeur: { ongletDe: () => null, PROFIL: 'profil', SAISIE: 'saisie' },
         vues: { liste: { hidden: true }, questionnaire: { hidden: false } },
         $: () => null, Rendu: { rendreOnglets: () => {} }, doc: { querySelector: () => null },
-        seance: null, mesurerBarres: () => {}, marquerProfilVu: () => {}
+        seance: null, mesurerBarres: () => {}, marquerProfilVu: () => {}, arreterDuree: () => {}
       };
       vm.createContext(ctx);
       vm.runInContext(extraire('montrer'), ctx);

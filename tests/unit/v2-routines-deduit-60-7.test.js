@@ -50,7 +50,7 @@ describe('le fichier de cas', () => {
   test('son empreinte est celle du fichier reçu de Claude.ai', () => {
     const brut = fs.readFileSync(CHEMIN);
     expect(brut.length).toBe(17697);
-    expect(empreinte(brut)).toBe('11d647b2efe2bd556a71cb493575b207a5f0364212f67572a78166e1b821bd6a');
+    expect(empreinte(brut)).toBe('b9d255d2a23c059df7b679ce6c2206f3ce106b8bfcceac753da3e3dfe3b291a8');
     expect(F.reference).toBe('deduit60c.py');
     expect(F.fuseau).toBe('Europe/Paris');
     expect(F.cas.map((c) => c.profil)).toEqual([
@@ -62,8 +62,8 @@ describe('le fichier de cas', () => {
   // un test à lancer (elle lit `catalogue.json` et `seances12s.json`, qui ne sont pas au dépôt).
   test('la référence deduit60c.py est celle reçue de Claude.ai', () => {
     const brut = fs.readFileSync(path.join(__dirname, 'fixtures/deduit60c.py'));
-    expect(brut.length).toBe(8151);
-    expect(empreinte(brut)).toBe('dc7e3b145fd66658fe8b8b6dca33716bb843514550e7978e6fd95b07da674261');
+    expect(brut.length).toBe(8386);
+    expect(empreinte(brut)).toBe('d4dbe9ae1be90574623a117a5027294722196d5b7b1cc5585252b6c8a7e656f1');
   });
 });
 

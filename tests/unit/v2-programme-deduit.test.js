@@ -37,9 +37,11 @@ describe('le fichier de cas', () => {
   test('son empreinte est celle du fichier reçu de Claude.ai', () => {
     const brut = fs.readFileSync(CHEMIN);
     expect(brut.length).toBe(77495);
+    // 60-7c (09/10/2026) : l'ordre à égalité de séances est inversé (la plus récente d'abord) ; l'attendu de Jordan et de
+    // Léa est régénéré depuis `deduit60c.py` (le fichier de 60-3 disait `deduit60b.py`, qui est resté une trace).
     expect(crypto.createHash('sha256').update(brut).digest('hex'))
-      .toBe('6aaba495bd90e19ad0c3016953109a92eb5738eecd718b859f5a6daf3538822d');
-    expect(F.reference).toBe('deduit60b.py');
+      .toBe('98f224b21baf93ad287672276e30368e8866da7c02bce49a063bf46f25ae9f49');
+    expect(F.reference).toBe('deduit60c.py');
     expect(F.cas.map((c) => c.profil)).toEqual(['jordan', 'lea', 'melodie']);
   });
 

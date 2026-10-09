@@ -1,11 +1,13 @@
 """deduit60c.py — le programme déduit (QUESTIONNAIRE-COACH-V2 §5), référence de 60-7. Claude.ai, 08/10/2026.
+Ordre d'affichage à égalité de séances inversé le 09/10/2026 (60-7c, décision d'Aurélien) : la plus RÉCENTE d'abord.
 
 Reprend deduit60b.py et y inscrit les SIX CHOIX du portage JS (#386), pour que référence et portage disent la même
 chose, au caractère près :
   1. un titre vide ou absent compte pour rien ; sans aucun titre, le groupe s'appelle « Routine » (60b plantait) ;
   2. les titres sont rognés (espaces de bord) ;
   3. deux routines de même nom, casse et espaces de bord ignorés, prennent « … A », « … B » ;
-  4. les routines s'ordonnent par nombre de séances, puis par l'INSTANT de leur dernière séance ;
+  4. les routines s'ordonnent par nombre de séances, puis par l'INSTANT de leur dernière séance, la plus RÉCENTE
+     d'abord (60-7c : c'était la plus ancienne d'abord) ;
   5. les jours sont ceux du calendrier LOCAL (Europe/Paris), jamais l'UTC ;
   6. une séance qu'aucun profil n'atteint à la réaffectation RESTE dans son groupe (60b la perdait) ;
 et, à égalité de fréquence, le titre le plus récent est celui de la séance la plus tardive du groupe.
@@ -129,7 +131,7 @@ def deduire(seances, mesures):
                          'cochee': (fin - jour(dern)).days <= RECENT_J,
                          'exercices': [{'exercise_slug': e, 'series': s, 'reps': r, 'chauffes': c}
                                        for _, e, s, r, c in ex]})
-    routines.sort(key=lambda r: (-r['fois'], r['_instant']))               # choix 4
+    routines.sort(key=lambda r: (-r['fois'], -r['_instant'].timestamp()))  # choix 4 : la plus récente d'abord (60-7c)
     cle = lambda r: r['nom'].strip().lower()                              # choix 3
     n = collections.Counter(cle(r) for r in routines); vus = collections.Counter()
     for r in routines:

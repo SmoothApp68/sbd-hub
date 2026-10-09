@@ -4,7 +4,7 @@
 //   · le fait `Faits.seancesDesRoutines` : les séances TERMINÉES, commencées à partir de la création du programme, qui
 //     portent une routine du dossier et au moins une série de travail ;
 //   · `Profil.joursDepuis` : des jours CALENDAIRES (le changement d'heure ne les change pas) ;
-//   · les 30 cas du fichier de cas (`cas-60-4-generateur.json`), rejoués PAR LE CÂBLAGE DE L'APP : chaque cas devient un
+//   · les 30 cas du fichier de cas (`cas-60-6-generateur.json`), rejoués PAR LE CÂBLAGE DE L'APP : chaque cas devient un
 //     profil, des routines, des séances et des blocs, et la carte s'affiche si et seulement si le cas l'attend ;
 //   · le rendu : « Tu as fait {N} séances de ton programme. » (R5, 60-5 : des séances, jamais le calendrier des 21 jours)
 //     et le reste au mot près ; il n'écrit RIEN ; « Pas maintenant »
@@ -31,7 +31,7 @@ const Faits = require('../../v2/js/faits.js');
 require('../../v2/js/rendu.js');
 const Rendu = () => window.THRendu;
 
-const CAS = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/cas-60-4-generateur.json'), 'utf8'));
+const CAS = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/cas-60-6-generateur.json'), 'utf8'));
 const texte = (n) => n.textContent.replace(/\s+/g, ' ').trim();
 const NOW = new Date(2026, 9, 8, 12, 0, 0);                       // 8 octobre 2026, midi
 const il_y_a = (jours, h) => new Date(2026, 9, 8 - jours, h === undefined ? 12 : h, 0, 0);

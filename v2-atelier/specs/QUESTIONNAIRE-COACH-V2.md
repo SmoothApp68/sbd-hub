@@ -116,20 +116,39 @@ est déclarée ; « J'ai de la marge » : rien n'est raccourci.
 6 poussée / tirage / jambes ×2 ; chaque muscle environ deux fois par semaine (Schoenfeld 2016 ; Pelland 2024). Chaque
 séance est une liste de **places** : un **motif** (couché, squat, rowing…) et un **rôle** (principal, secondaire,
 isolation, tronc). Les gabarits et la liste ordonnée des candidats de chaque motif sont dans la référence.
+**Deux jours** (précisé le 08/10/2026, 60-6, après l'audit de 17 profils) : le corps entier A porte squat, couché,
+rowing, jambes tendues, mollets, tronc ; le B porte soulevé, militaire, tirage vertical, presse, un second couché
+(secondaire) et le curl. Le couché est donc fait deux fois dans la semaine (7 séries de poitrine en Force, contre 4 avant),
+les mollets sont travaillés (3 séries, 0 avant). **Le coût, assumé** : plus d'élévations latérales ni de triceps en direct (ils
+sont dans les poussées) ; à deux jours, l'épaule n'a que le militaire en direct.
 
 **Le choix d'une place.** Les principaux de la semaine d'abord (ils prennent la barre), puis les secondaires, les
 isolations, le tronc ; un exercice n'est pris qu'une fois par semaine tant qu'il y a le choix. Candidats : ceux du
 motif **permis par le matériel** (la table de 60-1 ; un exercice déjà fait n'est jamais rétrogradé), hors **écartés** ;
-rien : le **motif voisin** (même muscle, autre angle) ; toujours rien : un exercice déjà pris (plutôt qu'un muscle sans
-travail) ; rien du tout : la place saute. Tri : la variante plus tolérée d'une zone à ménager, puis **l'historique**
+rien : le **motif voisin** (même muscle, autre angle) ; toujours rien : un exercice déjà pris **dans une autre
+séance** de la semaine (plutôt qu'un muscle sans travail) — **jamais un exercice déjà dans la même séance** (précisé
+le 08/10/2026, 60-6 : mesuré en maison minimale, le même rowing deux fois dans une séance) ; rien du tout : la place
+saute. Tri : la variante plus tolérée d'une zone à ménager, puis **l'historique**
 (le plus fait sur 12 semaines d'abord, la fenêtre du §5), puis l'élastique d'abord au poids du corps, puis l'ordre du
 motif. La maison minimale n'a pas de barre fixe : ni tractions, ni rowing inversé.
+
+**Moins d'un an de pratique** (`profiles.anciennete` = `moins_1_an`, précisé le 08/10/2026, 60-6). Un constat
+d'Aurélien sur un profil débutant : des tractions à 12 reps et des relevés de genoux suspendus à 18. Le poids du corps
+« lourd » — **tractions, relevé de genoux suspendu, rowing inversé** — n'est alors proposé **qu'en dernier recours** :
+quand ni le motif, ni son voisin, ni un exercice déjà pris ailleurs dans la semaine ne donne autre chose (le tirage
+à la poulie, l'élastique, le crunch à la poulie passent avant). **Un de ces exercices déjà fait n'est jamais écarté**
+(l'historique, §5 : un exercice fait n'est jamais rétrogradé). Aucune autre règle ne change avec l'ancienneté : ni les
+séries, ni les reps, ni les charges (le coach les décide séance par séance). *Les plafonds de reps (15, 12…) ne sont
+pas posés : aucune source ne les établit.*
 
 **Séries et reps.** Reps par objectif (principal · secondaire · isolation) : Force 5 · 7 · 12 ; Les deux 5 · 9 · 12 ;
 Muscle et sans réponse 7 · 9 · 12 ; Forme 9 · 12 · 15 ; +3 en isolation pour les petits muscles (élévations, arrière
 d'épaule, mollets, abdos). **Lourd seulement à la barre** : un principal hors barre prend les reps d'un secondaire.
 Séries : principal 4 en Force et Les deux, 3 sinon ; secondaire et isolation 3 ; tronc 2. **+1 série** pour un
-exercice prioritaire (même en sèche), et pour un muscle prioritaire sur un secondaire ou une isolation, **hors sèche**.
+exercice prioritaire (même en sèche), et pour un muscle prioritaire sur un secondaire, une isolation ou le tronc, **hors
+sèche** ; **et sur un principal quand sa zone n'a aucune autre place dans le programme** (précisé le 08/10/2026,
+60-6 : « Tronc » prioritaire ne changeait rien ; à deux jours, le militaire est le seul exercice d'épaules en direct :
+il prend la série).
 L'exercice prioritaire passe en tête de sa séance.
 
 **Zone à ménager** (décidé le 08/10/2026). Une place dont le motif charge la zone (genou : squat, presse, extension ;
@@ -149,7 +168,9 @@ Extension Jambes, sans série lourde. Toutes leurs séries restent. ») et, si d
 (tractions, rowing inversé) : « {exercices} demande(nt) une barre fixe. Sans barre : touche-le, puis Remplacer. ».
 **La phrase se dit dès qu'une de ces lignes est dans le programme, pour tout matériel sauf la salle complète et la
 salle basique** (précisé le 08/10/2026, 60-5 : « maison équipée » ne garantit pas une barre fixe ; la condition est
-l'exercice, jamais l'étiquette du matériel).
+l'exercice, jamais l'étiquette du matériel). **Un matériel non renseigné vaut la salle complète** — c'est ainsi que
+le générateur le traite (aucune restriction) — **donc pas de phrase** (précisé le 08/10/2026, 60-6 ; 60-5 l'avait lu
+« tout sauf les deux salles »).
 Une carte par séance : le nom, « ≈ 69 min » (l'estimation de §9.18, sur la structure), **la ligne « pourquoi »** —
 les séries par zone du radar, chaque exercice compté dans la zone de son **premier muscle principal**, la plus grosse
 d'abord, à égalité l'ordre du radar (« Poitrine 10 · Dos 6 · Bras 3 · Épaules 3 séries ») — puis chaque exercice avec
@@ -161,7 +182,8 @@ quindecies.8), « Annuler ». Bouton : « **Créer ces {N} routines** », par le
 dessus. Rien n'est écrit avant ce bouton, sauf les écartés (ci-dessous).
 
 **« Je n'en veux pas »** (ECRAN-SAISIE §7 quindecies.9). **Seule la place touchée change** : le coach prend le suivant
-du même motif (sinon le voisin, sinon un déjà pris), en évitant ce qui est **déjà dans cette séance** ; les séries
+du même motif (sinon le voisin, sinon un déjà pris dans une autre séance), **sans jamais reprendre ce qui est déjà
+dans cette séance** (rien d'autre : la place disparaît, comme à la création, S2) ; les séries
 de la place restent ; l'exercice rejoint `profiles.exercices_ecartes`. Regénérer tout le programme ferait cascader
 les choix (mesuré le 08/10/2026 : écarter le couché barre changeait aussi le Haut B). Rien au catalogue : la place
 disparaît.
@@ -179,7 +201,9 @@ dossier un programme » (Lourd, 4 semaines, décharge la dernière) ; « **Pas m
 bouton du dossier reste). La période (Williams 2017 ; Moesgaard 2022 : la périodisation aide surtout la force) ; les
 « 3 semaines » sont un choix de coach, sans étude derrière.
 
-**Limites connues, assumées** : au poids du corps, le volume est faible (6 séries de dos par semaine) ; en maison
+**Limites connues, assumées** : au poids du corps, le volume est faible (6 séries de dos par semaine) ; en salle
+basique et en maison, pas de machine : pas de leg curl ni de mollets avec charge (chantier « matériel réduit », noté) ;
+l'abdo reprend le même exercice sur deux séances quand il n'y en a pas d'autre ; en maison
 équipée sans machine, une séance peut porter deux soulevés roumains (barre et haltères). Noté : le mini-chantier
 « maison et poids du corps », et « la gestion de la douleur » (la douleur dans le temps, le lien avec la zone à
 ménager).

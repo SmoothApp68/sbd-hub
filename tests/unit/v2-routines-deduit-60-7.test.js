@@ -9,8 +9,9 @@
 //   2. les titres sont rognés (espaces de bord) avant d'être comptés ;
 //   3. « Pecs » et « pecs » sont le même nom : les lettres A, B… se posent sur le nom
 //      comparé sans casse ;
-//   4. l'ordre d'affichage : le plus de séances d'abord, puis la dernière séance, à l'instant
-//      près (deux routines qui finissent le même jour ne sont pas à égalité) ;
+//   4. l'ordre d'affichage : le plus de séances d'abord, puis la dernière séance LA PLUS RÉCENTE d'abord
+//      (60-7c, décidé le 09/10/2026 — c'était la plus ancienne), à l'instant près (deux routines qui finissent le
+//      même jour ne sont pas à égalité) ;
 //   5. la fenêtre de 84 jours se compte en jours civils locaux (Europe/Paris), pas en 24 h
 //      glissantes ;
 //   6. une séance qu'aucun profil n'atteint à la réaffectation reste dans son groupe.
@@ -75,19 +76,40 @@ describe('le fuseau', () => {
 });
 
 describe('seancesQuiReviennent — les six choix du portage, à l’égalité stricte', () => {
-  test('choix 1 et 2 — titres vides et rognés : « Haut A », puis « Routine A » et « Routine B »', () => {
-    expect(rejouer(cas('titres_vides_et_rognes'))).toStrictEqual(cas('titres_vides_et_rognes').attendu);
+  test('choix 1 et 2 — titres vides et rognés : « Routine A » (le 9), « Routine B » (le 8), puis « Haut A » (le 7)', () => {
+    const c = cas('titres_vides_et_rognes');
+    expect(rejouer(c)).toStrictEqual(c.attendu);
+    // Trois routines de 4 séances : la plus récente d'abord (60-7c). Les deux sans titre prennent les lettres dans cet ordre.
+    expect(c.attendu.map((r) => [r.nom, r.fois, r.derniere])).toEqual([
+      ['Routine A', 4, '2026-09-09'], ['Routine B', 4, '2026-09-08'], ['Haut A', 4, '2026-09-07']]);
   });
 
-  test('choix 2 et 3 — « Pecs » et « pecs » sont le même nom : « Pecs A », « pecs B »', () => {
-    expect(rejouer(cas('homonymes_sans_casse'))).toStrictEqual(cas('homonymes_sans_casse').attendu);
+  test('choix 2 et 3 — « Pecs » et « pecs » sont le même nom : « pecs A » (la plus récente), « Pecs B »', () => {
+    const c = cas('homonymes_sans_casse');
+    expect(rejouer(c)).toStrictEqual(c.attendu);
+    expect(c.attendu.map((r) => [r.nom, r.derniere])).toEqual([['pecs A', '2026-09-08'], ['Pecs B', '2026-09-07']]);
   });
 
-  test('choix 4 — deux routines de 4 séances qui finissent le même jour : la dernière à l’instant près', () => {
-    // « Matin » finit à 8 h, « Soir » à 18 h (heure de Paris) : le même jour, deux instants.
+  test('choix 4 — deux routines de 4 séances qui finissent le même jour : la dernière à l’instant près, la plus récente d’abord', () => {
+    // « Matin » finit à 8 h, « Soir » à 18 h (heure de Paris) : le même jour, deux instants. 60-7c : « Soir » d'abord.
     const c = cas('tri_par_instant');
     expect(rejouer(c)).toStrictEqual(c.attendu);
     expect(c.attendu.map((r) => r.derniere)).toEqual(['2026-09-08', '2026-09-08']);
+    expect(c.attendu.map((r) => r.nom)).toEqual(['Soir', 'Matin']);
+  });
+
+  test('choix 4 (60-7c) — le même cas, les groupes nés dans l’ordre inverse : l’instant décide, pas l’ordre de naissance', () => {
+    // Dans le cas du fichier, « Soir » naît le premier : sa place d'abord est aussi celle de l'ordre de naissance, et un
+    // tri « au jour près » (égalité, donc ordre de naissance) donnerait le même résultat. Ici « Matin » naît le premier
+    // (les dates des deux premières séances sont échangées) : seul l'instant de la dernière séance met « Soir » devant.
+    // Rejoué avec `deduit60c.py` : [Soir, Matin], comme le cas.
+    const c = cas('tri_par_instant');
+    const seances = seancesDe(c);
+    const a0 = seances.filter((x) => x.id === 'a0')[0], b0 = seances.filter((x) => x.id === 'b0')[0];
+    const debut = a0.debut; a0.debut = b0.debut; b0.debut = debut;
+    const sortie = R.seancesQuiReviennent(seances, c.mesures);
+    expect(sortie).toStrictEqual(c.attendu);
+    expect(sortie.map((r) => r.nom)).toEqual(['Soir', 'Matin']);
   });
 
   test('choix 5 — jours civils locaux : la séance du 9 juillet est hors de la fenêtre qui finit le 1er octobre', () => {
@@ -107,6 +129,7 @@ describe('seancesQuiReviennent — les six choix du portage, à l’égalité st
   test('choix 6 — une séance qu’aucun profil n’atteint reste dans son groupe', () => {
     const c = cas('seance_non_atteinte_reste');
     expect(rejouer(c)).toStrictEqual(c.attendu);
+    // Le plus de séances d'abord : l'ordre ne dépend pas de la récence ici (7 avant 5) — 60-7c ne le change pas.
     expect(c.attendu.map((r) => [r.nom, r.fois])).toEqual([['S A', 7], ['S B', 5]]);
   });
 });

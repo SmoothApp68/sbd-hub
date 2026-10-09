@@ -45,6 +45,22 @@ describe('le fichier de cas', () => {
     expect(F.cas.map((c) => c.profil)).toEqual(['jordan', 'lea', 'melodie']);
   });
 
+  // 60-7c (09/10/2026) : à égalité de séances, la dernière séance la plus RÉCENTE d'abord. Sur les vraies données de
+  // Jordan et de Léa — là où l'ancien ordre (la plus ancienne d'abord) donnait l'inverse.
+  test('60-7c — à égalité de séances, la dernière séance la plus récente d’abord : Jordan et Léa', () => {
+    const cas = (profil) => F.cas.filter((c) => c.profil === profil)[0];
+    expect(cas('lea').attendu.map((r) => [r.nom, r.fois, r.derniere])).toEqual([
+      ['BOOTY A', 15, '2026-08-30'], ['DOS A', 6, '2026-07-26'], ['DOS B', 5, '2026-08-18'], ['BOOTY B', 5, '2026-08-04']]);
+    expect(cas('jordan').attendu.map((r) => r.fois)).toEqual([5, 4, 4]);
+    expect(cas('jordan').attendu.map((r) => r.derniere)).toEqual(['2026-05-14', '2026-06-11', '2026-06-06']);
+    F.cas.forEach((c) => {
+      for (let i = 1; i < c.attendu.length; i++) {
+        const a = c.attendu[i - 1], b = c.attendu[i];
+        expect(a.fois > b.fois || (a.fois === b.fois && a.derniere >= b.derniere)).toBe(true);
+      }
+    });
+  });
+
   // 60-3b — LA RÉFÉRENCE, oubliée du prompt 60-3 : `deduit60b.py`, rangée à côté du fichier de cas. Une trace,
   // pas un test à lancer : elle lit `catalogue.json` et `seances12s.json`, qui ne sont pas au dépôt. Son
   // empreinte est celle du fichier reçu de Claude.ai, comme celle du fichier de cas.

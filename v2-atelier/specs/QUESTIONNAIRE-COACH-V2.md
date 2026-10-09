@@ -95,6 +95,13 @@ fréquent du groupe, modifiable. Rien n'est écrit avant « En faire mes routine
 - **Récence** : une routine dont la dernière séance précède de **plus de 28 jours** la dernière séance de la personne
   est proposée **décochée**, avec « Pas faite depuis le 9 mai. ». La personne décide.
 - **Supersets** : pas dans cette version (chaque exercice est un bloc) ; noté pour plus tard.
+- **Les six choix du portage** (08/10/2026, 60-7 ; la référence `deduit60c.py` les suit, cas `cas-60-7-deduit.json`) :
+  1. **Titre vide** : une séance sans titre ne compte pas dans le nom ; un groupe sans aucun titre s'appelle « Routine ».
+  2. **Espaces** : les titres sont rognés (début et fin) avant d'être comptés.
+  3. **Majuscules** : « Pecs » et « pecs » sont le même nom ; les lettres A, B… se posent sur le nom comparé sans casse.
+  4. **Ordre d'affichage** : le plus de séances d'abord, puis la dernière séance la plus récente (à l'instant près).
+  5. **Jours** : la fenêtre de 84 jours se compte en jours civils locaux (Europe/Paris), pas en 24 h glissantes.
+  6. **Séance hors fenêtre de réaffectation** : une séance qui n'atteint pas le seuil reste dans son groupe d'origine.
 - Simulation (au 06/10) : Jordan 3 routines (2 cochées), Léa 4 (3), Mélodie 2 (1), Alexis 6 (5), aurel_br 5 (5).
 
 ## 5 bis. Le programme construit (8b) — décidé le 08/10/2026 (60-4)

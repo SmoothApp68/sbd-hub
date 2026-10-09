@@ -37,10 +37,28 @@ describe('le fichier de cas', () => {
   test('son empreinte est celle du fichier reçu de Claude.ai', () => {
     const brut = fs.readFileSync(CHEMIN);
     expect(brut.length).toBe(77495);
+    // 60-7c (09/10/2026) : l'ordre à égalité de séances est inversé (la plus récente d'abord) ; l'attendu de Jordan et de
+    // Léa est régénéré depuis `deduit60c.py` (le fichier de 60-3 disait `deduit60b.py`, qui est resté une trace).
     expect(crypto.createHash('sha256').update(brut).digest('hex'))
-      .toBe('6aaba495bd90e19ad0c3016953109a92eb5738eecd718b859f5a6daf3538822d');
-    expect(F.reference).toBe('deduit60b.py');
+      .toBe('98f224b21baf93ad287672276e30368e8866da7c02bce49a063bf46f25ae9f49');
+    expect(F.reference).toBe('deduit60c.py');
     expect(F.cas.map((c) => c.profil)).toEqual(['jordan', 'lea', 'melodie']);
+  });
+
+  // 60-7c (09/10/2026) : à égalité de séances, la dernière séance la plus RÉCENTE d'abord. Sur les vraies données de
+  // Jordan et de Léa — là où l'ancien ordre (la plus ancienne d'abord) donnait l'inverse.
+  test('60-7c — à égalité de séances, la dernière séance la plus récente d’abord : Jordan et Léa', () => {
+    const cas = (profil) => F.cas.filter((c) => c.profil === profil)[0];
+    expect(cas('lea').attendu.map((r) => [r.nom, r.fois, r.derniere])).toEqual([
+      ['BOOTY A', 15, '2026-08-30'], ['DOS A', 6, '2026-07-26'], ['DOS B', 5, '2026-08-18'], ['BOOTY B', 5, '2026-08-04']]);
+    expect(cas('jordan').attendu.map((r) => r.fois)).toEqual([5, 4, 4]);
+    expect(cas('jordan').attendu.map((r) => r.derniere)).toEqual(['2026-05-14', '2026-06-11', '2026-06-06']);
+    F.cas.forEach((c) => {
+      for (let i = 1; i < c.attendu.length; i++) {
+        const a = c.attendu[i - 1], b = c.attendu[i];
+        expect(a.fois > b.fois || (a.fois === b.fois && a.derniere >= b.derniere)).toBe(true);
+      }
+    });
   });
 
   // 60-3b — LA RÉFÉRENCE, oubliée du prompt 60-3 : `deduit60b.py`, rangée à côté du fichier de cas. Une trace,

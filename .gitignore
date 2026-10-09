@@ -8,3 +8,5 @@ supabase/.temp/
 test-results/
 playwright-report/
 audit/screenshots/
+__pycache__/
+*.pyc

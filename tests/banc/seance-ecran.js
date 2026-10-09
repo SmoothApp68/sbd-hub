@@ -15175,7 +15175,9 @@ const SETS_IMPORTES = [
       !!haut && !!bas && haut.cochee && bas.cochee && /^4 fois · dernière fois /.test(haut.ligne) &&
         haut.exos === 'Développé R60 (Haltères) 3 × 10 · Rowing R60 (Poulie) 3 × 10 · Curl R60 (Machine) 3 × 12' &&
         bas.exos === 'Squat R60 (Machine) 4 × 8 · Extension R60 (Machine) 3 × 12 · Mollets R60 (Machine) 3 × 15' &&
-        haut.ancienne === null && f.cartes.indexOf(haut) < f.cartes.indexOf(bas), JSON.stringify(f.cartes));
+        haut.ancienne === null && f.cartes.indexOf(bas) < f.cartes.indexOf(haut), JSON.stringify(f.cartes));
+    // (60-7c : à égalité de séances — 4 et 4 —, la dernière séance la plus RÉCENTE d'abord : « Bas » (il y a 17 jours)
+    // avant « Haut » (il y a 18 jours).)
     ok('[R60] B — la voix du coach : « Tu pourras tout changer ensuite : exercices, séries, repos. »',
       f.voix === 'Tu pourras tout changer ensuite : exercices, séries, repos.', JSON.stringify(f.voix));
     f = await decocherLesAutres();
@@ -15188,7 +15190,7 @@ const SETS_IMPORTES = [
     const creees = ROUTINES.filter((r) => MIENNES.indexOf(r.nom) >= 0);
     ok('[R60] C — « En faire mes routines (2) » : DEUX routines (deux taps n’écrivent pas deux fois), dans « Mon programme », dans l’ordre de la feuille',
       ROUTINES.length === 2 && creees.length === 2 && creees.every((r) => r.dossier === 'Mon programme') &&
-        JSON.stringify(creees.slice().sort((a, b) => a.rang - b.rang).map((r) => r.nom)) === '["Haut U603","Bas U603"]',
+        JSON.stringify(creees.slice().sort((a, b) => a.rang - b.rang).map((r) => r.nom)) === '["Bas U603","Haut U603"]',
       JSON.stringify(ROUTINES.map((r) => [r.nom, r.dossier, r.rang])));
     const formeR = (nom) => {
       const r = ROUTINES.filter((x) => x.nom === nom)[0];

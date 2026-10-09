@@ -28,7 +28,7 @@ require('../../v2/js/rendu.js');
 const Rendu = () => window.THRendu;
 
 const F = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/cas-60-3-deduit.json'), 'utf8'));
-const LEA = F.cas[1].attendu;   // BOOTY A (15), DOS A (6, ancienne), BOOTY B (5), DOS B (5)
+const LEA = F.cas[1].attendu;   // BOOTY A (15), DOS A (6, ancienne), DOS B (5, dernière le 18/08), BOOTY B (5, dernière le 04/08) — 60-7c : à égalité, la plus récente d'abord
 
 const texte = (n) => n.textContent.replace(/\s+/g, ' ').trim();
 
@@ -211,7 +211,7 @@ describe('les gestes : ouvrir la feuille', () => {
     await b.appel('ouvrirSeancesQuiReviennent()');
     expect(b.journal.voile).toBe(1);
     expect(b.vue().routines.map((r) => [r.nom, r.cochee])).toEqual(
-      [['BOOTY A', true], ['DOS A', false], ['BOOTY B', true], ['DOS B', true]]);
+      [['BOOTY A', true], ['DOS A', false], ['DOS B', true], ['BOOTY B', true]]);
     expect(b.vue().routines[1].ancienne).toBe('Pas faite depuis le 26 juil.');
     expect(b.vue().routines[0].ancienne).toBeNull();
     expect(b.vue().routines[0].ligne).toMatch(/^15 fois · dernière fois /);
@@ -242,7 +242,7 @@ describe('les gestes : « En faire mes routines (N) »', () => {
     await b.appel('ouvrirSeancesQuiReviennent()');
     await b.vue().surCreer();
     expect(b.journal.routines.map((l) => [l.nom, l.dossier, l.rang])).toEqual([
-      ['BOOTY A', 'Mon programme', 0], ['BOOTY B', 'Mon programme', 1], ['DOS B', 'Mon programme', 2]]);
+      ['BOOTY A', 'Mon programme', 0], ['DOS B', 'Mon programme', 1], ['BOOTY B', 'Mon programme', 2]]);
     // Jamais de charge ; chauffes puis séries de travail aux reps visées.
     const toutes = [].concat.apply([], b.journal.series);
     expect(toutes.every((l) => l.charge_cible_kg === null)).toBe(true);
@@ -257,7 +257,7 @@ describe('les gestes : « En faire mes routines (N) »', () => {
   test('« Mon programme » existe déjà : « Mon programme (2) » ; un nom déjà pris : « (2) »', async () => {
     const b = bac({ routines: [{ id: 'x', nom: 'BOOTY A', dossier: 'Mon programme', rang: 4, exercices: [] }] });
     await b.appel('ouvrirSeancesQuiReviennent()');
-    b.vue().surCocher(2); b.vue().surCocher(3);       // seulement BOOTY A
+    b.vue().surCocher(2); b.vue().surCocher(3);       // DOS B et BOOTY B décochées : seulement BOOTY A
     await b.vue().surCreer();
     expect(b.journal.routines.map((l) => [l.nom, l.dossier, l.rang])).toEqual([['BOOTY A (2)', 'Mon programme (2)', 5]]);
   });
@@ -277,14 +277,14 @@ describe('les gestes : « En faire mes routines (N) »', () => {
     await b.vue().surCreer();
     expect(b.journal.routines.map((l) => l.nom)).toEqual(['BOOTY A']);
     expect(b.vue().erreur).toBe('Pas de réseau : rien n’a été enregistré.');
-    expect(b.vue().routines.map((r) => r.nom)).toEqual(['DOS A', 'BOOTY B', 'DOS B']);
+    expect(b.vue().routines.map((r) => r.nom)).toEqual(['DOS A', 'DOS B', 'BOOTY B']);
     expect(b.journal.ferme).toBe(0);
     // La bibliothèque derrière la feuille montre déjà la routine créée.
     expect(b.journal.rendreSaisie).toBe(1);
     coupe = false;
     await b.vue().surCreer();
     expect(b.journal.routines.map((l) => [l.nom, l.dossier])).toEqual([
-      ['BOOTY A', 'Mon programme (2)'], ['BOOTY B', 'Mon programme (2)'], ['DOS B', 'Mon programme (2)']]);
+      ['BOOTY A', 'Mon programme (2)'], ['DOS B', 'Mon programme (2)'], ['BOOTY B', 'Mon programme (2)']]);
     expect(b.journal.ferme).toBe(1);
   });
 

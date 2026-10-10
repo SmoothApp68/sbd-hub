@@ -183,7 +183,9 @@ const AUTORISATIONS = {
   placeDeVolume: {
     'app.js': 'calcule l’ENTRÉE `entrees.volume` du plan, une fois par séance, sur tout ' +
       'l’historique (le plan ne l’a pas) — préparer les entrées du plan (app.js, ' +
-      '`volumeDeLaSeance`, 49-U16).'
+      '`volumeDeLaSeance`, 49-U16). 66B : une seule fonction, `volumeDuCoach(avant)`, appelée par ' +
+      '`volumeDeLaSeance` (le début de la séance) et par l’entrée de « Le coach relit ta semaine » (maintenant, ' +
+      'QUESTIONNAIRE §5 ter.4 bis) — le même fait, jamais recalculé autrement.'
   },
   suiteDExercice: {
     'app.js': 'calcule l’ENTRÉE `entrees.suites` du plan (la consigne de la prochaine séance, ' +

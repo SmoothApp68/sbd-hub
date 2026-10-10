@@ -2872,10 +2872,18 @@
   function volumeDeLaSeance() {
     if (!seance) return null;
     if (volumeGele && volumeGele.seanceId === seance.id) return volumeGele.volume;
-    var semaines = Semaine.semainesDeVolume(local.seances, local.series, local.exercices, seance.debut);
+    var volume = volumeDuCoach(seance.debut);
+    volumeGele = { seanceId: seance.id, volume: volume };
+    return volume;
+  }
+
+  // LE FAIT DU COACH PAR MUSCLE (MOTEUR §14.6) : `{ muscle: { moyenne, seuil, max, fenetres } | null }`, sur tout
+  // l'historique, avant l'instant `avant`. UNE fonction, deux lecteurs (66B, QUESTIONNAIRE §5 ter.4 bis) : la série de
+  // plus (`volumeDeLaSeance`, avec le début de la séance, et son gel) et « Le coach relit ta semaine » (maintenant).
+  function volumeDuCoach(avant) {
+    var semaines = Semaine.semainesDeVolume(local.seances, local.series, local.exercices, avant);
     var volume = {};
     Object.keys(semaines).forEach(function (m) { volume[m] = Moteur.placeDeVolume(semaines[m]); });
-    volumeGele = { seanceId: seance.id, volume: volume };
     return volume;
   }
 

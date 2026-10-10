@@ -3993,12 +3993,13 @@
           ligne.appendChild(badge);
         }
         cible.appendChild(ligne);
+        if (!replie && pr && pr.creer) cible.appendChild(rangeeDeProgramme(g.dossier, v));
         // 66B (§5 ter.4 bis) — « Le coach relit ce dossier », sous l'en-tête d'un DOSSIER qui a une routine non
         // archivée (`vue.relirable`, décidé par l'app). « Sans dossier » n'est pas un dossier : pas de rangée.
+        // ⚠️ APRÈS « Faire de ce dossier un programme » : celle-ci reste collée à l'en-tête (53-2), avant les routines.
         if (!replie && g.dossier !== null && v.surRelire && v.relirable && v.relirable(g.dossier)) {
           cible.appendChild(rangeeDeRelecture(g.dossier, 'Le coach relit ce dossier', v));
         }
-        if (!replie && pr && pr.creer) cible.appendChild(rangeeDeProgramme(g.dossier, v));
         if (!replie) g.routines.forEach(function (r) { cible.appendChild(rangeeDeRoutine(r, v)); });
       });
     } else {

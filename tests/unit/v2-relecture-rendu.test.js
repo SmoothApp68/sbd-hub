@@ -132,6 +132,15 @@ describe('66B — la rangée « Le coach relit ce dossier » dans Saisie', () =>
     expect(appels).toEqual(['Sèche']);
   });
 
+  test('avec « Faire de ce dossier un programme » : celle-ci reste collée à l’en-tête (53-2), la relecture vient après, avant les routines', () => {
+    const c = liste([routine('a', 'A', 'Sèche'), routine('b', 'B', null)],
+      { surRelire() {}, relirable: () => true, programme: (d) => (d === 'Sèche' ? { creer: true } : null), surProgramme() {} });
+    const tete = c.querySelector('.dossier-ligne[data-dossier="Sèche"]');
+    expect(tete.nextElementSibling.classList.contains('programme-dossier')).toBe(true);
+    expect(tete.nextElementSibling.nextElementSibling.classList.contains('rl-rangee')).toBe(true);
+    expect(tete.nextElementSibling.nextElementSibling.nextElementSibling.classList.contains('routine-rangee')).toBe(true);
+  });
+
   test('sans aucun dossier : UNE rangée, « Le coach relit ta semaine », juste après « Retrouver mes séances qui reviennent »', () => {
     const appels = [];
     const c = liste([routine('a', 'A', null), routine('b', 'B', null)],

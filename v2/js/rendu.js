@@ -5269,7 +5269,7 @@
       cases.appendChild(c);
     });
     g.appendChild(cases);
-    g.appendChild(el('div', 'p-pied', 'Tes trois succès les plus rares.'));
+    g.appendChild(el('div', 'j-pied', 'Tes trois succès les plus rares.'));
     return g;
   }
 
@@ -5288,7 +5288,7 @@
     b.appendChild(curseur);
     b.addEventListener('click', jeu.surBascule);
     g.appendChild(b);
-    g.appendChild(el('div', 'p-pied', 'Éteint, le jeu disparaît : plus d\u2019onglet, plus de bloc en fin de séance, ' +
+    g.appendChild(el('div', 'j-pied', 'Éteint, le jeu disparaît : plus d\u2019onglet, plus de bloc en fin de séance, ' +
       'plus de niveau ici. Rien n\u2019est perdu : tout se recalcule en le rallumant.'));
     return g;
   }

@@ -181,6 +181,12 @@ describe('le Profil (§9.3)', () => {
     expect(Array.from(c.querySelectorAll('.j-case span:last-child')).map((x) => x.textContent))
       .toEqual(['1 000 séances', 'Cap rond : développé couché 140 kg']);
     expect(c.textContent).toContain('Tes trois succès les plus rares.');
+    // ⚠️ Ni la vitrine ni l'interrupteur ne prennent la classe d'un réglage (`.p-pied`, « Depuis le … » de la
+    // phase) : le premier `.p-pied` du Profil doit rester celui d'un réglage (banc complet, [U11]).
+    const avecJeu = profil({ vitrine: [{ categorie: 'seances', palier: 10, rarete: 'commun', cle: null }],
+      jeu: { actif: true, surBascule() {} } });
+    expect(avecJeu.querySelectorAll('.p-pied').length).toBe(0);
+    expect(avecJeu.querySelectorAll('.j-pied').length).toBe(2);
     expect(profil({ vitrine: [] }).querySelector('.j-vitrine')).toBeNull();
     expect(profil({ vitrine: null }).querySelector('.j-vitrine')).toBeNull();
   });

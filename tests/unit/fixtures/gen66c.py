@@ -73,15 +73,24 @@ def completer(e):
     cat = e['catalogue']; vol = e.get('volume') or {}; hab = e['habitudes']; fois = e.get('fois') or {}
     seche = (e.get('profil') or {}).get('phase') == 'seche'
     prio = set(e.get('priorites') or [])
+    # 66D — les changements que la personne a RETIRÉS dans l'aperçu : retirer ne remplace rien (QUESTIONNAIRE
+    # §5 quater.5). `muscles` : rien n'est ajouté pour eux (G4) ; `reprises` : ces séances ne reviennent pas, et
+    # aucune autre ne vient à leur place ; `tirage` : G5 ne joue pas. Absent : le comportement de 66C, à l'identique.
+    refus = e.get('refus') or {}
+    refus_muscles = set(refus.get('muscles') or []); refus_reprises = set(refus.get('reprises') or [])
     journal = []
 
     # G3 — les séances : les cochées, puis les décochées les plus récentes tant qu'il en manque.
     rs = [dict(nom=r['nom'], derniere=r['derniere'], exercices=[dict(x) for x in r['exercices']])
           for r in e['deduit'] if r['cochee']]
     restantes = sorted([r for r in e['deduit'] if not r['cochee']], key=lambda r: r['derniere'], reverse=True)
+    sautees = 0
     for r in restantes:
-        if len(rs) >= hab['seances_par_semaine']:
+        if len(rs) + sautees >= hab['seances_par_semaine']:
             break
+        if r['nom'] in refus_reprises:                     # retirée : sa place reste vide
+            sautees += 1
+            continue
         rs.append(dict(nom=r['nom'], derniere=r['derniere'], exercices=[dict(x) for x in r['exercices']]))
         journal.append({'type': 'reprise', 'routine': r['nom']})
 
@@ -103,7 +112,7 @@ def completer(e):
     cible = {}
     for m in MUSCLES:
         f = vol.get(m)
-        if not f:
+        if not f or m in refus_muscles:
             continue
         cible[m] = f['max'] if (ZONE_DE[m] in prio and not seche) else f['seuil']
 
@@ -190,7 +199,7 @@ def completer(e):
         t = sum(x['series'] for r in rs for x in r['exercices'] if tirage(cat.get(x['exercise_slug']) or {}))
         p = sum(x['series'] for r in rs for x in r['exercices'] if poussee(x['exercise_slug'], cat))
         return t, p
-    for _ in range(TOURS):
+    for _ in range(0 if refus.get('tirage') else TOURS):
         t, p = tirage_poussee()
         if t >= p:
             break
@@ -200,7 +209,7 @@ def completer(e):
 
     v = volume_semaine()
     t, p = tirage_poussee()
-    sous = [m for m in MUSCLES if m in cible and v[m] < cible[m] - ECART]
+    sous = [m for m in MUSCLES if m in cible and v[m] < cible[m] - ECART]   # un muscle retiré n'y est pas (66D)
     return {'routines': [{'nom': r['nom'], 'exercices': r['exercices']} for r in rs],
             'journal': journal, 'sous_habitude': sous, 'tirage': t, 'poussee': p}
 

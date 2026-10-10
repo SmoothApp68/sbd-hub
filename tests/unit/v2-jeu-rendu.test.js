@@ -137,3 +137,62 @@ describe('les vues Muscles, Succès, Déblocages', () => {
       'Cadre gravéle titre Athlète', 'En réserve2 sur 2', 'Prochain gelréserve pleine', 'Utiliséssemaine du 4 août 2025']);
   });
 });
+
+describe('le Profil (§9.3)', () => {
+  const bandeau = (e) => {
+    const rond = document.createElement('div'), ligne = document.createElement('div');
+    Rendu.rendreBandeauJeu(rond, ligne, e, 'A');
+    return { rond, ligne };
+  };
+
+  test('jeu éteint : l’initiale revient, rien du jeu', () => {
+    const b = bandeau(null);
+    expect(b.rond.className).toBe('p-rond');
+    expect(b.rond.textContent).toBe('A');
+    expect(b.ligne.hidden).toBe(true);
+    expect(b.ligne.textContent).toBe('');
+  });
+
+  test('jeu allumé : l’hexagone du niveau dans son cadre, « Polyvalent · niveau 87 »', () => {
+    const b = bandeau(Object.assign(etat({ niveau: { niveau: 87 }, titre: 'polyvalent' }), { cadre: 'or' }));
+    expect(b.rond.className).toBe('p-rond-jeu cadre-or');
+    expect(b.rond.querySelector('.j-cadre .j-hex.r-4').textContent).toBe('87');
+    expect(b.ligne.hidden).toBe(false);
+    expect(b.ligne.textContent).toBe('Polyvalent · niveau 87');
+  });
+
+  test('⚠️ après 100, l’Ω se montre ICI : « niveau 100 · Ω3 » ; sans titre ni cadre, le niveau seul', () => {
+    expect(bandeau(Object.assign(etat({ niveau: { niveau: 100, omega: 3 } }), { cadre: 'grave' })).ligne.textContent)
+      .toBe('niveau 100 · Ω3');
+    const b = bandeau(Object.assign(etat({ niveau: { niveau: 4 } }), { cadre: null }));
+    expect(b.ligne.textContent).toBe('niveau 4');
+    expect(b.rond.querySelector('.j-cadre')).toBeNull();
+  });
+
+  const profil = (o) => {
+    const c = document.createElement('div');
+    Rendu.rendreProfil(c, Object.assign({ kpis: [], sections: [], surQuitter() {}, surSupprimer() {} }, o));
+    return c;
+  };
+
+  test('la vitrine : ses cases (libellés), sa phrase ; aucune → pas de vitrine', () => {
+    const c = profil({ vitrine: [{ categorie: 'seances', palier: 1000, rarete: 'majeur', cle: null },
+      { categorie: 'cap', palier: 140, rarete: 'commun', cle: 'developpe_couche_barre', nom: 'développé couché' }] });
+    expect(Array.from(c.querySelectorAll('.j-case span:last-child')).map((x) => x.textContent))
+      .toEqual(['1 000 séances', 'Cap rond : développé couché 140 kg']);
+    expect(c.textContent).toContain('Tes trois succès les plus rares.');
+    expect(profil({ vitrine: [] }).querySelector('.j-vitrine')).toBeNull();
+    expect(profil({ vitrine: null }).querySelector('.j-vitrine')).toBeNull();
+  });
+
+  test('l’interrupteur : un `switch` qui dit son état, et qui appelle sa bascule', () => {
+    let n = 0;
+    const c = profil({ jeu: { actif: false, surBascule: () => { n += 1; } } });
+    const b = c.querySelector('#interrupteur-jeu');
+    expect(b.getAttribute('role')).toBe('switch');
+    expect(b.getAttribute('aria-checked')).toBe('false');
+    b.click();
+    expect(n).toBe(1);
+    expect(profil({ jeu: { actif: true, surBascule() {} } }).querySelector('#interrupteur-jeu').getAttribute('aria-checked')).toBe('true');
+  });
+});

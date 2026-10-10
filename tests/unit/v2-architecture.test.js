@@ -910,7 +910,37 @@ const NOTIONS = [
   { notion: 'l’état du jeu (série et gels, muscles, XP, niveau, succès, titres, cadres, le plus proche)', pr: '64-U1',
     module: 'jeu.js', fonction: 'etatDuJeu', lecteurs: ['app.js'],
     raison: 'JEU-V1 (64A) : un seul calcul du jeu, pur, depuis l’historique ; aucun écran ne le refait. 64B : `app.js` ' +
-      'le calcule (avec sa mémoire) pour l’onglet Jeu, le Profil et la feuille « Terminer » ; le rendu reçoit l’état.' }
+      'le calcule (avec sa mémoire) pour l’onglet Jeu, le Profil et la feuille « Terminer » ; le rendu reçoit l’état.' },
+  // ── 64B — LES ÉCRANS DU JEU (JEU-V1 §9) : un écran ne refait ni la vitrine, ni l'apport, ni « le plus proche » ──
+  // `motif` : l'APPEL seulement — `vue.vitrine`, `jeu.apport`, `vue.jauges` sont des champs que le rendu lit.
+  { notion: 'la description d’un succès (catégorie, palier, rareté, points)', pr: '64-U2',
+    module: 'jeu.js', fonction: 'descriptionDuSucces', lecteurs: ['app.js'], motif: /\.\s*descriptionDuSucces\s*\(/g,
+    raison: 'JEU-V1 §9.5 : tirée des tables du module ; l’écran nomme un succès (vitrine, feuille) sans recopier les paliers.' },
+  { notion: 'la vitrine (trois succès, les plus rares, à égalité le plus tard)', pr: '64-U2',
+    module: 'jeu.js', fonction: 'vitrine', lecteurs: ['app.js'], motif: /\.\s*vitrine\s*\(/g,
+    raison: 'JEU-V1 §9.3 : la vitrine est automatique ; un écran qui la referait pourrait en choisir d’autres.' },
+  { notion: 'l’apport d’une séance (XP, niveau, muscles qui montent, succès gagnés, points)', pr: '64-U2',
+    module: 'jeu.js', fonction: 'apport', lecteurs: ['app.js'], motif: /\.\s*apport\s*\(/g,
+    raison: 'JEU-V1 §9.4 : la feuille « Terminer » compare deux états du jeu par le module, jamais à la main.' },
+  { notion: 'le plus proche (les trois plus grands `fait`)', pr: '64-U2',
+    module: 'jeu.js', fonction: 'lesPlusProches', lecteurs: ['app.js'], motif: /\.\s*lesPlusProches\s*\(/g,
+    raison: 'JEU-V1 §9.2 : un écran qui prendrait les trois premiers de la liste dirait autre chose que le jeu.' },
+  { notion: 'les succès par catégorie (obtenus, total, prochain)', pr: '64-U2',
+    module: 'jeu.js', fonction: 'parCategorie', lecteurs: ['app.js'], motif: /\.\s*parCategorie\s*\(/g,
+    raison: 'JEU-V1 §9.2 : les totaux viennent des tables du module (la randonnée compte la grande sortie).' },
+  { notion: 'les titres et les cadres détaillés (obtenus, affiché, le muscle le plus bas)', pr: '64-U2',
+    module: 'jeu.js', fonction: 'titresEtCadresDetailles', lecteurs: ['app.js'], motif: /\.\s*titresEtCadresDetailles\s*\(/g,
+    raison: 'JEU-V1 §9.2 : Succès et Déblocages lisent le jeu, ils ne recomptent pas les titres.' },
+  { notion: 'les jauges (la part faite du niveau en cours)', pr: '64-U2',
+    module: 'jeu.js', fonction: 'jauges', lecteurs: ['app.js'], motif: /\.\s*jauges\s*\(/g,
+    raison: 'JEU-V1 §9.2 : le coût d’un niveau reste dans le module ; l’écran ne le recalcule pas.' },
+  { notion: 'les tables du jeu, en lecture (paliers, raretés, titres, cadres, gels)', pr: '64-U2',
+    module: 'jeu.js', fonction: 'tables', lecteurs: ['app.js'], motif: /\bJeu\s*\.\s*tables\s*\(/g,
+    raison: 'JEU-V1 §9.5 : une copie des tables du module — les vues disent les conditions sans les recopier.' },
+  { notion: 'le jeu allumé (`profiles.jeu_actif`, absent = allumé)', pr: '64-U2',
+    module: 'profil.js', fonction: 'jeuActif', lecteurs: ['app.js'],
+    raison: 'JEU-V1 §9.1 : l’onglet, le Profil, la feuille et la garde des routes lisent le même fait ; un second test ' +
+      'de `jeu_actif === false` écrit à la main dirait autre chose au premier démarrage (colonne absente).' }
 ];
 
 // ── 58-1 — UN FAIT NE SE DÉCLARE QUE DANS `faits.js` ─────────────────────────
@@ -1318,6 +1348,14 @@ const nommeLeJeu = (src) => {
 };
 const nommeLeCoach = (src) => LE_JEU_NE_NOMME_PAS.exec(nettoyer(src, true));
 
+// 64B — LES FICHIERS DU COACH NE NOMMENT NI LE JEU NI SES FAITS. Le plan et le moteur (la consigne, la réaction),
+// le palier, la semaine et le bilan (les faits du coach), la séance, le générateur, les routines, le
+// questionnaire et la période (les autres voix du coach). Le coach ne parle jamais du jeu (JEU-V1 §1.1).
+const FICHIERS_DU_COACH = ['plan.js', 'moteur.js', 'palier.js', 'semaine.js', 'bilan.js', 'seance.js',
+  'generateur.js', 'routines.js', 'questionnaire.js', 'periode.js'];
+const NOMME_LE_JEU_OU_SES_FAITS = /\b(?:THJeu|faitsDuJeu)\b/;
+const coachNommeLeJeu = (src) => NOMME_LE_JEU_OU_SES_FAITS.exec(nettoyer(src, true));
+
 describe('architecture — le coach ne lit jamais le jeu, le jeu ne lit jamais le coach (64A)', () => {
   const FICHIERS = perimetre();
   const parNom = {};
@@ -1347,6 +1385,21 @@ describe('architecture — le coach ne lit jamais le jeu, le jeu ne lit jamais l
       expect([f, typeof LECTEURS_DU_JEU[f] === 'string' && LECTEURS_DU_JEU[f].length > 10]).toEqual([f, true]);
       expect([f, nommeLeJeu(parNom[f].src).length > 0]).toEqual([f, true]);
     });
+  });
+
+  test('⚠️ 64B — aucun fichier du coach ne nomme `THJeu` ni `faitsDuJeu`', () => {
+    const fautes = FICHIERS_DU_COACH.map((f) => {
+      expect([f, !!parNom[f]]).toEqual([f, true]);
+      const m = coachNommeLeJeu(parNom[f].src);
+      return m ? '`' + m[0] + '` nommé dans ' + f : null;
+    }).filter(Boolean);
+    expect(fautes).toEqual([]);
+  });
+
+  test('64B — la garde du coach mord : un `faitsDuJeu` glissé dans moteur.js et un `THJeu` dans semaine.js se voient', () => {
+    expect(coachNommeLeJeu(parNom['moteur.js'].src + '\nvar e = faits.faitsDuJeu(c, j);\n')).not.toBeNull();
+    expect(coachNommeLeJeu(parNom['semaine.js'].src + '\nvar J = racine[\'THJeu\'];\n')).not.toBeNull();
+    expect(coachNommeLeJeu(parNom['moteur.js'].src + '\n// faitsDuJeu, en commentaire\n')).toBeNull();
   });
 
   test('l’interdit se lit vraiment : un `THJeu` glissé dans plan.js et un `THMoteur` glissé dans jeu.js se voient', () => {

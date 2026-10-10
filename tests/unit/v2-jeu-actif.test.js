@@ -64,3 +64,29 @@ describe('64B — un null ne part jamais', () => {
     expect(Profil.champsEcrits({ bio: null, objectif: null })).toEqual({ bio: null, objectif: null });
   });
 });
+
+// Le câblage au Profil, sur le VRAI `rendreProfilEcran` (aide-profil-ecran.js) : ce que l'écran passe au rendu, et
+// ce que l'interrupteur écrit.
+const { profilEcran } = require('./aide-profil-ecran.js');
+
+describe('64B — l’interrupteur au Profil (le vrai rendreProfilEcran)', () => {
+  const ETAT = { succes: { ids: ['seances-10', 'serie-4'] } };
+
+  test('allumé (colonne absente) : l’état au bandeau, la vitrine, l’interrupteur allumé ; il écrit `false`', () => {
+    const e = profilEcran({ username: 'aurel' }, { etatJeu: ETAT });
+    expect(e.bandeau.etat).toBe(ETAT);
+    expect(e.vue.vitrine).toEqual([{ id: 'seances-10' }, { id: 'serie-4' }]);
+    expect(e.vue.jeu.actif).toBe(true);
+    e.vue.jeu.surBascule();
+    expect(e.ecrits).toEqual([{ jeu_actif: false }]);
+  });
+
+  test('⚠️ éteint : l’initiale (état `null`), pas de vitrine, l’interrupteur reste et écrit `true`', () => {
+    const e = profilEcran({ username: 'aurel', jeu_actif: false }, { etatJeu: ETAT });
+    expect(e.bandeau).toEqual({ etat: null, initiale: 'A' });
+    expect(e.vue.vitrine).toBeNull();
+    expect(e.vue.jeu.actif).toBe(false);
+    e.vue.jeu.surBascule();
+    expect(e.ecrits).toEqual([{ jeu_actif: true }]);
+  });
+});

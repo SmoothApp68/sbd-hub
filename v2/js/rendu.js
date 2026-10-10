@@ -3765,6 +3765,15 @@
       cible.appendChild(rec);
     }
 
+    // 64B (JEU-V1 §9.4) — LE JEU, APRÈS LES RECORDS. Le seul moment où le jeu sort de son onglet. Un rendu qui
+    // échouerait ne coûte que son bloc : « Terminer » et « Abandonner » sont posés quoi qu'il arrive.
+    if (vue.jeu) {
+      try {
+        var bj = blocJeuFin(vue.jeu);
+        if (bj) cible.appendChild(bj);
+      } catch (e) { /* pas de bloc */ }
+    }
+
     // §7 septies.4 — trois champs déclarés, pas déduits. La salle surtout :
     // elle se déclare, on ne la devine ni du réseau ni d'une position.
     var champs = el('div', 'champs-fin');
@@ -4442,6 +4451,12 @@
       cible.appendChild(qu);
     }
 
+    // 64B (JEU-V1 §9.3) — la vitrine, jeu allumé et au moins un succès.
+    if (vue.vitrine && vue.vitrine.length) {
+      cible.appendChild(el('div', 'p-sect', 'VITRINE'));
+      cible.appendChild(blocVitrine(vue.vitrine));
+    }
+
     var chiffres = el('div', 'p-chiffres');
     (vue.kpis || []).forEach(function (k) {
       var c = el('div', 'p-kpi');
@@ -4479,6 +4494,12 @@
     // confondus, et c'est un fix RGPD entier (CLAUDE.md v351-v362). Quitter est
     // bordé et net ; supprimer est discret, dessous, et sa confirmation dit ce
     // qui part.
+    // 64B — « LE JEU » en bas, allumé ou éteint : seul reste l'interrupteur quand il est éteint.
+    if (vue.jeu) {
+      cible.appendChild(el('div', 'p-sect', 'LE JEU'));
+      cible.appendChild(blocInterrupteurJeu(vue.jeu));
+    }
+
     var q = el('button', 'p-quitter', 'Quitter');
     q.type = 'button';
     q.id = 'btn-deconnexion';
@@ -5199,6 +5220,111 @@
     cible.appendChild(bg);
   }
 
+  // ── Le Profil (§9.3) ─────────────────────────────────────────────────────
+  // Le bandeau : jeu allumé (`etat`), l'hexagone du niveau dans son cadre affiché (vitrine : liseré acier ; niveau :
+  // liseré acier épais ; or : liseré or ; gravé : double liseré or) et, sous le nom, « Polyvalent · niveau 87 »
+  // (après 100 : « niveau 100 · Ωk » — le seul endroit où l'Ω se montre) ; éteint (`null`), l'initiale, et rien.
+  function rendreBandeauJeu(rond, ligne, etat, initiale) {
+    if (!rond) return;
+    vider(rond);
+    if (!etat) {
+      rond.className = 'p-rond';
+      rond.textContent = initiale;
+      if (ligne) { ligne.hidden = true; ligne.textContent = ''; }
+      return;
+    }
+    var n = etat.niveau.niveau;
+    rond.className = 'p-rond-jeu' + (etat.cadre ? ' cadre-' + etat.cadre : '');
+    var hex = hexJeu(String(n), rangGlobal(n), 'grand');
+    var interieur = hex;
+    if (etat.cadre) {
+      // Le cadre se dessine en hexagones emboîtés : un liseré autour d'une forme découpée ne se voit pas.
+      var cadre = el('span', 'j-cadre'), contenu = cadre;
+      if (etat.cadre === 'grave') {
+        var vide = el('span', 'j-cadre-vide'), second = el('span', 'j-cadre-second');
+        cadre.appendChild(vide); vide.appendChild(second); contenu = second;
+      }
+      contenu.appendChild(hex);
+      interieur = cadre;
+    }
+    rond.appendChild(interieur);
+    rond.setAttribute('aria-label', 'Niveau ' + n);
+    if (ligne) {
+      var mots = [];
+      if (etat.titre) mots.push(JEU_TITRES[etat.titre]);
+      mots.push('niveau ' + n + (etat.niveau.omega !== null && etat.niveau.omega !== undefined ? ' · Ω' + etat.niveau.omega : ''));
+      ligne.textContent = mots.join(' · ');
+      ligne.hidden = false;
+    }
+  }
+
+  // La vitrine : au plus trois cases, l'hexagone à la couleur de la rareté, le libellé, un bord neutre.
+  function blocVitrine(vitrine) {
+    var g = el('div', 'p-groupe j-vitrine-g');
+    var cases = el('div', 'j-vitrine');
+    vitrine.forEach(function (d) {
+      var c = el('div', 'j-case');
+      c.appendChild(hexJeu(groupe(d.palier), JEU_RANG[d.rarete], 'moyen'));
+      c.appendChild(el('span', null, libelleSucces(d)));
+      cases.appendChild(c);
+    });
+    g.appendChild(cases);
+    g.appendChild(el('div', 'p-pied', 'Tes trois succès les plus rares.'));
+    return g;
+  }
+
+  // L'interrupteur, en bas du Profil : un vrai `switch`, et sa phrase.
+  function blocInterrupteurJeu(jeu) {
+    var g = el('div', 'p-groupe j-interrupteur-g');
+    var b = el('button', 'p-ligne j-interrupteur' + (jeu.actif ? ' on' : ''));
+    b.type = 'button';
+    b.id = 'interrupteur-jeu';
+    b.setAttribute('role', 'switch');
+    b.setAttribute('aria-checked', jeu.actif ? 'true' : 'false');
+    b.appendChild(el('span', 'p-lib', 'Activer le jeu'));
+    var curseur = el('span', 'j-curseur');
+    curseur.setAttribute('aria-hidden', 'true');
+    curseur.appendChild(el('i'));
+    b.appendChild(curseur);
+    b.addEventListener('click', jeu.surBascule);
+    g.appendChild(b);
+    g.appendChild(el('div', 'p-pied', 'Éteint, le jeu disparaît : plus d\u2019onglet, plus de bloc en fin de séance, ' +
+      'plus de niveau ici. Rien n\u2019est perdu : tout se recalcule en le rallumant.'));
+    return g;
+  }
+
+  // ── La fin de séance (§9.4) ──────────────────────────────────────────────
+  // Ce que la séance ajoute, une ligne seulement si elle a quelque chose à dire ; aucune → « Muscles · +N points » ;
+  // rien du tout → `null`, pas de bloc (jamais un bloc vide). L'Ω ne se montre pas ici.
+  //   jeu = { apport, succes: [descriptions, dans l'ordre de `apport.succes`] }
+  function blocJeuFin(jeu) {
+    var a = jeu.apport, lignes = [];
+    if (a.xp > 0) lignes.push(ligneJeu('XP', '+' + FINE + groupe(a.xp)));
+    if (a.niveau) lignes.push(ligneJeu('Niveau ' + a.niveau.a, '+' + (a.niveau.a - a.niveau.de)));
+    a.muscles.forEach(function (m) {
+      var g = el('span', 'j-avec-hex');
+      g.appendChild(hexJeu(String(m.a), rangMuscle(m.a), 'mini'));
+      g.appendChild(doc.createTextNode(libelleMuscleJeu(m.cle) + ', niveau ' + m.a));
+      lignes.push(ligneJeu(g, '+' + (m.a - m.de)));
+    });
+    jeu.succes.forEach(function (d) {
+      if (!d) return;
+      var g = el('span', 'j-avec-hex');
+      g.appendChild(hexJeu(groupe(d.palier), JEU_RANG[d.rarete], 'mini'));
+      g.appendChild(doc.createTextNode('Succès : ' + libelleSucces(d)));
+      lignes.push(ligneJeu(g, d.rarete));
+    });
+    if (!lignes.length) {
+      var pts = plafondJeu(a.points);
+      if (pts <= 0) return null;
+      lignes.push(ligneJeu('Muscles', '+' + groupe(pts) + ' ' + motJeu(pts, 'point', 'points')));
+    }
+    var b = blocJeu('Le jeu', 'j-fin');
+    b.id = 'jeu-fin';
+    lignes.forEach(function (l) { b.appendChild(l); });
+    return b;
+  }
+
   var api = {
     rendreEtat: rendreEtat,
     rendreOnglets: rendreOnglets,
@@ -5275,6 +5401,7 @@
     rendreJeuSucces: rendreJeuSucces,
     rendreJeuDeblocages: rendreJeuDeblocages,
     libelleSucces: libelleSucces,
+    rendreBandeauJeu: rendreBandeauJeu,
     mmss: mmss,
     etiquetteSerie: etiquetteSerie,
     texteEffort: texteEffort,

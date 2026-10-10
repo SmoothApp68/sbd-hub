@@ -1190,6 +1190,49 @@
 
   function ouvrirVueDuJeu(vue, rendre) { allerA(vue, {}); rendre(); }
 
+  // La description d'un succès, avec le nom court de l'exercice pour un cap rond (comme la médaille).
+  function succesDecrit(id) {
+    var d = Jeu.descriptionDuSucces(id);
+    if (d && d.categorie === 'cap') d.nom = Modele.nomCourt(Modele.nommer(corpus().catalogue(), d.cle));
+    return d;
+  }
+
+  // ── La feuille « Terminer » (§9.4) : ce que la séance ajoute ─────────────
+  //
+  // `etatDuJeu` sans elle (la mémoire de l'onglet), puis avec elle (`faitsDuJeu` et `enCours`, par les
+  // convertisseurs qui l'écriront : `Seance.ligneSession`, `Seance.lignes`), comparés par `Jeu.apport`. RIEN
+  // n'est écrit.
+  //
+  // ⚠️ TOUT LE CALCUL DANS UN `try` : une exception (`Seance.lignes` LÈVE sur une série sans identifiant ou en
+  // double) donne `null` — pas de bloc — et jamais une feuille sans « Terminer » ni « Abandonner ».
+  //
+  // ⚠️ SA MÉMOIRE : les identifiants et `validee_a` des séries validées de la séance, la taille du journal, le
+  // jour — et l'état de l'onglet. `surTitre` recrée l'objet séance à chaque frappe : une clé sur la référence se
+  // recalculerait à chaque lettre.
+  var memoFeuilleJeu = { cle: null, jeu: null };
+  function jeuDeLaFeuille() {
+    if (!seance || !jeuAllume()) return null;
+    try {
+      var c = corpus(), maintenant = new Date();
+      var avant = etatDuJeuCourant();
+      var validees = Seance.toutesLesSeries(seance).filter(function (x) { return Seance.partEnBase(x.serie); })
+        .map(function (x) { return x.serie.id + '@' + (x.serie.validee_a || ''); });
+      var cle = seance.id + '|' + validees.join(',') + '|' + (c.journal || []).length + '|' +
+        Routeur.versDate(maintenant) + '|' + memoJeu.cle;
+      if (memoFeuilleJeu.cle === cle) return memoFeuilleJeu.jeu;
+      var enCours = { seance: seance, ligne: Seance.ligneSession(Seance.terminer(seance, maintenant)),
+                      lignes: Seance.lignes(seance) };
+      var apres = Jeu.etatDuJeu(faits.faitsDuJeu(c, maintenant, enCours));
+      var a = Jeu.apport(avant, apres);
+      var jeu = { apport: a, succes: a.succes.map(succesDecrit) };
+      memoFeuilleJeu = { cle: cle, jeu: jeu };
+      return jeu;
+    } catch (e) {
+      console.warn('Le bloc du jeu ne se calcule pas, la feuille se passe de lui :', texteErreur(e));
+      return null;
+    }
+  }
+
   function rendreJeu() {
     montrer('jeu', Routeur.JEU);
     var e = etatDuJeuCourant();
@@ -5898,6 +5941,9 @@
       compte: Seance.compter(seance, local.exercices),
       // MOTEUR §9.23 (55-1) — les records du jour ; sans record, rien.
       records: faits.recordsDuJour(corpus(), seance),
+      // 64B (JEU-V1 §9.4) — le bloc « Le jeu », après les records : jeu éteint, ou rien gagné, ou un calcul qui
+      // échoue, `null` ou aucune ligne — pas de bloc.
+      jeu: jeuDeLaFeuille(),
       titre: seance.titre,
       note: seance.note,
       salle: seance.salle,
@@ -9737,7 +9783,13 @@
     var resumePoids = Poids.resume(local.pesees);
     var stats = Profil.statsDe(local.seances, local.series, new Date(), local.exercices);
 
-    $('profil-rond').textContent = Profil.initiale(p.username);
+    // 64B (JEU-V1 §9.3) — jeu allumé : l'hexagone du niveau et son cadre à la place de l'initiale, le titre et le
+    // niveau sous le nom, la vitrine ; éteint, l'initiale revient et rien du jeu ne se montre.
+    var jeu = null;
+    if (jeuAllume()) {
+      try { jeu = etatDuJeuCourant(); } catch (e) { jeu = null; }
+    }
+    Rendu.rendreBandeauJeu($('profil-rond'), $('profil-jeu'), jeu, Profil.initiale(p.username));
     $('profil-nom').textContent = p.username || 'Ton profil';
     $('profil-sous').textContent =
       Profil.sousTitre(p, resumePoids ? resumePoids.poids : null, new Date());
@@ -9826,6 +9878,10 @@
           { libelle: 'Mot de passe', valeur: '••••••••', surChoix: ouvrirMotDePasseProfil }
         ] }
       ],
+      // 64B — la vitrine (les trois succès les plus rares, décidés par le jeu), et en bas l'interrupteur, qui
+      // écrit par le chemin du profil : local d'abord, l'écran suit tout de suite, hors ligne compris.
+      vitrine: jeu ? Jeu.vitrine(jeu).map(succesDecrit) : null,
+      jeu: { actif: jeuAllume(), surBascule: function () { ecrireProfil({ jeu_actif: !jeuAllume() }); } },
       surQuitter: demanderDeconnexion,
       surSupprimer: demanderSuppressionCompte
     });

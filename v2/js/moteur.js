@@ -6256,6 +6256,7 @@
     marchesDesParis: marchesDesParis,
     observationMarche: observationMarche,
     placeDeVolume: placeDeVolume,
+    motsDesMuscles: motsDesMuscles,
     GRIS_SERIE_DE_PLUS: GRIS_SERIE_DE_PLUS,
     marcheProposee: marcheProposee,
     serieDePlusProposee: serieDePlusProposee,

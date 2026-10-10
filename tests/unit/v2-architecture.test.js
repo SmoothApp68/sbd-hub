@@ -144,7 +144,11 @@ const GARDEES = [
   { fn: 'remplacePar', module: 'generateur.js' },
   { fn: 'pourquoi', module: 'generateur.js',
     motif: /(?:\bGenerateur|\bGenerateur\(\)|racine\.THGenerateur)\s*\.\s*pourquoi\b/g },
-  { fn: 'carteCycles', module: 'generateur.js' }
+  { fn: 'carteCycles', module: 'generateur.js' },
+  // generateur.js — « Le coach relit ta semaine » (66A, QUESTIONNAIRE-COACH-V2 §5 ter) : l'écran (66B) lira la
+  // relecture, il ne la refait pas ; ses invariants (R1-R4) se vérifient par le module.
+  { fn: 'relireSemaine', module: 'generateur.js' },
+  { fn: 'verifierRelecture', module: 'generateur.js' }
 ];
 
 // ── LA LISTE D'AUTORISATIONS ────────────────────────────────────────────────
@@ -354,7 +358,7 @@ const NOTIONS = [
     raison: 'aucun écran ne lit le palier brut : les faits passent par `Modele`, les mots du ' +
       'coach par la consigne. La page et Progression l’appelaient chacune à part.' },
   { notion: 'la série de travail (le type, `travail` quand il manque)', pr: 'PR 6',
-    module: 'modele.js', fonction: 'estTravail', lecteurs: ['seance.js', 'semaine.js', 'plan.js', 'app.js', 'bilan.js', 'faits.js', 'routines.js', 'jeu.js'],
+    module: 'modele.js', fonction: 'estTravail', lecteurs: ['seance.js', 'semaine.js', 'plan.js', 'app.js', 'bilan.js', 'faits.js', 'routines.js', 'jeu.js', 'generateur.js'],
     motif: /\.\s*estTravail\s*\(/g,
     par: ['exercicesFaits', 'tableParReps', 'construireBlocs'],
     interditAilleurs: { motif: /type_serie\s*[!=]==?\s*(['"])travail\1|typeDe\([^()]*\)\s*[!=]==?\s*(['"])travail\2|\|\|\s*(['"])travail\3\s*\)\s*[!=]==?/,
@@ -391,10 +395,11 @@ const NOTIONS = [
     raison: '`rendu.nombreFr`, `MOIS`, `mmss`, `dateCourte`, `nombreGroupe`, `poids.arrondi`, les mois du ' +
       'calendrier et l’horodatage du rejeu en étaient des copies, chacune avec sa règle.' },
   { notion: 'l’arrondi (symétrique) des nombres affichés', pr: 'PR 7',
-    module: 'modele.js', fonction: 'arrondi', lecteurs: ['poids.js'],
+    module: 'modele.js', fonction: 'arrondi', lecteurs: ['poids.js', 'generateur.js'],
     motif: /\.\s*arrondi\s*\(/g,
     par: ['nombreTexte'],
-    raison: 'le formateur arrondissait −11,5 vers −11 et +11,5 vers +12 ; le poids, symétriquement. Un seul arrondi.' },
+    raison: 'le formateur arrondissait −11,5 vers −11 et +11,5 vers +12 ; le poids, symétriquement. Un seul arrondi. ' +
+      '66A : la jauge d’une barre de la relecture (§5 ter.3) est cet arrondi, à 2 décimales.' },
   // Après la consolidation, les notions d'un chantier portent son geste.
   { notion: 'la lecture d’un nombre tapé (l’inverse du formateur, tous les signes moins)', pr: 'correctif 03/10/2026',
     module: 'modele.js', fonction: 'lireNombre', lecteurs: ['seance.js', 'routines.js', 'app.js'],
@@ -405,12 +410,15 @@ const NOTIONS = [
     raison: 'le champ réaffiche une assistance avec le vrai signe moins (U+2212) que la copie de ' +
       '`seance.js` ne relisait pas : retoucher les reps d’une série à « −25 » effaçait sa charge.' },
   { notion: 'les frères d’un exercice (même `mouvement` au catalogue, MOTEUR §13.6)', pr: '49-U20',
-    module: 'modele.js', fonction: 'freresDe', lecteurs: ['app.js', 'seance.js'],
-    parAilleurs: { 'app.js': ['freresPourLeMoteur', 'faitsDesFreres'], 'seance.js': ['freresProposes'] },
+    module: 'modele.js', fonction: 'freresDe', lecteurs: ['app.js', 'seance.js', 'faits.js', 'generateur.js'],
+    parAilleurs: { 'app.js': ['freresPourLeMoteur', 'faitsDesFreres'], 'seance.js': ['freresProposes'],
+                   'faits.js': ['barresDuBilan'], 'generateur.js': ['relecture'] },
     interditAilleurs: { motif: /\.\s*mouvement\b|\[\s*(['"`])mouvement\1\s*\]/,
                         raison: '`mouvement` lu ailleurs que dans `freresDe` : une seconde définition des frères' },
     raison: 'les frères sont les exercices de même `mouvement` — pas de même `famille`, plus large ; ' +
-      'une seule lecture de la colonne, sinon deux écrans auraient deux listes de frères.' },
+      'une seule lecture de la colonne, sinon deux écrans auraient deux listes de frères. 66A : les variantes à la ' +
+      'barre du bilan (QUESTIONNAIRE §5 ter.2) sont ses frères à la barre — `faits.js` (le fait) et `generateur.js` ' +
+      '(la relecture : le lourd en premier, la poussée, le squat à déplacer) les lisent ici, sans relire `mouvement`.' },
   { notion: 'la version lestée d’un exercice libre (`parent` au catalogue, MOTEUR §9.17)', pr: '50-U1',
     module: 'modele.js', fonction: 'lesteDe', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['optionsDeConsigne', 'entreesDuPlan'] },
@@ -512,11 +520,12 @@ const NOTIONS = [
     raison: 'une routine NEUVE que `enregistrer` crée comme les autres (rang suivant, annulation) ; ' +
       'aucun identifiant partagé : l’originale ne peut pas être touchée.' },
   { notion: 'un polyarticulaire (au moins 3 muscles) : le raccourci et les repos par défaut', pr: '52-U1',
-    module: 'moteur.js', fonction: 'estPolyarticulaire', lecteurs: ['routines.js'],
+    module: 'moteur.js', fonction: 'estPolyarticulaire', lecteurs: ['routines.js', 'generateur.js'],
     par: ['raccourcirRoutine'],
-    parAilleurs: { 'routines.js': ['routineDepuisSeance'] },
+    parAilleurs: { 'routines.js': ['routineDepuisSeance'], 'generateur.js': ['relecture'] },
     raison: 'les repos par défaut d’« En faire une routine » sont les classes de « J’ai peu de temps » : ' +
-      'une définition, lue aux deux endroits.' },
+      'une définition, lue aux deux endroits. 66A : la relecture de la semaine (§5 ter.4) la lit aussi — l’isolation ' +
+      'avant la barre, et les séries que la sèche peut retirer (jamais un polyarticulaire).' },
   { notion: 'les écarts d’une séance avec une routine (§6.3, et « Mettre à jour » depuis une séance)', pr: '52-U1',
     module: 'seance.js', fonction: 'ecartsRoutine', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['rendreFeuilleFin', 'apercuMiseAJour'] },
@@ -632,10 +641,11 @@ const NOTIONS = [
       'par muscle par la même fonction — deux définitions d’une même grandeur, c’est ce que UN-SEUL-FIL interdit.' },
   // ── 65 — LE POIDS D'UN MUSCLE (REGLE-VOLUME §1 bis, v2_069) : une table, lue par le coach et le jeu ──
   { notion: 'le poids d’un muscle dans une série (principal 1, secondaire ½, stabilisateur ¼)', pr: '65-U1',
-    module: 'semaine.js', fonction: 'musclesPonderes', lecteurs: ['jeu.js'],
+    module: 'semaine.js', fonction: 'musclesPonderes', lecteurs: ['jeu.js', 'generateur.js'],
     par: ['volumeParMuscle', 'apportsParMuscle'],
     raison: 'REGLE-VOLUME §1 bis (65) : UNE table de poids (`POIDS_DES_MUSCLES`), lue par le coach (le volume, la fenêtre ' +
-      '« d’où vient ce chiffre ») et par le jeu (les points des muscles) ; une seconde table finirait par dire autre chose.' },
+      '« d’où vient ce chiffre ») et par le jeu (les points des muscles) ; une seconde table finirait par dire autre chose. ' +
+      '66A : la relecture de la semaine (§5 ter.1) compte les séries d’une routine par muscle avec ces poids.' },
   { notion: 'la fin effective d’une séance (sans heure de fin : 3 h au plus, jamais après la suivante)', pr: '55-U1',
     module: 'moteur.js', fonction: 'finEffective', lecteurs: [],
     par: ['consigneDeLaSeance'],
@@ -898,10 +908,11 @@ const NOTIONS = [
     raison: 'UN-SEUL-FIL (60-4) : l’appartenance d’une séance à un dossier se lit sur `routine_id`, dans le module des faits ; ' +
       'un écran qui compterait à part pourrait compter une séance importée ou une séance d’avant la création.' },
   { notion: 'les jours calendaires écoulés depuis la création du programme construit', pr: '60-U15',
-    module: 'profil.js', fonction: 'joursDepuis', lecteurs: ['app.js'],
+    module: 'profil.js', fonction: 'joursDepuis', lecteurs: ['app.js', 'generateur.js'],
     parAilleurs: { 'app.js': ['carteCyclesDuProfil'] },
     raison: 'MOTEUR §9.22 (60-4) : 21 jours CALENDAIRES (le changement d’heure ne les change pas), la même arithmétique que ' +
-      'le rappel de phase (`jourCalendaire`) — pas une soustraction de millisecondes à l’écran.' },
+      'le rappel de phase (`jourCalendaire`) — pas une soustraction de millisecondes à l’écran. 66A : « pas encore ' +
+      'dépassé » (§5 ter.3, un record d’au moins 12 mois) se compte de même.' },
   { notion: 'la durée que le programme construit doit tenir (la durée déclarée, avec « C’est mon maximum », « Moins en ce moment » ou « Ça varie »)', pr: '60-U13',
     module: 'moteur.js', fonction: 'cibleDuProgramme', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['raccourcirLeProgramme'] },
@@ -946,7 +957,18 @@ const NOTIONS = [
   { notion: 'le jeu allumé (`profiles.jeu_actif`, absent = allumé)', pr: '64-U2',
     module: 'profil.js', fonction: 'jeuActif', lecteurs: ['app.js'],
     raison: 'JEU-V1 §9.1 : l’onglet, le Profil, la feuille et la garde des routes lisent le même fait ; un second test ' +
-      'de `jeu_actif === false` écrit à la main dirait autre chose au premier démarrage (colonne absente).' }
+      'de `jeu_actif === false` écrit à la main dirait autre chose au premier démarrage (colonne absente).' },
+  // ── 66A — LE COACH RELIT TA SEMAINE (QUESTIONNAIRE-COACH-V2 §5 ter) ───────
+  { notion: 'le fait des barres du bilan (record, série récente, semaines, séries lourdes, variantes à la barre)', pr: '66-U1',
+    module: 'faits.js', fonction: 'barresDuBilan', lecteurs: [],
+    raison: 'QUESTIONNAIRE-COACH-V2 §5 ter.2 (66A) : la relecture de la semaine REÇOIT ce fait, elle ne relit pas les ' +
+      'séances ; le record est celui de la page de l’exercice (`recordsDeLExercice(...).lourde`). Aucun lecteur encore : ' +
+      'l’écran de 66B (`app.js`) assemblera l’entrée.' },
+  { notion: 'le repère squat ÷ couché, par sexe (la barre en retard, Force et Les deux)', pr: '66-U1',
+    module: 'generateur.js', fonction: 'relireSemaine', lecteurs: [],
+    raison: 'QUESTIONNAIRE-COACH-V2 §5 ter.3 (66A) : 1,2 pour un homme, 1,6 pour une femme — le bas des moyennes de ' +
+      'compétition (van den Hoek et al. 2024, J Sci Med Sport) ; une table (`RATIO_SQUAT_COUCHE`), lue par la seule ' +
+      'relecture, jamais hors Force et Les deux (R4). Aucun lecteur encore : l’écran de 66B lira la relecture.' }
 ];
 
 // ── 58-1 — UN FAIT NE SE DÉCLARE QUE DANS `faits.js` ─────────────────────────
@@ -1269,7 +1291,7 @@ describe('architecture — le registre des notions : une source, des lecteurs', 
 describe('architecture — le module des faits : un fait ne se déclare que dans faits.js (58-1)', () => {
   const FICHIERS = perimetre();
 
-  test('les faits du module : vingt et un (treize en 58-1, trois du journal en 58-2, un du questionnaire en 60-2a, un du programme déduit en 60-3, deux du programme construit en 60-4, un du jeu en 64A), chacun déclaré et exporté par faits.js', () => {
+  test('les faits du module : vingt-deux (treize en 58-1, trois du journal en 58-2, un du questionnaire en 60-2a, un du programme déduit en 60-3, deux du programme construit en 60-4, un du jeu en 64A, un du bilan en 66A), chacun déclaré et exporté par faits.js', () => {
     global.self = global;
     require('../../v2/js/modele.js');
     require('../../v2/js/semaine.js');
@@ -1279,7 +1301,7 @@ describe('architecture — le module des faits : un fait ne se déclare que dans
     require('../../v2/js/seance.js');
     require('../../v2/js/periode.js');
     const instance = require('../../v2/js/faits.js').creer();
-    expect(FAITS.length).toBe(21);
+    expect(FAITS.length).toBe(22);
     expect(FAITS.filter((fn) => typeof instance[fn] !== 'function')).toEqual([]);
   });
 

@@ -215,6 +215,115 @@ l'abdo reprend le même exercice sur deux séances quand il n'y en a pas d'autre
 « maison et poids du corps », et « la gestion de la douleur » (la douleur dans le temps, le lien avec la zone à
 ménager).
 
+## 5 ter. Le coach relit ta semaine — décidé le 10/10/2026 (66)
+
+> **Pour qui a des routines, le générateur ne réécrit rien : il relit la semaine, dit ce qu'il voit, et propose. La
+> personne décide, proposition par proposition.**
+
+Référence `relire66.py` ; cas `cas-66-relire.json` (10 cas, dont Aurélien et Alexis au 10/10/2026). Maquette
+`maquette-relire-semaine-v4.html` (l'ordre des barres de la spec prime sur la maquette : Squat, Couché, Soulevé,
+Militaire).
+
+### 5 ter.1 Un coach, un fil
+
+**Une seule fonction pure**, `Generateur.relireSemaine(entree)`, sous la garde (`GARDEES`), produit tout ce que l'écran
+montre ; l'écran ne calcule rien. Elle **lit** des faits et n'en calcule aucun :
+- `volume` : **le fait du coach**, par muscle — `Moteur.placeDeVolume` sur `Semaine.semainesDeVolume` (MOTEUR §14.6),
+  le même que la série de plus : `{ muscle: { moyenne, seuil, max, fenetres } | null }` ;
+- `barres` : le fait des barres (§5 ter.2), déclaré dans `faits.js` ;
+- `routines` : les routines du dossier relu, telles qu'en base ;
+- `catalogue`, `profil` (`sexe`, `objectif`, `phase`), `priorites` (`profiles.priorites`), `aujourdhui`.
+Les poids d'un muscle sont ceux de `Semaine.musclesPonderes` (1 / ½ / ¼, REGLE-VOLUME §1 bis) ; « polyarticulaire »
+est `Moteur.estPolyarticulaire` ; « sortie » est `Modele.estExerciceSortie`. Accepter une priorité écrit
+`profiles.priorites`, que le coach de séance lit déjà (§14.6) : aucune seconde règle.
+
+**Invariants de la relecture** (`Generateur.verifierRelecture`, vérifiés sur chaque relecture, en test et par la garde
+de développement) : **R1** une proposition de retrait ne fait que retirer, et jamais sous 1 série ; **R2** aucun
+retrait hors sèche ; **R3** toute proposition porte un « oui » et un « non » — celles de la semaine comme la priorité de
+« Ton historique » ; **R4** pas de repère de ratio hors Force et
+Les deux.
+
+### 5 ter.2 Le fait des barres — `faits.barresDuBilan(c, aujourdhui)`
+
+Pour chacune des quatre barres (`squat_barre`, `developpe_couche_barre`, `souleve_de_terre_barre`,
+`developpe_militaire_barre`), absente si elle n'a aucune série de travail :
+- `record` : `{ charge, date }` — la charge la plus lourde **réellement soulevée** (au moins 1 rep), et le jour où elle
+  l'a été : celui que rend **`Modele.recordsDeLExercice(...).lourde`** (à la charge la plus lourde, la série au plus de
+  reps), la même que la page de l'exercice et que
+  « Ce que je sais » (jamais un estimé) ;
+- `recent` : la meilleure série de travail des **28 derniers jours** (la plus lourde, puis le plus de reps, puis la plus
+  récente) `{ charge, reps, date }`, ou `null` ;
+- **Les 26 dernières semaines** : du lundi d'il y a 25 semaines (le lundi de la semaine d'`aujourdhui`, moins 25
+  semaines) à la fin d'`aujourdhui` — 26 semaines du calendrier, jamais 27 (décidé le 10/10/2026 : une fenêtre de
+  182 jours en touche 27 sauf un dimanche). `semaines`, `lourdes` et `variantes` la lisent toutes les trois.
+- `semaines` : le nombre de semaines (lundi → dimanche, heure locale) **des 26 dernières semaines**, de 0 à 26, qui ont au moins une
+  série de travail de la barre ;
+- `lourdes` : ses séries de travail de **1 à 6 reps** sur les 26 dernières semaines ;
+- `variantes` : les séries de travail, sur les 26 dernières semaines, des **variantes à la barre** — ses frères
+  (`Modele.freresDe`, la seule lecture de `mouvement`) dont l'équipement est la barre : même `mouvement`,
+  `equipement = 'barre'`, autre exercice (le squat avec pause pour le squat, le spoto pour le couché).
+« Série de travail » : `Modele.estTravail`.
+
+### 5 ter.3 Ton historique
+
+- **Une ligne par barre présente**, dans l'ordre Squat, Couché, Soulevé, Militaire : le **record** (or, la médaille) ;
+  le détail « {mois} · {série récente} {quand} · {n} semaines sur 26, {k} séries lourdes (+ {v} en variante) » —
+  chaque morceau absent se tait (pas de série récente, pas de semaine, pas de série lourde, pas de variante) ;
+  « {mois} » est `Modele.moisAnnee` (« avril 2026 »), la série récente `Modele.chargeFois` (« 130 kg × 4 »),
+  « {quand} » `Modele.quand` (« aujourd'hui », « lundi » de 1 à 6 jours, sinon « le 14 sept. »). Une **jauge** : le
+  record rapporté au plus lourd des records affichés (`Modele.arrondi(x, 2)`).
+- **« pas encore dépassé »** suit le mois quand le record a **au moins 12 mois** et que la barre a été travaillée sur
+  les 26 dernières semaines (« octobre 2025, pas encore dépassé »). Jamais « stagne », jamais de rouge.
+- **La barre en retard — Force et Les deux seulement, sexe connu.** Squat ÷ couché (les deux records, les deux barres
+  travaillées sur 26 semaines) sous **1,2 (homme)** ou **1,6 (femme)** — le bas des moyennes de compétition (moyennes
+  IPF des débutants ; van den Hoek et al. 2024, *J Sci Med Sport*, 809 986 compétitions). La ligne du squat dit
+  « en retard sur ton couché » ; la carte du coach : « Ton squat vaut 1,04 fois ton couché. Chez les hommes qui font de
+  la force, le squat vaut 1,2 à 1,5 fois le couché. » (femmes : « 1,6 à 1,7 ») ; en gris : « Ces repères viennent de
+  compétiteurs, et ta morphologie peut jouer. Ce qu'on voit chez toi : le couché {n} semaines sur 26, le squat {m}. »
+  — **les faits côte à côte, jamais « parce que »**. Puis la proposition « **Faire du squat ta priorité ?** » (« Il
+  passe en premier dans ses séances. » quand il y a un déplacement) : elle ajoute `squat_barre` à `profiles.priorites`
+  et, dans chaque routine où le squat **ou sa variante à la barre** n'est pas le premier exercice qui porte du volume,
+  le place en tête (D10 : le prioritaire d'abord). Le squat déjà prioritaire : pas de proposition, et le gris finit par
+  « C'est déjà ta priorité. ». Aucun autre ratio en V1 (rien de sourcé pour le militaire ; l'excès inverse n'est pas
+  un retard).
+- **Muscle, Forme ou sans objectif : pas de verdict sur les barres** ; le retard se lit **par muscle** : parmi
+  pectoraux, grand dorsal, deltoïdes latéral et postérieur, biceps, triceps, quadriceps, ischio-jambiers, fessiers,
+  abdominaux, ceux dont le **plus haut volume** (le `max` du fait du coach) reste **sous 2 séries par semaine** :
+  « Ton deltoïde latéral et ton deltoïde postérieur sont presque jamais travaillés : moins de 2 séries par semaine,
+  même à ton plus haut. » (accord par `Moteur.motsDesMuscles`). Pas de proposition en V1.
+
+### 5 ter.4 Ta semaine
+
+En tête : le nombre de séances (de routines) et de séries de travail (hors sorties ; `Modele.estTravail` : un type
+absent vaut « travail », les chauffes, dégressives et échecs ne comptent pas — la même règle que partout). Puis **ce qui est vérifié** (une
+liste grise, seulement ce qui est vrai) et **ce qui ne l'est pas** (des constats, sans rouge) :
+- **le lourd en premier** : dans chaque routine qui a une barre (ou une variante à la barre), aucune isolation (non
+  polyarticulaire) avant elle — sinon le constat « Dans « {routine} », une isolation passe avant la barre. » ;
+- **le tronc à la fin** : les exercices dont le seul principal est abdominaux viennent après tous les autres (les
+  sorties ne comptent pas) ; les deux ensemble : « le lourd en premier, le tronc à la fin » ;
+- « {n} supersets dans ta semaine » (les groupes de superset, routine par routine) ;
+- **par séance** : le plus haut volume d'un muscle dans une routine ; jusqu'à 11 : « au plus 10,8 séries d'un muscle
+  par séance » ; au-delà, le constat « Quadriceps : 19 séries dans « Jambes ». Au-delà d'environ 11, une série de plus
+  rapporte peu. » (Remmert, Pelland et al. 2025) ;
+- « {t} séries de tirage pour {p} de poussée » : séries directes — tirage, un principal grand dorsal ou haut du dos ;
+  poussée, pectoraux principal, ou le militaire et ses variantes à la barre.
+
+**En sèche seulement** (N3) : un muscle dont la semaine dépasse **1,3 × son plus haut volume** (le `max` du fait du
+coach) reçoit une proposition : « En sèche, tes mollets dépassent ton plus haut volume habituel : 9 séries par semaine
+pour 6,4. » — « Retirer 3 séries ? Tes barres ne bougent pas. » Les séries se retirent **une à une**, sur les
+**isolations** dont ce muscle est principal et qui ont au moins 2 séries — la plus chargée d'abord (à égalité : la
+première routine, puis le premier exercice) —, jusqu'à repasser **sous ou au plus haut volume** ; jamais un
+polyarticulaire, jamais sous 1 série. Les muscles se traitent dans l'ordre de la table (`MUSCLES`), chacun sur la
+semaine déjà allégée des précédents. Hors sèche : **aucun retrait** (la série de plus fait le reste, §14.7).
+
+Les nombres : `Modele.nombreTexte(x, 1)` (le ratio : 2 décimales) ; 0 et 1 au singulier.
+
+### 5 ter.5 Ce qui vient après (66B, 66C)
+
+**66B** : l'écran (ouvert depuis Routines, sur le dossier relu), le choix du dossier, l'assemblage de l'entrée, les
+gestes (« oui » écrit les séries retirées, la priorité, les déplacements). **66C** : sans routines, le programme déduit
+complété (N4) ; à rang égal, l'ordre habituel (N5) ; ses paires de superset seulement, d'autres si le temps manque (N6).
+
 ## 6. Retiré de l'écran du profil
 
 `mode_entrainement` (Discipline, absorbée par l'objectif), `niveau_declare`, `jours_vises`, `unites` : retirés de
@@ -231,6 +340,7 @@ l'écran (les valeurs restent en base, aucune n'est lue). Les quatre phrases qui
 | **60-2c** | avant l'ouverture : « Je ne sais pas » écrit une phase vide partout, « Moins » demande combien, « Quitter » compte les réponses de profil non envoyées, le pseudo gardé après « Quitter », la garde I18 en Édition | non |
 | **60-3** | le programme déduit (8a) : l'écran 8 sans routines, la feuille « Tes séances qui reviennent » et son bouton dans Routines ; « Remplacer » dans l'éditeur de routine | non |
 | **60-4** | le programme construit (8b, §5 bis) : l'écran 8b, le générateur, l'aperçu avec « Je n'en veux pas », les exercices écartés, « Refaire mon programme », la carte « Passer en cycles » | `v2_066` |
+| **66A** | « Le coach relit ta semaine », le calcul (§5 ter) : `faits.barresDuBilan`, `Generateur.relireSemaine` et ses invariants R1-R4 — aucun écran | non |
 
 **Ouverture à Alexis : après 60-2b** (le questionnaire complet et branché, hors programme). 60-3 peut suivre.
 

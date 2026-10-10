@@ -427,6 +427,17 @@ describe('12. la liste de lecture est DÉRIVÉE, jamais recopiée', () => {
       .forEach((c) => expect(demandees).toContain(c));
   });
 
+  // ⚠️ `muscles_stabilisateurs` (65, v2_069) — MÊME PIÈGE : omise du `select`, les 176 stabilisateurs (¼)
+  // disparaîtraient du volume, du jeu et du compte des polyarticulaires, sans une erreur.
+  test('le `select` du catalogue demande `muscles_stabilisateurs` — le poids ¼ (REGLE-VOLUME §1 bis, 65) en dépend', async () => {
+    const Donnees = charger();
+    await Donnees.tousLesExercices();
+    const demandees = requetes[0].colonnes.split(',').map((c) => c.trim());
+    expect(demandees).toContain('muscles_stabilisateurs');
+    ['slug', 'nom', 'mesure', 'charge', 'parent', 'equipement', 'mouvement', 'muscles_primaires', 'muscles_secondaires']
+      .forEach((c) => expect(demandees).toContain(c));
+  });
+
   // 50-1 — la réponse à la carte du lest vit au profil : omises du `select`,
   // `lest_reponse` serait lue vide à chaque rechargement, et la carte reviendrait
   // après chaque réponse.

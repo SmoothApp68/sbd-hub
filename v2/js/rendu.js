@@ -819,7 +819,9 @@
   //
   // Elle répond à « d'où vient ce 11,5 » : chaque exercice porte son apport, le
   // jour, et le nombre de séries RÉELLES. C'est là que se lit l'écart entre
-  // 5 séries et 2,5 points. La note l'explique UNE fois, en bas.
+  // 5 séries et 2,5 points. La ligne dit la classe (« muscle secondaire »,
+  // « muscle stabilisateur ») ; la note l'explique UNE fois, en bas, et ne nomme
+  // que les classes présentes (65, ECRAN-SAISIE §7 bis).
   function rendreFenetreMuscle(cible, muscle, zone, apports, bornes) {
     if (!cible) return;
     vider(cible);
@@ -833,23 +835,26 @@
     haut.appendChild(combien);
     cible.appendChild(haut);
 
-    var secondaire = false;
+    var secondaire = false, stabilisateur = false;
     apports.forEach(function (a) {
       if (a.secondaire) secondaire = true;
+      if (a.stabilisateur) stabilisateur = true;
       var ligne = el('div', 'fen-exo');
       var nom = el('span', 'fen-nom', a.nom);
       var ou = a.jour ? JOURS_COURTS[(a.jour.getDay() + 6) % 7] + ' ' + a.jour.getDate() + ' \u00b7 ' : '';
       nom.appendChild(el('em', null, ou + a.seriesReelles + ' série' +
-        (a.seriesReelles > 1 ? 's' : '') + (a.secondaire ? ', muscle secondaire' : '')));
+        (a.seriesReelles > 1 ? 's' : '') +
+        (a.secondaire ? ', muscle secondaire' : a.stabilisateur ? ', muscle stabilisateur' : '')));
       ligne.appendChild(nom);
       ligne.appendChild(el('span', 'fen-valeur', nombreFr(a.apport)));
       cible.appendChild(ligne);
     });
 
-    if (secondaire) {
-      cible.appendChild(el('p', 'fen-note',
-        'Un muscle secondaire compte pour un demi-point par série.'));
-    }
+    var note = secondaire && stabilisateur
+      ? 'Un muscle secondaire compte pour un demi-point par série, un stabilisateur pour un quart.'
+      : secondaire ? 'Un muscle secondaire compte pour un demi-point par série.'
+      : stabilisateur ? 'Un muscle stabilisateur compte pour un quart de point par série.' : null;
+    if (note) cible.appendChild(el('p', 'fen-note', note));
   }
 
   // ── Le calendrier ───────────────────────────────────────────────────────
@@ -5140,7 +5145,7 @@
       b.appendChild(ligne);
     });
     b.appendChild(el('p', 'j-note', 'Une série de travail donne 1 point au muscle qu’elle travaille, ½ à celui qui ' +
-      'aide. Cardio : 1 point par minute.'));
+      'aide, ¼ à celui qui stabilise. Cardio : 1 point par minute.'));
     cible.appendChild(b);
   }
 

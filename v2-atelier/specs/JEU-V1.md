@@ -43,7 +43,7 @@ Remplace, pour la construction, `GAMIFICATION-V3.md` et sa révision du 09/10 (p
   `dos`, `epaules`, `bras`, `jambes`, `tronc`, `cardio`). Les six premiers sont les six zones de `Semaine.ZONES` (mêmes
   clés, même regroupement des muscles) ; leur **ordre** est celui du jeu, qui n'est ni celui de `ZONES` ni celui du radar.
 - **Une série de travail** donne, à **chaque** zone qu'elle touche, **1 point** si un muscle principal de l'exercice est
-  dans la zone, sinon **½ point** si un muscle secondaire y est — **une fois par zone**, la plus forte contribution, jamais
+  dans la zone, sinon **½ point** si un muscle secondaire y est, sinon **¼ point** si un muscle stabilisateur y est (v2_069) — **une fois par zone**, la plus forte contribution, jamais
   additionnées (un squat donne 1 à Jambes, pas 3). Un muscle hors des six zones ne donne rien.
 - **Cardio** : un exercice **de sortie** (`Modele.estExerciceSortie` : sans charge, mesuré en temps ou en distance-temps)
   **sans muscle principal** (`!Semaine.porteDuVolume`) donne **1 point par minute** de ses séries de travail
@@ -123,7 +123,7 @@ unités de la catégorie (points, séances, semaines, séries médaillées, km, 
 | `aujourdhui` | une `Date` (le jour de l'ouverture, jamais l'horloge dans le module) |
 | `seances` | `[{ id, debut }]`, les séances terminées |
 | `series` | `[{ session_id, exercise_slug, type_serie, duree_s, distance_m }]`, **seulement celles des séances de `seances`** (le cache peut porter des séries d'une séance en cours) |
-| `catalogue` | `{ slug: { charge, mesure, muscles_primaires, muscles_secondaires } }` |
+| `catalogue` | `{ slug: { charge, mesure, muscles_primaires, muscles_secondaires, muscles_stabilisateurs } }` (la troisième liste absente vaut vide) |
 | `journal` | les lignes de `recordsDuJournal(c)` (seul `set_id` est lu) |
 | `maximums` | `ceQueJeSais(c, aujourdhui, BARRES_DU_JEU).maximums` |
 | `exercicesFaits` | `compterExercices(c).faits` |
@@ -168,7 +168,7 @@ dans le fichier de cas).
   4. trois lignes qui ouvrent **Muscles** (« 7 »), **Succès** (« N · P points »), **Déblocages** (« cadres, gels »).
 - **Muscles** : les sept dans l'ordre du jeu (§3, jamais trié) ; hexagone du niveau (gris < 10, bleu 10–29, violet
   30–49, or 50), jauge, « niveau n+1 dans R points » (« min » pour Cardio ; à 50 : « niveau maximal ») ; une phrase :
-  « Une série de travail donne 1 point au muscle qu'elle travaille, ½ à celui qui aide. Cardio : 1 point par minute. »
+  « Une série de travail donne 1 point au muscle qu'elle travaille, ½ à celui qui aide, ¼ à celui qui stabilise. Cardio : 1 point par minute. »
 - **Libellés** : un succès se nomme par sa catégorie et son palier (« 1 000 séances », « 104 semaines », « Épaules
   niveau 40 », « Tous les muscles à 30 », « Grande sortie : 20 km ») ; un cap rond par le nom court de l'exercice, comme
   la médaille (« Cap rond : développé couché 140 kg »). **Singulier** quand le nombre vaut 1 (« dans 1 point »,

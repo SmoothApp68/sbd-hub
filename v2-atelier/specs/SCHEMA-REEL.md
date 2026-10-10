@@ -387,6 +387,7 @@ collision, plutôt que de les renuméroter en place.
 | `mouvement` | text | les frères (MOTEUR §13.6), `v2_053` |
 | `muscles_primaires` | text[] NOT NULL | **pondération 1** dans le volume |
 | `muscles_secondaires` | text[] NOT NULL | **pondération 0,5** |
+| `muscles_stabilisateurs` | text[] NOT NULL DEFAULT `'{}'` | **pondération 0,25** (`v2_069`, REGLE-VOLUME §1 bis) |
 | `coef_pdc`, `masse_depart_kg`, `masse_depart_reglable` | | poids de corps et masse machine |
 | `compte_tonnage` | boolean NOT NULL | `false` par défaut |
 | `equipement` | text | signature de parc, pas de lieu |

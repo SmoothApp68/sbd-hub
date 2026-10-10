@@ -119,6 +119,10 @@ def muscles(entree):
             z = ZONE_DE.get(m)
             if z and z not in par_zone:
                 par_zone[z] = 0.5
+        for m in e.get('muscles_stabilisateurs') or []:
+            z = ZONE_DE.get(m)
+            if z and z not in par_zone:
+                par_zone[z] = 0.25
         for z, v in par_zone.items():
             pts[z] += v
     out = {}

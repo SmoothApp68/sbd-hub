@@ -1,10 +1,10 @@
 /** @jest-environment node */
 //
-// 66A — « LE COACH RELIT TA SEMAINE » (QUESTIONNAIRE-COACH-V2 §5 ter) : `Generateur.relireSemaine` rejoue les dix cas
+// 66A — « LE COACH RELIT TA SEMAINE » (QUESTIONNAIRE-COACH-V2 §5 ter) : `Generateur.relireSemaine` rejoue les onze cas
 // de la référence (`fixtures/relire66.py`, `fixtures/cas-66-relire.json`) À L'IDENTIQUE — Aurélien et Alexis au
 // 10/10/2026, et huit synthétiques. Un écart se rapporte : il ne se corrige pas dans le cas.
 //
-// Puis ses invariants (`verifierRelecture`, R1 à R4) : vides sur les dix cas, et chacun MORD sur une sortie trafiquée.
+// Puis ses invariants (`verifierRelecture`, R1 à R4) : vides sur les onze cas, et chacun MORD sur une sortie trafiquée.
 // Puis sa pureté : l'entrée n'est pas touchée (la sèche retire des séries sur une copie).
 //
 // Environnement node, fuseau Europe/Paris (`jest.globalSetup.js`) : « lundi », « le 14 sept. » se disent en jours
@@ -31,12 +31,12 @@ const cas = (nom) => DONNEES.cas.filter((c) => c.nom === nom)[0];
 const relu = (nom) => { const e = entreeDe(cas(nom)); return { e, s: G.relireSemaine(e) }; };
 const copie = (x) => JSON.parse(JSON.stringify(x));
 
-describe('66A — relireSemaine : les dix cas de la référence, à l’identique', () => {
-  test('le fichier a dix cas, chacun avec son nom, son pourquoi, son entrée et son attendu', () => {
+describe('66A — relireSemaine : les onze cas de la référence, à l’identique', () => {
+  test('le fichier a onze cas (le 11ᵉ, `trois-priorites`, depuis 66B), chacun avec son nom, son pourquoi, son entrée et son attendu', () => {
     expect(DONNEES.reference).toBe('relire66.py');
     expect(DONNEES.cas.map((c) => c.nom)).toEqual(['aurel-seche-avant', 'aurel-seche-apres', 'alexis-maintien',
       'femme-force-deja-priorite', 'muscle-retards-par-muscle', 'sexe-inconnu', 'constats', 'seche-deux-muscles',
-      'sans-barre', 'priorite-deplacements']);
+      'sans-barre', 'priorite-deplacements', 'trois-priorites']);
     DONNEES.cas.forEach((c) => {
       expect([c.nom, typeof c.pourquoi === 'string' && c.pourquoi.length > 0, !!c.entree, !!c.attendu])
         .toEqual([c.nom, true, true, true]);
@@ -59,8 +59,28 @@ describe('66A — relireSemaine : les dix cas de la référence, à l’identiqu
     // Son squat vaut 1,04 fois son couché : en retard.
     expect(s.historique.barres.filter((b) => b.retard).map((b) => b.slug)).toEqual(['squat_barre']);
     expect(s.historique.ratio.phrase).toMatch(/^Ton squat vaut 1,04 fois ton couché\./);
+    // Ses trois priorités (dos, jambes, épaules) sont prises (66B) : pas de bouton de priorité, le gris le dit.
+    expect(s.historique.ratio.proposition).toBeNull();
+    expect(s.historique.ratio.gris).toMatch(/ Tes trois priorités sont déjà prises : tu peux en changer dans ton profil\.$/);
     // Après son geste : plus de proposition.
     expect(relu('aurel-seche-apres').s.semaine.propositions).toEqual([]);
+  });
+
+  // 66B (E1) — LA RÈGLE DES TROIS PRIORITÉS, lue dans `Profil.PRIORITES_MAX` (jamais un 3 en dur).
+  test('trois priorités : deux sans le squat → proposition ; trois → aucune, et le gris renvoie au profil ; trois dont le squat → « C’est déjà ta priorité. »', () => {
+    const avec = (priorites) => { const e = entreeDe(cas('priorite-deplacements')); e.priorites = priorites; return G.relireSemaine(e).historique.ratio; };
+    const deux = avec(['dos', 'epaules']);
+    expect(deux.proposition && deux.proposition.type).toBe('priorite');
+    expect(deux.gris).not.toMatch(/priorit/);
+    const trois = avec(['dos', 'epaules', 'jambes']);
+    expect(trois.proposition).toBeNull();
+    expect(trois.gris).toMatch(/\. Tes trois priorités sont déjà prises : tu peux en changer dans ton profil\.$/);
+    const dont = avec(['dos', 'squat_barre', 'jambes']);
+    expect(dont.proposition).toBeNull();
+    expect(dont.gris).toMatch(/\. C'est déjà ta priorité\.$/);
+    // La limite est celle du profil, lue à l'appel.
+    expect(globalThis.THProfil.PRIORITES_MAX).toBe(3);
+    expect(SOURCE).toMatch(/Profil\.PRIORITES_MAX/);
   });
 
   test('Alexis : hors sèche, aucun retrait ; 1,32 → pas de retard ; le militaire de plus de 12 mois « pas encore dépassé »', () => {
@@ -73,7 +93,7 @@ describe('66A — relireSemaine : les dix cas de la référence, à l’identiqu
 });
 
 describe('66A — verifierRelecture : les invariants R1 à R4', () => {
-  test('vide sur les dix cas', () => {
+  test('vide sur les onze cas', () => {
     DONNEES.cas.forEach((c) => {
       const e = entreeDe(c);
       expect([c.nom, G.verifierRelecture(e, G.relireSemaine(e))]).toEqual([c.nom, []]);
@@ -105,7 +125,7 @@ describe('66A — verifierRelecture : les invariants R1 à R4', () => {
   });
 
   test('R3 — la priorité de « Ton historique » sans « non » se voit aussi (66A bis)', () => {
-    const { e, s } = relu('aurel-seche-avant');
+    const { e, s } = relu('priorite-deplacements');
     expect(s.historique.ratio.proposition.type).toBe('priorite');
     const sansNon = copie(s);
     delete sansNon.historique.ratio.proposition.non;
@@ -125,7 +145,7 @@ describe('66A — verifierRelecture : les invariants R1 à R4', () => {
 });
 
 describe('66A — relireSemaine est pure', () => {
-  test('l’entrée n’est pas modifiée (copie profonde comparée avant et après), sur les dix cas', () => {
+  test('l’entrée n’est pas modifiée (copie profonde comparée avant et après), sur les onze cas', () => {
     DONNEES.cas.forEach((c) => {
       const e = entreeDe(c);
       const avant = copie(e);

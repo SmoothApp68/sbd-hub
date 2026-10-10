@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Relire la semaine v5</title>
+<style>
+:root{
+  --fond:#0f1114;--panneau:#181b20;--panneau-2:#21252c;--trait:#2c3139;
+  --texte:#eceef2;--texte-2:#9aa1ac;--texte-3:#888e98;
+  --accent:#f2b84b;--sur-accent:#1a1305;--medaille:#ffd46b;
+  --pile:"Barlow",system-ui,sans-serif;--pile-c:"Barlow Condensed","Barlow",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#07080a;color:var(--texte);font:15px/1.4 var(--pile);display:flex;flex-wrap:wrap;justify-content:center;gap:16px;padding:16px}
+.ecran{width:100%;max-width:380px;background:var(--fond);border-radius:22px;border:1px solid var(--trait);overflow:hidden;align-self:flex-start}
+.notes{max-width:380px;color:var(--texte-2);font-size:13px}
+header{padding:14px 16px 10px;border-bottom:1px solid var(--trait)}
+.retour{color:var(--texte-2);font-size:13px}
+h1{font:700 24px/1.1 var(--pile-c);margin:6px 0 2px}
+.sous{color:var(--texte-2);font-size:13px}
+.bloc{padding:14px 16px;border-bottom:1px solid var(--trait)}
+h2{font:600 13px var(--pile-c);text-transform:uppercase;letter-spacing:1.2px;color:var(--texte-2);margin:0 0 10px}
+.barre{display:grid;grid-template-columns:1fr auto;gap:2px 8px;padding:9px 0;border-top:1px solid var(--trait)}
+.barre:first-of-type{border-top:0}
+.nom{font:600 17px var(--pile-c)}
+.nom em{font:500 13px var(--pile);font-style:normal;color:var(--texte)}
+.kg{font:700 19px var(--pile-c);text-align:right}
+.kg small{font:500 12px var(--pile);color:var(--texte-2)}
+.fait{grid-column:1 / -1;color:var(--texte-2);font-size:13px}
+.jauge{grid-column:1 / -1;height:6px;background:var(--panneau-2);border-radius:3px;position:relative;margin-top:4px}
+.jauge i{position:absolute;left:0;top:0;bottom:0;border-radius:3px;background:var(--texte-3)}
+.medaille{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--medaille);margin-right:5px;vertical-align:1px}
+.legende{color:var(--texte-3);font-size:12px;margin-top:6px}
+.coach{background:var(--panneau);border:1px solid var(--trait);border-left:3px solid var(--accent);border-radius:14px;padding:12px;margin-top:12px}
+.coach p{margin:0 0 6px}
+.coach .gris{color:var(--texte-2);font-size:13px}
+.boutons{display:flex;gap:8px;margin-top:10px}
+.b{flex:1;border:0;border-radius:10px;padding:10px;font:600 14px var(--pile);cursor:pointer}
+.b.oui{background:var(--accent);color:var(--sur-accent)}
+.b.non{background:var(--panneau-2);color:var(--texte)}
+.ok{list-style:none;margin:0;padding:0;color:var(--texte-2);font-size:13px}
+.ok li{padding:3px 0}
+.ok li::before{content:"✓ ";color:var(--texte)}
+.chg{font-size:13px;margin:6px 0 0;padding-left:16px}
+.chg li{margin:2px 0}
+.chg s{color:var(--texte-3)}
+.replie{color:var(--texte-2);font-size:13px}
+.fait-ligne{color:var(--texte-2);font-size:13px;margin:0 0 8px}
+.dossier{display:flex;justify-content:space-between;padding:12px 16px;font:600 16px var(--pile-c);border-bottom:1px solid var(--trait)}
+.dossier span{color:var(--texte-2);font:500 13px var(--pile)}
+.rangee{padding:10px 16px;color:var(--accent);font-size:14px;border-bottom:1px solid var(--trait)}
+.routine{padding:10px 16px;border-bottom:1px solid var(--trait);font-size:14px}
+</style>
+</head>
+<body>
+<main class="ecran" aria-label="Saisie">
+  <header><h1>Saisie</h1></header>
+  <div class="dossier">Sèche <span>5 routines</span></div>
+  <div class="rangee">Le coach relit ce dossier ›</div>
+  <div class="routine">Lundi — Haut A (Couché)</div>
+  <div class="routine">Mardi — Bas A (Squat)</div>
+  <div class="routine">…</div>
+</main>
+
+<main class="ecran" aria-label="Relecture">
+  <header>
+    <div class="retour">‹ Routines · Sèche</div>
+    <h1>Le coach relit ta semaine</h1>
+    <div class="sous">5 séances · 109 séries · en sèche depuis le 29 sept.</div>
+  </header>
+
+  <section class="bloc">
+    <h2>Ton historique</h2>
+    <div class="barre">
+      <span class="nom">Squat <em>· en retard sur ton couché</em></span><span class="kg"><span class="medaille"></span>145 <small>kg</small></span>
+      <span class="fait">avril 2026 · 130 kg × 5 le 14 sept. · 19 semaines sur 26, 34 séries lourdes (+ 18 en variante)</span>
+      <span class="jauge"><i style="width:85%"></i></span>
+    </div>
+    <div class="barre">
+      <span class="nom">Couché</span><span class="kg"><span class="medaille"></span>140 <small>kg</small></span>
+      <span class="fait">novembre 2025 · 130 kg × 4 lundi · 26 semaines sur 26, 75 séries lourdes (+ 2 en variante)</span>
+      <span class="jauge"><i style="width:82%"></i></span>
+    </div>
+    <div class="barre">
+      <span class="nom">Soulevé</span><span class="kg"><span class="medaille"></span>170 <small>kg</small></span>
+      <span class="fait">avril 2026 · 160 kg × 5 vendredi · 19 semaines sur 26, 37 séries lourdes (+ 14 en variante)</span>
+      <span class="jauge"><i style="width:100%"></i></span>
+    </div>
+    <div class="barre">
+      <span class="nom">Militaire</span><span class="kg"><span class="medaille"></span>72,5 <small>kg</small></span>
+      <span class="fait">octobre 2025 · 55 kg × 8 jeudi · 13 semaines sur 26, 26 séries lourdes</span>
+      <span class="jauge"><i style="width:43%"></i></span>
+    </div>
+    <div class="legende">La jauge : chaque record comparé au plus lourd.</div>
+
+    <div class="coach" id="p-squat">
+      <p>Ton squat vaut 1,04 fois ton couché. Chez les hommes qui font de la force, le squat vaut 1,2 à 1,5 fois le couché.</p>
+      <p class="gris">Ces repères viennent de compétiteurs, et ta morphologie peut jouer. Ce qu'on voit chez toi : le couché 26 semaines sur 26, le squat 19.</p>
+      <p>Faire du squat ta priorité ? Il passe en premier dans ses séances.</p>
+      <div class="boutons"><button class="b oui" onclick="oui('p-squat','Le squat est ta priorité.')">En faire ma priorité</button><button class="b non" onclick="non('p-squat')">Non merci</button></div>
+    </div>
+  </section>
+
+  <section class="bloc" id="semaine">
+    <h2>Ta semaine</h2>
+    <ul class="ok">
+      <li>le lourd en premier, le tronc à la fin</li>
+      <li>6 supersets dans ta semaine</li>
+      <li>au plus 10,8 séries d'un muscle par séance</li>
+      <li>17 séries de tirage pour 20 de poussée</li>
+    </ul>
+    <div class="coach" id="p-mollets">
+      <p>En sèche, tes mollets dépassent ton plus haut volume habituel : 9 séries par semaine pour 6,4.</p>
+      <p>Retirer 3 séries ? Tes barres ne bougent pas.</p>
+      <ul class="chg">
+        <li>Extension Mollets Debout (Machine) · Mardi — Bas A (Squat) : <s>4</s> 2</li>
+        <li>Extension Mollets Assis · Vendredi — Bas B (Soulevé) : <s>3</s> 2</li>
+      </ul>
+      <div class="boutons"><button class="b oui" onclick="oui('p-mollets','Séries retirées.')">Retirer ces séries</button><button class="b non" onclick="non('p-mollets')">Non merci</button></div>
+    </div>
+  </section>
+</main>
+
+<aside class="notes">
+  <p><b>Maquette v5 — à valider.</b> C'est la sortie réelle de <code>relireSemaine</code> sur tes données du 10/10, avant que tu retires toi-même tes séries de mollets, et en supposant une place libre dans tes priorités.</p>
+  <p><b>Ce qui change depuis v4</b></p>
+  <ul>
+    <li>L'entrée de l'écran : une rangée « Le coach relit ce dossier » sous chaque dossier de Saisie (à gauche).</li>
+    <li>Plus de graphique de volume : la sortie ne porte pas les nombres de ton habitude, et la phrase les dit déjà (9 pour 6,4).</li>
+    <li>Pas de « 72 h entre tes deux squats » ni de « tes autres muscles restent dans ton habitude » : la relecture de 66A ne les calcule pas.</li>
+    <li>La légende de la jauge : « chaque record comparé au plus lourd » (le plus lourd n'est pas toujours le soulevé).</li>
+    <li><b>Trois priorités déjà prises</b> (ton cas aujourd'hui : dos, jambes, épaules) : pas de bouton ; le gris finit par « Tes trois priorités sont déjà prises : tu peux en changer dans ton profil. » Un « oui » qui n'écrirait rien serait pire.</li>
+  </ul>
+  <p><b>Les gestes.</b> « Non merci » replie la carte (« Rien ne change. ») le temps de cette ouverture ; rouvrir l'écran, c'est demander une nouvelle relecture. Un « oui » écrit, puis l'écran se relit : la carte disparaît d'elle-même et une ligne grise dit ce qui a été fait. Essaie les boutons.</p>
+</aside>
+<script>
+function non(id){var c=document.getElementById(id);c.innerHTML='<p class="replie">Rien ne change.</p>';}
+function oui(id,t){var c=document.getElementById(id);var s=c.parentNode;var h=s.querySelector('h2');var p=document.createElement('p');p.className='fait-ligne';p.textContent=t;h.after(p);
+  if(id==='p-squat'){c.innerHTML='<p>Ton squat vaut 1,04 fois ton couché. Chez les hommes qui font de la force, le squat vaut 1,2 à 1,5 fois le couché.</p><p class="gris">Ces repères viennent de compétiteurs, et ta morphologie peut jouer. Ce qu\'on voit chez toi : le couché 26 semaines sur 26, le squat 19. C\'est déjà ta priorité.</p>';}
+  else{c.remove();document.querySelector('header .sous').textContent='5 séances · 106 séries · en sèche depuis le 29 sept.';}}
+</script>
+</body>
+</html>

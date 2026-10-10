@@ -284,7 +284,10 @@ Pour chacune des quatre barres (`squat_barre`, `developpe_couche_barre`, `soulev
   passe en premier dans ses séances. » quand il y a un déplacement) : elle ajoute `squat_barre` à `profiles.priorites`
   et, dans chaque routine où le squat **ou sa variante à la barre** n'est pas le premier exercice qui porte du volume,
   le place en tête (D10 : le prioritaire d'abord). Le squat déjà prioritaire : pas de proposition, et le gris finit par
-  « C'est déjà ta priorité. ». Aucun autre ratio en V1 (rien de sourcé pour le militaire ; l'excès inverse n'est pas
+  « C'est déjà ta priorité. ». **Trois priorités déjà prises** (`Profil.PRIORITES_MAX` ; la base en refuse une
+  quatrième, et `Profil.basculerPriorite` rendrait la liste inchangée — un « oui » qui ne ferait rien) : pas de
+  proposition, et le gris finit par « Tes trois priorités sont déjà prises : tu peux en changer dans ton profil. »
+  (décidé le 10/10/2026, 66B). Aucun autre ratio en V1 (rien de sourcé pour le militaire ; l'excès inverse n'est pas
   un retard).
 - **Muscle, Forme ou sans objectif : pas de verdict sur les barres** ; le retard se lit **par muscle** : parmi
   pectoraux, grand dorsal, deltoïdes latéral et postérieur, biceps, triceps, quadriceps, ischio-jambiers, fessiers,
@@ -318,9 +321,65 @@ semaine déjà allégée des précédents. Hors sèche : **aucun retrait** (la s
 
 Les nombres : `Modele.nombreTexte(x, 1)` (le ratio : 2 décimales) ; 0 et 1 au singulier.
 
+### 5 ter.4 bis L'écran et les gestes — décidé le 10/10/2026 (66B)
+
+> **L'écran ne calcule rien : il assemble l'entrée à partir des faits existants, appelle `relireSemaine`, et rend sa
+> sortie. Un « oui » écrit par les chemins qui existent déjà ; un « non » n'écrit rien.**
+
+**Où.** Dans Saisie (la liste des routines), une rangée discrète « Le coach relit ce dossier » sous l'en-tête de
+chaque dossier qui a au moins une routine non archivée ; sans dossier (`Routines.parDossier` rend `null`), une seule
+rangée « Le coach relit ta semaine », près de « Retrouver mes séances qui reviennent ». Elle ouvre une vue plein écran
+(sa route, son retour « ‹ Routines » ou « ‹ Routines · {dossier} »). Un dossier = une semaine : ses routines non
+archivées, dans l'ordre de la bibliothèque.
+
+**L'entrée** (assemblée dans `app.js`, aucun fait recalculé autrement) :
+- `routines` : celles du dossier, telles que `normaliserRoutine` les tient (`{ id, nom, exercices: [{ exercise_slug,
+  groupe_superset, series }] }`) ;
+- `volume` : **le même fait que la série de plus** — `Semaine.semainesDeVolume(…, avant)` puis `Moteur.placeDeVolume`
+  par muscle. Les deux lignes de `volumeDeLaSeance` deviennent une seule fonction appelée par les deux (`avant` : le
+  début de la séance pour la série de plus, maintenant pour l'écran) — câbler, jamais dupliquer ;
+- `barres` : `faits.barresDuBilan(corpus, aujourdhui)` ;
+- `catalogue` : le catalogue indexé de l'app ; `priorites` : `Profil.prioritesDe(profil)` ;
+- `profil` : `{ sexe, objectif: Profil.objectifDe(profil), phase: Profil.phaseDe(profil) }` ;
+- `aujourdhui` : le jour civil local.
+`verifierRelecture` passe sur chaque relecture par la garde de développement (`Plan.creerGarde`, comme
+`verifierProgramme`).
+
+**L'en-tête.** « Le coach relit ta semaine » ; dessous « {s} séance(s) · {n} série(s) » (la sortie : `semaine.seances`,
+`semaine.series`), et en sèche « · en sèche depuis {quand} » (`profiles.phase_depuis`, `Modele.quand`), « · en sèche »
+sans date. 0 et 1 au singulier.
+
+**Ton historique.** Une ligne par barre de la sortie : le nom, le record en or (la médaille), le détail en gris, la
+jauge ; `retard` ajoute « · en retard sur ton couché » au nom, sans couleur d'alerte. Sous les lignes, s'il y en a au
+moins deux : « La jauge : chaque record comparé au plus lourd. » Puis, s'il existe, la carte du coach (ambre) : la
+phrase, le gris, et la proposition avec ses deux boutons ; ou la phrase des muscles peu travaillés (une carte sans
+bouton). Section absente si la sortie n'a ni barre, ni ratio, ni muscle peu travaillé.
+
+**Ta semaine.** Les vérifications (liste grise, ✓), les constats (texte simple, jamais de rouge), puis chaque
+proposition de retrait : la phrase, la question, les lignes « {exercice} · {routine} : ~~de~~ a », les deux boutons.
+Pas de graphique de volume en V1 : la sortie ne porte pas les nombres de l'habitude, et la phrase les dit déjà.
+
+**Les gestes.** Chaque proposition a son « oui » et son « non » (R3), libellés par la sortie.
+- **« Non merci »** : rien n'est écrit ; la carte se replie sur « Rien ne change. » pour toute la durée de cette
+  ouverture de l'écran (une relecture refaite après un autre geste la garde repliée). Rouvrir l'écran est demander une
+  nouvelle relecture : la proposition peut revenir.
+- **« Retirer ces séries »** : pour chaque ligne, l'exercice de la routine `routine_id` dont le slug est
+  `exercise_slug` et qui a **exactement `de`** séries de travail (le premier, s'il y en a deux) ; on retire ses
+  **dernières** séries de travail jusqu'à `a`, les chauffes restent. Si une ligne ne trouve pas son exercice (la routine a
+  changé), **rien n'est écrit** et l'écran dit « Ta semaine a changé depuis : je la relis. », puis relit.
+- **« En faire ma priorité »** : `squat_barre` ajouté à `profiles.priorites` (`Profil.basculerPriorite`, écrit par
+  `poserProfil` comme le reste du profil), puis chaque déplacement : dans la routine `routine_id`, le bloc de l'exercice
+  `exercise_slug` (lui seul, ou tout son groupe de superset contigu) passe juste avant le bloc de l'exercice `avant`.
+  Un déplacement qui ne trouve pas ses exercices : rien n'est écrit, même message.
+- **Les écritures de routine** passent par la file, comme le report de charge (`ROUTINE_EXOS` / `PLAN` avec la liste
+  voulue complète) : hors ligne, elles partent au retour du réseau ; la routine en mémoire change tout de suite.
+- **Après un « oui »** : l'écran relit (nouvelle entrée, nouvelle sortie) et se redessine ; une ligne grise dit ce qui a
+  été fait, en tête de la section du geste : « Séries retirées. » ou « Le squat est ta priorité. ». La relecture fait
+  foi : la carte disparaît d'elle-même (le muscle ne dépasse plus ; le squat est déjà prioritaire).
+
 ### 5 ter.5 Ce qui vient après (66B, 66C)
 
-**66B** : l'écran (ouvert depuis Routines, sur le dossier relu), le choix du dossier, l'assemblage de l'entrée, les
+**66B** : fait, §5 ter.4 bis. Ce qui était annoncé : l'écran (ouvert depuis Routines, sur le dossier relu), le choix du dossier, l'assemblage de l'entrée, les
 gestes (« oui » écrit les séries retirées, la priorité, les déplacements). **66C** : sans routines, le programme déduit
 complété (N4) ; à rang égal, l'ordre habituel (N5) ; ses paires de superset seulement, d'autres si le temps manque (N6).
 
@@ -341,6 +400,7 @@ l'écran (les valeurs restent en base, aucune n'est lue). Les quatre phrases qui
 | **60-3** | le programme déduit (8a) : l'écran 8 sans routines, la feuille « Tes séances qui reviennent » et son bouton dans Routines ; « Remplacer » dans l'éditeur de routine | non |
 | **60-4** | le programme construit (8b, §5 bis) : l'écran 8b, le générateur, l'aperçu avec « Je n'en veux pas », les exercices écartés, « Refaire mon programme », la carte « Passer en cycles » | `v2_066` |
 | **66A** | « Le coach relit ta semaine », le calcul (§5 ter) : `faits.barresDuBilan`, `Generateur.relireSemaine` et ses invariants R1-R4 — aucun écran | non |
+| **66B** | l'écran et les gestes (§5 ter.4 bis) : la rangée dans Saisie, la vue, l'entrée assemblée, « Retirer ces séries », « En faire ma priorité », « Non merci » ; trois priorités prises : pas de proposition | non |
 
 **Ouverture à Alexis : après 60-2b** (le questionnaire complet et branché, hors programme). 60-3 peut suivre.
 

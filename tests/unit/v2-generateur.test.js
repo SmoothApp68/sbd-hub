@@ -462,7 +462,16 @@ describe('60-4 — le module lit la table du matériel et les zones du radar, il
     expect(src).toMatch(/THSemaine\.ZONES/);
     expect(src).toMatch(/THSemaine\.zoneDuMuscle\(/);
     ['Poitrine', 'Épaules', 'Jambes', 'Tronc'].forEach((l) => expect(src).not.toContain("'" + l + "'"));
-    expect(src).not.toContain("'deltoide_lateral'");
+    // 66A : les tables de la relecture (QUESTIONNAIRE §5 ter) nomment des muscles — `MUSCLES` (l'ordre de la sèche),
+    // `MUSCLES_SUIVIS`, `TIRAGE`. Hors d'elles, aucun nom de muscle : la table des zones reste celle du radar.
+    const debut = src.indexOf('var BARRES = ['), fin = src.indexOf('var EPS_RELECTURE');
+    expect(debut > 0 && fin > debut).toBe(true);
+    expect(src.slice(0, debut) + src.slice(fin)).not.toContain("'deltoide_lateral'");
+    expect(src.slice(debut, fin)).toContain("'deltoide_lateral'");
+    // … et ce sont les muscles du radar : tous, sans un de plus.
+    const radar = globalThis.THSemaine.ZONES.reduce((l, z) => l.concat(z.muscles), []);
+    expect(G.MUSCLES.slice().sort()).toEqual(radar.slice().sort());
+    expect(G.MUSCLES_SUIVIS.filter((m) => G.MUSCLES.indexOf(m) < 0)).toEqual([]);
   });
 
   test('les zones à ménager que le générateur charge sont les cinq du profil', () => {

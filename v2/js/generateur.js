@@ -502,6 +502,317 @@
       !x.estProgramme && !x.carnet && !x.dejaVue;
   }
 
+  // ══ « LE COACH RELIT TA SEMAINE » (66A, QUESTIONNAIRE-COACH-V2 §5 ter) ══════════════
+  //
+  // Pour qui a des routines, le générateur ne réécrit rien : il RELIT la semaine, dit ce qu'il voit et propose. Une
+  // fonction pure, `relireSemaine(entree)`, sous la garde (`GARDEES`) : l'écran (66B) ne calcule rien. Elle ne calcule
+  // AUCUN fait, elle les reçoit :
+  //   · `volume`   — le fait du coach par muscle (`Moteur.placeDeVolume`, MOTEUR §14.6) : `{ muscle: { moyenne,
+  //                  seuil, max, fenetres } | null }` ;
+  //   · `barres`   — le fait des barres (`faits.barresDuBilan`, §5 ter.2) ;
+  //   · `routines` — les routines du dossier relu, telles qu'en base ; `catalogue` (`muscles_primaires`,
+  //                  `muscles_secondaires`, `muscles_stabilisateurs`, `equipement`, `mesure`, `charge`, et `mouvement`
+  //                  que seul `Modele.freresDe` lit) ; `profil` (`sexe`, `objectif`, `phase`) ; `priorites` ;
+  //                  `aujourdhui` (le jour civil `AAAA-MM-JJ`, ou une date : jamais l'horloge).
+  // Elle lit les définitions existantes, elle ne les recopie pas : la série de travail (`Modele.estTravail`), les
+  // poids 1 / ½ / ¼ (`Semaine.musclesPonderes`), le polyarticulaire (`Moteur.estPolyarticulaire`), la sortie (celle du
+  // jeu), l'accord des muscles (`Moteur.motsDesMuscles`), les nombres (`Modele.nombre`, la face exportée de
+  // `nombreTexte`) et les dates (`Modele`), l'écart en jours (`Profil.joursDepuis`), les variantes à la barre (les
+  // frères à la barre, `Modele.freresDe` : la seule lecture de `mouvement`).
+  //
+  // La référence est `tests/unit/fixtures/relire66.py` (Claude.ai, 10/10/2026) ; ses dix cas, `cas-66-relire.json`,
+  // sont rejoués à l'identique par `tests/unit/v2-relire-semaine.test.js`. Un cas qui semble faux se rapporte.
+
+  // Les quatre barres, dans l'ordre de la spec, et leur nom court.
+  var BARRES = [['squat_barre', 'Squat'], ['developpe_couche_barre', 'Couché'], ['souleve_de_terre_barre', 'Soulevé'],
+                ['developpe_militaire_barre', 'Militaire']];
+  var SQUAT = BARRES[0][0], COUCHE = BARRES[1][0], MILITAIRE = BARRES[3][0];
+  // Squat ÷ couché : le bas des moyennes de compétition par sexe (moyennes IPF des débutants ; van den Hoek et al.
+  // 2024, J Sci Med Sport, 809 986 compétitions). Le repère affiché : la fourchette débutants → élite.
+  var RATIO_SQUAT_COUCHE = { homme: 1.2, femme: 1.6 };
+  var REPERE_SQUAT_COUCHE = { homme: '1,2 à 1,5', femme: '1,6 à 1,7' };
+  var GENS = { homme: 'hommes', femme: 'femmes' };
+  var DISCIPLINES_RATIO = ['force', 'les_deux'];
+  var JOURS_PLAT = 365;             // « pas encore dépassé » : un record d'au moins 12 mois, sur une barre travaillée
+  var SECHE_DEPASSEMENT = 1.3;      // en sèche, un muscle à plus de 1,3 × son plus haut volume (N3)
+  var PAR_SEANCE = 11;              // ~11 séries d'un muscle par séance (Remmert, Pelland et al. 2025)
+  var PEU_TRAVAILLE = 2;            // Muscle / Forme : sous 2 séries par semaine, même à son plus haut
+  var MUSCLES_SUIVIS = ['pectoraux', 'grand_dorsal', 'deltoide_lateral', 'deltoide_posterieur', 'biceps', 'triceps',
+                        'quadriceps', 'ischio_jambiers', 'fessiers', 'abdominaux'];
+  var TIRAGE = ['grand_dorsal', 'haut_du_dos'];
+  // L'ordre dans lequel la sèche traite les muscles : chacun sur la semaine déjà allégée des précédents.
+  var MUSCLES = ['pectoraux', 'grand_dorsal', 'haut_du_dos', 'trapezes', 'bas_du_dos', 'deltoide_anterieur',
+                 'deltoide_lateral', 'deltoide_posterieur', 'biceps', 'triceps', 'avant_bras', 'quadriceps',
+                 'ischio_jambiers', 'fessiers', 'mollets', 'adducteurs', 'abducteurs', 'abdominaux'];
+  var TRONC = 'abdominaux';
+  var EPS_RELECTURE = 1e-9;
+
+  // Les définitions des autres modules, lues À L'APPEL (ils se chargent avant celui-ci ; un test charge les siens).
+  function relecture() {
+    var Modele = racine.THModele, Semaine = racine.THSemaine, Moteur = racine.THMoteur, Profil = racine.THProfil;
+
+    var ficheDe = function (cat, slug) { return (cat || {})[slug] || null; };
+    var primaires = function (f) { return liste(f && f.muscles_primaires); };
+    var estPoly = function (f) {
+      return Moteur.estPolyarticulaire({ prim: liste(f && f.muscles_primaires), sec: liste(f && f.muscles_secondaires),
+                                         stab: liste(f && f.muscles_stabilisateurs) });
+    };
+    // Une sortie (le cardio) : la définition du jeu.
+    var estSortie = function (f) { return Modele.estExerciceSortie(f) && !Semaine.porteDuVolume(f); };
+    // Le tronc : un exercice dont le seul principal est abdominaux.
+    var estTronc = function (f) { var p = primaires(f); return p.length === 1 && p[0] === TRONC; };
+    var pl = function (n) { return n >= 2 ? 's' : ''; };
+    var mots = function (muscles) {
+      return Moteur.motsDesMuscles(muscles.map(function (m) { return { cle: m, libelle: Semaine.libelleMuscle(m) }; }));
+    };
+    // Le jour civil, en date locale (les formateurs lisent une date, pas une chaîne au fuseau UTC).
+    var jourLocal = function (v) { return new Date(Moteur.jourCivil(v) + 'T00:00:00'); };
+    var seriesDeTravail = function (x) { return liste(x && x.series).filter(function (s) { return Modele.estTravail(s); }).length; };
+    // La barre d'un exercice — elle-même, ou une variante à la barre (ses frères à la barre) — ou `null`.
+    var familleDe = function (slug, cat) {
+      for (var i = 0; i < BARRES.length; i++) {
+        var b = BARRES[i][0], f = ficheDe(cat, slug);
+        if (slug === b || (f && f.equipement === 'barre' && contient(Modele.freresDe(cat, b), slug))) return b;
+      }
+      return null;
+    };
+
+    // ── §5 ter.3 — Ton historique ────────────────────────────────────────────
+    function propositionPriorite(e) {
+      var cat = e.catalogue, deplacements = [];
+      liste(e.routines).forEach(function (r) {
+        var ex = liste(r.exercices).filter(function (x) { return !estSortie(ficheDe(cat, x.exercise_slug)); });
+        var k = -1;
+        for (var i = 0; i < ex.length; i++) if (familleDe(ex[i].exercise_slug, cat) === SQUAT) { k = i; break; }
+        if (k > 0) deplacements.push({ routine_id: r.id, exercise_slug: ex[k].exercise_slug, avant: ex[0].exercise_slug });
+      });
+      var phrase = 'Faire du squat ta priorité ?';
+      if (deplacements.length) phrase += ' Il passe en premier dans ses séances.';
+      return { type: 'priorite', slug: SQUAT, phrase: phrase, deplacements: deplacements,
+               oui: 'En faire ma priorité', non: 'Non merci' };
+    }
+
+    function historique(e) {
+      var barres = e.barres || {}, prof = e.profil || {}, auj = Moteur.jourCivil(e.aujourdhui);
+      var presentes = BARRES.filter(function (b) { return barres[b[0]] && barres[b[0]].record; });
+      var plusLourd = 0;
+      presentes.forEach(function (b) { plusLourd = Math.max(plusLourd, barres[b[0]].record.charge); });
+      var lignes = presentes.map(function (bn) {
+        var b = barres[bn[0]], r = b.record, recent = b.recent;
+        var travaillee = (b.semaines || 0) > 0;
+        var plat = travaillee && Profil.joursDepuis(r.date, auj) >= JOURS_PLAT;
+        var detail = [Modele.moisAnnee(jourLocal(r.date)) + (plat ? ', pas encore dépassé' : '')];
+        if (recent) detail.push(Modele.chargeFois(recent.charge, recent.reps) + ' ' + Modele.quand(jourLocal(recent.date), jourLocal(auj)));
+        if (travaillee) {
+          var expo = b.semaines + ' semaine' + pl(b.semaines) + ' sur 26';
+          if (b.lourdes) expo += ', ' + b.lourdes + ' série' + pl(b.lourdes) + ' lourde' + pl(b.lourdes);
+          if (b.variantes) expo += ' (+ ' + b.variantes + ' en variante)';
+          detail.push(expo);
+        }
+        return { slug: bn[0], nom: bn[1], record: r.charge, detail: detail.join(' · '),
+                 jauge: Modele.arrondi(r.charge / plusLourd, 2), retard: false };
+      });
+      var sortie = { barres: lignes, ratio: null, peu_travailles: null };
+      // La barre en retard (Force, Les deux) : squat ÷ couché sous le repère de son sexe.
+      var sq = barres[SQUAT] || {}, co = barres[COUCHE] || {}, sexe = prof.sexe;
+      if (contient(DISCIPLINES_RATIO, prof.objectif) && possede(RATIO_SQUAT_COUCHE, sexe) && sq.record && co.record &&
+          sq.semaines && co.semaines) {
+        var ratio = sq.record.charge / co.record.charge;
+        if (ratio < RATIO_SQUAT_COUCHE[sexe]) {
+          lignes.forEach(function (l) { if (l.slug === SQUAT) l.retard = true; });
+          var deja = contient(liste(e.priorites), SQUAT);
+          var gris = 'Ces repères viennent de compétiteurs, et ta morphologie peut jouer. Ce qu\'on voit chez toi : ' +
+            'le couché ' + co.semaines + ' semaines sur 26, le squat ' + sq.semaines + '.';
+          sortie.ratio = {
+            phrase: 'Ton squat vaut ' + Modele.nombre(ratio, 2) + ' fois ton couché. Chez les ' + GENS[sexe] +
+              ' qui font de la force, le squat vaut ' + REPERE_SQUAT_COUCHE[sexe] + ' fois le couché.',
+            gris: gris + (deja ? ' C\'est déjà ta priorité.' : ''),
+            proposition: deja ? null : propositionPriorite(e)
+          };
+        }
+      }
+      // Muscle, Forme ou sans réponse : le retard se lit par muscle, pas par barre.
+      if (!contient(DISCIPLINES_RATIO, prof.objectif)) {
+        var vol = e.volume || {};
+        var peu = MUSCLES_SUIVIS.filter(function (m) { return vol[m] && vol[m].max < PEU_TRAVAILLE; });
+        if (peu.length) {
+          var t = mots(peu);
+          sortie.peu_travailles = t.texte + ' ' + (t.pluriel ? 'sont' : 'est') + ' presque jamais travaillé' +
+            (t.pluriel ? 's' : '') + ' : moins de 2 séries par semaine, même à ton plus haut.';
+        }
+      }
+      return sortie;
+    }
+
+    // ── §5 ter.4 — Ta semaine ────────────────────────────────────────────────
+    function semaine(e) {
+      var cat = e.catalogue, prof = e.profil || {};
+      // Une copie de travail : la sèche retire des séries une à une, l'entrée n'est jamais touchée.
+      var routines = liste(e.routines).map(function (r) {
+        return { id: r.id, nom: r.nom, exercices: liste(r.exercices).map(function (x) {
+          return { exercise_slug: x.exercise_slug, n: seriesDeTravail(x),
+                   groupe: x.groupe_superset === undefined ? null : x.groupe_superset };
+        }) };
+      });
+      var volumeDe = function (rs) {
+        var v = {};
+        rs.forEach(function (r) {
+          r.exercices.forEach(function (x) {
+            Semaine.musclesPonderes(ficheDe(cat, x.exercise_slug)).forEach(function (p) {
+              v[p.muscle] = (v[p.muscle] || 0) + p.poids * x.n;
+            });
+          });
+        });
+        return v;
+      };
+      var total = 0;
+      routines.forEach(function (r) {
+        r.exercices.forEach(function (x) { if (!estSortie(ficheDe(cat, x.exercise_slug))) total += x.n; });
+      });
+      var verifs = [], constats = [];
+      // Le lourd en premier : dans chaque routine, la première barre (ou variante à la barre) avant toute isolation.
+      var barreQuelquePart = false, lourdOk = true;
+      routines.forEach(function (r) {
+        var ex = r.exercices.filter(function (x) {
+          var f = ficheDe(cat, x.exercise_slug);
+          return !estSortie(f) && !estTronc(f);
+        });
+        var k = -1;
+        for (var i = 0; i < ex.length; i++) if (familleDe(ex[i].exercise_slug, cat)) { k = i; break; }
+        if (k < 0) return;
+        barreQuelquePart = true;
+        var avant = ex.slice(0, k).filter(function (x) { return !estPoly(ficheDe(cat, x.exercise_slug)); });
+        if (avant.length) {
+          lourdOk = false;
+          constats.push('Dans « ' + r.nom + ' », une isolation passe avant la barre.');
+        }
+      });
+      // Le tronc à la fin.
+      var troncPresent = false, troncOk = true;
+      routines.forEach(function (r) {
+        var ex = r.exercices.filter(function (x) { return !estSortie(ficheDe(cat, x.exercise_slug)); });
+        var ks = [];
+        ex.forEach(function (x, i) { if (estTronc(ficheDe(cat, x.exercise_slug))) ks.push(i); });
+        if (!ks.length) return;
+        troncPresent = true;
+        if (ks[0] < ex.length - ks.length) troncOk = false;
+      });
+      if (barreQuelquePart && lourdOk && troncPresent && troncOk) verifs.push('le lourd en premier, le tronc à la fin');
+      else if (barreQuelquePart && lourdOk) verifs.push('le lourd en premier');
+      else if (troncPresent && troncOk) verifs.push('le tronc à la fin');
+      // Les supersets : les groupes, routine par routine.
+      var paires = 0;
+      routines.forEach(function (r) {
+        var groupes = {};
+        r.exercices.forEach(function (x) { if (x.groupe !== null) groupes[JSON.stringify(x.groupe)] = true; });
+        paires += Object.keys(groupes).length;
+      });
+      if (paires) verifs.push(paires + ' superset' + pl(paires) + ' dans ta semaine');
+      // Par séance (D13) : le plus haut volume d'un muscle dans une routine.
+      var pire = 0, ou = null, quel = null;
+      routines.forEach(function (r) {
+        var v = volumeDe([r]);
+        Object.keys(v).forEach(function (m) {
+          if (v[m] > pire + EPS_RELECTURE) { pire = v[m]; ou = r.nom; quel = m; }
+        });
+      });
+      if (pire > 0) {
+        if (pire <= PAR_SEANCE + EPS_RELECTURE) verifs.push('au plus ' + Modele.nombre(pire, 1) + ' séries d\'un muscle par séance');
+        else constats.push(Semaine.libelleMuscle(quel) + ' : ' + Modele.nombre(pire, 1) + ' séries dans « ' + ou +
+          ' ». Au-delà d\'environ 11, une série de plus rapporte peu.');
+      }
+      // Tirage et poussée, en séries directes.
+      var tirage = 0, pousse = 0;
+      routines.forEach(function (r) {
+        r.exercices.forEach(function (x) {
+          var p = primaires(ficheDe(cat, x.exercise_slug));
+          if (p.some(function (m) { return contient(TIRAGE, m); })) tirage += x.n;
+          if (contient(p, 'pectoraux') || familleDe(x.exercise_slug, cat) === MILITAIRE) pousse += x.n;
+        });
+      });
+      if (tirage || pousse) verifs.push(tirage + ' série' + pl(tirage) + ' de tirage pour ' + pousse + ' de poussée');
+      // En sèche : un muscle nettement au-dessus de son plus haut volume → retirer des séries d'isolation (N3).
+      var propositions = [];
+      if (prof.phase === 'seche') {
+        var volume = e.volume || {};
+        var ordreDesRoutines = routines.map(function (r) { return r.id; });
+        MUSCLES.forEach(function (m) {
+          var f = volume[m];
+          var v = volumeDe(routines);
+          if (!f || (v[m] || 0) <= SECHE_DEPASSEMENT * f.max + EPS_RELECTURE) return;
+          var avantV = v[m] || 0;
+          var lignes = {}, cles = [];
+          while ((volumeDe(routines)[m] || 0) > f.max + EPS_RELECTURE) {
+            // La plus chargée d'abord ; à égalité, la première routine, puis le premier exercice.
+            var choix = null;
+            routines.forEach(function (r) {
+              r.exercices.forEach(function (x) {
+                var fx = ficheDe(cat, x.exercise_slug);
+                if (!contient(primaires(fx), m) || estPoly(fx) || x.n < 2) return;
+                if (!choix || x.n > choix.x.n) choix = { r: r, x: x };
+              });
+            });
+            if (!choix) break;
+            var cle = JSON.stringify([choix.r.id, choix.x.exercise_slug]);
+            if (!possede(lignes, cle)) {
+              lignes[cle] = { routine_id: choix.r.id, routine: choix.r.nom, exercise_slug: choix.x.exercise_slug,
+                              de: choix.x.n, a: null };
+              cles.push(cle);
+            }
+            choix.x.n -= 1;
+            lignes[cle].a = choix.x.n;
+          }
+          if (!cles.length) return;
+          var t = mots([m]);
+          var retirees = 0;
+          cles.forEach(function (c) { retirees += lignes[c].de - lignes[c].a; });
+          propositions.push({
+            type: 'retirer', muscle: m,
+            phrase: 'En sèche, ' + t.texte.charAt(0).toLowerCase() + t.texte.slice(1) + ' ' +
+              (t.pluriel ? 'dépassent' : 'dépasse') + ' ton plus haut volume habituel : ' + Modele.nombre(avantV, 1) +
+              ' séries par semaine pour ' + Modele.nombre(f.max, 1) + '.',
+            question: 'Retirer ' + retirees + ' série' + pl(retirees) + ' ? Tes barres ne bougent pas.',
+            lignes: trier(cles.map(function (c) { return lignes[c]; }), function (a, b) {
+              var ra = ordreDesRoutines.indexOf(a.routine_id), rb = ordreDesRoutines.indexOf(b.routine_id);
+              if (ra !== rb) return ra - rb;
+              return a.exercise_slug < b.exercise_slug ? -1 : (a.exercise_slug > b.exercise_slug ? 1 : 0);
+            }),
+            oui: 'Retirer ces séries', non: 'Non merci'
+          });
+        });
+      }
+      return { seances: routines.length, series: total, verifs: verifs, constats: constats, propositions: propositions };
+    }
+
+    return {
+      relire: function (e) { return { historique: historique(e), semaine: semaine(e) }; }
+    };
+  }
+
+  function relireSemaine(entree) {
+    return relecture().relire(entree || {});
+  }
+
+  // LES INVARIANTS DE LA RELECTURE (§5 ter.1) : R1 une proposition de retrait ne fait que retirer, et jamais sous 1
+  // série ; R2 aucun retrait hors sèche ; R3 toute proposition porte un « oui » et un « non » ; R4 pas de repère de
+  // ratio hors Force et Les deux. Rend la liste des fautes (vide : la relecture tient).
+  function verifierRelecture(entree, sortie) {
+    var e = entree || {}, s = sortie || {}, fautes = [];
+    var profil = e.profil || {};
+    liste(s.semaine && s.semaine.propositions).forEach(function (p) {
+      if (p.type === 'retirer') {
+        liste(p.lignes).forEach(function (l) {
+          if (!(l.a < l.de && l.a >= 1)) fautes.push('R1 une proposition de sèche ajoute ou vide un exercice');
+        });
+        if (profil.phase !== 'seche') fautes.push('R2 retrait hors sèche');
+      }
+      if (!p.oui || !p.non) fautes.push('R3 une proposition sans « oui » ni « non »');
+    });
+    var r = s.historique ? s.historique.ratio : null;
+    if (r && !contient(DISCIPLINES_RATIO, profil.objectif)) fautes.push('R4 un repère de ratio hors Force / Les deux');
+    return fautes;
+  }
+
   var api = {
     MOTIFS: MOTIFS,
     GABARITS: GABARITS,
@@ -524,7 +835,17 @@
     mentionsDeLigne: mentionsDeLigne,
     phrasesDeLApercu: phrasesDeLApercu,
     exemptsDuRaccourci: exemptsDuRaccourci,
-    carteCycles: carteCycles
+    carteCycles: carteCycles,
+    // 66A — la relecture de la semaine (QUESTIONNAIRE-COACH-V2 §5 ter)
+    BARRES: BARRES,
+    RATIO_SQUAT_COUCHE: RATIO_SQUAT_COUCHE,
+    SECHE_DEPASSEMENT: SECHE_DEPASSEMENT,
+    PAR_SEANCE: PAR_SEANCE,
+    PEU_TRAVAILLE: PEU_TRAVAILLE,
+    MUSCLES_SUIVIS: MUSCLES_SUIVIS,
+    MUSCLES: MUSCLES,
+    relireSemaine: relireSemaine,
+    verifierRelecture: verifierRelecture
   };
 
   racine.THGenerateur = api;

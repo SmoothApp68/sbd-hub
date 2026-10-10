@@ -275,6 +275,27 @@ const AUTORISATIONS = {
       'partir des faits existants (`entreeDeRelecture`), appelle la relecture une fois par ouverture et après chaque ' +
       '« oui » (`relire`), et dessine sa sortie — il ne calcule aucun verdict lui-même.'
   },
+  // 66D — l'aperçu de Construis-le-moi assemble le programme (§5 quater.5) : une raison, cinq fonctions.
+  completer: {
+    'app.js': 'QUESTIONNAIRE-COACH-V2 §5 quater.5 (66D) : l’aperçu de Construis-le-moi assemble le programme ' +
+      '(`assemblerLeProgramme`, la seule fonction qui le calcule) ; l’écran ne décide rien lui-même.'
+  },
+  ranger: {
+    'app.js': 'QUESTIONNAIRE-COACH-V2 §5 quater.5 (66D) : l’aperçu de Construis-le-moi assemble le programme ' +
+      '(`assemblerLeProgramme`, la seule fonction qui le calcule) ; l’écran ne décide rien lui-même.'
+  },
+  associer: {
+    'app.js': 'QUESTIONNAIRE-COACH-V2 §5 quater.5 (66D) : l’aperçu de Construis-le-moi assemble le programme ' +
+      '(`assemblerLeProgramme`, la seule fonction qui le calcule) ; l’écran ne décide rien lui-même.'
+  },
+  habiller: {
+    'app.js': 'QUESTIONNAIRE-COACH-V2 §5 quater.5 (66D) : l’aperçu de Construis-le-moi assemble le programme ' +
+      '(`assemblerLeProgramme`, la seule fonction qui le calcule) ; l’écran ne décide rien lui-même.'
+  },
+  changementsDeLApercu: {
+    'app.js': 'QUESTIONNAIRE-COACH-V2 §5 quater.5 (66D) : l’aperçu de Construis-le-moi assemble le programme ' +
+      '(`assemblerLeProgramme`, la seule fonction qui le calcule) ; l’écran ne décide rien lui-même.'
+  },
   carteCycles: {
     'app.js': 'MOTEUR §9.22 (60-4) : la carte « Passer en cycles » de Saisie lit la règle du générateur ' +
       '(`carteCyclesDuProfil`) : l’objectif, les jours depuis la création, les séances du dossier, un dossier déjà ' +
@@ -947,7 +968,8 @@ const NOTIONS = [
       'dépassé » (§5 ter.3, un record d’au moins 12 mois) se compte de même.' },
   { notion: 'la durée que le programme construit doit tenir (la durée déclarée, avec « C’est mon maximum », « Moins en ce moment » ou « Ça varie »)', pr: '60-U13',
     module: 'moteur.js', fonction: 'cibleDuProgramme', lecteurs: ['app.js'],
-    parAilleurs: { 'app.js': ['raccourcirLeProgramme'] },
+    // 66D : lue une fois (`cibleDuProgrammeConstruit`) par le raccourci et par les supersets (`assemblerLeProgramme`).
+    parAilleurs: { 'app.js': ['cibleDuProgrammeConstruit'] },
     raison: 'MOTEUR §9.18 (G8, 60-4) : quelles réponses de temps font raccourcir le programme, et à quelle durée, se décide ' +
       'une fois dans le moteur ; l’app lit le résultat et passe par `raccourcirRoutine`, elle ne teste pas `temps_reponse`.' },
   // ── 64A — LE JEU (JEU-V1) : il lit les faits, le coach ne le lit jamais ───
@@ -1017,12 +1039,21 @@ const NOTIONS = [
       'visé, les numéros relus de la nouvelle adjacence (`renumeroter`, comme l’éditeur) ; l’écran ne déplace rien.' },
   // ── 66C — LE GÉNÉRATEUR V2, LE COMPLÉMENT (QUESTIONNAIRE-COACH-V2 §5 quater) ─
   { notion: 'les habitudes (séances par semaine, taille d’une séance, reps et séries habituelles par exercice)', pr: '66-U3',
-    module: 'faits.js', fonction: 'habitudes', lecteurs: [],
+    module: 'faits.js', fonction: 'habitudes', lecteurs: ['app.js'],
     // `motif` : l'APPEL seulement — `entree.habitudes` est le champ que le générateur lit.
     motif: /\.\s*habitudes\s*\(/g,
+    parAilleurs: { 'app.js': ['aUnHistorique'] },
     raison: 'QUESTIONNAIRE-COACH-V2 §5 quater.2 (66C) : le complément du programme déduit REÇOIT les habitudes, il ne relit ' +
-      'pas les séances ; la fenêtre et la signature sont celles du déduit. Aucun lecteur encore : « Construis-le-moi » (66D, ' +
-      '`app.js`) assemblera l’entrée.' }
+      'pas les séances ; la fenêtre et la signature sont celles du déduit. 66D : « Construis-le-moi » (`app.js`, ' +
+      '`aUnHistorique`) les lit pour décider du chemin et assembler l’entrée.' },
+  // ── 66D — LA FIN DU GÉNÉRATEUR (QUESTIONNAIRE-COACH-V2 §5 quater.5) ─
+  { notion: 'la dernière séance de la personne (là où finit SA fenêtre)', pr: '66-U4',
+    module: 'faits.js', fonction: 'derniereSeance', lecteurs: ['app.js'],
+    par: ['historiqueDesExercices', 'habitudes'],
+    parAilleurs: { 'app.js': ['aUnHistorique'] },
+    raison: 'QUESTIONNAIRE-COACH-V2 §5 quater.5 (66D) : l’historique des exercices et les habitudes finissent leur fenêtre ' +
+      'à la même séance, et « Construis-le-moi » y borne le fait du coach (la semaine de la dernière séance comprise) — ' +
+      'une seule définition de « la dernière », extraite des deux faits qui la recalculaient.' }
 ];
 
 // ── 58-1 — UN FAIT NE SE DÉCLARE QUE DANS `faits.js` ─────────────────────────
@@ -1345,7 +1376,7 @@ describe('architecture — le registre des notions : une source, des lecteurs', 
 describe('architecture — le module des faits : un fait ne se déclare que dans faits.js (58-1)', () => {
   const FICHIERS = perimetre();
 
-  test('les faits du module : vingt-trois (treize en 58-1, trois du journal en 58-2, un du questionnaire en 60-2a, un du programme déduit en 60-3, deux du programme construit en 60-4, un du jeu en 64A, un du bilan en 66A, les habitudes en 66C), chacun déclaré et exporté par faits.js', () => {
+  test('les faits du module : vingt-quatre (treize en 58-1, trois du journal en 58-2, un du questionnaire en 60-2a, un du programme déduit en 60-3, deux du programme construit en 60-4, un du jeu en 64A, un du bilan en 66A, les habitudes en 66C, la dernière séance en 66D), chacun déclaré et exporté par faits.js', () => {
     global.self = global;
     require('../../v2/js/modele.js');
     require('../../v2/js/semaine.js');
@@ -1355,7 +1386,7 @@ describe('architecture — le module des faits : un fait ne se déclare que dans
     require('../../v2/js/seance.js');
     require('../../v2/js/periode.js');
     const instance = require('../../v2/js/faits.js').creer();
-    expect(FAITS.length).toBe(23);
+    expect(FAITS.length).toBe(24);
     expect(FAITS.filter((fn) => typeof instance[fn] !== 'function')).toEqual([]);
   });
 

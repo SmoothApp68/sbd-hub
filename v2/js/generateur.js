@@ -200,14 +200,15 @@
         return !contient(ecartes, s) && ok(s) && !(sansPris && possede(pris, s)) && !(!sansPris && possede(session, s));
       });
     }
-    var src = MOTIFS[motif];
+    // Un exercice hors de tout motif (une ligne déduite habillée, 66D : `motif` nul) n'a pas de candidat : la place disparaît.
+    var src = liste(MOTIFS[motif]);
     var cand = candidats(src, true);
     if (!cand.length && possede(VOISIN, motif)) {
       src = MOTIFS[VOISIN[motif]];
       cand = candidats(src, true);
     }
     if (!cand.length) {
-      src = MOTIFS[motif];
+      src = liste(MOTIFS[motif]);
       cand = candidats(src, false);
     }
     if (!cand.length) return null;
@@ -1322,12 +1323,12 @@
                       Math.round(j.gain_s / 60) + ' min de moins.', retire: false });
     });
     liste(rf.muscles).forEach(function (m) {
-      lignes.push({ cle: 'muscle:' + m, texte: Semaine.libelleMuscle(m) + " : rien d'ajouté.", retire: true });
+      lignes.push({ cle: 'muscle:' + m, texte: Semaine.libelleMuscle(m) + ' : rien d\u2019ajouté.', retire: true });
     });
     liste(rf.reprises).forEach(function (n) {
       lignes.push({ cle: 'reprise:' + n, texte: n + ' ne revient pas.', retire: true });
     });
-    if (rf.tirage) lignes.push({ cle: 'tirage', texte: "Tirage : rien d'ajouté.", retire: true });
+    if (rf.tirage) lignes.push({ cle: 'tirage', texte: 'Tirage : rien d\u2019ajouté.', retire: true });
     liste(rf.paires).forEach(function (p) {
       lignes.push({ cle: 'paire:' + p[0] + ':' + p[1] + ':' + p[2],
                     texte: nom(p[1]) + ' et ' + bas(nom(p[2])) + ' en séries classiques.', retire: true });

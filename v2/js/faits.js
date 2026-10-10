@@ -402,6 +402,20 @@
       return racine.THRoutines.seancesQuiReviennent(seances, mesures);
     }
 
+    // ── La dernière séance de la personne (66D, QUESTIONNAIRE-COACH-V2 §5 quater.5) ──
+    //
+    // Le début de sa séance la plus récente qui a des séries (`seancesAvecSeries`, avec son mémo) : là où finit SA
+    // fenêtre (`Routines.fenetreDeLaPersonne`), celle de l'historique des exercices et des habitudes — et, pour
+    // « Construis-le-moi », la semaine jusqu'à laquelle le fait du coach se lit. `null` sans séance datée.
+    function seancesDatees(c) {
+      return seancesAvecSeries(c).filter(function (s) { return s && s.debut && !isNaN(new Date(s.debut).getTime()); });
+    }
+    function derniereSeance(c) {
+      var datees = seancesDatees(c);
+      if (!datees.length) return null;
+      return datees.reduce(function (m, s) { return new Date(s.debut) > new Date(m) ? s.debut : m; }, datees[0].debut);
+    }
+
     // ── L'historique du programme construit (60-4, QUESTIONNAIRE-COACH-V2 §5 bis) ──
     //
     // Par exercice, le nombre de SÉANCES où il a au moins une série de travail, sur la fenêtre de la personne : les
@@ -410,12 +424,9 @@
     // d'abord, et un exercice déjà fait n'est jamais rétrogradé par le matériel. Les séances sont celles du bilan
     // (`seancesAvecSeries`, avec son mémo) ; la série de travail, la définition unique (`Modele.estTravail`).
     function historiqueDesExercices(c) {
-      var datees = seancesAvecSeries(c).filter(function (s) {
-        return s && s.debut && !isNaN(new Date(s.debut).getTime());
-      });
+      var datees = seancesDatees(c);
       if (!datees.length) return {};
-      var derniere = datees.reduce(function (m, s) { return new Date(s.debut) > new Date(m) ? s.debut : m; }, datees[0].debut);
-      var fenetre = racine.THRoutines.fenetreDeLaPersonne(derniere);
+      var fenetre = racine.THRoutines.fenetreDeLaPersonne(derniereSeance(c));
       var compte = {};
       datees.forEach(function (s) {
         if (!Periode.dans(s.debut, fenetre)) return;
@@ -446,12 +457,9 @@
       var Routines = racine.THRoutines;
       var index = c.catalogue() || {}, mesures = {};
       Object.keys(index).forEach(function (slug) { mesures[slug] = index[slug] ? index[slug].mesure || null : null; });
-      var datees = seancesAvecSeries(c).filter(function (s) {
-        return s && s.debut && !isNaN(new Date(s.debut).getTime());
-      });
+      var datees = seancesDatees(c);
       if (!datees.length) return null;
-      var derniere = datees.reduce(function (m, s) { return new Date(s.debut) > new Date(m) ? s.debut : m; }, datees[0].debut);
-      var fenetre = Routines.fenetreDeLaPersonne(derniere);
+      var fenetre = Routines.fenetreDeLaPersonne(derniereSeance(c));
       var comptees = datees.filter(function (s) {
         return Periode.dans(s.debut, fenetre) && Routines.signatureDeSeance(s, mesures) !== null;
       });
@@ -715,6 +723,7 @@
       programmeDeduit: programmeDeduit,
       historiqueDesExercices: historiqueDesExercices,
       habitudes: habitudes,
+      derniereSeance: derniereSeance,
       seancesDesRoutines: seancesDesRoutines,
       oublierDates: oublierDates,
       faitsDuJeu: faitsDuJeu,

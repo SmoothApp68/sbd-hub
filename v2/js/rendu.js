@@ -4100,14 +4100,37 @@
     var v = vue || {};
     cible.appendChild(el('div', 'feuille-t', v.titre || ''));
     (v.voix || []).forEach(function (t) { cible.appendChild(el('p', 'q-voix apercu-voix', t)); });
+    // 66D (QUESTIONNAIRE §5 quater.5, maquette v2) — « Ce que j'ai changé · N » : une ligne par changement, chacune
+    // avec « Retirer » (ou « Remettre », retirée). Aucune ligne : aucun bloc. Les textes viennent du générateur.
+    var chg = v.changements;
+    if (chg && (chg.lignes || []).length) {
+      var bloc = el('section', 'ap-changements');
+      bloc.appendChild(el('h2', 'ap-chg-titre', chg.titre));
+      chg.lignes.forEach(function (l, n) {
+        var ligne = el('div', 'ap-chg' + (l.retire ? ' retire' : ''));
+        ligne.appendChild(el('i', 'ap-chg-marque'));
+        ligne.appendChild(el('span', 'ap-chg-texte', l.texte));
+        var b = el('button', 'ap-chg-geste', l.libelle);
+        b.type = 'button';
+        b.addEventListener('click', function () { if (v.surChangement) v.surChangement(n); });
+        ligne.appendChild(b);
+        bloc.appendChild(ligne);
+      });
+      cible.appendChild(bloc);
+    }
     var liste = el('div', 'apercu-programme');
     (v.routines || []).forEach(function (r, i) {
       var carte = el('div', 'ap-routine');
       var tete = el('div', 'ap-tete');
-      tete.appendChild(el('span', 'ap-nom', r.nom));
+      var gauche = el('span', 'ap-tete-nom');
+      gauche.appendChild(el('span', 'ap-nom', r.nom));
+      if (r.reprise) gauche.appendChild(el('span', 'ap-reprise', '\u25c6 reprise'));
+      tete.appendChild(gauche);
       tete.appendChild(el('span', 'ap-duree', r.duree));
       carte.appendChild(tete);
       if (r.pourquoi) carte.appendChild(el('p', 'ap-pourquoi', r.pourquoi));
+      // Deux lignes voisines au même `paire` : un superset, groupé et titré.
+      var paire = null, valeur = null;
       (r.exercices || []).forEach(function (x, k) {
         var b = el('button', 'ap-ex' + (x.neuf ? ' neuf' : ''));
         b.type = 'button';
@@ -4117,7 +4140,20 @@
         b.appendChild(corps);
         b.appendChild(el('span', 'ap-ex-series', x.series));
         b.addEventListener('click', function () { if (v.surExercice) v.surExercice(i, k); });
-        carte.appendChild(b);
+        var suivant = (r.exercices || [])[k + 1];
+        var groupe = x.paire === null || x.paire === undefined ? null : x.paire;
+        if (groupe === null || (groupe !== valeur && !(suivant && suivant.paire === groupe))) {
+          paire = null; valeur = null;
+          carte.appendChild(b);
+          return;
+        }
+        if (groupe !== valeur) {
+          paire = el('div', 'ap-paire');
+          paire.appendChild(el('div', 'ap-paire-t', 'Superset'));
+          carte.appendChild(paire);
+          valeur = groupe;
+        }
+        paire.appendChild(b);
       });
       liste.appendChild(carte);
     });

@@ -15329,7 +15329,7 @@ const SETS_IMPORTES = [
     let ap = await apercuR();
     const vuesG = await visible();
     ok('[R60] G — « Commencer » : le questionnaire se termine, Saisie s’ouvre, et l’aperçu arrive PAR-DESSUS',
-      vuesG.indexOf('vue-saisie') >= 0 && vuesG.indexOf('vue-questionnaire') < 0 && ap.ouverte && ap.titre === '4 séances par semaine.',
+      vuesG.indexOf('vue-saisie') >= 0 && vuesG.indexOf('vue-questionnaire') < 0 && ap.ouverte && ap.titre === 'Ton programme de départ : 4 séances par semaine.',
       JSON.stringify([vuesG, ap.ouverte, ap.titre]));
     ok('[R60] G — la voix du coach : « Je te propose tes charges à chaque séance. Touche un exercice pour le changer. » puis la phrase du dos',
       ap.voix[0] === 'Je te propose tes charges à chaque séance. Touche un exercice pour le changer.' &&
@@ -15390,7 +15390,7 @@ const SETS_IMPORTES = [
     await attendre(300);
     ap = await apercuR();
     ok('[R60] G — « Annuler » revient à l’aperçu, rien n’a changé ni n’est écrit',
-      ap.titre === '4 séances par semaine.' && ap.cartes[0].exos[0].nom === premierNom && !profilBase().exercices_ecartes,
+      ap.titre === 'Ton programme de départ : 4 séances par semaine.' && ap.cartes[0].exos[0].nom === premierNom && !profilBase().exercices_ecartes,
       JSON.stringify([ap.titre, ap.cartes[0].exos[0].nom]));
     await toucher(0, 0);
     await page.click('#feuille-contenu button[data-cle="refuser"]');
@@ -15423,7 +15423,7 @@ const SETS_IMPORTES = [
     await attendre(600);
     ap = await apercuR();
     ok('[R60] G — fermer le catalogue sans choisir ROUVRE l’aperçu, tel quel (le même nom d’exercice neuf, la même phrase)',
-      ap.ouverte && ap.titre === '4 séances par semaine.' && ap.cartes[0].exos[0].nom === neuvNom && ap.cartes.length === 4,
+      ap.ouverte && ap.titre === 'Ton programme de départ : 4 séances par semaine.' && ap.cartes[0].exos[0].nom === neuvNom && ap.cartes.length === 4,
       JSON.stringify([ap.ouverte, ap.titre, ap.cartes.length]));
     await toucher(1, 0);
     const avantRemp = ap.cartes[1].exos[0];
@@ -15574,7 +15574,7 @@ const SETS_IMPORTES = [
     ap = await apercuR();
     ok('[R60] H — « Voir mon programme » : 3 jours et Genou écrits, puis l’aperçu de 3 séances par-dessus Saisie',
       profilBase().seances_par_semaine === 3 && JSON.stringify(profilBase().zones_a_menager) === '["genou"]' &&
-        ap.ouverte && ap.titre === '3 séances par semaine.' && ap.cartes.length === 3 && /^Tu ménages ton genou/.test(ap.voix[1] || ''),
+        ap.ouverte && ap.titre === 'Ton programme de départ : 3 séances par semaine.' && ap.cartes.length === 3 && /^Tu ménages ton genou/.test(ap.voix[1] || ''),
       JSON.stringify([profilBase().seances_par_semaine, profilBase().zones_a_menager, ap.titre, ap.cartes.length]));
     await page.evaluate(() => document.querySelector('#feuille-contenu .apercu-creer').click());
     for (let n = 0; n < 60 && (await apercuR()).ouverte; n++) await attendre(250);

@@ -1644,6 +1644,29 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .ap-ex-nom{overflow-wrap:anywhere}
 .ap-ex-mention{font-size:12px;color:var(--texte-2)}
 .ap-ex-series{flex:none;font-weight:650;font-variant-numeric:tabular-nums;white-space:nowrap}
+/* 66D (QUESTIONNAIRE §5 quater.5, maquette v2) — « Ce que j'ai changé · N » : une ligne par changement du coach, son
+   losange, « Retirer » au doigt (44 px) ; retirée, elle passe en gris et offre « Remettre ». Dans les cartes : un ajout
+   porte le losange (`.neuf`), une séance reprise « ◆ reprise », une paire de superset est groupée sous « Superset ». */
+.ap-changements{background:var(--panneau-2);border:1px solid var(--trait);border-radius:var(--r-petit);
+  padding:var(--e2) 12px;margin:0 0 var(--e3)}
+.ap-chg-titre{margin:0 0 var(--e1);font:600 13px var(--pile-c);text-transform:uppercase;letter-spacing:1.2px;
+  color:var(--texte-2)}
+.ap-chg{display:grid;grid-template-columns:auto 1fr auto;gap:var(--e2);align-items:center;padding:var(--e1) 0;
+  border-top:1px solid var(--trait);font-size:13.5px}
+.ap-chg:first-of-type{border-top:0}
+.ap-chg-marque{width:8px;height:8px;border-radius:2px;background:var(--accent);transform:rotate(45deg)}
+.ap-chg-texte{overflow-wrap:anywhere}
+.ap-chg-geste{min-height:44px;padding:0 12px;border:0;border-radius:var(--r-bouton);background:var(--panneau);
+  color:var(--texte);font:600 13px var(--pile);cursor:pointer}
+.ap-chg.retire{color:var(--texte-3)}
+.ap-chg.retire .ap-chg-marque{background:var(--texte-3)}
+.ap-tete-nom{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--e2);min-width:0}
+.ap-reprise{color:var(--accent);font-size:12px;font-weight:600;white-space:nowrap}
+.ap-ex.neuf .ap-ex-nom::before{content:"";display:inline-block;width:7px;height:7px;border-radius:2px;
+  background:var(--accent);transform:rotate(45deg);margin-right:7px;vertical-align:1px}
+.ap-paire{border-left:2px solid var(--accent)}
+.ap-paire-t{padding:6px 12px 0;border-top:1px solid var(--trait);font-size:12px;color:var(--accent)}
+.ap-paire .ap-ex:first-of-type{border-top:0}
 /* 60-5 — « Créer ces N routines », l'action principale de l'aperçu (constat d'Aurélien, sur téléphone : elle passait
    inaperçue). Elle portait déjà `.principal`, mais `.feuille-menu button` (fond transparent, texte à gauche, police
    héritée — plus spécifique) l'aplatissait en ligne de menu. On rend ICI ce que `.principal` dit : l'ambre de la forge

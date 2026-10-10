@@ -305,7 +305,8 @@ function extraire(n) {
 }
 const FONCTIONS = ['freresDe', 'brouillonDeStructure', 'creerRoutineNeuve', 'creerDansUnDossier', 'ouvrirBibliothequeSur',
   'rangSuivantBibliotheque', 'nomsReserves', 'messageVerdict',
-  'entreeDuProgramme', 'deduiteDuProgramme', 'fondreLesVoisins', 'raccourcirLeProgramme', 'lectureDuProgramme',
+  'entreeDuProgramme', 'aUnHistorique', 'cibleDuProgrammeConstruit', 'structureDuProgramme', 'assemblerLeProgramme',
+  'basculerChangement', 'ligneDeRetouche', 'deduiteDuProgramme', 'fondreLesVoisins', 'raccourcirLeProgramme', 'lectureDuProgramme',
   'seriesFois', 'rendreApercuDuProgramme', 'ouvrirApercuProgramme', 'ouvrirExerciceDuProgramme',
   'ecarterDansLeProgramme', 'remplacerDansLeProgramme', 'poserDansLeProgramme', 'versLeCatalogueDuProgramme',
   'creerLeProgramme'];
@@ -344,7 +345,12 @@ function bac(options) {
       rendreFeuilleMachinePrise: (c, v) => { journal.machine.push(v); ctx.__machine = v; },
       rendreFeuilleConfirmer: (c, v) => { journal.confirmer.push(v); }
     },
-    faits: { historiqueDesExercices: () => (o.faits || {}) },
+    // 66D — sans historique par défaut (`habitudes` nul) : le gabarit, comme en 60-4.
+    faits: { historiqueDesExercices: () => (o.faits || {}), habitudes: () => o.habitudes || null,
+             programmeDeduit: () => o.deduit || [], derniereSeance: () => o.derniere || null },
+    Semaine: globalThis.THSemaine,
+    Questionnaire: { joursValides: (n) => typeof n === 'number' && n >= 2 && n <= 6 && Math.floor(n) === n },
+    volumeDuCoach: () => o.volume || {},
     corpus: () => ({}),
     catalogueIndexe: () => INDEX,
     local: { exercices: o.catalogueVide ? [] : CATALOGUE },
@@ -398,7 +404,7 @@ describe('les gestes : ouvrir l’aperçu', () => {
     const b = bac({ profil: { objectif: 'les_deux' } });
     await b.appel('ouvrirApercuProgramme()');
     const v = b.vue();
-    expect(v.titre).toBe('4 séances par semaine.');
+    expect(v.titre).toBe('Ton programme de départ : 4 séances par semaine.');
     expect(v.routines.map((r) => r.nom)).toEqual(NOMS_4J);
     const attendu = cas('neuf_4j_les_deux').attendu;
     expect(v.routines.map((r) => r.pourquoi)).toEqual(attendu.map((r) => r.pourquoi));
@@ -579,7 +585,7 @@ describe('les gestes : « Je n’en veux pas »', () => {
       ['refuser', 'Je n’en veux pas', 'Je le remplace par un exercice du même mouvement, et je ne te le proposerai plus.'],
       ['remplacer', 'Remplacer', 'Tu choisis dans le catalogue. La ligne de la séance se met à jour.']]);
     c.surAnnuler();
-    expect(b.vue().titre).toBe('4 séances par semaine.');           // l'aperçu est revenu
+    expect(b.vue().titre).toBe('Ton programme de départ : 4 séances par semaine.');           // l'aperçu est revenu
     expect(b.journal.profil).toEqual([]);
   });
 
@@ -682,7 +688,7 @@ describe('les gestes : « Remplacer »', () => {
     const voiles = b.journal.voile;
     apercu.retour();
     expect(b.journal.voile).toBe(voiles + 1);
-    expect(b.vue().titre).toBe('4 séances par semaine.');
+    expect(b.vue().titre).toBe('Ton programme de départ : 4 séances par semaine.');
     // Puis le choix prend la place.
     b.appel("poserDansLeProgramme(1, 0, 'squat_barre')");
     expect(b.vue().routines[1].exercices[0].nom).toBe(nom('squat_barre'));
@@ -773,7 +779,7 @@ describe('les gestes : « Créer ces N routines »', () => {
     const v = b.vue();
     expect(v.erreur).toBe('Pas de réseau : rien n’a été enregistré.');
     expect(v.routines.map((r) => r.nom)).toEqual(['Haut B', 'Bas B']);
-    expect(v.titre).toBe('4 séances par semaine.');               // le programme reste de 4 séances
+    expect(v.titre).toBe('Ton programme de départ : 4 séances par semaine.');               // le programme reste de 4 séances
     expect(v.libelleCreer).toBe('Créer ces 2 routines');
     expect(b.journal.ferme).toBe(0);
     // Le dossier et la date partent dès la PREMIÈRE routine créée : un programme à moitié écrit, abandonné, garde sa trace.
@@ -919,7 +925,7 @@ describe('revue adverse — l’aperçu : sorties, séances vidées, remplaçant
     const rendus = b.journal.feuilles.length;
     b.ctx.__machine.surAnnuler();
     expect(b.journal.feuilles.length).toBe(rendus + 1);
-    expect(b.vue().titre).toBe('4 séances par semaine.');
+    expect(b.vue().titre).toBe('Ton programme de départ : 4 séances par semaine.');
     expect(b.journal.profil).toEqual([]);
   });
 
@@ -933,7 +939,7 @@ describe('revue adverse — l’aperçu : sorties, séances vidées, remplaçant
     b.ctx.__choix.surChoix('refuser');
     const v = b.vue();
     expect(v.routines.map((r) => r.nom)).toEqual(['Bas A', 'Haut B', 'Bas B']);
-    expect(v.titre).toBe('3 séances par semaine.');
+    expect(v.titre).toBe('Ton programme de départ : 3 séances par semaine.');
     expect(v.routines.every((r) => r.exercices.length > 0 && !/≈\u00a00\u00a0min/.test(r.duree))).toBe(true);
     expect(v.libelleCreer).toBe('Créer ces 3 routines');
     await v.surCreer();

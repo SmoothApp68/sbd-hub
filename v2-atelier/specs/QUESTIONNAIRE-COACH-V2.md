@@ -498,6 +498,10 @@ semaines. », puis celle d'aujourd'hui ; **« Ce que j'ai changé · N »**, une
   clé, en une ligne) ;
 - exercice : « {exercice} {séries} × {reps} dans {séance}. » ;
 - superset : « {A} et {B} en superset dans {séance} : ≈ {gain arrondi} min de moins. ».
+Les nombres d'une ligne sont **ceux de la carte**, après le raccourci de la durée (VOIX : un libellé ne contredit
+jamais son chiffre ; décidé le 10/10, 66D bis) : un ajout dit ses séries restantes ; une série de plus dit `{de} →
+{séries restantes}`. Un changement que le raccourci a entièrement repris (l'ajout retiré, ou plus aucune série au-delà
+de `{de}`) ne se dit pas : il n'y a rien à retirer. La clé, le refus et « Remettre » ne changent pas.
 
 **Retirer ne remplace rien** (décidé le 10/10) : la clé du changement est refusée et tout est recalculé. Clés : un
 ajout `habitude` → son muscle (rien n'est ajouté pour lui) ; un ajout `tirage` → le tirage (G5 ne joue pas) ; une

@@ -16947,12 +16947,32 @@ const SETS_IMPORTES = [
     // et l'extension (3 × (90 − 15) s) ; jamais le couché à la barre (premier, barre lourde).
     const paireHaut = 'Rowing Poulie Assis et développé Couché (Haltère) en superset dans Haut U66D : ≈ 5 min de moins.';
     const paireBras = 'Curl Biceps (Haltère) et extension Triceps (Poulie Haute) en superset dans Haut U66D : ≈ 4 min de moins.';
-    const elev = 'Élévation Latérale (Haltère) 2 × 15 dans Haut U66D.';
+    // 66D bis : le nombre d'un ajout est celui de la CARTE, après le raccourci (2 séries ajoutées, une coupée).
+    const elev = 'Élévation Latérale (Haltère) 1 × 15 dans Haut U66D.';
+    // 66D bis — chaque ligne d'ajout (« {exercice} {n} × {reps} dans {séance}. ») et de séries (« {exercice} : {de} →
+    // {a} séries dans {séance}. ») dit le nombre de la carte de sa séance. Rend les écarts (vide : cohérent) et le
+    // nombre de lignes lues.
+    const ecartsALaCarte = (a) => {
+      const ecarts = []; let lues = 0;
+      a.changements.filter((l) => !l[2]).forEach((l) => {
+        const m1 = /^(.+) (\d+) × (\d+) dans (.+)\.$/.exec(l[0]), m2 = /^(.+) : \d+ → (\d+) séries dans (.+)\.$/.exec(l[0]);
+        if (!m1 && !m2) return;
+        lues++;
+        const [nomEx, n, seance] = m1 ? [m1[1], m1[2], m1[4]] : [m2[1], m2[2], m2[3]];
+        const k = a.cartes.filter((c) => c.nom === seance)[0];
+        const x = k ? k.exos.filter((e) => e[0] === nomEx)[0] : null;
+        if (!x || x[1].split(' × ')[0] !== n) ecarts.push([l[0], x ? x[1] : null]);
+      });
+      return { ecarts, lues };
+    };
     ok('[R66D] « Ce que j’ai changé · 4 » : la reprise, l’ajout, puis les deux paires, au mot près ; chaque ligne avec « Retirer », 44 px au doigt',
       ap.bloc === 'Ce que j’ai changé · 4' && JSON.stringify(ap.changements.map((l) => l.slice(0, 3))) ===
         JSON.stringify([['Bas U66D revient.', 'Retirer', false], [elev, 'Retirer', false], [paireHaut, 'Retirer', false],
           [paireBras, 'Retirer', false]]) &&
         ap.changements.every((l) => l[3] >= 44), JSON.stringify([ap.bloc, ap.changements]));
+    let coh = ecartsALaCarte(ap);
+    ok('[R66D] 66D bis — ⚠️ DISCRIMINANT : chaque ligne d’ajout dit le nombre de séries de la carte (après le raccourci), jamais celui du journal',
+      coh.lues === 1 && coh.ecarts.length === 0, JSON.stringify(coh));
     ok('[R66D] la séance reprise porte « ◆ reprise » ; chaque paire est groupée sous « Superset », dans l’ordre de la séance',
       ap.cartes[1].reprise === '◆ reprise' && ap.cartes[0].reprise === null &&
         JSON.stringify(ap.cartes[0].paires) === JSON.stringify([['Superset', 'Rowing Poulie Assis', 'Développé Couché (Haltère)'],
@@ -16980,6 +17000,9 @@ const SETS_IMPORTES = [
           [elev, 'Retirer', false], [paireBras, 'Retirer', false],
           ['Rowing Poulie Assis et développé Couché (Haltère) en séries classiques.', 'Remettre', true]]),
       JSON.stringify([ap.bloc, ap.changements, ap.cartes[0].paires]));
+    coh = ecartsALaCarte(ap);
+    ok('[R66D] 66D bis — après le recalcul aussi, chaque ligne d’ajout dit le nombre de la carte',
+      coh.ecarts.length === 0, JSON.stringify(coh));
     await geste('Rowing Poulie Assis et développé Couché (Haltère) en séries classiques.');
     ap = await apercu();
     ok('[R66D] « Remettre » : la paire revient, la ligne aussi',

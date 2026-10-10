@@ -8206,7 +8206,7 @@
     c.faites = c.routines.map(function (rt) { return faitesNoms.indexOf(rt.nom) >= 0; });
     c.changements = Generateur.changementsDeLApercu(compl.journal, assoc.journal,
       { muscles: h.refus.muscles, reprises: h.refus.reprises, tirage: h.refus.tirage, paires: h.refusPaires },
-      function (slug) { return Modele.nommer(index, slug); });
+      function (slug) { return Modele.nommer(index, slug); }, c.routines);   // 66D bis : les nombres de la carte
     c.ajouts = {};
     c.reprises = {};
     compl.journal.forEach(function (j) {

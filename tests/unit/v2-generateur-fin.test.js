@@ -268,3 +268,50 @@ describe('66D — la création : une paire s’écrit en superset (`Routines.rou
     expect(sans.exercices.map((e) => [e.groupe_superset, e.repos_cible_s])).toEqual([[null, 180], [null, 120]]);
   });
 });
+
+// 66D bis — LES NOMBRES D'UNE LIGNE SONT CEUX DE LA CARTE (VOIX : un libellé ne contredit jamais son chiffre). Les
+// cartes sont celles de l'aperçu, après le raccourci de la durée : chaque test leur retire des séries et lit la ligne.
+describe('66D bis — « Ce que j’ai changé » lit la carte, pas le journal', () => {
+  const ajout = { type: 'exercice', motif: 'habitude', muscle: 'deltoide_lateral', routine: 'Haut',
+    exercise_slug: 'elevation', series: 2, reps: 15 };
+  const plus = [{ type: 'serie', motif: 'tirage', muscle: 'grand_dorsal', routine: 'Haut', exercise_slug: 'rowing', de: 3, a: 4 },
+                { type: 'serie', motif: 'tirage', muscle: 'grand_dorsal', routine: 'Haut', exercise_slug: 'rowing', de: 4, a: 5 }];
+  const paire = { type: 'superset', routine: 'Haut', a: 'rowing', b: 'couche', gain_s: 315 };
+  const carte = (rowing, elevation, groupeCouche) => [{ nom: 'Haut', exercices: [
+    { exercise_slug: 'rowing', series: rowing, reps: 10, groupe_superset: 1 },
+    { exercise_slug: 'couche', series: 3, reps: 10, groupe_superset: groupeCouche === undefined ? 1 : groupeCouche }]
+    .concat(elevation ? [{ exercise_slug: 'elevation', series: elevation, reps: 15, groupe_superset: null }] : []) }];
+  const textes = (cartes) => G.changementsDeLApercu([plus[0], plus[1], ajout], [paire], {}, identite, cartes).map((l) => l.texte);
+
+  test('⚠️ DISCRIMINANT — un ajout 2 × 15 que la carte montre à 1 × 15 : « … 1 × 15 dans … » ; une série de plus 3 → 5 ramenée à 4 : « 3 → 4 séries »', () => {
+    expect(textes(carte(4, 1))).toEqual(['rowing : 3 → 4 séries dans Haut.', 'elevation 1 × 15 dans Haut.',
+      'rowing et couche en superset dans Haut : ≈ 5 min de moins.']);
+    // Sans le raccourci, les nombres sont ceux du journal (la carte les montre aussi).
+    expect(textes(carte(5, 2))).toEqual(['rowing : 3 → 5 séries dans Haut.', 'elevation 2 × 15 dans Haut.',
+      'rowing et couche en superset dans Haut : ≈ 5 min de moins.']);
+  });
+
+  test('une série de plus ramenée à `de`, un ajout retiré par le raccourci : pas de ligne — N diminue', () => {
+    expect(textes(carte(3, 0))).toEqual(['rowing et couche en superset dans Haut : ≈ 5 min de moins.']);
+    expect(G.changementsDeLApercu([plus[0], plus[1], ajout], [], {}, identite, carte(3, 0))).toEqual([]);
+  });
+
+  test('une paire dont le raccourci a défait le superset n’est plus dite ; reprise et refus inchangés', () => {
+    const l = G.changementsDeLApercu([{ type: 'reprise', routine: 'Bas' }], [paire], { muscles: ['biceps'] }, identite,
+      carte(5, 2, null));
+    expect(l.map((x) => [x.cle, x.texte, x.retire])).toEqual([['reprise:Bas', 'Bas revient.', false],
+      ['muscle:biceps', 'Biceps : rien d’ajouté.', true]]);
+  });
+
+  test('Léa (`associer-lea` puis le raccourci de l’app) : chaque nombre dit est celui de la carte', () => {
+    const lea = DONNEES_66C.cas.filter((x) => x.nom === 'reel-lea')[0];
+    const compl = G.completer(Object.assign(copie(lea.entree), { catalogue: DONNEES_66C.catalogue }));
+    const assoc = G.associer(entreeDe(cas('associer-lea')));
+    // La carte : la sortie d'`associer`, l'extension du triceps raccourcie à une série.
+    const cartes = copie(assoc.routines);
+    routine({ routines: cartes }, 'DOS B').exercices.filter((x) => x.exercise_slug === 'extension_triceps_poulie_haute')[0].series = 1;
+    expect(G.changementsDeLApercu(compl.journal, assoc.journal, {}, identite, cartes).map((x) => x.texte)).toEqual([
+      'DOS A revient.', 'developpe_couche_haltere 3 × 10 dans DOS B.', 'extension_triceps_poulie_haute 1 × 10 dans DOS B.',
+      'rowing_poulie_assis et developpe_couche_haltere en superset dans DOS B : ≈ 5 min de moins.']);
+  });
+});

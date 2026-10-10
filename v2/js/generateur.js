@@ -1294,9 +1294,27 @@
   // plus d'un même exercice, pour une même clé et une même séance, en une ligne : `de` le premier, `a` le dernier),
   // puis chaque clé refusée en une ligne `retire` — muscles, reprises, tirage, paires. Clés : `muscle:<muscle>`,
   // `tirage`, `reprise:<séance>`, `paire:<séance>:<a>:<b>`. Le second nom d'une phrase prend sa minuscule (maquette v2).
-  function changementsDeLApercu(journalCompl, journalAssoc, refus, nommer) {
+  //
+  // 66D bis — `cartes` : les routines que montrent les cartes (après le raccourci de la durée et les voisins fondus).
+  // LES NOMBRES D'UNE LIGNE SONT CEUX DE LA CARTE (VOIX : un libellé ne contredit jamais son chiffre) : un ajout dit
+  // ses séries restantes, une série de plus `{de} → {séries restantes}` ; un changement que le raccourci a entièrement
+  // repris (l'ajout absent de la carte, plus aucune série au-delà de `de`) ne se dit pas, et une paire dont un membre
+  // n'est plus dans le même superset de la carte non plus. Sans `cartes`, les nombres du journal.
+  function changementsDeLApercu(journalCompl, journalAssoc, refus, nommer, cartes) {
     var Semaine = racine.THSemaine;
     var rf = refus || {}, nom = nommer || function (s) { return s; };
+    var avecCartes = cartes !== undefined && cartes !== null;
+    var carteDe = function (seance) { return liste(cartes).filter(function (r) { return r && r.nom === seance; })[0] || null; };
+    // Les séries d'un exercice dans la carte de sa séance (0 : il n'y est plus).
+    var seriesDansLaCarte = function (seance, slug) {
+      return liste((carteDe(seance) || {}).exercices).reduce(function (t, x) {
+        return t + (x.exercise_slug === slug ? (Number(x.series) || 0) : 0);
+      }, 0);
+    };
+    var groupeDansLaCarte = function (seance, slug) {
+      var x = liste((carteDe(seance) || {}).exercices).filter(function (y) { return y.exercise_slug === slug; })[0];
+      return x && x.groupe_superset !== null && x.groupe_superset !== undefined ? x.groupe_superset : null;
+    };
     var bas = function (t) { t = String(t); return t.charAt(0).toLowerCase() + t.slice(1); };
     var cleDe = function (j) { return j.motif === 'tirage' ? 'tirage' : 'muscle:' + j.muscle; };
     var lignes = [], series = {};
@@ -1309,17 +1327,27 @@
         series[id] = { cle: cleDe(j), j: j, de: j.de, a: j.a };
         lignes.push(series[id]);
       } else if (j.type === 'exercice') {
-        var combien = j.reps === null || j.reps === undefined ? j.series + ' séries' : j.series + ' × ' + j.reps;
+        var n = avecCartes ? seriesDansLaCarte(j.routine, j.exercise_slug) : j.series;
+        if (n <= 0) return;                                  // le raccourci l'a repris : rien à dire, rien à retirer
+        var combien = j.reps === null || j.reps === undefined ? n + ' séries' : n + ' × ' + j.reps;
         lignes.push({ cle: cleDe(j), texte: nom(j.exercise_slug) + ' ' + combien + ' dans ' + j.routine + '.', retire: false });
       }
     });
-    lignes = lignes.map(function (l) {
+    lignes = lignes.filter(function (l) {
+      if (!l.j || !avecCartes) return true;
+      l.a = seriesDansLaCarte(l.j.routine, l.j.exercise_slug);
+      return l.a > l.de;                                      // plus aucune série au-delà de `de` : rien à dire
+    }).map(function (l) {
       if (!l.j) return l;
       return { cle: l.cle, texte: nom(l.j.exercise_slug) + ' : ' + l.de + ' → ' + l.a + ' séries dans ' + l.j.routine + '.',
                retire: false };
     });
     liste(journalAssoc).forEach(function (j) {
       if (j.type !== 'superset') return;
+      if (avecCartes) {
+        var ga = groupeDansLaCarte(j.routine, j.a);
+        if (ga === null || ga !== groupeDansLaCarte(j.routine, j.b)) return;   // ce n'est plus une paire
+      }
       lignes.push({ cle: 'paire:' + j.routine + ':' + j.a + ':' + j.b,
                     texte: nom(j.a) + ' et ' + bas(nom(j.b)) + ' en superset dans ' + j.routine + ' : ≈ ' +
                       Math.round(j.gain_s / 60) + ' min de moins.', retire: false });

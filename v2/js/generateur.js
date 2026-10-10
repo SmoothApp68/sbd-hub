@@ -491,7 +491,9 @@
       }
     }
     // `total` : le nombre de séances du programme, quand toutes ne sont pas encore à créer (une reprise après panne).
-    return { titre: (total === undefined ? rts.length : total) + ' séances par semaine.', zones: zones, barreFixe: barre };
+    // 66D : avec un historique, une seule séance est possible (« 1 séance par semaine. »).
+    var n = total === undefined ? rts.length : total;
+    return { titre: n + (n > 1 ? ' séances' : ' séance') + ' par semaine.', zones: zones, barreFixe: barre };
   }
 
   // ── Ce que le raccourci de la durée ne touche pas (R4/R6, 60-5) ──────────────────────

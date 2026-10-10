@@ -285,6 +285,68 @@ describe('le rendu de l’aperçu', () => {
     expect([cree, ferme]).toEqual([1, 1]);
   });
 
+  test('66D — « Ce que j’ai changé · N » : une ligne par changement, « Retirer » / « Remettre » rendent leur indice ; sans ligne, aucun bloc', () => {
+    const cible = document.createElement('div');
+    const touches = [];
+    Rendu().rendreApercuProgramme(cible, vue({
+      changements: { titre: 'Ce que j’ai changé · 1', lignes: [
+        { texte: 'DOS A revient.', retire: false, libelle: 'Retirer' },
+        { texte: 'Pectoraux : rien d’ajouté.', retire: true, libelle: 'Remettre' }] },
+      surChangement: (n) => touches.push(n) }));
+    const bloc = cible.querySelector('.ap-changements');
+    expect(texte(bloc.querySelector('.ap-chg-titre'))).toBe('Ce que j’ai changé · 1');
+    const lignes = bloc.querySelectorAll('.ap-chg');
+    expect(Array.from(lignes).map((l) => [texte(l.querySelector('.ap-chg-texte')), texte(l.querySelector('button')),
+      l.classList.contains('retire')])).toEqual([['DOS A revient.', 'Retirer', false], ['Pectoraux : rien d’ajouté.', 'Remettre', true]]);
+    lignes[1].querySelector('button').click();
+    lignes[0].querySelector('button').click();
+    expect(touches).toEqual([1, 0]);
+    // Le bloc vient après la voix et avant les cartes.
+    const ordre = Array.from(cible.children).map((n) => n.className);
+    expect(ordre.indexOf('ap-changements')).toBeGreaterThan(ordre.lastIndexOf('q-voix apercu-voix'));
+    expect(ordre.indexOf('ap-changements')).toBeLessThan(ordre.indexOf('apercu-programme'));
+    const sans = document.createElement('div');
+    Rendu().rendreApercuProgramme(sans, vue({ changements: null }));
+    expect(sans.querySelector('.ap-changements')).toBeNull();
+    Rendu().rendreApercuProgramme(sans, vue({ changements: { titre: 'Ce que j’ai changé · 0', lignes: [] } }));
+    expect(sans.querySelector('.ap-changements')).toBeNull();
+  });
+
+  test('66D — une séance reprise porte « ◆ reprise » (hors du nom) ; deux voisins au même `paire` : un bloc « Superset », les indices gardés', () => {
+    const cible = document.createElement('div');
+    const touches = [];
+    const ex = (nom, paire, neuf) => ({ nom, series: '3' + NBSP + '×' + NBSP + '10', mentions: [], neuf: !!neuf, paire });
+    Rendu().rendreApercuProgramme(cible, vue({
+      routines: [{ nom: 'DOS B', reprise: true, duree: '≈' + NBSP + '51' + NBSP + 'min', pourquoi: '',
+        exercices: [ex('Tractions', null), ex('Rowing poulie assis', 1), ex('Développé couché haltère', 1, true),
+                    ex('Extension triceps poulie', null, true), ex('Curl', 2)] }],
+      surExercice: (i, k) => touches.push([i, k]) }));
+    const carte = cible.querySelector('.ap-routine');
+    expect(texte(carte.querySelector('.ap-nom'))).toBe('DOS B');
+    expect(texte(carte.querySelector('.ap-reprise'))).toBe('◆ reprise');
+    const paires = carte.querySelectorAll('.ap-paire');
+    expect(paires.length).toBe(1);                          // le « Curl » seul de son groupe n'est pas une paire
+    expect(texte(paires[0].querySelector('.ap-paire-t'))).toBe('Superset');
+    expect(Array.from(paires[0].querySelectorAll('.ap-ex-nom')).map(texte)).toEqual(['Rowing poulie assis', 'Développé couché haltère']);
+    expect(paires[0].querySelectorAll('.ap-ex')[1].classList.contains('neuf')).toBe(true);
+    expect(Array.from(carte.querySelectorAll('.ap-ex-nom')).map(texte)).toEqual(['Tractions', 'Rowing poulie assis',
+      'Développé couché haltère', 'Extension triceps poulie', 'Curl']);
+    paires[0].querySelectorAll('.ap-ex')[1].click();
+    carte.querySelectorAll('.ap-ex')[3].click();
+    expect(touches).toEqual([[0, 2], [0, 3]]);
+    const sansReprise = document.createElement('div');
+    Rendu().rendreApercuProgramme(sansReprise, vue());
+    expect(sansReprise.querySelector('.ap-reprise')).toBeNull();
+    expect(sansReprise.querySelector('.ap-paire')).toBeNull();
+  });
+
+  test('66D — le bouton « Retirer » se touche au doigt (44 px), et les styles de l’aperçu v2 existent', () => {
+    const css = fs.readFileSync(path.join(__dirname, '../../v2/styles.css'), 'utf8');
+    expect(css).toMatch(/\.ap-chg-geste\{[^}]*min-height:44px/);
+    ['.ap-changements{', '.ap-chg.retire{', '.ap-reprise{', '.ap-paire{', '.ap-paire-t{', '.ap-ex.neuf .ap-ex-nom::before{']
+      .forEach((sel) => expect([sel, css.indexOf(sel) >= 0]).toEqual([sel, true]));
+  });
+
   test('pendant l’écriture : « Création… », éteint ; l’erreur est dite', () => {
     const cible = document.createElement('div');
     Rendu().rendreApercuProgramme(cible, vue({ enCours: true, erreur: 'Pas de réseau : rien n’a été enregistré.' }));
@@ -1151,5 +1213,129 @@ describe('revue adverse — « Remplacer » dans l’aperçu range les écartés
       [nom('chest_press_machine'), false], [nom('pompes'), false], [nom('developpe_couche_haltere'), true]]);
     freres[2].surChoisir();                                              // un écarté se choisit encore : jamais caché
     expect(b.vue().routines[0].exercices[0].nom).toBe(nom('developpe_couche_haltere'));
+  });
+});
+
+// ═══ 66D — « CONSTRUIS-LE-MOI » AVEC UN HISTORIQUE (QUESTIONNAIRE-COACH-V2 §5 quater.5) ════════════════════════
+// Un historique forgé : deux séances déduites (« Haut », cochée ; « Bas », décochée — elle revient), des habitudes,
+// un muscle avec son fait du coach. Les règles sont celles du générateur (leurs cas sont dans `v2-generateur-fin`) :
+// ici, le CÂBLAGE — le choix, l'assemblage, « Retirer » / « Remettre », les retouches, la création.
+const HISTORIQUE = () => ({
+  habitudes: { seances_par_semaine: 2, taille_de_seance: 16, reps: {}, series: {} },
+  deduit: [
+    { nom: 'Haut', fois: 8, derniere: '2026-10-01', cochee: true, exercices: [
+      { exercise_slug: 'developpe_couche_barre', series: 4, reps: 6, chauffes: 2 },
+      { exercise_slug: 'rowing_poulie_assis', series: 3, reps: 10, chauffes: 0 },
+      { exercise_slug: 'developpe_couche_haltere', series: 3, reps: 10, chauffes: 0 },
+      { exercise_slug: 'curl_biceps_haltere', series: 3, reps: 12, chauffes: 0 },
+      { exercise_slug: 'extension_triceps_poulie_haute', series: 3, reps: 12, chauffes: 0 }] },
+    { nom: 'Bas', fois: 5, derniere: '2026-08-20', cochee: false, exercices: [
+      { exercise_slug: 'squat_barre', series: 4, reps: 5, chauffes: 2 },
+      { exercise_slug: 'presse_a_cuisses', series: 3, reps: 10, chauffes: 0 },
+      { exercise_slug: 'leg_curl_assis', series: 3, reps: 12, chauffes: 0 }] }],
+  derniere: '2026-10-01T18:00:00.000Z',
+  volume: { pectoraux: { moyenne: 6, seuil: 6, max: 9, fenetres: 8 } }
+});
+
+describe('66D — « Construis-le-moi » avec un historique : le choix, l’aperçu, Retirer / Remettre', () => {
+  test('le programme déduit complété : le titre, la voix des 12 semaines, « Ce que j’ai changé · 2 », la reprise marquée ; rien n’est écrit', async () => {
+    const b = bac(HISTORIQUE());
+    await b.appel('ouvrirApercuProgramme()');
+    const v = b.vue();
+    expect(v.titre).toBe('2 séances par semaine.');
+    expect(v.voix.slice(0, 2)).toEqual(['Ce sont tes séances des 12 dernières semaines.',
+      'Je te propose tes charges à chaque séance. Touche un exercice pour le changer.']);
+    // « Bas » revient (G3) ; le tirage rattrape la poussée (G5 : 3 séries de rowing pour 7 de couché) jusqu'à 5 séries.
+    expect(v.changements).toEqual({ titre: 'Ce que j’ai changé · 2',
+      lignes: [{ texte: 'Bas revient.', retire: false, libelle: 'Retirer' },
+               { texte: nom('rowing_poulie_assis') + ' : 3 → 5 séries dans Haut.', retire: false, libelle: 'Retirer' }] });
+    expect(v.routines.map((r) => [r.nom, r.reprise])).toEqual([['Haut', false], ['Bas', true]]);
+    expect(v.routines[0].exercices.map((x) => x.nom)).toEqual(['developpe_couche_barre', 'rowing_poulie_assis',
+      'developpe_couche_haltere', 'curl_biceps_haltere', 'extension_triceps_poulie_haute'].map(nom));
+    expect(b.journal.routines).toEqual([]);
+    expect(b.journal.profil).toEqual([]);
+  });
+
+  test('⚠️ DISCRIMINANT — sans habitudes, sans séance déduite ou sans aucun fait du coach : le gabarit, « Ton programme de départ »', async () => {
+    for (const manque of [{ habitudes: null }, { deduit: [] }, { volume: { pectoraux: null } }]) {
+      const b = bac(Object.assign(HISTORIQUE(), manque));
+      await b.appel('ouvrirApercuProgramme()');
+      expect([JSON.stringify(manque), b.vue().titre, b.vue().changements]).toEqual(
+        [JSON.stringify(manque), 'Ton programme de départ : 4 séances par semaine.', null]);
+    }
+  });
+
+  test('le fait du coach se lit jusqu’à la semaine de la DERNIÈRE séance comprise : `avant` = le lundi qui suit', async () => {
+    const vus = [];
+    const b = bac(HISTORIQUE());
+    b.ctx.volumeDuCoach = (avant) => { vus.push(avant); return HISTORIQUE().volume; };
+    await b.appel('ouvrirApercuProgramme()');
+    // La dernière séance, le jeudi 1er octobre 2026 : sa semaine commence le lundi 28 septembre ; `avant` est le 5 octobre.
+    expect(vus.length).toBe(1);
+    const d = new Date(vus[0]);
+    expect([d.getFullYear(), d.getMonth() + 1, d.getDate(), d.getDay()]).toEqual([2026, 10, 5, 1]);
+  });
+
+  test('« Retirer » puis « Remettre » : la reprise refusée ne revient pas, aucune autre à sa place ; rien n’est écrit', async () => {
+    const b = bac(HISTORIQUE());
+    await b.appel('ouvrirApercuProgramme()');
+    b.vue().surChangement(0);
+    let v = b.vue();
+    expect(v.routines.map((r) => r.nom)).toEqual(['Haut']);
+    // La ligne retirée passe à la fin, avec « Remettre ».
+    expect(v.changements.titre).toBe('Ce que j’ai changé · 1');
+    expect(v.changements.lignes.map((l) => [l.texte, l.libelle])).toEqual([
+      [nom('rowing_poulie_assis') + ' : 3 → 5 séries dans Haut.', 'Retirer'], ['Bas ne revient pas.', 'Remettre']]);
+    expect(v.titre).toBe('1 séance par semaine.');
+    b.vue().surChangement(1);
+    v = b.vue();
+    expect(v.routines.map((r) => r.nom)).toEqual(['Haut', 'Bas']);
+    expect(v.changements.lignes.map((l) => [l.texte, l.retire])).toEqual([['Bas revient.', false],
+      [nom('rowing_poulie_assis') + ' : 3 → 5 séries dans Haut.', false]]);
+    expect(b.journal.profil).toEqual([]);
+    expect(b.journal.routines).toEqual([]);
+  });
+
+  test('« Je n’en veux pas » survit à un « Retirer » : la retouche est réappliquée, l’écarté écrit une fois, au geste', async () => {
+    const b = bac(HISTORIQUE());
+    await b.appel('ouvrirApercuProgramme()');
+    const k = b.vue().routines[0].exercices.findIndex((x) => x.nom === nom('curl_biceps_haltere'));
+    b.vue().surExercice(0, k);
+    b.ctx.__choix.surChoix('refuser');
+    const remplace = b.vue().routines[0].exercices[k];
+    expect(remplace.nom).not.toBe(nom('curl_biceps_haltere'));
+    expect(remplace.neuf).toBe(true);
+    expect(b.journal.profil).toEqual([{ exercices_ecartes: ['curl_biceps_haltere'] }]);
+    b.vue().surChangement(0);                                            // « Bas revient. » → retirée
+    const v = b.vue();
+    expect(v.routines.map((r) => r.nom)).toEqual(['Haut']);
+    expect(v.routines[0].exercices[k].nom).toBe(remplace.nom);
+    expect(v.routines[0].exercices.some((x) => x.nom === nom('curl_biceps_haltere'))).toBe(false);
+    expect(b.journal.profil.length).toBe(1);
+  });
+
+  test('le temps manque (« C’est mon maximum », 40 min) : les paires antagonistes, groupées ; la création les écrit en superset, les chauffes gardées', async () => {
+    const b = bac(Object.assign(HISTORIQUE(), { profil: { temps_reponse: 'max', duree_seance_min: 40 } }));
+    await b.appel('ouvrirApercuProgramme()');
+    const v = b.vue();
+    const haut = v.routines[0].exercices.map((x) => [x.nom, x.paire]);
+    // Jamais la barre lourde (le couché à la barre, premier) ; chaque paire, deux voisins au même groupe.
+    expect(haut[0]).toEqual([nom('developpe_couche_barre'), null]);
+    const groupes = haut.filter((x) => x[1] !== null).map((x) => x[1]);
+    expect(groupes.length).toBeGreaterThanOrEqual(2);
+    expect(v.changements.lignes.some((l) => / en superset dans Haut : ≈ \d+ min de moins\.$/.test(l.texte))).toBe(true);
+    await b.vue().surCreer();
+    const exos = b.journal.exercices[0].slice().sort((x, y) => x.rang - y.rang);
+    const paires = {};
+    exos.forEach((e) => { if (e.groupe_superset !== null) (paires[e.groupe_superset] = paires[e.groupe_superset] || []).push(e); });
+    expect(Object.keys(paires).length).toBeGreaterThanOrEqual(1);
+    Object.keys(paires).forEach((g) => {
+      expect(paires[g].length).toBe(2);
+      expect(paires[g][0].repos_cible_s).toBe(null);                  // le membre non final : le repos du superset
+      expect(paires[g][1].repos_cible_s).toBeGreaterThan(0);
+    });
+    // Les chauffes de la personne restent : deux au couché à la barre.
+    const couche = exos.find((e) => e.exercise_slug === 'developpe_couche_barre');
+    expect(b.journal.seriesDe[couche.id].filter((s) => s.type_serie === 'echauffement').length).toBe(2);
   });
 });

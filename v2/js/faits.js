@@ -404,7 +404,7 @@
 
     // ── La dernière séance de la personne (66D, QUESTIONNAIRE-COACH-V2 §5 quater.5) ──
     //
-    // Le début de sa séance la plus récente qui a des séries (`seancesAvecSeries`, avec son mémo) : là où finit SA
+    // Le début de sa séance datée la plus récente (`seancesAvecSeries`, avec son mémo) : là où finit SA
     // fenêtre (`Routines.fenetreDeLaPersonne`), celle de l'historique des exercices et des habitudes — et, pour
     // « Construis-le-moi », la semaine jusqu'à laquelle le fait du coach se lit. `null` sans séance datée.
     function seancesDatees(c) {

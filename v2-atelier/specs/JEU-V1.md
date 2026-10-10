@@ -12,7 +12,7 @@ Remplace, pour la construction, `GAMIFICATION-V3.md` et sa révision du 09/10 (p
    (`Modele.estTravail`), les muscles du catalogue et leur zone (`Semaine.zoneDuMuscle`, le regroupement du radar), le
    lundi d'une séance (`Semaine.bornesSemaine`, heure locale de l'appareil), les records du journal
    (`recordsDuJournal`, MOTEUR §9.23), les maximums des barres (`ceQueJeSais`), les exercices faits (`compterExercices`).
-3. **Tout se recalcule** depuis l'historique ; rien n'est stocké que l'interrupteur (`profiles.jeu_actif`, PR suivante).
+3. **Tout se recalcule** depuis l'historique ; rien n'est stocké que l'interrupteur (`profiles.jeu_actif`, v2_068, `NOT NULL DEFAULT true`).
    Les gels aussi : leur règle est une fonction pure des semaines.
 4. **Pur** : `etatDuJeu(entree)` ne lit ni l'horloge (le jour est passé : `aujourdhui`), ni le DOM, ni le réseau.
 5. **L'XP ne vient que de l'entraînement réel.** Supprimer une séance de test la retire du jeu : c'est une correction.
@@ -128,5 +128,96 @@ unités de la catégorie (points, séances, semaines, séries médaillées, km, 
 | `maximums` | `ceQueJeSais(c, aujourdhui, BARRES_DU_JEU).maximums` |
 | `exercicesFaits` | `compterExercices(c).faits` |
 
+**La séance en cours** (64B, la feuille « Terminer ») : `faitsDuJeu(c, aujourdhui, enCours)`, `enCours = { seance, ligne,
+lignes }` (la séance en cours, sa ligne de séance terminée et ses séries **au format des lignes écrites**, par les
+convertisseurs qui les écrivent — aucun nouveau). L'entrée est alors celle qu'on aurait si la séance était terminée,
+**champ par champ** : `seances` + `{ id, debut }` de la séance ; `series` = celles de `c.series` **hors** cette séance (le
+cache peut en porter) + `lignes` ; `journal` = `recordsDuJournal(c)` + `journalDuJour(c, seance)` (les records que la
+feuille affiche) ; `maximums` et `exercicesFaits` calculés sur un corpus qui **inclut** la séance (sinon un cap rond ou
+une découverte gagnés pendant la séance n'apparaîtraient qu'après « Terminer »). Rien n'est écrit. Sans `enCours`, rien
+ne change.
+
 Sortie : `{ semaines, muscles, xp, niveau, succes, titres, titre, cadres, cadre, prochains, plusProche }` (forme exacte
 dans le fichier de cas).
+
+## 9. Les écrans (64B, maquette `maquette-jeu-v6.html`)
+
+### 9.1 L'interrupteur
+
+- `profiles.jeu_actif` ; **absent** (cache ancien, profil pas encore lu) = **actif**. Il s'écrit comme les autres champs
+  du profil (`champsEcrits`, la file d'envoi) et l'écran suit **tout de suite**, sans attendre le réseau.
+- **Éteint** : pas d'onglet Jeu, pas de bloc « Le jeu » à la fin de séance, pas d'hexagone ni de titre ni de vitrine au
+  Profil ; une route `/jeu…` s'ouvre comme une route inconnue. Seul reste l'interrupteur. Rien n'est effacé.
+
+### 9.2 L'onglet Jeu
+
+- Un **cinquième onglet**, entre Progression et Profil, icône hexagone, nom « Jeu », route `/jeu`. Trois sous-vues,
+  `/jeu/muscles`, `/jeu/succes`, `/jeu/deblocages` : l'onglet Jeu reste allumé, le retour d'Android remonte à `/jeu`.
+- **L'accueil**, trois blocs puis trois portes :
+  1. **le niveau** : l'hexagone (couleur du niveau global : gris < 25, bleu 25–49, violet 50–74, or ≥ 75), « Niveau N »,
+     le titre affiché s'il y en a un, une jauge (part faite du niveau en cours), « niveau N+1 dans R points » (R arrondi
+     à l'entier supérieur). À 100 : « Niveau 100 », jauge pleine, sans « prochain » (l'Ω ne se montre qu'au Profil,
+     §4). À 0 : hexagone « 0 », « niveau 1 dans R points » ;
+  2. **la série** : « S semaines d'affilée », « gels : r sur 2 », « Meilleure série : M semaines ». Série à 0 : seule la
+     meilleure se dit (jamais « 0 semaine », jamais « série perdue ») ; aucune semaine active : le bloc n'apparaît pas ;
+  3. **le plus proche** : les **trois** entrées de `prochains` dont `fait` est le plus grand (à égalité, l'ordre de la
+     liste ; la première est `plusProche`). Muscle : « Tronc, niveau 23 · dans 7 points » (Cardio : « min ») ;
+     catégorie : « Séances : 1 000 · dans 387 séances », « Série : 26 semaines · dans 3 semaines », « Records : 2 500 ·
+     dans 412 records », « Randonnée : 250 km · dans 93 km », « Découverte : 25 exercices · dans 4 exercices ». Les
+     restes s'arrondissent à l'entier supérieur ;
+  4. trois lignes qui ouvrent **Muscles** (« 7 »), **Succès** (« N · P points »), **Déblocages** (« cadres, gels »).
+- **Muscles** : les sept dans l'ordre du jeu (§3, jamais trié) ; hexagone du niveau (gris < 10, bleu 10–29, violet
+  30–49, or 50), jauge, « niveau n+1 dans R points » (« min » pour Cardio ; à 50 : « niveau maximal ») ; une phrase :
+  « Une série de travail donne 1 point au muscle qu'elle travaille, ½ à celui qui aide. Cardio : 1 point par minute. »
+- **Libellés** : un succès se nomme par sa catégorie et son palier (« 1 000 séances », « 104 semaines », « Épaules
+  niveau 40 », « Tous les muscles à 30 », « Grande sortie : 20 km ») ; un cap rond par le nom court de l'exercice, comme
+  la médaille (« Cap rond : développé couché 140 kg »). **Singulier** quand le nombre vaut 1 (« dans 1 point »,
+  « 1 semaine d'affilée », « +1 point »).
+- **Succès** : par catégorie de §5, « obtenus / total · prochain : palier » (les caps ronds : le nombre seul ; une
+  catégorie complète : sans « prochain ») ; la légende des quatre raretés et leurs points ; les **titres**, obtenus
+  (« ✓ ») ou non, avec, pour le premier titre de muscles non obtenu, le muscle le plus bas (« Tronc à 22 ») ; le titre
+  affiché marqué « affiché ».
+- **Déblocages** : les quatre cadres, obtenus ou non, avec leur condition, et lequel est affiché ; les gels : réserve,
+  « prochain gel dans N semaines » ou « réserve pleine », et les semaines protégées (« semaine du 4 août 2025 »).
+
+### 9.3 Le Profil
+
+Trois ajouts, rien d'autre ne bouge : l'**hexagone du niveau** à la place de l'initiale, entouré du **cadre affiché**
+(vitrine : liseré acier ; niveau : liseré acier épais ; or : liseré or ; gravé : double liseré or) ; le **titre** avec
+le niveau sous le nom (« Polyvalent · niveau 87 » ; après 100 : « niveau 100 · Ωk ») ; la **vitrine** ; et, en bas, le bloc **Le jeu** avec
+l'interrupteur « Activer le jeu » et sa phrase.
+
+**La vitrine est automatique** (V1) : les trois succès les plus rares ; à rareté égale, celui qui vient le plus tard
+dans `succes.ids`. Moins de trois : ce qu'il y a ; aucun : pas de vitrine. Chaque case : l'hexagone à la couleur de sa
+rareté, le libellé, un bord neutre (le cadre est celui de l'hexagone du nom, pas des cases). Phrase : « Tes trois succès
+les plus rares. »
+
+### 9.4 La fin de séance
+
+Dans la feuille « Terminer », après les records : un bloc **Le jeu**, ce que la séance ajoute — `etatDuJeu` sans elle,
+puis avec elle (§8, `enCours`), comparés par `apport(avant, apres)` :
+- « XP · +N » si N > 0 ;
+- le niveau global, s'il monte (« Niveau 88 · +1 » ; l'Ω ne se montre pas ici) ;
+- chaque muscle dont le niveau monte, dans l'ordre du jeu (« Épaules, niveau 43 · +1 ») ;
+- chaque succès gagné, dans l'ordre de `succes.ids`, avec sa rareté (« Succès : Épaules niveau 40 · exceptionnel ») ;
+- si aucune de ces lignes n'a lieu d'être : « Muscles · +N points » (somme des points gagnés, arrondie à l'entier
+  supérieur).
+
+Sans aucune ligne (rien gagné), ou si le calcul échoue : **pas de bloc du tout** — jamais un bloc vide, et jamais une
+erreur qui empêche « Terminer » ou « Abandonner ». Le bloc se recalcule quand les séries validées de la séance changent,
+pas à la frappe d'un titre ou d'une note.
+
+### 9.5 Ce que le module ajoute
+
+Trois fonctions pures de `jeu.js`, tirées des **mêmes tables** que `etatDuJeu` (aucune recopiée) :
+- `descriptionDuSucces(id)` → `{ categorie, cle, palier, rarete, points }` (`cle` : la clé du muscle ou le slug du cap) ;
+- `vitrine(etat)` → les identifiants de §9.3, au plus trois ;
+- `apport(avant, apres)` → `{ xp, niveau: { de, a } | null, muscles: [{ cle, de, a }], succes: [id], points }`.
+
+### 9.6 La forme
+
+La forge (anthracite, acier, or des records, Barlow). **Aucun ambre dans les écrans du jeu** : l'ambre est la voix du
+coach. Seule exception, la barre d'onglets : l'onglet Jeu s'allume comme les autres. Couleurs des raretés : les
+variables de la forge `--rarete-1` à `--rarete-3` (commun gris, rare bleu, exceptionnel violet) ; **majeur = l'or des
+records** (`--medaille`), jamais une teinte proche de l'ambre. Pas de rouge, pas de « dernier », pas de phrase sur
+l'assiduité, pas de « bravo ».

@@ -486,22 +486,59 @@
     // ⚠️ UN SEUL FIL : les faits nourrissent le jeu, ils ne le lisent pas — ce
     // module n'appelle pas le jeu. Les barres des caps ronds sont nommées ICI,
     // une fois (JEU-V1 §5) ; le jeu traite les maximums qu'il reçoit.
+    //
+    // ── LA SÉANCE EN COURS (64B, JEU-V1 §8, la feuille « Terminer ») ──
+    // `enCours = { seance, ligne, lignes }` : le brouillon, sa ligne de séance
+    // terminée et ses séries AU FORMAT DES LIGNES ÉCRITES (`Seance.ligneSession`,
+    // `Seance.lignes`, calculés par l'écran — aucun convertisseur ici). L'entrée
+    // est alors celle qu'on aurait si la séance était terminée : la séance
+    // remplace sa copie éventuelle du cache, ses séries remplacent celles que le
+    // cache porterait déjà (jamais deux fois), le journal reçoit ses records
+    // (`journalDuJour`, ceux que la feuille affiche). Les maximums et les
+    // exercices faits se calculent sur un corpus qui l'INCLUT, par une INSTANCE À
+    // PART (`creer()`) : les mémos de celle-ci (clé « séances | séries »,
+    // `datesExercices` à oubli explicite) ne voient jamais ce corpus-là. Rien
+    // n'est écrit. Sans `enCours`, rien ne change.
     var BARRES_DU_JEU = ['developpe_couche_barre', 'squat_barre', 'souleve_de_terre_barre', 'developpe_militaire_barre'];
-    function faitsDuJeu(c, aujourdhui) {
-      var seances = (c.seances || []).filter(Boolean).map(function (s) { return { id: s.id, debut: s.debut }; });
+    function corpusAvecLaSeance(c, enCours) {
+      var id = enCours.seance.id;
+      return {
+        seances: [enCours.ligne].concat((c.seances || []).filter(function (s) { return s && s.id !== id; })),
+        series: (c.series || []).filter(function (x) { return x && x.session_id !== id; }).concat(enCours.lignes),
+        exercices: c.exercices,
+        seriesDe: function (sid) { return sid === id ? enCours.lignes : c.seriesDe(sid); },
+        catalogue: c.catalogue,
+        journal: c.journal
+      };
+    }
+    function faitsDuJeu(c, aujourdhui, enCours) {
+      var ici = enCours && enCours.seance ? enCours : null;
+      var idIci = ici ? ici.seance.id : null;
+      var seances = (c.seances || []).filter(function (s) { return s && (!ici || s.id !== idIci); })
+        .map(function (s) { return { id: s.id, debut: s.debut }; });
+      if (ici) seances.push({ id: idIci, debut: ici.seance.debut });
       var ids = {};
       seances.forEach(function (s) { ids[s.id] = true; });
       var series = (c.series || []).filter(function (x) {
-        return x && Object.prototype.hasOwnProperty.call(ids, x.session_id);
+        return x && (!ici || x.session_id !== idIci) && Object.prototype.hasOwnProperty.call(ids, x.session_id);
       });
+      var journal = recordsDuJournal(c);
+      var avec = null;
+      if (ici) {
+        series = series.concat(ici.lignes || []);
+        journal = journal.concat(journalDuJour(c, ici.seance, null));
+        var corpus = corpusAvecLaSeance(c, ici), aPart = creer();
+        avec = { maximums: aPart.ceQueJeSais(corpus, aujourdhui, BARRES_DU_JEU).maximums,
+                 exercicesFaits: aPart.compterExercices(corpus).faits };
+      }
       return {
         aujourdhui: aujourdhui,
         seances: seances,
         series: series,
         catalogue: c.catalogue(),
-        journal: recordsDuJournal(c),
-        maximums: ceQueJeSais(c, aujourdhui, BARRES_DU_JEU).maximums,
-        exercicesFaits: compterExercices(c).faits
+        journal: journal,
+        maximums: avec ? avec.maximums : ceQueJeSais(c, aujourdhui, BARRES_DU_JEU).maximums,
+        exercicesFaits: avec ? avec.exercicesFaits : compterExercices(c).faits
       };
     }
 

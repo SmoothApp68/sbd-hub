@@ -313,8 +313,199 @@
     };
   }
 
+  // ── §9.5 Ce que les écrans lisent (64B) ──────────────────────────────────
+  //
+  // Tirés des MÊMES tables que `etatDuJeu` : un écran ne refait ni la
+  // description d'un succès, ni la vitrine, ni l'apport d'une séance.
+
+  function raretePoints(rarete) { return { rarete: rarete, points: RARETES[rarete].points }; }
+
+  // `{ categorie, cle, palier, rarete, points }` — `cle` : la clé du muscle ou
+  // le slug du cap, `null` ailleurs. Un identifiant que le jeu ne donne pas : `null`.
+  function descriptionDuSucces(id) {
+    if (typeof id !== 'string') return null;
+    var d = function (categorie, cle, palier, rarete) {
+      var r = raretePoints(rarete);
+      return { categorie: categorie, cle: cle, palier: palier, rarete: r.rarete, points: r.points };
+    };
+    if (id === SUCCES_SORTIE) return d('sortie', null, SORTIE_M / METRES_PAR_KM, RARETE_SORTIE);
+    var m = /^muscle-([a-z_]+)-(\d+)$/.exec(id);
+    if (m) {
+      if (ORDRE_DES_MUSCLES.indexOf(m[1]) < 0) return null;
+      var pm = PALIERS_MUSCLE.filter(function (p) { return String(p[0]) === m[2]; })[0];
+      return pm ? d('muscle', m[1], pm[0], pm[1]) : null;
+    }
+    m = /^tous-(\d+)$/.exec(id);
+    if (m) {
+      var pt = PALIERS_TOUS.filter(function (p) { return String(p[0]) === m[1]; })[0];
+      return pt ? d('tous', null, pt[0], pt[1]) : null;
+    }
+    m = /^cap-(.+)-(\d+)$/.exec(id);
+    if (m) {
+      var k = Number(m[2]);
+      if (String(k) !== m[2] || k < CAP_PREMIER || (k - CAP_PREMIER) % CAP_PAS !== 0) return null;
+      return d('cap', m[1], k, RARETE_CAP);
+    }
+    m = /^([a-z]+)-(\d+)$/.exec(id);
+    if (m) {
+      var cat = PALIERS.filter(function (c) { return c.cle === m[1]; })[0];
+      var p = cat ? cat.paliers.filter(function (x) { return String(x[0]) === m[2]; })[0] : null;
+      return p ? d(cat.cle, null, p[0], p[1]) : null;
+    }
+    return null;
+  }
+
+  // La vitrine (§9.3) : au plus trois succès, les plus rares ; à rareté égale,
+  // celui qui vient le plus tard dans `succes.ids`. Le plus rare d'abord.
+  var TAILLE_VITRINE = 3;
+  function vitrine(etat) {
+    var ids = (etat && etat.succes && etat.succes.ids) || [];
+    return ids.map(function (id, i) {
+      var desc = descriptionDuSucces(id);
+      return { id: id, i: i, rang: desc ? RARETES[desc.rarete].rang : -1 };
+    }).filter(function (x) { return x.rang >= 0; }).sort(function (a, b) {
+      return b.rang - a.rang || b.i - a.i;
+    }).slice(0, TAILLE_VITRINE).map(function (x) { return x.id; });
+  }
+
+  // Ce qu'une séance ajoute (§9.4) : deux états du jeu, sans elle puis avec
+  // elle. L'Ω n'entre pas dans `niveau` (il ne se montre qu'au Profil).
+  function apport(avant, apres) {
+    var deja = {};
+    avant.succes.ids.forEach(function (id) { deja[id] = true; });
+    var muscles = [], points = 0;
+    ORDRE_DES_MUSCLES.forEach(function (m) {
+      var de = avant.muscles[m].niveau, a = apres.muscles[m].niveau;
+      if (a > de) muscles.push({ cle: m, de: de, a: a });
+      points += apres.muscles[m].points - avant.muscles[m].points;
+    });
+    var nAvant = avant.niveau.niveau, nApres = apres.niveau.niveau;
+    return {
+      xp: apres.xp.total - avant.xp.total,
+      niveau: nApres > nAvant ? { de: nAvant, a: nApres } : null,
+      muscles: muscles,
+      succes: apres.succes.ids.filter(function (id) { return !possede(deja, id); }),
+      points: arrondi6(points)
+    };
+  }
+
+  // Les tables, en lecture (une copie) : les écrans Succès et Déblocages disent
+  // les paliers, les raretés, les titres et les cadres sans les recopier.
+  function tables() {
+    var copie = function (paliers) {
+      return paliers.map(function (p) { return { palier: p[0], rarete: p[1], points: RARETES[p[1]].points }; });
+    };
+    return {
+      raretes: Object.keys(RARETES).map(function (r) { return { rarete: r, points: RARETES[r].points }; }),
+      categories: PALIERS.map(function (c) { return { cle: c.cle, paliers: copie(c.paliers) }; }),
+      sortie: { id: SUCCES_SORTIE, km: SORTIE_M / METRES_PAR_KM, rarete: RARETE_SORTIE },
+      muscles: copie(PALIERS_MUSCLE),
+      tous: copie(PALIERS_TOUS),
+      cap: { premier: CAP_PREMIER, pas: CAP_PAS, rarete: RARETE_CAP },
+      titres: TITRES.map(function (t) { return { niveau: t[0], cle: t[1] }; }),
+      collectionneur: { cle: COLLECTIONNEUR, succes: SUCCES_COLLECTIONNEUR },
+      cadres: CADRES.slice(),
+      vitrine: { succes: SUCCES_VITRINE },
+      grave: { titre: TITRE_GRAVE },
+      gels: { premier: PREMIER_GEL, pas: PAS_GEL, max: GELS_MAX },
+      niveauMaxMuscle: NIVEAU_MAX_MUSCLE,
+      niveauMax: NIVEAU_MAX
+    };
+  }
+
+  // La part faite du niveau en cours (0 à 1), pour les jauges : le niveau
+  // global (pleine à 100 — l'Ω ne se montre qu'au Profil) et chaque muscle
+  // (pleine à 50). Le coût d'un niveau reste ici.
+  function jauges(etat) {
+    var part = function (p, bas, haut) { return arrondi6(Math.min(1, Math.max(0, (p - bas) / (haut - bas)))); };
+    var n = etat.niveau.niveau, r = etat.niveau.reserve;
+    var muscles = {};
+    ORDRE_DES_MUSCLES.forEach(function (m) {
+      var x = etat.muscles[m];
+      muscles[m] = x.niveau >= NIVEAU_MAX_MUSCLE ? 1
+        : part(x.points, COUT_NIVEAU * x.niveau * x.niveau, COUT_NIVEAU * (x.niveau + 1) * (x.niveau + 1));
+    });
+    return {
+      niveau: n >= NIVEAU_MAX ? 1 : part(r, K_NIVEAU * n * n, K_NIVEAU * (n + 1) * (n + 1)),
+      muscles: muscles
+    };
+  }
+
+  // ── Les lectures des vues (64B, JEU-V1 §9.2) ─────────────────────────────
+  //
+  // Ce que l'accueil, Succès et Déblocages montrent, décidé ICI : un écran ne
+  // trie pas « le plus proche » et ne compte pas les succès d'une catégorie.
+
+  // Les trois entrées de `prochains` dont `fait` est le plus grand ; à égalité,
+  // l'ordre de la liste (la première est `plusProche`).
+  var NB_PLUS_PROCHES = 3;
+  function lesPlusProches(etat) {
+    return (etat.prochains || []).map(function (x, i) { return { x: x, i: i }; }).sort(function (a, b) {
+      if (Math.abs(b.x.fait - a.x.fait) > EPS_DEPARTAGE) return b.x.fait - a.x.fait;
+      return a.i - b.i;
+    }).slice(0, NB_PLUS_PROCHES).map(function (e) { return e.x; });
+  }
+
+  // Par catégorie de §5, dans l'ordre de la vue Succès : `{ cle, obtenus, total, prochain }` — `total` et
+  // `prochain` à `null` quand ils n'ont pas de sens (les caps ronds n'ont pas de total ; une catégorie complète
+  // n'a pas de prochain). La randonnée compte la grande sortie (quatre paliers + la sortie).
+  function parCategorie(etat) {
+    var a = {};
+    etat.succes.ids.forEach(function (id) { a[id] = true; });
+    var compte = function (prefixe, paliers) {
+      var obtenus = paliers.filter(function (p) { return possede(a, prefixe + p[0]); }).length;
+      return { obtenus: obtenus, prochain: obtenus >= paliers.length ? null : paliers[obtenus][0] };
+    };
+    var out = PALIERS.map(function (c) {
+      var r = compte(c.cle + '-', c.paliers);
+      var sortie = c.cle === 'rando' ? 1 : 0;
+      return { cle: c.cle, obtenus: r.obtenus + (sortie && possede(a, SUCCES_SORTIE) ? 1 : 0),
+               total: c.paliers.length + sortie, prochain: r.prochain };
+    });
+    var muscles = 0;
+    ORDRE_DES_MUSCLES.forEach(function (m) { muscles += compte('muscle-' + m + '-', PALIERS_MUSCLE).obtenus; });
+    out.push({ cle: 'muscle', obtenus: muscles, total: ORDRE_DES_MUSCLES.length * PALIERS_MUSCLE.length, prochain: null });
+    var tous = compte('tous-', PALIERS_TOUS);
+    out.push({ cle: 'tous', obtenus: tous.obtenus, total: PALIERS_TOUS.length, prochain: tous.prochain });
+    out.push({ cle: 'cap', obtenus: etat.succes.ids.filter(function (id) {
+      var d = descriptionDuSucces(id);
+      return !!d && d.categorie === 'cap';
+    }).length, total: null, prochain: null });
+    return out;
+  }
+
+  // Les titres et les cadres, obtenus ou non, et lequel est affiché. Pour le premier titre de muscles non obtenu :
+  // le muscle le plus bas (le premier dans l'ordre du jeu, à égalité) et son niveau.
+  function titresEtCadresDetailles(etat) {
+    var mini = null;
+    ORDRE_DES_MUSCLES.forEach(function (m) {
+      if (mini === null || etat.muscles[m].niveau < mini.niveau) mini = { cle: m, niveau: etat.muscles[m].niveau };
+    });
+    var premierManque = true;
+    var titres = TITRES.map(function (t) {
+      var obtenu = etat.titres.indexOf(t[1]) >= 0;
+      var manque = !obtenu && premierManque ? mini : null;
+      if (!obtenu) premierManque = false;
+      return { cle: t[1], niveau: t[0], obtenu: obtenu, affiche: etat.titre === t[1], manque: manque };
+    });
+    titres.push({ cle: COLLECTIONNEUR, succes: SUCCES_COLLECTIONNEUR, obtenu: etat.titres.indexOf(COLLECTIONNEUR) >= 0,
+                  affiche: etat.titre === COLLECTIONNEUR, manque: null });
+    var cadres = CADRES.map(function (c) {
+      return { cle: c, obtenu: etat.cadres.indexOf(c) >= 0, affiche: etat.cadre === c };
+    });
+    return { titres: titres, cadres: cadres };
+  }
+
   var api = {
     etatDuJeu: etatDuJeu,
+    lesPlusProches: lesPlusProches,
+    parCategorie: parCategorie,
+    titresEtCadresDetailles: titresEtCadresDetailles,
+    descriptionDuSucces: descriptionDuSucces,
+    vitrine: vitrine,
+    apport: apport,
+    tables: tables,
+    jauges: jauges,
     ORDRE_DES_MUSCLES: ORDRE_DES_MUSCLES
   };
 

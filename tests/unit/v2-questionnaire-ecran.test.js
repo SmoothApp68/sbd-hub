@@ -480,7 +480,7 @@ describe('60-2a — la décision se reprend quand la ligne de profil ARRIVE', ()
       Profil, profil: avant === undefined ? null : avant, profilAEnvoyer: false, pseudoAInscrire: null, versionProfil: 0,
       rendreBandeauQuestionnaire: () => { ctx.bandeaux = (ctx.bandeaux || 0) + 1; },
       rendreBandeauPhase: () => { ctx.bandeauxPhase = (ctx.bandeauxPhase || 0) + 1; },
-      rendreCarteCycles: () => {},
+      rendreCarteCycles: () => {}, jeuSuitLeProfil: () => {},
       sauverProfilLocal: () => Promise.resolve(), ecranCourant: 'semaine', rendreProfilEcran: () => {},
       envoyerProfil: () => Promise.resolve(),
       ouvrirQuestionnaireSiDu: () => { ouvertures.push(ctx.profil); return false; },
@@ -611,7 +611,7 @@ describe('60-2a — le routage d’entrée et la vue', () => {
       const ctx = {
         ecranCourant: 'questionnaire', questionnaire: ouvert ? { ecran: 'toi' } : null,
         fermerReorganisation: () => {}, fermerQuestionnaire: () => { fermes.push(true); ctx.questionnaire = null; },
-        Routeur: { ongletDe: () => null, PROFIL: 'profil', SAISIE: 'saisie' },
+        Routeur: { ongletDe: () => null, PROFIL: 'profil', SAISIE: 'saisie' }, appliquerJeu: () => {},
         vues: { liste: { hidden: true }, questionnaire: { hidden: false } },
         $: () => null, Rendu: { rendreOnglets: () => {} }, doc: { querySelector: () => null },
         seance: null, mesurerBarres: () => {}, marquerProfilVu: () => {}, arreterDuree: () => {}

@@ -28,6 +28,7 @@ function profilEcran(profil, options) {
   const questionnairesOuverts = [];
   const programmesOuverts = [];
   let vue = null;
+  let bandeau = null;
   const element = () => ({ textContent: '' });
   const ctx = {
     Profil, Date,
@@ -37,7 +38,13 @@ function profilEcran(profil, options) {
     Routeur: { PROFIL: 'profil', EXERCICES: 'exercices', POIDS: 'poids' },
     Poids: { resume: () => null },
     Modele: { nombreSigne: (n) => String(n), nombreGroupe: (n) => String(n) },
-    Rendu: { rendreProfil: (cible, v) => { vue = v; }, dateCourte: (d) => String(d) },
+    Rendu: { rendreProfil: (cible, v) => { vue = v; }, dateCourte: (d) => String(d),
+             // 64B — le bandeau du jeu : ce que l'écran lui passe (l'état, ou `null` jeu éteint).
+             rendreBandeauJeu: (rond, ligne, etat, initiale) => { bandeau = { etat, initiale }; } },
+    // 64B — le jeu (JEU-V1 §9.3) : `jeuAllume` est le VRAI (extrait), l'état est de papier (`options.etatJeu`).
+    etatDuJeuCourant: () => opt.etatJeu || { succes: { ids: [] } },
+    Jeu: { vitrine: (e) => (e.succes.ids || []).slice(0, 3) },
+    succesDecrit: (id) => ({ id }),
     montrer: () => {}, $: element,
     // 58-1 : le compte des exercices faits vient du module des faits.
     faits: { compterExercices: () => ({ total: 0, faits: 0 }) }, corpus: () => ({}),
@@ -58,9 +65,10 @@ function profilEcran(profil, options) {
     pseudoPrisSignale: () => !!opt.pseudoPris
   };
   vm.createContext(ctx);
+  vm.runInContext(extraire('jeuAllume'), ctx);
   vm.runInContext(extraire('rendreProfilEcran'), ctx);
   vm.runInContext('rendreProfilEcran()', ctx);
-  return { vue, ecrits, ouverts, questionnairesOuverts, programmesOuverts, section: (titre) => (vue.sections || []).filter((s) => s && s.titre === titre)[0] || null };
+  return { vue, bandeau, ecrits, ouverts, questionnairesOuverts, programmesOuverts, section: (titre) => (vue.sections || []).filter((s) => s && s.titre === titre)[0] || null };
 }
 
 module.exports = { profilEcran, extraire };

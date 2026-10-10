@@ -684,6 +684,8 @@
     'phase_confirmee_le, questionnaire_fait_le, programme_choix, ' +
     // 60-4 (`v2_066`) — le programme construit : écrites, donc relues (le même piège).
     'zones_a_menager, exercices_ecartes, programme_construit_dossier, programme_construit_le, carte_cycles_le, ' +
+    // 64B (`v2_068`, NOT NULL DEFAULT true) — l'interrupteur du jeu : écrit, donc relu (le même piège).
+    'jeu_actif, ' +
     'onboarding_completed';
 
   async function monProfil(id) {

@@ -24,6 +24,8 @@
   var Questionnaire = racine.THQuestionnaire;
   var Generateur = racine.THGenerateur;
   var Rejeu = racine.THRejeu, Bilan = racine.THBilan;
+  // 64B — le jeu (JEU-V1 §9) : l'écran le LIT, il ne le refait pas ; le coach ne le lit jamais.
+  var Jeu = racine.THJeu;
   // 59-2 — « Quitter » : la fenêtre des séances pas encore envoyées, et ce qu'on efface.
   var Quitter = racine.THQuitter;
   // 58-1 — LE MODULE DES FAITS : l'assemblage des faits (séances et séries,
@@ -187,6 +189,7 @@
     Object.keys(vues).forEach(function (k) { vues[k].hidden = (k !== nom); });
     var barre = $('onglets');
     if (barre) barre.hidden = !onglet;
+    appliquerJeu();
     Rendu.rendreOnglets(barre, onglet);
     // Une séance en cours se voit depuis N'IMPORTE QUEL écran. Une PWA qui
     // rouvre sur `/` la cacherait sinon, et « je ne la retrouve pas » est une
@@ -1136,6 +1139,139 @@
         surChoix: function () { allerA(Routeur.POIDS, {}); rendrePoids(); }
       },
       exercices: sommaireExercices(function (slug) { afficherExercice(slug); })
+    });
+  }
+
+  // ══ LE JEU (64B, JEU-V1 §9, maquette `maquette-jeu-v6.html`) ═════════════
+  //
+  // ⚠️ L'ÉCRAN LIT LE JEU, IL NE LE REFAIT PAS. L'état vient de `Jeu.etatDuJeu`,
+  // nourri par `faits.faitsDuJeu` ; ce qu'on en montre (le plus proche, les
+  // jauges, les succès par catégorie, les titres et les cadres) vient des
+  // lectures du module. Les textes vivent dans `rendu.js`. Le coach ne lit
+  // jamais le jeu (garde d'architecture).
+  //
+  // ⚠️ L'INTERRUPTEUR (`profiles.jeu_actif`, §9.1) : absent = allumé. Éteint,
+  // pas d'onglet, pas de bloc dans la feuille « Terminer », l'initiale au
+  // Profil, et `/jeu…` s'ouvre comme une route inconnue (`rendreRoute`).
+  function jeuAllume() { return Profil.jeuActif(profil); }
+
+  // La barre suit l'interrupteur : l'onglet Jeu caché quand il est éteint, et autant de colonnes que d'onglets
+  // VISIBLES (pas de trou). Appelée par `montrer`, à chaque écran : l'écran suit tout de suite, hors ligne compris.
+  function appliquerJeu() {
+    var bouton = $('onglet-jeu'), barre = $('onglets');
+    if (bouton) bouton.hidden = !jeuAllume();
+    if (barre) barre.style.setProperty('--n-onglets', String(barre.querySelectorAll('.onglet:not([hidden])').length));
+  }
+
+  // Le profil vient de changer (lu du serveur, ou l'interrupteur) : la barre suit, et un écran du jeu ouvert se
+  // ferme si le jeu vient de s'éteindre — comme une route inconnue.
+  function jeuSuitLeProfil() {
+    appliquerJeu();
+    if (!jeuAllume() && Routeur.estVueDuJeu(ecranCourant)) {
+      allerA(Routeur.RACINE, {}, true);
+      rendreSemaine(Semaine.bornesSemaine(new Date()).lundi);
+    }
+  }
+
+  // ⚠️ LA MÉMOIRE DE L'ONGLET. `etatDuJeu` relit tout l'historique : il se recalcule quand change l'une de ces
+  // clés — le nombre de séances et de séries du corpus, la taille du journal, le jour local, le catalogue (son
+  // index, comparé par référence) — jamais à chaque rendu. « Aujourd'hui » est l'INSTANT (`new Date()`), comme
+  // `ceQueJeSais` le reçoit ailleurs : les records se lisent jusqu'à lui.
+  var memoJeu = { cle: null, catalogue: null, etat: null };
+  function etatDuJeuCourant() {
+    var c = corpus(), maintenant = new Date(), catalogue = c.catalogue();
+    var cle = (c.seances || []).length + '|' + (c.series || []).length + '|' + (c.journal || []).length + '|' +
+      Routeur.versDate(maintenant);
+    if (memoJeu.cle !== cle || memoJeu.catalogue !== catalogue) {
+      memoJeu = { cle: cle, catalogue: catalogue, etat: Jeu.etatDuJeu(faits.faitsDuJeu(c, maintenant)) };
+    }
+    return memoJeu.etat;
+  }
+
+  function ouvrirVueDuJeu(vue, rendre) { allerA(vue, {}); rendre(); }
+
+  // La description d'un succès, avec le nom court de l'exercice pour un cap rond (comme la médaille).
+  function succesDecrit(id) {
+    var d = Jeu.descriptionDuSucces(id);
+    if (d && d.categorie === 'cap') d.nom = Modele.nomCourt(Modele.nommer(corpus().catalogue(), d.cle));
+    return d;
+  }
+
+  // ── La feuille « Terminer » (§9.4) : ce que la séance ajoute ─────────────
+  //
+  // `etatDuJeu` sans elle (la mémoire de l'onglet), puis avec elle (`faitsDuJeu` et `enCours`, par les
+  // convertisseurs qui l'écriront : `Seance.ligneSession`, `Seance.lignes`), comparés par `Jeu.apport`. RIEN
+  // n'est écrit.
+  //
+  // ⚠️ TOUT LE CALCUL DANS UN `try` : une exception (`Seance.lignes` LÈVE sur une série sans identifiant ou en
+  // double) donne `null` — pas de bloc — et jamais une feuille sans « Terminer » ni « Abandonner ».
+  //
+  // ⚠️ SA MÉMOIRE : les identifiants et `validee_a` des séries validées de la séance, la taille du journal, le
+  // jour — et l'état de l'onglet. `surTitre` recrée l'objet séance à chaque frappe : une clé sur la référence se
+  // recalculerait à chaque lettre.
+  var memoFeuilleJeu = { cle: null, jeu: null };
+  function jeuDeLaFeuille() {
+    if (!seance || !jeuAllume()) return null;
+    try {
+      var c = corpus(), maintenant = new Date();
+      var avant = etatDuJeuCourant();
+      var validees = Seance.toutesLesSeries(seance).filter(function (x) { return Seance.partEnBase(x.serie); })
+        .map(function (x) { return x.serie.id + '@' + (x.serie.validee_a || ''); });
+      var cle = seance.id + '|' + validees.join(',') + '|' + (c.journal || []).length + '|' +
+        Routeur.versDate(maintenant) + '|' + memoJeu.cle;
+      if (memoFeuilleJeu.cle === cle) return memoFeuilleJeu.jeu;
+      var enCours = { seance: seance, ligne: Seance.ligneSession(Seance.terminer(seance, maintenant)),
+                      lignes: Seance.lignes(seance) };
+      var apres = Jeu.etatDuJeu(faits.faitsDuJeu(c, maintenant, enCours));
+      var a = Jeu.apport(avant, apres);
+      var jeu = { apport: a, succes: a.succes.map(succesDecrit) };
+      memoFeuilleJeu = { cle: cle, jeu: jeu };
+      return jeu;
+    } catch (e) {
+      console.warn('Le bloc du jeu ne se calcule pas, la feuille se passe de lui :', texteErreur(e));
+      return null;
+    }
+  }
+
+  function rendreJeu() {
+    montrer('jeu', Routeur.JEU);
+    var e = etatDuJeuCourant();
+    Rendu.rendreJeuAccueil($('jeu-accueil'), {
+      etat: e,
+      jauge: Jeu.jauges(e).niveau,
+      proches: Jeu.lesPlusProches(e),
+      gelsMax: Jeu.tables().gels.max,
+      surMuscles: function () { ouvrirVueDuJeu(Routeur.MUSCLES, rendreJeuMuscles); },
+      surSucces: function () { ouvrirVueDuJeu(Routeur.SUCCES, rendreJeuSucces); },
+      surDeblocages: function () { ouvrirVueDuJeu(Routeur.DEBLOCAGES, rendreJeuDeblocages); }
+    });
+  }
+
+  function rendreJeuMuscles() {
+    montrer('muscles', Routeur.MUSCLES);
+    var e = etatDuJeuCourant();
+    Rendu.rendreJeuMuscles($('jeu-muscles'), { etat: e, ordre: Jeu.ORDRE_DES_MUSCLES, jauges: Jeu.jauges(e) });
+  }
+
+  function rendreJeuSucces() {
+    montrer('succes', Routeur.SUCCES);
+    var e = etatDuJeuCourant();
+    Rendu.rendreJeuSucces($('jeu-succes'), {
+      etat: e,
+      categories: Jeu.parCategorie(e),
+      raretes: Jeu.tables().raretes,
+      titres: Jeu.titresEtCadresDetailles(e).titres
+    });
+  }
+
+  function rendreJeuDeblocages() {
+    montrer('deblocages', Routeur.DEBLOCAGES);
+    var e = etatDuJeuCourant(), t = Jeu.tables();
+    Rendu.rendreJeuDeblocages($('jeu-deblocages'), {
+      cadres: Jeu.titresEtCadresDetailles(e).cadres,
+      semaines: e.semaines,
+      conditions: { vitrine: t.vitrine.succes, grave: t.grave.titre },
+      gels: t.gels
     });
   }
 
@@ -5805,6 +5941,9 @@
       compte: Seance.compter(seance, local.exercices),
       // MOTEUR §9.23 (55-1) — les records du jour ; sans record, rien.
       records: faits.recordsDuJour(corpus(), seance),
+      // 64B (JEU-V1 §9.4) — le bloc « Le jeu », après les records : jeu éteint, ou rien gagné, ou un calcul qui
+      // échoue, `null` ou aucune ligne — pas de bloc.
+      jeu: jeuDeLaFeuille(),
       titre: seance.titre,
       note: seance.note,
       salle: seance.salle,
@@ -8441,7 +8580,9 @@
     await chargerProfilLocal();
 
     var routeInitiale = Routeur.analyser(racine.location.pathname);
-    if (Routeur.interditAvecSession(routeInitiale.vue) || routeInitiale.repli) {
+    // 64B — jeu éteint (le profil en cache le dit), `/jeu…` est une route inconnue dès le démarrage.
+    if (Routeur.interditAvecSession(routeInitiale.vue) || routeInitiale.repli ||
+        (Routeur.estVueDuJeu(routeInitiale.vue) && !jeuAllume())) {
       routeInitiale = { vue: Routeur.RACINE, params: {} };
       allerA(Routeur.RACINE, {}, true);
     }
@@ -8747,6 +8888,7 @@
     rendreBandeauQuestionnaire();
     rendreBandeauPhase();
     rendreCarteCycles();                       // 60-4 : la carte « Passer en cycles » lit le même profil
+    jeuSuitLeProfil();                         // 64B : l'interrupteur a pu changer sur un autre appareil
     // 60-2a — LA LIGNE DE PROFIL EST CONNUE : c'est ICI que la décision d'ouvrir le
     // questionnaire se reprend, au premier démarrage d'un compte neuf comme aux
     // suivants. Prise sur le seul cache, elle ne routait un compte neuf qu'au
@@ -9641,7 +9783,13 @@
     var resumePoids = Poids.resume(local.pesees);
     var stats = Profil.statsDe(local.seances, local.series, new Date(), local.exercices);
 
-    $('profil-rond').textContent = Profil.initiale(p.username);
+    // 64B (JEU-V1 §9.3) — jeu allumé : l'hexagone du niveau et son cadre à la place de l'initiale, le titre et le
+    // niveau sous le nom, la vitrine ; éteint, l'initiale revient et rien du jeu ne se montre.
+    var jeu = null;
+    if (jeuAllume()) {
+      try { jeu = etatDuJeuCourant(); } catch (e) { jeu = null; }
+    }
+    Rendu.rendreBandeauJeu($('profil-rond'), $('profil-jeu'), jeu, Profil.initiale(p.username));
     $('profil-nom').textContent = p.username || 'Ton profil';
     $('profil-sous').textContent =
       Profil.sousTitre(p, resumePoids ? resumePoids.poids : null, new Date());
@@ -9730,6 +9878,10 @@
           { libelle: 'Mot de passe', valeur: '••••••••', surChoix: ouvrirMotDePasseProfil }
         ] }
       ],
+      // 64B — la vitrine (les trois succès les plus rares, décidés par le jeu), et en bas l'interrupteur, qui
+      // écrit par le chemin du profil : local d'abord, l'écran suit tout de suite, hors ligne compris.
+      vitrine: jeu ? Jeu.vitrine(jeu).map(succesDecrit) : null,
+      jeu: { actif: jeuAllume(), surBascule: function () { ecrireProfil({ jeu_actif: !jeuAllume() }); } },
       surQuitter: demanderDeconnexion,
       surSupprimer: demanderSuppressionCompte
     });
@@ -10096,6 +10248,16 @@
     if (cible.vue === Routeur.INSCRIPTION) return rendreEntree('inscription');
     if (cible.vue === Routeur.PROFIL) return rendreProfilEcran();
     if (cible.vue === Routeur.EXERCICES) return rendreMesExercices();
+    // 64B — LA GARDE DU JEU VIT ICI, PAS DANS LE ROUTEUR (qui reste pur et ne connaît pas l'interrupteur). Jeu
+    // éteint, `/jeu…` (lien direct, rechargement, retour) s'ouvre comme une route inconnue : « / » à sa place.
+    if (Routeur.estVueDuJeu(cible.vue) && !jeuAllume()) {
+      allerA(Routeur.RACINE, {}, true);
+      return rendreSemaine(Semaine.bornesSemaine(new Date()).lundi);
+    }
+    if (cible.vue === Routeur.JEU) return rendreJeu();
+    if (cible.vue === Routeur.MUSCLES) return rendreJeuMuscles();
+    if (cible.vue === Routeur.SUCCES) return rendreJeuSucces();
+    if (cible.vue === Routeur.DEBLOCAGES) return rendreJeuDeblocages();
     if (cible.vue === Routeur.SAISIE) { rendreSaisie(); return chargerSiBesoin(); }
     if (cible.vue === Routeur.ROUTINE) return prepererEditeur(cible.params.id || null);
     if (cible.vue === Routeur.PROGRESSION) return rendreProgression();
@@ -10127,7 +10289,9 @@
       progression: $('vue-progression'), exercice: $('vue-exercice'),
       volume: $('vue-volume'), poids: $('vue-poids'), profil: $('vue-profil'),
       mois: $('vue-mois'), records: $('vue-records'),
-      exercices: $('vue-exercices'), questionnaire: $('vue-questionnaire')
+      exercices: $('vue-exercices'), questionnaire: $('vue-questionnaire'),
+      // 64B — le jeu : l'onglet et ses trois sous-vues.
+      jeu: $('vue-jeu'), muscles: $('vue-muscles'), succes: $('vue-succes'), deblocages: $('vue-deblocages')
     };
     sortie = Sortie.creer({
       history: racine.history,
@@ -10181,6 +10345,13 @@
       $(id).addEventListener('click', function () {
         allerA(Routeur.PROGRESSION, {});
         rendreProgression();
+      });
+    });
+    // 64B — « ← Jeu » NOMME l'accueil du jeu : il y va (même règle que « ← Progression »).
+    ['btn-retour-muscles', 'btn-retour-succes', 'btn-retour-deblocages'].forEach(function (id) {
+      $(id).addEventListener('click', function () {
+        allerA(Routeur.JEU, {});
+        rendreJeu();
       });
     });
     $('btn-nouvelle-routine').addEventListener('click', function () { ouvrirRoutine(null); });

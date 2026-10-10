@@ -79,8 +79,10 @@
   --manque:#CD7167;
   --chauffe:#5B8AC4;     /* §7 undecies.1 — la chauffe, et rien d'autre */
 
-  /* La rareté, pour le jeu (plus tard) : déclarée, encore servie nulle part. */
-  --rarete-1:#8b929c; --rarete-2:#4f9be8; --rarete-3:#a26ee8; --rarete-4:#f2c14b;
+  /* La rareté, pour le jeu (64B, JEU-V1 §9.6) : commun gris, rare bleu, exceptionnel violet ; MAJEUR = l'or des
+     records (`--medaille`). `#f2c14b`, son ancienne valeur, était trop proche de l'ambre du coach — et ne servait
+     nulle part (constaté le 10/10). */
+  --rarete-1:#8b929c; --rarete-2:#4f9be8; --rarete-3:#a26ee8; --rarete-4:var(--medaille);
 
   /* Espacements : échelle de 4. */
   --e1:4px; --e2:8px; --e3:12px; --e4:16px; --e5:24px; --e6:32px;
@@ -424,7 +426,9 @@ button{font-family:inherit;cursor:pointer}
    Pas de flèche retour : sur Android l'utilisateur attend le bouton système,
    et les conventions de plateforme ne se remplacent pas. */
 .onglets{position:fixed;left:0;right:0;bottom:0;z-index:10;
-  display:grid;grid-template-columns:repeat(4,1fr);
+  /* 64B — autant de colonnes que d'onglets VISIBLES (Jeu se cache quand le jeu est éteint) : pas de trou.
+     `--n-onglets` est posée par `appliquerJeu` (app.js). */
+  display:grid;grid-template-columns:repeat(var(--n-onglets,5),1fr);
   background:var(--panneau);border-top:1px solid var(--trait);
   padding:var(--e2) 0 calc(var(--e3) + env(safe-area-inset-bottom,0px));
   max-width:420px;margin:0 auto}
@@ -1801,3 +1805,81 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .q-lc-fl{color:var(--texte-3);font-size:15px;line-height:1}
 .q-bas{padding:var(--e3) 0 var(--e4);border-top:1px solid var(--trait)}
 .q-bas .principal{margin-top:0;height:50px;font-size:16px}
+
+/* ── Le jeu (64B, JEU-V1 §9.6, maquette `maquette-jeu-v6.html`) ───────────────
+   La forge : anthracite, surfaces, le gris clair pour l'« acier » (jauges,
+   liserés). ⚠️ AUCUN AMBRE : l'ambre est la voix du coach, qui ne parle jamais
+   du jeu. Les raretés : `--rarete-1` à `--rarete-3`, majeur = l'or des records
+   (`--rarete-4` → `--medaille`). Pas de rouge. Aucune animation. */
+.j-bloc{background:var(--panneau);border:1px solid var(--trait);border-radius:var(--r-grand);
+  padding:var(--e3) var(--e4);margin-bottom:var(--e3)}
+.j-bloc h3{font:700 12px/1.2 var(--pile);text-transform:uppercase;letter-spacing:.08em;color:var(--texte-2);
+  margin-bottom:var(--e2)}
+.j-ligne{display:flex;justify-content:space-between;align-items:center;gap:var(--e3);padding:9px 0;
+  border-bottom:1px solid var(--trait);font-size:14px;color:var(--texte);min-width:0}
+.j-ligne:last-child{border-bottom:0}
+.j-ligne > span:first-child{min-width:0}
+.j-d{color:var(--texte-2);font-size:13px;text-align:right;font-variant-numeric:tabular-nums}
+.j-gris{color:var(--texte-2)}
+.j-num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+.j-fort{font:700 18px/1 var(--pile-c)}
+.j-porte{width:100%;background:none;border:0;border-bottom:1px solid var(--trait);font:inherit;font-size:14px;
+  color:var(--texte);text-align:left;cursor:pointer}
+.j-porte > span:first-child{flex:1}
+.j-fl{color:var(--texte-2);font-size:20px;line-height:1}
+.j-portes{padding-top:2px;padding-bottom:2px}
+.j-rangee{display:flex;gap:var(--e3);align-items:center}
+.j-txt{flex:1;min-width:0}
+.j-tete{font-size:15px}
+.j-tete b{font-weight:700}
+.j-jauge{height:7px;border-radius:99px;background:var(--panneau-2);overflow:hidden;margin:8px 0 4px}
+.j-jauge i{display:block;height:100%;background:var(--texte-2)}
+.j-hex{flex:none;width:46px;height:52px;display:grid;place-items:center;
+  clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);
+  font:800 19px/1 var(--pile-c);color:var(--fond);font-variant-numeric:tabular-nums}
+.j-hex.grand{width:64px;height:72px;font-size:26px}
+.j-hex.mini{width:28px;height:32px;font-size:13px}
+.j-hex.r-1{background:var(--rarete-1)} .j-hex.r-2{background:var(--rarete-2)}
+.j-hex.r-3{background:var(--rarete-3)} .j-hex.r-4{background:var(--rarete-4)}
+.j-metier{display:grid;grid-template-columns:46px minmax(0,1fr);gap:var(--e3);align-items:center;padding:10px 0;
+  border-bottom:1px solid var(--trait)}
+.j-nom{display:flex;justify-content:space-between;gap:var(--e2);font-weight:600;font-size:14px}
+.j-nom .j-gris{font-weight:400;font-size:12px;text-align:right}
+.j-metier .j-jauge{margin:6px 0 2px}
+.j-note{font-size:12px;line-height:1.45;color:var(--texte-2);margin-top:var(--e2)}
+.j-entete{display:flex;justify-content:space-between;align-items:baseline;gap:var(--e2)}
+.j-raretes{display:flex;flex-wrap:wrap;gap:6px;margin-top:var(--e3)}
+.j-rarete{font-size:11px;color:var(--texte-2);border:1px solid var(--trait);border-radius:999px;padding:2px 8px}
+.j-rarete::before{content:"";display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px;
+  vertical-align:-1px;background:var(--rarete-1)}
+.j-rarete.r-2::before{background:var(--rarete-2)} .j-rarete.r-3::before{background:var(--rarete-3)}
+.j-rarete.r-4::before{background:var(--rarete-4)}
+/* Le Profil (§9.3) : l'hexagone du niveau à la place de l'initiale, dans son cadre affiché. Le cadre est fait
+   d'hexagones emboîtés (un liseré `outline` autour d'une forme découpée serait découpé avec elle). */
+.p-rond-jeu{flex:0 0 auto;display:grid;place-items:center}
+.j-cadre,.j-cadre-vide,.j-cadre-second{display:grid;place-items:center;
+  clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
+.cadre-vitrine .j-cadre{padding:2px;background:var(--texte-2)}
+.cadre-niveau .j-cadre{padding:3.5px;background:var(--texte-2)}
+.cadre-or .j-cadre{padding:3px;background:var(--medaille)}
+.cadre-grave .j-cadre{padding:2px;background:var(--medaille)}
+.cadre-grave .j-cadre-vide{padding:2px;background:var(--fond)}
+.cadre-grave .j-cadre-second{padding:2px;background:var(--medaille)}
+.j-hex.moyen{width:40px;height:46px;font-size:13px}
+.j-vitrine{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--e2);padding:var(--e3)}
+.j-case{display:flex;flex-direction:column;align-items:center;gap:5px;text-align:center;min-width:0;
+  background:var(--panneau-2);border:1px solid var(--trait);border-radius:var(--r-petit);padding:10px 6px;
+  font-size:11px;line-height:1.3;color:var(--texte-2);overflow-wrap:anywhere}
+.j-interrupteur{cursor:pointer}
+.j-interrupteur .p-lib{color:var(--texte)}
+.j-curseur{flex:0 0 auto;position:relative;width:46px;height:26px;border-radius:13px;background:var(--panneau-2);
+  border:1px solid var(--trait)}
+.j-curseur i{position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:var(--texte-3)}
+.j-interrupteur.on .j-curseur{background:var(--texte-2);border-color:var(--texte-2)}
+.j-interrupteur.on .j-curseur i{left:auto;right:2px;background:var(--texte)}
+/* Les phrases du jeu au Profil (vitrine, interrupteur) : le style de `.p-pied`, PAS sa classe — `.p-pied` est la
+   ligne grise d'un réglage (« Depuis le … » de la phase), que le banc lit (relevé par le banc complet de 64B). */
+.j-pied{padding:0 var(--e3) var(--e3);font-size:11px;line-height:1.5;color:var(--texte-3)}
+/* La feuille « Terminer » (§9.4) : le bloc « Le jeu », après les records. */
+.j-fin{margin:2px 0 var(--e3)}
+.j-avec-hex{display:flex;gap:10px;align-items:center}

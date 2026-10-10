@@ -2141,11 +2141,11 @@
   // dernières séries, pas les muscles ; les charges ne changent pas.
   //
   // Une STRUCTURE est la forme d'une routine que ces fonctions lisent, et rien
-  // d'autre : `[{ slug, mesure, repos, ch, tr, deg, duree, prim, sec }]` — les
+  // d'autre : `[{ slug, mesure, repos, ch, tr, deg, duree, prim, sec, stab }]` — les
   // chauffes, séries de travail et dégressives comptées, le repos prévu
   // (`null` : porté par l'autre exercice du superset), la durée d'une série de
-  // cardio ou de durée, et les muscles principaux et secondaires (un tableau, ou
-  // « a/b » comme les cas). `structureDeRoutine` la tire d'une routine de l'app.
+  // cardio ou de durée, et les muscles principaux, secondaires et stabilisateurs
+  // (un tableau, ou « a/b » comme les cas ; `stab` absent vaut vide, 65). `structureDeRoutine` la tire d'une routine de l'app.
   // Référence : `simu_raccourcir.py` ; cas `cas-51-1-peu-de-temps.json`.
 
   // ⚠️ DES VALEURS PAR DÉFAUT (delta 51-1 bis, T3), PAS DES VÉRITÉS SUR UNE
@@ -2166,7 +2166,10 @@
   var SECONDES_PAR_MINUTE = 60;
   // Les règles du raccourci (§9.18, étapes 4 et 5) — des règles, pas des défauts.
   var PRIORITE_ISOLATION = 1, PRIORITE_POLY = 2, PRIORITE_PREMIER = 3;
-  var MUSCLES_POLYARTICULAIRE = 3;          // au moins 3 muscles principaux et secondaires
+  // Au moins 3 muscles, dans les TROIS listes — principaux, secondaires et stabilisateurs (65, v2_069). v2_069 a
+  // déplacé 176 secondaires vers les stabilisateurs sans changer le total d'aucun exercice : en les comptant,
+  // aucun exercice ne change de classe ; sans eux, 26 passeraient de polyarticulaire à isolation.
+  var MUSCLES_POLYARTICULAIRE = 3;
   var PLANCHER_ISOLATION = 1, PLANCHER_COMPOSE = 2;   // ~2 séries portent presque tout le gain
 
   function musclesDe(v) {
@@ -2175,13 +2178,15 @@
   }
   function compteDe(v) { var n = Math.floor(Number(v)); return isFinite(n) && n > 0 ? n : 0; }
   function enDuree(e) { return !!e && (e.mesure === 'temps' || e.mesure === 'distance_temps'); }
-  function aDesMuscles(e) { return musclesDe(e.prim).length + musclesDe(e.sec).length > 0; }
-  // UN POLYARTICULAIRE : au moins 3 muscles principaux et secondaires. Une
-  // définition, lue par la priorité du raccourci (§9.18) et par les repos par
-  // défaut d'« En faire une routine » (ECRAN-SAISIE §7 quindecies.4, 52-1) —
-  // `e` porte `prim` et `sec` (tableaux, ou chaînes « a/b »).
+  function nombreDeMuscles(e) { return musclesDe(e.prim).length + musclesDe(e.sec).length + musclesDe(e.stab).length; }
+  function aDesMuscles(e) { return nombreDeMuscles(e) > 0; }
+  // UN POLYARTICULAIRE : au moins 3 muscles principaux, secondaires et
+  // stabilisateurs. Une définition, lue par la priorité du raccourci (§9.18) et
+  // par les repos par défaut d'« En faire une routine » (ECRAN-SAISIE §7
+  // quindecies.4, 52-1) — `e` porte `prim`, `sec` et `stab` (tableaux, ou
+  // chaînes « a/b » ; `stab` absent vaut vide).
   function estPolyarticulaire(e) {
-    return !!e && musclesDe(e.prim).length + musclesDe(e.sec).length >= MUSCLES_POLYARTICULAIRE;
+    return !!e && nombreDeMuscles(e) >= MUSCLES_POLYARTICULAIRE;
   }
   // Le premier critère qui diffère départage (priorité, puis séries, puis rang).
   function avantDans(a, b) {
@@ -2216,7 +2221,7 @@
                repos: e.repos === undefined ? null : e.repos,
                ch: compteDe(e.ch), tr: compteDe(e.tr), deg: compteDe(e.deg),
                duree: e.duree === undefined ? null : e.duree,
-               prim: musclesDe(e.prim), sec: musclesDe(e.sec) };
+               prim: musclesDe(e.prim), sec: musclesDe(e.sec), stab: musclesDe(e.stab) };
     });
   }
 
@@ -2336,7 +2341,8 @@
       series.forEach(function (s) { if (d === null && s && s.duree_s !== null && s.duree_s !== undefined) d = Number(s.duree_s); });
       return { slug: e.exercise_slug, mesure: cat.mesure || null, repos: repos,
                ch: nb('echauffement'), tr: nb('travail') + nb('echec'), deg: nb('degressive'),
-               duree: d, prim: cat.muscles_primaires || [], sec: cat.muscles_secondaires || [] };
+               duree: d, prim: cat.muscles_primaires || [], sec: cat.muscles_secondaires || [],
+               stab: cat.muscles_stabilisateurs || [] };
     });
   }
 
@@ -4721,7 +4727,7 @@
   // questionnaire (MOTEUR §9.22, 60-2b) qui sont dans ces routines, même hors
   // barre : la force se travaille lourde sur l'exercice qu'on veut améliorer.
   // `catalogue` : `{ [slug]: { equipement, muscles_primaires,
-  // muscles_secondaires } }` ; `priorites` : `profiles.priorites` tel que la
+  // muscles_secondaires, muscles_stabilisateurs } }` ; `priorites` : `profiles.priorites` tel que la
   // base le donne (des slugs d'exercice ET des clés de zone — seuls les slugs
   // des routines comptent ; une priorité absente des routines ne fait rien, une
   // valeur qui n'est pas une liste non plus). Toujours décochable : ce n'est
@@ -4737,7 +4743,8 @@
       if (Object.prototype.hasOwnProperty.call(voulus, slug)) { vus[slug] = true; return true; }
       var e = catalogue && Object.prototype.hasOwnProperty.call(catalogue, slug) ? catalogue[slug] : null;
       if (!e || e.equipement !== 'barre' || e.charge === 'ajoutee') return false;
-      if (!estPolyarticulaire({ prim: e.muscles_primaires, sec: e.muscles_secondaires })) return false;
+      if (!estPolyarticulaire({ prim: e.muscles_primaires, sec: e.muscles_secondaires,
+                               stab: e.muscles_stabilisateurs })) return false;
       vus[slug] = true;
       return true;
     });

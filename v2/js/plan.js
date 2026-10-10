@@ -2247,7 +2247,10 @@
       });
     });
     var p = -1;
-    complet.forEach(function (e, i) { if (p < 0 && e && liste(e.prim).length + liste(e.sec).length > 0) p = i; });
+    // Le premier exercice qui a des muscles — dans les trois listes, comme `aDesMuscles` (65).
+    complet.forEach(function (e, i) {
+      if (p < 0 && e && liste(e.prim).length + liste(e.sec).length + liste(e.stab).length > 0) p = i;
+    });
     if (p >= 0) {
       var a = complet[p], b = court[p] || {};
       var min = Math.min(2, a.tr || 0);

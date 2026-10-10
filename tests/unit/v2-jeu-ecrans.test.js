@@ -188,3 +188,56 @@ describe('tables et jauges — ce que les écrans lisent sans calculer', () => {
     expect(Jeu.jauges(etat({ niveau: 100, omega: 3, reserve: 95000 })).niveau).toBe(1);
   });
 });
+
+describe('les lectures des vues (64B, JEU-V1 §9.2) — décidées dans le module, jamais à l’écran', () => {
+  const p = (type, cle, fait) => ({ type, cle, cible: 1, reste: 1, fait });
+
+  test('⚠️ lesPlusProches : les trois plus grands `fait`, pas les trois premiers de la liste', () => {
+    const e = { prochains: [p('muscle', 'poitrine', 0.1), p('muscle', 'dos', 0.9), p('muscle', 'epaules', 0.2),
+      p('categorie', 'seances', 0.95), p('categorie', 'serie', 0.5)] };
+    expect(Jeu.lesPlusProches(e).map((x) => x.cle)).toEqual(['seances', 'dos', 'serie']);
+  });
+
+  test('à égalité, l’ordre de la liste ; la première est `plusProche` ; moins de trois : ce qu’il y a', () => {
+    const e = { prochains: [p('muscle', 'poitrine', 0.5), p('muscle', 'dos', 0.5), p('categorie', 'seances', 0.5),
+      p('categorie', 'serie', 0.5)] };
+    expect(Jeu.lesPlusProches(e).map((x) => x.cle)).toEqual(['poitrine', 'dos', 'seances']);
+    expect(Jeu.lesPlusProches({ prochains: [p('muscle', 'dos', 0.3)] }).map((x) => x.cle)).toEqual(['dos']);
+    expect(Jeu.lesPlusProches({ prochains: [] })).toEqual([]);
+    DONNEES.cas.forEach((c) => {
+      const l = Jeu.lesPlusProches(c.attendu);
+      if (c.attendu.plusProche) expect([c.nom, l[0]]).toEqual([c.nom, c.attendu.plusProche]);
+    });
+  });
+
+  test('parCategorie : obtenus / total · prochain ; la randonnée compte la grande sortie ; les caps sans total', () => {
+    const e = etat({ ids: ['seances-10', 'seances-50', 'serie-4', 'rando-50', 'rando-sortie-20', 'muscle-dos-10',
+      'muscle-tronc-10', 'muscle-tronc-20', 'tous-10', 'cap-squat_barre-40', 'cap-squat_barre-60'] });
+    expect(Jeu.parCategorie(e)).toEqual([
+      { cle: 'seances', obtenus: 2, total: 6, prochain: 100 },
+      { cle: 'serie', obtenus: 1, total: 5, prochain: 12 },
+      { cle: 'records', obtenus: 0, total: 7, prochain: 10 },
+      { cle: 'rando', obtenus: 2, total: 5, prochain: 100 },
+      { cle: 'decouverte', obtenus: 0, total: 4, prochain: 10 },
+      { cle: 'muscle', obtenus: 3, total: 35, prochain: null },
+      { cle: 'tous', obtenus: 1, total: 5, prochain: 20 },
+      { cle: 'cap', obtenus: 2, total: null, prochain: null }]);
+  });
+
+  test('une catégorie complète n’a pas de prochain', () => {
+    const e = etat({ ids: ['decouverte-10', 'decouverte-25', 'decouverte-50', 'decouverte-100'] });
+    expect(Jeu.parCategorie(e).filter((c) => c.cle === 'decouverte')[0]).toEqual({ cle: 'decouverte', obtenus: 4, total: 4, prochain: null });
+  });
+
+  test('titresEtCadresDetailles : le premier titre manquant dit le muscle le plus bas ; l’affiché est marqué', () => {
+    const e = etat({ muscles: { poitrine: { niveau: 36 }, dos: { niveau: 41 }, epaules: { niveau: 42 }, bras: { niveau: 41 },
+      jambes: { niveau: 36 }, tronc: { niveau: 22 }, cardio: { niveau: 45 } } });
+    Object.assign(e, { titres: ['equilibre', 'polyvalent', 'collectionneur'], titre: 'polyvalent', cadres: ['vitrine', 'niveau', 'or'], cadre: 'or' });
+    const d = Jeu.titresEtCadresDetailles(e);
+    expect(d.titres.map((t) => [t.cle, t.obtenu, t.affiche, t.manque])).toEqual([
+      ['equilibre', true, false, null], ['polyvalent', true, true, null], ['athlete', false, false, { cle: 'tronc', niveau: 22 }],
+      ['accompli', false, false, null], ['complet', false, false, null], ['collectionneur', true, false, null]]);
+    expect(d.cadres).toEqual([{ cle: 'vitrine', obtenu: true, affiche: false }, { cle: 'niveau', obtenu: true, affiche: false },
+      { cle: 'or', obtenu: true, affiche: true }, { cle: 'grave', obtenu: false, affiche: false }]);
+  });
+});

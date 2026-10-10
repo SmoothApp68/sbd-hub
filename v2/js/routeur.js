@@ -18,6 +18,10 @@
 //   /progression/records[/AAAA-MM]  les records d'un mois
 //   /profil                 onglet Profil
 //   /profil/exercices       tous mes exercices, et leur dernière séance
+//   /jeu                    onglet Jeu (64B, JEU-V1 §9.2) — l'accueil du jeu
+//   /jeu/muscles            les sept muscles
+//   /jeu/succes             les succès, par catégorie, et les titres
+//   /jeu/deblocages         les cadres et les gels
 //   /connexion              l'écran de connexion
 //   /inscription            créer un compte
 //
@@ -42,6 +46,10 @@
 
   var RACINE = 'racine', SEMAINE = 'semaine', SEANCE = 'seance', CONNEXION = 'connexion';
   var SAISIE = 'saisie', PROGRESSION = 'progression', PROFIL = 'profil';
+  // 64B (JEU-V1 §9.2) — l'onglet Jeu et ses trois sous-vues. ⚠️ LE ROUTEUR NE
+  // CONNAÎT PAS L'INTERRUPTEUR : il reste pur. Jeu éteint, c'est `app.js` qui
+  // traite `/jeu…` comme une route inconnue.
+  var JEU = 'jeu', MUSCLES = 'muscles', SUCCES = 'succes', DEBLOCAGES = 'deblocages';
   var VOLUME = 'volume', POIDS = 'poids';
   // MOTEUR §9.23 (55-1) — le bilan d'un mois et ses records, sous Progression.
   // Le mois est un segment de plus (« /progression/mois/2026-09 ») : tous les
@@ -83,11 +91,16 @@
   var SOUS_PROFIL = {};
   SOUS_PROFIL[EXERCICES] = true;
 
+  // Et celles qui vivent SOUS Jeu (64B), sur le même patron : « /jeu/<clé> »,
+  // l'onglet Jeu reste allumé, le retour d'Android remonte à « /jeu ».
+  var SOUS_JEU = {};
+  SOUS_JEU[MUSCLES] = true; SOUS_JEU[SUCCES] = true; SOUS_JEU[DEBLOCAGES] = true;
+
   // Vues à segment unique, sans paramètre. La racine n'y figure pas : elle est
   // le chemin « / », et c'est l'onglet Séances.
   var SEGMENTS = {};
   SEGMENTS[CONNEXION] = true; SEGMENTS[SAISIE] = true;
-  SEGMENTS[PROGRESSION] = true; SEGMENTS[PROFIL] = true;
+  SEGMENTS[PROGRESSION] = true; SEGMENTS[PROFIL] = true; SEGMENTS[JEU] = true;
   SEGMENTS[INSCRIPTION] = true;
 
   var RE_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
@@ -144,6 +157,12 @@
       return { vue: bouts[1], params: {} };
     }
 
+    if (bouts[0] === JEU && bouts.length === 2) {
+      // Même règle : un sous-chemin inconnu reste dans le jeu.
+      if (!SOUS_JEU[bouts[1]]) return { vue: JEU, params: {}, repli: 'sous-vue-inconnue' };
+      return { vue: bouts[1], params: {} };
+    }
+
     if (bouts[0] === SEMAINE && bouts.length === 2) {
       var d = depuisDate(bouts[1]);
       if (!d) return { vue: RACINE, params: {}, repli: 'date-invalide' };
@@ -195,6 +214,7 @@
     if (AVEC_MOIS[vue] && p.mois && RE_MOIS.test(p.mois)) return '/' + PROGRESSION + '/' + vue + '/' + p.mois;
     if (SOUS_PROGRESSION[vue]) return '/' + PROGRESSION + '/' + vue;
     if (SOUS_PROFIL[vue]) return '/' + PROFIL + '/' + vue;
+    if (SOUS_JEU[vue]) return '/' + JEU + '/' + vue;
     if (SEGMENTS[vue]) return '/' + vue;
     return '/';
   }
@@ -204,13 +224,15 @@
   // Une semaine et le détail d'une séance sont des vues DE l'onglet Séances :
   // elles l'allument, elles n'en ouvrent pas un autre. La connexion n'allume
   // rien — la barre n'y est pas affichée.
-  var ONGLETS = [RACINE, SAISIE, PROGRESSION, PROFIL];
+  // 64B — Jeu entre Progression et Profil (JEU-V1 §9.2).
+  var ONGLETS = [RACINE, SAISIE, PROGRESSION, JEU, PROFIL];
 
   function ongletDe(vue) {
     if (vue === SEMAINE || vue === SEANCE || vue === EXERCICE) return RACINE;
     if (vue === ROUTINE) return SAISIE;
     if (SOUS_PROGRESSION[vue]) return PROGRESSION;
     if (SOUS_PROFIL[vue]) return PROFIL;
+    if (SOUS_JEU[vue]) return JEU;
     for (var i = 0; i < ONGLETS.length; i++) if (ONGLETS[i] === vue) return vue;
     return null;
   }
@@ -273,6 +295,9 @@
     VOLUME: VOLUME, POIDS: POIDS, MOIS: MOIS, RECORDS: RECORDS,
     SOUS_PROGRESSION: SOUS_PROGRESSION,
     SOUS_PROFIL: SOUS_PROFIL,
+    JEU: JEU, MUSCLES: MUSCLES, SUCCES: SUCCES, DEBLOCAGES: DEBLOCAGES, SOUS_JEU: SOUS_JEU,
+    // 64B — une vue du jeu (l'onglet ou une sous-vue) : `app.js` la refuse quand le jeu est éteint.
+    estVueDuJeu: function (vue) { return vue === JEU || !!SOUS_JEU[vue]; },
     versDate: versDate,
     depuisDate: depuisDate,
     analyser: analyser,

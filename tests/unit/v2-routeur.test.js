@@ -123,7 +123,7 @@ describe('onglets — chaque onglet est une vue avec son URL', () => {
     expect(R.construire(vue, {})).toBe(chemin);
   });
 
-  test('l’aller-retour URL ↔ vue est idempotent pour les quatre onglets', () => {
+  test('l’aller-retour URL ↔ vue est idempotent pour les cinq onglets', () => {
     R.ONGLETS.forEach((vue) => {
       expect(R.analyser(R.construire(vue, {})).vue).toBe(vue);
     });
@@ -281,8 +281,8 @@ describe('Progression est un sommaire, et ses blocs ont leur propre chemin', () 
   test('les deux vues allument l’onglet PROGRESSION, pas un onglet à elles', () => {
     expect(R.ongletDe(R.VOLUME)).toBe(R.PROGRESSION);
     expect(R.ongletDe(R.POIDS)).toBe(R.PROGRESSION);
-    // Et elles ne s'ajoutent pas à la barre : quatre onglets, pas six.
-    expect(R.ONGLETS).toHaveLength(4);
+    // Et elles ne s'ajoutent pas à la barre : cinq onglets depuis le jeu (64B), pas sept.
+    expect(R.ONGLETS).toHaveLength(5);
     expect(R.ONGLETS).not.toContain(R.VOLUME);
   });
 
@@ -329,7 +329,7 @@ describe('l’éditeur de routine a son propre chemin', () => {
 
   test('elle allume l’onglet SAISIE, et n’ajoute pas un onglet à elle', () => {
     expect(R.ongletDe(R.ROUTINE)).toBe(R.SAISIE);
-    expect(R.ONGLETS).toHaveLength(4);
+    expect(R.ONGLETS).toHaveLength(5);
     expect(R.ONGLETS).not.toContain(R.ROUTINE);
   });
 
@@ -407,5 +407,44 @@ describe('« Tous mes exercices » vit SOUS le profil', () => {
     expect(R.analyser('/exercice/squat-barre').params.slug).toBe('squat-barre');
     expect(R.analyser('/profil/exercices').vue).toBe(R.EXERCICES);
     expect(R.analyser('/exercices').vue).toBe(R.RACINE);
+  });
+});
+
+// ── 64B — L'ONGLET JEU (JEU-V1 §9.2) ────────────────────────────────────────
+// Un cinquième onglet, entre Progression et Profil, et trois sous-vues sur le patron du profil. Le routeur reste
+// PUR : il ne connaît pas l'interrupteur — la garde d'un jeu éteint vit dans `app.js`.
+describe('64B — l’onglet Jeu et ses trois sous-vues', () => {
+  test('cinq onglets, Jeu entre Progression et Profil', () => {
+    expect(R.ONGLETS).toEqual(['racine', 'saisie', 'progression', 'jeu', 'profil']);
+    expect(R.analyser('/jeu')).toEqual({ vue: R.JEU, params: {} });
+    expect(R.construire(R.JEU, {})).toBe('/jeu');
+    expect(R.ongletDe(R.JEU)).toBe(R.JEU);
+  });
+
+  test('/jeu/muscles, /jeu/succes, /jeu/deblocages : leur chemin, l’onglet Jeu allumé', () => {
+    [R.MUSCLES, R.SUCCES, R.DEBLOCAGES].forEach((v) => {
+      const chemin = '/jeu/' + v;
+      expect(R.analyser(chemin)).toEqual({ vue: v, params: {} });
+      expect(R.construire(v, {})).toBe(chemin);
+      expect(R.ongletDe(v)).toBe(R.JEU);
+      expect(R.ONGLETS).not.toContain(v);
+      expect(R.estVueDuJeu(v)).toBe(true);
+    });
+    expect([R.MUSCLES, R.SUCCES, R.DEBLOCAGES]).toEqual(['muscles', 'succes', 'deblocages']);
+  });
+
+  test('un sous-chemin inconnu reste dans le jeu ; un chemin trop long retombe sur la racine', () => {
+    expect(R.analyser('/jeu/nimporte')).toEqual({ vue: R.JEU, params: {}, repli: 'sous-vue-inconnue' });
+    expect(R.analyser('/jeu/muscles/x').repli).toBe('inconnu');
+  });
+
+  test('les autres vues ne sont pas du jeu, et le profil garde ses sous-vues', () => {
+    [R.RACINE, R.PROFIL, R.PROGRESSION, R.RECORDS, R.EXERCICES, R.SAISIE].forEach((v) => expect(R.estVueDuJeu(v)).toBe(false));
+    expect(R.analyser('/profil/muscles').repli).toBe('sous-vue-inconnue');
+    expect(R.analyser('/progression/succes').repli).toBe('sous-vue-inconnue');
+  });
+
+  test('le jeu exige une session, comme toute vue de données', () => {
+    [R.JEU, R.MUSCLES].forEach((v) => expect(R.routeAffichable({ vue: v, params: {} }, { session: null }).vue).toBe(R.CONNEXION));
   });
 });

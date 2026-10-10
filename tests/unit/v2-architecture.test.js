@@ -903,13 +903,14 @@ const NOTIONS = [
       'une fois dans le moteur ; l’app lit le résultat et passe par `raccourcirRoutine`, elle ne teste pas `temps_reponse`.' },
   // ── 64A — LE JEU (JEU-V1) : il lit les faits, le coach ne le lit jamais ───
   { notion: 'les faits du jeu (séances, séries de travail, catalogue, journal, maximums des barres, exercices faits)', pr: '64-U1',
-    module: 'faits.js', fonction: 'faitsDuJeu', lecteurs: [],
+    module: 'faits.js', fonction: 'faitsDuJeu', lecteurs: ['app.js'],
     raison: 'JEU-V1 §8 (64A) : le jeu lit les faits, il ne les recompte pas — son entrée s’assemble une fois, dans le ' +
-      'module des faits, avec les fonctions qu’il a déjà (le journal, les maximums, les exercices faits). Aucun écran ne la lit encore.' },
+      'module des faits, avec les fonctions qu’il a déjà (le journal, les maximums, les exercices faits). 64B : l’écran ' +
+      'du jeu (`app.js`) l’assemble pour l’onglet et, avec la séance en cours, pour la feuille « Terminer ».' },
   { notion: 'l’état du jeu (série et gels, muscles, XP, niveau, succès, titres, cadres, le plus proche)', pr: '64-U1',
-    module: 'jeu.js', fonction: 'etatDuJeu', lecteurs: [],
-    raison: 'JEU-V1 (64A) : un seul calcul du jeu, pur, depuis l’historique ; aucun écran ne le refait. Aucun écran ne ' +
-      'le lit encore : l’onglet et le bloc de fin de séance viendront en 64B.' }
+    module: 'jeu.js', fonction: 'etatDuJeu', lecteurs: ['app.js'],
+    raison: 'JEU-V1 (64A) : un seul calcul du jeu, pur, depuis l’historique ; aucun écran ne le refait. 64B : `app.js` ' +
+      'le calcule (avec sa mémoire) pour l’onglet Jeu, le Profil et la feuille « Terminer » ; le rendu reçoit l’état.' }
 ];
 
 // ── 58-1 — UN FAIT NE SE DÉCLARE QUE DANS `faits.js` ─────────────────────────
@@ -1300,7 +1301,12 @@ describe('architecture — le module des faits : un fait ne se déclare que dans
 // pari). `THJeu` n'apparaît que chez les lecteurs du jeu — son module seul en
 // 64A ; 64B y inscrira l'écran, avec sa raison. Le source est lu commentaires
 // retirés, chaînes GARDÉES (`racine['THJeu']` se voit).
-const LECTEURS_DU_JEU = ['jeu.js'];
+// `{ fichier: raison }` — élargir est un geste conscient, avec sa raison (64B).
+const LECTEURS_DU_JEU = {
+  'jeu.js': 'le module du jeu lui-même.',
+  'app.js': '64B (JEU-V1 §9) : l’ÉCRAN du jeu — l’onglet et ses sous-vues, le Profil, la feuille « Terminer ». Il ' +
+    'calcule l’état (`etatDuJeu`, `apport`) et ses lectures, et passe des données au rendu, qui ne nomme pas le jeu.'
+};
 const LE_JEU_NE_NOMME_PAS = /\b(?:THPlan|THMoteur|THPalier|planDeSeance|prediction)\b/;
 const nommeLeJeu = (src) => {
   const code = nettoyer(src, true);
@@ -1320,7 +1326,7 @@ describe('architecture — le coach ne lit jamais le jeu, le jeu ne lit jamais l
   test('⚠️ `THJeu` n’apparaît que chez les lecteurs du jeu', () => {
     const fautes = [];
     FICHIERS.forEach((f) => {
-      if (LECTEURS_DU_JEU.indexOf(f.nom) >= 0) return;
+      if (Object.prototype.hasOwnProperty.call(LECTEURS_DU_JEU, f.nom)) return;
       const l = nommeLeJeu(f.src);
       if (l.length) fautes.push('`THJeu` nommé dans ' + f.nom + ', ligne(s) ' + l.join(', ') + ' : le coach ne lit ' +
         'jamais le jeu. Un écran qui l’affiche s’inscrit dans LECTEURS_DU_JEU, avec sa raison.');
@@ -1335,7 +1341,12 @@ describe('architecture — le coach ne lit jamais le jeu, le jeu ne lit jamais l
 
   test('la garde lit le vrai câblage : le module du jeu existe et se nomme lui-même', () => {
     expect(nommeLeJeu(parNom['jeu.js'].src).length).toBeGreaterThan(0);
-    expect(LECTEURS_DU_JEU.every((f) => !!parNom[f])).toBe(true);
+    expect(Object.keys(LECTEURS_DU_JEU).every((f) => !!parNom[f])).toBe(true);
+    // Chaque lecteur a sa raison, et chacun nomme vraiment le jeu (la liste dit ce qui est).
+    Object.keys(LECTEURS_DU_JEU).forEach((f) => {
+      expect([f, typeof LECTEURS_DU_JEU[f] === 'string' && LECTEURS_DU_JEU[f].length > 10]).toEqual([f, true]);
+      expect([f, nommeLeJeu(parNom[f].src).length > 0]).toEqual([f, true]);
+    });
   });
 
   test('l’interdit se lit vraiment : un `THJeu` glissé dans plan.js et un `THMoteur` glissé dans jeu.js se voient', () => {

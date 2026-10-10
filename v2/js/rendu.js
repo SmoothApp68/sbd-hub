@@ -4930,6 +4930,275 @@
   }
 
 
+  // ══ LE JEU (64B, JEU-V1 §9, maquette `maquette-jeu-v6.html`) ═════════════
+  //
+  // ⚠️ LE RENDU NE CALCULE RIEN DU JEU. Il reçoit l'état (`THJeu.etatDuJeu`) et
+  // les lectures que `app.js` lui a déjà faites (`lesPlusProches`, `jauges`,
+  // `parCategorie`, `titresEtCadresDetailles`, `vitrine`, `apport`) ; il ne
+  // nomme pas le module du jeu. Ici vivent les TEXTES — libellés, singulier,
+  // arrondis à l'entier supérieur — et la forme.
+  //
+  // ⚠️ AUCUN AMBRE (§9.6) : l'ambre est la voix du coach, qui ne parle jamais du
+  // jeu. Les raretés : `--rarete-1` à `--rarete-4` (majeur = l'or des records).
+  // Pas de rouge, pas de « dernier », pas de « bravo », rien sur l'assiduité.
+  var JEU_TITRES = { equilibre: 'Équilibré', polyvalent: 'Polyvalent', athlete: 'Athlète', accompli: 'Accompli',
+                     complet: 'Complet', collectionneur: 'Collectionneur' };
+  var JEU_CADRES = { vitrine: 'Cadre de vitrine', niveau: 'Cadre de niveau', or: 'Cadre d’or', grave: 'Cadre gravé' };
+  var JEU_CATEGORIES = { seances: 'Séances', serie: 'Série de semaines', records: 'Records', rando: 'Randonnée',
+                         decouverte: 'Découverte', muscle: 'Muscles', tous: 'Tous les muscles', cap: 'Caps ronds' };
+  var JEU_RANG = { commun: 1, rare: 2, exceptionnel: 3, majeur: 4 };
+  var NBSP = ' ', FINE = ' ';
+
+  function motJeu(n, un, plusieurs) { return n === 1 ? un : plusieurs; }
+  function groupe(n) { return M().nombreGroupe(n); }
+  // « R arrondi à l'entier supérieur » (§9.2). Les restes arrivent à 6 décimales : la marge écarte le bruit flottant.
+  function plafondJeu(x) { return Math.max(0, Math.ceil(x - 1e-9)); }
+  function libelleMuscleJeu(cle) {
+    if (cle === 'cardio') return 'Cardio';
+    var z = (racine.THSemaine.ZONES || []).filter(function (x) { return x.cle === cle; })[0];
+    return z ? z.libelle : cle;
+  }
+  // La couleur d'un niveau : global gris < 25, bleu 25–49, violet 50–74, or ≥ 75 ; muscle gris < 10, bleu 10–29,
+  // violet 30–49, or à 50 (§9.2).
+  function rangGlobal(n) { return n >= 75 ? 4 : n >= 50 ? 3 : n >= 25 ? 2 : 1; }
+  function rangMuscle(n) { return n >= 50 ? 4 : n >= 30 ? 3 : n >= 10 ? 2 : 1; }
+
+  function hexJeu(texte, rang, taille) {
+    var h = el('span', 'j-hex r-' + rang + (taille ? ' ' + taille : ''), texte);
+    h.setAttribute('aria-hidden', 'true');
+    return h;
+  }
+  function jaugeJeu(part) {
+    var j = el('div', 'j-jauge');
+    var i = el('i');
+    i.style.width = Math.round(Math.max(0, Math.min(1, part || 0)) * 100) + '%';
+    j.appendChild(i);
+    return j;
+  }
+  function blocJeu(titre, classe) {
+    var b = el('div', 'j-bloc' + (classe ? ' ' + classe : ''));
+    if (titre) b.appendChild(el('h3', null, titre));
+    return b;
+  }
+  function ligneJeu(gauche, droite, classe) {
+    var l = el('div', 'j-ligne' + (classe ? ' ' + classe : ''));
+    l.appendChild(typeof gauche === 'string' ? el('span', null, gauche) : gauche);
+    if (droite !== null && droite !== undefined) {
+      l.appendChild(typeof droite === 'string' ? el('span', 'j-d', droite) : droite);
+    }
+    return l;
+  }
+  function porteJeu(libelle, droite, surChoix, id) {
+    var b = el('button', 'j-ligne j-porte');
+    b.type = 'button';
+    if (id) b.id = id;
+    b.appendChild(el('span', null, libelle));
+    b.appendChild(el('span', 'j-d', droite));
+    b.appendChild(el('span', 'j-fl', '›'));
+    b.addEventListener('click', surChoix);
+    return b;
+  }
+
+  // Le nom d'un succès (§9.2, « Libellés ») : sa catégorie et son palier ; un cap rond, le nom court de l'exercice,
+  // comme la médaille. `d` : `descriptionDuSucces(id)`, et `d.nom` pour un cap (posé par l'appelant).
+  function libelleSucces(d) {
+    var p = d.palier;
+    switch (d.categorie) {
+      case 'seances': return groupe(p) + ' ' + motJeu(p, 'séance', 'séances');
+      case 'serie': return p + ' ' + motJeu(p, 'semaine', 'semaines');
+      case 'records': return groupe(p) + ' ' + motJeu(p, 'record', 'records');
+      case 'rando': return 'Randonnée : ' + groupe(p) + NBSP + 'km';
+      case 'decouverte': return p + ' ' + motJeu(p, 'exercice', 'exercices');
+      case 'sortie': return 'Grande sortie : ' + p + NBSP + 'km';
+      case 'muscle': return libelleMuscleJeu(d.cle) + ' niveau ' + p;
+      case 'tous': return 'Tous les muscles à ' + p;
+      case 'cap': return 'Cap rond : ' + (d.nom || d.cle) + ' ' + nombreFr(p) + NBSP + 'kg';
+      default: return String(p);
+    }
+  }
+
+  // Une entrée de « le plus proche » : `[gauche, droite]`.
+  function texteProche(x) {
+    var r = plafondJeu(x.reste);
+    if (x.type === 'muscle') {
+      return [libelleMuscleJeu(x.cle) + ', niveau ' + x.cible,
+              'dans ' + r + ' ' + (x.cle === 'cardio' ? 'min' : motJeu(r, 'point', 'points'))];
+    }
+    var c = x.cible;
+    switch (x.cle) {
+      case 'seances': return ['Séances : ' + groupe(c), 'dans ' + groupe(r) + ' ' + motJeu(r, 'séance', 'séances')];
+      case 'serie': return ['Série : ' + c + ' semaines', 'dans ' + r + ' ' + motJeu(r, 'semaine', 'semaines')];
+      case 'records': return ['Records : ' + groupe(c), 'dans ' + groupe(r) + ' ' + motJeu(r, 'record', 'records')];
+      case 'rando': return ['Randonnée : ' + groupe(c) + NBSP + 'km', 'dans ' + groupe(r) + NBSP + 'km'];
+      case 'decouverte': return ['Découverte : ' + c + ' exercices', 'dans ' + r + ' ' + motJeu(r, 'exercice', 'exercices')];
+      default: return [String(c), 'dans ' + r];
+    }
+  }
+
+  // L'accueil : le niveau, la série, le plus proche, puis trois portes (§9.2).
+  //   vue = { etat, jauge, proches, surMuscles, surSucces, surDeblocages }
+  function rendreJeuAccueil(cible, vue) {
+    if (!cible) return;
+    vider(cible);
+    var e = vue.etat, n = e.niveau.niveau, cent = n >= 100;
+
+    var bn = blocJeu(null, 'j-niveau');
+    var rang = el('div', 'j-rangee');
+    rang.appendChild(hexJeu(String(n), rangGlobal(n), 'grand'));
+    var txt = el('div', 'j-txt');
+    var tete = el('div', 'j-tete');
+    tete.appendChild(el('b', null, 'Niveau ' + n));
+    if (e.titre) tete.appendChild(el('span', 'j-gris', ' · ' + JEU_TITRES[e.titre]));
+    txt.appendChild(tete);
+    txt.appendChild(jaugeJeu(cent ? 1 : vue.jauge));
+    // À 100 : ni « prochain » ni Ω — l'Ω ne se montre qu'au Profil (§4).
+    if (!cent) {
+      var r = plafondJeu(e.niveau.prochain);
+      txt.appendChild(el('div', 'j-gris j-num', 'niveau ' + (n + 1) + ' dans ' + groupe(r) + FINE + motJeu(r, 'point', 'points')));
+    }
+    rang.appendChild(txt);
+    bn.appendChild(rang);
+    cible.appendChild(bn);
+
+    // La série : absente sans semaine active ; à 0, seule la meilleure se dit (jamais « 0 semaine »).
+    var s = e.semaines;
+    if (s.actives > 0) {
+      var bs = blocJeu(null, 'j-serie');
+      if (s.serie > 0) {
+        var gauche = el('span');
+        gauche.appendChild(el('b', 'j-num j-fort', String(s.serie)));
+        gauche.appendChild(doc.createTextNode(' ' + motJeu(s.serie, 'semaine d’affilée', 'semaines d’affilée')));
+        bs.appendChild(ligneJeu(gauche, 'gels : ' + s.reserve + ' sur ' + vue.gelsMax));
+      }
+      bs.appendChild(ligneJeu(el('span', 'j-gris', 'Meilleure série'),
+        s.meilleure + ' ' + motJeu(s.meilleure, 'semaine', 'semaines')));
+      cible.appendChild(bs);
+    }
+
+    if (vue.proches.length) {
+      var bp = blocJeu('Le plus proche', 'j-proches');
+      vue.proches.forEach(function (x) {
+        var t = texteProche(x);
+        bp.appendChild(ligneJeu(t[0], t[1]));
+      });
+      cible.appendChild(bp);
+    }
+
+    var portes = blocJeu(null, 'j-portes');
+    portes.appendChild(porteJeu('Muscles', '7', vue.surMuscles, 'jeu-porte-muscles'));
+    portes.appendChild(porteJeu('Succès', groupe(e.succes.nombre) + ' · ' + groupe(e.succes.points) + FINE +
+      motJeu(e.succes.points, 'point', 'points'), vue.surSucces, 'jeu-porte-succes'));
+    portes.appendChild(porteJeu('Déblocages', 'cadres, gels', vue.surDeblocages, 'jeu-porte-deblocages'));
+    cible.appendChild(portes);
+  }
+
+  // Les sept muscles, dans l'ordre du jeu (jamais trié).   vue = { etat, ordre, jauges }
+  function rendreJeuMuscles(cible, vue) {
+    if (!cible) return;
+    vider(cible);
+    var tete = el('div', 'j-entete');
+    tete.appendChild(el('h2', 'titre-vue', 'Muscles'));
+    tete.appendChild(el('span', 'j-gris j-num', String(vue.ordre.length)));
+    cible.appendChild(tete);
+    var b = blocJeu(null, 'j-muscles');
+    vue.ordre.forEach(function (cle) {
+      var m = vue.etat.muscles[cle];
+      var ligne = el('div', 'j-metier');
+      ligne.dataset.muscle = cle;
+      ligne.appendChild(hexJeu(String(m.niveau), rangMuscle(m.niveau)));
+      var droite = el('div', 'j-txt');
+      var nom = el('div', 'j-nom');
+      nom.appendChild(el('span', null, libelleMuscleJeu(cle)));
+      var r = m.prochain === null ? null : plafondJeu(m.prochain);
+      nom.appendChild(el('span', 'j-gris j-num', r === null ? 'niveau maximal'
+        : 'niveau ' + (m.niveau + 1) + ' dans ' + groupe(r) + ' ' +
+          (cle === 'cardio' ? 'min' : motJeu(r, 'point', 'points'))));
+      droite.appendChild(nom);
+      droite.appendChild(jaugeJeu(vue.jauges.muscles[cle]));
+      ligne.appendChild(droite);
+      b.appendChild(ligne);
+    });
+    b.appendChild(el('p', 'j-note', 'Une série de travail donne 1 point au muscle qu’elle travaille, ½ à celui qui ' +
+      'aide. Cardio : 1 point par minute.'));
+    cible.appendChild(b);
+  }
+
+  // Les succès par catégorie, la légende des raretés, les titres.   vue = { etat, categories, raretes, titres }
+  function rendreJeuSucces(cible, vue) {
+    if (!cible) return;
+    vider(cible);
+    var e = vue.etat;
+    var tete = el('div', 'j-entete');
+    tete.appendChild(el('h2', 'titre-vue', 'Succès'));
+    tete.appendChild(el('span', 'j-gris j-num', groupe(e.succes.nombre) + ' · ' + groupe(e.succes.points) + FINE +
+      motJeu(e.succes.points, 'point', 'points')));
+    cible.appendChild(tete);
+
+    var bc = blocJeu('Par catégorie', 'j-categories');
+    vue.categories.forEach(function (c) {
+      var droite = c.total === null ? String(c.obtenus) : c.obtenus + ' / ' + c.total;
+      if (c.prochain !== null) {
+        droite += ' · prochain : ' + groupe(c.prochain) + (c.cle === 'rando' ? NBSP + 'km' : '');
+      }
+      bc.appendChild(ligneJeu(JEU_CATEGORIES[c.cle], droite, 'j-cat'));
+    });
+    var leg = el('div', 'j-raretes');
+    vue.raretes.forEach(function (r) {
+      var p = el('span', 'j-rarete r-' + JEU_RANG[r.rarete], r.rarete + ' · ' + r.points);
+      leg.appendChild(p);
+    });
+    bc.appendChild(leg);
+    cible.appendChild(bc);
+
+    var bt = blocJeu('Titres', 'j-titres');
+    vue.titres.forEach(function (t) {
+      var gauche = el('span', t.obtenu ? null : 'j-gris');
+      gauche.appendChild(el(t.affiche ? 'b' : 'span', null, JEU_TITRES[t.cle]));
+      if (t.affiche) gauche.appendChild(doc.createTextNode(' · affiché'));
+      var cond = t.cle === 'collectionneur' ? t.succes + ' succès' : 'tous les muscles à ' + t.niveau;
+      if (t.obtenu) cond += ' · ✓';
+      else if (t.manque) cond += ' · ' + libelleMuscleJeu(t.manque.cle) + ' à ' + t.manque.niveau;
+      bt.appendChild(ligneJeu(gauche, cond));
+    });
+    cible.appendChild(bt);
+  }
+
+  // Les cadres et les gels.   vue = { cadres, semaines, conditions: { vitrine, grave }, gels: { premier, pas, max } }
+  function rendreJeuDeblocages(cible, vue) {
+    if (!cible) return;
+    vider(cible);
+    cible.appendChild(el('h2', 'titre-vue', 'Déblocages'));
+    var cond = { vitrine: vue.conditions.vitrine + ' succès', niveau: 'un succès rare', or: 'un succès exceptionnel',
+                 grave: 'le titre ' + JEU_TITRES[vue.conditions.grave] };
+    var bc = blocJeu('Cadres du profil', 'j-cadres');
+    vue.cadres.forEach(function (c) {
+      var gauche = el('span', c.obtenu ? null : 'j-gris');
+      gauche.appendChild(el('b', null, JEU_CADRES[c.cle]));
+      if (c.affiche) gauche.appendChild(doc.createTextNode(' · affiché'));
+      bc.appendChild(ligneJeu(gauche, cond[c.cle] + (c.obtenu ? ' · ✓' : '')));
+    });
+    bc.appendChild(el('p', 'j-note', 'Chaque cadre se gagne par un succès et ne se perd pas. Le plus haut s’affiche.'));
+    cible.appendChild(bc);
+
+    var s = vue.semaines;
+    var bg = blocJeu('Gels de série', 'j-gels');
+    bg.appendChild(ligneJeu('En réserve', s.reserve + ' sur ' + vue.gels.max));
+    bg.appendChild(ligneJeu('Prochain gel', s.prochainGel === null ? 'réserve pleine'
+      : 'dans ' + s.prochainGel + ' ' + motJeu(s.prochainGel, 'semaine', 'semaines')));
+    if (s.gelsUtilises.length) {
+      s.gelsUtilises.forEach(function (j, i) {
+        var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(j);
+        var d = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null;
+        bg.appendChild(ligneJeu(i === 0 ? 'Utilisés' : '', 'semaine du ' + (d ? M().jourMois(d, -1) : j)));
+      });
+    } else {
+      bg.appendChild(ligneJeu('Utilisés', 'aucun'));
+    }
+    bg.appendChild(el('p', 'j-note', 'Un premier gel à ' + vue.gels.premier + ' semaines d’affilée, puis tous les ' +
+      vue.gels.pas + ' semaines. Deux au plus. Il protège tout seul une semaine sans séance.'));
+    cible.appendChild(bg);
+  }
+
   var api = {
     rendreEtat: rendreEtat,
     rendreOnglets: rendreOnglets,
@@ -5000,6 +5269,12 @@
     rendreFeuilleSupprimer: rendreFeuilleSupprimer,
     phraseEffacement: phraseEffacement,
     rendreFeuilleFin: rendreFeuilleFin,
+    // 64B — le jeu (JEU-V1 §9).
+    rendreJeuAccueil: rendreJeuAccueil,
+    rendreJeuMuscles: rendreJeuMuscles,
+    rendreJeuSucces: rendreJeuSucces,
+    rendreJeuDeblocages: rendreJeuDeblocages,
+    libelleSucces: libelleSucces,
     mmss: mmss,
     etiquetteSerie: etiquetteSerie,
     texteEffort: texteEffort,

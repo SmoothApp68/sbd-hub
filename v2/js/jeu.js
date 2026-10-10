@@ -431,8 +431,76 @@
     };
   }
 
+  // ── Les lectures des vues (64B, JEU-V1 §9.2) ─────────────────────────────
+  //
+  // Ce que l'accueil, Succès et Déblocages montrent, décidé ICI : un écran ne
+  // trie pas « le plus proche » et ne compte pas les succès d'une catégorie.
+
+  // Les trois entrées de `prochains` dont `fait` est le plus grand ; à égalité,
+  // l'ordre de la liste (la première est `plusProche`).
+  var NB_PLUS_PROCHES = 3;
+  function lesPlusProches(etat) {
+    return (etat.prochains || []).map(function (x, i) { return { x: x, i: i }; }).sort(function (a, b) {
+      if (Math.abs(b.x.fait - a.x.fait) > EPS_DEPARTAGE) return b.x.fait - a.x.fait;
+      return a.i - b.i;
+    }).slice(0, NB_PLUS_PROCHES).map(function (e) { return e.x; });
+  }
+
+  // Par catégorie de §5, dans l'ordre de la vue Succès : `{ cle, obtenus, total, prochain }` — `total` et
+  // `prochain` à `null` quand ils n'ont pas de sens (les caps ronds n'ont pas de total ; une catégorie complète
+  // n'a pas de prochain). La randonnée compte la grande sortie (quatre paliers + la sortie).
+  function parCategorie(etat) {
+    var a = {};
+    etat.succes.ids.forEach(function (id) { a[id] = true; });
+    var compte = function (prefixe, paliers) {
+      var obtenus = paliers.filter(function (p) { return possede(a, prefixe + p[0]); }).length;
+      return { obtenus: obtenus, prochain: obtenus >= paliers.length ? null : paliers[obtenus][0] };
+    };
+    var out = PALIERS.map(function (c) {
+      var r = compte(c.cle + '-', c.paliers);
+      var sortie = c.cle === 'rando' ? 1 : 0;
+      return { cle: c.cle, obtenus: r.obtenus + (sortie && possede(a, SUCCES_SORTIE) ? 1 : 0),
+               total: c.paliers.length + sortie, prochain: r.prochain };
+    });
+    var muscles = 0;
+    ORDRE_DES_MUSCLES.forEach(function (m) { muscles += compte('muscle-' + m + '-', PALIERS_MUSCLE).obtenus; });
+    out.push({ cle: 'muscle', obtenus: muscles, total: ORDRE_DES_MUSCLES.length * PALIERS_MUSCLE.length, prochain: null });
+    var tous = compte('tous-', PALIERS_TOUS);
+    out.push({ cle: 'tous', obtenus: tous.obtenus, total: PALIERS_TOUS.length, prochain: tous.prochain });
+    out.push({ cle: 'cap', obtenus: etat.succes.ids.filter(function (id) {
+      var d = descriptionDuSucces(id);
+      return !!d && d.categorie === 'cap';
+    }).length, total: null, prochain: null });
+    return out;
+  }
+
+  // Les titres et les cadres, obtenus ou non, et lequel est affiché. Pour le premier titre de muscles non obtenu :
+  // le muscle le plus bas (le premier dans l'ordre du jeu, à égalité) et son niveau.
+  function titresEtCadresDetailles(etat) {
+    var mini = null;
+    ORDRE_DES_MUSCLES.forEach(function (m) {
+      if (mini === null || etat.muscles[m].niveau < mini.niveau) mini = { cle: m, niveau: etat.muscles[m].niveau };
+    });
+    var premierManque = true;
+    var titres = TITRES.map(function (t) {
+      var obtenu = etat.titres.indexOf(t[1]) >= 0;
+      var manque = !obtenu && premierManque ? mini : null;
+      if (!obtenu) premierManque = false;
+      return { cle: t[1], niveau: t[0], obtenu: obtenu, affiche: etat.titre === t[1], manque: manque };
+    });
+    titres.push({ cle: COLLECTIONNEUR, succes: SUCCES_COLLECTIONNEUR, obtenu: etat.titres.indexOf(COLLECTIONNEUR) >= 0,
+                  affiche: etat.titre === COLLECTIONNEUR, manque: null });
+    var cadres = CADRES.map(function (c) {
+      return { cle: c, obtenu: etat.cadres.indexOf(c) >= 0, affiche: etat.cadre === c };
+    });
+    return { titres: titres, cadres: cadres };
+  }
+
   var api = {
     etatDuJeu: etatDuJeu,
+    lesPlusProches: lesPlusProches,
+    parCategorie: parCategorie,
+    titresEtCadresDetailles: titresEtCadresDetailles,
     descriptionDuSucces: descriptionDuSucces,
     vitrine: vitrine,
     apport: apport,

@@ -6,7 +6,7 @@
 // séries lourdes, les variantes à la barre.
 //
 // Chaque test est DISCRIMINANT : il échoue si la règle qu'il nomme est fausse
-// — la borne des 28 jours décalée d'un jour, celle des 182 jours, 7 reps
+// — la borne des 28 jours décalée d'un jour, celle des 26 semaines, 7 reps
 // comptées lourdes, une variante à la machine comptée, le record daté de sa
 // dernière fois, une chauffe comptée.
 //
@@ -99,18 +99,34 @@ describe('66A — barresDuBilan, le fait des barres (§5 ter.2)', () => {
     ]).squat_barre.recent).toEqual({ charge: 130, reps: 4, date: '2026-10-05' });
   });
 
-  test('les semaines et les séries lourdes : les 182 derniers jours — le 181ᵉ jour en arrière compte, le 182ᵉ non', () => {
+  // 66A bis — LES 26 DERNIÈRES SEMAINES : du lundi d'il y a 25 semaines à la fin d'aujourd'hui, une seule fenêtre
+  // pour `semaines`, `lourdes` et `variantes`. Le 10/10/2026 est un samedi : le lundi de sa semaine est le 5 oct.,
+  // moins 25 semaines, le lundi 13 avril ; le dimanche 12 avril est hors fenêtre (182 jours l'incluaient).
+  test('la borne des 26 semaines : le lundi d’il y a 25 semaines compte, le dimanche juste avant non — pour les semaines, les séries lourdes et les variantes', () => {
     const b = bilan([
-      { debut: ilYa(182, 23), series: [['squat_barre', 100, 3], ['squat_pause_barre', 90, 3]] },
-      { debut: ilYa(181, 0), series: [['squat_barre', 100, 3], ['squat_pause_barre', 90, 3]] }
+      { debut: new Date(2026, 3, 12, 23, 30), series: [['squat_barre', 100, 3], ['squat_pause_barre', 90, 3]] },
+      { debut: new Date(2026, 3, 13, 0, 30), series: [['squat_barre', 100, 3], ['squat_pause_barre', 90, 3]] }
     ]);
     expect(b.squat_barre.semaines).toBe(1);
     expect(b.squat_barre.lourdes).toBe(1);
     expect(b.squat_barre.variantes).toBe(1);
-    // Hors des 182 jours : la barre reste (son record), sans semaine, sans série lourde.
-    const vieux = bilan([{ debut: ilYa(182, 23), series: [['squat_barre', 100, 3]] }]);
-    expect(vieux.squat_barre).toEqual({ record: { charge: 100, date: '2026-04-11' }, recent: null, semaines: 0,
+    // Le dimanche seul : la barre reste (son record), sans semaine, sans série lourde, sans variante.
+    const vieux = bilan([{ debut: new Date(2026, 3, 12, 23, 30), series: [['squat_barre', 100, 3], ['squat_pause_barre', 90, 3]] }]);
+    expect(vieux.squat_barre).toEqual({ record: { charge: 100, date: '2026-04-12' }, recent: null, semaines: 0,
       lourdes: 0, variantes: 0 });
+  });
+
+  test('qui fait la barre chaque semaine depuis un an : 26 semaines sur 26, jamais 27 — un samedi comme un lundi', () => {
+    // Deux séances par semaine, le lundi et le dimanche, du 6 oct. 2025 au 12 oct. 2026.
+    const specs = [];
+    for (let d = new Date(2025, 9, 6, 18); d <= new Date(2026, 9, 12, 18); d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 18)) {
+      if (d.getDay() === 1 || d.getDay() === 0) specs.push({ debut: d, series: [['squat_barre', 100, 5]] });
+    }
+    const c = corpus(specs);
+    // Samedi 10 oct. 2026 (182 jours remontaient au dimanche 12 avril : 27 semaines).
+    expect(Faits.creer().barresDuBilan(c, new Date(2026, 9, 10, 20)).squat_barre.semaines).toBe(26);
+    // Lundi 12 oct. 2026, le soir (182 jours remontaient au mardi 14 avril : 27 semaines).
+    expect(Faits.creer().barresDuBilan(c, new Date(2026, 9, 12, 20)).squat_barre.semaines).toBe(26);
   });
 
   test('les semaines : lundi → dimanche, heure locale ; deux séances d’une même semaine font une semaine', () => {

@@ -794,8 +794,9 @@
   }
 
   // LES INVARIANTS DE LA RELECTURE (§5 ter.1) : R1 une proposition de retrait ne fait que retirer, et jamais sous 1
-  // série ; R2 aucun retrait hors sèche ; R3 toute proposition porte un « oui » et un « non » ; R4 pas de repère de
-  // ratio hors Force et Les deux. Rend la liste des fautes (vide : la relecture tient).
+  // série ; R2 aucun retrait hors sèche ; R3 toute proposition porte un « oui » et un « non » — celles de la semaine
+  // comme la priorité de « Ton historique » ; R4 pas de repère de ratio hors Force et Les deux. Rend la liste des fautes
+  // (vide : la relecture tient).
   function verifierRelecture(entree, sortie) {
     var e = entree || {}, s = sortie || {}, fautes = [];
     var profil = e.profil || {};
@@ -809,6 +810,9 @@
       if (!p.oui || !p.non) fautes.push('R3 une proposition sans « oui » ni « non »');
     });
     var r = s.historique ? s.historique.ratio : null;
+    // R3 couvre aussi la priorité de « Ton historique » (66A bis).
+    var q = r ? r.proposition : null;
+    if (q && (!q.oui || !q.non)) fautes.push('R3 une proposition sans « oui » ni « non »');
     if (r && !contient(DISCIPLINES_RATIO, profil.objectif)) fautes.push('R4 un repère de ratio hors Force / Les deux');
     return fautes;
   }

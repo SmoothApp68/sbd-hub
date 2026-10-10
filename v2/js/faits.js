@@ -555,22 +555,28 @@
     //   · `recent` : la meilleure série de travail des 28 derniers jours (la plus
     //     lourde, puis le plus de reps, puis la plus récente ; au moins 1 rep),
     //     `{ charge, reps, date }`, ou `null` ;
-    //   · `semaines` : les semaines (lundi → dimanche, heure locale) des 182
-    //     derniers jours qui ont une série de travail de la barre ;
-    //   · `lourdes` : ses séries de travail de 1 à 6 reps sur ces 182 jours ;
-    //   · `variantes` : les séries de travail, sur ces 182 jours, des variantes
+    //   · `semaines` : les semaines (lundi → dimanche, heure locale) des 26
+    //     dernières semaines qui ont une série de travail de la barre — de 0 à 26 ;
+    //   · `lourdes` : ses séries de travail de 1 à 6 reps sur ces 26 semaines ;
+    //   · `variantes` : les séries de travail, sur ces 26 semaines, des variantes
     //     À LA BARRE — même `mouvement`, `equipement = 'barre'`, autre exercice :
     //     ses frères (`Modele.freresDe`) à la barre.
     //
-    // « Les N derniers jours » : `Periode.fenetres(N, aujourdhui).courante`, du
-    // minuit d'il y a N − 1 jours à la fin d'aujourd'hui (aujourd'hui compris).
+    // « Les 28 derniers jours » : `Periode.fenetres(28, aujourdhui).courante`, du
+    // minuit d'il y a 27 jours à la fin d'aujourd'hui (aujourd'hui compris).
+    // « Les 26 dernières semaines » (66A bis, décidé le 10/10/2026) : du lundi
+    // d'il y a 25 semaines (`Semaine.decalerSemaine` du lundi de la semaine
+    // d'aujourd'hui) à la même fin — 26 semaines du calendrier, jamais 27 : une
+    // fenêtre de 182 jours en touchait 27, sauf un dimanche. `semaines`,
+    // `lourdes` et `variantes` la lisent toutes les trois.
     // `aujourdhui` : passé (jamais l'horloge).
     var BARRES_DU_BILAN = ['squat_barre', 'developpe_couche_barre', 'souleve_de_terre_barre', 'developpe_militaire_barre'];
-    var JOURS_RECENTS = 28, JOURS_DU_BILAN = 182, REPS_LOURDES_MAX = 6;
+    var JOURS_RECENTS = 28, SEMAINES_DU_BILAN = 26, REPS_LOURDES_MAX = 6;
     function barresDuBilan(c, aujourdhui) {
       var index = c.catalogue() || {};
       var recente = Periode.fenetres(JOURS_RECENTS, aujourdhui).courante;
-      var bilan = Periode.fenetres(JOURS_DU_BILAN, aujourdhui).courante;
+      var bilan = { debut: Semaine.decalerSemaine(Semaine.bornesSemaine(aujourdhui).lundi, 1 - SEMAINES_DU_BILAN).lundi,
+                    fin: recente.fin };
       // Les séries de travail d'un exercice, chacune avec le début de sa séance.
       var travailDe = function (slug) {
         var out = [];

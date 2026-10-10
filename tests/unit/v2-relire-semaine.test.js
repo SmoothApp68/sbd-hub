@@ -104,6 +104,17 @@ describe('66A — verifierRelecture : les invariants R1 à R4', () => {
     expect(G.verifierRelecture(e, sansNon)).toEqual(['R3 une proposition sans « oui » ni « non »']);
   });
 
+  test('R3 — la priorité de « Ton historique » sans « non » se voit aussi (66A bis)', () => {
+    const { e, s } = relu('aurel-seche-avant');
+    expect(s.historique.ratio.proposition.type).toBe('priorite');
+    const sansNon = copie(s);
+    delete sansNon.historique.ratio.proposition.non;
+    expect(G.verifierRelecture(e, sansNon)).toEqual(['R3 une proposition sans « oui » ni « non »']);
+    const sansOui = copie(s);
+    sansOui.historique.ratio.proposition.oui = '';
+    expect(G.verifierRelecture(e, sansOui)).toEqual(['R3 une proposition sans « oui » ni « non »']);
+  });
+
   test('R4 — un repère de ratio avec l’objectif Muscle se voit', () => {
     const { e, s } = relu('muscle-retards-par-muscle');
     expect(s.historique.ratio).toBeNull();

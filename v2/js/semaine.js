@@ -91,8 +91,42 @@
     return jours;
   }
 
-  // Volume par muscle : la série de travail, pondérée 1 en primaire et 0,5 en
-  // secondaire (REGLE-VOLUME-V2 §1). Registre strictement descriptif — aucun
+  // ⚠️ LE POIDS D'UN MUSCLE : UNE TABLE, ICI (65, REGLE-VOLUME §1 bis, v2_069).
+  // Une série de travail compte pour un muscle selon ce qu'il fait dans
+  // l'exercice : 1 s'il est principal (il produit le mouvement), ½ s'il est
+  // secondaire (il aide, en raccourcissant et en s'allongeant), ¼ s'il est
+  // stabilisateur (il tient la position : gainage, prise, maintien du dos).
+  // Le coach (`volumeParMuscle`, `apportsParMuscle`) et le jeu la LISENT par
+  // `musclesPonderes` : aucun autre endroit du code n'associe un poids à une
+  // classe (garde d'architecture).
+  var POIDS_DES_MUSCLES = { primaire: 1, secondaire: 0.5, stabilisateur: 0.25 };
+  var COLONNE_DU_ROLE = [['primaire', 'muscles_primaires'], ['secondaire', 'muscles_secondaires'],
+                         ['stabilisateur', 'muscles_stabilisateurs']];
+
+  // `[{ muscle, role, poids }]` d'un exercice du catalogue, dans l'ordre
+  // principaux, secondaires, stabilisateurs. Une liste ABSENTE vaut vide : un
+  // cache d'avant v2_069, un faux serveur, une ligne sans la colonne. Un muscle
+  // déjà vu garde sa première classe (la base l'interdit ; la fonction s'en
+  // protège) — et l'ordre donne au jeu « la plus forte contribution » d'abord.
+  function musclesPonderes(exo) {
+    var out = [], vus = {};
+    if (!exo) return out;
+    COLONNE_DU_ROLE.forEach(function (c) {
+      (exo[c[1]] || []).forEach(function (m) {
+        if (!m || Object.prototype.hasOwnProperty.call(vus, m)) return;
+        vus[m] = true;
+        out.push({ muscle: m, role: c[0], poids: POIDS_DES_MUSCLES[c[0]] });
+      });
+    });
+    return out;
+  }
+
+  // Au centième (65) : ¼ et ¾ se gardent entiers (au dixième, 0,25 devenait 0,3
+  // et 1,75 devenait 1,8). Avec des poids 1 et ½ seulement, rien ne change.
+  function auCentieme(x) { return Math.round(x * 100) / 100; }
+
+  // Volume par muscle : la série de travail, pondérée par `musclesPonderes`
+  // (REGLE-VOLUME-V2 §1 bis : 1, ½, ¼). Registre strictement descriptif — aucun
   // seuil, aucune comparaison : la règle de volume exige une fenêtre de trois
   // semaines actives et deux fenêtres de persistance, donc rien ne peut être
   // conclu d'une semaine isolée.
@@ -116,12 +150,11 @@
       if (!racine.THModele.estTravail(s)) return;
       var exo = cat[s.exercise_slug];
       if (!exo) return;
-      (exo.muscles_primaires || []).forEach(function (m) { ajouter(m, 1); });
-      (exo.muscles_secondaires || []).forEach(function (m) { ajouter(m, 0.5); });
+      musclesPonderes(exo).forEach(function (x) { ajouter(x.muscle, x.poids); });
     });
 
     return Object.keys(total).map(function (m) {
-      return { muscle: m, libelle: libelleMuscle(m), series: Math.round(total[m] * 10) / 10 };
+      return { muscle: m, libelle: libelleMuscle(m), series: auCentieme(total[m]) };
     }).sort(function (a, b) {
       return b.series - a.series || a.libelle.localeCompare(b.libelle);
     });
@@ -225,9 +258,9 @@
     });
 
     return ordre.map(function (z) {
-      // Les dixièmes se réintroduisent à l'addition : on arrondit une fois, à
-      // la fin, comme volumeParMuscle le fait pour chaque muscle.
-      z.series = Math.round(z.series * 10) / 10;
+      // Les décimales se réintroduisent à l'addition : on arrondit une fois, à
+      // la fin, au centième, comme volumeParMuscle le fait pour chaque muscle.
+      z.series = auCentieme(z.series);
       return z;
     }).sort(function (a, b) {
       return b.series - a.series || a.libelle.localeCompare(b.libelle);
@@ -236,7 +269,9 @@
 
   // D'où vient ce 11,5 : une ligne par couple (exercice, séance), avec le
   // nombre de séries RÉELLES et l'apport. L'écart entre les deux est ce que la
-  // fenêtre existe pour montrer — un muscle secondaire vaut un demi-point.
+  // fenêtre existe pour montrer — un muscle secondaire vaut un demi-point, un
+  // stabilisateur un quart (`musclesPonderes`). `role` dit sa classe ;
+  // `secondaire` et `stabilisateur` (booléens) restent pour les lecteurs.
   function apportsParMuscle(muscle, series, exercices, seances) {
     var cat = {};
     (exercices || []).forEach(function (e) { if (e && e.slug) cat[e.slug] = e; });
@@ -248,9 +283,8 @@
       if (!racine.THModele.estTravail(s)) return;
       var exo = cat[s.exercise_slug];
       if (!exo) return;
-      var primaire = (exo.muscles_primaires || []).indexOf(muscle) >= 0;
-      var secondaire = (exo.muscles_secondaires || []).indexOf(muscle) >= 0;
-      if (!primaire && !secondaire) return;
+      var lui = musclesPonderes(exo).filter(function (x) { return x.muscle === muscle; })[0];
+      if (!lui) return;
 
       var cle = s.exercise_slug + '|' + s.session_id;
       if (!paquets[cle]) {
@@ -259,16 +293,17 @@
         paquets[cle] = {
           slug: s.exercise_slug, nom: exo.nom || s.exercise_slug,
           jour: d && !isNaN(d.getTime()) ? d : null,
-          seriesReelles: 0, apport: 0, secondaire: !primaire && secondaire
+          seriesReelles: 0, apport: 0, role: lui.role,
+          secondaire: lui.role === 'secondaire', stabilisateur: lui.role === 'stabilisateur'
         };
         ordre.push(paquets[cle]);
       }
       paquets[cle].seriesReelles += 1;
-      paquets[cle].apport += primaire ? 1 : 0.5;
+      paquets[cle].apport += lui.poids;
     });
 
     return ordre.map(function (a) {
-      a.apport = Math.round(a.apport * 10) / 10;
+      a.apport = auCentieme(a.apport);
       return a;
     }).sort(function (a, b) {
       return b.apport - a.apport || a.nom.localeCompare(b.nom);
@@ -368,6 +403,8 @@
     volumeParMuscle: volumeParMuscle,
     semainesDeVolume: semainesDeVolume,
     porteDuVolume: porteDuVolume,
+    POIDS_DES_MUSCLES: POIDS_DES_MUSCLES,
+    musclesPonderes: musclesPonderes,
     compteSeriesTravail: compteSeriesTravail,
     bilanSemaine: bilanSemaine
   };

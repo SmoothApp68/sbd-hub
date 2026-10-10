@@ -148,7 +148,10 @@ const GARDEES = [
   // generateur.js — « Le coach relit ta semaine » (66A, QUESTIONNAIRE-COACH-V2 §5 ter) : l'écran (66B) lira la
   // relecture, il ne la refait pas ; ses invariants (R1-R4) se vérifient par le module.
   { fn: 'relireSemaine', module: 'generateur.js' },
-  { fn: 'verifierRelecture', module: 'generateur.js' }
+  // `motif` : la garde de développement a sa méthode du même nom (`garde.verifierRelecture`, plan.js, 66B), qui lit
+  // le générateur à l'appel ; seul l'appel qualifié par le module compte.
+  { fn: 'verifierRelecture', module: 'generateur.js',
+    motif: /(?:\bGenerateur|\bGenerateur\(\)|racine\.THGenerateur)\s*\.\s*verifierRelecture\b/g }
 ];
 
 // ── LA LISTE D'AUTORISATIONS ────────────────────────────────────────────────
@@ -253,6 +256,11 @@ const AUTORISATIONS = {
   pourquoi: {
     'app.js': 'QUESTIONNAIRE-COACH-V2 §5 bis (60-4) : la ligne « pourquoi » d’une carte de l’aperçu est un fait du ' +
       'générateur, recalculé après chaque changement (`lectureDuProgramme`) ; l’écran n’additionne aucune série.'
+  },
+  relireSemaine: {
+    'app.js': 'QUESTIONNAIRE-COACH-V2 §5 ter.4 bis (66B) : l’écran « Le coach relit ta semaine » assemble l’entrée à ' +
+      'partir des faits existants (`entreeDeRelecture`), appelle la relecture une fois par ouverture et après chaque ' +
+      '« oui » (`relire`), et dessine sa sortie — il ne calcule aucun verdict lui-même.'
   },
   carteCycles: {
     'app.js': 'MOTEUR §9.22 (60-4) : la carte « Passer en cycles » de Saisie lit la règle du générateur ' +
@@ -962,22 +970,27 @@ const NOTIONS = [
       'de `jeu_actif === false` écrit à la main dirait autre chose au premier démarrage (colonne absente).' },
   // ── 66A — LE COACH RELIT TA SEMAINE (QUESTIONNAIRE-COACH-V2 §5 ter) ───────
   { notion: 'le fait des barres du bilan (record, série récente, semaines, séries lourdes, variantes à la barre)', pr: '66-U1',
-    module: 'faits.js', fonction: 'barresDuBilan', lecteurs: [],
+    module: 'faits.js', fonction: 'barresDuBilan', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['entreeDeRelecture'] },
     raison: 'QUESTIONNAIRE-COACH-V2 §5 ter.2 (66A) : la relecture de la semaine REÇOIT ce fait, elle ne relit pas les ' +
-      'séances ; le record est celui de la page de l’exercice (`recordsDeLExercice(...).lourde`). Aucun lecteur encore : ' +
-      'l’écran de 66B (`app.js`) assemblera l’entrée.' },
+      'séances ; le record est celui de la page de l’exercice (`recordsDeLExercice(...).lourde`). 66B : l’écran ' +
+      '(`app.js`, `entreeDeRelecture`) l’assemble dans l’entrée, sans le recompter.' },
   { notion: 'le repère squat ÷ couché, par sexe (la barre en retard, Force et Les deux)', pr: '66-U1',
-    module: 'generateur.js', fonction: 'relireSemaine', lecteurs: [],
+    module: 'generateur.js', fonction: 'relireSemaine', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['relire'] },
     raison: 'QUESTIONNAIRE-COACH-V2 §5 ter.3 (66A) : 1,2 pour un homme, 1,6 pour une femme — le bas des moyennes de ' +
       'compétition (van den Hoek et al. 2024, J Sci Med Sport) ; une table (`RATIO_SQUAT_COUCHE`), lue par la seule ' +
-      'relecture, jamais hors Force et Les deux (R4). Aucun lecteur encore : l’écran de 66B lira la relecture.' },
+      'relecture, jamais hors Force et Les deux (R4). 66B : l’écran (`app.js`, `relire`) lit la relecture, jamais ' +
+      'le repère.' },
   // ── 66B — LES GESTES DE LA RELECTURE : une règle chacun, dans routines.js ──
   { notion: 'le retrait de séries d’une proposition de sèche (les dernières séries de travail, jusqu’à `a`)', pr: '66-U2',
-    module: 'routines.js', fonction: 'retraitDeSeries', lecteurs: [],
+    module: 'routines.js', fonction: 'retraitDeSeries', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['ouiDeRelecture'] },
     raison: 'QUESTIONNAIRE §5 ter.4 bis (66B) : quel exercice, quelles séries (les dernières de travail, jamais une ' +
       'chauffe), et quand la routine ne correspond plus — une règle pure ; l’écran pose ce qu’elle rend, il ne retire rien.' },
   { notion: 'la mise en tête d’un exercice et de son superset (« En faire ma priorité »)', pr: '66-U2',
-    module: 'routines.js', fonction: 'miseEnTete', lecteurs: [],
+    module: 'routines.js', fonction: 'miseEnTete', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['ouiDeRelecture'] },
     raison: 'QUESTIONNAIRE §5 ter.4 bis (66B) : le bloc (l’exercice, ou tout son superset contigu) passe avant le bloc ' +
       'visé, les numéros relus de la nouvelle adjacence (`renumeroter`, comme l’éditeur) ; l’écran ne déplace rien.' }
 ];

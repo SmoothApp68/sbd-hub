@@ -105,7 +105,7 @@ describe('49-U7 — hors production, une violation s’écrit en console et se m
     const { plan, entrees } = unPlan();
     expect(g.verifier(plan, entrees)).toEqual({ violations: [], rapports: [] });
     expect(e.appels).toEqual({ error: [], info: [], marques: [] });
-    expect(g.etat()).toEqual({ active: true, plans: 1, violations: [] });
+    expect(g.etat()).toEqual({ active: true, plans: 1, relectures: 0, violations: [] });
   });
 
   test('⚠️ DISCRIMINANT — un plan forgé : l’invariant, le plan et les entrées en console ; le marqueur', () => {

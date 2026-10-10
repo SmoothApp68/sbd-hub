@@ -170,6 +170,8 @@
     // sort si l'état existe), le retour d'Android s'y adressait encore. Une seule porte,
     // comme `fermerReorganisation` : changer d'écran le ferme, ce qui est validé est déjà écrit.
     if (nom !== 'questionnaire' && questionnaire) fermerQuestionnaire();
+    // 66B — LA RELECTURE NE SURVIT PAS À SA VUE : les cartes repliées valent pour CETTE ouverture.
+    if (nom !== 'relecture') relecture = null;
     var onglet = Routeur.ongletDe(vue || nom);
     // ⚠️ MÊME PORTE, MÊME RAISON (§2, ch. 46). Quitter le profil vaut « vu » :
     // sans ça, quelqu'un qui remplit tout puis touche un onglet retrouverait le
@@ -5986,13 +5988,19 @@
   async function reporterSurRoutine(verdict, routineChoisie) {
     var routine = routineChoisie || routineDeLaSeance();
     if (!routine || !verdict || !verdict.voulues.length) return;
+    await poserRoutineVoulue(routine, verdict.voulues);
+  }
 
+  // ⚠️ LE CHEMIN D'ÉCRITURE D'UNE ROUTINE PAR LA FILE, UNE FOIS (66B). Le report de fin de séance et les gestes de
+  // « Le coach relit ta semaine » (§5 ter.4 bis) posent la même intention — la liste VOULUE complète — par la même
+  // file et la même vidange (`appliquerReportRoutine`) : hors ligne, elle part au retour du réseau.
+  async function poserRoutineVoulue(routine, vouluesDonnees) {
     // ⚠️ CHAQUE LIGNE NEUVE PART AVEC SON IDENTIFIANT, FABRIQUÉ ICI.
     // `routine_exercises.id` a `gen_random_uuid()` en défaut : l'app peut donc
     // choisir le sien, et c'est ce qui rend le report IDEMPOTENT. Sans ça, une
     // vidange rejouée — réseau qui lâche, app relancée — réinsérerait une
     // seconde fois chaque exercice ajouté.
-    var voulues = verdict.voulues.map(function (v) {
+    var voulues = vouluesDonnees.map(function (v) {
       return v.id ? v : Object.assign({}, v, { id: uuid() });
     });
 
@@ -6031,6 +6039,140 @@
     var plan = Routines.planEcritures(existantes, (donnees && donnees.voulues) || [], routineId,
       sessionActive && sessionActive.user && sessionActive.user.id);
     await Routines.appliquerPlan(plan, Donnees);
+  }
+
+  // ══ « LE COACH RELIT TA SEMAINE » (66B, QUESTIONNAIRE-COACH-V2 §5 ter.4 bis) ════════════════
+  //
+  // ⚠️ L'ÉCRAN NE CALCULE RIEN. Il assemble l'entrée à partir des faits qui existent (`entreeDeRelecture`), appelle
+  // `Generateur.relireSemaine`, et `Rendu.rendreRelecture` dessine la sortie. Un « oui » écrit par les chemins qui
+  // existent déjà (`poserProfil`, `poserRoutineVoulue`) ; un « non » n'écrit rien.
+  //
+  // `relecture` : l'écran ouvert — `{ dossier, entree, sortie, replies, fait, message }`. `replies` : les cartes
+  // repliées par « Non merci » (clé `priorite` ou `retirer:{muscle}`), POUR CETTE OUVERTURE : vidé quand on quitte la
+  // vue (`montrer`). Rouvrir l'écran, c'est demander une nouvelle relecture.
+  var relecture = null;
+
+  // Un dossier = une semaine : ses routines non archivées, dans l'ordre de la bibliothèque. `null` : les routines
+  // sans dossier (toute la bibliothèque, quand aucune routine n'a de dossier).
+  function routinesDuDossier(dossier) {
+    return Routines.visibles(routines).filter(function (r) {
+      return r && !r.archivee_a && Routines.dossierPropre(r.dossier) === dossier;
+    });
+  }
+
+  // L'ENTRÉE (§5 ter.4 bis) : exactement les faits qui existent — le volume du coach (le même que la série de plus,
+  // avant maintenant), le fait des barres, le catalogue indexé, les priorités, le profil, le jour civil.
+  function entreeDeRelecture(dossier) {
+    var maintenant = new Date();
+    return {
+      routines: routinesDuDossier(dossier).map(function (r) { return { id: r.id, nom: r.nom, exercices: r.exercices }; }),
+      volume: volumeDuCoach(maintenant.toISOString()),
+      barres: faits.barresDuBilan(corpus(), maintenant),
+      catalogue: catalogueIndexe(),
+      priorites: Profil.prioritesDe(profil),
+      profil: { sexe: (profil && profil.sexe) || null, objectif: Profil.objectifDe(profil), phase: Profil.phaseDe(profil) },
+      aujourdhui: Moteur.jourCivil(maintenant)
+    };
+  }
+
+  function cleDeProposition(p) { return p.type === 'priorite' ? 'priorite' : 'retirer:' + p.muscle; }
+
+  function ouvrirRelecture(dossier) {
+    allerA(Routeur.RELECTURE, { dossier: dossier });
+    rendreRelectureRoute(dossier);
+  }
+
+  // Depuis la route (une rangée, un rechargement, un retour). Les routines pas encore chargées : on attend.
+  function rendreRelectureRoute(dossier) {
+    montrer('relecture', Routeur.RELECTURE);
+    var d = dossier === undefined ? null : dossier;
+    $('btn-retour-relecture').textContent = '\u2039 Routines' + (d === null ? '' : ' \u00b7 ' + d);
+    if ((etatRoutines.code === 'jamais' || etatRoutines.code === 'charge') && !routines.length) {
+      Rendu.message($('relecture'), 'Chargement…');
+      chargerRoutines().then(function () { if (!vues.relecture.hidden) rendreRelectureRoute(d); });
+      return;
+    }
+    // Un dossier sans routine active (un lien qui a vieilli) : la bibliothèque, à sa place.
+    if (!routinesDuDossier(d).length) {
+      allerA(Routeur.SAISIE, {}, true);
+      return rendreSaisie();
+    }
+    if (!relecture || relecture.dossier !== d) relecture = { dossier: d, replies: {}, fait: null, message: null };
+    relire();
+  }
+
+  // UNE RELECTURE : nouvelle entrée, nouvelle sortie, la garde de développement, le dessin.
+  function relire() {
+    var r = relecture;
+    if (!r) return;
+    r.entree = entreeDeRelecture(r.dossier);
+    r.sortie = Generateur.relireSemaine(r.entree);
+    garde.verifierRelecture(r.entree, r.sortie);
+    var index = r.entree.catalogue;
+    var seche = r.entree.profil.phase === 'seche'
+      ? (profil && profil.phase_depuis ? Modele.quand(profil.phase_depuis) : '') : null;
+    Rendu.rendreRelecture($('relecture'), r.sortie, {
+      nommer: function (slug) { return Modele.nommer(index, slug); },
+      seche: seche,
+      message: r.message,
+      fait: r.fait,
+      replie: function (p) { return !!r.replies[cleDeProposition(p)]; },
+      surOui: function (p) { ouiDeRelecture(p).catch(function (e) { console.warn('Relecture :', texteErreur(e)); }); },
+      surNon: function (p) { r.replies[cleDeProposition(p)] = true; relire(); }
+    });
+  }
+
+  // « Ta semaine a changé depuis : je la relis. » — rien n'est écrit, puis une relecture.
+  function semaineChangee() {
+    relecture.message = 'Ta semaine a changé depuis : je la relis.';
+    relecture.fait = null;
+    relire();
+  }
+
+  // LE « OUI » (§5 ter.4 bis). Toutes les listes voulues se calculent AVANT toute écriture (`Routines.retraitDeSeries`,
+  // `Routines.miseEnTete`) ; une routine qui ne correspond plus → rien n'est écrit. Puis : le profil d'abord (la
+  // priorité), puis chaque routine touchée, UN `poser` chacune ; puis une relecture.
+  async function ouiDeRelecture(p) {
+    var r = relecture;
+    if (!r || !p) return;
+    var parId = {};
+    routinesDuDossier(r.dossier).forEach(function (x) { parId[x.id] = x; });
+    var ecritures = [];
+    if (p.type === 'retirer') {
+      var ordre = [], lignes = {};
+      (p.lignes || []).forEach(function (l) {
+        if (!lignes[l.routine_id]) { lignes[l.routine_id] = []; ordre.push(l.routine_id); }
+        lignes[l.routine_id].push(l);
+      });
+      for (var i = 0; i < ordre.length; i++) {
+        var rt = parId[ordre[i]];
+        var voulues = rt ? Routines.retraitDeSeries(rt, lignes[ordre[i]]) : null;
+        if (!voulues) return semaineChangee();
+        ecritures.push({ routine: rt, voulues: voulues });
+      }
+    } else if (p.type === 'priorite') {
+      for (var k = 0; k < (p.deplacements || []).length; k++) {
+        var d = p.deplacements[k], rd = parId[d.routine_id];
+        var v = rd ? Routines.miseEnTete(rd, d.exercise_slug, d.avant) : null;
+        if (!v) {
+          // `null` dit « introuvable » OU « déjà avant » (rien à écrire) : seule la routine dit lequel.
+          var present = function (slug) { return (rd ? rd.exercices : []).some(function (e) { return e.exercise_slug === slug; }); };
+          if (rd && present(d.exercise_slug) && present(d.avant)) continue;
+          return semaineChangee();
+        }
+        ecritures.push({ routine: rd, voulues: v });
+      }
+    } else return;
+    r.message = null;
+    if (p.type === 'priorite') {
+      var champs = Profil.preparerChamps(profil, { priorites: Profil.basculerPriorite(Profil.prioritesDe(profil), p.slug) }, new Date());
+      if (Object.keys(champs).length) await poserProfil(champs);
+    }
+    for (var j = 0; j < ecritures.length; j++) await poserRoutineVoulue(ecritures[j].routine, ecritures[j].voulues);
+    if (relecture !== r) return;
+    r.fait = p.type === 'priorite' ? { section: 'historique', texte: 'Le squat est ta priorité.' }
+      : { section: 'semaine', texte: 'Séries retirées.' };
+    relire();
   }
 
   // ── Saisie : la bibliothèque de routines ─────────────────────────────────
@@ -6153,6 +6295,9 @@
       surNouvelle: function () { ouvrirRoutine(null); },
       // 60-3 (ES §7 quindecies.7) — « Retrouver mes séances qui reviennent ».
       surRetrouver: ouvrirSeancesQuiReviennent,
+      // 66B (§5 ter.4 bis) — « Le coach relit ce dossier » : seulement un dossier qui a une routine non archivée.
+      surRelire: ouvrirRelecture,
+      relirable: function (d) { return routinesDuDossier(d).length > 0; },
       surDemarrer: function (id) {
         var r = routines.filter(function (x) { return x.id === id; })[0] || null;
         // 60-2b (MOTEUR §9.18) — « J'ai moins de temps en ce moment » : la carte de « J'ai
@@ -10268,6 +10413,7 @@
     if (cible.vue === Routeur.DEBLOCAGES) return rendreJeuDeblocages();
     if (cible.vue === Routeur.SAISIE) { rendreSaisie(); return chargerSiBesoin(); }
     if (cible.vue === Routeur.ROUTINE) return prepererEditeur(cible.params.id || null);
+    if (cible.vue === Routeur.RELECTURE) return rendreRelectureRoute(cible.params.dossier === undefined ? null : cible.params.dossier);
     if (cible.vue === Routeur.PROGRESSION) return rendreProgression();
     if (cible.vue === Routeur.VOLUME) return rendreVolume();
     if (cible.vue === Routeur.POIDS) return rendrePoids();
@@ -10299,7 +10445,9 @@
       mois: $('vue-mois'), records: $('vue-records'),
       exercices: $('vue-exercices'), questionnaire: $('vue-questionnaire'),
       // 64B — le jeu : l'onglet et ses trois sous-vues.
-      jeu: $('vue-jeu'), muscles: $('vue-muscles'), succes: $('vue-succes'), deblocages: $('vue-deblocages')
+      jeu: $('vue-jeu'), muscles: $('vue-muscles'), succes: $('vue-succes'), deblocages: $('vue-deblocages'),
+      // 66B — « Le coach relit ta semaine », sous Saisie.
+      relecture: $('vue-relecture')
     };
     sortie = Sortie.creer({
       history: racine.history,
@@ -10349,6 +10497,11 @@
     // suivant n'atteigne l'ancre. Un appui invisible, contre une promesse tenue.
     $('btn-retour').addEventListener('click', function () { afficherSemaine(null, true); });
     $('btn-retour-exercice').addEventListener('click', function () { remonter(afficherSemaine); });
+    // 66B — « ‹ Routines » NOMME la bibliothèque : il y va (même règle que « ← Progression »).
+    $('btn-retour-relecture').addEventListener('click', function () {
+      allerA(Routeur.SAISIE, {});
+      rendreSaisie();
+    });
     ['btn-retour-volume', 'btn-retour-poids', 'btn-retour-mois', 'btn-retour-records'].forEach(function (id) {
       $(id).addEventListener('click', function () {
         allerA(Routeur.PROGRESSION, {});

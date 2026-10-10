@@ -3993,11 +3993,20 @@
           ligne.appendChild(badge);
         }
         cible.appendChild(ligne);
+        // 66B (§5 ter.4 bis) — « Le coach relit ce dossier », sous l'en-tête d'un DOSSIER qui a une routine non
+        // archivée (`vue.relirable`, décidé par l'app). « Sans dossier » n'est pas un dossier : pas de rangée.
+        if (!replie && g.dossier !== null && v.surRelire && v.relirable && v.relirable(g.dossier)) {
+          cible.appendChild(rangeeDeRelecture(g.dossier, 'Le coach relit ce dossier', v));
+        }
         if (!replie && pr && pr.creer) cible.appendChild(rangeeDeProgramme(g.dossier, v));
         if (!replie) g.routines.forEach(function (r) { cible.appendChild(rangeeDeRoutine(r, v)); });
       });
     } else {
       if (!v.reorganiser && v.surRetrouver) cible.appendChild(ligneRetrouver(v));
+      // 66B — aucun dossier : UNE rangée, près de « Retrouver mes séances qui reviennent ».
+      if (!v.reorganiser && v.surRelire && v.relirable && v.relirable(null)) {
+        cible.appendChild(rangeeDeRelecture(null, 'Le coach relit ta semaine', v));
+      }
       liste.forEach(function (r) { cible.appendChild(rangeeDeRoutine(r, v)); });
     }
 
@@ -4127,6 +4136,128 @@
   // MOTEUR §9.22 (53-2) — « Faire de ce dossier un programme », sous la tête
   // d'un dossier qui n'en a pas. Le bloc en cours n'a pas de rangée : son
   // badge est sur la tête ; la carte de fin est en tête de l'écran.
+  // 66B (QUESTIONNAIRE §5 ter.4 bis) — la rangée discrète qui ouvre « Le coach relit ta semaine » sur un dossier.
+  function rangeeDeRelecture(dossier, texte, v) {
+    var b = el('button', 'discret bloc-large rl-rangee', texte + ' \u203a');
+    b.type = 'button';
+    if (dossier !== null) b.setAttribute('data-dossier', dossier);
+    b.addEventListener('click', function () { v.surRelire(dossier); });
+    return b;
+  }
+
+  // ══ « LE COACH RELIT TA SEMAINE » (66B, QUESTIONNAIRE §5 ter.4 bis, maquette v5) ══════════
+  //
+  // AUCUNE RÈGLE ICI : le rendu lit la sortie de `Generateur.relireSemaine` et ce que la vue lui passe — `nommer(slug)`
+  // (le nom d'un exercice), `seche` (`null` hors sèche, sinon « le 29 sept. » ou `''` sans date), `message` (« Ta
+  // semaine a changé depuis… »), `fait` (`{ section, texte }`, la ligne grise après un « oui »), `replie(p)` (une
+  // carte refusée), `surOui(p)`, `surNon(p)`. Classes `rl-`, jetons de la forge, aucune couleur d'alerte.
+  function rendreRelecture(noeud, sortie, vue) {
+    if (!noeud) return noeud;
+    vider(noeud);
+    var v = vue || {}, s = sortie || {}, h = s.historique || {}, sem = s.semaine || {};
+    var tete = el('div', 'rl-tete');
+    tete.appendChild(el('h1', 'rl-titre', 'Le coach relit ta semaine'));
+    var sous = pluriel(sem.seances || 0, 'séance') + ' \u00b7 ' + pluriel(sem.series || 0, 'série');
+    if (v.seche !== null && v.seche !== undefined) sous += ' \u00b7 en sèche' + (v.seche ? ' depuis ' + v.seche : '');
+    tete.appendChild(el('p', 'rl-sous', sous));
+    noeud.appendChild(tete);
+    if (v.message) noeud.appendChild(el('p', 'rl-message', v.message));
+
+    var barres = h.barres || [];
+    if (barres.length || h.ratio || h.peu_travailles) {
+      var hist = el('section', 'rl-bloc rl-historique');
+      hist.appendChild(el('h2', 'rl-h2', 'Ton historique'));
+      if (v.fait && v.fait.section === 'historique') hist.appendChild(el('p', 'rl-fait', v.fait.texte));
+      barres.forEach(function (b) {
+        var l = el('div', 'rl-barre');
+        l.setAttribute('data-slug', b.slug);
+        var nom = el('span', 'rl-nom', b.nom);
+        if (b.retard) nom.appendChild(el('em', 'rl-retard', ' \u00b7 en retard sur ton couché'));
+        l.appendChild(nom);
+        var kg = el('span', 'rl-kg num');
+        kg.appendChild(el('span', 'rl-medaille'));
+        kg.appendChild(doc.createTextNode(nombreFr(b.record) + ' '));
+        kg.appendChild(el('small', null, 'kg'));
+        l.appendChild(kg);
+        l.appendChild(el('span', 'rl-detail', b.detail));
+        var jauge = el('span', 'rl-jauge');
+        var i = el('i');
+        i.style.width = Math.max(0, Math.min(100, Math.round(b.jauge * 100))) + '%';
+        jauge.appendChild(i);
+        l.appendChild(jauge);
+        hist.appendChild(l);
+      });
+      if (barres.length >= 2) hist.appendChild(el('p', 'rl-legende', 'La jauge : chaque record comparé au plus lourd.'));
+      if (h.ratio) {
+        var p = h.ratio.proposition;
+        var c = el('div', 'rl-coach rl-ratio');
+        if (p && v.replie && v.replie(p)) {
+          c.appendChild(el('p', 'rl-replie', 'Rien ne change.'));
+        } else {
+          c.appendChild(el('p', 'rl-phrase', h.ratio.phrase));
+          c.appendChild(el('p', 'rl-gris', h.ratio.gris));
+          if (p) {
+            c.appendChild(el('p', 'rl-question', p.phrase));
+            c.appendChild(gestesDeRelecture(p, v));
+          }
+        }
+        hist.appendChild(c);
+      }
+      if (h.peu_travailles) {
+        var pt = el('div', 'rl-coach rl-peu');
+        pt.appendChild(el('p', 'rl-phrase', h.peu_travailles));
+        hist.appendChild(pt);
+      }
+      noeud.appendChild(hist);
+    }
+
+    var semaine = el('section', 'rl-bloc rl-semaine');
+    semaine.appendChild(el('h2', 'rl-h2', 'Ta semaine'));
+    if (v.fait && v.fait.section === 'semaine') semaine.appendChild(el('p', 'rl-fait', v.fait.texte));
+    if ((sem.verifs || []).length) {
+      var ok = el('ul', 'rl-ok');
+      sem.verifs.forEach(function (t) { ok.appendChild(el('li', null, t)); });
+      semaine.appendChild(ok);
+    }
+    (sem.constats || []).forEach(function (t) { semaine.appendChild(el('p', 'rl-constat', t)); });
+    (sem.propositions || []).forEach(function (p) {
+      var c = el('div', 'rl-coach rl-retrait');
+      c.setAttribute('data-muscle', p.muscle || '');
+      if (v.replie && v.replie(p)) {
+        c.appendChild(el('p', 'rl-replie', 'Rien ne change.'));
+      } else {
+        c.appendChild(el('p', 'rl-phrase', p.phrase));
+        c.appendChild(el('p', 'rl-question', p.question));
+        var chg = el('ul', 'rl-chg');
+        (p.lignes || []).forEach(function (l) {
+          var li = el('li', null, (v.nommer ? v.nommer(l.exercise_slug) : l.exercise_slug) + ' \u00b7 ' + l.routine + ' : ');
+          li.appendChild(el('s', null, String(l.de)));
+          li.appendChild(doc.createTextNode(' ' + l.a));
+          chg.appendChild(li);
+        });
+        c.appendChild(chg);
+        c.appendChild(gestesDeRelecture(p, v));
+      }
+      semaine.appendChild(c);
+    });
+    noeud.appendChild(semaine);
+    return noeud;
+  }
+
+  // Les deux boutons d'une proposition, libellés par la sortie (R3).
+  function gestesDeRelecture(p, v) {
+    var g = el('div', 'rl-gestes');
+    var oui = el('button', 'rl-oui', p.oui);
+    oui.type = 'button';
+    oui.addEventListener('click', function () { if (v.surOui) v.surOui(p); });
+    var non = el('button', 'rl-non', p.non);
+    non.type = 'button';
+    non.addEventListener('click', function () { if (v.surNon) v.surNon(p); });
+    g.appendChild(oui);
+    g.appendChild(non);
+    return g;
+  }
+
   function rangeeDeProgramme(dossier, v) {
     var r = el('div', 'programme-dossier');
     var c = el('button', 'discret programme-creer', 'Faire de ce dossier un programme');
@@ -5415,6 +5546,7 @@
     brancherReorganisation: brancherReorganisation,
     rendrePiedReorganisation: rendrePiedReorganisation,
     rendreListeRoutines: rendreListeRoutines,
+    rendreRelecture: rendreRelecture,
     rendreFeuilleExoRoutine: rendreFeuilleExoRoutine,
     champChrono: champChrono,
     rendreResultatsExo: rendreResultatsExo,

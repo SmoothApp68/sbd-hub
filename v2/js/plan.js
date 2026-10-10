@@ -3028,7 +3028,7 @@
     var active = gardeActive(e.location, e.stockage);
     var precedent = null;
     var violations = [];
-    var plans = 0;
+    var plans = 0, relectures = 0;
     function verifier(plan, entrees) {
       if (!active || !plan) return null;
       // I4 : le plan d'avant, s'il est de la même séance.
@@ -3061,10 +3061,26 @@
       }
       return { violations: graves };
     }
+    // R1-R4 sur chaque relecture de la semaine (66B, QUESTIONNAIRE §5 ter.1) : le générateur, lu À L'APPEL ; même
+    // registre de violations, même console, même marqueur ; en production, rien.
+    function verifierRelecture(entree, sortie) {
+      if (!active) return null;
+      var G = racine.THGenerateur;
+      var graves = G ? G.verifierRelecture(entree, sortie) : [];
+      relectures += 1;
+      var j = e.journal || null;
+      if (graves.length) {
+        violations = violations.concat(graves);
+        if (j && j.error) j.error('[garde du coach] ' + graves.length + ' violation(s)', graves, { entree: entree, sortie: sortie });
+        if (e.marquer) e.marquer(violations.slice());
+      }
+      return { violations: graves };
+    }
     // Ce que la garde a vu : le banc le lit pour s'assurer que chacune de ses
     // sections a été vérifiée.
-    function etat() { return { active: active, plans: plans, violations: violations.slice() }; }
-    return { active: active, verifier: verifier, verifierProgramme: verifierProgramme, etat: etat };
+    function etat() { return { active: active, plans: plans, relectures: relectures, violations: violations.slice() }; }
+    return { active: active, verifier: verifier, verifierProgramme: verifierProgramme,
+             verifierRelecture: verifierRelecture, etat: etat };
   }
 
   var api = {

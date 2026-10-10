@@ -16903,9 +16903,13 @@ const SETS_IMPORTES = [
             .concat(Array.from(p.querySelectorAll('.ap-ex-nom')).map(t))) })),
         boutons: Array.from(c.querySelectorAll('.feuille-menu button')).map((b) => t(b)) };
     });
+    // Une ligne absente ne fait pas planter la section : le contrôle suivant le dira.
     const geste = async (texte) => {
-      await page.evaluate((x) => Array.from(document.querySelectorAll('#feuille-contenu .ap-chg'))
-        .filter((l) => l.querySelector('.ap-chg-texte').textContent === x)[0].querySelector('.ap-chg-geste').click(), texte);
+      await page.evaluate((x) => {
+        const l = Array.from(document.querySelectorAll('#feuille-contenu .ap-chg'))
+          .filter((n) => n.querySelector('.ap-chg-texte').textContent === x)[0];
+        if (l) l.querySelector('.ap-chg-geste').click();
+      }, texte);
       await attendre(500);
     };
     // Profil → « Refaire mon programme » → 2 jours → « Voir mon programme ».

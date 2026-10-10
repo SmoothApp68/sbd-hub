@@ -1,0 +1,214 @@
+<title>Le jeu v6 — écrans de la V1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700;800&display=swap">
+<style>
+/* Maquette v6 (09/10/2026) = v5 corrigée selon JEU-V1.md : sans « sans-faute », sans « Cette semaine »,
+   sans date de dernier niveau, vitrine automatique, catégories de la V1 seulement, onglet Jeu + sous-vues. */
+:root{
+  --anthracite:#0f1114; --surface:#181b20; --surface2:#21252c; --trait:#2c3139;
+  --texte:#eceef2; --gris:#9aa0ab; --or:#ffd46b;
+  --r-commun:#a9afba; --r-rare:#6fa8ff; --r-epique:#b892ff; --r-legend:#ffd46b;
+  --acier:#c7ced8; --sur-or:#1a1406;
+  --f-chiffres:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-texte:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--anthracite);color:var(--texte);font:15px/1.45 var(--f-texte);margin:0}
+.page{max-width:1080px;margin:0 auto;padding-inline:16px;padding-block:20px 40px;display:grid;gap:24px;grid-template-columns:minmax(0,1fr)}
+@media(min-width:860px){.page{grid-template-columns:392px minmax(0,1fr)}}
+h1{font:700 26px/1.1 var(--f-chiffres);letter-spacing:.02em;margin:0 0 4px}
+.sous{color:var(--gris);font-size:13px;margin:0 0 12px}
+.onglets{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.onglet{font:600 13px var(--f-texte);color:var(--texte);background:var(--surface2);border:1px solid var(--trait);border-radius:999px;padding:7px 12px;cursor:pointer}
+.onglet[aria-pressed="true"]{border-color:var(--acier);background:var(--surface);box-shadow:inset 0 -2px 0 var(--acier)}
+#tel{border:1px solid var(--trait);border-radius:30px;background:var(--anthracite);overflow:hidden;max-width:392px;padding-bottom:0;min-height:640px;display:flex;flex-direction:column}
+#ecran{flex:1;padding-bottom:14px}
+.barre{display:flex;justify-content:space-between;align-items:baseline;padding:16px 16px 12px;border-bottom:1px solid var(--trait)}
+.barre b{font:700 22px var(--f-chiffres);letter-spacing:.02em}
+.petit{color:var(--gris);font-size:12px}
+.bloc{margin:12px 14px 0;background:var(--surface);border:1px solid var(--trait);border-radius:14px;padding:14px}
+.bloc h3{margin:0 0 10px;font:700 13px var(--f-texte);text-transform:uppercase;letter-spacing:.08em;color:var(--gris)}
+.chiffre{font-family:var(--f-chiffres);font-variant-numeric:tabular-nums}
+.hex{width:46px;height:52px;flex:none;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);display:grid;place-items:center;font:800 19px var(--f-chiffres);color:var(--sur-or)}
+.hex.grand{width:64px;height:72px;font-size:26px}
+.hex.mini{width:28px;height:32px;font-size:13px}
+.jauge{height:7px;border-radius:99px;background:var(--surface2);overflow:hidden}
+.jauge i{display:block;height:100%;background:var(--acier)}
+.ligne{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--trait)}
+.ligne:last-child{border-bottom:0}
+.ligne .g{color:var(--gris);font-size:13px}
+a.ligne{color:inherit;text-decoration:none}
+a.ligne::after{content:"›";color:var(--gris);font-size:20px;margin-left:6px}
+.metier{display:grid;grid-template-columns:46px minmax(0,1fr);gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--trait)}
+.metier:last-child{border-bottom:0}
+.metier .nom{display:flex;justify-content:space-between;gap:8px;font-weight:600}
+.metier .nom span{color:var(--gris);font-weight:400;font-size:12px}
+.metier .jauge{margin:6px 0 4px}
+.vitrine{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.cadre{border:1px solid var(--trait);border-radius:12px;padding:10px 6px;display:flex;flex-direction:column;align-items:center;gap:5px;text-align:center;font-size:11px;color:var(--gris);background:var(--surface2)}
+.cadre.or{border:2px solid var(--or)}
+.cadre i{width:44px;height:50px;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);display:grid;place-items:center;font:800 13px var(--f-chiffres);font-style:normal;color:var(--sur-or)}
+.cat{display:flex;justify-content:space-between;gap:8px;padding:9px 0;border-bottom:1px solid var(--trait);font-size:14px}
+.cat:last-child{border-bottom:0}
+.cat span:last-child{color:var(--gris);font-variant-numeric:tabular-nums;text-align:right}
+.rarete{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.rarete span{font-size:11px;border-radius:999px;padding:2px 8px;border:1px solid var(--trait);color:var(--gris)}
+.rarete span::before{content:"";display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px;background:var(--c)}
+.medaille{display:inline-block;width:16px;height:16px;border-radius:50%;background:var(--or);flex:none;box-shadow:inset 0 0 0 3px #c99a2e}
+.record{display:flex;gap:10px;align-items:flex-start;background:color-mix(in srgb,var(--or) 9%,var(--surface));border:1px solid color-mix(in srgb,var(--or) 35%,transparent);border-radius:12px;padding:10px 12px;margin-bottom:8px}
+.record .g{color:var(--gris);font-size:13px}
+.bouton{display:block;width:100%;text-align:center;border:0;background:var(--acier);color:var(--anthracite);border-radius:12px;padding:12px;margin-top:12px;font:700 15px var(--f-texte)}
+.nav{display:grid;grid-template-columns:repeat(5,1fr);border-top:1px solid var(--trait);background:var(--surface)}
+.nav span{display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 0 10px;font-size:11px;color:var(--gris)}
+.nav span i{width:18px;height:20px;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:var(--gris)}
+.nav span.on{color:var(--texte)} .nav span.on i{background:var(--acier)}
+.nav span b{width:18px;height:18px;border:2px solid var(--gris);border-radius:4px}
+.explic{min-width:0}
+.explic h2{font:700 20px var(--f-chiffres);letter-spacing:.02em;margin:0 0 6px}
+.explic p{margin:8px 0;color:#c9cdd4;max-width:62ch}
+.explic b{color:var(--texte)}
+.note{color:var(--gris);font-size:12px;margin-top:10px;max-width:392px}
+@media (prefers-reduced-motion:no-preference){.monte{animation:monte .4s ease-out}@keyframes monte{from{transform:translateY(4px);opacity:.5}to{transform:none;opacity:1}}}
+</style>
+
+<div class="page">
+  <div>
+    <h1>Le jeu, dans la forge — maquette v6</h1>
+    <p class="sous">L'onglet Jeu et ses trois vues, le Profil, la fin de séance, le jeu éteint. Touche un écran.</p>
+    <div class="onglets" id="onglets">
+      <button class="onglet" data-s="accueil" aria-pressed="true">Jeu</button>
+      <button class="onglet" data-s="muscles" aria-pressed="false">Jeu › Muscles</button>
+      <button class="onglet" data-s="succes" aria-pressed="false">Jeu › Succès</button>
+      <button class="onglet" data-s="deblocages" aria-pressed="false">Jeu › Déblocages</button>
+      <button class="onglet" data-s="profil" aria-pressed="false">Profil</button>
+      <button class="onglet" data-s="fin" aria-pressed="false">Fin de séance</button>
+      <button class="onglet" data-s="eteint" aria-pressed="false">Jeu éteint</button>
+    </div>
+    <div id="tel"><div id="ecran"></div><div class="nav" id="nav"></div></div>
+    <p class="note">Chiffres d'exemple, ordres de grandeur d'Aurélien. Les vrais viennent de <code>THJeu.etatDuJeu</code>.</p>
+  </div>
+  <div class="explic" id="explic"></div>
+</div>
+
+<script>
+const ns=' ';
+const RAR={c:'var(--r-commun)',r:'var(--r-rare)',e:'var(--r-epique)',m:'var(--r-legend)'};
+const palier=n=>n>=50?RAR.m:n>=30?RAR.e:n>=10?RAR.r:RAR.c;      // muscle : gris <10, bleu 10-29, violet 30-49, or 50
+const palierG=n=>n>=75?RAR.m:n>=50?RAR.e:n>=25?RAR.r:RAR.c;     // global : gris <25, bleu 25-49, violet 50-74, or 75+
+const MUSCLES=[
+ {nom:'Poitrine',n:36,reste:96,f:.56},{nom:'Dos',n:41,reste:115,f:.53},{nom:'Épaules',n:42,reste:48,f:.81},
+ {nom:'Bras',n:41,reste:121,f:.51},{nom:'Jambes',n:36,reste:59,f:.73},{nom:'Tronc',n:22,reste:7,f:.95},
+ {nom:'Cardio',n:45,reste:134,f:.50,unite:'min'}];
+const sw=on=>`<span style="display:inline-block;width:46px;height:26px;border-radius:13px;background:${on?'var(--acier)':'#3a3a3a'};position:relative;vertical-align:middle"><i style="position:absolute;top:3px;${on?'right':'left'}:3px;width:20px;height:20px;border-radius:50%;background:#fff"></i></span>`;
+const nav=(actif,jeu=true)=>['Séances','Saisie','Progression',...(jeu?['Jeu']:[]),'Profil'].map(n=>`<span class="${n===actif?'on':''}">${n==='Jeu'?'<i></i>':'<b></b>'}${n}</span>`).join('');
+
+const S={
+accueil:()=>[`<div class="barre"><b>Jeu</b><span></span></div>
+<div class="bloc"><div style="display:flex;gap:12px;align-items:center"><span class="hex grand" style="background:${palierG(87)}">87</span>
+<div style="flex:1;min-width:0"><b>Niveau 87</b> <span class="petit">· Polyvalent</span><div class="jauge" style="margin:8px 0 4px"><i style="width:40%"></i></div><div class="petit chiffre" style="font-size:13px">niveau 88 dans 760${ns}points</div></div></div></div>
+<div class="bloc"><div class="ligne"><span><b class="chiffre" style="font-size:18px">119</b> semaines d'affilée</span><span class="g chiffre">gels : 2 sur 2</span></div>
+<div class="ligne"><span class="g">Meilleure série</span><span class="g chiffre">119 semaines</span></div></div>
+<div class="bloc"><h3>Le plus proche</h3>
+<div class="ligne"><span>Tronc, niveau 23</span><span class="g chiffre">dans 7 points</span></div>
+<div class="ligne"><span>Épaules, niveau 43</span><span class="g chiffre">dans 48 points</span></div>
+<div class="ligne"><span>Jambes, niveau 37</span><span class="g chiffre">dans 59 points</span></div></div>
+<div class="bloc" style="padding-block:4px">
+<a class="ligne" href="#"><span>Muscles</span><span class="g chiffre" style="margin-left:auto">7</span></a>
+<a class="ligne" href="#"><span>Succès</span><span class="g chiffre" style="margin-left:auto">69 · 1${ns}365 points</span></a>
+<a class="ligne" href="#"><span>Déblocages</span><span class="g" style="margin-left:auto">cadres, gels</span></a></div>`,'Jeu'],
+
+muscles:()=>[`<div class="barre"><b>Muscles</b><span class="petit">7</span></div>
+<div class="bloc">${MUSCLES.map(m=>`<div class="metier"><span class="hex" style="background:${palier(m.n)}">${m.n}</span>
+<div style="min-width:0"><div class="nom">${m.nom}<span class="chiffre">niveau ${m.n+1} dans ${m.reste} ${m.unite||'points'}</span></div><div class="jauge"><i style="width:${Math.round(m.f*100)}%"></i></div></div></div>`).join('')}
+<p class="petit" style="margin:10px 0 0">Une série de travail donne 1 point au muscle qu'elle travaille, ½ à celui qui aide. Cardio : 1 point par minute.</p></div>`,'Jeu'],
+
+succes:()=>[`<div class="barre"><b>Succès</b><span class="petit chiffre">69 · 1${ns}365 points</span></div>
+<div class="bloc"><h3>Par catégorie</h3>
+<div class="cat"><span>Séances</span><span>5 / 6 · prochain : 1${ns}000</span></div>
+<div class="cat"><span>Série de semaines</span><span>5 / 5</span></div>
+<div class="cat"><span>Records</span><span>6 / 7 · prochain : 2${ns}500</span></div>
+<div class="cat"><span>Randonnée</span><span>2 / 5 · prochain : 250${ns}km</span></div>
+<div class="cat"><span>Découverte</span><span>4 / 4</span></div>
+<div class="cat"><span>Muscles</span><span>24 / 35</span></div>
+<div class="cat"><span>Tous les muscles</span><span>2 / 5 · prochain : 30</span></div>
+<div class="cat"><span>Caps ronds</span><span>21</span></div>
+<div class="rarete"><span style="--c:${RAR.c}">commun · 10</span><span style="--c:${RAR.r}">rare · 25</span><span style="--c:${RAR.e}">exceptionnel · 50</span><span style="--c:${RAR.m}">majeur · 100</span></div></div>
+<div class="bloc"><h3>Titres</h3>
+<div class="ligne"><span>Équilibré</span><span class="g">tous les muscles à 10 · ✓</span></div>
+<div class="ligne"><span><b>Polyvalent</b> · affiché</span><span class="g">tous les muscles à 20 · ✓</span></div>
+<div class="ligne"><span style="color:var(--gris)">Athlète</span><span class="g">tous les muscles à 30 · Tronc à 22</span></div>
+<div class="ligne"><span style="color:var(--gris)">Accompli</span><span class="g">tous les muscles à 40</span></div>
+<div class="ligne"><span style="color:var(--gris)">Complet</span><span class="g">tous les muscles à 50</span></div>
+<div class="ligne"><span>Collectionneur</span><span class="g">50 succès · ✓</span></div></div>`,'Jeu'],
+
+deblocages:()=>[`<div class="barre"><b>Déblocages</b><span></span></div>
+<div class="bloc"><h3>Cadres du profil</h3>
+<div class="ligne"><span><b>Cadre de vitrine</b></span><span class="g">10 succès · ✓</span></div>
+<div class="ligne"><span><b>Cadre de niveau</b></span><span class="g">un succès rare · ✓</span></div>
+<div class="ligne"><span><b>Cadre d'or</b> · affiché</span><span class="g">un succès exceptionnel · ✓</span></div>
+<div class="ligne"><span style="color:var(--gris)"><b>Cadre gravé</b></span><span class="g">le titre Athlète</span></div>
+<p class="petit" style="margin:8px 0 0">Chaque cadre se gagne par un succès et ne se perd pas. Le plus haut s'affiche.</p></div>
+<div class="bloc"><h3>Gels de série</h3>
+<div class="ligne"><span>En réserve</span><span class="g chiffre">2 sur 2</span></div>
+<div class="ligne"><span>Prochain gel</span><span class="g">réserve pleine</span></div>
+<div class="ligne"><span>Utilisés</span><span class="g">semaine du 4 août 2025</span></div>
+<p class="petit" style="margin:8px 0 0">Un premier gel à 12 semaines d'affilée, puis tous les 26 semaines. Deux au plus. Il protège tout seul une semaine sans séance.</p></div>`,'Jeu'],
+
+profil:()=>[`<div class="barre"><b>Profil</b><span></span></div>
+<div class="bloc"><div style="display:flex;gap:12px;align-items:center"><span class="hex grand" style="background:${palierG(87)};outline:2px solid var(--or);outline-offset:2px">87</span>
+<div style="min-width:0"><b style="font-size:18px">Aurélien</b><div class="petit" style="font-size:13px">Polyvalent · niveau 87</div><div class="petit" style="font-size:13px">28 ans · 182 cm · 96,8 kg</div></div></div></div>
+<div class="bloc"><h3>Vitrine</h3><div class="vitrine">
+<div class="cadre"><i style="background:${RAR.m}">1${ns}000</i>1${ns}000 séances</div>
+<div class="cadre"><i style="background:${RAR.m}">104</i>104 semaines</div>
+<div class="cadre"><i style="background:${RAR.e}">1${ns}000</i>1${ns}000 records</div></div>
+<p class="petit" style="margin:8px 0 0">Tes trois succès les plus rares.</p></div>
+<div class="bloc" style="opacity:.55"><h3>… le reste du Profil, inchangé …</h3><div class="petit">tes réglages, le coach, tes exercices</div></div>
+<div class="bloc"><h3>Le jeu</h3>
+<div class="ligne"><span>Activer le jeu</span>${sw(true)}</div>
+<p class="petit" style="margin:8px 0 0">Éteint, le jeu disparaît : plus d'onglet, plus de bloc en fin de séance, plus de niveau ici. Rien n'est perdu : tout se recalcule en le rallumant.</p></div>`,'Profil'],
+
+fin:()=>[`<div class="barre"><b>Terminer la séance</b><span></span></div>
+<div class="bloc"><h3>Jeudi — Haut B (Militaire)</h3>
+<div class="record monte"><span class="medaille" aria-hidden="true"></span><div><b class="chiffre" style="font-size:17px">Militaire 57,5${ns}kg × 8</b><div class="g">ancien record : 55${ns}kg × 8, le 17 sept.</div></div></div>
+<div class="ligne"><span>Séries de travail</span><span class="chiffre">25</span></div></div>
+<div class="bloc"><h3>Le jeu</h3>
+<div class="ligne"><span>XP</span><span class="chiffre">+${ns}60</span></div>
+<div class="ligne"><span style="display:flex;gap:10px;align-items:center"><span class="hex mini" style="background:${RAR.e}">43</span>Épaules, niveau 43</span><span class="chiffre">+1</span></div>
+<div class="ligne"><span style="display:flex;gap:10px;align-items:center"><span class="hex mini" style="background:${RAR.e}">40</span>Succès : Épaules niveau 40</span><span class="g">exceptionnel</span></div>
+<button class="bouton">Terminer</button></div>`,'Saisie'],
+
+eteint:()=>[`<div class="barre"><b>Profil</b><span></span></div>
+<div class="bloc"><div style="display:flex;gap:12px;align-items:center"><span class="hex grand" style="background:var(--surface2);color:var(--texte)">A</span>
+<div style="min-width:0"><b style="font-size:18px">Aurélien</b><div class="petit" style="font-size:13px">28 ans · 182 cm · 96,8 kg</div></div></div></div>
+<div class="bloc" style="opacity:.55"><h3>… le reste du Profil, inchangé …</h3><div class="petit">tes réglages, le coach, tes exercices</div></div>
+<div class="bloc"><h3>Le jeu</h3>
+<div class="ligne"><span>Activer le jeu</span>${sw(false)}</div>
+<p class="petit" style="margin:8px 0 0">Éteint, le jeu disparaît : plus d'onglet, plus de bloc en fin de séance, plus de niveau ici. Rien n'est perdu : tout se recalcule en le rallumant.</p></div>`,'Profil',false]
+};
+const E={
+accueil:`<h2>L'onglet Jeu : trois blocs, puis trois portes</h2>
+<p>1. <b>Le niveau</b> (1 à 100, Ω après) et le titre affiché. 2. <b>La série</b> de semaines, la meilleure, les gels. 3. <b>Le plus proche</b> : les trois entrées de <code>prochains</code> dont la part faite est la plus grande (la première est <code>plusProche</code>). Puis trois lignes qui ouvrent Muscles, Succès, Déblocages.</p>
+<p>Un cinquième onglet, entre Progression et Profil, avec un hexagone. Rien n'est ambre : l'ambre reste la voix du coach, qui ne parle jamais du jeu.</p>`,
+muscles:`<h2>Les 7 muscles</h2>
+<p>Ordre fixe du jeu (jamais trié). Hexagone coloré par palier, jauge = part faite du niveau en cours, « niveau n+1 dans N points » (minutes pour Cardio). À 50 : « niveau maximal ».</p>
+<p>Retirés de la v5 : la date du dernier niveau (le module ne la donne pas) et « Cette semaine » (le plafond de volume n'est pas dans la V1).</p>`,
+succes:`<h2>Les succès de la V1</h2>
+<p>Les huit catégories de JEU-V1 §5 seulement : obtenus / total et le palier suivant. Les caps ronds n'ont pas de total. Les quatre raretés et leurs points. Les titres, avec ce qui manque pour le prochain (« Tronc à 22 » = le plus petit muscle).</p>
+<p>Retirés : « derniers débloqués » (pas de date de déblocage), Force au poids de corps, Insolite, Secrets, Le sans-faute.</p>`,
+deblocages:`<h2>Déblocages</h2>
+<p>Les quatre cadres, gagnés ou non, et lequel est affiché. Les gels : réserve, prochain gel (« dans N semaines » ou « réserve pleine »), et les semaines qu'ils ont protégées.</p>`,
+profil:`<h2>Le Profil, avec le jeu allumé</h2>
+<p>Trois ajouts, rien d'autre ne bouge : l'hexagone du niveau à la place de l'initiale, avec le <b>cadre affiché</b> autour ; le titre sous le nom ; la <b>vitrine</b> ; et en bas, l'interrupteur.</p>
+<p><b>La vitrine est automatique</b> en V1 : les trois succès les plus rares ; à rareté égale, le plus haut palier (le dernier dans l'ordre des succès). Moins de trois succès : la vitrine montre ce qu'il y a ; aucun : elle n'apparaît pas.</p>`,
+fin:`<h2>Fin de séance</h2>
+<p>La feuille « Terminer » garde d'abord les records. Puis le bloc <b>Le jeu</b> : ce que la séance ajoute, calculé avant/après sans rien écrire — XP, niveau global s'il monte, chaque muscle qui monte, chaque succès gagné avec sa rareté. Une ligne n'apparaît que si elle a quelque chose à dire (pas de « XP +0 ») ; si aucune n'en a, le bloc dit seulement « Muscles : +N points », la somme des points gagnés.</p>
+<p>Seul moment où le jeu sort de son onglet. Jamais pendant les séries, jamais dans la voix du coach. Absent si le jeu est éteint.</p>`,
+eteint:`<h2>Le jeu éteint</h2>
+<p>Quatre onglets comme avant, l'initiale à la place de l'hexagone, pas de vitrine, pas de bloc en fin de séance. Seul reste l'interrupteur. Le rallumer fait tout réapparaître : rien n'était stocké.</p>`
+};
+function r(s){const [h,actif,jeu]=S[s]();document.getElementById('ecran').innerHTML=h;document.getElementById('nav').innerHTML=nav(actif,jeu!==false);document.getElementById('explic').innerHTML=E[s];
+ document.querySelectorAll('.onglet').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.s===s)));}
+document.getElementById('onglets').addEventListener('click',e=>{const b=e.target.closest('.onglet');if(b)r(b.dataset.s)});
+r('accueil');
+</script>

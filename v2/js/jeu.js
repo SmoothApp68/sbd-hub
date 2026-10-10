@@ -31,7 +31,8 @@
   var ORDRE_DES_MUSCLES = ['poitrine', 'dos', 'epaules', 'bras', 'jambes', 'tronc', 'cardio'];
   var CARDIO = 'cardio';
   var SECONDES_PAR_MINUTE = 60;
-  var POINT_PRINCIPAL = 1, POINT_SECONDAIRE = 0.5;
+  // Les points d'une série dans une zone : le POIDS de son muscle (65, REGLE-VOLUME §1 bis — principal 1, secondaire
+  // ½, stabilisateur ¼), lu par `Semaine.musclesPonderes`. Aucune table ici.
 
   // §3 — le niveau n d'un muscle coûte 3 n² points, plafond 50 (7 500 points).
   var COUT_NIVEAU = 3, NIVEAU_MAX_MUSCLE = 50, PLAFOND_MUSCLE = 7500;
@@ -151,16 +152,16 @@
         points[CARDIO] += (s.duree_s || 0) / SECONDES_PAR_MINUTE;
         return;
       }
-      // Une fois par zone, la plus forte contribution — jamais additionnées.
+      // Une fois par zone, la plus forte contribution — jamais additionnées. `musclesPonderes` rend les
+      // principaux, puis les secondaires, puis les stabilisateurs : le premier muscle vu dans une zone est le plus
+      // lourd (le biceps ½ du rowing l'emporte sur l'avant-bras ¼).
       var parZone = {}, zones = [];
-      var noter = function (muscle, valeur) {
-        var z = Semaine.zoneDuMuscle(muscle);
+      Semaine.musclesPonderes(exo).forEach(function (x) {
+        var z = Semaine.zoneDuMuscle(x.muscle);
         if (!z || possede(parZone, z.cle)) return;
-        parZone[z.cle] = valeur;
+        parZone[z.cle] = x.poids;
         zones.push(z.cle);
-      };
-      (exo.muscles_primaires || []).forEach(function (m) { noter(m, POINT_PRINCIPAL); });
-      (exo.muscles_secondaires || []).forEach(function (m) { noter(m, POINT_SECONDAIRE); });
+      });
       zones.forEach(function (z) { points[z] += parZone[z]; });
     });
     var out = {};

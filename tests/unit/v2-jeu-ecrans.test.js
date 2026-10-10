@@ -67,7 +67,7 @@ describe('descriptionDuSucces — chaque identifiant du jeu, depuis ses tables',
       expect([id, Jeu.descriptionDuSucces(id)]).toEqual([id, null]));
   });
 
-  test('sur les 23 cas : chaque succès a sa description, et leurs points font les points de succès', () => {
+  test('sur les 24 cas : chaque succès a sa description, et leurs points font les points de succès', () => {
     DONNEES.cas.forEach((c) => {
       const d = c.attendu.succes.ids.map((id) => Jeu.descriptionDuSucces(id));
       expect([c.nom, d.filter((x) => x === null).length]).toEqual([c.nom, 0]);

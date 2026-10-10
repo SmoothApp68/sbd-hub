@@ -16368,6 +16368,246 @@ const SETS_IMPORTES = [
       gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant, JSON.stringify(erreurs.slice(erreursAvant)));
   }
 
+  console.log('\n══ jeu. LE JEU : L’ONGLET ET SES VUES, LA FEUILLE « TERMINER », L’INTERRUPTEUR, LE COACH INCHANGÉ (64B, JEU-V1 §9) ══');
+  //
+  // Sur l'app réelle :
+  //   A. l'onglet Jeu, les trois blocs de l'accueil, les trois sous-vues, « ← Jeu » et le retour ;
+  //   B. la feuille « Terminer » après une série RECORD : le bloc « Le jeu », une ligne XP > 0 — puis, terminée,
+  //      l'accueil montre un état qui l'inclut ;
+  //   C. l'interrupteur éteint : plus d'onglet (quatre colonnes), plus de bloc dans la feuille, l'initiale au Profil,
+  //      `/jeu…` comme une route inconnue ; rallumé, tout revient — une seule écriture chaque fois, celle du profil ;
+  //   D. ⚠️ le texte du coach (l'escalier, les blocs de la séance : plan, consigne, phrase) IDENTIQUE jeu allumé et
+  //      jeu éteint ;
+  //   E. pas de défilement horizontal à 360 px sur les sept écrans de la maquette.
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE pour B : un exercice qui a déjà un passé (60 × 5) — une première fois ne bat
+  // aucun record — puis 80 × 5 dans la séance : des records, donc une série médaillée, donc de l'XP.
+  {
+    const erreursAvant = erreurs.length;
+    const violationsAvant = gardeBanc.violations;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const catalogueAvant = CATALOGUE.length;
+    const tJ = Date.now();
+    CATALOGUE.push({ slug: 'jeu-u64', nom: 'Jeu U64 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre',
+      muscles_primaires: ['pectoraux'], muscles_secondaires: ['triceps'] });
+    ROUTINES.push({ id: 'r-jeu-u64', nom: 'Jeu U64', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-jeu-u64-a', routine_id: 'r-jeu-u64', exercise_slug: 'jeu-u64', rang: 0,
+        routine_sets: progr(2, 5), repos_cible_s: 120, groupe_superset: null, note: null }] });
+    const ID_PASSE_U64 = '00000000-0000-4000-8640-000000000001';
+    const debutPasse = ilYa(10 * 86400000, tJ).toISOString();
+    base.sessions.push({ id: ID_PASSE_U64, user_id: 'u-banc', titre: 'Jeu U64 passé', debut: debutPasse,
+      fin: finDe(debutPasse, tJ).toISOString(), statut: 'terminee', note: null, salle: null, salle_norme: null,
+      routine_id: null, source: 'app', created_at: debutPasse });
+    base.sets.push({ id: 'jeu-u64-p-s1', session_id: ID_PASSE_U64, user_id: 'u-banc', exercise_slug: 'jeu-u64',
+      charge_kg: 60, reps: 5, duree_s: null, distance_m: null, type_serie: 'travail', rang: 1, groupe_superset: null,
+      validee_a: debutPasse, rpe: null, ressenti: null, repos_s: null, note: null, source: 'app', created_at: debutPasse,
+      modifie_a: null });
+    base.profiles[0].jeu_actif = true;
+
+    const largeurs = [];
+    const mesurerLargeur = async (ecran) => {
+      const l = await page.evaluate(() => ({ doc: document.documentElement.scrollWidth, fen: window.innerWidth }));
+      largeurs.push({ ecran, doc: l.doc, fen: l.fen });
+    };
+    const chemin = () => page.evaluate(() => location.pathname);
+    const ongletJeu = () => page.evaluate(() => {
+      const b = document.getElementById('onglet-jeu');
+      const barre = document.getElementById('onglets');
+      return { cache: !b || b.hidden || getComputedStyle(b).display === 'none', actif: !!b && b.classList.contains('actif'),
+        colonnes: getComputedStyle(barre).gridTemplateColumns.split(' ').length,
+        visibles: Array.from(barre.querySelectorAll('.onglet')).filter((x) => !x.hidden).map((x) => x.dataset.vue) };
+    });
+    const accueil = () => page.evaluate(() => {
+      const t = (s) => (document.querySelector(s) || {}).textContent || '';
+      const m = /niveau (\d+) dans ([\d ]+)/.exec(t('#jeu-accueil .j-niveau'));
+      return { niveau: t('#jeu-accueil .j-tete b'), prochain: m ? Number(m[2].replace(/ /g, '')) : null,
+        blocs: ['.j-niveau', '.j-serie', '.j-proches', '.j-portes'].filter((s) => !!document.querySelector('#jeu-accueil ' + s)),
+        proches: document.querySelectorAll('#jeu-accueil .j-proches .j-ligne').length,
+        portes: Array.from(document.querySelectorAll('#jeu-accueil .j-porte span:first-child')).map((x) => x.textContent),
+        succes: t('#jeu-porte-succes .j-d') };
+    });
+    const ecrituresDepuis = (n) => base.journal.slice(n).filter((j) => j.op !== 'refus');
+    const attendreQue = async (cond, ms) => {
+      for (let t = 0; t < (ms || 15000); t += 250) { if (await cond()) return true; await attendre(250); }
+      return false;
+    };
+    const texteCoach = () => page.evaluate(() => ['#escalier-seance', '#blocs-seance']
+      .map((s) => { const n = document.querySelector(s); return n && !n.hidden ? n.innerText.replace(/\s+/g, ' ').trim() : ''; }).join(' ¦ '));
+    const basculer = async () => {
+      const n = base.journal.length;
+      await page.click('#interrupteur-jeu');
+      await attendreQue(async () => ecrituresDepuis(n).length > 0 && (await page.evaluate(() =>
+        THCache.lireMeta('profilAEnvoyer').catch(() => false))) !== true, 6000);
+      await attendre(600);
+      return ecrituresDepuis(n);
+    };
+
+    // ── A. L'ONGLET ET SES VUES.
+    await aller('/jeu');
+    const o0 = await ongletJeu();
+    const a0 = await accueil();
+    ok('[jeu] /jeu ouvre l’accueil du jeu : sa vue seule, l’onglet Jeu visible et ALLUMÉ, cinq colonnes',
+      JSON.stringify(await visible()) === '["vue-jeu"]' && !o0.cache && o0.actif && o0.colonnes === 5 &&
+        JSON.stringify(o0.visibles) === '["racine","saisie","progression","jeu","profil"]', JSON.stringify([await visible(), o0]));
+    ok('[jeu] l’accueil : le niveau, la série, le plus proche (trois), puis les trois portes',
+      a0.blocs.length === 4 && a0.proches === 3 && /^Niveau \d+$/.test(a0.niveau) && a0.prochain > 0 &&
+        JSON.stringify(a0.portes) === '["Muscles","Succès","Déblocages"]', JSON.stringify(a0));
+    await mesurerLargeur('accueil');
+    const sousVues = [['#jeu-porte-muscles', 'vue-muscles', '/jeu/muscles', '#btn-retour-muscles', '#jeu-muscles .j-metier', 7],
+      ['#jeu-porte-succes', 'vue-succes', '/jeu/succes', '#btn-retour-succes', '#jeu-succes .j-cat', 8],
+      ['#jeu-porte-deblocages', 'vue-deblocages', '/jeu/deblocages', '#btn-retour-deblocages', '#jeu-deblocages .j-cadres .j-ligne', 4]];
+    for (const [porte, vue, url, retour, lignes, n] of sousVues) {
+      await page.click(porte);
+      await attendre(500);
+      const o = await ongletJeu();
+      const nb = await compter(lignes);
+      ok('[jeu] « ' + vue + ' » : sa vue, son chemin (' + url + '), l’onglet Jeu reste allumé, ses ' + n + ' lignes',
+        JSON.stringify(await visible()) === JSON.stringify([vue]) && (await chemin()) === url && o.actif && nb === n,
+        JSON.stringify([await visible(), await chemin(), o.actif, nb]));
+      await mesurerLargeur(vue);
+      await page.click(retour);
+      await attendre(500);
+      ok('[jeu] « ← Jeu » ramène à l’accueil du jeu (' + vue + ')',
+        JSON.stringify(await visible()) === '["vue-jeu"]' && (await chemin()) === '/jeu', JSON.stringify([await visible(), await chemin()]));
+    }
+    // Le retour d'Android depuis une sous-vue remonte à `/jeu`.
+    await page.click('#jeu-porte-succes');
+    await attendre(500);
+    await page.goBack();
+    await attendre(800);
+    ok('[jeu] le retour d’Android depuis /jeu/succes remonte à l’accueil du jeu',
+      JSON.stringify(await visible()) === '["vue-jeu"]' && (await chemin()) === '/jeu', JSON.stringify([await visible(), await chemin()]));
+
+    // ── B. LA FEUILLE « TERMINER » APRÈS UNE SÉRIE RECORD.
+    await aller('/saisie');
+    await demarrerRoutine('Jeu U64');
+    await attendre(1200);
+    const coachAllume = await texteCoach();
+    await saisirSerie(0, 80, 5);
+    await attendre(500);
+    await page.click('#bandeau-seance .bandeau-fin');
+    await attendre(900);
+    const feuille = await page.evaluate(() => {
+      const c = document.getElementById('feuille-contenu');
+      const bloc = document.getElementById('jeu-fin');
+      const enfants = Array.from(c.children);
+      return { bloc: !!bloc, lignes: bloc ? Array.from(bloc.querySelectorAll('.j-ligne')).map((l) => l.textContent) : [],
+        apresRecords: !!bloc && enfants.indexOf(bloc) > enfants.findIndex((x) => x.classList.contains('records-fin')) &&
+          enfants.findIndex((x) => x.classList.contains('records-fin')) >= 0,
+        boutons: Array.from(c.querySelectorAll('button')).map((b) => b.textContent) };
+    });
+    const xp = (/^XP\+ ([\d ]+)$/.exec(feuille.lignes[0] || '') || [])[1];
+    ok('[jeu] DISCRIMINANT — la feuille « Terminer » après un record : le bloc « Le jeu », APRÈS les records, une ligne XP > 0',
+      feuille.bloc && feuille.apresRecords && !!xp && Number(xp.replace(/ /g, '')) > 0, JSON.stringify(feuille));
+    ok('[jeu] « Terminer » et « Abandonner » sont là', feuille.boutons.indexOf('Terminer') >= 0 &&
+      feuille.boutons.indexOf('Abandonner et tout effacer') >= 0, JSON.stringify(feuille.boutons));
+    await mesurerLargeur('fin');
+    const enCoursU64 = (sessions().filter((x) => x.statut === 'en_cours')[0] || {}).id;
+    await page.click('#feuille-contenu .principal');
+    await attendreQue(async () => (base.sessions.filter((x) => x.id === enCoursU64)[0] || {}).statut === 'terminee', 15000);
+    await aller('/jeu');
+    const a1 = await accueil();
+    const n0 = Number(a0.niveau.replace('Niveau ', '')), n1 = Number(a1.niveau.replace('Niveau ', ''));
+    ok('[jeu] DISCRIMINANT — terminée, la séance est dans l’état du jeu : le niveau monte, ou il manque moins de points',
+      !!enCoursU64 && (n1 > n0 || (n1 === n0 && a1.prochain < a0.prochain)), JSON.stringify([enCoursU64, a0, a1]));
+
+    // ── C. L'INTERRUPTEUR ÉTEINT. La vitrine : trois succès au plus — autant qu'il y en a, s'il y en a moins.
+    const nbSucces = Number(((/^([\d\u202f]+) ·/.exec(a1.succes) || [])[1] || '0').replace(/\u202f/g, ''));
+    const vitrineAttendue = Math.min(3, nbSucces);
+    await aller('/profil');
+    const p0 = await page.evaluate(() => ({ rond: document.getElementById('profil-rond').className,
+      ligne: document.getElementById('profil-jeu').hidden ? null : document.getElementById('profil-jeu').textContent,
+      vitrine: document.querySelectorAll('#profil-corps .j-case').length,
+      inter: document.getElementById('interrupteur-jeu').getAttribute('aria-checked') }));
+    ok('[jeu] le Profil, jeu allumé : l’hexagone du niveau, « … niveau N » sous le nom, la vitrine, l’interrupteur allumé',
+      /^p-rond-jeu/.test(p0.rond) && /niveau \d+/.test(p0.ligne || '') && p0.vitrine === vitrineAttendue && p0.inter === 'true',
+      JSON.stringify([p0, a1.succes]));
+    await mesurerLargeur('profil');
+    const ecritsOff = await basculer();
+    const p1 = await page.evaluate(() => ({ rond: document.getElementById('profil-rond').className,
+      texte: document.getElementById('profil-rond').textContent, ligne: document.getElementById('profil-jeu').hidden,
+      vitrine: document.querySelectorAll('#profil-corps .j-case').length,
+      inter: document.getElementById('interrupteur-jeu').getAttribute('aria-checked') }));
+    const o1 = await ongletJeu();
+    ok('[jeu] éteint : l’initiale revient, rien du jeu au Profil, l’interrupteur reste (éteint)',
+      p1.rond === 'p-rond' && /^[A-Z?]$/.test(p1.texte) && p1.ligne === true && p1.vitrine === 0 && p1.inter === 'false',
+      JSON.stringify(p1));
+    ok('[jeu] éteint : plus d’onglet Jeu, quatre colonnes (pas de trou)',
+      o1.cache && o1.colonnes === 4 && JSON.stringify(o1.visibles) === '["racine","saisie","progression","profil"]', JSON.stringify(o1));
+    ok('[jeu] DISCRIMINANT — une seule écriture, celle du profil : `jeu_actif: false`, jamais `null`',
+      ecritsOff.length === 1 && ecritsOff[0].op === 'profil' && ecritsOff[0].champs.jeu_actif === false &&
+        base.profiles[0].jeu_actif === false, JSON.stringify(ecritsOff));
+    await mesurerLargeur('eteint');
+    for (const route of ['/jeu', '/jeu/succes']) {
+      await aller(route);
+      ok('[jeu] éteint : ' + route + ' s’ouvre comme une route inconnue (« / », la semaine)',
+        (await chemin()) === '/' && JSON.stringify(await visible()) === '["vue-liste"]', JSON.stringify([await chemin(), await visible()]));
+    }
+    // La feuille, jeu éteint : pas de bloc. Et le coach, à l'ouverture de la même routine : le même texte.
+    await aller('/saisie');
+    await demarrerRoutine('Jeu U64');
+    await attendre(1200);
+    const coachEteint = await texteCoach();
+    await saisirSerie(0, 85, 5);
+    await attendre(500);
+    await page.click('#bandeau-seance .bandeau-fin');
+    await attendre(900);
+    ok('[jeu] éteint : la feuille « Terminer » n’a pas de bloc « Le jeu » (et garde ses boutons)',
+      (await compter('#jeu-fin')) === 0 && (await compter('#feuille-contenu .principal')) === 1, '');
+    const enCours2 = (sessions().filter((x) => x.statut === 'en_cours')[0] || {}).id;
+    await page.click('#feuille-contenu .principal');
+    await attendreQue(async () => (base.sessions.filter((x) => x.id === enCours2)[0] || {}).statut === 'terminee', 15000);
+
+    // ── D. LE COACH NE PARLE JAMAIS DU JEU : la même routine, ouverte jeu allumé puis jeu éteint. Pour comparer à
+    // historique égal, on la rouvre une troisième fois jeu éteint et une quatrième jeu rallumé.
+    await aller('/saisie');
+    await demarrerRoutine('Jeu U64');
+    await attendre(1200);
+    const coachEteint2 = await texteCoach();
+    await abandonner();
+
+    // ── Rallumé : tout revient, une seule écriture.
+    await aller('/profil');
+    const ecritsOn = await basculer();
+    const o2 = await ongletJeu();
+    const p2 = await page.evaluate(() => ({ rond: document.getElementById('profil-rond').className,
+      vitrine: document.querySelectorAll('#profil-corps .j-case').length }));
+    ok('[jeu] rallumé : l’onglet revient (cinq colonnes), l’hexagone et la vitrine aussi — une seule écriture, `jeu_actif: true`',
+      !o2.cache && o2.colonnes === 5 && /^p-rond-jeu/.test(p2.rond) && p2.vitrine === vitrineAttendue &&
+        ecritsOn.length === 1 && ecritsOn[0].op === 'profil' && ecritsOn[0].champs.jeu_actif === true &&
+        base.profiles[0].jeu_actif === true, JSON.stringify([o2, p2, ecritsOn]));
+    await aller('/saisie');
+    await demarrerRoutine('Jeu U64');
+    await attendre(1200);
+    const coachAllume2 = await texteCoach();
+    ok('[jeu] DISCRIMINANT — le texte du coach (escalier, blocs : plan, consigne, phrase) est IDENTIQUE jeu allumé et jeu éteint',
+      coachEteint2.length > 0 && coachAllume2 === coachEteint2, JSON.stringify([coachAllume2, coachEteint2]));
+    ok('[jeu] prémisse : le coach parle bien sur cette routine (sinon l’égalité ne prouverait rien)',
+      /\d/.test(coachAllume) && coachAllume.length > 20 && coachEteint.length > 20, JSON.stringify([coachAllume, coachEteint]));
+    // La séance ouverte pour la comparaison ne reste pas.
+    await abandonner();
+
+    // ── E. 360 PX : AUCUN DÉFILEMENT HORIZONTAL sur les sept écrans de la maquette.
+    ok('[jeu] à 360 px, aucun défilement horizontal : accueil, Muscles, Succès, Déblocages, Profil, fin de séance, jeu éteint',
+      largeurs.length === 7 && largeurs.every((l) => l.fen === 360 && l.doc <= l.fen), JSON.stringify(largeurs));
+
+    // ── LA REMISE EN ÉTAT, pour les sections suivantes.
+    base.profiles[0].jeu_actif = true;
+    const i = ROUTINES.findIndex((r) => r.id === 'r-jeu-u64');
+    if (i >= 0) ROUTINES.splice(i, 1);
+    CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
+    for (let k = base.sets.length - 1; k >= 0; k--) if (base.sets[k].exercise_slug === 'jeu-u64') base.sets.splice(k, 1);
+    for (let k = base.sessions.length - 1; k >= 0; k--) {
+      if (base.sessions[k].id === ID_PASSE_U64 || /^Jeu U64/.test(base.sessions[k].titre || '')) base.sessions.splice(k, 1);
+    }
+    await aller('/saisie');
+    ok('[jeu] aucun refus du faux serveur, la garde de l’app n’a rien signalé, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant &&
+        erreurs.length === erreursAvant,
+      JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
+  }
+
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');
   // Le compte vit dans `garde-compte.js` : le lanceur parallèle refait les
   // mêmes contrôles sur le compte fusionné de ses groupes.

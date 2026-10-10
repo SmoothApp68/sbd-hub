@@ -575,14 +575,29 @@
                        // bloquerait l'envoi de TOUT le profil.
                        'zones_a_menager', 'exercices_ecartes', 'programme_construit_dossier',
                        'programme_construit_le', 'carte_cycles_le',
+                       // 64B (v2_068) — l'interrupteur du jeu (JEU-V1 §9.1).
+                       'jeu_actif',
                        'onboarding_completed'];
 
+  // ⚠️ `jeu_actif` EST NOT NULL (v2_068) : un `null` serait un 23502, que la file classe définitif — et le profil part
+  // en ligne ENTIÈRE à chaque envoi, il bloquerait tout. Seul un booléen part ; absent ou nul, il n'est pas envoyé (la
+  // base garde sa valeur, `true` par défaut).
+  var BOOLEENS_NON_NULS = ['jeu_actif'];
   function champsEcrits(champs) {
     var src = champs || {}, sortie = {};
     CHAMPS_ECRITS.forEach(function (c) {
-      if (Object.prototype.hasOwnProperty.call(src, c)) sortie[c] = src[c];
+      if (!Object.prototype.hasOwnProperty.call(src, c)) return;
+      if (BOOLEENS_NON_NULS.indexOf(c) >= 0 && typeof src[c] !== 'boolean') return;
+      sortie[c] = src[c];
     });
     return sortie;
+  }
+
+  // ── Le jeu est-il allumé ? (64B, JEU-V1 §9.1) ────────────────────────────
+  // Éteint SEULEMENT si le profil le dit (`false`). Absent — un cache d'avant la colonne, un profil pas encore lu,
+  // pas de profil du tout — : allumé, comme le défaut de la base.
+  function jeuActif(profil) {
+    return !(profil && profil.jeu_actif === false);
   }
 
   // ── Bornes de saisie ─────────────────────────────────────────────────────
@@ -1277,6 +1292,7 @@
     doitOuvrirQuestionnaire: doitOuvrirQuestionnaire,
     questionnaireAFaire: questionnaireAFaire,
     champsEcrits: champsEcrits,
+    jeuActif: jeuActif,
     tailleValide: tailleValide,
     naissanceValide: naissanceValide,
     normaliserPseudo: normaliserPseudo,

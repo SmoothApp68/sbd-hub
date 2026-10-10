@@ -443,6 +443,8 @@ const PROFIL_BANC = {
   intention: 'progresser', rythme_progression: 'normal', materiel: null,
   niveau_declare: null, seances_par_semaine: null, jours_vises: null,
   duree_seance_min: null, onboarding_completed: true,
+  // 64B (`v2_068`) — l'interrupteur du jeu : NOT NULL DEFAULT true.
+  jeu_actif: true,
   // 50-1 — la réponse à la carte du lest : `oui`, `non`, ou NULL (pas encore).
   lest_reponse: null, lest_reponse_le: null,
   // 60-2a (`v2_065`) — le questionnaire du coach.
@@ -1200,6 +1202,8 @@ const SETS_IMPORTES = [
         // 60-2a (`v2_065`) — les contraintes du questionnaire : une valeur hors
         // liste est un 23514, DÉFINITIF pour la file mais pas pour le profil
         // (qui rejoue sa ligne entière sans fin) — d'où le refus côté app.
+        // 64B (`v2_068`) — `jeu_actif` NOT NULL, comme la base : un `null` est un 23502.
+        if (l.jeu_actif === null) return json(refus('23502', 'profiles.jeu_actif NOT NULL'), 400);
         const horsListe = (col, liste) => l[col] !== undefined && l[col] !== null && liste.indexOf(l[col]) < 0;
         if (horsListe('objectif', ['force', 'muscle', 'les_deux', 'forme'])) return json(refus('23514', 'profiles_objectif_ok'), 400);
         if (horsListe('temps_reponse', ['max', 'marge', 'moins', 'varie'])) return json(refus('23514', 'profiles_temps_reponse_ok'), 400);
@@ -1228,7 +1232,7 @@ const SETS_IMPORTES = [
         const neuf = { objectif: null, objectif_depuis: null, priorites: null, temps_reponse: null,
           historique_declare: null, phase_confirmee_le: null, questionnaire_fait_le: null, programme_choix: null,
           zones_a_menager: null, exercices_ecartes: null, programme_construit_dossier: null,
-          programme_construit_le: null, carte_cycles_le: null };
+          programme_construit_le: null, carte_cycles_le: null, jeu_actif: true };
         const ligne = Object.assign({}, i >= 0 ? base.profiles[i] : neuf, l);
         if (i >= 0) base.profiles[i] = ligne; else base.profiles.push(ligne);
         return json(projeter([ligne], url), 201);

@@ -239,7 +239,8 @@ est `Moteur.estPolyarticulaire` ; « sortie » est `Modele.estExerciceSortie`. A
 
 **Invariants de la relecture** (`Generateur.verifierRelecture`, vérifiés sur chaque relecture, en test et par la garde
 de développement) : **R1** une proposition de retrait ne fait que retirer, et jamais sous 1 série ; **R2** aucun
-retrait hors sèche ; **R3** toute proposition porte un « oui » et un « non » ; **R4** pas de repère de ratio hors Force et
+retrait hors sèche ; **R3** toute proposition porte un « oui » et un « non » — celles de la semaine comme la priorité de
+« Ton historique » ; **R4** pas de repère de ratio hors Force et
 Les deux.
 
 ### 5 ter.2 Le fait des barres — `faits.barresDuBilan(c, aujourdhui)`
@@ -247,14 +248,19 @@ Les deux.
 Pour chacune des quatre barres (`squat_barre`, `developpe_couche_barre`, `souleve_de_terre_barre`,
 `developpe_militaire_barre`), absente si elle n'a aucune série de travail :
 - `record` : `{ charge, date }` — la charge la plus lourde **réellement soulevée** (au moins 1 rep), et le jour où elle
-  l'a été la première fois : **`Modele.recordsDeLExercice(...).lourde`**, la même que la page de l'exercice et que
+  l'a été : celui que rend **`Modele.recordsDeLExercice(...).lourde`** (à la charge la plus lourde, la série au plus de
+  reps), la même que la page de l'exercice et que
   « Ce que je sais » (jamais un estimé) ;
 - `recent` : la meilleure série de travail des **28 derniers jours** (la plus lourde, puis le plus de reps, puis la plus
   récente) `{ charge, reps, date }`, ou `null` ;
-- `semaines` : le nombre de semaines (lundi → dimanche, heure locale) des **182 derniers jours** qui ont au moins une
+- **Les 26 dernières semaines** : du lundi d'il y a 25 semaines (le lundi de la semaine d'`aujourdhui`, moins 25
+  semaines) à la fin d'`aujourdhui` — 26 semaines du calendrier, jamais 27 (décidé le 10/10/2026 : une fenêtre de
+  182 jours en touche 27 sauf un dimanche). `semaines`, `lourdes` et `variantes` la lisent toutes les trois.
+- `semaines` : le nombre de semaines (lundi → dimanche, heure locale) **des 26 dernières semaines**, de 0 à 26, qui ont au moins une
   série de travail de la barre ;
-- `lourdes` : ses séries de travail de **1 à 6 reps** sur les 182 derniers jours ;
-- `variantes` : les séries de travail, sur les 182 derniers jours, des **variantes à la barre** — même `mouvement`,
+- `lourdes` : ses séries de travail de **1 à 6 reps** sur les 26 dernières semaines ;
+- `variantes` : les séries de travail, sur les 26 dernières semaines, des **variantes à la barre** — ses frères
+  (`Modele.freresDe`, la seule lecture de `mouvement`) dont l'équipement est la barre : même `mouvement`,
   `equipement = 'barre'`, autre exercice (le squat avec pause pour le squat, le spoto pour le couché).
 « Série de travail » : `Modele.estTravail`.
 
@@ -288,7 +294,8 @@ Pour chacune des quatre barres (`squat_barre`, `developpe_couche_barre`, `soulev
 
 ### 5 ter.4 Ta semaine
 
-En tête : le nombre de séances (de routines) et de séries de travail (hors sorties). Puis **ce qui est vérifié** (une
+En tête : le nombre de séances (de routines) et de séries de travail (hors sorties ; `Modele.estTravail` : un type
+absent vaut « travail », les chauffes, dégressives et échecs ne comptent pas — la même règle que partout). Puis **ce qui est vérifié** (une
 liste grise, seulement ce qui est vrai) et **ce qui ne l'est pas** (des constats, sans rouge) :
 - **le lourd en premier** : dans chaque routine qui a une barre (ou une variante à la barre), aucune isolation (non
   polyarticulaire) avant elle — sinon le constat « Dans « {routine} », une isolation passe avant la barre. » ;

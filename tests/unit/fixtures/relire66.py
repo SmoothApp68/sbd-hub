@@ -110,8 +110,8 @@ def mots(muscles):                          # Moteur.motsDesMuscles
     texte = (', '.join(x for x, _ in l[:-1]) + ' et ' + l[-1][0]) if len(l) > 1 else l[0][0]
     return texte[0].upper() + texte[1:], len(l) > 1 or not l[0][1]
 
-def series_travail(x):
-    return sum(1 for s in x.get('series') or [] if s.get('type_serie') in ('travail', 'echec'))
+def series_travail(x):                     # Modele.estTravail : un type absent vaut « travail » ; seul « travail » compte
+    return sum(1 for s in x.get('series') or [] if (s.get('type_serie') or 'travail') == 'travail')
 
 def famille(slug, catalogue):               # la barre et ses variantes à la barre : même mouvement, équipement barre
     f = catalogue.get(slug) or {}
@@ -321,6 +321,9 @@ def verifier(e, s):
         if not p.get('oui') or not p.get('non'):                                                    # R3
             fautes.append('R3 une proposition sans « oui » ni « non »')
     r = s['historique']['ratio']
+    q = (r or {}).get('proposition')
+    if q and (not q.get('oui') or not q.get('non')):                                                # R3, la priorité aussi
+        fautes.append('R3 une proposition sans « oui » ni « non »')
     if r and ((e.get('profil') or {}).get('objectif') not in DISCIPLINES_RATIO):                    # R4
         fautes.append('R4 un repère de ratio hors Force / Les deux')
     return fautes

@@ -184,10 +184,18 @@
   // lecture de la colonne). Omise, `parent` vaudrait `undefined` sur les 237
   // exercices et la carte du lest ne trouverait jamais sa version lestée — sans
   // une erreur : le même piège que `equipement` et `mouvement`.
+  //
+  // ⚠️ `muscles_stabilisateurs` DEPUIS 65 (v2_069, REGLE-VOLUME §1 bis) : les
+  // muscles qui tiennent la position, comptés ¼ (`THSemaine.musclesPonderes`).
+  // Omise, les 176 stabilisateurs disparaîtraient du volume, du jeu et du compte
+  // des polyarticulaires — sans une erreur. Une ligne sans la colonne (cache
+  // d'avant v2_069, faux serveur du banc) se lit vide ; le catalogue en cache
+  // est réécrit en entier à la synchronisation suivante (`remplacerTout`).
   function tousLesExercices() {
     return paginerParCle(trancheur(function () {
       return client().from('exercises')
-        .select('slug, nom, mesure, charge, parent, equipement, muscles_primaires, muscles_secondaires, mouvement');
+        .select('slug, nom, mesure, charge, parent, equipement, muscles_primaires, muscles_secondaires, ' +
+                'muscles_stabilisateurs, mouvement');
     }, 'slug'), 'slug');
   }
 

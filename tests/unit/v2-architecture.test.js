@@ -624,12 +624,18 @@ const NOTIONS = [
     par: ['reprisePour'],
     raison: 'lourd → mix → hypertrophie → volume → séries longues, dans l’ordre de la table des ' +
       'zones : une définition, que la carte et la correction de zone lisent.' },
-  { notion: 'les séries par muscle (un principal la série entière, un secondaire pour moitié)', pr: '55-U1',
+  { notion: 'les séries par muscle (un principal la série entière, un secondaire pour moitié, un stabilisateur pour un quart)', pr: '55-U1',
     module: 'semaine.js', fonction: 'volumeParMuscle', lecteurs: ['bilan.js'],
     par: ['semainesDeVolume', 'volumeParZone'],
     parAilleurs: { 'bilan.js': ['bilanDuMois'] },
     raison: 'REGLE-VOLUME et MOTEUR §9.23 (H2, #371) : le bloc Volume et le bilan du mois comptent les séries ' +
       'par muscle par la même fonction — deux définitions d’une même grandeur, c’est ce que UN-SEUL-FIL interdit.' },
+  // ── 65 — LE POIDS D'UN MUSCLE (REGLE-VOLUME §1 bis, v2_069) : une table, lue par le coach et le jeu ──
+  { notion: 'le poids d’un muscle dans une série (principal 1, secondaire ½, stabilisateur ¼)', pr: '65-U1',
+    module: 'semaine.js', fonction: 'musclesPonderes', lecteurs: ['jeu.js'],
+    par: ['volumeParMuscle', 'apportsParMuscle'],
+    raison: 'REGLE-VOLUME §1 bis (65) : UNE table de poids (`POIDS_DES_MUSCLES`), lue par le coach (le volume, la fenêtre ' +
+      '« d’où vient ce chiffre ») et par le jeu (les points des muscles) ; une seconde table finirait par dire autre chose.' },
   { notion: 'la fin effective d’une séance (sans heure de fin : 3 h au plus, jamais après la suivante)', pr: '55-U1',
     module: 'moteur.js', fonction: 'finEffective', lecteurs: [],
     par: ['consigneDeLaSeance'],

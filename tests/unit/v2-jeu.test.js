@@ -1,6 +1,6 @@
 /** @jest-environment node */
 //
-// LE JEU V1 (JEU-V1.md, 64A) — `THJeu.etatDuJeu` rejoue les 23 cas de la
+// LE JEU V1 (JEU-V1.md, 64A) — `THJeu.etatDuJeu` rejoue les 24 cas de la
 // référence (`fixtures/jeu_ref.py`, `fixtures/cas-jeu-v1.json`).
 //
 // Les entrées sont compactes : `deplier` est porté LIGNE À LIGNE de
@@ -88,14 +88,15 @@ function ecarts(obtenu, attendu, chemin) {
   return out;
 }
 
-describe('jeu V1 — les 23 cas de la référence', () => {
-  test('le fichier a 23 cas, chacun avec son nom, son pourquoi, son entrée et son attendu', () => {
-    expect(DONNEES.cas.length).toBe(23);
+describe('jeu V1 — les 24 cas de la référence', () => {
+  test('le fichier a 24 cas (le 24e, `stabilisateur-quart`, depuis 65), chacun avec son nom, son pourquoi, son entrée et son attendu', () => {
+    expect(DONNEES.cas.length).toBe(24);
+    expect(DONNEES.cas.map((c) => c.nom)).toContain('stabilisateur-quart');
     DONNEES.cas.forEach((c) => {
       expect([c.nom, typeof c.pourquoi === 'string' && c.pourquoi.length > 0]).toEqual([c.nom, true]);
       expect([c.nom, !!c.entree, !!c.attendu]).toEqual([c.nom, true, true]);
     });
-    expect(new Set(DONNEES.cas.map((c) => c.nom)).size).toBe(23);
+    expect(new Set(DONNEES.cas.map((c) => c.nom)).size).toBe(24);
   });
 
   DONNEES.cas.forEach((cas) => {
@@ -143,7 +144,7 @@ describe('jeu V1 — la forme du module', () => {
 
   test('il appelle les définitions existantes, il ne les recopie pas', () => {
     const code = SOURCE.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
-    ['Modele.estTravail', 'Modele.estExerciceSortie', 'Semaine.porteDuVolume', 'Semaine.zoneDuMuscle',
+    ['Modele.estTravail', 'Modele.estExerciceSortie', 'Semaine.porteDuVolume', 'Semaine.zoneDuMuscle', 'Semaine.musclesPonderes',
       'Semaine.bornesSemaine', 'Semaine.decalerSemaine'].forEach((f) => expect([f, code.indexOf(f + '(') >= 0]).toEqual([f, true]));
     // Ni la liste des zones, ni le type de série, ni les barres écrits en dur.
     ['quadriceps', 'pectoraux', '\'travail\'', 'squat_barre', 'developpe_couche_barre'].forEach((x) =>

@@ -73,8 +73,8 @@ mais **n'est pas commité, et c'est volontaire** : il se déclare périmé en t�
 annonce 172 exercices quand la base en compte 237, et affirme que rien n'est écrit
 en base. Le commiter installerait la même fausse vérité que `SCHEMA-V2_2.md`.
 
-**La cartographie muscles réelle est en base** — `exercises.muscles_primaires` et
-`muscles_secondaires` — et `SCHEMA-REEL.md` y renvoie.
+**La cartographie muscles réelle est en base** — `exercises.muscles_primaires`,
+`muscles_secondaires` et `muscles_stabilisateurs` (v2_069) — et `SCHEMA-REEL.md` y renvoie.
 
 Les documents `REGLE-PROGRESSION-V1*.md`, `REGLE-VOLUME-V1.md`, `SCHEMA-V2.md` et
 `SCHEMA-V2_2.md` sont cités comme **remplacés** : leur absence est normale.

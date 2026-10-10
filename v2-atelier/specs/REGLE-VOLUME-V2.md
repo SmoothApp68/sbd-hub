@@ -21,12 +21,40 @@
 
 | Élément | Valeur |
 |---|---|
-| **Unité comptée** | la série de travail, pondérée 1 en muscle primaire, 0,5 en secondaire |
+| **Unité comptée** | la série de travail, pondérée **1** en muscle primaire, **0,5** en secondaire, **0,25** en stabilisateur (§1 bis) |
 | **Fenêtre** | **3 semaines actives glissantes** — les semaines sans aucune séance ne comptent pas |
 | **Référence** | la **propre fourchette historique** de l'utilisateur, jamais un seuil universel |
 | **Reset de la référence** | **4 semaines consécutives sans séance** — on ne compare plus à l'avant |
 | **Déclenchement** | uniquement si l'écart dure **2 fenêtres consécutives** |
 | **Registre** | **descriptif**. Aucune couleur d'alarme, aucun verdict |
+
+---
+
+## 1 bis. Le poids d'un muscle — trois classes (10/10/2026, v2_069)
+
+Une série de travail compte pour un muscle selon **ce que ce muscle fait** dans l'exercice. Trois listes au catalogue,
+trois poids, **une seule table** (`THSemaine.POIDS_DES_MUSCLES`, lue par `THSemaine.musclesPonderes`) : le coach
+(`volumeParMuscle`, `apportsParMuscle`) et le jeu la lisent ; le générateur v2 la lira :
+
+| Classe | Colonne | Poids | Critère |
+|---|---|---|---|
+| **Principal** (moteur) | `muscles_primaires` | **1** | il produit le mouvement, sur toute son amplitude |
+| **Secondaire** (synergiste) | `muscles_secondaires` | **½** | il aide le mouvement, en raccourcissant et en s'allongeant |
+| **Stabilisateur** | `muscles_stabilisateurs` | **¼** | il tient la position ou change peu de longueur (gainage, prise, maintien du dos) |
+
+- **Pourquoi ½** : la méta-analyse de Pelland 2024 compte la série « fractionnée » d'un synergiste pour ½, et c'est ce
+  comptage qui prédit le mieux la croissance.
+- **Pourquoi ¼** : un muscle qui tient une position isométrique grossit peu sous une charge qui ne l'allonge pas. Au
+  squat, les ischio-jambiers changent à peine de longueur et ne grossissent pas (Kubo 2019 : moins de 1 %). Le compter
+  ½ gonflait leur volume, le compter 0 effaçait un travail réel. Le quart est un choix prudent, pas une mesure.
+- **Ce que la mesure a fait monter** : au squat barre (et ses variantes avec pause, élastique et pin), les fessiers et les
+  adducteurs deviennent **principaux** (Kubo 2019, squat complet : +6,7 % et +6,2 %, du même ordre que les quadriceps).
+- **Effet mesuré sur l'historique réel** (5 profils) : de 0,7 à 2,7 % des décisions du coach changent (63 sur 3 055
+  pour Aurélien). Le jeu : un niveau de moins au plus sur un muscle, sauf le Tronc (jusqu'à deux de moins), qui avait
+  reçu les abdominaux à ½ avec v2_067 et les garde à ¼.
+- **Un polyarticulaire** compte ses muscles **dans les trois listes** (au moins 3) : aucun exercice ne change de classe.
+- La série de plus (MOTEUR §14.6) regarde toujours les seuls muscles **principaux** ; les chauffes (« premier sur ses
+  muscles », MOTEUR §9.15) aussi.
 
 ---
 

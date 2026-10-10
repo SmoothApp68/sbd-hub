@@ -840,7 +840,8 @@
       var g = bloc.superset ? ++groupe : null;
       bloc.exercices.forEach(function (x, k) {
         var cat = index[x.slug] || {};
-        var muscles = { prim: cat.muscles_primaires || [], sec: cat.muscles_secondaires || [] };
+        var muscles = { prim: cat.muscles_primaires || [], sec: cat.muscles_secondaires || [],
+                        stab: cat.muscles_stabilisateurs || [] };
         var classe = !Mo.aDesMuscles(muscles) ? null
           : !Mo.estPolyarticulaire(muscles) ? 'isolation'
           : premierVu ? 'poly' : 'premier';

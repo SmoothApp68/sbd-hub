@@ -382,6 +382,76 @@ Pas de graphique de volume en V1 : la sortie ne porte pas les nombres de l'habit
 **66B** : fait, §5 ter.4 bis. Ce qui était annoncé : l'écran (ouvert depuis Routines, sur le dossier relu), le choix du dossier, l'assemblage de l'entrée, les
 gestes (« oui » écrit les séries retirées, la priorité, les déplacements). **66C** : sans routines, le programme déduit
 complété (N4) ; à rang égal, l'ordre habituel (N5) ; ses paires de superset seulement, d'autres si le temps manque (N6).
+→ Remplacé le 10/10/2026 par **§5 quater** (règles refondées sur la science et la pratique des coachs).
+
+## 5 quater. Le générateur v2 — décidé le 10/10/2026 (66C, 66D)
+
+> **Une règle vient de la science ou de la pratique des coachs, jamais de nos profils. Les séances d'une personne sont
+> l'entrée de son programme ; ce qui n'a ni science ni pratique est une convention de l'app, dite telle** (Aurélien,
+> 10/10). Sources et force de chaque règle : `FICHE-REGLES-GENERATEUR-V2-2026-10-10.md` (projet).
+
+### 5 quater.1 Le squelette (G1)
+
+Des routines → la relecture (§5 ter), jamais une réécriture. Pas de routine et un historique (le fait du coach a ses
+fenêtres, MOTEUR §14.6) → **le programme déduit** (§5) **complété** (5 quater.3). Sans historique → le gabarit (§5 bis).
+« Garder ce que je fais » reste le programme déduit tel quel. *(Le branchement de « Construis-le-moi » et l'aperçu :
+66D.)*
+
+### 5 quater.2 Les habitudes — `faits.habitudes(c)`
+
+Sur la fenêtre du programme déduit (`fenetreDeLaPersonne` : les 84 jours qui finissent à la dernière séance). Une
+séance **compte** si elle a au moins deux exercices mesurés en charge × reps ou en reps avec une série de travail ou
+d'échec — **la signature du programme déduit** (`seancesQuiReviennent`), lue au même endroit, jamais recopiée. Les séries
+comptées ensuite (taille, reps, séries) : `Modele.estTravail` ; les sorties (cardio) ne comptent jamais.
+Médiane : la valeur du milieu, la moyenne des deux du milieu pour un nombre pair, arrondie au plus proche, .5 vers le
+haut (comme le programme déduit).
+- `seances_par_semaine` : la médiane, sur les semaines (lundi → dimanche, heure locale) qui ont au moins une séance
+  comptée, du nombre de séances comptées ;
+- `taille_de_seance` : la médiane du nombre de séries de travail par séance comptée ;
+- `reps[slug]` : la médiane des reps (plus de 0) des séries de travail de l'exercice, dans les séances comptées ;
+- `series[slug]` : la médiane, sur les séances comptées où il a au moins une série de travail, de son nombre de séries
+  de travail.
+`null` sans séance comptée. Convention (K) : aucune donnée publiée ne définit « habituel ».
+
+### 5 quater.3 Le complément — `Generateur.completer(entree)`
+
+Une fonction pure, sous la garde. Elle **lit** : `deduit` (`faits.programmeDeduit`), `volume` (le fait du coach par
+muscle, lu jusqu'à la semaine de la dernière séance comprise), `habitudes`, `fois` (`faits.historiqueDesExercices`), le
+catalogue (dont `habilete`, v2_071), `profil.phase`, `priorites`. Référence `gen66c.py`, cas `cas-66c-generateur.json`.
+1. **Les séances (G3)** : les routines cochées ; tant qu'il y en a moins que `seances_par_semaine`, la décochée la plus
+   récente (`derniere`) est reprise.
+2. **La cible (G2)** : pour un muscle qui a son fait, son 3e quartile (`seuil`, K) ; un muscle d'une **zone
+   prioritaire**, hors sèche : son plus haut volume (`max`). Le volume de la semaine se compte par
+   `Semaine.musclesPonderes` (1 / ½ / ¼, la méthode « fractionnaire » de Pelland et al. 2026).
+3. **Combler (G4)** : tant qu'un muscle est à plus d'une série sous sa cible (K) — le plus grand écart d'abord, à
+   égalité l'ordre de `MUSCLES` — d'abord **une série de plus** sur une ligne où il est principal et qui a moins de 5
+   séries (K ; la moins chargée, puis la première routine, puis le premier exercice) ; sinon **un exercice** : celui
+   qu'il fait le plus (`fois`, puis le slug), où le muscle est principal, absent du programme, avec ses séries
+   habituelles bornées à 2-3 (2 s'il ne reste que la place) et ses reps habituelles, dans une séance **du même étage**
+   (haut du corps : poitrine, dos sauf le bas du dos, épaules, bras ; bas du corps : jambes et bas du dos ; le tronc
+   partout — C), la moins longue puis la première. Un muscle qui ne trouve rien est laissé sous son habitude.
+4. **Les bornes de chaque ajout** : aucun muscle au-dessus de son plus haut volume (S + K) ; au plus ~11 séries
+   fractionnaires d'un muscle dans une séance (Remmert, Pelland et al. 2025, préprint — s) ; au plus la taille habituelle
+   d'une séance + 2 séries (K) ; **jamais une habileté** (`exercises.habilete` — C) ; **jamais une barre lourde** (les
+   quatre barres et leurs frères à la barre — C) ; seulement un exercice mesuré en charge × reps ou en reps.
+5. **Tirage et poussée (G5)** : tant que les séries directes de tirage sont sous celles de poussée (les définitions de
+   la relecture, §5 ter.4), les mêmes gestes pour le grand dorsal, puis le haut du dos, mêmes bornes (C : aucun essai ne
+   fixe un ratio).
+**Retiré** : le minimum de tronc (aucune preuve ; les barres lourdes le travaillent déjà).
+
+**Sortie** : `{ routines: [{ nom, exercices: [{ exercise_slug, series, reps, chauffes }] }], journal, sous_habitude,
+tirage, poussee }` ; le journal dit chaque changement (`reprise`, `serie` avec `de` / `a`, `exercice` avec `series` et
+`reps`, et son `motif` : `habitude` ou `tirage`) — l'aperçu de 66D le dira en phrases.
+**Invariants** (`Generateur.verifierComplement`) : **V1** rien n'est retiré ; **V2** aucune habileté ajoutée ; **V3**
+aucune barre lourde ajoutée ; **V4** aucune séance au-delà de sa taille habituelle + 2 (sauf si elle l'était déjà) ;
+**V5** aucun muscle poussé au-dessus de son plus haut volume par un ajout.
+
+### 5 quater.4 Ce qui vient après (66D)
+
+L'ordre (G6 : le prioritaire puis les barres lourdes d'abord — Nunes et al. 2021 ; puis polyarticulaires avant
+isolations, gros muscles avant petits, tronc à la fin — NSCA ; à rang égal l'ordre habituel), les supersets (G7 :
+seulement quand le temps manque, en paires antagonistes, jamais une barre lourde — Zhang, Weakley et al. 2025),
+« Construis-le-moi » branché sur 5 quater.1 et l'aperçu qui dit chaque changement (G8).
 
 ## 6. Retiré de l'écran du profil
 
@@ -401,6 +471,7 @@ l'écran (les valeurs restent en base, aucune n'est lue). Les quatre phrases qui
 | **60-4** | le programme construit (8b, §5 bis) : l'écran 8b, le générateur, l'aperçu avec « Je n'en veux pas », les exercices écartés, « Refaire mon programme », la carte « Passer en cycles » | `v2_066` |
 | **66A** | « Le coach relit ta semaine », le calcul (§5 ter) : `faits.barresDuBilan`, `Generateur.relireSemaine` et ses invariants R1-R4 — aucun écran | non |
 | **66B** | l'écran et les gestes (§5 ter.4 bis) : la rangée dans Saisie, la vue, l'entrée assemblée, « Retirer ces séries », « En faire ma priorité », « Non merci » ; trois priorités prises : pas de proposition | non |
+| **66C** | le générateur v2, le complément (§5 quater.1-3) : `faits.habitudes`, `Generateur.completer` et ses invariants V1-V5, la colonne `habilete` lue — aucun écran | `v2_071` (appliquée le 10/10/2026) |
 
 **Ouverture à Alexis : après 60-2b** (le questionnaire complet et branché, hors programme). 60-3 peut suivre.
 

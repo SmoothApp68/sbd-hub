@@ -8248,10 +8248,13 @@
     return x;
   }
 
-  // La séance du générateur, au vocabulaire de `routineDeduite` : jamais de chauffe.
+  // La séance du programme, au vocabulaire de `routineDeduite`. 66D (§5 quater.5) : ses chauffes (celles de la
+  // personne, avec un historique ; le gabarit n'en a aucune) et son superset (`groupe_superset`, posé par `associer`)
+  // vont jusqu'à la routine écrite.
   function deduiteDuProgramme(rt) {
     return { nom: rt.nom, exercices: rt.exercices.map(function (l) {
-      return { exercise_slug: l.exercise_slug, series: l.series, reps: l.reps, chauffes: 0 };
+      return { exercise_slug: l.exercise_slug, series: l.series, reps: l.reps, chauffes: l.chauffes || 0,
+               groupe_superset: l.groupe_superset === undefined ? null : l.groupe_superset };
     }) };
   }
 

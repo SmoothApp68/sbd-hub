@@ -1146,16 +1146,20 @@
   // `reposDansLesRoutines`, puis le défaut, avec leur origine ; jamais de
   // charge. Pas une seconde règle des repos. `options` : celles de
   // `routineDepuisSeance` (`exercices`, `routines`, `existants`).
+  // 66D (QUESTIONNAIRE-COACH-V2 §5 quater.5) : un exercice qui porte un
+  // `groupe_superset` le donne à chacune de ses lignes — `construireBlocs`
+  // forme le bloc, et `routineDepuisSeance` écrit le superset (le membre non
+  // final : le repos du superset). Sans groupe : rien ne change.
   function routineDeduite(deduite, options) {
     var d = deduite || {};
     var lignes = [], rang = 0;
     (d.exercices || []).forEach(function (e) {
-      var k;
+      var k, g = e.groupe_superset === undefined ? null : e.groupe_superset;
       for (k = 0; k < (e.chauffes || 0); k++) {
-        lignes.push({ exercise_slug: e.exercise_slug, rang: ++rang, type_serie: 'echauffement', reps: null });
+        lignes.push({ exercise_slug: e.exercise_slug, rang: ++rang, type_serie: 'echauffement', reps: null, groupe_superset: g });
       }
       for (k = 0; k < (e.series || 0); k++) {
-        lignes.push({ exercise_slug: e.exercise_slug, rang: ++rang, type_serie: 'travail', reps: e.reps });
+        lignes.push({ exercise_slug: e.exercise_slug, rang: ++rang, type_serie: 'travail', reps: e.reps, groupe_superset: g });
       }
     });
     return routineDepuisSeance(lignes, Object.assign({}, options, { titre: d.nom }));

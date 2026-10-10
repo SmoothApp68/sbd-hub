@@ -7,7 +7,8 @@
 // les séances savent de la personne (`ceQueJeSais`), que le questionnaire du coach
 // MONTRE au lieu de le demander ; depuis 60-3, les faits du programme déduit
 // (`programmeDeduit`) ; depuis 60-4, l'historique du programme construit
-// (`historiqueDesExercices`) ; depuis 64A, les faits du jeu (`faitsDuJeu`). Ils vivaient dans
+// (`historiqueDesExercices`) ; depuis 64A, les faits du jeu (`faitsDuJeu`) ; depuis 66A, le fait des
+// barres du bilan (`barresDuBilan`), que « Le coach relit ta semaine » lit. Ils vivaient dans
 // `app.js`, au milieu de l'état de l'écran : le jeu n'aurait pu les lire qu'en
 // les recopiant.
 //
@@ -542,6 +543,92 @@
       };
     }
 
+    // ── Le fait des barres du bilan (66A, QUESTIONNAIRE-COACH-V2 §5 ter.2) ──
+    //
+    // Ce que « Le coach relit ta semaine » montre de chacune des quatre barres,
+    // dans l'ordre de la spec. Une barre n'y est que si elle a au moins une
+    // série de travail (`Modele.estTravail`) :
+    //
+    //   · `record` : `{ charge, date }` — `Modele.recordsDeLExercice(...).lourde`,
+    //     comme « Ce que je sais » et la page de l'exercice (jamais un estimé) ;
+    //     `date` : le jour local `AAAA-MM-JJ` de sa séance ;
+    //   · `recent` : la meilleure série de travail des 28 derniers jours (la plus
+    //     lourde, puis le plus de reps, puis la plus récente ; au moins 1 rep),
+    //     `{ charge, reps, date }`, ou `null` ;
+    //   · `semaines` : les semaines (lundi → dimanche, heure locale) des 182
+    //     derniers jours qui ont une série de travail de la barre ;
+    //   · `lourdes` : ses séries de travail de 1 à 6 reps sur ces 182 jours ;
+    //   · `variantes` : les séries de travail, sur ces 182 jours, des variantes
+    //     À LA BARRE — même `mouvement`, `equipement = 'barre'`, autre exercice :
+    //     ses frères (`Modele.freresDe`) à la barre.
+    //
+    // « Les N derniers jours » : `Periode.fenetres(N, aujourdhui).courante`, du
+    // minuit d'il y a N − 1 jours à la fin d'aujourd'hui (aujourd'hui compris).
+    // `aujourdhui` : passé (jamais l'horloge).
+    var BARRES_DU_BILAN = ['squat_barre', 'developpe_couche_barre', 'souleve_de_terre_barre', 'developpe_militaire_barre'];
+    var JOURS_RECENTS = 28, JOURS_DU_BILAN = 182, REPS_LOURDES_MAX = 6;
+    function barresDuBilan(c, aujourdhui) {
+      var index = c.catalogue() || {};
+      var recente = Periode.fenetres(JOURS_RECENTS, aujourdhui).courante;
+      var bilan = Periode.fenetres(JOURS_DU_BILAN, aujourdhui).courante;
+      // Les séries de travail d'un exercice, chacune avec le début de sa séance.
+      var travailDe = function (slug) {
+        var out = [];
+        seancesDuSlug(c, slug).forEach(function (s) {
+          s.series.forEach(function (x) { if (Modele.estTravail(x)) out.push({ serie: x, debut: s.debut }); });
+        });
+        return out;
+      };
+      var nombre = function (x, champ) {
+        var v = x[champ];
+        return v === null || v === undefined || v === '' || !isFinite(Number(v)) ? null : Number(v);
+      };
+      var sortie = {};
+      BARRES_DU_BILAN.forEach(function (slug) {
+        var siennes = travailDe(slug);
+        if (!siennes.length) return;
+
+        var lourde = Modele.recordsDeLExercice(seancesDuSlug(c, slug), aujourdhui, Modele.optionsDeRecord(index[slug] || null)).lourde;
+        var record = lourde && lourde.charge !== null && lourde.charge > 0
+          ? { charge: lourde.charge, date: Moteur.jourCivil(lourde.date) } : null;
+
+        var recent = null;
+        siennes.forEach(function (t) {
+          if (!Periode.dans(t.debut, recente)) return;
+          var charge = nombre(t.serie, 'charge_kg'), reps = nombre(t.serie, 'reps');
+          if (charge === null || reps === null || reps < 1) return;
+          if (!recent || charge > recent.charge || (charge === recent.charge && (reps > recent.reps ||
+              (reps === recent.reps && new Date(t.debut) > new Date(recent.debut))))) {
+            recent = { charge: charge, reps: reps, debut: t.debut };
+          }
+        });
+
+        var semaines = {}, lourdes = 0;
+        siennes.forEach(function (t) {
+          if (!Periode.dans(t.debut, bilan)) return;
+          semaines[Semaine.bornesSemaine(t.debut).lundi.getTime()] = true;
+          var reps = nombre(t.serie, 'reps');
+          if (reps !== null && reps >= 1 && reps <= REPS_LOURDES_MAX) lourdes++;
+        });
+
+        // Les variantes à la barre : ses frères (`Modele.freresDe`, la seule lecture de `mouvement`) à la barre.
+        var variantes = 0;
+        Modele.freresDe(index, slug).forEach(function (autre) {
+          if (!index[autre] || index[autre].equipement !== 'barre') return;
+          travailDe(autre).forEach(function (t) { if (Periode.dans(t.debut, bilan)) variantes++; });
+        });
+
+        sortie[slug] = {
+          record: record,
+          recent: recent ? { charge: recent.charge, reps: recent.reps, date: Moteur.jourCivil(recent.debut) } : null,
+          semaines: Object.keys(semaines).length,
+          lourdes: lourdes,
+          variantes: variantes
+        };
+      });
+      return sortie;
+    }
+
     return {
       seancesAvecSeries: seancesAvecSeries,
       seancesDuSlug: seancesDuSlug,
@@ -565,7 +652,9 @@
       seancesDesRoutines: seancesDesRoutines,
       oublierDates: oublierDates,
       faitsDuJeu: faitsDuJeu,
-      BARRES_DU_JEU: BARRES_DU_JEU
+      BARRES_DU_JEU: BARRES_DU_JEU,
+      barresDuBilan: barresDuBilan,
+      BARRES_DU_BILAN: BARRES_DU_BILAN
     };
   }
 

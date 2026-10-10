@@ -405,12 +405,15 @@ const NOTIONS = [
     raison: 'le champ réaffiche une assistance avec le vrai signe moins (U+2212) que la copie de ' +
       '`seance.js` ne relisait pas : retoucher les reps d’une série à « −25 » effaçait sa charge.' },
   { notion: 'les frères d’un exercice (même `mouvement` au catalogue, MOTEUR §13.6)', pr: '49-U20',
-    module: 'modele.js', fonction: 'freresDe', lecteurs: ['app.js', 'seance.js'],
-    parAilleurs: { 'app.js': ['freresPourLeMoteur', 'faitsDesFreres'], 'seance.js': ['freresProposes'] },
+    module: 'modele.js', fonction: 'freresDe', lecteurs: ['app.js', 'seance.js', 'faits.js'],
+    parAilleurs: { 'app.js': ['freresPourLeMoteur', 'faitsDesFreres'], 'seance.js': ['freresProposes'],
+                   'faits.js': ['barresDuBilan'] },
     interditAilleurs: { motif: /\.\s*mouvement\b|\[\s*(['"`])mouvement\1\s*\]/,
                         raison: '`mouvement` lu ailleurs que dans `freresDe` : une seconde définition des frères' },
     raison: 'les frères sont les exercices de même `mouvement` — pas de même `famille`, plus large ; ' +
-      'une seule lecture de la colonne, sinon deux écrans auraient deux listes de frères.' },
+      'une seule lecture de la colonne, sinon deux écrans auraient deux listes de frères. 66A : les variantes à la ' +
+      'barre du bilan (QUESTIONNAIRE §5 ter.2) sont ses frères à la barre — `faits.js` les lit ici, il ne relit pas ' +
+      '`mouvement`.' },
   { notion: 'la version lestée d’un exercice libre (`parent` au catalogue, MOTEUR §9.17)', pr: '50-U1',
     module: 'modele.js', fonction: 'lesteDe', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['optionsDeConsigne', 'entreesDuPlan'] },
@@ -946,7 +949,13 @@ const NOTIONS = [
   { notion: 'le jeu allumé (`profiles.jeu_actif`, absent = allumé)', pr: '64-U2',
     module: 'profil.js', fonction: 'jeuActif', lecteurs: ['app.js'],
     raison: 'JEU-V1 §9.1 : l’onglet, le Profil, la feuille et la garde des routes lisent le même fait ; un second test ' +
-      'de `jeu_actif === false` écrit à la main dirait autre chose au premier démarrage (colonne absente).' }
+      'de `jeu_actif === false` écrit à la main dirait autre chose au premier démarrage (colonne absente).' },
+  // ── 66A — LE COACH RELIT TA SEMAINE (QUESTIONNAIRE-COACH-V2 §5 ter) ───────
+  { notion: 'le fait des barres du bilan (record, série récente, semaines, séries lourdes, variantes à la barre)', pr: '66-U1',
+    module: 'faits.js', fonction: 'barresDuBilan', lecteurs: [],
+    raison: 'QUESTIONNAIRE-COACH-V2 §5 ter.2 (66A) : la relecture de la semaine REÇOIT ce fait, elle ne relit pas les ' +
+      'séances ; le record est celui de la page de l’exercice (`recordsDeLExercice(...).lourde`). Aucun lecteur encore : ' +
+      'l’écran de 66B (`app.js`) assemblera l’entrée.' }
 ];
 
 // ── 58-1 — UN FAIT NE SE DÉCLARE QUE DANS `faits.js` ─────────────────────────
@@ -1269,7 +1278,7 @@ describe('architecture — le registre des notions : une source, des lecteurs', 
 describe('architecture — le module des faits : un fait ne se déclare que dans faits.js (58-1)', () => {
   const FICHIERS = perimetre();
 
-  test('les faits du module : vingt et un (treize en 58-1, trois du journal en 58-2, un du questionnaire en 60-2a, un du programme déduit en 60-3, deux du programme construit en 60-4, un du jeu en 64A), chacun déclaré et exporté par faits.js', () => {
+  test('les faits du module : vingt-deux (treize en 58-1, trois du journal en 58-2, un du questionnaire en 60-2a, un du programme déduit en 60-3, deux du programme construit en 60-4, un du jeu en 64A, un du bilan en 66A), chacun déclaré et exporté par faits.js', () => {
     global.self = global;
     require('../../v2/js/modele.js');
     require('../../v2/js/semaine.js');
@@ -1279,7 +1288,7 @@ describe('architecture — le module des faits : un fait ne se déclare que dans
     require('../../v2/js/seance.js');
     require('../../v2/js/periode.js');
     const instance = require('../../v2/js/faits.js').creer();
-    expect(FAITS.length).toBe(21);
+    expect(FAITS.length).toBe(22);
     expect(FAITS.filter((fn) => typeof instance[fn] !== 'function')).toEqual([]);
   });
 

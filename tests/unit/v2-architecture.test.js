@@ -155,7 +155,16 @@ const GARDEES = [
   // generateur.js — le programme déduit complété (66C, QUESTIONNAIRE-COACH-V2 §5 quater.3) : aucun appelant hors du
   // module avant « Construis-le-moi » (66D).
   { fn: 'completer', module: 'generateur.js' },
-  { fn: 'verifierComplement', module: 'generateur.js' }
+  { fn: 'verifierComplement', module: 'generateur.js' },
+  // generateur.js — la fin (66D, QUESTIONNAIRE-COACH-V2 §5 quater.4-5) : l'ordre, les supersets, l'habillage d'une
+  // ligne déduite et les lignes de « Ce que j'ai changé ». `motif` de `ranger` : `Sync.ranger` (sync.js) est une
+  // autre fonction du même nom ; seul l'appel qualifié par le générateur compte.
+  { fn: 'ranger', module: 'generateur.js',
+    motif: /(?:\bGenerateur|\bGenerateur\(\)|racine\.THGenerateur)\s*\.\s*ranger\b/g },
+  { fn: 'associer', module: 'generateur.js' },
+  { fn: 'verifierAssociation', module: 'generateur.js' },
+  { fn: 'habiller', module: 'generateur.js' },
+  { fn: 'changementsDeLApercu', module: 'generateur.js' }
 ];
 
 // ── LA LISTE D'AUTORISATIONS ────────────────────────────────────────────────
@@ -463,9 +472,11 @@ const NOTIONS = [
     raison: 'la règle (un progrès après le dernier progrès de l’exercice bloqué, un meilleur en hausse, ' +
       'la même zone pour la flèche) se décide une fois ; le plan ne lit que son résultat, figé avec la consigne.' },
   { notion: 'la durée estimée d’une routine (MOTEUR §9.18)', pr: '51-U1',
-    module: 'moteur.js', fonction: 'dureeEstimee', lecteurs: ['app.js'],
+    // generateur.js (66D) : `associer` estime chaque séance par la même fonction — le superset tant qu'elle
+    // dépasse la cible (QUESTIONNAIRE-COACH-V2 §5 quater.4 bis).
+    module: 'moteur.js', fonction: 'dureeEstimee', lecteurs: ['app.js', 'generateur.js'],
     par: ['raccourcirRoutine'],
-    parAilleurs: { 'app.js': ['tempsDeLaRoutine'] },
+    parAilleurs: { 'app.js': ['tempsDeLaRoutine'], 'generateur.js': ['associer'] },
     raison: 'une seule fonction pour la durée affichée sur la routine, la durée allégée et la carte ; ' +
       'ses constantes sont des valeurs par défaut, définies une fois (`DUREE_PAR_DEFAUT`).' },
   { notion: 'le raccourci d’une routine (« J’ai peu de temps », MOTEUR §9.18)', pr: '51-U1',

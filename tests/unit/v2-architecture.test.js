@@ -970,7 +970,16 @@ const NOTIONS = [
     module: 'generateur.js', fonction: 'relireSemaine', lecteurs: [],
     raison: 'QUESTIONNAIRE-COACH-V2 §5 ter.3 (66A) : 1,2 pour un homme, 1,6 pour une femme — le bas des moyennes de ' +
       'compétition (van den Hoek et al. 2024, J Sci Med Sport) ; une table (`RATIO_SQUAT_COUCHE`), lue par la seule ' +
-      'relecture, jamais hors Force et Les deux (R4). Aucun lecteur encore : l’écran de 66B lira la relecture.' }
+      'relecture, jamais hors Force et Les deux (R4). Aucun lecteur encore : l’écran de 66B lira la relecture.' },
+  // ── 66B — LES GESTES DE LA RELECTURE : une règle chacun, dans routines.js ──
+  { notion: 'le retrait de séries d’une proposition de sèche (les dernières séries de travail, jusqu’à `a`)', pr: '66-U2',
+    module: 'routines.js', fonction: 'retraitDeSeries', lecteurs: [],
+    raison: 'QUESTIONNAIRE §5 ter.4 bis (66B) : quel exercice, quelles séries (les dernières de travail, jamais une ' +
+      'chauffe), et quand la routine ne correspond plus — une règle pure ; l’écran pose ce qu’elle rend, il ne retire rien.' },
+  { notion: 'la mise en tête d’un exercice et de son superset (« En faire ma priorité »)', pr: '66-U2',
+    module: 'routines.js', fonction: 'miseEnTete', lecteurs: [],
+    raison: 'QUESTIONNAIRE §5 ter.4 bis (66B) : le bloc (l’exercice, ou tout son superset contigu) passe avant le bloc ' +
+      'visé, les numéros relus de la nouvelle adjacence (`renumeroter`, comme l’éditeur) ; l’écran ne déplace rien.' }
 ];
 
 // ── 58-1 — UN FAIT NE SE DÉCLARE QUE DANS `faits.js` ─────────────────────────

@@ -191,11 +191,14 @@
   // des polyarticulaires — sans une erreur. Une ligne sans la colonne (cache
   // d'avant v2_069, faux serveur du banc) se lit vide ; le catalogue en cache
   // est réécrit en entier à la synchronisation suivante (`remplacerTout`).
+  // ⚠️ `habilete` DEPUIS 66C (v2_071, QUESTIONNAIRE §5 quater.3) — MÊME PIÈGE : omise, elle vaudrait `undefined`, et
+  // le générateur ne saurait plus qu'un muscle-up ne s'ajoute jamais. Une ligne sans la colonne (cache d'avant v2_071,
+  // faux serveur) se lit `false` : le générateur lit `!fiche.habilete`.
   function tousLesExercices() {
     return paginerParCle(trancheur(function () {
       return client().from('exercises')
         .select('slug, nom, mesure, charge, parent, equipement, muscles_primaires, muscles_secondaires, ' +
-                'muscles_stabilisateurs, mouvement');
+                'muscles_stabilisateurs, mouvement, habilete');
     }, 'slug'), 'slug');
   }
 

@@ -151,7 +151,11 @@ const GARDEES = [
   // `motif` : la garde de développement a sa méthode du même nom (`garde.verifierRelecture`, plan.js, 66B), qui lit
   // le générateur à l'appel ; seul l'appel qualifié par le module compte.
   { fn: 'verifierRelecture', module: 'generateur.js',
-    motif: /(?:\bGenerateur|\bGenerateur\(\)|racine\.THGenerateur)\s*\.\s*verifierRelecture\b/g }
+    motif: /(?:\bGenerateur|\bGenerateur\(\)|racine\.THGenerateur)\s*\.\s*verifierRelecture\b/g },
+  // generateur.js — le programme déduit complété (66C, QUESTIONNAIRE-COACH-V2 §5 quater.3) : aucun appelant hors du
+  // module avant « Construis-le-moi » (66D).
+  { fn: 'completer', module: 'generateur.js' },
+  { fn: 'verifierComplement', module: 'generateur.js' }
 ];
 
 // ── LA LISTE D'AUTORISATIONS ────────────────────────────────────────────────
@@ -422,7 +426,7 @@ const NOTIONS = [
   { notion: 'les frères d’un exercice (même `mouvement` au catalogue, MOTEUR §13.6)', pr: '49-U20',
     module: 'modele.js', fonction: 'freresDe', lecteurs: ['app.js', 'seance.js', 'faits.js', 'generateur.js'],
     parAilleurs: { 'app.js': ['freresPourLeMoteur', 'faitsDesFreres'], 'seance.js': ['freresProposes'],
-                   'faits.js': ['barresDuBilan'], 'generateur.js': ['relecture'] },
+                   'faits.js': ['barresDuBilan'], 'generateur.js': ['familleDeBarre'] },
     interditAilleurs: { motif: /\.\s*mouvement\b|\[\s*(['"`])mouvement\1\s*\]/,
                         raison: '`mouvement` lu ailleurs que dans `freresDe` : une seconde définition des frères' },
     raison: 'les frères sont les exercices de même `mouvement` — pas de même `famille`, plus large ; ' +
@@ -861,6 +865,13 @@ const NOTIONS = [
     parAilleurs: { 'faits.js': ['programmeDeduit'] },
     raison: 'QUESTIONNAIRE-COACH-V2 §5 (60-3) : le portage de `deduire()` (`deduit60b.py`), prouvé par ses cas. ' +
       'Une seule règle : l’écran 8 et la ligne de Routines ouvrent la même feuille, sur les mêmes routines.' },
+  // 66C — la signature, extraite de `seancesQuiReviennent` : le déduit et les habitudes la lisent, aucun ne la recopie.
+  { notion: 'la signature d’une séance du programme déduit (au moins deux exercices en charge × reps ou en reps, une série de travail ou d’échec)', pr: '66-U3',
+    module: 'routines.js', fonction: 'signatureDeSeance', lecteurs: ['faits.js'],
+    par: ['seancesQuiReviennent'],
+    parAilleurs: { 'faits.js': ['habitudes'] },
+    raison: 'QUESTIONNAIRE-COACH-V2 §5 quater.2 (66C) : une séance compte pour les habitudes comme pour le programme ' +
+      'déduit, par la même définition ; deux copies auraient fini par compter deux séances différentes.' },
   { notion: 'les faits du programme déduit (les séances, leur titre, leurs séries, la mesure de chaque exercice)', pr: '60-U9',
     module: 'faits.js', fonction: 'programmeDeduit', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['ouvrirSeancesQuiReviennent'] },
@@ -992,7 +1003,15 @@ const NOTIONS = [
     module: 'routines.js', fonction: 'miseEnTete', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['ouiDeRelecture'] },
     raison: 'QUESTIONNAIRE §5 ter.4 bis (66B) : le bloc (l’exercice, ou tout son superset contigu) passe avant le bloc ' +
-      'visé, les numéros relus de la nouvelle adjacence (`renumeroter`, comme l’éditeur) ; l’écran ne déplace rien.' }
+      'visé, les numéros relus de la nouvelle adjacence (`renumeroter`, comme l’éditeur) ; l’écran ne déplace rien.' },
+  // ── 66C — LE GÉNÉRATEUR V2, LE COMPLÉMENT (QUESTIONNAIRE-COACH-V2 §5 quater) ─
+  { notion: 'les habitudes (séances par semaine, taille d’une séance, reps et séries habituelles par exercice)', pr: '66-U3',
+    module: 'faits.js', fonction: 'habitudes', lecteurs: [],
+    // `motif` : l'APPEL seulement — `entree.habitudes` est le champ que le générateur lit.
+    motif: /\.\s*habitudes\s*\(/g,
+    raison: 'QUESTIONNAIRE-COACH-V2 §5 quater.2 (66C) : le complément du programme déduit REÇOIT les habitudes, il ne relit ' +
+      'pas les séances ; la fenêtre et la signature sont celles du déduit. Aucun lecteur encore : « Construis-le-moi » (66D, ' +
+      '`app.js`) assemblera l’entrée.' }
 ];
 
 // ── 58-1 — UN FAIT NE SE DÉCLARE QUE DANS `faits.js` ─────────────────────────
@@ -1315,7 +1334,7 @@ describe('architecture — le registre des notions : une source, des lecteurs', 
 describe('architecture — le module des faits : un fait ne se déclare que dans faits.js (58-1)', () => {
   const FICHIERS = perimetre();
 
-  test('les faits du module : vingt-deux (treize en 58-1, trois du journal en 58-2, un du questionnaire en 60-2a, un du programme déduit en 60-3, deux du programme construit en 60-4, un du jeu en 64A, un du bilan en 66A), chacun déclaré et exporté par faits.js', () => {
+  test('les faits du module : vingt-trois (treize en 58-1, trois du journal en 58-2, un du questionnaire en 60-2a, un du programme déduit en 60-3, deux du programme construit en 60-4, un du jeu en 64A, un du bilan en 66A, les habitudes en 66C), chacun déclaré et exporté par faits.js', () => {
     global.self = global;
     require('../../v2/js/modele.js');
     require('../../v2/js/semaine.js');
@@ -1325,7 +1344,7 @@ describe('architecture — le module des faits : un fait ne se déclare que dans
     require('../../v2/js/seance.js');
     require('../../v2/js/periode.js');
     const instance = require('../../v2/js/faits.js').creer();
-    expect(FAITS.length).toBe(22);
+    expect(FAITS.length).toBe(23);
     expect(FAITS.filter((fn) => typeof instance[fn] !== 'function')).toEqual([]);
   });
 

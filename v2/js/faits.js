@@ -8,7 +8,8 @@
 // MONTRE au lieu de le demander ; depuis 60-3, les faits du programme déduit
 // (`programmeDeduit`) ; depuis 60-4, l'historique du programme construit
 // (`historiqueDesExercices`) ; depuis 64A, les faits du jeu (`faitsDuJeu`) ; depuis 66A, le fait des
-// barres du bilan (`barresDuBilan`), que « Le coach relit ta semaine » lit. Ils vivaient dans
+// barres du bilan (`barresDuBilan`), que « Le coach relit ta semaine » lit ; depuis 66C, les habitudes (`habitudes`),
+// que le générateur v2 complète. Ils vivaient dans
 // `app.js`, au milieu de l'état de l'écran : le jeu n'aurait pu les lire qu'en
 // les recopiant.
 //
@@ -428,6 +429,64 @@
       return compte;
     }
 
+    // ── Les habitudes (66C, QUESTIONNAIRE-COACH-V2 §5 quater.2) ──
+    //
+    // Sur la fenêtre du programme déduit (`Routines.fenetreDeLaPersonne` : les 84 jours qui finissent à la DERNIÈRE
+    // séance, jamais « aujourd'hui »). Une séance COMPTE si elle a la signature du programme déduit
+    // (`Routines.signatureDeSeance`, lue au même endroit, jamais recopiée). Les séries comptées ensuite : la série de
+    // travail (`Modele.estTravail`) ; les sorties (le cardio du jeu) jamais.
+    //   · `seances_par_semaine` : la médiane, sur les semaines (lundi → dimanche, heure locale) qui ont au moins une
+    //     séance comptée, du nombre de séances comptées ;
+    //   · `taille_de_seance` : la médiane du nombre de séries de travail par séance comptée ;
+    //   · `reps[slug]` : la médiane des reps (plus de 0) de ses séries de travail ;
+    //   · `series[slug]` : la médiane, sur les séances comptées où il a une série de travail, de leur nombre.
+    // La médiane : `Moteur.mediane`, arrondie comme le programme déduit (`Routines.arrondiDeduit`, .5 vers le haut).
+    // `null` sans séance comptée. Convention de l'app (K) : aucune donnée publiée ne définit « habituel ».
+    function habitudes(c) {
+      var Routines = racine.THRoutines;
+      var index = c.catalogue() || {}, mesures = {};
+      Object.keys(index).forEach(function (slug) { mesures[slug] = index[slug] ? index[slug].mesure || null : null; });
+      var datees = seancesAvecSeries(c).filter(function (s) {
+        return s && s.debut && !isNaN(new Date(s.debut).getTime());
+      });
+      if (!datees.length) return null;
+      var derniere = datees.reduce(function (m, s) { return new Date(s.debut) > new Date(m) ? s.debut : m; }, datees[0].debut);
+      var fenetre = Routines.fenetreDeLaPersonne(derniere);
+      var comptees = datees.filter(function (s) {
+        return Periode.dans(s.debut, fenetre) && Routines.signatureDeSeance(s, mesures) !== null;
+      });
+      if (!comptees.length) return null;
+      var mediane = function (v) { return Routines.arrondiDeduit(Moteur.mediane(v)); };
+      var parSemaine = {}, tailles = [], reps = {}, series = {};
+      comptees.forEach(function (s) {
+        var lundi = Semaine.bornesSemaine(s.debut).lundi.getTime();
+        parSemaine[lundi] = (parSemaine[lundi] || 0) + 1;
+        var n = 0, parExo = {};
+        (s.series || []).forEach(function (x) {
+          if (!x || !x.exercise_slug || !Modele.estTravail(x)) return;
+          var f = index[x.exercise_slug];
+          if (Modele.estExerciceSortie(f) && !Semaine.porteDuVolume(f)) return;
+          n++;
+          parExo[x.exercise_slug] = (parExo[x.exercise_slug] || 0) + 1;
+          var r = x.reps === null || x.reps === undefined || x.reps === '' ? NaN : Number(x.reps);
+          if (isFinite(r) && r > 0) (reps[x.exercise_slug] || (reps[x.exercise_slug] = [])).push(r);
+        });
+        tailles.push(n);
+        Object.keys(parExo).forEach(function (slug) { (series[slug] || (series[slug] = [])).push(parExo[slug]); });
+      });
+      var medianes = function (o) {
+        var sortie = {};
+        Object.keys(o).sort().forEach(function (slug) { sortie[slug] = mediane(o[slug]); });
+        return sortie;
+      };
+      return {
+        seances_par_semaine: mediane(Object.keys(parSemaine).map(function (k) { return parSemaine[k]; })),
+        taille_de_seance: mediane(tailles),
+        reps: medianes(reps),
+        series: medianes(series)
+      };
+    }
+
     // ── 60-4 — Les séances faites depuis les routines d'un dossier (la carte « Passer en cycles », MOTEUR §9.22) ──
     //
     // Le nombre de séances TERMINÉES, commencées à partir de `depuis` (la date de création du programme), qui portent
@@ -655,6 +714,7 @@
       ceQueJeSais: ceQueJeSais,
       programmeDeduit: programmeDeduit,
       historiqueDesExercices: historiqueDesExercices,
+      habitudes: habitudes,
       seancesDesRoutines: seancesDesRoutines,
       oublierDates: oublierDates,
       faitsDuJeu: faitsDuJeu,

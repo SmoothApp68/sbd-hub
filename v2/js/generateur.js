@@ -547,11 +547,34 @@
   var TRONC = 'abdominaux';
   var EPS_RELECTURE = 1e-9;
 
+  // ── Tirage, poussée, barres lourdes : UNE définition (66C), lue par la relecture (§5 ter.4) et le complément
+  // (§5 quater.3) ─────────────────────────────────────────────────────────────────────────────────────────────
+  function ficheDu(cat, slug) { return (cat || {})[slug] || null; }
+  // La barre d'un exercice — elle-même, ou une variante à la barre (ses frères à la barre, `Modele.freresDe` : la
+  // seule lecture de `mouvement`) — ou `null`.
+  function familleDeBarre(slug, cat) {
+    var Modele = racine.THModele, f = ficheDu(cat, slug);
+    for (var i = 0; i < BARRES.length; i++) {
+      var b = BARRES[i][0];
+      if (slug === b || (f && f.equipement === 'barre' && contient(Modele.freresDe(cat, b), slug))) return b;
+    }
+    return null;
+  }
+  // Une barre lourde (§5 quater.3, C) : une des quatre barres, ou un de ses frères à la barre.
+  function estBarreLourde(slug, cat) { return familleDeBarre(slug, cat) !== null; }
+  // Une série directe de TIRAGE : un principal grand dorsal ou haut du dos.
+  function estTirage(fiche) { return liste(fiche && fiche.muscles_primaires).some(function (m) { return contient(TIRAGE, m); }); }
+  // Une série directe de POUSSÉE : un principal pectoraux, ou le militaire et ses variantes à la barre.
+  function estPoussee(slug, cat) {
+    var f = ficheDu(cat, slug);
+    return contient(liste(f && f.muscles_primaires), 'pectoraux') || familleDeBarre(slug, cat) === MILITAIRE;
+  }
+
   // Les définitions des autres modules, lues À L'APPEL (ils se chargent avant celui-ci ; un test charge les siens).
   function relecture() {
     var Modele = racine.THModele, Semaine = racine.THSemaine, Moteur = racine.THMoteur, Profil = racine.THProfil;
 
-    var ficheDe = function (cat, slug) { return (cat || {})[slug] || null; };
+    var ficheDe = ficheDu;
     var primaires = function (f) { return liste(f && f.muscles_primaires); };
     var estPoly = function (f) {
       return Moteur.estPolyarticulaire({ prim: liste(f && f.muscles_primaires), sec: liste(f && f.muscles_secondaires),
@@ -568,14 +591,7 @@
     // Le jour civil, en date locale (les formateurs lisent une date, pas une chaîne au fuseau UTC).
     var jourLocal = function (v) { return new Date(Moteur.jourCivil(v) + 'T00:00:00'); };
     var seriesDeTravail = function (x) { return liste(x && x.series).filter(function (s) { return Modele.estTravail(s); }).length; };
-    // La barre d'un exercice — elle-même, ou une variante à la barre (ses frères à la barre) — ou `null`.
-    var familleDe = function (slug, cat) {
-      for (var i = 0; i < BARRES.length; i++) {
-        var b = BARRES[i][0], f = ficheDe(cat, slug);
-        if (slug === b || (f && f.equipement === 'barre' && contient(Modele.freresDe(cat, b), slug))) return b;
-      }
-      return null;
-    };
+    var familleDe = familleDeBarre;
 
     // ── §5 ter.3 — Ton historique ────────────────────────────────────────────
     function propositionPriorite(e) {
@@ -729,9 +745,8 @@
       var tirage = 0, pousse = 0;
       routines.forEach(function (r) {
         r.exercices.forEach(function (x) {
-          var p = primaires(ficheDe(cat, x.exercise_slug));
-          if (p.some(function (m) { return contient(TIRAGE, m); })) tirage += x.n;
-          if (contient(p, 'pectoraux') || familleDe(x.exercise_slug, cat) === MILITAIRE) pousse += x.n;
+          if (estTirage(ficheDe(cat, x.exercise_slug))) tirage += x.n;
+          if (estPoussee(x.exercise_slug, cat)) pousse += x.n;
         });
       });
       if (tirage || pousse) verifs.push(tirage + ' série' + pl(tirage) + ' de tirage pour ' + pousse + ' de poussée');
@@ -821,6 +836,255 @@
     return fautes;
   }
 
+  // ══ LE GÉNÉRATEUR V2 : LE PROGRAMME DÉDUIT COMPLÉTÉ (66C, QUESTIONNAIRE-COACH-V2 §5 quater.3) ══════════════════
+  //
+  // Une fonction pure, `completer(entree)`, sous la garde (`GARDEES`). Elle ne calcule AUCUN fait, elle les reçoit :
+  //   · `deduit`    — le programme déduit (`faits.programmeDeduit`) : `[{ nom, fois, derniere, cochee, exercices }]` ;
+  //   · `volume`    — le fait du coach par muscle (`{ muscle: { seuil, max, … } | null }`), lu jusqu'à la semaine de
+  //                   la dernière séance comprise ;
+  //   · `habitudes` — `faits.habitudes` ; `fois` — `faits.historiqueDesExercices` (sur la même fenêtre) ;
+  //   · `catalogue` (dont `habilete`, v2_071 : absente, elle vaut `false`), `profil` (`phase`), `priorites`.
+  // Elle lit les définitions existantes : les poids 1 / ½ / ¼ (`Semaine.musclesPonderes`), la zone d'un muscle
+  // (`Semaine.zoneDuMuscle`), la barre lourde, le tirage et la poussée de la relecture (ci-dessus), `MUSCLES` et
+  // `PAR_SEANCE` de la relecture.
+  //
+  // La référence est `tests/unit/fixtures/gen66c.py` (Claude.ai, 10/10/2026) ; ses quinze cas,
+  // `cas-66c-generateur.json`, sont rejoués à l'identique par `tests/unit/v2-completer.test.js`.
+  //
+  // Les marques des règles (FICHE-REGLES-GENERATEUR-V2) : S la science (méta-analyses), s un préprint, C la pratique
+  // des coachs, K une convention de l'app.
+  var ECART = 1;                         // G4 : « sous son habitude » = plus d'une série sous sa cible (K)
+  var SERIES_MAX = 5;                    // G4 : une série de plus seulement sous 5 séries (K, D8)
+  // G4 : ~11 séries fractionnaires d'un muscle par séance (Remmert, Pelland et al. 2025, préprint) (s) — `PAR_SEANCE`.
+  var MARGE_SEANCE = 2;                  // G4 : au plus la taille habituelle d'une séance + 2 séries (K)
+  var NOUVEAU_MIN = 2, NOUVEAU_MAX = 3;  // G4 : un exercice ajouté prend ses séries habituelles, bornées à 2-3 (K)
+  var TOURS = 200;                       // le garde-fou des boucles (jamais atteint sur les cas)
+  // L'ÉTAGE d'un muscle (C) : un exercice ajouté va dans une séance du même étage ; le tronc va partout. Les zones sont
+  // celles du radar (`Semaine.ZONES`) ; le bas du dos va avec le bas du corps (la chaîne postérieure), pas avec le dos.
+  var ETAGE_DES_ZONES = { poitrine: 'haut', dos: 'haut', epaules: 'haut', bras: 'haut', jambes: 'bas', tronc: null };
+  var BAS_DU_DOS = 'bas_du_dos';
+  var MESURES_COMBLABLES = ['charge_reps', 'reps'];
+
+  function etageDe(muscle) {
+    if (muscle === BAS_DU_DOS) return 'bas';
+    var z = racine.THSemaine.zoneDuMuscle(muscle);
+    return z && possede(ETAGE_DES_ZONES, z.cle) ? ETAGE_DES_ZONES[z.cle] : undefined;
+  }
+
+  // Un exercice qu'on peut ajouter ou charger d'une série : jamais une habileté (C), jamais une barre lourde (C),
+  // seulement mesuré en charge × reps ou en reps.
+  function comblable(slug, cat) {
+    var f = ficheDu(cat, slug) || {};
+    return !f.habilete && !estBarreLourde(slug, cat) && contient(MESURES_COMBLABLES, f.mesure);
+  }
+
+  function completer(entree) {
+    var Semaine = racine.THSemaine;
+    var e = entree || {}, cat = e.catalogue || {}, vol = e.volume || {}, hab = e.habitudes || {}, fois = e.fois || {};
+    var seche = (e.profil || {}).phase === 'seche';
+    var prio = liste(e.priorites);
+    var journal = [];
+    var ponderes = function (slug) { return Semaine.musclesPonderes(ficheDu(cat, slug) || {}); };
+    var copieRoutine = function (r) {
+      return { nom: r.nom, derniere: r.derniere, exercices: liste(r.exercices).map(function (x) { return Object.assign({}, x); }) };
+    };
+
+    // G3 — les séances : les cochées, puis les décochées les plus récentes tant qu'il en manque.
+    var deduit = liste(e.deduit);
+    var rs = deduit.filter(function (r) { return r.cochee; }).map(copieRoutine);
+    var restantes = trier(deduit.filter(function (r) { return !r.cochee; }), function (a, b) {
+      return a.derniere < b.derniere ? 1 : (a.derniere > b.derniere ? -1 : 0);
+    });
+    for (var i0 = 0; i0 < restantes.length; i0++) {
+      if (rs.length >= hab.seances_par_semaine) break;
+      rs.push(copieRoutine(restantes[i0]));
+      journal.push({ type: 'reprise', routine: restantes[i0].nom });
+    }
+
+    var volumeSemaine = function () {
+      var v = {};
+      MUSCLES.forEach(function (m) { v[m] = 0; });
+      rs.forEach(function (r) {
+        r.exercices.forEach(function (x) {
+          ponderes(x.exercise_slug).forEach(function (p) { v[p.muscle] = (v[p.muscle] || 0) + p.poids * x.series; });
+        });
+      });
+      return v;
+    };
+    var dansSeance = function (r, m) {
+      var t = 0;
+      r.exercices.forEach(function (x) {
+        ponderes(x.exercise_slug).forEach(function (p) { if (p.muscle === m) t += p.poids * x.series; });
+      });
+      return t;
+    };
+    var taille = function (r) { return r.exercices.reduce(function (t, x) { return t + x.series; }, 0); };
+    var primaires = function (slug) { return liste((ficheDu(cat, slug) || {}).muscles_primaires); };
+
+    // G2 — la cible : le 3e quartile ; un muscle d'une zone prioritaire, hors sèche : le plus haut.
+    var cible = {}, cibles = [];
+    MUSCLES.forEach(function (m) {
+      var f = vol[m];
+      if (!f) return;
+      var z = Semaine.zoneDuMuscle(m);
+      cible[m] = (z && contient(prio, z.cle) && !seche) ? f.max : f.seuil;
+      cibles.push(m);
+    });
+
+    // Ajouter `n` séries de `slug` dans `r` : aucun muscle au-dessus de son plus haut volume (S + K), ni de ~11 dans
+    // la séance (s) ; la séance au plus sa taille habituelle + 2 (K).
+    var permis = function (slug, n, v, r) {
+      var p = ponderes(slug);
+      for (var k = 0; k < p.length; k++) {
+        var f = vol[p[k].muscle];
+        if (f && (v[p[k].muscle] || 0) + p[k].poids * n > f.max + 1e-9) return false;
+        if (dansSeance(r, p[k].muscle) + p[k].poids * n > PAR_SEANCE + 1e-9) return false;
+      }
+      return taille(r) + n <= hab.taille_de_seance + MARGE_SEANCE;
+    };
+
+    // Une série de plus là où `m` est principal (moins de 5 séries) : la ligne la moins chargée, puis la première
+    // routine, puis le premier exercice.
+    var uneSerie = function (m, v, motif) {
+      var meilleur = null;
+      rs.forEach(function (r) {
+        r.exercices.forEach(function (x) {
+          var s = x.exercise_slug;
+          if (!contient(primaires(s), m)) return;
+          if (x.series >= SERIES_MAX || !comblable(s, cat) || !permis(s, 1, v, r)) return;
+          if (!meilleur || x.series < meilleur.x.series) meilleur = { r: r, x: x };
+        });
+      });
+      if (!meilleur) return false;
+      journal.push({ type: 'serie', motif: motif, muscle: m, routine: meilleur.r.nom,
+                     exercise_slug: meilleur.x.exercise_slug, de: meilleur.x.series, a: meilleur.x.series + 1 });
+      meilleur.x.series += 1;
+      return true;
+    };
+
+    // Son exercice le plus fait pour `m` (principal), absent du programme, dans une séance du même étage, la moins
+    // longue puis la première ; ses séries habituelles (2 à 3 ; 2 s'il ne reste que la place) et ses reps habituelles.
+    var unExercice = function (m, v, motif) {
+      var dedans = {};
+      rs.forEach(function (r) { r.exercices.forEach(function (x) { dedans[x.exercise_slug] = true; }); });
+      var cands = Object.keys(fois).filter(function (s) {
+        return !dedans[s] && possede(cat, s) && comblable(s, cat) && contient(primaires(s), m);
+      }).sort(function (a, b) { return (fois[b] - fois[a]) || (a < b ? -1 : (a > b ? 1 : 0)); });
+      var seriesHab = hab.series || {}, repsHab = hab.reps || {};
+      for (var c = 0; c < cands.length; c++) {
+        var s = cands[c];
+        var voulu = Math.min(NOUVEAU_MAX, Math.max(NOUVEAU_MIN, possede(seriesHab, s) ? seriesHab[s] : NOUVEAU_MAX));
+        var place = null;
+        for (var i = 0; i < rs.length; i++) {
+          var r = rs[i], n = null;
+          for (var k = voulu; k >= NOUVEAU_MIN; k--) if (permis(s, k, v, r)) { n = k; break; }
+          if (n === null) continue;
+          var etage = etageDe(m);
+          var meme = etage === null || r.exercices.some(function (x) {
+            return primaires(x.exercise_slug).some(function (mm) { return etageDe(mm) === etage; });
+          });
+          if (meme && (!place || taille(r) < place.taille)) place = { taille: taille(r), n: n, r: r };
+        }
+        if (!place) continue;
+        var reps = possede(repsHab, s) ? repsHab[s] : null;
+        place.r.exercices.push({ exercise_slug: s, series: place.n, reps: reps, chauffes: 0 });
+        journal.push({ type: 'exercice', motif: motif, muscle: m, routine: place.r.nom, exercise_slug: s,
+                       series: place.n, reps: reps });
+        return true;
+      }
+      return false;
+    };
+
+    // G4 — combler les muscles sous leur cible, le plus grand écart d'abord (à égalité : l'ordre de `MUSCLES`).
+    var bloques = {};
+    for (var t = 0; t < TOURS; t++) {
+      var v = volumeSemaine();
+      var manque = cibles.filter(function (m) { return !bloques[m] && v[m] < cible[m] - ECART; });
+      if (!manque.length) break;
+      manque = trier(manque, function (a, b) {
+        var ea = -(cible[a] - v[a]), eb = -(cible[b] - v[b]);
+        return ea < eb ? -1 : (ea > eb ? 1 : MUSCLES.indexOf(a) - MUSCLES.indexOf(b));
+      });
+      var m0 = manque[0];
+      if (!(uneSerie(m0, v, 'habitude') || unExercice(m0, v, 'habitude'))) bloques[m0] = true;
+    }
+
+    // G5 — au moins autant de tirage que de poussée (séries directes, les définitions de la relecture), par les mêmes
+    // gestes, pour le grand dorsal puis le haut du dos (C).
+    var tiragePoussee = function () {
+      var tp = { tirage: 0, poussee: 0 };
+      rs.forEach(function (r) {
+        r.exercices.forEach(function (x) {
+          if (estTirage(ficheDu(cat, x.exercise_slug))) tp.tirage += x.series;
+          if (estPoussee(x.exercise_slug, cat)) tp.poussee += x.series;
+        });
+      });
+      return tp;
+    };
+    for (var u = 0; u < TOURS; u++) {
+      var tp = tiragePoussee();
+      if (tp.tirage >= tp.poussee) break;
+      var v2 = volumeSemaine();
+      if (!TIRAGE.some(function (m) { return uneSerie(m, v2, 'tirage') || unExercice(m, v2, 'tirage'); })) break;
+    }
+
+    var vf = volumeSemaine(), tpf = tiragePoussee();
+    return {
+      routines: rs.map(function (r) { return { nom: r.nom, exercices: r.exercices }; }),
+      journal: journal,
+      sous_habitude: MUSCLES.filter(function (m) { return possede(cible, m) && vf[m] < cible[m] - ECART; }),
+      tirage: tpf.tirage,
+      poussee: tpf.poussee
+    };
+  }
+
+  // LES INVARIANTS DU COMPLÉMENT (§5 quater.3) : V1 rien n'est retiré ; V2 aucune habileté ajoutée ; V3 aucune barre
+  // lourde ajoutée ; V4 aucune séance au-delà de sa taille habituelle + 2 (sauf si elle l'était déjà) ; V5 aucun muscle
+  // poussé au-dessus de son plus haut volume par un ajout. Rend la liste des fautes (vide : le complément tient).
+  function verifierComplement(entree, sortie) {
+    var Semaine = racine.THSemaine;
+    var e = entree || {}, s = sortie || {}, cat = e.catalogue || {}, vol = e.volume || {}, hab = e.habitudes || {};
+    var fautes = [];
+    var ponderes = function (slug) { return Semaine.musclesPonderes(ficheDu(cat, slug) || {}); };
+    var avant = {};
+    liste(e.deduit).forEach(function (r) {
+      var a = {};
+      liste(r.exercices).forEach(function (x) { a[x.exercise_slug] = x.series; });
+      avant[r.nom] = a;
+    });
+    liste(s.routines).forEach(function (r) {
+      var a = possede(avant, r.nom) ? avant[r.nom] : {};
+      liste(r.exercices).forEach(function (x) {
+        var deja = possede(a, x.exercise_slug);
+        if (deja && x.series < a[x.exercise_slug]) fautes.push('V1 une série retirée');
+        if (!deja && (ficheDu(cat, x.exercise_slug) || {}).habilete) fautes.push('V2 une habileté ajoutée');
+        if (!deja && estBarreLourde(x.exercise_slug, cat)) fautes.push('V3 une barre lourde ajoutée');
+      });
+      var total = liste(r.exercices).reduce(function (t, x) { return t + x.series; }, 0);
+      var avantTotal = Object.keys(a).reduce(function (t, k) { return t + a[k]; }, 0);
+      if (total > Math.max(avantTotal, hab.taille_de_seance + MARGE_SEANCE)) fautes.push('V4 une séance au-delà de sa taille + 2');
+    });
+    var tot = {}, tot0 = {};
+    MUSCLES.forEach(function (m) { tot[m] = 0; tot0[m] = 0; });
+    liste(s.routines).forEach(function (r) {
+      liste(r.exercices).forEach(function (x) {
+        ponderes(x.exercise_slug).forEach(function (p) { tot[p.muscle] = (tot[p.muscle] || 0) + p.poids * x.series; });
+      });
+    });
+    liste(e.deduit).forEach(function (r) {
+      var reprise = liste(s.journal).some(function (j) { return j.type === 'reprise' && j.routine === r.nom; });
+      if (!r.cochee && !reprise) return;
+      liste(r.exercices).forEach(function (x) {
+        ponderes(x.exercise_slug).forEach(function (p) { tot0[p.muscle] = (tot0[p.muscle] || 0) + p.poids * x.series; });
+      });
+    });
+    MUSCLES.forEach(function (m) {
+      var f = vol[m];
+      if (f && tot[m] > Math.max(f.max, tot0[m]) + 1e-9) fautes.push('V5 ' + m + ' au-dessus de son plus haut volume');
+    });
+    return fautes;
+  }
+
   var api = {
     MOTIFS: MOTIFS,
     GABARITS: GABARITS,
@@ -853,7 +1117,13 @@
     MUSCLES_SUIVIS: MUSCLES_SUIVIS,
     MUSCLES: MUSCLES,
     relireSemaine: relireSemaine,
-    verifierRelecture: verifierRelecture
+    verifierRelecture: verifierRelecture,
+    // 66C — le programme déduit complété (QUESTIONNAIRE-COACH-V2 §5 quater.3)
+    ECART: ECART,
+    SERIES_MAX: SERIES_MAX,
+    MARGE_SEANCE: MARGE_SEANCE,
+    completer: completer,
+    verifierComplement: verifierComplement
   };
 
   racine.THGenerateur = api;

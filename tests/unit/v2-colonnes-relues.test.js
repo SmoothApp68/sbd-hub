@@ -438,6 +438,17 @@ describe('12. la liste de lecture est DÉRIVÉE, jamais recopiée', () => {
       .forEach((c) => expect(demandees).toContain(c));
   });
 
+  // ⚠️ `habilete` (66C, v2_071) — MÊME PIÈGE : omise du `select`, elle vaudrait `undefined` sur tout le catalogue, et le
+  // générateur v2 (§5 quater.3) ajouterait un muscle-up à qui en fait souvent, sans une erreur.
+  test('le `select` du catalogue demande `habilete` — le générateur v2 (§5 quater.3, 66C) n’ajoute jamais une habileté', async () => {
+    const Donnees = charger();
+    await Donnees.tousLesExercices();
+    const demandees = requetes[0].colonnes.split(',').map((c) => c.trim());
+    expect(demandees).toContain('habilete');
+    ['slug', 'nom', 'mesure', 'charge', 'parent', 'equipement', 'mouvement', 'muscles_primaires', 'muscles_secondaires',
+      'muscles_stabilisateurs'].forEach((c) => expect(demandees).toContain(c));
+  });
+
   // 50-1 — la réponse à la carte du lest vit au profil : omises du `select`,
   // `lest_reponse` serait lue vide à chaque rechargement, et la carte reviendrait
   // après chaque réponse.

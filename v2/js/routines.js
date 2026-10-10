@@ -1009,6 +1009,22 @@
     return x < y ? -1 : x > y ? 1 : 0;
   }
 
+  // LA SIGNATURE D'UNE SÉANCE DU PROGRAMME DÉDUIT (66C, extraite de `seancesQuiReviennent`, sans rien y changer) :
+  // `{ slug: true }` des exercices mesurés en charge × reps ou en reps qui ont une série de travail ou d'échec, ou
+  // `null` sous `DEDUIT.exercicesMin` exercices — la séance ne compte pas. UNE définition, lue par le programme déduit
+  // et par les habitudes (`faits.habitudes`, QUESTIONNAIRE §5 quater.2). `mesures` : `{ slug: mesure }`.
+  function signatureDeSeance(seance, mesures) {
+    var M = racine.THModele, m = mesures || {};
+    var compte = function (x) { return M.estTravail(x) || M.typeDe(x) === 'echec'; };
+    var sig = {}, n = 0;
+    ((seance && seance.series) || []).forEach(function (x) {
+      if (!x || sig[x.exercise_slug]) return;
+      var mesure = m[x.exercise_slug];
+      if ((mesure === 'charge_reps' || mesure === 'reps') && compte(x)) { sig[x.exercise_slug] = true; n++; }
+    });
+    return n >= DEDUIT.exercicesMin ? sig : null;
+  }
+
   function seancesQuiReviennent(seances, mesures) {
     var M = racine.THModele, Mo = racine.THMoteur, P = racine.THPeriode;
     var m = mesures || {};
@@ -1023,13 +1039,8 @@
     var items = [];
     datees.forEach(function (s) {
       if (!P.dans(s.debut, fenetre)) return;
-      var sig = {}, n = 0;
-      (s.series || []).forEach(function (x) {
-        if (!x || sig[x.exercise_slug]) return;
-        var mesure = m[x.exercise_slug];
-        if ((mesure === 'charge_reps' || mesure === 'reps') && compte(x)) { sig[x.exercise_slug] = true; n++; }
-      });
-      if (n >= DEDUIT.exercicesMin) items.push({ seance: s, sig: sig });
+      var sig = signatureDeSeance(s, m);
+      if (sig) items.push({ seance: s, sig: sig });
     });
 
     var profilDe = function (membres) {
@@ -1567,6 +1578,8 @@
     copieDeRoutine: copieDeRoutine,
     routineDepuisSeance: routineDepuisSeance,
     seancesQuiReviennent: seancesQuiReviennent,
+    signatureDeSeance: signatureDeSeance,
+    arrondiDeduit: arrondiDeduit,
     fenetreDeLaPersonne: fenetreDeLaPersonne,
     routineDeduite: routineDeduite,
     exerciceRemplace: exerciceRemplace,

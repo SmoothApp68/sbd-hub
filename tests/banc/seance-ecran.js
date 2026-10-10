@@ -16631,6 +16631,11 @@ const SETS_IMPORTES = [
     const tR = Date.now();
     const JOUR = 86400000;
     const DOSSIER = 'Relecture U66';
+    // ⚠️ SES séances seulement (la méthode de [R60] E, 66D) : dans un groupe du banc parallèle, les séances laissées par
+    // les sections d'avant entraient dans le fait du coach — le retrait des abducteurs ne venait plus (vu au banc
+    // complet de 66D, quand la section `construis` a redistribué les groupes). La base est rendue à la fin.
+    const sessionsAvant = base.sessions, setsAvant = base.sets;
+    base.sessions = []; base.sets = [];
     const fiche = (slug, nom, equipement, mouvement, prim, sec, stab) => ({ slug, nom, mesure: 'charge_reps',
       charge: 'externe', equipement, mouvement, muscles_primaires: prim, muscles_secondaires: sec, muscles_stabilisateurs: stab });
     CATALOGUE.push(fiche('abduction-u66', 'Abduction U66 (Machine)', 'machine', null, ['abducteurs'], [], []));
@@ -16697,7 +16702,9 @@ const SETS_IMPORTES = [
     const exoServeur = (id, slug) => routineServeur(id).routine_exercises.slice().sort((a, b) => a.rang - b.rang)
       .filter((e) => e.exercise_slug === slug)[0];
 
-    // ── A. LA RANGÉE, LA VUE, LE RETOUR.
+    // ── A. LA RANGÉE, LA VUE, LE RETOUR. L'appareil se synchronise d'abord sur cette base.
+    await aller('/saisie');
+    await attendre(1500);
     await aller('/saisie');
     if (process.env.BANC_CAPTURES) {
       await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES, 'relecture-rangee.png'), fullPage: true });
@@ -16814,8 +16821,7 @@ const SETS_IMPORTES = [
     base.profiles[0] = profilAvant;
     ['r-rl66-a', 'r-rl66-b', 'r-rl66-x'].forEach((id) => { const i = ROUTINES.findIndex((r) => r.id === id); if (i >= 0) ROUTINES.splice(i, 1); });
     CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
-    for (let k = base.sets.length - 1; k >= 0; k--) if (/^rl66-/.test(base.sets[k].id)) base.sets.splice(k, 1);
-    for (let k = base.sessions.length - 1; k >= 0; k--) if (idsPasses.indexOf(base.sessions[k].id) >= 0) base.sessions.splice(k, 1);
+    base.sessions = sessionsAvant; base.sets = setsAvant;
     await aller('/saisie');
     ok('[relecture] aucun refus du faux serveur, la garde de l’app n’a rien signalé, aucune erreur de page',
       base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant &&
@@ -16839,6 +16845,10 @@ const SETS_IMPORTES = [
     const catalogueAvant = CATALOGUE.length;
     const profilAvant = Object.assign({}, base.profiles[0]);
     const routinesAvant = ROUTINES.splice(0, ROUTINES.length);           // sans routine
+    // ⚠️ SES séances seulement (la méthode de [R60] E) : dans un groupe du banc parallèle, les sections d'avant laissent
+    // des séances (« Push »…) qui entreraient dans le programme déduit. La base est rendue à la fin.
+    const sessionsAvant = base.sessions, setsAvant = base.sets;
+    base.sessions = []; base.sets = [];
     const profilBase = () => base.profiles[0];
     const tR = Date.now();
     const JOUR = 86400000;
@@ -16912,6 +16922,9 @@ const SETS_IMPORTES = [
       }, texte);
       await attendre(500);
     };
+    // L'appareil se synchronise d'abord sur cette base (un cache qui garderait les séances d'avant les compterait).
+    await aller('/saisie');
+    await attendre(1500);
     // Profil → « Refaire mon programme » → 2 jours → « Voir mon programme ».
     await aller('/profil');
     await attendre(1200);
@@ -17026,8 +17039,7 @@ const SETS_IMPORTES = [
     ROUTINES.splice(0, ROUTINES.length);
     routinesAvant.forEach((r) => ROUTINES.push(r));
     CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
-    for (let n = base.sets.length - 1; n >= 0; n--) if (/^u66d-/.test(base.sets[n].id)) base.sets.splice(n, 1);
-    for (let n = base.sessions.length - 1; n >= 0; n--) if (idsPasses.indexOf(base.sessions[n].id) >= 0) base.sessions.splice(n, 1);
+    base.sessions = sessionsAvant; base.sets = setsAvant;
     await aller('/saisie');
     ok('[R66D] aucun refus du faux serveur, la garde de l’app n’a rien signalé, aucune erreur de page',
       base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant &&

@@ -105,7 +105,7 @@ describe('49-U7 — hors production, une violation s’écrit en console et se m
     const { plan, entrees } = unPlan();
     expect(g.verifier(plan, entrees)).toEqual({ violations: [], rapports: [] });
     expect(e.appels).toEqual({ error: [], info: [], marques: [] });
-    expect(g.etat()).toEqual({ active: true, plans: 1, violations: [] });
+    expect(g.etat()).toEqual({ active: true, plans: 1, relectures: 0, violations: [] });
   });
 
   test('⚠️ DISCRIMINANT — un plan forgé : l’invariant, le plan et les entrées en console ; le marqueur', () => {
@@ -186,5 +186,42 @@ describe('49-U7 — EN PRODUCTION, LA GARDE NE FAIT RIEN', () => {
       T.creerGarde({ location: loc('localhost'), stockage: stockage(), journal: espion().journal }).verifier(forge());
       expect(spy).toHaveBeenCalledTimes(1);
     } finally { spy.mockRestore(); }
+  });
+});
+
+// 66B (QUESTIONNAIRE §5 ter.1) — LA RELECTURE DE LA SEMAINE PASSE LA GARDE AUSSI : R1-R4, lus dans le générateur à
+// l'appel, au même registre de violations, à la même console, au même marqueur ; comptée dans `etat().relectures`.
+describe('66B — la garde vérifie chaque relecture de la semaine (R1-R4)', () => {
+  const fs = require('fs');
+  const path = require('path');
+  require('../../v2/js/semaine.js');
+  const G = require('../../v2/js/generateur.js');
+  const D = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/cas-66-relire.json'), 'utf8'));
+  const cas = D.cas.filter((c) => c.nom === 'aurel-seche-avant')[0];
+  const entree = Object.assign({}, cas.entree, { catalogue: D.catalogue });
+
+  test('une relecture juste : rien en console, aucun marqueur, et elle est comptée', () => {
+    const e = espion();
+    const g = T.creerGarde({ location: loc('localhost'), stockage: stockage(), journal: e.journal, marquer: e.marquer });
+    expect(g.verifierRelecture(entree, G.relireSemaine(entree))).toEqual({ violations: [] });
+    expect(e.appels).toEqual({ error: [], info: [], marques: [] });
+    expect(g.etat().relectures).toBe(1);
+  });
+
+  test('⚠️ DISCRIMINANT — un retrait qui ajoute (R1) : en console et au marqueur', () => {
+    const e = espion();
+    const g = T.creerGarde({ location: loc('localhost'), stockage: stockage(), journal: e.journal, marquer: e.marquer });
+    const s = JSON.parse(JSON.stringify(G.relireSemaine(entree)));
+    s.semaine.propositions[0].lignes[0].a = s.semaine.propositions[0].lignes[0].de + 1;
+    expect(g.verifierRelecture(entree, s).violations).toEqual(['R1 une proposition de sèche ajoute ou vide un exercice']);
+    expect(e.appels.error).toHaveLength(1);
+    expect(e.appels.marques).toHaveLength(1);
+    expect(g.etat().violations).toEqual(['R1 une proposition de sèche ajoute ou vide un exercice']);
+  });
+
+  test('en production : rien, pas même le compte', () => {
+    const g = T.creerGarde({ location: loc('trainhub.app'), stockage: stockage(), journal: espion().journal });
+    expect(g.verifierRelecture(entree, {})).toBeNull();
+    expect(g.etat().relectures).toBe(0);
   });
 });

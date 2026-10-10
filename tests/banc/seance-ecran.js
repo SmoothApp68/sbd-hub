@@ -14113,7 +14113,9 @@ const SETS_IMPORTES = [
     const ecrans = [['routines', '/saisie', '2-routines'], ['progression', '/progression', '3-progression'],
       ['mois', '/progression/mois', null], ['records', '/progression/records', null],
       ['exercice', '/exercice/forge-u56', '4-exercice'], ['exercice-historique', '/exercice/forge-u56/historique', null],
-      ['profil', '/profil', '5-profil'], ['semaine', '/', null]];
+      ['profil', '/profil', '5-profil'], ['semaine', '/', null],
+      // 66B — « Le coach relit ta semaine » (les routines sans dossier, dont « Forge U56 »).
+      ['relecture', '/saisie/relecture', null]];
     const vues = {};
     for (const [nom, chemin, capture] of ecrans) {
       await aller(chemin);
@@ -14125,7 +14127,8 @@ const SETS_IMPORTES = [
       Object.keys(releve).length >= 2 * (ecrans.length + 5) &&
         Object.keys(releve).every((k) => releve[k].length > 0) &&
         vues.routines.join() === 'vue-saisie' && vues.profil.join() === 'vue-profil' &&
-        vues.exercice.join() === 'vue-exercice' && vues.mois.join() === 'vue-mois',
+        vues.exercice.join() === 'vue-exercice' && vues.mois.join() === 'vue-mois' &&
+        vues.relecture.join() === 'vue-relecture',
       JSON.stringify([Object.keys(releve).map((k) => k + ':' + releve[k].length), vues]));
 
     // ── E. LA FORGE, CE QUI DOIT TENIR (ECRAN-SAISIE §7 bis.4, 56-1).
@@ -16603,6 +16606,218 @@ const SETS_IMPORTES = [
     }
     await aller('/saisie');
     ok('[jeu] aucun refus du faux serveur, la garde de l’app n’a rien signalé, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant &&
+        erreurs.length === erreursAvant,
+      JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
+  }
+
+  console.log('\n══ relecture. « LE COACH RELIT TA SEMAINE » : LA RANGÉE, LA VUE, « NON MERCI », « RETIRER CES SÉRIES », « EN FAIRE MA PRIORITÉ » (66B, QUESTIONNAIRE §5 ter.4 bis) ══');
+  //
+  // Sur l'app réelle, un dossier « Relecture U66 » de deux routines ; un profil EN SÈCHE, homme, objectif Force,
+  // DEUX priorités sans le squat ; douze semaines d'historique (le fait du coach a ses fenêtres) où le squat vaut
+  // 100 et le couché 130 (squat ÷ couché sous 1,2), trois séries de chacun par semaine — autant que les routines : seuls
+  // les abducteurs dépassent leur plus haut volume.
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : dans « Relecture A », une isolation d'abducteurs (une chauffe, six séries de
+  // travail) passe AVANT le squat — l'historique n'en a fait que deux par semaine : en sèche, 6 > 1,3 × 2, le
+  // retrait est proposé ; et le squat n'est pas en tête : la priorité propose de le déplacer. Les deux cartes sont
+  // là AVANT tout clic, sinon rien de ce qui suit ne prouve quoi que ce soit.
+  {
+    const erreursAvant = erreurs.length;
+    const violationsAvant = gardeBanc.violations;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const catalogueAvant = CATALOGUE.length;
+    const profilAvant = Object.assign({}, base.profiles[0]);
+    const tR = Date.now();
+    const JOUR = 86400000;
+    const DOSSIER = 'Relecture U66';
+    const fiche = (slug, nom, equipement, mouvement, prim, sec, stab) => ({ slug, nom, mesure: 'charge_reps',
+      charge: 'externe', equipement, mouvement, muscles_primaires: prim, muscles_secondaires: sec, muscles_stabilisateurs: stab });
+    CATALOGUE.push(fiche('abduction-u66', 'Abduction U66 (Machine)', 'machine', null, ['abducteurs'], [], []));
+    if (!CATALOGUE.some((c) => c.slug === 'squat_barre')) {
+      CATALOGUE.push(fiche('squat_barre', 'Squat (Barre)', 'barre', 'squat', ['quadriceps'], ['fessiers'], ['bas_du_dos']));
+    }
+    if (!CATALOGUE.some((c) => c.slug === 'developpe_couche_barre')) {
+      CATALOGUE.push(fiche('developpe_couche_barre', 'Développé Couché (Barre)', 'barre', 'couche', ['pectoraux'],
+        ['triceps', 'deltoide_anterieur'], []));
+    }
+    // L'historique : une séance par semaine, douze semaines avant celle-ci.
+    const idsPasses = [];
+    for (let k = 1; k <= 12; k++) {
+      const id = '00000000-0000-4000-8660-' + String(k).padStart(12, '0');
+      idsPasses.push(id);
+      const debut = ilYa(k * 7 * JOUR, tR).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'Relecture U66 passée', debut, fin: finDe(debut, tR).toISOString(),
+        statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      [['squat_barre', 100, 5], ['squat_barre', 100, 5], ['squat_barre', 100, 5], ['developpe_couche_barre', 130, 5],
+        ['developpe_couche_barre', 130, 5], ['developpe_couche_barre', 130, 5],
+        ['abduction-u66', 40, 15], ['abduction-u66', 40, 15]].forEach(([slug, kg, reps], r) => base.sets.push({
+        id: 'rl66-' + k + '-' + r, session_id: id, user_id: 'u-banc', exercise_slug: slug, charge_kg: kg, reps,
+        duree_s: null, distance_m: null, type_serie: 'travail', rang: r + 1, groupe_superset: null, validee_a: debut,
+        rpe: null, ressenti: null, repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+    }
+    const ligneDeRoutine = (id, rang, type, reps) => ({ id, rang, type_serie: type, reps_visees: reps,
+      charge_cible_kg: null, duree_cible_s: null, distance_cible_m: null });
+    const routine = (id, nom, dossier, archivee, exos) => ({ id, nom, note: null, archivee_a: archivee, rang: null, dossier,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z', modifiee_a: '2026-09-01T10:00:00.000Z',
+      routine_exercises: exos.map(([slug, lignes], i) => ({ id: id + '-' + i, routine_id: id, exercise_slug: slug, rang: i,
+        routine_sets: lignes, repos_cible_s: 90, groupe_superset: null, note: null })) });
+    const abductions = [ligneDeRoutine('rl-ab-c', 1, 'echauffement', 15)]
+      .concat([2, 3, 4, 5, 6, 7].map((r) => ligneDeRoutine('rl-ab-' + r, r, 'travail', 15)));
+    ROUTINES.push(routine('r-rl66-a', 'Relecture A', DOSSIER, null,
+      [['abduction-u66', abductions], ['squat_barre', progr(3, 5)]]));
+    ROUTINES.push(routine('r-rl66-b', 'Relecture B', DOSSIER, null, [['developpe_couche_barre', progr(3, 5)]]));
+    // Un dossier dont la seule routine est archivée : pas de rangée.
+    ROUTINES.push(routine('r-rl66-x', 'Relecture archivée', 'Archive U66', '2026-09-20T10:00:00.000Z',
+      [['developpe_couche_barre', progr(3, 5)]]));
+    Object.assign(base.profiles[0], { sexe: 'homme', objectif: 'force', phase: 'seche',
+      phase_depuis: new Date(tR - 12 * JOUR).toISOString().slice(0, 10), priorites: ['dos', 'jambes'] });
+
+    const chemin = () => page.evaluate(() => location.pathname);
+    const attendreQue = async (cond, ms) => {
+      for (let t = 0; t < (ms || 15000); t += 250) { if (await cond()) return true; await attendre(250); }
+      return false;
+    };
+    const ecran = () => page.evaluate(() => {
+      const t = (n) => (n ? n.textContent : '');
+      const r = document.getElementById('relecture');
+      return {
+        sous: t(r.querySelector('.rl-sous')),
+        barres: Array.from(r.querySelectorAll('.rl-barre')).map((b) => b.dataset.slug + ':' + t(b.querySelector('.rl-nom'))),
+        ratio: !!r.querySelector('.rl-ratio'), priorite: !!r.querySelector('.rl-ratio .rl-oui'),
+        retraits: Array.from(r.querySelectorAll('.rl-retrait')).map((c) => c.dataset.muscle + ':' + (c.querySelector('.rl-oui') ? 'oui' : 'replie')),
+        lignes: Array.from(r.querySelectorAll('.rl-retrait .rl-chg li')).map((l) => l.textContent),
+        faits: Array.from(r.querySelectorAll('.rl-fait')).map(t),
+        message: t(r.querySelector('.rl-message')),
+        replies: Array.from(r.querySelectorAll('.rl-replie')).map(t)
+      };
+    });
+    const relectures = () => page.evaluate(() => THPlan.garde.etat().relectures);
+    const routineServeur = (id) => ROUTINES.filter((r) => r.id === id)[0];
+    const exoServeur = (id, slug) => routineServeur(id).routine_exercises.slice().sort((a, b) => a.rang - b.rang)
+      .filter((e) => e.exercise_slug === slug)[0];
+
+    // ── A. LA RANGÉE, LA VUE, LE RETOUR.
+    await aller('/saisie');
+    if (process.env.BANC_CAPTURES) {
+      await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES, 'relecture-rangee.png'), fullPage: true });
+    }
+    const rangees = await page.evaluate(() => Array.from(document.querySelectorAll('.rl-rangee'))
+      .map((b) => (b.dataset.dossier || '') + '|' + b.textContent));
+    const archive = await compter('.dossier-ligne[data-dossier="Archive U66"]');
+    ok('[relecture] la rangée « Le coach relit ce dossier » est sous « ' + DOSSIER + ' » ; aucune sous un dossier dont la seule routine est archivée',
+      rangees.indexOf(DOSSIER + '|Le coach relit ce dossier ›') >= 0 && !rangees.some((x) => /^Archive U66\|/.test(x)) &&
+        archive === 1, JSON.stringify([rangees, archive]));
+    const relecturesAvant = await relectures();
+    await page.click('.rl-rangee[data-dossier="' + DOSSIER + '"]');
+    await attendre(900);
+    const e0 = await ecran();
+    // `BANC_CAPTURES` nomme un dossier : la vue à 360 px, avant tout clic. Sans elle, rien ne change.
+    if (process.env.BANC_CAPTURES) {
+      await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES, 'relecture-avant.png'), fullPage: true });
+    }
+    ok('[relecture] la rangée ouvre la vue : son chemin (dossier encodé), l’onglet Saisie, le retour « ‹ Routines · ' + DOSSIER + ' »',
+      JSON.stringify(await visible()) === '["vue-relecture"]' && (await chemin()) === '/saisie/relecture/' + encodeURIComponent(DOSSIER) &&
+        (await texte('#btn-retour-relecture')) === '‹ Routines · ' + DOSSIER,
+      JSON.stringify([await visible(), await chemin(), await texte('#btn-retour-relecture')]));
+    ok('[relecture] DISCRIMINANT — les deux cartes sont là AVANT tout clic : la priorité (squat ÷ couché sous 1,2) et le retrait des abducteurs (sèche)',
+      e0.ratio && e0.priorite && JSON.stringify(e0.retraits) === '["abducteurs:oui"]' && e0.lignes.length === 1 &&
+        /^Abduction U66 \(Machine\) · Relecture A : 6 \d$/.test(e0.lignes[0]), JSON.stringify(e0));
+    ok('[relecture] l’en-tête : 2 séances · 12 séries · en sèche depuis le …, le squat « en retard sur ton couché »',
+      /^2 séances · 12 séries · en sèche depuis le \d+ \S+$/.test(e0.sous) &&
+        e0.barres.indexOf('squat_barre:Squat · en retard sur ton couché') >= 0, JSON.stringify(e0));
+    ok('[relecture] la garde de développement a vérifié la relecture (R1-R4), sans faute',
+      (await relectures()) > relecturesAvant && gardeBanc.violations === violationsAvant,
+      JSON.stringify([relecturesAvant, await relectures()]));
+    await page.click('#btn-retour-relecture');
+    await attendre(800);
+    ok('[relecture] « ‹ Routines » ramène à la bibliothèque', JSON.stringify(await visible()) === '["vue-saisie"]' &&
+      (await chemin()) === '/saisie', JSON.stringify([await visible(), await chemin()]));
+
+    // ── B. « NON MERCI » N'ÉCRIT RIEN, ET LA CARTE RESTE REPLIÉE APRÈS UN AUTRE « OUI ».
+    await page.click('.rl-rangee[data-dossier="' + DOSSIER + '"]');
+    await attendre(900);
+    const patchsB = base.patchs.length, journalB = base.journal.length;
+    await page.click('.rl-ratio .rl-non');
+    await attendre(1500);
+    const eB = await ecran();
+    ok('[relecture] « Non merci » sur la priorité : RIEN n’est écrit (patchs et journal inchangés) ; la carte dit « Rien ne change. », sans bouton',
+      base.patchs.length === patchsB && base.journal.length === journalB && !eB.priorite &&
+        JSON.stringify(eB.replies) === '["Rien ne change."]' &&
+        JSON.stringify(base.profiles[0].priorites) === '["dos","jambes"]', JSON.stringify([eB, base.patchs.slice(patchsB), base.journal.slice(journalB)]));
+
+    // ── C. UNE ROUTINE QUI NE CORRESPOND PLUS : rien n'est écrit, le message, une relecture. (Une routine en mémoire ne
+    // change pas sous un écran ouvert sans qu'il se relise : le cas se FORCE par la règle pure, qui rend `null`
+    // quand l'exercice n'a plus le nombre de séries lu.)
+    await page.evaluate(() => { window.__retrait = THRoutines.retraitDeSeries; THRoutines.retraitDeSeries = () => null; });
+    const patchsC = base.patchs.length, journalC = base.journal.length;
+    await page.click('.rl-retrait .rl-oui');
+    await attendre(1500);
+    const eC = await ecran();
+    await page.evaluate(() => { THRoutines.retraitDeSeries = window.__retrait; });
+    ok('[relecture] une routine changée entre la lecture et le clic : rien n’est écrit, « Ta semaine a changé depuis : je la relis. »',
+      base.patchs.length === patchsC && base.journal.length === journalC &&
+        eC.message === 'Ta semaine a changé depuis : je la relis.' && JSON.stringify(eC.retraits) === '["abducteurs:oui"]',
+      JSON.stringify(eC));
+
+    // ── D. « RETIRER CES SÉRIES » : les DERNIÈRES séries de travail de l'abduction, la chauffe reste.
+    const aRetenir = Number(/ (\d+)$/.exec(e0.lignes[0])[1]);
+    await page.click('.rl-retrait .rl-oui');
+    const ecritD = await attendreQue(async () => {
+      const ex = exoServeur('r-rl66-a', 'abduction-u66');
+      return ex && ex.routine_sets.filter((s) => s.type_serie === 'travail').length === aRetenir;
+    }, 15000);
+    await attendre(800);
+    const eD = await ecran();
+    const abd = exoServeur('r-rl66-a', 'abduction-u66');
+    ok('[relecture] « Retirer ces séries » réécrit l’abduction : ' + aRetenir + ' séries de travail, la chauffe en tête, le squat intact',
+      ecritD && abd.routine_sets.slice().sort((a, b) => a.rang - b.rang).map((s) => s.type_serie).join() ===
+        ['echauffement'].concat(Array(aRetenir).fill('travail')).join() &&
+        exoServeur('r-rl66-a', 'squat_barre').routine_sets.length === 3,
+      JSON.stringify(routineServeur('r-rl66-a').routine_exercises));
+    ok('[relecture] après « Retirer » : la carte n’est plus là, « Séries retirées. » en tête de « Ta semaine », la priorité TOUJOURS repliée',
+      eD.retraits.length === 0 && JSON.stringify(eD.faits) === '["Séries retirées."]' && !eD.priorite &&
+        JSON.stringify(eD.replies) === '["Rien ne change."]' && /^2 séances · \d+ séries/.test(eD.sous), JSON.stringify(eD));
+
+    // ── E. « EN FAIRE MA PRIORITÉ » : rouvrir l'écran (nouvelle relecture : la carte revient), puis « oui ».
+    await aller('/saisie');
+    await page.click('.rl-rangee[data-dossier="' + DOSSIER + '"]');
+    await attendre(900);
+    const eE0 = await ecran();
+    ok('[relecture] rouvrir l’écran : une nouvelle relecture, la proposition de priorité revient',
+      eE0.priorite && eE0.replies.length === 0, JSON.stringify(eE0));
+    const refusE = base.journal.filter((j) => j.op === 'refus').length;
+    await page.click('.rl-ratio .rl-oui');
+    const ecritE = await attendreQue(async () => {
+      const r = routineServeur('r-rl66-a').routine_exercises.slice().sort((a, b) => a.rang - b.rang);
+      return Array.isArray(base.profiles[0].priorites) && base.profiles[0].priorites.indexOf('squat_barre') >= 0 &&
+        r[0].exercise_slug === 'squat_barre';
+    }, 15000);
+    await attendre(800);
+    const eE = await ecran();
+    if (process.env.BANC_CAPTURES) {
+      await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES, 'relecture-apres.png'), fullPage: true });
+    }
+    ok('[relecture] « En faire ma priorité » écrit `priorites` avec le squat (trois au plus, aucun refus) et le place en tête de « Relecture A »',
+      ecritE && JSON.stringify(base.profiles[0].priorites) === '["dos","jambes","squat_barre"]' &&
+        base.journal.filter((j) => j.op === 'refus').length === refusE &&
+        routineServeur('r-rl66-a').routine_exercises.slice().sort((a, b) => a.rang - b.rang).map((e) => e.exercise_slug).join() ===
+          'squat_barre,abduction-u66', JSON.stringify([base.profiles[0].priorites, routineServeur('r-rl66-a').routine_exercises]));
+    ok('[relecture] après « oui » : plus de bouton de priorité, « Le squat est ta priorité. » en tête de « Ton historique », le gris le dit',
+      eE.ratio && !eE.priorite && eE.faits.indexOf('Le squat est ta priorité.') >= 0 &&
+        (await page.evaluate(() => (document.querySelector('.rl-ratio .rl-gris') || {}).textContent || '')).endsWith("C'est déjà ta priorité."),
+      JSON.stringify(eE));
+    const l360 = await page.evaluate(() => ({ doc: document.documentElement.scrollWidth, fen: window.innerWidth }));
+    ok('[relecture] à 360 px, aucun défilement horizontal', l360.doc <= l360.fen, JSON.stringify(l360));
+
+    // ── LA REMISE EN ÉTAT, pour les sections suivantes.
+    base.profiles[0] = profilAvant;
+    ['r-rl66-a', 'r-rl66-b', 'r-rl66-x'].forEach((id) => { const i = ROUTINES.findIndex((r) => r.id === id); if (i >= 0) ROUTINES.splice(i, 1); });
+    CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
+    for (let k = base.sets.length - 1; k >= 0; k--) if (/^rl66-/.test(base.sets[k].id)) base.sets.splice(k, 1);
+    for (let k = base.sessions.length - 1; k >= 0; k--) if (idsPasses.indexOf(base.sessions[k].id) >= 0) base.sessions.splice(k, 1);
+    await aller('/saisie');
+    ok('[relecture] aucun refus du faux serveur, la garde de l’app n’a rien signalé, aucune erreur de page',
       base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant &&
         erreurs.length === erreursAvant,
       JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));

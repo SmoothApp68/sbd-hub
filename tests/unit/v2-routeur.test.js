@@ -448,3 +448,26 @@ describe('64B — l’onglet Jeu et ses trois sous-vues', () => {
     [R.JEU, R.MUSCLES].forEach((v) => expect(R.routeAffichable({ vue: v, params: {} }, { session: null }).vue).toBe(R.CONNEXION));
   });
 });
+
+// 66B (QUESTIONNAIRE §5 ter.4 bis) — « Le coach relit ta semaine », sous Saisie : le dossier dans le chemin, encodé.
+describe('66B — la route de la relecture', () => {
+  test('« /saisie/relecture » : les routines sans dossier ; « /saisie/relecture/<dossier> » : le dossier, décodé', () => {
+    expect(R.analyser('/saisie/relecture')).toEqual({ vue: R.RELECTURE, params: { dossier: null } });
+    expect(R.analyser('/saisie/relecture/S%C3%A8che')).toEqual({ vue: R.RELECTURE, params: { dossier: 'Sèche' } });
+  });
+
+  test('l’aller-retour est idempotent, même avec « / », « ? », « # » et des espaces dans le nom du dossier', () => {
+    [null, 'Sèche', 'Haut / Bas ?#', 'Mon programme (2)'].forEach((d) => {
+      const c = R.construire(R.RELECTURE, { dossier: d });
+      expect([d, R.analyser(c)]).toEqual([d, { vue: R.RELECTURE, params: { dossier: d } }]);
+    });
+    expect(R.construire(R.RELECTURE, { dossier: 'Sèche' })).toBe('/saisie/relecture/S%C3%A8che');
+    expect(R.construire(R.RELECTURE, {})).toBe('/saisie/relecture');
+  });
+
+  test('un segment illisible retombe sur la bibliothèque ; la vue allume l’onglet Saisie', () => {
+    expect(R.analyser('/saisie/relecture/%E0%A4%A')).toEqual({ vue: R.SAISIE, params: {}, repli: 'dossier-invalide' });
+    expect(R.analyser('/saisie/relecture/a/b').vue).toBe(R.RACINE);
+    expect(R.ongletDe(R.RELECTURE)).toBe(R.SAISIE);
+  });
+});

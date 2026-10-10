@@ -672,6 +672,65 @@
     return appliquerLiens(exercices, liens(exercices));
   }
 
+  // ══ LES GESTES DE « LE COACH RELIT TA SEMAINE » (66B, QUESTIONNAIRE §5 ter.4 bis) ══
+  //
+  // Deux fonctions pures. Chacune rend la liste VOULUE complète d'une routine — la forme que le report de fin de
+  // séance pose dans la file (`ROUTINE_EXOS` / `PLAN`, les exercices tels que l'app les tient, séries comprises) —
+  // ou `null` si la routine ne correspond plus à la proposition (elle a changé depuis la relecture). Rien n'est
+  // modifié en place : une copie, toujours.
+
+  // Le bloc d'un exercice : lui seul, ou tout son groupe de superset CONTIGU (les liens entre voisins, `liens`).
+  function blocDe(exercices, i) {
+    var l = liens(exercices), debut = i, fin = i;
+    while (debut > 0 && l[debut - 1]) debut--;
+    while (fin < l.length && l[fin]) fin++;
+    return { debut: debut, fin: fin };
+  }
+  function indexDuSlug(exercices, slug) {
+    for (var i = 0; i < exercices.length; i++) if (exercices[i] && exercices[i].exercise_slug === slug) return i;
+    return -1;
+  }
+  function copieExercice(e) { return Object.assign({}, e, { series: (e.series || []).slice() }); }
+
+  // LE RETRAIT (« Retirer ces séries ») : `lignes` — celles de la proposition pour CETTE routine, `{ exercise_slug,
+  // de, a }`. Pour chacune, l'exercice au slug `exercise_slug` qui a EXACTEMENT `de` séries de travail
+  // (`Modele.estTravail`) — le premier s'il y en a deux ; on retire ses DERNIÈRES séries de travail jusqu'à `a`.
+  // Chauffes et autres séries intactes ; l'ordre et les groupes de superset intacts. Une ligne sans exercice
+  // correspondant : `null`.
+  function retraitDeSeries(routine, lignes) {
+    var M = racine.THModele;
+    var exercices = ((routine && routine.exercices) || []).map(copieExercice);
+    var pris = {};
+    for (var k = 0; k < (lignes || []).length; k++) {
+      var l = lignes[k], trouve = -1;
+      for (var i = 0; i < exercices.length; i++) {
+        if (pris[i] || exercices[i].exercise_slug !== l.exercise_slug) continue;
+        if (exercices[i].series.filter(function (s) { return M.estTravail(s); }).length === l.de) { trouve = i; break; }
+      }
+      if (trouve < 0 || !(l.a >= 1 && l.a < l.de)) return null;
+      pris[trouve] = true;
+      var aRetirer = l.de - l.a, series = exercices[trouve].series;
+      for (var j = series.length - 1; j >= 0 && aRetirer > 0; j--) {
+        if (M.estTravail(series[j])) { series.splice(j, 1); aRetirer--; }
+      }
+    }
+    return exercices;
+  }
+
+  // LA MISE EN TÊTE (« En faire ma priorité ») : le bloc de `exerciceSlug` passe juste avant le bloc d'`avant` (même
+  // définition du bloc). Introuvable, ou déjà avant : `null` (rien à écrire). Les numéros de superset se relisent
+  // de la nouvelle adjacence (`renumeroter`), comme après un déplacement dans l'éditeur.
+  function miseEnTete(routine, exerciceSlug, avant) {
+    var exercices = ((routine && routine.exercices) || []).map(copieExercice);
+    var i = indexDuSlug(exercices, exerciceSlug), j = indexDuSlug(exercices, avant);
+    if (i < 0 || j < 0) return null;
+    var lui = blocDe(exercices, i), cible = blocDe(exercices, j);
+    if (lui.debut <= cible.debut) return null;
+    var bloc = exercices.slice(lui.debut, lui.fin + 1);
+    var reste = exercices.slice(0, lui.debut).concat(exercices.slice(lui.fin + 1));
+    return renumeroter(reste.slice(0, cible.debut).concat(bloc, reste.slice(cible.debut)));
+  }
+
   // ── Appliquer un plan d'écritures ───────────────────────────────────────
   //
   // ⚠️ L'ORDRE EST IMPOSÉ : suppressions, puis majs, puis insertions. Les
@@ -1539,6 +1598,8 @@
     estGroupe: estGroupe,
     peutGrouper: peutGrouper,
     renumeroter: renumeroter,
+    retraitDeSeries: retraitDeSeries,
+    miseEnTete: miseEnTete,
     apercu: apercu,
     enregistrer: enregistrer,
     classerErreur: classerErreur,

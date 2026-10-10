@@ -11,6 +11,7 @@
 //   /saisie                 onglet Saisie — la bibliothèque de routines
 //   /routine/nouvelle       créer une routine
 //   /routine/<uuid>         modifier une routine
+//   /saisie/relecture[/<dossier>]   « Le coach relit ta semaine » (66B) : un dossier, encodé ; sans dossier, rien
 //   /progression            onglet Progression — le SOMMAIRE
 //   /progression/volume     le volume par muscle d'une semaine, et le radar
 //   /progression/poids      le poids de corps
@@ -76,6 +77,10 @@
   var EXERCICE = 'exercice', EXO_HISTORIQUE = 'historique';
   var RE_SLUG = /^[a-z0-9][a-z0-9_-]{0,63}$/i;
   var ROUTINE_NEUVE = 'nouvelle';
+  // 66B (QUESTIONNAIRE §5 ter.4 bis) — « Le coach relit ta semaine », une vue SOUS Saisie : « /saisie/relecture »
+  // (les routines sans dossier) ou « /saisie/relecture/<dossier> » (le nom du dossier, encodé : c'est un texte libre).
+  // L'onglet Saisie reste allumé. Le routeur ne sait pas si le dossier existe : `app.js` le vérifie.
+  var RELECTURE = 'relecture';
 
   // Les vues qui vivent SOUS Progression. Le chemin est « /progression/<clé> »
   // et l'onglet allumé reste Progression.
@@ -163,6 +168,15 @@
       return { vue: bouts[1], params: {} };
     }
 
+    if (bouts[0] === SAISIE && bouts[1] === RELECTURE && (bouts.length === 2 || bouts.length === 3)) {
+      if (bouts.length === 2) return { vue: RELECTURE, params: { dossier: null } };
+      var dossier = null;
+      try { dossier = decodeURIComponent(bouts[2]); } catch (e) { dossier = null; }
+      // Un segment illisible retombe sur la bibliothèque, pas sur la racine (comme un id de routine invalide).
+      if (dossier === null || !dossier.trim()) return { vue: SAISIE, params: {}, repli: 'dossier-invalide' };
+      return { vue: RELECTURE, params: { dossier: dossier } };
+    }
+
     if (bouts[0] === SEMAINE && bouts.length === 2) {
       var d = depuisDate(bouts[1]);
       if (!d) return { vue: RACINE, params: {}, repli: 'date-invalide' };
@@ -211,6 +225,10 @@
       if (p.neuve) return '/' + ROUTINE + '/' + ROUTINE_NEUVE;
       return p.id && RE_UUID.test(p.id) ? '/' + ROUTINE + '/' + p.id : '/' + SAISIE;
     }
+    if (vue === RELECTURE) {
+      var d2 = p.dossier === null || p.dossier === undefined ? '' : String(p.dossier);
+      return '/' + SAISIE + '/' + RELECTURE + (d2.trim() ? '/' + encodeURIComponent(d2) : '');
+    }
     if (AVEC_MOIS[vue] && p.mois && RE_MOIS.test(p.mois)) return '/' + PROGRESSION + '/' + vue + '/' + p.mois;
     if (SOUS_PROGRESSION[vue]) return '/' + PROGRESSION + '/' + vue;
     if (SOUS_PROFIL[vue]) return '/' + PROFIL + '/' + vue;
@@ -229,7 +247,7 @@
 
   function ongletDe(vue) {
     if (vue === SEMAINE || vue === SEANCE || vue === EXERCICE) return RACINE;
-    if (vue === ROUTINE) return SAISIE;
+    if (vue === ROUTINE || vue === RELECTURE) return SAISIE;
     if (SOUS_PROGRESSION[vue]) return PROGRESSION;
     if (SOUS_PROFIL[vue]) return PROFIL;
     if (SOUS_JEU[vue]) return JEU;
@@ -290,6 +308,7 @@
     SAISIE: SAISIE, PROGRESSION: PROGRESSION, PROFIL: PROFIL,
     INSCRIPTION: INSCRIPTION, EXERCICES: EXERCICES,
     ROUTINE: ROUTINE,
+    RELECTURE: RELECTURE,
     EXERCICE: EXERCICE,
     EXO_HISTORIQUE: EXO_HISTORIQUE, ROUTINE_NEUVE: ROUTINE_NEUVE,
     VOLUME: VOLUME, POIDS: POIDS, MOIS: MOIS, RECORDS: RECORDS,

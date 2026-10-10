@@ -20,6 +20,7 @@ BARRES = [('squat_barre', 'Squat'), ('developpe_couche_barre', 'Couché'), ('sou
           ('developpe_militaire_barre', 'Militaire')]
 # Squat ÷ couché : le bas des moyennes de compétition par sexe (moyennes IPF débutants ; van den Hoek et al. 2024,
 # J Sci Med Sport, 809 986 compétitions). Le repère affiché : la fourchette débutants → élite.
+PRIORITES_MAX = 3                  # Profil.PRIORITES_MAX : au-delà, la base refuse (profiles_priorites_max3)
 RATIO_SQUAT_COUCHE = {'homme': 1.2, 'femme': 1.6}
 REPERE_SQUAT_COUCHE = {'homme': '1,2 à 1,5', 'femme': '1,6 à 1,7'}
 GENS = {'homme': 'hommes', 'femme': 'femmes'}
@@ -159,13 +160,15 @@ def historique(e):
                 if l['slug'] == 'squat_barre':
                     l['retard'] = True
             deja = 'squat_barre' in (e.get('priorites') or [])
+            pleines = not deja and len(e.get('priorites') or []) >= PRIORITES_MAX
             gris = ('Ces repères viennent de compétiteurs, et ta morphologie peut jouer. Ce qu\'on voit chez toi : '
                     'le couché %d semaines sur 26, le squat %d.' % (co['semaines'], sq['semaines']))
             sortie_h['ratio'] = {
                 'phrase': 'Ton squat vaut %s fois ton couché. Chez les %s qui font de la force, le squat vaut %s fois '
                           'le couché.' % (nombre(ratio, 2), GENS[sexe], REPERE_SQUAT_COUCHE[sexe]),
-                'gris': gris + (' C\'est déjà ta priorité.' if deja else ''),
-                'proposition': None if deja else proposition_priorite(e)}
+                'gris': gris + (' C\'est déjà ta priorité.' if deja else
+                                (' Tes trois priorités sont déjà prises : tu peux en changer dans ton profil.' if pleines else '')),
+                'proposition': None if (deja or pleines) else proposition_priorite(e)}
     # Muscle, Forme ou sans réponse : le retard se lit par muscle, pas par barre.
     if prof.get('objectif') not in DISCIPLINES_RATIO:
         vol = e.get('volume') or {}

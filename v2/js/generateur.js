@@ -621,13 +621,17 @@
         if (ratio < RATIO_SQUAT_COUCHE[sexe]) {
           lignes.forEach(function (l) { if (l.slug === SQUAT) l.retard = true; });
           var deja = contient(liste(e.priorites), SQUAT);
+          // Trois priorités déjà prises (66B, E1) : la base en refuse une quatrième et `Profil.basculerPriorite` rendrait
+          // la liste inchangée — un « oui » qui ne ferait rien. Pas de proposition ; le gris renvoie au profil.
+          var pleines = !deja && liste(e.priorites).length >= Profil.PRIORITES_MAX;
           var gris = 'Ces repères viennent de compétiteurs, et ta morphologie peut jouer. Ce qu\'on voit chez toi : ' +
             'le couché ' + co.semaines + ' semaines sur 26, le squat ' + sq.semaines + '.';
           sortie.ratio = {
             phrase: 'Ton squat vaut ' + Modele.nombre(ratio, 2) + ' fois ton couché. Chez les ' + GENS[sexe] +
               ' qui font de la force, le squat vaut ' + REPERE_SQUAT_COUCHE[sexe] + ' fois le couché.',
-            gris: gris + (deja ? ' C\'est déjà ta priorité.' : ''),
-            proposition: deja ? null : propositionPriorite(e)
+            gris: gris + (deja ? ' C\'est déjà ta priorité.'
+              : (pleines ? ' Tes trois priorités sont déjà prises : tu peux en changer dans ton profil.' : '')),
+            proposition: (deja || pleines) ? null : propositionPriorite(e)
           };
         }
       }

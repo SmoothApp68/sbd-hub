@@ -1883,3 +1883,44 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 /* La feuille « Terminer » (§9.4) : le bloc « Le jeu », après les records. */
 .j-fin{margin:2px 0 var(--e3)}
 .j-avec-hex{display:flex;gap:10px;align-items:center}
+
+/* ══ « LE COACH RELIT TA SEMAINE » (66B, QUESTIONNAIRE §5 ter.4 bis, maquette v5) ═══════════════
+   Une vue de Saisie. Les jetons de la forge ; la médaille pour le record, l'ambre du coach pour ses cartes ;
+   aucune couleur d'alerte — un retard ou un constat se lit, il ne s'alarme pas. */
+.rl-rangee{color:var(--accent);text-align:left}
+#relecture{padding:0 16px 24px}
+.rl-tete{padding:4px 0 10px;border-bottom:1px solid var(--trait)}
+.rl-titre{font:700 24px/1.1 var(--pile-c);margin:6px 0 2px}
+.rl-sous{margin:0;color:var(--texte-2);font-size:13px}
+.rl-message{margin:12px 0 0;color:var(--texte-2);font-size:13.5px}
+.rl-bloc{padding:14px 0;border-bottom:1px solid var(--trait)}
+.rl-h2{font:600 13px var(--pile-c);text-transform:uppercase;letter-spacing:1.2px;color:var(--texte-2);margin:0 0 10px}
+.rl-fait{margin:0 0 8px;color:var(--texte-2);font-size:13px}
+.rl-barre{display:grid;grid-template-columns:1fr auto;gap:2px 8px;padding:9px 0;border-top:1px solid var(--trait)}
+.rl-h2+.rl-barre,.rl-fait+.rl-barre{border-top:0}
+.rl-nom{font:600 17px var(--pile-c)}
+.rl-retard{font:500 13px var(--pile);font-style:normal;color:var(--texte)}
+.rl-kg{font:700 19px var(--pile-c);text-align:right}
+.rl-kg small{font:500 12px var(--pile);color:var(--texte-2)}
+.rl-medaille{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--medaille);
+  margin-right:5px;vertical-align:1px}
+.rl-detail{grid-column:1 / -1;color:var(--texte-2);font-size:13px}
+.rl-jauge{grid-column:1 / -1;height:6px;background:var(--panneau-2);border-radius:3px;position:relative;margin-top:4px}
+.rl-jauge i{position:absolute;left:0;top:0;bottom:0;border-radius:3px;background:var(--texte-3)}
+.rl-legende{margin:6px 0 0;color:var(--texte-3);font-size:12px}
+.rl-coach{background:var(--panneau);border:1px solid var(--trait);border-left:3px solid var(--accent);
+  border-radius:var(--r-grand);padding:12px;margin-top:12px;font-size:15px;line-height:1.4}
+.rl-coach p{margin:0 0 6px}
+.rl-coach .rl-gris{color:var(--texte-2);font-size:13px}
+.rl-coach .rl-replie{margin:0;color:var(--texte-2);font-size:13px}
+.rl-gestes{display:flex;gap:8px;margin-top:10px}
+.rl-gestes button{flex:1;min-height:40px;border:0;border-radius:var(--r-bouton);padding:10px;font:600 14px var(--pile)}
+.rl-oui{background:var(--accent);color:var(--sur-accent)}
+.rl-non{background:var(--panneau-2);color:var(--texte)}
+.rl-ok{list-style:none;margin:0;padding:0;color:var(--texte-2);font-size:13px}
+.rl-ok li{padding:3px 0}
+.rl-ok li::before{content:"\2713  ";color:var(--texte)}
+.rl-constat{margin:8px 0 0;font-size:13.5px;line-height:1.4}
+.rl-chg{font-size:13px;margin:6px 0 0;padding-left:16px}
+.rl-chg li{margin:2px 0}
+.rl-chg s{color:var(--texte-3)}

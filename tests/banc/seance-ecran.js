@@ -18095,6 +18095,18 @@ const SETS_IMPORTES = [
         ordre: Array.from(c.children).map((x) => (x.classList.contains('recap-bouton') ? 'recap-bouton' : x.className.split(' ')[0] || x.id))
       };
     });
+    // ⚠️ ALLER À LA SAISIE, en écartant un récap qui n'aurait rien à faire là. Partout dans cette section SAUF au
+    // contrôle (c) : c'est (c), et lui seul, qui dit qu'un rechargement ne rouvre pas le récap — un récap rouvert
+    // ailleurs ne doit pas faire planter la section avant que (c) l'ait constaté (M4).
+    const allerSaisie = async () => {
+      await aller('/saisie');
+      if ((await recapVu()).visible) {
+        await page.click('#recap-corps .recap-fermer');
+        await attendre(800);
+        await page.click('.onglet[data-vue="saisie"]');
+        await attendre(900);
+      }
+    };
     // L'ESPION DU RENDU : toute écriture (file, cache de l'appareil, réseau en écriture) dont la pile passe par le
     // récap. Posé sur les objets des modules — `app.js` les appelle par eux (`Attente.poser`, `Cache.ecrireLot`).
     const poserEspion = () => page.evaluate(() => {
@@ -18131,7 +18143,7 @@ const SETS_IMPORTES = [
     };
 
     // ── (a) TERMINER : LE RÉCAP S'OUVRE, AVEC SES BLOCS ; LA FEUILLE NE LES MONTRAIT PAS ─
-    await aller('/saisie');
+    await allerSaisie();
     await attendre(1500);
     await garderRecap(true);
     await poserEspion();
@@ -18182,8 +18194,15 @@ const SETS_IMPORTES = [
     // ── (c) RECHARGER → PAS DE RÉCAP ──────────────────────────────────────
     await aller('/saisie');
     await attendre(800);
-    ok('[R71] (c) recharger l’app : pas de second récap', JSON.stringify(await visible()) !== '["vue-recap"]' &&
+    ok('[R71] (c) DISCRIMINANT — recharger l’app : pas de second récap', JSON.stringify(await visible()) !== '["vue-recap"]' &&
       !(await recapVu()).visible, nbR(await visible()));
+    // Constaté ; la suite repart d'une saisie, récap ou pas.
+    if ((await recapVu()).visible) {
+      await page.click('#recap-corps .recap-fermer');
+      await attendre(800);
+      await page.click('.onglet[data-vue="saisie"]');
+      await attendre(900);
+    }
 
     // ── (b bis) UNE SECONDE SÉANCE, « VOIR LA SÉANCE » → SON DÉTAIL ────────
     await demarrerRoutine('Dos R71 ×4');
@@ -18199,7 +18218,7 @@ const SETS_IMPORTES = [
       (await page.evaluate(() => location.pathname)) === '/seance/' + idB, nbR([await visible(), await page.evaluate(() => location.pathname), idB]));
 
     // ── (d) ABANDONNER → PAS DE RÉCAP ─────────────────────────────────────
-    await aller('/saisie');
+    await allerSaisie();
     await attendre(1200);
     await demarrerRoutine('Dos R71 ×4');
     await attendre(900);
@@ -18231,7 +18250,12 @@ const SETS_IMPORTES = [
 
     // ── (f) SANS RECORD, SANS PARI, SOUS 1 T : NI RECORDS, NI COACH, NI COMPARAISON ─
     // Une séance vide, un exercice jamais fait (rien à battre, rien à parier), au poids du corps.
-    await seanceVide();
+    await allerSaisie();
+    await page.evaluate(() => {
+      const b = Array.from(document.querySelectorAll('button')).filter((x) => /séance vide/i.test(x.textContent))[0];
+      if (b) b.click();
+    });
+    await attendre(900);
     const vide = JSON.stringify(await visible()) === '["vue-seance"]';
     if (vide) {
       await ajouterExoSeance('Gainage R71');

@@ -72,8 +72,10 @@
 
   // Ce que le serveur ANNONCE, sans rapatrier une seule ligne. C'est l'autre
   // moitié du compte de contrôle : sans lui, on ne sait pas ce qui manque.
-  async function compter(table) {
-    var r = await client().from(table).select('*', { count: 'exact', head: true });
+  // 73 — la table est NOMMÉE à l'appel (`compterSeances`…), jamais passée en variable : la carte des écritures
+  // (v2-architecture) exige un nom de table littéral à chaque `.from(`.
+  async function compter(requete) {
+    var r = await requete().select('*', { count: 'exact', head: true });
     if (r.error) throw r.error;
     return typeof r.count === 'number' ? r.count : null;
   }
@@ -133,8 +135,8 @@
     }, 'id'), 'id');
   }
 
-  function compterSeances() { return compter('sessions'); }
-  function compterSeries() { return compter('sets'); }
+  function compterSeances() { return compter(function () { return client().from('sessions'); }); }
+  function compterSeries() { return compter(function () { return client().from('sets'); }); }
 
   // Pesées : 116 lignes en tout, une page, aucun incrémental à inventer. On
   // rafraîchit en entier comme le catalogue — et comme `sessions`, c'est le
@@ -630,7 +632,7 @@
     }, 'id'), 'id');
   }
 
-  function compterRecords() { return compter('records'); }
+  function compterRecords() { return compter(function () { return client().from('records'); }); }
 
   // ⚠️ LE SEUL ÉCRIVAIN DU JOURNAL, et il n'est appelé que par la vidange de la
   // file (`app.js`, `executer`). UN AJOUT QUI IGNORE LES DOUBLONS, JAMAIS UN

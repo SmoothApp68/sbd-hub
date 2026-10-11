@@ -373,6 +373,14 @@ Effet : un utilisateur n'est plus « Critique » parce qu'un coach a écrit 0,85
 
 C'est un chantier data pur, côté Claude.ai. À planifier après validation de ce référentiel.
 
+
+**Décidé le 11/10/2026 (chantier 75)** : pas d'OpenPowerlifting — ce sont des compétiteurs (squat ≈ 1,5 × couché),
+pas notre cible. Les repères de « Ton parcours » (ECRAN-SAISIE §7 bis.14 ter) viennent des **standards StrengthLog**,
+tirés de carnets d'entraînement (5 700 à 17 300 personnes par mouvement et par sexe), moyenne des niveaux
+intermédiaire et avancé : hommes squat / couché 1,21 · militaire / couché 0,57 · soulevé / squat 1,25 ; femmes 1,52 ·
+0,63 · 1,25. Le repère suit le sexe du profil ; sans sexe précisé, pas de repère. Seuls les rapports sont repris ; « en dessous »
+sous 95 % du repère, jamais de rouge ni d'alerte. Les seuils de la v1 (S/B < 0,85…) restent abandonnés.
+
 ---
 
 ## 9. Utilisation au banc d'essai

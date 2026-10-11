@@ -1863,3 +1863,250 @@ describe('architecture — la pesée : un seul écrivain (60-2a)', () => {
     expect(compter(nettoyer("return client().from('body_weight_log').select('id, date, poids_kg, source');", true), ECRITURE_PESEES)).toBe(0);
   });
 });
+
+// ══ 73 — LA CARTE DES ÉCRITURES (fin de la passe sécurité, audit 72) ═══════════
+//
+// Toute écriture vers Supabase passe par une fonction de `donnees.js` (ou par `auth.js`, pour l'authentification),
+// et chacune est AU REGISTRE : soit par la FILE (appelée seulement depuis `executer` ou ce qu'il appelle), soit en
+// LISTE BLANCHE, avec ses appelants exacts et sa raison. Un écrivain hors registre, une entrée dont un appelant a
+// disparu, un appel d'un appelant non déclaré, un `.from(variable)` : la garde échoue, avec le nom. Les appels par
+// l'écrivain injecté (`ecrivain.x`, `routines.js`) comptent comme des appels de `x`. Les gardes « un seul écrivain »
+// (records, pesées, `alias_exercice`) restent ; la carte les complète.
+const RAISON_BIBLIOTHEQUE = 'geste de bibliothèque, fait hors de la salle, qui échoue avec un message et garde le brouillon';
+const REGISTRE_ECRITURES = [
+  // ── Par la file : `executer` (app.js) et ce qu'il appelle.
+  { fn: 'enregistrerSeance', chemin: 'file' },
+  { fn: 'supprimerSeance', chemin: 'file' },
+  { fn: 'remplacerSeries', chemin: 'file' },
+  { fn: 'enregistrerZone', chemin: 'file' },
+  { fn: 'enregistrerMode', chemin: 'file' },
+  { fn: 'enregistrerBloc', chemin: 'file' },
+  { fn: 'enregistrerPrediction', chemin: 'file' },
+  { fn: 'observerPrediction', chemin: 'file' },
+  { fn: 'ajouterRecords', chemin: 'file' },
+  { fn: 'enregistrerPesee', chemin: 'file' },
+  { fn: 'enregistrerAlias', chemin: 'file' },
+  // ── En liste blanche : des appelants exacts, une raison.
+  { fn: 'supprimerCompte', chemin: 'liste-blanche', appelants: ['app.js:supprimerCompte'],
+    raison: 'la suppression de compte exige le serveur ; rien n’est effacé localement avant sa réponse' },
+  { fn: 'enregistrerProfil', chemin: 'liste-blanche', appelants: ['app.js:chargerProfil', 'app.js:envoyerProfilMaintenant'],
+    raison: 'le profil a son propre canal, local d’abord, avec un drapeau persistant (60-2c)' },
+  { fn: 'refermerSeance', chemin: 'liste-blanche', appelants: ['app.js:resoudreSeanceEnCoursDistante', 'app.js:refermerSeancesSauf'],
+    raison: 'ménage recalculé à chaque lancement : rien à perdre s’il échoue' },
+  // Une LECTURE par une fonction du serveur (`.rpc(`), que la règle d'écriture attrape : rien n'est écrit.
+  { fn: 'pseudoPris', chemin: 'liste-blanche', appelants: ['app.js:var SAISIES', 'app.js:sonderPseudo'],
+    raison: 'une lecture (ce pseudo est-il pris ?) par une fonction du serveur : rien n’est écrit' },
+  // La bibliothèque de routines : les écrivains, appelés par `routines.js` (l'écrivain injecté) ou par un geste.
+  { fn: 'creerRoutine', chemin: 'liste-blanche', appelants: ['routines.js:enregistrer'], raison: RAISON_BIBLIOTHEQUE },
+  { fn: 'majRoutine', chemin: 'liste-blanche', appelants: ['routines.js:enregistrer', 'app.js:enregistrerOrdreBibliotheque'],
+    raison: RAISON_BIBLIOTHEQUE },
+  { fn: 'supprimerRoutine', chemin: 'liste-blanche',
+    appelants: ['routines.js:enregistrer', 'app.js:supprimerCourante', 'app.js:creerDansUnDossier'], raison: RAISON_BIBLIOTHEQUE },
+  { fn: 'insererExercices', chemin: 'liste-blanche', appelants: ['routines.js:appliquerPlan'], raison: RAISON_BIBLIOTHEQUE },
+  { fn: 'supprimerExercices', chemin: 'liste-blanche', appelants: ['routines.js:appliquerPlan'], raison: RAISON_BIBLIOTHEQUE },
+  { fn: 'remplacerSeriesRoutine', chemin: 'liste-blanche', appelants: ['routines.js:appliquerPlan'], raison: RAISON_BIBLIOTHEQUE },
+  // `executer` : une réponse du chantier 26 encore en file (une ligne, des champs) — par la file, elle aussi.
+  { fn: 'majExercice', chemin: 'liste-blanche', appelants: ['routines.js:appliquerPlan', 'app.js:executer'], raison: RAISON_BIBLIOTHEQUE }
+];
+// L'authentification : `auth.js`, qui ne touche que `.auth.*`.
+const AUTHENTIFICATION = { fichier: 'auth.js', raison: 'l’authentification exige le serveur' };
+// LES GESTES DE LA BIBLIOTHÈQUE (app.js) qui atteignent un écrivain de routine — directement, par l'écrivain injecté
+// (`Routines.enregistrer`, `Routines.appliquerPlan`), ou par un autre geste. `relais` : un geste qui n'est qu'un
+// passage (tous ses appelants doivent être au registre).
+const GESTES_BIBLIOTHEQUE = [
+  { geste: 'enregistrerBrouillon', quoi: 'l’éditeur : « Enregistrer »', raison: RAISON_BIBLIOTHEQUE },
+  { geste: 'dupliquerRoutine', quoi: '« Dupliquer »', raison: RAISON_BIBLIOTHEQUE },
+  { geste: 'supprimerCourante', quoi: '« Supprimer »', raison: RAISON_BIBLIOTHEQUE },
+  { geste: 'enregistrerOrdreBibliotheque', quoi: '« Réorganiser »', raison: RAISON_BIBLIOTHEQUE },
+  { geste: 'creerDansUnDossier', quoi: '« Retrouver mes routines », le programme du questionnaire', raison: RAISON_BIBLIOTHEQUE },
+  { geste: 'creerRoutineDepuisSeance', quoi: '« En faire une routine »', raison: 'à passer par la file (noté le 11/10)' },
+  { geste: 'creerRoutineNeuve', quoi: 'relais de « En faire une routine » et de `creerDansUnDossier`', relais: true },
+  // Par la file : le report de fin de séance (`executer` → `appliquerReportRoutine` → `Routines.appliquerPlan`).
+  { geste: 'appliquerReportRoutine', quoi: 'le report sur la routine, par la file', file: true }
+];
+
+describe('architecture — la carte des écritures (73, audit 72)', () => {
+  const FICHIERS = perimetre().filter((f) => f.nom.endsWith('.js'));
+  const parNom = {};
+  FICHIERS.forEach((f) => { parNom[f.nom] = f; });
+  const ECRITURE = /\.\s*(insert|upsert|update|delete|rpc)\s*\(/;
+
+  // Les fonctions de premier niveau d'un source nettoyé : `{ nom, debut, fin }` (accolades appariées).
+  function fonctionsDe(code) {
+    const out = [];
+    // Une fonction de premier niveau, ou une variable de premier niveau qui en contient (`var X = { f: function … }`).
+    const re = /^ {2}(?:(?:async\s+)?function\s+(\w+)\s*\(|var\s+(\w+)\s*=\s*[{[])/mg;
+    let m;
+    while ((m = re.exec(code)) !== null) {
+      const nom = m[1] || m[2];
+      let i = m[1] ? code.indexOf('{', m.index) : m.index + m[0].length - 1, prof = 0, fin = code.length;
+      const ouvre = code[i], ferme = ouvre === '[' ? ']' : '}';
+      for (let j = i; j < code.length; j++) {
+        if (code[j] === ouvre) prof++;
+        else if (code[j] === ferme && --prof === 0) { fin = j; break; }
+      }
+      out.push({ nom: m[1] ? nom : 'var ' + nom, debut: m.index, fin });
+    }
+    return out;
+  }
+  const FONCTIONS = {};
+  FICHIERS.forEach((f) => { f.code = nettoyer(f.src, false); f.codeChaines = nettoyer(f.src, true); FONCTIONS[f.nom] = fonctionsDe(f.code); });
+  const englobante = (fichier, index) => {
+    const g = FONCTIONS[fichier].filter((x) => x.debut <= index && index <= x.fin)[0];
+    return fichier + ':' + (g ? g.nom : '(hors fonction)');
+  };
+
+  // Les appelants directs d'un écrivain `x` : `Donnees.x(`, `THDonnees.x(`, `ecrivain.x(`, hors de `donnees.js`.
+  function appelantsDe(x) {
+    const out = new Set();
+    const re = new RegExp('\\b(?:Donnees|THDonnees|ecrivain)\\s*\\.\\s*' + x + '\\s*\\(', 'g');
+    FICHIERS.forEach((f) => {
+      if (f.nom === 'donnees.js') return;
+      let m;
+      while ((m = re.exec(f.code)) !== null) out.add(englobante(f.nom, m.index));
+    });
+    return Array.from(out).sort();
+  }
+  // Les appelants directs d'une fonction de app.js (`nom(`, sans point devant), dans app.js.
+  function appelantsDansApp(nom) {
+    const out = new Set();
+    const re = new RegExp('(^|[^.\\w])' + nom + '\\s*\\(', 'g');
+    let m;
+    const app = parNom['app.js'];
+    while ((m = re.exec(app.code)) !== null) {
+      const i = m.index + m[1].length;
+      const g = FONCTIONS['app.js'].filter((x) => x.debut <= i && i <= x.fin)[0];
+      if (g && g.nom !== nom) out.add(g.nom);
+    }
+    return Array.from(out).sort();
+  }
+
+  // Ce qu'`executer` atteint : les fonctions de app.js qu'il appelle, et celles de routines.js (`Routines.x(`),
+  // de proche en proche.
+  function fermetureDeExecuter() {
+    const vues = new Set(['app.js:executer']);
+    const pile = ['app.js:executer'];
+    while (pile.length) {
+      const [fichier, nom] = pile.pop().split(':');
+      const g = FONCTIONS[fichier].filter((x) => x.nom === nom)[0];
+      if (!g) continue;
+      const corps = parNom[fichier].code.slice(g.debut, g.fin);
+      const re = /(Routines\s*\.\s*)?\b(\w+)\s*\(/g;
+      let m;
+      while ((m = re.exec(corps)) !== null) {
+        const cible = m[1] ? 'routines.js' : fichier;
+        if (!m[1] && /\.\s*$/.test(corps.slice(0, m.index))) continue;
+        const cle = cible + ':' + m[2];
+        if (!vues.has(cle) && FONCTIONS[cible].some((x) => x.nom === m[2])) { vues.add(cle); pile.push(cle); }
+      }
+    }
+    return vues;
+  }
+  const FILE = fermetureDeExecuter();
+
+  test('`client()` n’apparaît que dans `donnees.js` et `auth.js` ; `auth.js` ne touche que `.auth.*`', () => {
+    const fautes = [];
+    FICHIERS.forEach((f) => {
+      const n = (f.code.match(/\bclient\s*\(\s*\)/g) || []).length;
+      if (n && f.nom !== 'donnees.js' && f.nom !== 'auth.js') fautes.push(f.nom + ' appelle client() (' + n + ')');
+    });
+    const auth = parNom['auth.js'].code;
+    (auth.match(/\bclient\s*\(\s*\)\s*\.\s*(\w+)/g) || []).forEach((x) => {
+      if (!/\.\s*auth$/.test(x)) fautes.push('auth.js : ' + x.replace(/\s+/g, ''));
+    });
+    if (ECRITURE.test(auth.replace(/\.auth\.\w+\(/g, ''))) fautes.push('auth.js écrit hors de `.auth.*`');
+    expect(fautes).toEqual([]);
+    expect(AUTHENTIFICATION.raison).toBe('l’authentification exige le serveur');
+  });
+
+  test('aucun `fetch` dans le code de l’app ; l’adresse du serveur n’est écrite que dans `config.js`', () => {
+    const fautes = [];
+    FICHIERS.forEach((f) => {
+      if (/\bfetch\s*\(/.test(f.code)) fautes.push(f.nom + ' appelle fetch');
+      if (f.nom !== 'config.js' && /supabase\.co/.test(f.codeChaines)) fautes.push(f.nom + ' écrit l’adresse de supabase.co');
+    });
+    expect(fautes).toEqual([]);
+  });
+
+  test('chaque `.from(` porte un nom de table littéral', () => {
+    const fautes = [];
+    FICHIERS.forEach((f) => {
+      const re = /(\w*)\s*\.\s*from\s*\(\s*([^)]*)\)/g;
+      let m;
+      while ((m = re.exec(f.codeChaines)) !== null) {
+        if (m[1] === 'Array') continue;
+        if (!/^(['"])[a-z_]+\1$/.test(m[2].trim())) fautes.push(f.nom + ', ligne ' + ligneDe(f.codeChaines, m.index) + ' : from(' + m[2].trim() + ')');
+      }
+    });
+    expect(fautes).toEqual([]);
+  });
+
+  test('⚠️ toute fonction de `donnees.js` qui écrit est au registre, et le registre ne nomme que des écrivains', () => {
+    const d = parNom['donnees.js'];
+    const ecrivains = FONCTIONS['donnees.js'].filter((g) => ECRITURE.test(d.code.slice(g.debut, g.fin))).map((g) => g.nom);
+    const inscrits = REGISTRE_ECRITURES.map((e) => e.fn);
+    expect(ecrivains.filter((x) => inscrits.indexOf(x) < 0).map((x) => x + ' écrit et n’est pas au registre')).toEqual([]);
+    expect(inscrits.filter((x) => ecrivains.indexOf(x) < 0).map((x) => x + ' est au registre et n’écrit pas')).toEqual([]);
+    expect(new Set(inscrits).size).toBe(inscrits.length);
+  });
+
+  test('⚠️ par la file : chaque appel vient d’`executer` ou de ce qu’il appelle', () => {
+    const fautes = [];
+    REGISTRE_ECRITURES.filter((e) => e.chemin === 'file').forEach((e) => {
+      const a = appelantsDe(e.fn);
+      if (!a.length) fautes.push(e.fn + ' : aucun appel');
+      a.filter((x) => !FILE.has(x)).forEach((x) => fautes.push(e.fn + ' appelée hors de la file, par ' + x));
+    });
+    expect(fautes).toEqual([]);
+  });
+
+  test('⚠️ en liste blanche : exactement les appelants déclarés, chacun avec un appel réel, et une raison', () => {
+    const fautes = [];
+    REGISTRE_ECRITURES.filter((e) => e.chemin === 'liste-blanche').forEach((e) => {
+      if (!e.raison || !e.raison.trim()) fautes.push(e.fn + ' : pas de raison');
+      const a = appelantsDe(e.fn);
+      e.appelants.filter((x) => a.indexOf(x) < 0).forEach((x) => fautes.push(e.fn + ' : l’appelant ' + x + ' n’appelle plus'));
+      a.filter((x) => e.appelants.indexOf(x) < 0).forEach((x) => fautes.push(e.fn + ' : appelée par ' + x + ', non déclaré'));
+    });
+    REGISTRE_ECRITURES.forEach((e) => {
+      if (e.chemin !== 'file' && e.chemin !== 'liste-blanche') fautes.push(e.fn + ' : chemin inconnu « ' + e.chemin + ' »');
+    });
+    expect(fautes).toEqual([]);
+  });
+
+  test('⚠️ les gestes de la bibliothèque : chacun atteint un écrivain de routine, et tout ce qui en atteint un est déclaré', () => {
+    const fautes = [];
+    const ROUTINE = ['creerRoutine', 'majRoutine', 'supprimerRoutine', 'insererExercices', 'supprimerExercices',
+      'remplacerSeriesRoutine', 'majExercice'];
+    const declares = GESTES_BIBLIOTHEQUE.map((g) => g.geste);
+    const app = parNom['app.js'];
+    const corps = (nom) => { const g = FONCTIONS['app.js'].filter((x) => x.nom === nom)[0]; return g ? app.code.slice(g.debut, g.fin) : null; };
+    const atteint = (c) => new RegExp('\\b(?:Donnees\\s*\\.\\s*(?:' + ROUTINE.join('|') + ')|Routines\\s*\\.\\s*(?:enregistrer|appliquerPlan))\\s*\\(').test(c);
+    // 1. Ce qui, dans app.js, atteint directement un écrivain de routine est un geste déclaré (ou `executer`).
+    FONCTIONS['app.js'].forEach((g) => {
+      if (g.nom === 'executer') return;
+      if (atteint(app.code.slice(g.debut, g.fin)) && declares.indexOf(g.nom) < 0) fautes.push(g.nom + ' écrit une routine et n’est pas déclaré');
+    });
+    // 2. Chaque geste déclaré existe et atteint un écrivain (directement, ou par un relais déclaré) ; un relais n'a
+    //    pour appelants que des gestes déclarés.
+    GESTES_BIBLIOTHEQUE.forEach((g) => {
+      const c = corps(g.geste);
+      if (!c) { fautes.push(g.geste + ' : n’existe plus'); return; }
+      const parRelais = GESTES_BIBLIOTHEQUE.filter((r) => r.relais && new RegExp('(^|[^.\\w])' + r.geste + '\\s*\\(').test(c)).length > 0;
+      if (!atteint(c) && !parRelais) fautes.push(g.geste + ' : n’atteint plus aucun écrivain de routine');
+      if (g.relais) appelantsDansApp(g.geste).filter((x) => declares.indexOf(x) < 0).forEach((x) => fautes.push(g.geste + ' : relayé par ' + x + ', non déclaré'));
+      if (g.file && !FILE.has('app.js:' + g.geste)) fautes.push(g.geste + ' : déclaré par la file, hors d’`executer`');
+      if (!g.relais && !g.file && !(g.raison && g.raison.trim())) fautes.push(g.geste + ' : pas de raison');
+    });
+    expect(fautes).toEqual([]);
+  });
+
+  test('les raisons de la liste blanche, au mot près (décidé le 11/10/2026)', () => {
+    const raison = (fn) => REGISTRE_ECRITURES.filter((e) => e.fn === fn)[0].raison;
+    expect(raison('supprimerCompte')).toBe('la suppression de compte exige le serveur ; rien n’est effacé localement avant sa réponse');
+    expect(raison('enregistrerProfil')).toBe('le profil a son propre canal, local d’abord, avec un drapeau persistant (60-2c)');
+    expect(raison('refermerSeance')).toBe('ménage recalculé à chaque lancement : rien à perdre s’il échoue');
+    expect(RAISON_BIBLIOTHEQUE).toBe('geste de bibliothèque, fait hors de la salle, qui échoue avec un message et garde le brouillon');
+    expect(GESTES_BIBLIOTHEQUE.filter((g) => g.geste === 'creerRoutineDepuisSeance')[0].raison).toBe('à passer par la file (noté le 11/10)');
+  });
+});

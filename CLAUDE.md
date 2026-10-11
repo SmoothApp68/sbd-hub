@@ -77,6 +77,7 @@ Claude.ai (data Supabase) → toi, Claude Code (implémentation) → Gemini (val
 
 ## 4. CHECKS OBLIGATOIRES AVANT DE LIVRER
 
+0. **Ne jamais pousser sur `main`.** La branche n'est pas protégée (offre gratuite de GitHub, décidé le 11/10/2026) : toute livraison passe par une PR, ouverte en brouillon ; seul Aurélien fusionne.
 1. `node -c` sur les fichiers JS touchés (au minimum `app`, `engine`, + celui modifié).
 2. **`npm test` vert.** Ajoute/inverse les tests dans le **même commit** que le fix ; vérifie que la fixture déclenche vraiment le chemin visé (un test qui ne teste pas ce qu'il prétend est pire qu'aucun test).
 3. **Bump le Service Worker** : `CACHE_NAME` (`service-worker.js:1`) → version suivante. Actuel : **`trainhub-v377`**. Plus de littéral `SW_VERSION` depuis v321 — version dérivée du SW via `getSWVersion` (app.js:3977).

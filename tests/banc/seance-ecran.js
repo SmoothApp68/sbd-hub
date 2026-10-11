@@ -706,6 +706,28 @@ const SETS_IMPORTES = [
   };
   await ctx.addInitScript(SCRIPT_JETON);
 
+  // ⚠️ 71 — LE RÉCAP DE FIN DE SÉANCE SE REFERME DE LUI-MÊME dans les sections qui ne le testent pas.
+  // « Terminer » ouvre désormais le récap (ECRAN-SAISIE §7 septies.4 bis) au lieu de rendre la saisie : les
+  // sections écrites avant lui enchaînent sur la saisie ou un onglet. Le récap ouvert, on fait le geste de
+  // l'utilisateur — « Fermer », puis l'onglet Saisie — et elles retrouvent l'état qui suivait « Terminer ».
+  // Les sections qui TESTENT le récap le gardent ouvert : `sessionStorage['banc-garder-recap'] = '1'`.
+  await ctx.addInitScript(() => {
+    document.addEventListener('DOMContentLoaded', () => {
+      const v = document.getElementById('vue-recap');
+      if (!v) return;
+      new MutationObserver(() => {
+        if (v.hidden || sessionStorage.getItem('banc-garder-recap') === '1') return;
+        setTimeout(() => {
+          if (v.hidden || sessionStorage.getItem('banc-garder-recap') === '1') return;
+          const f = document.querySelector('#recap-corps .recap-fermer');
+          if (f) f.click();
+          const o = document.querySelector('.onglet[data-vue="saisie"]');
+          if (o) o.click();
+        }, 0);
+      }).observe(v, { attributes: true, attributeFilter: ['hidden'] });
+    });
+  });
+
   // ── Mouchards : la vibration et le son ─────────────────────────────────
   //
   // ⚠️ On RELÈVE d'abord la présence native, AVANT de toucher à quoi que ce
@@ -1777,6 +1799,16 @@ const SETS_IMPORTES = [
     } finally { enCours = false; }
   };
 
+  // 71 — garder le récap ouvert (les sections qui le testent), ou le laisser se refermer (les autres).
+  const garderRecap = (oui) => page.evaluate((o) => {
+    if (o) sessionStorage.setItem('banc-garder-recap', '1'); else sessionStorage.removeItem('banc-garder-recap');
+  }, !!oui);
+  const fermerRecapBanc = async () => {
+    if (await page.evaluate(() => !document.getElementById('vue-recap').hidden)) {
+      await page.click('#recap-corps .recap-fermer');
+      await attendre(800);
+    }
+  };
   const aller = async (chemin) => {
     await page.goto(BASE + (chemin || '/'), { waitUntil: 'domcontentloaded' }).catch(() => {});
     await attendre(2600);
@@ -13341,23 +13373,26 @@ const SETS_IMPORTES = [
       m3 && m3.length === 2 && m3[1].apres === 2 && sp(m3[1].gras) === 'Volume de la séance : 1625 kg.' && m3[1].gris === null,
       JSON.stringify(m3));
 
-    // ── D. LA FEUILLE « TERMINER » : LES RECORDS DU JOUR, SOUS LE COMPTE.
+    // ── D. LES RECORDS DU JOUR : 71 (ECRAN-SAISIE §7 septies.4 bis) — la feuille « Terminer » ne les montre plus,
+    // le récap qui s'ouvre juste après les liste.
     await page.click('#bandeau-seance .bandeau-fin');
     await attendre(700);
-    const fin = await page.evaluate(() => {
-      const r = document.querySelector('#feuille-contenu .records-fin');
-      const t = document.querySelector('#feuille-contenu .feuille-t');
-      return { avant: !!(t && r && (t.compareDocumentPosition(r) & Node.DOCUMENT_POSITION_FOLLOWING)),
-        tete: r ? r.querySelector('.records-fin-t').textContent : null,
-        lignes: r ? Array.from(r.querySelectorAll('.records-fin-l span')).map((x) => x.textContent) : [] };
-    });
+    const feuille55 = await compter('#feuille-contenu .records-fin');
     await capturer55('2-terminer');
-    ok('[P55] DISCRIMINANT — « Terminer » liste les records du jour sous « N séries de travail enregistrées »',
-      fin.avant && sp(fin.tete) === '2 records' &&
-        JSON.stringify(fin.lignes.map(sp)) === JSON.stringify(['Médaillé u55 125 kg × 5', 'Médaillé u55 100 kg × 5']),
-      JSON.stringify(fin));
+    await garderRecap(true);
     await page.click('#feuille-contenu .principal');
     await attendre(2600);
+    const fin = await page.evaluate(() => {
+      const g = Array.from(document.querySelectorAll('#recap-corps .recap-groupe.or'))[0];
+      return { tete: g ? g.textContent : null,
+        lignes: Array.from(document.querySelectorAll('#recap-corps .recap-rec .l1')).map((x) => x.textContent) };
+    });
+    ok('[P55] DISCRIMINANT — les records du jour : plus dans la feuille « Terminer », dans le récap (71)',
+      feuille55 === 0 && sp(fin.tete) === '2 records' &&
+        JSON.stringify(fin.lignes.map(sp)) === JSON.stringify(['Médaillé u55 : 125 kg × 5', 'Médaillé u55 : 100 kg × 5']),
+      JSON.stringify([feuille55, fin]));
+    await fermerRecapBanc();
+    await garderRecap(false);
 
     // ── E. PROGRESSION : DEUX BLOCS EN TÊTE, LES AUTRES NE BOUGENT PAS.
     await onglet('progression');
@@ -13713,8 +13748,9 @@ const SETS_IMPORTES = [
     const setsJ = base.sets.filter((x) => x.session_id === enCoursJ).sort((a, b) => a.rang - b.rang).map((x) => x.id);
     await page.click('#bandeau-seance .bandeau-fin');
     await attendre(700);
-    const finJ = await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .records-fin-l span'))
-      .map((x) => x.textContent.replace(/[  ]/g, ' ')));
+    // 71 — les records du jour ne sont plus dans la feuille : le récap, juste après « Terminer », les montre.
+    const feuilleJ = await compter('#feuille-contenu .records-fin');
+    await garderRecap(true);
     // ⚠️ ATTENDRE L'ENVOI, PAS SEULEMENT UNE FILE VIDE (59-2). Juste après le
     // clic, l'app n'a pas encore posé ses envois : une file lue vide à cet
     // instant ne prouve rien, et la navigation suivante interrompait l'envoi
@@ -13725,6 +13761,8 @@ const SETS_IMPORTES = [
     await page.click('#feuille-contenu .principal');
     await attendreQue(async () => (base.sessions.filter((x) => x.id === enCoursJ)[0] || {}).statut === 'terminee' &&
       base.ecrituresRecords.length > ecrituresAvantB && (await fileJ()).length === 0, 15000);
+    const finJ = await page.evaluate(() => Array.from(document.querySelectorAll('#recap-corps .recap-rec .l1'))
+      .map((x) => x.textContent.replace(/[  ]/g, ' ')));
     const derniere = debutsJ[N58 - 1];
     const lJ = (i, t) => lignesDe(setsJ[i]).filter((x) => x.type === t)[0] || {};
     const debutJ = (base.sessions.filter((x) => x.id === enCoursJ)[0] || {}).debut;
@@ -13743,9 +13781,12 @@ const SETS_IMPORTES = [
         presDe(lJ(2, 'un_rm_estime').valeur, 177) && presDe(lJ(2, 'un_rm_estime').ancien, 147.5 * (1 + 5 / 30)) &&
         base.records.filter((x) => x.session_id === enCoursJ).every((x) => x.battu_le === debutJ && x.sur_douze_mois === false),
       JSON.stringify(base.records.filter((x) => x.session_id === enCoursJ)));
-    ok('[J58] la feuille « Terminer » montrait ces trois séries — le journal garde ce qu’elle affichait',
-      JSON.stringify(finJ) === JSON.stringify(['Journal u58 150 kg × 2', 'Journal u58 100 kg × 5', 'Journal u58 147,5 kg × 6']),
-      JSON.stringify(finJ));
+    ok('[J58] le récap (71) montre ces trois séries, la feuille plus aucune — le journal garde ce qu’il affiche',
+      feuilleJ === 0 &&
+      JSON.stringify(finJ) === JSON.stringify(['Journal u58 : 150 kg × 2', 'Journal u58 : 100 kg × 5', 'Journal u58 : 147,5 kg × 6']),
+      JSON.stringify([feuilleJ, finJ]));
+    await fermerRecapBanc();
+    await garderRecap(false);
 
     // ── C. LE RENVOI : enregistrer sans rien changer renvoie les six lignes.
     const ecrituresAvantC = base.ecrituresRecords.length;
@@ -16599,24 +16640,32 @@ const SETS_IMPORTES = [
     await attendre(500);
     await page.click('#bandeau-seance .bandeau-fin');
     await attendre(900);
+    // 71 (JEU §9.4 révisé) — le bloc « Le jeu » est passé de la feuille au récap, tel quel.
     const feuille = await page.evaluate(() => {
       const c = document.getElementById('feuille-contenu');
-      const bloc = document.getElementById('jeu-fin');
-      const enfants = Array.from(c.children);
-      return { bloc: !!bloc, lignes: bloc ? Array.from(bloc.querySelectorAll('.j-ligne')).map((l) => l.textContent) : [],
-        apresRecords: !!bloc && enfants.indexOf(bloc) > enfants.findIndex((x) => x.classList.contains('records-fin')) &&
-          enfants.findIndex((x) => x.classList.contains('records-fin')) >= 0,
-        boutons: Array.from(c.querySelectorAll('button')).map((b) => b.textContent) };
+      return { bloc: !!document.getElementById('jeu-fin'), boutons: Array.from(c.querySelectorAll('button')).map((b) => b.textContent) };
     });
-    const xp = (/^XP\+ ([\d ]+)$/.exec(feuille.lignes[0] || '') || [])[1];
-    ok('[jeu] DISCRIMINANT — la feuille « Terminer » après un record : le bloc « Le jeu », APRÈS les records, une ligne XP > 0',
-      feuille.bloc && feuille.apresRecords && !!xp && Number(xp.replace(/ /g, '')) > 0, JSON.stringify(feuille));
-    ok('[jeu] « Terminer » et « Abandonner » sont là', feuille.boutons.indexOf('Terminer') >= 0 &&
-      feuille.boutons.indexOf('Abandonner et tout effacer') >= 0, JSON.stringify(feuille.boutons));
-    await mesurerLargeur('fin');
+    ok('[jeu] « Terminer » et « Abandonner » sont là, et plus de bloc « Le jeu » dans la feuille (71)',
+      !feuille.bloc && feuille.boutons.indexOf('Terminer') >= 0 &&
+      feuille.boutons.indexOf('Abandonner et tout effacer') >= 0, JSON.stringify(feuille));
     const enCoursU64 = (sessions().filter((x) => x.statut === 'en_cours')[0] || {}).id;
+    await garderRecap(true);
     await page.click('#feuille-contenu .principal');
     await attendreQue(async () => (base.sessions.filter((x) => x.id === enCoursU64)[0] || {}).statut === 'terminee', 15000);
+    const recapJ = await page.evaluate(() => {
+      const c = document.getElementById('recap-corps');
+      const bloc = document.getElementById('jeu-fin');
+      const enfants = Array.from(c.children);
+      const iRec = enfants.findIndex((x) => x.classList.contains('recap-rec'));
+      return { bloc: !!bloc && c.contains(bloc), lignes: bloc ? Array.from(bloc.querySelectorAll('.j-ligne')).map((l) => l.textContent) : [],
+        apresRecords: !!bloc && iRec >= 0 && enfants.indexOf(bloc) > iRec };
+    });
+    const xp = (/^XP\+ ([\d ]+)$/.exec(recapJ.lignes[0] || '') || [])[1];
+    ok('[jeu] DISCRIMINANT — le récap après un record : le bloc « Le jeu », APRÈS les records, une ligne XP > 0',
+      recapJ.bloc && recapJ.apresRecords && !!xp && Number(xp.replace(/ /g, '')) > 0, JSON.stringify(recapJ));
+    await mesurerLargeur('fin');
+    await fermerRecapBanc();
+    await garderRecap(false);
     await aller('/jeu');
     const a1 = await accueil();
     const n0 = Number(a0.niveau.replace('Niveau ', '')), n1 = Number(a1.niveau.replace('Niveau ', ''));
@@ -16664,11 +16713,15 @@ const SETS_IMPORTES = [
     await attendre(500);
     await page.click('#bandeau-seance .bandeau-fin');
     await attendre(900);
-    ok('[jeu] éteint : la feuille « Terminer » n’a pas de bloc « Le jeu » (et garde ses boutons)',
-      (await compter('#jeu-fin')) === 0 && (await compter('#feuille-contenu .principal')) === 1, '');
     const enCours2 = (sessions().filter((x) => x.statut === 'en_cours')[0] || {}).id;
+    await garderRecap(true);
     await page.click('#feuille-contenu .principal');
     await attendreQue(async () => (base.sessions.filter((x) => x.id === enCours2)[0] || {}).statut === 'terminee', 15000);
+    ok('[jeu] éteint : le récap (71) n’a pas de bloc « Le jeu » (et garde ses boutons)',
+      (await compter('#jeu-fin')) === 0 && (await compter('#recap-corps .recap-fermer')) === 1 &&
+      JSON.stringify(await visible()) === '["vue-recap"]', JSON.stringify(await visible()));
+    await fermerRecapBanc();
+    await garderRecap(false);
 
     // ── D. LE COACH NE PARLE JAMAIS DU JEU : la même routine, ouverte jeu allumé puis jeu éteint. Pour comparer à
     // historique égal, on la rouvre une troisième fois jeu éteint et une quatrième jeu rallumé.
@@ -17988,6 +18041,226 @@ const SETS_IMPORTES = [
     ok('[E69] aucun refus du faux serveur, aucune erreur de page',
       base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,
       nbE([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
+  }
+
+  console.log('\n══ recap. LE RÉCAP DE FIN DE SÉANCE : LA FEUILLE DÉCLARE, LE RÉCAP CONSTATE (71, ECRAN-SAISIE §7 septies.4 bis) ══');
+  //
+  // [R71] Une routine de dos à quatre séries, un historique de quatre séances à 79 × 12 (le coach parie sur
+  // chaque série), puis une séance à 80 × 12 : un record, des paris vérifiés, 3,84 t. ⚠️ CONFIGURATION
+  // DISCRIMINANTE : la feuille ne montre plus ni records ni jeu ; le récap les montre, une fois, juste après
+  // « Terminer » — ni au rechargement, ni à l'abandon, ni à l'Édition. Et son rendu n'écrit rien : un espion
+  // relève toute écriture (file, cache de l'appareil, serveur) faite pendant `rendreRecap`.
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const sessionsAvant = base.sessions, setsAvant = base.sets, catalogueAvant = CATALOGUE.length;
+    const nbR = (x) => JSON.stringify(x).replace(/[\u00a0\u202f]/g, ' ');
+    base.sessions = [];
+    base.sets = [];
+    CATALOGUE.push({ slug: 'rowing-r71', nom: 'Rowing R71 (Machine)', mesure: 'charge_reps', charge: 'externe',
+      equipement: 'machine', muscles_primaires: ['grand_dorsal'], muscles_secondaires: ['biceps'] });
+    CATALOGUE.push({ slug: 'gainage-r71', nom: 'Gainage R71', mesure: 'reps', charge: 'aucune',
+      muscles_primaires: ['abdominaux'], muscles_secondaires: [] });
+    const tR = Date.now();
+    const poserR = (id, jours, lignes) => {
+      const debut = ilYa(jours * 86400000, tR).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'Dos — ' + id, debut, fin: finDe(debut, tR).toISOString(),
+        statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      lignes.forEach(([kg, reps], i) => base.sets.push({
+        id: id + '-s' + (i + 1), session_id: id, user_id: 'u-banc', exercise_slug: 'rowing-r71',
+        charge_kg: kg, reps, duree_s: null, distance_m: null, type_serie: 'travail', rang: i + 1, groupe_superset: null,
+        validee_a: debut, rpe: null, ressenti: null, repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+    };
+    [28, 21, 14, 7].forEach((j, k) => poserR('r71-' + k, j, [[79, 12], [79, 12], [79, 12], [79, 12]]));
+    ROUTINES.push({ id: 'r-r71', nom: 'Dos R71 ×4', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-r71-e', routine_id: 'r-r71', exercise_slug: 'rowing-r71', rang: 0,
+        routine_sets: progr(4, 12), repos_cible_s: 90, groupe_superset: null, note: null }] });
+    const recapVu = () => page.evaluate(() => {
+      const c = document.getElementById('recap-corps');
+      const q = (sel) => Array.from(c.querySelectorAll(sel));
+      return {
+        visible: !document.getElementById('vue-recap').hidden,
+        onglets: !document.getElementById('onglets') || document.getElementById('onglets').hidden,
+        titre: (c.querySelector('.recap-titre') || {}).textContent || '',
+        quand: (c.querySelector('.recap-quand') || {}).textContent || '',
+        tuiles: q('.recap-tuile').map((t) => [t.querySelector('b').textContent, t.querySelector('span').textContent]),
+        comp: (c.querySelector('.recap-comp') || {}).textContent || null,
+        groupes: q('.recap-groupe').map((g) => g.textContent),
+        muscles: q('.recap-mu').map((m) => m.firstChild.textContent),
+        records: q('.recap-rec .l1').map((x) => x.textContent),
+        voix: (c.querySelector('.recap-voix') || {}).textContent || null,
+        paris: q('.recap-pari').map((x) => [x.querySelector('.n').textContent, x.querySelector('.v').textContent]),
+        boutons: q('button').map((b) => b.textContent),
+        ordre: Array.from(c.children).map((x) => (x.classList.contains('recap-bouton') ? 'recap-bouton' : x.className.split(' ')[0] || x.id))
+      };
+    });
+    // L'ESPION DU RENDU : toute écriture (file, cache de l'appareil, réseau en écriture) dont la pile passe par le
+    // récap. Posé sur les objets des modules — `app.js` les appelle par eux (`Attente.poser`, `Cache.ecrireLot`).
+    const poserEspion = () => page.evaluate(() => {
+      if (window.__espionRecap) return;
+      window.__espionRecap = [];
+      const noter = (quoi) => {
+        const pile = String(new Error().stack || '');
+        if (/rendreRecap|recapDeLaSeance|ouvrirRecap/.test(pile)) window.__espionRecap.push(quoi);
+      };
+      const envelopper = (objet, nom, quoi) => {
+        const vrai = objet[nom];
+        objet[nom] = function () { noter(quoi + '.' + nom); return vrai.apply(this, arguments); };
+      };
+      envelopper(window.THAttente, 'poser', 'Attente');
+      ['ecrireAttente', 'ecrireLot', 'ecrireBrouillon', 'ecrireMeta', 'remplacerTout', 'supprimer'].forEach((n) => envelopper(window.THCache, n, 'Cache'));
+      const vraiFetch = window.fetch;
+      window.fetch = function (u, o) {
+        if (o && o.method && o.method !== 'GET' && o.method !== 'HEAD') noter('fetch ' + o.method);
+        return vraiFetch.apply(this, arguments);
+      };
+    });
+    const espion = () => page.evaluate(() => window.__espionRecap.slice());
+    const terminerR = async () => {
+      await page.click('#bandeau-seance .bandeau-fin');
+      await attendre(700);
+      const feuille = await page.evaluate(() => ({
+        records: document.querySelectorAll('#feuille-contenu .records-fin').length,
+        jeu: document.querySelectorAll('#feuille-contenu #jeu-fin').length,
+        entete: (document.querySelector('#feuille-contenu .feuille-t em') || {}).textContent || '' }));
+      await page.click('#feuille-contenu .principal');
+      await jusqua(async () => (await recapVu()).visible, 8000);
+      await attendre(600);
+      return feuille;
+    };
+
+    // ── (a) TERMINER : LE RÉCAP S'OUVRE, AVEC SES BLOCS ; LA FEUILLE NE LES MONTRAIT PAS ─
+    await aller('/saisie');
+    await attendre(1500);
+    await garderRecap(true);
+    await poserEspion();
+    await demarrerRoutine('Dos R71 ×4');
+    await attendre(900);
+    for (let i = 0; i < 4; i++) await saisirSerie(i, 80, 12);
+    await attendre(1200);
+    const idA = (base.sessions.filter((x) => x.statut === 'en_cours')[0] || {}).id;
+    const feuilleA = await terminerR();
+    const a = await recapVu();
+    ok('[R71] (a) la feuille « Terminer » ne montre plus ni records ni jeu ; elle garde son compte',
+      feuilleA.records === 0 && feuilleA.jeu === 0 && /^4 séries de travail enregistrées$/.test(feuilleA.entete.replace(/[\u00a0\u202f]/g, ' ')),
+      nbR(feuilleA));
+    ok('[R71] (a) DISCRIMINANT — « Terminer » ouvre le récap, plein écran, sans barre d’onglets',
+      a.visible && a.onglets && JSON.stringify(await visible()) === '["vue-recap"]', nbR([a.visible, a.onglets, await visible()]));
+    ok('[R71] (a) l’en-tête : le titre, le jour et les heures « … · H h MM → H h MM »',
+      a.titre.length > 0 && /^\S+ \d{1,2} \S+ · \d{1,2} h \d{2} → \d{1,2} h \d{2}$/.test(a.quand.replace(/[\u00a0\u202f]/g, ' ')), nbR([a.titre, a.quand]));
+    ok('[R71] (a) quatre chiffres : durée (en minutes), 4 séries, 3,8 t, 1 exercice',
+      nbR(a.tuiles.map((t) => t[1])) === nbR(['durée', 'séries', 'volume', 'exercices']) &&
+      /^\d+ min$/.test(a.tuiles[0][0]) && a.tuiles[1][0] === '4' && nbR(a.tuiles[2][0]) === nbR('3,8 t') && a.tuiles[3][0] === '1',
+      nbR(a.tuiles));
+    ok('[R71] (a) la comparaison : « 3,8 t soulevées : à peu près … »',
+      /^3,8 t soulevées : à peu près .+\.$/.test((a.comp || '').replace(/[\u00a0\u202f]/g, ' ')), nbR(a.comp));
+    // Deux records : la série 1 (80 kg à 12, contre 79) et la série 4 (le volume de la séance passe 3 792 kg).
+    ok('[R71] (a) les séries par muscle (la fonction du bloc Volume), les records (or), ce que le coach avait visé (ambre)',
+      a.groupes.map((g) => g.trim()).slice(0, 3).join(' | ') === 'Séries par muscle | 2 records | Ce que le coach avait visé' &&
+      nbR(a.muscles) === nbR(['Grand dorsal', 'Biceps']) && nbR(a.records) === nbR(['Rowing r71 : 80 kg × 12', 'Rowing r71 : 80 kg × 12']),
+      nbR([a.groupes, a.muscles, a.records]));
+    ok('[R71] (a) la phrase des paris aux chiffres tels quels, et la ligne de l’exercice : « 80 kg × 12, 12, 12, 12 »',
+      /^Sur \d+ paris? vérifiés?, le coach en a tenu \d+\.$/.test(a.voix || '') &&
+      nbR(a.paris) === nbR([['Rowing r71', '80 kg × 12, 12, 12, 12']]), nbR([a.voix, a.paris]));
+    ok('[R71] (a) l’ordre de L1 : en-tête, chiffres, comparaison, muscles, records, coach… puis « Fermer » et « Voir la séance »',
+      nbR(a.boutons) === nbR(['Fermer', 'Voir la séance']) &&
+      a.ordre.indexOf('recap-tuiles') < a.ordre.indexOf('recap-comp') && a.ordre.indexOf('recap-comp') < a.ordre.indexOf('recap-mu') &&
+      a.ordre.indexOf('recap-mu') < a.ordre.indexOf('recap-rec') && a.ordre.indexOf('recap-rec') < a.ordre.indexOf('recap-voix') &&
+      a.ordre.lastIndexOf('recap-bouton') === a.ordre.length - 1, nbR(a.ordre));
+    // (g) — attendre que tout soit monté, puis l'espion : rien n'a été écrit PAR le récap.
+    await jusqua(async () => (await page.evaluate(() => window.THCache.lireAttente())).length === 0, 15000);
+    ok('[R71] (g) DISCRIMINANT — le rendu du récap n’écrit rien : ni la file, ni le cache de l’appareil, ni le serveur',
+      (await espion()).length === 0, nbR(await espion()));
+
+    // ── (b) « FERMER » → LA LISTE ──────────────────────────────────────────
+    await page.click('#recap-corps .recap-fermer');
+    await attendre(900);
+    ok('[R71] (b) « Fermer » → la liste des séances', JSON.stringify(await visible()) === '["vue-liste"]' &&
+      (await page.evaluate(() => location.pathname)) === '/', nbR([await visible(), await page.evaluate(() => location.pathname)]));
+
+    // ── (c) RECHARGER → PAS DE RÉCAP ──────────────────────────────────────
+    await aller('/saisie');
+    await attendre(800);
+    ok('[R71] (c) recharger l’app : pas de second récap', JSON.stringify(await visible()) !== '["vue-recap"]' &&
+      !(await recapVu()).visible, nbR(await visible()));
+
+    // ── (b bis) UNE SECONDE SÉANCE, « VOIR LA SÉANCE » → SON DÉTAIL ────────
+    await demarrerRoutine('Dos R71 ×4');
+    await attendre(900);
+    await saisirSerie(0, 80, 12);
+    await attendre(800);
+    const idB = (base.sessions.filter((x) => x.statut === 'en_cours')[0] || {}).id;
+    await terminerR();
+    ok('[R71] (b) le récap de la seconde séance s’ouvre aussi', (await recapVu()).visible, '');
+    await page.click('#recap-corps .recap-voir');
+    await attendre(1200);
+    ok('[R71] (b) « Voir la séance » → son détail', JSON.stringify(await visible()) === '["vue-detail"]' &&
+      (await page.evaluate(() => location.pathname)) === '/seance/' + idB, nbR([await visible(), await page.evaluate(() => location.pathname), idB]));
+
+    // ── (d) ABANDONNER → PAS DE RÉCAP ─────────────────────────────────────
+    await aller('/saisie');
+    await attendre(1200);
+    await demarrerRoutine('Dos R71 ×4');
+    await attendre(900);
+    await saisirSerie(0, 70, 10);
+    await attendre(600);
+    await page.click('#bandeau-seance .bandeau-fin');
+    await attendre(600);
+    await page.click('#feuille-contenu .danger');
+    await attendre(1800);
+    ok('[R71] (d) abandonner : pas de récap', !(await recapVu()).visible && JSON.stringify(await visible()) !== '["vue-recap"]',
+      nbR(await visible()));
+
+    // ── (e) L'ÉDITION D'UNE SÉANCE PASSÉE → PAS DE RÉCAP ──────────────────
+    // La séance R71 terminée plus haut : une séance passée, rouverte en correction depuis la liste.
+    await aller('/');
+    await page.evaluate(() => {
+      const env = Array.from(document.querySelectorAll('.seance-enveloppe'))
+        .filter((e) => e.querySelector('.seance').textContent.indexOf('Dos R71') >= 0)[0];
+      env.querySelector('.menu-pts').click();
+    });
+    await attendre(700);
+    await entree('Modifier');
+    ok('[R71] (e) prémisse : la séance passée s’ouvre en correction', JSON.stringify(await visible()) === '["vue-seance"]',
+      nbR(await visible()));
+    await page.click('#bandeau-seance .bandeau-fin');
+    await attendre(2600);
+    ok('[R71] (e) l’Édition d’une séance passée, enregistrée : pas de récap',
+      !(await recapVu()).visible && JSON.stringify(await visible()) !== '["vue-recap"]', nbR(await visible()));
+
+    // ── (f) SANS RECORD, SANS PARI, SOUS 1 T : NI RECORDS, NI COACH, NI COMPARAISON ─
+    // Une séance vide, un exercice jamais fait (rien à battre, rien à parier), au poids du corps.
+    await seanceVide();
+    const vide = JSON.stringify(await visible()) === '["vue-seance"]';
+    if (vide) {
+      await ajouterExoSeance('Gainage R71');
+      await attendre(900);
+      const l0 = await ligne(0);
+      const ch = await l0.$$('input');
+      await ch[0].fill('20');
+      await l0.$eval('.ok-serie', (b) => b.click());
+      await attendre(900);
+      await terminerR();
+    }
+    const f = await recapVu();
+    ok('[R71] (f) DISCRIMINANT — une séance sans record, sans pari, sous 1 t : ni bloc records, ni bloc coach, ni comparaison',
+      vide && f.visible && f.records.length === 0 && f.voix === null && f.comp === null &&
+      !f.groupes.some((g) => /record|coach/i.test(g)), nbR([vide, f]));
+
+    // LA REMISE EN ÉTAT, pour les sections suivantes.
+    if (f.visible) await page.click('#recap-corps .recap-fermer').catch(() => {});
+    await garderRecap(false);
+    const iR = ROUTINES.findIndex((r) => r.id === 'r-r71');
+    if (iR >= 0) ROUTINES.splice(iR, 1);
+    CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
+    base.sessions = sessionsAvant;
+    base.sets = setsAvant;
+    await aller('/saisie');
+    ok('[R71] aucun refus du faux serveur, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,
+      nbR([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
+    void idA;
   }
 
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');

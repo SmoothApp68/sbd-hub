@@ -200,6 +200,7 @@
     "filtres": 30.0,
     "ecarts": 40.0,
     "a-fond": 45.0,
-    "import-hevy": 60.0
+    "import-hevy": 60.0,
+    "recap": 90.0
   }
 }

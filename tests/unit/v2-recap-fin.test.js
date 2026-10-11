@@ -34,7 +34,7 @@ describe('71 — la comparaison (règle pour règle `comparaison71.py`)', () => 
     expect(Bilan.comparaison(27081, ID(1))).toBe('un camion à trois essieux chargé');
     expect(Bilan.comparaison(36000, 'x')).toBe('une toupie à béton chargée');
     expect(Bilan.comparaison(50000, 'x')).toBe('un Airbus A320 à vide');
-    expect(Bilan.comparaison(50001, 'x')).toBe("plus qu'un semi-remorque chargé");
+    expect(Bilan.comparaison(50001, 'x')).toBe('plus qu’un semi-remorque chargé');
   });
 
   test('⚠️ 1 000 identifiants à 1 000 volumes de 1 à 50 t : le même objet que la référence', () => {
@@ -68,7 +68,7 @@ describe('71 — la comparaison (règle pour règle `comparaison71.py`)', () => 
 
   test('la phrase : le volume écrit comme la tuile (« 10,1 t »), « à peu près », et au-delà de 50 t', () => {
     expect(Bilan.phraseComparaison(10148, ID(1))).toBe('10,1 t soulevées : à peu près un tricératops.');
-    expect(Bilan.phraseComparaison(62300, 'x')).toBe('62,3 t soulevées : plus qu\'un semi-remorque chargé.');
+    expect(Bilan.phraseComparaison(62300, 'x')).toBe('62,3 t soulevées : plus qu’un semi-remorque chargé.');
     expect(Bilan.phraseComparaison(999, 'x')).toBeNull();
     expect(Bilan.tonnesDuRecap(10148)).toBe('10,1 t');
   });

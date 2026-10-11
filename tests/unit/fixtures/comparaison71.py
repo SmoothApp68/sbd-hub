@@ -6,7 +6,7 @@ OBJETS = [  # (libellé tel qu'écrit, masse en tonnes)
  ("une Peugeot 3008", 1.4), ("un hippopotame", 1.5), ("une Tesla Model 3", 1.8), ("un pick-up", 2.2),
  ("un hélicoptère Écureuil plein", 2.2), ("un rhinocéros blanc", 2.3), ("une Tesla Model X", 2.5), ("un Range Rover", 2.5),
  ("un éléphant de forêt", 2.7), ("une camionnette chargée", 3.5), ("un camping-car", 3.5), ("un éléphant de mer", 3.5),
- ("un éléphant d'Asie", 4.0), ("un stégosaure", 5.0), ("un orque", 5.5), ("un éléphant d'Afrique", 6.0),
+ ("un éléphant d’Asie", 4.0), ("un stégosaure", 5.0), ("un orque", 5.5), ("un éléphant d’Afrique", 6.0),
  ("un mammouth laineux", 6.0), ("un ankylosaure", 6.0), ("un Mirage 2000 à vide", 7.5), ("un T. rex", 8.0),
  ("un tricératops", 9.0), ("un Rafale à vide", 10.0), ("un ATR 72 à vide", 13.0), ("le bourdon Emmanuel de Notre-Dame", 13.0),
  ("la cloche de Big Ben", 13.7), ("un cachalot femelle", 15.0), ("un diplodocus", 15.0), ("un requin-baleine", 15.0),
@@ -27,13 +27,13 @@ def fnv1a(texte):
 
 
 def comparaison(volume_kg, id_seance):
-    """None sous 1 000 kg ; « plus qu'un semi-remorque chargé » au-delà de 50 000 kg ; sinon un objet : parmi ceux
+    """None sous 1 000 kg ; « plus qu’un semi-remorque chargé » au-delà de 50 000 kg ; sinon un objet : parmi ceux
     à ±20 % (écart des logarithmes), choisi par l'empreinte FNV-1a 32 bits de l'identifiant de la séance, modulo leur
     nombre, dans l'ordre (masse, libellé) ; aucun à ±20 % : le plus proche (à égalité, le premier dans cet ordre)."""
     if volume_kg is None or volume_kg < 1000:
         return None
     if volume_kg > 50000:
-        return "plus qu'un semi-remorque chargé"
+        return "plus qu’un semi-remorque chargé"
     t = volume_kg / 1000
     tries = sorted(OBJETS, key=lambda o: (o[1], o[0]))
     proches = [o for o in tries if abs(math.log(t / o[1])) <= TOLERANCE + 1e-12]

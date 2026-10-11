@@ -1356,7 +1356,7 @@ qui règlent la séance suivante. **Aucun ne montre si ses prévisions étaient 
    ci-dessous. **Le choix** : les objets dont la masse est à ±20 % du volume (écart des logarithmes ≤ ln 1,2), dans
    l'ordre (masse, libellé) ; parmi eux, celui d'indice `FNV-1a 32 bits(identifiant de la séance) mod leur nombre` —
    **le même pour une même séance, à chaque affichage**, différent d'une séance à l'autre. Aucun à ±20 % : le plus
-   proche. Sous 1 t : pas de ligne. Au-delà de 50 t : « plus qu'un semi-remorque chargé ». De 1 à 50 t, il y a
+   proche. Sous 1 t : pas de ligne. Au-delà de 50 t : « plus qu’un semi-remorque chargé ». De 1 à 50 t, il y a
    toujours au moins un objet à ±20 %, et 4 à 6 le plus souvent. Référence : `comparaison71.py`.
    Les masses sont des **ordres de grandeur courants** (« à peu près ») : une masse à vide pour un véhicule, un
    adulte pour un animal, une estimation récente pour un dinosaure, le maximum légal français pour un camion chargé.
@@ -1384,12 +1384,12 @@ qui règlent la séance suivante. **Aucun ne montre si ses prévisions étaient 
    | un camping-car | 3,5 t |
    | un éléphant de mer | 3,5 t |
    | une camionnette chargée | 3,5 t |
-   | un éléphant d'Asie | 4,0 t |
+   | un éléphant d’Asie | 4,0 t |
    | un stégosaure | 5,0 t |
    | un orque | 5,5 t |
    | un ankylosaure | 6,0 t |
    | un mammouth laineux | 6,0 t |
-   | un éléphant d'Afrique | 6,0 t |
+   | un éléphant d’Afrique | 6,0 t |
    | un Mirage 2000 à vide | 7,5 t |
    | un T. rex | 8,0 t |
    | un tricératops | 9,0 t |

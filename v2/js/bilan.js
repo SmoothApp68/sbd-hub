@@ -192,7 +192,7 @@
     ['une Peugeot 3008', 1.4], ['un hippopotame', 1.5], ['une Tesla Model 3', 1.8], ['un pick-up', 2.2],
     ['un hélicoptère Écureuil plein', 2.2], ['un rhinocéros blanc', 2.3], ['une Tesla Model X', 2.5], ['un Range Rover', 2.5],
     ['un éléphant de forêt', 2.7], ['une camionnette chargée', 3.5], ['un camping-car', 3.5], ['un éléphant de mer', 3.5],
-    ["un éléphant d'Asie", 4.0], ['un stégosaure', 5.0], ['un orque', 5.5], ["un éléphant d'Afrique", 6.0],
+    ['un éléphant d’Asie', 4.0], ['un stégosaure', 5.0], ['un orque', 5.5], ['un éléphant d’Afrique', 6.0],
     ['un mammouth laineux', 6.0], ['un ankylosaure', 6.0], ['un Mirage 2000 à vide', 7.5], ['un T. rex', 8.0],
     ['un tricératops', 9.0], ['un Rafale à vide', 10.0], ['un ATR 72 à vide', 13.0], ['le bourdon Emmanuel de Notre-Dame', 13.0],
     ['la cloche de Big Ben', 13.7], ['un cachalot femelle', 15.0], ['un diplodocus', 15.0], ['un requin-baleine', 15.0],
@@ -202,7 +202,7 @@
     ['un Airbus A320 à vide', 42.0], ['un semi-remorque chargé', 44.0], ['un cachalot mâle', 45.0]
   ];
   var TOLERANCE = Math.log(1.2);   // ±20 %, en logarithme
-  var AU_DELA = "plus qu'un semi-remorque chargé";
+  var AU_DELA = 'plus qu’un semi-remorque chargé';
 
   // L'ordre (masse, libellé) de Python : `sorted` compare les chaînes point de
   // code par point de code — c'est `<` en JavaScript, pas `localeCompare`.
@@ -239,7 +239,7 @@
 
   // ⚠️ LE MÊME OBJET POUR UNE MÊME SÉANCE, À CHAQUE AFFICHAGE : le choix parmi
   // les objets à ±20 % se fait par l'empreinte de l'identifiant, jamais au
-  // hasard. `null` sous 1 000 kg ; au-delà de 50 000 kg, « plus qu'un
+  // hasard. `null` sous 1 000 kg ; au-delà de 50 000 kg, « plus qu’un
   // semi-remorque chargé » ; aucun à ±20 % : le plus proche (à égalité, le
   // premier dans l'ordre).
   function comparaison(volumeKg, idSeance) {
@@ -263,7 +263,7 @@
   }
 
   // « 10,1 t soulevées : à peu près un tricératops. » ; au-delà de 50 t,
-  // « … : plus qu'un semi-remorque chargé. » ; sous 1 t, rien.
+  // « … : plus qu’un semi-remorque chargé. » ; sous 1 t, rien.
   function phraseComparaison(volumeKg, idSeance) {
     var objet = comparaison(volumeKg, idSeance);
     if (!objet) return null;

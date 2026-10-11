@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Le plan reste affiché v5</title>
+<style>
+:root{--fond:#0f1114;--panneau:#181b20;--panneau-2:#21252c;--trait:#2c3139;--texte:#eceef2;--texte-2:#9aa1ac;--texte-3:#6f7580;--accent:#f2b84b;
+--pile:"Barlow",system-ui,sans-serif;--pile-c:"Barlow Condensed","Barlow",system-ui,sans-serif}
+*{box-sizing:border-box}
+body{margin:0;background:#07080a;color:var(--texte);font:15px/1.4 var(--pile);display:flex;flex-wrap:wrap;justify-content:center;gap:16px;padding:16px}
+.col{width:100%;max-width:380px;display:flex;flex-direction:column;gap:8px}
+.etiquette{font:600 13px var(--pile-c);text-transform:uppercase;letter-spacing:1.2px;color:var(--accent)}
+.notes{color:var(--texte-2);font-size:13px;margin:0}
+.ecran{background:var(--fond);border:1px solid var(--trait);border-radius:22px;padding:14px 14px 16px}
+.exo{font:700 20px var(--pile-c);margin:0}
+.consigne{color:var(--accent);font-size:14px;margin:2px 0 10px}
+.tete,.ligne{display:grid;grid-template-columns:34px 1fr 1fr 40px;gap:8px;align-items:center}
+.tete{color:var(--texte-3);font-size:12px;text-transform:uppercase;letter-spacing:.8px;padding:0 0 4px}
+.ligne{padding:6px 0;border-top:1px solid var(--trait)}
+.n{color:var(--texte-2);font:600 15px var(--pile-c);text-align:center}
+.n.ch{color:var(--texte-3);font-size:13px}
+.champ{background:var(--panneau-2);border-radius:8px;padding:8px 10px;font:600 17px var(--pile-c);min-height:38px}
+.champ.fant{color:var(--texte-3);font-style:italic;font-weight:500}
+.champ.test{color:#c99a3e}
+.ok{width:36px;height:36px;border-radius:50%;border:2px solid var(--trait);display:grid;place-items:center;color:var(--texte-3)}
+.ok.fait{background:#2f6b45;border-color:#2f6b45;color:#fff}
+.faite .champ{background:transparent}
+.phrase{grid-column:1/-1;border-left:3px solid var(--accent);padding:4px 0 4px 10px;margin:6px 0 2px;font-size:14px}
+.phrase b{font-weight:700}
+.repere{color:var(--texte-3);font-size:12px}
+</style>
+</head>
+<body>
+
+<section class="col">
+  <div class="etiquette">1 · Plus léger que prévu</div>
+  <p class="notes">Tu fais 73 au lieu de 79. Les séries suivantes gardent le plan en gris ; la phrase te laisse libre et rappelle de taper ta charge.</p>
+  <div class="ecran">
+    <p class="exo">Rowing Divergent (Machine)</p>
+    <p class="consigne">Aujourd’hui : 79 × 12. Si ça passe, 81,3 × 10 à 12, à la série que tu veux.</p>
+    <div class="tete"><span></span><span>kg</span><span>reps</span><span></span></div>
+    <div class="ligne faite"><span class="n ch">É</span><span class="champ">52</span><span class="champ">10</span><span class="ok fait">✓</span></div>
+    <div class="ligne faite"><span class="n">1</span><span class="champ">73</span><span class="champ">12</span><span class="ok fait">✓</span></div>
+    <div class="phrase">73 kg × 12, plus léger que prévu. La suite reste à 79 kg × 12 ; tape 73 kg si tu restes à 73 kg aujourd’hui.</div>
+    <div class="ligne"><span class="n">2</span><span class="champ fant">79</span><span class="champ fant">12</span><span class="ok"></span></div>
+    <div class="ligne"><span class="n">3</span><span class="champ fant test">81,3</span><span class="champ fant">10–12</span><span class="ok"></span></div>
+  </div>
+  <p class="notes">Aujourd’hui : les séries 2 et 3 affichaient 73 × 12, et la consigne restait à 79 sans un mot.</p>
+</section>
+
+<section class="col">
+  <div class="etiquette">2 · Le test après des séries plus légères</div>
+  <p class="notes">Tu as fait 73 puis 79 × 10 — peut-être pour garder du jus pour le test. Le coach ne devine pas : il ne commente pas les séries d’avant. L’en-tête dit déjà le test.</p>
+  <div class="ecran">
+    <p class="exo">Rowing Divergent (Machine)</p>
+    <p class="consigne">Aujourd’hui : 79 × 12. Si ça passe, 81,3 × 10 à 12, à la série que tu veux.</p>
+    <div class="tete"><span></span><span>kg</span><span>reps</span><span></span></div>
+    <div class="ligne faite"><span class="n ch">É</span><span class="champ">52</span><span class="champ">10</span><span class="ok fait">✓</span></div>
+    <div class="ligne faite"><span class="n">1</span><span class="champ">73</span><span class="champ">12</span><span class="ok fait">✓</span></div>
+    <div class="ligne faite"><span class="n">2</span><span class="champ">79</span><span class="champ">10</span><span class="ok fait">✓</span></div>
+    <div class="ligne"><span class="n">3</span><span class="champ fant test">81,3</span><span class="champ fant">10–12</span><span class="ok"></span></div>
+  </div>
+  <p class="notes">v4 (11/10) : plus de phrase « Ton test » — elle répétait l’en-tête et la ligne 3. Avant 68 : la série 3 réapparaissait à 81,3 sans explication.</p>
+</section>
+
+<section class="col">
+  <div class="etiquette">3 · Plus lourd que prévu, de toi-même</div>
+  <p class="notes">Tu fais 84 au lieu de 79, et ça tient (12 reps, au moins le bas de ta fourchette) : on profite de l’élan, la suite reste à 84 — la règle qu’a déjà une montée proposée par le coach.</p>
+  <div class="ecran">
+    <p class="exo">Rowing Divergent (Machine)</p>
+    <p class="consigne">Aujourd’hui : 79 × 12. Si ça passe, 81,3 × 10 à 12, à la série que tu veux.</p>
+    <div class="tete"><span></span><span>kg</span><span>reps</span><span></span></div>
+    <div class="ligne faite"><span class="n">1</span><span class="champ">84</span><span class="champ">12</span><span class="ok fait">✓</span></div>
+    <div class="phrase">84 kg × 12, au-dessus de ta charge de travail : la suite reste à 84 kg.</div>
+    <div class="ligne"><span class="n">2</span><span class="champ fant test">84</span><span class="champ fant">10–12</span><span class="ok"></span></div>
+    <div class="ligne"><span class="n">3</span><span class="champ fant test">84</span><span class="champ fant">10–12</span><span class="ok"></span></div>
+  </div>
+  <p class="notes">Si elle ne tient pas (sous le bas de la fourchette) : retour à 79 × 12, « 84 kg × 9 : pas encore. La suite reste à 79 kg × 12. » En zone Lourd, une seule série de plus à la charge montée : « 135 kg × 5, au-dessus de ta charge de travail : une série de plus à 135 kg. » Si la suite est déjà plus lourde (un test à 90), rien ne change et le coach se tait. Aujourd’hui : la copie se faisait en silence, tenue ou pas.</p>
+</section>
+
+<section class="col">
+  <div class="etiquette">4 · Plus de reps que prévu (inchangé)</div>
+  <p class="notes">79 × 15, 3 de plus que la visée : la série suivante monte d’un cran, une fois par exercice. Rien ne change ici.</p>
+  <div class="ecran">
+    <p class="exo">Rowing Divergent (Machine)</p>
+    <p class="consigne">Aujourd’hui : 79 × 12. Si ça passe, 81,3 × 10 à 12, à la série que tu veux.</p>
+    <div class="tete"><span></span><span>kg</span><span>reps</span><span></span></div>
+    <div class="ligne faite"><span class="n">1</span><span class="champ">79</span><span class="champ">15</span><span class="ok fait">✓</span></div>
+    <div class="phrase">79 kg × 15, 3 de plus que prévu : ton test a avancé d’une série, 81,3 dès la série 2.</div>
+    <div class="ligne"><span class="n">2</span><span class="champ fant test">81,3</span><span class="champ fant">10–12</span><span class="ok"></span></div>
+    <div class="ligne"><span class="n">3</span><span class="champ fant test">81,3</span><span class="champ fant">10–12</span><span class="ok"></span></div>
+  </div>
+  <p class="notes">Le gris (en italique) est ce qui s’enregistre si tu valides sans taper : d’où « tape 73 ».</p>
+</section>
+
+
+<section class="col">
+  <div class="etiquette">5 · La montée par paliers ne déclenche rien</div>
+  <p class="notes">« Plus léger que prévu » se dit une fois par exercice, et disparaît dès que la série suivante remonte. Ici tu montes 70 → 75 → 79 : aucune phrase, la montée est ta façon de faire.</p>
+  <div class="ecran">
+    <p class="exo">Rowing Divergent (Machine)</p>
+    <p class="consigne">Aujourd’hui : 79 × 12. Si ça passe, 81,3 × 10 à 12, à la série que tu veux.</p>
+    <div class="tete"><span></span><span>kg</span><span>reps</span><span></span></div>
+    <div class="ligne faite"><span class="n">1</span><span class="champ">70</span><span class="champ">12</span><span class="ok fait">✓</span></div>
+    <div class="ligne faite"><span class="n">2</span><span class="champ">75</span><span class="champ">12</span><span class="ok fait">✓</span></div>
+    <div class="ligne"><span class="n">3</span><span class="champ fant">79</span><span class="champ fant">12</span><span class="ok"></span></div>
+    <div class="ligne"><span class="n">4</span><span class="champ fant test">81,3</span><span class="champ fant">10–12</span><span class="ok"></span></div>
+  </div>
+  <p class="notes">Après la série 1 seule, la phrase s’affichait ; la série 2 remonte, elle s’efface. Une vraie journée plus légère (73, 73, 73) est dite une seule fois.</p>
+</section>
+<section class="col">
+  <div class="etiquette">6 · Pile au bas de la fourchette</div>
+  <p class="notes">84 × 10 : ça tient, mais tout juste. Si c’était à fond, la suite à 84 serait de trop — le coach le demande une fois, sans bloquer. Ignoré, on garde 84.</p>
+  <div class="ecran">
+    <p class="exo">Rowing Divergent (Machine)</p>
+    <p class="consigne">Aujourd’hui : 79 × 12. Si ça passe, 81,3 × 10 à 12, à la série que tu veux.</p>
+    <div class="tete"><span></span><span>kg</span><span>reps</span><span></span></div>
+    <div class="ligne faite"><span class="n">1</span><span class="champ">84</span><span class="champ">10</span><span class="ok fait">✓</span></div>
+    <div class="phrase">84 kg × 10, pile au bas de ta fourchette. Si c’était à fond, note-le : on revient à 79 kg pour la série suivante. Sinon, on garde 84 kg.</div>
+    <div class="ligne"><span class="n">2</span><span class="champ fant test">84</span><span class="champ fant">10–12</span><span class="ok"></span></div>
+    <div class="ligne"><span class="n">3</span><span class="champ fant test">84</span><span class="champ fant">10–12</span><span class="ok"></span></div>
+  </div>
+  <p class="notes">Au-dessus du bas (11 ou 12), on garde le cap quoi qu’il arrive : rien à demander.</p>
+</section>
+<section class="col">
+  <div class="etiquette">7 · L'élan s'arrête quand tu redescends</div>
+  <p class="notes">84 × 12 a porté la suite à 84 ; tu reviens à 79. L'élan s'arrête : la suite revient au plan, sans un mot — tu es revenu à ce qui était prévu.</p>
+  <div class="ecran">
+    <p class="exo">Rowing Divergent (Machine)</p>
+    <p class="consigne">Aujourd’hui : 79 × 12. Si ça passe, 81,3 × 10 à 12, à la série que tu veux.</p>
+    <div class="tete"><span></span><span>kg</span><span>reps</span><span></span></div>
+    <div class="ligne faite"><span class="n">1</span><span class="champ">84</span><span class="champ">12</span><span class="ok fait">✓</span></div>
+    <div class="ligne faite"><span class="n">2</span><span class="champ">79</span><span class="champ">12</span><span class="ok fait">✓</span></div>
+    <div class="ligne"><span class="n">3</span><span class="champ fant test">81,3</span><span class="champ fant">10–12</span><span class="ok"></span></div>
+  </div>
+  <p class="notes">v5 (audit du 11/10) : avant, la série 3 restait à 84 et le coach disait « plus léger que prévu ». Et l’en-tête ne dit plus « une fois » : dès que 81,3 passe, l’élan garde la suite à 81,3.</p>
+</section>
+</body>
+</html>

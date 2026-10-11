@@ -172,6 +172,8 @@
     if (nom !== 'questionnaire' && questionnaire) fermerQuestionnaire();
     // 66B — LA RELECTURE NE SURVIT PAS À SA VUE : les cartes repliées valent pour CETTE ouverture.
     if (nom !== 'relecture') relecture = null;
+    // 70 — « Mot de passe changé. » ne vaut que sous les yeux : quitter le profil l'efface.
+    if (nom !== 'profil') noteProfil = null;
     var onglet = Routeur.ongletDe(vue || nom);
     // ⚠️ MÊME PORTE, MÊME RAISON (§2, ch. 46). Quitter le profil vaut « vu » :
     // sans ça, quelqu'un qui remplit tout puis touche un onglet retrouverait le
@@ -8919,6 +8921,21 @@
   var entreeEnCoursPour = null;
   var departs = 0;   // « Quitter » : une entrée qui attendait son tour n'entre plus
 
+  // 70 — ARRIVÉ PAR UN LIEN DE RÉCUPÉRATION (ECRAN-PROFIL §5.6). L'événement
+  // `PASSWORD_RECOVERY` du SDK pose `'due'` ; la feuille du mot de passe s'ouvre
+  // d'elle-même dès que l'entrée a posé son premier écran (`renduPour`), et
+  // `'ouverte'` tient le questionnaire DERRIÈRE elle tant qu'elle n'est pas finie.
+  var recuperation = null;
+  var renduPour = null;   // le compte dont l'entrée a posé son premier écran
+
+  function ouvrirRecuperationSiDue() {
+    if (recuperation !== 'due' || !userId() || renduPour !== userId()) return;
+    recuperation = 'ouverte';
+    allerA(Routeur.PROFIL, {}, true);
+    rendreProfilEcran();
+    ouvrirMotDePasseProfil(true);
+  }
+
   function entrer(session) {
     var uid = idDeSession(session);
     if (entreeEnCours) {
@@ -9045,6 +9062,10 @@
     // Y compris sur une ouverture directe sur /semaine/… — qui, jusqu'ici,
     // n'avait pas d'ancre et se fermait donc sans absorption.
     sortie.apresNavigation(false);
+    // 70 — le premier écran est posé : la feuille du mot de passe peut passer
+    // devant (un lien de récupération l'attend peut-être).
+    renduPour = userId || null;
+    ouvrirRecuperationSiDue();
 
     await verificationSeance;
     await synchroniser();
@@ -9099,6 +9120,7 @@
     // de la perdre.
     profil = null; profilAEnvoyer = false; pseudoAInscrire = null;
     fermerQuestionnaire(); envoiProfil = null; versionProfil = 0;
+    recuperation = null; renduPour = null;
     faits.oublierDates();
     remplissage = null;
     // 59-2 — le jeton part même hors ligne (`Auth.deconnecter` l'efface
@@ -9450,6 +9472,8 @@
   function ouvrirQuestionnaireSiDu() {
     if (questionnaire || !userId()) return false;
     if (seance || voileOuvert) return false;
+    // 70 — la feuille du mot de passe d'un lien de récupération passe d'abord.
+    if (recuperation) return false;
     // Un ordre « Ranger » non enregistré ne se jette pas : changer d'écran ferait `fermerReorganisation`.
     if (modeModifier) return false;
     if (!vues.detail.hidden || !vues.routine.hidden || !vues.seance.hidden) return false;
@@ -10142,40 +10166,62 @@
   // Promis à l'inscription : « Tu le changeras depuis ton profil. » C'est aussi
   // là qu'atterrit un lien « mot de passe oublié » — la session de récupération
   // est ouverte, il ne reste qu'à poser le nouveau mot de passe.
-  function ouvrirMotDePasseProfil() {
+  //
+  // 70 — `pourRecuperation` : ouverte d'elle-même par un lien de récupération,
+  // titrée « Choisis ton nouveau mot de passe ». Un questionnaire non rempli
+  // attend DERRIÈRE elle (`recuperation`) : fermée sans valider, il prend la
+  // suite ; validée, la confirmation reste sous les yeux et il attendra la
+  // prochaine ouverture.
+  function ouvrirMotDePasseProfil(recup) {
+    var pourRecuperation = recup === true;
+    var valide = false;
+    var finRecuperation = function () { if (pourRecuperation) recuperation = null; };
     feuilleProfil = function (cible) {
       Rendu.rendreFeuilleSaisie(cible, {
-        titre: 'Mot de passe', etiquette: 'Nouveau mot de passe',
+        titre: pourRecuperation ? 'Choisis ton nouveau mot de passe' : 'Mot de passe',
+        etiquette: 'Nouveau mot de passe',
         type: 'password', autocomplete: 'new-password',
         aide: Profil.MDP_MIN + ' caractères minimum.',
         valeur: '',
         surValider: function (v) {
           if (!Profil.mdpValide(v)) return Profil.MDP_MIN + ' caractères minimum.';
+          valide = true;
           fermerVoile();
+          // 70 — LA PHRASE EST UN ÉTAT DU PROFIL (`noteProfil`), PAS UN NŒUD POSÉ UNE FOIS : le
+          // changement émet `USER_UPDATED`, l'app ré-entre et re-rend le Profil, ce qui l'effaçait.
           Auth.changerMotDePasse(v).then(function () {
-            Rendu.message($('profil-corps'), '', 'rien');
+            finRecuperation();
+            noteProfil = { classe: 'vide', texte: 'Mot de passe changé.' };
             rendreProfilEcran();
           }).catch(function (e) {
+            finRecuperation();
+            noteProfil = { classe: 'feuille-err', texte: texteErreur(e) };
             rendreProfilEcran();
-            var err = Rendu.el('p', 'feuille-err', texteErreur(e));
-            $('profil-corps').insertBefore(err, $('profil-corps').firstChild);
           });
           return null;
         },
         surAnnuler: fermerVoile
       });
     };
-    ouvrirFeuilleProfil();
+    ouvrirFeuilleProfil(function () {
+      if (!pourRecuperation || valide) return;
+      finRecuperation();
+      ouvrirQuestionnaireSiDu();
+    });
   }
+
+  // La phrase que le Profil porte en tête après un changement de mot de passe : elle survit aux
+  // re-rendus (synchronisation, ré-entrée) et s'en va quand on quitte l'écran (`montrer`).
+  var noteProfil = null;
 
   // ⚠️ LA MÊME FEUILLE, LE MÊME VOILE que la séance. Le retour d'Android la
   // ferme sans qu'on l'écrive, et le mode Réorganiser ne la traverse pas.
   var feuilleProfil = null;
 
-  function ouvrirFeuilleProfil() {
+  function ouvrirFeuilleProfil(apres) {
     if (!feuilleProfil) return;
     feuilleProfil($('feuille-contenu'));
-    ouvrirVoile($('feuille-seance'), function () { feuilleProfil = null; });
+    ouvrirVoile($('feuille-seance'), function () { feuilleProfil = null; if (apres) apres(); });
   }
 
   // ── L'écran ──────────────────────────────────────────────────────────────
@@ -10287,7 +10333,8 @@
           // confirmation sur les deux adresses, et c'est un geste à part entière.
           { libelle: 'E-mail de connexion',
             valeur: (sessionActive && sessionActive.user && sessionActive.user.email) || null },
-          { libelle: 'Mot de passe', valeur: '••••••••', surChoix: ouvrirMotDePasseProfil }
+          // 70 — appelée SANS argument : le rendu passe l'événement du clic, qui n'est pas une récupération.
+          { libelle: 'Mot de passe', valeur: '••••••••', surChoix: function () { ouvrirMotDePasseProfil(false); } }
         ] }
       ],
       // 64B — la vitrine (les trois succès les plus rares, décidés par le jeu), et en bas l'interrupteur, qui
@@ -10297,6 +10344,7 @@
       surQuitter: demanderDeconnexion,
       surSupprimer: demanderSuppressionCompte
     });
+    if (noteProfil) $('profil-corps').insertBefore(Rendu.el('p', noteProfil.classe, noteProfil.texte), $('profil-corps').firstChild);
   }
 
   // Le profil a été VU : le bandeau d'accueil ne revient plus. C'est le seul
@@ -10479,7 +10527,7 @@
       phrase: $('entree-phrase'), pseudo: $('env-pseudo'), oubli: $('btn-oubli'),
       aideMdp: $('aide-mdp'), bouton: $('btn-connexion'),
       bascule: $('btn-bascule-entree'), basculeAvant: $('entree-bascule-avant'),
-      champEmail: $('champ-email'), champMdp: $('champ-mdp')
+      champEmail: $('champ-email'), champMdp: $('champ-mdp'), message: $('erreur-connexion')
     };
   }
 
@@ -10563,9 +10611,17 @@
         // 60-3b — le pseudo (normalisé) part AVEC le compte, dans ses données : le lien de confirmation
         // s'ouvre souvent dans une autre page, où `pseudoAInscrire` n'existe plus.
         var r = await Auth.inscrire(etat.email, etat.mdp, racine.location.origin + '/', pseudoAInscrire);
-        if (!r.session) {
+        // 70 — sans session, TOUJOURS la même phrase (adresse neuve ou déjà inscrite :
+        // Supabase ne le dit pas, et on ne le dirait pas), et « Mot de passe oublié ? »
+        // juste dessous — c'est la seule issue d'une adresse déjà inscrite.
+        var phrase = Auth.phraseInscription(r);
+        if (phrase) {
           erreur.className = 'erreur ok';
-          erreur.textContent = 'Compte créé. Confirme ton e-mail, puis connecte-toi.';
+          erreur.textContent = phrase;
+          var c = champsEntree();
+          c.mode = 'inscription';
+          c.oubliSous = true;
+          Rendu.rendreEntree(c);
         }
       } else {
         // Une connexion n'inscrit personne : un pseudo resté en mémoire (une création échouée, un autre
@@ -10604,6 +10660,17 @@
   // que deux issues : quitter l'app — le défaut même qu'on corrige — ou sauter
   // sans prévenir à la semaine courante. Empiler est la seule qui ne surprenne
   // pas, et le bouton « Cette semaine » borne le coût d'une exploration lointaine.
+
+  // 70 — un fragment d'authentification ne reste JAMAIS dans l'adresse après sa
+  // lecture : ni le jeton (le SDK n'efface que son contenu et laisse « # »), ni
+  // l'erreur (que le SDK laisse en place), ni un `?code=` de flux PKCE.
+  function effacerRetourDeLien() {
+    try {
+      var u = new URL(racine.location.href);
+      u.searchParams.delete('code');
+      racine.history.replaceState(racine.history.state, '', u.pathname + u.search);
+    } catch (e) { /* adresse illisible : rien à retirer */ }
+  }
 
   function allerA(vue, params, remplacer) {
     var chemin = Routeur.construire(vue, params);
@@ -10866,16 +10933,29 @@
 
     racine.addEventListener('popstate', function () { sortie.surRetour(); });
 
+    // 70 — LU AVANT TOUT : l'adresse porte-t-elle un retour de lien ? (sonde
+    // synchrone, sur l'adresse seule ; voir `Auth.retourDeLien`.)
+    var retour = Auth.retourDeLien(racine.location);
+
     // Le SEUL chemin qui déconnecte. Une session nulle annoncée par le SDK ne
     // suffit pas : hors réseau, il annonce « pas de session » sans que personne
     // ne se soit déconnecté. On ne sort quelqu'un de ses données que si le
     // jeton a VRAIMENT disparu du stockage — ce que fait `Auth.deconnecter`, et
     // ce que fait le SDK quand le compte est réellement révoqué.
-    Auth.surChangement(function (session) {
+    Auth.surChangement(function (session, evenement) {
+      // 70 — arrivé par un lien de récupération : la feuille du mot de passe
+      // s'ouvre d'elle-même, dès que l'entrée a posé son premier écran.
+      if (session && evenement === 'PASSWORD_RECOVERY') {
+        recuperation = 'due';
+        entrer(session);
+        ouvrirRecuperationSiDue();
+        return;
+      }
       if (session) { entrer(session); return; }
       if (Auth.sessionPersistee()) return;
       sessionActive = null;
       entreeFaitePour = null;
+      recuperation = null; renduPour = null;
       fermerQuestionnaire(); envoiProfil = null; versionProfil = 0;
       profil = null; faits.oublierDates();
       allerA(Routeur.CONNEXION, {}, true);
@@ -10888,8 +10968,29 @@
     // appel réseau : c'est cette attente qui laissait l'écran noir au
     // rechargement hors ligne, alors que les 28 000 séries étaient sur
     // l'appareil (cf. le commentaire de `sessionPersistee`).
+    //
+    // 70 — SAUF UN RETOUR DE LIEN. Le jeton est dans l'adresse, et le SDK le lit
+    // de façon asynchrone : router d'abord (`replaceState` vers /connexion)
+    // l'effaçait avant qu'il soit lu. On ATTEND donc le SDK — seulement dans ce
+    // cas, où le réseau est de toute façon nécessaire —, on retire le fragment,
+    // PUIS on décide. Une session enregistrée reste une session : un vieux lien
+    // ne déconnecte personne.
     var persistee = Auth.sessionPersistee();
-    if (persistee) {
+    if (retour) {
+      var lue = null;
+      try { lue = await Auth.sessionCourante(); } catch (e) { lue = null; }
+      effacerRetourDeLien();
+      lue = lue || Auth.sessionPersistee();
+      if (lue) await entrer(lue);
+      else {
+        allerA(Routeur.CONNEXION, {}, true);
+        rendreEntree('connexion');
+        if (retour.erreur) {
+          $('erreur-connexion').className = 'erreur ok';
+          $('erreur-connexion').textContent = 'Ce lien a expiré ou a déjà servi. Redemande-en un avec « Mot de passe oublié ? ».';
+        }
+      }
+    } else if (persistee) {
       await entrer(persistee);
     } else {
       var entree = Routeur.analyser(racine.location.pathname);

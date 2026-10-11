@@ -380,6 +380,21 @@ existe donc, sous « L'app » — et c'est aussi là qu'atterrit un lien
 qu'à poser le nouveau mot de passe. **Pas d'écran de plus pour une étape qu'un
 écran existant sait déjà faire.**
 
+**Précisé le 11/10/2026 (chantier 70).**
+- **Un retour de lien se lit avant tout routage.** Quand l'adresse d'ouverture porte un jeton d'authentification (un
+  lien de récupération ou de confirmation : `#access_token=…`, ou une erreur `#error=…`), le démarrage laisse le SDK
+  le lire **avant** de choisir un écran ou de réécrire l'adresse. Sans jeton, rien ne change : la sonde synchrone
+  décide seule, et le démarrage hors ligne reste immédiat (aucun appel réseau attendu).
+- **Arrivé par un lien de récupération** (l'événement `PASSWORD_RECOVERY` du SDK), l'app ouvre **d'elle-même** la
+  feuille du mot de passe, titrée « Choisis ton nouveau mot de passe ». Validé : « Mot de passe changé. » en gris dans
+  le profil. Fermée sans valider : rien de plus, la ligne reste dans le profil.
+- **Un lien expiré ou déjà servi** (`#error=…`, `otp_expired`) : l'écran de connexion dit « Ce lien a expiré ou a déjà
+  servi. Redemande-en un avec « Mot de passe oublié ? ». »
+- **L'inscription** dit toujours la même chose, que l'adresse ait déjà un compte ou non (ne jamais révéler qui est
+  inscrit) : « Compte créé si l'adresse est nouvelle : confirme ton e-mail, puis connecte-toi. Si tu as déjà un compte
+  avec cette adresse, aucun mail ne part : utilise « Mot de passe oublié ? ». » — suivi du bouton « Mot de passe
+  oublié ? ».
+
 L'e-mail, lui, se **lit** et ne se change pas d'ici : le changer demande une
 confirmation sur les deux adresses, et c'est un geste à part entière.
 

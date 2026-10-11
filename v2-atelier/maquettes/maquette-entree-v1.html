@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>L'entrée v1</title>
+<style>
+:root{--fond:#0f1114;--panneau:#181b20;--panneau-2:#21252c;--trait:#2c3139;--texte:#eceef2;--texte-2:#9aa1ac;--texte-3:#6f7580;--accent:#f2b84b;--sur-accent:#1a1305;
+--pile:"Barlow",system-ui,sans-serif;--pile-c:"Barlow Condensed","Barlow",system-ui,sans-serif}
+*{box-sizing:border-box}
+body{margin:0;background:#07080a;color:var(--texte);font:15px/1.4 var(--pile);display:flex;flex-wrap:wrap;justify-content:center;gap:16px;padding:16px}
+.col{width:100%;max-width:380px;display:flex;flex-direction:column;gap:8px}
+.etiquette{font:600 13px var(--pile-c);text-transform:uppercase;letter-spacing:1.2px;color:var(--accent)}
+.notes{color:var(--texte-2);font-size:13px;margin:0}
+.ecran{background:var(--fond);border:1px solid var(--trait);border-radius:22px;padding:18px 16px}
+h2{font:700 22px var(--pile-c);margin:0 0 12px}
+.champ{background:var(--panneau-2);border-radius:10px;padding:12px;margin:8px 0;color:var(--texte-3)}
+.champ.plein{color:var(--texte)}
+.bouton{background:var(--accent);color:var(--sur-accent);border-radius:12px;padding:13px;text-align:center;font-weight:700;margin-top:10px}
+.lien{color:var(--accent);font-size:14px;padding:10px 0;text-align:center}
+.ok{color:var(--texte-2);font-size:14px;margin-top:10px}
+.feuille{background:var(--panneau);border:1px solid var(--trait);border-radius:18px 18px 0 0;padding:16px;margin-top:40px}
+.feuille-t{font-weight:700;font-size:16px;margin-bottom:4px}
+.aide{color:var(--texte-3);font-size:12px}
+.ligne{display:flex;justify-content:space-between;border-top:1px solid var(--trait);padding:12px 2px}
+.ligne span:last-child{color:var(--texte-2)}
+.groupe{font:600 12px var(--pile-c);text-transform:uppercase;letter-spacing:1.2px;color:var(--texte-3);margin:14px 0 4px}
+</style>
+</head>
+<body>
+<section class="col">
+  <div class="etiquette">1 · L'inscription, toujours la même phrase</div>
+  <p class="notes">Que l'adresse ait déjà un compte ou non : on ne révèle jamais qui est inscrit, mais on dit quoi faire.</p>
+  <div class="ecran">
+    <h2>Créer mon compte</h2>
+    <div class="champ plein">lynn…@yahoo.fr</div>
+    <div class="champ plein">••••••••</div>
+    <div class="bouton">Créer mon compte</div>
+    <p class="ok">Compte créé si l'adresse est nouvelle : confirme ton e-mail, puis connecte-toi. Si tu as déjà un compte avec cette adresse, aucun mail ne part : utilise « Mot de passe oublié ? ».</p>
+    <div class="lien">Mot de passe oublié ?</div>
+  </div>
+</section>
+<section class="col">
+  <div class="etiquette">2 · Le lien du mail, ouvert</div>
+  <p class="notes">L'app lit le lien avant de choisir un écran, puis ouvre elle-même la saisie du nouveau mot de passe.</p>
+  <div class="ecran">
+    <div class="groupe">L'app</div>
+    <div class="ligne"><span>E-mail de connexion</span><span>lynn…@yahoo.fr</span></div>
+    <div class="ligne"><span>Mot de passe</span><span>••••••••</span></div>
+    <div class="feuille">
+      <div class="feuille-t">Choisis ton nouveau mot de passe</div>
+      <div class="champ">Nouveau mot de passe</div>
+      <div class="aide">8 caractères minimum.</div>
+      <div class="bouton">Valider</div>
+    </div>
+  </div>
+</section>
+<section class="col">
+  <div class="etiquette">3 · Un lien expiré ou déjà servi</div>
+  <p class="notes">Aujourd'hui : l'écran de connexion, sans un mot. Demain : la raison, et quoi faire.</p>
+  <div class="ecran">
+    <h2>Se connecter</h2>
+    <p class="ok">Ce lien a expiré ou a déjà servi. Redemande-en un avec « Mot de passe oublié ? ».</p>
+    <div class="champ">E-mail</div>
+    <div class="champ">Mot de passe</div>
+    <div class="bouton">Se connecter</div>
+    <div class="lien">Mot de passe oublié ?</div>
+  </div>
+</section>
+</body>
+</html>

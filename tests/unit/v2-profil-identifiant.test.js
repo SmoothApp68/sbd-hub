@@ -28,6 +28,10 @@ require('../../v2/js/modele.js');
 require('../../v2/js/semaine.js');
 const Profil = require('../../v2/js/profil.js');
 const Sync = require('../../v2/js/sync.js');
+// 70 — la VRAIE phrase d'inscription (`Auth.phraseInscription`) : `auth.js` se pose sur le global, sans client.
+global.THClient = { CLE_AUTH: 'th-v2-auth', obtenir: () => { throw new Error('pas de client ici'); } };
+require('../../v2/js/auth.js');
+const phraseInscription = global.THAuth.phraseInscription;
 
 const APP = fs.readFileSync(path.join(__dirname, '../../v2/js/app.js'), 'utf8');
 const extraire = (nom) => {
@@ -60,6 +64,8 @@ describe('`entrer` : une entrée en vol n’absorbe que la session de SON compte
       local: {}, seance: null, attente: [], consignesSauvees: null, brouillonLocal: null,
       sessionActive: null, profil: null, etat: null, verificationSeance: null,
       entreeEnCours: null, entreeFaitePour: null, entreeEnCoursPour: null, departs: 0,
+      // 70 — le lien de récupération : aucun ici (sa règle a ses tests et son banc, [E70]).
+      renduPour: null, ouvrirRecuperationSiDue: () => {},
       // Le stockage porte la session reçue en dernier (l'évènement du SDK l'a écrite avant de nous l'envoyer).
       persistee: null, Auth: { sessionPersistee: () => ctx.persistee },
       CLE_CONSIGNES: 'consignes', CLE_BROUILLON: 'brouillon-routine',
@@ -522,11 +528,16 @@ describe('`soumettreEntree` : le pseudo est posé AVANT l’inscription, et une 
   function bac(mode, pseudoRestant, options) {
     const appels = [];
     const opt = options || {};
+    const noeuds = {};
     const ctx = {
       modeEntree: mode,
       pseudoAInscrire: pseudoRestant === undefined ? null : pseudoRestant,
       racine: { location: { origin: 'https://exemple.test' } },
-      $: (id) => ({ textContent: '', className: '', disabled: false, value: id === 'champ-email' ? 'b@banc.test' : 'motdepasse123' }),
+      $: (id) => noeuds[id] || (noeuds[id] = { textContent: '', className: '', disabled: false,
+        value: id === 'champ-email' ? 'b@banc.test' : 'motdepasse123' }),
+      // 70 — sans session, la phrase de §5.6 et « Mot de passe oublié ? » dessous (`oubliSous`).
+      champsEntree: () => ({}),
+      Rendu: { rendreEntree: (c) => { ctx.__entree = c; } },
       etatEntree: () => ({ pseudo: 'Test 0710', email: 'b@banc.test', mdp: 'motdepasse123' }),
       majBoutonEntree: () => {},
       texteErreur: (e) => String(e && e.message || e),
@@ -538,12 +549,13 @@ describe('`soumettreEntree` : le pseudo est posé AVANT l’inscription, et une 
           ctx.__args = [email, mdp, retour, pseudo];
           return opt.sansSession ? { session: null, user: { id: 'B' } } : { session: { user: { id: 'B' } } };
         },
+        phraseInscription,
         connecter: async () => { appels.push(['connecter', ctx.pseudoAInscrire]); }
       }
     };
     vm.createContext(ctx);
     vm.runInContext(extraire('soumettreEntree'), ctx);
-    return { ctx, appels, soumettre: () => vm.runInContext('soumettreEntree({ preventDefault: function () {} })', ctx) };
+    return { ctx, appels, noeuds, soumettre: () => vm.runInContext('soumettreEntree({ preventDefault: function () {} })', ctx) };
   }
 
   test('⚠️ DISCRIMINANT — l’inscription : le pseudo normalisé est posé AVANT `signUp` (l’évènement d’auth peut partir avant sa réponse)', async () => {
@@ -579,6 +591,10 @@ describe('`soumettreEntree` : le pseudo est posé AVANT l’inscription, et une 
     await b.soumettre();
     expect(b.ctx.__args[3]).toBe('test_0710');
     expect(b.ctx.pseudoAInscrire).toBe('test_0710');             // l'autre page, elle, le reprendra des données du compte
+    // 70 — la phrase de §5.6, en gris, et « Mot de passe oublié ? » juste dessous.
+    expect(b.noeuds['erreur-connexion'].textContent).toBe(phraseInscription({ session: null }));
+    expect(b.noeuds['erreur-connexion'].className).toBe('erreur ok');
+    expect(b.ctx.__entree).toEqual({ mode: 'inscription', oubliSous: true });
   });
 
   test('60-3b — une CONNEXION n’inscrit personne : aucun pseudo ne part', async () => {

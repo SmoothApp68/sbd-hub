@@ -42,6 +42,8 @@ function bac() {
     local: {}, seance: null, attente: [], consignesSauvees: null, brouillonLocal: null,
     sessionActive: null, profil: null, etat: null, verificationSeance: null,
     entreeEnCours: null, entreeFaitePour: null,
+    // 70 — le lien de récupération : aucun ici (sa règle a ses tests et son banc, [E70]).
+    renduPour: null, ouvrirRecuperationSiDue: () => {},
     CLE_CONSIGNES: 'consignes', CLE_BROUILLON: 'brouillon-routine',
     vues: { detail: vue, routine: vue, seance: vue, questionnaire: vue },
     Seance: { verifierColonnes: () => {} },
@@ -158,7 +160,8 @@ describe('ce qui reste une entrée complète', () => {
   test('`deconnecter` et le rappel sans session remettent bien la marque à zéro', () => {
     const deco = extraire('deconnecter');
     expect(deco).toMatch(/entreeFaitePour = null/);
-    const rappel = APP.match(/Auth\.surChangement\(function \(session\) \{[\s\S]*?\n    \}\);/);
+    // 70 — le rappel reçoit aussi l'événement (`PASSWORD_RECOVERY`).
+    const rappel = APP.match(/Auth\.surChangement\(function \(session, evenement\) \{[\s\S]*?\n    \}\);/);
     expect(rappel && rappel[0]).toMatch(/entreeFaitePour = null/);
   });
 

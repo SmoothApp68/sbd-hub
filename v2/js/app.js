@@ -9031,7 +9031,10 @@
     // Comme à la fin de l'entrée complète : une synchronisation de fond ne
     // reprend jamais la main sur un écran en cours d'édition — le questionnaire
     // compris (60-2a) : il perdrait l'écran où l'on en est.
-    if (!vues.detail.hidden || !vues.routine.hidden || !vues.seance.hidden || !vues.questionnaire.hidden) return;
+    // 71 — le récap de fin de séance aussi : « Terminer » pendant une synchronisation l'ouvrait, et la fin de la
+    // synchronisation le remplaçait par la saisie.
+    if (!vues.detail.hidden || !vues.routine.hidden || !vues.seance.hidden || !vues.questionnaire.hidden ||
+        !vues.recap.hidden) return;
     rendreRoute(Routeur.analyser(racine.location.pathname));
   }
 
@@ -9149,7 +9152,10 @@
     // L'utilisateur est parti ailleurs pendant la synchro. Re-rendre écraserait
     // son écran — et, sur l'éditeur de routine, le brouillon qu'il est en train
     // de remplir. Une synchronisation de fond ne reprend jamais la main.
-    if (!vues.detail.hidden || !vues.routine.hidden || !vues.seance.hidden || !vues.questionnaire.hidden) return;
+    // 71 — le récap de fin de séance aussi : « Terminer » pendant une synchronisation l'ouvrait, et la fin de la
+    // synchronisation le remplaçait par la saisie.
+    if (!vues.detail.hidden || !vues.routine.hidden || !vues.seance.hidden || !vues.questionnaire.hidden ||
+        !vues.recap.hidden) return;
     rendreRoute(Routeur.analyser(racine.location.pathname));
   }
 

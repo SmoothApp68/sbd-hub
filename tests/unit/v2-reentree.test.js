@@ -45,7 +45,8 @@ function bac() {
     // 70 — le lien de récupération : aucun ici (sa règle a ses tests et son banc, [E70]).
     renduPour: null, ouvrirRecuperationSiDue: () => {},
     CLE_CONSIGNES: 'consignes', CLE_BROUILLON: 'brouillon-routine',
-    vues: { detail: vue, routine: vue, seance: vue, questionnaire: vue },
+    // 71 — le récap de fin de séance est protégé comme les écrans d'édition.
+    vues: { detail: vue, routine: vue, seance: vue, questionnaire: vue, recap: vue },
     Seance: { verifierColonnes: () => {} },
     Routeur: { analyser: () => ({ vue: 'liste', params: {} }), interditAvecSession: () => false, estVueDuJeu: () => false,
                RACINE: 'liste', PROFIL: 'profil' },
@@ -132,6 +133,15 @@ describe('la ré-entrée du même utilisateur', () => {
     const b = bac();
     await b.entrer(b.session('u1'));
     b.ctx.vues.seance = { hidden: false };
+    const rendus = b.journal.rendus;
+    await b.entrer(b.session('u1'));
+    expect(b.journal.rendus).toBe(rendus);
+  });
+
+  test('⚠️ 71 — le récap de fin de séance ouvert n’est pas remplacé par la ré-entrée', async () => {
+    const b = bac();
+    await b.entrer(b.session('u1'));
+    b.ctx.vues.recap = { hidden: false };
     const rendus = b.journal.rendus;
     await b.entrer(b.session('u1'));
     expect(b.journal.rendus).toBe(rendus);

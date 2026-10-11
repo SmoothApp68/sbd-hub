@@ -344,6 +344,21 @@ const objectifDuJour = (c, b) => {
       (b === 1 ? ', à la série que tu veux' : ' sur ' + b + ' séries, celles que tu veux') + '.'];
 };
 const sansInsecables = (x) => JSON.stringify(x).replace(/\u00a0/g, ' ');
+// L'en-tête attendu d'une consigne `k` (`{ consigne, libelles }`) sur `nTravail`
+// séries de travail : l'objectif du jour quand la séance a des lignes PUIS des
+// tests (ECRAN-SAISIE §3.12, 68A), sinon les lignes jaunes de la consigne.
+// ⚠️ Lu sur la consigne, pas supposé : le banc SÉQUENTIEL arrive aux sections
+// avec un autre état que le banc parallèle (sans test, ou un autre `k`) — le
+// contrôle de 68A qui supposait un test plantait là (relevé sur 68B, 11/10/2026).
+const enteteAttendu = (k, nTravail) => {
+  const c = k.consigne;
+  const b = c.haut ? Math.min(Number(c.haut.k) || 0, nTravail) : 0;
+  const a = nTravail - b;
+  if (c.ligne && c.haut && a > 0 && b > 0 && c.etat !== 'reprise_longue' && c.etat !== 'nouvelle_zone') {
+    return objectifDuJour(c, b);
+  }
+  return k.libelles.jaune;
+};
 
 const progr = (n, reps) => {
   const lignes = [];
@@ -5423,7 +5438,7 @@ const SETS_IMPORTES = [
     Array.from(document.querySelectorAll('.legende-exo .consigne, .legende-exo .consigne-dit')).map((e) => e.textContent));
   // 68A — l'en-tête dit l'objectif du jour (deux tests sur les trois séries).
   ok('[G] l’en-tête dit la consigne en jaune — l’objectif du jour —, puis sa phrase grise',
-    sansInsecables(entete) === sansInsecables(objectifDuJour(consigneDC.consigne, 2).concat([consigneDC.libelles.gris])),
+    sansInsecables(entete) === sansInsecables(enteteAttendu(consigneDC, 3).concat([consigneDC.libelles.gris])),
     JSON.stringify(entete).replace(/\u00a0/g, '·'));
 
   // ① LE DÉFAUT DU DEVICE : taper une chauffe qui DÉVIE (25 au lieu de 20).
@@ -5442,11 +5457,18 @@ const SETS_IMPORTES = [
   ok('[G] valider la proposition de la 1ʳᵉ laisse celle de la 3ᵉ',
     (await fantomes())[4] === attendus[4], JSON.stringify(await fantomes()) + ' vs ' + attendus[4]);
 
-  // ③ ET UNE VRAIE DÉVIATION SE PROPAGE — à plat, jamais en décalant la rampe,
-  // et par-dessus le plan : ce qu'on vient de taper reste souverain.
+  // ③ ET UNE VRAIE DÉVIATION — à plat, jamais en décalant la rampe (jamais 135).
+  // 68A (MOTEUR §9.14 bis) : elle ne se RECOPIE plus ; plus lourde que sa ligne,
+  // elle porte la suite à 130 QUAND ELLE TIENT (l'élan : 5 reps au moins au bas
+  // de la zone), sinon le plan reste. ⚠️ Lu sur la consigne : le banc séquentiel
+  // arrive ici avec une autre consigne que le parallèle (relevé sur 68B, 11/10).
   await saisirSerie(3, 130, 5);
-  ok('[G] 130 se propage à plat sur la suivante, pas 135 — et par-dessus le plan',
-    (await fantomes())[4] === '130', JSON.stringify(await fantomes()));
+  const zoneDC = Moteur.zoneParCle(consigneDC.consigne.zone);
+  const prevu4 = Number(String(attendus[4]).replace(',', '.'));
+  const attendu4 = zoneDC && 5 >= zoneDC.bas && prevu4 < 130 ? '130' : attendus[4];
+  ok('[G] 130 à plat sur la suivante, jamais 135 — l’élan s’il tient, sinon le plan (68A)',
+    (await fantomes())[4] === attendu4, JSON.stringify(await fantomes()) + ' vs ' + attendu4 +
+      ' (zone ' + (zoneDC && zoneDC.cle) + ')');
 
   await terminer();
 
@@ -6117,7 +6139,7 @@ const SETS_IMPORTES = [
       JSON.stringify(await fantomesCR()) === JSON.stringify(PLAN), JSON.stringify(await fantomesCR()));
     // 68A — l'objectif du jour (un test sur la dernière série).
     ok('[H] et l’en-tête dit la consigne — l’objectif du jour',
-      sansInsecables(await enteteExo()) === sansInsecables(objectifDuJour(cTerre.consigne, 1).concat([cTerre.libelles.gris])),
+      sansInsecables(await enteteExo()) === sansInsecables(enteteAttendu(cTerre, PLAN.length).concat([cTerre.libelles.gris])),
       JSON.stringify(await enteteExo()).replace(/\u00a0/g, '·'));
 
     // ── Profil → Entretenir → retour par l'onglet Saisie ───────────────────

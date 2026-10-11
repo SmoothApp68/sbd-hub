@@ -96,8 +96,10 @@ describe('49-U1 — le cas du 26/09/2026, rejoué sur le plan', () => {
   test('DISCRIMINANT — routine à 3 : l’en-tête décrit les 3 séries de la grille (I6)', () => {
     const sim = simulateur('terre', cons, 3);
     const x = sim.exo();
-    expect(x.entete.jaune.map(esp)).toEqual(['130 kg × 4 sur les 2 dernières séries',
-      '125 kg × 5 sur celle d\'avant']);
+    // ECRAN §3.12 (68A) — l'objectif du jour ; le « Donc » de la feuille garde
+    // ses phrases (avant 68A, l'en-tête disait les mêmes).
+    expect(x.entete.jaune.map(esp)).toEqual(['Aujourd\'hui : 125 kg × 5.',
+      'Si ça passe, 130 kg × 4 sur 2 séries, celles que tu veux.']);
     expect(esp(x.donc)).toBe('Donc 130 kg × 4 sur les 2 dernières séries, 125 kg × 5 sur celle d\'avant.');
     expect(x.lignes.map((l) => l.role + ':' + l.charge + '×' + l.vise)).toEqual(['ligne:125×5', 'test:130×4', 'test:130×4']);
     // I26 (49-U19) se rapporte à part (`ecartsPhrases`) : ici, I1 à I25.
@@ -300,7 +302,9 @@ describe('49-U1 — plans générés : les invariants tiennent après chaque ges
     const echecs = [];
     // 49-U2 — I11 n'éprouve rien si aucun plan ne porte les deux sources : on
     // compte les fantômes « dernière série » et les retours au plan qui suivent.
-    const sources = { plan: 0, derniere: 0, retours: 0 };
+    // 68A — le fantôme n'a plus qu'une source, le plan ; les gestes « lourd »
+    // et « léger » portent l'élan et « plus léger » (MOTEUR §9.14 bis).
+    const sources = { plan: 0, derniere: 0, elan: 0, plusLeger: 0 };
     // 49-U4 — I10 n'éprouve rien sans constats : on compte ceux qui disent une
     // montée tenue (K-V11, la séance menée par le coach, est parti en 49-U10). La partie « suite »
     // d'I10 (b) se RAPPORTE, elle ne fait pas échouer ce test (décision de
@@ -316,7 +320,6 @@ describe('49-U1 — plans générés : les invariants tiennent après chaque ges
       FORMES.forEach((forme) => {
         SUITES.forEach((suite, iSuite) => {
           const sim = simulateur('x', obj, forme.n, forme.types, suiteDe);
-          let avant = [];
           const verifier = (quand) => {
             plans++;
             const v0 = sim.verifier();
@@ -343,12 +346,13 @@ describe('49-U1 — plans générés : les invariants tiennent après chaque ges
               if (/^reprise/.test(xU5.consigne.etat)) u5.reprise++;
             });
             const ls = sim.exo().lignes || [];
-            ls.forEach((l, i) => {
+            ls.forEach((l) => {
+              if (l.role === 'elan') sources.elan++;
               if (!l.fantome) return;
-              sources[l.fantome.source]++;
-              if (l.fantome.source === 'plan' && avant[i] === 'derniere') sources.retours++;
+              sources[l.fantome.source] = (sources[l.fantome.source] || 0) + 1;
             });
-            avant = ls.map((l) => (l.fantome ? l.fantome.source : null));
+            const mU = sim.exo().message;
+            if (mU && mU.type === 'plus_leger') sources.plusLeger++;
             if (!v.ok) echecs.push(id + ' · ' + forme.n + (forme.types ? 'W' : '') + ' · suite ' + iSuite + ' · ' + quand + ' : ' + v.erreurs[0]);
           };
           verifier('ouverture');
@@ -375,8 +379,9 @@ describe('49-U1 — plans générés : les invariants tiennent après chaque ges
     });
     expect(echecs.slice(0, 5)).toEqual([]);
     expect(plans).toBeGreaterThan(3000);
-    expect(sources.derniere).toBeGreaterThan(100);
-    expect(sources.retours).toBeGreaterThan(10);
+    expect(sources.derniere).toBe(0);
+    expect(sources.elan).toBeGreaterThan(50);
+    expect(sources.plusLeger).toBeGreaterThan(10);
     expect(constats.tous).toBeGreaterThan(100);
     expect(constats.montee).toBeGreaterThan(10);
     expect(u5.avantTest).toBeGreaterThan(10);

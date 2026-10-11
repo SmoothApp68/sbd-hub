@@ -1574,6 +1574,15 @@
     return a !== null && b !== null && auCentieme(a) === auCentieme(b);
   }
 
+  // §9.14 bis (68A) — « la suite » d'un message : la ligne suivante telle que
+  // la grille la montre (une ligne du coach ou d'élan : sa charge et la
+  // fourchette de la zone).
+  function suiteDe(p) {
+    if (!p) return null;
+    return { charge: p.charge === undefined ? null : p.charge, vise: p.vise === undefined ? null : p.vise,
+             fourchette: p.source === 'coach' || p.source === 'elan' };
+  }
+
   // `planInitial` (49-C) : le plan de la séance en cours (`planDeCouverture`).
   // Absent, c'est le plan de la consigne seule, sur ses `n` séries — la forme
   // que rejoue le fichier de cas de 49-R1, qui ne change pas.
@@ -1615,7 +1624,39 @@
       var p = plan[idx];
       return !!p && !p.figee && p.source === 'consigne' && roleInitial[idx] === 'haut';
     };
-    var clos = false;        // une montée, ou un refus : plus rien dans ce bloc
+    // §9.14 bis (68A) — UNE LIGNE DE TEST se lit sur la ligne elle-même quand
+    // elle porte son rôle (le plan de la séance, une ligne figée), sinon sur
+    // la disposition de la consigne seule.
+    var estTest = function (l, idx) {
+      if (!l || l.source !== 'consigne') return false;
+      return l.role !== undefined && l.role !== null ? l.role === 'haut' : roleInitial[idx] === 'haut';
+    };
+    // §9.14 bis (68A) — LA LIGNE DU PLAN QU'UNE LIGNE D'ÉLAN REMPLACE : celle
+    // du plan initial à ce rang. Une ligne d'élan FIGÉE (la série a été faite
+    // sous l'élan) ne garde pas la sienne : on la relit comme la couverture
+    // l'a posée à sa validation — un test si tous les rangs restants, ce
+    // rang compris, étaient des tests (les tests figés avant elle déduits).
+    var initial = plan.map(function (p) { return p ? Object.assign({}, p) : p; });
+    var kTests = c.haut ? (nombre(c.haut.k) || 0) : 0;
+    var lignePlanDe = function (idx) {
+      var p0 = initial[idx];
+      if (!p0 || !p0.figee || p0.source !== 'elan') return p0 ? Object.assign({}, p0) : p0;
+      var testsAvant = 0;
+      for (var t0 = 0; t0 < idx; t0++) {
+        if (initial[t0] && initial[t0].figee && roleInitial[t0] === 'haut') testsAvant++;
+      }
+      var test = !!c.haut && kTests - testsAvant >= n - idx;
+      var src0 = test ? c.haut : c.ligne;
+      var l0 = ligneDePlan(nombre(src0.charge), nombre(src0.vise), null, 'consigne');
+      l0.role = test ? 'haut' : 'ligne';
+      return l0;
+    };
+    var clos = false;        // une montée, ou un refus : plus de proposition dans ce bloc
+    // §9.14 bis (68A, N14) — UN REFUS : plus rien du tout jusqu'au bout du bloc,
+    // ni élan ni « plus léger ». Une montée, elle, ne ferme que les propositions.
+    var refus = false;
+    // « Une fois par exercice » (N18) : retenu même quand rien n'est dit.
+    var legerDit = false, pasEncoreDit = false, effortDit = false;
     var attente = null;
     var revision = 0;
     var message = null;
@@ -1637,7 +1678,7 @@
           ? charge !== null && charge > P && !memeCharge(charge, P)
           : charge !== null && (charge > propose || memeCharge(charge, propose));
         clos = true;
-        if (!prise) continue;          // refus : le coach se tait jusqu'au bout du bloc
+        if (!prise) { refus = true; continue; }   // refus : le coach se tait jusqu'au bout du bloc
 
         if (comptees !== null && comptees >= z.bas) {
           // TENUE. La charge montée reste pour la suite, visée au bas de la
@@ -1690,11 +1731,98 @@
         }
         continue;
       }
-      if (clos) continue;
+      if (refus) continue;
+      // Une autre ligne du coach (la montée tenue l'a posée) ne se commente
+      // pas : §9.14 la régit, et elle ferme les propositions.
+      if (plan[i].source === 'coach') { clos = true; continue; }
+
+      // ── §9.14 bis (68A) — QUAND LA SÉRIE S'ÉCARTE DE SA LIGNE ──────────────
+      // La série se compare à la charge de SA ligne dans le plan courant.
+      var lig = plan[i];
+      // L'élan dure tant que tu suis (N15) : une série plus légère qu'une ligne
+      // d'élan le termine. Les lignes d'élan suivantes non figées reviennent à
+      // la ligne du plan qu'elles remplaçaient (un test redevient un test), et
+      // la série se compare à celle qu'elle remplaçait.
+      if (lig.source === 'elan' && charge !== null && nombre(lig.charge) !== null &&
+          charge < nombre(lig.charge) && !memeCharge(charge, lig.charge)) {
+        for (var e = i + 1; e < n; e++) {
+          if (plan[e].figee || plan[e].source !== 'elan') continue;
+          plan[e] = lignePlanDe(e);
+        }
+        lig = lignePlanDe(i);
+      }
+      var prevue = lig.charge === undefined ? null : nombre(lig.charge);
+      if (charge !== null && prevue !== null && charge > prevue && !memeCharge(charge, prevue)) {
+        // PLUS LOURDE QUE SA LIGNE, de son propre chef : une montée.
+        clos = true;
+        if (comptees !== null && comptees >= z.bas) {
+          // ÇA TIENT : l'élan. Les lignes suivantes non figées plus légères
+          // passent à cette charge (tests compris, jamais une ligne du coach),
+          // fourchette de la zone, pari au bas. Lourd : une ligne d'élan dans
+          // tout l'exercice, au plus (le garde-fou du §9.7).
+          var nbElan = plan.filter(function (q) { return !!q && q.source === 'elan'; }).length;
+          var changees = 0, retour = null;
+          for (var j2 = i + 1; j2 < n; j2++) {
+            var q2 = plan[j2];
+            if (q2.figee || q2.source === 'coach') continue;
+            var c2 = nombre(q2.charge);
+            if (c2 !== null && (c2 > charge || memeCharge(c2, charge))) continue;
+            if (z.cle === 'lourd' && nbElan >= 1) break;
+            // La charge qu'avait la ligne JUSTE AVANT cette série (N17).
+            if (retour === null) retour = c2;
+            plan[j2] = ligneDePlan(charge, z.bas, bornes.slice(), 'elan');
+            nbElan++;
+            changees++;
+          }
+          // Aucune ligne changée (la suite est déjà plus lourde) : silence
+          // (N13) — un libellé ne contredit jamais son chiffre.
+          if (changees > 0) {
+            revision += 1;
+            if (!derniere) {
+              var effortNote = (s.rpe !== null && s.rpe !== undefined) ||
+                (s.ressenti !== null && s.ressenti !== undefined);
+              if (reps === z.bas && !effortNote && !effortDit) {
+                message = { type: 'effort_suggere', rang: i + 1, charge: charge, reps: reps,
+                            palier: P, retour: retour };
+                effortDit = true;
+              } else {
+                var toutes = true;
+                for (var t4 = i + 1; t4 < n; t4++) {
+                  if (!memeCharge(nombre(plan[t4].charge), charge)) { toutes = false; break; }
+                }
+                message = { type: 'elan', rang: i + 1, charge: charge, reps: reps,
+                            series: changees, toutes: toutes };
+              }
+            }
+          }
+        } else {
+          // ÇA NE TIENT PAS : le plan ne change pas. « Pas encore », une fois.
+          if (!derniere && !pasEncoreDit) {
+            message = { type: 'pas_encore_soi', rang: i + 1, charge: charge, reps: reps, palier: P,
+                        a_fond: reps !== null && reps >= z.bas, suite: suiteDe(plan[i + 1]) };
+          }
+          pasEncoreDit = true;
+        }
+        continue;
+      }
+      // PLUS LÉGÈRE QUE SA LIGNE : le plan ne change pas ; une phrase, une
+      // fois. SAUF une série à la charge de travail sur une ligne de test :
+      // c'est le test remis à plus tard, qui suit la règle d'aujourd'hui
+      // (§9.14 : le test qui suit, la proposition, ou rien — N16).
+      var testRemis = estTest(lig, i) && memeCharge(charge, P);
+      if (charge !== null && prevue !== null && charge < prevue && !memeCharge(charge, prevue) && !testRemis) {
+        if (!legerDit && !derniere) {
+          message = { type: 'plus_leger', rang: i + 1, charge: charge, reps: reps, prevue: prevue,
+                      suite: suiteDe(plan[i + 1]) };
+        }
+        legerDit = true;
+        continue;
+      }
 
       // Toute montée clôt les propositions (P1). Un test prévu suit la
-      // consigne ; une montée de son propre chef est un choix : silence.
+      // consigne.
       if (charge !== null && charge > P && !memeCharge(charge, P)) { clos = true; continue; }
+      if (clos) continue;
 
       // Une série au palier, sur une ligne encore celle de la consigne, qui
       // n'est pas la dernière : 3 reps comptées de plus que visé, on propose.
@@ -1899,9 +2027,14 @@
   // proposée), les suivantes la révision 2 (passées à la charge montée). La
   // consigne et le retour au palier gardent la révision 0 : leur pari est
   // celui de l'ouverture.
+  //
+  // §9.14 bis (68A) — UNE LIGNE D'ÉLAN EST UNE RÉVISION : la révision 2, comme
+  // les lignes passées à une charge montée. Elle ne compte pas pour la
+  // première ligne du coach.
   function revisionsDuPlan(plan) {
     var vu = false;
     return (plan || []).map(function (p) {
+      if (p && p.source === 'elan') return 2;
       if (!p || p.source !== 'coach') return 0;
       if (!vu) { vu = true; return 1; }
       return 2;
@@ -1965,6 +2098,7 @@
       }];
     }
     if (z === null) return [];
+    if (p.source === 'elan') return [pariDElan(r, liste, j, p, z, fondement, rev, o)];
     var iDecl = rev === 1 ? j - 1 : revs.indexOf(1);
     var d = liste[iDecl] || {};
     var comptees = Palier().repsComptees(d);
@@ -1991,6 +2125,44 @@
       borne_haute: z.haut,
       fondement: fondement
     }];
+  }
+
+  // §9.14 bis (68A) — LE PARI D'UNE LIGNE D'ÉLAN : celui d'une ligne du coach
+  // (au bas de la zone, les bornes de la zone), son rôle et sa source `elan`.
+  // Son déclencheur est la série plus lourde qui l'a posée : la dernière série
+  // faite à sa charge qui n'était pas déjà sur une ligne d'élan à cette charge
+  // (une série qui SUIT l'élan ne le déclenche pas).
+  function pariDElan(r, liste, j, p, z, fondement, rev, o) {
+    var iDecl = -1;
+    for (var d = Math.min(liste.length, j) - 1; d >= 0; d--) {
+      if (!memeCharge(nombre((liste[d] || {}).charge_kg), nombre(p.charge))) continue;
+      if (iDecl < 0) iDecl = d;
+      var l = r.plan[d];
+      if (!(l && l.source === 'elan' && memeCharge(nombre(l.charge), nombre(p.charge)))) { iDecl = d; break; }
+    }
+    var dc = liste[iDecl] || {};
+    var comptees = Palier().repsComptees(dc);
+    var viseDecl = r.plan[iDecl] ? nombre(r.plan[iDecl].vise) : null;
+    fondement.revision = rev;
+    fondement.declencheur = {
+      rang: iDecl < 0 ? null
+        : (Array.isArray(o.rangs) && o.rangs[iDecl] !== undefined ? o.rangs[iDecl] : iDecl + 1),
+      charge: nombre(dc.charge_kg), reps: nombre(dc.reps),
+      comptees: comptees,
+      marge: comptees === null || viseDecl === null ? null : comptees - viseDecl
+    };
+    fondement.charges = [p.charge];
+    fondement.source = 'elan';
+    fondement.role = 'elan';
+    return {
+      module: MODULE_CONSIGNE,
+      exercise_slug: o.slug === undefined ? null : o.slug,
+      grandeur: 'reps',
+      valeur_predite: z.bas,
+      borne_basse: z.bas,
+      borne_haute: z.haut,
+      fondement: fondement
+    };
   }
 
   // §20 — LES PHRASES DE LA RÉACTION. Un fait, jamais un « bravo ».
@@ -2039,9 +2211,49 @@
       }
       case 'pas_encore':
         return fait + DEUX_POINTS + 'pas encore. On revient à ' + enKg(m.palier, cite(CIBLE, { role: 'retour' })) + '.';
+      // §9.14 bis (68A) — QUAND LA SÉRIE S'ÉCARTE DE SA LIGNE.
+      case 'elan': {
+        var a = fait + ', au-dessus de ta charge de travail' + DEUX_POINTS;
+        var cE = cite(CIBLE, { role: 'elan' });
+        if (m.toutes) return a + 'la suite reste à ' + enKg(m.charge, cE) + '.';
+        if (m.series === 1) return a + 'une série de plus à ' + enKg(m.charge, cE) + '.';
+        return a + nombreFr(m.series, regle('reaction.series')) + ' séries de plus à ' + enKg(m.charge, cE) + '.';
+      }
+      case 'effort_suggere':
+        return fait + ', pile au bas de ta fourchette. Si c\'était à fond, note-le' + DEUX_POINTS +
+          (m.retour === null || m.retour === undefined
+            ? 'on revient au cran au-dessus' : 'on revient à ' + enKg(m.retour, regle('reaction.retour'))) +
+          ' pour la série suivante. Sinon, on garde ' + enKg(m.charge, cite(CIBLE, { role: 'elan' })) + '.';
+      case 'pas_encore_soi':
+        return m.a_fond
+          ? fait + ' à fond' + DEUX_POINTS + 'la suite reste ' + laSuite(m.suite, z) + '.'
+          : fait + DEUX_POINTS + 'pas encore. La suite reste ' + laSuite(m.suite, z) + '.';
+      case 'plus_leger': {
+        var cF = cite(FAIT, { quoi: 'du_jour' });
+        return fait + ', plus léger que prévu. La suite reste ' + laSuite(m.suite, z) + INSECABLE + '; tape ' +
+          enKg(m.charge, cF) + ' si tu restes à ' + enKg(m.charge, cF) + ' aujourd\'hui.';
+      }
       default:
         return null;
     }
+  }
+
+  // « à 79 kg × 12 » pour une ligne, « à 84 kg, vise 10 à 12 » pour une ligne
+  // du coach ou d'élan — la ligne suivante comme la grille la montre.
+  function laSuite(s, z) {
+    var l = s || {};
+    var cS = cite(CIBLE, { role: 'suite' });
+    var pre = l.charge === null || l.charge === undefined ? 'au ' : 'à ';
+    if (l.fourchette && z) {
+      return pre + Modele().charge(l.charge, 'cran au-dessus', cS) + ', vise ' +
+        nombreFr(z.bas, regle('zone.bas')) + ' à ' + nombreFr(z.haut, regle('zone.haut'));
+    }
+    // Sans chiffre (68A, décision 7) : « au cran au-dessus, vise 11 ».
+    if (l.charge === null || l.charge === undefined) {
+      return pre + Modele().charge(null, 'cran au-dessus', cS) + ', vise ' +
+        nombreFr(l.vise, cite(CIBLE, { role: 'suite', champ: 'reps' }));
+    }
+    return pre + Modele().chargeFois(l.charge, l.vise, 'cran au-dessus', cS);
   }
 
   // « à 130 kg », ou « au cran au-dessus » quand la machine ne donne pas de
@@ -2107,9 +2319,11 @@
   // bis : une zone changée en pleine séance change le compteur et le repli).
   // 10 depuis 55-1 (une séance sans heure de fin finit 3 h au plus après son
   // début — MOTEUR §12.2 bis, G2 : une zone changée entre deux séances ne
-  // compte plus pour la précédente).
+  // compte plus pour la précédente). 11 depuis 68A (l'élan : une série plus
+  // lourde que sa ligne, qui tient, porte la suite à sa charge — MOTEUR §9.14
+  // bis : un pari d'élan, au bas de la zone, sur une ligne qui en avait un autre).
   var MODULE_CONSIGNE = 'moteur.consigne';
-  var VERSION_CONSIGNE = 10;
+  var VERSION_CONSIGNE = 11;
 
   // ⚠️ LU TARDIVEMENT, SANS REPLI, comme `THPalier`. `modele.js` charge avant
   // `moteur.js` (index.html 325 puis 329), mais un repli « si THModele manque,
@@ -2732,7 +2946,10 @@
   // l'ordre de la séance — `{ role, charge, vise, nombre }` — et c'est sur
   // elle que `verifierPlan` contrôle que l'en-tête dit exactement les lignes
   // (I6). Les phrases ne lisent qu'elle.
-  function enteteDeDisposition(c, roles) {
+  // `pourLaFeuille` (68A) : la forme du « Donc » de la feuille « Pourquoi »,
+  // qui garde les phrases de `lignesJaunes` — l'objectif du jour
+  // (« Aujourd'hui… Si ça passe… ») est la phrase de l'en-tête seul.
+  function enteteDeDisposition(c, roles, pourLaFeuille) {
     if (!c || c.etat === 'silence') return { jaune: [], segments: [] };
     var liste = (roles || []).map(function (r) { return r === 'haut' ? 'haut' : 'ligne'; });
     var segments = [];
@@ -2760,6 +2977,20 @@
     var b = segments[segments.length - 1].role === 'haut' ? segments[segments.length - 1].nombre : 0;
     var habituelle = segments.length === 1 || (segments.length === 2 && a > 0 && b > 0);
     if (habituelle && (a === 0 || c.ligne) && (b === 0 || c.haut)) {
+      // ECRAN-SAISIE §3.12 (68A, delta G6) — L'OBJECTIF DU JOUR : des lignes
+      // à la charge de travail puis des tests se disent en deux phrases.
+      // « Aujourd'hui : 79 kg × 12. Si ça passe, 81,3 kg × 11, à la série que
+      // tu veux. » Jamais « une fois » : l'élan (MOTEUR §9.14 bis) garde la
+      // suite à la charge du test dès qu'il passe. Les segments ne changent
+      // pas (I6), ni `lignesJaunes` (la feuille « Pourquoi », la suite).
+      if (!pourLaFeuille && a > 0 && b > 0 && c.etat !== 'reprise_longue' && c.etat !== 'nouvelle_zone') {
+        return { jaune: [
+          'Aujourd\'hui' + DEUX_POINTS + ligneFois(c.ligne.charge, c.ligne.vise, false, false,
+            cite(CIBLE, { role: 'ligne' })) + '.',
+          'Si ça passe, ' + ligneFois(c.haut.charge, c.haut.vise, false, false, cite(CIBLE, { role: 'haut' })) +
+            (b === 1 ? ', à la série que tu veux' : ' sur ' + nombreFr(b, regle('series')) + ' séries, celles que tu veux') + '.'
+        ], segments: segments };
+      }
       var forme = Object.assign({}, c, {
         n: a + b,
         ligne: a > 0 ? c.ligne : null,

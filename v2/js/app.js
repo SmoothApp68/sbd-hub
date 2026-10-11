@@ -2667,7 +2667,9 @@
     // enregistrerait le bas de la zone, et le pari serait jugé exact d'office.
     // On ne valide pas, on met le curseur dans les reps, et on le dit — sans
     // alarme ni rouge.
-    if (ligneDuPlan && ligneDuPlan.proposee && (serie.reps === null || serie.reps === undefined)) {
+    // MOTEUR §9.14 bis (68A) — la ligne d'élan non plus : ses reps se tapent.
+    if (ligneDuPlan && (ligneDuPlan.proposee || ligneDuPlan.role === 'elan') &&
+        (serie.reps === null || serie.reps === undefined)) {
       Rendu.demanderReps($('blocs-seance'), iExo, iSerie);
       return;
     }
@@ -3229,7 +3231,7 @@
   var rejeuSortie = null;     // le dernier texte rendu
   try { rejeuDemande = Rejeu ? Rejeu.demande(racine.location, garde.active) : null; } catch (e) { rejeuDemande = null; }
 
-  var ROLE_DU_PARI_REJEU = { ligne: 'ligne', test: 'haut', coach: 'coach', retour: 'retour' };
+  var ROLE_DU_PARI_REJEU = { ligne: 'ligne', test: 'haut', coach: 'coach', retour: 'retour', elan: 'elan' };
 
   async function rejouerSeance(id) {
     var ligne = (local.seances || []).filter(function (s) { return s && s.id === id; })[0] || null;
@@ -4955,8 +4957,15 @@
       sortie.proposee = true;
       sortie.fourchette = p.zone ? p.zone.slice() : null;
     }
+    // MOTEUR §9.14 bis (68A) — UNE LIGNE D'ÉLAN S'AFFICHE COMME UNE LIGNE DU
+    // COACH : sa charge, la fourchette, les reps à taper. `proposee` reste au
+    // coach (une proposition se prend ou se refuse ; l'élan, non).
+    if (p && p.source === 'elan' && !Seance.partEnBase(serie)) {
+      sortie.elan = true;
+      sortie.fourchette = p.zone ? p.zone.slice() : null;
+    }
     if (ajoutee) sortie.ajoutee = true;
-    return sortie.message || sortie.proposee || sortie.ajoutee ? sortie : null;
+    return sortie.message || sortie.proposee || sortie.elan || sortie.ajoutee ? sortie : null;
   }
 
   // 58-1 — les records de la séance EN COURS (l'historique d'un exercice, la

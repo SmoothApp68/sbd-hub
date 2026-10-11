@@ -341,16 +341,18 @@ describe('la cascade du fantôme : saisie > plan > dernière séance > cible', (
     expect(f(s, 1, PLAN)).toMatchObject({ charge_kg: 70, reps: 5 });
   });
 
-  test('DISCRIMINANT — une série FAITE qui dévie passe devant le plan, charge ET reps ; tapée seule, rien', () => {
+  test('DISCRIMINANT — une série FAITE qui dévie ne se recopie plus (68A) : le plan reste ; tapée seule, rien', () => {
     let s = ouverte(W(2).concat(T(3)));
     // 49-U2 — tapée sans être validée, 127,5 ne change le fantôme de personne.
     // Avant : elle propageait sa CHARGE sur les lignes suivantes, reps du plan.
     s = Seance.modifierSerie(s, 0, 2, { charge_kg: 127.5 });
     expect(fantomesDuPlan(s, GARDE).slice(3).map(X)).toEqual(['125×5 plan', '130×4 plan']);
-    // Validée à 127,5 × 5 : elle dévie de sa ligne (125), les suivantes la
-    // recopient, charge et reps ensemble.
+    // Validée à 127,5 × 5 : plus lourde que sa ligne (125), et elle tient —
+    // l'élan (MOTEUR §9.14 bis, 68A). En Lourd, une seule ligne passe à 127,5,
+    // ses reps à taper ; le test à 130, plus lourd, reste. Avant 68A : les
+    // deux lignes recopiaient 127,5 × 5.
     s = faire(s, 2, 127.5, 5);
-    expect(fantomesDuPlan(s, GARDE).slice(3).map(X)).toEqual(['127.5×5 derniere', '127.5×5 derniere']);
+    expect(fantomesDuPlan(s, GARDE).slice(3).map(X)).toEqual(['127.5×null plan', '130×4 plan']);
   });
 
   test('une ligne du plan sans chiffre (« le cran au-dessus ») : charge vide, reps du plan', () => {
@@ -411,17 +413,21 @@ describe('la déviation se juge contre ce que la ligne proposait (§7 unvicies)'
     expect(Seance.derniereSaisie(s.exercices[0], 2, 'charge_kg', PREC(), PLAN)).toBeNull();
   });
 
-  test('DISCRIMINANT — refaire la dernière séance là où le plan dit autre chose EST une déviation', () => {
+  // 68A — la déviation ne se recopie plus : le plan reste affiché, et la
+  // phrase du coach s'adapte (« plus léger que prévu »). Avant : 122,5 × 5.
+  test('DISCRIMINANT — refaire la dernière séance là où le plan dit autre chose : le plan reste, la phrase le dit', () => {
     let s = ouverte(T(3));
     s = faire(s, 0, 122.5, 5);  // = la dernière séance, ≠ le plan
-    expect(X(fantomesDuPlan(s, GARDE)[2])).toBe('122.5×5 derniere');
+    expect(X(fantomesDuPlan(s, GARDE)[2])).toBe('130×4 plan');
+    expect(X(fantomesDuPlan(s, GARDE)[1])).toBe('125×5 plan');
   });
 
-  test('une autre charge faite se recopie, charge ET reps (49-U2 : plus la charge seule)', () => {
+  // 68A — avant : 127,5 × 4 recopié sur les deux lignes. Plus lourde que sa
+  // ligne, et elle tient (4 ≥ 3) : l'élan, une ligne en Lourd, reps à taper.
+  test('une autre charge faite, plus lourde et tenue : l’élan, pas la recopie', () => {
     let s = ouverte(T(3));
     s = faire(s, 0, 127.5, 4);
-    // Avant : 127,5 et les reps du plan (5, puis 4) — deux sources par ligne.
-    expect(fantomesDuPlan(s, GARDE).slice(1).map(X)).toEqual(['127.5×4 derniere', '127.5×4 derniere']);
+    expect(fantomesDuPlan(s, GARDE).slice(1).map(X)).toEqual(['127.5×null plan', '130×4 plan']);
   });
 
   test('sans plan, la référence est la dernière séance — la règle du chantier 46', () => {
@@ -445,8 +451,9 @@ describe('la déviation se juge contre ce que la ligne proposait (§7 unvicies)'
     expect(X(fantomesDuPlan(s, c)[2])).toBe('null×5 plan');
     let t = ouverte(T(3));
     t = faire(t, 0, 120, 5);
-    t = faire(t, 1, 120, 5);          // le test refait au palier : pas suivi
-    expect(X(fantomesDuPlan(t, c)[2])).toBe('120×5 derniere');
+    t = faire(t, 1, 120, 5);          // le test refait au palier : remis à plus tard
+    // 68A — avant : 120 × 5 recopié. Le fantôme est la ligne, le test.
+    expect(X(fantomesDuPlan(t, c)[2])).toBe('null×5 plan');
   });
 
   test('la déviation d’une chauffe ne regarde pas le plan (il ne couvre pas les chauffes)', () => {

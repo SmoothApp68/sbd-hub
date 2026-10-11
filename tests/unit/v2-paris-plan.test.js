@@ -39,6 +39,15 @@ const FANTOME = require('./fixtures/cas-49u2-fantome.json');
 const CHANGES_U5 = { F026: 1, F027: 1, F028: 1, F029: 1, F030: 1, F031: 1, F032: 1, F033: 1, F034: 1, F035: 1,
   F038: 1, F039: 1, F044: 1, F045: 1, R028: 1, R029: 1, R030: 1, R031: 1, R032: 1, R033: 1, R034: 1, R055: 1 };
 
+// ⚠️ 68A (MOTEUR §9.14 bis, 11/10/2026) — L'ÉLAN. Une série plus lourde que sa
+// ligne, qui tient, porte la suite à sa charge : ces lignes-là parient comme une
+// ligne du coach (`role: 'elan'`, au bas de la zone). Les cas annoncés qui en
+// portent (F012, F013, F023, F042, F043 parmi les 25 du fichier régénéré, et
+// R002) sortent de la référence — et SEULS leurs paris d'élan diffèrent : le
+// test plus bas le vérifie, série par série.
+const CHANGES_68A = { F012: 1, F013: 1, F023: 1, F042: 1, F043: 1, R002: 1 };
+const sort = (id) => CHANGES_U5[id] || CHANGES_68A[id];
+
 const consigneDuCas = (k) => ({ etat: k.etat, zone: k.zone === null ? null : k.zone.nom,
   palier: k.palier, n: k.n, ligne: k.ligne, haut: k.haut });
 const OPTIONS = { slug: 'x', seance: 'S', reglage: 'normal' };
@@ -78,7 +87,7 @@ describe('49-U3 — le pari du plan est, champ par champ, celui que l’app écr
 
   REF.reaction.forEach((ref, i) => {
     const c = REACTION.reaction[i];
-    if (CHANGES_U5[ref.id]) return;
+    if (sort(ref.id)) return;
     test('réaction ' + ref.id, () => {
       expect(c.id).toBe(ref.id);
       const vu = parisDuPlan(c.consigne, c.contexte, c.faites.length, c.faites);
@@ -88,7 +97,7 @@ describe('49-U3 — le pari du plan est, champ par champ, celui que l’app écr
 
   REF.fantome.forEach((ref, i) => {
     const c = FANTOME.cas[i];
-    if (CHANGES_U5[ref.id]) return;
+    if (sort(ref.id)) return;
     test('fantôme ' + ref.id, () => {
       expect(c.id).toBe(ref.id);
       const vu = parisDuPlan(c.consigne, c.contexte, c.series, c.faites);
@@ -99,7 +108,7 @@ describe('49-U3 — le pari du plan est, champ par champ, celui que l’app écr
   // ⚠️ DISCRIMINANT — la liste des cas sortis de la référence n'est pas une
   // tolérance : EXACTEMENT ces cas-là diffèrent de ce que l'app écrivait, pas
   // un de plus, pas un de moins.
-  test('49-U5 — exactement les cas du delta 49-13 diffèrent de la référence', () => {
+  test('49-U5 et 68A — exactement les cas du delta 49-13 et ceux de l’élan diffèrent de la référence', () => {
     const differe = [];
     const diff = (ref, vu) => ref.validations.some((v, t) => JSON.stringify(vu[t]) !== JSON.stringify(v.paris));
     REF.reaction.forEach((ref, i) => {
@@ -110,7 +119,34 @@ describe('49-U3 — le pari du plan est, champ par champ, celui que l’app écr
       const c = FANTOME.cas[i];
       if (diff(ref, parisDuPlan(c.consigne, c.contexte, c.series, c.faites))) differe.push(ref.id);
     });
-    expect(differe.sort()).toEqual(Object.keys(CHANGES_U5).sort());
+    expect(differe.sort()).toEqual(Object.keys(CHANGES_U5).concat(Object.keys(CHANGES_68A)).sort());
+  });
+
+  // 68A — dans les cas de l'élan, une validation diffère de la référence si et
+  // seulement si son pari est un pari d'élan ; tous les autres, à la virgule.
+  test('68A — dans les cas de l’élan, seuls les paris d’élan diffèrent', () => {
+    let elans = 0;
+    const verifier = (ref, vu) => ref.validations.forEach((v, t) => {
+      const elan = !!(vu[t] && vu[t][0] && vu[t][0].fondement.role === 'elan');
+      if (elan) {
+        elans++;
+        expect(vu[t][0]).toMatchObject({ grandeur: 'reps', fondement: { role: 'elan', source: 'elan', revision: 2 } });
+        expect(vu[t][0].valeur_predite).toBe(vu[t][0].borne_basse);
+      } else {
+        expect({ id: ref.id, serie: t, paris: vu[t] }).toEqual({ id: ref.id, serie: t, paris: v.paris });
+      }
+    });
+    REF.reaction.forEach((ref, i) => {
+      if (!CHANGES_68A[ref.id]) return;
+      const c = REACTION.reaction[i];
+      verifier(ref, parisDuPlan(c.consigne, c.contexte, c.faites.length, c.faites));
+    });
+    REF.fantome.forEach((ref, i) => {
+      if (!CHANGES_68A[ref.id]) return;
+      const c = FANTOME.cas[i];
+      verifier(ref, parisDuPlan(c.consigne, c.contexte, c.series, c.faites));
+    });
+    expect(elans).toBeGreaterThan(5);
   });
 });
 

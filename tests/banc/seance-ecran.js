@@ -332,6 +332,19 @@ const CATALOGUE = [
 // s'écrit à la main : c'est la configuration discriminante du chantier, et la
 // cacher derrière une aide la rendrait invisible.
 let grainePr = 0;
+// ECRAN-SAISIE §3.12 (68A) — L'OBJECTIF DU JOUR : une consigne à des lignes
+// puis `b` tests se dit « Aujourd'hui : 125 kg × 5. » puis « Si ça passe,
+// 130 kg × 4, à la série que tu veux. » (b = 1) ou « … sur 2 séries, celles que
+// tu veux. ». Écrit ici à la main, depuis la consigne : le banc ne rappelle pas
+// la fonction qui rédige l'en-tête. Espaces ordinaires (comparer après `nb`).
+const objectifDuJour = (c, b) => {
+  const kg = (v) => String(v).replace('.', ',') + ' kg';
+  return ['Aujourd\'hui : ' + kg(c.ligne.charge) + ' × ' + c.ligne.vise + '.',
+    'Si ça passe, ' + kg(c.haut.charge) + ' × ' + c.haut.vise +
+      (b === 1 ? ', à la série que tu veux' : ' sur ' + b + ' séries, celles que tu veux') + '.'];
+};
+const sansInsecables = (x) => JSON.stringify(x).replace(/\u00a0/g, ' ');
+
 const progr = (n, reps) => {
   const lignes = [];
   for (let i = 0; i < n; i++) {
@@ -5408,8 +5421,9 @@ const SETS_IMPORTES = [
     JSON.stringify(await fantomes()) + ' vs ' + JSON.stringify(attendus));
   const entete = await page.evaluate(() =>
     Array.from(document.querySelectorAll('.legende-exo .consigne, .legende-exo .consigne-dit')).map((e) => e.textContent));
-  ok('[G] l’en-tête dit la consigne en jaune, puis sa phrase grise',
-    JSON.stringify(entete) === JSON.stringify(consigneDC.libelles.jaune.concat([consigneDC.libelles.gris])),
+  // 68A — l'en-tête dit l'objectif du jour (deux tests sur les trois séries).
+  ok('[G] l’en-tête dit la consigne en jaune — l’objectif du jour —, puis sa phrase grise',
+    sansInsecables(entete) === sansInsecables(objectifDuJour(consigneDC.consigne, 2).concat([consigneDC.libelles.gris])),
     JSON.stringify(entete).replace(/\u00a0/g, '·'));
 
   // ① LE DÉFAUT DU DEVICE : taper une chauffe qui DÉVIE (25 au lieu de 20).
@@ -6101,8 +6115,9 @@ const SETS_IMPORTES = [
     await demarrerRoutine('Terre');
     ok('[H] Progresser, routine à 8 reps visées : les fantômes disent LE PLAN, charge et reps',
       JSON.stringify(await fantomesCR()) === JSON.stringify(PLAN), JSON.stringify(await fantomesCR()));
-    ok('[H] et l’en-tête dit la consigne',
-      JSON.stringify(await enteteExo()) === JSON.stringify(cTerre.libelles.jaune.concat([cTerre.libelles.gris])),
+    // 68A — l'objectif du jour (un test sur la dernière série).
+    ok('[H] et l’en-tête dit la consigne — l’objectif du jour',
+      sansInsecables(await enteteExo()) === sansInsecables(objectifDuJour(cTerre.consigne, 1).concat([cTerre.libelles.gris])),
       JSON.stringify(await enteteExo()).replace(/\u00a0/g, '·'));
 
     // ── Profil → Entretenir → retour par l'onglet Saisie ───────────────────
@@ -6456,6 +6471,11 @@ const SETS_IMPORTES = [
     ok('[C6] AJOUTER UNE SÉRIE LE DÉFAIT AUSSI — l’exercice n’est plus fini',
       (await constat()).verdict === null && (await enTete()).length > 0,
       (await compter('.ligne-serie')) + ' ligne(s) · ' + JSON.stringify(await enTete()));
+    // 68A (décision E, 11/10/2026) — 130 tapé sur des lignes à 125 : la ligne
+    // ajoutée est une ligne d'élan, et une ligne d'élan ne se valide pas sans
+    // ses reps (comme la ligne proposée). On les tape, puis on valide.
+    await (await (await ligne(3)).$$('input'))[1].fill('4');
+    await attendre(450);
     await valider(3);
     ok('[C6] la quatrième validée : le constat revient',
       (await constat()).verdict !== null && (await enTete()).length === 0,
@@ -7430,8 +7450,9 @@ const SETS_IMPORTES = [
     await attendre(800);
     await verifierApres('ouverture');
     const entete0 = await enTeteU();
+    // 68A — l'objectif du jour : 2 tests, plus les 3 de la consigne brute.
     ok('[U] DISCRIMINANT — l’en-tête décrit les 3 séries de la grille, pas les 4 de la dernière séance',
-      nb(entete0) === nb(['130 kg × 4 sur les 2 dernières séries', '125 kg × 5 sur celle d\'avant']),
+      nb(entete0) === nb(['Aujourd\'hui : 125 kg × 5.', 'Si ça passe, 130 kg × 4 sur 2 séries, celles que tu veux.']),
       nb(entete0));
     ok('[U] la grille : la ligne, puis deux tests à 130',
       nb(await grilleU()) === nb(['125×5', '130×4', '130×4']), nb(await grilleU()));
@@ -7795,8 +7816,10 @@ const SETS_IMPORTES = [
     await attendre(700);
     await invariantsF('série 1 plus légère (45 × 7)');
     const g1 = await grilleF();
-    ok('[F] DISCRIMINANT — série 1 plus légère : les trois lignes suivantes recopient 45 × 7, charge ET reps',
-      nbF(g1.slice(1)) === nbF(['45×7', '45×7', '45×7']), nbF(g1));
+    // 68A — le fantôme est la ligne du plan : plus de recopie (avant : 45 × 7
+    // sur les trois lignes). La phrase « plus léger que prévu » le dit.
+    ok('[F] DISCRIMINANT — série 1 plus légère : les trois lignes suivantes gardent le plan, 50 × 5 puis les tests',
+      nbF(g1.slice(1)) === nbF(['50×5', '55×4', '55×4']), nbF(g1));
     await saisirSerie(1, 50, 5);
     await attendre(700);
     await invariantsF('série 2 à la charge prévue (50 × 5)');
@@ -7813,8 +7836,10 @@ const SETS_IMPORTES = [
     await attendre(900);
     await invariantsF('série 2 validée sans rien taper');
     const g3 = await grilleF();
-    ok('[F] DISCRIMINANT — valider sans taper après un écart écrit 45 × 7, pas « 45 × 5 »',
-      g3[1] === '[45]×[7]', nbF(g3));
+    // 68A — le gris s'enregistre à la validation : c'est le plan, 50 × 5
+    // (avant : 45 × 7, la série d'avant recopiée). Jamais « 45 × 5 ».
+    ok('[F] DISCRIMINANT — valider sans taper après un écart écrit le plan, 50 × 5 — jamais « 45 × 5 »',
+      g3[1] === '[50]×[5]', nbF(g3));
     await abandonner();
 
     // ── F044 : LE REFUS SUIVI D'UN TEST ─────────────────────────────────
@@ -7831,8 +7856,9 @@ const SETS_IMPORTES = [
     await attendre(900);
     await invariantsF('refus : série 2 à 50 × 6');
     const g5 = await grilleF();
-    ok('[F] DISCRIMINANT — F044 : après le refus, les tests affichent 50 × 6 — plus « 50 × 4 »',
-      nbF(g5.slice(2)) === nbF(['50×6', '50×6']), nbF(g5));
+    // 68A — les tests affichent leur ligne, 55 × 4 (avant : 50 × 6 recopié).
+    ok('[F] DISCRIMINANT — F044 : après le refus, les tests affichent leur ligne, 55 × 4 — jamais « 50 × 4 »',
+      nbF(g5.slice(2)) === nbF(['55×4', '55×4']), nbF(g5));
     await saisirSerie(2, 55, 7);
     await attendre(900);
     await invariantsF('série 3, le test, à 55 × 7');

@@ -716,8 +716,9 @@ describe('50-1 — le contrat du poids du corps', () => {
   // 6 en 50-1 ; 7 depuis 51-3 (MOTEUR §9.20, la séance douloureuse est neutre) ;
   // 8 depuis 53-1 (MOTEUR §9.10, le report de charge au changement de zone) ;
   // 9 depuis 54-1 (MOTEUR §12.2 bis, la zone d’une séance lue à sa fin) ;
-  // 10 depuis 55-1 (MOTEUR §12.2 bis, une séance sans fin finit 3 h au plus après son début).
-  test('la version de la consigne a changé : 10 depuis (6 en 50-1)', () => {
-    expect(M.VERSION_CONSIGNE).toBe(10);
+  // 10 depuis 55-1 (MOTEUR §12.2 bis, une séance sans fin finit 3 h au plus après son début) ;
+  // 11 depuis 68A (MOTEUR §9.14 bis, l'élan).
+  test('la version de la consigne a changé : 11 depuis (6 en 50-1)', () => {
+    expect(M.VERSION_CONSIGNE).toBe(11);
   });
 });

@@ -2044,7 +2044,7 @@
   // Rend, pour chaque série : `null`, ou `{ position, rang, role, charge_kg,
   // reps, figee }` — `position` est son index dans le plan de la réaction
   // (les séries couvertes, dans l'ordre), `figee` la ligne figée ou `null`.
-  var ROLES_FIGES = { ligne: true, haut: true, coach: true, retour: true };
+  var ROLES_FIGES = { ligne: true, haut: true, coach: true, retour: true, elan: true };
 
   function couvertureSeance(series, consigne, figees) {
     var liste = series || [];
@@ -2240,8 +2240,10 @@
         ligne: {
           charge: charge,
           vise: l.valeur_predite === undefined ? null : l.valeur_predite,
-          zone: role === 'coach' ? bornes : null,
-          source: role === 'coach' ? 'coach' : (role === 'retour' ? 'retour' : 'consigne'),
+          // §9.14 bis (68A) — une ligne d'élan se fige comme une ligne du coach :
+          // sa charge, la fourchette de la zone, sa source.
+          zone: role === 'coach' || role === 'elan' ? bornes : null,
+          source: role === 'coach' || role === 'elan' || role === 'retour' ? role : 'consigne',
           charges: role === 'coach'
             ? (Array.isArray(f.charges) && f.charges.length ? f.charges.slice() : [charge]) : null,
           sourceHaut: role === 'coach' && f.source !== undefined ? f.source : null
@@ -2339,6 +2341,11 @@
         return { charge_kg: p.charge === undefined ? null : p.charge, reps: null,
                  proposee: true, fourchette: p.zone ? p.zone.slice() : null,
                  palier: palier === undefined ? null : palier };
+      }
+      // §9.14 bis (68A) — une ligne d'élan : la charge, les reps à taper.
+      if (p.source === 'elan') {
+        return { charge_kg: p.charge === undefined ? null : p.charge, reps: null,
+                 fourchette: p.zone ? p.zone.slice() : null };
       }
       return { charge_kg: p.charge === undefined ? null : p.charge,
                reps: p.vise === undefined ? null : p.vise };

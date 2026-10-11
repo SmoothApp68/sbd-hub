@@ -962,7 +962,8 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .reaction-serie{color:var(--accent);font-size:13.5px;font-weight:620;line-height:1.35;
   padding:6px 2px 4px 35px}
 .reaction-serie.tenue,.reaction-serie.haut{color:var(--texte);font-weight:560}
-.reaction-serie.pas_encore{color:var(--texte-2);font-weight:500}
+/* MOTEUR §9.14 bis (68A) — « pas encore » de son propre chef, en gris comme « pas encore ». */
+.reaction-serie.pas_encore,.reaction-serie.pas_encore_soi{color:var(--texte-2);font-weight:500}
 .reaction-serie.debut-tour{margin-top:11px}
 /* MOTEUR §9.23 (55-1) — LA MÉDAILLE (maquette-progression-v1, « La médaille »).
    Un fait, pas la voix du coach : l'or de la médaille, jamais l'accent. Sous la

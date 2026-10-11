@@ -62,7 +62,9 @@ function profilEcran(profil, options) {
     // 60-4 — le programme construit : « Zone à ménager », « Exercices écartés », « Refaire mon programme ».
     ouvrirProgrammeProfil: (quoi) => { programmesOuverts.push(quoi); },
     // 60-3b — « pris entre-temps » : l'état retenu en local par compte (`pseudoPrisSignale`, app.js).
-    pseudoPrisSignale: () => !!opt.pseudoPris
+    pseudoPrisSignale: () => !!opt.pseudoPris,
+    // 70 — la phrase en tête du Profil après un changement de mot de passe (aucune ici).
+    noteProfil: null
   };
   vm.createContext(ctx);
   vm.runInContext(extraire('jeuAllume'), ctx);

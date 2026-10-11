@@ -49,6 +49,29 @@
     }
   }
 
+  // ── 70 — LE RETOUR DE LIEN, LU AVANT LE ROUTAGE (ECRAN-PROFIL §5.6) ──────
+  //
+  // Un lien de récupération ou de confirmation ouvre l'app avec le jeton dans
+  // l'adresse (`#access_token=…`, flux implicite) — ou une erreur (`#error=…`,
+  // un lien expiré). Le SDK lit ce fragment DE FAÇON ASYNCHRONE, à son
+  // initialisation ; or, sans session enregistrée, le démarrage routait aussitôt
+  // vers /connexion et `replaceState` EFFAÇAIT le fragment avant que le SDK l'ait
+  // lu : session perdue, écran de connexion (constat du 11/10, Mélodie).
+  //
+  // Sonde SYNCHRONE et pure, sur l'adresse seule : elle ne dit que s'il faut
+  // ATTENDRE le SDK avant de choisir un écran. Sans retour de lien, `null`, et le
+  // démarrage hors ligne reste immédiat. `?code=` : le flux PKCE, si le client
+  // change un jour de flux.
+  function retourDeLien(adresse) {
+    var frag = String((adresse && adresse.hash) || '').replace(/^#/, '');
+    var req = String((adresse && adresse.search) || '').replace(/^\?/, '');
+    var f = new URLSearchParams(frag), q = new URLSearchParams(req);
+    if (f.has('error')) return { jeton: false, erreur: true };
+    if (f.has('access_token')) return { jeton: true, erreur: false };
+    if (q.has('code')) return { jeton: true, erreur: false };
+    return null;
+  }
+
   async function sessionCourante() {
     var r = await client().auth.getSession();
     return (r && r.data && r.data.session) || null;
@@ -143,8 +166,23 @@
 
   // Rejoue l'état d'authentification à chaque changement (connexion, refresh,
   // déconnexion), y compris au retour d'arrière-plan sur Android.
+  // 70 — l'ÉVÉNEMENT passe avec la session : `PASSWORD_RECOVERY` (arrivé par un
+  // lien de récupération) ouvre la feuille du mot de passe, et rien d'autre ne
+  // le dit.
   function surChangement(rappel) {
-    client().auth.onAuthStateChange(function (_evenement, session) { rappel(session || null); });
+    client().auth.onAuthStateChange(function (evenement, session) { rappel(session || null, evenement || null); });
+  }
+
+  // 70 — L'INSCRIPTION DIT TOUJOURS LA MÊME CHOSE. Avec la confirmation d'e-mail,
+  // `signUp` rend un utilisateur sans session pour une adresse neuve ; pour une
+  // adresse DÉJÀ inscrite, Supabase se tait exprès (un utilisateur masqué, ou
+  // rien) et n'envoie aucun mail. Les deux réponses ne se distinguent donc
+  // jamais ici : sans session, une seule phrase, qui dit quoi faire dans les deux
+  // cas sans révéler qui est inscrit. Avec une session, on entre : pas de phrase.
+  var PHRASE_INSCRIPTION = 'Compte créé si l\'adresse est nouvelle : confirme ton e-mail, puis connecte-toi. ' +
+    'Si tu as déjà un compte avec cette adresse, aucun mail ne part : utilise « Mot de passe oublié ? ».';
+  function phraseInscription(r) {
+    return r && r.session ? null : PHRASE_INSCRIPTION;
   }
 
   racine.THAuth = {
@@ -155,6 +193,8 @@
     reinitialiser: reinitialiser,
     changerMotDePasse: changerMotDePasse,
     deconnecter: deconnecter,
-    surChangement: surChangement
+    surChangement: surChangement,
+    retourDeLien: retourDeLien,
+    phraseInscription: phraseInscription
   };
 })(typeof self !== 'undefined' ? self : globalThis);

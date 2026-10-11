@@ -53,6 +53,8 @@ function bac(options) {
     profil: o.profil === undefined ? { id: 'u1', questionnaire_fait_le: null } : o.profil,
     seance: o.seance || null,
     voileOuvert: o.voile || null,
+    // 70 — la feuille d'un lien de récupération tient le questionnaire derrière elle (`o.recuperation`).
+    recuperation: o.recuperation || null, noteProfil: null,
     modeModifier: !!o.ranger,
     vues: { detail: Object.assign({}, vue, o.detailVisible ? { hidden: false } : {}), routine: vue, seance: vue, questionnaire: vue,
             saisie: { hidden: false } },
@@ -142,6 +144,15 @@ describe('60-2a — QUAND il s’ouvre de lui-même', () => {
   test('ni par-dessus une feuille ouverte, ni par-dessus le détail d’une séance', () => {
     expect(bac({ voile: { hidden: false } }).appel('ouvrirQuestionnaireSiDu()')).toBe(false);
     expect(bac({ detailVisible: true }).appel('ouvrirQuestionnaireSiDu()')).toBe(false);
+  });
+
+  test('70 — ni pendant la feuille d’un lien de récupération (due ou ouverte) : elle passe d’abord, et la clé reste libre', () => {
+    for (const etat of ['due', 'ouverte']) {
+      const b = bac({ recuperation: etat });
+      expect(b.appel('ouvrirQuestionnaireSiDu()')).toBe(false);
+      expect(b.stockage).toEqual({});
+    }
+    expect(bac({}).appel('ouvrirQuestionnaireSiDu()')).toBe(true);
   });
 
   test('sans compte : rien ; stockage refusé : « déjà vu » (on n’ouvre pas à chaque démarrage)', () => {
@@ -631,7 +642,8 @@ describe('60-2a — le routage d’entrée et la vue', () => {
   });
 
   test('la session perdue ferme le questionnaire et oublie l’envoi en vol ; « Rafraîchir » ne recouvre pas un questionnaire qu’il vient d’ouvrir', () => {
-    expect(APP).toMatch(/entreeFaitePour = null;\s*fermerQuestionnaire\(\); envoiProfil = null; versionProfil = 0;\s*profil = null; faits\.oublierDates\(\);\s*allerA\(Routeur\.CONNEXION/);
+    // 70 — la récupération en attente part avec la session (entre les deux, sans rien changer d'autre).
+    expect(APP).toMatch(/entreeFaitePour = null;\s*recuperation = null; renduPour = null;\s*fermerQuestionnaire\(\); envoiProfil = null; versionProfil = 0;\s*profil = null; faits\.oublierDates\(\);\s*allerA\(Routeur\.CONNEXION/);
     expect(APP).toMatch(/await chargerProfil\(\);[^}]*if \(vues\.questionnaire\.hidden\) afficherSemaine\(\);/);
   });
 

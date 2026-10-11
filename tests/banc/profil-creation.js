@@ -40,6 +40,19 @@
 //      10  hors ligne avec un pseudo LIBRE : l'envoi attend, puis se résout ;
 //      11  la vérification qui PEND (réseau connecté mais sans données) : la feuille attend, le bouton est grisé et le
 //          champ figé, puis au bout du délai « on ne sait pas » — elle se ferme et l'envoi part.
+//   [E70] (70, ECRAN-PROFIL §5.6) — L'ENTRÉE QUI MARCHE, sans session enregistrée :
+//      a  le lien de récupération → l'app entre, « Choisis ton nouveau mot de passe » est ouverte (le questionnaire
+//         attend derrière), valider appelle `updateUser` et le profil dit « Mot de passe changé. » ;
+//         (a bis) fermée sans valider, rien n'est envoyé et le questionnaire prend la suite ;
+//      b  le lien de confirmation (`type=signup`) → l'app entre ;
+//      c  le lien expiré (`#error=…&error_code=otp_expired`) → l'écran de connexion, avec la phrase ;
+//      d  sans fragment, sans session, HORS RÉSEAU → l'écran de connexion tout de suite ;
+//      e  une session enregistrée PÉRIMÉE, hors réseau → l'app tout de suite (le SDK, lui, partirait rafraîchir) ;
+//      f  l'adresse ne garde aucun fragment après l'entrée ;
+//      g  le SDK ne répond jamais : « Ouverture du lien… » tout de suite, puis à 5 s l'écran de connexion qui le dit ;
+//      h  le SDK répond à 7 s : à 5 s l'écran de connexion, puis l'app entre d'elle-même et ouvre la feuille ;
+//      et l'inscription sans session : la phrase de §5.6, « Mot de passe oublié ? » juste dessous.
+//      a, b, c, f échouent sur le code d'avant 70 (l'écran de connexion, adresse réécrite avant la lecture du jeton).
 // SEULS LES SCÉNARIOS 2 ET 4 REPRODUISENT LE 403 SUR LE CODE D'AVANT ; les contrôles du pseudo
 // (1 et 5) échouent sur le code d'avant 60-2c ; ceux de 8 à 10, sur le code d'avant 60-5.
 //
@@ -98,7 +111,9 @@ function neuveBase() {
     // (`/auth/v1/user`, le jeton rafraîchi), comme chez Supabase.
     confirmationEmail: false,
     inscriptions: [],    // { email, data, redirect_to } — ce que `signUp` a reçu
-    metadonnees: {}      // id → user_metadata
+    metadonnees: {},     // id → user_metadata
+    motsDePasse: [],     // 70 — { sub, password } : ce que `updateUser` a reçu
+    userPend: false, userDelai: 0   // 70 — la vérification du jeton d'un lien ne répond pas / répond en retard
   };
 }
 
@@ -146,7 +161,16 @@ async function contexte(nav, bd, o) {
       return json(sessionDe(qui, bd.metadonnees[qui]));
     }
     if (chemin === '/auth/v1/user' && req.method() === 'GET') {
+      // 70 — la vérification du jeton d'un lien : qui ne répond jamais (`userPend`), ou en retard (`userDelai`, ms).
+      if (bd.userPend) return new Promise(() => {});
+      if (bd.userDelai) await attendre(bd.userDelai);
       return sub ? json(utilisateur(sub, bd.metadonnees[sub])) : json({ message: 'jeton absent' }, 401);
+    }
+    // 70 — `updateUser({ password })` : le nouveau mot de passe, sous le compte du jeton.
+    if (chemin === '/auth/v1/user' && req.method() === 'PUT') {
+      if (!sub) return json({ message: 'jeton absent' }, 401);
+      bd.motsDePasse.push({ sub, password: (JSON.parse(req.postData() || '{}')).password });
+      return json(utilisateur(sub, bd.metadonnees[sub]));
     }
     if (chemin === '/auth/v1/logout') return route.fulfill({ status: 204, body: '' });
     if (chemin.indexOf('/auth/') === 0) return json({ error: 'x' }, 400);
@@ -247,8 +271,13 @@ async function inscrireSansSession(nav, bd) {
   await attendre(800);     // laisse le message s'écrire
   const message = await page.evaluate(() => document.querySelector('#erreur-connexion').textContent);
   const jeton = await page.evaluate(() => localStorage.getItem('th-v2-auth'));
+  // 70 — « Mot de passe oublié ? » visible, juste sous la phrase.
+  const oubli = await page.evaluate(() => {
+    const b = document.querySelector('#btn-oubli');
+    return { visible: !b.hidden && b.offsetParent !== null, sous: document.querySelector('#erreur-connexion').nextElementSibling === b };
+  });
   await ctx.close();       // « l'autre navigateur » : la mémoire de la page (`pseudoAInscrire`) disparaît avec elle
-  return { erreurs, message, jeton };
+  return { erreurs, message, jeton, oubli };
 }
 
 // La page NEUVE « qui s'ouvre avec la session du lien » : le stockage porte la session de B, avec les
@@ -480,7 +509,7 @@ function ok(nom, cond, detail) {
       bd.confirmationEmail = true;
       const p1 = await inscrireSansSession(nav, bd);
       ok('prémisse — `signUp` a été appelé une fois, sans session : la page dit de confirmer l’e-mail',
-        bd.inscriptions.length === 1 && /Confirme ton e-mail/.test(p1.message) && !p1.jeton, JSON.stringify([bd.inscriptions, p1.message, p1.jeton]));
+        bd.inscriptions.length === 1 && /confirme ton e-mail/.test(p1.message) && !p1.jeton, JSON.stringify([bd.inscriptions, p1.message, p1.jeton]));
       ok('DISCRIMINANT — le pseudo NORMALISÉ part dans les données du compte (`options.data.pseudo`)',
         !!bd.inscriptions[0] && JSON.stringify(bd.inscriptions[0].data) === JSON.stringify({ pseudo: PSEUDO_NORMALISE }),
         JSON.stringify(bd.inscriptions[0]));
@@ -763,6 +792,239 @@ function ok(nom, cond, detail) {
       ok('la ligne montre le pseudo, sans phrase', !!l2 && l2.val === 'melodie_b' && l2.lib.indexOf('pris') < 0, JSON.stringify(l2));
       ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
       await ctx.close();
+    }
+
+    // ══ [E70] L'ENTRÉE QUI MARCHE : LE RETOUR DE LIEN SE LIT AVANT LE ROUTAGE ═══
+    console.log('\n══ [E70] l’entrée qui marche : lien de récupération, de confirmation, expiré ; le démarrage hors ligne inchangé ══');
+    {
+      const maintenant = Math.floor(Date.now() / 1000);
+      const lien = (chemin, type) => BASE + chemin + '#access_token=' + jwt(B) + '&expires_at=' + (maintenant + 3600) +
+        '&expires_in=3600&refresh_token=r-' + B + '&token_type=bearer&type=' + type;
+      const ecran = (page) => page.evaluate(() => {
+        const vue = (id) => { const v = document.querySelector('#' + id); return !!v && !v.hidden; };
+        const f = document.querySelector('#feuille-seance');
+        const corps = document.querySelector('#profil-corps');
+        return { adresse: location.href, hash: location.hash, connexion: vue('vue-connexion'), profil: vue('vue-profil'),
+          questionnaire: vue('vue-questionnaire'),
+          authentifiee: Array.from(document.querySelectorAll('main > section, body > section, section[id^="vue-"]'))
+            .some((v) => v.id !== 'vue-connexion' && v.id !== 'vue-lien' && !v.hidden),   // l'attente du lien n'est pas l'app
+          feuille: f && !f.hidden ? (document.querySelector('#feuille-contenu').textContent || '') : null,
+          message: (document.querySelector('#erreur-connexion') || {}).textContent || '',
+          profilTexte: corps ? corps.textContent : '' };
+      });
+      const sansFragment = (e) => e.hash === '' && e.adresse.indexOf('#') < 0 && !/access_token|error=/.test(e.adresse);
+
+      // (a) le lien de récupération, page sans session enregistrée
+      console.log('   — (a) le lien de récupération');
+      {
+        const bd = neuveBase();
+        const ctx = await contexte(nav, bd, {});
+        const page = await ctx.newPage();
+        const erreurs = [];
+        page.on('pageerror', (e) => erreurs.push(String(e).slice(0, 160)));
+        await page.goto(lien('/profil', 'recovery'), { waitUntil: 'domcontentloaded' });
+        const ouverte = await attendreQue(page, async () => /Choisis ton nouveau mot de passe/.test((await ecran(page)).feuille || ''), 15000);
+        // La ligne de profil de B se crée (questionnaire jamais rempli) : il est DÛ, et il doit attendre derrière.
+        await attendreQue(page, () => !!bd.profils[B], 12000);
+        await attendre(1500);
+        const e1 = await ecran(page);
+        ok('DISCRIMINANT [E70 a] — l’app ENTRE (pas l’écran de connexion) et le jeton du lien est enregistré',
+          !e1.connexion && e1.profil && !!(await page.evaluate(() => localStorage.getItem('th-v2-auth'))), JSON.stringify(e1));
+        ok('DISCRIMINANT [E70 a] — la feuille « Choisis ton nouveau mot de passe » s’est ouverte d’elle-même, sur le Profil',
+          ouverte && /Choisis ton nouveau mot de passe/.test(e1.feuille || ''), JSON.stringify(e1.feuille));
+        ok('[E70 a] — le questionnaire dû attend derrière : la feuille du mot de passe passe d’abord',
+          !!bd.profils[B] && !bd.profils[B].questionnaire_fait_le && !e1.questionnaire && e1.feuille !== null, JSON.stringify([bd.profils[B], e1.questionnaire]));
+        ok('DISCRIMINANT [E70 f] — l’adresse ne garde aucun fragment après l’entrée', sansFragment(e1) && /\/profil$/.test(e1.adresse), e1.adresse);
+        await page.fill('#feuille-contenu input', 'nouveau-mdp-70');
+        await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu button'))
+          .filter((b) => b.textContent === 'Valider')[0].click());
+        const change = await attendreQue(page, () => bd.motsDePasse.length > 0, 8000);
+        ok('DISCRIMINANT [E70 a] — valider appelle `updateUser` avec le nouveau mot de passe, sous le compte du lien',
+          change && JSON.stringify(bd.motsDePasse) === JSON.stringify([{ sub: B, password: 'nouveau-mdp-70' }]), JSON.stringify(bd.motsDePasse));
+        const dit = await attendreQue(page, async () => /Mot de passe changé\./.test((await ecran(page)).profilTexte), 5000);
+        const e2 = await ecran(page);
+        ok('[E70 a] — validé : « Mot de passe changé. » dans le profil, la feuille est fermée',
+          dit && e2.profil && e2.feuille === null, JSON.stringify([e2.feuille, e2.profilTexte.slice(0, 80)]));
+        await attendre(1500);     // `USER_UPDATED` : l'app ré-entre et re-rend le Profil — la phrase reste
+        ok('[E70 a] — la phrase survit au re-rendu qui suit le changement', /Mot de passe changé\./.test((await ecran(page)).profilTexte));
+        // La ligne « Mot de passe » du Profil, elle, garde son titre habituel (le clic n'est pas une récupération).
+        await cliquerLigne(page, 'Mot de passe');
+        await attendre(400);
+        const e3 = await ecran(page);
+        ok('[E70 a] — la ligne « Mot de passe » ouvre la feuille titrée « Mot de passe », pas celle de la récupération',
+          /^Mot de passe/.test(e3.feuille || '') && !/Choisis/.test(e3.feuille || ''), JSON.stringify(e3.feuille));
+        ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
+        await ctx.close();
+      }
+
+      // (a bis) la même arrivée, la feuille fermée SANS valider : rien n'est changé, et le questionnaire
+      // qui attendait derrière prend la suite.
+      console.log('   — (a bis) le lien de récupération, feuille fermée sans valider');
+      {
+        const bd = neuveBase();
+        const ctx = await contexte(nav, bd, {});
+        const page = await ctx.newPage();
+        const erreurs = [];
+        page.on('pageerror', (e) => erreurs.push(String(e).slice(0, 160)));
+        await page.goto(lien('/profil', 'recovery'), { waitUntil: 'domcontentloaded' });
+        await attendreQue(page, async () => /Choisis ton nouveau mot de passe/.test((await ecran(page)).feuille || ''), 15000);
+        await attendreQue(page, () => !!bd.profils[B], 12000);
+        await attendre(1500);
+        ok('prémisse — la feuille est ouverte, le questionnaire dû attend', !(await ecran(page)).questionnaire && !!bd.profils[B]);
+        await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu button'))
+          .filter((b) => b.textContent === 'Annuler')[0].click());
+        const suit = await attendreQue(page, async () => (await ecran(page)).questionnaire, 5000);
+        const e = await ecran(page);
+        ok('[E70 a bis] — fermée sans valider : aucun mot de passe envoyé, et le questionnaire prend la suite',
+          bd.motsDePasse.length === 0 && suit && e.feuille === null, JSON.stringify([bd.motsDePasse, e.questionnaire, e.feuille]));
+        ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
+        await ctx.close();
+      }
+
+      // (b) le lien de confirmation d'inscription
+      console.log('   — (b) le lien de confirmation (`type=signup`)');
+      {
+        const bd = neuveBase();
+        const ctx = await contexte(nav, bd, {});
+        const page = await ctx.newPage();
+        const erreurs = [];
+        page.on('pageerror', (e) => erreurs.push(String(e).slice(0, 160)));
+        await page.goto(lien('/', 'signup'), { waitUntil: 'domcontentloaded' });
+        const entree = await attendreQue(page, async () => { const e = await ecran(page); return !e.connexion && e.authentifiee; }, 15000);
+        await attendreQue(page, () => !!bd.profils[B], 12000);
+        const e = await ecran(page);
+        ok('DISCRIMINANT [E70 b] — l’app ENTRE, sur le compte du lien (sa ligne de profil se crée)',
+          entree && !e.connexion && !!bd.profils[B] && bd.refus.length === 0, JSON.stringify([e, bd.requetes]));
+        ok('[E70 b] — aucune feuille du mot de passe : ce n’est pas une récupération', !/nouveau mot de passe/.test(e.feuille || ''), JSON.stringify(e.feuille));
+        ok('DISCRIMINANT [E70 f] — l’adresse ne garde aucun fragment', sansFragment(e), e.adresse);
+        ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
+        await ctx.close();
+      }
+
+      // (c) le lien expiré ou déjà servi
+      console.log('   — (c) le lien expiré');
+      {
+        const bd = neuveBase();
+        const ctx = await contexte(nav, bd, {});
+        const page = await ctx.newPage();
+        const erreurs = [];
+        page.on('pageerror', (e) => erreurs.push(String(e).slice(0, 160)));
+        await page.goto(BASE + '/profil#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired',
+          { waitUntil: 'domcontentloaded' });
+        const dit = await attendreQue(page, async () => { const e = await ecran(page); return e.connexion && !!e.message; }, 15000);
+        const e = await ecran(page);
+        ok('DISCRIMINANT [E70 c] — l’écran de connexion DIT pourquoi : la phrase de §5.6, au mot près',
+          dit && e.connexion && e.message === 'Ce lien a expiré ou a déjà servi. Redemande-en un avec « Mot de passe oublié ? ».', JSON.stringify(e.message));
+        ok('[E70 f] — l’adresse ne garde pas l’erreur', sansFragment(e) && /\/connexion$/.test(e.adresse), e.adresse);
+        ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
+        await ctx.close();
+      }
+
+      // (d) sans fragment, sans session, hors réseau : le démarrage n'attend rien
+      console.log('   — (d) sans fragment, sans session, hors réseau');
+      {
+        const bd = neuveBase();
+        bd.reseauCoupe = true;
+        const ctx = await contexte(nav, bd, {});
+        const page = await ctx.newPage();
+        await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
+        const t0 = Date.now();
+        const vu = await attendreQue(page, async () => (await ecran(page)).connexion, 8000);
+        const delai = Date.now() - t0;
+        const e = await ecran(page);
+        ok('[E70 d] — l’écran de connexion tout de suite (< 2 s), sans phrase', vu && delai < 2000 && !e.message, delai + ' ms · ' + JSON.stringify(e.message));
+        await ctx.close();
+      }
+
+      // (e) une session enregistrée PÉRIMÉE, hors réseau : l'app tout de suite, comme aujourd'hui.
+      // La configuration discriminante (CADRAGE §2 quater) : un jeton périmé fait partir le SDK en
+      // rafraîchissement réseau, qui ne répond pas — l'attendre au démarrage laisserait l'écran vide.
+      console.log('   — (e) une session enregistrée (périmée), hors réseau');
+      {
+        const bd = neuveBase();
+        bd.reseauCoupe = true;
+        const perimee = Object.assign(sessionDe(A), { expires_at: maintenant - 86400, expires_in: 3600 });
+        const ctx = await contexte(nav, bd, { stockage: perimee });
+        const page = await ctx.newPage();
+        await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
+        const t0 = Date.now();
+        const vu = await attendreQue(page, async () => { const e = await ecran(page); return !e.connexion && e.authentifiee; }, 8000);
+        const delai = Date.now() - t0;
+        ok('DISCRIMINANT [E70 e] — l’app tout de suite (< 3 s) : le démarrage sans fragment n’attend pas le SDK', vu && delai < 3000, delai + ' ms');
+        await ctx.close();
+      }
+
+      const PHRASE_NON_VERIFIE = 'Le lien n\'a pas pu être vérifié. Réessaie, ou redemande-en un avec « Mot de passe oublié ? ».';
+      const lienVu = (page) => page.evaluate(() => {
+        const v = document.querySelector('#vue-lien');
+        return !!v && !v.hidden && /Ouverture du lien…/.test(v.textContent);
+      });
+
+      // (g) le SDK ne répond jamais : l'attente se voit, puis elle s'arrête à 5 s.
+      console.log('   — (g) le lien, la vérification ne répond jamais');
+      {
+        const bd = neuveBase();
+        bd.userPend = true;
+        const ctx = await contexte(nav, bd, {});
+        const page = await ctx.newPage();
+        const erreurs = [];
+        page.on('pageerror', (e) => erreurs.push(String(e).slice(0, 160)));
+        const t0 = Date.now();
+        await page.goto(lien('/profil', 'recovery'), { waitUntil: 'domcontentloaded' });
+        const attente = await attendreQue(page, () => lienVu(page), 3000);
+        const tAttente = Date.now() - t0;
+        ok('[E70 g] — « Ouverture du lien… » s’affiche tout de suite (< 3 s), et rien d’autre',
+          attente && !(await ecran(page)).connexion, tAttente + ' ms');
+        const dit = await attendreQue(page, async () => { const e = await ecran(page); return e.connexion && !!e.message; }, 12000);
+        const delai = Date.now() - t0;
+        const e = await ecran(page);
+        ok('DISCRIMINANT [E70 g] — à 5 s sans réponse : l’écran de connexion, avec la phrase au mot près',
+          dit && delai >= 4500 && delai < 8000 && e.message === PHRASE_NON_VERIFIE && !(await lienVu(page)),
+          delai + ' ms · ' + JSON.stringify(e.message));
+        ok('[E70 g] — l’adresse est nettoyée', sansFragment(e) && /\/connexion$/.test(e.adresse), e.adresse);
+        ok('[E70 g] — aucune session inventée', !(await page.evaluate(() => localStorage.getItem('th-v2-auth'))));
+        ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
+        await ctx.close();
+      }
+
+      // (h) le SDK répond à 7 s : l'écran de connexion à 5 s, puis l'entrée tardive, d'elle-même.
+      console.log('   — (h) le lien de récupération, la vérification répond à 7 s');
+      {
+        const bd = neuveBase();
+        bd.userDelai = 7000;
+        const ctx = await contexte(nav, bd, {});
+        const page = await ctx.newPage();
+        const erreurs = [];
+        page.on('pageerror', (e) => erreurs.push(String(e).slice(0, 160)));
+        const t0 = Date.now();
+        await page.goto(lien('/profil', 'recovery'), { waitUntil: 'domcontentloaded' });
+        const dit = await attendreQue(page, async () => { const e = await ecran(page); return e.connexion && !!e.message; }, 12000);
+        const delai = Date.now() - t0;
+        const e1 = await ecran(page);
+        ok('[E70 h] — à 5 s, l’écran de connexion dit que le lien n’a pas pu être vérifié',
+          dit && delai < 6800 && e1.message === PHRASE_NON_VERIFIE, delai + ' ms · ' + JSON.stringify(e1.message));
+        const entre = await attendreQue(page, async () => /Choisis ton nouveau mot de passe/.test((await ecran(page)).feuille || ''), 15000);
+        const e2 = await ecran(page);
+        ok('DISCRIMINANT [E70 h] — le SDK répond à 7 s : l’app ENTRE d’elle-même et ouvre la feuille de récupération',
+          entre && !e2.connexion && e2.profil && !!(await page.evaluate(() => localStorage.getItem('th-v2-auth'))),
+          (Date.now() - t0) + ' ms · ' + JSON.stringify([e2.connexion, e2.profil, e2.feuille]));
+        ok('[E70 h] — l’adresse ne garde aucun fragment après l’entrée tardive', sansFragment(e2) && /\/profil$/.test(e2.adresse), e2.adresse);
+        ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
+        await ctx.close();
+      }
+
+      // L'inscription sans session : la phrase, et « Mot de passe oublié ? » juste dessous.
+      console.log('   — l’inscription sans session');
+      {
+        const bd = neuveBase();
+        bd.confirmationEmail = true;
+        const p = await inscrireSansSession(nav, bd);
+        ok('DISCRIMINANT [E70] — l’inscription dit la phrase de §5.6, au mot près',
+          p.message === 'Compte créé si l\'adresse est nouvelle : confirme ton e-mail, puis connecte-toi. ' +
+            'Si tu as déjà un compte avec cette adresse, aucun mail ne part : utilise « Mot de passe oublié ? ».', JSON.stringify(p.message));
+        ok('DISCRIMINANT [E70] — « Mot de passe oublié ? » est visible, juste sous la phrase', p.oubli.visible && p.oubli.sous, JSON.stringify(p.oubli));
+        ok('aucune erreur de page', p.erreurs.length === 0, JSON.stringify(p.erreurs));
+      }
     }
 
     // ══ 11. LA VÉRIFICATION QUI PEND : ELLE NE RETIENT PAS LA PERSONNE ═══

@@ -5160,7 +5160,16 @@
         : 'Le carnet qui ne raconte pas d’histoires.';
     }
     if (vue.pseudo) vue.pseudo.hidden = !inscription;
-    if (vue.oubli) vue.oubli.hidden = inscription;
+    // 70 — « Mot de passe oublié ? » sous la phrase de l'inscription (`oubliSous`) : c'est la seule issue d'une
+    // adresse déjà inscrite. Sinon, à sa place sous le mot de passe, et caché à l'inscription.
+    if (vue.oubli) {
+      vue.oubli.hidden = inscription && !vue.oubliSous;
+      if (vue.oubliSous && vue.message && vue.message.parentNode) {
+        vue.message.parentNode.insertBefore(vue.oubli, vue.message.nextSibling);
+      } else if (vue.bouton && vue.bouton.parentNode && vue.oubli.nextSibling !== vue.bouton) {
+        vue.bouton.parentNode.insertBefore(vue.oubli, vue.bouton);
+      }
+    }
     if (vue.aideMdp) vue.aideMdp.hidden = !inscription;
     if (vue.bouton) vue.bouton.textContent = inscription ? 'Créer mon compte' : 'Se connecter';
     if (vue.bascule) vue.bascule.textContent = inscription ? 'Se connecter' : 'Créer un compte';

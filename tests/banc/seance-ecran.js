@@ -576,6 +576,9 @@ const SETS_IMPORTES = [
     // 58-2 (v2_061, v2_062) — le journal des records, et ce que l'app y a
     // envoyé (un relevé à part : `journal` garde ses refus, qui comptent).
     records: [], ecrituresRecords: [], graineRecords: 0,
+    // 69 (v2_076) — les noms communs (`exercise_alias`, lecture seule) et les
+    // rattachements de la personne (`alias_exercice`), avec ce que l'app y a écrit.
+    aliasCommuns: [], aliasMiens: [], ecrituresAlias: [], graineAlias: 0,
     journal: [], patchs: [], reseau: true,
     // 52-1 — l'identifiant d'une routine créée par l'app (« En faire une
     // routine », « Dupliquer »).
@@ -1210,6 +1213,56 @@ const SETS_IMPORTES = [
       return json([], 201);
     }
 
+    // ⚠️ 69 (v2_076) — LES NOMS D'EXERCICES IMPORTÉS, avec les contraintes de la
+    // vraie base. `exercise_alias` : lecture seule pour tous (clé `alias`, colonne
+    // `slug`). `alias_exercice` : ses lignes (RLS), `alias_norme` GÉNÉRÉE
+    // (`translate(lower(btrim(alias)), …)` — une valeur envoyée est refusée,
+    // même juste), l'unicité (`user_id`, `alias_norme`) — un upsert sur elle
+    // FUSIONNE —, le CHECK de l'alias (non vide, 120 au plus) et la clé
+    // étrangère du slug. Sans ces branches, l'envoi tombait dans le `json([])`
+    // final et « réussissait » sans rien écrire.
+    if (table === 'exercise_alias') {
+      if (req.method() === 'GET') return json(projeter(base.aliasCommuns, url));
+      return json(refus('42501', 'exercise_alias : lecture seule'), 403);
+    }
+    const COLONNES_ALIAS = ['id', 'user_id', 'alias', 'exercise_slug', 'created_at'];
+    const normeAlias = (a) => {
+      const avec = 'àâäéèêëîïôöùûüçœ', sans = 'aaaeeeeiioouuuco';
+      return String(a).replace(/^ +| +$/g, '').toLowerCase().split('')
+        .map((c) => (avec.indexOf(c) >= 0 ? sans[avec.indexOf(c)] : c)).join('');
+    };
+    if (table === 'alias_exercice') {
+      if (req.method() === 'GET') return json(projeter(base.aliasMiens, url));
+      if (req.method() === 'POST') {
+        const prefer = req.headers()['prefer'] || '';
+        const conflit = url.searchParams.get('on_conflict');
+        const fusionner = conflit === 'user_id,alias_norme' && /resolution=merge-duplicates/.test(prefer);
+        const lignes = Array.isArray(corps) ? corps : [corps];
+        base.ecrituresAlias.push({ conflit, fusionner, lignes: lignes.map((x) => Object.assign({}, x)) });
+        for (const l of lignes) {
+          if ('alias_norme' in l) return json(refus('428C9', 'alias_norme est générée'), 400);
+          const inconnue = Object.keys(l).filter((k) => COLONNES_ALIAS.indexOf(k) < 0)[0];
+          if (inconnue) return json(refus('PGRST204', 'alias_exercice : colonne inconnue « ' + inconnue + ' »'), 400);
+          if (!l.user_id) return json(refus('23502', 'alias_exercice.user_id NOT NULL'), 400);
+          if (l.user_id !== MOI) return json(refus('42501', 'new row violates row-level security policy for table "alias_exercice"'), 400);
+          if (typeof l.alias !== 'string' || !l.alias.trim() || l.alias.length > 120) {
+            return json(refus('23514', 'alias_exercice_alias_check'), 400);
+          }
+          if (!CATALOGUE.some((e) => e.slug === l.exercise_slug)) return json(refus('23503', 'alias_exercice_exercise_slug_fkey'), 400);
+        }
+        for (const l of lignes) {
+          const n = normeAlias(l.alias);
+          const i = base.aliasMiens.findIndex((x) => x.user_id === l.user_id && x.alias_norme === n);
+          if (i >= 0 && !fusionner) return json(refus('23505', 'duplicate key value violates unique constraint "alias_exercice_unique"'), 409);
+          if (i >= 0) base.aliasMiens[i] = Object.assign({}, base.aliasMiens[i], l, { alias_norme: n });
+          else base.aliasMiens.push(Object.assign({ id: '00000000-0000-4000-8069-' + String(++base.graineAlias).padStart(12, '0'),
+            created_at: new Date().toISOString() }, l, { alias_norme: n }));
+        }
+        return json([], 201);
+      }
+      return json(refus('42501', 'alias_exercice : ' + req.method() + ' non pris en charge par le banc'), 403);
+    }
+
     if (table === 'profiles') {
       if (req.method() === 'GET') {
         const lignesProfil = projeter(base.profiles, url);
@@ -1517,6 +1570,13 @@ const SETS_IMPORTES = [
       }
       // GÉNÉRÉE : Postgres refuse toute valeur, même la bonne, même NULL.
       if ('salle_norme' in l) return json(refus('428C9', 'salle_norme est générée'), 400);
+      // 69 — `sessions_source_ref_uniq` : UNIQUE (user_id, source, source_ref) WHERE source_ref IS NOT NULL.
+      // Un import rejoué sous un AUTRE identifiant serait refusé ici (23505, définitif) — d'où les
+      // identifiants tirés du nom.
+      if (l.source_ref !== null && l.source_ref !== undefined && base.sessions.some((x) => x.id !== l.id &&
+            x.user_id === l.user_id && x.source === l.source && x.source_ref === l.source_ref)) {
+        return json(refus('23505', 'duplicate key value violates unique constraint "sessions_source_ref_uniq"'), 409);
+      }
       if (l.salle !== null && l.salle !== undefined &&
           !(String(l.salle).length >= 1 && String(l.salle).length <= 60)) {
         return json(refus('23514', 'sessions_salle_non_vide'), 400);
@@ -17661,6 +17721,273 @@ const SETS_IMPORTES = [
     ok('[C68B] aucun refus du faux serveur, aucune erreur de page',
       base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,
       nbB([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
+  }
+
+  console.log('\n══ import-hevy. IMPORTER DEPUIS HEVY : L’APERÇU, LES DÉJÀ LÀ, LE RATTACHEMENT, LA FILE, LES RECORDS (69, ECRAN-PROFIL §2.4 quater) ══');
+  //
+  // [E69] Le cas du chantier (`cas-69-import.json`), collé et donné en fichier dans l'app réelle, le téléphone à
+  // l'heure de Paris (le fuseau du cas). ⚠️ CONFIGURATION DISCRIMINANTE : une base où DEUX des cinq séances collées
+  // existent déjà (par leur référence `hevy:<id>`) — l'aperçu doit les griser et n'écrire que les trois autres ; un
+  // nom inconnu de tous (« Good Morning (Barre) ») — le bouton attend, et le rattachement vaut pour l'import suivant ;
+  // une séance plus récente que tout — ses records partent, ceux des séances du passé jamais.
+  {
+    const CAS = require(path.join(R, 'tests/unit/fixtures/cas-69-import.json'));
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const sessionsAvant = base.sessions, setsAvant = base.sets, recordsAvant = base.records;
+    const catalogueAvant = CATALOGUE.length, predictionsAvant = base.predictions.length;
+    const nbE = (x) => JSON.stringify(x).replace(/[  ]/g, ' ');
+    // Le téléphone à Paris : l'heure locale de Hevy se lit dans SON fuseau.
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Emulation.setTimezoneOverride', { timezoneId: CAS.fuseau });
+    // Les exercices du cas, au catalogue sous un AUTRE nom : c'est `exercise_alias` qui les trouve.
+    const MESURES = { tapis_roulant: 'distance_temps', randonnee: 'distance_temps', planche: 'temps', gainage_tape_epaule: 'temps' };
+    Array.from(new Set(Object.values(CAS.alias))).forEach((slug) => {
+      if (CATALOGUE.some((e) => e.slug === slug)) return;
+      CATALOGUE.push({ slug, nom: 'E69 ' + slug, mesure: MESURES[slug] || 'charge_reps',
+        charge: MESURES[slug] ? 'aucune' : 'externe', muscles_primaires: [], muscles_secondaires: [] });
+    });
+    CATALOGUE.push({ slug: 'e69-roumain', nom: 'E69 Roumain (Barre)', mesure: 'charge_reps', charge: 'externe',
+      equipement: 'barre', muscles_primaires: ['ischios'], muscles_secondaires: [] });
+    base.aliasCommuns = Object.keys(CAS.alias).map((a) => ({ alias: a, slug: CAS.alias[a], source: 'hevy', created_at: '2026-10-11T00:00:00Z' }));
+    base.aliasMiens = [];
+    // Une séance de la base, avec une série par exercice de `slugs` (le premier : `premiere`).
+    const poserE = (id, b, premiere) => {
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'E69 ' + id, debut: b.debut, fin: b.fin, statut: 'terminee',
+        note: null, salle: null, salle_norme: null, routine_id: null, source: b.source, source_ref: b.source_ref, created_at: b.debut });
+      b.slugs.forEach((slug, i) => base.sets.push(Object.assign({ id: id + '-s' + (i + 1), session_id: id, user_id: 'u-banc',
+        exercise_slug: slug, charge_kg: 40, reps: 10, duree_s: null, distance_m: null, type_serie: 'travail', rang: i + 1,
+        groupe_superset: null, validee_a: b.source === 'app' ? b.debut : null, rpe: null, ressenti: null, repos_s: null,
+        note: null, source: b.source, created_at: b.debut, modifie_a: null }, i === 0 && premiere ? premiere : {})));
+    };
+    const etat = () => page.evaluate(() => {
+      const r = document.querySelector('#import-hevy');
+      const q = (sel) => Array.from(r.querySelectorAll(sel));
+      const b = r.querySelector('.imp-importer');
+      return {
+        titre: (r.querySelector('h2') || {}).textContent || '',
+        periode: (r.querySelector('.imp-periode') || {}).textContent || '',
+        lignes: q('.imp-seance').map((x) => ({ t: x.querySelector('.imp-t').textContent, coche: x.getAttribute('aria-checked') === 'true',
+          grise: x.disabled, sous: x.querySelector('.imp-e').textContent })),
+        groupe: (r.querySelector('.imp-groupe') || {}).textContent || '',
+        noms: q('.imp-nom-t').map((x) => x.textContent),
+        bouton: b ? { libelle: b.textContent, actif: !b.disabled } : null,
+        attend: (r.querySelector('.imp-attend') || {}).textContent || '',
+        erreur: (r.querySelector('.imp-erreur') || {}).textContent || '',
+        ok: q('.imp-ok').map((x) => x.textContent)
+      };
+    });
+    // ⚠️ Hors réseau, le SDK retente trois fois une lecture (≈ 7 s) avant de rendre l'erreur : on attend plus.
+    const coller = async (texte, ms) => {
+      await page.fill('#champ-texte-hevy', texte);
+      await page.click('#import-hevy .imp-lire');
+      await jusqua(async () => /trouvée|trouvées/.test((await etat()).titre) || !!(await etat()).erreur, ms || 6000);
+    };
+    // « Soulevé de Terre (Barre) » : le CATALOGUE passe avant les noms communs — le slug est celui du catalogue du banc.
+    const slugSDT = (CATALOGUE.filter((e) => e.nom === 'Soulevé de Terre (Barre)')[0] || { slug: 'souleve_de_terre_barre' }).slug;
+    const nouvelles = (ids) => base.sessions.filter((x) => ids.indexOf(x.id) >= 0);
+    const ecrituresDeSeances = () => base.journal.filter((j) => j.op === 'session' || j.op === 'sets').length;
+    const idDImport = (ref, rang) => page.evaluate(([a, b]) => window.THMoteur.idDImport('u-banc', a, b), [ref, rang]);
+
+    // ── (a) LE TEXTE DU CAS, SUR UNE BASE OÙ 2 DES 5 SÉANCES EXISTENT ──────
+    base.sessions = [];
+    base.sets = [];
+    base.records = [];
+    const [b4X, bRR] = ['hevy:4Xt0ZOlgoUw', 'hevy:RRtslzDPxrB'].map((ref) => CAS.doublons.base.filter((x) => x.source_ref === ref)[0]);
+    poserE('e69-4x', b4X);
+    // Le soulevé de terre du 25/09 (100 × 5) : l'antécédent qui fait des 200 kg du 03/10 un record.
+    poserE('e69-rr', bRR, { exercise_slug: slugSDT, charge_kg: 100, reps: 5 });
+    // ⚠️ L'ANTÉCÉDENT QUI REND LE CONTRÔLE (f) DISCRIMINANT : un couché haltères léger le 01/09. La séance importée
+    // du 19/09 le bat (88 × 10) — elle aurait donc des records, s'ils s'écrivaient pour une séance du passé.
+    poserE('e69-ancienne', { source: 'app', source_ref: null, debut: '2026-09-01T16:00:00Z', fin: '2026-09-01T17:00:00Z',
+      slugs: ['developpe_couche_haltere'] }, { charge_kg: 20, reps: 5 });
+    await aller('/profil');
+    const ligneImport = await page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
+      .filter((l) => /Importer depuis Hevy/.test(l.textContent)).length);
+    const sections = await page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-sect'))
+      .map((x) => x.textContent.trim()));
+    ok('[E69] Profil : la ligne « Importer depuis Hevy », dans « MES DONNÉES », juste après « MES EXERCICES »',
+      ligneImport === 1 && sections.indexOf('MES DONNÉES') === sections.indexOf('MES EXERCICES') + 1,
+      nbE({ ligneImport, sections }));
+    await page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
+      .filter((l) => /Importer depuis Hevy/.test(l.textContent))[0].click());
+    await attendre(800);
+    ok('[E69] l’écran à deux choix, sous « /profil/import »',
+      (await visible())[0] === 'vue-import' && page.url().endsWith('/profil/import') &&
+      (await etat()).titre === 'Importer depuis Hevy' && (await compter('#import-hevy .imp-fichier')) === 1,
+      nbE([await visible(), page.url(), (await etat()).titre]));
+    await coller(CAS.texte.source);
+    const a1 = await etat();
+    ok('[E69] (a) l’aperçu : « 5 séances trouvées », la période, 2 « déjà là » grisées, 3 cochées, « Importer 3 séances »',
+      a1.titre === '5 séances trouvées' && a1.periode === 'Du samedi 19 au vendredi 25 septembre' &&
+      a1.lignes.filter((l) => l.grise && l.sous === 'Déjà dans l’app — laissée telle quelle').length === 2 &&
+      a1.lignes.filter((l) => l.coche && !l.grise).length === 3 &&
+      nbE(a1.bouton) === nbE({ libelle: 'Importer 3 séances', actif: true }) && !a1.noms.length,
+      nbE(a1));
+    ok('[E69] (a) une ligne : le titre, le jour et l’heure, « 7 exercices · 26 séries »',
+      a1.lignes[0].t === 'Haut du corps de fin de semaine' && a1.lignes[0].sous === '7 exercices · 26 séries',
+      nbE(a1.lignes[0]));
+    const avantImport = ecrituresDeSeances();
+    ok('[E69] (a) rien n’est écrit avant « Importer »', avantImport === ecrituresDeSeances() && base.sessions.length === 3,
+      nbE(base.sessions.map((x) => x.id)));
+    await page.click('#import-hevy .imp-importer');
+    await jusqua(async () => /importée/.test((await etat()).titre), 12000);
+    const refsA = ['hevy:1viJr6Z1doo', 'hevy:bffyMPHDGS0', 'hevy:ttyrVHSRSxG'];
+    const idsA = [];
+    for (const ref of refsA) idsA.push(await idDImport(ref));
+    const seancesA = nouvelles(idsA);
+    const casA = refsA.map((ref) => CAS.texte.seances.filter((x) => x.ref === ref)[0]);
+    ok('[E69] (a) DISCRIMINANT — 3 séances parties par la file : identifiants tirés du nom, `source hevy`, leur `source_ref`, terminées',
+      seancesA.length === 3 && base.sessions.length === 6 && seancesA.every((x) => x.source === 'hevy' && x.statut === 'terminee') &&
+      nbE(idsA.map((id) => (seancesA.filter((x) => x.id === id)[0] || {}).source_ref)) === nbE(refsA),
+      nbE(base.sessions.map((x) => [x.id, x.source, x.source_ref, x.statut])));
+    ok('[E69] (a) le début envoyé est l’heure UNIVERSELLE (l’heure locale de Hevy lue à Paris)',
+      nbE(idsA.map((id) => (seancesA.filter((x) => x.id === id)[0] || {}).debut)) === nbE(casA.map((x) => x.debut)),
+      nbE(seancesA.map((x) => [x.source_ref, x.debut])));
+    const seriesA = base.sets.filter((x) => idsA.indexOf(x.session_id) >= 0);
+    const attenduesA = casA.reduce((n, c) => n + c.exercices.reduce((k, e) => k + e.series.length, 0), 0);
+    const rangsOk = idsA.every((id) => nbE(seriesA.filter((x) => x.session_id === id).map((x) => x.rang).sort((p, q) => p - q)) ===
+      nbE(Array.from({ length: seriesA.filter((x) => x.session_id === id).length }, (_, i) => i + 1)));
+    ok('[E69] (a) leurs séries : toutes là, `source hevy`, `validee_a` vide, rangs 1…n',
+      seriesA.length === attenduesA && seriesA.every((x) => x.source === 'hevy' && x.validee_a === null) && rangsOk,
+      nbE({ n: seriesA.length, attendues: attenduesA, rangsOk }));
+    const premiereA = await idDImport('hevy:1viJr6Z1doo', 1);
+    ok('[E69] (a) la série 1 de la première séance porte l’identifiant tiré du nom (`import|personne|ref|1`)',
+      seriesA.some((x) => x.id === premiereA && x.rang === 1 && x.session_id === idsA[0]), premiereA);
+    const finA = await etat();
+    ok('[E69] (a) la fin : « 3 séances importées. », « 2 étaient déjà dans l’app. Elles comptent dès maintenant pour ton coach et ta progression. »',
+      finA.titre === '3 séances importées.' &&
+      nbE(finA.ok) === nbE(['2 étaient déjà dans l’app. Elles comptent dès maintenant pour ton coach et ta progression.']),
+      nbE(finA));
+    ok('[E69] (f) DISCRIMINANT — des séances du PASSÉ (avant le 25/09, la dernière déjà là) : aucun record au journal',
+      !base.records.some((x) => idsA.indexOf(x.session_id) >= 0), nbE(base.records.map((x) => [x.session_id, x.type])));
+    ok('[E69] aucun pari du coach pour une séance importée', base.predictions.length === predictionsAvant &&
+      !base.predictions.some((x) => x.fondement && idsA.indexOf(x.fondement.seance) >= 0), base.predictions.length);
+
+    // ── (b) RECOMMENCER : 5 « DÉJÀ LÀ », RIEN NE PART ─────────────────────
+    await aller('/profil/import');
+    await coller(CAS.texte.source);
+    const b1 = await etat();
+    const avantB = ecrituresDeSeances();
+    await page.click('#import-hevy .imp-importer').catch(() => {});
+    await attendre(1200);
+    ok('[E69] (b) recommencer : 5 « déjà là », le bouton ne peut rien importer, rien ne part',
+      b1.lignes.length === 5 && b1.lignes.every((l) => l.grise) && !!b1.bouton && b1.bouton.actif === false &&
+      ecrituresDeSeances() === avantB && base.sessions.length === 6,
+      nbE({ b1, ecritures: ecrituresDeSeances() - avantB }));
+
+    // ── (c) UN NOM INCONNU : LE BOUTON ATTEND ; RATTACHÉ, IL VAUT POUR LA SUITE ─
+    const FUTUR = 'Jambes E69\nLe samedi, oct. 3, 2026 à 6:00pm\n\nGood Morning (Barre)\nSérie 1: 60 kg x 8\nSérie 2: 60 kg x 8\n' +
+      'Soulevé de Terre (Barre)\nSérie 1: 200 kg x 1\n@hevyapp\nhttps://hevy.com/workout/e69Futur\n';
+    await aller('/profil/import');
+    await coller(FUTUR);
+    const c1 = await etat();
+    ok('[E69] (c) « Good Morning (Barre) » n’est pas deviné : « 1 exercice à rattacher », le bouton attend, et le dit',
+      c1.groupe === '1 exercice à rattacher' && nbE(c1.noms) === nbE(['Good Morning (Barre)']) && !!c1.bouton &&
+      c1.bouton.actif === false && c1.attend === 'Le bouton attend que chaque exercice soit rattaché ou laissé de côté.',
+      nbE(c1));
+    await page.click('#import-hevy .imp-lien');
+    await attendre(600);
+    const feuille = await page.evaluate(() => ({ ouvert: !document.querySelector('#catalogue').hidden,
+      titre: document.querySelector('#titre-catalogue').textContent, titreVu: !document.querySelector('#titre-catalogue').hidden,
+      recherche: document.querySelector('#champ-recherche-exo').value, pied: !document.querySelector('#pied-rattacher').hidden,
+      aide: document.querySelector('#pied-rattacher .aide-rattacher').textContent,
+      ne: document.querySelector('#btn-ne-pas-importer').textContent }));
+    ok('[E69] (c) le catalogue en mode « rattacher » : son titre, la recherche pré-remplie, « Ne pas importer cet exercice », « Je m’en souviendrai… »',
+      feuille.ouvert && feuille.titreVu && feuille.titre === '« Good Morning (Barre) » chez Hevy, c’est…' &&
+      feuille.recherche === 'good morning' && feuille.pied && feuille.ne === 'Ne pas importer cet exercice' &&
+      feuille.aide === 'Je m’en souviendrai pour tes prochains imports.', nbE(feuille));
+    await page.fill('#champ-recherche-exo', 'E69 Roumain');
+    await attendre(400);
+    await page.evaluate(() => Array.from(document.querySelectorAll('#resultats-exo .resultat'))
+      .filter((b) => b.firstChild.textContent === 'E69 Roumain (Barre)')[0].click());
+    await jusqua(async () => base.aliasMiens.length === 1, 5000);
+    const c2 = await etat();
+    ok('[E69] (c) rattaché : la ligne `alias_exercice` part par la file (upsert sur user_id, alias_norme), le bouton s’ouvre',
+      base.aliasMiens.length === 1 && base.aliasMiens[0].alias === 'Good Morning (Barre)' &&
+      base.aliasMiens[0].exercise_slug === 'e69-roumain' && base.aliasMiens[0].alias_norme === 'good morning (barre)' &&
+      base.ecrituresAlias.every((e) => e.fusionner) && !c2.noms.length && nbE(c2.bouton) === nbE({ libelle: 'Importer 1 séance', actif: true }) &&
+      (await page.evaluate(() => document.querySelector('#catalogue').hidden)),
+      nbE({ alias: base.aliasMiens, ecritures: base.ecrituresAlias, c2 }));
+    // Un second import du même nom : résolu sans question (la ligne est relue en base).
+    await aller('/profil/import');
+    await coller(FUTUR);
+    const c3 = await etat();
+    ok('[E69] (c) un second import du même nom : résolu sans question',
+      !c3.noms.length && !c3.groupe && nbE(c3.bouton) === nbE({ libelle: 'Importer 1 séance', actif: true }), nbE(c3));
+
+    // ── (f) UNE SÉANCE PLUS RÉCENTE QUE TOUT : SES RECORDS PARTENT ────────
+    await page.click('#import-hevy .imp-importer');
+    await jusqua(async () => /importée/.test((await etat()).titre), 12000);
+    const idF = await idDImport('hevy:e69Futur');
+    await jusqua(async () => base.records.some((x) => x.session_id === idF), 8000);
+    const seriesF = base.sets.filter((x) => x.session_id === idF);
+    ok('[E69] (c) la séance part avec l’exercice rattaché (2 séries) et le soulevé de terre',
+      nbE(seriesF.map((x) => [x.exercise_slug, x.rang]).sort()) === nbE([['e69-roumain', 1], ['e69-roumain', 2], [slugSDT, 3]].sort()),
+      nbE(seriesF.map((x) => [x.exercise_slug, x.rang])));
+    ok('[E69] (f) DISCRIMINANT — plus récente que tout : ses records partent au journal (les 200 kg du soulevé de terre)',
+      base.records.some((x) => x.session_id === idF && x.exercise_slug === slugSDT),
+      nbE(base.records.map((x) => [x.session_id === idF, x.exercise_slug, x.type])));
+
+    // ── (d) LE CSV DU CAS : LES VERDICTS ATTENDUS ─────────────────────────
+    base.sessions = [];
+    base.sets = [];
+    base.records = [];
+    CAS.doublons.base.forEach((b, i) => poserE('e69-b' + i, b));
+    await aller('/profil/import');
+    await page.setInputFiles('#fichier-hevy', { name: 'workouts.csv', mimeType: 'text/csv', buffer: Buffer.from(CAS.csv.source, 'utf8') });
+    await jusqua(async () => /trouvées/.test((await etat()).titre), 6000);
+    const d1 = await etat();
+    const attenduD = CAS.csv.seances.map((x) => CAS.doublons.attendu[x.ref]);
+    const lu = d1.lignes.map((l) => (l.grise ? 'deja_la' : /sans doute la même\.$/.test(l.sous) ? 'meme_seance' : 'nouvelle'));
+    ok('[E69] (d) le CSV : « 7 séances trouvées » et les verdicts du cas, dans l’ordre du fichier',
+      d1.titre === '7 séances trouvées' && nbE(lu) === nbE(attenduD), nbE({ lu, attenduD, d1 }));
+    ok('[E69] (d) « sans doute la même » est DÉCOCHÉE (et cochable), une nouvelle est cochée',
+      d1.lignes.every((l, i) => (attenduD[i] === 'meme_seance' ? !l.coche && !l.grise : attenduD[i] === 'nouvelle' ? l.coche : true)),
+      nbE(d1.lignes));
+    const iMeme = attenduD.indexOf('meme_seance');
+    ok('[E69] (d) « Une séance de l’app commence à 11 h 01 ce jour-là : sans doute la même. »',
+      d1.lignes[iMeme].sous === 'Une séance de l’app commence à 11 h 01 ce jour-là : sans doute la même.', nbE(d1.lignes[iMeme]));
+    await page.evaluate((i) => document.querySelectorAll('#import-hevy .imp-seance')[i].click(), iMeme);
+    await attendre(300);
+    ok('[E69] (d) cochée à la main, elle compte : « Importer 4 séances »',
+      (await etat()).lignes[iMeme].coche && nbE((await etat()).bouton) === nbE({ libelle: 'Importer 4 séances', actif: true }),
+      nbE((await etat()).bouton));
+
+    // ── (e) HORS RÉSEAU : « L’import demande une connexion. », RIEN NE PART ─
+    await aller('/profil/import');
+    const avantE = ecrituresDeSeances(), aliasE = base.ecrituresAlias.length;
+    base.reseau = false;
+    await coller(CAS.texte.source, 20000);
+    const e1 = await etat();
+    base.reseau = true;
+    ok('[E69] (e) hors réseau : « L’import demande une connexion. », aucun aperçu, rien ne part',
+      e1.erreur === 'L’import demande une connexion.' && e1.titre === 'Importer depuis Hevy' &&
+      ecrituresDeSeances() === avantE && base.ecrituresAlias.length === aliasE, nbE(e1));
+    // Un texte qui n'est pas de Hevy.
+    await page.fill('#champ-texte-hevy', 'Bonjour\nceci n’est pas une séance');
+    await page.click('#import-hevy .imp-lire');
+    await attendre(400);
+    ok('[E69] un texte qui n’est pas de Hevy : « Je ne reconnais pas ce texte. Copie-le depuis Hevy : une séance → Partager → Copier. »',
+      (await etat()).erreur === 'Je ne reconnais pas ce texte. Copie-le depuis Hevy : une séance → Partager → Copier.', nbE(await etat()));
+    await page.setInputFiles('#fichier-hevy', { name: 'pesees.csv', mimeType: 'text/csv', buffer: Buffer.from('date,poids\n2026-01-01,80\n', 'utf8') });
+    await jusqua(async () => !!(await etat()).erreur && /fichier/.test((await etat()).erreur), 3000);
+    ok('[E69] un fichier qui n’est pas un export de séances : « Ce fichier n’est pas un export de séances Hevy. »',
+      (await etat()).erreur === 'Ce fichier n’est pas un export de séances Hevy.', nbE(await etat()));
+
+    // LA REMISE EN ÉTAT, pour les sections suivantes.
+    await cdp.send('Emulation.setTimezoneOverride', { timezoneId: '' }).catch(() => {});
+    await cdp.detach().catch(() => {});
+    CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
+    base.sessions = sessionsAvant;
+    base.sets = setsAvant;
+    base.records = recordsAvant;
+    base.aliasCommuns = [];
+    base.aliasMiens = [];
+    await aller('/saisie');
+    ok('[E69] aucun refus du faux serveur, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,
+      nbE([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
   }
 
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');

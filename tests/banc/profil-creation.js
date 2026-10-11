@@ -807,7 +807,7 @@ function ok(nom, cond, detail) {
         return { adresse: location.href, hash: location.hash, connexion: vue('vue-connexion'), profil: vue('vue-profil'),
           questionnaire: vue('vue-questionnaire'),
           authentifiee: Array.from(document.querySelectorAll('main > section, body > section, section[id^="vue-"]'))
-            .some((v) => v.id !== 'vue-connexion' && !v.hidden),
+            .some((v) => v.id !== 'vue-connexion' && v.id !== 'vue-lien' && !v.hidden),   // l'attente du lien n'est pas l'app
           feuille: f && !f.hidden ? (document.querySelector('#feuille-contenu').textContent || '') : null,
           message: (document.querySelector('#erreur-connexion') || {}).textContent || '',
           profilTexte: corps ? corps.textContent : '' };

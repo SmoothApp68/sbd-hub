@@ -365,7 +365,7 @@ function extraire(n) {
   if (!m) throw new Error('introuvable dans v2/js/app.js : ' + n);
   return m[0];
 }
-const FONCTIONS = ['freresDe', 'brouillonDeStructure', 'creerRoutineNeuve', 'creerDansUnDossier', 'ouvrirBibliothequeSur',
+const FONCTIONS = ['freresDe', 'cousinsDe', 'brouillonDeStructure', 'creerRoutineNeuve', 'creerDansUnDossier', 'ouvrirBibliothequeSur',
   'rangSuivantBibliotheque', 'nomsReserves', 'messageVerdict',
   'entreeDuProgramme', 'aUnHistorique', 'cibleDuProgrammeConstruit', 'structureDuProgramme', 'assemblerLeProgramme',
   'basculerChangement', 'ligneDeRetouche', 'deduiteDuProgramme', 'fondreLesVoisins', 'raccourcirLeProgramme', 'lectureDuProgramme',

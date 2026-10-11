@@ -260,7 +260,7 @@ describe('60-1 — le branchement dans app.js', () => {
       vues
     };
     vm.createContext(ctx);
-    ['horsDuMateriel', 'freresDe', 'blocsPourPlusTard', 'vueMachinePrise'].forEach((n) => vm.runInContext(extraire(n), ctx));
+    ['horsDuMateriel', 'freresDe', 'cousinsDe', 'blocsPourPlusTard', 'vueMachinePrise'].forEach((n) => vm.runInContext(extraire(n), ctx));
     ctx.blocs = [{ exercices: [{ slug: 'base', nom: 'Presse à cuisses', series: [] }] }];
     return ctx;
   }

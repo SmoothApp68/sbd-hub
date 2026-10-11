@@ -194,11 +194,14 @@
   // ⚠️ `habilete` DEPUIS 66C (v2_071, QUESTIONNAIRE §5 quater.3) — MÊME PIÈGE : omise, elle vaudrait `undefined`, et
   // le générateur ne saurait plus qu'un muscle-up ne s'ajoute jamais. Une ligne sans la colonne (cache d'avant v2_071,
   // faux serveur) se lit `false` : le générateur lit `!fiche.habilete`.
+  // ⚠️ `schema_mouvement` DEPUIS 67A (v2_074, MOTEUR §13.6 bis) — MÊME PIÈGE : omise, elle vaudrait `undefined`, et
+  // « Même famille » disparaîtrait de « Remplacer » sans une erreur. Une ligne sans la colonne (cache d'avant v2_074,
+  // faux serveur) se lit sans famille : `Modele.cousinsDe` rend `[]`.
   function tousLesExercices() {
     return paginerParCle(trancheur(function () {
       return client().from('exercises')
         .select('slug, nom, mesure, charge, parent, equipement, muscles_primaires, muscles_secondaires, ' +
-                'muscles_stabilisateurs, mouvement, habilete');
+                'muscles_stabilisateurs, mouvement, habilete, schema_mouvement');
     }, 'slug'), 'slug');
   }
 

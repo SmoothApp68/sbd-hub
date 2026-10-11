@@ -714,6 +714,24 @@
     }).sort();
   }
 
+  // MOTEUR §13.6 bis (67A) — LA MÊME FAMILLE d'un exercice : les exercices de même `schema_mouvement` (pousser à
+  // l'horizontale, tirer vers le bas, s'accroupir… ; les isolations par muscle), sans l'exercice lui-même ni un de
+  // ses frères (`freresDe`). La seule lecture de `schema_mouvement` (registre NOTIONS) ; elle ne sert QU'À la feuille
+  // « Remplacer » — jamais à un calcul, qui lit les frères. Une habileté n'a jamais de famille et n'en fait jamais
+  // partie (la colonne la laisse à NULL ; la règle le garde aussi ici). Sans famille (NULL, colonne absente) : `[]`.
+  // Triés par slug : l'ordre de présentation vient d'ailleurs (`Seance.exercicesProposes`).
+  function cousinsDe(index, slug) {
+    var e = index && index[slug];
+    var f = e && !e.habilete && typeof e.schema_mouvement === 'string' && e.schema_mouvement ? e.schema_mouvement : null;
+    if (f === null) return [];
+    var freres = {};
+    freresDe(index, slug).forEach(function (s) { freres[s] = true; });
+    return Object.keys(index).filter(function (s) {
+      var x = index[s];
+      return s !== slug && !freres[s] && x && !x.habilete && x.schema_mouvement === f;
+    }).sort();
+  }
+
   // MOTEUR §9.17 (50-1) — LA VERSION LESTÉE d'un exercice libre : l'exercice du
   // catalogue dont `parent` EST lui et dont la charge est ajoutée
   // (`charge = ajoutee` : `tractions_leste` pour `tractions`). C'est un AUTRE
@@ -1958,6 +1976,7 @@
     indexerExercices: indexerExercices,
     nommer: nommer,
     freresDe: freresDe,
+    cousinsDe: cousinsDe,
     lesteDe: lesteDe,
     parentDe: parentDe,
     construireBlocs: construireBlocs,

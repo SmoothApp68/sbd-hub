@@ -139,7 +139,7 @@ function extraire(nom) {
   return m[0];
 }
 const FONCTIONS = ['ouvrirFeuilleExoRoutine', 'ouvrirRemplacerDansLEditeur', 'remplacerDansLEditeur', 'renumeroterBrouillon',
-  'freresDe', 'neVeutPasDansLEditeur', 'annoncerDansLEditeur', 'faitsDesFreres', 'horsDuMateriel', 'nomExoBrouillon', 'rendreCatalogue', 'ouvrirCatalogue', 'indiceOuNul'];
+  'freresDe', 'cousinsDe', 'neVeutPasDansLEditeur', 'annoncerDansLEditeur', 'faitsDesFreres', 'horsDuMateriel', 'nomExoBrouillon', 'rendreCatalogue', 'ouvrirCatalogue', 'indiceOuNul'];
 
 const CATALOGUE = [
   { slug: 'dc-barre', nom: 'Développé couché (barre)', mesure: 'charge_reps', mouvement: 'developpe_couche', equipement: 'barre' },

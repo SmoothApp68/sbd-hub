@@ -1,0 +1,5005 @@
+{
+"source": "tests/unit/fixtures/comparaison71.py (random.Random(71), uuid4, volumes uniformes de 1 000 à 50 000 kg au dixième)",
+"cas": [
+{
+"id": "cc73abe9-9eba-409f-822a-87dc52e17fd9",
+"kg": 1415.5,
+"objet": "un morse"
+},
+{
+"id": "c1b49f1b-d278-4adc-a7a0-04fdfb9c9161",
+"kg": 49952.0,
+"objet": "un cachalot mâle"
+},
+{
+"id": "8321aa14-3311-4035-9634-dd0d436aecf3",
+"kg": 3682.2,
+"objet": "un éléphant de mer"
+},
+{
+"id": "d002817e-0631-491d-8137-8455319d0859",
+"kg": 34895.2,
+"objet": "une baleine grise"
+},
+{
+"id": "75055a82-d0c8-45d3-ae57-32255d9c8760",
+"kg": 38272.9,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "097063b0-2ab3-42b6-a588-a0e6596d51c3",
+"kg": 18036.1,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "954e493e-a5f8-4f24-a373-ae7f07c16ca9",
+"kg": 10299.7,
+"objet": "un tricératops"
+},
+{
+"id": "d4eba76e-e36e-435a-9240-314f2613595a",
+"kg": 22414.9,
+"objet": "un camion chargé"
+},
+{
+"id": "ea6e2747-faf3-453e-98ed-f451f230bcf1",
+"kg": 33534.3,
+"objet": "une toupie à béton chargée"
+},
+{
+"id": "27ee3e03-25d0-474c-9aa1-1bd13fee0609",
+"kg": 13082.9,
+"objet": "un cachalot femelle"
+},
+{
+"id": "5ad04668-8305-4b9d-9f73-ad44bc93b5c5",
+"kg": 15597.2,
+"objet": "la cloche de Big Ben"
+},
+{
+"id": "3557a982-59e0-49a4-8052-bd3d04765a11",
+"kg": 20244.7,
+"objet": "un camion chargé"
+},
+{
+"id": "1923cd4e-3fde-49bb-98fa-305011bf572a",
+"kg": 15477.2,
+"objet": "un cachalot femelle"
+},
+{
+"id": "c56aee44-7e70-40a1-ba44-b3fe6a7dbded",
+"kg": 28715.9,
+"objet": "une toupie à béton chargée"
+},
+{
+"id": "f4a0febd-4b80-4f7c-9bb4-b971d97bd35f",
+"kg": 5649.6,
+"objet": "un mammouth laineux"
+},
+{
+"id": "291f0e2b-374c-476d-9f1a-03cc4d9c0f25",
+"kg": 29206.0,
+"objet": "une baleine à bosse"
+},
+{
+"id": "42a5d42b-5231-40e8-8bce-423779eb4e87",
+"kg": 5644.1,
+"objet": "un orque"
+},
+{
+"id": "c3f04dac-9fbd-4257-bfe3-336bc0438008",
+"kg": 31538.0,
+"objet": "un VBCI"
+},
+{
+"id": "064f2390-dadb-4c0f-bf11-c015b3f3d8f3",
+"kg": 2719.1,
+"objet": "un éléphant de forêt"
+},
+{
+"id": "53762db0-78c1-4601-b8a4-88eb3053025c",
+"kg": 35346.7,
+"objet": "une baleine à bosse"
+},
+{
+"id": "dde827bf-814d-4d60-9174-7d0c8112b404",
+"kg": 16055.9,
+"objet": "un requin-baleine"
+},
+{
+"id": "24660157-dfbc-4c11-851c-35aa3e68b602",
+"kg": 49157.8,
+"objet": "un cachalot mâle"
+},
+{
+"id": "3d103f5b-77aa-42ed-89ab-dbb07fed55d0",
+"kg": 7292.8,
+"objet": "un Mirage 2000 à vide"
+},
+{
+"id": "fe7a90f8-3635-4d74-976d-241299e93a2e",
+"kg": 31651.6,
+"objet": "une baleine à bosse"
+},
+{
+"id": "6cdf1b11-779f-4610-926f-4fb5474b7505",
+"kg": 43396.8,
+"objet": "un cachalot mâle"
+},
+{
+"id": "b84246d7-88ef-420f-a03d-b47e4fcf4f78",
+"kg": 16613.0,
+"objet": "un requin-baleine"
+},
+{
+"id": "e5895585-de06-46fc-8ce9-788f7c4f9da5",
+"kg": 25128.9,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "374fc464-6869-45b1-9922-00b5f6f179e0",
+"kg": 23249.3,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "fe37a894-8047-4b77-9151-d13ba51d5b35",
+"kg": 33925.3,
+"objet": "une baleine à bosse"
+},
+{
+"id": "0cda8db8-0379-4ac6-af40-d9ee4a62bc72",
+"kg": 21704.8,
+"objet": "un camion chargé"
+},
+{
+"id": "5770bc2b-3f86-4af2-92b3-89ad107ad360",
+"kg": 30297.0,
+"objet": "une baleine à bosse"
+},
+{
+"id": "72651f64-e8ed-43ce-a6d4-6fa8b0b7d431",
+"kg": 34244.4,
+"objet": "une baleine à bosse"
+},
+{
+"id": "97cfb1ea-5825-4a03-94b8-434a8e281c5e",
+"kg": 24371.0,
+"objet": "un VBCI"
+},
+{
+"id": "914a424c-1a3e-4fc6-a18b-4c0149c319d7",
+"kg": 27206.1,
+"objet": "le cuivre de la statue de la Liberté"
+},
+{
+"id": "df02020b-4eb2-4d34-88bf-54b8a1813768",
+"kg": 37245.5,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "b80998c2-4f30-4e49-844e-374587a8d2a6",
+"kg": 42715.3,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "608cbfea-44cd-43dd-9468-a98605a7b68a",
+"kg": 16728.1,
+"objet": "un requin-baleine"
+},
+{
+"id": "5d22047b-40ad-45a7-9e7a-ceb3ac3a491e",
+"kg": 49134.7,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "9b357012-7333-4313-90bc-57781aeab20f",
+"kg": 24014.7,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "7f622212-4114-4eec-a404-e1a3be914100",
+"kg": 8950.8,
+"objet": "un Rafale à vide"
+},
+{
+"id": "af956534-c984-473b-a8e5-c8eebe7f7106",
+"kg": 29185.0,
+"objet": "le cuivre de la statue de la Liberté"
+},
+{
+"id": "2edf2e33-6519-41f9-afda-d806e72df0e8",
+"kg": 23010.2,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "9d733bd0-2082-4c10-b376-26e47fa554d1",
+"kg": 41564.3,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "88dc2fac-13c6-4104-9165-1dd30fd04859",
+"kg": 45609.1,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "a652db1a-255e-4b68-bca3-3f8a73adb823",
+"kg": 44495.5,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "c006c9c8-740d-4033-bae8-beab308f33cb",
+"kg": 1710.0,
+"objet": "un hippopotame"
+},
+{
+"id": "e619ff50-7b60-491b-82ce-c26824ac08d0",
+"kg": 35341.9,
+"objet": "une baleine à bosse"
+},
+{
+"id": "278a8cbd-c2fa-4155-b918-e8d7211c3270",
+"kg": 32575.8,
+"objet": "le cuivre de la statue de la Liberté"
+},
+{
+"id": "fa2ad770-f715-4ac9-8243-ba17ac348a20",
+"kg": 24540.8,
+"objet": "un VBCI"
+},
+{
+"id": "5efef8f4-0e60-4f56-8701-ebd7013c6543",
+"kg": 43684.8,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "df6b9cc6-45f7-4f27-a13c-ef1a1bbca166",
+"kg": 32998.6,
+"objet": "une baleine grise"
+},
+{
+"id": "43352aaa-c102-4df0-b713-769cbcb1c145",
+"kg": 28405.6,
+"objet": "le cuivre de la statue de la Liberté"
+},
+{
+"id": "ca2fa62a-e6c3-48d3-8f34-14f753ab988b",
+"kg": 1904.4,
+"objet": "un hélicoptère Écureuil plein"
+},
+{
+"id": "4774e608-fcaf-467c-9cce-65eb41e47f24",
+"kg": 10219.1,
+"objet": "un Rafale à vide"
+},
+{
+"id": "c44223fd-9a06-41d8-860e-7312d772ce2d",
+"kg": 31974.4,
+"objet": "le cuivre de la statue de la Liberté"
+},
+{
+"id": "4a9fac32-7313-4ddd-8909-701da20f0327",
+"kg": 42185.8,
+"objet": "un cachalot mâle"
+},
+{
+"id": "62d69c21-491c-4ce6-9b17-0e7c0f3db306",
+"kg": 38800.2,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "adc78e0b-a441-4991-a52d-e92fbcd1ee76",
+"kg": 34796.2,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "0dce05a7-99e0-4cc9-845e-a9054b2a6ea8",
+"kg": 28932.3,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "56e9f105-3ad0-494d-b1cb-149dd07acf4a",
+"kg": 14883.5,
+"objet": "le bourdon Emmanuel de Notre-Dame"
+},
+{
+"id": "553b91a7-34dc-44f9-8e7f-4c3a521ddbab",
+"kg": 36681.0,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "4380be51-1152-4a7e-a343-9aba7dc67750",
+"kg": 44732.6,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "36696aa0-d2bc-41ba-b489-030f85f31843",
+"kg": 37475.7,
+"objet": "une toupie à béton chargée"
+},
+{
+"id": "1c6e5f36-5209-46dc-8d0a-8da165ea33a7",
+"kg": 27907.8,
+"objet": "une baleine à bosse"
+},
+{
+"id": "e288bedc-cd3b-4011-b148-9713f0c4540c",
+"kg": 47907.4,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "a0265e7c-8b81-481f-9bda-057692718a09",
+"kg": 15717.7,
+"objet": "un diplodocus"
+},
+{
+"id": "f21d3546-8e93-42a5-8465-5f5a8c7b7656",
+"kg": 38346.2,
+"objet": "une toupie à béton chargée"
+},
+{
+"id": "b7efaf05-e6b4-4777-adbe-db95d674f039",
+"kg": 13401.7,
+"objet": "un ATR 72 à vide"
+},
+{
+"id": "2997b6cd-10f5-42c6-bd93-b5aba59dad98",
+"kg": 14765.5,
+"objet": "un ATR 72 à vide"
+},
+{
+"id": "db90d813-004c-413f-964b-7ec09aa483b5",
+"kg": 43307.0,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "1ce4ff37-3d32-4561-9764-a5f989fcf671",
+"kg": 21665.3,
+"objet": "un camion chargé"
+},
+{
+"id": "ef4c97ec-1764-48d7-abc9-f84ec0a6cb88",
+"kg": 45660.2,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "c7e460cb-8761-41bd-aa4f-3729a8559bb9",
+"kg": 10421.9,
+"objet": "un tricératops"
+},
+{
+"id": "9d0a8164-38d6-4402-9a55-8e2aa011a75c",
+"kg": 4406.8,
+"objet": "un éléphant d’Asie"
+},
+{
+"id": "3606c5ff-59a3-42cd-bd43-d7ffda182e33",
+"kg": 38766.4,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "2f74028a-901d-4569-8bb2-520d7be508e0",
+"kg": 19952.9,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "672a3eeb-c7b4-40a9-8f8b-f754d1c9bd52",
+"kg": 20020.3,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "3ecdce31-466c-48e7-9926-dad48ea1e484",
+"kg": 45604.9,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "7ae17af1-99eb-4d7d-bc18-2501752c1713",
+"kg": 29157.0,
+"objet": "un VBCI"
+},
+{
+"id": "a79cc5fd-5548-4117-b310-17ca191b2528",
+"kg": 39111.6,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "adfde996-3ec1-4ea9-abb3-bf3796cbf0b4",
+"kg": 9105.2,
+"objet": "un T. rex"
+},
+{
+"id": "b2831fb9-cfed-4c21-a487-883fde258795",
+"kg": 44348.3,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "53ff3a55-8c75-4f2b-a735-a27a2d453dbc",
+"kg": 22464.4,
+"objet": "un camion chargé"
+},
+{
+"id": "e07a6903-5c66-4062-9792-2c516cf8e885",
+"kg": 32403.9,
+"objet": "une toupie à béton chargée"
+},
+{
+"id": "f3c42b44-12cb-424b-bded-195e92a08753",
+"kg": 2944.9,
+"objet": "une camionnette chargée"
+},
+{
+"id": "45762bfd-cf71-480a-aab0-7d9b2d49cf83",
+"kg": 43187.6,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "d9baf5ca-5e13-4e2c-96a6-992aabce0345",
+"kg": 27057.3,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "4eabb806-2bfb-42d8-8dd1-918aa401ffc6",
+"kg": 48029.8,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "bc99c7ba-090f-48e3-8834-f427ead5d38b",
+"kg": 13490.6,
+"objet": "un ATR 72 à vide"
+},
+{
+"id": "46ff5bb0-dc30-4a99-b2a7-8a31464fc251",
+"kg": 45538.4,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "f9c86012-6d92-4297-9490-11a2f191274b",
+"kg": 27660.9,
+"objet": "le cuivre de la statue de la Liberté"
+},
+{
+"id": "f1bcb23e-07a9-4d90-84a9-38da328742e0",
+"kg": 32249.6,
+"objet": "une baleine grise"
+},
+{
+"id": "5b9545a4-e08d-4f0a-8448-a3488c279118",
+"kg": 46184.3,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "79c6ea5c-0e47-4cd5-9c06-645e89b20aec",
+"kg": 28938.7,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "9837226a-79b6-4b6f-b4e9-30f1ee68fe52",
+"kg": 32604.1,
+"objet": "un VBCI"
+},
+{
+"id": "dd9bfb0f-7293-4f07-ac33-52e9838fec44",
+"kg": 21655.9,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "c8f71bf2-7286-4efc-9383-abee3b7f844e",
+"kg": 40020.8,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "536f33a4-080d-45ef-9965-970dbd9fa0a9",
+"kg": 11619.7,
+"objet": "le bourdon Emmanuel de Notre-Dame"
+},
+{
+"id": "eaa635b9-1758-415a-9a3b-b1f31280b255",
+"kg": 1446.4,
+"objet": "un hippopotame"
+},
+{
+"id": "4d504c10-33ee-4e57-9b34-34b6ba0527a4",
+"kg": 33416.8,
+"objet": "une toupie à béton chargée"
+},
+{
+"id": "ed50fe2a-27aa-4d1a-9d44-2584d4b6c433",
+"kg": 13077.6,
+"objet": "un char AMX-13"
+},
+{
+"id": "3e351c43-21d9-4034-bb1c-574f1dfd6f9f",
+"kg": 49099.2,
+"objet": "un cachalot mâle"
+},
+{
+"id": "24436c68-f85e-4bc0-8c41-b024e0998b99",
+"kg": 10034.0,
+"objet": "un Rafale à vide"
+},
+{
+"id": "3f959f4f-8db2-4fc4-aead-45f96cdffc41",
+"kg": 4248.6,
+"objet": "un éléphant d’Asie"
+},
+{
+"id": "fb79478f-dfab-4f11-85dd-eae7a59d510f",
+"kg": 46453.1,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "fb31a75f-4dcd-4eff-84fa-8845dd79946e",
+"kg": 40256.5,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "86efe8ef-7618-4140-a0e4-c9b3348bdbad",
+"kg": 4589.7,
+"objet": "un stégosaure"
+},
+{
+"id": "bb207774-147c-4cd7-aaed-5ed61874ab43",
+"kg": 18459.2,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "d732b0b2-8f16-48ea-85c1-3ea4be66b228",
+"kg": 9197.2,
+"objet": "un T. rex"
+},
+{
+"id": "8193063f-5cdd-42fe-a27c-00554a1ee5f9",
+"kg": 6681.5,
+"objet": "un T. rex"
+},
+{
+"id": "516eb3ef-f257-4798-b666-7f1829a93108",
+"kg": 39282.2,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "09243386-1745-4a94-bddb-08c1ae8f117a",
+"kg": 25998.7,
+"objet": "le cuivre de la statue de la Liberté"
+},
+{
+"id": "0d640f95-d219-425f-b3b7-5840c9dace25",
+"kg": 11778.4,
+"objet": "le bourdon Emmanuel de Notre-Dame"
+},
+{
+"id": "83c8aa77-9c37-49a6-86e3-7bca60fcaa22",
+"kg": 8391.2,
+"objet": "un T. rex"
+},
+{
+"id": "307572bb-1367-4e96-899e-3ec49a3bee3d",
+"kg": 40991.5,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "ce10b8a6-5d34-442d-be3c-c15439221948",
+"kg": 35310.7,
+"objet": "une baleine à bosse"
+},
+{
+"id": "58161f0e-fd1c-4a44-ae32-27e4993bfbb7",
+"kg": 33347.8,
+"objet": "une baleine grise"
+},
+{
+"id": "49028c14-23d6-4ee0-a4d8-02e443d6f1c5",
+"kg": 39132.6,
+"objet": "un cachalot mâle"
+},
+{
+"id": "c3a87866-31b0-4a0f-b526-4f9eb97ea94a",
+"kg": 41121.3,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "bb49c49c-2e85-438e-ad8b-292e60c2abab",
+"kg": 8449.5,
+"objet": "un Rafale à vide"
+},
+{
+"id": "caf03cd0-c972-4b7e-a96c-055f717b868b",
+"kg": 26562.0,
+"objet": "une baleine à bosse"
+},
+{
+"id": "52033ae5-a494-4290-973b-f9204d8d805f",
+"kg": 1945.8,
+"objet": "un hélicoptère Écureuil plein"
+},
+{
+"id": "5d63591f-af33-4db8-b108-43a7bbe45e3d",
+"kg": 23425.8,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "b802919a-67c1-43ef-8880-34e71125d5d6",
+"kg": 45266.1,
+"objet": "un cachalot mâle"
+},
+{
+"id": "402adf23-c1f8-4fb1-927c-2227ee853283",
+"kg": 35540.9,
+"objet": "une toupie à béton chargée"
+},
+{
+"id": "599bbacb-455b-4f5d-b952-c60dfb769715",
+"kg": 44089.5,
+"objet": "un cachalot mâle"
+},
+{
+"id": "68549a24-d5db-456c-9309-f021ea2754ce",
+"kg": 12397.8,
+"objet": "le bourdon Emmanuel de Notre-Dame"
+},
+{
+"id": "a0697631-0821-4634-8f16-b26ca5ae9a1e",
+"kg": 12545.9,
+"objet": "un char AMX-13"
+},
+{
+"id": "d99743a9-24f1-4b86-863d-050ed674d50c",
+"kg": 32604.4,
+"objet": "le cuivre de la statue de la Liberté"
+},
+{
+"id": "6838517d-f86e-45e9-b4fc-d1163289ff2a",
+"kg": 46710.3,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "83d34e42-96b5-4c16-99a4-d9f7f70b7f02",
+"kg": 49920.6,
+"objet": "un cachalot mâle"
+},
+{
+"id": "e2c4d110-94b6-481b-8829-aa5b273a5caf",
+"kg": 5981.1,
+"objet": "un orque"
+},
+{
+"id": "dd8e1472-fd07-41a3-916e-b56a9928a8f6",
+"kg": 36861.1,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "70047554-e7b2-460b-bf39-6d61ca79caad",
+"kg": 43587.8,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "754830ba-c600-4174-ba0e-37de9d602696",
+"kg": 8611.2,
+"objet": "un Rafale à vide"
+},
+{
+"id": "66b28e5f-b8ef-40b3-9454-f3434002a71a",
+"kg": 36519.7,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "aec36bbd-77fd-4ca3-948f-c263667e8cd0",
+"kg": 17463.7,
+"objet": "un diplodocus"
+},
+{
+"id": "2d5fbcd5-72bf-402d-8753-9f9ccba6472a",
+"kg": 17136.1,
+"objet": "un char AMX-13"
+},
+{
+"id": "29bbcc67-7531-4217-887d-8da338eeba65",
+"kg": 44342.3,
+"objet": "un cachalot mâle"
+},
+{
+"id": "3edf0220-08b6-4fca-89d5-48fc3e6985f0",
+"kg": 18631.5,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "1d9b4868-e60d-4f5f-9041-b1305af53b8e",
+"kg": 27224.0,
+"objet": "une baleine grise"
+},
+{
+"id": "3f5f1732-4d4f-43e9-a74a-bbf591ac8aa6",
+"kg": 20837.4,
+"objet": "un camion chargé"
+},
+{
+"id": "09925a9d-7e96-485b-b85a-e98b845163a6",
+"kg": 24107.7,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "7c4f2234-98ed-4484-8ad2-cd65f6b2c006",
+"kg": 18227.4,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "123c5688-2584-4654-aaae-4840bb5cf6bf",
+"kg": 6614.8,
+"objet": "un Mirage 2000 à vide"
+},
+{
+"id": "cb6c81ed-87f6-4b83-9c30-ca1263845174",
+"kg": 31592.2,
+"objet": "une toupie à béton chargée"
+},
+{
+"id": "f9f016f5-a5af-461a-99f3-7b4b1d73fc9d",
+"kg": 46751.8,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "a4d841c9-649b-4d70-963c-3ab53f231e0e",
+"kg": 25919.8,
+"objet": "le cuivre de la statue de la Liberté"
+},
+{
+"id": "556c6ac9-d98e-4910-ae15-ec57ca58158f",
+"kg": 32706.8,
+"objet": "une toupie à béton chargée"
+},
+{
+"id": "17b166f4-3022-442a-b7f2-e568909b57d9",
+"kg": 26598.3,
+"objet": "une baleine grise"
+},
+{
+"id": "3debd3ee-08ba-4d40-b176-bcec1493c16d",
+"kg": 7465.2,
+"objet": "un T. rex"
+},
+{
+"id": "9a3b12aa-4367-487a-ba25-cd5eda7b2be4",
+"kg": 8620.9,
+"objet": "un Rafale à vide"
+},
+{
+"id": "149a9fee-6fa6-4d32-94fc-fdf6c374d0fd",
+"kg": 6991.4,
+"objet": "un mammouth laineux"
+},
+{
+"id": "f7bfd88e-f81a-4708-baf8-1770a6d307a4",
+"kg": 2030.9,
+"objet": "une Tesla Model 3"
+},
+{
+"id": "58dac6f6-8f0c-4a46-9611-cb2af91ed18c",
+"kg": 37337.3,
+"objet": "une toupie à béton chargée"
+},
+{
+"id": "878d943b-68cb-4095-a4f1-9df19b5019e3",
+"kg": 18058.9,
+"objet": "un camion chargé"
+},
+{
+"id": "8d38b07d-713f-46d3-a639-6f9cbef00276",
+"kg": 36736.1,
+"objet": "le cuivre de la statue de la Liberté"
+},
+{
+"id": "3be8f9f0-d371-4571-a21d-79c395481a72",
+"kg": 22202.1,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "3046113b-5fef-4ce8-886a-999d4fd729f9",
+"kg": 28197.9,
+"objet": "le cuivre de la statue de la Liberté"
+},
+{
+"id": "9205d604-975c-44f1-922e-76bbb66da8d3",
+"kg": 3468.6,
+"objet": "un éléphant d’Asie"
+},
+{
+"id": "61eae96f-6f9d-42ea-a108-446ffdba25de",
+"kg": 6360.1,
+"objet": "un éléphant d’Afrique"
+},
+{
+"id": "19304fef-249a-4dc8-817e-b709c727fe3c",
+"kg": 1245.9,
+"objet": "une Mini"
+},
+{
+"id": "c7c6c358-8b70-4b9f-943e-03d8e2b5469c",
+"kg": 30972.2,
+"objet": "un VBCI"
+},
+{
+"id": "34934db2-172d-43b0-91b8-78906354553b",
+"kg": 45849.1,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "31908cb1-5f49-4dd7-8661-f1ac068d13d2",
+"kg": 38030.0,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "fca1bcc6-2638-49f4-865a-7a3fb1c08925",
+"kg": 19870.7,
+"objet": "un camion chargé"
+},
+{
+"id": "6c2a70ce-5368-4b42-8e1d-c3be3a6aac4d",
+"kg": 10888.8,
+"objet": "un Rafale à vide"
+},
+{
+"id": "2e4c9f4b-db13-4da8-9e07-50dc19247098",
+"kg": 42668.8,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "1697caba-39fa-4e77-a74a-414f64a5061e",
+"kg": 38219.3,
+"objet": "une toupie à béton chargée"
+},
+{
+"id": "f6df9c57-dfc5-4d63-a7be-792f8d7cd2ce",
+"kg": 26963.0,
+"objet": "une toupie à béton chargée"
+},
+{
+"id": "f5e9f1c8-a43d-4bf7-b659-6efd6f81f079",
+"kg": 38941.0,
+"objet": "un cachalot mâle"
+},
+{
+"id": "5ea0d693-a526-4ce3-9fae-1be1f9b5f576",
+"kg": 26016.8,
+"objet": "un VBCI"
+},
+{
+"id": "7ae893f4-3811-45b8-a6b1-2bac80931097",
+"kg": 9434.0,
+"objet": "un Rafale à vide"
+},
+{
+"id": "986abbcc-74ba-452f-b25f-9ec0b8a70156",
+"kg": 18347.0,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "f63e0412-2fc2-467a-b9cf-ab797e8245b9",
+"kg": 4250.6,
+"objet": "un éléphant d’Asie"
+},
+{
+"id": "453833df-7f19-46d2-9e56-f41047b25bfa",
+"kg": 25174.2,
+"objet": "une baleine à bosse"
+},
+{
+"id": "600918a1-538a-43bb-b8a0-5801ca3bba26",
+"kg": 34123.8,
+"objet": "une toupie à béton chargée"
+},
+{
+"id": "ff121b4e-fcb3-4828-a485-c15449b0917a",
+"kg": 34667.8,
+"objet": "une baleine à bosse"
+},
+{
+"id": "219af411-65f8-4a86-8c6d-ced5783346bb",
+"kg": 28506.1,
+"objet": "un VBCI"
+},
+{
+"id": "5f2fa73e-a82d-46cc-bf18-fe4b2a2b989d",
+"kg": 44938.6,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "e7f8360b-2808-4c62-a055-ae49c9cdd77c",
+"kg": 33671.1,
+"objet": "un VBCI"
+},
+{
+"id": "9c302860-d069-497c-92c4-77b031497dc4",
+"kg": 19940.8,
+"objet": "un camion chargé"
+},
+{
+"id": "458587b1-6a4c-4af0-aa15-fcba73f94ad6",
+"kg": 36703.5,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "18a34c0e-3f4b-4b20-ab73-d3c0d96c720b",
+"kg": 47118.5,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "cb59cde1-0981-4694-81d3-0bc939eecd61",
+"kg": 40572.5,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "fe27f34c-2a92-4ade-94ac-3759ea9aa093",
+"kg": 1439.7,
+"objet": "une Peugeot 3008"
+},
+{
+"id": "9284b57e-0bf6-47f3-8bd3-061c515796d5",
+"kg": 45609.9,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "4b4c832e-0001-4ed6-aaed-ede451037807",
+"kg": 27638.6,
+"objet": "une baleine grise"
+},
+{
+"id": "3925ead7-19b3-492b-a4d4-2c2e5a910c47",
+"kg": 2774.6,
+"objet": "un éléphant de forêt"
+},
+{
+"id": "79c7ac3c-8aad-4696-ad2f-46ca6fa75b2c",
+"kg": 47765.5,
+"objet": "un cachalot mâle"
+},
+{
+"id": "65ed64f3-e659-4ec5-b215-868a95f27e7d",
+"kg": 20446.9,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "9da0b0d6-2c71-42ab-b604-911cdd45c260",
+"kg": 41204.9,
+"objet": "un cachalot mâle"
+},
+{
+"id": "9107e222-8a91-432a-9911-7a916c738e27",
+"kg": 41312.7,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "df1dc4cc-99a6-423f-8b63-8ebc1da1a1a0",
+"kg": 26539.3,
+"objet": "un VBCI"
+},
+{
+"id": "42d584e4-3ac6-4ab2-8887-05cd8097b8bd",
+"kg": 46035.5,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "092e435a-8f08-47a0-b044-2248597787e1",
+"kg": 11734.3,
+"objet": "la cloche de Big Ben"
+},
+{
+"id": "d4624795-581b-4785-b72e-f04521bd330c",
+"kg": 3418.3,
+"objet": "un éléphant de mer"
+},
+{
+"id": "09f42507-2647-4842-a0f4-dfb9fe77d48b",
+"kg": 11852.6,
+"objet": "un ATR 72 à vide"
+},
+{
+"id": "323a1e2b-5cb7-4882-b286-77ad7516b74d",
+"kg": 14546.3,
+"objet": "un diplodocus"
+},
+{
+"id": "42e27e7e-2f57-4c02-b10b-59bd0443a6bd",
+"kg": 39968.8,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "5c130964-c65e-4619-8411-71604f8b667b",
+"kg": 33013.9,
+"objet": "une baleine à bosse"
+},
+{
+"id": "e94f90ee-2bf9-4417-9785-8425f0b02031",
+"kg": 29323.5,
+"objet": "une toupie à béton chargée"
+},
+{
+"id": "bdbde4e0-5cda-4122-9ffc-1ebc1056a796",
+"kg": 39394.7,
+"objet": "un cachalot mâle"
+},
+{
+"id": "1635ab3f-f512-4008-b95e-9e7b770386dd",
+"kg": 38311.8,
+"objet": "une toupie à béton chargée"
+},
+{
+"id": "cebb9ef1-8d68-42e8-baa6-c20013050d9b",
+"kg": 14478.4,
+"objet": "le bourdon Emmanuel de Notre-Dame"
+},
+{
+"id": "cbe740d9-b1b8-4598-9495-7ae804a332b1",
+"kg": 38949.6,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "db0af23d-dbb5-4207-96af-a7c029d81338",
+"kg": 40765.3,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "0aa3e22e-87da-458a-8d8e-7fa59a2920aa",
+"kg": 26355.5,
+"objet": "le cuivre de la statue de la Liberté"
+},
+{
+"id": "95e6b484-d1c4-4562-b9a9-0966dc2e08e1",
+"kg": 17168.3,
+"objet": "un requin-baleine"
+},
+{
+"id": "484a68de-2ce9-4741-887c-8d3ab7baf4d0",
+"kg": 46565.8,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "9bdd6bf8-d520-49ac-887e-fe40ca8330e5",
+"kg": 44081.2,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "9b1c4279-a7d5-45fd-b319-d56a2d202a69",
+"kg": 35971.1,
+"objet": "une toupie à béton chargée"
+},
+{
+"id": "691656c9-b44a-4bb0-8f9a-623ba887a088",
+"kg": 42141.5,
+"objet": "un cachalot mâle"
+},
+{
+"id": "282652d1-b8ba-4e1b-9df8-698790850e08",
+"kg": 3279.4,
+"objet": "un éléphant de mer"
+},
+{
+"id": "d35fa246-a32b-46b3-a585-0fb7acb4894d",
+"kg": 45239.5,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "696409a4-49e9-4fd7-bdb5-0bc28412da23",
+"kg": 47774.5,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "523b5f3e-9484-4b79-8dc8-57a63b0f781b",
+"kg": 37811.5,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "c623b37f-5dc8-4385-9353-c2cfffbf4fdb",
+"kg": 38691.6,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "f68df2e9-1d3e-4b20-88ff-8df1c0ef45bf",
+"kg": 46370.6,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "c0d39f49-e2cd-4f87-83c3-bc26141be8e3",
+"kg": 43269.5,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "08b88166-cc54-4180-8f0d-7ca881193d04",
+"kg": 5591.5,
+"objet": "un éléphant d’Afrique"
+},
+{
+"id": "40ed1224-4b12-4781-a90d-48fb08f64701",
+"kg": 12480.5,
+"objet": "la cloche de Big Ben"
+},
+{
+"id": "61ce1a87-eca6-4158-bdae-95277abd39b9",
+"kg": 30797.1,
+"objet": "une baleine grise"
+},
+{
+"id": "711764c6-a5f0-411e-b6a3-b005a7e8a3ae",
+"kg": 1854.4,
+"objet": "une Tesla Model 3"
+},
+{
+"id": "9a913ca0-69ff-4596-9285-75be8f6659b3",
+"kg": 17943.2,
+"objet": "un requin-baleine"
+},
+{
+"id": "c68994e3-61de-47f8-92f3-afb949bb2ac6",
+"kg": 27862.0,
+"objet": "le cuivre de la statue de la Liberté"
+},
+{
+"id": "573044ec-24c8-4e06-8e8f-82de8df4a59d",
+"kg": 6463.7,
+"objet": "un mammouth laineux"
+},
+{
+"id": "4218bd8e-5910-4f44-95ad-e4d0bf0e58e1",
+"kg": 40792.8,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "657f818b-715a-4e0a-a8ce-3b47531fb994",
+"kg": 35367.4,
+"objet": "une baleine grise"
+},
+{
+"id": "8aeb7078-9371-493d-a8b1-59175a941f1d",
+"kg": 49171.8,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "6e5a6cfd-b019-463d-8f2f-738112c59ad5",
+"kg": 38572.1,
+"objet": "un cachalot mâle"
+},
+{
+"id": "46befa2f-f3f4-4d6a-88a3-7960f46881ea",
+"kg": 15537.7,
+"objet": "la cloche de Big Ben"
+},
+{
+"id": "cea124d3-7628-4774-a9c2-03ae58b983c2",
+"kg": 33322.3,
+"objet": "une toupie à béton chargée"
+},
+{
+"id": "650dae48-4274-48f5-ab76-528f3d8fba27",
+"kg": 19746.0,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "a5fb099d-76f3-40a3-90b8-08f956bbf26f",
+"kg": 23560.2,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "f12f1861-c68c-4a49-a054-0f94add63c99",
+"kg": 34170.8,
+"objet": "un VBCI"
+},
+{
+"id": "de3ff297-0ffe-41db-a2d6-10ebc78d6e37",
+"kg": 37389.1,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "f97f775d-88ef-4d17-87e2-05556feee693",
+"kg": 35919.8,
+"objet": "une toupie à béton chargée"
+},
+{
+"id": "245c5a18-3812-4bd9-8ff4-cc407e81262a",
+"kg": 29257.2,
+"objet": "un VBCI"
+},
+{
+"id": "d45732b6-64d2-44b0-86ab-fd4e4c451137",
+"kg": 30954.1,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "a9327e75-2f55-411c-b98e-48908803b0e3",
+"kg": 20846.4,
+"objet": "un camion chargé"
+},
+{
+"id": "7b4d1e80-6942-4fa3-9497-06a8065d669f",
+"kg": 47591.7,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "35796470-3359-4784-998e-24bcaf1088fa",
+"kg": 29084.6,
+"objet": "une baleine grise"
+},
+{
+"id": "6c23836b-b067-4d32-b997-0de9a745cb18",
+"kg": 32204.7,
+"objet": "un VBCI"
+},
+{
+"id": "34d2ebeb-dd8b-40d3-9201-834d1c30f2be",
+"kg": 44102.4,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "25a06b1d-9fa7-425d-ab89-324322d22ca1",
+"kg": 3639.4,
+"objet": "un éléphant de mer"
+},
+{
+"id": "ddb6bbd1-a506-4dc9-bcdd-0512228eec68",
+"kg": 33232.7,
+"objet": "un VBCI"
+},
+{
+"id": "3b858ca9-7229-445c-9065-d1b4948391ad",
+"kg": 48160.2,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "2da90172-391d-4ec2-abdd-2cc9ffd9d21c",
+"kg": 25494.5,
+"objet": "un VBCI"
+},
+{
+"id": "3227dcf0-3958-4bba-b1c1-88c757e91210",
+"kg": 44832.7,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "269b7249-19cc-4efb-9233-81d6fc3b70c1",
+"kg": 17873.0,
+"objet": "un cachalot femelle"
+},
+{
+"id": "42c50f1e-e83d-4b68-9e22-e016ef37cb60",
+"kg": 36893.4,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "b09e17ab-bd10-47d5-bf0a-02c281546ca3",
+"kg": 40297.5,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "32d133c9-d9a0-4019-b89d-ca52a15480f9",
+"kg": 48598.4,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "497d2f8a-25d6-4cc6-8685-a4872468cc9f",
+"kg": 30809.2,
+"objet": "un VBCI"
+},
+{
+"id": "f54541a2-c1bf-418a-a281-50c665147b75",
+"kg": 43755.0,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "7e68c2bf-205a-4a38-aa11-59463d9bf48c",
+"kg": 11997.2,
+"objet": "le bourdon Emmanuel de Notre-Dame"
+},
+{
+"id": "c28d704b-b43b-4dca-9084-7b5b0c5327ec",
+"kg": 28499.0,
+"objet": "un VBCI"
+},
+{
+"id": "b7bc2f6d-fc55-443d-814e-2a0d8a4e932f",
+"kg": 11128.4,
+"objet": "le bourdon Emmanuel de Notre-Dame"
+},
+{
+"id": "561dac09-cba8-4b50-b09c-5df1ece36fef",
+"kg": 21937.5,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "6790bc2e-fdb1-4d88-81a6-3a5632e6217c",
+"kg": 46262.7,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "f1761a0e-bb0c-480c-97fe-394230bc5020",
+"kg": 25006.3,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "ce36b33d-b378-40cf-9879-edf799737340",
+"kg": 44945.0,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "b0fb15e3-c09a-4d65-ada6-98bc24789f03",
+"kg": 12001.9,
+"objet": "le bourdon Emmanuel de Notre-Dame"
+},
+{
+"id": "5321ab87-0d68-4fb0-b81d-5cf524089f29",
+"kg": 6252.2,
+"objet": "un orque"
+},
+{
+"id": "dea7439e-936d-408b-b40b-0abc76683f43",
+"kg": 32126.3,
+"objet": "le cuivre de la statue de la Liberté"
+},
+{
+"id": "7ebc9b56-a493-45ad-a91f-a13355340a92",
+"kg": 45115.4,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "6d279789-6cd0-4974-a804-ad548a024a44",
+"kg": 2009.5,
+"objet": "un rhinocéros blanc"
+},
+{
+"id": "019d10c9-ec97-4964-a421-ea3830b56c34",
+"kg": 32761.0,
+"objet": "un VBCI"
+},
+{
+"id": "139410a1-7928-48f4-bd9c-ca4d933c1213",
+"kg": 22349.3,
+"objet": "un camion chargé"
+},
+{
+"id": "a737f89c-df17-445c-9725-21b2467f0154",
+"kg": 3111.7,
+"objet": "un éléphant de forêt"
+},
+{
+"id": "9d039e42-783f-4768-b9c1-57e72e67686c",
+"kg": 30707.3,
+"objet": "une baleine grise"
+},
+{
+"id": "2a031404-dd57-45f9-b79e-28bc93aa1933",
+"kg": 34227.1,
+"objet": "une baleine à bosse"
+},
+{
+"id": "4eade50c-abd0-462e-9f87-408b8cb4e985",
+"kg": 10901.7,
+"objet": "un Rafale à vide"
+},
+{
+"id": "570a2856-8d1a-49ce-b143-e64198baf705",
+"kg": 41515.6,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "30510425-d9d4-4663-903b-dc3ed960d139",
+"kg": 16990.0,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "96749881-e34b-4cfa-821d-0584beac6916",
+"kg": 26264.8,
+"objet": "une baleine à bosse"
+},
+{
+"id": "d893f1e9-cd22-4ac9-9515-ac814c793311",
+"kg": 30292.6,
+"objet": "le cuivre de la statue de la Liberté"
+},
+{
+"id": "a9e4810e-d31d-4c39-a8d1-ebf1251e28f8",
+"kg": 32422.8,
+"objet": "une baleine à bosse"
+},
+{
+"id": "b2a9e8e1-05f5-4426-8f56-3ae556baebe8",
+"kg": 44899.5,
+"objet": "un cachalot mâle"
+},
+{
+"id": "1060991b-111d-45f8-9787-24166e49ff50",
+"kg": 3065.5,
+"objet": "un éléphant de mer"
+},
+{
+"id": "aed79233-74c5-42de-bcaf-54823ffae508",
+"kg": 34584.1,
+"objet": "une toupie à béton chargée"
+},
+{
+"id": "c76db6f7-b5f8-485a-987b-cc5355ebf099",
+"kg": 24250.7,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "bdf754ec-9bb2-41a3-a56d-7605511c1560",
+"kg": 9957.6,
+"objet": "un Rafale à vide"
+},
+{
+"id": "feb4c588-0565-475f-a73a-0e76e64538d3",
+"kg": 36651.5,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "27235c24-a509-40f5-a97e-d5bafe0fa3ee",
+"kg": 39519.2,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "92f7e3b4-2ce0-4b01-835b-e0a2f02d21a3",
+"kg": 2431.6,
+"objet": "un Range Rover"
+},
+{
+"id": "5281fd46-d33a-4d6d-aa09-3997aacf0f8a",
+"kg": 15986.4,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "049b1ad5-50cf-48ce-bfae-0d50b67d405b",
+"kg": 3391.3,
+"objet": "un camping-car"
+},
+{
+"id": "4f01869b-8fda-4e32-a4a8-74f07b30f4eb",
+"kg": 18684.3,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "e78124f1-c591-47c7-b0b5-9af21f5b98a2",
+"kg": 39565.5,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "11ac89bf-81ed-4ff1-8adf-762d898e7079",
+"kg": 7521.3,
+"objet": "un tricératops"
+},
+{
+"id": "57aac5b2-a135-471e-94c4-b6e16eb3f8c7",
+"kg": 42857.8,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "c5e59636-db1f-4252-aa53-3966c23b5321",
+"kg": 11017.0,
+"objet": "un ATR 72 à vide"
+},
+{
+"id": "d7e7b88a-0f2b-4562-bb32-6b8b9460aa1d",
+"kg": 24370.5,
+"objet": "un VBCI"
+},
+{
+"id": "420c8138-059f-4299-917c-15804616e8b8",
+"kg": 7200.3,
+"objet": "un Mirage 2000 à vide"
+},
+{
+"id": "d415540a-5e48-4ba8-b6fb-e298b66679a4",
+"kg": 26959.5,
+"objet": "une toupie à béton chargée"
+},
+{
+"id": "576027e3-7f6c-4a59-908e-1a3222869645",
+"kg": 12967.5,
+"objet": "un requin-baleine"
+},
+{
+"id": "6ebed0d3-5fce-4c51-bd22-9f6de3cb0572",
+"kg": 32725.5,
+"objet": "une baleine grise"
+},
+{
+"id": "24cc48db-baf2-496e-b4e0-f146445dd38f",
+"kg": 36395.5,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "2c8690fd-0129-4db5-ab9d-9ef7aa25ee27",
+"kg": 34515.0,
+"objet": "une baleine grise"
+},
+{
+"id": "b436844c-feda-4c1f-8aea-0e99e4d59822",
+"kg": 33972.9,
+"objet": "une toupie à béton chargée"
+},
+{
+"id": "ebbcf475-d895-4978-ac6f-04af0652f2a9",
+"kg": 42004.2,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "e6416e22-50aa-43b7-979c-5ad5817bc0df",
+"kg": 21431.9,
+"objet": "un camion chargé"
+},
+{
+"id": "aa1e9159-e7a8-4f6a-ab4d-7c1db7063787",
+"kg": 41958.4,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "af7c2e4c-5207-405f-b92e-c33fec48f8ec",
+"kg": 44192.7,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "d88338f4-4287-4141-aae0-d3ba071243dc",
+"kg": 46675.8,
+"objet": "un cachalot mâle"
+},
+{
+"id": "61c94e5e-44d0-4ea9-8f8d-7fb2c5056034",
+"kg": 12913.5,
+"objet": "un char AMX-13"
+},
+{
+"id": "791ab4e9-e095-4a1b-bbff-513fb77b82f8",
+"kg": 23920.7,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "c13fcc5c-4bff-4fa4-91b4-dc71c0274a71",
+"kg": 46912.0,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "60e58997-4c5b-422d-8a52-b78420ae39cc",
+"kg": 35947.4,
+"objet": "une toupie à béton chargée"
+},
+{
+"id": "0e2ac864-79aa-4c47-8b0f-1c6e15ab6de3",
+"kg": 25049.5,
+"objet": "une baleine grise"
+},
+{
+"id": "824be492-8deb-4e19-849c-f7e68a9e2a30",
+"kg": 27949.9,
+"objet": "le cuivre de la statue de la Liberté"
+},
+{
+"id": "cebaac4c-ba48-4f8c-a949-8df0dea11403",
+"kg": 38045.8,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "e4c22a44-c246-4f83-9ce0-4462915287f1",
+"kg": 19700.2,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "6f11c3e5-e5e7-4422-99f2-21f9a69a35b4",
+"kg": 24820.4,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "60e5273e-5ccc-4b02-81c8-d35da4a9b541",
+"kg": 35352.5,
+"objet": "une baleine à bosse"
+},
+{
+"id": "7430a9bf-6f1c-47e0-b7b2-f8a4139c26eb",
+"kg": 32501.4,
+"objet": "une baleine grise"
+},
+{
+"id": "09c90be8-44dc-4675-801e-72c4a0a76a7c",
+"kg": 16006.1,
+"objet": "un char AMX-13"
+},
+{
+"id": "8bfa2264-8ad7-4ac4-a802-8a797c1cdf39",
+"kg": 44814.8,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "cc5a9357-8dde-4d83-882b-594be6bad489",
+"kg": 10403.2,
+"objet": "un tricératops"
+},
+{
+"id": "62c5cbf4-462b-46a0-9f9c-025ac92892d9",
+"kg": 19378.9,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "9ce416f1-0017-484c-9231-ed7d76016916",
+"kg": 21418.7,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "3dc83572-096a-4801-8bc5-4895fddfc630",
+"kg": 11657.9,
+"objet": "la cloche de Big Ben"
+},
+{
+"id": "5797dd40-fd8b-49cf-ad40-822a91972b64",
+"kg": 42654.1,
+"objet": "un cachalot mâle"
+},
+{
+"id": "ac36c8bc-e2a2-4581-b085-732920344b0d",
+"kg": 2499.6,
+"objet": "un Range Rover"
+},
+{
+"id": "f959f1e1-7fc1-4879-b43a-408b5245af45",
+"kg": 37276.3,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "621a8168-47ef-4d68-8e60-02ed79ed117e",
+"kg": 11076.4,
+"objet": "un Rafale à vide"
+},
+{
+"id": "5db47a67-575d-418d-98e4-8f2ed12da292",
+"kg": 27025.6,
+"objet": "un VBCI"
+},
+{
+"id": "a07c1e01-ae47-41ec-98e9-a7b780820531",
+"kg": 6128.4,
+"objet": "un mammouth laineux"
+},
+{
+"id": "ea78c1e7-cc2a-43c2-b7e3-f97883a1cb8f",
+"kg": 4462.5,
+"objet": "un éléphant d’Asie"
+},
+{
+"id": "c99bb45e-745c-4995-ac2a-4e568ed99c59",
+"kg": 36465.4,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "d0360410-5158-4506-8e84-0c6eac47cea5",
+"kg": 35759.1,
+"objet": "une baleine à bosse"
+},
+{
+"id": "968bb3ad-5b91-4ebe-a125-2d0780f731f6",
+"kg": 39748.6,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "7a6fef8f-00f8-4244-8c32-f6eb2db45cee",
+"kg": 22412.2,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "3d1e1567-1abd-4154-9744-101176d22348",
+"kg": 3893.0,
+"objet": "un camping-car"
+},
+{
+"id": "1c953834-dc25-4e41-be85-2cfcb9ab0a69",
+"kg": 2034.0,
+"objet": "un hélicoptère Écureuil plein"
+},
+{
+"id": "dd265d73-04ad-4ecf-82c2-b356e58dddb4",
+"kg": 36166.2,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "72b1f170-400c-4627-bc18-7cffa631737e",
+"kg": 37404.4,
+"objet": "une toupie à béton chargée"
+},
+{
+"id": "11cb765b-c069-43ce-a6e6-df6527779b37",
+"kg": 19576.9,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "4d5d4069-301f-4411-be54-1593a0cb2e29",
+"kg": 6017.5,
+"objet": "un ankylosaure"
+},
+{
+"id": "49d76cc3-7c24-4cba-ad5e-525ce553a839",
+"kg": 14510.4,
+"objet": "un ATR 72 à vide"
+},
+{
+"id": "c5b89487-1871-4585-8c24-c22719a06a38",
+"kg": 20425.0,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "b193335f-1c20-4cc3-b562-b30d13f016fa",
+"kg": 24948.8,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "0b6f7fc5-6509-4483-8817-f6c1b1dbfacd",
+"kg": 46485.6,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "c62e5818-853b-438b-a002-44ed7567a18e",
+"kg": 32416.6,
+"objet": "un VBCI"
+},
+{
+"id": "b630b2b8-cffd-4447-8e5f-f88085d5521a",
+"kg": 11978.4,
+"objet": "la cloche de Big Ben"
+},
+{
+"id": "6f20c995-7ed4-4757-ab3c-47c14b51df47",
+"kg": 41086.2,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "691a4910-57c6-47b9-8a0a-d421f25b0b20",
+"kg": 38109.5,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "26c680a3-3660-4f45-a34b-c86c5d7650a9",
+"kg": 43605.1,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "1f0bbb12-7d0f-401d-ab57-38bbd2769347",
+"kg": 7247.3,
+"objet": "un T. rex"
+},
+{
+"id": "a7b88159-1f50-4912-883b-7afb6bfddb82",
+"kg": 22239.7,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "0221bb56-0c87-4410-8fc9-75e2e1dc00fb",
+"kg": 45133.7,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "86011276-d631-4c98-985a-00bb59c00327",
+"kg": 14028.8,
+"objet": "un ATR 72 à vide"
+},
+{
+"id": "49d5e8e8-2fcc-458a-bf9f-4adb6b3d7fcd",
+"kg": 44747.8,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "901fe6f3-f031-4ea8-92dc-ccaa4ff91db0",
+"kg": 48833.1,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "7fed15b6-283d-4f53-b1ed-6678e886f32b",
+"kg": 34463.4,
+"objet": "une baleine grise"
+},
+{
+"id": "091bf0d9-da1a-41ab-88b4-906df3f6beb7",
+"kg": 30047.1,
+"objet": "une toupie à béton chargée"
+},
+{
+"id": "2c3f6ccd-8ec3-485b-925e-f9334e08fbd0",
+"kg": 24023.2,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "8b8d5d64-ce19-427a-9d5d-71cfcf184e81",
+"kg": 8938.6,
+"objet": "un T. rex"
+},
+{
+"id": "d5a78a23-ba64-4dca-b144-31c6bdcef2aa",
+"kg": 35124.1,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "e2891c07-2e39-4cb3-a961-0c28ac46ef01",
+"kg": 24712.5,
+"objet": "un VBCI"
+},
+{
+"id": "6f9fee19-61ae-4446-a29b-5b9f782097dd",
+"kg": 27034.8,
+"objet": "une baleine grise"
+},
+{
+"id": "1533f1f7-fe63-416e-af10-16b03931e966",
+"kg": 19105.0,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "596e4ca3-455e-49cc-bb87-3c53f7366097",
+"kg": 31018.1,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "8931bae5-497d-4c58-8620-87bc88300067",
+"kg": 17461.5,
+"objet": "un char AMX-13"
+},
+{
+"id": "955d05aa-91ac-4070-b778-a685caca3e11",
+"kg": 21952.8,
+"objet": "un camion chargé"
+},
+{
+"id": "8de24790-daae-491b-b3c0-98ec3bbfa3c8",
+"kg": 28575.8,
+"objet": "une baleine grise"
+},
+{
+"id": "7406a10e-659b-4c78-ac63-506cdc168335",
+"kg": 14317.2,
+"objet": "un ATR 72 à vide"
+},
+{
+"id": "5b2607b1-039a-444c-9c71-18ff5945601b",
+"kg": 25776.2,
+"objet": "une baleine à bosse"
+},
+{
+"id": "c1b8edbb-b564-4378-a72c-c3d6423362b0",
+"kg": 2886.2,
+"objet": "une Tesla Model X"
+},
+{
+"id": "65dad215-b88a-4e4d-8f66-efea8e85fd4c",
+"kg": 32205.9,
+"objet": "un VBCI"
+},
+{
+"id": "59a8eb0b-564f-4019-89bc-543c0416417a",
+"kg": 16997.7,
+"objet": "un char AMX-13"
+},
+{
+"id": "9d061c64-fbdd-4ff5-8feb-bf971bf21129",
+"kg": 49551.9,
+"objet": "un cachalot mâle"
+},
+{
+"id": "c72f61ba-cc35-45bd-931a-3002a1dc689e",
+"kg": 28867.1,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "72be4d57-82d2-43c6-8451-b383ab5d603a",
+"kg": 9584.0,
+"objet": "un tricératops"
+},
+{
+"id": "bc91b32c-3403-4e9e-a436-277ff194dcb8",
+"kg": 30813.7,
+"objet": "le cuivre de la statue de la Liberté"
+},
+{
+"id": "c83514fb-fdcc-4fc9-a548-8d22f9f50b94",
+"kg": 18484.2,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "005e0b2d-596f-4eaf-b218-19d49fcc09f4",
+"kg": 11344.2,
+"objet": "un Rafale à vide"
+},
+{
+"id": "b0b9e225-ba7e-4d38-bb34-25bcca6a7ec0",
+"kg": 33988.4,
+"objet": "un VBCI"
+},
+{
+"id": "18e8ef95-77ad-438c-92d3-8870dcedd11d",
+"kg": 14761.5,
+"objet": "un ATR 72 à vide"
+},
+{
+"id": "b6369655-344b-408f-a9b4-e06fc7fb3a49",
+"kg": 39561.4,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "c7afc612-5575-4571-81c0-0c4ed6f99591",
+"kg": 12596.5,
+"objet": "un ATR 72 à vide"
+},
+{
+"id": "c98c67ae-7a8d-409c-bb9d-124ff32f18be",
+"kg": 31924.6,
+"objet": "une baleine à bosse"
+},
+{
+"id": "1cf44b47-b7ed-49c7-ad26-e1eeb4791b32",
+"kg": 19325.7,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "8e8de84c-280f-4054-b1cd-f2a6a84677c2",
+"kg": 47788.7,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "7f2d44d7-001a-4c8f-8f84-df72d80bf98e",
+"kg": 17363.2,
+"objet": "un char AMX-13"
+},
+{
+"id": "00ba9f1c-8083-40ba-a0df-ddc4b0a23eb9",
+"kg": 43626.3,
+"objet": "un cachalot mâle"
+},
+{
+"id": "9d9a2d33-3872-469e-8653-b10057e19503",
+"kg": 12720.9,
+"objet": "un cachalot femelle"
+},
+{
+"id": "3b38b19f-271f-47cf-8424-539d621766c2",
+"kg": 10739.4,
+"objet": "un Rafale à vide"
+},
+{
+"id": "48e0bfc6-ebfa-42e4-83e3-6b957a4e50f0",
+"kg": 26785.5,
+"objet": "une baleine à bosse"
+},
+{
+"id": "a7957fe8-8c02-4d85-b8f9-1e7255d40a5b",
+"kg": 48249.5,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "a9795b7e-08e9-4cd7-860c-bcc498ac468a",
+"kg": 23330.8,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "9e07cc8e-207c-41cf-acf8-d331c8eea84b",
+"kg": 1489.6,
+"objet": "une Peugeot 3008"
+},
+{
+"id": "21e69316-2933-4ac9-9095-cae8d3f2b850",
+"kg": 29123.4,
+"objet": "le cuivre de la statue de la Liberté"
+},
+{
+"id": "5b9c0398-39da-4f03-9939-5b6f39372ac0",
+"kg": 28819.3,
+"objet": "une baleine à bosse"
+},
+{
+"id": "e83b8d38-1c5e-4cf9-be07-9f035720dd84",
+"kg": 22520.1,
+"objet": "un camion chargé"
+},
+{
+"id": "4eddcd72-9906-4ba1-b41b-93f000888bc3",
+"kg": 48654.9,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "e27f0f83-fc35-4f77-80ee-c5752283831d",
+"kg": 18815.2,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "77e1c669-33c3-4c48-a2b4-2ea6b52d935d",
+"kg": 32633.4,
+"objet": "une toupie à béton chargée"
+},
+{
+"id": "53fde084-4743-4020-98cc-20839015e92f",
+"kg": 45800.1,
+"objet": "un cachalot mâle"
+},
+{
+"id": "80ff7ffe-e5d7-4813-bc95-7b9261c92e4e",
+"kg": 30393.2,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "f50f77ba-6f11-4ccb-a2cc-9030f938b0e7",
+"kg": 48227.1,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "cf24ccab-e37f-4882-b0d0-ad5ab027f182",
+"kg": 7472.1,
+"objet": "un T. rex"
+},
+{
+"id": "5ccb5c3e-fa89-46b1-8dd8-e91be59a6c35",
+"kg": 34708.8,
+"objet": "le cuivre de la statue de la Liberté"
+},
+{
+"id": "4ad8505c-734b-4cda-b6dc-2edaddf068f8",
+"kg": 4702.7,
+"objet": "un stégosaure"
+},
+{
+"id": "1c437121-4496-4ee7-a8ee-f5cbc47c7df8",
+"kg": 22463.3,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "725e5d15-5e62-41b9-964a-f7b61d7e9eec",
+"kg": 3470.3,
+"objet": "un éléphant de mer"
+},
+{
+"id": "bf46c1f2-2360-4d62-ba27-f6a108eb7ac0",
+"kg": 46767.0,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "e3477ba5-e99f-4244-a7fb-333793d10634",
+"kg": 47058.5,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "42fcab6b-aa56-459e-aa3b-b2bdf7b657bf",
+"kg": 45898.5,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "d17b9173-1464-4963-a3aa-0b66da23208d",
+"kg": 42260.1,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "ffccb39e-19fe-4fd0-a62a-dba5c4d02f59",
+"kg": 35440.8,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "0dc29d50-4cc7-4800-b25c-50c14d2b059a",
+"kg": 7634.6,
+"objet": "un T. rex"
+},
+{
+"id": "0422f071-68b2-4773-b9ea-b1b9232cfd78",
+"kg": 49865.8,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "9e7fb215-67eb-437b-a42f-1caeabfbe5d1",
+"kg": 28416.6,
+"objet": "une baleine à bosse"
+},
+{
+"id": "9fc89ad1-3954-4226-86e7-4a753d4e5121",
+"kg": 49799.8,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "ffa0e2cb-2c3e-4275-bab8-e54fa5c0b150",
+"kg": 31394.4,
+"objet": "une toupie à béton chargée"
+},
+{
+"id": "e69afbdf-ae93-43f8-a868-977485601df8",
+"kg": 4814.9,
+"objet": "un orque"
+},
+{
+"id": "e58ee62e-549c-4aaf-87f1-bb453f736215",
+"kg": 2615.2,
+"objet": "un éléphant de forêt"
+},
+{
+"id": "1a55f1e3-7719-4135-9bba-29d38c4d377a",
+"kg": 31990.3,
+"objet": "une baleine à bosse"
+},
+{
+"id": "1892c460-6dd8-4822-9f68-0e36f9f41071",
+"kg": 8843.2,
+"objet": "un Rafale à vide"
+},
+{
+"id": "79793f53-c2f9-49c0-9074-8649c6d9eab0",
+"kg": 27124.6,
+"objet": "une toupie à béton chargée"
+},
+{
+"id": "72e9074c-ca84-4d83-856d-fe3d56ef525b",
+"kg": 11053.5,
+"objet": "un Rafale à vide"
+},
+{
+"id": "78bb76f6-8fb0-4890-a2cd-db095c133e77",
+"kg": 22270.5,
+"objet": "un camion chargé"
+},
+{
+"id": "297c4f9e-1af9-416e-8a76-f9127b34bca0",
+"kg": 43253.2,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "c2fc4497-b5d8-4fc7-b3cb-28149ccada57",
+"kg": 49925.6,
+"objet": "un cachalot mâle"
+},
+{
+"id": "04993945-78de-4c66-8de3-59d425ddffd1",
+"kg": 17549.9,
+"objet": "un requin-baleine"
+},
+{
+"id": "cdb8b0e4-5b2f-436e-96a6-cfa529256919",
+"kg": 17406.9,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "bbd5aa84-181a-4d93-8bd1-f2a5433e224e",
+"kg": 40097.2,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "db172987-a282-439b-a0b6-c00deb3d1d43",
+"kg": 29683.6,
+"objet": "le cuivre de la statue de la Liberté"
+},
+{
+"id": "5b311765-55d1-4b0c-9d5d-640e7dd5b280",
+"kg": 37176.5,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "02c784cf-4cf9-4b1d-b45e-ae76fa0f3c4c",
+"kg": 19754.4,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "c712a145-ef78-4567-93c9-d0b080d319da",
+"kg": 33813.9,
+"objet": "un VBCI"
+},
+{
+"id": "b9a8c63e-87be-426c-914c-a290ff7e651d",
+"kg": 22571.9,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "ed34d918-29bc-4bb6-b840-c1311b9bcfbe",
+"kg": 46613.1,
+"objet": "un cachalot mâle"
+},
+{
+"id": "6c969b70-7c6e-4000-9a22-17138c584536",
+"kg": 40764.8,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "377f2a12-c7ca-45ed-aed2-7ee8926fe1b7",
+"kg": 9888.2,
+"objet": "un Rafale à vide"
+},
+{
+"id": "4a9f6dbb-3be0-4240-aaec-03bffa0c2b00",
+"kg": 3733.9,
+"objet": "une camionnette chargée"
+},
+{
+"id": "7f9a216b-e26d-4703-9ee5-29e290070a56",
+"kg": 37882.7,
+"objet": "un cachalot mâle"
+},
+{
+"id": "a53a1ce0-135b-45e7-8aa6-e44b650c8067",
+"kg": 15886.9,
+"objet": "un requin-baleine"
+},
+{
+"id": "f93e9667-c6f6-420b-9512-1beb7360a5c5",
+"kg": 38752.3,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "a2912cb9-879c-4905-8fbe-41ee58e881eb",
+"kg": 35162.7,
+"objet": "une baleine à bosse"
+},
+{
+"id": "c1c7df9f-8db5-40d3-b54a-91b07922734b",
+"kg": 24390.2,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "14020e88-6427-4e6e-bad1-b5b42987e912",
+"kg": 24413.5,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "aaae0246-36cd-4ba3-9f3c-c4f797b87ec6",
+"kg": 41007.7,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "f5e5b1f0-2892-4eb3-acdb-a649ca44e3ae",
+"kg": 3783.1,
+"objet": "une camionnette chargée"
+},
+{
+"id": "c3511522-dd58-477f-a772-d993566a8070",
+"kg": 31808.3,
+"objet": "une baleine grise"
+},
+{
+"id": "a4d8c6eb-2c94-4bfe-8f57-0737df2ea1d3",
+"kg": 44837.8,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "d83d62eb-2405-496c-9068-a8428f8fea10",
+"kg": 48350.6,
+"objet": "un cachalot mâle"
+},
+{
+"id": "a68b0e0d-b96c-45e5-8a24-0cfa31758370",
+"kg": 8902.4,
+"objet": "un T. rex"
+},
+{
+"id": "f598f94b-d9e8-417d-8740-7359a606e799",
+"kg": 7665.3,
+"objet": "un T. rex"
+},
+{
+"id": "4fe33d7c-4e72-4ece-a946-c3637e37e3df",
+"kg": 10343.5,
+"objet": "un tricératops"
+},
+{
+"id": "45aef989-bbf2-4b7f-8f61-c03e8c4ff369",
+"kg": 24682.4,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "1dd87a58-03d3-47bf-98ab-7d3fb9120076",
+"kg": 14013.7,
+"objet": "la cloche de Big Ben"
+},
+{
+"id": "eadea8e8-4da4-4298-806a-2acaab8dbd71",
+"kg": 34488.6,
+"objet": "le cuivre de la statue de la Liberté"
+},
+{
+"id": "ebfb3c47-d7d5-4fe3-a3c3-6a3d3907c16e",
+"kg": 41304.7,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "42039c6b-2a6c-44e4-b42c-3e40b8e26bde",
+"kg": 2555.0,
+"objet": "un rhinocéros blanc"
+},
+{
+"id": "565b0642-e7a0-4690-8576-039b5ce0cf9b",
+"kg": 23651.0,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "cb1d388f-a587-4216-a376-4e926dbea684",
+"kg": 33923.0,
+"objet": "une baleine grise"
+},
+{
+"id": "e29136a7-e30b-48e0-a4fa-bfee1657ff49",
+"kg": 41421.2,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "74c65146-39b1-4915-b687-451ce01fb641",
+"kg": 4931.8,
+"objet": "un stégosaure"
+},
+{
+"id": "b828bc46-f7d3-4304-be2b-e9c3abfe2bde",
+"kg": 40899.7,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "612dcfee-7a56-401e-a64f-2ef4def4437e",
+"kg": 17991.0,
+"objet": "un diplodocus"
+},
+{
+"id": "f13f4196-715a-4212-8f8e-743b8b0e7d2e",
+"kg": 17916.6,
+"objet": "un diplodocus"
+},
+{
+"id": "a8488e81-a9f4-490c-a850-bbd211c80caf",
+"kg": 7889.1,
+"objet": "un Mirage 2000 à vide"
+},
+{
+"id": "1b0e018a-2425-48b5-a06b-9ae980f8faa7",
+"kg": 37411.9,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "ed61bfb6-be90-4d48-8253-0cb309c174d2",
+"kg": 10211.5,
+"objet": "un Rafale à vide"
+},
+{
+"id": "42d07af5-9099-4f51-8bc3-c14618169eb5",
+"kg": 3411.0,
+"objet": "un camping-car"
+},
+{
+"id": "d8558077-f134-4cb9-938b-d110566818d9",
+"kg": 47200.6,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "e64c89a5-30d3-403d-acd4-b892cf0b5c87",
+"kg": 29614.8,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "d2b1b0c8-964b-4f67-aea1-c6c94b9b44e3",
+"kg": 15412.4,
+"objet": "un cachalot femelle"
+},
+{
+"id": "441a9fef-0850-4587-82ae-8c2764ea5f43",
+"kg": 44635.9,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "10d6eb68-ee23-4d61-972e-8b8eb1122c54",
+"kg": 39632.4,
+"objet": "un cachalot mâle"
+},
+{
+"id": "21fd2819-d9ca-48c4-9249-1190509b45f3",
+"kg": 36931.1,
+"objet": "le cuivre de la statue de la Liberté"
+},
+{
+"id": "62c8fec5-16e7-4a4c-b0d1-24951718ff0a",
+"kg": 21378.8,
+"objet": "un camion chargé"
+},
+{
+"id": "4ebee89c-d569-4cb6-b217-0278cbe1d15c",
+"kg": 28416.0,
+"objet": "une baleine grise"
+},
+{
+"id": "fbfc4782-1d82-4d3f-9254-be453d3c232b",
+"kg": 16536.9,
+"objet": "un char AMX-13"
+},
+{
+"id": "19864970-61b6-4cf2-80f2-f31c470d310a",
+"kg": 23552.2,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "e8bf3090-5252-4d09-8dc4-98b7a1e00f15",
+"kg": 27305.9,
+"objet": "un VBCI"
+},
+{
+"id": "205ff434-806c-4f4b-80ef-d9df41f4b48c",
+"kg": 34737.6,
+"objet": "un VBCI"
+},
+{
+"id": "116d72b5-4e37-47d1-b10f-8320e55d16c4",
+"kg": 5088.6,
+"objet": "un stégosaure"
+},
+{
+"id": "209e4ba0-a3eb-4a6f-b4b0-1678a799f4cf",
+"kg": 44455.8,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "f0ceae81-6498-460e-b084-876ba6b8836e",
+"kg": 49729.2,
+"objet": "un cachalot mâle"
+},
+{
+"id": "63dd39b7-41c2-41ee-9137-262956beaafb",
+"kg": 41710.7,
+"objet": "un cachalot mâle"
+},
+{
+"id": "629b0f57-a9d4-466f-abfa-3959f7454556",
+"kg": 37717.0,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "30dbabab-2393-4085-aa90-5620dff81883",
+"kg": 33235.2,
+"objet": "un VBCI"
+},
+{
+"id": "0c9900ab-94ca-4a70-8204-aa331e9c0dab",
+"kg": 16681.6,
+"objet": "un requin-baleine"
+},
+{
+"id": "3c294822-25a7-447b-9210-156dacfb9c97",
+"kg": 1795.3,
+"objet": "un hippopotame"
+},
+{
+"id": "a200a69b-611a-4515-8f10-dc282fb98b4d",
+"kg": 30375.2,
+"objet": "une baleine à bosse"
+},
+{
+"id": "97c9bbbe-b9fd-4d3c-a642-778f3e454163",
+"kg": 45446.4,
+"objet": "un cachalot mâle"
+},
+{
+"id": "395e67dc-da8a-4810-8cc8-ef3536458507",
+"kg": 14714.9,
+"objet": "un ATR 72 à vide"
+},
+{
+"id": "6d879bf2-5a82-4be4-bcbf-c9ec9b17a09a",
+"kg": 46733.8,
+"objet": "un cachalot mâle"
+},
+{
+"id": "1366910d-d47c-4ca8-ab16-49793dcaeca1",
+"kg": 30740.1,
+"objet": "un VBCI"
+},
+{
+"id": "d7399616-5543-4ddf-b8e6-5ca25c26747b",
+"kg": 44373.2,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "d6d28201-7957-4db1-8971-77688bce6dd7",
+"kg": 41273.2,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "591dcb84-9268-4297-b1c7-c53f080b07a7",
+"kg": 17355.9,
+"objet": "un requin-baleine"
+},
+{
+"id": "6adbde30-39fd-4070-af38-351829fedcbe",
+"kg": 22550.7,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "c09a0a99-3106-437c-bf0b-9ee2133ca170",
+"kg": 49209.3,
+"objet": "un cachalot mâle"
+},
+{
+"id": "b95a89bf-4fc2-4db1-8bf9-e87dc119ae2b",
+"kg": 34314.4,
+"objet": "une baleine à bosse"
+},
+{
+"id": "642c3333-20d8-4c61-ac90-d4ea6e6ff85a",
+"kg": 22379.3,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "9559a29e-de50-4e13-9a57-7eee699deffb",
+"kg": 34748.0,
+"objet": "une toupie à béton chargée"
+},
+{
+"id": "ce30a38d-4012-461a-953c-cfb6359f94d1",
+"kg": 8923.4,
+"objet": "un Rafale à vide"
+},
+{
+"id": "28a32653-22ae-45b0-b9a1-2145c3c567bb",
+"kg": 34157.5,
+"objet": "le cuivre de la statue de la Liberté"
+},
+{
+"id": "3cc9b0c6-3294-4d11-b108-5906453984e5",
+"kg": 18051.5,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "b78615e8-d1a4-4f27-9d1d-09d1fd64bce5",
+"kg": 17553.2,
+"objet": "un requin-baleine"
+},
+{
+"id": "49ac9d20-4d7e-456b-b6f7-89c4f0efab0c",
+"kg": 6261.9,
+"objet": "un Mirage 2000 à vide"
+},
+{
+"id": "0fa5a81b-752a-4950-8c26-c693ac1d1a8b",
+"kg": 11531.8,
+"objet": "le bourdon Emmanuel de Notre-Dame"
+},
+{
+"id": "a756255c-aaba-4e1e-8ac9-567250842eb9",
+"kg": 11757.1,
+"objet": "le bourdon Emmanuel de Notre-Dame"
+},
+{
+"id": "2cfa4a98-2abd-473e-96e1-ea0023d6a562",
+"kg": 4034.6,
+"objet": "un éléphant d’Asie"
+},
+{
+"id": "f7fd2b68-00bf-499e-88d1-9ac6dcc06d0d",
+"kg": 41342.8,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "d2785a8d-1e11-4898-85b2-e4d5642d2215",
+"kg": 6920.3,
+"objet": "un T. rex"
+},
+{
+"id": "192ba4d2-0a2b-4874-b33e-4424ac771f42",
+"kg": 5234.6,
+"objet": "un mammouth laineux"
+},
+{
+"id": "6dfe0329-4069-4f9e-b4ea-561e0186bde4",
+"kg": 30105.6,
+"objet": "le cuivre de la statue de la Liberté"
+},
+{
+"id": "8ebb488c-f740-4b40-9f17-dc25a6f4f799",
+"kg": 17445.4,
+"objet": "un requin-baleine"
+},
+{
+"id": "aeda06dc-2af0-4817-9eee-4759a4af1e74",
+"kg": 5643.2,
+"objet": "un mammouth laineux"
+},
+{
+"id": "ff8b3c35-05c4-445f-9a9a-572e1891689a",
+"kg": 5976.1,
+"objet": "un orque"
+},
+{
+"id": "51ae0453-bbfc-4350-ba18-4b8af4b59540",
+"kg": 45101.4,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "cba51512-6f7d-4649-94ea-710571d0dab1",
+"kg": 2019.2,
+"objet": "un rhinocéros blanc"
+},
+{
+"id": "244fc303-fa8a-4209-b060-154432b1785d",
+"kg": 21537.3,
+"objet": "un camion chargé"
+},
+{
+"id": "b48616c0-aa9f-4a38-9788-90c7daff1444",
+"kg": 3398.1,
+"objet": "un éléphant d’Asie"
+},
+{
+"id": "ad413b67-be74-4b7e-b9ee-0427105d6fa4",
+"kg": 23839.2,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "de29e648-b5ab-441f-ba83-db5991682909",
+"kg": 8921.3,
+"objet": "un Rafale à vide"
+},
+{
+"id": "894b3b01-a9ff-4368-aeb8-5870880cd8b8",
+"kg": 10696.7,
+"objet": "un tricératops"
+},
+{
+"id": "c9a8a7e4-2013-4ceb-abde-456609d2242e",
+"kg": 39127.7,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "2877e832-5861-45b7-a4b4-878c131426c8",
+"kg": 21215.3,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "9efa6343-bb8c-480d-a084-f40cf3989c6c",
+"kg": 3829.4,
+"objet": "une camionnette chargée"
+},
+{
+"id": "0815f4f8-0c9c-480e-80bd-772481d561aa",
+"kg": 29656.1,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "cebbcc54-6b3a-44ee-a6bd-9f1b6160cb1a",
+"kg": 49524.5,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "6636d632-6c4f-4571-bbca-f7a81028ec0a",
+"kg": 42070.7,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "ad218fd7-fc76-48d3-a0c5-9d244bab77da",
+"kg": 47226.0,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "a2706cca-5278-45bb-bda7-d3b6c3db3255",
+"kg": 43710.1,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "63cef9e3-382a-49de-8b5d-69cabe91e470",
+"kg": 49303.9,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "303510ff-d60c-4c4e-a67a-5fb9c8bd9b73",
+"kg": 10630.5,
+"objet": "un Rafale à vide"
+},
+{
+"id": "1ae79e1c-20c3-4f9b-b1c7-1b21a7b961f9",
+"kg": 13438.5,
+"objet": "un requin-baleine"
+},
+{
+"id": "410b4e7c-f46b-4108-992b-5b792f9ae8dc",
+"kg": 25731.9,
+"objet": "une baleine à bosse"
+},
+{
+"id": "a3065cf3-238b-48ab-b6b7-b30858949ef5",
+"kg": 43520.2,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "6cf6ad25-c853-4dfd-a860-9745f4fae855",
+"kg": 12363.2,
+"objet": "la cloche de Big Ben"
+},
+{
+"id": "4e22ece0-1358-4a8d-88ff-776959e95f5c",
+"kg": 47895.6,
+"objet": "un cachalot mâle"
+},
+{
+"id": "73411eef-8a71-4477-b0aa-59011fc2a512",
+"kg": 19569.0,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "1cd87c6d-0d59-4374-a75c-91cd4fc18d04",
+"kg": 27102.0,
+"objet": "une baleine grise"
+},
+{
+"id": "f82862fe-ab2a-415e-88a6-58fd13c2a93a",
+"kg": 14335.3,
+"objet": "le bourdon Emmanuel de Notre-Dame"
+},
+{
+"id": "87e23add-d886-4612-93ed-425a5a7d1659",
+"kg": 26655.0,
+"objet": "un VBCI"
+},
+{
+"id": "d3ad69ec-2a7f-49d9-bf13-020fb7ae55d9",
+"kg": 49503.6,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "49e7089a-5e57-4ec0-b86f-acf786fb1b7f",
+"kg": 38986.3,
+"objet": "un cachalot mâle"
+},
+{
+"id": "0a780ce7-440f-43ac-b5ac-0d2a42db1ef2",
+"kg": 42187.9,
+"objet": "un cachalot mâle"
+},
+{
+"id": "7b0e2ca6-8f94-4d6b-a536-010c0e01bb49",
+"kg": 15953.8,
+"objet": "un requin-baleine"
+},
+{
+"id": "93c5ba9a-414d-4acb-b4b5-d1aad30160c0",
+"kg": 16545.6,
+"objet": "un cachalot femelle"
+},
+{
+"id": "e85224e9-4d4e-4000-b7f2-0b77e2932dd6",
+"kg": 5660.3,
+"objet": "un orque"
+},
+{
+"id": "edbc0a15-a81b-4c6a-aae4-d7e4b810f621",
+"kg": 45047.3,
+"objet": "un cachalot mâle"
+},
+{
+"id": "78eac504-e6d3-4d28-94bf-f85ac7332f11",
+"kg": 15602.2,
+"objet": "un char AMX-13"
+},
+{
+"id": "60042f53-a82b-4d27-b7f5-ba2d2cb239ef",
+"kg": 43704.7,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "5ca4a3de-a8c0-43bc-ab7e-08e21f4446c0",
+"kg": 41072.8,
+"objet": "un cachalot mâle"
+},
+{
+"id": "89bff675-377a-468f-8874-ac8946f42373",
+"kg": 4470.9,
+"objet": "un stégosaure"
+},
+{
+"id": "74ba09a0-952f-4c8b-968a-759a35d66f04",
+"kg": 34714.0,
+"objet": "un VBCI"
+},
+{
+"id": "dc3ba188-84dc-4f10-a759-0e3a7a1fafc6",
+"kg": 28270.0,
+"objet": "une toupie à béton chargée"
+},
+{
+"id": "f0380469-1b78-422e-b3a2-1357a8bf6609",
+"kg": 13477.4,
+"objet": "le bourdon Emmanuel de Notre-Dame"
+},
+{
+"id": "aab47d75-c65a-4777-bb24-3d2a639991c9",
+"kg": 34875.2,
+"objet": "une baleine à bosse"
+},
+{
+"id": "ed75edd3-9431-49fa-80b6-6bd7c252557b",
+"kg": 11926.4,
+"objet": "le bourdon Emmanuel de Notre-Dame"
+},
+{
+"id": "65a3cfc2-46d3-4d6c-b39a-ccbd24f2ef41",
+"kg": 2423.0,
+"objet": "un pick-up"
+},
+{
+"id": "ecb0c5c0-92e7-4f2e-941e-3cf9264cb105",
+"kg": 15616.9,
+"objet": "un diplodocus"
+},
+{
+"id": "54194fcc-881f-40a8-8531-a7ed8461d6ea",
+"kg": 29949.7,
+"objet": "une toupie à béton chargée"
+},
+{
+"id": "07d645f3-4c38-4a6a-8152-7a4e8e9464d7",
+"kg": 42253.3,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "a78a97c0-386c-4c59-b645-e645bdce9335",
+"kg": 8627.5,
+"objet": "un T. rex"
+},
+{
+"id": "944fde43-eae8-4986-9ad1-38cb3c658c5c",
+"kg": 20703.8,
+"objet": "un camion chargé"
+},
+{
+"id": "68d43213-042e-4944-9bff-e763a0de136b",
+"kg": 48686.9,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "a9911ef9-1b8e-413f-bde2-57693a97863c",
+"kg": 21193.1,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "ffc2a46e-31b1-4141-8c96-dac2f73c06e6",
+"kg": 36798.8,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "4b32dd53-0897-495f-9358-653ad93901fe",
+"kg": 22611.7,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "4ff49450-808f-47b5-b3be-1032added6cb",
+"kg": 28315.9,
+"objet": "une baleine grise"
+},
+{
+"id": "788402e1-3e46-482c-b2aa-0be943337321",
+"kg": 25035.5,
+"objet": "un VBCI"
+},
+{
+"id": "1b7614de-0ddc-4472-b6f2-914e42170c38",
+"kg": 44602.6,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "de49db71-401a-488a-91e0-63a800e3bb33",
+"kg": 10574.7,
+"objet": "un Rafale à vide"
+},
+{
+"id": "eeff5cd6-06de-4971-a95b-c677cab50cae",
+"kg": 39905.4,
+"objet": "un cachalot mâle"
+},
+{
+"id": "bf52b62a-73da-4816-87d7-0ab1910367bf",
+"kg": 18218.8,
+"objet": "un camion chargé"
+},
+{
+"id": "bd2c1a5b-cb8f-4fc9-8ef1-2c6f401203a9",
+"kg": 9834.8,
+"objet": "un Rafale à vide"
+},
+{
+"id": "523c3dfa-ca32-4799-8dab-57711a3b149e",
+"kg": 33173.9,
+"objet": "une baleine à bosse"
+},
+{
+"id": "63b0d72b-221a-4d1e-a8e8-cfe5f5863e28",
+"kg": 32143.1,
+"objet": "le cuivre de la statue de la Liberté"
+},
+{
+"id": "b77c2167-67f8-4e5f-80c4-ff8120afbf79",
+"kg": 28083.3,
+"objet": "le cuivre de la statue de la Liberté"
+},
+{
+"id": "823244e8-4f21-41c7-90ce-b51d3de4c1bd",
+"kg": 24119.5,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "7b580391-9c53-4d68-be86-af2d03de2121",
+"kg": 49476.0,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "90b33d9a-31c3-45c0-be79-ec3740b8b1c4",
+"kg": 47990.2,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "2442c7fb-37a2-44c3-a279-2e442a395cbb",
+"kg": 19114.2,
+"objet": "un camion chargé"
+},
+{
+"id": "90bfa666-935f-4778-8381-53c1c182f10b",
+"kg": 43424.3,
+"objet": "un cachalot mâle"
+},
+{
+"id": "88ca9b53-db5c-472a-b1ac-394de55571af",
+"kg": 7946.4,
+"objet": "un T. rex"
+},
+{
+"id": "7f9192cf-8912-4ed8-aef3-de0a2ec06046",
+"kg": 5598.7,
+"objet": "un stégosaure"
+},
+{
+"id": "002b6584-dfe4-4907-b691-0fb4723297e4",
+"kg": 44238.6,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "c9722803-100f-40a0-98fa-7a8f435b25e7",
+"kg": 22964.8,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "ae7358e0-0093-4ef3-abe7-632a97ad60ac",
+"kg": 29215.9,
+"objet": "une baleine à bosse"
+},
+{
+"id": "3edf2f53-a9e5-4a93-af87-fe4172762e17",
+"kg": 7746.1,
+"objet": "un T. rex"
+},
+{
+"id": "4bdb4376-17db-42c6-a68b-fc5e791d2338",
+"kg": 43234.7,
+"objet": "un cachalot mâle"
+},
+{
+"id": "5b6637e1-3cd2-4ba8-8add-2ec7bf20e085",
+"kg": 31642.0,
+"objet": "une toupie à béton chargée"
+},
+{
+"id": "e8b8b603-dbb6-49f7-99ad-d0ebaea21b24",
+"kg": 22682.0,
+"objet": "un camion chargé"
+},
+{
+"id": "d6027bf6-cf4d-4698-95af-892504da202c",
+"kg": 48057.0,
+"objet": "un cachalot mâle"
+},
+{
+"id": "3ae545cf-27f7-4fbc-bed6-a2245ed3f78d",
+"kg": 45365.5,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "71d9c2ae-49e9-41a7-b2e9-a98222b491c4",
+"kg": 46047.7,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "6f03f9b2-0c7a-4119-ba7c-e08233318c97",
+"kg": 3867.5,
+"objet": "une camionnette chargée"
+},
+{
+"id": "6395303e-418d-4923-80a2-4deb9a2b5746",
+"kg": 24121.7,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "046e6b57-c8a7-4c60-a695-5fb5ea0ecbb9",
+"kg": 46368.2,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "133e050c-eb62-43c1-8935-a0103303b0b2",
+"kg": 35437.5,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "c729ef0e-7995-410b-9c15-7427b84ad12f",
+"kg": 29898.8,
+"objet": "un VBCI"
+},
+{
+"id": "b57c6219-c42e-4cea-8f7e-aa13f2a6fd96",
+"kg": 48952.3,
+"objet": "un cachalot mâle"
+},
+{
+"id": "7fdf7a3c-567a-4b18-8fc4-ea13ebfcb410",
+"kg": 25725.4,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "a289377b-eb6e-4c00-9cf2-ad5ae75935cb",
+"kg": 6186.2,
+"objet": "un ankylosaure"
+},
+{
+"id": "f2d265e4-2a1e-424f-97bf-95d805e1570e",
+"kg": 28148.4,
+"objet": "le cuivre de la statue de la Liberté"
+},
+{
+"id": "d7807dd9-1e7e-4fe5-b7f2-35d27cecb368",
+"kg": 36886.2,
+"objet": "une toupie à béton chargée"
+},
+{
+"id": "08ee4748-508d-46b5-b54b-88a7ca47f708",
+"kg": 26365.4,
+"objet": "le cuivre de la statue de la Liberté"
+},
+{
+"id": "87690a2f-5b73-4b8c-b00e-b9d86f75e1d6",
+"kg": 37365.0,
+"objet": "une toupie à béton chargée"
+},
+{
+"id": "b6a3863e-bd68-4429-b896-a10b123f786e",
+"kg": 2677.8,
+"objet": "un Range Rover"
+},
+{
+"id": "3fff68a5-0f27-4d8e-a8c2-445b4a0b24bb",
+"kg": 26755.0,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "9f52d9a2-51ed-4ffd-8bbf-81303c27aea5",
+"kg": 16060.2,
+"objet": "un cachalot femelle"
+},
+{
+"id": "e7e244e2-197b-484e-a997-742e331b33e3",
+"kg": 42713.4,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "b39bdf4a-2953-45ae-9cb4-20dc96938480",
+"kg": 7913.7,
+"objet": "un T. rex"
+},
+{
+"id": "45f3c9ca-dbb8-4aad-9648-277983105182",
+"kg": 22181.4,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "13420049-5038-46b9-8454-41d1b8024fab",
+"kg": 43093.1,
+"objet": "un cachalot mâle"
+},
+{
+"id": "9044b0a6-f95d-4710-bda2-9d3721a5eb2a",
+"kg": 20033.8,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "04335a3d-9ce2-4b85-b03a-f350c43e3f43",
+"kg": 49920.2,
+"objet": "un cachalot mâle"
+},
+{
+"id": "19f8984c-ee0a-464d-a689-7826c328dd76",
+"kg": 15483.7,
+"objet": "le bourdon Emmanuel de Notre-Dame"
+},
+{
+"id": "90479a7b-bb40-4bcf-a5c7-1445b787209d",
+"kg": 32569.7,
+"objet": "une baleine à bosse"
+},
+{
+"id": "53efa7a9-771c-4a44-8974-673142eef3e3",
+"kg": 3473.4,
+"objet": "un éléphant de mer"
+},
+{
+"id": "3b8fc5aa-e362-4218-a1a6-9f1c70039757",
+"kg": 6558.3,
+"objet": "un ankylosaure"
+},
+{
+"id": "e5b33a8a-78e4-486c-bbd2-224c4f9c0b40",
+"kg": 22426.0,
+"objet": "un camion chargé"
+},
+{
+"id": "e1481900-9d7c-4103-be02-287fb21c1e7e",
+"kg": 5597.8,
+"objet": "un mammouth laineux"
+},
+{
+"id": "bd7d53c3-a908-4661-881a-8d46acc4bf29",
+"kg": 42738.6,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "94d21fcd-545d-4060-966e-beea69f3fef7",
+"kg": 39270.9,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "dc9c0ff8-4d8f-4ce7-b8ea-ed61bf8a6b7d",
+"kg": 18808.5,
+"objet": "un camion chargé"
+},
+{
+"id": "1332bc01-d3b8-4aba-b9f1-79513b32e9a3",
+"kg": 27639.2,
+"objet": "une baleine à bosse"
+},
+{
+"id": "a412fbd3-7b33-4308-b752-d93ced2947cc",
+"kg": 5012.1,
+"objet": "un mammouth laineux"
+},
+{
+"id": "e61d6c94-e0c9-47bc-8e0b-37054fd2b580",
+"kg": 42510.0,
+"objet": "un cachalot mâle"
+},
+{
+"id": "eacd2995-45bc-4880-9704-34033c12a92d",
+"kg": 36637.2,
+"objet": "le cuivre de la statue de la Liberté"
+},
+{
+"id": "73ea5a88-02ef-46e1-aab6-720950cc85e5",
+"kg": 41077.0,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "61698321-d415-4d4d-a439-e191bd2e9509",
+"kg": 5289.7,
+"objet": "un ankylosaure"
+},
+{
+"id": "f554f57b-bd7e-4754-ab7f-3ec760029e82",
+"kg": 3772.9,
+"objet": "un éléphant d’Asie"
+},
+{
+"id": "0ede8b6b-d982-47ee-b33c-c0a363f29de9",
+"kg": 45063.4,
+"objet": "un cachalot mâle"
+},
+{
+"id": "634ace77-22de-4d4a-86a0-61c83123559f",
+"kg": 34682.4,
+"objet": "une baleine à bosse"
+},
+{
+"id": "e531cae4-4267-4aa0-92a0-8c3aad39786b",
+"kg": 1688.2,
+"objet": "un hippopotame"
+},
+{
+"id": "5f49e71c-a6aa-4227-8488-24c816a37e3f",
+"kg": 43952.6,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "5cbd4840-d15a-476c-95c0-3c86d0c9a4bc",
+"kg": 46818.8,
+"objet": "un cachalot mâle"
+},
+{
+"id": "a77bbe5c-4ed9-4860-a2b3-719e0fe54a3a",
+"kg": 40706.3,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "1acfeffe-ffb9-477e-abd5-d59dd82d759e",
+"kg": 23349.7,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "55d32d66-b180-4f32-b8b0-6d87d883d499",
+"kg": 26186.0,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "0f273090-72c9-492e-bdd5-661ae86a76db",
+"kg": 12561.5,
+"objet": "un diplodocus"
+},
+{
+"id": "4c50d0c0-9fee-4c56-835b-76ba4e8ab9f7",
+"kg": 31132.0,
+"objet": "une baleine à bosse"
+},
+{
+"id": "39cad760-ff7d-4b39-acb9-45a8aaf0958e",
+"kg": 47277.5,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "abdd16a4-de53-4ec3-b6fe-0af11f8bf29a",
+"kg": 31378.8,
+"objet": "une baleine grise"
+},
+{
+"id": "f79ead71-f252-441b-b559-78cc78f2a38d",
+"kg": 25327.8,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "ccdba23d-fa5e-449a-a848-e0f170cfe544",
+"kg": 24290.7,
+"objet": "un VBCI"
+},
+{
+"id": "52ba53c0-e66a-4183-817e-4372313e5148",
+"kg": 11747.8,
+"objet": "la cloche de Big Ben"
+},
+{
+"id": "426e84e5-334b-4715-b6c6-f29431117fed",
+"kg": 44055.7,
+"objet": "un cachalot mâle"
+},
+{
+"id": "6ce7b068-0657-42ba-a795-4f628eceb8d1",
+"kg": 17827.8,
+"objet": "un camion chargé"
+},
+{
+"id": "69e439a5-f712-4b53-a5f2-a841c2b5233c",
+"kg": 2961.6,
+"objet": "un éléphant de mer"
+},
+{
+"id": "8ce74ea9-abfc-40f5-82b7-10eb96de2596",
+"kg": 24434.5,
+"objet": "un VBCI"
+},
+{
+"id": "2729aabc-edc4-4dd6-9553-1a8a82da9ebe",
+"kg": 8982.3,
+"objet": "un Rafale à vide"
+},
+{
+"id": "7d40062c-c6de-413d-aef1-c0cd77685122",
+"kg": 13218.1,
+"objet": "un requin-baleine"
+},
+{
+"id": "ba3e71e1-18b9-4d00-b426-86fa06c25d14",
+"kg": 39385.4,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "ced97d83-c8b6-4336-bb21-14989867c875",
+"kg": 12346.1,
+"objet": "la cloche de Big Ben"
+},
+{
+"id": "f75de658-ad50-4285-a59c-8cf70ce51a53",
+"kg": 19654.7,
+"objet": "un camion chargé"
+},
+{
+"id": "052b0f29-41cc-4dac-b7b0-eeceb9c6fc1e",
+"kg": 41544.3,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "ae0c6e8a-6eb4-4e6a-857f-977ff77fbeb6",
+"kg": 13771.5,
+"objet": "un ATR 72 à vide"
+},
+{
+"id": "00f3b737-a5e8-4516-906e-09d4894ff41d",
+"kg": 4599.3,
+"objet": "un orque"
+},
+{
+"id": "c2418b28-1a07-4220-8ee4-5b9d23a39841",
+"kg": 41167.8,
+"objet": "un cachalot mâle"
+},
+{
+"id": "db1f3806-3a9c-489e-b832-cc564ae8e4cb",
+"kg": 26318.8,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "d73fc550-b029-4c34-972a-6b4695d3cf78",
+"kg": 33889.3,
+"objet": "une baleine à bosse"
+},
+{
+"id": "43d47089-551a-4b05-86d7-e9144e5c5168",
+"kg": 45404.6,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "f3c27718-6161-46e3-b80c-a05c0e0915d0",
+"kg": 49324.4,
+"objet": "un cachalot mâle"
+},
+{
+"id": "bd736960-8274-4faf-add5-862685c23688",
+"kg": 46590.7,
+"objet": "un cachalot mâle"
+},
+{
+"id": "ca55eb57-5ab0-4575-8951-35214e743e97",
+"kg": 12362.5,
+"objet": "la cloche de Big Ben"
+},
+{
+"id": "87278ef7-cc7d-42e1-b475-501a84b6454c",
+"kg": 25001.1,
+"objet": "une baleine à bosse"
+},
+{
+"id": "d2b9a659-df7b-4804-a239-b70383160fd7",
+"kg": 33745.4,
+"objet": "le cuivre de la statue de la Liberté"
+},
+{
+"id": "c99d40bc-cf40-4538-97d9-b059734b4983",
+"kg": 13415.7,
+"objet": "un requin-baleine"
+},
+{
+"id": "7a1a4c21-b8b1-490c-beb3-2400689ffb3e",
+"kg": 13821.3,
+"objet": "un ATR 72 à vide"
+},
+{
+"id": "4a0ee418-2f7f-4e05-bf51-c18cef3b17d8",
+"kg": 14904.7,
+"objet": "un ATR 72 à vide"
+},
+{
+"id": "6bcbd21b-de9b-4645-b3ec-7d72fa25271f",
+"kg": 23406.8,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "84bedf4c-da5d-4ae0-9d72-9e67aa477c64",
+"kg": 15092.7,
+"objet": "un char AMX-13"
+},
+{
+"id": "c06786b1-bd31-41e2-b7a3-2db28d9280a6",
+"kg": 13498.0,
+"objet": "un cachalot femelle"
+},
+{
+"id": "10472466-02d6-461b-bc9d-8edf3ff891b8",
+"kg": 7331.6,
+"objet": "un Mirage 2000 à vide"
+},
+{
+"id": "61a1d098-dd05-4e72-a87f-148f50671ac3",
+"kg": 26338.7,
+"objet": "le cuivre de la statue de la Liberté"
+},
+{
+"id": "e2a02b48-c938-40f7-98a2-de12484de662",
+"kg": 17580.6,
+"objet": "un cachalot femelle"
+},
+{
+"id": "2ed9ebbe-1a3a-4aaa-9ee5-169b4bd095fd",
+"kg": 37155.8,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "5bdfe51c-babd-437e-9443-abd0ffcbadb4",
+"kg": 7333.3,
+"objet": "un T. rex"
+},
+{
+"id": "92a77aea-0351-4afa-bced-2e154add175f",
+"kg": 10939.8,
+"objet": "un Rafale à vide"
+},
+{
+"id": "4e277d40-1fd6-4d8d-b363-03bb590792a1",
+"kg": 22421.1,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "1a01a149-49c2-4136-bb18-4948f605cc5e",
+"kg": 34492.2,
+"objet": "un VBCI"
+},
+{
+"id": "8bdcec86-e416-42a1-ac0c-4e0235488c96",
+"kg": 15940.4,
+"objet": "un char AMX-13"
+},
+{
+"id": "85ac2f2c-f2bb-478f-a8f0-b80fd90d58af",
+"kg": 44428.6,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "0e8c958c-691c-4c72-b192-c9ec5dcd2883",
+"kg": 7380.6,
+"objet": "un Mirage 2000 à vide"
+},
+{
+"id": "ae6d797d-4e9d-486c-9850-39864c8e43eb",
+"kg": 27240.0,
+"objet": "une baleine à bosse"
+},
+{
+"id": "dcdee752-509f-4b5b-879e-a79620c25a2e",
+"kg": 31346.0,
+"objet": "le cuivre de la statue de la Liberté"
+},
+{
+"id": "0db0c491-60a4-4a4c-840e-9763f465e737",
+"kg": 21166.7,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "70db982f-d55d-4692-bbca-cfb605038e5d",
+"kg": 7771.1,
+"objet": "un tricératops"
+},
+{
+"id": "a152e953-364a-48ea-abce-ebe24c1fa9d1",
+"kg": 42449.5,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "da7e44f2-bbb1-4a36-8929-50517332f5a5",
+"kg": 8530.4,
+"objet": "un tricératops"
+},
+{
+"id": "e105fc5b-b005-4298-adb0-57a0b9236d92",
+"kg": 12205.1,
+"objet": "le bourdon Emmanuel de Notre-Dame"
+},
+{
+"id": "ed3969f4-540f-4244-8a0c-2b6dbbf55334",
+"kg": 21374.3,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "286b338b-a618-4ac9-b496-b62561c3ff57",
+"kg": 35147.2,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "e857d3aa-ea83-4d16-9a18-5417e0d8712c",
+"kg": 35187.2,
+"objet": "une toupie à béton chargée"
+},
+{
+"id": "fea429d1-9e63-4dc7-800e-cb80143e9526",
+"kg": 10348.7,
+"objet": "un Rafale à vide"
+},
+{
+"id": "cd68006e-8cba-4bd7-a226-9e80a7c506d0",
+"kg": 1727.1,
+"objet": "une Tesla Model 3"
+},
+{
+"id": "f602dff6-b76c-4e58-8c5c-e4d65d0965ee",
+"kg": 17420.4,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "ea566f55-c36a-403e-85da-f6a806f5a032",
+"kg": 48751.5,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "8af6300d-f04a-4134-a2cd-f04e7dacf6e0",
+"kg": 13322.7,
+"objet": "un diplodocus"
+},
+{
+"id": "98650896-5fe7-4261-b971-61f6fbeb6d33",
+"kg": 20096.5,
+"objet": "un camion chargé"
+},
+{
+"id": "274552fe-f666-4257-8888-1bfd36520cc3",
+"kg": 49499.4,
+"objet": "un cachalot mâle"
+},
+{
+"id": "200388de-cb04-44dc-b9e4-bcce5dedbb0f",
+"kg": 17415.1,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "1f9d01f8-24ca-4e92-bbae-964cf603cbe4",
+"kg": 46039.6,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "9b1b23d6-b7ca-44ef-b647-2f96c0c6b599",
+"kg": 44905.0,
+"objet": "un cachalot mâle"
+},
+{
+"id": "06aa082b-a139-4dd5-832a-149a8b0e7c76",
+"kg": 36892.0,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "ab7ed539-5860-4a26-92b4-08a1ca43fb8c",
+"kg": 12127.5,
+"objet": "la cloche de Big Ben"
+},
+{
+"id": "ac05e5cb-2eed-41b4-a83c-314b4e0e18bd",
+"kg": 32330.5,
+"objet": "un VBCI"
+},
+{
+"id": "bcf29ddc-b1c0-42b7-b78e-60847c6bf4d5",
+"kg": 6703.8,
+"objet": "un ankylosaure"
+},
+{
+"id": "6b12afd3-0078-468e-8327-48a87153372e",
+"kg": 22092.9,
+"objet": "un camion chargé"
+},
+{
+"id": "9b8dba2b-a025-4ed0-846a-ffc555b98a78",
+"kg": 28081.2,
+"objet": "une baleine grise"
+},
+{
+"id": "1452e2dc-60e9-4ed9-be54-4d0b109ce723",
+"kg": 28255.3,
+"objet": "une toupie à béton chargée"
+},
+{
+"id": "d878dc3a-55fb-476d-8196-c0283ea16cec",
+"kg": 41634.8,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "d2a19b84-6dff-4134-bf2f-0ff2b765af66",
+"kg": 17557.8,
+"objet": "un char AMX-13"
+},
+{
+"id": "bad726a6-7d87-468c-8433-e0bdb9ab51b5",
+"kg": 5066.4,
+"objet": "un ankylosaure"
+},
+{
+"id": "4f8ea50c-260a-4c15-9ada-8ca6a19b76fc",
+"kg": 46402.0,
+"objet": "un cachalot mâle"
+},
+{
+"id": "563d7198-d076-4364-8223-53b846987b9a",
+"kg": 38057.7,
+"objet": "un cachalot mâle"
+},
+{
+"id": "1fe20378-e635-448b-a730-b779afee0bb7",
+"kg": 33129.9,
+"objet": "une toupie à béton chargée"
+},
+{
+"id": "7b9e72d8-bfd7-43ee-a7bc-13bd5ed88173",
+"kg": 19228.4,
+"objet": "un camion chargé"
+},
+{
+"id": "f0ebed5b-af9e-4df6-8f14-eb9d0565b1b1",
+"kg": 44125.8,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "1216c3fb-564e-487b-8d7f-1295c3fe6175",
+"kg": 27351.8,
+"objet": "une baleine grise"
+},
+{
+"id": "0366c966-9c6d-4ee9-9646-41ff669c400e",
+"kg": 39075.2,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "2f5ed5a6-aa00-44cf-b3e2-d1cc0fa6409e",
+"kg": 29772.5,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "a5170758-c808-4500-8e01-306215a1d949",
+"kg": 47895.3,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "f3ec2ea5-6e61-46c7-b7d8-e4e04a5e53f3",
+"kg": 12001.5,
+"objet": "le bourdon Emmanuel de Notre-Dame"
+},
+{
+"id": "6b92520c-f3cf-4a6e-9290-0da604eac165",
+"kg": 13225.7,
+"objet": "un cachalot femelle"
+},
+{
+"id": "ba097a50-cbdd-48e9-989b-db32e2fa3b13",
+"kg": 20615.9,
+"objet": "un camion chargé"
+},
+{
+"id": "0cff1337-299d-4a5c-b909-3c410cd83e96",
+"kg": 19172.8,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "e9db6d6e-ddc0-49fb-a5ed-43631ab069da",
+"kg": 32545.6,
+"objet": "une toupie à béton chargée"
+},
+{
+"id": "0c229a59-8088-4c57-a441-88ea7e41998a",
+"kg": 32029.6,
+"objet": "un VBCI"
+},
+{
+"id": "52d16186-f7e5-43e8-9025-14ac4c255893",
+"kg": 27449.0,
+"objet": "une baleine à bosse"
+},
+{
+"id": "309a819b-96b6-473c-82b0-70edc17228df",
+"kg": 38651.8,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "80807b01-54e7-49dc-9599-42aed87df9a6",
+"kg": 31326.5,
+"objet": "une baleine grise"
+},
+{
+"id": "ae6b0084-f712-414c-a15f-60ecb3f6fa2c",
+"kg": 16123.2,
+"objet": "un diplodocus"
+},
+{
+"id": "aabc8a0e-7b35-49cd-9d05-5ed58af2a073",
+"kg": 16739.0,
+"objet": "un cachalot femelle"
+},
+{
+"id": "86d9ce57-0bdb-4d17-94a6-f726b9f0a2f8",
+"kg": 25810.8,
+"objet": "une baleine à bosse"
+},
+{
+"id": "42b31f60-9a39-4769-a8c5-aedb59e853db",
+"kg": 12663.0,
+"objet": "un requin-baleine"
+},
+{
+"id": "c6353881-5355-413e-bf17-90141985eeac",
+"kg": 33389.1,
+"objet": "un VBCI"
+},
+{
+"id": "a5d74f83-7d6a-4548-81ed-19f6057f363c",
+"kg": 37551.7,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "3a20ba1a-5da0-45a0-ad2f-854a0d23a5ab",
+"kg": 6233.7,
+"objet": "un éléphant d’Afrique"
+},
+{
+"id": "d86f66dc-7516-4bec-a0d2-fe7d2ee40d3c",
+"kg": 5014.8,
+"objet": "un stégosaure"
+},
+{
+"id": "b81413f1-acf0-4662-9646-1f1327be8418",
+"kg": 42476.6,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "45f924e8-cb40-476f-9720-749d46979416",
+"kg": 32534.1,
+"objet": "un VBCI"
+},
+{
+"id": "509b5a37-b58d-4c6b-85a5-f9db78027345",
+"kg": 15169.4,
+"objet": "un requin-baleine"
+},
+{
+"id": "43a85d9e-32e6-4bfa-8211-f374ff8a03d0",
+"kg": 11460.4,
+"objet": "le bourdon Emmanuel de Notre-Dame"
+},
+{
+"id": "044d96ec-7420-4728-8899-14bf5c9f6b1c",
+"kg": 22827.8,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "b5a2caf5-03e1-4a11-9b37-23f92ab9e10a",
+"kg": 45649.5,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "2b8c5714-d63d-4f38-b821-d4ba320efb8c",
+"kg": 30790.8,
+"objet": "le cuivre de la statue de la Liberté"
+},
+{
+"id": "3a7e64f9-8908-4608-93e7-3fa7eda21bfa",
+"kg": 20118.9,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "839db6af-c7c7-4e7c-b2c2-f35c112a2365",
+"kg": 30889.6,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "d10e103e-c8fc-422c-80e7-972f03a09073",
+"kg": 26970.4,
+"objet": "le cuivre de la statue de la Liberté"
+},
+{
+"id": "acfb7441-55ec-48a1-87a1-7f801470eebe",
+"kg": 6417.2,
+"objet": "un Mirage 2000 à vide"
+},
+{
+"id": "7a08ff3a-8485-4d93-8a5d-eb2d30806712",
+"kg": 11145.7,
+"objet": "le bourdon Emmanuel de Notre-Dame"
+},
+{
+"id": "8d38d3ec-9941-4451-8b6e-a1c7b99eb9a9",
+"kg": 29661.8,
+"objet": "un VBCI"
+},
+{
+"id": "1b0ca03d-9477-468b-8cf2-99c02eb1f93f",
+"kg": 40749.8,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "ecda4279-6a1b-423d-ab21-5014f7f99c6d",
+"kg": 8134.7,
+"objet": "un Mirage 2000 à vide"
+},
+{
+"id": "00dc7626-fb39-434f-8c78-97c0677d4f3c",
+"kg": 28103.5,
+"objet": "une toupie à béton chargée"
+},
+{
+"id": "8fedf330-68b8-4831-a30e-7f8cb956227d",
+"kg": 42853.4,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "c49b07dd-0cea-4b57-bc66-5bf52b7e5774",
+"kg": 18873.9,
+"objet": "un camion chargé"
+},
+{
+"id": "5916b49c-4d93-46dc-bbdb-cfac070ba62d",
+"kg": 44676.8,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "66c2b3cf-6019-4986-b599-88069e4ac3b7",
+"kg": 48988.9,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "3fd845c6-3e86-4631-8833-9e2d03811d5b",
+"kg": 32294.8,
+"objet": "une toupie à béton chargée"
+},
+{
+"id": "4ae932f6-c86d-4b00-aa9e-f0cefa0c88b2",
+"kg": 34219.8,
+"objet": "un VBCI"
+},
+{
+"id": "7e2cc2b0-5e33-4bf1-a96c-d6d6fff12bec",
+"kg": 40650.3,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "a35da408-f3b3-4a57-b428-5501d77e8d66",
+"kg": 27769.5,
+"objet": "une baleine grise"
+},
+{
+"id": "2005fbc0-adbd-46e8-a8fc-0f9b78372a48",
+"kg": 28855.6,
+"objet": "le cuivre de la statue de la Liberté"
+},
+{
+"id": "38b7212b-76b3-42c3-b09f-b54d781ca80f",
+"kg": 48963.6,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "54caa444-b1fe-4d93-aa6e-b573db38eddb",
+"kg": 24724.9,
+"objet": "un VBCI"
+},
+{
+"id": "9469c130-776a-43bf-9289-71aa022e770e",
+"kg": 32640.8,
+"objet": "une baleine à bosse"
+},
+{
+"id": "6d462e09-556d-41ce-88e2-35057c0599ba",
+"kg": 24199.0,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "62081602-5463-416f-9e8c-7e397d776a9f",
+"kg": 45783.5,
+"objet": "un cachalot mâle"
+},
+{
+"id": "82602a92-9f7a-487b-92fe-9e13dcd73c41",
+"kg": 12255.6,
+"objet": "le bourdon Emmanuel de Notre-Dame"
+},
+{
+"id": "72e729e1-8806-4f0d-978d-399729371d87",
+"kg": 48801.6,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "67ce9021-7d25-403b-a79b-559757443308",
+"kg": 36031.1,
+"objet": "le cuivre de la statue de la Liberté"
+},
+{
+"id": "a8288478-a960-4a19-bb62-2152135b4b10",
+"kg": 11159.1,
+"objet": "un Rafale à vide"
+},
+{
+"id": "8744fa42-ef42-4ee8-88f0-7fe6604e3a0f",
+"kg": 42414.3,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "35ac51db-f162-4d5f-bc84-0b81c33dec56",
+"kg": 5600.8,
+"objet": "un stégosaure"
+},
+{
+"id": "de2662e6-1283-4366-857b-4d41933a1662",
+"kg": 6672.6,
+"objet": "un Mirage 2000 à vide"
+},
+{
+"id": "707de8f8-c591-4c58-ac9c-5f59721fb37b",
+"kg": 29625.1,
+"objet": "une baleine à bosse"
+},
+{
+"id": "cb44c646-81ca-45fe-bc3c-52083e585b15",
+"kg": 25278.1,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "7f252504-7206-4dae-b4f8-759d7f10db45",
+"kg": 3348.4,
+"objet": "un éléphant d’Asie"
+},
+{
+"id": "c561aa72-7650-46c8-95bc-263c8508eca8",
+"kg": 42808.2,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "c02ae477-e608-408a-b519-cde41135ed94",
+"kg": 41858.8,
+"objet": "un cachalot mâle"
+},
+{
+"id": "85b5c728-d7dc-4de9-abe3-0c4fd0390ec9",
+"kg": 31358.3,
+"objet": "une toupie à béton chargée"
+},
+{
+"id": "668ea827-ed9c-4e97-9b84-8d3429cb0d7e",
+"kg": 33964.3,
+"objet": "une baleine grise"
+},
+{
+"id": "7ecaf8a0-5784-4bb2-a0b2-37f11a5b432a",
+"kg": 43006.6,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "c3f24bef-cb29-469d-8798-317e0876beca",
+"kg": 28136.6,
+"objet": "un VBCI"
+},
+{
+"id": "187b091b-8b18-426d-9100-9e1d56c68784",
+"kg": 39903.5,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "b0d4a0e9-eaa6-494a-8dd8-28762d3173d7",
+"kg": 19755.6,
+"objet": "un camion chargé"
+},
+{
+"id": "533bc2ec-e4ac-46a7-ab67-576ffe60d7f0",
+"kg": 25946.1,
+"objet": "une baleine à bosse"
+},
+{
+"id": "5ad143c1-5fce-4739-b9f2-0d39b0b95fa5",
+"kg": 32398.4,
+"objet": "une baleine grise"
+},
+{
+"id": "07edda7c-a2fd-46a3-8aa5-659306c9f19e",
+"kg": 5433.5,
+"objet": "un stégosaure"
+},
+{
+"id": "0aab9bbe-36dd-4d05-bb5f-38aa27317fdb",
+"kg": 40612.7,
+"objet": "un cachalot mâle"
+},
+{
+"id": "cc66c30d-989a-4e2a-b805-4d4f1b6a58ce",
+"kg": 3266.6,
+"objet": "une camionnette chargée"
+},
+{
+"id": "97197edd-ef62-4dbf-9d32-31692d37f717",
+"kg": 20357.2,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "2a51e617-2d1b-4d00-811b-041cbbfd76d6",
+"kg": 12045.2,
+"objet": "la cloche de Big Ben"
+},
+{
+"id": "af14213e-49f4-4412-ab93-c5a3621b391d",
+"kg": 34518.5,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "8c7bc182-e285-42f0-8959-fac0bda516fa",
+"kg": 31263.9,
+"objet": "un VBCI"
+},
+{
+"id": "877846fb-6b3e-49af-9b12-2c5636a185c0",
+"kg": 42707.8,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "a750a22d-4a86-4fad-99f7-ca4b727968f7",
+"kg": 14285.0,
+"objet": "la cloche de Big Ben"
+},
+{
+"id": "43dd9809-2ec7-4a2e-b819-72684baa468e",
+"kg": 43249.2,
+"objet": "un cachalot mâle"
+},
+{
+"id": "21c5e72b-95d8-44f6-8c6a-9b2f6ac520d5",
+"kg": 48650.5,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "474f869f-2dd6-4d4a-9eb7-3864e70877a6",
+"kg": 11405.3,
+"objet": "un ATR 72 à vide"
+},
+{
+"id": "44418c18-62ca-4e2b-a25b-b202e48dfdb9",
+"kg": 37720.9,
+"objet": "une toupie à béton chargée"
+},
+{
+"id": "a4a654cf-39e6-47f8-b5f4-7cde82dabbc0",
+"kg": 25719.1,
+"objet": "une baleine à bosse"
+},
+{
+"id": "5aa1081e-dcbc-4747-81b9-82ac0cd228ba",
+"kg": 28644.1,
+"objet": "une baleine à bosse"
+},
+{
+"id": "761a97a3-2522-4dc4-a862-ef7affa1fb32",
+"kg": 1599.4,
+"objet": "une Peugeot 3008"
+},
+{
+"id": "1a1b7ece-5c4a-41cc-a3b8-b7ab7161bbbf",
+"kg": 9815.1,
+"objet": "un Rafale à vide"
+},
+{
+"id": "e6c1aa00-8f01-4bc8-93b6-cc1d1c76fe44",
+"kg": 22680.3,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "92a63463-0c00-48c3-b2a2-75003fe7b37d",
+"kg": 20848.2,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "42eeb367-ef04-4da3-ae61-150b0b4be4e9",
+"kg": 6088.8,
+"objet": "un mammouth laineux"
+},
+{
+"id": "e1986348-f88e-4014-8f9f-8d1be511dcde",
+"kg": 47822.8,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "7dbb2b54-36c1-42b2-a6d3-275672666460",
+"kg": 33754.9,
+"objet": "un VBCI"
+},
+{
+"id": "1f1e2228-24a7-48b8-a962-80281fe9e650",
+"kg": 7017.5,
+"objet": "un mammouth laineux"
+},
+{
+"id": "71981e44-2178-4a8a-b15c-b27cca664496",
+"kg": 24098.2,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "eb803cc6-e587-4fea-9000-0d3e6a344a5d",
+"kg": 7694.6,
+"objet": "un T. rex"
+},
+{
+"id": "66d45ea4-d572-4da9-b9b0-4e99e861f249",
+"kg": 12353.5,
+"objet": "un ATR 72 à vide"
+},
+{
+"id": "447c2f7a-f2a8-43e2-9a58-f3b657a801f8",
+"kg": 14550.3,
+"objet": "un char AMX-13"
+},
+{
+"id": "eb2cd0a7-ca07-4dcc-91e1-8da8167de1a4",
+"kg": 29558.2,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "ab65da61-f46f-4486-9990-7a33637f6284",
+"kg": 29273.6,
+"objet": "le cuivre de la statue de la Liberté"
+},
+{
+"id": "185fc9eb-88e6-44c6-ae97-0d51a894271f",
+"kg": 47125.2,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "fbccde62-4efc-47ba-be3a-65da51eb859e",
+"kg": 4684.0,
+"objet": "un éléphant d’Asie"
+},
+{
+"id": "334e041a-4086-4a7a-850e-ab373c8b5817",
+"kg": 13047.9,
+"objet": "un diplodocus"
+},
+{
+"id": "eb462d98-ac17-4ce7-a750-158620998a9e",
+"kg": 17189.4,
+"objet": "un cachalot femelle"
+},
+{
+"id": "87c88898-b60c-48af-b30b-33280bd7e208",
+"kg": 36341.8,
+"objet": "une toupie à béton chargée"
+},
+{
+"id": "d9aefddf-a817-4c1f-85ff-ece46a654e3a",
+"kg": 47233.7,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "d280f5b1-954a-4fbf-a7c5-ccf5559605ff",
+"kg": 2812.0,
+"objet": "un éléphant de forêt"
+},
+{
+"id": "0357f8f8-8a2f-46e7-b6d0-e139088873ac",
+"kg": 25938.7,
+"objet": "un VBCI"
+},
+{
+"id": "4593a156-87f5-4d6e-b606-f36de9613016",
+"kg": 19090.0,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "d26951cc-3c86-48d2-b330-a9979038f27c",
+"kg": 4721.7,
+"objet": "un stégosaure"
+},
+{
+"id": "0e2f0489-e754-4b61-9244-a4acfe3a4730",
+"kg": 16321.5,
+"objet": "un char AMX-13"
+},
+{
+"id": "599a2778-e40e-445a-a0af-79b3f4460ad7",
+"kg": 35644.7,
+"objet": "une baleine grise"
+},
+{
+"id": "6bd315f7-7ef7-4e63-89c8-23900ada859f",
+"kg": 16479.0,
+"objet": "un cachalot femelle"
+},
+{
+"id": "f46eb179-81fe-4414-b058-292a1467b53e",
+"kg": 43163.2,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "64b4b693-12bf-4d04-968f-35cdf6a073fd",
+"kg": 19473.6,
+"objet": "un camion chargé"
+},
+{
+"id": "4f41d024-982e-4a40-b67a-52c7e0962d9a",
+"kg": 38206.6,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "6097cdf9-f632-4f79-91de-d025aa692ea5",
+"kg": 45172.0,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "f6e18a89-08aa-49dc-bf8d-3cabfcae5380",
+"kg": 48944.4,
+"objet": "un cachalot mâle"
+},
+{
+"id": "418ec455-8b8b-420c-a04d-420c30b48189",
+"kg": 25169.9,
+"objet": "une baleine grise"
+},
+{
+"id": "3a364bfd-53bb-4404-bdb7-315dae472e2a",
+"kg": 28688.9,
+"objet": "une baleine à bosse"
+},
+{
+"id": "268b9f94-5aad-4701-8693-76a8cc8df61f",
+"kg": 9527.8,
+"objet": "un T. rex"
+},
+{
+"id": "d12b7422-fcc7-42f6-93bf-bd0a1dc9eb07",
+"kg": 32580.4,
+"objet": "une baleine à bosse"
+},
+{
+"id": "7f10894a-27a8-4af7-8a85-aaa97e299baf",
+"kg": 40227.8,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "0ca15202-a17a-4d68-93e3-18bd7b9c6365",
+"kg": 8749.0,
+"objet": "un Rafale à vide"
+},
+{
+"id": "89b1fefa-b943-489f-9b19-f15e77a3b3ee",
+"kg": 44917.4,
+"objet": "un cachalot mâle"
+},
+{
+"id": "88818205-302e-47b9-bc55-4ae4fef67070",
+"kg": 27166.8,
+"objet": "une baleine à bosse"
+},
+{
+"id": "7cf86aca-ee40-476b-a74b-438cf4bc657c",
+"kg": 38335.1,
+"objet": "une toupie à béton chargée"
+},
+{
+"id": "c371ff28-ab6d-4959-b6e6-1efe323ea5fe",
+"kg": 47605.0,
+"objet": "un cachalot mâle"
+},
+{
+"id": "3059750a-22ba-4581-9b9f-f3e4fffa41dc",
+"kg": 49134.9,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "374c7fd8-316c-4403-a93b-f42054f724cd",
+"kg": 42406.4,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "716cebda-8cf7-4189-bf3b-25f8e0cdf14b",
+"kg": 42035.6,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "ff75a609-5838-4593-b779-219d763c4626",
+"kg": 40524.1,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "9690442f-ec74-458c-a2bc-98deeb6054dc",
+"kg": 17064.3,
+"objet": "un camion chargé"
+},
+{
+"id": "ff09523e-a26e-4599-b3df-8cfac775eb5c",
+"kg": 10737.9,
+"objet": "un tricératops"
+},
+{
+"id": "366fb60f-7251-41b2-a278-cca23eb91419",
+"kg": 11349.8,
+"objet": "le bourdon Emmanuel de Notre-Dame"
+},
+{
+"id": "ae4a58dc-0051-4947-83bf-28835d05a81c",
+"kg": 6809.4,
+"objet": "un mammouth laineux"
+},
+{
+"id": "48ce26c9-87b3-4215-862b-dc1ed916c281",
+"kg": 13275.5,
+"objet": "un cachalot femelle"
+},
+{
+"id": "6326d06d-5d26-4269-baef-3e661e15ba15",
+"kg": 9188.9,
+"objet": "un Rafale à vide"
+},
+{
+"id": "2f006d46-3d13-4b0e-b930-6cf81ce694fa",
+"kg": 24403.7,
+"objet": "un VBCI"
+},
+{
+"id": "2db3beb1-17f5-4d42-93a0-ed39e785fbdb",
+"kg": 28645.2,
+"objet": "une baleine grise"
+},
+{
+"id": "c487f5c6-f82c-498a-beaf-9e398467d482",
+"kg": 3692.8,
+"objet": "un éléphant de mer"
+},
+{
+"id": "7bf72f4e-ce7f-493a-b999-90029281bfdc",
+"kg": 8717.6,
+"objet": "un Rafale à vide"
+},
+{
+"id": "f71e04f3-f069-42cd-905d-f104719900fa",
+"kg": 7875.7,
+"objet": "un tricératops"
+},
+{
+"id": "3ec45854-27a9-4772-99ed-2bf4c371ac23",
+"kg": 9375.0,
+"objet": "un tricératops"
+},
+{
+"id": "461c97a3-cb89-4e45-b1f9-131abb21697c",
+"kg": 8940.6,
+"objet": "un T. rex"
+},
+{
+"id": "1cba98d0-dfa5-46dc-a9fa-76da557b1783",
+"kg": 29562.5,
+"objet": "un VBCI"
+},
+{
+"id": "e1b5991c-cd79-4703-a42a-f09d74e3b6a0",
+"kg": 11769.4,
+"objet": "un Rafale à vide"
+},
+{
+"id": "8ab2e766-9c11-400f-9308-784f329dd6fa",
+"kg": 1399.9,
+"objet": "une Mini"
+},
+{
+"id": "edfc7c7e-92ce-401e-8d61-56717e1abb7e",
+"kg": 27442.3,
+"objet": "une baleine grise"
+},
+{
+"id": "2a914762-2a80-421e-a61c-d6943fe01db2",
+"kg": 38133.6,
+"objet": "un cachalot mâle"
+},
+{
+"id": "bee86524-61d4-443c-a75d-d67e62f27022",
+"kg": 5853.5,
+"objet": "un ankylosaure"
+},
+{
+"id": "2133469c-1471-490c-b7b0-88715e62c819",
+"kg": 1500.1,
+"objet": "une Tesla Model 3"
+},
+{
+"id": "8c777336-5d6f-4739-8a0e-f013c8d3d0de",
+"kg": 23313.9,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "0c033c4a-f3f1-44ed-9d1a-194e6b9e0b60",
+"kg": 43631.6,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "c0a90825-02a1-4234-82d6-85bb5ffea3e0",
+"kg": 43614.6,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "e1d84c2c-239b-4a52-bc84-6245e1f6922a",
+"kg": 9849.9,
+"objet": "un Rafale à vide"
+},
+{
+"id": "574c7ae9-32ee-4368-909c-6606371b19aa",
+"kg": 43179.5,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "1cbedd2c-9b98-46b6-abc0-346a99f48235",
+"kg": 19000.3,
+"objet": "un camion chargé"
+},
+{
+"id": "8761f0e4-4b66-4a1f-881d-6bcd2f4fd6d3",
+"kg": 12061.6,
+"objet": "la cloche de Big Ben"
+},
+{
+"id": "4612f944-22df-41d6-9e45-4983ff36210c",
+"kg": 5221.1,
+"objet": "un orque"
+},
+{
+"id": "44de540c-e5e8-4dac-a7c0-8bae9b6859cb",
+"kg": 23234.0,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "3effdb72-e5ec-4e6f-be4d-bd8f09065082",
+"kg": 25601.4,
+"objet": "une baleine grise"
+},
+{
+"id": "d77342e2-1841-4c7c-9f2b-97d2770ac5e5",
+"kg": 25764.4,
+"objet": "une baleine grise"
+},
+{
+"id": "e3cb4015-cee1-495f-8b42-2aa41a001c32",
+"kg": 23833.9,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "3fd92e94-eed6-472e-892d-aaae884574de",
+"kg": 41526.5,
+"objet": "un cachalot mâle"
+},
+{
+"id": "47a2a934-95a3-4f89-b25a-dfbae3f39b9b",
+"kg": 11994.0,
+"objet": "la cloche de Big Ben"
+},
+{
+"id": "4b3f7953-337e-47f4-8723-852a95c4d5ea",
+"kg": 16251.5,
+"objet": "un cachalot femelle"
+},
+{
+"id": "8125d48b-da28-43aa-8bc5-0b26c2b08510",
+"kg": 36549.4,
+"objet": "le cuivre de la statue de la Liberté"
+},
+{
+"id": "2bb96832-0525-4a43-bdb2-ce695469c2cf",
+"kg": 28785.8,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "703d063b-967b-4e0a-af94-d3918b18b962",
+"kg": 18193.2,
+"objet": "un camion chargé"
+},
+{
+"id": "5e98b18f-6030-4587-a71a-05f58cd37a40",
+"kg": 40443.5,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "cbb38c78-fe30-41fb-baaa-8b3d3f68d7b9",
+"kg": 1282.3,
+"objet": "un hippopotame"
+},
+{
+"id": "c38b2c7d-9f8d-4a50-beca-b3a5bd9e96db",
+"kg": 45239.5,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "55cc37ae-152f-4594-950c-3ad65a7408e3",
+"kg": 25909.2,
+"objet": "un VBCI"
+},
+{
+"id": "3f30c4a6-8ba3-41e8-ac84-703d484ba764",
+"kg": 12506.3,
+"objet": "un cachalot femelle"
+},
+{
+"id": "3de83474-1083-4087-8967-a577ede1ccb8",
+"kg": 4596.1,
+"objet": "un stégosaure"
+},
+{
+"id": "f6de5666-7765-479c-b511-c5d7da0aca48",
+"kg": 12067.1,
+"objet": "un ATR 72 à vide"
+},
+{
+"id": "e5809f8f-bcaa-42b4-bdb4-bf9d11fb2588",
+"kg": 14519.6,
+"objet": "un cachalot femelle"
+},
+{
+"id": "dabe1e20-7945-43fb-8f5c-26a5e4307785",
+"kg": 34016.4,
+"objet": "un VBCI"
+},
+{
+"id": "0f3d8397-7785-4ad3-983b-a60892d0047d",
+"kg": 24958.3,
+"objet": "un VBCI"
+},
+{
+"id": "65b8536a-c365-4519-92da-0096387f7d6f",
+"kg": 46572.0,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "b6e6e3bf-2174-4bf6-82ed-374b56992cab",
+"kg": 43227.4,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "94540a10-ada1-479e-959e-1870098e24ce",
+"kg": 7934.4,
+"objet": "un Mirage 2000 à vide"
+},
+{
+"id": "6be44baf-a71c-4f85-b7e2-660225febe40",
+"kg": 39565.9,
+"objet": "un cachalot mâle"
+},
+{
+"id": "b7880c75-319b-41a1-8e40-878bfae2add1",
+"kg": 23391.1,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "461d9f87-7d26-49ae-bee5-7072fa15e61b",
+"kg": 39416.9,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "24e05216-4c65-4bf7-86c8-83c0290f4d87",
+"kg": 5302.6,
+"objet": "un stégosaure"
+},
+{
+"id": "0d4000a5-fe9b-4ce4-b6e6-3f426039f21e",
+"kg": 11156.9,
+"objet": "un Rafale à vide"
+},
+{
+"id": "43595388-0c58-4efb-97ad-2522b6405761",
+"kg": 32164.7,
+"objet": "une baleine à bosse"
+},
+{
+"id": "98e847ee-9b14-4ace-be07-0ba553ab95df",
+"kg": 27936.5,
+"objet": "une baleine grise"
+},
+{
+"id": "6f1ed752-72c9-40cb-b0e8-0a5764502cfc",
+"kg": 21138.4,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "c3473e18-eb0b-4ce5-8431-4ff2cbf51a17",
+"kg": 35498.3,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "9f79e59f-55dd-48a0-af8c-c8320383cd96",
+"kg": 39288.7,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "206edce9-48e4-4bcf-a04e-52cf2f773a6d",
+"kg": 4296.8,
+"objet": "un stégosaure"
+},
+{
+"id": "7c3c63b3-96a6-4e7d-9214-b0e7cacaeb1a",
+"kg": 40336.7,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "4956924c-64b6-4270-b318-ae4d7f98db02",
+"kg": 23780.1,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "9dbc1e67-f078-4bbf-b174-a39a4c191874",
+"kg": 31776.5,
+"objet": "une toupie à béton chargée"
+},
+{
+"id": "08332eb5-797c-4da8-8d28-96a3315a337c",
+"kg": 33050.1,
+"objet": "une toupie à béton chargée"
+},
+{
+"id": "0f3ad4ff-3c5a-43bc-b141-ecec7c8337e2",
+"kg": 2887.0,
+"objet": "un Range Rover"
+},
+{
+"id": "67b22dad-c976-4c03-95df-49e66895346f",
+"kg": 42394.0,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "8b7853fa-c315-4033-bf7f-bc89edc68e53",
+"kg": 37303.5,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "5d67af3c-2979-4182-ad00-cb4a1ec9f81f",
+"kg": 3340.5,
+"objet": "une camionnette chargée"
+},
+{
+"id": "690dea0e-a5eb-4167-b256-c6e81c54ea51",
+"kg": 18456.8,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "986bec41-8814-4e85-9c03-d46fafddd330",
+"kg": 26822.3,
+"objet": "le cuivre de la statue de la Liberté"
+},
+{
+"id": "50c025cc-4600-45ab-8357-7808d942c181",
+"kg": 38975.3,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "d28bff5f-9f40-4253-ba7f-38fd11d8f0c2",
+"kg": 15993.4,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "affb845b-39bc-4897-a290-4243690d7e35",
+"kg": 27004.4,
+"objet": "une baleine grise"
+},
+{
+"id": "0611e6c4-ff0e-4e13-9f07-7a6d2172ca81",
+"kg": 36488.5,
+"objet": "le cuivre de la statue de la Liberté"
+},
+{
+"id": "ea5f5e7f-e916-4059-8b2f-a4d62665cadf",
+"kg": 45994.5,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "161870bf-c5eb-4734-a4ff-f0c5018b37f8",
+"kg": 26074.5,
+"objet": "une baleine grise"
+},
+{
+"id": "27fba251-e678-4480-998b-37e77686c77d",
+"kg": 19915.6,
+"objet": "un camion chargé"
+},
+{
+"id": "1bcb3b61-675b-4b14-80a9-3bc3d67f7d0c",
+"kg": 16088.2,
+"objet": "un camion chargé"
+},
+{
+"id": "b47dd8e7-9315-4b36-881f-0b8e900c2169",
+"kg": 35965.2,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "ad57125d-0e1e-4aeb-a71c-42592b1c66cd",
+"kg": 1577.2,
+"objet": "un hippopotame"
+},
+{
+"id": "51daef39-1601-4d50-97c2-7befa00eadce",
+"kg": 36597.6,
+"objet": "le cuivre de la statue de la Liberté"
+},
+{
+"id": "fc873d55-e688-4242-af13-14b69bd8b783",
+"kg": 24517.7,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "e071c96d-a41a-4381-b4d3-f5f1ebc847f1",
+"kg": 4320.6,
+"objet": "un éléphant d’Asie"
+},
+{
+"id": "83c88ad1-6de0-4591-b99a-9ba1c18d0ab2",
+"kg": 42922.6,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "b583b405-6abd-4af4-8947-eecd3154b1c2",
+"kg": 17354.8,
+"objet": "un diplodocus"
+},
+{
+"id": "6454be75-ed43-49ac-a8b1-b762e7c9a8a7",
+"kg": 34435.1,
+"objet": "une toupie à béton chargée"
+},
+{
+"id": "1e0d45a4-b605-4823-861d-c14b601a8ef1",
+"kg": 19697.0,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "fad43a38-6ea8-4d24-8aa6-f490e22482d7",
+"kg": 46123.3,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "29472c8f-42ba-46a2-8508-983be1b6c9f0",
+"kg": 49111.5,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "2ae6594e-a692-491c-a384-13ba762f0c11",
+"kg": 46501.7,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "d02b4210-3748-4067-b7c4-18037a107670",
+"kg": 47052.7,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "15da8562-f845-45d0-ac33-4f6d1d2d6d4b",
+"kg": 48832.0,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "f619c3e3-5117-4895-9e3e-f3e5ed5a3ad2",
+"kg": 20395.2,
+"objet": "un camion chargé"
+},
+{
+"id": "0e7a6ba8-efe0-4a39-89d3-1c2db4fa5b31",
+"kg": 11495.9,
+"objet": "un ATR 72 à vide"
+},
+{
+"id": "f9773e2a-2a81-4dfe-852e-0adc8aff7657",
+"kg": 1424.9,
+"objet": "un hippopotame"
+},
+{
+"id": "2637d036-f3a1-4e3a-83e2-27861db06263",
+"kg": 47134.5,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "43c697ce-d528-40f1-b28b-abc89afe4dc1",
+"kg": 16557.9,
+"objet": "un diplodocus"
+},
+{
+"id": "64db0671-064e-4ad2-b80a-0eb540ec1284",
+"kg": 13784.4,
+"objet": "un cachalot femelle"
+},
+{
+"id": "ad02644b-8e0f-46b1-a720-1d4b5cacfc41",
+"kg": 42575.0,
+"objet": "un cachalot mâle"
+},
+{
+"id": "39c23bfe-9eb0-4e70-a706-7ab029e1930d",
+"kg": 44097.7,
+"objet": "un cachalot mâle"
+},
+{
+"id": "44015f43-a68d-4e62-b7be-c61435b9f77b",
+"kg": 11519.6,
+"objet": "la cloche de Big Ben"
+},
+{
+"id": "c96fa4f5-a109-4858-a06d-8f627351ca95",
+"kg": 8308.4,
+"objet": "un T. rex"
+},
+{
+"id": "b5180f5f-a902-4d74-8446-6eb33dbc46e2",
+"kg": 23975.4,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "9893e650-be19-4039-bcbb-ff71308189f7",
+"kg": 44817.1,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "df9e4f41-8447-4db6-8756-a6301be11ff9",
+"kg": 42496.9,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "97bd0407-5104-414a-a698-8f5a5bc38e85",
+"kg": 6781.3,
+"objet": "un T. rex"
+},
+{
+"id": "b6f1f3d1-0996-44d5-939e-714696cc5404",
+"kg": 33990.6,
+"objet": "le cuivre de la statue de la Liberté"
+},
+{
+"id": "60bad896-2b73-4dd5-9b1f-38d7b14e875b",
+"kg": 9376.3,
+"objet": "un tricératops"
+},
+{
+"id": "746d247e-71be-4a19-8f59-8d58657db891",
+"kg": 22000.4,
+"objet": "un camion chargé"
+},
+{
+"id": "142ac06c-71d7-4826-8fcd-d7ef042eca88",
+"kg": 21367.8,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "49eadc91-4269-448c-b082-01581a8c1d44",
+"kg": 28775.5,
+"objet": "une baleine à bosse"
+},
+{
+"id": "dfd0a450-ea91-4cb4-969a-e064fe7f4148",
+"kg": 10370.5,
+"objet": "un Rafale à vide"
+},
+{
+"id": "11325af0-83c8-40c9-9445-1da60a6d12cf",
+"kg": 46299.3,
+"objet": "un cachalot mâle"
+},
+{
+"id": "f1f2940b-0ed4-4177-8629-6488876a3f27",
+"kg": 37096.0,
+"objet": "une toupie à béton chargée"
+},
+{
+"id": "bc94a719-81d4-41c8-b250-9350d87ce928",
+"kg": 10739.1,
+"objet": "un tricératops"
+},
+{
+"id": "39e7991a-ad49-44be-813b-421f3968e7a8",
+"kg": 24873.8,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "a56c3e0b-1b04-4a88-b484-e5bc0b4ac719",
+"kg": 35122.5,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "8ac57cac-bb51-40f0-83c1-0f907e3ca65e",
+"kg": 30096.3,
+"objet": "un VBCI"
+},
+{
+"id": "42328ad5-8424-4986-b368-2255b07a90d5",
+"kg": 39322.8,
+"objet": "un Boeing 737 à vide"
+},
+{
+"id": "9cd68cea-44a4-443e-a59f-b358a8731627",
+"kg": 4475.2,
+"objet": "un stégosaure"
+},
+{
+"id": "a943ebd0-51f5-408a-b375-d577b6674ac8",
+"kg": 26163.7,
+"objet": "une baleine à bosse"
+},
+{
+"id": "91f6f6bc-9cff-4e74-a6ce-4d529d47a518",
+"kg": 32538.9,
+"objet": "une baleine grise"
+},
+{
+"id": "1e1450d2-3778-446e-a77d-747c975b494b",
+"kg": 22468.2,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "37db9dfb-be08-428e-ab2a-2537fa294189",
+"kg": 18249.2,
+"objet": "un camion chargé"
+},
+{
+"id": "504f57f7-b602-4260-84c7-6d94ef083540",
+"kg": 14656.5,
+"objet": "la cloche de Big Ben"
+},
+{
+"id": "598cd64d-f3fb-4397-9d6f-c0c61c686bd8",
+"kg": 34609.5,
+"objet": "le cuivre de la statue de la Liberté"
+},
+{
+"id": "90364902-2dbf-46ac-a31b-4de3a6d17cd4",
+"kg": 23424.3,
+"objet": "un camion à trois essieux chargé"
+},
+{
+"id": "1db8d2f1-b45b-4320-ab72-be4c228dc57c",
+"kg": 44772.5,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "4ca207ce-0e31-4541-a49f-743850a0d5bf",
+"kg": 45951.7,
+"objet": "un semi-remorque chargé"
+},
+{
+"id": "d9824325-3351-48a0-b73f-afb72d47ecb9",
+"kg": 11877.7,
+"objet": "le bourdon Emmanuel de Notre-Dame"
+},
+{
+"id": "7d26a11d-b2b2-4c94-a9b6-8956682c5f87",
+"kg": 14494.8,
+"objet": "un ATR 72 à vide"
+},
+{
+"id": "39762c53-b30b-4a9b-84bc-6b2d324f2b8d",
+"kg": 17705.6,
+"objet": "un cachalot femelle"
+},
+{
+"id": "6d87b78c-078c-42c2-a09a-c34e2b1fc55c",
+"kg": 12685.9,
+"objet": "un requin-baleine"
+},
+{
+"id": "d61398a5-c421-4d00-9bb2-988ddfcc09b7",
+"kg": 26711.1,
+"objet": "une baleine grise"
+},
+{
+"id": "99f1a0e9-56f5-4ffa-a9ad-8d5d7689aab3",
+"kg": 42359.4,
+"objet": "un cachalot mâle"
+},
+{
+"id": "8039eb64-9795-43cc-b9b2-fd54b009f96a",
+"kg": 20327.6,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "b4526566-2132-4789-86cd-449dc0fe3b04",
+"kg": 25234.8,
+"objet": "une baleine grise"
+},
+{
+"id": "67f256c7-448f-4b05-8fbc-d0a36e8bb1f8",
+"kg": 16619.1,
+"objet": "un requin-baleine"
+},
+{
+"id": "0dff9363-aa6f-45ff-bdc2-c0fd2b5125a4",
+"kg": 26332.2,
+"objet": "le cuivre de la statue de la Liberté"
+},
+{
+"id": "2e027d43-8be1-4105-ab04-6758570716cb",
+"kg": 21204.9,
+"objet": "la Savoyarde du Sacré-Cœur"
+},
+{
+"id": "54446785-6df3-4778-8bdf-668f7e1d72fc",
+"kg": 27547.1,
+"objet": "une baleine grise"
+},
+{
+"id": "b37ac3b6-a0dd-4209-9a4e-ebd75523e21c",
+"kg": 10620.2,
+"objet": "un Rafale à vide"
+},
+{
+"id": "d1d07d85-122b-42ea-8578-0aa9df5b36b1",
+"kg": 19997.1,
+"objet": "un camion chargé"
+},
+{
+"id": "d32c4080-c7e9-4175-855e-c9f32cae3214",
+"kg": 42895.4,
+"objet": "un Airbus A320 à vide"
+},
+{
+"id": "0bfcb783-ad84-4d70-b4ff-6a0fa85cca71",
+"kg": 26153.5,
+"objet": "un VBCI"
+}
+]
+}

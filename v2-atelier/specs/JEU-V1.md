@@ -194,7 +194,7 @@ les plus rares. »
 
 ### 9.4 La fin de séance
 
-Dans la feuille « Terminer », après les records : un bloc **Le jeu**, ce que la séance ajoute — `etatDuJeu` sans elle,
+Dans le récap de fin de séance (ECRAN-SAISIE §7 septies.4 bis ; dans la feuille « Terminer » jusqu'au 11/10/2026), après les records et les paris du coach : un bloc **Le jeu**, ce que la séance ajoute — `etatDuJeu` sans elle,
 puis avec elle (§8, `enCours`), comparés par `apport(avant, apres)` :
 - « XP · +N » si N > 0 ;
 - le niveau global, s'il monte (« Niveau 88 · +1 » ; l'Ω ne se montre pas ici) ;

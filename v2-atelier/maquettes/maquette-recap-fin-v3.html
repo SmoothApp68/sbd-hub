@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Récap de fin v3</title>
+<style>
+:root{--fond:#0f1114;--panneau:#181b20;--panneau-2:#21252c;--trait:#2c3139;--texte:#eceef2;--texte-2:#9aa1ac;--texte-3:#6f7580;--accent:#f2b84b;--sur-accent:#1a1305;--or:#d9b45a;
+--pile:"Barlow",system-ui,sans-serif;--pile-c:"Barlow Condensed","Barlow",system-ui,sans-serif}
+*{box-sizing:border-box}
+body{margin:0;background:#07080a;color:var(--texte);font:15px/1.4 var(--pile);display:flex;flex-wrap:wrap;justify-content:center;gap:16px;padding:16px}
+.col{width:100%;max-width:380px;display:flex;flex-direction:column;gap:8px}
+.etiquette{font:600 13px var(--pile-c);text-transform:uppercase;letter-spacing:1.2px;color:var(--accent)}
+.notes{color:var(--texte-2);font-size:13px;margin:0}
+.ecran{background:var(--fond);border:1px solid var(--trait);border-radius:22px;padding:18px 16px}
+h2{font:700 24px/1.15 var(--pile-c);margin:0 0 2px}
+.quand{color:var(--texte-2);font-size:13px;margin-bottom:14px}
+.tuiles{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:16px}
+.tuile{background:var(--panneau);border:1px solid var(--trait);border-radius:12px;padding:9px 6px;text-align:center}
+.tuile b{display:block;font:700 22px/1 var(--pile-c)}
+.tuile span{font-size:11px;color:var(--texte-3)}
+.groupe{font:600 12px var(--pile-c);text-transform:uppercase;letter-spacing:1.2px;color:var(--texte-3);margin:16px 0 6px;display:flex;gap:6px;align-items:center}
+.groupe.or{color:var(--or)}
+.groupe.coach{color:var(--accent)}
+.rec{border-left:3px solid var(--or);padding:6px 0 6px 10px;margin:6px 0}
+.rec .l1{font-weight:600}
+.rec .l2{color:var(--texte-3);font-size:12px}
+.voix{color:var(--accent);font-weight:600;margin:4px 0 8px}
+.pari{display:flex;justify-content:space-between;gap:8px;border-top:1px solid var(--trait);padding:8px 2px;font-size:14px}
+.pari .n{color:var(--texte)}
+.pari .v{color:var(--texte-2);text-align:right;white-space:nowrap}
+.pari .v.pe{color:var(--texte)}
+.comp{color:var(--texte-2);font-size:14px;margin:-8px 0 14px}
+.mu{display:grid;grid-template-columns:120px 1fr 34px;gap:8px;align-items:center;font-size:13px;margin:5px 0}
+.mu i{display:block;height:8px;border-radius:4px;background:var(--texte-3)}
+.mu b{font-weight:600;text-align:right}
+.jeu{background:var(--panneau);border:1px solid var(--trait);border-radius:14px;padding:10px 12px;font-size:14px;color:var(--texte-2)}
+.note{background:var(--panneau);border-radius:12px;padding:10px 12px;color:var(--texte-2);font-style:italic;font-size:14px}
+.bouton{background:var(--accent);color:var(--sur-accent);border-radius:12px;padding:13px;text-align:center;font-weight:700;margin-top:14px}
+.bouton.second{background:var(--panneau-2);color:var(--texte);margin-top:8px}
+.feuille{background:var(--panneau);border:1px solid var(--trait);border-radius:18px 18px 0 0;padding:16px}
+.feuille-t{font-weight:700;font-size:16px}
+.feuille-t em{display:block;font-style:normal;font-weight:400;color:var(--texte-2);font-size:13px}
+.champ{background:var(--panneau-2);border-radius:10px;padding:11px 12px;margin:8px 0;color:var(--texte-3);font-size:14px}
+.danger{color:#c98b8b;text-align:center;font-size:14px;margin-top:10px}
+.barre{text-decoration:line-through;color:var(--texte-3)}
+</style>
+</head>
+<body>
+
+<section class="col">
+  <div class="etiquette">1 · La feuille « Terminer », allégée</div>
+  <p class="notes">Elle sert à déclarer : titre, salle, note, et la question de la routine s'il y a un écart. Les records et le jeu en sortent : ils passent au récap, juste après. <span class="barre">« 4 records »</span> <span class="barre">« Le jeu »</span></p>
+  <div class="ecran" style="padding-top:60px">
+    <div class="feuille">
+      <div class="feuille-t">Terminer la séance<em>22 séries de travail enregistrées</em></div>
+      <div class="champ">Samedi — Dos et Épaules</div>
+      <div class="champ">Où t'es-tu entraîné ?</div>
+      <div class="champ" style="height:60px">Comment ça s'est passé ?</div>
+      <div class="bouton">Terminer</div>
+      <div class="danger">Abandonner et tout effacer</div>
+    </div>
+  </div>
+</section>
+
+<section class="col">
+  <div class="etiquette">2 · Le récap, juste après « Terminer »</div>
+  <p class="notes">Ta vraie séance du samedi 10 octobre, chiffres de la base. v3 : la comparaison (gardée à ta demande ; cinquante objets de 1 à 50 t, qui changent d’une séance à l’autre) et les séries par muscle, comptées comme le bloc Volume (un muscle principal compte la série, un secondaire la moitié ; chiffres sans les stabilisateurs, à titre d'exemple). Aucun « bravo », rien sur l'assiduité.</p>
+  <div class="ecran">
+    <h2>Samedi — Dos et Épaules</h2>
+    <div class="quand">samedi 10 oct. · 14 h 27 → 15 h 30</div>
+    <div class="tuiles">
+      <div class="tuile"><b>1 h 03</b><span>durée</span></div>
+      <div class="tuile"><b>22</b><span>séries</span></div>
+      <div class="tuile"><b>10,1 t</b><span>volume</span></div>
+      <div class="tuile"><b>9</b><span>exercices</span></div>
+    </div>
+    <div class="comp">10,1 t soulevées : à peu près un tricératops.</div>
+
+    <div class="groupe">● Séries par muscle</div>
+    <div class="mu"><span>Grand dorsal</span><i style="width:100%"></i><b>10</b></div>
+    <div class="mu"><span>Biceps</span><i style="width:70%"></i><b>7</b></div>
+    <div class="mu"><span>Haut du dos</span><i style="width:65%"></i><b>6,5</b></div>
+    <div class="mu"><span>Trapèzes</span><i style="width:60%"></i><b>6</b></div>
+    <div class="mu"><span>Deltoïde latéral</span><i style="width:30%"></i><b>3</b></div>
+    <div class="mu"><span>4 autres</span><i style="width:20%"></i><b>6,5</b></div>
+
+    <div class="groupe or">● 4 records</div>
+    <div class="rec"><div class="l1">Shrug (Barre) : 90 kg × 10</div><div class="l2">Ta charge la plus lourde. Avant : 80 kg, le 28 juin.</div></div>
+    <div class="rec"><div class="l1">Curl marteau (Haltère) : 36 kg × 10</div><div class="l2">Ta charge la plus lourde. Avant : 32 kg, le 24 sept.</div></div>
+    <div class="rec"><div class="l1">Tirage poitrine un bras : 64 kg × 12</div><div class="l2">12 reps à 64 kg. Avant : 10, le 5 sept.</div></div>
+    <div class="rec"><div class="l1">Extension triceps poulie haute : 31,5 kg × 16</div><div class="l2">16 reps à 31,5 kg. Avant : 15, le 6 août.</div></div>
+
+    <div class="groupe coach">● Ce que le coach avait visé</div>
+    <div class="voix">Sur 16 paris vérifiés, le coach en a tenu 14.</div>
+    <div class="pari"><span class="n">Tractions</span><span class="v pe">9, 9, 8, 7 · visé 9</span></div>
+    <div class="pari"><span class="n">Shrug (Barre)</span><span class="v">90 kg × 10, 10, 10</span></div>
+    <div class="pari"><span class="n">Curl marteau (Haltère)</span><span class="v">32 kg × 12 · 36 kg × 10</span></div>
+    <div class="pari"><span class="n">Élévation latérale (Haltère)</span><span class="v">16 kg × 15, 15, 15</span></div>
+    <div class="pari"><span class="n">Extension triceps poulie haute</span><span class="v">31,5 kg × 16, 16</span></div>
+    <div class="pari"><span class="n">Tirage poitrine un bras</span><span class="v">64 kg × 12, 12</span></div>
+
+    <div class="groupe">● Le jeu</div>
+    <div class="jeu">Le bloc du jeu d'aujourd'hui, tel quel (64B), déplacé ici.</div>
+
+    <div class="bouton">Fermer</div>
+    <div class="bouton second">Voir la séance</div>
+  </div>
+</section>
+
+<section class="col">
+  <div class="etiquette">3 · Un jour sans record, jeu éteint</div>
+  <p class="notes">Ce qui n'est pas arrivé n'apparaît pas : pas de « 0 record », pas de bloc vide. Séance réelle du lundi 5 octobre pour l'en-tête et les paris (21 sur 21) ; la ligne du couché et la note sont des exemples.</p>
+  <div class="ecran">
+    <h2>Lundi — Haut A (Couché)</h2>
+    <div class="quand">lundi 5 oct. · 18 h 50 → 20 h 18</div>
+    <div class="tuiles">
+      <div class="tuile"><b>1 h 28</b><span>durée</span></div>
+      <div class="tuile"><b>21</b><span>séries</span></div>
+      <div class="tuile"><b>9,4 t</b><span>volume</span></div>
+      <div class="tuile"><b>6</b><span>exercices</span></div>
+    </div>
+    <div class="comp">9,4 t soulevées : à peu près un T. rex.</div>
+    <div class="groupe coach">● Ce que le coach avait visé</div>
+    <div class="voix">Sur 21 paris vérifiés, le coach en a tenu 21.</div>
+    <div class="pari"><span class="n">Développé couché (Barre)</span><span class="v">125 kg × 5, 5, 5 · 130 kg × 4</span></div>
+    <div class="pari"><span class="n">…</span><span class="v">…</span></div>
+    <div class="groupe">● Ta note</div>
+    <div class="note">Épaule gauche un peu raide à l'échauffement.</div>
+    <div class="bouton">Fermer</div>
+    <div class="bouton second">Voir la séance</div>
+  </div>
+</section>
+
+</body>
+</html>

@@ -131,11 +131,17 @@ describe('64B — le bloc du jeu dans la feuille « Terminer » (le vrai code d�
   });
 });
 
-describe('64B — le rendu du bloc (jsdom)', () => {
-  const vueFeuille = (jeu) => ({ compte: { travail: 3 }, records: [], titre: null, note: null, salle: null, salleMax: 60,
-    routine: '', ecarts: [], majRoutine: false, jeu,
-    surMajRoutine() {}, surTitre() {}, surSalle() {}, surNoteSeance() {}, surTerminer() {}, surAbandonner() {} });
-  const rendre = (jeu) => { const c = document.createElement('div'); Rendu.rendreFeuilleFin(c, vueFeuille(jeu)); return c; };
+// 71 (ECRAN-SAISIE §7 septies.4 bis, JEU §9.4 révisé) — le bloc « Le jeu » est passé de la feuille « Terminer »
+// au récap de fin de séance, tel quel : les mêmes lignes, rendues par le récap.
+describe('64B — le rendu du bloc (jsdom), dans le récap (71)', () => {
+  const recap = { titre: 'Jambes', debut: '2026-10-10T12:27:00Z', fin: '2026-10-10T13:30:00Z', duree_min: 63, series: 3,
+    volume_kg: 500, volume_texte: '0,5 t', exercices: 1, phraseVolume: null, muscles: { premiers: [], autres: null },
+    records: [], paris: null, note: null };
+  const rendre = (jeu) => {
+    const c = document.createElement('div');
+    Rendu.rendreRecap(c, { recap, jeu, surFermer() {}, surVoir() {} });
+    return c;
+  };
   const lignes = (c) => Array.from(c.querySelectorAll('#jeu-fin .j-ligne')).map((l) => l.textContent);
   const apport = (o) => Object.assign({ xp: 0, niveau: null, muscles: [], succes: [], points: 0 }, o);
 
@@ -153,10 +159,23 @@ describe('64B — le rendu du bloc (jsdom)', () => {
     expect(rendre(null).querySelector('#jeu-fin')).toBeNull();
   });
 
-  test('⚠️ un bloc qui ne se rend pas ne coûte que lui : « Terminer » et « Abandonner » restent', () => {
+  test('⚠️ un bloc qui ne se rend pas ne coûte que lui : « Fermer » et « Voir la séance » restent', () => {
     const c = rendre({ apport: null, succes: [] });
     expect(c.querySelector('#jeu-fin')).toBeNull();
     const boutons = Array.from(c.querySelectorAll('button')).map((b) => b.textContent);
-    expect(boutons).toEqual(expect.arrayContaining(['Terminer', 'Abandonner et tout effacer']));
+    expect(boutons).toEqual(['Fermer', 'Voir la séance']);
+  });
+
+  test('⚠️ 71 — la feuille « Terminer » ne rend plus le bloc du jeu, ni les records, même si on les lui donne', () => {
+    const c = document.createElement('div');
+    Rendu.rendreFeuilleFin(c, { compte: { travail: 3 }, records: [{ nom: 'Squat', mesure: '160 kg × 1' }],
+      titre: null, note: null, salle: null, salleMax: 60, routine: '', ecarts: [], majRoutine: false,
+      jeu: { apport: apport({ xp: 60 }), succes: [] },
+      surMajRoutine() {}, surTitre() {}, surSalle() {}, surNoteSeance() {}, surTerminer() {}, surAbandonner() {} });
+    expect(c.querySelector('#jeu-fin')).toBeNull();
+    expect(c.querySelector('.records-fin')).toBeNull();
+    expect(c.textContent).not.toContain('Squat');
+    expect(Array.from(c.querySelectorAll('button')).map((b) => b.textContent))
+      .toEqual(expect.arrayContaining(['Terminer', 'Abandonner et tout effacer']));
   });
 });

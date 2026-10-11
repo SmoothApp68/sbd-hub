@@ -395,8 +395,8 @@
       return x.l.module === Moteur.MODULE_CONSIGNE && x.l.valeur_observee !== null && x.l.valeur_observee !== undefined &&
         x.seance && debutDe[x.seance];
     }).map(function (x) {
-      return { date: debutDe[x.seance], exercice: x.l.exercise_slug, predite: Number(x.l.valeur_predite),
-               observee: Number(x.l.valeur_observee) };
+      return { date: debutDe[x.seance], seance: x.seance, exercice: x.l.exercise_slug,
+               predite: Number(x.l.valeur_predite), observee: Number(x.l.valeur_observee) };
     });
   }
 
@@ -2150,6 +2150,10 @@
   }
 
   async function terminerSeance(verdict) {
+    // 71 — LE BLOC « LE JEU » DU RÉCAP, calculé ICI, comme la feuille le calculait : l'état du jeu AVANT la
+    // séance (elle n'est pas encore dans le cache) contre l'état avec elle. Après l'adoption, « avant »
+    // la contiendrait déjà, et l'apport serait nul.
+    var jeuDuRecap = jeuDeLaFeuille();
     seance = Seance.terminer(seance, new Date());
     await sauverSeance();
     await poserSeries();
@@ -2177,7 +2181,53 @@
     rendreChrono();
     await Cache.ecrireBrouillon('seance', null);
     await oublierConsignes();
-    rendreSaisie();
+    // 71 — LE RÉCAP, UNE FOIS, JUSTE APRÈS « TERMINER » (ECRAN-SAISIE §7 septies.4 bis). Il vit en mémoire
+    // seulement : ni l'abandon, ni l'Édition, ni un rechargement ne le rouvrent.
+    ouvrirRecap(finie, jeuDuRecap);
+  }
+
+  // ══ LE RÉCAP DE FIN DE SÉANCE (71, ECRAN-SAISIE §7 septies.4 bis) ════════
+  //
+  // Plein écran, hors barre d'onglets. ⚠️ LE RENDU NE MODIFIE RIEN : il lit la séance terminée et le corpus
+  // (`faits.recapDeLaSeance`) ; aucune écriture, aucune pose dans la file — les records sont partis à
+  // « Terminer ». Le bloc du jeu est celui de 64B, calculé à « Terminer » (`jeuDuRecap`).
+  var recap = null;          // { seance, jeu } — en mémoire, jamais sur disque
+  var gardeRecap = null;
+  function ouvrirRecap(finie, jeu) {
+    oublierRecap();
+    recap = { seance: finie, jeu: jeu || null };
+    // Le retour d'Android ferme le récap, comme « Fermer » — tant qu'il est l'écran affiché. Un autre écran
+    // posé par-dessus (un onglet, un rechargement) le laisse derrière : rien ne le rouvre.
+    gardeRecap = function () { return recap && ecranCourant === 'recap' ? { raison: 'recap', afficher: fermerRecap } : null; };
+    ajouterGarde(gardeRecap);
+    rendreRecap();
+  }
+  function oublierRecap() {
+    recap = null;
+    if (gardeRecap) { retirerGarde(gardeRecap); gardeRecap = null; }
+  }
+  function fermerRecap() {
+    oublierRecap();
+    allerA(Routeur.RACINE, {});
+    rendreSemaine(Semaine.bornesSemaine(new Date()).lundi);
+  }
+  function voirLaSeanceDuRecap() {
+    var id = recap && recap.seance && recap.seance.id;
+    oublierRecap();
+    if (!id) return fermerRecap();
+    allerA(Routeur.SEANCE, { id: id });
+    rendreDetail(id);
+  }
+  function rendreRecap() {
+    if (!recap) return;
+    var r = faits.recapDeLaSeance(corpus(), recap.seance, parisDeConsigneConnus());
+    montrer('recap');
+    Rendu.rendreRecap($('recap-corps'), {
+      recap: r,
+      jeu: recap.jeu,
+      surFermer: fermerRecap,
+      surVoir: voirLaSeanceDuRecap
+    });
   }
 
   // Verse la séance terminée dans le cache de lecture, pour qu'elle s'affiche
@@ -5984,12 +6034,9 @@
     // qu'on tape sans lire.
     var verdict = Seance.ecartsRoutine(seance, routine);
     Rendu.rendreFeuilleFin(cible, {
+      // 71 (ECRAN-SAISIE §7 septies.4 bis) — LA FEUILLE DÉCLARE, LE RÉCAP CONSTATE : les records du jour et le
+      // bloc « Le jeu » sont passés au récap, qui s'ouvre juste après « Terminer ».
       compte: Seance.compter(seance, local.exercices),
-      // MOTEUR §9.23 (55-1) — les records du jour ; sans record, rien.
-      records: faits.recordsDuJour(corpus(), seance),
-      // 64B (JEU-V1 §9.4) — le bloc « Le jeu », après les records : jeu éteint, ou rien gagné, ou un calcul qui
-      // échoue, `null` ou aucune ligne — pas de bloc.
-      jeu: jeuDeLaFeuille(),
       titre: seance.titre,
       note: seance.note,
       salle: seance.salle,
@@ -8984,7 +9031,10 @@
     // Comme à la fin de l'entrée complète : une synchronisation de fond ne
     // reprend jamais la main sur un écran en cours d'édition — le questionnaire
     // compris (60-2a) : il perdrait l'écran où l'on en est.
-    if (!vues.detail.hidden || !vues.routine.hidden || !vues.seance.hidden || !vues.questionnaire.hidden) return;
+    // 71 — le récap de fin de séance aussi : « Terminer » pendant une synchronisation l'ouvrait, et la fin de la
+    // synchronisation le remplaçait par la saisie.
+    if (!vues.detail.hidden || !vues.routine.hidden || !vues.seance.hidden || !vues.questionnaire.hidden ||
+        !vues.recap.hidden) return;
     rendreRoute(Routeur.analyser(racine.location.pathname));
   }
 
@@ -9102,7 +9152,10 @@
     // L'utilisateur est parti ailleurs pendant la synchro. Re-rendre écraserait
     // son écran — et, sur l'éditeur de routine, le brouillon qu'il est en train
     // de remplir. Une synchronisation de fond ne reprend jamais la main.
-    if (!vues.detail.hidden || !vues.routine.hidden || !vues.seance.hidden || !vues.questionnaire.hidden) return;
+    // 71 — le récap de fin de séance aussi : « Terminer » pendant une synchronisation l'ouvrait, et la fin de la
+    // synchronisation le remplaçait par la saisie.
+    if (!vues.detail.hidden || !vues.routine.hidden || !vues.seance.hidden || !vues.questionnaire.hidden ||
+        !vues.recap.hidden) return;
     rendreRoute(Routeur.analyser(racine.location.pathname));
   }
 
@@ -11112,6 +11165,8 @@
       exercices: $('vue-exercices'), questionnaire: $('vue-questionnaire'),
       // 69 — « Importer depuis Hevy », sous le profil.
       import: $('vue-import'),
+      // 71 — le récap de fin de séance, plein écran, sans route.
+      recap: $('vue-recap'),
       // 64B — le jeu : l'onglet et ses trois sous-vues.
       jeu: $('vue-jeu'), muscles: $('vue-muscles'), succes: $('vue-succes'), deblocages: $('vue-deblocages'),
       // 66B — « Le coach relit ta semaine », sous Saisie.

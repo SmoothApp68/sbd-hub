@@ -3772,29 +3772,8 @@
       ' de travail enregistrée' + (nF > 1 ? 's' : '')));
     cible.appendChild(t);
 
-    // MOTEUR §9.23 (55-1) — LES RECORDS DU JOUR, sous le compte. Sans record,
-    // la ligne n'apparaît pas : le coach ne commente pas ce qui n'est pas
-    // arrivé. Il n'y a pas d'écran de fin de séance, on n'en crée pas.
-    if (vue.records && vue.records.length) {
-      var rec = el('div', 'records-fin');
-      var gauche = el('span', 'records-fin-t');
-      gauche.appendChild(pastilleMedaille());
-      gauche.appendChild(doc.createTextNode(vue.records.length + ' record' + (vue.records.length > 1 ? 's' : '')));
-      rec.appendChild(gauche);
-      var droite = el('span', 'records-fin-l');
-      vue.records.forEach(function (r) { droite.appendChild(el('span', null, r.nom + ' ' + r.mesure)); });
-      rec.appendChild(droite);
-      cible.appendChild(rec);
-    }
-
-    // 64B (JEU-V1 §9.4) — LE JEU, APRÈS LES RECORDS. Le seul moment où le jeu sort de son onglet. Un rendu qui
-    // échouerait ne coûte que son bloc : « Terminer » et « Abandonner » sont posés quoi qu'il arrive.
-    if (vue.jeu) {
-      try {
-        var bj = blocJeuFin(vue.jeu);
-        if (bj) cible.appendChild(bj);
-      } catch (e) { /* pas de bloc */ }
-    }
+    // 71 (ECRAN-SAISIE §7 septies.4 bis) — LA FEUILLE DÉCLARE, LE RÉCAP CONSTATE. Les records du jour et le
+    // bloc « Le jeu » ont quitté cette feuille : ils passent au récap (`rendreRecap`), juste après « Terminer ».
 
     // §7 septies.4 — trois champs déclarés, pas déduits. La salle surtout :
     // elle se déclare, on ne la devine ni du réseau ni d'une position.
@@ -3843,6 +3822,111 @@
     a.type = 'button';
     a.addEventListener('click', vue.surAbandonner);
     cible.appendChild(a);
+  }
+
+  // ══ LE RÉCAP DE FIN DE SÉANCE (71, ECRAN-SAISIE §7 septies.4 bis, maquette v3) ══
+  //
+  // Dans l'ordre de L1 : l'en-tête, quatre chiffres, la comparaison, les séries par muscle, les records (or),
+  // ce que le coach avait visé (ambre), le jeu (le bloc 64B tel quel), la note, « Fermer » et « Voir la
+  // séance ». ⚠️ UN BLOC SANS MATIÈRE N'APPARAÎT PAS : pas de « 0 record », pas de bloc vide. Aucun « bravo ».
+  // Ce rendu ne calcule rien : `vue.recap` vient de `faits.recapDeLaSeance`.
+  function rendreRecap(cible, vue) {
+    if (!cible) return;
+    vider(cible);
+    var r = vue.recap || {};
+    cible.appendChild(el('h2', 'recap-titre', r.titre || 'Séance'));
+    cible.appendChild(el('div', 'recap-quand', M().plageDeSeance(r.debut, r.fin)));
+
+    var tuiles = el('div', 'recap-tuiles');
+    var tuile = function (valeur, libelle) {
+      var t = el('div', 'recap-tuile');
+      t.appendChild(el('b', null, valeur));
+      t.appendChild(el('span', null, libelle));
+      tuiles.appendChild(t);
+    };
+    // La durée en minutes (« 45 min »), en heures au-delà (« 1 h 03 ») — jamais en secondes.
+    var dm = r.duree_min;
+    tuile(dm === null || dm === undefined ? '\u2014' : dm < 60 ? dm + ' min' : M().formatDuree(dm * 60), 'durée');
+    tuile(String(r.series || 0), 'séries');
+    tuile(r.volume_texte, 'volume');
+    tuile(String(r.exercices || 0), 'exercices');
+    cible.appendChild(tuiles);
+    if (r.phraseVolume) cible.appendChild(el('p', 'recap-comp', r.phraseVolume));
+
+    var groupe = function (texte, classe) {
+      var g = el('div', 'recap-groupe' + (classe ? ' ' + classe : ''));
+      g.appendChild(el('i', 'recap-point'));
+      g.appendChild(doc.createTextNode(texte));
+      cible.appendChild(g);
+      return g;
+    };
+
+    // Les séries par muscle : les cinq premiers, puis « N autres » et leur somme. Barres grises.
+    var mu = r.muscles || { premiers: [], autres: null };
+    if (mu.premiers.length) {
+      groupe('Séries par muscle');
+      var lignes = mu.premiers.map(function (m) { return { libelle: m.libelle, series: m.series }; });
+      if (mu.autres) lignes.push({ libelle: mu.autres.n + (mu.autres.n > 1 ? ' autres' : ' autre'), series: mu.autres.series });
+      var max = 0;
+      lignes.forEach(function (l) { if (l.series > max) max = l.series; });
+      lignes.forEach(function (l) {
+        var ligne = el('div', 'recap-mu');
+        ligne.appendChild(el('span', null, l.libelle));
+        var barre = el('i');
+        barre.style.width = (max ? Math.max(4, Math.round(l.series / max * 100)) : 0) + '%';
+        ligne.appendChild(barre);
+        ligne.appendChild(el('b', null, nombreFr(l.series)));
+        cible.appendChild(ligne);
+      });
+    }
+
+    // Les records du jour (or) : une ligne par série médaillée, la phrase de la médaille.
+    if (r.records && r.records.length) {
+      groupe(r.records.length + (r.records.length > 1 ? ' records' : ' record'), 'or');
+      r.records.forEach(function (x) {
+        var rec = el('div', 'recap-rec');
+        rec.appendChild(el('div', 'l1', x.nom + ' : ' + x.mesure));
+        var p = x.phrase || [];
+        var texte = [p[0], p[1]].filter(Boolean).join(' ');
+        if (texte) rec.appendChild(el('div', 'l2', texte));
+        cible.appendChild(rec);
+      });
+    }
+
+    // Ce que le coach avait visé (ambre) : la phrase aux chiffres tels quels, puis une ligne par exercice.
+    if (r.paris && r.paris.verifies) {
+      groupe('Ce que le coach avait visé', 'coach');
+      cible.appendChild(el('p', 'recap-voix', r.paris.phrase));
+      r.paris.lignes.forEach(function (l) {
+        var ligne = el('div', 'recap-pari');
+        ligne.appendChild(el('span', 'n', l.nom));
+        ligne.appendChild(el('span', 'v' + (l.vise ? ' pe' : ''), l.fait + (l.vise ? ' \u00b7 visé ' + l.vise : '')));
+        cible.appendChild(ligne);
+      });
+    }
+
+    // 64B (JEU-V1 §9.4) — le bloc « Le jeu », tel quel. Un rendu qui échouerait ne coûte que son bloc.
+    if (vue.jeu) {
+      try {
+        var bj = blocJeuFin(vue.jeu);
+        if (bj) cible.appendChild(bj);
+      } catch (e) { /* pas de bloc */ }
+    }
+
+    if (r.note) {
+      groupe('Ta note');
+      cible.appendChild(el('p', 'recap-note', r.note));
+    }
+
+    var f = el('button', 'principal recap-bouton recap-fermer', 'Fermer');
+    f.type = 'button';
+    f.addEventListener('click', vue.surFermer);
+    cible.appendChild(f);
+    var v = el('button', 'discret recap-bouton recap-voir', 'Voir la séance');
+    v.type = 'button';
+    v.addEventListener('click', vue.surVoir);
+    cible.appendChild(v);
+    return cible;
   }
 
   function message(cible, texte, genre) {
@@ -5723,6 +5807,7 @@
     rendreFeuilleSupprimer: rendreFeuilleSupprimer,
     phraseEffacement: phraseEffacement,
     rendreFeuilleFin: rendreFeuilleFin,
+    rendreRecap: rendreRecap,
     // 64B — le jeu (JEU-V1 §9).
     rendreJeuAccueil: rendreJeuAccueil,
     rendreJeuMuscles: rendreJeuMuscles,

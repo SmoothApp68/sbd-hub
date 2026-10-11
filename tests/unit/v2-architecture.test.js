@@ -1891,8 +1891,13 @@ const REGISTRE_ECRITURES = [
     raison: 'la suppression de compte exige le serveur ; rien n’est effacé localement avant sa réponse' },
   { fn: 'enregistrerProfil', chemin: 'liste-blanche', appelants: ['app.js:chargerProfil', 'app.js:envoyerProfilMaintenant'],
     raison: 'le profil a son propre canal, local d’abord, avec un drapeau persistant (60-2c)' },
+  // Deux appelants, deux raisons : une par appelant (`raisons`), la garde exige qu'elles se correspondent.
   { fn: 'refermerSeance', chemin: 'liste-blanche', appelants: ['app.js:resoudreSeanceEnCoursDistante', 'app.js:refermerSeancesSauf'],
-    raison: 'ménage recalculé à chaque lancement : rien à perdre s’il échoue' },
+    raisons: {
+      'app.js:resoudreSeanceEnCoursDistante': 'ménage recalculé à chaque lancement : rien à perdre s’il échoue',
+      'app.js:refermerSeancesSauf': 'réparation d’un conflit pendant l’envoi de la file : referme une séance restée ouverte en base, '
+        + 'autre que celle qu’on envoie ; si elle échoue, l’envoi suivant la retente'
+    } },
   // Une LECTURE par une fonction du serveur (`.rpc(`), que la règle d'écriture attrape : rien n'est écrit.
   { fn: 'pseudoPris', chemin: 'liste-blanche', appelants: ['app.js:var SAISIES', 'app.js:sonderPseudo'],
     raison: 'une lecture (ce pseudo est-il pris ?) par une fonction du serveur : rien n’est écrit' },
@@ -2060,10 +2065,15 @@ describe('architecture — la carte des écritures (73, audit 72)', () => {
     expect(fautes).toEqual([]);
   });
 
-  test('⚠️ en liste blanche : exactement les appelants déclarés, chacun avec un appel réel, et une raison', () => {
+  test('⚠️ en liste blanche : exactement les appelants déclarés, chacun avec un appel réel, et une raison (une par appelant si `raisons`)', () => {
     const fautes = [];
     REGISTRE_ECRITURES.filter((e) => e.chemin === 'liste-blanche').forEach((e) => {
-      if (!e.raison || !e.raison.trim()) fautes.push(e.fn + ' : pas de raison');
+      if (e.raisons) {
+        // Une raison par appelant : chaque appelant a la sienne, et aucune raison ne vise un appelant non déclaré.
+        if (e.raison) fautes.push(e.fn + ' : `raison` et `raisons` à la fois');
+        e.appelants.filter((x) => !(e.raisons[x] && e.raisons[x].trim())).forEach((x) => fautes.push(e.fn + ' : l’appelant ' + x + ' n’a pas de raison'));
+        Object.keys(e.raisons).filter((x) => e.appelants.indexOf(x) < 0).forEach((x) => fautes.push(e.fn + ' : une raison pour ' + x + ', qui n’est pas un appelant déclaré'));
+      } else if (!e.raison || !e.raison.trim()) fautes.push(e.fn + ' : pas de raison');
       const a = appelantsDe(e.fn);
       e.appelants.filter((x) => a.indexOf(x) < 0).forEach((x) => fautes.push(e.fn + ' : l’appelant ' + x + ' n’appelle plus'));
       a.filter((x) => e.appelants.indexOf(x) < 0).forEach((x) => fautes.push(e.fn + ' : appelée par ' + x + ', non déclaré'));
@@ -2105,7 +2115,10 @@ describe('architecture — la carte des écritures (73, audit 72)', () => {
     const raison = (fn) => REGISTRE_ECRITURES.filter((e) => e.fn === fn)[0].raison;
     expect(raison('supprimerCompte')).toBe('la suppression de compte exige le serveur ; rien n’est effacé localement avant sa réponse');
     expect(raison('enregistrerProfil')).toBe('le profil a son propre canal, local d’abord, avec un drapeau persistant (60-2c)');
-    expect(raison('refermerSeance')).toBe('ménage recalculé à chaque lancement : rien à perdre s’il échoue');
+    const refermer = REGISTRE_ECRITURES.filter((e) => e.fn === 'refermerSeance')[0].raisons;
+    expect(refermer['app.js:resoudreSeanceEnCoursDistante']).toBe('ménage recalculé à chaque lancement : rien à perdre s’il échoue');
+    expect(refermer['app.js:refermerSeancesSauf']).toBe('réparation d’un conflit pendant l’envoi de la file : referme une séance restée '
+      + 'ouverte en base, autre que celle qu’on envoie ; si elle échoue, l’envoi suivant la retente');
     expect(RAISON_BIBLIOTHEQUE).toBe('geste de bibliothèque, fait hors de la salle, qui échoue avec un message et garde le brouillon');
     expect(GESTES_BIBLIOTHEQUE.filter((g) => g.geste === 'creerRoutineDepuisSeance')[0].raison).toBe('à passer par la file (noté le 11/10)');
   });

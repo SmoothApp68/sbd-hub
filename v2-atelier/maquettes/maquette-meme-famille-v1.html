@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Même famille v1</title>
+<style>
+:root{--fond:#0f1114;--panneau:#181b20;--panneau-2:#21252c;--trait:#2c3139;--texte:#eceef2;--texte-2:#9aa1ac;--texte-3:#888e98;--accent:#f2b84b;
+--pile:"Barlow",system-ui,sans-serif;--pile-c:"Barlow Condensed","Barlow",system-ui,sans-serif}
+*{box-sizing:border-box}
+body{margin:0;background:#07080a;color:var(--texte);font:15px/1.4 var(--pile);display:flex;flex-wrap:wrap;justify-content:center;gap:16px;padding:16px}
+.col{width:100%;max-width:380px;display:flex;flex-direction:column;gap:8px}
+.etiquette{font:600 13px var(--pile-c);text-transform:uppercase;letter-spacing:1.2px;color:var(--accent)}
+.notes{color:var(--texte-2);font-size:13px;margin:0}
+.feuille{background:var(--panneau);border:1px solid var(--trait);border-radius:18px 18px 0 0;padding:16px}
+.feuille-t{font-size:14px;font-weight:600;padding-bottom:12px}
+.feuille-t em{display:block;font-style:normal;font-size:11px;color:var(--texte-3);text-transform:uppercase;letter-spacing:1px}
+.menu{border-top:1px solid var(--trait)}
+.choix{display:block;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--trait);color:var(--texte);padding:13px 4px;font:600 15px var(--pile)}
+.choix small{display:block;margin-top:4px;font-size:12px;font-weight:400;color:var(--texte-2)}
+.groupe{font:600 12px var(--pile-c);text-transform:uppercase;letter-spacing:1.2px;color:var(--texte-3);padding:16px 4px 6px}
+.aide{font-size:11px;color:var(--texte-3);padding:8px 4px}
+.lien{color:var(--accent)}
+.gris{color:var(--texte-2);font-weight:400}
+</style>
+</head>
+<body>
+
+<section class="col">
+  <div class="etiquette">1 · Des frères, puis la même famille</div>
+  <p class="notes">Les frères d'abord, comme aujourd'hui. Puis « Même famille », au plus 5 : ceux que tu as déjà faits d'abord, dans le même ordre que les frères.</p>
+  <div class="feuille">
+    <div class="feuille-t"><em>Remplacer</em>Extension Mollets Debout (Machine)</div>
+    <div class="menu">
+      <button class="choix">Un frère : Presse Mollets (Machine)<small>Dernière fois : 140 kg × 15, le 12 sept.</small></button>
+      <button class="choix">Un frère : Extension Mollets Debout (Haltère)<small>Première fois ici</small></button>
+      <button class="choix">Un frère : Extension Mollets Une Jambe<small>Première fois ici</small></button>
+    </div>
+    <div class="groupe">Même famille</div>
+    <div class="menu">
+      <button class="choix">Extension Mollets Assis<small>Dernière fois : 60 kg × 15, le 3 sept.</small></button>
+    </div>
+    <div class="menu" style="margin-top:12px">
+      <button class="choix lien">Chercher dans le catalogue</button>
+      <button class="choix gris">Annuler</button>
+    </div>
+  </div>
+</section>
+
+<section class="col">
+  <div class="etiquette">2 · Pas de frère, une famille</div>
+  <p class="notes">Le tirage vers visage n'a pas de frère : la phrase d'aujourd'hui reste, puis sa famille (tirer à l'horizontale) prend le relais.</p>
+  <div class="feuille">
+    <div class="feuille-t"><em>Machine prise</em>Tirage vers Visage</div>
+    <p class="aide">Pas de frère au catalogue pour cet exercice.</p>
+    <div class="groupe">Même famille</div>
+    <div class="menu">
+      <button class="choix">Rowing Poulie Assis (Prise en V)<small>Dernière fois : 77 kg × 12, le 6 oct.</small></button>
+      <button class="choix">Rowing Haltère (Bûcheron)<small>Dernière fois : 46 kg × 10, le 29 sept.</small></button>
+      <button class="choix">Rowing Divergent (Machine)<small>Dernière fois : 79 kg × 10, le 10 oct.</small></button>
+      <button class="choix">Rowing Poulie Assis - Prise Large<small>Dernière fois : 72 kg × 12, le 15 août</small></button>
+      <button class="choix">Rowing Divergent Un Bras (Machine)<small>Dernière fois : 81,3 kg × 12, le 10 oct.</small></button>
+    </div>
+    <div class="menu" style="margin-top:12px">
+      <button class="choix lien">Chercher dans le catalogue</button>
+    </div>
+  </div>
+</section>
+
+<section class="col">
+  <div class="etiquette">3 · Ni frère ni famille</div>
+  <p class="notes">Une habileté, une technique à part ou un exercice non rangé : rien ne change par rapport à aujourd'hui.</p>
+  <div class="feuille">
+    <div class="feuille-t"><em>Remplacer</em>Muscle Up</div>
+    <p class="aide">Pas de frère au catalogue pour cet exercice.</p>
+    <div class="menu">
+      <button class="choix lien">Chercher dans le catalogue</button>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>

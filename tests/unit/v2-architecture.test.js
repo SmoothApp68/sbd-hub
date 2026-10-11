@@ -463,6 +463,14 @@ const NOTIONS = [
       'une seule lecture de la colonne, sinon deux écrans auraient deux listes de frères. 66A : les variantes à la ' +
       'barre du bilan (QUESTIONNAIRE §5 ter.2) sont ses frères à la barre — `faits.js` (le fait) et `generateur.js` ' +
       '(la relecture : le lourd en premier, la poussée, le squat à déplacer) les lisent ici, sans relire `mouvement`.' },
+  // 67A — la famille : une colonne, une lecture, un seul usage (la feuille « Remplacer »).
+  { notion: 'la même famille d’un exercice (même `schema_mouvement` au catalogue, MOTEUR §13.6 bis)', pr: '67-U1',
+    module: 'modele.js', fonction: 'cousinsDe', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['cousinsDe'] },
+    interditAilleurs: { motif: /\.\s*schema_mouvement\b|\[\s*(['"`])schema_mouvement\1\s*\]/,
+                        raison: '`schema_mouvement` lu ailleurs que dans `cousinsDe` : une famille hors de « Remplacer »' },
+    raison: 'MOTEUR §13.6 bis (67A) : la famille ne sert QU’À la feuille « Remplacer », sous les frères ; aucun calcul ' +
+      '(variantes à la barre, barre lourde, supersets, frère qui progresse) ne la lit — ils lisent `freresDe`.' },
   { notion: 'la version lestée d’un exercice libre (`parent` au catalogue, MOTEUR §9.17)', pr: '50-U1',
     module: 'modele.js', fonction: 'lesteDe', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['optionsDeConsigne', 'entreesDuPlan'] },

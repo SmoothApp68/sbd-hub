@@ -98,3 +98,45 @@ describe('51-2 — « Machine prise » dans les menus ⋯', () => {
     expect(textes(c, '.feuille-menu button')[0]).toBe('Machine prise');
   });
 });
+
+// 67A (MOTEUR §13.6 bis) — « Même famille », sous les frères, au mot près.
+describe('67A — la feuille : « Même famille » sous les frères', () => {
+  const fait = { date: iso(ANNEE, 9, 3), charge: 60, reps: 15 };
+  // L'ordre des nœuds de la feuille, de haut en bas : ce qu'on lit.
+  const ordre = (c) => Array.from(c.querySelectorAll('.choix-mp .mp-titre, .sans-frere, .meme-famille-t, .feuille-menu > button:not(.choix-mp)'))
+    .map((n) => n.textContent);
+
+  test('les frères, l’intitulé « Même famille », chaque cousin avec son nom seul et la sous-ligne des frères ; puis le catalogue', () => {
+    const appels = [];
+    const c = feuille({
+      titre: 'Remplacer', nom: 'Extension Mollets Debout (Machine)', tard: null,
+      freres: [{ nom: 'Presse Mollets (Machine)', fait: null, surChoisir: () => appels.push('frere') }],
+      cousins: [{ nom: 'Extension Mollets Assis', fait, surChoisir: () => appels.push('assis') },
+                { nom: 'Mollets Une Jambe', fait: null, ecarte: true, surChoisir: () => appels.push('jambe') }],
+      chercher: 'Chercher dans le catalogue', surCatalogue: () => appels.push('catalogue')
+    });
+    expect(ordre(c)).toEqual(['Un frère : Presse Mollets (Machine)', 'Même famille', 'Extension Mollets Assis',
+      'Mollets Une Jambe', 'Chercher dans le catalogue']);
+    expect(textes(c, '.cousin .mp-sous')).toEqual(['Dernière fois : 60 kg × 15, le 3 sept.', 'écarté · Première fois ici']);
+    expect(c.querySelector('.meme-famille-t').className).toBe('choix-groupe meme-famille-t');
+    c.querySelectorAll('.cousin').forEach((b) => b.click());
+    expect(appels).toEqual(['assis', 'jambe']);
+    expect(c.querySelector('.sans-frere')).toBe(null);
+  });
+
+  test('sans frère : la phrase reste, puis la famille, puis « Remplacer l’exercice » (la séance)', () => {
+    const c = feuille({ nom: 'Tirage vers Visage', tard: null, freres: [],
+      cousins: [{ nom: 'Rowing Poulie Assis', fait: null, surChoisir: () => {} }], surCatalogue: () => {} });
+    expect(ordre(c)).toEqual(['Pas de frère au catalogue pour cet exercice.', 'Même famille', 'Rowing Poulie Assis',
+      'Remplacer l’exercice']);
+  });
+
+  test('⚠️ sans famille, la feuille est EXACTEMENT celle d’avant (même HTML, `cousins` absent ou vide)', () => {
+    [{ nom: 'Muscle Up', tard: null, freres: [], surCatalogue: () => {} },
+     { titre: 'Remplacer', nom: 'Squat', tard: null, freres: [{ nom: 'Squat pause', fait: null, surChoisir: () => {} }],
+       chercher: 'Chercher dans le catalogue', surCatalogue: () => {}, surAnnuler: () => {} }].forEach((v) => {
+      expect(feuille(Object.assign({}, v, { cousins: [] })).innerHTML).toBe(feuille(v).innerHTML);
+      expect(feuille(v).querySelector('.meme-famille-t')).toBe(null);
+    });
+  });
+});

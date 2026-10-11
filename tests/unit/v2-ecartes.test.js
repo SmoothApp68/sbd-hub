@@ -151,7 +151,7 @@ function extraire(nom) {
   return m[0];
 }
 const FONCTIONS = ['ouvrirFeuilleExoRoutine', 'ouvrirRemplacerDansLEditeur', 'remplacerDansLEditeur', 'renumeroterBrouillon',
-  'freresDe', 'neVeutPasDansLEditeur', 'annoncerDansLEditeur', 'faitsDesFreres', 'horsDuMateriel', 'nomExoBrouillon'];
+  'freresDe', 'cousinsDe', 'neVeutPasDansLEditeur', 'annoncerDansLEditeur', 'faitsDesFreres', 'horsDuMateriel', 'nomExoBrouillon'];
 
 const CATALOGUE = [
   { slug: 'dc-barre', nom: 'Développé couché (barre)', mesure: 'charge_reps', mouvement: 'developpe_couche', equipement: 'barre' },
@@ -348,7 +348,7 @@ describe('les gestes : le catalogue et « Machine prise » rangent les écartés
       faitsDesFreres: () => ({}), fermerVoile: () => {}, remplacerDansLaSeance: () => {}, demanderRemplacement: () => {}, vues
     };
     vm.createContext(ctx);
-    ['horsDuMateriel', 'freresDe', 'blocsPourPlusTard', 'vueMachinePrise'].forEach((n) => vm.runInContext(extraire(n), ctx));
+    ['horsDuMateriel', 'freresDe', 'cousinsDe', 'blocsPourPlusTard', 'vueMachinePrise'].forEach((n) => vm.runInContext(extraire(n), ctx));
     ctx.blocs = [{ exercices: [{ slug: 'dc-barre', nom: 'Développé couché (barre)', series: [] }] }];
     const v = vm.runInContext('vueMachinePrise(blocs, 0, 0)', ctx);
     expect(v.freres.map((f) => [f.nom, !!f.ecarte])).toEqual([

@@ -3279,17 +3279,32 @@
         f.ecarte ? 'écarté \u00b7 ' + texteFaitFrere(f.fait) : texteFaitFrere(f.fait), f.surChoisir)
         .classList.add('frere');
     });
-    if (!(vue.freres || []).length) {
-      cible.appendChild(el('p', 'feuille-aide sans-frere', 'Pas de frère au catalogue pour cet exercice.'));
-      // 60-3 — l'éditeur (« Remplacer ») dit « Chercher dans le catalogue », frères ou pas.
-      if (!vue.chercher) entreeMenu(freres, 'Remplacer l’exercice', { surClic: vue.surCatalogue });
+    var sansFrere = !(vue.freres || []).length;
+    if (sansFrere) cible.appendChild(el('p', 'feuille-aide sans-frere', 'Pas de frère au catalogue pour cet exercice.'));
+    // 67A (MOTEUR §13.6 bis) — la même famille, SOUS les frères : un intitulé, puis chaque exercice avec son nom seul et
+    // la même sous-ligne que les frères. Les actions (le catalogue, « Annuler ») passent alors après elle, dans leur
+    // propre menu. Sans famille, la feuille est exactement celle d'avant.
+    var cousins = vue.cousins || [];
+    var actions = freres;
+    if (cousins.length) {
+      if (!sansFrere) cible.appendChild(freres);
+      cible.appendChild(el('div', 'choix-groupe meme-famille-t', 'Même famille'));
+      var famille = el('div', 'feuille-menu machine-prise meme-famille');
+      cousins.forEach(function (f) {
+        choixMachinePrise(famille, f.nom, f.ecarte ? 'écarté \u00b7 ' + texteFaitFrere(f.fait) : texteFaitFrere(f.fait),
+          f.surChoisir).classList.add('cousin');
+      });
+      cible.appendChild(famille);
+      actions = el('div', 'feuille-menu machine-prise');
     }
+    // 60-3 — l'éditeur (« Remplacer ») dit « Chercher dans le catalogue », frères ou pas.
+    if (sansFrere && !vue.chercher) entreeMenu(actions, 'Remplacer l’exercice', { surClic: vue.surCatalogue });
     // ES §7 quindecies.8 (60-3) — après les frères, le sélecteur d'exercices.
-    if (vue.chercher) entreeMenu(freres, vue.chercher, { classe: 'chercher-catalogue', surClic: vue.surCatalogue });
+    if (vue.chercher) entreeMenu(actions, vue.chercher, { classe: 'chercher-catalogue', surClic: vue.surCatalogue });
     // 60-4 — depuis l'aperçu du programme construit, « Annuler » revient à l'aperçu (sans lui, la seule sortie était de
     // tout fermer, et l'aperçu avec).
-    if (vue.surAnnuler) entreeMenu(freres, 'Annuler', { classe: 'annuler-remplacer', surClic: vue.surAnnuler });
-    cible.appendChild(freres);
+    if (vue.surAnnuler) entreeMenu(actions, 'Annuler', { classe: 'annuler-remplacer', surClic: vue.surAnnuler });
+    cible.appendChild(actions);
     return cible;
   }
 

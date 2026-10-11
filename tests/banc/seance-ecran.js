@@ -17070,6 +17070,126 @@ const SETS_IMPORTES = [
       JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
   }
 
+  console.log('\n══ famille. « MÊME FAMILLE » DANS REMPLACER : SOUS LES FRÈRES, 5 AU PLUS, JAMAIS POUR UNE HABILETÉ (67A, MOTEUR §13.6 bis) ══');
+  //
+  // Sur l'app réelle, dans l'éditeur de routine (« Remplacer »), avec `schema_mouvement` au catalogue du faux serveur.
+  // ⚠️ CONFIGURATION DISCRIMINANTE : l'extension mollets debout a deux frères ET un exercice de même famille (les
+  // mollets assis, pas un frère) ; le tirage vers visage n'a pas de frère et sept exercices de sa famille (5 montrés) ;
+  // un muscle-up (une habileté) n'en a aucune. Rien ne part avant « Enregistrer ».
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const catalogueAvant = CATALOGUE.length;
+    const ecartesAvant = base.profiles[0].exercices_ecartes;
+    const materielAvant = base.profiles[0].materiel;
+    base.profiles[0].exercices_ecartes = null;
+    base.profiles[0].materiel = null;
+    const fiche = (slug, nom, mouvement, schema, prim, extra) => CATALOGUE.push(Object.assign({ slug, nom,
+      mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: prim, muscles_secondaires: [],
+      mouvement, schema_mouvement: schema }, extra || {}));
+    fiche('mollets-debout-u67', 'Extension Mollets Debout U67 (Machine)', 'mollets_debout_u67', 'mollets_u67', ['mollets']);
+    fiche('presse-mollets-u67', 'Presse Mollets U67 (Machine)', 'mollets_debout_u67', 'mollets_u67', ['mollets']);
+    fiche('mollets-haltere-u67', 'Extension Mollets Debout U67 (Haltère)', 'mollets_debout_u67', 'mollets_u67', ['mollets']);
+    fiche('mollets-assis-u67', 'Extension Mollets Assis U67', 'mollets_assis_u67', 'mollets_u67', ['mollets']);
+    fiche('tirage-visage-u67', 'Tirage vers Visage U67', null, 'tirer_h_u67', ['deltoide_posterieur']);
+    for (let k = 1; k <= 7; k++) fiche('rowing-' + k + '-u67', 'Rowing ' + k + ' U67', 'rowing_' + k + '_u67', 'tirer_h_u67', ['haut_du_dos']);
+    fiche('muscle-up-u67', 'Muscle Up U67', null, null, ['grand_dorsal'], { mesure: 'reps', charge: 'aucune', habilete: true });
+    const ID_F = '00000000-0000-4000-8670-000000000001';
+    let graine = 0;
+    const lignes = (n) => Array.from({ length: n }, (_, k) => ({ id: 'fam-rs-' + (++graine), rang: k + 1, type_serie: 'travail',
+      reps_visees: 12, charge_cible_kg: null, duree_cible_s: null, distance_cible_m: null }));
+    ROUTINES.push({ id: ID_F, nom: 'Famille U67', note: null, archivee_a: null, rang: null, dossier: null,
+      created_at: '2026-09-01T10:00:00.000Z', modifiee_a: '2026-09-01T10:00:00.000Z',
+      routine_exercises: ['mollets-debout-u67', 'tirage-visage-u67', 'muscle-up-u67'].map((slug, i) => ({ id: 'fam-e' + i,
+        routine_id: ID_F, exercise_slug: slug, rang: i, groupe_superset: null, repos_cible_s: 90, note: null, routine_sets: lignes(3) })) });
+    const routineF = () => ROUTINES.filter((r) => r.id === ID_F)[0];
+    const nomsEditeur = () => page.evaluate(() => Array.from(document.querySelectorAll('#exos-routine .nom-exo'))
+      .map((n) => n.textContent.replace(/\s+/g, ' ').trim()));
+    const menuExo = async (i) => {
+      await page.evaluate((k) => document.querySelectorAll('#exos-routine .menu-pts')[k].click(), i);
+      await attendre(450);
+    };
+    const entreeF = async (texte) => {
+      await page.evaluate((x) => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
+        .filter((b) => ((b.querySelector('.mp-titre') || b).textContent) === x)[0].click(), texte);
+      await attendre(600);
+    };
+    // La feuille de haut en bas : les choix (titre et sous-ligne), la phrase sans frère, l'intitulé, les actions.
+    const feuilleF = () => page.evaluate(() => {
+      const c = document.getElementById('feuille-contenu');
+      return { ouverte: !document.getElementById('feuille-seance').hidden,
+        sujet: (c.querySelector('.feuille-t em') || {}).textContent || null,
+        lu: Array.from(c.querySelectorAll('.choix-mp, .sans-frere, .meme-famille-t, .feuille-menu > button:not(.choix-mp)'))
+          .map((n) => n.classList.contains('choix-mp')
+            ? n.querySelector('.mp-titre').textContent + ' | ' + n.querySelector('.mp-sous').textContent : n.textContent),
+        cousins: c.querySelectorAll('.meme-famille .choix-mp').length };
+    });
+
+    await aller('/saisie');
+    await aller('/routine/' + ID_F);
+    for (let n = 0; n < 60 && JSON.stringify(await nomsEditeur()).indexOf('Muscle Up U67') < 0; n++) await attendre(250);
+    const avant = JSON.stringify(routineF());
+    ok('[F67] prémisse : l’éditeur montre les trois exercices de la routine',
+      JSON.stringify(await nomsEditeur()).indexOf('Muscle Up U67') >= 0, JSON.stringify(await nomsEditeur()));
+
+    // ── A. L'extension mollets debout : ses frères, puis « Même famille » avec les mollets assis.
+    await menuExo(0);
+    await entreeF('Remplacer');
+    let f = await feuilleF();
+    ok('[F67] A — les frères d’abord, puis « Même famille » : les mollets assis, nom seul, « Première fois ici » ; puis le catalogue',
+      f.ouverte && f.sujet === 'Extension Mollets Debout U67 (Machine)' && JSON.stringify(f.lu) === JSON.stringify([
+        'Un frère : Extension Mollets Debout U67 (Haltère) | Première fois ici',
+        'Un frère : Presse Mollets U67 (Machine) | Première fois ici',
+        'Même famille', 'Extension Mollets Assis U67 | Première fois ici', 'Chercher dans le catalogue']), JSON.stringify(f));
+    // Un cousin choisi remplace l'exercice comme un frère : à sa place, rien n'est écrit avant « Enregistrer ».
+    await entreeF('Extension Mollets Assis U67');
+    const noms = await nomsEditeur();
+    ok('[F67] A — choisir un cousin le met à la place de l’exercice, comme un frère ; rien n’est écrit',
+      /Extension Mollets Assis U67/.test(noms[0]) && noms.length === 3 && JSON.stringify(routineF()) === avant,
+      JSON.stringify(noms));
+
+    // ── B. Le tirage vers visage : pas de frère, la phrase, puis 5 exercices de sa famille (sur 7).
+    await menuExo(1);
+    await entreeF('Remplacer');
+    f = await feuilleF();
+    ok('[F67] B — sans frère : « Pas de frère au catalogue pour cet exercice. », puis « Même famille » et 5 exercices au plus (sur 7)',
+      f.sujet === 'Tirage vers Visage U67' && f.lu[0] === 'Pas de frère au catalogue pour cet exercice.' &&
+        f.lu[1] === 'Même famille' && f.cousins === 5 &&
+        JSON.stringify(f.lu.slice(2, 7).map((x) => x.split(' | ')[0])) ===
+          JSON.stringify(['Rowing 1 U67', 'Rowing 2 U67', 'Rowing 3 U67', 'Rowing 4 U67', 'Rowing 5 U67']) &&
+        f.lu[f.lu.length - 1] === 'Chercher dans le catalogue', JSON.stringify(f));
+    await page.click('#btn-fermer-feuille');
+    await attendre(500);
+
+    // ── C. Un muscle-up (une habileté) : ni frère ni famille — la feuille d'avant.
+    await menuExo(2);
+    await entreeF('Remplacer');
+    f = await feuilleF();
+    ok('[F67] C — un muscle-up : aucune famille, la feuille d’avant (la phrase, puis le catalogue)',
+      f.sujet === 'Muscle Up U67' && f.cousins === 0 && JSON.stringify(f.lu) ===
+        JSON.stringify(['Pas de frère au catalogue pour cet exercice.', 'Chercher dans le catalogue']), JSON.stringify(f));
+    await page.click('#btn-fermer-feuille');
+    await attendre(500);
+
+    // ── D. « Enregistrer » écrit le cousin choisi, à sa place.
+    await page.click('#btn-enregistrer-routine');
+    await attendre(2400);
+    const forme = routineF().routine_exercises.slice().sort((a, b) => a.rang - b.rang).map((e) => e.exercise_slug);
+    ok('[F67] D — « Enregistrer » écrit le cousin à la place de l’exercice',
+      JSON.stringify(forme) === '["mollets-assis-u67","tirage-visage-u67","muscle-up-u67"]', JSON.stringify(forme));
+
+    // ── LA REMISE EN ÉTAT, pour les sections suivantes.
+    const i = ROUTINES.findIndex((r) => r.id === ID_F);
+    if (i >= 0) ROUTINES.splice(i, 1);
+    CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
+    base.profiles[0].exercices_ecartes = ecartesAvant;
+    base.profiles[0].materiel = materielAvant;
+    await aller('/saisie');
+    ok('[F67] aucun refus du faux serveur, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,
+      JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
+  }
+
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');
   // Le compte vit dans `garde-compte.js` : le lanceur parallèle refait les
   // mêmes contrôles sur le compte fusionné de ses groupes.

@@ -5635,9 +5635,10 @@
     });
   }
 
-  function faitsDesFreres(index, slug) {
+  // 67A — `slugs` : une autre liste que les frères (la même famille, MOTEUR §13.6 bis), par le MÊME chemin.
+  function faitsDesFreres(index, slug, slugs) {
     var parSlug = {};
-    Modele.freresDe(index, slug).forEach(function (s) {
+    (slugs || Modele.freresDe(index, slug)).forEach(function (s) {
       var d = derniereSeanceDe(s);
       if (d) parSlug[s] = d;
     });
@@ -5666,6 +5667,20 @@
       .map(function (f) { return Object.assign({}, f, { ecarte: ecartes.indexOf(f.slug) >= 0 }); });
   }
 
+  // 67A (MOTEUR §13.6 bis) — LA MÊME FAMILLE, sous les frères, dans les trois feuilles « Remplacer » : `Modele.cousinsDe`
+  // (la seule lecture de `schema_mouvement`), rangés comme les frères (`Seance.exercicesProposes`, la même règle), les
+  // écartés à la fin, puis les `Seance.COUSINS_PROPOSES` premiers. « Plus tard » et « Je n'en veux pas » ne la lisent pas.
+  function cousinsDe(slug, presents) {
+    var index = Modele.indexerExercices(local.exercices);
+    var ecartes = Profil.ecartesDe(profil);
+    var cousins = Modele.cousinsDe(index, slug);
+    if (!cousins.length) return [];
+    return Profil.ecartesALaFin(
+      Seance.exercicesProposes(cousins, index, faitsDesFreres(index, slug, cousins), presents, horsDuMateriel(index)), ecartes)
+      .slice(0, Seance.COUSINS_PROPOSES)
+      .map(function (f) { return Object.assign({}, f, { ecarte: ecartes.indexOf(f.slug) >= 0 }); });
+  }
+
   function vueMachinePrise(blocs, iBloc, iExo) {
     var index = Modele.indexerExercices(local.exercices);
     var slug = seance.exercices[iExo].exercise_slug;
@@ -5673,6 +5688,13 @@
     var suivant = blocs[iBloc + 1];
     var presents = seance.exercices.map(function (e) { return e.exercise_slug; });
     var freres = freresDe(slug, presents);
+    // Un frère ou un exercice de la même famille : le même choix.
+    var choix = function (f) {
+      return {
+        nom: Modele.nommer(index, f.slug), fait: f.fait, ecarte: f.ecarte,
+        surChoisir: function () { fermerVoile(); remplacerDansLaSeance(iExo, f.slug); }
+      };
+    };
     return {
       nom: Modele.nommer(index, slug),
       tard: plus.possible ? {
@@ -5683,12 +5705,8 @@
           apresStructure();
         }
       } : null,
-      freres: freres.map(function (f) {
-        return {
-          nom: Modele.nommer(index, f.slug), fait: f.fait, ecarte: f.ecarte,
-          surChoisir: function () { fermerVoile(); remplacerDansLaSeance(iExo, f.slug); }
-        };
-      }),
+      freres: freres.map(choix),
+      cousins: cousinsDe(slug, presents).map(choix),
       surCatalogue: function () { demanderRemplacement(iExo); }
     };
   }
@@ -6899,14 +6917,16 @@
     var index = Modele.indexerExercices(local.exercices);
     var presents = brouillon.exercices.map(function (x) { return x.exercise_slug; });
     var freres = freresDe(e.exercise_slug, presents);
+    var choix = function (f) {
+      return { nom: Modele.nommer(index, f.slug), fait: f.fait, ecarte: f.ecarte,
+               surChoisir: function () { fermerVoile(); remplacerDansLEditeur(i, f.slug); } };
+    };
     Rendu.rendreFeuilleMachinePrise($('feuille-contenu'), {
       titre: 'Remplacer',
       nom: Modele.nommer(index, e.exercise_slug),
       tard: null,
-      freres: freres.map(function (f) {
-        return { nom: Modele.nommer(index, f.slug), fait: f.fait, ecarte: f.ecarte,
-                 surChoisir: function () { fermerVoile(); remplacerDansLEditeur(i, f.slug); } };
-      }),
+      freres: freres.map(choix),
+      cousins: cousinsDe(e.exercise_slug, presents).map(choix),
       chercher: 'Chercher dans le catalogue',
       surCatalogue: function () { fermerVoile(); ouvrirCatalogue(null, i); }
     });
@@ -8479,14 +8499,16 @@
     var index = catalogueIndexe();
     var presents = rt.exercices.map(function (x) { return x.exercise_slug; });
     var freres = freresDe(l.exercise_slug, presents);
+    var choix = function (f) {
+      return { nom: Modele.nommer(index, f.slug), fait: f.fait, ecarte: f.ecarte,
+               surChoisir: function () { poserDansLeProgramme(i, k, f.slug); } };
+    };
     Rendu.rendreFeuilleMachinePrise($('feuille-contenu'), {
       titre: 'Remplacer',
       nom: Modele.nommer(index, l.exercise_slug),
       tard: null,
-      freres: freres.map(function (f) {
-        return { nom: Modele.nommer(index, f.slug), fait: f.fait, ecarte: f.ecarte,
-                 surChoisir: function () { poserDansLeProgramme(i, k, f.slug); } };
-      }),
+      freres: freres.map(choix),
+      cousins: cousinsDe(l.exercise_slug, presents).map(choix),
       chercher: 'Chercher dans le catalogue',
       surCatalogue: function () { versLeCatalogueDuProgramme(i, k); },
       surAnnuler: rendreApercuDuProgramme

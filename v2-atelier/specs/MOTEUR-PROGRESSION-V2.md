@@ -1599,6 +1599,32 @@ Ce que la mesure valide, en revanche : deux populations d'exercices existent bel
 - **La marche de l'escalier reste proposée** (§14) : le transfert d'une variante à l'autre est partiel et asymétrique, et le coach ne conclut pas (§13.1). La personne décide.
 - **Pas de cousins** dans les messages : entre mouvements différents, le transfert est plus faible encore (§13.5).
 
+#### 13.6 bis La même famille, dans « Remplacer » — décidé le 11/10/2026 (67A)
+
+> **Les frères d'abord ; puis, au plus 5, les exercices de la même famille.** Les coachs remplacent par schéma de
+> mouvement (NSCA ; les mouvements de base de Dan John) ; un frère garde presque le même travail, un exercice de la
+> même famille à peu près — d'où l'ordre.
+
+- **Deux niveaux au catalogue.** `mouvement` (les frères, §13.6) : le même mouvement, les mêmes muscles principaux.
+  `schema_mouvement` (la famille, `v2_074`) : pousser à l'horizontale, pousser vers le haut, tirer à l'horizontale,
+  tirer vers le bas, s'accroupir, se pencher en avant ; les isolations par muscle (mollets, biceps, triceps, épaules
+  côté / arrière / avant, pectoraux, quadriceps, ischios, fessiers, adducteurs, abducteurs, abdos, avant-bras,
+  trapèzes). Chaque mouvement tient dans une seule famille. `NULL` : jamais proposé par la famille — **une habileté
+  (`habilete`), une technique à part (maintien, négative, scapulaire, walkout), un doublon désactivé, ce qui n'est
+  pas de la musculation (burpee, épaulé-jeté), la prévention (rotations externes, bird dog, superman)** — C.
+- **Où** : seulement la feuille « Machine prise » / « Remplacer » (la séance, l'éditeur de routine, l'aperçu du
+  programme). **Jamais** dans un calcul : les variantes à la barre du bilan, la barre lourde du générateur, les
+  supersets, le frère qui progresse et l'escalier lisent les frères (`mouvement`), et eux seuls.
+- **Lesquels** : `Modele.cousinsDe(index, slug)` (la seule lecture de `schema_mouvement`) — même famille, ni
+  l'exercice lui-même ni un de ses frères ; rangés comme les frères (`Seance.freresProposes` : le déjà fait d'abord,
+  le plus récent d'abord, le hors matériel après, ceux déjà là à la fin), les écartés à la fin, **puis les 5
+  premiers**. Le catalogue garde le reste (« Chercher dans le catalogue »).
+- **L'écran** : sous les frères, un intitulé « Même famille », puis chaque exercice avec son nom seul (sans « Un
+  frère : ») et la même sous-ligne (« Dernière fois : … » ou « Première fois ici » ; « écarté · » devant). Sans frère,
+  la phrase « Pas de frère au catalogue pour cet exercice. » reste, puis la famille. Sans frère ni famille : rien ne
+  change.
+- **« Je n'en veux pas »** dans l'aperçu du programme et « Plus tard » ne changent pas : ils ne lisent que les frères.
+
 **Référence** : `coach49.py` (`frere_qui_progresse`, `phrase_frere`) ; cas `cas_freres49.json`.
 
 

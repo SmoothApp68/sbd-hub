@@ -780,6 +780,17 @@
   // dans la séance reste proposé, à la fin : il y serait une seconde
   // occurrence, libre (§9.13 bis).
   function freresProposes(slug, catalogue, faits, presents, horsMateriel) {
+    return exercicesProposes(racine.THModele.freresDe(catalogue || {}, slug), catalogue, faits, presents, horsMateriel);
+  }
+
+  // MOTEUR §13.6 bis (67A) — AU PLUS 5 EXERCICES DE LA MÊME FAMILLE sous les frères : assez pour trouver une machine
+  // libre, pas assez pour noyer les frères (une famille compte jusqu'à 40 abdos). Le catalogue garde le reste
+  // (« Chercher dans le catalogue »). Une convention de l'app (C).
+  var COUSINS_PROPOSES = 5;
+
+  // L'ORDRE DE PRÉSENTATION d'une liste d'exercices de remplacement — celui des frères (ci-dessus), et, depuis 67A,
+  // celui de la même famille (MOTEUR §13.6 bis, `Modele.cousinsDe`) : une seule règle, jamais recopiée.
+  function exercicesProposes(slugs, catalogue, faits, presents, horsMateriel) {
     var index = catalogue || {};
     var connus = faits || {};
     var ici = {};
@@ -790,7 +801,7 @@
     // liste, pas dedans : la forme `{ slug, fait, deja_dans_la_seance }` est
     // celle des cas de référence (`cas-51-2`).
     var hors = {};
-    var liste = racine.THModele.freresDe(index, slug).map(function (s) {
+    var liste = (slugs || []).map(function (s) {
       hors[s] = !connus[s] && typeof horsMateriel === 'function' && !!horsMateriel(s);
       return { slug: s, fait: connus[s] || null, deja_dans_la_seance: !!ici[s] };
     });
@@ -2595,6 +2606,8 @@
     choisirReprise: choisirReprise,
     uuidDOccurrence: uuidDOccurrence,
     freresProposes: freresProposes,
+    exercicesProposes: exercicesProposes,
+    COUSINS_PROPOSES: COUSINS_PROPOSES,
     remplacerExercice: remplacerExercice,
     insererExercice: insererExercice,
     retirerExercices: retirerExercices,

@@ -30,7 +30,7 @@
   function Semaine() { return racine.THSemaine; }
   function Palier() { return racine.THPalier; }
 
-  var ROLES = { ligne: true, test: true, coach: true, retour: true, hors: true };
+  var ROLES = { ligne: true, test: true, coach: true, retour: true, elan: true, hors: true };
 
   function nombre(v) {
     if (v === null || v === undefined || v === '') return null;
@@ -72,27 +72,30 @@
     var src = courante && courante.source;
     if (src === 'coach') return 'coach';
     if (src === 'retour') return 'retour';
+    // §9.14 bis (68A) — la suite portée à la charge d'une série plus lourde.
+    if (src === 'elan') return 'elan';
     var r = initiale && initiale.role;
     if (r === 'haut') return 'test';
-    if (r === 'coach' || r === 'retour') return r;
+    if (r === 'coach' || r === 'retour' || r === 'elan') return r;
     return 'ligne';
   }
 
-  // ── L'ÉTAPE 4 : LE FANTÔME D'UNE LIGNE (§9.13 bis, 49-U2) ─────────────────
+  // ── L'ÉTAPE 4 : LE FANTÔME D'UNE LIGNE (§9.13 bis, révisé le 11/10/2026, 68A) ──
   //
-  // « Le fantôme d'une ligne vient d'une seule source. » Tant que l'utilisateur
-  // suit le plan, une ligne affiche le plan. Dès qu'il valide une autre charge
-  // que celle prévue, les lignes suivantes non validées recopient SA DERNIÈRE
-  // SÉRIE FAITE, charge et reps ensemble — jamais la charge d'une source et les
-  // reps d'une autre (le « 125 × 4 » après un refus : la charge tapée, les reps
-  // du plan).
+  // « Le fantôme d'une ligne vient d'une seule source : la ligne du plan. »
+  // Une ligne non validée affiche sa charge et sa visée. Quand l'utilisateur
+  // s'écarte du plan, le plan reste affiché et la phrase du coach s'adapte
+  // (MOTEUR §9.14 bis) : on ne recopie plus en silence une charge qui n'était
+  // peut-être qu'un essai (la recopie de la dernière série, 49-U2, est partie :
+  // le rowing du 10/10, 73 × 12 recopié, puis le plan revenu sans un mot).
   //
-  // « Suivre sa ligne » : la même charge que la ligne ; pour une ligne proposée
-  // par le coach, sa charge ou plus — « le cran au-dessus » sans chiffre : toute
-  // charge au-dessus de la charge de travail. C'est la DERNIÈRE série validée
-  // qui décide : a-t-elle suivi sa ligne, retour au plan ; sinon, recopie.
+  // Les reps d'une ligne du coach ou d'élan se tapent : `reps` nul (la grille
+  // montre la fourchette de la zone).
   //
-  // Les reps d'une ligne proposée par le coach se tapent : `reps` nul.
+  // « Suivre sa ligne » (`aSuiviSaLigne`) reste : le constat la lit. La même
+  // charge que la ligne ; pour une ligne du coach, sa charge ou plus — « le
+  // cran au-dessus » sans chiffre : toute charge au-dessus de la charge de
+  // travail.
   function chargeDeTravail(consigne) {
     var c = consigne && consigne.ligne ? nombre(consigne.ligne.charge) : null;
     return c !== null ? c : nombre(consigne && consigne.palier);
@@ -106,24 +109,15 @@
       var travail = chargeDeTravail(consigne);
       return travail !== null && fait > travail && !memeCharge(fait, travail);
     }
-    if (l.role === 'coach') return fait >= prevue || memeCharge(fait, prevue);
+    if (l.role === 'coach' || l.role === 'elan') return fait >= prevue || memeCharge(fait, prevue);
     return memeCharge(fait, prevue);
   }
 
-  function poserFantomes(lignes, consigne) {
-    var derniere = null;
+  function poserFantomes(lignes) {
     lignes.forEach(function (l) {
       if (l.role === 'hors') return;
-      if (l.validee) {
-        l.fantome = null;
-        derniere = l;
-        return;
-      }
-      if (!derniere || aSuiviSaLigne(derniere, consigne)) {
-        l.fantome = { charge: l.charge, reps: l.role === 'coach' ? null : l.vise, source: 'plan' };
-      } else {
-        l.fantome = { charge: derniere.faite.charge, reps: derniere.faite.reps, source: 'derniere' };
-      }
+      l.fantome = l.validee ? null
+        : { charge: l.charge, reps: l.role === 'coach' || l.role === 'elan' ? null : l.vise, source: 'plan' };
     });
   }
 
@@ -185,7 +179,7 @@
       }
       return ligne;
     });
-    poserFantomes(lignes, consigne);
+    poserFantomes(lignes);
 
     // ── L'ÉTAPE DES PARIS (§9.11, §9.13 bis, 49-U3) ──────────────────────
     //
@@ -288,7 +282,8 @@
     var couvertes = lignes.filter(function (l) { return l.role !== 'hors'; });
     var montee = null;
     couvertes.forEach(function (l) {
-      if (l.role !== 'coach' || !l.validee || !aSuiviSaLigne(l, consigne) || !z) return;
+      // §9.14 bis (68A) — une ligne d'élan tenue est une montée tenue du jour.
+      if ((l.role !== 'coach' && l.role !== 'elan') || !l.validee || !aSuiviSaLigne(l, consigne) || !z) return;
       var comptees = Palier().repsComptees({ reps: l.faite.reps, rpe: l.faite.rpe, ressenti: l.faite.ressenti });
       if (comptees === null || comptees < z.bas || comptees > z.haut) return;
       if (!montee || nombre(l.faite.charge) > nombre(montee.charge)) {
@@ -377,7 +372,7 @@
   function cite(nature, objet) { return { nature: nature, objet: objet === undefined ? null : objet }; }
   var DU_JOUR = cite('fait_passe', { quoi: 'du_jour' });
   var ROLE_FEUILLE = { ligne: 'consigne', test: 'test', coach: 'proposée par le coach',
-                       retour: 'retour à ta charge de travail' };
+                       retour: 'retour à ta charge de travail', elan: 'élan' };
 
   // 49-U18 (02/10/2026) — SOUS « REJOINT », LES LIGNES DU HAUT NE SONT PAS UN
   // TEST : c'est la nouvelle charge de travail, que les séries restées
@@ -393,7 +388,7 @@
     var premiereCoach = null;
     return couvertes.map(function (l, k) {
       var cL = cite('cible_du_jour', { role: l.role, rang: l.rang });
-      var visee = l.role === 'coach' && Array.isArray(l.fourchette) && l.fourchette.length === 2
+      var visee = (l.role === 'coach' || l.role === 'elan') && Array.isArray(l.fourchette) && l.fourchette.length === 2
         ? nombreFr(l.fourchette[0], cite('regle', { regle: 'zone.bas' })) + ' à ' +
           nombreFr(l.fourchette[1], cite('regle', { regle: 'zone.haut' }))
         : (l.vise === null || l.vise === undefined ? '' : nombreFr(l.vise, cite('cible_du_jour', { role: l.role, rang: l.rang, champ: 'reps' })));
@@ -412,6 +407,19 @@
         var montee = premiereCoach || couvertes.filter(function (c) { return c.role === 'coach'; })[0];
         raison = 'on revient à ' + kg(l.charge, cL) +
           (montee && montee.faite ? ' après ' + kgFois(montee.faite.charge, montee.faite.reps, DU_JOUR) : '');
+      } else if (l.role === 'elan') {
+        // §9.14 bis (68A) — sur le patron de la ligne revenue : « on garde
+        // 84 kg après 84 kg × 12 ». La série dite est celle qui a porté
+        // l'élan : la dernière faite à cette charge qui ne le suivait pas.
+        var porteuse = null;
+        for (var b = k - 1; b >= 0; b--) {
+          var v = couvertes[b];
+          if (!v.validee || !v.faite || !memeCharge(nombre(v.faite.charge), nombre(l.charge))) continue;
+          if (!porteuse) porteuse = v;
+          if (!(v.role === 'elan' && memeCharge(nombre(v.charge), nombre(l.charge)))) { porteuse = v; break; }
+        }
+        raison = 'on garde ' + kg(l.charge, cL) +
+          (porteuse ? ' après ' + kgFois(porteuse.faite.charge, porteuse.faite.reps, DU_JOUR) : '');
       }
       return {
         rang: l.rang, role: l.role, charge: l.charge === undefined ? null : l.charge,
@@ -675,6 +683,11 @@
     var disposition = r.planInitial.map(function (p) { return p && p.role === 'haut' ? 'haut' : 'ligne'; });
     var capE = V.capturer(function () { return M.enteteDeDisposition(consigne, disposition); });
     var entete = capE.texte, citesJaune = capE.citations;
+    // ECRAN §3.12 (68A) — « Aujourd'hui… Si ça passe… » est la phrase de
+    // l'en-tête seul : le « Donc » de la feuille « Pourquoi » garde la sienne
+    // (`lignesJaunes`, « puis … sur la dernière série »).
+    var capD = V.capturer(function () { return M.enteteDeDisposition(consigne, disposition, true); });
+    var jauneDonc = capD.texte.jaune, citesDonc = capD.citations;
     var gris = c.libelles ? c.libelles.gris : '';
     // La phrase grise vient de la consigne (`libellesConsigne`, calculée avec
     // elle) : elle se RÉDIGE À NOUVEAU sous capture, et seul un texte
@@ -691,6 +704,8 @@
       var capA = V.capturer(function () { return M.phraseAllegee(consigne); });
       entete = { jaune: [capA.texte], segments: entete.segments };
       citesJaune = capA.citations;
+      jauneDonc = entete.jaune;
+      citesDonc = citesJaune;
       // §9.22 (53-2 bis) — la décharge du programme se nomme : « Semaine de
       // décharge : mêmes charges, moins de séries. 2 séries au lieu de 4, cette semaine. »
       var capDA = V.capturer(function () { return M.grisAllegee(consigne); });
@@ -705,7 +720,7 @@
     }
     // §14.7 — « une série de plus, jusqu'à ton prochain progrès », en gris.
     var grisPlus = consigne.serieDePlus ? M.GRIS_SERIE_DE_PLUS : null;
-    var donc = entete.jaune.length ? 'Donc ' + entete.jaune.join(', ') + '.' : null;
+    var donc = jauneDonc.length ? 'Donc ' + jauneDonc.join(', ') + '.' : null;
     var autour = chauffesEtDegressive(r.lignes, series, consigne, materiel || null);
     var capP = V.capturer(function () { return pourquoiDuPlan(consigne, r.lignes, donc); });
     var pourquoi = capP.texte;
@@ -780,7 +795,7 @@
     dire('entete.frere', phraseDuFrere, citesFrere);
     dire('entete.plus', grisPlus, []);
     dire('message', r.message ? r.message.phrase : null, r.citationsMessage);
-    dire('donc', donc, citesJaune);
+    dire('donc', donc, citesDonc);
     if (pourquoi) {
       dire('pourquoi', (pourquoi.lignes || []).map(function (l) {
         return [l.texte, l.raison, l.faite].filter(Boolean).join(' · ');
@@ -1479,6 +1494,8 @@
       else if (/sur celle d'avant/.test(x)) compte += 1;
       else if (/sur la dernière série/.test(x)) compte += 1;
       else if (/sur une série/.test(x)) compte += 1;
+      // ECRAN-SAISIE §3.12 (68A) — « Si ça passe, …, à la série que tu veux ».
+      else if (/à la série que tu veux/.test(x)) compte += 1;
       else if ((m = /sur (\d+) séries/.exec(x))) compte += Number(m[1]);
       else sansCompte += 1;
     });
@@ -1486,7 +1503,7 @@
   }
 
   // Le rôle qu'un pari écrit, pour le rôle d'une ligne du plan.
-  var ROLE_DU_PARI = { ligne: 'ligne', test: 'haut', coach: 'coach', retour: 'retour' };
+  var ROLE_DU_PARI = { ligne: 'ligne', test: 'haut', coach: 'coach', retour: 'retour', elan: 'elan' };
 
   // I16, I17 (MOTEUR §9.15.4, 49-U10) — les chauffes et la dégressive.
   //
@@ -1535,6 +1552,96 @@
         err('I17', 'dégressive ' + d.charge + ' pas sous la dernière série de travail ' + d.reference);
       }
       if (!l.validee && (!l.fantome || !memeCharge(l.fantome.charge, d.charge))) err('I17', 'la dégressive n’est pas dans son fantôme');
+    }
+  }
+
+  // I41, I42, I43 (MOTEUR §9.14 bis, 68A) — QUAND LA SÉRIE S'ÉCARTE DE SA
+  // LIGNE. Relus sur les lignes et les séries faites, sans rappeler la
+  // réaction. `avantX` (facultatif) : le même exercice dans le plan d'avant.
+  //   I41 — « plus léger que prévu » : la dernière série validée est plus
+  //     légère que sa ligne (sous un élan, aussi que la ligne du plan qu'il
+  //     remplaçait : la charge de travail, ou le test), jamais une série à la
+  //     charge de travail sur une ligne de test ; et une fois par exercice —
+  //     aucune série validée avant elle n'était déjà plus légère que sa ligne ;
+  //   I42 — en zone Lourd, au plus une ligne d'élan dans l'exercice ;
+  //   I43 — une ligne d'élan n'est jamais plus légère que la ligne du plan
+  //     initial qu'elle remplace, ne remplace jamais une ligne du coach, ne
+  //     survit pas à une série validée plus légère qu'elle sur une ligne
+  //     d'élan ; « élan » et la suggestion d'effort impliquent une ligne
+  //     d'élan à la charge de la série commentée.
+  function verifierEcarts(x, couvertes, init, cour, msg, err, avantX) {
+    var k = x.consigne;
+    var P = k.ligne ? nombre(k.ligne.charge) : null;
+    var H = k.haut ? nombre(k.haut.charge) : null;
+    var plusLegere = function (a, b) {
+      var u = nombre(a), v = nombre(b);
+      return u !== null && v !== null && u < v && !memeCharge(u, v);
+    };
+    var faite = function (l) { return l && l.validee && l.faite ? nombre(l.faite.charge) : null; };
+    // Plus légère que sa ligne, au sens de la phrase : jamais le test remis à
+    // plus tard ; sous un élan, plus légère aussi que ce qu'il remplaçait.
+    var legereSurSaLigne = function (l) {
+      var f = faite(l);
+      if (f === null || !plusLegere(f, l.charge)) return false;
+      if ((l.role === 'test' || l.role === 'elan') && memeCharge(f, P)) return false;
+      // Sous un élan, seulement ce qui le dit à coup sûr : plus légère que la
+      // charge de travail (la ligne remplacée est la charge de travail ou le test).
+      if (l.role === 'elan') return plusLegere(f, P);
+      return l.role === 'ligne' || l.role === 'test' || l.role === 'retour';
+    };
+    if (msg && msg.type === 'plus_leger') {
+      var d = couvertes[msg.rang - 1];
+      var f41 = faite(d);
+      if (!d || f41 === null || !plusLegere(f41, d.charge)) {
+        err('I41', '« plus léger » sans série plus légère que sa ligne (position ' + (msg.rang - 1) + ')');
+      } else if ((d.role === 'test' || d.role === 'elan') && memeCharge(f41, P)) {
+        err('I41', '« plus léger » pour une série à la charge de travail sur une ligne ' + d.role + ' (le test remis à plus tard)');
+      } else if (d.role === 'elan' && !(plusLegere(f41, P) || (H !== null && plusLegere(f41, H)))) {
+        err('I41', '« plus léger » sous un élan, pour une série qui n\'est pas plus légère que la ligne qu\'il remplaçait');
+      }
+      for (var a = 0; a < msg.rang - 1; a++) {
+        if (legereSurSaLigne(couvertes[a])) {
+          err('I41', '« plus léger » une seconde fois : la série de la position ' + a + ' était déjà plus légère que sa ligne');
+          break;
+        }
+      }
+    }
+    var elans = couvertes.filter(function (l) { return l.role === 'elan'; });
+    if (k.zone === 'lourd' && elans.length > 1) {
+      err('I42', elans.length + ' lignes d\'élan en zone Lourd (une au plus)');
+    }
+    couvertes.forEach(function (l, j) {
+      if (l.role !== 'elan') return;
+      var i0 = init[j];
+      if (i0 && !i0.figee && plusLegere(l.charge, i0.charge)) {
+        err('I43', 'la ligne d\'élan ' + j + ' (' + l.charge + ') est plus légère que la ligne qu\'elle remplace (' + i0.charge + ')');
+      }
+      if (avantX && l.id && !l.validee) {
+        var a43 = (avantX.lignes || []).filter(function (y) { return y && y.id === l.id; })[0];
+        if (a43 && !a43.validee && a43.role === 'coach') {
+          err('I43', 'la ligne d\'élan ' + j + ' remplace une ligne du coach');
+        }
+      }
+      if (l.validee) return;
+      // La dernière série validée sur une ligne d'élan, plus légère qu'elle :
+      // l'élan s'est arrêté là, sauf s'il a été reposé à cette charge depuis.
+      var arret = -1;
+      for (var b = 0; b < j; b++) {
+        var v = couvertes[b];
+        if (v.role === 'elan' && faite(v) !== null && plusLegere(faite(v), v.charge)) arret = b;
+      }
+      if (arret < 0) return;
+      var repose = false;
+      for (var u = arret; u < j; u++) if (memeCharge(faite(couvertes[u]), l.charge)) repose = true;
+      if (!repose) {
+        err('I43', 'la ligne d\'élan ' + j + ' (' + l.charge + ') survit à la série plus légère de la position ' + arret);
+      }
+    });
+    if (msg && (msg.type === 'elan' || msg.type === 'effort_suggere')) {
+      var porte = couvertes.some(function (l, j) {
+        return j >= msg.rang && !l.validee && l.role === 'elan' && memeCharge(l.charge, msg.charge);
+      });
+      if (!porte) err('I43', '« ' + msg.type + ' » sans ligne d\'élan à ' + msg.charge);
     }
   }
 
@@ -1748,51 +1855,25 @@
         if (!avant) err('I9', '« ton test a avancé » alors qu\'aucun test à venir n\'est à la charge proposée');
       }
     }
-    // I11 — le fantôme d'une ligne vient d'une seule règle (49-U2). Un fantôme
-    // `plan` reprend la charge et la visée de SA ligne (les reps d'une ligne du
-    // coach se tapent : nulles) ; un fantôme `derniere` reprend la charge ET les
-    // reps de la dernière série validée ; jamais `plan` après une dernière série
-    // qui n'a pas suivi sa ligne, jamais `derniere` après une qui l'a suivie.
-    // « Suivre » se relit ici, à la main, sans rappeler `aSuiviSaLigne`.
-    var travailI11 = x.consigne.ligne && nombre(x.consigne.ligne.charge) !== null
-      ? nombre(x.consigne.ligne.charge) : nombre(x.consigne.palier);
-    var precedente = null;
+    // I11 (révisé le 11/10/2026, 68A) — le fantôme d'une ligne non validée est
+    // SA LIGNE : même charge ; les reps sont sa visée, sauf sur une ligne du
+    // coach ou d'élan (nulles : on tape ses reps, la grille montre la
+    // fourchette). Plus aucune recopie de la dernière série (49-U2).
     couvertes.forEach(function (l) {
       var f = l.fantome;
       if (l.validee) {
         if (f) err('I11', 'la série ' + l.iSerie + ' est faite et porte encore un fantôme');
-        precedente = l;
         return;
       }
       if (!f) { err('I11', 'la série ' + l.iSerie + ' n\'a pas de fantôme'); return; }
-      var suivie = true;
-      if (precedente) {
-        var fait = precedente.faite ? nombre(precedente.faite.charge) : null;
-        var prevue = nombre(precedente.charge);
-        if (fait === null) suivie = false;
-        else if (prevue === null) suivie = travailI11 !== null && fait > travailI11 && !memeCharge(fait, travailI11);
-        else if (precedente.role === 'coach') suivie = fait > prevue || memeCharge(fait, prevue);
-        else suivie = memeCharge(fait, prevue);
-      }
-      if (f.source === 'plan') {
-        if (!suivie) err('I11', 'fantôme du plan en série ' + l.iSerie + ' après une série ' + precedente.iSerie + ' qui n\'a pas suivi sa ligne');
-        var repsPlan = l.role === 'coach' ? null : nombre(l.vise);
-        if (!memeCharge(f.charge, l.charge) || nombre(f.reps) !== repsPlan) {
-          err('I11', 'fantôme du plan ' + f.charge + '×' + f.reps + ' pour une ligne ' + l.charge + '×' + repsPlan + ' (série ' + l.iSerie + ')');
-        }
-      } else if (f.source === 'derniere') {
-        if (!precedente) err('I11', 'fantôme « dernière série » en série ' + l.iSerie + ' sans série faite avant');
-        else {
-          if (suivie) err('I11', 'fantôme « dernière série » en série ' + l.iSerie + ' alors que la série ' + precedente.iSerie + ' a suivi sa ligne');
-          var d = precedente.faite || {};
-          if (!memeCharge(f.charge, d.charge) || nombre(f.reps) !== nombre(d.reps)) {
-            err('I11', 'fantôme ' + f.charge + '×' + f.reps + ' pour une dernière série ' + d.charge + '×' + d.reps + ' (série ' + l.iSerie + ')');
-          }
-        }
-      } else {
-        err('I11', 'fantôme de source inconnue « ' + f.source + ' » (série ' + l.iSerie + ')');
+      if (f.source !== 'plan') { err('I11', 'fantôme de source « ' + f.source + ' » (série ' + l.iSerie + ') : le fantôme est la ligne'); return; }
+      var repsPlan = l.role === 'coach' || l.role === 'elan' ? null : nombre(l.vise);
+      if (!memeCharge(f.charge, l.charge) || nombre(f.reps) !== repsPlan) {
+        err('I11', 'fantôme ' + f.charge + '×' + f.reps + ' pour une ligne ' + l.charge + '×' + repsPlan + ' (série ' + l.iSerie + ')');
       }
     });
+
+    verifierEcarts(x, couvertes, init, cour, msg, err, avantX);
 
     // I10 — le constat ne contredit jamais le plan du jour (49-U4). Relu ici à
     // la main, sans rappeler `faitsDuJour` :
@@ -1816,12 +1897,13 @@
         var prevue = nombre(l.charge);
         if (fait === null) return false;
         if (prevue === null) return tI10 !== null && fait > tI10 && !memeCharge(fait, tI10);
-        if (l.role === 'coach') return fait > prevue || memeCharge(fait, prevue);
+        if (l.role === 'coach' || l.role === 'elan') return fait > prevue || memeCharge(fait, prevue);
         return memeCharge(fait, prevue);
       };
       var tenue = null;
       couvertes.forEach(function (l) {
-        if (l.role !== 'coach' || !l.validee || !suivieI10(l) || !zI10) return;
+        // §9.14 bis (68A) — une ligne d'élan tenue compte comme une montée du coach.
+        if ((l.role !== 'coach' && l.role !== 'elan') || !l.validee || !suivieI10(l) || !zI10) return;
         var c = racine.THPalier.repsComptees({ reps: l.faite.reps, rpe: l.faite.rpe, ressenti: l.faite.ressenti });
         if (c === null || c < zI10.bas || c > zI10.haut) return;
         if (tenue === null || nombre(l.faite.charge) > tenue) tenue = nombre(l.faite.charge);
@@ -2706,6 +2788,10 @@
       // La réaction du jour (§9.14) : la marge et le numéro de la série.
       'reaction.marge': msgR && msgR.marge !== undefined ? { valeur: msgR.marge } : null,
       'reaction.rang': msgR && typeof msgR.rang === 'number' ? { valeur: msgR.rang + 1 } : null,
+      // §9.14 bis (68A) — l'élan : le nombre de lignes passées à sa charge, et
+      // la charge qu'avait la ligne suivante juste avant (la suggestion d'effort).
+      'reaction.series': msgR && typeof msgR.series === 'number' ? { valeur: msgR.series } : null,
+      'reaction.retour': msgR && msgR.retour !== undefined && msgR.retour !== null ? { charge: msgR.retour } : null,
       series: { valeurs: nbSeries },
       'niveau.avant': typeof k.niveau === 'number' ? { valeur: k.niveau } : null,
       'niveau.jour': { valeurs: niveauxDuJour },

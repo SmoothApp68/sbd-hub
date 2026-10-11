@@ -2702,6 +2702,8 @@
     // La marque de tour passe à la phrase du coach quand elle précède la ligne :
     // l'espace va AU-DESSUS de la phrase, pas entre elle et sa série.
     var proposee = !!(reaction && reaction.proposee);
+    // MOTEUR §9.14 bis (68A) — une ligne d'élan : la charge du coach, la fourchette.
+    var elan = !!(reaction && reaction.elan);
     // MOTEUR §14.7 (49-U17) — la ligne de la série de plus, à la couleur du coach.
     var ajoutee = !!(reaction && reaction.ajoutee);
     var ligne = el('div', 'ligne-serie' +
@@ -2773,7 +2775,7 @@
       }
       // §9.14 — sur la ligne proposée, la charge est celle du coach, et les
       // reps n'ont que la fourchette pour indication.
-      var fourchette = proposee && c.cle === 'reps' && reaction.fourchette
+      var fourchette = (proposee || elan) && c.cle === 'reps' && reaction.fourchette
         ? reaction.fourchette[0] + '-' + reaction.fourchette[1] : null;
       // §9.17 — UNE AIDE SE TAPE EN POSITIF ET SE RANGE EN NÉGATIF, par
       // `rangerAide` et nulle part ailleurs : le champ montre la valeur absolue
@@ -2785,7 +2787,7 @@
       // tard, à la validation d'une série (`validerSerie`), par la même fonction.
       var aide = g.nature === 'aide' && c.cle === 'charge_kg';
       var versChamp = function (v) { return aide ? M().aideAffichee(v) : v; };
-      rangee.appendChild(champSerie(classe + (proposee && c.cle === 'charge_kg' ? ' coach' : ''),
+      rangee.appendChild(champSerie(classe + ((proposee || elan) && c.cle === 'charge_kg' ? ' coach' : ''),
         versChamp(enUniteDeSaisie(s[c.cle], c.facteur)),
         versChamp(enUniteDeSaisie(f[c.cle], c.facteur)),
         c.unite,

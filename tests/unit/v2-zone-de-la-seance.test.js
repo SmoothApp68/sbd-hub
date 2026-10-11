@@ -90,5 +90,6 @@ describe('55-1 — une séance sans heure de fin finit 3 h au plus après son d�
     expect(M.zoneDeLaSeance(sansFin, IC, AVANT, { reglage: 'normal', equipement: 'barre', corrections: tot })).toBe('mix');
   });
 
-  test('la version de la consigne : 10 (55-1)', () => { expect(M.VERSION_CONSIGNE).toBe(10); });
+  // 11 depuis 68A (MOTEUR §9.14 bis, l'élan).
+  test('la version de la consigne : 10 en 55-1, 11 depuis 68A', () => { expect(M.VERSION_CONSIGNE).toBe(11); });
 });

@@ -1,0 +1,2860 @@
+{
+ "version": "le coach quand on s’écarte du plan (68-1, 11/10/2026)",
+ "source": "ref68.py (REGLES = 68)",
+ "regle": "DECISIONS-SEANCE-ECARTS ; MOTEUR §9.13 bis révisé",
+ "cas": [
+  {
+   "id": "N01",
+   "titre": "Le rowing du 10/10 : 73 × 12, puis 79 × 10, puis le test à 81,3 — « plus léger » après 73, le plan reste affiché",
+   "consigne": {
+    "etat": "garde",
+    "zone": {
+     "nom": "volume",
+     "bas": 10,
+     "haut": 12
+    },
+    "palier": 79.0,
+    "n": 3,
+    "ligne": {
+     "charge": 79.0,
+     "vise": 12
+    },
+    "haut": {
+     "charge": 81.3,
+     "vise": 11,
+     "k": 1
+    }
+   },
+   "contexte": {
+    "cran": 81.3,
+    "haut": null
+   },
+   "series": 3,
+   "faites": [
+    {
+     "charge": 73.0,
+     "reps": 12
+    },
+    {
+     "charge": 79.0,
+     "reps": 10
+    },
+    {
+     "charge": 81.3,
+     "reps": 12
+    }
+   ],
+   "attendu": [
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "test",
+       "charge": 81.3,
+       "vise": 11
+      }
+     ],
+     "fantomes": [
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 81.3,
+       "reps": 11,
+       "source": "plan"
+      }
+     ],
+     "message": null
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "test",
+       "charge": 81.3,
+       "vise": 11
+      }
+     ],
+     "fantomes": [
+      null,
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 81.3,
+       "reps": 11,
+       "source": "plan"
+      }
+     ],
+     "message": {
+      "type": "plus_leger",
+      "rang": 1,
+      "kg": 73.0,
+      "reps": 12,
+      "prevue": 79.0
+     }
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "test",
+       "charge": 81.3,
+       "vise": 11
+      }
+     ],
+     "fantomes": [
+      null,
+      null,
+      {
+       "charge": 81.3,
+       "reps": 11,
+       "source": "plan"
+      }
+     ],
+     "message": null
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "test",
+       "charge": 81.3,
+       "vise": 11
+      }
+     ],
+     "fantomes": [
+      null,
+      null,
+      null
+     ],
+     "message": null
+    }
+   ]
+  },
+  {
+   "id": "N02",
+   "titre": "La montée par paliers : 70, 75, puis 79 — une seule phrase, après 70 ; rien après 75",
+   "consigne": {
+    "etat": "garde",
+    "zone": {
+     "nom": "volume",
+     "bas": 10,
+     "haut": 12
+    },
+    "palier": 79.0,
+    "n": 4,
+    "ligne": {
+     "charge": 79.0,
+     "vise": 12
+    },
+    "haut": {
+     "charge": 81.3,
+     "vise": 11,
+     "k": 1
+    }
+   },
+   "contexte": {
+    "cran": 81.3,
+    "haut": null
+   },
+   "series": 4,
+   "faites": [
+    {
+     "charge": 70.0,
+     "reps": 12
+    },
+    {
+     "charge": 75.0,
+     "reps": 12
+    },
+    {
+     "charge": 79.0,
+     "reps": 12
+    }
+   ],
+   "attendu": [
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "test",
+       "charge": 81.3,
+       "vise": 11
+      }
+     ],
+     "fantomes": [
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 81.3,
+       "reps": 11,
+       "source": "plan"
+      }
+     ],
+     "message": null
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "test",
+       "charge": 81.3,
+       "vise": 11
+      }
+     ],
+     "fantomes": [
+      null,
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 81.3,
+       "reps": 11,
+       "source": "plan"
+      }
+     ],
+     "message": {
+      "type": "plus_leger",
+      "rang": 1,
+      "kg": 70.0,
+      "reps": 12,
+      "prevue": 79.0
+     }
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "test",
+       "charge": 81.3,
+       "vise": 11
+      }
+     ],
+     "fantomes": [
+      null,
+      null,
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 81.3,
+       "reps": 11,
+       "source": "plan"
+      }
+     ],
+     "message": null
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "test",
+       "charge": 81.3,
+       "vise": 11
+      }
+     ],
+     "fantomes": [
+      null,
+      null,
+      null,
+      {
+       "charge": 81.3,
+       "reps": 11,
+       "source": "plan"
+      }
+     ],
+     "message": null
+    }
+   ]
+  },
+  {
+   "id": "N03",
+   "titre": "Une journée plus légère : 73 × 12 trois fois — la phrase une fois, les lignes restent le plan",
+   "consigne": {
+    "etat": "progression",
+    "zone": {
+     "nom": "volume",
+     "bas": 10,
+     "haut": 12
+    },
+    "palier": 79.0,
+    "n": 4,
+    "ligne": {
+     "charge": 79.0,
+     "vise": 12
+    },
+    "haut": null
+   },
+   "contexte": {
+    "cran": 81.3,
+    "haut": null
+   },
+   "series": 4,
+   "faites": [
+    {
+     "charge": 73.0,
+     "reps": 12
+    },
+    {
+     "charge": 73.0,
+     "reps": 12
+    },
+    {
+     "charge": 73.0,
+     "reps": 12
+    }
+   ],
+   "attendu": [
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      }
+     ],
+     "fantomes": [
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      }
+     ],
+     "message": null
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      }
+     ],
+     "fantomes": [
+      null,
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      }
+     ],
+     "message": {
+      "type": "plus_leger",
+      "rang": 1,
+      "kg": 73.0,
+      "reps": 12,
+      "prevue": 79.0
+     }
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      }
+     ],
+     "fantomes": [
+      null,
+      null,
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      }
+     ],
+     "message": null
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      }
+     ],
+     "fantomes": [
+      null,
+      null,
+      null,
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      }
+     ],
+     "message": null
+    }
+   ]
+  },
+  {
+   "id": "N04",
+   "titre": "Plus lourd qui tient : 84 × 12 sur une ligne à 79 — l'élan : les lignes suivantes à 84, le test à 81,3 compris",
+   "consigne": {
+    "etat": "garde",
+    "zone": {
+     "nom": "volume",
+     "bas": 10,
+     "haut": 12
+    },
+    "palier": 79.0,
+    "n": 3,
+    "ligne": {
+     "charge": 79.0,
+     "vise": 12
+    },
+    "haut": {
+     "charge": 81.3,
+     "vise": 11,
+     "k": 1
+    }
+   },
+   "contexte": {
+    "cran": 81.3,
+    "haut": null
+   },
+   "series": 3,
+   "faites": [
+    {
+     "charge": 84.0,
+     "reps": 12
+    }
+   ],
+   "attendu": [
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "test",
+       "charge": 81.3,
+       "vise": 11
+      }
+     ],
+     "fantomes": [
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 81.3,
+       "reps": 11,
+       "source": "plan"
+      }
+     ],
+     "message": null
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "elan",
+       "charge": 84.0,
+       "vise": 10
+      },
+      {
+       "role": "elan",
+       "charge": 84.0,
+       "vise": 10
+      }
+     ],
+     "fantomes": [
+      null,
+      {
+       "charge": 84.0,
+       "reps": null,
+       "source": "plan"
+      },
+      {
+       "charge": 84.0,
+       "reps": null,
+       "source": "plan"
+      }
+     ],
+     "message": {
+      "type": "elan",
+      "rang": 1,
+      "kg": 84.0,
+      "reps": 12
+     }
+    }
+   ]
+  },
+  {
+   "id": "N05",
+   "titre": "Plus lourd qui ne tient pas : 84 × 9 — « pas encore », les lignes restent le plan",
+   "consigne": {
+    "etat": "garde",
+    "zone": {
+     "nom": "volume",
+     "bas": 10,
+     "haut": 12
+    },
+    "palier": 79.0,
+    "n": 3,
+    "ligne": {
+     "charge": 79.0,
+     "vise": 12
+    },
+    "haut": {
+     "charge": 81.3,
+     "vise": 11,
+     "k": 1
+    }
+   },
+   "contexte": {
+    "cran": 81.3,
+    "haut": null
+   },
+   "series": 3,
+   "faites": [
+    {
+     "charge": 84.0,
+     "reps": 9
+    }
+   ],
+   "attendu": [
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "test",
+       "charge": 81.3,
+       "vise": 11
+      }
+     ],
+     "fantomes": [
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 81.3,
+       "reps": 11,
+       "source": "plan"
+      }
+     ],
+     "message": null
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "test",
+       "charge": 81.3,
+       "vise": 11
+      }
+     ],
+     "fantomes": [
+      null,
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 81.3,
+       "reps": 11,
+       "source": "plan"
+      }
+     ],
+     "message": {
+      "type": "pas_encore_soi",
+      "rang": 1,
+      "kg": 84.0,
+      "reps": 9,
+      "palier": 79.0,
+      "a_fond": false
+     }
+    }
+   ]
+  },
+  {
+   "id": "N06",
+   "titre": "Plus lourd pile au bas, sans effort noté : 84 × 10 — l'élan, et la suggestion d'effort",
+   "consigne": {
+    "etat": "garde",
+    "zone": {
+     "nom": "volume",
+     "bas": 10,
+     "haut": 12
+    },
+    "palier": 79.0,
+    "n": 3,
+    "ligne": {
+     "charge": 79.0,
+     "vise": 12
+    },
+    "haut": {
+     "charge": 81.3,
+     "vise": 11,
+     "k": 1
+    }
+   },
+   "contexte": {
+    "cran": 81.3,
+    "haut": null
+   },
+   "series": 3,
+   "faites": [
+    {
+     "charge": 84.0,
+     "reps": 10
+    }
+   ],
+   "attendu": [
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "test",
+       "charge": 81.3,
+       "vise": 11
+      }
+     ],
+     "fantomes": [
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 81.3,
+       "reps": 11,
+       "source": "plan"
+      }
+     ],
+     "message": null
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "elan",
+       "charge": 84.0,
+       "vise": 10
+      },
+      {
+       "role": "elan",
+       "charge": 84.0,
+       "vise": 10
+      }
+     ],
+     "fantomes": [
+      null,
+      {
+       "charge": 84.0,
+       "reps": null,
+       "source": "plan"
+      },
+      {
+       "charge": 84.0,
+       "reps": null,
+       "source": "plan"
+      }
+     ],
+     "message": {
+      "type": "effort_suggere",
+      "rang": 1,
+      "kg": 84.0,
+      "reps": 10,
+      "palier": 79.0,
+      "retour": 79.0
+     }
+    }
+   ]
+  },
+  {
+   "id": "N07",
+   "titre": "Plus lourd pile au bas, noté à fond : 84 × 10 RPE 10 — compte 9 : « pas encore », pas d'élan",
+   "consigne": {
+    "etat": "garde",
+    "zone": {
+     "nom": "volume",
+     "bas": 10,
+     "haut": 12
+    },
+    "palier": 79.0,
+    "n": 3,
+    "ligne": {
+     "charge": 79.0,
+     "vise": 12
+    },
+    "haut": {
+     "charge": 81.3,
+     "vise": 11,
+     "k": 1
+    }
+   },
+   "contexte": {
+    "cran": 81.3,
+    "haut": null
+   },
+   "series": 3,
+   "faites": [
+    {
+     "charge": 84.0,
+     "reps": 10,
+     "rpe": 10
+    }
+   ],
+   "attendu": [
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "test",
+       "charge": 81.3,
+       "vise": 11
+      }
+     ],
+     "fantomes": [
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 81.3,
+       "reps": 11,
+       "source": "plan"
+      }
+     ],
+     "message": null
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "test",
+       "charge": 81.3,
+       "vise": 11
+      }
+     ],
+     "fantomes": [
+      null,
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 81.3,
+       "reps": 11,
+       "source": "plan"
+      }
+     ],
+     "message": {
+      "type": "pas_encore_soi",
+      "rang": 1,
+      "kg": 84.0,
+      "reps": 10,
+      "palier": 79.0,
+      "a_fond": true
+     }
+    }
+   ]
+  },
+  {
+   "id": "N08",
+   "titre": "Zone Lourd : 135 × 5 sur une ligne à 130 — une seule ligne d'élan, les autres restent à 130",
+   "consigne": {
+    "etat": "progression",
+    "zone": {
+     "nom": "lourd",
+     "bas": 3,
+     "haut": 5
+    },
+    "palier": 130.0,
+    "n": 4,
+    "ligne": {
+     "charge": 130.0,
+     "vise": 5
+    },
+    "haut": null
+   },
+   "contexte": {
+    "cran": 132.5,
+    "haut": null
+   },
+   "series": 4,
+   "faites": [
+    {
+     "charge": 135.0,
+     "reps": 5
+    },
+    {
+     "charge": 135.0,
+     "reps": 5
+    }
+   ],
+   "attendu": [
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 130.0,
+       "vise": 5
+      },
+      {
+       "role": "ligne",
+       "charge": 130.0,
+       "vise": 5
+      },
+      {
+       "role": "ligne",
+       "charge": 130.0,
+       "vise": 5
+      },
+      {
+       "role": "ligne",
+       "charge": 130.0,
+       "vise": 5
+      }
+     ],
+     "fantomes": [
+      {
+       "charge": 130.0,
+       "reps": 5,
+       "source": "plan"
+      },
+      {
+       "charge": 130.0,
+       "reps": 5,
+       "source": "plan"
+      },
+      {
+       "charge": 130.0,
+       "reps": 5,
+       "source": "plan"
+      },
+      {
+       "charge": 130.0,
+       "reps": 5,
+       "source": "plan"
+      }
+     ],
+     "message": null
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 130.0,
+       "vise": 5
+      },
+      {
+       "role": "elan",
+       "charge": 135.0,
+       "vise": 3
+      },
+      {
+       "role": "ligne",
+       "charge": 130.0,
+       "vise": 5
+      },
+      {
+       "role": "ligne",
+       "charge": 130.0,
+       "vise": 5
+      }
+     ],
+     "fantomes": [
+      null,
+      {
+       "charge": 135.0,
+       "reps": null,
+       "source": "plan"
+      },
+      {
+       "charge": 130.0,
+       "reps": 5,
+       "source": "plan"
+      },
+      {
+       "charge": 130.0,
+       "reps": 5,
+       "source": "plan"
+      }
+     ],
+     "message": {
+      "type": "elan",
+      "rang": 1,
+      "kg": 135.0,
+      "reps": 5
+     }
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 130.0,
+       "vise": 5
+      },
+      {
+       "role": "elan",
+       "charge": 135.0,
+       "vise": 3
+      },
+      {
+       "role": "ligne",
+       "charge": 130.0,
+       "vise": 5
+      },
+      {
+       "role": "ligne",
+       "charge": 130.0,
+       "vise": 5
+      }
+     ],
+     "fantomes": [
+      null,
+      null,
+      {
+       "charge": 130.0,
+       "reps": 5,
+       "source": "plan"
+      },
+      {
+       "charge": 130.0,
+       "reps": 5,
+       "source": "plan"
+      }
+     ],
+     "message": null
+    }
+   ]
+  },
+  {
+   "id": "N09",
+   "titre": "Plus de reps (inchangé) : 79 × 15 — le test avance, la proposition prend sa charge",
+   "consigne": {
+    "etat": "garde",
+    "zone": {
+     "nom": "volume",
+     "bas": 10,
+     "haut": 12
+    },
+    "palier": 79.0,
+    "n": 4,
+    "ligne": {
+     "charge": 79.0,
+     "vise": 12
+    },
+    "haut": {
+     "charge": 81.3,
+     "vise": 11,
+     "k": 1
+    }
+   },
+   "contexte": {
+    "cran": 81.3,
+    "haut": null
+   },
+   "series": 4,
+   "faites": [
+    {
+     "charge": 79.0,
+     "reps": 15
+    }
+   ],
+   "attendu": [
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "test",
+       "charge": 81.3,
+       "vise": 11
+      }
+     ],
+     "fantomes": [
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 81.3,
+       "reps": 11,
+       "source": "plan"
+      }
+     ],
+     "message": null
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "coach",
+       "charge": 81.3,
+       "vise": 10
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "test",
+       "charge": 81.3,
+       "vise": 11
+      }
+     ],
+     "fantomes": [
+      null,
+      {
+       "charge": 81.3,
+       "reps": null,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 81.3,
+       "reps": 11,
+       "source": "plan"
+      }
+     ],
+     "message": {
+      "type": "propose",
+      "rang": 1,
+      "charges": [
+       81.3
+      ],
+      "marge": 3,
+      "kg": 79.0,
+      "reps": 15,
+      "zone": [
+       10,
+       12
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "N10",
+   "titre": "« À fond » au palier (inchangé en 68-1) : 79 × 12 RPE 10 — rien",
+   "consigne": {
+    "etat": "garde",
+    "zone": {
+     "nom": "volume",
+     "bas": 10,
+     "haut": 12
+    },
+    "palier": 79.0,
+    "n": 3,
+    "ligne": {
+     "charge": 79.0,
+     "vise": 12
+    },
+    "haut": {
+     "charge": 81.3,
+     "vise": 11,
+     "k": 1
+    }
+   },
+   "contexte": {
+    "cran": 81.3,
+    "haut": null
+   },
+   "series": 3,
+   "faites": [
+    {
+     "charge": 79.0,
+     "reps": 12,
+     "rpe": 10
+    }
+   ],
+   "attendu": [
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "test",
+       "charge": 81.3,
+       "vise": 11
+      }
+     ],
+     "fantomes": [
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 81.3,
+       "reps": 11,
+       "source": "plan"
+      }
+     ],
+     "message": null
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "test",
+       "charge": 81.3,
+       "vise": 11
+      }
+     ],
+     "fantomes": [
+      null,
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 81.3,
+       "reps": 11,
+       "source": "plan"
+      }
+     ],
+     "message": null
+    }
+   ]
+  },
+  {
+   "id": "N11",
+   "titre": "Plus léger puis plus lourd : 73 × 12 puis 84 × 12 — « plus léger », puis l'élan",
+   "consigne": {
+    "etat": "progression",
+    "zone": {
+     "nom": "volume",
+     "bas": 10,
+     "haut": 12
+    },
+    "palier": 79.0,
+    "n": 4,
+    "ligne": {
+     "charge": 79.0,
+     "vise": 12
+    },
+    "haut": null
+   },
+   "contexte": {
+    "cran": 81.3,
+    "haut": null
+   },
+   "series": 4,
+   "faites": [
+    {
+     "charge": 73.0,
+     "reps": 12
+    },
+    {
+     "charge": 84.0,
+     "reps": 12
+    }
+   ],
+   "attendu": [
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      }
+     ],
+     "fantomes": [
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      }
+     ],
+     "message": null
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      }
+     ],
+     "fantomes": [
+      null,
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      }
+     ],
+     "message": {
+      "type": "plus_leger",
+      "rang": 1,
+      "kg": 73.0,
+      "reps": 12,
+      "prevue": 79.0
+     }
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "elan",
+       "charge": 84.0,
+       "vise": 10
+      },
+      {
+       "role": "elan",
+       "charge": 84.0,
+       "vise": 10
+      }
+     ],
+     "fantomes": [
+      null,
+      null,
+      {
+       "charge": 84.0,
+       "reps": null,
+       "source": "plan"
+      },
+      {
+       "charge": 84.0,
+       "reps": null,
+       "source": "plan"
+      }
+     ],
+     "message": {
+      "type": "elan",
+      "rang": 2,
+      "kg": 84.0,
+      "reps": 12
+     }
+    }
+   ]
+  },
+  {
+   "id": "N12",
+   "titre": "L'élan après l'élan : 84 × 12 puis 88 × 12 — la suite passe à 88",
+   "consigne": {
+    "etat": "progression",
+    "zone": {
+     "nom": "volume",
+     "bas": 10,
+     "haut": 12
+    },
+    "palier": 79.0,
+    "n": 4,
+    "ligne": {
+     "charge": 79.0,
+     "vise": 12
+    },
+    "haut": null
+   },
+   "contexte": {
+    "cran": 81.3,
+    "haut": null
+   },
+   "series": 4,
+   "faites": [
+    {
+     "charge": 84.0,
+     "reps": 12
+    },
+    {
+     "charge": 88.0,
+     "reps": 12
+    }
+   ],
+   "attendu": [
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      }
+     ],
+     "fantomes": [
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      }
+     ],
+     "message": null
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "elan",
+       "charge": 84.0,
+       "vise": 10
+      },
+      {
+       "role": "elan",
+       "charge": 84.0,
+       "vise": 10
+      },
+      {
+       "role": "elan",
+       "charge": 84.0,
+       "vise": 10
+      }
+     ],
+     "fantomes": [
+      null,
+      {
+       "charge": 84.0,
+       "reps": null,
+       "source": "plan"
+      },
+      {
+       "charge": 84.0,
+       "reps": null,
+       "source": "plan"
+      },
+      {
+       "charge": 84.0,
+       "reps": null,
+       "source": "plan"
+      }
+     ],
+     "message": {
+      "type": "elan",
+      "rang": 1,
+      "kg": 84.0,
+      "reps": 12
+     }
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "elan",
+       "charge": 84.0,
+       "vise": 10
+      },
+      {
+       "role": "elan",
+       "charge": 88.0,
+       "vise": 10
+      },
+      {
+       "role": "elan",
+       "charge": 88.0,
+       "vise": 10
+      }
+     ],
+     "fantomes": [
+      null,
+      null,
+      {
+       "charge": 88.0,
+       "reps": null,
+       "source": "plan"
+      },
+      {
+       "charge": 88.0,
+       "reps": null,
+       "source": "plan"
+      }
+     ],
+     "message": {
+      "type": "elan",
+      "rang": 2,
+      "kg": 88.0,
+      "reps": 12
+     }
+    }
+   ]
+  },
+  {
+   "id": "N13",
+   "titre": "Plus lourd, mais la suite est déjà plus lourde : 84 × 12 avant un test à 90 — rien ne change, le coach se tait",
+   "consigne": {
+    "etat": "garde",
+    "zone": {
+     "nom": "volume",
+     "bas": 10,
+     "haut": 12
+    },
+    "palier": 79.0,
+    "n": 2,
+    "ligne": {
+     "charge": 79.0,
+     "vise": 12
+    },
+    "haut": {
+     "charge": 90.0,
+     "vise": 10,
+     "k": 1
+    }
+   },
+   "contexte": {
+    "cran": 81.3,
+    "haut": null
+   },
+   "series": 2,
+   "faites": [
+    {
+     "charge": 84.0,
+     "reps": 12
+    }
+   ],
+   "attendu": [
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "test",
+       "charge": 90.0,
+       "vise": 10
+      }
+     ],
+     "fantomes": [
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 90.0,
+       "reps": 10,
+       "source": "plan"
+      }
+     ],
+     "message": null
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "test",
+       "charge": 90.0,
+       "vise": 10
+      }
+     ],
+     "fantomes": [
+      null,
+      {
+       "charge": 90.0,
+       "reps": 10,
+       "source": "plan"
+      }
+     ],
+     "message": null
+    }
+   ]
+  },
+  {
+   "id": "N14",
+   "titre": "Après un refus, plus rien : 79 × 15 (proposé 81,3), 79 × 12 (refus), puis 84 × 12 — ni élan ni phrase",
+   "consigne": {
+    "etat": "progression",
+    "zone": {
+     "nom": "volume",
+     "bas": 10,
+     "haut": 12
+    },
+    "palier": 79.0,
+    "n": 4,
+    "ligne": {
+     "charge": 79.0,
+     "vise": 12
+    },
+    "haut": null
+   },
+   "contexte": {
+    "cran": 81.3,
+    "haut": null
+   },
+   "series": 4,
+   "faites": [
+    {
+     "charge": 79.0,
+     "reps": 15
+    },
+    {
+     "charge": 79.0,
+     "reps": 12
+    },
+    {
+     "charge": 84.0,
+     "reps": 12
+    }
+   ],
+   "attendu": [
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      }
+     ],
+     "fantomes": [
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      }
+     ],
+     "message": null
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "coach",
+       "charge": 81.3,
+       "vise": 10
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      }
+     ],
+     "fantomes": [
+      null,
+      {
+       "charge": 81.3,
+       "reps": null,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      }
+     ],
+     "message": {
+      "type": "propose",
+      "rang": 1,
+      "charges": [
+       81.3
+      ],
+      "marge": 3,
+      "kg": 79.0,
+      "reps": 15,
+      "zone": [
+       10,
+       12
+      ]
+     }
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "coach",
+       "charge": 81.3,
+       "vise": 10
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      }
+     ],
+     "fantomes": [
+      null,
+      null,
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      }
+     ],
+     "message": null
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "coach",
+       "charge": 81.3,
+       "vise": 10
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      }
+     ],
+     "fantomes": [
+      null,
+      null,
+      null,
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      }
+     ],
+     "message": null
+    }
+   ]
+  },
+  {
+   "id": "N15",
+   "titre": "L'élan s'arrête : 84 × 12, puis 79 × 12 — la suite revient au plan, sans un mot",
+   "consigne": {
+    "etat": "progression",
+    "zone": {
+     "nom": "volume",
+     "bas": 10,
+     "haut": 12
+    },
+    "palier": 79.0,
+    "n": 4,
+    "ligne": {
+     "charge": 79.0,
+     "vise": 12
+    },
+    "haut": null
+   },
+   "contexte": {
+    "cran": 81.3,
+    "haut": null
+   },
+   "series": 4,
+   "faites": [
+    {
+     "charge": 84.0,
+     "reps": 12
+    },
+    {
+     "charge": 79.0,
+     "reps": 12
+    }
+   ],
+   "attendu": [
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      }
+     ],
+     "fantomes": [
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      }
+     ],
+     "message": null
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "elan",
+       "charge": 84.0,
+       "vise": 10
+      },
+      {
+       "role": "elan",
+       "charge": 84.0,
+       "vise": 10
+      },
+      {
+       "role": "elan",
+       "charge": 84.0,
+       "vise": 10
+      }
+     ],
+     "fantomes": [
+      null,
+      {
+       "charge": 84.0,
+       "reps": null,
+       "source": "plan"
+      },
+      {
+       "charge": 84.0,
+       "reps": null,
+       "source": "plan"
+      },
+      {
+       "charge": 84.0,
+       "reps": null,
+       "source": "plan"
+      }
+     ],
+     "message": {
+      "type": "elan",
+      "rang": 1,
+      "kg": 84.0,
+      "reps": 12
+     }
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "elan",
+       "charge": 84.0,
+       "vise": 10
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      }
+     ],
+     "fantomes": [
+      null,
+      null,
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      }
+     ],
+     "message": null
+    }
+   ]
+  },
+  {
+   "id": "N16",
+   "titre": "Le test remis à plus tard : 79 × 12, 79 × 12, puis 79 × 15 sur la première ligne de test — pas « plus léger » : le test suit",
+   "consigne": {
+    "etat": "garde",
+    "zone": {
+     "nom": "volume",
+     "bas": 10,
+     "haut": 12
+    },
+    "palier": 79.0,
+    "n": 4,
+    "ligne": {
+     "charge": 79.0,
+     "vise": 12
+    },
+    "haut": {
+     "charge": 81.3,
+     "vise": 11,
+     "k": 2
+    }
+   },
+   "contexte": {
+    "cran": 81.3,
+    "haut": null
+   },
+   "series": 4,
+   "faites": [
+    {
+     "charge": 79.0,
+     "reps": 12
+    },
+    {
+     "charge": 79.0,
+     "reps": 12
+    },
+    {
+     "charge": 79.0,
+     "reps": 15
+    }
+   ],
+   "attendu": [
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "test",
+       "charge": 81.3,
+       "vise": 11
+      },
+      {
+       "role": "test",
+       "charge": 81.3,
+       "vise": 11
+      }
+     ],
+     "fantomes": [
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 81.3,
+       "reps": 11,
+       "source": "plan"
+      },
+      {
+       "charge": 81.3,
+       "reps": 11,
+       "source": "plan"
+      }
+     ],
+     "message": null
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "test",
+       "charge": 81.3,
+       "vise": 11
+      },
+      {
+       "role": "test",
+       "charge": 81.3,
+       "vise": 11
+      }
+     ],
+     "fantomes": [
+      null,
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 81.3,
+       "reps": 11,
+       "source": "plan"
+      },
+      {
+       "charge": 81.3,
+       "reps": 11,
+       "source": "plan"
+      }
+     ],
+     "message": null
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "test",
+       "charge": 81.3,
+       "vise": 11
+      },
+      {
+       "role": "test",
+       "charge": 81.3,
+       "vise": 11
+      }
+     ],
+     "fantomes": [
+      null,
+      null,
+      {
+       "charge": 81.3,
+       "reps": 11,
+       "source": "plan"
+      },
+      {
+       "charge": 81.3,
+       "reps": 11,
+       "source": "plan"
+      }
+     ],
+     "message": null
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "test",
+       "charge": 81.3,
+       "vise": 11
+      },
+      {
+       "role": "test",
+       "charge": 81.3,
+       "vise": 11
+      }
+     ],
+     "fantomes": [
+      null,
+      null,
+      null,
+      {
+       "charge": 81.3,
+       "reps": 11,
+       "source": "plan"
+      }
+     ],
+     "message": {
+      "type": "test_suit",
+      "rang": 3,
+      "kg": 79.0,
+      "reps": 15,
+      "marge": 4,
+      "test": 81.3
+     }
+    }
+   ]
+  },
+  {
+   "id": "N17",
+   "titre": "Un élan sur un élan, pile au bas : 82 × 12 puis 84 × 10 — la suggestion revient à 82, la charge d'avant",
+   "consigne": {
+    "etat": "progression",
+    "zone": {
+     "nom": "volume",
+     "bas": 10,
+     "haut": 12
+    },
+    "palier": 79.0,
+    "n": 4,
+    "ligne": {
+     "charge": 79.0,
+     "vise": 12
+    },
+    "haut": null
+   },
+   "contexte": {
+    "cran": 81.3,
+    "haut": null
+   },
+   "series": 4,
+   "faites": [
+    {
+     "charge": 82.0,
+     "reps": 12
+    },
+    {
+     "charge": 84.0,
+     "reps": 10
+    }
+   ],
+   "attendu": [
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      }
+     ],
+     "fantomes": [
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      }
+     ],
+     "message": null
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "elan",
+       "charge": 82.0,
+       "vise": 10
+      },
+      {
+       "role": "elan",
+       "charge": 82.0,
+       "vise": 10
+      },
+      {
+       "role": "elan",
+       "charge": 82.0,
+       "vise": 10
+      }
+     ],
+     "fantomes": [
+      null,
+      {
+       "charge": 82.0,
+       "reps": null,
+       "source": "plan"
+      },
+      {
+       "charge": 82.0,
+       "reps": null,
+       "source": "plan"
+      },
+      {
+       "charge": 82.0,
+       "reps": null,
+       "source": "plan"
+      }
+     ],
+     "message": {
+      "type": "elan",
+      "rang": 1,
+      "kg": 82.0,
+      "reps": 12
+     }
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "elan",
+       "charge": 82.0,
+       "vise": 10
+      },
+      {
+       "role": "elan",
+       "charge": 84.0,
+       "vise": 10
+      },
+      {
+       "role": "elan",
+       "charge": 84.0,
+       "vise": 10
+      }
+     ],
+     "fantomes": [
+      null,
+      null,
+      {
+       "charge": 84.0,
+       "reps": null,
+       "source": "plan"
+      },
+      {
+       "charge": 84.0,
+       "reps": null,
+       "source": "plan"
+      }
+     ],
+     "message": {
+      "type": "effort_suggere",
+      "rang": 2,
+      "kg": 84.0,
+      "reps": 10,
+      "palier": 79.0,
+      "retour": 82.0
+     }
+    }
+   ]
+  },
+  {
+   "id": "N18",
+   "titre": "Deux essais plus lourds qui ne tiennent pas : 84 × 9, puis 84 × 8 — « pas encore » une fois",
+   "consigne": {
+    "etat": "progression",
+    "zone": {
+     "nom": "volume",
+     "bas": 10,
+     "haut": 12
+    },
+    "palier": 79.0,
+    "n": 4,
+    "ligne": {
+     "charge": 79.0,
+     "vise": 12
+    },
+    "haut": null
+   },
+   "contexte": {
+    "cran": 81.3,
+    "haut": null
+   },
+   "series": 4,
+   "faites": [
+    {
+     "charge": 84.0,
+     "reps": 9
+    },
+    {
+     "charge": 84.0,
+     "reps": 8
+    }
+   ],
+   "attendu": [
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      }
+     ],
+     "fantomes": [
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      }
+     ],
+     "message": null
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      }
+     ],
+     "fantomes": [
+      null,
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      }
+     ],
+     "message": {
+      "type": "pas_encore_soi",
+      "rang": 1,
+      "kg": 84.0,
+      "reps": 9,
+      "palier": 79.0,
+      "a_fond": false
+     }
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      }
+     ],
+     "fantomes": [
+      null,
+      null,
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      }
+     ],
+     "message": null
+    }
+   ]
+  }
+ ]
+}

@@ -357,7 +357,8 @@ describe('Le gel est branché : `entreesDuPlan` donne l’objectif gelé, `sauve
     expect(extraire('oublierConsignes')).toMatch(/phaseGelee = null;\s*objectifGele = null;/);
   });
 
+  // 68A l'a montée à 11 (l'élan, MOTEUR §9.14 bis) : ce chantier-ci ne la touchait pas.
   test('`VERSION_CONSIGNE` ne bouge pas : aucune règle de consigne ne change', () => {
-    expect(M.VERSION_CONSIGNE).toBe(10);
+    expect(M.VERSION_CONSIGNE).toBe(11);
   });
 });

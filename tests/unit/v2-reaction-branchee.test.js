@@ -270,11 +270,13 @@ describe('ECRAN §3.2 — la ligne proposée : sa charge, et des reps à taper',
     expect(fantomes(se)[2]).not.toEqual({ charge: 55, reps: 8, source: 'derniere' });
   });
 
-  test('P3 — une charge INFÉRIEURE est un refus : la ligne suivante recopie la série faite, charge ET reps', () => {
+  // 68A — le fantôme est la ligne du plan (MOTEUR §9.13 bis révisé) : après
+  // un refus, plus de recopie de la série faite (avant 68A : 47,5 × 11 ; avant
+  // 49-U2 : 47,5 et les reps du plan, 9 — deux sources sur une ligne).
+  test('P3 — une charge INFÉRIEURE est un refus : la ligne suivante affiche sa ligne du plan', () => {
     let se = ouverte(3);
     se = faire(se, 0, 50, 12);
     se = faire(se, 1, 47.5, 11);
-    // Avant 49-U2 : 47,5 et les reps du plan (9) — deux sources sur une ligne.
-    expect(fantomes(se)[2]).toEqual({ charge: 47.5, reps: 11, source: 'derniere' });
+    expect(fantomes(se)[2]).toEqual({ charge: 50, reps: 9, source: 'plan' });
   });
 });

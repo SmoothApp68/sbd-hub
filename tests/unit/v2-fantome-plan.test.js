@@ -3,10 +3,11 @@
 // 49-U2 — le fantôme d'une ligne vient d'une seule source (MOTEUR §9.13 bis,
 // étape 4 du plan de séance, invariant I11).
 //
-// « Tant que l'utilisateur suit le plan, une ligne affiche le plan. Dès qu'il
-// valide une autre charge que celle prévue, les lignes suivantes non validées
-// recopient sa dernière série faite, charge et reps ensemble — jamais la charge
-// d'une source et les reps d'une autre. »
+// RÉVISÉ LE 11/10/2026 (68A) : « le fantôme d'une ligne vient d'une seule
+// source : la ligne du plan ». La recopie de la dernière série faite (49-U2)
+// est partie ; quand l'utilisateur s'écarte du plan, le plan reste affiché et
+// la phrase du coach s'adapte (MOTEUR §9.14 bis). Le fichier de cas a été
+// régénéré par `ref68.py` (25 cas changent, les 20 autres à l'identique).
 //
 // LE FICHIER DE CAS FAIT FOI. `cas-49u2-fantome.json` sort du simulateur unique
 // du coach (`coach49.py`, Claude.ai, 26/09/2026) : 45 cas, l'attendu à chaque
@@ -94,19 +95,24 @@ describe('49-U2 — les 45 cas du simulateur, à chaque étape', () => {
     });
   });
 
-  test('⚠️ DISCRIMINANT — les cas couvrent les deux sources ET le retour au plan', () => {
-    let derniere = 0, retours = 0;
+  // 68A — plus aucune recopie : les cas n'ont qu'une source, et ils couvrent
+  // bien des séries qui s'écartent de leur ligne (sinon « toujours le plan » ne
+  // prouverait rien) et des lignes aux reps à taper (coach, élan).
+  test('⚠️ DISCRIMINANT — une seule source, le plan, y compris après une série qui s’écarte de sa ligne', () => {
+    let autres = 0, ecarts = 0, aTaper = 0;
     FICHIER.cas.forEach((c) => {
       c.attendu.forEach((e, t) => {
-        e.fantomes.forEach((f) => { if (f && f.source === 'derniere') derniere++; });
-        const avant = t > 0 ? c.attendu[t - 1].fantomes : [];
-        e.fantomes.forEach((f, i) => {
-          if (f && f.source === 'plan' && avant[i] && avant[i].source === 'derniere') retours++;
+        e.fantomes.forEach((f) => {
+          if (f && f.source !== 'plan') autres++;
+          if (f && f.reps === null) aTaper++;
         });
+        const l = t > 0 ? e.lignes[t - 1] : null;
+        if (l && l.charge !== null && Math.abs(c.faites[t - 1].charge - l.charge) > 1e-9) ecarts++;
       });
     });
-    expect(derniere).toBeGreaterThan(20);
-    expect(retours).toBeGreaterThan(3);
+    expect(autres).toBe(0);
+    expect(ecarts).toBeGreaterThan(20);
+    expect(aTaper).toBeGreaterThan(10);
   });
 });
 
@@ -121,15 +127,15 @@ describe('49-U2 — F044 : le refus suivi d’un test', () => {
     expect(vu[1].message).toBe('propose');
   });
 
-  test('refus à 50 : la ligne de test affiche 50 × 6 — la dernière série faite, charge ET reps', () => {
-    expect(vu[2].fantomes[2]).toEqual({ charge: 50, reps: 6, source: 'derniere' });
-    expect(vu[2].fantomes[3]).toEqual({ charge: 50, reps: 6, source: 'derniere' });
+  // 68A — avant : 50 × 6, la dernière série recopiée. Le fantôme est la ligne.
+  test('refus à 50 : la ligne de test affiche le test, 55 × 4 — le plan, plus la dernière série', () => {
+    expect(vu[2].fantomes[2]).toEqual({ charge: 55, reps: 4, source: 'plan' });
+    expect(vu[2].fantomes[3]).toEqual({ charge: 55, reps: 4, source: 'plan' });
   });
 
-  test('⚠️ plus « 50 × 4 » : jamais la charge tapée avec les reps du test', () => {
+  test('⚠️ jamais « 50 × 4 » : la charge et les reps viennent de la même ligne', () => {
     const f = vu[2].fantomes[2];
-    expect(f.reps).not.toBe(4);
-    // La ligne, elle, reste le test : 55 × 4.
+    expect([f.charge, f.reps]).not.toEqual([50, 4]);
     expect(vu[2].lignes[2]).toEqual({ role: 'test', charge: 55, vise: 4 });
   });
 
@@ -166,29 +172,26 @@ describe('49-U2 — I11 : verifierPlan voit chaque violation', () => {
   const forger = (fn) => { const p = JSON.parse(JSON.stringify(juste())); fn(p.exercices[0].lignes); return T.verifierPlan(p); };
   const i11 = (v) => v.erreurs.filter((e) => /^I11/.test(e));
 
-  test('prémisse : le plan juste passe, et la série 3 recopie 50 × 6', () => {
+  // 68A — I11 révisé : le fantôme est la ligne, même après le refus.
+  test('prémisse : le plan juste passe, et la série 3 affiche sa ligne, 55 × 4', () => {
     const p = juste();
     expect(T.verifierPlan(p, entrees()).erreurs).toEqual([]);
-    expect(p.exercices[0].lignes[2].fantome).toEqual({ charge: 50, reps: 6, source: 'derniere' });
+    expect(p.exercices[0].lignes[2].fantome).toEqual({ charge: 55, reps: 4, source: 'plan' });
   });
 
-  test('⚠️ DISCRIMINANT — la charge du plan avec les reps de la dernière série (le « 125 × 4 »)', () => {
-    const v = forger((l) => { l[2].fantome = { charge: 50, reps: 4, source: 'derniere' }; });
-    expect(i11(v).length).toBeGreaterThan(0);
+  test('⚠️ DISCRIMINANT — la recopie de la dernière série revient (50 × 6) : I11 la voit', () => {
+    const v = forger((l) => { l[2].fantome = { charge: 50, reps: 6, source: 'derniere' }; });
+    expect(i11(v).join(' ')).toMatch(/de source « derniere »/);
   });
 
-  test('un fantôme du plan après une série qui n’a pas suivi sa ligne', () => {
-    const v = forger((l) => { l[2].fantome = { charge: 55, reps: 4, source: 'plan' }; });
-    expect(i11(v).join(' ')).toMatch(/n'a pas suivi sa ligne/);
+  test('la charge du plan avec d’autres reps (le « 125 × 4 ») : I11 la voit', () => {
+    const v = forger((l) => { l[2].fantome = { charge: 55, reps: 6, source: 'plan' }; });
+    expect(i11(v).join(' ')).toMatch(/pour une ligne 55×4/);
   });
 
-  // 49-U5 : la proposition acceptée est à 55, la charge du test prévu (delta 49-13).
-  test('un fantôme « dernière série » après une série qui a suivi sa ligne', () => {
-    const v = forger((l) => {
-      l[1].faite = { charge: 55, reps: 3 };   // la proposition acceptée
-      l[2].fantome = { charge: 55, reps: 3, source: 'derniere' };
-    });
-    expect(i11(v).join(' ')).toMatch(/a suivi sa ligne/);
+  test('la charge tapée avec les reps de la ligne : I11 la voit', () => {
+    const v = forger((l) => { l[2].fantome = { charge: 50, reps: 4, source: 'plan' }; });
+    expect(i11(v).join(' ')).toMatch(/fantôme 50×4 pour une ligne 55×4/);
   });
 
   test('un fantôme du plan qui ne reprend pas sa ligne', () => {

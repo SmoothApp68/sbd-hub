@@ -332,6 +332,19 @@ const CATALOGUE = [
 // s'écrit à la main : c'est la configuration discriminante du chantier, et la
 // cacher derrière une aide la rendrait invisible.
 let grainePr = 0;
+// ECRAN-SAISIE §3.12 (68A) — L'OBJECTIF DU JOUR : une consigne à des lignes
+// puis `b` tests se dit « Aujourd'hui : 125 kg × 5. » puis « Si ça passe,
+// 130 kg × 4, à la série que tu veux. » (b = 1) ou « … sur 2 séries, celles que
+// tu veux. ». Écrit ici à la main, depuis la consigne : le banc ne rappelle pas
+// la fonction qui rédige l'en-tête. Espaces ordinaires (comparer après `nb`).
+const objectifDuJour = (c, b) => {
+  const kg = (v) => String(v).replace('.', ',') + ' kg';
+  return ['Aujourd\'hui : ' + kg(c.ligne.charge) + ' × ' + c.ligne.vise + '.',
+    'Si ça passe, ' + kg(c.haut.charge) + ' × ' + c.haut.vise +
+      (b === 1 ? ', à la série que tu veux' : ' sur ' + b + ' séries, celles que tu veux') + '.'];
+};
+const sansInsecables = (x) => JSON.stringify(x).replace(/\u00a0/g, ' ');
+
 const progr = (n, reps) => {
   const lignes = [];
   for (let i = 0; i < n; i++) {
@@ -5408,8 +5421,9 @@ const SETS_IMPORTES = [
     JSON.stringify(await fantomes()) + ' vs ' + JSON.stringify(attendus));
   const entete = await page.evaluate(() =>
     Array.from(document.querySelectorAll('.legende-exo .consigne, .legende-exo .consigne-dit')).map((e) => e.textContent));
-  ok('[G] l’en-tête dit la consigne en jaune, puis sa phrase grise',
-    JSON.stringify(entete) === JSON.stringify(consigneDC.libelles.jaune.concat([consigneDC.libelles.gris])),
+  // 68A — l'en-tête dit l'objectif du jour (deux tests sur les trois séries).
+  ok('[G] l’en-tête dit la consigne en jaune — l’objectif du jour —, puis sa phrase grise',
+    sansInsecables(entete) === sansInsecables(objectifDuJour(consigneDC.consigne, 2).concat([consigneDC.libelles.gris])),
     JSON.stringify(entete).replace(/\u00a0/g, '·'));
 
   // ① LE DÉFAUT DU DEVICE : taper une chauffe qui DÉVIE (25 au lieu de 20).
@@ -6101,8 +6115,9 @@ const SETS_IMPORTES = [
     await demarrerRoutine('Terre');
     ok('[H] Progresser, routine à 8 reps visées : les fantômes disent LE PLAN, charge et reps',
       JSON.stringify(await fantomesCR()) === JSON.stringify(PLAN), JSON.stringify(await fantomesCR()));
-    ok('[H] et l’en-tête dit la consigne',
-      JSON.stringify(await enteteExo()) === JSON.stringify(cTerre.libelles.jaune.concat([cTerre.libelles.gris])),
+    // 68A — l'objectif du jour (un test sur la dernière série).
+    ok('[H] et l’en-tête dit la consigne — l’objectif du jour',
+      sansInsecables(await enteteExo()) === sansInsecables(objectifDuJour(cTerre.consigne, 1).concat([cTerre.libelles.gris])),
       JSON.stringify(await enteteExo()).replace(/\u00a0/g, '·'));
 
     // ── Profil → Entretenir → retour par l'onglet Saisie ───────────────────
@@ -6456,6 +6471,11 @@ const SETS_IMPORTES = [
     ok('[C6] AJOUTER UNE SÉRIE LE DÉFAIT AUSSI — l’exercice n’est plus fini',
       (await constat()).verdict === null && (await enTete()).length > 0,
       (await compter('.ligne-serie')) + ' ligne(s) · ' + JSON.stringify(await enTete()));
+    // 68A (décision E, 11/10/2026) — 130 tapé sur des lignes à 125 : la ligne
+    // ajoutée est une ligne d'élan, et une ligne d'élan ne se valide pas sans
+    // ses reps (comme la ligne proposée). On les tape, puis on valide.
+    await (await (await ligne(3)).$$('input'))[1].fill('4');
+    await attendre(450);
     await valider(3);
     ok('[C6] la quatrième validée : le constat revient',
       (await constat()).verdict !== null && (await enTete()).length === 0,
@@ -7430,8 +7450,9 @@ const SETS_IMPORTES = [
     await attendre(800);
     await verifierApres('ouverture');
     const entete0 = await enTeteU();
+    // 68A — l'objectif du jour : 2 tests, plus les 3 de la consigne brute.
     ok('[U] DISCRIMINANT — l’en-tête décrit les 3 séries de la grille, pas les 4 de la dernière séance',
-      nb(entete0) === nb(['130 kg × 4 sur les 2 dernières séries', '125 kg × 5 sur celle d\'avant']),
+      nb(entete0) === nb(['Aujourd\'hui : 125 kg × 5.', 'Si ça passe, 130 kg × 4 sur 2 séries, celles que tu veux.']),
       nb(entete0));
     ok('[U] la grille : la ligne, puis deux tests à 130',
       nb(await grilleU()) === nb(['125×5', '130×4', '130×4']), nb(await grilleU()));
@@ -7795,8 +7816,10 @@ const SETS_IMPORTES = [
     await attendre(700);
     await invariantsF('série 1 plus légère (45 × 7)');
     const g1 = await grilleF();
-    ok('[F] DISCRIMINANT — série 1 plus légère : les trois lignes suivantes recopient 45 × 7, charge ET reps',
-      nbF(g1.slice(1)) === nbF(['45×7', '45×7', '45×7']), nbF(g1));
+    // 68A — le fantôme est la ligne du plan : plus de recopie (avant : 45 × 7
+    // sur les trois lignes). La phrase « plus léger que prévu » le dit.
+    ok('[F] DISCRIMINANT — série 1 plus légère : les trois lignes suivantes gardent le plan, 50 × 5 puis les tests',
+      nbF(g1.slice(1)) === nbF(['50×5', '55×4', '55×4']), nbF(g1));
     await saisirSerie(1, 50, 5);
     await attendre(700);
     await invariantsF('série 2 à la charge prévue (50 × 5)');
@@ -7813,8 +7836,10 @@ const SETS_IMPORTES = [
     await attendre(900);
     await invariantsF('série 2 validée sans rien taper');
     const g3 = await grilleF();
-    ok('[F] DISCRIMINANT — valider sans taper après un écart écrit 45 × 7, pas « 45 × 5 »',
-      g3[1] === '[45]×[7]', nbF(g3));
+    // 68A — le gris s'enregistre à la validation : c'est le plan, 50 × 5
+    // (avant : 45 × 7, la série d'avant recopiée). Jamais « 45 × 5 ».
+    ok('[F] DISCRIMINANT — valider sans taper après un écart écrit le plan, 50 × 5 — jamais « 45 × 5 »',
+      g3[1] === '[50]×[5]', nbF(g3));
     await abandonner();
 
     // ── F044 : LE REFUS SUIVI D'UN TEST ─────────────────────────────────
@@ -7831,8 +7856,9 @@ const SETS_IMPORTES = [
     await attendre(900);
     await invariantsF('refus : série 2 à 50 × 6');
     const g5 = await grilleF();
-    ok('[F] DISCRIMINANT — F044 : après le refus, les tests affichent 50 × 6 — plus « 50 × 4 »',
-      nbF(g5.slice(2)) === nbF(['50×6', '50×6']), nbF(g5));
+    // 68A — les tests affichent leur ligne, 55 × 4 (avant : 50 × 6 recopié).
+    ok('[F] DISCRIMINANT — F044 : après le refus, les tests affichent leur ligne, 55 × 4 — jamais « 50 × 4 »',
+      nbF(g5.slice(2)) === nbF(['55×4', '55×4']), nbF(g5));
     await saisirSerie(2, 55, 7);
     await attendre(900);
     await invariantsF('série 3, le test, à 55 × 7');
@@ -17327,6 +17353,144 @@ const SETS_IMPORTES = [
     ok('[C67] aucun refus du faux serveur, aucune erreur de page',
       base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,
       JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
+  }
+
+  console.log('\n══ ecarts. LE COACH QUAND ON S’ÉCARTE DU PLAN : PLUS LÉGER, L’ÉLAN, L’OBJECTIF DU JOUR (68A, MOTEUR §9.14 bis, ECRAN-SAISIE §3.12) ══');
+  //
+  // Le rowing du 10/10/2026, joué au doigt sur la grille de l'app réelle :
+  // consigne 79 × 12, test à 81,3 en série 3 (`garde`, zone Volume 10-12).
+  // ⚠️ CONFIGURATION DISCRIMINANTE : 73 × 12 sur une ligne à 79. Avant 68A,
+  // les fantômes des séries 2 et 3 passaient à 73 × 12 (la dernière série
+  // recopiée) et le coach se taisait ; puis 79 × 10 faisait revenir le plan
+  // sans un mot. Maintenant : le plan reste (79, puis 81,3), et la phrase
+  // « plus léger que prévu » le dit, une fois. Puis une séance « plus lourd » :
+  // 84 × 12 sur la ligne à 79 — l'élan, les lignes suivantes à 84 avec la
+  // fourchette, les reps à taper. Séances ISOLÉES : la section pose les siennes
+  // et rend la base telle qu'elle l'a trouvée.
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const sessionsAvant = base.sessions, setsAvant = base.sets, catalogueAvant = CATALOGUE.length;
+    base.sessions = [];
+    base.sets = [];
+    CATALOGUE.push({ slug: 'rowing-c68', nom: 'Rowing Divergent C68 (Machine)', mesure: 'charge_reps', charge: 'externe',
+      equipement: 'machine', muscles_primaires: ['dorsaux'], muscles_secondaires: [] });
+    const t68 = Date.now();
+    const poserR = (id, jours, lignes) => {
+      const debut = ilYa(jours * 86400000, t68).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'Dos — ' + id, debut,
+        fin: finDe(debut, t68).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      lignes.forEach(([kg, reps], i) => base.sets.push({
+        id: id + '-s' + (i + 1), session_id: id, user_id: 'u-banc', exercise_slug: 'rowing-c68',
+        charge_kg: kg, reps, duree_s: null, distance_m: null, type_serie: 'travail',
+        rang: i + 1, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null,
+        repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+    };
+    poserR('c68-a', 28, [[79, 12], [79, 12], [79, 12]]);
+    poserR('c68-b', 21, [[79, 12], [79, 12], [79, 12]]);
+    poserR('c68-c', 14, [[79, 12], [79, 12], [79, 12]]);
+    poserR('c68-d', 7, [[79, 12], [79, 12], [81.3, 10]]);
+    ROUTINES.push({ id: 'r-c68', nom: 'Rowing C68 ×3', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-c68-e', routine_id: 'r-c68', exercise_slug: 'rowing-c68', rang: 0,
+        routine_sets: progr(3, 12), repos_cible_s: 90, groupe_superset: null, note: null }] });
+    const nb68 = (x) => JSON.stringify(x).replace(/[  ]/g, ' ');
+    const grille68 = () => page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie')).map((l) =>
+      Array.from(l.querySelectorAll('input')).map((i) => String(i.value ? '[' + i.value + ']' : (i.placeholder || '∅'))).join('×')));
+    const entete68 = () => page.evaluate(() =>
+      Array.from(document.querySelectorAll('.legende-exo .consigne')).map((e) => e.textContent));
+    const phrases68 = () => page.evaluate(() =>
+      Array.from(document.querySelectorAll('.reaction-serie')).map((e) => e.className.replace('reaction-serie ', '') + ' | ' + e.textContent));
+    const consigne68 = () => page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      const x = d && d.plan.exercices.filter((e) => e.slug === 'rowing-c68')[0];
+      return x ? { etat: x.consigne.etat, zone: x.consigne.zone, ligne: x.consigne.ligne, haut: x.consigne.haut } : null;
+    });
+    const invariants68 = async (geste) => {
+      const v = await page.evaluate(() => {
+        const d = window.THPlan && window.THPlan.dernier;
+        if (!d) return { ok: false, erreurs: ['aucun plan calculé'] };
+        return window.THPlan.verifierPlan(d.plan, d.entrees);
+      });
+      ok('[C68] invariants du plan après « ' + geste + ' » (I11, I41 à I43 compris)', v.ok, v.ok ? '' : nb68(v.erreurs.slice(0, 3)));
+    };
+
+    await aller('/saisie');
+    await attendre(1500);
+    await demarrerRoutine('Rowing C68 ×3');
+    await attendre(900);
+    ok('[C68] prémisse : la consigne du rowing du 10/10 — 79 × 12, puis le test à 81,3 × 11 sur la dernière série',
+      nb68(await consigne68()) === nb68({ etat: 'garde', zone: 'volume', ligne: { charge: 79, vise: 12 }, haut: { charge: 81.3, vise: 11, k: 1 } }),
+      nb68(await consigne68()));
+    await invariants68('ouverture');
+    // ECRAN-SAISIE §3.12 — l'objectif du jour, sans « une fois ».
+    ok('[C68] l’en-tête : « Aujourd’hui : 79 kg × 12. » puis « Si ça passe, 81,3 kg × 11, à la série que tu veux. »',
+      nb68(await entete68()) === nb68(['Aujourd\'hui : 79 kg × 12.', 'Si ça passe, 81,3 kg × 11, à la série que tu veux.']),
+      nb68(await entete68()));
+
+    // ── 1. PLUS LÉGER QUE PRÉVU : 73 × 12 sur la ligne à 79 ──────────────
+    await saisirSerie(0, 73, 12);
+    await attendre(700);
+    await invariants68('73 × 12 (plus léger)');
+    const g1 = await grille68();
+    ok('[C68] DISCRIMINANT — après 73 × 12, les fantômes gardent le plan : 79 × 12 puis le test à 81,3 × 11 (avant : 73 × 12 recopié)',
+      nb68(g1.slice(1)) === nb68(['79×12', '81,3×11']), nb68(g1));
+    ok('[C68] la phrase « plus léger que prévu », sur la série 2',
+      nb68(await phrases68()) === nb68(['plus_leger | 73 kg × 12, plus léger que prévu. La suite reste à 79 kg × 12 ; tape 73 kg si tu restes à 73 kg aujourd\'hui.']),
+      nb68(await phrases68()));
+    // ── 2. 79 × 10 : revenu à la charge prévue, plus de phrase ───────────
+    await saisirSerie(1, 79, 10);
+    await attendre(700);
+    await invariants68('79 × 10');
+    ok('[C68] 79 × 10 : plus de phrase (« plus léger » se dit une fois), le test reste 81,3 × 11',
+      (await phrases68()).length === 0 && (await grille68())[2] === '81,3×11', nb68([await phrases68(), await grille68()]));
+    await abandonner();
+
+    // ── 3. UNE SÉANCE « PLUS LOURD » : 84 × 12 sur la ligne à 79 — l'élan ─
+    await demarrerRoutine('Rowing C68 ×3');
+    await attendre(900);
+    await saisirSerie(0, 84, 12);
+    await attendre(700);
+    await invariants68('84 × 12 (l’élan)');
+    const g3 = await grille68();
+    ok('[C68] DISCRIMINANT — l’élan : les séries 2 et 3 passent à 84, la fourchette 10-12 à la place des reps (le test à 81,3 compris)',
+      nb68(g3.slice(1)) === nb68(['84×10-12', '84×10-12']), nb68(g3));
+    const couleurs = await page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie')).slice(1)
+      .map((l) => !!l.querySelector('.ch-serie.coach')));
+    ok('[C68] une ligne d’élan s’affiche comme une ligne du coach : la charge à sa couleur', nb68(couleurs) === nb68([true, true]),
+      nb68(couleurs));
+    ok('[C68] la phrase d’élan',
+      nb68(await phrases68()) === nb68(['elan | 84 kg × 12, au-dessus de ta charge de travail : la suite reste à 84 kg.']),
+      nb68(await phrases68()));
+    // Ses reps se tapent : valider à vide ne valide pas (décision E du 11/10).
+    await toucher(1, '.ok-serie');
+    await attendre(700);
+    const validee2 = await page.evaluate(() => document.querySelectorAll('.ligne-serie')[1]
+      .querySelector('.serie').classList.contains('faite'));
+    ok('[C68] la ligne d’élan ne se valide pas sans ses reps', validee2 === false, String(validee2));
+    await saisirSerie(1, 84, 11);
+    await attendre(1800);
+    const pari68 = base.predictions.filter((q) => q.exercise_slug === 'rowing-c68' && q.fondement &&
+      q.fondement.role === 'elan')[0] || null;
+    ok('[C68] le pari de la série 2 est un pari d’élan : 84 kg, au bas (10), révision 2, version des règles 11',
+      !!pari68 && pari68.fondement.charge === 84 && pari68.valeur_predite === 10 && pari68.fondement.revision === 2 &&
+      pari68.fondement.source === 'elan' && pari68.module_version === 11,
+      nb68(pari68 && { charge: pari68.fondement.charge, valeur: pari68.valeur_predite, rev: pari68.fondement.revision,
+        source: pari68.fondement.source, version: pari68.module_version }));
+    await invariants68('84 × 11 sur la ligne d’élan');
+
+    // LA REMISE EN ÉTAT, pour les sections suivantes.
+    await abandonner();
+    const iR = ROUTINES.findIndex((r) => r.id === 'r-c68');
+    if (iR >= 0) ROUTINES.splice(iR, 1);
+    CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
+    base.sessions = sessionsAvant;
+    base.sets = setsAvant;
+    await aller('/saisie');
+    ok('[C68] aucun refus du faux serveur, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,
+      nb68([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
   }
 
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');

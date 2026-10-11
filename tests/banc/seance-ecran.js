@@ -17190,6 +17190,145 @@ const SETS_IMPORTES = [
       JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
   }
 
+  console.log('\n══ filtres. LE CATALOGUE : CHERCHER PAR MATÉRIEL ET PAR MUSCLE (67B, ECRAN-SAISIE §7 quindecies.10) ══');
+  //
+  // Sur l'app réelle, depuis « Remplacer » de l'éditeur de routine → « Chercher dans le catalogue ». ⚠️ CONFIGURATION
+  // DISCRIMINANTE : des machines à grand dorsal PRINCIPAL, une machine où il n'est que SECONDAIRE, une poulie à grand
+  // dorsal, un vélo sans muscle ; le compte attendu se recalcule sur le catalogue réel du faux serveur.
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const catalogueAvant = CATALOGUE.length;
+    const materielAvant = base.profiles[0].materiel, ecartesAvant = base.profiles[0].exercices_ecartes;
+    base.profiles[0].materiel = null;
+    base.profiles[0].exercices_ecartes = null;
+    const fiche = (slug, nom, equipement, prim, sec) => CATALOGUE.push({ slug, nom, mesure: 'charge_reps', charge: 'externe',
+      equipement, muscles_primaires: prim, muscles_secondaires: sec || [] });
+    fiche('tirage-machine-u67b', 'Tirage Poitrine U67B (Machine)', 'machine', ['grand_dorsal'], ['biceps']);
+    fiche('tirage-convergent-u67b', 'Tirage Convergent U67B (Machine)', 'machine', ['grand_dorsal']);
+    fiche('rowing-machine-u67b', 'Rowing U67B (Machine)', 'machine', ['haut_du_dos'], ['grand_dorsal']);   // secondaire
+    fiche('tirage-poulie-u67b', 'Tirage Poitrine U67B (Poulie)', 'poulie', ['grand_dorsal']);
+    fiche('velo-u67b', 'Vélo U67B', 'machine', []);
+    const ID_C = '00000000-0000-4000-8670-000000000002';
+    ROUTINES.push({ id: ID_C, nom: 'Filtres U67B', note: null, archivee_a: null, rang: null, dossier: null,
+      created_at: '2026-09-01T10:00:00.000Z', modifiee_a: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'cf-e0', routine_id: ID_C, exercise_slug: 'tirage-poulie-u67b', rang: 0, groupe_superset: null,
+        repos_cible_s: 90, note: null, routine_sets: [{ id: 'cf-rs-1', rang: 1, type_serie: 'travail', reps_visees: 10,
+          charge_cible_kg: null, duree_cible_s: null, distance_cible_m: null }] }] });
+    const routineC = () => ROUTINES.filter((r) => r.id === ID_C)[0];
+    // Le compte attendu, sur le catalogue RÉEL du faux serveur : machine ET grand dorsal principal.
+    const attendus = CATALOGUE.filter((e) => e.equipement === 'machine' && (e.muscles_primaires || []).indexOf('grand_dorsal') >= 0);
+    const catalogue = () => page.evaluate(() => {
+      const t = (n) => (n ? n.textContent : null);
+      return { ouvert: !document.getElementById('catalogue').hidden,
+        filtres: Array.from(document.querySelectorAll('#filtres-exo .filtre-exo')).map((p) => [t(p.querySelector('.filtre-ouvrir')),
+          p.classList.contains('actif'), !!p.querySelector('.filtre-retirer'),
+          Math.round(p.querySelector('.filtre-ouvrir').getBoundingClientRect().height)]),
+        compte: document.getElementById('compte-exo').hidden ? null : t(document.getElementById('compte-exo')),
+        choixOuvert: !document.getElementById('choix-filtre-exo').hidden,
+        choix: Array.from(document.querySelectorAll('#choix-filtre-exo .feuille-menu button')).map((b) => b.dataset.cle),
+        resultats: Array.from(document.querySelectorAll('#resultats-exo .resultat')).map((b) => [b.firstChild.textContent,
+          t(b.querySelector('.resultat-sous'))]) };
+    });
+    const filtre = async (cle, valeur) => {
+      await page.click('#filtres-exo .filtre-exo[data-cle="' + cle + '"] .filtre-ouvrir');
+      await attendre(300);
+      await page.click('#choix-filtre-exo .feuille-menu button[data-cle="' + valeur + '"]');
+      await attendre(400);
+    };
+    const nomsEditeur = () => page.evaluate(() => Array.from(document.querySelectorAll('#exos-routine .nom-exo'))
+      .map((n) => n.textContent.replace(/\s+/g, ' ').trim()));
+    const versCatalogue = async () => {
+      await page.evaluate(() => document.querySelectorAll('#exos-routine .menu-pts')[0].click());
+      await attendre(450);
+      for (const x of ['Remplacer', 'Chercher dans le catalogue']) {
+        await page.evaluate((y) => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
+          .filter((b) => ((b.querySelector('.mp-titre') || b).textContent) === y)[0].click(), x);
+        await attendre(600);
+      }
+    };
+
+    await aller('/saisie');
+    await aller('/routine/' + ID_C);
+    for (let n = 0; n < 60 && JSON.stringify(await nomsEditeur()).indexOf('U67B') < 0; n++) await attendre(250);
+    const avant = JSON.stringify(routineC());
+    await versCatalogue();
+    let c = await catalogue();
+    ok('[C67] A — le catalogue s’ouvre avec deux filtres à zéro, au doigt (44 px), sans compte ; chaque résultat dit « Matériel · Muscle »',
+      c.ouvert && JSON.stringify(c.filtres.map((f) => f.slice(0, 3))) === JSON.stringify([['Tout le matériel▾', false, false],
+        ['Tous les muscles▾', false, false]]) && c.filtres.every((f) => f[3] >= 44) && c.compte === null &&
+        // Les premiers du catalogue du banc : avec matériel « Barre · Quadriceps » ; sans matériel, le muscle seul.
+        c.resultats.some((r) => r[0] === 'Front Squat (Barre)' && r[1] === 'Barre · Quadriceps') &&
+        c.resultats.some((r) => r[0] === 'Squat (Barre)' && r[1] === 'Quadriceps'), JSON.stringify(c));
+
+    // ── B. Machine + Grand dorsal : seulement des machines à grand dorsal PRINCIPAL ; le compte juste.
+    await page.click('#filtres-exo .filtre-exo[data-cle="equipement"] .filtre-ouvrir');
+    await attendre(300);
+    c = await catalogue();
+    ok('[C67] B — le choix du matériel prend la place des résultats ; « Tout le matériel » d’abord, seulement ce que le catalogue a',
+      c.choixOuvert && c.choix[0] === '' && c.choix.indexOf('machine') > 0 && c.choix.indexOf('poulie') > 0 &&
+        c.choix.indexOf('kettlebell') < 0 === !CATALOGUE.some((e) => e.equipement === 'kettlebell'), JSON.stringify(c.choix));
+    await page.click('#choix-filtre-exo .feuille-menu button[data-cle="machine"]');
+    await attendre(400);
+    await filtre('muscle', 'grand_dorsal');
+    c = await catalogue();
+    ok('[C67] B — Machine + Grand dorsal : seulement ' + attendus.length + ' machines à grand dorsal principal (jamais le rowing où il est secondaire, ni le vélo, ni la poulie), le compte juste',
+      JSON.stringify(c.filtres.map((f) => f.slice(0, 3))) === JSON.stringify([['Machine', true, true], ['Grand dorsal', true, true]]) &&
+        c.compte === attendus.length + (attendus.length > 1 ? ' exercices' : ' exercice') &&
+        c.resultats.length === attendus.length && c.resultats.every((r) => r[1] === 'Machine · Grand dorsal') &&
+        !c.resultats.some((r) => /Rowing U67B|Vélo U67B|Poulie\)/.test(r[0])), JSON.stringify([c.compte, c.resultats]));
+
+    // ── C. « tirage » tapé : la combinaison.
+    await page.fill('#champ-recherche-exo', 'tirage u67b');
+    await attendre(400);
+    c = await catalogue();
+    ok('[C67] C — « tirage u67b » tapé : nom ET matériel ET muscle — les deux tirages machine, « 2 exercices »',
+      c.compte === '2 exercices' && JSON.stringify(c.resultats.map((r) => r[0]).sort()) ===
+        JSON.stringify(['Tirage Convergent U67B (Machine)', 'Tirage Poitrine U67B (Machine)']), JSON.stringify(c));
+
+    // ── D. « ✕ » : le filtre tombe d'un geste.
+    await page.click('#filtres-exo .filtre-exo[data-cle="equipement"] .filtre-retirer');
+    await attendre(400);
+    c = await catalogue();
+    ok('[C67] D — le « ✕ » retire le matériel : la poulie revient, le muscle reste',
+      JSON.stringify(c.filtres.map((f) => f.slice(0, 2))) === JSON.stringify([['Tout le matériel▾', false], ['Grand dorsal', true]]) &&
+        c.compte === '3 exercices' && c.resultats.some((r) => r[0] === 'Tirage Poitrine U67B (Poulie)'), JSON.stringify(c));
+
+    // ── E. Fermer, rouvrir : les filtres à zéro.
+    await page.click('#btn-fermer-catalogue');
+    await attendre(400);
+    await versCatalogue();
+    c = await catalogue();
+    ok('[C67] E — fermer puis rouvrir : les filtres reviennent à zéro, pas de compte',
+      c.ouvert && c.filtres.every((f) => !f[1]) && c.compte === null && !c.choixOuvert, JSON.stringify(c));
+
+    // ── F. Depuis « Remplacer », le choix filtré remplace la ligne (à sa place) ; rien n'est écrit avant « Enregistrer ».
+    await filtre('equipement', 'machine');
+    await page.fill('#champ-recherche-exo', 'convergent u67b');
+    await attendre(400);
+    await page.click('#resultats-exo .resultat');
+    await attendre(700);
+    const noms = await nomsEditeur();
+    ok('[C67] F — le choix filtré remplace la ligne de « Remplacer » (pas d’ajout) ; rien n’est écrit',
+      noms.length === 1 && /Tirage Convergent U67B/.test(noms[0]) && JSON.stringify(routineC()) === avant, JSON.stringify(noms));
+    await page.click('#btn-enregistrer-routine');
+    await attendre(2400);
+    ok('[C67] F — « Enregistrer » l’écrit',
+      routineC().routine_exercises.map((e) => e.exercise_slug).join() === 'tirage-convergent-u67b',
+      JSON.stringify(routineC().routine_exercises.map((e) => e.exercise_slug)));
+
+    // ── LA REMISE EN ÉTAT, pour les sections suivantes.
+    const i = ROUTINES.findIndex((r) => r.id === ID_C);
+    if (i >= 0) ROUTINES.splice(i, 1);
+    CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
+    base.profiles[0].materiel = materielAvant;
+    base.profiles[0].exercices_ecartes = ecartesAvant;
+    await aller('/saisie');
+    ok('[C67] aucun refus du faux serveur, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,
+      JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
+  }
+
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');
   // Le compte vit dans `garde-compte.js` : le lanceur parallèle refait les
   // mêmes contrôles sur le compte fusionné de ses groupes.

@@ -1,0 +1,1572 @@
+{
+ "version": "« à fond » : tenu, sans montée (68B, 11/10/2026)",
+ "source": "ref68.py (REGLES = 68B)",
+ "regle": "MOTEUR §9.14 ter ; SIM-68B-A-FOND",
+ "cas": [
+  {
+   "id": "B01",
+   "titre": "À fond à la charge de travail : 79 × 12 RPE 10 — la suivante vise 11",
+   "consigne": {
+    "etat": "progression",
+    "zone": {
+     "nom": "volume",
+     "bas": 10,
+     "haut": 12
+    },
+    "palier": 79.0,
+    "n": 4,
+    "ligne": {
+     "charge": 79.0,
+     "vise": 12
+    },
+    "haut": null
+   },
+   "contexte": {
+    "cran": 81.3,
+    "haut": null
+   },
+   "series": 4,
+   "faites": [
+    {
+     "charge": 79.0,
+     "reps": 12,
+     "rpe": 10
+    }
+   ],
+   "attendu": [
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      }
+     ],
+     "fantomes": [
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      }
+     ],
+     "message": null
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 11
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      }
+     ],
+     "fantomes": [
+      null,
+      {
+       "charge": 79.0,
+       "reps": 11,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      }
+     ],
+     "message": {
+      "type": "a_fond_suite",
+      "rang": 1,
+      "kg": 79.0,
+      "reps": 12,
+      "vise": 11
+     }
+    }
+   ]
+  },
+  {
+   "id": "B02",
+   "titre": "« Reste 0 » compte comme RPE 10 : 79 × 12 — la suivante vise 11",
+   "consigne": {
+    "etat": "progression",
+    "zone": {
+     "nom": "volume",
+     "bas": 10,
+     "haut": 12
+    },
+    "palier": 79.0,
+    "n": 4,
+    "ligne": {
+     "charge": 79.0,
+     "vise": 12
+    },
+    "haut": null
+   },
+   "contexte": {
+    "cran": 81.3,
+    "haut": null
+   },
+   "series": 4,
+   "faites": [
+    {
+     "charge": 79.0,
+     "reps": 12,
+     "ressenti": "reste_0"
+    }
+   ],
+   "attendu": [
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      }
+     ],
+     "fantomes": [
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      }
+     ],
+     "message": null
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 11
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      }
+     ],
+     "fantomes": [
+      null,
+      {
+       "charge": 79.0,
+       "reps": 11,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      }
+     ],
+     "message": {
+      "type": "a_fond_suite",
+      "rang": 1,
+      "kg": 79.0,
+      "reps": 12,
+      "vise": 11
+     }
+    }
+   ]
+  },
+  {
+   "id": "B03",
+   "titre": "Deux séries à fond de suite : 79 × 12, puis 79 × 11 — la suivante vise 11, puis 10",
+   "consigne": {
+    "etat": "progression",
+    "zone": {
+     "nom": "volume",
+     "bas": 10,
+     "haut": 12
+    },
+    "palier": 79.0,
+    "n": 4,
+    "ligne": {
+     "charge": 79.0,
+     "vise": 12
+    },
+    "haut": null
+   },
+   "contexte": {
+    "cran": 81.3,
+    "haut": null
+   },
+   "series": 4,
+   "faites": [
+    {
+     "charge": 79.0,
+     "reps": 12,
+     "rpe": 10
+    },
+    {
+     "charge": 79.0,
+     "reps": 11,
+     "rpe": 10
+    }
+   ],
+   "attendu": [
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      }
+     ],
+     "fantomes": [
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      }
+     ],
+     "message": null
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 11
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      }
+     ],
+     "fantomes": [
+      null,
+      {
+       "charge": 79.0,
+       "reps": 11,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      }
+     ],
+     "message": {
+      "type": "a_fond_suite",
+      "rang": 1,
+      "kg": 79.0,
+      "reps": 12,
+      "vise": 11
+     }
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 11
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 10
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      }
+     ],
+     "fantomes": [
+      null,
+      null,
+      {
+       "charge": 79.0,
+       "reps": 10,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      }
+     ],
+     "message": {
+      "type": "a_fond_suite",
+      "rang": 2,
+      "kg": 79.0,
+      "reps": 11,
+      "vise": 10
+     }
+    }
+   ]
+  },
+  {
+   "id": "B04",
+   "titre": "Plus lourd, à fond, dans la fourchette : 84 × 12 RPE 10 — pas d'élan, la suite reste au plan",
+   "consigne": {
+    "etat": "progression",
+    "zone": {
+     "nom": "volume",
+     "bas": 10,
+     "haut": 12
+    },
+    "palier": 79.0,
+    "n": 4,
+    "ligne": {
+     "charge": 79.0,
+     "vise": 12
+    },
+    "haut": null
+   },
+   "contexte": {
+    "cran": 81.3,
+    "haut": null
+   },
+   "series": 4,
+   "faites": [
+    {
+     "charge": 84.0,
+     "reps": 12,
+     "rpe": 10
+    }
+   ],
+   "attendu": [
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      }
+     ],
+     "fantomes": [
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      }
+     ],
+     "message": null
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      }
+     ],
+     "fantomes": [
+      null,
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      }
+     ],
+     "message": {
+      "type": "pas_encore_soi",
+      "rang": 1,
+      "kg": 84.0,
+      "reps": 12,
+      "palier": 79.0,
+      "a_fond": true
+     }
+    }
+   ]
+  },
+  {
+   "id": "B05",
+   "titre": "Plus lourd, à fond, sous la fourchette : 84 × 9 RPE 10 — « pas encore », comme sans effort noté",
+   "consigne": {
+    "etat": "progression",
+    "zone": {
+     "nom": "volume",
+     "bas": 10,
+     "haut": 12
+    },
+    "palier": 79.0,
+    "n": 4,
+    "ligne": {
+     "charge": 79.0,
+     "vise": 12
+    },
+    "haut": null
+   },
+   "contexte": {
+    "cran": 81.3,
+    "haut": null
+   },
+   "series": 4,
+   "faites": [
+    {
+     "charge": 84.0,
+     "reps": 9,
+     "rpe": 10
+    }
+   ],
+   "attendu": [
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      }
+     ],
+     "fantomes": [
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      }
+     ],
+     "message": null
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      }
+     ],
+     "fantomes": [
+      null,
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      }
+     ],
+     "message": {
+      "type": "pas_encore_soi",
+      "rang": 1,
+      "kg": 84.0,
+      "reps": 9,
+      "palier": 79.0,
+      "a_fond": false
+     }
+    }
+   ]
+  },
+  {
+   "id": "B06",
+   "titre": "La proposition prise, à fond : 79 × 15 puis 81,3 × 12 RPE 10 — la suite revient à 79",
+   "consigne": {
+    "etat": "progression",
+    "zone": {
+     "nom": "volume",
+     "bas": 10,
+     "haut": 12
+    },
+    "palier": 79.0,
+    "n": 4,
+    "ligne": {
+     "charge": 79.0,
+     "vise": 12
+    },
+    "haut": null
+   },
+   "contexte": {
+    "cran": 81.3,
+    "haut": null
+   },
+   "series": 4,
+   "faites": [
+    {
+     "charge": 79.0,
+     "reps": 15
+    },
+    {
+     "charge": 81.3,
+     "reps": 12,
+     "rpe": 10
+    }
+   ],
+   "attendu": [
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      }
+     ],
+     "fantomes": [
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      }
+     ],
+     "message": null
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "coach",
+       "charge": 81.3,
+       "vise": 10
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      }
+     ],
+     "fantomes": [
+      null,
+      {
+       "charge": 81.3,
+       "reps": null,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      }
+     ],
+     "message": {
+      "type": "propose",
+      "rang": 1,
+      "charges": [
+       81.3
+      ],
+      "marge": 3,
+      "kg": 79.0,
+      "reps": 15,
+      "zone": [
+       10,
+       12
+      ]
+     }
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "coach",
+       "charge": 81.3,
+       "vise": 10
+      },
+      {
+       "role": "retour",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "retour",
+       "charge": 79.0,
+       "vise": 12
+      }
+     ],
+     "fantomes": [
+      null,
+      null,
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      }
+     ],
+     "message": {
+      "type": "pas_encore",
+      "rang": 2,
+      "kg": 81.3,
+      "reps": 12,
+      "palier": 79.0,
+      "a_fond": true
+     }
+    }
+   ]
+  },
+  {
+   "id": "B07",
+   "titre": "3 reps de marge, mais à fond : 79 × 16 RPE 10 — pas de proposition",
+   "consigne": {
+    "etat": "progression",
+    "zone": {
+     "nom": "volume",
+     "bas": 10,
+     "haut": 12
+    },
+    "palier": 79.0,
+    "n": 4,
+    "ligne": {
+     "charge": 79.0,
+     "vise": 12
+    },
+    "haut": null
+   },
+   "contexte": {
+    "cran": 81.3,
+    "haut": null
+   },
+   "series": 4,
+   "faites": [
+    {
+     "charge": 79.0,
+     "reps": 16,
+     "rpe": 10
+    }
+   ],
+   "attendu": [
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      }
+     ],
+     "fantomes": [
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      }
+     ],
+     "message": null
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      }
+     ],
+     "fantomes": [
+      null,
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      }
+     ],
+     "message": null
+    }
+   ]
+  },
+  {
+   "id": "B08",
+   "titre": "3 reps de marge à fond avant un test : 79 × 15 RPE 10 — pas de « ton test arrive avec de la marge »",
+   "consigne": {
+    "etat": "garde",
+    "zone": {
+     "nom": "volume",
+     "bas": 10,
+     "haut": 12
+    },
+    "palier": 79.0,
+    "n": 3,
+    "ligne": {
+     "charge": 79.0,
+     "vise": 12
+    },
+    "haut": {
+     "charge": 81.3,
+     "vise": 11,
+     "k": 1
+    }
+   },
+   "contexte": {
+    "cran": 81.3,
+    "haut": null
+   },
+   "series": 3,
+   "faites": [
+    {
+     "charge": 79.0,
+     "reps": 15,
+     "rpe": 10
+    }
+   ],
+   "attendu": [
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "test",
+       "charge": 81.3,
+       "vise": 11
+      }
+     ],
+     "fantomes": [
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 81.3,
+       "reps": 11,
+       "source": "plan"
+      }
+     ],
+     "message": null
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "test",
+       "charge": 81.3,
+       "vise": 11
+      }
+     ],
+     "fantomes": [
+      null,
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 81.3,
+       "reps": 11,
+       "source": "plan"
+      }
+     ],
+     "message": null
+    }
+   ]
+  },
+  {
+   "id": "B09",
+   "titre": "Plus lourd à fond, le test suit à la même charge : 81,3 × 10 RPE 10 sur la ligne à 79, test à 81,3 — le test vise 9",
+   "consigne": {
+    "etat": "garde",
+    "zone": {
+     "nom": "volume",
+     "bas": 10,
+     "haut": 12
+    },
+    "palier": 79.0,
+    "n": 2,
+    "ligne": {
+     "charge": 79.0,
+     "vise": 12
+    },
+    "haut": {
+     "charge": 81.3,
+     "vise": 11,
+     "k": 1
+    }
+   },
+   "contexte": {
+    "cran": 81.3,
+    "haut": null
+   },
+   "series": 2,
+   "faites": [
+    {
+     "charge": 81.3,
+     "reps": 10,
+     "rpe": 10
+    }
+   ],
+   "attendu": [
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "test",
+       "charge": 81.3,
+       "vise": 11
+      }
+     ],
+     "fantomes": [
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 81.3,
+       "reps": 11,
+       "source": "plan"
+      }
+     ],
+     "message": null
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "test",
+       "charge": 81.3,
+       "vise": 9
+      }
+     ],
+     "fantomes": [
+      null,
+      {
+       "charge": 81.3,
+       "reps": 9,
+       "source": "plan"
+      }
+     ],
+     "message": {
+      "type": "pas_encore_soi",
+      "rang": 1,
+      "kg": 81.3,
+      "reps": 10,
+      "palier": 79.0,
+      "a_fond": true
+     }
+    }
+   ]
+  },
+  {
+   "id": "B10",
+   "titre": "La dernière série à fond : rien à dire",
+   "consigne": {
+    "etat": "progression",
+    "zone": {
+     "nom": "volume",
+     "bas": 10,
+     "haut": 12
+    },
+    "palier": 79.0,
+    "n": 4,
+    "ligne": {
+     "charge": 79.0,
+     "vise": 12
+    },
+    "haut": null
+   },
+   "contexte": {
+    "cran": 81.3,
+    "haut": null
+   },
+   "series": 2,
+   "faites": [
+    {
+     "charge": 79.0,
+     "reps": 12
+    },
+    {
+     "charge": 79.0,
+     "reps": 12,
+     "rpe": 10
+    }
+   ],
+   "attendu": [
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      }
+     ],
+     "fantomes": [
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      }
+     ],
+     "message": null
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      }
+     ],
+     "fantomes": [
+      null,
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      }
+     ],
+     "message": null
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      }
+     ],
+     "fantomes": [
+      null,
+      null
+     ],
+     "message": null
+    }
+   ]
+  },
+  {
+   "id": "B11",
+   "titre": "Un RPE 9,5 n'est pas « à fond » : 79 × 12 — rien ne change",
+   "consigne": {
+    "etat": "progression",
+    "zone": {
+     "nom": "volume",
+     "bas": 10,
+     "haut": 12
+    },
+    "palier": 79.0,
+    "n": 4,
+    "ligne": {
+     "charge": 79.0,
+     "vise": 12
+    },
+    "haut": null
+   },
+   "contexte": {
+    "cran": 81.3,
+    "haut": null
+   },
+   "series": 4,
+   "faites": [
+    {
+     "charge": 79.0,
+     "reps": 12,
+     "rpe": 9.5
+    }
+   ],
+   "attendu": [
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      }
+     ],
+     "fantomes": [
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      }
+     ],
+     "message": null
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      },
+      {
+       "role": "ligne",
+       "charge": 79.0,
+       "vise": 12
+      }
+     ],
+     "fantomes": [
+      null,
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      },
+      {
+       "charge": 79.0,
+       "reps": 12,
+       "source": "plan"
+      }
+     ],
+     "message": null
+    }
+   ]
+  },
+  {
+   "id": "B12",
+   "titre": "Zone Lourd : 130 × 5 RPE 10 — la suivante vise 4",
+   "consigne": {
+    "etat": "progression",
+    "zone": {
+     "nom": "lourd",
+     "bas": 3,
+     "haut": 5
+    },
+    "palier": 130.0,
+    "n": 4,
+    "ligne": {
+     "charge": 130.0,
+     "vise": 5
+    },
+    "haut": null
+   },
+   "contexte": {
+    "cran": 132.5,
+    "haut": null
+   },
+   "series": 4,
+   "faites": [
+    {
+     "charge": 130.0,
+     "reps": 5,
+     "rpe": 10
+    }
+   ],
+   "attendu": [
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 130.0,
+       "vise": 5
+      },
+      {
+       "role": "ligne",
+       "charge": 130.0,
+       "vise": 5
+      },
+      {
+       "role": "ligne",
+       "charge": 130.0,
+       "vise": 5
+      },
+      {
+       "role": "ligne",
+       "charge": 130.0,
+       "vise": 5
+      }
+     ],
+     "fantomes": [
+      {
+       "charge": 130.0,
+       "reps": 5,
+       "source": "plan"
+      },
+      {
+       "charge": 130.0,
+       "reps": 5,
+       "source": "plan"
+      },
+      {
+       "charge": 130.0,
+       "reps": 5,
+       "source": "plan"
+      },
+      {
+       "charge": 130.0,
+       "reps": 5,
+       "source": "plan"
+      }
+     ],
+     "message": null
+    },
+    {
+     "lignes": [
+      {
+       "role": "ligne",
+       "charge": 130.0,
+       "vise": 5
+      },
+      {
+       "role": "ligne",
+       "charge": 130.0,
+       "vise": 4
+      },
+      {
+       "role": "ligne",
+       "charge": 130.0,
+       "vise": 5
+      },
+      {
+       "role": "ligne",
+       "charge": 130.0,
+       "vise": 5
+      }
+     ],
+     "fantomes": [
+      null,
+      {
+       "charge": 130.0,
+       "reps": 4,
+       "source": "plan"
+      },
+      {
+       "charge": 130.0,
+       "reps": 5,
+       "source": "plan"
+      },
+      {
+       "charge": 130.0,
+       "reps": 5,
+       "source": "plan"
+      }
+     ],
+     "message": {
+      "type": "a_fond_suite",
+      "rang": 1,
+      "kg": 130.0,
+      "reps": 5,
+      "vise": 4
+     }
+    }
+   ]
+  }
+ ]
+}

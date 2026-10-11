@@ -14,7 +14,7 @@ contrôle : les 45 cas de 49-U2 à l'identique) ; `REGLES = '68'` applique DECIS
      contredit jamais son chiffre ;
   4. la suggestion d'effort : une montée qui tient PILE au bas de la zone, sans effort noté → message, une fois ;
   5. inchangé : la proposition du coach (§9.14), le refus, le test qui avance.
-Les reps comptées (« à fond » = une de moins, §17.4) ne changent pas ici : c'est 68-2.
+Les reps comptées (« à fond » = une de moins, §17.4) servent toujours aux décisions ; `REGLES = "68B"` (11/10) ajoute « à fond » en séance : pas d’élan ni de proposition, la suivante à la même charge vise une rep de moins (MOTEUR §9.14 ter).
 """
 import json, sys
 
@@ -26,6 +26,7 @@ REGLES = '68'
 
 def comptees(s):                              # §17.4 (inchangé en 68-1)
     return s['reps'] - 1 if (s.get('rpe') or 0) >= 10 or s.get('ressenti') == 'reste_0' else s['reps']
+def est_max(s): return (s.get('rpe') or 0) >= 10 or s.get('ressenti') == 'reste_0'
 def effort_note(s): return s.get('rpe') is not None or s.get('ressenti') is not None
 def eq(a, b): return a is not None and b is not None and abs(a - b) < EPS
 def meme_charge(a, b): return (a is None and b is None) or eq(a, b)
@@ -59,7 +60,17 @@ def reaction(c, ctx, lignes, faites):
     nom, lo, hi = c['zone']; P = c['ligne'][0]; lourd = nom == 'lourd'
     attente = None; refus = False; monte = False; message = None
     leger_dit = False; effort_dit = False; pe_dit = False
+    def a_fond_suite(i, s):
+        # 68B — « à fond » : la série suivante, à la même charge, visée une rep de moins (jamais plus que sa visée)
+        if REGLES != '68B' or not est_max(s) or i + 1 >= len(L) or i + 1 < len(faites): return False
+        x = L[i + 1]
+        if x['role'] not in ('ligne', 'test', 'retour') or not eq(x['kg'], s['kg']): return False
+        v = s['reps'] - 1
+        if v < 1 or x['vise'] is None or x['vise'] <= v: return False
+        L[i + 1] = {'role': x['role'], 'kg': x['kg'], 'vise': v, 'src': 'a_fond', 'remplace': x.get('remplace', x)}
+        return True
     for i, s in enumerate(faites):
+        if i >= 1: a_fond_suite(i - 1, faites[i - 1])
         message = None
         if i >= len(L): break
         prise_ici = False                                             # cette série est-elle la proposition, prise ?
@@ -75,7 +86,7 @@ def reaction(c, ctx, lignes, faites):
             monte = True
             if not prise_ici: continue                                # 11/10 : une autre ligne du coach ne se commente pas (JS : `clos`)
             if s['kg'] >= L[i]['kg'] - EPS if L[i]['kg'] is not None else s['kg'] > P + EPS:
-                if cpt >= lo:
+                if cpt >= lo and not (REGLES == '68B' and est_max(s)):      # 68B : à fond, la charge montée ne reste pas
                     if not lourd:
                         for j in range(i + 1, len(L)):
                             if j < len(faites): continue
@@ -91,19 +102,20 @@ def reaction(c, ctx, lignes, faites):
                             L[j] = {'role': 'retour', 'kg': P, 'vise': c['ligne'][1], 'src': 'retour', 'remplace': L[j].get('remplace', L[j])}
                     if i < len(L) - 1:
                         message = {'type': 'pas_encore', 'rang': i + 1, 'kg': s['kg'], 'reps': s['reps'], 'palier': P}
+                        if REGLES == '68B' and s['reps'] >= lo: message['a_fond'] = True   # la clé n'existe que vraie
             continue
         lig = L[i]
         # 68 (audit du 11/10) — UNE SÉRIE PLUS LÉGÈRE QUE L'ÉLAN LE TERMINE : les lignes d'élan non validées reviennent à
         # leur ligne du plan, et la série se compare à la ligne du plan qu'elle remplaçait.
-        if REGLES == '68' and lig['role'] == 'elan' and s['kg'] < lig['kg'] - EPS:
+        if REGLES in ('68', '68B') and lig['role'] == 'elan' and s['kg'] < lig['kg'] - EPS:
             for j in range(i + 1, len(L)):
                 if j >= len(faites) and L[j]['role'] == 'elan': L[j] = dict(L[j]['remplace'])
             lig = lig['remplace']
         prevue = lig['kg']
         # 68 — l'élan : plus lourd que sa ligne, de son propre chef (ni un test fait à sa charge, ni une ligne du coach)
-        if REGLES == '68' and lig['role'] in ('ligne', 'test', 'retour', 'elan') and prevue is not None and s['kg'] > prevue + EPS:
+        if REGLES in ('68', '68B') and lig['role'] in ('ligne', 'test', 'retour', 'elan') and prevue is not None and s['kg'] > prevue + EPS:
             monte = True
-            if cpt >= lo:
+            if cpt >= lo and not (REGLES == '68B' and est_max(s)):          # 68B : à fond, pas d'élan
                 faits_j = sum(1 for x in L if x['role'] == 'elan')    # Lourd : une ligne d'élan dans tout l'exercice, au plus
                 chg = 0; retour = None
                 for j in range(i + 1, len(L)):
@@ -129,7 +141,7 @@ def reaction(c, ctx, lignes, faites):
         # audit 11/10 : sur une ligne de test, une série À LA CHARGE DE TRAVAIL n'est pas « plus légère » : c'est le test
         # remis à plus tard, et la règle 49 s'applique (la proposition, le test qui suit)
         test_a_p = lig['role'] == 'test' and eq(s['kg'], P)
-        if REGLES == '68' and prevue is not None and s['kg'] < prevue - EPS and lig['role'] in ('ligne', 'test', 'retour', 'elan') and not test_a_p:
+        if REGLES in ('68', '68B') and prevue is not None and s['kg'] < prevue - EPS and lig['role'] in ('ligne', 'test', 'retour', 'elan') and not test_a_p:
             if not leger_dit and i < len(L) - 1:
                 message = {'type': 'plus_leger', 'rang': i + 1, 'kg': s['kg'], 'reps': s['reps'], 'prevue': prevue}
             leger_dit = True
@@ -138,6 +150,7 @@ def reaction(c, ctx, lignes, faites):
             monte = True
             continue
         if monte: continue
+        if REGLES == '68B' and est_max(s): continue                  # 68B : la charge ne monte jamais sur la foi d'une série à fond
         if eq(s['kg'], P) and L[i]['role'] in ('ligne', 'test') and L[i]['src'] == 'consigne' and i < len(L) - 1:
             marge = cpt - L[i]['vise']
             if marge >= SEUIL:
@@ -156,6 +169,10 @@ def reaction(c, ctx, lignes, faites):
                 attente = {'rang': i + 1, 'charges': charges}
                 message = {'type': 'propose', 'rang': i + 1, 'charges': charges, 'marge': marge, 'kg': s['kg'], 'reps': s['reps'], 'zone': (lo, hi)}
                 monte = True
+    if faites and len(faites) <= len(L):
+        k = len(faites) - 1
+        if a_fond_suite(k, faites[k]) and message is None:
+            message = {'type': 'a_fond_suite', 'rang': k + 1, 'kg': faites[k]['kg'], 'reps': faites[k]['reps'], 'vise': faites[k]['reps'] - 1}
     if len(faites) >= len(L): message = None
     return L, message, attente
 
@@ -213,6 +230,11 @@ def verifier_68(c, plan, faites):
     for x in L:
         if x['role'] == 'elan' and x.get('remplace') and x['remplace']['kg'] is not None and x['kg'] < x['remplace']['kg'] - EPS:
             v.append('F3 élan plus léger que la ligne remplacée')
+    for i, x in enumerate(L):                                     # I44 (68B) : une ligne « à fond » suit une série à fond
+        if x.get('src') != 'a_fond': continue
+        if i == 0 or i - 1 >= len(faites): v.append('I44 ligne à fond sans série d avant'); continue
+        d = faites[i - 1]
+        if not (est_max(d) and eq(x['kg'], d['kg']) and x['vise'] == d['reps'] - 1): v.append('I44 ligne à fond incohérente')
     return v
 
 # ── les cas au format de cas-49u2-fantome.json ──────────────────────────────────────────────────────────────────
@@ -230,7 +252,7 @@ def attendu(c, ctx, nb, faites, avec_message_complet=False):
     figees, out, viol = [], [], []
     for j in range(len(faites) + 1):
         p = plan_de_seance(c, ctx, nb, faites[:j], figees)
-        viol += verifier_68(c, p, faites[:j]) if REGLES == '68' else []
+        viol += verifier_68(c, p, faites[:j]) if REGLES in ('68', '68B') else []
         m = p['message']
         out.append({'lignes': [{'role': x['role'], 'charge': x['kg'], 'vise': x['vise']} for x in p['lignes']],
                     'fantomes': [None if f is None else {'charge': f['kg'], 'reps': f['reps'], 'source': f['source']} for f in p['fantomes']],

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>À fond v1</title>
+<style>
+:root{--fond:#0f1114;--panneau:#181b20;--panneau-2:#21252c;--trait:#2c3139;--texte:#eceef2;--texte-2:#9aa1ac;--texte-3:#6f7580;--accent:#f2b84b;
+--pile:"Barlow",system-ui,sans-serif;--pile-c:"Barlow Condensed","Barlow",system-ui,sans-serif}
+*{box-sizing:border-box}
+body{margin:0;background:#07080a;color:var(--texte);font:15px/1.4 var(--pile);display:flex;flex-wrap:wrap;justify-content:center;gap:16px;padding:16px}
+.col{width:100%;max-width:380px;display:flex;flex-direction:column;gap:8px}
+.etiquette{font:600 13px var(--pile-c);text-transform:uppercase;letter-spacing:1.2px;color:var(--accent)}
+.notes{color:var(--texte-2);font-size:13px;margin:0}
+.ecran{background:var(--fond);border:1px solid var(--trait);border-radius:22px;padding:14px 14px 16px}
+.exo{font:700 20px var(--pile-c);margin:0}
+.consigne{color:var(--accent);font-size:14px;margin:2px 0 10px}
+.tete,.ligne{display:grid;grid-template-columns:34px 1fr 1fr 40px;gap:8px;align-items:center}
+.tete{color:var(--texte-3);font-size:12px;text-transform:uppercase;letter-spacing:.8px;padding:0 0 4px}
+.ligne{padding:6px 0;border-top:1px solid var(--trait)}
+.n{color:var(--texte-2);font:600 15px var(--pile-c);text-align:center}
+.n.ch{color:var(--texte-3);font-size:13px}
+.champ{background:var(--panneau-2);border-radius:8px;padding:8px 10px;font:600 17px var(--pile-c);min-height:38px}
+.champ.fant{color:var(--texte-3);font-style:italic;font-weight:500}
+.champ.test{color:#c99a3e}
+.ok{width:36px;height:36px;border-radius:50%;border:2px solid var(--trait);display:grid;place-items:center;color:var(--texte-3)}
+.ok.fait{background:#2f6b45;border-color:#2f6b45;color:#fff}
+.faite .champ{background:transparent}
+.phrase{grid-column:1/-1;border-left:3px solid var(--accent);padding:4px 0 4px 10px;margin:6px 0 2px;font-size:14px}
+.phrase b{font-weight:700}
+.gris{color:var(--texte-2)}
+.carte{background:var(--panneau);border:1px solid var(--trait);border-radius:14px;padding:12px;font-size:14px}
+.carte .t{font:600 12px var(--pile-c);text-transform:uppercase;letter-spacing:1px;color:var(--texte-3);margin-bottom:4px}
+.avant{color:var(--texte-3);text-decoration:line-through}
+.repere{color:var(--texte-3);font-size:12px}
+</style>
+</head>
+<body>
+<section class="col"><div class="etiquette">1 · À fond, à ta charge de travail</div><p class="notes">79 × 12 noté à fond : la série suivante, à la même charge, vise une rep de moins. Le chiffre change, la phrase dit pourquoi.</p><div class="ecran"><p class="exo">Rowing Divergent (Machine)</p><p class="consigne">Aujourd’hui : 79 × 12.</p><div class="tete"><span></span><span>kg</span><span>reps</span><span></span></div><div class="ligne faite"><span class="n">1</span><span class="champ">79</span><span class="champ">12</span><span class="ok fait">✓</span></div><div class="phrase">79 kg × 12 à fond : la suivante vise 11.</div><div class="ligne"><span class="n">2</span><span class="champ fant ">79</span><span class="champ fant">11</span><span class="ok"></span></div><div class="ligne"><span class="n">3</span><span class="champ fant ">79</span><span class="champ fant">12</span><span class="ok"></span></div><div class="ligne"><span class="n">4</span><span class="champ fant ">79</span><span class="champ fant">12</span><span class="ok"></span></div></div><p class="notes">Seulement la série suivante, seulement à la même charge. Aujourd’hui : rien ne bougeait.</p></section>
+<section class="col"><div class="etiquette">2 · Plus lourd, à fond</div><p class="notes">84 × 12 à fond : tu as fait tes reps, mais sans marge. Pas d’élan : la suite reste à ton plan.</p><div class="ecran"><p class="exo">Rowing Divergent (Machine)</p><p class="consigne">Aujourd’hui : 79 × 12.</p><div class="tete"><span></span><span>kg</span><span>reps</span><span></span></div><div class="ligne faite"><span class="n">1</span><span class="champ">84</span><span class="champ">12</span><span class="ok fait">✓</span></div><div class="phrase gris">84 kg × 12 à fond : la suite reste à 79 kg × 12.</div><div class="ligne"><span class="n">2</span><span class="champ fant ">79</span><span class="champ fant">12</span><span class="ok"></span></div><div class="ligne"><span class="n">3</span><span class="champ fant ">79</span><span class="champ fant">12</span><span class="ok"></span></div></div><p class="notes">Sans « à fond » noté, 84 × 12 donnait l’élan (la suite à 84). « À fond » veut dire : plus rien en réserve, on ne garde pas une charge plus lourde que le plan.</p></section>
+<section class="col"><div class="etiquette">3 · La proposition prise, à fond</div><p class="notes">Le coach a proposé 81,3 ; tu fais 81,3 × 12, à fond. C’est tenu, mais sans marge : on revient à 79.</p><div class="ecran"><p class="exo">Rowing Divergent (Machine)</p><p class="consigne">Aujourd’hui : 79 × 12.</p><div class="tete"><span></span><span>kg</span><span>reps</span><span></span></div><div class="ligne faite"><span class="n">1</span><span class="champ">79</span><span class="champ">15</span><span class="ok fait">✓</span></div><div class="ligne faite"><span class="n">2</span><span class="champ">81,3</span><span class="champ">12</span><span class="ok fait">✓</span></div><div class="phrase gris">81,3 kg × 12 à fond : la suite revient à 79 kg × 12.</div><div class="ligne"><span class="n">3</span><span class="champ fant ">79</span><span class="champ fant">12</span><span class="ok"></span></div><div class="ligne"><span class="n">4</span><span class="champ fant ">79</span><span class="champ fant">12</span><span class="ok"></span></div></div><p class="notes">Le pari de la série 2 est tenu (12 reps faites, il en visait 10) : il compte dans ton bilan. Et 3 reps de marge à fond ne déclenchent plus de proposition.</p></section>
+<section class="col"><div class="etiquette">4 · La séance suivante : les mots</div><p class="notes">La consigne ne change pas (pas de rep de plus après une série à fond). Ce qui change : le coach ne te dit plus « pas encore » pour des reps faites.</p><div class="carte"><div class="t">En-tête, phrase grise</div><span class="avant">Ta série à 125 kg × 5, à RPE 10, compte pour 4.</span><br>Ta série à 125 kg × 5 était à RPE 10, sans marge : on ne rajoute pas de rep.</div><div class="carte"><div class="t">Un test fait à fond</div><span class="avant">Mardi : 130 kg × 3, pas encore dans ta zone.</span><br>Mardi : 130 kg × 3 à RPE 10, sans marge. On reteste d’un seul cran.</div><div class="carte"><div class="t">Le constat de fin d’exercice</div><span class="avant">Pas encore : 79 kg × 12, 12, 12.</span><br>79 kg × 12, 12, 12 : tenu, sans marge.</div><div class="carte"><div class="t">Le bilan du mois</div>Un pari visé à 10, fait 10 reps à fond : <b>tenu</b> (avant : compté 9, raté).</div><p class="notes">35 des 79 séances notées à fond (tous profils) voient leurs mots changer. La consigne suivante, elle, reste la même : on refait avant de monter.</p></section>
+</body>
+</html>

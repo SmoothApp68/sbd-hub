@@ -18320,15 +18320,15 @@ const SETS_IMPORTES = [
     CATALOGUE.push(fiche('p75-incline', 'Incliné P75 (Haltère)', 'haltere', 'incline_p75', ['pectoraux']));
     CATALOGUE.push(fiche('p75-lat-h', 'Élévation latérale P75 (Haltère)', 'haltere', 'elevation_laterale_p75', ['deltoide_lateral']));
     CATALOGUE.push(fiche('p75-lat-p', 'Élévation latérale P75 (Poulie)', 'poulie', 'elevation_laterale_p75', ['deltoide_lateral']));
-    // Une séance par exercice et par jour, à midi : le jour civil ne dépend pas du fuseau du navigateur du banc.
+    // Une séance par exercice et par jour, datée par le décor (`ilYa`, `finDe`) : les jours (5 à 340) sont loin des
+    // bornes des périodes (J−182 / J−183, J−365), un changement d'heure n'y change rien.
     const tP75 = Date.now();
     let n75 = 0;
     const seances75 = (slug, jours, lignes) => jours.forEach((j) => {
       n75++;
       const id = '00000000-0000-4000-8750-' + String(n75).padStart(12, '0');
-      const jour = new Date(tP75 - j * 86400000);
-      const debut = new Date(jour.getFullYear(), jour.getMonth(), jour.getDate(), 12, 0, 0).toISOString();
-      base.sessions.push({ id, user_id: 'u-banc', titre: 'Parcours P75', debut, fin: new Date(Date.parse(debut) + 3600000).toISOString(),
+      const debut = ilYa(j * 86400000, tP75).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'Parcours P75', debut, fin: finDe(debut, tP75).toISOString(),
         statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
       lignes.forEach(([reps, kg], r) => base.sets.push({ id: id + '-s' + (r + 1), session_id: id, user_id: 'u-banc',
         exercise_slug: slug, charge_kg: kg, reps, duree_s: null, distance_m: null, type_serie: 'travail', rang: r + 1,

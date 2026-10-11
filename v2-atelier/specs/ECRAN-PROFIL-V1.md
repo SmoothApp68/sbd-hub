@@ -394,6 +394,12 @@ qu'à poser le nouveau mot de passe. **Pas d'écran de plus pour une étape qu'u
   inscrit) : « Compte créé si l'adresse est nouvelle : confirme ton e-mail, puis connecte-toi. Si tu as déjà un compte
   avec cette adresse, aucun mail ne part : utilise « Mot de passe oublié ? ». » — suivi du bouton « Mot de passe
   oublié ? ».
+- **L'attente du lien est bornée, et elle se voit** (décision d'Aurélien, 11/10/2026). Dès que l'adresse porte un
+  retour de lien, un écran « Ouverture du lien… ». Sans réponse du SDK au bout de **5 s** : l'écran de connexion,
+  avec « Le lien n'a pas pu être vérifié. Réessaie, ou redemande-en un avec « Mot de passe oublié ? ». », et
+  l'adresse nettoyée. La même phrase quand le SDK répond sans session à un lien qui portait un jeton. Si le SDK
+  répond **après** le délai, l'app entre d'elle-même — et ouvre la feuille du mot de passe si c'était un lien de
+  récupération. Une session déjà enregistrée sur l'appareil n'est jamais quittée pour autant : on entre avec elle.
 
 L'e-mail, lui, se **lit** et ne se change pas d'ici : le changer demande une
 confirmation sur les deux adresses, et c'est un geste à part entière.

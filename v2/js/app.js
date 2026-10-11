@@ -1160,6 +1160,9 @@
   // mémorise) rend les verdicts, les rapports, le levier et la phrase. Ce que l'écran ajoute ne décide rien : les
   // libellés des priorités, la phase du profil et le nombre de pesées des huit dernières semaines. Rien n'est écrit.
   var JOURS_DES_PESEES = 56, PESEES_SUFFISANTES = 4;
+  function cleDuParcoursDuProfil(p) {
+    return String(p && p.sexe) + '|' + Profil.prioritesDe(p).join(',');
+  }
   function afficherParcours() {
     allerA(Routeur.PARCOURS, {});
     rendreParcours();
@@ -9417,9 +9420,17 @@
     // sinon un aller-retour hors réseau la perdrait en silence, et c'est la
     // famille de défauts que le chantier 32 a coûté.
     if (profilAEnvoyer) { await envoyerProfil(); return; }
+    var parcoursAvant = cleDuParcoursDuProfil(profil);
     profil = distant;
     await sauverProfilLocal();
     if (ecranCourant === 'profil') rendreProfilEcran();
+    // 75 — « Ton parcours » lit le sexe (les repères) et les priorités (le levier) : affiché avant que la ligne
+    // n'arrive (le cache du profil, ou aucun), il se repeint quand l'un des deux change — et seulement alors, pour ne
+    // pas refermer un groupe qu'on vient d'ouvrir. Trouvé par le banc [P75] : la phrase perdait son rapport.
+    if (cleDuParcoursDuProfil(profil) !== parcoursAvant) {
+      if (ecranCourant === 'progression') rendreProgression();
+      else if (ecranCourant === 'parcours') rendreParcours();
+    }
     // Le bandeau de Saisie suit la ligne qui vient d'arriver (il ne s'ouvre pas toujours :
     // séance, feuille ou « Ranger » en cours).
     rendreBandeauQuestionnaire();

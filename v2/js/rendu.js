@@ -1226,12 +1226,12 @@
         carte.appendChild(pied);
         cible.appendChild(carte);
       });
-      cible.appendChild(el('p', 'note', 'Ligne dorée : ton meilleur, à 5 reps ou plus. Points : ton meilleur de chaque mois.'));
+      cible.appendChild(el('p', 'pc-note', 'Ligne dorée : ton meilleur, à 5 reps ou plus. Points : ton meilleur de chaque mois.'));
     }
 
     // Par muscle.
     cible.appendChild(el('div', 'section-t', 'Par muscle · 6 derniers mois'));
-    cible.appendChild(el('p', 'note', 'Chaque exercice comparé à lui-même, au même nombre de reps. Touche un groupe pour le détail.'));
+    cible.appendChild(el('p', 'pc-note', 'Chaque exercice comparé à lui-même, au même nombre de reps. Touche un groupe pour le détail.'));
     var avec = p.zones.filter(function (z) { return z.verdict; }).length;
     p.zones.forEach(function (z) {
       var groupe = el('details', 'pc-groupe');
@@ -1257,7 +1257,7 @@
     // Tes équilibres.
     if (p.rapports.length) {
       cible.appendChild(el('div', 'section-t', 'Tes équilibres'));
-      cible.appendChild(el('p', 'note', 'Tes vraies barres, au même nombre de reps, sur douze mois.'));
+      cible.appendChild(el('p', 'pc-note', 'Tes vraies barres, au même nombre de reps, sur douze mois.'));
       p.rapports.forEach(function (r) {
         var carte = el('div', 'carte-mois pc-rapport');
         carte.appendChild(ligneMois(majuscule(vue.nomsCourts[r.num]) + ' / ' + vue.nomsCourts[r.den],
@@ -1269,13 +1269,13 @@
               vue.nomsCourts[r.num] + ' pour t’y aligner.';
           } else if (r.lecture === 'au-dessus') t += 'Ton ' + vue.nomsCourts[r.num] + ' tire devant.';
           else t += 'Proche.';
-          carte.appendChild(el('p', 'note', t));
+          carte.appendChild(el('p', 'pc-note', t));
         }
         cible.appendChild(carte);
       });
       var pourquoi = el('details', 'pc-pourquoi');
       pourquoi.appendChild(el('summary', null, 'Pourquoi possible'));
-      pourquoi.appendChild(el('p', 'note', 'La morphologie, un mouvement travaillé plus tôt et plus souvent, tes priorités ' +
+      pourquoi.appendChild(el('p', 'pc-note', 'La morphologie, un mouvement travaillé plus tôt et plus souvent, tes priorités ' +
         'passées. Ce sont des repères de pratiquants, pas de compétiteurs. Ce n’est pas une alerte.'));
       cible.appendChild(pourquoi);
     }
@@ -1298,7 +1298,7 @@
     cible.appendChild(el('div', 'section-t', 'Ta phase'));
     var phase = el('div', 'carte-mois pc-phase');
     phase.appendChild(el('div', null, vue.phase));
-    phase.appendChild(el('p', 'note', vue.pesees.assez
+    phase.appendChild(el('p', 'pc-note', vue.pesees.assez
       ? vue.pesees.nombre + ' pesées en huit semaines.'
       : 'Pas assez de pesées : ' + vue.pesees.nombre + ' en huit semaines. Une par semaine suffit.'));
     cible.appendChild(phase);

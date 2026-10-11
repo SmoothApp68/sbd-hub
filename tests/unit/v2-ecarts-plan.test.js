@@ -259,8 +259,9 @@ describe('68A — la version des règles du moteur', () => {
   // Elle s'écrit dans la colonne `predictions.module_version` de chaque pari
   // neuf (`noterPari`, app.js) — pas dans son fondement. Le banc [C68] la
   // relit sur le pari enregistré.
-  test('VERSION_CONSIGNE vaut 11 (l’élan)', () => {
+  // 11 en 68A (l'élan) ; 12 depuis 68B (« à fond », MOTEUR §9.14 ter).
+  test('VERSION_CONSIGNE vaut 12 (l’élan en 68A, puis « à fond » en 68B)', () => {
     expect(M.MODULE_CONSIGNE).toBe('moteur.consigne');
-    expect(M.VERSION_CONSIGNE).toBe(11);
+    expect(M.VERSION_CONSIGNE).toBe(12);
   });
 });

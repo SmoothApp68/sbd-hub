@@ -80,8 +80,8 @@ describe('§12.9 — le compteur, lu par le plan', () => {
   // neutre, MOTEUR §9.20) ; 8 depuis 53-1 (la charge se reporte au changement
   // de zone, MOTEUR §9.10) ; 9 depuis 54-1 (la zone d'une séance se lit à sa
   // fin pour le compteur et le repli, MOTEUR §12.2 bis).
-  // 11 depuis 68A (MOTEUR §9.14 bis, l'élan).
-  test('VERSION_CONSIGNE vaut 11 (68A)', () => {
-    expect(M.VERSION_CONSIGNE).toBe(11);
+  // 11 depuis 68A (MOTEUR §9.14 bis, l'élan) ; 12 depuis 68B (§9.14 ter, « à fond »).
+  test('VERSION_CONSIGNE vaut 12 (68B)', () => {
+    expect(M.VERSION_CONSIGNE).toBe(12);
   });
 });

@@ -2243,7 +2243,12 @@
           // §9.14 bis (68A) — une ligne d'élan se fige comme une ligne du coach :
           // sa charge, la fourchette de la zone, sa source.
           zone: role === 'coach' || role === 'elan' ? bornes : null,
-          source: role === 'coach' || role === 'elan' || role === 'retour' ? role : 'consigne',
+          // §9.14 ter (68B) — une ligne « à fond » se fige avec sa source, son
+          // rôle gardé (`ligne`, `haut`, `retour`) : elle n'est plus la consigne.
+          source: f.source === 'a_fond' && role !== 'coach' && role !== 'elan' ? 'a_fond'
+            : (role === 'coach' || role === 'elan' || role === 'retour' ? role : 'consigne'),
+          sourceAvant: f.source === 'a_fond' && role !== 'coach' && role !== 'elan'
+            ? (role === 'retour' ? 'retour' : 'consigne') : undefined,
           charges: role === 'coach'
             ? (Array.isArray(f.charges) && f.charges.length ? f.charges.slice() : [charge]) : null,
           sourceHaut: role === 'coach' && f.source !== undefined ? f.source : null

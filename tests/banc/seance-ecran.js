@@ -17473,9 +17473,12 @@ const SETS_IMPORTES = [
     await attendre(1800);
     const pari68 = base.predictions.filter((q) => q.exercise_slug === 'rowing-c68' && q.fondement &&
       q.fondement.role === 'elan')[0] || null;
-    ok('[C68] le pari de la série 2 est un pari d’élan : 84 kg, au bas (10), révision 2, version des règles 11',
+    // La version des règles en vigueur, lue dans l'app (11 en 68A, 12 depuis 68B) : un
+    // chiffre recopié ici dériverait à chaque chantier qui la monte.
+    const version68 = await page.evaluate(() => window.THMoteur.VERSION_CONSIGNE);
+    ok('[C68] le pari de la série 2 est un pari d’élan : 84 kg, au bas (10), révision 2, version des règles en vigueur (≥ 11)',
       !!pari68 && pari68.fondement.charge === 84 && pari68.valeur_predite === 10 && pari68.fondement.revision === 2 &&
-      pari68.fondement.source === 'elan' && pari68.module_version === 11,
+      pari68.fondement.source === 'elan' && version68 >= 11 && pari68.module_version === version68,
       nb68(pari68 && { charge: pari68.fondement.charge, valeur: pari68.valeur_predite, rev: pari68.fondement.revision,
         source: pari68.fondement.source, version: pari68.module_version }));
     await invariants68('84 × 11 sur la ligne d’élan');

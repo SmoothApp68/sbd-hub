@@ -717,8 +717,8 @@ describe('50-1 — le contrat du poids du corps', () => {
   // 8 depuis 53-1 (MOTEUR §9.10, le report de charge au changement de zone) ;
   // 9 depuis 54-1 (MOTEUR §12.2 bis, la zone d’une séance lue à sa fin) ;
   // 10 depuis 55-1 (MOTEUR §12.2 bis, une séance sans fin finit 3 h au plus après son début) ;
-  // 11 depuis 68A (MOTEUR §9.14 bis, l'élan).
-  test('la version de la consigne a changé : 11 depuis (6 en 50-1)', () => {
-    expect(M.VERSION_CONSIGNE).toBe(11);
+  // 11 depuis 68A (MOTEUR §9.14 bis, l'élan) ; 12 depuis 68B (§9.14 ter, « à fond »).
+  test('la version de la consigne a changé : 12 depuis (6 en 50-1)', () => {
+    expect(M.VERSION_CONSIGNE).toBe(12);
   });
 });

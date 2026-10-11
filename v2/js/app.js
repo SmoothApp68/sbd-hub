@@ -4820,9 +4820,11 @@
     // série, encore en base, n'est jamais réécrite par celle-ci.
     if (!Seance.peutObserver(ligne, serie, series)) return;
     var enBase = Seance.partEnBase(serie);
+    // MOTEUR §9.11, §17.4 révisés (68B) — l'observation compte les reps
+    // FAITES : une série à fond n'en perd plus une (ce qui se dit et s'observe).
     var vue = Moteur.observationDe(ligne.fondement, {
       enBase: enBase, id: serie.id, charge: serie.charge_kg,
-      reps: enBase ? Palier.repsComptees(serie) : null
+      reps: enBase && serie.reps !== undefined ? serie.reps : null
     });
     var etaitSienne = ligne.set_observe && serie.id && ligne.set_observe === serie.id;
     // Ni reliée maintenant, ni reliée par cette série avant : rien à dire.

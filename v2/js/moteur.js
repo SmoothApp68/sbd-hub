@@ -3888,6 +3888,19 @@
     return uuidDuNom('escalier|' + String(seance) + '|' + (exercice ? String(exercice) : '') + '|' + String(marche));
   }
 
+  // 69 (ECRAN-PROFIL §2.4 quater) — L'IDENTIFIANT D'UNE SÉANCE IMPORTÉE, et de
+  // ses séries, dans un espace de noms à part : `import|personne|référence`
+  // pour la séance, `…|rang` pour une série (`rang` absent : la séance). Un
+  // envoi rejoué, un import recommencé ou fait depuis un autre téléphone
+  // écrivent LA MÊME LIGNE — jamais un 23505 sur `sessions_source_ref_uniq`,
+  // donc jamais une file bloquée. Un nom de pari commence par l'identifiant
+  // d'une séance, un nom d'escalier par `escalier|` : aucun ne peut le croiser.
+  async function idDImport(personne, sourceRef, rang) {
+    var nom = 'import|' + String(personne) + '|' + String(sourceRef);
+    if (rang !== undefined && rang !== null) nom += '|' + String(rang);
+    return uuidDuNom(nom);
+  }
+
   // L'empreinte d'un nom : `crypto.subtle` quand il est là, sinon — ou s'il
   // échoue — le SHA-256 pur. Les deux rendent les mêmes 32 octets ; aucun
   // chemin ne tire au hasard.
@@ -6746,6 +6759,7 @@
     REPORT_FENETRE_JOURS: REPORT_FENETRE_JOURS,
     idDePrediction: idDePrediction,
     idDEscalier: idDEscalier,
+    idDImport: idDImport,
     sha256Pur: sha256Pur,
     utf8: utf8,
     observationDe: observationDe,

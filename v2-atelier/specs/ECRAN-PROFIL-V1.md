@@ -113,6 +113,98 @@ exercices jamais faits**, avec la dernière séance, et un tap ouvre la page de 
 **Une liste dans le profil règle ça, et elle ne coûte rien** : les 237 exercices et leurs
 dernières dates sont en base. Tri par dernière utilisation, recherche par nom.
 
+
+### 2.4 quater Importer depuis Hevy — décidé le 11/10/2026 (chantier 69)
+
+> **Chacun apporte ses séances Hevy lui-même** : en collant le texte que Hevy partage (une séance ou plusieurs à la
+> suite), ou en donnant l'export CSV (tout l'historique). Le déroulé est celui du v1 — coller, voir un aperçu,
+> importer. Deux choses changent : **une séance déjà là n'est jamais remplacée**, et **un nom inconnu n'est jamais
+> deviné**.
+
+**L'entrée.** Profil, section **« MES DONNÉES »** (juste après « MES EXERCICES »), une ligne **« Importer depuis
+Hevy »**. L'écran offre deux choix : « Coller des séances » (un champ, « Lire le texte ») et « Choisir le fichier de
+Hevy » (un `.csv`). Les deux mènent au **même aperçu**. L'aperçu lit les noms d'exercices en base : il demande une
+connexion (« L'import demande une connexion. »).
+
+**Le texte partagé** (forme relevée le 11/10 sur 5 séances réelles ; c'est celle que lisait le v1) :
+
+```
+Pecs - Dos
+Le mardi, sept. 22, 2026 à 5:12pm
+
+Développé Couché (Barre)
+Série 1: 20 kg x 15 [Échauffement]
+Série 8: 130 kg x 4
+Tractions
+"Max de séries à 7 rep"
+Série 1: 7 répétitions
+…
+@hevyapp
+https://hevy.com/workout/4Xt0ZOlgoUw
+```
+
+- une séance = un titre, une ligne de date (`Le <jour>, <mois abrégé> <jour>, <année> à <h>:<mm><am|pm>`), des
+  exercices, puis `@hevyapp` et le lien `hevy.com/workout/<id>` ; plusieurs séances se suivent ;
+- la ligne **entre guillemets** juste sous un nom d'exercice est sa **note** ;
+- une série : `<charge> kg x <reps>` · `<reps> répétitions` · une durée (`30s`, `5min 0s`, `5h 25min 5s`) ·
+  `<distance> km - <durée>` ; `@ <n> rpe` ; `lbs` se convertit (× 0,45359237, au dixième) ;
+- **`[Échauffement]` → échauffement ; `[Abandon]` → dégressive** (relevé : 5 fois sur 5, une série plus légère juste
+  après la dernière ; l'import du 19 au 25/09 les a rangées ainsi) ; `[Échec]` → échec ; un autre crochet → travail.
+
+**Le CSV** : `title, start_time, end_time, description, exercise_title, superset_id, exercise_notes, set_index,
+set_type, weight_kg, reps, distance_km, duration_seconds, rpe` ; dates « 16 juin 2026, 10:24 » (mois abrégés en
+français) ; `set_type` normal → travail, warmup → échauffement, dropset → dégressive, failure → échec ; `description`
+→ la note de la séance ; `exercise_notes` → la note de l'exercice ; `superset_id` → `groupe_superset`, **un superset
+d'un seul exercice n'en est pas un** (ECRAN-SAISIE §5.9) ; une distance ou une durée à 0 est vide.
+
+**L'heure.** Hevy écrit l'heure **locale, sans fuseau**. Elle se lit dans le fuseau du téléphone et part en base en
+heure universelle. *(L'import CSV d'août l'avait écrite telle quelle : 1 221 séances décalées de 1 à 2 h, corrigées
+par `v2_075` le 11/10, records compris.)*
+
+**La référence d'import** : `sessions.source = 'hevy'` ; `source_ref` = `hevy:<id du lien>` pour le texte,
+`hevy:<début local AAAA-MM-JJTHH:MM:SS>` pour le CSV (la forme de l'import d'août).
+
+**Les noms.** Un nom se cherche, sans accents ni casse, dans le catalogue (`exercises.nom`), dans les noms communs
+(`exercise_alias`), puis dans **les rattachements de la personne** (`alias_exercice`, `v2_076`). Introuvable : il
+est **« à rattacher »** — la personne choisit l'exercice dans le catalogue (avec ses filtres, §7 quindecies.10 de
+ECRAN-SAISIE), la recherche pré-remplie ; le choix s'écrit dans `alias_exercice` et vaut pour les imports suivants
+(« Je m'en souviendrai pour tes prochains imports. »). Ou **« Ne pas importer cet exercice »** : ses séries ne
+partent pas, et ce choix-là n'est pas retenu. « Importer » attend que chaque nom soit rattaché ou laissé de côté.
+
+**L'anti-doublon** — chaque séance lue reçoit un verdict, contre **toutes** les séances de la personne :
+
+| Verdict | Quand | Dans l'aperçu |
+|---|---|---|
+| **déjà là** | même `source_ref`, **ou** même minute de début, quelle que soit l'origine | grisée, « Déjà dans l'app — laissée telle quelle », jamais écrite |
+| **sans doute la même** | elle **commence pendant** une séance de la personne (de son début à sa fin ; fin inconnue : 3 h au plus, MOTEUR §12.2 bis) **et** partage au moins un exercice avec elle | **décochée**, « Une séance de l'app commence à 17 h 40 ce jour-là : sans doute la même. » ; cochable |
+| **nouvelle** | sinon | cochée |
+
+Deux activités qui se suivent (un run de 8 h à 10 h, un autre à 12 h ; deux séances enchaînées) ne se chevauchent
+pas : elles sont importées. Une séance existante n'est **jamais** modifiée ni remplacée.
+
+**L'aperçu** : « N séances trouvées », la période, une ligne par séance (titre, jour et heure, « 7 exercices · 24
+séries » ou le verdict), puis « K exercices à rattacher ». **Rien n'est écrit avant « Importer N séances ».**
+
+**L'écriture** passe par la file d'envoi, comme une séance terminée, jamais par un autre chemin :
+- la séance : `statut 'terminee'`, `visibilite` par défaut, `titre`, `note` (la description), `debut`, `fin` (CSV) ;
+- ses séries : `source 'hevy'`, `validee_a` vide, `rang` dans l'ordre de lecture, la note de l'exercice sur chacune
+  de ses séries ;
+- **les identifiants sont tirés du nom** (`import|<personne>|<source_ref>`, et `…|<rang>` pour une série) : un envoi
+  rejoué, une importation recommencée ou faite depuis un autre téléphone écrivent la même ligne ;
+- **les records** : une séance importée **plus récente que la dernière séance déjà là** de la personne inscrit ses
+  records au journal (comme une séance terminée), dans l'ordre des dates. **Plus ancienne, aucun** : le journal ne se
+  réécrit pas, et un record inscrit après coup dans le passé serait faux pour tout ce qui a suivi ;
+- **aucun pari du coach** n'est écrit pour une séance importée.
+
+**Après** : « N séances importées. » puis, s'il y a lieu, « K étaient déjà dans l'app, J laissées de côté. » et
+« Elles comptent dès maintenant pour ton coach et ta progression. » Un long historique avance par paquets
+(« 312 séances sur 601 ») ; interrompu, il reprend : une séance écrite est reconnue.
+
+**Écarté** : l'API de Hevy (ne donne que les séances d'un compte Hevy Pro ; noté pour après la passe sécurité) ;
+deviner un nom « au plus près » (le v1 le faisait : une erreur fausserait les charges que le coach prescrit, sans
+que rien ne le montre) ; remplacer une séance du même jour et du même titre (le v1 le faisait) ; les pesées de Hevy
+(un autre fichier, plus tard).
+
 ### 2.4 ter Le niveau MESURÉ — retiré du profil le 18/09/2026
 
 **Piste explorée puis abandonnée.** Hevy affiche un « Strength Level » qui compare la meilleure

@@ -22,6 +22,7 @@
   var Seance = racine.THSeance, Attente = racine.THAttente;
   var Profil = racine.THProfil, Moteur = racine.THMoteur, Plan = racine.THPlan;
   var Questionnaire = racine.THQuestionnaire;
+  var Import = racine.THImportHevy;
   var Generateur = racine.THGenerateur;
   var Rejeu = racine.THRejeu, Bilan = racine.THBilan;
   // 64B — le jeu (JEU-V1 §9) : l'écran le LIT, il ne le refait pas ; le coach ne le lit jamais.
@@ -1592,6 +1593,10 @@
     // par le dernier `return` sans rien écrire — la perte silencieuse que la
     // file existe pour empêcher.
     if (op.table === Attente.PESEES) return Donnees.enregistrerPesee(op.donnees);
+    // 69 — le rattachement d'un nom importé : un `upsert` sur (user_id,
+    // alias_norme) qui FUSIONNE. Sans cette branche, l'entrée serait vidée par
+    // le dernier `return` sans rien écrire.
+    if (op.table === Attente.ALIAS) return Donnees.enregistrerAlias(op.donnees);
     // §6 — l'intention porte l'ÉTAT VOULU de la routine, pas un chemin pour y
     // aller : le plan d'écritures se calcule à la vidange, contre ce que la
     // routine est devenue entre-temps. C'est de là que vient l'idempotence.
@@ -7280,7 +7285,7 @@
   // Le catalogue sert trois intentions, et c'est lui qui les distingue :
   // ajouter en fin de séance (rien), insérer APRÈS un bloc (`apres`), ou
   // REMPLACER un exercice (`remplace`).
-  var intentionCatalogue = { apres: null, remplace: null, apercu: null };
+  var intentionCatalogue = { apres: null, remplace: null, apercu: null, rattacher: null };
 
   // ⚠️ DEUX INDICES, ET RIEN D'AUTRE (chantier 33). Les deux boutons généraux
   // étaient câblés `addEventListener('click', ouvrirCatalogue)` : le gestionnaire
@@ -7308,15 +7313,21 @@
     return Plan.seriesDeDepart(c ? c.consigne : null, precedentDe(slug), intentionDeLExercice(slug));
   }
 
-  function ouvrirCatalogue(apres, remplace, apercu) {
+  function ouvrirCatalogue(apres, remplace, apercu, rattacher) {
     // 60-4 — `apercu` : le catalogue ouvert depuis « Remplacer » de l'aperçu du programme construit
     // (`{ i, k, retour }`) : le choix prend la place de CETTE ligne, et `retour` rouvre l'aperçu à la fermeture.
-    intentionCatalogue = { apres: indiceOuNul(apres), remplace: indiceOuNul(remplace), apercu: apercu || null };
+    // 69 — `rattacher` : le nom Hevy à rattacher (ECRAN-PROFIL §2.4 quater). Le MÊME catalogue, ses filtres
+    // compris : le choix retourne à l'aperçu de l'import, sans toucher ni séance ni routine.
+    intentionCatalogue = { apres: indiceOuNul(apres), remplace: indiceOuNul(remplace), apercu: apercu || null,
+                           rattacher: rattacher || null };
+    $('titre-catalogue').hidden = !rattacher;
+    $('titre-catalogue').textContent = rattacher ? Import.titreRattacher(rattacher) : '';
+    $('pied-rattacher').hidden = !rattacher;
     // 60-1 — les exercices déjà faits, relevés UNE FOIS à l'ouverture : la
     // recherche se relance à chaque frappe, et le balayage des séries est le
     // coût que `faits` garde déjà hors de la saisie.
     faitsDuCatalogue = null;
-    $('champ-recherche-exo').value = '';
+    $('champ-recherche-exo').value = rattacher ? Import.rechercheDe(rattacher) : '';
     // 67B (ES §7 quindecies.10) — les filtres reviennent à zéro à chaque ouverture : un filtre oublié cacherait des
     // exercices la fois suivante.
     filtresCatalogue = { equipement: null, muscle: null };
@@ -7408,7 +7419,10 @@
       function (exo) {
         // `fermerVoile` rouvre l'aperçu du programme construit (son `retour`) ; le choix prend alors la place.
         var versApercu = intentionCatalogue.apercu;
+        // 69 — le nom Hevy rattaché : le choix retourne à l'aperçu de l'import.
+        var nomHevy = intentionCatalogue.rattacher;
         fermerVoile();
+        if (nomHevy) return rattacherNom(nomHevy, exo.slug);
         if (versApercu) return poserDansLeProgramme(versApercu.i, versApercu.k, exo.slug);
         if (pourSeance) {
           // §14.7 (49-U17, delta 49-35) — l'exercice ajouté dont la série de
@@ -10298,6 +10312,11 @@
             sous: exos.total + ' au catalogue · ' + exos.faits + ' déjà faits',
             surChoix: function () { allerA(Routeur.EXERCICES, {}); rendreMesExercices(); } }
         ] },
+        // 69 (ECRAN-PROFIL §2.4 quater) — « MES DONNÉES », juste après « MES EXERCICES ».
+        { titre: 'MES DONNÉES', lignes: [
+          { libelle: 'Importer depuis Hevy', sansValeur: true,
+            surChoix: function () { allerA(Routeur.IMPORT, {}); ouvrirImport(); } }
+        ] },
         { titre: 'MON CORPS', lignes: [
           // Le poids n'est pas un champ du profil : il a 116 pesées derrière lui
           // et son propre écran. La ligne MÈNE, elle ne saisit pas.
@@ -10464,6 +10483,318 @@
     // magasin `meta` compris — donc le profil, la file et le brouillon.
     profil = null; profilAEnvoyer = false;
     await deconnecter();
+  }
+
+  // ══ IMPORTER DEPUIS HEVY (69, ECRAN-PROFIL §2.4 quater) ═════════════════
+  //
+  // Coller le texte que Hevy partage, ou donner l'export CSV : les deux mènent
+  // au MÊME aperçu (`THImportHevy`, pur), et rien n'est écrit avant
+  // « Importer ». Deux règles tiennent tout :
+  //   · une séance déjà là n'est JAMAIS remplacée (verdict `deja_la`) ;
+  //   · un nom inconnu n'est JAMAIS deviné : la personne le rattache par le
+  //     catalogue (le choix s'écrit dans `alias_exercice`, par la file), ou le
+  //     laisse de côté.
+  // L'écriture passe par la file d'envoi, comme une séance terminée — la
+  // séance et ses séries par les branches existantes (`SESSIONS`, `SETS`), ses
+  // records par `poserJournal` — avec des identifiants tirés du nom
+  // (`Moteur.idDImport`). Aucun pari du coach n'est écrit.
+  var importHevy = null;
+  // Un paquet : 25 séances posées d'un coup (une écriture de la file), puis on
+  // attend qu'elles soient montées avant le suivant — la file ne porte jamais
+  // tout un historique, et « 312 séances sur 601 » dit ce qui est en base.
+  var SEANCES_PAR_PAQUET = 25, ATTENTE_ENVOI_MS = 250;
+
+  function importNeuf() { return { etape: 'choix', texte: '', erreur: null, occupe: false }; }
+
+  function ouvrirImport() {
+    if (!importHevy || importHevy.etape !== 'en_cours') importHevy = importNeuf();
+    rendreImportEcran();
+  }
+
+  function importEnLigne() {
+    return !(racine.navigator && racine.navigator.onLine === false) && !!userId();
+  }
+
+  // Toutes les séances de la personne, telles que l'anti-doublon les lit.
+  function baseDeLaPersonne() {
+    return (local.seances || []).filter(Boolean).map(function (s) {
+      var slugs = {};
+      seriesDe(s.id).forEach(function (x) { if (x && x.exercise_slug) slugs[x.exercise_slug] = true; });
+      return { source_ref: s.source_ref || null, debut: s.debut, fin: s.fin || null, slugs: Object.keys(slugs) };
+    });
+  }
+
+  function indexDeLImport() { return Import.indexDesNoms(importHevy.sources); }
+
+  async function lireImport(genre, texte) {
+    var imp = importHevy;
+    if (!imp || imp.occupe) return;
+    var M = Import.MESSAGES;
+    imp.erreur = null;
+    var lues = null;
+    try { lues = genre === 'csv' ? Import.lireCsv(texte) : Import.lireTexte(texte); }
+    catch (e) { lues = null; }
+    // ⚠️ UNE SÉANCE COLLÉE SANS SON LIEN n'a pas de référence (`hevy:<id>`) :
+    // ni l'anti-doublon ni l'identifiant tiré du nom ne la tiendraient. Le
+    // texte est refusé en entier — jamais à moitié lu.
+    if (!lues || !lues.length || lues.some(function (l) { return !l.ref; })) {
+      imp.erreur = genre === 'csv' ? M.fichier : M.texte;
+      return rendreImportEcran();
+    }
+    // L'aperçu lit les noms d'exercices EN BASE : il demande une connexion (et
+    // le catalogue, sans lequel tout nom serait « à rattacher »).
+    if (!importEnLigne() || !local.exercices.length) { imp.erreur = M.connexion; return rendreImportEcran(); }
+    imp.occupe = true;
+    rendreImportEcran();
+    var g = generation;
+    var communs, miens;
+    try {
+      communs = await Donnees.aliasCommuns();
+      miens = await Donnees.mesAlias();
+    } catch (e) {
+      if (!generationValide(g) || importHevy !== imp) return;
+      imp.occupe = false;
+      imp.erreur = M.connexion;
+      return rendreImportEcran();
+    }
+    if (!generationValide(g) || importHevy !== imp) return;
+    imp.occupe = false;
+    imp.sources = { catalogue: local.exercices, communs: communs || [], miens: miens || [] };
+    imp.fuseau = Import.fuseauDuTelephone();
+    imp.lignes = Import.apercu(lues, { sources: imp.sources, base: baseDeLaPersonne(), fuseau: imp.fuseau });
+    imp.ignores = {};
+    imp.etape = 'apercu';
+    rendreImportEcran();
+  }
+
+  async function lireFichierHevy() {
+    var champ = $('fichier-hevy');
+    var f = champ && champ.files && champ.files[0];
+    if (!f || !importHevy) return;
+    var texte = null;
+    try { texte = await f.text(); } catch (e) { texte = null; }
+    if (texte === null) {
+      importHevy.erreur = Import.MESSAGES.fichier;
+      return rendreImportEcran();
+    }
+    return lireImport('csv', texte);
+  }
+
+  // Le rattachement d'un nom : le choix vaut pour cet import (l'index de
+  // l'aperçu) ET pour les suivants (`alias_exercice`, par la file).
+  async function rattacherNom(nom, slug) {
+    var imp = importHevy;
+    if (!imp || imp.etape !== 'apercu' || !slug) return;
+    imp.sources.miens = (imp.sources.miens || []).concat([{ alias: nom, exercise_slug: slug }]);
+    delete imp.ignores[nom];
+    rendreImportEcran();
+    // `alias_exercice_alias_check` : non vide, 120 caractères au plus. Un nom
+    // plus long vaut pour cet import, sans être retenu — l'écrire bloquerait la
+    // file sur un 23514 (définitif).
+    var alias = String(nom).trim();
+    if (alias && alias.length <= 120) await poserAlias(alias, slug);
+  }
+
+  // ⚠️ LE SEUL CHEMIN D'UNE ENTRÉE `alias_exercice` dans la file (la garde
+  // d'architecture le dit). L'identifiant d'entrée est le nom NORMALISÉ, comme
+  // la colonne générée `alias_norme` : deux choix pour le même nom se
+  // compressent, le dernier gagne.
+  function poserAlias(alias, slug) {
+    return poser({ table: Attente.ALIAS, op: Attente.UPSERT, id: Import.norme(alias),
+                   donnees: { user_id: userId(), alias: alias, exercise_slug: slug } });
+  }
+
+  function ignorerNom(nom) {
+    if (!importHevy || importHevy.etape !== 'apercu') return;
+    importHevy.ignores[nom] = true;
+    rendreImportEcran();
+  }
+
+  function cocherImport(i) {
+    var l = importHevy && importHevy.lignes && importHevy.lignes[i];
+    if (!l || l.verdict === 'deja_la') return;
+    l.coche = !l.coche;
+    rendreImportEcran();
+  }
+
+  // Poser plusieurs intentions, puis UNE écriture de la file : un paquet de 25
+  // séances, c'est 50 entrées, et `Cache.ecrireAttente` réécrit toute la file.
+  async function poserPaquet(ops) {
+    ops.forEach(function (op) { attente = Attente.poser(attente, op); });
+    try { await Cache.ecrireAttente(attente); }
+    catch (e) { console.warn('File non persistée :', texteErreur(e)); }
+    rendreEtatSync();
+    vidanger();
+  }
+
+  // Le pendant d'`adopterLocalement`, pour un paquet : les séances importées
+  // rejoignent le cache de lecture tout de suite (et l'anti-doublon d'un import
+  // repris les reconnaît).
+  function adopterImportees(modeles) {
+    var lignes = [], series = [];
+    modeles.forEach(function (m) {
+      lignes.push(Seance.ligneSession(m));
+      Seance.lignes(m).forEach(function (l) { series.push(l); });
+    });
+    local.seances = Sync.fusionner(local.seances, lignes);
+    local.series = Sync.fusionner(local.series || [], series);
+    rangerSeances();
+    indexerParSeance();
+    recalculerEtats();
+    Cache.remplacerTout('seances', local.seances).catch(function () {});
+    Cache.ecrireLot('series', series).catch(function () {});
+  }
+
+  // Attend que les séances d'un paquet soient montées. `connexion` : le réseau
+  // est parti, ou un envoi a échoué (ce qui est posé reste dans la file et
+  // partira) ; `bloque` : un refus définitif.
+  async function attendreEnvoi(ids, g) {
+    var vise = {};
+    ids.forEach(function (id) { vise[id] = true; });
+    for (;;) {
+      if (!generationValide(g)) return 'arret';
+      var reste = (attente || []).filter(function (e) {
+        return e && (e.table === Attente.SESSIONS || e.table === Attente.SETS) && vise[e.id];
+      });
+      if (!reste.length) return 'ok';
+      if (reste.some(function (e) { return !!e.bloquee; })) return 'bloque';
+      if (!importEnLigne() || reste.some(function (e) { return (e.essais || 0) > 0; })) return 'connexion';
+      await new Promise(function (r) { setTimeout(r, ATTENTE_ENVOI_MS); });
+      vidanger();
+    }
+  }
+
+  function serieParRang(liste) { return function (rang) { return liste[rang - 1]; }; }
+
+  async function importerHevy() {
+    var imp = importHevy;
+    if (!imp || imp.etape !== 'apercu') return;
+    var index = indexDeLImport();
+    if (!Import.pretAImporter(imp.lignes, index, imp.ignores)) return;
+    if (!importEnLigne()) { imp.erreur = Import.MESSAGES.connexion; return rendreImportEcran(); }
+    var uid = userId();
+    var g = generation;
+    // ⚠️ LES RECORDS : seulement pour une séance plus récente que la dernière
+    // séance déjà là (`Import.avecRecords`). La borne est relevée AVANT
+    // d'écrire quoi que ce soit : les séances déjà là, telles qu'elles sont.
+    var dejaLa = (local.seances || []).slice();
+    var choisies = imp.lignes.filter(function (l) { return l.coche && l.verdict !== 'deja_la'; })
+      .map(function (l) { return l.seance; })
+      .sort(function (a, b) { return Date.parse(a.debut) - Date.parse(b.debut); });
+    var resultat = {
+      importees: 0,
+      dejaLa: imp.lignes.filter(function (l) { return l.verdict === 'deja_la'; }).length,
+      deCote: imp.lignes.filter(function (l) { return !l.coche && l.verdict !== 'deja_la'; }).length,
+      arret: null
+    };
+    imp.etape = 'en_cours';
+    imp.progression = { fait: 0, total: choisies.length };
+    rendreImportEcran();
+    for (var p = 0; p < choisies.length; p += SEANCES_PAR_PAQUET) {
+      if (!generationValide(g)) return;
+      if (!importEnLigne()) { resultat.arret = 'connexion'; break; }
+      var paquet = choisies.slice(p, p + SEANCES_PAR_PAQUET);
+      var ops = [], modeles = [];
+      for (var k = 0; k < paquet.length; k++) {
+        var s = paquet[k];
+        var n = Import.seriesAEcrire(s, index);
+        var idsSeries = [];
+        for (var r = 1; r <= n; r++) idsSeries.push(await Moteur.idDImport(uid, s.ref, r));
+        var ids = { seance: await Moteur.idDImport(uid, s.ref), serie: serieParRang(idsSeries) };
+        var m = Import.seanceAEcrire(s, ids, index, uid);
+        // Tous ses exercices laissés de côté : une séance vide n'est pas importée.
+        if (!m) { resultat.deCote++; continue; }
+        ops.push({ table: Attente.SESSIONS, op: Attente.UPSERT, id: m.id, donnees: Seance.ligneSession(m), creation: true });
+        ops.push({ table: Attente.SETS, op: Attente.REMPLACER, id: m.id, donnees: Seance.lignes(m) });
+        modeles.push(m);
+      }
+      if (!generationValide(g)) return;
+      if (modeles.length) {
+        await poserPaquet(ops);
+        adopterImportees(modeles);
+        // Les records, dans l'ordre des dates, des seules séances plus récentes
+        // que la dernière déjà là — comme une séance terminée, par le journal.
+        var recentes = Import.avecRecords(modeles, dejaLa);
+        if (recentes.length) {
+          var avecSeries = {};
+          faits.seancesAvecSeries(corpus()).forEach(function (se) { if (se) avecSeries[se.id] = se; });
+          for (var j = 0; j < recentes.length; j++) {
+            var se = avecSeries[recentes[j].id];
+            if (se) await poserJournal(faits.journalDeLaSeance(corpus(), se, uid), se.id, se.id);
+          }
+        }
+        resultat.importees += modeles.length;
+      }
+      imp.progression.fait = Math.min(choisies.length, p + paquet.length);
+      if (importHevy === imp) rendreImportEcran();
+      if (modeles.length) {
+        var envoi = await attendreEnvoi(modeles.map(function (x) { return x.id; }), g);
+        if (envoi === 'arret') return;
+        if (envoi !== 'ok') { resultat.arret = envoi; break; }
+      }
+    }
+    imp.etape = 'fini';
+    imp.resultat = resultat;
+    if (importHevy === imp && ecranCourant === 'import') rendreImportEcran();
+  }
+
+  function vueImport() {
+    var imp = importHevy, M = Import.MESSAGES;
+    var v = {
+      etape: imp.etape, texte: imp.texte, erreur: imp.erreur, occupe: imp.occupe,
+      surSaisie: function (t) { imp.texte = t; },
+      surLireTexte: function (t) { imp.texte = t; lireImport('texte', t); },
+      surChoisirFichier: function () {
+        var f = $('fichier-hevy');
+        if (!f) return;
+        f.value = '';
+        f.click();
+      },
+      surHistorique: function () {
+        importHevy = null;
+        allerA(Routeur.RACINE, {});
+        rendreSemaine(Semaine.bornesSemaine(new Date()).lundi);
+      }
+    };
+    if (imp.etape === 'en_cours') {
+      v.progression = { fait: imp.progression.fait, total: imp.progression.total,
+        texte: imp.progression.fait + ' séances sur ' + imp.progression.total };
+    } else if (imp.etape === 'fini') {
+      v.fin = Import.phrasesDeFin(imp.resultat);
+      v.fin.connexion = imp.resultat.arret ? M.connexion : null;
+    } else if (imp.etape === 'apercu') {
+      var index = indexDeLImport();
+      var annee = new Date().getFullYear();
+      var n = imp.lignes.length;
+      v.titre = n + (n > 1 ? ' séances trouvées' : ' séance trouvée');
+      v.periode = Import.periode(imp.lignes, annee);
+      v.lignes = imp.lignes.map(function (l) {
+        return { titre: l.seance.titre || 'Séance', quand: Import.jourEtHeure(l.seance.debut_local, annee),
+                 sous: Import.sousLigne(l, imp.fuseau), coche: l.coche && l.verdict !== 'deja_la',
+                 grise: l.verdict === 'deja_la' };
+      });
+      v.surCocher = cocherImport;
+      var noms = Import.nomsARattacher(imp.lignes, index, imp.ignores);
+      v.noms = noms.map(function (x) {
+        return { nom: x.nom, aide: x.series + (x.series > 1 ? ' séries, ' : ' série, ') + x.seances +
+          (x.seances > 1 ? ' séances' : ' séance') + (x.ignore ? ' · laissé de côté' : '') };
+      });
+      var aRattacher = noms.filter(function (x) { return !x.ignore; }).length;
+      v.titreNoms = noms.length + (noms.length > 1 ? ' exercices à rattacher' : ' exercice à rattacher');
+      v.surChoisirNom = function (nom) { ouvrirCatalogue(null, null, null, nom); };
+      var k = imp.lignes.filter(function (l) { return l.coche && l.verdict !== 'deja_la'; }).length;
+      v.bouton = { libelle: k ? 'Importer ' + k + (k > 1 ? ' séances' : ' séance') : 'Importer',
+                   actif: Import.pretAImporter(imp.lignes, index, imp.ignores) };
+      v.attend = k && aRattacher ? M.attend : null;
+      v.surImporter = function () { importerHevy().catch(function (e) { console.warn('Import :', texteErreur(e)); }); };
+    }
+    return v;
+  }
+
+  function rendreImportEcran() {
+    if (!importHevy) importHevy = importNeuf();
+    montrer('import', Routeur.IMPORT);
+    Rendu.rendreImport($('import-hevy'), vueImport());
   }
 
   // ── Tous mes exercices (§2.4 bis) ────────────────────────────────────────
@@ -10735,6 +11066,7 @@
     if (cible.vue === Routeur.INSCRIPTION) return rendreEntree('inscription');
     if (cible.vue === Routeur.PROFIL) return rendreProfilEcran();
     if (cible.vue === Routeur.EXERCICES) return rendreMesExercices();
+    if (cible.vue === Routeur.IMPORT) return rendreImportEcran();
     // 64B — LA GARDE DU JEU VIT ICI, PAS DANS LE ROUTEUR (qui reste pur et ne connaît pas l'interrupteur). Jeu
     // éteint, `/jeu…` (lien direct, rechargement, retour) s'ouvre comme une route inconnue : « / » à sa place.
     if (Routeur.estVueDuJeu(cible.vue) && !jeuAllume()) {
@@ -10778,6 +11110,8 @@
       volume: $('vue-volume'), poids: $('vue-poids'), profil: $('vue-profil'),
       mois: $('vue-mois'), records: $('vue-records'),
       exercices: $('vue-exercices'), questionnaire: $('vue-questionnaire'),
+      // 69 — « Importer depuis Hevy », sous le profil.
+      import: $('vue-import'),
       // 64B — le jeu : l'onglet et ses trois sous-vues.
       jeu: $('vue-jeu'), muscles: $('vue-muscles'), succes: $('vue-succes'), deblocages: $('vue-deblocages'),
       // 66B — « Le coach relit ta semaine », sous Saisie.
@@ -10810,6 +11144,19 @@
       rendreProfilEcran();
     });
     $('champ-recherche-mes-exos').addEventListener('input', rendreMesExercices);
+    // 69 — l'import : le retour nomme le profil ; le fichier choisi se lit ; « Ne pas importer cet exercice ».
+    $('btn-retour-import').addEventListener('click', function () {
+      allerA(Routeur.PROFIL, {});
+      rendreProfilEcran();
+    });
+    $('fichier-hevy').addEventListener('change', function () {
+      lireFichierHevy().catch(function (e) { console.warn('Import :', texteErreur(e)); });
+    });
+    $('btn-ne-pas-importer').addEventListener('click', function () {
+      var nom = intentionCatalogue && intentionCatalogue.rattacher;
+      fermerVoile();
+      if (nom) ignorerNom(nom);
+    });
     // ⚠️ UN BOUTON QUI NOMME SA DESTINATION Y VA ; UN BOUTON QUI N'EN NOMME
     // AUCUNE REMONTE L'HISTORIQUE (ch. 49). Les deux « ← » ne sont PAS le même
     // bouton, et le chantier 47 les avait confondus.

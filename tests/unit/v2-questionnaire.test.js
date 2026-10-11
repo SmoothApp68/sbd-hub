@@ -490,9 +490,10 @@ describe('60-2a — les TEXTES des écrans (la maquette v4, avec ses écarts dé
     expect(vue('donnees', { rep: Object.assign(Q.reponsesInitiales({}, {}), { historique: 'import' }) }).bouton.actif).toBe(true);
   });
 
-  test('sans historique : l’import « arrive plus tard » SEULEMENT pour « dans une autre app » sans séance', () => {
+  // 69 (K2) — l'import existe : la phrase dit où le trouver, toujours pour le seul « dans une autre app » sans séance.
+  test('sans historique : « Importer depuis Hevy » SEULEMENT pour « dans une autre app » sans séance', () => {
     const rep = (h) => Object.assign(Q.reponsesInitiales({}, {}), { historique: h });
-    const dit = 'L’import dans l’app arrive plus tard. Ces trois réponses suffisent pour commencer.';
+    const dit = 'Tu pourras importer tes séances depuis Profil, « Importer depuis Hevy ». Ces trois réponses suffisent pour commencer.';
     expect(vue('sans_historique', { rep: rep('import'), aDesSeances: false }).voix).toBe(dit);
     expect(vue('sans_historique', { rep: rep('non_note'), aDesSeances: false }).voix).toBeNull();
     expect(vue('sans_historique', { rep: rep('debutant'), aDesSeances: true }).voix).toBeNull();

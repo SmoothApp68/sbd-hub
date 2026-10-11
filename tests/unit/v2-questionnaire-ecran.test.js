@@ -314,7 +314,7 @@ describe('60-2a — une ÉCRITURE par écran validé, par le chemin du Profil', 
     b.actions().surChoix('historique', 'import');
     b.actions().surContinuer();
     expect(b.ecran()).toBe('sans_historique');
-    expect(b.vueCourante().voix).toBe('L’import dans l’app arrive plus tard. Ces trois réponses suffisent pour commencer.');
+    expect(b.vueCourante().voix).toBe('Tu pourras importer tes séances depuis Profil, « Importer depuis Hevy ». Ces trois réponses suffisent pour commencer.');
   });
 
   test('« changer » au récapitulatif : l’écran concerné, puis on REVIENT au récapitulatif — et « Retour » aussi', () => {

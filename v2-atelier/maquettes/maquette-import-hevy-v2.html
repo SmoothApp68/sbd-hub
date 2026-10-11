@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Import Hevy v2</title>
+<style>
+:root{--fond:#0f1114;--panneau:#181b20;--panneau-2:#21252c;--trait:#2c3139;--texte:#eceef2;--texte-2:#9aa1ac;--texte-3:#6f7580;--accent:#f2b84b;--sur-accent:#1a1305;
+--pile:"Barlow",system-ui,sans-serif;--pile-c:"Barlow Condensed","Barlow",system-ui,sans-serif}
+*{box-sizing:border-box}
+body{margin:0;background:#07080a;color:var(--texte);font:15px/1.4 var(--pile);display:flex;flex-wrap:wrap;justify-content:center;gap:16px;padding:16px}
+.col{width:100%;max-width:380px;display:flex;flex-direction:column;gap:8px}
+.etiquette{font:600 13px var(--pile-c);text-transform:uppercase;letter-spacing:1.2px;color:var(--accent)}
+.notes{color:var(--texte-2);font-size:13px;margin:0}
+.ecran{background:var(--fond);border:1px solid var(--trait);border-radius:22px;padding:18px 16px}
+h2{font:700 22px var(--pile-c);margin:0 0 12px}
+.groupe{font:600 12px var(--pile-c);text-transform:uppercase;letter-spacing:1.2px;color:var(--texte-3);margin:14px 0 4px}
+.ligne{display:flex;justify-content:space-between;align-items:center;gap:10px;border-top:1px solid var(--trait);padding:12px 2px}
+.ligne .d{color:var(--texte-2);font-size:13px}
+.choix{background:var(--panneau);border:1px solid var(--trait);border-radius:14px;padding:14px;margin:8px 0}
+.choix b{display:block;margin-bottom:2px}
+.aide{color:var(--texte-3);font-size:12px}
+.zone{background:var(--panneau-2);border-radius:10px;padding:10px;color:var(--texte-2);font:12px/1.35 ui-monospace,monospace;white-space:pre;overflow:hidden;height:118px;margin:8px 0}
+.bouton{background:var(--accent);color:var(--sur-accent);border-radius:12px;padding:13px;text-align:center;font-weight:700;margin-top:10px}
+.bouton.second{background:var(--panneau-2);color:var(--texte)}
+.lien{color:var(--accent);font-size:14px}
+.seance{display:flex;gap:10px;border-top:1px solid var(--trait);padding:11px 2px;align-items:flex-start}
+.case{width:20px;height:20px;border-radius:6px;border:2px solid var(--texte-3);flex:none;margin-top:2px}
+.case.on{background:var(--accent);border-color:var(--accent)}
+.case.off{opacity:.35}
+.seance .t{font-weight:600}
+.seance .d{color:var(--texte-2);font-size:13px}
+.seance .e{color:var(--texte-3);font-size:12px;margin-top:2px}
+.grise{opacity:.5}
+.rattacher{background:var(--panneau);border:1px solid var(--trait);border-radius:14px;padding:4px 12px;margin-top:8px}
+.rattacher .ligne:first-child{border-top:0}
+.ok{color:var(--texte-2);font-size:14px;margin-top:10px}
+.feuille{background:var(--panneau);border:1px solid var(--trait);border-radius:18px 18px 0 0;padding:16px;margin-top:14px}
+.champ{background:var(--panneau-2);border-radius:10px;padding:12px;margin:8px 0;color:var(--texte)}
+.puce{display:inline-block;background:var(--panneau-2);border-radius:999px;padding:5px 10px;font-size:12px;color:var(--texte-2);margin:2px 4px 2px 0}
+.barre{height:6px;background:var(--panneau-2);border-radius:3px;overflow:hidden;margin:10px 0}
+.barre i{display:block;height:100%;width:52%;background:var(--accent)}
+</style>
+</head>
+<body>
+
+<section class="col">
+  <div class="etiquette">1 · L'entrée, dans le Profil</div>
+  <p class="notes">Une section « Mes données », juste après « Mes exercices ». Le questionnaire, qui dit aujourd'hui « l'import arrive plus tard », dit où le trouver.</p>
+  <div class="ecran">
+    <div class="groupe">Mes exercices</div>
+    <div class="ligne"><span>Tous mes exercices</span><span class="d">›</span></div>
+    <div class="groupe">Mes données</div>
+    <div class="ligne"><span>Importer depuis Hevy</span><span class="d">›</span></div>
+  </div>
+</section>
+
+<section class="col">
+  <div class="etiquette">2 · Deux façons d'apporter ses séances</div>
+  <p class="notes">Le texte pour une séance ou quelques-unes (tel que Hevy le partage, plusieurs collées à la suite). Le fichier pour tout l'historique. Les deux mènent au même aperçu.</p>
+  <div class="ecran">
+    <h2>Importer depuis Hevy</h2>
+    <div class="choix">
+      <b>Coller des séances</b>
+      <div class="aide">Dans Hevy : une séance → Partager → Copier. Tu peux en coller plusieurs à la suite.</div>
+      <div class="zone">Pecs - Dos
+Le mardi, sept. 22, 2026 à 5:12pm
+
+Développé Couché (Barre)
+Série 1: 20 kg x 15 [Échauffement]
+Série 5: 125 kg x 5
+…</div>
+      <div class="bouton">Lire le texte</div>
+    </div>
+    <div class="choix">
+      <b>Choisir le fichier de Hevy</b>
+      <div class="aide">L'export des séances (.csv), dans les paramètres de Hevy. Tout ton historique d'un coup.</div>
+      <div class="bouton second">Choisir le fichier</div>
+    </div>
+  </div>
+</section>
+
+<section class="col">
+  <div class="etiquette">3 · L'aperçu, avant d'écrire quoi que ce soit</div>
+  <p class="notes">Rien n'est écrit avant « Importer ». Déjà là (même référence, ou même minute de début) : laissée telle quelle. Commencée PENDANT une de tes séances, avec un exercice en commun : sans doute la même, décochée, à toi de voir. Deux activités qui se suivent ne se chevauchent pas : importées.</p>
+  <div class="ecran">
+    <h2>5 séances trouvées</h2>
+    <div class="aide">Du samedi 19 au vendredi 25 septembre</div>
+    <div class="seance"><div class="case on"></div><div><div class="t">Haut du corps de fin de semaine</div><div class="d">samedi 19 sept. · 19 h 31</div><div class="e">7 exercices · 24 séries</div></div></div>
+    <div class="seance"><div class="case on"></div><div><div class="t">Pecs - Dos</div><div class="d">mardi 22 sept. · 17 h 12</div><div class="e">5 exercices · 22 séries</div></div></div>
+    <div class="seance grise"><div class="case off"></div><div><div class="t">Les volcans de Wegsheid…</div><div class="d">mercredi 23 sept. · 8 h 05</div><div class="e">Déjà dans l'app — laissée telle quelle</div></div></div>
+    <div class="seance"><div class="case"></div><div><div class="t">Épaules / Bras</div><div class="d">jeudi 24 sept. · 17 h 51</div><div class="e">Une séance de l'app commence à 17 h 40 ce jour-là : sans doute la même.</div></div></div>
+    <div class="seance"><div class="case on"></div><div><div class="t">Ischios Fessiers</div><div class="d">vendredi 25 sept. · 18 h 44</div><div class="e">6 exercices · 22 séries</div></div></div>
+
+    <div class="groupe">2 exercices à rattacher</div>
+    <div class="rattacher">
+      <div class="ligne"><div><div>Good Morning (Barre)</div><div class="aide">3 séries, 1 séance</div></div><span class="lien">Choisir</span></div>
+      <div class="ligne"><div><div>Oiseau Buste Appuyé (Haltère)</div><div class="aide">4 séries, 1 séance</div></div><span class="lien">Choisir</span></div>
+    </div>
+    <div class="bouton">Importer 3 séances</div>
+    <div class="aide" style="text-align:center;margin-top:6px">Le bouton attend que chaque exercice soit rattaché ou laissé de côté.</div>
+  </div>
+</section>
+
+<section class="col">
+  <div class="etiquette">4 · Rattacher un nom inconnu, une fois pour toutes</div>
+  <p class="notes">Le catalogue avec ses filtres (67B), la recherche pré-remplie. Le choix est retenu pour cette personne : au prochain import, le nom passe tout seul.</p>
+  <div class="ecran">
+    <div class="feuille">
+      <div style="font-weight:700;font-size:16px">« Good Morning (Barre) » chez Hevy, c'est…</div>
+      <div class="champ">good morning</div>
+      <span class="puce">Barre</span><span class="puce">Ischios</span>
+      <div class="ligne"><span>Soulevé de Terre Jambes Tendues</span><span class="d">›</span></div>
+      <div class="ligne"><span>Soulevé de Terre Roumain (Barre)</span><span class="d">›</span></div>
+      <div class="ligne"><span class="lien">Ne pas importer cet exercice</span><span></span></div>
+      <div class="aide">Je m'en souviendrai pour tes prochains imports.</div>
+    </div>
+  </div>
+</section>
+
+<section class="col">
+  <div class="etiquette">5 · Pendant, et après</div>
+  <p class="notes">Tout un historique (600 séances) avance par paquets. Interrompu, il reprend là où il en était : une séance déjà écrite est reconnue.</p>
+  <div class="ecran">
+    <h2>Import en cours</h2>
+    <div class="barre"><i></i></div>
+    <div class="aide">312 séances sur 601</div>
+  </div>
+  <div class="ecran">
+    <h2>3 séances importées</h2>
+    <p class="ok">1 était déjà dans l'app, 1 laissée de côté. Elles comptent dès maintenant pour ton coach et ta progression.</p>
+    <div class="bouton second">Voir l'historique</div>
+  </div>
+</section>
+
+<section class="col">
+  <div class="etiquette">6 · Quand le texte n'est pas reconnu</div>
+  <div class="ecran">
+    <h2>Importer depuis Hevy</h2>
+    <p class="ok">Je ne reconnais pas ce texte. Copie-le depuis Hevy : une séance → Partager → Copier.</p>
+    <p class="ok">Ce fichier n'est pas un export de séances Hevy.</p>
+  </div>
+</section>
+
+</body>
+</html>

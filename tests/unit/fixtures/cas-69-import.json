@@ -1,0 +1,3606 @@
+{
+ "version": 1,
+ "genere_le": "2026-10-11",
+ "par": "ref69.py (Claude.ai)",
+ "fuseau": "Europe/Paris",
+ "note": "Les séries attendues reproduisent la base (11/11 séances relevées le 11/10, empreintes identiques), à une exception près : « Rowing Assis (Machine) » du 19/09 est en base sur rowing_divergent_un_bras_machine, rattaché à la main (note « Unilatéralement ») ; la lecture rend rowing_assis_machine, ce que dit le nom.",
+ "alias": {
+  "Abduction Hanche": "abduction_hanche",
+  "Adduction Hanche": "adduction_hanche",
+  "Burpee": "burpee",
+  "Crunch Poulie": "crunch_poulie",
+  "Développé Arnold (Haltère)": "developpe_arnold_haltere",
+  "Développé Couché (Barre)": "developpe_couche_barre",
+  "Développé Couché (Haltère)": "developpe_couche_haltere",
+  "Développé Couché Décliné (Barre)": "developpe_couche_decline_barre",
+  "Développé Couché Incliné (Barre)": "developpe_couche_incline_barre",
+  "Développé Couché Incliné (Haltère)": "developpe_couche_incline_haltere",
+  "Développé Militaire (Barre)": "developpe_militaire_barre",
+  "Développé Militaire (Haltère)": "developpe_militaire_haltere",
+  "Elevation Latérale Complète": "elevation_laterale_complete",
+  "Extension Dos (Hyperextension Lestée)": "extension_dos_hyperextension_lestee",
+  "Extension Dos (Hyperextension)": "extension_dos_hyperextension",
+  "Extension Jambes": "extension_jambes",
+  "Gainage Tape Épaule": "gainage_tape_epaule",
+  "Hack Squat (Machine)": "hack_squat_machine",
+  "Hip Thrust (Machine)": "hip_thrust_machine",
+  "Kickbacks Poulie": "kickbacks_poulie",
+  "Leg Curl Assis": "leg_curl_assis",
+  "Oiseau Penché (Haltère)": "oiseau_penche_haltere",
+  "Planche": "planche",
+  "Pompes": "pompes",
+  "Presse Mollets (Machine)": "presse_mollets_machine",
+  "Presse à Cuisses": "presse_a_cuisses",
+  "Presse à Cuisses Horizontal": "presse_a_cuisses_horizontal",
+  "Pull-Over": "pull_over",
+  "Relevé de Genoux": "releve_de_genoux",
+  "Rowing Assis (Machine)": "rowing_assis_machine",
+  "Rowing Poulie Assis - Prise en V": "rowing_poulie_assis",
+  "Soulevé de Terre (Barre)": "souleve_de_terre_barre",
+  "Squat (Barre)": "squat_barre",
+  "Tapis Roulant": "tapis_roulant",
+  "Tapis de Course": "tapis_roulant",
+  "Tirage Poitrine (Machine)": "tirage_poitrine_machine",
+  "Tirage vers le Visage": "tirage_vers_visage",
+  "Tractions": "tractions",
+  "Écarté (Haltère)": "ecarte_haltere",
+  "Élévation Frontale (Barre)": "elevation_frontale_barre",
+  "Élévation Frontale (Haltère)": "elevation_frontale_haltere",
+  "Élévation Latérale (Haltère)": "elevation_laterale_haltere",
+  "Écarté (Machine)": "ecarte_machine",
+  "Tirage Poitrine Bras Tendus (Poulie)": "tirage_poitrine_bras_tendus_poulie",
+  "Relevé de Jambes Suspendu": "releve_de_jambes_suspendu",
+  "Curl Poignets Paumes vers le Haut Assis": "curl_poignets_paumes_vers_le_haut_assis",
+  "Randonnée": "randonnee",
+  "Développé Militaire Assis (Haltère)": "developpe_militaire_haltere",
+  "Curl Biceps (Barre EZ)": "curl_biceps_barre_ez",
+  "Extension Triceps Poulie Haute": "extension_triceps_poulie_haute",
+  "Élévation Latérale (Poulie)": "elevation_laterale_poulie",
+  "Curl Marteau (Haltère)": "curl_marteau_haltere",
+  "Extension Triceps au-dessus de la Tête (Poulie)": "extension_des_triceps_au_dessus_de_la_tete_cable",
+  "Relevé de Bassin (Machine)": "hip_thrust_machine",
+  "Leg Curl Allongé (Machine)": "leg_curl_allonge_machine",
+  "Abduction Hanche (Machine)": "abduction_hanche",
+  "Leg Curl Assis (Machine)": "leg_curl_assis"
+ },
+ "texte": {
+  "source": "Haut du corps de fin de semaine\nLe samedi, sept. 19, 2026 à 7:31pm\n\nDéveloppé Couché (Haltère)\nSérie 1: 52 kg x 12 [Échauffement]\nSérie 2: 76 kg x 10 [Échauffement]\nSérie 3: 88 kg x 10\nSérie 4: 88 kg x 10\nSérie 5: 92 kg x 8 @ 10 rpe\nSérie 6: 92 kg x 8 @ 10 rpe\n\nRowing Assis (Machine)\n\"Unilatéralement\"\nSérie 1: 52 kg x 10 [Échauffement]\nSérie 2: 79 kg x 12\nSérie 3: 79 kg x 12 @ 10 rpe\nSérie 4: 79 kg x 12 @ 10 rpe\n\nÉcarté (Machine)\nSérie 1: 107 kg x 15\nSérie 2: 107 kg x 15\nSérie 3: 113 kg x 10 @ 10 rpe\nSérie 4: 73 kg x 8 @ 10 rpe [Abandon]\n\nTirage Poitrine Bras Tendus (Poulie)\nSérie 1: 27 kg x 12\nSérie 2: 31.5 kg x 12\nSérie 3: 36 kg x 10 @ 10 rpe\n\nRelevé de Jambes Suspendu\nSérie 1: 12 répétitions @ 10 rpe\nSérie 2: 10 répétitions @ 10 rpe\nSérie 3: 8 répétitions @ 10 rpe\n\nPlanche\nSérie 1: 30s\nSérie 2: 30s\nSérie 3: 30s\n\nCurl Poignets Paumes vers le Haut Assis\nSérie 1: 20 kg x 20\nSérie 2: 20 kg x 20\nSérie 3: 20 kg x 20 @ 10 rpe\n\n@hevyapp\nhttps://hevy.com/workout/1viJr6Z1doo\n\nPecs - Dos\nLe mardi, sept. 22, 2026 à 5:12pm\n\nDéveloppé Couché (Barre)\nSérie 1: 20 kg x 15 [Échauffement]\nSérie 2: 60 kg x 10 [Échauffement]\nSérie 3: 100 kg x 5 [Échauffement]\nSérie 4: 115 kg x 1 [Échauffement]\nSérie 5: 125 kg x 5\nSérie 6: 125 kg x 5\nSérie 7: 125 kg x 5\nSérie 8: 130 kg x 4\n\nRowing Poulie Assis - Prise en V\nSérie 1: 66 kg x 10 [Échauffement]\nSérie 2: 93 kg x 10\nSérie 3: 100 kg x 10\nSérie 4: 100 kg x 10\n\nDéveloppé Couché Incliné (Haltère)\nSérie 1: 80 kg x 10\nSérie 2: 80 kg x 10\nSérie 3: 84 kg x 8\n\nTractions\n\"Max de séries à 7 rep\"\nSérie 1: 7 répétitions\nSérie 2: 7 répétitions\nSérie 3: 7 répétitions\nSérie 4: 5 répétitions\n\nTirage vers le Visage\nSérie 1: 24.8 kg x 20\nSérie 2: 24.8 kg x 20\nSérie 3: 24.8 kg x 20\n\n@hevyapp\nhttps://hevy.com/workout/4Xt0ZOlgoUw\n\n Les volcans de Wegsheid depuis le col du Hundsruck\nLe mercredi, sept. 23, 2026 à 8:05am\n\nRandonnée\nSérie 1: 22.1 km - 5h 25min 5s\n\n@hevyapp\nhttps://hevy.com/workout/bffyMPHDGS0\n\nÉpaules / Bras\nLe jeudi, sept. 24, 2026 à 5:51pm\n\nDéveloppé Militaire Assis (Haltère)\nSérie 1: 32 kg x 15 [Échauffement]\nSérie 2: 44 kg x 10 [Échauffement]\nSérie 3: 56 kg x 5 [Échauffement]\nSérie 4: 64 kg x 10\nSérie 5: 64 kg x 10\nSérie 6: 68 kg x 10\nSérie 7: 72 kg x 9\n\nCurl Biceps (Barre EZ)\nSérie 1: 30 kg x 12\nSérie 2: 30 kg x 12\nSérie 3: 30 kg x 12\n\nExtension Triceps Poulie Haute\nSérie 1: 31.5 kg x 15\nSérie 2: 31.5 kg x 15\nSérie 3: 31.5 kg x 15\n\nÉlévation Latérale (Poulie)\nSérie 1: 9 kg x 15\nSérie 2: 9 kg x 15\nSérie 3: 13.6 kg x 12\nSérie 4: 9 kg x 10 @ 10 rpe [Abandon]\n\nCurl Marteau (Haltère)\nSérie 1: 32 kg x 12\nSérie 2: 32 kg x 12\nSérie 3: 32 kg x 12 @ 10 rpe\nSérie 4: 14 kg x 12 @ 10 rpe [Abandon]\n\nExtension Triceps au-dessus de la Tête (Poulie)\nSérie 1: 18 kg x 15\nSérie 2: 18 kg x 15\nSérie 3: 18 kg x 15 @ 10 rpe\nSérie 4: 11.3 kg x 5 @ 10 rpe [Abandon]\n\nÉlévation Frontale (Barre)\nSérie 1: 15 kg x 15\nSérie 2: 20 kg x 15\nSérie 3: 20 kg x 15 @ 10 rpe\nSérie 4: 10 kg x 10 @ 10 rpe [Abandon]\n\n@hevyapp\nhttps://hevy.com/workout/ttyrVHSRSxG\n\nIschios Fessiers\nLe vendredi, sept. 25, 2026 à 6:44pm\n\nTapis de Course\nSérie 1: 0.5 km - 5min 0s\n\nSoulevé de Terre (Barre)\nSérie 1: 60 kg x 15 [Échauffement]\nSérie 2: 100 kg x 10 [Échauffement]\nSérie 3: 135 kg x 5 [Échauffement]\nSérie 4: 145 kg x 10\nSérie 5: 150 kg x 8 @ 9 rpe\nSérie 6: 150 kg x 8 @ 10 rpe\n\nRelevé de Bassin (Machine)\nSérie 1: 52.7 kg x 12\nSérie 2: 57.7 kg x 12\nSérie 3: 62.7 kg x 12\n\nLeg Curl Allongé (Machine)\nSérie 1: 45 kg x 12\nSérie 2: 45 kg x 12\nSérie 3: 50 kg x 12 @ 10 rpe\n\nAbduction Hanche (Machine)\n\"Pas beaucoup d'amplitude, maybe a cause la randonnée ou autre chose, maybe rajouter une chauffe\"\nSérie 1: 79 kg x 15\nSérie 2: 79 kg x 15\nSérie 3: 79 kg x 15\n\nLeg Curl Assis (Machine)\nSérie 1: 73 kg x 12\nSérie 2: 79 kg x 10\nSérie 3: 79 kg x 10\n\n@hevyapp\nhttps://hevy.com/workout/RRtslzDPxrB",
+  "seances": [
+   {
+    "ref": "hevy:1viJr6Z1doo",
+    "titre": "Haut du corps de fin de semaine",
+    "note": null,
+    "debut_local": "2026-09-19T19:31",
+    "debut": "2026-09-19T17:31:00Z",
+    "fin": null,
+    "exercices": [
+     {
+      "nom": "Développé Couché (Haltère)",
+      "exercise_slug": "developpe_couche_haltere",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "echauffement",
+        "charge_kg": 52,
+        "reps": 12,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "echauffement",
+        "charge_kg": 76,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 88,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 88,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 92,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": 10
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 92,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": 10
+       }
+      ]
+     },
+     {
+      "nom": "Rowing Assis (Machine)",
+      "exercise_slug": "rowing_assis_machine",
+      "note": "Unilatéralement",
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "echauffement",
+        "charge_kg": 52,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 79,
+        "reps": 12,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 79,
+        "reps": 12,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": 10
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 79,
+        "reps": 12,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": 10
+       }
+      ]
+     },
+     {
+      "nom": "Écarté (Machine)",
+      "exercise_slug": "ecarte_machine",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 107,
+        "reps": 15,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 107,
+        "reps": 15,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 113,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": 10
+       },
+       {
+        "type_serie": "degressive",
+        "charge_kg": 73,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": 10
+       }
+      ]
+     },
+     {
+      "nom": "Tirage Poitrine Bras Tendus (Poulie)",
+      "exercise_slug": "tirage_poitrine_bras_tendus_poulie",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 27,
+        "reps": 12,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 31.5,
+        "reps": 12,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 36,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": 10
+       }
+      ]
+     },
+     {
+      "nom": "Relevé de Jambes Suspendu",
+      "exercise_slug": "releve_de_jambes_suspendu",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": 12,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": 10
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": 10
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": 10
+       }
+      ]
+     },
+     {
+      "nom": "Planche",
+      "exercise_slug": "planche",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": null,
+        "duree_s": 30,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": null,
+        "duree_s": 30,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": null,
+        "duree_s": 30,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Curl Poignets Paumes vers le Haut Assis",
+      "exercise_slug": "curl_poignets_paumes_vers_le_haut_assis",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 20,
+        "reps": 20,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 20,
+        "reps": 20,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 20,
+        "reps": 20,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": 10
+       }
+      ]
+     }
+    ],
+    "empreinte": "797bf2c811b3c719162664321044278b"
+   },
+   {
+    "ref": "hevy:4Xt0ZOlgoUw",
+    "titre": "Pecs - Dos",
+    "note": null,
+    "debut_local": "2026-09-22T17:12",
+    "debut": "2026-09-22T15:12:00Z",
+    "fin": null,
+    "exercices": [
+     {
+      "nom": "Développé Couché (Barre)",
+      "exercise_slug": "developpe_couche_barre",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "echauffement",
+        "charge_kg": 20,
+        "reps": 15,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "echauffement",
+        "charge_kg": 60,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "echauffement",
+        "charge_kg": 100,
+        "reps": 5,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "echauffement",
+        "charge_kg": 115,
+        "reps": 1,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 125,
+        "reps": 5,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 125,
+        "reps": 5,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 125,
+        "reps": 5,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 130,
+        "reps": 4,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Rowing Poulie Assis - Prise en V",
+      "exercise_slug": "rowing_poulie_assis",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "echauffement",
+        "charge_kg": 66,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 93,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 100,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 100,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Développé Couché Incliné (Haltère)",
+      "exercise_slug": "developpe_couche_incline_haltere",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 80,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 80,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 84,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Tractions",
+      "exercise_slug": "tractions",
+      "note": "Max de séries à 7 rep",
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": 7,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": 7,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": 7,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": 5,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Tirage vers le Visage",
+      "exercise_slug": "tirage_vers_visage",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 24.8,
+        "reps": 20,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 24.8,
+        "reps": 20,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 24.8,
+        "reps": 20,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     }
+    ],
+    "empreinte": "f2393386f7d55c67f2cedd5bb419780b"
+   },
+   {
+    "ref": "hevy:bffyMPHDGS0",
+    "titre": "Les volcans de Wegsheid depuis le col du Hundsruck",
+    "note": null,
+    "debut_local": "2026-09-23T08:05",
+    "debut": "2026-09-23T06:05:00Z",
+    "fin": null,
+    "exercices": [
+     {
+      "nom": "Randonnée",
+      "exercise_slug": "randonnee",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": null,
+        "duree_s": 19505,
+        "distance_m": 22100,
+        "rpe": null
+       }
+      ]
+     }
+    ],
+    "empreinte": "207989907ddf2ce65c5ad3ac7084aa84"
+   },
+   {
+    "ref": "hevy:ttyrVHSRSxG",
+    "titre": "Épaules / Bras",
+    "note": null,
+    "debut_local": "2026-09-24T17:51",
+    "debut": "2026-09-24T15:51:00Z",
+    "fin": null,
+    "exercices": [
+     {
+      "nom": "Développé Militaire Assis (Haltère)",
+      "exercise_slug": "developpe_militaire_haltere",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "echauffement",
+        "charge_kg": 32,
+        "reps": 15,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "echauffement",
+        "charge_kg": 44,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "echauffement",
+        "charge_kg": 56,
+        "reps": 5,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 64,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 64,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 68,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 72,
+        "reps": 9,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Curl Biceps (Barre EZ)",
+      "exercise_slug": "curl_biceps_barre_ez",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 30,
+        "reps": 12,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 30,
+        "reps": 12,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 30,
+        "reps": 12,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Extension Triceps Poulie Haute",
+      "exercise_slug": "extension_triceps_poulie_haute",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 31.5,
+        "reps": 15,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 31.5,
+        "reps": 15,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 31.5,
+        "reps": 15,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Élévation Latérale (Poulie)",
+      "exercise_slug": "elevation_laterale_poulie",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 9,
+        "reps": 15,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 9,
+        "reps": 15,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 13.6,
+        "reps": 12,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "degressive",
+        "charge_kg": 9,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": 10
+       }
+      ]
+     },
+     {
+      "nom": "Curl Marteau (Haltère)",
+      "exercise_slug": "curl_marteau_haltere",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 32,
+        "reps": 12,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 32,
+        "reps": 12,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 32,
+        "reps": 12,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": 10
+       },
+       {
+        "type_serie": "degressive",
+        "charge_kg": 14,
+        "reps": 12,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": 10
+       }
+      ]
+     },
+     {
+      "nom": "Extension Triceps au-dessus de la Tête (Poulie)",
+      "exercise_slug": "extension_des_triceps_au_dessus_de_la_tete_cable",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 18,
+        "reps": 15,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 18,
+        "reps": 15,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 18,
+        "reps": 15,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": 10
+       },
+       {
+        "type_serie": "degressive",
+        "charge_kg": 11.3,
+        "reps": 5,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": 10
+       }
+      ]
+     },
+     {
+      "nom": "Élévation Frontale (Barre)",
+      "exercise_slug": "elevation_frontale_barre",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 15,
+        "reps": 15,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 20,
+        "reps": 15,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 20,
+        "reps": 15,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": 10
+       },
+       {
+        "type_serie": "degressive",
+        "charge_kg": 10,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": 10
+       }
+      ]
+     }
+    ],
+    "empreinte": "0f498675128e7c4fd4a1849081872882"
+   },
+   {
+    "ref": "hevy:RRtslzDPxrB",
+    "titre": "Ischios Fessiers",
+    "note": null,
+    "debut_local": "2026-09-25T18:44",
+    "debut": "2026-09-25T16:44:00Z",
+    "fin": null,
+    "exercices": [
+     {
+      "nom": "Tapis de Course",
+      "exercise_slug": "tapis_roulant",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": null,
+        "duree_s": 300,
+        "distance_m": 500,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Soulevé de Terre (Barre)",
+      "exercise_slug": "souleve_de_terre_barre",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "echauffement",
+        "charge_kg": 60,
+        "reps": 15,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "echauffement",
+        "charge_kg": 100,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "echauffement",
+        "charge_kg": 135,
+        "reps": 5,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 145,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 150,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": 9
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 150,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": 10
+       }
+      ]
+     },
+     {
+      "nom": "Relevé de Bassin (Machine)",
+      "exercise_slug": "hip_thrust_machine",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 52.7,
+        "reps": 12,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 57.7,
+        "reps": 12,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 62.7,
+        "reps": 12,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Leg Curl Allongé (Machine)",
+      "exercise_slug": "leg_curl_allonge_machine",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 45,
+        "reps": 12,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 45,
+        "reps": 12,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 50,
+        "reps": 12,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": 10
+       }
+      ]
+     },
+     {
+      "nom": "Abduction Hanche (Machine)",
+      "exercise_slug": "abduction_hanche",
+      "note": "Pas beaucoup d'amplitude, maybe a cause la randonnée ou autre chose, maybe rajouter une chauffe",
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 79,
+        "reps": 15,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 79,
+        "reps": 15,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 79,
+        "reps": 15,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Leg Curl Assis (Machine)",
+      "exercise_slug": "leg_curl_assis",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 73,
+        "reps": 12,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 79,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 79,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     }
+    ],
+    "empreinte": "fb07f673d502d11ccb75ec9c92c454c9"
+   }
+  ]
+ },
+ "csv": {
+  "source": "\"title\",\"start_time\",\"end_time\",\"description\",\"exercise_title\",\"superset_id\",\"exercise_notes\",\"set_index\",\"set_type\",\"weight_kg\",\"reps\",\"distance_km\",\"duration_seconds\",\"rpe\"\n\"Pecs - Dos\",\"15 sept. 2026, 17:46\",\"15 sept. 2026, 19:18\",\"Le tapis tue.\",\"Tapis de Course\",,\"\",0,\"normal\",,,1.17,600,\n\"Pecs - Dos\",\"15 sept. 2026, 17:46\",\"15 sept. 2026, 19:18\",\"Le tapis tue.\",\"Tractions\",,\"Max de séries à 8 rep\",0,\"normal\",,8,,,\n\"Pecs - Dos\",\"15 sept. 2026, 17:46\",\"15 sept. 2026, 19:18\",\"Le tapis tue.\",\"Tractions\",,\"Max de séries à 8 rep\",1,\"normal\",,8,,,\n\"Pecs - Dos\",\"15 sept. 2026, 17:46\",\"15 sept. 2026, 19:18\",\"Le tapis tue.\",\"Tractions\",,\"Max de séries à 8 rep\",2,\"normal\",,8,,,\n\"Pecs - Dos\",\"15 sept. 2026, 17:46\",\"15 sept. 2026, 19:18\",\"Le tapis tue.\",\"Tractions\",,\"Max de séries à 8 rep\",3,\"normal\",,6,,,\n\"Pecs - Dos\",\"15 sept. 2026, 17:46\",\"15 sept. 2026, 19:18\",\"Le tapis tue.\",\"Développé Couché (Barre)\",,\"\",0,\"warmup\",20,15,,,\n\"Pecs - Dos\",\"15 sept. 2026, 17:46\",\"15 sept. 2026, 19:18\",\"Le tapis tue.\",\"Développé Couché (Barre)\",,\"\",1,\"warmup\",60,10,,,\n\"Pecs - Dos\",\"15 sept. 2026, 17:46\",\"15 sept. 2026, 19:18\",\"Le tapis tue.\",\"Développé Couché (Barre)\",,\"\",2,\"warmup\",100,5,,,\n\"Pecs - Dos\",\"15 sept. 2026, 17:46\",\"15 sept. 2026, 19:18\",\"Le tapis tue.\",\"Développé Couché (Barre)\",,\"\",3,\"warmup\",115,1,,,\n\"Pecs - Dos\",\"15 sept. 2026, 17:46\",\"15 sept. 2026, 19:18\",\"Le tapis tue.\",\"Développé Couché (Barre)\",,\"\",4,\"normal\",125,4,,,\n\"Pecs - Dos\",\"15 sept. 2026, 17:46\",\"15 sept. 2026, 19:18\",\"Le tapis tue.\",\"Développé Couché (Barre)\",,\"\",5,\"normal\",125,5,,,\n\"Pecs - Dos\",\"15 sept. 2026, 17:46\",\"15 sept. 2026, 19:18\",\"Le tapis tue.\",\"Développé Couché (Barre)\",,\"\",6,\"normal\",130,3,,,\n\"Pecs - Dos\",\"15 sept. 2026, 17:46\",\"15 sept. 2026, 19:18\",\"Le tapis tue.\",\"Rowing Poulie Assis - Prise en V\",,\"\",0,\"warmup\",66,10,,,\n\"Pecs - Dos\",\"15 sept. 2026, 17:46\",\"15 sept. 2026, 19:18\",\"Le tapis tue.\",\"Rowing Poulie Assis - Prise en V\",,\"\",1,\"normal\",93,10,,,\n\"Pecs - Dos\",\"15 sept. 2026, 17:46\",\"15 sept. 2026, 19:18\",\"Le tapis tue.\",\"Rowing Poulie Assis - Prise en V\",,\"\",2,\"normal\",93,10,,,\n\"Pecs - Dos\",\"15 sept. 2026, 17:46\",\"15 sept. 2026, 19:18\",\"Le tapis tue.\",\"Rowing Poulie Assis - Prise en V\",,\"\",3,\"normal\",100,10,,,\n\"Pecs - Dos\",\"15 sept. 2026, 17:46\",\"15 sept. 2026, 19:18\",\"Le tapis tue.\",\"Développé Couché Incliné (Haltère)\",,\"Un peu plus de pause avant la dernière série\",0,\"normal\",80,10,,,\n\"Pecs - Dos\",\"15 sept. 2026, 17:46\",\"15 sept. 2026, 19:18\",\"Le tapis tue.\",\"Développé Couché Incliné (Haltère)\",,\"Un peu plus de pause avant la dernière série\",1,\"normal\",80,10,,,\n\"Pecs - Dos\",\"15 sept. 2026, 17:46\",\"15 sept. 2026, 19:18\",\"Le tapis tue.\",\"Développé Couché Incliné (Haltère)\",,\"Un peu plus de pause avant la dernière série\",2,\"normal\",84,8,,,\n\"Pecs - Dos\",\"15 sept. 2026, 17:46\",\"15 sept. 2026, 19:18\",\"Le tapis tue.\",\"Tirage vers le Visage\",0,\"\",0,\"normal\",24.8,20,,,\n\"Pecs - Dos\",\"15 sept. 2026, 17:46\",\"15 sept. 2026, 19:18\",\"Le tapis tue.\",\"Tirage vers le Visage\",0,\"\",1,\"normal\",24.8,20,,,\n\"Pecs - Dos\",\"15 sept. 2026, 17:46\",\"15 sept. 2026, 19:18\",\"Le tapis tue.\",\"Tirage vers le Visage\",0,\"\",2,\"normal\",24.8,20,,,\n\"Pecs - Dos\",\"15 sept. 2026, 17:46\",\"15 sept. 2026, 19:18\",\"Le tapis tue.\",\"Pompes\",0,\"5 explosives - 5 normales x2\",0,\"normal\",,20,,,\n\"Pecs - Dos\",\"15 sept. 2026, 17:46\",\"15 sept. 2026, 19:18\",\"Le tapis tue.\",\"Pompes\",0,\"5 explosives - 5 normales x2\",1,\"normal\",,20,,,\n\"Pecs - Dos\",\"15 sept. 2026, 17:46\",\"15 sept. 2026, 19:18\",\"Le tapis tue.\",\"Pompes\",0,\"5 explosives - 5 normales x2\",2,\"normal\",,20,,,\n\"Pecs - Dos\",\"15 sept. 2026, 17:46\",\"15 sept. 2026, 19:18\",\"Le tapis tue.\",\"Tapis de Course\",,\"\",0,\"normal\",,,1.17,600,\n\"Leg Day + rappel pecs ? 😅\",\"15 mars 2025, 15:32\",\"15 mars 2025, 17:17\",\"Le casque sur la casquette pour le développé couché ✌🏻\",\"Tapis Roulant\",,\"\",0,\"normal\",,,0.66,420,\n\"Leg Day + rappel pecs ? 😅\",\"15 mars 2025, 15:32\",\"15 mars 2025, 17:17\",\"Le casque sur la casquette pour le développé couché ✌🏻\",\"Hack Squat (Machine)\",,\"\",0,\"warmup\",48,10,,,\n\"Leg Day + rappel pecs ? 😅\",\"15 mars 2025, 15:32\",\"15 mars 2025, 17:17\",\"Le casque sur la casquette pour le développé couché ✌🏻\",\"Hack Squat (Machine)\",,\"\",1,\"normal\",68,10,,,\n\"Leg Day + rappel pecs ? 😅\",\"15 mars 2025, 15:32\",\"15 mars 2025, 17:17\",\"Le casque sur la casquette pour le développé couché ✌🏻\",\"Hack Squat (Machine)\",,\"\",2,\"normal\",78,10,,,\n\"Leg Day + rappel pecs ? 😅\",\"15 mars 2025, 15:32\",\"15 mars 2025, 17:17\",\"Le casque sur la casquette pour le développé couché ✌🏻\",\"Hack Squat (Machine)\",,\"\",3,\"normal\",78,10,,,\n\"Leg Day + rappel pecs ? 😅\",\"15 mars 2025, 15:32\",\"15 mars 2025, 17:17\",\"Le casque sur la casquette pour le développé couché ✌🏻\",\"Extension Jambes\",,\"\",0,\"normal\",52,10,,,\n\"Leg Day + rappel pecs ? 😅\",\"15 mars 2025, 15:32\",\"15 mars 2025, 17:17\",\"Le casque sur la casquette pour le développé couché ✌🏻\",\"Extension Jambes\",,\"\",1,\"normal\",52,10,,,\n\"Leg Day + rappel pecs ? 😅\",\"15 mars 2025, 15:32\",\"15 mars 2025, 17:17\",\"Le casque sur la casquette pour le développé couché ✌🏻\",\"Extension Jambes\",,\"\",2,\"normal\",52,10,,,\n\"Leg Day + rappel pecs ? 😅\",\"15 mars 2025, 15:32\",\"15 mars 2025, 17:17\",\"Le casque sur la casquette pour le développé couché ✌🏻\",\"Leg Curl Assis\",,\"\",0,\"normal\",45,10,,,\n\"Leg Day + rappel pecs ? 😅\",\"15 mars 2025, 15:32\",\"15 mars 2025, 17:17\",\"Le casque sur la casquette pour le développé couché ✌🏻\",\"Leg Curl Assis\",,\"\",1,\"normal\",52,10,,,\n\"Leg Day + rappel pecs ? 😅\",\"15 mars 2025, 15:32\",\"15 mars 2025, 17:17\",\"Le casque sur la casquette pour le développé couché ✌🏻\",\"Leg Curl Assis\",,\"\",2,\"normal\",52,10,,,\n\"Leg Day + rappel pecs ? 😅\",\"15 mars 2025, 15:32\",\"15 mars 2025, 17:17\",\"Le casque sur la casquette pour le développé couché ✌🏻\",\"Adduction Hanche\",,\"\",0,\"normal\",59,15,,,\n\"Leg Day + rappel pecs ? 😅\",\"15 mars 2025, 15:32\",\"15 mars 2025, 17:17\",\"Le casque sur la casquette pour le développé couché ✌🏻\",\"Adduction Hanche\",,\"\",1,\"normal\",66,12,,,\n\"Leg Day + rappel pecs ? 😅\",\"15 mars 2025, 15:32\",\"15 mars 2025, 17:17\",\"Le casque sur la casquette pour le développé couché ✌🏻\",\"Adduction Hanche\",,\"\",2,\"normal\",66,12,,,\n\"Leg Day + rappel pecs ? 😅\",\"15 mars 2025, 15:32\",\"15 mars 2025, 17:17\",\"Le casque sur la casquette pour le développé couché ✌🏻\",\"Adduction Hanche\",,\"\",3,\"normal\",66,12,,,\n\"Leg Day + rappel pecs ? 😅\",\"15 mars 2025, 15:32\",\"15 mars 2025, 17:17\",\"Le casque sur la casquette pour le développé couché ✌🏻\",\"Abduction Hanche\",,\"\",0,\"normal\",59,15,,,\n\"Leg Day + rappel pecs ? 😅\",\"15 mars 2025, 15:32\",\"15 mars 2025, 17:17\",\"Le casque sur la casquette pour le développé couché ✌🏻\",\"Abduction Hanche\",,\"\",1,\"normal\",66,10,,,\n\"Leg Day + rappel pecs ? 😅\",\"15 mars 2025, 15:32\",\"15 mars 2025, 17:17\",\"Le casque sur la casquette pour le développé couché ✌🏻\",\"Abduction Hanche\",,\"\",2,\"normal\",66,10,,,\n\"Leg Day + rappel pecs ? 😅\",\"15 mars 2025, 15:32\",\"15 mars 2025, 17:17\",\"Le casque sur la casquette pour le développé couché ✌🏻\",\"Abduction Hanche\",,\"\",3,\"normal\",66,10,,,\n\"Leg Day + rappel pecs ? 😅\",\"15 mars 2025, 15:32\",\"15 mars 2025, 17:17\",\"Le casque sur la casquette pour le développé couché ✌🏻\",\"Développé Couché Décliné (Barre)\",,\"\",0,\"normal\",60,15,,,\n\"Leg Day + rappel pecs ? 😅\",\"15 mars 2025, 15:32\",\"15 mars 2025, 17:17\",\"Le casque sur la casquette pour le développé couché ✌🏻\",\"Développé Couché Décliné (Barre)\",,\"\",1,\"normal\",70,15,,,\n\"Leg Day + rappel pecs ? 😅\",\"15 mars 2025, 15:32\",\"15 mars 2025, 17:17\",\"Le casque sur la casquette pour le développé couché ✌🏻\",\"Développé Couché Décliné (Barre)\",,\"\",2,\"normal\",90,10,,,\n\"Leg Day + rappel pecs ? 😅\",\"15 mars 2025, 15:32\",\"15 mars 2025, 17:17\",\"Le casque sur la casquette pour le développé couché ✌🏻\",\"Développé Couché Décliné (Barre)\",,\"\",3,\"normal\",90,10,,,\n\"Leg Day + rappel pecs ? 😅\",\"15 mars 2025, 15:32\",\"15 mars 2025, 17:17\",\"Le casque sur la casquette pour le développé couché ✌🏻\",\"Presse Mollets (Machine)\",,\"\",0,\"normal\",156,15,,,\n\"Leg Day + rappel pecs ? 😅\",\"15 mars 2025, 15:32\",\"15 mars 2025, 17:17\",\"Le casque sur la casquette pour le développé couché ✌🏻\",\"Presse Mollets (Machine)\",,\"\",1,\"normal\",156,15,,,\n\"Leg Day + rappel pecs ? 😅\",\"15 mars 2025, 15:32\",\"15 mars 2025, 17:17\",\"Le casque sur la casquette pour le développé couché ✌🏻\",\"Presse Mollets (Machine)\",,\"\",2,\"normal\",196,15,,,\n\"Leg Day + rappel pecs ? 😅\",\"15 mars 2025, 15:32\",\"15 mars 2025, 17:17\",\"Le casque sur la casquette pour le développé couché ✌🏻\",\"Presse Mollets (Machine)\",,\"\",3,\"normal\",196,15,,,\n\"Leg Day + rappel pecs ? 😅\",\"15 mars 2025, 15:32\",\"15 mars 2025, 17:17\",\"Le casque sur la casquette pour le développé couché ✌🏻\",\"Développé Couché Incliné (Barre)\",,\"\",0,\"normal\",60,10,,,\n\"Leg Day + rappel pecs ? 😅\",\"15 mars 2025, 15:32\",\"15 mars 2025, 17:17\",\"Le casque sur la casquette pour le développé couché ✌🏻\",\"Développé Couché Incliné (Barre)\",,\"\",1,\"normal\",70,10,,,\n\"Leg Day + rappel pecs ? 😅\",\"15 mars 2025, 15:32\",\"15 mars 2025, 17:17\",\"Le casque sur la casquette pour le développé couché ✌🏻\",\"Développé Couché Incliné (Barre)\",,\"\",2,\"failure\",70,9,,,\n\"Leg Day + rappel pecs ? 😅\",\"15 mars 2025, 15:32\",\"15 mars 2025, 17:17\",\"Le casque sur la casquette pour le développé couché ✌🏻\",\"Développé Couché Incliné (Barre)\",,\"\",3,\"normal\",60,10,,,\n\"Leg Day + rappel pecs ? 😅\",\"15 mars 2025, 15:32\",\"15 mars 2025, 17:17\",\"Le casque sur la casquette pour le développé couché ✌🏻\",\"Développé Couché (Barre)\",,\"\",0,\"normal\",70,12,,,\n\"Leg Day + rappel pecs ? 😅\",\"15 mars 2025, 15:32\",\"15 mars 2025, 17:17\",\"Le casque sur la casquette pour le développé couché ✌🏻\",\"Développé Couché (Barre)\",,\"\",1,\"normal\",70,10,,,\n\"Leg Day + rappel pecs ? 😅\",\"15 mars 2025, 15:32\",\"15 mars 2025, 17:17\",\"Le casque sur la casquette pour le développé couché ✌🏻\",\"Développé Couché (Barre)\",,\"\",2,\"normal\",75,10,,,\n\"Leg Day + rappel pecs ? 😅\",\"15 mars 2025, 15:32\",\"15 mars 2025, 17:17\",\"Le casque sur la casquette pour le développé couché ✌🏻\",\"Développé Couché (Barre)\",,\"\",3,\"normal\",80,10,,,\n\"Jour Lourd\",\"25 févr. 2025, 19:11\",\"25 févr. 2025, 20:10\",\"Deux sons pour résumer ma séance 💪🏻🤝🏻\",\"Tapis Roulant\",,\"\",0,\"normal\",,,0.69,420,\n\"Jour Lourd\",\"25 févr. 2025, 19:11\",\"25 févr. 2025, 20:10\",\"Deux sons pour résumer ma séance 💪🏻🤝🏻\",\"Pompes\",,\"\",0,\"normal\",,15,,,\n\"Jour Lourd\",\"25 févr. 2025, 19:11\",\"25 févr. 2025, 20:10\",\"Deux sons pour résumer ma séance 💪🏻🤝🏻\",\"Pompes\",,\"\",1,\"normal\",,15,,,\n\"Jour Lourd\",\"25 févr. 2025, 19:11\",\"25 févr. 2025, 20:10\",\"Deux sons pour résumer ma séance 💪🏻🤝🏻\",\"Développé Couché (Haltère)\",0,\"\",0,\"normal\",76,10,,,\n\"Jour Lourd\",\"25 févr. 2025, 19:11\",\"25 févr. 2025, 20:10\",\"Deux sons pour résumer ma séance 💪🏻🤝🏻\",\"Développé Couché (Haltère)\",0,\"\",1,\"normal\",76,9,,,\n\"Jour Lourd\",\"25 févr. 2025, 19:11\",\"25 févr. 2025, 20:10\",\"Deux sons pour résumer ma séance 💪🏻🤝🏻\",\"Développé Couché (Haltère)\",0,\"\",2,\"normal\",76,8,,,\n\"Jour Lourd\",\"25 févr. 2025, 19:11\",\"25 févr. 2025, 20:10\",\"Deux sons pour résumer ma séance 💪🏻🤝🏻\",\"Développé Couché (Haltère)\",0,\"\",3,\"dropset\",32,8,,,\n\"Jour Lourd\",\"25 févr. 2025, 19:11\",\"25 févr. 2025, 20:10\",\"Deux sons pour résumer ma séance 💪🏻🤝🏻\",\"Écarté (Haltère)\",0,\"\",0,\"normal\",32,10,,,\n\"Jour Lourd\",\"25 févr. 2025, 19:11\",\"25 févr. 2025, 20:10\",\"Deux sons pour résumer ma séance 💪🏻🤝🏻\",\"Écarté (Haltère)\",0,\"\",1,\"normal\",32,9,,,\n\"Jour Lourd\",\"25 févr. 2025, 19:11\",\"25 févr. 2025, 20:10\",\"Deux sons pour résumer ma séance 💪🏻🤝🏻\",\"Écarté (Haltère)\",0,\"\",2,\"normal\",32,8,,,\n\"Jour Lourd\",\"25 févr. 2025, 19:11\",\"25 févr. 2025, 20:10\",\"Deux sons pour résumer ma séance 💪🏻🤝🏻\",\"Pompes\",0,\"\",0,\"normal\",,5,,,\n\"Jour Lourd\",\"25 févr. 2025, 19:11\",\"25 févr. 2025, 20:10\",\"Deux sons pour résumer ma séance 💪🏻🤝🏻\",\"Pompes\",0,\"\",1,\"normal\",,4,,,\n\"Jour Lourd\",\"25 févr. 2025, 19:11\",\"25 févr. 2025, 20:10\",\"Deux sons pour résumer ma séance 💪🏻🤝🏻\",\"Développé Militaire (Haltère)\",1,\"\",0,\"normal\",40,8,,,\n\"Jour Lourd\",\"25 févr. 2025, 19:11\",\"25 févr. 2025, 20:10\",\"Deux sons pour résumer ma séance 💪🏻🤝🏻\",\"Développé Militaire (Haltère)\",1,\"\",1,\"normal\",40,8,,,\n\"Jour Lourd\",\"25 févr. 2025, 19:11\",\"25 févr. 2025, 20:10\",\"Deux sons pour résumer ma séance 💪🏻🤝🏻\",\"Développé Militaire (Haltère)\",1,\"\",2,\"normal\",44,8,,,\n\"Jour Lourd\",\"25 févr. 2025, 19:11\",\"25 févr. 2025, 20:10\",\"Deux sons pour résumer ma séance 💪🏻🤝🏻\",\"Elevation Latérale Complète\",1,\"\",0,\"normal\",12,8,,,\n\"Jour Lourd\",\"25 févr. 2025, 19:11\",\"25 févr. 2025, 20:10\",\"Deux sons pour résumer ma séance 💪🏻🤝🏻\",\"Elevation Latérale Complète\",1,\"\",1,\"normal\",12,8,,,\n\"Jour Lourd\",\"25 févr. 2025, 19:11\",\"25 févr. 2025, 20:10\",\"Deux sons pour résumer ma séance 💪🏻🤝🏻\",\"Elevation Latérale Complète\",1,\"\",2,\"normal\",12,8,,,\n\"Jour Lourd\",\"25 févr. 2025, 19:11\",\"25 févr. 2025, 20:10\",\"Deux sons pour résumer ma séance 💪🏻🤝🏻\",\"Pompes\",1,\"\",0,\"normal\",,5,,,\n\"Jour Lourd\",\"25 févr. 2025, 19:11\",\"25 févr. 2025, 20:10\",\"Deux sons pour résumer ma séance 💪🏻🤝🏻\",\"Pompes\",1,\"\",1,\"normal\",,5,,,\n\"Jour Lourd\",\"25 févr. 2025, 19:11\",\"25 févr. 2025, 20:10\",\"Deux sons pour résumer ma séance 💪🏻🤝🏻\",\"Rowing Assis (Machine)\",2,\"\",0,\"normal\",59,8,,,\n\"Jour Lourd\",\"25 févr. 2025, 19:11\",\"25 févr. 2025, 20:10\",\"Deux sons pour résumer ma séance 💪🏻🤝🏻\",\"Rowing Assis (Machine)\",2,\"\",1,\"normal\",66,8,,,\n\"Jour Lourd\",\"25 févr. 2025, 19:11\",\"25 févr. 2025, 20:10\",\"Deux sons pour résumer ma séance 💪🏻🤝🏻\",\"Rowing Assis (Machine)\",2,\"\",2,\"normal\",73,8,,,\n\"Jour Lourd\",\"25 févr. 2025, 19:11\",\"25 févr. 2025, 20:10\",\"Deux sons pour résumer ma séance 💪🏻🤝🏻\",\"Tirage Poitrine (Machine)\",2,\"\",0,\"normal\",45,8,,,\n\"Jour Lourd\",\"25 févr. 2025, 19:11\",\"25 févr. 2025, 20:10\",\"Deux sons pour résumer ma séance 💪🏻🤝🏻\",\"Tirage Poitrine (Machine)\",2,\"\",1,\"normal\",52,8,,,\n\"Jour Lourd\",\"25 févr. 2025, 19:11\",\"25 févr. 2025, 20:10\",\"Deux sons pour résumer ma séance 💪🏻🤝🏻\",\"Tirage Poitrine (Machine)\",2,\"\",2,\"normal\",52,8,,,\n\"Jour Lourd\",\"25 févr. 2025, 19:11\",\"25 févr. 2025, 20:10\",\"Deux sons pour résumer ma séance 💪🏻🤝🏻\",\"Extension Dos (Hyperextension Lestée)\",2,\"\",0,\"normal\",10,15,,,\n\"Jour Lourd\",\"25 févr. 2025, 19:11\",\"25 févr. 2025, 20:10\",\"Deux sons pour résumer ma séance 💪🏻🤝🏻\",\"Extension Dos (Hyperextension Lestée)\",2,\"\",1,\"normal\",10,15,,,\n\"Jour Lourd\",\"25 févr. 2025, 19:11\",\"25 févr. 2025, 20:10\",\"Deux sons pour résumer ma séance 💪🏻🤝🏻\",\"Extension Dos (Hyperextension Lestée)\",2,\"\",2,\"normal\",10,15,,,\n\"Jour Lourd\",\"25 févr. 2025, 19:11\",\"25 févr. 2025, 20:10\",\"Deux sons pour résumer ma séance 💪🏻🤝🏻\",\"Relevé de Genoux\",3,\"\",0,\"normal\",,15,,,\n\"Jour Lourd\",\"25 févr. 2025, 19:11\",\"25 févr. 2025, 20:10\",\"Deux sons pour résumer ma séance 💪🏻🤝🏻\",\"Relevé de Genoux\",3,\"\",1,\"normal\",,15,,,\n\"Jour Lourd\",\"25 févr. 2025, 19:11\",\"25 févr. 2025, 20:10\",\"Deux sons pour résumer ma séance 💪🏻🤝🏻\",\"Relevé de Genoux\",3,\"\",2,\"normal\",,15,,,\n\"Jour Lourd\",\"25 févr. 2025, 19:11\",\"25 févr. 2025, 20:10\",\"Deux sons pour résumer ma séance 💪🏻🤝🏻\",\"Planche\",3,\"\",0,\"normal\",,,,30,\n\"Jour Lourd\",\"25 févr. 2025, 19:11\",\"25 févr. 2025, 20:10\",\"Deux sons pour résumer ma séance 💪🏻🤝🏻\",\"Planche\",3,\"\",1,\"normal\",,,,30,\n\"Jour Lourd\",\"25 févr. 2025, 19:11\",\"25 févr. 2025, 20:10\",\"Deux sons pour résumer ma séance 💪🏻🤝🏻\",\"Planche\",3,\"\",2,\"normal\",,,,15,\n\"Jour Lourd\",\"25 févr. 2025, 19:11\",\"25 févr. 2025, 20:10\",\"Deux sons pour résumer ma séance 💪🏻🤝🏻\",\"Gainage Tape Épaule\",3,\"\",0,\"normal\",,15,,,\n\"Jour Lourd\",\"25 févr. 2025, 19:11\",\"25 févr. 2025, 20:10\",\"Deux sons pour résumer ma séance 💪🏻🤝🏻\",\"Gainage Tape Épaule\",3,\"\",1,\"normal\",,15,,,\n\"Jour Lourd\",\"25 févr. 2025, 19:11\",\"25 févr. 2025, 20:10\",\"Deux sons pour résumer ma séance 💪🏻🤝🏻\",\"Gainage Tape Épaule\",3,\"\",2,\"normal\",,15,,,\n\"Jour Lourd\",\"25 févr. 2025, 19:11\",\"25 févr. 2025, 20:10\",\"Deux sons pour résumer ma séance 💪🏻🤝🏻\",\"Planche\",3,\"\",0,\"normal\",,,,15,\n\"Jour Lourd\",\"25 févr. 2025, 19:11\",\"25 févr. 2025, 20:10\",\"Deux sons pour résumer ma séance 💪🏻🤝🏻\",\"Planche\",3,\"\",1,\"normal\",,,,15,\n\"Jour Lourd\",\"25 févr. 2025, 19:11\",\"25 févr. 2025, 20:10\",\"Deux sons pour résumer ma séance 💪🏻🤝🏻\",\"Planche\",3,\"\",2,\"normal\",,,,15,\n\"Jour Lourd\",\"25 févr. 2025, 19:11\",\"25 févr. 2025, 20:10\",\"Deux sons pour résumer ma séance 💪🏻🤝🏻\",\"Pompes\",3,\"\",0,\"normal\",,5,,,\n\"Jour Lourd\",\"25 févr. 2025, 19:11\",\"25 févr. 2025, 20:10\",\"Deux sons pour résumer ma séance 💪🏻🤝🏻\",\"Pompes\",3,\"\",1,\"normal\",,5,,,\n\"Jour Lourd\",\"25 févr. 2025, 19:11\",\"25 févr. 2025, 20:10\",\"Deux sons pour résumer ma séance 💪🏻🤝🏻\",\"Pompes\",3,\"\",2,\"normal\",,5,,,\n\"Gloubi boulga avec Méloooo\",\"15 janv. 2025, 17:47\",\"15 janv. 2025, 19:22\",\"\",\"Hip Thrust (Machine)\",,\"\",0,\"normal\",38,15,,,\n\"Gloubi boulga avec Méloooo\",\"15 janv. 2025, 17:47\",\"15 janv. 2025, 19:22\",\"\",\"Hip Thrust (Machine)\",,\"\",1,\"normal\",43,10,,,\n\"Gloubi boulga avec Méloooo\",\"15 janv. 2025, 17:47\",\"15 janv. 2025, 19:22\",\"\",\"Hip Thrust (Machine)\",,\"\",2,\"normal\",48,10,,,\n\"Gloubi boulga avec Méloooo\",\"15 janv. 2025, 17:47\",\"15 janv. 2025, 19:22\",\"\",\"Hip Thrust (Machine)\",,\"\",3,\"normal\",53,10,,,9\n\"Gloubi boulga avec Méloooo\",\"15 janv. 2025, 17:47\",\"15 janv. 2025, 19:22\",\"\",\"Leg Curl Assis\",,\"\",0,\"normal\",59,10,,,\n\"Gloubi boulga avec Méloooo\",\"15 janv. 2025, 17:47\",\"15 janv. 2025, 19:22\",\"\",\"Leg Curl Assis\",,\"\",1,\"normal\",59,10,,,\n\"Gloubi boulga avec Méloooo\",\"15 janv. 2025, 17:47\",\"15 janv. 2025, 19:22\",\"\",\"Leg Curl Assis\",,\"\",2,\"normal\",59,10,,,\n\"Gloubi boulga avec Méloooo\",\"15 janv. 2025, 17:47\",\"15 janv. 2025, 19:22\",\"\",\"Leg Curl Assis\",,\"\",3,\"normal\",66,12,,,\n\"Gloubi boulga avec Méloooo\",\"15 janv. 2025, 17:47\",\"15 janv. 2025, 19:22\",\"\",\"Kickbacks Poulie\",,\"\",0,\"normal\",13.5,10,,,\n\"Gloubi boulga avec Méloooo\",\"15 janv. 2025, 17:47\",\"15 janv. 2025, 19:22\",\"\",\"Développé Couché Incliné (Barre)\",,\"\",0,\"normal\",60,10,,,\n\"Gloubi boulga avec Méloooo\",\"15 janv. 2025, 17:47\",\"15 janv. 2025, 19:22\",\"\",\"Abduction Hanche\",,\"\",0,\"normal\",45,15,,,\n\"Gloubi boulga avec Méloooo\",\"15 janv. 2025, 17:47\",\"15 janv. 2025, 19:22\",\"\",\"Abduction Hanche\",,\"\",1,\"normal\",52,12,,,\n\"Gloubi boulga avec Méloooo\",\"15 janv. 2025, 17:47\",\"15 janv. 2025, 19:22\",\"\",\"Abduction Hanche\",,\"\",2,\"normal\",52,12,,,\n\"Gloubi boulga avec Méloooo\",\"15 janv. 2025, 17:47\",\"15 janv. 2025, 19:22\",\"\",\"Abduction Hanche\",,\"\",3,\"normal\",59,10,,,\n\"Gloubi boulga avec Méloooo\",\"15 janv. 2025, 17:47\",\"15 janv. 2025, 19:22\",\"\",\"Abduction Hanche\",,\"\",4,\"normal\",66,8,,,\n\"Gloubi boulga avec Méloooo\",\"15 janv. 2025, 17:47\",\"15 janv. 2025, 19:22\",\"\",\"Abduction Hanche\",,\"\",5,\"normal\",52,10,,,\n\"Gloubi boulga avec Méloooo\",\"15 janv. 2025, 17:47\",\"15 janv. 2025, 19:22\",\"\",\"Abduction Hanche\",,\"\",6,\"normal\",39,12,,,\n\"Gloubi boulga avec Méloooo\",\"15 janv. 2025, 17:47\",\"15 janv. 2025, 19:22\",\"\",\"Adduction Hanche\",,\"\",0,\"normal\",45,15,,,\n\"Gloubi boulga avec Méloooo\",\"15 janv. 2025, 17:47\",\"15 janv. 2025, 19:22\",\"\",\"Adduction Hanche\",,\"\",1,\"normal\",52,12,,,\n\"Gloubi boulga avec Méloooo\",\"15 janv. 2025, 17:47\",\"15 janv. 2025, 19:22\",\"\",\"Adduction Hanche\",,\"\",2,\"normal\",52,12,,,\n\"Gloubi boulga avec Méloooo\",\"15 janv. 2025, 17:47\",\"15 janv. 2025, 19:22\",\"\",\"Adduction Hanche\",,\"\",3,\"normal\",59,10,,,\n\"Gloubi boulga avec Méloooo\",\"15 janv. 2025, 17:47\",\"15 janv. 2025, 19:22\",\"\",\"Adduction Hanche\",,\"\",4,\"normal\",66,10,,,\n\"Gloubi boulga avec Méloooo\",\"15 janv. 2025, 17:47\",\"15 janv. 2025, 19:22\",\"\",\"Adduction Hanche\",,\"\",5,\"normal\",52,10,,,\n\"Gloubi boulga avec Méloooo\",\"15 janv. 2025, 17:47\",\"15 janv. 2025, 19:22\",\"\",\"Adduction Hanche\",,\"\",6,\"normal\",39,10,,,\n\"Gloubi boulga avec Méloooo\",\"15 janv. 2025, 17:47\",\"15 janv. 2025, 19:22\",\"\",\"Presse à Cuisses Horizontal\",,\"\",0,\"normal\",113,10,,,\n\"Gloubi boulga avec Méloooo\",\"15 janv. 2025, 17:47\",\"15 janv. 2025, 19:22\",\"\",\"Presse à Cuisses Horizontal\",,\"\",1,\"normal\",120,10,,,\n\"Gloubi boulga avec Méloooo\",\"15 janv. 2025, 17:47\",\"15 janv. 2025, 19:22\",\"\",\"Presse à Cuisses Horizontal\",,\"\",2,\"normal\",127,10,,,\n\"Gloubi boulga avec Méloooo\",\"15 janv. 2025, 17:47\",\"15 janv. 2025, 19:22\",\"\",\"Soulevé de Terre (Barre)\",,\"\",0,\"normal\",60,10,,,\n\"Gloubi boulga avec Méloooo\",\"15 janv. 2025, 17:47\",\"15 janv. 2025, 19:22\",\"\",\"Soulevé de Terre (Barre)\",,\"\",1,\"normal\",80,10,,,\n\"Gloubi boulga avec Méloooo\",\"15 janv. 2025, 17:47\",\"15 janv. 2025, 19:22\",\"\",\"Soulevé de Terre (Barre)\",,\"\",2,\"normal\",100,10,,,\n\"Leg Day\",\"27 sept. 2024, 11:12\",\"27 sept. 2024, 12:01\",\"\",\"Tapis Roulant\",,\"\",0,\"normal\",,,1.01,720,\n\"Leg Day\",\"27 sept. 2024, 11:12\",\"27 sept. 2024, 12:01\",\"\",\"Squat (Barre)\",,\"4 pour la hauteur et 14 pour la sécu.\",0,\"normal\",60,10,,,\n\"Leg Day\",\"27 sept. 2024, 11:12\",\"27 sept. 2024, 12:01\",\"\",\"Squat (Barre)\",,\"4 pour la hauteur et 14 pour la sécu.\",1,\"normal\",80,6,,,\n\"Leg Day\",\"27 sept. 2024, 11:12\",\"27 sept. 2024, 12:01\",\"\",\"Squat (Barre)\",,\"4 pour la hauteur et 14 pour la sécu.\",2,\"normal\",90,4,,,\n\"Leg Day\",\"27 sept. 2024, 11:12\",\"27 sept. 2024, 12:01\",\"\",\"Squat (Barre)\",,\"4 pour la hauteur et 14 pour la sécu.\",3,\"normal\",100,2,,,\n\"Leg Day\",\"27 sept. 2024, 11:12\",\"27 sept. 2024, 12:01\",\"\",\"Squat (Barre)\",,\"4 pour la hauteur et 14 pour la sécu.\",4,\"normal\",110,1,,,\n\"Leg Day\",\"27 sept. 2024, 11:12\",\"27 sept. 2024, 12:01\",\"\",\"Squat (Barre)\",,\"4 pour la hauteur et 14 pour la sécu.\",5,\"normal\",90,4,,,\n\"Leg Day\",\"27 sept. 2024, 11:12\",\"27 sept. 2024, 12:01\",\"\",\"Presse Mollets (Machine)\",,\"\",0,\"normal\",156,20,,,\n\"Leg Day\",\"27 sept. 2024, 11:12\",\"27 sept. 2024, 12:01\",\"\",\"Presse Mollets (Machine)\",,\"\",1,\"normal\",156,20,,,\n\"Leg Day\",\"27 sept. 2024, 11:12\",\"27 sept. 2024, 12:01\",\"\",\"Presse Mollets (Machine)\",,\"\",2,\"normal\",156,20,,,\n\"Leg Day\",\"27 sept. 2024, 11:12\",\"27 sept. 2024, 12:01\",\"\",\"Extension Jambes\",,\"\",0,\"normal\",45,8,,,\n\"Leg Day\",\"27 sept. 2024, 11:12\",\"27 sept. 2024, 12:01\",\"\",\"Extension Jambes\",,\"\",1,\"normal\",45,8,,,\n\"Leg Day\",\"27 sept. 2024, 11:12\",\"27 sept. 2024, 12:01\",\"\",\"Extension Jambes\",,\"\",2,\"normal\",52,8,,,\n\"Leg Day\",\"27 sept. 2024, 11:12\",\"27 sept. 2024, 12:01\",\"\",\"Extension Jambes\",,\"\",3,\"normal\",39,10,,,\n\"Leg Day\",\"27 sept. 2024, 11:12\",\"27 sept. 2024, 12:01\",\"\",\"Extension Jambes\",,\"\",4,\"normal\",25,10,,,\n\"Leg Day\",\"27 sept. 2024, 11:12\",\"27 sept. 2024, 12:01\",\"\",\"Leg Curl Assis\",,\"\",0,\"normal\",73,8,,,\n\"Leg Day\",\"27 sept. 2024, 11:12\",\"27 sept. 2024, 12:01\",\"\",\"Leg Curl Assis\",,\"\",1,\"normal\",66,8,,,\n\"Leg Day\",\"27 sept. 2024, 11:12\",\"27 sept. 2024, 12:01\",\"\",\"Leg Curl Assis\",,\"\",2,\"normal\",66,8,,,\n\"Muscu Day\",\"27 nov. 2023, 12:48\",\"27 nov. 2023, 13:34\",\"Dur de garder un bon rythme\",\"Développé Couché (Haltère)\",0,\"\",0,\"normal\",52,8,,,\n\"Muscu Day\",\"27 nov. 2023, 12:48\",\"27 nov. 2023, 13:34\",\"Dur de garder un bon rythme\",\"Développé Couché (Haltère)\",0,\"\",1,\"normal\",52,8,,,\n\"Muscu Day\",\"27 nov. 2023, 12:48\",\"27 nov. 2023, 13:34\",\"Dur de garder un bon rythme\",\"Développé Couché (Haltère)\",0,\"\",2,\"normal\",52,8,,,\n\"Muscu Day\",\"27 nov. 2023, 12:48\",\"27 nov. 2023, 13:34\",\"Dur de garder un bon rythme\",\"Écarté (Haltère)\",0,\"\",0,\"normal\",16,8,,,\n\"Muscu Day\",\"27 nov. 2023, 12:48\",\"27 nov. 2023, 13:34\",\"Dur de garder un bon rythme\",\"Écarté (Haltère)\",0,\"\",1,\"normal\",16,8,,,\n\"Muscu Day\",\"27 nov. 2023, 12:48\",\"27 nov. 2023, 13:34\",\"Dur de garder un bon rythme\",\"Écarté (Haltère)\",0,\"\",2,\"normal\",16,8,,,\n\"Muscu Day\",\"27 nov. 2023, 12:48\",\"27 nov. 2023, 13:34\",\"Dur de garder un bon rythme\",\"Pull-Over\",0,\"\",0,\"normal\",8,8,,,\n\"Muscu Day\",\"27 nov. 2023, 12:48\",\"27 nov. 2023, 13:34\",\"Dur de garder un bon rythme\",\"Pull-Over\",0,\"\",1,\"normal\",8,8,,,\n\"Muscu Day\",\"27 nov. 2023, 12:48\",\"27 nov. 2023, 13:34\",\"Dur de garder un bon rythme\",\"Pull-Over\",0,\"\",2,\"normal\",8,8,,,\n\"Muscu Day\",\"27 nov. 2023, 12:48\",\"27 nov. 2023, 13:34\",\"Dur de garder un bon rythme\",\"Développé Militaire (Barre)\",1,\"\",0,\"normal\",25,8,,,\n\"Muscu Day\",\"27 nov. 2023, 12:48\",\"27 nov. 2023, 13:34\",\"Dur de garder un bon rythme\",\"Développé Militaire (Barre)\",1,\"\",1,\"normal\",25,8,,,\n\"Muscu Day\",\"27 nov. 2023, 12:48\",\"27 nov. 2023, 13:34\",\"Dur de garder un bon rythme\",\"Développé Militaire (Barre)\",1,\"\",2,\"normal\",25,8,,,\n\"Muscu Day\",\"27 nov. 2023, 12:48\",\"27 nov. 2023, 13:34\",\"Dur de garder un bon rythme\",\"Élévation Latérale (Haltère)\",1,\"\",0,\"normal\",16,8,,,\n\"Muscu Day\",\"27 nov. 2023, 12:48\",\"27 nov. 2023, 13:34\",\"Dur de garder un bon rythme\",\"Élévation Latérale (Haltère)\",1,\"\",1,\"normal\",16,8,,,\n\"Muscu Day\",\"27 nov. 2023, 12:48\",\"27 nov. 2023, 13:34\",\"Dur de garder un bon rythme\",\"Élévation Latérale (Haltère)\",1,\"\",2,\"normal\",16,8,,,\n\"Muscu Day\",\"27 nov. 2023, 12:48\",\"27 nov. 2023, 13:34\",\"Dur de garder un bon rythme\",\"Élévation Frontale (Haltère)\",1,\"\",0,\"normal\",16,8,,,\n\"Muscu Day\",\"27 nov. 2023, 12:48\",\"27 nov. 2023, 13:34\",\"Dur de garder un bon rythme\",\"Élévation Frontale (Haltère)\",1,\"\",1,\"normal\",16,8,,,\n\"Muscu Day\",\"27 nov. 2023, 12:48\",\"27 nov. 2023, 13:34\",\"Dur de garder un bon rythme\",\"Élévation Frontale (Haltère)\",1,\"\",2,\"normal\",16,10,,,\n\"Muscu Day\",\"27 nov. 2023, 12:48\",\"27 nov. 2023, 13:34\",\"Dur de garder un bon rythme\",\"Élévation Frontale (Barre)\",1,\"\",0,\"normal\",25,8,,,\n\"Muscu Day\",\"27 nov. 2023, 12:48\",\"27 nov. 2023, 13:34\",\"Dur de garder un bon rythme\",\"Élévation Frontale (Barre)\",1,\"\",1,\"normal\",25,8,,,\n\"Muscu Day\",\"27 nov. 2023, 12:48\",\"27 nov. 2023, 13:34\",\"Dur de garder un bon rythme\",\"Élévation Frontale (Barre)\",1,\"\",2,\"normal\",25,8,,,\n\"Muscu Day\",\"27 nov. 2023, 12:48\",\"27 nov. 2023, 13:34\",\"Dur de garder un bon rythme\",\"Rowing Assis (Machine)\",2,\"\",0,\"normal\",45,8,,,\n\"Muscu Day\",\"27 nov. 2023, 12:48\",\"27 nov. 2023, 13:34\",\"Dur de garder un bon rythme\",\"Rowing Assis (Machine)\",2,\"\",1,\"normal\",39,8,,,\n\"Muscu Day\",\"27 nov. 2023, 12:48\",\"27 nov. 2023, 13:34\",\"Dur de garder un bon rythme\",\"Rowing Assis (Machine)\",2,\"\",2,\"normal\",32,8,,,\n\"Muscu Day\",\"27 nov. 2023, 12:48\",\"27 nov. 2023, 13:34\",\"Dur de garder un bon rythme\",\"Rowing Assis (Machine)\",2,\"\",3,\"normal\",52,8,,,\n\"Muscu Day\",\"27 nov. 2023, 12:48\",\"27 nov. 2023, 13:34\",\"Dur de garder un bon rythme\",\"Rowing Assis (Machine)\",2,\"\",4,\"normal\",45,8,,,\n\"Muscu Day\",\"27 nov. 2023, 12:48\",\"27 nov. 2023, 13:34\",\"Dur de garder un bon rythme\",\"Rowing Assis (Machine)\",2,\"\",5,\"normal\",39,8,,,\n\"Muscu Day\",\"27 nov. 2023, 12:48\",\"27 nov. 2023, 13:34\",\"Dur de garder un bon rythme\",\"Rowing Assis (Machine)\",2,\"\",6,\"normal\",52,8,,,\n\"Muscu Day\",\"27 nov. 2023, 12:48\",\"27 nov. 2023, 13:34\",\"Dur de garder un bon rythme\",\"Rowing Assis (Machine)\",2,\"\",7,\"normal\",45,8,,,\n\"Muscu Day\",\"27 nov. 2023, 12:48\",\"27 nov. 2023, 13:34\",\"Dur de garder un bon rythme\",\"Rowing Assis (Machine)\",2,\"\",8,\"normal\",39,8,,,\n\"Muscu Day\",\"27 nov. 2023, 12:48\",\"27 nov. 2023, 13:34\",\"Dur de garder un bon rythme\",\"Presse à Cuisses\",,\"\",0,\"normal\",86,8,,,\n\"Muscu Day\",\"27 nov. 2023, 12:48\",\"27 nov. 2023, 13:34\",\"Dur de garder un bon rythme\",\"Presse à Cuisses\",,\"\",1,\"normal\",86,8,,,\n\"Muscu Day\",\"27 nov. 2023, 12:48\",\"27 nov. 2023, 13:34\",\"Dur de garder un bon rythme\",\"Presse à Cuisses\",,\"\",2,\"normal\",100,10,,,\n\"Muscu Day\",\"21 juin 2023, 18:00\",\"21 juin 2023, 19:07\",\"\",\"Développé Couché (Haltère)\",0,\"\",0,\"normal\",48,10,,,\n\"Muscu Day\",\"21 juin 2023, 18:00\",\"21 juin 2023, 19:07\",\"\",\"Développé Couché (Haltère)\",0,\"\",1,\"normal\",48,10,,,\n\"Muscu Day\",\"21 juin 2023, 18:00\",\"21 juin 2023, 19:07\",\"\",\"Développé Couché (Haltère)\",0,\"\",2,\"normal\",52,10,,,\n\"Muscu Day\",\"21 juin 2023, 18:00\",\"21 juin 2023, 19:07\",\"\",\"Écarté (Haltère)\",0,\"\",0,\"normal\",20,10,,,\n\"Muscu Day\",\"21 juin 2023, 18:00\",\"21 juin 2023, 19:07\",\"\",\"Écarté (Haltère)\",0,\"\",1,\"normal\",20,10,,,\n\"Muscu Day\",\"21 juin 2023, 18:00\",\"21 juin 2023, 19:07\",\"\",\"Écarté (Haltère)\",0,\"\",2,\"normal\",20,10,,,\n\"Muscu Day\",\"21 juin 2023, 18:00\",\"21 juin 2023, 19:07\",\"\",\"Pull-Over\",0,\"\",0,\"normal\",10,10,,,\n\"Muscu Day\",\"21 juin 2023, 18:00\",\"21 juin 2023, 19:07\",\"\",\"Pull-Over\",0,\"\",1,\"normal\",10,10,,,\n\"Muscu Day\",\"21 juin 2023, 18:00\",\"21 juin 2023, 19:07\",\"\",\"Pull-Over\",0,\"\",2,\"normal\",10,10,,,\n\"Muscu Day\",\"21 juin 2023, 18:00\",\"21 juin 2023, 19:07\",\"\",\"Rowing Assis (Machine)\",1,\"\",0,\"normal\",52,10,,,\n\"Muscu Day\",\"21 juin 2023, 18:00\",\"21 juin 2023, 19:07\",\"\",\"Rowing Assis (Machine)\",1,\"\",1,\"normal\",59,10,,,\n\"Muscu Day\",\"21 juin 2023, 18:00\",\"21 juin 2023, 19:07\",\"\",\"Rowing Assis (Machine)\",1,\"\",2,\"normal\",66,10,,,\n\"Muscu Day\",\"21 juin 2023, 18:00\",\"21 juin 2023, 19:07\",\"\",\"Extension Dos (Hyperextension)\",1,\"\",0,\"normal\",,10,,,\n\"Muscu Day\",\"21 juin 2023, 18:00\",\"21 juin 2023, 19:07\",\"\",\"Extension Dos (Hyperextension)\",1,\"\",1,\"normal\",,10,,,\n\"Muscu Day\",\"21 juin 2023, 18:00\",\"21 juin 2023, 19:07\",\"\",\"Extension Dos (Hyperextension)\",1,\"\",2,\"normal\",,10,,,\n\"Muscu Day\",\"21 juin 2023, 18:00\",\"21 juin 2023, 19:07\",\"\",\"Développé Arnold (Haltère)\",2,\"\",0,\"normal\",24,10,,,\n\"Muscu Day\",\"21 juin 2023, 18:00\",\"21 juin 2023, 19:07\",\"\",\"Développé Arnold (Haltère)\",2,\"\",1,\"normal\",24,10,,,\n\"Muscu Day\",\"21 juin 2023, 18:00\",\"21 juin 2023, 19:07\",\"\",\"Développé Arnold (Haltère)\",2,\"\",2,\"normal\",24,10,,,\n\"Muscu Day\",\"21 juin 2023, 18:00\",\"21 juin 2023, 19:07\",\"\",\"Élévation Latérale (Haltère)\",2,\"\",0,\"normal\",16,10,,,\n\"Muscu Day\",\"21 juin 2023, 18:00\",\"21 juin 2023, 19:07\",\"\",\"Élévation Latérale (Haltère)\",2,\"\",1,\"normal\",16,10,,,\n\"Muscu Day\",\"21 juin 2023, 18:00\",\"21 juin 2023, 19:07\",\"\",\"Élévation Latérale (Haltère)\",2,\"\",2,\"normal\",16,10,,,\n\"Muscu Day\",\"21 juin 2023, 18:00\",\"21 juin 2023, 19:07\",\"\",\"Oiseau Penché (Haltère)\",2,\"\",0,\"normal\",16,10,,,\n\"Muscu Day\",\"21 juin 2023, 18:00\",\"21 juin 2023, 19:07\",\"\",\"Oiseau Penché (Haltère)\",2,\"\",1,\"normal\",16,10,,,\n\"Muscu Day\",\"21 juin 2023, 18:00\",\"21 juin 2023, 19:07\",\"\",\"Oiseau Penché (Haltère)\",2,\"\",2,\"normal\",16,10,,,\n\"Muscu Day\",\"21 juin 2023, 18:00\",\"21 juin 2023, 19:07\",\"\",\"Crunch Poulie\",3,\"\",0,\"normal\",82,10,,,\n\"Muscu Day\",\"21 juin 2023, 18:00\",\"21 juin 2023, 19:07\",\"\",\"Crunch Poulie\",3,\"\",1,\"normal\",86,15,,,\n\"Muscu Day\",\"21 juin 2023, 18:00\",\"21 juin 2023, 19:07\",\"\",\"Crunch Poulie\",3,\"\",2,\"normal\",92,20,,,\n\"Muscu Day\",\"21 juin 2023, 18:00\",\"21 juin 2023, 19:07\",\"\",\"Burpee\",3,\"\",0,\"normal\",,6,,,\n\"Muscu Day\",\"21 juin 2023, 18:00\",\"21 juin 2023, 19:07\",\"\",\"Burpee\",3,\"\",1,\"normal\",,6,,,\n\"Muscu Day\",\"21 juin 2023, 18:00\",\"21 juin 2023, 19:07\",\"\",\"Burpee\",3,\"\",2,\"normal\",,6,,,\n\"Muscu Day\",\"21 juin 2023, 18:00\",\"21 juin 2023, 19:07\",\"\",\"Planche\",3,\"\",0,\"normal\",,,,30,\n\"Muscu Day\",\"21 juin 2023, 18:00\",\"21 juin 2023, 19:07\",\"\",\"Planche\",3,\"\",1,\"normal\",,,,30,\n\"Muscu Day\",\"21 juin 2023, 18:00\",\"21 juin 2023, 19:07\",\"\",\"Planche\",3,\"\",2,\"normal\",,,,30,\n\"Muscu Day\",\"21 juin 2023, 18:00\",\"21 juin 2023, 19:07\",\"\",\"Tapis Roulant\",,\"\",0,\"normal\",,,1.15,600,\n",
+  "seances": [
+   {
+    "ref": "hevy:2026-09-15T17:46:00",
+    "titre": "Pecs - Dos",
+    "note": "Le tapis tue.",
+    "debut_local": "2026-09-15T17:46",
+    "debut": "2026-09-15T15:46:00Z",
+    "fin": "2026-09-15T17:18:00Z",
+    "exercices": [
+     {
+      "nom": "Tapis de Course",
+      "exercise_slug": "tapis_roulant",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": null,
+        "duree_s": 600,
+        "distance_m": 1170,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Tractions",
+      "exercise_slug": "tractions",
+      "note": "Max de séries à 8 rep",
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": 6,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Développé Couché (Barre)",
+      "exercise_slug": "developpe_couche_barre",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "echauffement",
+        "charge_kg": 20,
+        "reps": 15,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "echauffement",
+        "charge_kg": 60,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "echauffement",
+        "charge_kg": 100,
+        "reps": 5,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "echauffement",
+        "charge_kg": 115,
+        "reps": 1,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 125,
+        "reps": 4,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 125,
+        "reps": 5,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 130,
+        "reps": 3,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Rowing Poulie Assis - Prise en V",
+      "exercise_slug": "rowing_poulie_assis",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "echauffement",
+        "charge_kg": 66,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 93,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 93,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 100,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Développé Couché Incliné (Haltère)",
+      "exercise_slug": "developpe_couche_incline_haltere",
+      "note": "Un peu plus de pause avant la dernière série",
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 80,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 80,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 84,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Tirage vers le Visage",
+      "exercise_slug": "tirage_vers_visage",
+      "note": null,
+      "groupe_superset": 0,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 24.8,
+        "reps": 20,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 24.8,
+        "reps": 20,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 24.8,
+        "reps": 20,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Pompes",
+      "exercise_slug": "pompes",
+      "note": "5 explosives - 5 normales x2",
+      "groupe_superset": 0,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": 20,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": 20,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": 20,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Tapis de Course",
+      "exercise_slug": "tapis_roulant",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": null,
+        "duree_s": 600,
+        "distance_m": 1170,
+        "rpe": null
+       }
+      ]
+     }
+    ],
+    "empreinte": "9c7ee6246904bbaa65aa289830402da8"
+   },
+   {
+    "ref": "hevy:2025-03-15T15:32:00",
+    "titre": "Leg Day + rappel pecs ? 😅",
+    "note": "Le casque sur la casquette pour le développé couché ✌🏻",
+    "debut_local": "2025-03-15T15:32",
+    "debut": "2025-03-15T14:32:00Z",
+    "fin": "2025-03-15T16:17:00Z",
+    "exercices": [
+     {
+      "nom": "Tapis Roulant",
+      "exercise_slug": "tapis_roulant",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": null,
+        "duree_s": 420,
+        "distance_m": 660,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Hack Squat (Machine)",
+      "exercise_slug": "hack_squat_machine",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "echauffement",
+        "charge_kg": 48,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 68,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 78,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 78,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Extension Jambes",
+      "exercise_slug": "extension_jambes",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 52,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 52,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 52,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Leg Curl Assis",
+      "exercise_slug": "leg_curl_assis",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 45,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 52,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 52,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Adduction Hanche",
+      "exercise_slug": "adduction_hanche",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 59,
+        "reps": 15,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 66,
+        "reps": 12,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 66,
+        "reps": 12,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 66,
+        "reps": 12,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Abduction Hanche",
+      "exercise_slug": "abduction_hanche",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 59,
+        "reps": 15,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 66,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 66,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 66,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Développé Couché Décliné (Barre)",
+      "exercise_slug": "developpe_couche_decline_barre",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 60,
+        "reps": 15,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 70,
+        "reps": 15,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 90,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 90,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Presse Mollets (Machine)",
+      "exercise_slug": "presse_mollets_machine",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 156,
+        "reps": 15,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 156,
+        "reps": 15,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 196,
+        "reps": 15,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 196,
+        "reps": 15,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Développé Couché Incliné (Barre)",
+      "exercise_slug": "developpe_couche_incline_barre",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 60,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 70,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "echec",
+        "charge_kg": 70,
+        "reps": 9,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 60,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Développé Couché (Barre)",
+      "exercise_slug": "developpe_couche_barre",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 70,
+        "reps": 12,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 70,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 75,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 80,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     }
+    ],
+    "empreinte": "6e24556792e3927aa90f9911177ca664"
+   },
+   {
+    "ref": "hevy:2025-02-25T19:11:00",
+    "titre": "Jour Lourd",
+    "note": "Deux sons pour résumer ma séance 💪🏻🤝🏻",
+    "debut_local": "2025-02-25T19:11",
+    "debut": "2025-02-25T18:11:00Z",
+    "fin": "2025-02-25T19:10:00Z",
+    "exercices": [
+     {
+      "nom": "Tapis Roulant",
+      "exercise_slug": "tapis_roulant",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": null,
+        "duree_s": 420,
+        "distance_m": 690,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Pompes",
+      "exercise_slug": "pompes",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": 15,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": 15,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Développé Couché (Haltère)",
+      "exercise_slug": "developpe_couche_haltere",
+      "note": null,
+      "groupe_superset": 0,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 76,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 76,
+        "reps": 9,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 76,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "degressive",
+        "charge_kg": 32,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Écarté (Haltère)",
+      "exercise_slug": "ecarte_haltere",
+      "note": null,
+      "groupe_superset": 0,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 32,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 32,
+        "reps": 9,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 32,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Pompes",
+      "exercise_slug": "pompes",
+      "note": null,
+      "groupe_superset": 0,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": 5,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": 4,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Développé Militaire (Haltère)",
+      "exercise_slug": "developpe_militaire_haltere",
+      "note": null,
+      "groupe_superset": 1,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 40,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 40,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 44,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Elevation Latérale Complète",
+      "exercise_slug": "elevation_laterale_complete",
+      "note": null,
+      "groupe_superset": 1,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 12,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 12,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 12,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Pompes",
+      "exercise_slug": "pompes",
+      "note": null,
+      "groupe_superset": 1,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": 5,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": 5,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Rowing Assis (Machine)",
+      "exercise_slug": "rowing_assis_machine",
+      "note": null,
+      "groupe_superset": 2,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 59,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 66,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 73,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Tirage Poitrine (Machine)",
+      "exercise_slug": "tirage_poitrine_machine",
+      "note": null,
+      "groupe_superset": 2,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 45,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 52,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 52,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Extension Dos (Hyperextension Lestée)",
+      "exercise_slug": "extension_dos_hyperextension_lestee",
+      "note": null,
+      "groupe_superset": 2,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 10,
+        "reps": 15,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 10,
+        "reps": 15,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 10,
+        "reps": 15,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Relevé de Genoux",
+      "exercise_slug": "releve_de_genoux",
+      "note": null,
+      "groupe_superset": 3,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": 15,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": 15,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": 15,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Planche",
+      "exercise_slug": "planche",
+      "note": null,
+      "groupe_superset": 3,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": null,
+        "duree_s": 30,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": null,
+        "duree_s": 30,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": null,
+        "duree_s": 15,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Gainage Tape Épaule",
+      "exercise_slug": "gainage_tape_epaule",
+      "note": null,
+      "groupe_superset": 3,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": 15,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": 15,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": 15,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Planche",
+      "exercise_slug": "planche",
+      "note": null,
+      "groupe_superset": 3,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": null,
+        "duree_s": 15,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": null,
+        "duree_s": 15,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": null,
+        "duree_s": 15,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Pompes",
+      "exercise_slug": "pompes",
+      "note": null,
+      "groupe_superset": 3,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": 5,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": 5,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": 5,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     }
+    ],
+    "empreinte": "d90083cb6ed89fafe4ea589f90ec0c63"
+   },
+   {
+    "ref": "hevy:2025-01-15T17:47:00",
+    "titre": "Gloubi boulga avec Méloooo",
+    "note": null,
+    "debut_local": "2025-01-15T17:47",
+    "debut": "2025-01-15T16:47:00Z",
+    "fin": "2025-01-15T18:22:00Z",
+    "exercices": [
+     {
+      "nom": "Hip Thrust (Machine)",
+      "exercise_slug": "hip_thrust_machine",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 38,
+        "reps": 15,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 43,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 48,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 53,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": 9
+       }
+      ]
+     },
+     {
+      "nom": "Leg Curl Assis",
+      "exercise_slug": "leg_curl_assis",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 59,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 59,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 59,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 66,
+        "reps": 12,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Kickbacks Poulie",
+      "exercise_slug": "kickbacks_poulie",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 13.5,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Développé Couché Incliné (Barre)",
+      "exercise_slug": "developpe_couche_incline_barre",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 60,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Abduction Hanche",
+      "exercise_slug": "abduction_hanche",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 45,
+        "reps": 15,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 52,
+        "reps": 12,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 52,
+        "reps": 12,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 59,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 66,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 52,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 39,
+        "reps": 12,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Adduction Hanche",
+      "exercise_slug": "adduction_hanche",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 45,
+        "reps": 15,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 52,
+        "reps": 12,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 52,
+        "reps": 12,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 59,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 66,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 52,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 39,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Presse à Cuisses Horizontal",
+      "exercise_slug": "presse_a_cuisses_horizontal",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 113,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 120,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 127,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Soulevé de Terre (Barre)",
+      "exercise_slug": "souleve_de_terre_barre",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 60,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 80,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 100,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     }
+    ],
+    "empreinte": "617c2d527f0cd3905f915164ec4df863"
+   },
+   {
+    "ref": "hevy:2024-09-27T11:12:00",
+    "titre": "Leg Day",
+    "note": null,
+    "debut_local": "2024-09-27T11:12",
+    "debut": "2024-09-27T09:12:00Z",
+    "fin": "2024-09-27T10:01:00Z",
+    "exercices": [
+     {
+      "nom": "Tapis Roulant",
+      "exercise_slug": "tapis_roulant",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": null,
+        "duree_s": 720,
+        "distance_m": 1010,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Squat (Barre)",
+      "exercise_slug": "squat_barre",
+      "note": "4 pour la hauteur et 14 pour la sécu.",
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 60,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 80,
+        "reps": 6,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 90,
+        "reps": 4,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 100,
+        "reps": 2,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 110,
+        "reps": 1,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 90,
+        "reps": 4,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Presse Mollets (Machine)",
+      "exercise_slug": "presse_mollets_machine",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 156,
+        "reps": 20,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 156,
+        "reps": 20,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 156,
+        "reps": 20,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Extension Jambes",
+      "exercise_slug": "extension_jambes",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 45,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 45,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 52,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 39,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 25,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Leg Curl Assis",
+      "exercise_slug": "leg_curl_assis",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 73,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 66,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 66,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     }
+    ],
+    "empreinte": "e128171af49942e27ed2436455cd0b02"
+   },
+   {
+    "ref": "hevy:2023-11-27T12:48:00",
+    "titre": "Muscu Day",
+    "note": "Dur de garder un bon rythme",
+    "debut_local": "2023-11-27T12:48",
+    "debut": "2023-11-27T11:48:00Z",
+    "fin": "2023-11-27T12:34:00Z",
+    "exercices": [
+     {
+      "nom": "Développé Couché (Haltère)",
+      "exercise_slug": "developpe_couche_haltere",
+      "note": null,
+      "groupe_superset": 0,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 52,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 52,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 52,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Écarté (Haltère)",
+      "exercise_slug": "ecarte_haltere",
+      "note": null,
+      "groupe_superset": 0,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 16,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 16,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 16,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Pull-Over",
+      "exercise_slug": "pull_over",
+      "note": null,
+      "groupe_superset": 0,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 8,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 8,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 8,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Développé Militaire (Barre)",
+      "exercise_slug": "developpe_militaire_barre",
+      "note": null,
+      "groupe_superset": 1,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 25,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 25,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 25,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Élévation Latérale (Haltère)",
+      "exercise_slug": "elevation_laterale_haltere",
+      "note": null,
+      "groupe_superset": 1,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 16,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 16,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 16,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Élévation Frontale (Haltère)",
+      "exercise_slug": "elevation_frontale_haltere",
+      "note": null,
+      "groupe_superset": 1,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 16,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 16,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 16,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Élévation Frontale (Barre)",
+      "exercise_slug": "elevation_frontale_barre",
+      "note": null,
+      "groupe_superset": 1,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 25,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 25,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 25,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Rowing Assis (Machine)",
+      "exercise_slug": "rowing_assis_machine",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 45,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 39,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 32,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 52,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 45,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 39,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 52,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 45,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 39,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Presse à Cuisses",
+      "exercise_slug": "presse_a_cuisses",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 86,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 86,
+        "reps": 8,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 100,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     }
+    ],
+    "empreinte": "d27688c5149c08a599eae142a29fbbac"
+   },
+   {
+    "ref": "hevy:2023-06-21T18:00:00",
+    "titre": "Muscu Day",
+    "note": null,
+    "debut_local": "2023-06-21T18:00",
+    "debut": "2023-06-21T16:00:00Z",
+    "fin": "2023-06-21T17:07:00Z",
+    "exercices": [
+     {
+      "nom": "Développé Couché (Haltère)",
+      "exercise_slug": "developpe_couche_haltere",
+      "note": null,
+      "groupe_superset": 0,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 48,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 48,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 52,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Écarté (Haltère)",
+      "exercise_slug": "ecarte_haltere",
+      "note": null,
+      "groupe_superset": 0,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 20,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 20,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 20,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Pull-Over",
+      "exercise_slug": "pull_over",
+      "note": null,
+      "groupe_superset": 0,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 10,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 10,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 10,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Rowing Assis (Machine)",
+      "exercise_slug": "rowing_assis_machine",
+      "note": null,
+      "groupe_superset": 1,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 52,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 59,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 66,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Extension Dos (Hyperextension)",
+      "exercise_slug": "extension_dos_hyperextension",
+      "note": null,
+      "groupe_superset": 1,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Développé Arnold (Haltère)",
+      "exercise_slug": "developpe_arnold_haltere",
+      "note": null,
+      "groupe_superset": 2,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 24,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 24,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 24,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Élévation Latérale (Haltère)",
+      "exercise_slug": "elevation_laterale_haltere",
+      "note": null,
+      "groupe_superset": 2,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 16,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 16,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 16,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Oiseau Penché (Haltère)",
+      "exercise_slug": "oiseau_penche_haltere",
+      "note": null,
+      "groupe_superset": 2,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 16,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 16,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 16,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Crunch Poulie",
+      "exercise_slug": "crunch_poulie",
+      "note": null,
+      "groupe_superset": 3,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": 82,
+        "reps": 10,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 86,
+        "reps": 15,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": 92,
+        "reps": 20,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Burpee",
+      "exercise_slug": "burpee",
+      "note": null,
+      "groupe_superset": 3,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": 6,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": 6,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": 6,
+        "duree_s": null,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Planche",
+      "exercise_slug": "planche",
+      "note": null,
+      "groupe_superset": 3,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": null,
+        "duree_s": 30,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": null,
+        "duree_s": 30,
+        "distance_m": null,
+        "rpe": null
+       },
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": null,
+        "duree_s": 30,
+        "distance_m": null,
+        "rpe": null
+       }
+      ]
+     },
+     {
+      "nom": "Tapis Roulant",
+      "exercise_slug": "tapis_roulant",
+      "note": null,
+      "groupe_superset": null,
+      "series": [
+       {
+        "type_serie": "travail",
+        "charge_kg": null,
+        "reps": null,
+        "duree_s": 600,
+        "distance_m": 1150,
+        "rpe": null
+       }
+      ]
+     }
+    ],
+    "empreinte": "1c8d96a4eae6d4c38694ce7a834bd096"
+   }
+  ]
+ },
+ "doublons": {
+  "base": [
+   {
+    "cas": "réelle",
+    "source": "hevy",
+    "source_ref": "hevy:4Xt0ZOlgoUw",
+    "debut": "2026-09-22T15:12:00Z",
+    "fin": null,
+    "slugs": [
+     "developpe_couche_barre"
+    ]
+   },
+   {
+    "cas": "réelle",
+    "source": "hevy",
+    "source_ref": "hevy:RRtslzDPxrB",
+    "debut": "2026-09-25T16:44:00Z",
+    "fin": null,
+    "slugs": [
+     "souleve_de_terre_barre"
+    ]
+   },
+   {
+    "cas": "réelle, CSV d'août déjà remis à l'heure (v2_075)",
+    "source": "hevy",
+    "source_ref": "hevy:2025-03-15T15:32:00",
+    "debut": "2025-03-15T14:32:00Z",
+    "fin": "2025-03-15T16:17:00Z",
+    "slugs": [
+     "hack_squat_machine"
+    ]
+   },
+   {
+    "cas": "réelle : séance Hevy retouchée dans l'app, source app, sans référence (3d9ce535)",
+    "source": "app",
+    "source_ref": null,
+    "debut": "2026-09-15T15:46:00Z",
+    "fin": "2026-09-15T17:18:00Z",
+    "slugs": [
+     "tractions",
+     "developpe_couche_barre"
+    ]
+   },
+   {
+    "cas": "inventée : la même séance notée dans l'app, commencée 11 min plus tôt",
+    "source": "app",
+    "source_ref": null,
+    "debut": "2024-09-27T09:01:00Z",
+    "fin": "2024-09-27T10:30:00Z",
+    "slugs": [
+     "squat_barre",
+     "extension_jambes"
+    ]
+   },
+   {
+    "cas": "inventée : une séance de l'app finie avant le début (activités enchaînées)",
+    "source": "app",
+    "source_ref": null,
+    "debut": "2025-02-25T17:00:00Z",
+    "fin": "2025-02-25T18:05:00Z",
+    "slugs": [
+     "developpe_couche_haltere"
+    ]
+   },
+   {
+    "cas": "inventée : chevauche, mais aucun exercice en commun",
+    "source": "app",
+    "source_ref": null,
+    "debut": "2025-01-15T16:30:00Z",
+    "fin": "2025-01-15T17:30:00Z",
+    "slugs": [
+     "tapis_roulant_inexistant_ici"
+    ]
+   },
+   {
+    "cas": "inventée : un run de 8 h à 10 h, un autre (CSV) à 18 h",
+    "source": "app",
+    "source_ref": null,
+    "debut": "2023-06-21T06:00:00Z",
+    "fin": "2023-06-21T08:00:00Z",
+    "slugs": [
+     "tapis_roulant"
+    ]
+   },
+   {
+    "cas": "inventée : sans fin connue, 3 h au plus (MOTEUR §12.2 bis)",
+    "source": "app",
+    "source_ref": null,
+    "debut": "2023-11-27T09:00:00Z",
+    "fin": null,
+    "slugs": [
+     "developpe_couche_haltere"
+    ]
+   }
+  ],
+  "attendu": {
+   "hevy:1viJr6Z1doo": "nouvelle",
+   "hevy:4Xt0ZOlgoUw": "deja_la",
+   "hevy:bffyMPHDGS0": "nouvelle",
+   "hevy:ttyrVHSRSxG": "nouvelle",
+   "hevy:RRtslzDPxrB": "deja_la",
+   "hevy:2026-09-15T17:46:00": "deja_la",
+   "hevy:2025-03-15T15:32:00": "deja_la",
+   "hevy:2025-02-25T19:11:00": "nouvelle",
+   "hevy:2025-01-15T17:47:00": "nouvelle",
+   "hevy:2024-09-27T11:12:00": "meme_seance",
+   "hevy:2023-11-27T12:48:00": "meme_seance",
+   "hevy:2023-06-21T18:00:00": "nouvelle"
+  }
+ }
+}

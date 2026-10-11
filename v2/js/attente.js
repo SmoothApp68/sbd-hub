@@ -135,6 +135,12 @@
   // pesée locale (un par jour), donc deux pesées le même jour se compressent en
   // une, la dernière gagne. Rien n'en dépend et elle ne dépend de rien.
   var PESEES = 'body_weight_log';
+  // 69 (ECRAN-PROFIL §2.4 quater) — LE RATTACHEMENT D'UN NOM IMPORTÉ
+  // (`alias_exercice`). Un `upsert` sur (`user_id`, `alias_norme`) qui
+  // FUSIONNE : l'identifiant d'entrée est le nom normalisé, donc deux choix
+  // pour le même nom se compressent en un, le dernier gagne. Rien n'en dépend
+  // et il ne dépend de rien.
+  var ALIAS = 'alias_exercice';
 
   function cleDe(table, id) { return String(table) + ':' + String(id); }
 
@@ -680,6 +686,7 @@
     OBSERVATIONS: OBSERVATIONS,
     RECORDS: RECORDS, AJOUTER: AJOUTER,
     PESEES: PESEES,
+    ALIAS: ALIAS,
     OBSERVER: OBSERVER,
     attendSaSerie: attendSaSerie,
     AUCUNE_LIGNE: AUCUNE_LIGNE,

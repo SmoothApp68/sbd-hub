@@ -101,6 +101,8 @@ const GARDEES = [
   { fn: 'carteAutorisee', module: 'moteur.js' },
   { fn: 'observationSemaineAllegee', module: 'moteur.js' },
   { fn: 'idDEscalier', module: 'moteur.js' },
+  // 69 — l'identifiant d'une séance importée et de ses séries (ECRAN-PROFIL §2.4 quater)
+  { fn: 'idDImport', module: 'moteur.js' },
   // moteur.js — l'escalier, le blocage isolé (§14.5, 49-U15)
   { fn: 'nIsole', module: 'moteur.js' },
   { fn: 'declenchementsRepondus', module: 'moteur.js' },
@@ -226,6 +228,11 @@ const AUTORISATIONS = {
   observationSemaineAllegee: {
     'app.js': 'l’observation SANS SÉRIE du pari de la semaine allégée, au moment de l’écrire ' +
       'en base : de la persistance (app.js, `observerEscalier`) ; la règle vit dans le moteur.'
+  },
+  idDImport: {
+    'app.js': 'l’identifiant déterministe d’une séance importée de Hevy (et de ses séries) au moment ' +
+      'de la poser dans la file : de la persistance — un import rejoué écrit la même ligne (69, ' +
+      '`importerHevy`).'
   },
   idDEscalier: {
     'app.js': 'l’identifiant déterministe du pari de l’escalier au moment de l’écrire en base : ' +
@@ -446,13 +453,14 @@ const NOTIONS = [
       '66A : la jauge d’une barre de la relecture (§5 ter.3) est cet arrondi, à 2 décimales.' },
   // Après la consolidation, les notions d'un chantier portent son geste.
   { notion: 'la lecture d’un nombre tapé (l’inverse du formateur, tous les signes moins)', pr: 'correctif 03/10/2026',
-    module: 'modele.js', fonction: 'lireNombre', lecteurs: ['seance.js', 'routines.js', 'app.js'],
+    module: 'modele.js', fonction: 'lireNombre', lecteurs: ['seance.js', 'routines.js', 'app.js', 'importhevy.js'],
     motif: /\.\s*lireNombre\s*\(/g,
     parAilleurs: { 'seance.js': ['nombreOuNul'], 'routines.js': ['decimalOuNul'] },
     interditAilleurs: { motif: /\.replace\(\s*(['"]),\1\s*,\s*(['"])\.\2\s*\)/,
                         raison: 'une virgule décimale relue hors de `lireNombre` : une seconde lecture des nombres' },
     raison: 'le champ réaffiche une assistance avec le vrai signe moins (U+2212) que la copie de ' +
-      '`seance.js` ne relisait pas : retoucher les reps d’une série à « −25 » effaçait sa charge.' },
+      '`seance.js` ne relisait pas : retoucher les reps d’une série à « −25 » effaçait sa charge. ' +
+      '69 : les nombres que Hevy écrit (« 31,5 kg », « 1.17 » km) se lisent ici aussi (`importhevy.js`).' },
   { notion: 'les frères d’un exercice (même `mouvement` au catalogue, MOTEUR §13.6)', pr: '49-U20',
     module: 'modele.js', fonction: 'freresDe', lecteurs: ['app.js', 'seance.js', 'faits.js', 'generateur.js'],
     parAilleurs: { 'app.js': ['freresPourLeMoteur', 'faitsDesFreres'], 'seance.js': ['freresProposes'],
@@ -1697,6 +1705,77 @@ describe('architecture — le journal des records : un seul écrivain (58-2)', (
 //     FUSIONNE (deux pesées le même jour n'en font qu'une, la dernière l'emporte) ;
 //   · elle n'est appelée que par la vidange de la file (`app.js`, `executer`) ;
 //   · une entrée de la file ne se pose que par `poserPesee` (`app.js`).
+// ── 69 — LE RATTACHEMENT D'UN NOM IMPORTÉ : ÉCRIT PAR LA SEULE FILE ────────────
+//
+// `alias_exercice` (`v2_076`) : le nom Hevy qu'une personne a rattaché à un
+// exercice du catalogue. Une ligne retient un choix pour tous les imports
+// suivants — elle a UN chemin, comme la pesée :
+//   · en base, une seule fonction touche la table en écriture —
+//     `THDonnees.enregistrerAlias`, un upsert sur (`user_id`, `alias_norme`) qui
+//     FUSIONNE (rattacher de nouveau le même nom remplace le choix) ;
+//   · elle n'est appelée que par la vidange de la file (`app.js`, `executer`) ;
+//   · une entrée de la file ne se pose que par `poserAlias` (`app.js`).
+describe('architecture — le rattachement d’un nom importé : un seul écrivain (69)', () => {
+  const FICHIERS = perimetre();
+  const parNom = {};
+  FICHIERS.forEach((f) => { parNom[f.nom] = f; });
+  const ECRITURE_ALIAS = /from\(\s*(['"])alias_exercice\1\s*\)[\s\S]{0,120}?\.\s*(insert|upsert|update|delete)\s*\(/g;
+  const compter = (texte, re) => (texte.match(new RegExp(re.source, 'g')) || []).length;
+
+  test('⚠️ en base, `alias_exercice` ne s’écrit que dans `enregistrerAlias` (donnees.js)', () => {
+    const fautes = [];
+    FICHIERS.forEach((f) => {
+      const code = nettoyer(f.src, true);
+      const n = compter(code, ECRITURE_ALIAS);
+      if (f.nom !== 'donnees.js') { if (n) fautes.push(f.nom + ' écrit `alias_exercice` (' + n + ')'); return; }
+      const corps = corpsDe(code, 'enregistrerAlias');
+      if (!corps) { fautes.push('enregistrerAlias absente de donnees.js'); return; }
+      if (compter(corps, ECRITURE_ALIAS) !== 1 || n !== 1) {
+        fautes.push('donnees.js : ' + n + ' écriture(s) de `alias_exercice`, dont ' + compter(corps, ECRITURE_ALIAS) + ' dans enregistrerAlias');
+      }
+    });
+    expect(fautes).toEqual([]);
+  });
+
+  test('⚠️ et c’est un upsert qui FUSIONNE sur (user_id, alias_norme), sans jamais envoyer la colonne générée', () => {
+    const corps = corpsDe(nettoyer(parNom['donnees.js'].src, true), 'enregistrerAlias');
+    expect(corps).toMatch(/onConflict:\s*'user_id,alias_norme'/);
+    expect(corps).not.toMatch(/ignoreDuplicates/);
+    const pose = corpsDe(nettoyer(parNom['app.js'].src, true), 'poserAlias');
+    expect(pose).not.toMatch(/alias_norme/);
+  });
+
+  test('⚠️ `enregistrerAlias` n’est appelée que par la vidange (`executer`, app.js)', () => {
+    const fautes = [];
+    FICHIERS.forEach((f) => {
+      if (f.nom === 'donnees.js') return;
+      const a = appels(f.src, { fn: 'enregistrerAlias' });
+      if (!a.length) return;
+      if (f.nom !== 'app.js') { fautes.push(f.nom + ' appelle enregistrerAlias'); return; }
+      const corps = corpsDe(nettoyer(f.src, false), 'executer');
+      const dedans = corps ? (corps.match(/\.\s*enregistrerAlias\s*\(/g) || []).length : 0;
+      if (dedans !== a.length) fautes.push('app.js appelle enregistrerAlias hors d’executer');
+    });
+    expect(fautes).toEqual([]);
+    expect(appels(parNom['app.js'].src, { fn: 'enregistrerAlias' }).length).toBe(1);
+  });
+
+  test('⚠️ une entrée de la file pour un rattachement ne se pose que par `poserAlias` (app.js)', () => {
+    const fautes = [];
+    FICHIERS.forEach((f) => {
+      if (f.nom === 'attente.js') return;
+      const code = nettoyer(f.src, false);
+      const poses = (code.match(/table:\s*Attente\.ALIAS\b/g) || []).length;
+      if (!poses) return;
+      const corps = f.nom === 'app.js' ? corpsDe(code, 'poserAlias') : null;
+      const dedans = corps ? (corps.match(/table:\s*Attente\.ALIAS\b/g) || []).length : 0;
+      if (dedans !== poses) fautes.push(f.nom + ' pose une entrée de rattachement hors de poserAlias');
+    });
+    expect(fautes).toEqual([]);
+    expect(corpsDe(nettoyer(parNom['app.js'].src, false), 'poserAlias')).toMatch(/table:\s*Attente\.ALIAS\b/);
+  });
+});
+
 describe('architecture — la pesée : un seul écrivain (60-2a)', () => {
   const FICHIERS = perimetre();
   const parNom = {};

@@ -134,6 +134,36 @@ reste ; aucune règle de suppression sur `profiles`.
   `sets_efface_observation`, `sets_efface_observation_type`, `sets_marque_modification`,
   `protect_privileged_profile_columns`) ne sont **plus appelables par l'API** ; les déclencheurs fonctionnent toujours.
 
+## Le 11/10/2026 — `v2_075` et `v2_076` (chantier 69)
+
+> Bloc ajouté à la main par Claude.ai, depuis la base. **Les migrations `v2_066` à `v2_074` ne sont pas encore
+> décrites ici** : la prochaine régénération complète les reprendra.
+
+- **`v2_075_heures_import_hevy`** (données) : les 1 221 séances de l'import CSV d'août (`source_ref` de forme
+  `hevy:AAAA-MM-JJTHH:MM:SS`) portaient l'heure locale de Hevy écrite comme heure universelle. `debut` et `fin` relus
+  depuis `source_ref` en heure de Paris ; 22 `sets.validee_a` décalés de même ; journal des records : `battu_le`
+  (3 376) et `ancien_le` (3 362) ramenés aux nouveaux débuts, `created_at = now()` sur les 3 527 lignes touchées pour
+  que les téléphones les relisent (garde `records_immuable` levée le temps de la transaction, rétablie et vérifiée).
+  **Toute séance a désormais `debut` en heure universelle vraie.**
+- **`v2_076_alias_exercice`** : table **`alias_exercice`** — le nom d'un exercice importé, rattaché par la personne.
+
+| Colonne | Contrainte |
+|---|---|
+| `id` | uuid, PK, `gen_random_uuid()` |
+| `user_id` | NOT NULL, défaut `auth.uid()`, → `profiles(id)` ON DELETE CASCADE |
+| `alias` | text NOT NULL, non vide, ≤ 120 |
+| `alias_norme` | **GÉNÉRÉE** : `translate(lower(btrim(alias)), 'àâäéèêëîïôöùûüçœ', 'aaaeeeeiioouuuco')` — lue, jamais envoyée |
+| `exercise_slug` | text NOT NULL → `exercises(slug)` ON DELETE CASCADE |
+| `created_at` | NOT NULL, défaut `now()` |
+
+  Unicité `alias_exercice_unique` (`user_id`, `alias_norme`). RLS : `alias_exercice_owner`, FOR ALL, `authenticated`,
+  `user_id = (select auth.uid())` ; aucun droit pour `anon`. Supprimée avec le profil (cascade).
+  La même migration ajoute **7 noms communs** à `exercise_alias` (`source 'hevy'`) : Dips Assis (Machine), Dips
+  Pectoraux, Dips Pectoraux (Assisté), Dips sur Banc, Développé Épaules Assis (Machine), Squat à la ceinture
+  (machine), Touchers d'Épaules (Gainage). `exercise_alias` : lecture seule pour tous (`exercise_alias_read_all`),
+  clé primaire `alias` (le nom tel quel, **pas** normalisé).
+
+
 ## Pièges à connaître avant d'écrire du code
 
 **`validee_a` n'a plus de valeur par défaut** (`v2_039`). C'est délibéré.

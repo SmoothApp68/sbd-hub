@@ -66,6 +66,10 @@
   // s'atteignait que depuis une séance en cours et depuis Progression : pour
   // voir l'historique de son couché, il fallait démarrer une séance.
   var EXERCICES = 'exercices';
+  // 69 (ECRAN-PROFIL §2.4 quater) — « Importer depuis Hevy », sous le profil :
+  // « /profil/import ». L'aperçu vit en mémoire : un rechargement rouvre les
+  // deux choix, rien n'ayant été écrit avant « Importer ».
+  var IMPORT = 'import';
   // L'éditeur de routine est une VUE, avec son URL, sur le modèle de
   // `/seance/<uuid>` : un rechargement direct la rouvre, et le retour d'Android
   // remonte à la bibliothèque sans qu'on ait à l'écrire. `nouvelle` est le
@@ -94,7 +98,7 @@
   // Et celles qui vivent SOUS Profil. Le chemin est « /profil/<clé> » et
   // l'onglet allumé reste Profil.
   var SOUS_PROFIL = {};
-  SOUS_PROFIL[EXERCICES] = true;
+  SOUS_PROFIL[EXERCICES] = true; SOUS_PROFIL[IMPORT] = true;
 
   // Et celles qui vivent SOUS Jeu (64B), sur le même patron : « /jeu/<clé> »,
   // l'onglet Jeu reste allumé, le retour d'Android remonte à « /jeu ».
@@ -306,7 +310,7 @@
   var api = {
     RACINE: RACINE, SEMAINE: SEMAINE, SEANCE: SEANCE, CONNEXION: CONNEXION,
     SAISIE: SAISIE, PROGRESSION: PROGRESSION, PROFIL: PROFIL,
-    INSCRIPTION: INSCRIPTION, EXERCICES: EXERCICES,
+    INSCRIPTION: INSCRIPTION, EXERCICES: EXERCICES, IMPORT: IMPORT,
     ROUTINE: ROUTINE,
     RELECTURE: RELECTURE,
     EXERCICE: EXERCICE,

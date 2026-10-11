@@ -1123,6 +1123,7 @@
     var mois = Bilan.moisEcoule(new Date());
     var b = bilanDuMoisDe(mois);
     var dernier = faits.dernierRecord(corpus());
+    profilDuParcours = cleDuParcoursDuProfil(profil);
     Rendu.rendreSommaire($('sommaire'), {
       mois: {
         titre: nomDuMois(mois, false),
@@ -1160,8 +1161,19 @@
   // mémorise) rend les verdicts, les rapports, le levier et la phrase. Ce que l'écran ajoute ne décide rien : les
   // libellés des priorités, la phase du profil et le nombre de pesées des huit dernières semaines. Rien n'est écrit.
   var JOURS_DES_PESEES = 56, PESEES_SUFFISANTES = 4;
+  // ⚠️ LE PROFIL ARRIVE APRÈS L'ÉCRAN (trouvé par le banc [P75]). « Ton parcours » lit le sexe (les repères) et les
+  // priorités (le levier) : affiché avec le profil du cache (ou sans), la phrase perdait son rapport. On retient ce
+  // que l'écran a lu ; quand la ligne arrive et qu'il diffère, le sommaire ou la page se repeint — et seulement
+  // alors, pour ne pas refermer un groupe qu'on vient d'ouvrir.
+  var profilDuParcours = null;
   function cleDuParcoursDuProfil(p) {
     return String(p && p.sexe) + '|' + Profil.prioritesDe(p).join(',');
+  }
+  function parcoursSuitLeProfil() {
+    if (ecranCourant !== 'progression' && ecranCourant !== 'parcours') return;
+    if (cleDuParcoursDuProfil(profil) === profilDuParcours) return;
+    if (ecranCourant === 'progression') rendreProgression();
+    else rendreParcours();
   }
   function afficherParcours() {
     allerA(Routeur.PARCOURS, {});
@@ -1170,6 +1182,7 @@
   function rendreParcours() {
     montrer('parcours', Routeur.PARCOURS);
     var p = faits.parcoursDe(corpus(), new Date(), profil);
+    profilDuParcours = cleDuParcoursDuProfil(profil);
     var libelles = {};
     p.zones.forEach(function (z) { libelles[z.zone] = z.libelle.toLowerCase(); });
     var pesees = Poids.filtrer(local.pesees, JOURS_DES_PESEES, new Date()).length;
@@ -9420,23 +9433,16 @@
     // sinon un aller-retour hors réseau la perdrait en silence, et c'est la
     // famille de défauts que le chantier 32 a coûté.
     if (profilAEnvoyer) { await envoyerProfil(); return; }
-    var parcoursAvant = cleDuParcoursDuProfil(profil);
     profil = distant;
     await sauverProfilLocal();
     if (ecranCourant === 'profil') rendreProfilEcran();
-    // 75 — « Ton parcours » lit le sexe (les repères) et les priorités (le levier) : affiché avant que la ligne
-    // n'arrive (le cache du profil, ou aucun), il se repeint quand l'un des deux change — et seulement alors, pour ne
-    // pas refermer un groupe qu'on vient d'ouvrir. Trouvé par le banc [P75] : la phrase perdait son rapport.
-    if (cleDuParcoursDuProfil(profil) !== parcoursAvant) {
-      if (ecranCourant === 'progression') rendreProgression();
-      else if (ecranCourant === 'parcours') rendreParcours();
-    }
     // Le bandeau de Saisie suit la ligne qui vient d'arriver (il ne s'ouvre pas toujours :
     // séance, feuille ou « Ranger » en cours).
     rendreBandeauQuestionnaire();
     rendreBandeauPhase();
     rendreCarteCycles();                       // 60-4 : la carte « Passer en cycles » lit le même profil
     jeuSuitLeProfil();                         // 64B : l'interrupteur a pu changer sur un autre appareil
+    parcoursSuitLeProfil();                    // 75 : « Ton parcours » lit le sexe et les priorités
     // 60-2a — LA LIGNE DE PROFIL EST CONNUE : c'est ICI que la décision d'ouvrir le
     // questionnaire se reprend, au premier démarrage d'un compte neuf comme aux
     // suivants. Prise sur le seul cache, elle ne routait un compte neuf qu'au

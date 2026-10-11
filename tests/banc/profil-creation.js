@@ -49,6 +49,8 @@
 //      d  sans fragment, sans session, HORS RÉSEAU → l'écran de connexion tout de suite ;
 //      e  une session enregistrée PÉRIMÉE, hors réseau → l'app tout de suite (le SDK, lui, partirait rafraîchir) ;
 //      f  l'adresse ne garde aucun fragment après l'entrée ;
+//      g  le SDK ne répond jamais : « Ouverture du lien… » tout de suite, puis à 5 s l'écran de connexion qui le dit ;
+//      h  le SDK répond à 7 s : à 5 s l'écran de connexion, puis l'app entre d'elle-même et ouvre la feuille ;
 //      et l'inscription sans session : la phrase de §5.6, « Mot de passe oublié ? » juste dessous.
 //      a, b, c, f échouent sur le code d'avant 70 (l'écran de connexion, adresse réécrite avant la lecture du jeton).
 // SEULS LES SCÉNARIOS 2 ET 4 REPRODUISENT LE 403 SUR LE CODE D'AVANT ; les contrôles du pseudo
@@ -110,7 +112,8 @@ function neuveBase() {
     confirmationEmail: false,
     inscriptions: [],    // { email, data, redirect_to } — ce que `signUp` a reçu
     metadonnees: {},     // id → user_metadata
-    motsDePasse: []      // 70 — { sub, password } : ce que `updateUser` a reçu
+    motsDePasse: [],     // 70 — { sub, password } : ce que `updateUser` a reçu
+    userPend: false, userDelai: 0   // 70 — la vérification du jeton d'un lien ne répond pas / répond en retard
   };
 }
 
@@ -158,6 +161,9 @@ async function contexte(nav, bd, o) {
       return json(sessionDe(qui, bd.metadonnees[qui]));
     }
     if (chemin === '/auth/v1/user' && req.method() === 'GET') {
+      // 70 — la vérification du jeton d'un lien : qui ne répond jamais (`userPend`), ou en retard (`userDelai`, ms).
+      if (bd.userPend) return new Promise(() => {});
+      if (bd.userDelai) await attendre(bd.userDelai);
       return sub ? json(utilisateur(sub, bd.metadonnees[sub])) : json({ message: 'jeton absent' }, 401);
     }
     // 70 — `updateUser({ password })` : le nouveau mot de passe, sous le compte du jeton.
@@ -945,6 +951,65 @@ function ok(nom, cond, detail) {
         const vu = await attendreQue(page, async () => { const e = await ecran(page); return !e.connexion && e.authentifiee; }, 8000);
         const delai = Date.now() - t0;
         ok('DISCRIMINANT [E70 e] — l’app tout de suite (< 3 s) : le démarrage sans fragment n’attend pas le SDK', vu && delai < 3000, delai + ' ms');
+        await ctx.close();
+      }
+
+      const PHRASE_NON_VERIFIE = 'Le lien n\'a pas pu être vérifié. Réessaie, ou redemande-en un avec « Mot de passe oublié ? ».';
+      const lienVu = (page) => page.evaluate(() => {
+        const v = document.querySelector('#vue-lien');
+        return !!v && !v.hidden && /Ouverture du lien…/.test(v.textContent);
+      });
+
+      // (g) le SDK ne répond jamais : l'attente se voit, puis elle s'arrête à 5 s.
+      console.log('   — (g) le lien, la vérification ne répond jamais');
+      {
+        const bd = neuveBase();
+        bd.userPend = true;
+        const ctx = await contexte(nav, bd, {});
+        const page = await ctx.newPage();
+        const erreurs = [];
+        page.on('pageerror', (e) => erreurs.push(String(e).slice(0, 160)));
+        const t0 = Date.now();
+        await page.goto(lien('/profil', 'recovery'), { waitUntil: 'domcontentloaded' });
+        const attente = await attendreQue(page, () => lienVu(page), 3000);
+        const tAttente = Date.now() - t0;
+        ok('[E70 g] — « Ouverture du lien… » s’affiche tout de suite (< 3 s), et rien d’autre',
+          attente && !(await ecran(page)).connexion, tAttente + ' ms');
+        const dit = await attendreQue(page, async () => { const e = await ecran(page); return e.connexion && !!e.message; }, 12000);
+        const delai = Date.now() - t0;
+        const e = await ecran(page);
+        ok('DISCRIMINANT [E70 g] — à 5 s sans réponse : l’écran de connexion, avec la phrase au mot près',
+          dit && delai >= 4500 && delai < 8000 && e.message === PHRASE_NON_VERIFIE && !(await lienVu(page)),
+          delai + ' ms · ' + JSON.stringify(e.message));
+        ok('[E70 g] — l’adresse est nettoyée', sansFragment(e) && /\/connexion$/.test(e.adresse), e.adresse);
+        ok('[E70 g] — aucune session inventée', !(await page.evaluate(() => localStorage.getItem('th-v2-auth'))));
+        ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
+        await ctx.close();
+      }
+
+      // (h) le SDK répond à 7 s : l'écran de connexion à 5 s, puis l'entrée tardive, d'elle-même.
+      console.log('   — (h) le lien de récupération, la vérification répond à 7 s');
+      {
+        const bd = neuveBase();
+        bd.userDelai = 7000;
+        const ctx = await contexte(nav, bd, {});
+        const page = await ctx.newPage();
+        const erreurs = [];
+        page.on('pageerror', (e) => erreurs.push(String(e).slice(0, 160)));
+        const t0 = Date.now();
+        await page.goto(lien('/profil', 'recovery'), { waitUntil: 'domcontentloaded' });
+        const dit = await attendreQue(page, async () => { const e = await ecran(page); return e.connexion && !!e.message; }, 12000);
+        const delai = Date.now() - t0;
+        const e1 = await ecran(page);
+        ok('[E70 h] — à 5 s, l’écran de connexion dit que le lien n’a pas pu être vérifié',
+          dit && delai < 6800 && e1.message === PHRASE_NON_VERIFIE, delai + ' ms · ' + JSON.stringify(e1.message));
+        const entre = await attendreQue(page, async () => /Choisis ton nouveau mot de passe/.test((await ecran(page)).feuille || ''), 15000);
+        const e2 = await ecran(page);
+        ok('DISCRIMINANT [E70 h] — le SDK répond à 7 s : l’app ENTRE d’elle-même et ouvre la feuille de récupération',
+          entre && !e2.connexion && e2.profil && !!(await page.evaluate(() => localStorage.getItem('th-v2-auth'))),
+          (Date.now() - t0) + ' ms · ' + JSON.stringify([e2.connexion, e2.profil, e2.feuille]));
+        ok('[E70 h] — l’adresse ne garde aucun fragment après l’entrée tardive', sansFragment(e2) && /\/profil$/.test(e2.adresse), e2.adresse);
+        ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
         await ctx.close();
       }
 

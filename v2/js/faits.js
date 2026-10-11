@@ -174,19 +174,126 @@
         Modele.optionsDeRecord(c.catalogue()[slug] || null));
     }
 
-    // Les records du jour, pour la feuille « Terminer » : une ligne par série
-    // médaillée, « Développé couché 130 kg × 4 ».
-    function recordsDuJour(c, seance) {
+    // Les records du jour : une ligne par série médaillée, « Développé couché
+    // 130 kg × 4 ». 71 — `options.avecPhrase` : la phrase de la médaille
+    // (`Modele.phraseDeRecord` : `[gras, gris]`, le gris disant l'ancien record
+    // et sa date), pour le récap de fin de séance. Sans l'option, la forme est
+    // celle d'avant, octet pour octet.
+    function recordsDuJour(c, seance, options) {
       if (!seance) return [];
+      var avecPhrase = !!(options && options.avecPhrase);
       var v = seanceDesRecords(seance), index = c.catalogue(), out = [];
       seance.exercices.forEach(function (exo, i) {
         (exo.series || []).forEach(function (s, j) {
-          if (!recordsDeLaSerie(c, seance, i, j, v).length) return;
+          var r = recordsDeLaSerie(c, seance, i, j, v);
+          if (!r.length) return;
           var nom = Modele.nomCourt(index[exo.exercise_slug] ? index[exo.exercise_slug].nom : exo.exercise_slug);
-          out.push({ nom: nom.charAt(0).toUpperCase() + nom.slice(1), mesure: Modele.formatMesure(s) });
+          var ligne = { nom: nom.charAt(0).toUpperCase() + nom.slice(1), mesure: Modele.formatMesure(s) };
+          if (avecPhrase) ligne.phrase = Modele.phraseDeRecord(r, nom, seance.debut);
+          out.push(ligne);
         });
       });
       return out;
+    }
+
+    // ══ LE RÉCAP DE FIN DE SÉANCE (71, ECRAN-SAISIE §7 septies.4 bis) ════════
+    //
+    // ⚠️ IL CÂBLE, IL NE RECOPIE RIEN. Chaque chiffre vient de la fonction qui
+    // le dit ailleurs : les séries de travail (`Seance.compter`, celle du
+    // bandeau et de la feuille), le volume (`Bilan.volumeKg`, celle du bilan du
+    // mois), les séries par muscle (`Semaine.volumeParMuscle`, celle du bloc
+    // Volume), les records (`recordsDuJour`, celle de la médaille), les paris
+    // (`Bilan.compterParis` et `Bilan.phraseParis`, celles du bilan du mois),
+    // la comparaison (`Bilan.phraseComparaison`). Il n'écrit rien.
+    //   `seance` : la séance terminée (le modèle de l'app) ;
+    //   `paris`  : `[{ seance, exercice, predite, observee }]` — les paris de
+    //              consigne connus (`app.js` `parisDeConsigneConnus`).
+    var MUSCLES_DU_RECAP = 5;
+    function recapDeLaSeance(c, seance, paris) {
+      if (!seance) return null;
+      var exercices = c.exercices || [];
+      var faites = Seance.toutesLesSeries(seance).filter(function (p) { return Seance.partEnBase(p.serie); })
+        .map(function (p) { return Object.assign({}, p.serie, { exercise_slug: p.exo.exercise_slug }); });
+      var parSlug = {}, ordre = [];
+      faites.forEach(function (x) {
+        if (!parSlug[x.exercise_slug]) { parSlug[x.exercise_slug] = []; ordre.push(x.exercise_slug); }
+        parSlug[x.exercise_slug].push(x);
+      });
+      var exosFaits = ordre.filter(function (slug) { return Semaine.compteSeriesTravail(parSlug[slug], exercices) > 0; });
+      var volume = Bilan.volumeKg(faites);
+      var muscles = Semaine.volumeParMuscle(faites, exercices);
+      var reste = muscles.slice(MUSCLES_DU_RECAP);
+      var debut = Date.parse(seance.debut), fin = Date.parse(seance.fin);
+      var index = c.catalogue();
+      var nomDe = function (slug) {
+        var n = Modele.nomCourt(index[slug] ? index[slug].nom : slug);
+        return n.charAt(0).toUpperCase() + n.slice(1);
+      };
+      // Les paris de CETTE séance, et la phrase aux chiffres tels quels.
+      var siens = (paris || []).filter(function (q) { return q && q.seance === seance.id; });
+      var comptes = Bilan.compterParis(siens);
+      var lignesParis = [];
+      if (comptes.verifies) {
+        ordre.forEach(function (slug) {
+          var verifies = siens.filter(function (q) {
+            return q.exercice === slug && q.observee !== null && q.observee !== undefined &&
+              isFinite(Number(q.observee)) && isFinite(Number(q.predite));
+          });
+          if (!verifies.length) return;
+          var vises = [];
+          verifies.forEach(function (q) {
+            if (!Bilan.estTenu(q) && vises.indexOf(Number(q.predite)) < 0) vises.push(Number(q.predite));
+          });
+          lignesParis.push({ slug: slug, nom: nomDe(slug), fait: faitDeLExercice(parSlug[slug]),
+                             vise: vises.length ? vises.map(String).join(', ') : null });
+        });
+      }
+      return {
+        id: seance.id,
+        titre: seance.titre || null,
+        debut: seance.debut,
+        fin: seance.fin || null,
+        duree_min: isNaN(debut) || isNaN(fin) || fin < debut ? null : Math.round((fin - debut) / 60000),
+        series: Seance.compter(seance, exercices).travail,
+        volume_kg: volume,
+        volume_texte: Bilan.tonnesDuRecap(volume),
+        exercices: exosFaits.length,
+        phraseVolume: Bilan.phraseComparaison(volume, seance.id),
+        muscles: {
+          premiers: muscles.slice(0, MUSCLES_DU_RECAP).map(function (m) { return { libelle: m.libelle, series: m.series }; }),
+          autres: reste.length ? { n: reste.length,
+            series: Math.round(reste.reduce(function (t, m) { return t + m.series; }, 0) * 100) / 100 } : null
+        },
+        records: recordsDuJour(c, seance, { avecPhrase: true }),
+        paris: comptes.verifies ? {
+          verifies: comptes.verifies, tenus: comptes.tenus,
+          phrase: Bilan.phraseParis(comptes.verifies, comptes.tenus, { telsQuels: true }),
+          lignes: lignesParis
+        } : null,
+        note: seance.note || null
+      };
+    }
+
+    // Ce qui a été fait sur un exercice, ses séries de travail dans l'ordre :
+    // « 90 kg × 10, 10, 10 » ; une charge qui change, « 32 kg × 12 · 36 kg × 10 » ;
+    // sans charge, les reps (« 9, 9, 8, 7 ») ; une durée ou une distance, la
+    // mesure de chaque série (`Modele.formatMesure`).
+    function faitDeLExercice(series) {
+      var travail = (series || []).filter(function (x) { return Modele.estTravail(x); });
+      var paquets = [];
+      travail.forEach(function (x) {
+        var aCharge = x.charge_kg !== null && x.charge_kg !== undefined && Number(x.charge_kg) !== 0;
+        var aReps = x.reps !== null && x.reps !== undefined;
+        var cle = aCharge && aReps ? 'c' + Number(x.charge_kg) : aReps ? 'r' : null;
+        var dernier = paquets[paquets.length - 1];
+        if (cle && dernier && dernier.cle === cle) { dernier.reps.push(x.reps); return; }
+        paquets.push({ cle: cle, serie: x, reps: aReps ? [x.reps] : [] });
+      });
+      return paquets.map(function (p) {
+        if (p.cle === 'r') return p.reps.join(', ');
+        if (p.cle) return Modele.formatMesure({ charge_kg: p.serie.charge_kg }) + ' \u00d7 ' + p.reps.join(', ');
+        return Modele.formatMesure(p.serie);
+      }).join(' \u00b7 ');
     }
 
     // ── Le journal des records (MOTEUR §9.23, 58-2) ─────────────────────────
@@ -713,6 +820,8 @@
       seanceDesRecords: seanceDesRecords,
       recordsDeLaSerie: recordsDeLaSerie,
       recordsDuJour: recordsDuJour,
+      recapDeLaSeance: recapDeLaSeance,
+      faitDeLExercice: faitDeLExercice,
       journalDuJour: journalDuJour,
       journalDeLaSeance: journalDeLaSeance,
       recordsDuJournal: recordsDuJournal,

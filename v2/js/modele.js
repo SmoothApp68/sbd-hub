@@ -342,6 +342,20 @@
     declarer(cite, { date: jour }, t);
     return t;
   }
+  // 71 — L'EN-TÊTE DU RÉCAP : « samedi 10 oct. · 14 h 27 → 15 h 30 », à
+  // l'heure du téléphone. Sans fin, le jour et l'heure du début seulement.
+  function heureMinute(iso) {
+    var d = jourLocal(iso);
+    if (d === null) return '';
+    return d.getHours() + ' h ' + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes();
+  }
+  function plageDeSeance(debut, fin) {
+    var d = jourLocal(debut);
+    if (d === null) return '';
+    var jour = JOURS[d.getDay()] + ' ' + d.getDate() + ' ' + MOIS_COURTS[d.getMonth()];
+    return jour + ' \u00b7 ' + heureMinute(debut) + (jourLocal(fin) ? ' \u2192 ' + heureMinute(fin) : '');
+  }
+
   // « septembre 2026 ».
   function moisAnnee(d) {
     if (!(d instanceof Date) || isNaN(d.getTime())) return '';
@@ -1945,6 +1959,8 @@
     serie: serie,
     quand: quand,
     MOIS_COURTS: MOIS_COURTS,
+    heureMinute: heureMinute,
+    plageDeSeance: plageDeSeance,
     MOIS_LONGS: MOIS_LONGS,
     arrondi: arrondi,
     nombreSigne: nombreSigne,

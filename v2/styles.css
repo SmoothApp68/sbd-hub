@@ -2001,3 +2001,31 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .pied-rattacher{margin:var(--e2) 0}
 .lien-rattacher{background:none;border:0;color:var(--accent);font:inherit;font-size:14px;min-height:44px;padding:0}
 .aide-rattacher{color:var(--texte-3);font-size:12.5px;margin:2px 0 0}
+
+/* ── 71 — Le récap de fin de séance (ECRAN-SAISIE §7 septies.4 bis, maquette `maquette-recap-fin-v3.html`) ── */
+#vue-recap{padding:var(--e4) var(--e4) var(--e6)}
+.recap-titre{font:700 24px/1.15 var(--pile-c);margin:var(--e2) 0 2px}
+.recap-quand{color:var(--texte-2);font-size:13px;margin-bottom:14px}
+.recap-tuiles{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:16px}
+.recap-tuile{background:var(--panneau);border:1px solid var(--trait);border-radius:12px;padding:9px 6px;text-align:center;min-width:0}
+.recap-tuile b{display:block;font:700 22px/1 var(--pile-c);white-space:nowrap}
+.recap-tuile span{font-size:11px;color:var(--texte-3)}
+.recap-comp{color:var(--texte-2);font-size:14px;margin:-8px 0 14px}
+.recap-groupe{font:600 12px var(--pile-c);text-transform:uppercase;letter-spacing:1.2px;color:var(--texte-3);
+  margin:16px 0 6px;display:flex;gap:6px;align-items:center}
+.recap-point{display:inline-block;width:7px;height:7px;border-radius:50%;background:currentColor}
+.recap-groupe.or{color:var(--medaille)}
+.recap-groupe.coach{color:var(--accent)}
+.recap-mu{display:grid;grid-template-columns:120px 1fr 40px;gap:8px;align-items:center;font-size:13px;margin:5px 0}
+.recap-mu i{display:block;height:8px;border-radius:4px;background:var(--texte-3)}
+.recap-mu b{font-weight:600;text-align:right}
+.recap-rec{border-left:3px solid var(--medaille);padding:6px 0 6px 10px;margin:6px 0}
+.recap-rec .l1{font-weight:600}
+.recap-rec .l2{color:var(--texte-3);font-size:12.5px}
+.recap-voix{color:var(--accent);font-weight:600;margin:4px 0 8px}
+.recap-pari{display:flex;justify-content:space-between;gap:8px;border-top:1px solid var(--trait);padding:8px 2px;font-size:14px}
+.recap-pari .v{color:var(--texte-2);text-align:right}
+.recap-pari .v.pe{color:var(--texte)}
+.recap-note{background:var(--panneau);border-radius:12px;padding:10px 12px;color:var(--texte-2);font-style:italic;font-size:14px;margin:0}
+.recap-bouton{display:block;width:100%;margin-top:14px}
+.recap-voir{margin-top:8px}

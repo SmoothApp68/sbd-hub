@@ -417,11 +417,12 @@ const NOTIONS = [
     raison: 'cinq définitions : une série sans type était du travail pour le moteur et le plan, ' +
       'pas pour les écrans ; la base dit `travail` par défaut.' },
   { notion: 'le compte des séries de travail (la règle du volume)', pr: 'PR 6',
-    module: 'semaine.js', fonction: 'compteSeriesTravail', lecteurs: ['modele.js', 'seance.js', 'profil.js', 'routines.js', 'app.js', 'bilan.js'],
+    module: 'semaine.js', fonction: 'compteSeriesTravail', lecteurs: ['modele.js', 'seance.js', 'profil.js', 'routines.js', 'app.js', 'bilan.js', 'faits.js'],
     parAilleurs: { 'modele.js': ['resumerSeance', 'construireBlocs'], 'seance.js': ['compter'], 'bilan.js': ['bilanDuMois'],
-                   'profil.js': ['statsDe'], 'app.js': ['rendreExercice'] },
+                   'profil.js': ['statsDe'], 'app.js': ['rendreExercice'], 'faits.js': ['recapDeLaSeance'] },
     raison: 'décision du 02/10/2026 : la carte, la barre, la page, le détail (« de travail »), le ' +
-      'bandeau, la feuille de fin et le profil disent le même nombre ; le tapis n’y entre pas.' },
+      'bandeau, la feuille de fin et le profil disent le même nombre ; le tapis n’y entre pas. 71 : le récap compte ' +
+      'les exercices faits (au moins une série de travail) par la même règle.' },
   { notion: 'l’exercice fait (au moins une série de travail, cardio compris)', pr: 'PR 6',
     module: 'modele.js', fonction: 'exercicesFaits', lecteurs: ['app.js', 'faits.js'],
     // 64A : l'APPEL, pas le champ — `entree.exercicesFaits` (JEU-V1 §8) est un nombre que le jeu lit, pas un
@@ -437,7 +438,7 @@ const NOTIONS = [
     raison: 'le travail, les dégressives et les échecs : le compte du Python qui a produit le §5.1. ' +
       'Une autre notion que `estTravail` ; elle portait un nom (`trav`) qui la faisait passer pour elle.' },
   { notion: 'le formateur des nombres et des dates (un seul)', pr: 'PR 7',
-    module: 'modele.js', fonction: 'nombreSigne', lecteurs: ['rendu.js', 'app.js', 'profil.js', 'questionnaire.js'],
+    module: 'modele.js', fonction: 'nombreSigne', lecteurs: ['rendu.js', 'app.js', 'profil.js', 'questionnaire.js', 'bilan.js'],
     motif: /\.\s*nombreSigne\s*\(/g,
     interditAilleurs: {
       motif: /\.replace\(\s*(['"])\.\1\s*,\s*(['"]),\2\s*\)|toLocale(?:Date|Time)?String\s*\(|\\u2212|(['"])janv\.?\3|(['"])janvier\4/,
@@ -704,11 +705,12 @@ const NOTIONS = [
     raison: 'lourd → mix → hypertrophie → volume → séries longues, dans l’ordre de la table des ' +
       'zones : une définition, que la carte et la correction de zone lisent.' },
   { notion: 'les séries par muscle (un principal la série entière, un secondaire pour moitié, un stabilisateur pour un quart)', pr: '55-U1',
-    module: 'semaine.js', fonction: 'volumeParMuscle', lecteurs: ['bilan.js'],
+    module: 'semaine.js', fonction: 'volumeParMuscle', lecteurs: ['bilan.js', 'faits.js'],
     par: ['semainesDeVolume', 'volumeParZone'],
-    parAilleurs: { 'bilan.js': ['bilanDuMois'] },
+    parAilleurs: { 'bilan.js': ['bilanDuMois'], 'faits.js': ['recapDeLaSeance'] },
     raison: 'REGLE-VOLUME et MOTEUR §9.23 (H2, #371) : le bloc Volume et le bilan du mois comptent les séries ' +
-      'par muscle par la même fonction — deux définitions d’une même grandeur, c’est ce que UN-SEUL-FIL interdit.' },
+      'par muscle par la même fonction — deux définitions d’une même grandeur, c’est ce que UN-SEUL-FIL interdit. ' +
+      '71 : le récap de fin de séance aussi (ECRAN-SAISIE §7 septies.4 bis).' },
   // ── 65 — LE POIDS D'UN MUSCLE (REGLE-VOLUME §1 bis, v2_069) : une table, lue par le coach et le jeu ──
   { notion: 'le poids d’un muscle dans une série (principal 1, secondaire ½, stabilisateur ¼)', pr: '65-U1',
     module: 'semaine.js', fonction: 'musclesPonderes', lecteurs: ['jeu.js', 'generateur.js'],
@@ -750,8 +752,8 @@ const NOTIONS = [
     raison: 'MOTEUR §9.23 : un record est un fait ; une seule fonction décide ce qu’une série bat, ' +
       'la médaille en séance, la feuille « Terminer » et Progression la lisent.' },
   { notion: 'la phrase de la médaille ([gras, gris])', pr: '55-U1',
-    module: 'modele.js', fonction: 'phraseDeRecord', lecteurs: ['app.js'],
-    parAilleurs: { 'app.js': ['medailleSurLigne'] },
+    module: 'modele.js', fonction: 'phraseDeRecord', lecteurs: ['app.js', 'faits.js'],
+    parAilleurs: { 'app.js': ['medailleSurLigne'], 'faits.js': ['recordsDuJour'] },
     raison: 'MOTEUR §9.23 : les mots de la médaille, une fois — le cap rond, la charge pour N reps, le 1RM ' +
       'estimé, le volume, la durée, et le record d’avant avec sa date.' },
   { notion: 'le 1RM estimé (Epley)', pr: '55-U1',
@@ -828,9 +830,26 @@ const NOTIONS = [
     raison: 'MOTEUR §9.23 : la médaille sous une rangée et la feuille « Terminer » lisent le même ' +
       'calcul.' },
   { notion: 'les records du jour (la feuille « Terminer »)', pr: '58-U1',
-    module: 'faits.js', fonction: 'recordsDuJour', lecteurs: ['app.js'],
-    parAilleurs: { 'app.js': ['rendreFeuilleFin'] },
-    raison: 'MOTEUR §9.23 : les records d’une séance qu’on termine — le jeu les lira à « Terminer ».' },
+    module: 'faits.js', fonction: 'recordsDuJour', lecteurs: [],
+    par: ['recapDeLaSeance'],
+    raison: 'MOTEUR §9.23 : les records d’une séance qu’on termine. 71 : la feuille « Terminer » ne les montre ' +
+      'plus ; le récap de fin de séance les lit, avec la phrase de la médaille (ECRAN-SAISIE §7 septies.4 bis).' },
+  { notion: 'le récap de fin de séance (tout ce qu’il montre)', pr: '71-U1',
+    module: 'faits.js', fonction: 'recapDeLaSeance', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['rendreRecap'] },
+    raison: 'ECRAN-SAISIE §7 septies.4 bis : les faits du récap en un seul endroit, qui câble ce qui existe ' +
+      '(séries, volume, muscles, records, paris, comparaison) sans en recopier rien ; l’écran les lit.' },
+  { notion: 'le compte des paris vérifiés et tenus (tenu : observé ≥ prédit)', pr: '71-U1',
+    module: 'bilan.js', fonction: 'compterParis', lecteurs: ['faits.js'],
+    par: ['bilanDuMois'],
+    parAilleurs: { 'faits.js': ['recapDeLaSeance'] },
+    raison: 'MOTEUR §9.22 : le bilan du mois et le récap de fin de séance comptent les paris par la même boucle ' +
+      '(extraite de `bilanDuMois`, 71) — le bilan ne change pas d’un chiffre.' },
+  { notion: 'la comparaison du volume à un objet connu (« à peu près un tricératops »)', pr: '71-U1',
+    module: 'bilan.js', fonction: 'comparaison', lecteurs: [],
+    par: ['phraseComparaison'],
+    raison: 'ECRAN-SAISIE §7 septies.4 bis : la table des cinquante objets et le choix par l’empreinte de la ' +
+      'séance vivent à un seul endroit (`comparaison71.py` est la référence).' },
   { notion: 'la semaine affichée (ses jours, séances, séries, bilan, zones)', pr: '58-U1',
     module: 'faits.js', fonction: 'semaineDe', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['semaineCourante'] },
@@ -1400,7 +1419,7 @@ describe('architecture — le registre des notions : une source, des lecteurs', 
 describe('architecture — le module des faits : un fait ne se déclare que dans faits.js (58-1)', () => {
   const FICHIERS = perimetre();
 
-  test('les faits du module : vingt-quatre (treize en 58-1, trois du journal en 58-2, un du questionnaire en 60-2a, un du programme déduit en 60-3, deux du programme construit en 60-4, un du jeu en 64A, un du bilan en 66A, les habitudes en 66C, la dernière séance en 66D), chacun déclaré et exporté par faits.js', () => {
+  test('les faits du module : vingt-cinq (treize en 58-1, trois du journal en 58-2, un du questionnaire en 60-2a, un du programme déduit en 60-3, deux du programme construit en 60-4, un du jeu en 64A, un du bilan en 66A, les habitudes en 66C, la dernière séance en 66D, le récap de fin de séance en 71), chacun déclaré et exporté par faits.js', () => {
     global.self = global;
     require('../../v2/js/modele.js');
     require('../../v2/js/semaine.js');
@@ -1410,7 +1429,7 @@ describe('architecture — le module des faits : un fait ne se déclare que dans
     require('../../v2/js/seance.js');
     require('../../v2/js/periode.js');
     const instance = require('../../v2/js/faits.js').creer();
-    expect(FAITS.length).toBe(24);
+    expect(FAITS.length).toBe(25);
     expect(FAITS.filter((fn) => typeof instance[fn] !== 'function')).toEqual([]);
   });
 

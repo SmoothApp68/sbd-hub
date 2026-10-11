@@ -27,6 +27,8 @@
   var Rejeu = racine.THRejeu, Bilan = racine.THBilan;
   // 64B — le jeu (JEU-V1 §9) : l'écran le LIT, il ne le refait pas ; le coach ne le lit jamais.
   var Jeu = racine.THJeu;
+  // 75 — « Ton parcours » : l'écran lit le parcours par `faits.parcoursDe` ; d'ici, seuls les noms courts des barres.
+  var Parcours = racine.THParcours;
   // 59-2 — « Quitter » : la fenêtre des séances pas encore envoyées, et ce qu'on efface.
   var Quitter = racine.THQuitter;
   // 58-1 — LE MODULE DES FAITS : l'assemblage des faits (séances et séries,
@@ -1129,6 +1131,11 @@
         paris: { verifies: b.paris_verifies, tenus: b.paris_tenus },
         surChoix: function () { afficherMois(mois); }
       },
+      // 75 — « Ton parcours », juste après « Le mois écoulé » : sa phrase, il s'ouvre sur la page.
+      parcours: {
+        phrase: faits.parcoursDe(corpus(), new Date(), profil).phrase,
+        surChoix: afficherParcours
+      },
       records: {
         dernier: dernier ? { texte: dernier.nom + ' ' + dernier.mesure,
                              date: Modele.jourMois(new Date(dernier.debut), new Date().getFullYear()) } : null,
@@ -1144,6 +1151,33 @@
         surChoix: function () { allerA(Routeur.POIDS, {}); rendrePoids(); }
       },
       exercices: sommaireExercices(function (slug) { afficherExercice(slug); })
+    });
+  }
+
+  // ── 75 — « TON PARCOURS » (ECRAN-SAISIE §7 bis.14 ter, maquette v3) ───────
+  //
+  // ⚠️ L'ÉCRAN LIT LE PARCOURS, IL NE LE REFAIT PAS : `faits.parcoursDe` (le module des faits, qui l'assemble et le
+  // mémorise) rend les verdicts, les rapports, le levier et la phrase. Ce que l'écran ajoute ne décide rien : les
+  // libellés des priorités, la phase du profil et le nombre de pesées des huit dernières semaines. Rien n'est écrit.
+  var JOURS_DES_PESEES = 56, PESEES_SUFFISANTES = 4;
+  function afficherParcours() {
+    allerA(Routeur.PARCOURS, {});
+    rendreParcours();
+  }
+  function rendreParcours() {
+    montrer('parcours', Routeur.PARCOURS);
+    var p = faits.parcoursDe(corpus(), new Date(), profil);
+    var libelles = {};
+    p.zones.forEach(function (z) { libelles[z.zone] = z.libelle.toLowerCase(); });
+    var pesees = Poids.filtrer(local.pesees, JOURS_DES_PESEES, new Date()).length;
+    Rendu.rendreParcours($('parcours'), {
+      parcours: p,
+      nomsCourts: Parcours.NOM_COURT,
+      priorites: Profil.prioritesDe(profil).filter(function (c) { return libelles[c]; }).map(function (c) { return libelles[c]; }),
+      phase: Profil.phraseRappelDePhase(profil) || Profil.LIBELLE_PHASE_VIDE,
+      pesees: { nombre: pesees, assez: pesees >= PESEES_SUFFISANTES },
+      // « Tous tes exercices » : chacun ouvre sa page par la porte commune (§7 quater).
+      surExercice: function (slug) { afficherExercice(slug); }
     });
   }
 
@@ -11138,6 +11172,7 @@
     if (cible.vue === Routeur.POIDS) return rendrePoids();
     if (cible.vue === Routeur.MOIS) return rendreMois(cible.params.mois || null);
     if (cible.vue === Routeur.RECORDS) return rendreRecordsDuMois(cible.params.mois || null);
+    if (cible.vue === Routeur.PARCOURS) return rendreParcours();
     if (VUES_ONGLET[cible.vue]) return montrer(VUES_ONGLET[cible.vue], cible.vue);
     if (cible.vue === Routeur.EXERCICE) {
       return rendreExercice(cible.params.slug, cible.params.onglet);
@@ -11162,6 +11197,8 @@
       progression: $('vue-progression'), exercice: $('vue-exercice'),
       volume: $('vue-volume'), poids: $('vue-poids'), profil: $('vue-profil'),
       mois: $('vue-mois'), records: $('vue-records'),
+      // 75 — « Ton parcours », sous Progression.
+      parcours: $('vue-parcours'),
       exercices: $('vue-exercices'), questionnaire: $('vue-questionnaire'),
       // 69 — « Importer depuis Hevy », sous le profil.
       import: $('vue-import'),
@@ -11238,7 +11275,7 @@
       allerA(Routeur.SAISIE, {});
       rendreSaisie();
     });
-    ['btn-retour-volume', 'btn-retour-poids', 'btn-retour-mois', 'btn-retour-records'].forEach(function (id) {
+    ['btn-retour-volume', 'btn-retour-poids', 'btn-retour-mois', 'btn-retour-records', 'btn-retour-parcours'].forEach(function (id) {
       $(id).addEventListener('click', function () {
         allerA(Routeur.PROGRESSION, {});
         rendreProgression();

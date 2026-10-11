@@ -13394,7 +13394,8 @@ const SETS_IMPORTES = [
     await fermerRecapBanc();
     await garderRecap(false);
 
-    // ── E. PROGRESSION : DEUX BLOCS EN TÊTE, LES AUTRES NE BOUGENT PAS.
+    // ── E. PROGRESSION : DEUX BLOCS EN TÊTE, LES AUTRES NE BOUGENT PAS. 75 (ECRAN-SAISIE §7 bis.14 ter) : « Ton
+    //    parcours » se pose juste après le mois écoulé ; les records passent en troisième.
     await onglet('progression');
     await attendre(800);
     const som = await page.evaluate(() => Array.from(document.querySelectorAll('#sommaire .bloc-som')).map((b) => ({
@@ -13404,14 +13405,15 @@ const SETS_IMPORTES = [
     const ici = new Date(tP);
     const ecoule = new Date(ici.getFullYear(), ici.getMonth() - 1, 1);
     await capturer55('3-sommaire');
-    ok('[P55] DISCRIMINANT — en tête : le mois écoulé, puis les records ; Volume, Poids, Par exercice ensuite',
-      som.length === 5 && som[0].neuf && som[0].quoi === MOIS_L[ecoule.getMonth()] && som[1].neuf &&
-        /Records$/.test(som[1].quoi) && /^Volume par muscle/.test(som[2].quoi) && /^Poids de corps/.test(som[3].quoi) &&
-        /^Par exercice/.test(som[4].quoi), JSON.stringify(som));
+    ok('[P55] DISCRIMINANT — en tête : le mois écoulé, « Ton parcours » (75), puis les records ; Volume, Poids, Par exercice ensuite',
+      som.length === 6 && som[0].neuf && som[0].quoi === MOIS_L[ecoule.getMonth()] && som[1].neuf &&
+        som[1].quoi === 'Ton parcours' && som[2].neuf &&
+        /Records$/.test(som[2].quoi) && /^Volume par muscle/.test(som[3].quoi) && /^Poids de corps/.test(som[4].quoi) &&
+        /^Par exercice/.test(som[5].quoi), JSON.stringify(som));
     ok('[P55] le bloc Records dit le dernier, « Médaillé u55 100 kg × 5 », daté d’aujourd’hui',
-      som[1] && sp(som[1].ligne) === sp('Le dernier : Médaillé u55 100 kg × 5, le ' + ici.getDate() + ' ' + MOIS_C[ici.getMonth()] +
+      som[2] && sp(som[2].ligne) === sp('Le dernier : Médaillé u55 100 kg × 5, le ' + ici.getDate() + ' ' + MOIS_C[ici.getMonth()] +
         (/\.$/.test(MOIS_C[ici.getMonth()]) ? '' : '.')),
-      JSON.stringify(som[1]));
+      JSON.stringify(som[2]));
 
     // ── F. LE BILAN DU MOIS : le mois écoulé, puis le mois en cours (›).
     await page.evaluate(() => document.querySelectorAll('#sommaire .bloc-som')[0].click());

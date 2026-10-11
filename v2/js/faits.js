@@ -9,7 +9,8 @@
 // (`programmeDeduit`) ; depuis 60-4, l'historique du programme construit
 // (`historiqueDesExercices`) ; depuis 64A, les faits du jeu (`faitsDuJeu`) ; depuis 66A, le fait des
 // barres du bilan (`barresDuBilan`), que « Le coach relit ta semaine » lit ; depuis 66C, les habitudes (`habitudes`),
-// que le générateur v2 complète. Ils vivaient dans
+// que le générateur v2 complète ; depuis 75, « Ton parcours » (`entreeDuParcours`, `parcoursDe`),
+// que Progression lit. Ils vivaient dans
 // `app.js`, au milieu de l'état de l'écran : le jeu n'aurait pu les lire qu'en
 // les recopiant.
 //
@@ -809,7 +810,52 @@
       return sortie;
     }
 
+    // ── 75 — « Ton parcours » (ECRAN-SAISIE §7 bis.14 ter) ──────────────────
+    //
+    // L'entrée de `THParcours.parcours`, assemblée ici, et le parcours calculé, mémorisé : les séries DE TRAVAIL
+    // (`Modele.estTravail`) des séances terminées, chacune avec le jour de sa séance ; le catalogue ; les priorités
+    // (`Profil.prioritesDe`) et le sexe du profil ; aujourd'hui. Le JOUR est le jour civil local (`Moteur.jourCivil`),
+    // celui de toute l'app (le mois écoulé, les records, la relecture) — l'appareil vit à Paris.
+    //
+    // ⚠️ SA MÉMOIRE : le nombre de séances et de séries du corpus, le jour, les priorités, le sexe — et le catalogue,
+    // comparé par référence. Ouvrir Progression ne recalcule rien tant que rien de cela ne bouge. Rien n'est écrit.
+    var memoParcours = { cle: null, catalogue: null, parcours: null };
+    function entreeDuParcours(c, aujourdhui, profil) {
+      var Profil = racine.THProfil;
+      var index = c.catalogue() || {};
+      var series = [];
+      (c.seances || []).forEach(function (s) {
+        if (!s || !s.id || !s.debut || s.statut === 'en_cours') return;
+        var jour = Moteur.jourCivil(s.debut);
+        if (!jour) return;
+        (c.seriesDe(s.id) || []).forEach(function (x) {
+          if (!x || !x.exercise_slug || !Modele.estTravail(x)) return;
+          series.push({ debut: jour, seance: s.id, slug: x.exercise_slug,
+                        reps: x.reps === undefined ? null : x.reps, charge: x.charge_kg === undefined ? null : x.charge_kg });
+        });
+      });
+      return {
+        aujourdhui: Moteur.jourCivil(aujourdhui),
+        sexe: profil && typeof profil.sexe === 'string' ? profil.sexe : null,
+        priorites: Profil ? Profil.prioritesDe(profil) : [],
+        catalogue: Object.keys(index).map(function (slug) { return index[slug]; }),
+        series: series
+      };
+    }
+    function parcoursDe(c, aujourdhui, profil) {
+      var Profil = racine.THProfil, catalogue = c.catalogue();
+      var cle = (c.seances || []).length + '|' + (c.series || []).length + '|' + Moteur.jourCivil(aujourdhui) + '|' +
+        (Profil ? Profil.prioritesDe(profil) : []).join(',') + '|' + (profil && profil.sexe);
+      if (memoParcours.cle !== cle || memoParcours.catalogue !== catalogue) {
+        memoParcours = { cle: cle, catalogue: catalogue,
+                         parcours: racine.THParcours.parcours(entreeDuParcours(c, aujourdhui, profil)) };
+      }
+      return memoParcours.parcours;
+    }
+
     return {
+      entreeDuParcours: entreeDuParcours,
+      parcoursDe: parcoursDe,
       seancesAvecSeries: seancesAvecSeries,
       seancesDuSlug: seancesDuSlug,
       seancesDeLExercice: seancesDeLExercice,

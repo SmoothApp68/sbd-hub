@@ -2029,3 +2029,38 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .recap-note{background:var(--panneau);border-radius:12px;padding:10px 12px;color:var(--texte-2);font-style:italic;font-size:14px;margin:0}
 .recap-bouton{display:block;width:100%;margin-top:14px}
 .recap-voir{margin-top:8px}
+
+/* ── 75 — « TON PARCOURS » (ECRAN-SAISIE §7 bis.14 ter, maquette v3). L'ambre pour la voix du coach (la phrase, le
+   levier), l'or pour « ton meilleur » (la ligne de la courbe), le vert pour le sens « en hausse » seulement. Aucun
+   rouge : une baisse s'écrit en ambre, comme un fait. */
+.pc-phrase{background:var(--panneau);border-left:3px solid var(--accent);border-radius:var(--r-grand);
+  padding:12px 14px;font-size:15.5px;line-height:1.45;margin:var(--e2) 0 var(--e3)}
+.pc-monte{color:var(--reussi);font-size:12.5px;text-align:right}
+.pc-neutre{color:var(--accent);font-size:12.5px;text-align:right}
+.pc-gris{color:var(--texte-2);font-size:12.5px;text-align:right}
+.pc-lift-tete{display:flex;justify-content:space-between;align-items:baseline;gap:var(--e2)}
+.pc-lift-nom{font:600 18px var(--pile-c)}
+.pc-courbe{display:block;width:100%;height:90px;margin:4px 0}
+.pc-meilleur{fill:none;stroke:var(--medaille);stroke-width:2;vector-effect:non-scaling-stroke}
+.pc-point{fill:var(--texte-2);opacity:.7}
+.pc-maintenant{fill:var(--texte)}
+.pc-lift-pied{display:flex;justify-content:space-between;gap:6px;font-size:11.5px;color:var(--texte-2);
+  font-variant-numeric:tabular-nums}
+.pc-or{color:var(--medaille)}
+.pc-groupe{background:var(--panneau);border-radius:var(--r-petit);margin-bottom:6px}
+.pc-groupe summary{list-style:none;display:flex;justify-content:space-between;gap:var(--e2);padding:10px 12px;
+  cursor:pointer;font-size:14.5px}
+.pc-groupe summary::-webkit-details-marker{display:none}
+.pc-groupe-corps{padding:0 12px 10px}
+.pc-exo{padding:6px 0;border-top:1px solid var(--trait)}
+.pc-exo-haut{display:flex;justify-content:space-between;gap:var(--e2);font-size:13px}
+.pc-exo-nom{min-width:0;overflow-wrap:anywhere}
+.pc-exo-detail{font-size:12px;color:var(--texte-2);margin-top:2px;font-variant-numeric:tabular-nums}
+.pc-pourquoi summary{cursor:pointer;color:var(--texte-2);font-size:13px;padding:4px 0}
+.pc-levier{background:linear-gradient(180deg,#2a2218,var(--panneau));border:1px solid var(--accent-sombre);
+  border-radius:var(--r-grand);padding:12px 14px;font-size:14px;line-height:1.45}
+.pc-levier b{color:var(--accent)}
+.pc-tous summary{background:var(--panneau);border-radius:var(--r-petit);padding:10px 12px;cursor:pointer}
+.pc-tous-ligne{display:flex;justify-content:space-between;gap:var(--e2);width:100%;text-align:left;
+  background:none;border:0;border-bottom:1px solid var(--trait);color:var(--texte);padding:10px 4px;font:inherit;
+  font-size:13.5px;cursor:pointer}

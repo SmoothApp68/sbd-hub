@@ -269,6 +269,14 @@
     </header>
     <div id="records-mois"></div>
   </section>
+  <!-- 75 (ECRAN-SAISIE §7 bis.14 ter) — « Ton parcours » : le bilan de toute la progression. Il se recalcule à
+       chaque ouverture, sur tout le corpus ; il n'écrit rien. Aucun rouge, aucun e1RM. -->
+  <section id="vue-parcours" hidden>
+    <header class="entete">
+      <button id="btn-retour-parcours" type="button" class="discret">← Progression</button>
+    </header>
+    <div id="parcours"></div>
+  </section>
 
   <!-- Vue Poids : descriptive de bout en bout. Aucun objectif, aucun poids
        cible, aucun commentaire sur la variation. -->
@@ -461,6 +469,7 @@
 <script src="/js/periode.js"></script>
 <script src="/js/poids.js"></script>
 <script src="/js/bilan.js"></script>
+<script src="/js/parcours.js"></script>
 <script src="/js/faits.js"></script>
 <script src="/js/jeu.js"></script>
 <script src="/js/calendrier.js"></script>

@@ -463,15 +463,17 @@ const NOTIONS = [
       '`seance.js` ne relisait pas : retoucher les reps d’une série à « −25 » effaçait sa charge. ' +
       '69 : les nombres que Hevy écrit (« 31,5 kg », « 1.17 » km) se lisent ici aussi (`importhevy.js`).' },
   { notion: 'les frères d’un exercice (même `mouvement` au catalogue, MOTEUR §13.6)', pr: '49-U20',
-    module: 'modele.js', fonction: 'freresDe', lecteurs: ['app.js', 'seance.js', 'faits.js', 'generateur.js'],
+    module: 'modele.js', fonction: 'freresDe', lecteurs: ['app.js', 'seance.js', 'faits.js', 'generateur.js', 'parcours.js'],
     parAilleurs: { 'app.js': ['freresPourLeMoteur', 'faitsDesFreres'], 'seance.js': ['freresProposes'],
-                   'faits.js': ['barresDuBilan'], 'generateur.js': ['familleDeBarre'] },
+                   'faits.js': ['barresDuBilan'], 'generateur.js': ['familleDeBarre'], 'parcours.js': ['parcours'] },
     interditAilleurs: { motif: /\.\s*mouvement\b|\[\s*(['"`])mouvement\1\s*\]/,
                         raison: '`mouvement` lu ailleurs que dans `freresDe` : une seconde définition des frères' },
     raison: 'les frères sont les exercices de même `mouvement` — pas de même `famille`, plus large ; ' +
       'une seule lecture de la colonne, sinon deux écrans auraient deux listes de frères. 66A : les variantes à la ' +
       'barre du bilan (QUESTIONNAIRE §5 ter.2) sont ses frères à la barre — `faits.js` (le fait) et `generateur.js` ' +
-      '(la relecture : le lourd en premier, la poussée, le squat à déplacer) les lisent ici, sans relire `mouvement`.' },
+      '(la relecture : le lourd en premier, la poussée, le squat à déplacer) les lisent ici, sans relire `mouvement`. ' +
+      '75 : le relais d’un exercice moins pratiqué (« Ton parcours », ECRAN-SAISIE §7 bis.14 ter) est un frère ou ' +
+      'un exercice de la même famille (`parcours.js`).' },
   // 67B — les libellés des équipements : une table, à côté de la liste du profil.
   { notion: 'le libellé d’un équipement (« Machine », « Haltère »… ; ECRAN-SAISIE §7 quindecies.10)', pr: '67-U2',
     module: 'profil.js', fonction: 'libelleEquipement', lecteurs: ['app.js'],
@@ -482,12 +484,16 @@ const NOTIONS = [
       'MÊME table, à côté de `EQUIPEMENTS` ; une valeur inconnue se rend telle quelle.' },
   // 67A — la famille : une colonne, une lecture, un seul usage (la feuille « Remplacer »).
   { notion: 'la même famille d’un exercice (même `schema_mouvement` au catalogue, MOTEUR §13.6 bis)', pr: '67-U1',
-    module: 'modele.js', fonction: 'cousinsDe', lecteurs: ['app.js'],
-    parAilleurs: { 'app.js': ['cousinsDe'] },
+    module: 'modele.js', fonction: 'cousinsDe', lecteurs: ['app.js', 'parcours.js'],
+    parAilleurs: { 'app.js': ['cousinsDe'], 'parcours.js': ['parcours'] },
+    // 75 — un second lecteur, avec sa raison (décidé le 11/10/2026).
+    raisonsDesLecteurs: { 'parcours.js': 'le relais d’un exercice moins pratiqué (75)' },
     interditAilleurs: { motif: /\.\s*schema_mouvement\b|\[\s*(['"`])schema_mouvement\1\s*\]/,
                         raison: '`schema_mouvement` lu ailleurs que dans `cousinsDe` : une famille hors de « Remplacer »' },
     raison: 'MOTEUR §13.6 bis (67A) : la famille ne sert QU’À la feuille « Remplacer », sous les frères ; aucun calcul ' +
-      '(variantes à la barre, barre lourde, supersets, frère qui progresse) ne la lit — ils lisent `freresDe`.' },
+      '(variantes à la barre, barre lourde, supersets, frère qui progresse) ne la lit — ils lisent `freresDe`. ' +
+      '75 : et au relais d’un exercice moins pratiqué de « Ton parcours » (`parcours.js`), qui dit ce qui a pris sa ' +
+      'place — jamais une charge, jamais une consigne.' },
   { notion: 'la version lestée d’un exercice libre (`parent` au catalogue, MOTEUR §9.17)', pr: '50-U1',
     module: 'modele.js', fonction: 'lesteDe', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['optionsDeConsigne', 'entreesDuPlan'] },
@@ -621,7 +627,11 @@ const NOTIONS = [
     module: 'moteur.js', fonction: 'reportDeZone', lecteurs: [],
     par: ['reportSur'],
     interditAilleurs: { motif: /\/\s*\(?\s*30\b|\bREPORT_EPLEY\b/,
-                        raison: 'une estimation (« n/30 ») écrite hors du moteur : un second calcul du report' },
+                        raison: 'une estimation (« n/30 ») écrite hors du moteur : un second calcul du report',
+                        // 75 — une exception nommée, avec sa raison (la garde vérifie qu'elle sert encore).
+                        sauf: { 'parcours.js': 'le k au bord de la courbe personnelle de « Ton parcours » (ECRAN-SAISIE ' +
+                          '§7 bis.14 ter) : 1/30, fixé par la spec, ne sert qu’à placer un exercice sur SA courbe — jamais ' +
+                          'une charge, jamais un report, rien d’affiché' } },
     raison: 'une seule règle pour tout changement de zone — la correction à l’étiquette, la reprise ' +
       '« Plus léger », demain un bloc : l’estimation reste en coulisse, seule la charge arrondie en sort.' },
   { notion: 'le report sur le contrat d’un exercice (ses séances non neutres, le cran du moteur)', pr: '53-U1',
@@ -1062,6 +1072,23 @@ const NOTIONS = [
     raison: 'QUESTIONNAIRE-COACH-V2 §5 ter.2 (66A) : la relecture de la semaine REÇOIT ce fait, elle ne relit pas les ' +
       'séances ; le record est celui de la page de l’exercice (`recordsDeLExercice(...).lourde`). 66B : l’écran ' +
       '(`app.js`, `entreeDeRelecture`) l’assemble dans l’entrée, sans le recompter.' },
+  // ── 75 — « TON PARCOURS » (ECRAN-SAISIE §7 bis.14 ter) : un calcul pur, assemblé par les faits, lu par l'écran ──
+  { notion: '« Ton parcours » (les verdicts des exercices et des groupes, le relais, les rapports, le levier, les courbes, la phrase)', pr: '75-U1',
+    module: 'parcours.js', fonction: 'parcours', lecteurs: ['faits.js'],
+    motif: /\b(?:TH)?Parcours\s*\.\s*parcours\s*\(/g,
+    parAilleurs: { 'faits.js': ['parcoursDe'] },
+    raison: 'ECRAN-SAISIE §7 bis.14 ter (75) : une règle fixe, testée contre `parcours75.py` ; seul le module des faits ' +
+      'l’appelle, sur l’entrée qu’il assemble — aucun écran ne refait un verdict, un rapport ou le levier.' },
+  { notion: 'l’entrée de « Ton parcours » (séries de travail datées, catalogue, priorités, sexe, aujourd’hui)', pr: '75-U1',
+    module: 'faits.js', fonction: 'entreeDuParcours', lecteurs: [],
+    par: ['parcoursDe'],
+    raison: 'ECRAN-SAISIE §7 bis.14 ter (75) : les séries de travail (`Modele.estTravail`) des séances terminées, au jour ' +
+      'civil de leur séance ; une seule assemblée, celle que le parcours mémorisé lit.' },
+  { notion: '« Ton parcours », mémorisé (le bloc du sommaire et la page)', pr: '75-U1',
+    module: 'faits.js', fonction: 'parcoursDe', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['rendreProgression', 'rendreParcours'] },
+    raison: 'ECRAN-SAISIE §7 bis.14 ter (75) : le bloc et la page lisent le même parcours, recalculé seulement quand le ' +
+      'corpus, le jour, les priorités, le sexe ou le catalogue changent ; l’écran ne le calcule pas.' },
   { notion: 'le repère squat ÷ couché, par sexe (la barre en retard, Force et Les deux)', pr: '66-U1',
     module: 'generateur.js', fonction: 'relireSemaine', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['relire'] },
@@ -1356,11 +1383,30 @@ describe('architecture — le registre des notions : une source, des lecteurs', 
     NOTIONS.filter((n) => n.interditAilleurs).forEach((n) => {
       FICHIERS.forEach((f) => {
         if (f.nom === n.module) return;
+        if (n.interditAilleurs.sauf && n.interditAilleurs.sauf[f.nom]) return;
         const avecChaines = nettoyer(f.src, true);
         const motif = new RegExp(n.interditAilleurs.motif.source, 'g');
         let m;
         while ((m = motif.exec(avecChaines)) !== null) {
           fautes.push(n.notion + ' : ' + n.interditAilleurs.raison + ' — ' + f.nom + ', ligne ' + ligneDe(avecChaines, m.index));
+        }
+      });
+    });
+    expect(fautes).toEqual([]);
+  });
+
+  // 75 — une exception à un interdit est nommée fichier par fichier, avec sa raison, et elle sert : le motif doit
+  // encore se voir dans ce fichier (une exception sans objet se retire).
+  test('⚠️ une exception à un interdit a sa raison, et elle sert encore', () => {
+    const fautes = [];
+    NOTIONS.filter((n) => n.interditAilleurs && n.interditAilleurs.sauf).forEach((n) => {
+      Object.keys(n.interditAilleurs.sauf).forEach((nom) => {
+        const raison = n.interditAilleurs.sauf[nom];
+        if (typeof raison !== 'string' || raison.length < 20) fautes.push(n.notion + ' : l’exception pour ' + nom + ' n’a pas de raison');
+        const f = FICHIERS.filter((x) => x.nom === nom)[0];
+        if (!f) { fautes.push(n.notion + ' : l’exception nomme ' + nom + ', qui n’existe pas'); return; }
+        if (!new RegExp(n.interditAilleurs.motif.source).test(nettoyer(f.src, true))) {
+          fautes.push(n.notion + ' : l’exception pour ' + nom + ' ne sert plus — retire-la');
         }
       });
     });
@@ -1419,7 +1465,7 @@ describe('architecture — le registre des notions : une source, des lecteurs', 
 describe('architecture — le module des faits : un fait ne se déclare que dans faits.js (58-1)', () => {
   const FICHIERS = perimetre();
 
-  test('les faits du module : vingt-cinq (treize en 58-1, trois du journal en 58-2, un du questionnaire en 60-2a, un du programme déduit en 60-3, deux du programme construit en 60-4, un du jeu en 64A, un du bilan en 66A, les habitudes en 66C, la dernière séance en 66D, le récap de fin de séance en 71), chacun déclaré et exporté par faits.js', () => {
+  test('les faits du module : vingt-sept (treize en 58-1, trois du journal en 58-2, un du questionnaire en 60-2a, un du programme déduit en 60-3, deux du programme construit en 60-4, un du jeu en 64A, un du bilan en 66A, les habitudes en 66C, la dernière séance en 66D, le récap de fin de séance en 71, l’entrée et le parcours en 75), chacun déclaré et exporté par faits.js', () => {
     global.self = global;
     require('../../v2/js/modele.js');
     require('../../v2/js/semaine.js');
@@ -1428,8 +1474,9 @@ describe('architecture — le module des faits : un fait ne se déclare que dans
     require('../../v2/js/moteur.js');
     require('../../v2/js/seance.js');
     require('../../v2/js/periode.js');
+    require('../../v2/js/parcours.js');
     const instance = require('../../v2/js/faits.js').creer();
-    expect(FAITS.length).toBe(25);
+    expect(FAITS.length).toBe(27);
     expect(FAITS.filter((fn) => typeof instance[fn] !== 'function')).toEqual([]);
   });
 

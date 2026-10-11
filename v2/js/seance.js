@@ -88,9 +88,12 @@
   // Lues, jamais écrites : le serveur les pose lui-même.
   var COLONNES_SET_EN_PLUS = ['created_at', 'modifie_a'];
 
+  // 69 (ECRAN-PROFIL §2.4 quater) — `source_ref`, la référence d'import
+  // (`hevy:<id>`), lue ET écrite : sans elle, une séance importée ne se
+  // reconnaîtrait pas au prochain import, et sa correction l'effacerait.
   var COLONNES_SESSION = [
     'id', 'user_id', 'debut', 'fin', 'titre', 'note', 'salle', 'routine_id',
-    'source', 'statut'
+    'source', 'source_ref', 'statut'
   ];
   // `salle_norme` est GÉNÉRÉE : lue pour l'affichage, jamais envoyée.
   var COLONNES_SESSION_EN_PLUS = ['created_at', 'salle_norme'];
@@ -307,7 +310,7 @@
   // doit pas la faire disparaître.
   function reprendre(session, blocs) {
     if (!session) return null;
-    return normaliserGroupes({
+    return avecProvenance(normaliserGroupes({
       id: session.id,
       user_id: session.user_id || null,
       debut: session.debut,
@@ -318,7 +321,18 @@
       note: session.note || null,
       statut: session.statut || TERMINEE,
       exercices: exercicesDepuisBlocs(blocs)
-    });
+    }), session);
+  }
+
+  // 69 — LA PROVENANCE SUIT LA SÉANCE ROUVERTE. Une séance Hevy corrigée en
+  // Édition repartait en `'app'` (`ligneSession` l'écrivait en dur) : trois
+  // séances d'août en portent la trace. `source` et `source_ref` sont recopiées
+  // de la ligne lue quand elle les porte.
+  function avecProvenance(seance, session) {
+    var o = Object.assign({}, seance);
+    if (session.source !== undefined && session.source !== null) o.source = session.source;
+    if (session.source_ref !== undefined) o.source_ref = session.source_ref;
+    return o;
   }
 
   // REFAIRE une séance (§7 octies.3) — ce n'est pas une copie dans l'historique,
@@ -1736,7 +1750,7 @@
   function verifierColonnes() {
     var sonde = {
       id: 's', user_id: 'u', debut: 'd', fin: null, titre: null, note: null,
-      salle: null, routine_id: null, statut: EN_COURS,
+      salle: null, routine_id: null, statut: EN_COURS, source: 'hevy', source_ref: 'hevy:sonde',
       exercices: [{
         exercise_slug: 'x', groupe_superset: null, note: null,
         series: [Object.assign(serieVide('sonde'), {
@@ -1771,7 +1785,19 @@
       note: texteOuNul(seance.note),
       salle: texteOuNul(seance.salle, SALLE_MAX),
       routine_id: seance.routine_id,
-      source: 'app',
+      // ⚠️ 69 — LA PROVENANCE D'UNE SÉANCE NE SE RÉÉCRIT PAS, comme celle de ses
+      // séries (`lignes`). Elle était écrite `'app'` en dur : une séance Hevy
+      // retouchée en Édition passait en `app` (les 3 séances d'août en `app`
+      // avec une référence `hevy:`), et une séance importée serait partie en
+      // `app`.
+      source: seance.source || 'app',
+      // La référence d'import (`hevy:<id>`), qu'une correction recopie telle
+      // quelle (`reprendre`). Toujours envoyée, comme les autres colonnes.
+      // ⚠️ Fenêtre connue : une ligne d'un cache écrit AVANT cette version ne
+      // la porte pas ; corrigée hors ligne avant la première synchronisation
+      // (qui relit `sessions` en entier), elle l'écrirait à null. L'anti-doublon
+      // reconnaît encore la séance à la minute de son début.
+      source_ref: seance.source_ref === undefined ? null : seance.source_ref,
       // Toujours explicite : le défaut de la colonne est 'terminee'.
       statut: seance.statut || EN_COURS
     };

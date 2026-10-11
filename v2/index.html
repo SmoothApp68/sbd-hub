@@ -339,6 +339,17 @@
     <div id="liste-mes-exos" class="exo-liste"></div>
   </section>
 
+  <!-- 69 (ECRAN-PROFIL §2.4 quater) — « Importer depuis Hevy », sous le profil. Coller des séances ou donner
+       l'export CSV ; les deux mènent au même aperçu, et rien n'est écrit avant « Importer ». Construite en JS
+       (`Rendu.rendreImport`) depuis l'état de l'import. -->
+  <section id="vue-import" hidden>
+    <header class="entete">
+      <button id="btn-retour-import" type="button" class="discret">← Profil</button>
+    </header>
+    <div id="import-hevy"></div>
+    <input id="fichier-hevy" type="file" accept=".csv,text/csv" hidden>
+  </section>
+
   <!-- 60-2a — LE QUESTIONNAIRE DU COACH. Une vue plein écran, sans barre d'onglets
        (`ongletDe` ne la connaît pas), construite en JS par `rendreQuestionnaire`
        depuis la vue que `THQuestionnaire` décrit. Pas de route : il s'ouvre une
@@ -371,12 +382,18 @@
      comme le calendrier — le retour d'Android le ferme au lieu de naviguer. -->
 <div id="catalogue" class="voile" hidden>
   <div class="fen" role="dialog" aria-modal="true" aria-label="Choisir un exercice">
+    <!-- 69 — le mode « rattacher » : « « Good Morning (Barre) » chez Hevy, c'est… ». -->
+    <p id="titre-catalogue" class="titre-catalogue" hidden></p>
     <input id="champ-recherche-exo" type="search" autocomplete="off"
            placeholder="Chercher un exercice" aria-label="Chercher un exercice">
     <div id="filtres-exo" class="filtres-exo"></div>
     <p id="compte-exo" class="compte-exo" hidden></p>
     <div id="choix-filtre-exo" class="choix-filtre-exo" hidden></div>
     <div id="resultats-exo" class="resultats"></div>
+    <div id="pied-rattacher" class="pied-rattacher" hidden>
+      <button id="btn-ne-pas-importer" type="button" class="lien-rattacher">Ne pas importer cet exercice</button>
+      <p class="aide-rattacher">Je m’en souviendrai pour tes prochains imports.</p>
+    </div>
     <button id="btn-fermer-catalogue" type="button" class="fermer">Fermer</button>
   </div>
 </div>
@@ -444,6 +461,7 @@
 <script src="/js/profil.js"></script>
 <script src="/js/generateur.js"></script>
 <script src="/js/questionnaire.js"></script>
+<script src="/js/importhevy.js"></script>
 <script src="/js/routeur.js"></script>
 <script src="/js/sortie.js"></script>
 <script src="/js/cache.js"></script>

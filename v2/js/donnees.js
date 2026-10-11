@@ -663,6 +663,43 @@
     if (r.error) throw r.error;
   }
 
+  // ══ LES NOMS D'EXERCICES IMPORTÉS (69, ECRAN-PROFIL §2.4 quater) ══════════
+  //
+  // Colonnes RELEVÉES AU SCHÉMA (information_schema.columns, 11/10/2026), pas
+  // supposées :
+  //   `exercise_alias` — alias text (clé primaire, le nom TEL QUEL, pas
+  //     normalisé) · slug text · source text · created_at ; lecture seule pour
+  //     tous (`exercise_alias_read_all`). ⚠️ La colonne s'appelle `slug`, pas
+  //     `exercise_slug`.
+  //   `alias_exercice` (`v2_076`) — id uuid · user_id uuid (défaut
+  //     `auth.uid()`) · alias text · alias_norme text GÉNÉRÉE (lue, jamais
+  //     envoyée) · exercise_slug text · created_at ; les siennes seulement
+  //     (`alias_exercice_owner`), unicité (`user_id`, `alias_norme`).
+  // L'import demande une connexion : ces deux lectures sont faites à l'aperçu,
+  // jamais mises en cache.
+  function aliasCommuns() {
+    return paginerParCle(trancheur(function () {
+      return client().from('exercise_alias').select('alias, slug, source');
+    }, 'alias'), 'alias');
+  }
+
+  function mesAlias() {
+    return paginerParCle(trancheur(function () {
+      return client().from('alias_exercice').select('id, user_id, alias, alias_norme, exercise_slug, created_at');
+    }, 'id'), 'id');
+  }
+
+  // L'ÉCRIVAIN UNIQUE d'`alias_exercice` (la garde d'architecture le dit :
+  // la table ne s'écrit que dans cette fonction, et elle ne s'appelle que
+  // depuis `executer`, `app.js`). UN UPSERT SUR (`user_id`, `alias_norme`) QUI
+  // FUSIONNE : rattacher de nouveau le même nom remplace le choix d'avant.
+  // `alias_norme` est générée et n'est JAMAIS envoyée ; l'identifiant non plus
+  // (la base le tire). `ligne` : `{ user_id, alias, exercise_slug }`.
+  async function enregistrerAlias(ligne) {
+    var r = await client().from('alias_exercice').upsert(ligne, { onConflict: 'user_id,alias_norme' });
+    if (r.error) throw r.error;
+  }
+
   // ══ LE PROFIL (chantier 46 §2) ═══════════════════════════════════════════
   //
   // Une ligne, la sienne. `profiles_select_own` est `auth.uid() = id` : ce
@@ -771,6 +808,9 @@
     tousLesExercices: tousLesExercices,
     toutesLesPesees: toutesLesPesees,
     enregistrerPesee: enregistrerPesee,
+    aliasCommuns: aliasCommuns,
+    mesAlias: mesAlias,
+    enregistrerAlias: enregistrerAlias,
     mesZones: mesZones,
     enregistrerZone: enregistrerZone,
     mesModes: mesModes,

@@ -1967,3 +1967,37 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .rl-chg{font-size:13px;margin:6px 0 0;padding-left:16px}
 .rl-chg li{margin:2px 0}
 .rl-chg s{color:var(--texte-3)}
+
+/* ── 69 — Importer depuis Hevy (ECRAN-PROFIL §2.4 quater, maquette `maquette-import-hevy-v2.html`) ── */
+.imp-choix{background:var(--panneau);border:1px solid var(--trait);border-radius:var(--r-grand);padding:var(--e3);margin:var(--e2) 0}
+.imp-choix b{display:block;margin-bottom:2px}
+.imp-aide{color:var(--texte-3);font-size:12.5px;line-height:1.35}
+.imp-zone{display:block;width:100%;box-sizing:border-box;min-height:118px;margin:var(--e2) 0;padding:10px;
+  background:var(--panneau-2);color:var(--texte);border:1px solid var(--trait);border-radius:var(--r-petit);
+  font:12.5px/1.35 ui-monospace,monospace;resize:vertical}
+.imp-bouton{display:block;width:100%;margin-top:10px}
+.imp-ok{color:var(--texte-2);font-size:14px;margin-top:10px;line-height:1.4}
+.imp-erreur{color:var(--texte)}
+.imp-periode{margin-bottom:var(--e2)}
+.imp-seance{display:flex;gap:10px;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--trait);
+  padding:11px 2px;align-items:flex-start;color:var(--texte);font:inherit}
+.imp-seance.grise{opacity:.5}
+.imp-case{width:20px;height:20px;border-radius:6px;border:2px solid var(--texte-3);flex:none;margin-top:2px;box-sizing:border-box}
+.imp-case.on{background:var(--accent);border-color:var(--accent)}
+.imp-case.off{opacity:.35}
+.imp-g{display:flex;flex-direction:column;min-width:0}
+.imp-t{font-weight:600}
+.imp-d{color:var(--texte-2);font-size:13px}
+.imp-e{color:var(--texte-3);font-size:12.5px;margin-top:2px}
+.imp-groupe{font:600 12px var(--pile-c);text-transform:uppercase;letter-spacing:1.2px;color:var(--texte-3);margin:14px 0 4px}
+.imp-rattacher{background:var(--panneau);border:1px solid var(--trait);border-radius:var(--r-grand);padding:4px 12px}
+.imp-nom{display:flex;justify-content:space-between;align-items:center;gap:10px;border-top:1px solid var(--trait);padding:10px 0}
+.imp-nom:first-child{border-top:0}
+.imp-lien{background:none;border:0;color:var(--accent);font:inherit;font-size:14px;min-height:44px;padding:0 4px}
+.imp-attend{margin-top:var(--e2)}
+.imp-barre{height:6px;background:var(--panneau-2);border-radius:3px;overflow:hidden;margin:10px 0}
+.imp-barre i{display:block;height:100%;background:var(--accent)}
+.titre-catalogue{font-weight:600;margin:0 0 var(--e2)}
+.pied-rattacher{margin:var(--e2) 0}
+.lien-rattacher{background:none;border:0;color:var(--accent);font:inherit;font-size:14px;min-height:44px;padding:0}
+.aide-rattacher{color:var(--texte-3);font-size:12.5px;margin:2px 0 0}

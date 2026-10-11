@@ -414,7 +414,8 @@
     return {
       id: SANS_HISTORIQUE, etape: 'Tes données',
       titre: 'Depuis quand t’entraînes-tu régulièrement ?',
-      voix: sansSeance ? 'L’import dans l’app arrive plus tard. Ces trois réponses suffisent pour commencer.' : null,
+      // 69 (K2) — l'import existe : la phrase dit où le trouver (ECRAN-PROFIL §2.4 quater).
+      voix: sansSeance ? 'Tu pourras importer tes séances depuis Profil, « Importer depuis Hevy ». Ces trois réponses suffisent pour commencer.' : null,
       blocs: [
         { type: 'options', cle: 'anciennete', valeur: rep.anciennete, options: Profil().ANCIENNETES },
         { type: 'puces', cle: 'seances', titre: 'Combien de séances par semaine ?',

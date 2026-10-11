@@ -5116,6 +5116,100 @@
     return cible;
   }
 
+  // ── Importer depuis Hevy (69, ECRAN-PROFIL §2.4 quater) ─────────────────
+  //
+  // Quatre états, un écran : les deux choix (coller, ou le fichier), l'aperçu
+  // (rien n'est écrit avant « Importer »), la progression par paquets, la fin.
+  // Les phrases viennent de `THImportHevy` (au mot près, K1 et la maquette) ;
+  // ce rendu ne décide rien, il pose ce que `vue` dit.
+  function rendreImport(cible, vue) {
+    if (!cible) return;
+    vider(cible);
+    var bouton = function (libelle, classe, surClic, actif) {
+      var b = el('button', classe, libelle);
+      b.type = 'button';
+      if (actif === false) b.disabled = true;
+      b.addEventListener('click', function () { if (!b.disabled) surClic(); });
+      return b;
+    };
+    if (vue.etape === 'en_cours') {
+      cible.appendChild(el('h2', 'titre-vue', 'Import en cours'));
+      var barre = el('div', 'imp-barre');
+      var plein = el('i');
+      plein.style.width = (vue.progression.total ? Math.round(100 * vue.progression.fait / vue.progression.total) : 0) + '%';
+      barre.appendChild(plein);
+      cible.appendChild(barre);
+      cible.appendChild(el('p', 'imp-aide imp-progression', vue.progression.texte));
+      return cible;
+    }
+    if (vue.etape === 'fini') {
+      cible.appendChild(el('h2', 'titre-vue', vue.fin.titre));
+      if (vue.fin.connexion) cible.appendChild(el('p', 'imp-ok imp-erreur', vue.fin.connexion));
+      var phrase = [vue.fin.detail, vue.fin.suite].filter(Boolean).join(' ');
+      if (phrase) cible.appendChild(el('p', 'imp-ok', phrase));
+      cible.appendChild(bouton('Voir l\u2019historique', 'discret imp-bouton', vue.surHistorique));
+      return cible;
+    }
+    if (vue.etape === 'apercu') {
+      cible.appendChild(el('h2', 'titre-vue', vue.titre));
+      if (vue.periode) cible.appendChild(el('p', 'imp-aide imp-periode', vue.periode));
+      var liste = el('div', 'imp-seances');
+      vue.lignes.forEach(function (l, i) {
+        var b = el('button', 'imp-seance' + (l.grise ? ' grise' : ''));
+        b.type = 'button';
+        b.setAttribute('role', 'checkbox');
+        b.setAttribute('aria-checked', l.coche ? 'true' : 'false');
+        if (l.grise) b.disabled = true;
+        b.addEventListener('click', function () { if (!b.disabled) vue.surCocher(i); });
+        b.appendChild(el('span', 'imp-case' + (l.grise ? ' off' : l.coche ? ' on' : '')));
+        var g = el('span', 'imp-g');
+        g.appendChild(el('span', 'imp-t', l.titre));
+        g.appendChild(el('span', 'imp-d', l.quand));
+        g.appendChild(el('span', 'imp-e', l.sous));
+        b.appendChild(g);
+        liste.appendChild(b);
+      });
+      cible.appendChild(liste);
+      if (vue.noms.length) {
+        cible.appendChild(el('div', 'imp-groupe', vue.titreNoms));
+        var r = el('div', 'imp-rattacher');
+        vue.noms.forEach(function (x) {
+          var ligne = el('div', 'imp-nom');
+          var g2 = el('div', 'imp-g');
+          g2.appendChild(el('div', 'imp-nom-t', x.nom));
+          g2.appendChild(el('div', 'imp-aide', x.aide));
+          ligne.appendChild(g2);
+          ligne.appendChild(bouton('Choisir', 'imp-lien', function () { vue.surChoisirNom(x.nom); }));
+          r.appendChild(ligne);
+        });
+        cible.appendChild(r);
+      }
+      cible.appendChild(bouton(vue.bouton.libelle, 'principal imp-bouton imp-importer', vue.surImporter, vue.bouton.actif));
+      if (vue.attend) cible.appendChild(el('p', 'imp-aide imp-attend', vue.attend));
+      return cible;
+    }
+    // Les deux choix.
+    cible.appendChild(el('h2', 'titre-vue', 'Importer depuis Hevy'));
+    if (vue.erreur) cible.appendChild(el('p', 'imp-ok imp-erreur', vue.erreur));
+    var c1 = el('div', 'imp-choix');
+    c1.appendChild(el('b', '', 'Coller des séances'));
+    c1.appendChild(el('div', 'imp-aide', 'Dans Hevy : une séance \u2192 Partager \u2192 Copier. Tu peux en coller plusieurs à la suite.'));
+    var zone = el('textarea', 'imp-zone');
+    zone.id = 'champ-texte-hevy';
+    zone.setAttribute('aria-label', 'Le texte de Hevy');
+    zone.value = vue.texte || '';
+    zone.addEventListener('input', function () { vue.surSaisie(zone.value); });
+    c1.appendChild(zone);
+    c1.appendChild(bouton('Lire le texte', 'principal imp-bouton imp-lire', function () { vue.surLireTexte(zone.value); }, !vue.occupe));
+    cible.appendChild(c1);
+    var c2 = el('div', 'imp-choix');
+    c2.appendChild(el('b', '', 'Choisir le fichier de Hevy'));
+    c2.appendChild(el('div', 'imp-aide', 'L\u2019export des séances (.csv), dans les paramètres de Hevy. Tout ton historique d\u2019un coup.'));
+    c2.appendChild(bouton('Choisir le fichier', 'discret imp-bouton imp-fichier', vue.surChoisirFichier, !vue.occupe));
+    cible.appendChild(c2);
+    return cible;
+  }
+
   // ── Tous mes exercices (§2.4 bis) ────────────────────────────────────────
   //
   // Tri par dernière utilisation, recherche par nom, et un tap ouvre la page de
@@ -5684,6 +5778,7 @@
     rendreFeuilleChoixMultiple: rendreFeuilleChoixMultiple,
     rendreFeuilleSaisie: rendreFeuilleSaisie,
     rendreMesExercices: rendreMesExercices,
+    rendreImport: rendreImport,
     rendreEntree: rendreEntree,
     message: message
   };

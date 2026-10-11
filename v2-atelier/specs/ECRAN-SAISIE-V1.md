@@ -1333,6 +1333,114 @@ appartient, dans quel historique elle compte, qui possède les séries. C'est du
 C'est aussi ici que se pose la question du §6 : une déviation de structure ou de repos
 met-elle à jour la routine ?
 
+
+### 7 septies.4 bis Le récap de fin de séance — décidé le 11/10/2026 (chantier 71)
+
+> **La feuille « Terminer » déclare, le récap constate.** La feuille garde le compte des séries, le titre, la salle,
+> la note, la question de la routine (§6) et ses deux boutons. Les records et le jeu en sortent : ils passent au
+> récap, qui s'ouvre **juste après « Terminer »**, une fois, en plein écran. Il ne s'ouvre pas pour une séance
+> abandonnée, ni à l'Édition d'une séance passée.
+
+**Pourquoi** : le retour sur ce qu'on vient de faire améliore la performance, la motivation et l'effort ressenti, et
+le retour visuel fait mieux que le retour oral (Weakley et coll., *Sports Med* 2023, méta-analyse de 20 études).
+Hevy montre records, volume, répartition par muscle et une comparaison ; RP et JuggernautAI posent des questions
+qui règlent la séance suivante. **Aucun ne montre si ses prévisions étaient justes** : c'est le cœur du récap.
+
+**Ce qu'il montre, dans cet ordre** — que des faits, aucun « bravo », rien sur l'assiduité :
+1. **L'en-tête** : le titre ; le jour et les heures (« samedi 10 oct. · 14 h 27 → 15 h 30 »).
+2. **Quatre chiffres** : la durée (de `debut` à `fin`) · les séries de travail (`Seance.compter().travail`, la même
+   règle que le bandeau et la feuille) · le volume en tonnes (`THBilan.volumeKg`, la fonction du bilan du mois :
+   séries de travail, charges positives) · les exercices faits (au moins une série de travail).
+3. **La comparaison** (demandée par Aurélien, cinquante objets pour qu'elle change d'une séance à l'autre) :
+   « 10,1 t soulevées : à peu près un tricératops. » — le volume de la tuile, comparé à un objet de la table
+   ci-dessous. **Le choix** : les objets dont la masse est à ±20 % du volume (écart des logarithmes ≤ ln 1,2), dans
+   l'ordre (masse, libellé) ; parmi eux, celui d'indice `FNV-1a 32 bits(identifiant de la séance) mod leur nombre` —
+   **le même pour une même séance, à chaque affichage**, différent d'une séance à l'autre. Aucun à ±20 % : le plus
+   proche. Sous 1 t : pas de ligne. Au-delà de 50 t : « plus qu'un semi-remorque chargé ». De 1 à 50 t, il y a
+   toujours au moins un objet à ±20 %, et 4 à 6 le plus souvent. Référence : `comparaison71.py`.
+   Les masses sont des **ordres de grandeur courants** (« à peu près ») : une masse à vide pour un véhicule, un
+   adulte pour un animal, une estimation récente pour un dinosaure, le maximum légal français pour un camion chargé.
+
+   | Objet (tel qu'écrit) | Masse retenue |
+   |---|---|
+   | un cheval de trait | 1,0 t |
+   | un grand crocodile marin | 1,0 t |
+   | un grand requin blanc | 1,1 t |
+   | un rhinocéros noir | 1,1 t |
+   | un taureau charolais | 1,1 t |
+   | une Renault Clio | 1,1 t |
+   | un morse | 1,2 t |
+   | une Mini | 1,2 t |
+   | une girafe | 1,2 t |
+   | une Peugeot 3008 | 1,4 t |
+   | un hippopotame | 1,5 t |
+   | une Tesla Model 3 | 1,8 t |
+   | un hélicoptère Écureuil plein | 2,2 t |
+   | un pick-up | 2,2 t |
+   | un rhinocéros blanc | 2,3 t |
+   | un Range Rover | 2,5 t |
+   | une Tesla Model X | 2,5 t |
+   | un éléphant de forêt | 2,7 t |
+   | un camping-car | 3,5 t |
+   | un éléphant de mer | 3,5 t |
+   | une camionnette chargée | 3,5 t |
+   | un éléphant d'Asie | 4,0 t |
+   | un stégosaure | 5,0 t |
+   | un orque | 5,5 t |
+   | un ankylosaure | 6,0 t |
+   | un mammouth laineux | 6,0 t |
+   | un éléphant d'Afrique | 6,0 t |
+   | un Mirage 2000 à vide | 7,5 t |
+   | un T. rex | 8,0 t |
+   | un tricératops | 9,0 t |
+   | un Rafale à vide | 10,0 t |
+   | le bourdon Emmanuel de Notre-Dame | 13,0 t |
+   | un ATR 72 à vide | 13,0 t |
+   | la cloche de Big Ben | 13,7 t |
+   | un cachalot femelle | 15,0 t |
+   | un char AMX-13 | 15,0 t |
+   | un diplodocus | 15,0 t |
+   | un requin-baleine | 15,0 t |
+   | la Savoyarde du Sacré-Cœur | 19,0 t |
+   | un camion chargé | 19,0 t |
+   | un camion à trois essieux chargé | 26,0 t |
+   | un VBCI | 29,0 t |
+   | une baleine grise | 30,0 t |
+   | une baleine à bosse | 30,0 t |
+   | le cuivre de la statue de la Liberté | 31,0 t |
+   | une toupie à béton chargée | 32,0 t |
+   | un Boeing 737 à vide | 41,0 t |
+   | un Airbus A320 à vide | 42,0 t |
+   | un semi-remorque chargé | 44,0 t |
+   | un cachalot mâle | 45,0 t |
+
+4. **Les séries par muscle** : `THSemaine.volumeParMuscle` sur les séries de la séance — **la fonction du bloc
+   Volume** (un muscle principal compte la série entière, un secondaire la moitié, un stabilisateur le quart) ;
+   les cinq premiers, puis « N autres » avec leur somme. Barres grises, jamais de couleur de jugement.
+5. **Les records du jour** (or) : `recordsDuJour`, une ligne par série médaillée, la phrase de la médaille
+   (MOTEUR §9.23) et l'ancien record avec sa date. Sans record, pas de bloc.
+6. **Ce que le coach avait visé** (ambre) : la phrase des paris **de la séance**, avec les chiffres tels quels
+   (« Sur 16 paris vérifiés, le coach en a tenu 14. » — pas ramenés à 10 comme le bilan du mois : une séance en
+   compte rarement plus de 30, et « sur 10 » contredirait le compte) ; puis une ligne par exercice qui a au moins un
+   pari vérifié : ce qui a été fait (« 90 kg × 10, 10, 10 ») et, si un pari n'est pas tenu, ce qui était visé
+   (« 9, 9, 8, 7 · visé 9 »). Tenu = observé ≥ prédit (§9.22). Sans pari vérifié, pas de bloc.
+7. **Le jeu** : le bloc de JEU-V1 §9.4, tel quel.
+8. **La note de séance**, si elle est écrite.
+9. **« Fermer »** (retour à la liste des séances) et **« Voir la séance »** (son détail).
+
+**Écarté, avec la raison** :
+- **« La prochaine fois : 130 × 4 »** — le coach ne lit jamais l'avenir (MOTEUR §9.12) : la consigne de la
+  prochaine séance dépend de ce qui arrivera d'ici là ;
+- **« +2 t par rapport à la dernière fois »** — le volume dépend de la routine, du jour, de la phase ; une flèche
+  vers le bas se lirait comme un recul ;
+- **la note de séance de 1 à 10** (« session RPE », Foster ; validée en musculation) — aucune règle du coach ne la lit
+  encore ; elle viendra avec le chantier qui la lira ;
+- **les jours d'affilée, « ta 600ᵉ séance »** — le moteur ne commente jamais l'assiduité ;
+- **l'image à partager** — avec le social.
+
+**Le rendu ne modifie rien** : le récap lit la séance terminée et le corpus ; il n'écrit rien (les records sont
+partis à « Terminer », par la file, §9.23).
+
 ---
 
 ## 7 sexies. La file d'attente ne perd rien en silence — corrigé au chantier 25

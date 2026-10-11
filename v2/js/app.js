@@ -10661,6 +10661,12 @@
   // sans prévenir à la semaine courante. Empiler est la seule qui ne surprenne
   // pas, et le bouton « Cette semaine » borne le coût d'une exploration lointaine.
 
+  // 70 — l'attente d'un retour de lien est bornée (ECRAN-PROFIL §5.6), et ses deux phrases.
+  var DELAI_LIEN_MS = 5000;
+  var DELAI_DEPASSE = {};
+  var PHRASE_LIEN_EXPIRE = 'Ce lien a expiré ou a déjà servi. Redemande-en un avec « Mot de passe oublié ? ».';
+  var PHRASE_LIEN_NON_VERIFIE = 'Le lien n\'a pas pu être vérifié. Réessaie, ou redemande-en un avec « Mot de passe oublié ? ».';
+
   // 70 — un fragment d'authentification ne reste JAMAIS dans l'adresse après sa
   // lecture : ni le jeton (le SDK n'efface que son contenu et laisse « # »), ni
   // l'erreur (que le SDK laisse en place), ni un `?code=` de flux PKCE.
@@ -10764,7 +10770,7 @@
 
   async function demarrer() {
     vues = {
-      connexion: $('vue-connexion'), liste: $('vue-liste'), detail: $('vue-detail'),
+      connexion: $('vue-connexion'), lien: $('vue-lien'), liste: $('vue-liste'), detail: $('vue-detail'),
       saisie: $('vue-saisie'), routine: $('vue-routine'), seance: $('vue-seance'),
       progression: $('vue-progression'), exercice: $('vue-exercice'),
       volume: $('vue-volume'), poids: $('vue-poids'), profil: $('vue-profil'),
@@ -10975,20 +10981,40 @@
     // cas, où le réseau est de toute façon nécessaire —, on retire le fragment,
     // PUIS on décide. Une session enregistrée reste une session : un vieux lien
     // ne déconnecte personne.
+    //
+    // ⚠️ ET L'ATTENTE EST BORNÉE, ET ELLE SE VOIT (§5.6). Le SDK vérifie le jeton
+    // auprès du serveur (`/auth/v1/user`), sans délai à lui : un réseau qui ne
+    // répond pas laissait l'écran vide. « Ouverture du lien… » tout de suite ;
+    // `DELAI_LIEN_MS` sans réponse, l'écran de connexion le dit. Le SDK a déjà lu
+    // l'adresse à son initialisation : la nettoyer ne lui retire rien, et s'il
+    // répond plus tard, le rappel de `surChangement` fait entrer (et ouvre la
+    // feuille d'une récupération) — rien d'autre à écrire pour l'entrée tardive.
     var persistee = Auth.sessionPersistee();
     if (retour) {
+      montrer('lien');
+      var minuteur = null;
+      var depasse = new Promise(function (resoudre) {
+        minuteur = racine.setTimeout(function () { resoudre(DELAI_DEPASSE); }, DELAI_LIEN_MS);
+      });
       var lue = null;
-      try { lue = await Auth.sessionCourante(); } catch (e) { lue = null; }
+      try { lue = await Promise.race([Auth.sessionCourante(), depasse]); } catch (e) { lue = null; }
+      racine.clearTimeout(minuteur);
       effacerRetourDeLien();
+      var phraseLien = null;
+      if (lue === DELAI_DEPASSE) {
+        lue = null;
+        phraseLien = PHRASE_LIEN_NON_VERIFIE;
+      } else if (!lue) {
+        phraseLien = retour.erreur ? PHRASE_LIEN_EXPIRE : PHRASE_LIEN_NON_VERIFIE;
+      }
+      // Une entrée a pu partir de l'événement du SDK pendant l'attente : elle décide, pas le délai.
       lue = lue || Auth.sessionPersistee();
       if (lue) await entrer(lue);
-      else {
+      else if (!entreeEnCours && !sessionActive) {
         allerA(Routeur.CONNEXION, {}, true);
         rendreEntree('connexion');
-        if (retour.erreur) {
-          $('erreur-connexion').className = 'erreur ok';
-          $('erreur-connexion').textContent = 'Ce lien a expiré ou a déjà servi. Redemande-en un avec « Mot de passe oublié ? ».';
-        }
+        $('erreur-connexion').className = 'erreur ok';
+        $('erreur-connexion').textContent = phraseLien;
       }
     } else if (persistee) {
       await entrer(persistee);

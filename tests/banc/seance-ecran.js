@@ -17496,6 +17496,151 @@ const SETS_IMPORTES = [
       nb68([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
   }
 
+  console.log('\n══ a-fond. « À FOND » PENDANT LA SÉANCE : LA SUIVANTE VISE UNE REP DE MOINS ; LA PROPOSITION PRISE À FOND REVIENT (68B, MOTEUR §9.14 ter) ══');
+  //
+  // Sur la grille de l'app réelle, l'effort noté au doigt APRÈS la validation
+  // (la feuille « effort », « il en restait 0 »). Le rowing du 10/10 (C68) :
+  // 79 × 12, puis le test à 81,3 en dernière série, sur quatre séries.
+  // ⚠️ CONFIGURATION DISCRIMINANTE : 79 × 12 validée SANS effort ne change rien ;
+  // c'est l'effort « à fond » posé ensuite qui passe la série 2 à 11. Et la
+  // proposition prise (81,3 × 12) tient sans effort ; à fond, la suite revient
+  // à 79 — et le pari de la série est observé sur ses reps FAITES (12, pas 11).
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const sessionsAvant = base.sessions, setsAvant = base.sets, catalogueAvant = CATALOGUE.length;
+    base.sessions = [];
+    base.sets = [];
+    CATALOGUE.push({ slug: 'rowing-c68b', nom: 'Rowing Divergent C68B (Machine)', mesure: 'charge_reps', charge: 'externe',
+      equipement: 'machine', muscles_primaires: ['dorsaux'], muscles_secondaires: [] });
+    const tB = Date.now();
+    const poserB = (id, jours, lignes) => {
+      const debut = ilYa(jours * 86400000, tB).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'Dos — ' + id, debut,
+        fin: finDe(debut, tB).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      lignes.forEach(([kg, reps], i) => base.sets.push({
+        id: id + '-s' + (i + 1), session_id: id, user_id: 'u-banc', exercise_slug: 'rowing-c68b',
+        charge_kg: kg, reps, duree_s: null, distance_m: null, type_serie: 'travail',
+        rang: i + 1, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null,
+        repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+    };
+    poserB('c68b-a', 28, [[79, 12], [79, 12], [79, 12], [79, 12]]);
+    poserB('c68b-b', 21, [[79, 12], [79, 12], [79, 12], [79, 12]]);
+    poserB('c68b-c', 14, [[79, 12], [79, 12], [79, 12], [79, 12]]);
+    poserB('c68b-d', 7, [[79, 12], [79, 12], [79, 12], [81.3, 10]]);
+    ROUTINES.push({ id: 'r-c68b', nom: 'Rowing C68B ×4', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-c68b-e', routine_id: 'r-c68b', exercise_slug: 'rowing-c68b', rang: 0,
+        routine_sets: progr(4, 12), repos_cible_s: 90, groupe_superset: null, note: null }] });
+    const nbB = (x) => JSON.stringify(x).replace(/[  ]/g, ' ');
+    const grilleB = () => page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie')).map((l) =>
+      Array.from(l.querySelectorAll('input')).map((i) => String(i.value ? '[' + i.value + ']' : (i.placeholder || '∅'))).join('×')));
+    const phrasesB = () => page.evaluate(() =>
+      Array.from(document.querySelectorAll('.reaction-serie')).map((e) => e.className.replace('reaction-serie ', '') + ' | ' + e.textContent));
+    const consigneB = () => page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      const x = d && d.plan.exercices.filter((e) => e.slug === 'rowing-c68b')[0];
+      return x ? { etat: x.consigne.etat, ligne: x.consigne.ligne, haut: x.consigne.haut } : null;
+    });
+    const invariantsB = async (geste) => {
+      const v = await page.evaluate(() => {
+        const d = window.THPlan && window.THPlan.dernier;
+        if (!d) return { ok: false, erreurs: ['aucun plan calculé'] };
+        return window.THPlan.verifierPlan(d.plan, d.entrees);
+      });
+      ok('[C68B] invariants du plan après « ' + geste + ' » (I44 compris)', v.ok, v.ok ? '' : nbB(v.erreurs.slice(0, 3)));
+    };
+    // L'effort « il en restait 0 » noté sur la série `i`, déjà validée.
+    const aFond = async (i) => {
+      await toucher(i, '.eff-serie');
+      if ((await compter('#feuille-contenu .grille-rpe')) > 0) {
+        await page.click('#feuille-contenu .bascule button');
+        await attendre(400);
+      }
+      await page.click('#feuille-contenu .grille-rir button:nth-child(4)');   // « 0 », à fond
+      await attendre(1200);
+    };
+
+    await aller('/saisie');
+    await attendre(1500);
+    await demarrerRoutine('Rowing C68B ×4');
+    await attendre(900);
+    ok('[C68B] prémisse : la consigne — 79 × 12 sur trois séries, puis le test à 81,3',
+      nbB(await consigneB()) === nbB({ etat: 'garde', ligne: { charge: 79, vise: 12 }, haut: { charge: 81.3, vise: 11, k: 1 } }),
+      nbB(await consigneB()));
+
+    // ── 1. 79 × 12 VALIDÉE, PUIS « À FOND » NOTÉ SUR CETTE SÉRIE ──────────
+    await saisirSerie(0, 79, 12);
+    await attendre(700);
+    ok('[C68B] témoin : 79 × 12 validée sans effort — la série 2 vise toujours 12, aucune phrase',
+      (await grilleB())[1] === '79×12' && (await phrasesB()).length === 0, nbB([await grilleB(), await phrasesB()]));
+    await aFond(0);
+    await invariantsB('« à fond » noté sur 79 × 12');
+    const g1 = await grilleB();
+    ok('[C68B] DISCRIMINANT — « à fond » noté : la série 2, à la même charge, vise 11 ; les autres ne bougent pas',
+      nbB(g1.slice(1)) === nbB(['79×11', '79×12', '81,3×11']), nbB(g1));
+    ok('[C68B] la phrase « 79 kg × 12 à fond : la suivante vise 11. »',
+      nbB(await phrasesB()) === nbB(['a_fond_suite | 79 kg × 12 à fond : la suivante vise 11.']), nbB(await phrasesB()));
+    await abandonner();
+
+    // ── 2. LA PROPOSITION PRISE, PUIS « À FOND » NOTÉ ─────────────────────
+    await demarrerRoutine('Rowing C68B ×4');
+    await attendre(900);
+    await saisirSerie(0, 79, 15);
+    await attendre(800);
+    ok('[C68B] prémisse : 79 × 15, le coach propose 81,3 sur la série 2', (await phrasesB()).some((x) => /^propose \|/.test(x)),
+      nbB(await phrasesB()));
+    await saisirSerie(1, 81.3, 12);
+    await attendre(800);
+    const tenue = await grilleB();
+    ok('[C68B] témoin : 81,3 × 12 sans effort — la montée tient, la suite reste à 81,3',
+      /^81,3×/.test(tenue[2]), nbB(tenue));
+    await aFond(1);
+    await invariantsB('« à fond » noté sur la proposition prise');
+    const g2 = await grilleB();
+    ok('[C68B] DISCRIMINANT — prise à fond : la suite revient à 79 × 12',
+      nbB(g2.slice(2)) === nbB(['79×12', '79×12']), nbB(g2));
+    ok('[C68B] la phrase « 81,3 kg × 12 à fond : la suite revient à 79 kg × 12. », sans « pas encore »',
+      nbB(await phrasesB()) === nbB(['pas_encore | 81,3 kg × 12 à fond : la suite revient à 79 kg × 12.']), nbB(await phrasesB()));
+    await abandonner();
+
+    // ── 3. « À FOND » NOTÉ AVANT DE VALIDER : L'OBSERVATION, SUR LES REPS FAITES ─
+    // ⚠️ L'effort doit être sur la série QUAND elle s'observe (à sa validation) :
+    // noté après coup, le pari est déjà observé, et l'observation ne change plus.
+    await demarrerRoutine('Rowing C68B ×4');
+    await attendre(900);
+    await saisirSerie(0, 79, 15);
+    await attendre(800);
+    const champsB = await (await ligne(1)).$$('input');
+    await champsB[0].fill('81.3');
+    await champsB[1].fill('12');
+    await attendre(450);
+    await aFond(1);
+    await toucher(1, '.ok-serie');
+    await attendre(1800);
+    await invariantsB('81,3 × 12 à fond, validée');
+    const idSeanceB = base.sessions.filter((x) => x.statut === 'en_cours').map((x) => x.id)[0];
+    const pariB = base.predictions.filter((q) => q.exercise_slug === 'rowing-c68b' && q.fondement &&
+      q.fondement.seance === idSeanceB && q.fondement.role === 'coach')[0] || null;
+    ok('[C68B] DISCRIMINANT — le pari de la proposition (visée 10), validée à fond, est observé sur les reps FAITES : 12, pas 11',
+      !!pariB && pariB.valeur_predite === 10 && pariB.valeur_observee === 12,
+      nbB(pariB && { visee: pariB.valeur_predite, observee: pariB.valeur_observee }));
+    ok('[C68B] et la suite revient à 79 × 12', nbB((await grilleB()).slice(2)) === nbB(['79×12', '79×12']), nbB(await grilleB()));
+
+    // LA REMISE EN ÉTAT, pour les sections suivantes.
+    await abandonner();
+    const iRB = ROUTINES.findIndex((r) => r.id === 'r-c68b');
+    if (iRB >= 0) ROUTINES.splice(iRB, 1);
+    CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
+    base.sessions = sessionsAvant;
+    base.sets = setsAvant;
+    await aller('/saisie');
+    ok('[C68B] aucun refus du faux serveur, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,
+      nbB([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
+  }
+
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');
   // Le compte vit dans `garde-compte.js` : le lanceur parallèle refait les
   // mêmes contrôles sur le compte fusionné de ses groupes.

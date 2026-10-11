@@ -43,6 +43,15 @@
   // l'absence de valeur) n'est JAMAIS « hors matériel » : on ne devine pas.
   var EQUIPEMENTS = ['aucun', 'barre', 'haltere', 'machine', 'machine_smith', 'poulie',
                      'elastique', 'kettlebell', 'disque'];
+  // 67B (ECRAN-SAISIE §7 quindecies.10) — LEURS LIBELLÉS, une seule table, à côté de la liste : le filtre « matériel »
+  // du catalogue et la sous-ligne de chaque résultat. Une valeur que la table ne connaît pas se rend telle quelle.
+  var LIBELLES_EQUIPEMENT = { aucun: 'Sans matériel', barre: 'Barre', haltere: 'Haltère', machine: 'Machine',
+                              machine_smith: 'Machine Smith', poulie: 'Poulie', elastique: 'Élastique',
+                              kettlebell: 'Kettlebell', disque: 'Disque' };
+  function libelleEquipement(e) {
+    if (Object.prototype.hasOwnProperty.call(LIBELLES_EQUIPEMENT, e)) return LIBELLES_EQUIPEMENT[e];
+    return String(e === null || e === undefined ? '' : e);
+  }
 
   // La table, exacte. `null` : tout le matériel (Salle complète), et aussi
   // « pas renseigné » — dans les deux cas, rien ne change d'ordre. `poulie` :
@@ -1266,7 +1275,8 @@
     TAILLE_MIN: TAILLE_MIN, TAILLE_MAX: TAILLE_MAX,
     PSEUDO_MIN: PSEUDO_MIN, PSEUDO_MAX: PSEUDO_MAX, MDP_MIN: MDP_MIN,
     CHAMPS_ECRITS: CHAMPS_ECRITS, A_RENSEIGNER: A_RENSEIGNER,
-    EQUIPEMENTS: EQUIPEMENTS, equipementsDe: equipementsDe, estHorsMateriel: estHorsMateriel,
+    EQUIPEMENTS: EQUIPEMENTS, LIBELLES_EQUIPEMENT: LIBELLES_EQUIPEMENT, libelleEquipement: libelleEquipement,
+    equipementsDe: equipementsDe, estHorsMateriel: estHorsMateriel,
     rangerParMateriel: rangerParMateriel,
     libelleDe: libelleDe,
     initiale: initiale,

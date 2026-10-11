@@ -684,6 +684,24 @@ button.bloc-exo:active{background:var(--panneau-2)}
   padding:11px var(--e1)}
 .resultat:active{background:var(--panneau-2)}
 .resultat .resultat-mention{display:block;font-size:12px;color:var(--texte-3);margin-top:2px}
+/* 67B (ES §7 quindecies.10, maquette `maquette-catalogue-filtres-v2.html`) — les deux filtres sous le champ : chacun
+   une pastille au doigt (44 px), son choix en ambre quand il est actif, et son « ✕ » ; « N exercices » ; la sous-ligne
+   « Matériel · Muscle » de chaque résultat. Le choix d'un filtre prend la place des résultats (la feuille de choix de
+   l'app, `rendreFeuilleChoix`, dans le catalogue). */
+.filtres-exo{display:flex;gap:var(--e2);margin:var(--e2) 0 var(--e1)}
+.filtre-exo{flex:1;min-width:0;display:flex;align-items:stretch;background:var(--panneau);
+  border:1px solid var(--trait);border-radius:999px;overflow:hidden}
+.filtre-exo.actif{border-color:var(--accent)}
+.filtre-ouvrir{flex:1;min-width:0;min-height:44px;display:flex;align-items:center;justify-content:space-between;
+  gap:var(--e1);padding:0 12px;background:none;border:0;color:var(--texte);font:600 14px var(--pile);text-align:left;
+  overflow-wrap:anywhere;cursor:pointer}
+.filtre-exo.actif .filtre-ouvrir{color:var(--accent)}
+.filtre-signe{color:var(--texte-3);flex:none}
+.filtre-retirer{flex:none;min-width:44px;min-height:44px;background:none;border:0;color:var(--accent);
+  font:600 15px var(--pile);cursor:pointer}
+.compte-exo{margin:var(--e1) 2px 0;font-size:12px;color:var(--texte-3)}
+.choix-filtre-exo{max-height:52vh;overflow-y:auto;margin-top:var(--e2)}
+.resultat .resultat-sous{display:block;font-size:12px;color:var(--texte-2);margin-top:2px}
 
 /* ══ LA SÉANCE EN COURS (chantier 22) ════════════════════════════════════════
    Six colonnes, vérifiées à 360 px : 30 · 62 · 1fr · 44 · 40 · 40 plus les

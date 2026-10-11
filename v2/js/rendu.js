@@ -4563,7 +4563,9 @@
   // plutôt que d'être tronqué (ECRAN-SAISIE §7 bis.2).
   // 60-4 — `ecartes` (des slugs) : un exercice écarté porte la mention « écarté » (ES §7 quindecies.9) ; l'app l'a
   // déjà rangé en fin de liste.
-  function rendreResultatsExo(cible, exercices, surChoix, ecartes) {
+  // 67B — `decrire(e)` : la sous-ligne « Machine · Grand dorsal » de chaque résultat (ES §7 quindecies.10), écrite par
+  // l'app ; absente ou vide, rien.
+  function rendreResultatsExo(cible, exercices, surChoix, ecartes, decrire) {
     vider(cible);
     var liste = exercices || [];
     var ecarte = ecartes || [];
@@ -4573,11 +4575,44 @@
     }
     liste.forEach(function (e) {
       var b = el('button', 'resultat', e.nom || e.slug);
+      var sous = typeof decrire === 'function' ? decrire(e) : '';
+      if (sous) b.appendChild(el('small', 'resultat-sous', sous));
       if (ecarte.indexOf(e.slug) >= 0) b.appendChild(el('small', 'resultat-mention', 'écarté'));
       b.type = 'button';
       b.addEventListener('click', function () { surChoix(e); });
       cible.appendChild(b);
     });
+  }
+
+  // 67B (ES §7 quindecies.10, maquette `maquette-catalogue-filtres-v2.html`) — LES DEUX FILTRES DU CATALOGUE, sous le
+  // champ : chacun un bouton (« Tout le matériel », « Tous les muscles », ou le choix en vigueur) qui ouvre son choix,
+  // et, actif, un « ✕ » qui le retire d'un geste. Puis « N exercices » quand un filtre est actif. Rien n'est calculé ici.
+  //   vue : { filtres: [{ cle, libelle, actif }], compte: texte | null, surOuvrir(cle), surRetirer(cle) }
+  function rendreFiltresExo(cible, compte, vue) {
+    vider(cible);
+    var v = vue || {};
+    (v.filtres || []).forEach(function (f) {
+      var p = el('div', 'filtre-exo' + (f.actif ? ' actif' : ''));
+      p.dataset.cle = f.cle;
+      var b = el('button', 'filtre-ouvrir', f.libelle);
+      b.type = 'button';
+      if (!f.actif) b.appendChild(el('span', 'filtre-signe', '\u25be'));
+      b.addEventListener('click', function () { v.surOuvrir(f.cle); });
+      p.appendChild(b);
+      if (f.actif) {
+        var x = el('button', 'filtre-retirer', '\u2715');
+        x.type = 'button';
+        x.setAttribute('aria-label', 'Retirer le filtre ' + f.libelle);
+        x.addEventListener('click', function () { v.surRetirer(f.cle); });
+        p.appendChild(x);
+      }
+      cible.appendChild(p);
+    });
+    if (compte) {
+      compte.textContent = v.compte || '';
+      compte.hidden = !v.compte;
+    }
+    return cible;
   }
 
   // ══ LE PROFIL (chantier 46 §2) ═══════════════════════════════════════════
@@ -5602,6 +5637,7 @@
     rendreFeuilleExoRoutine: rendreFeuilleExoRoutine,
     champChrono: champChrono,
     rendreResultatsExo: rendreResultatsExo,
+    rendreFiltresExo: rendreFiltresExo,
     el: el,
     vider: vider,
     dateCourte: dateCourte,

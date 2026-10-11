@@ -415,7 +415,10 @@ describe('revue adverse — le catalogue : la mention, la limite de 30, la remis
       Profil, Routines, profil, local: { exercices: CAT }, seance: null, vues: { seance: { hidden: true } },
       faits: { datesDesExercices: () => ({ frais: true }) }, corpus: () => ({}),
       $: () => ({ value: '', focus: () => {} }),
-      Rendu: { rendreResultatsExo: (c, liste, choisir, ecartes) => rendus.push({ slugs: liste.map((x) => x.slug), ecartes }), message: () => {} },
+      Rendu: { rendreResultatsExo: (c, liste, choisir, ecartes) => rendus.push({ slugs: liste.map((x) => x.slug), ecartes }), message: () => {},
+               rendreFiltresExo: () => {} },
+      // 67B — les filtres du catalogue (leurs tests : `v2-catalogue-filtres`).
+      filtresCatalogue: { equipement: null, muscle: null }, FILTRES_CATALOGUE: { equipement: { tous: 'Tout le matériel', libelle: (c) => c }, muscle: { tous: 'Tous les muscles', libelle: (c) => c } }, descriptionExo: () => '', ouvrirChoixFiltre: () => {}, retirerFiltre: () => {},
       fermerVoile: () => {}, ouvrirVoile: () => {}, faitsDuCatalogue: { vieux: 1 }, intentionCatalogue: null, rendus,
       indiceOuNul: (v) => (v === undefined || v === null ? null : v)
     };

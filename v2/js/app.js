@@ -7304,12 +7304,54 @@
     // coût que `faits` garde déjà hors de la saisie.
     faitsDuCatalogue = null;
     $('champ-recherche-exo').value = '';
+    // 67B (ES §7 quindecies.10) — les filtres reviennent à zéro à chaque ouverture : un filtre oublié cacherait des
+    // exercices la fois suivante.
+    filtresCatalogue = { equipement: null, muscle: null };
+    $('choix-filtre-exo').hidden = true;
+    $('resultats-exo').hidden = false;
     rendreCatalogue();
     ouvrirVoile($('catalogue'), apercu ? apercu.retour : undefined);
     $('champ-recherche-exo').focus();
   }
 
   var faitsDuCatalogue = null;
+  // 67B — les deux filtres du catalogue (`Routines.chercher`, 5ᵉ argument), remis à zéro par `ouvrirCatalogue`.
+  var filtresCatalogue = { equipement: null, muscle: null };
+  var FILTRES_CATALOGUE = {
+    equipement: { titre: 'Matériel', tous: 'Tout le matériel', libelle: function (c) { return Profil.libelleEquipement(c); } },
+    muscle: { titre: 'Muscle principal', tous: 'Tous les muscles', libelle: function (c) { return Semaine.libelleMuscle(c); } }
+  };
+
+  // Le choix d'un filtre : la feuille de choix de l'app (`rendreFeuilleChoix`), À LA PLACE des résultats, dans le
+  // catalogue — un second voile fermerait le catalogue (`ouvrirVoile` n'en tient qu'un). Un seul choix à la fois ;
+  // la première ligne remet à zéro. Seuls les choix présents au catalogue local (`Routines.filtresDuCatalogue`).
+  function ouvrirChoixFiltre(cle) {
+    var f = FILTRES_CATALOGUE[cle];
+    if (!f) return;
+    var presents = Routines.filtresDuCatalogue(local.exercices)[cle === 'equipement' ? 'equipements' : 'muscles'];
+    var fermer = function () { $('choix-filtre-exo').hidden = true; $('resultats-exo').hidden = false; };
+    Rendu.rendreFeuilleChoix($('choix-filtre-exo'), {
+      titre: f.titre,
+      options: [{ cle: '', libelle: f.tous }].concat(presents.map(function (c) { return { cle: c, libelle: f.libelle(c) }; })),
+      valeur: filtresCatalogue[cle] === null ? '' : filtresCatalogue[cle],
+      surChoix: function (c) { filtresCatalogue[cle] = c === '' ? null : c; fermer(); rendreCatalogue(); },
+      surAnnuler: fermer
+    });
+    $('resultats-exo').hidden = true;
+    $('choix-filtre-exo').hidden = false;
+  }
+
+  function retirerFiltre(cle) {
+    filtresCatalogue[cle] = null;
+    rendreCatalogue();
+  }
+
+  // La sous-ligne d'un résultat : « Machine · Grand dorsal » ; sans muscle, le matériel seul (et l'inverse).
+  function descriptionExo(e) {
+    var mats = e.equipement ? Profil.libelleEquipement(e.equipement) : '';
+    var m = (e.muscles_primaires || [])[0];
+    return [mats, m ? Semaine.libelleMuscle(m) : ''].filter(Boolean).join(' \u00b7 ');
+  }
 
   // 60-1 — LE MATÉRIEL RANGE, IL NE CACHE JAMAIS : les exercices que le
   // matériel du profil n'a pas passent après, tous les autres gardent l'ordre
@@ -7335,8 +7377,21 @@
     // Le même catalogue sert deux écrans : l'éditeur de routine et la séance en
     // cours. C'est la séance qui gagne quand elle est ouverte — on y est.
     var pourSeance = !!seance && !vues.seance.hidden;
+    // 67B — les deux filtres, combinés au nom (ET), avant l'ordre et la limite ; le compte quand l'un est actif.
+    var requete = $('champ-recherche-exo').value;
+    var actif = filtresCatalogue.equipement !== null || filtresCatalogue.muscle !== null;
+    var n = actif ? Routines.chercher(local.exercices, requete, Infinity, null, filtresCatalogue).length : 0;
+    Rendu.rendreFiltresExo($('filtres-exo'), $('compte-exo'), {
+      filtres: ['equipement', 'muscle'].map(function (cle) {
+        var v = filtresCatalogue[cle];
+        return { cle: cle, actif: v !== null, libelle: v === null ? FILTRES_CATALOGUE[cle].tous : FILTRES_CATALOGUE[cle].libelle(v) };
+      }),
+      compte: actif ? n + (n > 1 ? ' exercices' : ' exercice') : null,
+      surOuvrir: ouvrirChoixFiltre,
+      surRetirer: retirerFiltre
+    });
     Rendu.rendreResultatsExo($('resultats-exo'),
-      Routines.chercher(local.exercices, $('champ-recherche-exo').value, undefined, ordreDuCatalogue()),
+      Routines.chercher(local.exercices, requete, undefined, ordreDuCatalogue(), filtresCatalogue),
       function (exo) {
         // `fermerVoile` rouvre l'aperçu du programme construit (son `retour`) ; le choix prend alors la place.
         var versApercu = intentionCatalogue.apercu;
@@ -7392,7 +7447,7 @@
         });
         apresEditeur();
       },
-      Profil.ecartesDe(profil));
+      Profil.ecartesDe(profil), descriptionExo);
   }
 
   // ── Vue Volume : la semaine, le relevé, puis le radar ────────────────────

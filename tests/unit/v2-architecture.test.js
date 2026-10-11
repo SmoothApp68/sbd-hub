@@ -463,6 +463,14 @@ const NOTIONS = [
       'une seule lecture de la colonne, sinon deux écrans auraient deux listes de frères. 66A : les variantes à la ' +
       'barre du bilan (QUESTIONNAIRE §5 ter.2) sont ses frères à la barre — `faits.js` (le fait) et `generateur.js` ' +
       '(la relecture : le lourd en premier, la poussée, le squat à déplacer) les lisent ici, sans relire `mouvement`.' },
+  // 67B — les libellés des équipements : une table, à côté de la liste du profil.
+  { notion: 'le libellé d’un équipement (« Machine », « Haltère »… ; ECRAN-SAISIE §7 quindecies.10)', pr: '67-U2',
+    module: 'profil.js', fonction: 'libelleEquipement', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['descriptionExo'] },
+    interditAilleurs: { motif: /['"`]Sans matériel['"`]/,
+                        raison: 'un libellé d’équipement écrit ailleurs que dans `LIBELLES_EQUIPEMENT` : une seconde table' },
+    raison: 'ES §7 quindecies.10 (67B) : le filtre « matériel » du catalogue et la sous-ligne de chaque résultat lisent la ' +
+      'MÊME table, à côté de `EQUIPEMENTS` ; une valeur inconnue se rend telle quelle.' },
   // 67A — la famille : une colonne, une lecture, un seul usage (la feuille « Remplacer »).
   { notion: 'la même famille d’un exercice (même `schema_mouvement` au catalogue, MOTEUR §13.6 bis)', pr: '67-U1',
     module: 'modele.js', fonction: 'cousinsDe', lecteurs: ['app.js'],

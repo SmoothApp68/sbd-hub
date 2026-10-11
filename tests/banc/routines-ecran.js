@@ -574,7 +574,9 @@ const CATALOGUE = [
     await attendre(250);
     await page.fill('#champ-recherche-exo', q);
     await attendre(250);
-    const premier = await page.evaluate(() => (document.querySelector('#resultats-exo .resultat') || {}).textContent || '');
+    // 67B — le résultat porte une sous-ligne (« Barre · Quadriceps ») : son NOM est le premier nœud.
+    const premier = await page.evaluate(() => { const b = document.querySelector('#resultats-exo .resultat');
+      return b && b.firstChild ? b.firstChild.textContent : ''; });
     ok('« ' + q +' » trouve « ' + attendu + ' »', premier === attendu, premier);
     await page.click('#resultats-exo .resultat');
     await attendre(250);

@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Catalogue filtré v2</title>
+<style>
+:root{--fond:#0f1114;--panneau:#181b20;--panneau-2:#21252c;--trait:#2c3139;--texte:#eceef2;--texte-2:#9aa1ac;--texte-3:#888e98;--accent:#f2b84b;--sur-accent:#1a1305;
+--pile:"Barlow",system-ui,sans-serif;--pile-c:"Barlow Condensed","Barlow",system-ui,sans-serif}
+*{box-sizing:border-box}
+body{margin:0;background:#07080a;color:var(--texte);font:15px/1.4 var(--pile);display:flex;flex-wrap:wrap;justify-content:center;gap:16px;padding:16px}
+.col{width:100%;max-width:380px;display:flex;flex-direction:column;gap:8px}
+.etiquette{font:600 13px var(--pile-c);text-transform:uppercase;letter-spacing:1.2px;color:var(--accent)}
+.notes{color:var(--texte-2);font-size:13px;margin:0}
+.ecran{background:var(--fond);border:1px solid var(--trait);border-radius:22px;padding:14px}
+.champ{background:var(--panneau-2);border-radius:10px;padding:11px 12px;color:var(--texte-3);font-size:15px}
+.champ.plein{color:var(--texte)}
+.filtres{display:flex;gap:8px;margin:10px 0 6px}
+.filtre{flex:1;background:var(--panneau);border:1px solid var(--trait);border-radius:999px;padding:9px 12px;font:600 14px var(--pile);color:var(--texte);display:flex;justify-content:space-between;min-height:44px;align-items:center}
+.filtre.actif{border-color:var(--accent);color:var(--accent)}
+.filtre i{font-style:normal;color:var(--texte-3)}
+.filtre.actif i{color:var(--accent)}
+.compte{font-size:12px;color:var(--texte-3);margin:4px 2px 2px}
+.res{border-top:1px solid var(--trait);padding:10px 2px}
+.res b{display:block;font-weight:600}
+.res small{color:var(--texte-2);font-size:12px}
+.res.apres small::after{content:" · pas dans ton matériel";color:var(--texte-3)}
+.fermer{margin-top:10px;color:var(--texte-2);font-size:14px;padding:8px 2px}
+.feuille{background:var(--panneau);border:1px solid var(--trait);border-radius:18px 18px 0 0;padding:14px;margin-top:10px}
+.feuille-t{font-size:14px;font-weight:600;padding-bottom:8px}
+.grille{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.puce{background:var(--panneau-2);border-radius:10px;padding:10px;min-height:44px;font-size:14px;display:flex;align-items:center}
+.puce.sel{background:var(--accent);color:var(--sur-accent);font-weight:700}
+.puce.tous{grid-column:1/-1}
+</style>
+</head>
+<body>
+
+<section class="col">
+  <div class="etiquette">1 · Le catalogue s'ouvre</div>
+  <p class="notes">La recherche par nom, comme aujourd'hui, et deux filtres dessous, comme Hevy : le matériel et le muscle. Chaque résultat dit son matériel et son muscle principal.</p>
+  <div class="ecran">
+    <div class="champ">Chercher un exercice</div>
+    <div class="filtres">
+      <div class="filtre">Tout le matériel <i>▾</i></div>
+      <div class="filtre">Tous les muscles <i>▾</i></div>
+    </div>
+    <div class="res"><b>Développé Couché (Barre)</b><small>Barre · Pectoraux</small></div>
+    <div class="res"><b>Squat (Barre)</b><small>Barre · Quadriceps</small></div>
+    <div class="res"><b>Rowing Divergent (Machine)</b><small>Machine · Haut du dos</small></div>
+    <div class="res"><b>…</b><small>&nbsp;</small></div>
+    <div class="fermer">Fermer</div>
+  </div>
+</section>
+
+<section class="col">
+  <div class="etiquette">2 · Le choix d'un muscle</div>
+  <p class="notes">Une feuille, un muscle à la fois (comme le matériel). « Tous les muscles » remet à zéro. Les noms sont ceux de l'app (radar, relecture).</p>
+  <div class="ecran">
+    <div class="champ">Chercher un exercice</div>
+    <div class="filtres">
+      <div class="filtre">Tout le matériel <i>▾</i></div>
+      <div class="filtre actif">Tous les muscles <i>▾</i></div>
+    </div>
+    <div class="feuille">
+      <div class="feuille-t">Muscle principal</div>
+      <div class="grille">
+        <div class="puce tous">Tous les muscles</div>
+        <div class="puce">Pectoraux</div><div class="puce sel">Grand dorsal</div>
+        <div class="puce">Haut du dos</div><div class="puce">Trapèzes</div>
+        <div class="puce">Bas du dos</div><div class="puce">Deltoïde antérieur</div>
+        <div class="puce">Deltoïde latéral</div><div class="puce">Deltoïde postérieur</div>
+        <div class="puce">Biceps</div><div class="puce">Triceps</div>
+        <div class="puce">Avant-bras</div><div class="puce">Abdominaux</div>
+        <div class="puce">Quadriceps</div><div class="puce">Ischio-jambiers</div>
+        <div class="puce">Fessiers</div><div class="puce">Mollets</div>
+        <div class="puce">Adducteurs</div><div class="puce">Abducteurs</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="col">
+  <div class="etiquette">3 · Deux filtres et un mot</div>
+  <p class="notes">Machine + Grand dorsal, puis « tirage » tapé : les trois se combinent. Le matériel qui n'est pas le tien passe après, il n'est jamais caché.</p>
+  <div class="ecran">
+    <div class="champ plein">tirage</div>
+    <div class="filtres">
+      <div class="filtre actif">Machine <i>✕</i></div>
+      <div class="filtre actif">Grand dorsal <i>✕</i></div>
+    </div>
+    <div class="compte">2 exercices</div>
+    <div class="res"><b>Tirage Poitrine (Machine)</b><small>Machine · Grand dorsal</small></div>
+    <div class="res"><b>Tirage Poitrine Convergent (Machine)</b><small>Machine · Grand dorsal</small></div>
+    <div class="fermer">Fermer</div>
+  </div>
+  <p class="notes">Le « ✕ » d'un filtre actif le retire d'un geste.</p>
+</section>
+
+</body>
+</html>

@@ -1396,10 +1396,21 @@
   // AVANT la limite — le matériel range (`Profil.rangerParMateriel`), il ne
   // coupe pas : rangé après la limite, un exercice du matériel au-delà de la
   // trentième place resterait invisible derrière ce qui n'en est pas.
-  function chercher(exercices, requete, limite, ordre) {
+  // 67B (ES §7 quindecies.10) — `filtres` : `{ equipement, muscle }`, l'un, l'autre ou aucun, appliqués AVANT l'ordre
+  // et la limite (un exercice filtré au-delà de la trentième place n'est jamais perdu). Le matériel : la valeur exacte
+  // d'`equipement` ; le muscle : un des muscles PRINCIPAUX seulement — un exercice sans muscle (le cardio) ne sort
+  // donc qu'avec « Tous les muscles ». Nom ET matériel ET muscle.
+  function retenu(e, filtres) {
+    var f = filtres || {};
+    if (f.equipement !== null && f.equipement !== undefined && e.equipement !== f.equipement) return false;
+    if (f.muscle !== null && f.muscle !== undefined && (e.muscles_primaires || []).indexOf(f.muscle) < 0) return false;
+    return true;
+  }
+
+  function chercher(exercices, requete, limite, ordre, filtres) {
     var q = replier(requete);
     var max = limite || 30;
-    var liste = (exercices || []).filter(function (e) { return e && e.slug; });
+    var liste = (exercices || []).filter(function (e) { return e && e.slug && retenu(e, filtres); });
     var rangee = function (l) { return typeof ordre === 'function' ? ordre(l) : l; };
     if (!q) return rangee(liste).slice(0, max);
     var mots = q.split(/\s+/).filter(Boolean);
@@ -1417,6 +1428,28 @@
       .sort(function (a, b) { return a.score - b.score || a.nom.localeCompare(b.nom, 'fr'); })
       .map(function (r) { return r.exo; });
     return rangee(trouves).slice(0, max);
+  }
+
+  // 67B — LES CHOIX DES DEUX FILTRES : seulement ce que le catalogue local contient. Le matériel dans l'ordre de la
+  // liste des équipements du profil (`Profil.EQUIPEMENTS`), le muscle dans l'ordre du radar (`Semaine.ZONES`, les
+  // zones puis leurs muscles) ; une valeur hors de ces tables n'est jamais cachée : elle vient après, par ordre
+  // alphabétique. Rend `{ equipements: [cle], muscles: [cle] }`.
+  function filtresDuCatalogue(exercices) {
+    var Profil = racine.THProfil, Semaine = racine.THSemaine;
+    var eq = {}, mu = {};
+    (exercices || []).forEach(function (e) {
+      if (!e || !e.slug) return;
+      if (e.equipement !== null && e.equipement !== undefined && e.equipement !== '') eq[e.equipement] = true;
+      (e.muscles_primaires || []).forEach(function (m) { if (m) mu[m] = true; });
+    });
+    var ordonner = function (presents, table) {
+      var connus = table.filter(function (x) { return presents[x]; });
+      var autres = Object.keys(presents).filter(function (x) { return table.indexOf(x) < 0; }).sort();
+      return connus.concat(autres);
+    };
+    var radar = [];
+    Semaine.ZONES.forEach(function (z) { z.muscles.forEach(function (m) { radar.push(m); }); });
+    return { equipements: ordonner(eq, Profil.EQUIPEMENTS), muscles: ordonner(mu, radar) };
   }
 
   // ── L'enregistrement, séquencé ──────────────────────────────────────────
@@ -1629,7 +1662,8 @@
     planRangs: planRangs,
     reordonnables: reordonnables,
     replier: replier,
-    chercher: chercher
+    chercher: chercher,
+    filtresDuCatalogue: filtresDuCatalogue
   };
 
   racine.THRoutines = api;

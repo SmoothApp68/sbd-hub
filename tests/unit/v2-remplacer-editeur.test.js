@@ -174,8 +174,11 @@ function bac(options) {
       rendreFeuilleExoRoutine: (c, v) => { ctx.__menu = v; },
       rendreFeuilleMachinePrise: (c, v) => { ctx.__feuille = v; },
       rendreResultatsExo: (c, liste, choisir) => { ctx.__choisir = choisir; },
+      rendreFiltresExo: () => {},
       message: () => {}
     },
+    // 67B — les filtres du catalogue (leurs tests : `v2-catalogue-filtres`).
+    filtresCatalogue: { equipement: null, muscle: null }, FILTRES_CATALOGUE: { equipement: { tous: 'Tout le matériel', libelle: (c) => c }, muscle: { tous: 'Tous les muscles', libelle: (c) => c } }, descriptionExo: () => '', ouvrirChoixFiltre: () => {}, retirerFiltre: () => {},
     $: (id) => ({ id, value: '', focus: () => {} }),
     ouvrirVoile: () => { journal.voile++; },
     fermerVoile: () => { journal.ferme++; },

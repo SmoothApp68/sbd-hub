@@ -2428,6 +2428,31 @@ matériel, « range, ne cache jamais »). Il se reprend dans Profil (« Exercice
 le contient déjà le garde : écarter ne touche à rien d'existant.
 
 
+## 7 quindecies.10 Chercher un exercice par matériel et par muscle — décidé le 11/10/2026 (chantier 67B)
+
+> **Sous le champ de recherche, deux filtres : le matériel et le muscle principal, combinables entre eux et avec le
+> nom** (comme Hevy). Le catalogue sert partout (ajouter en séance, l'éditeur de routine, « Remplacer », l'aperçu du
+> programme) : les filtres aussi. Maquette : `maquette-catalogue-filtres-v2.html`.
+
+- **Deux boutons** : « Tout le matériel » et « Tous les muscles ». Chacun ouvre une feuille, **un seul choix à la
+  fois** ; la première puce remet à zéro. Un filtre actif affiche son choix et un « ✕ » qui le retire d'un geste
+  (cible ≥ 44 px).
+- **Le matériel** : `exercises.equipement`, valeur exacte. Libellés, **une seule table** à côté de la liste des
+  équipements du profil : aucun « Sans matériel », barre « Barre », haltere « Haltère », machine « Machine »,
+  machine_smith « Machine Smith », poulie « Poulie », elastique « Élastique », kettlebell « Kettlebell », disque
+  « Disque ». Seuls les équipements présents au catalogue sont proposés.
+- **Le muscle** : un des **muscles principaux** (`muscles_primaires`) — jamais les secondaires ni les stabilisateurs
+  (le squat ne sort pas dans « Fessiers » par un secondaire ; Hevy filtre aussi au principal). Libellés : ceux de
+  l'app (`THSemaine.libelleMuscle`). Seuls les muscles présents au catalogue sont proposés. Un exercice sans muscle
+  (le cardio) ne sort qu'avec « Tous les muscles ».
+- **La combinaison** : nom ET matériel ET muscle. L'ordre ne change pas (la recherche, puis le matériel du profil qui
+  range sans cacher, puis les écartés à la fin, §7 quindecies.9) ; la limite de la liste s'applique **après** les
+  filtres. Un filtre actif affiche le nombre d'exercices trouvés (« 2 exercices »).
+- **Chaque résultat** dit son matériel et son premier muscle principal : « Machine · Grand dorsal » (sans muscle : le
+  matériel seul).
+- **La mémoire** : les filtres se remettent à zéro à chaque ouverture du catalogue (une recherche est un geste court ;
+  un filtre oublié cacherait des exercices la fois suivante).
+
 ## 7 decies. Un groupe de superset a toujours au moins deux exercices
 
 > **Règle invariante, posée le 13/09/2026.**

@@ -446,12 +446,75 @@ tirage, poussee }` ; le journal dit chaque changement (`reprise`, `serie` avec `
 aucune barre lourde ajoutée ; **V4** aucune séance au-delà de sa taille habituelle + 2 (sauf si elle l'était déjà) ;
 **V5** aucun muscle poussé au-dessus de son plus haut volume par un ajout.
 
-### 5 quater.4 Ce qui vient après (66D)
+### 5 quater.4 L'ordre (G6) — `Generateur.ranger(entree)`
 
-L'ordre (G6 : le prioritaire puis les barres lourdes d'abord — Nunes et al. 2021 ; puis polyarticulaires avant
-isolations, gros muscles avant petits, tronc à la fin — NSCA ; à rang égal l'ordre habituel), les supersets (G7 :
-seulement quand le temps manque, en paires antagonistes, jamais une barre lourde — Zhang, Weakley et al. 2025),
-« Construis-le-moi » branché sur 5 quater.1 et l'aperçu qui dit chaque changement (G8).
+**On ne réordonne pas les séances d'une personne** (5 quater.1 : on part des siennes). Seul un exercice **ajouté** par
+le complément (journal `exercice`, dans l'ordre du journal) se range. Son rang : une barre lourde 0, un
+polyarticulaire 1 (`Moteur.estPolyarticulaire`), une isolation 2, le tronc 3 (seul principal : les abdominaux) — NSCA,
+C ; une sortie (cardio) n'a pas de rang. Il se place **avant le premier exercice, à partir du 2e, de rang strictement
+plus grand** que le sien (une sortie à partir du 2e compte comme la fin) ; aucun : à la fin. Le premier exercice de la
+séance reste le premier (sa pré-fatigue, son échauffement : son choix). Le gabarit (§5 bis) range déjà ses places
+(le prioritaire, puis P, S, I, T) : il ne change pas. Référence `gen66d.py`, cas `cas-66d-generateur.json`.
+
+### 5 quater.4 bis Les supersets (G7) — `Generateur.associer(entree)`
+
+Seulement quand le temps manque : `Moteur.cibleDuProgramme` n'est pas nulle (« C'est mon maximum », « Moins en ce
+moment », « Ça varie » ; jamais en « Juste un carnet »). Zhang, Weakley et al. 2025 (méta-analyse, S) : même force,
+même masse, séance plus courte. Pour chaque séance, tant que son estimation (`Moteur.dureeEstimee` de la structure
+qui sera créée) dépasse la cible : la paire permise qui fait gagner le plus — le premier membre perd son repos,
+`séries × (repos − 15 s)` —, à égalité la plus proche, puis la plus haute ; le second membre remonte juste après le
+premier ; aucune : la séance reste telle quelle. **Permise** : deux exercices **antagonistes** (tirage et poussée — les
+définitions de la relecture, §5 ter.4 —, biceps et triceps, quadriceps et ischio-jambiers, au premier principal ;
+S : les paires du même muscle font baisser le volume) **de même classe** (deux polyarticulaires ou deux isolations) ;
+jamais le premier exercice ni le premier polyarticulaire de la séance (son repos de 180 s) ; jamais une barre lourde
+ni une habileté (C) ; ni une sortie ; mesurés en charge × reps ou en reps ; chacun dans une seule paire. Le raccourci
+de la durée (MOTEUR §9.18) joue **ensuite**, inchangé : le superset ne retire aucune série, le raccourci en coupe.
+**Sortie** : `{ routines (chaque ligne avec `groupe_superset`, 1, 2… par séance, ou `null`), journal: [{ type:
+'superset', routine, a, b, gain_s }, { type: 'duree', routine, de_s, a_s }] }`.
+**Invariants** (`Generateur.verifierAssociation`) : **V6** aucune ligne changée (exercice, séries, reps) ; **V7** une
+paire est de deux exercices contigus, et aucune sans cible ; **V8** jamais une barre lourde ; **V9** toujours deux
+antagonistes.
+
+### 5 quater.5 « Construis-le-moi » et l'aperçu (G8)
+
+**Le choix (G1)** : la personne a un historique quand `faits.habitudes` n'est pas nul, que le programme déduit a au
+moins une séance et qu'au moins un muscle a son fait du coach (MOTEUR §14.6) → le programme déduit complété ; sinon le
+gabarit (§5 bis), titré **« Ton programme de départ : N séances par semaine. »**. « Refaire mon programme » suit le
+même choix. Le nombre de séances visé est **celui de l'écran 8b** (la personne décide) ; ses séances cochées ne sont
+jamais retirées.
+
+**Le programme** : `completer` → `ranger` → chaque ligne habillée comme une place du gabarit (`motif` = `motifDe`,
+`role` d'après le rang : barre lourde P, polyarticulaire S, isolation I, tronc T ; `menage` et `barre_fixe` comme
+`ligne()` ; une ligne ménagée garde toutes ses séries, sans série lourde : ses reps au moins celles d'un secondaire ;
+la charnière bornée) → les retouches de la personne (« Je n'en veux pas », « Remplacer ») réappliquées → `associer`
+→ le raccourci. Ses chauffes habituelles restent (le gabarit : aucune).
+
+**L'aperçu** (maquette v2) : le titre « N séances par semaine. » ; la voix « Ce sont tes séances des 12 dernières
+semaines. », puis celle d'aujourd'hui ; **« Ce que j'ai changé · N »**, une ligne par changement, chacune avec
+« Retirer » ; les cartes, chaque ajout marqué ◆, chaque paire de superset groupée. Les phrases, des faits, sans
+« parce que » (VOIX) :
+- reprise : « {séance} revient. » ;
+- séries : « {exercice} : {de} → {a} séries dans {séance}. » (les séries de plus d'un même exercice, pour une même
+  clé, en une ligne) ;
+- exercice : « {exercice} {séries} × {reps} dans {séance}. » ;
+- superset : « {A} et {B} en superset dans {séance} : ≈ {gain arrondi} min de moins. ».
+Les nombres d'une ligne sont **ceux de la carte**, après le raccourci de la durée (VOIX : un libellé ne contredit
+jamais son chiffre ; décidé le 10/10, 66D bis) : un ajout dit ses séries restantes ; une série de plus dit `{de} →
+{séries restantes}`. Un changement que le raccourci a entièrement repris (l'ajout retiré, ou plus aucune série au-delà
+de `{de}`) ne se dit pas : il n'y a rien à retirer. La clé, le refus et « Remettre » ne changent pas.
+
+**Retirer ne remplace rien** (décidé le 10/10) : la clé du changement est refusée et tout est recalculé. Clés : un
+ajout `habitude` → son muscle (rien n'est ajouté pour lui) ; un ajout `tirage` → le tirage (G5 ne joue pas) ; une
+reprise → la séance (aucune autre ne vient à sa place) ; une paire → ses deux exercices, dans cette séance (ni l'un ni
+l'autre n'entre dans une autre paire). Une clé refusée se montre en une ligne, avec « Remettre » : « {Muscle} : rien
+d'ajouté. », « {séance} ne revient pas. », « Tirage : rien d'ajouté. », « {A} et {B} en séries classiques. ». Rien
+n'est écrit au profil (ce n'est pas « Je n'en veux pas »). Sans changement : pas de bloc.
+`completer` lit `refus: { muscles, reprises, tirage }` et `ecartes` (jamais un écarté ajouté) ; `associer` lit
+`refus_paires: [[séance, a, b]]`.
+
+**La création** : chaque ligne garde son `groupe_superset` jusqu'à la routine écrite (`deduiteDuProgramme` →
+`Routines.routineDeduite` → `routineDepuisSeance` : le membre non final, repos du superset) ; ses chauffes aussi.
+Une paire dont le raccourci a retiré un membre redevient une série classique.
 
 ## 6. Retiré de l'écran du profil
 
@@ -472,6 +535,7 @@ l'écran (les valeurs restent en base, aucune n'est lue). Les quatre phrases qui
 | **66A** | « Le coach relit ta semaine », le calcul (§5 ter) : `faits.barresDuBilan`, `Generateur.relireSemaine` et ses invariants R1-R4 — aucun écran | non |
 | **66B** | l'écran et les gestes (§5 ter.4 bis) : la rangée dans Saisie, la vue, l'entrée assemblée, « Retirer ces séries », « En faire ma priorité », « Non merci » ; trois priorités prises : pas de proposition | non |
 | **66C** | le générateur v2, le complément (§5 quater.1-3) : `faits.habitudes`, `Generateur.completer` et ses invariants V1-V5, la colonne `habilete` lue — aucun écran | `v2_071` (appliquée le 10/10/2026) |
+| **66D** | la fin (§5 quater.4-5) : `ranger`, `associer` et V6-V9, les refus de `completer`, « Construis-le-moi » branché sur l'historique, l'aperçu qui dit chaque changement, les supersets jusqu'à la routine écrite | non |
 
 **Ouverture à Alexis : après 60-2b** (le questionnaire complet et branché, hors programme). 60-3 peut suivre.
 

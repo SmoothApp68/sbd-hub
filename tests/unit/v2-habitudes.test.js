@@ -120,3 +120,24 @@ describe('66C — faits.habitudes (§5 quater.2)', () => {
       { exercise_slug: 'tapis', type_serie: 'travail' }] }, mesures)).toBeNull();
   });
 });
+
+// 66D — LA DERNIÈRE SÉANCE (`faits.derniereSeance`), extraite des deux faits qui la recalculaient (à l'identique) :
+// le début de la séance datée la plus récente — là où finissent la fenêtre des habitudes et celle de l'historique.
+describe('66D — faits.derniereSeance', () => {
+  test('la plus récente, quel que soit l’ordre des séances ; une date illisible ne compte pas ; `null` sans séance', () => {
+    expect(Faits.creer().derniereSeance(corpus([]))).toBeNull();
+    const c = corpus([{ debut: jour(0), series: S('presse', 3, 10) }, { debut: jour(9), series: S('curl', 2, 8) },
+                      { debut: jour(3), series: S('rowing', 3, 10) }]);
+    c.seances.push({ id: 'illisible', debut: 'pas une date', fin: null });
+    expect(Faits.creer().derniereSeance(c)).toBe(jour(9).toISOString());
+  });
+
+  test('les habitudes et l’historique des exercices finissent leur fenêtre à cette séance (jamais aujourd’hui)', () => {
+    const specs = [{ debut: jour(0), series: S('presse', 3, 10).concat(S('curl', 3, 10)) },
+                   { debut: jour(-100), series: S('rowing', 3, 10).concat(S('curl', 3, 10)) }];
+    const f = Faits.creer();
+    // La séance de 100 jours plus tôt est hors des 84 jours qui finissent à la dernière : ni compte, ni habitude.
+    expect(f.historiqueDesExercices(corpus(specs))).toEqual({ presse: 1, curl: 1 });
+    expect(Object.keys(habitudes(specs).series)).toEqual(['curl', 'presse']);
+  });
+});

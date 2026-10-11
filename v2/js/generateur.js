@@ -200,14 +200,15 @@
         return !contient(ecartes, s) && ok(s) && !(sansPris && possede(pris, s)) && !(!sansPris && possede(session, s));
       });
     }
-    var src = MOTIFS[motif];
+    // Un exercice hors de tout motif (une ligne déduite habillée, 66D : `motif` nul) n'a pas de candidat : la place disparaît.
+    var src = liste(MOTIFS[motif]);
     var cand = candidats(src, true);
     if (!cand.length && possede(VOISIN, motif)) {
       src = MOTIFS[VOISIN[motif]];
       cand = candidats(src, true);
     }
     if (!cand.length) {
-      src = MOTIFS[motif];
+      src = liste(MOTIFS[motif]);
       cand = candidats(src, false);
     }
     if (!cand.length) return null;
@@ -238,11 +239,24 @@
     return z ? z.cle : ZONE_INCONNUE.cle;
   }
 
+  // CE QU'UNE PLACE DOIT À LA ZONE MÉNAGÉE ET À LA CHARNIÈRE — une définition, lue par `ligne()` (le gabarit) et par
+  // `habiller` (le programme déduit, 66D) : la place charge une zone à ménager (son motif, `CHARGE_ZONE`) ; sans série
+  // lourde, ses reps au moins celles d'un secondaire (toutes ses séries gardées) ; la charnière bornée. Des reps
+  // inconnues (une ligne déduite sans habitude) restent inconnues.
+  function repsDeObjectif(objectif) { return possede(REPS, objectif) ? REPS[objectif] : REPS_DEFAUT; }
+  function estMenagee(motif, menager) { return zonesDeLigne({ motif: motif }, menager).length > 0; }
+  function repsDeLaPlace(reps, motif, menage, objectif) {
+    if (typeof reps !== 'number') return reps;
+    if (menage) reps = Math.max(reps, repsDeObjectif(objectif)[1]);
+    if (motif === 'charniere') reps = Math.min(reps, CHARNIERE_MAX);
+    return reps;
+  }
+
   // `solo` : les zones dont TOUTES les places du programme sont des principaux (60-6, S4) — { cleDeZone : true }.
   function ligne(catalogue, slug, motif, role, p, solo) {
     var objectif = p.objectif, phase = p.phase;
     var priorites = liste(p.priorites), menager = liste(p.menager);
-    var r = possede(REPS, objectif) ? REPS[objectif] : REPS_DEFAUT;
+    var r = repsDeObjectif(objectif);
     var fiche = catalogue[slug];
     var barre = fiche.equipement === 'barre';
     // Lourd seulement à la barre : un principal hors barre prend les reps d'un secondaire.
@@ -259,9 +273,8 @@
     });
     if (prioEx || (prioMu && (role === 'S' || role === 'I' || role === 'T' ||
                               (role === 'P' && possede(solo, cleDeZone(fiche)))))) n += 1;
-    var menage = menager.some(function (z) { return possede(CHARGE_ZONE, z) && contient(CHARGE_ZONE[z], motif); });
-    if (menage && role === 'P') reps = r[1];               // pas de série lourde ; toutes les séries gardées
-    if (motif === 'charniere') reps = Math.min(reps, CHARNIERE_MAX);
+    var menage = estMenagee(motif, menager);
+    reps = repsDeLaPlace(reps, motif, menage, objectif);
     return { exercise_slug: slug, motif: motif, role: role, series: n, reps: reps,
              prioritaire: prioEx, menage: menage, barre_fixe: contient(BARRE_FIXE, slug) };
   }
@@ -478,7 +491,9 @@
       }
     }
     // `total` : le nombre de séances du programme, quand toutes ne sont pas encore à créer (une reprise après panne).
-    return { titre: (total === undefined ? rts.length : total) + ' séances par semaine.', zones: zones, barreFixe: barre };
+    // 66D : avec un historique, une seule séance est possible (« 1 séance par semaine. »).
+    var n = total === undefined ? rts.length : total;
+    return { titre: n + (n > 1 ? ' séances' : ' séance') + ' par semaine.', zones: zones, barreFixe: barre };
   }
 
   // ── Ce que le raccourci de la durée ne touche pas (R4/R6, 60-5) ──────────────────────
@@ -844,6 +859,7 @@
   //                   la dernière séance comprise ;
   //   · `habitudes` — `faits.habitudes` ; `fois` — `faits.historiqueDesExercices` (sur la même fenêtre) ;
   //   · `catalogue` (dont `habilete`, v2_071 : absente, elle vaut `false`), `profil` (`phase`), `priorites`.
+  //   · 66D — `refus: { muscles, reprises, tirage }` (les « Retirer » de l'aperçu) et `ecartes` (« Je n'en veux pas »).
   // Elle lit les définitions existantes : les poids 1 / ½ / ¼ (`Semaine.musclesPonderes`), la zone d'un muscle
   // (`Semaine.zoneDuMuscle`), la barre lourde, le tirage et la poussée de la relecture (ci-dessus), `MUSCLES` et
   // `PAR_SEANCE` de la relecture.
@@ -883,6 +899,11 @@
     var e = entree || {}, cat = e.catalogue || {}, vol = e.volume || {}, hab = e.habitudes || {}, fois = e.fois || {};
     var seche = (e.profil || {}).phase === 'seche';
     var prio = liste(e.priorites);
+    // 66D — les changements que la personne a RETIRÉS dans l'aperçu : retirer ne remplace rien (§5 quater.5).
+    // `muscles` : rien n'est ajouté pour eux (G4) ; `reprises` : ces séances ne reviennent pas, et aucune autre ne vient
+    // à leur place ; `tirage` : G5 ne joue pas. `ecartes` (« Je n'en veux pas ») : jamais ajoutés. Absents : 66C.
+    var refus = e.refus || {};
+    var refusMuscles = liste(refus.muscles), refusReprises = liste(refus.reprises), ecartes = liste(e.ecartes);
     var journal = [];
     var ponderes = function (slug) { return Semaine.musclesPonderes(ficheDu(cat, slug) || {}); };
     var copieRoutine = function (r) {
@@ -895,8 +916,10 @@
     var restantes = trier(deduit.filter(function (r) { return !r.cochee; }), function (a, b) {
       return a.derniere < b.derniere ? 1 : (a.derniere > b.derniere ? -1 : 0);
     });
+    var sautees = 0;
     for (var i0 = 0; i0 < restantes.length; i0++) {
-      if (rs.length >= hab.seances_par_semaine) break;
+      if (rs.length + sautees >= hab.seances_par_semaine) break;
+      if (contient(refusReprises, restantes[i0].nom)) { sautees += 1; continue; }   // retirée : sa place reste vide
       rs.push(copieRoutine(restantes[i0]));
       journal.push({ type: 'reprise', routine: restantes[i0].nom });
     }
@@ -925,7 +948,7 @@
     var cible = {}, cibles = [];
     MUSCLES.forEach(function (m) {
       var f = vol[m];
-      if (!f) return;
+      if (!f || contient(refusMuscles, m)) return;
       var z = Semaine.zoneDuMuscle(m);
       cible[m] = (z && contient(prio, z.cle) && !seche) ? f.max : f.seuil;
       cibles.push(m);
@@ -968,7 +991,7 @@
       var dedans = {};
       rs.forEach(function (r) { r.exercices.forEach(function (x) { dedans[x.exercise_slug] = true; }); });
       var cands = Object.keys(fois).filter(function (s) {
-        return !dedans[s] && possede(cat, s) && comblable(s, cat) && contient(primaires(s), m);
+        return !dedans[s] && !contient(ecartes, s) && possede(cat, s) && comblable(s, cat) && contient(primaires(s), m);
       }).sort(function (a, b) { return (fois[b] - fois[a]) || (a < b ? -1 : (a > b ? 1 : 0)); });
       var seriesHab = hab.series || {}, repsHab = hab.reps || {};
       for (var c = 0; c < cands.length; c++) {
@@ -1021,7 +1044,7 @@
       });
       return tp;
     };
-    for (var u = 0; u < TOURS; u++) {
+    for (var u = 0; u < (refus.tirage ? 0 : TOURS); u++) {
       var tp = tiragePoussee();
       if (tp.tirage >= tp.poussee) break;
       var v2 = volumeSemaine();
@@ -1032,6 +1055,7 @@
     return {
       routines: rs.map(function (r) { return { nom: r.nom, exercices: r.exercices }; }),
       journal: journal,
+      // Un muscle retiré n'a pas de cible : il n'y est pas (66D).
       sous_habitude: MUSCLES.filter(function (m) { return possede(cible, m) && vf[m] < cible[m] - ECART; }),
       tirage: tpf.tirage,
       poussee: tpf.poussee
@@ -1085,6 +1109,263 @@
     return fautes;
   }
 
+  // ══ LA FIN DU GÉNÉRATEUR (66D, QUESTIONNAIRE-COACH-V2 §5 quater.4-5) ══════════════════════════════════════════
+  //
+  // Trois fonctions pures à la suite de `completer`, sous la garde (`GARDEES`) : `ranger` (G6, l'ordre), `associer`
+  // (G7, les supersets) et `habiller` (une ligne déduite devient une place de l'aperçu) ; puis `changementsDeLApercu`,
+  // les lignes de « Ce que j'ai changé ». La référence est `tests/unit/fixtures/gen66d.py` (Claude.ai, 10/10/2026) ;
+  // ses seize cas, `cas-66d-generateur.json`, sont rejoués à l'identique par `tests/unit/v2-generateur-fin.test.js`.
+  // Elles lisent les définitions existantes : le polyarticulaire et la sortie (`Moteur.estPolyarticulaire`,
+  // `Moteur.aDesMuscles`), la durée (`Moteur.dureeEstimee`, le repos du superset `Moteur.DUREE_PAR_DEFAUT`), la barre
+  // lourde, le tirage et la poussée (ci-dessus), le motif (`motifDe`), le nom d'un muscle (`Semaine.libelleMuscle`).
+
+  // G6 — LE RANG d'un exercice (NSCA, C) : sa place dans `ROLES` — une barre lourde 0 (P), un polyarticulaire 1 (S),
+  // une isolation 2 (I), le tronc 3 (T : seul principal, les abdominaux) ; une sortie (cardio) n'a pas de rang (`null`).
+  function rangDe(slug, cat) {
+    var Moteur = racine.THMoteur, f = ficheDu(cat, slug) || {};
+    var prim = liste(f.muscles_primaires);
+    var s = { prim: prim, sec: liste(f.muscles_secondaires), stab: liste(f.muscles_stabilisateurs) };
+    if (!Moteur.aDesMuscles(s)) return null;
+    if (estBarreLourde(slug, cat)) return ROLES.indexOf('P');
+    if (prim.length === 1 && prim[0] === TRONC) return ROLES.indexOf('T');
+    return ROLES.indexOf(Moteur.estPolyarticulaire(s) ? 'S' : 'I');
+  }
+
+  // `ranger(entree)` — `{ routines, journal, catalogue }`. On ne réordonne pas les séances d'une personne : seul un
+  // exercice AJOUTÉ (journal `exercice`, dans l'ordre du journal) se place avant le premier exercice, à partir du 2e,
+  // de rang strictement plus grand que le sien (une sortie, à partir du 2e, compte comme la fin) ; aucun : à la fin.
+  // Le premier exercice de la séance reste le premier. Rend les routines `[{ nom, exercices }]`.
+  function ranger(entree) {
+    var e = entree || {}, cat = e.catalogue || {};
+    var rs = liste(e.routines).map(function (r) {
+      return { nom: r.nom, exercices: liste(r.exercices).map(function (x) { return Object.assign({}, x); }) };
+    });
+    liste(e.journal).forEach(function (j) {
+      if (j.type !== 'exercice') return;
+      var r = rs.filter(function (x) { return x.nom === j.routine; })[0];
+      if (!r) return;
+      var k0 = -1;
+      for (var k = 0; k < r.exercices.length && k0 < 0; k++) if (r.exercices[k].exercise_slug === j.exercise_slug) k0 = k;
+      if (k0 < 0) return;
+      var l = r.exercices.splice(k0, 1)[0];
+      var mien = rangDe(l.exercise_slug, cat);
+      var pos = r.exercices.length;
+      for (var k2 = 1; k2 < r.exercices.length; k2++) {
+        var autre = rangDe(r.exercices[k2].exercise_slug, cat);
+        if (autre === null || autre > mien) { pos = k2; break; }
+      }
+      r.exercices.splice(pos, 0, l);
+    });
+    return rs;
+  }
+
+  // G7 — LES PAIRES ANTAGONISTES (Zhang, Weakley et al. 2025, S ; les paires du même muscle font baisser le volume) :
+  // tirage et poussée (les définitions de la relecture), biceps et triceps, quadriceps et ischio-jambiers, au premier
+  // principal.
+  var PAIRES = [['tirage', 'poussee'], ['biceps', 'triceps'], ['quadriceps', 'ischios']];
+  var ISCHIOS = 'ischio_jambiers', QUADRICEPS = 'quadriceps';
+
+  function familleAntagoniste(slug, cat) {
+    var f = ficheDu(cat, slug) || {}, prim = liste(f.muscles_primaires);
+    if (estTirage(f)) return 'tirage';
+    if (estPoussee(slug, cat)) return 'poussee';
+    if (contient(prim, 'biceps')) return 'biceps';
+    if (contient(prim, 'triceps')) return 'triceps';
+    if (contient(prim, QUADRICEPS) && !contient(prim, ISCHIOS)) return 'quadriceps';
+    if (contient(prim, ISCHIOS) && !contient(prim, QUADRICEPS)) return 'ischios';
+    return null;
+  }
+  function antagonistes(a, b) {
+    return PAIRES.some(function (p) { return (p[0] === a && p[1] === b) || (p[0] === b && p[1] === a); });
+  }
+
+  // `associer(entree)` — `{ routines, structures, cible_min, catalogue, refus_paires: [[séance, a, b]] }`. Les
+  // `structures` sont celles que l'app calcule pour la routine telle qu'elle sera créée : elles se LISENT. Seulement
+  // quand le temps manque (`cible_min` non nulle) : tant que l'estimation d'une séance dépasse la cible, la paire
+  // permise qui économise le plus (le premier membre perd son repos, `séries × (repos − repos du superset)`), à
+  // égalité la plus proche, puis la plus haute ; le second membre remonte juste après le premier. Permise : deux
+  // antagonistes de même classe, ni le premier exercice ni le premier polyarticulaire de la séance (son repos de
+  // 180 s), ni une barre lourde, ni une habileté, ni une sortie, mesurés en charge × reps ou en reps, chacun dans une
+  // seule paire, aucun des deux dans une paire retirée (dans SA séance). Aucune : la séance reste telle quelle (le
+  // raccourci joue ensuite, inchangé). Rend `{ routines (chaque ligne avec `groupe_superset`), journal }`.
+  function associer(entree) {
+    var Moteur = racine.THMoteur;
+    var REPOS_SUPERSET = Moteur.DUREE_PAR_DEFAUT.reposSuperset;
+    var e = entree || {}, cat = e.catalogue || {}, cible = e.cible_min;
+    var sansCible = cible === null || cible === undefined;
+    var refuse = {};
+    liste(e.refus_paires).forEach(function (p) { liste(p).slice(1).forEach(function (s) { refuse[p[0] + '\u0000' + s] = true; }); });
+    var structures = liste(e.structures);
+    var sortie = [], journal = [];
+    liste(e.routines).forEach(function (r, ir) {
+      var lignes = liste(r.exercices).map(function (x) { return Object.assign({}, x, { groupe_superset: null }); });
+      var S = liste(structures[ir]).map(function (x) { return Object.assign({}, x); });
+      if (sansCible) { sortie.push({ nom: r.nom, exercices: lignes }); return; }
+      var premier = null;
+      for (var p0 = 0; p0 < S.length && premier === null; p0++) if (Moteur.estPolyarticulaire(S[p0])) premier = S[p0].slug;
+      var groupe = 0, avant = Moteur.dureeEstimee(S), aJoue = false;
+      var apte = function (k) {
+        var x = lignes[k], s = x.exercise_slug, f = ficheDu(cat, s) || {};
+        return k !== 0 && s !== premier && !refuse[r.nom + '\u0000' + s] && x.groupe_superset === null &&
+          !estBarreLourde(s, cat) && !f.habilete && contient(MESURES_COMBLABLES, f.mesure) && Moteur.aDesMuscles(S[k]) &&
+          familleAntagoniste(s, cat) !== null && S[k].repos !== null && S[k].repos !== undefined;
+      };
+      while (Moteur.dureeEstimee(S) > cible * 60) {
+        var meilleur = null;
+        for (var i = 0; i < lignes.length; i++) {
+          if (!apte(i)) continue;
+          for (var j = i + 1; j < lignes.length; j++) {
+            if (!apte(j)) continue;
+            if (!antagonistes(familleAntagoniste(lignes[i].exercise_slug, cat), familleAntagoniste(lignes[j].exercise_slug, cat))) continue;
+            if (Moteur.estPolyarticulaire(S[i]) !== Moteur.estPolyarticulaire(S[j])) continue;
+            var gain = (S[i].tr || 0) * (S[i].repos - REPOS_SUPERSET);
+            if (gain <= 0) continue;
+            // La plus grosse économie, à égalité la plus proche, puis la plus haute.
+            if (!meilleur || gain > meilleur.gain || (gain === meilleur.gain &&
+                (j - i < meilleur.j - meilleur.i || (j - i === meilleur.j - meilleur.i && i < meilleur.i)))) {
+              meilleur = { i: i, j: j, gain: gain };
+            }
+          }
+        }
+        if (!meilleur) break;
+        var a = meilleur.i, b = meilleur.j;
+        groupe += 1;
+        var lb = lignes.splice(b, 1)[0], sb = S.splice(b, 1)[0];
+        lignes.splice(a + 1, 0, lb); S.splice(a + 1, 0, sb);
+        lignes[a].groupe_superset = lignes[a + 1].groupe_superset = groupe;
+        S[a].repos = null;
+        aJoue = true;
+        journal.push({ type: 'superset', routine: r.nom, a: lignes[a].exercise_slug, b: lignes[a + 1].exercise_slug,
+                       gain_s: meilleur.gain });
+      }
+      if (aJoue) journal.push({ type: 'duree', routine: r.nom, de_s: avant, a_s: Moteur.dureeEstimee(S) });
+      sortie.push({ nom: r.nom, exercices: lignes });
+    });
+    return { routines: sortie, journal: journal };
+  }
+
+  // LES INVARIANTS DES SUPERSETS (§5 quater.4 bis) : V6 aucune ligne changée (exercice, séries, reps) ; V7 une paire
+  // est de deux exercices contigus, et aucune sans cible ; V8 jamais une barre lourde ; V9 toujours deux antagonistes.
+  function verifierAssociation(entree, sortie) {
+    var e = entree || {}, s = sortie || {}, cat = e.catalogue || {};
+    var fautes = [];
+    var cles = function (r) {
+      return liste(r && r.exercices).map(function (x) { return JSON.stringify([x.exercise_slug, x.series, x.reps]); }).sort();
+    };
+    var avant = liste(e.routines), apres = liste(s.routines);
+    for (var ir = 0; ir < Math.min(avant.length, apres.length); ir++) {
+      var r = apres[ir];
+      if (JSON.stringify(cles(avant[ir])) !== JSON.stringify(cles(r))) fautes.push('V6 une ligne changée');
+      var g = {}, ordre = [];
+      liste(r.exercices).forEach(function (x, k) {
+        var gs = x.groupe_superset;
+        if (gs === null || gs === undefined) return;
+        if (!possede(g, gs)) { g[gs] = []; ordre.push(gs); }
+        g[gs].push(k);
+      });
+      ordre.forEach(function (gs) {
+        var ks = g[gs];
+        if (ks.length !== 2 || ks[1] !== ks[0] + 1) { fautes.push('V7 une paire non contiguë'); return; }
+        var a = r.exercices[ks[0]].exercise_slug, b = r.exercices[ks[1]].exercise_slug;
+        if (estBarreLourde(a, cat) || estBarreLourde(b, cat)) fautes.push('V8 une barre lourde en superset');
+        if (!antagonistes(familleAntagoniste(a, cat), familleAntagoniste(b, cat))) fautes.push('V9 une paire non antagoniste');
+      });
+      if ((e.cible_min === null || e.cible_min === undefined) && ordre.length) fautes.push('V7 un superset sans manque de temps');
+    }
+    return fautes;
+  }
+
+  // `habiller(catalogue, ligne, entree)` — une ligne du programme déduit devient une place de l'aperçu (§5 quater.5),
+  // comme celles du gabarit (`ligne()`) : `motif` = `motifDe`, `role` d'après le rang (une sortie : `null`), `menage` et
+  // `barre_fixe`, les reps d'une ligne ménagée au moins celles d'un secondaire, la charnière bornée — par les MÊMES
+  // définitions que `ligne()`. Ses séries et ses chauffes habituelles restent les siennes. Rien n'est modifié en place.
+  function habiller(catalogue, l, entree) {
+    var p = entree || {}, x = l || {}, slug = x.exercise_slug;
+    var motif = motifDe(slug), rang = rangDe(slug, catalogue || {});
+    var menage = estMenagee(motif, p.menager);
+    return { exercise_slug: slug, motif: motif, role: rang === null ? null : ROLES.charAt(rang), series: x.series,
+             reps: repsDeLaPlace(x.reps, motif, menage, p.objectif), prioritaire: contient(liste(p.priorites), slug),
+             menage: menage, barre_fixe: contient(BARRE_FIXE, slug), chauffes: x.chauffes || 0 };
+  }
+
+  // « CE QUE J'AI CHANGÉ » (§5 quater.5) — des faits, sans « parce que » (VOIX). `journalCompl` : celui de
+  // `completer` ; `journalAssoc` : celui d'`associer` ; `refus` : `{ muscles, reprises, tirage, paires: [[séance, a,
+  // b]] }` ; `nommer(slug)`. Rend `[{ cle, texte, retire }]` : les changements dans l'ordre des journaux (les séries de
+  // plus d'un même exercice, pour une même clé et une même séance, en une ligne : `de` le premier, `a` le dernier),
+  // puis chaque clé refusée en une ligne `retire` — muscles, reprises, tirage, paires. Clés : `muscle:<muscle>`,
+  // `tirage`, `reprise:<séance>`, `paire:<séance>:<a>:<b>`. Le second nom d'une phrase prend sa minuscule (maquette v2).
+  //
+  // 66D bis — `cartes` : les routines que montrent les cartes (après le raccourci de la durée et les voisins fondus).
+  // LES NOMBRES D'UNE LIGNE SONT CEUX DE LA CARTE (VOIX : un libellé ne contredit jamais son chiffre) : un ajout dit
+  // ses séries restantes, une série de plus `{de} → {séries restantes}` ; un changement que le raccourci a entièrement
+  // repris (l'ajout absent de la carte, plus aucune série au-delà de `de`) ne se dit pas, et une paire dont un membre
+  // n'est plus dans le même superset de la carte non plus. Sans `cartes`, les nombres du journal.
+  function changementsDeLApercu(journalCompl, journalAssoc, refus, nommer, cartes) {
+    var Semaine = racine.THSemaine;
+    var rf = refus || {}, nom = nommer || function (s) { return s; };
+    var avecCartes = cartes !== undefined && cartes !== null;
+    var carteDe = function (seance) { return liste(cartes).filter(function (r) { return r && r.nom === seance; })[0] || null; };
+    // Les séries d'un exercice dans la carte de sa séance (0 : il n'y est plus).
+    var seriesDansLaCarte = function (seance, slug) {
+      return liste((carteDe(seance) || {}).exercices).reduce(function (t, x) {
+        return t + (x.exercise_slug === slug ? (Number(x.series) || 0) : 0);
+      }, 0);
+    };
+    var groupeDansLaCarte = function (seance, slug) {
+      var x = liste((carteDe(seance) || {}).exercices).filter(function (y) { return y.exercise_slug === slug; })[0];
+      return x && x.groupe_superset !== null && x.groupe_superset !== undefined ? x.groupe_superset : null;
+    };
+    var bas = function (t) { t = String(t); return t.charAt(0).toLowerCase() + t.slice(1); };
+    var cleDe = function (j) { return j.motif === 'tirage' ? 'tirage' : 'muscle:' + j.muscle; };
+    var lignes = [], series = {};
+    liste(journalCompl).forEach(function (j) {
+      if (j.type === 'reprise') {
+        lignes.push({ cle: 'reprise:' + j.routine, texte: j.routine + ' revient.', retire: false });
+      } else if (j.type === 'serie') {
+        var id = JSON.stringify([cleDe(j), j.routine, j.exercise_slug]);
+        if (possede(series, id)) { series[id].a = j.a; return; }
+        series[id] = { cle: cleDe(j), j: j, de: j.de, a: j.a };
+        lignes.push(series[id]);
+      } else if (j.type === 'exercice') {
+        var n = avecCartes ? seriesDansLaCarte(j.routine, j.exercise_slug) : j.series;
+        if (n <= 0) return;                                  // le raccourci l'a repris : rien à dire, rien à retirer
+        var combien = j.reps === null || j.reps === undefined ? n + ' séries' : n + ' × ' + j.reps;
+        lignes.push({ cle: cleDe(j), texte: nom(j.exercise_slug) + ' ' + combien + ' dans ' + j.routine + '.', retire: false });
+      }
+    });
+    lignes = lignes.filter(function (l) {
+      if (!l.j || !avecCartes) return true;
+      l.a = seriesDansLaCarte(l.j.routine, l.j.exercise_slug);
+      return l.a > l.de;                                      // plus aucune série au-delà de `de` : rien à dire
+    }).map(function (l) {
+      if (!l.j) return l;
+      return { cle: l.cle, texte: nom(l.j.exercise_slug) + ' : ' + l.de + ' → ' + l.a + ' séries dans ' + l.j.routine + '.',
+               retire: false };
+    });
+    liste(journalAssoc).forEach(function (j) {
+      if (j.type !== 'superset') return;
+      if (avecCartes) {
+        var ga = groupeDansLaCarte(j.routine, j.a);
+        if (ga === null || ga !== groupeDansLaCarte(j.routine, j.b)) return;   // ce n'est plus une paire
+      }
+      lignes.push({ cle: 'paire:' + j.routine + ':' + j.a + ':' + j.b,
+                    texte: nom(j.a) + ' et ' + bas(nom(j.b)) + ' en superset dans ' + j.routine + ' : ≈ ' +
+                      Math.round(j.gain_s / 60) + ' min de moins.', retire: false });
+    });
+    liste(rf.muscles).forEach(function (m) {
+      lignes.push({ cle: 'muscle:' + m, texte: Semaine.libelleMuscle(m) + ' : rien d\u2019ajouté.', retire: true });
+    });
+    liste(rf.reprises).forEach(function (n) {
+      lignes.push({ cle: 'reprise:' + n, texte: n + ' ne revient pas.', retire: true });
+    });
+    if (rf.tirage) lignes.push({ cle: 'tirage', texte: 'Tirage : rien d\u2019ajouté.', retire: true });
+    liste(rf.paires).forEach(function (p) {
+      lignes.push({ cle: 'paire:' + p[0] + ':' + p[1] + ':' + p[2],
+                    texte: nom(p[1]) + ' et ' + bas(nom(p[2])) + ' en séries classiques.', retire: true });
+    });
+    return lignes;
+  }
+
   var api = {
     MOTIFS: MOTIFS,
     GABARITS: GABARITS,
@@ -1123,7 +1404,13 @@
     SERIES_MAX: SERIES_MAX,
     MARGE_SEANCE: MARGE_SEANCE,
     completer: completer,
-    verifierComplement: verifierComplement
+    verifierComplement: verifierComplement,
+    // 66D — la fin : l'ordre, les supersets, l'aperçu (QUESTIONNAIRE-COACH-V2 §5 quater.4-5)
+    ranger: ranger,
+    associer: associer,
+    verifierAssociation: verifierAssociation,
+    habiller: habiller,
+    changementsDeLApercu: changementsDeLApercu
   };
 
   racine.THGenerateur = api;

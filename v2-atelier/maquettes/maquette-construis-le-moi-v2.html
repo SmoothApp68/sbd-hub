@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Construis-le-moi v2</title>
+<style>
+:root{
+  --fond:#0f1114;--panneau:#181b20;--panneau-2:#21252c;--trait:#2c3139;
+  --texte:#eceef2;--texte-2:#9aa1ac;--texte-3:#888e98;
+  --accent:#f2b84b;--sur-accent:#1a1305;
+  --pile:"Barlow",system-ui,sans-serif;--pile-c:"Barlow Condensed","Barlow",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#07080a;color:var(--texte);font:15px/1.4 var(--pile);display:flex;flex-wrap:wrap;justify-content:center;gap:16px;padding:16px}
+.col{width:100%;max-width:380px;display:flex;flex-direction:column;gap:8px;align-self:flex-start}
+.etiquette{font:600 13px var(--pile-c);text-transform:uppercase;letter-spacing:1.2px;color:var(--accent)}
+.notes{color:var(--texte-2);font-size:13px;margin:0}
+.ecran{background:var(--fond);border-radius:22px;border:1px solid var(--trait);overflow:hidden}
+.feuille{padding:16px}
+.feuille-t{font:700 24px/1.1 var(--pile-c);margin:0 0 8px}
+.voix{border-left:3px solid var(--accent);padding:2px 0 2px 10px;margin:0 0 12px;font-size:14px}
+.voix p{margin:0 0 4px}
+.changements{background:var(--panneau);border:1px solid var(--trait);border-radius:14px;padding:10px 12px;margin-bottom:12px}
+.changements h2{font:600 13px var(--pile-c);text-transform:uppercase;letter-spacing:1.2px;color:var(--texte-2);margin:0 0 6px}
+.chg{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;padding:7px 0;border-top:1px solid var(--trait);font-size:14px}
+.chg:first-of-type{border-top:0}
+.chg .m{width:8px;height:8px;border-radius:2px;background:var(--accent);transform:rotate(45deg)}
+.chg button{background:var(--panneau-2);color:var(--texte);border:0;border-radius:8px;padding:6px 10px;font:600 13px var(--pile);min-height:32px}
+.chg.retire{color:var(--texte-3)}
+.chg.retire .m{background:var(--texte-3)}
+.chg.retire s{color:var(--texte-3)}
+.annonce{font-size:13px;color:var(--texte-2);margin:4px 0 0}
+.routine{background:var(--panneau);border:1px solid var(--trait);border-radius:14px;padding:10px 12px;margin-bottom:10px}
+.tete{display:flex;justify-content:space-between;align-items:baseline}
+.nom{font:700 18px var(--pile-c)}
+.duree{color:var(--texte-2);font-size:13px}
+.pourquoi{color:var(--texte-2);font-size:13px;margin:2px 0 6px}
+.ex{display:grid;grid-template-columns:1fr auto;gap:0 8px;padding:6px 0;border-top:1px solid var(--trait);font-size:14px}
+.ex small{grid-column:1;color:var(--texte-2);font-size:12px}
+.ex .s{font:600 15px var(--pile-c);color:var(--texte-2)}
+.ex.neuf .n::before{content:"";display:inline-block;width:7px;height:7px;border-radius:2px;background:var(--accent);transform:rotate(45deg);margin-right:7px;vertical-align:1px}
+.ex.neuf .s{color:var(--accent)}
+.paire{border-left:2px solid var(--accent);margin-left:-6px;padding-left:6px}
+.paire-t{font-size:12px;color:var(--accent);padding:6px 0 0;border-top:1px solid var(--trait)}
+.paire .ex:first-of-type{border-top:0}
+.menu{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.creer{background:var(--accent);color:var(--sur-accent);border:0;border-radius:12px;min-height:48px;font:700 17px var(--pile-c);text-transform:uppercase;letter-spacing:.8px}
+.pas{background:transparent;color:var(--texte-2);border:0;text-align:left;font:500 14px var(--pile);padding:8px 0}
+.reprise{color:var(--accent);font-size:12px;font-weight:600}
+</style>
+</head>
+<body>
+
+<!-- 1. Léa : un historique, aucune routine -->
+<section class="col">
+  <div class="etiquette">1 · Avec un historique (Léa, cas réel)</div>
+  <p class="notes">Ses séances des 12 dernières semaines, complétées. Les changements du coach sont en haut, un par ligne, chacun retirable ; on les retrouve marqués ◆ dans les cartes.</p>
+  <div class="ecran"><div class="feuille">
+    <h1 class="feuille-t">4 séances par semaine.</h1>
+    <div class="voix">
+      <p>Ce sont tes séances des 12 dernières semaines.</p>
+      <p>Je te propose tes charges à chaque séance. Touche un exercice pour le changer.</p>
+    </div>
+    <div class="changements">
+      <h2>Ce que j'ai changé · 3</h2>
+      <div class="chg"><i class="m"></i><span>DOS A revient.</span><button>Retirer</button></div>
+      <div class="chg"><i class="m"></i><span>Développé couché haltère 3 × 10 dans DOS B.</span><button>Retirer</button></div>
+      <div class="chg"><i class="m"></i><span>Extension triceps poulie 2 × 10 dans DOS B.</span><button>Retirer</button></div>
+    </div>
+    <div class="routine">
+      <div class="tete"><span class="nom">BOOTY A</span><span class="duree">≈ 45 min</span></div>
+      <div class="pourquoi">Fessiers, ischios, bas du dos</div>
+      <div class="ex"><span class="n">Hip thrust machine</span><span class="s">2 × 10</span></div>
+      <div class="ex"><span class="n">Soulevé de terre roumain</span><span class="s">3 × 10</span></div>
+      <div class="ex"><span class="n">Kickback poulie</span><span class="s">2 × 20</span></div>
+      <div class="ex"><span class="n">Hyperextension lestée</span><span class="s">6 × 10</span></div>
+    </div>
+    <div class="routine">
+      <div class="tete"><span class="nom">DOS B</span><span class="duree">≈ 56 min</span></div>
+      <div class="pourquoi">Dos, poitrine, triceps</div>
+      <div class="ex"><span class="n">Tractions</span><span class="s">3 × 6</span></div>
+      <div class="ex"><span class="n">Rowing penché barre</span><span class="s">3 × 10</span></div>
+      <div class="ex"><span class="n">Tirage poitrine un bras</span><span class="s">3 × 20</span></div>
+      <div class="ex"><span class="n">Rowing poulie assis</span><span class="s">3 × 10</span></div>
+      <div class="ex neuf"><span class="n">Développé couché haltère</span><span class="s">3 × 10</span></div>
+      <div class="ex neuf"><span class="n">Extension triceps poulie</span><span class="s">2 × 10</span></div>
+    </div>
+    <div class="routine">
+      <div class="tete"><span class="nom">BOOTY B</span><span class="duree">≈ 50 min</span></div>
+      <div class="ex"><span class="n">Hip thrust machine</span><span class="s">3 × 10</span></div>
+      <div class="ex"><span class="n">…</span><span class="s"></span></div>
+    </div>
+    <div class="routine">
+      <div class="tete"><span class="nom">DOS A <span class="reprise">◆ reprise</span></span><span class="duree">≈ 55 min</span></div>
+      <div class="ex"><span class="n">Tractions</span><span class="s">2 × 8</span></div>
+      <div class="ex"><span class="n">…</span><span class="s"></span></div>
+    </div>
+    <div class="menu">
+      <button class="creer">Créer ces 4 routines</button>
+      <button class="pas">Pas maintenant</button>
+    </div>
+  </div></div>
+  <p class="notes">L'ordre de ses séances ne bouge pas ; un exercice ajouté se range à sa place : avant le premier exercice de rang plus grand (barre lourde, polyarticulaire, isolation, tronc). Dans DOS B tout est polyarticulaire : le couché, puis l'isolation du triceps, à la fin.</p>
+</section>
+
+<!-- 2. Après un refus -->
+<section class="col">
+  <div class="etiquette">2 · Elle retire le développé couché</div>
+  <p class="notes">Retirer ne remplace rien pour CE muscle : les pectoraux ne reçoivent plus rien, rien n'est écrit au profil. Tout se recalcule : la place libérée dans DOS B sert d'autres muscles sous leur habitude (le triceps passe à 3 séries, le deltoïde antérieur reçoit le développé Arnold) — calculé par la référence.</p>
+  <div class="ecran"><div class="feuille">
+    <h1 class="feuille-t">4 séances par semaine.</h1>
+    <div class="changements">
+      <h2>Ce que j'ai changé · 3</h2>
+      <div class="chg"><i class="m"></i><span>DOS A revient.</span><button>Retirer</button></div>
+      <div class="chg"><i class="m"></i><span>Extension triceps poulie 3 × 10 dans DOS B.</span><button>Retirer</button></div>
+      <div class="chg"><i class="m"></i><span>Développé Arnold haltère 2 × 10 dans DOS B.</span><button>Retirer</button></div>
+      <div class="chg retire"><i class="m"></i><span>Pectoraux : rien d'ajouté.</span><button>Remettre</button></div>
+    </div>
+    <div class="routine">
+      <div class="tete"><span class="nom">DOS B</span><span class="duree">≈ 55 min</span></div>
+      <div class="ex"><span class="n">Tractions</span><span class="s">3 × 6</span></div>
+      <div class="ex"><span class="n">Rowing penché barre</span><span class="s">3 × 10</span></div>
+      <div class="ex"><span class="n">Tirage poitrine un bras</span><span class="s">3 × 20</span></div>
+      <div class="ex"><span class="n">Rowing poulie assis</span><span class="s">3 × 10</span></div>
+      <div class="ex neuf"><span class="n">Développé Arnold haltère</span><span class="s">2 × 10</span></div>
+      <div class="ex neuf"><span class="n">Extension triceps poulie</span><span class="s">3 × 10</span></div>
+    </div>
+    <div class="menu">
+      <button class="creer">Créer ces 4 routines</button>
+      <button class="pas">Pas maintenant</button>
+    </div>
+  </div></div>
+</section>
+
+<!-- 3. Le temps manque : supersets -->
+<section class="col">
+  <div class="etiquette">3 · Le temps manque (« ça varie », 50 min)</div>
+  <p class="notes">Des paires antagonistes seulement, jamais une barre lourde. Le superset passe avant toute coupe de série : il fait gagner du temps sans retirer de volume.</p>
+  <div class="ecran"><div class="feuille">
+    <h1 class="feuille-t">4 séances par semaine.</h1>
+    <div class="changements">
+      <h2>Ce que j'ai changé · 4</h2>
+      <div class="chg"><i class="m"></i><span>DOS A revient.</span><button>Retirer</button></div>
+      <div class="chg"><i class="m"></i><span>Développé couché haltère 3 × 10 dans DOS B.</span><button>Retirer</button></div>
+      <div class="chg"><i class="m"></i><span>Extension triceps poulie 2 × 10 dans DOS B.</span><button>Retirer</button></div>
+      <div class="chg"><i class="m"></i><span>Rowing poulie assis et développé couché haltère en superset dans DOS B : ≈ 5 min de moins.</span><button>Retirer</button></div>
+    </div>
+    <div class="routine">
+      <div class="tete"><span class="nom">DOS B</span><span class="duree">≈ 51 min</span></div>
+      <div class="ex"><span class="n">Tractions</span><span class="s">3 × 6</span></div>
+      <div class="ex"><span class="n">Rowing penché barre</span><span class="s">3 × 10</span></div>
+      <div class="ex"><span class="n">Tirage poitrine un bras</span><span class="s">3 × 20</span></div>
+      <div class="paire">
+        <div class="paire-t">Superset</div>
+        <div class="ex"><span class="n">Rowing poulie assis</span><span class="s">3 × 10</span></div>
+        <div class="ex neuf"><span class="n">Développé couché haltère</span><span class="s">3 × 10</span></div>
+      </div>
+      <div class="ex neuf"><span class="n">Extension triceps poulie</span><span class="s">2 × 10</span></div>
+    </div>
+    <div class="menu">
+      <button class="creer">Créer ces 4 routines</button>
+      <button class="pas">Pas maintenant</button>
+    </div>
+  </div></div>
+  <p class="notes">DOS B tient presque (≈ 51 min pour 50) : aucune autre paire antagoniste ; le raccourci d'aujourd'hui coupe ensuite une série, comme avant. Le tirage un bras n'a pas de partenaire (une seule poussée dans la séance).</p>
+</section>
+
+<!-- 4. Débutant -->
+<section class="col">
+  <div class="etiquette">4 · Sans historique (débutant)</div>
+  <p class="notes">Le gabarit d'aujourd'hui, même écran ; seul le titre change. Rien à « changer » : pas de bloc de changements.</p>
+  <div class="ecran"><div class="feuille">
+    <h1 class="feuille-t">Ton programme de départ : 3 séances par semaine.</h1>
+    <div class="voix">
+      <p>Je te propose tes charges à chaque séance. Touche un exercice pour le changer.</p>
+    </div>
+    <div class="routine">
+      <div class="tete"><span class="nom">Corps entier A</span><span class="duree">≈ 50 min</span></div>
+      <div class="pourquoi">Jambes, poitrine, dos</div>
+      <div class="ex"><span class="n">Presse à cuisses</span><span class="s">3 × 10</span></div>
+      <div class="ex"><span class="n">Développé couché haltère</span><span class="s">3 × 10</span></div>
+      <div class="ex"><span class="n">Tirage poitrine poulie</span><span class="s">3 × 10</span></div>
+      <div class="ex"><span class="n">…</span><span class="s"></span></div>
+    </div>
+    <div class="menu">
+      <button class="creer">Créer ces 3 routines</button>
+      <button class="pas">Pas maintenant</button>
+    </div>
+  </div></div>
+</section>
+
+</body>
+</html>

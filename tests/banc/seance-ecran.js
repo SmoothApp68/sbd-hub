@@ -15329,7 +15329,7 @@ const SETS_IMPORTES = [
     let ap = await apercuR();
     const vuesG = await visible();
     ok('[R60] G — « Commencer » : le questionnaire se termine, Saisie s’ouvre, et l’aperçu arrive PAR-DESSUS',
-      vuesG.indexOf('vue-saisie') >= 0 && vuesG.indexOf('vue-questionnaire') < 0 && ap.ouverte && ap.titre === '4 séances par semaine.',
+      vuesG.indexOf('vue-saisie') >= 0 && vuesG.indexOf('vue-questionnaire') < 0 && ap.ouverte && ap.titre === 'Ton programme de départ : 4 séances par semaine.',
       JSON.stringify([vuesG, ap.ouverte, ap.titre]));
     ok('[R60] G — la voix du coach : « Je te propose tes charges à chaque séance. Touche un exercice pour le changer. » puis la phrase du dos',
       ap.voix[0] === 'Je te propose tes charges à chaque séance. Touche un exercice pour le changer.' &&
@@ -15390,7 +15390,7 @@ const SETS_IMPORTES = [
     await attendre(300);
     ap = await apercuR();
     ok('[R60] G — « Annuler » revient à l’aperçu, rien n’a changé ni n’est écrit',
-      ap.titre === '4 séances par semaine.' && ap.cartes[0].exos[0].nom === premierNom && !profilBase().exercices_ecartes,
+      ap.titre === 'Ton programme de départ : 4 séances par semaine.' && ap.cartes[0].exos[0].nom === premierNom && !profilBase().exercices_ecartes,
       JSON.stringify([ap.titre, ap.cartes[0].exos[0].nom]));
     await toucher(0, 0);
     await page.click('#feuille-contenu button[data-cle="refuser"]');
@@ -15423,7 +15423,7 @@ const SETS_IMPORTES = [
     await attendre(600);
     ap = await apercuR();
     ok('[R60] G — fermer le catalogue sans choisir ROUVRE l’aperçu, tel quel (le même nom d’exercice neuf, la même phrase)',
-      ap.ouverte && ap.titre === '4 séances par semaine.' && ap.cartes[0].exos[0].nom === neuvNom && ap.cartes.length === 4,
+      ap.ouverte && ap.titre === 'Ton programme de départ : 4 séances par semaine.' && ap.cartes[0].exos[0].nom === neuvNom && ap.cartes.length === 4,
       JSON.stringify([ap.ouverte, ap.titre, ap.cartes.length]));
     await toucher(1, 0);
     const avantRemp = ap.cartes[1].exos[0];
@@ -15574,7 +15574,7 @@ const SETS_IMPORTES = [
     ap = await apercuR();
     ok('[R60] H — « Voir mon programme » : 3 jours et Genou écrits, puis l’aperçu de 3 séances par-dessus Saisie',
       profilBase().seances_par_semaine === 3 && JSON.stringify(profilBase().zones_a_menager) === '["genou"]' &&
-        ap.ouverte && ap.titre === '3 séances par semaine.' && ap.cartes.length === 3 && /^Tu ménages ton genou/.test(ap.voix[1] || ''),
+        ap.ouverte && ap.titre === 'Ton programme de départ : 3 séances par semaine.' && ap.cartes.length === 3 && /^Tu ménages ton genou/.test(ap.voix[1] || ''),
       JSON.stringify([profilBase().seances_par_semaine, profilBase().zones_a_menager, ap.titre, ap.cartes.length]));
     await page.evaluate(() => document.querySelector('#feuille-contenu .apercu-creer').click());
     for (let n = 0; n < 60 && (await apercuR()).ouverte; n++) await attendre(250);
@@ -16631,6 +16631,11 @@ const SETS_IMPORTES = [
     const tR = Date.now();
     const JOUR = 86400000;
     const DOSSIER = 'Relecture U66';
+    // ⚠️ SES séances seulement (la méthode de [R60] E, 66D) : dans un groupe du banc parallèle, les séances laissées par
+    // les sections d'avant entraient dans le fait du coach — le retrait des abducteurs ne venait plus (vu au banc
+    // complet de 66D, quand la section `construis` a redistribué les groupes). La base est rendue à la fin.
+    const sessionsAvant = base.sessions, setsAvant = base.sets;
+    base.sessions = []; base.sets = [];
     const fiche = (slug, nom, equipement, mouvement, prim, sec, stab) => ({ slug, nom, mesure: 'charge_reps',
       charge: 'externe', equipement, mouvement, muscles_primaires: prim, muscles_secondaires: sec, muscles_stabilisateurs: stab });
     CATALOGUE.push(fiche('abduction-u66', 'Abduction U66 (Machine)', 'machine', null, ['abducteurs'], [], []));
@@ -16697,7 +16702,9 @@ const SETS_IMPORTES = [
     const exoServeur = (id, slug) => routineServeur(id).routine_exercises.slice().sort((a, b) => a.rang - b.rang)
       .filter((e) => e.exercise_slug === slug)[0];
 
-    // ── A. LA RANGÉE, LA VUE, LE RETOUR.
+    // ── A. LA RANGÉE, LA VUE, LE RETOUR. L'appareil se synchronise d'abord sur cette base.
+    await aller('/saisie');
+    await attendre(1500);
     await aller('/saisie');
     if (process.env.BANC_CAPTURES) {
       await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES, 'relecture-rangee.png'), fullPage: true });
@@ -16814,10 +16821,250 @@ const SETS_IMPORTES = [
     base.profiles[0] = profilAvant;
     ['r-rl66-a', 'r-rl66-b', 'r-rl66-x'].forEach((id) => { const i = ROUTINES.findIndex((r) => r.id === id); if (i >= 0) ROUTINES.splice(i, 1); });
     CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
-    for (let k = base.sets.length - 1; k >= 0; k--) if (/^rl66-/.test(base.sets[k].id)) base.sets.splice(k, 1);
-    for (let k = base.sessions.length - 1; k >= 0; k--) if (idsPasses.indexOf(base.sessions[k].id) >= 0) base.sessions.splice(k, 1);
+    base.sessions = sessionsAvant; base.sets = setsAvant;
     await aller('/saisie');
     ok('[relecture] aucun refus du faux serveur, la garde de l’app n’a rien signalé, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant &&
+        erreurs.length === erreursAvant,
+      JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
+  }
+
+  console.log('\n══ construis. « CONSTRUIS-LE-MOI » AVEC UN HISTORIQUE : L’APERÇU, « RETIRER » / « REMETTRE », LES SUPERSETS, LA CRÉATION (66D, QUESTIONNAIRE §5 quater.5) ══');
+  //
+  // Sur l'app réelle, une personne SANS routine et AVEC un historique : douze semaines de « Haut U66D » (le couché à
+  // la barre et ses deux chauffes, rowing, couché haltère, curl, extension), quatre de « Bas U66D » qui s'arrêtent il y
+  // a six semaines (décochée : elle revient). « Ça varie », 45 min : le temps manque, les paires antagonistes jouent.
+  // Le chemin est celui qu'Aurélien prend sur l'appareil : Profil → « Refaire mon programme » → 2 jours → l'aperçu.
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : sans historique, ce chemin rend le gabarit (« Ton programme de départ », [R60]) ;
+  // ici le titre, la voix des 12 semaines et « Ce que j'ai changé » ne viennent QUE du programme déduit complété.
+  {
+    const erreursAvant = erreurs.length;
+    const violationsAvant = gardeBanc.violations;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const catalogueAvant = CATALOGUE.length;
+    const profilAvant = Object.assign({}, base.profiles[0]);
+    const routinesAvant = ROUTINES.splice(0, ROUTINES.length);           // sans routine
+    // ⚠️ SES séances seulement (la méthode de [R60] E) : dans un groupe du banc parallèle, les sections d'avant laissent
+    // des séances (« Push »…) qui entreraient dans le programme déduit. La base est rendue à la fin.
+    const sessionsAvant = base.sessions, setsAvant = base.sets;
+    base.sessions = []; base.sets = [];
+    const profilBase = () => base.profiles[0];
+    const tR = Date.now();
+    const JOUR = 86400000;
+    const fiche = (slug, nom, equipement, mouvement, prim, sec, stab) => ({ slug, nom, mesure: 'charge_reps',
+      charge: 'externe', equipement, mouvement, muscles_primaires: prim, muscles_secondaires: sec, muscles_stabilisateurs: stab });
+    [fiche('developpe_couche_barre', 'Développé Couché (Barre)', 'barre', 'couche', ['pectoraux'], ['triceps', 'deltoide_anterieur'], []),
+     fiche('rowing_poulie_assis', 'Rowing Poulie Assis', 'poulie', 'rowing', ['grand_dorsal'], ['biceps', 'haut_du_dos'], []),
+     fiche('developpe_couche_haltere', 'Développé Couché (Haltère)', 'halteres', 'couche', ['pectoraux'], ['triceps', 'deltoide_anterieur'], []),
+     fiche('curl_biceps_haltere', 'Curl Biceps (Haltère)', 'halteres', 'curl', ['biceps'], [], []),
+     fiche('curl_marteau_haltere', 'Curl Marteau (Haltère)', 'halteres', 'curl', ['biceps'], ['avant_bras'], []),
+     fiche('extension_triceps_poulie_haute', 'Extension Triceps (Poulie Haute)', 'poulie', 'extension_triceps', ['triceps'], [], []),
+     fiche('squat_barre', 'Squat (Barre)', 'barre', 'squat', ['quadriceps'], ['fessiers'], ['bas_du_dos']),
+     fiche('presse_a_cuisses', 'Presse à Cuisses', 'machine', 'presse', ['quadriceps'], ['fessiers', 'ischio_jambiers'], []),
+     fiche('leg_curl_assis', 'Leg Curl Assis', 'machine', 'leg_curl', ['ischio_jambiers'], [], []),
+     fiche('elevation_laterale_haltere', 'Élévation Latérale (Haltère)', 'halteres', 'elevation_laterale', ['deltoide_lateral'], [], [])
+    ].forEach((f) => { if (!CATALOGUE.some((c) => c.slug === f.slug)) CATALOGUE.push(f); });
+    const nomDe = (slug) => CATALOGUE.filter((c) => c.slug === slug)[0].nom;
+    // L'historique : « Haut U66D » chaque semaine (douze), « Bas U66D » de la 6e à la 9e semaine avant celle-ci.
+    const HAUT = [['developpe_couche_barre', 60, 8, 'echauffement'], ['developpe_couche_barre', 80, 5, 'echauffement']]
+      .concat(Array(4).fill(['developpe_couche_barre', 100, 6, 'travail']), Array(3).fill(['rowing_poulie_assis', 60, 10, 'travail']),
+        Array(3).fill(['developpe_couche_haltere', 30, 10, 'travail']), Array(3).fill(['curl_biceps_haltere', 14, 12, 'travail']),
+        Array(3).fill(['extension_triceps_poulie_haute', 25, 12, 'travail']));
+    const BAS = [['squat_barre', 60, 8, 'echauffement'], ['squat_barre', 80, 5, 'echauffement']]
+      .concat(Array(4).fill(['squat_barre', 120, 5, 'travail']), Array(3).fill(['presse_a_cuisses', 200, 10, 'travail']),
+        Array(3).fill(['leg_curl_assis', 50, 12, 'travail']));
+    const idsPasses = [];
+    const seancePassee = (n, titre, joursAvant, lignes) => {
+      const id = '00000000-0000-4000-866d-' + String(n).padStart(12, '0');
+      idsPasses.push(id);
+      const debut = ilYa(joursAvant * JOUR, tR).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre, debut, fin: finDe(debut, tR).toISOString(),
+        statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      lignes.forEach(([slug, kg, reps, type], r) => base.sets.push({
+        id: 'u66d-' + n + '-' + r, session_id: id, user_id: 'u-banc', exercise_slug: slug, charge_kg: kg, reps,
+        duree_s: null, distance_m: null, type_serie: type, rang: r + 1, groupe_superset: null, validee_a: debut,
+        rpe: null, ressenti: null, repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+    };
+    // Les élévations latérales, de la 8e à la 12e semaine seulement (5 séances sur 12 : hors du programme déduit) : le
+    // deltoïde latéral est sous son habitude, le complément les AJOUTE (◆), à la taille de la séance (16 + 2 séries).
+    const ELEV = Array(3).fill(['elevation_laterale_haltere', 8, 15, 'travail']);
+    for (let k = 1; k <= 12; k++) seancePassee(k, 'Haut U66D', k * 7 - 2, k >= 8 ? HAUT.concat(ELEV) : HAUT);
+    for (let k = 6; k <= 9; k++) seancePassee(100 + k, 'Bas U66D', k * 7 - 4, BAS);
+    Object.assign(base.profiles[0], { seances_par_semaine: 2, zones_a_menager: null, exercices_ecartes: null,
+      temps_reponse: 'varie', duree_seance_min: 45, intention: 'progresser', objectif: 'muscle', phase: null, priorites: null,
+      materiel: 'salle_complete', programme_construit_dossier: null, programme_construit_le: null });
+
+    const apercu = () => page.evaluate(() => {
+      const c = document.getElementById('feuille-contenu');
+      const t = (n) => n ? n.textContent.replace(/[  ]/g, ' ') : null;
+      return { ouverte: !document.getElementById('feuille-seance').hidden,
+        titre: t(c.querySelector('.feuille-t')),
+        voix: Array.from(c.querySelectorAll('.q-voix')).map(t),
+        bloc: t(c.querySelector('.ap-changements .ap-chg-titre')),
+        changements: Array.from(c.querySelectorAll('.ap-chg')).map((l) => [t(l.querySelector('.ap-chg-texte')),
+          t(l.querySelector('.ap-chg-geste')), l.classList.contains('retire'),
+          Math.round(l.querySelector('.ap-chg-geste').getBoundingClientRect().height)]),
+        cartes: Array.from(c.querySelectorAll('.ap-routine')).map((k) => ({ nom: t(k.querySelector('.ap-nom')),
+          reprise: t(k.querySelector('.ap-reprise')),
+          exos: Array.from(k.querySelectorAll('.ap-ex')).map((x) => [t(x.querySelector('.ap-ex-nom')), t(x.querySelector('.ap-ex-series')),
+            x.classList.contains('neuf'), !!x.closest('.ap-paire')]),
+          paires: Array.from(k.querySelectorAll('.ap-paire')).map((p) => [t(p.querySelector('.ap-paire-t'))]
+            .concat(Array.from(p.querySelectorAll('.ap-ex-nom')).map(t))) })),
+        boutons: Array.from(c.querySelectorAll('.feuille-menu button')).map((b) => t(b)) };
+    });
+    // Une ligne absente ne fait pas planter la section : le contrôle suivant le dira.
+    const geste = async (texte) => {
+      await page.evaluate((x) => {
+        const l = Array.from(document.querySelectorAll('#feuille-contenu .ap-chg'))
+          .filter((n) => n.querySelector('.ap-chg-texte').textContent === x)[0];
+        if (l) l.querySelector('.ap-chg-geste').click();
+      }, texte);
+      await attendre(500);
+    };
+    // L'appareil se synchronise d'abord sur cette base (un cache qui garderait les séances d'avant les compterait).
+    await aller('/saisie');
+    await attendre(1500);
+    // Profil → « Refaire mon programme » → 2 jours → « Voir mon programme ».
+    await aller('/profil');
+    await attendre(1200);
+    await page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
+      .filter((l) => l.querySelector('.p-lib').firstChild.textContent === 'Refaire mon programme')[0].click());
+    await attendre(600);
+    await page.click('#questionnaire-corps .q-puce[data-cle="2"]');
+    await attendre(200);
+    await page.click('#questionnaire-corps .q-continuer');
+    await attendre(2500);
+    let ap = await apercu();
+    console.log('   [R66D] aperçu : ' + JSON.stringify(ap));
+    ok('[R66D] prémisse : aucune routine, un historique — l’aperçu s’ouvre sur le programme DÉDUIT : « 2 séances par semaine. », jamais « Ton programme de départ »',
+      ap.ouverte && ROUTINES.length === 0 && ap.titre === '2 séances par semaine.' &&
+        ap.cartes.map((k) => k.nom).join('|') === 'Haut U66D|Bas U66D', JSON.stringify([ap.ouverte, ap.titre, ap.cartes.map((k) => k.nom)]));
+    ok('[R66D] la voix (maquette v2) : « Ce sont tes séances des 12 dernières semaines. », puis celle d’aujourd’hui',
+      JSON.stringify(ap.voix.slice(0, 2)) === JSON.stringify(['Ce sont tes séances des 12 dernières semaines.',
+        'Je te propose tes charges à chaque séance. Touche un exercice pour le changer.']), JSON.stringify(ap.voix));
+    // À 45 min, une paire ne suffit pas : la plus grosse économie d'abord (le rowing, 3 × (120 − 15) s), puis le curl
+    // et l'extension (3 × (90 − 15) s) ; jamais le couché à la barre (premier, barre lourde).
+    const paireHaut = 'Rowing Poulie Assis et développé Couché (Haltère) en superset dans Haut U66D : ≈ 5 min de moins.';
+    const paireBras = 'Curl Biceps (Haltère) et extension Triceps (Poulie Haute) en superset dans Haut U66D : ≈ 4 min de moins.';
+    // 66D bis : le nombre d'un ajout est celui de la CARTE, après le raccourci (2 séries ajoutées, une coupée).
+    const elev = 'Élévation Latérale (Haltère) 1 × 15 dans Haut U66D.';
+    // 66D bis — chaque ligne d'ajout (« {exercice} {n} × {reps} dans {séance}. ») et de séries (« {exercice} : {de} →
+    // {a} séries dans {séance}. ») dit le nombre de la carte de sa séance. Rend les écarts (vide : cohérent) et le
+    // nombre de lignes lues.
+    const ecartsALaCarte = (a) => {
+      const ecarts = []; let lues = 0;
+      a.changements.filter((l) => !l[2]).forEach((l) => {
+        const m1 = /^(.+) (\d+) × (\d+) dans (.+)\.$/.exec(l[0]), m2 = /^(.+) : \d+ → (\d+) séries dans (.+)\.$/.exec(l[0]);
+        if (!m1 && !m2) return;
+        lues++;
+        const [nomEx, n, seance] = m1 ? [m1[1], m1[2], m1[4]] : [m2[1], m2[2], m2[3]];
+        const k = a.cartes.filter((c) => c.nom === seance)[0];
+        const x = k ? k.exos.filter((e) => e[0] === nomEx)[0] : null;
+        if (!x || x[1].split(' × ')[0] !== n) ecarts.push([l[0], x ? x[1] : null]);
+      });
+      return { ecarts, lues };
+    };
+    ok('[R66D] « Ce que j’ai changé · 4 » : la reprise, l’ajout, puis les deux paires, au mot près ; chaque ligne avec « Retirer », 44 px au doigt',
+      ap.bloc === 'Ce que j’ai changé · 4' && JSON.stringify(ap.changements.map((l) => l.slice(0, 3))) ===
+        JSON.stringify([['Bas U66D revient.', 'Retirer', false], [elev, 'Retirer', false], [paireHaut, 'Retirer', false],
+          [paireBras, 'Retirer', false]]) &&
+        ap.changements.every((l) => l[3] >= 44), JSON.stringify([ap.bloc, ap.changements]));
+    let coh = ecartsALaCarte(ap);
+    ok('[R66D] 66D bis — ⚠️ DISCRIMINANT : chaque ligne d’ajout dit le nombre de séries de la carte (après le raccourci), jamais celui du journal',
+      coh.lues === 1 && coh.ecarts.length === 0, JSON.stringify(coh));
+    ok('[R66D] la séance reprise porte « ◆ reprise » ; chaque paire est groupée sous « Superset », dans l’ordre de la séance',
+      ap.cartes[1].reprise === '◆ reprise' && ap.cartes[0].reprise === null &&
+        JSON.stringify(ap.cartes[0].paires) === JSON.stringify([['Superset', 'Rowing Poulie Assis', 'Développé Couché (Haltère)'],
+          ['Superset', 'Curl Biceps (Haltère)', 'Extension Triceps (Poulie Haute)']]) &&
+        ap.cartes[0].exos[0][0] === 'Développé Couché (Barre)' && ap.cartes[0].exos[0][3] === false,
+      JSON.stringify(ap.cartes.map((k) => [k.reprise, k.paires, k.exos.map((x) => x[0])])));
+    // Puis le raccourci (MOTEUR §9.18, après les supersets, inchangé) : les deux paires ne suffisent pas à tenir 45 min,
+    // il coupe les DERNIÈRES séries — le curl, l'extension, l'élévation — jamais un exercice ni une paire.
+    ok('[R66D] l’ajout est marqué ◆ (`.neuf`) et rangé à son rang — une isolation, à la fin ; aucun autre exercice n’est marqué ; le raccourci joue APRÈS',
+      JSON.stringify(ap.cartes[0].exos.map((x) => [x[0], x[1], x[2]])) === JSON.stringify([
+        ['Développé Couché (Barre)', '4 × 6', false], ['Rowing Poulie Assis', '3 × 10', false],
+        ['Développé Couché (Haltère)', '3 × 10', false], ['Curl Biceps (Haltère)', '2 × 12', false],
+        ['Extension Triceps (Poulie Haute)', '1 × 12', false], ['Élévation Latérale (Haltère)', '1 × 15', true]]) &&
+        ap.cartes[1].exos.every((x) => x[2] === false), JSON.stringify(ap.cartes.map((k) => k.exos)));
+    ok('[R66D] rien n’est écrit à l’ouverture (aucune routine, aucun écarté)',
+      ROUTINES.length === 0 && !profilBase().exercices_ecartes, JSON.stringify([ROUTINES.length, profilBase().exercices_ecartes]));
+
+    // « Retirer » la paire : les deux exercices reviennent en séries classiques, la ligne passe à la fin, retirée.
+    await geste(paireHaut);
+    ap = await apercu();
+    ok('[R66D] « Retirer » la paire : ni le rowing ni le couché haltère dans une autre paire, la ligne « … en séries classiques. » à la fin, avec « Remettre » ; « · 3 »',
+      JSON.stringify(ap.cartes[0].paires) === JSON.stringify([['Superset', 'Curl Biceps (Haltère)', 'Extension Triceps (Poulie Haute)']]) &&
+        ap.bloc === 'Ce que j’ai changé · 3' &&
+        JSON.stringify(ap.changements.map((l) => l.slice(0, 3))) === JSON.stringify([['Bas U66D revient.', 'Retirer', false],
+          [elev, 'Retirer', false], [paireBras, 'Retirer', false],
+          ['Rowing Poulie Assis et développé Couché (Haltère) en séries classiques.', 'Remettre', true]]),
+      JSON.stringify([ap.bloc, ap.changements, ap.cartes[0].paires]));
+    coh = ecartsALaCarte(ap);
+    ok('[R66D] 66D bis — après le recalcul aussi, chaque ligne d’ajout dit le nombre de la carte',
+      coh.ecarts.length === 0, JSON.stringify(coh));
+    await geste('Rowing Poulie Assis et développé Couché (Haltère) en séries classiques.');
+    ap = await apercu();
+    ok('[R66D] « Remettre » : la paire revient, la ligne aussi',
+      ap.cartes[0].paires.length === 2 && ap.bloc === 'Ce que j’ai changé · 4', JSON.stringify([ap.bloc, ap.cartes[0].paires]));
+
+    // « Je n'en veux pas » sur le curl : le curl marteau prend sa place ; l'écarté est écrit AU GESTE.
+    const k = ap.cartes[0].exos.findIndex((x) => x[0] === nomDe('curl_biceps_haltere'));
+    await page.evaluate((kk) => document.querySelectorAll('#feuille-contenu .ap-routine')[0].querySelectorAll('.ap-ex')[kk].click(), k);
+    await attendre(400);
+    await page.click('#feuille-contenu button[data-cle="refuser"]');
+    await attendre(900);
+    ap = await apercu();
+    ok('[R66D] « Je n’en veux pas » : le curl marteau prend la place du curl, marqué ; l’écarté écrit au geste',
+      k >= 0 && ap.cartes[0].exos[k][0] === nomDe('curl_marteau_haltere') && ap.cartes[0].exos[k][2] === true &&
+        JSON.stringify(profilBase().exercices_ecartes) === '["curl_biceps_haltere"]',
+      JSON.stringify([k, ap.cartes[0].exos, profilBase().exercices_ecartes]));
+    // Puis « Retirer » la reprise : tout se recalcule — la retouche survit.
+    await geste('Bas U66D revient.');
+    ap = await apercu();
+    ok('[R66D] ⚠️ DISCRIMINANT — « Je n’en veux pas » survit à un « Retirer » : « Bas U66D » ne revient pas, le curl marteau reste, le curl jamais',
+      ap.cartes.map((c) => c.nom).join('|') === 'Haut U66D' && ap.titre === '1 séance par semaine.' &&
+        ap.cartes[0].exos.some((x) => x[0] === nomDe('curl_marteau_haltere')) &&
+        !ap.cartes[0].exos.some((x) => x[0] === nomDe('curl_biceps_haltere')) &&
+        JSON.stringify(ap.changements[ap.changements.length - 1].slice(0, 3)) === JSON.stringify(['Bas U66D ne revient pas.', 'Remettre', true]),
+      JSON.stringify([ap.titre, ap.cartes.map((c) => c.exos.map((x) => x[0])), ap.changements]));
+    await geste('Bas U66D ne revient pas.');
+    ap = await apercu();
+    ok('[R66D] « Remettre » la reprise : deux séances, la retouche toujours là ; rien n’est écrit avant « Créer » (seul l’écarté)',
+      ap.cartes.map((c) => c.nom).join('|') === 'Haut U66D|Bas U66D' &&
+        ap.cartes[0].exos.some((x) => x[0] === nomDe('curl_marteau_haltere')) && ROUTINES.length === 0 &&
+        JSON.stringify(profilBase().exercices_ecartes) === '["curl_biceps_haltere"]',
+      JSON.stringify([ap.cartes.map((c) => c.nom), ROUTINES.length]));
+
+    // « Créer ces 2 routines » : le superset écrit (le premier membre au repos du superset), les chauffes gardées.
+    await page.evaluate(() => document.querySelector('#feuille-contenu .apercu-creer').click());
+    for (let n = 0; n < 60 && (await apercu()).ouverte; n++) await attendre(250);
+    await attendre(1500);
+    const haut = ROUTINES.filter((r) => r.nom === 'Haut U66D')[0];
+    const exos = haut ? haut.routine_exercises.slice().sort((a, b) => a.rang - b.rang) : [];
+    const couche = exos.filter((e) => e.exercise_slug === 'developpe_couche_barre')[0];
+    // Après « Je n'en veux pas », le curl marteau a pris la place du curl — et sa paire avec l'extension.
+    ok('[R66D] « Créer » : deux routines dans « Mon programme » ; dans « Haut U66D », chaque paire au même `groupe_superset`, le premier sans repos (celui du superset)',
+      ROUTINES.length === 2 && ROUTINES.every((r) => r.dossier === 'Mon programme') &&
+        JSON.stringify(exos.map((e) => [e.exercise_slug, e.groupe_superset === null ? null : 'g' + e.groupe_superset,
+          e.repos_cible_s === null ? null : 'repos'])) === JSON.stringify([['developpe_couche_barre', null, 'repos'],
+          ['rowing_poulie_assis', 'g1', null], ['developpe_couche_haltere', 'g1', 'repos'],
+          ['curl_marteau_haltere', 'g2', null], ['extension_triceps_poulie_haute', 'g2', 'repos'],
+          ['elevation_laterale_haltere', null, 'repos']]),
+      JSON.stringify([ROUTINES.map((r) => [r.nom, r.dossier]), exos.map((e) => [e.exercise_slug, e.groupe_superset, e.repos_cible_s])]));
+    ok('[R66D] « Créer » : les chauffes de la personne restent (deux au couché à la barre), jamais de charge',
+      !!couche && couche.routine_sets.filter((s) => s.type_serie === 'echauffement').length === 2 &&
+        ROUTINES.every((r) => r.routine_exercises.every((e) => e.routine_sets.every((s) => s.charge_cible_kg === null))),
+      JSON.stringify(couche && couche.routine_sets.map((s) => s.type_serie)));
+
+    // ── LA REMISE EN ÉTAT, pour les sections suivantes.
+    base.profiles[0] = profilAvant;
+    ROUTINES.splice(0, ROUTINES.length);
+    routinesAvant.forEach((r) => ROUTINES.push(r));
+    CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
+    base.sessions = sessionsAvant; base.sets = setsAvant;
+    await aller('/saisie');
+    ok('[R66D] aucun refus du faux serveur, la garde de l’app n’a rien signalé, aucune erreur de page',
       base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant &&
         erreurs.length === erreursAvant,
       JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));

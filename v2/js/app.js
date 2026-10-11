@@ -8115,7 +8115,14 @@
   //
   // ⚠️ SEULE LA PLACE TOUCHÉE CHANGE (§7 quindecies.9) : « Je n'en veux pas » et « Remplacer » ne regénèrent pas le
   // programme, ils changent une ligne de l'état `construit.routines` — et l'aperçu est recalculé de cet état.
-  var construit = null;   // { entree, routines, faites, dossier, erreur, enCours, annonce, neuf, versCatalogue }
+  //
+  // 66D (QUESTIONNAIRE-COACH-V2 §5 quater.5) — AVEC UN HISTORIQUE (`aUnHistorique`), le programme part des séances de la
+  // personne (le programme déduit complété, rangé, habillé, en supersets si le temps manque, puis raccourci) :
+  // `historique` garde de quoi le RECALCULER — ses faits, les refus de l'aperçu (« Retirer » / « Remettre ») et ses
+  // retouches (« Je n'en veux pas », « Remplacer ») — et `assemblerLeProgramme` est la seule fonction qui calcule.
+  // Sans historique : le gabarit, comme en 60-4.
+  var construit = null;   // { entree, routines, faites, dossier, erreur, enCours, annonce, neuf, versCatalogue,
+                          //   historique, changements, ajouts, reprises }
 
   // L'entrée du générateur : le profil et ce que les séances ont fait, rien d'autre.
   function entreeDuProgramme() {
@@ -8133,10 +8140,121 @@
     };
   }
 
-  // La séance du générateur, au vocabulaire de `routineDeduite` : jamais de chauffe.
+  // 66D (G1, §5 quater.5) — LA PERSONNE A UN HISTORIQUE quand elle a des habitudes (`faits.habitudes`), au moins une
+  // séance au programme déduit, et au moins un muscle qui a son fait du coach (MOTEUR §14.6) lu jusqu'à la semaine de
+  // sa DERNIÈRE séance comprise. `Semaine.semainesDeVolume` ne lit que les semaines dont le lundi PRÉCÈDE celui
+  // d'`avant` (une borne exclusive) : `avant` est donc le lundi de la semaine qui suit sa dernière séance. Rend les
+  // faits qui assemblent le programme (`{ deduit, volume, habitudes, fois }`), ou `null` : le gabarit.
+  function aUnHistorique() {
+    var c = corpus();
+    var habitudes = faits.habitudes(c);
+    if (!habitudes) return null;
+    var deduit = faits.programmeDeduit(c);
+    if (!deduit.length) return null;
+    var avant = Semaine.decalerSemaine(Semaine.bornesSemaine(faits.derniereSeance(c)).lundi, 1).lundi;
+    var volume = volumeDuCoach(avant.toISOString());
+    if (!Object.keys(volume).some(function (m) { return !!volume[m]; })) return null;
+    return { deduit: deduit, volume: volume, habitudes: habitudes, fois: faits.historiqueDesExercices(c) };
+  }
+
+  // La durée visée du programme (MOTEUR §9.18, G8) : `null`, rien à tenir.
+  function cibleDuProgrammeConstruit() {
+    return Moteur.cibleDuProgramme(profil && profil.temps_reponse, profil && profil.duree_seance_min,
+      profil && profil.intention);
+  }
+
+  // La structure d'une séance du programme TELLE QU'ELLE SERA CRÉÉE (les repos de `routineDeduite`, les chauffes, le
+  // superset) : la même chaîne pour les supersets (`associer`) et pour le raccourci.
+  function structureDuProgramme(rt) {
+    var st = Routines.routineDeduite(deduiteDuProgramme(rt), { exercices: local.exercices, routines: routines,
+                                                               existants: nomsReserves() });
+    return Moteur.structureDeRoutine(brouillonDeStructure(st, st.nom, null).exercices, catalogueIndexe());
+  }
+
+  // 66D — L'ASSEMBLAGE (§5 quater.5), la seule fonction qui calcule le programme d'un historique : `completer` (le
+  // nombre de séances de l'écran 8b quand il est valide — la personne décide ; ses séances cochées ne sont jamais
+  // retirées) → `ranger` → chaque ligne habillée en place → les retouches de la personne réappliquées (retrouvées par
+  // séance et exercice ; une retouche qui ne trouve plus sa ligne ne s'applique pas) → `associer` → le raccourci → les
+  // voisins fondus. Les journaux du complément et des supersets donnent « Ce que j'ai changé ». Rien n'est écrit.
+  function assemblerLeProgramme() {
+    var c = construit, h = c && c.historique;
+    if (!h) return;
+    var index = catalogueIndexe();
+    var habitudes = Object.assign({}, h.habitudes);
+    if (Questionnaire.joursValides(profil && profil.seances_par_semaine)) habitudes.seances_par_semaine = profil.seances_par_semaine;
+    var compl = Generateur.completer({ deduit: h.deduit, volume: h.volume, habitudes: habitudes, fois: h.fois,
+      catalogue: index, profil: { phase: c.entree.phase }, priorites: c.entree.priorites, refus: h.refus,
+      ecartes: c.entree.ecartes });
+    var habillees = Generateur.ranger({ routines: compl.routines, journal: compl.journal, catalogue: index })
+      .map(function (rt) {
+        return { nom: rt.nom, exercices: rt.exercices.map(function (l) { return Generateur.habiller(index, l, c.entree); }) };
+      });
+    h.retouches.forEach(function (t) {
+      var rt = habillees.filter(function (x) { return x.nom === t.routine; })[0];
+      var k = rt ? rt.exercices.map(function (x) { return x.exercise_slug; }).indexOf(t.de) : -1;
+      if (k < 0) return;
+      // Les séries restent celles de la place (comme `neVeuxPas` et `remplacePar`).
+      if (t.ligne === null) rt.exercices.splice(k, 1);
+      else rt.exercices[k] = Object.assign({}, t.ligne, { series: rt.exercices[k].series });
+    });
+    // Fondues AVANT `associer` : une ligne, une entrée de structure (deux voisins identiques feraient un seul bloc).
+    habillees = fondreLesVoisins(habillees);
+    var assoc = Generateur.associer({ routines: habillees, structures: habillees.map(structureDuProgramme),
+      cible_min: cibleDuProgrammeConstruit(), catalogue: index, refus_paires: h.refusPaires });
+    var faitesNoms = c.routines.filter(function (rt, i) { return c.faites[i]; }).map(function (rt) { return rt.nom; });
+    c.routines = fondreLesVoisins(raccourcirLeProgramme(assoc.routines)).filter(function (rt) { return rt.exercices.length; });
+    c.faites = c.routines.map(function (rt) { return faitesNoms.indexOf(rt.nom) >= 0; });
+    c.changements = Generateur.changementsDeLApercu(compl.journal, assoc.journal,
+      { muscles: h.refus.muscles, reprises: h.refus.reprises, tirage: h.refus.tirage, paires: h.refusPaires },
+      function (slug) { return Modele.nommer(index, slug); }, c.routines);   // 66D bis : les nombres de la carte
+    c.ajouts = {};
+    c.reprises = {};
+    compl.journal.forEach(function (j) {
+      if (j.type === 'exercice') c.ajouts[j.routine + '\u0000' + j.exercise_slug] = true;
+      if (j.type === 'reprise') c.reprises[j.routine] = true;
+    });
+  }
+
+  // « Retirer » / « Remettre » une ligne de « Ce que j'ai changé » : sa clé entre dans les refus, ou en sort, puis tout
+  // se recalcule. Retirer ne remplace rien, et rien n'est écrit au profil (ce n'est pas « Je n'en veux pas »).
+  // Clés (`changementsDeLApercu`) : `muscle:<muscle>`, `tirage`, `reprise:<séance>`, `paire:<séance>:<a>:<b>` — une
+  // séance peut contenir « : », ses deux exercices non.
+  function basculerChangement(cle) {
+    var c = construit, h = c && c.historique;
+    if (!h || c.enCours || typeof cle !== 'string') return;
+    var basculer = function (liste, x) { var k = liste.indexOf(x); if (k >= 0) liste.splice(k, 1); else liste.push(x); };
+    var i = cle.indexOf(':'), type = i < 0 ? cle : cle.slice(0, i), reste = i < 0 ? '' : cle.slice(i + 1);
+    if (type === 'muscle') basculer(h.refus.muscles, reste);
+    else if (type === 'reprise') basculer(h.refus.reprises, reste);
+    else if (type === 'tirage') h.refus.tirage = !h.refus.tirage;
+    else if (type === 'paire') {
+      var parts = reste.split(':'), b = parts.pop(), a = parts.pop(), seance = parts.join(':');
+      var deja = -1;
+      h.refusPaires.forEach(function (p, k) { if (p[0] === seance && p[1] === a && p[2] === b) deja = k; });
+      if (deja >= 0) h.refusPaires.splice(deja, 1); else h.refusPaires.push([seance, a, b]);
+    } else return;
+    c.neuf = {};
+    c.annonce = null;
+    c.erreur = '';
+    assemblerLeProgramme();
+    rendreApercuDuProgramme();
+  }
+
+  // Une retouche garde la ligne choisie, sans ce que l'assemblage recalcule (le raccourci, le superset).
+  function ligneDeRetouche(l) {
+    var x = Object.assign({}, l);
+    delete x.raccourcie;
+    delete x.groupe_superset;
+    return x;
+  }
+
+  // La séance du programme, au vocabulaire de `routineDeduite`. 66D (§5 quater.5) : ses chauffes (celles de la
+  // personne, avec un historique ; le gabarit n'en a aucune) et son superset (`groupe_superset`, posé par `associer`)
+  // vont jusqu'à la routine écrite.
   function deduiteDuProgramme(rt) {
     return { nom: rt.nom, exercices: rt.exercices.map(function (l) {
-      return { exercise_slug: l.exercise_slug, series: l.series, reps: l.reps, chauffes: 0 };
+      return { exercise_slug: l.exercise_slug, series: l.series, reps: l.reps, chauffes: l.chauffes || 0,
+               groupe_superset: l.groupe_superset === undefined ? null : l.groupe_superset };
     }) };
   }
 
@@ -8147,7 +8265,9 @@
       var sortie = [];
       rt.exercices.forEach(function (l) {
         var avant = sortie[sortie.length - 1];
-        if (avant && avant.exercise_slug === l.exercise_slug) avant.series += l.series;
+        // Seulement dans le même superset (ou hors de tout superset) : `memeBloc` ne les joindrait pas sinon.
+        if (avant && avant.exercise_slug === l.exercise_slug &&
+            (avant.groupe_superset || null) === (l.groupe_superset || null)) avant.series += l.series;
         else sortie.push(Object.assign({}, l));
       });
       return { nom: rt.nom, exercices: sortie };
@@ -8161,20 +8281,27 @@
   // R4/R6 (60-5) : les exercices dont la place charge une zone à ménager sont EXEMPTÉS (`exemptsDuRaccourci`) — leurs
   // séries ne sont jamais coupées, le temps se prend sur les autres ; s'il ne reste qu'eux, la cible n'est pas tenue
   // et l'aperçu montre la durée réelle (`lectureDuProgramme` la lit sur la structure écrite, jamais sur la cible).
+  //
+  // 66D : une ligne garde son `groupe_superset` ; une paire dont le raccourci retire un membre redevient une série
+  // classique (§5 quater.5).
   function raccourcirLeProgramme(routinesDuProgramme) {
-    var cible = Moteur.cibleDuProgramme(profil && profil.temps_reponse, profil && profil.duree_seance_min,
-      profil && profil.intention);
+    var cible = cibleDuProgrammeConstruit();
     if (cible === null) return routinesDuProgramme;
-    var index = catalogueIndexe(), noms = nomsReserves();
     return routinesDuProgramme.map(function (rt) {
-      var st = Routines.routineDeduite(deduiteDuProgramme(rt), { exercices: local.exercices, routines: routines, existants: noms });
-      var S = Moteur.structureDeRoutine(brouillonDeStructure(st, st.nom, null).exercices, index);
-      var r = Moteur.raccourcirRoutine(S, cible, Generateur.exemptsDuRaccourci(rt));
+      var r = Moteur.raccourcirRoutine(structureDuProgramme(rt), cible, Generateur.exemptsDuRaccourci(rt));
       var lignes = [];
       rt.exercices.forEach(function (l, j) {
         var tr = r.exercices[j] ? r.exercices[j].tr : l.series;
         // `raccourcie` : cet exercice a perdu des séries pour tenir la durée (l'aperçu ne promet plus « toutes leurs séries »).
         if (tr > 0) lignes.push(Object.assign({}, l, { series: tr }, tr < l.series ? { raccourcie: true } : {}));
+      });
+      var membres = {};
+      lignes.forEach(function (l) {
+        if (l.groupe_superset !== null && l.groupe_superset !== undefined) membres[l.groupe_superset] = (membres[l.groupe_superset] || 0) + 1;
+      });
+      lignes = lignes.map(function (l) {
+        var g = l.groupe_superset;
+        return g !== null && g !== undefined && membres[g] < 2 ? Object.assign({}, l, { groupe_superset: null }) : l;
       });
       return { nom: rt.nom, exercices: lignes };
     });
@@ -8205,17 +8332,30 @@
     c.routines.forEach(function (rt, i) { if (!c.faites[i]) restantes.push(i); });
     var phrases = Generateur.phrasesDeLApercu(restantes.map(function (i) { return c.routines[i]; }), c.entree, nommer,
       c.routines.length);
-    var voix = ['Je te propose tes charges à chaque séance. Touche un exercice pour le changer.'].concat(phrases.zones);
+    // 66D (maquette v2) : avec un historique, la voix dit d'où viennent les séances (la fenêtre du programme déduit,
+    // `Routines.DEDUIT`) ; sans, le titre dit que c'est un point de départ.
+    var h = c.historique;
+    var voix = (h ? ['Ce sont tes séances des ' + (Routines.DEDUIT.jours / 7) + ' dernières semaines.'] : [])
+      .concat(['Je te propose tes charges à chaque séance. Touche un exercice pour le changer.']).concat(phrases.zones);
     if (phrases.barreFixe) voix.push(phrases.barreFixe);
     if (c.annonce) voix.push(c.annonce);
+    var changements = h ? (c.changements || []) : [];
     Rendu.rendreApercuProgramme($('feuille-contenu'), {
-      titre: phrases.titre,
+      titre: h ? phrases.titre : 'Ton programme de départ : ' + phrases.titre,
       voix: voix,
+      changements: changements.length ? {
+        titre: 'Ce que j\u2019ai changé \u00b7 ' + changements.filter(function (x) { return !x.retire; }).length,
+        lignes: changements.map(function (x) { return { texte: x.texte, retire: x.retire, libelle: x.retire ? 'Remettre' : 'Retirer' }; })
+      } : null,
+      surChangement: function (n) { if (changements[n]) basculerChangement(changements[n].cle); },
       routines: restantes.map(function (i) {
+        var rt = c.routines[i];
         return { nom: lecture[i].nom, duree: lecture[i].duree, pourquoi: lecture[i].pourquoi,
-          exercices: c.routines[i].exercices.map(function (l, k) {
+          reprise: !!(h && c.reprises[rt.nom]),
+          exercices: rt.exercices.map(function (l, k) {
             return { nom: nommer(l.exercise_slug), series: seriesFois(l), mentions: Generateur.mentionsDeLigne(l, c.entree),
-                     neuf: !!c.neuf[i + ':' + l.exercise_slug] };
+                     neuf: !!c.neuf[i + ':' + l.exercise_slug] || !!(h && c.ajouts[rt.nom + '\u0000' + l.exercise_slug]),
+                     paire: l.groupe_superset === undefined ? null : l.groupe_superset };
           }) };
       }),
       erreur: c.erreur,
@@ -8228,14 +8368,28 @@
   }
 
   // Ouvre l'aperçu sur un programme construit : de l'état de la personne, jamais d'un second calcul. Rien en base.
+  //
+  // 66D (G1) : avec un historique (`aUnHistorique`), le programme déduit complété (`assemblerLeProgramme`) ; sans, le
+  // gabarit. « Refaire mon programme » passe par ici : le même choix.
   async function ouvrirApercuProgramme() {
     if (etatRoutines.code !== 'ok') await chargerRoutines();
     var entree = entreeDuProgramme();
-    var rts = local.exercices.length
-      ? fondreLesVoisins(raccourcirLeProgramme(fondreLesVoisins(Generateur.generer(catalogueIndexe(), entree))))
-          .filter(function (rt) { return rt.exercices.length; })
-      : [];
+    var historique = local.exercices.length ? aUnHistorique() : null;
+    var rts = [];
+    construit = null;
+    if (historique) {
+      construit = { entree: entree, routines: [], faites: [], dossier: null, erreur: '', enCours: false, annonce: null,
+                    neuf: {}, versCatalogue: false, changements: [], ajouts: {}, reprises: {},
+                    historique: Object.assign(historique, { refus: { muscles: [], reprises: [], tirage: false },
+                                                            refusPaires: [], retouches: [] }) };
+      assemblerLeProgramme();
+      rts = construit.routines;
+    } else if (local.exercices.length) {
+      rts = fondreLesVoisins(raccourcirLeProgramme(fondreLesVoisins(Generateur.generer(catalogueIndexe(), entree))))
+        .filter(function (rt) { return rt.exercices.length; });
+    }
     if (!rts.length) {
+      construit = null;
       // Le catalogue n'est pas arrivé (la place ne trouve rien) : on ne montre pas un programme vide.
       Rendu.rendreFeuilleConfirmer($('feuille-contenu'), {
         titre: 'Le catalogue arrive',
@@ -8245,8 +8399,10 @@
       ouvrirVoile($('feuille-seance'));
       return;
     }
-    construit = { entree: entree, routines: rts, faites: [], dossier: null, erreur: '', enCours: false,
-                  annonce: null, neuf: {}, versCatalogue: false };
+    if (!construit) {
+      construit = { entree: entree, routines: rts, faites: [], dossier: null, erreur: '', enCours: false,
+                    annonce: null, neuf: {}, versCatalogue: false, historique: null, changements: [], ajouts: {}, reprises: {} };
+    }
     rendreApercuDuProgramme();
     var ouvert = construit;
     ouvrirVoile($('feuille-seance'), function () {
@@ -8289,16 +8445,25 @@
     Profil.ecartesDe(profil).forEach(function (sl) { if (c.entree.ecartes.indexOf(sl) < 0) c.entree.ecartes.push(sl); });
     var res = Generateur.neVeuxPas(index, c.routines, c.entree, i, k);
     var retiree = res.routines[i].exercices.length < rt.exercices.length;
-    c.routines = fondreLesVoisins(res.routines);
     c.entree.ecartes = res.ecartes;
     var champs = Profil.preparerChamps(profil, { exercices_ecartes: res.ecartes }, new Date());
     if (Object.keys(champs).length) poserProfil(champs).catch(function () {});
     var ancien = Modele.nommer(index, vieux.exercise_slug);
     // Le remplaçant RÉEL, lu avant la fusion des voisins (un remplaçant déjà dans la séance y absorbe ses séries).
     var neuve = !retiree && res.routines[i].exercices[k];
-    c.neuf = neuve ? (function () { var o = {}; o[i + ':' + neuve.exercise_slug] = true; return o; })() : {};
-    // Une séance vidée par les refus n'a plus rien à écrire : elle sort du programme (et de `faites`, qui la suit).
-    if (!c.routines[i].exercices.length) { c.routines.splice(i, 1); c.faites.splice(i, 1); c.neuf = {}; }
+    var marque = function (j) { var o = {}; if (neuve && j >= 0) o[j + ':' + neuve.exercise_slug] = true; return o; };
+    if (c.historique) {
+      // 66D — avec un historique, le geste devient une RETOUCHE, réappliquée à chaque assemblage (un « Retirer »
+      // recalcule tout : elle y survit), et l'exercice rejoint les écartés que le complément n'ajoute jamais.
+      c.historique.retouches.push({ routine: rt.nom, de: vieux.exercise_slug, ligne: neuve ? ligneDeRetouche(neuve) : null });
+      assemblerLeProgramme();
+      c.neuf = marque(c.routines.map(function (x) { return x.nom; }).indexOf(rt.nom));
+    } else {
+      c.routines = fondreLesVoisins(res.routines);
+      c.neuf = marque(i);
+      // Une séance vidée par les refus n'a plus rien à écrire : elle sort du programme (et de `faites`, qui la suit).
+      if (!c.routines[i].exercices.length) { c.routines.splice(i, 1); c.faites.splice(i, 1); c.neuf = {}; }
+    }
     if (!c.routines.length) { fermerVoile(); return; }
     c.annonce = neuve
       ? ancien + ' est remplacé par ' + Modele.nommer(index, neuve.exercise_slug) + '. Je ne te le proposerai plus.'
@@ -8339,9 +8504,17 @@
       c.annonce = Modele.nommer(catalogueIndexe(), slug) + ' est déjà dans cette séance.';
       return rendreApercuDuProgramme();
     }
-    c.routines = fondreLesVoisins(Generateur.remplacePar(catalogueIndexe(), c.routines, c.entree, i, k, slug));
-    var o = {};
-    o[i + ':' + slug] = true;
+    var remplacees = Generateur.remplacePar(catalogueIndexe(), c.routines, c.entree, i, k, slug);
+    var o = {}, j = i;
+    if (c.historique) {
+      // 66D — une retouche, comme « Je n'en veux pas » : réappliquée à chaque assemblage.
+      var nomRt = c.routines[i].nom;
+      c.historique.retouches.push({ routine: nomRt, de: c.routines[i].exercices[k].exercise_slug,
+                                    ligne: ligneDeRetouche(remplacees[i].exercices[k]) });
+      assemblerLeProgramme();
+      j = c.routines.map(function (x) { return x.nom; }).indexOf(nomRt);
+    } else c.routines = fondreLesVoisins(remplacees);
+    if (j >= 0) o[j + ':' + slug] = true;
     c.neuf = o;
     c.annonce = null;
     c.erreur = '';

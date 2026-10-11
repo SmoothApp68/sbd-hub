@@ -1,5 +1,5 @@
 {
- "version": "le coach quand on s’écarte du plan (68-1, 11/10/2026)",
+ "version": "le coach quand on s’écarte du plan (68-1, 11/10/2026) — attendus recalculés en règles 68B (11/10/2026)",
  "source": "ref68.py (REGLES = 68)",
  "regle": "DECISIONS-SEANCE-ECARTS ; MOTEUR §9.13 bis révisé",
  "cas": [
@@ -1443,7 +1443,7 @@
       {
        "role": "ligne",
        "charge": 79.0,
-       "vise": 12
+       "vise": 11
       },
       {
        "role": "test",
@@ -1455,7 +1455,7 @@
       null,
       {
        "charge": 79.0,
-       "reps": 12,
+       "reps": 11,
        "source": "plan"
       },
       {
@@ -1464,7 +1464,13 @@
        "source": "plan"
       }
      ],
-     "message": null
+     "message": {
+      "type": "a_fond_suite",
+      "rang": 1,
+      "kg": 79.0,
+      "reps": 12,
+      "vise": 11
+     }
     }
    ]
   },

@@ -74,6 +74,8 @@
     if (src === 'retour') return 'retour';
     // §9.14 bis (68A) — la suite portée à la charge d'une série plus lourde.
     if (src === 'elan') return 'elan';
+    // §9.14 ter (68B) — une ligne « à fond » garde son rôle : un retour reste un retour.
+    if (src === 'a_fond' && courante.sourceAvant === 'retour') return 'retour';
     var r = initiale && initiale.role;
     if (r === 'haut') return 'test';
     if (r === 'coach' || r === 'retour' || r === 'elan') return r;
@@ -284,7 +286,10 @@
     couvertes.forEach(function (l) {
       // §9.14 bis (68A) — une ligne d'élan tenue est une montée tenue du jour.
       if ((l.role !== 'coach' && l.role !== 'elan') || !l.validee || !aSuiviSaLigne(l, consigne) || !z) return;
-      var comptees = Palier().repsComptees({ reps: l.faite.reps, rpe: l.faite.rpe, ressenti: l.faite.ressenti });
+      // MOTEUR §17.4 révisé (68B) — la montée du jour se DIT sur les reps
+      // faites : prise à fond, elle a tenu (même si la suite est revenue à la
+      // charge de travail, §9.14 ter).
+      var comptees = nombre(l.faite.reps);
       if (comptees === null || comptees < z.bas || comptees > z.haut) return;
       if (!montee || nombre(l.faite.charge) > nombre(montee.charge)) {
         montee = { charge: l.faite.charge, reps: l.faite.reps };
@@ -1643,6 +1648,20 @@
       });
       if (!porte) err('I43', '« ' + msg.type + ' » sans ligne d\'élan à ' + msg.charge);
     }
+    // I44 (MOTEUR §9.14 ter, 68B) — une ligne « à fond » (source `a_fond`) est
+    // à la charge de la série validée juste avant elle, qui est à fond, et vise
+    // ses reps moins une.
+    couvertes.forEach(function (l, j) {
+      if (l.source !== 'a_fond') return;
+      var d = couvertes[j - 1];
+      var f44 = d && d.validee && d.faite ? d.faite : null;
+      if (!f44) { err('I44', 'la ligne « à fond » ' + j + ' sans série validée juste avant elle'); return; }
+      var aFond = racine.THPalier.cranDeSerie({ rpe: f44.rpe, ressenti: f44.ressenti }) === 'max';
+      if (!aFond || !memeCharge(l.charge, f44.charge) || nombre(l.vise) !== nombre(f44.reps) - 1) {
+        err('I44', 'la ligne « à fond » ' + j + ' (' + l.charge + ' × ' + l.vise + ') après ' + f44.charge + ' × ' + f44.reps +
+          (aFond ? '' : ', une série qui n\'est pas à fond'));
+      }
+    });
   }
 
   // `avantX` (facultatif) : le même exercice dans le plan d'avant (I7, G2).
@@ -1904,7 +1923,8 @@
       couvertes.forEach(function (l) {
         // §9.14 bis (68A) — une ligne d'élan tenue compte comme une montée du coach.
         if ((l.role !== 'coach' && l.role !== 'elan') || !l.validee || !suivieI10(l) || !zI10) return;
-        var c = racine.THPalier.repsComptees({ reps: l.faite.reps, rpe: l.faite.rpe, ressenti: l.faite.ressenti });
+        // 68B — les reps faites, comme le constat (§17.4 révisé).
+        var c = nombre(l.faite.reps);
         if (c === null || c < zI10.bas || c > zI10.haut) return;
         if (tenue === null || nombre(l.faite.charge) > tenue) tenue = nombre(l.faite.charge);
       });

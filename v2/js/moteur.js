@@ -373,6 +373,22 @@
     return n;
   }
 
+  // MOTEUR §17.4 révisé (68B) — LE NIVEAU SUR LES REPS FAITES : le même
+  // calcul, sans la rep en moins d'une série à fond. Il ne décide rien : il
+  // sert à DIRE (« sans marge »), jamais à monter.
+  function niveauFait(seriesAuPalier) {
+    return niveauValide((seriesAuPalier || []).map(function (s) {
+      return { reps: s ? s.reps : null, charge_kg: s ? s.charge_kg : null };
+    }));
+  }
+
+  // La cause d'un « à fond » dans des séries : `rpe` (un RPE de 10) ou
+  // `ressenti` (« reste 0 ») — la première série à fond la dit.
+  function causeAFond(series) {
+    var l = (series || []).filter(function (s) { return Palier().cranDeSerie(s) === 'max'; })[0];
+    return l && Palier().cranEffort(l.rpe) !== null ? 'rpe' : 'ressenti';
+  }
+
   function niveauValide(seriesAuPalier) {
     var liste = seriesAuPalier || [];
     if (!liste.length) return null;
@@ -931,7 +947,15 @@
     // `reps` est la SAISIE de la première série à cette charge, `niveau` son
     // compte (§17.4). Les deux, parce que la phrase dit « 130 × 5 » — ce que la
     // personne a fait — pendant que le moteur juge sur 4.
-    return { charge: T, k: aT.length, reps: nombre(aT[0].reps), niveau: niveauValide(aT) };
+    var t = { charge: T, k: aT.length, reps: nombre(aT[0].reps), niveau: niveauValide(aT) };
+    // §17.4 révisé (68B) — quand la rep en moins d'une série à fond change le
+    // niveau, de quoi le DIRE : le niveau sur les reps faites, et sa cause.
+    var nf = niveauFait(aT);
+    if (nf !== null && t.niveau !== null && nf > t.niveau) {
+      t.niveauFait = nf;
+      t.cause = causeAFond(aT);
+    }
+    return t;
   }
 
   // ── §9.7 — L'ÉPISODE D'ÉTIREMENT ─────────────────────────────────────────
@@ -996,8 +1020,14 @@
     return sortie;
   }
 
-  function faitDuTest(t, debut) {
-    return { charge: t.charge, reps: t.reps, niveau: t.niveau, date: debut };
+  // §17.4 révisé (68B) — `niveauFait` et `cause` n'y figurent QUE s'ils
+  // changent ce qui se dit : un test compté sous le bas de la zone `z`, que
+  // ses reps faites atteignent (« … à RPE 10, sans marge »). L'absence est le
+  // signal, comme pour toute clé du fondement.
+  function faitDuTest(t, debut, z) {
+    var f = { charge: t.charge, reps: t.reps, niveau: t.niveau, date: debut };
+    if (testSansMarge(t, z || null)) { f.niveauFait = t.niveauFait; f.cause = t.cause; }
+    return f;
   }
 
   // ⚠️ LA DERNIÈRE SÉANCE, SÉRIE PAR SÉRIE (48b-6a, MOTEUR §9.13). La feuille
@@ -1151,6 +1181,13 @@
     // serait faux, elle ne compte pas du tout.
     var chute = chuteDe(A);
     var aFond = serieAFondDe(chute !== null ? A.slice(0, -1) : A);
+    // §17.4 révisé (68B) — le niveau sur les reps faites. La note de la série
+    // à fond ne se pose QUE si la rep en moins a réellement abaissé le niveau
+    // validé ; sinon, la phrase habituelle.
+    var nivFait = niveauFait(A);
+    var sansMarge = nivFait !== null && nivFait > niv;
+    if (aFond !== null && !sansMarge) aFond = null;
+    if (aFond !== null) aFond.niveauFait = nivFait;
     function rendre(etat, ligne, haut, plus) {
       // §9.2 bis — APRÈS UNE CHUTE, AUCUN NOUVEAU TEST : un test proposé, un
       // retest ou un retest d'un cran devient « tenir » — la ligne au palier,
@@ -1223,7 +1260,7 @@
       // test d'un épisode d'étirement (§9.7) arrive par `plus`, sans lui : on
       // ne juge plus la taille d'un cran qu'on a déjà renoncé à réduire.
       if (testDeL !== null) {
-        f.test = faitDuTest(testDeL, L.debut);
+        f.test = faitDuTest(testDeL, L.debut, zone);
         f.testUnCran = voisine(P, 1) === testDeL.charge;
       }
       // L'ancien palier n'intéresse que les états où l'échelle BOUGE.
@@ -1390,7 +1427,7 @@
       var nivAlors = niveauValide(episode.auPalier);
       if (nivAlors !== null) {
         var cibleEnCours = cible(hi + nivAlors - episode.test.niveau);
-        var faitEpisode = { test: faitDuTest(episode.test, episode.debut), cible: cibleEnCours };
+        var faitEpisode = { test: faitDuTest(episode.test, episode.debut, zone), cible: cibleEnCours };
         if (niv >= cibleEnCours) {
           return rendre('retest', ligneDe(P, niv), hautDe(episode.test.charge, lo, 1), faitEpisode);
         }
@@ -1547,7 +1584,7 @@
     return (couverture || []).filter(function (x) { return !!x; }).map(function (x) {
       if (x.figee) {
         var f = x.figee;
-        return {
+        var l0 = {
           charge: f.charge === undefined ? null : nombre(f.charge),
           vise: f.vise === undefined ? null : nombre(f.vise),
           zone: Array.isArray(f.zone) ? f.zone.slice() : null,
@@ -1557,6 +1594,9 @@
           role: x.role || null,
           figee: true
         };
+        // §9.14 ter (68B) — une ligne « à fond » figée garde ce qu'elle remplaçait.
+        if (f.sourceAvant) l0.sourceAvant = f.sourceAvant;
+        return l0;
       }
       // §9.13 (49-U18) — la même source que la couverture : sans la ligne de
       // son rôle, la ligne prend l'autre (la charge du coach, jamais rien).
@@ -1628,7 +1668,9 @@
     // elle porte son rôle (le plan de la séance, une ligne figée), sinon sur
     // la disposition de la consigne seule.
     var estTest = function (l, idx) {
-      if (!l || l.source !== 'consigne') return false;
+      // §9.14 ter (68B) — une ligne « à fond » garde son rôle : un test reste un test.
+      var deConsigne = !!l && (l.source === 'consigne' || (l.source === 'a_fond' && l.sourceAvant !== 'retour'));
+      if (!deConsigne) return false;
       return l.role !== undefined && l.role !== null ? l.role === 'haut' : roleInitial[idx] === 'haut';
     };
     // §9.14 bis (68A) — LA LIGNE DU PLAN QU'UNE LIGNE D'ÉLAN REMPLACE : celle
@@ -1667,6 +1709,10 @@
       var charge = nombre(s.charge_kg);
       var reps = nombre(s.reps);
       var comptees = Palier().repsComptees(s);
+      // §9.14 ter (68B) — « À FOND » (RPE 10 ou « reste 0 », un seul endroit :
+      // `cranDeSerie`) : tenue, mais sans marge. Ni élan, ni proposition, ni
+      // « ton test arrive » ; une proposition prise à fond ne garde pas sa charge.
+      var aFond = Palier().cranDeSerie(s) === 'max';
       var derniere = i === n - 1;
       message = null;
 
@@ -1680,7 +1726,7 @@
         clos = true;
         if (!prise) { refus = true; continue; }   // refus : le coach se tait jusqu'au bout du bloc
 
-        if (comptees !== null && comptees >= z.bas) {
+        if (comptees !== null && comptees >= z.bas && !aFond) {
           // TENUE. La charge montée reste pour la suite, visée au bas de la
           // zone — sauf en Lourd, où le garde-fou du §9.7 n'accorde qu'une
           // série de plus : la série montée l'a déjà prise.
@@ -1721,12 +1767,19 @@
         } else {
           // PAS ENCORE. Retour à la charge et à la visée du palier ; le pari de
           // la consigne n'a jamais cessé d'exister, rien de neuf ne s'écrit.
+          // §9.14 ter (68B) — PRISE À FOND : le même retour, mais la phrase dit
+          // le fait (« … à fond : la suite revient à 79 kg × 12 ») quand les
+          // reps faites sont dans la zone. `a_fond` n'existe que vrai.
           for (var r = i + 1; r < n; r++) {
             if (plan[r].figee) continue;
             plan[r] = ligneDePlan(P, nombre(c.ligne.vise), null, 'retour');
           }
           if (!derniere) {
             message = { type: 'pas_encore', rang: i + 1, charge: charge, reps: reps, palier: P };
+            if (aFond && reps !== null && reps >= z.bas) {
+              message.a_fond = true;
+              message.suite = suiteDe(plan[i + 1]);
+            }
           }
         }
         continue;
@@ -1755,8 +1808,9 @@
       if (charge !== null && prevue !== null && charge > prevue && !memeCharge(charge, prevue)) {
         // PLUS LOURDE QUE SA LIGNE, de son propre chef : une montée.
         clos = true;
-        if (comptees !== null && comptees >= z.bas) {
-          // ÇA TIENT : l'élan. Les lignes suivantes non figées plus légères
+        if (comptees !== null && comptees >= z.bas && !aFond) {
+          // ÇA TIENT : l'élan (68B : jamais à fond — sans marge, la suite
+          // reste au plan, et « pas encore » le dit, « à fond »). Les lignes suivantes non figées plus légères
           // passent à cette charge (tests compris, jamais une ligne du coach),
           // fourchette de la zone, pari au bas. Lourd : une ligne d'élan dans
           // tout l'exercice, au plus (le garde-fou du §9.7).
@@ -1823,6 +1877,9 @@
       // consigne.
       if (charge !== null && charge > P && !memeCharge(charge, P)) { clos = true; continue; }
       if (clos) continue;
+      // §9.14 ter (68B) — la charge ne monte jamais sur la foi d'une série à
+      // fond : ni proposition, ni « ton test arrive avec de la marge ».
+      if (aFond) continue;
 
       // Une série au palier, sur une ligne encore celle de la consigne, qui
       // n'est pas la dernière : 3 reps comptées de plus que visé, on propose.
@@ -1909,6 +1966,33 @@
                   charges: charges, marge: marge, source: sourceHaut };
       if (retrouve) message.retrouve = true;
     }
+
+    // §9.14 ter (68B) — LA SUIVANTE, UNE REP DE MOINS : après la dernière
+    // série validée, à fond (charge C, r reps), la ligne suivante non figée, ni
+    // du coach ni d'élan, à la charge C, qui vise plus que r − 1 ≥ 1, vise r − 1
+    // (source `a_fond`, son rôle gardé). Après TOUT le reste de l'étape de
+    // cette série (la référence l'applique en dernier, B09). Les séries
+    // d'avant gardent la leur par leurs lignes figées (relues dans les paris).
+    // Le message seulement si aucun autre ne l'est.
+    var k = liste.length - 1;
+    if (k >= 0 && k + 1 < n && Palier().cranDeSerie(liste[k] || {}) === 'max') {
+      var sk = liste[k];
+      var ck = nombre(sk.charge_kg), rk = nombre(sk.reps);
+      var x = plan[k + 1];
+      var vk = rk === null ? null : rk - 1;
+      if (x && !x.figee && x.source !== 'coach' && x.source !== 'elan' && ck !== null &&
+          memeCharge(nombre(x.charge), ck) && vk !== null && vk >= 1 &&
+          nombre(x.vise) !== null && nombre(x.vise) > vk) {
+        plan[k + 1] = Object.assign({}, x, { vise: vk, source: 'a_fond',
+          sourceAvant: x.source === 'a_fond' ? x.sourceAvant : x.source });
+        revision += 1;
+        if (message === null) {
+          message = { type: 'a_fond_suite', rang: k + 1, charge: ck, reps: rk, vise: vk };
+        }
+      }
+    }
+    // « La suite » d'un message se lit sur les lignes APRÈS cette règle (B09).
+    if (message !== null && message.suite !== undefined) message.suite = suiteDe(plan[message.rang]);
 
     sortie.revision = revision;
     sortie.attente = attente;
@@ -2034,7 +2118,7 @@
   function revisionsDuPlan(plan) {
     var vu = false;
     return (plan || []).map(function (p) {
-      if (p && p.source === 'elan') return 2;
+      if (p && (p.source === 'elan' || p.source === 'a_fond')) return 2;
       if (!p || p.source !== 'coach') return 0;
       if (!vu) { vu = true; return 1; }
       return 2;
@@ -2099,6 +2183,7 @@
     }
     if (z === null) return [];
     if (p.source === 'elan') return [pariDElan(r, liste, j, p, z, fondement, rev, o)];
+    if (p.source === 'a_fond') return [pariAFond(r, liste, j, p, z, fondement, rev, o)];
     var iDecl = rev === 1 ? j - 1 : revs.indexOf(1);
     var d = liste[iDecl] || {};
     var comptees = Palier().repsComptees(d);
@@ -2165,6 +2250,35 @@
     };
   }
 
+  // §9.14 ter (68B) — LE PARI D'UNE LIGNE « À FOND » : une révision, qui
+  // parie sa visée (les reps de la série à fond moins une), son rôle gardé
+  // (`ligne`, `haut` pour un test, `retour`), sa source `a_fond`, et son
+  // déclencheur : la série à fond juste avant elle.
+  function pariAFond(r, liste, j, p, z, fondement, rev, o) {
+    var iDecl = j - 1;
+    var dc = liste[iDecl] || {};
+    var comptees = Palier().repsComptees(dc);
+    var viseDecl = r.plan[iDecl] ? nombre(r.plan[iDecl].vise) : null;
+    fondement.revision = rev;
+    fondement.declencheur = {
+      rang: Array.isArray(o.rangs) && o.rangs[iDecl] !== undefined ? o.rangs[iDecl] : iDecl + 1,
+      charge: nombre(dc.charge_kg), reps: nombre(dc.reps),
+      comptees: comptees,
+      marge: comptees === null || viseDecl === null ? null : comptees - viseDecl
+    };
+    fondement.source = 'a_fond';
+    fondement.role = p.sourceAvant === 'retour' ? 'retour' : (o.role === 'haut' ? 'haut' : 'ligne');
+    return {
+      module: MODULE_CONSIGNE,
+      exercise_slug: o.slug === undefined ? null : o.slug,
+      grandeur: 'reps',
+      valeur_predite: p.vise,
+      borne_basse: z.bas,
+      borne_haute: z.haut,
+      fondement: fondement
+    };
+  }
+
   // §20 — LES PHRASES DE LA RÉACTION. Un fait, jamais un « bravo ».
   // Elles ne lisent que le message et les bornes de la zone : aucune règle ne
   // se rejoue ici. Les chiffres passent par le formateur de la voix (§20.2) :
@@ -2210,7 +2324,13 @@
           ' arrive dès la série ' + nombreFr(m.rang + 1, regle('reaction.rang')) + ', avec de la marge.';
       }
       case 'pas_encore':
+        // §9.14 ter (68B) — prise à fond, dans la zone : le fait, sans « pas encore ».
+        if (m.a_fond) return fait + ' à fond' + DEUX_POINTS + 'la suite revient ' + laSuite(m.suite, z) + '.';
         return fait + DEUX_POINTS + 'pas encore. On revient à ' + enKg(m.palier, cite(CIBLE, { role: 'retour' })) + '.';
+      // §9.14 ter (68B) — la suivante, une rep de moins.
+      case 'a_fond_suite':
+        return fait + ' à fond' + DEUX_POINTS + 'la suivante vise ' +
+          nombreFr(m.vise, cite(CIBLE, { role: 'suite', champ: 'reps' })) + '.';
       // §9.14 bis (68A) — QUAND LA SÉRIE S'ÉCARTE DE SA LIGNE.
       case 'elan': {
         var a = fait + ', au-dessus de ta charge de travail' + DEUX_POINTS;
@@ -2322,8 +2442,11 @@
   // compte plus pour la précédente). 11 depuis 68A (l'élan : une série plus
   // lourde que sa ligne, qui tient, porte la suite à sa charge — MOTEUR §9.14
   // bis : un pari d'élan, au bas de la zone, sur une ligne qui en avait un autre).
+  // 12 depuis 68B (« à fond » en séance — MOTEUR §9.14 ter : la suivante à la
+  // même charge vise une rep de moins, un pari `a_fond` ; ni élan ni proposition
+  // sur la foi d'une série à fond ; l'observation compte les reps faites).
   var MODULE_CONSIGNE = 'moteur.consigne';
-  var VERSION_CONSIGNE = 11;
+  var VERSION_CONSIGNE = 12;
 
   // ⚠️ LU TARDIVEMENT, SANS REPLI, comme `THPalier`. `modele.js` charge avant
   // `moteur.js` (index.html 325 puis 329), mais un repli « si THModele manque,
@@ -3054,6 +3177,17 @@
       ordre: mot === 'première série' ? 'première' : mot === 'dernière série' ? 'dernière' : null });
   }
 
+  // §17.4 révisé (68B) — un test fait à fond dont la rep en moins change le
+  // verdict : compté sous le bas de la zone, mais ses reps faites l'atteignent.
+  function testSansMarge(t, z) {
+    return !!t && z !== null && t.niveauFait !== undefined && t.niveauFait !== null &&
+      t.niveau !== null && t.niveau < z.bas && t.niveauFait >= z.bas;
+  }
+  // « à RPE 10 » pour un RPE, « à fond » pour un ressenti (« reste 0 »).
+  function aFondMot(cause) {
+    return cause === 'rpe' ? ' à RPE ' + nombreFr(10, regle('constante')) : ' à fond';
+  }
+
   function phraseGrise(c, reference) {
     var f = c.fondement || {};
     var z = zoneParCle(c.zone);
@@ -3068,8 +3202,14 @@
       return t === null ? '' : 'Ton test à ' + enKg(t.charge, cT) + ', ' + quand(t.date, reference, false, cT) + ', ';
     };
     var rate = function () {
-      return t === null ? '' :
-        quand(t.date, reference, true, cT) + DEUX_POINTS + chargeFois(t.charge, t.reps, cT) +
+      if (t === null) return '';
+      // §17.4 révisé (68B) — le test fait à fond, que la rep en moins fait
+      // « rater » : le verdict des reps faites, « sans marge ».
+      if (testSansMarge(t, z)) {
+        return quand(t.date, reference, true, cT) + DEUX_POINTS + chargeFois(t.charge, t.reps, cT) +
+          aFondMot(t.cause) + ', sans marge.';
+      }
+      return quand(t.date, reference, true, cT) + DEUX_POINTS + chargeFois(t.charge, t.reps, cT) +
         ', pas encore dans ta zone.';
     };
 
@@ -3088,11 +3228,12 @@
         // La note de la série à fond REMPLACE « une rep de plus », elle ne s'y
         // ajoute pas : une seule phrase grise par en-tête.
         // Dite PAR SA CHARGE, jamais par son rang.
+        // §17.4 révisé (68B) — « sans marge », plus « compte pour 4 » : on ne
+        // montre jamais des reps comptées pour des reps faites.
         if (f.serieAFond) {
           var a = f.serieAFond;
-          return 'Ta série à ' + chargeFois(a.charge, a.reps, cite(FAIT, { quoi: 'a_fond' })) + ', à ' +
-                 (a.cause === 'rpe' ? 'RPE ' + nombreFr(10, regle('constante')) : 'fond') + ', compte pour ' +
-                 nombreFr(a.comptees, regle('a_fond.comptees')) + '.';
+          return 'Ta série à ' + chargeFois(a.charge, a.reps, cite(FAIT, { quoi: 'a_fond' })) + ' était' +
+                 aFondMot(a.cause) + ', sans marge' + DEUX_POINTS + 'on ne rajoute pas de rep.';
         }
         return jour() + DEUX_POINTS + auPalier() + '. Une rep de plus.';
 
@@ -3435,10 +3576,13 @@
     var z = zoneParCle(c.zone);
     var t = f.test || null;
     var cT = cite(FAIT, { quoi: 'test' });
+    // §17.4 révisé (68B) — fait à fond, la rep en moins le fait « rater » :
+    // « … a fait 3 reps à RPE 10, sans marge. »
+    var tSansMarge = testSansMarge(t, z);
     var rate = t === null ? '' :
       'Ton test à ' + enKg(t.charge, cT) + ' a fait ' +
       nombreFr(t.reps, cite(FAIT, { quoi: 'test', champ: 'reps' })) + ' reps' +
-      DEUX_POINTS + 'pas encore dans ta zone.';
+      (tSansMarge ? aFondMot(t.cause) + ', sans marge.' : DEUX_POINTS + 'pas encore dans ta zone.');
     var cH = cite(CIBLE, { role: 'haut' }), cL = cite(CIBLE, { role: 'ligne' });
 
     switch (c.etat) {
@@ -3526,8 +3670,9 @@
 
       case 'etirement':
         return 'Ton test à ' + enKg(t.charge, cT) + ' a fait ' +
-               nombreFr(t.reps, cite(FAIT, { quoi: 'test', champ: 'reps' })) + ' reps' + DEUX_POINTS +
-               'pas encore dans ta zone, et ta machine ne permet pas un plus petit cran. ' +
+               nombreFr(t.reps, cite(FAIT, { quoi: 'test', champ: 'reps' })) + ' reps' +
+               (tSansMarge ? aFondMot(t.cause) + ', sans marge' : DEUX_POINTS + 'pas encore dans ta zone') +
+               ', et ta machine ne permet pas un plus petit cran. ' +
                'Ta zone s\'étire' + DEUX_POINTS + 'à ' + enKg(c.ligne.charge, cL) + ', tu vises une rep ' +
                'de plus au-delà du haut, jusqu\'à ' + nombreFr(f.cible, regle('cible')) + '. Alors on retestera ' +
                enKg(t.charge, cT) + '.';
@@ -3972,6 +4117,8 @@
     if (t !== null) {
       var dit = niveauDuTest(t.niveau, z);
       if (z !== null && t.niveau !== null && t.niveau < z.bas) {
+        // §17.4 révisé (68B) — fait à fond : la position des reps faites, « sans marge ».
+        if (testSansMarge(t, z)) dit = niveauDuTest(t.niveauFait, z) + ', sans marge';
         return chargeFois(t.charge, t.reps, cite(FAIT, { quoi: 'du_jour' })) + DEUX_POINTS + dit + '.';
       }
       // La fois d'avant n'avait de test que si c'était LA MÊME CHARGE : sinon
@@ -3990,6 +4137,15 @@
       return enKg(cApres.palier, cite(FAIT, { quoi: 'du_jour' })) + DEUX_POINTS + nombreFr(nivAvant, regle('niveau.avant')) + ' reps ' +
              quand(av.date, reference, false, cite(FAIT, { quoi: 'palier' })) +
              ', ' + nombreFr(fait, regle('niveau.jour')) + ' aujourd\'hui' + haut + '.';
+    }
+    // §17.4 révisé (68B) — la rep en moins d'une série à fond fait manquer la
+    // rep de plus, mais les reps faites l'ont : « tenu, sans marge », jamais
+    // « pas encore » pour des reps faites.
+    var nivFaitJour = ap.serieAFond ? nombre(ap.serieAFond.niveauFait) : null;
+    // (En Franc, le fait du jour est déjà la meilleure série en reps faites :
+    // arrivé ici, ses reps faites n'ont pas dépassé non plus.)
+    if (nivAvant !== null && nivFaitJour !== null && nivFaitJour > nivAvant) {
+      return faitDuJour() + DEUX_POINTS + 'tenu, sans marge.';
     }
     return 'Pas encore' + DEUX_POINTS + faitDuJour() + '.';
   }

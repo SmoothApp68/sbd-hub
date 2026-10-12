@@ -163,7 +163,30 @@ describe('69 — l’anti-doublon : les 12 verdicts du cas', () => {
     const finie = [Object.assign({}, base[0], { fin: '2026-01-10T09:40:00Z' })];
     expect(I.verdict(s('2026-01-10T09:40:00Z'), finie)).toBe('nouvelle');
     expect(I.verdict(s('2026-01-10T09:39:00Z'), finie)).toBe('meme_seance');
-    expect(I.verdict(s('2026-01-10T08:59:00Z'), base)).toBe('nouvelle');
+    // INVERSÉ en 81 : commencée une minute avant, fin inconnue (→ 11:59), elle
+    // chevauche la séance de 09:00 — « sans doute la même » (« commence
+    // pendant » la disait nouvelle).
+    expect(I.verdict(s('2026-01-10T08:59:00Z'), base)).toBe('meme_seance');
+  });
+
+  // 81 (12/10/2026) — « SANS DOUTE LA MÊME » = LES DEUX SÉANCES SE CHEVAUCHENT.
+  // « Commence pendant » laissait passer la séance démarrée dans Hevy AVANT
+  // l'app : 4 doublons sur l'export d'aurel_br (le 01/10 : Hevy 18 h 17, app
+  // 19 h 07). Fin inconnue, d'un côté ou de l'autre : 3 h au plus.
+  test('81 — le chevauchement : commencée avant, englobante, fin inconnue ; bord à bord, ce n’est pas la même', () => {
+    const base = [{ source_ref: null, debut: '2026-10-01T19:07:00Z', fin: '2026-10-01T20:30:00Z', slugs: ['developpe_couche'] }];
+    const s = (debut, fin, slug) => ({ ref: 'hevy:x', debut, fin: fin || null,
+      exercices: [{ exercise_slug: slug === undefined ? 'developpe_couche' : slug }] });
+    const v = (debut, fin, slug) => I.verdict(s(debut, fin, slug), base);
+    // Le cas réel du 01/10 : commence avant, finit pendant.
+    expect(v('2026-10-01T18:17:00Z', '2026-10-01T20:19:00Z')).toBe('meme_seance');
+    expect(v('2026-10-01T18:00:00Z', '2026-10-01T21:00:00Z')).toBe('meme_seance');      // englobe
+    expect(v('2026-10-01T19:30:00Z', '2026-10-01T20:00:00Z')).toBe('meme_seance');      // commence pendant
+    expect(v('2026-10-01T18:17:00Z', '2026-10-01T20:19:00Z', 'squat_barre')).toBe('nouvelle');  // aucun exercice commun
+    expect(v('2026-10-01T17:00:00Z', '2026-10-01T19:07:00Z')).toBe('nouvelle');         // finit pile au début
+    expect(v('2026-10-01T16:30:00Z', null)).toBe('meme_seance');                        // fin inconnue → 19:30
+    expect(v('2026-10-01T15:00:00Z', null)).toBe('nouvelle');                           // fin inconnue → 18:00
+    expect(v('2026-10-01T19:07:00Z', '2026-10-01T19:10:00Z', 'squat_barre')).toBe('deja_la');  // même minute
   });
 
   test('l’aperçu : coché si nouvelle, décoché si « sans doute la même » ; la phrase dit l’heure de la séance de l’app', () => {

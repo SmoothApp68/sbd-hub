@@ -404,9 +404,11 @@
   // fin, slugs }`) :
   //   · `deja_la` : même référence d'import, OU même minute de début, quelle
   //     que soit l'origine — grisée, jamais écrite ;
-  //   · `meme_seance` : elle COMMENCE PENDANT une séance de la personne (de son
-  //     début à sa fin ; fin inconnue : 3 h au plus, MOTEUR §12.2 bis) ET
-  //     partage au moins un exercice avec elle — décochée ;
+  //   · `meme_seance` : elle CHEVAUCHE une séance de la personne — chacune
+  //     commence avant que l'autre finisse ; fin inconnue, d'un côté ou de
+  //     l'autre : 3 h au plus, MOTEUR §12.2 bis — ET partage au moins un
+  //     exercice avec elle — décochée. (81, 12/10/2026 : « commence pendant »
+  //     laissait passer la séance démarrée dans Hevy avant l'app.) ;
   //   · `nouvelle` sinon. Deux activités qui se suivent ne se chevauchent pas.
   var TROIS_HEURES = 3 * 3600 * 1000;
   function minute(iso) { var t = Date.parse(iso); return isNaN(t) ? null : Math.floor(t / 60000); }
@@ -425,12 +427,14 @@
       }
     }
     var t = d === null ? null : d * 60000;
+    var fi = seance.fin ? Date.parse(seance.fin) : NaN;
+    if (t !== null && isNaN(fi)) fi = t + TROIS_HEURES;
     for (var j = 0; j < liste.length; j++) {
       var x = liste[j];
       if (!x || t === null) continue;
       var db = Date.parse(x.debut);
       var fb = x.fin ? Date.parse(x.fin) : db + TROIS_HEURES;
-      if (isNaN(db) || !(db <= t && t < fb)) continue;
+      if (isNaN(db) || !(t < fb && db < fi)) continue;
       if ((x.slugs || []).some(function (s) { return !!s && slugs[s]; })) return { verdict: 'meme_seance', avec: x };
     }
     return { verdict: 'nouvelle', avec: null };

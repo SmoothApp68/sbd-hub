@@ -225,7 +225,7 @@ describe('l’identifiant d’une écriture de profil est celui de la session du
       },
       Profil, profil: opt.profil === undefined ? null : opt.profil, profilAEnvoyer: !!opt.aEnvoyer, pseudoAInscrire: opt.pseudo || null,
       versionProfil: 0, envoiProfil: null, ecranCourant: 'saisie',
-      rendreBandeauQuestionnaire: () => {}, rendreBandeauPhase: () => {}, rendreCarteCycles: () => {}, jeuSuitLeProfil: () => {}, ouvrirQuestionnaireSiDu: () => false,
+      rendreBandeauQuestionnaire: () => {}, rendreBandeauPhase: () => {}, rendreCarteCycles: () => {}, jeuSuitLeProfil: () => {}, parcoursSuitLeProfil: () => {}, ouvrirQuestionnaireSiDu: () => false,
       sauverProfilLocal: () => Promise.resolve(), rendreProfilEcran: () => {},
       envoyerProfil: () => vm.runInContext('envoyerProfil()', ctx), texteErreur: (e) => String(e && e.message || e)
     };
@@ -410,7 +410,7 @@ describe('le pseudo saisi à l’inscription traverse l’entrée du compte jusq
       Profil, profil: opt.profil === undefined ? null : opt.profil, profilAEnvoyer: false,
       pseudoAInscrire: opt.pseudo === undefined ? 'test_0710' : opt.pseudo,
       versionProfil: 0, envoiProfil: null, ecranCourant: 'saisie',
-      rendreBandeauQuestionnaire: () => {}, rendreBandeauPhase: () => {}, rendreCarteCycles: () => {}, jeuSuitLeProfil: () => {}, ouvrirQuestionnaireSiDu: () => false,
+      rendreBandeauQuestionnaire: () => {}, rendreBandeauPhase: () => {}, rendreCarteCycles: () => {}, jeuSuitLeProfil: () => {}, parcoursSuitLeProfil: () => {}, ouvrirQuestionnaireSiDu: () => false,
       sauverProfilLocal: () => Promise.resolve(), rendreProfilEcran: () => {},
       texteErreur: (e) => String(e && e.message || e)
     };
@@ -640,7 +640,7 @@ describe('60-3b — le pseudo des données du compte, repris à la création de 
       Profil, profil: null, profilAEnvoyer: false,
       pseudoAInscrire: opt.pseudo === undefined ? null : opt.pseudo,
       versionProfil: 0, envoiProfil: null, ecranCourant: 'saisie',
-      rendreBandeauQuestionnaire: () => {}, rendreBandeauPhase: () => {}, rendreCarteCycles: () => {}, jeuSuitLeProfil: () => {}, ouvrirQuestionnaireSiDu: () => false,
+      rendreBandeauQuestionnaire: () => {}, rendreBandeauPhase: () => {}, rendreCarteCycles: () => {}, jeuSuitLeProfil: () => {}, parcoursSuitLeProfil: () => {}, ouvrirQuestionnaireSiDu: () => false,
       sauverProfilLocal: () => Promise.resolve(), rendreProfilEcran: () => {},
       texteErreur: (e) => String(e && e.message || e)
     };

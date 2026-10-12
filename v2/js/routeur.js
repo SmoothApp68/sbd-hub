@@ -56,6 +56,8 @@
   // Le mois est un segment de plus (« /progression/mois/2026-09 ») : tous les
   // mois restent consultables, et un rechargement rouvre le même.
   var MOIS = 'mois', RECORDS = 'records';
+  // 75 (ECRAN-SAISIE §7 bis.14 ter) — « Ton parcours », sous Progression : « /progression/parcours ».
+  var PARCOURS = 'parcours';
   var RE_MOIS = /^(\d{4})-(0[1-9]|1[0-2])$/;
   // L'inscription est une VUE, pas un repli de la connexion : un rechargement
   // direct la rouvre, et le retour d'Android ramène à la connexion sans qu'on
@@ -91,6 +93,7 @@
   var SOUS_PROGRESSION = {};
   SOUS_PROGRESSION[VOLUME] = true; SOUS_PROGRESSION[POIDS] = true;
   SOUS_PROGRESSION[MOIS] = true; SOUS_PROGRESSION[RECORDS] = true;
+  SOUS_PROGRESSION[PARCOURS] = true;
   // Celles qui portent un mois.
   var AVEC_MOIS = {};
   AVEC_MOIS[MOIS] = true; AVEC_MOIS[RECORDS] = true;
@@ -315,7 +318,7 @@
     RELECTURE: RELECTURE,
     EXERCICE: EXERCICE,
     EXO_HISTORIQUE: EXO_HISTORIQUE, ROUTINE_NEUVE: ROUTINE_NEUVE,
-    VOLUME: VOLUME, POIDS: POIDS, MOIS: MOIS, RECORDS: RECORDS,
+    VOLUME: VOLUME, POIDS: POIDS, MOIS: MOIS, RECORDS: RECORDS, PARCOURS: PARCOURS,
     SOUS_PROGRESSION: SOUS_PROGRESSION,
     SOUS_PROFIL: SOUS_PROFIL,
     JEU: JEU, MUSCLES: MUSCLES, SUCCES: SUCCES, DEBLOCAGES: DEBLOCAGES, SOUS_JEU: SOUS_JEU,

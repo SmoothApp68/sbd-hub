@@ -1124,10 +1124,207 @@
     return bloc;
   }
 
+  // ── 75 — « TON PARCOURS » (ECRAN-SAISIE §7 bis.14 ter, maquette v3) ─────
+  //
+  // Le bloc du sommaire : sa phrase en deux lignes, il s'ouvre sur la page. La page, dans l'ordre de M1 : la phrase
+  // · les courbes des grands mouvements · par muscle (les six groupes, leurs exercices au toucher) · tes équilibres ·
+  // ton levier · ta phase · tous tes exercices (replié). L'écran LIT le parcours (`THParcours`, par `faits.js`) : il
+  // ne calcule aucun verdict, aucun rapport. Ambre pour le coach, or pour « ton meilleur », aucun rouge.
+  var PHRASE_VIDE = 'Pas encore assez de séances comparables sur douze mois.';
+  function blocParcours(v) {
+    var bloc = coquilleBloc('Ton parcours', '', false);
+    bloc.classList.add('neuf', 'bloc-parcours');
+    bloc.appendChild(el('div', 'bloc-ligne', v.phrase || PHRASE_VIDE));
+    bloc.addEventListener('click', v.surChoix);
+    return bloc;
+  }
+  var MOTS_DU_VERDICT = { '↑': '↑ progresse', '↗': '↗ légèrement', '▬': '▬ stable', '↘': '↘ en léger recul',
+                          '↓': '↓ recule', moins: 'moins pratiqué', nouveau: 'nouveau', peu: 'peu de séances',
+                          'pas comparable': 'tu as changé de fourchette' };
+  function classeDuVerdict(etat) { return etat === '↑' || etat === '↗' ? 'pc-monte' : 'pc-neutre'; }
+  function kg(n) { return M().nombreTexte(n) + ' kg'; }
+  function majuscule(t) { return t ? t.charAt(0).toUpperCase() + t.slice(1) : t; }
+  var NOMS_DES_GRANDS = { squat_barre: 'Squat', developpe_couche_barre: 'Couché',
+                          souleve_de_terre_barre: 'Soulevé de terre', developpe_militaire_barre: 'Militaire' };
+
+  // La courbe d'un grand mouvement : un point par mois (placé à sa date), la ligne dorée du meilleur atteint
+  // jusque-là, le dernier mois en blanc.
+  function courbeDuParcours(c) {
+    var L = 300, H = 90, marge = 8;
+    var rang = function (m) { var p = m.split('-'); return Number(p[0]) * 12 + Number(p[1]) - 1; };
+    var r0 = rang(c.mois[0][0]), r1 = rang(c.mois[c.mois.length - 1][0]);
+    var vals = c.mois.map(function (m) { return m[1]; });
+    var bas = Math.min.apply(null, vals), haut = Math.max.apply(null, vals);
+    var x = function (m) { return r1 === r0 ? L / 2 : marge + (rang(m) - r0) / (r1 - r0) * (L - 2 * marge); };
+    var y = function (v) { return haut === bas ? H / 2 : H - marge - (v - bas) / (haut - bas) * (H - 2 * marge); };
+    var dessin = svg('svg', 'pc-courbe', { viewBox: '0 0 ' + L + ' ' + H, preserveAspectRatio: 'none', role: 'img',
+      'aria-label': NOMS_DES_GRANDS[c.slug] + ', ' + c.mois.length + ' mois' });
+    var meilleur = -Infinity, ligne = [];
+    c.mois.forEach(function (m) {
+      meilleur = Math.max(meilleur, m[1]);
+      ligne.push(x(m[0]).toFixed(1) + ',' + y(meilleur).toFixed(1));
+    });
+    dessin.appendChild(svg('polyline', 'pc-meilleur', { points: ligne.join(' ') }));
+    c.mois.forEach(function (m) { dessin.appendChild(svg('circle', 'pc-point', { cx: x(m[0]).toFixed(1), cy: y(m[1]).toFixed(1), r: 2.4 })); });
+    var der = c.mois[c.mois.length - 1];
+    dessin.appendChild(svg('circle', 'pc-maintenant', { cx: x(der[0]).toFixed(1), cy: y(der[1]).toFixed(1), r: 4 }));
+    return dessin;
+  }
+
+  // La ligne d'un exercice dans un groupe : son nom (× 2 pour une barre qui compte double), et ce qu'il dit.
+  function ligneDExercice(o, noms) {
+    var l = el('div', 'pc-exo');
+    var gauche = el('span', 'pc-exo-nom', o.nom + (o.poids > 1 ? ' ×2' : ''));
+    var droite;
+    if (o.etat === 'moins') {
+      var relais = (o.relais || []).map(function (s) { return noms[s] || s; });
+      droite = el('span', 'pc-gris', 'moins pratiqué' + (relais.length ? ' → ' + relais.join(', ') : ''));
+    } else if (o.methode === 'courbe') {
+      droite = el('span', classeDuVerdict(o.etat), 'sur ta courbe ' + o.etat);
+    } else if (o.methode === 'reps') {
+      droite = el('span', classeDuVerdict(o.etat), MOTS_DU_VERDICT[o.etat]);
+    } else {
+      droite = el('span', 'pc-gris', MOTS_DU_VERDICT[o.etat] || '');
+    }
+    var haut = el('div', 'pc-exo-haut');
+    haut.appendChild(gauche);
+    haut.appendChild(droite);
+    l.appendChild(haut);
+    if (o.methode === 'reps' && o.detail.length) {
+      l.appendChild(el('div', 'pc-exo-detail', o.detail.map(function (d) {
+        return M().nombreTexte(d[1]) + ' → ' + M().nombreTexte(d[2]) + ' à ' + d[0] + (d[0] > 1 ? ' reps' : ' rep');
+      }).join(' · ')));
+    }
+    return l;
+  }
+
+  function rendreParcours(cible, vue) {
+    if (!cible) return;
+    vider(cible);
+    var p = vue.parcours;
+    var noms = {};
+    p.exercices.forEach(function (o) { noms[o.slug] = o.nom; });
+    cible.appendChild(el('h2', 'titre-vue', 'Ton parcours'));
+
+    // La phrase.
+    cible.appendChild(el('div', 'pc-phrase', p.phrase || PHRASE_VIDE));
+
+    // Les courbes des grands mouvements.
+    if (p.courbes.length) {
+      cible.appendChild(el('div', 'section-t', 'Tes grands mouvements'));
+      p.courbes.forEach(function (c) {
+        var carte = el('div', 'carte-mois pc-lift');
+        var tete = el('div', 'pc-lift-tete');
+        tete.appendChild(el('span', 'pc-lift-nom', NOMS_DES_GRANDS[c.slug]));
+        if (c.etat) tete.appendChild(el('span', classeDuVerdict(c.etat), MOTS_DU_VERDICT[c.etat] || ''));
+        carte.appendChild(tete);
+        carte.appendChild(courbeDuParcours(c));
+        var pied = el('div', 'pc-lift-pied');
+        pied.appendChild(el('span', null, 'au début ' + kg(c.debut)));
+        pied.appendChild(el('span', 'pc-or', 'ton meilleur ' + kg(c.meilleur) + ' × 5+'));
+        pied.appendChild(el('span', null, 'en ce moment ' + kg(c.maintenant)));
+        carte.appendChild(pied);
+        cible.appendChild(carte);
+      });
+      cible.appendChild(el('p', 'pc-note', 'Ligne dorée : ton meilleur, à 5 reps ou plus. Points : ton meilleur de chaque mois.'));
+    }
+
+    // Par muscle.
+    cible.appendChild(el('div', 'section-t', 'Par muscle · 6 derniers mois'));
+    cible.appendChild(el('p', 'pc-note', 'Chaque exercice comparé à lui-même, au même nombre de reps. Touche un groupe pour le détail.'));
+    var avec = p.zones.filter(function (z) { return z.verdict; }).length;
+    p.zones.forEach(function (z) {
+      var groupe = el('details', 'pc-groupe');
+      groupe.setAttribute('data-zone', z.zone);
+      var resume = el('summary', null);
+      resume.appendChild(el('span', null, z.libelle));
+      if (z.verdict) {
+        var lent = p.levier === z.zone && avec > 1;
+        resume.appendChild(el('span', classeDuVerdict(z.verdict),
+          lent ? z.verdict + ' le plus lent' : MOTS_DU_VERDICT[z.verdict]));
+      } else {
+        resume.appendChild(el('span', 'pc-gris', z.raison));
+      }
+      groupe.appendChild(resume);
+      var corps = el('div', 'pc-groupe-corps');
+      var siens = p.exercices.filter(function (o) { return o.zone === z.zone && o.etat !== 'peu'; });
+      siens.forEach(function (o) { corps.appendChild(ligneDExercice(o, noms)); });
+      if (!siens.length) corps.appendChild(el('div', 'pc-gris', 'Aucun exercice suivi en charge sur douze mois.'));
+      groupe.appendChild(corps);
+      cible.appendChild(groupe);
+    });
+
+    // Tes équilibres.
+    if (p.rapports.length) {
+      cible.appendChild(el('div', 'section-t', 'Tes équilibres'));
+      cible.appendChild(el('p', 'pc-note', 'Tes vraies barres, au même nombre de reps, sur douze mois.'));
+      p.rapports.forEach(function (r) {
+        var carte = el('div', 'carte-mois pc-rapport');
+        carte.appendChild(ligneMois(majuscule(vue.nomsCourts[r.num]) + ' / ' + vue.nomsCourts[r.den],
+          el('span', r.lecture === 'en dessous' ? 'pc-neutre' : 'pc-gris', r.affiche)));
+        if (r.repere !== null) {
+          var t = 'Chez les pratiquants : environ ' + M().nombreFixe(r.repere, 2) + '. ';
+          if (r.lecture === 'en dessous') {
+            t += 'Ton ' + vue.nomsCourts[r.den] + ' tire devant : environ +' + r.ecart_kg + ' kg au ' +
+              vue.nomsCourts[r.num] + ' pour t’y aligner.';
+          } else if (r.lecture === 'au-dessus') t += 'Ton ' + vue.nomsCourts[r.num] + ' tire devant.';
+          else t += 'Proche.';
+          carte.appendChild(el('p', 'pc-note', t));
+        }
+        cible.appendChild(carte);
+      });
+      var pourquoi = el('details', 'pc-pourquoi');
+      pourquoi.appendChild(el('summary', null, 'Pourquoi possible'));
+      pourquoi.appendChild(el('p', 'pc-note', 'La morphologie, un mouvement travaillé plus tôt et plus souvent, tes priorités ' +
+        'passées. Ce sont des repères de pratiquants, pas de compétiteurs. Ce n’est pas une alerte.'));
+      cible.appendChild(pourquoi);
+    }
+
+    // Ton levier.
+    cible.appendChild(el('div', 'section-t', 'Ton levier'));
+    var lev = el('div', 'pc-levier');
+    var zLevier = p.zones.filter(function (z) { return z.zone === p.levier; })[0];
+    if (zLevier) {
+      lev.appendChild(el('b', null, zLevier.libelle + '.'));
+      lev.appendChild(doc.createTextNode(' ' + (vue.priorites.length
+        ? 'De tes priorités (' + vue.priorites.join(', ') + '), c’est celle qui avance le plus lentement.'
+        : 'De tes groupes, c’est celui qui avance le plus lentement.')));
+    } else {
+      lev.appendChild(doc.createTextNode('Pas encore de groupe à comparer.'));
+    }
+    cible.appendChild(lev);
+
+    // Ta phase.
+    cible.appendChild(el('div', 'section-t', 'Ta phase'));
+    var phase = el('div', 'carte-mois pc-phase');
+    phase.appendChild(el('div', null, vue.phase));
+    phase.appendChild(el('p', 'pc-note', vue.pesees.assez
+      ? vue.pesees.nombre + ' pesées en huit semaines.'
+      : 'Pas assez de pesées : ' + vue.pesees.nombre + ' en huit semaines. Une par semaine suffit.'));
+    cible.appendChild(phase);
+
+    // Tous tes exercices.
+    cible.appendChild(el('div', 'section-t', 'Tous tes exercices'));
+    var tous = el('details', 'pc-tous');
+    tous.appendChild(el('summary', null, pluriel(p.exercices.length, 'exercice') + ' · ouvrir'));
+    p.exercices.forEach(function (o) {
+      var b = el('button', 'pc-tous-ligne');
+      b.type = 'button';
+      b.setAttribute('data-slug', o.slug);
+      b.appendChild(el('span', null, o.nom));
+      b.appendChild(el('span', o.methode ? classeDuVerdict(o.etat) : 'pc-gris',
+        (o.methode === 'courbe' ? 'sur ta courbe ' + o.etat : MOTS_DU_VERDICT[o.etat]) || ''));
+      b.addEventListener('click', function () { vue.surExercice(o.slug); });
+      tous.appendChild(b);
+    });
+    cible.appendChild(tous);
+  }
+
   function rendreSommaire(cible, vue) {
     if (!cible) return;
     vider(cible);
     if (vue.mois) cible.appendChild(blocMois(vue.mois));
+    if (vue.parcours) cible.appendChild(blocParcours(vue.parcours));
     if (vue.records) cible.appendChild(blocRecords(vue.records));
     cible.appendChild(blocVolume(vue.volume));
     cible.appendChild(blocPoids(vue.poids));
@@ -5843,6 +6040,7 @@
     rendreCalendrier: rendreCalendrier,
     rendreSommaire: rendreSommaire,
     rendreBilanMois: rendreBilanMois,
+    rendreParcours: rendreParcours,
     rendreRecordsDuMois: rendreRecordsDuMois,
     rendrePeriodes: rendrePeriodes,
     rendreRadar: rendreRadar,

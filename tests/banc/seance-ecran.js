@@ -13394,7 +13394,8 @@ const SETS_IMPORTES = [
     await fermerRecapBanc();
     await garderRecap(false);
 
-    // ── E. PROGRESSION : DEUX BLOCS EN TÊTE, LES AUTRES NE BOUGENT PAS.
+    // ── E. PROGRESSION : DEUX BLOCS EN TÊTE, LES AUTRES NE BOUGENT PAS. 75 (ECRAN-SAISIE §7 bis.14 ter) : « Ton
+    //    parcours » se pose juste après le mois écoulé ; les records passent en troisième.
     await onglet('progression');
     await attendre(800);
     const som = await page.evaluate(() => Array.from(document.querySelectorAll('#sommaire .bloc-som')).map((b) => ({
@@ -13404,14 +13405,15 @@ const SETS_IMPORTES = [
     const ici = new Date(tP);
     const ecoule = new Date(ici.getFullYear(), ici.getMonth() - 1, 1);
     await capturer55('3-sommaire');
-    ok('[P55] DISCRIMINANT — en tête : le mois écoulé, puis les records ; Volume, Poids, Par exercice ensuite',
-      som.length === 5 && som[0].neuf && som[0].quoi === MOIS_L[ecoule.getMonth()] && som[1].neuf &&
-        /Records$/.test(som[1].quoi) && /^Volume par muscle/.test(som[2].quoi) && /^Poids de corps/.test(som[3].quoi) &&
-        /^Par exercice/.test(som[4].quoi), JSON.stringify(som));
+    ok('[P55] DISCRIMINANT — en tête : le mois écoulé, « Ton parcours » (75), puis les records ; Volume, Poids, Par exercice ensuite',
+      som.length === 6 && som[0].neuf && som[0].quoi === MOIS_L[ecoule.getMonth()] && som[1].neuf &&
+        som[1].quoi === 'Ton parcours' && som[2].neuf &&
+        /Records$/.test(som[2].quoi) && /^Volume par muscle/.test(som[3].quoi) && /^Poids de corps/.test(som[4].quoi) &&
+        /^Par exercice/.test(som[5].quoi), JSON.stringify(som));
     ok('[P55] le bloc Records dit le dernier, « Médaillé u55 100 kg × 5 », daté d’aujourd’hui',
-      som[1] && sp(som[1].ligne) === sp('Le dernier : Médaillé u55 100 kg × 5, le ' + ici.getDate() + ' ' + MOIS_C[ici.getMonth()] +
+      som[2] && sp(som[2].ligne) === sp('Le dernier : Médaillé u55 100 kg × 5, le ' + ici.getDate() + ' ' + MOIS_C[ici.getMonth()] +
         (/\.$/.test(MOIS_C[ici.getMonth()]) ? '' : '.')),
-      JSON.stringify(som[1]));
+      JSON.stringify(som[2]));
 
     // ── F. LE BILAN DU MOIS : le mois écoulé, puis le mois en cours (›).
     await page.evaluate(() => document.querySelectorAll('#sommaire .bloc-som')[0].click());
@@ -18285,6 +18287,153 @@ const SETS_IMPORTES = [
       base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,
       nbR([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
     void idA;
+  }
+
+  console.log('\n══ parcours. « TON PARCOURS » : LE BLOC, LA PAGE, LES GROUPES, LE RELAIS, LES ÉQUILIBRES (75, ECRAN-SAISIE §7 bis.14 ter) ══');
+  //
+  // ⚠️ SES séances seulement (la méthode de [R66] et [R71]) : la base est vidée pour la section, puis rendue. Six
+  // exercices, six séances dans chaque période (R : J−5 à J−155 ; P : J−190 à J−340), et la phrase que la référence
+  // `parcours75.py` rend pour ces séances-là (calculée une fois, écrite ici) :
+  //   · jambes ↑ (squat ×2 et presse, tous deux en hausse à reps égales) ; poitrine ↗ (couché ×2 en légère hausse,
+  //     incliné stable) ; épaules sans verdict (l'élévation haltère moins pratiquée, la poulie nouvelle) ;
+  //   · le relais : « Élévation latérale P75 (Haltère) — moins pratiqué → Élévation latérale P75 (Poulie) » ;
+  //   · squat / couché 1,11, en dessous de 1,21 : environ +8 kg au squat ; le levier : Poitrine (priorités poitrine,
+  //     jambes ; la plus petite moyenne).
+  // Puis : un groupe s'ouvre au toucher, un exercice ouvre sa page, et deux affichages n'écrivent rien.
+  {
+    const sp = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const catalogueAvant = CATALOGUE.length;
+    const sessionsAvant = base.sessions, setsAvant = base.sets;
+    const profilAvant = { sexe: base.profiles[0].sexe, priorites: base.profiles[0].priorites };
+    base.sessions = []; base.sets = [];
+    base.profiles[0].sexe = 'homme';
+    base.profiles[0].priorites = ['poitrine', 'jambes'];
+    const fiche = (slug, nom, equipement, mouvement, prim) => ({ slug, nom, mesure: 'charge_reps', charge: 'externe',
+      equipement, mouvement, muscles_primaires: prim, muscles_secondaires: [], muscles_stabilisateurs: [] });
+    if (!CATALOGUE.some((c) => c.slug === 'squat_barre')) CATALOGUE.push(fiche('squat_barre', 'Squat (Barre)', 'barre', 'squat', ['quadriceps']));
+    if (!CATALOGUE.some((c) => c.slug === 'developpe_couche_barre')) {
+      CATALOGUE.push(fiche('developpe_couche_barre', 'Développé Couché (Barre)', 'barre', 'couche', ['pectoraux']));
+    }
+    CATALOGUE.push(fiche('p75-presse', 'Presse P75 (Machine)', 'machine', 'presse_p75', ['quadriceps']));
+    CATALOGUE.push(fiche('p75-incline', 'Incliné P75 (Haltère)', 'haltere', 'incline_p75', ['pectoraux']));
+    CATALOGUE.push(fiche('p75-lat-h', 'Élévation latérale P75 (Haltère)', 'haltere', 'elevation_laterale_p75', ['deltoide_lateral']));
+    CATALOGUE.push(fiche('p75-lat-p', 'Élévation latérale P75 (Poulie)', 'poulie', 'elevation_laterale_p75', ['deltoide_lateral']));
+    // Une séance par exercice et par jour, datée par le décor (`ilYa`, `finDe`) : les jours (5 à 340) sont loin des
+    // bornes des périodes (J−182 / J−183, J−365), un changement d'heure n'y change rien.
+    const tP75 = Date.now();
+    let n75 = 0;
+    const seances75 = (slug, jours, lignes) => jours.forEach((j) => {
+      n75++;
+      const id = '00000000-0000-4000-8750-' + String(n75).padStart(12, '0');
+      const debut = ilYa(j * 86400000, tP75).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'Parcours P75', debut, fin: finDe(debut, tP75).toISOString(),
+        statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      lignes.forEach(([reps, kg], r) => base.sets.push({ id: id + '-s' + (r + 1), session_id: id, user_id: 'u-banc',
+        exercise_slug: slug, charge_kg: kg, reps, duree_s: null, distance_m: null, type_serie: 'travail', rang: r + 1,
+        groupe_superset: null, validee_a: debut, rpe: null, ressenti: null, repos_s: null, note: null, source: 'app',
+        created_at: debut, modifie_a: null }));
+    });
+    const P = [190, 220, 250, 280, 310, 340], R = [5, 35, 65, 95, 125, 155];
+    seances75('squat_barre', P, [[5, 120], [3, 135], [8, 100]]); seances75('squat_barre', R, [[5, 125], [3, 140], [8, 105]]);
+    seances75('p75-presse', P, [[10, 270], [12, 250]]); seances75('p75-presse', R, [[10, 290], [12, 270]]);
+    seances75('developpe_couche_barre', P, [[5, 110], [3, 120], [8, 95]]);
+    seances75('developpe_couche_barre', R, [[5, 112.5], [3, 122.5], [8, 97.5]]);
+    seances75('p75-incline', P, [[8, 30], [10, 28]]); seances75('p75-incline', R, [[8, 30], [10, 28]]);
+    seances75('p75-lat-h', P, [[12, 12]]); seances75('p75-lat-h', [20], [[12, 12]]);
+    seances75('p75-lat-p', [300], [[12, 9]]); seances75('p75-lat-p', [10, 40, 70, 100, 130, 160], [[12, 13.6]]);
+    const PHRASE = 'Tes six derniers mois : les deux groupes que tu suis progressent. Poitrine : ce qui avance le plus ' +
+      'lentement. Ton couché tire devant ton squat.';
+    const ecritures = () => base.journal.filter((j) => j.op !== 'refus').length;
+    const file = () => page.evaluate(() => (window.THCache ? window.THCache.lireAttente() : Promise.resolve([])))
+      .then((l) => JSON.stringify(l));
+    // Les captures, pour comparer à la maquette : seulement si `BANC_CAPTURES` nomme un dossier.
+    const capturer75 = async (nom) => {
+      if (!process.env.BANC_CAPTURES) return;
+      await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES, 'p75-' + nom + '.png'), fullPage: true });
+    };
+
+    // ── A. LE BLOC DU SOMMAIRE.
+    await aller('/progression');
+    await attendre(800);
+    const ecrituresAvant = ecritures(), fileAvant = await file();
+    const blocs = await page.evaluate(() => Array.from(document.querySelectorAll('#sommaire .bloc-som')).map((b) => ({
+      quoi: b.querySelector('.bloc-quoi').textContent, ligne: (b.querySelector('.bloc-ligne') || {}).textContent || null })));
+    await capturer75('1-sommaire');
+    ok('[P75] DISCRIMINANT — le bloc « Ton parcours », juste après le mois écoulé, dit la phrase de la référence',
+      blocs[1] && blocs[1].quoi === 'Ton parcours' && sp(blocs[1].ligne) === PHRASE, JSON.stringify(blocs.slice(0, 3)));
+
+    // ── B. LA PAGE ET SES SECTIONS, DANS L'ORDRE DE M1.
+    await page.evaluate(() => document.querySelectorAll('#sommaire .bloc-som')[1].click());
+    await attendre(900);
+    const pageP = await page.evaluate(() => {
+      const c = document.getElementById('parcours');
+      return { chemin: location.pathname, visible: !document.getElementById('vue-parcours').hidden,
+        phrase: (c.querySelector('.pc-phrase') || {}).textContent,
+        sections: Array.from(c.querySelectorAll('.section-t')).map((x) => x.textContent),
+        courbes: c.querySelectorAll('.pc-lift').length,
+        groupes: Array.from(c.querySelectorAll('.pc-groupe')).map((g) => ({ zone: g.dataset.zone, ouvert: g.open,
+          resume: g.querySelector('summary').textContent })),
+        rapport: (c.querySelector('.pc-rapport') || {}).textContent,
+        levier: (c.querySelector('.pc-levier') || {}).textContent,
+        large: document.documentElement.scrollWidth > window.innerWidth };
+    });
+    ok('[P75] la page : /progression/parcours, la phrase en tête, puis les sections dans l’ordre de M1',
+      pageP.chemin === '/progression/parcours' && pageP.visible && sp(pageP.phrase) === PHRASE &&
+        JSON.stringify(pageP.sections) === JSON.stringify(['Tes grands mouvements', 'Par muscle · 6 derniers mois',
+          'Tes équilibres', 'Ton levier', 'Ta phase', 'Tous tes exercices']) && pageP.courbes === 2,
+      JSON.stringify(pageP));
+    ok('[P75] les six groupes, fermés ; jambes « ↑ progresse », poitrine « ↗ le plus lent », épaules sans verdict',
+      pageP.groupes.length === 6 && pageP.groupes.every((g) => !g.ouvert) &&
+        sp(pageP.groupes[0].resume) === 'Jambes↑ progresse' && sp(pageP.groupes[4].resume) === 'Poitrine↗ le plus lent' &&
+        sp(pageP.groupes[3].resume) === 'Épaulespas assez de séances comparables', JSON.stringify(pageP.groupes));
+    ok('[P75] les équilibres : squat / couché 1,11, environ 1,21 chez les pratiquants, +8 kg au squat ; le levier : Poitrine',
+      /^Squat \/ couché1,11/.test(sp(pageP.rapport)) && /environ 1,21/.test(sp(pageP.rapport)) &&
+        /environ \+8 kg au squat/.test(sp(pageP.rapport)) && /^Poitrine\. De tes priorités \(poitrine, jambes\)/.test(sp(pageP.levier)),
+      JSON.stringify([pageP.rapport, pageP.levier]));
+    ok('[P75] pas de défilement horizontal', !pageP.large, String(pageP.large));
+
+    // ── C. UN GROUPE S'OUVRE AU TOUCHER ; LA LIGNE DU RELAIS.
+    await page.click('#parcours .pc-groupe[data-zone="epaules"] summary');
+    await attendre(300);
+    const epaules = await page.evaluate(() => {
+      const g = document.querySelector('#parcours .pc-groupe[data-zone="epaules"]');
+      return { ouvert: g.open, lignes: Array.from(g.querySelectorAll('.pc-exo-haut')).map((x) => x.textContent) };
+    });
+    await capturer75('2-page');
+    ok('[P75] DISCRIMINANT — un groupe s’ouvre au toucher : « Élévation latérale P75 (Haltère) — moins pratiqué → Élévation latérale P75 (Poulie) »',
+      epaules.ouvert && epaules.lignes.map(sp).indexOf('Élévation latérale P75 (Haltère)moins pratiqué → Élévation latérale P75 (Poulie)') >= 0,
+      JSON.stringify(epaules));
+
+    // ── D. RIEN N'EST ÉCRIT : deux affichages (le sommaire, la page, puis un rechargement de la page).
+    await aller('/progression/parcours');
+    await attendre(600);
+    const phraseRecharge = await page.evaluate(() => (document.querySelector('#parcours .pc-phrase') || {}).textContent);
+    ok('[P75] DISCRIMINANT — rien n’est écrit : les requêtes d’écriture et la file sont identiques après deux affichages',
+      ecritures() === ecrituresAvant && (await file()) === fileAvant && sp(phraseRecharge) === PHRASE,
+      JSON.stringify([ecrituresAvant, ecritures(), sp(phraseRecharge)]));
+
+    // ── E. « TOUS TES EXERCICES » : UN EXERCICE OUVRE SA PAGE PAR LA PORTE COMMUNE.
+    await page.click('#parcours .pc-tous summary');
+    await attendre(300);
+    const tous = await page.evaluate(() => Array.from(document.querySelectorAll('#parcours .pc-tous-ligne')).map((b) => b.dataset.slug));
+    await page.click('#parcours .pc-tous-ligne[data-slug="p75-presse"]');
+    await attendre(1200);
+    const exo = await page.evaluate(() => ({ chemin: location.pathname, visible: !document.getElementById('vue-exercice').hidden }));
+    ok('[P75] « Tous tes exercices » : les six, et un exercice ouvre sa page (/exercice/p75-presse)',
+      tous.length === 6 && exo.chemin === '/exercice/p75-presse' && exo.visible, JSON.stringify([tous, exo]));
+
+    // LA REMISE EN ÉTAT, pour les sections suivantes.
+    CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
+    base.sessions = sessionsAvant;
+    base.sets = setsAvant;
+    base.profiles[0].sexe = profilAvant.sexe;
+    base.profiles[0].priorites = profilAvant.priorites;
+    await aller('/saisie');
+    ok('[P75] aucun refus du faux serveur, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,
+      JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
   }
 
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');

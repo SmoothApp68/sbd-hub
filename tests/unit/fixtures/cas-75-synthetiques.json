@@ -1,0 +1,9224 @@
+[
+ {
+  "nom": "a-moins-relais",
+  "quoi": "fait deux fois moins souvent → « moins », relais même muscle et même mouvement (≥5 séances, en hausse de fréquence)",
+  "entree": {
+   "aujourdhui": "2026-10-11",
+   "sexe": "homme",
+   "priorites": [
+    "dos",
+    "jambes",
+    "epaules"
+   ],
+   "catalogue": [
+    {
+     "slug": "elevation_laterale_haltere",
+     "nom": "Élévation Latérale (Haltère)",
+     "muscles_primaires": [
+      "deltoide_lateral"
+     ],
+     "mouvement": "elevation_laterale",
+     "schema_mouvement": "epaules_cote",
+     "habilete": false,
+     "equipement": "haltere"
+    },
+    {
+     "slug": "elevation_laterale_poulie",
+     "nom": "Élévation Latérale (Poulie)",
+     "muscles_primaires": [
+      "deltoide_lateral"
+     ],
+     "mouvement": "elevation_laterale",
+     "schema_mouvement": "epaules_cote",
+     "habilete": false,
+     "equipement": "poulie"
+    }
+   ],
+   "series": [
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0001",
+     "slug": "elevation_laterale_haltere",
+     "reps": 12,
+     "charge": 12
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0001",
+     "slug": "elevation_laterale_haltere",
+     "reps": 15,
+     "charge": 10
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0002",
+     "slug": "elevation_laterale_haltere",
+     "reps": 12,
+     "charge": 12
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0002",
+     "slug": "elevation_laterale_haltere",
+     "reps": 15,
+     "charge": 10
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0003",
+     "slug": "elevation_laterale_haltere",
+     "reps": 12,
+     "charge": 12
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0003",
+     "slug": "elevation_laterale_haltere",
+     "reps": 15,
+     "charge": 10
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0004",
+     "slug": "elevation_laterale_haltere",
+     "reps": 12,
+     "charge": 12
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0004",
+     "slug": "elevation_laterale_haltere",
+     "reps": 15,
+     "charge": 10
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0005",
+     "slug": "elevation_laterale_haltere",
+     "reps": 12,
+     "charge": 12
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0005",
+     "slug": "elevation_laterale_haltere",
+     "reps": 15,
+     "charge": 10
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0006",
+     "slug": "elevation_laterale_haltere",
+     "reps": 12,
+     "charge": 12
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0006",
+     "slug": "elevation_laterale_haltere",
+     "reps": 15,
+     "charge": 10
+    },
+    {
+     "debut": "2026-03-25T18:00",
+     "seance": "s0007",
+     "slug": "elevation_laterale_haltere",
+     "reps": 12,
+     "charge": 12
+    },
+    {
+     "debut": "2026-03-25T18:00",
+     "seance": "s0007",
+     "slug": "elevation_laterale_haltere",
+     "reps": 15,
+     "charge": 10
+    },
+    {
+     "debut": "2026-03-15T18:00",
+     "seance": "s0008",
+     "slug": "elevation_laterale_haltere",
+     "reps": 12,
+     "charge": 12
+    },
+    {
+     "debut": "2026-03-15T18:00",
+     "seance": "s0008",
+     "slug": "elevation_laterale_haltere",
+     "reps": 15,
+     "charge": 10
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0009",
+     "slug": "elevation_laterale_haltere",
+     "reps": 12,
+     "charge": 12
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0009",
+     "slug": "elevation_laterale_haltere",
+     "reps": 15,
+     "charge": 10
+    },
+    {
+     "debut": "2026-02-23T18:00",
+     "seance": "s0010",
+     "slug": "elevation_laterale_haltere",
+     "reps": 12,
+     "charge": 12
+    },
+    {
+     "debut": "2026-02-23T18:00",
+     "seance": "s0010",
+     "slug": "elevation_laterale_haltere",
+     "reps": 15,
+     "charge": 10
+    },
+    {
+     "debut": "2026-10-01T18:00",
+     "seance": "s0011",
+     "slug": "elevation_laterale_haltere",
+     "reps": 12,
+     "charge": 12
+    },
+    {
+     "debut": "2026-09-01T18:00",
+     "seance": "s0012",
+     "slug": "elevation_laterale_haltere",
+     "reps": 12,
+     "charge": 12
+    },
+    {
+     "debut": "2025-12-15T18:00",
+     "seance": "s0013",
+     "slug": "elevation_laterale_poulie",
+     "reps": 12,
+     "charge": 9
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0014",
+     "slug": "elevation_laterale_poulie",
+     "reps": 12,
+     "charge": 13.6
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0015",
+     "slug": "elevation_laterale_poulie",
+     "reps": 12,
+     "charge": 13.6
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0016",
+     "slug": "elevation_laterale_poulie",
+     "reps": 12,
+     "charge": 13.6
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0017",
+     "slug": "elevation_laterale_poulie",
+     "reps": 12,
+     "charge": 13.6
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0018",
+     "slug": "elevation_laterale_poulie",
+     "reps": 12,
+     "charge": 13.6
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0019",
+     "slug": "elevation_laterale_poulie",
+     "reps": 12,
+     "charge": 13.6
+    },
+    {
+     "debut": "2026-09-26T18:00",
+     "seance": "s0020",
+     "slug": "elevation_laterale_poulie",
+     "reps": 12,
+     "charge": 13.6
+    },
+    {
+     "debut": "2026-09-16T18:00",
+     "seance": "s0021",
+     "slug": "elevation_laterale_poulie",
+     "reps": 12,
+     "charge": 13.6
+    }
+   ]
+  },
+  "attendu": {
+   "exercices": [
+    {
+     "slug": "elevation_laterale_haltere",
+     "nom": "Élévation Latérale (Haltère)",
+     "zone": "epaules",
+     "muscle": "deltoide_lateral",
+     "nP": 10,
+     "nR": 2,
+     "poids": 1,
+     "etat": "moins",
+     "methode": null,
+     "detail": [],
+     "ecart": null,
+     "k": null,
+     "relais": [
+      "elevation_laterale_poulie"
+     ]
+    },
+    {
+     "slug": "elevation_laterale_poulie",
+     "nom": "Élévation Latérale (Poulie)",
+     "zone": "epaules",
+     "muscle": "deltoide_lateral",
+     "nP": 1,
+     "nR": 8,
+     "poids": 1,
+     "etat": "nouveau",
+     "methode": null,
+     "detail": [],
+     "ecart": null,
+     "k": null
+    }
+   ],
+   "zones": [
+    {
+     "zone": "jambes",
+     "libelle": "Jambes",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "dos",
+     "libelle": "Dos",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "bras",
+     "libelle": "Bras",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "epaules",
+     "libelle": "Épaules",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas assez de séances comparables"
+    },
+    {
+     "zone": "poitrine",
+     "libelle": "Poitrine",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "tronc",
+     "libelle": "Tronc",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    }
+   ],
+   "levier": null,
+   "rapports": [],
+   "courbes": [],
+   "phrase": ""
+  }
+ },
+ {
+  "nom": "b-nouveau-peu",
+  "quoi": "« nouveau » (≥5 en R, <5 en P) et « peu » (4 séances)",
+  "entree": {
+   "aujourdhui": "2026-10-11",
+   "sexe": "homme",
+   "priorites": [
+    "dos",
+    "jambes",
+    "epaules"
+   ],
+   "catalogue": [
+    {
+     "slug": "extension_jambes",
+     "nom": "Extension Jambes",
+     "muscles_primaires": [
+      "quadriceps"
+     ],
+     "mouvement": "extension_jambes",
+     "schema_mouvement": "quadriceps",
+     "habilete": false,
+     "equipement": "machine"
+    },
+    {
+     "slug": "hack_squat_machine",
+     "nom": "Hack Squat (Machine)",
+     "muscles_primaires": [
+      "quadriceps"
+     ],
+     "mouvement": "squat",
+     "schema_mouvement": "accroupir",
+     "habilete": false,
+     "equipement": "machine"
+    }
+   ],
+   "series": [
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0022",
+     "slug": "hack_squat_machine",
+     "reps": 8,
+     "charge": 120
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0023",
+     "slug": "hack_squat_machine",
+     "reps": 8,
+     "charge": 120
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0024",
+     "slug": "hack_squat_machine",
+     "reps": 8,
+     "charge": 120
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0025",
+     "slug": "hack_squat_machine",
+     "reps": 8,
+     "charge": 120
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0026",
+     "slug": "hack_squat_machine",
+     "reps": 8,
+     "charge": 120
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0027",
+     "slug": "hack_squat_machine",
+     "reps": 8,
+     "charge": 120
+    },
+    {
+     "debut": "2026-03-25T18:00",
+     "seance": "s0028",
+     "slug": "extension_jambes",
+     "reps": 12,
+     "charge": 50
+    },
+    {
+     "debut": "2026-02-23T18:00",
+     "seance": "s0029",
+     "slug": "extension_jambes",
+     "reps": 12,
+     "charge": 50
+    },
+    {
+     "debut": "2026-01-24T18:00",
+     "seance": "s0030",
+     "slug": "extension_jambes",
+     "reps": 12,
+     "charge": 50
+    },
+    {
+     "debut": "2025-12-25T18:00",
+     "seance": "s0031",
+     "slug": "extension_jambes",
+     "reps": 12,
+     "charge": 50
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0032",
+     "slug": "extension_jambes",
+     "reps": 12,
+     "charge": 55
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0033",
+     "slug": "extension_jambes",
+     "reps": 12,
+     "charge": 55
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0034",
+     "slug": "extension_jambes",
+     "reps": 12,
+     "charge": 55
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0035",
+     "slug": "extension_jambes",
+     "reps": 12,
+     "charge": 55
+    }
+   ]
+  },
+  "attendu": {
+   "exercices": [
+    {
+     "slug": "extension_jambes",
+     "nom": "Extension Jambes",
+     "zone": "jambes",
+     "muscle": "quadriceps",
+     "nP": 4,
+     "nR": 4,
+     "poids": 1,
+     "etat": "peu",
+     "methode": null,
+     "detail": [],
+     "ecart": null,
+     "k": null
+    },
+    {
+     "slug": "hack_squat_machine",
+     "nom": "Hack Squat (Machine)",
+     "zone": "jambes",
+     "muscle": "quadriceps",
+     "nP": 0,
+     "nR": 6,
+     "poids": 1,
+     "etat": "nouveau",
+     "methode": null,
+     "detail": [],
+     "ecart": null,
+     "k": null
+    }
+   ],
+   "zones": [
+    {
+     "zone": "jambes",
+     "libelle": "Jambes",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas assez de séances comparables"
+    },
+    {
+     "zone": "dos",
+     "libelle": "Dos",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "bras",
+     "libelle": "Bras",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "epaules",
+     "libelle": "Épaules",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "poitrine",
+     "libelle": "Poitrine",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "tronc",
+     "libelle": "Tronc",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    }
+   ],
+   "levier": null,
+   "rapports": [],
+   "courbes": [],
+   "phrase": ""
+  }
+ },
+ {
+  "nom": "c-reps-hausse-nette",
+  "quoi": "2 hausses, 0 baisse sur 3 → ↑",
+  "entree": {
+   "aujourdhui": "2026-10-11",
+   "sexe": "homme",
+   "priorites": [
+    "dos",
+    "jambes",
+    "epaules"
+   ],
+   "catalogue": [
+    {
+     "slug": "presse_a_cuisses",
+     "nom": "Presse à Cuisses",
+     "muscles_primaires": [
+      "quadriceps"
+     ],
+     "mouvement": "presse_a_cuisses",
+     "schema_mouvement": "accroupir",
+     "habilete": false,
+     "equipement": "machine"
+    }
+   ],
+   "series": [
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0036",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 300
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0036",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0036",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0037",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 300
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0037",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0037",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0038",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 300
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0038",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0038",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0039",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 300
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0039",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0039",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0040",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 300
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0040",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0040",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0041",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 300
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0041",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0041",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0042",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 310
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0042",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 290
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0042",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0043",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 310
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0043",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 290
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0043",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0044",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 310
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0044",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 290
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0044",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0045",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 310
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0045",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 290
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0045",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0046",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 310
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0046",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 290
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0046",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0047",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 310
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0047",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 290
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0047",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    }
+   ]
+  },
+  "attendu": {
+   "exercices": [
+    {
+     "slug": "presse_a_cuisses",
+     "nom": "Presse à Cuisses",
+     "zone": "jambes",
+     "muscle": "quadriceps",
+     "nP": 6,
+     "nR": 6,
+     "poids": 1,
+     "etat": "↑",
+     "methode": "reps",
+     "detail": [
+      [
+       6,
+       "300",
+       "310"
+      ],
+      [
+       10,
+       "270",
+       "290"
+      ],
+      [
+       12,
+       "250",
+       "250"
+      ]
+     ],
+     "ecart": null,
+     "k": null
+    }
+   ],
+   "zones": [
+    {
+     "zone": "jambes",
+     "libelle": "Jambes",
+     "verdict": null,
+     "score": null,
+     "votants": 1,
+     "raison": "pas assez de séances comparables"
+    },
+    {
+     "zone": "dos",
+     "libelle": "Dos",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "bras",
+     "libelle": "Bras",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "epaules",
+     "libelle": "Épaules",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "poitrine",
+     "libelle": "Poitrine",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "tronc",
+     "libelle": "Tronc",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    }
+   ],
+   "levier": null,
+   "rapports": [],
+   "courbes": [],
+   "phrase": ""
+  }
+ },
+ {
+  "nom": "d-reps-legere",
+  "quoi": "1 hausse sur 4, 0 baisse → ↗ (2h < n)",
+  "entree": {
+   "aujourdhui": "2026-10-11",
+   "sexe": "homme",
+   "priorites": [
+    "dos",
+    "jambes",
+    "epaules"
+   ],
+   "catalogue": [
+    {
+     "slug": "presse_a_cuisses",
+     "nom": "Presse à Cuisses",
+     "muscles_primaires": [
+      "quadriceps"
+     ],
+     "mouvement": "presse_a_cuisses",
+     "schema_mouvement": "accroupir",
+     "habilete": false,
+     "equipement": "machine"
+    }
+   ],
+   "series": [
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0048",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 300
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0048",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0048",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0048",
+     "slug": "presse_a_cuisses",
+     "reps": 8,
+     "charge": 280
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0049",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 300
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0049",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0049",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0049",
+     "slug": "presse_a_cuisses",
+     "reps": 8,
+     "charge": 280
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0050",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 300
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0050",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0050",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0050",
+     "slug": "presse_a_cuisses",
+     "reps": 8,
+     "charge": 280
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0051",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 300
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0051",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0051",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0051",
+     "slug": "presse_a_cuisses",
+     "reps": 8,
+     "charge": 280
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0052",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 300
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0052",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0052",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0052",
+     "slug": "presse_a_cuisses",
+     "reps": 8,
+     "charge": 280
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0053",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 300
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0053",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0053",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0053",
+     "slug": "presse_a_cuisses",
+     "reps": 8,
+     "charge": 280
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0054",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 310
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0054",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0054",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0054",
+     "slug": "presse_a_cuisses",
+     "reps": 8,
+     "charge": 280
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0055",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 310
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0055",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0055",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0055",
+     "slug": "presse_a_cuisses",
+     "reps": 8,
+     "charge": 280
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0056",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 310
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0056",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0056",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0056",
+     "slug": "presse_a_cuisses",
+     "reps": 8,
+     "charge": 280
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0057",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 310
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0057",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0057",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0057",
+     "slug": "presse_a_cuisses",
+     "reps": 8,
+     "charge": 280
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0058",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 310
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0058",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0058",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0058",
+     "slug": "presse_a_cuisses",
+     "reps": 8,
+     "charge": 280
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0059",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 310
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0059",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0059",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0059",
+     "slug": "presse_a_cuisses",
+     "reps": 8,
+     "charge": 280
+    }
+   ]
+  },
+  "attendu": {
+   "exercices": [
+    {
+     "slug": "presse_a_cuisses",
+     "nom": "Presse à Cuisses",
+     "zone": "jambes",
+     "muscle": "quadriceps",
+     "nP": 6,
+     "nR": 6,
+     "poids": 1,
+     "etat": "↗",
+     "methode": "reps",
+     "detail": [
+      [
+       6,
+       "300",
+       "310"
+      ],
+      [
+       8,
+       "280",
+       "280"
+      ],
+      [
+       10,
+       "270",
+       "270"
+      ],
+      [
+       12,
+       "250",
+       "250"
+      ]
+     ],
+     "ecart": null,
+     "k": null
+    }
+   ],
+   "zones": [
+    {
+     "zone": "jambes",
+     "libelle": "Jambes",
+     "verdict": null,
+     "score": null,
+     "votants": 1,
+     "raison": "pas assez de séances comparables"
+    },
+    {
+     "zone": "dos",
+     "libelle": "Dos",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "bras",
+     "libelle": "Bras",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "epaules",
+     "libelle": "Épaules",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "poitrine",
+     "libelle": "Poitrine",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "tronc",
+     "libelle": "Tronc",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    }
+   ],
+   "levier": null,
+   "rapports": [],
+   "courbes": [],
+   "phrase": ""
+  }
+ },
+ {
+  "nom": "e-reps-stable",
+  "quoi": "écarts sous 2,5 % → ▬",
+  "entree": {
+   "aujourdhui": "2026-10-11",
+   "sexe": "homme",
+   "priorites": [
+    "dos",
+    "jambes",
+    "epaules"
+   ],
+   "catalogue": [
+    {
+     "slug": "presse_a_cuisses",
+     "nom": "Presse à Cuisses",
+     "muscles_primaires": [
+      "quadriceps"
+     ],
+     "mouvement": "presse_a_cuisses",
+     "schema_mouvement": "accroupir",
+     "habilete": false,
+     "equipement": "machine"
+    }
+   ],
+   "series": [
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0060",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 300
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0060",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0061",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 300
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0061",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0062",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 300
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0062",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0063",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 300
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0063",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0064",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 300
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0064",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0065",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 300
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0065",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0066",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 302
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0066",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 266
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0067",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 302
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0067",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 266
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0068",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 302
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0068",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 266
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0069",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 302
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0069",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 266
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0070",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 302
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0070",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 266
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0071",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 302
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0071",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 266
+    }
+   ]
+  },
+  "attendu": {
+   "exercices": [
+    {
+     "slug": "presse_a_cuisses",
+     "nom": "Presse à Cuisses",
+     "zone": "jambes",
+     "muscle": "quadriceps",
+     "nP": 6,
+     "nR": 6,
+     "poids": 1,
+     "etat": "▬",
+     "methode": "reps",
+     "detail": [
+      [
+       6,
+       "300",
+       "302"
+      ],
+      [
+       10,
+       "270",
+       "266"
+      ]
+     ],
+     "ecart": null,
+     "k": null
+    }
+   ],
+   "zones": [
+    {
+     "zone": "jambes",
+     "libelle": "Jambes",
+     "verdict": null,
+     "score": null,
+     "votants": 1,
+     "raison": "pas assez de séances comparables"
+    },
+    {
+     "zone": "dos",
+     "libelle": "Dos",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "bras",
+     "libelle": "Bras",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "epaules",
+     "libelle": "Épaules",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "poitrine",
+     "libelle": "Poitrine",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "tronc",
+     "libelle": "Tronc",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    }
+   ],
+   "levier": null,
+   "rapports": [],
+   "courbes": [],
+   "phrase": ""
+  }
+ },
+ {
+  "nom": "f-reps-baisse-legere",
+  "quoi": "1 baisse sur 3 → ↘",
+  "entree": {
+   "aujourdhui": "2026-10-11",
+   "sexe": "homme",
+   "priorites": [
+    "dos",
+    "jambes",
+    "epaules"
+   ],
+   "catalogue": [
+    {
+     "slug": "presse_a_cuisses",
+     "nom": "Presse à Cuisses",
+     "muscles_primaires": [
+      "quadriceps"
+     ],
+     "mouvement": "presse_a_cuisses",
+     "schema_mouvement": "accroupir",
+     "habilete": false,
+     "equipement": "machine"
+    }
+   ],
+   "series": [
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0072",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 300
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0072",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0072",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0073",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 300
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0073",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0073",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0074",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 300
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0074",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0074",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0075",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 300
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0075",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0075",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0076",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 300
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0076",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0076",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0077",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 300
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0077",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0077",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0078",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 290
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0078",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0078",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 252
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0079",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 290
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0079",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0079",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 252
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0080",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 290
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0080",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0080",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 252
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0081",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 290
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0081",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0081",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 252
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0082",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 290
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0082",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0082",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 252
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0083",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 290
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0083",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0083",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 252
+    }
+   ]
+  },
+  "attendu": {
+   "exercices": [
+    {
+     "slug": "presse_a_cuisses",
+     "nom": "Presse à Cuisses",
+     "zone": "jambes",
+     "muscle": "quadriceps",
+     "nP": 6,
+     "nR": 6,
+     "poids": 1,
+     "etat": "↘",
+     "methode": "reps",
+     "detail": [
+      [
+       6,
+       "300",
+       "290"
+      ],
+      [
+       10,
+       "270",
+       "270"
+      ],
+      [
+       12,
+       "250",
+       "252"
+      ]
+     ],
+     "ecart": null,
+     "k": null
+    }
+   ],
+   "zones": [
+    {
+     "zone": "jambes",
+     "libelle": "Jambes",
+     "verdict": null,
+     "score": null,
+     "votants": 1,
+     "raison": "pas assez de séances comparables"
+    },
+    {
+     "zone": "dos",
+     "libelle": "Dos",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "bras",
+     "libelle": "Bras",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "epaules",
+     "libelle": "Épaules",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "poitrine",
+     "libelle": "Poitrine",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "tronc",
+     "libelle": "Tronc",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    }
+   ],
+   "levier": null,
+   "rapports": [],
+   "courbes": [],
+   "phrase": ""
+  }
+ },
+ {
+  "nom": "g-reps-baisse",
+  "quoi": "2 baisses → ↓",
+  "entree": {
+   "aujourdhui": "2026-10-11",
+   "sexe": "homme",
+   "priorites": [
+    "dos",
+    "jambes",
+    "epaules"
+   ],
+   "catalogue": [
+    {
+     "slug": "presse_a_cuisses",
+     "nom": "Presse à Cuisses",
+     "muscles_primaires": [
+      "quadriceps"
+     ],
+     "mouvement": "presse_a_cuisses",
+     "schema_mouvement": "accroupir",
+     "habilete": false,
+     "equipement": "machine"
+    }
+   ],
+   "series": [
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0084",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 300
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0084",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0084",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0085",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 300
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0085",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0085",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0086",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 300
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0086",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0086",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0087",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 300
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0087",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0087",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0088",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 300
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0088",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0088",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0089",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 300
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0089",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0089",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0090",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 280
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0090",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 250
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0090",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0091",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 280
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0091",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 250
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0091",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0092",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 280
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0092",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 250
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0092",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0093",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 280
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0093",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 250
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0093",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0094",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 280
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0094",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 250
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0094",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0095",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 280
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0095",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 250
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0095",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    }
+   ]
+  },
+  "attendu": {
+   "exercices": [
+    {
+     "slug": "presse_a_cuisses",
+     "nom": "Presse à Cuisses",
+     "zone": "jambes",
+     "muscle": "quadriceps",
+     "nP": 6,
+     "nR": 6,
+     "poids": 1,
+     "etat": "↓",
+     "methode": "reps",
+     "detail": [
+      [
+       6,
+       "300",
+       "280"
+      ],
+      [
+       10,
+       "270",
+       "250"
+      ],
+      [
+       12,
+       "250",
+       "250"
+      ]
+     ],
+     "ecart": null,
+     "k": null
+    }
+   ],
+   "zones": [
+    {
+     "zone": "jambes",
+     "libelle": "Jambes",
+     "verdict": null,
+     "score": null,
+     "votants": 1,
+     "raison": "pas assez de séances comparables"
+    },
+    {
+     "zone": "dos",
+     "libelle": "Dos",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "bras",
+     "libelle": "Bras",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "epaules",
+     "libelle": "Épaules",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "poitrine",
+     "libelle": "Poitrine",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "tronc",
+     "libelle": "Tronc",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    }
+   ],
+   "levier": null,
+   "rapports": [],
+   "courbes": [],
+   "phrase": ""
+  }
+ },
+ {
+  "nom": "h-reps-mixte",
+  "quoi": "2 hausses 1 baisse → ↗",
+  "entree": {
+   "aujourdhui": "2026-10-11",
+   "sexe": "homme",
+   "priorites": [
+    "dos",
+    "jambes",
+    "epaules"
+   ],
+   "catalogue": [
+    {
+     "slug": "presse_a_cuisses",
+     "nom": "Presse à Cuisses",
+     "muscles_primaires": [
+      "quadriceps"
+     ],
+     "mouvement": "presse_a_cuisses",
+     "schema_mouvement": "accroupir",
+     "habilete": false,
+     "equipement": "machine"
+    }
+   ],
+   "series": [
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0096",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 300
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0096",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0096",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0096",
+     "slug": "presse_a_cuisses",
+     "reps": 15,
+     "charge": 220
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0097",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 300
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0097",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0097",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0097",
+     "slug": "presse_a_cuisses",
+     "reps": 15,
+     "charge": 220
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0098",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 300
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0098",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0098",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0098",
+     "slug": "presse_a_cuisses",
+     "reps": 15,
+     "charge": 220
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0099",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 300
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0099",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0099",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0099",
+     "slug": "presse_a_cuisses",
+     "reps": 15,
+     "charge": 220
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0100",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 300
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0100",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0100",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0100",
+     "slug": "presse_a_cuisses",
+     "reps": 15,
+     "charge": 220
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0101",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 300
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0101",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0101",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0101",
+     "slug": "presse_a_cuisses",
+     "reps": 15,
+     "charge": 220
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0102",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 310
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0102",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 280
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0102",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 240
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0102",
+     "slug": "presse_a_cuisses",
+     "reps": 15,
+     "charge": 220
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0103",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 310
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0103",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 280
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0103",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 240
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0103",
+     "slug": "presse_a_cuisses",
+     "reps": 15,
+     "charge": 220
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0104",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 310
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0104",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 280
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0104",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 240
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0104",
+     "slug": "presse_a_cuisses",
+     "reps": 15,
+     "charge": 220
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0105",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 310
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0105",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 280
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0105",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 240
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0105",
+     "slug": "presse_a_cuisses",
+     "reps": 15,
+     "charge": 220
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0106",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 310
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0106",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 280
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0106",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 240
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0106",
+     "slug": "presse_a_cuisses",
+     "reps": 15,
+     "charge": 220
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0107",
+     "slug": "presse_a_cuisses",
+     "reps": 6,
+     "charge": 310
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0107",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 280
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0107",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 240
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0107",
+     "slug": "presse_a_cuisses",
+     "reps": 15,
+     "charge": 220
+    }
+   ]
+  },
+  "attendu": {
+   "exercices": [
+    {
+     "slug": "presse_a_cuisses",
+     "nom": "Presse à Cuisses",
+     "zone": "jambes",
+     "muscle": "quadriceps",
+     "nP": 6,
+     "nR": 6,
+     "poids": 1,
+     "etat": "↗",
+     "methode": "reps",
+     "detail": [
+      [
+       6,
+       "300",
+       "310"
+      ],
+      [
+       10,
+       "270",
+       "280"
+      ],
+      [
+       12,
+       "250",
+       "240"
+      ],
+      [
+       15,
+       "220",
+       "220"
+      ]
+     ],
+     "ecart": null,
+     "k": null
+    }
+   ],
+   "zones": [
+    {
+     "zone": "jambes",
+     "libelle": "Jambes",
+     "verdict": null,
+     "score": null,
+     "votants": 1,
+     "raison": "pas assez de séances comparables"
+    },
+    {
+     "zone": "dos",
+     "libelle": "Dos",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "bras",
+     "libelle": "Bras",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "epaules",
+     "libelle": "Épaules",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "poitrine",
+     "libelle": "Poitrine",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "tronc",
+     "libelle": "Tronc",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    }
+   ],
+   "levier": null,
+   "rapports": [],
+   "courbes": [],
+   "phrase": ""
+  }
+ },
+ {
+  "nom": "i-courbe",
+  "quoi": "aucune rep en commun, 4 nombres de reps → courbe personnelle",
+  "entree": {
+   "aujourdhui": "2026-10-11",
+   "sexe": "homme",
+   "priorites": [
+    "dos",
+    "jambes",
+    "epaules"
+   ],
+   "catalogue": [
+    {
+     "slug": "curl_marteau_haltere",
+     "nom": "Curl Marteau (Haltère)",
+     "muscles_primaires": [
+      "biceps"
+     ],
+     "mouvement": "curl_marteau",
+     "schema_mouvement": "biceps",
+     "habilete": false,
+     "equipement": "haltere"
+    }
+   ],
+   "series": [
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0108",
+     "slug": "curl_marteau_haltere",
+     "reps": 6,
+     "charge": 30
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0108",
+     "slug": "curl_marteau_haltere",
+     "reps": 8,
+     "charge": 28
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0109",
+     "slug": "curl_marteau_haltere",
+     "reps": 6,
+     "charge": 30
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0109",
+     "slug": "curl_marteau_haltere",
+     "reps": 8,
+     "charge": 28
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0110",
+     "slug": "curl_marteau_haltere",
+     "reps": 6,
+     "charge": 30
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0110",
+     "slug": "curl_marteau_haltere",
+     "reps": 8,
+     "charge": 28
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0111",
+     "slug": "curl_marteau_haltere",
+     "reps": 6,
+     "charge": 30
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0111",
+     "slug": "curl_marteau_haltere",
+     "reps": 8,
+     "charge": 28
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0112",
+     "slug": "curl_marteau_haltere",
+     "reps": 6,
+     "charge": 30
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0112",
+     "slug": "curl_marteau_haltere",
+     "reps": 8,
+     "charge": 28
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0113",
+     "slug": "curl_marteau_haltere",
+     "reps": 6,
+     "charge": 30
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0113",
+     "slug": "curl_marteau_haltere",
+     "reps": 8,
+     "charge": 28
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0114",
+     "slug": "curl_marteau_haltere",
+     "reps": 10,
+     "charge": 28
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0114",
+     "slug": "curl_marteau_haltere",
+     "reps": 12,
+     "charge": 26
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0115",
+     "slug": "curl_marteau_haltere",
+     "reps": 10,
+     "charge": 28
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0115",
+     "slug": "curl_marteau_haltere",
+     "reps": 12,
+     "charge": 26
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0116",
+     "slug": "curl_marteau_haltere",
+     "reps": 10,
+     "charge": 28
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0116",
+     "slug": "curl_marteau_haltere",
+     "reps": 12,
+     "charge": 26
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0117",
+     "slug": "curl_marteau_haltere",
+     "reps": 10,
+     "charge": 28
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0117",
+     "slug": "curl_marteau_haltere",
+     "reps": 12,
+     "charge": 26
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0118",
+     "slug": "curl_marteau_haltere",
+     "reps": 10,
+     "charge": 28
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0118",
+     "slug": "curl_marteau_haltere",
+     "reps": 12,
+     "charge": 26
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0119",
+     "slug": "curl_marteau_haltere",
+     "reps": 10,
+     "charge": 28
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0119",
+     "slug": "curl_marteau_haltere",
+     "reps": 12,
+     "charge": 26
+    }
+   ]
+  },
+  "attendu": {
+   "exercices": [
+    {
+     "slug": "curl_marteau_haltere",
+     "nom": "Curl Marteau (Haltère)",
+     "zone": "bras",
+     "muscle": "biceps",
+     "nP": 6,
+     "nR": 6,
+     "poids": 1,
+     "etat": "↑",
+     "methode": "courbe",
+     "detail": [],
+     "ecart": 7.2,
+     "k": 51
+    }
+   ],
+   "zones": [
+    {
+     "zone": "jambes",
+     "libelle": "Jambes",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "dos",
+     "libelle": "Dos",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "bras",
+     "libelle": "Bras",
+     "verdict": null,
+     "score": null,
+     "votants": 1,
+     "raison": "pas assez de séances comparables"
+    },
+    {
+     "zone": "epaules",
+     "libelle": "Épaules",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "poitrine",
+     "libelle": "Poitrine",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "tronc",
+     "libelle": "Tronc",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    }
+   ],
+   "levier": null,
+   "rapports": [],
+   "courbes": [],
+   "phrase": ""
+  }
+ },
+ {
+  "nom": "j-pas-comparable",
+  "quoi": "2 nombres de reps en tout → pas comparable",
+  "entree": {
+   "aujourdhui": "2026-10-11",
+   "sexe": "homme",
+   "priorites": [
+    "dos",
+    "jambes",
+    "epaules"
+   ],
+   "catalogue": [
+    {
+     "slug": "curl_marteau_haltere",
+     "nom": "Curl Marteau (Haltère)",
+     "muscles_primaires": [
+      "biceps"
+     ],
+     "mouvement": "curl_marteau",
+     "schema_mouvement": "biceps",
+     "habilete": false,
+     "equipement": "haltere"
+    }
+   ],
+   "series": [
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0120",
+     "slug": "curl_marteau_haltere",
+     "reps": 8,
+     "charge": 28
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0121",
+     "slug": "curl_marteau_haltere",
+     "reps": 8,
+     "charge": 28
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0122",
+     "slug": "curl_marteau_haltere",
+     "reps": 8,
+     "charge": 28
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0123",
+     "slug": "curl_marteau_haltere",
+     "reps": 8,
+     "charge": 28
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0124",
+     "slug": "curl_marteau_haltere",
+     "reps": 8,
+     "charge": 28
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0125",
+     "slug": "curl_marteau_haltere",
+     "reps": 8,
+     "charge": 28
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0126",
+     "slug": "curl_marteau_haltere",
+     "reps": 12,
+     "charge": 24
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0127",
+     "slug": "curl_marteau_haltere",
+     "reps": 12,
+     "charge": 24
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0128",
+     "slug": "curl_marteau_haltere",
+     "reps": 12,
+     "charge": 24
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0129",
+     "slug": "curl_marteau_haltere",
+     "reps": 12,
+     "charge": 24
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0130",
+     "slug": "curl_marteau_haltere",
+     "reps": 12,
+     "charge": 24
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0131",
+     "slug": "curl_marteau_haltere",
+     "reps": 12,
+     "charge": 24
+    }
+   ]
+  },
+  "attendu": {
+   "exercices": [
+    {
+     "slug": "curl_marteau_haltere",
+     "nom": "Curl Marteau (Haltère)",
+     "zone": "bras",
+     "muscle": "biceps",
+     "nP": 6,
+     "nR": 6,
+     "poids": 1,
+     "etat": "pas comparable",
+     "methode": null,
+     "detail": [],
+     "ecart": null,
+     "k": null
+    }
+   ],
+   "zones": [
+    {
+     "zone": "jambes",
+     "libelle": "Jambes",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "dos",
+     "libelle": "Dos",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "bras",
+     "libelle": "Bras",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas assez de séances comparables"
+    },
+    {
+     "zone": "epaules",
+     "libelle": "Épaules",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "poitrine",
+     "libelle": "Poitrine",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "tronc",
+     "libelle": "Tronc",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    }
+   ],
+   "levier": null,
+   "rapports": [],
+   "courbes": [],
+   "phrase": ""
+  }
+ },
+ {
+  "nom": "k-zone-peu-et-vide",
+  "quoi": "une zone à 1 votant, une zone jamais suivie en charge, habileté et cardio exclus",
+  "entree": {
+   "aujourdhui": "2026-10-11",
+   "sexe": "homme",
+   "priorites": [
+    "dos",
+    "jambes",
+    "epaules"
+   ],
+   "catalogue": [
+    {
+     "slug": "curl_marteau_haltere",
+     "nom": "Curl Marteau (Haltère)",
+     "muscles_primaires": [
+      "biceps"
+     ],
+     "mouvement": "curl_marteau",
+     "schema_mouvement": "biceps",
+     "habilete": false,
+     "equipement": "haltere"
+    },
+    {
+     "slug": "poirier",
+     "nom": "Poirier",
+     "muscles_primaires": [
+      "deltoide_anterieur"
+     ],
+     "mouvement": null,
+     "schema_mouvement": null,
+     "habilete": true,
+     "equipement": "aucun"
+    },
+    {
+     "slug": "tapis_roulant",
+     "nom": "Tapis de Course",
+     "muscles_primaires": [],
+     "mouvement": null,
+     "schema_mouvement": null,
+     "habilete": false,
+     "equipement": "machine"
+    },
+    {
+     "slug": "tractions",
+     "nom": "Tractions",
+     "muscles_primaires": [
+      "grand_dorsal"
+     ],
+     "mouvement": "tirage_vertical",
+     "schema_mouvement": "tirer_vertical",
+     "habilete": false,
+     "equipement": "aucun"
+    }
+   ],
+   "series": [
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0132",
+     "slug": "curl_marteau_haltere",
+     "reps": 10,
+     "charge": 24
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0133",
+     "slug": "curl_marteau_haltere",
+     "reps": 10,
+     "charge": 24
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0134",
+     "slug": "curl_marteau_haltere",
+     "reps": 10,
+     "charge": 24
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0135",
+     "slug": "curl_marteau_haltere",
+     "reps": 10,
+     "charge": 24
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0136",
+     "slug": "curl_marteau_haltere",
+     "reps": 10,
+     "charge": 24
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0137",
+     "slug": "curl_marteau_haltere",
+     "reps": 10,
+     "charge": 24
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0138",
+     "slug": "curl_marteau_haltere",
+     "reps": 10,
+     "charge": 28
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0138",
+     "slug": "curl_marteau_haltere",
+     "reps": 12,
+     "charge": 25
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0139",
+     "slug": "curl_marteau_haltere",
+     "reps": 10,
+     "charge": 28
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0139",
+     "slug": "curl_marteau_haltere",
+     "reps": 12,
+     "charge": 25
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0140",
+     "slug": "curl_marteau_haltere",
+     "reps": 10,
+     "charge": 28
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0140",
+     "slug": "curl_marteau_haltere",
+     "reps": 12,
+     "charge": 25
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0141",
+     "slug": "curl_marteau_haltere",
+     "reps": 10,
+     "charge": 28
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0141",
+     "slug": "curl_marteau_haltere",
+     "reps": 12,
+     "charge": 25
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0142",
+     "slug": "curl_marteau_haltere",
+     "reps": 10,
+     "charge": 28
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0142",
+     "slug": "curl_marteau_haltere",
+     "reps": 12,
+     "charge": 25
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0143",
+     "slug": "curl_marteau_haltere",
+     "reps": 10,
+     "charge": 28
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0143",
+     "slug": "curl_marteau_haltere",
+     "reps": 12,
+     "charge": 25
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0144",
+     "slug": "curl_marteau_haltere",
+     "reps": 12,
+     "charge": 22
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0145",
+     "slug": "poirier",
+     "reps": 1,
+     "charge": 10
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0146",
+     "slug": "poirier",
+     "reps": 1,
+     "charge": 10
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0147",
+     "slug": "poirier",
+     "reps": 1,
+     "charge": 10
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0148",
+     "slug": "poirier",
+     "reps": 1,
+     "charge": 10
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0149",
+     "slug": "poirier",
+     "reps": 1,
+     "charge": 10
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0150",
+     "slug": "poirier",
+     "reps": 1,
+     "charge": 10
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0151",
+     "slug": "tapis_roulant",
+     "reps": 1,
+     "charge": 5
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0152",
+     "slug": "tapis_roulant",
+     "reps": 1,
+     "charge": 5
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0153",
+     "slug": "tapis_roulant",
+     "reps": 1,
+     "charge": 5
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0154",
+     "slug": "tapis_roulant",
+     "reps": 1,
+     "charge": 5
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0155",
+     "slug": "tapis_roulant",
+     "reps": 1,
+     "charge": 5
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0156",
+     "slug": "tapis_roulant",
+     "reps": 1,
+     "charge": 5
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0157",
+     "slug": "tractions",
+     "reps": 8,
+     "charge": null
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0158",
+     "slug": "tractions",
+     "reps": 8,
+     "charge": null
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0159",
+     "slug": "tractions",
+     "reps": 8,
+     "charge": null
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0160",
+     "slug": "tractions",
+     "reps": 8,
+     "charge": null
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0161",
+     "slug": "tractions",
+     "reps": 8,
+     "charge": null
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0162",
+     "slug": "tractions",
+     "reps": 8,
+     "charge": null
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0163",
+     "slug": "tractions",
+     "reps": 8,
+     "charge": null
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0164",
+     "slug": "tractions",
+     "reps": 8,
+     "charge": null
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0165",
+     "slug": "tractions",
+     "reps": 8,
+     "charge": null
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0166",
+     "slug": "tractions",
+     "reps": 8,
+     "charge": null
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0167",
+     "slug": "tractions",
+     "reps": 8,
+     "charge": null
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0168",
+     "slug": "tractions",
+     "reps": 8,
+     "charge": null
+    }
+   ]
+  },
+  "attendu": {
+   "exercices": [
+    {
+     "slug": "curl_marteau_haltere",
+     "nom": "Curl Marteau (Haltère)",
+     "zone": "bras",
+     "muscle": "biceps",
+     "nP": 7,
+     "nR": 6,
+     "poids": 1,
+     "etat": "↑",
+     "methode": "reps",
+     "detail": [
+      [
+       10,
+       "24",
+       "28"
+      ],
+      [
+       12,
+       "22",
+       "25"
+      ]
+     ],
+     "ecart": null,
+     "k": null
+    }
+   ],
+   "zones": [
+    {
+     "zone": "jambes",
+     "libelle": "Jambes",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "dos",
+     "libelle": "Dos",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "bras",
+     "libelle": "Bras",
+     "verdict": null,
+     "score": null,
+     "votants": 1,
+     "raison": "pas assez de séances comparables"
+    },
+    {
+     "zone": "epaules",
+     "libelle": "Épaules",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "poitrine",
+     "libelle": "Poitrine",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "tronc",
+     "libelle": "Tronc",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    }
+   ],
+   "levier": null,
+   "rapports": [],
+   "courbes": [],
+   "phrase": ""
+  }
+ },
+ {
+  "nom": "l-levier-poids-barre",
+  "quoi": "squat ×2 ↗ et deux machines ↑ ; épaules ↑ net ; levier = la priorité la plus lente",
+  "entree": {
+   "aujourdhui": "2026-10-11",
+   "sexe": "homme",
+   "priorites": [
+    "dos",
+    "jambes",
+    "epaules"
+   ],
+   "catalogue": [
+    {
+     "slug": "developpe_militaire_barre",
+     "nom": "Développé Militaire (Barre)",
+     "muscles_primaires": [
+      "deltoide_anterieur"
+     ],
+     "mouvement": "developpe_epaules",
+     "schema_mouvement": "pousser_vertical",
+     "habilete": false,
+     "equipement": "barre"
+    },
+    {
+     "slug": "elevation_laterale_poulie",
+     "nom": "Élévation Latérale (Poulie)",
+     "muscles_primaires": [
+      "deltoide_lateral"
+     ],
+     "mouvement": "elevation_laterale",
+     "schema_mouvement": "epaules_cote",
+     "habilete": false,
+     "equipement": "poulie"
+    },
+    {
+     "slug": "hack_squat_machine",
+     "nom": "Hack Squat (Machine)",
+     "muscles_primaires": [
+      "quadriceps"
+     ],
+     "mouvement": "squat",
+     "schema_mouvement": "accroupir",
+     "habilete": false,
+     "equipement": "machine"
+    },
+    {
+     "slug": "presse_a_cuisses",
+     "nom": "Presse à Cuisses",
+     "muscles_primaires": [
+      "quadriceps"
+     ],
+     "mouvement": "presse_a_cuisses",
+     "schema_mouvement": "accroupir",
+     "habilete": false,
+     "equipement": "machine"
+    },
+    {
+     "slug": "squat_barre",
+     "nom": "Squat (Barre)",
+     "muscles_primaires": [
+      "quadriceps"
+     ],
+     "mouvement": "squat",
+     "schema_mouvement": "accroupir",
+     "habilete": false,
+     "equipement": "barre"
+    }
+   ],
+   "series": [
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0169",
+     "slug": "squat_barre",
+     "reps": 5,
+     "charge": 120
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0169",
+     "slug": "squat_barre",
+     "reps": 3,
+     "charge": 135
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0169",
+     "slug": "squat_barre",
+     "reps": 8,
+     "charge": 100
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0170",
+     "slug": "squat_barre",
+     "reps": 5,
+     "charge": 120
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0170",
+     "slug": "squat_barre",
+     "reps": 3,
+     "charge": 135
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0170",
+     "slug": "squat_barre",
+     "reps": 8,
+     "charge": 100
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0171",
+     "slug": "squat_barre",
+     "reps": 5,
+     "charge": 120
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0171",
+     "slug": "squat_barre",
+     "reps": 3,
+     "charge": 135
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0171",
+     "slug": "squat_barre",
+     "reps": 8,
+     "charge": 100
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0172",
+     "slug": "squat_barre",
+     "reps": 5,
+     "charge": 120
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0172",
+     "slug": "squat_barre",
+     "reps": 3,
+     "charge": 135
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0172",
+     "slug": "squat_barre",
+     "reps": 8,
+     "charge": 100
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0173",
+     "slug": "squat_barre",
+     "reps": 5,
+     "charge": 120
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0173",
+     "slug": "squat_barre",
+     "reps": 3,
+     "charge": 135
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0173",
+     "slug": "squat_barre",
+     "reps": 8,
+     "charge": 100
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0174",
+     "slug": "squat_barre",
+     "reps": 5,
+     "charge": 120
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0174",
+     "slug": "squat_barre",
+     "reps": 3,
+     "charge": 135
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0174",
+     "slug": "squat_barre",
+     "reps": 8,
+     "charge": 100
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0175",
+     "slug": "squat_barre",
+     "reps": 5,
+     "charge": 125
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0175",
+     "slug": "squat_barre",
+     "reps": 3,
+     "charge": 135
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0175",
+     "slug": "squat_barre",
+     "reps": 8,
+     "charge": 100
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0176",
+     "slug": "squat_barre",
+     "reps": 5,
+     "charge": 125
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0176",
+     "slug": "squat_barre",
+     "reps": 3,
+     "charge": 135
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0176",
+     "slug": "squat_barre",
+     "reps": 8,
+     "charge": 100
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0177",
+     "slug": "squat_barre",
+     "reps": 5,
+     "charge": 125
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0177",
+     "slug": "squat_barre",
+     "reps": 3,
+     "charge": 135
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0177",
+     "slug": "squat_barre",
+     "reps": 8,
+     "charge": 100
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0178",
+     "slug": "squat_barre",
+     "reps": 5,
+     "charge": 125
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0178",
+     "slug": "squat_barre",
+     "reps": 3,
+     "charge": 135
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0178",
+     "slug": "squat_barre",
+     "reps": 8,
+     "charge": 100
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0179",
+     "slug": "squat_barre",
+     "reps": 5,
+     "charge": 125
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0179",
+     "slug": "squat_barre",
+     "reps": 3,
+     "charge": 135
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0179",
+     "slug": "squat_barre",
+     "reps": 8,
+     "charge": 100
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0180",
+     "slug": "squat_barre",
+     "reps": 5,
+     "charge": 125
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0180",
+     "slug": "squat_barre",
+     "reps": 3,
+     "charge": 135
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0180",
+     "slug": "squat_barre",
+     "reps": 8,
+     "charge": 100
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0181",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0181",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0182",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0182",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0183",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0183",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0184",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0184",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0185",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0185",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0186",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 270
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0186",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 250
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0187",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 290
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0187",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 270
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0188",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 290
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0188",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 270
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0189",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 290
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0189",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 270
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0190",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 290
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0190",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 270
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0191",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 290
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0191",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 270
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0192",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 290
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0192",
+     "slug": "presse_a_cuisses",
+     "reps": 12,
+     "charge": 270
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0193",
+     "slug": "hack_squat_machine",
+     "reps": 8,
+     "charge": 120
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0193",
+     "slug": "hack_squat_machine",
+     "reps": 10,
+     "charge": 110
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0194",
+     "slug": "hack_squat_machine",
+     "reps": 8,
+     "charge": 120
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0194",
+     "slug": "hack_squat_machine",
+     "reps": 10,
+     "charge": 110
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0195",
+     "slug": "hack_squat_machine",
+     "reps": 8,
+     "charge": 120
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0195",
+     "slug": "hack_squat_machine",
+     "reps": 10,
+     "charge": 110
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0196",
+     "slug": "hack_squat_machine",
+     "reps": 8,
+     "charge": 120
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0196",
+     "slug": "hack_squat_machine",
+     "reps": 10,
+     "charge": 110
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0197",
+     "slug": "hack_squat_machine",
+     "reps": 8,
+     "charge": 120
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0197",
+     "slug": "hack_squat_machine",
+     "reps": 10,
+     "charge": 110
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0198",
+     "slug": "hack_squat_machine",
+     "reps": 8,
+     "charge": 120
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0198",
+     "slug": "hack_squat_machine",
+     "reps": 10,
+     "charge": 110
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0199",
+     "slug": "hack_squat_machine",
+     "reps": 8,
+     "charge": 130
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0199",
+     "slug": "hack_squat_machine",
+     "reps": 10,
+     "charge": 120
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0200",
+     "slug": "hack_squat_machine",
+     "reps": 8,
+     "charge": 130
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0200",
+     "slug": "hack_squat_machine",
+     "reps": 10,
+     "charge": 120
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0201",
+     "slug": "hack_squat_machine",
+     "reps": 8,
+     "charge": 130
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0201",
+     "slug": "hack_squat_machine",
+     "reps": 10,
+     "charge": 120
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0202",
+     "slug": "hack_squat_machine",
+     "reps": 8,
+     "charge": 130
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0202",
+     "slug": "hack_squat_machine",
+     "reps": 10,
+     "charge": 120
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0203",
+     "slug": "hack_squat_machine",
+     "reps": 8,
+     "charge": 130
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0203",
+     "slug": "hack_squat_machine",
+     "reps": 10,
+     "charge": 120
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0204",
+     "slug": "hack_squat_machine",
+     "reps": 8,
+     "charge": 130
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0204",
+     "slug": "hack_squat_machine",
+     "reps": 10,
+     "charge": 120
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0205",
+     "slug": "elevation_laterale_poulie",
+     "reps": 12,
+     "charge": 9
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0205",
+     "slug": "elevation_laterale_poulie",
+     "reps": 15,
+     "charge": 8
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0206",
+     "slug": "elevation_laterale_poulie",
+     "reps": 12,
+     "charge": 9
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0206",
+     "slug": "elevation_laterale_poulie",
+     "reps": 15,
+     "charge": 8
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0207",
+     "slug": "elevation_laterale_poulie",
+     "reps": 12,
+     "charge": 9
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0207",
+     "slug": "elevation_laterale_poulie",
+     "reps": 15,
+     "charge": 8
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0208",
+     "slug": "elevation_laterale_poulie",
+     "reps": 12,
+     "charge": 9
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0208",
+     "slug": "elevation_laterale_poulie",
+     "reps": 15,
+     "charge": 8
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0209",
+     "slug": "elevation_laterale_poulie",
+     "reps": 12,
+     "charge": 9
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0209",
+     "slug": "elevation_laterale_poulie",
+     "reps": 15,
+     "charge": 8
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0210",
+     "slug": "elevation_laterale_poulie",
+     "reps": 12,
+     "charge": 9
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0210",
+     "slug": "elevation_laterale_poulie",
+     "reps": 15,
+     "charge": 8
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0211",
+     "slug": "elevation_laterale_poulie",
+     "reps": 12,
+     "charge": 12
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0211",
+     "slug": "elevation_laterale_poulie",
+     "reps": 15,
+     "charge": 10
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0212",
+     "slug": "elevation_laterale_poulie",
+     "reps": 12,
+     "charge": 12
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0212",
+     "slug": "elevation_laterale_poulie",
+     "reps": 15,
+     "charge": 10
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0213",
+     "slug": "elevation_laterale_poulie",
+     "reps": 12,
+     "charge": 12
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0213",
+     "slug": "elevation_laterale_poulie",
+     "reps": 15,
+     "charge": 10
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0214",
+     "slug": "elevation_laterale_poulie",
+     "reps": 12,
+     "charge": 12
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0214",
+     "slug": "elevation_laterale_poulie",
+     "reps": 15,
+     "charge": 10
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0215",
+     "slug": "elevation_laterale_poulie",
+     "reps": 12,
+     "charge": 12
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0215",
+     "slug": "elevation_laterale_poulie",
+     "reps": 15,
+     "charge": 10
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0216",
+     "slug": "elevation_laterale_poulie",
+     "reps": 12,
+     "charge": 12
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0216",
+     "slug": "elevation_laterale_poulie",
+     "reps": 15,
+     "charge": 10
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0217",
+     "slug": "developpe_militaire_barre",
+     "reps": 5,
+     "charge": 60
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0217",
+     "slug": "developpe_militaire_barre",
+     "reps": 3,
+     "charge": 65
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0218",
+     "slug": "developpe_militaire_barre",
+     "reps": 5,
+     "charge": 60
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0218",
+     "slug": "developpe_militaire_barre",
+     "reps": 3,
+     "charge": 65
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0219",
+     "slug": "developpe_militaire_barre",
+     "reps": 5,
+     "charge": 60
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0219",
+     "slug": "developpe_militaire_barre",
+     "reps": 3,
+     "charge": 65
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0220",
+     "slug": "developpe_militaire_barre",
+     "reps": 5,
+     "charge": 60
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0220",
+     "slug": "developpe_militaire_barre",
+     "reps": 3,
+     "charge": 65
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0221",
+     "slug": "developpe_militaire_barre",
+     "reps": 5,
+     "charge": 60
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0221",
+     "slug": "developpe_militaire_barre",
+     "reps": 3,
+     "charge": 65
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0222",
+     "slug": "developpe_militaire_barre",
+     "reps": 5,
+     "charge": 60
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0222",
+     "slug": "developpe_militaire_barre",
+     "reps": 3,
+     "charge": 65
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0223",
+     "slug": "developpe_militaire_barre",
+     "reps": 5,
+     "charge": 65
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0223",
+     "slug": "developpe_militaire_barre",
+     "reps": 3,
+     "charge": 70
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0224",
+     "slug": "developpe_militaire_barre",
+     "reps": 5,
+     "charge": 65
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0224",
+     "slug": "developpe_militaire_barre",
+     "reps": 3,
+     "charge": 70
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0225",
+     "slug": "developpe_militaire_barre",
+     "reps": 5,
+     "charge": 65
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0225",
+     "slug": "developpe_militaire_barre",
+     "reps": 3,
+     "charge": 70
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0226",
+     "slug": "developpe_militaire_barre",
+     "reps": 5,
+     "charge": 65
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0226",
+     "slug": "developpe_militaire_barre",
+     "reps": 3,
+     "charge": 70
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0227",
+     "slug": "developpe_militaire_barre",
+     "reps": 5,
+     "charge": 65
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0227",
+     "slug": "developpe_militaire_barre",
+     "reps": 3,
+     "charge": 70
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0228",
+     "slug": "developpe_militaire_barre",
+     "reps": 5,
+     "charge": 65
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0228",
+     "slug": "developpe_militaire_barre",
+     "reps": 3,
+     "charge": 70
+    }
+   ]
+  },
+  "attendu": {
+   "exercices": [
+    {
+     "slug": "developpe_militaire_barre",
+     "nom": "Développé Militaire (Barre)",
+     "zone": "epaules",
+     "muscle": "deltoide_anterieur",
+     "nP": 6,
+     "nR": 6,
+     "poids": 2,
+     "etat": "↑",
+     "methode": "reps",
+     "detail": [
+      [
+       3,
+       "65",
+       "70"
+      ],
+      [
+       5,
+       "60",
+       "65"
+      ]
+     ],
+     "ecart": null,
+     "k": null
+    },
+    {
+     "slug": "elevation_laterale_poulie",
+     "nom": "Élévation Latérale (Poulie)",
+     "zone": "epaules",
+     "muscle": "deltoide_lateral",
+     "nP": 6,
+     "nR": 6,
+     "poids": 1,
+     "etat": "↑",
+     "methode": "reps",
+     "detail": [
+      [
+       12,
+       "9",
+       "12"
+      ],
+      [
+       15,
+       "8",
+       "10"
+      ]
+     ],
+     "ecart": null,
+     "k": null
+    },
+    {
+     "slug": "hack_squat_machine",
+     "nom": "Hack Squat (Machine)",
+     "zone": "jambes",
+     "muscle": "quadriceps",
+     "nP": 6,
+     "nR": 6,
+     "poids": 1,
+     "etat": "↑",
+     "methode": "reps",
+     "detail": [
+      [
+       8,
+       "120",
+       "130"
+      ],
+      [
+       10,
+       "110",
+       "120"
+      ]
+     ],
+     "ecart": null,
+     "k": null
+    },
+    {
+     "slug": "presse_a_cuisses",
+     "nom": "Presse à Cuisses",
+     "zone": "jambes",
+     "muscle": "quadriceps",
+     "nP": 6,
+     "nR": 6,
+     "poids": 1,
+     "etat": "↑",
+     "methode": "reps",
+     "detail": [
+      [
+       10,
+       "270",
+       "290"
+      ],
+      [
+       12,
+       "250",
+       "270"
+      ]
+     ],
+     "ecart": null,
+     "k": null
+    },
+    {
+     "slug": "squat_barre",
+     "nom": "Squat (Barre)",
+     "zone": "jambes",
+     "muscle": "quadriceps",
+     "nP": 6,
+     "nR": 6,
+     "poids": 2,
+     "etat": "↗",
+     "methode": "reps",
+     "detail": [
+      [
+       3,
+       "135",
+       "135"
+      ],
+      [
+       5,
+       "120",
+       "125"
+      ],
+      [
+       8,
+       "100",
+       "100"
+      ]
+     ],
+     "ecart": null,
+     "k": null
+    }
+   ],
+   "zones": [
+    {
+     "zone": "jambes",
+     "libelle": "Jambes",
+     "verdict": "↑",
+     "score": "3/2",
+     "votants": 3
+    },
+    {
+     "zone": "dos",
+     "libelle": "Dos",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "bras",
+     "libelle": "Bras",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "epaules",
+     "libelle": "Épaules",
+     "verdict": "↑",
+     "score": "2",
+     "votants": 2
+    },
+    {
+     "zone": "poitrine",
+     "libelle": "Poitrine",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "tronc",
+     "libelle": "Tronc",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    }
+   ],
+   "levier": "jambes",
+   "rapports": [],
+   "courbes": [
+    {
+     "slug": "squat_barre",
+     "mois": [
+      [
+       "2025-11",
+       "120"
+      ],
+      [
+       "2025-12",
+       "120"
+      ],
+      [
+       "2026-01",
+       "120"
+      ],
+      [
+       "2026-02",
+       "120"
+      ],
+      [
+       "2026-03",
+       "120"
+      ],
+      [
+       "2026-04",
+       "120"
+      ],
+      [
+       "2026-05",
+       "125"
+      ],
+      [
+       "2026-06",
+       "125"
+      ],
+      [
+       "2026-07",
+       "125"
+      ],
+      [
+       "2026-08",
+       "125"
+      ],
+      [
+       "2026-09",
+       "125"
+      ],
+      [
+       "2026-10",
+       "125"
+      ]
+     ],
+     "debut": "120",
+     "meilleur": "125",
+     "maintenant": "125",
+     "etat": "↗"
+    },
+    {
+     "slug": "developpe_militaire_barre",
+     "mois": [
+      [
+       "2025-11",
+       "60"
+      ],
+      [
+       "2025-12",
+       "60"
+      ],
+      [
+       "2026-01",
+       "60"
+      ],
+      [
+       "2026-02",
+       "60"
+      ],
+      [
+       "2026-03",
+       "60"
+      ],
+      [
+       "2026-04",
+       "60"
+      ],
+      [
+       "2026-05",
+       "65"
+      ],
+      [
+       "2026-06",
+       "65"
+      ],
+      [
+       "2026-07",
+       "65"
+      ],
+      [
+       "2026-08",
+       "65"
+      ],
+      [
+       "2026-09",
+       "65"
+      ],
+      [
+       "2026-10",
+       "65"
+      ]
+     ],
+     "debut": "60",
+     "meilleur": "65",
+     "maintenant": "65",
+     "etat": "↑"
+    }
+   ],
+   "phrase": "Tes six derniers mois : les deux groupes que tu suis progressent. Jambes : ce qui avance le plus lentement."
+  }
+ },
+ {
+  "nom": "m-levier-egalite",
+  "quoi": "deux priorités au même score : la première dans l’ordre des priorités",
+  "entree": {
+   "aujourdhui": "2026-10-11",
+   "sexe": "homme",
+   "priorites": [
+    "epaules",
+    "dos",
+    "bras"
+   ],
+   "catalogue": [
+    {
+     "slug": "curl_biceps_barre_ez",
+     "nom": "Curl Biceps (Barre EZ)",
+     "muscles_primaires": [
+      "biceps"
+     ],
+     "mouvement": "curl",
+     "schema_mouvement": "biceps",
+     "habilete": false,
+     "equipement": "barre"
+    },
+    {
+     "slug": "curl_marteau_haltere",
+     "nom": "Curl Marteau (Haltère)",
+     "muscles_primaires": [
+      "biceps"
+     ],
+     "mouvement": "curl_marteau",
+     "schema_mouvement": "biceps",
+     "habilete": false,
+     "equipement": "haltere"
+    },
+    {
+     "slug": "elevation_laterale_poulie",
+     "nom": "Élévation Latérale (Poulie)",
+     "muscles_primaires": [
+      "deltoide_lateral"
+     ],
+     "mouvement": "elevation_laterale",
+     "schema_mouvement": "epaules_cote",
+     "habilete": false,
+     "equipement": "poulie"
+    },
+    {
+     "slug": "rowing_poulie_assis",
+     "nom": "Rowing Poulie Assis (Prise en V)",
+     "muscles_primaires": [
+      "haut_du_dos"
+     ],
+     "mouvement": "rowing",
+     "schema_mouvement": "tirer_horizontal",
+     "habilete": false,
+     "equipement": "poulie"
+    },
+    {
+     "slug": "tirage_poitrine_poulie",
+     "nom": "Tirage Poitrine (Poulie)",
+     "muscles_primaires": [
+      "grand_dorsal"
+     ],
+     "mouvement": "tirage_vertical",
+     "schema_mouvement": "tirer_vertical",
+     "habilete": false,
+     "equipement": "poulie"
+    }
+   ],
+   "series": [
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0229",
+     "slug": "elevation_laterale_poulie",
+     "reps": 12,
+     "charge": 9
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0229",
+     "slug": "elevation_laterale_poulie",
+     "reps": 15,
+     "charge": 8
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0230",
+     "slug": "elevation_laterale_poulie",
+     "reps": 12,
+     "charge": 9
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0230",
+     "slug": "elevation_laterale_poulie",
+     "reps": 15,
+     "charge": 8
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0231",
+     "slug": "elevation_laterale_poulie",
+     "reps": 12,
+     "charge": 9
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0231",
+     "slug": "elevation_laterale_poulie",
+     "reps": 15,
+     "charge": 8
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0232",
+     "slug": "elevation_laterale_poulie",
+     "reps": 12,
+     "charge": 9
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0232",
+     "slug": "elevation_laterale_poulie",
+     "reps": 15,
+     "charge": 8
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0233",
+     "slug": "elevation_laterale_poulie",
+     "reps": 12,
+     "charge": 9
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0233",
+     "slug": "elevation_laterale_poulie",
+     "reps": 15,
+     "charge": 8
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0234",
+     "slug": "elevation_laterale_poulie",
+     "reps": 12,
+     "charge": 9
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0234",
+     "slug": "elevation_laterale_poulie",
+     "reps": 15,
+     "charge": 8
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0235",
+     "slug": "elevation_laterale_poulie",
+     "reps": 12,
+     "charge": 12
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0235",
+     "slug": "elevation_laterale_poulie",
+     "reps": 15,
+     "charge": 10
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0236",
+     "slug": "elevation_laterale_poulie",
+     "reps": 12,
+     "charge": 12
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0236",
+     "slug": "elevation_laterale_poulie",
+     "reps": 15,
+     "charge": 10
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0237",
+     "slug": "elevation_laterale_poulie",
+     "reps": 12,
+     "charge": 12
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0237",
+     "slug": "elevation_laterale_poulie",
+     "reps": 15,
+     "charge": 10
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0238",
+     "slug": "elevation_laterale_poulie",
+     "reps": 12,
+     "charge": 12
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0238",
+     "slug": "elevation_laterale_poulie",
+     "reps": 15,
+     "charge": 10
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0239",
+     "slug": "elevation_laterale_poulie",
+     "reps": 12,
+     "charge": 12
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0239",
+     "slug": "elevation_laterale_poulie",
+     "reps": 15,
+     "charge": 10
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0240",
+     "slug": "elevation_laterale_poulie",
+     "reps": 12,
+     "charge": 12
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0240",
+     "slug": "elevation_laterale_poulie",
+     "reps": 15,
+     "charge": 10
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0241",
+     "slug": "curl_marteau_haltere",
+     "reps": 10,
+     "charge": 24
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0241",
+     "slug": "curl_marteau_haltere",
+     "reps": 12,
+     "charge": 22
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0242",
+     "slug": "curl_marteau_haltere",
+     "reps": 10,
+     "charge": 24
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0242",
+     "slug": "curl_marteau_haltere",
+     "reps": 12,
+     "charge": 22
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0243",
+     "slug": "curl_marteau_haltere",
+     "reps": 10,
+     "charge": 24
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0243",
+     "slug": "curl_marteau_haltere",
+     "reps": 12,
+     "charge": 22
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0244",
+     "slug": "curl_marteau_haltere",
+     "reps": 10,
+     "charge": 24
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0244",
+     "slug": "curl_marteau_haltere",
+     "reps": 12,
+     "charge": 22
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0245",
+     "slug": "curl_marteau_haltere",
+     "reps": 10,
+     "charge": 24
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0245",
+     "slug": "curl_marteau_haltere",
+     "reps": 12,
+     "charge": 22
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0246",
+     "slug": "curl_marteau_haltere",
+     "reps": 10,
+     "charge": 24
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0246",
+     "slug": "curl_marteau_haltere",
+     "reps": 12,
+     "charge": 22
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0247",
+     "slug": "curl_marteau_haltere",
+     "reps": 10,
+     "charge": 28
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0247",
+     "slug": "curl_marteau_haltere",
+     "reps": 12,
+     "charge": 25
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0248",
+     "slug": "curl_marteau_haltere",
+     "reps": 10,
+     "charge": 28
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0248",
+     "slug": "curl_marteau_haltere",
+     "reps": 12,
+     "charge": 25
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0249",
+     "slug": "curl_marteau_haltere",
+     "reps": 10,
+     "charge": 28
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0249",
+     "slug": "curl_marteau_haltere",
+     "reps": 12,
+     "charge": 25
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0250",
+     "slug": "curl_marteau_haltere",
+     "reps": 10,
+     "charge": 28
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0250",
+     "slug": "curl_marteau_haltere",
+     "reps": 12,
+     "charge": 25
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0251",
+     "slug": "curl_marteau_haltere",
+     "reps": 10,
+     "charge": 28
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0251",
+     "slug": "curl_marteau_haltere",
+     "reps": 12,
+     "charge": 25
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0252",
+     "slug": "curl_marteau_haltere",
+     "reps": 10,
+     "charge": 28
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0252",
+     "slug": "curl_marteau_haltere",
+     "reps": 12,
+     "charge": 25
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0253",
+     "slug": "rowing_poulie_assis",
+     "reps": 8,
+     "charge": 80
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0253",
+     "slug": "rowing_poulie_assis",
+     "reps": 10,
+     "charge": 75
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0254",
+     "slug": "rowing_poulie_assis",
+     "reps": 8,
+     "charge": 80
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0254",
+     "slug": "rowing_poulie_assis",
+     "reps": 10,
+     "charge": 75
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0255",
+     "slug": "rowing_poulie_assis",
+     "reps": 8,
+     "charge": 80
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0255",
+     "slug": "rowing_poulie_assis",
+     "reps": 10,
+     "charge": 75
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0256",
+     "slug": "rowing_poulie_assis",
+     "reps": 8,
+     "charge": 80
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0256",
+     "slug": "rowing_poulie_assis",
+     "reps": 10,
+     "charge": 75
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0257",
+     "slug": "rowing_poulie_assis",
+     "reps": 8,
+     "charge": 80
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0257",
+     "slug": "rowing_poulie_assis",
+     "reps": 10,
+     "charge": 75
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0258",
+     "slug": "rowing_poulie_assis",
+     "reps": 8,
+     "charge": 80
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0258",
+     "slug": "rowing_poulie_assis",
+     "reps": 10,
+     "charge": 75
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0259",
+     "slug": "rowing_poulie_assis",
+     "reps": 8,
+     "charge": 90
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0259",
+     "slug": "rowing_poulie_assis",
+     "reps": 10,
+     "charge": 85
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0260",
+     "slug": "rowing_poulie_assis",
+     "reps": 8,
+     "charge": 90
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0260",
+     "slug": "rowing_poulie_assis",
+     "reps": 10,
+     "charge": 85
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0261",
+     "slug": "rowing_poulie_assis",
+     "reps": 8,
+     "charge": 90
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0261",
+     "slug": "rowing_poulie_assis",
+     "reps": 10,
+     "charge": 85
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0262",
+     "slug": "rowing_poulie_assis",
+     "reps": 8,
+     "charge": 90
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0262",
+     "slug": "rowing_poulie_assis",
+     "reps": 10,
+     "charge": 85
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0263",
+     "slug": "rowing_poulie_assis",
+     "reps": 8,
+     "charge": 90
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0263",
+     "slug": "rowing_poulie_assis",
+     "reps": 10,
+     "charge": 85
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0264",
+     "slug": "rowing_poulie_assis",
+     "reps": 8,
+     "charge": 90
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0264",
+     "slug": "rowing_poulie_assis",
+     "reps": 10,
+     "charge": 85
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0265",
+     "slug": "tirage_poitrine_poulie",
+     "reps": 8,
+     "charge": 60
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0265",
+     "slug": "tirage_poitrine_poulie",
+     "reps": 10,
+     "charge": 55
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0266",
+     "slug": "tirage_poitrine_poulie",
+     "reps": 8,
+     "charge": 60
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0266",
+     "slug": "tirage_poitrine_poulie",
+     "reps": 10,
+     "charge": 55
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0267",
+     "slug": "tirage_poitrine_poulie",
+     "reps": 8,
+     "charge": 60
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0267",
+     "slug": "tirage_poitrine_poulie",
+     "reps": 10,
+     "charge": 55
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0268",
+     "slug": "tirage_poitrine_poulie",
+     "reps": 8,
+     "charge": 60
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0268",
+     "slug": "tirage_poitrine_poulie",
+     "reps": 10,
+     "charge": 55
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0269",
+     "slug": "tirage_poitrine_poulie",
+     "reps": 8,
+     "charge": 60
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0269",
+     "slug": "tirage_poitrine_poulie",
+     "reps": 10,
+     "charge": 55
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0270",
+     "slug": "tirage_poitrine_poulie",
+     "reps": 8,
+     "charge": 60
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0270",
+     "slug": "tirage_poitrine_poulie",
+     "reps": 10,
+     "charge": 55
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0271",
+     "slug": "tirage_poitrine_poulie",
+     "reps": 8,
+     "charge": 70
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0271",
+     "slug": "tirage_poitrine_poulie",
+     "reps": 10,
+     "charge": 65
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0272",
+     "slug": "tirage_poitrine_poulie",
+     "reps": 8,
+     "charge": 70
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0272",
+     "slug": "tirage_poitrine_poulie",
+     "reps": 10,
+     "charge": 65
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0273",
+     "slug": "tirage_poitrine_poulie",
+     "reps": 8,
+     "charge": 70
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0273",
+     "slug": "tirage_poitrine_poulie",
+     "reps": 10,
+     "charge": 65
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0274",
+     "slug": "tirage_poitrine_poulie",
+     "reps": 8,
+     "charge": 70
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0274",
+     "slug": "tirage_poitrine_poulie",
+     "reps": 10,
+     "charge": 65
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0275",
+     "slug": "tirage_poitrine_poulie",
+     "reps": 8,
+     "charge": 70
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0275",
+     "slug": "tirage_poitrine_poulie",
+     "reps": 10,
+     "charge": 65
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0276",
+     "slug": "tirage_poitrine_poulie",
+     "reps": 8,
+     "charge": 70
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0276",
+     "slug": "tirage_poitrine_poulie",
+     "reps": 10,
+     "charge": 65
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0277",
+     "slug": "curl_biceps_barre_ez",
+     "reps": 10,
+     "charge": 25
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0277",
+     "slug": "curl_biceps_barre_ez",
+     "reps": 12,
+     "charge": 22
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0278",
+     "slug": "curl_biceps_barre_ez",
+     "reps": 10,
+     "charge": 25
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0278",
+     "slug": "curl_biceps_barre_ez",
+     "reps": 12,
+     "charge": 22
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0279",
+     "slug": "curl_biceps_barre_ez",
+     "reps": 10,
+     "charge": 25
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0279",
+     "slug": "curl_biceps_barre_ez",
+     "reps": 12,
+     "charge": 22
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0280",
+     "slug": "curl_biceps_barre_ez",
+     "reps": 10,
+     "charge": 25
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0280",
+     "slug": "curl_biceps_barre_ez",
+     "reps": 12,
+     "charge": 22
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0281",
+     "slug": "curl_biceps_barre_ez",
+     "reps": 10,
+     "charge": 25
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0281",
+     "slug": "curl_biceps_barre_ez",
+     "reps": 12,
+     "charge": 22
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0282",
+     "slug": "curl_biceps_barre_ez",
+     "reps": 10,
+     "charge": 25
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0282",
+     "slug": "curl_biceps_barre_ez",
+     "reps": 12,
+     "charge": 22
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0283",
+     "slug": "curl_biceps_barre_ez",
+     "reps": 10,
+     "charge": 30
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0283",
+     "slug": "curl_biceps_barre_ez",
+     "reps": 12,
+     "charge": 27
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0284",
+     "slug": "curl_biceps_barre_ez",
+     "reps": 10,
+     "charge": 30
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0284",
+     "slug": "curl_biceps_barre_ez",
+     "reps": 12,
+     "charge": 27
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0285",
+     "slug": "curl_biceps_barre_ez",
+     "reps": 10,
+     "charge": 30
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0285",
+     "slug": "curl_biceps_barre_ez",
+     "reps": 12,
+     "charge": 27
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0286",
+     "slug": "curl_biceps_barre_ez",
+     "reps": 10,
+     "charge": 30
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0286",
+     "slug": "curl_biceps_barre_ez",
+     "reps": 12,
+     "charge": 27
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0287",
+     "slug": "curl_biceps_barre_ez",
+     "reps": 10,
+     "charge": 30
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0287",
+     "slug": "curl_biceps_barre_ez",
+     "reps": 12,
+     "charge": 27
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0288",
+     "slug": "curl_biceps_barre_ez",
+     "reps": 10,
+     "charge": 30
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0288",
+     "slug": "curl_biceps_barre_ez",
+     "reps": 12,
+     "charge": 27
+    }
+   ]
+  },
+  "attendu": {
+   "exercices": [
+    {
+     "slug": "curl_biceps_barre_ez",
+     "nom": "Curl Biceps (Barre EZ)",
+     "zone": "bras",
+     "muscle": "biceps",
+     "nP": 6,
+     "nR": 6,
+     "poids": 1,
+     "etat": "↑",
+     "methode": "reps",
+     "detail": [
+      [
+       10,
+       "25",
+       "30"
+      ],
+      [
+       12,
+       "22",
+       "27"
+      ]
+     ],
+     "ecart": null,
+     "k": null
+    },
+    {
+     "slug": "curl_marteau_haltere",
+     "nom": "Curl Marteau (Haltère)",
+     "zone": "bras",
+     "muscle": "biceps",
+     "nP": 6,
+     "nR": 6,
+     "poids": 1,
+     "etat": "↑",
+     "methode": "reps",
+     "detail": [
+      [
+       10,
+       "24",
+       "28"
+      ],
+      [
+       12,
+       "22",
+       "25"
+      ]
+     ],
+     "ecart": null,
+     "k": null
+    },
+    {
+     "slug": "elevation_laterale_poulie",
+     "nom": "Élévation Latérale (Poulie)",
+     "zone": "epaules",
+     "muscle": "deltoide_lateral",
+     "nP": 6,
+     "nR": 6,
+     "poids": 1,
+     "etat": "↑",
+     "methode": "reps",
+     "detail": [
+      [
+       12,
+       "9",
+       "12"
+      ],
+      [
+       15,
+       "8",
+       "10"
+      ]
+     ],
+     "ecart": null,
+     "k": null
+    },
+    {
+     "slug": "rowing_poulie_assis",
+     "nom": "Rowing Poulie Assis (Prise en V)",
+     "zone": "dos",
+     "muscle": "haut_du_dos",
+     "nP": 6,
+     "nR": 6,
+     "poids": 1,
+     "etat": "↑",
+     "methode": "reps",
+     "detail": [
+      [
+       8,
+       "80",
+       "90"
+      ],
+      [
+       10,
+       "75",
+       "85"
+      ]
+     ],
+     "ecart": null,
+     "k": null
+    },
+    {
+     "slug": "tirage_poitrine_poulie",
+     "nom": "Tirage Poitrine (Poulie)",
+     "zone": "dos",
+     "muscle": "grand_dorsal",
+     "nP": 6,
+     "nR": 6,
+     "poids": 1,
+     "etat": "↑",
+     "methode": "reps",
+     "detail": [
+      [
+       8,
+       "60",
+       "70"
+      ],
+      [
+       10,
+       "55",
+       "65"
+      ]
+     ],
+     "ecart": null,
+     "k": null
+    }
+   ],
+   "zones": [
+    {
+     "zone": "jambes",
+     "libelle": "Jambes",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "dos",
+     "libelle": "Dos",
+     "verdict": "↑",
+     "score": "2",
+     "votants": 2
+    },
+    {
+     "zone": "bras",
+     "libelle": "Bras",
+     "verdict": "↑",
+     "score": "2",
+     "votants": 2
+    },
+    {
+     "zone": "epaules",
+     "libelle": "Épaules",
+     "verdict": null,
+     "score": null,
+     "votants": 1,
+     "raison": "pas assez de séances comparables"
+    },
+    {
+     "zone": "poitrine",
+     "libelle": "Poitrine",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "tronc",
+     "libelle": "Tronc",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    }
+   ],
+   "levier": "dos",
+   "rapports": [],
+   "courbes": [],
+   "phrase": "Tes six derniers mois : les deux groupes que tu suis progressent. Dos : ce qui avance le plus lentement."
+  }
+ },
+ {
+  "nom": "n-rapports",
+  "quoi": "squat/couché en dessous (+écart kg), militaire/couché proche, soulevé/squat avec 2 reps en commun seulement → absent",
+  "entree": {
+   "aujourdhui": "2026-10-11",
+   "sexe": "homme",
+   "priorites": [
+    "dos",
+    "jambes",
+    "epaules"
+   ],
+   "catalogue": [
+    {
+     "slug": "developpe_couche_barre",
+     "nom": "Développé Couché (Barre)",
+     "muscles_primaires": [
+      "pectoraux"
+     ],
+     "mouvement": "developpe_couche",
+     "schema_mouvement": "pousser_horizontal",
+     "habilete": false,
+     "equipement": "barre"
+    },
+    {
+     "slug": "developpe_militaire_barre",
+     "nom": "Développé Militaire (Barre)",
+     "muscles_primaires": [
+      "deltoide_anterieur"
+     ],
+     "mouvement": "developpe_epaules",
+     "schema_mouvement": "pousser_vertical",
+     "habilete": false,
+     "equipement": "barre"
+    },
+    {
+     "slug": "souleve_de_terre_barre",
+     "nom": "Soulevé de Terre (Barre)",
+     "muscles_primaires": [
+      "ischio_jambiers"
+     ],
+     "mouvement": "souleve_de_terre",
+     "schema_mouvement": "pencher",
+     "habilete": false,
+     "equipement": "barre"
+    },
+    {
+     "slug": "squat_barre",
+     "nom": "Squat (Barre)",
+     "muscles_primaires": [
+      "quadriceps"
+     ],
+     "mouvement": "squat",
+     "schema_mouvement": "accroupir",
+     "habilete": false,
+     "equipement": "barre"
+    }
+   ],
+   "series": [
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0289",
+     "slug": "squat_barre",
+     "reps": 1,
+     "charge": 145
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0289",
+     "slug": "squat_barre",
+     "reps": 3,
+     "charge": 135
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0289",
+     "slug": "squat_barre",
+     "reps": 5,
+     "charge": 125
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0289",
+     "slug": "squat_barre",
+     "reps": 8,
+     "charge": 110
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0290",
+     "slug": "squat_barre",
+     "reps": 1,
+     "charge": 145
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0290",
+     "slug": "squat_barre",
+     "reps": 3,
+     "charge": 135
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0290",
+     "slug": "squat_barre",
+     "reps": 5,
+     "charge": 125
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0290",
+     "slug": "squat_barre",
+     "reps": 8,
+     "charge": 110
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0291",
+     "slug": "squat_barre",
+     "reps": 1,
+     "charge": 145
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0291",
+     "slug": "squat_barre",
+     "reps": 3,
+     "charge": 135
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0291",
+     "slug": "squat_barre",
+     "reps": 5,
+     "charge": 125
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0291",
+     "slug": "squat_barre",
+     "reps": 8,
+     "charge": 110
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0292",
+     "slug": "squat_barre",
+     "reps": 1,
+     "charge": 145
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0292",
+     "slug": "squat_barre",
+     "reps": 3,
+     "charge": 135
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0292",
+     "slug": "squat_barre",
+     "reps": 5,
+     "charge": 125
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0292",
+     "slug": "squat_barre",
+     "reps": 8,
+     "charge": 110
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0293",
+     "slug": "squat_barre",
+     "reps": 1,
+     "charge": 145
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0293",
+     "slug": "squat_barre",
+     "reps": 3,
+     "charge": 135
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0293",
+     "slug": "squat_barre",
+     "reps": 5,
+     "charge": 125
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0293",
+     "slug": "squat_barre",
+     "reps": 8,
+     "charge": 110
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0294",
+     "slug": "squat_barre",
+     "reps": 1,
+     "charge": 145
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0294",
+     "slug": "squat_barre",
+     "reps": 3,
+     "charge": 135
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0294",
+     "slug": "squat_barre",
+     "reps": 5,
+     "charge": 125
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0294",
+     "slug": "squat_barre",
+     "reps": 8,
+     "charge": 110
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0295",
+     "slug": "developpe_couche_barre",
+     "reps": 1,
+     "charge": 140
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0295",
+     "slug": "developpe_couche_barre",
+     "reps": 3,
+     "charge": 130
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0295",
+     "slug": "developpe_couche_barre",
+     "reps": 5,
+     "charge": 120
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0295",
+     "slug": "developpe_couche_barre",
+     "reps": 8,
+     "charge": 105
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0296",
+     "slug": "developpe_couche_barre",
+     "reps": 1,
+     "charge": 140
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0296",
+     "slug": "developpe_couche_barre",
+     "reps": 3,
+     "charge": 130
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0296",
+     "slug": "developpe_couche_barre",
+     "reps": 5,
+     "charge": 120
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0296",
+     "slug": "developpe_couche_barre",
+     "reps": 8,
+     "charge": 105
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0297",
+     "slug": "developpe_couche_barre",
+     "reps": 1,
+     "charge": 140
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0297",
+     "slug": "developpe_couche_barre",
+     "reps": 3,
+     "charge": 130
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0297",
+     "slug": "developpe_couche_barre",
+     "reps": 5,
+     "charge": 120
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0297",
+     "slug": "developpe_couche_barre",
+     "reps": 8,
+     "charge": 105
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0298",
+     "slug": "developpe_couche_barre",
+     "reps": 1,
+     "charge": 140
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0298",
+     "slug": "developpe_couche_barre",
+     "reps": 3,
+     "charge": 130
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0298",
+     "slug": "developpe_couche_barre",
+     "reps": 5,
+     "charge": 120
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0298",
+     "slug": "developpe_couche_barre",
+     "reps": 8,
+     "charge": 105
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0299",
+     "slug": "developpe_couche_barre",
+     "reps": 1,
+     "charge": 140
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0299",
+     "slug": "developpe_couche_barre",
+     "reps": 3,
+     "charge": 130
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0299",
+     "slug": "developpe_couche_barre",
+     "reps": 5,
+     "charge": 120
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0299",
+     "slug": "developpe_couche_barre",
+     "reps": 8,
+     "charge": 105
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0300",
+     "slug": "developpe_couche_barre",
+     "reps": 1,
+     "charge": 140
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0300",
+     "slug": "developpe_couche_barre",
+     "reps": 3,
+     "charge": 130
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0300",
+     "slug": "developpe_couche_barre",
+     "reps": 5,
+     "charge": 120
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0300",
+     "slug": "developpe_couche_barre",
+     "reps": 8,
+     "charge": 105
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0301",
+     "slug": "developpe_militaire_barre",
+     "reps": 1,
+     "charge": 77
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0301",
+     "slug": "developpe_militaire_barre",
+     "reps": 3,
+     "charge": 72
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0301",
+     "slug": "developpe_militaire_barre",
+     "reps": 5,
+     "charge": 66
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0302",
+     "slug": "developpe_militaire_barre",
+     "reps": 1,
+     "charge": 77
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0302",
+     "slug": "developpe_militaire_barre",
+     "reps": 3,
+     "charge": 72
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0302",
+     "slug": "developpe_militaire_barre",
+     "reps": 5,
+     "charge": 66
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0303",
+     "slug": "developpe_militaire_barre",
+     "reps": 1,
+     "charge": 77
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0303",
+     "slug": "developpe_militaire_barre",
+     "reps": 3,
+     "charge": 72
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0303",
+     "slug": "developpe_militaire_barre",
+     "reps": 5,
+     "charge": 66
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0304",
+     "slug": "developpe_militaire_barre",
+     "reps": 1,
+     "charge": 77
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0304",
+     "slug": "developpe_militaire_barre",
+     "reps": 3,
+     "charge": 72
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0304",
+     "slug": "developpe_militaire_barre",
+     "reps": 5,
+     "charge": 66
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0305",
+     "slug": "developpe_militaire_barre",
+     "reps": 1,
+     "charge": 77
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0305",
+     "slug": "developpe_militaire_barre",
+     "reps": 3,
+     "charge": 72
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0305",
+     "slug": "developpe_militaire_barre",
+     "reps": 5,
+     "charge": 66
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0306",
+     "slug": "developpe_militaire_barre",
+     "reps": 1,
+     "charge": 77
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0306",
+     "slug": "developpe_militaire_barre",
+     "reps": 3,
+     "charge": 72
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0306",
+     "slug": "developpe_militaire_barre",
+     "reps": 5,
+     "charge": 66
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0307",
+     "slug": "souleve_de_terre_barre",
+     "reps": 1,
+     "charge": 170
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0307",
+     "slug": "souleve_de_terre_barre",
+     "reps": 3,
+     "charge": 160
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0308",
+     "slug": "souleve_de_terre_barre",
+     "reps": 1,
+     "charge": 170
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0308",
+     "slug": "souleve_de_terre_barre",
+     "reps": 3,
+     "charge": 160
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0309",
+     "slug": "souleve_de_terre_barre",
+     "reps": 1,
+     "charge": 170
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0309",
+     "slug": "souleve_de_terre_barre",
+     "reps": 3,
+     "charge": 160
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0310",
+     "slug": "souleve_de_terre_barre",
+     "reps": 1,
+     "charge": 170
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0310",
+     "slug": "souleve_de_terre_barre",
+     "reps": 3,
+     "charge": 160
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0311",
+     "slug": "souleve_de_terre_barre",
+     "reps": 1,
+     "charge": 170
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0311",
+     "slug": "souleve_de_terre_barre",
+     "reps": 3,
+     "charge": 160
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0312",
+     "slug": "souleve_de_terre_barre",
+     "reps": 1,
+     "charge": 170
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0312",
+     "slug": "souleve_de_terre_barre",
+     "reps": 3,
+     "charge": 160
+    },
+    {
+     "debut": "2026-10-06T18:00",
+     "seance": "s0313",
+     "slug": "squat_barre",
+     "reps": 1,
+     "charge": 145
+    },
+    {
+     "debut": "2026-09-06T18:00",
+     "seance": "s0314",
+     "slug": "squat_barre",
+     "reps": 1,
+     "charge": 145
+    },
+    {
+     "debut": "2026-08-07T18:00",
+     "seance": "s0315",
+     "slug": "squat_barre",
+     "reps": 1,
+     "charge": 145
+    },
+    {
+     "debut": "2026-07-08T18:00",
+     "seance": "s0316",
+     "slug": "squat_barre",
+     "reps": 1,
+     "charge": 145
+    },
+    {
+     "debut": "2026-06-08T18:00",
+     "seance": "s0317",
+     "slug": "squat_barre",
+     "reps": 1,
+     "charge": 145
+    },
+    {
+     "debut": "2026-05-09T18:00",
+     "seance": "s0318",
+     "slug": "squat_barre",
+     "reps": 1,
+     "charge": 145
+    }
+   ]
+  },
+  "attendu": {
+   "exercices": [
+    {
+     "slug": "developpe_couche_barre",
+     "nom": "Développé Couché (Barre)",
+     "zone": "poitrine",
+     "muscle": "pectoraux",
+     "nP": 6,
+     "nR": 0,
+     "poids": 2,
+     "etat": "moins",
+     "methode": null,
+     "detail": [],
+     "ecart": null,
+     "k": null,
+     "relais": []
+    },
+    {
+     "slug": "developpe_militaire_barre",
+     "nom": "Développé Militaire (Barre)",
+     "zone": "epaules",
+     "muscle": "deltoide_anterieur",
+     "nP": 0,
+     "nR": 6,
+     "poids": 2,
+     "etat": "nouveau",
+     "methode": null,
+     "detail": [],
+     "ecart": null,
+     "k": null
+    },
+    {
+     "slug": "souleve_de_terre_barre",
+     "nom": "Soulevé de Terre (Barre)",
+     "zone": "jambes",
+     "muscle": "ischio_jambiers",
+     "nP": 0,
+     "nR": 6,
+     "poids": 2,
+     "etat": "nouveau",
+     "methode": null,
+     "detail": [],
+     "ecart": null,
+     "k": null
+    },
+    {
+     "slug": "squat_barre",
+     "nom": "Squat (Barre)",
+     "zone": "jambes",
+     "muscle": "quadriceps",
+     "nP": 6,
+     "nR": 6,
+     "poids": 2,
+     "etat": "▬",
+     "methode": "courbe",
+     "detail": [],
+     "ecart": -1.4,
+     "k": 46
+    }
+   ],
+   "zones": [
+    {
+     "zone": "jambes",
+     "libelle": "Jambes",
+     "verdict": null,
+     "score": null,
+     "votants": 1,
+     "raison": "pas assez de séances comparables"
+    },
+    {
+     "zone": "dos",
+     "libelle": "Dos",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "bras",
+     "libelle": "Bras",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "epaules",
+     "libelle": "Épaules",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas assez de séances comparables"
+    },
+    {
+     "zone": "poitrine",
+     "libelle": "Poitrine",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas assez de séances comparables"
+    },
+    {
+     "zone": "tronc",
+     "libelle": "Tronc",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    }
+   ],
+   "levier": null,
+   "rapports": [
+    {
+     "num": "squat_barre",
+     "den": "developpe_couche_barre",
+     "rapport": "649/624",
+     "repere": "121/100",
+     "lecture": "en dessous",
+     "reps": [
+      1,
+      3,
+      5,
+      8
+     ],
+     "affiche": "1,04",
+     "ecart_kg": 24
+    },
+    {
+     "num": "developpe_militaire_barre",
+     "den": "developpe_couche_barre",
+     "rapport": "11/20",
+     "repere": "57/100",
+     "lecture": "proche",
+     "reps": [
+      1,
+      3,
+      5
+     ],
+     "affiche": "0,55"
+    }
+   ],
+   "courbes": [
+    {
+     "slug": "squat_barre",
+     "mois": [
+      [
+       "2025-11",
+       "125"
+      ],
+      [
+       "2025-12",
+       "125"
+      ],
+      [
+       "2026-01",
+       "125"
+      ],
+      [
+       "2026-02",
+       "125"
+      ],
+      [
+       "2026-03",
+       "125"
+      ],
+      [
+       "2026-04",
+       "125"
+      ]
+     ],
+     "debut": "125",
+     "meilleur": "125",
+     "maintenant": "125",
+     "etat": "▬"
+    },
+    {
+     "slug": "developpe_couche_barre",
+     "mois": [
+      [
+       "2025-11",
+       "120"
+      ],
+      [
+       "2025-12",
+       "120"
+      ],
+      [
+       "2026-01",
+       "120"
+      ],
+      [
+       "2026-02",
+       "120"
+      ],
+      [
+       "2026-03",
+       "120"
+      ],
+      [
+       "2026-04",
+       "120"
+      ]
+     ],
+     "debut": "120",
+     "meilleur": "120",
+     "maintenant": "120",
+     "etat": "moins"
+    },
+    {
+     "slug": "developpe_militaire_barre",
+     "mois": [
+      [
+       "2026-05",
+       "66"
+      ],
+      [
+       "2026-06",
+       "66"
+      ],
+      [
+       "2026-07",
+       "66"
+      ],
+      [
+       "2026-08",
+       "66"
+      ],
+      [
+       "2026-09",
+       "66"
+      ],
+      [
+       "2026-10",
+       "66"
+      ]
+     ],
+     "debut": "66",
+     "meilleur": "66",
+     "maintenant": "66",
+     "etat": "nouveau"
+    }
+   ],
+   "phrase": "Ton couché tire devant ton squat."
+  }
+ },
+ {
+  "nom": "p-rapports-femme",
+  "quoi": "repères des femmes : squat/couché 1,52, militaire/couché 0,63, soulevé/squat 1,25",
+  "entree": {
+   "aujourdhui": "2026-10-11",
+   "sexe": "femme",
+   "priorites": [
+    "dos",
+    "jambes",
+    "epaules"
+   ],
+   "catalogue": [
+    {
+     "slug": "developpe_couche_barre",
+     "nom": "Développé Couché (Barre)",
+     "muscles_primaires": [
+      "pectoraux"
+     ],
+     "mouvement": "developpe_couche",
+     "schema_mouvement": "pousser_horizontal",
+     "habilete": false,
+     "equipement": "barre"
+    },
+    {
+     "slug": "developpe_militaire_barre",
+     "nom": "Développé Militaire (Barre)",
+     "muscles_primaires": [
+      "deltoide_anterieur"
+     ],
+     "mouvement": "developpe_epaules",
+     "schema_mouvement": "pousser_vertical",
+     "habilete": false,
+     "equipement": "barre"
+    },
+    {
+     "slug": "souleve_de_terre_barre",
+     "nom": "Soulevé de Terre (Barre)",
+     "muscles_primaires": [
+      "ischio_jambiers"
+     ],
+     "mouvement": "souleve_de_terre",
+     "schema_mouvement": "pencher",
+     "habilete": false,
+     "equipement": "barre"
+    },
+    {
+     "slug": "squat_barre",
+     "nom": "Squat (Barre)",
+     "muscles_primaires": [
+      "quadriceps"
+     ],
+     "mouvement": "squat",
+     "schema_mouvement": "accroupir",
+     "habilete": false,
+     "equipement": "barre"
+    }
+   ],
+   "series": [
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0319",
+     "slug": "squat_barre",
+     "reps": 1,
+     "charge": 90
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0319",
+     "slug": "squat_barre",
+     "reps": 3,
+     "charge": 85
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0319",
+     "slug": "squat_barre",
+     "reps": 5,
+     "charge": 80
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0319",
+     "slug": "squat_barre",
+     "reps": 8,
+     "charge": 70
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0320",
+     "slug": "squat_barre",
+     "reps": 1,
+     "charge": 90
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0320",
+     "slug": "squat_barre",
+     "reps": 3,
+     "charge": 85
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0320",
+     "slug": "squat_barre",
+     "reps": 5,
+     "charge": 80
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0320",
+     "slug": "squat_barre",
+     "reps": 8,
+     "charge": 70
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0321",
+     "slug": "squat_barre",
+     "reps": 1,
+     "charge": 90
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0321",
+     "slug": "squat_barre",
+     "reps": 3,
+     "charge": 85
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0321",
+     "slug": "squat_barre",
+     "reps": 5,
+     "charge": 80
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0321",
+     "slug": "squat_barre",
+     "reps": 8,
+     "charge": 70
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0322",
+     "slug": "squat_barre",
+     "reps": 1,
+     "charge": 90
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0322",
+     "slug": "squat_barre",
+     "reps": 3,
+     "charge": 85
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0322",
+     "slug": "squat_barre",
+     "reps": 5,
+     "charge": 80
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0322",
+     "slug": "squat_barre",
+     "reps": 8,
+     "charge": 70
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0323",
+     "slug": "squat_barre",
+     "reps": 1,
+     "charge": 90
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0323",
+     "slug": "squat_barre",
+     "reps": 3,
+     "charge": 85
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0323",
+     "slug": "squat_barre",
+     "reps": 5,
+     "charge": 80
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0323",
+     "slug": "squat_barre",
+     "reps": 8,
+     "charge": 70
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0324",
+     "slug": "squat_barre",
+     "reps": 1,
+     "charge": 90
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0324",
+     "slug": "squat_barre",
+     "reps": 3,
+     "charge": 85
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0324",
+     "slug": "squat_barre",
+     "reps": 5,
+     "charge": 80
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0324",
+     "slug": "squat_barre",
+     "reps": 8,
+     "charge": 70
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0325",
+     "slug": "developpe_couche_barre",
+     "reps": 1,
+     "charge": 55
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0325",
+     "slug": "developpe_couche_barre",
+     "reps": 3,
+     "charge": 50
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0325",
+     "slug": "developpe_couche_barre",
+     "reps": 5,
+     "charge": 47
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0325",
+     "slug": "developpe_couche_barre",
+     "reps": 8,
+     "charge": 42
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0326",
+     "slug": "developpe_couche_barre",
+     "reps": 1,
+     "charge": 55
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0326",
+     "slug": "developpe_couche_barre",
+     "reps": 3,
+     "charge": 50
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0326",
+     "slug": "developpe_couche_barre",
+     "reps": 5,
+     "charge": 47
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0326",
+     "slug": "developpe_couche_barre",
+     "reps": 8,
+     "charge": 42
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0327",
+     "slug": "developpe_couche_barre",
+     "reps": 1,
+     "charge": 55
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0327",
+     "slug": "developpe_couche_barre",
+     "reps": 3,
+     "charge": 50
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0327",
+     "slug": "developpe_couche_barre",
+     "reps": 5,
+     "charge": 47
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0327",
+     "slug": "developpe_couche_barre",
+     "reps": 8,
+     "charge": 42
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0328",
+     "slug": "developpe_couche_barre",
+     "reps": 1,
+     "charge": 55
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0328",
+     "slug": "developpe_couche_barre",
+     "reps": 3,
+     "charge": 50
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0328",
+     "slug": "developpe_couche_barre",
+     "reps": 5,
+     "charge": 47
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0328",
+     "slug": "developpe_couche_barre",
+     "reps": 8,
+     "charge": 42
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0329",
+     "slug": "developpe_couche_barre",
+     "reps": 1,
+     "charge": 55
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0329",
+     "slug": "developpe_couche_barre",
+     "reps": 3,
+     "charge": 50
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0329",
+     "slug": "developpe_couche_barre",
+     "reps": 5,
+     "charge": 47
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0329",
+     "slug": "developpe_couche_barre",
+     "reps": 8,
+     "charge": 42
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0330",
+     "slug": "developpe_couche_barre",
+     "reps": 1,
+     "charge": 55
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0330",
+     "slug": "developpe_couche_barre",
+     "reps": 3,
+     "charge": 50
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0330",
+     "slug": "developpe_couche_barre",
+     "reps": 5,
+     "charge": 47
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0330",
+     "slug": "developpe_couche_barre",
+     "reps": 8,
+     "charge": 42
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0331",
+     "slug": "developpe_militaire_barre",
+     "reps": 1,
+     "charge": 30
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0331",
+     "slug": "developpe_militaire_barre",
+     "reps": 3,
+     "charge": 28
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0331",
+     "slug": "developpe_militaire_barre",
+     "reps": 5,
+     "charge": 26
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0332",
+     "slug": "developpe_militaire_barre",
+     "reps": 1,
+     "charge": 30
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0332",
+     "slug": "developpe_militaire_barre",
+     "reps": 3,
+     "charge": 28
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0332",
+     "slug": "developpe_militaire_barre",
+     "reps": 5,
+     "charge": 26
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0333",
+     "slug": "developpe_militaire_barre",
+     "reps": 1,
+     "charge": 30
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0333",
+     "slug": "developpe_militaire_barre",
+     "reps": 3,
+     "charge": 28
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0333",
+     "slug": "developpe_militaire_barre",
+     "reps": 5,
+     "charge": 26
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0334",
+     "slug": "developpe_militaire_barre",
+     "reps": 1,
+     "charge": 30
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0334",
+     "slug": "developpe_militaire_barre",
+     "reps": 3,
+     "charge": 28
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0334",
+     "slug": "developpe_militaire_barre",
+     "reps": 5,
+     "charge": 26
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0335",
+     "slug": "developpe_militaire_barre",
+     "reps": 1,
+     "charge": 30
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0335",
+     "slug": "developpe_militaire_barre",
+     "reps": 3,
+     "charge": 28
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0335",
+     "slug": "developpe_militaire_barre",
+     "reps": 5,
+     "charge": 26
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0336",
+     "slug": "developpe_militaire_barre",
+     "reps": 1,
+     "charge": 30
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0336",
+     "slug": "developpe_militaire_barre",
+     "reps": 3,
+     "charge": 28
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0336",
+     "slug": "developpe_militaire_barre",
+     "reps": 5,
+     "charge": 26
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0337",
+     "slug": "souleve_de_terre_barre",
+     "reps": 1,
+     "charge": 115
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0337",
+     "slug": "souleve_de_terre_barre",
+     "reps": 3,
+     "charge": 105
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0337",
+     "slug": "souleve_de_terre_barre",
+     "reps": 5,
+     "charge": 100
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0337",
+     "slug": "souleve_de_terre_barre",
+     "reps": 8,
+     "charge": 90
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0338",
+     "slug": "souleve_de_terre_barre",
+     "reps": 1,
+     "charge": 115
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0338",
+     "slug": "souleve_de_terre_barre",
+     "reps": 3,
+     "charge": 105
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0338",
+     "slug": "souleve_de_terre_barre",
+     "reps": 5,
+     "charge": 100
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0338",
+     "slug": "souleve_de_terre_barre",
+     "reps": 8,
+     "charge": 90
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0339",
+     "slug": "souleve_de_terre_barre",
+     "reps": 1,
+     "charge": 115
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0339",
+     "slug": "souleve_de_terre_barre",
+     "reps": 3,
+     "charge": 105
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0339",
+     "slug": "souleve_de_terre_barre",
+     "reps": 5,
+     "charge": 100
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0339",
+     "slug": "souleve_de_terre_barre",
+     "reps": 8,
+     "charge": 90
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0340",
+     "slug": "souleve_de_terre_barre",
+     "reps": 1,
+     "charge": 115
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0340",
+     "slug": "souleve_de_terre_barre",
+     "reps": 3,
+     "charge": 105
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0340",
+     "slug": "souleve_de_terre_barre",
+     "reps": 5,
+     "charge": 100
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0340",
+     "slug": "souleve_de_terre_barre",
+     "reps": 8,
+     "charge": 90
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0341",
+     "slug": "souleve_de_terre_barre",
+     "reps": 1,
+     "charge": 115
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0341",
+     "slug": "souleve_de_terre_barre",
+     "reps": 3,
+     "charge": 105
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0341",
+     "slug": "souleve_de_terre_barre",
+     "reps": 5,
+     "charge": 100
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0341",
+     "slug": "souleve_de_terre_barre",
+     "reps": 8,
+     "charge": 90
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0342",
+     "slug": "souleve_de_terre_barre",
+     "reps": 1,
+     "charge": 115
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0342",
+     "slug": "souleve_de_terre_barre",
+     "reps": 3,
+     "charge": 105
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0342",
+     "slug": "souleve_de_terre_barre",
+     "reps": 5,
+     "charge": 100
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0342",
+     "slug": "souleve_de_terre_barre",
+     "reps": 8,
+     "charge": 90
+    }
+   ]
+  },
+  "attendu": {
+   "exercices": [
+    {
+     "slug": "developpe_couche_barre",
+     "nom": "Développé Couché (Barre)",
+     "zone": "poitrine",
+     "muscle": "pectoraux",
+     "nP": 6,
+     "nR": 0,
+     "poids": 2,
+     "etat": "moins",
+     "methode": null,
+     "detail": [],
+     "ecart": null,
+     "k": null,
+     "relais": []
+    },
+    {
+     "slug": "developpe_militaire_barre",
+     "nom": "Développé Militaire (Barre)",
+     "zone": "epaules",
+     "muscle": "deltoide_anterieur",
+     "nP": 6,
+     "nR": 0,
+     "poids": 2,
+     "etat": "moins",
+     "methode": null,
+     "detail": [],
+     "ecart": null,
+     "k": null,
+     "relais": []
+    },
+    {
+     "slug": "souleve_de_terre_barre",
+     "nom": "Soulevé de Terre (Barre)",
+     "zone": "jambes",
+     "muscle": "ischio_jambiers",
+     "nP": 6,
+     "nR": 0,
+     "poids": 2,
+     "etat": "moins",
+     "methode": null,
+     "detail": [],
+     "ecart": null,
+     "k": null,
+     "relais": []
+    },
+    {
+     "slug": "squat_barre",
+     "nom": "Squat (Barre)",
+     "zone": "jambes",
+     "muscle": "quadriceps",
+     "nP": 6,
+     "nR": 0,
+     "poids": 2,
+     "etat": "moins",
+     "methode": null,
+     "detail": [],
+     "ecart": null,
+     "k": null,
+     "relais": []
+    }
+   ],
+   "zones": [
+    {
+     "zone": "jambes",
+     "libelle": "Jambes",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas assez de séances comparables"
+    },
+    {
+     "zone": "dos",
+     "libelle": "Dos",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "bras",
+     "libelle": "Bras",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "epaules",
+     "libelle": "Épaules",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas assez de séances comparables"
+    },
+    {
+     "zone": "poitrine",
+     "libelle": "Poitrine",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas assez de séances comparables"
+    },
+    {
+     "zone": "tronc",
+     "libelle": "Tronc",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    }
+   ],
+   "levier": null,
+   "rapports": [
+    {
+     "num": "squat_barre",
+     "den": "developpe_couche_barre",
+     "rapport": "101/60",
+     "repere": "38/25",
+     "lecture": "au-dessus",
+     "reps": [
+      1,
+      3,
+      5,
+      8
+     ],
+     "affiche": "1,68"
+    },
+    {
+     "num": "developpe_militaire_barre",
+     "den": "developpe_couche_barre",
+     "rapport": "26/47",
+     "repere": "63/100",
+     "lecture": "en dessous",
+     "reps": [
+      1,
+      3,
+      5
+     ],
+     "affiche": "0,55",
+     "ecart_kg": 5
+    },
+    {
+     "num": "souleve_de_terre_barre",
+     "den": "squat_barre",
+     "rapport": "91/72",
+     "repere": "5/4",
+     "lecture": "proche",
+     "reps": [
+      1,
+      3,
+      5,
+      8
+     ],
+     "affiche": "1,26"
+    }
+   ],
+   "courbes": [
+    {
+     "slug": "squat_barre",
+     "mois": [
+      [
+       "2025-11",
+       "80"
+      ],
+      [
+       "2025-12",
+       "80"
+      ],
+      [
+       "2026-01",
+       "80"
+      ],
+      [
+       "2026-02",
+       "80"
+      ],
+      [
+       "2026-03",
+       "80"
+      ],
+      [
+       "2026-04",
+       "80"
+      ]
+     ],
+     "debut": "80",
+     "meilleur": "80",
+     "maintenant": "80",
+     "etat": "moins"
+    },
+    {
+     "slug": "developpe_couche_barre",
+     "mois": [
+      [
+       "2025-11",
+       "47"
+      ],
+      [
+       "2025-12",
+       "47"
+      ],
+      [
+       "2026-01",
+       "47"
+      ],
+      [
+       "2026-02",
+       "47"
+      ],
+      [
+       "2026-03",
+       "47"
+      ],
+      [
+       "2026-04",
+       "47"
+      ]
+     ],
+     "debut": "47",
+     "meilleur": "47",
+     "maintenant": "47",
+     "etat": "moins"
+    },
+    {
+     "slug": "souleve_de_terre_barre",
+     "mois": [
+      [
+       "2025-11",
+       "100"
+      ],
+      [
+       "2025-12",
+       "100"
+      ],
+      [
+       "2026-01",
+       "100"
+      ],
+      [
+       "2026-02",
+       "100"
+      ],
+      [
+       "2026-03",
+       "100"
+      ],
+      [
+       "2026-04",
+       "100"
+      ]
+     ],
+     "debut": "100",
+     "meilleur": "100",
+     "maintenant": "100",
+     "etat": "moins"
+    },
+    {
+     "slug": "developpe_militaire_barre",
+     "mois": [
+      [
+       "2025-11",
+       "26"
+      ],
+      [
+       "2025-12",
+       "26"
+      ],
+      [
+       "2026-01",
+       "26"
+      ],
+      [
+       "2026-02",
+       "26"
+      ],
+      [
+       "2026-03",
+       "26"
+      ],
+      [
+       "2026-04",
+       "26"
+      ]
+     ],
+     "debut": "26",
+     "meilleur": "26",
+     "maintenant": "26",
+     "etat": "moins"
+    }
+   ],
+   "phrase": "Ton couché tire devant ton militaire."
+  }
+ },
+ {
+  "nom": "q-rapports-sans-sexe",
+  "quoi": "sexe non précisé : les rapports sans repère ni lecture, absents de la phrase",
+  "entree": {
+   "aujourdhui": "2026-10-11",
+   "sexe": "non_precise",
+   "priorites": [
+    "dos",
+    "jambes",
+    "epaules"
+   ],
+   "catalogue": [
+    {
+     "slug": "developpe_couche_barre",
+     "nom": "Développé Couché (Barre)",
+     "muscles_primaires": [
+      "pectoraux"
+     ],
+     "mouvement": "developpe_couche",
+     "schema_mouvement": "pousser_horizontal",
+     "habilete": false,
+     "equipement": "barre"
+    },
+    {
+     "slug": "developpe_militaire_barre",
+     "nom": "Développé Militaire (Barre)",
+     "muscles_primaires": [
+      "deltoide_anterieur"
+     ],
+     "mouvement": "developpe_epaules",
+     "schema_mouvement": "pousser_vertical",
+     "habilete": false,
+     "equipement": "barre"
+    },
+    {
+     "slug": "souleve_de_terre_barre",
+     "nom": "Soulevé de Terre (Barre)",
+     "muscles_primaires": [
+      "ischio_jambiers"
+     ],
+     "mouvement": "souleve_de_terre",
+     "schema_mouvement": "pencher",
+     "habilete": false,
+     "equipement": "barre"
+    },
+    {
+     "slug": "squat_barre",
+     "nom": "Squat (Barre)",
+     "muscles_primaires": [
+      "quadriceps"
+     ],
+     "mouvement": "squat",
+     "schema_mouvement": "accroupir",
+     "habilete": false,
+     "equipement": "barre"
+    }
+   ],
+   "series": [
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0319",
+     "slug": "squat_barre",
+     "reps": 1,
+     "charge": 90
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0319",
+     "slug": "squat_barre",
+     "reps": 3,
+     "charge": 85
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0319",
+     "slug": "squat_barre",
+     "reps": 5,
+     "charge": 80
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0319",
+     "slug": "squat_barre",
+     "reps": 8,
+     "charge": 70
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0320",
+     "slug": "squat_barre",
+     "reps": 1,
+     "charge": 90
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0320",
+     "slug": "squat_barre",
+     "reps": 3,
+     "charge": 85
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0320",
+     "slug": "squat_barre",
+     "reps": 5,
+     "charge": 80
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0320",
+     "slug": "squat_barre",
+     "reps": 8,
+     "charge": 70
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0321",
+     "slug": "squat_barre",
+     "reps": 1,
+     "charge": 90
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0321",
+     "slug": "squat_barre",
+     "reps": 3,
+     "charge": 85
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0321",
+     "slug": "squat_barre",
+     "reps": 5,
+     "charge": 80
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0321",
+     "slug": "squat_barre",
+     "reps": 8,
+     "charge": 70
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0322",
+     "slug": "squat_barre",
+     "reps": 1,
+     "charge": 90
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0322",
+     "slug": "squat_barre",
+     "reps": 3,
+     "charge": 85
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0322",
+     "slug": "squat_barre",
+     "reps": 5,
+     "charge": 80
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0322",
+     "slug": "squat_barre",
+     "reps": 8,
+     "charge": 70
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0323",
+     "slug": "squat_barre",
+     "reps": 1,
+     "charge": 90
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0323",
+     "slug": "squat_barre",
+     "reps": 3,
+     "charge": 85
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0323",
+     "slug": "squat_barre",
+     "reps": 5,
+     "charge": 80
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0323",
+     "slug": "squat_barre",
+     "reps": 8,
+     "charge": 70
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0324",
+     "slug": "squat_barre",
+     "reps": 1,
+     "charge": 90
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0324",
+     "slug": "squat_barre",
+     "reps": 3,
+     "charge": 85
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0324",
+     "slug": "squat_barre",
+     "reps": 5,
+     "charge": 80
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0324",
+     "slug": "squat_barre",
+     "reps": 8,
+     "charge": 70
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0325",
+     "slug": "developpe_couche_barre",
+     "reps": 1,
+     "charge": 55
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0325",
+     "slug": "developpe_couche_barre",
+     "reps": 3,
+     "charge": 50
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0325",
+     "slug": "developpe_couche_barre",
+     "reps": 5,
+     "charge": 47
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0325",
+     "slug": "developpe_couche_barre",
+     "reps": 8,
+     "charge": 42
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0326",
+     "slug": "developpe_couche_barre",
+     "reps": 1,
+     "charge": 55
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0326",
+     "slug": "developpe_couche_barre",
+     "reps": 3,
+     "charge": 50
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0326",
+     "slug": "developpe_couche_barre",
+     "reps": 5,
+     "charge": 47
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0326",
+     "slug": "developpe_couche_barre",
+     "reps": 8,
+     "charge": 42
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0327",
+     "slug": "developpe_couche_barre",
+     "reps": 1,
+     "charge": 55
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0327",
+     "slug": "developpe_couche_barre",
+     "reps": 3,
+     "charge": 50
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0327",
+     "slug": "developpe_couche_barre",
+     "reps": 5,
+     "charge": 47
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0327",
+     "slug": "developpe_couche_barre",
+     "reps": 8,
+     "charge": 42
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0328",
+     "slug": "developpe_couche_barre",
+     "reps": 1,
+     "charge": 55
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0328",
+     "slug": "developpe_couche_barre",
+     "reps": 3,
+     "charge": 50
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0328",
+     "slug": "developpe_couche_barre",
+     "reps": 5,
+     "charge": 47
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0328",
+     "slug": "developpe_couche_barre",
+     "reps": 8,
+     "charge": 42
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0329",
+     "slug": "developpe_couche_barre",
+     "reps": 1,
+     "charge": 55
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0329",
+     "slug": "developpe_couche_barre",
+     "reps": 3,
+     "charge": 50
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0329",
+     "slug": "developpe_couche_barre",
+     "reps": 5,
+     "charge": 47
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0329",
+     "slug": "developpe_couche_barre",
+     "reps": 8,
+     "charge": 42
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0330",
+     "slug": "developpe_couche_barre",
+     "reps": 1,
+     "charge": 55
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0330",
+     "slug": "developpe_couche_barre",
+     "reps": 3,
+     "charge": 50
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0330",
+     "slug": "developpe_couche_barre",
+     "reps": 5,
+     "charge": 47
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0330",
+     "slug": "developpe_couche_barre",
+     "reps": 8,
+     "charge": 42
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0331",
+     "slug": "developpe_militaire_barre",
+     "reps": 1,
+     "charge": 30
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0331",
+     "slug": "developpe_militaire_barre",
+     "reps": 3,
+     "charge": 28
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0331",
+     "slug": "developpe_militaire_barre",
+     "reps": 5,
+     "charge": 26
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0332",
+     "slug": "developpe_militaire_barre",
+     "reps": 1,
+     "charge": 30
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0332",
+     "slug": "developpe_militaire_barre",
+     "reps": 3,
+     "charge": 28
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0332",
+     "slug": "developpe_militaire_barre",
+     "reps": 5,
+     "charge": 26
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0333",
+     "slug": "developpe_militaire_barre",
+     "reps": 1,
+     "charge": 30
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0333",
+     "slug": "developpe_militaire_barre",
+     "reps": 3,
+     "charge": 28
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0333",
+     "slug": "developpe_militaire_barre",
+     "reps": 5,
+     "charge": 26
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0334",
+     "slug": "developpe_militaire_barre",
+     "reps": 1,
+     "charge": 30
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0334",
+     "slug": "developpe_militaire_barre",
+     "reps": 3,
+     "charge": 28
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0334",
+     "slug": "developpe_militaire_barre",
+     "reps": 5,
+     "charge": 26
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0335",
+     "slug": "developpe_militaire_barre",
+     "reps": 1,
+     "charge": 30
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0335",
+     "slug": "developpe_militaire_barre",
+     "reps": 3,
+     "charge": 28
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0335",
+     "slug": "developpe_militaire_barre",
+     "reps": 5,
+     "charge": 26
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0336",
+     "slug": "developpe_militaire_barre",
+     "reps": 1,
+     "charge": 30
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0336",
+     "slug": "developpe_militaire_barre",
+     "reps": 3,
+     "charge": 28
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0336",
+     "slug": "developpe_militaire_barre",
+     "reps": 5,
+     "charge": 26
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0337",
+     "slug": "souleve_de_terre_barre",
+     "reps": 1,
+     "charge": 115
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0337",
+     "slug": "souleve_de_terre_barre",
+     "reps": 3,
+     "charge": 105
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0337",
+     "slug": "souleve_de_terre_barre",
+     "reps": 5,
+     "charge": 100
+    },
+    {
+     "debut": "2026-04-04T18:00",
+     "seance": "s0337",
+     "slug": "souleve_de_terre_barre",
+     "reps": 8,
+     "charge": 90
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0338",
+     "slug": "souleve_de_terre_barre",
+     "reps": 1,
+     "charge": 115
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0338",
+     "slug": "souleve_de_terre_barre",
+     "reps": 3,
+     "charge": 105
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0338",
+     "slug": "souleve_de_terre_barre",
+     "reps": 5,
+     "charge": 100
+    },
+    {
+     "debut": "2026-03-05T18:00",
+     "seance": "s0338",
+     "slug": "souleve_de_terre_barre",
+     "reps": 8,
+     "charge": 90
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0339",
+     "slug": "souleve_de_terre_barre",
+     "reps": 1,
+     "charge": 115
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0339",
+     "slug": "souleve_de_terre_barre",
+     "reps": 3,
+     "charge": 105
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0339",
+     "slug": "souleve_de_terre_barre",
+     "reps": 5,
+     "charge": 100
+    },
+    {
+     "debut": "2026-02-03T18:00",
+     "seance": "s0339",
+     "slug": "souleve_de_terre_barre",
+     "reps": 8,
+     "charge": 90
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0340",
+     "slug": "souleve_de_terre_barre",
+     "reps": 1,
+     "charge": 115
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0340",
+     "slug": "souleve_de_terre_barre",
+     "reps": 3,
+     "charge": 105
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0340",
+     "slug": "souleve_de_terre_barre",
+     "reps": 5,
+     "charge": 100
+    },
+    {
+     "debut": "2026-01-04T18:00",
+     "seance": "s0340",
+     "slug": "souleve_de_terre_barre",
+     "reps": 8,
+     "charge": 90
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0341",
+     "slug": "souleve_de_terre_barre",
+     "reps": 1,
+     "charge": 115
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0341",
+     "slug": "souleve_de_terre_barre",
+     "reps": 3,
+     "charge": 105
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0341",
+     "slug": "souleve_de_terre_barre",
+     "reps": 5,
+     "charge": 100
+    },
+    {
+     "debut": "2025-12-05T18:00",
+     "seance": "s0341",
+     "slug": "souleve_de_terre_barre",
+     "reps": 8,
+     "charge": 90
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0342",
+     "slug": "souleve_de_terre_barre",
+     "reps": 1,
+     "charge": 115
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0342",
+     "slug": "souleve_de_terre_barre",
+     "reps": 3,
+     "charge": 105
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0342",
+     "slug": "souleve_de_terre_barre",
+     "reps": 5,
+     "charge": 100
+    },
+    {
+     "debut": "2025-11-05T18:00",
+     "seance": "s0342",
+     "slug": "souleve_de_terre_barre",
+     "reps": 8,
+     "charge": 90
+    }
+   ]
+  },
+  "attendu": {
+   "exercices": [
+    {
+     "slug": "developpe_couche_barre",
+     "nom": "Développé Couché (Barre)",
+     "zone": "poitrine",
+     "muscle": "pectoraux",
+     "nP": 6,
+     "nR": 0,
+     "poids": 2,
+     "etat": "moins",
+     "methode": null,
+     "detail": [],
+     "ecart": null,
+     "k": null,
+     "relais": []
+    },
+    {
+     "slug": "developpe_militaire_barre",
+     "nom": "Développé Militaire (Barre)",
+     "zone": "epaules",
+     "muscle": "deltoide_anterieur",
+     "nP": 6,
+     "nR": 0,
+     "poids": 2,
+     "etat": "moins",
+     "methode": null,
+     "detail": [],
+     "ecart": null,
+     "k": null,
+     "relais": []
+    },
+    {
+     "slug": "souleve_de_terre_barre",
+     "nom": "Soulevé de Terre (Barre)",
+     "zone": "jambes",
+     "muscle": "ischio_jambiers",
+     "nP": 6,
+     "nR": 0,
+     "poids": 2,
+     "etat": "moins",
+     "methode": null,
+     "detail": [],
+     "ecart": null,
+     "k": null,
+     "relais": []
+    },
+    {
+     "slug": "squat_barre",
+     "nom": "Squat (Barre)",
+     "zone": "jambes",
+     "muscle": "quadriceps",
+     "nP": 6,
+     "nR": 0,
+     "poids": 2,
+     "etat": "moins",
+     "methode": null,
+     "detail": [],
+     "ecart": null,
+     "k": null,
+     "relais": []
+    }
+   ],
+   "zones": [
+    {
+     "zone": "jambes",
+     "libelle": "Jambes",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas assez de séances comparables"
+    },
+    {
+     "zone": "dos",
+     "libelle": "Dos",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "bras",
+     "libelle": "Bras",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "epaules",
+     "libelle": "Épaules",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas assez de séances comparables"
+    },
+    {
+     "zone": "poitrine",
+     "libelle": "Poitrine",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas assez de séances comparables"
+    },
+    {
+     "zone": "tronc",
+     "libelle": "Tronc",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    }
+   ],
+   "levier": null,
+   "rapports": [
+    {
+     "num": "squat_barre",
+     "den": "developpe_couche_barre",
+     "rapport": "101/60",
+     "repere": null,
+     "lecture": null,
+     "reps": [
+      1,
+      3,
+      5,
+      8
+     ],
+     "affiche": "1,68"
+    },
+    {
+     "num": "developpe_militaire_barre",
+     "den": "developpe_couche_barre",
+     "rapport": "26/47",
+     "repere": null,
+     "lecture": null,
+     "reps": [
+      1,
+      3,
+      5
+     ],
+     "affiche": "0,55"
+    },
+    {
+     "num": "souleve_de_terre_barre",
+     "den": "squat_barre",
+     "rapport": "91/72",
+     "repere": null,
+     "lecture": null,
+     "reps": [
+      1,
+      3,
+      5,
+      8
+     ],
+     "affiche": "1,26"
+    }
+   ],
+   "courbes": [
+    {
+     "slug": "squat_barre",
+     "mois": [
+      [
+       "2025-11",
+       "80"
+      ],
+      [
+       "2025-12",
+       "80"
+      ],
+      [
+       "2026-01",
+       "80"
+      ],
+      [
+       "2026-02",
+       "80"
+      ],
+      [
+       "2026-03",
+       "80"
+      ],
+      [
+       "2026-04",
+       "80"
+      ]
+     ],
+     "debut": "80",
+     "meilleur": "80",
+     "maintenant": "80",
+     "etat": "moins"
+    },
+    {
+     "slug": "developpe_couche_barre",
+     "mois": [
+      [
+       "2025-11",
+       "47"
+      ],
+      [
+       "2025-12",
+       "47"
+      ],
+      [
+       "2026-01",
+       "47"
+      ],
+      [
+       "2026-02",
+       "47"
+      ],
+      [
+       "2026-03",
+       "47"
+      ],
+      [
+       "2026-04",
+       "47"
+      ]
+     ],
+     "debut": "47",
+     "meilleur": "47",
+     "maintenant": "47",
+     "etat": "moins"
+    },
+    {
+     "slug": "souleve_de_terre_barre",
+     "mois": [
+      [
+       "2025-11",
+       "100"
+      ],
+      [
+       "2025-12",
+       "100"
+      ],
+      [
+       "2026-01",
+       "100"
+      ],
+      [
+       "2026-02",
+       "100"
+      ],
+      [
+       "2026-03",
+       "100"
+      ],
+      [
+       "2026-04",
+       "100"
+      ]
+     ],
+     "debut": "100",
+     "meilleur": "100",
+     "maintenant": "100",
+     "etat": "moins"
+    },
+    {
+     "slug": "developpe_militaire_barre",
+     "mois": [
+      [
+       "2025-11",
+       "26"
+      ],
+      [
+       "2025-12",
+       "26"
+      ],
+      [
+       "2026-01",
+       "26"
+      ],
+      [
+       "2026-02",
+       "26"
+      ],
+      [
+       "2026-03",
+       "26"
+      ],
+      [
+       "2026-04",
+       "26"
+      ]
+     ],
+     "debut": "26",
+     "meilleur": "26",
+     "maintenant": "26",
+     "etat": "moins"
+    }
+   ],
+   "phrase": ""
+  }
+ },
+ {
+  "nom": "o-bornes",
+  "quoi": "J-182 compte en R, J-183 et J-365 en P, J-366 et le futur hors période ; courbes : tout l’historique jusqu’à J",
+  "entree": {
+   "aujourdhui": "2026-10-11",
+   "sexe": "homme",
+   "priorites": [
+    "dos",
+    "jambes",
+    "epaules"
+   ],
+   "catalogue": [
+    {
+     "slug": "presse_a_cuisses",
+     "nom": "Presse à Cuisses",
+     "muscles_primaires": [
+      "quadriceps"
+     ],
+     "mouvement": "presse_a_cuisses",
+     "schema_mouvement": "accroupir",
+     "habilete": false,
+     "equipement": "machine"
+    },
+    {
+     "slug": "squat_barre",
+     "nom": "Squat (Barre)",
+     "muscles_primaires": [
+      "quadriceps"
+     ],
+     "mouvement": "squat",
+     "schema_mouvement": "accroupir",
+     "habilete": false,
+     "equipement": "barre"
+    }
+   ],
+   "series": [
+    {
+     "debut": "2026-04-12T18:00",
+     "seance": "s0343",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 232
+    },
+    {
+     "debut": "2026-04-11T18:00",
+     "seance": "s0344",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 233
+    },
+    {
+     "debut": "2025-10-11T18:00",
+     "seance": "s0345",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 215
+    },
+    {
+     "debut": "2025-10-10T18:00",
+     "seance": "s0346",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 216
+    },
+    {
+     "debut": "2026-10-12T18:00",
+     "seance": "s0347",
+     "slug": "presse_a_cuisses",
+     "reps": 10,
+     "charge": 249
+    },
+    {
+     "debut": "2024-11-10T18:00",
+     "seance": "s0348",
+     "slug": "squat_barre",
+     "reps": 5,
+     "charge": 100
+    },
+    {
+     "debut": "2025-09-06T18:00",
+     "seance": "s0349",
+     "slug": "squat_barre",
+     "reps": 5,
+     "charge": 100
+    },
+    {
+     "debut": "2026-10-01T18:00",
+     "seance": "s0350",
+     "slug": "squat_barre",
+     "reps": 5,
+     "charge": 100
+    },
+    {
+     "debut": "2026-10-12T18:00",
+     "seance": "s0351",
+     "slug": "squat_barre",
+     "reps": 5,
+     "charge": 200
+    }
+   ]
+  },
+  "attendu": {
+   "exercices": [
+    {
+     "slug": "presse_a_cuisses",
+     "nom": "Presse à Cuisses",
+     "zone": "jambes",
+     "muscle": "quadriceps",
+     "nP": 2,
+     "nR": 1,
+     "poids": 1,
+     "etat": "peu",
+     "methode": null,
+     "detail": [],
+     "ecart": null,
+     "k": null
+    },
+    {
+     "slug": "squat_barre",
+     "nom": "Squat (Barre)",
+     "zone": "jambes",
+     "muscle": "quadriceps",
+     "nP": 0,
+     "nR": 1,
+     "poids": 2,
+     "etat": "peu",
+     "methode": null,
+     "detail": [],
+     "ecart": null,
+     "k": null
+    }
+   ],
+   "zones": [
+    {
+     "zone": "jambes",
+     "libelle": "Jambes",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas assez de séances comparables"
+    },
+    {
+     "zone": "dos",
+     "libelle": "Dos",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "bras",
+     "libelle": "Bras",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "epaules",
+     "libelle": "Épaules",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "poitrine",
+     "libelle": "Poitrine",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    },
+    {
+     "zone": "tronc",
+     "libelle": "Tronc",
+     "verdict": null,
+     "score": null,
+     "votants": 0,
+     "raison": "pas encore suivi en charge"
+    }
+   ],
+   "levier": null,
+   "rapports": [],
+   "courbes": [
+    {
+     "slug": "squat_barre",
+     "mois": [
+      [
+       "2024-11",
+       "100"
+      ],
+      [
+       "2025-09",
+       "100"
+      ],
+      [
+       "2026-10",
+       "100"
+      ]
+     ],
+     "debut": "100",
+     "meilleur": "100",
+     "maintenant": "100",
+     "etat": "peu"
+    }
+   ],
+   "phrase": ""
+  }
+ }
+]

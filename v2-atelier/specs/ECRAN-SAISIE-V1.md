@@ -1026,6 +1026,105 @@ L'écran est utile **sans rien toucher**, et chaque bloc arrive quand il est pr�
 **La barre de semaine n'appartient pas au sommaire** : le volume est hebdomadaire, le poids
 et les records ne le sont pas. Elle vit dans la vue Volume.
 
+
+### 7 bis.14 ter « Ton parcours » — décidé le 11/10/2026 (chantier 75)
+
+> **Le bilan de toute ta progression, pas du mois.** Un bloc du sommaire de Progression, juste après « Le mois
+> écoulé » : sa phrase en deux lignes, et il s'ouvre sur la page « Ton parcours ». Il se recalcule à chaque
+> ouverture, sur tout le corpus ; il n'écrit rien.
+
+**Pourquoi** : un pratiquant assidu sans coach n'a personne pour lui dire où il en est. Hevy et Strong montrent des
+courbes par exercice ; **aucun ne sépare « tu recules » de « tu fais moins cet exercice »**, aucun ne dit ce qui a pris
+le relais, aucun ne juge un groupe de muscles. Le calcul est une règle fixe, testée sur les séances d'aurel_br : une IA
+rendrait un verdict différent d'un jour à l'autre sur les mêmes données (décidé le 11/10 ; l'assistant pourra le lire,
+jamais le décider).
+
+**Les deux périodes** : J = aujourd'hui (jour de Paris). **Récente (R)** : du jour J−182 au jour J inclus.
+**Précédente (P)** : du jour J−365 au jour J−183 inclus. Une séance hors des deux ne compte pas pour les verdicts.
+Seules les séries de travail comptent (`Modele.estTravail`) ; une « cellule » est une série de travail avec une charge
+positive et de 1 à 15 reps.
+
+**Le verdict d'un exercice** — un exercice du catalogue, hors habileté, dont le premier muscle principal a une zone
+(`THSemaine.zoneDuMuscle`), et qui a au moins une cellule dans P ou R. nP, nR = ses séances (au moins une série de
+travail, avec ou sans charge) dans chaque période. Dans l'ordre, le premier qui s'applique :
+1. **« moins pratiqué »** : nP ≥ 5 et 2 × nR < nP. Il ne vote pas. **Son relais** : les exercices de même premier muscle
+   principal, frère (`freresDe`) ou de la même famille (`cousinsDe`), avec nR ≥ 5 et nR > nP ; les deux premiers par
+   nR décroissant puis par slug. La ligne : « moins pratiqué » et, s'il y en a, « → » leurs noms.
+2. **« nouveau »** : nR ≥ 5 et nP < 5. Il ne vote pas.
+3. **« peu »** : nP < 5 ou nR < 5. Il ne vote pas, et ne paraît que dans « Tous tes exercices ».
+4. **À reps égales**, si P et R ont au moins **deux nombres de reps en commun** : pour chaque nombre de reps commun, la
+   charge la plus lourde de R contre celle de P ; hausse si R > P × 1,025, baisse si R < P × 0,975. Avec h hausses,
+   b baisses sur n reps communs : ↑ si h − b ≥ 2, ou si b = 0 et 2h ≥ n (h ≥ 1) ; ↓ à l'inverse ; sinon ↗ si h > b,
+   ↘ si b > h, ▬ si h = b.
+5. **Courbe personnelle**, sinon, si les cellules de P et R à 12 reps ou moins ont au moins trois nombres de reps
+   différents, et au moins une dans chaque période : ln(charge) + ln(1 + k × reps) = niveau de la période, k appris sur
+   ses propres cellules (k de 0,005 à 0,080 par pas de 0,001 ; le niveau d'une période est le plus haut de ses
+   cellules ; on garde le k de plus petite somme des carrés des écarts, le plus petit à égalité ; un k au bord, 0,005
+   ou 0,080, ne s'apprend pas : on prend 1/30). Écart = e^(niveau R − niveau P) − 1 : ↑ au-delà de +5 %, ↗ au-delà de
+   +2,5 %, ↓ en deçà de −5 %, ↘ en deçà de −2,5 %, ▬ sinon. **Elle n'est jamais affichée** comme un chiffre : la ligne
+   dit « sur ta courbe » et le sens.
+6. **« pas comparable »** sinon : « tu as changé de fourchette ».
+
+**Le verdict d'un groupe** (les six zones de `THSemaine.ZONES`) : les exercices qui votent (↑ ↗ ▬ ↘ ↓, valant 2, 1, 0,
+−1, −2) ; **le squat, le couché, le soulevé et le militaire à la barre comptent double**. Moins de deux votants : pas de
+verdict — « pas assez de séances comparables », ou « pas encore suivi en charge » si la zone n'a aucun exercice en
+charge. Sinon la moyenne pondérée, en fraction exacte : ↑ dès 1, ↗ dès 1/4, ▬ au-dessus de −1/4, ↘ au-dessus de −1,
+↓ sinon. Le libellé du groupe vient de `ZONES` (« Poitrine », pas « Pectoraux ») ; au toucher, ses exercices.
+
+**Le levier** : parmi les priorités du profil (`Profil.prioritesDe`), dans leur ordre, le groupe à verdict de plus
+petite moyenne ; à égalité, la première priorité. Sans priorité : tous les groupes à verdict, dans l'ordre de `ZONES`.
+Aucun groupe à verdict : pas de levier. La phrase ne dit pas « retard » quand le groupe progresse : « ce qui avance le
+plus lentement ».
+
+**Tes équilibres** — trois rapports, sur les douze mois (P et R), à la barre, de 1 à 10 reps : pour chaque nombre de
+reps commun aux deux mouvements, la charge la plus lourde de l'un sur celle de l'autre ; il en faut au moins trois ; le
+rapport retenu est **la médiane** (moyenne des deux du milieu en nombre pair), affiché au centième, arrondi au plus
+proche (la moitié vers le haut).
+
+| Rapport | Repère hommes | Repère femmes |
+|---|---|---|
+| squat / couché | 1,21 | 1,52 |
+| militaire / couché | 0,57 | 0,63 |
+| soulevé / squat | 1,25 | 1,25 |
+
+**Source** : standards StrengthLog, tirés des carnets d'entraînement de leurs utilisateurs (couché 17 296 hommes et
+7 112 femmes, squat 15 314 et 6 760, soulevé 15 107 et 6 570, militaire 14 081 et 5 711) ; le repère est la moyenne des
+rapports des niveaux intermédiaire et avancé de leurs standards d'ensemble (hommes : 120/100 et 147/120 ; 57/100 et
+68/120 ; 150/120 et 184/147 · femmes : 70/47 et 90/58 ; 30/47 et 36/58 ; 89/70 et 110/90). **Le repère suit le sexe du
+profil** (`profiles.sexe`) ; « non précisé » : les rapports s'affichent sans repère, sans lecture, et la phrase n'en
+parle pas.
+
+Lecture : « en dessous » sous 95 % du repère, « au-dessus » au-delà de 105 %, « proche » sinon. En dessous :
+« environ +N kg » = repère × la plus lourde du second mouvement (1 à 10 reps, douze mois) − la plus lourde du premier,
+arrondi au kilo. **Ce sont des pratiquants, pas des compétiteurs** : les compétiteurs mettent le squat à 1,5 fois le
+couché (OpenPowerlifting), ce qui n'est pas notre cible (CADRAGE). On ne reprend **que des rapports**, jamais une force
+absolue, et aucune comparaison à une personne. Pas de rouge, pas d'« alerte » ; au toucher, « pourquoi possible » :
+morphologie, mouvement travaillé plus tôt et plus souvent, priorités passées.
+
+**Les courbes des grands mouvements** : pour chacun des quatre, tout l'historique jusqu'à J, mois par mois, la charge la
+plus lourde à 5 reps ou plus (de 5 à 15) ; une ligne dorée pour « ton meilleur » (le plus haut atteint jusque-là), un
+point par mois ; sous la courbe, « au début », « ton meilleur », « en ce moment » (le dernier mois) ; en titre, le
+verdict de l'exercice. **Aucun e1RM, aucun score, aucune comparaison à d'autres, rien sur l'assiduité.**
+
+**La phrase** (le bloc du sommaire et le haut de la page) : sur les groupes à verdict, m en tout, k en ↑ ou ↗ —
+« Tes six derniers mois : les {k en lettres} groupes que tu suis progressent. » si k = m (« le groupe que tu suis
+progresse. » si m = 1) ; « {k} groupes sur {m} progressent. » sinon (« un groupe sur {m} progresse. » si k = 1 ; « pas
+encore de groupe en hausse. » si k = 0) ; puis, s'il y a un levier et au moins deux groupes à verdict,
+« {Groupe} : ce qui avance le plus lentement. » ; puis, si un rapport est en dessous, celui qui en est le plus loin
+(rapport / repère le plus petit ; à égalité, l'ordre du tableau) : « Ton {second} tire devant ton {premier}. »
+(squat, couché, soulevé, militaire).
+
+**L'ordre de la page** : la phrase · les courbes · par muscle (les six groupes, puis au toucher les lignes de chaque
+exercice : verdict, méthode, et les charges à reps égales « 79 → 107 à 8 reps », ou « sur ta courbe », ou « moins
+pratiqué → … ») · tes équilibres · ton levier · ta phase (la phase du profil, et les pesées : « pas assez de pesées »
+sous quatre pesées dans les huit dernières semaines) · tous tes exercices (replié ; chacun ouvre sa page d'exercice
+par la porte habituelle, §7 quater).
+
+**Écarté, avec la raison** : l'e1RM comme verdict (il dit « squat stable » quand la barre a pris 10 kg à 5 reps : il
+mélange les fourchettes) ; un exercice fait 3 ou 4 fois (verdicts fragiles, mesuré : rowing prise large −8 % sur 3
+séances) ; dix-huit muscles d'emblée (la moitié n'aurait pas assez de séries) ; les normes de machines (aucune source
+fiable) ; une IA pour le verdict.
+
 ### 7 bis.15 La vue d'un exercice
 
 Cinq vues de courbe, sélecteur en pastilles, trois périodes (3 mois · 1 an · tout).

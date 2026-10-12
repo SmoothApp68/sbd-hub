@@ -79,6 +79,17 @@
     return String(arrondi(n, decimales === undefined ? 2 : decimales)).replace('.', ',');
   }
 
+  // 75 — Un nombre à DÉCIMALES FIXES : « 0,50 », « 1,04 » (un rapport de force s'écrit au centième, zéros compris).
+  // Le même arrondi que `nombreTexte`, puis les zéros qui manquent.
+  function nombreFixe(v, decimales) {
+    var t = nombreTexte(v, decimales);
+    if (t === '' || !decimales) return t;
+    var i = t.indexOf(',');
+    if (i < 0) { t += ','; i = t.length - 1; }
+    while (t.length - i - 1 < decimales) t += '0';
+    return t;
+  }
+
   // Un nombre TEL QUEL (sans arrondi) : séparateur décimal français, et le
   // vrai signe moins (U+2212), jamais le trait d'union du clavier — une
   // assistance se note « −50 kg ».
@@ -1963,6 +1974,8 @@
     plageDeSeance: plageDeSeance,
     MOIS_LONGS: MOIS_LONGS,
     arrondi: arrondi,
+    nombreFixe: nombreFixe,
+    nombreTexte: nombreTexte,
     nombreSigne: nombreSigne,
     lireNombre: lireNombre,
     // §9.17 — l'aide : tapée en positif, rangée en négatif, lue sans signe.

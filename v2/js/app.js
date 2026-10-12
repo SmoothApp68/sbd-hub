@@ -27,6 +27,8 @@
   var Rejeu = racine.THRejeu, Bilan = racine.THBilan;
   // 64B — le jeu (JEU-V1 §9) : l'écran le LIT, il ne le refait pas ; le coach ne le lit jamais.
   var Jeu = racine.THJeu;
+  // 75 — « Ton parcours » : l'écran lit le parcours par `faits.parcoursDe` ; d'ici, seuls les noms courts des barres.
+  var Parcours = racine.THParcours;
   // 59-2 — « Quitter » : la fenêtre des séances pas encore envoyées, et ce qu'on efface.
   var Quitter = racine.THQuitter;
   // 58-1 — LE MODULE DES FAITS : l'assemblage des faits (séances et séries,
@@ -1121,6 +1123,7 @@
     var mois = Bilan.moisEcoule(new Date());
     var b = bilanDuMoisDe(mois);
     var dernier = faits.dernierRecord(corpus());
+    profilDuParcours = cleDuParcoursDuProfil(profil);
     Rendu.rendreSommaire($('sommaire'), {
       mois: {
         titre: nomDuMois(mois, false),
@@ -1128,6 +1131,11 @@
         records: faits.recordsDuMois(corpus(), mois).length,
         paris: { verifies: b.paris_verifies, tenus: b.paris_tenus },
         surChoix: function () { afficherMois(mois); }
+      },
+      // 75 — « Ton parcours », juste après « Le mois écoulé » : sa phrase, il s'ouvre sur la page.
+      parcours: {
+        phrase: faits.parcoursDe(corpus(), new Date(), profil).phrase,
+        surChoix: afficherParcours
       },
       records: {
         dernier: dernier ? { texte: dernier.nom + ' ' + dernier.mesure,
@@ -1144,6 +1152,48 @@
         surChoix: function () { allerA(Routeur.POIDS, {}); rendrePoids(); }
       },
       exercices: sommaireExercices(function (slug) { afficherExercice(slug); })
+    });
+  }
+
+  // ── 75 — « TON PARCOURS » (ECRAN-SAISIE §7 bis.14 ter, maquette v3) ───────
+  //
+  // ⚠️ L'ÉCRAN LIT LE PARCOURS, IL NE LE REFAIT PAS : `faits.parcoursDe` (le module des faits, qui l'assemble et le
+  // mémorise) rend les verdicts, les rapports, le levier et la phrase. Ce que l'écran ajoute ne décide rien : les
+  // libellés des priorités, la phase du profil et le nombre de pesées des huit dernières semaines. Rien n'est écrit.
+  var JOURS_DES_PESEES = 56, PESEES_SUFFISANTES = 4;
+  // ⚠️ LE PROFIL ARRIVE APRÈS L'ÉCRAN (trouvé par le banc [P75]). « Ton parcours » lit le sexe (les repères) et les
+  // priorités (le levier) : affiché avec le profil du cache (ou sans), la phrase perdait son rapport. On retient ce
+  // que l'écran a lu ; quand la ligne arrive et qu'il diffère, le sommaire ou la page se repeint — et seulement
+  // alors, pour ne pas refermer un groupe qu'on vient d'ouvrir.
+  var profilDuParcours = null;
+  function cleDuParcoursDuProfil(p) {
+    return String(p && p.sexe) + '|' + Profil.prioritesDe(p).join(',');
+  }
+  function parcoursSuitLeProfil() {
+    if (ecranCourant !== 'progression' && ecranCourant !== 'parcours') return;
+    if (cleDuParcoursDuProfil(profil) === profilDuParcours) return;
+    if (ecranCourant === 'progression') rendreProgression();
+    else rendreParcours();
+  }
+  function afficherParcours() {
+    allerA(Routeur.PARCOURS, {});
+    rendreParcours();
+  }
+  function rendreParcours() {
+    montrer('parcours', Routeur.PARCOURS);
+    var p = faits.parcoursDe(corpus(), new Date(), profil);
+    profilDuParcours = cleDuParcoursDuProfil(profil);
+    var libelles = {};
+    p.zones.forEach(function (z) { libelles[z.zone] = z.libelle.toLowerCase(); });
+    var pesees = Poids.filtrer(local.pesees, JOURS_DES_PESEES, new Date()).length;
+    Rendu.rendreParcours($('parcours'), {
+      parcours: p,
+      nomsCourts: Parcours.NOM_COURT,
+      priorites: Profil.prioritesDe(profil).filter(function (c) { return libelles[c]; }).map(function (c) { return libelles[c]; }),
+      phase: Profil.phraseRappelDePhase(profil) || Profil.LIBELLE_PHASE_VIDE,
+      pesees: { nombre: pesees, assez: pesees >= PESEES_SUFFISANTES },
+      // « Tous tes exercices » : chacun ouvre sa page par la porte commune (§7 quater).
+      surExercice: function (slug) { afficherExercice(slug); }
     });
   }
 
@@ -9392,6 +9442,7 @@
     rendreBandeauPhase();
     rendreCarteCycles();                       // 60-4 : la carte « Passer en cycles » lit le même profil
     jeuSuitLeProfil();                         // 64B : l'interrupteur a pu changer sur un autre appareil
+    parcoursSuitLeProfil();                    // 75 : « Ton parcours » lit le sexe et les priorités
     // 60-2a — LA LIGNE DE PROFIL EST CONNUE : c'est ICI que la décision d'ouvrir le
     // questionnaire se reprend, au premier démarrage d'un compte neuf comme aux
     // suivants. Prise sur le seul cache, elle ne routait un compte neuf qu'au
@@ -11138,6 +11189,7 @@
     if (cible.vue === Routeur.POIDS) return rendrePoids();
     if (cible.vue === Routeur.MOIS) return rendreMois(cible.params.mois || null);
     if (cible.vue === Routeur.RECORDS) return rendreRecordsDuMois(cible.params.mois || null);
+    if (cible.vue === Routeur.PARCOURS) return rendreParcours();
     if (VUES_ONGLET[cible.vue]) return montrer(VUES_ONGLET[cible.vue], cible.vue);
     if (cible.vue === Routeur.EXERCICE) {
       return rendreExercice(cible.params.slug, cible.params.onglet);
@@ -11162,6 +11214,8 @@
       progression: $('vue-progression'), exercice: $('vue-exercice'),
       volume: $('vue-volume'), poids: $('vue-poids'), profil: $('vue-profil'),
       mois: $('vue-mois'), records: $('vue-records'),
+      // 75 — « Ton parcours », sous Progression.
+      parcours: $('vue-parcours'),
       exercices: $('vue-exercices'), questionnaire: $('vue-questionnaire'),
       // 69 — « Importer depuis Hevy », sous le profil.
       import: $('vue-import'),
@@ -11238,7 +11292,7 @@
       allerA(Routeur.SAISIE, {});
       rendreSaisie();
     });
-    ['btn-retour-volume', 'btn-retour-poids', 'btn-retour-mois', 'btn-retour-records'].forEach(function (id) {
+    ['btn-retour-volume', 'btn-retour-poids', 'btn-retour-mois', 'btn-retour-records', 'btn-retour-parcours'].forEach(function (id) {
       $(id).addEventListener('click', function () {
         allerA(Routeur.PROGRESSION, {});
         rendreProgression();

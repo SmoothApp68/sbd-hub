@@ -491,7 +491,7 @@ describe('60-2a — la décision se reprend quand la ligne de profil ARRIVE', ()
       Profil, profil: avant === undefined ? null : avant, profilAEnvoyer: false, pseudoAInscrire: null, versionProfil: 0,
       rendreBandeauQuestionnaire: () => { ctx.bandeaux = (ctx.bandeaux || 0) + 1; },
       rendreBandeauPhase: () => { ctx.bandeauxPhase = (ctx.bandeauxPhase || 0) + 1; },
-      rendreCarteCycles: () => {}, jeuSuitLeProfil: () => {},
+      rendreCarteCycles: () => {}, jeuSuitLeProfil: () => {}, parcoursSuitLeProfil: () => {},
       sauverProfilLocal: () => Promise.resolve(), ecranCourant: 'semaine', rendreProfilEcran: () => {},
       envoyerProfil: () => Promise.resolve(),
       ouvrirQuestionnaireSiDu: () => { ouvertures.push(ctx.profil); return false; },

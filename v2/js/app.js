@@ -29,6 +29,8 @@
   var Jeu = racine.THJeu;
   // 75 — « Ton parcours » : l'écran lit le parcours par `faits.parcoursDe` ; d'ici, seuls les noms courts des barres.
   var Parcours = racine.THParcours;
+  // 78 — la question de réserve : le plan la décide ; d'ici, l'entrée figée (le passé de chaque exercice).
+  var Reserve = racine.THReserve;
   // 59-2 — « Quitter » : la fenêtre des séances pas encore envoyées, et ce qu'on efface.
   var Quitter = racine.THQuitter;
   // 58-1 — LE MODULE DES FAITS : l'assemblage des faits (séances et séries,
@@ -2513,20 +2515,50 @@
   // la séance n'a pas d'identifiant par exercice, l'indice bouge à la
   // réorganisation, et le slug ne distingue pas deux fois le même exercice.
   // Les deux ensemble échouent FERMÉ : dès qu'ils divergent, on ne retarge rien.
-  function demarrerChrono(cible, iExo, slug) {
+  function demarrerChrono(cible, iExo, slug, iSerie) {
     var c = Seance.cibleArmable(cible);
     // C'est `rendreChrono` qui décide si le minuteur tourne — ici on repart
     // juste de zéro. Deux endroits qui lancent des `setInterval` finissent
     // toujours par en laisser un derrière.
     arreterMinuteur();
     chrono = c === null ? null
-      : { depuis: Date.now(), cible: c, sonne: false, exo: { i: iExo, slug: slug } };
+      : { depuis: Date.now(), cible: c, sonne: false, exo: { i: iExo, slug: slug },
+          // MOTEUR §17.2 bis (78) — la question de réserve de CE repos, décidée à l'armement : le plan la porte sur
+          // cette série, et son effort n'est pas déjà noté. Elle part avec le repos (la fin, ou la série suivante).
+          question: questionDuRepos(iExo, iSerie) };
     // Le contexte audio doit NAÎTRE dans le geste utilisateur : une politique
     // d'autoplay refuse un contexte créé une minute plus tard, dans un
     // `setInterval`. On le réveille donc à la validation, pas à l'échéance —
     // et seulement s'il y a une échéance à annoncer.
     if (chrono) reveillerAudio();
     rendreChrono();
+  }
+
+  // MOTEUR §17.2 bis (78) — « Il t'en restait combien ? ». L'écran ne décide rien : le plan dit sur quelle série
+  // (`x.serieReserve`), l'écran vérifie seulement que c'est celle qu'on vient de valider et que son effort n'est
+  // pas déjà noté (une série notée par la feuille d'effort ne se redemande pas).
+  function questionDuRepos(iExo, iSerie) {
+    var x = planDeLExercice(iExo);
+    if (!x || !x.questionReserve || x.serieReserve !== iSerie) return null;
+    var s = seance && seance.exercices[iExo] && seance.exercices[iExo].series[iSerie];
+    if (!s || !Seance.partEnBase(s)) return null;
+    if ((s.rpe !== null && s.rpe !== undefined) || s.ressenti) return null;
+    return { iExo: iExo, iSerie: iSerie, id: s.id };
+  }
+
+  // Ce que la carte de repos montre de la question : la série telle qu'elle est À CET INSTANT (le bouton choisi
+  // s'allume, on peut changer d'avis). Une série retirée ou déplacée entre-temps : plus de question.
+  function vueDeLaQuestion(q) {
+    if (!q || !seance) return null;
+    var exo = seance.exercices[q.iExo];
+    var s = exo && exo.series[q.iSerie];
+    if (!s || s.id !== q.id || !Seance.partEnBase(s)) return null;
+    return {
+      cle: q.id,
+      serie: Modele.serieFaite(s.charge_kg, s.reps),
+      choisi: s.ressenti || null,
+      surChoix: function (ressenti) { noterEffort(q.iExo, q.iSerie, { ressenti: ressenti }); }
+    };
   }
 
   function arreterMinuteur() {
@@ -2705,7 +2737,8 @@
       pas: Seance.PAS_REPOS,
       surAjuster: function (delta) { ajusterRepos(delta); },
       surSourdine: function () { basculerSourdine(); },
-      surPasser: function () { eteindreChrono(); }
+      surPasser: function () { eteindreChrono(); },
+      question: vueDeLaQuestion(chrono.question)
     });
     // APRÈS le rendu : la barre vient de prendre sa hauteur définitive.
     mesurerBarres();
@@ -2976,7 +3009,7 @@
     // repos de l'exercice pour une série de travail. Une cible nulle n'arme
     // rien ET arrête le repos d'avant — valider met toujours fin au repos
     // précédent.
-    if (!enEdition()) demarrerChrono(Plan.reposApres(planDeLExercice(iExo), iSerie, exo.repos_cible_s), iExo, exo.exercise_slug);
+    if (!enEdition()) demarrerChrono(Plan.reposApres(planDeLExercice(iExo), iSerie, exo.repos_cible_s), iExo, exo.exercise_slug, iSerie);
     // ⚠️ L'OBSERVATION VIENT APRÈS `apresGeste`, ET C'EST L'ORDRE QUI COMPTE :
     // `poserSeries` y pose l'entrée des séries, donc avec un `seq` plus petit
     // que celui de la prédiction. `set_observe` trouve alors toujours sa série.
@@ -3136,6 +3169,24 @@
     var volume = volumeDuCoach(seance.debut);
     volumeGele = { seanceId: seance.id, volume: volume };
     return volume;
+  }
+
+  // MOTEUR §17.2 bis (78) — LE PASSÉ DE CHAQUE EXERCICE POUR LA QUESTION DE RÉSERVE, FIGÉ POUR LA SÉANCE comme la
+  // consigne : lu une fois par exercice (un exercice ajouté en séance se lit à son arrivée), sur les séances
+  // terminées d'avant (`Reserve.passeDeReserve`). Le plan décide ; ceci n'est que son entrée.
+  var reserveGelee = null;   // { seanceId, passes: { [slug]: passe } }
+  function reserveDeLaSeance() {
+    if (!seance) return null;
+    if (!reserveGelee || reserveGelee.seanceId !== seance.id) reserveGelee = { seanceId: seance.id, passes: {} };
+    var passes = reserveGelee.passes;
+    (seance.exercices || []).forEach(function (x) {
+      var slug = x && x.exercise_slug;
+      if (slug && !Object.prototype.hasOwnProperty.call(passes, slug)) {
+        passes[slug] = Reserve.passeDeReserve(slug, local.seances, seriesDe, seance.id);
+      }
+    });
+    // Une copie : les entrées d'un plan déjà calculé ne grandissent pas quand un exercice s'ajoute.
+    return { lancement: Reserve.LANCEMENT_RESERVE, passes: Object.assign({}, passes) };
   }
 
   // LE FAIT DU COACH PAR MUSCLE (MOTEUR §14.6) : `{ muscle: { moyenne, seuil, max, fenetres } | null }`, sur tout
@@ -3530,12 +3581,12 @@
   function avecEtatDeRejeu(e, fn) {
     var avant = { seance: seance, local: local, consignes: consignes, sauvees: consignesSauvees,
                   version: versionConsignes, phaseGelee: phaseGelee, objectifGele: objectifGele,
-                  prioritesGelees: prioritesGelees, volumeGele: volumeGele,
+                  prioritesGelees: prioritesGelees, volumeGele: volumeGele, reserveGelee: reserveGelee,
                   constats: constats, planMemo: planMemo, etats: etatsExercices, dernier: Plan.dernier };
     seance = e.seance; local = e.local;
     consignes = e.memo.consignes; consignesSauvees = null; versionConsignes = e.memo.version;
     phaseGelee = e.memo.phaseGelee; objectifGele = e.memo.objectifGele;
-    prioritesGelees = e.memo.prioritesGelees; volumeGele = e.memo.volumeGele; constats = null;
+    prioritesGelees = e.memo.prioritesGelees; volumeGele = e.memo.volumeGele; reserveGelee = e.memo.reserveGelee || null; constats = null;
     planMemo = null; etatsExercices = e.etats;
     rejeuEnCours = { instant: e.instant };
     try {
@@ -3543,11 +3594,11 @@
     } finally {
       e.memo.consignes = consignes; e.memo.version = versionConsignes;
       e.memo.phaseGelee = phaseGelee; e.memo.objectifGele = objectifGele;
-      e.memo.prioritesGelees = prioritesGelees; e.memo.volumeGele = volumeGele;
+      e.memo.prioritesGelees = prioritesGelees; e.memo.volumeGele = volumeGele; e.memo.reserveGelee = reserveGelee;
       seance = avant.seance; local = avant.local; consignes = avant.consignes;
       consignesSauvees = avant.sauvees; versionConsignes = avant.version;
       phaseGelee = avant.phaseGelee; objectifGele = avant.objectifGele;
-      prioritesGelees = avant.prioritesGelees; volumeGele = avant.volumeGele; constats = avant.constats;
+      prioritesGelees = avant.prioritesGelees; volumeGele = avant.volumeGele; reserveGelee = avant.reserveGelee; constats = avant.constats;
       planMemo = avant.planMemo; etatsExercices = avant.etats; Plan.dernier = avant.dernier;
       rejeuEnCours = null;
     }
@@ -4016,6 +4067,8 @@
       intention: profil ? profil.intention : null,
       modes: modes,
       lestReponse: lestPlan,
+      // MOTEUR §17.2 bis (78) — le passé de chaque exercice, figé : le plan décide de la question de réserve.
+      reserve: reserveDeLaSeance(),
       // MOTEUR §9.22 (53-2) — les blocs des programmes (la décharge planifiée,
       // « Changer de schéma ») et les lignes de zone (I36, I37).
       programme: { blocs: local.blocs || [], lignes: local.zones || [] },
@@ -6192,13 +6245,21 @@
         seance = Seance.retirerSerie(seance, i, j);
         await apresGeste();
       },
-      surEffort: async function (effort) {
-        seance = Seance.definirEffort(seance, feuille.iExo, feuille.iSerie, effort);
-        fermerVoile();
-        await apresGeste();
+      surEffort: function (effort) {
+        return noterEffort(feuille.iExo, feuille.iSerie, effort, fermerVoile);
       },
       surBascule: function () { modeRPE = !modeRPE; memoriserModeRPE(); rendreFeuille(); }
     });
+  }
+
+  // L'EFFORT D'UNE SÉRIE, UN SEUL CHEMIN (MOTEUR §17.2 bis, 78) : la feuille d'effort et la question de réserve
+  // de la carte de repos passent ici — la séance, puis la file (`apresGeste`). `avant` : ce que le geste fait entre
+  // les deux (la feuille se ferme).
+  async function noterEffort(iExo, iSerie, effort, avant) {
+    seance = Seance.definirEffort(seance, iExo, iSerie, effort);
+    if (avant) avant();
+    await apresGeste();
+    rendreChrono();
   }
 
   // La bascule se retient : quelqu'un qui pratique le RPE ne veut pas le

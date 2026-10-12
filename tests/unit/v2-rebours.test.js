@@ -137,6 +137,8 @@ describe('§1 — `rendreChrono` passe le RESTANT au rendu, pas l’écoulé', (
       arreterMinuteur: () => {},
       assurerMinuteur: () => {},
       mesurerBarres: () => {},
+      // 78 — la question de réserve de la carte de repos : hors de ce test.
+      vueDeLaQuestion: () => null, questionDuRepos: () => null,
       ajusterRepos: () => {},
       basculerSourdine: () => {},
       eteindreChrono: () => { eteintes.push(true); }

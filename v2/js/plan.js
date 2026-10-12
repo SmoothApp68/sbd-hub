@@ -1081,7 +1081,7 @@
       carte: esc.carte,
       // §9.22 (53-2) — les exercices d'un bloc en cours ce jour-là (I39).
       programme: { enBloc: enBlocDuJour(e, seance) },
-      exercices: exos.map(function (exo, i) {
+      exercices: questionsDuPlan(exos.map(function (exo, i) {
         var slug = exo && exo.exercise_slug;
         // Prérequis d'« adapter » — LE COACH SUIT UNE OCCURRENCE de l'exercice
         // dans la séance (`THSeance.occurrenceCoachee` : la première, ou celle
@@ -1173,8 +1173,55 @@
           x.phrases.push({ ou: 'lest.detail', texte: capLD.texte, citations: capLD.citations });
         }
         return x;
-      })
+      }), e.reserve, seance)
     };
+  }
+
+  // ── MOTEUR §17.2 bis (78) — LA QUESTION DE RÉSERVE ─────────────────────────
+  //
+  // « Il t'en restait combien ? », sur la DERNIÈRE SÉRIE DE TRAVAIL d'un exercice qui a un pari ce jour-là. La
+  // règle est celle de `THReserve.questionsDeReserve` ; le plan la porte : `x.questionReserve` (`null`, `calage`,
+  // `ecart` ou `rappel`) et `x.serieReserve` (l'indice de la série visée, ou `null`). L'écran la lit.
+  //
+  // Un exercice A UN PARI quand sa consigne parle (pas `silence`) et qu'au moins une de ses lignes est couverte :
+  // ce sont les lignes qui écrivent un pari (`ROLE_DU_PARI`). Sans coach, en Entretenir, « J'ai mal », une seconde
+  // occurrence : pas de pari, pas de question.
+  //
+  // `reserve` : `{ lancement, passes: { [slug]: passe } }`, FIGÉ POUR LA SÉANCE par l'app (`passeDeReserve`, sur
+  // les séances d'avant) ; absent (le simulateur, les tests du plan), aucune question. Le jour est celui du début
+  // de la séance. Jamais en Édition : on ne demande pas à chaud ce qui a été fait avant-hier.
+  function aUnPari(x) {
+    return !!(x && x.consigne && x.consigne.etat !== 'silence' &&
+      (x.lignes || []).some(function (l) { return l && Object.prototype.hasOwnProperty.call(ROLE_DU_PARI, l.role); }));
+  }
+
+  function derniereSerieDeTravail(exo) {
+    var series = (exo && exo.series) || [];
+    for (var j = series.length - 1; j >= 0; j--) {
+      if (racine.THModele.estTravail(series[j])) return j;
+    }
+    return null;
+  }
+
+  function questionsDuPlan(xs, reserve, seance) {
+    var jour = reserve && !seance.edition ? Moteur().jourCivil(seance.debut) : null;
+    var exos = seance.exercices || [];
+    var questions = {};
+    if (jour) {
+      var passes = reserve.passes || {};
+      var entree = { lancement: reserve.lancement, jour: jour, exercices: xs.map(function (x, i) {
+        var pari = aUnPari(x) && derniereSerieDeTravail(exos[i]) !== null;
+        return { slug: String(i), pari: pari,
+                 passe: pari && Object.prototype.hasOwnProperty.call(passes, x.slug) ? passes[x.slug] : [] };
+      }) };
+      racine.THReserve.questionsDeReserve(entree).forEach(function (q) { questions[q.slug] = q.motif; });
+    }
+    xs.forEach(function (x, i) {
+      var motif = Object.prototype.hasOwnProperty.call(questions, String(i)) ? questions[String(i)] : null;
+      x.questionReserve = motif;
+      x.serieReserve = motif ? derniereSerieDeTravail(exos[i]) : null;
+    });
+    return xs;
   }
 
   // ── MOTEUR §14.4 (49-U14) — L'ÉTAPE DE L'ESCALIER : LA SEMAINE ALLÉGÉE ───
@@ -3043,6 +3090,7 @@
     verifierPoidsDuCorps(plan, erreurs);
     if (entrees && entrees.raccourci) verifierRaccourci(plan, entrees, erreurs);
     verifierDouleur(plan, entrees, erreurs);
+    verifierReserve(plan, entrees, erreurs);
     // Prérequis d'« adapter » — LES PARIS D'UNE OCCURRENCE, et seulement d'elle
     // (I7) : la seconde occurrence d'un exercice ne doit pas se voir reprocher
     // les paris de la première.
@@ -3067,6 +3115,34 @@
     var ecartsPhrases = verifierPhrases(plan, null);
     ecartsPhrases.forEach(function (e) { erreurs.push(texteI26(e)); });
     return { ok: erreurs.length === 0, erreurs: erreurs, ecartsPhrases: ecartsPhrases };
+  }
+
+  // I45 (MOTEUR §17.2 bis, 78) — LA QUESTION DE RÉSERVE : posée seulement sur la dernière série de travail d'un
+  // exercice qui a un pari ; au plus quatre par plan ; un motif connu. « Même entrée, mêmes questions » est I12.
+  // Le plafond de l'invariant est écrit ici, à part de la règle : une règle qui dériverait ne le déplace pas.
+  var MOTIFS_RESERVE = ['calage', 'ecart', 'rappel'];
+  var I45_AU_PLUS = 4;
+  function verifierReserve(plan, entrees, erreurs) {
+    var xs = (plan && plan.exercices) || [];
+    var exos = entrees && entrees.seance && entrees.seance.exercices ? entrees.seance.exercices : null;
+    var n = 0;
+    xs.forEach(function (x, i) {
+      var q = x.questionReserve === undefined ? null : x.questionReserve;
+      if (q === null) {
+        if (x.serieReserve !== null && x.serieReserve !== undefined) {
+          erreurs.push('I45 — exercice ' + i + ' (' + x.slug + ') : une série visée sans question');
+        }
+        return;
+      }
+      n++;
+      if (MOTIFS_RESERVE.indexOf(q) < 0) erreurs.push('I45 — exercice ' + i + ' (' + x.slug + ') : motif inconnu « ' + q + ' »');
+      if (!aUnPari(x)) erreurs.push('I45 — exercice ' + i + ' (' + x.slug + ') : une question sans pari');
+      if (exos && x.serieReserve !== derniereSerieDeTravail(exos[i])) {
+        erreurs.push('I45 — exercice ' + i + ' (' + x.slug + ') : la question sur la série ' + x.serieReserve +
+          ', pas sur la dernière série de travail (' + derniereSerieDeTravail(exos[i]) + ')');
+      }
+    });
+    if (n > I45_AU_PLUS) erreurs.push('I45 — ' + n + ' questions de réserve dans le plan (au plus ' + I45_AU_PLUS + ')');
   }
 
   function texteI26(e) {

@@ -3057,7 +3057,11 @@
   // sourdine. Les deux premières parce qu'une cible mal réglée est le cas
   // courant ; la troisième parce qu'on ne veut pas toujours du son.
   function rendreRepos(cible, vue) {
-    vider(cible);
+    // MOTEUR §17.2 bis (78) — LA QUESTION DE RÉSERVE NE SE REDESSINE PAS CHAQUE SECONDE : la barre, elle, se refait
+    // à chaque passage du minuteur ; un bouton recréé sous le doigt avalerait le tap. Elle ne se refait que si elle
+    // change (une autre série, un autre bouton choisi).
+    var q = questionDuRepos(cible, vue.question || null);
+    Array.prototype.slice.call(cible.childNodes).forEach(function (n) { if (n !== q) cible.removeChild(n); });
     var pas = vue.pas || 15;
 
     var h = el('div', 'repos-h');
@@ -3089,7 +3093,8 @@
     p.type = 'button';
     p.addEventListener('click', vue.surPasser);
     h.appendChild(p);
-    cible.appendChild(h);
+    if (q && q.parentNode !== cible) cible.appendChild(q);
+    cible.insertBefore(h, q);
 
     var piste = el('div', 'piste');
     var barre = el('i', '');
@@ -3097,7 +3102,36 @@
     barre.style.width = vue.cible
       ? Math.max(0, Math.min(100, Math.round((vue.restant / vue.cible) * 100))) + '%' : '0%';
     piste.appendChild(barre);
-    cible.appendChild(piste);
+    cible.insertBefore(piste, q);
+  }
+
+  // « Dernière série : 130 kg × 5. Il t'en restait combien ? » et 0 · 1 · 2 · 3 ou + — les valeurs de
+  // `sets.ressenti`. `vue` : `{ cle, serie, choisi, surChoix }` (l'app), ou `null` : pas de question. Rend le nœud
+  // (gardé s'il n'a pas changé), à poser en dernier dans la carte.
+  var BOUTONS_RESERVE = [['reste_0', '0'], ['reste_1', '1'], ['reste_2', '2'], ['reste_3_plus', '3 ou +']];
+  function questionDuRepos(cible, vue) {
+    var ancien = cible.querySelector('.repos-q');
+    var cle = vue ? vue.cle + '|' + vue.serie + '|' + (vue.choisi || '') : null;
+    if (ancien && ancien.getAttribute('data-cle') === cle) return ancien;
+    if (!vue) return null;
+    var q = el('div', 'repos-q');
+    q.setAttribute('data-cle', cle);
+    var t = el('p', 'repos-q-t');
+    t.appendChild(doc.createTextNode('Dernière série : '));
+    t.appendChild(el('b', '', vue.serie));
+    t.appendChild(doc.createTextNode('. Il t’en restait combien ?'));
+    q.appendChild(t);
+    var rang = el('div', 'repos-q-b');
+    BOUTONS_RESERVE.forEach(function (r) {
+      var b = el('button', vue.choisi === r[0] ? 'sel' : '', r[1]);
+      b.type = 'button';
+      b.setAttribute('data-ressenti', r[0]);
+      b.setAttribute('aria-pressed', vue.choisi === r[0] ? 'true' : 'false');
+      b.addEventListener('click', function () { vue.surChoix(r[0]); });
+      rang.appendChild(b);
+    });
+    q.appendChild(rang);
+    return q;
   }
 
   function boutonRepos(texte, titre, surClic) {

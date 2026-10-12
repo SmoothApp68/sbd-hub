@@ -66,6 +66,8 @@ function bac(options) {
     assurerMinuteur: () => {},
     signalerEcheance: () => {},
     mesurerBarres: () => {},
+    // 78 — la question de réserve de la carte de repos : hors de ce test.
+    vueDeLaQuestion: () => null, questionDuRepos: () => null,
     basculerSourdine: () => {},
     sourdine: false,
     $: () => ({ hidden: false }),
@@ -379,8 +381,9 @@ describe('§E — valider une série arme AVEC l’exercice', () => {
     return vus;
   }
 
-  test('elle passe la cible, l’indice ET le slug — les trois', () => {
-    expect(bacArmement(false)).toEqual([[180, 3, 'developpe-couche']]);
+  // 78 (MOTEUR §17.2 bis) — et la SÉRIE : la question de réserve du repos se décide sur elle.
+  test('elle passe la cible, l’indice, le slug ET la série — les quatre', () => {
+    expect(bacArmement(false)).toEqual([[180, 3, 'developpe-couche', 2]]);
   });
 
   // ⚠️ PAS DE REPOS EN CORRECTION : en rouvrant une séance d'avant-hier, le
@@ -394,7 +397,7 @@ describe('§E — valider une série arme AVEC l’exercice', () => {
   // nulle avant la dégressive (rien ne s'arme, le repos d'avant s'arrête), 60
   // ou 120 s après une chauffe.
   test('la cible est celle du plan de l’exercice, pour cette série', () => {
-    expect(bacArmement(false, null)).toEqual([[null, 3, 'developpe-couche']]);
-    expect(bacArmement(false, 120)).toEqual([[120, 3, 'developpe-couche']]);
+    expect(bacArmement(false, null)).toEqual([[null, 3, 'developpe-couche', 2]]);
+    expect(bacArmement(false, 120)).toEqual([[120, 3, 'developpe-couche', 2]]);
   });
 });

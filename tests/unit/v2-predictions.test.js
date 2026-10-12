@@ -46,8 +46,9 @@ describe('§9.13 bis — la version des règles du moteur (49-U6)', () => {
     // 9 depuis 54-1 (MOTEUR §12.2 bis : la zone d’une séance se lit à sa fin) ;
     // 10 depuis 55-1 (MOTEUR §12.2 bis : une séance sans fin finit 3 h au plus après son début) ;
     // 11 depuis 68A (MOTEUR §9.14 bis : l'élan) ;
-    // 12 depuis 68B (MOTEUR §9.14 ter : « à fond » en séance, l'observation sur les reps faites).
-    expect(Moteur.VERSION_CONSIGNE).toBe(12);
+    // 12 depuis 68B (MOTEUR §9.14 ter : « à fond » en séance, l'observation sur les reps faites) ;
+    // 13 depuis 74 (MOTEUR §17.4 : une série à fond compte ses reps, les plafonds).
+    expect(Moteur.VERSION_CONSIGNE).toBe(13);
   });
 });
 

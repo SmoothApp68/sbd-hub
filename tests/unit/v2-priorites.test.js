@@ -496,7 +496,7 @@ describe('§14.6 — les priorités, gelées avec la phase', () => {
 
   // 68A l'a montée à 11 (l'élan, MOTEUR §9.14 bis), 68B à 12 (« à fond », §9.14 ter) :
   // ce chantier-ci ne la touchait pas.
-  test('`VERSION_CONSIGNE` ne bouge pas : aucune règle de consigne ne change', () => {
-    expect(M.VERSION_CONSIGNE).toBe(12);
+  test('`VERSION_CONSIGNE` ne bouge pas avec ce chantier (13 depuis 74)', () => {
+    expect(M.VERSION_CONSIGNE).toBe(13);
   });
 });

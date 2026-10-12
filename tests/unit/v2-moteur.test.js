@@ -89,13 +89,13 @@ describe('§9.2 — le niveau validé', () => {
     expect(M.niveauValide(null)).toBeNull();
   });
 
-  test('DISCRIMINANT — il compte en reps COMPTÉES, pas brutes (§17.4)', () => {
-    // Deux séries de 5, la seconde allée à l'échec : elle compte 4, donc le
-    // niveau est 4. Sur les reps BRUTES, les deux tests ci-dessous rendraient 5.
-    expect(M.niveauValide([s(5), s(5, 'reste_0')])).toBe(4);
-    expect(M.niveauValide([s(5, 10), s(5), s(5)])).toBe(4);
-    // Contre-épreuve : sans l'échec, les mêmes séries donnent 5.
-    expect(M.niveauValide([s(5), s(5)])).toBe(5);
+  // INVERSÉ LE 11/10/2026 (74) — une série à fond compte ses reps : le niveau
+  // validé se lit sur les reps faites (68B le comptait 4).
+  test('DISCRIMINANT (74) — il compte les reps FAITES, à fond comme ailleurs (§17.4)', () => {
+    expect(M.niveauValide([s(5), s(5, 'reste_0')])).toBe(5);
+    expect(M.niveauValide([s(5, 10), s(5), s(5)])).toBe(5);
+    // Contre-épreuve : une rep de moins FAITE, elle, abaisse le niveau.
+    expect(M.niveauValide([s(5), s(4, 'reste_0')])).toBe(4);
   });
 
   test('la tolérance à −1 ne vaut QUE pour les séries au-delà de la deuxième', () => {
@@ -146,12 +146,12 @@ describe('§8.2 — le format se lit sur le niveau validé, pas sur une médiane
     expect(M.formatDe([s(7)])).toBe('mixte');
   });
 
-  test('DISCRIMINANT — il compte en reps COMPTÉES (§17.4)', () => {
-    // `7, 7` dont la seconde va à l'échec : elle compte 6, le niveau vaut 6,
-    // donc force. Sur les reps brutes, ce serait 7, donc mixte.
-    expect(M.formatDe([s(7), s(7, 'reste_0')])).toBe('force');
-    // Contre-épreuve : sans l'échec, les mêmes séries donnent mixte.
-    expect(M.formatDe([s(7), s(7)])).toBe('mixte');
+  // INVERSÉ LE 11/10/2026 (74) — `7, 7` dont la seconde va à fond : elle
+  // compte 7, donc mixte (68B la comptait 6 : force).
+  test('DISCRIMINANT (74) — il compte les reps FAITES (§17.4)', () => {
+    expect(M.formatDe([s(7), s(7, 'reste_0')])).toBe('mixte');
+    // Contre-épreuve : 7, 6 faits donnent force.
+    expect(M.formatDe([s(7), s(6, 'reste_0')])).toBe('force');
   });
 
   test('aucune série au palier : pas de format', () => {
@@ -962,7 +962,11 @@ describe('§9.12 — deux écritures d’un même instant se classent pareil', (
 // rend des objets `{ charge, vise }` / `{ charge, vise, k }`. Un seul choix,
 // documenté des deux côtés ; la conversion vit ici, en un seul endroit.
 describe('§9.13 — la consigne, en calcul pur', () => {
-  const CAS = require('./fixtures/consigne-48b5a2.json');
+  // 74 (11/10/2026) — INVERSÉ : un test à RPE 10 compte ses reps faites.
+  // N10, 130 × 5 à RPE 10 : 68B le comptait 4 (haut 130 × 4) ; il se garde à
+  // 130 × 5 — pas de rep de plus (plafond 3), et toujours pas une de moins.
+  const CAS = require('./fixtures/consigne-48b5a2.json').map((c) => (c.id !== 'N10' ? c
+    : Object.assign({}, c, { attendu: Object.assign({}, c.attendu, { haut: [130, 5, 2] }) })));
   const CHAMPS = ['etat', 'zone', 'n', 'ligne', 'haut', 'raison'];
 
   const enObjet = (t, avecK) => {
@@ -1003,7 +1007,9 @@ describe('§9.13 — la consigne, en calcul pur', () => {
 
   CAS.forEach((c) => {
     test(`${c.id} — ${c.titre} (${c.reglage})`, () => {
-      const rendu = M.consignePour(c.seances, c.avant, {
+      // 74 — la consigne que l'app affiche : sur les reps faites, plafonnée
+      // après une série à fond (`consigneApresAFond`, comme `consigneDExercice`).
+      const rendu = M.consigneApresAFond(c.seances, c.avant, {
         reglage: c.reglage, equipement: c.equipement, correction: null
       });
       expect(lire(rendu)).toEqual(attendu(c.attendu));
@@ -1257,7 +1263,38 @@ describe('§9.13 — la consigne, en calcul pur', () => {
 //   · la FEUILLE « POURQUOI », ses sept champs, octet pour octet aussi — c'est
 //     le plus long texte que l'app écrive, et le seul qui explique un calcul.
 describe('§9.13 / ECRAN-SAISIE §3.12 et §3.10 — le fondement, les phrases et le pourquoi', () => {
-  const CAS = require('./fixtures/consigne-48b7.json');
+  // 74 (11/10/2026) — INVERSÉS : la rep en moins ne compte plus que dans le
+  // calcul prudent. Le reste du fichier est la consigne, ses phrases et son
+  // « Pourquoi », à l'identique.
+  //   · N10 — le test 130 × 5 à RPE 10 vaut 5 (68B : 4), le haut vise 5, et
+  //     la phrase dit qu'il a touché le haut de la zone (68B : « dans ta zone ») ;
+  //   · X1, X6, X10 — 125 × 5, 5, 4 avec une série à fond : la note « sans
+  //     marge » reste (le calcul prudent revient par le plafond 2), mais le
+  //     niveau dit dans le « Pourquoi » est celui des reps faites : 5 (68B : 4).
+  const INVERSES_74 = {
+    N10: (c) => {
+      c.fondement.test.niveau = 5;
+      // 5 reps faites, le haut de la zone lourde (3-5) : il l'a touché.
+      c.phrases.gris = c.phrases.gris.replace('est dans ta zone', 'a touché le haut de ta zone');
+      c.phrases.jaune = c.phrases.jaune.map((l) => l.replace('130\u00a0kg\u00a0×\u00a04', '130\u00a0kg\u00a0×\u00a05'));
+      // Le « Pourquoi » : plus de « compté 4 » — « Ton test : 130 kg × 5, sans
+      // marge. » puis la suite (retouche 74), et le test est au haut de la zone.
+      c.pourquoi = JSON.parse(JSON.stringify(c.pourquoi)
+        .split('130\u00a0kg\u00a0×\u00a04').join('130\u00a0kg\u00a0×\u00a05')
+        .split('Ton test à 130\u00a0kg a fait 5 reps à RPE 10, compté 4, dans ta zone')
+        .join('Ton test\u00a0: 130\u00a0kg\u00a0×\u00a05, sans marge. Le haut de ta zone')
+        .split('test, dans ta zone').join('test, au haut de ta zone'));
+    },
+    X1: (c) => { c.pourquoi.palier = c.pourquoi.palier.replace('validée à 4 reps', 'validée à 5 reps'); },
+    X6: (c) => { c.pourquoi.palier = c.pourquoi.palier.replace('validée à 4 reps', 'validée à 5 reps'); },
+    X10: (c) => { c.pourquoi.palier = c.pourquoi.palier.replace('validée à 4 reps', 'validée à 5 reps'); }
+  };
+  const CAS = require('./fixtures/consigne-48b7.json').map((c) => {
+    if (!INVERSES_74[c.id]) return c;
+    const k = JSON.parse(JSON.stringify(c));
+    INVERSES_74[c.id](k);
+    return k;
+  });
   // Les cinq corrections de 48b-7 : sans elles, `correction` serait toujours
   // nulle et la moitié de §9.1.1 ne serait jouée par aucun cas.
   test('le fichier porte des cas AVEC correction, et des cas sans', () => {
@@ -1269,7 +1306,8 @@ describe('§9.13 / ECRAN-SAISIE §3.12 et §3.10 — le fondement, les phrases e
   // ⚠️ LA CORRECTION VIENT DU CAS DEPUIS 48b-7. La passer en dur à `null`
   // laisserait les cinq cas C muets : ils rendraient la zone déduite, leurs
   // phrases tomberaient, et c'est justement ce qu'ils existent pour prouver.
-  const pour = (c) => M.consignePour(c.seances, c.avant,
+  // 74 — la consigne plafonnée, celle que l'app affiche (voir plus haut).
+  const pour = (c) => M.consigneApresAFond(c.seances, c.avant,
     { reglage: c.reglage, equipement: c.equipement, correction: c.correction });
 
   // Les deux branches de chaque règle de rédaction (prompt 48b-5b-1 §3.4).

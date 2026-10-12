@@ -590,10 +590,12 @@
       ? CRAN_DU_RESSENTI[serie.ressenti] : null;
   }
 
-  // §17.4 — une série marquée `max` compte −1 rep POUR LA VALIDATION SEULEMENT.
-  // Le nombre réel reste celui du volume, du tonnage et de l'estimation du max.
-  // `max` se lit par le RPE ou par `reste_0`, sans distinction : c'est la même
-  // chose dite deux fois, « plus rien en réserve ».
+  // §17.4, révisé le 11/10/2026 (74) — UNE SÉRIE À FOND COMPTE SES REPS. On
+  // n'enlève pas une rep réellement faite : le niveau validé, le test,
+  // l'échelle, l'observation d'un pari, le bilan se lisent sur les reps faites.
+  // Ce qui empêche une série à fond de faire MONTER la consigne suivante n'est
+  // pas ici : ce sont les plafonds de `consigneDExercice` (moteur.js), qui
+  // comparent au calcul prudent (`repsPrudentes`, ci-dessous).
   //
   // ⚠️ ELLE PREND LA SÉRIE, ET PLUS `(reps, rpe)` — changé le 19/09/2026. Le
   // cran se lit sur DEUX champs qui s'excluent, et l'arbitrage entre eux (le
@@ -603,6 +605,15 @@
   // puisque `nombre()` rend `null` sur tout ce qu'il ne comprend pas. Un objet,
   // une forme, et l'appel ne peut plus se tromper.
   function repsComptees(serie) {
+    return nombre(serie && serie.reps);
+  }
+
+  // §17.4 (74) — LE CALCUL PRUDENT, la règle de 68B : une série marquée `max`
+  // (RPE 10 ou `reste_0`, sans distinction — « plus rien en réserve ») compte
+  // une rep de moins. Il ne décide plus seul : le moteur le calcule à côté des
+  // reps faites, et ses plafonds s'en servent pour ne pas monter sur une série
+  // à fond. ⚠️ C'EST SON SEUL ENDROIT (garde « une notion, un module »).
+  function repsPrudentes(serie) {
     var r = nombre(serie && serie.reps);
     if (r === null) return null;
     return cranDeSerie(serie) === 'max' ? r - 1 : r;
@@ -666,6 +677,7 @@
     CRAN_DU_RESSENTI: CRAN_DU_RESSENTI,
     cranDeSerie: cranDeSerie,
     repsComptees: repsComptees,
+    repsPrudentes: repsPrudentes,
     palierTenu: palierTenu
   };
 

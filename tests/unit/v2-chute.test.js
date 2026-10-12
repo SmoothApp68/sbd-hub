@@ -82,12 +82,18 @@ describe('§9.2 bis — la définition, sur les exemples de la spec', () => {
     expect(M.chuteDe(l)).toBeNull();
   });
 
-  test('en reps COMPTÉES : une série à RPE 10 compte une rep de moins', () => {
-    // 10-10-7 brut : −3, pas de chute. À RPE 10, le 7 compte 6 : −4, 40 % → chute.
+  // INVERSÉ LE 11/10/2026 (74) : une série à RPE 10 compte ses reps faites.
+  test('en reps COMPTÉES (74) : une série à RPE 10 compte ses reps faites', () => {
+    // 10-10-7 : −3, pas de chute — à RPE 10 comme sans (68B comptait le 7 pour
+    // 6 : −4, chute).
     expect(M.chuteDe([s(10), s(10), s(7)])).toBeNull();
-    expect(M.chuteDe([s(10), s(10), s(7, 10)])).toBe(3);
-    // Et la stabilité aussi : 10-9@RPE10-6 → le 9 compte 8, à 2 de la première.
-    expect(M.chuteDe([s(10), s(9, 10), s(6)])).toBeNull();
+    expect(M.chuteDe([s(10), s(10), s(7, 10)])).toBeNull();
+    // Et la stabilité aussi : 10-9@RPE10-6 → le 9 compte 9, à 1 de la
+    // première : la dernière perd 4 et 40 %, c'est une chute (68B : le 9
+    // comptait 8, à 2, pas de chute).
+    expect(M.chuteDe([s(10), s(9, 10), s(6)])).toBe(3);
+    // Contre-épreuve : la chute à RPE 10 reste une chute.
+    expect(M.chuteDe([s(10), s(10), s(6, 10)])).toBe(3);
   });
 
   test('le niveau validé se calcule sans la chute : 10-10-6 → 10 (et non 7)', () => {

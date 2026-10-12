@@ -18436,6 +18436,113 @@ const SETS_IMPORTES = [
       JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
   }
 
+  console.log('\n══ sans-marge. UNE SÉRIE À FOND COMPTE SES REPS ; APRÈS ELLE, LE COACH NE MONTE PAS (74, MOTEUR §17.4) ══');
+  //
+  // Deux exercices, chacun ses séances (la méthode de [C68B] : la base est vidée pour la section, puis rendue) :
+  //   · un couché à 122,5 × 5 depuis trois semaines, puis un test 125 × 3 à RPE 10 (le couché du 01/09/2026) :
+  //     la séance suivante garde le test à 125 × 3 — pas 126, pas 4 reps, pas un retest plus bas (68B :
+  //     l'étirement, sans test). Témoin : le même test sans effort noté vise 4 ;
+  //   · une ligne à 80 × 10 depuis trois semaines, puis 80 × 10, 10, 10 à RPE 10 : 80 × 10 visé, pas 11.
+  //     Témoin : sans effort, 11.
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const sessionsAvant = base.sessions, setsAvant = base.sets, catalogueAvant = CATALOGUE.length;
+    const routinesAvant = ROUTINES.length;
+    CATALOGUE.push({ slug: 'couche-s74', nom: 'Couché S74 (Barre)', mesure: 'charge_reps', charge: 'externe',
+      equipement: 'barre', muscles_primaires: ['pectoraux'], muscles_secondaires: [] });
+    CATALOGUE.push({ slug: 'rowing-s74', nom: 'Rowing S74 (Barre)', mesure: 'charge_reps', charge: 'externe',
+      equipement: 'barre', muscles_primaires: ['dorsaux'], muscles_secondaires: [] });
+    const t74 = Date.now();
+    const poser74 = (slug, id, jours, lignes) => {
+      const debut = ilYa(jours * 86400000, t74).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'S74 — ' + id, debut,
+        fin: finDe(debut, t74).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      lignes.forEach(([kg, reps, rpe], i) => base.sets.push({
+        id: id + '-s' + (i + 1), session_id: id, user_id: 'u-banc', exercise_slug: slug,
+        charge_kg: kg, reps, duree_s: null, distance_m: null, type_serie: 'travail',
+        rang: i + 1, groupe_superset: null, validee_a: debut, rpe: rpe || null, ressenti: null,
+        repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+    };
+    // Les séances d'un scénario : trois semaines à la même ligne, puis la dernière, avec ou sans effort.
+    const decor74 = (slug, ligne, derniere) => {
+      base.sessions = [];
+      base.sets = [];
+      [28, 21, 14].forEach((j) => poser74(slug, slug + '-' + j, j, [ligne, ligne, ligne]));
+      poser74(slug, slug + '-7', 7, derniere);
+    };
+    ROUTINES.push({ id: 'r-s74-c', nom: 'Couché S74 ×3', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-s74-c-e', routine_id: 'r-s74-c', exercise_slug: 'couche-s74', rang: 0,
+        routine_sets: progr(3, 5), repos_cible_s: 180, groupe_superset: null, note: null }] });
+    ROUTINES.push({ id: 'r-s74-r', nom: 'Rowing S74 ×3', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-s74-r-e', routine_id: 'r-s74-r', exercise_slug: 'rowing-s74', rang: 0,
+        routine_sets: progr(3, 10), repos_cible_s: 90, groupe_superset: null, note: null }] });
+    const nb74 = (x) => JSON.stringify(x).replace(/[  ]/g, ' ');
+    const consigne74 = (slug) => page.evaluate((sl) => {
+      const d = window.THPlan && window.THPlan.dernier;
+      const x = d && d.plan.exercices.filter((e) => e.slug === sl)[0];
+      return x ? { etat: x.consigne.etat, niveau: x.consigne.niveau, ligne: x.consigne.ligne, haut: x.consigne.haut } : null;
+    }, slug);
+    const invariants74 = async (quoi) => {
+      const v = await page.evaluate(() => {
+        const d = window.THPlan && window.THPlan.dernier;
+        if (!d) return { ok: false, erreurs: ['aucun plan calculé'] };
+        return window.THPlan.verifierPlan(d.plan, d.entrees);
+      });
+      ok('[S74] invariants du plan (' + quoi + ')', v.ok, v.ok ? '' : nb74(v.erreurs.slice(0, 3)));
+    };
+    const ouvrir74 = async (routine) => {
+      await aller('/saisie');
+      await attendre(1200);
+      await demarrerRoutine(routine);
+      await attendre(900);
+    };
+
+    // ── 1. LE TEST 125 × 3 À RPE 10 : GARDÉ À 125 × 3.
+    decor74('couche-s74', [122.5, 5], [[122.5, 5], [122.5, 5], [125, 3, 10]]);
+    await ouvrir74('Couché S74 ×3');
+    const kC = await consigne74('couche-s74');
+    await invariants74('test 125 × 3 à RPE 10');
+    ok('[S74] DISCRIMINANT — après un test 125 × 3 à RPE 10, le test est gardé à 125 × 3 (pas 126, pas 4 reps, pas plus bas)',
+      nb74(kC) === nb74({ etat: 'garde', niveau: 5, ligne: { charge: 122.5, vise: 5 }, haut: { charge: 125, vise: 3, k: 1 } }),
+      nb74(kC));
+    await abandonner();
+    decor74('couche-s74', [122.5, 5], [[122.5, 5], [122.5, 5], [125, 3]]);
+    await ouvrir74('Couché S74 ×3');
+    const kCt = await consigne74('couche-s74');
+    ok('[S74] témoin : le même test sans effort noté — gardé à 125 kg, et il vise 4',
+      nb74(kCt && kCt.haut) === nb74({ charge: 125, vise: 4, k: 1 }), nb74(kCt));
+    await abandonner();
+
+    // ── 2. LA LIGNE 80 × 10, 10, 10 À FOND : 80 × 10 VISÉ.
+    decor74('rowing-s74', [80, 10], [[80, 10, 10], [80, 10, 10], [80, 10, 10]]);
+    await ouvrir74('Rowing S74 ×3');
+    const kR = await consigne74('rowing-s74');
+    await invariants74('80 × 10, 10, 10 à RPE 10');
+    ok('[S74] DISCRIMINANT — après 80 × 10, 10, 10 à fond : 80 × 10 visé (pas 11), le niveau des reps faites',
+      nb74(kR) === nb74({ etat: 'progression', niveau: 10, ligne: { charge: 80, vise: 10 }, haut: null }), nb74(kR));
+    await abandonner();
+    decor74('rowing-s74', [80, 10], [[80, 10], [80, 10], [80, 10]]);
+    await ouvrir74('Rowing S74 ×3');
+    const kRt = await consigne74('rowing-s74');
+    ok('[S74] témoin : sans effort noté, la rep de plus — 80 × 11',
+      nb74(kRt && kRt.ligne) === nb74({ charge: 80, vise: 11 }), nb74(kRt));
+    await abandonner();
+
+    // LA REMISE EN ÉTAT, pour les sections suivantes.
+    ROUTINES.splice(routinesAvant, ROUTINES.length - routinesAvant);
+    CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
+    base.sessions = sessionsAvant;
+    base.sets = setsAvant;
+    await aller('/saisie');
+    ok('[S74] aucun refus du faux serveur, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,
+      nb74([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
+  }
+
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');
   // Le compte vit dans `garde-compte.js` : le lanceur parallèle refait les
   // mêmes contrôles sur le compte fusionné de ses groupes.

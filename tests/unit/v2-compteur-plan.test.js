@@ -81,7 +81,7 @@ describe('§12.9 — le compteur, lu par le plan', () => {
   // de zone, MOTEUR §9.10) ; 9 depuis 54-1 (la zone d'une séance se lit à sa
   // fin pour le compteur et le repli, MOTEUR §12.2 bis).
   // 11 depuis 68A (MOTEUR §9.14 bis, l'élan) ; 12 depuis 68B (§9.14 ter, « à fond »).
-  test('VERSION_CONSIGNE vaut 12 (68B)', () => {
-    expect(M.VERSION_CONSIGNE).toBe(12);
+  test('VERSION_CONSIGNE vaut 13 (74)', () => {
+    expect(M.VERSION_CONSIGNE).toBe(13);
   });
 });

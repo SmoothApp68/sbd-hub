@@ -8303,7 +8303,7 @@
       surRefaire: ligne ? function () { refaireSeance(ligne, blocs); } : null,
       surEnFaireUneRoutine: ligne ? function () { enFaireUneRoutine(ligne); } : null
     });
-    rendreReactionsDeLaSeance(ligne ? ligne.id : null);
+    rendreReactionsDeLaSeance(sessionId);
   }
 
   // ══ LA PAGE D'EXERCICE (§7 quater) ═══════════════════════════════════════

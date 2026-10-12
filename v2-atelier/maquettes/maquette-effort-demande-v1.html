@@ -1,0 +1,43 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Effort demandé — maquette v1</title>
+<style>
+:root{--fond:#16171a;--carte:#1f2125;--trait:#2c2f35;--txt:#e9e6df;--doux:#9a968d;--ambre:#f0a33a;--or:#d9b45a;--vert:#7fbf8a}
+*{box-sizing:border-box}body{margin:0;background:#0d0e10;color:var(--txt);font:15px/1.45 "Barlow",system-ui,sans-serif;display:flex;flex-wrap:wrap;gap:24px;justify-content:center;padding:16px}
+.tel{width:380px;max-width:100%;background:var(--fond);border-radius:22px;padding:16px;border:1px solid var(--trait)}
+h1{font:600 22px "Barlow Condensed",system-ui;margin:0 0 4px}.sous{color:var(--doux);font-size:13px;margin-bottom:10px}
+.serie{display:grid;grid-template-columns:28px 1fr 1fr 40px;gap:8px;align-items:center;padding:8px 6px;border-bottom:1px solid var(--trait);font-size:15px}
+.ok{color:var(--vert)}.num{color:var(--doux)}
+.repos{background:var(--carte);border-radius:14px;padding:12px;margin:12px 0;border-left:3px solid var(--ambre)}
+.repos .t{font:600 26px "Barlow Condensed";}
+.q{margin-top:10px;font-size:14.5px}.q b{color:var(--ambre)}
+.chips{display:flex;gap:8px;margin-top:8px}.chip{flex:1;text-align:center;padding:10px 0;border-radius:10px;background:#2a2c31;font:600 17px "Barlow Condensed"}
+.chip.sel{background:var(--ambre);color:#1a1205}
+.gris{font-size:12px;color:var(--doux);margin-top:6px}
+.annot{max-width:360px;font-size:13px;color:#bbb}.annot h3{color:var(--ambre);font-size:15px;margin:0 0 6px}
+.why{background:var(--carte);border-radius:12px;padding:10px 12px;margin-top:10px;font-size:13.5px}
+</style></head><body>
+<div class="tel">
+<h1>Squat (barre)</h1><div class="sous">Ta charge de travail : 130 kg × 5 · 3 séries</div>
+<div class="serie"><span class="num">1</span><span>130 kg</span><span>5 reps</span><span class="ok">✓</span></div>
+<div class="serie"><span class="num">2</span><span>130 kg</span><span>5 reps</span><span class="ok">✓</span></div>
+<div class="serie"><span class="num">3</span><span>130 kg</span><span>5 reps</span><span class="ok">✓</span></div>
+<div class="repos"><div class="sous" style="margin:0">Repos</div><div class="t">2:41</div>
+<div class="q">Dernière série : <b>130 kg × 5</b>. Il t'en restait combien ?</div>
+<div class="chips"><div class="chip">0</div><div class="chip sel">1</div><div class="chip">2</div><div class="chip">3 ou +</div></div>
+<div class="gris">Une seule question par exercice, sur sa dernière série. Tu peux l'ignorer.</div></div>
+<div class="why"><b style="color:var(--ambre)">Pourquoi je te le demande</b><br>Tu fais 5 reps parce que je vise 5. Sans ta réserve, je ne sais pas si 5 était facile ou juste : ton « 1 » me dit que 6 étaient possibles.</div>
+</div>
+<div class="tel">
+<h1>Progression · les paris du coach</h1><div class="sous">Ce que la réserve change, après quelques semaines</div>
+<div class="why">Sur 145 paris vérifiés, 123 tombent pile : tu t'arrêtes à la cible. Avec ta réserve, le coach voit ce qu'il y avait <b>au-delà</b> de la cible.</div>
+<div class="why">Squat : tes séries visées à 5 en contenaient en moyenne <b>6,2</b> (12 réponses). Le coach vise juste, un peu prudent.</div>
+<div class="why">Curl marteau : en moyenne <b>3 ou +</b> en réserve (8 réponses). Le coach est trop prudent ici.</div>
+<div class="gris">Illustratif : ces deux lignes n'existent pas encore, elles demandent des réponses.</div>
+</div>
+<div class="annot"><h3>Ce que propose le 78</h3>
+<p><b>Le constat, mesuré le 12/10 en base :</b> 145 paris vérifiés depuis le 26/09, 123 pile sur la cible (85 %), 15 au-dessus, 7 en dessous. Sur tes 280 séries de travail saisies dans l'app depuis le 1er septembre, <b>24 portent un effort (9 %), et 23 de ces 24 sont « à fond »</b>. Tu ne notes l'effort que quand tu es au bout : le coach ne voit jamais la marge.</p>
+<p><b>La règle proposée :</b> pendant le repos qui suit la <b>dernière série de travail</b> d'un exercice qui a un pari, une question : « Il t'en restait combien ? 0 · 1 · 2 · 3 ou + ». Une question par exercice, quatre au plus par séance, jamais sur une chauffe, ignorable, écrite dans le champ existant (`ressenti`). Les quatre réponses sont celles que la base accepte déjà.</p>
+<p><b>Science :</b> l'estimation de la réserve est fiable de 0 à 2-3 reps, floue au-delà (d'où « 3 ou + ») ; elle s'améliore avec l'habitude (Helms, Zourdos ; référentiel §3).</p>
+<p><b>À trancher :</b> toujours, ou seulement pendant un calage (par exemple les 6 premières semaines de chaque exercice, puis une séance sur trois) ?</p>
+</div>
+</body></html>

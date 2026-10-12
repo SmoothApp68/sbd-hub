@@ -1,0 +1,729 @@
+[
+ {
+  "nom": "a-premiere",
+  "quoi": "première séance après le lancement : calage",
+  "entree": {
+   "lancement": "2026-10-20",
+   "jour": "2026-10-20",
+   "exercices": [
+    {
+     "slug": "squat_barre",
+     "pari": true,
+     "passe": []
+    }
+   ]
+  },
+  "attendu": [
+   {
+    "slug": "squat_barre",
+    "motif": "calage"
+   }
+  ]
+ },
+ {
+  "nom": "b-sans-pari",
+  "quoi": "un exercice sans pari : jamais",
+  "entree": {
+   "lancement": "2026-10-20",
+   "jour": "2026-10-20",
+   "exercices": [
+    {
+     "slug": "tapis",
+     "pari": false,
+     "passe": []
+    },
+    {
+     "slug": "squat_barre",
+     "pari": true,
+     "passe": []
+    }
+   ]
+  },
+  "attendu": [
+   {
+    "slug": "squat_barre",
+    "motif": "calage"
+   }
+  ]
+ },
+ {
+  "nom": "c-fin-calage",
+  "quoi": "J+42 : le calage est fini ; rang 6 : jour de rappel → oui",
+  "entree": {
+   "lancement": "2026-10-20",
+   "jour": "2026-12-01",
+   "exercices": [
+    {
+     "slug": "squat_barre",
+     "pari": true,
+     "passe": [
+      {
+       "jour": "2026-10-20",
+       "effort": {
+        "ressenti": "reste_1",
+        "rpe": null
+       }
+      },
+      {
+       "jour": "2026-10-27",
+       "effort": {
+        "ressenti": "reste_1",
+        "rpe": null
+       }
+      },
+      {
+       "jour": "2026-11-03",
+       "effort": {
+        "ressenti": "reste_1",
+        "rpe": null
+       }
+      },
+      {
+       "jour": "2026-11-10",
+       "effort": {
+        "ressenti": "reste_1",
+        "rpe": null
+       }
+      },
+      {
+       "jour": "2026-11-17",
+       "effort": {
+        "ressenti": "reste_1",
+        "rpe": null
+       }
+      },
+      {
+       "jour": "2026-11-24",
+       "effort": {
+        "ressenti": "reste_1",
+        "rpe": null
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "attendu": [
+   {
+    "slug": "squat_barre",
+    "motif": "rappel"
+   }
+  ]
+ },
+ {
+  "nom": "d-rappel",
+  "quoi": "hors calage : une séance sur trois (rang 6 → oui, rang 7 → non)",
+  "entree": {
+   "lancement": "2026-10-20",
+   "jour": "2026-12-08",
+   "exercices": [
+    {
+     "slug": "squat_barre",
+     "pari": true,
+     "passe": [
+      {
+       "jour": "2026-10-20",
+       "effort": {
+        "ressenti": "reste_1",
+        "rpe": null
+       }
+      },
+      {
+       "jour": "2026-10-27",
+       "effort": {
+        "ressenti": "reste_1",
+        "rpe": null
+       }
+      },
+      {
+       "jour": "2026-11-03",
+       "effort": {
+        "ressenti": "reste_1",
+        "rpe": null
+       }
+      },
+      {
+       "jour": "2026-11-10",
+       "effort": {
+        "ressenti": "reste_1",
+        "rpe": null
+       }
+      },
+      {
+       "jour": "2026-11-17",
+       "effort": {
+        "ressenti": "reste_1",
+        "rpe": null
+       }
+      },
+      {
+       "jour": "2026-11-24",
+       "effort": {
+        "ressenti": "reste_1",
+        "rpe": null
+       }
+      },
+      {
+       "jour": "2026-12-01",
+       "effort": {
+        "ressenti": "reste_1",
+        "rpe": null
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "attendu": []
+ },
+ {
+  "nom": "e-silence",
+  "quoi": "5 séances sans réponse : seulement les jours de rappel (rang 5 → non)",
+  "entree": {
+   "lancement": "2026-10-20",
+   "jour": "2026-11-24",
+   "exercices": [
+    {
+     "slug": "squat_barre",
+     "pari": true,
+     "passe": [
+      {
+       "jour": "2026-10-20",
+       "effort": null
+      },
+      {
+       "jour": "2026-10-27",
+       "effort": null
+      },
+      {
+       "jour": "2026-11-03",
+       "effort": null
+      },
+      {
+       "jour": "2026-11-10",
+       "effort": null
+      },
+      {
+       "jour": "2026-11-17",
+       "effort": null
+      }
+     ]
+    }
+   ]
+  },
+  "attendu": []
+ },
+ {
+  "nom": "f-silence-rappel",
+  "quoi": "6 séances sans réponse, rang 6 : jour de rappel → oui",
+  "entree": {
+   "lancement": "2026-10-20",
+   "jour": "2026-12-01",
+   "exercices": [
+    {
+     "slug": "squat_barre",
+     "pari": true,
+     "passe": [
+      {
+       "jour": "2026-10-20",
+       "effort": null
+      },
+      {
+       "jour": "2026-10-27",
+       "effort": null
+      },
+      {
+       "jour": "2026-11-03",
+       "effort": null
+      },
+      {
+       "jour": "2026-11-10",
+       "effort": null
+      },
+      {
+       "jour": "2026-11-17",
+       "effort": null
+      },
+      {
+       "jour": "2026-11-24",
+       "effort": null
+      }
+     ]
+    }
+   ]
+  },
+  "attendu": [
+   {
+    "slug": "squat_barre",
+    "motif": "rappel"
+   }
+  ]
+ },
+ {
+  "nom": "g-trop-prudent",
+  "quoi": "hors calage, 6 réponses moyennes ≥ 2,5 : question à chaque séance",
+  "entree": {
+   "lancement": "2026-10-20",
+   "jour": "2026-12-29",
+   "exercices": [
+    {
+     "slug": "curl",
+     "pari": true,
+     "passe": [
+      {
+       "jour": "2026-10-20",
+       "effort": {
+        "ressenti": "reste_3_plus",
+        "rpe": null
+       }
+      },
+      {
+       "jour": "2026-10-27",
+       "effort": {
+        "ressenti": "reste_3_plus",
+        "rpe": null
+       }
+      },
+      {
+       "jour": "2026-11-03",
+       "effort": {
+        "ressenti": "reste_3_plus",
+        "rpe": null
+       }
+      },
+      {
+       "jour": "2026-11-10",
+       "effort": {
+        "ressenti": "reste_3_plus",
+        "rpe": null
+       }
+      },
+      {
+       "jour": "2026-11-17",
+       "effort": {
+        "ressenti": "reste_3_plus",
+        "rpe": null
+       }
+      },
+      {
+       "jour": "2026-11-24",
+       "effort": {
+        "ressenti": "reste_3_plus",
+        "rpe": null
+       }
+      },
+      {
+       "jour": "2026-12-01",
+       "effort": {
+        "ressenti": "reste_3_plus",
+        "rpe": null
+       }
+      },
+      {
+       "jour": "2026-12-08",
+       "effort": {
+        "ressenti": "reste_3_plus",
+        "rpe": null
+       }
+      },
+      {
+       "jour": "2026-12-15",
+       "effort": {
+        "ressenti": "reste_3_plus",
+        "rpe": null
+       }
+      },
+      {
+       "jour": "2026-12-22",
+       "effort": {
+        "ressenti": "reste_3_plus",
+        "rpe": null
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "attendu": [
+   {
+    "slug": "curl",
+    "motif": "ecart"
+   }
+  ]
+ },
+ {
+  "nom": "h-trop-optimiste",
+  "quoi": "hors calage, 3 « 0 » sur 6 : question",
+  "entree": {
+   "lancement": "2026-10-20",
+   "jour": "2026-12-29",
+   "exercices": [
+    {
+     "slug": "couche",
+     "pari": true,
+     "passe": [
+      {
+       "jour": "2026-10-20",
+       "effort": {
+        "ressenti": "reste_1",
+        "rpe": null
+       }
+      },
+      {
+       "jour": "2026-10-27",
+       "effort": {
+        "ressenti": "reste_1",
+        "rpe": null
+       }
+      },
+      {
+       "jour": "2026-11-03",
+       "effort": {
+        "ressenti": "reste_1",
+        "rpe": null
+       }
+      },
+      {
+       "jour": "2026-11-10",
+       "effort": {
+        "ressenti": "reste_1",
+        "rpe": null
+       }
+      },
+      {
+       "jour": "2026-11-17",
+       "effort": {
+        "ressenti": "reste_0",
+        "rpe": null
+       }
+      },
+      {
+       "jour": "2026-11-24",
+       "effort": {
+        "ressenti": "reste_1",
+        "rpe": null
+       }
+      },
+      {
+       "jour": "2026-12-01",
+       "effort": {
+        "ressenti": "reste_0",
+        "rpe": null
+       }
+      },
+      {
+       "jour": "2026-12-08",
+       "effort": {
+        "ressenti": "reste_2",
+        "rpe": null
+       }
+      },
+      {
+       "jour": "2026-12-15",
+       "effort": {
+        "ressenti": "reste_0",
+        "rpe": null
+       }
+      },
+      {
+       "jour": "2026-12-22",
+       "effort": {
+        "ressenti": "reste_1",
+        "rpe": null
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "attendu": [
+   {
+    "slug": "couche",
+    "motif": "ecart"
+   }
+  ]
+ },
+ {
+  "nom": "i-rpe",
+  "quoi": "un RPE se lit en réserve (10 − RPE, de 0 à 3) : 9,5 → 0,5 — ni trop prudent ni trop optimiste ; hors calage, rang 10 → non",
+  "entree": {
+   "lancement": "2026-10-20",
+   "jour": "2026-12-29",
+   "exercices": [
+    {
+     "slug": "couche",
+     "pari": true,
+     "passe": [
+      {
+       "jour": "2026-10-20",
+       "effort": {
+        "ressenti": null,
+        "rpe": 9.5
+       }
+      },
+      {
+       "jour": "2026-10-27",
+       "effort": {
+        "ressenti": null,
+        "rpe": 9.5
+       }
+      },
+      {
+       "jour": "2026-11-03",
+       "effort": {
+        "ressenti": null,
+        "rpe": 9.5
+       }
+      },
+      {
+       "jour": "2026-11-10",
+       "effort": {
+        "ressenti": null,
+        "rpe": 9.5
+       }
+      },
+      {
+       "jour": "2026-11-17",
+       "effort": {
+        "ressenti": null,
+        "rpe": 9.5
+       }
+      },
+      {
+       "jour": "2026-11-24",
+       "effort": {
+        "ressenti": null,
+        "rpe": 9.5
+       }
+      },
+      {
+       "jour": "2026-12-01",
+       "effort": {
+        "ressenti": null,
+        "rpe": 9.5
+       }
+      },
+      {
+       "jour": "2026-12-08",
+       "effort": {
+        "ressenti": null,
+        "rpe": 9.5
+       }
+      },
+      {
+       "jour": "2026-12-15",
+       "effort": {
+        "ressenti": null,
+        "rpe": 9.5
+       }
+      },
+      {
+       "jour": "2026-12-22",
+       "effort": {
+        "ressenti": null,
+        "rpe": 9.5
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "attendu": []
+ },
+ {
+  "nom": "j-plafond",
+  "quoi": "6 exercices au calage : 4 questions, ceux qui ont le moins de réponses récentes, dans l'ordre du plan",
+  "entree": {
+   "lancement": "2026-10-20",
+   "jour": "2026-11-10",
+   "exercices": [
+    {
+     "slug": "a",
+     "pari": true,
+     "passe": [
+      {
+       "jour": "2026-10-20",
+       "effort": {
+        "ressenti": "reste_1",
+        "rpe": null
+       }
+      },
+      {
+       "jour": "2026-10-27",
+       "effort": {
+        "ressenti": "reste_1",
+        "rpe": null
+       }
+      },
+      {
+       "jour": "2026-11-03",
+       "effort": {
+        "ressenti": "reste_1",
+        "rpe": null
+       }
+      }
+     ]
+    },
+    {
+     "slug": "b",
+     "pari": true,
+     "passe": [
+      {
+       "jour": "2026-10-20",
+       "effort": null
+      },
+      {
+       "jour": "2026-10-27",
+       "effort": null
+      },
+      {
+       "jour": "2026-11-03",
+       "effort": null
+      }
+     ]
+    },
+    {
+     "slug": "c",
+     "pari": true,
+     "passe": [
+      {
+       "jour": "2026-10-20",
+       "effort": {
+        "ressenti": "reste_2",
+        "rpe": null
+       }
+      },
+      {
+       "jour": "2026-10-27",
+       "effort": {
+        "ressenti": "reste_2",
+        "rpe": null
+       }
+      },
+      {
+       "jour": "2026-11-03",
+       "effort": {
+        "ressenti": "reste_2",
+        "rpe": null
+       }
+      }
+     ]
+    },
+    {
+     "slug": "d",
+     "pari": true,
+     "passe": [
+      {
+       "jour": "2026-10-20",
+       "effort": null
+      }
+     ]
+    },
+    {
+     "slug": "e",
+     "pari": true,
+     "passe": []
+    },
+    {
+     "slug": "f",
+     "pari": true,
+     "passe": [
+      {
+       "jour": "2026-10-20",
+       "effort": {
+        "ressenti": "reste_1",
+        "rpe": null
+       }
+      },
+      {
+       "jour": "2026-10-27",
+       "effort": null
+      }
+     ]
+    }
+   ]
+  },
+  "attendu": [
+   {
+    "slug": "b",
+    "motif": "calage"
+   },
+   {
+    "slug": "d",
+    "motif": "calage"
+   },
+   {
+    "slug": "e",
+    "motif": "calage"
+   },
+   {
+    "slug": "f",
+    "motif": "calage"
+   }
+  ]
+ },
+ {
+  "nom": "k-avant-lancement",
+  "quoi": "les séances d'avant le lancement ne comptent ni pour le rang ni pour le calage, mais leurs réponses comptent pour l'écart",
+  "entree": {
+   "lancement": "2026-10-20",
+   "jour": "2026-10-20",
+   "exercices": [
+    {
+     "slug": "couche",
+     "pari": true,
+     "passe": [
+      {
+       "jour": "2026-08-11",
+       "effort": {
+        "ressenti": "reste_0",
+        "rpe": null
+       }
+      },
+      {
+       "jour": "2026-08-18",
+       "effort": {
+        "ressenti": "reste_0",
+        "rpe": null
+       }
+      },
+      {
+       "jour": "2026-08-25",
+       "effort": {
+        "ressenti": "reste_0",
+        "rpe": null
+       }
+      },
+      {
+       "jour": "2026-09-01",
+       "effort": {
+        "ressenti": "reste_0",
+        "rpe": null
+       }
+      },
+      {
+       "jour": "2026-09-08",
+       "effort": {
+        "ressenti": "reste_0",
+        "rpe": null
+       }
+      },
+      {
+       "jour": "2026-09-15",
+       "effort": {
+        "ressenti": "reste_0",
+        "rpe": null
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "attendu": [
+   {
+    "slug": "couche",
+    "motif": "ecart"
+   }
+  ]
+ }
+]

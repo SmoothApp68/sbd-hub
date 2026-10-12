@@ -2007,6 +2007,44 @@ Testé et écarté : changer d'équation (§15.1), raccourcir la fenêtre (§18.
 | Ce qui ne sert à rien | 3 reps en réserve ou plus |
 | Durée | **à mesurer sur données réelles** (§22.1) |
 
+### 17.2 bis La question de réserve — décidée le 12/10/2026 (chantier 78)
+
+> **Le coach demande, une fois par exercice, ce qu'il restait sur la dernière série.** Sans la réserve, un pari tenu
+> pile ne dit rien : on s'arrête à la cible. Avec elle, le coach voit ce qu'il y avait au-delà.
+
+**Où** : dans la carte de repos qui suit la **dernière série de travail** d'un exercice qui a un pari ce jour-là :
+« Dernière série : 130 kg × 5. Il t'en restait combien ? » et quatre boutons **0 · 1 · 2 · 3 ou +** (les valeurs de
+`sets.ressenti` : `reste_0` … `reste_3_plus`). Un tap écrit le ressenti de cette série, par le même chemin que la
+feuille d'effort (§17.4) ; rien ne bloque, rien ne s'ouvre ; la question part avec la fin du repos ou la série
+suivante. Jamais sur une chauffe, une dégressive, un exercice sans pari, ni quand l'effort est déjà noté.
+
+**Quand** — la décision est celle du plan (`planDeSeance`), figée pour la séance comme la consigne. Pour chaque
+exercice qui a un pari, sur ses séances depuis le **lancement** (`LANCEMENT_RESERVE`, une date fixe) :
+1. **Silence** : si ses 5 dernières séances depuis le lancement n'ont aucune réserve notée sur leur dernière série de
+   travail, la question ne vient que les jours de rappel (4).
+2. **Écart** : si ses 6 dernières réponses (de tout temps) donnent une réserve moyenne ≥ 2,5 (le coach est trop
+   prudent) ou au moins 3 « 0 » (trop optimiste), la question vient à chaque séance.
+3. **Calage** : dans les 42 jours qui suivent sa première séance depuis le lancement, la question vient à chaque
+   séance.
+4. **Rappel** : sinon, une séance sur trois — quand le rang de la séance du jour parmi ses séances depuis le lancement
+   (0 pour la première) est un multiple de 3.
+
+Réserve d'une réponse : `reste_N` → N (`reste_3_plus` → 3) ; un RPE → 10 − RPE, borné de 0 à 3.
+**Au plus 4 questions par séance** : parmi les exercices retenus, ceux qui ont le moins de réponses dans les 42
+derniers jours, puis dans l'ordre du plan ; la liste garde l'ordre du plan.
+
+**Invariant I45** : une question n'est posée que sur la dernière série de travail d'un exercice qui a un pari ; au
+plus quatre par plan ; même entrée, mêmes questions (I12).
+
+**Ce qu'on n'en fait pas encore** : rien ne change dans les consignes ni dans les paris (`predictions` reste immuable).
+Les réponses servent d'abord à mesurer (« tes séries visées à 5 en contenaient 6,2 ») ; le rythme de progression
+personnel (feuille de route n° 9) les lira quand elles seront assez nombreuses.
+
+**Pourquoi ainsi** : l'estimation de la réserve est fiable de 0 à 2-3 reps, floue au-delà (d'où « 3 ou + ») et
+s'affine avec l'habitude ; à chaud, au repos, elle est plus juste qu'après coup. Un calage puis un rappel garde les
+réponses sincères (une question à chaque séance, toute l'année, finit ignorée) ; c'est la règle du §17.5 : « l'incitation
+existe pendant le calage, jamais en permanence ».
+
 ### 17.3 Trois crans, pas dix
 
 > **Boutons : ≤ 7 facile (3 reps ou plus en réserve) / 8-9 dur (1 à 2 reps) / 10 max (plus rien).**

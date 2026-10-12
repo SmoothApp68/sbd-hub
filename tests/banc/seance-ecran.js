@@ -1850,6 +1850,17 @@ const SETS_IMPORTES = [
       r.querySelector('.demarrer').click();
     }, nom);
     await attendre(900);
+    // 84 — « Commencer » lit d'abord les séances en cours en base (la question de l'autre appareil) : serveur
+    // injoignable, la séance n'arrive qu'à l'échec de cette lecture (1,5 s au plus). On attend qu'elle soit là — ou
+    // qu'une feuille la précède — avant de rendre la main.
+    for (let t = 0; t < 12; t++) {
+      const pret = await page.evaluate(() => {
+        const s = document.getElementById('vue-seance'), f = document.getElementById('feuille-seance');
+        return (!!s && !s.hidden) || (!!f && !f.hidden);
+      }).catch(() => true);
+      if (pret) break;
+      await attendre(500);
+    }
   };
 
   // ── LA FIN DU BANC ──────────────────────────────────────────────────────
@@ -7769,9 +7780,16 @@ const SETS_IMPORTES = [
       await page.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {});
       await attendre(2600);
       const d = await idbT();
-      ok('[409] C — page fermée ' + delai + ' ms après « Démarrer » : la séance est là à la réouverture',
-        !!d.brouillon && (await visible())[0] === 'vue-seance' && (await boutonsDemarrer()) === 0,
-        JSON.stringify({ brouillon: d.brouillon && d.brouillon.id, vue: await visible() }));
+      // ⚠️ 84 (12/10/2026) — « Commencer » lit d'abord les séances en cours en base (la question de l'autre
+      // appareil), AVANT de créer quoi que ce soit. Une page fermée pendant cette lecture n'a rien créé : c'est
+      // « Démarrer » qui revient, jamais une séance à moitié née. Le contrôle devient : JAMAIS À MOITIÉ — ou la
+      // séance est là, entière (brouillon, écran, en base), ou rien n'existe et « Démarrer » est offert.
+      const entiere = !!d.brouillon && (await visible())[0] === 'vue-seance' && (await boutonsDemarrer()) === 0;
+      const rien = !d.brouillon && (await visible())[0] !== 'vue-seance' && (await boutonsDemarrer()) > 0 &&
+        enCours().length === 0;
+      ok('[409] C — page fermée ' + delai + ' ms après « Démarrer » : jamais à moitié — la séance entière, ou rien et « Démarrer »',
+        entiere || rien,
+        JSON.stringify({ brouillon: d.brouillon && d.brouillon.id, vue: await visible(), enCours: enCours() }));
       await nettoyer();
     }
 
@@ -7781,6 +7799,9 @@ const SETS_IMPORTES = [
     const idA = enCours()[0];
     ok('[409] prémisse : A est en cours en base', !!idA, JSON.stringify(enCours()));
     await perdreLocal();
+    // 84 — le cas du 26/09 : une séance PERDUE, donc abandonnée (commencée il y a deux heures, aucune série). Une
+    // séance vivante ferait poser la question (« deux-appareils », S1) : ici, elle se reprend sans rien demander.
+    base.sessions.filter((x) => x.id === idA).forEach((x) => { x.debut = ilYa(7200000).toISOString(); });
     base.lenteur = 6000;
     await recharger(1800);
     // La synchronisation complète n'est PAS finie (6 s) : c'est la fenêtre.
@@ -7800,6 +7821,9 @@ const SETS_IMPORTES = [
     await demarrerRoutine('Push');
     const idA2 = enCours()[0];
     await perdreLocal();
+    // 84 — abandonnée, elle aussi (deux heures, aucune série) : « Commencer » ne pose pas de question, et c'est
+    // le 409 de l'envoi qui la referme (`refermerSeancesSauf`, la limite hors ligne, inchangée).
+    base.sessions.filter((x) => x.id === idA2).forEach((x) => { x.debut = ilYa(7200000).toISOString(); });
     // Synchro plus lente encore : la lecture en panne est retentée par le
     // client (1 s, 2 s, 4 s) avant d'échouer, et la synchro ne part qu'après.
     base.lenteur = 12000; base.enCoursEnPanne = true;
@@ -18546,12 +18570,13 @@ const SETS_IMPORTES = [
       nb74([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
   }
 
-  console.log('\n══ deux-appareils. DEUX APPAREILS, MÊME COMPTE : UN APPAREIL NE SUPPRIME QUE LES SÉRIES QU’IL CONNAÎT (83, ECRAN-SAISIE §7 duovicies.1 bis) ══');
+  console.log('\n══ deux-appareils. DEUX APPAREILS, MÊME COMPTE : UN APPAREIL NE SUPPRIME QUE CE QU’IL CONNAÎT (83) ; UNE SÉANCE VIVANTE NE SE FERME NI NE SE REPREND EN SILENCE (84, ECRAN-SAISIE §7 duovicies.1 bis et ter) ══');
   //
-  // Prouvé le 12/10 (82) : B reprend la séance de A (aucune séance sur B) ; A valide une 3ᵉ série ; le geste suivant de
-  // B envoyait sa liste, et la 3ᵉ série de A disparaissait de la base. Deux CONTEXTES navigateur (deux appareils, deux
-  // stockages), le même compte, le même faux serveur. S1 est bloquant ; S2 et S3 (la fermeture et la reprise
-  // silencieuses, chantier 84) sont joués et rapportés, sans contrôle.
+  // Deux CONTEXTES navigateur (deux appareils, deux stockages), le même compte, le même faux serveur. Prouvé le 12/10
+  // (82) : B reprenait la séance de A et effaçait ses séries (83) ; B qui commençait refermait celle de A, A qui
+  // rechargeait refermait celle de B, B qui ouvrait reprenait celle de A, tout en silence (84). Tout est bloquant.
+  // « Vivante » : une série validée ou un début de moins de 45 min — l'heure du faux serveur est celle des séries
+  // qu'on y écrit (`validee_a`, par le décor `ilYa` pour la séance abandonnée).
   {
     const erreursAvant = erreurs.length;
     const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
@@ -18572,86 +18597,142 @@ const SETS_IMPORTES = [
       await c.route(/supabase\.co/, gestionnaireBanc);
       const p = await c.newPage();
       p.on('pageerror', (e) => erreurs.push('[' + nom + '] ' + String(e).slice(0, 140)));
-      return { c, p };
+      return { c, p, fermer: async () => { await p.close(); await c.close(); } };
     };
     const seriesDe = (sid) => base.sets.filter((x) => x.session_id === sid).sort((x, y) => x.rang - y.rang)
       .map((x) => x.charge_kg + '×' + x.reps);
-    const enBase = () => base.sessions.map((s) => s.id.slice(0, 8) + ':' + s.statut + (s.fin ? '' : ' (sans fin)') +
-      ' [' + seriesDe(s.id).join(', ') + ']').join(' | ');
+    const statutDe = (sid) => (base.sessions.filter((x) => x.id === sid)[0] || {}).statut || null;
+    const enBase = () => base.sessions.map((x) => x.id.slice(0, 8) + ':' + x.statut + ' [' + seriesDe(x.id).join(', ') + ']').join(' | ');
+    const feuille = (p) => p.evaluate(() => {
+      const f = document.getElementById('feuille-seance'), c = document.getElementById('feuille-contenu');
+      return { visible: !!f && !f.hidden, texte: c ? c.textContent : '',
+               boutons: c ? Array.from(c.querySelectorAll('.feuille-menu button')).map((x) => x.textContent) : [] };
+    });
+    const repondre = async (p, libelle) => {
+      const fait = await p.evaluate((t) => {
+        const x = Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button')).filter((y) => y.textContent === t)[0];
+        if (x) x.click();
+        return !!x;
+      }, libelle);
+      await attendre(2000);
+      return fait;
+    };
+    const lignesDe = (p) => p.evaluate(() => document.querySelectorAll('.ligne-serie').length);
+    const TITRE = 'Une séance est en cours sur un autre appareil';
+    const enCoursA = async () => {
+      page = pageA; await aller('/saisie'); await demarrerRoutine('Rowing D2A ×4'); await attendre(900);
+      await saisirSerie(0, 80, 10); await saisirSerie(1, 80, 11); await attendre(1500);
+      return base.sessions.filter((x) => x.statut === 'en_cours').map((x) => x.id)[0];
+    };
 
-    // ── S1 — B REPREND LA SÉANCE DE A, PUIS LES DEUX ÉCRIVENT (bloquant) ──
-    page = pageA; await aller('/saisie'); await demarrerRoutine('Rowing D2A ×4'); await attendre(900);
-    await saisirSerie(0, 80, 10); await saisirSerie(1, 80, 11); await attendre(1500);
-    const idA = base.sessions.filter((s) => s.statut === 'en_cours').map((s) => s.id)[0];
+    // ── S1, variante « Pas maintenant » : B ouvre sans séance ici, A vivante → la feuille du cas 1 ; rien ne bouge.
+    const idA0 = await enCoursA();
+    const Bv = await appareil('Bv');
+    page = Bv.p; await aller('/saisie'); await attendre(1500);
+    const f0 = await feuille(Bv.p);
+    ok('[D2A] S1 — B ouvre sans séance ici, A vivante : la feuille du cas 1 (« Rowing D2A ×4 · dernière série à … »)',
+      f0.visible && f0.texte.indexOf(TITRE) >= 0 && f0.texte.indexOf('Rowing D2A ×4 · dernière série à ') >= 0 &&
+      nb2(f0.boutons) === nb2(['La continuer ici', 'Pas maintenant']), nb2(f0));
+    await repondre(Bv.p, 'Pas maintenant');
+    ok('[D2A] S1 — « Pas maintenant » : B n’a pas de séance, celle de A reste en_cours avec ses 2 séries',
+      (await lignesDe(Bv.p)) === 0 && statutDe(idA0) === 'en_cours' && seriesDe(idA0).length === 2, enBase());
+    await Bv.fermer();
+
+    // ── S1 : « La continuer ici », puis la suite du 83 (B ne supprime que ce qu'il connaît).
     const B = await appareil('B');
-    page = B.p; await aller('/saisie'); await attendre(2500);       // aucune séance sur B : il reprend celle de A
-    const repriseB = await B.p.$$eval('.ligne-serie', (ls) => ls.length);
+    page = B.p; await aller('/saisie'); await attendre(1500);
+    const f1 = await feuille(B.p);
+    await repondre(B.p, 'La continuer ici');
+    const repriseB = await lignesDe(B.p);
+    ok('[D2A] S1 — « La continuer ici » : B reprend la séance de A (2 séries)', f1.visible && repriseB === 2, nb2([f1.visible, repriseB]));
     page = pageA; await saisirSerie(2, 80, 9); await attendre(1500);  // la 3ᵉ série de A, que B n'a jamais vue
-    console.log('   S1 — A a validé 3 séries, B a repris (' + repriseB + ' lignes) : ' + enBase());
     page = B.p; await toucher(0, '.ok-serie'); await attendre(1800); // B dévalide SA première série (connue de lui)
-    const apresB = seriesDe(idA);
+    const apresB = seriesDe(idA0);
     console.log('   S1 — après le geste de B (il dévalide 80 × 10) : ' + enBase());
     ok('[D2A] S1 — DISCRIMINANT : après le geste de B, la 3ᵉ série de A (80 × 9) est encore en base',
       apresB.indexOf('80×9') >= 0, nb2(apresB));
     ok('[D2A] S1 — la série que B connaît et a dévalidée (80 × 10) est bien retirée par lui',
       apresB.indexOf('80×10') < 0 && apresB.indexOf('80×11') >= 0, nb2(apresB));
     page = pageA; await saisirSerie(3, 80, 8); await attendre(1800);
-    const apresA = seriesDe(idA);
-    console.log('   S1 — après le geste suivant de A (4ᵉ série) : ' + enBase());
     ok('[D2A] S1 — après le geste suivant de A, toutes ses séries sont en base (80 × 10, 11, 9, 8)',
-      nb2(apresA) === nb2(['80×10', '80×11', '80×9', '80×8']), nb2(apresA));
-    await B.p.close(); await B.c.close();
+      nb2(seriesDe(idA0)) === nb2(['80×10', '80×11', '80×9', '80×8']), nb2(seriesDe(idA0)));
+    await B.fermer();
     page = pageA; await abandonner().catch(() => {});
-    // Les refus du faux serveur se comptent jusqu'ici : S2 en PROVOQUE un par construction
-    // (`sessions_une_seule_en_cours`, la fermeture silencieuse que le chantier 84 traitera), rapporté plus bas.
-    const refusApresS1 = base.journal.filter((j) => j.op === 'refus').length;
 
-    // ── S2 — B OUVERT D'ABORD, A DÉMARRE, PUIS B DÉMARRE UNE NOUVELLE SÉANCE (rapporté, chantier 84) ──
+    // ── S2 : B ouvert d'abord (rien à reprendre), A commence, puis B commence → la feuille du cas 2.
     base.sessions = []; base.sets = [];
     const B2 = await appareil('B2');
-    const consA = [], consB = [];
-    const garder = (t, l) => { if (/refermée/i.test(t)) l.push(t.slice(0, 120)); };
-    pageA.on('console', (m) => garder(m.text(), consA));
-    B2.p.on('console', (m) => garder(m.text(), consB));
     page = B2.p; await aller('/saisie');
-    page = pageA; await aller('/saisie'); await demarrerRoutine('Rowing D2A ×4'); await attendre(900);
-    await saisirSerie(0, 80, 10); await saisirSerie(1, 80, 10); await attendre(1500);
-    const idA2 = base.sessions.filter((s) => s.statut === 'en_cours').map((s) => s.id)[0];
-    page = B2.p; await demarrerRoutine('Rowing D2A ×4'); await attendre(900);
-    await saisirSerie(0, 60, 12); await attendre(2000);
-    console.log('   S2 [rapporté] — B démarre et valide : ' + enBase());
-    const bandeauA = await pageA.evaluate(() => (document.querySelector('#bandeau-seance') || {}).textContent || '');
-    console.log('   S2 [rapporté] — écran de A : ' + nb2(bandeauA.slice(0, 80)));
-    page = B2.p; await aller('/saisie'); await attendre(2500);
-    const historiqueB = await B2.p.evaluate(() => new Promise((ok) => {
-      const req = indexedDB.open('trainhub-v2');
-      req.onsuccess = () => {
-        const r = req.result.transaction(['seances'], 'readonly').objectStore('seances').getAll();
-        r.onsuccess = () => ok(r.result.map((s) => s.id));
-        r.onerror = () => ok([]);
-      };
-      req.onerror = () => ok([]);
-    }));
-    console.log('   S2 [rapporté] — la séance de A dans l’historique de B : ' + (historiqueB.indexOf(idA2) >= 0 ? 'oui' : 'non'));
+    const idA2 = await enCoursA();
+    const nSeances = base.sessions.length;
+    page = B2.p; await demarrerRoutine('Rowing D2A ×4'); await attendre(1500);
+    const f2 = await feuille(B2.p);
+    ok('[D2A] S2a — B commence, A vivante : la feuille du cas 2 (« … Une seule séance à la fois : la terminer pour commencer celle-ci ? »)',
+      f2.visible && f2.texte.indexOf(TITRE) >= 0 &&
+      f2.texte.indexOf('Une seule séance à la fois : la terminer pour commencer celle-ci ?') >= 0 &&
+      nb2(f2.boutons) === nb2(['La terminer et commencer', 'Annuler']), nb2(f2));
+    await repondre(B2.p, 'Annuler');
+    ok('[D2A] S2a — « Annuler » : la séance de A reste en_cours, rien n’est créé',
+      statutDe(idA2) === 'en_cours' && base.sessions.length === nSeances && (await lignesDe(B2.p)) === 0, enBase());
+    page = B2.p; await demarrerRoutine('Rowing D2A ×4'); await attendre(1500);
+    await repondre(B2.p, 'La terminer et commencer');
+    await attendre(1500);
+    const idB2 = base.sessions.filter((x) => x.id !== idA2 && x.statut === 'en_cours').map((x) => x.id)[0] || null;
+    ok('[D2A] S2b — « La terminer et commencer » : A terminee, B en_cours',
+      statutDe(idA2) === 'terminee' && idB2 !== null, enBase());
+    page = B2.p; await saisirSerie(0, 60, 12); await attendre(1500);
 
-    // ── S3 — A RECHARGE SON APP (rapporté, chantier 84) ──
-    page = pageA; await aller('/saisie'); await attendre(2500);
-    console.log('   S3 [rapporté] — A recharge : ' + enBase());
-    console.log('   S2/S3 [rapporté] — console A : ' + nb2(consA) + ' · console B : ' + nb2(consB));
-    console.log('   S2 [rapporté] — refus du faux serveur pendant S2/S3 : ' +
-      nb2(base.journal.filter((j) => j.op === 'refus').slice(refusApresS1).map((j) => j.refus + ' ' + j.message)));
-    await B2.p.close(); await B2.c.close();
+    // ── S3 : A recharge pendant que la séance de B est vivante → elle reste en_cours.
+    page = pageA; await aller('/saisie'); await attendre(1500);
+    ok('[D2A] S3 — A recharge (une séance ici) : la séance vivante de B reste en_cours', statutDe(idB2) === 'en_cours', enBase());
+    await B2.fermer();
+    page = pageA; await abandonner().catch(() => {});
+    const refusAvantAbandon = base.journal.filter((j) => j.op === 'refus').length;
+
+    // ── La séance ABANDONNÉE (dernière série à −60 min) : reprise et fermeture sans question, comme avant.
+    const tD = Date.now();
+    const vieille = (id) => {
+      const debut = ilYa(2 * 3600000, tD).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'Vieille D2A', debut, fin: null, statut: 'en_cours', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      [1, 2].forEach((r) => base.sets.push({ id: id + '-s' + r, session_id: id, user_id: 'u-banc', exercise_slug: 'rowing-d2a',
+        charge_kg: 70, reps: 10, duree_s: null, distance_m: null, type_serie: 'travail', rang: r, groupe_superset: null,
+        validee_a: ilYa(3600000 + (2 - r) * 300000, tD).toISOString(), rpe: null, ressenti: null, repos_s: null, note: null,
+        source: 'app', created_at: debut, modifie_a: null }));
+    };
+    base.sessions = []; base.sets = [];
+    vieille('d2a-vieille-1');
+    const C = await appareil('C');
+    page = C.p; await aller('/saisie'); await attendre(1500);
+    const fC = await feuille(C.p);
+    ok('[D2A] abandonnée — C ouvre sans séance ici : il la reprend SANS feuille (le cas du plantage)',
+      !fC.visible && (await lignesDe(C.p)) === 2, nb2([fC.visible, await lignesDe(C.p)]));
+    await C.fermer();
+    base.sessions = []; base.sets = [];
+    const Dd = await appareil('D');
+    page = Dd.p; await aller('/saisie');
+    vieille('d2a-vieille-2');
+    page = Dd.p; await demarrerRoutine('Rowing D2A ×4'); await attendre(1500);
+    const fD = await feuille(Dd.p);
+    await saisirSerie(0, 60, 12); await attendre(2000);
+    ok('[D2A] abandonnée — D commence : pas de feuille, la vieille séance est refermée, la nouvelle est en_cours',
+      !fD.visible && statutDe('d2a-vieille-2') === 'terminee' &&
+      base.sessions.some((x) => x.id !== 'd2a-vieille-2' && x.statut === 'en_cours'), nb2([fD.visible, enBase()]));
+    await Dd.fermer();
 
     // LA REMISE EN ÉTAT, pour les sections suivantes.
     page = pageA;
-    await abandonner().catch(() => {});
     ROUTINES.splice(routinesAvant, ROUTINES.length - routinesAvant);
     CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
     base.sessions = sessionsAvant; base.sets = setsAvant;
     await aller('/saisie');
-    ok('[D2A] S1 : aucun refus du faux serveur ; toute la section : aucune erreur de page',
-      refusApresS1 === refusAvant && erreurs.length === erreursAvant,
-      nb2([base.journal.filter((j) => j.op === 'refus').slice(refusAvant, refusApresS1), erreurs.slice(erreursAvant)]));
+    // Les refus : aucun jusqu'à la séance abandonnée ; là, le seul attendu (l'envoi de D bute sur la vieille séance
+    // et la referme, `refermerSeancesSauf` — la limite assumée, inchangée).
+    const refusFin = base.journal.filter((j) => j.op === 'refus').slice(refusAvantAbandon).map((j) => j.refus + ' ' + j.message);
+    ok('[D2A] aucun refus du faux serveur sauf celui de la séance abandonnée, aucune erreur de page',
+      refusAvantAbandon === refusAvant && refusFin.every((x) => /sessions_une_seule_en_cours/.test(x)) &&
+      erreurs.length === erreursAvant,
+      nb2([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
   }
 
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');

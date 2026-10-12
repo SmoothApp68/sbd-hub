@@ -1753,7 +1753,11 @@
   // la carte « J'ai peu de temps » acceptée. La séance démarre sur une COPIE
   // raccourcie de la routine (`Moteur.appliquerRaccourci`) ; la routine, elle,
   // ne change jamais (ECRAN-SAISIE §6.3).
-  async function demarrerSeance(routine, raccourci) {
+  // 84 — commencer passe d'abord par la question de l'autre appareil.
+  function demarrerSeance(routine, raccourci) {
+    return avantDeCommencer(function () { return creerSeance(routine, raccourci); });
+  }
+  async function creerSeance(routine, raccourci) {
     var id = uuid();
     var depart = routine;
     var applique = null;
@@ -1909,11 +1913,11 @@
   // l'utilisateur a sous les yeux. Refermer ne perd RIEN : la séance distante
   // garde ses séries et rejoint l'historique.
   //
-  // On ne DEMANDE pas. La question se poserait au démarrage, avant que
-  // l'utilisateur ait rien fait, sur un cas qui est presque toujours un
-  // fantôme — et les deux issues étant non destructives, il n'y a aucune
-  // décision à lui déléguer. Une modale au boot est précisément ce que
-  // l'ordonnanceur d'entrée a appris à ne plus faire.
+  // On ne DEMANDE pas pour une séance ABANDONNÉE : c'est presque toujours un
+  // fantôme, et les deux issues sont non destructives. ⚠️ SAUF UNE SÉANCE
+  // VIVANTE (84, 12/10/2026) : quelqu'un s'en sert sur un autre appareil — la
+  // refermer ou la reprendre en silence effaçait sa décision (prouvé au banc,
+  // 82). Elle ne se referme jamais ici, et sa reprise se demande.
   //
   // ⚠️ ET ÇA SE PASSE AU DÉMARRAGE, JAMAIS AU GESTE. « Démarrer une séance »
   // doit marcher hors ligne : y glisser une requête réseau ferait dépendre le
@@ -1939,31 +1943,70 @@
     });
     if (!etrangeres.length) return;
 
-    // Un brouillon local existe : les autres ne peuvent pas coexister avec lui,
-    // on les referme. Aucune n'est supprimée — elles gardent leurs séries et
-    // rejoignent l'historique.
+    // ⚠️ 84 (12/10/2026) — UNE SÉANCE VIVANTE D'UN AUTRE APPAREIL NE SE FERME NI
+    // NE SE REPREND EN SILENCE (ECRAN-SAISIE §7 duovicies.1 ter). Vivante : sa
+    // dernière série validée, ou son début, date de moins de 45 minutes
+    // (`Seance.estVivante`). Les ABANDONNÉES se traitent comme avant.
+    var lues = await lireActivite(etrangeres);
+    if (!generationValide(g)) return;
+    var abandonnees = lues.filter(function (x) { return !x.vivante; });
+    var vivantes = lues.filter(function (x) { return x.vivante; });
+
+    // Un brouillon local existe : les ABANDONNÉES ne peuvent pas coexister avec
+    // lui, on les referme. Une VIVANTE reste `en_cours` : quelqu'un s'en sert.
+    // Aucune n'est supprimée — elles gardent leurs séries.
     if (seance) {
-      for (var i = 0; i < etrangeres.length; i++) {
+      for (var i = 0; i < abandonnees.length; i++) {
         try {
-          await Donnees.refermerSeance(etrangeres[i].id);
-          console.warn('Séance restée ouverte en base refermée : ' + etrangeres[i].id);
+          await Donnees.refermerSeance(abandonnees[i].ligne.id);
+          console.warn('Séance restée ouverte en base refermée : ' + abandonnees[i].ligne.id);
         } catch (e) { console.warn('Séance distante non refermée :', texteErreur(e)); }
       }
       return;
     }
 
-    // Aucun brouillon : on REPREND la plus récente, et on referme les autres.
-    var triees = etrangeres.slice().sort(function (a, b) {
-      return String(b.debut).localeCompare(String(a.debut));
-    });
-    var distante = triees[0];
-    for (var j = 1; j < triees.length; j++) {
-      try { await Donnees.refermerSeance(triees[j].id); }
-      catch (e) { console.warn('Séance distante non refermée :', texteErreur(e)); }
+    // Aucun brouillon, et une VIVANTE : on DEMANDE (la feuille du cas 1). Les
+    // abandonnées se referment ; la vivante reste telle quelle jusqu'à la
+    // réponse — « Pas maintenant » ne touche à rien, la question reviendra.
+    if (vivantes.length) {
+      vivantes.sort(function (a, b) { return String(b.activite).localeCompare(String(a.activite)); });
+      for (var k = 0; k < abandonnees.length; k++) {
+        try { await Donnees.refermerSeance(abandonnees[k].ligne.id); }
+        catch (e) { console.warn('Séance distante non refermée :', texteErreur(e)); }
+      }
+      if (!generationValide(g)) return;
+      var v = vivantes[0];
+      var mots = Seance.feuilleAutreAppareil(v.ligne, v.series, 'reprendre');
+      Rendu.rendreFeuilleConfirmer($('feuille-contenu'), {
+        titre: mots.titre, aide: mots.aide, libelle: mots.libelle, libelleAnnuler: mots.libelleAnnuler,
+        surConfirmer: async function () {
+          fermerVoile();
+          await reprendreDistante(v.ligne, v.series, g);
+          rendreSaisie();
+        },
+        surAnnuler: fermerVoile
+      });
+      ouvrirVoile($('feuille-seance'));
+      return;
     }
 
+    // Aucun brouillon, aucune vivante : on REPREND la plus récente, et on
+    // referme les autres (le cas du plantage, comme avant).
+    var triees = abandonnees.slice().sort(function (a, b) {
+      return String(b.ligne.debut).localeCompare(String(a.ligne.debut));
+    });
+    for (var j = 1; j < triees.length; j++) {
+      try { await Donnees.refermerSeance(triees[j].ligne.id); }
+      catch (e) { console.warn('Séance distante non refermée :', texteErreur(e)); }
+    }
+    await reprendreDistante(triees[0].ligne, triees[0].series, g);
+  }
+
+  // La reprise d'une séance de la base sur cet appareil : ses séries (déjà
+  // lues, sinon relues), CONNUES de lui (83), puis la séance locale.
+  async function reprendreDistante(distante, deja, g) {
     try {
-      var series = await Donnees.seriesDeSeance(distante.id);
+      var series = deja || await Donnees.seriesDeSeance(distante.id);
       if (!generationValide(g)) return;
       // 83 — les séries chargées depuis la base sont connues de cet appareil.
       connaitre(distante.id, (series || []).map(function (x) { return x.id; }));
@@ -1976,6 +2019,67 @@
       await sauverSeance();
       rendreChrono();
     } catch (e) { console.warn('Séance distante non reprise :', texteErreur(e)); }
+  }
+
+  // 84 — L'ACTIVITÉ DES SÉANCES D'UN AUTRE APPAREIL : pour chacune, ses séries
+  // (`Donnees.seriesDeSeance`, qui rend `validee_a`), sa dernière activité et
+  // son verdict. Des séries illisibles : VIVANTE par prudence — on ne ferme ni
+  // ne reprend sans savoir, on demande.
+  async function lireActivite(lignes) {
+    var maintenant = new Date().toISOString();
+    var sortie = [];
+    for (var i = 0; i < (lignes || []).length; i++) {
+      var l = lignes[i], series = null, lisible = true;
+      try { series = await Donnees.seriesDeSeance(l.id); } catch (e) { lisible = false; }
+      sortie.push({ ligne: l, series: series, activite: Seance.derniereActivite(l, series),
+                    vivante: !lisible || Seance.estVivante(l, series, maintenant) });
+    }
+    return sortie;
+  }
+
+  // ⚠️ 84 — AVANT DE COMMENCER UNE SÉANCE (ECRAN-SAISIE §7 duovicies.1 ter) : une
+  // séance VIVANTE d'un autre appareil se termine sur une réponse, jamais en
+  // silence (la feuille du cas 2). Lecture impossible — hors ligne, ou plus de
+  // `DELAI_AVANT_COMMENCER` ms — : on commence comme avant, sans question (la
+  // limite assumée : l'envoi refermera l'autre, `refermerSeancesSauf`). Les
+  // abandonnées : comme avant, l'envoi les referme.
+  var DELAI_AVANT_COMMENCER = 1500;
+  async function avantDeCommencer(commencer) {
+    if (!sessionActive || (racine.navigator && racine.navigator.onLine === false)) return commencer();
+    var lues;
+    try {
+      lues = await Promise.race([
+        Donnees.seancesEnCours().then(function (ouvertes) {
+          return lireActivite((ouvertes || []).filter(function (x) {
+            return x && x.id && !(seance && seance.id === x.id);
+          }));
+        }),
+        new Promise(function (_, refuser) {
+          setTimeout(function () { refuser(new Error('lecture trop lente')); }, DELAI_AVANT_COMMENCER);
+        })
+      ]);
+    } catch (e) {
+      console.warn('Séances en cours illisibles avant de commencer :', texteErreur(e));
+      return commencer();
+    }
+    var vivantes = (lues || []).filter(function (x) { return x.vivante; })
+      .sort(function (a, b) { return String(b.activite).localeCompare(String(a.activite)); });
+    if (!vivantes.length) return commencer();
+    var v = vivantes[0];
+    var mots = Seance.feuilleAutreAppareil(v.ligne, v.series, 'commencer');
+    Rendu.rendreFeuilleConfirmer($('feuille-contenu'), {
+      titre: mots.titre, aide: mots.aide, libelle: mots.libelle, libelleAnnuler: mots.libelleAnnuler,
+      surConfirmer: async function () {
+        fermerVoile();
+        for (var i = 0; i < vivantes.length; i++) {
+          try { await Donnees.refermerSeance(vivantes[i].ligne.id); }
+          catch (e) { console.warn('Séance de l\u2019autre appareil non refermée :', texteErreur(e)); }
+        }
+        await commencer();
+      },
+      surAnnuler: fermerVoile
+    });
+    ouvrirVoile($('feuille-seance'));
   }
 
   // Une seule séance en cours à la fois. Au lancement, si un brouillon existe,
@@ -9032,6 +9136,10 @@
   // séance neuve avec la même structure et les mêmes notes. Aucune charge.
   async function refaireSeance(ligne, blocs) {
     if (seanceEnCoursBloque()) return;
+    // 84 — commencer passe d'abord par la question de l'autre appareil.
+    return avantDeCommencer(function () { return creerRefaite(ligne, blocs); });
+  }
+  async function creerRefaite(ligne, blocs) {
     seance = Seance.refaire({
       id: uuid(),
       userId: sessionActive && sessionActive.user && sessionActive.user.id,

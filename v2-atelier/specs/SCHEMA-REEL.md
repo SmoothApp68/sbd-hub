@@ -1,7 +1,7 @@
-# Schéma réel — état au 7 octobre 2026
+# Schéma réel — état au 12 octobre 2026
 
 **Régénéré depuis la base**, projet Supabase `swwygywahfdenyzotrce` (eu-west-1).
-Dernière migration appliquée : **`v2_065_questionnaire`**. Prochain numéro libre : **`v2_066`**.
+Dernière migration appliquée : **`v2_077_provenance_seances_hevy_retouchees`**. Prochain numéro libre : **`v2_078`**.
 
 > ⚠️ **Ce document remplace `SCHEMA-V2_2.md`**, qui décrivait un état antérieur aux
 > routines et n'a plus valeur de référence. En cas de doute, la base fait foi — pas ce
@@ -134,10 +134,32 @@ reste ; aucune règle de suppression sur `profiles`.
   `sets_efface_observation`, `sets_efface_observation_type`, `sets_marque_modification`,
   `protect_privileged_profile_columns`) ne sont **plus appelables par l'API** ; les déclencheurs fonctionnent toujours.
 
+## Depuis le 07/10 — migrations `v2_066` à `v2_077`
+
+> Relevé par Claude.ai depuis la base le 12/10/2026.
+
+| Migration | Ce qu'elle change |
+|---|---|
+| `v2_066` | `profiles` : `exercices_ecartes` (text[]) · `programme_construit_dossier` · `programme_construit_le` (timestamptz) · `carte_cycles_le` (timestamptz). Catalogue : rowing et tirage à l'élastique. |
+| `v2_067` | `abdominaux` ajouté en muscle secondaire sur 36 exercices. |
+| `v2_068` | `profiles.jeu_actif` boolean, défaut `true`. |
+| `v2_069` | `exercises.muscles_stabilisateurs` text[] ; 176 secondaires y passent, 8 passent en primaires. |
+| `v2_070` | Catalogue : exercices au poids du corps et de renforcement. |
+| `v2_071` | `exercises.habilete` boolean (14 exercices à `true`). |
+| `v2_072` | Rowings divergents (un bras, deux bras) ; leurs séries réattribuées. |
+| `v2_073` | Frères (`mouvement`) posés sur le catalogue. |
+| `v2_074` | `exercises.schema_mouvement`. |
+| `v2_075`, `v2_076` | Voir le bloc du 11/10 ci-dessous. |
+| `v2_077` | Données : 3 séances Hevy remises en `source = 'hevy'`. |
+
+**Volumétrie au 12/10** : `sessions` 1 279 (14 app, 1 265 hevy) · `sets` 29 464 · `exercises` 338 (333 actifs ;
+203 avec `mouvement`, 271 avec `schema_mouvement`, 14 en habileté) · `pesees` 121 · `profiles` 8 · `routines` 32 ·
+`routine_exercises` 217 · `routine_sets` 561 · `predictions` 196 · `records` 3 608 · `blocs` 2 · `zones_exercice` 27 ·
+`modes_exercice` 0 · `alias_exercice` 0. Les volumétries datées du 07/10 plus bas sont dépassées.
+
 ## Le 11/10/2026 — `v2_075` et `v2_076` (chantier 69)
 
-> Bloc ajouté à la main par Claude.ai, depuis la base. **Les migrations `v2_066` à `v2_074` ne sont pas encore
-> décrites ici** : la prochaine régénération complète les reprendra.
+> Bloc ajouté à la main par Claude.ai, depuis la base. `v2_066` à `v2_074` : voir le bloc précédent.
 
 - **`v2_075_heures_import_hevy`** (données) : les 1 221 séances de l'import CSV d'août (`source_ref` de forme
   `hevy:AAAA-MM-JJTHH:MM:SS`) portaient l'heure locale de Hevy écrite comme heure universelle. `debut` et `fin` relus
@@ -477,4 +499,4 @@ par l'outil de Claude.ai sont annulées d'office depuis le 06/10. Une migration 
 des noms non vérifiés. **Écriture, migration et RLS : jamais.** Aucun test du dépôt ne parle à la vraie base (garde
 réseau des bancs, #380).
 
-Toujours `list_migrations` avant de nommer une migration. Prochain numéro libre au 07/10/2026 : **`v2_065`**.
+Toujours `list_migrations` avant de nommer une migration. Prochain numéro libre au 12/10/2026 : **`v2_078`**.

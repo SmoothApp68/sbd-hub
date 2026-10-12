@@ -230,6 +230,8 @@ de ratio résistent au biais parce que numérateur et dénominateur se déplacen
 
 > Exemple vrai et solide : un ratio squat/couché de 1,04 place **sous le 2ᵉ percentile** — et
 > ça dit quelque chose de réel, un couché décorrélé vers le haut.
+> *(Dépassé le 12/10/2026 : l'app ne range plus personne parmi des compétiteurs. Le même 1,04 se lit contre le
+> repère des pratiquants, 1,21 — « Ton parcours », ECRAN-SAISIE §7 bis.14 ter.)*
 
 **Un second argument, de l'utilisateur** : un niveau tiré d'un seul mouvement est arbitraire.
 *« Je sais que mon bench n'est pas intermédiaire. »* Un pratiquant peut être avancé sur un

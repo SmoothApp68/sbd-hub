@@ -18570,6 +18570,146 @@ const SETS_IMPORTES = [
       nb74([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
   }
 
+  console.log('\n══ Q78. LA QUESTION DE RÉSERVE : « IL T’EN RESTAIT COMBIEN ? », APRÈS LA DERNIÈRE SÉRIE D’UN EXERCICE QUI A UN PARI (78, MOTEUR §17.2 bis) ══');
+  //
+  // Une séance de trois exercices : deux ont un pari (un historique, donc une consigne), le troisième n'en a pas (jamais
+  // fait : une consigne de découverte, aucune ligne couverte, donc aucun pari). La question vient dans la carte de repos après la DERNIÈRE série de travail de chacun
+  // des deux — jamais après la première, jamais sur le troisième. Un tap écrit `reste_1` sur la bonne série (la file
+  // l'apporte au faux serveur) ; un deuxième tap le change. Le décor : la base vidée pour la section, puis rendue.
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const sessionsAvant = base.sessions, setsAvant = base.sets, catalogueAvant = CATALOGUE.length;
+    const routinesAvant = ROUTINES.length;
+    const violationsAvant = gardeBanc.violations;
+    ['a', 'b', 'c'].forEach((k) => CATALOGUE.push({ slug: 'q78-' + k, nom: 'Exercice Q78 ' + k.toUpperCase(),
+      mesure: 'charge_reps', charge: 'externe', equipement: null, muscles_primaires: ['pectoraux'], muscles_secondaires: [] }));
+    const t78 = Date.now();
+    base.sessions = [];
+    base.sets = [];
+    // L'historique de A et de B : trois séances à la même ligne. C : rien — il a une consigne de découverte, mais
+    // aucune ligne couverte, donc aucun pari.
+    [21, 14, 7].forEach((j) => {
+      const id = 'q78-h' + j;
+      const debut = ilYa(j * 86400000, t78).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'Q78 — ' + id, debut,
+        fin: finDe(debut, t78).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      [['q78-a', 60, 8], ['q78-b', 40, 10]].forEach(([slug, kg, reps], e) => [1, 2].forEach((k) => base.sets.push({
+        id: id + '-' + slug + '-' + k, session_id: id, user_id: 'u-banc', exercise_slug: slug,
+        charge_kg: kg, reps, duree_s: null, distance_m: null, type_serie: 'travail',
+        rang: e * 2 + k, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null,
+        repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null })));
+    });
+    ROUTINES.push({ id: 'r-q78', nom: 'Séance Q78', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [
+        { id: 'r-q78-a', routine_id: 'r-q78', exercise_slug: 'q78-a', rang: 0, routine_sets: progr(2, 8),
+          repos_cible_s: 120, groupe_superset: null, note: null },
+        { id: 'r-q78-c', routine_id: 'r-q78', exercise_slug: 'q78-c', rang: 1, routine_sets: progr(2, 12),
+          repos_cible_s: 90, groupe_superset: null, note: null },
+        { id: 'r-q78-b', routine_id: 'r-q78', exercise_slug: 'q78-b', rang: 2, routine_sets: progr(2, 10),
+          repos_cible_s: 90, groupe_superset: null, note: null }] });
+    const nb78 = (x) => JSON.stringify(x).replace(/[  ]/g, ' ');
+    const plan78 = () => page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      if (!d) return null;
+      return d.plan.exercices.map((x, i) => ({ slug: x.slug, pari: x.lignes.some((l) => l.role !== 'hors'), q: x.questionReserve,
+        serie: x.serieReserve, ids: d.entrees.seance.exercices[i].series.map((sr) => sr.id) }));
+    });
+    const question78 = () => page.evaluate(() => {
+      const r = document.getElementById('repos');
+      const q = r && !r.hidden ? r.querySelector('.repos-q') : null;
+      if (!q) return null;
+      return { texte: q.querySelector('.repos-q-t').textContent,
+        boutons: Array.from(q.querySelectorAll('button')).map((b) => b.textContent),
+        choisi: Array.from(q.querySelectorAll('button.sel')).map((b) => b.getAttribute('data-ressenti')) };
+    });
+    // Valide la série j de l'exercice i (dans le bloc i : trois exercices seuls, trois blocs).
+    const valider78 = async (i, j) => {
+      await page.evaluate(([b, k]) => document.querySelectorAll('.bloc-seance')[b]
+        .querySelectorAll('.ligne-serie')[k].querySelector('.ok-serie').click(), [i, j]);
+      await attendre(800);
+    };
+    const enBase = (id) => (base.sets.filter((x) => x.id === id)[0] || {}).ressenti;
+    // Ce que la série porte à l'écran, au format du formateur (« 60 kg × 9 ») : la phrase cite la série faite.
+    const faite78 = (i, j) => page.evaluate(([a, b]) => {
+      const sr = window.THPlan.dernier.entrees.seance.exercices[a].series[b];
+      return window.THModele.serieFaite(sr.charge_kg, sr.reps);
+    }, [i, j]);
+
+    await aller('/saisie');
+    await attendre(1200);
+    await demarrerRoutine('Séance Q78');
+    await attendre(900);
+    const p0 = await plan78();
+    ok('[Q78] le plan : A et B ont un pari et une question, C n’en a pas — chacune sur la dernière série de travail',
+      nb78(p0 && p0.map((x) => [x.slug, x.pari, x.q, x.serie])) ===
+        nb78([['q78-a', true, 'calage', 1], ['q78-c', false, null, null], ['q78-b', true, 'calage', 1]]), nb78(p0));
+
+    await valider78(0, 0);
+    const q1 = await question78();
+    ok('[Q78] DISCRIMINANT — jamais après la PREMIÈRE série : le repos de A1 ne pose pas la question',
+      q1 === null && !(await page.evaluate(() => document.getElementById('repos').hidden)), nb78(q1));
+
+    await valider78(0, 1);
+    const q2 = await question78();
+    const fA = await faite78(0, 1);
+    ok('[Q78] après la dernière série de A : « Dernière série : ' + fA + '. Il t’en restait combien ? », 0 · 1 · 2 · 3 ou +',
+      /^60 kg × \d+$/.test(fA.replace(/\s/g, ' ')) &&
+      nb78(q2) === nb78({ texte: 'Dernière série : ' + fA + '. Il t’en restait combien ?',
+        boutons: ['0', '1', '2', '3 ou +'], choisi: [] }), nb78([fA, q2]));
+
+    const idA2 = p0[0].ids[1], idA1 = p0[0].ids[0];
+    await page.click('#repos .repos-q button[data-ressenti="reste_1"]');
+    await attendre(2200);
+    const q3 = await question78();
+    ok('[Q78] un tap : le bouton s’allume, la question reste tant que le repos dure',
+      nb78(q3 && q3.choisi) === nb78(['reste_1']), nb78(q3));
+    ok('[Q78] DISCRIMINANT — la file écrit `reste_1` sur la DERNIÈRE série de A, et sur elle seule',
+      enBase(idA2) === 'reste_1' && enBase(idA1) === null,
+      nb78({ A1: enBase(idA1), A2: enBase(idA2) }));
+
+    await page.click('#repos .repos-q button[data-ressenti="reste_2"]');
+    await attendre(2200);
+    const q4 = await question78();
+    ok('[Q78] un deuxième tap change d’avis : `reste_2`, en base comme à l’écran',
+      enBase(idA2) === 'reste_2' && nb78(q4 && q4.choisi) === nb78(['reste_2']), nb78({ base: enBase(idA2), q4 }));
+
+    await valider78(1, 0);
+    await valider78(1, 1);
+    const q5 = await question78();
+    ok('[Q78] DISCRIMINANT — jamais sur l’exercice sans pari : après la dernière série de C, pas de question',
+      q5 === null && !(await page.evaluate(() => document.getElementById('repos').hidden)), nb78(q5));
+
+    await valider78(2, 0);
+    const q6 = await question78();
+    await valider78(2, 1);
+    const q7 = await question78();
+    const fB = await faite78(2, 1);
+    ok('[Q78] B : rien après sa première série, la question après sa dernière (' + fB + ')',
+      /^40 kg × \d+$/.test(fB.replace(/\s/g, ' ')) &&
+      q6 === null && q7 !== null && q7.texte === 'Dernière série : ' + fB + '. Il t’en restait combien ?', nb78([q6, q7]));
+
+    const v78 = await page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      return d ? window.THPlan.verifierPlan(d.plan, d.entrees) : { ok: false, erreurs: ['aucun plan calculé'] };
+    });
+    ok('[Q78] invariants du plan (I45 compris), et aucune violation de la garde pendant la section',
+      v78.ok && gardeBanc.violations === violationsAvant, nb78([v78.erreurs.slice(0, 3), gardeBanc.violations - violationsAvant]));
+    await abandonner();
+
+    // LA REMISE EN ÉTAT, pour les sections suivantes.
+    ROUTINES.splice(routinesAvant, ROUTINES.length - routinesAvant);
+    CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
+    base.sessions = sessionsAvant;
+    base.sets = setsAvant;
+    await aller('/saisie');
+    ok('[Q78] aucun refus du faux serveur, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,
+      nb78([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
+  }
+
   console.log('\n══ deux-appareils. DEUX APPAREILS, MÊME COMPTE : UN APPAREIL NE SUPPRIME QUE CE QU’IL CONNAÎT (83) ; UNE SÉANCE VIVANTE NE SE FERME NI NE SE REPREND EN SILENCE (84, ECRAN-SAISIE §7 duovicies.1 bis et ter) ══');
   //
   // Deux CONTEXTES navigateur (deux appareils, deux stockages), le même compte, le même faux serveur. Prouvé le 12/10

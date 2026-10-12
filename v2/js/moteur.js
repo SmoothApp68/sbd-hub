@@ -9,9 +9,9 @@
 // commit, et c'est voulu.
 //
 // Module PUR : aucune dépendance au DOM, au réseau, au cache, au catalogue.
-// UNE seule dépendance, `THPalier`, pour `repsComptees` — la règle du §17.4
-// (une série `max` compte une rep de moins) est écrite là-bas et ne se réécrit
-// pas ici.
+// UNE seule dépendance, `THPalier`, pour `repsComptees` et `repsPrudentes` —
+// la règle du §17.4 (une série à fond compte ses reps ; le calcul prudent lui
+// en retire une) est écrite là-bas et ne se réécrit pas ici.
 //
 // ⚠️ TROIS TABLES VOISINES QU'IL NE FAUT JAMAIS CONFONDRE.
 //
@@ -35,6 +35,27 @@
   // « si THPalier manque, compte les reps brutes » ferait passer une série à
   // l'échec pour une série pleine, sans que rien ne le dise.
   function Palier() { return racine.THPalier; }
+
+  // §17.4, révisé le 11/10/2026 (74) — LES REPS D'UNE SÉRIE, telles que le
+  // moteur les compte : les reps faites, partout. Une seule exception, le
+  // CALCUL PRUDENT (68B : une série à fond compte une rep de moins), que
+  // `consigneDExercice` rejoue à côté pour ses plafonds (`enPrudent`) — le
+  // compte vient alors de `repsPrudentes`, jamais réécrit ici.
+  //
+  // ⚠️ UN DRAPEAU DU MODULE, ET PAS UN PARAMÈTRE : le compte est lu à neuf
+  // endroits, sur des chemins que la consigne traverse en profondeur (le
+  // niveau, la chute, l'échelle, les séances sans palier). Le passer de main en
+  // main en oublierait un, en silence. `enPrudent` le pose et le rend toujours
+  // (`finally`) : rien ne peut le laisser levé derrière lui.
+  var prudent = false;
+  function compter(serie) {
+    return prudent ? Palier().repsPrudentes(serie) : Palier().repsComptees(serie);
+  }
+  function enPrudent(calcul) {
+    var avant = prudent;
+    prudent = true;
+    try { return calcul(); } finally { prudent = avant; }
+  }
 
   // §9.1.2 — 8 séances avant de conclure. Mesuré (banc M12) : sur tout
   // l'historique, 7 des 23 exercices actifs d'Aurélien étaient mal rangés par
@@ -343,8 +364,8 @@
   //   · toutes à la même charge ;
   //   · chacune de celles d'avant à UNE REP PRÈS de la première ;
   //   · et elle perd AU MOINS 4 reps ET AU MOINS 30 % sur la première.
-  // Tout en REPS COMPTÉES (§17.4) : une série à RPE 10 ou « reste 0 » compte une
-  // rep de moins. `10-10-6` → chute ; `10-4-4` → non (c'est la première qui sort
+  // Tout en REPS COMPTÉES (§17.4) : les reps faites depuis 74 (une rep de moins
+  // à fond dans le calcul prudent seulement, `compter`). `10-10-6` → chute ; `10-4-4` → non (c'est la première qui sort
   // du lot) ; `15-15-11` → non (−27 %) ; `10-10-7` → non (−3) ; `10-5` → non.
   // Rend le RANG (1-based) de la chute dans `seriesAuPalier`, ou `null`.
   var CHUTE_REPS = 4;
@@ -356,7 +377,7 @@
     if (n < 3) return null;
     var c = [];
     for (var i = 0; i < n; i++) {
-      var r = Palier().repsComptees(liste[i]);
+      var r = compter(liste[i]);
       if (r === null) return null;
       c.push(r);
     }
@@ -375,7 +396,9 @@
 
   // MOTEUR §17.4 révisé (68B) — LE NIVEAU SUR LES REPS FAITES : le même
   // calcul, sans la rep en moins d'une série à fond. Il ne décide rien : il
-  // sert à DIRE (« sans marge »), jamais à monter.
+  // sert à DIRE (« sans marge »), jamais à monter. Depuis 74, c'est aussi le
+  // niveau validé hors calcul prudent ; il reste pour la note, lue contre le
+  // calcul prudent.
   function niveauFait(seriesAuPalier) {
     return niveauValide((seriesAuPalier || []).map(function (s) {
       return { reps: s ? s.reps : null, charge_kg: s ? s.charge_kg : null };
@@ -397,7 +420,7 @@
 
     var comptees = [];
     for (var i = 0; i < liste.length; i++) {
-      var r = Palier().repsComptees(liste[i]);
+      var r = compter(liste[i]);
       if (r === null) return null;
       comptees.push(r);
     }
@@ -932,8 +955,8 @@
   }
 
   // Le test d'une séance : la plus lourde exploration, ses séries, leur niveau.
-  // `niveauValide` et non les reps brutes — une exploration à RPE 10 compte une
-  // rep de moins, comme au palier (§17.4).
+  // `niveauValide` et non les reps brutes — compté comme au palier (§17.4 : les
+  // reps faites depuis 74 ; une de moins à fond dans le calcul prudent).
   function testDe(vue) {
     var explorations = parRole(vue && vue.series, ROLES_EXPLORE);
     if (!explorations.length) return null;
@@ -1059,7 +1082,7 @@
     for (var i = 0; i < (series || []).length; i++) {
       var s = series[i];
       var brut = nombre(s && s.reps);
-      var comptees = Palier().repsComptees(s);
+      var comptees = Palier().repsPrudentes(s);
       if (brut === null || comptees === null || comptees >= brut) continue;
       return {
         rang: i + 1, charge: nombre(s.charge_kg), reps: brut, comptees: comptees,
@@ -1184,8 +1207,12 @@
     // §17.4 révisé (68B) — le niveau sur les reps faites. La note de la série
     // à fond ne se pose QUE si la rep en moins a réellement abaissé le niveau
     // validé ; sinon, la phrase habituelle.
+    // 74 — le niveau validé compte désormais les reps faites : la note se
+    // pose au même signal qu'en 68B, le niveau du CALCUL PRUDENT sous celui des
+    // reps faites (« sans marge : on ne rajoute pas de rep » — le plafond 3).
     var nivFait = niveauFait(A);
-    var sansMarge = nivFait !== null && nivFait > niv;
+    var nivPrudent = enPrudent(function () { return niveauValide(A); });
+    var sansMarge = nivFait !== null && nivPrudent !== null && nivFait > nivPrudent;
     if (aFond !== null && !sansMarge) aFond = null;
     if (aFond !== null) aFond.niveauFait = nivFait;
     function rendre(etat, ligne, haut, plus) {
@@ -1294,7 +1321,7 @@
       return a === null || b === null ? null : [a, b];
     }
     function comptees(s) {
-      var r = Palier().repsComptees(s);
+      var r = compter(s);
       return r === null ? null : r;
     }
     function auMoins(series, seuil) {
@@ -1708,7 +1735,7 @@
       var s = liste[i] || {};
       var charge = nombre(s.charge_kg);
       var reps = nombre(s.reps);
-      var comptees = Palier().repsComptees(s);
+      var comptees = compter(s);
       // §9.14 ter (68B) — « À FOND » (RPE 10 ou « reste 0 », un seul endroit :
       // `cranDeSerie`) : tenue, mais sans marge. Ni élan, ni proposition, ni
       // « ton test arrive » ; une proposition prise à fond ne garde pas sa charge.
@@ -2186,7 +2213,7 @@
     if (p.source === 'a_fond') return [pariAFond(r, liste, j, p, z, fondement, rev, o)];
     var iDecl = rev === 1 ? j - 1 : revs.indexOf(1);
     var d = liste[iDecl] || {};
-    var comptees = Palier().repsComptees(d);
+    var comptees = compter(d);
     var viseDecl = r.plan[iDecl] ? r.plan[iDecl].vise : null;
     var propose = rev === 1 && r.message && r.message.type === 'propose' ? r.message : null;
     fondement.revision = rev;
@@ -2226,7 +2253,7 @@
       if (!(l && l.source === 'elan' && memeCharge(nombre(l.charge), nombre(p.charge)))) { iDecl = d; break; }
     }
     var dc = liste[iDecl] || {};
-    var comptees = Palier().repsComptees(dc);
+    var comptees = compter(dc);
     var viseDecl = r.plan[iDecl] ? nombre(r.plan[iDecl].vise) : null;
     fondement.revision = rev;
     fondement.declencheur = {
@@ -2257,7 +2284,7 @@
   function pariAFond(r, liste, j, p, z, fondement, rev, o) {
     var iDecl = j - 1;
     var dc = liste[iDecl] || {};
-    var comptees = Palier().repsComptees(dc);
+    var comptees = compter(dc);
     var viseDecl = r.plan[iDecl] ? nombre(r.plan[iDecl].vise) : null;
     fondement.revision = rev;
     fondement.declencheur = {
@@ -2445,8 +2472,11 @@
   // 12 depuis 68B (« à fond » en séance — MOTEUR §9.14 ter : la suivante à la
   // même charge vise une rep de moins, un pari `a_fond` ; ni élan ni proposition
   // sur la foi d'une série à fond ; l'observation compte les reps faites).
+  // 13 depuis 74 (une série à fond compte ses reps — MOTEUR §17.4, révisé le
+  // 11/10/2026 : le niveau validé, le test, l'échelle sur les reps faites ;
+  // après elle, quatre plafonds contre le calcul prudent).
   var MODULE_CONSIGNE = 'moteur.consigne';
-  var VERSION_CONSIGNE = 12;
+  var VERSION_CONSIGNE = 13;
 
   // ⚠️ LU TARDIVEMENT, SANS REPLI, comme `THPalier`. `modele.js` charge avant
   // `moteur.js` (index.html 325 puis 329), mais un repli « si THModele manque,
@@ -4373,7 +4403,7 @@
         if (z !== null) {
           parRole(se.series, { travail: true }).forEach(function (s) {
             var kg = nombre(s.charge_kg);
-            var r = Palier().repsComptees(s);
+            var r = compter(s);
             if (kg !== null && r !== null && r >= z.bas && (C === null || kg > C)) C = kg;
           });
         }
@@ -6133,6 +6163,115 @@
     return consigneDepartLeste(kp.zone, kp.n, kp.fondement ? kp.fondement.date : null);
   }
 
+  // §17.4 (74) — LA DERNIÈRE SÉANCE, SI ELLE A UNE SÉRIE À FOND : ses séries de
+  // travail (les votantes — palier, travail, exploration : celles qui font la
+  // consigne), ou `null` si aucune n'est à fond (RPE 10 ou « reste 0 », lu par
+  // `cranDeSerie`, le seul endroit). La dernière séance est celle d'où la
+  // consigne repart : la dernière antérieure qui n'est pas neutre.
+  function seriesAFondDeLaDerniere(seances, avant) {
+    var ant = anterieures((seances || []).map(vueDeSeance), avant)
+      .filter(function (se) { return !se.neutre; });
+    if (!ant.length) return null;
+    var V = ant[ant.length - 1].votantes;
+    var aFond = V.some(function (s) { return Palier().cranDeSerie(s) === 'max'; });
+    return aFond ? V : null;
+  }
+
+  // §17.4 (74) — LES QUATRE PLAFONDS, dans l'ordre du MOTEUR §17.4. `faite` :
+  // la consigne sur les reps faites ; `prudente` : celle du calcul prudent ;
+  // `V` : les séries de travail de la dernière séance (au moins une à fond).
+  // Le NIVEAU et le PALIER restent ceux des reps faites, toujours. Quand l'état
+  // revient au calcul prudent, son fondement vient avec : c'est lui qui porte
+  // de quoi dire « sans marge » (68B), et la phrase suit l'état.
+  function plafonnerAFond(faite, prudente, V) {
+    if (!faite || !prudente || faite.etat === 'silence') return faite;
+    var r = {};
+    Object.keys(faite).forEach(function (k) { r[k] = faite[k]; });
+    function etatPrudent(avecLigne) {
+      r.etat = prudente.etat;
+      r.haut = prudente.haut;
+      if (avecLigne) r.ligne = prudente.ligne;
+      r.fondement = prudente.fondement;
+    }
+    // Les charges faites À FOND, et pour chacune le plus de reps et le nombre
+    // de séries faites à cette charge dans la séance.
+    var lourde = null;
+    V.forEach(function (s) {
+      var c = nombre(s.charge_kg);
+      if (c !== null && (lourde === null || c > lourde)) lourde = c;
+    });
+    function aFondA(charge) {
+      return charge !== null && V.some(function (s) {
+        return Palier().cranDeSerie(s) === 'max' && memeCharge(nombre(s.charge_kg), charge);
+      });
+    }
+    function aCetteCharge(charge) {
+      return V.filter(function (s) { return memeCharge(nombre(s.charge_kg), charge); });
+    }
+    function plusDeReps(charge) {
+      var m = null;
+      aCetteCharge(charge).forEach(function (s) {
+        var x = nombre(s.reps);
+        if (x !== null && (m === null || x > m)) m = x;
+      });
+      return m;
+    }
+    // 1. Pas de « tout passe » que le calcul prudent ne donne pas.
+    if (r.etat === 'tout_passe' && prudente.etat !== 'tout_passe') etatPrudent(true);
+    // 2. Pas de test plus lourd que la charge la plus lourde de la séance. Un
+    // test sans charge (« le cran au-dessus », que le matériel ne chiffre
+    // pas) ne se compare pas : rien ne dit qu'il dépasse.
+    if (r.haut && lourde !== null) {
+      var ch = nombre(r.haut.charge);
+      if (ch !== null && ch > lourde && !memeCharge(ch, lourde)) etatPrudent(false);
+    }
+    // 3. Pas de rep de plus à une charge faite à fond (ligne et test). Au
+    // POIDS DU CORPS (palier 0, §9.17), aucune : sans cran, les reps sont la
+    // seule façon de monter (`etirement_reps`), et le cas réel le garde.
+    var poidsDuCorps = nombre(faite.palier) === 0;
+    function borner(l) {
+      if (!l) return l;
+      var c = nombre(l.charge);
+      if (poidsDuCorps || !aFondA(c)) return l;
+      var m = plusDeReps(c);
+      if (m === null || nombre(l.vise) === null || nombre(l.vise) <= m) return l;
+      var b = {};
+      Object.keys(l).forEach(function (k) { b[k] = l[k]; });
+      b.vise = m;
+      return b;
+    }
+    r.ligne = borner(r.ligne);
+    r.haut = borner(r.haut);
+    // 4. Pas de série de test en plus à une charge faite à fond.
+    if (r.haut && aFondA(nombre(r.haut.charge))) {
+      var kMax = Math.max(aCetteCharge(nombre(r.haut.charge)).length,
+                          prudente.haut && nombre(prudente.haut.k) !== null ? nombre(prudente.haut.k) : 0);
+      if (nombre(r.haut.k) !== null && r.haut.k > kMax) {
+        var h = {};
+        Object.keys(r.haut).forEach(function (k) { h[k] = r.haut[k]; });
+        h.k = kMax;
+        r.haut = h;
+        r.etat = prudente.etat;
+        r.fondement = prudente.fondement;
+      }
+    }
+    r.niveau = faite.niveau;
+    r.palier = faite.palier;
+    return r;
+  }
+
+  // §17.4 (74) — APRÈS UNE SÉRIE À FOND, LE COACH NE MONTE PAS. La consigne
+  // part des reps faites (`consignePour`) ; si la dernière séance a une série
+  // de travail à fond, le calcul prudent (68B) se rejoue à côté et les quatre
+  // plafonds les comparent. Mêmes entrées que `consignePour` (le contrat).
+  function consigneApresAFond(seances, avant, options) {
+    var consigne = consignePour(seances, avant, options);
+    var V = seriesAFondDeLaDerniere(seances, avant);
+    if (V === null) return consigne;
+    var prudente = enPrudent(function () { return consignePour(seances, avant, options); });
+    return plafonnerAFond(consigne, prudente, V);
+  }
+
   // La consigne d'UN exercice de la séance ouverte, silences compris. Pure :
   // `app.js` ne fait que résoudre les valeurs (`mesure` par `gabaritDe`,
   // `reglage` par `Profil.rythmeDe`, `equipement` au catalogue) et les passer.
@@ -6168,7 +6307,9 @@
     // §9.17 — `lestReponse` : la réponse à la carte du lest, une ENTRÉE du
     // profil. Elle vaut pour toute séance, comme le rythme et l'intention (le
     // rejeu le dit : « celles du profil actuel »).
-    var consigne = consignePour(seances, avant,
+    // §17.4 (74) — les plafonds d'après une série à fond passent AVANT tout le
+    // reste : ce qui suit lit la consigne plafonnée.
+    var consigne = consigneApresAFond(seances, avant,
       { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null,
         lestReponse: o.lestReponse, lestPossible: o.lestPossible });
     // §9.10 (53-1) — LA ZONE A CHANGÉ depuis la dernière séance : la charge se
@@ -6700,6 +6841,7 @@
     ecartHabituel: ecartHabituel,
     repriseDe: repriseDe,
     consignePour: consignePour,
+    consigneApresAFond: consigneApresAFond,
     reactionPour: reactionPour,
     consigneFigee: consigneFigee,
     REPLI_MAX_REPRISE: REPLI_MAX_REPRISE,

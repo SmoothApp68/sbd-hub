@@ -1123,7 +1123,14 @@ const NOTIONS = [
     parAilleurs: { 'app.js': ['aUnHistorique'] },
     raison: 'QUESTIONNAIRE-COACH-V2 §5 quater.5 (66D) : l’historique des exercices et les habitudes finissent leur fenêtre ' +
       'à la même séance, et « Construis-le-moi » y borne le fait du coach (la semaine de la dernière séance comprise) — ' +
-      'une seule définition de « la dernière », extraite des deux faits qui la recalculaient.' }
+      'une seule définition de « la dernière », extraite des deux faits qui la recalculaient.' },
+  // ── 74 — « SANS MARGE » COMPTE SES REPS (MOTEUR §17.4, révisé le 11/10/2026) ─
+  { notion: 'le calcul prudent (une série à fond compte une rep de moins)', pr: '74-U1',
+    module: 'palier.js', fonction: 'repsPrudentes', lecteurs: ['moteur.js'],
+    parAilleurs: { 'moteur.js': ['compter', 'serieAFondDe'] },
+    raison: 'MOTEUR §17.4 (74) : une série à fond compte ses reps partout (`repsComptees`) ; la règle de 68B ne sert plus ' +
+      'qu’à comparer — les plafonds de `consigneDExercice` rejouent la consigne en calcul prudent (`enPrudent`, par ' +
+      '`compter`), et la note « sans marge » se pose sur la série qu’elle abaisse (`serieAFondDe`). Un seul endroit.' }
 ];
 
 // ── 58-1 — UN FAIT NE SE DÉCLARE QUE DANS `faits.js` ─────────────────────────

@@ -359,7 +359,28 @@
     if (r.error) throw r.error;
   }
 
-  // Met la base À L'IMAGE de ce que l'app a en local pour cette séance.
+  // 83 (12/10/2026) — CE QUE L'ENVOI SUPPRIME : les séries en base de la séance
+  // que CET APPAREIL CONNAÎT (`connues` : celles qu'il a envoyées ou chargées
+  // depuis la base pour elle) et qui ne sont plus dans sa liste. Une série
+  // jamais vue par l'appareil — validée sur un autre, pendant ce temps — n'est
+  // jamais supprimée par lui (ECRAN-SAISIE §7 duovicies.1 bis). `connues` absent
+  // (une entrée de file posée avant ce correctif) : l'ancienne règle, tout ce qui
+  // n'est pas dans la liste. Pure : `existantes` et `liste` sont des ids.
+  function aRetirerDe(existantes, liste, connues) {
+    var gardes = {}, connu = null;
+    (liste || []).forEach(function (id) { gardes[id] = true; });
+    if (Array.isArray(connues)) {
+      connu = {};
+      connues.forEach(function (id) { connu[id] = true; });
+    }
+    return (existantes || []).filter(function (id) {
+      return !gardes[id] && (connu === null || connu[id] === true);
+    });
+  }
+
+  // Met la base À L'IMAGE de ce que l'app a en local pour cette séance — pour
+  // les séries que cet appareil CONNAÎT (83) : celles d'un autre appareil
+  // restent, l'upsert ne touche que les siennes.
   //
   // ⚠️ L'UPSERT EST EN UN SEUL LOT, et ce n'est pas une optimisation :
   // `sets_rang_unique` est UNIQUE (session_id, rang) **DEFERRABLE INITIALLY
@@ -368,19 +389,17 @@
   // chacune dans sa transaction, les mêmes lignes échoueraient sur la première.
   //
   // On lit ce qui existe AVANT d'écrire, plutôt que de deviner : c'est ce qui
-  // permet de supprimer ce qui a été dévalidé sans se fier à une mémoire locale
-  // qui pourrait avoir tort.
-  async function remplacerSeries(sessionId, lignes) {
+  // permet de supprimer ce qui a été dévalidé. Mais on ne supprime que ce qu'on
+  // connaît (`aRetirerDe`, 83) : deux appareils sur la même séance
+  // s'effaçaient l'un l'autre (prouvé au banc, 82).
+  async function remplacerSeries(sessionId, lignes, connues) {
     var liste = lignes || [];
 
     var existantes = await client().from('sets').select('id').eq('session_id', sessionId);
     if (existantes.error) throw existantes.error;
 
-    var gardes = {};
-    liste.forEach(function (l) { gardes[l.id] = true; });
-    var aRetirer = (existantes.data || [])
-      .map(function (e) { return e.id; })
-      .filter(function (id) { return !gardes[id]; });
+    var aRetirer = aRetirerDe((existantes.data || []).map(function (e) { return e.id; }),
+      liste.map(function (l) { return l.id; }), connues);
 
     // ⚠️ SUPPRIMER D'ABORD, UPSERTER ENSUITE. L'ordre inverse est cassé, et il
     // l'était : retirer une série du MILIEU décale les suivantes vers le bas,
@@ -842,6 +861,7 @@
     remplacerSeries: remplacerSeries,
     seancesEnCours: seancesEnCours,
     refermerSeance: refermerSeance,
+    aRetirerDe: aRetirerDe,
     seriesDeSeance: seriesDeSeance,
     compterSeances: compterSeances,
     compterSeries: compterSeries,

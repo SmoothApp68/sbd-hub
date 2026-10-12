@@ -241,9 +241,12 @@
       // avec l'ancienne ne doit pas pouvoir retirer celle-ci (`retirer`).
       var ancienne = liste[i];
       liste.splice(i, 1);
-      return liste.concat([Object.assign(entree(cle, op, prochainSeq(liste.concat([ancienne]))), {
+      var neuve = Object.assign(entree(cle, op, prochainSeq(liste.concat([ancienne]))), {
         version: (ancienne.version || 1) + 1
-      })]);
+      });
+      var cumul = cumulerConnues(ancienne.connues, op.connues);
+      if (cumul === undefined) delete neuve.connues; else neuve.connues = cumul;
+      return liste.concat([neuve]);
     }
     if (i >= 0) {
       // Compression : la dernière intention gagne, la POSITION reste celle de
@@ -253,6 +256,7 @@
       // ⚠️ `version` MONTE À CHAQUE POSE. C'est ce qui distingue « l'entrée que
       // je viens d'envoyer » de « l'entrée telle qu'elle est maintenant » —
       // voir `retirer`.
+      var connues = cumulerConnues(liste[i].connues, op.connues);
       liste[i] = Object.assign({}, liste[i], {
         op: op.op, donnees: op.donnees,
         depend: op.depend === undefined ? (liste[i].depend || null) : op.depend,
@@ -260,19 +264,39 @@
         version: (liste[i].version || 1) + 1,
         bloquee: null, essais: 0, attend: null
       });
+      if (connues === undefined) delete liste[i].connues;
+      else liste[i].connues = connues;
       return liste;
     }
     return liste.concat([entree(cle, op, prochainSeq(liste))]);
   }
 
   function entree(cle, op, seq) {
-    return {
+    var e = {
       cle: cle, seq: seq, table: op.table, op: op.op, id: op.id,
       depend: op.depend === undefined ? null : op.depend,
       donnees: op.donnees === undefined ? null : op.donnees,
       creation: !!op.creation, posee_a: op.posee_a || null,
       version: 1, essais: 0, bloquee: null, attend: null
     };
+    if (Array.isArray(op.connues)) e.connues = op.connues.slice();
+    return e;
+  }
+
+  // 83 (12/10/2026) — LES SÉRIES QUE L'APPAREIL CONNAÎT, portées par une entrée
+  // `remplacer` des séries (`remplacerSeries` ne supprime qu'elles). Une entrée
+  // qui en remplace une autre les CUMULE : la précédente a pu en connaître que
+  // la nouvelle ne liste plus (une série retirée entre-temps). Une entrée
+  // ANCIENNE, posée avant ce correctif, n'en porte pas (`undefined`) : elle
+  // garde l'ancienne règle — et la remplacer garde l'ancienne règle aussi, le
+  // temps qu'elle parte. L'entrée suivante, neuve, porte ses connues.
+  function cumulerConnues(avant, nouvelles) {
+    if (!Array.isArray(avant) || !Array.isArray(nouvelles)) return undefined;
+    var vus = {}, sortie = [];
+    avant.concat(nouvelles).forEach(function (id) {
+      if (id && !vus[id]) { vus[id] = true; sortie.push(id); }
+    });
+    return sortie;
   }
 
   function indexDe(liste, cle) {
@@ -697,6 +721,7 @@
     marquerAttente: marquerAttente,
     libererObservations: libererObservations,
     UPSERT: UPSERT, SUPPRIMER: SUPPRIMER, REMPLACER: REMPLACER, PLAN: PLAN,
+    cumulerConnues: cumulerConnues,
     CODES_DEFINITIFS: CODES_DEFINITIFS,
     cleDe: cleDe,
     estDefinitive: estDefinitive,

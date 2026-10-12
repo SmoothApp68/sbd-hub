@@ -39,7 +39,7 @@
   var vues = {};
   var local = { seances: [], series: [], exercices: [], pesees: [], zones: [], modes: [],
                 predictions: [], sousConsigne: {}, parisLegers: [], escalier: [], parSeance: null,
-                blocs: [], programme: [], records: [] };
+                blocs: [], programme: [], records: [], connues: {} };
   var etat = { code: 'vide', libelle: '', local: false };
   var syncEnCours = false;
   // ⚠️ 59-5 — LA GÉNÉRATION DE L'APPAREIL. « Quitter » (et « Supprimer mon
@@ -714,6 +714,9 @@
     catch (e) { local.blocs = []; }
     try { local.programme = (await Cache.lireBrouillon(CLE_PARIS_PROGRAMME)) || []; }
     catch (e) { local.programme = []; }
+    // 83 — les séries que cet appareil connaît, par séance (`connaitre`).
+    try { local.connues = (await Cache.lireBrouillon(CLE_CONNUES)) || {}; }
+    catch (e) { local.connues = {}; }
     // 58-2 — le journal des records, et où en est son remplissage.
     try { local.records = await Cache.lireTout('records'); }
     catch (e) { local.records = []; }
@@ -796,6 +799,7 @@
     local.escalier = [];
     local.blocs = [];
     local.programme = [];
+    local.connues = {};
     // 58-2 — le journal des records aussi (son magasin vient d'être vidé), et
     // son remplissage : il se décidera pour le compte qui arrive.
     local.records = [];
@@ -1624,7 +1628,7 @@
       return Donnees.supprimerSeance(op.id);
     }
     if (op.table === Attente.SESSIONS) return Donnees.enregistrerSeance(op.donnees);
-    if (op.table === Attente.SETS) return Donnees.remplacerSeries(op.id, op.donnees || []);
+    if (op.table === Attente.SETS) return Donnees.remplacerSeries(op.id, op.donnees || [], op.connues);
     // §9.1.1 — la ligne part telle qu'elle a été posée : son identifiant la
     // rend idempotente, sa date dit quand le choix a été fait.
     if (op.table === Attente.ZONES) return Donnees.enregistrerZone(op.donnees);
@@ -1691,12 +1695,50 @@
     if (o.structure !== false) ecrireReplis().catch(function () {});
   }
 
+  // ⚠️ 83 (12/10/2026) — L'ENVOI NE SUPPRIME QUE CE QUE CET APPAREIL CONNAÎT
+  // (ECRAN-SAISIE §7 duovicies.1 bis). Deux appareils sur la même séance
+  // s'effaçaient l'un l'autre : « supprimer tout ce qui n'est pas dans ma
+  // liste » emportait les séries que l'autre venait de valider (prouvé au banc,
+  // 82). L'entrée porte donc ses `connues` : ce que cet appareil a envoyé pour
+  // la séance, plus ce qu'il en a chargé depuis la base (`connaitre`).
   function poserSeries() {
     semerSeance();
+    var lignes = Seance.lignes(seance);
+    var connues = connaitre(seance.id, lignes.map(function (l) { return l.id; }));
     return poser({
       table: Attente.SETS, op: Attente.REMPLACER, id: seance.id,
-      donnees: Seance.lignes(seance)
+      donnees: lignes, connues: connues
     });
+  }
+
+  // Les séries que cet appareil CONNAÎT pour une séance : envoyées par lui, ou
+  // chargées depuis la base (la reprise d'une séance, « Modifier » une séance
+  // terminée). Un ensemble qui ne fait que grandir tant que la séance est
+  // ouverte ici — une série retirée de la liste reste connue, sinon l'envoi
+  // suivant ne la supprimerait plus. Tenu en mémoire et sur le disque (le
+  // brouillon, `CLE_CONNUES`) : il survit au rechargement, et l'entrée de file
+  // porte sa propre copie pour la vidange hors ligne. Rend la liste à jour.
+  function connaitre(sessionId, ids) {
+    if (!sessionId) return [];
+    var deja = local.connues[sessionId] || [];
+    var vus = {}, liste = [];
+    deja.concat(ids || []).forEach(function (id) {
+      if (id && !vus[id]) { vus[id] = true; liste.push(id); }
+    });
+    local.connues[sessionId] = liste;
+    Cache.ecrireBrouillon(CLE_CONNUES, local.connues).catch(function (e) {
+      console.warn('Séries connues non persistées :', texteErreur(e));
+    });
+    return liste.slice();
+  }
+
+  // La séance quitte cet appareil (terminée, abandonnée, correction
+  // enregistrée) : son dernier envoi porte déjà ses connues, l'ensemble se
+  // libère. Une nouvelle correction la rechargera depuis la base.
+  async function oublierConnues(sessionId) {
+    if (!sessionId || !local.connues[sessionId]) return;
+    delete local.connues[sessionId];
+    await Cache.ecrireBrouillon(CLE_CONNUES, local.connues).catch(function () {});
   }
 
   function poserSeance(creation) {
@@ -1923,6 +1965,8 @@
     try {
       var series = await Donnees.seriesDeSeance(distante.id);
       if (!generationValide(g)) return;
+      // 83 — les séries chargées depuis la base sont connues de cet appareil.
+      connaitre(distante.id, (series || []).map(function (x) { return x.id; }));
       seance = Seance.reprendre(distante, Modele.construireBlocs(series, local.exercices));
       // Les tours se recalculent depuis ce qu'on vient de lire : `sessions` ne
       // les porte pas, et sans ça un superset repris repartirait au tour 0.
@@ -2230,6 +2274,7 @@
     // traverser la fin, et la réserve du bas la suivrait.
     rendreChrono();
     await Cache.ecrireBrouillon('seance', null);
+    await oublierConnues(finie.id);
     await oublierConsignes();
     // 71 — LE RÉCAP, UNE FOIS, JUSTE APRÈS « TERMINER » (ECRAN-SAISIE §7 septies.4 bis). Il vit en mémoire
     // seulement : ni l'abandon, ni l'Édition, ni un rechargement ne le rouvrent.
@@ -2334,6 +2379,7 @@
     seance = null; chrono = null; arreterMinuteur();
     rendreChrono();
     await Cache.ecrireBrouillon('seance', null);
+    await oublierConnues(id);
     await oublierConsignes();
     await poser({ table: Attente.SESSIONS, op: Attente.SUPPRIMER, id: id });
     rendreSaisie();
@@ -3037,6 +3083,8 @@
   // MOTEUR §9.22 (53-2).
   var CLE_BLOCS = 'blocs';
   var CLE_PARIS_PROGRAMME = 'paris-programme';
+  // 83 — les séries que cet appareil connaît, par séance.
+  var CLE_CONNUES = 'connues-series';
 
   // `{ [slug]: [identifiants de séance] }`, à partir de lignes `predictions` —
   // celles du serveur (`session_id`, colonne générée) ou celles de l'appareil
@@ -8939,6 +8987,9 @@
       ouvrirVoile($('feuille-seance'));
       return;
     }
+    // 83 — les séries de la séance, lues dans le cache (la base, à la
+    // dernière synchronisation) : connues de cet appareil, il peut les retirer.
+    connaitre(ligne.id, seriesDe(ligne.id).map(function (x) { return x.id; }));
     seance = Seance.reprendre(ligne, blocs);
     chrono = null;
     sauverSeance();
@@ -8969,6 +9020,7 @@
     arreterMinuteur();
     rendreChrono();
     await Cache.ecrireBrouillon('seance', null);
+    await oublierConnues(id);
     await oublierConsignes();
     // Enregistrer une correction est un RETOUR, pas une navigation : on revient
     // d'où l'on vient, on n'empile pas une seconde fois le détail.
@@ -9227,7 +9279,7 @@
     try { await Cache.viderTout(); } catch (e) { /* rien à garder de toute façon */ }
     local = { seances: [], series: [], exercices: [], pesees: [], zones: [], modes: [],
               predictions: [], sousConsigne: {}, parisLegers: [], escalier: [], parSeance: null,
-              records: [] };
+              records: [], connues: {} };
     journalDecide = false;
     notesEnCours = {};
     // Les routines vivent en mémoire, pas dans le cache — mais elles
@@ -10809,7 +10861,10 @@
         // Tous ses exercices laissés de côté : une séance vide n'est pas importée.
         if (!m) { resultat.deCote++; continue; }
         ops.push({ table: Attente.SESSIONS, op: Attente.UPSERT, id: m.id, donnees: Seance.ligneSession(m), creation: true });
-        ops.push({ table: Attente.SETS, op: Attente.REMPLACER, id: m.id, donnees: Seance.lignes(m) });
+        var lignesM = Seance.lignes(m);
+        // 83 — une séance importée ne connaît que ses propres séries.
+        ops.push({ table: Attente.SETS, op: Attente.REMPLACER, id: m.id, donnees: lignesM,
+                   connues: lignesM.map(function (l) { return l.id; }) });
         modeles.push(m);
       }
       if (!generationValide(g)) return;

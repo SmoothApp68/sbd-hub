@@ -299,7 +299,7 @@ describe('§2 — la liste des séances se rejoint en remplaçant', () => {
 // premier nettoyage, comme la garde de table du chantier 37.
 
 function bacModifier(incompletes) {
-  const journal = { reprises: 0, sauves: 0, navigations: 0, rendus: 0, feuille: null, voile: 0 };
+  const journal = { reprises: 0, sauves: 0, navigations: 0, rendus: 0, feuille: null, voile: 0, connues: null };
   const ctx = {
     Seance: { reprendre: (ligne) => { journal.reprises++; return { id: ligne.id }; } },
     Rendu: { rendreFeuilleConfirmer: (cible, opts) => { journal.feuille = opts; } },
@@ -312,6 +312,9 @@ function bacModifier(incompletes) {
     allerA: () => { journal.navigations++; },
     Routeur: { SAISIE: 'saisie' },
     rendreSeance: () => { journal.rendus++; },
+    // 83 — les séries chargées de la séance deviennent connues de l'appareil.
+    seriesDe: () => [{ id: 'x1' }, { id: 'x2' }],
+    connaitre: (sid, ids) => { journal.connues = { sid, ids }; return ids; },
     seance: null,
     chrono: { cible: 90 }
   };
@@ -345,6 +348,8 @@ describe('§3 — `modifierSeance` refuse une séance dont les séries manquent'
   test('séries complètes → la séance se rouvre et part en saisie', () => {
     const b = bacModifier(false);
     expect(b.journal.reprises).toBe(1);
+    // 83 — les séries de la séance, chargées depuis la base, sont connues : « Modifier » peut les retirer.
+    expect(b.journal.connues).toEqual({ sid: 's1', ids: ['x1', 'x2'] });
     expect(b.journal.sauves).toBe(1);
     expect(b.journal.navigations).toBe(1);
     expect(b.journal.rendus).toBe(1);

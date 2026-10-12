@@ -840,7 +840,9 @@ const SETS_IMPORTES = [
     return data.map((l) => projeterUne(l, champs));
   };
 
-  await ctx.route(/supabase\.co/, async (route) => {
+  // 83 — LE FAUX SERVEUR, NOMMÉ : la section « deux-appareils » ouvre un second contexte navigateur (un autre
+  // appareil, son propre stockage) et le branche sur le MÊME serveur, donc sur la même base de papier.
+  const gestionnaireBanc = async (route) => {
     const req = route.request();
     const url = new URL(req.url());
     const table = url.pathname.split('/').pop();
@@ -1703,7 +1705,8 @@ const SETS_IMPORTES = [
       return json([]);
     }
     return json([]);
-  });
+  };
+  await ctx.route(/supabase\.co/, gestionnaireBanc);
 
   let page = await ctx.newPage();
   const erreurs = [];
@@ -18541,6 +18544,114 @@ const SETS_IMPORTES = [
     ok('[S74] aucun refus du faux serveur, aucune erreur de page',
       base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,
       nb74([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
+  }
+
+  console.log('\n══ deux-appareils. DEUX APPAREILS, MÊME COMPTE : UN APPAREIL NE SUPPRIME QUE LES SÉRIES QU’IL CONNAÎT (83, ECRAN-SAISIE §7 duovicies.1 bis) ══');
+  //
+  // Prouvé le 12/10 (82) : B reprend la séance de A (aucune séance sur B) ; A valide une 3ᵉ série ; le geste suivant de
+  // B envoyait sa liste, et la 3ᵉ série de A disparaissait de la base. Deux CONTEXTES navigateur (deux appareils, deux
+  // stockages), le même compte, le même faux serveur. S1 est bloquant ; S2 et S3 (la fermeture et la reprise
+  // silencieuses, chantier 84) sont joués et rapportés, sans contrôle.
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const sessionsAvant = base.sessions, setsAvant = base.sets, catalogueAvant = CATALOGUE.length;
+    const routinesAvant = ROUTINES.length;
+    base.sessions = []; base.sets = [];
+    CATALOGUE.push({ slug: 'rowing-d2a', nom: 'Rowing D2A (Barre)', mesure: 'charge_reps', charge: 'externe',
+      equipement: 'barre', muscles_primaires: ['dorsaux'], muscles_secondaires: [] });
+    ROUTINES.push({ id: 'r-d2a', nom: 'Rowing D2A ×4', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-d2a-e', routine_id: 'r-d2a', exercise_slug: 'rowing-d2a', rang: 0,
+        routine_sets: progr(4, 10), repos_cible_s: 90, groupe_superset: null, note: null }] });
+    const pageA = page;
+    const nb2 = (x) => JSON.stringify(x).replace(/[  ]/g, ' ');
+    const appareil = async (nom) => {
+      const c = await nav.newContext({ viewport: { width: 360, height: 760 } });
+      await c.addInitScript(SCRIPT_JETON);
+      await c.route(/supabase\.co/, gestionnaireBanc);
+      const p = await c.newPage();
+      p.on('pageerror', (e) => erreurs.push('[' + nom + '] ' + String(e).slice(0, 140)));
+      return { c, p };
+    };
+    const seriesDe = (sid) => base.sets.filter((x) => x.session_id === sid).sort((x, y) => x.rang - y.rang)
+      .map((x) => x.charge_kg + '×' + x.reps);
+    const enBase = () => base.sessions.map((s) => s.id.slice(0, 8) + ':' + s.statut + (s.fin ? '' : ' (sans fin)') +
+      ' [' + seriesDe(s.id).join(', ') + ']').join(' | ');
+
+    // ── S1 — B REPREND LA SÉANCE DE A, PUIS LES DEUX ÉCRIVENT (bloquant) ──
+    page = pageA; await aller('/saisie'); await demarrerRoutine('Rowing D2A ×4'); await attendre(900);
+    await saisirSerie(0, 80, 10); await saisirSerie(1, 80, 11); await attendre(1500);
+    const idA = base.sessions.filter((s) => s.statut === 'en_cours').map((s) => s.id)[0];
+    const B = await appareil('B');
+    page = B.p; await aller('/saisie'); await attendre(2500);       // aucune séance sur B : il reprend celle de A
+    const repriseB = await B.p.$$eval('.ligne-serie', (ls) => ls.length);
+    page = pageA; await saisirSerie(2, 80, 9); await attendre(1500);  // la 3ᵉ série de A, que B n'a jamais vue
+    console.log('   S1 — A a validé 3 séries, B a repris (' + repriseB + ' lignes) : ' + enBase());
+    page = B.p; await toucher(0, '.ok-serie'); await attendre(1800); // B dévalide SA première série (connue de lui)
+    const apresB = seriesDe(idA);
+    console.log('   S1 — après le geste de B (il dévalide 80 × 10) : ' + enBase());
+    ok('[D2A] S1 — DISCRIMINANT : après le geste de B, la 3ᵉ série de A (80 × 9) est encore en base',
+      apresB.indexOf('80×9') >= 0, nb2(apresB));
+    ok('[D2A] S1 — la série que B connaît et a dévalidée (80 × 10) est bien retirée par lui',
+      apresB.indexOf('80×10') < 0 && apresB.indexOf('80×11') >= 0, nb2(apresB));
+    page = pageA; await saisirSerie(3, 80, 8); await attendre(1800);
+    const apresA = seriesDe(idA);
+    console.log('   S1 — après le geste suivant de A (4ᵉ série) : ' + enBase());
+    ok('[D2A] S1 — après le geste suivant de A, toutes ses séries sont en base (80 × 10, 11, 9, 8)',
+      nb2(apresA) === nb2(['80×10', '80×11', '80×9', '80×8']), nb2(apresA));
+    await B.p.close(); await B.c.close();
+    page = pageA; await abandonner().catch(() => {});
+    // Les refus du faux serveur se comptent jusqu'ici : S2 en PROVOQUE un par construction
+    // (`sessions_une_seule_en_cours`, la fermeture silencieuse que le chantier 84 traitera), rapporté plus bas.
+    const refusApresS1 = base.journal.filter((j) => j.op === 'refus').length;
+
+    // ── S2 — B OUVERT D'ABORD, A DÉMARRE, PUIS B DÉMARRE UNE NOUVELLE SÉANCE (rapporté, chantier 84) ──
+    base.sessions = []; base.sets = [];
+    const B2 = await appareil('B2');
+    const consA = [], consB = [];
+    const garder = (t, l) => { if (/refermée/i.test(t)) l.push(t.slice(0, 120)); };
+    pageA.on('console', (m) => garder(m.text(), consA));
+    B2.p.on('console', (m) => garder(m.text(), consB));
+    page = B2.p; await aller('/saisie');
+    page = pageA; await aller('/saisie'); await demarrerRoutine('Rowing D2A ×4'); await attendre(900);
+    await saisirSerie(0, 80, 10); await saisirSerie(1, 80, 10); await attendre(1500);
+    const idA2 = base.sessions.filter((s) => s.statut === 'en_cours').map((s) => s.id)[0];
+    page = B2.p; await demarrerRoutine('Rowing D2A ×4'); await attendre(900);
+    await saisirSerie(0, 60, 12); await attendre(2000);
+    console.log('   S2 [rapporté] — B démarre et valide : ' + enBase());
+    const bandeauA = await pageA.evaluate(() => (document.querySelector('#bandeau-seance') || {}).textContent || '');
+    console.log('   S2 [rapporté] — écran de A : ' + nb2(bandeauA.slice(0, 80)));
+    page = B2.p; await aller('/saisie'); await attendre(2500);
+    const historiqueB = await B2.p.evaluate(() => new Promise((ok) => {
+      const req = indexedDB.open('trainhub-v2');
+      req.onsuccess = () => {
+        const r = req.result.transaction(['seances'], 'readonly').objectStore('seances').getAll();
+        r.onsuccess = () => ok(r.result.map((s) => s.id));
+        r.onerror = () => ok([]);
+      };
+      req.onerror = () => ok([]);
+    }));
+    console.log('   S2 [rapporté] — la séance de A dans l’historique de B : ' + (historiqueB.indexOf(idA2) >= 0 ? 'oui' : 'non'));
+
+    // ── S3 — A RECHARGE SON APP (rapporté, chantier 84) ──
+    page = pageA; await aller('/saisie'); await attendre(2500);
+    console.log('   S3 [rapporté] — A recharge : ' + enBase());
+    console.log('   S2/S3 [rapporté] — console A : ' + nb2(consA) + ' · console B : ' + nb2(consB));
+    console.log('   S2 [rapporté] — refus du faux serveur pendant S2/S3 : ' +
+      nb2(base.journal.filter((j) => j.op === 'refus').slice(refusApresS1).map((j) => j.refus + ' ' + j.message)));
+    await B2.p.close(); await B2.c.close();
+
+    // LA REMISE EN ÉTAT, pour les sections suivantes.
+    page = pageA;
+    await abandonner().catch(() => {});
+    ROUTINES.splice(routinesAvant, ROUTINES.length - routinesAvant);
+    CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
+    base.sessions = sessionsAvant; base.sets = setsAvant;
+    await aller('/saisie');
+    ok('[D2A] S1 : aucun refus du faux serveur ; toute la section : aucune erreur de page',
+      refusApresS1 === refusAvant && erreurs.length === erreursAvant,
+      nb2([base.journal.filter((j) => j.op === 'refus').slice(refusAvant, refusApresS1), erreurs.slice(erreursAvant)]));
   }
 
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');

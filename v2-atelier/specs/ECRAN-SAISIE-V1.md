@@ -2743,6 +2743,24 @@ Il dit maintenant que les séries finissent d'arriver.
 base — se verrait refuser « Modifier » pour toujours. Refuser à tort un geste correctif
 coûte un tap ; l'accepter à tort coûte les séries de la séance.
 
+### 7 duovicies.1 bis Deux appareils sur la même séance effaçaient les séries l'un de l'autre — décidé le 12/10/2026 (chantier 83)
+
+> **Même famille que le §7 duovicies.1 : « supprimer tout ce qui n'est pas dans ma liste » efface ce que l'appareil
+> n'a jamais vu.** Prouvé au banc le 12/10 (82) : B reprend la séance de A ; A valide une 3ᵉ série ; le geste suivant
+> de B envoie sa liste, et la 3ᵉ série de A disparaît de la base, avec son record et l'observation de son pari. La
+> base garde la version du dernier qui envoie ; chaque geste de l'un efface l'autre.
+
+**La règle** : l'envoi des séries d'une séance (`remplacerSeries`) ne supprime en base **que les séries que cet
+appareil connaît** et qui ne sont plus dans sa liste. **Connues** = les séries que l'appareil a lui-même envoyées pour
+cette séance, plus celles qu'il a chargées depuis la base (reprise d'une séance, ouverture d'une séance pour la
+modifier). Une série jamais vue par l'appareil n'est jamais supprimée par lui. L'upsert ne change pas.
+
+Les cas d'un seul appareil ne changent pas : dévalider, retirer une série du milieu, « Modifier » une séance
+terminée suppriment comme avant, parce que ces séries sont connues.
+
+**Hors de cette règle** (chantier 84) : la fermeture et la reprise silencieuses d'une séance vivante d'un autre
+appareil, et deux appareils qui écrivent le même rang.
+
 ### 7 duovicies.2 « −15 » sous la borne fabriquait une cible que rien ne fige
 
 Le §7 novodecies a fermé la porte de l'**armement**. Celle de l'**ajustement** est restée

@@ -542,11 +542,8 @@
   var BARRES = [['squat_barre', 'Squat'], ['developpe_couche_barre', 'Couché'], ['souleve_de_terre_barre', 'Soulevé'],
                 ['developpe_militaire_barre', 'Militaire']];
   var SQUAT = BARRES[0][0], COUCHE = BARRES[1][0], MILITAIRE = BARRES[3][0];
-  // Squat ÷ couché : le bas des moyennes de compétition par sexe (moyennes IPF des débutants ; van den Hoek et al.
-  // 2024, J Sci Med Sport, 809 986 compétitions). Le repère affiché : la fourchette débutants → élite.
-  var RATIO_SQUAT_COUCHE = { homme: 1.2, femme: 1.6 };
-  var REPERE_SQUAT_COUCHE = { homme: '1,2 à 1,5', femme: '1,6 à 1,7' };
-  var GENS = { homme: 'hommes', femme: 'femmes' };
+  // Squat ÷ couché : le repère et sa lecture sont ceux de « Ton parcours » (`THParcours.repereSquatCouche`,
+  // carnets de pratiquants ; 76, 12/10/2026 — plus les moyennes de compétition). Aucune table ici.
   var DISCIPLINES_RATIO = ['force', 'les_deux'];
   var JOURS_PLAT = 365;             // « pas encore dépassé » : un record d'au moins 12 mois, sur une barre travaillée
   var SECHE_DEPASSEMENT = 1.3;      // en sèche, un muscle à plus de 1,3 × son plus haut volume (N3)
@@ -646,20 +643,20 @@
       var sortie = { barres: lignes, ratio: null, peu_travailles: null };
       // La barre en retard (Force, Les deux) : squat ÷ couché sous le repère de son sexe.
       var sq = barres[SQUAT] || {}, co = barres[COUCHE] || {}, sexe = prof.sexe;
-      if (contient(DISCIPLINES_RATIO, prof.objectif) && possede(RATIO_SQUAT_COUCHE, sexe) && sq.record && co.record &&
-          sq.semaines && co.semaines) {
+      if (contient(DISCIPLINES_RATIO, prof.objectif) && sq.record && co.record && sq.semaines && co.semaines) {
         var ratio = sq.record.charge / co.record.charge;
-        if (ratio < RATIO_SQUAT_COUCHE[sexe]) {
+        var rp = racine.THParcours.repereSquatCouche(ratio, sexe);
+        if (rp.lecture === 'en dessous') {
           lignes.forEach(function (l) { if (l.slug === SQUAT) l.retard = true; });
           var deja = contient(liste(e.priorites), SQUAT);
           // Trois priorités déjà prises (66B, E1) : la base en refuse une quatrième et `Profil.basculerPriorite` rendrait
           // la liste inchangée — un « oui » qui ne ferait rien. Pas de proposition ; le gris renvoie au profil.
           var pleines = !deja && liste(e.priorites).length >= Profil.PRIORITES_MAX;
-          var gris = 'Ces repères viennent de compétiteurs, et ta morphologie peut jouer. Ce qu\'on voit chez toi : ' +
+          var gris = 'Ces repères viennent de carnets d\'entraînement, et ta morphologie peut jouer. Ce qu\'on voit chez toi : ' +
             'le couché ' + co.semaines + ' semaines sur 26, le squat ' + sq.semaines + '.';
           sortie.ratio = {
-            phrase: 'Ton squat vaut ' + Modele.nombre(ratio, 2) + ' fois ton couché. Chez les ' + GENS[sexe] +
-              ' qui font de la force, le squat vaut ' + REPERE_SQUAT_COUCHE[sexe] + ' fois le couché.',
+            phrase: 'Ton squat vaut ' + Modele.nombre(ratio, 2) + ' fois ton couché. Chez les pratiquants, le squat ' +
+              'vaut environ ' + Modele.nombre(rp.repere, 2) + ' fois le couché.',
             gris: gris + (deja ? ' C\'est déjà ta priorité.'
               : (pleines ? ' Tes trois priorités sont déjà prises : tu peux en changer dans ton profil.' : '')),
             proposition: (deja || pleines) ? null : propositionPriorite(e)
@@ -1391,7 +1388,6 @@
     carteCycles: carteCycles,
     // 66A — la relecture de la semaine (QUESTIONNAIRE-COACH-V2 §5 ter)
     BARRES: BARRES,
-    RATIO_SQUAT_COUCHE: RATIO_SQUAT_COUCHE,
     SECHE_DEPASSEMENT: SECHE_DEPASSEMENT,
     PAR_SEANCE: PAR_SEANCE,
     PEU_TRAVAILLE: PEU_TRAVAILLE,

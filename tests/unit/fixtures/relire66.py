@@ -14,16 +14,16 @@ Usage : python3 -I relire66.py cas-66-relire.json            → rejoue les cas
         python3 -I relire66.py cas-66-relire.json --ecrire   → régénère les attendus (changement de règle décidé)
 """
 import json, math, sys, datetime as dt
+from fractions import Fraction
 
 # ── Les tables (une seule fois) ───────────────────────────────────────────────────────────────────────────────────
 BARRES = [('squat_barre', 'Squat'), ('developpe_couche_barre', 'Couché'), ('souleve_de_terre_barre', 'Soulevé'),
           ('developpe_militaire_barre', 'Militaire')]
-# Squat ÷ couché : le bas des moyennes de compétition par sexe (moyennes IPF débutants ; van den Hoek et al. 2024,
-# J Sci Med Sport, 809 986 compétitions). Le repère affiché : la fourchette débutants → élite.
+# Squat ÷ couché (76, 12/10/2026) : le repère de « Ton parcours » (parcours.js, REPERES ; carnets de pratiquants,
+# StrengthLog), en centièmes, et sa lecture : « en dessous » sous 95 % du repère, en fractions exactes.
 PRIORITES_MAX = 3                  # Profil.PRIORITES_MAX : au-delà, la base refuse (profiles_priorites_max3)
-RATIO_SQUAT_COUCHE = {'homme': 1.2, 'femme': 1.6}
-REPERE_SQUAT_COUCHE = {'homme': '1,2 à 1,5', 'femme': '1,6 à 1,7'}
-GENS = {'homme': 'hommes', 'femme': 'femmes'}
+REPERE_SQUAT_COUCHE = {'homme': 121, 'femme': 152}
+SOUS = 95
 DISCIPLINES_RATIO = ('force', 'les_deux')
 JOURS_PLAT = 365                  # « pas encore dépassé » : un record d'au moins 12 mois…
 JOURS_EXPOSITION = 182            # … sur une barre travaillée dans les 26 dernières semaines
@@ -152,20 +152,22 @@ def historique(e):
     # La barre en retard (Force, Les deux) : squat ÷ couché sous le repère de son sexe.
     sq, co = barres.get('squat_barre') or {}, barres.get('developpe_couche_barre') or {}
     sexe = prof.get('sexe')
-    if (prof.get('objectif') in DISCIPLINES_RATIO and sexe in RATIO_SQUAT_COUCHE and sq.get('record') and co.get('record')
+    if (prof.get('objectif') in DISCIPLINES_RATIO and sexe in REPERE_SQUAT_COUCHE and sq.get('record') and co.get('record')
             and sq.get('semaines') and co.get('semaines')):
         ratio = sq['record']['charge'] / co['record']['charge']
-        if ratio < RATIO_SQUAT_COUCHE[sexe]:
+        ref = REPERE_SQUAT_COUCHE[sexe]
+        # parcours.js, `lectureDe` : le rapport par son écriture décimale la plus courte, en fraction exacte.
+        if Fraction(repr(ratio)) * 10000 < SOUS * ref:
             for l in lignes:
                 if l['slug'] == 'squat_barre':
                     l['retard'] = True
             deja = 'squat_barre' in (e.get('priorites') or [])
             pleines = not deja and len(e.get('priorites') or []) >= PRIORITES_MAX
-            gris = ('Ces repères viennent de compétiteurs, et ta morphologie peut jouer. Ce qu\'on voit chez toi : '
+            gris = ('Ces repères viennent de carnets d\'entraînement, et ta morphologie peut jouer. Ce qu\'on voit chez toi : '
                     'le couché %d semaines sur 26, le squat %d.' % (co['semaines'], sq['semaines']))
             sortie_h['ratio'] = {
-                'phrase': 'Ton squat vaut %s fois ton couché. Chez les %s qui font de la force, le squat vaut %s fois '
-                          'le couché.' % (nombre(ratio, 2), GENS[sexe], REPERE_SQUAT_COUCHE[sexe]),
+                'phrase': 'Ton squat vaut %s fois ton couché. Chez les pratiquants, le squat vaut environ %s fois '
+                          'le couché.' % (nombre(ratio, 2), nombre(ref / 100, 2)),
                 'gris': gris + (' C\'est déjà ta priorité.' if deja else
                                 (' Tes trois priorités sont déjà prises : tu peux en changer dans ton profil.' if pleines else '')),
                 'proposition': None if (deja or pleines) else proposition_priorite(e)}

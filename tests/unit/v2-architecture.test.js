@@ -1089,13 +1089,19 @@ const NOTIONS = [
     parAilleurs: { 'app.js': ['rendreProgression', 'rendreParcours'] },
     raison: 'ECRAN-SAISIE §7 bis.14 ter (75) : le bloc et la page lisent le même parcours, recalculé seulement quand le ' +
       'corpus, le jour, les priorités, le sexe ou le catalogue changent ; l’écran ne le calcule pas.' },
-  { notion: 'le repère squat ÷ couché, par sexe (la barre en retard, Force et Les deux)', pr: '66-U1',
+  { notion: 'la barre en retard (Force et Les deux), dite par la relecture', pr: '66-U1',
     module: 'generateur.js', fonction: 'relireSemaine', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['relire'] },
-    raison: 'QUESTIONNAIRE-COACH-V2 §5 ter.3 (66A) : 1,2 pour un homme, 1,6 pour une femme — le bas des moyennes de ' +
-      'compétition (van den Hoek et al. 2024, J Sci Med Sport) ; une table (`RATIO_SQUAT_COUCHE`), lue par la seule ' +
-      'relecture, jamais hors Force et Les deux (R4). 66B : l’écran (`app.js`, `relire`) lit la relecture, jamais ' +
-      'le repère.' },
+    raison: 'QUESTIONNAIRE-COACH-V2 §5 ter.3 (66A) : jamais hors Force et Les deux (R4). 66B : l’écran (`app.js`, ' +
+      '`relire`) lit la relecture, jamais le repère. 76 : le repère n’est plus ici — c’est celui de « Ton parcours » ' +
+      '(`parcours.js`, `repereSquatCouche`).' },
+  // ── 76 — UN SEUL REPÈRE SQUAT ÷ COUCHÉ ──
+  { notion: 'le repère squat ÷ couché et sa lecture, par sexe (« en dessous » sous 95 %)', pr: '76-U1',
+    module: 'parcours.js', fonction: 'repereSquatCouche', lecteurs: ['generateur.js'],
+    parAilleurs: { 'generateur.js': ['historique'] },
+    raison: 'QUESTIONNAIRE-COACH-V2 §5 ter.3 et ECRAN-SAISIE §7 bis.14 ter (76, 12/10/2026) : une seule table (`REPERES`, ' +
+      'carnets de pratiquants : 1,21 homme, 1,52 femme) et une seule lecture (`lectureDe`), celles de « Ton parcours » ; la ' +
+      'relecture de la semaine (`generateur.js`, `historique`) les lit pour la barre en retard, sans copie.' },
   // ── 66B — LES GESTES DE LA RELECTURE : une règle chacun, dans routines.js ──
   { notion: 'le retrait de séries d’une proposition de sèche (les dernières séries de travail, jusqu’à `a`)', pr: '66-U2',
     module: 'routines.js', fonction: 'retraitDeSeries', lecteurs: ['app.js'],

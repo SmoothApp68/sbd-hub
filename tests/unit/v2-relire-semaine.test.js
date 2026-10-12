@@ -20,6 +20,7 @@ require('../../v2/js/periode.js');
 require('../../v2/js/profil.js');
 require('../../v2/js/palier.js');
 require('../../v2/js/moteur.js');
+require('../../v2/js/parcours.js');            // 76 : la relecture lit son repère squat ÷ couché
 const G = require('../../v2/js/generateur.js');
 
 const DONNEES = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/cas-66-relire.json'), 'utf8'));
@@ -189,14 +190,53 @@ describe('66A — relireSemaine est pure', () => {
   test('les tables de la relecture, une fois, exportées', () => {
     expect(G.BARRES.map((b) => b[0])).toEqual(['squat_barre', 'developpe_couche_barre', 'souleve_de_terre_barre',
       'developpe_militaire_barre']);
-    expect(G.RATIO_SQUAT_COUCHE).toEqual({ homme: 1.2, femme: 1.6 });
+    // 76 : plus de repère squat ÷ couché ici — c'est celui de « Ton parcours » (`parcours.js`).
+    expect(G.RATIO_SQUAT_COUCHE).toBeUndefined();
+    expect([/\bvar (RATIO|REPERE)_SQUAT_COUCHE\b/.test(SOURCE), /comp[ée]titeurs|van den Hoek/.test(SOURCE)]).toEqual([false, false]);
     expect([G.SECHE_DEPASSEMENT, G.PAR_SEANCE, G.PEU_TRAVAILLE]).toEqual([1.3, 11, 2]);
-    ['RATIO_SQUAT_COUCHE', 'REPERE_SQUAT_COUCHE', 'SECHE_DEPASSEMENT', 'PAR_SEANCE', 'PEU_TRAVAILLE', 'MUSCLES_SUIVIS',
+    ['SECHE_DEPASSEMENT', 'PAR_SEANCE', 'PEU_TRAVAILLE', 'MUSCLES_SUIVIS',
       'TIRAGE', 'BARRES'].forEach((t) => {
       expect([t, (SOURCE.match(new RegExp('\\bvar ' + t + '\\b', 'g')) || []).length]).toEqual([t, 1]);
     });
     // Les barres du fait (`faits.js`) sont celles de la relecture, dans le même ordre.
     const Faits = require('../../v2/js/faits.js');
     expect(Faits.creer().BARRES_DU_BILAN).toEqual(G.BARRES.map((b) => b[0]));
+  });
+});
+
+// ── 76 — UN SEUL REPÈRE SQUAT ÷ COUCHÉ ──────────────────────────────────────
+// La relecture et « Ton parcours » lisent le même repère (1,21 homme, 1,52 femme) avec la même lecture : « en dessous »
+// sous 95 % du repère. Couché 100 kg, le squat fait le rapport ; la relecture dit le retard exactement quand le
+// parcours lit « en dessous ».
+describe('76 — la relecture et le parcours donnent la même lecture du squat ÷ couché', () => {
+  const P = require('../../v2/js/parcours.js');
+  const relecture = (sexe, squat) => {
+    const e = entreeDe(cas('priorite-deplacements'));
+    e.profil.sexe = sexe;
+    e.barres.squat_barre.record.charge = squat;
+    const h = G.relireSemaine(e).historique;
+    return { retard: h.barres.filter((l) => l.slug === 'squat_barre')[0].retard, ratio: h.ratio };
+  };
+
+  test('homme 1,14 → en dessous, 1,15 → proche ; femme 1,44 → en dessous, 1,45 → proche — dans les deux modules', () => {
+    [['homme', 114, 1.14, 'en dessous'], ['homme', 115, 1.15, 'proche'],
+     ['femme', 144, 1.44, 'en dessous'], ['femme', 145, 1.45, 'proche']].forEach(([sexe, squat, rapport, lu]) => {
+      expect([sexe, rapport, P.repereSquatCouche(rapport, sexe).lecture]).toEqual([sexe, rapport, lu]);
+      const r = relecture(sexe, squat);
+      expect([sexe, rapport, r.retard, r.ratio !== null]).toEqual([sexe, rapport, lu === 'en dessous', lu === 'en dessous']);
+    });
+  });
+
+  test('les phrases : « environ 1,21 » (homme), « environ 1,52 » (femme), et les carnets d’entraînement', () => {
+    expect(relecture('homme', 114).ratio.phrase)
+      .toBe('Ton squat vaut 1,14 fois ton couché. Chez les pratiquants, le squat vaut environ 1,21 fois le couché.');
+    expect(relecture('femme', 144).ratio.phrase)
+      .toBe('Ton squat vaut 1,44 fois ton couché. Chez les pratiquants, le squat vaut environ 1,52 fois le couché.');
+    expect(relecture('homme', 114).ratio.gris).toMatch(/^Ces repères viennent de carnets d'entraînement, et ta morphologie peut jouer\. Ce qu'on voit chez toi : /);
+  });
+
+  test('sexe non précisé : pas de repère, ni dans le parcours ni dans la relecture', () => {
+    expect(P.repereSquatCouche(1.0, null)).toEqual({ repere: null, lecture: null });
+    expect(relecture(null, 100).ratio).toBeNull();
   });
 });

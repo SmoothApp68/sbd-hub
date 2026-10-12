@@ -19,6 +19,7 @@ require('../../v2/js/bilan.js');
 const Profil = require('../../v2/js/profil.js');
 require('../../v2/js/palier.js');
 require('../../v2/js/moteur.js');
+require('../../v2/js/parcours.js');            // 76 : la relecture lit son repère squat ÷ couché
 const Seance = require('../../v2/js/seance.js');
 require('../../v2/js/routines.js');
 const Faits = require('../../v2/js/faits.js');

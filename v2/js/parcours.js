@@ -158,6 +158,31 @@
     return ent + (BigInt(2) * (f.n - ent * f.d) >= f.d ? BigInt(1) : BigInt(0));
   }
 
+  // ── La lecture d'un rapport contre son repère (76 : la SEULE de l'app) ──
+  // `q` : le rapport en fraction exacte ; `ref` : le repère en centièmes. « En dessous » sous 95 % du repère,
+  // « au-dessus » au-delà de 105 %, « proche » entre les deux.
+  function lectureDe(q, ref) {
+    var x = BigInt(10000) * q.n, R = BigInt(ref) * q.d;
+    return x < BigInt(SOUS) * R ? 'en dessous' : (x > BigInt(DESSUS) * R ? 'au-dessus' : 'proche');
+  }
+  // Un nombre en fraction exacte, par son écriture décimale la plus courte (celle que JS affiche).
+  function fracDuNombre(x) {
+    var s = String(x);
+    if (/e/i.test(s)) s = x.toFixed(12);
+    var m = /^(-?)(\d+)(?:\.(\d+))?$/.exec(s);
+    var dec = m[3] || '';
+    return frac(m[1] + m[2] + dec, '1' + new Array(dec.length + 1).join('0'));
+  }
+  // 76 (12/10/2026) — LE REPÈRE SQUAT ÷ COUCHÉ ET SA LECTURE, pour toute l'app : la relecture de la semaine
+  // (`generateur.js`) lit celui-ci, celui de « Ton parcours ». `rapport` : un nombre, ou une fraction exacte ;
+  // `sexe` non précisé : `{ repere: null, lecture: null }`.
+  function repereSquatCouche(rapport, sexe) {
+    if (!Object.prototype.hasOwnProperty.call(REPERES, sexe)) return { repere: null, lecture: null };
+    var ref = REPERES[sexe][0];
+    var q = typeof rapport === 'number' ? fracDuNombre(rapport) : rapport;
+    return { repere: ref / 100, lecture: lectureDe(q, ref) };
+  }
+
   // ── Le calcul ────────────────────────────────────────────────────────────
   function parcours(entree) {
     var ZONES = Semaine().ZONES;
@@ -312,11 +337,7 @@
       var n = rs.length;
       var med = n % 2 ? rs[(n - 1) / 2]
         : frac(rs[n / 2 - 1].n * rs[n / 2].d + rs[n / 2].n * rs[n / 2 - 1].d, BigInt(2) * rs[n / 2 - 1].d * rs[n / 2].d);
-      var lecture = null;
-      if (ref !== null) {
-        var x = BigInt(10000) * med.n, R = BigInt(ref) * med.d;
-        lecture = x < BigInt(SOUS) * R ? 'en dessous' : (x > BigInt(DESSUS) * R ? 'au-dessus' : 'proche');
-      }
+      var lecture = ref === null ? null : lectureDe(med, ref);
       var cent = Number(arrondiReference(frac(BigInt(100) * med.n, med.d)));
       var o = { num: paire[0], den: paire[1], rapport: enNombre(med), repere: ref === null ? null : ref / 100,
                 lecture: lecture, reps: com, affiche: Modele().nombreFixe(cent / 100, 2), q: med, ref: ref };
@@ -382,6 +403,7 @@
 
   var api = {
     parcours: parcours,
+    repereSquatCouche: repereSquatCouche,
     GRANDS: GRANDS,
     NOM_COURT: NOM_COURT,
     MIN_SEANCES: MIN_SEANCES

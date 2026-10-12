@@ -16860,7 +16860,7 @@ const SETS_IMPORTES = [
       { id: 'u-lea', username: 'lea', compte_prive: true, jeu_actif: true, jeu_niveau: 12, jeu_titre: 'athlete', deleted_at: null },
       { id: 'u-alexis', username: 'alexis', compte_prive: true, jeu_actif: true, jeu_niveau: 8, jeu_titre: null, deleted_at: null });
     const seanceAutre = (id, user, titre, extra) => Object.assign({ id, user_id: user, titre, debut: iso(hier),
-      fin: iso(new Date(hier.getTime() + 3600000)), statut: 'terminee', visibilite: 'mutuels', note: 'note privée',
+      fin: iso(finDe(iso(hier), tS)), statut: 'terminee', visibilite: 'mutuels', note: 'note privée',
       poids_corps_kg: 61, source: 'app' }, extra || {});
     S.sessions.push(seanceAutre('a0000000-0000-4000-8870-000000000001', 'u-lea', 'Bas du corps'),
       seanceAutre('a0000000-0000-4000-8870-000000000002', 'u-lea', 'Séance masquée', { visibilite: 'private' }),
@@ -16990,7 +16990,7 @@ const SETS_IMPORTES = [
         !/\d+\s*réaction/.test(d0.cartes[0].texte), JSON.stringify([S.reactions, d0.cartes[0]]));
     // Une séance à MOI (un identifiant de séance valide pour la route `/seance/<uuid>`), retirée à la remise en état.
     const MIENNE = 'a0000000-0000-4000-8870-0000000000aa';
-    base.sessions.push({ id: MIENNE, user_id: 'u-banc', titre: 'Social U87', debut: iso(hier), fin: iso(new Date(hier.getTime() + 3600000)),
+    base.sessions.push({ id: MIENNE, user_id: 'u-banc', titre: 'Social U87', debut: iso(hier), fin: iso(finDe(iso(hier), tS)),
       statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: iso(hier) });
     fauxSocial.appeler('u-lea', 'POST', 'reactions_seance', { session_id: MIENNE, user_id: 'u-lea' });
     await aller('/seance/' + MIENNE);

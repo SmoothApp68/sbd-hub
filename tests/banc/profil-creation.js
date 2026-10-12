@@ -163,7 +163,7 @@ async function contexte(nav, bd, o) {
     if (chemin === '/auth/v1/user' && req.method() === 'GET') {
       // 70 — la vérification du jeton d'un lien : qui ne répond jamais (`userPend`), ou en retard (`userDelai`, ms).
       if (bd.userPend) return new Promise(() => {});
-      if (bd.userDelai) await attendre(bd.userDelai);
+      if (bd.userDelai) { await attendre(bd.userDelai); bd.userRepondu = Date.now(); }   // 86 — l'instant de la réponse
       return sub ? json(utilisateur(sub, bd.metadonnees[sub])) : json({ message: 'jeton absent' }, 401);
     }
     // 70 — `updateUser({ password })` : le nouveau mot de passe, sous le compte du jeton.
@@ -999,10 +999,14 @@ function ok(nom, cond, detail) {
         const t0 = Date.now();
         await page.goto(lien('/profil', 'recovery'), { waitUntil: 'domcontentloaded' });
         const dit = await attendreQue(page, async () => { const e = await ecran(page); return e.connexion && !!e.message; }, 12000);
-        const delai = Date.now() - t0;
+        const vu = Date.now(), delai = vu - t0;
         const e1 = await ecran(page);
-        ok('[E70 h] — à 5 s, l’écran de connexion dit que le lien n’a pas pu être vérifié',
-          dit && delai < 6800 && e1.message === PHRASE_NON_VERIFIE, delai + ' ms · ' + JSON.stringify(e1.message));
+        // 86 — l'ORDRE, pas une durée depuis `goto` : l'écran de connexion est vu AVANT la réponse
+        // du faux SDK (instant noté par le serveur), et pas avant 4,5 s (minuteur de 5 s, ECRAN-PROFIL §5.6).
+        const avantReponse = !bd.userRepondu || vu < bd.userRepondu;
+        ok('[E70 h] — à 5 s, l’écran de connexion dit que le lien n’a pas pu être vérifié (avant la réponse du SDK)',
+          dit && delai >= 4500 && avantReponse && e1.message === PHRASE_NON_VERIFIE,
+          delai + ' ms · ' + (avantReponse ? 'avant' : 'APRÈS') + ' la réponse du SDK · ' + JSON.stringify(e1.message));
         const entre = await attendreQue(page, async () => /Choisis ton nouveau mot de passe/.test((await ecran(page)).feuille || ''), 15000);
         const e2 = await ecran(page);
         ok('DISCRIMINANT [E70 h] — le SDK répond à 7 s : l’app ENTRE d’elle-même et ouvre la feuille de récupération',

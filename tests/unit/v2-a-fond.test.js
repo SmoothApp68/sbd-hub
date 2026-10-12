@@ -216,7 +216,7 @@ describe('68B — I10 : la montée prise à fond a tenu sur ses reps faites', ()
 // ── CE QUI SE DIT : LES REPS FAITES, « SANS MARGE » (MOTEUR §17.4 révisé) ────
 describe('68B — les phrases sur les reps faites : « sans marge », jamais « pas encore » pour des reps faites', () => {
   const de = (id) => JSON.parse(JSON.stringify(CONSIGNES.find((x) => x.id === id)));
-  const pour = (seances, avant, equipement) => M.consignePour(seances, avant,
+  const pour = (seances, avant, equipement) => M.consigneApresAFond(seances, avant,
     { reglage: 'normal', equipement: equipement || 'barre', correction: null });
 
   test('la note de la série à fond : « était à RPE 10, sans marge », « à fond » pour un ressenti (X1, X6)', () => {
@@ -239,41 +239,45 @@ describe('68B — les phrases sur les reps faites : « sans marge », jamais « 
     expect(esp(M.libellesConsigne(k, c.avant).gris)).toBe('Le 13 sept. : 125 kg × 4, 4, 4. Une rep de plus.');
   });
 
-  test('un test fait à fond que la rep en moins fait rater : la phrase grise et la feuille (progression, retest d’un cran)', () => {
-    const attendus = {
-      X8: ['Le 13 sept. : 130 kg × 3 à RPE 10, sans marge.',
-        'Ton test à 130 kg a fait 3 reps à RPE 10, sans marge. Ta charge de travail n\'est pas encore au haut de ta zone : une rep de plus sur chaque série.'],
-      N7: ['Le 13 sept. : 130 kg × 3 à RPE 10, sans marge. On reteste d\'un seul cran.',
-        'Ton test à 130 kg a fait 3 reps à RPE 10, sans marge. Ta charge de travail est au haut : on reteste d\'un seul cran, à 127,5 kg.']
-    };
-    Object.keys(attendus).forEach((id) => {
+  // ── 74 (11/10/2026) — INVERSÉS. Les quatre tests suivants prouvaient « une
+  // rep de moins » : un test à fond compté sous le bas de la zone (« … à RPE
+  // 10, sans marge », l'étirement, le constat « au bas de ta zone, sans
+  // marge »), et une rep de plus faite mais non comptée (« tenu, sans
+  // marge »). Une série à fond compte désormais ses reps : le test est TENU,
+  // et le coach ne recule pas à cause de lui (MOTEUR §17.4, révisé). Les
+  // phrases 68B ne sont pas touchées : leur déclencheur ne se produit plus
+  // ici. Elles restent jouées là où un plafond ramène le calcul prudent (X1,
+  // X6, X10 plus haut ; le cas réel, `v2-sans-marge-74.test.js`).
+  test('74 — un test fait à fond au bas de la zone est TENU : gardé à sa charge et à ses reps, plus de recul (X8, N7)', () => {
+    ['X8', 'N7'].forEach((id) => {
       const c = de(id);
       c.seances[4].series[2] = { charge_kg: 130, reps: 3, rpe: 10, role: 'exploration' };
       const k = pour(c.seances, c.avant);
-      // La même décision : le test reste raté (compté 2, sous le bas).
-      expect(k.fondement.test).toMatchObject({ niveau: 2, niveauFait: 3, cause: 'rpe' });
-      expect(esp(M.libellesConsigne(k, c.avant).gris)).toBe(attendus[id][0]);
-      expect(esp(M.pourquoiConsigne(k, 'normal', c.avant).etat)).toBe(attendus[id][1]);
+      expect(k.etat).toBe('garde');
+      expect(k.fondement.test).toEqual({ charge: 130, reps: 3, niveau: 3, date: '2026-09-13T18:00:00+00:00' });
+      expect(k.haut).toEqual({ charge: 130, vise: 3, k: 1 });
+      expect(esp(M.libellesConsigne(k, c.avant).gris))
+        .toBe('Ton test à 130 kg, le 13 sept., est au bas de ta zone : on le garde sur la dernière série.');
     });
-    // « à fond » pour un ressenti.
-    const r = de('X8');
-    r.seances[4].series[2] = { charge_kg: 130, reps: 3, ressenti: 'reste_0', role: 'exploration' };
-    expect(esp(M.libellesConsigne(pour(r.seances, r.avant), r.avant).gris)).toBe('Le 13 sept. : 130 kg × 3 à fond, sans marge.');
-    // Témoin : sans effort noté, 130 × 2, la phrase d'avant.
+    const x8 = de('X8');
+    x8.seances[4].series[2] = { charge_kg: 130, reps: 3, rpe: 10, role: 'exploration' };
+    expect(esp(M.pourquoiConsigne(pour(x8.seances, x8.avant), 'normal', x8.avant).etat)).toBe(
+      'Ton test à 130 kg a fait 3 reps, le bas de ta zone : il tient. On le garde sur la dernière série ; à 4 reps, il gagnera une série.');
+    // Témoin : 130 × 2 faits, sans effort noté — pas encore dans la zone.
     const t = de('X8');
     expect(esp(M.libellesConsigne(pour(t.seances, t.avant), t.avant).gris)).toBe('Le 13 sept. : 130 kg × 2, pas encore dans ta zone.');
   });
 
-  test('l’étirement : « … a fait 10 reps à RPE 10, sans marge, et ta machine ne permet pas un plus petit cran »', () => {
+  test('74 — plus d’étirement sur un test fait à fond au bas de la zone : il est gardé (N8)', () => {
     const c = de('N8');
     c.seances[4].series[2] = { charge_kg: 32, reps: 10, rpe: 10, role: 'exploration' };
     const k = pour(c.seances, c.avant, 'haltere');
-    expect(k.etat).toBe('etirement');
-    expect(esp(M.pourquoiConsigne(k, 'normal', c.avant).etat)).toMatch(
-      /^Ton test à 32 kg a fait 10 reps à RPE 10, sans marge, et ta machine ne permet pas un plus petit cran\. /);
+    expect(k.etat).toBe('garde');
+    expect(k.haut).toEqual({ charge: 32, vise: 10, k: 1 });
+    expect(esp(M.pourquoiConsigne(k, 'normal', c.avant).etat)).toMatch(/^Ton test à 32 kg a fait 10 reps, le bas de ta zone : il tient\. /);
   });
 
-  test('le constat : un test fait à fond dans la zone en reps faites — « au bas de ta zone, sans marge »', () => {
+  test('74 — le constat : un test fait à fond au bas de la zone se dit tenu, et se garde', () => {
     const c = de('N7');
     const avant = pour(c.seances, '2026-09-20T09:00:00+00:00');
     expect(avant.etat).toBe('retest_un_cran');
@@ -281,11 +285,13 @@ describe('68B — les phrases sur les reps faites : « sans marge », jamais « 
       { charge_kg: 125, reps: 5, role: 'palier' }, { charge_kg: 125, reps: 5, role: 'palier' },
       { charge_kg: 127.5, reps: 3, rpe: 10, role: 'exploration' }] };
     const apres = pour(c.seances.concat([jour]), '2026-09-27T10:00:00+00:00');
+    expect([apres.etat, apres.haut]).toEqual(['garde', { charge: 127.5, vise: 3, k: 1 }]);
     const k = M.constatDuJour(avant, apres, 'normal', null, {}, '2026-09-20T10:00:00+00:00');
-    expect(esp(k.verdict)).toBe('127,5 kg × 3 : au bas de ta zone, sans marge.');
+    expect(esp(k.verdict)).toBe('127,5 kg : 3 aujourd\'hui, au bas de ta zone.');
+    expect(esp(k.suite)).toBe('Prochaine séance : 125 kg × 5, puis 127,5 kg × 3 sur la dernière série.');
   });
 
-  test('⚠️ DISCRIMINANT — le constat : la rep de plus faite, mais à fond — « tenu, sans marge », plus « Pas encore »', () => {
+  test('⚠️ DISCRIMINANT (74) — le constat : la rep de plus faite à fond est GAGNÉE, et la suite ne monte pas sur elle', () => {
     const c = de('X1');
     c.seances[4].series = [{ charge_kg: 125, reps: 4, role: 'palier' }, { charge_kg: 125, reps: 4, role: 'palier' },
       { charge_kg: 125, reps: 4, role: 'palier' }];
@@ -295,13 +301,18 @@ describe('68B — les phrases sur les reps faites : « sans marge », jamais « 
       { charge_kg: 125, reps: 5, role: 'palier' }, Object.assign({ charge_kg: 125, reps: 5, role: 'palier' }, rpe ? { rpe: rpe } : {}),
       { charge_kg: 125, reps: 5, role: 'palier' }] });
     const apres = pour(c.seances.concat([jour(10)]), '2026-09-27T10:00:00+00:00');
-    // La même décision : le niveau compté reste 4 (pas de rep de plus).
-    expect(apres.niveau).toBe(4);
+    // Le niveau = les reps faites (68B : 4).
+    expect(apres.niveau).toBe(5);
     expect(esp(M.constatDuJour(avant, apres, 'normal', null, {}, '2026-09-20T10:00:00+00:00').verdict))
-      .toBe('125 kg × 5, 5, 5 : tenu, sans marge.');
-    // Témoin : sans effort noté, la rep de plus est gagnée.
+      .toBe('125 kg : 4 reps le 13 sept., 5 aujourd\'hui, le haut de ta zone.');
+    // … mais pas de test plus lourd (plafond 2) : la note « sans marge » de 68B.
+    expect([apres.etat, apres.haut, apres.ligne]).toEqual(['progression', null, { charge: 125, vise: 5 }]);
+    expect(esp(M.libellesConsigne(apres, '2026-09-27T10:00:00+00:00').gris))
+      .toBe('Ta série à 125 kg × 5 était à RPE 10, sans marge : on ne rajoute pas de rep.');
+    // Témoin : sans effort noté, le même constat, et le test du cran au-dessus.
     const sans = pour(c.seances.concat([jour(null)]), '2026-09-27T10:00:00+00:00');
+    expect([sans.etat, sans.haut]).toEqual(['test_propose', { charge: 127.5, vise: 3, k: 1 }]);
     expect(esp(M.constatDuJour(avant, sans, 'normal', null, {}, '2026-09-20T10:00:00+00:00').verdict))
-      .not.toMatch(/sans marge|Pas encore/);
+      .toBe('125 kg : 4 reps le 13 sept., 5 aujourd\'hui, le haut de ta zone.');
   });
 });

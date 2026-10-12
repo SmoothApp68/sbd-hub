@@ -91,5 +91,5 @@ describe('55-1 — une séance sans heure de fin finit 3 h au plus après son d�
   });
 
   // 11 depuis 68A (MOTEUR §9.14 bis, l'élan) ; 12 depuis 68B (§9.14 ter, « à fond »).
-  test('la version de la consigne : 10 en 55-1, 12 depuis 68B', () => { expect(M.VERSION_CONSIGNE).toBe(12); });
+  test('la version de la consigne : 10 en 55-1, 13 depuis 74', () => { expect(M.VERSION_CONSIGNE).toBe(13); });
 });

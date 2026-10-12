@@ -200,14 +200,39 @@ describe('le pont depuis analyser (MOTEUR §9.13)', () => {
         series: [app(120, 5), app(125, 5), app(125, 5), app(130, 5, effort)] }].concat(montee());
     };
     const ETAT = { etat: Palier.ETAT_MONTE };
+    // 74 (11/10/2026) — INVERSÉ : le test à RPE 10 compte ses 5 reps faites ;
+    // il touche le haut de la zone, et le haut vise 5 (68B : 4, « dans ta
+    // zone »). Pas une rep de plus non plus : 5 est ce qui a été fait (plafond 3).
     const N10 = {
-      attendu: { etat: 'etend', zone: 'lourd', n: 3, ligne: { charge: 125, vise: 5 }, haut: { charge: 130, vise: 4, k: 2 } },
-      test: { charge: 130, reps: 5, niveau: 4, date: jour('09-13') },
-      jaune: ['130' + NB + 'kg' + NB + '×' + NB + '4 sur les 2 dernières séries', '125' + NB + 'kg' + NB + '×' + NB + '5 sur celle d\'avant'],
-      gris: 'Ton test à 130' + NB + 'kg, le 13' + NB + 'sept., est dans ta zone' + NB + ': il gagne une série.'
+      attendu: { etat: 'etend', zone: 'lourd', n: 3, ligne: { charge: 125, vise: 5 }, haut: { charge: 130, vise: 5, k: 2 } },
+      test: { charge: 130, reps: 5, niveau: 5, date: jour('09-13') },
+      jaune: ['130' + NB + 'kg' + NB + '×' + NB + '5 sur les 2 dernières séries', '125' + NB + 'kg' + NB + '×' + NB + '5 sur celle d\'avant'],
+      gris: 'Ton test à 130' + NB + 'kg, le 13' + NB + 'sept., a touché le haut de ta zone' + NB + ': il gagne une série.'
+    };
+    // 74 — LE DISCRIMINANT DE L'EFFORT, DE BOUT EN BOUT : sur N10 l'effort ne
+    // change plus la consigne (les reps faites comptent). Il la change sur une
+    // séance SANS test : 125 × 5, 5, 5, la DEUXIÈME à fond (la troisième aurait
+    // droit à −1, et le calcul prudent proposerait le même test). Sans effort,
+    // le haut de la zone lourde est atteint et le coach teste le cran
+    // au-dessus ; à fond, pas de test plus lourd que 125 (plafond 2) : la
+    // consigne revient au calcul prudent, et la note « sans marge » le dit.
+    const sansTest = (effort) => {
+      k = 0;
+      return [{ seance: { id: 'S5', debut: jour('09-13') },
+        series: [app(120, 5), app(125, 5), app(125, 5, effort), app(125, 5)] }].concat(montee());
+    };
+    const effortTraverse = (effort, mot) => {
+      const temoin = Moteur.consigneDExercice(sansTest(null), ETAT, AVANT, OPTIONS).consigne;
+      expect(temoin.etat).toBe('test_propose');
+      const c = Moteur.consigneDExercice(sansTest(effort), ETAT, AVANT, OPTIONS);
+      expect(c.consigne.etat).toBe('progression');
+      expect(c.consigne.haut).toBeNull();
+      expect(c.consigne.niveau).toBe(5);
+      expect(c.libelles.gris).toBe('Ta série à 125' + NB + 'kg' + NB + '×' + NB + '5 était ' + mot +
+        ', sans marge' + NB + ': on ne rajoute pas de rep.');
     };
 
-    test('à RPE 10, le pont garde le rpe : le test se compte 4, le haut vise 4', () => {
+    test('à RPE 10, le pont garde le rpe : le test compte ses 5 reps, le haut vise 5 (74)', () => {
       const r = Palier.analyser(squat(10)[0].series, ETAT, { mesure: 'charge_reps' });
       const pont = Moteur.seanceDuContrat(jour('09-13'), r);
       expect(pont.series[3]).toEqual({ charge_kg: 130, reps: 5, rpe: 10, ressenti: null,
@@ -216,6 +241,7 @@ describe('le pont depuis analyser (MOTEUR §9.13)', () => {
       expect(c.consigne).toMatchObject(N10.attendu);
       expect(c.consigne.fondement.test).toEqual(N10.test);
       expect(c.libelles).toEqual({ jaune: N10.jaune, gris: N10.gris });
+      effortTraverse(10, 'à RPE 10');
     });
 
     test('à « reste 0 », le pont garde le ressenti : même compte, même consigne', () => {
@@ -226,6 +252,7 @@ describe('le pont depuis analyser (MOTEUR §9.13)', () => {
       const c = Moteur.consigneDExercice(squat('reste_0'), ETAT, AVANT, OPTIONS);
       expect(c.consigne).toMatchObject(N10.attendu);
       expect(c.libelles).toEqual({ jaune: N10.jaune, gris: N10.gris });
+      effortTraverse('reste_0', 'à fond');
     });
 
     test('témoin — sans effort, 130 × 5 touche le haut : vise 5, « a touché le haut »', () => {
@@ -1145,7 +1172,14 @@ describe('l’étiquette se touche, et le menu (ECRAN-SAISIE §3.8)', () => {
 // redit pas la règle : le constat n'a le droit de recalculer AUCUNE règle du
 // moteur, et vérifier d'abord les deux consignes est ce qui le prouve.
 describe('le constat de fin de bloc (ECRAN-SAISIE §3.9)', () => {
-  const CAS = require('./fixtures/constat-48b6b.json');
+  // 74 (11/10/2026) — INVERSÉ : la consigne d'avant de K15 et K17 repart du
+  // test 130 × 5 à RPE 10, qui compte ses 5 reps : le haut vise 5 (68B : 4).
+  const CAS = require('./fixtures/constat-48b6b.json').map((c) => {
+    if (c.id !== 'K15' && c.id !== 'K17') return c;
+    const k = JSON.parse(JSON.stringify(c));
+    k.consigneAvant.haut[1] = 5;
+    return k;
+  });
   const forme = (r) => r.etat === 'silence'
     ? { etat: 'silence', raison: r.raison }
     : { etat: r.etat, zone: r.zone, n: r.n,
@@ -1153,8 +1187,9 @@ describe('le constat de fin de bloc (ECRAN-SAISIE §3.9)', () => {
         haut: r.haut && [r.haut.charge, r.haut.vise, r.haut.k] };
   const deux = (c) => {
     const o = { reglage: c.reglage, equipement: c.equipement, correction: null };
-    return { avant: Moteur.consignePour(c.seances, c.avant, o),
-             apres: Moteur.consignePour(c.seances.concat([c.seanceDuJour]), c.apres, o) };
+    // 74 — les consignes que l'app affiche : plafonnées après une série à fond.
+    return { avant: Moteur.consigneApresAFond(c.seances, c.avant, o),
+             apres: Moteur.consigneApresAFond(c.seances.concat([c.seanceDuJour]), c.apres, o) };
   };
 
   test('les 17 branches y sont, chacune avec sa jumelle', () => {

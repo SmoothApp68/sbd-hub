@@ -52,11 +52,27 @@ describe('§14.2, §14.5 — les cas du simulateur', () => {
     expect(Object.keys(F.phrases)).toEqual(['seche', 'silence_constat']);
   });
 
+  // 74 (11/10/2026) — INVERSÉ : R002 n'est plus ATTEINT. Le 20/01/2026, le
+  // test 125 × 4 à RPE 10 comptait 3 (68B) ; il compte ses 4 reps faites, et
+  // la séance est un progrès : le compteur repart de zéro et finit à 4, pas à
+  // 8. `repliEscalier` seul trouve encore le même repli.
+  test('74 — R002 : le test à RPE 10 du 20/01 compte ses reps, le compteur repart (4, pas 8)', () => {
+    const c = F.repli.filter((x) => x.id === 'R002')[0];
+    const k = M.compteurDe(c.seances, c.avant, { toutes: true });
+    expect(k.compteur).toBe(4);
+    const v = k.verdicts.filter((x) => x.debut.slice(0, 10) === '2026-01-20')[0];
+    expect(v.progres).toBe(true);
+    const r = M.repliEscalier(c.seances, c.avant, meilleurDuCas(c.meilleur), c.zone);
+    expect([r.palier, r.niveau, r.debut]).toEqual([c.attendu.palier, c.attendu.niveau, c.attendu.debut]);
+  });
+
   F.repli.forEach((c) => {
     test('repli ' + c.id + ' — ' + c.titre, () => {
       const r = M.repliEscalier(c.seances, c.avant, meilleurDuCas(c.meilleur), c.zone);
       // Le 2e déclenchement isolé : le compteur à 8 au moins (§14.5).
       const atteint = M.compteurDe(c.seances, c.avant, { toutes: true }).compteur >= 8;
+      // 74 — R002 n'est plus atteint (le test ci-dessus).
+      if (c.id === 'R002') { expect(atteint).toBe(false); return; }
       if (c.attendu === null) { expect(r === null || !atteint).toBe(true); return; }
       expect(atteint).toBe(true);
       const a = c.attendu;

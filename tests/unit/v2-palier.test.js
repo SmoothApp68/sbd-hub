@@ -547,10 +547,14 @@ describe('RECETTE §6.1 — le squat du 2 février 2026', () => {
     expect([8, 9, 9.5].map(P.cranEffort)).toEqual(['dur', 'dur', 'dur']);
     expect(P.cranEffort(10)).toBe('max');
     expect(P.cranEffort(null)).toBeNull();
-    // §17.4 : seul le cran « max » retire une rep, et seulement pour valider.
-    // ⚠️ SIGNATURE CHANGÉE LE 19/09/2026 : `repsComptees` prend la SÉRIE.
-    // Les valeurs asserties ci-dessous sont EXACTEMENT celles d'avant.
-    expect(P.repsComptees({ reps: 4, rpe: 10 })).toBe(3);
+    // §17.4 : seul le cran « max » retire une rep — dans le CALCUL PRUDENT
+    // seulement (`repsPrudentes`). INVERSÉ LE 11/10/2026 (74) : `repsComptees`
+    // compte les reps faites, à RPE 10 comme ailleurs.
+    // ⚠️ SIGNATURE CHANGÉE LE 19/09/2026 : les deux prennent la SÉRIE.
+    expect(P.repsComptees({ reps: 4, rpe: 10 })).toBe(4);
+    expect(P.repsPrudentes({ reps: 4, rpe: 10 })).toBe(3);
+    expect(P.repsPrudentes({ reps: 4, rpe: 9.5 })).toBe(4);
+    expect(P.repsPrudentes({ reps: 4, rpe: null })).toBe(4);
     expect(P.repsComptees({ reps: 4, rpe: 9.5 })).toBe(4);
     expect(P.repsComptees({ reps: 4, rpe: null })).toBe(4);
   });
@@ -612,27 +616,35 @@ describe('§17.3 — le cran d’effort lit le ressenti autant que le RPE', () =
     expect(P.cranDeSerie({ rpe: null, ressenti: 'reste_3_plus' })).toBe('facile');
   });
 
-  test('§17.4 — « reste 0 » retire une rep, exactement comme un RPE de 10', () => {
-    expect(P.repsComptees({ reps: 5, ressenti: 'reste_0' })).toBe(4);
-    expect(P.repsComptees({ reps: 5, ressenti: 'reste_1' })).toBe(5);
-    expect(P.repsComptees({ reps: 5, rpe: 10 })).toBe(4);
+  // INVERSÉ LE 11/10/2026 (74) : la rep en moins n'existe plus que dans le
+  // calcul prudent ; `repsComptees` rend les reps faites.
+  test('§17.4 (74) — « reste 0 » retire une rep au calcul prudent, exactement comme un RPE de 10 ; les reps faites comptent', () => {
+    expect(P.repsPrudentes({ reps: 5, ressenti: 'reste_0' })).toBe(4);
+    expect(P.repsPrudentes({ reps: 5, ressenti: 'reste_1' })).toBe(5);
+    expect(P.repsPrudentes({ reps: 5, rpe: 10 })).toBe(4);
+    expect(P.repsComptees({ reps: 5, ressenti: 'reste_0' })).toBe(5);
+    expect(P.repsComptees({ reps: 5, rpe: 10 })).toBe(5);
     // Sans reps, rien à compter — et surtout pas un zéro inventé.
+    expect(P.repsPrudentes({ ressenti: 'reste_0' })).toBeNull();
+    expect(P.repsPrudentes(null)).toBeNull();
     expect(P.repsComptees({ ressenti: 'reste_0' })).toBeNull();
     expect(P.repsComptees(null)).toBeNull();
   });
 
-  test('DISCRIMINANT — le palier n’est PAS tenu quand la dernière série va à l’échec', () => {
-    // Cible 5, deux séries de 5 : la seconde est allée à l'échec, elle compte 4.
-    // L'ancien code rendait `tenu: true` — il affirmait qu'on avait tenu le
-    // palier le jour où l'on s'était vidé dessus.
+  // INVERSÉ LE 11/10/2026 (74) — « on n'enlève pas des reps durement
+  // acquises » : une série à fond compte ses reps, le palier qu'elle atteint
+  // est tenu. Ce qui l'empêche de faire monter la suite est au moteur (les
+  // plafonds de `consigneDExercice`), pas ici.
+  test('DISCRIMINANT (74) — le palier EST tenu quand la dernière série va à fond : ses reps faites comptent', () => {
     const r = P.palierTenu([{ reps: 5, ressenti: 'reste_1' },
                             { reps: 5, ressenti: 'reste_0' }], 5);
-    expect(r.tenu).toBe(false);
-    expect(r.raison).toContain('série 2');
-    // Contre-épreuve : la même paire sans l'échec est tenue. Sans elle, le test
-    // ci-dessus passerait aussi si `palierTenu` refusait tout.
-    expect(P.palierTenu([{ reps: 5, ressenti: 'reste_1' },
-                         { reps: 5, ressenti: 'reste_1' }], 5).tenu).toBe(true);
+    expect(r.tenu).toBe(true);
+    // Contre-épreuve : une rep de moins faite n'est pas tenue. Sans elle, le
+    // test ci-dessus passerait aussi si `palierTenu` acceptait tout.
+    const k = P.palierTenu([{ reps: 5, ressenti: 'reste_1' },
+                            { reps: 4, ressenti: 'reste_0' }], 5);
+    expect(k.tenu).toBe(false);
+    expect(k.raison).toContain('série 2');
   });
 
   test('NON-RÉGRESSION — le squat du 2 février reste TENU (§17.3)', () => {

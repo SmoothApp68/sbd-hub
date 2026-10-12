@@ -16972,7 +16972,8 @@ const SETS_IMPORTES = [
     const c1 = await ami();
     ok('[social] DISCRIMINANT — mutuel : « Vous vous suivez », le détail des exercices (séries, charges), sans message de détail caché',
       lien('u-lea', 'u-banc').statut === 'accepte' && c1.etat === 'Vous vous suivez' && c1.ex === 1 && c1.detailCache === null &&
-        /100 kg × 10, 10, 10/.test(JSON.stringify(c1)) && !/rpe|ressenti|genou/i.test(await texte('#social-ami')), JSON.stringify(c1));
+        /100 kg × 10, 10, 10/.test(await texte('#social-ami')) && !/rpe|ressenti|genou/i.test(await texte('#social-ami')),
+      JSON.stringify([c1, await texte('#social-ami')]));
     ok('[social] mutuel : « Inviter dans un groupe » reste inactif, « Bientôt »', c1.inviter === true && c1.inviterSous === 'Bientôt',
       JSON.stringify(c1));
     await mesurer('profil mutuel');
@@ -16987,12 +16988,16 @@ const SETS_IMPORTES = [
     ok('[social] « Réagir » : une réaction en base, « Tu as réagi » — et AUCUN nombre de réactions sur la séance d’une autre',
       S.reactions.length === 1 && S.reactions[0].user_id === 'u-banc' && d0.cartes[0].reag === '🔥 Tu as réagi' &&
         !/\d+\s*réaction/.test(d0.cartes[0].texte), JSON.stringify([S.reactions, d0.cartes[0]]));
-    fauxSocial.appeler('u-lea', 'POST', 'reactions_seance', { session_id: PASSEE.id, user_id: 'u-lea' });
-    await aller('/seance/' + PASSEE.id);
+    // Une séance à MOI (un identifiant de séance valide pour la route `/seance/<uuid>`), retirée à la remise en état.
+    const MIENNE = 'a0000000-0000-4000-8870-0000000000aa';
+    base.sessions.push({ id: MIENNE, user_id: 'u-banc', titre: 'Social U87', debut: iso(hier), fin: iso(new Date(hier.getTime() + 3600000)),
+      statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: iso(hier) });
+    fauxSocial.appeler('u-lea', 'POST', 'reactions_seance', { session_id: MIENNE, user_id: 'u-lea' });
+    await aller('/seance/' + MIENNE);
     await attendreQue(async () => /réaction/.test(await texte('#detail-reactions')));
     ok('[social] DISCRIMINANT — l’auteur voit le nombre de réactions à SA séance ; lea, qui a réagi, ne le voit pas',
       (await texte('#detail-reactions')) === '🔥 1 réaction' &&
-        fauxSocial.rpc('u-lea', 'social_mes_reactions', { p_session: PASSEE.id }) === 0,
+        fauxSocial.rpc('u-lea', 'social_mes_reactions', { p_session: MIENNE }) === 0,
       JSON.stringify([await texte('#detail-reactions')]));
 
     // ── E. TROUVER DES AMIS, COMPTE PRIVÉ.
@@ -17053,6 +17058,7 @@ const SETS_IMPORTES = [
 
     // ── LA REMISE EN ÉTAT.
     ['profils', 'sessions', 'sets', 'records', 'abonnements', 'blocages', 'reactions'].forEach((k) => { S[k] = []; });
+    for (let k = base.sessions.length - 1; k >= 0; k--) if (base.sessions[k].id === MIENNE) base.sessions.splice(k, 1);
     base.profiles[0].compte_prive = true;
     await aller('/saisie');
     ok('[social] aucun refus du faux serveur, la garde de l’app n’a rien signalé, aucune erreur de page',

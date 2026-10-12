@@ -1422,7 +1422,7 @@
     var maintenant = new Date();
     return { etat: 'ok', demandes: demandes, cartes: social.fil.map(function (l) {
       return { session_id: l.session_id, pseudo: l.pseudo, couleur: Social.couleurDuBlason(l.pseudo),
-        quand: Modele.quand(l.debut, maintenant, true), titre: l.titre || null, tonnes: tonnesSociales(l.tonnage_kg),
+        quand: Modele.quand(l.debut, maintenant), titre: l.titre || null, tonnes: tonnesSociales(l.tonnage_kg),
         medailles: social.medailles[l.session_id] || [], jaiReagi: !!l.j_ai_reagi,
         surProfil: function () { allerAmi(l.pseudo); },
         surVoir: function () { social.voirSeance = { pseudo: l.pseudo, session_id: l.session_id, debut: l.debut }; allerAmi(l.pseudo); },
@@ -1564,7 +1564,7 @@
     var s = (sessionId && jour.seances.filter(function (x) { return x.session_id === sessionId; })[0]) ||
       jour.seances[jour.seances.length - 1];
     a.choisi = jour;
-    a.resume = { titre: s.titre || null, quand: Modele.quand(s.debut, new Date(), true), tonnes: tonnesSociales(s.tonnage_kg) };
+    a.resume = { titre: s.titre || null, quand: Modele.quand(s.debut, new Date()), tonnes: tonnesSociales(s.tonnage_kg) };
     dessinerAmi();
     try {
       var medailles = await medaillesDe(s.session_id);

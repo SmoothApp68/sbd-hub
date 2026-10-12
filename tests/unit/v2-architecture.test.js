@@ -1952,8 +1952,11 @@ const REGISTRE_ECRITURES = [
   { fn: 'enregistrerProfil', chemin: 'liste-blanche', appelants: ['app.js:chargerProfil', 'app.js:envoyerProfilMaintenant'],
     raison: 'le profil a son propre canal, local d’abord, avec un drapeau persistant (60-2c)' },
   // Deux appelants, deux raisons : une par appelant (`raisons`), la garde exige qu'elles se correspondent.
-  { fn: 'refermerSeance', chemin: 'liste-blanche', appelants: ['app.js:resoudreSeanceEnCoursDistante', 'app.js:refermerSeancesSauf'],
+  { fn: 'refermerSeance', chemin: 'liste-blanche',
+    appelants: ['app.js:resoudreSeanceEnCoursDistante', 'app.js:refermerSeancesSauf', 'app.js:avantDeCommencer'],
     raisons: {
+      'app.js:avantDeCommencer': 'la réponse de l’utilisateur (84) : « La terminer et commencer » referme la séance vivante '
+        + 'd’un autre appareil avant d’en créer une ; si elle échoue, l’envoi de la nouvelle la refermera (`refermerSeancesSauf`)',
       'app.js:resoudreSeanceEnCoursDistante': 'ménage recalculé à chaque lancement : rien à perdre s’il échoue',
       'app.js:refermerSeancesSauf': 'réparation d’un conflit pendant l’envoi de la file : referme une séance restée ouverte en base, '
         + 'autre que celle qu’on envoie ; si elle échoue, l’envoi suivant la retente'

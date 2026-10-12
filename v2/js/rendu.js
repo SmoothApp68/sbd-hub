@@ -601,7 +601,8 @@
     var menu = el('div', 'feuille-menu');
     entreeMenu(menu, vue.libelle || 'Confirmer',
       { classe: vue.danger ? 'danger' : '', surClic: vue.surConfirmer });
-    entreeMenu(menu, 'Annuler', { surClic: vue.surAnnuler });
+    // 84 — un libellé d'annulation au choix (« Pas maintenant ») ; défaut inchangé.
+    entreeMenu(menu, vue.libelleAnnuler || 'Annuler', { surClic: vue.surAnnuler });
     cible.appendChild(menu);
     return cible;
   }

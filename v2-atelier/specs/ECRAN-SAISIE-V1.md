@@ -2761,6 +2761,29 @@ terminée suppriment comme avant, parce que ces séries sont connues.
 **Hors de cette règle** (chantier 84) : la fermeture et la reprise silencieuses d'une séance vivante d'un autre
 appareil, et deux appareils qui écrivent le même rang.
 
+### 7 duovicies.1 ter Une séance vivante d'un autre appareil — décidé le 12/10/2026 (chantier 84)
+
+> **Le moteur propose, l'utilisateur décide : une séance ne se ferme ni ne se reprend en silence quand quelqu'un s'en
+> sert encore.** Prouvé au banc le 12/10 (82) : B qui commence une séance fermait celle de A sans rien dire ; A qui
+> rechargeait son app fermait celle de B ; B qui ouvrait l'app reprenait celle de A.
+
+**Vivante** : la séance `en_cours` d'un autre appareil dont la dernière série validée (`validee_a`), ou à défaut le
+début, date de **moins de 45 minutes**. Au-delà, elle est **abandonnée** (plantage, téléphone éteint) et se traite comme
+avant : refermée ou reprise sans question. Pourquoi 45 : sur les vraies séances, 99 % des repos entre deux séries
+validées durent moins de 21 minutes, le plus long 31.
+
+| Moment | Séance de l'autre appareil vivante | Abandonnée |
+|---|---|---|
+| J'ouvre l'app, pas de séance ici | Feuille : « Une séance est en cours sur un autre appareil » · « {titre} · dernière série à {heure}. » · **La continuer ici** / Pas maintenant. « Pas maintenant » : rien ne bouge ; la question revient à la prochaine ouverture tant qu'elle est vivante | reprise, comme avant |
+| Je commence une séance | Feuille : même titre · « {titre} · dernière série à {heure}. Une seule séance à la fois : la terminer pour commencer celle-ci ? » · **La terminer et commencer** / Annuler | refermée, comme avant |
+| J'ouvre l'app avec une séance ici | **rien** : la séance vivante de l'autre n'est jamais refermée | refermée, comme avant |
+
+Sans séance vivante : aucune question. « dernière série » devient « commencée à {heure} » quand elle n'a aucune série.
+
+**Limite assumée — la séance commencée hors ligne** : sans réseau, l'app ne peut pas savoir ; le conflit n'apparaît
+qu'à l'envoi, qui referme l'autre séance comme avant. Rare, et sans perte depuis le chantier 83 : seul le statut change,
+et « Terminer » sur l'autre appareil le répare. Noté pour plus tard : une file qui attend une décision.
+
 ### 7 duovicies.2 « −15 » sous la borne fabriquait une cible que rien ne fige
 
 Le §7 novodecies a fermé la porte de l'**armement**. Celle de l'**ajustement** est restée

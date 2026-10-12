@@ -2604,7 +2604,64 @@
     return s >= c ? 0 : c - s;
   }
 
+  // ══ 84 (12/10/2026) — UNE SÉANCE VIVANTE D'UN AUTRE APPAREIL ═══════════
+  //
+  // ECRAN-SAISIE §7 duovicies.1 ter. Une séance `en_cours` d'un autre appareil
+  // est VIVANTE si sa dernière série validée (`validee_a`), à défaut son début,
+  // date de MOINS de 45 minutes : on ne la ferme ni ne la reprend sans demander.
+  // Au-delà, elle est ABANDONNÉE (plantage, téléphone éteint) et se traite comme
+  // avant. Pourquoi 45 : sur les vraies séances, 99 % des repos entre deux
+  // séries validées durent moins de 21 minutes, le plus long 31.
+  //
+  // Pures : « maintenant » est un PARAMÈTRE, jamais l'horloge.
+  var MINUTES_VIVANTE = 45;
+
+  // L'instant de la dernière activité : la plus récente `validee_a` des séries,
+  // sinon le début de la séance. `null` si rien n'est lisible.
+  function derniereActivite(ligne, series) {
+    var t = null;
+    (series || []).forEach(function (s) {
+      var v = s ? Date.parse(s.validee_a) : NaN;
+      if (!isNaN(v) && (t === null || v > t)) t = v;
+    });
+    if (t === null && ligne) {
+      var d = Date.parse(ligne.debut);
+      if (!isNaN(d)) t = d;
+    }
+    return t === null ? null : new Date(t).toISOString();
+  }
+
+  // Vivante : `en_cours`, et une activité de moins de 45 minutes (strict).
+  function estVivante(ligne, series, maintenantIso) {
+    if (!ligne || ligne.statut !== 'en_cours') return false;
+    var a = derniereActivite(ligne, series);
+    var m = Date.parse(maintenantIso);
+    if (a === null || isNaN(m)) return false;
+    return m - Date.parse(a) < MINUTES_VIVANTE * 60 * 1000;
+  }
+
+  // Les mots des deux feuilles (la maquette 84, au mot près). `cas` : 'reprendre'
+  // (j'ouvre l'app, pas de séance ici) ou 'commencer' (je commence une séance).
+  // L'heure, à l'heure du téléphone (`THModele.heureMinute`).
+  function feuilleAutreAppareil(ligne, series, cas) {
+    var aSerie = (series || []).some(function (s) { return s && !isNaN(Date.parse(s.validee_a)); });
+    var heure = racine.THModele.heureMinute(derniereActivite(ligne, series));
+    var titreSeance = ligne && ligne.titre ? ligne.titre : 'Séance';
+    var fait = titreSeance + ' · ' + (aSerie ? 'dernière série à ' : 'commencée à ') + heure + '.';
+    if (cas === 'commencer') {
+      return { titre: 'Une séance est en cours sur un autre appareil',
+               aide: fait + ' Une seule séance à la fois : la terminer pour commencer celle-ci ?',
+               libelle: 'La terminer et commencer', libelleAnnuler: 'Annuler' };
+    }
+    return { titre: 'Une séance est en cours sur un autre appareil', aide: fait,
+             libelle: 'La continuer ici', libelleAnnuler: 'Pas maintenant' };
+  }
+
   var api = {
+    MINUTES_VIVANTE: MINUTES_VIVANTE,
+    derniereActivite: derniereActivite,
+    estVivante: estVivante,
+    feuilleAutreAppareil: feuilleAutreAppareil,
     TYPES: TYPES, RESSENTIS: RESSENTIS,
     PAS_REPOS: PAS_REPOS,
     ajusterCible: ajusterCible,

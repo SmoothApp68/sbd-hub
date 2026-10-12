@@ -739,7 +739,7 @@ Les séries 1 et 2 sont les moins fatiguées, donc les plus représentatives de 
 
 **Le rang se compte après application des §5 et §6.** Sur un exercice qui monte en charge, la « première série » est la première série au palier, pas la première série de l'exercice.
 
-**Le niveau validé — défini le 19/09/2026.** C'est le plus haut nombre de reps *c* tel que les deux premières séries au palier font au moins *c*, et les suivantes au moins *c* − 1. Une série marquée « max » compte une rep de moins (§17.4). Exemples : `5-5-4-4` → niveau 5 ; `4-5` → niveau 4 ; `12-12-11` → niveau 12. C'est ce niveau que la consigne suivante augmente d'une rep (§9.1), et c'est lui qui dit si le haut de la zone est atteint.
+**Le niveau validé — défini le 19/09/2026.** C'est le plus haut nombre de reps *c* tel que les deux premières séries au palier font au moins *c*, et les suivantes au moins *c* − 1. Une série marquée « max » compte ses reps (§17.4, révisé le 11/10/2026 — 74) ; ce qui l'empêche de faire monter la consigne suivante est au §17.4. Exemples : `5-5-4-4` → niveau 5 ; `4-5` → niveau 4 ; `12-12-11` → niveau 12. C'est ce niveau que la consigne suivante augmente d'une rep (§9.1), et c'est lui qui dit si le haut de la zone est atteint.
 
 Avec **une seule série au palier**, le niveau est son nombre de reps compté ; **sans série au palier**, il n'y a pas de niveau.
 
@@ -820,7 +820,7 @@ Ceci vaut pour la déduction de la cible. Le modèle charge/reps du §15 conserv
 
 Le palier bascule de lui-même quand la charge testée tient la majorité des séries (§7.2).
 
-**L'échelle — décidée le 19/09/2026.** La nouvelle charge entre par la dernière série et gagne les séries **de la dernière vers la première**, une par séance. Après la bascule, les séries restées à l'ancien palier continuent de monter une par séance jusqu'à toutes ; les rampes plus légères que l'ancien palier et les chauffes ne bougent pas. **Les reps d'un test se comptent comme celles du palier** (§17.4) : une série à RPE 10 ou « reste 0 » compte une rep de moins. Pourquoi la dernière série : l'ordre des séries lourdes ne change pas les gains (pyramides montantes et descendantes font jeu égal) ; c'est la pratique d'Aurélien, celle de l'APRE et de la méthode DeLorme, et l'écran garde un seul langage.
+**L'échelle — décidée le 19/09/2026.** La nouvelle charge entre par la dernière série et gagne les séries **de la dernière vers la première**, une par séance. Après la bascule, les séries restées à l'ancien palier continuent de monter une par séance jusqu'à toutes ; les rampes plus légères que l'ancien palier et les chauffes ne bougent pas. **Les reps d'un test se comptent comme celles du palier** (§17.4) : une série à RPE 10 ou « reste 0 » compte ses reps, et le test qui la suit ne monte pas sur elle (74). Pourquoi la dernière série : l'ordre des séries lourdes ne change pas les gains (pyramides montantes et descendantes font jeu égal) ; c'est la pratique d'Aurélien, celle de l'APRE et de la méthode DeLorme, et l'écran garde un seul langage.
 
 **Un test raté se reprend d'un seul cran — validé le 19/09/2026**, même si le test raté valait deux crans (couché : 130 raté → le moteur proposera 127,5). **Si même un cran échoue**, parce que la salle ne fait pas plus petit, la zone **s'étire** : le palier gratte des reps au-delà du haut, et le moteur reteste quand il a regagné les reps perdues au test. Curl marteau : `32 × 8` raté en zone Volume 10-12 — au-delà d'une paire de 20 kg, les haltères vont de 4 en 4 (2 kg par main), le cran ne peut pas être plus petit → on reteste 32 quand le palier fait 28 × 16 (12 + 4 perdues). Jamais au-delà de 30 reps (§9.1.2).
 
@@ -2054,10 +2054,31 @@ Le champ se met en surbrillance **30 secondes après la validation de la série*
 
 ~~Une série marquée « max » compte **−1 rep** pour la validation du palier uniquement.~~ **Révisé le 11/10/2026 (68B) : une série « à fond » (RPE 10 ou « reste 0 ») est tenue, mais on ne monte pas sur sa foi.**
 
-- **Ce qui se décide** compte toujours une rep de moins, comme avant : le niveau validé, la rep de plus, le test, l'échelle, et en séance (§9.14 ter) l'élan et la proposition. Sans marge, la séance suivante refait avant de monter. *(Simulation du 11/10 sur les 79 séance-exercices notées à fond, tous profils : compter les reps faites ferait monter la consigne suivante 51 fois sur 79 — une rep de plus visée 24 fois, un test plus lourd ou plus de séries au test 18 fois —, sur la foi de séries sans réserve. Cible atteinte à RPE 10, les coachs refont (Helms ; Zourdos 2016).)*
-- **Ce qui se dit et s'observe** compte les reps faites : l'observation d'un pari (§9.11) et le bilan du mois ; et toute phrase qui jugerait une série. **Quand la rep en moins d'une série à fond change le verdict, la phrase dit le verdict des reps faites, suivi de « sans marge » — jamais « pas encore »** pour des reps réellement faites. En-tête : « Ta série à 125 kg × 5 était à RPE 10, sans marge : on ne rajoute pas de rep. » (au lieu de « … compte pour 4. ») ; « Mardi : 130 kg × 3 à RPE 10, sans marge. » (au lieu de « … pas encore dans ta zone. ») ; feuille « Pourquoi » : « Ton test à 130 kg a fait 3 reps à RPE 10, sans marge. » ; constat : « 79 kg × 12, 12, 12 : tenu, sans marge. » (au lieu de « Pas encore : … »). « à fond » quand l'effort vient d'un ressenti (« reste 0 »). Sur la simulation, **35 séance-exercices sur 79** voient leurs mots changer ; aucune consigne ne change.
-- Le nombre réel reste enregistré tel quel pour le volume, le tonnage et l'estimation du maximum.
-- *Noté pour le chantier « rythme de progression » :* un test tenu au bas de la zone à RPE 10 compte comme raté pour la suite (retest d'un cran, étirement : 6 fois sur les 79). « On le refait à la même charge » serait plus juste ; c'est une décision de progression, hors 68B.
+- ~~**Ce qui se décide** compte toujours une rep de moins, comme avant~~ — **révisé le 11/10/2026 (74) : une série à
+  fond compte ses reps, partout** : le niveau validé, le test, l'échelle, l'observation d'un pari, le bilan. On
+  n'enlève pas une rep réellement faite (« un record, c'est une rep à RPE 10 : elle compte »).
+- **Après elle, le coach ne monte pas, et ne recule pas à cause d'elle.** Quand la dernière séance d'un exercice a au
+  moins une série de travail à fond, sa consigne suivante part du calcul **sur les reps faites**, puis, dans cet ordre :
+  1. **Pas de « tout passe »** : si le calcul sur les reps faites donne « tout passe » alors que le **calcul prudent**
+     (chaque série à fond compte une rep de moins, la règle de 68B) ne le donne pas, l'état, la ligne et le test sont
+     ceux du calcul prudent.
+  2. **Pas de test plus lourd** que la charge la plus lourde de cette séance : sinon, l'état et le test sont ceux du
+     calcul prudent.
+  3. **Pas de rep de plus** : à une charge où une série de cette séance a été faite à fond, la visée (de la ligne
+     comme du test) ne dépasse pas le plus grand nombre de reps fait à cette charge dans cette séance.
+  4. **Pas de série de test en plus** : si le test est à une charge faite à fond dans cette séance, ses séries ne
+     dépassent pas le plus grand de deux nombres — les séries faites à cette charge dans la séance, et celles du
+     calcul prudent ; si on le ramène, l'état est celui du calcul prudent.
+  Le **niveau** et le **palier** restent ceux des reps faites. Une charge plus légère que celles faites à fond n'est
+  pas plafonnée par elles (une série à fond à 100 kg × 3 ne ramène pas la visée de 80 kg × 10).
+- *Simulation du 11/10 (v2), sur les 79 séance-exercices notées à fond :* 26 consignes inchangées ; 19 où les reps
+  faites changent le niveau ou corrigent un recul sans rien à bloquer ; 34 où une montée est bloquée (rep de plus
+  31 fois, test plus lourd 6, « tout passe » 4, série de test en plus 2). **Les reculs injustes de 68B sont
+  corrigés** : couché 01/09/2026, test 125 × 3 à RPE 10 → test gardé à 125 × 3 (au lieu de l'étirement à 122,5) ;
+  soulevé 10/01/2026, 160 × 3 → test gardé à 160 × 3 (au lieu d'un retest à 145) ; couché 08/09/2026, 122,5 × 6, 5,
+  5 à RPE 10 → niveau 5 (au lieu de 4), sans test proposé.
+- **Ce qui se dit** ne change pas (68B) : « sans marge », jamais « pas encore » pour des reps faites ; en séance,
+  après une série à fond, ni élan ni proposition.
 
 ### 17.5 Deux réserves de fond
 

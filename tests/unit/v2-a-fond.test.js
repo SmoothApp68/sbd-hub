@@ -262,7 +262,7 @@ describe('68B — les phrases sur les reps faites : « sans marge », jamais « 
     const x8 = de('X8');
     x8.seances[4].series[2] = { charge_kg: 130, reps: 3, rpe: 10, role: 'exploration' };
     expect(esp(M.pourquoiConsigne(pour(x8.seances, x8.avant), 'normal', x8.avant).etat)).toBe(
-      'Ton test à 130 kg a fait 3 reps, le bas de ta zone : il tient. On le garde sur la dernière série ; à 4 reps, il gagnera une série.');
+      'Ton test à 130 kg a fait 3 reps à RPE 10, sans marge, le bas de ta zone : il tient. On le garde sur la dernière série ; à 4 reps, il gagnera une série.');
     // Témoin : 130 × 2 faits, sans effort noté — pas encore dans la zone.
     const t = de('X8');
     expect(esp(M.libellesConsigne(pour(t.seances, t.avant), t.avant).gris)).toBe('Le 13 sept. : 130 kg × 2, pas encore dans ta zone.');
@@ -274,7 +274,7 @@ describe('68B — les phrases sur les reps faites : « sans marge », jamais « 
     const k = pour(c.seances, c.avant, 'haltere');
     expect(k.etat).toBe('garde');
     expect(k.haut).toEqual({ charge: 32, vise: 10, k: 1 });
-    expect(esp(M.pourquoiConsigne(k, 'normal', c.avant).etat)).toMatch(/^Ton test à 32 kg a fait 10 reps, le bas de ta zone : il tient\. /);
+    expect(esp(M.pourquoiConsigne(k, 'normal', c.avant).etat)).toMatch(/^Ton test à 32 kg a fait 10 reps à RPE 10, sans marge, le bas de ta zone : il tient\. /);
   });
 
   test('74 — le constat : un test fait à fond au bas de la zone se dit tenu, et se garde', () => {

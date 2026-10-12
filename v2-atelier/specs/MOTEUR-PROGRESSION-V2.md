@@ -2062,7 +2062,7 @@ Le champ se met en surbrillance **30 secondes après la validation de la série*
   1. **Pas de « tout passe »** : si le calcul sur les reps faites donne « tout passe » alors que le **calcul prudent**
      (chaque série à fond compte une rep de moins, la règle de 68B) ne le donne pas, l'état, la ligne et le test sont
      ceux du calcul prudent.
-  2. **Pas de test plus lourd** que la charge la plus lourde de cette séance : sinon, l'état et le test sont ceux du
+  2. **Pas de test plus lourd** que la charge la plus lourde de cette séance (un test sans charge chiffrée est un cran au-dessus : il compte comme plus lourd) : sinon, l'état et le test sont ceux du
      calcul prudent.
   3. **Pas de rep de plus** : à une charge où une série de cette séance a été faite à fond, la visée (de la ligne
      comme du test) ne dépasse pas le plus grand nombre de reps fait à cette charge dans cette séance.

@@ -3275,7 +3275,7 @@
                (f.preuve ? 'On teste deux crans au-dessus' : 'On teste le cran au-dessus') + '.';
 
       case 'garde':
-        if (t.niveau === z.bas) {
+        if (niveauDitDuTest(t) === z.bas) {
           return duTest() + 'est au bas de ta zone' + DEUX_POINTS + 'on le garde sur la dernière série.';
         }
         return duTest() + 'est dans ta zone' + DEUX_POINTS +
@@ -3315,6 +3315,9 @@
       // §9.2 bis (49-U12) — un fait, puis sa conséquence : « Mardi : 80 kg ×
       // 10, 10, 6. Je ne compte pas la dernière série : on tient 80 kg × 10. »
       case 'tenue_apres_chute':
+        // 74 — sans chute sur les reps faites (l'état vient du calcul prudent,
+        // la ligne des reps faites) : la phrase de la rep de plus, qui est vraie.
+        if (!f.chute) return jour() + DEUX_POINTS + auPalier() + '. Une rep de plus.';
         return jour() + DEUX_POINTS + auPalier() + '. Je ne compte pas la dernière série' + DEUX_POINTS +
                'on tient ' + chargeFois(c.ligne.charge, c.ligne.vise, cite(CIBLE, { role: 'ligne' })) + '.';
 
@@ -3503,31 +3506,38 @@
     return { date: quand(f.date, reference, false, cite(FAIT, { quoi: 'palier' })), lignes: lignes };
   }
 
-  // La cause du cran d'effort sur le test, lue sur la série elle-même : la
-  // phrase dit « à RPE 10 » ou « à fond », et les deux ne se devinent pas.
-  function causeDuTest(c) {
+  // 74 (retouche) — le test fait À FOND : la cause de son cran (« rpe » ou
+  // « ressenti »), lue sur ses séries à sa charge, ou `null`. La première à
+  // fond la dit, comme `causeAFond`.
+  function aFondDuTest(c) {
     var f = c.fondement || {};
     var t = f.test || null;
-    if (t === null || !f.seance) return 'ressenti';
+    if (t === null || !f.seance) return null;
     for (var i = 0; i < f.seance.length; i++) {
       var s = f.seance[i];
-      if (s.role === 'exploration' && nombre(s.charge_kg) === t.charge) {
+      if (s.role === 'exploration' && nombre(s.charge_kg) === t.charge && Palier().cranDeSerie(s) === 'max') {
         return Palier().cranEffort(s.rpe) !== null ? 'rpe' : 'ressenti';
       }
     }
-    return 'ressenti';
+    return null;
   }
 
-  // « Ton test à 130 kg a fait 5 reps à RPE 10, compté 4 » — ce qui a été
-  // fait, puis ce qui a été compté, et seulement quand les deux diffèrent (§17.4).
+  // Le niveau du test que la feuille DIT : celui des reps faites (74). Le
+  // fondement du calcul prudent le porte dans `niveauFait` quand la rep en
+  // moins l'a abaissé ; sinon, c'est `niveau`.
+  function niveauDitDuTest(t) {
+    return t.niveauFait !== undefined && t.niveauFait !== null ? t.niveauFait : t.niveau;
+  }
+
+  // « Ton test à 285,7 kg a fait 12 reps à RPE 10, sans marge » — ce qui a
+  // été fait, et, s'il était à fond, « sans marge ». Jamais un compte de reps
+  // comptées (74 : une série à fond compte ses reps ; avant, « compté 11 »).
   function faitDuTestEnPhrase(c) {
     var t = c.fondement.test;
     var dit = 'Ton test à ' + enKg(t.charge, cite(FAIT, { quoi: 'test' })) + ' a fait ' +
               nombreFr(t.reps, cite(FAIT, { quoi: 'test', champ: 'reps' })) + ' reps';
-    if (t.niveau !== null && t.niveau < t.reps) {
-      dit += (causeDuTest(c) === 'rpe' ? ' à RPE ' + nombreFr(10, regle('constante')) : ' à fond') +
-             ', compté ' + nombreFr(t.niveau, cite(FAIT, { quoi: 'test', champ: 'niveau' }));
-    }
+    var cause = aFondDuTest(c);
+    if (cause !== null) dit += aFondMot(cause) + ', sans marge';
     return dit;
   }
 
@@ -3650,7 +3660,7 @@
         return dit;
 
       case 'garde':
-        if (t.niveau === z.bas) {
+        if (niveauDitDuTest(t) === z.bas) {
           return faitDuTestEnPhrase(c) + ', le bas de ta zone' + DEUX_POINTS + 'il tient. ' +
                  'On le garde sur la dernière série ; à ' + nombreFr(z.bas + 1, regle('zone.bas+1')) + ' reps, il gagnera une série.';
         }
@@ -3658,7 +3668,7 @@
                'série jusqu\'à ' + nombreFr(z.haut, regle('zone.haut')) + ' reps ; alors la série d\'avant le rejoindra.';
 
       case 'etend':
-        return faitDuTestEnPhrase(c) + ', ' + niveauDansPhrase(t.niveau, z) + DEUX_POINTS +
+        return faitDuTestEnPhrase(c) + ', ' + niveauDansPhrase(niveauDitDuTest(t), z) + DEUX_POINTS +
                'il gagne une série. La nouvelle charge gagne tes séries une par séance, ' +
                'de la dernière à la première.';
 
@@ -3666,7 +3676,7 @@
         var fin = DEUX_POINTS + 'en Franc, toutes tes séries passent à ' +
                   enKg(c.haut.charge, cH) + '.';
         if (t !== null) {
-          return faitDuTestEnPhrase(c) + ', ' + niveauDansPhrase(t.niveau, z) + fin;
+          return faitDuTestEnPhrase(c) + ', ' + niveauDansPhrase(niveauDitDuTest(t), z) + fin;
         }
         return 'Tes séries à ' + enKg(c.haut.charge, cH) + ' ont touché le haut de ta zone' + fin;
 
@@ -3690,6 +3700,11 @@
       // §9.2 bis (49-U12) — une phrase : pourquoi la chute ne compte pas, et
       // pourquoi pas de test tout de suite.
       case 'tenue_apres_chute':
+        // 74 — sans chute sur les reps faites : le paragraphe de la rep de plus.
+        if (!f.chute) {
+          return 'Ta charge de travail n\'est pas encore au haut de ta zone' + DEUX_POINTS +
+            'une rep de plus sur chaque série.';
+        }
         return 'Ta dernière série a chuté après des séries stables' + DEUX_POINTS +
                'c\'est la fatigue, pas ton niveau. Je ne la compte pas, et on tient ' +
                chargeFois(c.ligne.charge, c.ligne.vise, cL) + ' avant de tester plus lourd.';
@@ -6187,11 +6202,21 @@
     if (!faite || !prudente || faite.etat === 'silence') return faite;
     var r = {};
     Object.keys(faite).forEach(function (k) { r[k] = faite[k]; });
+    // Le fondement du calcul prudent, sauf la CHUTE, qui est un fait des
+    // reps faites : 20, 20, 15 n'est pas une chute (−5, 25 %), même quand la
+    // rep en moins en fait une (19, 19, 14). Sans elle, « je ne compte pas la
+    // dernière série » serait dit d'une ligne qui la compte (retouche 74).
+    function fondementPrudent() {
+      var f = {};
+      Object.keys(prudente.fondement || {}).forEach(function (k) { f[k] = prudente.fondement[k]; });
+      if (!(faite.fondement && faite.fondement.chute)) delete f.chute;
+      return f;
+    }
     function etatPrudent(avecLigne) {
       r.etat = prudente.etat;
       r.haut = prudente.haut;
       if (avecLigne) r.ligne = prudente.ligne;
-      r.fondement = prudente.fondement;
+      r.fondement = fondementPrudent();
     }
     // Les charges faites À FOND, et pour chacune le plus de reps et le nombre
     // de séries faites à cette charge dans la séance.
@@ -6219,11 +6244,11 @@
     // 1. Pas de « tout passe » que le calcul prudent ne donne pas.
     if (r.etat === 'tout_passe' && prudente.etat !== 'tout_passe') etatPrudent(true);
     // 2. Pas de test plus lourd que la charge la plus lourde de la séance. Un
-    // test sans charge (« le cran au-dessus », que le matériel ne chiffre
-    // pas) ne se compare pas : rien ne dit qu'il dépasse.
+    // test sans charge chiffrée est « le cran au-dessus » : il compte comme plus
+    // lourd que tout ce qui a été fait (§17.4, corrigé le 12/10/2026).
     if (r.haut && lourde !== null) {
       var ch = nombre(r.haut.charge);
-      if (ch !== null && ch > lourde && !memeCharge(ch, lourde)) etatPrudent(false);
+      if (ch === null || (ch > lourde && !memeCharge(ch, lourde))) etatPrudent(false);
     }
     // 3. Pas de rep de plus à une charge faite à fond (ligne et test). Au
     // POIDS DU CORPS (palier 0, §9.17), aucune : sans cran, les reps sont la
@@ -6252,7 +6277,7 @@
         h.k = kMax;
         r.haut = h;
         r.etat = prudente.etat;
-        r.fondement = prudente.fondement;
+        r.fondement = fondementPrudent();
       }
     }
     r.niveau = faite.niveau;

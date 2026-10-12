@@ -586,12 +586,15 @@
                        'programme_construit_le', 'carte_cycles_le',
                        // 64B (v2_068) — l'interrupteur du jeu (JEU-V1 §9.1).
                        'jeu_actif',
+                       // 87 (v2_078) — le compte privé, et le niveau et le titre du jeu que l'app publie
+                       // (`publierJeu`, app.js) : l'affichage social seulement, jamais relus par le jeu.
+                       'compte_prive', 'jeu_niveau', 'jeu_titre',
                        'onboarding_completed'];
 
   // ⚠️ `jeu_actif` EST NOT NULL (v2_068) : un `null` serait un 23502, que la file classe définitif — et le profil part
   // en ligne ENTIÈRE à chaque envoi, il bloquerait tout. Seul un booléen part ; absent ou nul, il n'est pas envoyé (la
   // base garde sa valeur, `true` par défaut).
-  var BOOLEENS_NON_NULS = ['jeu_actif'];
+  var BOOLEENS_NON_NULS = ['jeu_actif', 'compte_prive'];
   function champsEcrits(champs) {
     var src = champs || {}, sortie = {};
     CHAMPS_ECRITS.forEach(function (c) {
@@ -607,6 +610,11 @@
   // pas de profil du tout — : allumé, comme le défaut de la base.
   function jeuActif(profil) {
     return !(profil && profil.jeu_actif === false);
+  }
+
+  // 87 — le compte est-il privé ? Privé SAUF si le profil dit `false` (le défaut de la base est `true`).
+  function comptePrive(profil) {
+    return !(profil && profil.compte_prive === false);
   }
 
   // ── Bornes de saisie ─────────────────────────────────────────────────────
@@ -1273,6 +1281,7 @@
     prioritesDe: prioritesDe, prioritesGelees: prioritesGelees,
     DUREES: DUREES, SEANCES_MIN: SEANCES_MIN, SEANCES_MAX: SEANCES_MAX,
     TAILLE_MIN: TAILLE_MIN, TAILLE_MAX: TAILLE_MAX,
+    comptePrive: comptePrive,
     PSEUDO_MIN: PSEUDO_MIN, PSEUDO_MAX: PSEUDO_MAX, MDP_MIN: MDP_MIN,
     CHAMPS_ECRITS: CHAMPS_ECRITS, A_RENSEIGNER: A_RENSEIGNER,
     EQUIPEMENTS: EQUIPEMENTS, LIBELLES_EQUIPEMENT: LIBELLES_EQUIPEMENT, libelleEquipement: libelleEquipement,

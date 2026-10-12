@@ -2074,3 +2074,75 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
   background:none;border:0;border-bottom:1px solid var(--trait);color:var(--texte);padding:10px 4px;font:inherit;
   font-size:13.5px;cursor:pointer}
 .pc-note{font-size:12px;line-height:1.45;color:var(--texte-2);margin:6px 0 var(--e2)}
+
+/* ══ 87 — LE SOCIAL, ÉTAGE 1 (SOCIAL-V1, maquette `maquette-social-etage1-v2.html`) ══════════════════════════
+   Aucun ambre (la voix du coach) : l'or des médailles et le gris. Le blason, le gabarit de la maquette. */
+.s-entete{display:flex;justify-content:space-between;align-items:center}
+.s-plus{width:36px;height:36px;border-radius:50%;border:0;background:var(--panneau);color:var(--texte-2);font-size:18px}
+.s-onglets{display:flex;gap:6px;margin:0 0 var(--e3)}
+.s-onglet{border:0;padding:6px 14px;border-radius:99px;background:var(--panneau);color:var(--texte-2);font:600 13px/1.2 var(--pile)}
+.s-onglet.actif{background:var(--texte);color:var(--fond)}
+.s-onglet[hidden]{display:none}
+.onglet[data-demandes]{position:relative}
+.onglet[data-demandes]::before{content:"";position:absolute;top:6px;right:calc(50% - 16px);width:8px;height:8px;border-radius:50%;background:var(--texte)}
+.s-blason{flex:none;display:block}
+.s-blason-creux{fill:var(--fond)}
+.s-gris{color:var(--texte-2)}
+.s-note{margin:var(--e3) 0}
+.s-centre{text-align:center}
+.s-lien{cursor:pointer}
+.s-btn{border:0;border-radius:12px;padding:8px 12px;font:600 13px/1.2 var(--pile);cursor:pointer;min-height:36px}
+.s-btn:disabled{cursor:default}
+.s-b1{background:var(--texte);color:var(--fond)}
+.s-b2{background:var(--panneau-2);color:var(--texte)}
+.s-b3{background:transparent;color:var(--texte-2)}
+.s-grise{background:var(--panneau);color:var(--texte-3)}
+.s-demande,.s-ligne{display:flex;align-items:center;gap:10px;min-width:0}
+.s-demande{background:var(--panneau-2);border-radius:16px;padding:10px 12px;margin-bottom:var(--e3)}
+.s-demande .s-t,.s-ligne .s-t{flex:1;min-width:0;overflow-wrap:anywhere}
+.s-demande small,.s-ligne small{display:block;color:var(--texte-2)}
+.s-ligne{padding:10px 0;border-top:1px solid var(--trait)}
+.s-carte{background:var(--panneau);border:1px solid var(--trait);border-radius:18px;padding:14px;margin-bottom:10px}
+.s-tete{display:flex;gap:10px;align-items:center;margin-bottom:10px;min-width:0}
+.s-tete b{display:block;overflow-wrap:anywhere}.s-tete small{color:var(--texte-2)}
+.s-chiffres{display:flex;gap:22px;align-items:flex-end}
+.s-chiffres strong{display:block;font:700 26px/1 var(--pile)}
+.s-chiffres span{color:var(--texte-2);font-size:12px}
+.s-meds{margin-top:10px;display:flex;flex-direction:column;gap:4px}
+.s-med{font-size:13px;display:flex;gap:8px;align-items:center;overflow-wrap:anywhere}
+.s-med i{width:16px;height:16px;border-radius:50%;background:var(--medaille);flex:none}
+.s-pied{display:flex;justify-content:space-between;margin-top:12px;gap:8px}
+.s-reag{background:var(--panneau-2);color:var(--texte);border-radius:99px}
+.s-reag.s-fait{color:var(--medaille)}
+.s-fin{text-align:center;color:var(--texte-2);font-size:13px;padding:16px 0 4px}
+.s-prof{text-align:center;margin-bottom:10px;display:flex;flex-direction:column;align-items:center;gap:4px}
+.s-pseudo{font:700 22px/1.2 var(--pile);overflow-wrap:anywhere}
+.s-niveau{color:var(--texte-2)}
+.s-etat{display:inline-block;font-size:12px;padding:4px 10px;border-radius:99px;background:var(--panneau);color:var(--texte-2)}
+.s-actions{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:12px 0 6px}
+.s-inviter-sous{font-size:13px;margin:0 0 12px}
+.s-menu{display:flex;flex-direction:column;gap:6px;margin:0 0 12px}
+.s-menu[hidden]{display:none}
+.s-cache{font-size:13px}
+.s-mois{display:flex;justify-content:space-between;align-items:center;margin:4px 2px 8px;font-weight:600}
+.s-cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;text-align:center;font-size:12px}
+.s-cal .s-j{color:var(--texte-2);font-size:11px;padding:2px 0}
+.s-jour{padding:8px 0;border-radius:9px;color:var(--texte-2);border:0;background:transparent;font:inherit;min-width:0}
+.s-n1{background:#4a3f22;color:var(--texte)}.s-n2{background:#8a723a;color:var(--fond)}.s-n3{background:var(--medaille);color:var(--fond);font-weight:700}
+.s-sel{outline:2px solid var(--texte);outline-offset:1px}
+.s-lg{display:flex;gap:6px;align-items:center;justify-content:flex-end;color:var(--texte-2);font-size:11px;margin-top:6px}
+.s-lg i{width:12px;height:12px;border-radius:3px;display:inline-block}
+.s-detail{margin-top:12px;background:var(--panneau);border:1px solid var(--trait);border-radius:18px;padding:14px;font-size:14px}
+.s-detail h3{margin:0 0 8px;font-size:15px;overflow-wrap:anywhere}
+.s-ex{display:flex;flex-direction:column;padding:6px 0;border-top:1px solid var(--trait)}
+.s-ex small{color:var(--texte-2)}
+.s-champ{width:100%;box-sizing:border-box;background:var(--panneau);border:1px solid var(--trait);border-radius:14px;padding:12px 14px;color:var(--texte);font:inherit;margin-bottom:12px}
+.s-lien-invit{background:var(--panneau-2);border-radius:18px;padding:14px;margin:16px 0}
+.s-lien-invit code{display:block;background:var(--fond);border-radius:10px;padding:8px 10px;margin:8px 0;color:var(--medaille);font-size:13px;overflow-wrap:anywhere}
+.s-titre-s{color:var(--texte-2);font-size:12px;margin:16px 0 4px}
+.s-reglage{display:flex;justify-content:space-between;align-items:center;gap:12px;background:var(--panneau);border-radius:18px;padding:14px}
+.s-reglage small{display:block}
+.s-inter{width:46px;height:28px;border-radius:99px;background:var(--panneau-2);position:relative;flex:none;border:0}
+.s-inter::after{content:"";position:absolute;left:3px;top:3px;width:22px;height:22px;border-radius:50%;background:var(--texte-2)}
+.s-inter.s-on{background:var(--medaille)}.s-inter.s-on::after{left:auto;right:3px;background:var(--fond)}
+.s-reactions{text-align:center;color:var(--texte-2);font-size:14px;margin:var(--e3) 0}

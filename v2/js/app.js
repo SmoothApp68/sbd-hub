@@ -27,6 +27,8 @@
   var Rejeu = racine.THRejeu, Bilan = racine.THBilan;
   // 64B — le jeu (JEU-V1 §9) : l'écran le LIT, il ne le refait pas ; le coach ne le lit jamais.
   var Jeu = racine.THJeu;
+  // 87 — le social (SOCIAL-V1) : les règles dans `social.js`, les lectures par les fonctions de la base.
+  var Social = racine.THSocial;
   // 75 — « Ton parcours » : l'écran lit le parcours par `faits.parcoursDe` ; d'ici, seuls les noms courts des barres.
   var Parcours = racine.THParcours;
   // 78 — la question de réserve : le plan la décide ; d'ici, l'entrée figée (le passé de chaque exercice).
@@ -1218,9 +1220,13 @@
 
   // La barre suit l'interrupteur : l'onglet Jeu caché quand il est éteint, et autant de colonnes que d'onglets
   // VISIBLES (pas de trou). Appelée par `montrer`, à chaque écran : l'écran suit tout de suite, hors ligne compris.
+  // 87 (SOCIAL-V1) — L'ONGLET RESTE, jeu éteint : le social est volontaire et indépendant du jeu. Il se réduit
+  // au fil et aux amis, et s'appelle « Amis » (« Jeu & amis » sinon).
   function appliquerJeu() {
-    var bouton = $('onglet-jeu'), barre = $('onglets');
-    if (bouton) bouton.hidden = !jeuAllume();
+    var bouton = $('onglet-jeu'), barre = $('onglets'), nom = $('onglet-jeu-nom');
+    if (bouton) bouton.hidden = false;
+    if (nom) nom.textContent = jeuAllume() ? 'Jeu & amis' : 'Amis';
+    ['vue-jeu', 'vue-fil'].forEach(function (id) { Rendu.rendreEnteteSocial($(id), jeuAllume()); });
     if (barre) barre.style.setProperty('--n-onglets', String(barre.querySelectorAll('.onglet:not([hidden])').length));
   }
 
@@ -1232,6 +1238,13 @@
       allerA(Routeur.RACINE, {}, true);
       rendreSemaine(Semaine.bornesSemaine(new Date()).lundi);
     }
+  }
+
+  // 87 — L'ONGLET « JEU & AMIS » : l'accueil du jeu, ou — jeu éteint — le fil.
+  function ouvrirOngletJeu() {
+    if (jeuAllume()) { allerA(Routeur.JEU, {}); return rendreJeu(); }
+    allerA(Routeur.FIL, {}, true);
+    return rendreFil();
   }
 
   // ⚠️ LA MÉMOIRE DE L'ONGLET. `etatDuJeu` relit tout l'historique : il se recalcule quand change l'une de ces
@@ -1297,6 +1310,7 @@
   function rendreJeu() {
     montrer('jeu', Routeur.JEU);
     var e = etatDuJeuCourant();
+    publierJeu(e);
     Rendu.rendreJeuAccueil($('jeu-accueil'), {
       etat: e,
       jauge: Jeu.jauges(e).niveau,
@@ -1334,6 +1348,342 @@
       conditions: { vitrine: t.vitrine.succes, grave: t.grave.titre },
       gels: t.gels
     });
+  }
+
+
+  // ══ LE NIVEAU PUBLIÉ (87, SOCIAL-V1) ═════════════════════════════════════
+  //
+  // Les autres voient le niveau et le titre du jeu (`profiles.jeu_niveau`, `jeu_titre`) : l'app les PUBLIE
+  // depuis `etatDuJeu`, à l'ouverture de l'onglet et à la fin d'une séance, par le chemin du profil
+  // (`poserProfil` : local d'abord, rejoué hors ligne). SEULEMENT S'ILS ONT CHANGÉ : ouvrir l'onglet n'écrit
+  // rien de plus quand rien n'a bougé. Jeu éteint, rien ne part (la base les tait déjà : `jeu_actif`).
+  // Le jeu ne les relit jamais.
+  function publierJeu(etat) {
+    if (!jeuAllume() || !userId() || !profil) return;
+    try {
+      var e = etat || etatDuJeuCourant();
+      var niveau = e.niveau.niveau, titre = e.titre || null;
+      if (profil.jeu_niveau === niveau && (profil.jeu_titre || null) === titre) return;
+      poserProfil({ jeu_niveau: niveau, jeu_titre: titre }).catch(function (err) {
+        console.warn('Le niveau publié attend le réseau :', texteErreur(err));
+      });
+    } catch (err) {
+      console.warn('Le niveau ne se publie pas :', texteErreur(err));
+    }
+  }
+
+  // ══ LE SOCIAL, ÉTAGE 1 (87, SOCIAL-V1, maquette `maquette-social-etage1-v2.html`) ═══════════════
+  //
+  // ⚠️ LES AUTRES NE SE LISENT QUE PAR LES FONCTIONS DE LA BASE (`Donnees.social*`), qui appliquent les cercles,
+  // les blocages et le compte privé. L'écran ne décide d'aucun cercle (`Social.cercleDe`) et ne compte aucune
+  // médaille (`faits.medaillesDuSocial`) ; le coach et les bilans ne lisent RIEN d'ici. Tout vit en mémoire :
+  // rien du social n'entre dans le cache ni dans la file.
+  var social = { liens: null, fil: null, medailles: {}, ami: null, recherche: '', jeton: 0 };
+
+  function erreurSociale(e) {
+    console.warn('Social :', texteErreur(e));
+    return 'Le social demande le réseau. Réessaie une fois connecté.';
+  }
+  function tonnesSociales(kg) { return Bilan.tonnesDuRecap(Number(kg) || 0); }
+  function allerAmi(pseudo) { allerA(Routeur.AMI, { pseudo: pseudo }); rendreAmi(pseudo); }
+
+  async function chargerLiens() {
+    try { social.liens = Social.liensRanges(await Donnees.socialLiens()); }
+    catch (e) { social.liens = null; throw e; }
+    majBadgeSocial();
+    return social.liens;
+  }
+  // Un badge sur l'onglet pour les demandes reçues (pas de notification push).
+  function majBadgeSocial() {
+    var b = $('onglet-jeu');
+    // Un attribut, pas une classe : `rendreOnglets` réécrit la classe à chaque écran.
+    if (!b) return;
+    if (social.liens && social.liens.demandesRecues.length) b.setAttribute('data-demandes', String(social.liens.demandesRecues.length));
+    else b.removeAttribute('data-demandes');
+  }
+
+  async function medaillesDe(sessionId) {
+    if (!social.medailles[sessionId]) {
+      social.medailles[sessionId] = faits.medaillesDuSocial(corpus(), await Donnees.socialRecordsSeance(sessionId));
+    }
+    return social.medailles[sessionId];
+  }
+
+  function vueDuFil() {
+    var moi = userId(), r = social.liens;
+    var demandes = (r ? r.demandesRecues : []).map(function (d) {
+      return { pseudo: d.pseudo, couleur: Social.couleurDuBlason(d.pseudo),
+        sur: function () { allerAmi(d.pseudo); },
+        surAccepter: function () { gesteSocial(function () { return Donnees.accepterDemande(d.user_id, moi); }, rendreFil); },
+        // Refuser = retirer la demande, en silence.
+        surRefuser: function () { gesteSocial(function () { return Donnees.retirerAbonnement(d.user_id, moi); }, rendreFil); } };
+    });
+    if (!social.fil) return { etat: social.erreurFil ? 'erreur' : 'charge', message: social.erreurFil, demandes: demandes };
+    var maintenant = new Date();
+    return { etat: 'ok', demandes: demandes, cartes: social.fil.map(function (l) {
+      return { session_id: l.session_id, pseudo: l.pseudo, couleur: Social.couleurDuBlason(l.pseudo),
+        quand: Modele.quand(l.debut, maintenant, true), titre: l.titre || null, tonnes: tonnesSociales(l.tonnage_kg),
+        medailles: social.medailles[l.session_id] || [], jaiReagi: !!l.j_ai_reagi,
+        surProfil: function () { allerAmi(l.pseudo); },
+        surVoir: function () { social.voirSeance = { pseudo: l.pseudo, session_id: l.session_id, debut: l.debut }; allerAmi(l.pseudo); },
+        surReagir: function () {
+          gesteSocial(function () {
+            return l.j_ai_reagi ? Donnees.retirerReaction(l.session_id, moi) : Donnees.reagir(l.session_id, moi);
+          }, function () { l.j_ai_reagi = !l.j_ai_reagi; dessinerFil(); }, true);
+        } };
+    }) };
+  }
+  function dessinerFil() { if (ecranCourant === 'fil') Rendu.rendreFil($('social-fil'), vueDuFil()); }
+
+  async function rendreFil() {
+    montrer('fil', Routeur.FIL);
+    var jeton = ++social.jeton;
+    social.fil = null; social.erreurFil = null;
+    dessinerFil();
+    try {
+      await chargerLiens();
+      var fil = Social.filRange(await Donnees.socialFil());
+      await Promise.all(fil.map(function (l) { return medaillesDe(l.session_id).catch(function () { return []; }); }));
+      if (jeton !== social.jeton) return;
+      social.fil = fil;
+    } catch (e) {
+      if (jeton !== social.jeton) return;
+      social.erreurFil = erreurSociale(e);
+    }
+    dessinerFil();
+  }
+
+  // Un geste social : écrit en ligne, puis redessine. `local` : la suite ne relit rien (réagir).
+  async function gesteSocial(ecrire, ensuite, local) {
+    try {
+      await ecrire();
+      if (!local) social.medailles = {};
+      ensuite();
+    } catch (e) {
+      var m = erreurSociale(e);
+      if (ecranCourant === 'ami' && social.ami) { social.ami.message = m; dessinerAmi(); }
+      else if (ecranCourant === 'amis') { social.messageAmis = m; dessinerAmis(); }
+      else if (ecranCourant === 'fil') { social.erreurFil = m; social.fil = social.fil || null; dessinerFil(); }
+    }
+  }
+
+  // ── Le profil d'une personne : « /a/<pseudo> » ──
+  function vueDeLAmi() {
+    var a = social.ami;
+    if (!a || a.etat !== 'ok') return a || { etat: 'charge' };
+    var p = a.profil;
+    if (!p) return { etat: 'ok', profil: null };
+    var moi = userId(), cercle = Social.cercleDe(p, moi);
+    var menu = [];
+    if (cercle === Social.SUIVI || cercle === Social.MUTUEL || cercle === Social.DEMANDE) {
+      menu.push({ geste: 'retirer-abonnement', texte: cercle === Social.DEMANDE ? 'Annuler la demande' : 'Retirer l’abonnement',
+        sur: function () { gesteSocial(function () { return Donnees.retirerAbonnement(moi, p.id); }, function () { rendreAmi(p.pseudo); }); } });
+    }
+    if (p.me_suit) {
+      menu.push({ geste: 'retirer-abonne', texte: 'Retirer cet abonné',
+        sur: function () { gesteSocial(function () { return Donnees.retirerAbonnement(p.id, moi); }, function () { rendreAmi(p.pseudo); }); } });
+    }
+    if (cercle !== Social.MOI) {
+      menu.push({ geste: 'bloquer', texte: 'Bloquer', confirmer: 'Bloquer ' + p.pseudo + ' : confirmer',
+        sur: function () { gesteSocial(function () { return Donnees.bloquer(moi, p.id); }, function () { allerA(Routeur.FIL, {}, true); rendreFil(); }); } });
+    }
+    var texteBouton = Social.boutonDe(p, cercle);
+    var vue = { etat: 'ok', message: a.message || null, profil: {
+      pseudo: p.pseudo, couleur: Social.couleurDuBlason(p.pseudo),
+      ligneJeu: Social.ligneDuJeu(p.niveau, p.titre, Rendu.JEU_TITRES),
+      etatTexte: cercle === Social.MOI ? 'C’est toi' : (Social.etatDe(p, cercle) || (p.compte_prive ? 'Compte privé' : null)),
+      bouton: texteBouton ? { texte: texteBouton, sur: function () {
+        gesteSocial(function () { return Donnees.sAbonner(moi, p.id); }, function () { rendreAmi(p.pseudo); });
+      } } : null,
+      invitation: Social.invitation(cercle), menu: cercle === Social.MOI ? [] : menu } };
+    if (!Social.voitLeCalendrier(cercle)) {
+      vue.cache = cercle === Social.MOI ? null
+        : cercle === Social.DEMANDE ? 'Ses séances se voient quand ' + p.pseudo + ' accepte ta demande.'
+        : 'Abonne-toi pour voir ses séances.';
+      return vue;
+    }
+    vue.calendrier = Social.calendrierSocial(a.annee, a.mois, a.seances || []);
+    vue.choisi = a.choisi ? a.choisi.cle : null;
+    vue.surMois = function (n) { var m = Calendrier.decalerMois(a.annee, a.mois, n); chargerMoisAmi(m.annee, m.mois, null); };
+    vue.surJour = function (j) { choisirJourAmi(j); };
+    vue.resume = a.resume || null;
+    return vue;
+  }
+  function dessinerAmi() { if (ecranCourant === 'ami') Rendu.rendreAmi($('social-ami'), vueDeLAmi()); }
+
+  async function rendreAmi(pseudo) {
+    montrer('ami', Routeur.AMI);
+    var jeton = ++social.jeton;
+    var voir = social.voirSeance && social.voirSeance.pseudo === pseudo ? social.voirSeance : null;
+    social.voirSeance = null;
+    social.ami = { etat: 'charge', pseudo: pseudo };
+    dessinerAmi();
+    try {
+      var p = await Donnees.socialProfil(pseudo);
+      if (jeton !== social.jeton) return;
+      var d = voir ? new Date(voir.debut) : new Date();
+      social.ami = { etat: 'ok', pseudo: pseudo, profil: p, annee: d.getFullYear(), mois: d.getMonth(), seances: [] };
+      dessinerAmi();
+      if (p && Social.voitLeCalendrier(Social.cercleDe(p, userId()))) {
+        await chargerMoisAmi(social.ami.annee, social.ami.mois, voir ? voir.session_id : null);
+      }
+    } catch (e) {
+      if (jeton !== social.jeton) return;
+      social.ami = { etat: 'erreur', message: erreurSociale(e) };
+      dessinerAmi();
+    }
+  }
+
+  async function chargerMoisAmi(annee, mois, sessionChoisie) {
+    var a = social.ami;
+    if (!a || !a.profil) return;
+    var b = Social.bornesDuMois(annee, mois);
+    try {
+      var seances = await Donnees.socialCalendrier(a.profil.id, b.de, b.a);
+      if (social.ami !== a) return;
+      a.annee = annee; a.mois = mois; a.seances = seances; a.choisi = null; a.resume = null; a.message = null;
+      dessinerAmi();
+      if (sessionChoisie) {
+        var g = Social.calendrierSocial(annee, mois, seances), cible = null;
+        g.lignes.forEach(function (l) { l.jours.forEach(function (j) {
+          if (j.seances.some(function (s) { return s.session_id === sessionChoisie; })) cible = j;
+        }); });
+        if (cible) await choisirJourAmi(cible, sessionChoisie);
+      }
+    } catch (e) {
+      a.message = erreurSociale(e);
+      dessinerAmi();
+    }
+  }
+
+  // Le résumé d'un jour touché : titre, date, tonnage, records ; le détail des exercices pour un mutuel
+  // seulement — à sens unique, la base ne le rend pas, et l'écran le dit.
+  async function choisirJourAmi(jour, sessionId) {
+    var a = social.ami;
+    if (!a || !jour.seances.length) return;
+    var s = (sessionId && jour.seances.filter(function (x) { return x.session_id === sessionId; })[0]) ||
+      jour.seances[jour.seances.length - 1];
+    a.choisi = jour;
+    a.resume = { titre: s.titre || null, quand: Modele.quand(s.debut, new Date(), true), tonnes: tonnesSociales(s.tonnage_kg) };
+    dessinerAmi();
+    try {
+      var medailles = await medaillesDe(s.session_id);
+      var mutuel = Social.voitLeDetail(Social.cercleDe(a.profil, userId()));
+      var detail = mutuel ? await Donnees.socialDetailSeance(s.session_id) : [];
+      if (social.ami !== a || a.choisi !== jour) return;
+      a.resume.medailles = medailles;
+      if (mutuel && detail.length) {
+        var index = corpus().catalogue() || {};
+        a.resume.detail = Social.detailParExercice(detail).map(function (x) {
+          var nom = Modele.nomCourt(index[x.slug] ? index[x.slug].nom : x.slug);
+          return { nom: nom.charAt(0).toUpperCase() + nom.slice(1), fait: faits.faitDeLExercice(x.series) };
+        });
+      } else {
+        a.resume.detailCache = 'Le détail des exercices se voit quand vous vous suivez l’un l’autre.';
+      }
+    } catch (e) {
+      a.message = erreurSociale(e);
+    }
+    dessinerAmi();
+  }
+
+  // ── Trouver des amis (＋) ──
+  function personneDeRecherche(x, liens) {
+    var moi = userId();
+    var suivis = {}, demandes = {}, abonnes = {};
+    if (liens) {
+      liens.abonnements.forEach(function (l) { suivis[l.pseudo] = true; });
+      liens.demandesEnvoyees.forEach(function (l) { demandes[l.pseudo] = true; });
+      liens.abonnes.forEach(function (l) { abonnes[l.pseudo] = l; });
+    }
+    var sous = [Social.ligneDuJeu(x.niveau, null, null), x.compte_prive ? 'compte privé' : null].filter(Boolean).join(' · ');
+    var bouton = null;
+    if (suivis[x.pseudo]) sous = (sous ? sous + ' · ' : '') + 'tu le suis';
+    else if (demandes[x.pseudo]) sous = (sous ? sous + ' · ' : '') + 'demande envoyée';
+    else {
+      var lien = abonnes[x.pseudo];
+      bouton = { texte: lien ? 'Suivre en retour' : 'S’abonner', sur: function () {
+        gesteSocial(async function () {
+          var id = lien ? lien.user_id : ((await Donnees.socialProfil(x.pseudo)) || {}).id;
+          if (!id) throw new Error('profil introuvable');
+          return Donnees.sAbonner(moi, id);
+        }, rendreAmisApresGeste);
+      } };
+    }
+    return { pseudo: x.pseudo, couleur: Social.couleurDuBlason(x.pseudo), sous: sous || null, bouton: bouton,
+      surProfil: function () { allerAmi(x.pseudo); } };
+  }
+  function rendreAmisApresGeste() { chargerLiens().catch(function () {}).then(function () { dessinerAmis(); chercherAmis(social.recherche); }); }
+
+  function dessinerAmis() {
+    if (ecranCourant !== 'amis') return;
+    var moi = userId(), liens = social.liens;
+    Rendu.rendreAmis($('social-amis'), {
+      recherche: social.recherche,
+      surRecherche: function (t) { social.recherche = t; chercherAmis(t); },
+      message: social.messageAmis || null,
+      aSuivre: (liens ? liens.aSuivreEnRetour : []).map(function (l) {
+        return { pseudo: l.pseudo, couleur: Social.couleurDuBlason(l.pseudo), sous: l.pseudo + ' te suit',
+          bouton: { texte: 'Suivre en retour', sur: function () {
+            gesteSocial(function () { return Donnees.sAbonner(moi, l.user_id); }, rendreAmisApresGeste);
+          } }, surProfil: function () { allerAmi(l.pseudo); } };
+      }),
+      lien: profil && profil.username ? Social.lienInvitation(racine.location.origin, profil.username) : null,
+      surPartager: partagerLienInvitation,
+      prive: Profil.comptePrive(profil),
+      surPrive: function () { poserProfil({ compte_prive: !Profil.comptePrive(profil) }).catch(function () {}); dessinerAmis(); },
+      bloques: (liens ? liens.bloques : []).map(function (l) {
+        return { pseudo: l.pseudo, couleur: Social.couleurDuBlason(l.pseudo), sous: null,
+          bouton: { texte: 'Débloquer', classe: 's-b2', sur: function () {
+            gesteSocial(function () { return Donnees.debloquer(moi, l.user_id); }, rendreAmisApresGeste);
+          } } };
+      })
+    });
+    if (social.recherche) chercherAmis(social.recherche);
+  }
+
+  var minuterieRecherche = null;
+  function chercherAmis(texte) {
+    if (minuterieRecherche) clearTimeout(minuterieRecherche);
+    var t = String(texte || '').trim();
+    var cible = $('social-resultats');
+    if (t.length < 2) { Rendu.rendreResultatsAmis(cible, { resultats: [] }); return; }
+    minuterieRecherche = setTimeout(async function () {
+      try {
+        var r = await Donnees.socialRechercher(t);
+        if (social.recherche.trim() !== t) return;
+        Rendu.rendreResultatsAmis($('social-resultats'), { resultats: r.map(function (x) { return personneDeRecherche(x, social.liens); }),
+          vide: r.length ? null : 'Aucun pseudo ne commence par « ' + t + ' ».' });
+      } catch (e) {
+        Rendu.rendreResultatsAmis($('social-resultats'), { etat: 'erreur', message: erreurSociale(e) });
+      }
+    }, 250);
+  }
+
+  function partagerLienInvitation() {
+    var lien = Social.lienInvitation(racine.location.origin, profil && profil.username);
+    var nav = racine.navigator;
+    if (nav && nav.share) { nav.share({ title: 'TrainHub', url: lien }).catch(function () {}); return; }
+    if (nav && nav.clipboard) nav.clipboard.writeText(lien).catch(function () {});
+  }
+
+  async function rendreAmis() {
+    montrer('amis', Routeur.AMIS);
+    social.messageAmis = null;
+    dessinerAmis();
+    try { await chargerLiens(); } catch (e) { social.messageAmis = erreurSociale(e); }
+    dessinerAmis();
+  }
+
+  // Le nombre de réactions à SA séance : l'auteur seulement (`social_mes_reactions` ne compte que les siennes).
+  async function rendreReactionsDeLaSeance(sessionId) {
+    var cible = $('detail-reactions');
+    Rendu.rendreReactionsAuteur(cible, 0);
+    if (!sessionId || !userId()) return;
+    try {
+      var n = await Donnees.socialMesReactions(sessionId);
+      if (ecranCourant === 'detail') Rendu.rendreReactionsAuteur(cible, n);
+    } catch (e) { /* hors ligne : rien à dire */ }
   }
 
   // 58-1 — LE MOIS ET SES RECORDS : les séances avec leurs séries, celles d'un
@@ -2375,6 +2725,8 @@
     // La séance rejoint la liste TOUT DE SUITE, sans attendre le réseau : hors
     // ligne, elle serait sinon invisible entre « terminée » et « montée ».
     adopterLocalement(finie);
+    // 87 — le niveau publié suit la séance (seulement s'il a changé).
+    publierJeu(null);
     seance = null; chrono = null; arreterMinuteur();
     // La barre s'efface AVEC la séance : la laisser affichée lui ferait
     // traverser la fin, et la réserve du bas la suivrait.
@@ -7951,6 +8303,7 @@
       surRefaire: ligne ? function () { refaireSeance(ligne, blocs); } : null,
       surEnFaireUneRoutine: ligne ? function () { enFaireUneRoutine(ligne); } : null
     });
+    rendreReactionsDeLaSeance(ligne ? ligne.id : null);
   }
 
   // ══ LA PAGE D'EXERCICE (§7 quater) ═══════════════════════════════════════
@@ -9348,7 +9701,7 @@
     var routeInitiale = Routeur.analyser(racine.location.pathname);
     // 64B — jeu éteint (le profil en cache le dit), `/jeu…` est une route inconnue dès le démarrage.
     if (Routeur.interditAvecSession(routeInitiale.vue) || routeInitiale.repli ||
-        (Routeur.estVueDuJeu(routeInitiale.vue) && !jeuAllume())) {
+        (Routeur.estVueDuJeu(routeInitiale.vue) && routeInitiale.vue !== Routeur.JEU && !jeuAllume())) {
       routeInitiale = { vue: Routeur.RACINE, params: {} };
       allerA(Routeur.RACINE, {}, true);
     }
@@ -11397,10 +11750,15 @@
     if (cible.vue === Routeur.IMPORT) return rendreImportEcran();
     // 64B — LA GARDE DU JEU VIT ICI, PAS DANS LE ROUTEUR (qui reste pur et ne connaît pas l'interrupteur). Jeu
     // éteint, `/jeu…` (lien direct, rechargement, retour) s'ouvre comme une route inconnue : « / » à sa place.
+    // 87 — l'onglet, jeu éteint, ouvre le fil (le social ne dépend pas de l'interrupteur).
+    if (cible.vue === Routeur.JEU && !jeuAllume()) { allerA(Routeur.FIL, {}, true); return rendreFil(); }
     if (Routeur.estVueDuJeu(cible.vue) && !jeuAllume()) {
       allerA(Routeur.RACINE, {}, true);
       return rendreSemaine(Semaine.bornesSemaine(new Date()).lundi);
     }
+    if (cible.vue === Routeur.FIL) return rendreFil();
+    if (cible.vue === Routeur.AMIS) return rendreAmis();
+    if (cible.vue === Routeur.AMI) return rendreAmi(cible.params.pseudo);
     if (cible.vue === Routeur.JEU) return rendreJeu();
     if (cible.vue === Routeur.MUSCLES) return rendreJeuMuscles();
     if (cible.vue === Routeur.SUCCES) return rendreJeuSucces();
@@ -11447,6 +11805,8 @@
       recap: $('vue-recap'),
       // 64B — le jeu : l'onglet et ses trois sous-vues.
       jeu: $('vue-jeu'), muscles: $('vue-muscles'), succes: $('vue-succes'), deblocages: $('vue-deblocages'),
+      // 87 — le social : le fil, trouver des amis, le profil d'une personne.
+      fil: $('vue-fil'), amis: $('vue-amis'), ami: $('vue-ami'),
       // 66B — « Le coach relit ta semaine », sous Saisie.
       relecture: $('vue-relecture')
     };
@@ -11528,6 +11888,19 @@
         allerA(Routeur.JEU, {});
         rendreJeu();
       });
+    });
+    // 87 — les sous-onglets « Jeu » · « Fil », « ＋ » (Trouver des amis) et « ← Fil ».
+    Array.prototype.forEach.call(doc.querySelectorAll('.s-onglet'), function (b) {
+      b.addEventListener('click', function () {
+        if (b.getAttribute('data-social') === 'fil') { allerA(Routeur.FIL, {}); return rendreFil(); }
+        allerA(Routeur.JEU, {}); rendreRoute({ vue: Routeur.JEU, params: {} });
+      });
+    });
+    ['btn-amis-jeu', 'btn-amis-fil'].forEach(function (id) {
+      $(id).addEventListener('click', function () { allerA(Routeur.AMIS, {}); rendreAmis(); });
+    });
+    ['btn-retour-amis', 'btn-retour-ami'].forEach(function (id) {
+      $(id).addEventListener('click', function () { allerA(Routeur.FIL, {}); rendreFil(); });
     });
     $('btn-nouvelle-routine').addEventListener('click', function () { ouvrirRoutine(null); });
     // §7 vicies.1 — les deux boutons « Ranger », l'appui long étant l'autre

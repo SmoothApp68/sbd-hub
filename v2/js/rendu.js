@@ -5969,6 +5969,272 @@
     return b;
   }
 
+  // ══ LE SOCIAL, ÉTAGE 1 (87, SOCIAL-V1, maquette `maquette-social-etage1-v2.html`) ══════════════
+  //
+  // Le rendu DESSINE ce que l'app lui passe : il ne lit ni la base ni le jeu, ne décide d'aucun cercle (c'est
+  // `social.js`) et ne compte aucune médaille (c'est `faits.js`). Les pseudos et les titres sont du texte
+  // utilisateur : `textContent` seulement, jamais du HTML. Aucun ambre : l'ambre est la voix du coach.
+  //
+  // Le blason : le gabarit de la maquette (le jeu v2 n'en a pas), d'une couleur tirée du pseudo.
+  function blasonSocial(couleur, taille) {
+    var h = Math.round(taille * 46 / 40);
+    var b = svg('svg', 's-blason', { width: taille, height: h, viewBox: '0 0 40 46', 'aria-hidden': 'true' });
+    b.style.color = couleur;
+    b.appendChild(svg('path', null, { d: 'M20 2 37 8v14c0 11-7 19-17 22C10 41 3 33 3 22V8z', fill: 'currentColor' }));
+    b.appendChild(svg('path', 's-blason-creux', { d: 'M11 22h18l-3 4h-3v5h4v3H13v-3h4v-5h-3z' }));
+    return b;
+  }
+  function boutonSocial(texte, classe, sur, id) {
+    var b = el('button', 's-btn ' + (classe || 's-b2'), texte);
+    b.type = 'button';
+    if (id) b.id = id;
+    if (sur) b.addEventListener('click', sur); else b.disabled = true;
+    return b;
+  }
+  function etatSocial(cible, vue) {
+    if (vue.etat === 'charge') { cible.appendChild(el('p', 's-gris s-note', 'Chargement…')); return true; }
+    if (vue.etat === 'erreur') {
+      cible.appendChild(el('p', 's-gris s-note s-erreur', vue.message || 'Le social demande le réseau. Réessaie une fois connecté.'));
+      return true;
+    }
+    return false;
+  }
+
+  // Les sous-onglets « Jeu » · « Fil » et le titre de l'onglet : « Jeu & amis », ou « Amis » jeu éteint
+  // (le sous-onglet Jeu disparaît alors).
+  function rendreEnteteSocial(racineVue, jeuAllume) {
+    if (!racineVue) return;
+    var t = racineVue.querySelector('.s-titre');
+    if (t) t.textContent = jeuAllume ? 'Jeu & amis' : 'Amis';
+    var j = racineVue.querySelector('.s-onglet[data-social="jeu"]');
+    if (j) j.hidden = !jeuAllume;
+  }
+
+  // Le fil.   vue = { etat, demandes: [{ pseudo, couleur, sur, surAccepter, surRefuser }], cartes: [...], fin }
+  function rendreFil(cible, vue) {
+    if (!cible) return;
+    vider(cible);
+    (vue.demandes || []).forEach(function (d) {
+      var r = el('div', 's-demande');
+      r.setAttribute('data-pseudo', d.pseudo);
+      r.appendChild(blasonSocial(d.couleur, 34));
+      var t = el('div', 's-t');
+      var nom = el('b', 's-lien', d.pseudo);
+      nom.addEventListener('click', d.sur);
+      t.appendChild(nom);
+      t.appendChild(el('small', null, 'veut s’abonner à toi'));
+      r.appendChild(t);
+      r.appendChild(boutonSocial('Accepter', 's-b1 s-accepter', d.surAccepter));
+      r.appendChild(boutonSocial('Refuser', 's-b3 s-refuser', d.surRefuser));
+      cible.appendChild(r);
+    });
+    if (etatSocial(cible, vue)) return;
+    var cartes = vue.cartes || [];
+    cartes.forEach(function (c) {
+      var carte = el('div', 's-carte');
+      carte.setAttribute('data-session', c.session_id);
+      var tete = el('div', 's-tete');
+      tete.appendChild(blasonSocial(c.couleur, 34));
+      var id = el('div');
+      var nom = el('b', 's-lien', c.pseudo);
+      nom.addEventListener('click', c.surProfil);
+      id.appendChild(nom);
+      id.appendChild(el('small', null, c.quand + (c.titre ? ' · ' + c.titre : '')));
+      tete.appendChild(id);
+      carte.appendChild(tete);
+      var chiffres = el('div', 's-chiffres');
+      var a = el('div'); a.appendChild(el('strong', 's-tonnes', c.tonnes)); a.appendChild(el('span', null, 'soulevées'));
+      chiffres.appendChild(a);
+      if (c.medailles && c.medailles.length) {
+        var b = el('div'); b.appendChild(el('strong', 's-nb-records', String(c.medailles.length)));
+        b.appendChild(el('span', null, c.medailles.length > 1 ? 'records' : 'record'));
+        chiffres.appendChild(b);
+      }
+      carte.appendChild(chiffres);
+      if (c.medailles && c.medailles.length) {
+        var meds = el('div', 's-meds');
+        c.medailles.forEach(function (m) {
+          var l = el('div', 's-med');
+          l.appendChild(el('i'));
+          l.appendChild(doc.createTextNode(m.nom + (m.mesure ? ' · ' + m.mesure : '')));
+          meds.appendChild(l);
+        });
+        carte.appendChild(meds);
+      }
+      var pied = el('div', 's-pied');
+      pied.appendChild(boutonSocial(c.jaiReagi ? '🔥 Tu as réagi' : '🔥 Réagir', 's-reag' + (c.jaiReagi ? ' s-fait' : ''), c.surReagir));
+      pied.appendChild(boutonSocial('Voir la séance', 's-b3 s-voir', c.surVoir));
+      carte.appendChild(pied);
+      cible.appendChild(carte);
+    });
+    cible.appendChild(el('div', 's-fin', cartes.length ? 'Tu es à jour · les 30 derniers jours'
+      : 'Aucune séance des personnes que tu suis ces 30 derniers jours.'));
+  }
+
+  // Le profil d'une personne.   vue = { etat, profil: {...}, calendrier, resume, cache }
+  function rendreAmi(cible, vue) {
+    if (!cible) return;
+    vider(cible);
+    if (etatSocial(cible, vue)) return;
+    var p = vue.profil;
+    if (!p) { cible.appendChild(el('p', 's-gris s-note s-introuvable', 'Ce profil n’existe pas, ou n’est pas visible.')); return; }
+    var tete = el('div', 's-prof');
+    tete.appendChild(blasonSocial(p.couleur, 64));
+    tete.appendChild(el('b', 's-pseudo', p.pseudo));
+    if (p.ligneJeu) tete.appendChild(el('small', 's-niveau', p.ligneJeu));
+    if (p.etatTexte) tete.appendChild(el('span', 's-etat', p.etatTexte));
+    cible.appendChild(tete);
+    var actions = el('div', 's-actions');
+    if (p.bouton) actions.appendChild(boutonSocial(p.bouton.texte, 's-b1 s-principal', p.bouton.sur, 'social-principal'));
+    actions.appendChild(boutonSocial('Inviter dans un groupe', 's-grise s-inviter', null, 'social-inviter'));
+    var menu = el('div', 's-menu');
+    menu.hidden = true;
+    (p.menu || []).forEach(function (m) {
+      var b = boutonSocial(m.texte, 's-b2 s-menu-item', null);
+      b.disabled = false;
+      b.setAttribute('data-geste', m.geste);
+      b.addEventListener('click', function () {
+        if (m.confirmer && b.getAttribute('data-arme') !== '1') {
+          b.setAttribute('data-arme', '1'); b.textContent = m.confirmer; return;
+        }
+        m.sur();
+      });
+      menu.appendChild(b);
+    });
+    if (p.menu && p.menu.length) {
+      actions.appendChild(boutonSocial('···', 's-b2 s-plus-menu', function () { menu.hidden = !menu.hidden; }, 'social-menu'));
+    }
+    cible.appendChild(actions);
+    cible.appendChild(el('p', 's-gris s-centre s-inviter-sous', p.invitation.sous));
+    cible.appendChild(menu);
+    if (vue.message) cible.appendChild(el('p', 's-gris s-note s-erreur', vue.message));
+    if (vue.cache) { cible.appendChild(el('p', 's-gris s-note s-cache', vue.cache)); return; }
+    var g = vue.calendrier;
+    if (!g) return;
+    var mois = el('div', 's-mois');
+    var av = boutonSocial('‹', 's-b3 s-mois-av', function () { vue.surMois(-1); });
+    av.setAttribute('aria-label', 'Mois précédent');
+    var ap = boutonSocial('›', 's-b3 s-mois-ap', function () { vue.surMois(1); });
+    ap.setAttribute('aria-label', 'Mois suivant');
+    mois.appendChild(av); mois.appendChild(el('span', 's-mois-nom', g.libelle)); mois.appendChild(ap);
+    cible.appendChild(mois);
+    var cal = el('div', 's-cal');
+    ['L', 'M', 'M', 'J', 'V', 'S', 'D'].forEach(function (j) { cal.appendChild(el('span', 's-j', j)); });
+    g.lignes.forEach(function (l) {
+      l.jours.forEach(function (j) {
+        if (j.horsMois) { cal.appendChild(el('span', 's-hors')); return; }
+        var c = el(j.seances.length ? 'button' : 'span', 's-jour' + (j.teinte ? ' s-n' + j.teinte : '') +
+          (vue.choisi === j.cle ? ' s-sel' : ''), String(j.jour));
+        c.setAttribute('data-jour', j.cle);
+        if (j.seances.length) { c.type = 'button'; c.addEventListener('click', function () { vue.surJour(j); }); }
+        cal.appendChild(c);
+      });
+    });
+    cible.appendChild(cal);
+    var lg = el('div', 's-lg', 'tonnage ');
+    [1, 2, 3].forEach(function (n) { lg.appendChild(el('i', 's-n' + n)); });
+    cible.appendChild(lg);
+    var r = vue.resume;
+    if (!r) return;
+    var d = el('div', 's-detail');
+    d.appendChild(el('h3', null, (r.titre ? r.titre + ' · ' : '') + r.quand + ' · ' + r.tonnes));
+    if (r.medailles && r.medailles.length) {
+      var meds = el('div', 's-meds');
+      r.medailles.forEach(function (m) {
+        var l = el('div', 's-med'); l.appendChild(el('i'));
+        l.appendChild(doc.createTextNode(m.nom + (m.mesure ? ' · ' + m.mesure : '')));
+        meds.appendChild(l);
+      });
+      d.appendChild(meds);
+    }
+    (r.detail || []).forEach(function (x) {
+      var ex = el('div', 's-ex');
+      ex.appendChild(el('span', 's-ex-nom', x.nom));
+      ex.appendChild(el('small', null, x.fait));
+      d.appendChild(ex);
+    });
+    if (r.detailCache) d.appendChild(el('p', 's-gris s-cache s-detail-cache', r.detailCache));
+    cible.appendChild(d);
+  }
+
+  // Trouver des amis, le lien d'invitation, la confidentialité.
+  function lignePersonne(x) {
+    var l = el('div', 's-ligne');
+    l.setAttribute('data-pseudo', x.pseudo);
+    l.appendChild(blasonSocial(x.couleur, 30));
+    var t = el('div', 's-t');
+    var nom = el('b', 's-lien', x.pseudo);
+    if (x.surProfil) nom.addEventListener('click', x.surProfil);
+    t.appendChild(nom);
+    if (x.sous) t.appendChild(el('small', null, x.sous));
+    l.appendChild(t);
+    if (x.bouton) l.appendChild(boutonSocial(x.bouton.texte, x.bouton.classe || 's-b1', x.bouton.sur));
+    return l;
+  }
+  function rendreResultatsAmis(cible, vue) {
+    if (!cible) return;
+    vider(cible);
+    if (vue.etat === 'erreur') { cible.appendChild(el('p', 's-gris s-note s-erreur', vue.message)); return; }
+    (vue.resultats || []).forEach(function (x) { cible.appendChild(lignePersonne(x)); });
+    if (vue.vide) cible.appendChild(el('p', 's-gris s-note', vue.vide));
+  }
+  function rendreAmis(cible, vue) {
+    if (!cible) return;
+    vider(cible);
+    var champ = el('input', 's-champ');
+    champ.id = 'social-recherche';
+    champ.type = 'search';
+    champ.placeholder = 'Rechercher un pseudo';
+    champ.setAttribute('aria-label', 'Rechercher un pseudo');
+    champ.setAttribute('autocomplete', 'off');
+    champ.value = vue.recherche || '';
+    champ.addEventListener('input', function () { vue.surRecherche(champ.value); });
+    cible.appendChild(champ);
+    var res = el('div', 's-resultats');
+    res.id = 'social-resultats';
+    cible.appendChild(res);
+    if (vue.message) cible.appendChild(el('p', 's-gris s-note s-erreur', vue.message));
+    (vue.aSuivre || []).forEach(function (x) { cible.appendChild(lignePersonne(x)); });
+    var lien = el('div', 's-lien-invit');
+    lien.appendChild(el('b', null, 'Ton lien d’invitation'));
+    lien.appendChild(el('code', null, vue.lien || '—'));
+    if (vue.lien) lien.appendChild(boutonSocial('Partager le lien', 's-b2', vue.surPartager, 'social-partager'));
+    cible.appendChild(lien);
+    cible.appendChild(el('p', 's-titre-s', 'Confidentialité'));
+    var reg = el('div', 's-reglage');
+    var txt = el('div');
+    txt.appendChild(el('b', null, 'Compte privé'));
+    txt.appendChild(el('small', 's-gris', vue.prive
+      ? 'Tu acceptes chaque abonnement.'
+      : 'Coupé : n’importe qui peut te suivre et voir ton fil.'));
+    reg.appendChild(txt);
+    var inter = el('button', 's-inter' + (vue.prive ? ' s-on' : ''));
+    inter.type = 'button';
+    inter.id = 'social-compte-prive';
+    inter.setAttribute('role', 'switch');
+    inter.setAttribute('aria-checked', vue.prive ? 'true' : 'false');
+    inter.setAttribute('aria-label', 'Compte privé');
+    inter.addEventListener('click', vue.surPrive);
+    reg.appendChild(inter);
+    cible.appendChild(reg);
+    var bl = el('div', 's-bloques');
+    if (!(vue.bloques || []).length) bl.appendChild(el('p', 's-gris s-cache', 'Bloqués : aucun'));
+    else {
+      bl.appendChild(el('p', 's-titre-s', 'Bloqués'));
+      vue.bloques.forEach(function (x) { bl.appendChild(lignePersonne(x)); });
+    }
+    cible.appendChild(bl);
+  }
+
+  // La séance d'Aurélien (la sienne) : le nombre de réactions, vu par l'auteur seulement.
+  function rendreReactionsAuteur(cible, n) {
+    if (!cible) return;
+    vider(cible);
+    cible.hidden = !(n > 0);
+    if (n > 0) cible.textContent = '🔥 ' + n + ' ' + (n > 1 ? 'réactions' : 'réaction');
+  }
+
+
   var api = {
     rendreEtat: rendreEtat,
     rendreOnglets: rendreOnglets,
@@ -6042,6 +6308,10 @@
     rendreRecap: rendreRecap,
     // 64B — le jeu (JEU-V1 §9).
     rendreJeuAccueil: rendreJeuAccueil,
+    // 87 — le social, étage 1.
+    rendreEnteteSocial: rendreEnteteSocial, rendreFil: rendreFil, rendreAmi: rendreAmi, rendreAmis: rendreAmis,
+    rendreResultatsAmis: rendreResultatsAmis, rendreReactionsAuteur: rendreReactionsAuteur,
+    JEU_TITRES: JEU_TITRES,
     rendreJeuMuscles: rendreJeuMuscles,
     rendreJeuSucces: rendreJeuSucces,
     rendreJeuDeblocages: rendreJeuDeblocages,

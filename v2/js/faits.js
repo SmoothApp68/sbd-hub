@@ -387,6 +387,48 @@
       });
     }
 
+    // ── Les médailles d'une séance d'une AUTRE personne (87, SOCIAL-V1) ─────
+    //
+    // `lignes` : ce que rend `social_records_seance` (le journal des records de
+    // cette séance, colonnes autorisées : `set_id`, `battu_le`, `exercise_slug`,
+    // `type`, `valeur`, `charge`, `reps`, `unite`). LA RÈGLE DE LA MÉDAILLE, ICI
+    // AUSSI : une médaille par SÉRIE médaillée (comme `recordsDeLaSeance`), quel
+    // que soit le nombre de ses records ; ses types dans l'ordre de la phrase
+    // (`ORDRE_DES_TYPES`). Rien n'est recalculé : la mesure se relit sur la ligne
+    // qui la porte (« 80 kg × 5 »), le nom sur le catalogue.
+    function mesureDuRecord(ls) {
+      var de = function (t) { return ls.filter(function (l) { return l.type === t; })[0] || null; };
+      var l;
+      if ((l = de('charge_a_reps'))) return { charge_kg: l.valeur, reps: l.reps };
+      if ((l = de('reps_a_charge'))) return { charge_kg: l.charge, reps: l.valeur };
+      if ((l = de('duree_s'))) return { duree_s: l.valeur };
+      if ((l = de('distance_m'))) return { distance_m: l.valeur };
+      if ((l = de('charge_max')) || (l = de('cap'))) return { charge_kg: l.valeur };
+      return null;
+    }
+    function medaillesDuSocial(c, lignes) {
+      var index = (c && c.catalogue && c.catalogue()) || {};
+      var parSerie = {}, ordre = [];
+      (lignes || []).forEach(function (l) {
+        if (!l || !l.set_id) return;
+        if (!parSerie[l.set_id]) { parSerie[l.set_id] = []; ordre.push(l.set_id); }
+        parSerie[l.set_id].push(l);
+      });
+      var instant = function (x) { var t = Date.parse(x); return isNaN(t) ? 0 : t; };
+      return ordre.map(function (id, rang) {
+        var ls = parSerie[id].slice().sort(function (a, b) {
+          return ORDRE_DES_TYPES.indexOf(a.type) - ORDRE_DES_TYPES.indexOf(b.type);
+        });
+        var slug = ls[0].exercise_slug;
+        var nom = Modele.nomCourt(index[slug] ? index[slug].nom : slug);
+        var serie = mesureDuRecord(ls);
+        return { serieId: id, slug: slug, battu_le: ls[0].battu_le || null, rang: rang,
+                 nom: nom.charAt(0).toUpperCase() + nom.slice(1),
+                 mesure: serie ? Modele.formatMesure(serie) : null,
+                 types: ls.map(function (l) { return l.type; }) };
+      }).sort(function (a, b) { return instant(a.battu_le) - instant(b.battu_le) || a.rang - b.rang; });
+    }
+
     // ── La semaine affichée (`app.js` `semaineCourante`) ────────────────────
     //
     // Tout ce que les deux onglets lisent de la semaine affichée. Une seule
@@ -871,6 +913,7 @@
       journalDuJour: journalDuJour,
       journalDeLaSeance: journalDeLaSeance,
       recordsDuJournal: recordsDuJournal,
+      medaillesDuSocial: medaillesDuSocial,
       semaineDe: semaineDe,
       datesDesExercices: datesDesExercices,
       compterExercices: compterExercices,

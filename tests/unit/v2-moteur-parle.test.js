@@ -228,7 +228,8 @@ describe('le pont depuis analyser (MOTEUR §9.13)', () => {
       expect(c.consigne.etat).toBe('progression');
       expect(c.consigne.haut).toBeNull();
       expect(c.consigne.niveau).toBe(5);
-      expect(c.libelles.gris).toBe('Ta série à 125' + NB + 'kg' + NB + '×' + NB + '5 était ' + mot +
+      // 79 — RPE ou ressenti, la même phrase : les chiffres d'abord (« 125 kg × 5, sans marge »).
+      expect(c.libelles.gris).toBe('125' + NB + 'kg' + NB + '×' + NB + '5' +
         ', sans marge' + NB + ': on ne rajoute pas de rep.');
     };
 

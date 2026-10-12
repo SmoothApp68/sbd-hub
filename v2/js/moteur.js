@@ -1075,9 +1075,9 @@
   // première : la phrase en nomme une, et le rang se lit sur les séries AU
   // PALIER, pas sur la séance — c'est le rang que l'écran affichera.
   //
-  // `cause` dit d'où vient le cran, parce que la phrase change : un RPE de 10
-  // se cite tel quel (« était à RPE 10 »), un « reste 0 » se dit en français
-  // (« était à fond »). Le RPE l'emporte, comme dans `cranDeSerie`.
+  // `cause` dit d'où vient le cran (un RPE de 10 ou un « reste 0 ») ; la phrase
+  // est la même pour les deux depuis 79 (« 125 kg × 5, sans marge »). Le RPE
+  // l'emporte, comme dans `cranDeSerie`.
   function serieAFondDe(series) {
     for (var i = 0; i < (series || []).length; i++) {
       var s = series[i];
@@ -3213,11 +3213,6 @@
     return !!t && z !== null && t.niveauFait !== undefined && t.niveauFait !== null &&
       t.niveau !== null && t.niveau < z.bas && t.niveauFait >= z.bas;
   }
-  // « à RPE 10 » pour un RPE, « à fond » pour un ressenti (« reste 0 »).
-  function aFondMot(cause) {
-    return cause === 'rpe' ? ' à RPE ' + nombreFr(10, regle('constante')) : ' à fond';
-  }
-
   function phraseGrise(c, reference) {
     var f = c.fondement || {};
     var z = zoneParCle(c.zone);
@@ -3260,10 +3255,12 @@
         // Dite PAR SA CHARGE, jamais par son rang.
         // §17.4 révisé (68B) — « sans marge », plus « compte pour 4 » : on ne
         // montre jamais des reps comptées pour des reps faites.
+        // 79 (12/10/2026) — les chiffres d'abord et pas de jargon : « 125 kg × 5, sans marge : … », la même
+        // phrase pour un RPE et pour un ressenti (« reste 0 »).
         if (f.serieAFond) {
           var a = f.serieAFond;
-          return 'Ta série à ' + chargeFois(a.charge, a.reps, cite(FAIT, { quoi: 'a_fond' })) + ' était' +
-                 aFondMot(a.cause) + ', sans marge' + DEUX_POINTS + 'on ne rajoute pas de rep.';
+          return chargeFois(a.charge, a.reps, cite(FAIT, { quoi: 'a_fond' })) +
+                 ', sans marge' + DEUX_POINTS + 'on ne rajoute pas de rep.';
         }
         return jour() + DEUX_POINTS + auPalier() + '. Une rep de plus.';
 

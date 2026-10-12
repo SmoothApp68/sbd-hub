@@ -219,14 +219,14 @@ describe('68B — les phrases sur les reps faites : « sans marge », jamais « 
   const pour = (seances, avant, equipement) => M.consigneApresAFond(seances, avant,
     { reglage: 'normal', equipement: equipement || 'barre', correction: null });
 
-  test('la note de la série à fond : « était à RPE 10, sans marge », « à fond » pour un ressenti (X1, X6)', () => {
+  test('la note de la série à fond : « 125 kg × 5, sans marge », la même phrase pour un RPE et un ressenti (79 ; X1, X6)', () => {
     ['X1', 'X6'].forEach((id) => {
       const c = de(id);
       const k = pour(c.seances, c.avant);
       expect(k.fondement.serieAFond).toMatchObject({ charge: 125, reps: 5, niveauFait: 5 });
       expect(esp(M.libellesConsigne(k, c.avant).gris)).toBe(id === 'X1'
-        ? 'Ta série à 125 kg × 5 était à RPE 10, sans marge : on ne rajoute pas de rep.'
-        : 'Ta série à 125 kg × 5 était à fond, sans marge : on ne rajoute pas de rep.');
+        ? '125 kg × 5, sans marge : on ne rajoute pas de rep.'
+        : '125 kg × 5, sans marge : on ne rajoute pas de rep.');
     });
   });
 
@@ -308,7 +308,7 @@ describe('68B — les phrases sur les reps faites : « sans marge », jamais « 
     // … mais pas de test plus lourd (plafond 2) : la note « sans marge » de 68B.
     expect([apres.etat, apres.haut, apres.ligne]).toEqual(['progression', null, { charge: 125, vise: 5 }]);
     expect(esp(M.libellesConsigne(apres, '2026-09-27T10:00:00+00:00').gris))
-      .toBe('Ta série à 125 kg × 5 était à RPE 10, sans marge : on ne rajoute pas de rep.');
+      .toBe('125 kg × 5, sans marge : on ne rajoute pas de rep.');
     // Témoin : sans effort noté, le même constat, et le test du cran au-dessus.
     const sans = pour(c.seances.concat([jour(null)]), '2026-09-27T10:00:00+00:00');
     expect([sans.etat, sans.haut]).toEqual(['test_propose', { charge: 127.5, vise: 3, k: 1 }]);

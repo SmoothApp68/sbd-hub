@@ -2237,12 +2237,13 @@ Conforme au cadrage : **descriptif, jamais prescriptif sur l'historique.**
 | Seuil dépassé | « 122,5 kg × 6 reste ta meilleure charge de travail depuis 4 séances : c'est plus long que d'habitude pour toi. » + la marche suivante — « plus long que d'habitude » seulement si c'est vrai pour la personne, sinon « 122,5 kg × 6 reste ta meilleure charge de travail depuis 4 séances. » (§12.8, 25/09/2026 ; formulée le 30/09/2026) |
 | Frère qui progresse | « Ta barre tient, mais tes haltères sont montés à 92 kg. » |
 | Muscle limitant | « Tes triceps et tes épaules montent, tes pecs seuls stagnent. Piste à vérifier, pas un diagnostic. » |
-| Ratio extrême | « Ton rapport squat/couché te place dans les 2 % de lifters au squat le plus bas relativement au couché. Ça peut être morphologique. » |
+| Ratio extrême | « Ton squat vaut 1,04 fois ton couché. Chez les pratiquants, le squat vaut environ 1,21 fois le couché. » — un rapport et un repère de pratiquants (ECRAN-SAISIE §7 bis.14 ter), jamais un rang parmi d'autres personnes (corrigé le 12/10/2026 : l'ancienne phrase « dans les 2 % de lifters » comparait à des compétiteurs) |
 | Marche 5 atteinte | Une question posée à l'utilisateur (avec le choix entre deux charges, les seules du coach) |
 
 **Aucun rouge. Aucun vocabulaire de risque.** Le seuil est présenté comme une comparaison à ses propres habitudes, jamais à une norme extérieure.
 
-Vocabulaire : « percentile » n'est pas compris tel quel. Formulation à privilégier — *« sur 100 pratiquants alignés du plus faible au plus fort, tu es le Nᵉ »*.
+Vocabulaire : l'app ne range jamais une personne parmi d'autres (ni rang, ni percentile, ni « sur 100 pratiquants ») ;
+une force se compare à soi-même, un équilibre à un rapport de pratiquants (précisé le 12/10/2026).
 
 ### 20.1 Hors périmètre de ce document
 

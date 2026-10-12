@@ -16998,7 +16998,7 @@ const SETS_IMPORTES = [
     ok('[social] DISCRIMINANT — l’auteur voit le nombre de réactions à SA séance ; lea, qui a réagi, ne le voit pas',
       (await texte('#detail-reactions')) === '🔥 1 réaction' &&
         fauxSocial.rpc('u-lea', 'social_mes_reactions', { p_session: MIENNE }) === 0,
-      JSON.stringify([await texte('#detail-reactions')]));
+      JSON.stringify([await texte('#detail-reactions'), S.reactions, S.journal.slice(-3), S.appels.slice(-4), await visible()]));
 
     // ── E. TROUVER DES AMIS, COMPTE PRIVÉ.
     await aller('/jeu/amis');

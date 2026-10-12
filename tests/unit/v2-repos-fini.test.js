@@ -58,6 +58,8 @@ function bac(cible) {
     assurerMinuteur: () => { journal.relances++; },
     signalerEcheance: () => { journal.bips++; },
     mesurerBarres: () => {},
+    // 78 — la question de réserve de la carte de repos : hors de ce test.
+    vueDeLaQuestion: () => null, questionDuRepos: () => null,
     basculerSourdine: () => {},
     reveillerAudio: () => {}
   };

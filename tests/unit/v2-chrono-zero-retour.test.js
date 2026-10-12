@@ -60,6 +60,8 @@ function bacChrono(cible) {
     assurerMinuteur: () => {},
     signalerEcheance: () => {},
     mesurerBarres: () => {},
+    // 78 — la question de réserve de la carte de repos : hors de ce test.
+    vueDeLaQuestion: () => null, questionDuRepos: () => null,
     basculerSourdine: () => {},
     sourdine: false,
     // Le MÊME nœud à chaque passage : c'est son `hidden` qui dit si la barre est

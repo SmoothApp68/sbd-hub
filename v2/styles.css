@@ -1177,6 +1177,15 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .repos-b.coupe{color:var(--texte-3);border-style:dashed}
 .piste{height:3px;background:var(--panneau-2);border-radius:2px;overflow:hidden}
 .piste i{display:block;height:100%;background:var(--texte-3)}
+/* MOTEUR §17.2 bis (78) — la question de réserve, dans la carte de repos : la voix du coach (ambre). Quatre
+   boutons à la largeur égale, 40 px de haut — on les vise entre deux séries, en sueur. */
+.repos-q{margin-top:var(--e3);padding-top:var(--e2);border-top:1px solid var(--trait)}
+.repos-q-t{margin:0 0 var(--e2);font-size:14.5px;color:var(--texte-2)}
+.repos-q-t b{color:var(--accent);font-weight:600}
+.repos-q-b{display:flex;gap:var(--e2)}
+.repos-q-b button{flex:1;height:40px;border-radius:var(--r-petit);border:1px solid var(--trait);background:var(--panneau-2);
+  color:var(--texte);font-family:var(--pile-c);font-size:17px;font-weight:600}
+.repos-q-b button.sel{background:var(--accent);border-color:var(--accent);color:var(--sur-accent)}
 
 /* ── Les feuilles ─────────────────────────────────────────────────────────── */
 .feuille{align-self:end;width:100%;max-width:440px}

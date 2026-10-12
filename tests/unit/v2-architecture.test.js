@@ -409,13 +409,14 @@ const NOTIONS = [
     raison: 'aucun écran ne lit le palier brut : les faits passent par `Modele`, les mots du ' +
       'coach par la consigne. La page et Progression l’appelaient chacune à part.' },
   { notion: 'la série de travail (le type, `travail` quand il manque)', pr: 'PR 6',
-    module: 'modele.js', fonction: 'estTravail', lecteurs: ['seance.js', 'semaine.js', 'plan.js', 'app.js', 'bilan.js', 'faits.js', 'routines.js', 'jeu.js', 'generateur.js'],
+    module: 'modele.js', fonction: 'estTravail', lecteurs: ['seance.js', 'semaine.js', 'plan.js', 'app.js', 'bilan.js', 'faits.js', 'routines.js', 'jeu.js', 'generateur.js', 'reserve.js'],
     motif: /\.\s*estTravail\s*\(/g,
     par: ['exercicesFaits', 'tableParReps', 'construireBlocs'],
     interditAilleurs: { motif: /type_serie\s*[!=]==?\s*(['"])travail\1|typeDe\([^()]*\)\s*[!=]==?\s*(['"])travail\2|\|\|\s*(['"])travail\3\s*\)\s*[!=]==?/,
       raison: 'une comparaison à « travail » écrite en dur : passer par `Modele.estTravail` (ou `typeDe`)' },
     raison: 'cinq définitions : une série sans type était du travail pour le moteur et le plan, ' +
-      'pas pour les écrans ; la base dit `travail` par défaut.' },
+      'pas pour les écrans ; la base dit `travail` par défaut. 78 : la question de réserve lit l’effort de la ' +
+      'dernière série de TRAVAIL de chaque séance passée (`reserve.js`, `passeDeReserve`).' },
   { notion: 'le compte des séries de travail (la règle du volume)', pr: 'PR 6',
     module: 'semaine.js', fonction: 'compteSeriesTravail', lecteurs: ['modele.js', 'seance.js', 'profil.js', 'routines.js', 'app.js', 'bilan.js', 'faits.js'],
     parAilleurs: { 'modele.js': ['resumerSeance', 'construireBlocs'], 'seance.js': ['compter'], 'bilan.js': ['bilanDuMois'],
@@ -1136,7 +1137,19 @@ const NOTIONS = [
     parAilleurs: { 'moteur.js': ['compter', 'serieAFondDe'] },
     raison: 'MOTEUR §17.4 (74) : une série à fond compte ses reps partout (`repsComptees`) ; la règle de 68B ne sert plus ' +
       'qu’à comparer — les plafonds de `consigneDExercice` rejouent la consigne en calcul prudent (`enPrudent`, par ' +
-      '`compter`), et la note « sans marge » se pose sur la série qu’elle abaisse (`serieAFondDe`). Un seul endroit.' }
+      '`compter`), et la note « sans marge » se pose sur la série qu’elle abaisse (`serieAFondDe`). Un seul endroit.' },
+  // ── 78 — LA QUESTION DE RÉSERVE (MOTEUR §17.2 bis, décidée le 12/10/2026) ─────
+  { notion: 'la question de réserve (quels exercices, et pourquoi : calage, écart, rappel)', pr: '78-U1',
+    module: 'reserve.js', fonction: 'questionsDeReserve', lecteurs: ['plan.js'],
+    parAilleurs: { 'plan.js': ['questionsDuPlan'] },
+    raison: 'MOTEUR §17.2 bis (78) : une règle fixe, testée contre `question78.py` ; le plan la porte ' +
+      '(`x.questionReserve`, `x.serieReserve`, I45), figée pour la séance comme la consigne, et l’écran la lit — la ' +
+      'carte de repos ne décide rien.' },
+  { notion: 'le passé d’un exercice pour la réserve (l’effort de la dernière série de travail de chaque séance)', pr: '78-U1',
+    module: 'reserve.js', fonction: 'passeDeReserve', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['reserveDeLaSeance'] },
+    raison: 'MOTEUR §17.2 bis (78) : l’entrée de la règle, lue par `Modele.estTravail` et `Moteur.jourCivil` (jamais ' +
+      'recopiés) ; l’app la fige une fois par exercice et par séance, et la passe au plan.' }
 ];
 
 // ── 58-1 — UN FAIT NE SE DÉCLARE QUE DANS `faits.js` ─────────────────────────

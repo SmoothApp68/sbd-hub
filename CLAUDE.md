@@ -101,7 +101,7 @@ OBLIGATOIRES ; le 3 est celui qui manquait.**
 |---|---|---|
 | **1** | Fenêtre privée, première visite → installation → rechargement → l'app s'affiche. | **obligatoire** |
 | 2 | Dans la même session, en console : aucune entrée de cache ne porte `redirected: true`. | |
-| **3** | Profil normal, **service worker cassé en place** → deux rechargements → l'app revient **sans effacer les données**. | **obligatoire** |
+| **3** | Profil normal, **service worker cassé en place** → l'app revient **au premier rechargement qui suit l'installation du nouveau service worker**, sans effacer les données (sur téléphone, mettre la coquille en cache peut prendre quelques secondes ; un rechargement trop tôt retombe sur l'ancien). | **obligatoire** |
 | 4 | Mode avion + rechargement → non-régression du chantier 18 (la coquille est servie, l'app démarre sans attendre le réseau). | |
 
 Pourquoi le 3 manquait : le banc du chantier 18 ne testait que **serveur

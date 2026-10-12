@@ -2043,7 +2043,11 @@ const SETS_IMPORTES = [
   })).catch(() => {});
 
   console.log('\n══ 1. DÉMARRER DEPUIS UNE ROUTINE ══');
-  await aller('/saisie');
+  await page.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {});
+  // 86 — attendre l'état (la routine visible, plus « Chargement… »), plafond 15 s, pas 2 600 ms fixes.
+  await page.waitForFunction(() => { const l = document.getElementById('liste-routines');
+    return !!l && /Push/.test(l.textContent) && !/Chargement/.test(l.textContent); }, null, { timeout: 15000 })
+    .catch(() => console.log('   (plafond de 15 s atteint : la routine n’est jamais apparue dans #liste-routines)'));
   ok('la bibliothèque montre la routine', /Push/.test(await texte('#liste-routines')),
     (await texte('#liste-routines')).slice(0, 60));
   await demarrerRoutine('Push');
@@ -18383,7 +18387,11 @@ const SETS_IMPORTES = [
 
     // ── A. LE BLOC DU SOMMAIRE.
     await aller('/progression');
-    await attendre(800);
+    // 86 — attendre la phrase attendue (plafond 15 s), pas 800 ms fixes.
+    await page.waitForFunction((P) => { const b = document.querySelectorAll('#sommaire .bloc-som')[1];
+      const l = b && b.querySelector('.bloc-ligne');
+      return !!l && l.textContent.replace(/\s+/g, ' ').trim() === P; }, PHRASE, { timeout: 15000 })
+      .catch(() => console.log('   (plafond de 15 s atteint : la phrase du parcours n’est jamais apparue)'));
     const ecrituresAvant = ecritures(), fileAvant = await file();
     const blocs = await page.evaluate(() => Array.from(document.querySelectorAll('#sommaire .bloc-som')).map((b) => ({
       quoi: b.querySelector('.bloc-quoi').textContent, ligne: (b.querySelector('.bloc-ligne') || {}).textContent || null })));

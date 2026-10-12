@@ -176,7 +176,7 @@ const SCENARIOS = [
       vide.erreur || vide.sections + ' sections');
   })},
 
-{ n: 5, titre: 'sortie de l’état cassé : deux rechargements suffisent',
+{ n: 5, titre: 'sortie de l’état cassé : l’app revient au premier rechargement qui suit l’installation du nouveau service worker',
   // LE SCÉNARIO DU §6 POINT 3 — celui qui manquait. Il ne part PAS du service
   // worker corrigé : il installe celui du chantier 18, CONSTATE que l'app est
   // cassée, déploie la correction, et compte les rechargements.
@@ -215,13 +215,35 @@ const SCENARIOS = [
       deployer(dossier, CORRIGE);   // ← la correction est mise en ligne
 
       // On compte les rechargements. Aucun effacement, aucun réglage touché.
-      let revenue = 0;
+      // 86 — le 1er rechargement déclenche la mise à jour du service worker ; le 2ᵉ ne vaut
+      // que s'il suit l'ACTIVATION du nouveau (sur téléphone, mettre la coquille en cache
+      // prend quelques secondes ; un rechargement trop tôt retombe sur l'ancien). On attend
+      // donc cet état, plafond 20 s, au lieu d'un délai fixe.
+      const versionCorrigee = (CORRIGE.match(/const CACHE_V2 = '([^']+)'/) || [])[1];
+      const nouveauActif = async () => {
+        for (const w of page.context().serviceWorkers()) {
+          const v = await w.evaluate(() => (typeof CACHE_V2 === 'string' && self.serviceWorker
+            && self.serviceWorker.state === 'activated') ? CACHE_V2 : null).catch(() => null);
+          if (v && v === versionCorrigee) return true;
+        }
+        return false;
+      };
+      let revenue = 0, actif = null;
       for (let i = 1; i <= 4 && !revenue; i++) {
         const v = await ouvrir(page, '/');
-        if (!v.erreur && v.sections > 0) revenue = i; else await attendre(1500);
+        if (!v.erreur && v.sections > 0) { revenue = i; break; }
+        if (actif === null) {
+          const fin = Date.now() + 20000;
+          actif = false;
+          while (Date.now() < fin && !(actif = await nouveauActif())) await attendre(200);
+          if (!actif) break;
+        }
       }
-      verifier('l’app revient en DEUX rechargements au plus', revenue > 0 && revenue <= 2,
-        revenue ? 'revenue au rechargement n°' + revenue : 'toujours cassée après 4');
+      verifier('l’app revient au premier rechargement qui suit l’installation du nouveau service worker (2 au plus)',
+        revenue > 0 && revenue <= 2,
+        revenue ? 'revenue au rechargement n°' + revenue
+          : actif === false ? 'le nouveau service worker (' + versionCorrigee + ') n’est jamais devenu actif en 20 s'
+            : 'toujours cassée après 4 rechargements');
 
       const fin = await page.evaluate(async () => {
         const sales = [];
@@ -333,7 +355,7 @@ const VERIF_6 = [
     obligatoire: true },
   { p: 2, sur: [2, 3], texte: 'aucune entrée de cache ne porte `redirected: true`',
     obligatoire: false },
-  { p: 3, sur: [5], texte: 'SW cassé en place → deux rechargements → l’app revient sans effacer',
+  { p: 3, sur: [5], texte: 'SW cassé en place → l’app revient au 1er rechargement qui suit l’installation du nouveau SW, sans effacer',
     obligatoire: true },
   { p: 4, sur: [7], texte: 'mode avion + rechargement → non-régression du chantier 18',
     obligatoire: false }

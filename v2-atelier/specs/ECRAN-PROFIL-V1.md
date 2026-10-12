@@ -176,7 +176,7 @@ partent pas, et ce choix-là n'est pas retenu. « Importer » attend que chaque 
 | Verdict | Quand | Dans l'aperçu |
 |---|---|---|
 | **déjà là** | même `source_ref`, **ou** même minute de début, quelle que soit l'origine | grisée, « Déjà dans l'app — laissée telle quelle », jamais écrite |
-| **sans doute la même** | elle **commence pendant** une séance de la personne (de son début à sa fin ; fin inconnue : 3 h au plus, MOTEUR §12.2 bis) **et** partage au moins un exercice avec elle | **décochée**, « Une séance de l'app commence à 17 h 40 ce jour-là : sans doute la même. » ; cochable |
+| **sans doute la même** | elle **chevauche** une séance de la personne — chacune commence avant que l'autre finisse ; fin inconnue, d'un côté ou de l'autre : 3 h au plus, MOTEUR §12.2 bis — **et** partage au moins un exercice avec elle (corrigé le 12/10/2026, chantier 81 : « commence pendant » laissait passer la séance démarrée dans Hevy avant l'app — 4 doublons sur l'export d'aurel_br, jusqu'à 50 min d'avance) | **décochée**, « Une séance de l'app commence à 17 h 40 ce jour-là : sans doute la même. » ; cochable |
 | **nouvelle** | sinon | cochée |
 
 Deux activités qui se suivent (un run de 8 h à 10 h, un autre à 12 h ; deux séances enchaînées) ne se chevauchent

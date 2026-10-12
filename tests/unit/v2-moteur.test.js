@@ -1277,11 +1277,12 @@ describe('§9.13 / ECRAN-SAISIE §3.12 et §3.10 — le fondement, les phrases e
       // 5 reps faites, le haut de la zone lourde (3-5) : il l'a touché.
       c.phrases.gris = c.phrases.gris.replace('est dans ta zone', 'a touché le haut de ta zone');
       c.phrases.jaune = c.phrases.jaune.map((l) => l.replace('130\u00a0kg\u00a0×\u00a04', '130\u00a0kg\u00a0×\u00a05'));
-      // Le « Pourquoi » : plus de « compté 4 » — « à RPE 10, sans marge » (les
-      // reps faites comptent, retouche 74), et le test est au haut de la zone.
+      // Le « Pourquoi » : plus de « compté 4 » — « Ton test : 130 kg × 5, sans
+      // marge. » puis la suite (retouche 74), et le test est au haut de la zone.
       c.pourquoi = JSON.parse(JSON.stringify(c.pourquoi)
         .split('130\u00a0kg\u00a0×\u00a04').join('130\u00a0kg\u00a0×\u00a05')
-        .split(' à RPE 10, compté 4, dans ta zone').join(' à RPE 10, sans marge, le haut de ta zone')
+        .split('Ton test à 130\u00a0kg a fait 5 reps à RPE 10, compté 4, dans ta zone')
+        .join('Ton test\u00a0: 130\u00a0kg\u00a0×\u00a05, sans marge. Le haut de ta zone')
         .split('test, dans ta zone').join('test, au haut de ta zone'));
     },
     X1: (c) => { c.pourquoi.palier = c.pourquoi.palier.replace('validée à 4 reps', 'validée à 5 reps'); },

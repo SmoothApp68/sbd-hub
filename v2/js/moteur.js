@@ -3236,8 +3236,8 @@
       // §17.4 révisé (68B) — le test fait à fond, que la rep en moins fait
       // « rater » : le verdict des reps faites, « sans marge ».
       if (testSansMarge(t, z)) {
-        return quand(t.date, reference, true, cT) + DEUX_POINTS + chargeFois(t.charge, t.reps, cT) +
-          aFondMot(t.cause) + ', sans marge.';
+        // Sans « à RPE 10 » (retouche 74) : « sans marge » le dit.
+        return quand(t.date, reference, true, cT) + DEUX_POINTS + chargeFois(t.charge, t.reps, cT) + ', sans marge.';
       }
       return quand(t.date, reference, true, cT) + DEUX_POINTS + chargeFois(t.charge, t.reps, cT) +
         ', pas encore dans ta zone.';
@@ -3529,16 +3529,19 @@
     return t.niveauFait !== undefined && t.niveauFait !== null ? t.niveauFait : t.niveau;
   }
 
-  // « Ton test à 285,7 kg a fait 12 reps à RPE 10, sans marge » — ce qui a
-  // été fait, et, s'il était à fond, « sans marge ». Jamais un compte de reps
-  // comptées (74 : une série à fond compte ses reps ; avant, « compté 11 »).
-  function faitDuTestEnPhrase(c) {
+  // Le test, puis ce qu'on en tire (`suite`, en minuscule) : « Ton test à
+  // 130 kg a fait 5 reps, dans ta zone : … ». Fait À FOND, le fait est sa
+  // propre phrase et la suite en est une autre (retouche 74) : « Ton test :
+  // 285,7 kg × 12, sans marge. Dans ta zone : il gagne une série. » — sans
+  // « à RPE 10 », et jamais un compte de reps comptées (« compté 11 »).
+  function testPuis(c, suite) {
     var t = c.fondement.test;
-    var dit = 'Ton test à ' + enKg(t.charge, cite(FAIT, { quoi: 'test' })) + ' a fait ' +
-              nombreFr(t.reps, cite(FAIT, { quoi: 'test', champ: 'reps' })) + ' reps';
-    var cause = aFondDuTest(c);
-    if (cause !== null) dit += aFondMot(cause) + ', sans marge';
-    return dit;
+    if (aFondDuTest(c) !== null) {
+      return 'Ton test' + DEUX_POINTS + chargeFois(t.charge, t.reps, cite(FAIT, { quoi: 'test' })) + ', sans marge. ' +
+             suite.charAt(0).toUpperCase() + suite.slice(1);
+    }
+    return 'Ton test à ' + enKg(t.charge, cite(FAIT, { quoi: 'test' })) + ' a fait ' +
+           nombreFr(t.reps, cite(FAIT, { quoi: 'test', champ: 'reps' })) + ' reps, ' + suite;
   }
 
   // ⚠️ « TOUCHE L'ÉTIQUETTE POUR LA CHANGER » TERMINE TOUTES LES FORMES
@@ -3617,12 +3620,14 @@
     var t = f.test || null;
     var cT = cite(FAIT, { quoi: 'test' });
     // §17.4 révisé (68B) — fait à fond, la rep en moins le fait « rater » :
-    // « … a fait 3 reps à RPE 10, sans marge. »
+    // « Ton test : 130 kg × 3, sans marge. » (retouche 74 : la forme du test à
+    // fond, sans « à RPE 10 »).
     var tSansMarge = testSansMarge(t, z);
-    var rate = t === null ? '' :
+    // Rédigé à la demande (§20 bis) : un fragment non écrit ne déclare rien.
+    var testSansMargeDit = function () { return 'Ton test' + DEUX_POINTS + chargeFois(t.charge, t.reps, cT) + ', sans marge.'; };
+    var rate = t === null ? '' : tSansMarge ? testSansMargeDit() :
       'Ton test à ' + enKg(t.charge, cT) + ' a fait ' +
-      nombreFr(t.reps, cite(FAIT, { quoi: 'test', champ: 'reps' })) + ' reps' +
-      (tSansMarge ? aFondMot(t.cause) + ', sans marge.' : DEUX_POINTS + 'pas encore dans ta zone.');
+      nombreFr(t.reps, cite(FAIT, { quoi: 'test', champ: 'reps' })) + ' reps' + DEUX_POINTS + 'pas encore dans ta zone.';
     var cH = cite(CIBLE, { role: 'haut' }), cL = cite(CIBLE, { role: 'ligne' });
 
     switch (c.etat) {
@@ -3661,22 +3666,22 @@
 
       case 'garde':
         if (niveauDitDuTest(t) === z.bas) {
-          return faitDuTestEnPhrase(c) + ', le bas de ta zone' + DEUX_POINTS + 'il tient. ' +
-                 'On le garde sur la dernière série ; à ' + nombreFr(z.bas + 1, regle('zone.bas+1')) + ' reps, il gagnera une série.';
+          return testPuis(c, 'le bas de ta zone' + DEUX_POINTS + 'il tient. ' +
+                 'On le garde sur la dernière série ; à ' + nombreFr(z.bas + 1, regle('zone.bas+1')) + ' reps, il gagnera une série.');
         }
-        return faitDuTestEnPhrase(c) + ', dans ta zone. En Prudent, il reste sur la dernière ' +
-               'série jusqu\'à ' + nombreFr(z.haut, regle('zone.haut')) + ' reps ; alors la série d\'avant le rejoindra.';
+        return testPuis(c, 'dans ta zone. En Prudent, il reste sur la dernière ' +
+               'série jusqu\'à ' + nombreFr(z.haut, regle('zone.haut')) + ' reps ; alors la série d\'avant le rejoindra.');
 
       case 'etend':
-        return faitDuTestEnPhrase(c) + ', ' + niveauDansPhrase(niveauDitDuTest(t), z) + DEUX_POINTS +
+        return testPuis(c, niveauDansPhrase(niveauDitDuTest(t), z) + DEUX_POINTS +
                'il gagne une série. La nouvelle charge gagne tes séries une par séance, ' +
-               'de la dernière à la première.';
+               'de la dernière à la première.');
 
       case 'tout_passe':
         var fin = DEUX_POINTS + 'en Franc, toutes tes séries passent à ' +
                   enKg(c.haut.charge, cH) + '.';
         if (t !== null) {
-          return faitDuTestEnPhrase(c) + ', ' + niveauDansPhrase(niveauDitDuTest(t), z) + fin;
+          return testPuis(c, niveauDansPhrase(niveauDitDuTest(t), z) + fin);
         }
         return 'Tes séries à ' + enKg(c.haut.charge, cH) + ' ont touché le haut de ta zone' + fin;
 
@@ -3714,10 +3719,10 @@
                'on reteste d\'un seul cran, à ' + enKg(c.haut.charge, cH) + '.';
 
       case 'etirement':
-        return 'Ton test à ' + enKg(t.charge, cT) + ' a fait ' +
-               nombreFr(t.reps, cite(FAIT, { quoi: 'test', champ: 'reps' })) + ' reps' +
-               (tSansMarge ? aFondMot(t.cause) + ', sans marge' : DEUX_POINTS + 'pas encore dans ta zone') +
-               ', et ta machine ne permet pas un plus petit cran. ' +
+        return (tSansMarge ? testSansMargeDit() + ' Ta machine ne permet pas un plus petit cran. '
+                 : 'Ton test à ' + enKg(t.charge, cT) + ' a fait ' +
+                   nombreFr(t.reps, cite(FAIT, { quoi: 'test', champ: 'reps' })) + ' reps' + DEUX_POINTS +
+                   'pas encore dans ta zone, et ta machine ne permet pas un plus petit cran. ') +
                'Ta zone s\'étire' + DEUX_POINTS + 'à ' + enKg(c.ligne.charge, cL) + ', tu vises une rep ' +
                'de plus au-delà du haut, jusqu\'à ' + nombreFr(f.cible, regle('cible')) + '. Alors on retestera ' +
                enKg(t.charge, cT) + '.';

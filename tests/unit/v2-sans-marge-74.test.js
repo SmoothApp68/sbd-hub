@@ -138,23 +138,30 @@ describe('74 — les plafonds, sur une ligne de 80 kg en zone Volume', () => {
 
 // Retouche 74 (12/10/2026) — la feuille « Pourquoi » dit les reps faites.
 describe('74 — les phrases : plus aucun « compté », « sans marge » pour un test fait à fond', () => {
-  // Les cinq cas réels qui disaient « compté N » après la règle 74.
+  // Les cinq cas réels qui disaient « compté N » après la règle 74. La forme
+  // du test fait à fond : « Ton test : {charge} × {reps}, sans marge. », puis la
+  // suite en phrase séparée — sans « à RPE 10 ».
   const CINQ = [
-    ['u1|presse_a_cuisses', 19, 'Ton test à 285,7 kg a fait 12 reps à RPE 10, sans marge'],
-    ['u1|presse_a_cuisses', 22, 'Ton test à 295,7 kg a fait 12 reps à RPE 10, sans marge'],
-    ['u1|developpe_couche_barre', 13, 'Ton test à 125 kg a fait 4 reps à RPE 10, sans marge'],
-    ['u1|extensions_une_jambe', 9, 'Ton test à 54,6 kg a fait 12 reps à RPE 10, sans marge'],
-    ['u1|leg_curl_allonge_machine', 9, 'Ton test à 50 kg a fait 12 reps à RPE 10, sans marge']
+    ['u1|presse_a_cuisses', 19, 'Ton test : 285,7 kg × 12, sans marge. '],
+    ['u1|presse_a_cuisses', 22, 'Ton test : 295,7 kg × 12, sans marge. '],
+    ['u1|developpe_couche_barre', 13, 'Ton test : 125 kg × 4, sans marge. '],
+    ['u1|extensions_une_jambe', 9, 'Ton test : 54,6 kg × 12, sans marge. '],
+    ['u1|leg_curl_allonge_machine', 9, 'Ton test : 50 kg × 12, sans marge. ']
   ];
 
-  test('les cinq cas réels : « … a fait N reps à RPE 10, sans marge », plus « compté N »', () => {
+  test('les cinq cas réels : « Ton test : {charge} × {reps}, sans marge. » puis la suite, plus « compté N »', () => {
     CINQ.forEach(([cle, j, debut]) => {
       const p = phrasesDuCas(cas(cle, j));
-      expect([cle, j, p.etat.startsWith(debut + ',')]).toEqual([cle, j, true]);
+      expect([cle, j, p.etat.startsWith(debut)]).toEqual([cle, j, true]);
       expect([cle, j, /compté/.test(p.tout)]).toEqual([cle, j, false]);
     });
-    expect(esp(phrasesDuCas(cas('u1|presse_a_cuisses', 19)).etat)).toBe('Ton test à 285,7 kg a fait 12 reps à RPE 10, sans marge, ' +
-      'dans ta zone : il gagne une série. La nouvelle charge gagne tes séries une par séance, de la dernière à la première.');
+    expect(esp(phrasesDuCas(cas('u1|presse_a_cuisses', 19)).etat)).toBe('Ton test : 285,7 kg × 12, sans marge. ' +
+      'Dans ta zone : il gagne une série. La nouvelle charge gagne tes séries une par séance, de la dernière à la première.');
+  });
+
+  test('sur les 79 cas, aucune phrase de test ne dit « à RPE 10 »', () => {
+    const avec = D.cas.filter((c) => /Ton test[^"]*à RPE/.test(phrasesDuCas(c).tout)).map((c) => c.cle + '#' + c.jusqua);
+    expect(avec).toEqual([]);
   });
 
   test('sur les 79 cas, aucune phrase ne dit « compté »', () => {

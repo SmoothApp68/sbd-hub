@@ -1,7 +1,7 @@
 # SOCIAL-V1 — le social, étage 1 : abonnements, fil, profil avec calendrier
 
 > Décisions d'Aurélien du 12/10/2026 (prompt 87), complétées le 13/10/2026 (visibilité des séances, niveau publié,
-> jeu éteint). Texte de Claude.ai, repris tel quel. Maquette : `v2-atelier/maquettes/` (social étage 1 v2).
+> jeu éteint). Texte de Claude.ai, repris tel quel. Maquette : `v2-atelier/maquettes/maquette-social-etage1-v2.html`.
 > Base : migration `v2_078_social_abonnements` (écrite par Claude.ai, lancée par Aurélien).
 
 ## 1. Les trois cercles

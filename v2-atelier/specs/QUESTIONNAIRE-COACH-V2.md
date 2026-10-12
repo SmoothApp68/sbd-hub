@@ -275,11 +275,13 @@ Pour chacune des quatre barres (`squat_barre`, `developpe_couche_barre`, `soulev
 - **« pas encore dépassé »** suit le mois quand le record a **au moins 12 mois** et que la barre a été travaillée sur
   les 26 dernières semaines (« octobre 2025, pas encore dépassé »). Jamais « stagne », jamais de rouge.
 - **La barre en retard — Force et Les deux seulement, sexe connu.** Squat ÷ couché (les deux records, les deux barres
-  travaillées sur 26 semaines) sous **1,2 (homme)** ou **1,6 (femme)** — le bas des moyennes de compétition (moyennes
-  IPF des débutants ; van den Hoek et al. 2024, *J Sci Med Sport*, 809 986 compétitions). La ligne du squat dit
-  « en retard sur ton couché » ; la carte du coach : « Ton squat vaut 1,04 fois ton couché. Chez les hommes qui font de
-  la force, le squat vaut 1,2 à 1,5 fois le couché. » (femmes : « 1,6 à 1,7 ») ; en gris : « Ces repères viennent de
-  compétiteurs, et ta morphologie peut jouer. Ce qu'on voit chez toi : le couché {n} semaines sur 26, le squat {m}. »
+  travaillées sur 26 semaines) **en dessous du repère de « Ton parcours »** — moins de 95 % de **1,21 (homme)** ou
+  **1,52 (femme)**, carnets d'entraînement de pratiquants (ECRAN-SAISIE §7 bis.14 ter ; une seule table et une seule
+  lecture dans l'app, celles de `parcours.js` ; décidé le 12/10/2026, remplace les moyennes de compétition de van den
+  Hoek et al. 2024). La ligne du squat dit « en retard sur ton couché » ; la carte du coach : « Ton squat vaut 1,04
+  fois ton couché. Chez les pratiquants, le squat vaut environ 1,21 fois le couché. » (femmes : « 1,52 ») ; en gris :
+  « Ces repères viennent de carnets d'entraînement, et ta morphologie peut jouer. Ce qu'on voit chez toi : le couché
+  {n} semaines sur 26, le squat {m}. »
   — **les faits côte à côte, jamais « parce que »**. Puis la proposition « **Faire du squat ta priorité ?** » (« Il
   passe en premier dans ses séances. » quand il y a un déplacement) : elle ajoute `squat_barre` à `profiles.priorites`
   et, dans chaque routine où le squat **ou sa variante à la barre** n'est pas le premier exercice qui porte du volume,

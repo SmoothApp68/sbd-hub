@@ -894,6 +894,11 @@ const NOTIONS = [
     module: 'faits.js', fonction: 'recordsDuJournal', lecteurs: [],
     raison: 'MOTEUR §9.23 (58-2) : les lecteurs lisent le journal, jamais un recalcul — et le lisent ' +
       'ici. Aucun écran ne le lit encore : le jeu viendra.' },
+  // ── 87 — LE SOCIAL (SOCIAL-V1) : il lit les médailles dans le module des faits, il ne les recompte pas ──
+  { notion: 'les médailles d’une séance d’une autre personne (une par série médaillée, sur les lignes de `social_records_seance`)', pr: '87-U1',
+    module: 'faits.js', fonction: 'medaillesDuSocial', lecteurs: ['app.js'],
+    raison: 'SOCIAL-V1 : le fil et le profil d’une personne montrent ses médailles ; la règle de la médaille (une par ' +
+      'série, les types dans l’ordre de la phrase) est celle de `recordsDeLaSeance` et du journal, écrite une fois ici.' },
   // ── 60-2a — LE QUESTIONNAIRE DU COACH MONTRE, IL NE DEMANDE PAS ───────────
   { notion: 'ce que les séances savent de la personne (historique, rythme, durée habituelle, maximums, autres activités)', pr: '60-U1',
     module: 'faits.js', fonction: 'ceQueJeSais', lecteurs: ['app.js'],
@@ -1491,7 +1496,7 @@ describe('architecture — le registre des notions : une source, des lecteurs', 
 describe('architecture — le module des faits : un fait ne se déclare que dans faits.js (58-1)', () => {
   const FICHIERS = perimetre();
 
-  test('les faits du module : vingt-sept (treize en 58-1, trois du journal en 58-2, un du questionnaire en 60-2a, un du programme déduit en 60-3, deux du programme construit en 60-4, un du jeu en 64A, un du bilan en 66A, les habitudes en 66C, la dernière séance en 66D, le récap de fin de séance en 71, l’entrée et le parcours en 75), chacun déclaré et exporté par faits.js', () => {
+  test('les faits du module : vingt-huit (treize en 58-1, trois du journal en 58-2, un du questionnaire en 60-2a, un du programme déduit en 60-3, deux du programme construit en 60-4, un du jeu en 64A, un du bilan en 66A, les habitudes en 66C, la dernière séance en 66D, le récap de fin de séance en 71, l’entrée et le parcours en 75, les médailles d’une séance d’autrui en 87), chacun déclaré et exporté par faits.js', () => {
     global.self = global;
     require('../../v2/js/modele.js');
     require('../../v2/js/semaine.js');
@@ -1502,7 +1507,7 @@ describe('architecture — le module des faits : un fait ne se déclare que dans
     require('../../v2/js/periode.js');
     require('../../v2/js/parcours.js');
     const instance = require('../../v2/js/faits.js').creer();
-    expect(FAITS.length).toBe(27);
+    expect(FAITS.length).toBe(28);
     expect(FAITS.filter((fn) => typeof instance[fn] !== 'function')).toEqual([]);
   });
 
@@ -1946,6 +1951,7 @@ describe('architecture — la pesée : un seul écrivain (60-2a)', () => {
 // l'écrivain injecté (`ecrivain.x`, `routines.js`) comptent comme des appels de `x`. Les gardes « un seul écrivain »
 // (records, pesées, `alias_exercice`) restent ; la carte les complète.
 const RAISON_BIBLIOTHEQUE = 'geste de bibliothèque, fait hors de la salle, qui échoue avec un message et garde le brouillon';
+const RAISON_SOCIAL = 'geste social, fait en ligne (SOCIAL-V1) : refusé hors réseau, il le dit à l’écran et ne se rejoue pas';
 const REGISTRE_ECRITURES = [
   // ── Par la file : `executer` (app.js) et ce qu'il appelle.
   { fn: 'enregistrerSeance', chemin: 'file' },
@@ -1986,6 +1992,17 @@ const REGISTRE_ECRITURES = [
   { fn: 'insererExercices', chemin: 'liste-blanche', appelants: ['routines.js:appliquerPlan'], raison: RAISON_BIBLIOTHEQUE },
   { fn: 'supprimerExercices', chemin: 'liste-blanche', appelants: ['routines.js:appliquerPlan'], raison: RAISON_BIBLIOTHEQUE },
   { fn: 'remplacerSeriesRoutine', chemin: 'liste-blanche', appelants: ['routines.js:appliquerPlan'], raison: RAISON_BIBLIOTHEQUE },
+  // ── 87 (SOCIAL-V1) — le social : des gestes EN LIGNE, hors file (un geste refusé hors réseau se dit à l'écran, il ne
+  // se rejoue pas plus tard). Les lectures passent par les fonctions de la base (`.rpc(`) : rien n'est écrit.
+  { fn: 'rpc', chemin: 'liste-blanche', appelants: [],
+    raison: 'les lectures sociales par les fonctions de la base (`social_*`, v2_078) : rien n’est écrit' },
+  { fn: 'sAbonner', chemin: 'liste-blanche', appelants: ['app.js:dessinerAmis', 'app.js:personneDeRecherche', 'app.js:vueDeLAmi'], raison: RAISON_SOCIAL },
+  { fn: 'retirerAbonnement', chemin: 'liste-blanche', appelants: ['app.js:vueDeLAmi', 'app.js:vueDuFil'], raison: RAISON_SOCIAL },
+  { fn: 'accepterDemande', chemin: 'liste-blanche', appelants: ['app.js:vueDuFil'], raison: RAISON_SOCIAL },
+  { fn: 'bloquer', chemin: 'liste-blanche', appelants: ['app.js:vueDeLAmi'], raison: RAISON_SOCIAL },
+  { fn: 'debloquer', chemin: 'liste-blanche', appelants: ['app.js:dessinerAmis'], raison: RAISON_SOCIAL },
+  { fn: 'reagir', chemin: 'liste-blanche', appelants: ['app.js:vueDuFil'], raison: RAISON_SOCIAL },
+  { fn: 'retirerReaction', chemin: 'liste-blanche', appelants: ['app.js:vueDuFil'], raison: RAISON_SOCIAL },
   // `executer` : une réponse du chantier 26 encore en file (une ligne, des champs) — par la file, elle aussi.
   { fn: 'majExercice', chemin: 'liste-blanche', appelants: ['routines.js:appliquerPlan', 'app.js:executer'], raison: RAISON_BIBLIOTHEQUE }
 ];

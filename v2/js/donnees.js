@@ -884,6 +884,33 @@
   function guildeTransmettre(user) { return guildeGeste('guilde_transmettre', { p_user: user }); }
   function guildeChoisirDefi(type, n) { return guildeGeste('guilde_choisir_defi', { p_type: type, p_n: n === undefined ? null : n }); }
   function guildeChoisirRang(rang) { return guildeGeste('guilde_choisir_rang', { p_rang: rang }); }
+  // 91 (SOCIAL-V1 « Groupe », v2_082) — le groupe de séance : tout passe par les fonctions de la base, qui gardent les
+  // règles (6 membres, mutuels seulement, un groupe à la fois, aucun blocage entre membres, messages ≤ 140 caractères
+  // réservés aux membres). Le groupe ne porte que l'identifiant de ma séance, ma liste d'exercices et mon XP.
+  async function groupeMoi() { var d = await rpc('groupe_moi'); return (Array.isArray(d) ? d[0] : d) || null; }
+  async function groupeEtat() { return (await rpc('groupe_etat')) || []; }
+  async function groupeDirect() { return (await rpc('groupe_direct')) || []; }
+  async function groupeMessages() { return (await rpc('groupe_messages_lire')) || []; }
+  async function groupeInvitationsRecues() { return (await rpc('groupe_invitations_recues')) || []; }
+  async function groupeInvitationsEnvoyees() { return (await rpc('groupe_invitations_envoyees')) || []; }
+  async function groupeRecap() { return (await rpc('groupe_recap')) || []; }
+  async function groupeRecapSeance(session) {
+    var d = await rpc('groupe_recap_seance', { p_session: session });
+    return (Array.isArray(d) ? d[0] : d) || null;
+  }
+  function groupeGeste(nom, args) { return rpc(nom, args).then(function () { return true; }); }
+  function groupeCreer(session, exercices) { return rpc('groupe_creer', { p_session: session, p_exercices: exercices || [] }); }
+  function groupeInviter(user) { return groupeGeste('groupe_inviter', { p_user: user }); }
+  function groupeAnnulerInvitation(user) { return groupeGeste('groupe_annuler_invitation', { p_user: user }); }
+  function groupeRejoindre(groupe, session, exercices) {
+    return groupeGeste('groupe_repondre', { p_groupe: groupe, p_rejoindre: true, p_session: session, p_exercices: exercices || [] });
+  }
+  function groupePublier(exercices, xp) {
+    return groupeGeste('groupe_publier', { p_exercices: exercices || null, p_xp: xp === undefined ? null : xp });
+  }
+  function groupeEnvoyer(texte) { return groupeGeste('groupe_envoyer', { p_texte: texte }); }
+  function groupeFermer() { return groupeGeste('groupe_fermer', {}); }
+  function groupeQuitter() { return groupeGeste('groupe_quitter', {}); }
   async function ecrire(promesse) { var r = await promesse; if (r.error) throw r.error; return true; }
   // `statut` est posé par la base (`demande`, ou `accepte` d'office vers un compte public).
   function sAbonner(moi, suivi) { return ecrire(client().from('abonnements').insert({ suiveur: moi, suivi: suivi })); }
@@ -980,6 +1007,11 @@
     guildeInviter: guildeInviter, guildeRepondre: guildeRepondre, guildeQuitter: guildeQuitter,
     guildeRetirerMembre: guildeRetirerMembre, guildeTransmettre: guildeTransmettre, guildeChoisirDefi: guildeChoisirDefi,
     guildeChoisirRang: guildeChoisirRang, publierScoresGuilde: publierScoresGuilde,
+    groupeMoi: groupeMoi, groupeEtat: groupeEtat, groupeDirect: groupeDirect, groupeMessages: groupeMessages,
+    groupeInvitationsRecues: groupeInvitationsRecues, groupeInvitationsEnvoyees: groupeInvitationsEnvoyees,
+    groupeRecap: groupeRecap, groupeRecapSeance: groupeRecapSeance, groupeCreer: groupeCreer, groupeInviter: groupeInviter,
+    groupeAnnulerInvitation: groupeAnnulerInvitation, groupeRejoindre: groupeRejoindre, groupePublier: groupePublier,
+    groupeEnvoyer: groupeEnvoyer, groupeFermer: groupeFermer, groupeQuitter: groupeQuitter,
     // Exposée pour les tests : c'est la logique de pagination qu'il faut
     // pouvoir exercer sans réseau, pas les requêtes qui l'utilisent.
     paginerParCle: paginerParCle,

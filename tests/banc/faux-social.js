@@ -1,4 +1,5 @@
-// tests/banc/faux-social.js — le faux serveur du social (87, SOCIAL-V1, migration v2_078 ; 89, étage 2, v2_079 ; 90, la guilde, v2_080).
+// tests/banc/faux-social.js — le faux serveur du social (87, SOCIAL-V1, migration v2_078 ; 89, étage 2, v2_079 ; 90, la guilde, v2_080 ;
+// 91, le groupe de séance, v2_082).
 //
 // ⚠️ C'EST LUI QUI PROUVE LA CONFIDENTIALITÉ AU BANC : il imite les règles de la migration — les cercles
 // (`social_suit`, `social_mutuel`), le blocage (dans les deux sens, qui efface les abonnements et les
@@ -25,6 +26,8 @@ const GUILDE = {
   TYPES_RECORDS: ['charge_a_reps', 'reps_a_charge', 'charge_max', 'cap', 'duree_s', 'distance_m'],
   COLONNES_SCORES: ['user_id', 'semaine', 'seances', 'prevues', 'records_semaine', 'mois', 'exercices', 'exercices_record', 'maj_le']
 };
+// 91 (v2_082) — le groupe de séance : les contraintes de la migration, recopiées telles quelles.
+const GROUPE = { MAX: 6, TEXTE_MAX: 140, EXERCICES_MAX: 60, DIRECT: 20, MESSAGES: 30 };
 // La clé du nom : translate(lower(btrim(nom)), 'àâäáãåçéèêëíìîïñóòôöõúùûüýÿ', 'aaaaaaceeeeiiiinooooouuuuyy').
 function cleDuNom(nom) {
   const de = 'àâäáãåçéèêëíìîïñóòôöõúùûüýÿ', vers = 'aaaaaaceeeeiiiinooooouuuuyy';
@@ -39,6 +42,8 @@ function creer(base, options) {
     abonnements: [], blocages: [], reactions: [], scores: [],
     // 90 (v2_080) — la guilde.
     guildes: [], membres: [], invitations: [], defis: [], gscores: [],
+    // 91 (v2_082) — le groupe de séance.
+    groupes: [], gmembres: [], ginvitations: [], gmessages: [], grecaps: [],
     journal: [], fuites: [], appels: [],
     maintenant: o.maintenant || (() => new Date())
   };
@@ -139,6 +144,54 @@ function creer(base, options) {
     return sessions().filter((s) => ids.indexOf(s.user_id) >= 0 && visible(s) && jourLocal(new Date(s.debut)) >= lundi &&
       jourLocal(new Date(s.debut)) < fin && sets().some((t) => t.session_id === s.id && (t.type_serie || 'travail') === 'travail'));
   };
+
+  // ── 91 (v2_082) — LE GROUPE DE SÉANCE : les règles de la migration ──
+  // Mon groupe vivant : celui dont je n'ai pas fermé le récap (`groupe_membres_un_a_la_fois`).
+  const groupeDe = (u) => { const m = etat.gmembres.filter((x) => x.user_id === u && !x.ferme)[0]; return m ? m.groupe_id : null; };
+  const gmembresDe = (gid) => etat.gmembres.filter((m) => m.groupe_id === gid)
+    .sort((a, b) => String(a.entre_le).localeCompare(String(b.entre_le)) || String(a.user_id).localeCompare(String(b.user_id)));
+  const bloqueAvec = (gid, u) => gmembresDe(gid).some((m) => m.user_id !== u && bloque(m.user_id, u));
+  const instant = () => etat.maintenant().toISOString();
+  // `clock_timestamp()` : l'ordre d'entrée est strict, même deux entrées dans la même milliseconde.
+  let dernierInstant = 0;
+  const instantStrict = () => { dernierInstant = Math.max(etat.maintenant().getTime(), dernierInstant + 1); return new Date(dernierInstant).toISOString(); };
+  // `groupe_membres_avant_ajout` : 6 au plus, jamais avec quelqu'un qu'on bloque, plus d'entrée une fois un récap fermé,
+  // jamais la séance d'un autre ; un groupe à la fois (l'index unique).
+  function ajouterAuGroupe(user, gid, session, exercices) {
+    if (groupeDe(user)) leve('23505', 'duplicate key value violates unique constraint "groupe_membres_un_a_la_fois"');
+    if (gmembresDe(gid).length >= GROUPE.MAX) leve('23514', 'groupe_plein');
+    if (bloqueAvec(gid, user)) leve('23514', 'groupe_bloque');
+    if (gmembresDe(gid).some((m) => m.ferme)) leve('23514', 'groupe_eteint');
+    const s = session && sessions().filter((x) => x.id === session)[0];
+    if (s && s.user_id !== user) leve('42501', 'groupe_seance_d_un_autre');
+    if (etat.gmembres.some((m) => m.session_id === session)) leve('23505', 'duplicate key value violates unique constraint "groupe_membres_une_seance"');
+    etat.gmembres.push({ groupe_id: gid, user_id: user, session_id: session, exercices: (exercices || []).slice(0, GROUPE.EXERCICES_MAX),
+      xp: null, entre_le: instantStrict(), ferme: false });
+  }
+  // `groupe_membres_apres` : quand tous ont fermé le récap (ou sont partis), le groupe s'éteint — messages et invitations avec lui.
+  function eteindreSiFini(gid) {
+    if (gmembresDe(gid).some((m) => !m.ferme)) return;
+    etat.groupes = etat.groupes.filter((g) => g.id !== gid);
+    etat.gmembres = etat.gmembres.filter((m) => m.groupe_id !== gid);
+    etat.ginvitations = etat.ginvitations.filter((i) => i.groupe_id !== gid);
+    etat.gmessages = etat.gmessages.filter((x) => x.groupe_id !== gid);
+    etat.journal.push({ op: 'groupe-eteint' });
+  }
+  // `groupe_recap_de` : TOUT ce que chacun a fait dans SA séance (même avant d'avoir rejoint) — tonnage (`Bilan.volumeKg`),
+  // séries de travail, séries médaillées du journal (une par série), XP (nulle jeu éteint).
+  function recapDe(gid, moi) {
+    return gmembresDe(gid).map((m) => ({ m, p: profil(m.user_id) })).filter((x) => x.p && !x.p.deleted_at).map((x) => {
+      const m = x.m, s = session(m.session_id), sienne = !!s && s.user_id === m.user_id;
+      const siennes = sienne ? sets().filter((t) => t.session_id === m.session_id) : [];
+      const travail = siennes.filter((t) => (t.type_serie || 'travail') === 'travail');
+      return { pseudo: x.p.username, moi: m.user_id === moi,
+        tonnage_kg: Math.round(travail.filter((t) => Number(t.charge_kg) > 0 && Number(t.reps) > 0)
+          .reduce((a, t) => a + Number(t.charge_kg) * Number(t.reps), 0) * 100) / 100,
+        series: travail.length,
+        records: sienne ? new Set(records().filter((r) => r.session_id === m.session_id).map((r) => r.set_id)).size : 0,
+        xp: x.p.jeu_actif === false ? null : (m.xp === undefined ? null : m.xp), entre_le: m.entre_le };
+    });
+  }
 
   // ── Les fonctions de lecture (v2_078), colonnes autorisées seulement ──
   const RPC = {
@@ -374,6 +427,160 @@ function creer(base, options) {
         exercise_slug: r.exercise_slug, type: r.type, valeur: r.valeur, charge: r.charge === undefined ? null : r.charge,
         reps: r.reps === undefined ? null : r.reps, unite: r.unite === undefined ? null : r.unite }));
     },
+    // ── 91 (v2_082) — LE GROUPE DE SÉANCE ──
+    groupe_creer(a) {
+      const moi = etat.moi;
+      if (groupeDe(moi)) leve('23505', 'groupe_deja_dans_un');
+      const g = { id: 'gr-' + (++horloge), createur: moi, cree_le: instant() };
+      etat.groupes.push(g);
+      try { ajouterAuGroupe(moi, g.id, a.p_session, a.p_exercices); } catch (e) { etat.groupes = etat.groupes.filter((x) => x !== g); throw e; }
+      etat.journal.push({ op: 'groupe-cree' });
+      return g.id;
+    },
+    // `groupe_invitations_avant_ajout` : un membre invite SEULEMENT un de ses abonnés mutuels, sans blocage avec aucun membre.
+    groupe_inviter(a) {
+      const moi = etat.moi, gid = groupeDe(moi);
+      if (!gid) leve('23514', 'groupe_invitant_non_membre');
+      if (!mutuel(moi, a.p_user)) leve('23514', 'groupe_invite_non_mutuel');
+      if (bloqueAvec(gid, a.p_user)) leve('23514', 'groupe_bloque');
+      if (gmembresDe(gid).some((m) => m.user_id === a.p_user)) leve('23514', 'groupe_deja_membre');
+      if (gmembresDe(gid).length >= GROUPE.MAX) leve('23514', 'groupe_plein');
+      if (!etat.ginvitations.some((i) => i.groupe_id === gid && i.invite === a.p_user)) {
+        etat.ginvitations.push({ groupe_id: gid, invite: a.p_user, invitant: moi, cree_le: ++horloge });
+      }
+      etat.journal.push({ op: 'groupe-invitation', invite: a.p_user });
+      return null;
+    },
+    groupe_annuler_invitation(a) {
+      const gid = groupeDe(etat.moi);
+      etat.ginvitations = etat.ginvitations.filter((i) => !(i.groupe_id === gid && i.invite === a.p_user));
+      return null;
+    },
+    groupe_repondre(a) {
+      const moi = etat.moi;
+      if (!etat.ginvitations.some((i) => i.groupe_id === a.p_groupe && i.invite === moi)) leve('42501', 'groupe_sans_invitation');
+      if (a.p_rejoindre) {
+        if (groupeDe(moi)) leve('23505', 'groupe_deja_dans_un');
+        ajouterAuGroupe(moi, a.p_groupe, a.p_session, a.p_exercices);
+        etat.journal.push({ op: 'groupe-rejoint', user: moi });
+      }
+      etat.ginvitations = etat.ginvitations.filter((i) => !(i.groupe_id === a.p_groupe && i.invite === moi));
+      return null;
+    },
+    // Partir sans récap (séance abandonnée) : ma place s'efface ; le dernier éteint le groupe.
+    groupe_quitter() {
+      const gid = groupeDe(etat.moi);
+      if (!gid) return null;
+      etat.gmembres = etat.gmembres.filter((m) => !(m.user_id === etat.moi && m.groupe_id === gid));
+      etat.journal.push({ op: 'groupe-quitte', user: etat.moi });
+      eteindreSiFini(gid);
+      return null;
+    },
+    groupe_publier(a) {
+      const m = etat.gmembres.filter((x) => x.user_id === etat.moi && !x.ferme)[0];
+      if (!m) leve('42501', 'groupe_pas_membre');
+      if (a.p_exercices && a.p_exercices.length > GROUPE.EXERCICES_MAX) leve('23514', 'groupe_membres_exercices');
+      const xp = a.p_xp === undefined ? null : a.p_xp;
+      if (xp !== null && !(Number.isInteger(xp) && xp >= 0 && xp <= 100000)) leve('23514', 'groupe_membres_xp');
+      if (a.p_exercices) m.exercices = a.p_exercices.slice();
+      m.xp = xp;
+      etat.journal.push({ op: 'groupe-publie', exercices: m.exercices.slice(), xp: m.xp });
+      return null;
+    },
+    // Les messages : membres seulement, 1 à 140 caractères (`groupe_messages_texte`).
+    groupe_envoyer(a) {
+      const gid = groupeDe(etat.moi);
+      if (!gid) leve('42501', 'groupe_pas_membre');
+      const texte = String(a.p_texte === null || a.p_texte === undefined ? '' : a.p_texte).trim();
+      if (texte.length < 1 || Array.from(texte).length > GROUPE.TEXTE_MAX) {
+        leve('23514', 'new row for relation "groupe_messages" violates check constraint "groupe_messages_texte"');
+      }
+      etat.gmessages.push({ groupe_id: gid, user_id: etat.moi, texte, cree_le: instant(), n: ++horloge });
+      etat.journal.push({ op: 'groupe-message', texte });
+      return null;
+    },
+    // Fermer le récap : il se FIGE pour moi, puis je sors ; le dernier éteint le groupe.
+    groupe_fermer() {
+      const moi = etat.moi, gid = groupeDe(moi);
+      if (!gid) return null;
+      const m = etat.gmembres.filter((x) => x.groupe_id === gid && x.user_id === moi)[0];
+      const g = etat.groupes.filter((x) => x.id === gid)[0];
+      if (!etat.grecaps.some((r) => r.user_id === moi && r.groupe_id === gid)) {
+        etat.grecaps.push({ user_id: moi, groupe_id: gid, session_id: m.session_id, le: g.cree_le,
+          recap: { membres: recapDe(gid, moi).map((x) => ({ pseudo: x.pseudo, moi: x.moi, tonnage_kg: x.tonnage_kg, series: x.series,
+            records: x.records, xp: x.xp })) } });
+      }
+      m.ferme = true;
+      etat.journal.push({ op: 'groupe-ferme', user: moi });
+      eteindreSiFini(gid);
+      return null;
+    },
+    groupe_moi() {
+      const gid = groupeDe(etat.moi), g = etat.groupes.filter((x) => x.id === gid)[0];
+      return g ? [{ id: g.id, cree_le: g.cree_le, membres: gmembresDe(g.id).length }] : [];
+    },
+    // Les membres et l'état de leur séance (statut, début, dernière série validée), leur liste d'exercices.
+    groupe_etat() {
+      const moi = etat.moi, gid = groupeDe(moi);
+      if (!gid) return [];
+      return gmembresDe(gid).map((m) => ({ m, p: profil(m.user_id) })).filter((x) => x.p && !x.p.deleted_at).map((x) => {
+        const m = x.m, s = session(m.session_id), sienne = s && s.user_id === m.user_id ? s : null;
+        const v = sienne ? sets().filter((t) => t.session_id === m.session_id && t.validee_a).map((t) => t.validee_a).sort() : [];
+        return { user_id: m.user_id, pseudo: x.p.username, moi: m.user_id === moi, session_id: m.session_id,
+          statut: sienne ? (sienne.statut || 'terminee') : null, debut: sienne ? sienne.debut : null,
+          derniere: v.length ? v[v.length - 1] : null, exercices: m.exercices.slice(), ferme: m.ferme, entre_le: m.entre_le };
+      });
+    },
+    // LE DIRECT — RÉSERVÉ AUX MEMBRES : les dernières séries validées des AUTRES membres, dans leur séance du groupe.
+    groupe_direct() {
+      const moi = etat.moi;
+      const gid = groupeDe(moi);
+      if (!gid) return [];
+      const out = [];
+      gmembresDe(gid).filter((m) => m.user_id !== moi && !bloque(moi, m.user_id)).forEach((m) => {
+        const p = profil(m.user_id), s = session(m.session_id);
+        if (!p || p.deleted_at || !s || s.user_id !== m.user_id) return;
+        sets().filter((t) => t.session_id === m.session_id && t.validee_a).forEach((t) => out.push({ pseudo: p.username,
+          exercise_slug: t.exercise_slug, charge_kg: t.charge_kg === undefined ? null : t.charge_kg, reps: t.reps === undefined ? null : t.reps,
+          duree_s: t.duree_s === undefined ? null : t.duree_s, distance_m: t.distance_m === undefined ? null : t.distance_m,
+          type_serie: t.type_serie || 'travail', validee_a: t.validee_a }));
+      });
+      return out.sort((x, y) => String(y.validee_a).localeCompare(String(x.validee_a))).slice(0, GROUPE.DIRECT);
+    },
+    groupe_messages_lire() {
+      const moi = etat.moi, gid = groupeDe(moi);
+      if (!gid) return [];
+      return etat.gmessages.filter((x) => x.groupe_id === gid && !bloque(moi, x.user_id))
+        .filter((x) => { const p = profil(x.user_id); return p && !p.deleted_at; })
+        .sort((a, b) => b.n - a.n).slice(0, GROUPE.MESSAGES).reverse()
+        .map((x) => ({ pseudo: profil(x.user_id).username, moi: x.user_id === moi, texte: x.texte, cree_le: x.cree_le }));
+    },
+    // Mes invitations : qui m'invite, la liste d'exercices de sa séance, combien ils sont (pas un groupe qui s'éteint).
+    groupe_invitations_recues() {
+      const moi = etat.moi;
+      return etat.ginvitations.filter((i) => i.invite === moi && !bloque(moi, i.invitant) &&
+        !gmembresDe(i.groupe_id).some((m) => m.ferme)).sort((a, b) => a.cree_le - b.cree_le).map((i) => {
+        const p = profil(i.invitant), m = gmembresDe(i.groupe_id).filter((x) => x.user_id === i.invitant)[0];
+        return { groupe_id: i.groupe_id, invitant: p && !p.deleted_at ? p.username : null, exercices: m ? m.exercices.slice() : [],
+          membres: gmembresDe(i.groupe_id).length };
+      }).filter((x) => x.invitant);
+    },
+    groupe_invitations_envoyees() {
+      const gid = groupeDe(etat.moi);
+      return etat.ginvitations.filter((i) => gid && i.groupe_id === gid).map((i) => ({ user_id: i.invite, pseudo: (profil(i.invite) || {}).username }))
+        .sort((a, b) => String(a.pseudo).localeCompare(String(b.pseudo)));
+    },
+    groupe_recap() {
+      const gid = groupeDe(etat.moi);
+      if (!gid) return [];
+      const g = etat.groupes.filter((x) => x.id === gid)[0];
+      return recapDe(gid, etat.moi).map((x) => ({ pseudo: x.pseudo, moi: x.moi, tonnage_kg: x.tonnage_kg, series: x.series,
+        records: x.records, xp: x.xp, le: g.cree_le }));
+    },
+    groupe_recap_seance(a) {
+      return etat.grecaps.filter((r) => r.session_id === a.p_session && r.user_id === etat.moi)
+        .map((r) => ({ le: r.le, recap: JSON.parse(JSON.stringify(r.recap)) }));
+    },
     social_liens() {
       const moi = etat.moi, out = [];
       const ligne = (p, lien) => ({ user_id: p.id, pseudo: p.username, niveau: lien === 'bloque' ? null : niveau(p), lien });
@@ -395,6 +602,15 @@ function creer(base, options) {
   const correspond = (ligne, f) => Object.keys(f).every((k) => String(ligne[k]) === f[k]);
 
   function bloquerApres(b) {
+    // 91 (v2_082) — `groupe_apres_blocage` : bloquer en plein groupe fait partir celui qui bloque (en silence), et retire
+    // les invitations entre eux.
+    const gid = groupeDe(b.bloqueur);
+    if (gid && gmembresDe(gid).some((m) => m.user_id === b.bloque)) {
+      etat.gmembres = etat.gmembres.filter((m) => !(m.user_id === b.bloqueur && m.groupe_id === gid));
+      eteindreSiFini(gid);
+    }
+    etat.ginvitations = etat.ginvitations.filter((i) => !((i.invitant === b.bloqueur && i.invite === b.bloque) ||
+      (i.invitant === b.bloque && i.invite === b.bloqueur)));
     // `blocages_apres_ajout` : les abonnements dans les DEUX sens, et les réactions croisées.
     etat.abonnements = etat.abonnements.filter((x) => !((x.suiveur === b.bloqueur && x.suivi === b.bloque) ||
       (x.suiveur === b.bloque && x.suivi === b.bloqueur)));
@@ -567,7 +783,7 @@ function creer(base, options) {
     return comme(id, () => gerer('POST', new URL('https://banc.supabase.co/rest/v1/rpc/' + nom), args || {})).data;
   }
 
-  return { etat, gerer, comme, appeler, rpc, suit, mutuel, bloque, tonnage, guildeDe, lundiCourant, moisCourant };
+  return { etat, gerer, comme, appeler, rpc, suit, mutuel, bloque, tonnage, guildeDe, lundiCourant, moisCourant, groupeDe };
 }
 
 function champsInterdits(x) {
@@ -584,4 +800,4 @@ function champsInterdits(x) {
   return trouves;
 }
 
-module.exports = { creer, champsInterdits, CHAMPS_INTERDITS, GUILDE, cleDuNom };
+module.exports = { creer, champsInterdits, CHAMPS_INTERDITS, GUILDE, GROUPE, cleDuNom };

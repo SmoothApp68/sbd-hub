@@ -17531,6 +17531,296 @@ const SETS_IMPORTES = [
     S.journal = [];
   }
 
+  console.log('\n══ groupe. LE GROUPE DE SÉANCE : REJOINDRE, SUIVRE LA SÉANCE, LE DIRECT, LES MESSAGES, HORS RÉSEAU, LE RÉCAP DU COMBAT (91, SOCIAL-V1 « Groupe ») ══');
+  //
+  // Le faux serveur du social imite v2_082 : 6 membres au plus, abonnés mutuels seulement, un groupe à la fois, le direct
+  // et les messages réservés aux membres, le récap qui compte TOUTE la séance de chacun, l'extinction qui efface les
+  // messages. Chacun garde SA séance : le groupe ne porte que l'identifiant de la séance, la liste des exercices, l'XP.
+  //
+  // ⚠️ CONFIGURATIONS DISCRIMINANTES :
+  //   · jordan a validé DEUX séries (et une chauffe, un record) AVANT que je rejoigne : le récap doit les compter ;
+  //   · alexis est abonné de jordan (il le suit, accepté) sans être membre : il ne voit RIEN du direct ;
+  //   · le groupe passe de 2 à 3 membres (lea) : la carte garde sa hauteur ;
+  //   · jordan ajoute un exercice APRÈS que j'ai copié sa liste : la ligne « Ajouter ? » ne vient que de là ;
+  //   · un message tapé hors réseau attend, puis part au retour du réseau, sans que la séance ne s'arrête ;
+  //   · m1..m4 entrent par jordan jusqu'à 6 : m5, invité avant, est refusé (6 au plus, en base).
+  {
+    const erreursAvant = erreurs.length;
+    const violationsAvant = gardeBanc.violations;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const S = fauxSocial.etat;
+    const tG = Date.now();
+    const iso = (d) => d.toISOString();
+    const t0 = Date.now();
+    S.profils.push(
+      { id: 'u-jordan', username: 'jordan', compte_prive: true, jeu_actif: true, jeu_niveau: 14, jeu_titre: null, deleted_at: null },
+      { id: 'u-lea', username: 'lea', compte_prive: true, jeu_actif: false, jeu_niveau: 9, jeu_titre: null, deleted_at: null },
+      { id: 'u-alexis', username: 'alexis', compte_prive: true, jeu_actif: true, jeu_niveau: 8, jeu_titre: null, deleted_at: null });
+    ['m1', 'm2', 'm3', 'm4', 'm5'].forEach((p) => S.profils.push({ id: 'u-' + p, username: p, compte_prive: true, jeu_actif: true, deleted_at: null }));
+    const ab = (a, b) => S.abonnements.push({ suiveur: a, suivi: b, statut: 'accepte', cree_le: iso(new Date(tG)), accepte_le: iso(new Date(tG)) });
+    ab('u-banc', 'u-jordan'); ab('u-jordan', 'u-banc'); ab('u-banc', 'u-lea'); ab('u-lea', 'u-banc'); ab('u-alexis', 'u-jordan');
+    ['m1', 'm2', 'm3', 'm4', 'm5'].forEach((p) => { ab('u-jordan', 'u-' + p); ab('u-' + p, 'u-jordan'); });
+    // La séance de jordan, en cours depuis 30 min : deux séries de travail et une chauffe AVANT mon arrivée, un record.
+    const SJ = 'a0000000-0000-4000-9100-0000000000b1';
+    S.sessions.push({ id: SJ, user_id: 'u-jordan', titre: 'Jambes', debut: iso(ilYa(30 * 60000, tG)), statut: 'en_cours', visibilite: 'mutuels',
+      note: 'note privée', poids_corps_kg: 89 });
+    S.sets.push(
+      { id: 'gj-0', session_id: SJ, user_id: 'u-jordan', exercise_slug: 'squat-barre', rang: 0, charge_kg: 60, reps: 5, type_serie: 'echauffement',
+        validee_a: iso(ilYa(25 * 60000, tG)) },
+      { id: 'gj-1', session_id: SJ, user_id: 'u-jordan', exercise_slug: 'squat-barre', rang: 1, charge_kg: 180, reps: 3, type_serie: 'travail',
+        validee_a: iso(ilYa(20 * 60000, tG)), rpe: 9, note: 'dur', ressenti: 'dur', douleur: 'non', poids_corps_kg: 89 },
+      { id: 'gj-2', session_id: SJ, user_id: 'u-jordan', exercise_slug: 'squat-barre', rang: 2, charge_kg: 170, reps: 4, type_serie: 'travail',
+        validee_a: iso(ilYa(60000, tG)) });
+    S.records.push({ set_id: 'gj-1', session_id: SJ, battu_le: iso(ilYa(20 * 60000, tG)), exercise_slug: 'squat-barre', type: 'charge_a_reps', valeur: 180, reps: 3 });
+    const G = fauxSocial.rpc('u-jordan', 'groupe_creer', { p_session: SJ, p_exercices: ['squat-barre', 'dc-barre'] });
+    fauxSocial.rpc('u-jordan', 'groupe_inviter', { p_user: 'u-banc' });
+    const enCours = () => (sessions().filter((x) => x.statut === 'en_cours' && x.user_id !== 'u-jordan')[0] || {}).id;
+    const attendreQue = async (cond, ms) => {
+      for (let t = 0; t < (ms || 8000); t += 200) { if (await cond()) return true; await attendre(200); }
+      return false;
+    };
+    const largeurs = [];
+    const mesurer = async (ecran) => {
+      const l = await page.evaluate(() => ({ doc: document.documentElement.scrollWidth, fen: window.innerWidth }));
+      largeurs.push({ ecran, doc: l.doc, fen: l.fen });
+    };
+    const carte = () => page.evaluate(() => {
+      const r = document.getElementById('groupe-seance');
+      if (!r || r.hidden) return null;
+      const t = (s) => { const n = r.querySelector(s); return n ? n.textContent : null; };
+      const c = r.querySelector('#groupe-direct');
+      return { texte: r.textContent, titre: t('.g-titre'), hauteur: c ? Math.round(c.getBoundingClientRect().height) : null,
+        pastilles: Array.from(r.querySelectorAll('.g-p')).map((p) => p.getAttribute('data-pseudo') + (p.classList.contains('g-actif') ? '+' : '')),
+        lignes: Array.from(r.querySelectorAll('.g-l')).map((x) => x.textContent), tout: t('#groupe-tout-voir'), msg: (r.querySelector('.g-msg') && r.querySelector('.g-msg').textContent.trim()) || null,
+        proposition: t('.g-proposition span'), inviter: !!r.querySelector('#groupe-inviter'), lancer: !!r.querySelector('#groupe-lancer'),
+        message: t('.g-message'), invitations: Array.from(r.querySelectorAll('.g-invitation')).map((x) => x.getAttribute('data-invitant')) };
+    });
+    const relire = async (cond) => { await page.click('.onglet[data-vue="saisie"]'); return attendreQue(cond); };
+
+    // ── A. L'INVITATION, PUIS « SUIVRE LA SÉANCE DE JORDAN » : sa LISTE, mes charges.
+    let ta = Date.now();
+    await aller('/saisie');
+    await attendreQue(async () => (await compter('#groupe-accueil-saisie .g-invitation')) === 1);
+    const a0 = await texte('#groupe-accueil-saisie');
+    await page.click('#groupe-accueil-saisie .g-voir-invitation');
+    await attendreQue(async () => (await compter('#groupe-corps .g-option')) > 0);
+    const choix = await page.evaluate(() => Array.from(document.querySelectorAll('#groupe-corps .g-option')).map((b) => b.getAttribute('data-choix')));
+    const a1 = await texte('#groupe-corps');
+    await mesurer('rejoindre');
+    await page.click('#groupe-corps .g-option[data-choix="suivre"]');
+    await attendreQue(async () => !!fauxSocial.groupeDe('u-banc') && (await carte()) && (await carte()).titre === 'Groupe · 2', 12000);
+    const maSeance = enCours();
+    const exosMiens = await page.evaluate(() => Array.from(document.querySelectorAll('#blocs-seance .bloc-seance')).length);
+    const membreMoi = S.gmembres.filter((m) => m.user_id === 'u-banc')[0];
+    ok('[groupe] l’invitation de jordan s’affiche (« jordan t’invite à t’entraîner ensemble ») ; quatre choix : suivre sa séance, une routine, ' +
+      'séance vide, « Pas maintenant »',
+      /jordan/.test(a0) && /t’invite à t’entraîner ensemble/.test(a0) && JSON.stringify(choix) === JSON.stringify(['suivre', 'routine', 'vide']) &&
+        /Pas maintenant/.test(a1) && /Mêmes exercices · tes charges, proposées par ton coach/.test(a1), JSON.stringify([a0, choix, a1]));
+    ok('[groupe] DISCRIMINANT — « Suivre la séance de jordan » : MA séance, avec SA liste d’exercices (squat, couché), et je suis membre avec ' +
+      'MON identifiant de séance — aucune donnée de séance mélangée',
+      !!maSeance && maSeance !== SJ && exosMiens === 2 && !!membreMoi && membreMoi.session_id === maSeance &&
+        JSON.stringify(membreMoi.exercices) === JSON.stringify(['squat-barre', 'dc-barre']) &&
+        !base.sets.some((t) => t.session_id === maSeance && t.validee_a), JSON.stringify([maSeance, exosMiens, membreMoi]));
+    console.log('  durée A : ' + Math.round((Date.now() - ta) / 1000) + ' s');
+
+    // ── B. LE DIRECT : pastilles (point vert < 3 min), les 2 dernières séries, « Tout voir », hauteur fixe.
+    ta = Date.now();
+    const b0 = await carte();
+    ok('[groupe] le direct : « Groupe · 2 », une pastille par membre — jordan au point vert (série il y a 1 min) — et sa dernière série ' +
+      '(« jordan · Squat (Barre) 170 kg × 4 ») ; jamais sa note, son RPE ni son poids',
+      b0.titre === 'Groupe · 2' && JSON.stringify(b0.pastilles) === JSON.stringify(['jordan+', 'banc']) &&
+        /^jordan · Squat \(Barre\) 170 kg × 4 · il y a 1 min$/.test(b0.lignes[0]) && b0.lignes.length === 2 && b0.tout === 'Tout voir (3)' &&
+        !/dur|89|note privée|RPE/.test(b0.texte), JSON.stringify(b0));
+    S.sets.push({ id: 'gj-3', session_id: SJ, user_id: 'u-jordan', exercise_slug: 'dc-barre', rang: 3, charge_kg: 100, reps: 6, type_serie: 'travail',
+      validee_a: iso(new Date()) });
+    // lea rejoint par jordan ? Non : lea n'est pas sa mutuelle — c'est moi qui l'invite (mutuelle à moi).
+    fauxSocial.rpc('u-banc', 'groupe_inviter', { p_user: 'u-lea' });
+    const SL = 'a0000000-0000-4000-9100-0000000000c1';
+    S.sessions.push({ id: SL, user_id: 'u-lea', titre: 'Fessiers', debut: iso(ilYa(10 * 60000)), statut: 'en_cours', visibilite: 'mutuels' });
+    fauxSocial.rpc('u-lea', 'groupe_repondre', { p_groupe: G, p_rejoindre: true, p_session: SL, p_exercices: ['squat-barre'] });
+    await relire(async () => { const c = await carte(); return c && c.titre === 'Groupe · 3' && c.lignes.length === 2; });
+    const b1 = await carte();
+    await mesurer('séance en groupe');
+    ok('[groupe] DISCRIMINANT — la carte garde sa HAUTEUR de 2 à 3 membres ; 2 lignes seulement (les plus récentes), « Tout voir (4) » pour le reste',
+      b1.titre === 'Groupe · 3' && b1.hauteur === b0.hauteur && b1.lignes.length === 2 && /Développé Couché/.test(b1.lignes[0]) &&
+        b1.tout === 'Tout voir (4)' && b1.pastilles.length === 3, JSON.stringify([b0.hauteur, b1]));
+    await page.click('#groupe-tout-voir');
+    await attendreQue(async () => (await carte()).lignes.length === 4);
+    ok('[groupe] « Tout voir » ouvre les quatre séries (chauffe comprise) ; « Réduire » referme', (await carte()).lignes.length === 4 && (await carte()).tout === 'Réduire',
+      JSON.stringify(await carte()));
+    await page.click('#groupe-tout-voir');
+    // MUTATION (a) — un abonné de jordan, hors du groupe.
+    const directAlexis = fauxSocial.rpc('u-alexis', 'groupe_direct');
+    ok('[groupe] MUTATION (a) — le direct est RÉSERVÉ AUX MEMBRES : alexis, abonné de jordan, n’en voit rien (ni direct, ni messages, ni état)',
+      fauxSocial.suit('u-alexis', 'u-jordan') && Array.isArray(directAlexis) && directAlexis.length === 0 &&
+        fauxSocial.rpc('u-alexis', 'groupe_messages_lire').length === 0 && fauxSocial.rpc('u-alexis', 'groupe_etat').length === 0,
+      JSON.stringify(directAlexis));
+    console.log('  durée B : ' + Math.round((Date.now() - ta) / 1000) + ' s');
+
+    // ── C. JORDAN AJOUTE UN EXERCICE : « jordan a ajouté … · Ajouter ? » — la structure de lui, la charge de mon coach.
+    ta = Date.now();
+    fauxSocial.rpc('u-jordan', 'groupe_publier', { p_exercices: ['squat-barre', 'dc-barre', 'curl'], p_xp: null });
+    await relire(async () => /a ajouté/.test((await carte()).proposition || ''));
+    const c0 = await carte();
+    await page.click('#groupe-ajouter');
+    await attendreQue(async () => (await page.evaluate(() => document.querySelectorAll('#blocs-seance .bloc-seance').length)) === 3);
+    const apres = await page.evaluate(() => document.querySelectorAll('#blocs-seance .bloc-seance').length);
+    await relire(async () => S.gmembres.filter((m) => m.user_id === 'u-banc')[0].exercices.length === 3);
+    ok('[groupe] DISCRIMINANT — « jordan a ajouté Curl Biceps Haltères · Ajouter ? » ; « Ajouter » le pose dans MA séance (3 exercices), ' +
+      'proposé une fois ; ma liste publiée suit',
+      /^jordan a ajouté Curl/.test(c0.proposition) && apres === 3 && !(await carte()).proposition &&
+        JSON.stringify(S.gmembres.filter((m) => m.user_id === 'u-banc')[0].exercices) === JSON.stringify(['squat-barre', 'dc-barre', 'curl']),
+      JSON.stringify([c0.proposition, apres]));
+    console.log('  durée C : ' + Math.round((Date.now() - ta) / 1000) + ' s');
+
+    // ── D. LES MESSAGES : rapides, émojis, texte libre ≤ 140, Muet ; HORS RÉSEAU, ils attendent.
+    ta = Date.now();
+    await page.click('#groupe-seance .g-rapide[data-texte="Je commence"]');
+    await attendreQue(async () => S.gmessages.some((m) => m.texte === 'Je commence'));
+    fauxSocial.rpc('u-jordan', 'groupe_envoyer', { p_texte: 'Dernière série !' });
+    await relire(async () => /jordan : « Dernière série ! »/.test((await carte()).msg || ''));
+    const d0 = await carte();
+    await page.click('#groupe-muet');
+    await attendreQue(async () => !(await carte()).msg);
+    const d1 = await carte();
+    await page.click('#groupe-muet');
+    await page.click('#groupe-ecrire');
+    await page.fill('#groupe-texte', 'x'.repeat(200));
+    const longueur = await page.evaluate(() => document.getElementById('groupe-texte').value.length);
+    await page.fill('#groupe-texte', 'Je finis le couché');
+    await page.click('#groupe-envoyer');
+    await attendreQue(async () => S.gmessages.some((m) => m.texte === 'Je finis le couché'));
+    ok('[groupe] les messages : « Je commence » part ; celui de jordan s’affiche en une ligne discrète (« 💬 jordan : « Dernière série ! » ») ; ' +
+      '« Muet » la cache ; le texte libre est borné à 140 caractères et part',
+      S.gmessages.some((m) => m.texte === 'Je commence' && m.user_id === 'u-banc') && /💬 jordan : « Dernière série ! »/.test(d0.msg) &&
+        !d1.msg && longueur === 140 && S.gmessages.some((m) => m.texte === 'Je finis le couché'),
+      JSON.stringify([d0.msg, d1.msg, longueur, S.gmessages]));
+    // HORS RÉSEAU : la séance continue, le message attend.
+    base.reseau = false;
+    const avantHL = await compter('.ligne-serie.faite, .serie.faite');
+    await page.click('#groupe-seance .g-rapide[data-texte="🔥"]');
+    await attendreQue(async () => /partira au retour du réseau/.test((await carte()).texte));
+    const e0 = await carte();
+    await page.evaluate(() => { const b = document.querySelector('.ligne-serie .ok-serie'); if (b) b.click(); });
+    await attendre(1200);
+    const apresHL = await compter('.ligne-serie.faite, .serie.faite');
+    const vivante = await page.evaluate(() => !document.getElementById('vue-seance').hidden);
+    base.reseau = true;
+    await relire(async () => S.gmessages.some((m) => m.texte === '🔥' && m.user_id === 'u-banc') && !/partira/.test((await carte()).texte), 12000);
+    ok('[groupe] DISCRIMINANT — HORS RÉSEAU, la séance continue (une série se valide) et le message attend (« 1 message partira au retour du réseau. ») ; ' +
+      'au retour du réseau, il part',
+      /1 message partira au retour du réseau/.test(e0.texte) && apresHL > avantHL && vivante &&
+        S.gmessages.some((m) => m.texte === '🔥' && m.user_id === 'u-banc'), JSON.stringify([e0.texte, avantHL, apresHL, vivante]));
+    console.log('  durée D : ' + Math.round((Date.now() - ta) / 1000) + ' s');
+
+    // ── E. 6 AU PLUS (MUTATION b) : m1..m4 entrent par jordan ; m5, invité avant, est refusé ; « Inviter » disparaît.
+    ta = Date.now();
+    fauxSocial.rpc('u-jordan', 'groupe_inviter', { p_user: 'u-m5' });
+    ['m1', 'm2', 'm3'].forEach((p) => {
+      fauxSocial.rpc('u-jordan', 'groupe_inviter', { p_user: 'u-' + p });
+      fauxSocial.rpc('u-' + p, 'groupe_repondre', { p_groupe: G, p_rejoindre: true, p_session: 'gs-' + p, p_exercices: [] });
+    });
+    const refus7 = fauxSocial.rpc('u-m5', 'groupe_repondre', { p_groupe: G, p_rejoindre: true, p_session: 'gs-m5', p_exercices: [] });
+    await relire(async () => (await carte()).titre === 'Groupe · 6');
+    const e1 = await carte();
+    ok('[groupe] MUTATION (b) — 6 AU PLUS : à six, m5 (invité avant) est refusé par la base (groupe_plein) ; la carte garde sa hauteur ; « Inviter » disparaît',
+      e1.titre === 'Groupe · 6' && /groupe_plein/.test(refus7 && refus7.message) && fauxSocial.rpc('u-banc', 'groupe_moi')[0].membres === 6 &&
+        !e1.inviter && e1.hauteur === b0.hauteur && e1.pastilles.length === 6, JSON.stringify([e1, refus7]));
+    // m5 aussi, s'il a pu entrer (une mutation) : la suite de la section joue quand même.
+    ['m1', 'm2', 'm3', 'm5'].forEach((p) => fauxSocial.rpc('u-' + p, 'groupe_quitter'));
+    console.log('  durée E : ' + Math.round((Date.now() - ta) / 1000) + ' s');
+
+    // ── F. LA FIN : MON récap d'abord ; jordan s'entraîne encore ; puis le récap du « combat ».
+    ta = Date.now();
+    S.sessions.filter((s) => s.id === SL)[0].statut = 'terminee';
+    await validerToutes();
+    await garderRecap(true);
+    await terminer();
+    await attendreQue(async () => page.evaluate(() => !document.getElementById('vue-recap').hidden));
+    const recapSeance = await page.evaluate(() => !document.getElementById('vue-recap').hidden);
+    await page.click('#recap-corps .recap-fermer');
+    await garderRecap(false);
+    await attendreQue(async () => /s’entraîne encore/.test(await texte('#groupe-accueil')));
+    const f0 = await texte('#groupe-accueil');
+    const vueApres = await page.evaluate(() => !document.getElementById('vue-groupe').hidden);
+    // jordan termine, avec son XP.
+    S.sessions.filter((s) => s.id === SJ)[0].statut = 'terminee';
+    fauxSocial.rpc('u-jordan', 'groupe_publier', { p_exercices: null, p_xp: 300 });
+    // lea publie une XP, mais son jeu est éteint : elle ne compte pas (la base la tait).
+    fauxSocial.rpc('u-lea', 'groupe_publier', { p_exercices: null, p_xp: 50 });
+    await aller('/');
+    await attendreQue(async () => (await compter('#groupe-accueil .g-voir-recap')) === 1);
+    await page.click('#groupe-accueil .g-voir-recap');
+    await attendreQue(async () => (await compter('#groupe-corps .g-part')) === 3);
+    const lireRecap = () => page.evaluate(() => {
+      const r = document.getElementById('groupe-corps');
+      const t = (s) => { const n = r.querySelector(s); return n ? n.textContent : null; };
+      return { texte: r.textContent, titre: t('.g-ensemble b'), qui: t('.g-ensemble small'), tonnes: t('.g-tonnes strong'),
+        series: t('.g-series strong'), records: t('.g-records strong'), xp: t('.g-xp'),
+        parts: Array.from(r.querySelectorAll('.g-part')).map((x) => x.querySelector('b').textContent + ' : ' + x.querySelector('small').textContent) };
+    });
+    const f1 = await lireRecap();
+    await mesurer('récap du groupe');
+    const moiG = fauxSocial.rpc('u-banc', 'groupe_recap').filter((x) => x.moi)[0];
+    const mien = S.gmembres.filter((m) => m.user_id === 'u-banc')[0];
+    ok('[groupe] DISCRIMINANT — MON récap d’abord ; puis « Groupe · jordan s’entraîne encore » tant qu’il est en séance (vivante) — rien ne s’ouvre',
+      recapSeance && /jordan s’entraîne encore/.test(f0) && !vueApres, JSON.stringify([recapSeance, f0, vueApres]));
+    ok('[groupe] MUTATION (c) — le récap du « combat » compte TOUT ce que jordan a fait, même AVANT que je rejoigne : 180×3 + 170×4 + 100×6 = 1 820 kg, ' +
+      '3 séries, 1 record (la chauffe ne compte pas)',
+      f1.parts.some((x) => /^jordan : 1,8\s?t · 3 séries · 1 record$/.test(x)), JSON.stringify(f1.parts));
+    ok('[groupe] le récap du « combat » : « Ensemble · … », nous trois dans l’ordre d’arrivée, le score collectif, la part de chacun en faits — ' +
+      'ni classement, ni vainqueur, ni couronne ; l’XP cumulée (jeu allumé), sans celle de lea (jeu éteint)',
+      /^Ensemble · /.test(f1.titre) && f1.qui === 'jordan · banc · lea' && Number(f1.series) === 3 + moiG.series &&
+        Number(f1.records) >= 1 && f1.xp === '+' + (300 + (mien.xp || 0)) + ' XP ensemble' && mien.xp !== null &&
+        !/vainqueur|gagnant|👑|1er|classement/i.test(f1.texte) && /Ta séance garde « Faite en groupe avec jordan, lea » et ce récap\./.test(f1.texte),
+      JSON.stringify([f1, moiG, mien]));
+    await page.click('#groupe-fermer');
+    await attendreQue(async () => !fauxSocial.groupeDe('u-banc'));
+    const fige = S.grecaps.filter((r) => r.user_id === 'u-banc')[0];
+    const messagesAvant = S.gmessages.length;
+    fauxSocial.rpc('u-lea', 'groupe_fermer');
+    fauxSocial.rpc('u-jordan', 'groupe_fermer');
+    ok('[groupe] « Fermer » fige MON récap (lisible depuis ma séance) ; quand tous ont fermé, le groupe s’éteint et ses messages sont effacés',
+      !!fige && fige.session_id === maSeance && messagesAvant > 0 && S.groupes.length === 0 && S.gmessages.length === 0 &&
+        S.ginvitations.length === 0, JSON.stringify([fige, messagesAvant, S.groupes, S.gmessages.length]));
+    console.log('  durée F : ' + Math.round((Date.now() - ta) / 1000) + ' s');
+
+    // ── G. LE DÉTAIL DE MA SÉANCE : « Faite en groupe avec jordan, lea », et le récap figé.
+    ta = Date.now();
+    await aller('/seance/' + maSeance);
+    await attendreQue(async () => (await compter('#detail-groupe-voir')) === 1);
+    const g0 = await texte('#detail-groupe');
+    await page.click('#detail-groupe-voir');
+    await attendreQue(async () => (await compter('#groupe-corps .g-part')) === 3);
+    const g1 = await lireRecap();
+    await page.click('#btn-retour-groupe');
+    await attendreQue(async () => page.evaluate(() => !document.getElementById('vue-detail').hidden));
+    ok('[groupe] la séance garde « Faite en groupe avec jordan, lea » ; le récap figé se rouvre depuis son détail (sans « Fermer »), et revient au détail',
+      g0 === 'Faite en groupe avec jordan, lea' && g1.parts.length === 3 && !/Fermer/.test(g1.texte) &&
+        (await page.evaluate(() => !document.getElementById('vue-detail').hidden)), JSON.stringify([g0, g1]));
+    console.log('  durée G : ' + Math.round((Date.now() - ta) / 1000) + ' s');
+
+    ok('[groupe] DISCRIMINANT — aucune réponse ne porte poids de corps, note, RPE, ressenti ou douleur',
+      S.fuites.length === 0 && S.sets.some((t) => t.rpe && t.poids_corps_kg), JSON.stringify(S.fuites));
+    ok('[groupe] à 360 px, aucun défilement horizontal : rejoindre, séance en groupe, récap du groupe',
+      largeurs.length === 3 && largeurs.every((l) => l.fen === 360 && l.doc <= l.fen), JSON.stringify(largeurs));
+
+    // ── LA REMISE EN ÉTAT.
+    ['profils', 'sessions', 'sets', 'records', 'abonnements', 'blocages', 'reactions', 'groupes', 'gmembres', 'ginvitations', 'gmessages',
+      'grecaps'].forEach((k) => { S[k] = []; });
+    for (let k = base.sets.length - 1; k >= 0; k--) if (base.sets[k].session_id === maSeance) base.sets.splice(k, 1);
+    for (let k = base.sessions.length - 1; k >= 0; k--) if (base.sessions[k].id === maSeance) base.sessions.splice(k, 1);
+    const refusAttendus = ['groupe_plein'];
+    const refusVus = S.journal.filter((j) => j.op === 'refus').map((j) => j.message);
+    await aller('/saisie');
+    ok('[groupe] seul le refus voulu (le 7e membre) ; la garde de l’app n’a rien signalé, aucune erreur de page',
+      gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant && refusVus.length === 1 &&
+        refusAttendus.every((r, i) => new RegExp(r).test(refusVus[i])),
+      JSON.stringify([refusVus, erreurs.slice(erreursAvant), base.journal.filter((j) => j.op === 'refus').slice(refusAvant)]));
+    S.journal = [];
+    console.log('  durée section groupe : ' + Math.round((Date.now() - t0) / 1000) + ' s');
+  }
+
   console.log('\n══ relecture. « LE COACH RELIT TA SEMAINE » : LA RANGÉE, LA VUE, « NON MERCI », « RETIRER CES SÉRIES », « EN FAIRE MA PRIORITÉ » (66B, QUESTIONNAIRE §5 ter.4 bis) ══');
   //
   // Sur l'app réelle, un dossier « Relecture U66 » de deux routines ; un profil EN SÈCHE, homme, objectif Force,

@@ -1118,6 +1118,9 @@
     Rendu.rendreJours($('liste-seances'), Semaine.joursAvecSeances(sem.jours), function (s) {
       return Modele.resumerSeance(s, seriesDe(s.id), local.exercices, Palier, etatsExercices);
     }, afficherDetail, ouvrirMenuSeance);
+    // 91 — mes invitations à un groupe, et le groupe qui finit.
+    dessinerGroupeAccueil();
+    rafraichirGroupe();
   }
 
   // ── Progression : le sommaire (§7 bis.14) ────────────────────────────────
@@ -1996,6 +1999,432 @@
     return v;
   }
 
+  // ══ LE GROUPE DE SÉANCE (91, SOCIAL-V1 « Groupe », maquettes `maquette-social-groupe-v1.html` et
+  // `maquette-groupe-direct-interactive.html`) ══════════════════════════════════════════════════════════════════
+  //
+  // Éphémère, le temps d'une séance (comme dans Dofus), à distance ou à la salle. Tout passe par les fonctions de la
+  // base (v2_082), qui gardent les règles : 6 membres, abonnés mutuels seulement, un groupe à la fois, jamais deux
+  // personnes qui se bloquent, messages ≤ 140 caractères réservés aux membres. CHACUN GARDE SA SÉANCE : le groupe ne
+  // porte que l'identifiant de ma séance, la liste de mes exercices et mon XP. La routine (ou l'utilisateur) décide de
+  // la structure, le moteur décide de la charge : « Suivre la séance de X » copie SA LISTE d'exercices, jamais ses
+  // charges ; le plan de séance n'est jamais modifié par le groupe, et le coach et les bilans n'en lisent rien.
+  //
+  // ⚠️ LE DIRECT EST UNE DÉCORATION, JAMAIS UNE DÉPENDANCE : il se relit environ toutes les 20 s par une lecture (pas
+  // de temps réel) ; une lecture qui échoue ne dit rien et ne bloque rien — la séance continue normalement. Les
+  // messages tapés hors réseau attendent en mémoire et partent au retour du réseau.
+  var grp = { moi: null, etat: [], direct: [], messages: [], invitations: [], envoyees: [], lu: 0, enCours: false,
+              muet: false, ouvert: false, ecrire: false, file: [], message: null, publie: null, vue: null,
+              aRejoindre: null, recapAuto: false };
+  var gardeGroupe = null;
+
+  function messageGroupe(e) {
+    var m = String((e && (e.message || e.details)) || '');
+    if (/groupe_plein/.test(m)) return 'Le groupe est complet : 6 personnes.';
+    if (/groupe_invite_non_mutuel/.test(m)) return 'On n’invite qu’un abonné mutuel.';
+    if (/groupe_bloque/.test(m)) return 'Ce groupe n’est pas possible.';
+    if (/groupe_deja_dans_un|groupe_membres_un_a_la_fois/.test(m)) return 'Tu es déjà dans un groupe.';
+    if (/groupe_eteint|groupe_sans_invitation/.test(m)) return 'Ce groupe est terminé.';
+    if (/groupe_messages_texte/.test(m)) return 'Un message fait de 1 à 140 caractères.';
+    return erreurSociale(e);
+  }
+  // Mes exercices, dans l'ordre de ma séance (une fois chacun) : ce que voit qui « suit » ma séance.
+  function exercicesDe(s) {
+    var out = [];
+    ((s && s.exercices) || []).forEach(function (e) { if (e && e.exercise_slug && out.indexOf(e.exercise_slug) < 0) out.push(e.exercise_slug); });
+    return out;
+  }
+  function nomDuCatalogue(slug) {
+    var e = Modele.indexerExercices(local.exercices)[slug];
+    return e ? e.nom : slug;
+  }
+  // Ma dernière série validée, lue sur l'appareil (la base peut l'attendre).
+  function maDerniereSerie() {
+    var t = null;
+    if (seance) Seance.toutesLesSeries(seance).forEach(function (x) { if (x.serie.validee_a && (!t || x.serie.validee_a > t)) t = x.serie.validee_a; });
+    return t;
+  }
+
+  // UNE LECTURE : mon groupe, l'état des séances, le direct, les messages — ou, sans groupe, mes invitations. Une lecture
+  // à la fois ; un échec ne dit rien (le direct est une décoration).
+  async function chargerGroupe() {
+    if (!userId() || grp.enCours) return;
+    grp.enCours = true;
+    try {
+      await envoyerFileGroupe();
+      var moi = await Donnees.groupeMoi();
+      grp.moi = moi;
+      if (moi) {
+        await publierMesExercices();
+        var r = await Promise.all([Donnees.groupeEtat(), Donnees.groupeDirect(), Donnees.groupeMessages()]);
+        grp.etat = r[0]; grp.direct = r[1]; grp.messages = r[2]; grp.invitations = [];
+      } else {
+        grp.etat = []; grp.direct = []; grp.messages = []; grp.envoyees = [];
+        grp.invitations = await Donnees.groupeInvitationsRecues();
+      }
+      grp.lu = Date.now();
+    } catch (e) {
+      console.warn('Le groupe attend le réseau :', texteErreur(e));
+    } finally {
+      grp.enCours = false;
+    }
+    redessinerGroupe();
+  }
+  // La boucle : environ toutes les 20 s, seulement en séance ou dans un groupe, et app visible.
+  function tickGroupe() {
+    if (!userId() || !(seance || grp.moi)) return;
+    if (doc.visibilityState === 'hidden') return;
+    chargerGroupe();
+  }
+  // Une lecture à l'ouverture d'un écran qui montre le groupe (au plus une toutes les 20 s).
+  function rafraichirGroupe() {
+    if (!userId()) return;
+    if (Date.now() - grp.lu < Social.RAFRAICHIR_GROUPE_MS && grp.lu) return redessinerGroupe();
+    chargerGroupe();
+  }
+  function redessinerGroupe() {
+    if (ecranCourant === 'seance') dessinerGroupeSeance();
+    if (ecranCourant === 'liste' || ecranCourant === 'saisie') dessinerGroupeAccueil();
+  }
+
+  // Ma liste d'exercices suit ma séance (pour qui « suit » ma séance) — seulement si elle a changé.
+  async function publierMesExercices() {
+    if (!grp.moi || !seance || enEdition()) return;
+    var l = exercicesDe(seance), cle = l.join(',');
+    if (cle === grp.publie) return;
+    await Donnees.groupePublier(l, null);
+    grp.publie = cle;
+  }
+  // Les messages partent dans l'ordre ; hors réseau, ils attendent (et partent au retour du réseau).
+  async function envoyerFileGroupe() {
+    while (grp.file.length) {
+      await Donnees.groupeEnvoyer(grp.file[0]);
+      grp.file.shift();
+    }
+  }
+  function envoyerMessageGroupe(texte) {
+    var t = Social.messageValide(texte);
+    if (!t) { grp.message = 'Un message fait de 1 à 140 caractères.'; return dessinerGroupeSeance(); }
+    grp.file.push(t);
+    grp.ecrire = false; grp.message = null;
+    dessinerGroupeSeance();
+    envoyerFileGroupe().then(function () {
+      return Donnees.groupeMessages().then(function (m) { grp.messages = m; });
+    }).catch(function (e) {
+      // Un refus de la base (pas membre, texte refusé) se dit ; le réseau absent, le message attend.
+      if (e && /groupe_/.test(String(e.message || ''))) { grp.file.shift(); grp.message = messageGroupe(e); }
+    }).then(dessinerGroupeSeance);
+  }
+
+  // « 💬 jordan : « Dernière série ! » · 🔥 lea » — les deux derniers messages.
+  function texteDesMessages() {
+    var emoji = function (t) { return Social.EMOJIS_GROUPE.indexOf(t) >= 0; };
+    var l = (grp.messages || []).slice(-2).map(function (m) {
+      var qui = m.moi ? 'toi' : m.pseudo;
+      return emoji(m.texte) ? m.texte + ' ' + qui : '💬 ' + qui + ' : « ' + m.texte + ' »';
+    });
+    return l.length ? l.join(' · ') : null;
+  }
+
+  function dessinerGroupeSeance() {
+    var cible = $('groupe-seance');
+    if (!cible || ecranCourant !== 'seance') return;
+    if (!seance || enEdition() || !userId()) return Rendu.rendreGroupeSeance(cible, null);
+    Rendu.rendreGroupeSeance(cible, vueDuGroupeSeance());
+  }
+  function vueDuGroupeSeance() {
+    var v = { message: grp.message };
+    if (!grp.moi) {
+      v.invitations = (grp.invitations || []).map(function (i) {
+        return { invitant: i.invitant, surVoir: function () { ouvrirRejoindre(i); } };
+      });
+      v.surLancer = function () { ouvrirInviter(); };
+      return v;
+    }
+    var maintenant = new Date().toISOString();
+    var lignes = Social.lignesDuDirect(grp.direct, maintenant, nomDuCatalogue, Modele.formatMesure);
+    var n = grp.etat.length || grp.moi.membres || 1;
+    var g = {
+      titre: 'Groupe · ' + n,
+      muet: grp.muet, ouvert: grp.ouvert,
+      surMuet: function () { grp.muet = !grp.muet; dessinerGroupeSeance(); },
+      surInviter: n < Social.GROUPE_MAX ? function () { ouvrirInviter(); } : null,
+      pastilles: Social.pastillesDuGroupe(grp.etat, maintenant, maDerniereSerie()),
+      lignes: grp.ouvert ? lignes : lignes.slice(0, Social.LIGNES_DU_DIRECT),
+      toutVoir: grp.ouvert ? { texte: 'Réduire', sur: function () { grp.ouvert = false; dessinerGroupeSeance(); } }
+        : lignes.length > Social.LIGNES_DU_DIRECT ? { texte: 'Tout voir (' + lignes.length + ')', sur: function () { grp.ouvert = true; dessinerGroupeSeance(); } }
+        : null,
+      messages: texteDesMessages(),
+      enAttente: grp.file.length ? (grp.file.length > 1 ? grp.file.length + ' messages partiront' : '1 message partira') + ' au retour du réseau.' : null,
+      rapides: Social.MESSAGES_RAPIDES.concat(Social.EMOJIS_GROUPE).map(function (t) {
+        return { texte: t, sur: function () { envoyerMessageGroupe(t); } };
+      }),
+      max: Social.MESSAGE_MAX,
+      surEcrire: function () { grp.ecrire = true; dessinerGroupeSeance(); var c = $('groupe-texte'); if (c) c.focus(); },
+      ecrire: grp.ecrire ? { surEnvoyer: envoyerMessageGroupe, surAnnuler: function () { grp.ecrire = false; dessinerGroupeSeance(); } } : null
+    };
+    // « Suivre la séance de X » : un exercice qu'il a ajouté depuis, proposé UNE fois (« Ajouter ? »).
+    var suivi = seance.groupe && seance.groupe.suivi;
+    if (suivi) {
+      var lui = grp.etat.filter(function (m) { return m.pseudo === suivi.pseudo; })[0];
+      var nouveaux = lui ? Social.exercicesAjoutes(suivi.copie, lui.exercices, (suivi.vus || []).concat(exercicesDe(seance))) : [];
+      if (nouveaux.length) {
+        var slug = nouveaux[0];
+        g.proposition = { texte: suivi.pseudo + ' a ajouté ' + nomDuCatalogue(slug) + ' · Ajouter ?',
+          surAjouter: function () { marquerVu(slug).then(function () { return ajouterExerciceDuGroupe(slug); }); },
+          surNon: function () { marquerVu(slug).then(dessinerGroupeSeance); } };
+      }
+    }
+    v.groupe = g;
+    return v;
+  }
+  async function marquerVu(slug) {
+    if (!seance || !seance.groupe || !seance.groupe.suivi) return;
+    var s = seance.groupe.suivi;
+    seance = Object.assign({}, seance, { groupe: { suivi: Object.assign({}, s, { vus: (s.vus || []).concat([slug]) }) } });
+    await sauverSeance();
+  }
+  // Ajouter un exercice à MA séance par le geste du catalogue (les séries de départ, la semaine allégée, la série de
+  // plus) : la structure vient de l'autre, la charge de mon coach.
+  async function ajouterExerciceDuGroupe(slug) {
+    if (!seance) return;
+    var avant = seance.exercices;
+    seance = Seance.ajouterExercice(seance, slug, uuid, { series: seriesDeDepartPour(slug) });
+    await apresGeste({ structure: false });
+    await allegeePourAjout(avant, slug);
+    await ligneDePlusPourAjout(avant, slug);
+    publierMesExercices().catch(function () {});
+  }
+
+  // ── L'accueil : mes invitations ; le groupe qui finit ──
+  function dessinerGroupeAccueil() {
+    var id = ecranCourant === 'liste' ? 'groupe-accueil' : ecranCourant === 'saisie' ? 'groupe-accueil-saisie' : null;
+    if (!id) return;
+    if (!userId()) return Rendu.rendreGroupeAccueil($(id), null);
+    var v = { invitations: (grp.invitations || []).map(function (i) {
+      return { invitant: i.invitant, surVoir: function () { ouvrirRejoindre(i); } };
+    }) };
+    if (grp.moi && !seance) {
+      var maintenant = new Date().toISOString();
+      if (Social.groupeFini(grp.etat, maintenant)) {
+        v.fin = { titre: 'Le récap du groupe est prêt', sous: 'Tout ce que vous avez fait ensemble.', surVoir: ouvrirRecapGroupe };
+      } else {
+        var encore = Social.encoreEnSeance(grp.etat, maintenant);
+        v.fin = { titre: 'Groupe · ' + (encore.length ? encore.join(', ') + (encore.length > 1 ? ' s’entraînent encore' : ' s’entraîne encore') : 'en cours'),
+                  sous: 'Le récap du groupe s’ouvrira quand toutes les séances seront terminées.' };
+      }
+    }
+    Rendu.rendreGroupeAccueil($(id), v.invitations.length || v.fin ? v : null);
+  }
+
+  // ── La vue du groupe (plein écran, sans route) ──
+  function ouvrirVueGroupe(etat) {
+    grp.vue = etat;
+    if (!gardeGroupe) {
+      gardeGroupe = function () { return grp.vue && ecranCourant === 'groupe' ? { raison: 'groupe', afficher: fermerVueGroupe } : null; };
+      ajouterGarde(gardeGroupe);
+    }
+    montrer('groupe');
+    dessinerVueGroupe();
+  }
+  function quitterVueGroupe() {
+    grp.vue = null;
+    if (gardeGroupe) { retirerGarde(gardeGroupe); gardeGroupe = null; }
+  }
+  function fermerVueGroupe() {
+    var v = grp.vue;
+    quitterVueGroupe();
+    if (v && v.retourDetail) { allerA(Routeur.SEANCE, { id: v.retourDetail }); return rendreDetail(v.retourDetail); }
+    if (seance) { allerA(Routeur.SAISIE, {}); return rendreSeance(); }
+    allerA(Routeur.RACINE, {});
+    rendreSemaine(Semaine.bornesSemaine(new Date()).lundi);
+  }
+  function dessinerVueGroupe() {
+    if (ecranCourant !== 'groupe' || !grp.vue) return;
+    var v = grp.vue, vue = { mode: v.mode, message: v.message || null };
+    if (v.mode === 'inviter') {
+      vue.sous = seance ? (seance.titre || 'Séance') + ' · en cours' : null;
+      if (!social.liens) vue.mode = 'charge';
+      else {
+        vue.amis = Social.invitablesDuGroupe(social.liens, grp.etat, grp.envoyees).map(function (a) {
+          return { pseudo: a.pseudo, invite: a.invite, sous: a.invite ? 'invité · en attente' : null,
+                   libelle: a.invite ? 'Annuler' : 'Inviter', sur: function () { (a.invite ? annulerInvitation : inviterAuGroupe)(a.user_id); } };
+        });
+      }
+    } else if (v.mode === 'rejoindre') {
+      var i = v.invitation;
+      vue.invitant = i.invitant;
+      vue.surPasMaintenant = fermerVueGroupe;
+      if (seance) {
+        vue.choix = [{ cle: 'en-cours', titre: 'Avec ma séance en cours', sous: (seance.titre || 'Séance') + ' · tes charges, proposées par ton coach',
+                       sur: function () { rejoindreAvec(i, null); } }];
+      } else {
+        vue.choix = [];
+        if ((i.exercices || []).length) {
+          vue.choix.push({ cle: 'suivre', titre: 'Suivre la séance de ' + i.invitant, sous: 'Mêmes exercices · tes charges, proposées par ton coach',
+                           sur: function () { rejoindreAvec(i, { suivre: true }); } });
+        }
+        var mesRoutines = routines.filter(function (r) { return r && !r.archivee_a; });
+        vue.choix.push({ cle: 'routine', titre: 'Une de mes routines',
+          sous: mesRoutines.slice(0, 3).map(function (r) { return r.nom; }).join(' · ') + (mesRoutines.length > 3 ? '…' : ''),
+          sur: function () { v.routines = !v.routines; dessinerVueGroupe(); },
+          routines: v.routines ? mesRoutines.map(function (r) { return { nom: r.nom, sur: function () { rejoindreAvec(i, { routine: r }); } }; }) : null });
+        vue.choix.push({ cle: 'vide', titre: 'Séance vide', sur: function () { rejoindreAvec(i, {}); } });
+      }
+    } else if (v.mode === 'recap' || v.mode === 'fige') {
+      if (!v.lignes) vue.mode = 'charge';
+      else {
+        var r = Social.recapDuGroupe(v.lignes);
+        var d = v.le ? new Date(v.le) : null;
+        var jour = d && !isNaN(d.getTime()) ? Modele.jourNomme(Routeur.versDate(d)) : '';
+        vue.recap = {
+          titre: 'Ensemble' + (jour ? ' · ' + jour : ''),
+          qui: r.membres.map(function (m) { return m.pseudo; }).join(' · '),
+          tonnes: tonnesSociales(r.tonnage_kg), series: r.series, records: r.records,
+          xp: jeuAllume() && r.xp !== null ? '+' + Modele.nombreTexte(r.xp, 0) + ' XP ensemble' : null,
+          membres: r.membres.map(function (m) { return { pseudo: m.pseudo, part: Social.partDe(m, tonnesSociales) }; }),
+          note: v.mode === 'recap' && Social.faiteEnGroupeAvec(r.membres)
+            ? 'Ta séance garde « ' + Social.faiteEnGroupeAvec(r.membres) + ' » et ce récap.' : null
+        };
+        vue.mode = 'recap';
+        if (v.mode === 'recap') vue.surFermer = fermerRecapGroupe;
+      }
+    }
+    Rendu.rendreGroupeVue($('groupe-corps'), vue);
+  }
+
+  // LANCER : depuis ma séance en cours ; le groupe naît à la première invitation.
+  function ouvrirInviter() {
+    if (!seance) return;
+    ouvrirVueGroupe({ mode: 'inviter' });
+    var g = grp.vue;
+    Promise.all([chargerLiens(), grp.moi ? Donnees.groupeInvitationsEnvoyees() : Promise.resolve([])]).then(function (r) {
+      grp.envoyees = r[1];
+    }).catch(function (e) { g.message = messageGroupe(e); }).then(dessinerVueGroupe);
+  }
+  async function gesteGroupe(ecrire) {
+    var v = grp.vue;
+    try {
+      await ecrire();
+      if (v) v.message = null;
+      grp.envoyees = await Donnees.groupeInvitationsEnvoyees();
+    } catch (e) {
+      if (v) v.message = messageGroupe(e);
+    }
+    dessinerVueGroupe();
+  }
+  function inviterAuGroupe(user) {
+    gesteGroupe(async function () {
+      if (!seance) return;
+      if (!grp.moi) {
+        await Donnees.groupeCreer(seance.id, exercicesDe(seance));
+        grp.publie = exercicesDe(seance).join(',');
+        grp.moi = await Donnees.groupeMoi();
+        grp.etat = await Donnees.groupeEtat();
+      }
+      await Donnees.groupeInviter(user);
+    });
+  }
+  function annulerInvitation(user) { gesteGroupe(function () { return Donnees.groupeAnnulerInvitation(user); }); }
+
+  // REJOINDRE : l'invitation, puis MA séance (suivre celle de X, une routine, vide — ou celle en cours).
+  function ouvrirRejoindre(invitation) { ouvrirVueGroupe({ mode: 'rejoindre', invitation: invitation }); }
+  function rejoindreAvec(invitation, depart) {
+    if (!depart) return rejoindre(invitation).then(fermerVueGroupe);
+    quitterVueGroupe();
+    grp.aRejoindre = { invitation: invitation, suivre: !!depart.suivre };
+    demarrerSeance(depart.routine || null);
+  }
+  // Appelé quand la séance vient d'être créée (`creerSeance`) : « Suivre la séance de X » pose SES exercices dans MA
+  // séance, par le geste du catalogue, puis on rejoint.
+  async function apresCreationPourLeGroupe() {
+    var a = grp.aRejoindre;
+    grp.aRejoindre = null;
+    if (!a || !seance) return;
+    if (a.suivre) {
+      var copie = (a.invitation.exercices || []).slice();
+      seance = Object.assign({}, seance, { groupe: { suivi: { pseudo: a.invitation.invitant, copie: copie, vus: [] } } });
+      for (var k = 0; k < copie.length; k++) await ajouterExerciceDuGroupe(copie[k]);
+    }
+    await rejoindre(a.invitation);
+  }
+  async function rejoindre(invitation) {
+    if (!seance) return;
+    try {
+      await Donnees.groupeRejoindre(invitation.groupe_id, seance.id, exercicesDe(seance));
+      grp.publie = exercicesDe(seance).join(',');
+      grp.message = null;
+    } catch (e) {
+      // La séance continue, sans groupe : le refus se dit en haut de la séance.
+      grp.message = messageGroupe(e);
+    }
+    grp.lu = 0;
+    await chargerGroupe();
+  }
+
+  // LA FIN : mon XP de la séance part (nulle jeu éteint) ; mon récap d'abord, puis celui du groupe quand toutes les
+  // séances sont terminées.
+  function publierFinPourLeGroupe(finie, jeuDuRecap) {
+    if (!grp.moi) return;
+    var xp = jeuAllume() && jeuDuRecap && jeuDuRecap.apport ? Math.max(0, Math.round(Number(jeuDuRecap.apport.xp) || 0)) : null;
+    grp.recapAuto = true;
+    Donnees.groupePublier(exercicesDe(finie), xp).catch(function (e) {
+      console.warn('L’XP du groupe attend le réseau :', texteErreur(e));
+    });
+  }
+  // Après « Fermer » de mon récap : si toutes les séances du groupe sont terminées, le récap du groupe s'ouvre.
+  function apresRecapDeSeance() {
+    if (!grp.moi || !grp.recapAuto) return;
+    grp.lu = 0;
+    chargerGroupe().then(function () {
+      if (grp.moi && !seance && grp.recapAuto && ecranCourant === 'liste' && Social.groupeFini(grp.etat, new Date().toISOString())) {
+        grp.recapAuto = false;
+        ouvrirRecapGroupe();
+      }
+    });
+  }
+  function ouvrirRecapGroupe() {
+    grp.recapAuto = false;
+    ouvrirVueGroupe({ mode: 'recap' });
+    var v = grp.vue;
+    Donnees.groupeRecap().then(function (l) {
+      v.lignes = l; v.le = l.length ? l[0].le : null;
+    }).catch(function (e) { v.message = messageGroupe(e); v.lignes = []; }).then(dessinerVueGroupe);
+  }
+  // FERMER le récap du groupe : il se fige pour moi (lisible depuis ma séance) ; le dernier éteint le groupe.
+  async function fermerRecapGroupe() {
+    var v = grp.vue;
+    try {
+      await Donnees.groupeFermer();
+    } catch (e) {
+      if (v) { v.message = messageGroupe(e); dessinerVueGroupe(); }
+      return;
+    }
+    grp.moi = null; grp.etat = []; grp.direct = []; grp.messages = []; grp.envoyees = []; grp.file = []; grp.publie = null;
+    fermerVueGroupe();
+  }
+  // Une séance abandonnée sort du groupe, sans récap.
+  function quitterLeGroupeSiMembre() {
+    if (!grp.moi) return;
+    Donnees.groupeQuitter().then(function () {
+      grp.moi = null; grp.etat = []; grp.direct = []; grp.messages = []; grp.publie = null;
+    }).catch(function (e) { console.warn('Le groupe attend le réseau :', texteErreur(e)); });
+  }
+
+  // Le détail d'une séance faite en groupe : « Faite en groupe avec jordan, lea », et le récap figé.
+  function rendreGroupeDuDetail(sessionId) {
+    var cible = $('detail-groupe');
+    Rendu.rendreGroupeDuDetail(cible, null);
+    if (!sessionId || !userId()) return;
+    Donnees.groupeRecapSeance(sessionId).then(function (r) {
+      if (ecranCourant !== 'detail' || !r || !r.recap) return;
+      var texte = Social.faiteEnGroupeAvec(r.recap.membres);
+      if (!texte) return;
+      Rendu.rendreGroupeDuDetail(cible, { texte: texte, surVoir: function () {
+        ouvrirVueGroupe({ mode: 'fige', retourDetail: sessionId, lignes: r.recap.membres || [], le: r.le });
+      } });
+    }).catch(function () { /* hors ligne : rien à dire */ });
+  }
+
   // ── Trouver des amis (＋) ──
   function personneDeRecherche(x, liens) {
     var moi = userId();
@@ -2562,6 +2991,8 @@
     await ecrireReplis();
     // §14.7 (49-U17) — une série de plus en cours : la ligne en plus.
     await appliquerSerieDePlus();
+    // 91 — une séance commencée pour rejoindre un groupe : « Suivre la séance de X », puis on rejoint.
+    await apresCreationPourLeGroupe();
   }
 
   // §14.4 (49-U14) — RETIRER LES LIGNES EN TROP, une fois : à l'acceptation
@@ -3140,6 +3571,8 @@
     publierScoresForce().catch(function (err) { console.warn('Les scores de force attendent le réseau :', texteErreur(err)); });
     // 90 — mes nombres de guilde aussi, si l'on me sait membre (sinon, ils partent à l'ouverture de la guilde).
     if (social.guilde && social.guilde.g) publierScoresGuilde().catch(function (err) { console.warn('Les nombres de guilde attendent le réseau :', texteErreur(err)); });
+    // 91 — mon XP de la séance part au groupe (nulle jeu éteint) ; le récap du groupe viendra après le mien.
+    publierFinPourLeGroupe(finie, jeuDuRecap);
     seance = null; chrono = null; arreterMinuteur();
     // La barre s'efface AVEC la séance : la laisser affichée lui ferait
     // traverser la fin, et la réserve du bas la suivrait.
@@ -3176,6 +3609,8 @@
     oublierRecap();
     allerA(Routeur.RACINE, {});
     rendreSemaine(Semaine.bornesSemaine(new Date()).lundi);
+    // 91 — puis, si toutes les séances du groupe sont terminées, le récap du groupe.
+    apresRecapDeSeance();
   }
   function voirLaSeanceDuRecap() {
     var id = recap && recap.seance && recap.seance.id;
@@ -3253,6 +3688,8 @@
     await oublierConnues(id);
     await oublierConsignes();
     await poser({ table: Attente.SESSIONS, op: Attente.SUPPRIMER, id: id });
+    // 91 — une séance abandonnée sort du groupe, sans récap.
+    quitterLeGroupeSiMembre();
     rendreSaisie();
   }
 
@@ -6096,6 +6533,8 @@
     // durée repart de l'heure juste.
     mesurerBarres();
     armerDuree();
+    // 91 — le groupe de séance, une ligne en haut de la séance (lue, jamais calculée par le plan).
+    dessinerGroupeSeance();
     // MOTEUR §14.4 (49-U14) — l'escalier en tête de la séance, lu sur le plan.
     var planEsc = planActuel();
     Rendu.rendreEscalier($('escalier-seance'), {
@@ -7347,6 +7786,9 @@
     // rouverte — on retombe toujours dedans, sans rien chercher.
     if (seance) return rendreSeance();
     montrer('saisie', Routeur.SAISIE);
+    // 91 — mes invitations à un groupe de séance.
+    dessinerGroupeAccueil();
+    rafraichirGroupe();
     // 60-2a — AVANT les retours anticipés ci-dessous : « Ton questionnaire n'est
     // pas terminé » ne dépend pas du chargement des routines.
     rendreBandeauQuestionnaire();
@@ -7620,6 +8062,8 @@
   async function afficherSaisie() {
     allerA(Routeur.SAISIE, {});
     rendreSaisie();
+    // 91 — toucher l'onglet de la séance relit le groupe tout de suite (le direct, les messages en attente).
+    if (seance) chargerGroupe();
     if (etatRoutines.code === 'ok') return;   // déjà chargé : pas de requête de plus
     await chargerRoutines();
     if (vues.saisie.hidden) return;           // l'utilisateur est parti ailleurs
@@ -8717,6 +9161,8 @@
       surEnFaireUneRoutine: ligne ? function () { enFaireUneRoutine(ligne); } : null
     });
     rendreReactionsDeLaSeance(sessionId);
+    // 91 — « Faite en groupe avec … » et le récap figé.
+    rendreGroupeDuDetail(sessionId);
   }
 
   // ══ LA PAGE D'EXERCICE (§7 quater) ═══════════════════════════════════════
@@ -12228,7 +12674,8 @@
     if (cible.vue === Routeur.MUSCLES) return rendreJeuMuscles();
     if (cible.vue === Routeur.SUCCES) return rendreJeuSucces();
     if (cible.vue === Routeur.DEBLOCAGES) return rendreJeuDeblocages();
-    if (cible.vue === Routeur.SAISIE) { rendreSaisie(); return chargerSiBesoin(); }
+    // 91 — revenir sur la séance (l'onglet) relit le groupe tout de suite : le geste de quelqu'un qui veut voir le direct.
+    if (cible.vue === Routeur.SAISIE) { rendreSaisie(); if (seance) chargerGroupe(); return chargerSiBesoin(); }
     if (cible.vue === Routeur.ROUTINE) return prepererEditeur(cible.params.id || null);
     if (cible.vue === Routeur.RELECTURE) return rendreRelectureRoute(cible.params.dossier === undefined ? null : cible.params.dossier);
     if (cible.vue === Routeur.PROGRESSION) return rendreProgression();
@@ -12274,6 +12721,8 @@
       fil: $('vue-fil'), amis: $('vue-amis'), ami: $('vue-ami'),
       // 90 — la guilde.
       guilde: $('vue-guilde'),
+      // 91 — le groupe de séance, plein écran, sans route.
+      groupe: $('vue-groupe'),
       // 66B — « Le coach relit ta semaine », sous Saisie.
       relecture: $('vue-relecture')
     };
@@ -12299,6 +12748,10 @@
     ['champ-email', 'champ-mdp'].forEach(function (id) {
       $(id).addEventListener('input', majBoutonEntree);
     });
+    // 91 — le groupe de séance : le retour de sa vue, et le direct relu environ toutes les 20 s (en séance ou dans un
+    // groupe seulement ; une lecture qui échoue ne dit rien).
+    $('btn-retour-groupe').addEventListener('click', fermerVueGroupe);
+    racine.setInterval(tickGroupe, Social.RAFRAICHIR_GROUPE_MS);
     $('btn-retour-mes-exos').addEventListener('click', function () {
       allerA(Routeur.PROFIL, {});
       rendreProfilEcran();

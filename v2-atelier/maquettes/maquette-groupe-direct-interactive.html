@@ -1,0 +1,55 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Groupe en direct</title>
+<style>
+:root{--acier:#161a1f;--plaque:#1f252c;--plaque2:#262d35;--trait:#2e363f;--craie:#ece8df;--gris:#9aa3ad;--or:#d9b45a}
+*{box-sizing:border-box}body{margin:0;background:#0f1215;color:var(--craie);font:15px/1.4 system-ui,sans-serif;padding:16px}
+.tel{width:360px;max-width:100%;background:var(--acier);border:1px solid var(--trait);border-radius:24px;padding:14px;margin:12px 0}
+.reg{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+input[type=range]{width:180px}
+.groupe{background:var(--plaque);border-radius:16px;padding:10px 12px}
+.tete{display:flex;justify-content:space-between;align-items:center}
+.btn{border:0;border-radius:10px;padding:6px 10px;font:600 13px system-ui;background:var(--plaque2);color:var(--craie)}
+.pastilles{display:flex;gap:6px;margin:8px 0;flex-wrap:wrap}
+.p{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;color:var(--acier);position:relative}
+.p.actif::after{content:"";position:absolute;right:-1px;bottom:-1px;width:9px;height:9px;border-radius:50%;background:#7fd18b;border:2px solid var(--plaque)}
+.l{font-size:13px;padding:3px 0;color:var(--craie)}.l small{color:var(--gris)}
+.msg{font-size:13px;color:var(--gris);margin-top:4px}
+.plus{font-size:12px;color:var(--gris);background:none;border:0;padding:4px 0}
+.seance{background:var(--plaque);border-radius:16px;padding:12px;margin-top:10px;color:var(--gris)}
+.choix{display:flex;gap:6px;overflow:auto;margin-top:10px}.choix span{white-space:nowrap;padding:6px 10px;border-radius:99px;background:var(--plaque);font-size:12px}
+</style></head><body>
+<b>Le groupe en direct — test de lisibilité</b>
+<p style="color:var(--gris);margin:4px 0 0;max-width:60ch">Fais varier le nombre de membres : la carte garde toujours la même hauteur. Pastilles = qui est là (point vert = série validée il y a moins de 3 min). Seules les 2 dernières séries s'affichent ; « Tout voir » ouvre le reste.</p>
+<div class="tel">
+<div class="reg"><label>Membres : <b id="n">3</b></label><input id="r" type="range" min="2" max="10" value="3"><button class="btn" id="go">Simuler une série</button></div>
+<div class="groupe"><div class="tete"><b id="titre">Groupe · 3</b><button class="btn" id="muet">Muet</button></div>
+<div class="pastilles" id="past"></div>
+<div id="lignes"></div>
+<button class="plus" id="tout">Tout voir</button>
+<div class="msg" id="msg">💬 jordan : « Dernière série ! »</div></div>
+<div class="seance">… ta séance, comme d'habitude (Squat (Barre) · 140 kg × 5 · 3e série) …</div>
+<div class="choix"><span>On y va ?</span><span>Je commence</span><span>Dernière série !</span><span>🔥</span><span>💪</span><span>Écrire…</span></div>
+</div>
+<script>
+const noms=['jordan','lea','alexis','melody','mrbrioche','oh_zeeebi','tom','sam','ines'];
+const coul=['#7a8fa3','#c98a8a','#8fb08a','#b39ad1','#d1b48a','#8ac9c9','#c9a08a','#9aa3d1','#d18ab3'];
+const exos=['Squat (Barre) 180 kg × 3','Hip Thrust (Barre) 100 kg × 8','Développé Couché (Barre) 95 kg × 6','Tirage Vertical (Poulie) 60 kg × 10','Soulevé de Terre (Barre) 200 kg × 2'];
+let n=3,fil=[],ouvert=false,muet=false;
+function rendu(){
+ document.getElementById('n').textContent=n;document.getElementById('titre').textContent='Groupe · '+n;
+ const p=document.getElementById('past');p.innerHTML='';
+ for(let i=0;i<n-1;i++){const d=document.createElement('div');d.className='p'+(fil.slice(0,4).some(f=>f.i===i)?' actif':'');d.style.background=coul[i];d.textContent=noms[i][0].toUpperCase();d.title=noms[i];p.appendChild(d)}
+ const moi=document.createElement('div');moi.className='p actif';moi.style.background='#d9b45a';moi.textContent='A';p.appendChild(moi);
+ const L=document.getElementById('lignes');L.innerHTML='';
+ (ouvert?fil:fil.slice(0,2)).forEach(f=>{const d=document.createElement('div');d.className='l';d.innerHTML=noms[f.i]+' · '+f.e+' <small>· '+f.t+'</small>';L.appendChild(d)});
+ document.getElementById('tout').textContent=ouvert?'Réduire':(fil.length>2?'Tout voir ('+fil.length+')':'');
+ document.getElementById('msg').style.display=muet?'none':'block';
+ document.getElementById('muet').textContent=muet?'Son':'Muet';
+}
+function serie(){const i=Math.floor(Math.random()*(n-1));fil.forEach(f=>f.t=f.t==='à l’instant'?'il y a 1 min':f.t);fil.unshift({i,e:exos[Math.floor(Math.random()*exos.length)],t:'à l’instant'});fil=fil.filter(f=>f.i<n-1).slice(0,20);rendu()}
+document.getElementById('r').oninput=e=>{n=+e.target.value;fil=fil.filter(f=>f.i<n-1);rendu()};
+document.getElementById('go').onclick=serie;
+document.getElementById('tout').onclick=()=>{ouvert=!ouvert;rendu()};
+document.getElementById('muet').onclick=()=>{muet=!muet;rendu()};
+serie();serie();
+</script></body></html>

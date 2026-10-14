@@ -1,4 +1,4 @@
-// tests/banc/faux-social.js — le faux serveur du social (87, SOCIAL-V1, migration v2_078).
+// tests/banc/faux-social.js — le faux serveur du social (87, SOCIAL-V1, migration v2_078 ; 89, étage 2, v2_079).
 //
 // ⚠️ C'EST LUI QUI PROUVE LA CONFIDENTIALITÉ AU BANC : il imite les règles de la migration — les cercles
 // (`social_suit`, `social_mutuel`), le blocage (dans les deux sens, qui efface les abonnements et les
@@ -14,13 +14,15 @@
 // `moi` : l'identifiant qui joue `auth.uid()`. Le banc agit au nom d'une autre personne par `comme(id, f)`.
 
 const CHAMPS_INTERDITS = ['poids_corps_kg', 'note', 'rpe', 'ressenti', 'douleur'];
+// 89 (v2_079) — les seules colonnes de `scores_force` : pas de poids de corps.
+const COLONNES_SCORES = ['user_id', 'exercise_slug', 'score', 'charge_kg', 'maj_le'];
 
 function creer(base, options) {
   const o = options || {};
   const etat = {
     moi: o.moi || 'u-banc',
     profils: [], sessions: [], sets: [], records: [],
-    abonnements: [], blocages: [], reactions: [],
+    abonnements: [], blocages: [], reactions: [], scores: [],
     journal: [], fuites: [], appels: [],
     maintenant: o.maintenant || (() => new Date())
   };
@@ -43,6 +45,21 @@ function creer(base, options) {
   const niveau = (p) => (p.jeu_actif === false ? null : (p.jeu_niveau === undefined ? null : p.jeu_niveau));
   const titre = (p) => (p.jeu_actif === false ? null : (p.jeu_titre === undefined ? null : p.jeu_titre));
   const jour = (iso) => String(iso).slice(0, 10);
+
+  // 89 — les séries comptées d'une personne (séances terminées, non privées), et la fenêtre « 6 mois » de v2_079.
+  const comptees = (user) => {
+    const out = [];
+    sessions().filter((s) => s.user_id === user && visible(s)).forEach((s) => {
+      sets().filter((t) => t.session_id === s.id && (t.type_serie || 'travail') === 'travail' && Number(t.charge_kg) > 0 &&
+        Number(t.reps) > 0).forEach((t) => out.push({ session_id: s.id, debut: s.debut, slug: t.exercise_slug,
+        charge: Number(t.charge_kg), reps: Number(t.reps), rang: t.rang || 0 }));
+    });
+    return out.sort((x, y) => String(x.debut).localeCompare(String(y.debut)) || (x.rang - y.rang));
+  };
+  const debutSixMois = () => {
+    const m = etat.maintenant();
+    return new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth() - 5, 1)).toISOString();
+  };
 
   const refus = (code, message, status) => {
     etat.journal.push({ op: 'refus', refus: code, message });
@@ -101,6 +118,46 @@ function creer(base, options) {
       const s = session(a.p_session);
       if (!s || s.user_id !== etat.moi) return 0;
       return etat.reactions.filter((r) => r.session_id === s.id).length;
+    },
+    // ── 89 (v2_079) — l'étage 2, MUTUELS SEULEMENT. « Série comptée » : travail, charge > 0, reps > 0. ──
+    social_exercices_ami(a) {
+      if (!mutuel(etat.moi, a.p_user)) return [];
+      const depuis = debutSixMois(), par = {};
+      comptees(a.p_user).filter((x) => x.debut >= depuis).forEach((x) => {
+        const e = par[x.slug] = par[x.slug] || { exercise_slug: x.slug, charge_max: 0, s: {} };
+        e.s[x.session_id] = true;
+        if (x.charge > e.charge_max) e.charge_max = x.charge;
+      });
+      return Object.keys(par).map((k) => ({ exercise_slug: k, charge_max: par[k].charge_max, seances: Object.keys(par[k].s).length }))
+        .sort((x, y) => (y.seances - x.seances) || (y.charge_max - x.charge_max) || x.exercise_slug.localeCompare(y.exercise_slug))
+        .slice(0, 12);
+    },
+    social_series_exercice(a) {
+      if (!mutuel(etat.moi, a.p_user)) return [];
+      const depuis = debutSixMois();
+      return comptees(a.p_user).filter((x) => x.slug === a.p_slug && x.debut >= depuis)
+        .map((x) => ({ session_id: x.session_id, debut: x.debut, charge_kg: x.charge, reps: x.reps }));
+    },
+    social_periode(a) {
+      const ecart = (Date.parse(a.p_a) - Date.parse(a.p_de)) / 86400000;
+      if (!(ecart <= 366) || !mutuel(etat.moi, a.p_user)) return [];
+      const l = comptees(a.p_user).filter((x) => jour(x.debut) >= a.p_de && jour(x.debut) <= a.p_a);
+      if (!l.length) return [];
+      const agreger = (xs, slug) => {
+        const s = {};
+        xs.forEach((x) => { s[x.session_id] = true; });
+        return { exercise_slug: slug, seances: Object.keys(s).length, series: xs.length, reps: xs.reduce((t, x) => t + x.reps, 0),
+          tonnage_kg: Math.round(xs.reduce((t, x) => t + x.charge * x.reps, 0) * 100) / 100,
+          charge_max: xs.reduce((m, x) => Math.max(m, x.charge), 0) };
+      };
+      const slugs = Array.from(new Set(l.map((x) => x.slug)));
+      return slugs.map((k) => agreger(l.filter((x) => x.slug === k), k)).concat([agreger(l, null)]);
+    },
+    social_scores_force(a) {
+      const moi = etat.moi;
+      return etat.scores.filter((f) => f.exercise_slug === a.p_slug && (f.user_id === moi || mutuel(moi, f.user_id)))
+        .filter((f) => { const p = profil(f.user_id); return p && !p.deleted_at; })
+        .map((f) => ({ user_id: f.user_id, pseudo: profil(f.user_id).username, score: f.score, charge_kg: f.charge_kg, moi: f.user_id === moi }));
     },
     social_liens() {
       const moi = etat.moi, out = [];
@@ -181,6 +238,35 @@ function creer(base, options) {
       DELETE(corps, f) {
         etat.blocages = etat.blocages.filter((x) => !(correspond(x, f) && x.bloqueur === etat.moi));
         etat.journal.push({ op: 'deblocage' });
+        return { status: 204, data: [] };
+      }
+    },
+    // 89 (v2_079) — mes scores de force : écrits par leur propriétaire seul, et SEULEMENT ces colonnes. ⚠️ Un corps qui
+    // porte autre chose (le poids de corps, par exemple) est refusé ET compté comme une fuite.
+    scores_force: {
+      POST(corps) {
+        const lignes = Array.isArray(corps) ? corps : [corps];
+        for (const l of lignes) {
+          const autres = Object.keys(l || {}).filter((k) => COLONNES_SCORES.indexOf(k) < 0);
+          if (autres.length) {
+            etat.fuites.push({ table: 'scores_force', champs: autres });
+            return refus('PGRST204', 'scores_force : colonne inconnue ' + autres.join(', '));
+          }
+          if (!l || l.user_id !== etat.moi) return refus('42501', 'scores_force_miens', 403);
+          if (!(Number(l.score) > 0) || !(Number(l.charge_kg) > 0)) return refus('23514', 'scores_force_check');
+        }
+        lignes.forEach((l) => {
+          etat.scores = etat.scores.filter((f) => !(f.user_id === l.user_id && f.exercise_slug === l.exercise_slug));
+          etat.scores.push({ user_id: l.user_id, exercise_slug: l.exercise_slug, score: Number(l.score), charge_kg: Number(l.charge_kg),
+            maj_le: new Date().toISOString() });
+        });
+        etat.journal.push({ op: 'scores', n: lignes.length, corps: JSON.parse(JSON.stringify(lignes)) });
+        return { status: 201, data: [] };
+      },
+      DELETE(corps, f) {
+        const avant = etat.scores.length;
+        etat.scores = etat.scores.filter((x) => !(correspond(x, f) && x.user_id === etat.moi));
+        etat.journal.push({ op: 'retrait-scores', n: avant - etat.scores.length });
         return { status: 204, data: [] };
       }
     },

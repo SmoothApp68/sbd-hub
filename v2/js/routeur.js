@@ -56,7 +56,7 @@
   var JEU = 'jeu', MUSCLES = 'muscles', SUCCES = 'succes', DEBLOCAGES = 'deblocages';
   // 87 (SOCIAL-V1) — le social vit DANS l'onglet Jeu (« Jeu & amis »), mais il ne dépend pas de
   // l'interrupteur du jeu : `estVueDuJeu` ne le compte pas. `/a/<pseudo>` est le lien d'invitation.
-  var FIL = 'fil', AMIS = 'amis', AMI = 'ami';
+  var FIL = 'fil', AMIS = 'amis', AMI = 'ami', COMPARER = 'comparer';
   var RE_PSEUDO = /^[A-Za-z0-9_.-]{1,40}$/;
   var VOLUME = 'volume', POIDS = 'poids';
   // MOTEUR §9.23 (55-1) — le bilan d'un mois et ses records, sous Progression.
@@ -182,11 +182,18 @@
     if (bouts[0] === JEU && bouts.length === 2 && SOUS_SOCIAL[bouts[1]]) return { vue: bouts[1], params: {} };
 
     // 87 — le profil d'une personne : « /a/<pseudo> ». Un pseudo illisible retombe sur le fil.
-    if (bouts[0] === 'a' && bouts.length === 2) {
+    // 89 — l'étage 2 : « /a/<pseudo>/comparer » (se comparer sur la période) et « /a/<pseudo>/exercice/<slug> »
+    // (son exercice). Un reste illisible retombe sur son profil.
+    if (bouts[0] === 'a' && bouts.length >= 2 && bouts.length <= 4) {
       var pseudo = null;
       try { pseudo = decodeURIComponent(bouts[1]); } catch (e) { pseudo = null; }
       if (pseudo === null || !RE_PSEUDO.test(pseudo)) return { vue: FIL, params: {}, repli: 'pseudo-invalide' };
-      return { vue: AMI, params: { pseudo: pseudo } };
+      if (bouts.length === 2) return { vue: AMI, params: { pseudo: pseudo } };
+      if (bouts.length === 3 && bouts[2] === COMPARER) return { vue: AMI, params: { pseudo: pseudo, comparer: true } };
+      if (bouts.length === 4 && bouts[2] === EXERCICE && RE_SLUG.test(bouts[3])) {
+        return { vue: AMI, params: { pseudo: pseudo, slug: bouts[3] } };
+      }
+      return { vue: AMI, params: { pseudo: pseudo }, repli: 'sous-vue-inconnue' };
     }
 
     if (bouts[0] === JEU && bouts.length === 2) {
@@ -261,7 +268,12 @@
     if (SOUS_PROFIL[vue]) return '/' + PROFIL + '/' + vue;
     if (SOUS_JEU[vue]) return '/' + JEU + '/' + vue;
     if (SOUS_SOCIAL[vue]) return '/' + JEU + '/' + vue;
-    if (vue === AMI) return p.pseudo && RE_PSEUDO.test(p.pseudo) ? '/a/' + encodeURIComponent(p.pseudo) : '/' + JEU + '/' + FIL;
+    if (vue === AMI) {
+      if (!p.pseudo || !RE_PSEUDO.test(p.pseudo)) return '/' + JEU + '/' + FIL;
+      var base = '/a/' + encodeURIComponent(p.pseudo);
+      if (p.slug && RE_SLUG.test(p.slug)) return base + '/' + EXERCICE + '/' + p.slug;
+      return p.comparer ? base + '/' + COMPARER : base;
+    }
     if (SEGMENTS[vue]) return '/' + vue;
     return '/';
   }

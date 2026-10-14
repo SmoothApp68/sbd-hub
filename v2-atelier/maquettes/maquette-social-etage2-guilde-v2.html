@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Social amis et guilde</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap" rel="stylesheet">
+<style>
+:root{--acier:#161a1f;--plaque:#1f252c;--plaque2:#262d35;--trait:#2e363f;--craie:#ece8df;--gris:#9aa3ad;--or:#d9b45a;--bleu:#6fa3d8}
+*{box-sizing:border-box}body{margin:0;background:#0f1215;color:var(--craie);font:15px/1.4 Archivo,system-ui,sans-serif;padding:16px}
+h1{font-size:20px;margin:0 0 4px;font-stretch:118%}p.note{color:var(--gris);margin:0 0 18px;max-width:72ch}
+.ecrans{display:flex;gap:20px;flex-wrap:wrap}
+.tel{width:360px;max-width:100%;background:var(--acier);border:1px solid var(--trait);border-radius:24px;padding:16px;min-height:680px}
+.leg{color:var(--or);font-size:13px;margin:0 0 12px}
+.haut{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.haut b{font-size:20px;font-stretch:120%}.ico{width:34px;height:34px;border-radius:50%;background:var(--plaque);display:grid;place-items:center;color:var(--gris)}
+.onglets{display:flex;gap:6px;margin-bottom:14px}.onglets span{padding:6px 12px;border-radius:99px;background:var(--plaque);color:var(--gris);font-size:13px}.onglets .on{background:var(--craie);color:var(--acier);font-weight:600}
+.blason{flex:none;display:block}
+.demande{background:var(--plaque2);border-radius:16px;padding:10px 12px;display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.demande .t{flex:1;font-size:14px}.demande small{color:var(--gris);display:block}
+.btn{border:0;border-radius:12px;padding:8px 12px;font:600 13px Archivo,sans-serif;cursor:pointer}
+.b1{background:var(--craie);color:var(--acier)}.b2{background:var(--plaque);color:var(--craie)}.b3{background:transparent;color:var(--gris)}
+.btn:focus-visible{outline:2px solid var(--or);outline-offset:2px}
+.carte{background:var(--plaque);border-radius:18px;padding:14px;margin-bottom:10px}
+.tete{display:flex;gap:10px;align-items:center;margin-bottom:10px}.tete b{display:block}.tete small{color:var(--gris)}
+.chiffres{display:flex;gap:22px;align-items:flex-end}.chiffres strong{font-size:26px;font-stretch:125%;display:block;line-height:1}.chiffres span{color:var(--gris);font-size:12px}
+.meds{margin-top:10px;display:flex;flex-direction:column;gap:4px}
+.med{font-size:13px;display:flex;gap:8px;align-items:center}.med i{width:18px;height:18px;border-radius:50%;background:var(--or);display:inline-block;flex:none;box-shadow:inset 0 0 0 3px #b8953d}
+.pied{display:flex;justify-content:space-between;margin-top:12px;color:var(--gris);font-size:13px}
+.reag{background:var(--plaque2);border-radius:99px;padding:5px 12px;color:var(--craie)}.reag.fait{color:var(--or)}
+.fin{text-align:center;color:var(--gris);font-size:13px;padding:16px 0 4px}
+.prof{text-align:center;margin-bottom:10px}.prof b{font-size:22px;font-stretch:120%;display:block;margin-top:6px}
+.prof small{color:var(--gris)}.etat{display:inline-block;margin-top:8px;font-size:12px;padding:4px 10px;border-radius:99px;background:var(--plaque);color:var(--bleu)}
+.actions{display:flex;gap:8px;justify-content:center;margin:12px 0 14px}
+.mois{display:flex;justify-content:space-between;margin:4px 2px 8px;font-weight:600}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center;font-size:12px}
+.cal span{padding:8px 0;border-radius:9px;color:var(--gris)}.cal .j{color:var(--gris);font-size:11px;padding:2px 0}
+.cal .n1{background:#5c4d28;color:var(--craie)}.cal .n2{background:#9a7f3e;color:var(--acier)}.cal .n3{background:var(--or);color:var(--acier);font-weight:700}
+.cal .sel{outline:2px solid var(--craie);outline-offset:1px}
+.lg{display:flex;gap:6px;align-items:center;justify-content:flex-end;color:var(--gris);font-size:11px;margin-top:6px}.lg i{width:12px;height:12px;border-radius:3px;display:inline-block}
+.detail{margin-top:12px;background:var(--plaque);border-radius:18px;padding:14px;font-size:14px}
+.detail h3{margin:0 0 8px;font-size:15px}.ex{display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid var(--trait)}.ex:first-of-type{border-top:0}.ex small{color:var(--gris)}
+.cache{color:var(--gris);font-size:13px;margin:8px 0 0}
+.grise{background:var(--plaque);color:#5d6670}
+.champ{background:var(--plaque);border-radius:14px;padding:12px 14px;color:var(--gris);margin-bottom:12px}
+.ligne{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--trait)}.ligne .t{flex:1}.ligne small{color:var(--gris);display:block}
+.lien{background:var(--plaque2);border-radius:18px;padding:14px;margin:16px 0}.lien code{display:block;background:var(--acier);border-radius:10px;padding:8px 10px;margin:8px 0;color:var(--or);font-size:13px}
+.reglage{display:flex;justify-content:space-between;align-items:center;gap:12px;background:var(--plaque);border-radius:18px;padding:14px}
+.inter{width:46px;height:28px;border-radius:99px;background:var(--or);position:relative;flex:none}.inter::after{content:"";position:absolute;right:3px;top:3px;width:22px;height:22px;border-radius:50%;background:var(--acier)}
+.titre-s{color:var(--gris);font-size:12px;margin:16px 0 4px}
+</style><style>
+.rang{display:flex;align-items:center;gap:10px;padding:10px 4px;border-top:1px solid var(--trait)}.rang:first-of-type{border-top:0}
+.rang .n{width:22px;color:var(--gris);font-weight:700;text-align:right}.rang .t{flex:1}.rang .sc{font-stretch:120%;font-weight:700}
+.rang.moi{background:var(--plaque2);border-radius:12px;border-top-color:transparent}
+.choix{display:flex;gap:6px;overflow:auto;margin-bottom:12px}.choix span{white-space:nowrap;padding:6px 10px;border-radius:99px;background:var(--plaque);color:var(--gris);font-size:12px}.choix .on{background:var(--or);color:var(--acier);font-weight:600}
+.sous{color:var(--gris);font-size:12px;margin:0 0 10px}
+.duo{display:grid;grid-template-columns:1fr auto auto;gap:6px 14px;align-items:baseline;font-size:14px}
+.duo .h{color:var(--gris);font-size:12px}.duo .v{text-align:right;font-stretch:115%;font-weight:600}
+.sep{grid-column:1/-1;border-top:1px solid var(--trait);margin:4px 0}
+.ex small{color:var(--gris);display:block}
+</style></head><body>
+<svg width="0" height="0" style="position:absolute"><defs>
+<symbol id="bl" viewBox="0 0 40 46"><path d="M20 2 37 8v14c0 11-7 19-17 22C10 41 3 33 3 22V8z" fill="currentColor"/><path d="M11 22h18l-3 4h-3v5h4v3H13v-3h4v-5h-3z" fill="#161a1f"/></symbol></defs></svg>
+<h1>Social — étage 2 (amis, exercices) et guilde (maquette v2)</h1>
+<p class="note">Données réelles arrondies pour les exemples de force. Entre abonnés mutuels seulement ; jamais de vainqueur, jamais de rouge.</p>
+<div class="ecrans">
+
+<div class="tel"><p class="leg">1 · Profil d'un ami mutuel</p>
+<div class="prof"><svg width="64" height="74" style="color:#7a8fa3;margin:0 auto"><use href="#bl"/></svg><b>jordan</b><small>Niveau 14</small><br><span class="etat">Vous vous suivez</span></div>
+<div class="carte"><div class="chiffres"><div><strong>14</strong><span>séances en octobre</span></div><div><strong>96 t</strong><span>soulevées</span></div></div></div>
+<p class="titre-s">Son calendrier</p>
+<div class="cal"><span class="j">L</span><span class="j">M</span><span class="j">M</span><span class="j">J</span><span class="j">V</span><span class="j">S</span><span class="j">D</span>
+<span></span><span></span><span class="n2">1</span><span class="n1">2</span><span>3</span><span class="n3">4</span><span>5</span>
+<span class="n2">6</span><span class="n1">7</span><span>8</span><span class="n3">9</span><span>10</span><span class="n2">11</span><span>12</span></div>
+<p class="titre-s">Ses exercices</p>
+<div class="ligne"><div class="t"><b>Squat (Barre)</b><small>210 kg · 9 séances</small></div><span>›</span></div>
+<div class="ligne"><div class="t"><b>Soulevé de Terre (Barre)</b><small>223 kg · 6 séances</small></div><span>›</span></div>
+<div class="ligne"><div class="t"><b>Développé Couché (Barre)</b><small>140 kg · 8 séances</small></div><span>›</span></div>
+<p class="cache" style="text-align:center;margin-top:14px"><button class="btn b3">Se comparer sur la période</button></p>
+</div>
+
+<div class="tel"><p class="leg">2 · Son exercice, puis « Se comparer »</p>
+<p class="sous">jordan · Squat (Barre)</p>
+<div class="carte"><div class="chiffres"><div><strong>210 kg</strong><span>meilleure charge</span></div><div><strong>180 × 5</strong><span>meilleure série</span></div></div>
+<svg viewBox="0 0 300 110" width="100%" style="margin-top:12px">
+<polyline fill="none" stroke="#7a8fa3" stroke-width="2.5" points="0,90 50,80 100,72 150,60 200,48 250,40 300,30"/>
+<polyline fill="none" stroke="var(--or)" stroke-width="2.5" stroke-dasharray="5 4" points="0,98 50,95 100,90 150,86 200,82 250,80 300,76"/>
+<text x="300" y="24" fill="#9aa3ad" font-size="11" text-anchor="end">jordan</text><text x="300" y="70" fill="#d9b45a" font-size="11" text-anchor="end">toi</text></svg>
+<p class="cache">Meilleure charge de chaque mois, sur 6 mois.</p></div>
+<div class="carte"><div class="duo"><span class="h"></span><span class="h">toi</span><span class="h">jordan</span>
+<span>Meilleure charge</span><span class="v">145 kg</span><span class="v">210 kg</span>
+<span>Meilleure série</span><span class="v">130 × 5</span><span class="v">180 × 5</span>
+<span>Séances (6 mois)</span><span class="v">31</span><span class="v">38</span></div></div>
+<button class="btn b1" style="width:100%">Se comparer</button>
+</div>
+
+<div class="tel"><p class="leg">3 · Mon exercice : « Entre amis »</p>
+<p class="sous">Squat (Barre) · section en bas de ta page d'exercice</p>
+<div class="carte"><b>Entre amis</b>
+<p class="cache" style="margin:4px 0 8px">Classés à poids de corps égal <span style="border:1px solid var(--trait);border-radius:50%;padding:0 6px">i</span></p>
+<div class="rang"><span class="n">1</span><svg width="28" height="32" style="color:#7a8fa3"><use href="#bl"/></svg><span class="t">jordan</span><span class="sc">210 kg</span></div>
+<div class="rang moi"><span class="n">2</span><svg width="28" height="32" style="color:var(--or)"><use href="#bl"/></svg><span class="t">toi</span><span class="sc">145 kg</span></div>
+<div class="rang"><span class="n">3</span><svg width="28" height="32" style="color:#8fb08a"><use href="#bl"/></svg><span class="t">alexis</span><span class="sc">125 kg</span></div>
+<p class="cache">i : on compare la force rapportée au poids de corps (formule DOTS) : un plus léger qui soulève autant passe devant. Ton poids ne quitte jamais ton téléphone. Sans pesée, on n'apparaît pas.</p></div>
+</div>
+
+<div class="tel"><p class="leg">4 · Une guilde</p>
+<div class="prof"><svg width="64" height="74" style="color:#b39ad1;margin:0 auto"><use href="#bl"/></svg><b>Les Fers du Mardi</b><small>4 membres</small></div>
+<div class="onglets"><span class="on">Semaine</span><span>Fil</span><span>Progression</span><span>Membres</span></div>
+<div class="carte"><b>Défi de la semaine</b><p class="cache" style="margin:4px 0 10px">Chacun fait ses séances prévues · encore 4 jours</p>
+<div style="height:10px;border-radius:99px;background:var(--plaque2)"><div style="width:65%;height:100%;border-radius:99px;background:var(--or)"></div></div>
+<p class="cache">11 séances sur 17 prévues, à vous quatre</p></div>
+<div class="carte"><b>La guilde cette semaine</b><div class="chiffres" style="margin-top:8px"><div><strong>11</strong><span>séances</span></div><div><strong>4</strong><span>records</span></div><div><strong>62 t</strong><span>ensemble</span></div></div></div>
+<p class="titre-s">Progression d'octobre</p>
+<div class="rang"><span class="n">1</span><span class="t">lea</span><span class="sc">5 sur 6</span></div>
+<div class="rang moi"><span class="n">2</span><span class="t">toi</span><span class="sc">7 sur 10</span></div>
+</div>
+
+</div></body></html>

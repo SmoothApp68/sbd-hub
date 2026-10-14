@@ -1443,6 +1443,8 @@
     dessinerFil();
     try {
       await chargerLiens();
+      // 89 — ouvrir le social publie mes scores de force (seulement s'ils ont changé), sans attendre.
+      publierScoresForce().catch(function (err) { console.warn('Les scores de force attendent le réseau :', texteErreur(err)); });
       var fil = Social.filRange(await Donnees.socialFil());
       await Promise.all(fil.map(function (l) { return medaillesDe(l.session_id).catch(function () { return []; }); }));
       if (jeton !== social.jeton) return;
@@ -1508,25 +1510,71 @@
     vue.surMois = function (n) { var m = Calendrier.decalerMois(a.annee, a.mois, n); chargerMoisAmi(m.annee, m.mois, null); };
     vue.surJour = function (j) { choisirJourAmi(j); };
     vue.resume = a.resume || null;
+    // 89 — ÉTAGE 2, mutuels seulement : son mois en deux chiffres, « Ses exercices », « Se comparer sur la période ».
+    if (Social.voitLeDetail(cercle)) {
+      var tonnage = (a.seances || []).reduce(function (x, s) { return x + (Number(s.tonnage_kg) || 0); }, 0);
+      vue.mois = { seances: (a.seances || []).length, tonnes: tonnesSociales(tonnage),
+        libelle: Modele.MOIS_LONGS[a.mois] };
+      vue.exercices = (a.exercices || []).map(function (x) {
+        return { slug: x.exercise_slug, nom: nomSocial(x.exercise_slug),
+          sous: kgSocial(x.charge_max) + ' · ' + x.seances + ' séance' + (x.seances > 1 ? 's' : ''),
+          sur: function () { allerA(Routeur.AMI, { pseudo: p.pseudo, slug: x.exercise_slug }); rendreAmi(p.pseudo, { slug: x.exercise_slug }); } };
+      });
+      vue.surComparer = function () { allerA(Routeur.AMI, { pseudo: p.pseudo, comparer: true }); rendreAmi(p.pseudo, { comparer: true }); };
+    }
     return vue;
   }
-  function dessinerAmi() { if (ecranCourant === 'ami') Rendu.rendreAmi($('social-ami'), vueDeLAmi()); }
 
-  async function rendreAmi(pseudo) {
+  // Le nom d'un exercice du catalogue (« Squat (Barre) »), un slug inconnu tel quel.
+  function nomSocial(slug) {
+    var index = corpus().catalogue() || {};
+    return index[slug] ? index[slug].nom : slug;
+  }
+  function aLaBarreSocial(slug) { return Social.aLaBarre((corpus().catalogue() || {})[slug]); }
+  function kgSocial(v) { return Modele.nombreTexte(v) + ' kg'; }
+  function dessinerAmi() {
+    if (ecranCourant !== 'ami') return;
+    var a = social.ami;
+    // 89 — le retour d'une sous-page ramène au profil (« ← jordan »), celui du profil au fil.
+    var retour = $('btn-retour-ami');
+    if (retour) retour.textContent = a && a.sous ? '← ' + a.pseudo : '← Fil';
+    if (a && a.sous === 'exercice') return Rendu.rendreExerciceAmi($('social-ami'), vueExerciceAmi());
+    if (a && a.sous === 'comparer') return Rendu.rendreComparaison($('social-ami'), vueComparaison());
+    Rendu.rendreAmi($('social-ami'), vueDeLAmi());
+  }
+
+  // `params` (89) : `{ slug }` — son exercice ; `{ comparer: true }` — se comparer sur la période ; rien — son profil.
+  async function rendreAmi(pseudo, params) {
     montrer('ami', Routeur.AMI);
     var jeton = ++social.jeton;
+    var sous = params && params.slug ? 'exercice' : params && params.comparer ? 'comparer' : null;
     var voir = social.voirSeance && social.voirSeance.pseudo === pseudo ? social.voirSeance : null;
     social.voirSeance = null;
-    social.ami = { etat: 'charge', pseudo: pseudo };
+    social.ami = { etat: 'charge', pseudo: pseudo, sous: sous };
     dessinerAmi();
     try {
       var p = await Donnees.socialProfil(pseudo);
       if (jeton !== social.jeton) return;
+      if (sous) {
+        // ⚠️ MUTUELS SEULEMENT : à sens unique, l'app ne demande rien (et la base ne rendrait rien).
+        social.ami = { etat: 'ok', pseudo: pseudo, profil: p, sous: sous, slug: params.slug || null, periode: 'mois' };
+        dessinerAmi();
+        if (p && Social.voitLeDetail(Social.cercleDe(p, userId()))) {
+          await (sous === 'exercice' ? chargerExerciceAmi(social.ami) : chargerComparaison(social.ami));
+        }
+        return;
+      }
       var d = voir ? new Date(voir.debut) : new Date();
       social.ami = { etat: 'ok', pseudo: pseudo, profil: p, annee: d.getFullYear(), mois: d.getMonth(), seances: [] };
       dessinerAmi();
       if (p && Social.voitLeCalendrier(Social.cercleDe(p, userId()))) {
         await chargerMoisAmi(social.ami.annee, social.ami.mois, voir ? voir.session_id : null);
+      }
+      if (p && Social.voitLeDetail(Social.cercleDe(p, userId())) && social.ami && social.ami.profil === p) {
+        var a = social.ami, ex = await Donnees.socialExercicesAmi(p.id);
+        if (social.ami !== a) return;
+        a.exercices = ex;
+        dessinerAmi();
       }
     } catch (e) {
       if (jeton !== social.jeton) return;
@@ -1586,6 +1634,163 @@
       a.message = erreurSociale(e);
     }
     dessinerAmi();
+  }
+
+  // ══ LE SOCIAL, ÉTAGE 2 (89, SOCIAL-V1 « Étage 2 », maquette `maquette-social-etage2-guilde-v2.html`, écrans 1 à 3) ══
+  //
+  // Mutuels seulement ; jamais de vainqueur, de couronne ni de rouge ; le coach et les bilans n'en lisent rien. Les
+  // chiffres d'un ami viennent de la base (`social_series_exercice`, `social_periode`), les miens de
+  // `faits.seriesComptees` — et les deux passent par les MÊMES fonctions de `social.js`.
+  function serieTexte(s) { return s ? Modele.nombreTexte(s.charge) + ' × ' + s.reps : '—'; }
+  function resumeAffiche(r) {
+    return r ? { charge: kgSocial(r.meilleureCharge), serie: serieTexte(r.meilleureSerie), seances: String(r.seances),
+      mois: r.mois } : null;
+  }
+
+  async function chargerExerciceAmi(a) {
+    try {
+      var series = await Donnees.socialSeriesExercice(a.profil.id, a.slug);
+      if (social.ami !== a) return;
+      a.resume = Social.resumeExercice(series, new Date());
+      a.charge = true;
+    } catch (e) {
+      a.message = erreurSociale(e);
+    }
+    dessinerAmi();
+  }
+  function vueExerciceAmi() {
+    var a = social.ami;
+    if (!a || a.etat !== 'ok') return a || { etat: 'charge' };
+    var p = a.profil;
+    if (!p) return { etat: 'ok', profil: null };
+    var v = { etat: 'ok', profil: { pseudo: p.pseudo }, pseudo: p.pseudo, nom: nomSocial(a.slug), message: a.message || null };
+    if (!Social.voitLeDetail(Social.cercleDe(p, userId()))) {
+      v.cache = 'Ses exercices se voient quand vous vous suivez l’un l’autre.';
+      return v;
+    }
+    if (!a.charge) { v.chargement = true; return v; }
+    v.lui = resumeAffiche(a.resume);
+    if (a.compare) {
+      var maintenant = new Date();
+      v.moi = resumeAffiche(Social.resumeExercice(faits.seriesComptees(corpus(), null, null, a.slug), maintenant)) ||
+        { charge: '—', serie: '—', seances: '0', mois: null };
+    }
+    v.surComparer = a.compare ? null : function () { a.compare = true; dessinerAmi(); };
+    return v;
+  }
+
+  async function chargerComparaison(a) {
+    var b = Social.bornesDePeriode(a.periode, new Date());
+    try {
+      var lui = Social.periodeDeLaBase(await Donnees.socialPeriode(a.profil.id, b.de, b.a));
+      if (social.ami !== a) return;
+      var moi = Social.periodeDesLignes(faits.seriesComptees(corpus(), b.de, b.a, null));
+      // « À poids de corps égal », pour les exercices à la barre en commun : les scores publiés (le mien d'abord à jour).
+      var barres = Object.keys(moi.exercices).filter(function (k) { return lui.exercices[k] && aLaBarreSocial(k); });
+      var scores = {};
+      if (barres.length) await publierScoresForce().catch(function () {});
+      for (var i = 0; i < barres.length; i++) {
+        var lignes = await Donnees.socialScoresForce(barres[i]);
+        scores[barres[i]] = {
+          moi: (lignes.filter(function (l) { return l.moi; })[0] || {}).score,
+          lui: (lignes.filter(function (l) { return l.user_id === a.profil.id; })[0] || {}).score
+        };
+      }
+      if (social.ami !== a) return;
+      a.comparatif = Social.comparaisonPeriode(moi, lui, { estALaBarre: aLaBarreSocial, scores: scores, nomDe: nomSocial });
+    } catch (e) {
+      a.message = erreurSociale(e);
+    }
+    dessinerAmi();
+  }
+  function vueComparaison() {
+    var a = social.ami;
+    if (!a || a.etat !== 'ok') return a || { etat: 'charge' };
+    var p = a.profil;
+    if (!p) return { etat: 'ok', profil: null };
+    var v = { etat: 'ok', profil: { pseudo: p.pseudo }, pseudo: p.pseudo, message: a.message || null,
+      periodes: Social.PERIODES.map(function (x) {
+        return { cle: x.cle, libelle: x.libelle, actif: x.cle === a.periode, sur: function () {
+          if (a.periode === x.cle) return;
+          a.periode = x.cle; a.comparatif = null; a.message = null;
+          dessinerAmi();
+          chargerComparaison(a);
+        } };
+      }) };
+    if (!Social.voitLeDetail(Social.cercleDe(p, userId()))) {
+      v.cache = 'La comparaison se voit quand vous vous suivez l’un l’autre.';
+      return v;
+    }
+    var c = a.comparatif;
+    if (!c) { v.chargement = true; return v; }
+    var t = c.totaux;
+    v.totaux = [
+      { libelle: 'Séances', moi: String(t.moi.seances), lui: String(t.lui.seances) },
+      { libelle: 'Tonnage', moi: tonnesSociales(t.moi.tonnage_kg), lui: tonnesSociales(t.lui.tonnage_kg) },
+      { libelle: 'Séries', moi: String(t.moi.series), lui: String(t.lui.series) },
+      { libelle: 'Reps', moi: String(t.moi.reps), lui: String(t.lui.reps) }
+    ];
+    v.communs = c.communs.map(function (x) {
+      return { slug: x.slug, nom: nomSocial(x.slug), barre: x.barre, personnes: x.ordre.map(function (qui) {
+        return { qui: qui === 'moi' ? 'toi' : p.pseudo, moi: qui === 'moi', kg: kgSocial(qui === 'moi' ? x.moi : x.lui) };
+      }) };
+    });
+    return v;
+  }
+
+  // ── MES SCORES DE FORCE (`scores_force`) : publiés depuis l'appareil, SEULEMENT S'ILS ONT CHANGÉ ──
+  //
+  // La meilleure charge de chaque exercice à la barre (mes séries comptées) et ma dernière pesée datée donnent le
+  // score DOTS (`Social.scoreDots`) ; seuls le score et la charge partent. ⚠️ LE POIDS DE CORPS NE QUITTE JAMAIS LE
+  // TÉLÉPHONE. Sans sexe précisé ou sans pesée, je n'apparais pas : mes scores sont retirés — quand on SAIT qu'il y en
+  // a (publiés depuis l'ouverture, ou une ligne à moi dans `lignesConnues`, la réponse de `social_scores_force`).
+  // Le profil pas encore lu : on ne sait rien, on ne fait rien. Rend `true` s'il a écrit.
+  var scoresPublies = null;
+  async function publierScoresForce(lignesConnues) {
+    var moi = userId();
+    if (!moi || !profil) return false;
+    var index = Modele.indexerExercices(local.exercices);
+    // La dernière pesée datée, telle quelle (`resume` l'arrondit au dixième, pour l'affichage).
+    var pesees = Poids.normaliser(local.pesees || []), pesee = pesees.length ? pesees[pesees.length - 1] : null;
+    var scores = Social.scoresAPublier(Social.meilleuresCharges(faits.seriesComptees(corpus(), null, null, null)),
+      pesee ? pesee.poids : null, profil.sexe, function (slug) { return Social.aLaBarre(index[slug]); });
+    if (!scores) {
+      var enBase = (scoresPublies && Object.keys(scoresPublies).length) ||
+        (lignesConnues || []).some(function (l) { return l && l.moi; });
+      if (!enBase) return false;
+      await Donnees.retirerScores(moi);
+      scoresPublies = {};
+      return true;
+    }
+    var changes = Social.scoresChanges(scores, scoresPublies);
+    if (changes.length) await Donnees.publierScores(moi, changes);
+    var publies = {};
+    scores.forEach(function (s) { publies[s.exercise_slug] = { score: s.score, charge_kg: s.charge_kg }; });
+    scoresPublies = publies;
+    return changes.length > 0;
+  }
+
+  // « Entre amis », en bas de MA page d'exercice, pour un exercice à la barre : mes mutuels et moi, à poids de corps
+  // égal, avec les vrais kilos. Rien sous deux personnes avec un score ; rien hors ligne.
+  var TEXTE_ENTRE_AMIS = 'On compare la force rapportée au poids de corps (formule DOTS) : un plus léger qui soulève ' +
+    'autant passe devant. Ton poids ne quitte jamais ton téléphone. Sans pesée, on n’apparaît pas.';
+  var jetonEntreAmis = 0;
+  async function entreAmis(slug, exo) {
+    var cible = $('exercice-entre-amis'), jeton = ++jetonEntreAmis;
+    Rendu.rendreEntreAmis(cible, null);
+    if (!Social.aLaBarre(exo) || !userId()) return;
+    try {
+      var lignes = await Donnees.socialScoresForce(slug);
+      if (await publierScoresForce(lignes)) lignes = await Donnees.socialScoresForce(slug);
+      var classement = Social.classementEntreAmis(lignes);
+      if (jeton !== jetonEntreAmis || ecranCourant !== 'exercice') return;
+      Rendu.rendreEntreAmis(cible, classement ? { info: TEXTE_ENTRE_AMIS, lignes: classement.map(function (x) {
+        return { rang: x.rang, pseudo: x.moi ? 'toi' : x.pseudo, moi: x.moi, couleur: Social.couleurDuBlason(x.pseudo),
+          kg: kgSocial(x.charge_kg) };
+      }) } : null);
+    } catch (e) {
+      console.warn('Entre amis :', texteErreur(e));
+    }
   }
 
   // ── Trouver des amis (＋) ──
@@ -2728,6 +2933,8 @@
     adopterLocalement(finie);
     // 87 — le niveau publié suit la séance (seulement s'il a changé).
     publierJeu(null);
+    // 89 — mes scores de force aussi (seulement s'ils ont changé) ; hors ligne, ils partiront à la prochaine ouverture.
+    publierScoresForce().catch(function (err) { console.warn('Les scores de force attendent le réseau :', texteErreur(err)); });
     seance = null; chrono = null; arreterMinuteur();
     // La barre s'efface AVEC la séance : la laisser affichée lui ferait
     // traverser la fin, et la réserve du bas la suivrait.
@@ -8526,6 +8733,8 @@
         rendreExercice(slug, vueOnglet);
       }
     });
+    // 89 — « Entre amis », en bas de la page, pour un exercice à la barre (mutuels, à poids de corps égal).
+    entreAmis(slug, exo);
   }
 
   // « 123 séances depuis janvier 2024 · dernière le 11 sept. » — trois faits
@@ -11808,7 +12017,7 @@
     }
     if (cible.vue === Routeur.FIL) return rendreFil();
     if (cible.vue === Routeur.AMIS) return rendreAmis();
-    if (cible.vue === Routeur.AMI) return rendreAmi(cible.params.pseudo);
+    if (cible.vue === Routeur.AMI) return rendreAmi(cible.params.pseudo, cible.params);
     if (cible.vue === Routeur.JEU) return rendreJeu();
     if (cible.vue === Routeur.MUSCLES) return rendreJeuMuscles();
     if (cible.vue === Routeur.SUCCES) return rendreJeuSucces();
@@ -11950,7 +12159,11 @@
       $(id).addEventListener('click', function () { allerA(Routeur.AMIS, {}); rendreAmis(); });
     });
     ['btn-retour-amis', 'btn-retour-ami'].forEach(function (id) {
-      $(id).addEventListener('click', function () { allerA(Routeur.FIL, {}); rendreFil(); });
+      $(id).addEventListener('click', function () {
+        // 89 — d'une sous-page (son exercice, la comparaison), le retour ramène à son profil.
+        if (id === 'btn-retour-ami' && social.ami && social.ami.sous) return allerAmi(social.ami.pseudo);
+        allerA(Routeur.FIL, {}); rendreFil();
+      });
     });
     $('btn-nouvelle-routine').addEventListener('click', function () { ouvrirRoutine(null); });
     // §7 vicies.1 — les deux boutons « Ranger », l'appui long étant l'autre

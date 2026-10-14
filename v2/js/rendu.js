@@ -6109,6 +6109,16 @@
     cible.appendChild(menu);
     if (vue.message) cible.appendChild(el('p', 's-gris s-note s-erreur', vue.message));
     if (vue.cache) { cible.appendChild(el('p', 's-gris s-note s-cache', vue.cache)); return; }
+    // 89 — son mois en deux chiffres (mutuels).
+    if (vue.mois) {
+      var cm = el('div', 's-carte s-son-mois'), ch = el('div', 's-chiffres');
+      var c1 = el('div'); c1.appendChild(el('strong', 's-mois-seances', String(vue.mois.seances)));
+      c1.appendChild(el('span', null, (vue.mois.seances > 1 ? 'séances' : 'séance') + ' en ' + vue.mois.libelle));
+      var c2 = el('div'); c2.appendChild(el('strong', 's-mois-tonnes', vue.mois.tonnes)); c2.appendChild(el('span', null, 'soulevées'));
+      ch.appendChild(c1); ch.appendChild(c2); cm.appendChild(ch);
+      cible.appendChild(cm);
+      cible.appendChild(el('p', 's-titre-s', 'Son calendrier'));
+    }
     var g = vue.calendrier;
     if (!g) return;
     var mois = el('div', 's-mois');
@@ -6135,7 +6145,29 @@
     [1, 2, 3].forEach(function (n) { lg.appendChild(el('i', 's-n' + n)); });
     cible.appendChild(lg);
     var r = vue.resume;
-    if (!r) return;
+    if (r) cible.appendChild(detailDuJour(r));
+    // 89 — « Ses exercices » (6 mois), chacun ouvrant sa page ; en bas, « Se comparer sur la période ».
+    if (vue.exercices && vue.exercices.length) {
+      cible.appendChild(el('p', 's-titre-s', 'Ses exercices'));
+      var liste = el('div', 's-ses-exercices');
+      vue.exercices.forEach(function (x) {
+        var l = el('button', 's-ligne s-exo-ami');
+        l.type = 'button';
+        l.setAttribute('data-slug', x.slug);
+        var t = el('div', 's-t'); t.appendChild(el('b', null, x.nom)); t.appendChild(el('small', null, x.sous));
+        l.appendChild(t); l.appendChild(el('span', 's-gris', '›'));
+        l.addEventListener('click', x.sur);
+        liste.appendChild(l);
+      });
+      cible.appendChild(liste);
+    }
+    if (vue.surComparer) {
+      var pc = el('p', 's-centre');
+      pc.appendChild(boutonSocial('Se comparer sur la période', 's-b3 s-comparer-periode', vue.surComparer, 'social-comparer'));
+      cible.appendChild(pc);
+    }
+  }
+  function detailDuJour(r) {
     var d = el('div', 's-detail');
     d.appendChild(el('h3', null, (r.titre ? r.titre + ' · ' : '') + r.quand + ' · ' + r.tonnes));
     if (r.medailles && r.medailles.length) {
@@ -6154,7 +6186,137 @@
       d.appendChild(ex);
     });
     if (r.detailCache) d.appendChild(el('p', 's-gris s-cache s-detail-cache', r.detailCache));
-    cible.appendChild(d);
+    return d;
+  }
+
+  // ══ ÉTAGE 2 (89, maquette `maquette-social-etage2-guilde-v2.html`, écrans 1 à 3) ═══════════════════════
+  // Jamais de vainqueur, de couronne ni de rouge : des chiffres côte à côte, et un rang à poids de corps égal.
+  function etatSousPage(cible, vue) {
+    if (etatSocial(cible, vue)) return true;
+    if (!vue.profil) { cible.appendChild(el('p', 's-gris s-note s-introuvable', 'Ce profil n’existe pas, ou n’est pas visible.')); return true; }
+    if (vue.message) cible.appendChild(el('p', 's-gris s-note s-erreur', vue.message));
+    if (vue.cache) { cible.appendChild(el('p', 's-gris s-note s-cache', vue.cache)); return true; }
+    if (vue.chargement) { cible.appendChild(el('p', 's-gris s-note', 'Chargement…')); return true; }
+    return false;
+  }
+  // La courbe de la meilleure charge par mois (6 mois) : la sienne en trait plein, la mienne en pointillés or.
+  function courbeSociale(lui, moi, pseudo) {
+    var vals = [];
+    [lui, moi].forEach(function (m) { (m || []).forEach(function (x) { if (x.charge) vals.push(x.charge); }); });
+    var s = svg('svg', 's-courbe', { viewBox: '0 0 300 110', width: '100%', role: 'img',
+      'aria-label': 'Meilleure charge de chaque mois, sur 6 mois' });
+    if (!vals.length) return s;
+    var min = Math.min.apply(null, vals), max = Math.max.apply(null, vals), ecart = max - min || 1;
+    function ligne(m, classe, nom) {
+      var pts = [];
+      (m || []).forEach(function (x, i) {
+        if (x.charge) pts.push((i * 60) + ',' + Math.round(100 - (x.charge - min) / ecart * 80));
+      });
+      if (!pts.length) return;
+      s.appendChild(svg('polyline', classe, { points: pts.join(' '), fill: 'none' }));
+      var dernier = pts[pts.length - 1].split(',');
+      var t = svg('text', classe + '-nom', { x: 300, y: Math.max(10, Number(dernier[1]) - 6), 'text-anchor': 'end' });
+      t.textContent = nom;
+      s.appendChild(t);
+    }
+    ligne(lui, 's-courbe-lui', pseudo);
+    ligne(moi, 's-courbe-moi', 'toi');
+    return s;
+  }
+  // Son exercice, puis « Se comparer ».
+  function rendreExerciceAmi(cible, vue) {
+    if (!cible) return;
+    vider(cible);
+    if (vue.etat === 'ok' && vue.profil) cible.appendChild(el('p', 's-gris s-sous-exo', vue.pseudo + ' · ' + vue.nom));
+    if (etatSousPage(cible, vue)) return;
+    var lui = vue.lui;
+    if (!lui) { cible.appendChild(el('p', 's-gris s-note s-vide', 'Aucune série de cet exercice ces 6 derniers mois.')); return; }
+    var carte = el('div', 's-carte s-exo-carte');
+    var ch = el('div', 's-chiffres');
+    var a = el('div'); a.appendChild(el('strong', 's-exo-charge', lui.charge)); a.appendChild(el('span', null, 'meilleure charge'));
+    var b = el('div'); b.appendChild(el('strong', 's-exo-serie', lui.serie)); b.appendChild(el('span', null, 'meilleure série'));
+    ch.appendChild(a); ch.appendChild(b); carte.appendChild(ch);
+    carte.appendChild(courbeSociale(lui.mois, vue.moi ? vue.moi.mois : null, vue.pseudo));
+    carte.appendChild(el('p', 's-gris s-cache', 'Meilleure charge de chaque mois, sur 6 mois.'));
+    cible.appendChild(carte);
+    if (vue.moi) {
+      var duo = el('div', 's-carte s-duo');
+      ['', 'toi', vue.pseudo].forEach(function (h) { duo.appendChild(el('span', 's-duo-h', h)); });
+      [['Meilleure charge', 'charge'], ['Meilleure série', 'serie'], ['Séances (6 mois)', 'seances']].forEach(function (r) {
+        duo.appendChild(el('span', null, r[0]));
+        duo.appendChild(el('span', 's-duo-v s-duo-moi', vue.moi[r[1]]));
+        duo.appendChild(el('span', 's-duo-v s-duo-lui', lui[r[1]]));
+      });
+      cible.appendChild(duo);
+    }
+    if (vue.surComparer) {
+      var bt = boutonSocial('Se comparer', 's-b1 s-large', vue.surComparer, 'social-comparer-exo');
+      cible.appendChild(bt);
+    }
+  }
+  // Se comparer sur la période.
+  function rendreComparaison(cible, vue) {
+    if (!cible) return;
+    vider(cible);
+    if (vue.etat === 'ok' && vue.profil) {
+      cible.appendChild(el('p', 's-gris s-sous-exo', 'toi et ' + vue.pseudo));
+      var choix = el('div', 's-choix');
+      (vue.periodes || []).forEach(function (p) {
+        var b = boutonSocial(p.libelle, 's-periode' + (p.actif ? ' s-on' : ''), p.sur);
+        b.setAttribute('data-periode', p.cle);
+        b.setAttribute('aria-pressed', p.actif ? 'true' : 'false');
+        choix.appendChild(b);
+      });
+      cible.appendChild(choix);
+    }
+    if (etatSousPage(cible, vue)) return;
+    var duo = el('div', 's-carte s-duo s-totaux');
+    ['', 'toi', vue.pseudo].forEach(function (h) { duo.appendChild(el('span', 's-duo-h', h)); });
+    vue.totaux.forEach(function (r) {
+      duo.appendChild(el('span', null, r.libelle));
+      duo.appendChild(el('span', 's-duo-v s-duo-moi', r.moi));
+      duo.appendChild(el('span', 's-duo-v s-duo-lui', r.lui));
+    });
+    cible.appendChild(duo);
+    cible.appendChild(el('p', 's-titre-s', 'Exercices en commun · meilleure charge'));
+    if (!vue.communs.length) { cible.appendChild(el('p', 's-gris s-note s-vide', 'Aucun exercice en commun sur la période.')); return; }
+    vue.communs.forEach(function (x) {
+      var l = el('div', 's-commun');
+      l.setAttribute('data-slug', x.slug);
+      l.appendChild(el('b', null, x.nom));
+      var ps = el('div', 's-commun-p');
+      x.personnes.forEach(function (p) {
+        ps.appendChild(el('span', 's-commun-qui' + (p.moi ? ' s-moi' : ''), p.qui + ' · ' + p.kg));
+      });
+      l.appendChild(ps);
+      if (x.barre) l.appendChild(el('small', 's-gris', 'à poids de corps égal'));
+      cible.appendChild(l);
+    });
+  }
+  // « Entre amis », en bas de ma page d'exercice.   vue = null (rien) | { info, lignes: [{ rang, pseudo, moi, couleur, kg }] }
+  function rendreEntreAmis(cible, vue) {
+    if (!cible) return;
+    vider(cible);
+    if (!vue) return;
+    var carte = el('div', 's-carte s-entre-amis');
+    carte.appendChild(el('b', null, 'Entre amis'));
+    var tete = el('p', 's-gris s-cache s-entre-sous', 'Classés à poids de corps égal ');
+    var info = el('p', 's-gris s-cache s-entre-info', vue.info);
+    info.hidden = true;
+    var i = boutonSocial('i', 's-b2 s-info', function () { info.hidden = !info.hidden; }, 'entre-amis-info');
+    i.setAttribute('aria-label', 'Comment on compare');
+    tete.appendChild(i);
+    carte.appendChild(tete);
+    carte.appendChild(info);
+    vue.lignes.forEach(function (x) {
+      var r = el('div', 's-rang' + (x.moi ? ' s-moi' : ''));
+      r.appendChild(el('span', 's-n', String(x.rang)));
+      r.appendChild(blasonSocial(x.couleur, 28));
+      r.appendChild(el('span', 's-t', x.pseudo));
+      r.appendChild(el('span', 's-sc', x.kg));
+      carte.appendChild(r);
+    });
+    cible.appendChild(carte);
   }
 
   // Trouver des amis, le lien d'invitation, la confidentialité.
@@ -6310,6 +6472,7 @@
     rendreJeuAccueil: rendreJeuAccueil,
     // 87 — le social, étage 1.
     rendreEnteteSocial: rendreEnteteSocial, rendreFil: rendreFil, rendreAmi: rendreAmi, rendreAmis: rendreAmis,
+    rendreExerciceAmi: rendreExerciceAmi, rendreComparaison: rendreComparaison, rendreEntreAmis: rendreEntreAmis,
     rendreResultatsAmis: rendreResultatsAmis, rendreReactionsAuteur: rendreReactionsAuteur,
     JEU_TITRES: JEU_TITRES,
     rendreJeuMuscles: rendreJeuMuscles,

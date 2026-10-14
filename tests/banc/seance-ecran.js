@@ -9088,10 +9088,11 @@ const SETS_IMPORTES = [
       deg.some((x) => Number(x.charge_kg) === 45 && Number(x.reps) === 7), JSON.stringify(deg.map((x) => [x.charge_kg, x.reps])));
     ok('[U10] la dégressive faite relance le repos (la suite n’est plus une dégressive)', await reposVisible(), '');
 
-    // La barre : la dégressive reste vide.
+    // 94 (§9.15.3 révisé) — la barre : la dégressive posée se remplit (42,5 →
+    // 32,5 au cran de 2,5), et la phrase dit quoi enlever.
     f = await fantomesU();
-    ok('[U10] DISCRIMINANT — à la barre, la dégressive reste vide', f[12] === '', JSON.stringify(f.slice(10, 13)));
-    ok('[U10] et le coach le dit', (await phrasesU('degressive')).map(esp).indexOf('Pas de dégressive à la barre.') >= 0,
+    ok('[U10] 94 — DISCRIMINANT : à la barre, la dégressive posée se remplit (32,5)', f[12] === '32,5', JSON.stringify(f.slice(10, 13)));
+    ok('[U10] 94 — et la phrase dit quoi enlever', (await phrasesU('degressive')).map(esp).indexOf('Enlève 2 × 5 kg : 32,5 kg. Sans repos, jusqu\'à l\'échec. Vise 4 à 6.') >= 0,
       esp(JSON.stringify(await phrasesU('degressive'))));
 
     // Un exercice ajouté hors routine, à la barre, sans chauffe : la proposition.

@@ -113,6 +113,7 @@ function neuveBase() {
     inscriptions: [],    // { email, data, redirect_to } — ce que `signUp` a reçu
     metadonnees: {},     // id → user_metadata
     motsDePasse: [],     // 70 — { sub, password } : ce que `updateUser` a reçu
+    pesees: [],          // 92 — ce que `body_weight_log` a reçu
     userPend: false, userDelai: 0   // 70 — la vérification du jeton d'un lien ne répond pas / répond en retard
   };
 }
@@ -218,6 +219,12 @@ async function contexte(nav, bd, o) {
       }
     }
 
+    // 92 — la file des pesées : ce qu'elle envoie est relevé.
+    if (chemin === '/rest/v1/body_weight_log' && req.method() === 'POST') {
+      const corps = JSON.parse(req.postData() || '{}');
+      (Array.isArray(corps) ? corps : [corps]).forEach((l) => bd.pesees.push(l));
+      return json(objet ? corps : [corps], 201);
+    }
     // ── Le reste : de quoi démarrer ───────────────────────────────────────
     if (chemin.indexOf('/rest/v1/rpc/pseudo_libre') === 0) {
       // 60-5 — comme la vraie fonction (SECURITY DEFINER) : « libre » si AUCUNE ligne, la sienne comprise, ne le tient.
@@ -1059,6 +1066,40 @@ function ok(nom, cond, detail) {
         ferme && delai >= 3500 && delai < 8000, 'fermée après ' + delai + ' ms');
       const pose = await attendreQue(page, () => bd.profils[B].username === 'melodie_b', 12000);
       ok('et l’envoi part : le pseudo arrive en base (UN envoi, accepté)', pose && JSON.stringify(bd.requetes.map((q) => [q.statut, q.aPseudo])) === '[[201,true]]', JSON.stringify([bd.profils[B], bd.requetes]));
+      ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
+      await ctx.close();
+    }
+
+    // ══ 92. LE POIDS SE SAISIT DEPUIS LE PROFIL, PAR LE CHEMIN DU QUESTIONNAIRE ═══
+    console.log('\n══ 92. la ligne « Poids » du Profil : une pesée datée, écrite par la file des pesées ══');
+    {
+      const bd = baseSansPseudo();
+      const { ctx, page, erreurs } = await ouvrirProfilDe(nav, bd);
+      await cliquerLigne(page, 'Poids');
+      await attendre(400);
+      const champs = await page.evaluate(() => ({
+        poids: !!document.querySelector('#feuille-contenu input[data-cle="poids"]'),
+        jour: (document.querySelector('#feuille-contenu input[data-cle="jour"]') || {}).value || '' }));
+      const auj = await page.evaluate(() => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); });
+      ok('[92] la ligne « Poids » ouvre la saisie : le poids, et la date du jour par défaut', champs.poids && champs.jour === auj, JSON.stringify([champs, auj]));
+      const valider = () => page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu button'))
+        .filter((b) => b.textContent === 'Valider')[0].click());
+      await page.fill('#feuille-contenu input[data-cle="poids"]', '500');
+      await valider();
+      await attendre(300);
+      const refus = await page.evaluate(() => (document.querySelector('#feuille-contenu .feuille-err') || {}).textContent || '');
+      ok('[92] un poids hors bornes reste dans la feuille, avec la phrase du questionnaire', /^Un poids entre 20 et 400 kg\.$/.test(refus), refus);
+      await page.fill('#feuille-contenu input[data-cle="poids"]', '96,8');
+      await valider();
+      const ecrit = await attendreQue(page, () => bd.pesees.length > 0, 10000);
+      ok('DISCRIMINANT [92] — la pesée part dans `body_weight_log` (la file des pesées, `poserPesee`) : 96,8 kg, aujourd’hui, source app',
+        ecrit && bd.pesees[0].poids_kg === 96.8 && bd.pesees[0].date === auj && bd.pesees[0].source === 'app', JSON.stringify(bd.pesees));
+      const ligne = await page.evaluate(() => {
+        const l = Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
+          .filter((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf('Poids') === 0)[0];
+        return l ? (l.querySelector('.p-val') || {}).textContent || '' : null;
+      });
+      ok('[92] la ligne montre la dernière pesée datée : « 96,8 kg · aujourd’hui »', ligne === '96,8 kg · aujourd\'hui', String(ligne));
       ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
       await ctx.close();
     }

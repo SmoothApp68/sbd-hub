@@ -41,6 +41,8 @@ sur ses mérites. Les cinq utilisateurs ressaisissent — deux minutes.
 | Poids | `body_weight_log`, 116 pesées | référentiel + poids du corps |
 | Taille | `profiles.taille_cm` | référentiel |
 
+> **14/10/2026 (prompt 92).** Le poids se saisit aussi depuis le Profil (ligne Poids), par le même chemin que le questionnaire.
+
 **Le pas de progression n'est pas demandé.** Mesuré le 16/09 sur l'historique d'aurel_br :
 machines 7 kg, barres 5, haltères 4, poulies 2,2. **Il dépend du matériel, pas de la
 personne**, et il se lit dans les charges. On ne demande pas ce qu'on peut observer. Quand

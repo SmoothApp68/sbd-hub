@@ -17471,6 +17471,10 @@ const SETS_IMPORTES = [
       'après la séance de melodie, plus de choix à l’écran, et la base refuse de le changer (guilde_defi_fige)',
       cAvant.choixDefi.length > 0 && c0.choixDefi.length === 0 && /guilde_defi_fige/.test(refusFige && refusFige.message) &&
         S.defis.length === 1 && S.defis[0].type === 'records', JSON.stringify([cAvant.choixDefi, c0.choixDefi, refusFige, S.defis]));
+    // 92 — le pourquoi est dit à l'administrateur, à la place du choix retiré.
+    const fige = await page.evaluate(() => { const p = document.querySelector('#social-guilde .s-defi-fige'); return p ? p.textContent : null; });
+    ok('[guilde] 92 — défi figé : l’écran dit pourquoi (« Défi figé : la semaine a commencé. Tu en choisiras un lundi. »)',
+      fige === 'Défi figé : la semaine a commencé. Tu en choisiras un lundi.' && cAvant.choixDefi.length > 0, String(fige));
     ok('[guilde] DISCRIMINANT — le défi : trois choix sûrs à l’écran (séances, records, variété) ; « 3 records » choisi ; la base refuse le tonnage',
       cAvant.choixDefi.every((x) => /^(seances|records|variete)/.test(x)) && cAvant.choixDefi.indexOf('seances') >= 0 &&
         S.defis.length === 1 && S.defis[0].type === 'records' && S.defis[0].n === 3 &&

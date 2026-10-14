@@ -233,6 +233,24 @@
     return { date: String(jour).slice(0, 10), poids_kg: p };
   }
 
+  // 92 — LA PESÉE DU PROFIL (ligne « Poids », ECRAN-PROFIL §2.4) : un poids et un jour, tapés. Mêmes bornes que
+  // le questionnaire (`poidsValide`, jamais recopiées) ; le jour est celui du champ, par défaut le jour de la
+  // personne, jamais après lui. Contrairement au questionnaire, une valeur égale à la dernière pesée S'ÉCRIT :
+  // ici la personne pèse, elle ne confirme pas. `poids` : le nombre déjà lu (`Modele.lireNombre`), ou `null`.
+  // Rend `{ pesee }` (la forme de `poserPesee`) ou `{ erreur }`, la phrase à poser dans la feuille.
+  function peseeDuProfil(poids, jour, aujourdhui) {
+    var p = poidsValide(poids);
+    if (p === null) return { erreur: 'Un poids entre ' + POIDS_MIN + ' et ' + POIDS_MAX + ' kg.' };
+    var j = String(jour || '').slice(0, 10);
+    var m = RE_JOUR.exec(j);
+    var d = m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])) : null;
+    if (!d || d.getUTCDate() !== +m[3] || d.getUTCMonth() !== +m[2] - 1) return { erreur: 'Une date valide.' };
+    if (RE_JOUR.test(String(aujourdhui || '')) && j > String(aujourdhui).slice(0, 10)) {
+      return { erreur: 'Une date passée ou aujourd’hui.' };
+    }
+    return { pesee: { date: j, poids_kg: p } };
+  }
+
   // Les pesées du serveur, PLUS celles que la file n'a pas encore envoyées.
   // `Sync.remplacer` écraserait une pesée posée hors ligne au premier rafraîchis-
   // sement réussi : la liste du serveur ne la connaît pas encore. Une pesée en
@@ -256,6 +274,7 @@
     POIDS_MIN: POIDS_MIN, POIDS_MAX: POIDS_MAX,
     poidsValide: poidsValide,
     peseeAEcrire: peseeAEcrire,
+    peseeDuProfil: peseeDuProfil,
     fondreEnAttente: fondreEnAttente,
     depuisJour: depuisJour,
     normaliser: normaliser,

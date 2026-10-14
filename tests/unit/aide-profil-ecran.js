@@ -37,7 +37,7 @@ function profilEcran(profil, options) {
     sessionActive: null,
     Routeur: { PROFIL: 'profil', EXERCICES: 'exercices', POIDS: 'poids' },
     Poids: { resume: () => null },
-    Modele: { nombreSigne: (n) => String(n), nombreGroupe: (n) => String(n) },
+    Modele: { nombreSigne: (n) => String(n), nombreGroupe: (n) => String(n), quand: (d) => String(d) },
     Rendu: { rendreProfil: (cible, v) => { vue = v; }, dateCourte: (d) => String(d),
              // 64B — le bandeau du jeu : ce que l'écran lui passe (l'état, ou `null` jeu éteint).
              rendreBandeauJeu: (rond, ligne, etat, initiale) => { bandeau = { etat, initiale }; } },
@@ -54,6 +54,7 @@ function profilEcran(profil, options) {
     marquerProfilVu: () => {}, afficherSaisie: () => {}, allerA: () => {},
     rendreMesExercices: () => {}, rendrePoids: () => {}, ouvrirSaisieProfil: () => {},
     ouvrirRythmeProfil: () => {}, ouvrirJoursProfil: () => {}, ouvrirMotDePasseProfil: () => {},
+    ouvrirPeseeProfil: () => {}, jourDuJour: () => '2026-10-14',   // 92 — la ligne « Poids » saisit
     demanderDeconnexion: () => {}, demanderSuppressionCompte: () => {},
     // 60-2a — « Ton but », « Ton temps » et « Terminer mon questionnaire » : ce que
     // l'écran ouvre, relevé (`ouverts`), et le questionnaire (`questionnairesOuverts`).

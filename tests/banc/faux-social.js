@@ -135,7 +135,9 @@ function creer(base, options) {
     const lundi = lundiCourant(), ids = membresDe(gid).map((m) => m.user_id);
     const l = new Date(lundi + 'T12:00:00'), fin = jourLocal(new Date(l.getFullYear(), l.getMonth(), l.getDate() + 7));
     return sessions().some((s) => ids.indexOf(s.user_id) >= 0 && (s.statut || 'terminee') === 'terminee' &&
-      jourLocal(new Date(s.debut)) >= lundi && jourLocal(new Date(s.debut)) < fin);
+      jourLocal(new Date(s.debut)) >= lundi && jourLocal(new Date(s.debut)) < fin &&
+      // v2_083 — seule une séance terminée APRÈS la création de la guilde lance la semaine (coalesce(fin, debut) > cree_le).
+      new Date(s.fin || s.debut).getTime() > new Date((etat.guildes.filter((x) => x.id === gid)[0] || {}).cree_le || 0).getTime());
   };
   const seancesDeLaSemaine = (gid) => {
     const lundi = lundiCourant(), ids = membresDe(gid).map((m) => m.user_id);
@@ -292,7 +294,7 @@ function creer(base, options) {
       if (guildeDe(moi)) leve('23505', 'guilde_deja_dans_une');
       const nom = verifierGuilde(a.p_nom, a.p_couleur);
       if (nomPris(nom)) leve('23505', 'duplicate key value violates unique constraint "guildes_nom_cle_uniq"');
-      const g = { id: 'g-' + (++horloge), nom, blason: 'bouclier', couleur: a.p_couleur, admin: moi };
+      const g = { id: 'g-' + (++horloge), nom, blason: 'bouclier', couleur: a.p_couleur, admin: moi, cree_le: instant() };
       etat.guildes.push(g);
       ajouterMembre(moi, g.id);
       etat.invitations = etat.invitations.filter((i) => i.invite !== moi);

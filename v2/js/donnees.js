@@ -856,6 +856,15 @@
     var n = Number(Array.isArray(d) ? d[0] : d);
     return isFinite(n) ? n : 0;
   }
+  // 89 (SOCIAL-V1 « Étage 2 », v2_079) — réservé aux mutuels, gardé par la base (`social_mutuel`).
+  async function socialExercicesAmi(userIdCible) { return (await rpc('social_exercices_ami', { p_user: userIdCible })) || []; }
+  async function socialSeriesExercice(userIdCible, slug) {
+    return (await rpc('social_series_exercice', { p_user: userIdCible, p_slug: slug })) || [];
+  }
+  async function socialPeriode(userIdCible, de, a) {
+    return (await rpc('social_periode', { p_user: userIdCible, p_de: de, p_a: a })) || [];
+  }
+  async function socialScoresForce(slug) { return (await rpc('social_scores_force', { p_slug: slug })) || []; }
   async function ecrire(promesse) { var r = await promesse; if (r.error) throw r.error; return true; }
   // `statut` est posé par la base (`demande`, ou `accepte` d'office vers un compte public).
   function sAbonner(moi, suivi) { return ecrire(client().from('abonnements').insert({ suiveur: moi, suivi: suivi })); }
@@ -865,6 +874,16 @@
   function accepterDemande(suiveur, moi) {
     return ecrire(client().from('abonnements').update({ statut: 'accepte' }).eq('suiveur', suiveur).eq('suivi', moi));
   }
+  // 89 — MES SCORES DE FORCE (`scores_force`, v2_079) : le score DOTS et la charge, par exercice. ⚠️ LE POIDS DE CORPS
+  // N'EST JAMAIS DANS CE CORPS : les lignes de `Social.scoresAPublier` (exercice, score, charge), et rien d'autre — la
+  // table n'a pas de colonne de poids (v2_079), le serveur refuserait ; le banc le vérifie (faux-social, « fuites »).
+  function publierScores(moi, scores) {
+    if (!scores || !scores.length) return Promise.resolve(true);
+    return ecrire(client().from('scores_force').upsert(scores.map(function (s) {
+      return Object.assign({ user_id: moi }, s);
+    }), { onConflict: 'user_id,exercise_slug' }));
+  }
+  function retirerScores(moi) { return ecrire(client().from('scores_force').delete().eq('user_id', moi)); }
   function bloquer(moi, autre) { return ecrire(client().from('blocages').insert({ bloqueur: moi, bloque: autre })); }
   function debloquer(moi, autre) {
     return ecrire(client().from('blocages').delete().eq('bloqueur', moi).eq('bloque', autre));
@@ -927,6 +946,8 @@
     socialDetailSeance: socialDetailSeance, socialMesReactions: socialMesReactions,
     sAbonner: sAbonner, retirerAbonnement: retirerAbonnement, accepterDemande: accepterDemande,
     bloquer: bloquer, debloquer: debloquer, reagir: reagir, retirerReaction: retirerReaction,
+    socialExercicesAmi: socialExercicesAmi, socialSeriesExercice: socialSeriesExercice, socialPeriode: socialPeriode,
+    socialScoresForce: socialScoresForce, publierScores: publierScores, retirerScores: retirerScores,
     // Exposée pour les tests : c'est la logique de pagination qu'il faut
     // pouvoir exercer sans réseau, pas les requêtes qui l'utilisent.
     paginerParCle: paginerParCle,

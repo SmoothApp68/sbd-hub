@@ -2146,6 +2146,33 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .s-inter::after{content:"";position:absolute;left:3px;top:3px;width:22px;height:22px;border-radius:50%;background:var(--texte-2)}
 .s-inter.s-on{background:var(--medaille)}.s-inter.s-on::after{left:auto;right:3px;background:var(--fond)}
 .s-reactions{text-align:center;color:var(--texte-2);font-size:14px;margin:var(--e3) 0}
+/* 89 — le social, étage 2 (maquette social étage 2 v2, écrans 1 à 3). Pas de rouge, pas de couronne. */
+.s-exo-ami{width:100%;background:transparent;border-left:0;border-right:0;border-bottom:0;color:var(--texte);font:inherit;text-align:left;cursor:pointer}
+.s-comparer-periode{margin-top:14px}
+.s-sous-exo{font-size:12px;margin:0 0 10px;overflow-wrap:anywhere}
+.s-courbe{display:block;margin-top:12px}
+.s-courbe-lui{stroke:#7a8fa3;stroke-width:2.5}
+.s-courbe-moi{stroke:var(--medaille);stroke-width:2.5;stroke-dasharray:5 4}
+.s-courbe-lui-nom{fill:var(--texte-2);font-size:11px}.s-courbe-moi-nom{fill:var(--medaille);font-size:11px}
+.s-duo{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px 14px;align-items:baseline;font-size:14px}
+.s-duo-h{color:var(--texte-2);font-size:12px;overflow-wrap:anywhere}
+.s-duo-v{text-align:right;font-weight:600}
+.s-large{width:100%}
+.s-choix{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.s-periode{background:var(--panneau);color:var(--texte-2);border-radius:99px;font-size:12px}
+.s-periode.s-on{background:var(--medaille);color:var(--fond)}
+.s-commun{padding:10px 0;border-top:1px solid var(--trait);overflow-wrap:anywhere}
+.s-commun-p{display:flex;gap:6px 14px;flex-wrap:wrap;margin-top:2px;font-size:14px}
+.s-commun-qui.s-moi{color:var(--medaille)}
+.s-commun small{display:block;font-size:11px}
+.s-entre-amis{margin-top:var(--e3)}
+.s-entre-sous{margin:4px 0 8px;display:flex;align-items:center;gap:6px}
+.s-info{min-height:24px;padding:0 9px;border-radius:99px;font-size:12px}
+.s-entre-info[hidden]{display:none}
+.s-rang{display:flex;align-items:center;gap:10px;padding:8px 4px;border-top:1px solid var(--trait);min-width:0}
+.s-rang .s-n{width:22px;color:var(--texte-2);font-weight:700;text-align:right;flex:none}
+.s-rang .s-t{flex:1;min-width:0;overflow-wrap:anywhere}.s-rang .s-sc{font-weight:700}
+.s-rang.s-moi{background:var(--panneau-2);border-radius:12px}
 
 /* 88 — « Une nouvelle version est prête. » Discret, en bas, au-dessus des onglets. */
 .bandeau-maj{position:fixed;left:0;right:0;z-index:52;max-width:520px;margin:0 auto;

@@ -60,6 +60,25 @@
       return memoSeancesBilan.liste;
     }
 
+    // 89 (SOCIAL-V1 « Étage 2 ») — MES SÉRIES COMPTÉES, la forme des fonctions sociales de la base (v2_079) :
+    // `{ session_id, debut, exercise_slug, charge_kg, reps }`, séries `travail`, charge > 0, reps > 0 (la règle de
+    // `Bilan.volumeKg`). `de`, `a` : des jours civils `AAAA-MM-JJ` inclus, ou null ; `slug` : un exercice, ou null.
+    // Le social compare mes chiffres à ceux d'un ami avec les MÊMES fonctions (`social.js`) : la règle est ici, une fois.
+    function seriesComptees(c, de, a, slug) {
+      var out = [];
+      seancesAvecSeries(c).forEach(function (s) {
+        var j = s.debut ? Moteur.jourCivil(new Date(s.debut)) : null;
+        if (!j || (de && j < de) || (a && j > a)) return;
+        s.series.forEach(function (x) {
+          if (!x || (slug && x.exercise_slug !== slug) || !Modele.estTravail(x)) return;
+          var ch = Number(x.charge_kg), r = Number(x.reps);
+          if (!(ch > 0) || !(r > 0)) return;
+          out.push({ session_id: s.id, debut: s.debut, exercise_slug: x.exercise_slug, charge_kg: ch, reps: r });
+        });
+      });
+      return out;
+    }
+
     // Toutes les séances qui portent un exercice (la séance en cours n'y est
     // pas : elle n'est dans le cache qu'une fois terminée).
     var memoParSlug = { cle: null, parSlug: {} };
@@ -899,6 +918,7 @@
       entreeDuParcours: entreeDuParcours,
       parcoursDe: parcoursDe,
       seancesAvecSeries: seancesAvecSeries,
+      seriesComptees: seriesComptees,
       seancesDuSlug: seancesDuSlug,
       seancesDeLExercice: seancesDeLExercice,
       recordsDeLaSeance: recordsDeLaSeance,

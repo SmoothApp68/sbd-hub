@@ -166,6 +166,169 @@
     return trouves;
   }
 
+  // ══ ÉTAGE 2 (89, SOCIAL-V1 « Étage 2 », décisions du 14/10/2026) ══════════════════════════════
+  //
+  // Tout ici est réservé aux MUTUELS (la base le garde : `social_mutuel`). Jamais de vainqueur, de couronne ni de
+  // rouge. Le coach et les bilans n'en lisent rien.
+  //
+  // « UNE SÉRIE COMPTÉE » : une série `travail`, charge > 0, reps > 0 — la règle de `Bilan.volumeKg`, celle des
+  // fonctions de la base (v2_078, v2_079). Mes séries viennent de `faits.seriesComptees`, celles d'un ami de la base :
+  // les mêmes lignes `{ session_id, debut, exercise_slug, charge_kg, reps }`, lues par les mêmes fonctions ci-dessous.
+
+  // ── LE SCORE DOTS (la seule fonction DOTS de l'app, registre NOTIONS) ──
+  //
+  // « À poids de corps égal » : la charge × 500 ÷ le polynôme du poids de corps, par sexe (formule DOTS, IPF 2019).
+  // Le poids est borné comme la formule le prévoit (40 à 210 kg pour un homme, 40 à 150 pour une femme). Sans sexe
+  // précisé ou sans pesée : `null` — on n'apparaît pas. ⚠️ LE POIDS NE QUITTE JAMAIS LE TÉLÉPHONE : seul le score part.
+  var DOTS = {
+    homme: { c: [-0.000001093, 0.0007391293, -0.1918759221, 24.0900756, -307.75076], min: 40, max: 210 },
+    femme: { c: [-0.0000010706, 0.0005158568, -0.1126655495, 13.6175032, -57.96288], min: 40, max: 150 }
+  };
+  function scoreDots(charge, poids, sexe) {
+    var f = DOTS[sexe], c = Number(charge), p = Number(poids);
+    if (!f || !(c > 0) || !(p > 0) || !isFinite(c) || !isFinite(p)) return null;
+    var x = Math.min(f.max, Math.max(f.min, p));
+    var d = f.c[0] * Math.pow(x, 4) + f.c[1] * Math.pow(x, 3) + f.c[2] * x * x + f.c[3] * x + f.c[4];
+    if (!(d > 0)) return null;
+    return Math.round(c * 500 / d * 100) / 100;
+  }
+
+  // Un exercice « à la barre » (seul classé à poids de corps égal) : l'équipement du catalogue.
+  function aLaBarre(exo) { return !!exo && exo.equipement === 'barre' && (exo.mesure || 'charge_reps') === 'charge_reps'; }
+
+  // La meilleure charge de chaque exercice, sur des séries comptées.
+  function meilleuresCharges(lignes) {
+    var out = {};
+    (lignes || []).forEach(function (l) {
+      var c = Number(l && l.charge_kg);
+      if (!l || !l.exercise_slug || !(c > 0) || !(Number(l.reps) > 0)) return;
+      if (!out[l.exercise_slug] || c > out[l.exercise_slug]) out[l.exercise_slug] = c;
+    });
+    return out;
+  }
+
+  // Ce que je publie : un score par exercice à la barre, avec sa charge. `null` sans sexe précisé ou sans pesée
+  // (on n'apparaît pas : l'app retire alors ses scores). `estALaBarre(slug)` : lu dans le catalogue par l'app.
+  function scoresAPublier(charges, poids, sexe, estALaBarre) {
+    if (!DOTS[sexe] || !(Number(poids) > 0)) return null;
+    return Object.keys(charges || {}).sort().filter(function (slug) { return estALaBarre(slug); }).map(function (slug) {
+      return { exercise_slug: slug, score: scoreDots(charges[slug], poids, sexe), charge_kg: charges[slug] };
+    }).filter(function (s) { return s.score !== null; });
+  }
+  // Ce qui a changé depuis la dernière publication (`deja` : `{ slug: { score, charge_kg } }`).
+  function scoresChanges(scores, deja) {
+    return (scores || []).filter(function (s) {
+      var d = deja && deja[s.exercise_slug];
+      return !d || d.score !== s.score || d.charge_kg !== s.charge_kg;
+    });
+  }
+
+  // « Entre amis » : les lignes de `social_scores_force`, triées à poids de corps égal (le score, jamais affiché),
+  // avec les vrais kilos. Rien sous deux personnes avec un score (moi compris).
+  function classementEntreAmis(lignes) {
+    var l = (lignes || []).filter(function (x) { return x && Number(x.score) > 0 && Number(x.charge_kg) > 0; });
+    if (l.length < 2) return null;
+    return l.slice().sort(function (a, b) {
+      return (Number(b.score) - Number(a.score)) || (Number(b.charge_kg) - Number(a.charge_kg)) ||
+        String(a.pseudo).localeCompare(String(b.pseudo));
+    }).map(function (x, i) { return { rang: i + 1, pseudo: x.pseudo, charge_kg: Number(x.charge_kg), moi: !!x.moi }; });
+  }
+
+  // ── « 6 MOIS » : le mois en cours et les 5 d'avant (la même fenêtre que la base) ──
+  function debutSixMois(maintenant) {
+    var m = maintenant || new Date();
+    return new Date(m.getFullYear(), m.getMonth() - 5, 1);
+  }
+  function cleMois(d) { return d.getFullYear() + '-' + deux(d.getMonth() + 1); }
+
+  // La page d'un exercice (d'un ami, ou la mienne pour « Se comparer ») : meilleure charge, meilleure série (le plus
+  // gros charge × reps, la plus lourde à égalité), séances, et la meilleure charge de chaque mois. `null` sans série.
+  function resumeExercice(lignes, maintenant) {
+    var m = maintenant || new Date(), depuis = debutSixMois(m);
+    var l = (lignes || []).filter(function (x) {
+      var d = new Date(x && x.debut);
+      return x && !isNaN(d.getTime()) && d >= depuis && d <= m && Number(x.charge_kg) > 0 && Number(x.reps) > 0;
+    });
+    if (!l.length) return null;
+    var seances = {}, parMois = {}, charge = 0, serie = null;
+    l.forEach(function (x) {
+      var c = Number(x.charge_kg), r = Number(x.reps), k = cleMois(new Date(x.debut));
+      seances[x.session_id] = true;
+      if (c > charge) charge = c;
+      if (!parMois[k] || c > parMois[k]) parMois[k] = c;
+      if (!serie || c * r > serie.charge * serie.reps || (c * r === serie.charge * serie.reps && c > serie.charge)) {
+        serie = { charge: c, reps: r };
+      }
+    });
+    var mois = [];
+    for (var i = 0; i < 6; i++) {
+      var d = new Date(depuis.getFullYear(), depuis.getMonth() + i, 1), k2 = cleMois(d);
+      mois.push({ cle: k2, charge: parMois[k2] || null });
+    }
+    return { meilleureCharge: charge, meilleureSerie: serie, seances: Object.keys(seances).length, mois: mois };
+  }
+
+  // ── « SE COMPARER SUR LA PÉRIODE » : ce mois, 3 mois, l'année ──
+  var PERIODES = [
+    { cle: 'mois', libelle: 'Ce mois' },
+    { cle: '3mois', libelle: '3 mois' },
+    { cle: 'annee', libelle: 'L’année' }
+  ];
+  // Les bornes (jours civils, inclus) : du 1er du mois, d'il y a 3 mois, du 1er janvier — à aujourd'hui.
+  function bornesDePeriode(cle, maintenant) {
+    var m = maintenant || new Date(), de;
+    if (cle === 'annee') de = new Date(m.getFullYear(), 0, 1);
+    else if (cle === '3mois') de = new Date(m.getFullYear(), m.getMonth() - 3, m.getDate() + 1);
+    else de = new Date(m.getFullYear(), m.getMonth(), 1);
+    return { de: jourIso(de), a: jourIso(m) };
+  }
+  // Mes séries comptées → la forme de `social_periode` (total : séances avec au moins une série comptée, séries,
+  // reps, tonnage au centième ; par exercice, plus la meilleure charge).
+  function periodeDesLignes(lignes) {
+    var total = { s: {}, series: 0, reps: 0, t: 0 }, ex = {};
+    (lignes || []).forEach(function (x) {
+      var c = Number(x.charge_kg), r = Number(x.reps);
+      if (!(c > 0) || !(r > 0)) return;
+      var e = ex[x.exercise_slug] = ex[x.exercise_slug] || { s: {}, series: 0, reps: 0, t: 0, charge_max: 0 };
+      [total, e].forEach(function (o) { o.s[x.session_id] = true; o.series++; o.reps += r; o.t += c * r; });
+      if (c > e.charge_max) e.charge_max = c;
+    });
+    function fin(o) {
+      var r = { seances: Object.keys(o.s).length, series: o.series, reps: o.reps, tonnage_kg: Math.round(o.t * 100) / 100 };
+      if (o.charge_max !== undefined) r.charge_max = o.charge_max;
+      return r;
+    }
+    var exercices = {};
+    Object.keys(ex).forEach(function (k) { exercices[k] = fin(ex[k]); });
+    return { total: fin(total), exercices: exercices };
+  }
+  // Les lignes de `social_periode` → la même forme (la ligne sans exercice est le total).
+  function periodeDeLaBase(rows) {
+    var out = { total: { seances: 0, series: 0, reps: 0, tonnage_kg: 0 }, exercices: {} };
+    (rows || []).forEach(function (r) {
+      var v = { seances: Number(r.seances) || 0, series: Number(r.series) || 0, reps: Number(r.reps) || 0,
+                tonnage_kg: Number(r.tonnage_kg) || 0 };
+      if (r.exercise_slug === null || r.exercise_slug === undefined) out.total = v;
+      else { v.charge_max = Number(r.charge_max) || 0; out.exercices[r.exercise_slug] = v; }
+    });
+    return out;
+  }
+  // La comparaison : les quatre totaux côte à côte, puis les exercices en commun avec la meilleure charge de chacun.
+  // Les exercices à la barre d'abord, et dans chacun les deux personnes « à poids de corps égal » (les scores publiés,
+  // `scores[slug] = { moi, lui }`) — le score n'est jamais affiché ; sans les deux scores, toi d'abord.
+  function comparaisonPeriode(moi, lui, options) {
+    var o = options || {}, estALaBarre = o.estALaBarre || function () { return false; }, scores = o.scores || {};
+    var communs = Object.keys(moi.exercices).filter(function (k) { return lui.exercices[k]; }).map(function (slug) {
+      var barre = !!estALaBarre(slug), s = scores[slug] || {};
+      var luiDevant = barre && Number(s.moi) > 0 && Number(s.lui) > 0 && Number(s.lui) > Number(s.moi);
+      return { slug: slug, barre: barre, moi: moi.exercices[slug].charge_max, lui: lui.exercices[slug].charge_max,
+               ordre: luiDevant ? ['lui', 'moi'] : ['moi', 'lui'] };
+    });
+    var nom = o.nomDe || function (s) { return s; };
+    communs.sort(function (a, b) { return (b.barre - a.barre) || String(nom(a.slug)).localeCompare(String(nom(b.slug))); });
+    return { totaux: { moi: moi.total, lui: lui.total }, communs: communs };
+  }
+
   var api = {
     MOI: MOI, INCONNU: INCONNU, DEMANDE: DEMANDE, SUIVI: SUIVI, MUTUEL: MUTUEL,
     CHAMPS_INTERDITS: CHAMPS_INTERDITS,
@@ -184,7 +347,21 @@
     calendrierSocial: calendrierSocial,
     detailParExercice: detailParExercice,
     lienInvitation: lienInvitation,
-    champsInterditsDans: champsInterditsDans
+    champsInterditsDans: champsInterditsDans,
+    // 89 — étage 2
+    PERIODES: PERIODES,
+    scoreDots: scoreDots,
+    aLaBarre: aLaBarre,
+    meilleuresCharges: meilleuresCharges,
+    scoresAPublier: scoresAPublier,
+    scoresChanges: scoresChanges,
+    classementEntreAmis: classementEntreAmis,
+    debutSixMois: debutSixMois,
+    resumeExercice: resumeExercice,
+    bornesDePeriode: bornesDePeriode,
+    periodeDesLignes: periodeDesLignes,
+    periodeDeLaBase: periodeDeLaBase,
+    comparaisonPeriode: comparaisonPeriode
   };
 
   racine.THSocial = api;

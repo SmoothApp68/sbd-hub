@@ -214,3 +214,155 @@ describe('faux-social — les cercles, le compte privé, le blocage (v2_078)', (
     expect(f.rpc('u-moi', 'social_rechercher', { p_debut: 'pu' })).toEqual([{ pseudo: 'public', niveau: null, compte_prive: false }]);
   });
 });
+
+// ══ 89 — L'ÉTAGE 2 (SOCIAL-V1 « Étage 2 », décisions du 14/10/2026, migration v2_079) ══════════════════════
+//
+// CONFIGURATIONS DISCRIMINANTES : l'exemple réel (squat Jordan 210 kg à 89,5 kg contre Aurélien 145 kg à 96,75 kg ;
+// couché 140 kg chacun → le plus léger devant) ; au couché, des kilos égaux — un tri par kilos bruts ne départage
+// pas Jordan, seul le poids de corps le met devant ; un abonné à sens unique ne reçoit RIEN de l'étage 2.
+describe('89 — le score DOTS, à poids de corps égal', () => {
+  test('l’exemple réel : squat, Jordan (210 kg à 89,5) devant Aurélien (145 kg à 96,75) ; couché à 140 chacun, le plus léger devant', () => {
+    const jS = Social.scoreDots(210, 89.5, 'homme'), aS = Social.scoreDots(145, 96.75, 'homme');
+    expect(jS).toBeGreaterThan(aS);
+    const jB = Social.scoreDots(140, 89.5, 'homme'), aB = Social.scoreDots(140, 96.75, 'homme');
+    expect(jB).toBeGreaterThan(aB);
+    // Ordre de grandeur DOTS (IPF) : 210 kg à 89,5 kg ≈ 136.
+    expect(Math.round(jS)).toBe(136);
+  });
+  test('par sexe ; sans sexe précisé ou sans poids : rien', () => {
+    expect(Social.scoreDots(100, 60, 'femme')).toBeGreaterThan(Social.scoreDots(100, 60, 'homme'));
+    expect(Social.scoreDots(100, 80, 'non_precise')).toBeNull();
+    expect(Social.scoreDots(100, null, 'homme')).toBeNull();
+    expect(Social.scoresAPublier({ 'squat-barre': 100 }, null, 'homme', () => true)).toBeNull();
+    expect(Social.scoresAPublier({ 'squat-barre': 100 }, 80, 'non_precise', () => true)).toBeNull();
+  });
+  test('ce qui part : le score et la charge par exercice à la barre — JAMAIS le poids de corps', () => {
+    const s = Social.scoresAPublier({ 'squat-barre': 145, 'curl-haltere': 20 }, 96.75, 'homme', (k) => k === 'squat-barre');
+    expect(s).toEqual([{ exercise_slug: 'squat-barre', score: Social.scoreDots(145, 96.75, 'homme'), charge_kg: 145 }]);
+    expect(JSON.stringify(s)).not.toMatch(/96\.75|poids/);
+    expect(Social.scoresChanges(s, { 'squat-barre': { score: s[0].score, charge_kg: 145 } })).toEqual([]);
+    expect(Social.scoresChanges(s, {}).length).toBe(1);
+  });
+  test('« à la barre » : l’équipement du catalogue', () => {
+    expect(Social.aLaBarre({ equipement: 'barre', mesure: 'charge_reps' })).toBe(true);
+    expect(Social.aLaBarre({ equipement: 'halteres', mesure: 'charge_reps' })).toBe(false);
+    expect(Social.aLaBarre(undefined)).toBe(false);
+  });
+});
+
+describe('89 — « Entre amis » : à poids de corps égal, les vrais kilos, à partir de deux', () => {
+  const ligne = (pseudo, charge, poids, moi) => ({ pseudo, charge_kg: charge, score: Social.scoreDots(charge, poids, 'homme'), moi: !!moi });
+  test('DISCRIMINANT — couché à 140 chacun : Jordan (plus léger) premier, les kilos affichés sont les vrais', () => {
+    const c = Social.classementEntreAmis([ligne('aurel', 140, 96.75, true), ligne('jordan', 140, 89.5)]);
+    expect(c.map((x) => x.pseudo)).toEqual(['jordan', 'aurel']);
+    expect(c.map((x) => x.charge_kg)).toEqual([140, 140]);
+    expect(c[1].moi).toBe(true);
+  });
+  test('squat : Jordan, alexis, moi — un plus léger qui soulève moins peut passer devant', () => {
+    const c = Social.classementEntreAmis([ligne('alexis', 130, 70), ligne('aurel', 145, 96.75, true), ligne('jordan', 210, 89.5)]);
+    expect(c.map((x) => x.pseudo)).toEqual(['jordan', 'alexis', 'aurel']);
+  });
+  test('rien sous deux personnes avec un score', () => {
+    expect(Social.classementEntreAmis([ligne('aurel', 145, 96.75, true)])).toBeNull();
+    expect(Social.classementEntreAmis([])).toBeNull();
+  });
+});
+
+describe('89 — la page d’un exercice et « Se comparer sur la période »', () => {
+  const M = new Date(2026, 9, 14, 12);
+  const l = (sid, j, ch, r, slug) => ({ session_id: sid, debut: new Date(2026, 9 - j, 5, 10).toISOString(), charge_kg: ch, reps: r,
+    exercise_slug: slug || 'squat-barre' });
+  test('meilleure charge, meilleure série (le plus gros charge × reps), séances, la meilleure charge de chaque mois (6 mois)', () => {
+    const r = Social.resumeExercice([l('a', 0, 210, 1), l('a', 0, 180, 5), l('b', 2, 170, 5), l('c', 7, 250, 1)], M);
+    expect(r.meilleureCharge).toBe(210);                         // 250 kg, il y a 7 mois : hors fenêtre
+    expect(r.meilleureSerie).toEqual({ charge: 180, reps: 5 });
+    expect(r.seances).toBe(2);
+    expect(r.mois.map((m) => m.charge)).toEqual([null, null, null, 170, null, 210]);
+    expect(Social.resumeExercice([], M)).toBeNull();
+  });
+  test('les bornes : ce mois, 3 mois, l’année', () => {
+    expect(Social.bornesDePeriode('mois', M)).toEqual({ de: '2026-10-01', a: '2026-10-14' });
+    expect(Social.bornesDePeriode('3mois', M)).toEqual({ de: '2026-07-15', a: '2026-10-14' });
+    expect(Social.bornesDePeriode('annee', M)).toEqual({ de: '2026-01-01', a: '2026-10-14' });
+  });
+  test('mes lignes et celles de la base donnent la même forme ; les exercices à la barre d’abord, à poids de corps égal', () => {
+    const moi = Social.periodeDesLignes([l('a', 0, 140, 5, 'dc-barre'), l('a', 0, 100, 10, 'curl'), l('b', 0, 145, 3)]);
+    expect(moi.total).toEqual({ seances: 2, series: 3, reps: 18, tonnage_kg: 2135 });
+    const lui = Social.periodeDeLaBase([
+      { exercise_slug: 'dc-barre', seances: 1, series: 1, reps: 5, tonnage_kg: 700, charge_max: 140 },
+      { exercise_slug: 'curl', seances: 1, series: 1, reps: 10, tonnage_kg: 300, charge_max: 30 },
+      { exercise_slug: null, seances: 1, series: 2, reps: 15, tonnage_kg: 1000, charge_max: 140 }]);
+    const c = Social.comparaisonPeriode(moi, lui, { estALaBarre: (k) => k === 'dc-barre',
+      scores: { 'dc-barre': { moi: Social.scoreDots(140, 96.75, 'homme'), lui: Social.scoreDots(140, 89.5, 'homme') } } });
+    expect(c.totaux.lui.seances).toBe(1);
+    expect(c.communs.map((x) => x.slug)).toEqual(['dc-barre', 'curl']);
+    expect(c.communs[0].ordre).toEqual(['lui', 'moi']);           // couché à 140 chacun : le plus léger devant
+    expect(c.communs[1].ordre).toEqual(['moi', 'lui']);           // pas à la barre : toi d'abord
+    expect(c.communs[1]).toMatchObject({ moi: 100, lui: 30 });
+  });
+});
+
+describe('89 — les routes de l’étage 2', () => {
+  test('/a/<pseudo>/exercice/<slug>, /a/<pseudo>/comparer ; un reste illisible retombe sur le profil', () => {
+    expect(Routeur.analyser('/a/jordan/exercice/squat-barre')).toEqual({ vue: Routeur.AMI, params: { pseudo: 'jordan', slug: 'squat-barre' } });
+    expect(Routeur.analyser('/a/jordan/comparer')).toEqual({ vue: Routeur.AMI, params: { pseudo: 'jordan', comparer: true } });
+    expect(Routeur.analyser('/a/jordan/n-importe').params).toEqual({ pseudo: 'jordan' });
+    expect(Routeur.construire(Routeur.AMI, { pseudo: 'jordan', slug: 'squat-barre' })).toBe('/a/jordan/exercice/squat-barre');
+    expect(Routeur.construire(Routeur.AMI, { pseudo: 'jordan', comparer: true })).toBe('/a/jordan/comparer');
+  });
+});
+
+describe('89 — faux-social (v2_079) : mutuels seulement, aucune donnée interdite, jamais le poids', () => {
+  function decor2() {
+    const f = decor();
+    f.etat.profils.push({ id: 'u-jordan', username: 'jordan', compte_prive: true });
+    const hier = new Date(Date.now() - 86400000).toISOString();
+    f.etat.sessions.push({ id: 'j-1', user_id: 'u-jordan', debut: hier, fin: hier, statut: 'terminee', visibilite: 'mutuels', poids_corps_kg: 89.5 });
+    f.etat.sets.push({ id: 'j1', session_id: 'j-1', exercise_slug: 'squat-barre', rang: 1, charge_kg: 210, reps: 1, type_serie: 'travail', rpe: 9, poids_corps_kg: 89.5 },
+      { id: 'j2', session_id: 'j-1', exercise_slug: 'squat-barre', rang: 2, charge_kg: 180, reps: 5, type_serie: 'travail', note: 'genou' },
+      { id: 'j3', session_id: 'j-1', exercise_slug: 'squat-barre', rang: 0, charge_kg: 60, reps: 5, type_serie: 'echauffement' });
+    f.etat.scores.push({ user_id: 'u-jordan', exercise_slug: 'squat-barre', score: 136.17, charge_kg: 210 });
+    const suivre = (a, b) => {
+      f.appeler(a, 'POST', 'abonnements', { suiveur: a, suivi: b });
+      f.appeler(b, 'PATCH', 'abonnements', { statut: 'accepte' }, 'suiveur=eq.' + a + '&suivi=eq.' + b);
+    };
+    return { f, suivre };
+  }
+  test('DISCRIMINANT — à sens unique : rien de l’étage 2 ; mutuel : ses exercices, ses séries, la période, son score', () => {
+    const { f, suivre } = decor2();
+    const j = new Date().toISOString().slice(0, 10), de = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+    suivre('u-moi', 'u-jordan');
+    expect(f.rpc('u-moi', 'social_exercices_ami', { p_user: 'u-jordan' })).toEqual([]);
+    expect(f.rpc('u-moi', 'social_series_exercice', { p_user: 'u-jordan', p_slug: 'squat-barre' })).toEqual([]);
+    expect(f.rpc('u-moi', 'social_periode', { p_user: 'u-jordan', p_de: de, p_a: j })).toEqual([]);
+    expect(f.rpc('u-moi', 'social_scores_force', { p_slug: 'squat-barre' })).toEqual([]);
+    suivre('u-jordan', 'u-moi');
+    expect(f.rpc('u-moi', 'social_exercices_ami', { p_user: 'u-jordan' })).toEqual([{ exercise_slug: 'squat-barre', charge_max: 210, seances: 1 }]);
+    expect(f.rpc('u-moi', 'social_series_exercice', { p_user: 'u-jordan', p_slug: 'squat-barre' }).map((x) => x.charge_kg)).toEqual([210, 180]);
+    const p = Social.periodeDeLaBase(f.rpc('u-moi', 'social_periode', { p_user: 'u-jordan', p_de: de, p_a: j }));
+    expect(p.total).toEqual({ seances: 1, series: 2, reps: 6, tonnage_kg: 1110 });
+    expect(f.rpc('u-moi', 'social_scores_force', { p_slug: 'squat-barre' }).map((x) => x.pseudo)).toEqual(['jordan']);
+    expect(f.etat.fuites).toEqual([]);
+  });
+  test('DISCRIMINANT — scores_force : on n’écrit que le sien, et un corps qui porte le poids de corps est refusé (une fuite)', () => {
+    const { f } = decor2();
+    expect(f.appeler('u-moi', 'POST', 'scores_force', [{ user_id: 'u-moi', exercise_slug: 'squat-barre', score: 90.57, charge_kg: 145 }]).status).toBe(201);
+    expect(f.appeler('u-moi', 'POST', 'scores_force', [{ user_id: 'u-jordan', exercise_slug: 'squat-barre', score: 1, charge_kg: 1 }]).status).toBe(403);
+    expect(f.etat.fuites).toEqual([]);
+    expect(f.appeler('u-moi', 'POST', 'scores_force', [{ user_id: 'u-moi', exercise_slug: 'squat-barre', score: 90, charge_kg: 145, poids_kg: 96.75 }]).status).toBe(400);
+    expect(f.etat.fuites).toEqual([{ table: 'scores_force', champs: ['poids_kg'] }]);
+    f.appeler('u-moi', 'DELETE', 'scores_force', null, 'user_id=eq.u-moi');
+    expect(f.etat.scores.map((s) => s.user_id)).toEqual(['u-jordan']);
+  });
+});
+
+describe('89 — le coach et les bilans ne lisent rien du social', () => {
+  test('aucun module du coach ni des bilans ne nomme `THSocial` ni une fonction sociale de la base', () => {
+    const fs = require('fs'), path = require('path');
+    ['plan.js', 'moteur.js', 'palier.js', 'seance.js', 'bilan.js', 'semaine.js', 'parcours.js', 'reserve.js', 'generateur.js', 'jeu.js']
+      .forEach((f) => {
+        const src = fs.readFileSync(path.join(__dirname, '../../v2/js', f), 'utf8');
+        expect([f, /THSocial|scores_force|social_[a-z]/.test(src)]).toEqual([f, false]);
+      });
+  });
+});

@@ -17103,6 +17103,221 @@ const SETS_IMPORTES = [
         S.journal.filter((j) => j.op === 'refus')]));
   }
 
+  console.log('\n══ social-2. LE SOCIAL, ÉTAGE 2 : PROFIL D’UN MUTUEL, SON EXERCICE, SE COMPARER, ENTRE AMIS (89, SOCIAL-V1) ══');
+  //
+  // Le faux serveur du social imite v2_079 : tout l'étage 2 est réservé aux MUTUELS, et `scores_force` n'accepte que
+  // ses colonnes (un corps qui porte le poids de corps est refusé ET compté comme une fuite).
+  //
+  // ⚠️ CONFIGURATIONS DISCRIMINANTES :
+  //   · l'exemple réel : squat jordan 210 kg à 89,5 kg contre moi (homme, pesée 96,75 kg) ; au COUCHÉ, jordan soulève
+  //     EXACTEMENT ma meilleure charge — à kilos égaux, un tri par kilos bruts ne le met pas devant, seul le poids de
+  //     corps le fait ;
+  //   · l'étage 2 se teste à SENS UNIQUE d'abord (rien ne s'affiche, rien n'est demandé), PUIS en mutuel ;
+  //   · alexis a publié un score mais n'est PAS mutuel : il n'apparaît pas dans « Entre amis » ;
+  //   · les séries de jordan portent `rpe`, `note`, `poids_corps_kg` : aucune réponse ne doit les rendre ;
+  //   · sans pesée, mes scores sont retirés et « Entre amis » disparaît (jordan seul : moins de deux).
+  {
+    const erreursAvant = erreurs.length;
+    const violationsAvant = gardeBanc.violations;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const S = fauxSocial.etat;
+    const SocialJs = require(path.join(__dirname, '../../v2/js/social.js'));
+    const tS = Date.now();
+    const iso = (d) => d.toISOString();
+    const jourDe = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    // Le catalogue : le squat et le couché à la barre (remis à la fin).
+    const cat = (slug) => CATALOGUE.filter((e) => e.slug === slug)[0];
+    const equipAvant = { 'squat-barre': cat('squat-barre').equipement, 'dc-barre': cat('dc-barre').equipement };
+    cat('squat-barre').equipement = 'barre'; cat('dc-barre').equipement = 'barre';
+    // Moi : homme, une pesée datée (96,75 kg) ; une séance de squat et de couché il y a une heure.
+    const sexeAvant = base.profiles[0].sexe;
+    base.profiles[0].sexe = 'homme';
+    const peseesAvant = base.pesees.slice();
+    base.pesees.length = 0;
+    base.pesees.push({ id: '00000000-0000-4000-8890-000000000001', user_id: 'u-banc', date: jourDe(ilYa(2 * 86400000, tS)),
+      poids_kg: 96.75, source: 'manuel' });
+    const MA_SEANCE = 'a0000000-0000-4000-8890-0000000000aa';
+    const debutMoi = iso(ilYa(3600000, tS));
+    base.sessions.push({ id: MA_SEANCE, user_id: 'u-banc', titre: 'Social U89', debut: debutMoi, fin: iso(finDe(debutMoi, tS)),
+      statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debutMoi });
+    const maSerie = (n, slug, kg, reps) => ({ id: 'a0000000-0000-4000-8891-00000000000' + n, session_id: MA_SEANCE, user_id: 'u-banc',
+      exercise_slug: slug, charge_kg: kg, reps, duree_s: null, distance_m: null, type_serie: 'travail', rang: n, groupe_superset: null,
+      validee_a: debutMoi, rpe: null, ressenti: null, repos_s: null, note: null, source: 'app', created_at: debutMoi, modifie_a: null });
+    base.sets.push(maSerie(1, 'squat-barre', 145, 3), maSerie(2, 'dc-barre', 140, 3));
+    // Mes meilleures charges, sur TOUT mon historique de banc (des sections précédentes peuvent en avoir posé).
+    const maxMoi = (slug) => base.sets.filter((t) => t.user_id === 'u-banc' && t.exercise_slug === slug && (t.type_serie || 'travail') === 'travail' &&
+      Number(t.reps) > 0 && base.sessions.some((s) => s.id === t.session_id && (s.statut || 'terminee') === 'terminee'))
+      .reduce((m, t) => Math.max(m, Number(t.charge_kg) || 0), 0);
+    const monSquat = maxMoi('squat-barre'), monCouche = maxMoi('dc-barre');
+    // Jordan (89,5 kg, homme) et alexis — leurs scores publiés depuis LEUR téléphone (le poids n'en sort pas).
+    S.profils.push({ id: 'u-jordan', username: 'jordan', compte_prive: true, jeu_actif: true, jeu_niveau: 14, jeu_titre: null, deleted_at: null },
+      { id: 'u-alexis', username: 'alexis', compte_prive: true, jeu_actif: true, jeu_niveau: 8, jeu_titre: null, deleted_at: null });
+    const J1 = 'a0000000-0000-4000-8892-000000000001', J2 = 'a0000000-0000-4000-8892-000000000002', J3 = 'a0000000-0000-4000-8892-000000000003';
+    const seanceJ = (id, il, titre) => {
+      const d = iso(ilYa(il, tS));
+      return { id, user_id: 'u-jordan', titre, debut: d, fin: iso(finDe(d, tS)), statut: 'terminee', visibilite: 'mutuels',
+        note: 'note privée', poids_corps_kg: 89.5, source: 'app' };
+    };
+    S.sessions.push(seanceJ(J1, 10 * 60000, 'Jambes'), seanceJ(J2, 20 * 60000, 'Pecs'), seanceJ(J3, 62 * 86400000, 'Jambes'));
+    const serieJ = (id, sid, slug, rang, kg, reps, type) => ({ id, session_id: sid, exercise_slug: slug, rang, charge_kg: kg, reps,
+      duree_s: null, distance_m: null, type_serie: type || 'travail', rpe: 9, ressenti: 'dur', note: 'genou', douleur: 'genou', poids_corps_kg: 89.5 });
+    S.sets.push(serieJ('sj-1', J1, 'squat-barre', 1, 60, 5, 'echauffement'), serieJ('sj-2', J1, 'squat-barre', 2, 210, 1),
+      serieJ('sj-3', J1, 'squat-barre', 3, 180, 5), serieJ('sj-4', J2, 'dc-barre', 1, monCouche, 3), serieJ('sj-5', J2, 'curl', 2, 20, 10),
+      serieJ('sj-6', J3, 'squat-barre', 1, 170, 5));
+    S.scores.push({ user_id: 'u-jordan', exercise_slug: 'squat-barre', score: SocialJs.scoreDots(210, 89.5, 'homme'), charge_kg: 210 },
+      { user_id: 'u-jordan', exercise_slug: 'dc-barre', score: SocialJs.scoreDots(monCouche, 89.5, 'homme'), charge_kg: monCouche },
+      { user_id: 'u-alexis', exercise_slug: 'dc-barre', score: SocialJs.scoreDots(150, 70, 'homme'), charge_kg: 150 });
+    ok('[social-2] le décor : mon squat sous les 210 kg de jordan, et au couché jordan soulève EXACTEMENT ma meilleure charge',
+      monSquat > 0 && monSquat < 190 && monCouche >= 140, JSON.stringify([monSquat, monCouche]));
+    const chemin = () => page.evaluate(() => location.pathname);
+    const largeurs = [];
+    const mesurer = async (ecran) => {
+      const l = await page.evaluate(() => ({ doc: document.documentElement.scrollWidth, fen: window.innerWidth }));
+      largeurs.push({ ecran, doc: l.doc, fen: l.fen });
+    };
+    const attendreQue = async (cond, ms) => {
+      for (let t = 0; t < (ms || 8000); t += 200) { if (await cond()) return true; await attendre(200); }
+      return false;
+    };
+    const lire = () => page.evaluate(() => {
+      const t = (s) => { const n = document.querySelector('#social-ami ' + s); return n ? n.textContent : null; };
+      const tous = (s) => Array.from(document.querySelectorAll('#social-ami ' + s)).map((x) => x.textContent);
+      return { mois: t('.s-mois-seances'), tonnes: t('.s-mois-tonnes'), exos: Array.from(document.querySelectorAll('#social-ami .s-exo-ami'))
+        .map((x) => ({ slug: x.getAttribute('data-slug'), texte: x.textContent })), comparer: !!document.querySelector('#social-comparer'),
+        cache: t('.s-cache'), sous: t('.s-sous-exo'), charge: t('.s-exo-charge'), serie: t('.s-exo-serie'),
+        lui: document.querySelectorAll('#social-ami .s-courbe-lui').length, moiCourbe: document.querySelectorAll('#social-ami .s-courbe-moi').length,
+        duoMoi: tous('.s-duo-moi'), duoLui: tous('.s-duo-lui'), btnExo: !!document.querySelector('#social-comparer-exo'),
+        communs: Array.from(document.querySelectorAll('#social-ami .s-commun')).map((c) => ({ slug: c.getAttribute('data-slug'),
+          qui: Array.from(c.querySelectorAll('.s-commun-qui')).map((x) => x.textContent), barre: /poids de corps égal/.test(c.textContent) })),
+        retour: document.getElementById('btn-retour-ami').textContent, texte: document.getElementById('social-ami').textContent };
+    });
+    const entre = () => page.evaluate(() => ({
+      rangs: Array.from(document.querySelectorAll('#exercice-entre-amis .s-rang')).map((r) => ({ t: r.querySelector('.s-t').textContent,
+        kg: r.querySelector('.s-sc').textContent, moi: r.classList.contains('s-moi') })),
+      info: (document.querySelector('#exercice-entre-amis .s-entre-info') || {}).textContent || null,
+      infoCache: !!document.querySelector('#exercice-entre-amis .s-entre-info') && document.querySelector('#exercice-entre-amis .s-entre-info').hidden,
+      texte: (document.getElementById('exercice-entre-amis') || {}).textContent || '' }));
+    const appelsDepuis = (n) => S.appels.slice(n);
+    const ETAGE2 = ['social_exercices_ami', 'social_series_exercice', 'social_periode'];
+
+    // ── A. À SENS UNIQUE (je suis jordan, il ne me suit pas) : rien de l'étage 2, ni à l'écran, ni demandé.
+    S.abonnements.push({ suiveur: 'u-banc', suivi: 'u-jordan', statut: 'accepte', cree_le: iso(new Date(tS)), accepte_le: iso(new Date(tS)) });
+    let n0 = S.appels.length;
+    await aller('/a/jordan');
+    await attendreQue(async () => (await page.evaluate(() => document.querySelectorAll('#social-ami button.s-jour').length)) > 0);
+    await attendre(500);
+    const a0 = await lire();
+    await aller('/a/jordan/exercice/squat-barre');
+    await attendreQue(async () => !!(await lire()).cache);
+    const a1 = await lire();
+    ok('[social-2] DISCRIMINANT — à sens unique : ni son mois, ni ses exercices, ni la page de son exercice — l’app ne demande rien, et la base refuserait',
+      a0.mois === null && a0.exos.length === 0 && !a0.comparer && a1.cache === 'Ses exercices se voient quand vous vous suivez l’un l’autre.' &&
+        a1.charge === null && appelsDepuis(n0).filter((x) => ETAGE2.indexOf(x) >= 0).length === 0 &&
+        fauxSocial.rpc('u-banc', 'social_series_exercice', { p_user: 'u-jordan', p_slug: 'squat-barre' }).length === 0 &&
+        fauxSocial.rpc('u-banc', 'social_exercices_ami', { p_user: 'u-jordan' }).length === 0,
+      JSON.stringify([a0, a1, appelsDepuis(n0)]));
+
+    // ── B. MUTUEL : son mois, ses exercices, le bouton discret.
+    S.abonnements.push({ suiveur: 'u-jordan', suivi: 'u-banc', statut: 'accepte', cree_le: iso(new Date(tS)), accepte_le: iso(new Date(tS)) });
+    await aller('/a/jordan');
+    await attendreQue(async () => (await lire()).exos.length > 0);
+    const b0 = await lire();
+    const sq = b0.exos.filter((x) => x.slug === 'squat-barre')[0];
+    ok('[social-2] mutuel : son mois en deux chiffres (2 séances, ses tonnes), « Ses exercices » (squat 210 kg · 2 séances, en tête), « Se comparer sur la période »',
+      b0.mois === '2' && /^\d/.test(b0.tonnes || '') && b0.exos[0].slug === 'squat-barre' && !!sq && /210 kg · 2 séances/.test(sq.texte) &&
+        b0.exos.some((x) => x.slug === 'dc-barre') && b0.comparer, JSON.stringify(b0));
+    await mesurer('profil mutuel');
+
+    // ── C. SON EXERCICE, puis « Se comparer ».
+    n0 = S.appels.length;
+    await page.click('#social-ami .s-exo-ami[data-slug="squat-barre"]');
+    await attendreQue(async () => !!(await lire()).charge);
+    const c0 = await lire();
+    ok('[social-2] son exercice : meilleure charge 210 kg, meilleure série 180 × 5 (le plus gros charge × reps), sa courbe sur 6 mois ; l’adresse /a/jordan/exercice/squat-barre',
+      (await chemin()) === '/a/jordan/exercice/squat-barre' && c0.charge === '210 kg' && c0.serie === '180 × 5' && c0.lui === 1 &&
+        c0.moiCourbe === 0 && c0.btnExo && c0.retour === '← jordan' && appelsDepuis(n0).indexOf('social_series_exercice') >= 0,
+      JSON.stringify(c0));
+    await page.click('#social-comparer-exo');
+    await attendreQue(async () => (await lire()).moiCourbe > 0);
+    const c1 = await lire();
+    ok('[social-2] « Se comparer » : ma courbe en pointillés or par-dessus la sienne, et côte à côte meilleure charge, meilleure série, séances (6 mois)',
+      c1.moiCourbe === 1 && c1.lui === 1 && c1.duoMoi[0] === monSquat + ' kg' && c1.duoLui[0] === '210 kg' && c1.duoLui[1] === '180 × 5' &&
+        c1.duoLui[2] === '2' && !c1.btnExo && !/rpe|ressenti|genou|89,5|89\.5/i.test(c1.texte), JSON.stringify(c1));
+    await mesurer('son exercice, comparé');
+    await page.click('#btn-retour-ami');
+    await attendreQue(async () => (await lire()).exos.length > 0);
+    ok('[social-2] le retour d’une sous-page ramène à son profil (« ← jordan » → /a/jordan, « ← Fil »)',
+      (await chemin()) === '/a/jordan' && (await lire()).retour === '← Fil', await chemin());
+
+    // ── D. SE COMPARER SUR LA PÉRIODE.
+    await page.click('#social-comparer');
+    await attendreQue(async () => (await lire()).communs.length > 0);
+    const d0 = await lire();
+    const dc = d0.communs.filter((x) => x.slug === 'dc-barre')[0];
+    ok('[social-2] DISCRIMINANT — « Se comparer » (ce mois) : séances, tonnage, séries, reps côte à côte ; au couché (à la barre, en tête), à kilos égaux, jordan devant — sans chiffre DOTS',
+      (await chemin()) === '/a/jordan/comparer' && d0.duoLui.length === 4 && d0.duoLui[0] === '2' && d0.duoMoi.length === 4 &&
+        d0.communs[0].barre && !!dc && dc.barre && /^jordan · /.test(dc.qui[0]) && /^toi · /.test(dc.qui[1]) &&
+        dc.qui[0].replace('jordan', '') === dc.qui[1].replace('toi', '') && !/dots|score/i.test(d0.texte), JSON.stringify(d0));
+    await mesurer('se comparer');
+    await page.click('#social-ami .s-periode[data-periode="3mois"]');
+    await attendreQue(async () => (await lire()).duoLui[0] === '3');
+    ok('[social-2] « 3 mois » : sa séance d’il y a deux mois entre dans la période', (await lire()).duoLui[0] === '3', JSON.stringify(await lire()));
+
+    // ── E. « ENTRE AMIS », en bas de MA page d'exercice.
+    await aller('/exercice/dc-barre');
+    await attendreQue(async () => (await entre()).rangs.length > 0);
+    const e0 = await entre();
+    ok('[social-2] DISCRIMINANT — « Entre amis » au couché : à kilos égaux (' + monCouche + ' kg), jordan (plus léger) PREMIER ; alexis, qui n’est pas mutuel, absent',
+      e0.rangs.length === 2 && e0.rangs[0].t === 'jordan' && e0.rangs[1].t === 'toi' && e0.rangs[1].moi &&
+        e0.rangs[0].kg === e0.rangs[1].kg && !/alexis/.test(e0.texte), JSON.stringify(e0));
+    await page.click('#entre-amis-info');
+    const e1 = await entre();
+    ok('[social-2] le « i » : la phrase décidée, au mot près', e0.infoCache && !e1.infoCache && e1.info === 'On compare la force rapportée au ' +
+      'poids de corps (formule DOTS) : un plus léger qui soulève autant passe devant. Ton poids ne quitte jamais ton téléphone. Sans pesée, on ' +
+      'n’apparaît pas.', JSON.stringify(e1));
+    await mesurer('entre amis');
+    await aller('/exercice/squat-barre');
+    await attendreQue(async () => (await entre()).rangs.length > 0);
+    const e2 = await entre();
+    ok('[social-2] « Entre amis » au squat : jordan (210 kg), puis toi — les vrais kilos', e2.rangs.length === 2 && e2.rangs[0].t === 'jordan' &&
+      e2.rangs[0].kg === '210 kg' && e2.rangs[1].kg === monSquat + ' kg', JSON.stringify(e2));
+    const mesScores = S.scores.filter((s) => s.user_id === 'u-banc');
+    const envois = S.journal.filter((j) => j.op === 'scores');
+    ok('[social-2] DISCRIMINANT — mes scores publiés : le score DOTS et la charge, calculés sur l’appareil ; AUCUNE requête ne porte le poids de corps',
+      mesScores.some((s) => s.exercise_slug === 'dc-barre' && s.charge_kg === monCouche &&
+        s.score === SocialJs.scoreDots(monCouche, 96.75, 'homme')) && envois.length > 0 && S.fuites.length === 0 &&
+        !/96[.,]75|poids/.test(JSON.stringify(envois)), JSON.stringify([mesScores, envois, S.fuites]));
+
+    // ── F. SANS PESÉE : je n'apparais plus (mes scores retirés), et jordan seul ne fait pas un classement.
+    base.pesees.length = 0;
+    await aller('/exercice/dc-barre');
+    await attendreQue(async () => S.scores.filter((s) => s.user_id === 'u-banc').length === 0);
+    await attendre(800);
+    const f0 = await entre();
+    ok('[social-2] sans pesée : mes scores sont retirés de la base, et « Entre amis » disparaît (moins de deux personnes)',
+      S.scores.filter((s) => s.user_id === 'u-banc').length === 0 && f0.rangs.length === 0 && f0.texte === '', JSON.stringify([f0, S.scores]));
+
+    ok('[social-2] DISCRIMINANT — aucune réponse sociale ne porte poids de corps, note, RPE, ressenti ou douleur',
+      S.fuites.length === 0 && S.sets.some((t) => t.rpe && t.note && t.poids_corps_kg), JSON.stringify(S.fuites));
+    ok('[social-2] à 360 px, aucun défilement horizontal : profil mutuel, son exercice comparé, se comparer, entre amis',
+      largeurs.length === 4 && largeurs.every((l) => l.fen === 360 && l.doc <= l.fen), JSON.stringify(largeurs));
+
+    // ── LA REMISE EN ÉTAT.
+    ['profils', 'sessions', 'sets', 'records', 'abonnements', 'blocages', 'reactions', 'scores'].forEach((k) => { S[k] = []; });
+    for (let k = base.sets.length - 1; k >= 0; k--) if (base.sets[k].session_id === MA_SEANCE) base.sets.splice(k, 1);
+    for (let k = base.sessions.length - 1; k >= 0; k--) if (base.sessions[k].id === MA_SEANCE) base.sessions.splice(k, 1);
+    base.pesees.length = 0;
+    peseesAvant.forEach((p) => base.pesees.push(p));
+    base.profiles[0].sexe = sexeAvant;
+    Object.keys(equipAvant).forEach((k) => { if (equipAvant[k] === undefined) delete cat(k).equipement; else cat(k).equipement = equipAvant[k]; });
+    await aller('/saisie');
+    ok('[social-2] aucun refus du faux serveur, la garde de l’app n’a rien signalé, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant &&
+        erreurs.length === erreursAvant && S.journal.filter((j) => j.op === 'refus').length === 0,
+      JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant),
+        S.journal.filter((j) => j.op === 'refus')]));
+  }
+
   console.log('\n══ relecture. « LE COACH RELIT TA SEMAINE » : LA RANGÉE, LA VUE, « NON MERCI », « RETIRER CES SÉRIES », « EN FAIRE MA PRIORITÉ » (66B, QUESTIONNAIRE §5 ter.4 bis) ══');
   //
   // Sur l'app réelle, un dossier « Relecture U66 » de deux routines ; un profil EN SÈCHE, homme, objectif Force,

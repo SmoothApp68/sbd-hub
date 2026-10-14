@@ -899,6 +899,16 @@ const NOTIONS = [
     module: 'faits.js', fonction: 'medaillesDuSocial', lecteurs: ['app.js'],
     raison: 'SOCIAL-V1 : le fil et le profil d’une personne montrent ses médailles ; la règle de la médaille (une par ' +
       'série, les types dans l’ordre de la phrase) est celle de `recordsDeLaSeance` et du journal, écrite une fois ici.' },
+  // ── 89 — LE SOCIAL, ÉTAGE 2 : mes séries comptées dans le module des faits ; le DOTS dans un seul module ──
+  { notion: 'mes séries comptées pour le social (travail, charge > 0, reps > 0 : la forme des fonctions de v2_079)', pr: '89-U1',
+    module: 'faits.js', fonction: 'seriesComptees', lecteurs: ['app.js'],
+    raison: 'SOCIAL-V1 « Étage 2 » : mes chiffres et ceux d’un ami passent par les mêmes fonctions de `social.js` ; ' +
+      'les miens sortent d’ici, sur la règle de `Bilan.volumeKg` et des fonctions de la base.' },
+  { notion: 'le score DOTS (la force à poids de corps égal, par sexe)', pr: '89-U1',
+    module: 'social.js', fonction: 'scoreDots', lecteurs: [],
+    par: ['scoresAPublier'],
+    raison: 'SOCIAL-V1 « Étage 2 » : « Entre amis » et « Se comparer » classent à poids de corps égal ; le score se ' +
+      'calcule sur l’appareil (le poids n’en sort jamais), par une seule fonction.' },
   // ── 60-2a — LE QUESTIONNAIRE DU COACH MONTRE, IL NE DEMANDE PAS ───────────
   { notion: 'ce que les séances savent de la personne (historique, rythme, durée habituelle, maximums, autres activités)', pr: '60-U1',
     module: 'faits.js', fonction: 'ceQueJeSais', lecteurs: ['app.js'],
@@ -1496,7 +1506,7 @@ describe('architecture — le registre des notions : une source, des lecteurs', 
 describe('architecture — le module des faits : un fait ne se déclare que dans faits.js (58-1)', () => {
   const FICHIERS = perimetre();
 
-  test('les faits du module : vingt-huit (treize en 58-1, trois du journal en 58-2, un du questionnaire en 60-2a, un du programme déduit en 60-3, deux du programme construit en 60-4, un du jeu en 64A, un du bilan en 66A, les habitudes en 66C, la dernière séance en 66D, le récap de fin de séance en 71, l’entrée et le parcours en 75, les médailles d’une séance d’autrui en 87), chacun déclaré et exporté par faits.js', () => {
+  test('les faits du module : vingt-neuf (treize en 58-1, trois du journal en 58-2, un du questionnaire en 60-2a, un du programme déduit en 60-3, deux du programme construit en 60-4, un du jeu en 64A, un du bilan en 66A, les habitudes en 66C, la dernière séance en 66D, le récap de fin de séance en 71, l’entrée et le parcours en 75, les médailles d’une séance d’autrui en 87, mes séries comptées pour le social en 89), chacun déclaré et exporté par faits.js', () => {
     global.self = global;
     require('../../v2/js/modele.js');
     require('../../v2/js/semaine.js');
@@ -1507,7 +1517,7 @@ describe('architecture — le module des faits : un fait ne se déclare que dans
     require('../../v2/js/periode.js');
     require('../../v2/js/parcours.js');
     const instance = require('../../v2/js/faits.js').creer();
-    expect(FAITS.length).toBe(28);
+    expect(FAITS.length).toBe(29);
     expect(FAITS.filter((fn) => typeof instance[fn] !== 'function')).toEqual([]);
   });
 
@@ -2003,6 +2013,9 @@ const REGISTRE_ECRITURES = [
   { fn: 'debloquer', chemin: 'liste-blanche', appelants: ['app.js:dessinerAmis'], raison: RAISON_SOCIAL },
   { fn: 'reagir', chemin: 'liste-blanche', appelants: ['app.js:vueDuFil'], raison: RAISON_SOCIAL },
   { fn: 'retirerReaction', chemin: 'liste-blanche', appelants: ['app.js:vueDuFil'], raison: RAISON_SOCIAL },
+  // ── 89 (SOCIAL-V1 « Étage 2 ») — mes scores de force (`scores_force`, v2_079) : le score et la charge, jamais le poids.
+  { fn: 'publierScores', chemin: 'liste-blanche', appelants: ['app.js:publierScoresForce'], raison: RAISON_SOCIAL },
+  { fn: 'retirerScores', chemin: 'liste-blanche', appelants: ['app.js:publierScoresForce'], raison: RAISON_SOCIAL },
   // `executer` : une réponse du chantier 26 encore en file (une ligne, des champs) — par la file, elle aussi.
   { fn: 'majExercice', chemin: 'liste-blanche', appelants: ['routines.js:appliquerPlan', 'app.js:executer'], raison: RAISON_BIBLIOTHEQUE }
 ];

@@ -6774,7 +6774,9 @@
     // Au cran INFÉRIEUR : jamais au-dessus des −22,5 %.
     var charge = auCentieme(Math.floor(der * (1 - BAISSE_DEGRESSIVE) / cran + 1e-9) * cran);
     var barre = estBarre(e.equipement);
-    if (!(charge > 0) || (barre && charge < BARRE_VIDE)) return degressiveVide('Trop léger pour une dégressive.');
+    // Pas de plancher « barre vide » ici : une barre EZ pèse moins de 20 kg, et
+    // le curl EZ d'aurel_br descend à 15 kg (relevé du 14/10). Seul le zéro.
+    if (!(charge > 0)) return degressiveVide('Trop léger pour une dégressive.');
     var reps = nombre(e.reps_travail);
     var milieu = Math.max(4, Math.floor((reps === null ? 8 : reps) / 2));
     var vise = [milieu - 1, milieu + 1];

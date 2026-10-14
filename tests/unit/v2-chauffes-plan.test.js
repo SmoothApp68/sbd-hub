@@ -319,7 +319,7 @@ describe('§9.15.3 — la dégressive', () => {
   });
 
   test('94 — une dégressive que le coach ne peut pas remplir : la phrase dit pourquoi, deux gestes', () => {
-    const exos = [{ slug: 'curl_barre', travail: 1, degressives: [1], consigne: consigne(22.5, 12) }];
+    const exos = [{ slug: 'curl_barre', travail: 1, degressives: [1], consigne: consigne(2.5, 12) }];
     const e = entreesDe(seanceDe(exos), exos);
     const p = T.planDeSeance(e);
     const x = p.exercices[0];
@@ -368,7 +368,7 @@ describe('§9.15.1 — le repos des chauffes (60 s, puis 120 s avant le travail)
   });
 
   test('à la barre, la dégressive vide ne supprime pas le repos', () => {
-    const exos = [{ slug: 'curl_barre', travail: 2, degressives: [1], consigne: consigne(22.5, 12) }];
+    const exos = [{ slug: 'curl_barre', travail: 2, degressives: [1], consigne: consigne(2.5, 12) }];
     const x = T.planDeSeance(entreesDe(seanceDe(exos), exos)).exercices[0];
     expect(T.reposApres(x, 1, 90)).toBe(90);
   });

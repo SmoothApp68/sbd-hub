@@ -1149,6 +1149,11 @@
         phrase: faits.parcoursDe(corpus(), new Date(), profil).phrase,
         surChoix: afficherParcours
       },
+      // 95 — « Ton année » : l'année écoulée, toute l'année suivante ; il s'ouvre plein écran.
+      annee: (function () {
+        var an = anneeDuSommaire();
+        return an ? { an: an, surChoix: function () { ouvrirAnnee(an); } } : null;
+      })(),
       records: {
         dernier: dernier ? { texte: dernier.nom + ' ' + dernier.mesure,
                              date: Modele.jourMois(new Date(dernier.debut), new Date().getFullYear()) } : null,
@@ -1207,6 +1212,62 @@
       // « Tous tes exercices » : chacun ouvre sa page par la porte commune (§7 quater).
       surExercice: function (slug) { afficherExercice(slug); }
     });
+  }
+
+  // ══ 95 — « TON ANNÉE » (BILANS-V1, maquette `maquette-ton-annee-v11.html`) ══════════════════════════════
+  //
+  // ⚠️ L'ÉCRAN LIT LE BILAN, IL NE LE REFAIT PAS : `faits.bilanDePeriode` (l'entrée assemblée et le bilan mémorisé), le
+  // jeu par `Jeu.etatDuJeu` sur `faits.faitsDuJeuDeLaPeriode`. Ce que l'app ajoute ne décide rien : QUAND le bloc
+  // et l'annonce paraissent. Rien n'est écrit en base.
+  //   · le bloc de Progression : le bilan de l'année écoulée, toute l'année suivante (à partir de 2026, la première) ;
+  //     hors production (la garde du coach active), celui de l'année en cours quand l'écoulée n'en a pas ;
+  //   · `?bilan=AAAA` (hors production, comme `?rejouer=`) : il s'ouvre au démarrage ;
+  //   · l'annonce : en janvier, une fois par personne et par année, mémorisée SUR L'APPAREIL — aucune colonne de
+  //     `profiles` ne s'y prête (SCHEMA-REEL, relevé du 12/10) ; une nouvelle colonne serait une migration.
+  var Bilans = racine.THBilans, Annee = racine.THAnnee;
+  var PREMIERE_ANNEE = 2026;
+  function bilanDeLAnnee(an) {
+    return faits.bilanDePeriode(corpus(), Bilans.periodeDeLAnnee(an), new Date(),
+                         { pesees: local.pesees || [], paris: parisDeConsigneConnus() });
+  }
+  function anneeDuSommaire() {
+    var an = new Date().getFullYear() - 1;
+    if (an >= PREMIERE_ANNEE && !bilanDeLAnnee(an).vide) return an;
+    if (garde.active && !bilanDeLAnnee(an + 1).vide) return an + 1;
+    return null;
+  }
+  function ouvrirAnnee(an) {
+    var periode = Bilans.periodeDeLAnnee(an);
+    var jeu = null;
+    if (jeuAllume()) {
+      var fj = faits.faitsDuJeuDeLaPeriode(corpus(), periode, new Date());
+      jeu = { debut: Jeu.etatDuJeu(fj.debut), fin: Jeu.etatDuJeu(fj.fin) };
+    }
+    Annee.ouvrir($('annee'), {
+      bilan: bilanDeLAnnee(an),
+      qui: profil && profil.username ? profil.username : '',
+      jeu: jeu,
+      surDetail: afficherParcours
+    });
+  }
+  function anneeDemandee() {
+    var m = /[?&]bilan=(\d{4})(?:&|$)/.exec(String((racine.location && racine.location.search) || ''));
+    return m && garde.active ? Number(m[1]) : null;
+  }
+  var CLE_ANNONCE_ANNEE = 'th-v2-annonce-annee';
+  function annoncerLAnnee(uid) {
+    var maintenant = new Date(), an = maintenant.getFullYear() - 1;
+    if (maintenant.getMonth() !== 0 || an < PREMIERE_ANNEE || !uid) return;
+    var cle = CLE_ANNONCE_ANNEE + ':' + uid + ':' + an;
+    try { if (racine.localStorage.getItem(cle)) return; } catch (e) { return; }   // sans mémoire, pas d'annonce répétée
+    if (bilanDeLAnnee(an).vide) return;
+    try { racine.localStorage.setItem(cle, '1'); } catch (e) { return; }
+    Annee.annonce($('annonce-annee'), { an: an, surVoir: function () { ouvrirAnnee(an); } });
+  }
+  function apresSynchroAnnee(uid) {
+    var an = anneeDemandee();
+    if (an) { ouvrirAnnee(an); return; }
+    annoncerLAnnee(uid);
   }
 
   // ══ LE JEU (64B, JEU-V1 §9, maquette `maquette-jeu-v6.html`) ═════════════
@@ -10635,6 +10696,8 @@
     // L'outil de rejeu (développement seulement) : après la synchronisation,
     // l'historique est là.
     if (rejeuDemande) ouvrirRejeu();
+    // 95 — « Ton année » : `?bilan=AAAA` hors production, sinon l'annonce de janvier (une fois).
+    apresSynchroAnnee(userId);
     // L'utilisateur est parti ailleurs pendant la synchro. Re-rendre écraserait
     // son écran — et, sur l'éditeur de routine, le brouillon qu'il est en train
     // de remplir. Une synchronisation de fond ne reprend jamais la main.

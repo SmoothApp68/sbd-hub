@@ -109,6 +109,30 @@
     return f % 2 === 0 ? f : f + 1;
   }
 
+  // ── 95 — DEUX RÈGLES LUES AUSSI PAR LES BILANS (BILANS-V1) ──────────────
+  // « Moins pratiqué », « nouveau », « peu » (§7 bis.14 ter, règles 1 à 3), dans l'ordre : le premier qui s'applique,
+  // `null` si aucun — l'exercice se compare alors. `nP`, `nR` : ses séances dans chaque période.
+  function pratique(nP, nR) {
+    if (nP >= MIN_SEANCES && 2 * nR < nP) return 'moins';
+    if (nR >= MIN_SEANCES && nP < MIN_SEANCES) return 'nouveau';
+    if (nP < MIN_SEANCES || nR < MIN_SEANCES) return 'peu';
+    return null;
+  }
+  // À reps égales (règle 4) : `a`, `b` — la charge la plus lourde par nombre de reps, en centièmes, de P et de R.
+  // Moins de deux nombres de reps en commun : `null`. Sinon `{ etat, h, b, communs, detail: [[reps, P, R]…] }`.
+  function aRepsEgales(a, b) {
+    var com = Object.keys(a).map(Number).filter(function (r) { return Object.prototype.hasOwnProperty.call(b, r); })
+      .sort(function (x, y) { return x - y; });
+    if (com.length < 2) return null;
+    var h = 0, bb = 0;
+    com.forEach(function (r) {
+      if (MILLE * b[r] > HAUSSE * a[r]) h++;
+      if (MILLE * b[r] < BAISSE * a[r]) bb++;
+    });
+    return { etat: verdictReps(h, bb, com.length), h: h, b: bb, communs: com,
+             detail: com.map(function (r) { return [r, a[r] / 100, b[r] / 100]; }) };
+  }
+
   // ── La courbe personnelle ────────────────────────────────────────────────
   // `cellules` : [[periode, reps, charge]] (reps ≤ 12), dans l'ordre de la référence. Rend `{ d, k }`.
   function niveaux(cellules, k) {
@@ -230,22 +254,14 @@
       var nP = nombreDe('P', slug), nR = nombreDe('R', slug);
       var o = { slug: slug, nom: e.nom, zone: zone.cle, muscle: mp[0], nP: nP, nR: nR,
                 poids: GRANDS.indexOf(slug) >= 0 ? 2 : 1, etat: null, methode: null, detail: [], ecart: null, k: null };
-      if (nP >= MIN_SEANCES && 2 * nR < nP) o.etat = 'moins';
-      else if (nR >= MIN_SEANCES && nP < MIN_SEANCES) o.etat = 'nouveau';
-      else if (nP < MIN_SEANCES || nR < MIN_SEANCES) o.etat = 'peu';
+      var etatPratique = pratique(nP, nR);
+      if (etatPratique) o.etat = etatPratique;
       else {
-        var a = cell[slug].P, b = cell[slug].R;
-        var com = Object.keys(a).map(Number).filter(function (r) { return Object.prototype.hasOwnProperty.call(b, r); })
-          .sort(parNombre);
-        if (com.length >= 2) {
-          var h = 0, bb = 0;
-          com.forEach(function (r) {
-            if (MILLE * b[r] > HAUSSE * a[r]) h++;
-            if (MILLE * b[r] < BAISSE * a[r]) bb++;
-          });
-          o.etat = verdictReps(h, bb, com.length);
+        var egales = aRepsEgales(cell[slug].P, cell[slug].R);
+        if (egales) {
+          o.etat = egales.etat;
           o.methode = 'reps';
-          o.detail = com.map(function (r) { return [r, a[r] / 100, b[r] / 100]; });
+          o.detail = egales.detail;
         } else {
           var cs = [];
           ['P', 'R'].forEach(function (p) {
@@ -404,6 +420,9 @@
   var api = {
     parcours: parcours,
     repereSquatCouche: repereSquatCouche,
+    pratique: pratique,
+    aRepsEgales: aRepsEgales,
+    REPS_CELLULE_MAX: REPS_CELLULE_MAX,
     GRANDS: GRANDS,
     NOM_COURT: NOM_COURT,
     MIN_SEANCES: MIN_SEANCES

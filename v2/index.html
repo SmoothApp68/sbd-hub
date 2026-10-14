@@ -494,6 +494,10 @@
   <button id="onglet-profil" class="onglet" type="button" data-vue="profil"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg><span class="onglet-nom">Profil</span></button>
 </nav>
 
+<!-- 95 — « Ton année » (BILANS-V1) : le bilan plein écran, et l'annonce du 1er janvier (un seul message). -->
+<div id="annee" class="annee" role="dialog" aria-label="Ton année" hidden></div>
+<div id="annonce-annee" class="annonce-annee" role="status" hidden></div>
+
 <!-- L'outil de rejeu (développement seulement, `?rejouer=<id>` là où la garde
      du coach est active) : un texte brut, rien d'autre. Caché en production. -->
 <section id="rejeu" class="rejeu" hidden>
@@ -525,6 +529,7 @@
 <script src="/js/poids.js"></script>
 <script src="/js/bilan.js"></script>
 <script src="/js/parcours.js"></script>
+<script src="/js/bilans.js"></script>
 <script src="/js/faits.js"></script>
 <script src="/js/jeu.js"></script>
 <script src="/js/calendrier.js"></script>
@@ -537,6 +542,7 @@
 <script src="/js/sortie.js"></script>
 <script src="/js/cache.js"></script>
 <script src="/js/rendu.js"></script>
+<script src="/js/annee.js"></script>
 <script src="/js/rejeu.js"></script>
 <script src="/js/quitter.js"></script>
 <script src="/js/app.js"></script>

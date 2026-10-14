@@ -1139,6 +1139,14 @@
     bloc.addEventListener('click', v.surChoix);
     return bloc;
   }
+  // 95 — « Ton année » (BILANS-V1) : il s'ouvre plein écran.
+  function blocAnnee(v) {
+    var bloc = coquilleBloc('Ton année ' + v.an, '', false);
+    bloc.classList.add('neuf', 'bloc-annee');
+    bloc.appendChild(el('div', 'bloc-ligne', 'Ton année sous la barre, à faire défiler.'));
+    bloc.addEventListener('click', v.surChoix);
+    return bloc;
+  }
   var MOTS_DU_VERDICT = { '↑': '↑ progresse', '↗': '↗ légèrement', '▬': '▬ stable', '↘': '↘ en léger recul',
                           '↓': '↓ recule', moins: 'moins pratiqué', nouveau: 'nouveau', peu: 'peu de séances',
                           'pas comparable': 'tu as changé de fourchette' };
@@ -1326,6 +1334,7 @@
     vider(cible);
     if (vue.mois) cible.appendChild(blocMois(vue.mois));
     if (vue.parcours) cible.appendChild(blocParcours(vue.parcours));
+    if (vue.annee) cible.appendChild(blocAnnee(vue.annee));
     if (vue.records) cible.appendChild(blocRecords(vue.records));
     cible.appendChild(blocVolume(vue.volume));
     cible.appendChild(blocPoids(vue.poids));

@@ -10,7 +10,8 @@
 // (`historiqueDesExercices`) ; depuis 64A, les faits du jeu (`faitsDuJeu`) ; depuis 66A, le fait des
 // barres du bilan (`barresDuBilan`), que « Le coach relit ta semaine » lit ; depuis 66C, les habitudes (`habitudes`),
 // que le générateur v2 complète ; depuis 75, « Ton parcours » (`entreeDuParcours`, `parcoursDe`),
-// que Progression lit. Ils vivaient dans
+// que Progression lit ; depuis 95, les bilans de période (`entreeDuBilan`, `bilanDePeriode`, `faitsDuJeuDeLaPeriode`),
+// que « Ton année » lit. Ils vivaient dans
 // `app.js`, au milieu de l'état de l'écran : le jeu n'aurait pu les lire qu'en
 // les recopiant.
 //
@@ -990,7 +991,102 @@
       return memoParcours.parcours;
     }
 
+    // ── 95 — LES BILANS DE PÉRIODE (BILANS-V1, « Ton année ») ─────────────────
+    //
+    // L'entrée de `THBilans.bilanDeLaPeriode`, assemblée ici, et le bilan calculé, mémorisé : les séances TERMINÉES
+    // jusqu'à la fin de la période (l'avant compte : « la plus lourde de ta vie », la comparaison), chacune avec son
+    // jour civil, son titre et ses séries (brutes : le moteur les filtre par `Modele.estTravail`) ; le catalogue ; les
+    // pesées au jour civil (`Poids.normaliser`) ; les paris de consigne observés (l'écran les passe :
+    // `{ date, predite, observee }`, la date est le début de la séance du pari).
+    //
+    // ⚠️ SA MÉMOIRE : le nombre de séances et de séries, la période, le jour, le nombre de pesées et de paris, le
+    // catalogue (par référence). Rien n'est écrit.
+    function entreeDuBilan(c, periode, aujourdhui, autres) {
+      var o = autres || {};
+      var Poids = racine.THPoids;
+      var seances = [];
+      (c.seances || []).forEach(function (s) {
+        if (!s || !s.id || !s.debut || s.statut === 'en_cours') return;
+        var jour = Moteur.jourCivil(s.debut);
+        if (!jour || jour > periode.fin) return;
+        seances.push({ id: s.id, jour: jour, titre: s.titre || null, series: Modele.trierParRang(c.seriesDe(s.id) || []) });
+      });
+      seances.sort(function (a, b) { return a.jour < b.jour ? -1 : (a.jour > b.jour ? 1 : 0); });
+      var index = c.catalogue() || {};
+      return {
+        periode: periode,
+        aujourdhui: Moteur.jourCivil(aujourdhui),
+        seances: seances,
+        exercices: Object.keys(index).map(function (slug) { return index[slug]; }),
+        pesees: (Poids ? Poids.normaliser(o.pesees || []) : []).map(function (p) {
+          return { jour: Moteur.jourCivil(p.date), poids: p.poids };
+        }),
+        paris: (o.paris || []).filter(function (q) { return q && q.date; }).map(function (q) {
+          return { jour: Moteur.jourCivil(q.date), predite: q.predite, observee: q.observee };
+        })
+      };
+    }
+    // Une mémoire PAR PÉRIODE : le sommaire lit l'année écoulée, puis (hors production) l'année en cours.
+    var memoBilans = {};
+    function bilanDePeriode(c, periode, aujourdhui, autres) {
+      var o = autres || {}, catalogue = c.catalogue();
+      var cle = (c.seances || []).length + '|' + (c.series || []).length + '|' +
+        Moteur.jourCivil(aujourdhui) + '|' + (o.pesees || []).length + '|' + (o.paris || []).length;
+      var ici = periode.type + ':' + periode.cle, m = memoBilans[ici];
+      if (!m || m.cle !== cle || m.catalogue !== catalogue) {
+        m = memoBilans[ici] = { cle: cle, catalogue: catalogue,
+                                bilan: racine.THBilans.bilanDeLaPeriode(entreeDuBilan(c, periode, aujourdhui, o)) };
+      }
+      return m.bilan;
+    }
+
+    // Les faits du jeu au début et à la fin d'une période (l'écran du jeu du bilan) : `faitsDuJeu` sur le corpus
+    // réduit aux séances d'avant le premier jour, puis à celles jusqu'au dernier (aujourd'hui s'il vient avant), par
+    // des INSTANCES À PART (`creer()`) — les mémos de celle-ci ne voient jamais un corpus réduit. Le journal des
+    // records suit la même borne. Rien n'est écrit ; l'écran passe ces faits à `Jeu.etatDuJeu`.
+    function corpusJusquA(c, jour) {
+      var ids = {};
+      var seances = (c.seances || []).filter(function (s) {
+        var j = s && s.debut ? Moteur.jourCivil(s.debut) : null;
+        var garde = !!j && j <= jour;
+        if (garde) ids[s.id] = true;
+        return garde;
+      });
+      return {
+        seances: seances,
+        series: (c.series || []).filter(function (x) { return x && Object.prototype.hasOwnProperty.call(ids, x.session_id); }),
+        exercices: c.exercices,
+        seriesDe: function (sid) { return Object.prototype.hasOwnProperty.call(ids, sid) ? c.seriesDe(sid) : []; },
+        catalogue: c.catalogue,
+        journal: (c.journal || []).filter(function (l) {
+          var j = l && l.battu_le ? Moteur.jourCivil(l.battu_le) : null;
+          return !j || j <= jour;
+        })
+      };
+    }
+    function faitsDuJeuDeLaPeriode(c, periode, aujourdhui) {
+      var auj = Moteur.jourCivil(aujourdhui);
+      var fin = auj && auj < periode.fin ? auj : periode.fin;
+      var veille = function (j) {
+        var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(j);
+        var d = new Date(+m[1], +m[2] - 1, +m[3] - 1);
+        return Moteur.jourCivil(d);
+      };
+      var aMinuit = function (j) {
+        var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(j);
+        return new Date(+m[1], +m[2] - 1, +m[3], 23, 59, 59);
+      };
+      var avant = veille(periode.debut);
+      return {
+        debut: creer().faitsDuJeu(corpusJusquA(c, avant), aMinuit(avant)),
+        fin: creer().faitsDuJeu(corpusJusquA(c, fin), aMinuit(fin))
+      };
+    }
+
     return {
+      entreeDuBilan: entreeDuBilan,
+      bilanDePeriode: bilanDePeriode,
+      faitsDuJeuDeLaPeriode: faitsDuJeuDeLaPeriode,
       entreeDuParcours: entreeDuParcours,
       parcoursDe: parcoursDe,
       seancesAvecSeries: seancesAvecSeries,

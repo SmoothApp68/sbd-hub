@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Social étage 1 v2</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap" rel="stylesheet">
+<style>
+:root{--acier:#161a1f;--plaque:#1f252c;--plaque2:#262d35;--trait:#2e363f;--craie:#ece8df;--gris:#9aa3ad;--or:#d9b45a;--bleu:#6fa3d8}
+*{box-sizing:border-box}body{margin:0;background:#0f1215;color:var(--craie);font:15px/1.4 Archivo,system-ui,sans-serif;padding:16px}
+h1{font-size:20px;margin:0 0 4px;font-stretch:118%}p.note{color:var(--gris);margin:0 0 18px;max-width:72ch}
+.ecrans{display:flex;gap:20px;flex-wrap:wrap}
+.tel{width:360px;max-width:100%;background:var(--acier);border:1px solid var(--trait);border-radius:24px;padding:16px;min-height:680px}
+.leg{color:var(--or);font-size:13px;margin:0 0 12px}
+.haut{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.haut b{font-size:20px;font-stretch:120%}.ico{width:34px;height:34px;border-radius:50%;background:var(--plaque);display:grid;place-items:center;color:var(--gris)}
+.onglets{display:flex;gap:6px;margin-bottom:14px}.onglets span{padding:6px 12px;border-radius:99px;background:var(--plaque);color:var(--gris);font-size:13px}.onglets .on{background:var(--craie);color:var(--acier);font-weight:600}
+.blason{flex:none;display:block}
+.demande{background:var(--plaque2);border-radius:16px;padding:10px 12px;display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.demande .t{flex:1;font-size:14px}.demande small{color:var(--gris);display:block}
+.btn{border:0;border-radius:12px;padding:8px 12px;font:600 13px Archivo,sans-serif;cursor:pointer}
+.b1{background:var(--craie);color:var(--acier)}.b2{background:var(--plaque);color:var(--craie)}.b3{background:transparent;color:var(--gris)}
+.btn:focus-visible{outline:2px solid var(--or);outline-offset:2px}
+.carte{background:var(--plaque);border-radius:18px;padding:14px;margin-bottom:10px}
+.tete{display:flex;gap:10px;align-items:center;margin-bottom:10px}.tete b{display:block}.tete small{color:var(--gris)}
+.chiffres{display:flex;gap:22px;align-items:flex-end}.chiffres strong{font-size:26px;font-stretch:125%;display:block;line-height:1}.chiffres span{color:var(--gris);font-size:12px}
+.meds{margin-top:10px;display:flex;flex-direction:column;gap:4px}
+.med{font-size:13px;display:flex;gap:8px;align-items:center}.med i{width:18px;height:18px;border-radius:50%;background:var(--or);display:inline-block;flex:none;box-shadow:inset 0 0 0 3px #b8953d}
+.pied{display:flex;justify-content:space-between;margin-top:12px;color:var(--gris);font-size:13px}
+.reag{background:var(--plaque2);border-radius:99px;padding:5px 12px;color:var(--craie)}.reag.fait{color:var(--or)}
+.fin{text-align:center;color:var(--gris);font-size:13px;padding:16px 0 4px}
+.prof{text-align:center;margin-bottom:10px}.prof b{font-size:22px;font-stretch:120%;display:block;margin-top:6px}
+.prof small{color:var(--gris)}.etat{display:inline-block;margin-top:8px;font-size:12px;padding:4px 10px;border-radius:99px;background:var(--plaque);color:var(--bleu)}
+.actions{display:flex;gap:8px;justify-content:center;margin:12px 0 14px}
+.mois{display:flex;justify-content:space-between;margin:4px 2px 8px;font-weight:600}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center;font-size:12px}
+.cal span{padding:8px 0;border-radius:9px;color:var(--gris)}.cal .j{color:var(--gris);font-size:11px;padding:2px 0}
+.cal .n1{background:#5c4d28;color:var(--craie)}.cal .n2{background:#9a7f3e;color:var(--acier)}.cal .n3{background:var(--or);color:var(--acier);font-weight:700}
+.cal .sel{outline:2px solid var(--craie);outline-offset:1px}
+.lg{display:flex;gap:6px;align-items:center;justify-content:flex-end;color:var(--gris);font-size:11px;margin-top:6px}.lg i{width:12px;height:12px;border-radius:3px;display:inline-block}
+.detail{margin-top:12px;background:var(--plaque);border-radius:18px;padding:14px;font-size:14px}
+.detail h3{margin:0 0 8px;font-size:15px}.ex{display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid var(--trait)}.ex:first-of-type{border-top:0}.ex small{color:var(--gris)}
+.cache{color:var(--gris);font-size:13px;margin:8px 0 0}
+.grise{background:var(--plaque);color:#5d6670}
+.champ{background:var(--plaque);border-radius:14px;padding:12px 14px;color:var(--gris);margin-bottom:12px}
+.ligne{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--trait)}.ligne .t{flex:1}.ligne small{color:var(--gris);display:block}
+.lien{background:var(--plaque2);border-radius:18px;padding:14px;margin:16px 0}.lien code{display:block;background:var(--acier);border-radius:10px;padding:8px 10px;margin:8px 0;color:var(--or);font-size:13px}
+.reglage{display:flex;justify-content:space-between;align-items:center;gap:12px;background:var(--plaque);border-radius:18px;padding:14px}
+.inter{width:46px;height:28px;border-radius:99px;background:var(--or);position:relative;flex:none}.inter::after{content:"";position:absolute;right:3px;top:3px;width:22px;height:22px;border-radius:50%;background:var(--acier)}
+.titre-s{color:var(--gris);font-size:12px;margin:16px 0 4px}
+</style></head><body>
+<svg width="0" height="0" style="position:absolute"><defs>
+<symbol id="bl" viewBox="0 0 40 46"><path d="M20 2 37 8v14c0 11-7 19-17 22C10 41 3 33 3 22V8z" fill="currentColor"/><path d="M11 22h18l-3 4h-3v5h4v3H13v-3h4v-5h-3z" fill="#161a1f"/></symbol></defs></svg>
+<h1>Social — étage 1 (maquette v2)</h1>
+<p class="note">Quatre écrans, données fictives. Blason à la place de la photo ; compte privé par défaut ; jamais affichés : poids de corps, santé, notes, RPE. Le nombre de réactions n'est vu que par l'auteur.</p>
+<div class="ecrans">
+
+<div class="tel"><p class="leg">1 · Le fil</p>
+<div class="haut"><b>Jeu &amp; amis</b><span class="ico">＋</span></div>
+<div class="onglets"><span>Jeu</span><span class="on">Fil</span><span>Classements</span></div>
+<div class="demande"><svg class="blason" width="34" height="40" style="color:#7a8fa3"><use href="#bl"/></svg><div class="t"><b>jordan</b><small>veut s'abonner à toi</small></div><button class="btn b1">Accepter</button><button class="btn b3">Refuser</button></div>
+<div class="carte"><div class="tete"><svg class="blason" width="34" height="40" style="color:#c98a8a"><use href="#bl"/></svg><div><b>lea</b><small>hier · Bas du corps</small></div></div>
+<div class="chiffres"><div><strong>11,4 t</strong><span>soulevées</span></div><div><strong>2</strong><span>records</span></div></div>
+<div class="meds"><div class="med"><i></i>Squat (Barre) · 80 kg × 5</div><div class="med"><i></i>Hip Thrust (Barre) · 100 kg × 8</div></div>
+<div class="pied"><span class="reag">🔥 Réagir</span><span>Voir la séance</span></div></div>
+<div class="carte"><div class="tete"><svg class="blason" width="34" height="40" style="color:#8fb08a"><use href="#bl"/></svg><div><b>alexis</b><small>samedi · Push</small></div></div>
+<div class="chiffres"><div><strong>8,9 t</strong><span>soulevées</span></div></div>
+<div class="pied"><span class="reag fait">🔥 Tu as réagi</span><span></span></div></div>
+<div class="fin">Tu es à jour · les 30 derniers jours</div>
+</div>
+
+<div class="tel"><p class="leg">2 · Profil d'un ami mutuel</p>
+<div class="prof"><svg class="blason" width="64" height="74" style="color:#c98a8a;margin:0 auto"><use href="#bl"/></svg><b>lea</b><small>Niveau 12 · Forgeronne</small><br><span class="etat">Vous vous suivez</span></div>
+<div class="actions"><button class="btn b1">Inviter dans un groupe</button><button class="btn b2">···</button></div>
+<div class="mois"><span>‹</span><span>Octobre 2026</span><span>›</span></div>
+<div class="cal"><span class="j">L</span><span class="j">M</span><span class="j">M</span><span class="j">J</span><span class="j">V</span><span class="j">S</span><span class="j">D</span>
+<span></span><span></span><span class="n2">1</span><span>2</span><span class="n1">3</span><span>4</span><span class="n2">5</span>
+<span>6</span><span class="n3">7</span><span>8</span><span class="n1">9</span><span>10</span><span class="n3 sel">11</span><span>12</span></div>
+<div class="lg">tonnage <i style="background:#5c4d28"></i><i style="background:#9a7f3e"></i><i style="background:var(--or)"></i></div>
+<div class="detail"><h3>Bas du corps · samedi 11 · 11,4 t</h3>
+<div class="ex"><span>Squat (Barre) 🏅<br><small>4 séries · 80 kg × 5</small></span></div>
+<div class="ex"><span>Hip Thrust (Barre) 🏅<br><small>3 séries · 100 kg × 8</small></span></div>
+<div class="ex"><span>Leg Curl (Machine)<br><small>3 séries · 35 kg × 12</small></span></div></div>
+</div>
+
+<div class="tel"><p class="leg">3 · Abonnement à sens unique</p>
+<div class="prof"><svg class="blason" width="64" height="74" style="color:#8fb08a;margin:0 auto"><use href="#bl"/></svg><b>alexis</b><small>Niveau 8 · Forgeron</small><br><span class="etat">Tu le suis</span></div>
+<div class="actions"><button class="btn grise" disabled>Inviter dans un groupe</button><button class="btn b2">···</button></div>
+<p class="cache" style="text-align:center;margin:-6px 0 12px">Abonnez-vous l'un à l'autre pour l'inviter.</p>
+<div class="mois"><span>‹</span><span>Octobre 2026</span><span>›</span></div>
+<div class="cal"><span class="j">L</span><span class="j">M</span><span class="j">M</span><span class="j">J</span><span class="j">V</span><span class="j">S</span><span class="j">D</span>
+<span></span><span></span><span>1</span><span class="n2">2</span><span>3</span><span class="n1">4</span><span>5</span>
+<span class="n3">6</span><span>7</span><span class="n2">8</span><span>9</span><span class="n2 sel">10</span><span>11</span><span>12</span></div>
+<div class="detail"><h3>Push · samedi 10</h3><div class="chiffres"><div><strong>8,9 t</strong><span>soulevées</span></div><div><strong>0</strong><span>record</span></div></div>
+<p class="cache">Le détail des exercices se voit quand vous vous suivez l'un l'autre.</p></div>
+<p class="cache">··· → Retirer l'abonnement · Bloquer</p>
+</div>
+
+<div class="tel"><p class="leg">4 · Trouver des amis et confidentialité (＋)</p>
+<div class="champ">🔍 Rechercher un pseudo</div>
+<div class="ligne"><svg class="blason" width="30" height="35" style="color:#b39ad1"><use href="#bl"/></svg><div class="t"><b>melody</b><small>Niveau 5 · compte privé</small></div><button class="btn b1">S'abonner</button></div>
+<div class="ligne"><svg class="blason" width="30" height="35" style="color:#7a8fa3"><use href="#bl"/></svg><div class="t"><b>jordan</b><small>Il te suit</small></div><button class="btn b1">Suivre en retour</button></div>
+<div class="lien"><b>Ton lien d'invitation</b><code>sbd-hub.pages.dev/a/aurel_br</code><button class="btn b2">Partager le lien</button></div>
+<p class="titre-s">Confidentialité</p>
+<div class="reglage"><div><b>Compte privé</b><br><small style="color:var(--gris)">Tu acceptes chaque abonnement. Coupé, n'importe qui peut te suivre et voir ton fil.</small></div><span class="inter" role="switch" aria-checked="true"></span></div>
+<p class="cache">Bloqués : aucun</p>
+</div>
+
+</div></body></html>

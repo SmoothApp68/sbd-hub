@@ -103,6 +103,8 @@
       <button id="btn-retour" type="button" class="discret">← Séances</button>
     </header>
     <div id="detail-seance"></div>
+    <!-- 87 — le nombre de réactions à SA séance : l'auteur seulement (SOCIAL-V1). -->
+    <p id="detail-reactions" class="s-reactions" hidden></p>
   </section>
 
   <!-- LA PAGE D'EXERCICE (§7 quater) — une seule, atteinte de partout : depuis
@@ -294,8 +296,29 @@
        depuis l'état du jeu (`rendreJeu*`, rendu.js). Aucun ambre : l'ambre est la voix du coach, qui ne parle
        jamais du jeu. Jeu éteint (`profiles.jeu_actif`), aucune de ces vues ne s'ouvre. -->
   <section id="vue-jeu" hidden>
-    <header class="entete"><h1>Jeu</h1></header>
+    <header class="entete s-entete"><h1 class="s-titre">Jeu &amp; amis</h1><button id="btn-amis-jeu" class="s-plus" type="button" aria-label="Trouver des amis">＋</button></header>
+    <div class="s-onglets"><button class="s-onglet actif" type="button" data-social="jeu">Jeu</button><button class="s-onglet" type="button" data-social="fil">Fil</button></div>
     <div id="jeu-accueil"></div>
+  </section>
+  <!-- 87 — LE SOCIAL, ÉTAGE 1 (SOCIAL-V1, maquette `maquette-social-etage1-v2.html`). Le fil est un sous-onglet à côté
+       du jeu ; « ＋ » ouvre Trouver des amis ; `/a/<pseudo>` le profil d'une personne. Ouvert jeu allumé ou éteint.
+       Les vues sont construites en JS (`rendreFil`, `rendreAmis`, `rendreAmi`, rendu.js). -->
+  <section id="vue-fil" hidden>
+    <header class="entete s-entete"><h1 class="s-titre">Jeu &amp; amis</h1><button id="btn-amis-fil" class="s-plus" type="button" aria-label="Trouver des amis">＋</button></header>
+    <div class="s-onglets"><button class="s-onglet" type="button" data-social="jeu">Jeu</button><button class="s-onglet actif" type="button" data-social="fil">Fil</button></div>
+    <div id="social-fil"></div>
+  </section>
+  <section id="vue-amis" hidden>
+    <header class="entete">
+      <button id="btn-retour-amis" type="button" class="discret">← Fil</button>
+    </header>
+    <div id="social-amis"></div>
+  </section>
+  <section id="vue-ami" hidden>
+    <header class="entete">
+      <button id="btn-retour-ami" type="button" class="discret">← Fil</button>
+    </header>
+    <div id="social-ami"></div>
   </section>
   <section id="vue-muscles" hidden>
     <header class="entete">
@@ -442,7 +465,7 @@
   <button id="onglet-seances" class="onglet" type="button" data-vue="racine"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg><span class="onglet-nom">Séances</span></button>
   <button id="onglet-saisie" class="onglet" type="button" data-vue="saisie"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="onglet-nom">Saisie</span></button>
   <button id="onglet-progression" class="onglet" type="button" data-vue="progression"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V9M10 19V5M16 19v-6M22 19H2"/></svg><span class="onglet-nom">Progression</span></button>
-  <button id="onglet-jeu" class="onglet" type="button" data-vue="jeu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l8.2 4.75v9.5L12 21.5l-8.2-4.75v-9.5z"/></svg><span class="onglet-nom">Jeu</span></button>
+  <button id="onglet-jeu" class="onglet" type="button" data-vue="jeu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l8.2 4.75v9.5L12 21.5l-8.2-4.75v-9.5z"/></svg><span class="onglet-nom" id="onglet-jeu-nom">Jeu &amp; amis</span></button>
   <button id="onglet-profil" class="onglet" type="button" data-vue="profil"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg><span class="onglet-nom">Profil</span></button>
 </nav>
 
@@ -480,6 +503,7 @@
 <script src="/js/faits.js"></script>
 <script src="/js/jeu.js"></script>
 <script src="/js/calendrier.js"></script>
+<script src="/js/social.js"></script>
 <script src="/js/profil.js"></script>
 <script src="/js/generateur.js"></script>
 <script src="/js/questionnaire.js"></script>

@@ -23,6 +23,9 @@
 //   /jeu/muscles            les sept muscles
 //   /jeu/succes             les succès, par catégorie, et les titres
 //   /jeu/deblocages         les cadres et les gels
+//   /jeu/fil                le fil des séances des personnes suivies (87, SOCIAL-V1)
+//   /jeu/amis               trouver des amis, le lien d'invitation, la confidentialité
+//   /a/<pseudo>             le profil social d'une personne (lien d'invitation)
 //   /connexion              l'écran de connexion
 //   /inscription            créer un compte
 //
@@ -51,6 +54,10 @@
   // CONNAÎT PAS L'INTERRUPTEUR : il reste pur. Jeu éteint, c'est `app.js` qui
   // traite `/jeu…` comme une route inconnue.
   var JEU = 'jeu', MUSCLES = 'muscles', SUCCES = 'succes', DEBLOCAGES = 'deblocages';
+  // 87 (SOCIAL-V1) — le social vit DANS l'onglet Jeu (« Jeu & amis »), mais il ne dépend pas de
+  // l'interrupteur du jeu : `estVueDuJeu` ne le compte pas. `/a/<pseudo>` est le lien d'invitation.
+  var FIL = 'fil', AMIS = 'amis', AMI = 'ami';
+  var RE_PSEUDO = /^[A-Za-z0-9_.-]{1,40}$/;
   var VOLUME = 'volume', POIDS = 'poids';
   // MOTEUR §9.23 (55-1) — le bilan d'un mois et ses records, sous Progression.
   // Le mois est un segment de plus (« /progression/mois/2026-09 ») : tous les
@@ -107,6 +114,9 @@
   // l'onglet Jeu reste allumé, le retour d'Android remonte à « /jeu ».
   var SOUS_JEU = {};
   SOUS_JEU[MUSCLES] = true; SOUS_JEU[SUCCES] = true; SOUS_JEU[DEBLOCAGES] = true;
+  // 87 — les deux vues sociales sous « /jeu/ » (même onglet, hors interrupteur).
+  var SOUS_SOCIAL = {};
+  SOUS_SOCIAL[FIL] = true; SOUS_SOCIAL[AMIS] = true;
 
   // Vues à segment unique, sans paramètre. La racine n'y figure pas : elle est
   // le chemin « / », et c'est l'onglet Séances.
@@ -167,6 +177,16 @@
       // profil. Un lien qui a vieilli ne renvoie pas à la racine.
       if (!SOUS_PROFIL[bouts[1]]) return { vue: PROFIL, params: {}, repli: 'sous-vue-inconnue' };
       return { vue: bouts[1], params: {} };
+    }
+
+    if (bouts[0] === JEU && bouts.length === 2 && SOUS_SOCIAL[bouts[1]]) return { vue: bouts[1], params: {} };
+
+    // 87 — le profil d'une personne : « /a/<pseudo> ». Un pseudo illisible retombe sur le fil.
+    if (bouts[0] === 'a' && bouts.length === 2) {
+      var pseudo = null;
+      try { pseudo = decodeURIComponent(bouts[1]); } catch (e) { pseudo = null; }
+      if (pseudo === null || !RE_PSEUDO.test(pseudo)) return { vue: FIL, params: {}, repli: 'pseudo-invalide' };
+      return { vue: AMI, params: { pseudo: pseudo } };
     }
 
     if (bouts[0] === JEU && bouts.length === 2) {
@@ -240,6 +260,8 @@
     if (SOUS_PROGRESSION[vue]) return '/' + PROGRESSION + '/' + vue;
     if (SOUS_PROFIL[vue]) return '/' + PROFIL + '/' + vue;
     if (SOUS_JEU[vue]) return '/' + JEU + '/' + vue;
+    if (SOUS_SOCIAL[vue]) return '/' + JEU + '/' + vue;
+    if (vue === AMI) return p.pseudo && RE_PSEUDO.test(p.pseudo) ? '/a/' + encodeURIComponent(p.pseudo) : '/' + JEU + '/' + FIL;
     if (SEGMENTS[vue]) return '/' + vue;
     return '/';
   }
@@ -258,6 +280,7 @@
     if (SOUS_PROGRESSION[vue]) return PROGRESSION;
     if (SOUS_PROFIL[vue]) return PROFIL;
     if (SOUS_JEU[vue]) return JEU;
+    if (SOUS_SOCIAL[vue] || vue === AMI) return JEU;
     for (var i = 0; i < ONGLETS.length; i++) if (ONGLETS[i] === vue) return vue;
     return null;
   }
@@ -324,6 +347,9 @@
     JEU: JEU, MUSCLES: MUSCLES, SUCCES: SUCCES, DEBLOCAGES: DEBLOCAGES, SOUS_JEU: SOUS_JEU,
     // 64B — une vue du jeu (l'onglet ou une sous-vue) : `app.js` la refuse quand le jeu est éteint.
     estVueDuJeu: function (vue) { return vue === JEU || !!SOUS_JEU[vue]; },
+    // 87 — les vues sociales : ouvertes jeu allumé ou éteint.
+    FIL: FIL, AMIS: AMIS, AMI: AMI, SOUS_SOCIAL: SOUS_SOCIAL,
+    estVueSociale: function (vue) { return !!SOUS_SOCIAL[vue] || vue === AMI; },
     versDate: versDate,
     depuisDate: depuisDate,
     analyser: analyser,

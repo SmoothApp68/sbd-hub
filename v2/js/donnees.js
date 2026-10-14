@@ -758,6 +758,9 @@
     'zones_a_menager, exercices_ecartes, programme_construit_dossier, programme_construit_le, carte_cycles_le, ' +
     // 64B (`v2_068`, NOT NULL DEFAULT true) — l'interrupteur du jeu : écrit, donc relu (le même piège).
     'jeu_actif, ' +
+    // 87 (`v2_078`) — le social : le compte privé (NOT NULL DEFAULT true), et le niveau et le titre du jeu
+    // que l'app publie (`jeu_niveau`, `jeu_titre`). Écrits, donc relus (le même piège).
+    'compte_prive, jeu_niveau, jeu_titre, ' +
     'onboarding_completed';
 
   async function monProfil(id) {
@@ -823,6 +826,56 @@
     if (r.error) throw r.error;
   }
 
+  // ══ LE SOCIAL (87, SOCIAL-V1, migration `v2_078`) ═════════════════════════
+  //
+  // ⚠️ LES AUTRES NE SE LISENT QUE PAR LES FONCTIONS DE LA BASE : elles ne
+  // rendent que les colonnes autorisées (jamais poids de corps, note, RPE,
+  // ressenti, douleur) et appliquent les cercles et les blocages côté serveur.
+  // Aucune lecture directe de `sessions`, `sets` ou `profiles` d'autrui.
+  // Les écritures sont directes, en ligne (pas de file) : un geste social
+  // refusé hors réseau se dit à l'écran, il ne se rejoue pas plus tard.
+  async function rpc(nom, args) {
+    var r = await client().rpc(nom, args || {});
+    if (r.error) throw r.error;
+    return r.data;
+  }
+  async function socialProfil(pseudo) {
+    var d = await rpc('social_profil', { p_pseudo: pseudo });
+    return (Array.isArray(d) ? d[0] : d) || null;
+  }
+  async function socialRechercher(debut) { return (await rpc('social_rechercher', { p_debut: debut })) || []; }
+  async function socialFil() { return (await rpc('social_fil')) || []; }
+  async function socialLiens() { return (await rpc('social_liens')) || []; }
+  async function socialRecordsSeance(id) { return (await rpc('social_records_seance', { p_session: id })) || []; }
+  async function socialCalendrier(userIdCible, de, a) {
+    return (await rpc('social_calendrier', { p_user: userIdCible, p_de: de, p_a: a })) || [];
+  }
+  async function socialDetailSeance(id) { return (await rpc('social_detail_seance', { p_session: id })) || []; }
+  async function socialMesReactions(id) {
+    var d = await rpc('social_mes_reactions', { p_session: id });
+    var n = Number(Array.isArray(d) ? d[0] : d);
+    return isFinite(n) ? n : 0;
+  }
+  async function ecrire(promesse) { var r = await promesse; if (r.error) throw r.error; return true; }
+  // `statut` est posé par la base (`demande`, ou `accepte` d'office vers un compte public).
+  function sAbonner(moi, suivi) { return ecrire(client().from('abonnements').insert({ suiveur: moi, suivi: suivi })); }
+  function retirerAbonnement(suiveur, suivi) {
+    return ecrire(client().from('abonnements').delete().eq('suiveur', suiveur).eq('suivi', suivi));
+  }
+  function accepterDemande(suiveur, moi) {
+    return ecrire(client().from('abonnements').update({ statut: 'accepte' }).eq('suiveur', suiveur).eq('suivi', moi));
+  }
+  function bloquer(moi, autre) { return ecrire(client().from('blocages').insert({ bloqueur: moi, bloque: autre })); }
+  function debloquer(moi, autre) {
+    return ecrire(client().from('blocages').delete().eq('bloqueur', moi).eq('bloque', autre));
+  }
+  function reagir(sessionId, moi) {
+    return ecrire(client().from('reactions_seance').insert({ session_id: sessionId, user_id: moi }));
+  }
+  function retirerReaction(sessionId, moi) {
+    return ecrire(client().from('reactions_seance').delete().eq('session_id', sessionId).eq('user_id', moi));
+  }
+
   var api = {
     toutesLesSeances: toutesLesSeances,
     seriesDepuis: seriesDepuis,
@@ -869,6 +922,11 @@
     enregistrerProfil: enregistrerProfil,
     pseudoPris: pseudoPris,
     supprimerCompte: supprimerCompte,
+    socialProfil: socialProfil, socialRechercher: socialRechercher, socialFil: socialFil,
+    socialLiens: socialLiens, socialRecordsSeance: socialRecordsSeance, socialCalendrier: socialCalendrier,
+    socialDetailSeance: socialDetailSeance, socialMesReactions: socialMesReactions,
+    sAbonner: sAbonner, retirerAbonnement: retirerAbonnement, accepterDemande: accepterDemande,
+    bloquer: bloquer, debloquer: debloquer, reagir: reagir, retirerReaction: retirerReaction,
     // Exposée pour les tests : c'est la logique de pagination qu'il faut
     // pouvoir exercer sans réseau, pas les requêtes qui l'utilisent.
     paginerParCle: paginerParCle,

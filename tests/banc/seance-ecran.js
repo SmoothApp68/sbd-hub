@@ -473,6 +473,8 @@ const PROFIL_BANC = {
   duree_seance_min: null, onboarding_completed: true,
   // 64B (`v2_068`) — l'interrupteur du jeu : NOT NULL DEFAULT true.
   jeu_actif: true,
+  // 87 (`v2_078`) — le social : le compte privé (NOT NULL DEFAULT true), le niveau et le titre publiés.
+  compte_prive: true, jeu_niveau: null, jeu_titre: null,
   // 50-1 — la réponse à la carte du lest : `oui`, `non`, ou NULL (pas encore).
   lest_reponse: null, lest_reponse_le: null,
   // 60-2a (`v2_065`) — le questionnaire du coach.
@@ -493,6 +495,8 @@ const PROFIL_BANC = {
 const { datesDuDecor, ancreSemaineIsolee, seanceSansSeries, jourIsole, ilYa, finDe } =
   require(path.join(__dirname, 'decor-dates.js'));
 const JOURS = datesDuDecor();
+// 87 — le faux serveur du social (cercles, blocage, compte privé, colonnes autorisées).
+const FauxSocial = require(path.join(__dirname, 'faux-social.js'));
 
 const PASSEE = {
   id: 'sess-passee', user_id: 'u-banc', titre: 'Séance de lundi',
@@ -584,6 +588,9 @@ const SETS_IMPORTES = [
     // routine », « Dupliquer »).
     graineRoutines: 0
   };
+
+  // 87 — LE SOCIAL : ses tables et ses fonctions (v2_078), et les AUTRES personnes, à part de la base de papier.
+  const fauxSocial = FauxSocial.creer(base);
 
   // Le décor ne doit pas fausser les comptes des sections qui parlent de LA
   // séance en cours : on le met de côté une fois pour toutes.
@@ -855,6 +862,12 @@ const SETS_IMPORTES = [
 
     if (url.pathname.startsWith('/auth/')) return json({ error: 'x' }, 400);
     if (!base.reseau) return route.abort('failed');
+    // 87 — le social : ses tables et ses fonctions, au faux serveur du social.
+    const sociale = fauxSocial.gerer(req.method(), url, corps);
+    if (sociale) {
+      if (sociale.status === 204) return route.fulfill({ status: 204, body: '' });
+      return route.fulfill({ status: sociale.status, contentType: 'application/json', body: JSON.stringify(sociale.data) });
+    }
     // 27/09/2026 — une LENTEUR sur `predictions` seule (écritures) : c'est la
     // fenêtre du constat, où l'observation vidée à la dévalidation était encore
     // en vol quand la série revenait.
@@ -1309,6 +1322,8 @@ const SETS_IMPORTES = [
         // (qui rejoue sa ligne entière sans fin) — d'où le refus côté app.
         // 64B (`v2_068`) — `jeu_actif` NOT NULL, comme la base : un `null` est un 23502.
         if (l.jeu_actif === null) return json(refus('23502', 'profiles.jeu_actif NOT NULL'), 400);
+        // 87 (`v2_078`) — `compte_prive` NOT NULL, lui aussi.
+        if (l.compte_prive === null) return json(refus('23502', 'profiles.compte_prive NOT NULL'), 400);
         const horsListe = (col, liste) => l[col] !== undefined && l[col] !== null && liste.indexOf(l[col]) < 0;
         if (horsListe('objectif', ['force', 'muscle', 'les_deux', 'forme'])) return json(refus('23514', 'profiles_objectif_ok'), 400);
         if (horsListe('temps_reponse', ['max', 'marge', 'moins', 'varie'])) return json(refus('23514', 'profiles_temps_reponse_ok'), 400);
@@ -16594,8 +16609,8 @@ const SETS_IMPORTES = [
   //   A. l'onglet Jeu, les trois blocs de l'accueil, les trois sous-vues, « ← Jeu » et le retour ;
   //   B. la feuille « Terminer » après une série RECORD : le bloc « Le jeu », une ligne XP > 0 — puis, terminée,
   //      l'accueil montre un état qui l'inclut ;
-  //   C. l'interrupteur éteint : plus d'onglet (quatre colonnes), plus de bloc dans la feuille, l'initiale au Profil,
-  //      `/jeu…` comme une route inconnue ; rallumé, tout revient — une seule écriture chaque fois, celle du profil ;
+  //   C. l'interrupteur éteint : l'onglet devient « Amis » (87 : réduit au fil, cinq colonnes), plus de bloc dans la
+  //      feuille, l'initiale au Profil, `/jeu` ouvre le fil et `/jeu/<sous-vue>` est une route inconnue ; rallumé, tout revient — une seule écriture chaque fois, celle du profil ;
   //   D. ⚠️ le texte du coach (l'escalier, les blocs de la séance : plan, consigne, phrase) IDENTIQUE jeu allumé et
   //      jeu éteint ;
   //   E. pas de défilement horizontal à 360 px sur les sept écrans de la maquette.
@@ -16761,17 +16776,31 @@ const SETS_IMPORTES = [
     ok('[jeu] éteint : l’initiale revient, rien du jeu au Profil, l’interrupteur reste (éteint)',
       p1.rond === 'p-rond' && /^[A-Z?]$/.test(p1.texte) && p1.ligne === true && p1.vitrine === 0 && p1.inter === 'false',
       JSON.stringify(p1));
-    ok('[jeu] éteint : plus d’onglet Jeu, quatre colonnes (pas de trou)',
-      o1.cache && o1.colonnes === 4 && JSON.stringify(o1.visibles) === '["racine","saisie","progression","profil"]', JSON.stringify(o1));
+    // 87 (SOCIAL-V1, décision du 13/10/2026) — L'ONGLET RESTE, jeu éteint : réduit au fil et aux amis, il s'appelle
+    // « Amis ». Le social est volontaire et indépendant du jeu ; il ne se cache pas derrière une adresse.
+    const nomOnglet = () => page.evaluate(() => document.getElementById('onglet-jeu-nom').textContent);
+    ok('[jeu] éteint : l’onglet reste, réduit au social — « Amis », cinq colonnes (87)',
+      !o1.cache && o1.colonnes === 5 && JSON.stringify(o1.visibles) === '["racine","saisie","progression","jeu","profil"]' &&
+        (await nomOnglet()) === 'Amis', JSON.stringify([o1, await nomOnglet()]));
     ok('[jeu] DISCRIMINANT — une seule écriture, celle du profil : `jeu_actif: false`, jamais `null`',
       ecritsOff.length === 1 && ecritsOff[0].op === 'profil' && ecritsOff[0].champs.jeu_actif === false &&
         base.profiles[0].jeu_actif === false, JSON.stringify(ecritsOff));
     await mesurerLargeur('eteint');
-    for (const route of ['/jeu', '/jeu/succes']) {
-      await aller(route);
-      ok('[jeu] éteint : ' + route + ' s’ouvre comme une route inconnue (« / », la semaine)',
-        (await chemin()) === '/' && JSON.stringify(await visible()) === '["vue-liste"]', JSON.stringify([await chemin(), await visible()]));
-    }
+    // 87 — jeu éteint, « /jeu » (l'onglet) ouvre le fil, sans sous-onglet « Jeu » ; une sous-vue du jeu reste une
+    // route inconnue.
+    await aller('/jeu');
+    const filEteint = await page.evaluate(() => ({ jeu: !document.querySelector('#vue-fil .s-onglet[data-social="jeu"]') ||
+      document.querySelector('#vue-fil .s-onglet[data-social="jeu"]').hidden, titre: document.querySelector('#vue-fil .s-titre').textContent }));
+    ok('[jeu] éteint : /jeu ouvre le fil (/jeu/fil), « Amis », sans sous-onglet « Jeu » (87)',
+      (await chemin()) === '/jeu/fil' && JSON.stringify(await visible()) === '["vue-fil"]' && filEteint.jeu && filEteint.titre === 'Amis',
+      JSON.stringify([await chemin(), await visible(), filEteint]));
+    await page.click('#onglet-jeu');
+    await attendre(800);
+    ok('[jeu] éteint : toucher l’onglet ouvre le fil (87)',
+      (await chemin()) === '/jeu/fil' && JSON.stringify(await visible()) === '["vue-fil"]', JSON.stringify([await chemin(), await visible()]));
+    await aller('/jeu/succes');
+    ok('[jeu] éteint : /jeu/succes s’ouvre comme une route inconnue (« / », la semaine)',
+      (await chemin()) === '/' && JSON.stringify(await visible()) === '["vue-liste"]', JSON.stringify([await chemin(), await visible()]));
     // La feuille, jeu éteint : pas de bloc. Et le coach, à l'ouverture de la même routine : le même texte.
     await aller('/saisie');
     await demarrerRoutine('Jeu U64');
@@ -16805,6 +16834,8 @@ const SETS_IMPORTES = [
     const o2 = await ongletJeu();
     const p2 = await page.evaluate(() => ({ rond: document.getElementById('profil-rond').className,
       vitrine: document.querySelectorAll('#profil-corps .j-case').length }));
+    ok('[jeu] rallumé : l’onglet reprend son nom (« Jeu & amis »), cinq colonnes (87)', (await nomOnglet()) === 'Jeu & amis',
+      await nomOnglet());
     ok('[jeu] rallumé : l’onglet revient (cinq colonnes), l’hexagone et la vitrine aussi — une seule écriture, `jeu_actif: true`',
       !o2.cache && o2.colonnes === 5 && /^p-rond-jeu/.test(p2.rond) && p2.vitrine === vitrineAttendue &&
         ecritsOn.length === 1 && ecritsOn[0].op === 'profil' && ecritsOn[0].champs.jeu_actif === true &&
@@ -16838,6 +16869,238 @@ const SETS_IMPORTES = [
       base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant &&
         erreurs.length === erreursAvant,
       JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
+  }
+
+  console.log('\n══ social. LE SOCIAL, ÉTAGE 1 : ABONNEMENTS, FIL, PROFIL ET CALENDRIER, BLOCAGE, CONFIDENTIALITÉ (87, SOCIAL-V1) ══');
+  //
+  // Le faux serveur du social (`faux-social.js`) imite la migration v2_078 : c'est LUI qui prouve la confidentialité.
+  // Les autres personnes (lea, alexis) vivent à part de la base de papier ; on agit en leur nom par `fauxSocial`.
+  //
+  // ⚠️ CONFIGURATIONS DISCRIMINANTES :
+  //   · chaque séance « interdite » a sa jumelle visible : la privée et l'en cours de lea sont du même jour que sa séance
+  //     visible — un fil vide ne passerait pas pour un fil filtré ;
+  //   · ses séries portent `rpe`, `ressenti`, `note`, et sa séance `note` et `poids_corps_kg` : la garde « aucune donnée
+  //     interdite » lit des réponses qui AURAIENT pu les porter ;
+  //   · le détail se teste à sens unique PUIS en mutuel, sur la même séance ;
+  //   · le blocage part d'un lien MUTUEL : il y a deux abonnements à effacer, pas un.
+  {
+    const erreursAvant = erreurs.length;
+    const violationsAvant = gardeBanc.violations;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const S = fauxSocial.etat;
+    const tS = Date.now();
+    const hier = ilYa(86400000, tS);
+    const iso = (d) => d.toISOString();
+    S.profils.push(
+      { id: 'u-lea', username: 'lea', compte_prive: true, jeu_actif: true, jeu_niveau: 12, jeu_titre: 'athlete', deleted_at: null },
+      { id: 'u-alexis', username: 'alexis', compte_prive: true, jeu_actif: true, jeu_niveau: 8, jeu_titre: null, deleted_at: null });
+    const seanceAutre = (id, user, titre, extra) => Object.assign({ id, user_id: user, titre, debut: iso(hier),
+      fin: iso(finDe(iso(hier), tS)), statut: 'terminee', visibilite: 'mutuels', note: 'note privée',
+      poids_corps_kg: 61, source: 'app' }, extra || {});
+    S.sessions.push(seanceAutre('a0000000-0000-4000-8870-000000000001', 'u-lea', 'Bas du corps'),
+      seanceAutre('a0000000-0000-4000-8870-000000000002', 'u-lea', 'Séance masquée', { visibilite: 'private' }),
+      seanceAutre('a0000000-0000-4000-8870-000000000003', 'u-lea', 'Séance en cours', { statut: 'en_cours', fin: null }),
+      seanceAutre('a0000000-0000-4000-8870-000000000004', 'u-alexis', 'Push'));
+    const LEA = 'a0000000-0000-4000-8870-000000000001';
+    const serieAutre = (id, sid, slug, rang, kg, reps, type) => ({ id, session_id: sid, exercise_slug: slug, rang, charge_kg: kg,
+      reps, duree_s: null, distance_m: null, type_serie: type || 'travail', rpe: 9, ressenti: 'dur', note: 'genou', douleur: 'genou' });
+    S.sets.push(serieAutre('sl-1', LEA, 'squat-barre', 1, 60, 5, 'echauffement'),
+      serieAutre('sl-2', LEA, 'squat-barre', 2, 100, 10), serieAutre('sl-3', LEA, 'squat-barre', 3, 100, 10),
+      serieAutre('sl-4', LEA, 'squat-barre', 4, 100, 10),
+      serieAutre('sa-1', 'a0000000-0000-4000-8870-000000000004', 'dc-barre', 1, 80, 8));
+    // Deux records de la MÊME série : une médaille.
+    S.records.push({ set_id: 'sl-4', session_id: LEA, battu_le: iso(hier), exercise_slug: 'squat-barre', type: 'charge_a_reps', valeur: 100, reps: 10 },
+      { set_id: 'sl-4', session_id: LEA, battu_le: iso(hier), exercise_slug: 'squat-barre', type: 'un_rm_estime', valeur: 133 });
+    const chemin = () => page.evaluate(() => location.pathname);
+    const largeurs = [];
+    const mesurer = async (ecran) => {
+      const l = await page.evaluate(() => ({ doc: document.documentElement.scrollWidth, fen: window.innerWidth }));
+      largeurs.push({ ecran, doc: l.doc, fen: l.fen });
+    };
+    const ami = () => page.evaluate(() => {
+      const t = (s) => { const n = document.querySelector('#social-ami ' + s); return n ? n.textContent : null; };
+      return { pseudo: t('.s-pseudo'), niveau: t('.s-niveau'), etat: t('.s-etat'), bouton: t('#social-principal'),
+        inviter: !!document.querySelector('#social-inviter') && document.querySelector('#social-inviter').disabled,
+        inviterSous: t('.s-inviter-sous'), cache: t('.s-cache'), jours: document.querySelectorAll('#social-ami button.s-jour').length,
+        ex: document.querySelectorAll('#social-ami .s-ex').length, detailCache: t('.s-detail-cache'), resume: t('.s-detail h3'),
+        meds: Array.from(document.querySelectorAll('#social-ami .s-med')).map((x) => x.textContent), introuvable: t('.s-introuvable') };
+    });
+    const fil = () => page.evaluate(() => ({
+      cartes: Array.from(document.querySelectorAll('#social-fil .s-carte')).map((c) => ({ id: c.getAttribute('data-session'),
+        texte: c.textContent, tonnes: (c.querySelector('.s-tonnes') || {}).textContent,
+        records: (c.querySelector('.s-nb-records') || {}).textContent || null,
+        meds: Array.from(c.querySelectorAll('.s-med')).map((x) => x.textContent), reag: (c.querySelector('.s-reag') || {}).textContent })),
+      demandes: Array.from(document.querySelectorAll('#social-fil .s-demande')).map((d) => d.getAttribute('data-pseudo')),
+      fin: (document.querySelector('#social-fil .s-fin') || {}).textContent }));
+    const attendreQue = async (cond, ms) => {
+      for (let t = 0; t < (ms || 8000); t += 200) { if (await cond()) return true; await attendre(200); }
+      return false;
+    };
+    const lien = (a, b) => S.abonnements.filter((x) => x.suiveur === a && x.suivi === b)[0] || null;
+
+    // ── A. INCONNU → DEMANDE → ACCEPTATION → FIL.
+    await aller('/a/lea');
+    const a0 = await ami();
+    ok('[social] inconnu : pseudo, blason, niveau du jeu — et rien de ses séances (pas de calendrier)',
+      a0.pseudo === 'lea' && a0.niveau === 'Niveau 12 · Athlète' && a0.bouton === 'S’abonner' && a0.jours === 0 &&
+        a0.cache === 'Abonne-toi pour voir ses séances.' && (await compter('#social-ami .s-blason')) === 1 &&
+        (await chemin()) === '/a/lea' && JSON.stringify(await visible()) === '["vue-ami"]', JSON.stringify(a0));
+    ok('[social] le profil d’une personne allume l’onglet « Jeu & amis »',
+      await page.evaluate(() => document.getElementById('onglet-jeu').classList.contains('actif')), '');
+    await mesurer('profil inconnu');
+    await page.click('#social-principal');
+    await attendreQue(async () => (await ami()).etat === 'Demande envoyée');
+    const a1 = await ami();
+    ok('[social] « S’abonner » vers un compte privé : une DEMANDE (pas un suivi), et l’écran le dit',
+      !!lien('u-banc', 'u-lea') && lien('u-banc', 'u-lea').statut === 'demande' && a1.etat === 'Demande envoyée' && a1.jours === 0 &&
+        /accepte ta demande/.test(a1.cache || ''), JSON.stringify([S.abonnements, a1]));
+    await aller('/jeu/fil');
+    const f0 = await fil();
+    ok('[social] demande en attente : rien de lea dans le fil', f0.cartes.length === 0, JSON.stringify(f0));
+    fauxSocial.appeler('u-lea', 'PATCH', 'abonnements', { statut: 'accepte' }, 'suiveur=eq.u-banc&suivi=eq.u-lea');
+    await aller('/jeu/fil');
+    await attendreQue(async () => (await fil()).cartes.length > 0);
+    const f1 = await fil();
+    ok('[social] DISCRIMINANT — acceptée : le fil montre la séance terminée de lea, et SEULEMENT elle (ni la masquée, ni l’en cours)',
+      f1.cartes.length === 1 && f1.cartes[0].id === LEA && /Bas du corps/.test(f1.cartes[0].texte) &&
+        !/Séance masquée|Séance en cours/.test(JSON.stringify(f1)), JSON.stringify(f1));
+    ok('[social] la carte : le tonnage (séries de travail seulement), UNE médaille pour une série à deux records, « Tu es à jour »',
+      f1.cartes[0].tonnes === '3 t' && f1.cartes[0].records === '1' && f1.cartes[0].meds.length === 1 &&
+        /100 kg × 10/.test(f1.cartes[0].meds[0]) && f1.fin === 'Tu es à jour · les 30 derniers jours', JSON.stringify(f1.cartes[0]));
+    ok('[social] le sous-onglet Fil, à côté du jeu, dans « Jeu & amis »', await page.evaluate(() =>
+      document.querySelector('#vue-fil .s-titre').textContent === 'Jeu & amis' &&
+      !document.querySelector('#vue-fil .s-onglet[data-social="jeu"]').hidden &&
+      document.querySelector('#vue-fil .s-onglet[data-social="fil"]').classList.contains('actif')), '');
+    await mesurer('fil');
+
+    // ── B. À SENS UNIQUE : le calendrier, le résumé — PAS le détail (la base ne le rend pas, et l'écran le dit).
+    const appelsAvant = S.appels.length;
+    await aller('/a/lea');
+    await attendreQue(async () => (await ami()).jours > 0);
+    await page.click('#social-ami button.s-jour');
+    await attendreQue(async () => !!(await ami()).detailCache);
+    const b0 = await ami();
+    ok('[social] DISCRIMINANT — à sens unique : « Tu suis lea », le calendrier et le résumé, mais pas le détail : l’écran le dit',
+      b0.etat === 'Tu suis lea' && b0.jours === 1 && /3 t/.test(b0.resume || '') && b0.meds.length === 1 && b0.ex === 0 &&
+        b0.detailCache === 'Le détail des exercices se voit quand vous vous suivez l’un l’autre.', JSON.stringify(b0));
+    ok('[social] à sens unique, l’app ne demande pas le détail, et la base le refuserait',
+      S.appels.slice(appelsAvant).indexOf('social_detail_seance') < 0 &&
+        fauxSocial.rpc('u-banc', 'social_detail_seance', { p_session: LEA }).length === 0, JSON.stringify(S.appels.slice(appelsAvant)));
+    ok('[social] « Inviter dans un groupe » : grisé, avec « Abonnez-vous l’un à l’autre pour l’inviter. »',
+      b0.inviter === true && b0.inviterSous === 'Abonnez-vous l’un à l’autre pour l’inviter.', JSON.stringify(b0));
+    await mesurer('profil à sens unique');
+
+    // ── C. LEA DEMANDE À SON TOUR : la demande dans le fil (et le badge), « Accepter » → MUTUEL : le détail.
+    fauxSocial.appeler('u-lea', 'POST', 'abonnements', { suiveur: 'u-lea', suivi: 'u-banc' });
+    await aller('/jeu/fil');
+    await attendreQue(async () => (await fil()).demandes.length > 0);
+    const c0 = await fil();
+    const badge = await page.evaluate(() => document.getElementById('onglet-jeu').getAttribute('data-demandes'));
+    ok('[social] compte privé : la demande de lea attend, dans le fil, avec un badge sur l’onglet (pas de notification)',
+      lien('u-lea', 'u-banc').statut === 'demande' && JSON.stringify(c0.demandes) === '["lea"]' && badge === '1', JSON.stringify([c0, badge]));
+    await page.click('#social-fil .s-demande .s-accepter');
+    await attendreQue(async () => lien('u-lea', 'u-banc').statut === 'accepte');
+    await aller('/a/lea');
+    await attendreQue(async () => (await ami()).jours > 0);
+    await page.click('#social-ami button.s-jour');
+    await attendreQue(async () => (await ami()).ex > 0);
+    const c1 = await ami();
+    ok('[social] DISCRIMINANT — mutuel : « Vous vous suivez », le détail des exercices (séries, charges), sans message de détail caché',
+      lien('u-lea', 'u-banc').statut === 'accepte' && c1.etat === 'Vous vous suivez' && c1.ex === 1 && c1.detailCache === null &&
+        /100 kg × 10, 10, 10/.test(await texte('#social-ami')) && !/rpe|ressenti|genou/i.test(await texte('#social-ami')),
+      JSON.stringify([c1, await texte('#social-ami')]));
+    ok('[social] mutuel : « Inviter dans un groupe » reste inactif, « Bientôt »', c1.inviter === true && c1.inviterSous === 'Bientôt',
+      JSON.stringify(c1));
+    await mesurer('profil mutuel');
+
+    // ── D. RÉAGIR ; le nombre de réactions : l'auteur seulement.
+    await aller('/jeu/fil');
+    await attendreQue(async () => (await fil()).cartes.length > 0);
+    await page.click('#social-fil .s-carte .s-reag');
+    await attendreQue(async () => S.reactions.length === 1);
+    await attendre(400);
+    const d0 = await fil();
+    ok('[social] « Réagir » : une réaction en base, « Tu as réagi » — et AUCUN nombre de réactions sur la séance d’une autre',
+      S.reactions.length === 1 && S.reactions[0].user_id === 'u-banc' && d0.cartes[0].reag === '🔥 Tu as réagi' &&
+        !/\d+\s*réaction/.test(d0.cartes[0].texte), JSON.stringify([S.reactions, d0.cartes[0]]));
+    // Une séance à MOI (un identifiant de séance valide pour la route `/seance/<uuid>`), retirée à la remise en état.
+    const MIENNE = 'a0000000-0000-4000-8870-0000000000aa';
+    base.sessions.push({ id: MIENNE, user_id: 'u-banc', titre: 'Social U87', debut: iso(hier), fin: iso(finDe(iso(hier), tS)),
+      statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: iso(hier) });
+    fauxSocial.appeler('u-lea', 'POST', 'reactions_seance', { session_id: MIENNE, user_id: 'u-lea' });
+    await aller('/seance/' + MIENNE);
+    await attendreQue(async () => /réaction/.test(await texte('#detail-reactions')));
+    ok('[social] DISCRIMINANT — l’auteur voit le nombre de réactions à SA séance ; lea, qui a réagi, ne le voit pas',
+      (await texte('#detail-reactions')) === '🔥 1 réaction' &&
+        fauxSocial.rpc('u-lea', 'social_mes_reactions', { p_session: MIENNE }) === 0,
+      JSON.stringify([await texte('#detail-reactions'), S.reactions, S.journal.slice(-3), S.appels.slice(-4), await visible()]));
+
+    // ── E. TROUVER DES AMIS, COMPTE PRIVÉ.
+    await aller('/jeu/amis');
+    await page.fill('#social-recherche', 'al');
+    await attendreQue(async () => (await compter('#social-resultats .s-ligne')) > 0);
+    const e0 = await page.evaluate(() => Array.from(document.querySelectorAll('#social-resultats .s-ligne')).map((l) => l.textContent));
+    const prive0 = await page.evaluate(() => document.getElementById('social-compte-prive').getAttribute('aria-checked'));
+    ok('[social] Trouver des amis : « al » → alexis (niveau, compte privé, « S’abonner ») ; le lien d’invitation /a/banc ; compte privé par défaut',
+      e0.length === 1 && /alexis/.test(e0[0]) && /Niveau 8/.test(e0[0]) && /compte privé/.test(e0[0]) && /S’abonner/.test(e0[0]) &&
+        /\/a\/banc$/.test(await texte('.s-lien-invit code')) && prive0 === 'true', JSON.stringify([e0, prive0]));
+    await mesurer('trouver des amis');
+    await page.click('#social-compte-prive');
+    await attendreQue(async () => base.profiles[0].compte_prive === false);
+    ok('[social] « Compte privé » coupé : écrit sur le profil (`compte_prive: false`), jamais `null`',
+      base.profiles[0].compte_prive === false && base.journal.filter((j) => j.op === 'profil' && j.champs.compte_prive === null).length === 0,
+      JSON.stringify(base.profiles[0].compte_prive));
+    fauxSocial.appeler('u-alexis', 'POST', 'abonnements', { suiveur: 'u-alexis', suivi: 'u-banc' });
+    ok('[social] compte public : la demande d’alexis est acceptée d’office', lien('u-alexis', 'u-banc').statut === 'accepte',
+      JSON.stringify(S.abonnements));
+    await page.click('#social-compte-prive');
+    await attendreQue(async () => base.profiles[0].compte_prive === true);
+
+    // ── F. BLOQUER (depuis un lien MUTUEL) : plus rien, des deux côtés, en silence.
+    await aller('/a/lea');
+    await attendreQue(async () => (await ami()).etat === 'Vous vous suivez');
+    await page.click('#social-menu');
+    await page.click('#social-ami [data-geste="bloquer"]');
+    await page.click('#social-ami [data-geste="bloquer"]');
+    await attendreQue(async () => S.blocages.length === 1);
+    await attendre(600);
+    ok('[social] DISCRIMINANT — bloquer efface tout lien : plus aucun abonnement entre eux, dans un sens comme dans l’autre, ni réaction croisée',
+      S.blocages.length === 1 && !lien('u-banc', 'u-lea') && !lien('u-lea', 'u-banc') &&
+        S.reactions.filter((r) => r.user_id === 'u-banc' || r.user_id === 'u-lea').length === 0, JSON.stringify([S.abonnements, S.reactions]));
+    await aller('/jeu/fil');
+    await attendreQue(async () => !!(await fil()).fin);
+    const f2 = await fil();
+    await aller('/a/lea');
+    await attendreQue(async () => (await ami()).introuvable !== null);
+    const f3 = await ami();
+    ok('[social] bloquée : rien de lea dans le fil, son profil introuvable — et de son côté, plus rien de moi',
+      f2.cartes.every((c) => c.id !== LEA) && f3.introuvable !== null &&
+        fauxSocial.rpc('u-lea', 'social_profil', { p_pseudo: 'banc' }).length === 0 &&
+        fauxSocial.rpc('u-lea', 'social_fil').length === 0 &&
+        fauxSocial.rpc('u-lea', 'social_rechercher', { p_debut: 'ba' }).length === 0, JSON.stringify([f2, f3]));
+    await aller('/jeu/amis');
+    await attendreQue(async () => /lea/.test(await texte('.s-bloques')));
+    ok('[social] la liste des bloqués : lea, avec « Débloquer »', /lea/.test(await texte('.s-bloques')) &&
+      /Débloquer/.test(await texte('.s-bloques')), await texte('.s-bloques'));
+
+    // ── G. LA GARDE « AUCUNE DONNÉE INTERDITE » : aucune réponse du faux serveur vers un autre ne porte
+    // `poids_corps_kg`, `note`, `rpe`, `ressenti`, `douleur` — alors que les séances et les séries de lea en portent.
+    ok('[social] DISCRIMINANT — aucune réponse sociale ne porte poids de corps, note, RPE, ressenti ou douleur',
+      S.fuites.length === 0 && S.appels.length > 10 && S.sets.some((t) => t.rpe && t.ressenti && t.note) &&
+        S.sessions.some((x) => x.note && x.poids_corps_kg), JSON.stringify([S.fuites, S.appels.length]));
+    ok('[social] à 360 px, aucun défilement horizontal : fil, profils (inconnu, sens unique, mutuel), Trouver des amis',
+      largeurs.length === 5 && largeurs.every((l) => l.fen === 360 && l.doc <= l.fen), JSON.stringify(largeurs));
+
+    // ── LA REMISE EN ÉTAT.
+    ['profils', 'sessions', 'sets', 'records', 'abonnements', 'blocages', 'reactions'].forEach((k) => { S[k] = []; });
+    for (let k = base.sessions.length - 1; k >= 0; k--) if (base.sessions[k].id === MIENNE) base.sessions.splice(k, 1);
+    base.profiles[0].compte_prive = true;
+    await aller('/saisie');
+    ok('[social] aucun refus du faux serveur, la garde de l’app n’a rien signalé, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant &&
+        erreurs.length === erreursAvant && S.journal.filter((j) => j.op === 'refus').length === 0,
+      JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant),
+        S.journal.filter((j) => j.op === 'refus')]));
   }
 
   console.log('\n══ relecture. « LE COACH RELIT TA SEMAINE » : LA RANGÉE, LA VUE, « NON MERCI », « RETIRER CES SÉRIES », « EN FAIRE MA PRIORITÉ » (66B, QUESTIONNAIRE §5 ter.4 bis) ══');

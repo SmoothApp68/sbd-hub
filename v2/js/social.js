@@ -429,6 +429,132 @@
     return !deja || COLONNES_GUILDE.some(function (k) { return s[k] !== deja[k]; });
   }
 
+  // ══ LE GROUPE DE SÉANCE (91, SOCIAL-V1 « Groupe », décisions du 14/10/2026) ═══════════════════════════════════
+  //
+  // Éphémère, le temps d'une séance : 2 à 6 personnes, abonnés mutuels seulement, un groupe à la fois. Chacun garde SA
+  // séance ; le direct et les messages sont réservés aux membres ; le récap du « combat » compte tout ce que chacun a
+  // fait dans sa séance, sans classement ni vainqueur. La base garde chacune de ces règles (v2_082) : ici, ce que
+  // l'écran en montre. Le coach et les bilans ne lisent rien du groupe ; le plan de séance n'est jamais modifié par lui.
+  var GROUPE_MAX = 6;
+  var MESSAGE_MAX = 140;
+  var MESSAGES_RAPIDES = ['On y va ?', 'Je commence', 'Dernière série !'];
+  var EMOJIS_GROUPE = ['🔥', '💪'];
+  var RAFRAICHIR_GROUPE_MS = 20000;       // le direct se relit environ toutes les 20 s (pas de temps réel)
+  var ACTIF_MS = 3 * 60 * 1000;           // point vert : une série validée il y a moins de 3 min
+  var LIGNES_DU_DIRECT = 2;               // la carte garde sa hauteur : les 2 dernières séries, « Tout voir » pour le reste
+
+  // Un message : 1 à 140 caractères (espaces de bord retirés). Rend le texte propre, ou null.
+  function messageValide(texte) {
+    var t = String(texte === null || texte === undefined ? '' : texte).trim();
+    var n = Array.from(t).length;
+    return n >= 1 && n <= MESSAGE_MAX ? t : null;
+  }
+
+  var instantDe = function (iso) { var t = Date.parse(iso); return isNaN(t) ? null : t; };
+
+  // « TERMINÉ » : une séance terminée, ou plus VIVANTE — la règle de la séance vivante (`Seance.estVivante`, 45 min sans
+  // série validée), réutilisée telle quelle. Une séance pas encore arrivée en base vaut « commencée à l'entrée ».
+  function membreTermine(m, maintenantIso) {
+    if (!m) return true;
+    if (m.statut === 'terminee') return true;
+    var ligne = { statut: 'en_cours', debut: m.statut === 'en_cours' ? m.debut : m.entre_le };
+    return !racine.THSeance.estVivante(ligne, m.derniere ? [{ validee_a: m.derniere }] : [], maintenantIso);
+  }
+  // Le récap du « combat » s'ouvre quand TOUTES les séances du groupe sont terminées.
+  function groupeFini(membres, maintenantIso) {
+    return !!(membres && membres.length) && membres.every(function (m) { return membreTermine(m, maintenantIso); });
+  }
+  // Ceux qui s'entraînent encore (les autres que moi).
+  function encoreEnSeance(membres, maintenantIso) {
+    return (membres || []).filter(function (m) { return !m.moi && !membreTermine(m, maintenantIso); })
+      .map(function (m) { return m.pseudo; });
+  }
+
+  // « à l'instant », « il y a 3 min », « il y a 1 h ».
+  function ilYA(iso, maintenantIso) {
+    var t = instantDe(iso), m = instantDe(maintenantIso);
+    if (t === null || m === null) return '';
+    var min = Math.floor(Math.max(0, m - t) / 60000);
+    if (min < 1) return 'à l’instant';
+    if (min < 60) return 'il y a ' + min + ' min';
+    return 'il y a ' + Math.floor(min / 60) + ' h';
+  }
+
+  // Les pastilles : une par membre (les autres, puis moi), point vert si une série validée il y a moins de 3 min.
+  // `maDerniere` : ma dernière série validée, lue sur l'appareil (la base peut l'attendre).
+  function pastillesDuGroupe(membres, maintenantIso, maDerniere) {
+    var m = instantDe(maintenantIso);
+    var actif = function (iso) { var t = instantDe(iso); return t !== null && m !== null && m - t < ACTIF_MS; };
+    var autres = (membres || []).filter(function (x) { return !x.moi; });
+    var moi = (membres || []).filter(function (x) { return x.moi; })[0];
+    var out = autres.map(function (x) {
+      return { pseudo: x.pseudo, initiale: String(x.pseudo || '?').charAt(0).toUpperCase(), couleur: couleurDuBlason(x.pseudo),
+               actif: actif(x.derniere), moi: false };
+    });
+    if (moi) {
+      out.push({ pseudo: moi.pseudo, initiale: String(moi.pseudo || '?').charAt(0).toUpperCase(), couleur: '#d9b45a',
+                 actif: actif(maDerniere || moi.derniere), moi: true });
+    }
+    return out;
+  }
+
+  // Les lignes du direct : « jordan · Squat (Barre) 180 kg × 3 » et « il y a 1 min », les plus récentes d'abord.
+  // `nomDe(slug)` et `mesure(serie)` : lus par l'app (le catalogue, `Modele.formatMesure`).
+  function lignesDuDirect(direct, maintenantIso, nomDe, mesure) {
+    return (direct || []).filter(function (d) { return d && d.validee_a; }).slice()
+      .sort(function (a, b) { return String(b.validee_a).localeCompare(String(a.validee_a)); })
+      .map(function (d) {
+        return { pseudo: d.pseudo, texte: d.pseudo + ' · ' + (nomDe ? nomDe(d.exercise_slug) : d.exercise_slug) + ' ' + (mesure ? mesure(d) : ''),
+                 quand: ilYA(d.validee_a, maintenantIso) };
+      });
+  }
+
+  // « Suivre la séance de X » : les exercices que X a ajoutés DEPUIS que j'ai rejoint (la copie), sans ceux déjà
+  // proposés (ajoutés ou refusés). Dans l'ordre de sa séance.
+  function exercicesAjoutes(copie, actuels, vus) {
+    var deja = {};
+    (copie || []).concat(vus || []).forEach(function (s) { deja[s] = true; });
+    var out = [];
+    (actuels || []).forEach(function (s) { if (s && !deja[s] && out.indexOf(s) < 0) out.push(s); });
+    return out;
+  }
+
+  // Qui je peux inviter dans le groupe : mes abonnés MUTUELS, pas déjà membres ; `envoyees` : les invitations en attente.
+  function invitablesDuGroupe(liens, membres, envoyees) {
+    var attente = {};
+    (envoyees || []).forEach(function (e) { if (e) attente[e.user_id] = true; });
+    return invitables(liens, membres).map(function (l) {
+      return { user_id: l.user_id, pseudo: l.pseudo, invite: !!attente[l.user_id] };
+    });
+  }
+
+  // Le récap du « combat » : le score collectif (tonnage, séries, records ; XP si publiée) et la part de chacun EN FAITS,
+  // dans l'ordre d'arrivée — sans classement ni vainqueur.
+  function recapDuGroupe(membres) {
+    var l = (membres || []).filter(Boolean).map(function (x) {
+      return { pseudo: x.pseudo, moi: !!x.moi, tonnage_kg: Number(x.tonnage_kg) || 0, series: Number(x.series) || 0,
+               records: Number(x.records) || 0, xp: x.xp === null || x.xp === undefined ? null : Number(x.xp) };
+    });
+    var avecXp = l.filter(function (x) { return x.xp !== null; });
+    return {
+      membres: l,
+      tonnage_kg: Math.round(l.reduce(function (t, x) { return t + x.tonnage_kg; }, 0) * 100) / 100,
+      series: l.reduce(function (t, x) { return t + x.series; }, 0),
+      records: l.reduce(function (t, x) { return t + x.records; }, 0),
+      xp: avecXp.length ? avecXp.reduce(function (t, x) { return t + x.xp; }, 0) : null
+    };
+  }
+  // « Faite en groupe avec jordan, lea » — les autres, dans l'ordre d'arrivée.
+  function faiteEnGroupeAvec(membres) {
+    var autres = (membres || []).filter(function (x) { return x && !x.moi; }).map(function (x) { return x.pseudo; });
+    return autres.length ? 'Faite en groupe avec ' + autres.join(', ') : null;
+  }
+  // « 14,2 t · 41 séries · 2 records » — `tonnes(kg)` : `Bilan.tonnesDuRecap`.
+  function partDe(x, tonnes) {
+    return tonnes(x.tonnage_kg) + ' · ' + x.series + ' série' + (x.series > 1 ? 's' : '') + ' · ' +
+      x.records + ' record' + (x.records > 1 ? 's' : '');
+  }
+
   var api = {
     MOI: MOI, INCONNU: INCONNU, DEMANDE: DEMANDE, SUIVI: SUIVI, MUTUEL: MUTUEL,
     CHAMPS_INTERDITS: CHAMPS_INTERDITS,
@@ -479,7 +605,27 @@
     jaugeDuDefi: jaugeDuDefi,
     joursRestants: joursRestants,
     progressionRangee: progressionRangee,
-    scoresGuildeChanges: scoresGuildeChanges
+    scoresGuildeChanges: scoresGuildeChanges,
+    // 91 — le groupe de séance
+    GROUPE_MAX: GROUPE_MAX,
+    MESSAGE_MAX: MESSAGE_MAX,
+    MESSAGES_RAPIDES: MESSAGES_RAPIDES,
+    EMOJIS_GROUPE: EMOJIS_GROUPE,
+    RAFRAICHIR_GROUPE_MS: RAFRAICHIR_GROUPE_MS,
+    ACTIF_MS: ACTIF_MS,
+    LIGNES_DU_DIRECT: LIGNES_DU_DIRECT,
+    messageValide: messageValide,
+    membreTermine: membreTermine,
+    groupeFini: groupeFini,
+    encoreEnSeance: encoreEnSeance,
+    ilYA: ilYA,
+    pastillesDuGroupe: pastillesDuGroupe,
+    lignesDuDirect: lignesDuDirect,
+    exercicesAjoutes: exercicesAjoutes,
+    invitablesDuGroupe: invitablesDuGroupe,
+    recapDuGroupe: recapDuGroupe,
+    faiteEnGroupeAvec: faiteEnGroupeAvec,
+    partDe: partDe
   };
 
   racine.THSocial = api;

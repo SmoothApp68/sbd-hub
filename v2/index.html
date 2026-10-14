@@ -89,6 +89,8 @@
     <!-- La barre de semaine est construite en JS : elle est IDENTIQUE dans
          Séances et dans Progression, calendrier compris, et passer de l'un à
          l'autre conserve la semaine affichée. -->
+    <!-- 91 — le groupe de séance : mes invitations, et le groupe qui finit (« Le récap du groupe est prêt »). -->
+    <div id="groupe-accueil" hidden></div>
     <div id="barre-seances"></div>
     <!-- Ligne de rappel : les six zones en trois colonnes sur deux rangs,
          ~40 px au lieu des ~250 px du relevé complet. Absente quand la semaine
@@ -103,6 +105,8 @@
       <button id="btn-retour" type="button" class="discret">← Séances</button>
     </header>
     <div id="detail-seance"></div>
+    <!-- 91 — « Faite en groupe avec … » : le récap figé du groupe, lisible depuis la séance. -->
+    <div id="detail-groupe" hidden></div>
     <!-- 87 — le nombre de réactions à SA séance : l'auteur seulement (SOCIAL-V1). -->
     <p id="detail-reactions" class="s-reactions" hidden></p>
   </section>
@@ -134,6 +138,8 @@
         <button id="btn-nouvelle-routine" type="button" class="discret">Nouvelle routine</button>
       </div>
     </header>
+    <!-- 91 — mes invitations à un groupe de séance (on rejoint en commençant sa séance). -->
+    <div id="groupe-accueil-saisie" hidden></div>
     <!-- 60-2a — « Ton questionnaire n'est pas terminé. » : le même composant que le
          bandeau de reprise, dans SON conteneur (un seul nœud ne tient pas deux
          bandeaux). Il ne se ferme qu'en remplissant le questionnaire. -->
@@ -213,6 +219,9 @@
        rouverte. Rien à chercher, jamais. -->
   <section id="vue-seance" hidden>
     <header class="entete bandeau-seance" id="bandeau-seance"></header>
+    <!-- 91 — LE GROUPE DE SÉANCE (SOCIAL-V1 « Groupe ») : une ligne en haut de la séance, jamais un overlay. Le direct
+         est une décoration : hors réseau, la séance continue normalement. -->
+    <div id="groupe-seance" hidden></div>
     <!-- MOTEUR §14.4 (49-U14) — l'escalier, EN TÊTE DE LA SÉANCE : la carte de
          la semaine allégée (une seule, pas une par exercice), ou le bandeau de
          la période. Alimenté par le plan, jamais calculé ici. -->
@@ -399,6 +408,14 @@
 
   <!-- 71 — LE RÉCAP DE FIN DE SÉANCE (ECRAN-SAISIE §7 septies.4 bis, maquette `maquette-recap-fin-v3.html`). Plein
        écran, sans barre d'onglets ni route : il s'ouvre une fois, juste après « Terminer », et ne revient pas. -->
+  <!-- 91 — le groupe de séance, plein écran, sans route : lancer (inviter), rejoindre, le récap du « combat ». -->
+  <section id="vue-groupe" hidden>
+    <header class="entete">
+      <button id="btn-retour-groupe" type="button" class="discret">← Retour</button>
+    </header>
+    <div id="groupe-corps"></div>
+  </section>
+
   <section id="vue-recap" hidden>
     <div id="recap-corps"></div>
   </section>

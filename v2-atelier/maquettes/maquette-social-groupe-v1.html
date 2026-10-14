@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Groupe de séance</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap" rel="stylesheet">
+<style>
+:root{--acier:#161a1f;--plaque:#1f252c;--plaque2:#262d35;--trait:#2e363f;--craie:#ece8df;--gris:#9aa3ad;--or:#d9b45a;--bleu:#6fa3d8}
+*{box-sizing:border-box}body{margin:0;background:#0f1215;color:var(--craie);font:15px/1.4 Archivo,system-ui,sans-serif;padding:16px}
+h1{font-size:20px;margin:0 0 4px;font-stretch:118%}p.note{color:var(--gris);margin:0 0 18px;max-width:72ch}
+.ecrans{display:flex;gap:20px;flex-wrap:wrap}
+.tel{width:360px;max-width:100%;background:var(--acier);border:1px solid var(--trait);border-radius:24px;padding:16px;min-height:680px}
+.leg{color:var(--or);font-size:13px;margin:0 0 12px}
+.haut{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.haut b{font-size:20px;font-stretch:120%}.ico{width:34px;height:34px;border-radius:50%;background:var(--plaque);display:grid;place-items:center;color:var(--gris)}
+.onglets{display:flex;gap:6px;margin-bottom:14px}.onglets span{padding:6px 12px;border-radius:99px;background:var(--plaque);color:var(--gris);font-size:13px}.onglets .on{background:var(--craie);color:var(--acier);font-weight:600}
+.blason{flex:none;display:block}
+.demande{background:var(--plaque2);border-radius:16px;padding:10px 12px;display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.demande .t{flex:1;font-size:14px}.demande small{color:var(--gris);display:block}
+.btn{border:0;border-radius:12px;padding:8px 12px;font:600 13px Archivo,sans-serif;cursor:pointer}
+.b1{background:var(--craie);color:var(--acier)}.b2{background:var(--plaque);color:var(--craie)}.b3{background:transparent;color:var(--gris)}
+.btn:focus-visible{outline:2px solid var(--or);outline-offset:2px}
+.carte{background:var(--plaque);border-radius:18px;padding:14px;margin-bottom:10px}
+.tete{display:flex;gap:10px;align-items:center;margin-bottom:10px}.tete b{display:block}.tete small{color:var(--gris)}
+.chiffres{display:flex;gap:22px;align-items:flex-end}.chiffres strong{font-size:26px;font-stretch:125%;display:block;line-height:1}.chiffres span{color:var(--gris);font-size:12px}
+.meds{margin-top:10px;display:flex;flex-direction:column;gap:4px}
+.med{font-size:13px;display:flex;gap:8px;align-items:center}.med i{width:18px;height:18px;border-radius:50%;background:var(--or);display:inline-block;flex:none;box-shadow:inset 0 0 0 3px #b8953d}
+.pied{display:flex;justify-content:space-between;margin-top:12px;color:var(--gris);font-size:13px}
+.reag{background:var(--plaque2);border-radius:99px;padding:5px 12px;color:var(--craie)}.reag.fait{color:var(--or)}
+.fin{text-align:center;color:var(--gris);font-size:13px;padding:16px 0 4px}
+.prof{text-align:center;margin-bottom:10px}.prof b{font-size:22px;font-stretch:120%;display:block;margin-top:6px}
+.prof small{color:var(--gris)}.etat{display:inline-block;margin-top:8px;font-size:12px;padding:4px 10px;border-radius:99px;background:var(--plaque);color:var(--bleu)}
+.actions{display:flex;gap:8px;justify-content:center;margin:12px 0 14px}
+.mois{display:flex;justify-content:space-between;margin:4px 2px 8px;font-weight:600}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center;font-size:12px}
+.cal span{padding:8px 0;border-radius:9px;color:var(--gris)}.cal .j{color:var(--gris);font-size:11px;padding:2px 0}
+.cal .n1{background:#5c4d28;color:var(--craie)}.cal .n2{background:#9a7f3e;color:var(--acier)}.cal .n3{background:var(--or);color:var(--acier);font-weight:700}
+.cal .sel{outline:2px solid var(--craie);outline-offset:1px}
+.lg{display:flex;gap:6px;align-items:center;justify-content:flex-end;color:var(--gris);font-size:11px;margin-top:6px}.lg i{width:12px;height:12px;border-radius:3px;display:inline-block}
+.detail{margin-top:12px;background:var(--plaque);border-radius:18px;padding:14px;font-size:14px}
+.detail h3{margin:0 0 8px;font-size:15px}.ex{display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid var(--trait)}.ex:first-of-type{border-top:0}.ex small{color:var(--gris)}
+.cache{color:var(--gris);font-size:13px;margin:8px 0 0}
+.grise{background:var(--plaque);color:#5d6670}
+.champ{background:var(--plaque);border-radius:14px;padding:12px 14px;color:var(--gris);margin-bottom:12px}
+.ligne{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--trait)}.ligne .t{flex:1}.ligne small{color:var(--gris);display:block}
+.lien{background:var(--plaque2);border-radius:18px;padding:14px;margin:16px 0}.lien code{display:block;background:var(--acier);border-radius:10px;padding:8px 10px;margin:8px 0;color:var(--or);font-size:13px}
+.reglage{display:flex;justify-content:space-between;align-items:center;gap:12px;background:var(--plaque);border-radius:18px;padding:14px}
+.inter{width:46px;height:28px;border-radius:99px;background:var(--or);position:relative;flex:none}.inter::after{content:"";position:absolute;right:3px;top:3px;width:22px;height:22px;border-radius:50%;background:var(--acier)}
+.titre-s{color:var(--gris);font-size:12px;margin:16px 0 4px}
+</style><style>
+.rang{display:flex;align-items:center;gap:10px;padding:10px 4px;border-top:1px solid var(--trait)}.rang:first-of-type{border-top:0}
+.rang .n{width:22px;color:var(--gris);font-weight:700;text-align:right}.rang .t{flex:1}.rang .sc{font-stretch:120%;font-weight:700}
+.rang.moi{background:var(--plaque2);border-radius:12px;border-top-color:transparent}
+.choix{display:flex;gap:6px;overflow:auto;margin-bottom:12px}.choix span{white-space:nowrap;padding:6px 10px;border-radius:99px;background:var(--plaque);color:var(--gris);font-size:12px}.choix .on{background:var(--or);color:var(--acier);font-weight:600}
+.sous{color:var(--gris);font-size:12px;margin:0 0 10px}
+.duo{display:grid;grid-template-columns:1fr auto auto;gap:6px 14px;align-items:baseline;font-size:14px}
+.duo .h{color:var(--gris);font-size:12px}.duo .v{text-align:right;font-stretch:115%;font-weight:600}
+.sep{grid-column:1/-1;border-top:1px solid var(--trait);margin:4px 0}
+.ex small{color:var(--gris);display:block}
+</style></head><body>
+<svg width="0" height="0" style="position:absolute"><defs>
+<symbol id="bl" viewBox="0 0 40 46"><path d="M20 2 37 8v14c0 11-7 19-17 22C10 41 3 33 3 22V8z" fill="currentColor"/><path d="M11 22h18l-3 4h-3v5h4v3H13v-3h4v-5h-3z" fill="#161a1f"/></symbol></defs></svg>
+<h1>Social — le groupe de séance (maquette v1)</h1>
+<p class="note">Éphémère : il s'ouvre au début, s'éteint après le récap du « combat ». Le direct n'est visible que des membres. Données fictives.</p>
+<div class="ecrans">
+<div class="tel"><p class="leg">1 · Lancer un groupe (depuis ma séance)</p>
+<p class="sous">Squat Lourd - Quads · en cours</p>
+<div class="carte"><b>S'entraîner ensemble</b><p class="cache" style="margin:4px 0 10px">Invite tes amis : chacun garde sa séance, vous voyez ce que font les autres.</p>
+<div class="ligne"><div class="t"><b>jordan</b><small>à la salle ou ailleurs</small></div><button class="btn b1">Inviter</button></div>
+<div class="ligne"><div class="t"><b>lea</b><small>invitée · en attente</small></div><button class="btn b3">Annuler</button></div>
+<div class="ligne"><div class="t"><b>alexis</b></div><button class="btn b1">Inviter</button></div></div>
+<p class="cache">Seuls tes abonnés mutuels apparaissent.</p></div>
+
+<div class="tel"><p class="leg">2 · Rejoindre (côté jordan)</p>
+<div class="demande"><div class="t"><b>aurel_br</b><small>t'invite à t'entraîner ensemble</small></div></div>
+<p class="titre-s">Ta séance</p>
+<div class="carte"><b>Suivre la séance d'aurel_br</b><p class="cache" style="margin:4px 0 0">Mêmes exercices · tes charges, proposées par ton coach</p></div>
+<div class="carte"><b>Une de mes routines</b><p class="cache" style="margin:4px 0 0">Push · Pull · Jambes…</p></div>
+<div class="carte"><b>Séance vide</b></div>
+<button class="btn b3" style="width:100%">Pas maintenant</button></div>
+
+<div class="tel"><p class="leg">3 · Pendant la séance</p>
+<div class="carte" style="padding:10px 12px"><div style="display:flex;justify-content:space-between;align-items:center"><b>Groupe · 3</b><button class="btn b3">Muet</button></div>
+<div class="med" style="margin-top:6px">jordan · Squat (Barre) 180 kg × 3 · il y a 1 min</div>
+<div class="med">lea · Hip Thrust (Barre) 100 kg × 8 · à l'instant</div>
+<p class="cache" style="margin:6px 0 0">💬 jordan : « Dernière série ! » · 🔥 lea</p></div>
+<p class="sous">… ta séance, comme d'habitude …</p>
+<div class="carte"><b>Squat (Barre)</b><p class="cache">140 kg × 5 · 3e série</p></div>
+<div class="choix"><span>On y va ?</span><span>Je commence</span><span>Dernière série !</span><span>🔥</span><span>💪</span><span>Écrire…</span></div></div>
+
+<div class="tel"><p class="leg">4 · Le récap du « combat » (après ton récap)</p>
+<div class="prof"><b>Ensemble · mardi 14</b><small>aurel_br · jordan · lea</small></div>
+<div class="carte"><div class="chiffres"><div><strong>38 t</strong><span>soulevées</span></div><div><strong>112</strong><span>séries</span></div><div><strong>6</strong><span>records</span></div></div>
+<p class="cache">+1 240 XP ensemble</p></div>
+<div class="ligne"><div class="t"><b>aurel_br</b><small>14,2 t · 41 séries · 2 records</small></div></div>
+<div class="ligne"><div class="t"><b>jordan</b><small>16,8 t · 38 séries · 3 records</small></div></div>
+<div class="ligne"><div class="t"><b>lea</b><small>7,0 t · 33 séries · 1 record</small></div></div>
+<button class="btn b1" style="width:100%;margin-top:12px">Fermer</button>
+<p class="cache">Ta séance garde « Faite en groupe avec jordan, lea » et ce récap.</p></div>
+</div></body></html>

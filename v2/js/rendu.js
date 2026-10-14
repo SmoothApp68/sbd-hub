@@ -6618,6 +6618,207 @@
   }
 
 
+  // ══ LE GROUPE DE SÉANCE (91, SOCIAL-V1 « Groupe », maquettes `maquette-social-groupe-v1.html` et
+  // `maquette-groupe-direct-interactive.html`) ══════════════════════════════════════════════════════════════════
+  //
+  // ⚠️ JAMAIS UN OVERLAY : la carte du groupe est une ligne en haut de la séance, d'une HAUTEUR FIXE quel que soit le
+  // nombre de membres (une pastille chacun, les 2 dernières séries, « Tout voir » pour le reste). Rien ici ne touche
+  // à la séance : la vue reçoit ses gestes, l'app les fait.
+  function rendreGroupeSeance(cible, vue) {
+    if (!cible) return;
+    vider(cible);
+    cible.hidden = !vue;
+    if (!vue) return;
+    if (vue.message) cible.appendChild(el('p', 's-gris s-note s-erreur g-message', vue.message));
+    (vue.invitations || []).forEach(function (i) { cible.appendChild(carteInvitationGroupe(i)); });
+    if (!vue.groupe) {
+      if (vue.surLancer) cible.appendChild(boutonSocial('S’entraîner ensemble', 's-b2 g-lancer', vue.surLancer, 'groupe-lancer'));
+      return;
+    }
+    var g = vue.groupe;
+    var c = el('div', 's-carte g-direct' + (g.ouvert ? ' g-ouvert' : ''));
+    c.id = 'groupe-direct';
+    var tete = el('div', 'g-tete');
+    tete.appendChild(el('b', 'g-titre', g.titre));
+    var droite = el('div', 'g-tete-actions');
+    if (g.surInviter) droite.appendChild(boutonSocial('Inviter', 's-b3 g-inviter', g.surInviter, 'groupe-inviter'));
+    droite.appendChild(boutonSocial(g.muet ? 'Son' : 'Muet', 's-b2 g-muet', g.surMuet, 'groupe-muet'));
+    tete.appendChild(droite);
+    c.appendChild(tete);
+    var past = el('div', 'g-pastilles');
+    g.pastilles.forEach(function (p) {
+      var d = el('div', 'g-p' + (p.actif ? ' g-actif' : '') + (p.moi ? ' g-moi' : ''), p.initiale);
+      d.style.background = p.couleur;
+      d.title = p.pseudo;
+      d.setAttribute('data-pseudo', p.pseudo);
+      d.setAttribute('aria-label', p.pseudo + (p.actif ? ', série validée il y a moins de 3 min' : ''));
+      past.appendChild(d);
+    });
+    c.appendChild(past);
+    var lignes = el('div', 'g-lignes');
+    g.lignes.forEach(function (l) {
+      var d = el('div', 'g-l');
+      d.appendChild(doc.createTextNode(l.texte + ' '));
+      d.appendChild(el('small', null, '· ' + l.quand));
+      lignes.appendChild(d);
+    });
+    if (!g.lignes.length) lignes.appendChild(el('div', 'g-l s-gris', 'Aucune série validée pour l’instant.'));
+    c.appendChild(lignes);
+    if (g.toutVoir) c.appendChild(boutonSocial(g.toutVoir.texte, 's-b3 g-tout', g.toutVoir.sur, 'groupe-tout-voir'));
+    // La ligne des messages est TOUJOURS là (vide, ou cachée par « Muet ») : la carte ne change pas de hauteur.
+    var ligneMsg = el('p', 'g-msg' + (g.muet ? ' g-muette' : ''), g.enAttente || (!g.muet && g.messages) || '\u00a0');
+    if (g.enAttente) ligneMsg.className += ' g-attente';
+    c.appendChild(ligneMsg);
+    if (g.proposition) {
+      var p = el('div', 'g-proposition');
+      p.appendChild(el('span', null, g.proposition.texte));
+      p.appendChild(boutonSocial('Ajouter', 's-b1 g-ajouter', g.proposition.surAjouter, 'groupe-ajouter'));
+      p.appendChild(boutonSocial('Non', 's-b3 g-non', g.proposition.surNon, 'groupe-non'));
+      c.appendChild(p);
+    }
+    var choix = el('div', 'g-choix');
+    g.rapides.forEach(function (r) {
+      var b = boutonSocial(r.texte, 's-periode g-rapide', r.sur);
+      b.setAttribute('data-texte', r.texte);
+      choix.appendChild(b);
+    });
+    if (!g.ecrire) choix.appendChild(boutonSocial('Écrire…', 's-periode g-ecrire', g.surEcrire, 'groupe-ecrire'));
+    c.appendChild(choix);
+    if (g.ecrire) {
+      var f = el('div', 'g-ecrire-ligne');
+      var champ = el('input', 's-champ g-champ');
+      champ.id = 'groupe-texte';
+      champ.maxLength = g.max;
+      champ.placeholder = 'Ton message (' + g.max + ' caractères au plus)';
+      champ.setAttribute('aria-label', 'Message au groupe');
+      f.appendChild(champ);
+      f.appendChild(boutonSocial('Envoyer', 's-b1 g-envoyer', function () { g.ecrire.surEnvoyer(champ.value); }, 'groupe-envoyer'));
+      f.appendChild(boutonSocial('Annuler', 's-b3', g.ecrire.surAnnuler));
+      c.appendChild(f);
+    }
+    cible.appendChild(c);
+  }
+  function carteInvitationGroupe(i) {
+    var r = el('div', 's-demande g-invitation');
+    r.setAttribute('data-invitant', i.invitant);
+    var t = el('div', 's-t');
+    t.appendChild(el('b', null, i.invitant));
+    t.appendChild(el('small', null, 't’invite à t’entraîner ensemble'));
+    r.appendChild(t);
+    r.appendChild(boutonSocial('Voir', 's-b1 g-voir-invitation', i.surVoir));
+    return r;
+  }
+  // L'accueil (Séances, Saisie) : les invitations reçues, et le groupe qui finit (« s'entraîne encore », puis « Le récap
+  // du groupe est prêt »).
+  function rendreGroupeAccueil(cible, vue) {
+    if (!cible) return;
+    vider(cible);
+    cible.hidden = !vue;
+    if (!vue) return;
+    (vue.invitations || []).forEach(function (i) { cible.appendChild(carteInvitationGroupe(i)); });
+    if (vue.fin) {
+      var r = el('div', 's-demande g-fin');
+      var t = el('div', 's-t');
+      t.appendChild(el('b', null, vue.fin.titre));
+      if (vue.fin.sous) t.appendChild(el('small', null, vue.fin.sous));
+      r.appendChild(t);
+      if (vue.fin.surVoir) r.appendChild(boutonSocial('Voir', 's-b1 g-voir-recap', vue.fin.surVoir, 'groupe-voir-recap'));
+      cible.appendChild(r);
+    }
+  }
+  // La vue du groupe, plein écran : lancer (inviter), rejoindre, le récap du « combat ».
+  function rendreGroupeVue(cible, vue) {
+    if (!cible) return;
+    vider(cible);
+    if (vue.message) cible.appendChild(el('p', 's-gris s-note s-erreur g-message', vue.message));
+    if (vue.mode === 'charge') { cible.appendChild(el('p', 's-gris s-note', 'Chargement…')); return; }
+    if (vue.mode === 'inviter') {
+      if (vue.sous) cible.appendChild(el('p', 's-gris s-cache', vue.sous));
+      var c = el('div', 's-carte g-inviter-carte');
+      c.appendChild(el('b', null, 'S’entraîner ensemble'));
+      c.appendChild(el('p', 's-gris s-cache', 'Invite tes amis : chacun garde sa séance, vous voyez ce que font les autres.'));
+      (vue.amis || []).forEach(function (a) {
+        var l = el('div', 's-ligne g-ami');
+        l.setAttribute('data-pseudo', a.pseudo);
+        var t = el('div', 's-t');
+        t.appendChild(el('b', null, a.pseudo));
+        if (a.sous) t.appendChild(el('small', null, a.sous));
+        l.appendChild(t);
+        l.appendChild(boutonSocial(a.libelle, a.invite ? 's-b3' : 's-b1', a.sur));
+        c.appendChild(l);
+      });
+      if (vue.amis && !vue.amis.length) c.appendChild(el('p', 's-gris s-cache', 'Aucun abonné mutuel à inviter.'));
+      cible.appendChild(c);
+      cible.appendChild(el('p', 's-gris s-cache', 'Seuls tes abonnés mutuels apparaissent.'));
+      return;
+    }
+    if (vue.mode === 'rejoindre') {
+      var d = el('div', 's-demande');
+      var dt = el('div', 's-t');
+      dt.appendChild(el('b', null, vue.invitant));
+      dt.appendChild(el('small', null, 't’invite à t’entraîner ensemble'));
+      d.appendChild(dt);
+      cible.appendChild(d);
+      cible.appendChild(el('p', 's-gris g-titre-s', 'Ta séance'));
+      vue.choix.forEach(function (x) {
+        var b = el('button', 's-carte g-option');
+        b.type = 'button';
+        b.setAttribute('data-choix', x.cle);
+        b.appendChild(el('b', null, x.titre));
+        if (x.sous) b.appendChild(el('p', 's-gris s-cache', x.sous));
+        b.addEventListener('click', x.sur);
+        cible.appendChild(b);
+        if (x.routines) {
+          var liste = el('div', 'g-routines');
+          x.routines.forEach(function (r) {
+            var rb = boutonSocial(r.nom, 's-b2 g-routine', r.sur);
+            rb.setAttribute('data-routine', r.nom);
+            liste.appendChild(rb);
+          });
+          cible.appendChild(liste);
+        }
+      });
+      cible.appendChild(boutonSocial('Pas maintenant', 's-b3 s-large', vue.surPasMaintenant, 'groupe-pas-maintenant'));
+      return;
+    }
+    // Le récap du « combat » : la part de chacun en faits, sans classement ni vainqueur.
+    var r0 = vue.recap;
+    var tete = el('div', 's-prof g-ensemble');
+    tete.appendChild(el('b', null, r0.titre));
+    tete.appendChild(el('small', null, r0.qui));
+    cible.appendChild(tete);
+    var carte = el('div', 's-carte');
+    var ch = el('div', 's-chiffres g-chiffres');
+    [[r0.tonnes, 'soulevées', 'g-tonnes'], [String(r0.series), 'séries', 'g-series'], [String(r0.records), 'records', 'g-records']]
+      .forEach(function (x) {
+        var b = el('div', x[2]);
+        b.appendChild(el('strong', null, x[0]));
+        b.appendChild(el('span', null, x[1]));
+        ch.appendChild(b);
+      });
+    carte.appendChild(ch);
+    if (r0.xp) carte.appendChild(el('p', 's-gris s-cache g-xp', r0.xp));
+    cible.appendChild(carte);
+    r0.membres.forEach(function (m) {
+      var l = el('div', 's-ligne g-part');
+      var t = el('div', 's-t');
+      t.appendChild(el('b', null, m.pseudo));
+      t.appendChild(el('small', null, m.part));
+      l.appendChild(t);
+      cible.appendChild(l);
+    });
+    if (vue.surFermer) cible.appendChild(boutonSocial('Fermer', 's-b1 s-large g-fermer', vue.surFermer, 'groupe-fermer'));
+    if (r0.note) cible.appendChild(el('p', 's-gris s-cache', r0.note));
+  }
+  // Le détail d'une séance faite en groupe : « Faite en groupe avec jordan, lea », qui rouvre le récap figé.
+  function rendreGroupeDuDetail(cible, vue) {
+    if (!cible) return;
+    vider(cible);
+    cible.hidden = !vue;
+    if (!vue) return;
+    cible.appendChild(boutonSocial(vue.texte, 's-b2 g-trace', vue.surVoir, 'detail-groupe-voir'));
+  }
+
   var api = {
     rendreEtat: rendreEtat,
     rendreOnglets: rendreOnglets,
@@ -6694,6 +6895,9 @@
     // 87 — le social, étage 1.
     rendreEnteteSocial: rendreEnteteSocial, rendreFil: rendreFil, rendreAmi: rendreAmi, rendreAmis: rendreAmis,
     rendreGuilde: rendreGuilde,
+    // 91 — le groupe de séance.
+    rendreGroupeSeance: rendreGroupeSeance, rendreGroupeAccueil: rendreGroupeAccueil, rendreGroupeVue: rendreGroupeVue,
+    rendreGroupeDuDetail: rendreGroupeDuDetail,
     rendreExerciceAmi: rendreExerciceAmi, rendreComparaison: rendreComparaison, rendreEntreAmis: rendreEntreAmis,
     rendreResultatsAmis: rendreResultatsAmis, rendreReactionsAuteur: rendreReactionsAuteur,
     JEU_TITRES: JEU_TITRES,

@@ -2199,3 +2199,32 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .bandeau-maj[hidden]{display:none}
 .bandeau-maj button{min-height:44px;background:none;border:0;color:var(--accent);
   font-weight:650;padding:0 var(--e2)}
+
+/* 91 — LE GROUPE DE SÉANCE (SOCIAL-V1 « Groupe ») : une ligne en haut de la séance, jamais un overlay. La carte garde
+   la même hauteur quel que soit le nombre de membres : une rangée de pastilles (6 au plus), deux lignes du direct. */
+#groupe-seance[hidden],#groupe-accueil[hidden],#groupe-accueil-saisie[hidden],#detail-groupe[hidden]{display:none}
+.g-lancer{width:100%;margin:0 0 10px}
+.g-direct{padding:10px 12px}
+.g-tete{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.g-tete-actions{display:flex;gap:6px}
+.g-pastilles{display:flex;gap:6px;margin:8px 0;flex-wrap:nowrap;overflow:hidden;height:30px}
+.g-p{width:30px;height:30px;flex:none;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;color:var(--fond);position:relative}
+.g-p.g-actif::after{content:"";position:absolute;right:-1px;bottom:-1px;width:9px;height:9px;border-radius:50%;background:#7fd18b;border:2px solid var(--panneau)}
+.g-lignes{height:44px;overflow:hidden}
+.g-ouvert .g-lignes{height:auto;max-height:240px;overflow-y:auto}
+.g-l{font-size:13px;line-height:22px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.g-l small{color:var(--texte-2)}
+.g-tout{padding:4px 0;min-height:0;font-size:12px}
+.g-msg{font-size:13px;color:var(--texte-2);margin:4px 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.g-proposition{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:13px;margin-top:6px}
+.g-proposition span{flex:1 1 140px;min-width:0;overflow-wrap:anywhere}
+.g-choix{display:flex;gap:6px;overflow-x:auto;margin-top:8px}
+.g-choix .s-btn{white-space:nowrap;flex:none}
+.g-ecrire-ligne{display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap}
+.g-ecrire-ligne .g-champ{flex:1 1 160px;margin:0;min-width:0}
+.g-option{display:block;width:100%;text-align:left;color:var(--texte);font:inherit;cursor:pointer}
+.g-routines{display:flex;flex-wrap:wrap;gap:6px;margin:-4px 0 10px}
+.g-titre-s{margin:12px 0 6px;font-size:13px}
+.g-ensemble small{color:var(--texte-2);overflow-wrap:anywhere}
+.g-chiffres{justify-content:space-between}
+.g-trace{width:100%;margin-top:10px}

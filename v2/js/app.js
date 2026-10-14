@@ -1250,8 +1250,12 @@
       surDetail: afficherParcours
     });
   }
+  // L'adresse lue AU CHARGEMENT (comme `?rejouer=`) : la navigation la réécrit avant la fin de la synchronisation.
+  var rechercheAuChargement = (function () {
+    try { return String((racine.location && racine.location.search) || ''); } catch (e) { return ''; }
+  })();
   function anneeDemandee() {
-    var m = /[?&]bilan=(\d{4})(?:&|$)/.exec(String((racine.location && racine.location.search) || ''));
+    var m = /[?&]bilan=(\d{4})(?:&|$)/.exec(rechercheAuChargement);
     return m && garde.active ? Number(m[1]) : null;
   }
   var CLE_ANNONCE_ANNEE = 'th-v2-annonce-annee';

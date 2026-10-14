@@ -2396,7 +2396,11 @@
       // pas son enfant : le glissement déplace le premier enfant de la ligne.
       var info = !vue.programme && typeof vue.reaction === 'function'
         ? vue.reaction(s._iExo, s._iSerie) : null;
-      if (info && info.message) noeud.appendChild(phraseDeReaction(info.message, s.debutTour));
+      // MOTEUR §9.15.3 (94) — une dégressive que le coach ne peut pas remplir :
+      // la phrase dit pourquoi, et deux gestes, lus sur le plan.
+      if (info && info.message && info.message.gestes && typeof vue.surDegressiveVide === 'function') {
+        noeud.appendChild(propositionDeDegressiveVide(info.message, s._iExo, s._iSerie, vue));
+      } else if (info && info.message) noeud.appendChild(phraseDeReaction(info.message, s.debutTour));
       noeud.appendChild(rangeeDeSerie(bloc, s, complets, vue, info));
       // MOTEUR §9.23 (55-1) — LA MÉDAILLE, SOUS LA RANGÉE de la série qui bat
       // un record. Une sœur de la ligne, comme la réaction (qui reste
@@ -2801,6 +2805,17 @@
       classe: 'proposition-reprise', texte: carte.titre, detail: carte.phrase,
       gestes: (carte.choix || []).map(function (q) {
         return { texte: q.texte, classe: 'pr-' + q.cle, surClic: function () { vue.surReprise(iExo, q.cle); } };
+      })
+    }, iExo);
+  }
+
+  // MOTEUR §9.15.3 (94) — « En faire une série normale » / « La retirer ».
+  var TEXTES_GESTES_DEGRESSIVE = { serie_normale: 'En faire une série normale', retirer: 'La retirer' };
+  function propositionDeDegressiveVide(m, iExo, iSerie, vue) {
+    return propositionDExercice({
+      classe: 'proposition-degressive', texte: m.phrase,
+      gestes: m.gestes.map(function (g) {
+        return { texte: TEXTES_GESTES_DEGRESSIVE[g], classe: 'pd-' + g, surClic: function () { vue.surDegressiveVide(iExo, iSerie, g); } };
       })
     }, iExo);
   }

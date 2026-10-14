@@ -232,7 +232,7 @@ describe('49-U18 — une dégressive que le coach laisse vide reste vide (§9.15
     expect(S.fantome(s, 0, 1, prec).charge_kg).toBeNull();
   });
 
-  test('à la barre, le plan pose une dégressive vide, « Pas de dégressive à la barre. »', () => {
+  test('à la barre, 20 kg : trop léger — la ligne reste vide, la phrase dit pourquoi, deux gestes (94)', () => {
     const k = { etat: 'progression', zone: 'volume', palier: 20, niveau: 10, n: 1,
                 ligne: { charge: 20, vise: 11 }, haut: null, fondement: {} };
     const p = T.planDeSeance({
@@ -243,7 +243,8 @@ describe('49-U18 — une dégressive que le coach laisse vide reste vide (§9.15
       catalogue: { curl: { equipement: 'barre', muscles_primaires: ['biceps'] } }
     });
     const x = p.exercices[0];
-    expect(x.degressive).toMatchObject({ charge: null, phrase: 'Pas de dégressive à la barre.' });
+    expect(x.degressive).toMatchObject({ charge: null, phrase: 'Trop léger pour une dégressive.',
+                                         gestes: ['serie_normale', 'retirer'] });
     expect(x.lignes[1].fantome).toMatchObject({ charge: null, source: 'degressive' });
   });
 });

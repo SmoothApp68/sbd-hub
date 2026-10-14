@@ -6621,6 +6621,26 @@
   // Moins de lignes dans la routine que dans la table : les marches les plus
   // utiles, la barre vide tombant la première (§9.15.1).
   var MARCHES_REDUITES = { 1: [0.60], 2: [0.60, 0.88], 3: [0.50, 0.70, 0.88] };
+  // §9.15.5 (94, 14/10/2026) — LA CHAUFFE AJOUTÉE PAR L'UTILISATEUR, là où la
+  // table n'en prévoit pas (situation « aucune » : isolation, muscles déjà
+  // sollicités, barre légère déjà sollicitée). « La routine ou l'utilisateur
+  // décide combien de chauffes ; le coach en calcule toujours la charge. »
+  // 1 → ~60 % × 8 ; 2 → ~50 % × 8 puis ~75 % × 4 ; 3 et plus → la rampe de la
+  // barre lourde, ses dernières marches s'il y en a moins de 4. Hors barre, la
+  // marche « barre vide » n'existe pas : elle devient ~30 % × 10 (choix 94).
+  var CHAUFFES_AJOUTEES = {
+    1: [{ p: 0.60, reps: 8 }],
+    2: [{ p: 0.50, reps: 8 }, { p: 0.75, reps: 4 }]
+  };
+  var MARCHE_BASSE_HORS_BARRE = { p: 0.30, reps: 10 };
+  var TROP_LEGER = 'Trop léger pour une chauffe de plus.';
+  function marchesAjoutees(n, equipement) {
+    if (CHAUFFES_AJOUTEES[n]) return CHAUFFES_AJOUTEES[n];
+    var rampe = TABLE_CHAUFFES.barre_lourde.map(function (m) {
+      return m.barre && !estBarre(equipement) ? MARCHE_BASSE_HORS_BARRE : m;
+    });
+    return n < rampe.length ? rampe.slice(rampe.length - n) : rampe;
+  }
 
   function estBarre(equipement) { return equipement === 'barre'; }
 
@@ -6700,10 +6720,25 @@
     }
     var routine = e.routine;
     var n = routine.length;
-    var marches = table.length && n ? marchesPour(table, n) : [];
+    var ajoutees = situation === 'aucune' && n > 0;
+    var marches = ajoutees ? marchesAjoutees(n, e.equipement)
+      : (table.length && n ? marchesPour(table, n) : []);
+    var precedente = null, tropLegeres = 0;
     var lignes = routine.map(function (reps, i) {
       var m = marches[i];
-      return { reps: reps, charge: m ? chargeDeMarche(m, e, pas) : null };
+      if (!m) return { reps: reps, charge: null };
+      var c = chargeDeMarche(m, e, pas);
+      if (!ajoutees) return { reps: reps, charge: c };
+      // §9.15.5 — les reps de la routine, sinon celles de la règle ; une
+      // marche qui ne se distingue pas (pas au-dessus de la précédente, pas un
+      // cran sous la référence, rien au-dessus de zéro) reste vide.
+      var r = reps === null || reps === undefined ? m.reps : reps;
+      if (!(c > 0) || c > ref - pas + 1e-9 || (precedente !== null && c <= precedente + 1e-9)) {
+        tropLegeres++;
+        return { reps: reps, charge: null, trop_leger: true };
+      }
+      precedente = c;
+      return { reps: r, charge: c, reps_coach: reps === null || reps === undefined };
     });
     var remplies = lignes.filter(function (l) { return l.charge !== null; }).map(function (l) { return l.charge; });
     var phrase = null;
@@ -6712,30 +6747,50 @@
       phrase = 'Chauffes calées sur ' + Modele().charge(ref, undefined, regle('reference')) + ' : ' +
         avant.concat([Modele().charge(remplies[remplies.length - 1], undefined, regle('chauffe'))]).join(' · ') + '.';
     }
-    return { situation: situation, lignes: lignes,
-             non_remplies: lignes.length - remplies.length, phrase: phrase };
+    if (tropLegeres) phrase = (phrase ? phrase + ' ' : '') + TROP_LEGER;
+    return { situation: situation, lignes: lignes, prevues: ajoutees ? marches.length : table.length,
+             trop_legeres: tropLegeres,
+             non_remplies: lignes.length - remplies.length - tropLegeres, phrase: phrase };
   }
 
   // §9.15.3 — la dégressive. `entree` : `{ equipement, derniere_serie,
-  // reps_travail, cran }`. Rend `{ charge, vise, phrase, repos }` ; à la
-  // barre, `{ charge: null, phrase }`.
+  // reps_travail, cran }`. Rend `{ charge, vise, phrase, repos }`. Depuis 94
+  // (14/10/2026, §9.15.3 révisé), À LA BARRE AUSSI : le coach ne la propose
+  // jamais sur une barre lourde, mais celle que la routine ou l'utilisateur a
+  // posée se remplit comme hors barre, au cran de la barre (les disques), et la
+  // phrase dit quoi enlever (`enleve` : de chaque côté). Une ligne qu'il ne peut
+  // pas remplir rend `{ charge: null, phrase, gestes }` : la phrase dit
+  // pourquoi, les gestes proposent d'en faire une série normale ou de la retirer.
+  var GESTES_DEGRESSIVE_VIDE = ['serie_normale', 'retirer'];
+  function degressiveVide(phrase) {
+    return { charge: null, vise: null, repos: null, phrase: phrase, gestes: GESTES_DEGRESSIVE_VIDE.slice() };
+  }
   function degressiveDe(entree) {
     var e = entree || {};
-    if (estBarre(e.equipement)) return { charge: null, phrase: 'Pas de dégressive à la barre.' };
     var der = nombre(e.derniere_serie);
-    if (der === null || der <= 0) return { charge: null, phrase: null };
+    if (der === null || der <= 0) return degressiveVide('Pas de charge de travail pour caler la dégressive.');
     var cran = nombre(e.cran);
     if (cran === null || cran <= 0) cran = CRAN_PAR_DEFAUT;
     // Au cran INFÉRIEUR : jamais au-dessus des −22,5 %.
     var charge = auCentieme(Math.floor(der * (1 - BAISSE_DEGRESSIVE) / cran + 1e-9) * cran);
+    var barre = estBarre(e.equipement);
+    if (!(charge > 0) || (barre && charge < BARRE_VIDE)) return degressiveVide('Trop léger pour une dégressive.');
     var reps = nombre(e.reps_travail);
     var milieu = Math.max(4, Math.floor((reps === null ? 8 : reps) / 2));
     var vise = [milieu - 1, milieu + 1];
+    var visee = 'Vise ' + nombreFr(vise[0], regle('degressive.vise')) + ' à ' + nombreFr(vise[1], regle('degressive.vise')) + '.';
+    if (barre) {
+      var enleve = auCentieme((der - charge) / 2);
+      return {
+        charge: charge, vise: vise, repos: 0, enleve: enleve,
+        phrase: 'Enlève ' + nombreFr(2, regle('constante')) + ' × ' + Modele().charge(enleve, undefined, regle('degressive.enleve')) +
+          ' : ' + Modele().charge(charge, undefined, regle('degressive')) + '. Sans repos, jusqu\'à l\'échec. ' + visee
+      };
+    }
     return {
       charge: charge, vise: vise, repos: 0,
       phrase: 'Dégressive : ' + Modele().charge(charge, undefined, regle('degressive')) +
-        ', sans repos, jusqu\'à l\'échec. Vise ' +
-        nombreFr(vise[0], regle('degressive.vise')) + ' à ' + nombreFr(vise[1], regle('degressive.vise')) + '.'
+        ', sans repos, jusqu\'à l\'échec. ' + visee
     };
   }
 

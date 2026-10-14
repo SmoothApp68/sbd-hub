@@ -101,7 +101,9 @@ function reglesViolees(phrase, famille, dates, reference) {
   for (let i = t.indexOf('×'); i >= 0; i = t.indexOf('×', i + 1)) {
     const avant = t.slice(0, i).replace(/[\s ]+$/, '');
     // 50-1 : « Poids du corps × 8 » — au poids du corps, la charge est le corps.
-    if (!/kg$/.test(avant) && !/Poids du corps$/.test(avant) && !/cran (au-dessus|en dessous|du dessus)$/i.test(avant)) {
+    if (!/kg$/.test(avant) && !/Poids du corps$/.test(avant) && !/cran (au-dessus|en dessous|du dessus)$/i.test(avant) &&
+        // 94 : « Enlève 2 × 10 kg » — deux disques, la charge est derrière (§9.15.3).
+        !/^Enlève 2$/.test(avant)) {
       v.push('un « × » sans « kg » devant');
       break;
     }

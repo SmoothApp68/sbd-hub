@@ -17357,7 +17357,8 @@ const SETS_IMPORTES = [
     const jourL = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
     const deCote = base.sessions.filter((s) => s.user_id === 'u-banc' && jourL(new Date(s.debut)) >= fauxSocial.lundiCourant());
     deCote.forEach((s) => base.sessions.splice(base.sessions.indexOf(s), 1));
-    const seanceMelodie = () => S.sessions.push({ id: SM, user_id: 'u-melodie', titre: 'Dos', debut: dM, fin: iso(finDe(dM, tS)), statut: 'terminee', visibilite: 'mutuels',
+    // 92 (v2_083) — elle se TERMINE après la création de la guilde : seule une telle séance lance la semaine.
+    const seanceMelodie = () => S.sessions.push({ id: SM, user_id: 'u-melodie', titre: 'Dos', debut: dM, fin: new Date().toISOString(), statut: 'terminee', visibilite: 'mutuels',
       note: 'note privée', poids_corps_kg: 61 });
     S.sets.push({ id: 'sm-1', session_id: SM, exercise_slug: 'rowing-barre', rang: 1, charge_kg: 50, reps: 8, type_serie: 'travail', rpe: 9,
       note: 'dos', ressenti: 'dur', douleur: 'non', poids_corps_kg: 61 });

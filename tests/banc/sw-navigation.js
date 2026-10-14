@@ -344,7 +344,63 @@ const SCENARIOS = [
     verifier('hors ligne, les sept faces Barlow se chargent depuis le cache',
       polices.length === 7 && polices.every((f) => / loaded$/.test(f)), JSON.stringify(polices));
     await new Promise((r) => serveur.listen(PORT, r));  // pour le `finally`
-  })}
+  })},
+
+{ n: 8, titre: 'une nouvelle version déployée app ouverte : bandeau, « Recharger » donne la nouvelle, rien n’est effacé (88)',
+  run: async () => {
+    const ACTUEL = lire(path.join(RACINE, 'service-worker.js'));
+    const NOUVEAU = ACTUEL.replace(/const CACHE_V2 = '([^']+)'/, "const CACHE_V2 = '$1-banc-nouvelle'");
+    const versionNouvelle = (NOUVEAU.match(/const CACHE_V2 = '([^']+)'/) || [])[1];
+    const dossier = racineAvecSW(ACTUEL);
+    await session(async (page) => {
+      const majVisible = () => page.evaluate(() => { const b = document.getElementById('bandeau-maj');
+        return !!b && !b.hidden && getComputedStyle(b).display !== 'none'; }).catch(() => false);
+      // Première visite : le service worker s'installe et prend la main. C'est
+      // une PREMIÈRE INSTALLATION — rien à annoncer.
+      await installerSW(page);
+      await page.evaluate(() => localStorage.setItem('banc-marqueur', 'données précieuses'));
+      await attendre(1000);
+      verifier('[maj-premiere-installation] à la première installation, aucun bandeau', !(await majVisible()));
+      // Rechargement normal : la page démarre déjà contrôlée.
+      await ouvrir(page, '/');
+      await page.evaluate(() => { window.__sansRechargement = 1; });
+      verifier('l’app tourne, aucun bandeau', !(await majVisible()));
+
+      deployer(dossier, NOUVEAU);   // ← la nouvelle version est mise en ligne, app ouverte
+      // Ce que fait l'app quand elle revient au premier plan : chercher une mise à jour.
+      // Borné : une attente sans issue ferait pendre le banc entier (vu sous `tout.js`).
+      await page.evaluate(() => Promise.race([
+        navigator.serviceWorker.getRegistration().then((r) => r && r.update()).catch(() => null),
+        new Promise((r) => setTimeout(r, 10000))
+      ])).catch(() => {});
+      await page.waitForFunction(() => { const b = document.getElementById('bandeau-maj');
+        return !!b && !b.hidden; }, null, { timeout: 20000 }).catch(() => {});
+      verifier('[maj-bandeau] le bandeau « Une nouvelle version est prête. » apparaît',
+        await majVisible() && /Une nouvelle version est prête\./.test(
+          await page.evaluate(() => document.getElementById('bandeau-maj').textContent)));
+      await attendre(1500);
+      verifier('[maj-sans-rechargement-impose] et l’app NE se recharge PAS d’elle-même',
+        await page.evaluate(() => window.__sansRechargement === 1).catch(() => false));
+
+      await page.click('#btn-maj-recharger', { timeout: 5000 }).catch(() => {});
+      await page.waitForLoadState('domcontentloaded', { timeout: 15000 }).catch(() => {});
+      await attendre(1500);
+      const apres = await page.evaluate(async () => ({
+        recharge: window.__sansRechargement === undefined,
+        caches: await caches.keys(),
+        marqueur: localStorage.getItem('banc-marqueur'),
+        sections: document.querySelectorAll('section').length,
+        bandeau: !document.getElementById('bandeau-maj').hidden
+      })).catch((e) => ({ erreur: String(e).slice(0, 60) }));
+      verifier('« Recharger » recharge la page, qui s’affiche',
+        apres.recharge && apres.sections > 0, JSON.stringify({ r: apres.recharge, s: apres.sections }));
+      verifier('[maj-nouvelle-version] la page rechargée tourne sur la nouvelle version',
+        (apres.caches || []).indexOf(versionNouvelle) >= 0, (apres.caches || []).join(', '));
+      verifier('le bandeau n’est plus là', apres.bandeau === false);
+      verifier('sans que rien n’ait été effacé', apres.marqueur === 'données précieuses',
+        'marqueur = ' + JSON.stringify(apres.marqueur));
+    }, { racine: dossier });
+  }}
 ];
 
 // Les quatre vérifications d'avant-fusion (CLAUDE.md §4 bis), rattachées aux

@@ -207,6 +207,7 @@
     // perte comme une autre. Un point, pas une alarme.
     var saisie = doc.querySelector('.onglet[data-vue="' + Routeur.SAISIE + '"]');
     if (saisie) saisie.classList.toggle('en-cours', !!seance);
+    montrerBandeauMaj();
     // La barre d'onglets vient d'apparaître ou de disparaître : sa hauteur est
     // ce sur quoi toute la réserve du bas se règle. On mesure ici plutôt qu'au
     // seul démarrage — au démarrage elle est encore cachée, et la mesure
@@ -9840,7 +9841,56 @@
     // Chemins absolus : depuis /semaine/… un chemin relatif viserait
     // /semaine/service-worker.js, qui n'existe pas.
     racine.navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
+      .then(function (reg) { majEnregistrement = reg; chercherMaj(true); })
       .catch(function (e) { console.warn('SW non enregistré :', e && e.message); });
+  }
+
+  // 88 — branché AU DÉBUT du démarrage, avant toute attente (`entrer` peut attendre
+  // le réseau) : le contrôleur d'avant se lit tant qu'il est encore celui d'avant.
+  function brancherMaj() {
+    if (!('serviceWorker' in racine.navigator)) return;
+    var sw = racine.navigator.serviceWorker;
+    // 88 — « UNE NOUVELLE VERSION EST PRÊTE ». Le service worker fait `skipWaiting`
+    // puis `clients.claim` : le nouveau prend la main, mais la page ouverte garde
+    // l'ancien JS. On l'ANNONCE, on ne recharge JAMAIS à la place de l'utilisateur.
+    // À la première installation il n'y avait pas de contrôleur : rien de neuf à
+    // annoncer, c'est l'app elle-même qui arrive.
+    majAvaitControleur = !!sw.controller;
+    sw.addEventListener('controllerchange', function () {
+      if (!majAvaitControleur) { majAvaitControleur = true; return; }
+      majPrete = true;
+      montrerBandeauMaj();
+    });
+    // Chrome ne cherche une mise à jour qu'à la navigation : une PWA qu'on ne fait
+    // que ramener au premier plan ne la verrait jamais. Au plus une fois / 10 min.
+    doc.addEventListener('visibilitychange', function () {
+      if (doc.visibilityState === 'visible') chercherMaj(false);
+    });
+    $('btn-maj-recharger').addEventListener('click', function () { racine.location.reload(); });
+  }
+
+  var majEnregistrement = null, majAvaitControleur = false, majPrete = false, majDerniere = 0;
+  var MAJ_INTERVALLE = 10 * 60 * 1000;
+
+  function chercherMaj(auDemarrage) {
+    if (!majEnregistrement) return;
+    var t = Date.now();
+    if (!auDemarrage && t - majDerniere < MAJ_INTERVALLE) return;
+    majDerniere = t;
+    try {
+      var p = majEnregistrement.update();
+      if (p && p.catch) p.catch(function () { /* hors ligne : on retentera */ });
+    } catch (e) { /* idem */ }
+  }
+
+  // LA SÉANCE EN COURS FAIT FOI : pendant une séance non terminée, le bandeau
+  // attend — la fin de la séance, ou l'écran d'accueil (`montrer` le rappelle).
+  function seanceEnCours() { return !!seance && !enEdition(); }
+
+  function montrerBandeauMaj() {
+    var el = $('bandeau-maj');
+    if (!el) return;
+    el.hidden = !(majPrete && (!seanceEnCours() || ecranCourant === 'liste'));
   }
 
 
@@ -11993,6 +12043,7 @@
     });
 
     racine.addEventListener('popstate', function () { sortie.surRetour(); });
+    brancherMaj();
 
     // 70 — LU AVANT TOUT : l'adresse porte-t-elle un retour de lien ? (sonde
     // synchrone, sur l'adresse seule ; voir `Auth.retourDeLien`.)

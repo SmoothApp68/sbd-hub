@@ -2146,3 +2146,13 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .s-inter::after{content:"";position:absolute;left:3px;top:3px;width:22px;height:22px;border-radius:50%;background:var(--texte-2)}
 .s-inter.s-on{background:var(--medaille)}.s-inter.s-on::after{left:auto;right:3px;background:var(--fond)}
 .s-reactions{text-align:center;color:var(--texte-2);font-size:14px;margin:var(--e3) 0}
+
+/* 88 — « Une nouvelle version est prête. » Discret, en bas, au-dessus des onglets. */
+.bandeau-maj{position:fixed;left:0;right:0;z-index:52;max-width:520px;margin:0 auto;
+  bottom:calc(var(--h-onglets, 68px) + var(--h-repos, 0px) + 8px);
+  display:flex;align-items:center;justify-content:space-between;gap:var(--e2);
+  background:var(--panneau);border-top:1px solid var(--trait);color:var(--texte);
+  font-size:13.5px;padding:var(--e2) var(--e3)}
+.bandeau-maj[hidden]{display:none}
+.bandeau-maj button{min-height:44px;background:none;border:0;color:var(--accent);
+  font-weight:650;padding:0 var(--e2)}

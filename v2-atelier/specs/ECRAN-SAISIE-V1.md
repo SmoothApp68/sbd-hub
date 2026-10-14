@@ -1221,6 +1221,8 @@ de sortie, réempaquetage à l'entrée du cache, et trappe `/__sw-off`.
 > test sur le statut passe à côté. Et **aucun `await` sans issue dans le gestionnaire
 > `fetch`** : un service worker qui pend est le seul cas irrécupérable.
 
+**14/10/2026 (88)** — Une nouvelle version s'annonce par un bandeau, jamais par un rechargement imposé ; pendant une séance en cours, le bandeau attend.
+
 ### 7 bis.8 Ordre recommandé — mis à jour le 11/09/2026
 
 > ⚠️ **Avant d'envoyer ce document à Claude Code : comparer avec la version du dépôt**

@@ -17270,7 +17270,7 @@ const SETS_IMPORTES = [
     ok('[social-2] DISCRIMINANT — « Entre amis » au couché : à kilos égaux (' + monCouche + ' kg), jordan (plus léger) PREMIER ; alexis, qui n’est pas mutuel, absent',
       e0.rangs.length === 2 && e0.rangs[0].t === 'jordan' && e0.rangs[1].t === 'toi' && e0.rangs[1].moi &&
         e0.rangs[0].kg === e0.rangs[1].kg && !/alexis/.test(e0.texte), JSON.stringify(e0));
-    await page.click('#entre-amis-info');
+    if (await compter('#entre-amis-info')) await page.click('#entre-amis-info');
     const e1 = await entre();
     ok('[social-2] le « i » : la phrase décidée, au mot près', e0.infoCache && !e1.infoCache && e1.info === 'On compare la force rapportée au ' +
       'poids de corps (formule DOTS) : un plus léger qui soulève autant passe devant. Ton poids ne quitte jamais ton téléphone. Sans pesée, on ' +

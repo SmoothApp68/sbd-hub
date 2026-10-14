@@ -2074,3 +2074,13 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
   background:none;border:0;border-bottom:1px solid var(--trait);color:var(--texte);padding:10px 4px;font:inherit;
   font-size:13.5px;cursor:pointer}
 .pc-note{font-size:12px;line-height:1.45;color:var(--texte-2);margin:6px 0 var(--e2)}
+
+/* 88 — « Une nouvelle version est prête. » Discret, en bas, au-dessus des onglets. */
+.bandeau-maj{position:fixed;left:0;right:0;z-index:52;max-width:520px;margin:0 auto;
+  bottom:calc(var(--h-onglets, 68px) + var(--h-repos, 0px) + 8px);
+  display:flex;align-items:center;justify-content:space-between;gap:var(--e2);
+  background:var(--panneau);border-top:1px solid var(--trait);color:var(--texte);
+  font-size:13.5px;padding:var(--e2) var(--e3)}
+.bandeau-maj[hidden]{display:none}
+.bandeau-maj button{min-height:44px;background:none;border:0;color:var(--accent);
+  font-weight:650;padding:0 var(--e2)}

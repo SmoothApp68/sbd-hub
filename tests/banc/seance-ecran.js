@@ -2310,6 +2310,41 @@ const SETS_IMPORTES = [
   ok('un geste horizontal supprime la série', (await compter('.ligne-serie')) === avantGlisse - 1,
     (await compter('.ligne-serie')) + ' ligne(s) après');
 
+  console.log('\n══ 4 ter. UNE NOUVELLE VERSION PENDANT LA SÉANCE : LE BANDEAU ATTEND (88) ══');
+  // Le service worker du banc n'est pas celui qu'on éprouve ici (sw-navigation.js,
+  // scénario 8, le fait pour de vrai) : on simule le changement de contrôleur.
+  // Deux événements : si la page n'avait pas encore de contrôleur, le premier
+  // vaut « première installation » et ne doit rien annoncer.
+  await page.evaluate(() => { window.__bancSansRechargement = 1;
+    navigator.serviceWorker.dispatchEvent(new Event('controllerchange'));
+    navigator.serviceWorker.dispatchEvent(new Event('controllerchange')); });
+  await attendre(300);
+  const majVisible = () => page.evaluate(() => { const b = document.getElementById('bandeau-maj');
+    return !!b && !b.hidden && getComputedStyle(b).display !== 'none'; });
+  ok('[maj-attend-seance] pendant une séance en cours, le bandeau de mise à jour attend',
+    JSON.stringify(await visible()) === '["vue-seance"]' && !(await majVisible()),
+    JSON.stringify(await visible()) + ' · bandeau ' + (await majVisible() ? 'VISIBLE' : 'caché'));
+  const cocheesAvantMaj = await compter('.ok-serie.cochee');
+  await page.click('#onglet-seances');
+  await attendre(500);
+  ok('[maj-accueil] à l’écran d’accueil, il s’affiche', await majVisible(),
+    JSON.stringify(await visible()));
+  ok('[maj-jamais-seul] et l’app ne s’est pas rechargée d’elle-même',
+    await page.evaluate(() => window.__bancSansRechargement === 1));
+  await page.click('#btn-maj-recharger');
+  await page.waitForLoadState('domcontentloaded').catch(() => {});
+  await attendre(1500);
+  ok('« Recharger » recharge la page',
+    await page.evaluate(() => window.__bancSansRechargement === undefined));
+  await page.click('#onglet-saisie');
+  await page.waitForFunction(() => !document.getElementById('vue-seance').hidden, null, { timeout: 8000 })
+    .catch(() => {});
+  await attendre(400);
+  ok('[maj-rien-perdu] après le rechargement, la séance en cours et ses séries sont intactes',
+    JSON.stringify(await visible()) === '["vue-seance"]' &&
+    (await compter('.ok-serie.cochee')) === cocheesAvantMaj,
+    JSON.stringify(await visible()) + ' · ' + (await compter('.ok-serie.cochee')) + '/' + cocheesAvantMaj + ' validée(s)');
+
   console.log('\n══ 5. LE RETOUR DU RÉSEAU ══');
   // PR 8 — la course, imposée (voir le routeur) : la série de la file arrive
   // en base entre les deux lectures de la synchronisation.

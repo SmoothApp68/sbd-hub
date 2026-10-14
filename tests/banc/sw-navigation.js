@@ -368,8 +368,11 @@ const SCENARIOS = [
 
       deployer(dossier, NOUVEAU);   // ← la nouvelle version est mise en ligne, app ouverte
       // Ce que fait l'app quand elle revient au premier plan : chercher une mise à jour.
-      await page.evaluate(() => navigator.serviceWorker.getRegistration().then((r) => r && r.update()))
-        .catch(() => {});
+      // Borné : une attente sans issue ferait pendre le banc entier (vu sous `tout.js`).
+      await page.evaluate(() => Promise.race([
+        navigator.serviceWorker.getRegistration().then((r) => r && r.update()).catch(() => null),
+        new Promise((r) => setTimeout(r, 10000))
+      ])).catch(() => {});
       await page.waitForFunction(() => { const b = document.getElementById('bandeau-maj');
         return !!b && !b.hidden; }, null, { timeout: 20000 }).catch(() => {});
       verifier('[maj-bandeau] le bandeau « Une nouvelle version est prête. » apparaît',
@@ -379,8 +382,8 @@ const SCENARIOS = [
       verifier('[maj-sans-rechargement-impose] et l’app NE se recharge PAS d’elle-même',
         await page.evaluate(() => window.__sansRechargement === 1).catch(() => false));
 
-      await page.click('#btn-maj-recharger');
-      await page.waitForLoadState('domcontentloaded').catch(() => {});
+      await page.click('#btn-maj-recharger', { timeout: 5000 }).catch(() => {});
+      await page.waitForLoadState('domcontentloaded', { timeout: 15000 }).catch(() => {});
       await attendre(1500);
       const apres = await page.evaluate(async () => ({
         recharge: window.__sansRechargement === undefined,

@@ -126,6 +126,12 @@ function creer(base, options) {
     return n;
   }
   const nomPris = (n, sauf) => etat.guildes.some((g) => g.id !== sauf && cleDuNom(g.nom) === cleDuNom(n));
+  const semaineLancee = (gid) => {
+    const lundi = lundiCourant(), ids = membresDe(gid).map((m) => m.user_id);
+    const l = new Date(lundi + 'T12:00:00'), fin = jourLocal(new Date(l.getFullYear(), l.getMonth(), l.getDate() + 7));
+    return sessions().some((s) => ids.indexOf(s.user_id) >= 0 && (s.statut || 'terminee') === 'terminee' &&
+      jourLocal(new Date(s.debut)) >= lundi && jourLocal(new Date(s.debut)) < fin);
+  };
   const seancesDeLaSemaine = (gid) => {
     const lundi = lundiCourant(), ids = membresDe(gid).map((m) => m.user_id);
     const l = new Date(lundi + 'T12:00:00');
@@ -290,6 +296,8 @@ function creer(base, options) {
     guilde_choisir_defi(a) {
       const g = etat.guildes.filter((x) => x.admin === etat.moi)[0];
       if (!g) leve('42501', 'guilde_pas_admin');
+      // `guilde_semaine_lancee` : figé dès qu'un membre a terminé une séance cette semaine.
+      if (semaineLancee(g.id)) leve('23514', 'guilde_defi_fige');
       const n = a.p_n === null || a.p_n === undefined ? null : Number(a.p_n);
       if (GUILDE.DEFIS.indexOf(a.p_type) < 0) leve('23514', 'new row for relation "guilde_defis" violates check constraint "guilde_defis_type"');
       if (!((a.p_type === 'seances' && n === null) || (a.p_type !== 'seances' && n >= 1 && n <= 100))) {
@@ -336,7 +344,7 @@ function creer(base, options) {
       const travail = sets().filter((t) => sids.indexOf(t.session_id) >= 0 && (t.type_serie || 'travail') === 'travail');
       const medailles = new Set(records().filter((r) => sids.indexOf(r.session_id) >= 0 && GUILDE.TYPES_RECORDS.indexOf(r.type) >= 0)
         .map((r) => r.set_id));
-      return [{ semaine: lundi, defi: d ? d.type : 'seances', n: d ? d.n : null,
+      return [{ semaine: lundi, defi: d ? d.type : 'seances', n: d ? d.n : null, defi_modifiable: !semaineLancee(gid),
         seances_faites: sc.reduce((x, s) => x + Math.min(s.seances, s.prevues), 0), seances_prevues: sc.reduce((x, s) => x + s.prevues, 0),
         records_semaine: sc.reduce((x, s) => x + s.records_semaine, 0),
         exercices: new Set(travail.map((t) => t.exercise_slug)).size, seances: ss.length, medailles: medailles.size,

@@ -17352,7 +17352,12 @@ const SETS_IMPORTES = [
     // Une séance de melodie il y a une heure, avec un record ; ses séries portent des colonnes interdites.
     const SM = 'a0000000-0000-4000-8900-0000000000aa';
     const dM = iso(ilYa(3600000, tS));
-    S.sessions.push({ id: SM, user_id: 'u-melodie', titre: 'Dos', debut: dM, fin: iso(finDe(dM, tS)), statut: 'terminee', visibilite: 'mutuels',
+    // LE DÉFI SE FIGE dès qu'un membre a terminé une séance cette semaine : mes séances de la semaine (posées par
+    // d'autres sections) sont mises de côté, et celle de melodie n'arrive qu'APRÈS le choix du défi.
+    const jourL = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    const deCote = base.sessions.filter((s) => s.user_id === 'u-banc' && jourL(new Date(s.debut)) >= fauxSocial.lundiCourant());
+    deCote.forEach((s) => base.sessions.splice(base.sessions.indexOf(s), 1));
+    const seanceMelodie = () => S.sessions.push({ id: SM, user_id: 'u-melodie', titre: 'Dos', debut: dM, fin: iso(finDe(dM, tS)), statut: 'terminee', visibilite: 'mutuels',
       note: 'note privée', poids_corps_kg: 61 });
     S.sets.push({ id: 'sm-1', session_id: SM, exercise_slug: 'rowing-barre', rang: 1, charge_kg: 50, reps: 8, type_serie: 'travail', rpe: 9,
       note: 'dos', ressenti: 'dur', douleur: 'non', poids_corps_kg: 61 });
@@ -17454,10 +17459,20 @@ const SETS_IMPORTES = [
     await onglet('semaine', async () => (await lire()).choixDefi.length > 0);
     await page.click('#social-guilde .s-choix-defi button[data-defi="records"][data-n="3"]');
     await attendreQue(async () => /records? sur 3/.test((await lire()).phrase || ''));
-    const c0 = await lire();
+    const cAvant = await lire();
     const refusTonnage = fauxSocial.rpc('u-banc', 'guilde_choisir_defi', { p_type: 'tonnage', p_n: 5 });
+    // melodie termine une séance : la semaine est lancée, le défi est figé.
+    seanceMelodie();
+    await aller('/jeu/guilde');
+    await attendreQue(async () => /records? sur 3/.test((await lire()).phrase || ''));
+    const c0 = await lire();
+    const refusFige = fauxSocial.rpc('u-banc', 'guilde_choisir_defi', { p_type: 'variete', p_n: 5 });
+    ok('[guilde] DISCRIMINANT — le défi est FIGÉ une fois la semaine lancée : choisi tant qu’aucun membre n’avait terminé de séance ; ' +
+      'après la séance de melodie, plus de choix à l’écran, et la base refuse de le changer (guilde_defi_fige)',
+      cAvant.choixDefi.length > 0 && c0.choixDefi.length === 0 && /guilde_defi_fige/.test(refusFige && refusFige.message) &&
+        S.defis.length === 1 && S.defis[0].type === 'records', JSON.stringify([cAvant.choixDefi, c0.choixDefi, refusFige, S.defis]));
     ok('[guilde] DISCRIMINANT — le défi : trois choix sûrs à l’écran (séances, records, variété) ; « 3 records » choisi ; la base refuse le tonnage',
-      c0.choixDefi.every((x) => /^(seances|records|variete)/.test(x)) && c0.choixDefi.indexOf('seances') >= 0 &&
+      cAvant.choixDefi.every((x) => /^(seances|records|variete)/.test(x)) && cAvant.choixDefi.indexOf('seances') >= 0 &&
         S.defis.length === 1 && S.defis[0].type === 'records' && S.defis[0].n === 3 &&
         /guilde_defis_type/.test(refusTonnage && refusTonnage.message), JSON.stringify([c0.choixDefi, S.defis, refusTonnage]));
     ok('[guilde] la jauge commune : « 3 records sans dépasser la charge proposée », la somme publiée (moi + jordan) sur 3, à vous trois ; ' +
@@ -17505,12 +17520,13 @@ const SETS_IMPORTES = [
     ['profils', 'sessions', 'sets', 'records', 'abonnements', 'blocages', 'reactions', 'scores', 'guildes', 'membres', 'invitations',
       'defis', 'gscores'].forEach((k) => { S[k] = []; });
     base.profiles[0].seances_par_semaine = spsAvant;
-    const refusAttendus = ['guildes_nom_cle_uniq', 'guilde_invite_non_mutuel', 'guilde_defis_type'];
+    deCote.forEach((s) => base.sessions.push(s));
+    const refusAttendus = ['guildes_nom_cle_uniq', 'guilde_invite_non_mutuel', 'guilde_defis_type', 'guilde_defi_fige'];
     const refusVus = S.journal.filter((j) => j.op === 'refus').map((j) => j.message);
     await aller('/saisie');
-    ok('[guilde] seuls les trois refus voulus (nom pris, non-mutuel, tonnage) ; la garde de l’app n’a rien signalé, aucune erreur de page',
+    ok('[guilde] seuls les quatre refus voulus (nom pris, non-mutuel, tonnage, défi figé) ; la garde de l’app n’a rien signalé, aucune erreur de page',
       base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant &&
-        erreurs.length === erreursAvant && refusVus.length === 3 && refusAttendus.every((r, i) => new RegExp(r).test(refusVus[i])),
+        erreurs.length === erreursAvant && refusVus.length === 4 && refusAttendus.every((r, i) => new RegExp(r).test(refusVus[i])),
       JSON.stringify([refusVus, erreurs.slice(erreursAvant)]));
     S.journal = [];
   }

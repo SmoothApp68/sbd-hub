@@ -272,13 +272,23 @@ BEGIN
   IF NOT FOUND THEN RAISE EXCEPTION 'guilde_pas_admin' USING ERRCODE = 'insufficient_privilege'; END IF;
 END $f$;
 
--- Le défi de la semaine en cours, par l'administrateur (modifiable pendant la semaine).
+-- LE DÉFI EST FIGÉ UNE FOIS LA SEMAINE LANCÉE (décision du 14/10/2026) : une semaine est lancée dès qu'un membre y a
+-- terminé une séance (heure de Paris). Avant, l'administrateur peut encore le choisir ou le changer.
+CREATE FUNCTION public.guilde_semaine_lancee(p_guilde uuid) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $f$
+  SELECT EXISTS (SELECT 1 FROM sessions s JOIN guilde_membres m ON m.user_id = s.user_id
+                 WHERE m.guilde_id = p_guilde AND s.statut = 'terminee'
+                   AND (s.debut AT TIME ZONE 'Europe/Paris')::date >= guilde_semaine_courante()
+                   AND (s.debut AT TIME ZONE 'Europe/Paris')::date < guilde_semaine_courante() + 7) $f$;
+
+-- Le défi de la semaine en cours, par l'administrateur, tant que la semaine n'est pas lancée.
 CREATE FUNCTION public.guilde_choisir_defi(p_type text, p_n integer) RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $f$
 DECLARE g uuid;
 BEGIN
   SELECT id INTO g FROM guildes WHERE admin = auth.uid();
   IF g IS NULL THEN RAISE EXCEPTION 'guilde_pas_admin' USING ERRCODE = 'insufficient_privilege'; END IF;
+  IF guilde_semaine_lancee(g) THEN RAISE EXCEPTION 'guilde_defi_fige' USING ERRCODE = 'check_violation'; END IF;
   INSERT INTO guilde_defis (guilde_id, semaine, type, n) VALUES (g, guilde_semaine_courante(), p_type, p_n)
     ON CONFLICT (guilde_id, semaine) DO UPDATE SET type = EXCLUDED.type, n = EXCLUDED.n, choisi_le = now();
 END $f$;
@@ -323,7 +333,7 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $f$
 --   seances, medailles, tonnage_kg : les séances terminées, non privées, de la semaine (au moins une série de travail),
 --   leurs séries médaillées (une par série, comme le fil), et Bilan.volumeKg.
 CREATE FUNCTION public.guilde_semaine()
-RETURNS TABLE(semaine date, defi text, n integer, seances_faites integer, seances_prevues integer, records_semaine integer,
+RETURNS TABLE(semaine date, defi text, n integer, defi_modifiable boolean, seances_faites integer, seances_prevues integer, records_semaine integer,
               exercices integer, seances integer, medailles integer, tonnage_kg numeric)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $f$
   WITH g AS (SELECT guilde_de(auth.uid()) AS id, guilde_semaine_courante() AS lundi),
@@ -333,7 +343,7 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $f$
           AND (se.debut AT TIME ZONE 'Europe/Paris')::date < g.lundi + 7
           AND EXISTS (SELECT 1 FROM sets t WHERE t.session_id = se.id AND coalesce(t.type_serie,'travail') = 'travail')),
   sc AS (SELECT x.* FROM guilde_scores x, g WHERE x.user_id IN (SELECT user_id FROM m) AND x.semaine = g.lundi)
-  SELECT g.lundi, coalesce(d.type, 'seances'), d.n,
+  SELECT g.lundi, coalesce(d.type, 'seances'), d.n, NOT guilde_semaine_lancee(g.id),
     (SELECT coalesce(sum(least(seances, prevues)), 0)::int FROM sc),
     (SELECT coalesce(sum(prevues), 0)::int FROM sc),
     (SELECT coalesce(sum(records_semaine), 0)::int FROM sc),
@@ -376,7 +386,7 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $f$
   WHERE r.session_id=p_session AND s.statut='terminee' AND s.visibilite <> 'private'
     AND guilde_commune(auth.uid(), s.user_id) $f$;
 
-REVOKE ALL ON FUNCTION public.guilde_de(uuid), public.guilde_commune(uuid,uuid), public.guilde_semaine_courante(),
+REVOKE ALL ON FUNCTION public.guilde_de(uuid), public.guilde_commune(uuid,uuid), public.guilde_semaine_lancee(uuid), public.guilde_semaine_courante(),
   public.guilde_mois_courant() FROM PUBLIC, anon;
 -- La politique reactions_guilde s'évalue au nom de la personne : elle appelle guilde_peut_reagir.
 REVOKE ALL ON FUNCTION public.guilde_peut_reagir(uuid) FROM PUBLIC, anon;

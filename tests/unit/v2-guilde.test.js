@@ -286,6 +286,22 @@ describe('90 — le faux serveur imite v2_080', () => {
     expect(f.etat.guildes).toEqual([]);
   });
 
+  test('MUTATION (d) — le défi est FIGÉ dès qu’un membre a terminé une séance cette semaine ; modifiable avant', () => {
+    const f = decor();
+    f.rpc('u-moi', 'guilde_creer', { p_nom: 'Les Fers', p_couleur: '#b39ad1' });
+    expect(f.rpc('u-moi', 'guilde_semaine')[0].defi_modifiable).toBe(true);
+    expect(refus(f.rpc('u-moi', 'guilde_choisir_defi', { p_type: 'records', p_n: 3 }))).toBeNull();
+    expect(refus(f.rpc('u-moi', 'guilde_choisir_defi', { p_type: 'variete', p_n: 5 }))).toBeNull();
+    f.etat.sessions.push({ id: 'm1', user_id: 'u-moi', debut: new Date().toISOString(), statut: 'terminee', visibilite: 'mutuels' });
+    expect(f.rpc('u-moi', 'guilde_semaine')[0].defi_modifiable).toBe(false);
+    expect(refus(f.rpc('u-moi', 'guilde_choisir_defi', { p_type: 'records', p_n: 3 }))).toMatch(/guilde_defi_fige/);
+    expect(f.rpc('u-moi', 'guilde_semaine')[0]).toMatchObject({ defi: 'variete', n: 5 });
+    expect(Social.defiModifiable({ defi_modifiable: false })).toBe(false);
+    expect(Social.defiModifiable({ defi_modifiable: true })).toBe(true);
+    expect(Social.defiModifiable(null)).toBe(false);
+    expect(MIGRATION).toMatch(/IF guilde_semaine_lancee\(g\) THEN RAISE EXCEPTION 'guilde_defi_fige'/);
+  });
+
   test('30 membres au plus ; les rangs de la liste seulement', () => {
     const f = decor();
     const g = f.rpc('u-moi', 'guilde_creer', { p_nom: 'Trente', p_couleur: '#6fa3d8' });

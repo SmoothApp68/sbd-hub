@@ -1927,7 +1927,8 @@
       v.defi = j ? { titre: j.titre, quand: Social.joursRestants(maintenant), part: j.part, phrase: j.phrase } : null;
       v.cetteSemaine = s ? { seances: String(s.seances), records: String(s.medailles), tonnes: tonnesSociales(s.tonnage_kg) } : null;
       v.progression = progression;
-      if (moi.admin) {
+      // Le défi est FIGÉ une fois la semaine lancée (un membre y a terminé une séance) : la base le refuserait.
+      if (moi.admin && Social.defiModifiable(s)) {
         v.choixDefi = Social.DEFIS.map(function (d) {
           return { cle: d.cle, libelle: d.libelle, actif: s && s.defi === d.cle, choix: (d.choix || []).map(function (n) {
             return { n: n, actif: s && s.defi === d.cle && Number(s.n) === n,

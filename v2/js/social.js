@@ -355,6 +355,9 @@
     if (!d.choix) return n === null || n === undefined;
     return Number.isInteger(n) && n >= 1 && n <= 100;
   }
+  // LE DÉFI EST FIGÉ une fois la semaine lancée : modifiable tant qu'aucun membre n'a terminé de séance cette semaine
+  // (`defi_modifiable` de `guilde_semaine`, la règle de la base).
+  function defiModifiable(s) { return !!s && s.defi_modifiable === true; }
   // Le nom : 3 à 24 caractères (espaces de bord retirés). Rend le nom propre, ou null.
   function nomDeGuilde(nom) {
     var n = String(nom === null || nom === undefined ? '' : nom).trim();
@@ -468,6 +471,7 @@
     COLONNES_GUILDE: COLONNES_GUILDE,
     defiDe: defiDe,
     defiValide: defiValide,
+    defiModifiable: defiModifiable,
     nomDeGuilde: nomDeGuilde,
     rangValide: rangValide,
     invitables: invitables,

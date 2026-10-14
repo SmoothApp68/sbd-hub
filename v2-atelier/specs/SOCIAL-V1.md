@@ -129,6 +129,9 @@ mutuels seulement) : `social_exercices_ami(user)`, `social_series_exercice(user,
 - Pas de messagerie dans la guilde ; réactions seulement. Pas de direct.
 - Le coach et les bilans ne lisent rien de la guilde.
 
+- **Décision d'Aurélien du 14/10/2026 (après la PR #421)** : le défi de la semaine est FIGÉ une fois la semaine lancée.
+  Seule exception : l'administrateur peut encore le changer tant qu'aucun membre n'a terminé de séance cette semaine-là.
+
 ### 6.1 Décisions de Claude.ai du 14/10/2026 (jugement technique délégué par Aurélien)
 
 - **1a. Record SANS proposition** (séance importée, ou série sans pari) : il COMPTE. Un record AVEC proposition ne compte que
@@ -159,7 +162,10 @@ mutuels seulement) : `social_exercices_ami(user)`, `social_series_exercice(user,
 - **La jauge** : (1) Σ min(séances, prévues) sur Σ prévues (« 11 séances sur 17 prévues, à vous quatre ») ; (2) Σ records
   publiés sur N ; (3) exercices différents de la semaine, à tous, sur N — calculés par la base (une union ne s'additionne
   pas d'une personne à l'autre). N au choix : 2, 3, 5, 8, 10 (records) ; 5, 8, 10, 12, 15 (variété). Le défi est modifiable
-  par l'administrateur pendant la semaine en cours (interprétation de « choisi chaque lundi », à valider).
+  par l'administrateur **tant qu'aucun membre n'a terminé de séance** dans la semaine en cours (heure de Paris, toute
+  séance terminée) ; ensuite il est figé : l'écran retire le choix (`defi_modifiable` de `guilde_semaine`,
+  `Social.defiModifiable`) et la base refuse (`guilde_semaine_lancee`, exception `guilde_defi_fige`). Choisir le
+  premier défi après une séance terminée est aussi refusé : le défi (1) court alors seul.
 - **« La guilde cette semaine »** (fait brut de la base) : séances terminées non privées des membres avec une série de travail,
   leurs séries médaillées (six types, une par série), et le tonnage de `Bilan.volumeKg`.
 - **Progression** : ordre par part décroissante, puis par nombre d'exercices ; « 5 sur 6 » ; sans exercice compté, « — »
@@ -183,5 +189,5 @@ la personne** : une guilde par personne), `guilde_invitations`, `guilde_defis` (
 verrouillée) ; seul le rang change ; au départ, la guilde sans membre disparaît et l'administration passe au plus ancien
 (`entre_le`, puis `user_id`) — aussi quand un compte est supprimé ; l'administrateur est toujours un membre ; une invitation
 vient d'un membre et vise un de ses **mutuels** (`social_mutuel`). Aucune écriture ni lecture directe sur guildes, membres,
-invitations, défis : des fonctions SECURITY DEFINER (`search_path` figé, `authenticated` seulement). Une politique ajoutée,
+invitations, défis : des fonctions SECURITY DEFINER (`guilde_choisir_defi` refuse dès que la semaine est lancée) (`search_path` figé, `authenticated` seulement). Une politique ajoutée,
 `reactions_guilde` (insertion), via `guilde_peut_reagir` ; aucune sur sessions, sets, records.

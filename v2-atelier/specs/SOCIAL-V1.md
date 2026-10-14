@@ -142,7 +142,7 @@ mutuels seulement) : `social_exercices_ami(user)`, `social_series_exercice(user,
   Exclus : `un_rm_estime` (une estimation, pas un fait) et `volume_seance` (pousserait au volume). Une série « à fond »
   compte (c'est un fait).
 - **2. Séances prévues** (défi 1) : `profiles.seances_par_semaine`. S'il est vide (3 profils sur 8 aujourd'hui : alexis,
-  jordan, lea), la médiane hebdomadaire de l'historique, avec la même fonction que `faits.js` (`habitudes`), sans la
+  jordan, lea), la médiane hebdomadaire de l'historique, avec la même fonction que faits.js:618 (`habitudes`), sans la
   recopier. Chaque membre est plafonné à ses séances prévues. Calcul sur l'appareil, puis publication du score déjà
   calculé, comme `scores_force`.
 

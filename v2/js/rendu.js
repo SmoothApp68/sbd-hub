@@ -5432,6 +5432,38 @@
     return cible;
   }
 
+  // 92 — LA PESÉE DEPUIS LE PROFIL : deux champs (le poids, le jour). Le rendu ne décide rien : `surValider`
+  // rend la phrase de refus, qui reste dans la feuille (le CHECK de la base est doublé avant la file).
+  function rendreFeuillePesee(cible, vue) {
+    vider(cible);
+    teteFeuille(cible, 'Poids', null, vue.aide || null);
+    var champ = function (etiquette, type, valeur, cle) {
+      var env = el('label', 'champ-texte');
+      env.appendChild(el('span', '', etiquette));
+      var n = doc.createElement('input');
+      n.type = type;
+      n.setAttribute('data-cle', cle);
+      if (type === 'text') { n.inputMode = 'decimal'; n.placeholder = 'kg'; }
+      if (type === 'date' && vue.max) n.max = vue.max;
+      n.value = valeur === null || valeur === undefined ? '' : String(valeur);
+      env.appendChild(n);
+      cible.appendChild(env);
+      return n;
+    };
+    var poids = champ('Poids (kg)', 'text', vue.poids, 'poids');
+    var jour = champ('Date', 'date', vue.jour, 'jour');
+    var err = el('p', 'feuille-err', '');
+    cible.appendChild(err);
+    piedFeuille(cible, [
+      { classe: 'sec', texte: 'Annuler', surClic: vue.surAnnuler },
+      { classe: 'pri', texte: 'Valider', surClic: function () {
+        var refus = vue.surValider(poids.value, jour.value);
+        if (refus) { err.textContent = refus; poids.focus(); }
+      } }
+    ]);
+    return cible;
+  }
+
   // ── Importer depuis Hevy (69, ECRAN-PROFIL §2.4 quater) ─────────────────
   //
   // Quatre états, un écran : les deux choix (coller, ou le fichier), l'aperçu
@@ -6429,6 +6461,7 @@
           });
           d.appendChild(ch);
         }
+        if (vue.defiFige) d.appendChild(el('p', 's-gris s-defi-fige', vue.defiFige));
         cible.appendChild(d);
       }
       if (vue.cetteSemaine) {
@@ -6954,6 +6987,7 @@
     rendreFeuilleChoix: rendreFeuilleChoix,
     rendreFeuilleChoixMultiple: rendreFeuilleChoixMultiple,
     rendreFeuilleSaisie: rendreFeuilleSaisie,
+    rendreFeuillePesee: rendreFeuillePesee,
     rendreMesExercices: rendreMesExercices,
     rendreImport: rendreImport,
     rendreEntree: rendreEntree,

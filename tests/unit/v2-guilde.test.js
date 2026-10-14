@@ -292,7 +292,7 @@ describe('90 — le faux serveur imite v2_080', () => {
     expect(f.rpc('u-moi', 'guilde_semaine')[0].defi_modifiable).toBe(true);
     expect(refus(f.rpc('u-moi', 'guilde_choisir_defi', { p_type: 'records', p_n: 3 }))).toBeNull();
     expect(refus(f.rpc('u-moi', 'guilde_choisir_defi', { p_type: 'variete', p_n: 5 }))).toBeNull();
-    f.etat.sessions.push({ id: 'm1', user_id: 'u-moi', debut: new Date().toISOString(), statut: 'terminee', visibilite: 'mutuels' });
+    f.etat.sessions.push({ id: 'm1', user_id: 'u-moi', debut: new Date(Date.now() + 1000).toISOString(), statut: 'terminee', visibilite: 'mutuels' });
     expect(f.rpc('u-moi', 'guilde_semaine')[0].defi_modifiable).toBe(false);
     expect(refus(f.rpc('u-moi', 'guilde_choisir_defi', { p_type: 'records', p_n: 3 }))).toMatch(/guilde_defi_fige/);
     expect(f.rpc('u-moi', 'guilde_semaine')[0]).toMatchObject({ defi: 'variete', n: 5 });
@@ -300,6 +300,25 @@ describe('90 — le faux serveur imite v2_080', () => {
     expect(Social.defiModifiable({ defi_modifiable: true })).toBe(true);
     expect(Social.defiModifiable(null)).toBe(false);
     expect(MIGRATION).toMatch(/IF guilde_semaine_lancee\(g\) THEN RAISE EXCEPTION 'guilde_defi_fige'/);
+  });
+
+  test('MUTATION (b, 92 / v2_083) — guilde créée en cours de semaine, après des séances : le défi reste modifiable jusqu’à la prochaine séance terminée', () => {
+    let maintenant = new Date(2026, 9, 14, 12, 0);   // mercredi 14/10/2026, midi
+    const base = { profiles: [{ id: 'u-moi', username: 'moi', compte_prive: true }], records: [], sets: [],
+      sessions: [{ id: 'lundi', user_id: 'u-moi', debut: new Date(2026, 9, 12, 18).toISOString(),
+        fin: new Date(2026, 9, 12, 19).toISOString(), statut: 'terminee', visibilite: 'mutuels' }] };
+    const f = FauxSocial.creer(base, { moi: 'u-moi', maintenant: () => maintenant });
+    f.rpc('u-moi', 'guilde_creer', { p_nom: 'Les gros muscles', p_couleur: '#b39ad1' });
+    expect(f.rpc('u-moi', 'guilde_semaine')[0].defi_modifiable).toBe(true);
+    expect(refus(f.rpc('u-moi', 'guilde_choisir_defi', { p_type: 'records', p_n: 3 }))).toBeNull();
+    maintenant = new Date(2026, 9, 15, 19);
+    f.etat.sessions.push({ id: 'jeudi', user_id: 'u-moi', debut: new Date(2026, 9, 15, 18).toISOString(),
+      fin: new Date(2026, 9, 15, 19).toISOString(), statut: 'terminee', visibilite: 'mutuels' });
+    expect(f.rpc('u-moi', 'guilde_semaine')[0].defi_modifiable).toBe(false);
+    expect(refus(f.rpc('u-moi', 'guilde_choisir_defi', { p_type: 'variete', p_n: 5 }))).toMatch(/guilde_defi_fige/);
+    expect(Social.PHRASE_DEFI_FIGE).toBe('Défi figé : la semaine a commencé. Tu en choisiras un lundi.');
+    const sql = require('fs').readFileSync(require('path').join(__dirname, '../../v2-atelier/migrations-proposees/v2_083_guilde_defi_nouvelle_guilde.sql'), 'utf8');
+    expect(sql).toMatch(/coalesce\(s\.fin, s\.debut\) > g\.cree_le/);
   });
 
   test('30 membres au plus ; les rangs de la liste seulement', () => {

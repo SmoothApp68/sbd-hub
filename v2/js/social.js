@@ -358,6 +358,8 @@
   // LE DÉFI EST FIGÉ une fois la semaine lancée : modifiable tant qu'aucun membre n'a terminé de séance cette semaine
   // (`defi_modifiable` de `guilde_semaine`, la règle de la base).
   function defiModifiable(s) { return !!s && s.defi_modifiable === true; }
+  // 92 — ce que l'administrateur lit quand le choix lui est retiré.
+  var PHRASE_DEFI_FIGE = 'Défi figé : la semaine a commencé. Tu en choisiras un lundi.';
   // Le nom : 3 à 24 caractères (espaces de bord retirés). Rend le nom propre, ou null.
   function nomDeGuilde(nom) {
     var n = String(nom === null || nom === undefined ? '' : nom).trim();
@@ -598,6 +600,7 @@
     defiDe: defiDe,
     defiValide: defiValide,
     defiModifiable: defiModifiable,
+    PHRASE_DEFI_FIGE: PHRASE_DEFI_FIGE,
     nomDeGuilde: nomDeGuilde,
     rangValide: rangValide,
     invitables: invitables,

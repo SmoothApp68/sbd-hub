@@ -17357,7 +17357,8 @@ const SETS_IMPORTES = [
     const jourL = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
     const deCote = base.sessions.filter((s) => s.user_id === 'u-banc' && jourL(new Date(s.debut)) >= fauxSocial.lundiCourant());
     deCote.forEach((s) => base.sessions.splice(base.sessions.indexOf(s), 1));
-    const seanceMelodie = () => S.sessions.push({ id: SM, user_id: 'u-melodie', titre: 'Dos', debut: dM, fin: iso(finDe(dM, tS)), statut: 'terminee', visibilite: 'mutuels',
+    // 92 (v2_083) — elle se TERMINE après la création de la guilde : seule une telle séance lance la semaine.
+    const seanceMelodie = () => S.sessions.push({ id: SM, user_id: 'u-melodie', titre: 'Dos', debut: dM, fin: new Date().toISOString(), statut: 'terminee', visibilite: 'mutuels',
       note: 'note privée', poids_corps_kg: 61 });
     S.sets.push({ id: 'sm-1', session_id: SM, exercise_slug: 'rowing-barre', rang: 1, charge_kg: 50, reps: 8, type_serie: 'travail', rpe: 9,
       note: 'dos', ressenti: 'dur', douleur: 'non', poids_corps_kg: 61 });
@@ -17471,6 +17472,10 @@ const SETS_IMPORTES = [
       'après la séance de melodie, plus de choix à l’écran, et la base refuse de le changer (guilde_defi_fige)',
       cAvant.choixDefi.length > 0 && c0.choixDefi.length === 0 && /guilde_defi_fige/.test(refusFige && refusFige.message) &&
         S.defis.length === 1 && S.defis[0].type === 'records', JSON.stringify([cAvant.choixDefi, c0.choixDefi, refusFige, S.defis]));
+    // 92 — le pourquoi est dit à l'administrateur, à la place du choix retiré.
+    const fige = await page.evaluate(() => { const p = document.querySelector('#social-guilde .s-defi-fige'); return p ? p.textContent : null; });
+    ok('[guilde] 92 — défi figé : l’écran dit pourquoi (« Défi figé : la semaine a commencé. Tu en choisiras un lundi. »)',
+      fige === 'Défi figé : la semaine a commencé. Tu en choisiras un lundi.' && cAvant.choixDefi.length > 0, String(fige));
     ok('[guilde] DISCRIMINANT — le défi : trois choix sûrs à l’écran (séances, records, variété) ; « 3 records » choisi ; la base refuse le tonnage',
       cAvant.choixDefi.every((x) => /^(seances|records|variete)/.test(x)) && cAvant.choixDefi.indexOf('seances') >= 0 &&
         S.defis.length === 1 && S.defis[0].type === 'records' && S.defis[0].n === 3 &&

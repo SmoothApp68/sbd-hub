@@ -131,6 +131,10 @@ mutuels seulement) : `social_exercices_ami(user)`, `social_series_exercice(user,
 
 - **Décision d'Aurélien du 14/10/2026 (après la PR #421)** : le défi de la semaine est FIGÉ une fois la semaine lancée.
   Seule exception : l'administrateur peut encore le changer tant qu'aucun membre n'a terminé de séance cette semaine-là.
+  **Précision du 14/10/2026 (v2_083, prompt 92)** : seule compte une séance terminée APRÈS la création de la guilde
+  (`coalesce(fin, debut) > guildes.cree_le`). Une guilde créée en cours de semaine, après des séances de ses membres, garde
+  donc son défi modifiable jusqu'à la prochaine séance terminée. Figé, l'écran le dit à l'administrateur : « Défi figé : la
+  semaine a commencé. Tu en choisiras un lundi. »
 
 ### 6.1 Décisions de Claude.ai du 14/10/2026 (jugement technique délégué par Aurélien)
 

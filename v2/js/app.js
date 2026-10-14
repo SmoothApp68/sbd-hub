@@ -1940,7 +1940,7 @@
             if (Social.defiValide(d.cle, null)) gesteGuilde(function () { return Donnees.guildeChoisirDefi(d.cle, null); });
           } };
         });
-      }
+      } else if (moi.admin && s) v.defiFige = Social.PHRASE_DEFI_FIGE;   // 92 — le pourquoi, dit
     } else if (g.onglet === 'fil') {
       if (!g.fil) v.chargementFil = true;
       else v.fil = { etat: 'ok', demandes: [], fin: (g.fil.length ? 'Tu es à jour · les 30 derniers jours'
@@ -11768,6 +11768,30 @@
     ouvrirFeuilleProfil();
   }
 
+  // 92 — LA PESÉE DEPUIS LE PROFIL (ECRAN-PROFIL §2.4, 14/10/2026) : le poids et le jour (aujourd'hui par
+  // défaut). Elle s'écrit par `poserPesee` — le chemin du questionnaire, le seul — et ses bornes sont celles
+  // du questionnaire (`Poids.peseeDuProfil` → `poidsValide`).
+  function ouvrirPeseeProfil() {
+    var derniere = Poids.resume(local.pesees);
+    feuilleProfil = function (cible) {
+      Rendu.rendreFeuillePesee(cible, {
+        poids: derniere ? Modele.nombreSigne(derniere.poids) : '',
+        jour: jourDuJour(), max: jourDuJour(),
+        surValider: function (texte, jour) {
+          var r = Poids.peseeDuProfil(Modele.lireNombre(texte), jour, jourDuJour());
+          if (r.erreur) return r.erreur;
+          fermerVoile();
+          poserPesee(r.pesee).catch(function () {}).then(function () {
+            if (ecranCourant === 'profil') rendreProfilEcran();
+          });
+          return null;
+        },
+        surAnnuler: fermerVoile
+      });
+    };
+    ouvrirFeuilleProfil();
+  }
+
   // Promis à l'inscription : « Tu le changeras depuis ton profil. » C'est aussi
   // là qu'atterrit un lien « mot de passe oublié » — la session de récupération
   // est ouverte, il ne reste qu'à poser le nouveau mot de passe.
@@ -11907,12 +11931,13 @@
             surChoix: function () { allerA(Routeur.IMPORT, {}); ouvrirImport(); } }
         ] },
         { titre: 'MON CORPS', lignes: [
-          // Le poids n'est pas un champ du profil : il a 116 pesées derrière lui
-          // et son propre écran. La ligne MÈNE, elle ne saisit pas.
+          // Le poids n'est pas un champ du profil : c'est la DERNIÈRE PESÉE, datée (« 96,8 kg · mardi »).
+          // 92 (14/10/2026) — la ligne SAISIT une pesée, par `poserPesee`, le chemin du questionnaire ;
+          // la courbe reste sous Progression.
           { libelle: 'Poids',
-            sous: resumePoids ? resumePoids.nb + ' pesée' + (resumePoids.nb > 1 ? 's' : '') : null,
-            valeur: resumePoids ? Modele.nombreSigne(resumePoids.poids) + ' kg' : null,
-            surChoix: function () { allerA(Routeur.POIDS, {}); rendrePoids(); } },
+            valeur: resumePoids ? Modele.nombreSigne(resumePoids.poids) + ' kg · ' +
+              Modele.quand(resumePoids.date, jourDuJour()) : null,
+            surChoix: ouvrirPeseeProfil },
           { libelle: 'Taille', valeur: p.taille_cm ? p.taille_cm + ' cm' : null,
             surChoix: function () { ouvrirSaisieProfil('taille_cm'); } },
           { libelle: 'Date de naissance',

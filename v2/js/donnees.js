@@ -865,6 +865,25 @@
     return (await rpc('social_periode', { p_user: userIdCible, p_de: de, p_a: a })) || [];
   }
   async function socialScoresForce(slug) { return (await rpc('social_scores_force', { p_slug: slug })) || []; }
+  // 90 (SOCIAL-V1 « Guilde », v2_080) — tout passe par les fonctions de la base, qui gardent les règles (30 membres,
+  // une guilde par personne, inviter un mutuel seulement, l'administration transmise au plus ancien).
+  async function guildeMoi() { var d = await rpc('guilde_moi'); return (Array.isArray(d) ? d[0] : d) || null; }
+  async function guildeMembres() { return (await rpc('guilde_liste_membres')) || []; }
+  async function guildeInvitationsRecues() { return (await rpc('guilde_invitations_recues')) || []; }
+  async function guildeSemaine() { var d = await rpc('guilde_semaine'); return (Array.isArray(d) ? d[0] : d) || null; }
+  async function guildeProgression() { return (await rpc('guilde_progression')) || []; }
+  async function guildeFil() { return (await rpc('guilde_fil')) || []; }
+  async function guildeRecordsSeance(id) { return (await rpc('guilde_records_seance', { p_session: id })) || []; }
+  function guildeGeste(nom, args) { return rpc(nom, args).then(function () { return true; }); }
+  function guildeCreer(nom, couleur) { return guildeGeste('guilde_creer', { p_nom: nom, p_couleur: couleur }); }
+  function guildeModifier(nom, couleur) { return guildeGeste('guilde_modifier', { p_nom: nom, p_couleur: couleur }); }
+  function guildeInviter(user) { return guildeGeste('guilde_inviter', { p_user: user }); }
+  function guildeRepondre(guilde, rejoindre) { return guildeGeste('guilde_repondre', { p_guilde: guilde, p_rejoindre: !!rejoindre }); }
+  function guildeQuitter() { return guildeGeste('guilde_quitter', {}); }
+  function guildeRetirerMembre(user) { return guildeGeste('guilde_retirer_membre', { p_user: user }); }
+  function guildeTransmettre(user) { return guildeGeste('guilde_transmettre', { p_user: user }); }
+  function guildeChoisirDefi(type, n) { return guildeGeste('guilde_choisir_defi', { p_type: type, p_n: n === undefined ? null : n }); }
+  function guildeChoisirRang(rang) { return guildeGeste('guilde_choisir_rang', { p_rang: rang }); }
   async function ecrire(promesse) { var r = await promesse; if (r.error) throw r.error; return true; }
   // `statut` est posé par la base (`demande`, ou `accepte` d'office vers un compte public).
   function sAbonner(moi, suivi) { return ecrire(client().from('abonnements').insert({ suiveur: moi, suivi: suivi })); }
@@ -884,6 +903,13 @@
     }), { onConflict: 'user_id,exercise_slug' }));
   }
   function retirerScores(moi) { return ecrire(client().from('scores_force').delete().eq('user_id', moi)); }
+  // 90 — MES NOMBRES DE GUILDE (`guilde_scores`, v2_080), déjà calculés sur l'appareil (`faits.scoresDeGuilde`) :
+  // les colonnes de la table, et rien d'autre.
+  function publierScoresGuilde(moi, s) {
+    var l = { user_id: moi };
+    ['semaine', 'seances', 'prevues', 'records_semaine', 'mois', 'exercices', 'exercices_record'].forEach(function (k) { l[k] = s[k]; });
+    return ecrire(client().from('guilde_scores').upsert(l, { onConflict: 'user_id' }));
+  }
   function bloquer(moi, autre) { return ecrire(client().from('blocages').insert({ bloqueur: moi, bloque: autre })); }
   function debloquer(moi, autre) {
     return ecrire(client().from('blocages').delete().eq('bloqueur', moi).eq('bloque', autre));
@@ -948,6 +974,12 @@
     bloquer: bloquer, debloquer: debloquer, reagir: reagir, retirerReaction: retirerReaction,
     socialExercicesAmi: socialExercicesAmi, socialSeriesExercice: socialSeriesExercice, socialPeriode: socialPeriode,
     socialScoresForce: socialScoresForce, publierScores: publierScores, retirerScores: retirerScores,
+    guildeMoi: guildeMoi, guildeMembres: guildeMembres, guildeInvitationsRecues: guildeInvitationsRecues,
+    guildeSemaine: guildeSemaine, guildeProgression: guildeProgression, guildeFil: guildeFil,
+    guildeRecordsSeance: guildeRecordsSeance, guildeCreer: guildeCreer, guildeModifier: guildeModifier,
+    guildeInviter: guildeInviter, guildeRepondre: guildeRepondre, guildeQuitter: guildeQuitter,
+    guildeRetirerMembre: guildeRetirerMembre, guildeTransmettre: guildeTransmettre, guildeChoisirDefi: guildeChoisirDefi,
+    guildeChoisirRang: guildeChoisirRang, publierScoresGuilde: publierScoresGuilde,
     // Exposée pour les tests : c'est la logique de pagination qu'il faut
     // pouvoir exercer sans réseau, pas les requêtes qui l'utilisent.
     paginerParCle: paginerParCle,

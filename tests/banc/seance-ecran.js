@@ -17318,6 +17318,203 @@ const SETS_IMPORTES = [
         S.journal.filter((j) => j.op === 'refus')]));
   }
 
+  console.log('\n══ guilde. LA GUILDE : CRÉER, INVITER UN MUTUEL, RANGS, DÉFI, FIL, PROGRESSION, PARTIR (90, SOCIAL-V1 « Guilde ») ══');
+  //
+  // Le faux serveur du social imite v2_080 : une guilde par personne, 30 au plus, le nom unique sans casse ni accents,
+  // inviter un abonné MUTUEL seulement, les défis sûrs seulement, l'administration au plus ancien quand l'administrateur
+  // part, la guilde sans membre qui disparaît, et `guilde_scores` qui n'accepte que ses colonnes.
+  //
+  // ⚠️ CONFIGURATIONS DISCRIMINANTES :
+  //   · alexis : je le suis, il ne me suit pas — il n'est PAS invitable (l'écran ne le propose pas, la base refuse) ;
+  //   · le nom « LES FERS DU MARDÍ » est refusé tant que lea porte « Les Fers du Mardi », accepté dès qu'elle est partie
+  //     (sa guilde, sans membre, a disparu) ;
+  //   · melodie entre par jordan (mutuel de jordan, PAS le mien) : sa séance est dans le fil de la guilde, pas dans mon
+  //     fil, et j'y réagis par la règle de la guilde ;
+  //   · mon profil déclare 5 séances par semaine : c'est ce chiffre qui part (pas la médiane de mon historique) ;
+  //   · je pars le premier, jordan est entré avant melodie : l'administration passe à jordan.
+  {
+    const erreursAvant = erreurs.length;
+    const violationsAvant = gardeBanc.violations;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const S = fauxSocial.etat;
+    const tS = Date.now();
+    const iso = (d) => d.toISOString();
+    const spsAvant = base.profiles[0].seances_par_semaine;
+    base.profiles[0].seances_par_semaine = 5;
+    S.profils.push(
+      { id: 'u-jordan', username: 'jordan', compte_prive: true, jeu_actif: true, jeu_niveau: 14, jeu_titre: 'athlete', deleted_at: null },
+      { id: 'u-lea', username: 'lea', compte_prive: true, jeu_actif: true, jeu_niveau: 9, jeu_titre: null, deleted_at: null },
+      { id: 'u-alexis', username: 'alexis', compte_prive: true, jeu_actif: true, jeu_niveau: 8, jeu_titre: null, deleted_at: null },
+      { id: 'u-melodie', username: 'melodie', compte_prive: true, jeu_actif: false, jeu_niveau: 5, jeu_titre: 'athlete', deleted_at: null });
+    const ab = (a, b) => S.abonnements.push({ suiveur: a, suivi: b, statut: 'accepte', cree_le: iso(new Date(tS)), accepte_le: iso(new Date(tS)) });
+    ab('u-banc', 'u-jordan'); ab('u-jordan', 'u-banc'); ab('u-banc', 'u-lea'); ab('u-lea', 'u-banc'); ab('u-banc', 'u-alexis');
+    ab('u-jordan', 'u-melodie'); ab('u-melodie', 'u-jordan');
+    // Une séance de melodie il y a une heure, avec un record ; ses séries portent des colonnes interdites.
+    const SM = 'a0000000-0000-4000-8900-0000000000aa';
+    const dM = iso(ilYa(3600000, tS));
+    S.sessions.push({ id: SM, user_id: 'u-melodie', titre: 'Dos', debut: dM, fin: iso(finDe(dM, tS)), statut: 'terminee', visibilite: 'mutuels',
+      note: 'note privée', poids_corps_kg: 61 });
+    S.sets.push({ id: 'sm-1', session_id: SM, exercise_slug: 'rowing-barre', rang: 1, charge_kg: 50, reps: 8, type_serie: 'travail', rpe: 9,
+      note: 'dos', ressenti: 'dur', douleur: 'non', poids_corps_kg: 61 });
+    S.records.push({ set_id: 'sm-1', session_id: SM, battu_le: dM, exercise_slug: 'rowing-barre', type: 'charge_a_reps', valeur: 50, reps: 8 });
+    const lire = () => page.evaluate(() => {
+      const r = document.getElementById('social-guilde');
+      const t = (s) => { const n = r.querySelector(s); return n ? n.textContent : null; };
+      const tous = (s) => Array.from(r.querySelectorAll(s)).map((x) => x.textContent);
+      return { texte: r.textContent, message: t('.s-guilde-message'), nom: t('.s-guilde-nom'), membres: t('.s-guilde-membres'),
+        creer: !!r.querySelector('#guilde-creer'), onglets: tous('.s-onglets-guilde button'),
+        invitables: Array.from(r.querySelectorAll('.s-inviter-guilde .s-ligne')).map((x) => x.getAttribute('data-pseudo')),
+        lignes: tous('.s-membre-ligne'), rangs: tous('.s-rangs button'), rangActif: t('.s-rangs button.s-on'),
+        defi: t('.s-defi-titre'), phrase: t('.s-defi-phrase'), choixDefi: Array.from(r.querySelectorAll('.s-choix-defi button'))
+          .map((b) => b.getAttribute('data-defi') + (b.getAttribute('data-n') ? ':' + b.getAttribute('data-n') : '')),
+        semaine: [t('.s-g-seances'), t('.s-g-records'), t('.s-g-tonnes')],
+        progression: Array.from(r.querySelectorAll('.s-progression-guilde .s-rang')).map((x) => x.querySelector('.s-t').textContent + ' ' +
+          x.querySelector('.s-sc').textContent),
+        cartes: Array.from(r.querySelectorAll('.s-fil-guilde .s-carte')).map((x) => x.getAttribute('data-session')),
+        reagi: !!r.querySelector('.s-fil-guilde .s-reag.s-fait') };
+    });
+    const attendreQue = async (cond, ms) => {
+      for (let t = 0; t < (ms || 8000); t += 200) { if (await cond()) return true; await attendre(200); }
+      return false;
+    };
+    const largeurs = [];
+    const mesurer = async (ecran) => {
+      const l = await page.evaluate(() => ({ doc: document.documentElement.scrollWidth, fen: window.innerWidth }));
+      largeurs.push({ ecran, doc: l.doc, fen: l.fen });
+    };
+    const onglet = async (cle, cond) => { await page.click('#social-guilde button[data-onglet="' + cle + '"]'); await attendreQue(cond); };
+
+    // ── A. SANS GUILDE : le nom pris par lea, puis libre quand sa guilde (sans membre) a disparu.
+    fauxSocial.rpc('u-lea', 'guilde_creer', { p_nom: 'Les Fers du Mardi', p_couleur: '#d9b45a' });
+    await aller('/jeu/guilde');
+    await attendreQue(async () => (await lire()).creer);
+    const a0 = await lire();
+    await mesurer('créer une guilde');
+    await page.fill('#guilde-nom', 'LES FERS DU MARDÍ');
+    await page.click('#guilde-couleurs button[data-couleur="#8fb08a"]');
+    await page.click('#guilde-creer');
+    await attendreQue(async () => !!(await lire()).message);
+    const a1 = await lire();
+    ok('[guilde] DISCRIMINANT — sans guilde : « Créer une guilde » ; le nom de lea, sans casse ni accents, est refusé par la base (« Ce nom est déjà pris. »)',
+      a0.creer && (await page.evaluate(() => location.pathname)) === '/jeu/guilde' && a1.message === 'Ce nom est déjà pris.' && S.guildes.length === 1,
+      JSON.stringify([a0.creer, a1.message, S.guildes]));
+    fauxSocial.rpc('u-lea', 'guilde_quitter');
+    ok('[guilde] lea, seule membre, part : sa guilde disparaît', S.guildes.length === 0, JSON.stringify(S.guildes));
+    await page.fill('#guilde-nom', 'LES FERS DU MARDÍ');
+    await page.click('#guilde-creer');
+    await attendreQue(async () => !!(await lire()).nom);
+    const a2 = await lire();
+    const G = fauxSocial.guildeDe('u-banc');
+    ok('[guilde] créée : le nom tel que tapé, la couleur choisie, « 1 membre », moi administrateur ; les quatre onglets',
+      a2.nom === 'LES FERS DU MARDÍ' && a2.membres === '1 membre' && !!G && S.guildes[0].couleur === '#8fb08a' &&
+        S.guildes[0].admin === 'u-banc' && JSON.stringify(a2.onglets) === JSON.stringify(['Semaine', 'Fil', 'Progression', 'Membres']),
+      JSON.stringify([a2, S.guildes]));
+
+    // ── B. MEMBRES : inviter un MUTUEL seulement.
+    await onglet('membres', async () => (await lire()).invitables.length > 0);
+    const b0 = await lire();
+    ok('[guilde] DISCRIMINANT — « Inviter » ne propose que mes abonnés mutuels (jordan, lea) — jamais alexis, que je suis sans qu’il me suive',
+      JSON.stringify(b0.invitables) === JSON.stringify(['jordan', 'lea']), JSON.stringify(b0.invitables));
+    const refusAlexis = fauxSocial.rpc('u-banc', 'guilde_inviter', { p_user: 'u-alexis' });
+    ok('[guilde] DISCRIMINANT — et la base refuse de l’inviter (guilde_invite_non_mutuel)', /guilde_invite_non_mutuel/.test(refusAlexis && refusAlexis.message) &&
+      !S.invitations.some((i) => i.invite === 'u-alexis'), JSON.stringify(refusAlexis));
+    await mesurer('membres');
+    await page.click('#social-guilde .s-inviter-guilde .s-ligne[data-pseudo="jordan"] button');
+    await attendreQue(async () => S.invitations.some((i) => i.invite === 'u-jordan'));
+    const inv = fauxSocial.rpc('u-jordan', 'guilde_invitations_recues');
+    fauxSocial.rpc('u-jordan', 'guilde_repondre', { p_guilde: G, p_rejoindre: true });
+    fauxSocial.rpc('u-jordan', 'guilde_choisir_rang', { p_rang: 'Squatteur' });
+    // melodie : mutuelle de jordan, pas la mienne — jordan l'invite.
+    fauxSocial.rpc('u-jordan', 'guilde_inviter', { p_user: 'u-melodie' });
+    fauxSocial.rpc('u-melodie', 'guilde_repondre', { p_guilde: G, p_rejoindre: true });
+    await aller('/jeu/guilde');
+    await attendreQue(async () => !!(await lire()).nom);
+    await onglet('membres', async () => (await lire()).lignes.length === 3);
+    const b1 = await lire();
+    ok('[guilde] jordan a reçu l’invitation (de moi) et l’a acceptée ; melodie est entrée par jordan ; les membres : « toi · Novice », ' +
+      '« jordan · Squatteur · Athlète », « melodie · Novice » (jeu éteint : pas de titre) ; aucun chef affiché',
+      inv.length === 1 && inv[0].invitant === 'banc' && JSON.stringify(b1.lignes) === JSON.stringify(['toi · Novice',
+        'jordan · Squatteur · Athlète', 'melodie · Novice']) && !/admin|chef/i.test(b1.texte) &&
+        JSON.stringify(b1.invitables) === JSON.stringify(['lea']), JSON.stringify(b1));
+    await page.click('#social-guilde .s-rangs button[data-rang="Terreur"]');
+    await attendreQue(async () => (await lire()).rangActif === 'Terreur');
+    ok('[guilde] je choisis mon rang (« Terreur ») : les neuf rangs, sans aucun pouvoir',
+      S.membres.filter((m) => m.user_id === 'u-banc')[0].rang === 'Terreur' && (await lire()).rangs.length === 9 &&
+        (await lire()).lignes[0] === 'toi · Terreur', JSON.stringify(await lire()));
+
+    // ── C. SEMAINE : mes nombres publiés, le défi choisi par moi (administrateur), la jauge commune.
+    const mien = S.gscores.filter((x) => x.user_id === 'u-banc')[0];
+    ok('[guilde] DISCRIMINANT — mes nombres partent, calculés sur l’appareil : la semaine et le mois en cours, mes 5 séances prévues ' +
+      '(le profil, pas la médiane) — et RIEN d’autre (aucune fuite)',
+      !!mien && mien.semaine === fauxSocial.lundiCourant() && mien.mois === fauxSocial.moisCourant() && mien.prevues === 5 &&
+        Number.isInteger(mien.seances) && mien.exercices_record <= mien.exercices && S.fuites.length === 0,
+      JSON.stringify([mien, S.fuites]));
+    S.gscores.push({ user_id: 'u-jordan', semaine: fauxSocial.lundiCourant(), seances: 4, prevues: 3, records_semaine: 2,
+      mois: fauxSocial.moisCourant(), exercices: 6, exercices_record: 5 });
+    await onglet('semaine', async () => (await lire()).choixDefi.length > 0);
+    await page.click('#social-guilde .s-choix-defi button[data-defi="records"][data-n="3"]');
+    await attendreQue(async () => /records? sur 3/.test((await lire()).phrase || ''));
+    const c0 = await lire();
+    const refusTonnage = fauxSocial.rpc('u-banc', 'guilde_choisir_defi', { p_type: 'tonnage', p_n: 5 });
+    ok('[guilde] DISCRIMINANT — le défi : trois choix sûrs à l’écran (séances, records, variété) ; « 3 records » choisi ; la base refuse le tonnage',
+      c0.choixDefi.every((x) => /^(seances|records|variete)/.test(x)) && c0.choixDefi.indexOf('seances') >= 0 &&
+        S.defis.length === 1 && S.defis[0].type === 'records' && S.defis[0].n === 3 &&
+        /guilde_defis_type/.test(refusTonnage && refusTonnage.message), JSON.stringify([c0.choixDefi, S.defis, refusTonnage]));
+    ok('[guilde] la jauge commune : « 3 records sans dépasser la charge proposée », la somme publiée (moi + jordan) sur 3, à vous trois ; ' +
+      '« La guilde cette semaine » : séances, records (la médaille de melodie au moins), tonnage',
+      c0.defi.indexOf('3 records sans dépasser la charge proposée · ') === 0 &&
+        c0.phrase === (mien.records_semaine + 2) + ' record' + (mien.records_semaine + 2 > 1 ? 's' : '') + ' sur 3, à vous trois' &&
+        Number(c0.semaine[0]) >= 1 && Number(c0.semaine[1]) >= 1 && !!c0.semaine[2], JSON.stringify(c0));
+    await mesurer('semaine');
+
+    // ── D. PROGRESSION : la part, sans vainqueur ni rouge.
+    await onglet('progression', async () => (await lire()).progression.length === 2);
+    const d0 = await lire();
+    ok('[guilde] Progression : jordan « 5 sur 6 » et moi, mes nombres publiés ; aucun vainqueur, aucune couronne',
+      d0.progression.indexOf('jordan 5 sur 6') >= 0 && d0.progression.some((x) => /^toi /.test(x)) && !/👑|vainqueur|gagnant/i.test(d0.texte),
+      JSON.stringify(d0.progression));
+
+    // ── E. FIL : les séances des membres, les règles du fil (87) ; réagir par la règle de la guilde.
+    await onglet('fil', async () => (await lire()).cartes.length > 0);
+    const e0 = await lire();
+    const monFil = fauxSocial.rpc('u-banc', 'social_fil').map((x) => x.session_id);
+    await page.click('#social-guilde .s-fil-guilde .s-carte[data-session="' + SM + '"] .s-reag');
+    await attendreQue(async () => (await lire()).reagi);
+    ok('[guilde] DISCRIMINANT — le fil de la guilde montre la séance de melodie (que je ne suis pas : absente de mon fil), sa médaille, ' +
+      'sans note ni poids ; j’y réagis (règle de la guilde)',
+      e0.cartes.indexOf(SM) >= 0 && monFil.indexOf(SM) < 0 && /1record|Rowing|rowing/i.test(e0.texte.replace(/\s/g, '')) &&
+        !/note privée|61 kg|dur/.test(e0.texte) && S.reactions.some((r) => r.session_id === SM && r.user_id === 'u-banc'),
+      JSON.stringify([e0, monFil]));
+
+    // ── F. PARTIR : l'administrateur part, l'administration passe au plus ancien (jordan, entré avant melodie).
+    await onglet('membres', async () => (await lire()).lignes.length === 3);
+    await page.click('#guilde-quitter');
+    await attendreQue(async () => !!(await compter('#guilde-quitter-oui')));
+    await page.click('#guilde-quitter-oui');
+    await attendreQue(async () => (await lire()).creer);
+    ok('[guilde] DISCRIMINANT — je pars (j’administrais) : jordan, le plus ancien, administre ; la guilde reste, à deux ; je retrouve « Créer une guilde »',
+      S.guildes.length === 1 && S.guildes[0].admin === 'u-jordan' && fauxSocial.rpc('u-jordan', 'guilde_moi')[0].membres === 2 &&
+        !fauxSocial.guildeDe('u-banc') && (await lire()).creer, JSON.stringify([S.guildes, S.membres]));
+
+    ok('[guilde] DISCRIMINANT — aucune réponse ne porte poids de corps, note, RPE, ressenti ou douleur',
+      S.fuites.length === 0 && S.sets.some((t) => t.rpe && t.poids_corps_kg), JSON.stringify(S.fuites));
+    ok('[guilde] à 360 px, aucun défilement horizontal : créer, membres, semaine',
+      largeurs.length === 3 && largeurs.every((l) => l.fen === 360 && l.doc <= l.fen), JSON.stringify(largeurs));
+
+    // ── LA REMISE EN ÉTAT.
+    ['profils', 'sessions', 'sets', 'records', 'abonnements', 'blocages', 'reactions', 'scores', 'guildes', 'membres', 'invitations',
+      'defis', 'gscores'].forEach((k) => { S[k] = []; });
+    base.profiles[0].seances_par_semaine = spsAvant;
+    const refusAttendus = ['guildes_nom_cle_uniq', 'guilde_invite_non_mutuel', 'guilde_defis_type'];
+    const refusVus = S.journal.filter((j) => j.op === 'refus').map((j) => j.message);
+    await aller('/saisie');
+    ok('[guilde] seuls les trois refus voulus (nom pris, non-mutuel, tonnage) ; la garde de l’app n’a rien signalé, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant &&
+        erreurs.length === erreursAvant && refusVus.length === 3 && refusAttendus.every((r, i) => new RegExp(r).test(refusVus[i])),
+      JSON.stringify([refusVus, erreurs.slice(erreursAvant)]));
+    S.journal = [];
+  }
+
   console.log('\n══ relecture. « LE COACH RELIT TA SEMAINE » : LA RANGÉE, LA VUE, « NON MERCI », « RETIRER CES SÉRIES », « EN FAIRE MA PRIORITÉ » (66B, QUESTIONNAIRE §5 ter.4 bis) ══');
   //
   // Sur l'app réelle, un dossier « Relecture U66 » de deux routines ; un profil EN SÈCHE, homme, objectif Force,

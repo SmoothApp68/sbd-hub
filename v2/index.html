@@ -298,7 +298,7 @@
        jamais du jeu. Jeu éteint (`profiles.jeu_actif`), aucune de ces vues ne s'ouvre. -->
   <section id="vue-jeu" hidden>
     <header class="entete s-entete"><h1 class="s-titre">Jeu &amp; amis</h1><button id="btn-amis-jeu" class="s-plus" type="button" aria-label="Trouver des amis">＋</button></header>
-    <div class="s-onglets"><button class="s-onglet actif" type="button" data-social="jeu">Jeu</button><button class="s-onglet" type="button" data-social="fil">Fil</button></div>
+    <div class="s-onglets"><button class="s-onglet actif" type="button" data-social="jeu">Jeu</button><button class="s-onglet" type="button" data-social="fil">Fil</button><button class="s-onglet" type="button" data-social="guilde">Guilde</button></div>
     <div id="jeu-accueil"></div>
   </section>
   <!-- 87 — LE SOCIAL, ÉTAGE 1 (SOCIAL-V1, maquette `maquette-social-etage1-v2.html`). Le fil est un sous-onglet à côté
@@ -306,8 +306,15 @@
        Les vues sont construites en JS (`rendreFil`, `rendreAmis`, `rendreAmi`, rendu.js). -->
   <section id="vue-fil" hidden>
     <header class="entete s-entete"><h1 class="s-titre">Jeu &amp; amis</h1><button id="btn-amis-fil" class="s-plus" type="button" aria-label="Trouver des amis">＋</button></header>
-    <div class="s-onglets"><button class="s-onglet" type="button" data-social="jeu">Jeu</button><button class="s-onglet actif" type="button" data-social="fil">Fil</button></div>
+    <div class="s-onglets"><button class="s-onglet" type="button" data-social="jeu">Jeu</button><button class="s-onglet actif" type="button" data-social="fil">Fil</button><button class="s-onglet" type="button" data-social="guilde">Guilde</button></div>
     <div id="social-fil"></div>
+  </section>
+  <!-- 90 — LA GUILDE (SOCIAL-V1 « Guilde », maquette `maquette-social-etage2-guilde-v2.html`, écran 4). Un sous-onglet à
+       côté du fil, ouvert jeu allumé ou éteint ; la vue est construite en JS (`rendreGuilde`, rendu.js). -->
+  <section id="vue-guilde" hidden>
+    <header class="entete s-entete"><h1 class="s-titre">Jeu &amp; amis</h1><button id="btn-amis-guilde" class="s-plus" type="button" aria-label="Trouver des amis">＋</button></header>
+    <div class="s-onglets"><button class="s-onglet" type="button" data-social="jeu">Jeu</button><button class="s-onglet" type="button" data-social="fil">Fil</button><button class="s-onglet actif" type="button" data-social="guilde">Guilde</button></div>
+    <div id="social-guilde"></div>
   </section>
   <section id="vue-amis" hidden>
     <header class="entete">

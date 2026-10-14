@@ -2173,6 +2173,22 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .s-rang .s-n{width:22px;color:var(--texte-2);font-weight:700;text-align:right;flex:none}
 .s-rang .s-t{flex:1;min-width:0;overflow-wrap:anywhere}.s-rang .s-sc{font-weight:700}
 .s-rang.s-moi{background:var(--panneau-2);border-radius:12px}
+/* 90 — la guilde (maquette social étage 2 v2, écran 4). Pas de rouge, pas de couronne, pas de chef. */
+.s-onglets-guilde{flex-wrap:nowrap;overflow-x:auto}
+.s-guilde-nom{overflow-wrap:anywhere;text-align:center}
+.s-jauge{height:10px;border-radius:99px;background:var(--panneau-2);overflow:hidden;margin:4px 0}
+.s-jauge-plein{height:100%;border-radius:99px;background:var(--medaille)}
+.s-choix-defi{margin-top:12px;border-top:1px solid var(--trait);padding-top:10px}
+.s-defi-option{margin-top:8px}.s-defi-option .s-choix{margin:4px 0 0}
+.s-defi-libelle{font-size:13px}
+.s-titre-s{color:var(--texte-2);font-size:12px;margin:16px 0 4px}
+.s-palette{margin:4px 0 12px}
+.s-couleur{width:32px;height:32px;min-height:32px;border-radius:50%;border:2px solid transparent;padding:0}
+.s-couleur.s-on{border-color:var(--texte)}
+.s-membre-ligne{overflow-wrap:anywhere}
+.s-membre .s-btn{flex:none}
+.s-creer-guilde .s-blason{display:block;margin:10px auto}
+.s-quitter-guilde{margin-top:var(--e3)}
 
 /* 88 — « Une nouvelle version est prête. » Discret, en bas, au-dessus des onglets. */
 .bandeau-maj{position:fixed;left:0;right:0;z-index:52;max-width:520px;margin:0 auto;

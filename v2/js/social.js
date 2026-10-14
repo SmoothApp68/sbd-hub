@@ -329,6 +329,103 @@
     return { totaux: { moi: moi.total, lui: lui.total }, communs: communs };
   }
 
+  // ══ LA GUILDE (90, SOCIAL-V1 « Guilde », décisions du 14/10/2026) ═══════════════════════════════════════════
+  //
+  // Une guilde permanente, jusqu'à 30 membres, une par personne ; on n'invite qu'un de SES abonnés mutuels. Pas de chef
+  // affiché ; des rangs sans aucun pouvoir ; un défi coopératif à la fois, jamais sur la charge ni le tonnage ; pas de
+  // messagerie, des réactions seulement. La base garde chacune de ces règles (v2_080) : ici, ce que l'écran en montre.
+  // Le coach et les bilans ne lisent rien de la guilde.
+  var MEMBRES_MAX = 30;
+  var RANGS = ['Squatteur', 'Bencheur', 'Terreur', 'Pousseur', 'Tireur', 'Chargeur', 'Gymbro', 'Motiveur', 'Novice'];
+  var RANG_PAR_DEFAUT = 'Novice';
+  // Les défis SÛRS — et eux seuls : la base refuse tout autre type (`guilde_defis_type`).
+  var DEFIS = [
+    { cle: 'seances', libelle: 'Chacun fait ses séances prévues', choix: null },
+    { cle: 'records', libelle: 'Des records sans dépasser la charge proposée', choix: [2, 3, 5, 8, 10] },
+    { cle: 'variete', libelle: 'Des exercices différents, à tous', choix: [5, 8, 10, 12, 15] }
+  ];
+  var COULEURS_GUILDE = ['#b39ad1', '#8fb08a', '#6fa3d8', '#d9b45a', '#d98f6f', '#7fc4c0', '#c98fb4', '#a3a9b3'];
+
+  function defiDe(cle) { return DEFIS.filter(function (d) { return d.cle === cle; })[0] || null; }
+  // Un défi qu'on peut choisir : un type de la liste ; un nombre pour les records et la variété (1 à 100), aucun pour
+  // les séances.
+  function defiValide(type, n) {
+    var d = defiDe(type);
+    if (!d) return false;
+    if (!d.choix) return n === null || n === undefined;
+    return Number.isInteger(n) && n >= 1 && n <= 100;
+  }
+  // Le nom : 3 à 24 caractères (espaces de bord retirés). Rend le nom propre, ou null.
+  function nomDeGuilde(nom) {
+    var n = String(nom === null || nom === undefined ? '' : nom).trim();
+    return n.length >= 3 && n.length <= 24 ? n : null;
+  }
+  function rangValide(r) { return RANGS.indexOf(r) >= 0; }
+
+  // Qui je peux inviter : mes abonnés MUTUELS (je le suis, il me suit), pas déjà membres de ma guilde.
+  function invitables(liens, membres) {
+    var r = liens && liens.abonnes ? liens : liensRanges(liens || []);
+    var abonnes = {}, dedans = {};
+    r.abonnes.forEach(function (l) { abonnes[l.user_id] = true; });
+    (membres || []).forEach(function (m) { if (m) dedans[m.user_id] = true; });
+    return r.abonnements.filter(function (l) { return abonnes[l.user_id] && !dedans[l.user_id]; })
+      .sort(function (a, b) { return String(a.pseudo).localeCompare(String(b.pseudo)); });
+  }
+
+  // « jordan · Squatteur · Forgeron » — le titre du jeu seulement s'il est publié (nul jeu éteint).
+  function ligneMembre(m, titres) {
+    var t = m && m.titre && titres && titres[m.titre] ? ' · ' + titres[m.titre] : '';
+    return String(m.pseudo) + ' · ' + (rangValide(m.rang) ? m.rang : RANG_PAR_DEFAUT) + t;
+  }
+
+  var NOMBRES = ['', '', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf', 'dix'];
+  function aVous(n) { return n <= 1 ? '' : ', à vous ' + (NOMBRES[n] || String(n)); }
+
+  // La jauge commune du défi, depuis une ligne de `guilde_semaine`. `membres` : combien ils sont.
+  function jaugeDuDefi(s, membres) {
+    if (!s) return null;
+    var d = defiDe(s.defi) || DEFIS[0], fait, cible, phrase;
+    if (d.cle === 'seances') {
+      fait = Number(s.seances_faites) || 0; cible = Number(s.seances_prevues) || 0;
+      phrase = fait + ' séance' + (fait > 1 ? 's' : '') + ' sur ' + cible + ' prévue' + (cible > 1 ? 's' : '') + aVous(membres);
+    } else if (d.cle === 'records') {
+      fait = Number(s.records_semaine) || 0; cible = Number(s.n) || 0;
+      phrase = fait + ' record' + (fait > 1 ? 's' : '') + ' sur ' + cible + aVous(membres);
+    } else {
+      fait = Number(s.exercices) || 0; cible = Number(s.n) || 0;
+      phrase = fait + ' exercice' + (fait > 1 ? 's' : '') + ' différent' + (fait > 1 ? 's' : '') + ' sur ' + cible + aVous(membres);
+    }
+    var titre = d.cle === 'seances' ? d.libelle : d.cle === 'records'
+      ? cible + ' record' + (cible > 1 ? 's' : '') + ' sans dépasser la charge proposée'
+      : cible + ' exercices différents, à tous';
+    return { cle: d.cle, titre: titre, fait: fait, cible: cible, part: cible > 0 ? Math.min(1, fait / cible) : 0, phrase: phrase };
+  }
+  // « encore 4 jours » jusqu'au dimanche ; le dimanche, « dernier jour ».
+  function joursRestants(maintenant) {
+    var j = (7 - (maintenant || new Date()).getDay()) % 7;
+    return j === 0 ? 'dernier jour' : 'encore ' + j + ' jour' + (j > 1 ? 's' : '');
+  }
+
+  // La progression du mois (`guilde_progression`) : la part des exercices avec au moins un record sans dépasser la
+  // charge proposée. Un score, sans vainqueur ni rouge ; sans exercice compté, en bas, sans score.
+  function progressionRangee(lignes) {
+    var part = function (x) { return x.exercices > 0 ? x.exercices_record / x.exercices : -1; };
+    return (lignes || []).filter(Boolean).map(function (x) {
+      return { pseudo: x.pseudo, moi: !!x.moi, exercices: Number(x.exercices) || 0, exercices_record: Number(x.exercices_record) || 0 };
+    }).sort(function (a, b) {
+      return (part(b) - part(a)) || (b.exercices - a.exercices) || String(a.pseudo).localeCompare(String(b.pseudo));
+    }).map(function (x, i) {
+      return { rang: i + 1, pseudo: x.pseudo, moi: x.moi, texte: x.exercices > 0 ? x.exercices_record + ' sur ' + x.exercices : '—' };
+    });
+  }
+
+  // Ce que je publie (`guilde_scores`) — seulement ce qui a changé depuis la dernière publication.
+  var COLONNES_GUILDE = ['semaine', 'seances', 'prevues', 'records_semaine', 'mois', 'exercices', 'exercices_record'];
+  function scoresGuildeChanges(s, deja) {
+    if (!s) return false;
+    return !deja || COLONNES_GUILDE.some(function (k) { return s[k] !== deja[k]; });
+  }
+
   var api = {
     MOI: MOI, INCONNU: INCONNU, DEMANDE: DEMANDE, SUIVI: SUIVI, MUTUEL: MUTUEL,
     CHAMPS_INTERDITS: CHAMPS_INTERDITS,
@@ -361,7 +458,24 @@
     bornesDePeriode: bornesDePeriode,
     periodeDesLignes: periodeDesLignes,
     periodeDeLaBase: periodeDeLaBase,
-    comparaisonPeriode: comparaisonPeriode
+    comparaisonPeriode: comparaisonPeriode,
+    // 90 — la guilde
+    MEMBRES_MAX: MEMBRES_MAX,
+    RANGS: RANGS,
+    RANG_PAR_DEFAUT: RANG_PAR_DEFAUT,
+    DEFIS: DEFIS,
+    COULEURS_GUILDE: COULEURS_GUILDE,
+    COLONNES_GUILDE: COLONNES_GUILDE,
+    defiDe: defiDe,
+    defiValide: defiValide,
+    nomDeGuilde: nomDeGuilde,
+    rangValide: rangValide,
+    invitables: invitables,
+    ligneMembre: ligneMembre,
+    jaugeDuDefi: jaugeDuDefi,
+    joursRestants: joursRestants,
+    progressionRangee: progressionRangee,
+    scoresGuildeChanges: scoresGuildeChanges
   };
 
   racine.THSocial = api;

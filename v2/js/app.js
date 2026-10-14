@@ -1750,7 +1750,8 @@
     var moi = userId();
     if (!moi || !profil) return false;
     var index = Modele.indexerExercices(local.exercices);
-    var pesee = Poids.resume(local.pesees || []);
+    // La dernière pesée datée, telle quelle (`resume` l'arrondit au dixième, pour l'affichage).
+    var pesees = Poids.normaliser(local.pesees || []), pesee = pesees.length ? pesees[pesees.length - 1] : null;
     var scores = Social.scoresAPublier(Social.meilleuresCharges(faits.seriesComptees(corpus(), null, null, null)),
       pesee ? pesee.poids : null, profil.sexe, function (slug) { return Social.aLaBarre(index[slug]); });
     if (!scores) {

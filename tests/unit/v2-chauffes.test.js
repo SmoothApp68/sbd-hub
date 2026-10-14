@@ -47,7 +47,7 @@ describe('§9.15.1 — les chauffes, les 30 cas', () => {
 // D003 se joue contre ce que la décision dit.
 const REMPLACES_94 = {
   D003: { charge: 30, vise: [5, 7], enleve: 5,
-          phrase: 'Enlève 2 × 5\u00a0kg : 30\u00a0kg. Sans repos, jusqu\'à l\'échec. Vise 5 à 7.' }
+          phrase: 'Enlève 5\u00a0kg de chaque côté : 30\u00a0kg. Sans repos, jusqu\'à l\'échec. Vise 5 à 7.' }
 };
 describe('§9.15.3 — les dégressives, les 7 cas', () => {
   FICHIER.degressives.forEach((c) => {

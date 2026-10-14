@@ -244,7 +244,7 @@ describe('49-U18 — une dégressive que le coach laisse vide reste vide (§9.15
     });
     const x = p.exercices[0];
     expect(x.degressive).toMatchObject({ charge: 15, enleve: 2.5,
-                                         phrase: 'Enlève 2 × 2,5\u00a0kg : 15\u00a0kg. Sans repos, jusqu\'à l\'échec. Vise 4 à 6.' });
+                                         phrase: 'Enlève 2,5\u00a0kg de chaque côté : 15\u00a0kg. Sans repos, jusqu\'à l\'échec. Vise 4 à 6.' });
     expect(x.lignes[1].fantome).toMatchObject({ charge: 15, source: 'degressive' });
   });
 });

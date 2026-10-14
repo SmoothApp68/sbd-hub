@@ -289,10 +289,10 @@ describe('§9.15.3 — la dégressive', () => {
     const e = entreesDe(seanceDe(exos), exos);
     const p = T.planDeSeance(e);
     const x = p.exercices[0];
-    // 40 × 0,775 = 31 → 30 au cran de 2,5 ; on enlève 5 kg de chaque côté.
+    // Un disque de 5 kg de chaque côté (−25 %, le plus proche de −22,5 %).
     expect(x.degressive.charge).toBe(30);
     expect(x.degressive.enleve).toBe(5);
-    expect(x.degressive.phrase).toBe('Enlève 2 × 5' + NB + 'kg : 30' + NB + 'kg. Sans repos, jusqu\'à l\'échec. Vise 5 à 7.');
+    expect(x.degressive.phrase).toBe('Enlève 5' + NB + 'kg de chaque côté : 30' + NB + 'kg. Sans repos, jusqu\'à l\'échec. Vise 5 à 7.');
     expect(x.lignes[2].fantome).toEqual({ charge: 30, reps: null, source: 'degressive' });
     expect(x.degressive.gestes).toBeUndefined();
     ok(p, e);
@@ -303,9 +303,9 @@ describe('§9.15.3 — la dégressive', () => {
     const e = entreesDe(seanceDe(exos), exos);
     const p = T.planDeSeance(e);
     const x = p.exercices[0];
-    // 140 × 0,775 = 108,5 → 107,5 (la règle de §9.15.3 : −22,5 %, au cran inférieur).
-    expect(x.degressive.charge).toBe(107.5);
-    expect(x.degressive.phrase).toBe('Enlève 2 × 16,25' + NB + 'kg : 107,5' + NB + 'kg. Sans repos, jusqu\'à l\'échec. Vise 3 à 5.');
+    // 15/10 : un disque de 15 kg de chaque côté (le plus proche de −22,5 %).
+    expect(x.degressive.charge).toBe(110);
+    expect(x.degressive.phrase).toBe('Enlève 15' + NB + 'kg de chaque côté : 110' + NB + 'kg. Sans repos, jusqu\'à l\'échec. Vise 3 à 5.');
     ok(p, e);
   });
 
@@ -440,7 +440,7 @@ describe('I16, I17 — des violations forgées sont attrapées', () => {
 
   test('I17 (94) — à la barre, une phrase qui ne dit pas quoi enlever', () => {
     const p = clone(plan(BARRE));
-    p.exercices[0].degressive.phrase = 'Dégressive : 30 kg, sans repos, jusqu\'à l\'échec. Vise 5 à 7.';
+    p.exercices[0].degressive.phrase = 'Enlève 2 × 5 kg : 30 kg, sans repos, jusqu\'à l\'échec. Vise 5 à 7.';
     expect(erreurs(p).join('\n')).toMatch(/^I17 — .*la dégressive à la barre ne dit pas quoi enlever/m);
   });
 

@@ -6765,6 +6765,23 @@
   function degressiveVide(phrase) {
     return { charge: null, vise: null, repos: null, phrase: phrase, gestes: GESTES_DEGRESSIVE_VIDE.slice() };
   }
+  var DISQUES = [25, 20, 15, 10, 5, 2.5, 1.25];
+  var BAISSE_MIN_BARRE = 0.15, BAISSE_MAX_BARRE = 0.30;
+  // Ce qu'on enlève de CHAQUE côté (kg), ou `null` si rien ne tombe dans la fenêtre.
+  function disquesAEnlever(der) {
+    var bas = der * BAISSE_MIN_BARRE / 2 - 1e-9, haut = der * BAISSE_MAX_BARRE / 2 + 1e-9;
+    var cible = der * BAISSE_DEGRESSIVE / 2;
+    var dans = function (v) { return v >= bas && v <= haut; };
+    var seul = DISQUES.filter(dans).sort(function (a, b) {
+      var da = Math.abs(a - cible), db = Math.abs(b - cible);
+      return da !== db ? da - db : a - b;
+    });
+    if (seul.length) return seul[0];
+    var paires = [];
+    DISQUES.forEach(function (a, i) { DISQUES.slice(i).forEach(function (b) { if (dans(a + b)) paires.push(auCentieme(a + b)); }); });
+    paires.sort(function (a, b) { return a - b; });
+    return paires.length ? paires[0] : null;
+  }
   function degressiveDe(entree) {
     var e = entree || {};
     var der = nombre(e.derniere_serie);
@@ -6774,6 +6791,15 @@
     // Au cran INFÉRIEUR : jamais au-dessus des −22,5 %.
     var charge = auCentieme(Math.floor(der * (1 - BAISSE_DEGRESSIVE) / cran + 1e-9) * cran);
     var barre = estBarre(e.equipement);
+    // 94 (Claude.ai, 15/10/2026) — À LA BARRE, ON ENLÈVE DES DISQUES : un seul
+    // disque standard de chaque côté, le plus proche de −22,5 %, entre −15 % et
+    // −30 % ; sinon la plus petite combinaison de deux disques dans la fenêtre.
+    var enleveBarre = null;
+    if (barre) {
+      enleveBarre = disquesAEnlever(der);
+      if (enleveBarre === null) return degressiveVide('Trop léger pour une dégressive.');
+      charge = auCentieme(der - 2 * enleveBarre);
+    }
     // Pas de plancher « barre vide » ici : une barre EZ pèse moins de 20 kg, et
     // le curl EZ d'aurel_br descend à 15 kg (relevé du 14/10). Seul le zéro.
     if (!(charge > 0)) return degressiveVide('Trop léger pour une dégressive.');
@@ -6782,11 +6808,11 @@
     var vise = [milieu - 1, milieu + 1];
     var visee = 'Vise ' + nombreFr(vise[0], regle('degressive.vise')) + ' à ' + nombreFr(vise[1], regle('degressive.vise')) + '.';
     if (barre) {
-      var enleve = auCentieme((der - charge) / 2);
+      var enleve = enleveBarre;
       return {
         charge: charge, vise: vise, repos: 0, enleve: enleve,
-        phrase: 'Enlève ' + nombreFr(2, regle('constante')) + ' × ' + Modele().charge(enleve, undefined, regle('degressive.enleve')) +
-          ' : ' + Modele().charge(charge, undefined, regle('degressive')) + '. Sans repos, jusqu\'à l\'échec. ' + visee
+        phrase: 'Enlève ' + Modele().charge(enleve, undefined, regle('degressive.enleve')) + ' de chaque côté : ' +
+          Modele().charge(charge, undefined, regle('degressive')) + '. Sans repos, jusqu\'à l\'échec. ' + visee
       };
     }
     return {

@@ -1637,7 +1637,7 @@
       if (l.type !== 'degressive') err('I17', 'une dégressive sans ligne dégressive (le coach n’en pose jamais)');
       if (barre && d.charge !== null) {
         var enleve = d.reference !== null && d.reference !== undefined ? (d.reference - d.charge) / 2 : null;
-        if (enleve === null || !d.phrase || d.phrase.indexOf('Enlève 2 × ' + Voix().charge(enleve)) !== 0) {
+        if (enleve === null || !d.phrase || d.phrase.indexOf('Enlève ' + Voix().charge(enleve) + ' de chaque côté') !== 0) {
           err('I17', 'la dégressive à la barre ne dit pas quoi enlever (' + d.phrase + ')');
         }
       }

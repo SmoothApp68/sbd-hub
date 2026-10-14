@@ -17429,7 +17429,7 @@ const SETS_IMPORTES = [
     fauxSocial.rpc('u-melodie', 'guilde_repondre', { p_guilde: G, p_rejoindre: true });
     await aller('/jeu/guilde');
     await attendreQue(async () => !!(await lire()).nom);
-    await onglet('membres', async () => (await lire()).lignes.length === 3);
+    await onglet('membres', async () => { const x = await lire(); return x.lignes.length === 3 && x.invitables.length > 0; });
     const b1 = await lire();
     ok('[guilde] jordan a reçu l’invitation (de moi) et l’a acceptée ; melodie est entrée par jordan ; les membres : « toi · Novice », ' +
       '« jordan · Squatteur · Athlète », « melodie · Novice » (jeu éteint : pas de titre) ; aucun chef affiché',

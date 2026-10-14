@@ -9487,6 +9487,15 @@
     if (!('serviceWorker' in racine.navigator)) return;
     // Chemins absolus : depuis /semaine/… un chemin relatif viserait
     // /semaine/service-worker.js, qui n'existe pas.
+    racine.navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
+      .then(function (reg) { majEnregistrement = reg; chercherMaj(true); })
+      .catch(function (e) { console.warn('SW non enregistré :', e && e.message); });
+  }
+
+  // 88 — branché AU DÉBUT du démarrage, avant toute attente (`entrer` peut attendre
+  // le réseau) : le contrôleur d'avant se lit tant qu'il est encore celui d'avant.
+  function brancherMaj() {
+    if (!('serviceWorker' in racine.navigator)) return;
     var sw = racine.navigator.serviceWorker;
     // 88 — « UNE NOUVELLE VERSION EST PRÊTE ». Le service worker fait `skipWaiting`
     // puis `clients.claim` : le nouveau prend la main, mais la page ouverte garde
@@ -9499,9 +9508,6 @@
       majPrete = true;
       montrerBandeauMaj();
     });
-    sw.register('/service-worker.js', { scope: '/' })
-      .then(function (reg) { majEnregistrement = reg; chercherMaj(true); })
-      .catch(function (e) { console.warn('SW non enregistré :', e && e.message); });
     // Chrome ne cherche une mise à jour qu'à la navigation : une PWA qu'on ne fait
     // que ramener au premier plan ne la verrait jamais. Au plus une fois / 10 min.
     doc.addEventListener('visibilitychange', function () {
@@ -11664,6 +11670,7 @@
     });
 
     racine.addEventListener('popstate', function () { sortie.surRetour(); });
+    brancherMaj();
 
     // 70 — LU AVANT TOUT : l'adresse porte-t-elle un retour de lien ? (sonde
     // synchrone, sur l'adresse seule ; voir `Auth.retourDeLien`.)
